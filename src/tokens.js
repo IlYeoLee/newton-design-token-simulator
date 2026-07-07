@@ -124,8 +124,7 @@ class Marker {
     });
     this.num = new THREE.Mesh(new THREE.PlaneGeometry(this.radius * 1.1, this.radius * 1.1), m);
     this.num.position.z = 0.004;
-    // 지면 UI는 유저(전방 -Z 진행)가 읽는 방향으로 투사 — 1인칭 검증에서 발견
-    if (this.surface === 'floor') this.num.rotation.z = Math.PI;
+    // 바닥 눕힘(rx=-90°)만으로 글자 위쪽이 -Z(전방) = 유저가 읽는 방향 (rz 추가 회전 없음)
     this.group.add(this.num);
   }
   /** phase: hidden|preview|countdown|linger  progress: 0..1 */

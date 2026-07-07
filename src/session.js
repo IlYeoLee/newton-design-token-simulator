@@ -42,7 +42,7 @@ function makeTextMesh(text, { size = 0.10, color = '#ffffff', weight = 700 } = {
     new THREE.PlaneGeometry(size * aspect, size),
     new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, side: THREE.DoubleSide })
   );
-  plane.rotation.z = Math.PI; // 유저(-Z 전진)가 읽는 방향 — 마커 숫자와 동일 패턴
+  // 바닥 눕힘(rx=-90°)만으로 글자 위쪽이 -Z(전방) — 유저가 읽는 방향. 추가 회전 불필요
   const g = new THREE.Group();
   g.add(plane);
   g.rotation.x = -Math.PI / 2;
@@ -112,9 +112,9 @@ class FootMark {
     this.group.rotation.x = -Math.PI / 2;
     this.group.position.y = 0.013;
     this.group.renderOrder = 6;
-    // 발끝이 진행 방향(-Z)을 향하게 + 좌우 자연 각도 — 평면에만 적용 (링은 대칭)
+    // 발끝(캔버스 위=toe box)이 눕힘 후 -Z(전방)을 향함 — 좌우 자연 각도만
     const yaw = foot === 'left' ? THREE.MathUtils.degToRad(8) : THREE.MathUtils.degToRad(-8);
-    this.plane.rotation.z = Math.PI + yaw;
+    this.plane.rotation.z = yaw;
   }
   setOpacity(k) {
     this.plane.material.opacity = k;

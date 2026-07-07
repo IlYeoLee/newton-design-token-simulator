@@ -109,6 +109,7 @@ async function boot() {
   }
 
   function switchPack(p) {
+    if (typeof stopSession === 'function') stopSession();  // 팩 전환 시 세션 종료
     state.pack = p;
     state.time = 0;
     const data = state.packs[p];
@@ -134,7 +135,7 @@ async function boot() {
 
     // 벽면 고스트 → 실제 모션 고스트봇으로 대체 (실루엣은 보조로 끔)
     ghost.group.visible = false;
-    if (data.sport === 'boxing') ensureGhostBot();
+    if (data.sport === 'boxing') { ensureGhostBot(); computeStation(); }
     if (ghostLayer) ghostLayer.visible = data.sport === 'boxing';
     if (data.sport === 'boxing') {
       const punchTimes = tokens.events.filter(e => e.surface === 'wall').map(e => e.t);
@@ -197,41 +198,65 @@ async function boot() {
   reach.renderOrder = 1;
   scene.add(reach);
 
-  // ── 복싱 스테이션 카메라 (빔 반대편) — 전신 트래킹 프러스텀 + 최적 위치 ──
-  const CAMV = THREE.MathUtils.degToRad(52), CAMH = THREE.MathUtils.degToRad(68);
-  const CAMP = THREE.MathUtils.degToRad(8); // 상향 틸트
-  const camPos = new THREE.Vector3(0, 1.05, WALL_Z + 0.12);
-  // 전신(머리 1.80m + 발끝) 프레이밍 최소 거리 → +15% 여유 = 최적
-  const dHead = (1.80 - camPos.y) / Math.tan(CAMP + CAMV / 2);
-  const dFeet = camPos.y / Math.tan(CAMV / 2 - CAMP);
-  const dOpt = Math.max(dHead, dFeet) * 1.15;
-  const camFr = (() => {
-    const D = 3.2;
-    const yT = camPos.y + D * Math.tan(CAMP + CAMV / 2);
-    const yB = Math.max(0, camPos.y - D * Math.tan(CAMV / 2 - CAMP));
-    const xH = D * Math.tan(CAMH / 2);
-    const z = camPos.z + D;
-    const c = [
-      new THREE.Vector3(-xH, yT, z), new THREE.Vector3(xH, yT, z),
-      new THREE.Vector3(xH, yB, z), new THREE.Vector3(-xH, yB, z),
-    ];
-    const pts = [];
-    for (const k of c) pts.push(camPos.clone(), k);
-    for (let i = 0; i < 4; i++) pts.push(c[i], c[(i + 1) % 4]);
-    const g = new THREE.BufferGeometry().setFromPoints(pts);
-    const l = new THREE.LineSegments(g, new THREE.LineBasicMaterial({
-      color: 0x6ad4de, transparent: true, opacity: 0.6 }));
-    l.visible = false; l.frustumCulled = false;
-    scene.add(l);
-    return l;
-  })();
+  // ── 복싱 스테이션 유닛 (인물 앞 바닥, 등맞댐: 앞면=벽 투사 / 뒷면=카메라 인식) ──
+  // 유저는 원점(z=0), 벽은 z=WALL_Z. 유닛은 그 사이(인물 앞)에 놓인다.
+  const PROJ_V = THREE.MathUtils.degToRad(62);  // 프로젝터 수직 화각
+  const CAM_V = THREE.MathUtils.degToRad(50), CAM_H = THREE.MathUtils.degToRad(64);
+  const LENS_H = 0.34;   // 바닥 유닛 렌즈 높이 (m)
+  const opt = { zU: -0.3, dProj: 1.5, tilt: 60, standZ: 1.6, dCam: 1.9 };
+
+  // 카메라 인식 볼륨(연한 반투명) + 뒷면 카메라 렌즈 표식 + 최적 위치 링
+  const trackVol = new THREE.Mesh(new THREE.BufferGeometry(),
+    new THREE.MeshBasicMaterial({ color: 0x6ad4de, transparent: true, opacity: 0.055,
+      side: THREE.DoubleSide, depthWrite: false }));
+  const trackEdge = new THREE.LineSegments(new THREE.BufferGeometry(),
+    new THREE.LineBasicMaterial({ color: 0x6ad4de, transparent: true, opacity: 0.30 }));
+  trackVol.frustumCulled = trackEdge.frustumCulled = false;
+  trackVol.renderOrder = 2;
   const optRing = new THREE.Mesh(
     new THREE.RingGeometry(0.30, 0.345, 48),
-    new THREE.MeshBasicMaterial({ color: 0x6ad4de, transparent: true, opacity: 0.85, side: THREE.DoubleSide, depthWrite: false }));
+    new THREE.MeshBasicMaterial({ color: 0x6ad4de, transparent: true, opacity: 0.5, side: THREE.DoubleSide, depthWrite: false }));
   optRing.rotation.x = -Math.PI / 2;
-  optRing.position.set(0, 0.012, camPos.z + dOpt);
-  optRing.visible = false;
-  scene.add(optRing);
+  const camMark = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.028, 0.028, 0.015, 16),
+    new THREE.MeshStandardMaterial({ color: 0x6ad4de, emissive: 0x2f8a92, emissiveIntensity: 1.4 }));
+  camMark.rotation.x = Math.PI / 2;
+  trackVol.visible = trackEdge.visible = optRing.visible = camMark.visible = false;
+  scene.add(trackVol, trackEdge, optRing, camMark);
+
+  // 최적 유닛 위치·인식 볼륨 재계산 (벽 크기 슬라이더 반영)
+  function computeStation() {
+    const cy = (rig._wallCenter?.cy) ?? 1.4;
+    const dProj = (rig.wallH / 2) / Math.tan(PROJ_V / 2);      // 벽 세로 커버 최소 투사거리
+    const zU = WALL_Z + dProj;                                 // 유닛 z (인물 앞)
+    const tilt = Math.atan2(cy - LENS_H, dProj) * 180 / Math.PI;
+    const dCamReq = (1.8 / 2) / Math.tan(CAM_V / 2);           // 전신 프레이밍 최소 거리
+    const standZ = zU + dCamReq;                               // 유저가 서야 할 z (유닛 뒤)
+    Object.assign(opt, { zU, dProj, tilt, standZ, dCam: dCamReq });
+
+    rig.setStation(new THREE.Vector3(0, LENS_H, zU));
+    camMark.position.set(0, LENS_H, zU + 0.06);
+    optRing.position.set(0, 0.013, standZ);
+
+    // 뒷면 카메라 인식 프러스텀 (유닛 → +Z, 유저 방향)
+    const A = new THREE.Vector3(0, LENS_H, zU);
+    const D = dCamReq + 0.7, zf = zU + D;
+    const yT = LENS_H + D * Math.tan(CAM_V / 2);
+    const yB = Math.max(0.01, LENS_H - D * Math.tan(CAM_V / 2) * 0.4);
+    const xH = D * Math.tan(CAM_H / 2);
+    const c = [ new THREE.Vector3(-xH, yB, zf), new THREE.Vector3(xH, yB, zf),
+               new THREE.Vector3(xH, yT, zf), new THREE.Vector3(-xH, yT, zf) ];
+    const tv = []; const tri=(a,b,cc)=>tv.push(a.x,a.y,a.z,b.x,b.y,b.z,cc.x,cc.y,cc.z);
+    for (let i=0;i<4;i++) tri(A, c[i], c[(i+1)%4]);
+    trackVol.geometry.dispose();
+    trackVol.geometry = new THREE.BufferGeometry();
+    trackVol.geometry.setAttribute('position', new THREE.Float32BufferAttribute(tv, 3));
+    const ev=[]; for (const k of c) ev.push(A.x,A.y,A.z,k.x,k.y,k.z);
+    for (let i=0;i<4;i++) ev.push(c[i].x,c[i].y,c[i].z,c[(i+1)%4].x,c[(i+1)%4].y,c[(i+1)%4].z);
+    trackEdge.geometry.dispose();
+    trackEdge.geometry = new THREE.BufferGeometry();
+    trackEdge.geometry.setAttribute('position', new THREE.Float32BufferAttribute(ev, 3));
+  }
 
   // ── 1인칭 / 시야 콘 토글 ──
   let fpMode = false, coneOn = false;
@@ -301,8 +326,8 @@ async function boot() {
   bindSlider('s-pitch', 'v-pitch', v => `${v}°`, v => { gazePitch = THREE.MathUtils.degToRad(v); });
   bindSlider('s-fpnear', 'v-fpnear', v => `${v}cm`, v => rig.setFootprint(v / 100, rig.fpFar));
   bindSlider('s-fpfar', 'v-fpfar', v => `${v}cm`, v => rig.setFootprint(rig.fpNear, v / 100));
-  bindSlider('s-wallw', 'v-wallw', v => `${v}cm`, v => rig.setWallSize(v / 100, rig.wallH));
-  bindSlider('s-wallh', 'v-wallh', v => `${v}cm`, v => rig.setWallSize(rig.wallW, v / 100));
+  bindSlider('s-wallw', 'v-wallw', v => `${v}cm`, v => { rig.setWallSize(v / 100, rig.wallH); if (state.pack === 'boxing') computeStation(); });
+  bindSlider('s-wallh', 'v-wallh', v => `${v}cm`, v => { rig.setWallSize(rig.wallW, v / 100); if (state.pack === 'boxing') computeStation(); });
 
   // ── 세션 흐름 프로토 (러닝) — 와이어프레임 v2 A→B→C ──
   const sessionStageEl = document.getElementById('session-stage');
@@ -321,17 +346,19 @@ async function boot() {
   });
   const sessionBtn = document.getElementById('btn-session');
   const tapBtn = document.getElementById('btn-tap');
+  function stopSession() {
+    if (!session.active) return;
+    session.stop();
+    xbot.model.visible = !fpMode;
+    sessionBtn.textContent = '세션 시작';
+    sessionStageEl.textContent = '—';
+  }
   sessionBtn?.addEventListener('click', () => {
-    if (session.active) {
-      session.stop();
-      sessionBtn.textContent = '세션 시작';
-      sessionStageEl.textContent = '—';
-    } else {
-      if (state.pack !== 'running') switchPack('running');
-      state.time = 0; tokens.resetLoop();
-      session.start();
-      sessionBtn.textContent = '세션 중지';
-    }
+    if (session.active) { stopSession(); return; }
+    if (state.pack !== 'running') switchPack('running');
+    state.time = 0; tokens.resetLoop();
+    session.start();
+    sessionBtn.textContent = '세션 중지';
   });
   tapBtn?.addEventListener('click', () => session.tapAdvance());
   document.getElementById('btn-stage-prev')?.addEventListener('click', () => session.prev());
@@ -467,8 +494,19 @@ async function boot() {
     reach.visible = coneOn && state.pack !== 'boxing';
     reach.position.set(body.x, 0.009, body.z);
 
-    // 러닝 전진 카메라 팔로우 (3인칭)
-    if (state.pack === 'running' && !fpMode) {
+    // ── 세션 프리뷰: 봇 숨기고 눈높이 고정 카메라로 "사람 시선" 재현 ──
+    const inSessionPreview = session.active && session.stage !== 'REAL';
+    if (session.active) {
+      xbot.model.visible = (session.stage === 'REAL') && !fpMode;
+    }
+    if (inSessionPreview && !fpMode) {
+      const eyeH = 1.58;
+      camera.position.set(0, eyeH, 0.35);
+      const gp = gazePitch;
+      camera.lookAt(0, eyeH + Math.sin(gp) * 3, -3 * Math.cos(gp) + 0.35);
+      controls.update();  // no-op (enabled 유지), 아래 팔로우/1인칭 스킵
+    } else if (state.pack === 'running' && !fpMode) {
+      // 러닝 전진 카메라 팔로우 (3인칭)
       const bz = xbot.group.position.z;
       const dz = bz - lastBodyZ;
       camera.position.z += dz;
@@ -543,13 +581,15 @@ async function boot() {
         `무릎 h ${(g.kneeH * 100).toFixed(0)}cm · 틸트 ${g.aFar.toFixed(0)}~${g.aNear.toFixed(0)}° · FOV ${g.fovNeed.toFixed(0)}°`
         + ` · 시야 낙하 ${gazeRange.near.toFixed(1)}~${Math.min(gazeRange.far, 9.9).toFixed(1)}m${gazeInfo}`;
     } else if (geomEl && state.pack === 'boxing') {
-      geomEl.textContent = `스테이션 카메라 FOV ${THREE.MathUtils.radToDeg(CAMV).toFixed(0)}°×${THREE.MathUtils.radToDeg(CAMH).toFixed(0)}° · 전신 인식 최소 ${Math.max(dHead, dFeet).toFixed(2)}m · 최적 ${dOpt.toFixed(2)}m (링 위치)`;
+      geomEl.textContent =
+        `프로젝터 유닛(인물 앞): 벽앞 ${opt.dProj.toFixed(2)}m · 렌즈높이 ${(LENS_H*100).toFixed(0)}cm · 상향틸트 ${opt.tilt.toFixed(0)}° · 뒷면 카메라 FOV ${THREE.MathUtils.radToDeg(CAM_V).toFixed(0)}°×${THREE.MathUtils.radToDeg(CAM_H).toFixed(0)}° · 전신 인식 최적 거리 ${opt.dCam.toFixed(2)}m (링에 서기)`;
     } else if (geomEl) geomEl.textContent = '';
-    camFr.visible = coneOn && state.pack === 'boxing';
-    optRing.visible = state.pack === 'boxing';
+    const boxOn = state.pack === 'boxing' && !fpMode;
+    trackVol.visible = trackEdge.visible = boxOn;   // 연하게 상시 표시
+    optRing.visible = camMark.visible = boxOn;
 
-    // 1인칭에서는 OrbitControls가 카메라를 덮어쓰지 않도록 스킵 (360° 회전 버그 원인)
-    if (!fpMode) controls.update();
+    // 1인칭·세션프리뷰에서는 OrbitControls가 카메라를 덮어쓰지 않도록 스킵
+    if (!fpMode && !inSessionPreview) controls.update();
     renderGhostLayer();
     renderer.render(scene, camera);
   }

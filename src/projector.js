@@ -82,7 +82,8 @@ export class ProjectorRig {
     lens.rotation.x = Math.PI / 2;
     lens.position.z = -0.09;
     this.station.add(lens);
-    this.station.position.copy(STATION_POS);
+    this.stationPos = STATION_POS.clone();
+    this.station.position.copy(this.stationPos);
     scene.add(this.station);
 
     this.floorBeam = beamMesh(0xff4444);
@@ -137,6 +138,8 @@ export class ProjectorRig {
 
   setWallSize(w, h) { this.wallW = w; this.wallH = h; }
 
+  setStation(v) { this.stationPos.copy(v); this.station.position.copy(v); }
+
   _halfAt(d) {
     return FP_HALF_NEAR + FP_SPREAD * Math.max(0, d - this.fpNear);
   }
@@ -178,7 +181,7 @@ export class ProjectorRig {
       new THREE.Vector3(cx + w / 2, cy + h / 2, WALL_Z + 0.01),
       new THREE.Vector3(cx - w / 2, cy + h / 2, WALL_Z + 0.01),
     ];
-    setBeam(this.wallBeam, STATION_POS, corners);
+    setBeam(this.wallBeam, this.stationPos, corners);
     const wv = [];
     for (const idx of [0, 1, 2, 0, 2, 3]) wv.push(corners[idx].x, corners[idx].y, corners[idx].z);
     this.wallFill.geometry.dispose();
