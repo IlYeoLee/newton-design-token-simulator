@@ -1,0 +1,150 @@
+// 좌측 패널: 팩 탭 / 원본 정보 / 타임라인 / 토큰 슬라이더 / 범례
+const TYPE_COLORS = {
+  stepMark: '#4fc3f7',
+  orderPulse: '#ffffff',
+  directionGuide: '#b388ff',
+  targetMark: '#ff5c8a',
+  pathLane: '#2a86b8',
+};
+
+const LEGEND = {
+  running: [
+    ['#4fc3f7', '왼발 착지 마크 + 카운트다운 링'],
+    ['#ffb74d', '오른발 착지 마크 + 카운트다운 링'],
+    ['#ffffff', '순서 숫자 (orderPulse)'],
+    ['#2a86b8', '트레드밀 레인 (pathLane)'],
+  ],
+  boxing: [
+    ['#ff5c8a', '벽면 펀치 타겟 (targetMark)'],
+    ['#4fc3f7', '스탠스 발판 — 왼발'],
+    ['#ffb74d', '스탠스 발판 — 오른발'],
+    ['#b388ff', '방향 가이드 화살표'],
+  ],
+  basketball: [
+    ['#4fc3f7', '플랜트 풋 마크 — 왼발'],
+    ['#ffb74d', '플랜트 풋 마크 — 오른발'],
+    ['#b388ff', '컷인 방향 화살표'],
+    ['#2a86b8', '이동 경로 점선 (pathLane)'],
+  ],
+};
+
+export class Panel {
+  constructor(callbacks) {
+    this.cb = callbacks;
+    this.duration = 1;
+    this.events = [];
+    this.tlCanvas = document.getElementById('timeline');
+    this.tlCtx = this.tlCanvas.getContext('2d');
+
+    // 팩 탭
+    document.querySelectorAll('#pack-tabs button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('#pack-tabs button').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        callbacks.onPack(btn.dataset.pack);
+      });
+    });
+
+    // 슬라이더
+    const bind = (id, vid, fmt, fn) => {
+      const el = document.getElementById(id);
+      const val = document.getElementById(vid);
+      const apply = () => { val.textContent = fmt(el.value); fn(Number(el.value)); };
+      el.addEventListener('input', apply);
+      apply();
+    };
+    bind('s-lead', 'v-lead', v => `${v}ms`, v => callbacks.onLead(v / 1000));
+    bind('s-size', 'v-size', v => `${(v / 100).toFixed(2)}×`, v => callbacks.onSize(v / 100));
+    bind('s-count', 'v-count', v => `${v}개`, v => callbacks.onCount(v));
+    bind('s-speed', 'v-speed', v => `${(v / 100).toFixed(2)}×`, v => callbacks.onSpeed(v / 100));
+
+    // 재생/일시정지
+    this.playBtn = document.getElementById('btn-play');
+    this.playBtn.addEventListener('click', () => callbacks.onTogglePlay());
+
+    // 타임라인 클릭 시크
+    this.tlCanvas.addEventListener('click', e => {
+      const r = this.tlCanvas.getBoundingClientRect();
+      const k = (e.clientX - r.left) / r.width;
+      callbacks.onSeek(k * this.duration);
+    });
+
+    this.clockEl = document.getElementById('clock');
+    this.hudEl = document.getElementById('hud');
+    this.flashEl = document.getElementById('event-flash');
+    this._flashTimer = null;
+  }
+
+  setPack(packData, tokenEvents) {
+    this.duration = packData.duration;
+    this.events = tokenEvents;
+
+    const s = packData.source || {};
+    document.getElementById('source-info').innerHTML = `
+      <b>${packData.packName ?? packData.sport}</b>
+      ${s.name ?? ''}<br>
+      ${s.dataType ?? ''}<br>
+      상태: <span style="color:#69f0ae">${packData.dataStatus}</span> · ${s.licenseNote ?? ''}
+    `;
+
+    document.getElementById('token-legend').innerHTML =
+      (LEGEND[packData.sport] || [])
+        .map(([c, t]) => `<div><span class="chip" style="background:${c}"></span>${t}</div>`)
+        .join('');
+
+    this.hudEl.innerHTML = `
+      <b>${packData.packName}</b><br>
+      데이터: ${s.name ?? '—'}<br>
+      <span id="geom-info" style="color:#4fc3f7;font-variant-numeric:tabular-nums;"></span>
+    `;
+  }
+
+  setPlaying(playing) {
+    this.playBtn.textContent = playing ? '⏸ 일시정지' : '▶ 재생';
+  }
+
+  flash(text) {
+    this.flashEl.textContent = text;
+    this.flashEl.style.opacity = '1';
+    clearTimeout(this._flashTimer);
+    this._flashTimer = setTimeout(() => { this.flashEl.style.opacity = '0'; }, 450);
+  }
+
+  drawTimeline(now, judgeMarks) {
+    const ctx = this.tlCtx;
+    const W = this.tlCanvas.width, H = this.tlCanvas.height;
+    ctx.clearRect(0, 0, W, H);
+
+    // 판정 누적 점 (hit 초록 / near 앰버 / miss 레드) — 구간별 약점 시각화
+    if (judgeMarks) {
+      const VC = { hit: '#69f0ae', near: '#ffc94d', miss: '#ff5c6c' };
+      for (const m of judgeMarks) {
+        ctx.fillStyle = VC[m.verdict] || '#888';
+        ctx.beginPath();
+        ctx.arc((m.t / this.duration) * W, H - 6, 3, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    // 이벤트 마커
+    for (const ev of this.events) {
+      const x = (ev.t / this.duration) * W;
+      const color = ev.surface === 'wall' ? TYPE_COLORS.targetMark
+        : ev.foot === 'right' ? '#ffb74d'
+        : ev.foot === 'left' ? '#4fc3f7' : TYPE_COLORS.directionGuide;
+      ctx.fillStyle = color;
+      const hit = now >= ev.t && now < ev.t + 0.35;
+      ctx.globalAlpha = hit ? 1 : 0.65;
+      const h = hit ? 26 : 18;
+      ctx.fillRect(x - 1.5, H / 2 - h / 2, 3, h);
+    }
+    ctx.globalAlpha = 1;
+
+    // 플레이헤드
+    const px = (now / this.duration) * W;
+    ctx.fillStyle = '#e8eaf0';
+    ctx.fillRect(px - 0.75, 4, 1.5, H - 8);
+
+    this.clockEl.textContent = `${now.toFixed(2)} / ${this.duration.toFixed(2)}s`;
+  }
+}

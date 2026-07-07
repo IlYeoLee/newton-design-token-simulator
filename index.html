@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Newton — Design Token Simulator</title>
+  <style>
+    :root {
+      --bg: #0c0e12;
+      --panel: #14171d;
+      --panel2: #1a1e26;
+      --line: #262b35;
+      --text: #e8eaf0;
+      --dim: #8b93a3;
+      --accent: #4fc3f7;
+      --ok: #69f0ae;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { height: 100%; overflow: hidden; }
+    body {
+      background: var(--bg); color: var(--text);
+      font-family: "Pretendard", -apple-system, "Apple SD Gothic Neo", sans-serif;
+      display: flex;
+    }
+    #panel {
+      width: 300px; min-width: 300px; height: 100%;
+      background: var(--panel); border-right: 1px solid var(--line);
+      display: flex; flex-direction: column; overflow-y: auto;
+    }
+    #panel header { padding: 16px 16px 10px; border-bottom: 1px solid var(--line); }
+    #panel header h1 { font-size: 14px; font-weight: 700; letter-spacing: 0.4px; }
+    #panel header p { font-size: 11px; color: var(--dim); margin-top: 3px; }
+
+    .tabs { display: flex; gap: 6px; padding: 12px 16px; }
+    .tabs button {
+      flex: 1; padding: 8px 0; border: 1px solid var(--line); border-radius: 8px;
+      background: var(--panel2); color: var(--dim); font-size: 12px; font-weight: 600;
+      cursor: pointer; transition: all .15s;
+    }
+    .tabs button.active { background: var(--accent); border-color: var(--accent); color: #06202e; }
+
+    .section { padding: 12px 16px; border-bottom: 1px solid var(--line); }
+    .section h2 { font-size: 11px; font-weight: 700; color: var(--dim); letter-spacing: 1px; margin-bottom: 10px; }
+
+    #source-info { font-size: 11px; line-height: 1.6; color: var(--dim); }
+    #source-info b { color: var(--text); display: block; font-size: 12px; margin-bottom: 2px; }
+
+    .slider-row { margin-bottom: 12px; }
+    .slider-row label { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 5px; }
+    .slider-row label .val { color: var(--accent); font-variant-numeric: tabular-nums; font-weight: 600; }
+    .slider-row input[type=range] {
+      width: 100%; -webkit-appearance: none; height: 4px; border-radius: 2px;
+      background: var(--line); outline: none;
+    }
+    .slider-row input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%;
+      background: var(--accent); cursor: pointer;
+    }
+
+    #timeline-wrap { padding: 12px 16px; border-bottom: 1px solid var(--line); }
+    #timeline { width: 100%; height: 56px; background: var(--panel2); border-radius: 6px; cursor: pointer; }
+    #transport { display: flex; gap: 8px; margin-top: 10px; align-items: center; }
+    #transport button {
+      padding: 6px 14px; border: 1px solid var(--line); border-radius: 6px;
+      background: var(--panel2); color: var(--text); font-size: 12px; cursor: pointer;
+    }
+    #transport button:hover { border-color: var(--accent); }
+    #clock { font-size: 11px; color: var(--dim); font-variant-numeric: tabular-nums; margin-left: auto; }
+
+    #token-legend { font-size: 11px; color: var(--dim); line-height: 1.9; }
+    #token-legend .chip {
+      display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px;
+    }
+
+    #stage { flex: 1; position: relative; height: 100%; }
+    #stage canvas { display: block; }
+    #hud {
+      position: absolute; top: 14px; left: 14px; pointer-events: none;
+      font-size: 12px; color: var(--dim); background: rgba(12,14,18,.72);
+      padding: 8px 12px; border-radius: 8px; border: 1px solid var(--line);
+      max-width: 320px; line-height: 1.6;
+    }
+    #hud b { color: var(--text); }
+    #event-flash {
+      position: absolute; bottom: 18px; left: 50%; transform: translateX(-50%);
+      font-size: 13px; font-weight: 700; color: var(--ok);
+      opacity: 0; transition: opacity .12s; pointer-events: none;
+      background: rgba(12,14,18,.8); padding: 6px 16px; border-radius: 20px;
+      border: 1px solid rgba(105,240,174,.4);
+    }
+    #loading {
+      position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+      background: var(--bg); z-index: 10; font-size: 13px; color: var(--dim);
+      flex-direction: column; gap: 10px;
+    }
+    .spin {
+      width: 26px; height: 26px; border: 3px solid var(--line); border-top-color: var(--accent);
+      border-radius: 50%; animation: spin 0.9s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <aside id="panel">
+    <header>
+      <h1>NEWTON · Design Token Simulator</h1>
+      <p>외부 데이터 → 디자인 토큰 → 빔 UI → 따라하기 검증</p>
+    </header>
+
+    <nav class="tabs" id="pack-tabs">
+      <button data-pack="running" class="active">러닝</button>
+      <button data-pack="boxing">복싱</button>
+      <button data-pack="basketball">농구</button>
+    </nav>
+
+    <div class="section">
+      <h2>원본 데이터</h2>
+      <div id="source-info">로드 중…</div>
+    </div>
+
+    <div id="timeline-wrap">
+      <h2 style="font-size:11px;font-weight:700;color:var(--dim);letter-spacing:1px;margin-bottom:10px;">이벤트 타임라인</h2>
+      <canvas id="timeline" width="268" height="56"></canvas>
+      <div id="transport">
+        <button id="btn-play">⏸ 일시정지</button>
+        <span id="clock">0.00 / 0.00s</span>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>디자인 토큰 조절</h2>
+      <div class="slider-row">
+        <label>선행 시간 <span class="val" id="v-lead">450ms</span></label>
+        <input type="range" id="s-lead" min="150" max="800" step="10" value="450">
+      </div>
+      <div class="slider-row">
+        <label>토큰 크기 <span class="val" id="v-size">1.0×</span></label>
+        <input type="range" id="s-size" min="60" max="160" step="5" value="100">
+      </div>
+      <div class="slider-row">
+        <label>동시 표시 이벤트 <span class="val" id="v-count">3개</span></label>
+        <input type="range" id="s-count" min="1" max="4" step="1" value="3">
+      </div>
+      <div class="slider-row">
+        <label>재생 속도 <span class="val" id="v-speed">1.0×</span></label>
+        <input type="range" id="s-speed" min="25" max="150" step="5" value="100">
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>판정 · 세션 리포트</h2>
+      <div class="slider-row">
+        <label>타이밍 허용 <span class="val" id="v-tolt">±120ms</span></label>
+        <input type="range" id="s-tolt" min="50" max="250" step="10" value="120">
+      </div>
+      <div class="slider-row">
+        <label>위치 허용 <span class="val" id="v-tolp">15cm</span></label>
+        <input type="range" id="s-tolp" min="5" max="30" step="1" value="15">
+      </div>
+      <div class="slider-row">
+        <label>학습자 실력 <span class="val" id="v-skill">70%</span></label>
+        <input type="range" id="s-skill" min="30" max="100" step="5" value="70">
+      </div>
+      <div id="report" style="font-size:12px;line-height:1.8;color:var(--dim);">
+        루프 1회 완료 시 리포트 생성…
+      </div>
+      <p style="font-size:11px;color:var(--dim);line-height:1.5;margin-top:6px;">
+        실력 100% = 완벽한 팔로워(상한 캘리브레이션).
+        낮출수록 타이밍 ±150ms·위치 ±12cm까지 오차 주입 — 허용 오차 설계 실험용.
+      </p>
+    </div>
+
+    <div class="section" id="view-section">
+      <h2>시점 / 시야 검증</h2>
+      <div style="display:flex;gap:8px;margin-bottom:8px;">
+        <button id="btn-fp" style="flex:1;padding:8px 0;border:1px solid var(--line);border-radius:6px;background:var(--panel2);color:var(--text);font-size:12px;font-weight:600;cursor:pointer;">1인칭 (러너 시선)</button>
+        <button id="btn-cone" style="flex:1;padding:8px 0;border:1px solid var(--line);border-radius:6px;background:var(--panel2);color:var(--text);font-size:12px;font-weight:600;cursor:pointer;">시야 콘</button>
+      </div>
+      <div class="slider-row">
+        <label>시선 각도 <span class="val" id="v-pitch">−18°</span></label>
+        <input type="range" id="s-pitch" min="-45" max="-10" step="1" value="-18">
+      </div>
+      <p style="font-size:11px;color:var(--dim);line-height:1.6;">
+        1인칭 = VOR 안정화된 눈 (머리는 흔들려도 응시점은 고정).
+        인간은 달릴 때 발이 아니라 <b style="color:var(--text)">시선 낙하점(전방 1.4m~)</b>을 봄 —
+        투사 끝 거리를 늘려 교집합을 실험.
+      </p>
+    </div>
+
+    <div class="section">
+      <h2>투사면 설정</h2>
+      <div class="slider-row">
+        <label>바닥 시작 (몸 앞) <span class="val" id="v-fpnear">5cm</span></label>
+        <input type="range" id="s-fpnear" min="5" max="60" step="5" value="5">
+      </div>
+      <div class="slider-row">
+        <label>바닥 끝 <span class="val" id="v-fpfar">200cm</span></label>
+        <input type="range" id="s-fpfar" min="120" max="400" step="10" value="300">
+      </div>
+      <div class="slider-row">
+        <label>벽면 가로 <span class="val" id="v-wallw">180cm</span></label>
+        <input type="range" id="s-wallw" min="80" max="260" step="10" value="180">
+      </div>
+      <div class="slider-row">
+        <label>벽면 세로 <span class="val" id="v-wallh">180cm</span></label>
+        <input type="range" id="s-wallh" min="80" max="260" step="10" value="180">
+      </div>
+    </div>
+
+    <div class="section" id="stab-section">
+      <h2>무릎 투사 안정화 <span style="color:#4fc3f7">(이식)</span></h2>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+        <button id="btn-stab" style="padding:7px 14px;border:1px solid var(--ok);border-radius:6px;background:rgba(105,240,174,.12);color:var(--ok);font-size:12px;font-weight:700;cursor:pointer;">보정 ON</button>
+        <span style="font-size:11px;color:var(--dim);">투사 오차 <b id="stab-err" style="color:var(--accent);font-variant-numeric:tabular-nums;">0.0cm</b></span>
+      </div>
+      <p style="font-size:11px;color:var(--dim);line-height:1.6;">
+        러닝·농구는 <b style="color:var(--text)">무릎 장착 모듈</b>에서 투사.
+        스프링-댐퍼(K<sub>s</sub>=22·K<sub>d</sub>=9)·서보 300°/s 제한.
+        OFF 시 무릎 스윙이 UI에 그대로 반영됩니다.
+      </p>
+    </div>
+
+    <div class="section">
+      <h2>토큰 언어</h2>
+      <div id="token-legend"></div>
+    </div>
+  </aside>
+
+  <main id="stage">
+    <div id="loading"><div class="spin"></div><span>X Bot · 팩 데이터 로드 중…</span></div>
+    <div id="hud"></div>
+    <div id="event-flash"></div>
+  </main>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
