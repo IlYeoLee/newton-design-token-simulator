@@ -1,0 +1,1734 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>NEWTON — 세션 프로젝션 와이어프레임 v2</title>
+<style>
+  :root{
+    /* 라이트 문서 테마 — 중립 그레이 · 면 위주 · 무그림자 · 액센트는 RED 하나 */
+    --bg:#f4f4f4; --panel:#ffffff; --panel2:#efefee; --line:#e9e9e8;
+    --text:#1c1c1c; --dim:#6e6e6e; --dim2:#9b9b9b;
+    --okt:#2f9aa3; --mock:#e9e9e7; --mockline:#d7d7d4; --mocktext:#3a3a38; --mockdim:#8f8f8d;
+    /* NEWTON 브랜드 팔레트 */
+    --accent:#fa3030;  /* NEWTON RED — 포인트·Active·브랜드 */
+    --coral:#fe6e3c;   /* CORAL — 전환·플랜트·경고 */
+    --sand:#fec389;    /* SAND — 보조·홀드·하이라이트 */
+    --prism:#d1feff;   /* PRISM — 성공·글로우·쿨 피드백 */
+    --ok:#d1feff; --warn:#fe6e3c; --danger:#e8481c;
+    --ghost:#7e5fb5; --target:#fa3030; --boost:#d1feff;
+    --floor:#e9e9e7; --floor-line:#d7d7d4;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{background:var(--bg);color:var(--text);
+    font-family:"Pretendard",-apple-system,"Apple SD Gothic Neo",sans-serif;
+    line-height:1.6;-webkit-font-smoothing:antialiased}
+
+  nav{position:sticky;top:0;z-index:50;background:rgba(244,244,244,.96);backdrop-filter:blur(8px);
+    border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px;padding:10px 20px;flex-wrap:wrap}
+  nav .brand{font-size:13px;font-weight:700;letter-spacing:.4px;margin-right:4px}
+  nav .brand span{color:var(--accent)}
+  nav a{font-size:12px;color:var(--dim);text-decoration:none;padding:5px 9px;border-radius:7px;border:1px solid transparent;transition:.15s}
+  nav a:hover{color:var(--text);background:var(--panel2)}
+  .diff-toggle,.view-toggle{display:flex;align-items:center;gap:8px}
+  .diff-toggle{margin-left:auto}
+  .diff-toggle .lbl,.view-toggle .lbl{font-size:11px;color:var(--dim2)}
+  .diff-toggle button,.view-toggle button{font-size:11px;font-weight:600;color:var(--dim);background:var(--panel2);
+    border:0;border-radius:7px;padding:5px 11px;cursor:pointer;transition:.15s}
+  .diff-toggle button.on,.view-toggle button.on{background:var(--accent);border-color:var(--accent);color:#ffffff}
+
+  main{max-width:1280px;margin:0 auto;padding:34px 22px 90px}
+  section{margin-bottom:70px;scroll-margin-top:64px}
+  .kicker{font-size:11px;letter-spacing:2px;color:var(--accent);font-weight:700;text-transform:uppercase}
+  h2.title{font-size:24px;font-weight:800;margin:6px 0 4px;letter-spacing:-.2px}
+  h3.sub{font-size:16px;font-weight:700;margin:26px 0 10px}
+  .lede{font-size:13.5px;color:var(--dim);max-width:820px;margin-bottom:20px}
+  .lede b{color:var(--text);font-weight:600}
+
+  /* hero */
+  .hero{border-radius:16px;padding:30px;background:var(--panel)}
+  .hero h1{font-size:27px;font-weight:800;letter-spacing:-.3px}
+  .hero h1 span{color:var(--accent)}
+  .hero .sub{font-size:14px;color:var(--dim);margin-top:8px;max-width:780px}
+  .oneline{margin-top:16px;padding:13px 16px;border-left:3px solid var(--accent);background:var(--panel2);border-radius:0 10px 10px 0;font-size:13.5px}
+  .oneline b{color:var(--accent)}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:18px}
+  .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:16px}
+  @media(max-width:900px){.grid2,.grid3{grid-template-columns:1fr}}
+  .pcard{border-radius:12px;padding:16px;background:var(--panel)}
+  .hero .pcard{background:var(--panel2)}
+  .pcard .tag{display:inline-block;font-size:10.5px;font-weight:700;letter-spacing:.5px;padding:3px 8px;border-radius:6px;margin-bottom:8px}
+  .tag.step{background:var(--panel2);color:var(--text)}
+  .tag.pred{background:var(--panel2);color:var(--text)}
+  .tag.ar{background:var(--panel2);color:var(--text)}
+  .pcard h3{font-size:14.5px;margin-bottom:5px}
+  .pcard p{font-size:12.5px;color:var(--dim)}
+  .pcard p b{color:var(--text)}
+
+  /* chips */
+  .chip{font-size:10.5px;font-weight:700;padding:3px 10px;border-radius:20px;border:0}
+  .chip.safe,.chip.boost,.chip.load,.chip.quiet{color:#fff;background:#333332}
+  .chip.time{color:var(--dim);background:var(--panel2)}
+
+  /* tables */
+  .board{border-radius:12px;overflow:hidden;margin-top:8px;background:var(--panel)}
+  table{width:100%;border-collapse:collapse;font-size:12px}
+  th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{background:var(--panel2);color:var(--dim);font-weight:700;font-size:11px}
+  td b{color:var(--text)} tr:last-child td{border-bottom:0}
+  td .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;vertical-align:middle}
+
+  /* ── pack header per sport ── */
+  .packhead{border-radius:14px;background:var(--panel);padding:18px 20px;margin-bottom:8px}
+  .packhead .row1{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:baseline}
+  .packhead .pname{font-size:18px;font-weight:800}
+  .packhead .porigin{font-size:12px;color:var(--dim)}
+  .packhead .porigin b{color:var(--accent)}
+  .packhead .skills{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+  .skillchip{font-size:11px;font-weight:600;color:var(--text);background:var(--panel2);border-radius:7px;padding:4px 10px}
+  .skillchip b{color:var(--accent)}
+  .voicenote{margin-top:10px;font-size:11.5px;color:var(--dim)}
+  .voicenote b{color:var(--text)}
+  /* duration bar */
+  .durbar{display:flex;gap:4px;margin-top:14px;border-radius:8px;overflow:hidden;height:34px}
+  .durbar .seg{display:flex;align-items:center;justify-content:center;font-size:10.5px;font-weight:700;color:#4a4a4a;white-space:nowrap;padding:0 4px}
+  .durbar .s-ready{background:#e3e3e1;flex:1}
+  .durbar .s-str{background:#dcdcda;flex:3}
+  .durbar .s-learn{background:#cdcdcb;flex:4}
+  .durbar .s-real{background:var(--accent);flex:8;color:#fff}
+  .durbar .s-fin{background:#e3e3e1;flex:1}
+
+  /* stage strip */
+  .stagehead{display:flex;flex-wrap:wrap;align-items:baseline;gap:10px 14px;margin:26px 0 10px;padding-top:14px;border-top:1px solid var(--line)}
+  .stagehead .sh-idx{font-size:11px;font-weight:800;letter-spacing:1.5px;color:var(--dim2)}
+  .stagehead .sh-name{font-size:16px;font-weight:800}
+  .stagehead .sh-ui{font-size:11px;font-weight:700}
+  .sh-ui.slow,.sh-ui.guide,.sh-ui.pred{color:var(--dim2)}
+  .stagehead .sh-goal{font-size:12px;color:var(--dim)}
+  .stagehead .sh-time{margin-left:auto}
+
+  /* frames */
+  .frames{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+  @media(max-width:1100px){.frames{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:640px){.frames{grid-template-columns:1fr}}
+  .frame{border-radius:12px;background:var(--panel);overflow:hidden;display:flex;flex-direction:column}
+  .fhead{padding:9px 12px 7px;border-bottom:1px solid #f1f1f0;display:flex;align-items:baseline;gap:8px}
+  .fhead .fn{font-size:10px;font-weight:800;color:var(--dim2)}
+  .fhead .ft{font-size:12.5px;font-weight:700}
+  .fhead .fd{margin-left:auto;font-size:10px;color:var(--dim);font-variant-numeric:tabular-nums}
+
+  /* projection mocks */
+  .surf-wrap{padding:12px 12px 8px;background:var(--panel)}
+  .surf{position:relative;height:132px;margin:0 auto}
+  .surf.floor{width:100%;perspective:330px}
+  .surf.floor .plane{position:absolute;inset:0;
+    background-color:var(--floor);border-radius:6px;
+    background-image:linear-gradient(var(--floor-line) 1px,transparent 1px),linear-gradient(90deg,var(--floor-line) 1px,transparent 1px);
+    background-size:22px 22px;transition:transform .3s}
+  .surf.floor .glow{display:none}
+  .surf.floor .tokens{position:absolute;inset:0;transition:transform .3s}
+  /* 지면 뷰 토글: 기본 = 평면(탑뷰, 스텝 차트식) / 원근 = 러너 시점 */
+  body[data-view="persp"] .surf.floor .plane,
+  body[data-view="persp"] .surf.floor .glow,
+  body[data-view="persp"] .surf.floor .tokens{transform:rotateX(53deg) scale(1,1.18);transform-origin:center 82%}
+  .feet{position:absolute;bottom:2px;left:50%;transform:translateX(-50%);display:flex;gap:5px;opacity:.85}
+  .feet i{width:9px;height:15px;border-radius:4px 4px 5px 5px;background:#c2c2c0;display:block;border:1px solid #a8a8a6}
+  .deadline{position:absolute;left:6%;right:6%;bottom:26%;border-top:1px dashed rgba(0,0,0,.25)}
+  .deadline em{position:absolute;right:0;top:-14px;font-style:normal;font-size:8px;color:#8f8f8d;letter-spacing:.4px}
+
+  .surf.wall{width:90%}
+  .surf.wall .plane{position:absolute;inset:0;background:#ececea;border-radius:6px;
+    background-image:linear-gradient(#dcdcda 1px,transparent 1px),linear-gradient(90deg,#dcdcda 1px,transparent 1px);
+    background-size:20px 20px}
+  .surf.wall .glow{display:none}
+  .surf.wall .tokens{position:absolute;inset:0}
+  .wband-top{position:absolute;left:4%;right:4%;top:5%;display:flex;justify-content:space-between;font-size:8.5px;color:var(--mockdim);letter-spacing:.5px}
+  .wband-bot{position:absolute;left:4%;right:4%;bottom:5%;text-align:center;font-size:9px;color:var(--mockdim)}
+
+  /* tokens */
+  .t-step{position:absolute;width:22px;height:22px;border-radius:50%;border:2px solid var(--accent);
+    background:rgba(250,48,48,.16);transform:translate(-50%,-50%);transition:.25s}
+  .t-step.big{width:34px;height:34px}
+  .t-step.hold{border-color:var(--ok);background:rgba(209,254,255,.13);box-shadow:0 0 10px rgba(209,254,255,.25)}
+  .t-ring{position:absolute;width:32px;height:32px;border-radius:50%;border:2px dashed var(--okt);transform:translate(-50%,-50%);opacity:.9}
+  .t-order{position:absolute;width:16px;height:16px;border-radius:50%;background:var(--accent);color:#ffffff;
+    font-size:9.5px;font-weight:800;display:flex;align-items:center;justify-content:center;transform:translate(-50%,-50%);box-shadow:0 0 0 2px rgba(255,255,255,.9)}
+  .t-lane{position:absolute;left:50%;top:6%;width:6px;height:70%;transform:translateX(-50%);
+    background:rgba(250,48,48,.30);border-radius:4px}
+  .t-lane.boost{background:rgba(47,154,163,.38)}
+  .t-arrow{position:absolute;font-size:17px;color:var(--warn);transform:translate(-50%,-50%);font-weight:900}
+  .t-arrow.dim{color:#9a9a98;font-size:14px}
+  .t-plant{position:absolute;width:28px;height:28px;border-radius:50%;border:2.5px solid var(--warn);
+    background:rgba(254,110,60,.15);transform:translate(-50%,-50%)}
+  .t-target{position:absolute;width:34px;height:34px;border-radius:50%;border:2px solid var(--target);
+    transform:translate(-50%,-50%);display:flex;align-items:center;justify-content:center}
+  .t-target::after{content:"";width:15px;height:15px;border-radius:50%;border:2px solid var(--target);opacity:.7}
+  .t-atk{position:absolute;border-radius:50%;border:1.5px solid var(--danger);background:rgba(254,110,60,.10);transform:translate(-50%,-50%)}
+  .t-ghost{position:absolute;transform:translate(-50%,-50%);width:36px;height:66px;opacity:.6}
+  .t-ghost::before{content:"";position:absolute;left:50%;top:0;transform:translateX(-50%);width:14px;height:14px;border-radius:50%;background:var(--ghost);opacity:.8}
+  .t-ghost::after{content:"";position:absolute;left:50%;top:15px;transform:translateX(-50%);width:26px;height:46px;border-radius:10px 10px 8px 8px;background:linear-gradient(var(--ghost),rgba(179,157,219,.3));opacity:.75}
+  .t-ghost.faint{opacity:.3}
+  .t-start{position:absolute;width:38px;height:38px;border-radius:50%;border:2px solid #9a9a98;
+    transform:translate(-50%,-50%);display:flex;align-items:center;justify-content:center;font-size:8px;color:#8f8f8d;font-weight:700;letter-spacing:1px}
+  .t-stance{position:absolute;width:24px;height:24px;border-radius:50%;border:2px solid #9a9a98;
+    background:rgba(139,147,163,.08);transform:translate(-50%,-50%)}
+  .t-stance.big{width:32px;height:32px}
+  .t-glow{position:absolute;width:22px;height:22px;border-radius:50%;transform:translate(-50%,-50%);
+    background:#bfeef1;border:2px solid var(--okt)}
+  .t-combo{position:absolute;transform:translate(-50%,-50%);font-size:11px;font-weight:800;color:var(--warn)}
+  .t-arc{position:absolute;width:40px;height:40px;border-radius:50%;border:2px dashed var(--ghost);border-bottom-color:transparent;border-left-color:transparent;transform:translate(-50%,-50%) rotate(-30deg);opacity:.8}
+  .t-stripe{position:absolute;width:44px;height:5px;background:repeating-linear-gradient(90deg,var(--warn) 0 6px,transparent 6px 11px);transform:translate(-50%,-50%);opacity:.8}
+  .t-guard{position:absolute;width:34px;height:22px;border:1.5px dashed var(--accent);border-radius:6px;transform:translate(-50%,-50%);opacity:.8}
+  /* floor typography (rendered inside rotated layer = foreshortened like real projection) */
+  .ftext{position:absolute;transform:translate(-50%,-50%);color:var(--mocktext);text-align:center;white-space:nowrap;font-weight:700}
+  .ftext.fl{font-size:11px} .ftext.fm{font-size:8.5px;color:#6e6e6c} .ftext.fs{font-size:7px;color:var(--mockdim);letter-spacing:1px}
+  .ftext.num{font-size:20px;font-weight:800}
+  .wtext{position:absolute;transform:translate(-50%,-50%);text-align:center;font-weight:700;color:var(--mocktext);white-space:nowrap}
+  .wtext.wl{font-size:12px}.wtext.wm{font-size:9.5px;color:#6e6e6c}.wtext.num{font-size:22px;font-weight:800}
+
+  /* frame guide + signals */
+  .fguide{padding:8px 12px 4px;font-size:11px;color:var(--dim);min-height:36px}
+  .fguide b{color:var(--text)}
+  .fsig{margin-top:auto;border-top:1px solid #f1f1f0;padding:8px 12px 10px;display:flex;flex-direction:column;gap:5px}
+  .sig{display:flex;gap:7px;font-size:10.5px;line-height:1.45;align-items:baseline}
+  .sig .ic{flex:0 0 auto;font-size:10px;width:34px;font-weight:700;letter-spacing:.3px}
+  .sig .ic{color:var(--dim2)}
+  .sig .who{color:var(--accent);font-weight:700}
+  .sig q{color:#3e3a35;font-style:normal}
+  .sig q::before{content:"“"}.sig q::after{content:"”"}
+  .sig .t{color:var(--dim)}
+
+  /* difficulty behaviour on real frames */
+  .htext{transition:.2s}
+  body[data-diff="pro"] .htext{opacity:0}
+  body[data-diff="basic"] .htext{opacity:.55}
+  body[data-diff="pro"] .real .fade-extra{opacity:0!important}
+  body[data-diff="basic"] .real .fade-extra{opacity:.45}
+  body[data-diff="intro"] .real .t-step{transform:translate(-50%,-50%) scale(1.3)}
+  body[data-diff="pro"] .real .t-step{transform:translate(-50%,-50%) scale(.8)}
+  .diffnote{font-size:11px;color:var(--dim);margin-top:12px}
+  .diffnote b{color:var(--accent)}
+
+  /* type specimens */
+  .specimen{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media(max-width:900px){.specimen{grid-template-columns:1fr}}
+  .spec-card{border-radius:12px;overflow:hidden;background:var(--panel)}
+  .spec-card .sc-h{padding:10px 14px;border-bottom:1px solid var(--line);font-size:13px;font-weight:700}
+  .spec-card .sc-h span{color:var(--dim);font-weight:400;font-size:11px;margin-left:8px}
+  .typerow{display:flex;align-items:baseline;gap:12px;padding:7px 14px;border-bottom:1px solid rgba(38,43,53,.5);font-size:11px}
+  .typerow:last-child{border-bottom:0}
+  .typerow .tk{width:44px;flex:0 0 auto;font-weight:800;color:var(--accent);font-size:10px}
+  .typerow .ex{color:var(--text)}
+  .typerow .spec{margin-left:auto;color:var(--dim2);font-size:10px;text-align:right}
+
+  .loop{display:flex;flex-direction:column;gap:8px}
+  .lrow{display:flex;align-items:center;gap:12px;border-radius:10px;padding:10px 14px;background:var(--panel)}
+  .lnum{width:24px;height:24px;border-radius:50%;background:var(--panel2);
+    display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:var(--accent);flex:0 0 auto}
+  .lrow .lt{font-size:13px;font-weight:700}.lrow .ld{font-size:11.5px;color:var(--dim)}
+  .loopdown{text-align:center;color:var(--dim2);font-size:13px;margin:-2px 0}
+
+  .cues{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+  @media(max-width:760px){.cues{grid-template-columns:1fr 1fr}}
+  .cue{border-radius:11px;padding:13px;background:var(--panel)}
+  .cue .cn{font-size:13px;font-weight:700;display:flex;align-items:center;gap:8px}
+  .cue .cw{font-size:10.5px;color:var(--dim2);margin:3px 0 6px}
+  .cue .cd{font-size:11.5px;color:var(--dim)}
+  .glowdot{width:11px;height:11px;border-radius:50%}
+
+  .nudge{border-left:3px solid var(--accent);border-radius:0 10px 10px 0;background:var(--panel);padding:10px 14px;font-size:12px;margin-bottom:8px}
+  .nudge b{color:var(--dim2);font-size:10.5px;letter-spacing:.5px;display:block;margin-bottom:2px}
+
+  /* minimal token system */
+  .abst{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:8px}
+  @media(max-width:760px){.abst{grid-template-columns:1fr}}
+  .ab{border-radius:11px;background:var(--panel);padding:14px;text-align:center}
+  .ab .abtag{font-size:10px;font-weight:800;letter-spacing:1px;margin-bottom:8px}
+  .abtag.a,.abtag.b,.abtag.c{color:var(--dim2)}
+  .ab .abdemo{height:78px;display:flex;align-items:center;justify-content:center;gap:10px;background:var(--panel2);border-radius:8px}
+  .ab .abname{font-size:12.5px;font-weight:700;margin-top:6px}
+  .ab .abdesc{font-size:11px;color:var(--dim);margin-top:2px}
+  .capsule{width:24px;height:50px;border:2px solid var(--accent);border-radius:12px;position:relative}
+  .capsule i{position:absolute;top:-5px;left:50%;transform:translateX(-50%);width:7px;height:7px;border-radius:50%;background:var(--accent)}
+  .zone-c{width:46px;height:46px;border-radius:50%;border:2px solid var(--accent);background:rgba(250,48,48,.14);position:relative}
+  .zone-c em{position:absolute;top:-4px;left:50%;transform:translateX(-50%);width:6px;height:6px;border-radius:50%;background:var(--accent);font-style:normal}
+  /* Step-type 발 모양 토큰 */
+  /* 발끝 박스(위) + 분리 뒤꿈치(아래) = 진행 방향(전방)을 향한 발자국 */
+  .t-foot{position:absolute;width:14px;height:21px;border:2px solid var(--accent);
+    border-radius:7px 7px 5px 5px / 10px 10px 4px 4px;
+    background:rgba(250,48,48,.16);transform:translate(-50%,-50%)}
+  .t-foot::after{content:"";position:absolute;bottom:-9px;left:50%;transform:translateX(-50%);width:9px;height:6px;
+    border:2px solid var(--accent);border-top:none;border-radius:1px 1px 5px 5px;background:rgba(250,48,48,.16)}
+  .t-foot.big{width:18px;height:27px}
+  .t-foot.l{transform:translate(-50%,-50%) rotate(-8deg)}
+  .t-foot.r{transform:translate(-50%,-50%) rotate(8deg)}
+  .t-foot.hold{border-color:#c9882a}
+  .t-foot.hold::after{border-color:#c9882a}
+  .t-foot i{position:absolute;bottom:-21px;left:50%;transform:translateX(-50%);font-size:6.5px;color:#8f8f8d;font-style:normal;font-weight:700}
+  .t-foot.inline{position:static;transform:none}
+  /* 발 두 번 탭 프롬프트 */
+  .t-tap{position:absolute;transform:translate(-50%,-50%);text-align:center}
+  .t-tap .taps{display:flex;gap:5px;justify-content:center}
+  .t-tap .taps i{width:14px;height:14px;border-radius:50%;border:2px solid var(--okt);font-style:normal;display:block}
+  .t-tap .tl{font-size:7.5px;color:var(--okt);letter-spacing:.5px;margin-top:4px;font-weight:700}
+  .t-choice{position:absolute;transform:translate(-50%,-50%);width:40px;height:40px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;font-size:8.5px;font-weight:800}
+  .t-choice.again{border:2px dashed #c9882a;color:#c9882a}
+  .t-choice.next{border:2.5px solid var(--accent);color:#fff;background:rgba(250,48,48,.2)}
+  /* palette swatches */
+  .swatches{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:10px 0 4px}
+  @media(max-width:760px){.swatches{grid-template-columns:1fr 1fr}}
+  .sw{border-radius:10px;overflow:hidden;background:var(--panel)}
+  .sw .swc{height:44px}
+  .sw .swi{padding:8px 10px;font-size:10.5px;color:var(--dim);line-height:1.5}
+  .sw .swi b{color:var(--text);display:block;font-size:11.5px}
+  /* projection mode cards */
+  .modecards{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:6px}
+  @media(max-width:1000px){.modecards{grid-template-columns:1fr}}
+  .mode{border-radius:12px;background:var(--panel);padding:16px}
+  .mode .mtag{display:inline-block;font-size:10.5px;font-weight:800;letter-spacing:.6px;padding:3px 9px;border-radius:6px;margin-bottom:8px}
+  .mtag.stepm{background:var(--panel2);color:var(--text)}
+  .mtag.predm{background:var(--panel2);color:var(--text)}
+  .mode h3{font-size:15px;margin-bottom:4px}
+  .mode p{font-size:12px;color:var(--dim)}
+  .mode p b{color:var(--text)}
+  .mode ul{margin:8px 0 0 16px;font-size:11.5px;color:var(--dim)}
+  .mode ul li{margin-bottom:3px}
+  .statesrow{display:grid;grid-template-columns:repeat(7,1fr);gap:10px;margin-top:8px}
+  @media(max-width:1000px){.statesrow{grid-template-columns:repeat(4,1fr)}}
+  .stbox{border-radius:11px;background:var(--panel);padding:12px 8px;text-align:center}
+  .stbox .sd{height:56px;display:flex;align-items:center;justify-content:center;background:var(--panel2);border-radius:8px}
+  .stbox .sn{font-size:11.5px;font-weight:800;margin-top:4px}
+  .stbox .sk{font-size:9.5px;color:var(--dim2);letter-spacing:.5px}
+  .dc{width:42px;height:42px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800}
+  .dc.preview{border:2px dashed var(--accent);opacity:.45}
+  .dc.active{border:2px solid var(--accent);background:rgba(250,48,48,.16);box-shadow:0 0 0 5px rgba(250,48,48,.12)}
+  .dc.hold{background:conic-gradient(var(--okt) 0 65%,#d9d9d7 65% 100%)}
+  .dc.hold i{width:70%;height:70%;border-radius:50%;background:var(--panel2);display:flex;align-items:center;justify-content:center;font-style:normal;color:var(--okt);font-size:12px}
+  .dc.success{border:2px solid var(--okt);background:#cfeff2}
+  .dc.miss{border:2px dashed #b7b7b5;opacity:.75;color:#9a9a98}
+  .dc.warning{border:2px solid var(--warn);box-shadow:0 0 0 4px rgba(254,110,60,.22);color:var(--warn)}
+  .dc.locked{border:2px solid #cfcfcd;color:#9a9a98;background:#f1f1f0}
+
+  /* token specimen grid */
+  .tokgrid{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin:10px 0 4px}
+  @media(max-width:1000px){.tokgrid{grid-template-columns:repeat(3,1fr)}}
+  .tok{border-radius:11px;background:var(--panel);padding:10px 8px;text-align:center}
+  .tok .tid{font-size:10.5px;font-weight:800;color:var(--accent)}
+  .tok .tsvg{height:66px;display:flex;align-items:center;justify-content:center;gap:7px;margin:6px 0 4px;background:var(--panel2);border-radius:8px}
+  .tok .tnm{font-size:10px;font-weight:700}
+  .tok .tds{font-size:9.5px;color:var(--dim2);line-height:1.4}
+  /* 지면 영상 패널 (Watch-type) */
+  .vidpanel{position:absolute;transform:translate(-50%,-50%);width:66px;height:40px;border:1.5px solid var(--prism);
+    border-radius:5px;background:rgba(209,254,255,.07);display:flex;flex-direction:column;align-items:center;justify-content:center;
+    font-size:6.5px;color:var(--prism);letter-spacing:.4px}
+  .vidpanel::before{content:"▶";font-size:11px;margin-bottom:1px}
+  /* 단계 전환 브릿지 바 */
+  .bridgebar{display:flex;align-items:center;gap:10px;border-radius:10px;
+    padding:9px 14px;margin:18px 0 -8px;font-size:11px;color:var(--dim);
+    background:var(--panel2)}
+  .bridgebar .bb-tap{display:flex;gap:3px;flex:0 0 auto}
+  .bridgebar .bb-tap i{width:9px;height:9px;border-radius:50%;border:1.5px solid var(--okt);display:block;font-style:normal}
+  .bridgebar b{color:var(--text)}
+  .bridgebar q{color:var(--dim);font-style:normal}
+  .bridgebar .bb-ref{margin-left:auto;font-size:9.5px;color:var(--dim2);background:#fff;border-radius:5px;padding:2px 7px;white-space:nowrap}
+
+  footer{max-width:1280px;margin:0 auto;padding:0 22px 60px;color:var(--dim2);font-size:11px}
+  footer a{color:var(--dim)}
+</style>
+</head>
+<body data-diff="basic" data-view="top">
+
+<nav>
+  <div class="brand">NEWTON <span>·</span> 세션 와이어프레임 v2</div>
+  <a href="#overview">개요</a>
+  <a href="#uisys">UI 시스템</a>
+  <a href="#tokens">토큰</a>
+  <a href="#bridge">전환</a>
+  <a href="#running">러닝</a>
+  <a href="#boxing">복싱</a>
+  <a href="#basketball">농구</a>
+  <a href="#rewards">동기·보상</a>
+  <a href="#judge">판정·리포트</a>
+  <div class="view-toggle">
+    <span class="lbl">지면 뷰</span>
+    <button data-view="top" class="on">평면</button>
+    <button data-view="persp">원근</button>
+  </div>
+  <div class="diff-toggle">
+    <span class="lbl">난이도</span>
+    <button data-diff="intro">입문</button>
+    <button data-diff="basic" class="on">기본</button>
+    <button data-diff="pro">원본 근접</button>
+  </div>
+</nav>
+
+<main>
+
+<!-- ═══════════════ OVERVIEW ═══════════════ -->
+<section id="overview">
+  <div class="hero">
+    <h1>처음엔 밟게 하고, 중간엔 이해시키고, <span>실전에선 예측하게</span></h1>
+    <p class="sub">NEWTON 세션은 <b>스트레칭(A) → 사전 익히기(B) → 실전 운동(C)</b>으로 흐른다.
+      A는 가이드 친절도 높음·웨어러블 개입 약함, B는 가이드가 가장 많고 반복 보조 중심, C는 가이드 축소·지속 수행 중심.
+      이 문서는 3개 Pack을 <b>동작 단위 프레임</b>으로 분해해 지면·벽면에 실제로 무엇이 뜨고, 누가 어떤 멘트를 하고, 몇 분이 걸리는지 보여준다.</p>
+    <div class="oneline">앱은 <b>세팅까지</b>. 운동 중 흐름은 <b>몸으로</b> — 지면/벽면 UI · 숙련자 보이스 · 햅틱 · 웨어러블 · 발 두 번 탭.</div>
+    <div class="grid2">
+      <div class="pcard"><span class="tag step">STEP-TYPE · 티칭 (A·B단계)</span>
+        <h3>직접 밟고, 맞추고, 따라 하게</h3>
+        <p>"여기를 밟아", "이 순서로", "지금 1단계". 큰 토큰 + 문장 텍스트 + 숙련자 워밍업·코칭 큐. 코칭 큐는 <b>한 번에 한 단서만</b>.</p></div>
+      <div class="pcard"><span class="tag pred">PREDICTION-TYPE · 수행 (C단계)</span>
+        <h3>방해 없이 예측하게</h3>
+        <p>"다음 발이 어디로", "곧 전환". 선행 단서 최소·문장 금지(단어 1~2개). 숙련자 실전 큐는 원본 리듬 그대로.</p></div>
+    </div>
+    <h3 class="sub" style="margin-top:24px">왜 AR 글라스가 아니라 프로젝션인가</h3>
+    <div class="grid3">
+      <div class="pcard"><span class="tag ar">얼굴 위 0g</span><h3>격한 움직임에 기기가 없다</h3>
+        <p>복싱 위빙·스텝백 급제동에서 얼굴 착용 기기는 흘러내리고 땀에 젖고 충격에 위험하다. NEWTON은 <b>몸에 쓰는 것이 없고</b> 하체 웨어러블이 오히려 착지를 보조한다.</p></div>
+      <div class="pcard"><span class="tag ar">시선이 자연스럽다</span><h3>단서가 시선 낙하점에 있다</h3>
+        <p>러너는 발이 아니라 <b>전방 1.4m+ 지면</b>을 본다. 프로젝션은 그 자리에 그린다. AR은 눈앞 레이어라 초점 전환·어지러움이 생기고, 지면 단서는 시선 이동 없이 흡수된다.</p></div>
+      <div class="pcard"><span class="tag ar">같이 보인다</span><h3>공유 필드가 된다</h3>
+        <p>투사된 단서는 <b>친구도 본다</b>. 두 스테이션을 결합하면 투사면이 넓어져 2인 플레이(시나리오 05)로 확장. AR 글라스의 화면은 혼자만의 것이다.</p></div>
+    </div>
+    <h3 class="sub" style="margin-top:24px">이 문서의 범위 — 정직한 선긋기</h3>
+    <div class="grid2">
+      <div class="pcard"><span class="tag step">이 문서가 하는 일</span>
+        <h3>구조·로직 가이드 (Lo-Fi)</h3>
+        <p>무엇이 · 언제 · 어디에 · 누구 목소리와 함께 뜨는지, 상태가 어떻게 전이되는지, 사출 모드가 단계별로 어떻게 다른지 — <b>설계 결정을 고정하는 문서</b>다.</p></div>
+      <div class="pcard"><span class="tag ar">이 문서로 안 되는 일</span>
+        <h3>시각 가이드는 아직 아니다 (Hi-Fi 별도)</h3>
+        <p>발자국 에셋 실물 스펙, 모션 타이밍 커브(수축·소멸 이징), 투사 룩(휘도·블러·재질 위 발색), 상태 전이 애니메이션은 여기 없다 — <b>3D 시뮬레이터에서 실장하며 검증</b>해야 할 몫. 이 문서는 그 실장의 사양서다.</p></div>
+    </div>
+    <p class="diffnote">↑ 우측 상단 <b>난이도 토글</b>: 각 종목 <b>실전(C) 프레임</b>의 토큰 크기와 보조 단서가 실시간으로 바뀐다. 난이도는 원본 감각(Core)을 바꾸지 않고 <b>단서 밀도·미리보기·큐 빈도·판정 허용창</b>만 바꾼다.</p>
+  </div>
+</section>
+
+<!-- ═══════════════ UI SYSTEM ═══════════════ -->
+<section id="uisys">
+  <div class="kicker">00 · Projection UI System</div>
+  <h2 class="title">지면 · 벽면 공통 UI 시스템</h2>
+  <p class="lede">모든 종목이 공유하는 투사 문법. <b>투사된다 = 그 면에만 그래픽이 존재한다</b>(GPU 클리핑),
+    토큰 출현은 <b>시야∩투사면 교집합</b> 안에서만, 바닥 종목은 "어디를 언제", 벽면 종목은 "어떻게 언제".</p>
+
+  <h3 class="sub">컬러 시스템 — 새벽의 빛과 열감</h3>
+  <div class="swatches">
+    <div class="sw"><div class="swc" style="background:#fa3030"></div><div class="swi"><b>NEWTON RED</b>#FA3030 · 포인트 — Active 토큰·타겟·시작·브랜드. "지금 여기"는 항상 레드</div></div>
+    <div class="sw"><div class="swc" style="background:#fe6e3c"></div><div class="swi"><b>CORAL</b>#FE6E3C · 전환 — 플랜트 풋·감속·경고(Warning)·공격 범위. 열이 다가온다</div></div>
+    <div class="sw"><div class="swc" style="background:#fec389"></div><div class="swi"><b>SAND</b>#FEC389 · 보조 — 홀드 진행·스트레칭 단계·보조 텍스트 하이라이트</div></div>
+    <div class="sw"><div class="swc" style="background:#d1feff"></div><div class="swi"><b>PRISM</b>#D1FEFF · 성공 — Hit Glow·타이밍 링·SAFE/BOOST 피드백. 열 사이의 서늘한 빛</div></div>
+  </div>
+  <p class="diffnote">레드(액션) → 코랄(전환·경고) → 샌드(보조) → 프리즘(성공)의 온도 그라디언트가 곧 상태 언어. 상태는 항상 색+모션 이중 부호화(색약 대응), 위험 High는 코랄 + UI 축소 + 강한 진동으로 구분.</p>
+
+  <h3 class="sub">투사면 존(Zone) 구조</h3>
+  <div class="specimen">
+    <div class="spec-card">
+      <div class="sc-h">지면 (Floor) <span>무릎 유닛 투사 · 진행 방향 기준</span></div>
+      <div class="surf-wrap"><div class="surf floor" style="height:150px">
+        <div class="plane"></div><div class="glow"></div>
+        <div class="tokens">
+          <div class="ftext fs" style="left:50%;top:12%">PREVIEW 존 2.4~3.0m — 선행 표시 (투명도 60→35%)</div>
+          <div class="ftext fs" style="left:50%;top:38%;color:var(--accent)">PRIME 존 1.4~2.4m — Active 토큰 (착지 0.74s 전 출현 보장)</div>
+          <div class="ftext fs" style="left:50%;top:63%;color:var(--dim)">TEXT 슬롯 고정 — 지시문: PRIME 상단 중앙 · 보조: 하단 밴드</div>
+          <div class="ftext fs" style="left:50%;top:86%;color:var(--danger)">DEAD 존 0~1.4m — 출현 금지 (시선 밖)</div>
+        </div>
+        <div class="deadline"><em>시선 낙하선 1.4m</em></div>
+        <div class="feet"><i></i><i></i></div>
+      </div></div>
+      <div class="fguide" style="padding-bottom:12px">발밑은 투사는 가능하나 <b>출현 용도로 무효</b> — 사람은 발을 보지 않는다. 텍스트는 진행 방향 기준으로 회전(유저가 읽는 방향).</div>
+    </div>
+    <div class="spec-card">
+      <div class="sc-h">벽면 (Wall) <span>스테이션 UST 투사 · 정면 응시</span></div>
+      <div class="surf-wrap"><div class="surf wall" style="height:150px">
+        <div class="plane"></div><div class="glow"></div>
+        <div class="tokens">
+          <div class="wband-top"><span>STATUS 밴드 — 단계·시간·모드</span><span>SPAR 01:20</span></div>
+          <div class="wtext wm" style="left:50%;top:46%;color:var(--dim2)">ACTION 존 (중앙 60%) — 고스트·타겟·상대 전용<br>텍스트 침범 금지</div>
+          <div class="wband-bot">GUIDE 밴드 — 지시문·피드백 (실전 중 자동 축소)</div>
+        </div>
+      </div></div>
+      <div class="fguide" style="padding-bottom:12px">중앙 60%는 액션 존. 텍스트는 상·하단 밴드에만. <b>실전(C)에서는 하단 밴드가 자동 축소</b>되고 상태 밴드만 남는다.</div>
+    </div>
+  </div>
+
+  <h3 class="sub">타이포그래피 스케일</h3>
+  <div class="specimen">
+    <div class="spec-card">
+      <div class="sc-h">Floor Type <span>실측 크기 기준 · 흰색 단색 + 글로우 외곽</span></div>
+      <div class="typerow"><span class="tk">F-XL</span><span class="ex" style="font-size:19px;font-weight:800">3 · 2 · 1</span><span class="spec">숫자 전용 · 실높이 40cm · 순간 표시</span></div>
+      <div class="typerow"><span class="tk">F-L</span><span class="ex" style="font-size:14px;font-weight:700">왼발을 앞 원 위에</span><span class="spec">지시문 · 20cm · 1줄 12자 · A/B단계 전용</span></div>
+      <div class="typerow"><span class="tk">F-M</span><span class="ex" style="font-size:11.5px">10초 유지 · 무릎은 살짝</span><span class="spec">보조 · 10cm · 16자 · A/B단계</span></div>
+      <div class="typerow"><span class="tk">F-S</span><span class="ex" style="font-size:9.5px;letter-spacing:1.5px;color:var(--dim)">STRETCH 1/4</span><span class="spec">상태 라벨 · 6cm · 상시</span></div>
+      <div class="typerow"><span class="tk">F-CUE</span><span class="ex" style="font-size:13px;font-weight:800;color:var(--accent)">박자</span><span class="spec">실전 허용 유일 텍스트 · 단어 1~2개 · 1.2s 후 소멸</span></div>
+    </div>
+    <div class="spec-card">
+      <div class="sc-h">Wall Type <span>시청 거리 2~3m 기준</span></div>
+      <div class="typerow"><span class="tk">W-XL</span><span class="ex" style="font-size:20px;font-weight:800">×4</span><span class="spec">카운트·콤보 · 순간 강조</span></div>
+      <div class="typerow"><span class="tk">W-L</span><span class="ex" style="font-size:14px;font-weight:700">가드 올리고 중심 낮추기</span><span class="spec">지시문 · 하단 밴드 · A/B단계 전용</span></div>
+      <div class="typerow"><span class="tk">W-M</span><span class="ex" style="font-size:11.5px">링이 줄어들 때 잽</span><span class="spec">보조·피드백 · 하단 밴드</span></div>
+      <div class="typerow"><span class="tk">W-S</span><span class="ex" style="font-size:9.5px;letter-spacing:1.5px;color:var(--dim)">SPARRING 01:20 · QUIET</span><span class="spec">상태 밴드 · 상시</span></div>
+      <div class="typerow"><span class="tk">W-CUE</span><span class="ex" style="font-size:13px;font-weight:800;color:var(--okt)">지금!</span><span class="spec">실전 허용 · 타겟 옆 · 0.8s 소멸</span></div>
+    </div>
+  </div>
+  <div class="board"><table>
+    <tr><th>타이포 규칙</th><th>내용</th></tr>
+    <tr><td><b>단계별 밀도</b></td><td>A 스트레칭 = 문장 허용 / B 익히기 = 짧은 지시 + 숫자 / C 실전 = <b>F-CUE·W-CUE 단어만</b>, 문장 금지</td></tr>
+    <tr><td><b>배치 (고정 슬롯)</b></td><td>지면 텍스트는 위치가 <b>고정</b>이다 — 상태(F-S)=좌상단 · 지시문(F-L)=PRIME 상단 중앙 · 보조(F-M)=하단 밴드. 토큰 옆을 떠다니지 않는다. 유일한 예외는 F-CUE(토큰 인접, 1.2s 소멸) · 벽면: 상·하단 밴드만, 액션 존 침범 금지</td></tr>
+    <tr><td><b>방향</b></td><td>지면 텍스트는 유저 진행 방향 기준 회전(읽는 방향으로) — 숫자 방향 공식과 동일</td></tr>
+    <tr><td><b>대비</b></td><td>단색(백 + 레드/코랄/샌드/프리즘) + 글로우 외곽. 채도 높은 다색 금지 — 투사 휘도 한계 대응. 실외 주간은 하이컨트라스트 모드(외곽선 2배)</td></tr>
+    <tr><td><b>원근 보정</b></td><td>F-스케일은 실측이 아니라 <b>시야각 기준</b>(F-L ≈ 세로 시야각 2°) — 먼 거리 텍스트는 키스톤 보정으로 실측 확대해 시각 크기를 일정하게 유지</td></tr>
+    <tr><td><b>예외 대응</b></td><td>카메라 인식 불안정 → 지면 단서 단순화 · 소음 커짐 → 음성 의존도 낮추고 텍스트·햅틱 보강</td></tr>
+  </table></div>
+
+  <h3 class="sub">음성 · 햅틱 · 발 제스처 채널</h3>
+  <div class="board"><table>
+    <tr><th>채널</th><th>A 스트레칭</th><th>B 사전 익히기</th><th>C 실전</th><th>공통</th></tr>
+    <tr><td><b style="color:var(--ghost)">숙련자 보이스</b><br><span style="font-size:10.5px;color:var(--dim2)">원천 음성 보존, 없으면 AI 큐</span></td>
+      <td>워밍업 큐 — 문장으로 자세 안내</td><td>코칭 큐 — <b>한 번에 한 단서만</b></td><td>실전 큐 — 원본 리듬·단어("박자만.")</td><td>—</td></tr>
+    <tr><td><b style="color:var(--accent)">시스템 보이스</b></td><td colspan="3">시작 큐 · 전환 타이밍 · 위험 경고 · 종료 큐("운동이 끝났다는 것만 짧게")</td><td>리포트 알림</td></tr>
+    <tr><td><b style="color:var(--warn)">햅틱</b></td><td>워밍업 박자 (약)</td><td>시작 타이밍 · 박자 동기</td><td>착지/수행 타이밍 짧게 · 피로 신호</td><td>강한 경고 진동 · 완료 진동</td></tr>
+    <tr><td><b style="color:var(--ok)">웨어러블</b></td><td>개입 약함 (모니터링)</td><td>반복 보조 중심</td><td>모드 목적대로 (SAFE/BOOST/LOAD/QUIET)</td><td>위험 시 정지 우선</td></tr>
+    <tr><td><b>발 제스처</b></td><td colspan="2">단계 완료 화면에서만 두 번 탭 → 다음</td><td><b>수행 중 잠금</b> · 퍼즈 상태에서 두 번 탭 → 재개</td><td>시작: 두 번 탭</td></tr>
+  </table></div>
+</section>
+
+<!-- ═══════════════ MINIMAL TOKEN SYSTEM ═══════════════ -->
+<section id="tokens">
+  <div class="kicker">00-B · Minimal Token System</div>
+  <h2 class="title">최소 토큰 디자인 시스템 — 모양 · 상태 · 판정이 하나로</h2>
+  <p class="lede">원칙은 세 채널 분리 — <b>모양 = 역할, 색 = 상태, 모션 = 타이밍</b>. 색은 상태 표현에만 예약하고(좌/우 구분에 색 쓰지 않음), 상태는 항상 색+모션 이중 부호화(색약 대응).
+    그리고 시스템 전체는 아래 <b>3계층</b> 하나로 통합된다 — 화면의 모든 요소는 이 셋 중 하나다.</p>
+  <div class="grid3" style="margin-bottom:8px">
+    <div class="pcard"><span class="tag step">레이어 1 · 판정 토큰</span>
+      <h3>① stepMark · ⑤ targetMark</h3>
+      <p>밟거나·치거나·유지하는 <b>판정 대상</b>. 7상태 머신을 온전히 갖는 유일한 계층 — Success/Miss/Hold는 여기에만 존재한다.</p></div>
+    <div class="pcard"><span class="tag pred">레이어 2 · 문맥 토큰</span>
+      <h3>③ directionGuide · ④ pathLane · ⑥ ghost</h3>
+      <p>읽는 대상(방향·경로·폼). 판정하지 않으므로 <b>상태가 없다</b> — 출현(페이드인)·표시·소멸뿐. Warning 시 전역 UI 축소에만 반응.</p></div>
+    <div class="pcard"><span class="tag ar">레이어 3 · 종속 요소</span>
+      <h3>② orderPulse · 링 2종</h3>
+      <p>혼자 못 뜬다. ②는 부모 토큰(①⑤)에 붙는 배지, timingRing/holdRing은 부모의 <b>Active/Hold 상태 그 자체의 시각화</b>.</p></div>
+  </div>
+
+  <h3 class="sub">사출 방식 2모드 — 밟는 UI와 예측하는 UI는 다른 기계다</h3>
+  <p class="lede" style="margin-bottom:12px">같은 "발자국"이라도 <b>직접 밟는 단계(A·B)</b>와 <b>흐름을 예측하는 단계(C)</b>는 투사 위치·모양·감지 로직이 전혀 다르다. 시나리오도 이 두 모드로 분리해 설계한다.</p>
+  <div class="modecards">
+    <div class="mode"><span class="mtag predm">MODE 0 · WATCH-TYPE — 정지 시청</span>
+      <h3>"멈추면 투사면은 스크린이 된다"</h3>
+      <p>사용자가 <b>정지 상태</b>일 때 지면/벽면에 <b>실영상 클립(3~8초 루프)</b>을 재생 — Pack 프리뷰, B단계 도입, Miss 누적 시 다시 보기.
+      시청이 끝나면 같은 자리에서 ghost 궤적형(발자국 리플레이)으로 크로스페이드 → 내 차례.</p>
+      <ul>
+        <li><b>정지 감지</b> — 속도 ≈ 0 + 시선 하향일 때만 재생</li>
+        <li><b>시청 키스톤 보정</b> — 서 있는 눈높이 기준 왜곡 보정</li>
+        <li><b>클립→궤적 정렬</b> — 영상 속 발 위치와 실측 궤적을 같은 좌표에 동기</li>
+      </ul></div>
+    <div class="mode"><span class="mtag stepm">MODE 1 · STEP-TYPE — 스트레칭·사전 익히기</span>
+      <h3>"여기를 밟아라" — 발 모양 이미지를 직접 밟는다</h3>
+      <p>다음 발을 디딜 위치에 <b>실측 크기 발 모양 이미지(좌/우 구분)</b>를 투사. 사용자는 정지 또는 저속이므로
+      <b>DEAD 존(0~1.4m) 규칙이 면제</b> — 발밑 투사가 유효한 유일한 모드. 텍스트·숫자·유지 링 결합 가능.</p>
+      <ul>
+        <li><b>보행 속도 추정</b> — 사용자 속도에 맞춰 다음 발 이미지 타이밍 결정</li>
+        <li><b>보폭 이미지 제시 위치 결정</b> — Pack 보폭 × 사용자 캘리브레이션(내 몸 기준)</li>
+        <li><b>뒤꿈치 접촉 감지 + 좌우 발 이미지 전환</b> — 밟힘을 감지해야 다음 발이 뜬다</li>
+      </ul></div>
+    <div class="mode"><span class="mtag predm">MODE 2 · PREDICTION-TYPE — 실전</span>
+      <h3>"앞사람의 발자국" — 2·3번째 위치를 미리 보여준다</h3>
+      <p>두 번째·세 번째 발 위치를 <b>존 원</b>으로 선행 표시(투명도 1.0/0.6/0.35). 사용자는 위치 관계를 보고 보폭을 스스로 예측 —
+      <b>한 걸음 앞서 걷는 보이지 않는 사람을 따라가는 감각</b>. DEAD 존 규칙 적용, 발밑 무효.</p>
+      <ul>
+        <li><b>착지 예측</b> — 현재 속도·보폭 기반 다음 착지점 계산 (0.74s 전 출현 보장)</li>
+        <li><b>존 판정</b> — 반경 = 허용창, 접촉 감지는 IMU 착지 이벤트로</li>
+        <li><b>밀도 조절</b> — 피로·난이도에 따라 선행 개수 2~4개 가변</li>
+      </ul></div>
+  </div>
+
+  <h3 class="sub">Q. 발자국은 발자국 모양이어야 할까? — 모드가 답을 정한다</h3>
+  <div class="grid2" style="margin-top:6px">
+    <div class="pcard"><span class="tag pred">결론</span>
+      <h3>Step-type = 발 모양 / Prediction-type = 존 원</h3>
+      <p>① Step-type(A·B)에서는 <b>발 모양이 맞다</b> — 정지·저속이라 정렬 가능하고, 좌/우·방향·보폭이 전부 유효한 정보다. 뒤꿈치 접촉 감지와도 계약이 일치("이 발을 여기 놓아라").<br>
+      ② Prediction-type(C)에서는 <b>발 모양이 해롭다</b> — 판정은 발 중심+타이밍뿐인데 모양은 각도까지 요구하는 것처럼 보인다(정확도 집착). 착지 0.74s 전 출현이라 정렬은 물리적으로도 불가능.<br>
+      ③ 그래서 모양은 단계가 아니라 <b>사출 모드가 결정</b>한다. 밟는 UI = 발, 예측하는 UI = 존.</p></div>
+    <div class="pcard"><span class="tag step">핵심 원칙</span>
+      <h3>토큰 반경 = 판정 허용창</h3>
+      <p>원의 크기가 곧 허용 오차 — <b>보이는 것 = 판정되는 것.</b><br>
+      입문 큰 원 = <b>±21cm</b> / 기본 = <b>±15cm</b> / 원본 근접 작은 원 = <b>±9cm</b>.<br>
+      난이도 토글이 시각과 판정을 동시에 조절하므로, 별도의 "숨은 판정선"이 없다. 사용자는 원 안에 들어가면 성공이라는 계약 하나만 기억하면 된다.</p></div>
+  </div>
+  <div class="abst">
+    <div class="ab"><div class="abtag a">A · 스트레칭 — Step-type</div>
+      <div class="abdemo">
+        <svg viewBox="0 0 40 80" width="32" height="66"><path d="M20 6 C30 6 32 20 30 34 C29 44 28 50 29 58 C30 68 26 76 19 76 C12 76 9 69 10 60 C11 51 10 44 9 34 C7 18 10 6 20 6 Z" fill="rgba(250,48,48,.10)" stroke="#fa3030" stroke-width="2"/></svg>
+        <span style="font-size:10px;color:#8f8f8d">L</span>
+      </div>
+      <div class="abname">발자국 아웃라인</div>
+      <div class="abdesc">정지 상태라 정렬 가능. 발 각도·좌우가 정보인 유일한 단계 (예: 종아리 스트레칭 스탠스, 플랜트 각도 티칭)</div></div>
+    <div class="ab"><div class="abtag b">B · 사전 익히기 — Step-type</div>
+      <div class="abdemo"><div class="t-foot inline big"></div><span style="font-size:10px;color:#8f8f8d">L/R + 숫자 + 타이밍 링</span></div>
+      <div class="abname">발 모양 심볼 (밟는 대상)</div>
+      <div class="abdesc">실측 발 크기(~26cm)로 투사, 뒤꿈치 접촉 감지로 밟힘 확인 → 다음 발 출현. 발밑 투사 허용</div></div>
+    <div class="ab"><div class="abtag c">C · 실전 — 존</div>
+      <div class="abdemo"><div class="zone-c"><em></em></div></div>
+      <div class="abname">존 원 (반경 = 허용창)</div>
+      <div class="abdesc">"이 영역 안에, 이 타이밍에" — 그 이상 요구하지 않음. 좌/우 구분은 교대 문맥으로 자명, 표기 없음</div></div>
+  </div>
+
+  <h3 class="sub">상태 시스템 — 7상태는 "판정 토큰(①⑤)"의 것이다</h3>
+  <div class="statesrow">
+    <div class="stbox"><div class="sd"><div class="dc preview"></div></div><div class="sn">Preview</div><div class="sk">예고 · 60→35%</div></div>
+    <div class="stbox"><div class="sd"><div class="dc active"></div></div><div class="sn">Active</div><div class="sk">지금 · 링 수축</div></div>
+    <div class="stbox"><div class="sd"><div class="dc hold"><i>6</i></div></div><div class="sn">Hold</div><div class="sk">유지 · 링 채움</div></div>
+    <div class="stbox"><div class="sd"><div class="dc success"></div></div><div class="sn">Success</div><div class="sk">Hit Glow 200ms</div></div>
+    <div class="stbox"><div class="sd"><div class="dc miss"></div></div><div class="sn">Miss</div><div class="sk">흐려져 소멸</div></div>
+    <div class="stbox"><div class="sd"><div class="dc warning">!</div></div><div class="sn">Warning</div><div class="sk">앰버 펄스</div></div>
+    <div class="stbox"><div class="sd"><div class="dc locked">3</div></div><div class="sn">Locked</div><div class="sk">아직 · 저채도</div></div>
+  </div>
+  <div class="board"><table>
+    <tr><th>상태</th><th>트리거</th><th>시각 (색+모션 이중 부호화)</th><th>음·햅틱</th><th>다음 전이</th></tr>
+    <tr><td><b>Preview</b></td><td>선행 시간 진입 (이벤트 −450ms 이전, PREVIEW 존)</td><td>외곽선만·투명도 60→35%, 모션 없음</td><td>없음</td><td>→ Active</td></tr>
+    <tr><td><b>Active</b></td><td>PRIME 존 진입 + 내 차례</td><td>100% 불투명 + <b>타이밍 링 수축</b> (수축 완료 = 이벤트 순간)</td><td>B단계: 박자 햅틱</td><td>→ Success / Miss</td></tr>
+    <tr><td><b>Hold</b></td><td>유지 동작 (스트레칭 10초, 스탠스 유지 등)</td><td>수축 대신 <b>링이 시계방향으로 채워짐</b> + 잔여 초(F-M). 발 떼면 채움이 <b>되감김</b> — 리셋 벌점 없음</td><td>완료 시 진동 1박</td><td>채움 완료 → Success</td></tr>
+    <tr><td><b>Success</b></td><td>존 내 + 허용창 내 타이밍</td><td>Hit Glow ~200ms + 지면 리플 → 0.35s 성공 잔상 후 소멸</td><td>짧은 톤 + 햅틱 1박</td><td>다음 토큰 Active</td></tr>
+    <tr><td><b>Miss</b></td><td>존 밖 착지 or 허용창 초과</td><td><b>붉은 X 금지.</b> 흐려지며 미끄러져 소멸 — 시선을 실패에 붙잡지 않음. 다음 토큰 즉시 정상 출현</td><td>없음 (무음이 신호)</td><td>C단계: 흐름 계속 / B단계: 해당 스텝 반복 루프 + 앰버 펄스 1회</td></tr>
+    <tr><td><b>Warning</b></td><td>판정 Medium (리듬 흔들림·중심 상승)</td><td>앰버 외곽 펄스 + F-CUE 한 단어. High면 토큰 축소 → 정지 표시로 전환</td><td>교정 햅틱 2박 / High: 강한 경고 진동</td><td>회복 → Active / 악화 → 세션 중단</td></tr>
+    <tr><td><b>Locked</b></td><td>순서가 아닌 토큰 (B단계 분해 학습)</td><td>저채도 회색 + 순서 숫자만</td><td>없음</td><td>차례 도달 → Active</td></tr>
+  </table></div>
+  <p class="diffnote">Miss 설계가 핵심 — 실패를 크게 그리면 사용자의 시선과 리듬이 실패에 머문다. NEWTON은 <b>성공만 빛나고 실패는 조용히 사라진다</b>(무음이 곧 피드백). 반복 교정은 B단계 루프가, 안전 문제는 Warning이 담당하므로 Miss 자체에 처벌 표현이 필요 없다.</p>
+  <div class="board"><table>
+    <tr><th>상태 적용 범위</th><th>Preview</th><th>Active</th><th>Hold</th><th>Success</th><th>Miss</th><th>Warning</th><th>Locked</th></tr>
+    <tr><td><b>판정 토큰 ① ⑤</b></td><td>✓</td><td>✓</td><td>✓</td><td>✓</td><td>✓</td><td>✓</td><td>✓</td></tr>
+    <tr><td><b>문맥 토큰 ③ ④ ⑥</b></td><td colspan="5" style="color:var(--dim)">상태 없음 — 페이드인 · 표시 · 소멸만</td><td style="color:var(--dim)">전역 UI 축소에만 반응</td><td style="color:var(--dim)">—</td></tr>
+    <tr><td><b>② + 링 모디파이어</b></td><td colspan="7" style="color:var(--dim)">자체 상태 없음 — 부모 토큰(①⑤)의 상태를 따라감 (링 = Active/Hold의 시각화 그 자체)</td></tr>
+  </table></div>
+
+  <h3 class="sub">토큰 카탈로그 — 문법 v1의 6개, 그 이상은 없다</h3>
+  <p class="lede" style="margin-bottom:10px">파생 토큰을 만들지 않는다. 모든 화면 요소는 <b>표현형</b>(같은 토큰이 사출 모드·투사면에 따라 다르게 렌더링),
+  <b>모디파이어</b>(어느 토큰에나 붙는 링 2종), <b>재사용 조합</b>(TAP×2 프롬프트 = ①+②)의 세 메커니즘으로 6개 안에서 해소된다.</p>
+
+  <div class="tokgrid">
+    <div class="tok"><div class="tid">① stepMark</div>
+      <div class="tsvg"><svg width="24" height="46" viewBox="0 0 34 60"><path d="M17 3 C26 3 30 10 29 20 C28.4 27 27 31 27 36 C27 41 22.5 44 17 44 C11.5 44 7 41 7 36 C7 31 5.6 27 5 20 C4 10 8 3 17 3 Z" fill="rgba(250,48,48,.16)" stroke="#fa3030" stroke-width="2.6"/><path d="M11 49 h12 c1.8 0 3 1.5 2.6 3.2 C24.8 55.5 21.5 58 17 58 C12.5 58 9.2 55.5 8.4 52.2 C8 50.5 9.2 49 11 49 Z" fill="rgba(250,48,48,.16)" stroke="#fa3030" stroke-width="2.6"/></svg><svg width="46" height="46" viewBox="0 0 48 48"><circle cx="24" cy="26" r="17" fill="rgba(250,48,48,.14)" stroke="#fa3030" stroke-width="2.5"/><circle cx="24" cy="7" r="2.6" fill="#fa3030"/></svg></div>
+      <div class="tnm">어디를 — 발형 / 존형</div>
+      <div class="tds">표현형 4: 발형(Step-type) · 존형(Prediction·반경=허용창) · 기준형(스탠스·시작 원, 중립) · 선택형(밟아서 선택). 플랜트 풋 = ①+코랄 강조 링</div></div>
+    <div class="tok"><div class="tid">② orderPulse</div>
+      <div class="tsvg"><svg width="30" height="30" viewBox="0 0 30 30"><circle cx="15" cy="15" r="13" fill="#fa3030"/><text x="15" y="20" text-anchor="middle" font-size="14" font-weight="800" fill="#fff">2</text></svg><svg width="34" height="24" viewBox="0 0 34 24"><text x="17" y="17" text-anchor="middle" font-size="13" font-weight="800" fill="#fec389">×3</text></svg></div>
+      <div class="tnm">몇 번째 — 순서·횟수</div>
+      <div class="tds">스텝 순서(B) · 콤보/탭 카운트(×2·×3) 재사용 · 유저가 읽는 방향으로 회전</div></div>
+    <div class="tok"><div class="tid">③ directionGuide</div>
+      <div class="tsvg"><svg width="46" height="44" viewBox="0 0 46 44"><path d="M8 36 L32 12" stroke="#fe6e3c" stroke-width="5" stroke-linecap="round"/><path d="M22 10 h12 v12" fill="none" stroke="#fe6e3c" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      <div class="tnm">어느 쪽 — 방향 채널</div>
+      <div class="tds">표현형 3: 전환형(C·±윈도만·농구) · 회전 아크(A 스트레칭 — 관절 회전) · 왕복형(A — 무게 이동·스윙). 실전 상시 표시 금지는 전환형 규칙</div></div>
+    <div class="tok"><div class="tid">④ pathLane</div>
+      <div class="tsvg"><svg width="26" height="62" viewBox="0 0 26 62"><rect x="9" y="4" width="8" height="12" rx="3" fill="#fa3030" opacity=".28"/><rect x="9" y="23" width="8" height="12" rx="3" fill="#fa3030" opacity=".6"/><rect x="9" y="42" width="8" height="14" rx="3" fill="#fa3030" opacity=".95"/></svg><svg width="26" height="62" viewBox="0 0 26 62"><rect x="9" y="6" width="8" height="7" rx="2.5" fill="#fe6e3c" opacity=".9"/><rect x="9" y="18" width="8" height="7" rx="2.5" fill="#fe6e3c" opacity=".9"/><rect x="9" y="30" width="8" height="7" rx="2.5" fill="#fe6e3c" opacity=".9"/><rect x="9" y="41" width="8" height="7" rx="2.5" fill="#fe6e3c" opacity=".9"/><rect x="9" y="51" width="8" height="7" rx="2.5" fill="#fe6e3c" opacity=".9"/></svg></div>
+      <div class="tnm">어느 길로 — 경로·속도</div>
+      <div class="tds">대시 <b>간격이 속도 언어</b> — 간격 좁아짐=감속(감속 스트라이프는 별도 토큰이 아님) · 러닝 직선·농구 컷인 곡선 · 클리핑</div></div>
+    <div class="tok"><div class="tid">⑤ targetMark</div>
+      <div class="tsvg"><svg width="46" height="46" viewBox="0 0 48 48"><circle cx="24" cy="24" r="17" fill="none" stroke="#fa3030" stroke-width="2.5"/><circle cx="24" cy="24" r="8.5" fill="rgba(250,48,48,.2)" stroke="#fa3030" stroke-width="2"/><circle cx="24" cy="24" r="2.4" fill="#fa3030"/></svg><svg width="40" height="40" viewBox="0 0 48 48"><circle cx="24" cy="24" r="16" fill="rgba(254,110,60,.1)" stroke="#fe6e3c" stroke-width="2" stroke-dasharray="5 4"/></svg><svg width="40" height="30" viewBox="0 0 44 30"><rect x="2" y="2" width="40" height="26" rx="5" fill="rgba(250,48,48,.08)" stroke="#fa3030" stroke-width="2" stroke-dasharray="6 4"/></svg></div>
+      <div class="tnm">제시 지점 — 히트 / 회피 / 유지</div>
+      <div class="tds">표현형 3: 히트형(레드·수축=타이밍) · 회피형(코랄 점선·공격 범위) · <b>유지형(가드 존 박스 — 신체 부위가 머물 존, holdRing 결합)</b></div></div>
+    <div class="tok"><div class="tid">⑥ ghost</div>
+      <div class="tsvg"><svg width="30" height="56" viewBox="0 0 34 62"><circle cx="17" cy="9" r="7" fill="#b39ddb" opacity=".8"/><path d="M6 24 C6 18 28 18 28 24 L28 46 C28 53 23 57 17 57 C11 57 6 53 6 46 Z" fill="#b39ddb" opacity=".55"/></svg><svg width="30" height="50" viewBox="0 0 30 50"><rect x="9" y="2" width="11" height="18" rx="5" stroke="#b39ddb" fill="none" stroke-width="2" opacity=".9"/><rect x="4" y="26" width="11" height="18" rx="5" stroke="#b39ddb" fill="none" stroke-width="2" opacity=".45"/></svg><svg width="36" height="26" viewBox="0 0 36 26"><rect x="1.5" y="1.5" width="33" height="23" rx="3" fill="rgba(47,154,163,.06)" stroke="#2f9aa3" stroke-width="1.6"/><path d="M14 8 L24 13 L14 18 Z" fill="#2f9aa3"/></svg></div>
+      <div class="tnm">어떻게 — 폼 채널 3충실도</div>
+      <div class="tds"><b>영상형</b>(정지 시 실영상 클립) → <b>실루엣형</b>(벽면 시연) → <b>궤적형</b>(지면 발자국 리플레이) — 충실도 사다리</div></div>
+  </div>
+
+  <div class="board"><table>
+    <tr><th>모디파이어 (토큰 아님 — 어느 토큰에나 부착)</th><th>시각</th><th>규칙</th></tr>
+    <tr><td><b>timingRing</b> — 수축 링</td><td><svg width="34" height="34" viewBox="0 0 34 34" style="vertical-align:middle"><circle cx="17" cy="17" r="14" fill="none" stroke="#1c848d" stroke-width="2" stroke-dasharray="4 3"/><circle cx="17" cy="17" r="7" fill="none" stroke="#1c848d" stroke-width="2"/></svg></td><td>수축 완료 = 이벤트 순간 · Active 상태의 기본 동반</td></tr>
+    <tr><td><b>holdRing</b> — 채움 링</td><td><svg width="34" height="34" viewBox="0 0 40 40" style="vertical-align:middle"><circle cx="20" cy="20" r="15" fill="none" stroke="#e6e2dc" stroke-width="5"/><circle cx="20" cy="20" r="15" fill="none" stroke="#1c848d" stroke-width="5" stroke-dasharray="61 94" stroke-linecap="round" transform="rotate(-90 20 20)"/><text x="20" y="25" text-anchor="middle" font-size="12" font-weight="800" fill="#1c848d">6</text></text></svg></td><td>시계방향 채움 = 유지 진행 · 발 떼면 되감김(벌점 없음)</td></tr>
+  </table></div>
+  <h3 class="sub">전수 감사 — 이 문서의 모든 화면 요소 → 매핑</h3>
+  <p class="lede" style="margin-bottom:8px">와이어프레임에 등장하는 요소 하나도 빠짐없이. 여기 매핑되지 않는 요소가 발견되면 그것은 설계 오류다.</p>
+  <div class="board"><table>
+    <tr><th>화면 요소 (등장 프레임)</th><th>매핑</th></tr>
+    <tr><td>발 모양 마크 (러닝·농구 A/B)</td><td><b>① 발형</b></td></tr>
+    <tr><td>존 원 (실전 선행 발자국)</td><td><b>① 존형</b></td></tr>
+    <tr><td>시작 원 READY · 스탠스 원</td><td><b>① 기준형</b> (중립·판정 없음)</td></tr>
+    <tr><td>한 번 더/다음 밟는 선택지 (T-2)</td><td><b>① 선택형</b></td></tr>
+    <tr><td>플랜트 풋 링 (농구)</td><td><b>①</b> + 코랄 강조 링(모디파이어)</td></tr>
+    <tr><td>순서 숫자 1·2·3·4 / 콤보 ×N / TAP ×2 카운트</td><td><b>②</b> — 부모 토큰 종속</td></tr>
+    <tr><td>전환 화살표 ↗ (농구 실전)</td><td><b>③ 전환형</b> (±윈도만)</td></tr>
+    <tr><td>회전 아크 (발목·어깨 돌리기)</td><td><b>③ 회전형</b> (A 전용)</td></tr>
+    <tr><td>왕복 화살표 ↔·↑↓ (무게 이동·스윙)</td><td><b>③ 왕복형</b> (A 전용)</td></tr>
+    <tr><td>중앙 진행 레인 · 컷인 곡선</td><td><b>④</b></td></tr>
+    <tr><td>감속 스트라이프</td><td><b>④</b> — 대시 간격=속도</td></tr>
+    <tr><td>벽면 타겟 원 (복싱)</td><td><b>⑤ 히트형</b></td></tr>
+    <tr><td>상대 공격 범위 (복싱 실전)</td><td><b>⑤ 회피형</b></td></tr>
+    <tr><td>가드 존 박스 (복싱 A/B)</td><td><b>⑤ 유지형</b> + holdRing</td></tr>
+    <tr><td>고스트 실루엣 (복싱)</td><td><b>⑥ 실루엣형</b></td></tr>
+    <tr><td>궤적 리플레이 발자국 (농구 K-B0)</td><td><b>⑥ 궤적형</b></td></tr>
+    <tr><td>실영상 클립 패널 (Watch-type)</td><td><b>⑥ 영상형</b></td></tr>
+    <tr><td>수축 링 · 유지 채움 링</td><td>모디파이어 — 부모의 Active/Hold 시각화</td></tr>
+    <tr><td>Hit Glow · 리플 · 성공 잔상 · Miss 소멸</td><td>상태(Success/Miss)의 연출 — 토큰 아님</td></tr>
+    <tr><td>TAP ×2 프롬프트 (전환 프레임)</td><td>① 선택형 + ② 조합</td></tr>
+    <tr><td>사용자 발 마커 · 시선 낙하선 (목업 하단)</td><td><b>투사 요소 아님</b> — 와이어프레임 표기용 보조</td></tr>
+  </table></div>
+  <p class="diffnote">새 화면 요구가 생기면 토큰 추가가 아니라 <b>"어느 토큰의 표현형인가"</b>를 먼저 묻고, 이 감사 표에 한 줄을 추가한다.</p>
+</section>
+
+<!-- ═══════════════ BRIDGE / TRANSITION FRAMES ═══════════════ -->
+<section id="bridge">
+  <div class="kicker">00-C · Transition Frames</div>
+  <h2 class="title">공통 전환 프레임 — 단계 사이의 다리</h2>
+  <p class="lede">"다음으로 / 한 번 더 / 일시정지 / 안전 정지 / 세트 사이"는 종목과 무관한 <b>공통 템플릿 5종</b>.
+    공통 규격: ① 상태 워드(F-L/W-L) ② 요약 한 줄(성과 또는 다음 예고) ③ <b>발 두 번 탭 프롬프트는 항상 같은 토큰·같은 위치</b> ④ 무입력 30초 시 음성 재안내 ⑤ 발 제스처는 전환 프레임에서만 활성(수행 중 잠금).</p>
+  <div class="frames" style="grid-template-columns:repeat(5,1fr)">
+    <div class="frame">
+      <div class="fhead"><span class="fn">T-1</span><span class="ft">STAGE CLEAR</span><span class="fd">지면</span></div>
+      <div class="surf-wrap"><div class="surf floor"><div class="plane"></div><div class="glow"></div>
+        <div class="tokens">
+          <div class="ftext fl" style="left:50%;top:30%">STAGE CLEAR</div>
+          <div class="ftext fm" style="left:50%;top:46%;color:#c9882a">박자 정확도 82%</div>
+          <div class="t-tap" style="left:50%;top:68%"><div class="taps"><i></i><i></i></div><div class="tl">TAP ×2 → 사전 익히기</div></div>
+        </div><div class="feet"><i></i><i></i></div>
+      </div></div>
+      <div class="fguide">단계 완료. 성과 한 줄 + 탭 프롬프트만 — 다음 단계 이름을 미리 알려준다.</div>
+      <div class="fsig">
+        <div class="sig voice"><span class="ic">VOICE</span><span><span class="who">시스템</span> <q>몸 다 풀렸어요. 탭 두 번이면 다음으로.</q></span></div>
+        <div class="sig foot"><span class="ic">FOOT</span><span class="t">두 번 탭 → 다음 · 30s 무입력 시 재안내</span></div>
+      </div>
+    </div>
+    <div class="frame">
+      <div class="fhead"><span class="fn">T-2</span><span class="ft">한 번 더 / 다음</span><span class="fd">지면</span></div>
+      <div class="surf-wrap"><div class="surf floor"><div class="plane"></div><div class="glow"></div>
+        <div class="tokens">
+          <div class="ftext fm" style="left:50%;top:24%">어느 쪽이든 밟아서 선택</div>
+          <div class="t-choice again" style="left:30%;top:54%">한 번 더</div>
+          <div class="t-choice next" style="left:70%;top:54%">다음</div>
+        </div><div class="feet"><i></i><i></i></div>
+      </div></div>
+      <div class="fguide">선택지가 곧 Step-type 토큰 — <b>밟아서 고른다</b>. 반복 루프(B단계)의 표준 출구.</div>
+      <div class="fsig">
+        <div class="sig voice"><span class="ic">VOICE</span><span><span class="who">션</span> <q>한 번 더 갈까요, 넘어갈까요?</q></span></div>
+        <div class="sig foot"><span class="ic">FOOT</span><span class="t">왼발 존 = 반복 / 오른발 존 = 다음</span></div>
+      </div>
+    </div>
+    <div class="frame">
+      <div class="fhead"><span class="fn">T-3</span><span class="ft">PAUSE</span><span class="fd">지면</span></div>
+      <div class="surf-wrap"><div class="surf floor"><div class="plane"></div><div class="glow" style="opacity:.3"></div>
+        <div class="tokens" style="opacity:.85">
+          <div class="ftext fl" style="left:50%;top:34%;color:var(--dim)">‖ PAUSE</div>
+          <div class="ftext fs" style="left:50%;top:48%">04:12 · 기록 유지 중</div>
+          <div class="t-tap" style="left:50%;top:68%"><div class="taps"><i></i><i></i></div><div class="tl">TAP ×2 → 재개</div></div>
+        </div><div class="feet"><i></i><i></i></div>
+      </div></div>
+      <div class="fguide">퍼즈 = 주변 토큰 딤 처리 + 시간 정지 표시. 재개 카운트다운 3-2-1 후 복귀.</div>
+      <div class="fsig">
+        <div class="sig voice"><span class="ic">VOICE</span><span><span class="who">시스템</span> <q>쉬어요. 준비되면 두 번 탭.</q></span></div>
+        <div class="sig wear"><span class="ic">WEAR</span><span class="t">보조 대기 — 개입 정지</span></div>
+      </div>
+    </div>
+    <div class="frame">
+      <div class="fhead"><span class="fn">T-4</span><span class="ft">SAFETY STOP</span><span class="fd">지면</span></div>
+      <div class="surf-wrap"><div class="surf floor"><div class="plane"></div>
+        <div class="tokens">
+          <div class="ftext fl" style="left:50%;top:36%;color:var(--coral)">잠깐 멈춰요</div>
+          <div class="ftext fm" style="left:50%;top:52%;color:#c9882a">가까운 곳에 앉아서 쉬어요</div>
+          <div class="ftext fs" style="left:50%;top:68%">회복되면 안전 재개 안내</div>
+        </div><div class="feet"><i></i><i></i></div>
+      </div></div>
+      <div class="fguide">판정 High — UI 표시량 축소, 탭 프롬프트 없음(자동 재개 금지). 회복 확인 후에만 재개 제안.</div>
+      <div class="fsig">
+        <div class="sig voice"><span class="ic">VOICE</span><span><span class="who">시스템</span> <q>무릎이 흔들려요. 잠깐 멈추고 쉬어요.</q></span></div>
+        <div class="sig hap"><span class="ic">HAPT</span><span class="t">강한 경고 진동</span></div>
+        <div class="sig wear"><span class="ic">WEAR</span><span class="t">안전 모드 전환 · 정지 우선</span></div>
+      </div>
+    </div>
+    <div class="frame">
+      <div class="fhead"><span class="fn">T-5</span><span class="ft">SET BREAK</span><span class="fd">벽면</span></div>
+      <div class="surf-wrap"><div class="surf wall"><div class="plane"></div><div class="glow"></div>
+        <div class="tokens">
+          <div class="wband-top"><span>R1 종료</span><span>REST 00:20</span></div>
+          <div class="wtext wl" style="left:50%;top:40%">일치도 82%</div>
+          <div class="wtext wm" style="left:50%;top:58%;color:#c9882a">회피 좋았어요 · 복귀만 반 박자</div>
+          <div class="wband-bot">TAP ×2 → ROUND 2</div>
+        </div>
+      </div></div>
+      <div class="fguide">세트/라운드 사이 — Match Rate가 뜨는 유일한 순간. 다음 세트 예고 한 줄.</div>
+      <div class="fsig">
+        <div class="sig voice"><span class="ic">VOICE</span><span><span class="who">고수</span> <q>숨 고르고. 2라운드 가요.</q></span></div>
+        <div class="sig rw"><span class="ic">CUE</span><span class="t">Match Rate + 격려 한 줄 (Clear Reward 축소형)</span></div>
+      </div>
+    </div>
+  </div>
+  <p class="diffnote">탭 프롬프트(TAP ×2)는 5종 모두 <b>같은 토큰이 같은 자리</b>에 뜬다 — 사용자는 "저 표시가 보이면 발로 넘긴다"는 계약 하나만 학습하면 된다. 단 SAFETY STOP만 예외적으로 프롬프트가 없다(자동 재개 금지).</p>
+</section>
+
+<!-- ═══════════════ RUNNING ═══════════════ -->
+<section id="running">
+  <div class="kicker">01 · Running · 지면 · 야외</div>
+  <h2 class="title">러닝 — 밟는 리듬에서, 예측하는 페이스로</h2>
+  <div class="packhead">
+    <div class="row1">
+      <span class="pname">션의 마지막 1km 페이스 Pack</span>
+      <span class="porigin"><b>Creator Pack</b> · 루틴형 · 지면 투사 · 야외(공원)</span>
+      <span style="margin-left:auto;display:flex;gap:6px"><span class="chip safe">SAFE</span><span class="chip boost">BOOST</span><span class="chip time">총 ~23분</span></span>
+    </div>
+    <div class="skills">
+      <span class="skillchip">배우는 스킬 ① <b>후반에도 안 무너지는 케이던스</b></span>
+      <span class="skillchip">② <b>호흡–발 박자 동기화</b></span>
+      <span class="skillchip">③ <b>보폭 안정 (좌우 편차 줄이기)</b></span>
+    </div>
+    <div class="voicenote">🎙 <b>음성 원천 있음</b> — 션의 실제 코칭 음성 보존. 워밍업·코칭·실전 큐 모두 션 본인 목소리. 시스템 큐(시작·위험·종료)만 시스템 보이스.</div>
+    <div class="durbar">
+      <div class="seg s-ready">READY 1'</div><div class="seg s-str">스트레칭 4'</div>
+      <div class="seg s-learn">사전 익히기 5'</div><div class="seg s-real">실전 러닝 12'</div><div class="seg s-fin">리포트 1'</div>
+    </div>
+  </div>
+
+  <!-- READY -->
+  <div class="stagehead"><span class="sh-idx">0 · READY</span><span class="sh-name">준비</span>
+    <span class="sh-goal">착용·투사 확인, 시작 대기</span><span class="sh-time chip time">~1분</span></div>
+  <div class="frames">
+    <div class="frame">
+      <div class="fhead"><span class="fn">R-0</span><span class="ft">시작 대기</span><span class="fd">60s</span></div>
+      <div class="surf-wrap"><div class="surf floor"><div class="plane"></div><div class="glow"></div>
+        <div class="tokens">
+          <div class="t-start" style="left:50%;top:48%">READY</div>
+          <div class="ftext fs" style="left:50%;top:22%">SEAN · LAST 1KM PACE</div>
+          <div class="ftext fm" style="left:50%;top:68%">발 두 번 탭 → 시작</div>
+        </div><div class="deadline"></div><div class="feet"><i></i><i></i></div>
+      </div></div>
+      <div class="fguide">시작 원 하나 + Pack 라벨(F-S)만. 발자국은 아직 없음.</div>
+      <div class="fsig">
+        <div class="sig voice"><span class="ic">VOICE</span><span><span class="who">시스템</span> <q>션의 마지막 1km 페이스 팩. 준비되면 발을 두 번 탭하세요.</q></span></div>
+        <div class="sig foot"><span class="ic">FOOT</span><span class="t">두 번 탭 → 세션 시작</span></div>
+        <div class="sig wear"><span class="ic">WEAR</span><span class="t">SAFE 대기 · 착용 안정성 확인</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STRETCH -->
+  <div class="stagehead"><span class="sh-idx">A · STRETCH</span><span class="sh-name">러닝 전용 스트레칭</span>
+    <span class="sh-ui slow">Slow Step-type · 문장 허용</span>
+    <span class="sh-goal">발목·종아리·햄스트링 — 착지 관절을 연다</span><span class="sh-time chip time">~4분 · 4동작</span></div>
+  <div class="frames">
+    <div class="frame">
+      <div class="fhead"><span class="fn">R-A1</span><span class="ft">발목 돌리기</span><span class="fd">60s</span></div>
+      <div class="surf-wrap"><div class="surf floor"><div class="plane"></div><div class="glow"></div>
+        <div class="tokens">
+          <div class="ftext fs" style="left:20%;top:18%">STRETCH 1/4</div>
+          <div class="t-foot big hold l" style="left:50%;top:48%"><i>L</i></div>
+          <div class="t-arc" style="left:50%;top:48%"></div>
+          <div class="ftext fl" style="left:50%;top:22%">발끝 올리고 돌리기</div>
+          <div class="ftext fm" style="left:50%;top:76%">좌우 8회씩</div>
+        </div><div class="deadline"></div><div class="feet"><i></i><i></i></div>
+      </div></div>
+      <div class="fguide">큰 홀드 원(F-L 지시문) + 회전 아크. 러닝 착지의 첫 관절인 발목부터.</div>
+      <div class="fsig">
+        <div class="sig voice"><span class="ic">VOICE</span><span><span class="who">션</span> <q>발목부터 풀어요. 원에 발끝 올리고, 천천히 여덟 번.</q></span></div>
+        <div class="sig wear"><span class="ic">WEAR</span><span class="t">개입 없음 — 가동 범위 측정만</span></div>
+      </div>
+    </div>
+    <div class="frame">
+      <div class="fhead"><span class="fn">R-A2</span><span class="ft">종아리 늘리기</span><span class="fd">60s</span></div>
+      <div class="surf-wrap"><div class="surf floor"><div class="plane"></div><div class="glow"></div>
+        <div class="tokens">
+          <div class="ftext fs" style="left:20%;top:18%">STRETCH 2/4</div>
+          <div class="t-foot big l" style="left:42%;top:36%"><i>L</i></div>
+          <div class="t-foot big hold r" style="left:58%;top:56%"><i>R</i></div>
+          <div class="t-ring" style="left:58%;top:56%;width:44px;height:44px"></div>
+          <div class="ftext fl" style="left:50%;top:20%">앞 원에 왼발</div>
+          <div class="ftext fm" style="left:50%;top:76%">뒤꿈치는 바닥에 · 10초</div>
+        </div><div class="deadline"></div><div class="feet"><i></i><i></i></div>
+      </div></div>
+      <div class="fguide">앞뒤 발 원 간격이 스트레칭 폭 자체를 가이드. 유지 링 10초 카운트.</div>
+      <div class="fsig">
+        <div class="sig voice"><span class="ic">VOICE</span><span><span class="who">션</span> <q>앞 원에 왼발. 뒤꿈치는 바닥. 종아리가 당기면 잘 된 거예요.</q></span></div>
+        <div class="sig hap"><span class="ic">HAPT</span><span class="t">10초 종료 시 짧은 진동 1회</span></div>
+      </div>
+    </div>
+    <div class="frame">
+      <div class="fhead"><span class="fn">R-A3</span><span class="ft">다리 스윙</span><span class="fd">40s</span></div>
+      <div class="surf-wrap"><div class="surf floor"><div class="plane"></div><div class="glow"></div>
+        <div class="tokens">
+          <div class="ftext fs" style="left:20%;top:18%">STRETCH 3/4</div>
+          <div class="t-stance big" style="left:44%;top:56%"></div>
+          <div class="t-arrow dim" style="left:62%;top:34%">↑</div>
+          <div class="t-arrow dim" style="left:62%;top:74%">↓</div>
+          <div class="ftext fl" style="left:50%;top:20%">다리 앞뒤로 10회</div>
+        </div><div class="deadline"></div><div class="feet"><i></i><i></i></div>
+      </div></div>
+      <div class="fguide">디딤발 원 + 앞뒤 스윙 방향만. 햄스트링·고관절 가동.</div>
+      <div class="fsig">
+        <div class="sig voice"><span class="ic">VOICE</span><span><span class="who">션</span> <q>골반 잡고 다리를 앞뒤로. 가볍게 열 번.</q></span></div>
+        <div class="sig foot"><span class="ic">FOOT</span><span class="t">완료 화면에서 두 번 탭 → 다음</span></div>
+      </div>
+    </div>
+    <div class="frame">
+      <div class="fhead"><span class="fn">R-A4</span><span class="ft">몸풀기 박자 걷기</span><span class="fd">80s</span></div>
+      <div class="surf-wrap"><div class="surf floor"><div class="plane"></div><div class="glow"></div>
+        <div class="tokens">
+          <div class="ftext fs" style="left:20%;top:18%">STRETCH 4/4</div>
+          <div class="t-foot l" style="left:42%;top:52%"><i>L</i></div>
+          <div class="t-foot r" style="left:58%;top:52%"><i>R</i></div>
+          <div class="t-ring" style="left:42%;top:52%"></div>
+          <div class="ftext fl" style="left:50%;top:22%">제자리 걷기 — 내 박자로</div>
+        </div><div class="deadline"></div><div class="feet"><i></i><i></i></div>
+      </div></div>
+      <div class="fguide">좌우 원 교대 점멸 = 션의 몸풀기 박자. 여기서 처음 리듬이 몸에 닿는다.</div>
+      <div class="fsig">
+        <div class="sig voice"><span class="ic">VOICE</span><span><span class="who">션</span> <q>이제 내 걸음 박자로 제자리 걷기. 하나, 둘, 하나, 둘.</q></span></div>
+        <div class="sig hap"><span class="ic">HAPT</span><span class="t">워밍업 박자 — 약하게 동기</span></div>
+        <div class="sig wear"><span class="ic">WEAR</span><span class="t">낮은 강도로 보조 시작</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- LEARN -->
+<div class="bridgebar"><span class="bb-tap"><i></i><i></i></span><span><b>전환</b> · <q>몸 다 풀렸어요. 탭 두 번이면 다음으로.</q> — 발 두 번 탭 → 사전 익히기</span><span class="bb-ref">템플릿 T-1 STAGE CLEAR</span></div>
+
+  <div class="stagehead"><span class="sh-idx">B · LEARN</span><span class="sh-name">사전 익히기 — 션의 박자를 몸에 넣기</span>
+    <span class="sh-ui guide">Step-type + Guide · 가이드 최다</span>
+    <span class="sh-goal">듣기 → 제자리 → 3스텝 → 구간 유지, 4단계 반복 루프</span><span class="sh-time chip time">~5분 · 4동작</span></div>
+  <div class="frames">
+    <div class="frame">
+      <div class="fhead"><span class="fn">R-B1</span><span class="ft">박자 듣기</span><span class="fd">40s</span></div>
+      <div class="surf-wrap"><div class="surf floor"><div class="plane"></div><div class="glow"></div>
+        <div class="tokens">
+          <div class="ftext fs" style="left:20%;top:18%">LEARN 1/4</div>
+          <div class="t-ring" style="left:50%;top:46%;width:40px;height:40px;border-style:solid;opacity:.7"></div>
+          <div class="t-ring" style="left:50%;top:46%;width:24px;height:24px;border-style:solid"></div>
+          <div class="ftext fl" style="left:50%;top:20%">듣기만 해요</div>
+        </div><div class="deadline"></div><div class="feet"><i></i><i></i></div>
+      </div></div>
+      <div class="fguide">발자국 없음 — 중앙 리듬 펄스만 박자에 맞춰 맥동. 먼저 귀로 배우는 프레임.</div>
+      <div class="fsig">
+        <div class="sig voice"><span class="ic">VOICE</span><span><span class="who">션</span> <q>마지막 1km에서 내가 쓰는 박자예요. 먼저 듣기만. 하나, 둘, 하나, 둘.</q></span></div>
+        <div class="sig hap"><span class="ic">HAPT</span><span class="t">박자 동기 진동 (약)</span></div>
+      </div>
+    </div>
+    <div class="frame">
+      <div class="fhead"><span class="fn">R-B2</span><span class="ft">제자리 스텝 맞추기</span><span class="fd">60s</span></div>
+      <div class="surf-wrap"><div class="surf floor"><div class="plane"></div><div class="glow"></div>
+        <div class="tokens">
+          <div class="ftext fs" style="left:20%;top:18%">LEARN 2/4</div>
+          <div class="t-foot big l" style="left:42%;top:50%"><i>L</i></div>
+          <div class="t-foot big r" style="left:58%;top:50%"><i>R</i></div>
+          <div class="t-ring" style="left:42%;top:50%;width:40px;height:40px"></div>
+          <div class="ftext fm" style="left:50%;top:24%">링이 닫힐 때 밟기</div>
+          <div class="t-glow" style="left:58%;top:50%;opacity:.7"></div>
+        </div><div class="deadline"></div><div class="feet"><i></i><i></i></div>
+      </div></div>
+      <div class="fguide">수축 링 = 타이밍. 맞으면 Hit Glow가 발 위에서 짧게 터진다(~200ms).</div>
+      <div class="fsig">
+        <div class="sig voice"><span class="ic">VOICE</span><span><span class="who">션</span> <q>링이 닫힐 때 밟아요. 지금 — 좋아요, 그 박자예요.</q></span></div>
+        <div class="sig rw"><span class="ic">CUE</span><span class="t">Hit Glow + Timing Pulse — 성공 순간만</span></div>
+      </div>
+    </div>
+    <div class="frame">
+      <div class="fhead"><span class="fn">R-B3</span><span class="ft">3스텝 이어 밟기</span><span class="fd">90s</span></div>
+      <div class="surf-wrap"><div class="surf floor"><div class="plane"></div><div class="glow"></div>
+        <div class="tokens">
+          <div class="ftext fs" style="left:20%;top:18%">LEARN 3/4</div>
+          <div class="t-lane"></div>
+          <div class="t-foot" style="left:38%;top:66%"></div><div class="t-order" style="left:32%;top:60%">1</div>
+          <div class="t-foot" style="left:60%;top:50%"></div><div class="t-order" style="left:66%;top:44%">2</div>
+          <div class="t-foot" style="left:42%;top:32%"></div><div class="t-order" style="left:36%;top:26%">3</div>
+          <div class="t-ring" style="left:38%;top:66%"></div>
+        </div><div class="deadline"></div><div class="feet"><i></i><i></i></div>
+      </div></div>
+      <div class="fguide">전진하며 순서대로. 순서 숫자는 진행 방향 기준 회전. 틀리면 그 스텝만 반복 루프.</div>
+      <div class="fsig">
+        <div class="sig voice"><span class="ic">VOICE</span><span><span class="who">션</span> <q>이제 앞으로 세 걸음, 숫자 순서대로.</q> · <span class="who">시스템</span> <q>조금 빨라요.</q></span></div>
+        <div class="sig rw"><span class="ic">CUE</span><span class="t">Step Combo ×2 ×3 — 연속 성공 카운트</span></div>
+      </div>
+    </div>
+    <div class="frame">
+      <div class="fhead"><span class="fn">R-B4</span><span class="ft">구간 리듬 유지</span><span class="fd">110s</span></div>
+      <div class="surf-wrap"><div class="surf floor"><div class="plane"></div><div class="glow"></div>
+        <div class="tokens">
+          <div class="ftext fs" style="left:20%;top:18%">LEARN 4/4</div>
+          <div class="t-lane"></div>
+          <div class="t-foot" style="left:52%;top:62%"></div>
+          <div class="t-step" style="left:50%;top:40%"></div>
+          <div class="t-step" style="left:46%;top:26%;opacity:.6"></div>
+        </div><div class="deadline"></div><div class="feet"><i></i><i></i></div>
+      </div></div>
+      <div class="fguide">Step→Prediction 전환 브릿지 — 발밑은 마지막 발 모양, 전방은 존 원이 뜨기 시작. 텍스트·숫자가 걷힌다. 30m 왕복 2회.</div>
+      <div class="fsig">
+        <div class="sig voice"><span class="ic">VOICE</span><span><span class="who">션</span> <q>이제 문장은 그만할게요. 박자만 지켜요.</q></span></div>
+        <div class="sig foot"><span class="ic">FOOT</span><span class="t">완료 화면 두 번 탭 → 실전</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- REAL -->
+<div class="bridgebar"><span class="bb-tap"><i></i><i></i></span><span><b>전환</b> · 밟아서 선택: <b>한 번 더</b> ← | → <b>실전 시작</b> · <q>한 번 더 갈까요, 넘어갈까요?</q>(션)</span><span class="bb-ref">템플릿 T-2 선택</span></div>
+
+  <div class="stagehead"><span class="sh-idx">C · REAL RUN</span><span class="sh-name">실전 러닝 — 션과 함께 달리기</span>
+    <span class="sh-ui pred">Prediction-type · 문장 금지</span>
+    <span class="sh-goal">페이스 유지 → 흔들림 보정 → 마지막 1km BOOST</span><span class="sh-time chip time">~12분 · 수행 중 발 제스처 잠금</span></div>
+  <div class="frames">
+    <div class="frame real">
+      <div class="fhead"><span class="fn">R-C1</span><span class="ft">출발</span><span class="fd">30s</span></div>
+      <div class="surf-wrap"><div class="surf floor"><div class="plane"></div><div class="glow"></div>
+        <div class="tokens">
+          <div class="ftext fs" style="left:20%;top:18%">RUN 00:00</div>
+          <div class="ftext num" style="left:50%;top:44%">3</div>
+          <div class="t-step fade-extra" style="left:48%;top:26%;opacity:.5"></div>
+        </div><div class="deadline"></div><div class="feet"><i></i><i></i></div>
+      </div></div>
+      <div class="fguide">F-XL 카운트다운 + 첫 선행 발자국이 전방에서 페이드인.</div>
+      <div class="fsig">
+        <div class="sig voice"><span class="ic">VOICE</span><span><span class="who">시스템</span> <q>3, 2, 1.</q></span></div>
+        <div class="sig hap"><span class="ic">HAPT</span><span class="t">시작 타이밍 진동</span></div>
+        <div class="sig foot"><span class="ic">FOOT</span><span class="t">두 번 탭 → 출발 · 이후 잠금</span></div>
+      </div>
+    </div>
+    <div class="frame real">
+      <div class="fhead"><span class="fn">R-C2</span><span class="ft">페이스 유지</span><span class="fd">본 구간</span></div>
+      <div class="surf-wrap"><div class="surf floor"><div class="plane"></div><div class="glow"></div>
+        <div class="tokens">
+          <div class="ftext fs" style="left:20%;top:18%">RUN 04:12 · SAFE</div>
+          <div class="t-lane"></div>
+          <div class="t-step" style="left:50%;top:38%"></div>
+          <div class="t-step fade-extra" style="left:46%;top:26%;opacity:.6"></div>
+          <div class="t-step fade-extra" style="left:52%;top:16%;opacity:.35"></div>
+        </div><div class="deadline"></div><div class="feet"><i></i><i></i></div>
+      </div></div>
+      <div class="fguide">발밑은 빈다. 전방 1.4m+ 선행 발자국 2~3개(투명도 1.0/0.6/0.35) + 중앙 pathLane. <b>앞사람을 따라가는 감각</b>.</div>
+      <div class="fsig">
+        <div class="sig voice"><span class="ic">VOICE</span><span><span class="who">션</span> <q>박자만.</q> <span class="t">(간헐, 1~2분에 한 번)</span></span></div>
+        <div class="sig wear"><span class="ic">WEAR</span><span class="t">SAFE — 착지 안정화</span></div>
+      </div>
+    </div>
+    <div class="frame real">
+      <div class="fhead"><span class="fn">R-C3</span><span class="ft">리듬 흔들림 보정</span><span class="fd">발생 시</span></div>
+      <div class="surf-wrap"><div class="surf floor"><div class="plane"></div><div class="glow"></div>
+        <div class="tokens">
+          <div class="ftext fs" style="left:20%;top:18%">RUN 08:40</div>
+          <div class="t-lane"></div>
+          <div class="t-step" style="left:50%;top:36%"></div>
+          <div class="ftext fl htext" style="left:66%;top:52%;color:var(--accent)">박자</div>
+          <div class="t-ring" style="left:50%;top:36%;width:38px;height:38px;border-color:var(--accent);border-style:solid;opacity:.8"></div>
+        </div><div class="deadline"></div><div class="feet"><i></i><i></i></div>
+      </div></div>
+      <div class="fguide">판정 Medium — 발자국 간격 재조정 + F-CUE 한 단어 "박자"(1.2s) + 펄스 강조. 점수 깎기 없음.</div>
+      <div class="fsig">
+        <div class="sig voice"><span class="ic">VOICE</span><span><span class="who">션</span> <q>박자.</q> <span class="t">(한 단어)</span></span></div>
+        <div class="sig hap"><span class="ic">HAPT</span><span class="t">착지 보조 — 짧게 2박</span></div>
+      </div>
+    </div>
+    <div class="frame real">
+      <div class="fhead"><span class="fn">R-C4</span><span class="ft">마지막 1km — BOOST</span><span class="fd">~5분</span></div>
+      <div class="surf-wrap"><div class="surf floor"><div class="plane"></div><div class="glow"></div>
+        <div class="tokens">
+          <div class="ftext fs" style="left:22%;top:18%;color:var(--okt)">LAST 1KM · BOOST</div>
+          <div class="t-lane boost"></div>
+          <div class="t-step" style="left:50%;top:36%;border-color:var(--okt)"></div>
+          <div class="t-step fade-extra" style="left:47%;top:24%;opacity:.6;border-color:var(--okt)"></div>
+        </div><div class="deadline"></div><div class="feet"><i></i><i></i></div>
+      </div></div>
+      <div class="fguide">Pack의 시그니처 구간. pathLane 색 전환 = 구간 진입을 말없이 알림. 웨어러블이 다리를 살짝 민다.</div>
+      <div class="fsig">
+        <div class="sig voice"><span class="ic">VOICE</span><span><span class="who">션</span> <q>여기서부터 마지막 1km. 나한테 붙어요.</q></span></div>
+        <div class="sig wear"><span class="ic">WEAR</span><span class="t">BOOST — 추진·첫 발 보조 / 리듬 저하 감지 시 강도↑</span></div>
+        <div class="sig rw"><span class="ic">CUE</span><span class="t">구간 종료 시 Match Rate 1회 표시</span></div>
+      </div>
+    </div>
+    <div class="frame real">
+      <div class="fhead"><span class="fn">R-C5</span><span class="ft">종료 감속</span><span class="fd">30s</span></div>
+      <div class="surf-wrap"><div class="surf floor"><div class="plane"></div><div class="glow"></div>
+        <div class="tokens">
+          <div class="ftext fs" style="left:20%;top:18%">COOL DOWN</div>
+          <div class="t-stripe" style="left:50%;top:34%"></div>
+          <div class="t-stripe" style="left:50%;top:46%;width:36px"></div>
+          <div class="t-start" style="left:50%;top:66%">STOP</div>
+        </div><div class="deadline"></div><div class="feet"><i></i><i></i></div>
+      </div></div>
+      <div class="fguide">감속 스트라이프 간격이 점점 좁아지며 걸음을 늦춘다 → 정지 원.</div>
+      <div class="fsig">
+        <div class="sig voice"><span class="ic">VOICE</span><span><span class="who">시스템</span> <q>여기까지. 잘 달렸어요.</q></span></div>
+        <div class="sig hap"><span class="ic">HAPT</span><span class="t">완료 진동</span></div>
+      </div>
+    </div>
+    <div class="frame">
+      <div class="fhead"><span class="fn">R-F</span><span class="ft">리포트</span><span class="fd">60s</span></div>
+      <div class="surf-wrap"><div class="surf floor" style="perspective:none"><div class="plane" style="transform:none;background:var(--panel2);background-image:none;border-color:var(--line)"></div>
+        <div class="tokens" style="transform:none;font-size:10px;color:#8f8f8d">
+          <div style="position:absolute;inset:10px;line-height:1.75">
+            <b style="color:var(--text)">오늘의 러닝</b><br>
+            Pack 일치도 <b>78%</b> · 숙련 근접도 <b>64% (+6%)</b><br>
+            후반 리듬 800m부터 흔들림<br>
+            <span style="color:var(--dim)">다음: 사전 익히기 +1세트 · BOOST 타이밍 보정</span>
+          </div>
+        </div></div></div>
+      <div class="fguide">지면 투사 종료 → 앱으로. 성공 장면 요약과 다음 세션 보정값.</div>
+      <div class="fsig">
+        <div class="sig voice"><span class="ic">VOICE</span><span><span class="who">시스템</span> <q>리포트를 앱으로 보냈어요.</q></span></div>
+        <div class="sig rw"><span class="ic">CUE</span><span class="t">Ghost Review — 션의 박자와 내 착지 겹쳐 보기</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ BOXING ═══════════════ -->
+<section id="boxing">
+  <div class="kicker">02 · Boxing · 벽면 · 집 안</div>
+  <h2 class="title">복싱 — 보는 자세에서, 반응하는 대련으로</h2>
+  <div class="packhead">
+    <div class="row1">
+      <span class="pname">복싱 고수의 입문 회피 스텝 Pack</span>
+      <span class="porigin"><b>Skilled User Pack</b> · 기초+루틴형 · 벽면 투사 · 집 안</span>
+      <span style="margin-left:auto;display:flex;gap:6px"><span class="chip quiet">QUIET</span><span class="chip safe">SAFE</span><span class="chip time">총 ~15분</span></span>
+    </div>
+    <div class="skills">
+      <span class="skillchip">배우는 스킬 ① <b>가드가 안 내려가는 몸</b></span>
+      <span class="skillchip">② <b>회피 → 복귀 → 잽 3박자 리듬</b></span>
+      <span class="skillchip">③ <b>상대 공격 범위 읽기</b></span>
+    </div>
+    <div class="voicenote">🎙 <b>음성 원천 있음</b> — 숙련자 본인의 루틴 해설 음성 보존. 벽면 종목이라 바닥 투사는 없고, 발 위치 기준선도 벽면 하단에 표시.</div>
+    <div class="durbar">
+      <div class="seg s-ready">READY 1'</div><div class="seg s-str">스트레칭 3'</div>
+      <div class="seg s-learn">사전 익히기 4'</div><div class="seg s-real">실전 대련 6'</div><div class="seg s-fin">리포트 1'</div>
+    </div>
+  </div>
+
+  <div class="stagehead"><span class="sh-idx">0 · READY</span><span class="sh-name">준비</span>
+    <span class="sh-goal">가드 위치·거리 맞추기</span><span class="sh-time chip time">~1분</span></div>
+  <div class="frames">
+    <div class="frame">
+      <div class="fhead"><span class="fn">B-0</span><span class="ft">위치·가드 정렬</span><span class="fd">60s</span></div>
+      <div class="surf-wrap"><div class="surf wall"><div class="plane"></div><div class="glow"></div>
+        <div class="tokens">
+          <div class="wband-top"><span>READY · QUIET</span><span>고수의 회피 스텝</span></div>
+          <div class="t-ghost" style="left:50%;top:48%"></div>
+          <div class="t-guard" style="left:50%;top:40%"></div>
+          <div class="wband-bot">실루엣에 몸을 맞추고 · 발 두 번 탭 → 시작</div>
+        </div>
+      </div></div>
+      <div class="fguide">반투명 가드 실루엣 + 가드 존 박스. 카메라가 사용자 실루엣 겹침을 인식하면 시작 가능.</div>
+      <div class="fsig">
+        <div class="sig voice"><span class="ic">VOICE</span><span><span class="who">시스템</span> <q>실루엣에 몸을 맞춰보세요. 집 안이니 QUIET로 조용하게 갑니다.</q></span></div>
+        <div class="sig foot"><span class="ic">FOOT</span><span class="t">두 번 탭 → 시작</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="stagehead"><span class="sh-idx">A · STRETCH</span><span class="sh-name">복싱 전용 스트레칭</span>
+    <span class="sh-ui slow">Ghost + Text · 문장 허용</span>
+    <span class="sh-goal">어깨·상체 회전·고관절 — 펀치와 회피의 관절을 연다</span><span class="sh-time chip time">~3분 · 4동작</span></div>
+  <div class="frames">
+    <div class="frame">
+      <div class="fhead"><span class="fn">B-A1</span><span class="ft">어깨·목 돌리기</span><span class="fd">50s</span></div>
+      <div class="surf-wrap"><div class="surf wall"><div class="plane"></div><div class="glow"></div>
+        <div class="tokens">
+          <div class="wband-top"><span>STRETCH 1/4</span><span></span></div>
+          <div class="t-ghost" style="left:50%;top:46%"></div>
+          <div class="t-arc" style="left:50%;top:28%;border-color:var(--ghost)"></div>
+          <div class="wband-bot">어깨 크게 4회 — 고스트를 따라</div>
+        </div>
+      </div></div>
+      <div class="fguide">고스트가 먼저 돌리고 사용자가 따라 한다. 회전 아크가 방향 표시.</div>
+      <div class="fsig">
+        <div class="sig voice"><span class="ic">VOICE</span><span><span class="who">고수</span> <q>어깨부터 크게 네 번. 목도 같이.</q></span></div>
+        <div class="sig wear"><span class="ic">WEAR</span><span class="t">개입 없음 — 균형 모니터링</span></div>
+      </div>
+    </div>
+    <div class="frame">
+      <div class="fhead"><span class="fn">B-A2</span><span class="ft">가드 자세 만들기</span><span class="fd">50s</span></div>
+      <div class="surf-wrap"><div class="surf wall"><div class="plane"></div><div class="glow"></div>
+        <div class="tokens">
+          <div class="wband-top"><span>STRETCH 2/4</span><span></span></div>
+          <div class="t-ghost" style="left:50%;top:46%"></div>
+          <div class="t-guard" style="left:50%;top:36%"></div>
+          <div class="wtext wm" style="left:79%;top:36%">팔꿈치는 몸에</div>
+          <div class="wband-bot">가드 10초 유지 — 이게 기본</div>
+        </div>
+      </div></div>
+      <div class="fguide">가드 존 박스(⑤ 유지형+holdRing) — 두 주먹이 존에 들어오면 프리즘 점등. 이 자세가 세션 내내 판정 기준.</div>
+      <div class="fsig">
+        <div class="sig voice"><span class="ic">VOICE</span><span><span class="who">고수</span> <q>가드 올리고, 팔꿈치는 몸에 붙여요. 이게 오늘의 기본이에요.</q></span></div>
+        <div class="sig rw"><span class="ic">CUE</span><span class="t">가드 존 진입 시 초록 점등 (Hit Glow)</span></div>
+      </div>
+    </div>
+    <div class="frame">
+      <div class="fhead"><span class="fn">B-A3</span><span class="ft">상체 회전 · 고관절</span><span class="fd">40s</span></div>
+      <div class="surf-wrap"><div class="surf wall"><div class="plane"></div><div class="glow"></div>
+        <div class="tokens">
+          <div class="wband-top"><span>STRETCH 3/4</span><span></span></div>
+          <div class="t-ghost" style="left:44%;top:47%"></div>
+          <div class="t-arrow dim" style="left:22%;top:44%">←</div>
+          <div class="t-arrow dim" style="left:70%;top:44%">→</div>
+          <div class="wband-bot">상체만 좌우로 — 하체는 그대로</div>
+        </div>
+      </div></div>
+      <div class="fguide">고스트 상체가 좌우 회전. 하체 고정은 웨어러블이 흔들림으로 감지해 피드백.</div>
+      <div class="fsig">
+        <div class="sig voice"><span class="ic">VOICE</span><span><span class="who">고수</span> <q>상체만 좌우로. 하체는 그대로 — 회피가 여기서 나와요.</q></span></div>
+      </div>
+    </div>
+    <div class="frame">
+      <div class="fhead"><span class="fn">B-A4</span><span class="ft">스탠스 · 제자리 스텝</span><span class="fd">40s</span></div>
+      <div class="surf-wrap"><div class="surf wall"><div class="plane"></div><div class="glow"></div>
+        <div class="tokens">
+          <div class="wband-top"><span>STRETCH 4/4</span><span></span></div>
+          <div class="t-ghost" style="left:50%;top:44%"></div>
+          <div class="t-ring" style="left:38%;top:84%;width:20px;height:20px"></div>
+          <div class="t-ring" style="left:62%;top:84%;width:20px;height:20px"></div>
+          <div class="wband-bot">왼발 앞 · 가볍게 통통</div>
+        </div>
+      </div></div>
+      <div class="fguide">벽면 하단에 발 위치 기준 링 — 바닥 투사 없이도 스탠스를 잡는다. QUIET가 착지 소음을 잡는다.</div>
+      <div class="fsig">
+        <div class="sig voice"><span class="ic">VOICE</span><span><span class="who">고수</span> <q>왼발 앞, 가볍게 통통. 이 리듬이 계속 갈 거예요.</q></span></div>
+        <div class="sig hap"><span class="ic">HAPT</span><span class="t">워밍업 박자 (약)</span></div>
+        <div class="sig wear"><span class="ic">WEAR</span><span class="t">QUIET — 착지 감속·소음 완화</span></div>
+      </div>
+    </div>
+  </div>
+
+<div class="bridgebar"><span class="bb-tap"><i></i><i></i></span><span><b>전환</b> · <q>가드 좋아요. 이제 콤보 배워요.</q>(고수) — 발 두 번 탭 → 콤보 익히기</span><span class="bb-ref">템플릿 T-1 STAGE CLEAR</span></div>
+
+  <div class="stagehead"><span class="sh-idx">B · LEARN</span><span class="sh-name">사전 익히기 — 회피·복귀·잽 분해</span>
+    <span class="sh-ui guide">Ghost + Target + Order · 리듬게임 튜토리얼처럼</span>
+    <span class="sh-goal">동작 하나씩 → 3박자 연결. 코칭 큐는 한 단서만</span><span class="sh-time chip time">~4분 · 4동작</span></div>
+  <div class="frames">
+    <div class="frame">
+      <div class="fhead"><span class="fn">B-B1</span><span class="ft">① 회피 하나</span><span class="fd">60s</span></div>
+      <div class="surf-wrap"><div class="surf wall"><div class="plane"></div><div class="glow"></div>
+        <div class="tokens">
+          <div class="wband-top"><span>LEARN 1/4</span><span></span></div>
+          <div class="t-atk" style="left:66%;top:38%;width:44px;height:44px"></div>
+          <div class="t-ghost faint" style="left:50%;top:48%"></div>
+          <div class="t-order" style="left:28%;top:40%">1</div>
+          <div class="t-arrow" style="left:34%;top:52%;color:var(--accent)">←</div>
+          <div class="wband-bot">'하나'에 왼쪽으로 — 머리만 스윽</div>
+        </div>
+      </div></div>
+      <div class="fguide">공격 범위(붉은 원)가 느리게 다가옴 → 왼쪽 회피 존으로. 고스트가 먼저 시연.</div>
+      <div class="fsig">
+        <div class="sig voice"><span class="ic">VOICE</span><span><span class="who">고수</span> <q>내가 '하나' 하면 왼쪽으로 피해요. — 하나!</q></span></div>
+        <div class="sig rw"><span class="ic">CUE</span><span class="t">회피 성공 시 공격 원이 빗나가며 흩어짐</span></div>
+      </div>
+    </div>
+    <div class="frame">
+      <div class="fhead"><span class="fn">B-B2</span><span class="ft">② 복귀</span><span class="fd">40s</span></div>
+      <div class="surf-wrap"><div class="surf wall"><div class="plane"></div><div class="glow"></div>
+        <div class="tokens">
+          <div class="wband-top"><span>LEARN 2/4</span><span></span></div>
+          <div class="t-guard" style="left:50%;top:38%"></div>
+          <div class="t-order" style="left:50%;top:22%">2</div>
+          <div class="t-ghost faint" style="left:50%;top:48%"></div>
+          <div class="wband-bot">피했으면 바로 가운데로 — 가드 그대로</div>
+        </div>
+      </div></div>
+      <div class="fguide">중앙 가드 존이 다시 점등. 복귀가 늦으면 존이 노랗게 — 회피 후 복귀가 이 Pack의 핵심 습관.</div>
+      <div class="fsig">
+        <div class="sig voice"><span class="ic">VOICE</span><span><span class="who">고수</span> <q>피했으면 바로 가운데로. 가드는 그대로.</q></span></div>
+      </div>
+    </div>
+    <div class="frame">
+      <div class="fhead"><span class="fn">B-B3</span><span class="ft">③ 잽 타이밍</span><span class="fd">60s</span></div>
+      <div class="surf-wrap"><div class="surf wall"><div class="plane"></div><div class="glow"></div>
+        <div class="tokens">
+          <div class="wband-top"><span>LEARN 3/4</span><span></span></div>
+          <div class="t-target" style="left:64%;top:40%"></div>
+          <div class="t-order" style="left:64%;top:22%">3</div>
+          <div class="wtext wm htext" style="left:36%;top:40%">링이 작아질 때</div>
+          <div class="wband-bot">지금! — 에 맞춰 잽</div>
+        </div>
+      </div></div>
+      <div class="fguide">타겟 수축 링 = 잽 타이밍(IMU 피크와 동기). 명중 시 히트 이펙트.</div>
+      <div class="fsig">
+        <div class="sig voice"><span class="ic">VOICE</span><span><span class="who">고수</span> <q>링이 제일 작아질 때 잽. — 지금!</q></span></div>
+        <div class="sig rw"><span class="ic">CUE</span><span class="t">Hit Glow + 타겟 폭발 이펙트</span></div>
+      </div>
+    </div>
+    <div class="frame">
+      <div class="fhead"><span class="fn">B-B4</span><span class="ft">3박자 콤보 연결</span><span class="fd">80s</span></div>
+      <div class="surf-wrap"><div class="surf wall"><div class="plane"></div><div class="glow"></div>
+        <div class="tokens">
+          <div class="wband-top"><span>LEARN 4/4</span><span>COMBO</span></div>
+          <div class="t-order" style="left:26%;top:36%">1</div>
+          <div class="t-guard" style="left:48%;top:38%;width:26px;height:18px"></div>
+          <div class="t-order" style="left:48%;top:22%">2</div>
+          <div class="t-target" style="left:70%;top:40%;width:28px;height:28px"></div>
+          <div class="t-order" style="left:70%;top:22%">3</div>
+          <div class="t-combo" style="left:86%;top:70%">×3</div>
+          <div class="wband-bot">피하고 — 돌아오고 — 잽</div>
+        </div>
+      </div></div>
+      <div class="fguide">①②③ 동시 표시, 고스트가 반 박자 먼저 시연. 3회 연속 성공 시 실전 개방.</div>
+      <div class="fsig">
+        <div class="sig voice"><span class="ic">VOICE</span><span><span class="who">고수</span> <q>이제 이어서. 피하고 — 돌아오고 — 잽.</q></span></div>
+        <div class="sig rw"><span class="ic">CUE</span><span class="t">Step Combo 카운트 — 학습 동기</span></div>
+        <div class="sig foot"><span class="ic">FOOT</span><span class="t">완료 화면 두 번 탭 → 실전</span></div>
+      </div>
+    </div>
+  </div>
+
+<div class="bridgebar"><span class="bb-tap"><i></i><i></i></span><span><b>전환</b> · 게이트: 3박자 콤보 3연속 성공 → <q>이제 진짜 상대예요.</q> — 발 두 번 탭 → 스파링</span><span class="bb-ref">템플릿 T-1 + 게이트</span></div>
+
+  <div class="stagehead"><span class="sh-idx">C · SPARRING</span><span class="sh-name">실전 가상 대련</span>
+    <span class="sh-ui pred">Reaction-type · 하단 밴드 자동 축소</span>
+    <span class="sh-goal">상대 공격 범위 읽고 → 회피 → 빈 타이밍에 반격</span><span class="sh-time chip time">~6분 · 2R × 2분</span></div>
+  <div class="frames">
+    <div class="frame real">
+      <div class="fhead"><span class="fn">B-C1</span><span class="ft">상대 등장</span><span class="fd">20s</span></div>
+      <div class="surf-wrap"><div class="surf wall"><div class="plane"></div><div class="glow"></div>
+        <div class="tokens">
+          <div class="wband-top"><span>SPAR R1 · QUIET</span><span>02:00</span></div>
+          <div class="t-ghost" style="left:52%;top:44%;opacity:.85;width:44px;height:78px"></div>
+        </div>
+      </div></div>
+      <div class="fguide">가상 상대 실루엣 페이드인. 텍스트 밴드 축소 — 상태 밴드만 남는다.</div>
+      <div class="fsig">
+        <div class="sig voice"><span class="ic">VOICE</span><span><span class="who">시스템</span> <q>상대 들어옵니다.</q></span></div>
+        <div class="sig wear"><span class="ic">WEAR</span><span class="t">QUIET+SAFE — 소음 완화 · 균형 감시</span></div>
+      </div>
+    </div>
+    <div class="frame real">
+      <div class="fhead"><span class="fn">B-C2</span><span class="ft">회피 반응</span><span class="fd">반복</span></div>
+      <div class="surf-wrap"><div class="surf wall"><div class="plane"></div><div class="glow"></div>
+        <div class="tokens">
+          <div class="wband-top"><span>SPAR R1</span><span>01:34</span></div>
+          <div class="t-ghost" style="left:54%;top:44%;opacity:.7;width:44px;height:78px"></div>
+          <div class="t-atk" style="left:40%;top:36%;width:52px;height:52px"></div>
+          <div class="t-arrow fade-extra" style="left:22%;top:52%;color:var(--accent)">←</div>
+        </div>
+      </div></div>
+      <div class="fguide">공격 범위가 실제 속도로. 회피 방향 화살표는 <b>난이도에 따라</b> — 원본 근접에선 사라진다.</div>
+      <div class="fsig">
+        <div class="sig voice"><span class="ic">VOICE</span><span><span class="who">고수</span> <q>온다!</q> <span class="t">(W-CUE 동시 표시)</span></span></div>
+      </div>
+    </div>
+    <div class="frame real">
+      <div class="fhead"><span class="fn">B-C3</span><span class="ft">반격 잽</span><span class="fd">반복</span></div>
+      <div class="surf-wrap"><div class="surf wall"><div class="plane"></div><div class="glow"></div>
+        <div class="tokens">
+          <div class="wband-top"><span>SPAR R1</span><span>01:12</span></div>
+          <div class="t-ghost faint" style="left:44%;top:46%;width:44px;height:78px"></div>
+          <div class="t-target" style="left:68%;top:38%"></div>
+          <div class="t-glow" style="left:68%;top:38%;opacity:.8"></div>
+          <div class="wtext wm htext" style="left:68%;top:60%;color:var(--okt)">지금!</div>
+        </div>
+      </div></div>
+      <div class="fguide">회피 직후 빈 타이밍에만 타겟이 뜬다 — 카운터 감각. 명중 = Hit Glow + 짧은 효과음.</div>
+      <div class="fsig">
+        <div class="sig voice"><span class="ic">VOICE</span><span><span class="who">고수</span> <q>네 차례!</q></span></div>
+        <div class="sig hap"><span class="ic">HAPT</span><span class="t">수행 타이밍 보조 — 잽 피크에 1박</span></div>
+      </div>
+    </div>
+    <div class="frame real">
+      <div class="fhead"><span class="fn">B-C4</span><span class="ft">콤보 러시 → 라운드 종료</span><span class="fd">막판 20s</span></div>
+      <div class="surf-wrap"><div class="surf wall"><div class="plane"></div><div class="glow"></div>
+        <div class="tokens">
+          <div class="wband-top"><span>SPAR R1</span><span>00:18</span></div>
+          <div class="t-target" style="left:38%;top:36%;width:26px;height:26px"></div>
+          <div class="t-target" style="left:62%;top:44%;width:26px;height:26px"></div>
+          <div class="t-combo" style="left:84%;top:28%">×7</div>
+          <div class="wband-bot htext">일치도 82% · R2 준비</div>
+        </div>
+      </div></div>
+      <div class="fguide">연속 타겟 + W-XL 콤보 카운트. 라운드 사이에만 Match Rate 표시.</div>
+      <div class="fsig">
+        <div class="sig voice"><span class="ic">VOICE</span><span><span class="who">고수</span> <q>좋아, 몰아쳐요!</q> · <span class="who">시스템</span> <q>라운드 종료.</q></span></div>
+        <div class="sig rw"><span class="ic">CUE</span><span class="t">Step Combo + 라운드 Match Rate</span></div>
+        <div class="sig foot"><span class="ic">FOOT</span><span class="t">라운드 사이 두 번 탭 → R2</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ BASKETBALL ═══════════════ -->
+<section id="basketball">
+  <div class="kicker">03 · Basketball · 지면 · 야외 코트</div>
+  <h2 class="title">농구 — 잡는 중심에서, 터지는 전환으로</h2>
+  <div class="packhead">
+    <div class="row1">
+      <span class="pname">수비 붕괴 스텝백 — 커리의 거리 벌리기 리듬 Pack</span>
+      <span class="porigin"><b>Pro Pack</b> · 하이라이트형 · 지면 투사 · 야외 코트</span>
+      <span style="margin-left:auto;display:flex;gap:6px"><span class="chip safe">SAFE</span><span class="chip load">LOAD</span><span class="chip time">총 ~18분</span></span>
+    </div>
+    <div class="skills">
+      <span class="skillchip">배우는 스킬 ① <b>첫 발로 수비를 미는 폭발</b></span>
+      <span class="skillchip">② <b>플랜트 풋 제동 — 무릎이 버티는 순간</b></span>
+      <span class="skillchip">③ <b>백스텝 거리 + 복귀 균형</b></span>
+    </div>
+    <div class="voicenote">🎙 <b>음성 원천 없음</b> — SportVU 트래킹에는 음성이 없어 <b>AI 보이스 큐</b>가 코칭. 원본 감각(Core)은 잠금, 조절값만 난이도로.</div>
+    <div class="voicenote">📺 <b>학습 채널 스택 — 지면 단서만으로 배우지 않는다</b>: ① <b>실영상(Watch-type)</b> — 운동 전 하이라이트·프리뷰 + B 도입·Miss 누적 시, 정지하면 지면이 스크린이 되어 클립 재생 → ② B단계 궤적 리플레이 → 분해 → 반복 → ③ 리듬의 본체는 <b>이어폰 비트 + AI 큐(귀)</b> → ④ 실전 지면 단서는 배운 동작의 <b>타이밍 동기화만</b> 담당. <b>진입 게이트</b>: B5 4박자 연결 3회 연속 성공 시에만 실전 개방 · 실전에서 2세트 연속 Miss 시 B5로 자동 복귀(다운시프트).</div>
+    <div class="durbar">
+      <div class="seg s-ready">READY 1'</div><div class="seg s-str">스트레칭 3'</div>
+      <div class="seg s-learn">사전 익히기 5'</div><div class="seg s-real">실전 스텝백 8'</div><div class="seg s-fin">리포트 1'</div>
+    </div>
+  </div>
+
+  <div class="stagehead"><span class="sh-idx">0 · READY</span><span class="sh-name">준비</span>
+    <span class="sh-goal">스탠스 기준선 확인</span><span class="sh-time chip time">~1분</span></div>
+  <div class="frames">
+    <div class="frame">
+      <div class="fhead"><span class="fn">K-0</span><span class="ft">스탠스 정렬</span><span class="fd">60s</span></div>
+      <div class="surf-wrap"><div class="surf floor"><div class="plane"></div><div class="glow"></div>
+        <div class="tokens">
+          <div class="ftext fs" style="left:50%;top:16%">CURRY · STEPBACK</div>
+          <div class="t-start" style="left:50%;top:42%">READY</div>
+          <div class="t-stance" style="left:36%;top:62%"></div>
+          <div class="t-stance" style="left:64%;top:62%"></div>
+          <div class="ftext fm" style="left:50%;top:80%">발 두 번 탭 → 시작</div>
+        </div><div class="deadline"></div><div class="feet"><i></i><i></i></div>
+      </div></div>
+      <div class="fguide">좌우 스탠스 원 — 방향 전환 종목이라 시작부터 스탠스가 기준.</div>
+      <div class="fsig">
+        <div class="sig voice"><span class="ic">VOICE</span><span><span class="who">AI</span> <q>커리의 수비 거리 삭제 스텝. 두 원 위에 서 주세요.</q></span></div>
+        <div class="sig foot"><span class="ic">FOOT</span><span class="t">두 번 탭 → 시작</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="stagehead"><span class="sh-idx">A · STRETCH</span><span class="sh-name">농구 전용 스트레칭</span>
+    <span class="sh-ui slow">Slow Step-type</span>
+    <span class="sh-goal">무릎·발목·좌우 무게 이동 — 급제동을 견딜 준비</span><span class="sh-time chip time">~3분 · 4동작</span></div>
+  <div class="frames">
+    <div class="frame">
+      <div class="fhead"><span class="fn">K-A1</span><span class="ft">발목·무릎 풀기</span><span class="fd">50s</span></div>
+      <div class="surf-wrap"><div class="surf floor"><div class="plane"></div><div class="glow"></div>
+        <div class="tokens">
+          <div class="ftext fs" style="left:20%;top:16%">STRETCH 1/4</div>
+          <div class="t-step big hold" style="left:50%;top:50%"></div>
+          <div class="t-arc" style="left:50%;top:50%;border-color:var(--ok)"></div>
+          <div class="ftext fl" style="left:50%;top:22%">무릎 살짝 · 발목 돌리기</div>
+          <div class="ftext fm" style="left:50%;top:72%">무릎 잠그지 않기</div>
+        </div><div class="deadline"></div><div class="feet"><i></i><i></i></div>
+      </div></div>
+      <div class="fguide">플랜트 제동을 받는 관절부터. F-M 보조 텍스트로 금지 자세를 명시.</div>
+      <div class="fsig">
+        <div class="sig voice"><span class="ic">VOICE</span><span><span class="who">AI</span> <q>무릎 살짝 굽히고 발목 돌려요. 무릎은 끝까지 잠그지 말고.</q></span></div>
+      </div>
+    </div>
+    <div class="frame">
+      <div class="fhead"><span class="fn">K-A2</span><span class="ft">좌우 무게 이동</span><span class="fd">50s</span></div>
+      <div class="surf-wrap"><div class="surf floor"><div class="plane"></div><div class="glow"></div>
+        <div class="tokens">
+          <div class="ftext fs" style="left:20%;top:16%">STRETCH 2/4</div>
+          <div class="t-stance big" style="left:34%;top:52%"></div>
+          <div class="t-stance big" style="left:66%;top:52%"></div>
+          <div class="t-arrow dim" style="left:50%;top:52%">↔</div>
+          <div class="ftext fl" style="left:50%;top:24%">무게만 옮겨요 — 발은 그대로</div>
+        </div><div class="deadline"></div><div class="feet"><i></i><i></i></div>
+      </div></div>
+      <div class="fguide">이동 중인 쪽 원이 밝아진다 — 무게 중심을 지면이 비춰준다.</div>
+      <div class="fsig">
+        <div class="sig voice"><span class="ic">VOICE</span><span><span class="who">AI</span> <q>오른쪽 — 왼쪽 — 무게만. 발은 바닥에.</q></span></div>
+        <div class="sig hap"><span class="ic">HAPT</span><span class="t">이동 박자 (약)</span></div>
+      </div>
+    </div>
+    <div class="frame">
+      <div class="fhead"><span class="fn">K-A3</span><span class="ft">낮은 스탠스 유지</span><span class="fd">40s</span></div>
+      <div class="surf-wrap"><div class="surf floor"><div class="plane"></div><div class="glow"></div>
+        <div class="tokens">
+          <div class="ftext fs" style="left:20%;top:16%">STRETCH 3/4</div>
+          <div class="t-stance big" style="left:38%;top:52%"></div>
+          <div class="t-stance big" style="left:62%;top:52%"></div>
+          <div class="t-ring" style="left:50%;top:52%;width:50px;height:50px"></div>
+          <div class="ftext fl" style="left:50%;top:24%">그 높이 그대로 10초</div>
+        </div><div class="deadline"></div><div class="feet"><i></i><i></i></div>
+      </div></div>
+      <div class="fguide">유지 링 카운트. 중심이 뜨면(카메라+IMU) 링이 노랗게.</div>
+      <div class="fsig">
+        <div class="sig voice"><span class="ic">VOICE</span><span><span class="who">AI</span> <q>중심 낮추고, 그대로 열을 셉니다.</q></span></div>
+        <div class="sig wear"><span class="ic">WEAR</span><span class="t">SAFE — 무릎 각도 모니터링</span></div>
+      </div>
+    </div>
+    <div class="frame">
+      <div class="fhead"><span class="fn">K-A4</span><span class="ft">사이드 스텝 준비</span><span class="fd">40s</span></div>
+      <div class="surf-wrap"><div class="surf floor"><div class="plane"></div><div class="glow"></div>
+        <div class="tokens">
+          <div class="ftext fs" style="left:20%;top:16%">STRETCH 4/4</div>
+          <div class="t-stance" style="left:24%;top:54%"></div>
+          <div class="t-stance big" style="left:50%;top:54%"></div>
+          <div class="t-stance" style="left:76%;top:54%"></div>
+          <div class="t-arrow dim" style="left:37%;top:40%">←</div>
+          <div class="t-arrow dim" style="left:63%;top:40%">→</div>
+          <div class="ftext fl" style="left:50%;top:22%">옆으로 가볍게 2회씩</div>
+        </div><div class="deadline"></div><div class="feet"><i></i><i></i></div>
+      </div></div>
+      <div class="fguide">좌우 확장 원으로 왕복 — 스텝백의 横 이동 감각 예열.</div>
+      <div class="fsig">
+        <div class="sig voice"><span class="ic">VOICE</span><span><span class="who">AI</span> <q>옆으로 두 번씩, 가볍게.</q></span></div>
+        <div class="sig foot"><span class="ic">FOOT</span><span class="t">완료 화면 두 번 탭 → 익히기</span></div>
+      </div>
+    </div>
+  </div>
+
+<div class="bridgebar"><span class="bb-tap"><i></i><i></i></span><span><b>전환</b> · <q>하체 준비 끝.</q>(AI) — 발 두 번 탭 → 스텝 분해 (영상부터)</span><span class="bb-ref">템플릿 T-1 STAGE CLEAR</span></div>
+
+  <div class="stagehead"><span class="sh-idx">B · LEARN</span><span class="sh-name">사전 익히기 — 스텝백 4박자 분해</span>
+    <span class="sh-ui guide">완전 Step-type + Order · 조각 → 연결</span>
+    <span class="sh-goal">궤적 리플레이로 보고 → 하나씩 밟고 → 이어서</span><span class="sh-time chip time">~5분 30초 · 리플레이+5동작</span></div>
+  <div class="frames">
+    <div class="frame">
+      <div class="fhead"><span class="fn">K-B0</span><span class="ft">영상 → 궤적 리플레이</span><span class="fd">60s</span></div>
+      <div class="surf-wrap"><div class="surf floor"><div class="plane"></div><div class="glow"></div>
+        <div class="tokens">
+          <div class="ftext fs" style="left:20%;top:14%">WATCH · CURRY CLIP 04s</div>
+          <div class="vidpanel" style="left:50%;top:32%">REAL CLIP · 루프</div>
+          <div class="t-foot" style="left:40%;top:60%;opacity:.55"></div>
+          <div class="t-foot" style="left:58%;top:56%;opacity:.3"></div>
+          <div class="ftext fm" style="left:50%;top:78%">영상이 끝나면 같은 자리에 발자국으로</div>
+        </div><div class="deadline"></div><div class="feet"><i></i><i></i></div>
+      </div></div>
+      <div class="fguide"><b>Watch-type</b> — 정지 감지 → 발 앞 지면이 스크린: 커리 실영상 클립이 3회 루프 → 같은 좌표에서 ghost 궤적형(발자국 리플레이)으로 크로스페이드. 충실도 사다리: 영상 → 궤적 → 내 차례.</div>
+      <div class="fsig">
+        <div class="sig voice"><span class="ic">VOICE</span><span><span class="who">AI</span> <q>먼저 봐요. — 이제 바닥이 그 발자국이에요.</q></span></div>
+        <div class="sig rw"><span class="ic">CUE</span><span class="t">B단계 어디서든 Miss 3회 누적 시 "다시 보기" 제안</span></div>
+      </div>
+    </div>
+    <div class="frame">
+      <div class="fhead"><span class="fn">K-B1</span><span class="ft">① 첫 발</span><span class="fd">60s</span></div>
+      <div class="surf-wrap"><div class="surf floor"><div class="plane"></div><div class="glow"></div>
+        <div class="tokens">
+          <div class="ftext fs" style="left:20%;top:16%">LEARN 1/5</div>
+          <div class="t-foot big r" style="left:46%;top:38%"><i>R</i></div>
+          <div class="t-order" style="left:53%;top:30%">1</div>
+          <div class="ftext fm" style="left:50%;top:76%">수비를 미는 발</div>
+        </div><div class="deadline"></div><div class="feet"><i></i><i></i></div>
+      </div></div>
+      <div class="fguide">전방 원 하나만. 커리 스텝백의 시작 — 돌진하는 척하는 발.</div>
+      <div class="fsig">
+        <div class="sig voice"><span class="ic">VOICE</span><span><span class="who">AI</span> <q>1번, 첫 발. 세게 — 수비를 밀어내는 발이에요.</q></span></div>
+      </div>
+    </div>
+    <div class="frame">
+      <div class="fhead"><span class="fn">K-B2</span><span class="ft">② 백스텝</span><span class="fd">60s</span></div>
+      <div class="surf-wrap"><div class="surf floor"><div class="plane"></div><div class="glow"></div>
+        <div class="tokens">
+          <div class="ftext fs" style="left:20%;top:16%">LEARN 2/5</div>
+          <div class="t-foot" style="left:46%;top:34%;opacity:.5"></div>
+          <div class="t-foot big l" style="left:34%;top:66%"><i>L</i></div>
+          <div class="t-order" style="left:26%;top:58%">2</div>
+          <div class="t-arrow" style="left:42%;top:50%;transform:translate(-50%,-50%) rotate(140deg)">↑</div>
+          <div class="ftext fm" style="left:50%;top:76%">뒤로 길게</div>
+        </div><div class="deadline"></div><div class="feet"><i></i><i></i></div>
+      </div></div>
+      <div class="fguide">뒤·대각 원 — 거리 벌리기. 백스텝 거리가 판정 항목(백스텝 거리·각도).</div>
+      <div class="fsig">
+        <div class="sig voice"><span class="ic">VOICE</span><span><span class="who">AI</span> <q>2번. 뒤로 길게 빠져요. 짧으면 거리가 안 벌어져요.</q></span></div>
+      </div>
+    </div>
+    <div class="frame">
+      <div class="fhead"><span class="fn">K-B3</span><span class="ft">③ 플랜트 풋</span><span class="fd">70s</span></div>
+      <div class="surf-wrap"><div class="surf floor"><div class="plane"></div><div class="glow"></div>
+        <div class="tokens">
+          <div class="ftext fs" style="left:20%;top:16%">LEARN 3/5</div>
+          <div class="t-foot r" style="left:58%;top:52%"><i>R</i></div>
+          <div class="t-plant" style="left:58%;top:52%;width:34px;height:34px;background:none"></div>
+          <div class="t-order" style="left:66%;top:44%">3</div>
+          <div class="t-ring" style="left:58%;top:52%;width:46px;height:46px;border-color:var(--warn)"></div>
+          <div class="ftext fl" style="left:50%;top:20%">여기서 버텨요</div>
+        </div><div class="deadline"></div><div class="feet"><i></i><i></i></div>
+      </div></div>
+      <div class="fguide">주황 플랜트 링 — 이 Pack의 심장. 무릎이 제동을 받는 순간이라 SAFE가 가장 촘촘히 본다.</div>
+      <div class="fsig">
+        <div class="sig voice"><span class="ic">VOICE</span><span><span class="who">AI</span> <q>3번. 이 발로 멈춰요. 무릎이 버티는 순간이에요.</q></span></div>
+        <div class="sig wear"><span class="ic">WEAR</span><span class="t">SAFE — 착지 안정화 최우선 구간</span></div>
+      </div>
+    </div>
+    <div class="frame">
+      <div class="fhead"><span class="fn">K-B4</span><span class="ft">④ 복귀</span><span class="fd">40s</span></div>
+      <div class="surf-wrap"><div class="surf floor"><div class="plane"></div><div class="glow"></div>
+        <div class="tokens">
+          <div class="ftext fs" style="left:20%;top:16%">LEARN 4/5</div>
+          <div class="t-plant" style="left:58%;top:56%;opacity:.4"></div>
+          <div class="t-foot big l" style="left:46%;top:34%"><i>L</i></div>
+          <div class="t-order" style="left:38%;top:27%">4</div>
+          <div class="ftext fm" style="left:50%;top:76%">중심 다시</div>
+        </div><div class="deadline"></div><div class="feet"><i></i><i></i></div>
+      </div></div>
+      <div class="fguide">복귀 원 + 플랜트 잔상. 착지 후 균형 회복까지가 한 세트.</div>
+      <div class="fsig">
+        <div class="sig voice"><span class="ic">VOICE</span><span><span class="who">AI</span> <q>4번. 중심 다시 잡고. 여기까지가 한 번이에요.</q></span></div>
+      </div>
+    </div>
+    <div class="frame">
+      <div class="fhead"><span class="fn">K-B5</span><span class="ft">4박자 연결</span><span class="fd">90s</span></div>
+      <div class="surf-wrap"><div class="surf floor"><div class="plane"></div><div class="glow"></div>
+        <div class="tokens">
+          <div class="ftext fs" style="left:20%;top:16%">LEARN 5/5</div>
+          <div class="t-foot" style="left:46%;top:34%"></div><div class="t-order" style="left:52%;top:27%">1</div>
+          <div class="t-foot" style="left:33%;top:62%"></div><div class="t-order" style="left:26%;top:55%">2</div>
+          <div class="t-foot" style="left:58%;top:56%"></div><div class="t-plant" style="left:58%;top:56%;width:32px;height:32px;background:none"></div><div class="t-order" style="left:66%;top:48%">3</div>
+          <div class="t-foot" style="left:48%;top:24%;opacity:.8"></div><div class="t-order" style="left:41%;top:18%">4</div>
+          <div class="t-combo" style="left:82%;top:26%">×2</div>
+        </div><div class="deadline"></div><div class="feet"><i></i><i></i></div>
+      </div></div>
+      <div class="fguide">전체 시퀀스 + 타이밍 링 순차 수축. LOAD가 반복 구간에 약한 저항 — "모래주머니" 감각.</div>
+      <div class="fsig">
+        <div class="sig voice"><span class="ic">VOICE</span><span><span class="who">AI</span> <q>이어서. 하나 — 둘 — 셋 — 넷.</q></span></div>
+        <div class="sig wear"><span class="ic">WEAR</span><span class="t">LOAD — 빼고 돌아오는 구간 저항</span></div>
+        <div class="sig rw"><span class="ic">CUE</span><span class="t">Step Combo — 4박 성공마다 카운트</span></div>
+      </div>
+    </div>
+  </div>
+
+<div class="bridgebar"><span class="bb-tap"><i></i><i></i></span><span><b>전환</b> · 게이트: 4박자 연결 ×3 성공 → 밟아서 선택: <b>한 번 더 / 실전</b> · 미달 시 게이트 잠금 유지</span><span class="bb-ref">템플릿 T-2 + 게이트</span></div>
+
+  <div class="stagehead"><span class="sh-idx">C · REAL</span><span class="sh-name">실전 스텝백 — 흐름 속에서 터뜨리기</span>
+    <span class="sh-ui pred">Prediction-type · 전환 단서는 ±윈도만</span>
+    <span class="sh-goal">드리블 리듬 → 컷인 → 전환 신호에 스텝백 → 복귀·반복</span><span class="sh-time chip time">~8분 · 진입 게이트: B5 ×3 성공</span></div>
+  <div class="frames">
+    <div class="frame real">
+      <div class="fhead"><span class="fn">K-C1</span><span class="ft">드리블 리듬</span><span class="fd">인트로</span></div>
+      <div class="surf-wrap"><div class="surf floor"><div class="plane"></div><div class="glow"></div>
+        <div class="tokens">
+          <div class="ftext fs" style="left:22%;top:16%">STEPBACK · SAFE+LOAD</div>
+          <div class="t-lane" style="left:46%;transform:translateX(-50%) rotate(9deg)"></div>
+          <div class="t-ring" style="left:50%;top:56%;width:22px;height:22px;border-style:solid;opacity:.6"></div>
+        </div><div class="deadline"></div><div class="feet"><i></i><i></i></div>
+      </div></div>
+      <div class="fguide">리듬의 본체는 <b>이어폰 비트(커리 드리블 템포)</b> — 지면 펄스는 그 비트의 동기 표시일 뿐. 눈은 프리뷰 영상에서, 몸은 B단계에서 이미 배웠다.</div>
+      <div class="fsig">
+        <div class="sig voice"><span class="ic">VOICE</span><span><span class="who">AI</span> <q>리듬 타요.</q> <span class="t">+ 드리블 템포 비트 재생(주 채널)</span></span></div>
+        <div class="sig hap"><span class="ic">HAPT</span><span class="t">비트 동기 진동 (약)</span></div>
+      </div>
+    </div>
+    <div class="frame real">
+      <div class="fhead"><span class="fn">K-C2</span><span class="ft">컷인 진입</span><span class="fd">반복</span></div>
+      <div class="surf-wrap"><div class="surf floor"><div class="plane"></div><div class="glow"></div>
+        <div class="tokens">
+          <div class="ftext fs" style="left:20%;top:16%">SET 2/6</div>
+          <div class="t-lane" style="left:44%;height:74%;top:12%;transform:translateX(-50%) rotate(14deg)"></div>
+          <div class="t-stripe fade-extra" style="left:52%;top:42%"></div>
+        </div><div class="deadline"></div><div class="feet"><i></i><i></i></div>
+      </div></div>
+      <div class="fguide">경로 곡선 + 감속 스트라이프(보조 단서 — 난이도 따라 소멸). 전환이 다가온다는 예감만.</div>
+      <div class="fsig">
+        <div class="sig voice"><span class="ic">VOICE</span><span class="t">없음 — 단서만</span></div>
+      </div>
+    </div>
+    <div class="frame real">
+      <div class="fhead"><span class="fn">K-C3</span><span class="ft">스텝백 발동</span><span class="fd">±0.5s</span></div>
+      <div class="surf-wrap"><div class="surf floor"><div class="plane"></div><div class="glow"></div>
+        <div class="tokens">
+          <div class="ftext fs" style="left:20%;top:16%">SET 2/6</div>
+          <div class="t-plant" style="left:58%;top:50%"></div>
+          <div class="t-arrow fade-extra" style="left:68%;top:34%">↗</div>
+          <div class="ftext fl htext" style="left:34%;top:34%;color:var(--okt)">지금!</div>
+          <div class="t-glow" style="left:58%;top:50%;opacity:.8"></div>
+        </div><div class="deadline"></div><div class="feet"><i></i><i></i></div>
+      </div></div>
+      <div class="fguide">전환 이벤트 ±윈도에서만 플랜트 링+화살표 등장. 성공 착지 = Hit Glow.</div>
+      <div class="fsig">
+        <div class="sig voice"><span class="ic">VOICE</span><span><span class="who">AI</span> <q>지금!</q></span></div>
+        <div class="sig hap"><span class="ic">HAPT</span><span class="t">수행 타이밍 1박 — 플랜트 순간</span></div>
+        <div class="sig wear"><span class="ic">WEAR</span><span class="t">SAFE — 무릎·발목 흔들림 억제</span></div>
+      </div>
+    </div>
+    <div class="frame real">
+      <div class="fhead"><span class="fn">K-C4</span><span class="ft">복귀 · 세트 반복</span><span class="fd">세트당 ~40s</span></div>
+      <div class="surf-wrap"><div class="surf floor"><div class="plane"></div><div class="glow"></div>
+        <div class="tokens">
+          <div class="ftext fs" style="left:20%;top:16%">SET 3/6</div>
+          <div class="t-step" style="left:47%;top:30%;opacity:.8"></div>
+          <div class="t-plant" style="left:58%;top:54%;opacity:.35"></div>
+          <div class="ftext fm htext" style="left:50%;top:76%">거리 +1.2m</div>
+        </div><div class="deadline"></div><div class="feet"><i></i><i></i></div>
+      </div></div>
+      <div class="fguide">복귀 원 + 플랜트 잔상. 세트 사이에만 "벌린 거리"가 한 줄 — 성과가 곧 보상.</div>
+      <div class="fsig">
+        <div class="sig voice"><span class="ic">VOICE</span><span><span class="who">AI</span> <q>거리 벌어졌어요. 그게 스텝백이에요.</q></span></div>
+        <div class="sig wear"><span class="ic">WEAR</span><span class="t">LOAD — 반복 세트 저항 · 피로 시 강도↓</span></div>
+        <div class="sig rw"><span class="ic">CUE</span><span class="t">세트 종료 시 Match Rate · 최고 거리 갱신 표시</span></div>
+      </div>
+    </div>
+  </div>
+  <p class="diffnote">※ 실전(C) 프레임의 <b>화살표·스트라이프·한글 큐</b>는 난이도 토글에 반응 — 입문: 모두 표시·토큰 확대 / 기본: 절반 투명 / 원본 근접: 플랜트 링과 pathLane만 남는다.</p>
+</section>
+
+<!-- ═══════════════ REWARDS / MOTIVATION ═══════════════ -->
+<section id="rewards">
+  <div class="kicker">04 · Motivation Loop</div>
+  <h2 class="title">동기 · 보상 — 시작하게 만들고, 계속하게 만든다</h2>
+  <p class="lede">동기는 운동 <b>전(넛지)</b> — <b>중(Situation Cue)</b> — <b>후(리포트·성장 수치)</b> 세 겹이다.
+    운동 중 보상은 점수판이 아니라 <b>성공 순간의 짧은 신호</b>. 실패에 벌점 없음.</p>
+
+  <h3 class="sub">운동 전 — 스테이션 넛지 (실제 멘트)</h3>
+  <div class="grid2">
+    <div>
+      <div class="nudge"><b>저장 PACK 리마인드</b>"저장해둔 커리 스텝백, 오늘 3분만 해볼까요?"</div>
+      <div class="nudge"><b>최근 본 콘텐츠</b>"아까 본 그 러닝 리듬, 지금 바로 바닥에 띄워볼 수 있어요."</div>
+      <div class="nudge"><b>이어하기</b>"지난번 멈춘 구간부터 다시 이어갈까요?"</div>
+    </div>
+    <div>
+      <div class="nudge"><b>상황 기반</b>"오래 앉아 있었어요. 조용한 실내 Pack으로 몸을 풀어볼까요?"</div>
+      <div class="nudge"><b>친구 초대</b>"친구가 보낸 짧은 챌린지 Pack을 열어볼까요?"</div>
+      <div class="nudge"><b>입문 추천</b>"처음 해보기 좋은 워밍 스텝 러닝이 준비됐어요."</div>
+    </div>
+  </div>
+
+  <h3 class="sub">운동 중 — Situation Cue 6종</h3>
+  <div class="cues">
+    <div class="cue"><div class="cn"><span class="glowdot" style="background:var(--okt)"></span>Hit Glow</div><div class="cw">정확 명중 · ~200ms</div><div class="cd">토큰 위 짧은 발광. 러닝 착지·잽 명중·플랜트 성공.</div></div>
+    <div class="cue"><div class="cn"><span class="glowdot" style="background:var(--accent)"></span>Timing Pulse</div><div class="cw">박자 일치 · 1박</div><div class="cd">링이 리듬으로 한 번 맥동 — 맞았음을 리듬으로 알림.</div></div>
+    <div class="cue"><div class="cn"><span class="glowdot" style="background:var(--warn)"></span>Step Combo</div><div class="cw">연속 성공 · 누적</div><div class="cd">×2 ×3 ×4… B단계 중심, 실전에선 절제.</div></div>
+    <div class="cue"><div class="cn"><span class="glowdot" style="background:var(--accent)"></span>Match Rate</div><div class="cw">구간·세트 종료 시</div><div class="cd">Pack 일치도 % — 구간 전환에만 잠깐.</div></div>
+    <div class="cue"><div class="cn"><span class="glowdot" style="background:var(--ghost)"></span>Ghost Review</div><div class="cw">복기</div><div class="cd">숙련자 궤적과 내 궤적 겹쳐 보기 — 리포트 단계.</div></div>
+    <div class="cue"><div class="cn"><span class="glowdot" style="background:var(--target)"></span>Clear Reward</div><div class="cw">세션 클리어</div><div class="cd">짧은 연출 + 성공 장면 요약 한 줄.</div></div>
+  </div>
+
+  <h3 class="sub">운동 후 — 성장이 눈에 보이는 수치</h3>
+  <div class="board"><table>
+    <tr><th>지표</th><th>의미</th><th>예시</th></tr>
+    <tr><td><b>Pack 일치도</b></td><td>Pack답게 움직였나 (순서·방향·경로·핵심 리듬·시그니처)</td><td><b>78%</b></td></tr>
+    <tr><td><b>숙련 근접도</b></td><td>얼마나 능숙하게 (타이밍·리듬 안정·착지·반응·피로 후 유지)</td><td><b>64% · 전회 대비 +6%</b></td></tr>
+    <tr><td><b>종목 공통 성장</b></td><td>Pack이 달라도 함께 좋아지는 것 — 운동 자체가 늘고 있다는 증거</td><td><b>리듬 유지력 +8%</b> · 착지 균형 유지</td></tr>
+    <tr><td><b>감정 곡선 연결</b></td><td>호기심 → 첫 성공감("나도 움직였다") → 자신감("친구들이랑 해봐도?") → 확장(공유 필드)</td><td>다음 Pack·함께하기 제안으로 연결</td></tr>
+  </table></div>
+</section>
+
+<!-- ═══════════════ JUDGE / REPORT ═══════════════ -->
+<section id="judge">
+  <div class="kicker">05 · Judgment → Report → Next</div>
+  <h2 class="title">판정 · 리포트 — 평가가 아니라 다음 세션의 입력값</h2>
+  <p class="lede"><b>안전이 1순위.</b> Pack을 잘 따라 하는 것보다 무릎·발목·균형 붕괴를 먼저 잡는다.
+    리포트는 점수 통보가 아니라 다음 세션의 <b>사전 익히기 시간·난이도·웨어러블 개입값</b>을 만든다.</p>
+  <div class="grid2">
+    <div class="board"><table>
+      <tr><th>판정 레이어 (우선순위)</th><th>내용</th></tr>
+      <tr><td><span class="dot" style="background:var(--accent)"></span><b>1 안전 위험도</b></td><td>자세 붕괴 · 충돌 위험 · 리듬 붕괴 · 신체 이상(워치 연동)</td></tr>
+      <tr><td><span class="dot" style="background:#9b9b9b"></span><b>2 Pack 일치도</b></td><td>순서·방향·경로 구조·핵심 리듬·시그니처 구간</td></tr>
+      <tr><td><span class="dot" style="background:#9b9b9b"></span><b>3 숙련 근접도</b></td><td>타이밍 정확도·리듬 안정성·착지/균형·반응 품질·피로 후 유지력</td></tr>
+      <tr><td><span class="dot" style="background:#9b9b9b"></span><b>4 공통 성장</b></td><td>종목이 달라도 반복해 나타나는 변화</td></tr>
+    </table></div>
+    <div class="board"><table>
+      <tr><th>위험도</th><th>개입</th></tr>
+      <tr><td><b>Low</b></td><td>가벼운 힌트 — F-CUE 한 단어 · 짧은 리플</td></tr>
+      <tr><td><b>Medium</b></td><td>경고 시각화 + 타이밍 교정 + 웨어러블 미세 조절</td></tr>
+      <tr><td><b style="color:var(--accent)">High</b></td><td>UI 표시량 축소 · 강한 경고 진동 · 안전 모드 전환 · 세션 일시 중단, 착석/휴식 안내</td></tr>
+    </table></div>
+  </div>
+  <h3 class="sub">리포트 → 다음 세션 보정 루프</h3>
+  <div class="loop">
+    <div class="lrow"><div class="lnum">1</div><div><div class="lt">오늘 수행 로그</div><div class="ld">Pack 일치도 78% · 숙련 근접도 64%(+6%) · 안전/보조 기록 · 피로 후 유지력</div></div></div>
+    <div class="loopdown">↓</div>
+    <div class="lrow"><div class="lnum">2</div><div><div class="lt">어려웠던 구간 식별</div><div class="ld">러닝: 후반 800m 리듬 / 복싱: 회피 후 복귀 지연 / 농구: 플랜트 착지 흔들림</div></div></div>
+    <div class="loopdown">↓</div>
+    <div class="lrow"><div class="lnum">3</div><div><div class="lt">보정값 산출</div><div class="ld">사전 익히기 시간 확대 · 난이도 상/하향 제안 · BOOST/LOAD 강도와 착지 타이밍 자동 보정</div></div></div>
+    <div class="loopdown">↓</div>
+    <div class="lrow"><div class="lnum">4</div><div><div class="lt">다음 세션 추천</div><div class="ld">기초 결과가 좋으면 하이라이트/루틴 제안 · 약한 구간 한정 연습 제안 — 루프가 닫힌다</div></div></div>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  NEWTON · 세션 프로젝션 와이어프레임 v2 — 동작 단위 분해 · 타이포 시스템 · 보이스/햅틱 신호 · 소요 시간 포함 (3D 구현 전 설계 검토용)<br>
+  근거: 전체 시나리오 · 터치포인트 맵(집밖/집안) · 실행값 번역(02) · 운동 중 출력/판정/학습(03) · 스테이션&빔 IA(04) · 하체 웨어러블 IA(05) · 넛지 로직 · 토큰 문법 v1 ·
+  <a href="newton-session-wireframe-logic.txt">기준 문서 txt</a> · 2026-07-07
+</footer>
+
+<script>
+  const btns=document.querySelectorAll('.diff-toggle button');
+  btns.forEach(b=>b.addEventListener('click',()=>{
+    document.body.dataset.diff=b.dataset.diff;
+    btns.forEach(x=>x.classList.toggle('on',x===b));
+  }));
+  const vbtns=document.querySelectorAll('.view-toggle button');
+  vbtns.forEach(b=>b.addEventListener('click',()=>{
+    document.body.dataset.view=b.dataset.view;
+    vbtns.forEach(x=>x.classList.toggle('on',x===b));
+  }));
+</script>
+</body>
+</html>
