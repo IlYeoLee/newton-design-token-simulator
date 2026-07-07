@@ -278,7 +278,7 @@ export class TokenSystem {
           ev.marker.setNumber(tk.n);
         }
         if (tk.type === 'directionGuide') {
-          const arrow = makeArrow(COLORS.guide);
+          const arrow = makeArrow(COLORS.guide, packData.sport === 'basketball' ? 0.9 : 0.55);
           const p = this._mapFloor(tk);
           arrow.position.x = p.x; arrow.position.z = p.z;
           // angle: 0 = 전방(-Z). 시계 방향 회전.
@@ -294,6 +294,50 @@ export class TokenSystem {
         this._applyClip(ev.marker.group, this.wallClip);
       }
       if (ev.marker || ev.arrow) this.events.push(ev);
+    }
+
+    // ── 농구 컷인 문법: 실측 다음-마크 방향 화살표 + 진입 방향 감속 스트라이프 ──
+    if (packData.sport === 'basketball') {
+      const floorEvs = this.events
+        .filter(e => e.surface === 'floor' && e.marker)
+        .sort((a, b) => a.t - b.t);
+      for (let i = 0; i < floorEvs.length; i++) {
+        const cur = floorEvs[i], nxt = floorEvs[i + 1], prv = floorEvs[i - 1];
+        const cp = this._mapFloor(cur.srcToken);
+        // 화살표: 데이터상 다음 플랜트 마크의 실제 방향으로 (마크 위치 기준)
+        if (cur.arrow && nxt) {
+          const np = this._mapFloor(nxt.srcToken);
+          const dx = np.x - cp.x, dz = np.z - cp.z;
+          cur.arrow.obj.rotation.z = Math.atan2(-dx, -dz);
+          cur.arrow.obj.position.x = cp.x;
+          cur.arrow.obj.position.z = cp.z;
+        }
+        // 감속 스트라이프: 진입 방향에서 마크 앞 3줄 — "여기서 브레이크"
+        if (prv) {
+          const pp = this._mapFloor(prv.srcToken);
+          let dx = cp.x - pp.x, dz = cp.z - pp.z;
+          const L = Math.hypot(dx, dz) || 1; dx /= L; dz /= L;
+          const g = new THREE.Group();
+          const yaw = Math.atan2(-dx, -dz);
+          for (let s = 0; s < 3; s++) {
+            const bar = new THREE.Mesh(
+              new THREE.PlaneGeometry(0.5, 0.07),
+              flatMat(0xffd54a, 0.55 - s * 0.13)
+            );
+            bar.rotation.x = -Math.PI / 2;
+            bar.rotation.z = yaw;
+            bar.position.set(
+              cp.x - dx * (0.4 + s * 0.24), 0.011,
+              cp.z - dz * (0.4 + s * 0.24)
+            );
+            bar.renderOrder = 4;
+            g.add(bar);
+          }
+          cur.stripes = g;
+          this.floorRoot.add(g);
+          this._applyClip(g, this.floorClip);
+        }
+      }
     }
 
     // ── 상시 토큰 비주얼 ──
@@ -434,6 +478,8 @@ export class TokenSystem {
         // 동시 표시 개수 제한: preview 단계에만 적용
         if (phase === 'preview' && order >= maxVisible) phase = 'hidden';
         ev.marker.render(phase, progress, Math.min(order, FADE_STEPS.length - 1), size);
+        // 감속 스트라이프는 해당 플랜트 카운트다운 동안만
+        if (ev.stripes) ev.stripes.visible = phase === 'countdown' || phase === 'linger';
       }
 
       if (ev.arrow) {

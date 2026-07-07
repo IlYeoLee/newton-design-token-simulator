@@ -5,6 +5,7 @@ import xbotUrl from '../assets/xbot.fbx?url';
 import runUrl from '../assets/anim-standard-run.fbx?url';
 import hookUrl from '../assets/anim-hook.fbx?url';
 import dribbleUrl from '../assets/anim-basketball-dribble.fbx?url';
+import sidestepUrl from '../assets/anim-basketball-sidestep.fbx?url';
 
 // X Bot = 투사된 토큰 UI를 "따라하는 사람" 역할.
 // 모든 안무는 팩 시간(packTime)의 순수 함수 → 루프/시크/속도 변경에 안전.
@@ -27,11 +28,12 @@ export class XBot {
 
   async load() {
     const loader = new FBXLoader();
-    const [xbot, runFbx, hookFbx, dribbleFbx] = await Promise.all([
+    const [xbot, runFbx, hookFbx, dribbleFbx, sidestepFbx] = await Promise.all([
       loader.loadAsync(xbotUrl),
       loader.loadAsync(runUrl),
       loader.loadAsync(hookUrl),
       loader.loadAsync(dribbleUrl),
+      loader.loadAsync(sidestepUrl),
     ]);
 
     xbot.scale.setScalar(0.01);
@@ -61,6 +63,7 @@ export class XBot {
     reg('run', runFbx);
     reg('hook', hookFbx);
     reg('dribble', dribbleFbx);
+    reg('sidestep', sidestepFbx);
 
     this._hips = xbot.getObjectByName('mixamorigHips');
     this._kneeR = xbot.getObjectByName('mixamorigRightLeg');
@@ -97,8 +100,9 @@ export class XBot {
   /** 몸 전방 벡터 (월드, 수평) — 클립 본 회전과 무관한 팩 기준 방향 */
   getForward() {
     if (this.mode === 'basketball') {
+      // model.rotY(PI) 포함: 전방 = -sin/-cos(groupYaw)
       const yaw = this.group.rotation.y;
-      return new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw));
+      return new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw));
     }
     return new THREE.Vector3(0, 0, -1);  // 러닝/복싱: 전진·벽 방향
   }
@@ -144,9 +148,32 @@ export class XBot {
         .filter(e => e.surface === 'floor' && e.marker)
         .map(e => ({ t: e.t, x: e.srcToken.nx * 4.0, z: e.srcToken.ny * 4.0 }))
         .sort((a, b) => a.t - b.t);
-      this.schedule = { path: pts };
-      const a = this.actions.dribble;
-      a.action.play(); a.action.paused = true;
+      // 플랜트 이벤트: 경로 방향 전환각 > 35°인 마크 = 컷 순간 (사이드 런지 원샷)
+      const plants = [];
+      for (let i = 1; i < pts.length - 1; i++) {
+        const a = pts[i - 1], b = pts[i], c = pts[i + 1];
+        const v1 = Math.atan2(b.x - a.x, b.z - a.z);
+        const v2 = Math.atan2(c.x - b.x, c.z - b.z);
+        let dA = Math.abs(v2 - v1);
+        if (dA > Math.PI) dA = Math.PI * 2 - dA;
+        if (dA > THREE.MathUtils.degToRad(35)) plants.push(pts[i].t);
+      }
+      const ss = this.actions.sidestep;
+      const SS_EFF = 0.55;                       // 플랜트 원샷 유효 길이 (s)
+      const ssTs = ss ? ss.dur / SS_EFF : 1;
+      this.schedule = { path: pts, plants, ssTs, ssEff: SS_EFF, ssImpact: 0.45 };
+
+      // 발-지면 동기: 이동 거리로 런 위상을 굴림 (풋 스케이팅 제거)
+      this._bkPhase = 0;
+      this._bkPrev = null;
+      this._bkYaw = 0;    // model PI 기준: 초기 진행(-Z) = group yaw 0
+      this._bkRunW = 0;
+      this._bkPlantW = 0;
+      const run = this.actions.run, drb = this.actions.dribble;
+      run.action.play(); run.action.paused = true; run.action.setEffectiveWeight(0);
+      drb.action.play(); drb.action.paused = true; drb.action.setEffectiveWeight(1);
+      if (ss) { ss.action.play(); ss.action.paused = true; ss.action.setEffectiveWeight(0); }
+      this.model.rotation.y = Math.PI;
     }
   }
 
@@ -186,18 +213,61 @@ export class XBot {
 
     if (this.mode === 'basketball') {
       const { path } = this.schedule;
-      const a = this.actions.dribble;
-      a.action.time = (packTime * 1.0) % a.dur;
-      this.mixer.update(0);
+      const run = this.actions.run, drb = this.actions.dribble;
 
       if (path.length >= 2) {
         const p = this._samplePath(packTime);
+        // 이동량 → 런 위상 (발이 구른 만큼만 전진 = 스케이팅 제거)
+        let speed = 0;
+        if (this._bkPrev) {
+          const md = Math.hypot(p.x - this._bkPrev.x, p.z - this._bkPrev.z);
+          const STRIDE = 1.35;                     // 런 1사이클 이동 거리 (m)
+          this._bkPhase = (this._bkPhase + md / STRIDE) % 1;
+          speed = dt > 0.0001 ? md / dt : 0;
+        }
+        this._bkPrev = { x: p.x, z: p.z };
         this.group.position.set(p.x, 0, p.z);
+
+        // 플랜트 윈도: 사이드 런지 원샷 (임팩트 = 플랜트 이벤트 정렬)
+        const { plants, ssTs, ssEff, ssImpact } = this.schedule;
+        const ss = this.actions.sidestep;
+        let inPlant = false, plantAnimT = 0;
+        for (const tp of plants) {
+          const s = tp - ssImpact * ssEff;
+          if (packTime >= s && packTime < s + ssEff) {
+            inPlant = true;
+            plantAnimT = (packTime - s) * ssTs;
+            break;
+          }
+        }
+
+        // 3-way 크로스페이드: 플랜트 > 런(이동) > 드리블(정지)
+        const plantTarget = inPlant ? 1 : 0;
+        this._bkPlantW += (plantTarget - this._bkPlantW) * Math.min(1, dt * 10);
+        const speedW = Math.min(1, Math.max(0, (speed - 0.35) / 0.8));
+        this._bkRunW += (speedW - this._bkRunW) * Math.min(1, dt * 8);
+        const pw = this._bkPlantW;
+        const rw = this._bkRunW * (1 - pw);
+        run.action.setEffectiveWeight(rw);
+        drb.action.setEffectiveWeight(Math.max(0, 1 - pw - rw));
+        if (ss) {
+          ss.action.setEffectiveWeight(pw);
+          if (inPlant) ss.action.time = Math.min(plantAnimT, ss.dur - 0.001);
+        }
+        run.action.time = this._bkPhase * run.dur;
+        drb.action.time = packTime % drb.dur;
+
+        // 회전 스무딩 (급회전 스냅 방지) — model.rotY(PI) 포함 보정
         if (p.dirX !== 0 || p.dirZ !== 0) {
-          // 모델 원시 전방 = +Z → 진행 방향으로 회전
-          this.group.rotation.y = Math.atan2(p.dirX, p.dirZ);
+          const target = Math.atan2(p.dirX, p.dirZ) + Math.PI;
+          let diff = target - this._bkYaw;
+          while (diff > Math.PI) diff -= Math.PI * 2;
+          while (diff < -Math.PI) diff += Math.PI * 2;
+          this._bkYaw += diff * Math.min(1, dt * 9);
+          this.group.rotation.y = this._bkYaw;
         }
       }
+      this.mixer.update(0);
       this._lockInPlace();
     }
 
