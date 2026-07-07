@@ -163,7 +163,7 @@ const STAGES = [
   { id: 'STR2',     label: 'A · STRETCH 2/2 — 제자리 박자 걷기',     dur: 8, voice: ['션','이제 내 걸음 박자로 제자리 걷기. 하나, 둘, 하나, 둘.'] },
   { id: 'BRIDGE1',  label: 'T-1 · STAGE CLEAR → 사전 익히기',        dur: 5, voice: ['시스템','몸 다 풀렸어요. 탭 두 번이면 다음으로.'] },
   { id: 'LEARN',    label: 'B · LEARN — 3스텝 이어 밟기 (발형+숫자)', dur: 14, voice: ['션','링이 닫힐 때 밟아요. 지금 — 좋아요, 그 박자예요.'] },
-  { id: 'BRIDGE2',  label: 'T-2 · 한 번 더 / 실전 — 밟아서 선택',     dur: 5, voice: ['션','한 번 더 갈까요, 넘어갈까요?'] },
+  { id: 'BRIDGE2',  label: 'T-2 · 5초 안에 두 번 탭 → 실전 / 무입력 → 한 번 더', dur: 5, voice: ['션','5초 셀게요. 그 안에 두 번 탭하면 실전, 그냥 두면 한 번 더 해요.'] },
   { id: 'REAL',     label: 'C · REAL RUN — 실전 (존형·문장 금지)',    dur: Infinity, voice: ['션','박자만.'] },
 ];
 
@@ -241,8 +241,27 @@ export class Session {
     this.root.add(this.strFrontL.group, this.strBackR.group, this.walkL.group, this.walkR.group,
       this.chLabelA, this.chLabelN);
 
+    // T-2 카운트다운 (NEWTON RED 큰 숫자) + 수축 링
+    this.countGroup = new THREE.Group();
+    this.countGroup.position.set(0, 0, -1.85);
+    this.countRing = new THREE.Mesh(new THREE.RingGeometry(0.30, 0.335, 48), flatMat(BRAND.red, 0.0));
+    this.countRing.rotation.x = -Math.PI / 2; this.countRing.position.set(0, 0.012, -1.85);
+    this.root.add(this.countGroup, this.countRing);
+    this._lastCount = null;
+
     this._texts = [];
     this._clip(this.root);
+  }
+
+  _setCount(n) {
+    while (this.countGroup.children.length) {
+      const c = this.countGroup.children.pop();
+      c.geometry?.dispose(); c.material?.map?.dispose(); c.material?.dispose();
+    }
+    if (n == null) { this.countRing.material.opacity = 0; return; }
+    const m = makeTextMesh(String(n), { size: 0.34, color: '#fa3030', weight: 800 });
+    this._clip(m);
+    this.countGroup.add(m);
   }
 
   _setSlot(slot, text, opts) {
@@ -271,6 +290,12 @@ export class Session {
   }
   tapAdvance() {
     if (!this.active) return;
+    if (this.stage === 'BRIDGE2') {
+      // 카운트다운 창 안에서 두 번 탭 → 실전으로
+      const ri = STAGES.findIndex(s2 => s2.id === 'REAL');
+      this.stageIdx = ri; this.t = 0; this._enterStage();
+      return;
+    }
     if (this.stage !== 'REAL') this._next();
   }
   next() { if (this.active && this.stageIdx < STAGES.length - 1) { this.stageIdx++; this.t = 0; this._enterStage(); } }
@@ -288,6 +313,7 @@ export class Session {
     const id = this.stage;
     this.onStage?.(STAGES[this.stageIdx]);
     // 전부 숨김
+    this._setCount(null);
     for (const o of [this.readyRing, this.tap, this.strFrontL.group, this.strBackR.group,
       this.walkL.group, this.walkR.group, this.chAgain, this.chNext, this.chNextEdge,
       this.chLabelA, this.chLabelN, ...this.learn.map(l => l.group)]) o.visible = false;
@@ -324,11 +350,13 @@ export class Session {
       this._setSlot(this.slotFL, '링이 닫힐 때 밟기', { size: 0.10 });
       this._setSlot(this.slotFM, '숫자 순서대로', { size: 0.07, color: '#c9c9c9' });
     } else if (id === 'BRIDGE2') {
-      this.chAgain.visible = this.chNext.visible = this.chNextEdge.visible = true;
-      this.chLabelA.visible = this.chLabelN.visible = true;
-      this._setSlot(this.slotFS, 'T-2', { size: 0.055, color: '#9b9b9b' });
-      this._setSlot(this.slotFL, '밟아서 선택', { size: 0.10 });
-      this._setSlot(this.slotFM, '왼쪽 = 한 번 더 · 오른쪽 = 실전', { size: 0.065, color: '#c9c9c9' });
+      this._lastCount = null;
+      this._setCount(5);
+      this._setSlot(this.slotFS, 'T-2 · CHOICE', { size: 0.055, color: '#9b9b9b' });
+      this._setSlot(this.slotFL, '', {});
+      this._setSlot(this.slotFM, '두 번 탭 → 실전 · 그냥 두면 한 번 더', { size: 0.07, color: '#c9c9c9' });
+    } else {
+      this._setCount(null);
     }
   }
 
@@ -370,8 +398,19 @@ export class Session {
         else l.setCountdown(-1);
       });
     } else if (id === 'BRIDGE2') {
-      const k = 0.75 + 0.25 * Math.sin(this.t * 3);
-      this.chNextEdge.material.opacity = k;
+      const remain = Math.max(0, st.dur - this.t);
+      const n = Math.max(1, Math.ceil(remain));
+      if (n !== this._lastCount) { this._setCount(n); this._lastCount = n; }
+      // 초당 수축 링 (타이밍 창 시각화)
+      const frac = remain - Math.floor(remain);
+      this.countRing.material.opacity = 0.3 + 0.5 * frac;
+      this.countRing.scale.setScalar(0.8 + 0.6 * frac);
+      // 무입력 → 한 번 더 (LEARN으로 루프)
+      if (this.t >= st.dur) {
+        const li = STAGES.findIndex(s2 => s2.id === 'LEARN');
+        this.stageIdx = li; this.t = 0; this._enterStage();
+      }
+      return;
     }
 
     if (this.auto && this.t >= st.dur) this._next();

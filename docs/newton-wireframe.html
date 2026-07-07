@@ -644,7 +644,7 @@
     <tr><td>발 모양 마크 (러닝·농구 A/B)</td><td><b>① 발형</b></td></tr>
     <tr><td>존 원 (실전 선행 발자국)</td><td><b>① 존형</b></td></tr>
     <tr><td>시작 원 READY · 스탠스 원</td><td><b>① 기준형</b> (중립·판정 없음)</td></tr>
-    <tr><td>한 번 더/다음 밟는 선택지 (T-2)</td><td><b>① 선택형</b></td></tr>
+    <tr><td>카운트다운 숫자 5·4·3·2·1 (T-2)</td><td><b>② orderPulse</b> (카운트다운 표현) + 발 두 번 탭 제스처</td></tr>
     <tr><td>플랜트 풋 링 (농구)</td><td><b>①</b> + 코랄 강조 링(모디파이어)</td></tr>
     <tr><td>순서 숫자 1·2·3·4 / 콤보 ×N / TAP ×2 카운트</td><td><b>②</b> — 부모 토큰 종속</td></tr>
     <tr><td>전환 화살표 ↗ (농구 실전)</td><td><b>③ 전환형</b> (±윈도만)</td></tr>
@@ -671,7 +671,7 @@
   <div class="kicker">00-C · Transition Frames</div>
   <h2 class="title">공통 전환 프레임 — 단계 사이의 다리</h2>
   <p class="lede">"다음으로 / 한 번 더 / 일시정지 / 안전 정지 / 세트 사이"는 종목과 무관한 <b>공통 템플릿 5종</b>.
-    공통 규격: ① 상태 워드(F-L/W-L) ② 요약 한 줄(성과 또는 다음 예고) ③ <b>발 두 번 탭 프롬프트는 항상 같은 토큰·같은 위치</b> ④ 무입력 30초 시 음성 재안내 ⑤ 발 제스처는 전환 프레임에서만 활성(수행 중 잠금).</p>
+    공통 규격: ① 상태 워드(F-L/W-L) ② 요약 한 줄(성과 또는 다음 예고) ③ <b>발 두 번 탭 프롬프트는 항상 같은 토큰·같은 위치</b> ④ <b>선택도 공간이 아니라 제스처</b>(지면=카메라 없음 → IMU 발 제스처) ⑤ 무입력 시 안전 디폴트(반복) ⑤ 발 제스처는 전환 프레임에서만 활성(수행 중 잠금).</p>
   <div class="frames" style="grid-template-columns:repeat(5,1fr)">
     <div class="frame">
       <div class="fhead"><span class="fn">T-1</span><span class="ft">STAGE CLEAR</span><span class="fd">지면</span></div>
@@ -689,18 +689,19 @@
       </div>
     </div>
     <div class="frame">
-      <div class="fhead"><span class="fn">T-2</span><span class="ft">한 번 더 / 다음</span><span class="fd">지면</span></div>
+      <div class="fhead"><span class="fn">T-2</span><span class="ft">카운트다운 선택</span><span class="fd">지면</span></div>
       <div class="surf-wrap"><div class="surf floor"><div class="plane"></div><div class="glow"></div>
         <div class="tokens">
-          <div class="ftext fm" style="left:50%;top:24%">어느 쪽이든 밟아서 선택</div>
-          <div class="t-choice again" style="left:30%;top:54%">한 번 더</div>
-          <div class="t-choice next" style="left:70%;top:54%">다음</div>
+          <div class="ftext fs" style="left:20%;top:16%">T-2 · CHOICE</div>
+          <div class="ftext num" style="left:50%;top:44%;color:var(--accent)">3</div>
+          <div class="t-ring" style="left:50%;top:44%;width:52px;height:52px;border-color:var(--accent);border-style:solid;opacity:.7"></div>
+          <div class="ftext fm" style="left:50%;top:76%">두 번 탭 → 실전 · 그냥 두면 한 번 더</div>
         </div><div class="feet"><i></i><i></i></div>
       </div></div>
-      <div class="fguide">선택지가 곧 Step-type 토큰 — <b>밟아서 고른다</b>. 반복 루프(B단계)의 표준 출구.</div>
+      <div class="fguide"><b>5초 카운트다운(5·4·3·2·1)</b> + 수축 링으로 입력 창을 명시. 창 안에 <b>발 두 번 탭 → 실전</b>, 무입력 → 한 번 더(B로 루프). 공간 선택이 아니라 <b>제스처 선택</b> — 지면엔 카메라가 없어 IMU 제스처가 유일하게 신뢰 가능.</div>
       <div class="fsig">
-        <div class="sig voice"><span class="ic">VOICE</span><span><span class="who">션</span> <q>한 번 더 갈까요, 넘어갈까요?</q></span></div>
-        <div class="sig foot"><span class="ic">FOOT</span><span class="t">왼발 존 = 반복 / 오른발 존 = 다음</span></div>
+        <div class="sig voice"><span class="ic">VOICE</span><span><span class="who">션</span> <q>5초 셀게요. 그 안에 두 번 탭하면 실전, 그냥 두면 한 번 더.</q></span></div>
+        <div class="sig foot"><span class="ic">FOOT</span><span class="t">카운트다운 창 내 두 번 탭 = 실전 · 무입력 = 반복 (안전 디폴트)</span></div>
       </div>
     </div>
     <div class="frame">
@@ -954,7 +955,7 @@
   </div>
 
   <!-- REAL -->
-<div class="bridgebar"><span class="bb-tap"><i></i><i></i></span><span><b>전환</b> · 밟아서 선택: <b>한 번 더</b> ← | → <b>실전 시작</b> · <q>한 번 더 갈까요, 넘어갈까요?</q>(션)</span><span class="bb-ref">템플릿 T-2 선택</span></div>
+<div class="bridgebar"><span class="bb-tap"><i></i><i></i></span><span><b>전환</b> · 밟아서 선택: <b>한 번 더</b> ← | → <b>실전 시작</b> · <q>한 번 더 갈까요, 넘어갈까요?</q>(션)</span><span class="bb-ref">템플릿 T-2 카운트다운</span></div>
 
   <div class="stagehead"><span class="sh-idx">C · REAL RUN</span><span class="sh-name">실전 러닝 — 션과 함께 달리기</span>
     <span class="sh-ui pred">Prediction-type · 문장 금지</span>
@@ -1562,7 +1563,7 @@
     </div>
   </div>
 
-<div class="bridgebar"><span class="bb-tap"><i></i><i></i></span><span><b>전환</b> · 게이트: 4박자 연결 ×3 성공 → 밟아서 선택: <b>한 번 더 / 실전</b> · 미달 시 게이트 잠금 유지</span><span class="bb-ref">템플릿 T-2 + 게이트</span></div>
+<div class="bridgebar"><span class="bb-tap"><i></i><i></i></span><span><b>전환</b> · 게이트: 4박자 연결 ×3 성공 → 밟아서 선택: <b>한 번 더 / 실전</b> · 미달 시 게이트 잠금 유지</span><span class="bb-ref">T-2 카운트다운 + 게이트</span></div>
 
   <div class="stagehead"><span class="sh-idx">C · REAL</span><span class="sh-name">실전 스텝백 — 흐름 속에서 터뜨리기</span>
     <span class="sh-ui pred">Prediction-type · 전환 단서는 ±윈도만</span>
