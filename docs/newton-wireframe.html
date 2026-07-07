@@ -619,9 +619,9 @@
       <div class="tnm">어느 쪽 — 방향 채널</div>
       <div class="tds">표현형 3: 전환형(C·±윈도만·농구) · 회전 아크(A 스트레칭 — 관절 회전) · 왕복형(A — 무게 이동·스윙). 실전 상시 표시 금지는 전환형 규칙</div></div>
     <div class="tok"><div class="tid">④ pathLane</div>
-      <div class="tsvg"><svg width="26" height="62" viewBox="0 0 26 62"><rect x="9" y="4" width="8" height="12" rx="3" fill="#fa3030" opacity=".28"/><rect x="9" y="23" width="8" height="12" rx="3" fill="#fa3030" opacity=".6"/><rect x="9" y="42" width="8" height="14" rx="3" fill="#fa3030" opacity=".95"/></svg><svg width="26" height="62" viewBox="0 0 26 62"><rect x="9" y="6" width="8" height="7" rx="2.5" fill="#fe6e3c" opacity=".9"/><rect x="9" y="18" width="8" height="7" rx="2.5" fill="#fe6e3c" opacity=".9"/><rect x="9" y="30" width="8" height="7" rx="2.5" fill="#fe6e3c" opacity=".9"/><rect x="9" y="41" width="8" height="7" rx="2.5" fill="#fe6e3c" opacity=".9"/><rect x="9" y="51" width="8" height="7" rx="2.5" fill="#fe6e3c" opacity=".9"/></svg></div>
-      <div class="tnm">어느 길로 — 경로·속도</div>
-      <div class="tds">대시 <b>간격이 속도 언어</b> — 간격 좁아짐=감속(감속 스트라이프는 별도 토큰이 아님) · 러닝 직선·농구 컷인 곡선 · 클리핑</div></div>
+      <div class="tsvg"><svg width="26" height="62" viewBox="0 0 26 62"><rect x="9" y="4" width="8" height="12" rx="3" fill="#fa3030" opacity=".28"/><rect x="9" y="23" width="8" height="12" rx="3" fill="#fa3030" opacity=".6"/><rect x="9" y="42" width="8" height="14" rx="3" fill="#fa3030" opacity=".95"/></svg><svg width="26" height="62" viewBox="0 0 26 62"><rect x="9" y="6" width="8" height="7" rx="2.5" fill="#fe6e3c" opacity=".9"/><rect x="9" y="18" width="8" height="7" rx="2.5" fill="#fe6e3c" opacity=".9"/><rect x="9" y="30" width="8" height="7" rx="2.5" fill="#fe6e3c" opacity=".9"/><rect x="9" y="41" width="8" height="7" rx="2.5" fill="#fe6e3c" opacity=".9"/><rect x="9" y="51" width="8" height="7" rx="2.5" fill="#fe6e3c" opacity=".9"/></svg><svg width="56" height="56" viewBox="0 0 60 60"><defs><linearGradient id="swp" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#fa3030" stop-opacity="0.05"/><stop offset="1" stop-color="#fa3030" stop-opacity="0.55"/></linearGradient></defs><path d="M8 54 Q14 24 46 12 L54 26 Q28 34 22 58 Z" fill="url(#swp)"/><circle cx="49" cy="17" r="8" fill="none" stroke="#fa3030" stroke-width="2.5"/></svg></div>
+      <div class="tnm">어느 길로 — 레인(지면) / 스윕 밴드(벽면)</div>
+      <div class="tds">지면 = 대시 레인, <b>간격=속도</b>(감속 스트라이프 포함) · 벽면 = <b>그라디언트 스윕 밴드</b> — 부위가 지나갈 호(弧) 면적. 폭=부위 폭+허용창, 그라디언트=진행 방향(시작 투명→타겟 진함). B단계 풀 스윕 / C단계는 타겟 수축 직전 리드-인만(상시 금지)</div></div>
     <div class="tok"><div class="tid">⑥ ghost</div>
       <div class="tsvg"><svg width="30" height="56" viewBox="0 0 34 62"><circle cx="17" cy="9" r="7" fill="#b39ddb" opacity=".8"/><path d="M6 24 C6 18 28 18 28 24 L28 46 C28 53 23 57 17 57 C11 57 6 53 6 46 Z" fill="#b39ddb" opacity=".55"/></svg><svg width="30" height="50" viewBox="0 0 30 50"><rect x="9" y="2" width="11" height="18" rx="5" stroke="#b39ddb" fill="none" stroke-width="2" opacity=".9"/><rect x="4" y="26" width="11" height="18" rx="5" stroke="#b39ddb" fill="none" stroke-width="2" opacity=".45"/></svg><svg width="36" height="26" viewBox="0 0 36 26"><rect x="1.5" y="1.5" width="33" height="23" rx="3" fill="rgba(47,154,163,.06)" stroke="#2f9aa3" stroke-width="1.6"/><path d="M14 8 L24 13 L14 18 Z" fill="#2f9aa3"/></svg></div>
       <div class="tnm">어떻게 — 폼 채널 3충실도</div>
@@ -651,6 +651,8 @@
     <tr><td>벽면 타겟 원 (복싱)</td><td><b>MARK 도달</b> (벽면·카메라)</td></tr>
     <tr><td>상대 공격 범위 (복싱 실전)</td><td><b>MARK 회피</b> — 점선 반전</td></tr>
     <tr><td>가드 존 박스 (복싱 A/B)</td><td><b>MARK 유지</b> = 존 + holdRing (박스 아님)</td></tr>
+    <tr><td>동작 스윕 밴드 — 주먹이 지나갈 호 면적 (복싱 B)</td><td><b>④ 스윕 밴드</b> (벽면 표현형) — 그라디언트=진행 방향, C단계 상시 금지</td></tr>
+    <tr><td>고스트 잔상 스윕 (휘두른 자취)</td><td><b>⑥ 궤적형</b>의 벽면 대응 (지면 발자국 리플레이의 팔 버전)</td></tr>
     <tr><td>고스트 실루엣 (복싱)</td><td><b>⑥ 실루엣형</b></td></tr>
     <tr><td>궤적 리플레이 발자국 (농구 K-B0)</td><td><b>⑥ 궤적형</b></td></tr>
     <tr><td>실영상 클립 패널 (Watch-type)</td><td><b>⑥ 영상형</b></td></tr>
