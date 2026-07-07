@@ -494,19 +494,14 @@ async function boot() {
     reach.visible = coneOn && state.pack !== 'boxing';
     reach.position.set(body.x, 0.009, body.z);
 
-    // ── 세션 프리뷰: 봇 숨기고 눈높이 고정 카메라로 "사람 시선" 재현 ──
+    // ── 세션 중 봇 표시: 비실전 단계는 UI만 보이게 숨김 (1인칭 눈은 본에서 유지) ──
     const inSessionPreview = session.active && session.stage !== 'REAL';
     if (session.active) {
       xbot.model.visible = (session.stage === 'REAL') && !fpMode;
     }
-    if (inSessionPreview && !fpMode) {
-      const eyeH = 1.58;
-      camera.position.set(0, eyeH, 0.35);
-      const gp = gazePitch;
-      camera.lookAt(0, eyeH + Math.sin(gp) * 3, -3 * Math.cos(gp) + 0.35);
-      controls.update();  // no-op (enabled 유지), 아래 팔로우/1인칭 스킵
-    } else if (state.pack === 'running' && !fpMode) {
-      // 러닝 전진 카메라 팔로우 (3인칭)
+    // 카메라는 강제하지 않음 — 3인칭(궤도 자유회전) / 1인칭 모두 사용 가능.
+    // 러닝 전진 팔로우는 실제 재생(비세션 or 실전)일 때만.
+    if (!inSessionPreview && state.pack === 'running' && !fpMode) {
       const bz = xbot.group.position.z;
       const dz = bz - lastBodyZ;
       camera.position.z += dz;
@@ -588,8 +583,8 @@ async function boot() {
     trackVol.visible = trackEdge.visible = boxOn;   // 연하게 상시 표시
     optRing.visible = camMark.visible = boxOn;
 
-    // 1인칭·세션프리뷰에서는 OrbitControls가 카메라를 덮어쓰지 않도록 스킵
-    if (!fpMode && !inSessionPreview) controls.update();
+    // 1인칭에서만 OrbitControls 스킵 — 세션 3인칭에선 자유 회전 허용
+    if (!fpMode) controls.update();
     renderGhostLayer();
     renderer.render(scene, camera);
   }
