@@ -341,7 +341,15 @@ async function boot() {
     captionTimer = setTimeout(() => { captionEl.style.opacity = '0'; }, 4500);
   }
   const session = new Session(scene, tokens, xbot, rig, st => {
-    if (sessionStageEl) sessionStageEl.textContent = st.label;
+    if (sessionStageEl) {
+      const sig = [];
+      if (st.hap) sig.push(`<span style="color:var(--warn)">햅틱</span> ${st.hap}`);
+      if (st.wear) sig.push(`<span style="color:var(--ok)">웨어러블</span> ${st.wear}`);
+      if (st.cue) sig.push(`<span style="color:#fa3030">보상</span> ${st.cue}`);
+      if (st.foot) sig.push(`<span style="color:var(--accent)">발</span> ${st.foot}`);
+      sessionStageEl.innerHTML = `<b style="color:var(--text)">${st.label}</b>` +
+        (sig.length ? `<br><span style="font-size:11px">${sig.join(' · ')}</span>` : '');
+    }
     if (st.voice) showCaption(st.voice[0], st.voice[1]);
   });
   const sessionBtn = document.getElementById('btn-session');
