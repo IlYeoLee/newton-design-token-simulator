@@ -132,8 +132,6 @@
   body[data-view="persp"] .surf.floor .plane,
   body[data-view="persp"] .surf.floor .glow,
   body[data-view="persp"] .surf.floor .tokens{transform:rotateX(53deg) scale(1,1.18);transform-origin:center 82%}
-  .feet{position:absolute;bottom:2px;left:50%;transform:translateX(-50%);display:flex;gap:5px;opacity:.85}
-  .feet i{width:9px;height:15px;border-radius:4px 4px 5px 5px;background:#c2c2c0;display:block;border:1px solid #a8a8a6}
   .deadline{position:absolute;left:6%;right:6%;bottom:26%;border-top:1px dashed rgba(0,0,0,.25)}
   .deadline em{position:absolute;right:0;top:-14px;font-style:normal;font-size:8px;color:#8f8f8d;letter-spacing:.4px}
 
@@ -263,8 +261,6 @@
   .t-foot.big{width:18px;height:27px}
   .t-foot.l{transform:translate(-50%,-50%) rotate(-8deg)}
   .t-foot.r{transform:translate(-50%,-50%) rotate(8deg)}
-  .t-foot.hold{border-color:#c9882a}
-  .t-foot.hold::after{border-color:#c9882a}
   .t-foot i{position:absolute;bottom:-21px;left:50%;transform:translateX(-50%);font-size:6.5px;color:#8f8f8d;font-style:normal;font-weight:700}
   .t-foot.inline{position:static;transform:none}
   /* 발 두 번 탭 프롬프트 */
@@ -433,7 +429,7 @@
           <div class="ftext fs" style="left:50%;top:86%;color:var(--danger)">DEAD 존 0~1.4m — 출현 금지 (시선 밖)</div>
         </div>
         <div class="deadline"><em>시선 낙하선 1.4m</em></div>
-        <div class="feet"><i></i><i></i></div>
+        
       </div></div>
       <div class="fguide" style="padding-bottom:12px">발밑은 투사는 가능하나 <b>출현 용도로 무효</b> — 사람은 발을 보지 않는다. 텍스트는 진행 방향 기준으로 회전(유저가 읽는 방향).</div>
     </div>
@@ -659,7 +655,7 @@
     <tr><td>수축 링 · 유지 채움 링</td><td>모디파이어 — 부모의 Active/Hold 시각화</td></tr>
     <tr><td>Hit Glow · 리플 · 성공 잔상 · Miss 소멸</td><td>상태(Success/Miss)의 연출 — 토큰 아님</td></tr>
     <tr><td>TAP ×2 프롬프트 (전환 프레임)</td><td>① 선택형 + ② 조합</td></tr>
-    <tr><td>사용자 발 마커 · 시선 낙하선 (목업 하단)</td><td><b>투사 요소 아님</b> — 와이어프레임 표기용 보조</td></tr>
+    <tr><td>시선 낙하선 (목업 점선)</td><td><b>투사 요소 아님</b> — 와이어프레임 표기용 보조</td></tr>
   </table></div>
   <p class="diffnote"><b>통합 마크 — ①과 ⑤는 디자인이 하나다.</b> 지면 stepMark와 벽면 targetMark는 같은 컴포넌트(존 원 + 링 모디파이어 + 7상태)이고, 실제 시뮬레이터도 단일 Marker 클래스로 렌더한다. ①/⑤ 구분은 판정 백엔드(발·IMU vs 부위·카메라)의 라벨일 뿐. 디자인이 갈라지는 지점은 단 셋 — <b>회피 계약만 점선 반전</b>(정반대 계약에 같은 그림은 위험), <b>유지 계약 = holdRing 채움</b>(새 모양 아님 — 가드 박스도 존+holdRing으로 흡수), <b>발형/주먹형 = Step-type 정지 상태 전용 티칭 스킨</b>(충실도 옵션, 별개 토큰 아님).</p>
   <p class="diffnote">새 화면 요구가 생기면 토큰 추가가 아니라 <b>"어느 토큰의 표현형인가"</b>를 먼저 묻고, 이 감사 표에 한 줄을 추가한다.</p>
@@ -702,7 +698,7 @@
           <div class="ftext fl" style="left:50%;top:30%">STAGE CLEAR</div>
           <div class="ftext fm" style="left:50%;top:46%;color:#c9882a">박자 정확도 82%</div>
           <div class="t-tap" style="left:50%;top:68%"><div class="taps"><i></i><i></i></div><div class="tl">TAP ×2 → 사전 익히기</div></div>
-        </div><div class="feet"><i></i><i></i></div>
+        </div>
       </div></div>
       <div class="fguide">단계 완료. 성과 한 줄 + 탭 프롬프트만 — 다음 단계 이름을 미리 알려준다.</div>
       <div class="fsig">
@@ -718,7 +714,7 @@
           <div class="ftext num" style="left:50%;top:44%;color:var(--accent)">3</div>
           <div class="t-ring" style="left:50%;top:44%;width:52px;height:52px;border-color:var(--accent);border-style:solid;opacity:.7"></div>
           <div class="ftext fm" style="left:50%;top:76%">두 번 탭 = 바로 · 가만히 있으면 자동 진행</div>
-        </div><div class="feet"><i></i><i></i></div>
+        </div>
       </div></div>
       <div class="fguide"><b>5초 카운트다운</b> + 수축 링. <b>무입력 = 실전 준비로 자동 진행</b>(무한 루프 없음 — 가만히 있는 지친 사용자에게 반복을 강제하지 않는다), 두 번 탭 = 즉시. 탭 = 항상 "다음"이라는 계약 유지. "한 번 더"는 사용자 선택이 아니라 <b>시스템 책임</b>: 게이트 미달 = 자동 반복(T-2 미노출), 실전 연속 Miss = 다운시프트. 실전 출발 자체는 C-1의 두 번 탭이 최종 게이트.</div>
       <div class="fsig">
@@ -733,7 +729,7 @@
           <div class="ftext fl" style="left:50%;top:34%;color:var(--dim)">‖ PAUSE</div>
           <div class="ftext fs" style="left:50%;top:48%">04:12 · 기록 유지 중</div>
           <div class="t-tap" style="left:50%;top:68%"><div class="taps"><i></i><i></i></div><div class="tl">TAP ×2 → 재개</div></div>
-        </div><div class="feet"><i></i><i></i></div>
+        </div>
       </div></div>
       <div class="fguide">퍼즈 = 주변 토큰 딤 처리 + 시간 정지 표시. 재개 카운트다운 3-2-1 후 복귀.</div>
       <div class="fsig">
@@ -748,7 +744,7 @@
           <div class="ftext fl" style="left:50%;top:36%;color:var(--coral)">잠깐 멈춰요</div>
           <div class="ftext fm" style="left:50%;top:52%;color:#c9882a">가까운 곳에 앉아서 쉬어요</div>
           <div class="ftext fs" style="left:50%;top:68%">회복되면 안전 재개 안내</div>
-        </div><div class="feet"><i></i><i></i></div>
+        </div>
       </div></div>
       <div class="fguide">판정 High — UI 표시량 축소, 탭 프롬프트 없음(자동 재개 금지). 회복 확인 후에만 재개 제안.</div>
       <div class="fsig">
@@ -810,7 +806,7 @@
           <div class="t-start" style="left:50%;top:48%">READY</div>
           <div class="ftext fs" style="left:50%;top:22%">SEAN · LAST 1KM PACE</div>
           <div class="ftext fm" style="left:50%;top:68%">발 두 번 탭 → 시작</div>
-        </div><div class="deadline"></div><div class="feet"><i></i><i></i></div>
+        </div><div class="deadline"></div>
       </div></div>
       <div class="fguide">시작 원 하나 + Pack 라벨(F-S)만. 발자국은 아직 없음.</div>
       <div class="fsig">
@@ -831,11 +827,11 @@
       <div class="surf-wrap"><div class="surf floor"><div class="plane"></div><div class="glow"></div>
         <div class="tokens">
           <div class="ftext fs" style="left:20%;top:18%">STRETCH 1/4</div>
-          <div class="t-foot big hold l" style="left:50%;top:48%"><i>L</i></div>
+          <div class="t-foot big l" style="left:50%;top:48%"><i>L</i></div>
           <div class="t-arc" style="left:50%;top:48%"></div>
           <div class="ftext fl" style="left:50%;top:22%">발끝 올리고 돌리기</div>
           <div class="ftext fm" style="left:50%;top:76%">좌우 8회씩</div>
-        </div><div class="deadline"></div><div class="feet"><i></i><i></i></div>
+        </div><div class="deadline"></div>
       </div></div>
       <div class="fguide">큰 홀드 원(F-L 지시문) + 회전 아크. 러닝 착지의 첫 관절인 발목부터.</div>
       <div class="fsig">
@@ -849,11 +845,11 @@
         <div class="tokens">
           <div class="ftext fs" style="left:20%;top:18%">STRETCH 2/4</div>
           <div class="t-foot big l" style="left:42%;top:36%"><i>L</i></div>
-          <div class="t-foot big hold r" style="left:58%;top:56%"><i>R</i></div>
-          <div class="t-ring" style="left:58%;top:56%;width:44px;height:44px"></div>
+          <div class="t-foot big r" style="left:58%;top:56%"><i>R</i></div>
+          <div class="t-ring" style="left:58%;top:56%;width:44px;height:44px;border-style:solid;border-color:#c9882a"></div>
           <div class="ftext fl" style="left:50%;top:20%">앞 원에 왼발</div>
           <div class="ftext fm" style="left:50%;top:76%">뒤꿈치는 바닥에 · 10초</div>
-        </div><div class="deadline"></div><div class="feet"><i></i><i></i></div>
+        </div><div class="deadline"></div>
       </div></div>
       <div class="fguide">앞뒤 발 원 간격이 스트레칭 폭 자체를 가이드. 유지 링 10초 카운트.</div>
       <div class="fsig">
@@ -870,7 +866,7 @@
           <div class="t-arrow dim" style="left:62%;top:34%">↑</div>
           <div class="t-arrow dim" style="left:62%;top:74%">↓</div>
           <div class="ftext fl" style="left:50%;top:20%">다리 앞뒤로 10회</div>
-        </div><div class="deadline"></div><div class="feet"><i></i><i></i></div>
+        </div><div class="deadline"></div>
       </div></div>
       <div class="fguide">디딤발 원 + 앞뒤 스윙 방향만. 햄스트링·고관절 가동.</div>
       <div class="fsig">
@@ -887,7 +883,7 @@
           <div class="t-foot r" style="left:58%;top:52%"><i>R</i></div>
           <div class="t-ring" style="left:42%;top:52%"></div>
           <div class="ftext fl" style="left:50%;top:22%">제자리 걷기 — 내 박자로</div>
-        </div><div class="deadline"></div><div class="feet"><i></i><i></i></div>
+        </div><div class="deadline"></div>
       </div></div>
       <div class="fguide">좌우 원 교대 점멸 = 션의 몸풀기 박자. 여기서 처음 리듬이 몸에 닿는다.</div>
       <div class="fsig">
@@ -913,7 +909,7 @@
           <div class="t-ring" style="left:50%;top:46%;width:40px;height:40px;border-style:solid;opacity:.7"></div>
           <div class="t-ring" style="left:50%;top:46%;width:24px;height:24px;border-style:solid"></div>
           <div class="ftext fl" style="left:50%;top:20%">듣기만 해요</div>
-        </div><div class="deadline"></div><div class="feet"><i></i><i></i></div>
+        </div><div class="deadline"></div>
       </div></div>
       <div class="fguide">발자국 없음 — 중앙 리듬 펄스만 박자에 맞춰 맥동. 먼저 귀로 배우는 프레임.</div>
       <div class="fsig">
@@ -931,7 +927,7 @@
           <div class="t-ring" style="left:42%;top:50%;width:40px;height:40px"></div>
           <div class="ftext fm" style="left:50%;top:24%">링이 닫힐 때 밟기</div>
           <div class="t-glow" style="left:58%;top:50%;opacity:.7"></div>
-        </div><div class="deadline"></div><div class="feet"><i></i><i></i></div>
+        </div><div class="deadline"></div>
       </div></div>
       <div class="fguide">수축 링 = 타이밍. 맞으면 Hit Glow가 발 위에서 짧게 터진다(~200ms).</div>
       <div class="fsig">
@@ -949,7 +945,7 @@
           <div class="t-foot" style="left:60%;top:50%"></div><div class="t-order" style="left:66%;top:44%">2</div>
           <div class="t-foot" style="left:42%;top:32%"></div><div class="t-order" style="left:36%;top:26%">3</div>
           <div class="t-ring" style="left:38%;top:66%"></div>
-        </div><div class="deadline"></div><div class="feet"><i></i><i></i></div>
+        </div><div class="deadline"></div>
       </div></div>
       <div class="fguide">전진하며 순서대로. 순서 숫자는 진행 방향 기준 회전. 틀리면 그 스텝만 반복 루프.</div>
       <div class="fsig">
@@ -966,7 +962,7 @@
           <div class="t-foot" style="left:52%;top:62%"></div>
           <div class="t-step" style="left:50%;top:40%"></div>
           <div class="t-step" style="left:46%;top:26%;opacity:.6"></div>
-        </div><div class="deadline"></div><div class="feet"><i></i><i></i></div>
+        </div><div class="deadline"></div>
       </div></div>
       <div class="fguide">Step→Prediction 전환 브릿지 — 발밑은 마지막 발 모양, 전방은 존 원이 뜨기 시작. 텍스트·숫자가 걷힌다. 30m 왕복 2회.</div>
       <div class="fsig">
@@ -990,7 +986,7 @@
           <div class="ftext fs" style="left:20%;top:18%">RUN 00:00</div>
           <div class="ftext num" style="left:50%;top:44%">3</div>
           <div class="t-step fade-extra" style="left:48%;top:26%;opacity:.5"></div>
-        </div><div class="deadline"></div><div class="feet"><i></i><i></i></div>
+        </div><div class="deadline"></div>
       </div></div>
       <div class="fguide">F-XL 카운트다운 + 첫 선행 발자국이 전방에서 페이드인.</div>
       <div class="fsig">
@@ -1008,7 +1004,7 @@
           <div class="t-step" style="left:50%;top:38%"></div>
           <div class="t-step fade-extra" style="left:46%;top:26%;opacity:.6"></div>
           <div class="t-step fade-extra" style="left:52%;top:16%;opacity:.35"></div>
-        </div><div class="deadline"></div><div class="feet"><i></i><i></i></div>
+        </div><div class="deadline"></div>
       </div></div>
       <div class="fguide">발밑은 빈다. 전방 1.4m+ 선행 발자국 2~3개(투명도 1.0/0.6/0.35) + 중앙 pathLane. <b>앞사람을 따라가는 감각</b>.</div>
       <div class="fsig">
@@ -1025,7 +1021,7 @@
           <div class="t-step" style="left:50%;top:36%"></div>
           <div class="ftext fl htext" style="left:66%;top:52%;color:var(--accent)">박자</div>
           <div class="t-ring" style="left:50%;top:36%;width:38px;height:38px;border-color:var(--accent);border-style:solid;opacity:.8"></div>
-        </div><div class="deadline"></div><div class="feet"><i></i><i></i></div>
+        </div><div class="deadline"></div>
       </div></div>
       <div class="fguide">판정 Medium — 발자국 간격 재조정 + F-CUE 한 단어 "박자"(1.2s) + 펄스 강조. 점수 깎기 없음.</div>
       <div class="fsig">
@@ -1041,7 +1037,7 @@
           <div class="t-lane boost"></div>
           <div class="t-step" style="left:50%;top:36%;border-color:var(--okt)"></div>
           <div class="t-step fade-extra" style="left:47%;top:24%;opacity:.6;border-color:var(--okt)"></div>
-        </div><div class="deadline"></div><div class="feet"><i></i><i></i></div>
+        </div><div class="deadline"></div>
       </div></div>
       <div class="fguide">Pack의 시그니처 구간. pathLane 색 전환 = 구간 진입을 말없이 알림. 웨어러블이 다리를 살짝 민다.</div>
       <div class="fsig">
@@ -1058,7 +1054,7 @@
           <div class="t-stripe" style="left:50%;top:34%"></div>
           <div class="t-stripe" style="left:50%;top:46%;width:36px"></div>
           <div class="t-start" style="left:50%;top:66%">STOP</div>
-        </div><div class="deadline"></div><div class="feet"><i></i><i></i></div>
+        </div><div class="deadline"></div>
       </div></div>
       <div class="fguide">감속 스트라이프 간격이 점점 좁아지며 걸음을 늦춘다 → 정지 원.</div>
       <div class="fsig">
@@ -1390,7 +1386,7 @@
           <div class="t-stance" style="left:36%;top:62%"></div>
           <div class="t-stance" style="left:64%;top:62%"></div>
           <div class="ftext fm" style="left:50%;top:80%">발 두 번 탭 → 시작</div>
-        </div><div class="deadline"></div><div class="feet"><i></i><i></i></div>
+        </div><div class="deadline"></div>
       </div></div>
       <div class="fguide">좌우 스탠스 원 — 방향 전환 종목이라 시작부터 스탠스가 기준.</div>
       <div class="fsig">
@@ -1413,7 +1409,7 @@
           <div class="t-arc" style="left:50%;top:50%;border-color:var(--ok)"></div>
           <div class="ftext fl" style="left:50%;top:22%">무릎 살짝 · 발목 돌리기</div>
           <div class="ftext fm" style="left:50%;top:72%">무릎 잠그지 않기</div>
-        </div><div class="deadline"></div><div class="feet"><i></i><i></i></div>
+        </div><div class="deadline"></div>
       </div></div>
       <div class="fguide">플랜트 제동을 받는 관절부터. F-M 보조 텍스트로 금지 자세를 명시.</div>
       <div class="fsig">
@@ -1429,7 +1425,7 @@
           <div class="t-stance big" style="left:66%;top:52%"></div>
           <div class="t-arrow dim" style="left:50%;top:52%">↔</div>
           <div class="ftext fl" style="left:50%;top:24%">무게만 옮겨요 — 발은 그대로</div>
-        </div><div class="deadline"></div><div class="feet"><i></i><i></i></div>
+        </div><div class="deadline"></div>
       </div></div>
       <div class="fguide">이동 중인 쪽 원이 밝아진다 — 무게 중심을 지면이 비춰준다.</div>
       <div class="fsig">
@@ -1446,7 +1442,7 @@
           <div class="t-stance big" style="left:62%;top:52%"></div>
           <div class="t-ring" style="left:50%;top:52%;width:50px;height:50px"></div>
           <div class="ftext fl" style="left:50%;top:24%">그 높이 그대로 10초</div>
-        </div><div class="deadline"></div><div class="feet"><i></i><i></i></div>
+        </div><div class="deadline"></div>
       </div></div>
       <div class="fguide">유지 링 카운트. 중심이 뜨면(카메라+IMU) 링이 노랗게.</div>
       <div class="fsig">
@@ -1465,7 +1461,7 @@
           <div class="t-arrow dim" style="left:37%;top:40%">←</div>
           <div class="t-arrow dim" style="left:63%;top:40%">→</div>
           <div class="ftext fl" style="left:50%;top:22%">옆으로 가볍게 2회씩</div>
-        </div><div class="deadline"></div><div class="feet"><i></i><i></i></div>
+        </div><div class="deadline"></div>
       </div></div>
       <div class="fguide">좌우 확장 원으로 왕복 — 스텝백의 横 이동 감각 예열.</div>
       <div class="fsig">
@@ -1490,7 +1486,7 @@
           <div class="t-foot" style="left:40%;top:60%;opacity:.55"></div>
           <div class="t-foot" style="left:58%;top:56%;opacity:.3"></div>
           <div class="ftext fm" style="left:50%;top:78%">영상이 끝나면 같은 자리에 발자국으로</div>
-        </div><div class="deadline"></div><div class="feet"><i></i><i></i></div>
+        </div><div class="deadline"></div>
       </div></div>
       <div class="fguide"><b>Watch-type</b> — 정지 감지 → 발 앞 지면이 스크린: 커리 실영상 클립이 3회 루프 → 같은 좌표에서 ghost 궤적형(발자국 리플레이)으로 크로스페이드. 충실도 사다리: 영상 → 궤적 → 내 차례.</div>
       <div class="fsig">
@@ -1506,7 +1502,7 @@
           <div class="t-foot big r" style="left:46%;top:38%"><i>R</i></div>
           <div class="t-order" style="left:53%;top:30%">1</div>
           <div class="ftext fm" style="left:50%;top:76%">수비를 미는 발</div>
-        </div><div class="deadline"></div><div class="feet"><i></i><i></i></div>
+        </div><div class="deadline"></div>
       </div></div>
       <div class="fguide">전방 원 하나만. 커리 스텝백의 시작 — 돌진하는 척하는 발.</div>
       <div class="fsig">
@@ -1523,7 +1519,7 @@
           <div class="t-order" style="left:26%;top:58%">2</div>
           <div class="t-arrow" style="left:42%;top:50%;transform:translate(-50%,-50%) rotate(140deg)">↑</div>
           <div class="ftext fm" style="left:50%;top:76%">뒤로 길게</div>
-        </div><div class="deadline"></div><div class="feet"><i></i><i></i></div>
+        </div><div class="deadline"></div>
       </div></div>
       <div class="fguide">뒤·대각 원 — 거리 벌리기. 백스텝 거리가 판정 항목(백스텝 거리·각도).</div>
       <div class="fsig">
@@ -1540,7 +1536,7 @@
           <div class="t-order" style="left:66%;top:44%">3</div>
           <div class="t-ring" style="left:58%;top:52%;width:46px;height:46px;border-color:var(--warn)"></div>
           <div class="ftext fl" style="left:50%;top:20%">여기서 버텨요</div>
-        </div><div class="deadline"></div><div class="feet"><i></i><i></i></div>
+        </div><div class="deadline"></div>
       </div></div>
       <div class="fguide">주황 플랜트 링 — 이 Pack의 심장. 무릎이 제동을 받는 순간이라 SAFE가 가장 촘촘히 본다.</div>
       <div class="fsig">
@@ -1557,7 +1553,7 @@
           <div class="t-foot big l" style="left:46%;top:34%"><i>L</i></div>
           <div class="t-order" style="left:38%;top:27%">4</div>
           <div class="ftext fm" style="left:50%;top:76%">중심 다시</div>
-        </div><div class="deadline"></div><div class="feet"><i></i><i></i></div>
+        </div><div class="deadline"></div>
       </div></div>
       <div class="fguide">복귀 원 + 플랜트 잔상. 착지 후 균형 회복까지가 한 세트.</div>
       <div class="fsig">
@@ -1574,7 +1570,7 @@
           <div class="t-foot" style="left:58%;top:56%"></div><div class="t-plant" style="left:58%;top:56%;width:32px;height:32px;background:none"></div><div class="t-order" style="left:66%;top:48%">3</div>
           <div class="t-foot" style="left:48%;top:24%;opacity:.8"></div><div class="t-order" style="left:41%;top:18%">4</div>
           <div class="t-combo" style="left:82%;top:26%">×2</div>
-        </div><div class="deadline"></div><div class="feet"><i></i><i></i></div>
+        </div><div class="deadline"></div>
       </div></div>
       <div class="fguide">전체 시퀀스 + 타이밍 링 순차 수축. LOAD가 반복 구간에 약한 저항 — "모래주머니" 감각.</div>
       <div class="fsig">
@@ -1598,7 +1594,7 @@
           <div class="ftext fs" style="left:22%;top:16%">STEPBACK · SAFE+LOAD</div>
           <div class="t-lane" style="left:46%;transform:translateX(-50%) rotate(9deg)"></div>
           <div class="t-ring" style="left:50%;top:56%;width:22px;height:22px;border-style:solid;opacity:.6"></div>
-        </div><div class="deadline"></div><div class="feet"><i></i><i></i></div>
+        </div><div class="deadline"></div>
       </div></div>
       <div class="fguide">리듬의 본체는 <b>이어폰 비트(커리 드리블 템포)</b> — 지면 펄스는 그 비트의 동기 표시일 뿐. 눈은 프리뷰 영상에서, 몸은 B단계에서 이미 배웠다.</div>
       <div class="fsig">
@@ -1613,7 +1609,7 @@
           <div class="ftext fs" style="left:20%;top:16%">SET 2/6</div>
           <div class="t-lane" style="left:44%;height:74%;top:12%;transform:translateX(-50%) rotate(14deg)"></div>
           <div class="t-stripe fade-extra" style="left:52%;top:42%"></div>
-        </div><div class="deadline"></div><div class="feet"><i></i><i></i></div>
+        </div><div class="deadline"></div>
       </div></div>
       <div class="fguide">경로 곡선 + 감속 스트라이프(보조 단서 — 난이도 따라 소멸). 전환이 다가온다는 예감만.</div>
       <div class="fsig">
@@ -1629,7 +1625,7 @@
           <div class="t-arrow fade-extra" style="left:68%;top:34%">↗</div>
           <div class="ftext fl htext" style="left:34%;top:34%;color:var(--okt)">지금!</div>
           <div class="t-glow" style="left:58%;top:50%;opacity:.8"></div>
-        </div><div class="deadline"></div><div class="feet"><i></i><i></i></div>
+        </div><div class="deadline"></div>
       </div></div>
       <div class="fguide">전환 이벤트 ±윈도에서만 플랜트 링+화살표 등장. 성공 착지 = Hit Glow.</div>
       <div class="fsig">
@@ -1646,7 +1642,7 @@
           <div class="t-step" style="left:47%;top:30%;opacity:.8"></div>
           <div class="t-plant" style="left:58%;top:54%;opacity:.35"></div>
           <div class="ftext fm htext" style="left:50%;top:76%">거리 +1.2m</div>
-        </div><div class="deadline"></div><div class="feet"><i></i><i></i></div>
+        </div><div class="deadline"></div>
       </div></div>
       <div class="fguide">복귀 원 + 플랜트 잔상. 세트 사이에만 "벌린 거리"가 한 줄 — 성과가 곧 보상.</div>
       <div class="fsig">
