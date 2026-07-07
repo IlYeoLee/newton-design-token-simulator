@@ -500,7 +500,7 @@
     그리고 시스템 전체는 아래 <b>3계층</b> 하나로 통합된다 — 화면의 모든 요소는 이 셋 중 하나다.</p>
   <div class="grid3" style="margin-bottom:8px">
     <div class="pcard"><span class="tag step">레이어 1 · 판정 토큰</span>
-      <h3>① stepMark · ⑤ targetMark</h3>
+      <h3>MARK (지면=stepMark · 벽면=targetMark)</h3>
       <p>밟거나·치거나·유지하는 <b>판정 대상</b>. 7상태 머신을 온전히 갖는 유일한 계층 — Success/Miss/Hold는 여기에만 존재한다.</p></div>
     <div class="pcard"><span class="tag pred">레이어 2 · 문맥 토큰</span>
       <h3>③ directionGuide · ④ pathLane · ⑥ ghost</h3>
@@ -596,20 +596,20 @@
   <p class="diffnote">Miss 설계가 핵심 — 실패를 크게 그리면 사용자의 시선과 리듬이 실패에 머문다. NEWTON은 <b>성공만 빛나고 실패는 조용히 사라진다</b>(무음이 곧 피드백). 반복 교정은 B단계 루프가, 안전 문제는 Warning이 담당하므로 Miss 자체에 처벌 표현이 필요 없다.</p>
   <div class="board"><table>
     <tr><th>상태 적용 범위</th><th>Preview</th><th>Active</th><th>Hold</th><th>Success</th><th>Miss</th><th>Warning</th><th>Locked</th></tr>
-    <tr><td><b>판정 토큰 ① ⑤</b></td><td>✓</td><td>✓</td><td>✓</td><td>✓</td><td>✓</td><td>✓</td><td>✓</td></tr>
+    <tr><td><b>MARK (판정 토큰)</b></td><td>✓</td><td>✓</td><td>✓</td><td>✓</td><td>✓</td><td>✓</td><td>✓</td></tr>
     <tr><td><b>문맥 토큰 ③ ④ ⑥</b></td><td colspan="5" style="color:var(--dim)">상태 없음 — 페이드인 · 표시 · 소멸만</td><td style="color:var(--dim)">전역 UI 축소에만 반응</td><td style="color:var(--dim)">—</td></tr>
-    <tr><td><b>② + 링 모디파이어</b></td><td colspan="7" style="color:var(--dim)">자체 상태 없음 — 부모 토큰(①⑤)의 상태를 따라감 (링 = Active/Hold의 시각화 그 자체)</td></tr>
+    <tr><td><b>② + 링 모디파이어</b></td><td colspan="7" style="color:var(--dim)">자체 상태 없음 — 부모 MARK의 상태를 따라감 (링 = Active/Hold의 시각화 그 자체)</td></tr>
   </table></div>
 
-  <h3 class="sub">토큰 카탈로그 — 문법 v1의 6개, 그 이상은 없다</h3>
-  <p class="lede" style="margin-bottom:10px">파생 토큰을 만들지 않는다. 모든 화면 요소는 <b>표현형</b>(같은 토큰이 사출 모드·투사면에 따라 다르게 렌더링),
-  <b>모디파이어</b>(어느 토큰에나 붙는 링 2종), <b>재사용 조합</b>(TAP×2 프롬프트 = ①+②)의 세 메커니즘으로 6개 안에서 해소된다.</p>
+  <h3 class="sub">토큰 카탈로그 — 마크 하나 + 채널 4개, 그 이상은 없다</h3>
+  <p class="lede" style="margin-bottom:10px">상호작용 지점은 <b>단 하나의 마크 디자인</b>(존 원 + 링 모디파이어 + 7상태)이다 — 지면(stepMark)이든 벽면(targetMark)이든 같은 컴포넌트(시뮬도 단일 Marker 클래스).
+  계약이 갈라질 때만 최소 변조: <b>회피 = 점선 반전</b> · <b>유지 = holdRing 채움</b> · <b>발형 = Step-type 티칭 스킨</b>. 나머지는 채널 4개(순서·방향·경로·폼)와 재사용 조합으로 해소된다.</p>
 
   <div class="tokgrid">
-    <div class="tok"><div class="tid">① stepMark</div>
-      <div class="tsvg"><svg width="24" height="46" viewBox="0 0 34 60"><path d="M17 3 C26 3 30 10 29 20 C28.4 27 27 31 27 36 C27 41 22.5 44 17 44 C11.5 44 7 41 7 36 C7 31 5.6 27 5 20 C4 10 8 3 17 3 Z" fill="rgba(250,48,48,.16)" stroke="#fa3030" stroke-width="2.6"/><path d="M11 49 h12 c1.8 0 3 1.5 2.6 3.2 C24.8 55.5 21.5 58 17 58 C12.5 58 9.2 55.5 8.4 52.2 C8 50.5 9.2 49 11 49 Z" fill="rgba(250,48,48,.16)" stroke="#fa3030" stroke-width="2.6"/></svg><svg width="46" height="46" viewBox="0 0 48 48"><circle cx="24" cy="26" r="17" fill="rgba(250,48,48,.14)" stroke="#fa3030" stroke-width="2.5"/><circle cx="24" cy="7" r="2.6" fill="#fa3030"/></svg></div>
-      <div class="tnm">어디를 — 발형 / 존형</div>
-      <div class="tds">표현형 4: 발형(Step-type) · 존형(Prediction·반경=허용창) · 기준형(스탠스·시작 원, 중립) · 선택형(밟아서 선택). 플랜트 풋 = ①+코랄 강조 링</div></div>
+    <div class="tok" style="grid-column:span 2"><div class="tid">MARK — 단일 상호작용 지점 <span style="color:var(--dim2);font-weight:400">(① stepMark = 지면·발·IMU / ⑤ targetMark = 벽면·부위·카메라 — 백엔드 라벨일 뿐 같은 디자인)</span></div>
+      <div class="tsvg"><svg width="46" height="46" viewBox="0 0 48 48"><circle cx="24" cy="26" r="17" fill="rgba(250,48,48,.14)" stroke="#fa3030" stroke-width="2.5"/><circle cx="24" cy="7" r="2.6" fill="#fa3030"/></svg><svg width="40" height="40" viewBox="0 0 48 48"><circle cx="24" cy="24" r="16" fill="rgba(254,110,60,.1)" stroke="#fe6e3c" stroke-width="2" stroke-dasharray="5 4"/></svg><svg width="40" height="40" viewBox="0 0 40 40"><circle cx="20" cy="20" r="15" fill="none" stroke="#3a3a38" stroke-width="4" opacity=".25"/><circle cx="20" cy="20" r="15" fill="none" stroke="#fec389" stroke-width="4" stroke-dasharray="61 94" stroke-linecap="round" transform="rotate(-90 20 20)"/></svg><svg width="24" height="46" viewBox="0 0 34 60"><path d="M17 3 C26 3 30 10 29 20 C28.4 27 27 31 27 36 C27 41 22.5 44 17 44 C11.5 44 7 41 7 36 C7 31 5.6 27 5 20 C4 10 8 3 17 3 Z" fill="rgba(250,48,48,.16)" stroke="#fa3030" stroke-width="2.6"/><path d="M11 49 h12 c1.8 0 3 1.5 2.6 3.2 C24.8 55.5 21.5 58 17 58 C12.5 58 9.2 55.5 8.4 52.2 C8 50.5 9.2 49 11 49 Z" fill="rgba(250,48,48,.16)" stroke="#fa3030" stroke-width="2.6"/></svg></div>
+      <div class="tnm">도달(실선) · 회피(점선 반전) · 유지(holdRing) · +발형 스킨</div>
+      <div class="tds">기본 = 존 원(반경=판정 허용창) + 수축 링. <b>도달</b>(밟기·치기)은 지면/벽면 동일 · <b>회피</b>만 점선 반전(정반대 계약에 같은 그림 금지) · <b>유지</b>(가드·스탠스 홀드)는 holdRing이 계약을 표현 · <b>발형</b>은 Step-type 정지 상태 전용 티칭 스킨. 기준형(중립 회색)·선택형·플랜트(+코랄 링)도 전부 이 마크의 상태/장식</div></div>
     <div class="tok"><div class="tid">② orderPulse</div>
       <div class="tsvg"><svg width="30" height="30" viewBox="0 0 30 30"><circle cx="15" cy="15" r="13" fill="#fa3030"/><text x="15" y="20" text-anchor="middle" font-size="14" font-weight="800" fill="#fff">2</text></svg><svg width="34" height="24" viewBox="0 0 34 24"><text x="17" y="17" text-anchor="middle" font-size="13" font-weight="800" fill="#fec389">×3</text></svg></div>
       <div class="tnm">몇 번째 — 순서·횟수</div>
@@ -622,10 +622,6 @@
       <div class="tsvg"><svg width="26" height="62" viewBox="0 0 26 62"><rect x="9" y="4" width="8" height="12" rx="3" fill="#fa3030" opacity=".28"/><rect x="9" y="23" width="8" height="12" rx="3" fill="#fa3030" opacity=".6"/><rect x="9" y="42" width="8" height="14" rx="3" fill="#fa3030" opacity=".95"/></svg><svg width="26" height="62" viewBox="0 0 26 62"><rect x="9" y="6" width="8" height="7" rx="2.5" fill="#fe6e3c" opacity=".9"/><rect x="9" y="18" width="8" height="7" rx="2.5" fill="#fe6e3c" opacity=".9"/><rect x="9" y="30" width="8" height="7" rx="2.5" fill="#fe6e3c" opacity=".9"/><rect x="9" y="41" width="8" height="7" rx="2.5" fill="#fe6e3c" opacity=".9"/><rect x="9" y="51" width="8" height="7" rx="2.5" fill="#fe6e3c" opacity=".9"/></svg></div>
       <div class="tnm">어느 길로 — 경로·속도</div>
       <div class="tds">대시 <b>간격이 속도 언어</b> — 간격 좁아짐=감속(감속 스트라이프는 별도 토큰이 아님) · 러닝 직선·농구 컷인 곡선 · 클리핑</div></div>
-    <div class="tok"><div class="tid">⑤ targetMark</div>
-      <div class="tsvg"><svg width="46" height="46" viewBox="0 0 48 48"><circle cx="24" cy="24" r="17" fill="none" stroke="#fa3030" stroke-width="2.5"/><circle cx="24" cy="24" r="8.5" fill="rgba(250,48,48,.2)" stroke="#fa3030" stroke-width="2"/><circle cx="24" cy="24" r="2.4" fill="#fa3030"/></svg><svg width="40" height="40" viewBox="0 0 48 48"><circle cx="24" cy="24" r="16" fill="rgba(254,110,60,.1)" stroke="#fe6e3c" stroke-width="2" stroke-dasharray="5 4"/></svg><svg width="40" height="30" viewBox="0 0 44 30"><rect x="2" y="2" width="40" height="26" rx="5" fill="rgba(250,48,48,.08)" stroke="#fa3030" stroke-width="2" stroke-dasharray="6 4"/></svg></div>
-      <div class="tnm">제시 지점 — 히트 / 회피 / 유지</div>
-      <div class="tds">표현형 3: 히트형(레드·수축=타이밍) · 회피형(코랄 점선·공격 범위) · <b>유지형(가드 존 박스 — 신체 부위가 머물 존, holdRing 결합)</b></div></div>
     <div class="tok"><div class="tid">⑥ ghost</div>
       <div class="tsvg"><svg width="30" height="56" viewBox="0 0 34 62"><circle cx="17" cy="9" r="7" fill="#b39ddb" opacity=".8"/><path d="M6 24 C6 18 28 18 28 24 L28 46 C28 53 23 57 17 57 C11 57 6 53 6 46 Z" fill="#b39ddb" opacity=".55"/></svg><svg width="30" height="50" viewBox="0 0 30 50"><rect x="9" y="2" width="11" height="18" rx="5" stroke="#b39ddb" fill="none" stroke-width="2" opacity=".9"/><rect x="4" y="26" width="11" height="18" rx="5" stroke="#b39ddb" fill="none" stroke-width="2" opacity=".45"/></svg><svg width="36" height="26" viewBox="0 0 36 26"><rect x="1.5" y="1.5" width="33" height="23" rx="3" fill="rgba(47,154,163,.06)" stroke="#2f9aa3" stroke-width="1.6"/><path d="M14 8 L24 13 L14 18 Z" fill="#2f9aa3"/></svg></div>
       <div class="tnm">어떻게 — 폼 채널 3충실도</div>
@@ -641,20 +637,20 @@
   <p class="lede" style="margin-bottom:8px">와이어프레임에 등장하는 요소 하나도 빠짐없이. 여기 매핑되지 않는 요소가 발견되면 그것은 설계 오류다.</p>
   <div class="board"><table>
     <tr><th>화면 요소 (등장 프레임)</th><th>매핑</th></tr>
-    <tr><td>발 모양 마크 (러닝·농구 A/B)</td><td><b>① 발형</b></td></tr>
-    <tr><td>존 원 (실전 선행 발자국)</td><td><b>① 존형</b></td></tr>
-    <tr><td>시작 원 READY · 스탠스 원</td><td><b>① 기준형</b> (중립·판정 없음)</td></tr>
+    <tr><td>발 모양 마크 (러닝·농구 A/B)</td><td><b>MARK 도달</b> + 발형 스킨 (Step-type)</td></tr>
+    <tr><td>존 원 (실전 선행 발자국)</td><td><b>MARK 도달</b> (지면·IMU)</td></tr>
+    <tr><td>시작 원 READY · 스탠스 원</td><td><b>MARK 기준</b> (중립 회색·판정 없음)</td></tr>
     <tr><td>카운트다운 숫자 5·4·3·2·1 (T-2)</td><td><b>② orderPulse</b> (카운트다운 표현) + 발 두 번 탭 제스처</td></tr>
-    <tr><td>플랜트 풋 링 (농구)</td><td><b>①</b> + 코랄 강조 링(모디파이어)</td></tr>
+    <tr><td>플랜트 풋 링 (농구)</td><td><b>MARK 도달</b> + 코랄 강조 링</td></tr>
     <tr><td>순서 숫자 1·2·3·4 / 콤보 ×N / TAP ×2 카운트</td><td><b>②</b> — 부모 토큰 종속</td></tr>
     <tr><td>전환 화살표 ↗ (농구 실전)</td><td><b>③ 전환형</b> (±윈도만)</td></tr>
     <tr><td>회전 아크 (발목·어깨 돌리기)</td><td><b>③ 회전형</b> (A 전용)</td></tr>
     <tr><td>왕복 화살표 ↔·↑↓ (무게 이동·스윙)</td><td><b>③ 왕복형</b> (A 전용)</td></tr>
     <tr><td>중앙 진행 레인 · 컷인 곡선</td><td><b>④</b></td></tr>
     <tr><td>감속 스트라이프</td><td><b>④</b> — 대시 간격=속도</td></tr>
-    <tr><td>벽면 타겟 원 (복싱)</td><td><b>⑤ 히트형</b></td></tr>
-    <tr><td>상대 공격 범위 (복싱 실전)</td><td><b>⑤ 회피형</b></td></tr>
-    <tr><td>가드 존 박스 (복싱 A/B)</td><td><b>⑤ 유지형</b> + holdRing</td></tr>
+    <tr><td>벽면 타겟 원 (복싱)</td><td><b>MARK 도달</b> (벽면·카메라)</td></tr>
+    <tr><td>상대 공격 범위 (복싱 실전)</td><td><b>MARK 회피</b> — 점선 반전</td></tr>
+    <tr><td>가드 존 박스 (복싱 A/B)</td><td><b>MARK 유지</b> = 존 + holdRing (박스 아님)</td></tr>
     <tr><td>고스트 실루엣 (복싱)</td><td><b>⑥ 실루엣형</b></td></tr>
     <tr><td>궤적 리플레이 발자국 (농구 K-B0)</td><td><b>⑥ 궤적형</b></td></tr>
     <tr><td>실영상 클립 패널 (Watch-type)</td><td><b>⑥ 영상형</b></td></tr>
@@ -1139,7 +1135,7 @@
           <div class="wband-bot">가드 10초 유지 — 이게 기본</div>
         </div>
       </div></div>
-      <div class="fguide">가드 존 박스(⑤ 유지형+holdRing) — 두 주먹이 존에 들어오면 프리즘 점등. 이 자세가 세션 내내 판정 기준.</div>
+      <div class="fguide">가드 존(MARK 유지 = 존+holdRing) — 두 주먹이 존에 들어오면 프리즘 점등. 이 자세가 세션 내내 판정 기준.</div>
       <div class="fsig">
         <div class="sig voice"><span class="ic">VOICE</span><span><span class="who">고수</span> <q>가드 올리고, 팔꿈치는 몸에 붙여요. 이게 오늘의 기본이에요.</q></span></div>
         <div class="sig rw"><span class="ic">CUE</span><span class="t">가드 존 진입 시 초록 점등 (Hit Glow)</span></div>
