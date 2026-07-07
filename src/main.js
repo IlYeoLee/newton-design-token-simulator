@@ -273,7 +273,7 @@ async function boot() {
     setBtnActive(fpBtn, fpMode);
     controls.enabled = !fpMode;
     // 진짜 눈 시점: 자기 몸은 시야를 가리지 않음 + 인간 유효 시야각
-    xbot.model.visible = !fpMode && !(session.active && session.stage !== 'REAL');
+    xbot.model.visible = !fpMode && !(session.active && !session.isLive);
     camera.fov = fpMode ? 85 : 50;
     camera.updateProjectionMatrix();
     const vb = document.getElementById('btn-view');
@@ -439,7 +439,7 @@ async function boot() {
     const data = state.packs[state.pack];
     if (!data) return;
     // 세션 비실전 단계: 팩 시간 정지, X봇 정지 — UI 단계 검증 모드
-    if (session.active && session.stage !== 'REAL') {
+    if (session.active && !session.isLive) {
       session.update(h);
       state.time = 0;
       tokens.update(0, 0);
@@ -474,7 +474,7 @@ async function boot() {
     const el = Math.min(2, (nowMs - bgLast) / 1000);
     bgLast = nowMs;
     if (!document.hidden || !state.playing) return;
-    const total = el * state.speed;
+    const total = el * state.speed * (session.active ? session.liveSpeed : 1);
     const steps = Math.min(120, Math.max(1, Math.ceil(total / 0.02)));
     const h = total / steps;
     for (let i = 0; i < steps; i++) stepSim(h);
@@ -490,7 +490,7 @@ async function boot() {
 
     if (state.playing) {
       // 큰 프레임은 1/50s 서브스텝으로 분할 — rAF 스로틀 시에도 판정 샘플링 정확
-      const total = rawDt * state.speed;
+      const total = rawDt * state.speed * (session.active ? session.liveSpeed : 1);
       const steps = Math.min(120, Math.max(1, Math.ceil(total / 0.02)));
       const h = total / steps;
       for (let i = 0; i < steps; i++) stepSim(h);
@@ -514,9 +514,9 @@ async function boot() {
     reach.position.set(body.x, 0.009, body.z);
 
     // ── 세션 중 봇 표시: 비실전 단계는 UI만 보이게 숨김 (1인칭 눈은 본에서 유지) ──
-    const inSessionPreview = session.active && session.stage !== 'REAL';
+    const inSessionPreview = session.active && !session.isLive;
     if (session.active) {
-      xbot.model.visible = (session.stage === 'REAL') && !fpMode;
+      xbot.model.visible = session.isLive && !fpMode;
     }
     // 카메라는 강제하지 않음 — 3인칭(궤도 자유회전) / 1인칭 모두 사용 가능.
     // 러닝 전진 팔로우는 실제 재생(비세션 or 실전)일 때만.
@@ -534,7 +534,7 @@ async function boot() {
       const eye = xbot.getEyeWorld();
       if (eye) {
         const fwd = xbot.getForward();
-        const tx = eye.x + fwd.x * 0.05, ty = eye.y, tz = eye.z + fwd.z * 0.05;
+        const tx = eye.x + fwd.x * 0.05, ty = eye.y + (session.active ? session.bobY : 0), tz = eye.z + fwd.z * 0.05;
         if (!fpInit || Math.abs(tz - fpPos.z) > 3 || Math.abs(tx - fpPos.x) > 3) {
           fpPos.set(tx, ty, tz);
           fpInit = true;

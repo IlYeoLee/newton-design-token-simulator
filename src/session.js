@@ -118,11 +118,11 @@ const STAGES = [
   { id:'B3', label:'B · 사전 익히기 3/4 — 3스텝 이어 밟기', voice:['션','이제 앞으로 세 걸음, 숫자 순서대로.'], cue:'Step Combo ×2 ×3' },
   { id:'B4', label:'B · 사전 익히기 4/4 — 구간 리듬 유지', voice:['션','이제 문장은 그만할게요. 박자만 지켜요.'], foot:'두 번 탭 → 실전 준비 (발형→존형 전환)' },
   { id:'T2', label:'T-2 · 5초 안에 두 번 탭 → 실전 / 무입력 → 한 번 더', voice:['션','5초 셀게요. 그 안에 두 번 탭하면 실전, 그냥 두면 한 번 더 해요.'], dur:5, foot:'카운트다운 창 내 두 번 탭 = 실전' },
-  { id:'C1', label:'C · 실전 1/5 — 출발', voice:['시스템','3, 2, 1.'], hap:'시작 타이밍 진동', foot:'두 번 탭 → 출발 (이후 잠금)' },
-  { id:'C2', label:'C · 실전 2/5 — 페이스 유지', voice:['션','박자만. (간헐)'], wear:'SAFE 착지 안정화' },
-  { id:'C3', label:'C · 실전 3/5 — 리듬 흔들림 보정', voice:['션','박자. (한 단어)'], hap:'착지 보조 2박' },
-  { id:'C4', label:'C · 실전 4/5 — 마지막 1km BOOST', voice:['션','여기서부터 마지막 1km. 나한테 붙어요.'], wear:'BOOST 추진 보조 · 리듬 저하 시 강도↑', cue:'구간 종료 Match Rate' },
-  { id:'C5', label:'C · 실전 5/5 — 종료 감속', voice:['시스템','여기까지. 잘 달렸어요.'], hap:'완료 진동' },
+  { id:'C1', dur:3, label:'C · 실전 1/5 — 출발', voice:['시스템','3, 2, 1.'], hap:'시작 타이밍 진동', foot:'두 번 탭 → 출발 (이후 잠금)' },
+  { id:'C2', dur:7, label:'C · 실전 2/5 — 페이스 유지 (라이브)', voice:['션','박자만. (간헐)'], wear:'SAFE 착지 안정화' },
+  { id:'C3', dur:7, label:'C · 실전 3/5 — 흔들림 보정 (라이브)', voice:['션','박자. (한 단어)'], hap:'착지 보조 2박' },
+  { id:'C4', dur:7, label:'C · 실전 4/5 — 마지막 1km BOOST (라이브·가속)', voice:['션','여기서부터 마지막 1km. 나한테 붙어요.'], wear:'BOOST 추진 보조 · 리듬 저하 시 강도↑', cue:'구간 종료 Match Rate' },
+  { id:'C5', label:'C · 실전 5/5 — 종료 감속 (라이브·감속→정지)', voice:['시스템','여기까지. 잘 달렸어요.'], hap:'완료 진동' },
   { id:'FIN', label:'R-F · 리포트', voice:['시스템','리포트를 앱으로 보냈어요.'], cue:'Ghost Review — 션 박자와 내 착지 겹쳐 보기' },
 ];
 
@@ -132,10 +132,14 @@ export class Session {
     this.active = false; this.stageIdx = 0; this.t = 0; this.auto = false;
     this.root = new THREE.Group(); this.root.visible = false; scene.add(this.root);
     this.G = {}; this._lastCount = null;
+    this.liveSpeed = 1;   // 실전 라이브 속도 배율 (BOOST/감속)
+    this.bobY = 0;        // 박자 시점 바운스 (스트레칭·익히기)
     this._build();
   }
   get stage() { return STAGES[this.stageIdx].id; }
   get total() { return STAGES.length; }
+  /** 실전 라이브 — 팩 재생이 실제로 돌아가는 단계 */
+  get isLive() { return ['C2','C3','C4','C5'].includes(this.stage); }
   _clip(o) { if (!this.tokens.floorClip) return; o.traverse(x => { if (x.material) x.material.clippingPlanes = this.tokens.floorClip; }); }
   _mk(id) { const g = new THREE.Group(); g.visible = false; this.root.add(g); this.G[id] = g; return g; }
 
@@ -202,21 +206,13 @@ export class Session {
     g = this._mk('C1');
     g.add(floorRing(0.03, -2.6, 0.15, 0.17, BRAND.red, 0.5));
 
-    g = this._mk('C2');
-    g.add(laneLine(BRAND.red));
-    g.add(floorRing(0, -2.0, 0.16, 0.18, BRAND.red, 1.0));
-    g.add(floorRing(-0.05, -2.6, 0.16, 0.18, BRAND.red, 0.6));
-    g.add(floorRing(0.05, -3.1, 0.16, 0.18, BRAND.red, 0.35));
+    this._mk('C2');  // 라이브 — 팩 토큰이 그대로 흐름 (오버레이 없음)
 
-    g = this._mk('C3');
-    g.add(laneLine(BRAND.red));
-    this.c3ring = floorRing(0, -2.1, 0.17, 0.20, BRAND.red, 0.8); g.add(this.c3ring);
-    this.c3cue = floorText('박자', 0.42, -2.1, { size: 0.13, color: CS.red, weight: 800 }); g.add(this.c3cue);
+    g = this._mk('C3');  // 라이브 + F-CUE 오버레이 (러너를 따라감)
+    this.c3cue = floorText('박자', 0.45, -2.1, { size: 0.13, color: CS.red, weight: 800 }); g.add(this.c3cue);
 
-    g = this._mk('C4');
-    g.add(laneLine(BRAND.prism));
-    g.add(floorRing(0, -2.0, 0.16, 0.18, BRAND.prism, 1.0));
-    g.add(floorRing(-0.05, -2.6, 0.16, 0.18, BRAND.prism, 0.6));
+    g = this._mk('C4');  // 라이브 + BOOST 프리즘 레인 오버레이
+    g.add(laneLine(BRAND.prism, 0.4, -3.2));
 
     g = this._mk('C5');
     this.c5stripes = [];
@@ -251,7 +247,7 @@ export class Session {
   }
 
   start() { this.active = true; this.stageIdx = 0; this.t = 0; this.root.visible = true; this._enter(); }
-  stop() { this.active = false; this.root.visible = false; this.tokens.root.visible = true; }
+  stop() { this.active = false; this.root.visible = false; this.tokens.root.visible = true; this.liveSpeed = 1; this.bobY = 0; }
   tapAdvance() {
     if (!this.active) return;
     if (this.stage === 'T2') { this.stageIdx = STAGES.findIndex(s => s.id === 'C1'); this.t = 0; this._enter(); return; }
@@ -264,7 +260,10 @@ export class Session {
   _enter() {
     const st = STAGES[this.stageIdx];
     this.onStage?.(st);
-    this.tokens.root.visible = false;
+    const live = ['C2','C3','C4','C5'].includes(st.id);
+    this.tokens.root.visible = live;     // 라이브 = 실제 팩 토큰이 흐른다
+    this.liveSpeed = st.id === 'C4' ? 1.18 : 1;
+    this.bobY = 0;
     for (const id in this.G) this.G[id].visible = false;
     this._setCount(null);
     if (this.G[st.id]) this.G[st.id].visible = true;
@@ -299,9 +298,18 @@ export class Session {
   update(dt) {
     if (!this.active) return;
     const st = STAGES[this.stageIdx]; this.t += dt; const id = st.id;
+    const live = this.isLive;
+    // 오버레이 좌표: 라이브면 러너를 따라감(전방 슬롯 유지), 아니면 원점 고정
+    const bodyZ = live ? this.xbot.getBodyPos().z : 0;
     this.root.position.x = this.tokens.floorRoot.position.x;
-    this.root.position.z = this.tokens.floorRoot.position.z;
+    this.root.position.z = this.tokens.floorRoot.position.z + bodyZ;
     const beat = (per) => (this.t % per) / per;
+
+    // 박자 시점 바운스 — 몸이 살아있는 느낌 (라이브는 실제 모캡 눈이 담당)
+    if (id === 'A4' || id === 'B2') this.bobY = 0.028 * Math.abs(Math.sin(Math.PI * this.t / 0.6));
+    else if (id === 'B1' || id === 'B3') this.bobY = 0.018 * Math.abs(Math.sin(Math.PI * this.t / 0.55));
+    else if (id[0] === 'A') this.bobY = 0.007 * Math.sin(this.t * 1.8);   // 호흡
+    else this.bobY = 0;
 
     if (id === 'READY' || id === 'T1') {
       const tap = id === 'READY' ? this.tap : this.tap1; const k = 0.5 + 0.5 * Math.sin(this.t * 4);
@@ -329,11 +337,18 @@ export class Session {
       if (this.t >= st.dur) { this.stageIdx = STAGES.findIndex(s => s.id === 'B1'); this.t = 0; this._enter(); return; }
     } else if (id === 'C1') {
       const n = Math.max(1, 3 - Math.floor(this.t)); if (n !== this._lastCount) { this._setCount(n, CS.ink); this._lastCount = n; }
+      if (this.t >= st.dur) { this.next(); return; }   // 출발!
+    } else if (id === 'C2') {
+      if (this.t >= st.dur) { this.next(); return; }
     } else if (id === 'C3') {
-      const k = 0.5 + 0.5 * Math.sin(this.t * 6); this.c3ring.material.opacity = 0.5 + 0.4 * k;
-      if (this.c3cue.userData.plane) this.c3cue.userData.plane.material.opacity = (this.t % 1.4) < 1.2 ? 1 : 0;
+      if (this.c3cue.userData.plane) this.c3cue.userData.plane.material.opacity = (this.t % 1.4) < 1.0 ? 1 : 0;
+      if (this.t >= st.dur) { this.next(); return; }
+    } else if (id === 'C4') {
+      if (this.t >= st.dur) { this.next(); return; }
     } else if (id === 'C5') {
+      this.liveSpeed = Math.max(0.12, 1 - this.t / 2.8);   // 실제 감속
       this.c5stripes.forEach((s, i) => { s.material.opacity = (0.7 - i * 0.13) * (0.5 + 0.5 * Math.sin(this.t * 3 - i)); });
+      if (this.liveSpeed <= 0.13 && this.t > 3.2) { this.liveSpeed = 1; this.stageIdx = STAGES.findIndex(s2 => s2.id === 'FIN'); this.t = 0; this._enter(); return; }
     }
     if (this.auto && st.dur && this.t >= st.dur && id !== 'T2') this._next();
   }
