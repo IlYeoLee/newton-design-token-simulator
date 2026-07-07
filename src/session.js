@@ -135,6 +135,7 @@ export class Session {
     this._build();
   }
   get stage() { return STAGES[this.stageIdx].id; }
+  get total() { return STAGES.length; }
   _clip(o) { if (!this.tokens.floorClip) return; o.traverse(x => { if (x.material) x.material.clippingPlanes = this.tokens.floorClip; }); }
   _mk(id) { const g = new THREE.Group(); g.visible = false; this.root.add(g); this.G[id] = g; return g; }
 

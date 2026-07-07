@@ -148,19 +148,11 @@
     </div>
 
     <div class="section" id="session-section">
-      <h2>세션 흐름 <span style="color:var(--accent)">A→B→C 프로토</span></h2>
-      <div style="display:flex;gap:8px;margin-bottom:8px;">
-        <button id="btn-session" style="flex:1;padding:8px 0;border:1px solid var(--accent);border-radius:6px;background:rgba(250,48,48,.12);color:var(--accent);font-size:12px;font-weight:700;cursor:pointer;">세션 시작</button>
-        <button id="btn-tap" style="flex:1;padding:8px 0;border:1px solid var(--line);border-radius:6px;background:var(--panel2);color:var(--text);font-size:12px;font-weight:600;cursor:pointer;">👣 두 번 탭</button>
-      </div>
-      <div style="display:flex;gap:8px;margin-bottom:8px;">
-        <button id="btn-stage-prev" style="flex:1;padding:7px 0;border:1px solid var(--line);border-radius:6px;background:var(--panel2);color:var(--text);font-size:12px;cursor:pointer;">◀ 이전 단계</button>
-        <button id="btn-stage-next" style="flex:1;padding:7px 0;border:1px solid var(--line);border-radius:6px;background:var(--panel2);color:var(--text);font-size:12px;cursor:pointer;">다음 단계 ▶</button>
-      </div>
-      <div id="session-stage" style="font-size:12px;line-height:1.6;color:var(--dim);">—</div>
-      <p style="font-size:11px;color:var(--dim);line-height:1.5;margin-top:6px;">
-        수동 미리보기: ◀/▶로 와이어프레임 단계를 하나씩 확인. 보이스 큐는 화면 하단 자막으로 표시됩니다.
-        비실전 단계는 팩 시간 정지 — <b style="color:var(--text)">1인칭으로 단계 UI를 확인</b>하세요.
+      <h2>세션 흐름 <span style="color:var(--accent)">A→B→C</span> <span id="session-avail" style="color:var(--dim);font-weight:400;font-size:10px;">· 러닝 전용</span></h2>
+      <button id="btn-session" style="width:100%;padding:9px 0;border:1px solid var(--accent);border-radius:6px;background:rgba(250,48,48,.12);color:var(--accent);font-size:12px;font-weight:700;cursor:pointer;">세션 시작 (1인칭 전환)</button>
+      <p style="font-size:11px;color:var(--dim);line-height:1.5;margin-top:8px;">
+        시작하면 <b style="color:var(--text)">1인칭으로 자동 전환</b>되고, 화면 위 컨트롤로 15프레임을 하나씩 넘겨봅니다.
+        복싱·농구 세션은 준비 중.
       </p>
     </div>
 
@@ -251,6 +243,26 @@
       max-width:70%;padding:10px 18px;border-radius:22px;background:rgba(12,14,18,.82);
       border:1px solid var(--line);font-size:14px;color:var(--text);opacity:0;transition:opacity .3s;
       pointer-events:none;text-align:center;line-height:1.5;">
+    </div>
+
+    <!-- 세션 흐름 플로팅 컨트롤 (스테이지 위) -->
+    <div id="session-hud" style="position:absolute;top:16px;right:16px;width:280px;display:none;
+      background:rgba(16,19,24,.92);backdrop-filter:blur(8px);border:1px solid var(--line);
+      border-radius:12px;padding:12px 14px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+        <span style="font-size:11px;font-weight:700;color:var(--accent);letter-spacing:.3px;">세션 흐름</span>
+        <span id="hud-idx" style="font-size:10px;color:var(--dim2);margin-left:auto;">1 / 17</span>
+      </div>
+      <div id="hud-stage" style="font-size:13px;font-weight:700;color:var(--text);line-height:1.4;min-height:36px;">—</div>
+      <div style="display:flex;gap:6px;margin-top:10px;">
+        <button id="btn-stage-prev" style="flex:1;padding:8px 0;border:1px solid var(--line);border-radius:7px;background:var(--panel2);color:var(--text);font-size:12px;cursor:pointer;">◀ 이전</button>
+        <button id="btn-tap" style="flex:1.4;padding:8px 0;border:1px solid var(--accent);border-radius:7px;background:rgba(250,48,48,.14);color:var(--accent);font-size:12px;font-weight:700;cursor:pointer;">👣 두 번 탭</button>
+        <button id="btn-stage-next" style="flex:1;padding:8px 0;border:1px solid var(--line);border-radius:7px;background:var(--panel2);color:var(--text);font-size:12px;cursor:pointer;">다음 ▶</button>
+      </div>
+      <div style="display:flex;gap:6px;margin-top:6px;">
+        <button id="btn-view" style="flex:1;padding:7px 0;border:1px solid var(--line);border-radius:7px;background:var(--panel2);color:var(--dim);font-size:11px;cursor:pointer;">3인칭 보기</button>
+        <button id="btn-session-stop" style="flex:1;padding:7px 0;border:1px solid var(--line);border-radius:7px;background:var(--panel2);color:var(--dim);font-size:11px;cursor:pointer;">■ 세션 중단</button>
+      </div>
     </div>
   </main>
 

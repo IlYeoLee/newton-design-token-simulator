@@ -268,14 +268,16 @@ async function boot() {
     btn.style.color = on ? '#06202e' : 'var(--text)';
     btn.style.borderColor = on ? 'var(--accent)' : 'var(--line)';
   };
-  fpBtn.addEventListener('click', () => {
-    fpMode = !fpMode;
+  function setFp(on) {
+    fpMode = on;
     setBtnActive(fpBtn, fpMode);
     controls.enabled = !fpMode;
     // 진짜 눈 시점: 자기 몸은 시야를 가리지 않음 + 인간 유효 시야각
-    xbot.model.visible = !fpMode;
+    xbot.model.visible = !fpMode && !(session.active && session.stage !== 'REAL');
     camera.fov = fpMode ? 85 : 50;
     camera.updateProjectionMatrix();
+    const vb = document.getElementById('btn-view');
+    if (vb) vb.textContent = fpMode ? '3인칭 보기' : '1인칭 보기';
     if (!fpMode) {
       const data = state.packs[state.pack];
       setPackEnvironment(state.pack, data.hasWall);
@@ -284,7 +286,8 @@ async function boot() {
       controls.target.z += bz;
       lastBodyZ = bz;
     }
-  });
+  }
+  fpBtn.addEventListener('click', () => setFp(!fpMode));
   coneBtn.addEventListener('click', () => {
     coneOn = !coneOn;
     setBtnActive(coneBtn, coneOn);
@@ -340,26 +343,30 @@ async function boot() {
     clearTimeout(captionTimer);
     captionTimer = setTimeout(() => { captionEl.style.opacity = '0'; }, 4500);
   }
+  const sessionHud = document.getElementById('session-hud');
+  const hudStageEl = document.getElementById('hud-stage');
+  const hudIdxEl = document.getElementById('hud-idx');
   const session = new Session(scene, tokens, xbot, rig, st => {
-    if (sessionStageEl) {
-      const sig = [];
-      if (st.hap) sig.push(`<span style="color:var(--warn)">햅틱</span> ${st.hap}`);
-      if (st.wear) sig.push(`<span style="color:var(--ok)">웨어러블</span> ${st.wear}`);
-      if (st.cue) sig.push(`<span style="color:#fa3030">보상</span> ${st.cue}`);
-      if (st.foot) sig.push(`<span style="color:var(--accent)">발</span> ${st.foot}`);
-      sessionStageEl.innerHTML = `<b style="color:var(--text)">${st.label}</b>` +
-        (sig.length ? `<br><span style="font-size:11px">${sig.join(' · ')}</span>` : '');
-    }
+    const sig = [];
+    if (st.hap) sig.push(`<span style="color:var(--warn)">햅틱</span> ${st.hap}`);
+    if (st.wear) sig.push(`<span style="color:var(--ok)">웨어러블</span> ${st.wear}`);
+    if (st.cue) sig.push(`<span style="color:#fa3030">보상</span> ${st.cue}`);
+    if (st.foot) sig.push(`<span style="color:var(--accent)">발</span> ${st.foot}`);
+    const html = `<b style="color:var(--text)">${st.label}</b>` +
+      (sig.length ? `<br><span style="font-size:11px">${sig.join(' · ')}</span>` : '');
+    if (sessionStageEl) sessionStageEl.innerHTML = html;
+    if (hudStageEl) hudStageEl.innerHTML = html;
+    if (hudIdxEl) hudIdxEl.textContent = `${session.stageIdx + 1} / ${session.total}`;
     if (st.voice) showCaption(st.voice[0], st.voice[1]);
   });
   const sessionBtn = document.getElementById('btn-session');
-  const tapBtn = document.getElementById('btn-tap');
   function stopSession() {
     if (!session.active) return;
     session.stop();
-    xbot.model.visible = !fpMode;
-    sessionBtn.textContent = '세션 시작';
-    sessionStageEl.textContent = '—';
+    sessionBtn.textContent = '세션 시작 (1인칭 전환)';
+    if (sessionStageEl) sessionStageEl.textContent = '—';
+    if (sessionHud) sessionHud.style.display = 'none';
+    setFp(false);           // 중단 → X봇 3인칭 복귀
   }
   sessionBtn?.addEventListener('click', () => {
     if (session.active) { stopSession(); return; }
@@ -367,10 +374,14 @@ async function boot() {
     state.time = 0; tokens.resetLoop();
     session.start();
     sessionBtn.textContent = '세션 중지';
+    if (sessionHud) sessionHud.style.display = 'block';
+    setFp(true);            // 시작 → 자동 1인칭 전환
   });
-  tapBtn?.addEventListener('click', () => session.tapAdvance());
+  document.getElementById('btn-tap')?.addEventListener('click', () => session.tapAdvance());
   document.getElementById('btn-stage-prev')?.addEventListener('click', () => session.prev());
   document.getElementById('btn-stage-next')?.addEventListener('click', () => session.next());
+  document.getElementById('btn-session-stop')?.addEventListener('click', () => stopSession());
+  document.getElementById('btn-view')?.addEventListener('click', () => setFp(!fpMode));
 
   // ── 복싱 고스트 = 벽면 UI 2D 레이어 ──
   // 훅 모션 봇을 오프스크린 씬에서 정면 직교 카메라로 렌더 → 텍스처를 벽면 평면에 투사
