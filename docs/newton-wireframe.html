@@ -670,7 +670,7 @@
   <div class="kicker">00-C · Transition Frames</div>
   <h2 class="title">공통 전환 프레임 — 단계 사이의 다리</h2>
   <p class="lede">"다음으로 / 한 번 더 / 일시정지 / 안전 정지 / 세트 사이"는 종목과 무관한 <b>공통 템플릿 5종</b>.
-    공통 규격: ① 상태 워드(F-L/W-L) ② 요약 한 줄(성과 또는 다음 예고) ③ <b>발 두 번 탭 프롬프트는 항상 같은 토큰·같은 위치</b> ④ <b>선택도 공간이 아니라 제스처</b>(지면=카메라 없음 → IMU 발 제스처) ⑤ 무입력 시 안전 디폴트(반복) ⑤ 발 제스처는 전환 프레임에서만 활성(수행 중 잠금).</p>
+    공통 규격: ① 상태 워드(F-L/W-L) ② 요약 한 줄(성과 또는 다음 예고) ③ <b>발 두 번 탭 프롬프트는 항상 같은 토큰·같은 위치</b> ④ <b>선택도 공간이 아니라 제스처</b>(지면=카메라 없음 → IMU 발 제스처) ⑤ 무입력 = 자동 진행(무한 루프 금지) — 반복은 게이트·다운시프트의 시스템 책임, 실전 출발만 탭 게이트 ⑤ 발 제스처는 전환 프레임에서만 활성(수행 중 잠금).</p>
   <div class="frames" style="grid-template-columns:repeat(5,1fr)">
     <div class="frame">
       <div class="fhead"><span class="fn">T-1</span><span class="ft">STAGE CLEAR</span><span class="fd">지면</span></div>
@@ -694,13 +694,13 @@
           <div class="ftext fs" style="left:20%;top:16%">T-2 · CHOICE</div>
           <div class="ftext num" style="left:50%;top:44%;color:var(--accent)">3</div>
           <div class="t-ring" style="left:50%;top:44%;width:52px;height:52px;border-color:var(--accent);border-style:solid;opacity:.7"></div>
-          <div class="ftext fm" style="left:50%;top:76%">두 번 탭 → 실전 · 그냥 두면 한 번 더</div>
+          <div class="ftext fm" style="left:50%;top:76%">두 번 탭 = 바로 · 가만히 있으면 자동 진행</div>
         </div><div class="feet"><i></i><i></i></div>
       </div></div>
-      <div class="fguide"><b>5초 카운트다운(5·4·3·2·1)</b> + 수축 링으로 입력 창을 명시. 창 안에 <b>발 두 번 탭 → 실전</b>, 무입력 → 한 번 더(B로 루프). 공간 선택이 아니라 <b>제스처 선택</b> — 지면엔 카메라가 없어 IMU 제스처가 유일하게 신뢰 가능.</div>
+      <div class="fguide"><b>5초 카운트다운</b> + 수축 링. <b>무입력 = 실전 준비로 자동 진행</b>(무한 루프 없음 — 가만히 있는 지친 사용자에게 반복을 강제하지 않는다), 두 번 탭 = 즉시. 탭 = 항상 "다음"이라는 계약 유지. "한 번 더"는 사용자 선택이 아니라 <b>시스템 책임</b>: 게이트 미달 = 자동 반복(T-2 미노출), 실전 연속 Miss = 다운시프트. 실전 출발 자체는 C-1의 두 번 탭이 최종 게이트.</div>
       <div class="fsig">
-        <div class="sig voice"><span class="ic">VOICE</span><span><span class="who">션</span> <q>5초 셀게요. 그 안에 두 번 탭하면 실전, 그냥 두면 한 번 더.</q></span></div>
-        <div class="sig foot"><span class="ic">FOOT</span><span class="t">카운트다운 창 내 두 번 탭 = 실전 · 무입력 = 반복 (안전 디폴트)</span></div>
+        <div class="sig voice"><span class="ic">VOICE</span><span><span class="who">션</span> <q>5초 뒤에 넘어갈게요. 준비됐으면 두 번 탭으로 바로 가요.</q></span></div>
+        <div class="sig foot"><span class="ic">FOOT</span><span class="t">두 번 탭 = 즉시 진행 · 무입력 5초 = 자동 진행 · 출발은 C-1 탭이 최종 게이트</span></div>
       </div>
     </div>
     <div class="frame">

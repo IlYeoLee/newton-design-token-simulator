@@ -117,7 +117,7 @@ const STAGES = [
   { id:'B2', label:'B · 사전 익히기 2/4 — 제자리 스텝 맞추기', voice:['션','링이 닫힐 때 밟아요. 지금 — 좋아요, 그 박자예요.'], cue:'Hit Glow + Timing Pulse (성공 순간만)' },
   { id:'B3', label:'B · 사전 익히기 3/4 — 3스텝 이어 밟기', voice:['션','이제 앞으로 세 걸음, 숫자 순서대로.'], cue:'Step Combo ×2 ×3' },
   { id:'B4', label:'B · 사전 익히기 4/4 — 구간 리듬 유지', voice:['션','이제 문장은 그만할게요. 박자만 지켜요.'], foot:'두 번 탭 → 실전 준비 (발형→존형 전환)' },
-  { id:'T2', label:'T-2 · 5초 안에 두 번 탭 → 실전 / 무입력 → 한 번 더', voice:['션','5초 셀게요. 그 안에 두 번 탭하면 실전, 그냥 두면 한 번 더 해요.'], dur:5, foot:'카운트다운 창 내 두 번 탭 = 실전' },
+  { id:'T2', label:'T-2 · 5초 뒤 실전 준비로 자동 진행 (두 번 탭 = 바로)', voice:['션','5초 뒤에 넘어갈게요. 준비됐으면 두 번 탭으로 바로 가요.'], dur:5, foot:'두 번 탭 = 즉시 · 무입력 = 자동 진행 — 반복은 게이트·다운시프트가 담당' },
   { id:'C1', dur:3, label:'C · 실전 1/5 — 출발', voice:['시스템','3, 2, 1.'], hap:'시작 타이밍 진동', foot:'두 번 탭 → 출발 (이후 잠금)' },
   { id:'C2', dur:7, label:'C · 실전 2/5 — 페이스 유지 (라이브)', voice:['션','박자만. (간헐)'], wear:'SAFE 착지 안정화' },
   { id:'C3', dur:7, label:'C · 실전 3/5 — 흔들림 보정 (라이브)', voice:['션','박자. (한 단어)'], hap:'착지 보조 2박' },
@@ -285,7 +285,7 @@ export class Session {
       case 'B2': FS('LEARN 2/4'); FL('링이 닫힐 때 밟기'); break;
       case 'B3': FS('LEARN 3/4'); FL('세 걸음 · 순서대로'); break;
       case 'B4': FS('LEARN 4/4'); FL('박자만'); FM('발밑=마지막 발형 · 전방=존 시작'); break;
-      case 'T2': FS('T-2 · CHOICE'); FM('두 번 탭 → 실전 · 그냥 두면 한 번 더'); this._setCount(5); break;
+      case 'T2': FS('T-2'); FM('두 번 탭 = 바로 · 가만히 있으면 자동 진행'); this._setCount(5); break;
       case 'C1': FS('RUN 00:00'); break;
       case 'C2': FS('RUN 04:12 · SAFE'); FM('발밑 비움 · 전방 선행 발자국'); break;
       case 'C3': FS('RUN 08:40'); break;
@@ -334,7 +334,7 @@ export class Session {
       const rem = Math.max(0, st.dur - this.t), n = Math.max(1, Math.ceil(rem));
       if (n !== this._lastCount) { this._setCount(n); this._lastCount = n; }
       const f = rem - Math.floor(rem); this.countRing.material.opacity = 0.3 + 0.5 * f; this.countRing.scale.setScalar(0.8 + 0.6 * f);
-      if (this.t >= st.dur) { this.stageIdx = STAGES.findIndex(s => s.id === 'B1'); this.t = 0; this._enter(); return; }
+      if (this.t >= st.dur) { this.next(); return; }   // 무입력 = 자동 진행 (무한 루프 없음)
     } else if (id === 'C1') {
       const n = Math.max(1, 3 - Math.floor(this.t)); if (n !== this._lastCount) { this._setCount(n, CS.ink); this._lastCount = n; }
       if (this.t >= st.dur) { this.next(); return; }   // 출발!
