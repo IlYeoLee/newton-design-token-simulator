@@ -6,6 +6,9 @@ import runUrl from '../assets/anim-standard-run.fbx?url';
 import hookUrl from '../assets/anim-hook.fbx?url';
 import dribbleUrl from '../assets/anim-basketball-dribble.fbx?url';
 import sidestepUrl from '../assets/anim-basketball-sidestep.fbx?url';
+// Bandai Namco Research MotionDataset (CC BY-NC) — BVH 실측 리타겟 클립
+import bkRunClipJson from '../assets/mocap/xclip-run_normal.json';
+import bkDashClipJson from '../assets/mocap/xclip-dash_normal.json';
 
 // X Bot = 투사된 토큰 UI를 "따라하는 사람" 역할.
 // 모든 안무는 팩 시간(packTime)의 순수 함수 → 루프/시크/속도 변경에 안전.
@@ -64,6 +67,16 @@ export class XBot {
     reg('hook', hookFbx);
     reg('dribble', dribbleFbx);
     reg('sidestep', sidestepFbx);
+
+    // 실측 모캡 클립 (Bandai BVH → 오프라인 리타겟)
+    const regJson = (name, json) => {
+      const clip = THREE.AnimationClip.parse(json);
+      const action = this.mixer.clipAction(clip);
+      action.setLoop(THREE.LoopRepeat, Infinity);
+      this.actions[name] = { action, dur: clip.duration };
+    };
+    regJson('bkRun', bkRunClipJson);
+    regJson('bkDash', bkDashClipJson);
 
     this._hips = xbot.getObjectByName('mixamorigHips');
     this._kneeR = xbot.getObjectByName('mixamorigRightLeg');
@@ -158,10 +171,11 @@ export class XBot {
         if (dA > Math.PI) dA = Math.PI * 2 - dA;
         if (dA > THREE.MathUtils.degToRad(35)) plants.push(pts[i].t);
       }
-      const ss = this.actions.sidestep;
-      const SS_EFF = 0.55;                       // 플랜트 원샷 유효 길이 (s)
-      const ssTs = ss ? ss.dur / SS_EFF : 1;
-      this.schedule = { path: pts, plants, ssTs, ssEff: SS_EFF, ssImpact: 0.45 };
+      // 플랜트+가속 원샷: 실측 dash (정지→폭발 출발 = 컷인 본질)
+      const ss = this.actions.bkDash || this.actions.sidestep;
+      const SS_EFF = ss ? ss.dur : 0.55;
+      const ssTs = 1;
+      this.schedule = { path: pts, plants, ssTs, ssEff: SS_EFF, ssImpact: 0.35 };
 
       // 발-지면 동기: 이동 거리로 런 위상을 굴림 (풋 스케이팅 제거)
       this._bkPhase = 0;
@@ -169,7 +183,8 @@ export class XBot {
       this._bkYaw = 0;    // model PI 기준: 초기 진행(-Z) = group yaw 0
       this._bkRunW = 0;
       this._bkPlantW = 0;
-      const run = this.actions.run, drb = this.actions.dribble;
+      const run = this.actions.bkRun || this.actions.run;
+      const drb = this.actions.dribble;
       run.action.play(); run.action.paused = true; run.action.setEffectiveWeight(0);
       drb.action.play(); drb.action.paused = true; drb.action.setEffectiveWeight(1);
       if (ss) { ss.action.play(); ss.action.paused = true; ss.action.setEffectiveWeight(0); }
@@ -213,7 +228,8 @@ export class XBot {
 
     if (this.mode === 'basketball') {
       const { path } = this.schedule;
-      const run = this.actions.run, drb = this.actions.dribble;
+      const run = this.actions.bkRun || this.actions.run;
+      const drb = this.actions.dribble;
 
       if (path.length >= 2) {
         const p = this._samplePath(packTime);
@@ -221,16 +237,16 @@ export class XBot {
         let speed = 0;
         if (this._bkPrev) {
           const md = Math.hypot(p.x - this._bkPrev.x, p.z - this._bkPrev.z);
-          const STRIDE = 1.35;                     // 런 1사이클 이동 거리 (m)
+          const STRIDE = 1.9;                      // Bandai run 1사이클 이동 거리 (m)
           this._bkPhase = (this._bkPhase + md / STRIDE) % 1;
           speed = dt > 0.0001 ? md / dt : 0;
         }
         this._bkPrev = { x: p.x, z: p.z };
         this.group.position.set(p.x, 0, p.z);
 
-        // 플랜트 윈도: 사이드 런지 원샷 (임팩트 = 플랜트 이벤트 정렬)
+        // 플랜트 윈도: 실측 dash 원샷 (임팩트 = 플랜트 이벤트 정렬)
         const { plants, ssTs, ssEff, ssImpact } = this.schedule;
-        const ss = this.actions.sidestep;
+        const ss = this.actions.bkDash || this.actions.sidestep;
         let inPlant = false, plantAnimT = 0;
         for (const tp of plants) {
           const s = tp - ssImpact * ssEff;

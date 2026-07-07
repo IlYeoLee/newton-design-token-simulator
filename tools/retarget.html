@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>BVH → X Bot 리타겟 도구</title>
+  <style>
+    body { margin: 0; background: #0c0e12; color: #e8eaf0; font-family: sans-serif; }
+    #ui { position: fixed; top: 10px; left: 10px; z-index: 10; display: flex; gap: 8px; flex-wrap: wrap; }
+    button { padding: 8px 14px; background: #1a1e26; color: #e8eaf0; border: 1px solid #333; border-radius: 6px; cursor: pointer; }
+    button.on { background: #4fc3f7; color: #06202e; }
+    #log { position: fixed; bottom: 10px; left: 10px; font-size: 12px; color: #8b93a3; white-space: pre-line; }
+  </style>
+</head>
+<body>
+  <div id="ui">
+    <button data-m="dash_normal">dash</button>
+    <button data-m="run_normal">run</button>
+    <button data-m="walk_right">walk-right</button>
+    <button id="save">클립 JSON 다운로드</button>
+  </div>
+  <div id="log">로딩…</div>
+  <script type="module">
+    import * as THREE from 'three';
+    import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
+    import { BVHLoader } from 'three/examples/jsm/loaders/BVHLoader.js';
+    import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
+    import xbotUrl from '../assets/xbot.fbx?url';
+
+    const log = m => { document.getElementById('log').textContent = m; console.log('[RT]', m); };
+
+    // Bandai 22본 → Mixamo 본 매핑 (target: source)
+    const NAMES = {
+      mixamorigHips: 'Hips',
+      mixamorigSpine: 'Spine',
+      mixamorigSpine2: 'Chest',
+      mixamorigNeck: 'Neck',
+      mixamorigHead: 'Head',
+      mixamorigLeftShoulder: 'Shoulder_L',
+      mixamorigLeftArm: 'UpperArm_L',
+      mixamorigLeftForeArm: 'LowerArm_L',
+      mixamorigLeftHand: 'Hand_L',
+      mixamorigRightShoulder: 'Shoulder_R',
+      mixamorigRightArm: 'UpperArm_R',
+      mixamorigRightForeArm: 'LowerArm_R',
+      mixamorigRightHand: 'Hand_R',
+      mixamorigLeftUpLeg: 'UpperLeg_L',
+      mixamorigLeftLeg: 'LowerLeg_L',
+      mixamorigLeftFoot: 'Foot_L',
+      mixamorigLeftToeBase: 'Toes_L',
+      mixamorigRightUpLeg: 'UpperLeg_R',
+      mixamorigRightLeg: 'LowerLeg_R',
+      mixamorigRightFoot: 'Foot_R',
+      mixamorigRightToeBase: 'Toes_R',
+    };
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x0c0e12);
+    const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.1, 100);
+    camera.position.set(2.5, 1.6, 3.5);
+    camera.lookAt(0, 1, 0);
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(innerWidth, innerHeight);
+    document.body.appendChild(renderer.domElement);
+    scene.add(new THREE.HemisphereLight(0x8899aa, 0x223344, 1.6));
+    const dl = new THREE.DirectionalLight(0xffffff, 2); dl.position.set(3, 5, 4); scene.add(dl);
+    scene.add(new THREE.GridHelper(10, 20, 0x333a44, 0x22262e));
+
+    let xbot, mixer, currentClip = null, currentName = '';
+
+    const fbxLoader = new FBXLoader();
+    xbot = await fbxLoader.loadAsync(xbotUrl);
+    xbot.scale.setScalar(0.01);
+    scene.add(xbot);
+    let targetSkin = null;
+    xbot.traverse(o => { if (o.isSkinnedMesh && !targetSkin) targetSkin = o; });
+    mixer = new THREE.AnimationMixer(xbot);
+    log('X Bot 로드 완료. 모션 버튼을 누르세요.');
+    window.__ready = true;
+
+    const bvhLoader = new BVHLoader();
+
+    async function convert(name) {
+      log(`${name} BVH 로드 중…`);
+      const res = await bvhLoader.loadAsync(`/mocap/${name}.bvh`);
+      // 소스 스켈레톤 헬퍼 (three BVH 예제 패턴)
+      const srcHelper = new THREE.SkeletonHelper(res.skeleton.bones[0]);
+      srcHelper.skeleton = res.skeleton;
+      const srcRoot = new THREE.Group();
+      srcRoot.add(res.skeleton.bones[0]);
+
+      const clip = SkeletonUtils.retargetClip(targetSkin, srcHelper, res.clip, {
+        hip: 'mixamorigHips',
+        names: NAMES,
+        scale: 1,
+        useFirstFramePosition: true,
+      });
+      clip.name = name;
+      currentClip = clip; currentName = name;
+      window.__clipJSON = JSON.stringify(THREE.AnimationClip.toJSON(clip));
+
+      mixer.stopAllAction();
+      const action = mixer.clipAction(clip);
+      action.setLoop(THREE.LoopRepeat, Infinity);
+      action.play();
+      log(`${name} 리타겟 완료 · ${clip.duration.toFixed(2)}s · 트랙 ${clip.tracks.length}개 — 재생 중`);
+      document.querySelectorAll('[data-m]').forEach(b => b.classList.toggle('on', b.dataset.m === name));
+    }
+
+    document.querySelectorAll('[data-m]').forEach(b =>
+      b.addEventListener('click', () => convert(b.dataset.m).catch(e => log('오류: ' + e.message))));
+
+    document.getElementById('save').addEventListener('click', () => {
+      if (!currentClip) return log('먼저 모션을 변환하세요');
+      const blob = new Blob([window.__clipJSON], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `xbot-clip-${currentName}.json`;
+      a.click();
+      log(`${currentName} JSON 다운로드`);
+    });
+    window.__save = () => document.getElementById('save').click();
+
+    const clock = new THREE.Clock();
+    (function loop() {
+      requestAnimationFrame(loop);
+      mixer && mixer.update(clock.getDelta());
+      renderer.render(scene, camera);
+    })();
+  </script>
+</body>
+</html>
