@@ -12,8 +12,8 @@
       --line: #262b35;
       --text: #e8eaf0;
       --dim: #8b93a3;
-      --accent: #4fc3f7;
-      --ok: #69f0ae;
+      --accent: #fa3030;
+      --ok: #6ad4de;
     }
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body { height: 100%; overflow: hidden; }
@@ -37,7 +37,7 @@
       background: var(--panel2); color: var(--dim); font-size: 12px; font-weight: 600;
       cursor: pointer; transition: all .15s;
     }
-    .tabs button.active { background: var(--accent); border-color: var(--accent); color: #06202e; }
+    .tabs button.active { background: var(--accent); border-color: var(--accent); color: #fff; }
 
     .section { padding: 12px 16px; border-bottom: 1px solid var(--line); }
     .section h2 { font-size: 11px; font-weight: 700; color: var(--dim); letter-spacing: 1px; margin-bottom: 10px; }
@@ -147,6 +147,23 @@
       </div>
     </div>
 
+    <div class="section" id="session-section">
+      <h2>세션 흐름 <span style="color:var(--accent)">A→B→C 프로토</span></h2>
+      <div style="display:flex;gap:8px;margin-bottom:8px;">
+        <button id="btn-session" style="flex:1;padding:8px 0;border:1px solid var(--accent);border-radius:6px;background:rgba(250,48,48,.12);color:var(--accent);font-size:12px;font-weight:700;cursor:pointer;">세션 시작</button>
+        <button id="btn-tap" style="flex:1;padding:8px 0;border:1px solid var(--line);border-radius:6px;background:var(--panel2);color:var(--text);font-size:12px;font-weight:600;cursor:pointer;">👣 두 번 탭</button>
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:8px;">
+        <button id="btn-stage-prev" style="flex:1;padding:7px 0;border:1px solid var(--line);border-radius:6px;background:var(--panel2);color:var(--text);font-size:12px;cursor:pointer;">◀ 이전 단계</button>
+        <button id="btn-stage-next" style="flex:1;padding:7px 0;border:1px solid var(--line);border-radius:6px;background:var(--panel2);color:var(--text);font-size:12px;cursor:pointer;">다음 단계 ▶</button>
+      </div>
+      <div id="session-stage" style="font-size:12px;line-height:1.6;color:var(--dim);">—</div>
+      <p style="font-size:11px;color:var(--dim);line-height:1.5;margin-top:6px;">
+        수동 미리보기: ◀/▶로 와이어프레임 단계를 하나씩 확인. 보이스 큐는 화면 하단 자막으로 표시됩니다.
+        비실전 단계는 팩 시간 정지 — <b style="color:var(--text)">1인칭으로 단계 UI를 확인</b>하세요.
+      </p>
+    </div>
+
     <div class="section">
       <h2>판정 · 세션 리포트</h2>
       <div class="slider-row">
@@ -230,6 +247,11 @@
     <div id="loading"><div class="spin"></div><span>X Bot · 팩 데이터 로드 중…</span></div>
     <div id="hud"></div>
     <div id="event-flash"></div>
+    <div id="voice-caption" style="position:absolute;bottom:52px;left:50%;transform:translateX(-50%);
+      max-width:70%;padding:10px 18px;border-radius:22px;background:rgba(12,14,18,.82);
+      border:1px solid var(--line);font-size:14px;color:var(--text);opacity:0;transition:opacity .3s;
+      pointer-events:none;text-align:center;line-height:1.5;">
+    </div>
   </main>
 
   <script type="module" src="/src/main.js"></script>

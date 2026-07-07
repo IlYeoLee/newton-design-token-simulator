@@ -9,13 +9,14 @@ import { WALL_Z } from './scene.js';
 //   소멸      = 이벤트 순간 → 버스트 → 0.35s 성공색 잔상
 // ─────────────────────────────────────────────────────────────
 
+// NEWTON 브랜드: 색 = 상태 전용 (좌/우 구분에 색 쓰지 않음 — 와이어프레임 v2 원칙)
 export const COLORS = {
-  left:  0x4fc3f7,   // 왼발 — 시안
-  right: 0xffb74d,   // 오른발 — 오렌지
-  target: 0xff5c8a,  // 벽면 타겟 — 핑크
-  guide: 0xb388ff,   // 방향 화살표 — 퍼플
-  lane:  0x4fc3f7,   // 이동 경로
-  success: 0x69f0ae, // 성공 잔상
+  left:  0xfa3030,   // NEWTON RED — Active
+  right: 0xfa3030,
+  target: 0xfa3030,  // 벽면 타겟 — 히트형도 RED
+  guide: 0xfe6e3c,   // CORAL — 전환 화살표
+  lane:  0xfa3030,
+  success: 0xd1feff, // PRISM — 성공 잔상
 };
 
 const FADE_STEPS = [1.0, 0.6, 0.35, 0.2];
@@ -40,7 +41,7 @@ const LAYOUT = {
   },
   basketball: {
     mode: 'spatial',
-    SCALE: 4.0,
+    SCALE: 2.6,   // 컷인 확산을 무릎 투사면(≤4m)에 맞춤 — 투사 범위 밖 UI 방지
   },
 };
 
@@ -79,9 +80,9 @@ function makeLaneTexture() {
   const c = document.createElement('canvas');
   c.width = 64; c.height = 256;
   const ctx = c.getContext('2d');
-  ctx.fillStyle = 'rgba(79,195,247,0.05)';
+  ctx.fillStyle = 'rgba(250,48,48,0.05)';
   ctx.fillRect(0, 0, 64, 256);
-  ctx.fillStyle = 'rgba(79,195,247,0.55)';
+  ctx.fillStyle = 'rgba(250,48,48,0.55)';
   ctx.fillRect(2, 0, 3, 256);   // 좌측 경계
   ctx.fillRect(59, 0, 3, 256);  // 우측 경계
   ctx.fillRect(30, 20, 4, 60);  // 중앙 대시
@@ -322,7 +323,7 @@ export class TokenSystem {
           for (let s = 0; s < 3; s++) {
             const bar = new THREE.Mesh(
               new THREE.PlaneGeometry(0.5, 0.07),
-              flatMat(0xffd54a, 0.55 - s * 0.13)
+              flatMat(0xfe6e3c, 0.55 - s * 0.13)
             );
             bar.rotation.x = -Math.PI / 2;
             bar.rotation.z = yaw;

@@ -7,6 +7,8 @@ import { Panel } from './panel.js';
 import { ProjectorRig } from './projector.js';
 import { WallGhost } from './ghost.js';
 import { Judge } from './judge.js';
+import { Session } from './session.js';
+import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
 
 const BASE = import.meta.env.BASE_URL;
 const PACK_FILES = {
@@ -36,7 +38,7 @@ async function boot() {
 
   // 판정 색상 피드백: hit 초록 / near 앰버 / miss 레드 — 마커 링 + 실제 착지점 도트
   judge.onVerdict = (ev, verdict, best) => {
-    const col = verdict === 'hit' ? 0x69f0ae : verdict === 'near' ? 0xffc94d : 0xff5c6c;
+    const col = verdict === 'hit' ? 0xd1feff : verdict === 'near' ? 0xfec389 : 0x9b9b9b; // 프리즘/샌드/무음 그레이
     const pos = ev.marker.group.getWorldPosition(new THREE.Vector3());
     const n = ev.surface === 'wall' ? new THREE.Vector3(0, 0, 1) : new THREE.Vector3(0, 1, 0);
     effects.burst(pos, col, n);
@@ -117,6 +119,11 @@ async function boot() {
     tokens.footprintTest = isKneePack ? (x, z, inset) => rig.contains(x, z, inset) : null;
     effects.clip = isKneePack ? (x, z) => rig.contains(x, z) : null;
 
+    // 팩별 투사면 기본값 — 농구 컷인은 더 먼 풋프린트 필요
+    const farEl = document.getElementById('s-fpfar');
+    farEl.value = data.sport === 'basketball' ? 400 : 300;
+    farEl.dispatchEvent(new Event('input'));
+
     // 정보 위계: 농구는 NOW+NEXT 2개만 (공간 위계 혼잡 방지)
     const countEl = document.getElementById('s-count');
     countEl.value = data.sport === 'basketball' ? 2 : 3;
@@ -125,8 +132,10 @@ async function boot() {
     judge.setPack(tokens.events, data.sport);
     reportEl.innerHTML = '루프 1회 완료 시 리포트 생성…';
 
-    // 벽면 고스트 (복싱 전용) — 잽 피크 = 타겟 이벤트 동기
-    ghost.group.visible = data.sport === 'boxing';
+    // 벽면 고스트 → 실제 모션 고스트봇으로 대체 (실루엣은 보조로 끔)
+    ghost.group.visible = false;
+    if (data.sport === 'boxing') ensureGhostBot();
+    if (ghostBot) ghostBot.visible = data.sport === 'boxing';
     if (data.sport === 'boxing') {
       const punchTimes = tokens.events.filter(e => e.surface === 'wall').map(e => e.t);
       ghost.configure(punchTimes, rig._wallCenter, rig.wallH);
@@ -187,6 +196,42 @@ async function boot() {
   reach.rotation.x = -Math.PI / 2;
   reach.renderOrder = 1;
   scene.add(reach);
+
+  // ── 복싱 스테이션 카메라 (빔 반대편) — 전신 트래킹 프러스텀 + 최적 위치 ──
+  const CAMV = THREE.MathUtils.degToRad(52), CAMH = THREE.MathUtils.degToRad(68);
+  const CAMP = THREE.MathUtils.degToRad(8); // 상향 틸트
+  const camPos = new THREE.Vector3(0, 1.05, WALL_Z + 0.12);
+  // 전신(머리 1.80m + 발끝) 프레이밍 최소 거리 → +15% 여유 = 최적
+  const dHead = (1.80 - camPos.y) / Math.tan(CAMP + CAMV / 2);
+  const dFeet = camPos.y / Math.tan(CAMV / 2 - CAMP);
+  const dOpt = Math.max(dHead, dFeet) * 1.15;
+  const camFr = (() => {
+    const D = 3.2;
+    const yT = camPos.y + D * Math.tan(CAMP + CAMV / 2);
+    const yB = Math.max(0, camPos.y - D * Math.tan(CAMV / 2 - CAMP));
+    const xH = D * Math.tan(CAMH / 2);
+    const z = camPos.z + D;
+    const c = [
+      new THREE.Vector3(-xH, yT, z), new THREE.Vector3(xH, yT, z),
+      new THREE.Vector3(xH, yB, z), new THREE.Vector3(-xH, yB, z),
+    ];
+    const pts = [];
+    for (const k of c) pts.push(camPos.clone(), k);
+    for (let i = 0; i < 4; i++) pts.push(c[i], c[(i + 1) % 4]);
+    const g = new THREE.BufferGeometry().setFromPoints(pts);
+    const l = new THREE.LineSegments(g, new THREE.LineBasicMaterial({
+      color: 0x6ad4de, transparent: true, opacity: 0.6 }));
+    l.visible = false; l.frustumCulled = false;
+    scene.add(l);
+    return l;
+  })();
+  const optRing = new THREE.Mesh(
+    new THREE.RingGeometry(0.30, 0.345, 48),
+    new THREE.MeshBasicMaterial({ color: 0x6ad4de, transparent: true, opacity: 0.85, side: THREE.DoubleSide, depthWrite: false }));
+  optRing.rotation.x = -Math.PI / 2;
+  optRing.position.set(0, 0.012, camPos.z + dOpt);
+  optRing.visible = false;
+  scene.add(optRing);
 
   // ── 1인칭 / 시야 콘 토글 ──
   let fpMode = false, coneOn = false;
@@ -259,6 +304,57 @@ async function boot() {
   bindSlider('s-wallw', 'v-wallw', v => `${v}cm`, v => rig.setWallSize(v / 100, rig.wallH));
   bindSlider('s-wallh', 'v-wallh', v => `${v}cm`, v => rig.setWallSize(rig.wallW, v / 100));
 
+  // ── 세션 흐름 프로토 (러닝) — 와이어프레임 v2 A→B→C ──
+  const sessionStageEl = document.getElementById('session-stage');
+  const captionEl = document.getElementById('voice-caption');
+  let captionTimer = null;
+  function showCaption(who, text) {
+    if (!captionEl) return;
+    captionEl.innerHTML = `<b>🔊 ${who}</b> · ${text}`;
+    captionEl.style.opacity = '1';
+    clearTimeout(captionTimer);
+    captionTimer = setTimeout(() => { captionEl.style.opacity = '0'; }, 4500);
+  }
+  const session = new Session(scene, tokens, xbot, rig, st => {
+    if (sessionStageEl) sessionStageEl.textContent = st.label;
+    if (st.voice) showCaption(st.voice[0], st.voice[1]);
+  });
+  const sessionBtn = document.getElementById('btn-session');
+  const tapBtn = document.getElementById('btn-tap');
+  sessionBtn?.addEventListener('click', () => {
+    if (session.active) {
+      session.stop();
+      sessionBtn.textContent = '세션 시작';
+      sessionStageEl.textContent = '—';
+    } else {
+      if (state.pack !== 'running') switchPack('running');
+      state.time = 0; tokens.resetLoop();
+      session.start();
+      sessionBtn.textContent = '세션 중지';
+    }
+  });
+  tapBtn?.addEventListener('click', () => session.tapAdvance());
+  document.getElementById('btn-stage-prev')?.addEventListener('click', () => session.prev());
+  document.getElementById('btn-stage-next')?.addEventListener('click', () => session.next());
+
+  // ── 복싱 고스트: 실제 복싱 모션(훅 FBX)을 재생하는 반투명 전문가 ──
+  let ghostBot = null, ghostMixer = null;
+  function ensureGhostBot() {
+    if (ghostBot) return;
+    ghostBot = SkeletonUtils.clone(xbot.model);
+    ghostBot.traverse(o => {
+      if (o.isMesh) o.material = new THREE.MeshBasicMaterial({
+        color: 0xb39ddb, transparent: true, opacity: 0.45, depthWrite: false,
+      });
+    });
+    ghostBot.position.set(0.55, 0, WALL_Z + 0.55);
+    ghostBot.rotation.y = Math.PI; // 사용자를 마주보는 상대
+    scene.add(ghostBot);
+    ghostMixer = new THREE.AnimationMixer(ghostBot);
+    const clip = xbot.actions.hook?.action.getClip();
+    if (clip) ghostMixer.clipAction(clip).play();
+  }
+
   switchPack('running');
   document.getElementById('loading').style.display = 'none';
 
@@ -268,6 +364,17 @@ async function boot() {
   function stepSim(h) {
     const data = state.packs[state.pack];
     if (!data) return;
+    // 세션 비실전 단계: 팩 시간 정지, X봇 정지 — UI 단계 검증 모드
+    if (session.active && session.stage !== 'REAL') {
+      session.update(h);
+      state.time = 0;
+      tokens.update(0, 0);
+      xbot.update(0, 0);
+      rig.update(0, h);
+      tokens.setShake(rig.shake.x, rig.shake.y);
+      return;
+    }
+    if (session.active) session.update(h);
     state.time += h;
     if (state.time >= data.duration) {
       state.time %= data.duration;
@@ -278,6 +385,7 @@ async function boot() {
     xbot.update(state.time, h);
     rig.update(state.time, h);
     tokens.setShake(rig.shake.x, rig.shake.y);
+    if (ghostMixer && ghostBot?.visible) ghostMixer.update(h);
     judge.update(state.time, xbot.getProbes());
     if (state.pack === 'boxing') {
       ghost.configure(ghost.punches, rig._wallCenter, rig.wallH);
@@ -406,7 +514,11 @@ async function boot() {
       geomEl.textContent =
         `무릎 h ${(g.kneeH * 100).toFixed(0)}cm · 틸트 ${g.aFar.toFixed(0)}~${g.aNear.toFixed(0)}° · FOV ${g.fovNeed.toFixed(0)}°`
         + ` · 시야 낙하 ${gazeRange.near.toFixed(1)}~${Math.min(gazeRange.far, 9.9).toFixed(1)}m${gazeInfo}`;
+    } else if (geomEl && state.pack === 'boxing') {
+      geomEl.textContent = `스테이션 카메라 FOV ${THREE.MathUtils.radToDeg(CAMV).toFixed(0)}°×${THREE.MathUtils.radToDeg(CAMH).toFixed(0)}° · 전신 인식 최소 ${Math.max(dHead, dFeet).toFixed(2)}m · 최적 ${dOpt.toFixed(2)}m (링 위치)`;
     } else if (geomEl) geomEl.textContent = '';
+    camFr.visible = coneOn && state.pack === 'boxing';
+    optRing.visible = state.pack === 'boxing';
 
     // 1인칭에서는 OrbitControls가 카메라를 덮어쓰지 않도록 스킵 (360° 회전 버그 원인)
     if (!fpMode) controls.update();
