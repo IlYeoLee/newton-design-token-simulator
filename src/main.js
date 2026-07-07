@@ -135,7 +135,7 @@ async function boot() {
     // 벽면 고스트 → 실제 모션 고스트봇으로 대체 (실루엣은 보조로 끔)
     ghost.group.visible = false;
     if (data.sport === 'boxing') ensureGhostBot();
-    if (ghostBot) ghostBot.visible = data.sport === 'boxing';
+    if (ghostLayer) ghostLayer.visible = data.sport === 'boxing';
     if (data.sport === 'boxing') {
       const punchTimes = tokens.events.filter(e => e.surface === 'wall').map(e => e.t);
       ghost.configure(punchTimes, rig._wallCenter, rig.wallH);
@@ -337,22 +337,50 @@ async function boot() {
   document.getElementById('btn-stage-prev')?.addEventListener('click', () => session.prev());
   document.getElementById('btn-stage-next')?.addEventListener('click', () => session.next());
 
-  // ── 복싱 고스트: 실제 복싱 모션(훅 FBX)을 재생하는 반투명 전문가 ──
-  let ghostBot = null, ghostMixer = null;
+  // ── 복싱 고스트 = 벽면 UI 2D 레이어 ──
+  // 훅 모션 봇을 오프스크린 씬에서 정면 직교 카메라로 렌더 → 텍스처를 벽면 평면에 투사
+  let ghostMixer = null, ghostRT = null, ghostScene = null, ghostCam = null, ghostLayer = null;
   function ensureGhostBot() {
-    if (ghostBot) return;
-    ghostBot = SkeletonUtils.clone(xbot.model);
-    ghostBot.traverse(o => {
-      if (o.isMesh) o.material = new THREE.MeshBasicMaterial({
-        color: 0xb39ddb, transparent: true, opacity: 0.45, depthWrite: false,
-      });
+    if (ghostLayer) return;
+    ghostScene = new THREE.Scene();
+    const bot = SkeletonUtils.clone(xbot.model);
+    bot.traverse(o => {
+      if (o.isMesh) o.material = new THREE.MeshBasicMaterial({ color: 0xb39ddb });
     });
-    ghostBot.position.set(0.55, 0, WALL_Z + 0.55);
-    ghostBot.rotation.y = Math.PI; // 사용자를 마주보는 상대
-    scene.add(ghostBot);
-    ghostMixer = new THREE.AnimationMixer(ghostBot);
+    bot.position.set(0, 0, 0);
+    bot.rotation.y = Math.PI; // 카메라(+Z)를 마주봄
+    ghostScene.add(bot);
+    ghostMixer = new THREE.AnimationMixer(bot);
     const clip = xbot.actions.hook?.action.getClip();
     if (clip) ghostMixer.clipAction(clip).play();
+
+    ghostRT = new THREE.WebGLRenderTarget(512, 768, { samples: 2 });
+    const W = 1.6, H = 2.1;
+    ghostCam = new THREE.OrthographicCamera(-W / 2, W / 2, H, 0, 0.1, 10);
+    ghostCam.position.set(0, 0, 3);
+    ghostCam.lookAt(0, 0, 0);
+
+    ghostLayer = new THREE.Mesh(
+      new THREE.PlaneGeometry(W * 0.85, H * 0.85),
+      new THREE.MeshBasicMaterial({
+        map: ghostRT.texture, transparent: true, opacity: 0.8, depthWrite: false,
+      })
+    );
+    ghostLayer.position.set(-0.55, H * 0.85 / 2, WALL_Z + 0.025);
+    ghostLayer.renderOrder = 4;
+    if (rig.wallClip) ghostLayer.material.clippingPlanes = rig.wallClip;
+    scene.add(ghostLayer);
+  }
+  function renderGhostLayer() {
+    if (!ghostLayer || !ghostLayer.visible) return;
+    const prevTarget = renderer.getRenderTarget();
+    const prevAlpha = renderer.getClearAlpha();
+    renderer.setRenderTarget(ghostRT);
+    renderer.setClearColor(0x000000, 0);
+    renderer.clear();
+    renderer.render(ghostScene, ghostCam);
+    renderer.setRenderTarget(prevTarget);
+    renderer.setClearAlpha(prevAlpha);
   }
 
   switchPack('running');
@@ -385,7 +413,7 @@ async function boot() {
     xbot.update(state.time, h);
     rig.update(state.time, h);
     tokens.setShake(rig.shake.x, rig.shake.y);
-    if (ghostMixer && ghostBot?.visible) ghostMixer.update(h);
+    if (ghostMixer && ghostLayer?.visible) ghostMixer.update(h);
     judge.update(state.time, xbot.getProbes());
     if (state.pack === 'boxing') {
       ghost.configure(ghost.punches, rig._wallCenter, rig.wallH);
@@ -522,6 +550,7 @@ async function boot() {
 
     // 1인칭에서는 OrbitControls가 카메라를 덮어쓰지 않도록 스킵 (360° 회전 버그 원인)
     if (!fpMode) controls.update();
+    renderGhostLayer();
     renderer.render(scene, camera);
   }
   loop();
