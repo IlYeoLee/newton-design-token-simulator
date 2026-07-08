@@ -245,6 +245,11 @@
       pointer-events:none;text-align:center;line-height:1.5;">
     </div>
 
+    <!-- 전환 베일 (단계 전환 시 부드러운 암전) -->
+    <div id="stage-veil" style="position:absolute;inset:0;background:#0c0e12;opacity:0;transition:opacity .28s;pointer-events:none;"></div>
+    <!-- 웨어러블 개입 1인칭 표시 (화면 가장자리 글로우) -->
+    <div id="wear-fx" style="position:absolute;inset:0;opacity:0;transition:opacity .4s;pointer-events:none;"></div>
+
     <!-- 세션 흐름 플로팅 컨트롤 (스테이지 위) -->
     <div id="session-hud" style="position:absolute;top:16px;right:16px;width:280px;display:none;
       background:rgba(16,19,24,.92);backdrop-filter:blur(8px);border:1px solid var(--line);
@@ -260,6 +265,7 @@
         <button id="btn-stage-next" style="flex:1;padding:8px 0;border:1px solid var(--line);border-radius:7px;background:var(--panel2);color:var(--text);font-size:12px;cursor:pointer;">다음 ▶</button>
       </div>
       <div style="display:flex;gap:6px;margin-top:6px;">
+        <button id="btn-tts" style="flex:0.5;padding:7px 0;border:1px solid var(--line);border-radius:7px;background:var(--panel2);color:var(--text);font-size:12px;cursor:pointer;">🔊</button>
         <button id="btn-view" style="flex:1;padding:7px 0;border:1px solid var(--line);border-radius:7px;background:var(--panel2);color:var(--dim);font-size:11px;cursor:pointer;">3인칭 보기</button>
         <button id="btn-session-stop" style="flex:1;padding:7px 0;border:1px solid var(--line);border-radius:7px;background:var(--panel2);color:var(--dim);font-size:11px;cursor:pointer;">■ 세션 중단</button>
       </div>

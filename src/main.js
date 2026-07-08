@@ -335,7 +335,41 @@ async function boot() {
   // ── 세션 흐름 프로토 (러닝) — 와이어프레임 v2 A→B→C ──
   const sessionStageEl = document.getElementById('session-stage');
   const captionEl = document.getElementById('voice-caption');
+  const veilEl = document.getElementById('stage-veil');
+  const wearFxEl = document.getElementById('wear-fx');
   let captionTimer = null;
+
+  // ── TTS: 자막을 실제 음성으로 (화자별 톤 구분) ──
+  let ttsOn = true;
+  function speak(who, text) {
+    if (!ttsOn || !('speechSynthesis' in window)) return;
+    const clean = text.replace(/\(.*?\)/g, '').replace(/[—·"']/g, ' ');
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(clean);
+    u.lang = 'ko-KR';
+    const ko = speechSynthesis.getVoices().find(v => v.lang.startsWith('ko'));
+    if (ko) u.voice = ko;
+    if (who === '시스템' || who === 'AI') { u.rate = 1.08; u.pitch = 0.8; }
+    else { u.rate = 1.0; u.pitch = 1.1; }   // 숙련자(션·고수)
+    u.onerror = e => console.warn('[TTS]', e.error);
+    // Chrome: cancel() 직후 speak()는 드롭됨 — 한 틱 지연
+    setTimeout(() => speechSynthesis.speak(u), 60);
+  }
+  // ── 전환 베일: 단계 전환 시 부드러운 암전 ──
+  function veil() {
+    if (!veilEl) return;
+    veilEl.style.opacity = '0.5';
+    setTimeout(() => { veilEl.style.opacity = '0'; }, 130);
+  }
+  // ── 웨어러블 개입 글로우: 모드 색으로 화면 가장자리 펄스 ──
+  let wearTimer = null;
+  function wearPulse(color, ms = 1300) {
+    if (!wearFxEl) return;
+    wearFxEl.style.boxShadow = `inset 0 0 150px 24px ${color}`;
+    wearFxEl.style.opacity = '0.55';
+    clearTimeout(wearTimer);
+    wearTimer = setTimeout(() => { wearFxEl.style.opacity = '0'; }, ms);
+  }
   function showCaption(who, text) {
     if (!captionEl) return;
     captionEl.innerHTML = `<b>🔊 ${who}</b> · ${text}`;
@@ -357,12 +391,20 @@ async function boot() {
     if (sessionStageEl) sessionStageEl.innerHTML = html;
     if (hudStageEl) hudStageEl.innerHTML = html;
     if (hudIdxEl) hudIdxEl.textContent = `${session.stageIdx + 1} / ${session.total}`;
-    if (st.voice) showCaption(st.voice[0], st.voice[1]);
+    veil();  // 단계 전환 암전 (끊김 → 의도된 전환으로)
+    if (st.voice) { showCaption(st.voice[0], st.voice[1]); speak(st.voice[0], st.voice[1]); }
+    if (st.wear) {
+      const w = st.wear;
+      const c = w.includes('BOOST') ? '#d1feff' : w.includes('LOAD') ? '#fec389'
+              : w.includes('SAFE') ? '#8fd8de' : '#9b9b9b';
+      wearPulse(c);
+    } else if (wearFxEl) wearFxEl.style.opacity = '0';
   });
   const sessionBtn = document.getElementById('btn-session');
   function stopSession() {
     if (!session.active) return;
     session.stop();
+    if ('speechSynthesis' in window) speechSynthesis.cancel();
     sessionBtn.textContent = '세션 시작 (1인칭 전환)';
     if (sessionStageEl) sessionStageEl.textContent = '—';
     if (sessionHud) sessionHud.style.display = 'none';
@@ -382,6 +424,12 @@ async function boot() {
   document.getElementById('btn-stage-next')?.addEventListener('click', () => session.next());
   document.getElementById('btn-session-stop')?.addEventListener('click', () => stopSession());
   document.getElementById('btn-view')?.addEventListener('click', () => setFp(!fpMode));
+  const ttsBtn = document.getElementById('btn-tts');
+  ttsBtn?.addEventListener('click', () => {
+    ttsOn = !ttsOn;
+    ttsBtn.textContent = ttsOn ? '🔊' : '🔇';
+    if (!ttsOn && 'speechSynthesis' in window) speechSynthesis.cancel();
+  });
 
   // ── 복싱 고스트 = 벽면 UI 2D 레이어 ──
   // 훅 모션 봇을 오프스크린 씬에서 정면 직교 카메라로 렌더 → 텍스처를 벽면 평면에 투사
@@ -505,6 +553,10 @@ async function boot() {
       }
     }
     stabErr.textContent = `${rig.errorCm.toFixed(1)}cm`;
+    if (wearFxEl && session.active && session.stage === 'C4') {
+      wearFxEl.style.boxShadow = 'inset 0 0 170px 30px #d1feff';
+      wearFxEl.style.opacity = String(0.26 + 0.14 * Math.sin(performance.now() / 280));
+    }
     effects.update(rawDt);
     panel.drawTimeline(state.time, judge.marks);
 
