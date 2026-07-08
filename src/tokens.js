@@ -52,9 +52,10 @@ const LAYOUT = {
   },
   basketball: {
     mode: 'spatial',
-    SCALE: 2.6,   // 컷인 확산을 무릎 투사면(≤4m)에 맞춤 — 투사 범위 밖 UI 방지
+    SCALE: 3.4,      // 스텝 연습 = 몸 주변 좁은 구역. 컷 궤적을 발치(≤1.5m) 안에 유지 (봇 경로와 동일 스케일)
   },
 };
+export const BK_SCALE = 3.4;   // xbot 경로와 공유 (봇·토큰 좌표 일치)
 
 // ── 텍스처 유틸 ───────────────────────────────────────────────
 function makeNumberTexture(n) {

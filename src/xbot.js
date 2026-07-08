@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
+import { BK_SCALE } from './tokens.js';   // 농구 경로 스케일 — 토큰과 공유(봇·마크 좌표 일치)
 
 import xbotUrl from '../assets/xbot.fbx?url';
 import runUrl from '../assets/anim-standard-run.fbx?url';
@@ -174,7 +175,7 @@ export class XBot {
       // 스텝 마크 경로: (t, x, z) 시퀀스
       const pts = tokenEvents
         .filter(e => e.surface === 'floor' && e.marker)
-        .map(e => ({ t: e.t, x: e.srcToken.nx * 4.0, z: e.srcToken.ny * 4.0 }))
+        .map(e => ({ t: e.t, x: e.srcToken.nx * BK_SCALE, z: e.srcToken.ny * BK_SCALE }))
         .sort((a, b) => a.t - b.t);
       // 플랜트 이벤트: 경로 방향 전환각 > 35°인 마크 = 컷 순간 (사이드 런지 원샷)
       const plants = [];

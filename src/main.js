@@ -124,9 +124,9 @@ async function boot() {
     tokens.footprintTest = isKneePack ? (x, z, inset) => rig.contains(x, z, inset) : null;
     effects.clip = isKneePack ? (x, z) => rig.contains(x, z) : null;
 
-    // 팩별 투사면 기본값 — 농구 컷인은 더 먼 풋프린트 필요
+    // 팩별 투사면 기본값 — 농구 스텝은 발치 좁은 구역(2.4m), 러닝은 전방 3m
     const farEl = document.getElementById('s-fpfar');
-    farEl.value = data.sport === 'basketball' ? 400 : 300;
+    farEl.value = data.sport === 'basketball' ? 240 : 300;
     farEl.dispatchEvent(new Event('input'));
 
     // 정보 위계: 농구는 NOW+NEXT 2개만 (공간 위계 혼잡 방지)

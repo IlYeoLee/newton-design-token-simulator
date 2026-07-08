@@ -540,6 +540,8 @@ export class Session {
   /** 실전 다운시프트 — 폼이 연속으로 흔들리면(non-hit ×2) 익히기로 복귀 */
   reportVerdict(verdict) {
     if (!this.active || !this.isLive) return;
+    if (this.sport === 'basketball') return;   // 농구 판정(hips 프로브) 미보정 — 다운시프트 보류
+
     this._missStreak = verdict !== 'hit' ? this._missStreak + 1 : 0;
     if (this._missStreak >= 2) {
       this._missStreak = 0;
