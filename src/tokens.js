@@ -20,7 +20,18 @@ export const COLORS = {
 };
 
 const FADE_STEPS = [1.0, 0.6, 0.35, 0.2];
-const LINGER = 0.35;
+
+// 에디터 v2에서 실시간 조절되는 토큰 지오메트리·상태 파라미터 (라이브 반영)
+export const TCFG = {
+  markScale: 1.0,       // 마크 전체 크기 배율
+  fillOpacity: 0.20,    // Active 채움 기본 투명도
+  previewEdge: 0.5,     // 프리뷰(NEXT) 윤곽 강도
+  cdContractFrom: 1.9,  // 수축 링 시작 배율 (1.9 → 1.0)
+  cdGain: 0.6,          // 수축 링 강도
+  lingerEdge: 0.9,      // 성공 잔상 윤곽 강도
+  linger: 0.35,         // 성공 잔상 지속(s)
+};
+const LINGER = TCFG.linger;   // (초기 참조 — 루프에서는 TCFG.linger 직접 사용)
 
 // 팩별 공간 매핑 (정규화 nx/ny → 월드 좌표)
 const LAYOUT = {
@@ -146,34 +157,34 @@ class Marker {
     const g = this.group;
     if (phase === 'hidden') { g.visible = false; return; }
     g.visible = true;
-    g.scale.setScalar(sizeScale);
+    g.scale.setScalar(sizeScale * TCFG.markScale);
     if (this.art) this.art.material.opacity = phase === 'preview' ? 0.55 : 1;
 
     const fade = FADE_STEPS[Math.min(orderIdx, FADE_STEPS.length - 1)];
     if (phase === 'preview') {
       // NEXT 단계 = 윤곽만 (위계: NOW 풀강도 / NEXT 윤곽)
       this.fill.material.opacity = 0.03 * fade;
-      this.edge.material.opacity = 0.5 * fade;
+      this.edge.material.opacity = TCFG.previewEdge * fade;
       this.edge.material.color.setHex(this.color);
       this.fill.material.color.setHex(this.color);
       this.cd.visible = false;
       if (this.num) this.num.material.opacity = 0.5 * fade;
     } else if (phase === 'countdown') {
-      this.fill.material.opacity = 0.20 + 0.15 * progress;
+      this.fill.material.opacity = TCFG.fillOpacity + 0.15 * progress;
       this.edge.material.opacity = 1.0;
       this.edge.material.color.setHex(this.color);
       this.fill.material.color.setHex(this.color);
       this.cd.visible = true;
-      const s = 1.9 - 0.9 * progress; // 1.9 → 1.0 수축
+      const s = TCFG.cdContractFrom - (TCFG.cdContractFrom - 1) * progress; // 시작배율 → 1.0 수축
       this.cd.scale.setScalar(s);
-      this.cd.material.opacity = 0.35 + 0.6 * progress;
+      this.cd.material.opacity = 0.35 + TCFG.cdGain * progress;
       if (this.num) this.num.material.opacity = 1.0;
     } else if (phase === 'linger') {
       const k = 1 - progress;
       this.fill.material.color.setHex(COLORS.success);
       this.edge.material.color.setHex(COLORS.success);
       this.fill.material.opacity = 0.3 * k;
-      this.edge.material.opacity = 0.9 * k;
+      this.edge.material.opacity = TCFG.lingerEdge * k;
       this.cd.visible = false;
       if (this.num) this.num.material.opacity = 0.4 * k;
     }
@@ -470,7 +481,7 @@ export class TokenSystem {
     if (!L) return;
 
     // 다가오는 이벤트 순서 계산 (preview 투명도 감쇠용)
-    const upcoming = this.events.filter(e => e.t >= now - LINGER);
+    const upcoming = this.events.filter(e => e.t >= now - TCFG.linger);
     const orderOf = new Map();
     upcoming.forEach((e, i) => orderOf.set(e, i));
 
@@ -478,9 +489,9 @@ export class TokenSystem {
       const order = orderOf.get(ev) ?? 99;
       let phase = 'hidden', progress = 0;
 
-      if (now >= ev.t && now < ev.t + LINGER) {
+      if (now >= ev.t && now < ev.t + TCFG.linger) {
         phase = 'linger';
-        progress = (now - ev.t) / LINGER;
+        progress = (now - ev.t) / TCFG.linger;
         if (!ev.fired) {
           ev.fired = true;
           this._fire(ev);

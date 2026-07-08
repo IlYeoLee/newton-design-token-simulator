@@ -291,13 +291,23 @@
       <div id="ed-timings"></div>
       <p style="font-size:10px;color:var(--dim);margin-top:6px;">세션 진행 중에도 즉시 적용 — 박자를 바꾸면 링 수축·카운트가 그 자리에서 바뀝니다.</p>
 
-      <div style="font-size:11px;font-weight:700;color:var(--dim);letter-spacing:1px;margin:16px 0 8px;">토큰 지오메트리·판정</div>
-      <p style="font-size:11px;color:var(--dim);line-height:1.5;">좌측 패널의 <b style="color:var(--text)">선행 시간 · 토큰 크기 · 동시 표시 · 판정 허용</b> 슬라이더가 이 계층입니다 (동일 실시간).</p>
+      <div style="font-size:11px;font-weight:700;color:var(--dim);letter-spacing:1px;margin:16px 0 8px;">토큰 지오메트리·상태</div>
+      <div id="ed-geom"></div>
+      <p style="font-size:10px;color:var(--dim);margin-top:6px;">마크 크기·채움·프리뷰 윤곽·수축 링·성공 잔상 — 실전 토큰에 즉시 반영.</p>
+
+      <div style="font-size:11px;font-weight:700;color:var(--dim);letter-spacing:1px;margin:16px 0 8px;">스테이지 타임라인 <span id="ed-stage-sport" style="color:var(--accent);font-weight:400"></span></div>
+      <div id="ed-stages" style="max-height:240px;overflow-y:auto;border:1px solid var(--line);border-radius:6px;padding:6px;"></div>
+      <p style="font-size:10px;color:var(--dim);margin-top:6px;">지속시간·멘트 편집 → 즉시 적용. 멘트를 바꾸면 <b style="color:var(--text)">🔊 재생성 필요</b> 표시(음성 mp3는 로컬 스크립트로).</p>
 
       <div style="font-size:11px;font-weight:700;color:var(--dim);letter-spacing:1px;margin:16px 0 8px;">에셋 (형태)</div>
       <p style="font-size:11px;color:var(--dim);line-height:1.5;">PNG/SVG를 화면에 드롭 → 좌측 <b style="color:var(--text)">제작자 모드</b> 대상에 적용.</p>
 
-      <div style="font-size:11px;font-weight:700;color:var(--dim);letter-spacing:1px;margin:16px 0 8px;">내보내기</div>
+      <div style="font-size:11px;font-weight:700;color:var(--dim);letter-spacing:1px;margin:16px 0 8px;">프리셋 · 내보내기</div>
+      <div style="display:flex;gap:6px;margin-bottom:6px;">
+        <button id="ed-save" style="flex:1;padding:8px 0;border:1px solid var(--line);border-radius:7px;background:var(--panel2);color:var(--text);font-size:12px;cursor:pointer;">💾 프리셋 저장(.json)</button>
+        <button id="ed-load" style="flex:1;padding:8px 0;border:1px solid var(--line);border-radius:7px;background:var(--panel2);color:var(--text);font-size:12px;cursor:pointer;">📂 불러오기</button>
+        <input type="file" id="ed-file" accept="application/json" style="display:none;">
+      </div>
       <button id="ed-export" style="width:100%;padding:9px 0;border:1px solid var(--accent);border-radius:7px;background:rgba(250,48,48,.12);color:var(--accent);font-size:12px;font-weight:700;cursor:pointer;">토큰 JSON 복사 (클립보드)</button>
       <p id="ed-export-msg" style="font-size:10px;color:var(--ok);margin-top:6px;visibility:hidden;">복사됨 — 노션/문서에 붙여넣기</p>
     </div>

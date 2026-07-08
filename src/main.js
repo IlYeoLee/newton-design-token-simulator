@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { createScene, WALL_Z } from './scene.js';
-import { TokenSystem, COLORS } from './tokens.js';
+import { TokenSystem, COLORS, TCFG } from './tokens.js';
 import { Effects } from './effects.js';
 import { XBot } from './xbot.js';
 import { Panel } from './panel.js';
@@ -30,6 +30,7 @@ async function boot() {
   const { renderer, scene, camera, controls, setPackEnvironment } = createScene(stage);
 
   let sessionSkillSink = null;   // 슬라이더가 session 생성 전 초기 apply 시 TDZ 회피
+  let refreshEditorStages = null; // switchPack → 에디터 스테이지 편집기 갱신 훅
   const effects = new Effects(scene);
   const tokens = new TokenSystem(scene, effects);
   const xbot = new XBot(scene);
@@ -157,6 +158,7 @@ async function boot() {
     const ok = !!label;
     if (availEl) availEl.textContent = ok ? `· ${label} 세션` : '· 준비 중';
     if (btnEl) { btnEl.style.opacity = ok ? '1' : '0.5'; btnEl.style.pointerEvents = ok ? 'auto' : 'none'; }
+    refreshEditorStages?.();   // 에디터 스테이지 타임라인 갱신
   }
 
   // ── 시야 콘 (자연 시선, 조절 가능) ──────────────
@@ -565,10 +567,69 @@ async function boot() {
     });
   }
 
-  document.getElementById('ed-export')?.addEventListener('click', async () => {
-    const json = {
+  // ── 토큰 지오메트리·상태 슬라이더 (TCFG 라이브 반영) ──
+  const GEOM = [
+    ['markScale', '마크 크기', 0.5, 2, 'x'], ['fillOpacity', '채움 투명도', 0.05, 0.6, ''],
+    ['previewEdge', '프리뷰 윤곽', 0.1, 1, ''], ['cdContractFrom', '수축 시작 배율', 1.2, 3, 'x'],
+    ['cdGain', '수축 링 강도', 0.2, 1, ''], ['lingerEdge', '성공 잔상', 0.3, 1.5, ''],
+    ['linger', '잔상 지속', 0.15, 1, 's'],
+  ];
+  const geomWrap = document.getElementById('ed-geom');
+  for (const [k, label, mn, mx, unit] of GEOM) {
+    const row = document.createElement('div');
+    row.style.cssText = 'margin-bottom:9px;font-size:12px;';
+    row.innerHTML = `<div style="display:flex;justify-content:space-between;margin-bottom:3px;"><span>${label}</span><span style="color:var(--accent);font-variant-numeric:tabular-nums;" id="edg-${k}">${TCFG[k]}${unit}</span></div>
+      <input type="range" min="${mn * 100}" max="${mx * 100}" value="${TCFG[k] * 100}" style="width:100%;">`;
+    geomWrap.appendChild(row);
+    row.querySelector('input').addEventListener('input', e => {
+      TCFG[k] = parseInt(e.target.value, 10) / 100;
+      document.getElementById(`edg-${k}`).textContent = TCFG[k].toFixed(2) + unit;
+    });
+  }
+
+  // ── 스테이지 타임라인 편집기 (현재 팩의 종목) ──
+  const stagesWrap = document.getElementById('ed-stages');
+  const stageSportEl = document.getElementById('ed-stage-sport');
+  function renderStageEditor() {
+    const sport = ['running', 'basketball', 'boxing'].includes(state.pack) ? state.pack : 'running';
+    const stages = session.stagesFor(sport);
+    stageSportEl.textContent = `· ${{ running: '러닝', basketball: '농구', boxing: '복싱' }[sport]}`;
+    stagesWrap.innerHTML = '';
+    stages.forEach((st, i) => {
+      const row = document.createElement('div');
+      row.style.cssText = 'padding:5px 0;border-bottom:1px solid var(--line);font-size:11px;';
+      const dur = st.dur != null ? st.dur : '';
+      row.innerHTML =
+        `<div style="display:flex;gap:6px;align-items:center;margin-bottom:3px;">
+          <span style="color:var(--dim);width:14px;">${i + 1}</span>
+          <span style="flex:1;color:var(--text);">${st.label.split('—').pop().trim().slice(0, 22)}</span>
+          <input type="number" step="0.5" placeholder="auto" value="${dur}" title="지속(초)" style="width:48px;padding:3px;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:4px;font-size:11px;">
+        </div>
+        <div style="display:flex;gap:4px;align-items:center;">
+          <input type="text" value="${(st.voice?.[1] || '').replace(/"/g, '&quot;')}" title="멘트" style="flex:1;padding:3px;background:var(--panel2);color:var(--dim);border:1px solid var(--line);border-radius:4px;font-size:10px;">
+          <span id="edm-${i}" style="color:#ffc94d;font-size:9px;visibility:hidden;">🔊재생성</span>
+        </div>`;
+      const [durEl, txtEl] = row.querySelectorAll('input');
+      durEl.addEventListener('input', e => {
+        const v = parseFloat(e.target.value);
+        if (!isNaN(v) && v > 0) st.dur = v; else if (e.target.value === '') delete st.dur;
+      });
+      txtEl.addEventListener('input', e => {
+        if (st.voice) { st.voice[1] = e.target.value; document.getElementById(`edm-${i}`).style.visibility = 'visible'; }
+      });
+      stagesWrap.appendChild(row);
+    });
+  }
+  refreshEditorStages = renderStageEditor;
+  renderStageEditor();
+
+  // ── 프리셋 저장/불러오기 (JSON 파일) ──
+  function collectPreset() {
+    return {
+      _newton: 'token-preset', version: 2,
       palette: Object.fromEntries(Object.entries(COLORS).map(([k, v]) => [k, '#' + v.toString(16).padStart(6, '0')])),
       sessionTiming: { ...SCFG },
+      geometry: { ...TCFG },
       token: {
         leadMs: parseInt(document.getElementById('s-lead').value, 10),
         sizeScale: parseInt(document.getElementById('s-size').value, 10) / 100,
@@ -579,7 +640,32 @@ async function boot() {
         tolPosCm: parseInt(document.getElementById('s-tolp').value, 10),
       },
     };
-    await navigator.clipboard.writeText(JSON.stringify(json, null, 2));
+  }
+  function applyPreset(p) {
+    if (p.palette) for (const [k, v] of Object.entries(p.palette)) if (k in COLORS) COLORS[k] = parseInt(v.slice(1), 16);
+    if (p.sessionTiming) Object.assign(SCFG, p.sessionTiming);
+    if (p.geometry) Object.assign(TCFG, p.geometry);
+    tokens.recolor();
+    // 슬라이더 UI 동기화
+    for (const [k] of GEOM) { const el = document.getElementById(`edg-${k}`); if (el) el.textContent = TCFG[k].toFixed(2); }
+    document.querySelectorAll('#ed-geom input').forEach((el, i) => { el.value = TCFG[GEOM[i][0]] * 100; });
+    document.querySelectorAll('#ed-timings input').forEach((el, i) => { el.value = SCFG[TIMINGS[i][0]] * 100; });
+    document.querySelectorAll('#ed-colors input').forEach(el => { el.value = '#' + COLORS[el.dataset.role].toString(16).padStart(6, '0'); });
+  }
+  document.getElementById('ed-save')?.addEventListener('click', () => {
+    const blob = new Blob([JSON.stringify(collectPreset(), null, 2)], { type: 'application/json' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+    a.download = `newton-preset-${Date.now()}.json`; a.click();
+  });
+  document.getElementById('ed-load')?.addEventListener('click', () => document.getElementById('ed-file').click());
+  document.getElementById('ed-file')?.addEventListener('change', async e => {
+    const f = e.target.files?.[0]; if (!f) return;
+    try { applyPreset(JSON.parse(await f.text())); } catch (err) { console.warn('[preset]', err); }
+    e.target.value = '';
+  });
+
+  document.getElementById('ed-export')?.addEventListener('click', async () => {
+    await navigator.clipboard.writeText(JSON.stringify(collectPreset(), null, 2));
     const msg = document.getElementById('ed-export-msg');
     msg.style.visibility = 'visible'; setTimeout(() => { msg.style.visibility = 'hidden'; }, 2000);
   });

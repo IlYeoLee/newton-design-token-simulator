@@ -521,6 +521,8 @@ export class Session {
     this.stages = STAGES[this.sport];
     this.active = true; this.stageIdx = 0; this.t = 0; this._missStreak = 0; this.root.visible = true; this._enter();
   }
+  /** 에디터: 종목별 스테이지 배열 (편집 대상) */
+  stagesFor(sport) { return STAGES[sport] || STAGES.running; }
   /** 학습자 실력(0~1) — 게이트/다운시프트 구동 (판정 슬라이더와 동기) */
   setSkill(v) { this.skill = v; }
   get skill() { return this._skill ?? 0.7; }
