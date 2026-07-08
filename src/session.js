@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { WALL_Z } from './scene.js';
 
 // ─────────────────────────────────────────────────────────────
 // 러닝 세션 흐름 — 와이어프레임 v2 전체 15프레임 이식
@@ -112,6 +113,56 @@ function laneLine(color, z0 = 1.0, z1 = -3.2) {
   l.computeLineDistances(); l.renderOrder = 4; return l;
 }
 
+// ── 벽면 프리미티브 (복싱 — z=WALL_Z 세워진 평면, 유저(+z) 바라봄, 눕힘 없음) ──
+const WZ = WALL_Z + 0.03;
+function wallRing(x, y, rIn, rOut, color, op = 0.9) {
+  const m = new THREE.Mesh(new THREE.RingGeometry(rIn, rOut, 48), flatMat(color, op));
+  m.position.set(x, y, WZ); m.renderOrder = 5; return m;
+}
+function wallArc(x, y, rIn, rOut, color, a0, len, op = 0.9) {
+  const m = new THREE.Mesh(new THREE.RingGeometry(rIn, rOut, 40, 1, a0, len), flatMat(color, op));
+  m.position.set(x, y, WZ + 0.001); m.renderOrder = 6; return m;
+}
+function wallText(text, x, y, opts) {
+  const p = makeTextPlane(text, opts); p.position.set(x, y, WZ + 0.002); p.renderOrder = 7; return p;
+}
+/** 가드 존 박스 — 신체 부위가 머물 영역 (라운드 사각 아웃라인) */
+function guardBox(x, y, w, h, color, op = 0.8) {
+  const s = new THREE.Shape(); const r = 0.05;
+  const hw = w / 2, hh = h / 2;
+  s.moveTo(-hw + r, -hh); s.lineTo(hw - r, -hh); s.quadraticCurveTo(hw, -hh, hw, -hh + r);
+  s.lineTo(hw, hh - r); s.quadraticCurveTo(hw, hh, hw - r, hh); s.lineTo(-hw + r, hh);
+  s.quadraticCurveTo(-hw, hh, -hw, hh - r); s.lineTo(-hw, -hh + r); s.quadraticCurveTo(-hw, -hh, -hw + r, -hh);
+  const pts = s.getPoints(48);
+  const g = new THREE.Group();
+  const line = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(pts.map(p => new THREE.Vector3(p.x, p.y, 0))),
+    new THREE.LineBasicMaterial({ color, transparent: true, opacity: op }));
+  const fill = new THREE.Mesh(new THREE.ShapeGeometry(s), flatMat(color, 0.08));
+  g.add(fill, line); g.position.set(x, y, WZ); g.renderOrder = 5; return g;
+}
+/** 잽 스윕 밴드 — ④ pathLane 벽면 표현형: 부위가 지나갈 호(弧) 면적, 그라디언트=진행 방향 */
+function sweepBand(x0, y0, x1, y1, color) {
+  const c = document.createElement('canvas'); c.width = 128; c.height = 128;
+  const ctx = c.getContext('2d');
+  const gr = ctx.createLinearGradient(0, 128, 128, 0);
+  const hex = '#' + color.toString(16).padStart(6, '0');
+  gr.addColorStop(0, 'rgba(250,48,48,0.04)'); gr.addColorStop(1, hex);
+  ctx.fillStyle = gr;
+  ctx.beginPath(); ctx.moveTo(12, 120); ctx.quadraticCurveTo(30, 40, 110, 24);
+  ctx.lineTo(120, 52); ctx.quadraticCurveTo(52, 66, 34, 122); ctx.closePath(); ctx.fill();
+  const tex = new THREE.CanvasTexture(c);
+  const w = Math.hypot(x1 - x0, y1 - y0) + 0.5;
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, w),
+    new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: 0.7, depthWrite: false }));
+  m.position.set((x0 + x1) / 2, (y0 + y1) / 2, WZ + 0.001); m.renderOrder = 5; return m;
+}
+function wallTap() {
+  const g = new THREE.Group();
+  for (let i = 0; i < 2; i++) { const r = new THREE.Mesh(new THREE.RingGeometry(0.055, 0.07, 32), flatMat(BRAND.prism, 0.95)); r.position.x = (i - 0.5) * 0.18; g.add(r); }
+  const label = makeTextPlane('TAP ×2', { size: 0.055, color: CS.prism }); label.position.set(0, -0.16, 0.001); g.add(label);
+  g.position.z = WZ; g.renderOrder = 7; return g;
+}
+
 // ─────────────────────────────────────────────────────────────
 // 종목별 스테이지 스크립트. 공통 로직은 데이터 필드로 구동:
 //   live=실전 팩 재생 · boost=가속 · cooldown=감속정지 · count=카운트다운
@@ -152,6 +203,22 @@ const STAGES = {
     { id:'BK_C4', live:true, cooldown:true, label:'C · 실전 4/4 — 릴리즈·정지', voice:['시스템','밸런스 잡고 릴리즈. 좋아요.'], hap:'릴리즈 완료 진동' },
     { id:'BK_FIN', label:'B-F · 리포트', voice:['시스템','리포트를 앱으로 보냈어요.'], cue:'Ghost Review — 커리 궤적과 내 스텝 겹쳐 보기' },
   ],
+  boxing: [
+    { id:'BX_READY', wall:true, label:'0 · READY — 가드·거리', voice:['시스템','섀도복싱 잽 팩. 가드 올리고 발을 두 번 탭하세요.'], wear:'SAFE 대기', foot:'두 번 탭 → 시작' },
+    { id:'BX_A1', wall:true, label:'A · 준비운동 1/3 — 목·어깨 풀기', voice:['고수','목이랑 어깨 크게 돌려요. 천천히.'], wear:'개입 없음' },
+    { id:'BX_A2', wall:true, label:'A · 준비운동 2/3 — 스텝 인·아웃', voice:['고수','앞뒤로 가볍게. 무게는 앞발에.'], hap:'스텝 박자 (약)' },
+    { id:'BX_A3', wall:true, label:'A · 준비운동 3/3 — 잽 폼 가볍게', voice:['고수','어깨에서 뻗고 바로 회수. 가볍게 여섯 번.'], wear:'낮은 강도 보조 시작' },
+    { id:'BX_T1', wall:true, label:'T-1 · STAGE CLEAR → 사전 익히기', voice:['시스템','몸 풀렸어요. 탭 두 번이면 다음으로.'], foot:'두 번 탭 → 사전 익히기' },
+    { id:'BX_B1', wall:true, gate:true, label:'B · 사전 익히기 1/3 — 가드 유지', voice:['고수','가드 박스 안에 주먹 유지. 링이 찰 때까지.'], cue:'Hold Ring — 가드 존' },
+    { id:'BX_B2', wall:true, gate:true, label:'B · 사전 익히기 2/3 — 회피 스텝', voice:['고수','머리를 좌우로 슬립. 존 밖으로 피해요.'], cue:'회피형 점선 존' },
+    { id:'BX_B3', wall:true, gate:true, label:'B · 사전 익히기 3/3 — 잽 스윕', voice:['고수','스윕 따라 주먹 뻗고 타겟에 정렬.'], foot:'두 번 탭 → 실전 준비' },
+    { id:'BX_T2', wall:true, label:'T-2 · 5초 뒤 실전 자동 진행 (두 번 탭 = 바로)', voice:['고수','5초 뒤 넘어가요. 준비됐으면 두 번 탭.'], dur:5, count:true, foot:'두 번 탭 = 즉시 · 무입력 = 자동' },
+    { id:'BX_C1', wall:true, dur:3, label:'C · 실전 1/4 — 시작 신호', voice:['시스템','3, 2, 1. 대련 시작.'], hap:'시작 진동', foot:'두 번 탭 → 시작' },
+    { id:'BX_C2', wall:true, dur:6, live:true, label:'C · 실전 2/4 — 잽 대련 라이브', voice:['고수','타겟 뜨면 바로 잽.'], wear:'SAFE 가드 안정화' },
+    { id:'BX_C3', wall:true, dur:6, live:true, boost:true, label:'C · 실전 3/4 — 콤비네이션 (라이브·가속)', voice:['고수','잽-잽-훅! 리듬 놓치지 말고.'], wear:'BOOST 스텝 추진', cue:'구간 종료 Match Rate' },
+    { id:'BX_C4', wall:true, live:true, cooldown:true, label:'C · 실전 4/4 — 마무리·정지', voice:['시스템','가드 내리고 숨 고르기. 좋았어요.'], hap:'완료 진동' },
+    { id:'BX_FIN', wall:true, label:'B-F · 리포트', voice:['시스템','리포트를 앱으로 보냈어요.'], cue:'Ghost Review — 고수 잽과 내 폼 겹쳐 보기' },
+  ],
 };
 
 export class Session {
@@ -170,7 +237,11 @@ export class Session {
   get total() { return this.stages.length; }
   /** 실전 라이브 — 팩 재생이 실제로 돌아가는 단계 (데이터 필드 구동) */
   get isLive() { return !!this.stages[this.stageIdx].live; }
-  _clip(o) { if (!this.tokens.floorClip) return; o.traverse(x => { if (x.material) x.material.clippingPlanes = this.tokens.floorClip; }); }
+  _clip(o, wall = false) {
+    const planes = wall ? this.tokens.wallClip : this.tokens.floorClip;
+    if (!planes) return;
+    o.traverse(x => { if (x.material) x.material.clippingPlanes = planes; });
+  }
   _mk(id) { const g = new THREE.Group(); g.visible = false; this.root.add(g); this.G[id] = g; return g; }
 
   _build() {
@@ -183,10 +254,18 @@ export class Session {
     this.countRing = floorRing(0, -1.85, 0.30, 0.335, BRAND.red, 0);
     this.root.add(this.countGroup, this.countRing);
 
+    // 벽면 텍스트 슬롯 (복싱) — 세워진 평면, 유저 방향
+    this.wSlotFS = new THREE.Group(); this.wSlotFS.position.set(-0.62, 1.72, WZ + 0.002);
+    this.wSlotFL = new THREE.Group(); this.wSlotFL.position.set(0, 1.72, WZ + 0.002);
+    this.wSlotFM = new THREE.Group(); this.wSlotFM.position.set(0, 0.55, WZ + 0.002);
+    this.wCount = new THREE.Group(); this.wCount.position.set(0, 1.15, WZ + 0.004);
+    this.root.add(this.wSlotFS, this.wSlotFL, this.wSlotFM, this.wCount);
+
     this._buildRunning();
     this._buildBasketball();
+    this._buildBoxing();
 
-    for (const id in this.G) this._clip(this.G[id]);
+    for (const id in this.G) this._clip(this.G[id], id.startsWith('BX_'));
     this._clip(this.countGroup);
   }
 
@@ -343,6 +422,75 @@ export class Session {
     g.add(floorText('다음: 스텝 분해 +1세트 · 릴리즈 밸런스', 0, -2.55, { size: 0.06, color: CS.prism }));
   }
 
+  _buildBoxing() {
+    // 가드 존 기준: 얼굴 앞 (y≈1.35), 타겟은 그 위 (y≈1.14 실제 판정 높이 Y0=0.73+ny)
+    const TX = -0.13, TY = 1.14;   // 벽 타겟 중심 (tokens LAYOUT.boxing WALL 매핑)
+    let g = this._mk('BX_READY');
+    g.add(guardBox(0, 1.35, 0.5, 0.42, BRAND.dim, 0.7));
+    this.bxTap = wallTap(); this.bxTap.position.set(0, 0.9, WZ); g.add(this.bxTap);
+
+    // A1 목·어깨 — 회전 아크(어깨 좌우)
+    g = this._mk('BX_A1');
+    this.bxA1arcL = wallArc(-0.35, 1.4, 0.14, 0.165, BRAND.sand, Math.PI*0.15, Math.PI*1.4); g.add(this.bxA1arcL);
+    this.bxA1arcR = wallArc(0.35, 1.4, 0.14, 0.165, BRAND.sand, Math.PI*0.15, Math.PI*1.4); g.add(this.bxA1arcR);
+
+    // A2 스텝 인·아웃 — 위/아래 방향 존
+    g = this._mk('BX_A2');
+    this.bxA2near = wallRing(0, 1.0, 0.14, 0.16, BRAND.red, 0.4); g.add(this.bxA2near);
+    this.bxA2far = wallRing(0, 1.5, 0.14, 0.16, BRAND.red, 0.4); g.add(this.bxA2far);
+
+    // A3 잽 폼 — 스윕 + 타겟
+    g = this._mk('BX_A3');
+    g.add(sweepBand(0.15, 1.15, TX, TY, BRAND.red));
+    this.bxA3ring = wallRing(TX, TY, 0.12, 0.14, BRAND.red, 0.8); g.add(this.bxA3ring);
+
+    g = this._mk('BX_T1');
+    this.bxTap1 = wallTap(); this.bxTap1.position.set(0, 0.9, WZ); g.add(this.bxTap1);
+
+    // B1 가드 유지 — 가드 박스 + 홀드 링 (채움)
+    g = this._mk('BX_B1');
+    g.add(guardBox(0, 1.35, 0.5, 0.42, BRAND.red, 0.8));
+    this.bxHoldBg = wallRing(0, 1.35, 0.20, 0.235, 0x3a3a38, 0.5); g.add(this.bxHoldBg);
+    this.bxHold = wallArc(0, 1.35, 0.20, 0.235, BRAND.sand, Math.PI/2, 0.001, 0); g.add(this.bxHold);
+
+    // B2 회피 스텝 — 회피형 점선 존(공격 범위) 좌우
+    g = this._mk('BX_B2');
+    this.bxDodgeL = this._dashRing(-0.34, 1.45, 0.19, BRAND.coral); g.add(this.bxDodgeL);
+    this.bxDodgeR = this._dashRing(0.34, 1.45, 0.19, BRAND.coral); g.add(this.bxDodgeR);
+    g.add(wallText('피해요', 0, 1.02, { size: 0.09, color: CS.coral, weight: 800 }));
+
+    // B3 잽 스윕 — 스윕 밴드 + 타겟(수축 링)
+    g = this._mk('BX_B3');
+    this.bxSweep = sweepBand(0.15, 1.15, TX, TY, BRAND.red); g.add(this.bxSweep);
+    this.bxB3ring = wallRing(TX, TY, 0.18, 0.205, BRAND.red, 0.8); g.add(this.bxB3ring);
+    this.bxB3cd = wallRing(TX, TY, 0.18, 0.205, BRAND.prism, 0); g.add(this.bxB3cd);
+
+    this._mk('BX_T2');
+
+    g = this._mk('BX_C1');
+    g.add(guardBox(0, 1.35, 0.5, 0.42, BRAND.red, 0.5));
+
+    this._mk('BX_C2');       // 라이브 — 벽 타겟 팩 흐름
+    this._mk('BX_C3');       // 라이브 콤비 (가속)
+
+    g = this._mk('BX_C4');
+    g.add(wallText('숨 고르기', 0, 1.2, { size: 0.09, color: CS.mute }));
+
+    g = this._mk('BX_FIN');
+    g.add(wallText('오늘의 잽', 0, 1.55, { size: 0.11, color: CS.ink }));
+    g.add(wallText('Pack 일치도 71% · 가드 유지율 82%', 0, 1.3, { size: 0.06, color: CS.dim }));
+    g.add(wallText('회피 후 복귀가 반 박자 느림', 0, 1.12, { size: 0.055, color: CS.mute }));
+    g.add(wallText('다음: 회피→잽 3박자 +1세트', 0, 0.95, { size: 0.055, color: CS.prism }));
+  }
+
+  _dashRing(x, y, r, color) {
+    const seg = 32, pts = [];
+    for (let i = 0; i <= seg; i++) { const a = i / seg * Math.PI * 2; pts.push(new THREE.Vector3(x + Math.cos(a) * r, y + Math.sin(a) * r, WZ + 0.001)); }
+    const l = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(pts),
+      new THREE.LineDashedMaterial({ color, dashSize: 0.06, gapSize: 0.05, transparent: true, opacity: 0.85 }));
+    l.computeLineDistances(); l.renderOrder = 6; return l;
+  }
+
   _tap() {
     const g = new THREE.Group();
     for (let i = 0; i < 2; i++) { const r = new THREE.Mesh(new THREE.RingGeometry(0.055, 0.07, 32), flatMat(BRAND.prism, 0.95)); r.position.x = (i - 0.5) * 0.18; g.add(r); }
@@ -389,22 +537,50 @@ export class Session {
     this.liveSpeed = st.boost ? 1.18 : 1;
     this.bobY = 0;
     for (const id in this.G) this.G[id].visible = false;
-    this._setCount(null);
+    this._setCount(null); this._setCountWall(null);
     if (this.G[st.id]) this.G[st.id].visible = true;
     this._lastCount = null;
+    // 지면/벽 슬롯 전환
+    const wall = !!st.wall;
+    [this.slotFS, this.slotFL, this.slotFM].forEach(s => s.visible = !wall);
+    [this.wSlotFS, this.wSlotFL, this.wSlotFM].forEach(s => s.visible = wall);
 
-    const S = this._slot.bind(this);
-    const H = {
-      S,
-      FS: t => S(this.slotFS, t, { size: 0.055, color: CS.mute }),
-      FL: t => S(this.slotFL, t, { size: 0.10, color: CS.ink }),
-      FM: (t, c = CS.dim) => S(this.slotFM, t, { size: 0.07, color: c }),
-    };
-    H.FS(''); H.FL(''); H.FM('');
-    if (st.count) this._setCount(5);
-    if (this.sport === 'basketball') this._enterBasketball(st, H);
-    else this._enterRunning(st, H);
+    if (wall) {
+      const W = (slot, t, opts) => this._slotWall(slot, t, opts);
+      const H = {
+        S: W,
+        FS: t => W(this.wSlotFS, t, { size: 0.05, color: CS.mute }),
+        FL: t => W(this.wSlotFL, t, { size: 0.09, color: CS.ink }),
+        FM: (t, c = CS.dim) => W(this.wSlotFM, t, { size: 0.06, color: c }),
+      };
+      H.FS(''); H.FL(''); H.FM('');
+      if (st.count) this._setCountWall(5);
+      this._enterBoxing(st, H);
+    } else {
+      const S = this._slot.bind(this);
+      const H = {
+        S,
+        FS: t => S(this.slotFS, t, { size: 0.055, color: CS.mute }),
+        FL: t => S(this.slotFL, t, { size: 0.10, color: CS.ink }),
+        FM: (t, c = CS.dim) => S(this.slotFM, t, { size: 0.07, color: c }),
+      };
+      H.FS(''); H.FL(''); H.FM('');
+      if (st.count) this._setCount(5);
+      if (this.sport === 'basketball') this._enterBasketball(st, H);
+      else this._enterRunning(st, H);
+    }
     this._fmCache = null;
+  }
+
+  _slotWall(slot, text, opts) {
+    while (slot.children.length) { const c = slot.children.pop(); c.geometry?.dispose(); c.material?.map?.dispose(); c.material?.dispose(); }
+    if (!text) return;
+    const p = makeTextPlane(text, opts); this._clip(p, true); slot.add(p);
+  }
+  _setCountWall(n, color = '#fa3030') {
+    while (this.wCount.children.length) { const c = this.wCount.children.pop(); c.geometry?.dispose(); c.material?.map?.dispose(); c.material?.dispose(); }
+    if (n == null) return;
+    const p = makeTextPlane(String(n), { size: 0.28, color, weight: 800 }); this._clip(p, true); this.wCount.add(p);
   }
 
   _enterRunning(st, { S, FS, FL, FM }) {
@@ -448,31 +624,53 @@ export class Session {
     }
   }
 
+  _enterBoxing(st, { S, FS, FL, FM }) {
+    switch (st.id) {
+      case 'BX_READY': FS('SHADOW · JAB'); FL('가드 올리고 READY'); FM('발 두 번 탭 → 시작'); break;
+      case 'BX_A1': FS('WARM 1/3'); FL('목·어깨 돌리기'); FM('천천히 크게', CS.sand); break;
+      case 'BX_A2': FS('WARM 2/3'); FL('스텝 인·아웃'); FM('앞뒤 6회', CS.sand); break;
+      case 'BX_A3': FS('WARM 3/3'); FL('잽 폼 가볍게'); FM('뻗고 회수 6회'); break;
+      case 'BX_T1': FS('T-1'); S(this.wSlotFL, 'STAGE CLEAR', { size: 0.11, color: CS.prism }); FM('탭 두 번 → 사전 익히기'); break;
+      case 'BX_B1': FS('LEARN 1/3'); FL('가드 유지'); FM('가드 존 · 3초 유지'); break;
+      case 'BX_B2': FS('LEARN 2/3'); FL('회피 슬립'); FM('점선 존 밖으로'); break;
+      case 'BX_B3': FS('LEARN 3/3'); FL('잽 스윕'); FM('맞춘 잽 0 / 6'); break;
+      case 'BX_T2': FS('T-2'); FM('두 번 탭 = 바로 · 가만히 있으면 자동'); break;
+      case 'BX_C1': FS('SPAR 00:00'); break;
+      case 'BX_C2': FS('SPAR · SAFE'); FM('타겟 뜨면 잽'); break;
+      case 'BX_C3': S(this.wSlotFS, 'COMBO · BOOST', { size: 0.05, color: CS.prism }); break;
+      case 'BX_C4': FS('COOL DOWN'); break;
+      case 'BX_FIN': FS('REPORT'); break;
+    }
+  }
+
   update(dt) {
     if (!this.active) return;
     const st = this.stages[this.stageIdx]; this.t += dt; const id = st.id;
-    // 오버레이 좌표: 라이브면 러너/컷을 따라감(전방 슬롯 유지), 아니면 원점 고정
-    const bodyZ = this.isLive ? this.xbot.getBodyPos().z : 0;
-    this.root.position.x = this.tokens.floorRoot.position.x;
-    this.root.position.z = this.tokens.floorRoot.position.z + bodyZ;
+    const wall = !!st.wall;
+    // 오버레이 좌표: 벽면(복싱)은 고정, 지면은 러너/컷을 따라감
+    const bodyZ = (!wall && this.isLive) ? this.xbot.getBodyPos().z : 0;
+    this.root.position.x = wall ? 0 : this.tokens.floorRoot.position.x;
+    this.root.position.z = wall ? 0 : (this.tokens.floorRoot.position.z + bodyZ);
     const beat = (per) => (this.t % per) / per;
-    // FM 슬롯 갱신 헬퍼 — 값이 바뀔 때만 텍스처 재생성
+    // FM 슬롯 갱신 헬퍼 — 값이 바뀔 때만 텍스처 재생성 (벽/지면 자동)
     const FMU = (text, color) => {
       if (text === this._fmCache) return; this._fmCache = text;
-      this._slot(this.slotFM, text, { size: 0.07, color: color || CS.dim });
+      if (wall) this._slotWall(this.wSlotFM, text, { size: 0.06, color: color || CS.dim });
+      else this._slot(this.slotFM, text, { size: 0.07, color: color || CS.dim });
     };
 
     // 공통: 카운트다운 스테이지(T2류) — 무입력 = 자동 진행 (무한 루프 없음)
     if (st.count) {
       const rem = Math.max(0, st.dur - this.t), n = Math.max(1, Math.ceil(rem));
-      if (n !== this._lastCount) { this._setCount(n); this._lastCount = n; }
-      const f = rem - Math.floor(rem); this.countRing.material.opacity = 0.3 + 0.5 * f; this.countRing.scale.setScalar(0.8 + 0.6 * f);
+      if (n !== this._lastCount) { wall ? this._setCountWall(n) : this._setCount(n); this._lastCount = n; }
+      if (!wall) { const f = rem - Math.floor(rem); this.countRing.material.opacity = 0.3 + 0.5 * f; this.countRing.scale.setScalar(0.8 + 0.6 * f); }
       this.bobY = 0;
       if (this.t >= st.dur) { this.next(); return; }
       return;
     }
 
-    if (this.sport === 'basketball') this._updateBasketball(id, st, beat, FMU);
+    if (this.sport === 'boxing') this._updateBoxing(id, st, beat, FMU);
+    else if (this.sport === 'basketball') this._updateBasketball(id, st, beat, FMU);
     else this._updateRunning(id, st, beat, FMU);
 
     if (this.auto && st.dur && this.t >= st.dur && !st.count) this._next();
@@ -620,6 +818,67 @@ export class Session {
     } else if (id === 'BK_C4') {
       this.liveSpeed = Math.max(0.12, 1 - this.t / 2.4);   // 릴리즈 감속
       if (this.liveSpeed <= 0.13 && this.t > 2.8) { this.liveSpeed = 1; this.stageIdx = this.stages.findIndex(s2 => s2.id === 'BK_FIN'); this.t = 0; this._enter(); return; }
+    }
+  }
+
+  _updateBoxing(id, st, beat, FMU) {
+    this.bobY = 0;   // 벽면 종목 — 1인칭 시점 흔들림은 모캡이 담당
+    if (id === 'BX_READY' || id === 'BX_T1') {
+      const tap = id === 'BX_READY' ? this.bxTap : this.bxTap1; const k = 0.5 + 0.5 * Math.sin(this.t * 4);
+      tap.children[0].material.opacity = 0.5 + 0.45 * k; tap.children[1].material.opacity = 0.5 + 0.45 * (1 - k);
+      if (id === 'BX_T1' && this.t >= 4.5) { this.next(); return; }
+    } else if (id === 'BX_A1') {
+      // 목·어깨 회전 아크
+      this.bxA1arcL.rotation.z = this.t * 2; this.bxA1arcR.rotation.z = -this.t * 2;
+      FMU(`${Math.min(8, Math.floor(this.t / 0.7) + 1)} / 8`, CS.sand);
+      if (this.t >= 8 * 0.7) { this.next(); return; }
+    } else if (id === 'BX_A2') {
+      // 스텝 인·아웃 — 근/원 존 교대
+      const per = 0.7, near = Math.floor(this.t / per) % 2 === 0;
+      this.bxA2near.material.opacity = near ? 0.9 : 0.35;
+      this.bxA2far.material.opacity = near ? 0.35 : 0.9;
+      FMU(`앞뒤 ${Math.min(6, Math.floor(this.t / per) + 1)} / 6`, CS.sand);
+      if (this.t >= 6 * per + 0.4) { this.next(); return; }
+    } else if (id === 'BX_A3') {
+      // 잽 폼 — 타겟 링 펄스
+      const BT = 0.75, k = 1 - beat(BT);
+      this.bxA3ring.material.opacity = 0.3 + 0.6 * k; this.bxA3ring.scale.setScalar(0.8 + 0.5 * (1 - k));
+      FMU(`잽 ${Math.min(6, Math.floor(this.t / BT) + 1)} / 6`);
+      if (this.t >= 6 * BT + 0.4) { this.next(); return; }
+    } else if (id === 'BX_B1') {
+      // 가드 유지 — 홀드 링 3초 채움 × 게이트(3회)
+      const HOLD = 3, rep = Math.floor(this.t / (HOLD + 0.5));
+      const lt = this.t - rep * (HOLD + 0.5), p = Math.min(1, lt / HOLD);
+      this.bxHold.geometry.dispose();
+      this.bxHold.geometry = new THREE.RingGeometry(0.20, 0.235, 44, 1, Math.PI / 2, Math.max(0.001, p * Math.PI * 2));
+      this.bxHold.material.opacity = 0.95;
+      const done = Math.min(3, rep + (p >= 1 ? 1 : 0));
+      FMU(`가드 유지 ${done} / 3 ✓`, done >= 3 ? CS.prism : CS.sand);
+      this._gate = done;
+      if (done >= 3) { this.next(); return; }
+    } else if (id === 'BX_B2') {
+      // 회피 슬립 — 좌우 점선 존 교대 위협
+      const per = 1.0, left = Math.floor(this.t / per) % 2 === 0;
+      this.bxDodgeL.material.opacity = left ? 0.95 : 0.3;
+      this.bxDodgeR.material.opacity = left ? 0.3 : 0.95;
+      FMU(`슬립 ${Math.min(6, Math.floor(this.t / per) + 1)} / 6`, CS.coral);
+      if (this.t >= 6 * per + 0.3) { this.next(); return; }
+    } else if (id === 'BX_B3') {
+      // 잽 스윕 — 스윕 밴드 밝기 + 타겟 수축 링, 맞춘 잽 카운트
+      const BT = 0.9, ph = beat(BT);
+      this.bxSweep.material.opacity = 0.4 + 0.5 * (1 - ph);
+      this.bxB3cd.material.opacity = 0.4 + 0.55 * ph; this.bxB3cd.scale.setScalar(1.9 - 0.9 * ph);
+      const hits = Math.min(6, Math.floor(this.t / BT));
+      FMU(`맞춘 잽 ${hits} / 6`, hits >= 6 ? CS.prism : CS.dim);
+      if (this.t >= 6 * BT + 0.4) { this.next(); return; }
+    } else if (id === 'BX_C1') {
+      const n = Math.max(1, 3 - Math.floor(this.t)); if (n !== this._lastCount) { this._setCountWall(n, CS.ink); this._lastCount = n; }
+      if (this.t >= st.dur) { this.next(); return; }
+    } else if (id === 'BX_C2' || id === 'BX_C3') {
+      if (this.t >= st.dur) { this.next(); return; }
+    } else if (id === 'BX_C4') {
+      this.liveSpeed = Math.max(0.12, 1 - this.t / 2.4);
+      if (this.liveSpeed <= 0.13 && this.t > 2.8) { this.liveSpeed = 1; this.stageIdx = this.stages.findIndex(s2 => s2.id === 'BX_FIN'); this.t = 0; this._enter(); return; }
     }
   }
 }

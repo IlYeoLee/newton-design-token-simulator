@@ -147,11 +147,12 @@ async function boot() {
     tokens.resetLoop();
     lastBodyZ = 0;
 
-    // 세션 가용성 표시 — 러닝·농구 지원, 복싱 준비 중
+    // 세션 가용성 표시 — 러닝·농구·복싱 지원
     const availEl = document.getElementById('session-avail');
     const btnEl = document.getElementById('btn-session');
-    const ok = p === 'running' || p === 'basketball';
-    if (availEl) availEl.textContent = ok ? `· ${p === 'running' ? '러닝' : '농구'} 세션` : '· 복싱 준비 중';
+    const label = { running: '러닝', basketball: '농구', boxing: '복싱' }[p];
+    const ok = !!label;
+    if (availEl) availEl.textContent = ok ? `· ${label} 세션` : '· 준비 중';
     if (btnEl) { btnEl.style.opacity = ok ? '1' : '0.5'; btnEl.style.pointerEvents = ok ? 'auto' : 'none'; }
   }
 
@@ -499,8 +500,8 @@ async function boot() {
   }
   sessionBtn?.addEventListener('click', () => {
     if (session.active) { stopSession(); return; }
-    // 러닝·농구 세션 지원. 복싱은 준비 중 → 러닝으로 폴백
-    const sport = (state.pack === 'running' || state.pack === 'basketball') ? state.pack : 'running';
+    // 러닝·농구·복싱 세션 지원
+    const sport = ['running', 'basketball', 'boxing'].includes(state.pack) ? state.pack : 'running';
     if (state.pack !== sport) switchPack(sport);
     state.time = 0; tokens.resetLoop();
     session.start(sport);
