@@ -768,8 +768,8 @@ async function boot() {
   function stepSim(h) {
     const data = state.packs[state.pack];
     if (!data) return;
-    // 농구 드릴: 봇 정면 고정(카메라가 패드를 보게)
-    xbot.squareLock = session.active && session.sport === 'basketball';
+    // 농구 = 고정 패드 종목: 봇을 정면·원점에 두고 제자리 풋워크(드리블) — 무릎 스윙 없음
+    xbot.squareLock = state.pack === 'basketball';
     // 세션 비실전 단계: 팩 시간 정지, X봇 정지 — UI 단계 검증 모드
     if (session.active && !session.isLive) {
       session.update(h);
