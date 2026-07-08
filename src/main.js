@@ -339,21 +339,29 @@ async function boot() {
   const wearFxEl = document.getElementById('wear-fx');
   let captionTimer = null;
 
-  // ── TTS: 자막을 실제 음성으로 (화자별 톤 구분) ──
+  // ── 음성: 사전 생성 뉴럴 보이스(mp3) 우선, 없으면 브라우저 TTS 폴백 ──
   let ttsOn = true;
-  function speak(who, text) {
-    if (!ttsOn || !('speechSynthesis' in window)) return;
+  const voiceAudio = new Audio();
+  function speak(who, text, stageId) {
+    if (!ttsOn) return;
+    voiceAudio.pause();
+    if ('speechSynthesis' in window) speechSynthesis.cancel();
+    if (stageId) {
+      voiceAudio.src = `${BASE}voice/${stageId}.mp3`;
+      voiceAudio.play().catch(() => speakFallback(who, text));
+      return;
+    }
+    speakFallback(who, text);
+  }
+  function speakFallback(who, text) {
+    if (!('speechSynthesis' in window)) return;
     const clean = text.replace(/\(.*?\)/g, '').replace(/[—·"']/g, ' ');
-    speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(clean);
     u.lang = 'ko-KR';
     const ko = speechSynthesis.getVoices().find(v => v.lang.startsWith('ko'));
     if (ko) u.voice = ko;
-    if (who === '시스템' || who === 'AI') { u.rate = 1.08; u.pitch = 0.8; }
-    else { u.rate = 1.0; u.pitch = 1.1; }   // 숙련자(션·고수)
-    u.onerror = e => console.warn('[TTS]', e.error);
-    // Chrome: cancel() 직후 speak()는 드롭됨 — 한 틱 지연
-    setTimeout(() => speechSynthesis.speak(u), 60);
+    u.rate = 1.0;
+    setTimeout(() => speechSynthesis.speak(u), 60);   // cancel 직후 드롭 회피
   }
   // ── 전환 베일: 단계 전환 시 부드러운 암전 ──
   function veil() {
@@ -392,7 +400,7 @@ async function boot() {
     if (hudStageEl) hudStageEl.innerHTML = html;
     if (hudIdxEl) hudIdxEl.textContent = `${session.stageIdx + 1} / ${session.total}`;
     veil();  // 단계 전환 암전 (끊김 → 의도된 전환으로)
-    if (st.voice) { showCaption(st.voice[0], st.voice[1]); speak(st.voice[0], st.voice[1]); }
+    if (st.voice) { showCaption(st.voice[0], st.voice[1]); speak(st.voice[0], st.voice[1], st.id); }
     if (st.wear) {
       const w = st.wear;
       const c = w.includes('BOOST') ? '#d1feff' : w.includes('LOAD') ? '#fec389'
@@ -404,6 +412,7 @@ async function boot() {
   function stopSession() {
     if (!session.active) return;
     session.stop();
+    voiceAudio.pause();
     if ('speechSynthesis' in window) speechSynthesis.cancel();
     sessionBtn.textContent = '세션 시작 (1인칭 전환)';
     if (sessionStageEl) sessionStageEl.textContent = '—';
@@ -428,7 +437,7 @@ async function boot() {
   ttsBtn?.addEventListener('click', () => {
     ttsOn = !ttsOn;
     ttsBtn.textContent = ttsOn ? '🔊' : '🔇';
-    if (!ttsOn && 'speechSynthesis' in window) speechSynthesis.cancel();
+    if (!ttsOn) { voiceAudio.pause(); if ('speechSynthesis' in window) speechSynthesis.cancel(); }
   });
 
   // ── 복싱 고스트 = 벽면 UI 2D 레이어 ──
