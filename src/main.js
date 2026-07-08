@@ -449,6 +449,14 @@ async function boot() {
     tokens.setMarkerArt(null); session.setFootArt(null);
   });
 
+  // ── 모션 검증: 실측 킥 모캡으로 무릎 투사 스트레스 테스트 ──
+  document.getElementById('verify-kick')?.addEventListener('click', () => {
+    stopSession();
+    if (state.pack !== 'running') { document.querySelector('[data-pack=running]')?.click(); }
+    xbot.setVerify('bkKick');
+  });
+  document.getElementById('verify-off')?.addEventListener('click', () => xbot.setVerify(null));
+
   const ttsBtn = document.getElementById('btn-tts');
   ttsBtn?.addEventListener('click', () => {
     ttsOn = !ttsOn;

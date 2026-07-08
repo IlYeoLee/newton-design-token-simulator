@@ -9,6 +9,7 @@ import sidestepUrl from '../assets/anim-basketball-sidestep.fbx?url';
 // Bandai Namco Research MotionDataset (CC BY-NC) — BVH 실측 리타겟 클립
 import bkRunClipJson from '../assets/mocap/xclip-run_normal.json';
 import bkDashClipJson from '../assets/mocap/xclip-dash_normal.json';
+import bkKickClipJson from '../assets/mocap/xclip-kick_normal.json';
 
 // X Bot = 투사된 토큰 UI를 "따라하는 사람" 역할.
 // 모든 안무는 팩 시간(packTime)의 순수 함수 → 루프/시크/속도 변경에 안전.
@@ -77,6 +78,7 @@ export class XBot {
     };
     regJson('bkRun', bkRunClipJson);
     regJson('bkDash', bkDashClipJson);
+    regJson('bkKick', bkKickClipJson);
 
     this._hips = xbot.getObjectByName('mixamorigHips');
     this._kneeR = xbot.getObjectByName('mixamorigRightLeg');
@@ -122,6 +124,8 @@ export class XBot {
 
   /** 팩 전환: 이벤트 스케줄에서 안무 데이터 구축 */
   setPack(packData, tokenEvents) {
+    this._lastPack = [packData, tokenEvents];
+    this.verifyClip = null;
     // 모든 액션 정지
     for (const k in this.actions) this.actions[k].action.stop();
     this.mode = packData.sport;
@@ -192,9 +196,31 @@ export class XBot {
     }
   }
 
+  setVerify(name) {
+    this.verifyClip = name || null;
+    this._vT = 0;
+    if (!name && this._lastPack) this.setPack(this._lastPack[0], this._lastPack[1]);
+  }
+
   update(packTime, dt = 0.016) {
     if (!this.model || !this.mode) return;
     this._dt = dt;
+
+    // 모션 검증: 실측 모캡을 제자리 재생 — 무릎 투사가 버티는지 rig가 측정
+    if (this.verifyClip && this.actions[this.verifyClip]) {
+      for (const k in this.actions) {
+        const x = this.actions[k];
+        x.action.play(); x.action.paused = true;
+        x.action.setEffectiveWeight(k === this.verifyClip ? 1 : 0);
+      }
+      const a = this.actions[this.verifyClip];
+      this._vT = (this._vT || 0) + dt;
+      a.action.time = this._vT % a.dur;
+      this.mixer.update(0);
+      this.group.position.set(0, 0, 0);
+      this._lockInPlace?.();
+      return;
+    }
 
     if (this.mode === 'running') {
       const { t0, stride, V } = this.schedule;

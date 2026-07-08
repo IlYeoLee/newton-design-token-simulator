@@ -109,7 +109,7 @@ function computeLocalOffsets(res) {
   return offsets;
 }
 
-for (const name of ['dash_normal', 'run_normal', 'walk_right']) {
+for (const name of ['dash_normal', 'run_normal', 'walk_right', 'kick_normal']) {
   const text = fs.readFileSync(path.join(ROOT, `public/mocap/${name}.bvh`), 'utf8');
   const res = new BVHLoader().parse(text);
   const localOffsets = computeLocalOffsets(res);
