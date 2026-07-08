@@ -113,40 +113,63 @@ function laneLine(color, z0 = 1.0, z1 = -3.2) {
 }
 
 // ─────────────────────────────────────────────────────────────
-const STAGES = [
-  { id:'READY', label:'0 · READY — 준비', voice:['시스템','션의 마지막 1km 페이스 팩. 준비되면 발을 두 번 탭하세요.'], wear:'SAFE 대기', foot:'두 번 탭 → 시작' },
-  { id:'A1', label:'A · 스트레칭 1/4 — 발목 돌리기', voice:['션','발목부터 풀어요. 원에 발끝 올리고 천천히 여덟 번.'], wear:'개입 없음 (가동범위 측정)' },
-  { id:'A2', label:'A · 스트레칭 2/4 — 종아리 늘리기', voice:['션','앞 원에 왼발. 뒤꿈치는 바닥 — 종아리가 당기면 잘 된 거예요.'], hap:'10초 종료 진동 1회' },
-  { id:'A3', label:'A · 스트레칭 3/4 — 다리 스윙', voice:['션','골반 잡고 다리를 앞뒤로. 가볍게 열 번.'], foot:'완료 후 두 번 탭 → 다음' },
-  { id:'A4', label:'A · 스트레칭 4/4 — 몸풀기 박자 걷기', voice:['션','이제 내 걸음 박자로 제자리 걷기. 하나, 둘, 하나, 둘.'], hap:'워밍업 박자 (약)', wear:'낮은 강도 보조 시작' },
-  { id:'T1', label:'T-1 · STAGE CLEAR → 사전 익히기', voice:['시스템','몸 다 풀렸어요. 탭 두 번이면 다음으로.'], foot:'두 번 탭 → 사전 익히기' },
-  { id:'B1', label:'B · 사전 익히기 1/4 — 박자 듣기', voice:['션','마지막 1km에서 쓰는 박자예요. 먼저 듣기만. 하나, 둘.'], hap:'박자 동기 (약)' },
-  { id:'B2', label:'B · 사전 익히기 2/4 — 제자리 스텝 맞추기', voice:['션','링이 닫힐 때 밟아요. 지금 — 좋아요, 그 박자예요.'], cue:'Hit Glow + Timing Pulse (성공 순간만)' },
-  { id:'B3', label:'B · 사전 익히기 3/4 — 3스텝 이어 밟기', voice:['션','이제 앞으로 세 걸음, 숫자 순서대로.'], cue:'Step Combo ×2 ×3' },
-  { id:'B4', label:'B · 사전 익히기 4/4 — 구간 리듬 유지', voice:['션','이제 문장은 그만할게요. 박자만 지켜요.'], foot:'두 번 탭 → 실전 준비 (발형→존형 전환)' },
-  { id:'T2', label:'T-2 · 5초 뒤 실전 준비로 자동 진행 (두 번 탭 = 바로)', voice:['션','5초 뒤에 넘어갈게요. 준비됐으면 두 번 탭으로 바로 가요.'], dur:5, foot:'두 번 탭 = 즉시 · 무입력 = 자동 진행 — 반복은 게이트·다운시프트가 담당' },
-  { id:'C1', dur:3, label:'C · 실전 1/5 — 출발', voice:['시스템','3, 2, 1.'], hap:'시작 타이밍 진동', foot:'두 번 탭 → 출발 (이후 잠금)' },
-  { id:'C2', dur:7, label:'C · 실전 2/5 — 페이스 유지 (라이브)', voice:['션','좋아요, 그 박자 그대로.'], wear:'SAFE 착지 안정화' },
-  { id:'C3', dur:7, label:'C · 실전 3/5 — 흔들림 보정 (라이브)', voice:['션','박자! 나한테 다시 맞춰요.'], hap:'착지 보조 2박' },
-  { id:'C4', dur:7, label:'C · 실전 4/5 — 마지막 1km BOOST (라이브·가속)', voice:['션','여기서부터 마지막 1km. 나한테 붙어요.'], wear:'BOOST 추진 보조 · 리듬 저하 시 강도↑', cue:'구간 종료 Match Rate' },
-  { id:'C5', label:'C · 실전 5/5 — 종료 감속 (라이브·감속→정지)', voice:['시스템','여기까지. 잘 달렸어요.'], hap:'완료 진동' },
-  { id:'FIN', label:'R-F · 리포트', voice:['시스템','리포트를 앱으로 보냈어요.'], cue:'Ghost Review — 션 박자와 내 착지 겹쳐 보기' },
-];
+// 종목별 스테이지 스크립트. 공통 로직은 데이터 필드로 구동:
+//   live=실전 팩 재생 · boost=가속 · cooldown=감속정지 · count=카운트다운
+// 스테이지별 고유 비주얼은 sport-dispatch(_build/_enter/_update)로 처리.
+const STAGES = {
+  running: [
+    { id:'READY', label:'0 · READY — 준비', voice:['시스템','션의 마지막 1km 페이스 팩. 준비되면 발을 두 번 탭하세요.'], wear:'SAFE 대기', foot:'두 번 탭 → 시작' },
+    { id:'A1', label:'A · 스트레칭 1/4 — 발목 돌리기', voice:['션','발목부터 풀어요. 원에 발끝 올리고 천천히 여덟 번.'], wear:'개입 없음 (가동범위 측정)' },
+    { id:'A2', label:'A · 스트레칭 2/4 — 종아리 늘리기', voice:['션','앞 원에 왼발. 뒤꿈치는 바닥 — 종아리가 당기면 잘 된 거예요.'], hap:'10초 종료 진동 1회' },
+    { id:'A3', label:'A · 스트레칭 3/4 — 다리 스윙', voice:['션','골반 잡고 다리를 앞뒤로. 가볍게 열 번.'], foot:'완료 후 두 번 탭 → 다음' },
+    { id:'A4', label:'A · 스트레칭 4/4 — 몸풀기 박자 걷기', voice:['션','이제 내 걸음 박자로 제자리 걷기. 하나, 둘, 하나, 둘.'], hap:'워밍업 박자 (약)', wear:'낮은 강도 보조 시작' },
+    { id:'T1', label:'T-1 · STAGE CLEAR → 사전 익히기', voice:['시스템','몸 다 풀렸어요. 탭 두 번이면 다음으로.'], foot:'두 번 탭 → 사전 익히기' },
+    { id:'B1', label:'B · 사전 익히기 1/4 — 박자 듣기', voice:['션','마지막 1km에서 쓰는 박자예요. 먼저 듣기만. 하나, 둘.'], hap:'박자 동기 (약)' },
+    { id:'B2', label:'B · 사전 익히기 2/4 — 제자리 스텝 맞추기', voice:['션','링이 닫힐 때 밟아요. 지금 — 좋아요, 그 박자예요.'], cue:'Hit Glow + Timing Pulse (성공 순간만)' },
+    { id:'B3', label:'B · 사전 익히기 3/4 — 3스텝 이어 밟기', voice:['션','이제 앞으로 세 걸음, 숫자 순서대로.'], cue:'Step Combo ×2 ×3' },
+    { id:'B4', label:'B · 사전 익히기 4/4 — 구간 리듬 유지', voice:['션','이제 문장은 그만할게요. 박자만 지켜요.'], foot:'두 번 탭 → 실전 준비 (발형→존형 전환)' },
+    { id:'T2', label:'T-2 · 5초 뒤 실전 준비로 자동 진행 (두 번 탭 = 바로)', voice:['션','5초 뒤에 넘어갈게요. 준비됐으면 두 번 탭으로 바로 가요.'], dur:5, count:true, foot:'두 번 탭 = 즉시 · 무입력 = 자동 진행 — 반복은 게이트·다운시프트가 담당' },
+    { id:'C1', dur:3, label:'C · 실전 1/5 — 출발', voice:['시스템','3, 2, 1.'], hap:'시작 타이밍 진동', foot:'두 번 탭 → 출발 (이후 잠금)' },
+    { id:'C2', dur:7, live:true, label:'C · 실전 2/5 — 페이스 유지 (라이브)', voice:['션','좋아요, 그 박자 그대로.'], wear:'SAFE 착지 안정화' },
+    { id:'C3', dur:7, live:true, label:'C · 실전 3/5 — 흔들림 보정 (라이브)', voice:['션','박자! 나한테 다시 맞춰요.'], hap:'착지 보조 2박' },
+    { id:'C4', dur:7, live:true, boost:true, label:'C · 실전 4/5 — 마지막 1km BOOST (라이브·가속)', voice:['션','여기서부터 마지막 1km. 나한테 붙어요.'], wear:'BOOST 추진 보조 · 리듬 저하 시 강도↑', cue:'구간 종료 Match Rate' },
+    { id:'C5', live:true, cooldown:true, label:'C · 실전 5/5 — 종료 감속 (라이브·감속→정지)', voice:['시스템','여기까지. 잘 달렸어요.'], hap:'완료 진동' },
+    { id:'FIN', label:'R-F · 리포트', voice:['시스템','리포트를 앱으로 보냈어요.'], cue:'Ghost Review — 션 박자와 내 착지 겹쳐 보기' },
+  ],
+  basketball: [
+    { id:'BK_READY', label:'0 · READY — 준비', voice:['시스템','커리의 스텝백 3점 팩. 준비되면 발을 두 번 탭하세요.'], wear:'SAFE 대기', foot:'두 번 탭 → 시작' },
+    { id:'BK_A1', label:'A · 준비운동 1/3 — 스탠스·무릎', voice:['커리','어깨너비 스탠스. 무릎 살짝 굽히고 발끝은 앞.'], wear:'개입 없음 (자세 측정)' },
+    { id:'BK_A2', label:'A · 준비운동 2/3 — 사이드 풋워크', voice:['커리','좌우로 사이드 스텝. 발이 안 꼬이게, 넓게.'], hap:'스텝 박자 (약)' },
+    { id:'BK_A3', label:'A · 준비운동 3/3 — 리듬 드리블', voice:['커리','제자리 드리블로 리듬 잡아요. 하나, 둘.'], wear:'낮은 강도 보조 시작' },
+    { id:'BK_T1', label:'T-1 · STAGE CLEAR → 사전 익히기', voice:['시스템','몸 풀렸어요. 탭 두 번이면 다음으로.'], foot:'두 번 탭 → 사전 익히기' },
+    { id:'BK_B1', label:'B · 사전 익히기 1/3 — 스텝백 궤적 보기', voice:['커리','내 스텝백 발 궤적이에요. 먼저 눈으로 따라가요.'], cue:'Ghost 궤적 리플레이' },
+    { id:'BK_B2', label:'B · 사전 익히기 2/3 — 스텝 분해 밟기', voice:['커리','순서대로 밟아요. 하나 — 뒤로 — 셋.'], cue:'Step Combo ×3' },
+    { id:'BK_B3', label:'B · 사전 익히기 3/3 — 컷 방향·감속', voice:['커리','디딤발에서 확 멈춰요. 감속이 슛의 시작이에요.'], foot:'두 번 탭 → 실전 준비' },
+    { id:'BK_T2', label:'T-2 · 5초 뒤 실전 자동 진행 (두 번 탭 = 바로)', voice:['커리','5초 뒤 넘어가요. 준비됐으면 두 번 탭.'], dur:5, count:true, foot:'두 번 탭 = 즉시 · 무입력 = 자동' },
+    { id:'BK_C1', dur:3, label:'C · 실전 1/4 — 트리거', voice:['시스템','3, 2, 1. 컷 들어가요.'], hap:'컷 시작 진동', foot:'두 번 탭 → 출발' },
+    { id:'BK_C2', dur:6, live:true, label:'C · 실전 2/4 — 컷인 라이브', voice:['커리','수비 앞으로 파고들어요.'], wear:'SAFE 컷 안정화' },
+    { id:'BK_C3', dur:6, live:true, boost:true, label:'C · 실전 3/4 — 스텝백 (라이브·가속)', voice:['커리','뒤로 확! 공간 만들어요.'], wear:'BOOST 스텝백 추진', cue:'구간 종료 Match Rate' },
+    { id:'BK_C4', live:true, cooldown:true, label:'C · 실전 4/4 — 릴리즈·정지', voice:['시스템','밸런스 잡고 릴리즈. 좋아요.'], hap:'릴리즈 완료 진동' },
+    { id:'BK_FIN', label:'B-F · 리포트', voice:['시스템','리포트를 앱으로 보냈어요.'], cue:'Ghost Review — 커리 궤적과 내 스텝 겹쳐 보기' },
+  ],
+};
 
 export class Session {
   constructor(scene, tokens, xbot, rig, onStage) {
     this.tokens = tokens; this.xbot = xbot; this.rig = rig; this.onStage = onStage;
     this.active = false; this.stageIdx = 0; this.t = 0; this.auto = false;
+    this.sport = 'running'; this.stages = STAGES.running;
     this.root = new THREE.Group(); this.root.visible = false; scene.add(this.root);
     this.G = {}; this._lastCount = null;
     this.liveSpeed = 1;   // 실전 라이브 속도 배율 (BOOST/감속)
     this.bobY = 0;        // 박자 시점 바운스 (스트레칭·익히기)
     this._build();
   }
-  get stage() { return STAGES[this.stageIdx].id; }
-  get total() { return STAGES.length; }
-  /** 실전 라이브 — 팩 재생이 실제로 돌아가는 단계 */
-  get isLive() { return ['C2','C3','C4','C5'].includes(this.stage); }
+  get stage() { return this.stages[this.stageIdx].id; }
+  get curStage() { return this.stages[this.stageIdx]; }
+  get total() { return this.stages.length; }
+  /** 실전 라이브 — 팩 재생이 실제로 돌아가는 단계 (데이터 필드 구동) */
+  get isLive() { return !!this.stages[this.stageIdx].live; }
   _clip(o) { if (!this.tokens.floorClip) return; o.traverse(x => { if (x.material) x.material.clippingPlanes = this.tokens.floorClip; }); }
   _mk(id) { const g = new THREE.Group(); g.visible = false; this.root.add(g); this.G[id] = g; return g; }
 
@@ -160,6 +183,14 @@ export class Session {
     this.countRing = floorRing(0, -1.85, 0.30, 0.335, BRAND.red, 0);
     this.root.add(this.countGroup, this.countRing);
 
+    this._buildRunning();
+    this._buildBasketball();
+
+    for (const id in this.G) this._clip(this.G[id]);
+    this._clip(this.countGroup);
+  }
+
+  _buildRunning() {
     let g = this._mk('READY');
     g.add(floorRing(0, -1.8, 0.20, 0.225, BRAND.dim, 0.9));
     this.tap = this._tap(); this.tap.position.set(0, 0.013, -1.8); g.add(this.tap);
@@ -239,9 +270,77 @@ export class Session {
     g.add(floorText('Pack 일치도 78% · 숙련 근접도 64% (+6%)', 0, -2.05, { size: 0.07, color: CS.dim }));
     g.add(floorText('후반 리듬 800m부터 흔들림', 0, -2.3, { size: 0.06, color: CS.mute }));
     g.add(floorText('다음: 사전 익히기 +1세트 · BOOST 타이밍 보정', 0, -2.55, { size: 0.06, color: CS.prism }));
+  }
 
-    for (const id in this.G) this._clip(this.G[id]);
-    this._clip(this.countGroup);
+  _buildBasketball() {
+    let g = this._mk('BK_READY');
+    g.add(floorRing(0, -1.8, 0.20, 0.225, BRAND.dim, 0.9));
+    this.bkTap = this._tap(); this.bkTap.position.set(0, 0.013, -1.8); g.add(this.bkTap);
+
+    // A1 스탠스·무릎 — 어깨너비 두 발 기준형(중립) + 무릎 굽힘 아크
+    g = this._mk('BK_A1');
+    this.bkA1L = new FootMark('left').at(-0.22, -1.9); g.add(this.bkA1L.group);
+    this.bkA1R = new FootMark('right').at(0.22, -1.9); g.add(this.bkA1R.group);
+    g.add(floorArc(0, -2.25, BRAND.sand));
+
+    // A2 사이드 풋워크 — 좌우 존으로 스텝 이동
+    g = this._mk('BK_A2');
+    this.bkA2foot = new FootMark('left').at(0, -1.9); g.add(this.bkA2foot.group);
+    this.bkA2L = floorRing(-0.42, -1.9, 0.16, 0.18, BRAND.red, 0.4); g.add(this.bkA2L);
+    this.bkA2R = floorRing(0.42, -1.9, 0.16, 0.18, BRAND.red, 0.4); g.add(this.bkA2R);
+
+    // A3 리듬 드리블 — 제자리 스탠스 + 박자 링
+    g = this._mk('BK_A3');
+    g.add(new FootMark('left').at(-0.2, -1.9).group);
+    g.add(new FootMark('right').at(0.2, -1.9).group);
+    this.bkA3ring = floorRing(0, -1.5, 0.10, 0.12, BRAND.red, 0.8); g.add(this.bkA3ring);
+
+    g = this._mk('BK_T1');
+    this.bkTap1 = this._tap(); this.bkTap1.position.set(0, 0.013, -1.8); g.add(this.bkTap1);
+
+    // B1 스텝백 궤적 보기 — 3발 궤적 + 곡선 레인 (Ghost 리플레이)
+    g = this._mk('BK_B1');
+    const bkp = [[-0.1, -1.6], [0.05, -2.15], [0.3, -2.05]];  // 컷인 → 스텝백(뒤로 옆)
+    this.bkB1 = [];
+    for (let i = 0; i < 3; i++) {
+      const fm = new FootMark(i % 2 === 0 ? 'left' : 'right').at(bkp[i][0], bkp[i][1]);
+      g.add(fm.group); this.bkB1.push(fm);
+    }
+    this.bkPath = bkp;
+
+    // B2 스텝 분해 밟기 — 같은 3발 + 순서 숫자
+    g = this._mk('BK_B2');
+    this.bkB2 = [];
+    for (let i = 0; i < 3; i++) {
+      const fm = new FootMark(i % 2 === 0 ? 'left' : 'right').at(bkp[i][0], bkp[i][1]);
+      g.add(fm.group); g.add(floorNum(String(i + 1), bkp[i][0] - 0.22, bkp[i][1] + 0.12, 0.12, CS.ink));
+      this.bkB2.push(fm);
+    }
+
+    // B3 컷 방향·감속 — 디딤발 + 감속 스트라이프 + 방향 화살표
+    g = this._mk('BK_B3');
+    this.bkB3foot = new FootMark('right').at(0.28, -2.0, 1.15); g.add(this.bkB3foot.group);
+    g.add(floorArrow(-0.1, -1.5, -35, BRAND.coral, 0.42));
+    this.bkB3stripes = [];
+    for (let i = 0; i < 3; i++) { const st = floorStripe(0.28, -1.6 - i * 0.26, 0.42 - i * 0.06, BRAND.coral, 0.7 - i * 0.15); g.add(st); this.bkB3stripes.push(st); }
+
+    g = this._mk('BK_T2');   // 카운트 공통(countGroup) 사용 — 별도 지오메트리 없음
+
+    g = this._mk('BK_C1');
+    g.add(floorRing(0.03, -2.4, 0.15, 0.17, BRAND.red, 0.5));
+
+    this._mk('BK_C2');       // 라이브 — 팩 토큰 흐름
+    this._mk('BK_C3');       // 라이브 스텝백 (가속)
+
+    g = this._mk('BK_C4');
+    g.add(floorRing(0, -2.6, 0.20, 0.225, BRAND.dim, 0.9));
+    g.add(floorText('SHOOT', 0, -2.6, { size: 0.09, color: CS.mute }));
+
+    g = this._mk('BK_FIN');
+    g.add(floorText('오늘의 스텝백', 0, -1.7, { size: 0.11, color: CS.ink }));
+    g.add(floorText('Pack 일치도 74% · 숙련 근접도 58% (+5%)', 0, -2.05, { size: 0.07, color: CS.dim }));
+    g.add(floorText('감속 타이밍 살짝 늦음', 0, -2.3, { size: 0.06, color: CS.mute }));
+    g.add(floorText('다음: 스텝 분해 +1세트 · 릴리즈 밸런스', 0, -2.55, { size: 0.06, color: CS.prism }));
   }
 
   _tap() {
@@ -269,23 +368,25 @@ export class Session {
     }
   }
 
-  start() { this.active = true; this.stageIdx = 0; this.t = 0; this.root.visible = true; this._enter(); }
+  start(sport = 'running') {
+    this.sport = STAGES[sport] ? sport : 'running';
+    this.stages = STAGES[this.sport];
+    this.active = true; this.stageIdx = 0; this.t = 0; this.root.visible = true; this._enter();
+  }
   stop() { this.active = false; this.root.visible = false; this.tokens.root.visible = true; this.liveSpeed = 1; this.bobY = 0; }
   tapAdvance() {
     if (!this.active) return;
-    if (this.stage === 'T2') { this.stageIdx = STAGES.findIndex(s => s.id === 'C1'); this.t = 0; this._enter(); return; }
-    if (this.stage !== 'FIN') this._next();
+    if (!/FIN$/.test(this.stage)) this._next();   // count 스테이지 탭 = 즉시 다음(= 실전 출발)
   }
-  next() { if (this.active && this.stageIdx < STAGES.length - 1) { this.stageIdx++; this.t = 0; this._enter(); } }
+  next() { if (this.active && this.stageIdx < this.stages.length - 1) { this.stageIdx++; this.t = 0; this._enter(); } }
   prev() { if (this.active && this.stageIdx > 0) { this.stageIdx--; this.t = 0; this._enter(); } }
   _next() { this.next(); }
 
   _enter() {
-    const st = STAGES[this.stageIdx];
+    const st = this.stages[this.stageIdx];
     this.onStage?.(st);
-    const live = ['C2','C3','C4','C5'].includes(st.id);
-    this.tokens.root.visible = live;     // 라이브 = 실제 팩 토큰이 흐른다
-    this.liveSpeed = st.id === 'C4' ? 1.18 : 1;
+    this.tokens.root.visible = !!st.live;      // 라이브 = 실제 팩 토큰이 흐른다
+    this.liveSpeed = st.boost ? 1.18 : 1;
     this.bobY = 0;
     for (const id in this.G) this.G[id].visible = false;
     this._setCount(null);
@@ -293,10 +394,20 @@ export class Session {
     this._lastCount = null;
 
     const S = this._slot.bind(this);
-    const FS = t => S(this.slotFS, t, { size: 0.055, color: CS.mute });
-    const FL = t => S(this.slotFL, t, { size: 0.10, color: CS.ink });
-    const FM = (t, c = CS.dim) => S(this.slotFM, t, { size: 0.07, color: c });
-    FS(''); FL(''); FM('');
+    const H = {
+      S,
+      FS: t => S(this.slotFS, t, { size: 0.055, color: CS.mute }),
+      FL: t => S(this.slotFL, t, { size: 0.10, color: CS.ink }),
+      FM: (t, c = CS.dim) => S(this.slotFM, t, { size: 0.07, color: c }),
+    };
+    H.FS(''); H.FL(''); H.FM('');
+    if (st.count) this._setCount(5);
+    if (this.sport === 'basketball') this._enterBasketball(st, H);
+    else this._enterRunning(st, H);
+    this._fmCache = null;
+  }
+
+  _enterRunning(st, { S, FS, FL, FM }) {
     switch (st.id) {
       case 'READY': FS('SEAN · LAST 1KM'); FL('READY'); FM('발 두 번 탭 → 시작'); break;
       case 'A1': FS('STRETCH 1/4'); FL('발끝 올리고 돌리기'); FM('왼발 1 / 8', CS.sand); break;
@@ -308,7 +419,7 @@ export class Session {
       case 'B2': FS('LEARN 2/4'); FL('링이 닫힐 때 밟기'); FM('맞춘 스텝 0 / 8'); break;
       case 'B3': FS('LEARN 3/4'); FL('세 걸음 · 순서대로'); FM('세트 1 / 2'); break;
       case 'B4': FS('LEARN 4/4'); FL('박자만'); FM('발밑=마지막 발형 · 전방=존 시작'); break;
-      case 'T2': FS('T-2'); FM('두 번 탭 = 바로 · 가만히 있으면 자동 진행'); this._setCount(5); break;
+      case 'T2': FS('T-2'); FM('두 번 탭 = 바로 · 가만히 있으면 자동 진행'); break;
       case 'C1': FS('RUN 00:00'); break;
       case 'C2': FS('RUN 04:12 · SAFE'); FM('발밑 비움 · 전방 선행 발자국'); break;
       case 'C3': FS('RUN 08:40'); break;
@@ -316,30 +427,63 @@ export class Session {
       case 'C5': FS('COOL DOWN'); break;
       case 'FIN': FS('REPORT'); break;
     }
-    this._fmCache = null;
+  }
+
+  _enterBasketball(st, { S, FS, FL, FM }) {
+    switch (st.id) {
+      case 'BK_READY': FS('CURRY · STEP-BACK 3'); FL('READY'); FM('발 두 번 탭 → 시작'); break;
+      case 'BK_A1': FS('WARM 1/3'); FL('스탠스 · 무릎 굽히기'); FM('어깨너비 · 발끝 앞', CS.sand); break;
+      case 'BK_A2': FS('WARM 2/3'); FL('사이드 스텝'); FM('좌우 6회', CS.sand); break;
+      case 'BK_A3': FS('WARM 3/3'); FL('제자리 리듬 드리블'); FM('하나, 둘'); break;
+      case 'BK_T1': FS('T-1'); S(this.slotFL, 'STAGE CLEAR', { size: 0.12, color: CS.prism }); FM('탭 두 번 → 사전 익히기'); break;
+      case 'BK_B1': FS('LEARN 1/3'); FL('스텝백 궤적 보기'); FM('눈으로 따라가요'); break;
+      case 'BK_B2': FS('LEARN 2/3'); FL('순서대로 밟기'); FM('맞춘 스텝 0 / 3'); break;
+      case 'BK_B3': FS('LEARN 3/3'); FL('디딤발에서 감속'); FM('감속이 슛의 시작'); break;
+      case 'BK_T2': FS('T-2'); FM('두 번 탭 = 바로 · 가만히 있으면 자동'); break;
+      case 'BK_C1': FS('GAME 00:00'); break;
+      case 'BK_C2': FS('CUT-IN · SAFE'); FM('수비 앞으로'); break;
+      case 'BK_C3': S(this.slotFS, 'STEP-BACK · BOOST', { size: 0.055, color: CS.prism }); break;
+      case 'BK_C4': FS('RELEASE'); break;
+      case 'BK_FIN': FS('REPORT'); break;
+    }
   }
 
   update(dt) {
     if (!this.active) return;
-    const st = STAGES[this.stageIdx]; this.t += dt; const id = st.id;
-    const live = this.isLive;
-    // 오버레이 좌표: 라이브면 러너를 따라감(전방 슬롯 유지), 아니면 원점 고정
-    const bodyZ = live ? this.xbot.getBodyPos().z : 0;
+    const st = this.stages[this.stageIdx]; this.t += dt; const id = st.id;
+    // 오버레이 좌표: 라이브면 러너/컷을 따라감(전방 슬롯 유지), 아니면 원점 고정
+    const bodyZ = this.isLive ? this.xbot.getBodyPos().z : 0;
     this.root.position.x = this.tokens.floorRoot.position.x;
     this.root.position.z = this.tokens.floorRoot.position.z + bodyZ;
     const beat = (per) => (this.t % per) / per;
-
-    // 박자 시점 바운스 — 몸이 살아있는 느낌 (라이브는 실제 모캡 눈이 담당)
-    if (id === 'A4' || id === 'B2') this.bobY = 0.028 * Math.abs(Math.sin(Math.PI * this.t / 0.6));
-    else if (id === 'B1' || id === 'B3') this.bobY = 0.018 * Math.abs(Math.sin(Math.PI * this.t / 0.55));
-    else if (id[0] === 'A') this.bobY = 0.007 * Math.sin(this.t * 1.8);   // 호흡
-    else this.bobY = 0;
-
     // FM 슬롯 갱신 헬퍼 — 값이 바뀔 때만 텍스처 재생성
     const FMU = (text, color) => {
       if (text === this._fmCache) return; this._fmCache = text;
       this._slot(this.slotFM, text, { size: 0.07, color: color || CS.dim });
     };
+
+    // 공통: 카운트다운 스테이지(T2류) — 무입력 = 자동 진행 (무한 루프 없음)
+    if (st.count) {
+      const rem = Math.max(0, st.dur - this.t), n = Math.max(1, Math.ceil(rem));
+      if (n !== this._lastCount) { this._setCount(n); this._lastCount = n; }
+      const f = rem - Math.floor(rem); this.countRing.material.opacity = 0.3 + 0.5 * f; this.countRing.scale.setScalar(0.8 + 0.6 * f);
+      this.bobY = 0;
+      if (this.t >= st.dur) { this.next(); return; }
+      return;
+    }
+
+    if (this.sport === 'basketball') this._updateBasketball(id, st, beat, FMU);
+    else this._updateRunning(id, st, beat, FMU);
+
+    if (this.auto && st.dur && this.t >= st.dur && !st.count) this._next();
+  }
+
+  _updateRunning(id, st, beat, FMU) {
+    // 박자 시점 바운스 — 몸이 살아있는 느낌 (라이브는 실제 모캡 눈이 담당)
+    if (id === 'A4' || id === 'B2') this.bobY = 0.028 * Math.abs(Math.sin(Math.PI * this.t / 0.6));
+    else if (id === 'B1' || id === 'B3') this.bobY = 0.018 * Math.abs(Math.sin(Math.PI * this.t / 0.55));
+    else if (id[0] === 'A') this.bobY = 0.007 * Math.sin(this.t * 1.8);   // 호흡
+    else this.bobY = 0;
 
     if (id === 'READY' || id === 'T1') {
       const tap = id === 'READY' ? this.tap : this.tap1; const k = 0.5 + 0.5 * Math.sin(this.t * 4);
@@ -404,11 +548,6 @@ export class Session {
       this.b4rings[0].material.opacity = seq === 1 ? 0.3 + 0.65 * k : 0.35;
       this.b4rings[1].material.opacity = seq === 2 ? 0.3 + 0.65 * k : 0.25;
       if (this.t >= 9 * per + 0.3) { this.next(); return; }
-    } else if (id === 'T2') {
-      const rem = Math.max(0, st.dur - this.t), n = Math.max(1, Math.ceil(rem));
-      if (n !== this._lastCount) { this._setCount(n); this._lastCount = n; }
-      const f = rem - Math.floor(rem); this.countRing.material.opacity = 0.3 + 0.5 * f; this.countRing.scale.setScalar(0.8 + 0.6 * f);
-      if (this.t >= st.dur) { this.next(); return; }   // 무입력 = 자동 진행 (무한 루프 없음)
     } else if (id === 'C1') {
       const n = Math.max(1, 3 - Math.floor(this.t)); if (n !== this._lastCount) { this._setCount(n, CS.ink); this._lastCount = n; }
       if (this.t >= st.dur) { this.next(); return; }   // 출발!
@@ -422,8 +561,65 @@ export class Session {
     } else if (id === 'C5') {
       this.liveSpeed = Math.max(0.12, 1 - this.t / 2.8);   // 실제 감속
       this.c5stripes.forEach((s, i) => { s.material.opacity = (0.7 - i * 0.13) * (0.5 + 0.5 * Math.sin(this.t * 3 - i)); });
-      if (this.liveSpeed <= 0.13 && this.t > 3.2) { this.liveSpeed = 1; this.stageIdx = STAGES.findIndex(s2 => s2.id === 'FIN'); this.t = 0; this._enter(); return; }
+      if (this.liveSpeed <= 0.13 && this.t > 3.2) { this.liveSpeed = 1; this.stageIdx = this.stages.findIndex(s2 => s2.id === 'FIN'); this.t = 0; this._enter(); return; }
     }
-    if (this.auto && st.dur && this.t >= st.dur && id !== 'T2') this._next();
+  }
+
+  _updateBasketball(id, st, beat, FMU) {
+    // 박자 바운스
+    if (id === 'BK_A2' || id === 'BK_B2') this.bobY = 0.026 * Math.abs(Math.sin(Math.PI * this.t / 0.7));
+    else if (id === 'BK_A3') this.bobY = 0.02 * Math.abs(Math.sin(Math.PI * this.t / 0.5));
+    else if (id[3] === 'A' || id[3] === 'B') this.bobY = 0.007 * Math.sin(this.t * 1.8);
+    else this.bobY = 0;
+
+    if (id === 'BK_READY' || id === 'BK_T1') {
+      const tap = id === 'BK_READY' ? this.bkTap : this.bkTap1; const k = 0.5 + 0.5 * Math.sin(this.t * 4);
+      tap.children[0].material.opacity = 0.5 + 0.45 * k; tap.children[1].material.opacity = 0.5 + 0.45 * (1 - k);
+      if (id === 'BK_T1' && this.t >= 4.5) { this.next(); return; }
+    } else if (id === 'BK_A1') {
+      // 스탠스·무릎 — 두 발 기준형 유지 + 무릎 굽힘 안내(6초 홀드)
+      FMU(`무릎 굽히고 유지 · ${Math.max(0, Math.ceil(6 - this.t))}초`, CS.sand);
+      if (this.t >= 6) { this.next(); return; }
+    } else if (id === 'BK_A2') {
+      // 사이드 풋워크 — 발이 좌우 존 사이 이동, 6회 카운트
+      const per = 0.8, side = Math.floor(this.t / per) % 2;
+      this.bkA2foot.at(side === 0 ? -0.42 : 0.42, -1.9);
+      this.bkA2L.material.opacity = side === 0 ? 0.9 : 0.35;
+      this.bkA2R.material.opacity = side === 1 ? 0.9 : 0.35;
+      FMU(`좌우 ${Math.min(6, Math.floor(this.t / per) + 1)} / 6`, CS.sand);
+      if (this.t >= 6 * per + 0.4) { this.next(); return; }
+    } else if (id === 'BK_A3') {
+      // 리듬 드리블 — 링 펄스, 8박
+      const BT = 0.5, k = 1 - beat(BT);
+      this.bkA3ring.material.opacity = 0.3 + 0.6 * k; this.bkA3ring.scale.setScalar(0.8 + 0.6 * (1 - k));
+      FMU(`${Math.floor(this.t / BT) % 2 === 0 ? '하나' : '둘'} · ${Math.min(8, Math.floor(this.t / BT) + 1)} / 8`);
+      if (this.t >= 8 * BT + 0.4) { this.next(); return; }
+    } else if (id === 'BK_B1') {
+      // 스텝백 궤적 보기 — 3발 순차 강조(고스트 리플레이), 2회 루프
+      const ST = 0.9, cyc = 3 * ST, lt = this.t % cyc;
+      this.bkB1.forEach((f, i) => { const t0 = i * ST; f.op(lt >= t0 && lt < t0 + ST ? 0.95 : 0.3); if (lt >= t0 && lt < t0 + ST * 0.8) f.countdown((lt - t0) / (ST * 0.8)); else f.countdown(-1); });
+      FMU(`궤적 ${Math.min(2, Math.floor(this.t / cyc) + 1)} / 2 — 눈으로`);
+      if (this.t >= 2 * cyc + 0.3) { this.next(); return; }
+    } else if (id === 'BK_B2') {
+      // 스텝 분해 밟기 — 순서 카운트다운 링, 맞춘 스텝 x/3
+      const ST = 1.0, cyc = 3 * ST, lt = this.t % cyc, W = ST * 0.82;
+      this.bkB2.forEach((f, i) => { const t0 = i * ST; if (lt >= t0 && lt < t0 + W) f.countdown((lt - t0) / W); else if (lt >= t0 + W && lt < t0 + ST) f.glow(1 - (lt - t0 - W) / (ST - W)); else f.countdown(-1); });
+      const hits = Math.min(3, Math.floor((this.t % cyc) / ST) + 3 * Math.floor(this.t / cyc));
+      FMU(`맞춘 스텝 ${Math.min(3, Math.floor(this.t / ST))} / 3`, this.t >= cyc ? CS.prism : CS.dim);
+      if (this.t >= 2 * cyc + 0.3) { this.next(); return; }
+    } else if (id === 'BK_B3') {
+      // 컷 감속 — 스트라이프 웨이브 + 디딤발 글로우
+      this.bkB3stripes.forEach((s, i) => { s.material.opacity = (0.7 - i * 0.15) * (0.5 + 0.5 * Math.sin(this.t * 4 - i)); });
+      this.bkB3foot.op(0.5 + 0.4 * (0.5 + 0.5 * Math.sin(this.t * 3)));
+      if (this.t >= 5) { this.next(); return; }
+    } else if (id === 'BK_C1') {
+      const n = Math.max(1, 3 - Math.floor(this.t)); if (n !== this._lastCount) { this._setCount(n, CS.ink); this._lastCount = n; }
+      if (this.t >= st.dur) { this.next(); return; }
+    } else if (id === 'BK_C2' || id === 'BK_C3') {
+      if (this.t >= st.dur) { this.next(); return; }
+    } else if (id === 'BK_C4') {
+      this.liveSpeed = Math.max(0.12, 1 - this.t / 2.4);   // 릴리즈 감속
+      if (this.liveSpeed <= 0.13 && this.t > 2.8) { this.liveSpeed = 1; this.stageIdx = this.stages.findIndex(s2 => s2.id === 'BK_FIN'); this.t = 0; this._enter(); return; }
+    }
   }
 }

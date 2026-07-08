@@ -146,6 +146,13 @@ async function boot() {
     panel.setPack(data, tokens.events);
     tokens.resetLoop();
     lastBodyZ = 0;
+
+    // 세션 가용성 표시 — 러닝·농구 지원, 복싱 준비 중
+    const availEl = document.getElementById('session-avail');
+    const btnEl = document.getElementById('btn-session');
+    const ok = p === 'running' || p === 'basketball';
+    if (availEl) availEl.textContent = ok ? `· ${p === 'running' ? '러닝' : '농구'} 세션` : '· 복싱 준비 중';
+    if (btnEl) { btnEl.style.opacity = ok ? '1' : '0.5'; btnEl.style.pointerEvents = ok ? 'auto' : 'none'; }
   }
 
   // ── 시야 콘 (자연 시선, 조절 가능) ──────────────
@@ -421,9 +428,11 @@ async function boot() {
   }
   sessionBtn?.addEventListener('click', () => {
     if (session.active) { stopSession(); return; }
-    if (state.pack !== 'running') switchPack('running');
+    // 러닝·농구 세션 지원. 복싱은 준비 중 → 러닝으로 폴백
+    const sport = (state.pack === 'running' || state.pack === 'basketball') ? state.pack : 'running';
+    if (state.pack !== sport) switchPack(sport);
     state.time = 0; tokens.resetLoop();
-    session.start();
+    session.start(sport);
     sessionBtn.textContent = '세션 중지';
     if (sessionHud) sessionHud.style.display = 'block';
     setFp(true);            // 시작 → 자동 1인칭 전환
@@ -651,7 +660,7 @@ async function boot() {
       }
     }
     stabErr.textContent = `${rig.errorCm.toFixed(1)}cm`;
-    if (wearFxEl && session.active && session.stage === 'C4') {
+    if (wearFxEl && session.active && session.curStage?.boost && session.isLive) {
       wearFxEl.style.boxShadow = 'inset 0 0 170px 30px #d1feff';
       wearFxEl.style.opacity = String(0.26 + 0.14 * Math.sin(performance.now() / 280));
     }
