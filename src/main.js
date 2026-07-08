@@ -433,6 +433,22 @@ async function boot() {
   document.getElementById('btn-stage-next')?.addEventListener('click', () => session.next());
   document.getElementById('btn-session-stop')?.addEventListener('click', () => stopSession());
   document.getElementById('btn-view')?.addEventListener('click', () => setFp(!fpMode));
+  // ── 제작자 모드: 이미지 드롭 → 토큰 아트 즉시 교체 (다빈 에셋 검수 리그) ──
+  const dropTarget = document.getElementById('drop-target');
+  document.addEventListener('dragover', e => e.preventDefault());
+  document.addEventListener('drop', async e => {
+    e.preventDefault();
+    const f = e.dataTransfer?.files?.[0];
+    if (!f || !/(image|svg)/.test(f.type)) return;
+    const tex = await new THREE.TextureLoader().loadAsync(URL.createObjectURL(f));
+    tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
+    if (dropTarget?.value === 'foot') session.setFootArt(tex);
+    else tokens.setMarkerArt(tex);
+  });
+  document.getElementById('drop-reset')?.addEventListener('click', () => {
+    tokens.setMarkerArt(null); session.setFootArt(null);
+  });
+
   const ttsBtn = document.getElementById('btn-tts');
   ttsBtn?.addEventListener('click', () => {
     ttsOn = !ttsOn;

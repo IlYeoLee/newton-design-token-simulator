@@ -118,6 +118,20 @@ class Marker {
     }
     this.group.renderOrder = 5;
   }
+  /** 제작자 모드: 형태를 외부 아트로 교체 — 상태(cd 링)는 엔진 유지 */
+  setArt(tex) {
+    this.clearArt();
+    this.art = new THREE.Mesh(new THREE.PlaneGeometry(this.radius * 2.2, this.radius * 2.2),
+      new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false }));
+    this.art.position.z = 0.003;
+    this.art.material.clippingPlanes = this.edge.material.clippingPlanes;
+    this.group.add(this.art);
+    this.fill.visible = false; this.edge.visible = false;
+  }
+  clearArt() {
+    if (this.art) { this.group.remove(this.art); this.art.material.dispose(); this.art = null; }
+    this.fill.visible = true; this.edge.visible = true;
+  }
   setNumber(n) {
     const m = new THREE.MeshBasicMaterial({
       map: makeNumberTexture(n), transparent: true, depthWrite: false,
@@ -133,6 +147,7 @@ class Marker {
     if (phase === 'hidden') { g.visible = false; return; }
     g.visible = true;
     g.scale.setScalar(sizeScale);
+    if (this.art) this.art.material.opacity = phase === 'preview' ? 0.55 : 1;
 
     const fade = FADE_STEPS[Math.min(orderIdx, FADE_STEPS.length - 1)];
     if (phase === 'preview') {
@@ -213,6 +228,15 @@ export class TokenSystem {
     });
   }
 
+  /** 제작자 모드: 드롭인 아트를 모든 지면 마커에 적용/해제 */
+  setMarkerArt(tex) {
+    this.markerArt = tex;
+    for (const ev of this.events) {
+      if (!ev.marker || ev.surface === 'wall') continue;
+      tex ? ev.marker.setArt(tex) : ev.marker.clearArt();
+    }
+  }
+
   setParams(p) { Object.assign(this.params, p); }
 
   setPack(packData) {
@@ -256,6 +280,7 @@ export class TokenSystem {
           const color = tk.type === 'targetMark' ? COLORS.target : COLORS[tk.foot] ?? COLORS.left;
           const radius = tk.type === 'targetMark' ? 0.20 : 0.17;
           const mk = new Marker(radius, color, isWall ? 'wall' : 'floor');
+          if (this.markerArt && !isWall) mk.setArt(this.markerArt);
           if (isWall) {
             // 벽면 불즈아이 텍스처 추가
             const bt = new THREE.Mesh(
@@ -346,6 +371,7 @@ export class TokenSystem {
       if (tk.type === 'stepMark' && !isBoxing) {
         // 복싱 스탠스 발판 (상시)
         const mk = new Marker(0.16, COLORS[tk.foot] ?? COLORS.left, 'floor');
+        if (this.markerArt) mk.setArt(this.markerArt);
         const p = this._mapFloor(tk);
         mk.group.position.x = p.x; mk.group.position.z = p.z;
         mk.render('preview', 0, 0, 1);

@@ -50,11 +50,15 @@ function makeFootTexture(mirror) {
   ctx.closePath(); ctx.fill(); ctx.stroke();
   return new THREE.CanvasTexture(c);
 }
+const FOOTMARKS = [];
 class FootMark {
   constructor(foot) {
+    this.foot = foot;
     this.group = new THREE.Group();
     this.plane = new THREE.Mesh(new THREE.PlaneGeometry(0.145, 0.29),
       new THREE.MeshBasicMaterial({ map: makeFootTexture(foot === 'right'), transparent: true, depthWrite: false, side: THREE.DoubleSide }));
+    this._origMap = this.plane.material.map;
+    FOOTMARKS.push(this);
     this.ring = new THREE.Mesh(new THREE.RingGeometry(0.19, 0.215, 44), flatMat(BRAND.prism, 0)); this.ring.position.z = 0.001;
     this.hold = new THREE.Mesh(new THREE.RingGeometry(0.19, 0.215, 44, 1, Math.PI / 2, 0.001), flatMat(BRAND.sand, 0)); this.hold.position.z = 0.002;
     this.group.add(this.plane, this.ring, this.hold);
@@ -251,6 +255,15 @@ export class Session {
   _slot(slot, text, opts) {
     while (slot.children.length) { const c = slot.children.pop(); c.traverse?.(o => { o.geometry?.dispose(); o.material?.map?.dispose(); o.material?.dispose(); }); }
     if (!text) return; const m = makeTextMesh(text, opts); this._clip(m); slot.add(m);
+  }
+
+  /** 제작자 모드: 세션 발자국 아트 교체 (왼발 기준, 오른발은 미러) */
+  setFootArt(tex) {
+    for (const f of FOOTMARKS) {
+      f.plane.material.map = tex || f._origMap;
+      f.plane.scale.x = (tex && f.foot === 'right') ? -1 : 1;
+      f.plane.material.needsUpdate = true;
+    }
   }
 
   start() { this.active = true; this.stageIdx = 0; this.t = 0; this.root.visible = true; this._enter(); }
