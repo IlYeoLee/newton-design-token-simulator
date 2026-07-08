@@ -129,8 +129,8 @@ export class XBot {
   setPack(packData, tokenEvents) {
     this._lastPack = [packData, tokenEvents];
     this.verifyClip = null;
-    // 모든 액션 정지
-    for (const k in this.actions) this.actions[k].action.stop();
+    // 모든 액션 정지 + 가중치 복원 (stop()은 weight를 리셋하지 않음 — 검증 모드 잔재 방지)
+    for (const k in this.actions) { const x = this.actions[k]; x.action.stop(); x.action.setEffectiveWeight(1); }
     this.mode = packData.sport;
     this.group.position.set(0, 0, 0);
     this.group.rotation.set(0, 0, 0);
