@@ -228,6 +228,19 @@ export class TokenSystem {
     });
   }
 
+  /** 에디터: 팔레트 변경을 기존 마커·화살표에 즉시 반영 */
+  recolor() {
+    for (const ev of this.events) {
+      if (ev.marker) {
+        const c = COLORS[ev.marker.role] ?? COLORS.left;
+        ev.marker.color = c; ev.color = c;
+        ev.marker.fill.material.color.setHex(c);
+        if (ev.marker.bullseye) { ev.marker.bullseye.material.map = makeBullseyeTexture(c); ev.marker.bullseye.material.needsUpdate = true; }
+      }
+      if (ev.arrow) ev.arrow.obj.traverse(o => o.material?.color?.setHex(COLORS.guide));
+    }
+  }
+
   /** 제작자 모드: 드롭인 아트를 모든 지면 마커에 적용/해제 */
   setMarkerArt(tex) {
     this.markerArt = tex;
@@ -291,6 +304,7 @@ export class TokenSystem {
             mk.group.add(bt);
             mk.bullseye = bt;
           }
+          mk.role = tk.type === 'targetMark' ? 'target' : (tk.foot ?? 'left');
           ev.marker = mk;
           ev.surface = isWall ? 'wall' : 'floor';
           ev.color = color;
@@ -371,6 +385,7 @@ export class TokenSystem {
       if (tk.type === 'stepMark' && !isBoxing) {
         // 복싱 스탠스 발판 (상시)
         const mk = new Marker(0.16, COLORS[tk.foot] ?? COLORS.left, 'floor');
+        mk.role = tk.foot ?? 'left';
         if (this.markerArt) mk.setArt(this.markerArt);
         const p = this._mapFloor(tk);
         mk.group.position.x = p.x; mk.group.position.z = p.z;

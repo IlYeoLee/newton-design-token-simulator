@@ -1,13 +1,13 @@
 import * as THREE from 'three';
 import { createScene, WALL_Z } from './scene.js';
-import { TokenSystem } from './tokens.js';
+import { TokenSystem, COLORS } from './tokens.js';
 import { Effects } from './effects.js';
 import { XBot } from './xbot.js';
 import { Panel } from './panel.js';
 import { ProjectorRig } from './projector.js';
 import { WallGhost } from './ghost.js';
 import { Judge } from './judge.js';
-import { Session } from './session.js';
+import { Session, SCFG } from './session.js';
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
 
 const BASE = import.meta.env.BASE_URL;
@@ -433,6 +433,66 @@ async function boot() {
   document.getElementById('btn-stage-next')?.addEventListener('click', () => session.next());
   document.getElementById('btn-session-stop')?.addEventListener('click', () => stopSession());
   document.getElementById('btn-view')?.addEventListener('click', () => setFp(!fpMode));
+  // ── 토큰 에디터 드로어: 팔레트·세션 타이밍 라이브 편집 + JSON 내보내기 ──
+  const editorEl = document.getElementById('editor');
+  document.getElementById('btn-editor')?.addEventListener('click', () => { editorEl.style.display = 'block'; });
+  document.getElementById('editor-close')?.addEventListener('click', () => { editorEl.style.display = 'none'; });
+  document.getElementById('ed-open-doc')?.addEventListener('click', e => { e.preventDefault(); window.open(`${BASE}docs/newton-wireframe.html`, '_blank'); });
+
+  const COLOR_ROLES = [
+    ['left', '스텝 마크 (좌)'], ['right', '스텝 마크 (우)'], ['target', '벽면 타겟'],
+    ['guide', '방향 화살표'], ['lane', '레인'], ['success', '성공 (프리즘)'],
+  ];
+  const colWrap = document.getElementById('ed-colors');
+  for (const [k, label] of COLOR_ROLES) {
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin-bottom:7px;font-size:12px;';
+    row.innerHTML = `<span>${label}</span><input type="color" data-role="${k}" value="#${COLORS[k].toString(16).padStart(6, '0')}" style="width:52px;height:26px;border:1px solid var(--line);border-radius:5px;background:var(--panel2);cursor:pointer;">`;
+    colWrap.appendChild(row);
+    row.querySelector('input').addEventListener('input', e => {
+      COLORS[e.target.dataset.role] = parseInt(e.target.value.slice(1), 16);
+      tokens.recolor();
+    });
+  }
+
+  const TIMINGS = [
+    ['a1Rep', 'A1 발목 1회전', 0.4, 2.5], ['a2Hold', 'A2 홀드 길이', 3, 15],
+    ['a3Swing', 'A3 스윙 왕복', 0.6, 3], ['a4Beat', 'A4 걷기 박자', 0.3, 1.2],
+    ['b1Beat', 'B1 듣기 박자', 0.3, 1.2], ['b2Beat', 'B2 스텝 박자', 0.3, 1.4],
+    ['b3Step', 'B3 걸음 간격', 0.5, 2], ['b4Beat', 'B4 리듬 박자', 0.3, 1.2],
+  ];
+  const timWrap = document.getElementById('ed-timings');
+  for (const [k, label, mn, mx] of TIMINGS) {
+    const row = document.createElement('div');
+    row.style.cssText = 'margin-bottom:9px;font-size:12px;';
+    row.innerHTML = `<div style="display:flex;justify-content:space-between;margin-bottom:3px;"><span>${label}</span><span style="color:var(--accent);font-variant-numeric:tabular-nums;" id="edv-${k}">${SCFG[k]}s</span></div>
+      <input type="range" min="${mn * 100}" max="${mx * 100}" value="${SCFG[k] * 100}" style="width:100%;">`;
+    timWrap.appendChild(row);
+    row.querySelector('input').addEventListener('input', e => {
+      SCFG[k] = parseInt(e.target.value, 10) / 100;
+      document.getElementById(`edv-${k}`).textContent = SCFG[k].toFixed(2) + 's';
+    });
+  }
+
+  document.getElementById('ed-export')?.addEventListener('click', async () => {
+    const json = {
+      palette: Object.fromEntries(Object.entries(COLORS).map(([k, v]) => [k, '#' + v.toString(16).padStart(6, '0')])),
+      sessionTiming: { ...SCFG },
+      token: {
+        leadMs: parseInt(document.getElementById('s-lead').value, 10),
+        sizeScale: parseInt(document.getElementById('s-size').value, 10) / 100,
+        maxVisible: parseInt(document.getElementById('s-count').value, 10),
+      },
+      judge: {
+        tolTimeMs: parseInt(document.getElementById('s-tolt').value, 10),
+        tolPosCm: parseInt(document.getElementById('s-tolp').value, 10),
+      },
+    };
+    await navigator.clipboard.writeText(JSON.stringify(json, null, 2));
+    const msg = document.getElementById('ed-export-msg');
+    msg.style.visibility = 'visible'; setTimeout(() => { msg.style.visibility = 'hidden'; }, 2000);
+  });
+
   // ── 제작자 모드: 이미지 드롭 → 토큰 아트 즉시 교체 (다빈 에셋 검수 리그) ──
   const dropTarget = document.getElementById('drop-target');
   document.addEventListener('dragover', e => e.preventDefault());

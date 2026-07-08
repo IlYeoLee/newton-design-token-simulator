@@ -11,6 +11,9 @@ import * as THREE from 'three';
 //   선택은 제스처(카운트다운+발 두 번 탭) — 지면엔 카메라 없음.
 // ─────────────────────────────────────────────────────────────
 
+// 에디터에서 실시간 조절되는 세션 타이밍 (초)
+export const SCFG = { a1Rep: 1.0, a2Hold: 10, a3Swing: 1.5, a4Beat: 0.6, b1Beat: 0.6, b2Beat: 0.7, b3Step: 1.1, b4Beat: 0.55 };
+
 export const BRAND = { red: 0xfa3030, coral: 0xfe6e3c, sand: 0xfec389, prism: 0xd1feff, ink: 0xffffff, dim: 0x9b9b9b };
 const CS = { red:'#fa3030', coral:'#fe6e3c', sand:'#fec389', prism:'#d1feff', ink:'#ffffff', dim:'#c9c9c9', mute:'#9b9b9b' };
 
@@ -344,7 +347,7 @@ export class Session {
       if (id === 'T1' && this.t >= 4.5) { this.next(); return; }
     } else if (id === 'A1') {
       // 발목 돌리기 — 아크가 실제로 돌며 좌 8회 → 우 8회 카운트
-      const REP = 1.0, half = 8 * REP;
+      const REP = SCFG.a1Rep, half = 8 * REP;
       const side = this.t < half ? 0 : 1;
       this.a1L.group.visible = side === 0; this.a1R.group.visible = side === 1;
       this.a1arc.rotation.z = -((this.t % REP) / REP) * Math.PI * 2;
@@ -353,7 +356,7 @@ export class Session {
       if (this.t >= 2 * half + 0.6) { this.next(); return; }
     } else if (id === 'A2') {
       // 종아리 — 10초 홀드 채움 + 초 카운트, 좌우 교대
-      const HOLD = 10, PH = HOLD + 0.9;
+      const HOLD = SCFG.a2Hold, PH = HOLD + 0.9;
       const phase = this.t < PH ? 0 : 1;
       this.a2[0].pg.visible = phase === 0; this.a2[1].pg.visible = phase === 1;
       const lt = this.t - phase * PH, p = Math.min(1, lt / HOLD);
@@ -365,37 +368,38 @@ export class Session {
       if (this.t >= 2 * PH) { this.next(); return; }
     } else if (id === 'A3') {
       // 다리 스윙 — 앞/뒤 화살표 교대 강조 + 10회 카운트
-      const SW = 1.5, fwd = beat(SW) < 0.5;
+      const SW = SCFG.a3Swing, fwd = beat(SW) < 0.5;
       const fm2 = this.a3fwd.children[0].material, bm = this.a3bwd.children[0].material;
       fm2.opacity = fwd ? 0.95 : 0.22; bm.opacity = fwd ? 0.22 : 0.95;
       fm2.color.setHex(fwd ? BRAND.coral : BRAND.dim); bm.color.setHex(fwd ? BRAND.dim : BRAND.coral);
       FMU(`${Math.min(10, Math.floor(this.t / SW) + 1)} / 10`);
       if (this.t >= 10 * SW + 0.5) { this.next(); return; }
     } else if (id === 'A4') {
-      const b = Math.floor(this.t / 0.6) % 2, ph = 1 - beat(0.6);
+      const BT = SCFG.a4Beat, b = Math.floor(this.t / BT) % 2, ph = 1 - beat(BT);
       this.a4L.countdown(b === 0 ? ph : -1); this.a4R.countdown(b === 1 ? ph : -1);
-      FMU(`${b === 0 ? '하나' : '둘'} · ${Math.min(16, Math.floor(this.t / 0.6) + 1)} / 16`);
-      if (this.t >= 16 * 0.6 + 0.4) { this.next(); return; }
+      FMU(`${b === 0 ? '하나' : '둘'} · ${Math.min(16, Math.floor(this.t / BT) + 1)} / 16`);
+      if (this.t >= 16 * BT + 0.4) { this.next(); return; }
     } else if (id === 'B1') {
-      const k = 1 - beat(0.6); this.b1outer.material.opacity = 0.2 + 0.5 * k; this.b1inner.material.opacity = 0.5 + 0.4 * k;
+      const BT = SCFG.b1Beat, k = 1 - beat(BT);
+      this.b1outer.material.opacity = 0.2 + 0.5 * k; this.b1inner.material.opacity = 0.5 + 0.4 * k;
       this.b1outer.scale.setScalar(0.7 + 0.5 * (1 - k));
-      FMU(`박자 ${Math.min(8, Math.floor(this.t / 0.6) + 1)} / 8 — 듣기만`);
-      if (this.t >= 8 * 0.6 + 0.3) { this.next(); return; }
+      FMU(`박자 ${Math.min(8, Math.floor(this.t / BT) + 1)} / 8 — 듣기만`);
+      if (this.t >= 8 * BT + 0.3) { this.next(); return; }
     } else if (id === 'B2') {
-      const b = Math.floor(this.t / 0.7) % 2, ph = beat(0.7);
+      const BT = SCFG.b2Beat, b = Math.floor(this.t / BT) % 2, ph = beat(BT);
       this.b2L.countdown(b === 0 ? ph : -1); this.b2R.countdown(b === 1 ? ph : -1);
       const gl = ph > 0.9 ? 1 : 0; if (gl) (b === 0 ? this.b2L : this.b2R).glow(1);
-      const hits = Math.min(8, Math.floor(this.t / 0.7));
+      const hits = Math.min(8, Math.floor(this.t / BT));
       FMU(`맞춘 스텝 ${hits} / 8`, hits >= 8 ? CS.prism : CS.dim);
-      if (this.t >= 8 * 0.7 + 0.5) { this.next(); return; }
+      if (this.t >= 8 * BT + 0.5) { this.next(); return; }
     } else if (id === 'B3') {
-      const cyc = 3 * 1.1, lt = this.t % cyc;
-      this.b3.forEach((f, i) => { const t0 = i * 1.1; if (lt >= t0 && lt < t0 + 0.9) f.countdown((lt - t0) / 0.9); else if (lt >= t0 + 0.9 && lt < t0 + 1.1) f.glow(1 - (lt - t0 - 0.9) / 0.2); else f.countdown(-1); });
+      const ST = SCFG.b3Step, cyc = 3 * ST, lt = this.t % cyc, W = ST * 0.82;
+      this.b3.forEach((f, i) => { const t0 = i * ST; if (lt >= t0 && lt < t0 + W) f.countdown((lt - t0) / W); else if (lt >= t0 + W && lt < t0 + ST) f.glow(1 - (lt - t0 - W) / (ST - W)); else f.countdown(-1); });
       FMU(`세트 ${Math.min(2, Math.floor(this.t / cyc) + 1)} / 2`);
       if (this.t >= 2 * cyc + 0.4) { this.next(); return; }
     } else if (id === 'B4') {
       // 구간 리듬 — 발밑 → 전방 존 2개로 리듬이 흘러감
-      const per = 0.55, seq = Math.floor(this.t / per) % 3, k = 1 - beat(per);
+      const per = SCFG.b4Beat, seq = Math.floor(this.t / per) % 3, k = 1 - beat(per);
       this.b4foot.op(seq === 0 ? 0.45 + 0.55 * k : 0.45);
       this.b4rings[0].material.opacity = seq === 1 ? 0.3 + 0.65 * k : 0.35;
       this.b4rings[1].material.opacity = seq === 2 ? 0.3 + 0.65 * k : 0.25;

@@ -271,6 +271,33 @@
       pointer-events:none;text-align:center;line-height:1.5;">
     </div>
 
+    <!-- 토큰 에디터 드로어 -->
+    <button id="btn-editor" style="position:absolute;bottom:18px;right:14px;z-index:29;padding:9px 14px;border:1px solid var(--line);border-radius:8px;background:rgba(16,19,24,.9);color:var(--text);font-size:12px;font-weight:700;cursor:pointer;">🎛 에디터</button>
+    <div id="editor" style="position:absolute;top:0;right:0;bottom:0;width:330px;background:rgba(14,17,22,.97);border-left:1px solid var(--line);z-index:30;display:none;overflow-y:auto;padding:16px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+        <b style="font-size:13px;">🎛 토큰 에디터 — 라이브</b>
+        <button id="editor-close" style="border:none;background:none;color:var(--dim);font-size:16px;cursor:pointer;">✕</button>
+      </div>
+      <p style="font-size:11px;color:var(--dim);line-height:1.5;margin-bottom:12px;">모든 값이 즉시 화면에 반영됩니다. 규칙·시나리오는 <a href="#" id="ed-open-doc" style="color:var(--accent)">디자인 문서</a> 참조.</p>
+
+      <div style="font-size:11px;font-weight:700;color:var(--dim);letter-spacing:1px;margin:12px 0 8px;">팔레트 (색=상태)</div>
+      <div id="ed-colors"></div>
+
+      <div style="font-size:11px;font-weight:700;color:var(--dim);letter-spacing:1px;margin:16px 0 8px;">세션 타이밍 (초)</div>
+      <div id="ed-timings"></div>
+      <p style="font-size:10px;color:var(--dim);margin-top:6px;">세션 진행 중에도 즉시 적용 — 박자를 바꾸면 링 수축·카운트가 그 자리에서 바뀝니다.</p>
+
+      <div style="font-size:11px;font-weight:700;color:var(--dim);letter-spacing:1px;margin:16px 0 8px;">토큰 지오메트리·판정</div>
+      <p style="font-size:11px;color:var(--dim);line-height:1.5;">좌측 패널의 <b style="color:var(--text)">선행 시간 · 토큰 크기 · 동시 표시 · 판정 허용</b> 슬라이더가 이 계층입니다 (동일 실시간).</p>
+
+      <div style="font-size:11px;font-weight:700;color:var(--dim);letter-spacing:1px;margin:16px 0 8px;">에셋 (형태)</div>
+      <p style="font-size:11px;color:var(--dim);line-height:1.5;">PNG/SVG를 화면에 드롭 → 좌측 <b style="color:var(--text)">제작자 모드</b> 대상에 적용.</p>
+
+      <div style="font-size:11px;font-weight:700;color:var(--dim);letter-spacing:1px;margin:16px 0 8px;">내보내기</div>
+      <button id="ed-export" style="width:100%;padding:9px 0;border:1px solid var(--accent);border-radius:7px;background:rgba(250,48,48,.12);color:var(--accent);font-size:12px;font-weight:700;cursor:pointer;">토큰 JSON 복사 (클립보드)</button>
+      <p id="ed-export-msg" style="font-size:10px;color:var(--ok);margin-top:6px;visibility:hidden;">복사됨 — 노션/문서에 붙여넣기</p>
+    </div>
+
     <!-- 전환 베일 (단계 전환 시 부드러운 암전) -->
     <div id="stage-veil" style="position:absolute;inset:0;background:#0c0e12;opacity:0;transition:opacity .28s;pointer-events:none;"></div>
     <!-- 웨어러블 개입 1인칭 표시 (화면 가장자리 글로우) -->
