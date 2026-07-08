@@ -126,12 +126,12 @@ export class XBot {
 
   /** 몸 전방 벡터 (월드, 수평) — 클립 본 회전과 무관한 팩 기준 방향 */
   getForward() {
-    if (this.mode === 'basketball') {
+    if (this.mode === 'basketball' && !this.squareLock) {
       // model.rotY(PI) 포함: 전방 = -sin/-cos(groupYaw)
       const yaw = this.group.rotation.y;
       return new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw));
     }
-    return new THREE.Vector3(0, 0, -1);  // 러닝/복싱: 전진·벽 방향
+    return new THREE.Vector3(0, 0, -1);  // 러닝/복싱/농구드릴(square): 전진·벽 방향
   }
 
   /** 팩 전환: 이벤트 스케줄에서 안무 데이터 구축 */
@@ -268,6 +268,18 @@ export class XBot {
       const { path } = this.schedule;
       const run = this.actions.bkRun || this.actions.run;
       const drb = this.actions.dribble;
+
+      // 드릴 모드(고정 스텝백 패드): 봇을 정면·원점 고정 → 카메라가 패드를 봄
+      if (this.squareLock) {
+        this.group.position.set(0, 0, 0);
+        this.group.rotation.y = 0;
+        run.action.setEffectiveWeight(0); drb.action.setEffectiveWeight(1);
+        if (this.actions.sidestep) this.actions.sidestep.action.setEffectiveWeight(0);
+        drb.action.time = (this._sqT = (this._sqT || 0) + dt) % drb.dur;
+        this.mixer.update(0);
+        this._lockInPlace();
+        return;
+      }
 
       if (path.length >= 2) {
         const p = this._samplePath(packTime);
