@@ -519,7 +519,31 @@ export class Session {
   start(sport = 'running') {
     this.sport = STAGES[sport] ? sport : 'running';
     this.stages = STAGES[this.sport];
-    this.active = true; this.stageIdx = 0; this.t = 0; this.root.visible = true; this._enter();
+    this.active = true; this.stageIdx = 0; this.t = 0; this._missStreak = 0; this.root.visible = true; this._enter();
+  }
+  /** 학습자 실력(0~1) — 게이트/다운시프트 구동 (판정 슬라이더와 동기) */
+  setSkill(v) { this.skill = v; }
+  get skill() { return this._skill ?? 0.7; }
+  set skill(v) { this._skill = v; }
+  _firstBIdx() { return this.stages.findIndex(s => /B1$/.test(s.id)); }
+  /** 익히기 마지막 단계 종료 — 게이트: 실력 미달 시 T-2로 안 가고 익히기 반복 */
+  _gateAdvance() {
+    if (this.skill >= 0.6) { this.onGate?.('pass'); this.next(); }
+    else {
+      const i = this._firstBIdx();
+      this.onGate?.('fail');
+      if (i >= 0) { this.stageIdx = i; this.t = 0; this._enter(); } else this.next();
+    }
+  }
+  /** 실전 다운시프트 — 폼이 연속으로 흔들리면(non-hit ×2) 익히기로 복귀 */
+  reportVerdict(verdict) {
+    if (!this.active || !this.isLive) return;
+    this._missStreak = verdict !== 'hit' ? this._missStreak + 1 : 0;
+    if (this._missStreak >= 2) {
+      this._missStreak = 0;
+      const i = this._firstBIdx();
+      if (i >= 0 && this.stageIdx > i) { this.onGate?.('downshift'); this.liveSpeed = 1; this.stageIdx = i; this.t = 0; this._enter(); }
+    }
   }
   stop() { this.active = false; this.root.visible = false; this.tokens.root.visible = true; this.liveSpeed = 1; this.bobY = 0; }
   tapAdvance() {
@@ -745,7 +769,7 @@ export class Session {
       this.b4foot.op(seq === 0 ? 0.45 + 0.55 * k : 0.45);
       this.b4rings[0].material.opacity = seq === 1 ? 0.3 + 0.65 * k : 0.35;
       this.b4rings[1].material.opacity = seq === 2 ? 0.3 + 0.65 * k : 0.25;
-      if (this.t >= 9 * per + 0.3) { this.next(); return; }
+      if (this.t >= 9 * per + 0.3) { this._gateAdvance(); return; }
     } else if (id === 'C1') {
       const n = Math.max(1, 3 - Math.floor(this.t)); if (n !== this._lastCount) { this._setCount(n, CS.ink); this._lastCount = n; }
       if (this.t >= st.dur) { this.next(); return; }   // 출발!
@@ -809,7 +833,7 @@ export class Session {
       // 컷 감속 — 스트라이프 웨이브 + 디딤발 글로우
       this.bkB3stripes.forEach((s, i) => { s.material.opacity = (0.7 - i * 0.15) * (0.5 + 0.5 * Math.sin(this.t * 4 - i)); });
       this.bkB3foot.op(0.5 + 0.4 * (0.5 + 0.5 * Math.sin(this.t * 3)));
-      if (this.t >= 5) { this.next(); return; }
+      if (this.t >= 5) { this._gateAdvance(); return; }
     } else if (id === 'BK_C1') {
       const n = Math.max(1, 3 - Math.floor(this.t)); if (n !== this._lastCount) { this._setCount(n, CS.ink); this._lastCount = n; }
       if (this.t >= st.dur) { this.next(); return; }
@@ -870,7 +894,7 @@ export class Session {
       this.bxB3cd.material.opacity = 0.4 + 0.55 * ph; this.bxB3cd.scale.setScalar(1.9 - 0.9 * ph);
       const hits = Math.min(6, Math.floor(this.t / BT));
       FMU(`맞춘 잽 ${hits} / 6`, hits >= 6 ? CS.prism : CS.dim);
-      if (this.t >= 6 * BT + 0.4) { this.next(); return; }
+      if (this.t >= 6 * BT + 0.4) { this._gateAdvance(); return; }
     } else if (id === 'BX_C1') {
       const n = Math.max(1, 3 - Math.floor(this.t)); if (n !== this._lastCount) { this._setCountWall(n, CS.ink); this._lastCount = n; }
       if (this.t >= st.dur) { this.next(); return; }

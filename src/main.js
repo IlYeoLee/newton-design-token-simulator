@@ -29,6 +29,7 @@ async function boot() {
   const stage = document.getElementById('stage');
   const { renderer, scene, camera, controls, setPackEnvironment } = createScene(stage);
 
+  let sessionSkillSink = null;   // 슬라이더가 session 생성 전 초기 apply 시 TDZ 회피
   const effects = new Effects(scene);
   const tokens = new TokenSystem(scene, effects);
   const xbot = new XBot(scene);
@@ -48,6 +49,8 @@ async function boot() {
         : new THREE.Vector3(best.px, 0.016, best.p2);
       effects.dot(dotPos, col, n);
     }
+    // 실전 다운시프트: 세션 라이브 중 연속 Miss 누적 → 익히기 복귀
+    session.reportVerdict(verdict);
   };
 
   // 허용 오차 슬라이더 + 리포트 렌더
@@ -404,7 +407,7 @@ async function boot() {
   };
   bindSlider('s-tolt', 'v-tolt', v => `±${v}ms`, v => { judge.tolT = v / 1000; });
   bindSlider('s-tolp', 'v-tolp', v => `${v}cm`, v => { judge.tolP = v / 100; });
-  bindSlider('s-skill', 'v-skill', v => `${v}%`, v => { judge.skill = v / 100; });
+  bindSlider('s-skill', 'v-skill', v => `${v}%`, v => { judge.skill = v / 100; sessionSkillSink?.setSkill(v / 100); });
   bindSlider('s-pitch', 'v-pitch', v => `${v}°`, v => { gazePitch = THREE.MathUtils.degToRad(v); });
   bindSlider('s-fpnear', 'v-fpnear', v => `${v}cm`, v => rig.setFootprint(v / 100, rig.fpFar));
   bindSlider('s-fpfar', 'v-fpfar', v => `${v}cm`, v => rig.setFootprint(rig.fpNear, v / 100));
@@ -487,6 +490,13 @@ async function boot() {
       wearPulse(c);
     } else if (wearFxEl) wearFxEl.style.opacity = '0';
   });
+  // 게이트/다운시프트 안내 자막 + 웨어러블 신호
+  sessionSkillSink = session;
+  session.setSkill(parseInt(document.getElementById('s-skill')?.value ?? '70', 10) / 100);
+  session.onGate = (type) => {
+    if (type === 'fail') { showCaption('시스템', '아직 폼이 덜 익었어요 — 익히기 한 번 더.'); wearPulse('#fec389', 1600); }
+    else if (type === 'downshift') { showCaption('시스템', '폼이 흔들려요 — 익히기로 되돌립니다.'); wearPulse('#fec389', 1600); }
+  };
   const sessionBtn = document.getElementById('btn-session');
   function stopSession() {
     if (!session.active) return;
