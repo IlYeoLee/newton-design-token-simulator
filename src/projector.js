@@ -148,45 +148,6 @@ export class ProjectorRig {
     return FP_HALF_NEAR + FP_SPREAD * Math.max(0, d - this.fpNear);
   }
 
-  /** 농구 = 스테이션 투사 고정 2D 풋워크 패드 (몸 앞, 넓고 안정적 — 무릎 스윙 없음) */
-  _updateFixedPad() {
-    const y = 0.011;
-    this._fp = { ox: 0, oz: 0, fx: 0, fz: -1, rx: 1, rz: 0 };   // 원점·정면(-Z) 고정
-    const hN = this._halfAt(this.fpNear), hF = this._halfAt(this.fpFar);
-    const pt = (d, h, sgn) => new THREE.Vector3(h * sgn, y, -d);
-    const corners = [
-      pt(this.fpNear, hN, -1), pt(this.fpNear, hN, 1),
-      pt(this.fpFar, hF, 1),   pt(this.fpFar, hF, -1),
-    ];
-    // 패드 면 (붉은 그라디언트)
-    const v = [], col = [];
-    const NEAR_C = [0.5, 0.08, 0.08], FAR_C = [0.92, 0.68, 0.68];
-    const CC = [NEAR_C, NEAR_C, FAR_C, FAR_C];
-    for (const idx of [0, 1, 2, 0, 2, 3]) { v.push(corners[idx].x, corners[idx].y, corners[idx].z); col.push(...CC[idx]); }
-    this.footFill.geometry.dispose();
-    this.footFill.geometry = new THREE.BufferGeometry();
-    this.footFill.geometry.setAttribute('position', new THREE.Float32BufferAttribute(v, 3));
-    this.footFill.geometry.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
-    // 스테이션 고정 사출점 (몸 뒤·위)
-    const apex = new THREE.Vector3(0, 0.5, 0.8);
-    this.kneeBox.position.copy(apex);
-    setBeam(this.floorBeam, apex, corners);
-    // 클리핑 4변
-    const up = new THREE.Vector3(0, 1, 0);
-    const cP = new THREE.Vector3(0, 0, -(this.fpNear + this.fpFar) / 2);
-    const setEdge = (plane, a, b) => {
-      const e = new THREE.Vector3().subVectors(b, a); e.y = 0;
-      const n = new THREE.Vector3().crossVectors(up, e).normalize();
-      plane.setFromNormalAndCoplanarPoint(n, a);
-      if (plane.distanceToPoint(cP) < 0) { plane.normal.negate(); plane.constant = -plane.constant; }
-    };
-    setEdge(this.floorClip[0], corners[0], corners[1]);
-    setEdge(this.floorClip[1], corners[1], corners[2]);
-    setEdge(this.floorClip[2], corners[2], corners[3]);
-    setEdge(this.floorClip[3], corners[3], corners[0]);
-    this.geom = { kneeH: 0.5, aNear: 38, aFar: 14, fovNeed: 24 };
-  }
-
   setPack(sport, tokenEvents) {
     this.mode = sport;
     this.initialized = false;
@@ -276,7 +237,8 @@ export class ProjectorRig {
   update(now, dt) {
     if (!this.mode) return;
     if (this.mode === 'boxing') { this._updateWall(); return; }
-    if (this.mode === 'basketball') { this._updateFixedPad(); return; }   // 고정 코트 패드
+    // 농구도 무릎 착용 유닛(러닝과 동일 하드웨어). 스트리밍 레인 대신 넓은 풋워크
+    // 풋프린트(fixedPad 폭)를 강한 보정으로 몸 앞에 안정적으로 유지 — 아래 무릎 경로 공용.
 
     // ── 무릎 모듈 월드 위치 ──
     const knee = this.xbot.getKneeWorld();

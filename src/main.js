@@ -491,6 +491,11 @@ async function boot() {
               : w.includes('SAFE') ? '#8fd8de' : '#9b9b9b';
       wearPulse(c);
     } else if (wearFxEl) wearFxEl.style.opacity = '0';
+    // 데모 투어: READY 진입 시 자동 시작(탭), FIN 도달 시 다음 종목으로
+    if (demoTour) {
+      if (/READY$/.test(st.id)) setTimeout(() => { if (demoTour && session.active) session.tapAdvance(); }, 1400);
+      if (/FIN$/.test(st.id)) setTimeout(() => demoAdvance(), 4500);
+    }
   });
   // 게이트/다운시프트 안내 자막 + 웨어러블 신호
   sessionSkillSink = session;
@@ -500,6 +505,16 @@ async function boot() {
     else if (type === 'downshift') { showCaption('시스템', '폼이 흔들려요 — 익히기로 되돌립니다.'); wearPulse('#fec389', 1600); }
   };
   const sessionBtn = document.getElementById('btn-session');
+  const demoBtn = document.getElementById('btn-demo');
+  let demoTour = null;   // { queue:[sports], i }
+  function startSessionFor(sport) {
+    if (state.pack !== sport) switchPack(sport);
+    state.time = 0; tokens.resetLoop();
+    session.start(sport);
+    sessionBtn.textContent = '세션 중지';
+    if (sessionHud) sessionHud.style.display = 'block';
+    setFp(true);
+  }
   function stopSession() {
     if (!session.active) return;
     session.stop();
@@ -510,16 +525,26 @@ async function boot() {
     if (sessionHud) sessionHud.style.display = 'none';
     setFp(false);           // 중단 → X봇 3인칭 복귀
   }
+  // ── 데모 투어: 러닝→복싱→농구 자동 순회 (영상 녹화용) ──
+  function demoAdvance() {
+    if (!demoTour) return;
+    demoTour.i++;
+    if (demoTour.i >= demoTour.queue.length) { demoTour = null; demoBtn.textContent = '🎬 데모 투어 (3종목 자동 순회)'; stopSession(); return; }
+    session.stop();
+    startSessionFor(demoTour.queue[demoTour.i]);
+  }
+  demoBtn?.addEventListener('click', () => {
+    if (demoTour) { demoTour = null; demoBtn.textContent = '🎬 데모 투어 (3종목 자동 순회)'; stopSession(); return; }
+    demoTour = { queue: ['running', 'boxing', 'basketball'], i: 0 };
+    demoBtn.textContent = '⏹ 데모 투어 중지';
+    if (session.active) session.stop();
+    startSessionFor(demoTour.queue[0]);
+  });
   sessionBtn?.addEventListener('click', () => {
-    if (session.active) { stopSession(); return; }
+    if (session.active) { demoTour = null; demoBtn.textContent = '🎬 데모 투어 (3종목 자동 순회)'; stopSession(); return; }
     // 러닝·농구·복싱 세션 지원
     const sport = ['running', 'basketball', 'boxing'].includes(state.pack) ? state.pack : 'running';
-    if (state.pack !== sport) switchPack(sport);
-    state.time = 0; tokens.resetLoop();
-    session.start(sport);
-    sessionBtn.textContent = '세션 중지';
-    if (sessionHud) sessionHud.style.display = 'block';
-    setFp(true);            // 시작 → 자동 1인칭 전환
+    startSessionFor(sport);
   });
   document.getElementById('btn-tap')?.addEventListener('click', () => session.tapAdvance());
   document.getElementById('btn-stage-prev')?.addEventListener('click', () => session.prev());
