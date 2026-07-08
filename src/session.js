@@ -197,10 +197,10 @@ const STAGES = {
     { id:'BK_B2', label:'B · 사전 익히기 2/3 — 스텝 분해 밟기', voice:['커리','순서대로 밟아요. 하나 — 뒤로 — 셋.'], cue:'Step Combo ×3' },
     { id:'BK_B3', label:'B · 사전 익히기 3/3 — 컷 방향·감속', voice:['커리','디딤발에서 확 멈춰요. 감속이 슛의 시작이에요.'], foot:'두 번 탭 → 실전 준비' },
     { id:'BK_T2', label:'T-2 · 5초 뒤 실전 자동 진행 (두 번 탭 = 바로)', voice:['커리','5초 뒤 넘어가요. 준비됐으면 두 번 탭.'], dur:5, count:true, foot:'두 번 탭 = 즉시 · 무입력 = 자동' },
-    { id:'BK_C1', dur:3, label:'C · 실전 1/4 — 트리거', voice:['시스템','3, 2, 1. 드라이브 들어가요.'], hap:'드라이브 시작 진동', foot:'두 번 탭 → 출발' },
-    { id:'BK_C2', dur:5, label:'C · 실전 2/4 — 드라이브 인', voice:['커리','앞으로 두 번 밟아 파고들어요.'], wear:'SAFE 스텝 안정화' },
-    { id:'BK_C3', dur:5, boost:true, label:'C · 실전 3/4 — 스텝백', voice:['커리','뒤로 확 빼서 공간! 지금.'], wear:'BOOST 스텝백 추진', cue:'구간 종료 Match Rate' },
-    { id:'BK_C4', label:'C · 실전 4/4 — 릴리즈', voice:['시스템','밸런스 잡고 슛. 좋아요.'], hap:'릴리즈 완료 진동' },
+    { id:'BK_C1', dur:3, label:'C · 실전 1/4 — 트리거', voice:['시스템','3, 2, 1. 컷 들어가요.'], hap:'컷 시작 진동', foot:'두 번 탭 → 출발' },
+    { id:'BK_C2', dur:6, live:true, label:'C · 실전 2/4 — 컷인 라이브', voice:['커리','수비 앞으로 파고들어요.'], wear:'SAFE 컷 안정화' },
+    { id:'BK_C3', dur:6, live:true, boost:true, label:'C · 실전 3/4 — 스텝백 (라이브·가속)', voice:['커리','뒤로 확! 공간 만들어요.'], wear:'BOOST 스텝백 추진', cue:'구간 종료 Match Rate' },
+    { id:'BK_C4', live:true, cooldown:true, label:'C · 실전 4/4 — 릴리즈·정지', voice:['시스템','밸런스 잡고 릴리즈. 좋아요.'], hap:'릴리즈 완료 진동' },
     { id:'BK_FIN', label:'B-F · 리포트', voice:['시스템','리포트를 앱으로 보냈어요.'], cue:'Ghost Review — 커리 궤적과 내 스텝 겹쳐 보기' },
   ],
   boxing: [
@@ -405,25 +405,14 @@ export class Session {
 
     g = this._mk('BK_T2');   // 카운트 공통(countGroup) 사용 — 별도 지오메트리 없음
 
-    // 고정 스텝백 패드 드릴 — 선수 정면, 몸 앞 좁은 패드(z ≈ -0.8~-1.7)
+    // 실전 라이브 — 무릎 빔프가 봇 컷을 따라 움직이며 팩 토큰 투사 (오버레이 최소)
     g = this._mk('BK_C1');
-    g.add(floorRing(0, -1.5, 0.15, 0.17, BRAND.red, 0.5));
-
-    // C2 드라이브 인 — 앞으로 두 발 플랜트 (근 → 원)
-    g = this._mk('BK_C2');
-    this.bkC2 = [new FootMark('left').at(-0.14, -1.0), new FootMark('right').at(0.14, -1.5)];
-    g.add(this.bkC2[0].group, this.bkC2[1].group);
-
-    // C3 스텝백 — 뒤로 빠지는 착지 존(몸쪽) + 앞 슛 타겟
-    g = this._mk('BK_C3');
-    this.bkC3back = new FootMark('left').at(0.05, -0.7, 1.15); g.add(this.bkC3back.group);
-    g.add(floorArrow(0.28, -1.15, 180, BRAND.prism, 0.4));   // 뒤로 화살표
-    this.bkC3target = floorRing(0, -1.75, 0.18, 0.205, BRAND.prism, 0.7); g.add(this.bkC3target);
-
-    // C4 릴리즈 — 슛 타겟 링 + SHOOT
+    g.add(floorRing(0.03, -2.4, 0.15, 0.17, BRAND.red, 0.5));
+    this._mk('BK_C2');       // 라이브 — 팩 토큰 흐름
+    this._mk('BK_C3');       // 라이브 스텝백 (가속)
     g = this._mk('BK_C4');
-    this.bkC4ring = floorRing(0, -1.7, 0.20, 0.225, BRAND.red, 0.9); g.add(this.bkC4ring);
-    g.add(floorText('SHOOT', 0, -1.7, { size: 0.09, color: CS.mute }));
+    g.add(floorRing(0, -2.6, 0.20, 0.225, BRAND.dim, 0.9));
+    g.add(floorText('SHOOT', 0, -2.6, { size: 0.09, color: CS.mute }));
 
     g = this._mk('BK_FIN');
     g.add(floorText('오늘의 스텝백', 0, -1.7, { size: 0.11, color: CS.ink }));
@@ -654,8 +643,8 @@ export class Session {
       case 'BK_B2': FS('LEARN 2/3'); FL('순서대로 밟기'); FM('맞춘 스텝 0 / 3'); break;
       case 'BK_B3': FS('LEARN 3/3'); FL('디딤발에서 감속'); FM('감속이 슛의 시작'); break;
       case 'BK_T2': FS('T-2'); FM('두 번 탭 = 바로 · 가만히 있으면 자동'); break;
-      case 'BK_C1': FS('DRIVE 3·2·1'); break;
-      case 'BK_C2': FS('DRIVE-IN'); FM('앞으로 두 번'); break;
+      case 'BK_C1': FS('GAME 3·2·1'); break;
+      case 'BK_C2': FS('CUT-IN · SAFE'); FM('수비 앞으로'); break;
       case 'BK_C3': S(this.slotFS, 'STEP-BACK · BOOST', { size: 0.055, color: CS.prism }); FM('뒤로 빼서 공간', CS.prism); break;
       case 'BK_C4': FS('RELEASE'); FM('밸런스 · 슛'); break;
       case 'BK_FIN': FS('REPORT'); break;
@@ -851,22 +840,12 @@ export class Session {
     } else if (id === 'BK_C1') {
       const n = Math.max(1, 3 - Math.floor(this.t)); if (n !== this._lastCount) { this._setCount(n, CS.ink); this._lastCount = n; }
       if (this.t >= st.dur) { this.next(); return; }
-    } else if (id === 'BK_C2') {
-      // 드라이브 인 — 두 발 순차 플랜트 (근→원), 반복
-      const per = 1.4, lt = this.t % (2 * per);
-      this.bkC2.forEach((f, i) => { const t0 = i * per; if (lt >= t0 && lt < t0 + per * 0.8) f.countdown((lt - t0) / (per * 0.8)); else if (lt >= t0 + per * 0.8 && lt < t0 + per) f.glow(1 - (lt - t0 - per * 0.8) / (per * 0.2)); else f.countdown(-1); });
-      if (this.t >= st.dur) { this.next(); return; }
-    } else if (id === 'BK_C3') {
-      // 스텝백 — 뒤 착지 존 강조 + 앞 슛 타겟 수축
-      this.bkC3back.op(0.5 + 0.45 * (0.5 + 0.5 * Math.sin(this.t * 4)));
-      const ph = (this.t % 1.2) / 1.2;
-      this.bkC3target.material.opacity = 0.4 + 0.5 * ph; this.bkC3target.scale.setScalar(1.7 - 0.7 * ph);
+    } else if (id === 'BK_C2' || id === 'BK_C3') {
+      // 라이브 — 실제 컷 재생, 무릎 빔프가 봇 따라 움직임(팩 토큰이 주인공)
       if (this.t >= st.dur) { this.next(); return; }
     } else if (id === 'BK_C4') {
-      // 릴리즈 — 슛 타겟 펄스 후 리포트
-      const k = 0.5 + 0.5 * Math.sin(this.t * 5);
-      this.bkC4ring.material.opacity = 0.5 + 0.45 * k; this.bkC4ring.scale.setScalar(1 + 0.15 * k);
-      if (this.t >= 2.6) { this.stageIdx = this.stages.findIndex(s2 => s2.id === 'BK_FIN'); this.t = 0; this._enter(); return; }
+      this.liveSpeed = Math.max(0.12, 1 - this.t / 2.4);   // 릴리즈 감속
+      if (this.liveSpeed <= 0.13 && this.t > 2.8) { this.liveSpeed = 1; this.stageIdx = this.stages.findIndex(s2 => s2.id === 'BK_FIN'); this.t = 0; this._enter(); return; }
     }
   }
 

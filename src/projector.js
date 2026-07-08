@@ -164,10 +164,11 @@ export class ProjectorRig {
     this.wallFill.visible = sport === 'boxing';
     if (!isKnee) this._fp = null;
 
-    // 농구 = 고정 넓은 코트 패드 (몸 앞 ~2.7m 폭). 러닝만 무릎 스트리밍 레인.
+    // 농구 무릎 유닛: 컷 중 스윙을 줄이려 적당한 폭(발 앞 근접 존). 러닝은 스트리밍 레인.
     if (sport === 'basketball') {
-      this.fixedPad = { halfNear: 0.85, halfFar: 1.35 };
-      this.fpNear = 0.1; this.fpFar = 2.2;
+      this.fixedPad = { halfNear: 0.45, halfFar: 0.8 };
+      this.fpNear = 0.12; this.fpFar = 1.5;
+      this._smFwd = null;   // 방향 스무딩 리셋
     } else {
       this.fixedPad = null;
     }
@@ -240,11 +241,24 @@ export class ProjectorRig {
     // 농구도 무릎 착용 유닛(러닝과 동일 하드웨어). 스트리밍 레인 대신 넓은 풋워크
     // 풋프린트(fixedPad 폭)를 강한 보정으로 몸 앞에 안정적으로 유지 — 아래 무릎 경로 공용.
 
-    // ── 무릎 모듈 월드 위치 ──
+    // ── 무릎 모듈 월드 위치 — 오른 무릎 바깥 옆면에 착 부착 ──
     const knee = this.xbot.getKneeWorld();
     if (!knee) return;
-    const kneeModule = knee.add(KNEE_OFFSET);
+    // 농구: 투사 방향을 저역통과 스무딩 — 매 컷·스텝마다 홱 도는 스윙 억제
+    const fwdInst = this.xbot.getForward();
+    if (this.mode === 'basketball') {
+      if (!this._smFwd) this._smFwd = fwdInst.clone();
+      this._smFwd.lerp(fwdInst, 1 - Math.exp(-dt / 0.6)).normalize();
+    }
+    const fwd0 = (this.mode === 'basketball' && this._smFwd) ? this._smFwd : fwdInst;
+    const rightV = new THREE.Vector3(-fwd0.z, 0, fwd0.x);   // 몸 오른쪽(오른 무릎 바깥) 방향
+    const kneeModule = knee.clone()
+      .addScaledVector(rightV, 0.10)                        // 바깥 옆면으로
+      .addScaledVector(fwd0, 0.03)                          // 살짝 앞
+      .add(new THREE.Vector3(0, 0.01, 0));
     this.kneeBox.position.copy(kneeModule);
+    // 다리 방향으로 회전(강체 부착 느낌) — 무릎이 굽으면 함께 기울어짐
+    this.kneeBox.rotation.set(0, Math.atan2(fwd0.x, fwd0.z), 0);
 
     const body = this.xbot.getBodyPos();
     const stableLocal = this._stableLocal(now, body);
@@ -297,8 +311,8 @@ export class ProjectorRig {
     this.shake.set(offLocal.x, offLocal.z);
     this.errorCm = Math.hypot(offLocal.x, offLocal.z) * 100;
 
-    // ── 무릎 사출 사다리꼴 풋프린트 (월드 좌표) ──
-    const fwd = this.xbot.getForward();
+    // ── 무릎 사출 사다리꼴 풋프린트 (월드 좌표) — 방향은 스무딩된 fwd0 사용(스윙 억제) ──
+    const fwd = fwd0;
     const right = new THREE.Vector3(-fwd.z, 0, fwd.x);
     const ox = body.x + offLocal.x;
     const oz = body.z + offLocal.z;

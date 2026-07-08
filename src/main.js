@@ -791,6 +791,7 @@ async function boot() {
 
   // 비실전 단계 봇 시연 클립 매핑 (가진 클립으로 근사 — 코치가 동작을 보여줌)
   function demoClipFor(sport, id) {
+    if (sport === 'basketball') return 'dribble';           // 제자리 드리블 시연
     if (sport === 'boxing') return /B\d/.test(id) ? 'hook' : 'warmup';
     // 러닝: 익히기(B)=제자리 스텝(run), 스트레칭·전환=warmup
     if (/^B\d/.test(id)) return 'run';
@@ -801,15 +802,12 @@ async function boot() {
   function stepSim(h) {
     const data = state.packs[state.pack];
     if (!data) return;
-    // 농구 = 고정 패드 종목: 봇을 정면·원점에 두고 제자리 풋워크(드리블) — 무릎 스윙 없음
-    xbot.squareLock = state.pack === 'basketball';
     // 세션 비실전 단계: 팩 시간 정지, 봇은 단계별 동작을 제자리 시연(코치)
     if (session.active && !session.isLive) {
       session.update(h);
       state.time = 0;
       tokens.update(0, 0);
-      if (state.pack === 'basketball') xbot.update(0, h);        // squareLock 제자리 드리블
-      else xbot.playDemo(demoClipFor(session.sport, session.stage), h);
+      xbot.playDemo(demoClipFor(session.sport, session.stage), h);
       rig.update(0, h);
       tokens.setShake(rig.shake.x, rig.shake.y);
       return;
