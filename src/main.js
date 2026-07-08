@@ -455,6 +455,11 @@ async function boot() {
     if (state.pack !== 'running') { document.querySelector('[data-pack=running]')?.click(); }
     xbot.setVerify('bkKick');
   });
+  document.getElementById('verify-warmup')?.addEventListener('click', () => {
+    stopSession();
+    if (state.pack !== 'running') { document.querySelector('[data-pack=running]')?.click(); }
+    xbot.setVerify('warmup');
+  });
   document.getElementById('verify-off')?.addEventListener('click', () => xbot.setVerify(null));
 
   const ttsBtn = document.getElementById('btn-tts');

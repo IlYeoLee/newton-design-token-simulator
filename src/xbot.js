@@ -6,6 +6,7 @@ import runUrl from '../assets/anim-standard-run.fbx?url';
 import hookUrl from '../assets/anim-hook.fbx?url';
 import dribbleUrl from '../assets/anim-basketball-dribble.fbx?url';
 import sidestepUrl from '../assets/anim-basketball-sidestep.fbx?url';
+import warmupUrl from '../assets/warming_up.fbx?url';   // Mixamo 'Warming Up' — 스트레칭 검증용
 // Bandai Namco Research MotionDataset (CC BY-NC) — BVH 실측 리타겟 클립
 import bkRunClipJson from '../assets/mocap/xclip-run_normal.json';
 import bkDashClipJson from '../assets/mocap/xclip-dash_normal.json';
@@ -32,12 +33,13 @@ export class XBot {
 
   async load() {
     const loader = new FBXLoader();
-    const [xbot, runFbx, hookFbx, dribbleFbx, sidestepFbx] = await Promise.all([
+    const [xbot, runFbx, hookFbx, dribbleFbx, sidestepFbx, warmupFbx] = await Promise.all([
       loader.loadAsync(xbotUrl),
       loader.loadAsync(runUrl),
       loader.loadAsync(hookUrl),
       loader.loadAsync(dribbleUrl),
       loader.loadAsync(sidestepUrl),
+      loader.loadAsync(warmupUrl),
     ]);
 
     xbot.scale.setScalar(0.01);
@@ -68,6 +70,7 @@ export class XBot {
     reg('hook', hookFbx);
     reg('dribble', dribbleFbx);
     reg('sidestep', sidestepFbx);
+    reg('warmup', warmupFbx);
 
     // 실측 모캡 클립 (Bandai BVH → 오프라인 리타겟)
     const regJson = (name, json) => {
