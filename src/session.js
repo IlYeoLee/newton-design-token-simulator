@@ -158,18 +158,25 @@ export class Session {
     this.tap = this._tap(); this.tap.position.set(0, 0.013, -1.8); g.add(this.tap);
 
     g = this._mk('A1');
-    this.a1foot = new FootMark('left').at(0, -1.9, 1.15); g.add(this.a1foot.group);
-    g.add(floorArc(0, -1.9, BRAND.sand));
+    this.a1L = new FootMark('left').at(0, -1.9, 1.15); g.add(this.a1L.group);
+    this.a1R = new FootMark('right').at(0, -1.9, 1.15); g.add(this.a1R.group);
+    this.a1arc = floorArc(0, -1.9, BRAND.sand); g.add(this.a1arc);
 
     g = this._mk('A2');
-    this.a2front = new FootMark('left').at(-0.13, -2.0); g.add(this.a2front.group);
-    this.a2back = new FootMark('right').at(0.14, -1.28); g.add(this.a2back.group);
-    g.add(floorRing(0.14, -1.28, 0.235, 0.255, BRAND.sand, 0.5));
+    this.a2 = [];
+    for (let i = 0; i < 2; i++) {          // 0=왼발 앞, 1=오른발 앞 (좌우 교대)
+      const pg = new THREE.Group(); g.add(pg);
+      const sx = i === 0 ? 1 : -1;
+      const front = new FootMark(i === 0 ? 'left' : 'right').at(-0.13 * sx, -2.0);
+      const back = new FootMark(i === 0 ? 'right' : 'left').at(0.14 * sx, -1.28);
+      pg.add(front.group, back.group, floorRing(0.14 * sx, -1.28, 0.235, 0.255, BRAND.sand, 0.5));
+      this.a2.push({ pg, front, back });
+    }
 
     g = this._mk('A3');
     this.a3foot = new FootMark('left').at(-0.05, -1.7, 1.1); g.add(this.a3foot.group);
-    g.add(floorArrow(0.22, -1.35, 0, BRAND.dim, 0.34));
-    g.add(floorArrow(0.22, -2.05, 180, BRAND.dim, 0.34));
+    this.a3fwd = floorArrow(0.22, -1.35, 0, BRAND.dim, 0.34); g.add(this.a3fwd);
+    this.a3bwd = floorArrow(0.22, -2.05, 180, BRAND.dim, 0.34); g.add(this.a3bwd);
 
     g = this._mk('A4');
     this.a4L = new FootMark('left').at(-0.17, -1.6); g.add(this.a4L.group);
@@ -200,8 +207,8 @@ export class Session {
     g = this._mk('B4');
     g.add(laneLine(BRAND.red, 0.2, -3.0));
     this.b4foot = new FootMark('left').at(0.05, -1.6); g.add(this.b4foot.group);
-    g.add(floorRing(-0.05, -2.2, 0.15, 0.17, BRAND.red, 0.6));
-    g.add(floorRing(0.05, -2.8, 0.15, 0.17, BRAND.red, 0.35));
+    this.b4rings = [floorRing(-0.05, -2.2, 0.15, 0.17, BRAND.red, 0.6), floorRing(0.05, -2.8, 0.15, 0.17, BRAND.red, 0.35)];
+    g.add(this.b4rings[0], this.b4rings[1]);
 
     g = this._mk('C1');
     g.add(floorRing(0.03, -2.6, 0.15, 0.17, BRAND.red, 0.5));
@@ -276,14 +283,14 @@ export class Session {
     FS(''); FL(''); FM('');
     switch (st.id) {
       case 'READY': FS('SEAN · LAST 1KM'); FL('READY'); FM('발 두 번 탭 → 시작'); break;
-      case 'A1': FS('STRETCH 1/4'); FL('발끝 올리고 돌리기'); FM('좌우 8회씩', CS.sand); break;
-      case 'A2': FS('STRETCH 2/4'); FL('앞 원에 왼발'); FM('뒤꿈치는 바닥에 · 10초', CS.sand); break;
-      case 'A3': FS('STRETCH 3/4'); FL('다리 앞뒤로 10회'); break;
+      case 'A1': FS('STRETCH 1/4'); FL('발끝 올리고 돌리기'); FM('왼발 1 / 8', CS.sand); break;
+      case 'A2': FS('STRETCH 2/4'); FL('앞 원에 왼발'); FM('뒤꿈치 바닥 · 10초', CS.sand); break;
+      case 'A3': FS('STRETCH 3/4'); FL('다리 앞뒤 스윙'); FM('1 / 10'); break;
       case 'A4': FS('STRETCH 4/4'); FL('제자리 걷기 — 내 박자로'); FM('하나, 둘, 하나, 둘'); break;
       case 'T1': FS('T-1'); S(this.slotFL, 'STAGE CLEAR', { size: 0.12, color: CS.prism }); FM('탭 두 번 → 사전 익히기'); break;
       case 'B1': FS('LEARN 1/4'); FL('듣기만 해요'); FM('먼저 귀로 배워요'); break;
-      case 'B2': FS('LEARN 2/4'); FL('링이 닫힐 때 밟기'); break;
-      case 'B3': FS('LEARN 3/4'); FL('세 걸음 · 순서대로'); break;
+      case 'B2': FS('LEARN 2/4'); FL('링이 닫힐 때 밟기'); FM('맞춘 스텝 0 / 8'); break;
+      case 'B3': FS('LEARN 3/4'); FL('세 걸음 · 순서대로'); FM('세트 1 / 2'); break;
       case 'B4': FS('LEARN 4/4'); FL('박자만'); FM('발밑=마지막 발형 · 전방=존 시작'); break;
       case 'T2': FS('T-2'); FM('두 번 탭 = 바로 · 가만히 있으면 자동 진행'); this._setCount(5); break;
       case 'C1': FS('RUN 00:00'); break;
@@ -293,6 +300,7 @@ export class Session {
       case 'C5': FS('COOL DOWN'); break;
       case 'FIN': FS('REPORT'); break;
     }
+    this._fmCache = null;
   }
 
   update(dt) {
@@ -311,25 +319,74 @@ export class Session {
     else if (id[0] === 'A') this.bobY = 0.007 * Math.sin(this.t * 1.8);   // 호흡
     else this.bobY = 0;
 
+    // FM 슬롯 갱신 헬퍼 — 값이 바뀔 때만 텍스처 재생성
+    const FMU = (text, color) => {
+      if (text === this._fmCache) return; this._fmCache = text;
+      this._slot(this.slotFM, text, { size: 0.07, color: color || CS.dim });
+    };
+
     if (id === 'READY' || id === 'T1') {
       const tap = id === 'READY' ? this.tap : this.tap1; const k = 0.5 + 0.5 * Math.sin(this.t * 4);
       tap.children[0].material.opacity = 0.5 + 0.45 * k; tap.children[1].material.opacity = 0.5 + 0.45 * (1 - k);
+      if (id === 'T1' && this.t >= 4.5) { this.next(); return; }
+    } else if (id === 'A1') {
+      // 발목 돌리기 — 아크가 실제로 돌며 좌 8회 → 우 8회 카운트
+      const REP = 1.0, half = 8 * REP;
+      const side = this.t < half ? 0 : 1;
+      this.a1L.group.visible = side === 0; this.a1R.group.visible = side === 1;
+      this.a1arc.rotation.z = -((this.t % REP) / REP) * Math.PI * 2;
+      const rep = Math.min(8, Math.floor((this.t - side * half) / REP) + 1);
+      FMU(`${side === 0 ? '왼발' : '오른발'} ${rep} / 8`, CS.sand);
+      if (this.t >= 2 * half + 0.6) { this.next(); return; }
     } else if (id === 'A2') {
-      const p = Math.min(1, this.t / 7); this.a2back.setHold(p);
-      if (p >= 1) this.a2back.glow(Math.max(0, 1 - (this.t - 7) / 0.6));
+      // 종아리 — 10초 홀드 채움 + 초 카운트, 좌우 교대
+      const HOLD = 10, PH = HOLD + 0.9;
+      const phase = this.t < PH ? 0 : 1;
+      this.a2[0].pg.visible = phase === 0; this.a2[1].pg.visible = phase === 1;
+      const lt = this.t - phase * PH, p = Math.min(1, lt / HOLD);
+      const pair = this.a2[phase];
+      pair.back.setHold(p);
+      if (p >= 1) pair.back.glow(Math.max(0, 1 - (lt - HOLD) / 0.6));
+      const secs = Math.max(0, Math.ceil(HOLD - lt));
+      FMU(`${phase === 0 ? '왼발 앞' : '오른발 앞'} · 뒤꿈치 바닥 · ${secs}초`, CS.sand);
+      if (this.t >= 2 * PH) { this.next(); return; }
+    } else if (id === 'A3') {
+      // 다리 스윙 — 앞/뒤 화살표 교대 강조 + 10회 카운트
+      const SW = 1.5, fwd = beat(SW) < 0.5;
+      const fm2 = this.a3fwd.children[0].material, bm = this.a3bwd.children[0].material;
+      fm2.opacity = fwd ? 0.95 : 0.22; bm.opacity = fwd ? 0.22 : 0.95;
+      fm2.color.setHex(fwd ? BRAND.coral : BRAND.dim); bm.color.setHex(fwd ? BRAND.dim : BRAND.coral);
+      FMU(`${Math.min(10, Math.floor(this.t / SW) + 1)} / 10`);
+      if (this.t >= 10 * SW + 0.5) { this.next(); return; }
     } else if (id === 'A4') {
       const b = Math.floor(this.t / 0.6) % 2, ph = 1 - beat(0.6);
       this.a4L.countdown(b === 0 ? ph : -1); this.a4R.countdown(b === 1 ? ph : -1);
+      FMU(`${b === 0 ? '하나' : '둘'} · ${Math.min(16, Math.floor(this.t / 0.6) + 1)} / 16`);
+      if (this.t >= 16 * 0.6 + 0.4) { this.next(); return; }
     } else if (id === 'B1') {
       const k = 1 - beat(0.6); this.b1outer.material.opacity = 0.2 + 0.5 * k; this.b1inner.material.opacity = 0.5 + 0.4 * k;
       this.b1outer.scale.setScalar(0.7 + 0.5 * (1 - k));
+      FMU(`박자 ${Math.min(8, Math.floor(this.t / 0.6) + 1)} / 8 — 듣기만`);
+      if (this.t >= 8 * 0.6 + 0.3) { this.next(); return; }
     } else if (id === 'B2') {
       const b = Math.floor(this.t / 0.7) % 2, ph = beat(0.7);
       this.b2L.countdown(b === 0 ? ph : -1); this.b2R.countdown(b === 1 ? ph : -1);
       const gl = ph > 0.9 ? 1 : 0; if (gl) (b === 0 ? this.b2L : this.b2R).glow(1);
+      const hits = Math.min(8, Math.floor(this.t / 0.7));
+      FMU(`맞춘 스텝 ${hits} / 8`, hits >= 8 ? CS.prism : CS.dim);
+      if (this.t >= 8 * 0.7 + 0.5) { this.next(); return; }
     } else if (id === 'B3') {
       const cyc = 3 * 1.1, lt = this.t % cyc;
       this.b3.forEach((f, i) => { const t0 = i * 1.1; if (lt >= t0 && lt < t0 + 0.9) f.countdown((lt - t0) / 0.9); else if (lt >= t0 + 0.9 && lt < t0 + 1.1) f.glow(1 - (lt - t0 - 0.9) / 0.2); else f.countdown(-1); });
+      FMU(`세트 ${Math.min(2, Math.floor(this.t / cyc) + 1)} / 2`);
+      if (this.t >= 2 * cyc + 0.4) { this.next(); return; }
+    } else if (id === 'B4') {
+      // 구간 리듬 — 발밑 → 전방 존 2개로 리듬이 흘러감
+      const per = 0.55, seq = Math.floor(this.t / per) % 3, k = 1 - beat(per);
+      this.b4foot.op(seq === 0 ? 0.45 + 0.55 * k : 0.45);
+      this.b4rings[0].material.opacity = seq === 1 ? 0.3 + 0.65 * k : 0.35;
+      this.b4rings[1].material.opacity = seq === 2 ? 0.3 + 0.65 * k : 0.25;
+      if (this.t >= 9 * per + 0.3) { this.next(); return; }
     } else if (id === 'T2') {
       const rem = Math.max(0, st.dur - this.t), n = Math.max(1, Math.ceil(rem));
       if (n !== this._lastCount) { this._setCount(n); this._lastCount = n; }
