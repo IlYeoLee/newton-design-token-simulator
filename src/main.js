@@ -357,7 +357,7 @@ async function boot() {
     setBtnActive(fpBtn, fpMode);
     controls.enabled = !fpMode;
     // 진짜 눈 시점: 자기 몸은 시야를 가리지 않음 + 인간 유효 시야각
-    xbot.model.visible = !fpMode && !(session.active && !session.isLive);
+    xbot.model.visible = !fpMode;
     camera.fov = fpMode ? 85 : 50;
     camera.updateProjectionMatrix();
     const vb = document.getElementById('btn-view');
@@ -764,18 +764,27 @@ async function boot() {
 
   const clock = new THREE.Clock();
 
+  // 비실전 단계 봇 시연 클립 매핑 (가진 클립으로 근사 — 코치가 동작을 보여줌)
+  function demoClipFor(sport, id) {
+    if (sport === 'boxing') return /B\d/.test(id) ? 'hook' : 'warmup';
+    // 러닝: 익히기(B)=제자리 스텝(run), 스트레칭·전환=warmup
+    if (/^B\d/.test(id)) return 'run';
+    return 'warmup';
+  }
+
   // 시뮬 1스텝 (서브스텝 단위 — 백그라운드 탭 스로틀에도 정속·정밀 유지)
   function stepSim(h) {
     const data = state.packs[state.pack];
     if (!data) return;
     // 농구 = 고정 패드 종목: 봇을 정면·원점에 두고 제자리 풋워크(드리블) — 무릎 스윙 없음
     xbot.squareLock = state.pack === 'basketball';
-    // 세션 비실전 단계: 팩 시간 정지, X봇 정지 — UI 단계 검증 모드
+    // 세션 비실전 단계: 팩 시간 정지, 봇은 단계별 동작을 제자리 시연(코치)
     if (session.active && !session.isLive) {
       session.update(h);
       state.time = 0;
       tokens.update(0, 0);
-      xbot.update(0, 0);
+      if (state.pack === 'basketball') xbot.update(0, h);        // squareLock 제자리 드리블
+      else xbot.playDemo(demoClipFor(session.sport, session.stage), h);
       rig.update(0, h);
       tokens.setShake(rig.shake.x, rig.shake.y);
       return;
@@ -849,10 +858,10 @@ async function boot() {
     reach.visible = coneOn && state.pack !== 'boxing';
     reach.position.set(body.x, 0.009, body.z);
 
-    // ── 세션 중 봇 표시: 비실전 단계는 UI만 보이게 숨김 (1인칭 눈은 본에서 유지) ──
+    // ── 세션 중 봇 표시: 3인칭에선 항상 코치로 보임(동작 시연), 1인칭에선 자기 몸이라 숨김 ──
     const inSessionPreview = session.active && !session.isLive;
     if (session.active) {
-      xbot.model.visible = session.isLive && !fpMode;
+      xbot.model.visible = !fpMode;
     }
     // 카메라는 강제하지 않음 — 3인칭(궤도 자유회전) / 1인칭 모두 사용 가능.
     // 러닝 전진 팔로우는 실제 재생(비세션 or 실전)일 때만.

@@ -214,6 +214,19 @@ export class XBot {
     if (!name && this._lastPack) this.setPack(this._lastPack[0], this._lastPack[1]);
   }
 
+  /** 세션 비실전 단계 시연 — 지정 클립을 제자리 재생(코치가 동작을 보여줌) */
+  playDemo(name, dt) {
+    const key = this.actions[name] ? name : (this.actions.warmup ? 'warmup' : null);
+    if (!key) return;
+    for (const k in this.actions) { const x = this.actions[k]; x.action.play(); x.action.paused = true; x.action.setEffectiveWeight(k === key ? 1 : 0); }
+    const a = this.actions[key];
+    this._demoT = (this._demoT || 0) + dt;
+    a.action.time = this._demoT % a.dur;
+    this.group.position.set(0, 0, 0);
+    this.mixer.update(0);
+    this._lockInPlace?.();
+  }
+
   update(packTime, dt = 0.016) {
     if (!this.model || !this.mode) return;
     this._dt = dt;
