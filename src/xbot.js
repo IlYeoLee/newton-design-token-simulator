@@ -89,12 +89,20 @@ export class XBot {
     this._footL = xbot.getObjectByName('mixamorigLeftToeBase') || xbot.getObjectByName('mixamorigLeftFoot');
     this._footR = xbot.getObjectByName('mixamorigRightToeBase') || xbot.getObjectByName('mixamorigRightFoot');
     this._wristR = xbot.getObjectByName('mixamorigRightHand');
+    this._shoulderR = xbot.getObjectByName('mixamorigRightArm');
+    this._elbowR = xbot.getObjectByName('mixamorigRightForeArm');
   }
 
   /** 판정용 실측 지점 (왼발/오른발/리드 주먹/몸 중심) */
   getProbes() {
     const w = o => o ? new THREE.Vector3().setFromMatrixPosition(o.matrixWorld) : null;
     return { footL: w(this._footL), footR: w(this._footR), wrist: w(this._wristR), hips: w(this._hips) };
+  }
+
+  /** 그림자 검증용 오른팔 세그먼트 (어깨·팔꿈치·손목 월드 좌표) */
+  getRightArm() {
+    const w = o => o ? new THREE.Vector3().setFromMatrixPosition(o.matrixWorld) : null;
+    return { shoulder: w(this._shoulderR), elbow: w(this._elbowR), wrist: w(this._wristR) };
   }
 
   /** 눈 위치 (머리 본 + 오프셋) — 1인칭 시점/시야 콘 기준. 헤드밥은 본 추적으로 자동 반영 */

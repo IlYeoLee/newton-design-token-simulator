@@ -231,6 +231,77 @@ async function boot() {
   trackVol.visible = trackEdge.visible = optRing.visible = camMark.visible = false;
   scene.add(trackVol, trackEdge, optRing, camMark);
 
+  // ── 복싱 그림자 검증: 스테이션 빔이 만드는 주먹/팔 그림자가 벽 타겟을 가리는가 ──
+  // 스테이션(인물 앞)에서 벽으로 투사 → 유저 팔이 빔을 가로지르면 벽 타겟 위에 그림자.
+  const shadowMesh = new THREE.Mesh(new THREE.BufferGeometry(),
+    new THREE.MeshBasicMaterial({ color: 0x0a0a0a, transparent: true, opacity: 0.62, side: THREE.DoubleSide, depthWrite: false }));
+  shadowMesh.frustumCulled = false; shadowMesh.renderOrder = 3; shadowMesh.visible = false;
+  const shTargetRing = new THREE.Mesh(new THREE.RingGeometry(0.18, 0.205, 40),
+    new THREE.MeshBasicMaterial({ color: 0xd1feff, transparent: true, opacity: 0.9, side: THREE.DoubleSide, depthWrite: false }));
+  shTargetRing.renderOrder = 4; shTargetRing.visible = false;
+  scene.add(shadowMesh, shTargetRing);
+  const boxShadow = { on: false, total: 0, occ: 0, peakCov: 0, curOcc: false, curCov: 0 };
+  const WB = { XS: 2.2, Y0: 0.73, YS: 1.2 };          // tokens.js LAYOUT.boxing.WALL
+  const TARGET_R = 0.20;                                // 벽 타겟 반경 (판정 허용창)
+  function projToWall(P, S) {                           // S에서 P를 벽면(z=WALL_Z)으로 투영
+    const dz = P.z - S.z;
+    if (dz >= -1e-4) return null;                       // P가 스테이션 뒤(유저측) → 그림자 없음
+    const t = (WALL_Z - S.z) / dz;                      // t>=1 : P가 스테이션과 벽 사이
+    if (t < 1) return null;
+    return { x: S.x + t * (P.x - S.x), y: S.y + t * (P.y - S.y), t };
+  }
+  function updateBoxShadow() {
+    if (!boxShadow.on || state.pack !== 'boxing') { shadowMesh.visible = shTargetRing.visible = false; return; }
+    const S = rig.stationPos;                           // 프로젝터 렌즈 (인물 앞)
+    const arm = xbot.getRightArm();
+    const tx = (state.packs.boxing.tokens.find(t => t.type === 'targetMark')?.nx ?? -0.06) * WB.XS;
+    const ty = WB.Y0 + (state.packs.boxing.tokens.find(t => t.type === 'targetMark')?.ny ?? 0.34) * WB.YS;
+    shTargetRing.position.set(tx, ty, WALL_Z + 0.028); shTargetRing.visible = true;
+
+    // 시뮬은 봇을 z=0에 렌더하지만 설계상 유저는 standZ(스테이션 뒤)에 선다.
+    // 그림자 판정은 '설계 거리'로: 팔 좌표를 standZ만큼 유저측(+z)으로 이동해 평가.
+    const OFF = opt.standZ;   // 봇(z=0) → 설계 서기 위치
+    const arm2 = {
+      elbow: arm.elbow.clone().setZ(arm.elbow.z + OFF),
+      wrist: arm.wrist.clone().setZ(arm.wrist.z + OFF),
+    };
+    // 접근 통계: 주먹이 빔에 도달하는가 (스테이션보다 벽쪽 = z < stationZ)
+    boxShadow.total++;
+    boxShadow.minReachGap = Math.min(boxShadow.minReachGap ?? 99, arm2.wrist.z - S.z);   // >0 이면 빔 뒤(그림자 없음)
+
+    const el = projToWall(arm2.elbow, S), wr = projToWall(arm2.wrist, S);
+    if (!wr) { shadowMesh.visible = false; boxShadow.curOcc = false; boxShadow.curCov = 0; return; }
+    const foreR = 0.055, fistR = 0.07;
+    const wHW = fistR * wr.t, eHW = el ? foreR * el.t : wHW;
+    // 그림자 = 팔뚝(elbow'→wrist') 두꺼운 사각 + 주먹(wrist') 원
+    const a = el || wr, b = wr;
+    let dx = b.x - a.x, dy = b.y - a.y; const L = Math.hypot(dx, dy) || 1; dx /= L; dy /= L;
+    const nx = -dy, ny = dx;
+    const verts = [];
+    const quad = (p1, p2, p3, p4) => { verts.push(p1.x,p1.y,WALL_Z+0.025, p2.x,p2.y,WALL_Z+0.025, p3.x,p3.y,WALL_Z+0.025,  p1.x,p1.y,WALL_Z+0.025, p3.x,p3.y,WALL_Z+0.025, p4.x,p4.y,WALL_Z+0.025); };
+    quad({x:a.x+nx*eHW,y:a.y+ny*eHW},{x:b.x+nx*wHW,y:b.y+ny*wHW},{x:b.x-nx*wHW,y:b.y-ny*wHW},{x:a.x-nx*eHW,y:a.y-ny*eHW});
+    for (let i=0;i<16;i++){ const a0=i/16*Math.PI*2, a1=(i+1)/16*Math.PI*2;
+      verts.push(b.x,b.y,WALL_Z+0.025, b.x+Math.cos(a0)*wHW,b.y+Math.sin(a0)*wHW,WALL_Z+0.025, b.x+Math.cos(a1)*wHW,b.y+Math.sin(a1)*wHW,WALL_Z+0.025); }
+    shadowMesh.geometry.dispose();
+    shadowMesh.geometry = new THREE.BufferGeometry();
+    shadowMesh.geometry.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+    shadowMesh.visible = true;
+
+    // 타겟 가림 측정 — 팔뚝 세그먼트까지 최소거리 vs (타겟R + 그림자 폭)
+    const dist = distPointSeg(tx, ty, a.x, a.y, b.x, b.y);
+    const cover = Math.max(0, (TARGET_R + wHW - dist) / (2 * TARGET_R));   // 0~1 대략 커버율
+    boxShadow.curOcc = dist < TARGET_R + wHW;
+    boxShadow.curCov = Math.min(1, cover);
+    // 주먹이 실제로 빔에 도달한 프레임에서만 가림 집계 (total은 위에서 전체 카운트)
+    if (boxShadow.curOcc) boxShadow.occ++;
+    boxShadow.peakCov = Math.max(boxShadow.peakCov, boxShadow.curCov);
+  }
+  function distPointSeg(px, py, ax, ay, bx, by) {
+    const dx = bx - ax, dy = by - ay, l2 = dx*dx + dy*dy;
+    let t = l2 ? ((px-ax)*dx + (py-ay)*dy) / l2 : 0; t = Math.max(0, Math.min(1, t));
+    return Math.hypot(px - (ax+t*dx), py - (ay+t*dy));
+  }
+
   // 최적 유닛 위치·인식 볼륨 재계산 (벽 크기 슬라이더 반영)
   function computeStation() {
     const cy = (rig._wallCenter?.cy) ?? 1.4;
@@ -529,7 +600,14 @@ async function boot() {
     if (state.pack !== 'running') { document.querySelector('[data-pack=running]')?.click(); }
     xbot.setVerify('warmup');
   });
-  document.getElementById('verify-off')?.addEventListener('click', () => xbot.setVerify(null));
+  document.getElementById('verify-off')?.addEventListener('click', () => { xbot.setVerify(null); boxShadow.on = false; });
+  document.getElementById('verify-boxshadow')?.addEventListener('click', () => {
+    xbot.setVerify(null);
+    stopSession();
+    if (state.pack !== 'boxing') switchPack('boxing');
+    boxShadow.on = true; boxShadow.total = 0; boxShadow.occ = 0; boxShadow.peakCov = 0;
+    state.playing = true; panel.setPlaying(true);
+  });
 
   const ttsBtn = document.getElementById('btn-tts');
   ttsBtn?.addEventListener('click', () => {
@@ -760,6 +838,20 @@ async function boot() {
     const boxOn = state.pack === 'boxing' && !fpMode;
     trackVol.visible = trackEdge.visible = boxOn;   // 연하게 상시 표시
     optRing.visible = camMark.visible = boxOn;
+
+    // 복싱 그림자 검증 — 매 프레임 그림자 갱신 + 판독
+    updateBoxShadow();
+    if (boxShadow.on && geomEl) {
+      const occPct = boxShadow.total > 0 ? (boxShadow.occ / boxShadow.total * 100) : 0;
+      const roomDepth = (opt.standZ - WALL_Z + 0.5);   // 유저(권장 서기)~벽 + 후퇴 0.5m
+      const gap = boxShadow.minReachGap ?? 99;         // 주먹 최대 도달과 빔의 간격(m)
+      const verdict = gap > 0.1 ? 'PASS — 주먹이 빔에 도달 안 함(그림자 없음)'
+                    : occPct < 8 ? 'PASS — 가림 미미' : 'FAIL — 타겟 가림';
+      geomEl.textContent =
+        `복싱 그림자 검증 [${verdict}] · 타겟 가림 ${occPct.toFixed(0)}%`
+        + ` · 주먹–빔 간격 ${gap > 90 ? '—' : gap.toFixed(2) + 'm'} (유저가 빔보다 뒤)`
+        + ` · 필요 공간 깊이 ${roomDepth.toFixed(1)}m (유저–벽 ${(opt.standZ - WALL_Z).toFixed(1)}m)`;
+    }
 
     // 1인칭에서만 OrbitControls 스킵 — 세션 3인칭에선 자유 회전 허용
     if (!fpMode) controls.update();
