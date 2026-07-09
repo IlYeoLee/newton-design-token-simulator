@@ -166,9 +166,9 @@ export class ProjectorRig {
 
     // 농구 무릎 유닛: 컷 중 스윙을 줄이려 적당한 폭(발 앞 근접 존). 러닝은 스트리밍 레인.
     if (sport === 'basketball') {
-      this.fixedPad = { halfNear: 0.45, halfFar: 0.8 };
-      this.fpNear = 0.12; this.fpFar = 1.5;
-      this._smFwd = null;   // 방향 스무딩 리셋
+      this.fixedPad = { halfNear: 0.55, halfFar: 0.85 };
+      this.fpNear = 0.05; this.fpFar = 1.6;
+      this._smFwd = null; this._travelDir = null; this._bodyPrev = null;   // 스무딩 리셋
     } else {
       this.fixedPad = null;
     }
@@ -311,11 +311,30 @@ export class ProjectorRig {
     this.shake.set(offLocal.x, offLocal.z);
     this.errorCm = Math.hypot(offLocal.x, offLocal.z) * 100;
 
-    // ── 무릎 사출 사다리꼴 풋프린트 (월드 좌표) — 방향은 스무딩된 fwd0 사용(스윙 억제) ──
-    const fwd = fwd0;
+    // ── 사다리꼴 풋프린트 (월드 좌표) ──
+    let fwd, ox, oz;
+    if (this.mode === 'basketball') {
+      // 농구: 무릎 크라우치·LEVER 증폭 무시. 몸 지면 위치에 앵커 + 이동(velocity) 방향
+      // 스무딩 → 컷 진행 방향으로 안정 투사. 토큰 지터도 없앰.
+      const bp = this._bodyPrev || body;
+      const vel2 = new THREE.Vector3(body.x - bp.x, 0, body.z - bp.z);
+      this._bodyPrev = body.clone();
+      if (vel2.lengthSq() > 4e-5) {
+        const vdir = vel2.normalize();
+        if (!this._travelDir) this._travelDir = vdir.clone();
+        this._travelDir.lerp(vdir, 1 - Math.exp(-dt / 0.5)).normalize();
+      }
+      fwd = this._travelDir || fwd0;
+      ox = body.x + fwd.x * 0.35;   // 몸 앞 고정 오프셋
+      oz = body.z + fwd.z * 0.35;
+      this.shake.set(0, 0);         // 안정 — 토큰 흔들림 없음
+      this.errorCm = 0;
+    } else {
+      fwd = fwd0;
+      ox = body.x + offLocal.x;
+      oz = body.z + offLocal.z;
+    }
     const right = new THREE.Vector3(-fwd.z, 0, fwd.x);
-    const ox = body.x + offLocal.x;
-    const oz = body.z + offLocal.z;
     this._fp = { ox, oz, fx: fwd.x, fz: fwd.z, rx: right.x, rz: right.z };
 
     const pt = (d, h, sgn) => new THREE.Vector3(
