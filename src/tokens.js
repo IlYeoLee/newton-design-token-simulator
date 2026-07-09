@@ -52,10 +52,10 @@ const LAYOUT = {
   },
   basketball: {
     mode: 'spatial',
-    SCALE: 2.2,      // 무릎 유닛 투사면(발 앞 근접)에 플랜트가 들어오게 컷 궤적 압축 (봇 경로 동일)
+    SCALE: 5.0,      // 실제 컷·스텝백은 2m+ 이동 — 봇이 눈에 띄게 움직이게 (봇 경로 동일)
   },
 };
-export const BK_SCALE = 2.2;   // xbot 경로와 공유 (봇·토큰 좌표 일치)
+export const BK_SCALE = 5.0;   // xbot 경로와 공유 (봇·토큰 좌표 일치)
 
 // ── 텍스처 유틸 ───────────────────────────────────────────────
 function makeNumberTexture(n) {
