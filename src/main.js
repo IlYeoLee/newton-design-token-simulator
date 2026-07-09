@@ -968,9 +968,14 @@ async function boot() {
   function demoClipFor(sport, id) {
     // 준비운동(A) 단계 = 절차적 드릴 — 봇이 실제 그 동작을 수행 (기존엔 전부 warmup/dribble)
     const DRILL = {
+      // 러닝 준비운동 = 절차 드릴 (Mixamo에 매칭 없음)
       A1: 'run_ankle', A2: 'run_calf', A3: 'run_swing', A4: 'run_march',
-      BX_A1: 'bx_neck', BX_A2: 'bx_stepio', BX_A3: 'hook',
-      BK_A1: 'bk_stance', BK_A2: 'sidestep', BK_A3: 'dribble',
+      // 복싱 = Mixamo 실측 모캡 (목풀기만 절차)
+      BX_A1: 'bx_neck', BX_A2: 'boxGuard', BX_A3: 'boxJab',
+      BX_B1: 'boxGuard', BX_B2: 'boxGuard', BX_B3: 'boxCombo',
+      BX_READY: 'boxGuard', BX_T1: 'boxGuard', BX_T2: 'boxGuard',
+      // 농구 = 실측 스탠스 + 기존 사이드스텝·드리블
+      BK_A1: 'bkStance', BK_A2: 'sidestep', BK_A3: 'dribble',
     };
     if (DRILL[id] && xbot.actions[DRILL[id]]) return DRILL[id];
     if (sport === 'basketball') return 'dribble';           // 그 외 제자리 드리블

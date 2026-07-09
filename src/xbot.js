@@ -9,6 +9,11 @@ import hookUrl from '../assets/anim-hook.fbx?url';
 import dribbleUrl from '../assets/anim-basketball-dribble.fbx?url';
 import sidestepUrl from '../assets/anim-basketball-sidestep.fbx?url';
 import warmupUrl from '../assets/warming_up.fbx?url';   // Mixamo 'Warming Up' — 스트레칭 검증용
+// Mixamo 실측 모캡 (X Bot 리그 = 동일 스켈레톤, 리타겟 불필요) — 복싱·농구 준비운동/스텝
+import boxJabUrl from '../assets/anim-box-jab.fbx?url';       // Lead Jab
+import boxComboUrl from '../assets/anim-box-combo.fbx?url';   // Jab Cross
+import boxGuardUrl from '../assets/anim-box-guard.fbx?url';   // Boxing (가드·풋워크)
+import bkStanceUrl from '../assets/anim-bk-stance.fbx?url';   // Ready Idle (애슬레틱 스탠스)
 // Bandai Namco Research MotionDataset (CC BY-NC) — BVH 실측 리타겟 클립
 import bkRunClipJson from '../assets/mocap/xclip-run_normal.json';
 import bkDashClipJson from '../assets/mocap/xclip-dash_normal.json';
@@ -35,13 +40,17 @@ export class XBot {
 
   async load() {
     const loader = new FBXLoader();
-    const [xbot, runFbx, hookFbx, dribbleFbx, sidestepFbx, warmupFbx] = await Promise.all([
+    const [xbot, runFbx, hookFbx, dribbleFbx, sidestepFbx, warmupFbx, boxJabFbx, boxComboFbx, boxGuardFbx, bkStanceFbx] = await Promise.all([
       loader.loadAsync(xbotUrl),
       loader.loadAsync(runUrl),
       loader.loadAsync(hookUrl),
       loader.loadAsync(dribbleUrl),
       loader.loadAsync(sidestepUrl),
       loader.loadAsync(warmupUrl),
+      loader.loadAsync(boxJabUrl),
+      loader.loadAsync(boxComboUrl),
+      loader.loadAsync(boxGuardUrl),
+      loader.loadAsync(bkStanceUrl),
     ]);
 
     xbot.scale.setScalar(0.01);
@@ -73,6 +82,10 @@ export class XBot {
     reg('dribble', dribbleFbx);
     reg('sidestep', sidestepFbx);
     reg('warmup', warmupFbx);
+    reg('boxJab', boxJabFbx);       // 복싱 잽 폼
+    reg('boxCombo', boxComboFbx);   // 복싱 잽-크로스 콤비
+    reg('boxGuard', boxGuardFbx);   // 복싱 가드·풋워크
+    reg('bkStance', bkStanceFbx);   // 농구 애슬레틱 스탠스
 
     // 실측 모캡 클립 (Bandai BVH → 오프라인 리타겟)
     const regJson = (name, json) => {
