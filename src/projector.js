@@ -310,15 +310,16 @@ export class ProjectorRig {
     // ── 짐벌 포화(정직한 물리) — 프로젝터는 정강이 축으로 사출. 정강이가 아래를
     //    충분히 안 향하면(킥·큰 스윙) 짐벌이 포화돼 바닥 투사가 정강이 수평 방향으로
     //    크게 붕괴한다. 스탠스(정강이 아래)엔 안정, 킥엔 무너짐. ──
-    // 짐벌 범위는 러닝 스윙(정강이가 다소 기울어도)까지 커버. 정강이가 거의 수평/
-    // 위를 향하는 극단 동작(킥)에서만 포화·붕괴. → 러닝·농구 정상 주행은 매끄럽게.
-    const shin = this.xbot.getRightShinDir?.();
+    // 짐벌 포화(투사 붕괴)는 '모션 검증' 모드에서만 시연 — 정상 주행 gameplay는
+    // 스탠스 동기 UI라 매끄러워야 하고(발 떼는 순간 튀면 안 됨), 하드웨어 한계는
+    // 검증 버튼(킥 등)으로 정직히 드러낸다.
+    const shin = this.xbot.verifyClip ? this.xbot.getRightShinDir?.() : null;
     const gimbalBreak = new THREE.Vector3();
     if (shin) {
       const down = -shin.y;                 // 1=완전아래, 0=수평, 음수=위(킥)
-      const GIMBAL_MIN = 0.05;              // 정강이가 거의 수평/위일 때만(킥) 붕괴
+      const GIMBAL_MIN = 0.15;
       if (down < GIMBAL_MIN) {
-        const over = (GIMBAL_MIN - down);   // 0~1+ (수평 지나 위로 갈수록 급증)
+        const over = (GIMBAL_MIN - down);
         const horiz = new THREE.Vector3(shin.x, 0, shin.z);
         if (horiz.lengthSq() > 1e-4) horiz.normalize();
         gimbalBreak.copy(horiz).multiplyScalar(over * 3.5);
