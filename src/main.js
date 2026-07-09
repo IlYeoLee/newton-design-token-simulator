@@ -237,21 +237,28 @@ async function boot() {
   trackVol.visible = trackEdge.visible = optRing.visible = camMark.visible = false;
   scene.add(trackVol, trackEdge, optRing, camMark);
 
-  // ── 농구 방향·리듬 큐 — 안정 패드 위에 컷 방향 화살표(몸 기준, 항상 표시) ──
-  // 무릎유닛은 정밀 플랜트를 못 쏘므로(전방투사 한계), 방향·리듬이 실제 가이드.
+  // ── 농구 방향·리듬 큐 — 무릎유닛은 정밀 플랜트를 못 쏘므로(전방투사 한계)
+  //    방향·리듬이 실제 가이드. 패드를 채우게 크게: 중앙 큰 화살표 + 깊이 따라
+  //    흐르는 리듬 비트 3개 + 좌우 레인. ──
   const bkArrow = (() => {
-    const s = new THREE.Shape(); const w = 0.14, hw = 0.34, hl = 0.34, len = 1.0;
+    const s = new THREE.Shape(); const w = 0.2, hw = 0.5, hl = 0.42, len = 1.25;
     s.moveTo(-w / 2, 0); s.lineTo(-w / 2, len - hl); s.lineTo(-hw / 2, len - hl);
     s.lineTo(0, len); s.lineTo(hw / 2, len - hl); s.lineTo(w / 2, len - hl); s.lineTo(w / 2, 0); s.closePath();
     const m = new THREE.Mesh(new THREE.ShapeGeometry(s),
-      new THREE.MeshBasicMaterial({ color: 0xfe6e3c, transparent: true, opacity: 0.85, side: THREE.DoubleSide, depthWrite: false }));
-    const g = new THREE.Group(); g.add(m); m.rotation.x = -Math.PI / 2; g.position.y = 0.02; g.renderOrder = 6;
+      new THREE.MeshBasicMaterial({ color: 0xfe6e3c, transparent: true, opacity: 0.55, side: THREE.DoubleSide, depthWrite: false }));
+    const g = new THREE.Group(); g.add(m); m.rotation.x = -Math.PI / 2; g.position.y = 0.018; g.renderOrder = 5;
     g.visible = false; scene.add(g); return g;
   })();
-  const bkBeat = new THREE.Mesh(new THREE.RingGeometry(0.16, 0.19, 32),
-    new THREE.MeshBasicMaterial({ color: 0xfe6e3c, transparent: true, opacity: 0.7, side: THREE.DoubleSide, depthWrite: false }));
-  bkBeat.rotation.x = -Math.PI / 2; bkBeat.position.y = 0.019; bkBeat.renderOrder = 6; bkBeat.visible = false;
-  scene.add(bkBeat);
+  const bkBeats = [];   // 깊이 따라 3개 리듬 비트 링
+  for (let i = 0; i < 3; i++) {
+    const r = new THREE.Mesh(new THREE.RingGeometry(0.17, 0.215, 36),
+      new THREE.MeshBasicMaterial({ color: 0xfa3030, transparent: true, opacity: 0.7, side: THREE.DoubleSide, depthWrite: false }));
+    r.rotation.x = -Math.PI / 2; r.position.y = 0.021; r.renderOrder = 6; r.visible = false;
+    scene.add(r); bkBeats.push(r);
+  }
+  const bkLane = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]),
+    new THREE.LineDashedMaterial({ color: 0xfe6e3c, dashSize: 0.14, gapSize: 0.12, transparent: true, opacity: 0.45 }));
+  bkLane.renderOrder = 5; bkLane.visible = false; scene.add(bkLane);
 
   // ── 복싱 그림자 검증: 스테이션 빔이 만드는 주먹/팔 그림자가 벽 타겟을 가리는가 ──
   // 스테이션(인물 앞)에서 벽으로 투사 → 유저 팔이 빔을 가로지르면 벽 타겟 위에 그림자.
@@ -986,22 +993,36 @@ async function boot() {
     trackVol.visible = trackEdge.visible = boxOn;   // 연하게 상시 표시
     optRing.visible = camMark.visible = boxOn;
 
-    // 농구 방향·리듬 큐 — 안정 패드 중앙에 컷 방향 화살표 + 박자 링(항상)
+    // 농구 방향·리듬 큐 — 패드를 채우게: 중앙 큰 화살표 + 깊이 따라 흐르는 비트 3개 + 레인
     const bkOn = state.pack === 'basketball' && rig._fp;
-    bkArrow.visible = bkBeat.visible = bkOn;
+    bkArrow.visible = bkLane.visible = bkOn;
+    bkBeats.forEach(b => b.visible = bkOn);
     if (bkOn) {
       const f = rig._fp;
-      const cx = f.ox + f.fx * 0.55, cz = f.oz + f.fz * 0.55;   // 패드 중앙 근처
-      bkArrow.position.set(cx, 0.02, cz);
-      bkArrow.rotation.y = Math.atan2(f.fx, f.fz);              // 이동 방향
-      const k = 0.5 + 0.5 * Math.sin(performance.now() / 240);  // 리듬 박자
-      bkArrow.children[0].material.opacity = 0.55 + 0.35 * k;
-      bkBeat.position.set(f.ox + f.fx * 0.2, 0.019, f.oz + f.fz * 0.2);
-      bkBeat.scale.setScalar(0.8 + 0.5 * k);
-      bkBeat.material.opacity = 0.4 + 0.4 * (1 - k);
       const cp = tokens.floorClip;
+      const P = (d) => [f.ox + f.fx * d, 0.02, f.oz + f.fz * d];   // 정면 방향 d미터 앞
+      // 중앙 화살표 (패드 근~중)
+      const [ax, , az] = P(0.25);
+      bkArrow.position.set(ax, 0.018, az);
+      bkArrow.rotation.y = Math.atan2(f.fx, f.fz);
       bkArrow.children[0].material.clippingPlanes = cp;
-      bkBeat.material.clippingPlanes = cp;
+      // 리듬 비트 3개 — 깊이 0.4/0.85/1.3m, 순차로 밝아짐(박자가 앞으로 흐름)
+      const beatT = performance.now() / 1000;
+      const depths = [0.4, 0.85, 1.3];
+      bkBeats.forEach((b, i) => {
+        const [bx, , bz] = P(depths[i]);
+        b.position.set(bx, 0.021, bz);
+        const ph = (beatT * 1.6 - i * 0.33) % 1;   // 앞으로 흐르는 박자
+        const glow = Math.max(0, 1 - Math.abs(ph) * 3);
+        b.material.opacity = 0.3 + 0.6 * glow;
+        b.scale.setScalar(0.85 + 0.35 * glow);
+        b.material.clippingPlanes = cp;
+      });
+      // 중앙 레인 (깊이 방향 점선)
+      const [nx, , nz] = P(0.1), [fx2, , fz2] = P(1.5);
+      bkLane.geometry.setFromPoints([new THREE.Vector3(nx, 0.017, nz), new THREE.Vector3(fx2, 0.017, fz2)]);
+      bkLane.computeLineDistances();
+      bkLane.material.clippingPlanes = cp;
     }
 
     // 복싱 그림자 검증 — 매 프레임 그림자 갱신 + 판독
