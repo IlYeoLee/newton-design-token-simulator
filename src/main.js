@@ -966,9 +966,16 @@ async function boot() {
 
   // 비실전 단계 봇 시연 클립 매핑 (가진 클립으로 근사 — 코치가 동작을 보여줌)
   function demoClipFor(sport, id) {
-    if (sport === 'basketball') return 'dribble';           // 제자리 드리블 시연
+    // 준비운동(A) 단계 = 절차적 드릴 — 봇이 실제 그 동작을 수행 (기존엔 전부 warmup/dribble)
+    const DRILL = {
+      A1: 'run_ankle', A2: 'run_calf', A3: 'run_swing', A4: 'run_march',
+      BX_A1: 'bx_neck', BX_A2: 'bx_stepio', BX_A3: 'hook',
+      BK_A1: 'bk_stance', BK_A2: 'sidestep', BK_A3: 'dribble',
+    };
+    if (DRILL[id] && xbot.actions[DRILL[id]]) return DRILL[id];
+    if (sport === 'basketball') return 'dribble';           // 그 외 제자리 드리블
     if (sport === 'boxing') return /B\d/.test(id) ? 'hook' : 'warmup';
-    // 러닝: 익히기(B)=제자리 스텝(run), 스트레칭·전환=warmup
+    // 러닝: 익히기(B)=제자리 스텝(run), 전환 등=warmup
     if (/^B\d/.test(id)) return 'run';
     return 'warmup';
   }

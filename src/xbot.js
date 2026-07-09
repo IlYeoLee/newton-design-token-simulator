@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
 import { BK_SCALE } from './tokens.js';   // 농구 경로 스케일 — 토큰과 공유(봇·마크 좌표 일치)
+import { buildDrillClips } from './drills.js';   // 절차적 준비운동 드릴(A단계)
 
 import xbotUrl from '../assets/xbot.fbx?url';
 import runUrl from '../assets/anim-standard-run.fbx?url';
@@ -102,6 +103,29 @@ export class XBot {
         this._fingerBones.push(o);
       }
     });
+
+    this._buildDrills();   // 절차적 준비운동 드릴 등록 (봇이 실제 그 동작 수행)
+  }
+
+  /** 준비운동(A단계) 드릴 클립을 스켈레톤에 저작·등록. warmup 프레임0=중립 서있는 포즈 */
+  _buildDrills() {
+    const wa = this.actions.warmup; if (!wa) return;
+    for (const k in this.actions) { const a = this.actions[k].action; a.stop(); a.setEffectiveWeight(k === 'warmup' ? 1 : 0); a.play(); a.paused = true; }
+    wa.action.time = 0; this.mixer.update(0);
+    const want = [
+      'mixamorigHips', 'mixamorigSpine', 'mixamorigSpine1', 'mixamorigSpine2', 'mixamorigNeck', 'mixamorigHead',
+      'mixamorigLeftUpLeg', 'mixamorigLeftLeg', 'mixamorigLeftFoot', 'mixamorigRightUpLeg', 'mixamorigRightLeg', 'mixamorigRightFoot',
+      'mixamorigLeftArm', 'mixamorigLeftForeArm', 'mixamorigRightArm', 'mixamorigRightForeArm',
+    ];
+    const neutral = {};
+    for (const n of want) { const b = this.model.getObjectByName(n); if (b) neutral[n] = b.quaternion.clone(); }
+    const clips = buildDrillClips(neutral);
+    for (const id in clips) {
+      const action = this.mixer.clipAction(clips[id]);
+      action.setLoop(THREE.LoopRepeat, Infinity);
+      this.actions[id] = { action, dur: clips[id].duration };
+    }
+    for (const k in this.actions) { this.actions[k].action.stop(); this.actions[k].action.setEffectiveWeight(1); }
   }
 
   /** 손가락·손목을 바인드 중립으로 고정 — 클립의 벌어진 손 아티팩트 덮어씀 */

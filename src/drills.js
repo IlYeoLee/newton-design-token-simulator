@@ -1,0 +1,137 @@
+import * as THREE from 'three';
+
+// ─────────────────────────────────────────────────────────────
+// 절차적 준비운동 드릴 — mixamorig 스켈레톤에 관절 회전 클립을 저작한다.
+//   목적: 세션 A(준비운동) 단계에서 봇이 "발목 돌리기/종아리 스트레치/다리 스윙/
+//   제자리 걷기" 같은 실제 그 동작을 수행하게 (기존엔 전부 warmup 루프였음).
+//   중립 서있는 포즈(warmup 프레임0에서 캡처)를 base로, 드릴별 지정 본만 흔든다.
+//   축 규약(브라우저 실측 프로빙): UpLeg 로컬 X+ = 고관절 굴곡(무릎을 앞으로 든다).
+// ─────────────────────────────────────────────────────────────
+
+const DEG = Math.PI / 180;
+const X = new THREE.Vector3(1, 0, 0);
+const Y = new THREE.Vector3(0, 1, 0);
+const Z = new THREE.Vector3(0, 0, 1);
+const rot = (axis, deg) => new THREE.Quaternion().setFromAxisAngle(axis, deg * DEG);
+const TWO_PI = Math.PI * 2;
+
+// 드릴 스펙 → AnimationClip. drive(name,t01) → 로컬 delta 쿼터니언(없으면 null=중립 유지)
+function makeClip(id, neutral, duration, drive, fps = 30) {
+  const frames = Math.max(2, Math.round(duration * fps));
+  const names = Object.keys(neutral);
+  const times = new Array(frames + 1);
+  const buf = {}; for (const n of names) buf[n] = new Array((frames + 1) * 4);
+  const q = new THREE.Quaternion();
+  for (let f = 0; f <= frames; f++) {
+    const t = f / frames;
+    times[f] = t * duration;
+    for (const n of names) {
+      const base = neutral[n];
+      const d = drive(n, t);
+      if (d) q.copy(base).multiply(d); else q.copy(base);
+      const o = f * 4;
+      buf[n][o] = q.x; buf[n][o + 1] = q.y; buf[n][o + 2] = q.z; buf[n][o + 3] = q.w;
+    }
+  }
+  const tracks = names.map(n => new THREE.QuaternionKeyframeTrack(n + '.quaternion', times, buf[n]));
+  return new THREE.AnimationClip('drill_' + id, duration, tracks);
+}
+
+const R = {
+  hipL: 'mixamorigLeftUpLeg', kneeL: 'mixamorigLeftLeg', footL: 'mixamorigLeftFoot',
+  hipR: 'mixamorigRightUpLeg', kneeR: 'mixamorigRightLeg', footR: 'mixamorigRightFoot',
+  spine: 'mixamorigSpine', spine1: 'mixamorigSpine1', neck: 'mixamorigNeck', head: 'mixamorigHead',
+  armL: 'mixamorigLeftArm', foreL: 'mixamorigLeftForeArm',
+  armR: 'mixamorigRightArm', foreR: 'mixamorigRightForeArm',
+};
+
+// ── 러닝 준비운동 (A1~A4) ──
+function runningDrills(neutral) {
+  return {
+    // A1 발목 돌리기 — 오른다리 살짝 들고 발목으로 원 8회
+    run_ankle: makeClip('run_ankle', neutral, 4.0, (n, t) => {
+      const ph = t * 8 * TWO_PI;
+      if (n === R.hipR) return rot(X, 16);
+      if (n === R.kneeR) return rot(X, -28);
+      if (n === R.footR) return rot(X, 14 * Math.sin(ph)).multiply(rot(Z, 14 * Math.cos(ph)));
+      return null;
+    }),
+    // A2 종아리 늘리기 — 오른다리 뒤로 신전, 왼무릎 굽힘(런지), 상체 앞으로. 정적 홀드+미세 스웨이
+    run_calf: makeClip('run_calf', neutral, 4.0, (n, t) => {
+      const sway = 2.5 * Math.sin(t * 2 * TWO_PI);
+      if (n === R.hipR) return rot(X, -26);
+      if (n === R.kneeR) return rot(X, -6);
+      if (n === R.hipL) return rot(X, 16 + sway);
+      if (n === R.kneeL) return rot(X, -34);
+      if (n === R.spine) return rot(X, 12);
+      return null;
+    }),
+    // A3 다리 스윙 — 오른다리 앞뒤 진자 (~5회)
+    run_swing: makeClip('run_swing', neutral, 3.6, (n, t) => {
+      const a = Math.sin(t * 5 * TWO_PI);
+      if (n === R.hipR) return rot(X, 38 * a);
+      if (n === R.kneeR) return rot(X, -14 * Math.max(0, a));
+      if (n === R.spine) return rot(X, 4);
+      return null;
+    }),
+    // A4 박자 걷기 — 좌우 교대 무릎 들기 (제자리 마칭), 팔 카운터 스윙
+    run_march: makeClip('run_march', neutral, 3.2, (n, t) => {
+      const s = Math.sin(t * 4 * TWO_PI);
+      const upR = Math.max(0, s), upL = Math.max(0, -s);
+      if (n === R.hipR) return rot(X, 42 * upR);
+      if (n === R.kneeR) return rot(X, -52 * upR);
+      if (n === R.hipL) return rot(X, 42 * upL);
+      if (n === R.kneeL) return rot(X, -52 * upL);
+      if (n === R.armR) return rot(X, 16 * -s);
+      if (n === R.armL) return rot(X, 16 * s);
+      return null;
+    }),
+  };
+}
+
+// ── 복싱 준비운동 (BX_A1~A3) — 섀도복싱 ──
+function boxingDrills(neutral) {
+  return {
+    // 목·어깨 풀기 — 머리·목 원 회전 (팔 축은 불확실 → 목/척추만)
+    bx_neck: makeClip('bx_neck', neutral, 4.0, (n, t) => {
+      const ph = t * 2 * TWO_PI;
+      if (n === R.neck) return rot(Z, 18 * Math.sin(ph)).multiply(rot(X, 13 * Math.cos(ph)));
+      if (n === R.head) return rot(Z, 9 * Math.sin(ph));
+      if (n === R.spine1) return rot(Z, 5 * Math.sin(ph));
+      return null;
+    }),
+    // 스텝 인·아웃 — 상체 앞뒤 무게 이동 + 살짝 바운스
+    bx_stepio: makeClip('bx_stepio', neutral, 3.0, (n, t) => {
+      const s = Math.sin(t * 3 * TWO_PI);
+      const bob = Math.abs(Math.sin(t * 6 * TWO_PI)) * 4;
+      if (n === R.spine) return rot(X, 6 * s);
+      if (n === R.hipR) return rot(X, 8 + bob);
+      if (n === R.hipL) return rot(X, 8 + bob);
+      if (n === R.kneeR) return rot(X, -12 - bob);
+      if (n === R.kneeL) return rot(X, -12 - bob);
+      return null;
+    }),
+    // 잽 폼(BX_A3)은 실측 펀치 모캡(hook)으로 매핑 — 팔 절차 저작은 축 불확실로 보류
+  };
+}
+
+// ── 농구 준비운동 (BK_A1 스탠스) — 사이드풋워크/드리블은 기존 클립 사용 ──
+function basketballDrills(neutral) {
+  return {
+    // 스탠스·무릎 — 애슬레틱 스탠스(양 무릎 굽힘) + 미세 바운스
+    bk_stance: makeClip('bk_stance', neutral, 3.0, (n, t) => {
+      const bob = (Math.sin(t * 3 * TWO_PI) + 1) / 2 * 6;
+      if (n === R.hipR) return rot(X, 20 + bob);
+      if (n === R.hipL) return rot(X, 20 + bob);
+      if (n === R.kneeR) return rot(X, -34 - bob);
+      if (n === R.kneeL) return rot(X, -34 - bob);
+      if (n === R.spine) return rot(X, 14);
+      return null;
+    }),
+  };
+}
+
+// 스켈레톤 중립 포즈(서있는 자세) → 준비운동 드릴 클립 맵
+export function buildDrillClips(neutral) {
+  return { ...runningDrills(neutral), ...boxingDrills(neutral), ...basketballDrills(neutral) };
+}
