@@ -314,20 +314,12 @@ export class ProjectorRig {
     // ── 사다리꼴 풋프린트 (월드 좌표) ──
     let fwd, ox, oz;
     if (this.mode === 'basketball') {
-      // 농구: 무릎 크라우치·LEVER 증폭 무시. 몸 지면 위치에 앵커 + 이동(velocity) 방향
-      // 스무딩 → 컷 진행 방향으로 안정 투사. 토큰 지터도 없앰.
-      const bp = this._bodyPrev || body;
-      const vel2 = new THREE.Vector3(body.x - bp.x, 0, body.z - bp.z);
-      this._bodyPrev = body.clone();
-      if (vel2.lengthSq() > 4e-5) {
-        const vdir = vel2.normalize();
-        if (!this._travelDir) this._travelDir = vdir.clone();
-        this._travelDir.lerp(vdir, 1 - Math.exp(-dt / 0.5)).normalize();
-      }
-      fwd = this._travelDir || fwd0;
-      ox = body.x + fwd.x * 0.35;   // 몸 앞 고정 오프셋
+      // 농구: 빔프는 선수 정면(-Z, getForward) 기준으로 몸 앞에 투사. 무릎 크라우치·
+      // LEVER 증폭 무시하고 몸 지면 위치에 앵커 → 스텝백(뒤로 이동)해도 투사는 앞에.
+      fwd = this.xbot.getForward();   // 정면(봇이 회전 안 하므로 -Z 고정)
+      ox = body.x + fwd.x * 0.35;     // 몸 앞 고정 오프셋
       oz = body.z + fwd.z * 0.35;
-      this.shake.set(0, 0);         // 안정 — 토큰 흔들림 없음
+      this.shake.set(0, 0);           // 안정 — 토큰 흔들림 없음
       this.errorCm = 0;
     } else {
       fwd = fwd0;

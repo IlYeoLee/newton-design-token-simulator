@@ -324,15 +324,9 @@ export class XBot {
         run.action.time = this._bkPhase * run.dur;
         drb.action.time = packTime % drb.dur;
 
-        // 회전 스무딩 (급회전 스냅 방지) — model.rotY(PI) 포함 보정
-        if (p.dirX !== 0 || p.dirZ !== 0) {
-          const target = Math.atan2(p.dirX, p.dirZ) + Math.PI;
-          let diff = target - this._bkYaw;
-          while (diff > Math.PI) diff -= Math.PI * 2;
-          while (diff < -Math.PI) diff += Math.PI * 2;
-          this._bkYaw += diff * Math.min(1, dt * 9);
-          this.group.rotation.y = this._bkYaw;
-        }
+        // 농구 선수는 스텝백·컷 중에도 정면(수비/골대)을 향한다 — 이동만 하고 회전 안 함.
+        // (이동 방향으로 회전시키면 스텝백 때 뒤를 보게 되고 빔프가 뒤로 쏨)
+        this.group.rotation.y = 0;   // model.rotY(PI)로 -Z 정면 유지
       }
       this.mixer.update(0);
       this._lockInPlace();
