@@ -785,6 +785,9 @@ async function boot() {
       getWindow: () => null,                   // 러닝 창은 러너와 함께 이동 — 고정 밴드 미표시(정직)
     });
     studioProps = new StudioProps(document.getElementById('studio-props'), studioDoc, { onEdit: scheduleStudioRebuild });
+    // 안내 팁: 토큰을 처음 고르면 사라짐
+    const tipEl = document.getElementById('studio-tip');
+    if (tipEl) { tipEl.style.display = 'block'; studioDoc.onChange(d => { tipEl.style.display = d.selection ? 'none' : 'block'; }); }
     rebuildRunning(studioDoc.toPack());        // layoutPreview 반영 리빌드(클리핑 해제)
     studioEl.style.display = 'flex';
     // 저작 포커스 모드: 좌측 컨트롤 패널 숨김 → 3D 프리뷰에 공간 확보 (캔버스 | 3D 스플릿)

@@ -285,13 +285,14 @@
         <button id="studio-close" style="border:none;background:none;color:var(--dim);font-size:16px;cursor:pointer;">✕</button>
       </div>
       <div id="studio-palette" style="display:flex;gap:6px;padding:10px 14px;border-bottom:1px solid var(--line);flex-wrap:wrap;align-items:center;">
-        <button class="stpal active" data-tool="select" style="padding:6px 12px;border:1px solid var(--accent);border-radius:6px;background:rgba(250,48,48,.16);color:var(--accent);font-size:11px;cursor:pointer;">↖ 선택</button>
-        <button class="stpal" data-tool="mark" style="padding:6px 12px;border:1px solid var(--line);border-radius:6px;background:var(--panel2);color:var(--text);font-size:11px;cursor:pointer;">◎ 마크 배치</button>
-        <button id="studio-lane" style="padding:6px 10px;border:1px solid var(--line);border-radius:6px;background:var(--panel2);color:var(--dim);font-size:11px;cursor:pointer;">④ 레인</button>
-        <span style="margin-left:auto;font-size:10px;color:var(--dim);">MARK 1종 · 채널 4</span>
+        <button class="stpal active" data-tool="select" style="padding:6px 12px;border:1px solid var(--accent);border-radius:6px;background:rgba(250,48,48,.16);color:var(--accent);font-size:11px;cursor:pointer;">↖ 고르기</button>
+        <button class="stpal" data-tool="mark" style="padding:6px 12px;border:1px solid var(--line);border-radius:6px;background:var(--panel2);color:var(--text);font-size:11px;cursor:pointer;">＋ 토큰 넣기</button>
+        <button id="studio-lane" style="padding:6px 10px;border:1px solid var(--line);border-radius:6px;background:var(--panel2);color:var(--dim);font-size:11px;cursor:pointer;">레인(선)</button>
+        <span style="margin-left:auto;font-size:10px;color:var(--dim);">토큰을 클릭 → 아래에서 편집</span>
       </div>
       <div style="flex:1;position:relative;min-height:0;">
         <canvas id="studio-canvas" style="position:absolute;inset:0;width:100%;height:100%;"></canvas>
+        <div id="studio-tip" style="position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:2;background:rgba(250,48,48,.94);color:#fff;padding:7px 14px;border-radius:20px;font-size:12px;font-weight:600;pointer-events:none;box-shadow:0 3px 12px rgba(0,0,0,.5);">👇 동그라미(토큰) 하나를 클릭해 보세요</div>
       </div>
       <div id="studio-props" style="border-top:1px solid var(--line);background:rgba(16,19,24,.6);"></div>
       <div style="display:flex;gap:6px;padding:8px 14px 12px;border-top:1px solid var(--line);">
