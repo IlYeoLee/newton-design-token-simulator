@@ -45,12 +45,18 @@ function makeFill(ctx, f, S) {
   return f.c0;
 }
 
-// 발자국 실루엣 (전족구 + 뒤꿈치) — 프리셋 (SVG 업로드로 교체 가능)
+// 발자국 실루엣 (전족부 + 뒤꿈치) — 세션 FootMark와 동일한 베지어 윤곽 (프리셋, SVG로 교체 가능)
 function footPath(ctx, S) {
-  const cx = S / 2;
+  const k = S * 0.84 / 256, ox = S / 2 - 64 * k, oy = S * 0.08;
+  ctx.save(); ctx.translate(ox, oy); ctx.scale(k, k);
   ctx.beginPath();
-  ctx.ellipse(cx, S * 0.40, S * 0.24, S * 0.28, 0, 0, Math.PI * 2);   // 전족구
-  ctx.ellipse(cx, S * 0.76, S * 0.15, S * 0.16, 0, 0, Math.PI * 2);   // 뒤꿈치
+  ctx.moveTo(64,14); ctx.bezierCurveTo(106,14,116,52,110,96); ctx.bezierCurveTo(107,122,102,138,102,156);
+  ctx.bezierCurveTo(102,176,84,186,64,186); ctx.bezierCurveTo(44,186,26,176,26,156);
+  ctx.bezierCurveTo(26,138,21,122,18,96); ctx.bezierCurveTo(12,52,22,14,64,14); ctx.closePath();
+  ctx.moveTo(42,206); ctx.lineTo(86,206); ctx.quadraticCurveTo(96,206,94,220);
+  ctx.quadraticCurveTo(90,242,64,242); ctx.quadraticCurveTo(38,242,34,220); ctx.quadraticCurveTo(32,206,42,206);
+  ctx.closePath();
+  ctx.restore();
 }
 
 // 디자인 스펙 → 캔버스 (블러는 오프스크린 합성)

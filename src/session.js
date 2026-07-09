@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { WALL_Z } from './scene.js';
+import { thermalColor, heatBlob, grainPattern } from './thermal.js';
 
 // ─────────────────────────────────────────────────────────────
 // 러닝 세션 흐름 — 와이어프레임 v2 전체 15프레임 이식
@@ -39,28 +40,63 @@ function makeTextMesh(text, { size = 0.10, color = '#ffffff', weight = 700 } = {
 }
 function makeTextPlane(text, opts = {}) { const g = makeTextMesh(text, opts); const p = g.userData.plane; g.remove(p); return p; }
 
-// ── 발형 마크 (발끝 박스 위 + 뒤꿈치 아래 = -Z 전방) ──
+// ── 발형 마크 v2 — 족저 압력 히트맵 (열화상 실루엣: 핫스팟 + 소프트 헤일로) ──
+// 발끝 박스 위 + 뒤꿈치 아래 = -Z 전방 (방향 규칙 유지)
+function _footPaths() {
+  const fore = new Path2D();
+  fore.moveTo(64,14); fore.bezierCurveTo(106,14,116,52,110,96); fore.bezierCurveTo(107,122,102,138,102,156);
+  fore.bezierCurveTo(102,176,84,186,64,186); fore.bezierCurveTo(44,186,26,176,26,156);
+  fore.bezierCurveTo(26,138,21,122,18,96); fore.bezierCurveTo(12,52,22,14,64,14); fore.closePath();
+  const heel = new Path2D();
+  heel.moveTo(42,206); heel.lineTo(86,206); heel.quadraticCurveTo(96,206,94,220);
+  heel.quadraticCurveTo(90,242,64,242); heel.quadraticCurveTo(38,242,34,220); heel.quadraticCurveTo(32,206,42,206);
+  heel.closePath();
+  return { fore, heel };
+}
 function makeFootTexture(mirror) {
-  const c = document.createElement('canvas'); c.width = 128; c.height = 256;
-  const ctx = c.getContext('2d'); ctx.strokeStyle = '#fa3030'; ctx.fillStyle = 'rgba(250,48,48,0.16)'; ctx.lineWidth = 9;
+  // 캔버스 384×640 = 콘텐츠(128×256)의 2배 해상도 + 헤일로 여백 32px(콘텐츠 좌표)
+  const W = 384, H = 640;
+  const shape = document.createElement('canvas'); shape.width = W; shape.height = H;
+  const ctx = shape.getContext('2d');
+  ctx.translate(64, 64); ctx.scale(2, 2);
   if (mirror) { ctx.translate(128, 0); ctx.scale(-1, 1); }
-  ctx.beginPath();
-  ctx.moveTo(64,14); ctx.bezierCurveTo(106,14,116,52,110,96); ctx.bezierCurveTo(107,122,102,138,102,156);
-  ctx.bezierCurveTo(102,176,84,186,64,186); ctx.bezierCurveTo(44,186,26,176,26,156);
-  ctx.bezierCurveTo(26,138,21,122,18,96); ctx.bezierCurveTo(12,52,22,14,64,14); ctx.closePath(); ctx.fill(); ctx.stroke();
-  ctx.beginPath();
-  ctx.moveTo(42,206); ctx.lineTo(86,206); ctx.quadraticCurveTo(96,206,94,220);
-  ctx.quadraticCurveTo(90,242,64,242); ctx.quadraticCurveTo(38,242,34,220); ctx.quadraticCurveTo(32,206,42,206);
-  ctx.closePath(); ctx.fill(); ctx.stroke();
-  return new THREE.CanvasTexture(c);
+  const { fore, heel } = _footPaths();
+  // 전족부: 은은한 바탕 + 압력 핫스팟(볼·발끝·외측)
+  ctx.save(); ctx.clip(fore);
+  ctx.fillStyle = thermalColor(0.3, 0.34); ctx.fill(fore);
+  heatBlob(ctx, 64, 82, 54, 0.88, 0.92);    // 볼(ball) — 최대 압력
+  heatBlob(ctx, 64, 34, 32, 0.6, 0.7);      // 발끝
+  heatBlob(ctx, 98, 108, 27, 0.52, 0.55);   // 외측 아치
+  heatBlob(ctx, 30, 108, 26, 0.46, 0.5);
+  ctx.restore();
+  // 뒤꿈치: 진한 핫스팟
+  ctx.save(); ctx.clip(heel);
+  ctx.fillStyle = thermalColor(0.35, 0.36); ctx.fill(heel);
+  heatBlob(ctx, 64, 224, 32, 0.93, 0.95);
+  ctx.restore();
+
+  // 합성: 헤일로(빛 번짐) + 본체 소프트 + 그레인
+  const out = document.createElement('canvas'); out.width = W; out.height = H;
+  const oc = out.getContext('2d');
+  oc.globalAlpha = 0.55; oc.filter = 'blur(11px)'; oc.drawImage(shape, 0, 0);
+  oc.globalAlpha = 1; oc.filter = 'blur(2px)'; oc.drawImage(shape, 0, 0);
+  oc.filter = 'none';
+  oc.globalCompositeOperation = 'source-atop'; oc.globalAlpha = 0.08;   // 실루엣 안에만 그레인
+  oc.fillStyle = grainPattern(oc); oc.fillRect(0, 0, W, H);
+  oc.globalCompositeOperation = 'source-over'; oc.globalAlpha = 1;
+
+  const tex = new THREE.CanvasTexture(out);
+  tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
+  return tex;
 }
 const FOOTMARKS = [];
 class FootMark {
   constructor(foot) {
     this.foot = foot;
     this.group = new THREE.Group();
-    this.plane = new THREE.Mesh(new THREE.PlaneGeometry(0.145, 0.29),
-      new THREE.MeshBasicMaterial({ map: makeFootTexture(foot === 'right'), transparent: true, depthWrite: false, side: THREE.DoubleSide }));
+    // 캔버스에 헤일로 여백 포함(192×320 콘텐츠좌표) — 발 시각 크기는 기존과 동일 유지
+    this.plane = new THREE.Mesh(new THREE.PlaneGeometry(0.145 * 192 / 128, 0.29 * 320 / 256),
+      new THREE.MeshBasicMaterial({ map: makeFootTexture(foot === 'right'), transparent: true, depthWrite: false, side: THREE.DoubleSide, toneMapped: false }));
     this._origMap = this.plane.material.map;
     FOOTMARKS.push(this);
     this.ring = new THREE.Mesh(new THREE.RingGeometry(0.19, 0.215, 44), flatMat(BRAND.prism, 0)); this.ring.position.z = 0.001;

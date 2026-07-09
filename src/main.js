@@ -917,16 +917,48 @@ async function boot() {
     if (!ttsOn) { voiceAudio.pause(); if ('speechSynthesis' in window) speechSynthesis.cancel(); }
   });
 
-  // ── 복싱 고스트 = 벽면 UI 2D 레이어 ──
-  // 훅 모션 봇을 오프스크린 씬에서 정면 직교 카메라로 렌더 → 텍스처를 벽면 평면에 투사
+  // ── 복싱 고스트 = 벽면 UI 2D 레이어 (열화상 depth-map 실루엣) ──
+  // 훅 모션 봇을 오프스크린 정면 직교 카메라로 렌더. 봇 재질 = 깊이→열 LUT 셰이더
+  // (가까움=핫핑크 → 멀음=샌드), RT 블러 체인으로 소프트 글로우 + 그레인 합성.
   let ghostMixer = null, ghostRT = null, ghostScene = null, ghostCam = null, ghostLayer = null;
+  let ghostFx = null;   // { rtA, rtB, rtFinal, quadScene, quadCam, blurMat, compMat }
+  const GHOST_LUT_GLSL = `
+    vec3 gLut(float t){
+      vec3 sand=vec3(0.996,0.765,0.537), coral=vec3(0.996,0.431,0.235),
+           red=vec3(0.980,0.188,0.188), pink=vec3(1.000,0.184,0.557);
+      t=clamp(t,0.0,1.0);
+      if(t<0.45) return mix(sand,coral,t/0.45);
+      else if(t<0.75) return mix(coral,red,(t-0.45)/0.30);
+      else return mix(red,pink,(t-0.75)/0.25);
+    }`;
   function ensureGhostBot() {
     if (ghostLayer) return;
     ghostScene = new THREE.Scene();
     const bot = SkeletonUtils.clone(xbot.model);
-    bot.traverse(o => {
-      if (o.isMesh) o.material = new THREE.MeshBasicMaterial({ color: 0xb39ddb });
+    // 깊이→열화상 재질: 카메라와의 거리로 몸 표면을 색칠 (레퍼런스: depth-map 실루엣)
+    const thermalMat = new THREE.ShaderMaterial({
+      uniforms: { zNear: { value: 2.15 }, zFar: { value: 3.45 } },
+      vertexShader: `
+        #include <common>
+        #include <skinning_pars_vertex>
+        varying float vVZ;
+        void main(){
+          #include <skinbase_vertex>
+          #include <begin_vertex>
+          #include <skinning_vertex>
+          vec4 mv = modelViewMatrix * vec4(transformed, 1.0);
+          vVZ = -mv.z;
+          gl_Position = projectionMatrix * mv;
+        }`,
+      fragmentShader: `
+        varying float vVZ; uniform float zNear, zFar;
+        ${GHOST_LUT_GLSL}
+        void main(){
+          float t = 1.0 - clamp((vVZ - zNear) / (zFar - zNear), 0.0, 1.0);
+          gl_FragColor = vec4(gLut(t), 1.0);
+        }`,
     });
+    bot.traverse(o => { if (o.isMesh) o.material = thermalMat; });
     bot.position.set(0, 0, 0);
     bot.rotation.y = Math.PI; // 카메라(+Z)를 마주봄
     ghostScene.add(bot);
@@ -934,16 +966,64 @@ async function boot() {
     const clip = xbot.actions.hook?.action.getClip();
     if (clip) ghostMixer.clipAction(clip).play();
 
-    ghostRT = new THREE.WebGLRenderTarget(512, 768, { samples: 2 });
+    const RW = 512, RH = 768;
+    ghostRT = new THREE.WebGLRenderTarget(RW, RH, { samples: 2 });
     const W = 1.6, H = 2.1;
     ghostCam = new THREE.OrthographicCamera(-W / 2, W / 2, H, 0, 0.1, 10);
     ghostCam.position.set(0, 0, 3);
     ghostCam.lookAt(0, 0, 0);
 
+    // ── 후처리 체인: 하프해상 2패스 가우시안 → 글로우, 본체+글로우+그레인 합성 ──
+    const quadCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+    const quadGeo = new THREE.PlaneGeometry(2, 2);
+    const blurMat = new THREE.ShaderMaterial({
+      uniforms: { tex: { value: null }, dir: { value: new THREE.Vector2(1, 0) }, texel: { value: new THREE.Vector2(2 / RW, 2 / RH) } },
+      vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }',
+      fragmentShader: `
+        varying vec2 vUv; uniform sampler2D tex; uniform vec2 dir, texel;
+        void main(){
+          float w[5]; w[0]=0.227027; w[1]=0.194594; w[2]=0.121621; w[3]=0.054054; w[4]=0.016216;
+          vec4 c = texture2D(tex, vUv) * w[0];
+          for (int i = 1; i < 5; i++) {
+            vec2 o = dir * texel * float(i) * 2.4;
+            c += texture2D(tex, vUv + o) * w[i];
+            c += texture2D(tex, vUv - o) * w[i];
+          }
+          gl_FragColor = c;
+        }`,
+      depthTest: false, depthWrite: false,
+    });
+    const compMat = new THREE.ShaderMaterial({
+      uniforms: { sharp: { value: ghostRT.texture }, glow: { value: null } },
+      vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }',
+      fragmentShader: `
+        varying vec2 vUv; uniform sampler2D sharp, glow;
+        float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+        void main(){
+          vec4 s = texture2D(sharp, vUv);
+          vec4 g = texture2D(glow, vUv);
+          vec3 col = s.rgb * s.a + g.rgb * 0.9 * (1.0 - s.a);   // 본체 위주 + 가장자리 글로우
+          float a = clamp(s.a * 0.96 + g.a * 0.62, 0.0, 1.0);
+          col += (hash(vUv * vec2(383.1, 517.7)) - 0.5) * 0.07 * a;   // 필름 그레인
+          gl_FragColor = vec4(col, a);
+        }`,
+      depthTest: false, depthWrite: false, transparent: true,
+    });
+    const quadScene = new THREE.Scene();
+    const quad = new THREE.Mesh(quadGeo, blurMat);
+    quadScene.add(quad);
+    ghostFx = {
+      rtA: new THREE.WebGLRenderTarget(RW / 2, RH / 2),
+      rtB: new THREE.WebGLRenderTarget(RW / 2, RH / 2),
+      rtFinal: new THREE.WebGLRenderTarget(RW, RH),
+      quadScene, quad, quadCam, blurMat, compMat,
+    };
+
     ghostLayer = new THREE.Mesh(
       new THREE.PlaneGeometry(W * 0.85, H * 0.85),
       new THREE.MeshBasicMaterial({
-        map: ghostRT.texture, transparent: true, opacity: 0.8, depthWrite: false,
+        map: ghostFx.rtFinal.texture, transparent: true, opacity: 0.92,
+        depthWrite: false, toneMapped: false,
       })
     );
     ghostLayer.position.set(-0.55, H * 0.85 / 2, WALL_Z + 0.025);
@@ -955,10 +1035,24 @@ async function boot() {
     if (!ghostLayer || !ghostLayer.visible) return;
     const prevTarget = renderer.getRenderTarget();
     const prevAlpha = renderer.getClearAlpha();
-    renderer.setRenderTarget(ghostRT);
     renderer.setClearColor(0x000000, 0);
+    // 1) 본체 (열화상 봇)
+    renderer.setRenderTarget(ghostRT);
     renderer.clear();
     renderer.render(ghostScene, ghostCam);
+    // 2) 하프해상 가우시안 H → V (글로우)
+    const fx = ghostFx;
+    fx.quad.material = fx.blurMat;
+    fx.blurMat.uniforms.tex.value = ghostRT.texture;
+    fx.blurMat.uniforms.dir.value.set(1, 0);
+    renderer.setRenderTarget(fx.rtA); renderer.clear(); renderer.render(fx.quadScene, fx.quadCam);
+    fx.blurMat.uniforms.tex.value = fx.rtA.texture;
+    fx.blurMat.uniforms.dir.value.set(0, 1);
+    renderer.setRenderTarget(fx.rtB); renderer.clear(); renderer.render(fx.quadScene, fx.quadCam);
+    // 3) 본체+글로우+그레인 합성
+    fx.quad.material = fx.compMat;
+    fx.compMat.uniforms.glow.value = fx.rtB.texture;
+    renderer.setRenderTarget(fx.rtFinal); renderer.clear(); renderer.render(fx.quadScene, fx.quadCam);
     renderer.setRenderTarget(prevTarget);
     renderer.setClearAlpha(prevAlpha);
   }
