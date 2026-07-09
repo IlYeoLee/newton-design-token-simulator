@@ -92,6 +92,21 @@ export class XBot {
     this._wristR = xbot.getObjectByName('mixamorigRightHand');
     this._shoulderR = xbot.getObjectByName('mixamorigRightArm');
     this._elbowR = xbot.getObjectByName('mixamorigRightForeArm');
+
+    // 손가락+손목 본 — 모캡 리타겟 시 벌어지는(splay)·꺾이는 아티팩트 방지:
+    // 로드 직후 바인드(기본) 포즈 쿼터니언을 캡처해 매 프레임 그 중립으로 고정.
+    this._fingerBones = [];
+    xbot.traverse(o => {
+      if (o.isBone && /Hand(Thumb|Index|Middle|Ring|Pinky)\d|Hand$/.test(o.name)) {
+        o.userData.rest = o.quaternion.clone();   // 바인드 포즈
+        this._fingerBones.push(o);
+      }
+    });
+  }
+
+  /** 손가락·손목을 바인드 중립으로 고정 — 클립의 벌어진 손 아티팩트 덮어씀 */
+  _lockFingers() {
+    for (const b of this._fingerBones) b.quaternion.copy(b.userData.rest);
   }
 
   /** 판정용 실측 지점 (왼발/오른발/리드 주먹/몸 중심) */
@@ -117,6 +132,14 @@ export class XBot {
   getKneeWorld() {
     if (!this._kneeR) return null;
     return new THREE.Vector3().setFromMatrixPosition(this._kneeR.matrixWorld);
+  }
+
+  /** 오른 정강이 방향(무릎→발목, 정규화) — 프로젝터 사출 축. 아래로 향할수록 y<0 */
+  getRightShinDir() {
+    if (!this._kneeR || !this._footR) return null;
+    const knee = new THREE.Vector3().setFromMatrixPosition(this._kneeR.matrixWorld);
+    const ankle = new THREE.Vector3().setFromMatrixPosition(this._footR.matrixWorld);
+    return ankle.sub(knee).normalize();
   }
 
   /** X Bot 몸체(그룹) 월드 위치 — 무릎 편차 계산의 기준 */
@@ -357,6 +380,7 @@ export class XBot {
 
   /** 루트 모션 제거: 골반 XZ를 그룹 원점에 고정 */
   _lockInPlace() {
+    this._lockFingers();
     if (!this._hips) return;
     this.model.position.x = 0;
     this.model.position.z = 0;

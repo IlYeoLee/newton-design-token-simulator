@@ -307,9 +307,25 @@ export class ProjectorRig {
       offLocal.y = 0;
     }
 
+    // ── 짐벌 포화(정직한 물리) — 프로젝터는 정강이 축으로 사출. 정강이가 아래를
+    //    충분히 안 향하면(킥·큰 스윙) 짐벌이 포화돼 바닥 투사가 정강이 수평 방향으로
+    //    크게 붕괴한다. 스탠스(정강이 아래)엔 안정, 킥엔 무너짐. ──
+    const shin = this.xbot.getRightShinDir?.();
+    const gimbalBreak = new THREE.Vector3();
+    if (shin) {
+      const down = -shin.y;                 // 1=완전아래, 0=수평, 음수=위(킥)
+      const GIMBAL_MIN = 0.4;               // 이 이하로 떨어지면 서보 보정 한계 초과
+      if (down < GIMBAL_MIN) {
+        const over = (GIMBAL_MIN - down) / (GIMBAL_MIN + 1);   // 0~1+
+        const horiz = new THREE.Vector3(shin.x, 0, shin.z);
+        if (horiz.lengthSq() > 1e-4) horiz.normalize();
+        gimbalBreak.copy(horiz).multiplyScalar(over * 3.2);    // 크게 스윙/붕괴
+      }
+    }
+
     // 토큰에 전달할 흔들림 오프셋 + HUD 오차
-    this.shake.set(offLocal.x, offLocal.z);
-    this.errorCm = Math.hypot(offLocal.x, offLocal.z) * 100;
+    this.shake.set(offLocal.x + gimbalBreak.x, offLocal.z + gimbalBreak.z);
+    this.errorCm = Math.hypot(offLocal.x + gimbalBreak.x, offLocal.z + gimbalBreak.z) * 100;
 
     // ── 사다리꼴 풋프린트 (월드 좌표) ──
     let fwd, ox, oz;
@@ -317,14 +333,14 @@ export class ProjectorRig {
       // 농구: 빔프는 선수 정면(-Z, getForward) 기준으로 몸 앞에 투사. 무릎 크라우치·
       // LEVER 증폭 무시하고 몸 지면 위치에 앵커 → 스텝백(뒤로 이동)해도 투사는 앞에.
       fwd = this.xbot.getForward();   // 정면(봇이 회전 안 하므로 -Z 고정)
-      ox = body.x + fwd.x * 0.35;     // 몸 앞 고정 오프셋
-      oz = body.z + fwd.z * 0.35;
-      this.shake.set(0, 0);           // 안정 — 토큰 흔들림 없음
-      this.errorCm = 0;
+      ox = body.x + fwd.x * 0.35 + gimbalBreak.x;   // 짐벌 붕괴 반영(정직)
+      oz = body.z + fwd.z * 0.35 + gimbalBreak.z;
+      this.shake.set(0, 0);
+      this.errorCm = Math.hypot(gimbalBreak.x, gimbalBreak.z) * 100;
     } else {
       fwd = fwd0;
-      ox = body.x + offLocal.x;
-      oz = body.z + offLocal.z;
+      ox = body.x + offLocal.x + gimbalBreak.x;
+      oz = body.z + offLocal.z + gimbalBreak.z;
     }
     const right = new THREE.Vector3(-fwd.z, 0, fwd.x);
     this._fp = { ox, oz, fx: fwd.x, fz: fwd.z, rx: right.x, rz: right.z };
