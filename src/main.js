@@ -11,6 +11,7 @@ import { Session, SCFG } from './session.js';
 import { StudioDoc } from './studio/doc.js';
 import { StudioCanvas } from './studio/canvas.js';
 import { StudioProps } from './studio/props.js';
+import { loadSvg } from './studio/design.js';
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
 
 const BASE = import.meta.env.BASE_URL;
@@ -108,6 +109,21 @@ async function boot() {
   ]);
   for (const [k, v] of packEntries) state.packs[k] = v;
   const ORIGINAL_RUNNING = structuredClone(state.packs.running);  // Studio 원본 복원용
+
+  // 스튜디오 편집 자동 복원 — 새로고침/탭 닫기 후에도 유지 (localStorage)
+  const STUDIO_KEY = 'newton_studio_running';
+  try {
+    const saved = localStorage.getItem(STUDIO_KEY);
+    if (saved) {
+      const p = JSON.parse(saved);
+      await Promise.all((p.tokens || []).filter(t => t.design?.svgUrl).map(t => loadSvg(t.design)));  // svg 동기 렌더 대비
+      state.packs.running = p;
+    }
+  } catch (e) { console.warn('[studio restore]', e); }
+  function saveStudio(pack) {
+    try { localStorage.setItem(STUDIO_KEY, JSON.stringify(pack, (k, v) => k === '_img' ? undefined : v)); } catch (e) {}
+  }
+
   ghost.setData(posePayload);
 
   // 이벤트 문구 출력 없음 — 착지마다 뜨는 텍스트는 과잉 개입 (지면 리플 이펙트만)
@@ -757,6 +773,7 @@ async function boot() {
     tokens.resetLoop();
     panel.setPack(pack, tokens.events);
     lastBodyZ = xbot.group.position.z;
+    saveStudio(pack);   // 편집 자동 저장 (새로고침해도 유지)
   }
   function scheduleStudioRebuild() {
     clearTimeout(studioRebuildTimer);
