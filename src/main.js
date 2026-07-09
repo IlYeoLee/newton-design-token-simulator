@@ -551,6 +551,10 @@ async function boot() {
   const demoBtn = document.getElementById('btn-demo');
   let demoTour = null;   // { queue:[sports], i }
   function startSessionFor(sport) {
+    // 스튜디오가 좌측 패널을 숨긴 채 남았을 수 있음 — 세션 시작 시 항상 복원(스틱 방지)
+    if (typeof exitStudio === 'function' && studioActive) exitStudio();
+    const panelEl = document.getElementById('panel');
+    if (panelEl) panelEl.style.display = 'flex';
     if (state.pack !== sport) switchPack(sport);
     state.time = 0; tokens.resetLoop();
     session.start(sport);
