@@ -12,6 +12,8 @@
 //   Week 1 슬라이스 = 러닝 지면. nx=레인, t=깊이(depth=V·t+STRIKE_AHEAD).
 // ─────────────────────────────────────────────────────────────
 
+import { loadSvg } from './design.js';
+
 // 러닝 매핑 상수 — tokens.js LAYOUT.running 과 반드시 일치
 export const RUN = {
   X_SCALE: 2.0,
@@ -75,9 +77,11 @@ export class StudioDoc {
           holdRing: !!tk.holdRing,
           order: false, n: null,
           direction: null,
+          design: tk.design ? { ...tk.design, _img: null } : null,   // 비주얼 디자인 스펙
         };
         this.marks.push(m);
         byKey.set(key, m);
+        if (m.design?.svgUrl) loadSvg(m.design).then(() => this.emit('svg'));
       }
     }
     // 채널 부착 (본체 생성 뒤)
@@ -107,7 +111,7 @@ export class StudioDoc {
       id: nextId(), surface: 'floor', foot,
       nx, ny: 0, t: Math.max(0, t),
       contract: 'reach', radiusCm: DEFAULT_RADIUS_CM, holdRing: false,
-      order: this.sport === 'running', n: null, direction: null,
+      order: this.sport === 'running', n: null, direction: null, design: null,
     };
     this.marks.push(m);
     this.selection = m.id;
@@ -158,6 +162,7 @@ export class StudioDoc {
         t: m.t, type: m.surface === 'wall' ? 'targetMark' : 'stepMark',
         foot: m.foot, nx: m.nx, ny: m.ny ?? 0, lifetime: life,
         contract: m.contract, radiusCm: m.radiusCm, holdRing: m.holdRing,
+        design: m.design || undefined,   // 비주얼 디자인(_img 런타임 캐시 포함 — 내보내기 시 제거)
       });
       if (m.order) out.push({ t: m.t, type: 'orderPulse', n: m.n ?? 1, nx: m.nx, ny: m.ny ?? 0, lifetime: life });
       if (m.direction && m.direction.type !== 'none')

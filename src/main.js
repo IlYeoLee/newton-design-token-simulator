@@ -841,7 +841,7 @@ async function boot() {
   // 편집 결과 팩 JSON 복사
   document.getElementById('studio-export')?.addEventListener('click', async () => {
     if (!studioDoc) return;
-    await navigator.clipboard.writeText(JSON.stringify(studioDoc.toPack(), null, 2));
+    await navigator.clipboard.writeText(JSON.stringify(studioDoc.toPack(), (k, v) => k === '_img' ? undefined : v, 2));
     const b = document.getElementById('studio-export');
     const prev = b.textContent; b.textContent = '✓ 복사됨';
     setTimeout(() => { b.textContent = prev; }, 1500);

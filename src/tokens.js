@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { WALL_Z } from './scene.js';
+import { renderDesignCanvas } from './studio/design.js';
 
 // ─────────────────────────────────────────────────────────────
 // 디자인 토큰 공식 (공통)
@@ -209,7 +210,7 @@ class Marker {
     if (phase === 'hidden') { g.visible = false; return; }
     g.visible = true;
     g.scale.setScalar(sizeScale * TCFG.markScale);
-    if (this.art) this.art.material.opacity = phase === 'preview' ? 0.55 : 1;
+    if (this.art) this.art.material.opacity = phase === 'preview' ? (this.strongPreview ? 1 : 0.55) : 1;
 
     const fade = FADE_STEPS[Math.min(orderIdx, FADE_STEPS.length - 1)];
     if (phase === 'preview') {
@@ -366,7 +367,13 @@ export class TokenSystem {
           const mk = new Marker(radius, color, isWall ? 'wall' : 'floor');
           // MARK 계약 변조 (도달/회피/유지) — 벽 불즈아이는 도달 전용
           if (!isWall && (tk.contract && tk.contract !== 'reach' || tk.holdRing)) mk.setContract(tk.contract, tk.holdRing);
-          if (this.markerArt && !isWall) mk.setArt(this.markerArt);
+          // 토큰 비주얼 디자인(그라디언트·블러·SVG) → CanvasTexture 아트로 교체
+          if (!isWall && tk.design) {
+            const tex = new THREE.CanvasTexture(renderDesignCanvas(tk.design, 256));
+            tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
+            mk.setArt(tex);
+            if (tk.design.shape === 'number') mk._skipNumber = true;
+          } else if (this.markerArt && !isWall) mk.setArt(this.markerArt);
           if (isWall) {
             // 벽면 불즈아이 텍스처 추가
             const bt = new THREE.Mesh(
@@ -386,7 +393,7 @@ export class TokenSystem {
           (isWall ? this.wallRoot : this.floorRoot).add(mk.group);
           this._applyClip(mk.group, isWall ? this.wallClip : this._floorClipFor());
         }
-        if (tk.type === 'orderPulse' && ev.marker && !ev.marker.num) {
+        if (tk.type === 'orderPulse' && ev.marker && !ev.marker.num && !ev.marker._skipNumber) {
           ev.marker.setNumber(tk.n);
         }
         if (tk.type === 'directionGuide') {
