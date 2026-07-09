@@ -16,6 +16,8 @@ export function defaultDesign(kind = 'zone') {
     glyph: '1',                                     // shape==='number'
     svgUrl: null,                                   // 업로드 SVG dataURL (직렬화됨)
     _img: null,                                     // 런타임 캐시(직렬화 제외)
+    // 터짐 이펙트(발화 순간 표면 충격파) — 프로젝터가 그리는 2D 광 패턴만
+    burst: { on: false, intensity: 1.0, speed: 1.0, rings: 2, color: null },
   };
 }
 

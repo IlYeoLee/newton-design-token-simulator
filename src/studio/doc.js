@@ -12,7 +12,7 @@
 //   Week 1 슬라이스 = 러닝 지면. nx=레인, t=깊이(depth=V·t+STRIKE_AHEAD).
 // ─────────────────────────────────────────────────────────────
 
-import { loadSvg } from './design.js';
+import { loadSvg, defaultDesign } from './design.js';
 
 // 러닝 매핑 상수 — tokens.js LAYOUT.running 과 반드시 일치
 export const RUN = {
@@ -52,12 +52,61 @@ export class StudioDoc {
   constructor(pack) {
     this.listeners = new Set();
     this.selection = null;   // 선택된 mark id
+    this._undo = [];         // 되돌리기 스택 (직전 상태 스냅샷)
+    this._redo = [];         // 다시하기 스택
+    this._lastTag = null;    // 연속 편집 병합용 태그 (슬라이더 드래그 = 1스텝)
+    this._lastChangeTime = 0;
     this.load(pack);
+  }
+
+  // ── 되돌리기/다시하기 (Undo/Redo) ──
+  _serialize() {
+    // design._img(런타임 Image 캐시)는 복제 불가 → 제외 후 깊은 복사
+    const marks = this.marks.map(m => structuredClone({ ...m, design: m.design ? { ...m.design, _img: null } : null }));
+    return { marks, laneOn: this.laneOn, selection: this.selection };
+  }
+  // 이산 편집(추가/삭제/레인/번호매기기): 항상 1스텝 스냅샷
+  _snap() {
+    this._undo.push(this._serialize());
+    if (this._undo.length > 80) this._undo.shift();
+    this._redo = []; this._lastTag = null;
+  }
+  // 연속 편집(슬라이더 드래그): 같은 태그 0.6s 내면 1스텝으로 병합
+  _snapCoalesced(tag) {
+    const now = (typeof performance !== 'undefined' ? performance.now() : Date.now());
+    if (this._lastTag === tag && now - this._lastChangeTime < 600) { this._lastChangeTime = now; return; }
+    this._undo.push(this._serialize());
+    if (this._undo.length > 80) this._undo.shift();
+    this._redo = [];
+    this._lastTag = tag; this._lastChangeTime = now;
+  }
+  _applyState(st) {
+    this.marks = st.marks.map(m => structuredClone(m));
+    this.laneOn = st.laneOn;
+    this.selection = this.get(st.selection) ? st.selection : null;
+    for (const m of this.marks) if (m.design?.svgUrl) loadSvg(m.design).then(() => this.emit('svg'));
+    this._lastTag = null;
+    this.renumber();
+    this.emit('load');   // 'load' = 패널·캔버스 전체 리렌더
+  }
+  undo() { if (!this._undo.length) return false; this._redo.push(this._serialize()); this._applyState(this._undo.pop()); return true; }
+  redo() { if (!this._redo.length) return false; this._undo.push(this._serialize()); this._applyState(this._redo.pop()); return true; }
+  get canUndo() { return this._undo.length > 0; }
+  get canRedo() { return this._redo.length > 0; }
+
+  // 모든 토큰에 0→N 숫자 레터링 (t 순서대로 0,1,2,…)
+  numberSequence(start = 0) {
+    this._snap();
+    [...this.marks].sort((a, b) => a.t - b.t).forEach((m, i) => {
+      m.design = { ...(m.design || defaultDesign('number')), shape: 'number', glyph: String(start + i) };
+      if (m.design.svgUrl) loadSvg(m.design).then(() => this.emit('svg'));
+    });
+    this.emit('load');
   }
 
   // 팩 → MARK 목록. stepMark/targetMark = MARK 본체, 동일 t 의
   // orderPulse(순서)·directionGuide(방향)는 그 MARK에 부착된 채널로 흡수.
-  load(pack) {
+  load(pack, keepHistory = false) {
     this.base = { ...pack };
     this.sport = pack.sport;
     this.marks = [];
@@ -90,10 +139,11 @@ export class StudioDoc {
       const m = byKey.get(key);
       if (!m) continue;
       if (tk.type === 'orderPulse') { m.order = true; m.n = tk.n; }
-      if (tk.type === 'directionGuide') m.direction = { type: tk.dirType || 'transition', angle: tk.angle || 0 };
+      if (tk.type === 'directionGuide') m.direction = { type: tk.dirType || 'transition', angle: tk.angle || 0, tip: tk.tip || 'triangle' };
     }
     // 러닝 기본: 스텝은 순서 채널을 단다 (케이던스 1-2-3)
     if (this.sport === 'running') for (const m of this.marks) if (m.order === false && m.n == null) m.order = true;
+    if (!keepHistory) { this._undo = []; this._redo = []; this._lastTag = null; }
     this.renumber();
     this.emit('load');
   }
@@ -106,6 +156,7 @@ export class StudioDoc {
 
   // ── 저작 연산 ──
   addMark(nx, t, opts = {}) {
+    this._snap();
     const foot = opts.foot !== undefined ? opts.foot : (nx < 0 ? 'left' : 'right');  // 레인 쪽=발형 스킨
     const m = {
       id: nextId(), surface: 'floor', foot,
@@ -122,6 +173,8 @@ export class StudioDoc {
 
   update(id, patch) {
     const m = this.get(id); if (!m) return;
+    // 슬라이더 드래그 등 연속 편집은 같은 필드끼리 1스텝으로 병합
+    this._snapCoalesced('update:' + id + ':' + Object.keys(patch).sort().join(','));
     Object.assign(m, patch);
     if ('t' in patch) m.t = Math.max(0, m.t);
     this.renumber();
@@ -130,6 +183,7 @@ export class StudioDoc {
   move(id, nx, t) { this.update(id, { nx, t }); }
 
   remove(id) {
+    this._snap();
     this.marks = this.marks.filter(m => m.id !== id);
     if (this.selection === id) this.selection = null;
     this.renumber();
@@ -137,7 +191,7 @@ export class StudioDoc {
   }
 
   select(id) { this.selection = id; this.emit('select'); }
-  setLane(on) { this.laneOn = on; this.emit('lane'); }
+  setLane(on) { this._snap(); this.laneOn = on; this.emit('lane'); }
 
   // 순서 채널(order) 번호를 t 순 1-2-3 재부여
   renumber() {
@@ -166,7 +220,7 @@ export class StudioDoc {
       });
       if (m.order) out.push({ t: m.t, type: 'orderPulse', n: m.n ?? 1, nx: m.nx, ny: m.ny ?? 0, lifetime: life });
       if (m.direction && m.direction.type !== 'none')
-        out.push({ t: m.t, type: 'directionGuide', nx: m.nx, ny: m.ny ?? 0, angle: m.direction.angle || 0, dirType: m.direction.type, lifetime: life });
+        out.push({ t: m.t, type: 'directionGuide', nx: m.nx, ny: m.ny ?? 0, angle: m.direction.angle || 0, dirType: m.direction.type, tip: m.direction.tip || 'triangle', lifetime: life });
     }
     out.sort((a, b) => a.t - b.t);
     return { ...this.base, sport: this.sport, duration: dur, hasWall: false, tokens: out, _authored: true };

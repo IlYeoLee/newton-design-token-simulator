@@ -801,7 +801,10 @@ async function boot() {
       onTool: t => setStudioToolUI(t),         // 배치 후 자동 선택복귀 시 팔레트 동기화
       getWindow: () => null,                   // 러닝 창은 러너와 함께 이동 — 고정 밴드 미표시(정직)
     });
-    studioProps = new StudioProps(document.getElementById('studio-props'), studioDoc, { onEdit: scheduleStudioRebuild });
+    studioProps = new StudioProps(document.getElementById('studio-props'), studioDoc, {
+      onEdit: scheduleStudioRebuild,
+      onPreviewBurst: (mark) => { rebuildRunning(studioDoc.toPack()); tokens.studioBurst(mark); },
+    });
     // 안내 팁: 토큰을 처음 고르면 사라짐
     const tipEl = document.getElementById('studio-tip');
     if (tipEl) { tipEl.style.display = 'block'; studioDoc.onChange(d => { tipEl.style.display = d.selection ? 'none' : 'block'; }); }
@@ -852,10 +855,26 @@ async function boot() {
     laneBtn.style.borderColor = on ? 'var(--accent)' : 'var(--line)';
     scheduleStudioRebuild();
   });
-  // 원본 팩 복원
+  // 되돌리기 / 다시하기
+  function studioUndo() { if (studioDoc?.undo()) scheduleStudioRebuild(); }
+  function studioRedo() { if (studioDoc?.redo()) scheduleStudioRebuild(); }
+  document.getElementById('studio-undo')?.addEventListener('click', studioUndo);
+  document.getElementById('studio-redo')?.addEventListener('click', studioRedo);
+  window.addEventListener('keydown', (e) => {
+    if (!studioActive) return;
+    const mod = e.metaKey || e.ctrlKey;
+    if (mod && e.key.toLowerCase() === 'z') {
+      // 코드 textarea 안에서는 브라우저 기본 실행취소를 존중
+      if (document.activeElement?.tagName === 'TEXTAREA') return;
+      e.preventDefault();
+      e.shiftKey ? studioRedo() : studioUndo();
+    } else if (mod && e.key.toLowerCase() === 'y') { e.preventDefault(); studioRedo(); }
+  });
+  // 원본 팩 복원 (되돌리기 가능)
   document.getElementById('studio-reset')?.addEventListener('click', () => {
     if (!studioDoc) return;
-    studioDoc.load(structuredClone(ORIGINAL_RUNNING));
+    studioDoc._snap();
+    studioDoc.load(structuredClone(ORIGINAL_RUNNING), true);
     scheduleStudioRebuild();
   });
   // 편집 결과 팩 JSON 복사

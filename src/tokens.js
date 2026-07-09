@@ -248,15 +248,37 @@ class Marker {
 }
 
 // ── 방향 화살표 ───────────────────────────────────────────────
-function makeArrow(color, len = 0.55) {
-  const s = new THREE.Shape();
-  const w = 0.10, hw = 0.22, hl = 0.24;
-  s.moveTo(-w / 2, 0); s.lineTo(-w / 2, len - hl); s.lineTo(-hw / 2, len - hl);
-  s.lineTo(0, len); s.lineTo(hw / 2, len - hl); s.lineTo(w / 2, len - hl);
-  s.lineTo(w / 2, 0); s.closePath();
-  const mesh = new THREE.Mesh(new THREE.ShapeGeometry(s), flatMat(color, 0.85));
+// tip = 화살표 끝(촉) 모양: triangle(▲) · chevron(》) · diamond(◆) · bar(▬) · none(선만)
+function makeArrow(color, len = 0.55, tip = 'triangle') {
   const g = new THREE.Group();
-  g.add(mesh);
+  const w = 0.09, hw = 0.24, hl = 0.22;
+  const mesh = (geo) => { const m = new THREE.Mesh(geo, flatMat(color, 0.85)); g.add(m); return m; };
+  const shape = (build) => { const s = new THREE.Shape(); build(s); return new THREE.ShapeGeometry(s); };
+
+  // 자루(shaft) — 촉이 있으면 촉 밑동까지, 없으면 끝까지
+  const shaftLen = tip === 'none' ? len : Math.max(0.02, len - hl * 0.55);
+  const shaft = mesh(new THREE.PlaneGeometry(w, shaftLen));
+  shaft.position.y = shaftLen / 2;
+
+  const hy = len - hl;   // 촉 밑동 y
+  if (tip === 'triangle') {
+    mesh(shape(s => { s.moveTo(-hw / 2, hy); s.lineTo(hw / 2, hy); s.lineTo(0, len); s.closePath(); }));
+  } else if (tip === 'chevron') {
+    // 열린 꺾쇠(^) — 얇은 두 막대로 확실히 구분되게
+    const armLen = hl * 1.35, arm = (sx) => {
+      const bar = mesh(new THREE.PlaneGeometry(0.06, armLen));
+      bar.position.set(sx * hw * 0.26, len - hl * 0.5, 0);
+      bar.rotation.z = sx * 0.62;
+    };
+    arm(1); arm(-1);
+  } else if (tip === 'diamond') {
+    const cy = len - hl * 0.5, r = hl * 0.62;
+    mesh(shape(s => { s.moveTo(0, cy - r); s.lineTo(r, cy); s.lineTo(0, cy + r); s.lineTo(-r, cy); s.closePath(); }));
+  } else if (tip === 'bar') {
+    const bar = mesh(new THREE.PlaneGeometry(hw, 0.06));
+    bar.position.y = len - 0.03;
+  } // 'none' → 자루만
+
   g.rotation.x = -Math.PI / 2;
   g.position.y = 0.014;
   g.renderOrder = 6;
@@ -397,7 +419,7 @@ export class TokenSystem {
           ev.marker.setNumber(tk.n);
         }
         if (tk.type === 'directionGuide') {
-          const arrow = makeArrow(COLORS.guide, packData.sport === 'basketball' ? 0.9 : 0.55);
+          const arrow = makeArrow(COLORS.guide, packData.sport === 'basketball' ? 0.9 : 0.55, tk.tip || 'triangle');
           const p = this._mapFloor(tk);
           arrow.position.x = p.x; arrow.position.z = p.z;
           // angle: 0 = 전방(-Z). 시계 방향 회전.
@@ -612,8 +634,9 @@ export class TokenSystem {
 
       if (ev.arrow) {
         const a = ev.arrow;
-        let vis = now >= a.t - lead && now < a.t + a.lifetime;
-        if (vis && this.footprintTest) {
+        // 저작 프리뷰: 화살표도 시간·풋프린트 무관 상시 표시 (마크와 파리티 — 방향/촉 편집이 바로 보이게)
+        let vis = this.layoutPreview || (now >= a.t - lead && now < a.t + a.lifetime);
+        if (vis && this.footprintTest && !this.layoutPreview) {
           vis = this.footprintTest(
             a.obj.position.x + this.floorRoot.position.x,
             a.obj.position.z + this.floorRoot.position.z
@@ -621,8 +644,9 @@ export class TokenSystem {
         }
         a.obj.visible = vis;
         if (vis) {
-          const k = Math.min(1, (now - (a.t - lead)) / Math.max(lead, 0.001));
-          a.obj.children[0].material.opacity = 0.35 + 0.55 * k;
+          const k = this.layoutPreview ? 1 : Math.min(1, (now - (a.t - lead)) / Math.max(lead, 0.001));
+          const op = 0.35 + 0.55 * k;
+          a.obj.traverse(o => { if (o.material) o.material.opacity = op; });   // 자루+촉 여러 메시
           a.obj.scale.setScalar(size);
         }
       }
@@ -634,7 +658,18 @@ export class TokenSystem {
       ? ev.marker.group.getWorldPosition(new THREE.Vector3())
       : new THREE.Vector3();
     const normal = ev.surface === 'wall' ? new THREE.Vector3(0, 0, 1) : new THREE.Vector3(0, 1, 0);
-    this.effects.burst(pos, ev.color, normal);
+    const b = ev.srcToken?.design?.burst;   // 토큰별 터짐 조절 (없으면 기본 버스트)
+    this.effects.burst(pos, ev.color, normal, (b && b.on) ? b : {});
     if (this.onEvent) this.onEvent(ev);
+  }
+
+  /** 스튜디오 터짐 미리보기 — 시간 정지 상태에서 해당 MARK 위치에 버스트 1회 (풋프린트 무관) */
+  studioBurst(mark) {
+    if (!this.layout || !mark) return;
+    const p = this._mapFloor({ nx: mark.nx, ny: mark.ny ?? 0, t: mark.t, foot: mark.foot });
+    const pos = new THREE.Vector3(p.x + this.floorRoot.position.x, 0.02, p.z + this.floorRoot.position.z);
+    const b = mark.design?.burst;
+    const color = mark.design?.fill?.c0 || '#fa3030';
+    this.effects.burst(pos, color, new THREE.Vector3(0, 1, 0), { ...((b && b.on) ? b : {}), noClip: true });
   }
 }

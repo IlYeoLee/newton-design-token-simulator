@@ -11,13 +11,21 @@ export class Effects {
     this.wallClipPlanes = null;
   }
 
-  burst(pos, colorHex, normal) {
+  // opts (토큰별 터짐 조절): { intensity, speed, rings, color, noClip }
+  //   intensity = 확산 크기·밝기 배율 · speed = 진행 속도(빠를수록 짧게) · rings = 링 겹수(1~4)
+  burst(pos, colorHex, normal, opts = {}) {
     const isFloor = Math.abs(normal.y) > 0.5;
+    const intensity = Math.max(0.2, opts.intensity ?? 1);
+    const speed = Math.max(0.25, opts.speed ?? 1);
+    const rings = Math.max(1, Math.min(4, Math.round(opts.rings ?? 2)));
+    const col = (opts.color != null && opts.color !== '') ? opts.color : colorHex;
+    const noClip = !!opts.noClip;
+    const maxLife = 0.55 / speed;
 
-    const clipPlanes = isFloor ? this.floorClipPlanes : this.wallClipPlanes;
+    const clipPlanes = noClip ? null : (isFloor ? this.floorClipPlanes : this.wallClipPlanes);
     const make = (geo, opacity) => {
       const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({
-        color: colorHex, transparent: true, opacity,
+        color: col, transparent: true, opacity,
         side: THREE.DoubleSide, depthWrite: false,
         blending: THREE.AdditiveBlending,
         clippingPlanes: clipPlanes,
@@ -34,14 +42,15 @@ export class Effects {
       return m;
     };
 
-    // 확산 리플 링 2겹 (시차) + 중심 글로우
-    const items = [
-      { mesh: make(new THREE.RingGeometry(0.13, 0.155, 48), 0.85), endScale: 2.4, delay: 0 },
-      { mesh: make(new THREE.RingGeometry(0.10, 0.118, 48), 0.6),  endScale: 1.9, delay: 0.09 },
-      { mesh: make(new THREE.CircleGeometry(0.15, 40), 0.4),       endScale: 1.5, delay: 0 },
-    ];
+    // 확산 리플 링 N겹 (시차) + 중심 글로우 — 크기·밝기는 intensity로 스케일
+    const items = [];
+    for (let r = 0; r < rings; r++) {
+      const r0 = 0.13 - r * 0.022;
+      items.push({ mesh: make(new THREE.RingGeometry(r0, r0 + 0.025, 48), 0.85), endScale: 1 + (1.4 - r * 0.3) * intensity, delay: r * 0.09, glow: false });
+    }
+    items.push({ mesh: make(new THREE.CircleGeometry(0.15, 40), 0.4 * Math.min(1.6, intensity)), endScale: 1 + 0.5 * intensity, delay: 0, glow: true });
     for (const it of items) {
-      this.items.push({ ...it, life: 0, maxLife: 0.55, isFloor });
+      this.items.push({ ...it, life: 0, maxLife, isFloor, noClip });
     }
   }
 
@@ -69,7 +78,8 @@ export class Effects {
       const it = this.items[i];
       it.life += dt;
       // 풋프린트 이탈(러너 전진) 시 리플 급속 소멸 — 빔이 더 이상 그 자리를 비추지 않음
-      if (it.isFloor && this.clip && !this.clip(it.mesh.position.x, it.mesh.position.z)) {
+      // (noClip = 스튜디오 터짐 미리보기: 풋프린트 무관하게 온전히 보여줌)
+      if (it.isFloor && !it.noClip && this.clip && !this.clip(it.mesh.position.x, it.mesh.position.z)) {
         it.life += dt * 5;
       }
       const t = it.life - it.delay;
@@ -86,7 +96,7 @@ export class Effects {
       // easeOut 확산 + 페이드
       const e = 1 - Math.pow(1 - k, 2.2);
       it.mesh.scale.setScalar(1 + (it.endScale - 1) * e);
-      it.mesh.material.opacity = it.mesh.material.opacity * 0 + (1 - k) * (it.endScale > 2 ? 0.85 : 0.45);
+      it.mesh.material.opacity = (1 - k) * (it.glow ? 0.45 : 0.85);
     }
   }
 }
