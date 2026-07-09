@@ -10,6 +10,7 @@ import { Judge } from './judge.js';
 import { Session, SCFG } from './session.js';
 import { StudioDoc } from './studio/doc.js';
 import { StudioCanvas } from './studio/canvas.js';
+import { StudioProps } from './studio/props.js';
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
 
 const BASE = import.meta.env.BASE_URL;
@@ -739,7 +740,7 @@ async function boot() {
 
   // ── NEWTON Studio — 2D 저작 캔버스 (러닝 지면 수직 슬라이스) ──
   let studioActive = false;
-  let studioDoc = null, studioCanvas = null, studioPlayingWas = true;
+  let studioDoc = null, studioCanvas = null, studioProps = null, studioPlayingWas = true;
   let studioRebuildTimer = null;
   const studioEl = document.getElementById('studio');
   const studioCanvasEl = document.getElementById('studio-canvas');
@@ -780,8 +781,10 @@ async function boot() {
     studioDoc = new StudioDoc(state.packs.running);
     studioCanvas = new StudioCanvas(studioCanvasEl, studioDoc, {
       onEdit: scheduleStudioRebuild,
+      onTool: t => setStudioToolUI(t),         // 배치 후 자동 선택복귀 시 팔레트 동기화
       getWindow: () => null,                   // 러닝 창은 러너와 함께 이동 — 고정 밴드 미표시(정직)
     });
+    studioProps = new StudioProps(document.getElementById('studio-props'), studioDoc, { onEdit: scheduleStudioRebuild });
     rebuildRunning(studioDoc.toPack());        // layoutPreview 반영 리빌드(클리핑 해제)
     studioEl.style.display = 'flex';
     // 저작 포커스 모드: 좌측 컨트롤 패널 숨김 → 3D 프리뷰에 공간 확보 (캔버스 | 3D 스플릿)
@@ -792,7 +795,8 @@ async function boot() {
   function exitStudio() {
     if (!studioActive) return;
     studioActive = false;
-    studioCanvas?.destroy(); studioCanvas = null; studioDoc = null;
+    studioCanvas?.destroy(); studioCanvas = null;
+    studioProps?.destroy(); studioProps = null; studioDoc = null;
     tokens.layoutPreview = false;
     tokens.setParams({ maxVisible: Number(document.getElementById('s-count').value) || 3 });
     studioEl.style.display = 'none';
@@ -805,15 +809,18 @@ async function boot() {
   document.getElementById('studio-close')?.addEventListener('click', exitStudio);
   document.getElementById('studio-top')?.addEventListener('click', studioTopView);
 
-  // 팔레트 도구 선택
-  document.querySelectorAll('#studio-palette .stpal').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('#studio-palette .stpal').forEach(b => {
-        b.classList.remove('active'); b.style.background = 'var(--panel2)'; b.style.borderColor = 'var(--line)';
-      });
-      btn.classList.add('active'); btn.style.background = 'rgba(250,48,48,.16)'; btn.style.borderColor = 'var(--accent)';
-      studioCanvas?.setTool(btn.dataset.tool);
+  // 팔레트 도구 선택 (선택 / 마크 배치)
+  function setStudioToolUI(tool) {
+    document.querySelectorAll('#studio-palette .stpal').forEach(b => {
+      const on = b.dataset.tool === tool;
+      b.classList.toggle('active', on);
+      b.style.background = on ? 'rgba(250,48,48,.16)' : 'var(--panel2)';
+      b.style.borderColor = on ? 'var(--accent)' : 'var(--line)';
+      b.style.color = on ? 'var(--accent)' : (b.dataset.tool === 'select' ? 'var(--accent)' : 'var(--text)');
     });
+  }
+  document.querySelectorAll('#studio-palette .stpal').forEach(btn => {
+    btn.addEventListener('click', () => { setStudioToolUI(btn.dataset.tool); studioCanvas?.setTool(btn.dataset.tool); });
   });
   // 레인 토글
   const laneBtn = document.getElementById('studio-lane');

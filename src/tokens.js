@@ -88,6 +88,34 @@ function makeBullseyeTexture(colorHex) {
   return new THREE.CanvasTexture(c);
 }
 
+// 회피(avoid) = 점선 반전 링 — 도달과 같은 그림 금지(정반대 계약)
+function makeDashedRingTexture(colorHex) {
+  const c = document.createElement('canvas');
+  c.width = c.height = 256;
+  const ctx = c.getContext('2d');
+  const col = '#' + colorHex.toString(16).padStart(6, '0');
+  ctx.strokeStyle = col; ctx.lineWidth = 12; ctx.lineCap = 'butt';
+  ctx.setLineDash([26, 20]);
+  ctx.beginPath(); ctx.arc(128, 128, 104, 0, Math.PI * 2); ctx.stroke();
+  return new THREE.CanvasTexture(c);
+}
+
+// 유지(hold) = holdRing 채움 — 시계방향 채움(진행률). 정적 프리뷰는 표본 66%.
+function makeHoldRingTexture(colorHex, frac = 0.66) {
+  const c = document.createElement('canvas');
+  c.width = c.height = 256;
+  const ctx = c.getContext('2d');
+  const col = '#' + colorHex.toString(16).padStart(6, '0');
+  // 트랙(옅은 전체 링)
+  ctx.strokeStyle = col; ctx.globalAlpha = 0.35; ctx.lineWidth = 20;
+  ctx.beginPath(); ctx.arc(128, 128, 96, 0, Math.PI * 2); ctx.stroke();
+  // 채움 호 (12시부터 시계방향)
+  ctx.globalAlpha = 0.95; ctx.lineCap = 'round';
+  const a0 = -Math.PI / 2, a1 = a0 + Math.PI * 2 * Math.max(0, Math.min(1, frac));
+  ctx.beginPath(); ctx.arc(128, 128, 96, a0, a1); ctx.stroke();
+  return new THREE.CanvasTexture(c);
+}
+
 function makeLaneTexture() {
   const c = document.createElement('canvas');
   c.width = 64; c.height = 256;
@@ -153,6 +181,28 @@ class Marker {
     // 바닥 눕힘(rx=-90°)만으로 글자 위쪽이 -Z(전방) = 유저가 읽는 방향 (rz 추가 회전 없음)
     this.group.add(this.num);
   }
+  /** MARK 계약 변조: reach(실선) / avoid(점선 반전) / hold(holdRing 채움) */
+  setContract(contract = 'reach', holdRing = false) {
+    this.contract = contract;
+    if (this.avoidArt) { this.group.remove(this.avoidArt); this.avoidArt.material.dispose(); this.avoidArt = null; }
+    if (this.holdArt) { this.group.remove(this.holdArt); this.holdArt.material.dispose(); this.holdArt = null; }
+    const sz = this.radius * 2.35;
+    if (contract === 'avoid') {
+      this.edge.visible = false;
+      this.avoidArt = new THREE.Mesh(new THREE.PlaneGeometry(sz, sz),
+        new THREE.MeshBasicMaterial({ map: makeDashedRingTexture(this.color), transparent: true, depthWrite: false }));
+      this.avoidArt.position.z = 0.003;
+      this.group.add(this.avoidArt);
+    } else {
+      this.edge.visible = true;
+    }
+    if (contract === 'hold' || holdRing) {
+      this.holdArt = new THREE.Mesh(new THREE.PlaneGeometry(sz, sz),
+        new THREE.MeshBasicMaterial({ map: makeHoldRingTexture(this.color, 0.66), transparent: true, depthWrite: false }));
+      this.holdArt.position.z = 0.0035;
+      this.group.add(this.holdArt);
+    }
+  }
   /** phase: hidden|preview|countdown|linger  progress: 0..1 */
   render(phase, progress, orderIdx, sizeScale) {
     const g = this.group;
@@ -190,6 +240,9 @@ class Marker {
       this.cd.visible = false;
       if (this.num) this.num.material.opacity = 0.4 * k;
     }
+    // 계약 오버레이(점선/holdRing)는 링 강도를 따라감
+    if (this.avoidArt) this.avoidArt.material.opacity = Math.min(1, this.edge.material.opacity + 0.1);
+    if (this.holdArt) this.holdArt.material.opacity = Math.min(1, this.edge.material.opacity + 0.05);
   }
 }
 
@@ -308,8 +361,11 @@ export class TokenSystem {
         if (tk.type === 'stepMark' || tk.type === 'targetMark' || (tk.type === 'orderPulse' && !ev.marker)) {
           const isWall = tk.type === 'targetMark' && this.pack.hasWall;
           const color = tk.type === 'targetMark' ? COLORS.target : COLORS[tk.foot] ?? COLORS.left;
-          const radius = tk.type === 'targetMark' ? 0.20 : 0.17;
+          // 반경 = 판정 허용창 (저작값 radiusCm 우선)
+          const radius = tk.radiusCm ? tk.radiusCm / 100 : (tk.type === 'targetMark' ? 0.20 : 0.17);
           const mk = new Marker(radius, color, isWall ? 'wall' : 'floor');
+          // MARK 계약 변조 (도달/회피/유지) — 벽 불즈아이는 도달 전용
+          if (!isWall && (tk.contract && tk.contract !== 'reach' || tk.holdRing)) mk.setContract(tk.contract, tk.holdRing);
           if (this.markerArt && !isWall) mk.setArt(this.markerArt);
           if (isWall) {
             // 벽면 불즈아이 텍스처 추가

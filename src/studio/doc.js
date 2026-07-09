@@ -1,13 +1,15 @@
 // ─────────────────────────────────────────────────────────────
 // NEWTON Studio — 편집 문서 모델 (Document)
-//   팩 JSON을 편집 가능한 단일 소스로 승격. 토큰마다 안정 id,
-//   CRUD, 변경 이벤트, ↔ 팩 직렬화. 에디터가 mutate → 3D가 rebuild.
+//   설계 계약: 상호작용 지점은 단 하나의 MARK 디자인이다.
+//   MARK = 존 원(반경=판정 허용창) + 수축 링(timingRing).
+//   계약이 갈라질 때만 최소 변조:
+//     · 도달(reach) = 실선            · 회피(avoid) = 점선 반전
+//     · 유지(hold)  = holdRing 채움    · 발형(foot)  = Step-type 티칭 스킨
+//   채널 4개(토큰 아님, MARK에 부착):
+//     ② 순서(order) · ③ 방향(direction) · ④ 경로(path=lane/sweep) · ⑥ 폼(ghost)
+//   모디파이어: timingRing(Active 기본) · holdRing(유지 진행, 직접 부착)
 //
-//   Week 1: 러닝 지면 수직 슬라이스.
-//   러닝 advance 매핑에서 ny는 미사용 — 지면 깊이는 t로 결정된다.
-//     world.x = nx · X_SCALE            (레인 가로 오프셋)
-//     world.z = -(V·t + STRIKE_AHEAD)   (전방 깊이 = 시간)
-//   따라서 2D 저작 캔버스의 세로축 = 깊이(=시간), 가로축 = 레인.
+//   Week 1 슬라이스 = 러닝 지면. nx=레인, t=깊이(depth=V·t+STRIKE_AHEAD).
 // ─────────────────────────────────────────────────────────────
 
 // 러닝 매핑 상수 — tokens.js LAYOUT.running 과 반드시 일치
@@ -27,28 +29,67 @@ export const runMap = {
   depthToT: d => Math.max(0, (d - RUN.STRIKE_AHEAD) / RUN.V),
 };
 
+// MARK 계약 · 채널 카탈로그 (팔레트·속성 패널이 참조)
+export const CONTRACTS = [
+  ['reach', '도달', '실선 · 밟기/치기'],
+  ['avoid', '회피', '점선 반전 · 피하기'],
+  ['hold',  '유지', 'holdRing 채움 · 가드/스탠스'],
+];
+export const DIRECTION_TYPES = [
+  ['none', '없음'],
+  ['transition', '전환형'],   // C·농구 — ±윈도만
+  ['rotation', '회전 아크'],  // A 스트레칭 — 관절 회전
+  ['reciprocation', '왕복형'],// A — 무게 이동·스윙
+];
+export const DEFAULT_RADIUS_CM = 17;
+
 let _uid = 1;
-const nextId = () => `t${_uid++}`;
+const nextId = () => 'm' + _uid++;
 
 export class StudioDoc {
   constructor(pack) {
     this.listeners = new Set();
-    this.selection = null;   // 선택된 gid
+    this.selection = null;   // 선택된 mark id
     this.load(pack);
   }
 
-  // 팩 → 편집 토큰(안정 id + 그룹). 스텝(stepMark)+비트(orderPulse)는
-  // 동일 t 를 공유하므로 tkey 로 묶어 하나의 저작 단위(gid)로 취급.
+  // 팩 → MARK 목록. stepMark/targetMark = MARK 본체, 동일 t 의
+  // orderPulse(순서)·directionGuide(방향)는 그 MARK에 부착된 채널로 흡수.
   load(pack) {
-    this.base = { ...pack };            // sport/duration/hasWall 등 메타 보존
+    this.base = { ...pack };
     this.sport = pack.sport;
-    this.tokens = [];
+    this.marks = [];
     this.laneOn = false;
+    const byKey = new Map();       // tkey → mark (같은 t 채널 병합)
     for (const tk of (pack.tokens || [])) {
       if (tk.type === 'pathLane') { this.laneOn = true; continue; }
-      const gid = 'g' + Math.round(tk.t * 1000);
-      this.tokens.push({ ...tk, _id: nextId(), gid });
+      const key = Math.round(tk.t * 1000);
+      if (tk.type === 'stepMark' || tk.type === 'targetMark') {
+        const m = {
+          id: nextId(),
+          surface: tk.type === 'targetMark' ? 'wall' : 'floor',
+          foot: tk.foot ?? null,
+          nx: tk.nx, ny: tk.ny ?? 0, t: tk.t,
+          contract: tk.contract || 'reach',
+          radiusCm: tk.radiusCm || DEFAULT_RADIUS_CM,
+          holdRing: !!tk.holdRing,
+          order: false, n: null,
+          direction: null,
+        };
+        this.marks.push(m);
+        byKey.set(key, m);
+      }
     }
+    // 채널 부착 (본체 생성 뒤)
+    for (const tk of (pack.tokens || [])) {
+      const key = Math.round(tk.t * 1000);
+      const m = byKey.get(key);
+      if (!m) continue;
+      if (tk.type === 'orderPulse') { m.order = true; m.n = tk.n; }
+      if (tk.type === 'directionGuide') m.direction = { type: tk.dirType || 'transition', angle: tk.angle || 0 };
+    }
+    // 러닝 기본: 스텝은 순서 채널을 단다 (케이던스 1-2-3)
+    if (this.sport === 'running') for (const m of this.marks) if (m.order === false && m.n == null) m.order = true;
     this.renumber();
     this.emit('load');
   }
@@ -56,89 +97,73 @@ export class StudioDoc {
   onChange(cb) { this.listeners.add(cb); return () => this.listeners.delete(cb); }
   emit(reason) { for (const cb of this.listeners) cb(this, reason); }
 
-  // ── 조회 ──
-  groups() {
-    // gid → { gid, t, nx, foot, n } (스텝 단위 저작 뷰)
-    const map = new Map();
-    for (const tk of this.tokens) {
-      let g = map.get(tk.gid);
-      if (!g) { g = { gid: tk.gid, t: tk.t, nx: tk.nx, foot: null, n: null }; map.set(tk.gid, g); }
-      if (tk.type === 'stepMark') { g.foot = tk.foot; g.t = tk.t; g.nx = tk.nx; }
-      if (tk.type === 'orderPulse') g.n = tk.n;
-    }
-    return [...map.values()].sort((a, b) => a.t - b.t);
-  }
-  group(gid) { return this.groups().find(g => g.gid === gid) || null; }
+  get(id) { return this.marks.find(m => m.id === id) || null; }
+  selected() { return this.get(this.selection); }
 
   // ── 저작 연산 ──
-  addStep(foot, nx, t) {
-    const gid = 'g' + nextId();
-    this.tokens.push({ _id: nextId(), gid, type: 'stepMark', foot, nx, ny: 0, t, lifetime: RUN.STEP_LIFETIME });
-    this.tokens.push({ _id: nextId(), gid, type: 'orderPulse', n: 0, nx, ny: 0, t, lifetime: RUN.STEP_LIFETIME });
+  addMark(nx, t, opts = {}) {
+    const foot = opts.foot !== undefined ? opts.foot : (nx < 0 ? 'left' : 'right');  // 레인 쪽=발형 스킨
+    const m = {
+      id: nextId(), surface: 'floor', foot,
+      nx, ny: 0, t: Math.max(0, t),
+      contract: 'reach', radiusCm: DEFAULT_RADIUS_CM, holdRing: false,
+      order: this.sport === 'running', n: null, direction: null,
+    };
+    this.marks.push(m);
+    this.selection = m.id;
     this.renumber();
-    this.selection = gid;
     this.emit('add');
-    return gid;
+    return m.id;
   }
 
-  moveGroup(gid, nx, t) {
-    t = Math.max(0, t);
-    for (const tk of this.tokens) {
-      if (tk.gid !== gid) continue;
-      tk.nx = nx; tk.t = t;
-    }
+  update(id, patch) {
+    const m = this.get(id); if (!m) return;
+    Object.assign(m, patch);
+    if ('t' in patch) m.t = Math.max(0, m.t);
     this.renumber();
-    this.emit('move');
+    this.emit('update');
   }
+  move(id, nx, t) { this.update(id, { nx, t }); }
 
-  setFoot(gid, foot) {
-    for (const tk of this.tokens) if (tk.gid === gid && tk.type === 'stepMark') tk.foot = foot;
-    this.emit('foot');
-  }
-
-  remove(gid) {
-    this.tokens = this.tokens.filter(tk => tk.gid !== gid);
-    if (this.selection === gid) this.selection = null;
+  remove(id) {
+    this.marks = this.marks.filter(m => m.id !== id);
+    if (this.selection === id) this.selection = null;
     this.renumber();
     this.emit('remove');
   }
 
-  select(gid) { this.selection = gid; this.emit('select'); }
-
+  select(id) { this.selection = id; this.emit('select'); }
   setLane(on) { this.laneOn = on; this.emit('lane'); }
 
-  // 비트 번호(orderPulse.n)를 t 순서로 1-2-3-1-2-3 재부여 (원본 케이던스 문법)
+  // 순서 채널(order) 번호를 t 순 1-2-3 재부여
   renumber() {
-    const gids = this.groups().map(g => g.gid);
-    const order = new Map(gids.map((gid, i) => [gid, (i % 3) + 1]));
-    for (const tk of this.tokens) {
-      if (tk.type === 'orderPulse') tk.n = order.get(tk.gid) ?? 1;
-    }
+    const ordered = this.marks.filter(m => m.order).sort((a, b) => a.t - b.t);
+    ordered.forEach((m, i) => { m.n = (i % 3) + 1; });
   }
 
   duration() {
     let maxT = 0;
-    for (const tk of this.tokens) maxT = Math.max(maxT, tk.t);
+    for (const m of this.marks) maxT = Math.max(maxT, m.t);
     return Math.max(this.base.duration || 0, maxT + 0.5, 1.5);
   }
 
-  // ── 직렬화 → 팩 JSON (엔진이 소비하는 스키마) ──
+  // ── 직렬화 → 팩 JSON (엔진 스키마 + MARK 계약/모디파이어 필드) ──
   toPack() {
     const dur = this.duration();
     const out = [];
     if (this.laneOn) out.push({ t: 0, type: 'pathLane', nx: 0, ny: 0, lifetime: dur });
-    for (const tk of this.tokens) {
-      const { _id, gid, ...clean } = tk;
-      out.push(clean);
+    for (const m of this.marks) {
+      const life = RUN.STEP_LIFETIME;
+      out.push({
+        t: m.t, type: m.surface === 'wall' ? 'targetMark' : 'stepMark',
+        foot: m.foot, nx: m.nx, ny: m.ny ?? 0, lifetime: life,
+        contract: m.contract, radiusCm: m.radiusCm, holdRing: m.holdRing,
+      });
+      if (m.order) out.push({ t: m.t, type: 'orderPulse', n: m.n ?? 1, nx: m.nx, ny: m.ny ?? 0, lifetime: life });
+      if (m.direction && m.direction.type !== 'none')
+        out.push({ t: m.t, type: 'directionGuide', nx: m.nx, ny: m.ny ?? 0, angle: m.direction.angle || 0, dirType: m.direction.type, lifetime: life });
     }
     out.sort((a, b) => a.t - b.t);
-    return {
-      ...this.base,
-      sport: this.sport,
-      duration: dur,
-      hasWall: false,
-      tokens: out,
-      _authored: true,
-    };
+    return { ...this.base, sport: this.sport, duration: dur, hasWall: false, tokens: out, _authored: true };
   }
 }

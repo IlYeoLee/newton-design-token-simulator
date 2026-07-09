@@ -1,12 +1,12 @@
 // ─────────────────────────────────────────────────────────────
 // NEWTON Studio — 2D 저작 캔버스 (피그마式, 러닝 지면 = 탑다운)
-//   가로축 = 레인(m), 세로축 = 전방 깊이(m, 아래=러너 발치, 위=전방).
-//   깊이는 곧 시간(t)이다: depth = V·t + STRIKE_AHEAD.
-//   토큰을 클릭 배치 / 선택 / 드래그 이동 / Delete 삭제 → doc mutate → 3D rebuild.
+//   가로축 = 레인(m), 세로축 = 전방 깊이(m). depth = V·t + STRIKE_AHEAD.
+//   단일 MARK 배치/선택/드래그/삭제. 계약(도달·회피·유지)·반경(판정창)·
+//   순서/방향 채널을 그대로 반영해 그린다. 세부 편집은 속성 패널(props.js).
 // ─────────────────────────────────────────────────────────────
 import { RUN, runMap } from './doc.js';
 
-const PAD = { l: 46, r: 16, t: 16, b: 26 };  // 축 라벨 여백
+const PAD = { l: 46, r: 16, t: 16, b: 26 };
 const HIT_PX = 20;
 
 export class StudioCanvas {
@@ -14,9 +14,9 @@ export class StudioCanvas {
     this.el = canvasEl;
     this.doc = doc;
     this.onEdit = opts.onEdit || (() => {});
-    this.getWindow = opts.getWindow || (() => null);
-    this.tool = 'select';
-    this.laneHalf = RUN.LANE_W / 2 + 0.25;   // 가로 가시 범위(±m)
+    this.onTool = opts.onTool || (() => {});
+    this.tool = 'select';                    // 'select' | 'mark'
+    this.laneHalf = RUN.LANE_W / 2 + 0.25;
     this.drag = null;
 
     this._onDown = this._down.bind(this);
@@ -37,10 +37,7 @@ export class StudioCanvas {
     this.draw();
   }
 
-  setTool(t) {
-    this.tool = t;
-    this.el.style.cursor = t === 'select' ? 'default' : 'crosshair';
-  }
+  setTool(t) { this.tool = t; this.el.style.cursor = t === 'select' ? 'default' : 'crosshair'; this.onTool(t); }
 
   destroy() {
     this.el.removeEventListener('pointerdown', this._onDown);
@@ -51,10 +48,9 @@ export class StudioCanvas {
     this._unsub?.();
   }
 
-  // ── 깊이 범위(세로) — 토큰 최대 깊이 + 여백, 최소 6m ──
   _depthMax() {
     let m = 5;
-    for (const g of this.doc.groups()) m = Math.max(m, runMap.tToDepth(g.t));
+    for (const mk of this.doc.marks) m = Math.max(m, runMap.tToDepth(mk.t));
     return Math.ceil((m + 1.2) / 0.5) * 0.5;
   }
 
@@ -68,11 +64,12 @@ export class StudioCanvas {
     this.W = w; this.H = h;
   }
 
-  // ── 좌표 변환 ──
+  _pxPerM() { return (this.W - PAD.l - PAD.r) / (2 * this.laneHalf); }
+
   worldToPx(laneX, depth) {
     const iw = this.W - PAD.l - PAD.r, ih = this.H - PAD.t - PAD.b;
     const px = PAD.l + ((laneX + this.laneHalf) / (2 * this.laneHalf)) * iw;
-    const py = PAD.t + ih - (depth / this._dMax) * ih;   // 아래=depth 0
+    const py = PAD.t + ih - (depth / this._dMax) * ih;
     return [px, py];
   }
   pxToWorld(px, py) {
@@ -84,34 +81,30 @@ export class StudioCanvas {
 
   _hit(px, py) {
     let best = null, bd = HIT_PX;
-    for (const g of this.doc.groups()) {
-      const [gx, gy] = this.worldToPx(runMap.nxToLane(g.nx), runMap.tToDepth(g.t));
+    for (const mk of this.doc.marks) {
+      const [gx, gy] = this.worldToPx(runMap.nxToLane(mk.nx), runMap.tToDepth(mk.t));
       const d = Math.hypot(px - gx, py - gy);
-      if (d < bd) { bd = d; best = g; }
+      if (d < bd) { bd = d; best = mk; }
     }
     return best;
   }
 
-  _evPx(e) {
-    const r = this.el.getBoundingClientRect();
-    return [e.clientX - r.left, e.clientY - r.top];
-  }
+  _evPx(e) { const r = this.el.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; }
 
   _down(e) {
     const [px, py] = this._evPx(e);
     if (px < PAD.l - 8 || px > this.W - PAD.r + 8) return;
-    if (this.tool === 'select') {
-      const g = this._hit(px, py);
-      this.doc.select(g ? g.gid : null);
-      if (g) this.drag = { gid: g.gid };
-    } else if (this.tool === 'left' || this.tool === 'right') {
+    if (this.tool === 'mark') {
       let [laneX, depth] = this.pxToWorld(px, py);
       laneX = Math.max(-this.laneHalf, Math.min(this.laneHalf, laneX));
-      const nx = runMap.laneToNx(laneX);
-      const t = runMap.depthToT(Math.max(0, depth));
-      const gid = this.doc.addStep(this.tool, nx, t);
-      this.drag = { gid };
+      const id = this.doc.addMark(runMap.laneToNx(laneX), runMap.depthToT(Math.max(0, depth)));
+      this.drag = { id };
+      this.setTool('select');                // 배치 즉시 선택 모드 — 이어서 조정/드래그
       this.onEdit();
+    } else {
+      const mk = this._hit(px, py);
+      this.doc.select(mk ? mk.id : null);
+      if (mk) this.drag = { id: mk.id };
     }
     this.el.setPointerCapture?.(e.pointerId);
   }
@@ -121,7 +114,7 @@ export class StudioCanvas {
     const [px, py] = this._evPx(e);
     let [laneX, depth] = this.pxToWorld(px, py);
     laneX = Math.max(-this.laneHalf, Math.min(this.laneHalf, laneX));
-    this.doc.moveGroup(this.drag.gid, runMap.laneToNx(laneX), runMap.depthToT(Math.max(0, depth)));
+    this.doc.move(this.drag.id, runMap.laneToNx(laneX), runMap.depthToT(Math.max(0, depth)));
     this.onEdit();
   }
 
@@ -142,10 +135,6 @@ export class StudioCanvas {
     this._dMax = this._depthMax();
     const ctx = this.ctx, W = this.W, H = this.H;
     ctx.clearRect(0, 0, W, H);
-
-    // 트랙 배경
-    const [x0] = this.worldToPx(-this.laneHalf, 0);
-    const [x1] = this.worldToPx(this.laneHalf, 0);
     ctx.fillStyle = '#0f1116';
     ctx.fillRect(PAD.l, PAD.t, W - PAD.l - PAD.r, H - PAD.t - PAD.b);
 
@@ -157,11 +146,12 @@ export class StudioCanvas {
       ctx.beginPath(); ctx.moveTo(lpx, PAD.t); ctx.lineTo(lpx, H - PAD.b); ctx.stroke();
     }
     const [cpx] = this.worldToPx(0, 0);
-    ctx.strokeStyle = 'rgba(250,48,48,0.28)'; ctx.setLineDash([6, 9]);
+    ctx.strokeStyle = this.doc.laneOn ? 'rgba(250,48,48,0.3)' : 'rgba(120,120,130,0.18)';
+    ctx.setLineDash([6, 9]);
     ctx.beginPath(); ctx.moveTo(cpx, PAD.t); ctx.lineTo(cpx, H - PAD.b); ctx.stroke();
     ctx.setLineDash([]);
 
-    // 깊이 그리드 + 라벨 (1m 간격)
+    // 깊이 그리드 + 라벨
     ctx.fillStyle = '#6b7180'; ctx.font = '10px -apple-system, sans-serif';
     ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
     ctx.strokeStyle = 'rgba(255,255,255,0.05)'; ctx.lineWidth = 1;
@@ -171,57 +161,64 @@ export class StudioCanvas {
       ctx.fillText(`${d}m`, PAD.l - 6, gy);
     }
 
-    // 투사 창(near..far) 밴드 — 하드웨어 가시 구간 힌트
-    const win = this.getWindow();
-    if (win) {
-      const [, ny] = this.worldToPx(0, win.near);
-      const [, fy] = this.worldToPx(0, win.far);
-      ctx.fillStyle = 'rgba(105,212,222,0.08)';
-      ctx.fillRect(PAD.l, fy, W - PAD.l - PAD.r, ny - fy);
-      ctx.strokeStyle = 'rgba(105,212,222,0.4)'; ctx.setLineDash([4, 4]); ctx.lineWidth = 1;
-      for (const yy of [ny, fy]) { ctx.beginPath(); ctx.moveTo(PAD.l, yy); ctx.lineTo(W - PAD.r, yy); ctx.stroke(); }
-      ctx.setLineDash([]);
-    }
-
-    // 러너 시작점 (깊이 0)
+    // 러너 시작점
     const [rx, ry] = this.worldToPx(0, 0);
     ctx.fillStyle = 'rgba(232,234,240,0.6)';
     ctx.beginPath(); ctx.arc(rx, ry, 5, 0, Math.PI * 2); ctx.fill();
     ctx.textAlign = 'center'; ctx.fillStyle = '#8b93a3';
     ctx.fillText('러너', rx, ry + 12);
 
-    // 레인 연결선 (스텝 순서)
-    const groups = this.doc.groups();
-    if (groups.length >= 2) {
-      ctx.strokeStyle = 'rgba(250,48,48,0.25)'; ctx.lineWidth = 1.5; ctx.beginPath();
-      groups.forEach((g, i) => {
-        const [gx, gy] = this.worldToPx(runMap.nxToLane(g.nx), runMap.tToDepth(g.t));
+    // 순서 연결선 (order 채널이 달린 마크만)
+    const ordered = this.doc.marks.filter(m => m.order).sort((a, b) => a.t - b.t);
+    if (ordered.length >= 2) {
+      ctx.strokeStyle = 'rgba(250,48,48,0.22)'; ctx.lineWidth = 1.5; ctx.beginPath();
+      ordered.forEach((m, i) => {
+        const [gx, gy] = this.worldToPx(runMap.nxToLane(m.nx), runMap.tToDepth(m.t));
         i ? ctx.lineTo(gx, gy) : ctx.moveTo(gx, gy);
       });
       ctx.stroke();
     }
 
-    // 스텝 토큰
-    for (const g of groups) {
-      const [gx, gy] = this.worldToPx(runMap.nxToLane(g.nx), runMap.tToDepth(g.t));
-      const sel = g.gid === this.doc.selection;
-      const r = 13;
-      ctx.beginPath(); ctx.arc(gx, gy, r, 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(250,48,48,0.18)'; ctx.fill();
-      ctx.lineWidth = sel ? 3 : 2;
-      ctx.strokeStyle = sel ? '#d1feff' : '#fa3030'; ctx.stroke();
-      // 좌/우 표식
-      ctx.fillStyle = '#e8eaf0'; ctx.font = '700 11px -apple-system, sans-serif';
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillText(g.foot === 'right' ? 'R' : 'L', gx, gy - 0.5);
-      // 비트 번호
-      if (g.n) {
-        ctx.fillStyle = '#8b93a3'; ctx.font = '9px -apple-system, sans-serif';
-        ctx.fillText(String(g.n), gx + r + 6, gy);
+    // MARK
+    const pxM = this._pxPerM();
+    for (const mk of this.doc.marks) {
+      const [gx, gy] = this.worldToPx(runMap.nxToLane(mk.nx), runMap.tToDepth(mk.t));
+      const sel = mk.id === this.doc.selection;
+      const rZone = Math.max(10, Math.min(48, (mk.radiusCm / 100) * pxM));  // 판정 허용창(반경)
+      const col = mk.contract === 'avoid' ? '#fec389' : '#fa3030';
+
+      // 존 원 (반경=판정창)
+      ctx.beginPath(); ctx.arc(gx, gy, rZone, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(250,48,48,0.06)'; ctx.fill();
+      ctx.lineWidth = 2; ctx.strokeStyle = col;
+      if (mk.contract === 'avoid') ctx.setLineDash([6, 5]); else ctx.setLineDash([]);
+      ctx.stroke(); ctx.setLineDash([]);
+
+      // holdRing (유지 채움 표본 66%)
+      if (mk.contract === 'hold' || mk.holdRing) {
+        ctx.beginPath();
+        ctx.arc(gx, gy, rZone - 3, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * 0.66);
+        ctx.lineWidth = 3; ctx.strokeStyle = '#d1feff'; ctx.stroke();
       }
+
+      // 방향 채널 화살표
+      if (mk.direction && mk.direction.type !== 'none') {
+        const a = (mk.direction.angle || 0) * Math.PI / 180;
+        const dx = Math.sin(a), dy = -Math.cos(a);   // 0°=전방(위)
+        ctx.strokeStyle = '#fe6e3c'; ctx.lineWidth = 2.5;
+        ctx.beginPath(); ctx.moveTo(gx, gy); ctx.lineTo(gx + dx * (rZone + 14), gy + dy * (rZone + 14)); ctx.stroke();
+      }
+
+      // 중심 핸들 + 발형/번호
+      ctx.beginPath(); ctx.arc(gx, gy, sel ? 8 : 6, 0, Math.PI * 2);
+      ctx.fillStyle = sel ? '#d1feff' : col; ctx.fill();
+      if (sel) { ctx.lineWidth = 2; ctx.strokeStyle = '#d1feff'; ctx.beginPath(); ctx.arc(gx, gy, rZone + 4, 0, Math.PI * 2); ctx.stroke(); }
+      ctx.fillStyle = '#e8eaf0'; ctx.font = '700 10px -apple-system, sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      if (mk.foot) ctx.fillText(mk.foot === 'right' ? 'R' : 'L', gx, gy - rZone - 8);
+      if (mk.order && mk.n) { ctx.fillStyle = '#8b93a3'; ctx.font = '9px -apple-system, sans-serif'; ctx.fillText(String(mk.n), gx + rZone + 8, gy); }
     }
 
-    // 축 라벨
     ctx.fillStyle = '#6b7180'; ctx.font = '10px -apple-system, sans-serif';
     ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
     ctx.fillText('← 레인(m) →', (PAD.l + W - PAD.r) / 2, H - 6);
