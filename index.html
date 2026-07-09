@@ -277,6 +277,33 @@
       pointer-events:none;text-align:center;line-height:1.5;">
     </div>
 
+    <!-- NEWTON Studio 저작 캔버스 (좌측 도킹) -->
+    <button id="btn-studio" style="position:absolute;bottom:18px;right:110px;z-index:29;padding:9px 14px;border:1px solid var(--accent);border-radius:8px;background:rgba(250,48,48,.14);color:var(--accent);font-size:12px;font-weight:700;cursor:pointer;">✎ 스튜디오</button>
+    <div id="studio" style="position:absolute;top:0;left:0;bottom:0;width:400px;background:rgba(12,14,18,.98);border-right:1px solid var(--line);z-index:28;display:none;flex-direction:column;">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px 8px;border-bottom:1px solid var(--line);">
+        <b style="font-size:13px;">✎ NEWTON Studio <span style="color:var(--dim);font-weight:400;font-size:11px;">· 러닝 지면</span></b>
+        <button id="studio-close" style="border:none;background:none;color:var(--dim);font-size:16px;cursor:pointer;">✕</button>
+      </div>
+      <div id="studio-palette" style="display:flex;gap:6px;padding:10px 14px;border-bottom:1px solid var(--line);flex-wrap:wrap;">
+        <button class="stpal active" data-tool="select" style="padding:6px 10px;border:1px solid var(--line);border-radius:6px;background:var(--panel2);color:var(--text);font-size:11px;cursor:pointer;">↖ 선택</button>
+        <button class="stpal" data-tool="right" style="padding:6px 10px;border:1px solid var(--line);border-radius:6px;background:var(--panel2);color:var(--text);font-size:11px;cursor:pointer;">● 오른발</button>
+        <button class="stpal" data-tool="left" style="padding:6px 10px;border:1px solid var(--line);border-radius:6px;background:var(--panel2);color:var(--text);font-size:11px;cursor:pointer;">● 왼발</button>
+        <button id="studio-lane" style="padding:6px 10px;border:1px solid var(--line);border-radius:6px;background:var(--panel2);color:var(--dim);font-size:11px;cursor:pointer;">⋮ 레인</button>
+      </div>
+      <div style="flex:1;position:relative;min-height:0;">
+        <canvas id="studio-canvas" style="position:absolute;inset:0;width:100%;height:100%;"></canvas>
+      </div>
+      <div id="studio-hint" style="padding:8px 14px;border-top:1px solid var(--line);font-size:11px;color:var(--dim);line-height:1.5;">
+        도구를 고르고 트랙을 클릭해 스텝을 배치하세요. 세로=전방 깊이(=시간), 가로=레인.
+        선택 후 드래그로 이동, <b style="color:var(--text)">Delete</b>로 삭제. 3D에 즉시 반영됩니다.
+      </div>
+      <div style="display:flex;gap:6px;padding:8px 14px 12px;border-top:1px solid var(--line);">
+        <button id="studio-top" style="flex:1;padding:7px 0;border:1px solid var(--line);border-radius:6px;background:var(--panel2);color:var(--text);font-size:11px;cursor:pointer;">⬒ 탑뷰</button>
+        <button id="studio-reset" style="flex:1;padding:7px 0;border:1px solid var(--line);border-radius:6px;background:var(--panel2);color:var(--dim);font-size:11px;cursor:pointer;">↺ 원본 팩</button>
+        <button id="studio-export" style="flex:1.3;padding:7px 0;border:1px solid var(--accent);border-radius:6px;background:rgba(250,48,48,.12);color:var(--accent);font-size:11px;font-weight:700;cursor:pointer;">⧉ 팩 복사</button>
+      </div>
+    </div>
+
     <!-- 토큰 에디터 드로어 -->
     <button id="btn-editor" style="position:absolute;bottom:18px;right:14px;z-index:29;padding:9px 14px;border:1px solid var(--line);border-radius:8px;background:rgba(16,19,24,.9);color:var(--text);font-size:12px;font-weight:700;cursor:pointer;">🎛 에디터</button>
     <div id="editor" style="position:absolute;top:0;right:0;bottom:0;width:330px;background:rgba(14,17,22,.97);border-left:1px solid var(--line);z-index:30;display:none;overflow-y:auto;padding:16px;">

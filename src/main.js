@@ -8,6 +8,8 @@ import { ProjectorRig } from './projector.js';
 import { WallGhost } from './ghost.js';
 import { Judge } from './judge.js';
 import { Session, SCFG } from './session.js';
+import { StudioDoc } from './studio/doc.js';
+import { StudioCanvas } from './studio/canvas.js';
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
 
 const BASE = import.meta.env.BASE_URL;
@@ -27,7 +29,7 @@ const state = {
 
 async function boot() {
   const stage = document.getElementById('stage');
-  const { renderer, scene, camera, controls, setPackEnvironment } = createScene(stage);
+  const { renderer, scene, camera, controls, setPackEnvironment, resize } = createScene(stage);
 
   let sessionSkillSink = null;   // 슬라이더가 session 생성 전 초기 apply 시 TDZ 회피
   let refreshEditorStages = null; // switchPack → 에디터 스테이지 편집기 갱신 훅
@@ -104,6 +106,7 @@ async function boot() {
     xbot.load(),
   ]);
   for (const [k, v] of packEntries) state.packs[k] = v;
+  const ORIGINAL_RUNNING = structuredClone(state.packs.running);  // Studio 원본 복원용
   ghost.setData(posePayload);
 
   // 이벤트 문구 출력 없음 — 착지마다 뜨는 텍스트는 과잉 개입 (지면 리플 이펙트만)
@@ -734,6 +737,109 @@ async function boot() {
     tokens.setMarkerArt(null); session.setFootArt(null);
   });
 
+  // ── NEWTON Studio — 2D 저작 캔버스 (러닝 지면 수직 슬라이스) ──
+  let studioActive = false;
+  let studioDoc = null, studioCanvas = null, studioPlayingWas = true;
+  let studioRebuildTimer = null;
+  const studioEl = document.getElementById('studio');
+  const studioCanvasEl = document.getElementById('studio-canvas');
+
+  // 편집 팩을 러닝 파이프라인에 재적용 (시간 연속성 유지 — switchPack 대비 경량)
+  function rebuildRunning(pack) {
+    state.packs.running = pack;
+    tokens.setPack(pack);
+    xbot.setPack(pack, tokens.events);
+    rig.setPack('running', tokens.events);
+    tokens.footprintTest = (x, z, inset) => rig.contains(x, z, inset);
+    effects.clip = (x, z) => rig.contains(x, z);
+    judge.setPack(tokens.events, 'running');
+    tokens.resetLoop();
+    panel.setPack(pack, tokens.events);
+    lastBodyZ = xbot.group.position.z;
+  }
+  function scheduleStudioRebuild() {
+    clearTimeout(studioRebuildTimer);
+    studioRebuildTimer = setTimeout(() => { if (studioDoc) rebuildRunning(studioDoc.toPack()); }, 110);
+  }
+
+  function studioTopView() {
+    // 3/4 버드아이 — 좌측 스튜디오 패널을 피해 트랙이 우측 3D에 또렷이 들어오게.
+    camera.position.set(-4.4, 3.4, 3.6);
+    controls.target.set(0.8, 0, -2.6);
+    controls.update();
+  }
+
+  function enterStudio() {
+    if (studioActive) return;
+    if (state.pack !== 'running') switchPack('running');
+    studioActive = true;
+    studioPlayingWas = state.playing;
+    state.playing = false; panel.setPlaying(false);
+    tokens.layoutPreview = true;               // 지면 토큰 상시 표시(시간·풋프린트 무관)
+    tokens.setParams({ maxVisible: 99 });
+    studioDoc = new StudioDoc(state.packs.running);
+    studioCanvas = new StudioCanvas(studioCanvasEl, studioDoc, {
+      onEdit: scheduleStudioRebuild,
+      getWindow: () => null,                   // 러닝 창은 러너와 함께 이동 — 고정 밴드 미표시(정직)
+    });
+    rebuildRunning(studioDoc.toPack());        // layoutPreview 반영 리빌드(클리핑 해제)
+    studioEl.style.display = 'flex';
+    // 저작 포커스 모드: 좌측 컨트롤 패널 숨김 → 3D 프리뷰에 공간 확보 (캔버스 | 3D 스플릿)
+    document.getElementById('panel').style.display = 'none';
+    resize();
+    studioTopView();
+  }
+  function exitStudio() {
+    if (!studioActive) return;
+    studioActive = false;
+    studioCanvas?.destroy(); studioCanvas = null; studioDoc = null;
+    tokens.layoutPreview = false;
+    tokens.setParams({ maxVisible: Number(document.getElementById('s-count').value) || 3 });
+    studioEl.style.display = 'none';
+    document.getElementById('panel').style.display = 'flex';
+    resize();
+    switchPack('running');                     // 클리핑·카메라·시간 정상 복원
+    state.playing = studioPlayingWas; panel.setPlaying(studioPlayingWas);
+  }
+  document.getElementById('btn-studio')?.addEventListener('click', () => studioActive ? exitStudio() : enterStudio());
+  document.getElementById('studio-close')?.addEventListener('click', exitStudio);
+  document.getElementById('studio-top')?.addEventListener('click', studioTopView);
+
+  // 팔레트 도구 선택
+  document.querySelectorAll('#studio-palette .stpal').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#studio-palette .stpal').forEach(b => {
+        b.classList.remove('active'); b.style.background = 'var(--panel2)'; b.style.borderColor = 'var(--line)';
+      });
+      btn.classList.add('active'); btn.style.background = 'rgba(250,48,48,.16)'; btn.style.borderColor = 'var(--accent)';
+      studioCanvas?.setTool(btn.dataset.tool);
+    });
+  });
+  // 레인 토글
+  const laneBtn = document.getElementById('studio-lane');
+  laneBtn?.addEventListener('click', () => {
+    if (!studioDoc) return;
+    studioDoc.setLane(!studioDoc.laneOn);
+    const on = studioDoc.laneOn;
+    laneBtn.style.color = on ? 'var(--accent)' : 'var(--dim)';
+    laneBtn.style.borderColor = on ? 'var(--accent)' : 'var(--line)';
+    scheduleStudioRebuild();
+  });
+  // 원본 팩 복원
+  document.getElementById('studio-reset')?.addEventListener('click', () => {
+    if (!studioDoc) return;
+    studioDoc.load(structuredClone(ORIGINAL_RUNNING));
+    scheduleStudioRebuild();
+  });
+  // 편집 결과 팩 JSON 복사
+  document.getElementById('studio-export')?.addEventListener('click', async () => {
+    if (!studioDoc) return;
+    await navigator.clipboard.writeText(JSON.stringify(studioDoc.toPack(), null, 2));
+    const b = document.getElementById('studio-export');
+    const prev = b.textContent; b.textContent = '✓ 복사됨';
+    setTimeout(() => { b.textContent = prev; }, 1500);
+  });
+
   // ── 모션 검증: 실측 킥 모캡으로 무릎 투사 스트레스 테스트 ──
   document.getElementById('verify-kick')?.addEventListener('click', () => {
     stopSession();
@@ -911,7 +1017,7 @@ async function boot() {
     }
     // 카메라는 강제하지 않음 — 3인칭(궤도 자유회전) / 1인칭 모두 사용 가능.
     // 러닝 전진 팔로우는 실제 재생(비세션 or 실전)일 때만.
-    if (!inSessionPreview && state.pack === 'running' && !fpMode) {
+    if (!inSessionPreview && !studioActive && state.pack === 'running' && !fpMode) {
       const bz = xbot.group.position.z;
       const dz = bz - lastBodyZ;
       camera.position.z += dz;

@@ -163,13 +163,14 @@ class Marker {
 
     const fade = FADE_STEPS[Math.min(orderIdx, FADE_STEPS.length - 1)];
     if (phase === 'preview') {
-      // NEXT 단계 = 윤곽만 (위계: NOW 풀강도 / NEXT 윤곽)
-      this.fill.material.opacity = 0.03 * fade;
-      this.edge.material.opacity = TCFG.previewEdge * fade;
+      // 저작 프리뷰: 전 토큰을 또렷한 상시 강도로 (위계 감쇠 없음)
+      const strong = this.strongPreview;
+      this.fill.material.opacity = (strong ? 0.2 : 0.03) * fade;
+      this.edge.material.opacity = (strong ? 0.95 : TCFG.previewEdge) * fade;
       this.edge.material.color.setHex(this.color);
       this.fill.material.color.setHex(this.color);
       this.cd.visible = false;
-      if (this.num) this.num.material.opacity = 0.5 * fade;
+      if (this.num) this.num.material.opacity = (strong ? 1.0 : 0.5) * fade;
     } else if (phase === 'countdown') {
       this.fill.material.opacity = TCFG.fillOpacity + 0.15 * progress;
       this.edge.material.opacity = 1.0;
@@ -239,6 +240,10 @@ export class TokenSystem {
       if (o.material) o.material.clippingPlanes = planes;
     });
   }
+
+  // 저작 프리뷰에서는 지면 풋프린트 클리핑을 끔 — 트랙 전체 배치가 보여야 함
+  // (풋프린트는 러너와 함께 이동하는 작은 창이라 정적 프리뷰엔 부적합)
+  _floorClipFor() { return this.layoutPreview ? null : this.floorClip; }
 
   /** 에디터: 팔레트 변경을 기존 마커·화살표에 즉시 반영 */
   recolor() {
@@ -323,7 +328,7 @@ export class TokenSystem {
           ev.foot = tk.foot ?? null;
           ev.srcToken = tk;
           (isWall ? this.wallRoot : this.floorRoot).add(mk.group);
-          this._applyClip(mk.group, isWall ? this.wallClip : this.floorClip);
+          this._applyClip(mk.group, isWall ? this.wallClip : this._floorClipFor());
         }
         if (tk.type === 'orderPulse' && ev.marker && !ev.marker.num) {
           ev.marker.setNumber(tk.n);
@@ -337,7 +342,7 @@ export class TokenSystem {
           arrow.rotation.z = THREE.MathUtils.degToRad(-(tk.angle ?? 0));
           ev.arrow = { obj: arrow, t: tk.t, lifetime: tk.lifetime };
           this.floorRoot.add(arrow);
-          this._applyClip(arrow, this.floorClip);
+          this._applyClip(arrow, this._floorClipFor());
         }
       }
       if (isBoxing && ev.marker && pendingNum != null && !ev.marker.num) {
@@ -386,7 +391,7 @@ export class TokenSystem {
           }
           cur.stripes = g;
           this.floorRoot.add(g);
-          this._applyClip(g, this.floorClip);
+          this._applyClip(g, this._floorClipFor());
         }
       }
     }
@@ -406,7 +411,7 @@ export class TokenSystem {
         mk.edge.material.opacity = 0.7;
         mk.isStance = true;
         this.floorRoot.add(mk.group);
-        this._applyClip(mk.group, this.floorClip);
+        this._applyClip(mk.group, this._floorClipFor());
         this.stanceMarks = this.stanceMarks || [];
         this.stanceMarks.push(mk);
       }
@@ -444,7 +449,7 @@ export class TokenSystem {
       );
       line.computeLineDistances();
       this.floorRoot.add(line);
-      this._applyClip(line, this.floorClip);
+      this._applyClip(line, this._floorClipFor());
     } else if (L.mode === 'spatial') {
       // 농구: 컷인 경로 곡선 대시
       const pts = this.pack.tokens
@@ -459,7 +464,7 @@ export class TokenSystem {
         }));
         line.computeLineDistances();
         this.floorRoot.add(line);
-        this._applyClip(line, this.floorClip);
+        this._applyClip(line, this._floorClipFor());
       }
     }
     // boxing: 바닥 투사 없음
@@ -504,6 +509,10 @@ export class TokenSystem {
         phase = 'preview';
       }
 
+      // 스튜디오 저작 프리뷰: 지면 토큰 전체를 시간·풋프린트 무관 상시 윤곽 표시
+      // (저작한 공간 배치를 3D에서 즉시 확인 — 2D 캔버스와 파리티)
+      if (this.layoutPreview && ev.surface !== 'wall') phase = 'preview';
+
       if (ev.marker) {
         // 위치 갱신
         if (ev.surface === 'wall') {
@@ -513,7 +522,7 @@ export class TokenSystem {
           const p = this._mapFloor(ev.srcToken);
           ev.marker.group.position.set(p.x, 0.012, p.z);
           // 투사 풋프린트 여유 판정 — UI는 통째로 들어올 때만 등장 (잘림 금지)
-          if (this.footprintTest && phase !== 'hidden') {
+          if (this.footprintTest && phase !== 'hidden' && !this.layoutPreview) {
             const wx = p.x + this.floorRoot.position.x;
             const wz = p.z + this.floorRoot.position.z;
             const inset = ev.marker.radius * size * 1.15;
@@ -528,9 +537,12 @@ export class TokenSystem {
             ev._wasVisible = visNow;
           }
         }
-        // 동시 표시 개수 제한: preview 단계에만 적용
-        if (phase === 'preview' && order >= maxVisible) phase = 'hidden';
-        ev.marker.render(phase, progress, Math.min(order, FADE_STEPS.length - 1), size);
+        // 동시 표시 개수 제한: preview 단계에만 적용 (저작 프리뷰는 전체 표시)
+        if (phase === 'preview' && order >= maxVisible && !this.layoutPreview) phase = 'hidden';
+        // 저작 프리뷰: 순서 감쇠 없이 전 토큰 균일 강도(orderIdx 0)로 또렷하게
+        const oIdx = this.layoutPreview ? 0 : Math.min(order, FADE_STEPS.length - 1);
+        ev.marker.strongPreview = this.layoutPreview;
+        ev.marker.render(phase, progress, oIdx, size);
         // 감속 스트라이프는 해당 플랜트 카운트다운 동안만
         if (ev.stripes) ev.stripes.visible = phase === 'countdown' || phase === 'linger';
       }
