@@ -11,6 +11,7 @@ import { Session, SCFG } from './session.js';
 import { StudioDoc } from './studio/doc.js';
 import { StudioCanvas } from './studio/canvas.js';
 import { StudioProps } from './studio/props.js';
+import { SceneEditor } from './studio/scenes-ui.js';
 import { loadSvg } from './studio/design.js';
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
 
@@ -550,9 +551,23 @@ async function boot() {
   const sessionBtn = document.getElementById('btn-session');
   const demoBtn = document.getElementById('btn-demo');
   let demoTour = null;   // { queue:[sports], i }
+  // ── 장면 디자인 에디터 (전 종목 45장 GUI 편집) ──
+  const sceneEditor = new SceneEditor(session, {
+    onOpen: () => { if (session.active) stopSession(); state.playing = false; panel.setPlaying(false); },
+    onClose: () => { state.playing = true; panel.setPlaying(true); },
+    viewFor: (sport) => {
+      if (sport === 'boxing') { if (state.pack !== 'boxing') switchPack('boxing'); camera.position.set(0.4, 1.6, 2.4); controls.target.set(0, 1.2, -2.4); }
+      else { if (state.pack !== sport) switchPack(sport); camera.position.set(-2.6, 3.6, 0.6); controls.target.set(0, 0, -2.0); }
+      controls.update();
+    },
+  });
+  session.applySceneStore(sceneEditor.store);   // 저장된 장면 편집 부팅 복원
+  document.getElementById('btn-scenes')?.addEventListener('click', () => sceneEditor.isOpen ? sceneEditor.close() : sceneEditor.open());
+
   function startSessionFor(sport) {
     // 스튜디오가 좌측 패널을 숨긴 채 남았을 수 있음 — 세션 시작 시 항상 복원(스틱 방지)
     if (typeof exitStudio === 'function' && studioActive) exitStudio();
+    if (sceneEditor.isOpen) sceneEditor.close();
     const panelEl = document.getElementById('panel');
     if (panelEl) panelEl.style.display = 'flex';
     if (state.pack !== sport) switchPack(sport);

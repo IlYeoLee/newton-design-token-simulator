@@ -24,18 +24,40 @@ function flatMat(color, opacity = 1) {
 }
 
 // ── 지면 텍스트 (눕힘만으로 -Z 전방이 위 = 유저 읽는 방향) ──
-function makeTextMesh(text, { size = 0.10, color = '#ffffff', weight = 700 } = {}) {
+// 장면 에디터: family(폰트)까지 편집 가능 — userData.el 메타 + redraw로 라이브 갱신
+export const FONT_FAMILIES = [
+  ['Pretendard, -apple-system, sans-serif', '기본 (Pretendard)'],
+  ['Georgia, "Times New Roman", serif', '세리프'],
+  ['Menlo, "SF Mono", monospace', '모노'],
+  ['"Arial Black", "Avenir Black", sans-serif', '헤비 디스플레이'],
+  ['"Brush Script MT", "Savoye LET", cursive', '스크립트'],
+];
+function drawTextTex(text, { size = 0.10, color = '#ffffff', weight = 700, family = FONT_FAMILIES[0][0] } = {}) {
   const c = document.createElement('canvas'), ctx = c.getContext('2d');
-  const font = `${weight} 64px Pretendard, -apple-system, sans-serif`;
+  const font = `${weight} 64px ${family}`;
   ctx.font = font;
-  c.width = Math.ceil(ctx.measureText(text).width) + 24; c.height = 88;
+  c.width = Math.max(8, Math.ceil(ctx.measureText(text).width) + 24); c.height = 88;
   const x = c.getContext('2d'); x.font = font; x.fillStyle = color; x.textBaseline = 'middle';
   x.fillText(text, 12, 46);
   const tex = new THREE.CanvasTexture(c); tex.anisotropy = 8;
-  const plane = new THREE.Mesh(new THREE.PlaneGeometry(size * c.width / c.height, size),
+  return { tex, aspect: c.width / c.height };
+}
+function makeTextMesh(text, opts = {}) {
+  const o = { size: 0.10, color: '#ffffff', weight: 700, family: FONT_FAMILIES[0][0], ...opts };
+  const { tex, aspect } = drawTextTex(text, o);
+  const plane = new THREE.Mesh(new THREE.PlaneGeometry(o.size * aspect, o.size),
     new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, side: THREE.DoubleSide }));
   const g = new THREE.Group(); g.add(plane); g.rotation.x = -Math.PI / 2; g.position.y = 0.013; g.renderOrder = 7;
   g.userData.plane = plane;
+  const el = { type: 'text', content: text, ...o };
+  const redraw = (patch) => {
+    Object.assign(el, patch);
+    const r = drawTextTex(el.content, el);
+    plane.material.map.dispose(); plane.material.map = r.tex; plane.material.needsUpdate = true;
+    plane.geometry.dispose(); plane.geometry = new THREE.PlaneGeometry(el.size * r.aspect, el.size);
+  };
+  g.userData.el = el; g.userData.redraw = redraw;
+  plane.userData.el = el; plane.userData.redraw = redraw;   // makeTextPlane 경유해도 유지
   return g;
 }
 function makeTextPlane(text, opts = {}) { const g = makeTextMesh(text, opts); const p = g.userData.plane; g.remove(p); return p; }
@@ -104,6 +126,7 @@ class FootMark {
     this.group.add(this.plane, this.ring, this.hold);
     this.group.rotation.x = -Math.PI / 2; this.group.position.y = 0.013; this.group.renderOrder = 6;
     this.plane.rotation.z = foot === 'left' ? THREE.MathUtils.degToRad(8) : THREE.MathUtils.degToRad(-8);
+    this.group.userData.el = { type: 'foot', side: foot };
   }
   at(x, z, s = 1) { this.group.position.set(x, 0.013, z); this.group.scale.setScalar(s); return this; }
   op(k) { this.plane.material.opacity = k; }
@@ -116,14 +139,16 @@ class FootMark {
   glow(k) { this.ring.material.color.setHex(BRAND.prism); this.ring.material.opacity = 0.95 * k; this.ring.scale.setScalar(1 + 0.4 * (1 - k)); }
 }
 
-// ── 지면 프리미티브 ──
+// ── 지면 프리미티브 (userData.el = 장면 에디터 메타) ──
 function floorRing(x, z, rIn, rOut, color, op = 0.9) {
   const m = new THREE.Mesh(new THREE.RingGeometry(rIn, rOut, 48), flatMat(color, op));
-  m.rotation.x = -Math.PI / 2; m.position.set(x, 0.013, z); m.renderOrder = 5; return m;
+  m.rotation.x = -Math.PI / 2; m.position.set(x, 0.013, z); m.renderOrder = 5;
+  m.userData.el = { type: 'ring' }; return m;
 }
 function floorArc(x, z, color) {
   const m = new THREE.Mesh(new THREE.RingGeometry(0.20, 0.235, 40, 1, Math.PI * 0.15, Math.PI * 1.4), flatMat(color, 0.85));
-  m.rotation.x = -Math.PI / 2; m.position.set(x, 0.0135, z); m.renderOrder = 6; return m;
+  m.rotation.x = -Math.PI / 2; m.position.set(x, 0.0135, z); m.renderOrder = 6;
+  m.userData.el = { type: 'arc' }; return m;
 }
 function floorArrow(x, z, deg, color, len = 0.4) {
   const s = new THREE.Shape(); const w = 0.09, hw = 0.2, hl = 0.2;
@@ -131,11 +156,13 @@ function floorArrow(x, z, deg, color, len = 0.4) {
   s.lineTo(hw/2,len-hl); s.lineTo(w/2,len-hl); s.lineTo(w/2,0); s.closePath();
   const mesh = new THREE.Mesh(new THREE.ShapeGeometry(s), flatMat(color, 0.85));
   const g = new THREE.Group(); g.add(mesh); g.rotation.x = -Math.PI/2; g.position.set(x, 0.014, z);
-  g.rotation.z = THREE.MathUtils.degToRad(deg); g.renderOrder = 6; return g;
+  g.rotation.z = THREE.MathUtils.degToRad(deg); g.renderOrder = 6;
+  g.userData.el = { type: 'arrow' }; return g;
 }
 function floorStripe(x, z, w, color, op) {
   const m = new THREE.Mesh(new THREE.PlaneGeometry(w, 0.06), flatMat(color, op));
-  m.rotation.x = -Math.PI/2; m.position.set(x, 0.012, z); m.renderOrder = 4; return m;
+  m.rotation.x = -Math.PI/2; m.position.set(x, 0.012, z); m.renderOrder = 4;
+  m.userData.el = { type: 'stripe' }; return m;
 }
 function floorText(text, x, z, opts) { const g = makeTextMesh(text, opts); g.position.set(x, 0.013, z); return g; }
 function floorNum(text, x, z, size, color) {
@@ -146,21 +173,22 @@ function laneLine(color, z0 = 1.0, z1 = -3.2) {
   const pts = []; for (let z = z0; z > z1; z -= 0.42) pts.push(new THREE.Vector3(0, 0.012, z));
   const l = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),
     new THREE.LineDashedMaterial({ color, dashSize: 0.16, gapSize: 0.22, transparent: true, opacity: 0.5 }));
-  l.computeLineDistances(); l.renderOrder = 4; return l;
+  l.computeLineDistances(); l.renderOrder = 4; l.userData.el = { type: 'lane' }; return l;
 }
 
 // ── 벽면 프리미티브 (복싱 — z=WALL_Z 세워진 평면, 유저(+z) 바라봄, 눕힘 없음) ──
 const WZ = WALL_Z + 0.03;
 function wallRing(x, y, rIn, rOut, color, op = 0.9) {
   const m = new THREE.Mesh(new THREE.RingGeometry(rIn, rOut, 48), flatMat(color, op));
-  m.position.set(x, y, WZ); m.renderOrder = 5; return m;
+  m.position.set(x, y, WZ); m.renderOrder = 5; m.userData.el = { type: 'ring', wall: true }; return m;
 }
 function wallArc(x, y, rIn, rOut, color, a0, len, op = 0.9) {
   const m = new THREE.Mesh(new THREE.RingGeometry(rIn, rOut, 40, 1, a0, len), flatMat(color, op));
-  m.position.set(x, y, WZ + 0.001); m.renderOrder = 6; return m;
+  m.position.set(x, y, WZ + 0.001); m.renderOrder = 6; m.userData.el = { type: 'arc', wall: true }; return m;
 }
 function wallText(text, x, y, opts) {
-  const p = makeTextPlane(text, opts); p.position.set(x, y, WZ + 0.002); p.renderOrder = 7; return p;
+  const p = makeTextPlane(text, opts); p.position.set(x, y, WZ + 0.002); p.renderOrder = 7;
+  if (p.userData.el) p.userData.el.wall = true; return p;
 }
 /** 가드 존 박스 — 신체 부위가 머물 영역 (라운드 사각 아웃라인) */
 function guardBox(x, y, w, h, color, op = 0.8) {
@@ -174,7 +202,7 @@ function guardBox(x, y, w, h, color, op = 0.8) {
   const line = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(pts.map(p => new THREE.Vector3(p.x, p.y, 0))),
     new THREE.LineBasicMaterial({ color, transparent: true, opacity: op }));
   const fill = new THREE.Mesh(new THREE.ShapeGeometry(s), flatMat(color, 0.08));
-  g.add(fill, line); g.position.set(x, y, WZ); g.renderOrder = 5; return g;
+  g.add(fill, line); g.position.set(x, y, WZ); g.renderOrder = 5; g.userData.el = { type: 'box', wall: true }; return g;
 }
 /** 잽 스윕 밴드 — ④ pathLane 벽면 표현형: 부위가 지나갈 호(弧) 면적, 그라디언트=진행 방향 */
 function sweepBand(x0, y0, x1, y1, color) {
@@ -558,6 +586,109 @@ export class Session {
   }
   /** 에디터: 종목별 스테이지 배열 (편집 대상) */
   stagesFor(sport) { return STAGES[sport] || STAGES.running; }
+
+  // ══ 장면 디자인 에디터 API ══════════════════════════════════
+  // 전략: _build*가 만든 요소(userData.el 메타)를 그대로 두고, 패치(오버라이드)를
+  // 객체에 직접 적용 — 무편집 시 픽셀 파리티 100%. 추가 요소는 spec으로 재생성.
+  _isWallStage(id) { return id.startsWith('BX_'); }
+
+  /** 세션 비활성 상태에서 특정 장면만 표시 (에디터 프리뷰) */
+  previewStage(stageId) {
+    this._previewId = stageId;
+    this.root.visible = true;
+    this.root.position.set(0, 0, 0);
+    for (const id in this.G) this.G[id].visible = id === stageId;
+    this.countGroup.visible = false; this.countRing.visible = false;
+  }
+  endPreview() {
+    this._previewId = null;
+    if (!this.active) { this.root.visible = false; for (const id in this.G) this.G[id].visible = false; }
+  }
+
+  /** 장면의 편집 가능 요소 목록: [{i, o, el}] */
+  sceneElements(stageId) {
+    const g = this.G[stageId]; if (!g) return [];
+    return g.children.map((o, i) => ({ i, o, el: o.userData.el || { type: o.isGroup ? 'group' : (o.isLine ? 'line' : 'mesh') } }));
+  }
+
+  /** 요소 패치: {x,z,y,rot,scale,color,opacity,hidden, text:{content,size,color,weight,family}} */
+  patchElement(stageId, idx, patch) {
+    const g = this.G[stageId]; const o = g?.children[idx]; if (!o) return;
+    const el = o.userData.el || {};
+    if (!o.userData._orig) o.userData._orig = {
+      px: o.position.x, py: o.position.y, pz: o.position.z,
+      rz: o.rotation.z, s: o.scale.x, visible: o.visible,
+      el: el.type === 'text' ? { ...el } : null,
+    };
+    const wall = !!el.wall || this._isWallStage(stageId);
+    if (patch.x !== undefined) o.position.x = patch.x;
+    if (wall) { if (patch.y !== undefined) o.position.y = patch.y; }
+    else if (patch.z !== undefined) o.position.z = patch.z;
+    if (patch.rot !== undefined) o.rotation.z = THREE.MathUtils.degToRad(patch.rot);
+    if (patch.scale !== undefined) o.scale.setScalar(patch.scale);
+    if (patch.hidden !== undefined) o.visible = !patch.hidden;
+    if (patch.opacity !== undefined) {
+      if (el.type === 'foot') { const p = o.children[0]; if (p?.material) p.material.opacity = patch.opacity; }
+      else o.traverse(m => { if (m.material) { m.material.transparent = true; m.material.opacity = patch.opacity; } });
+    }
+    if (patch.color !== undefined && el.type !== 'text' && el.type !== 'foot')
+      o.traverse(m => { if (m.material?.color) m.material.color.set(patch.color); });
+    if (patch.text && o.userData.redraw) o.userData.redraw(patch.text);
+    else if (patch.text && o.userData.plane?.userData.redraw) o.userData.plane.userData.redraw(patch.text);
+  }
+
+  /** 원본 복원 (첫 패치 전 스냅샷으로) */
+  resetElement(stageId, idx) {
+    const o = this.G[stageId]?.children[idx]; const s = o?.userData._orig; if (!s) return;
+    o.position.set(s.px, s.py, s.pz); o.rotation.z = s.rz; o.scale.setScalar(s.s); o.visible = s.visible;
+    if (s.el && (o.userData.redraw || o.userData.plane?.userData.redraw))
+      (o.userData.redraw || o.userData.plane.userData.redraw)(s.el);
+    o.userData._orig = null;
+  }
+
+  /** 요소 추가: spec={kind:'text'|'ring'|'arrow'|'foot', props} → 그룹 끝에 append */
+  createElement(stageId, spec) {
+    const g = this.G[stageId]; if (!g) return null;
+    const wall = this._isWallStage(stageId);
+    const p = spec.props || {};
+    let o = null;
+    if (spec.kind === 'text') {
+      o = wall
+        ? wallText(p.content || '텍스트', p.x ?? 0, p.y ?? 1.2, { size: p.size ?? 0.12, color: p.color || '#ffffff', weight: p.weight ?? 700, family: p.family })
+        : floorText(p.content || '텍스트', p.x ?? 0, p.z ?? -1.8, { size: p.size ?? 0.12, color: p.color || '#ffffff', weight: p.weight ?? 700, family: p.family });
+    } else if (spec.kind === 'ring') {
+      o = wall ? wallRing(p.x ?? 0, p.y ?? 1.2, 0.15, 0.175, p.color || 0xfa3030, 0.9)
+               : floorRing(p.x ?? 0, p.z ?? -1.8, 0.15, 0.175, p.color || 0xfa3030, 0.9);
+    } else if (spec.kind === 'arrow' && !wall) {
+      o = floorArrow(p.x ?? 0, p.z ?? -1.8, p.rot ?? 0, p.color || 0xfe6e3c, 0.4);
+    } else if (spec.kind === 'foot' && !wall) {
+      const fm = new FootMark(p.side || 'left').at(p.x ?? 0, p.z ?? -1.8);
+      fm.op(0.95);
+      o = fm.group;
+    }
+    if (!o) return null;
+    o.userData.addedSpec = spec;
+    g.add(o);
+    this._clip(o, wall);
+    return o;
+  }
+
+  removeElement(stageId, idx) {
+    const g = this.G[stageId]; const o = g?.children[idx]; if (!o) return false;
+    if (!o.userData.addedSpec) { this.patchElement(stageId, idx, { hidden: true }); return false; }   // 내장 요소=숨김
+    g.remove(o);
+    return true;
+  }
+
+  /** 저장된 오버라이드 전체 재적용 (부팅 시) — store={ [stageId]: {patches:{idx:patch}, added:[spec]} } */
+  applySceneStore(store) {
+    if (!store) return;
+    for (const [id, st] of Object.entries(store)) {
+      if (!this.G[id]) continue;
+      for (const spec of st.added || []) this.createElement(id, spec);
+      for (const [idx, patch] of Object.entries(st.patches || {})) this.patchElement(id, Number(idx), patch);
+    }
+  }
   /** 학습자 실력(0~1) — 게이트/다운시프트 구동 (판정 슬라이더와 동기) */
   setSkill(v) { this.skill = v; }
   get skill() { return this._skill ?? 0.7; }
