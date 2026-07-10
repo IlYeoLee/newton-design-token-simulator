@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { WALL_Z } from './scene.js';
 import {
   budgetFromOmega, residualFrac, slowSigmaM, fastSigmaM,
-  leverRatio, gimbalMinDown, gimbalBreakGain,
+  leverRatio, gimbalMinDown, gimbalBreakGain, omegaMaxDps,
 } from './errorModel.js';
 
 // ─────────────────────────────────────────────────────────────
@@ -30,7 +30,10 @@ const FP_SPREAD = 0.27;     // 전방 1m당 반폭 증가량 (수평 확산각 �
 // 보정 ON 잔여 오차는 errorModel.js가 하드웨어 스펙에서 유도한다 (매직상수 제거).
 // 정강이 각속도 ω를 매 프레임 실측해 지연항에 먹이므로, 스탠스/스윙 위상 의존성이
 // 하드코딩이 아니라 물리에서 나온다.
-const OMEGA_TAU = 0.05;   // ω 저역통과 시정수(s) — 프레임 미분 노이즈 억제용
+// ω 저역통과 시정수(s). 접지 구간(~0.2s)보다 충분히 짧아야 한다 —
+// 50ms로 두면 스윙 피크에서 내려오다 못 내려온 채 다시 올라가 접지의 골을
+// 뭉개고, 위상이 영구 '스윙'으로 굳는다(실측: 접지 검출률 7.5%).
+const OMEGA_TAU = 0.02;
 // 합성 사인의 RMS가 σ와 일치하도록 하는 진폭 계수: RMS(a·sin+b·sin)=√((a²+b²)/2)
 const J_A = 1.2288, J_B = 0.7000, J_C = Math.SQRT2;
 
@@ -159,6 +162,9 @@ export class ProjectorRig {
     return FP_HALF_NEAR + FP_SPREAD * Math.max(0, d - this.fpNear);
   }
 
+  /** 팩 되감기 등 포즈가 순간이동하는 시점 — 다음 1샘플을 버려 가짜 ω를 막는다 */
+  resetOmega() { this._shinPrev = null; }
+
   setPack(sport, tokenEvents) {
     this.mode = sport;
     this.initialized = false;
@@ -284,7 +290,11 @@ export class ProjectorRig {
       if (this._shinPrev && dt > 1e-4) {
         const c = Math.max(-1, Math.min(1, this._shinPrev.dot(shinDir)));
         const inst = (Math.acos(c) * 180 / Math.PI) / dt;   // deg/s
-        this.omegaDps += (inst - this.omegaDps) * (1 - Math.exp(-dt / OMEGA_TAU));
+        // 사람이 낼 수 없는 순간 변화 = 클립 랩/전환에 의한 포즈 불연속.
+        // 운동이 아니므로 신호로 받지 않고 직전 ω를 유지한다(가짜 스파이크 차단).
+        if (inst <= omegaMaxDps()) {
+          this.omegaDps += (inst - this.omegaDps) * (1 - Math.exp(-dt / OMEGA_TAU));
+        }
       }
       this._shinPrev = shinDir.clone();
     }

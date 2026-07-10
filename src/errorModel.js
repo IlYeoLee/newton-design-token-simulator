@@ -57,6 +57,9 @@ export const PARAMS = {
   // ── 운동학 그라운드트루스 (실측 데이터셋) ──
   omegaStanceDps: P(44, 'deg/s', '측정: Bandai 런 모캡 정강이 FK 각속도 최소(스탠스 부근)', 'measured'),
   omegaSwingDps: P(480, 'deg/s', '측정: Bandai 런 모캡 정강이 FK 각속도 피크(스윙)', 'measured'),
+  // 물리 상한 — 오차항이 아니라 신호 유효성 게이트. 이보다 큰 순간 변화는
+  // 사람의 움직임일 수 없으므로 클립 랩/전환에 의한 포즈 불연속으로 본다.
+  omegaMaxDps: P(1500, 'deg/s', '문헌: 스프린트 정강이 각속도 상한 대표값(~1200~1500°/s). 초과 = 모션 아님', 'assumed'),
 };
 
 const v = k => PARAMS[k].value;
@@ -130,6 +133,8 @@ export const slowSigmaM = () => Math.hypot(attitudeError(), mountError());
 // 고주파 σ: 투사 픽셀 양자화
 export const fastSigmaM = () => opticalError();
 export const leverRatio = () => v('leverRatio');
+// 신호 유효성 게이트: 이 값을 넘는 순간 ω는 포즈 불연속(클립 랩/전환)이지 운동이 아니다
+export const omegaMaxDps = () => v('omegaMaxDps');
 // 짐벌 포화 문턱: 정강이 하향 성분(-shin.y)이 이 값 밑이면 바닥 조준 상실
 export const gimbalMinDown = () => Math.cos(v('gimbalSteerRangeDeg') * DEG);
 export const gimbalBreakGain = () => v('gimbalBreakGain');

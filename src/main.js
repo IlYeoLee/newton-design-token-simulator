@@ -1138,6 +1138,8 @@ async function boot() {
     if (state.time >= data.duration) {
       state.time %= data.duration;
       tokens.resetLoop();
+      rig.resetOmega();   // 되감기 = 포즈 순간이동. ω 미분을 한 샘플 건너뛴다
+
       renderReport(judge.finishLoop());   // 세션 리포트 (문서 03 루프)
     }
     tokens.update(state.time, h);
@@ -1168,6 +1170,8 @@ async function boot() {
     if (!document.hidden) clock.getDelta();  // 숨김 구간 이중 진행 방지
     bgLast = performance.now();
   });
+
+  if (import.meta.env.DEV) window.__dbg = { rig, xbot, state, session };
 
   function loop() {
     requestAnimationFrame(loop);
