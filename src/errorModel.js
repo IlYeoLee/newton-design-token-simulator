@@ -45,6 +45,11 @@ export const PARAMS = {
   // ── 기하 (ID 렌더에서 추정 — 확정 도면으로 교체) ──
   throwDistanceM: P(0.5, 'm', 'ID 추정: 정강이 중단 퍽 → 지면 발 앞 투사점 사거리', 'assumed'),
   footprintWidthM: P(0.5, 'm', 'ID 추정: 지면 투사 풋프린트 폭', 'assumed'),
+  leverRatio: P(1.8, 'ratio', 'ID 추정: 무릎 퍽의 몸 기준 횡편차 → 지면 투사점 편차 증폭비(사거리/무릎높이 기하). 유도값 아님 — 확정 도면으로 교체', 'assumed'),
+
+  // ── 짐벌 조향 한계 (포화하면 바닥 조준을 잃고 투사가 붕괴) ──
+  gimbalSteerRangeDeg: P(81.4, 'deg', 'ID 추정: 정강이 하향축 기준 짐벌 조향 각범위. 초과 시(킥·큰 스윙) 바닥 조준 상실. 확정 짐벌 스펙으로 교체', 'assumed'),
+  gimbalBreakGain: P(3.5, 'ratio', '포화 후 투사점이 정강이 수평방향으로 붕괴하는 속도(시각화 게인). 유도값 아님', 'assumed'),
 
   // ── 마운트 (커프↔경골 연부조직) ──
   mountWobbleDeg: P(0.8, 'deg', '가정: 경골능(앞정강이) 참조 밴드의 연부조직 유효 회전. 근복 장착 대비 작음. 실측 필요', 'assumed'),
@@ -86,24 +91,48 @@ function opticalError() {
   return v('footprintWidthM') / v('projResolution');   // m (픽셀 1개 크기)
 }
 
-// 위상별 예산 (RSS). phase: 'stance' | 'swing'
-export function computeBudget(phase = 'stance') {
-  const omega = phase === 'swing' ? v('omegaSwingDps') : v('omegaStanceDps');
+// 위상 경계 = 실측 스탠스·스윙 각속도의 기하평균. 임의로 고른 임계값이 아니라
+// 측정된 두 극값 사이의 로그중점 — 위상은 '선언'이 아니라 ω의 결과다.
+export const PHASE_BOUNDARY_DPS = Math.sqrt(v('omegaStanceDps') * v('omegaSwingDps'));
+export const phaseFor = omegaDps => (omegaDps >= PHASE_BOUNDARY_DPS ? 'swing' : 'stance');
+
+// 실측 ω로 계산하는 연속 예산 (RSS). 위상은 라벨일 뿐 입력이 아니다.
+export function budgetFromOmega(omegaDps) {
   const terms = {
     attitude: attitudeError(),
-    latency: latencyError(omega),
+    latency: latencyError(omegaDps),
     range: rangeError(),
     mount: mountError(),
     optical: opticalError(),
   };
   const totalM = Math.hypot(...Object.values(terms));
   return {
-    phase,
-    omegaDps: omega,
+    phase: phaseFor(omegaDps),
+    omegaDps: +omegaDps.toFixed(1),
+    termsM: terms,
     termsCm: Object.fromEntries(Object.entries(terms).map(([k, m]) => [k, +(m * 100).toFixed(2)])),
     totalCm: +(totalM * 100).toFixed(2),
   };
 }
+
+// 위상별 예산 — 실측 각속도 극값을 budgetFromOmega에 먹인 특수 케이스
+export function computeBudget(phase = 'stance') {
+  return budgetFromOmega(phase === 'swing' ? v('omegaSwingDps') : v('omegaStanceDps'));
+}
+
+// ── 런타임(projector.js) 소비 훅 — 매직상수를 대체한다 ──
+// 지연 잔차 크기(m). 방향은 호출부가 실제 무릎 편차에서 가져온다.
+export const latencyErrorM = omegaDps => latencyError(omegaDps);
+// 서보 랙 중 속도 피드포워드가 지우지 못한 나머지 비율 (구 FEEDFWD_LAG)
+export const residualFrac = () => 1 - v('ffCancelFrac');
+// 저주파 wander σ: 자세 추정 잔차 + 커프 연부조직 (보행 주파수대, 바이어스성)
+export const slowSigmaM = () => Math.hypot(attitudeError(), mountError());
+// 고주파 σ: 투사 픽셀 양자화
+export const fastSigmaM = () => opticalError();
+export const leverRatio = () => v('leverRatio');
+// 짐벌 포화 문턱: 정강이 하향 성분(-shin.y)이 이 값 밑이면 바닥 조준 상실
+export const gimbalMinDown = () => Math.cos(v('gimbalSteerRangeDeg') * DEG);
+export const gimbalBreakGain = () => v('gimbalBreakGain');
 
 // 민감도: 한 파라미터를 배수로 흔들 때 total 변화
 export function sensitivity(key, factors = [0.5, 1, 2], phase = 'stance') {

@@ -13,6 +13,7 @@ import { StudioCanvas } from './studio/canvas.js';
 import { StudioProps } from './studio/props.js';
 import { SceneEditor } from './studio/scenes-ui.js';
 import { loadSvg } from './studio/design.js';
+import { initBudgetPanel } from './budgetPanel.js';
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
 
 const BASE = import.meta.env.BASE_URL;
@@ -81,6 +82,10 @@ async function boot() {
   // 흔들림 보정 토글
   const stabBtn = document.getElementById('btn-stab');
   const stabErr = document.getElementById('stab-err');
+  const stabPhase = document.getElementById('stab-phase');
+  const stabOmega = document.getElementById('stab-omega');
+  const stabBudget = document.getElementById('stab-budget');
+  initBudgetPanel();   // 🛡 오차예산·가정 출처 (defensibility)
   stabBtn.addEventListener('click', () => {
     rig.stabilize = !rig.stabilize;
     stabBtn.textContent = rig.stabilize ? '보정 ON' : '보정 OFF';
@@ -1185,6 +1190,15 @@ async function boot() {
       }
     }
     stabErr.textContent = `${rig.errorCm.toFixed(1)}cm`;
+    // 위상은 rig가 정강이 각속도에서 유도한 값 — 여기서 선언하지 않는다
+    if (stabPhase && rig.budget) {
+      const swing = rig.phase === 'swing';
+      stabPhase.textContent = swing ? '스윙' : '착지';
+      stabPhase.style.color = swing ? 'var(--accent)' : 'var(--ok)';
+      stabPhase.style.borderColor = swing ? 'var(--accent)' : 'var(--ok)';
+      stabOmega.textContent = rig.omegaDps.toFixed(0);
+      stabBudget.textContent = rig.budget.totalCm.toFixed(2);
+    }
     if (wearFxEl && session.active && session.curStage?.boost && session.isLive) {
       wearFxEl.style.boxShadow = 'inset 0 0 170px 30px #d1feff';
       wearFxEl.style.opacity = String(0.26 + 0.14 * Math.sin(performance.now() / 280));

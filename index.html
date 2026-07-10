@@ -254,11 +254,17 @@
         <button id="btn-stab" style="padding:7px 14px;border:1px solid var(--ok);border-radius:6px;background:rgba(105,240,174,.12);color:var(--ok);font-size:12px;font-weight:700;cursor:pointer;">보정 ON</button>
         <span style="font-size:11px;color:var(--dim);">투사 오차 <b id="stab-err" style="color:var(--accent);font-variant-numeric:tabular-nums;">0.0cm</b></span>
       </div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:11px;color:var(--dim);">
+        <span id="stab-phase" style="padding:2px 7px;border-radius:4px;border:1px solid var(--line);background:var(--panel2);font-weight:700;">착지</span>
+        <span>정강이 각속도 <b id="stab-omega" style="color:var(--text);font-variant-numeric:tabular-nums;">0</b>°/s</span>
+        <span style="opacity:.6">· 예산 <b id="stab-budget" style="color:var(--text);font-variant-numeric:tabular-nums;">0.00</b>cm</span>
+      </div>
       <p style="font-size:11px;color:var(--dim);line-height:1.6;">
         러닝·농구는 <b style="color:var(--text)">무릎 장착 모듈</b>에서 투사.
         스프링-댐퍼(K<sub>s</sub>=22·K<sub>d</sub>=9)·서보 300°/s 제한.
         OFF 시 무릎 스윙이 UI에 그대로 반영됩니다.
       </p>
+      <button id="btn-budget" style="width:100%;padding:7px 0;margin-top:6px;border:1px solid var(--line);border-radius:6px;background:var(--panel2);color:var(--text);font-size:11px;cursor:pointer;">🛡 오차예산 · 가정과 출처</button>
     </div>
 
     <div class="section">

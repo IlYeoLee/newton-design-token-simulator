@@ -1,5 +1,9 @@
 import * as THREE from 'three';
 import { WALL_Z } from './scene.js';
+import {
+  budgetFromOmega, residualFrac, slowSigmaM, fastSigmaM,
+  leverRatio, gimbalMinDown, gimbalBreakGain,
+} from './errorModel.js';
 
 // ─────────────────────────────────────────────────────────────
 // 투사 리그 — 기존 Stabilizer Simulator에서 이식
@@ -23,9 +27,12 @@ const STATION_POS = new THREE.Vector3(0.55, 0.13, WALL_Z + 0.55);
 const FP_HALF_NEAR = 0.32;
 const FP_SPREAD = 0.27;     // 전방 1m당 반폭 증가량 (수평 확산각 ≈ 30°)
 
-// 보정 ON 잔여 오차 — 실제 HW(IMU 노이즈+지연+칼만 후 잔차)의 실효 2~4cm 표현
-const RESIDUAL_PASS = 0.06;   // 무릎 스윙 통과율
-const FEEDFWD_LAG = 0.15;     // 타겟 전환 시 서보 랙 시각 반영률 (속도 피드포워드 가정)
+// 보정 ON 잔여 오차는 errorModel.js가 하드웨어 스펙에서 유도한다 (매직상수 제거).
+// 정강이 각속도 ω를 매 프레임 실측해 지연항에 먹이므로, 스탠스/스윙 위상 의존성이
+// 하드코딩이 아니라 물리에서 나온다.
+const OMEGA_TAU = 0.05;   // ω 저역통과 시정수(s) — 프레임 미분 노이즈 억제용
+// 합성 사인의 RMS가 σ와 일치하도록 하는 진폭 계수: RMS(a·sin+b·sin)=√((a²+b²)/2)
+const J_A = 1.2288, J_B = 0.7000, J_C = Math.SQRT2;
 
 function beamMesh(color) {
   const m = new THREE.Mesh(
@@ -60,6 +67,10 @@ export class ProjectorRig {
     this.mode = null;
     this.shake = new THREE.Vector2();   // 토큰에 적용할 (dx, dz)
     this.errorCm = 0;                   // HUD용 보정 오차
+    this.omegaDps = 0;                  // 실측 정강이 각속도 (오차모델 지연항 입력)
+    this.phase = 'stance';              // ω에서 유도된 보행 위상 (선언 아님)
+    this.budget = null;                 // 현 프레임 오차예산 (errorModel)
+    this._shinPrev = null;
 
     // 무릎 모듈 하우징 (기존: 빨간 박스)
     this.kneeBox = new THREE.Mesh(
@@ -151,6 +162,8 @@ export class ProjectorRig {
   setPack(sport, tokenEvents) {
     this.mode = sport;
     this.initialized = false;
+    this._shinPrev = null;
+    this.omegaDps = 0;
     this.shake.set(0, 0);
     this.errorCm = 0;
     this.events = tokenEvents;
@@ -264,10 +277,24 @@ export class ProjectorRig {
     const stableLocal = this._stableLocal(now, body);
     const kneeH = Math.max(0.15, kneeModule.y);
 
+    // ── 정강이 각속도 ω 실측 — 오차모델 지연항의 입력 ──
+    // 위상(스탠스/스윙)을 코드가 선언하지 않는다. ω를 재고, 위상은 그 결과로 나온다.
+    const shinDir = this.xbot.getRightShinDir?.();
+    if (shinDir) {
+      if (this._shinPrev && dt > 1e-4) {
+        const c = Math.max(-1, Math.min(1, this._shinPrev.dot(shinDir)));
+        const inst = (Math.acos(c) * 180 / Math.PI) / dt;   // deg/s
+        this.omegaDps += (inst - this.omegaDps) * (1 - Math.exp(-dt / OMEGA_TAU));
+      }
+      this._shinPrev = shinDir.clone();
+    }
+    this.budget = budgetFromOmega(this.omegaDps);
+    this.phase = this.budget.phase;
+
     // 보정 OFF 기준: 무릎 스윙 편차(몸 기준 로컬)가 지렛대 배율로 투사 중심에 전달
     const kneeLocal = { x: kneeModule.x - body.x, z: kneeModule.z - body.z };
     const NEUTRAL = { x: 0.13, z: -0.05 };
-    const LEVER = 1.8;
+    const LEVER = leverRatio();
     const rawLocal = new THREE.Vector3(
       stableLocal.x + (kneeLocal.x - NEUTRAL.x) * LEVER,
       0.01,
@@ -294,14 +321,20 @@ export class ProjectorRig {
       if (this.vel.length() > vMax) this.vel.setLength(vMax);
       this.qStab.addScaledVector(this.vel, dt);
 
-      // 서보 랙(타겟 전환 시) 일부 + 무릎 스윙 잔여 통과 + 고주파 미세 지터
-      const lag = this.qStab.clone().sub(stableLocal).multiplyScalar(FEEDFWD_LAG);
+      // ── 잔여 오차 = 오차모델이 유도한 3항의 합 (매직상수 없음) ──
+      // ① 서보 랙: 속도 피드포워드가 지우지 못한 나머지(1 − ffCancel, 실측 0.67)
+      const lag = this.qStab.clone().sub(stableLocal).multiplyScalar(residualFrac());
+      // ② 지연 잔차: 크기는 ω 의존 지연항(모델), 방향은 실제 무릎 편차
+      const dev = new THREE.Vector3(rawLocal.x - stableLocal.x, 0, rawLocal.z - stableLocal.z);
+      if (dev.lengthSq() > 1e-8) dev.normalize();
+      dev.multiplyScalar(this.budget.termsM.latency);
+      // ③ 지향 잔차: 저주파 wander(자세+커프) + 고주파(광학 양자화).
+      //    σ는 2D 벡터 크기 기준이므로 축당 σ/√2로 나눠 총 RMS가 σ와 같게 한다.
+      const sSlow = slowSigmaM() / Math.SQRT2, sFast = fastSigmaM() / Math.SQRT2;
       const t = performance.now() / 1000;
-      offLocal = new THREE.Vector3(
-        lag.x + (rawLocal.x - stableLocal.x) * RESIDUAL_PASS + Math.sin(t * 7.3) * 0.007 + Math.sin(t * 13.1) * 0.004,
-        0,
-        lag.z + (rawLocal.z - stableLocal.z) * RESIDUAL_PASS + Math.cos(t * 8.7) * 0.007
-      );
+      const jx = (J_A * Math.sin(t * 7.3) + J_B * Math.sin(t * 13.1)) * sSlow + J_C * Math.sin(t * 41.3) * sFast;
+      const jz = J_C * Math.cos(t * 8.7) * sSlow + J_C * Math.cos(t * 37.9) * sFast;
+      offLocal = new THREE.Vector3(lag.x + dev.x + jx, 0, lag.z + dev.z + jz);
     } else {
       offLocal = rawLocal.clone().sub(stableLocal);
       offLocal.y = 0;
@@ -317,12 +350,12 @@ export class ProjectorRig {
     const gimbalBreak = new THREE.Vector3();
     if (shin) {
       const down = -shin.y;                 // 1=완전아래, 0=수평, 음수=위(킥)
-      const GIMBAL_MIN = 0.15;
+      const GIMBAL_MIN = gimbalMinDown();   // = cos(짐벌 조향 각범위)
       if (down < GIMBAL_MIN) {
         const over = (GIMBAL_MIN - down);
         const horiz = new THREE.Vector3(shin.x, 0, shin.z);
         if (horiz.lengthSq() > 1e-4) horiz.normalize();
-        gimbalBreak.copy(horiz).multiplyScalar(over * 3.5);
+        gimbalBreak.copy(horiz).multiplyScalar(over * gimbalBreakGain());
       }
     }
 
