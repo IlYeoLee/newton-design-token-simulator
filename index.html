@@ -284,19 +284,35 @@
     </div>
 
     <!-- NEWTON Studio 저작 캔버스 (좌측 도킹) -->
-    <button id="btn-studio" style="position:absolute;bottom:18px;right:110px;z-index:29;padding:9px 14px;border:1px solid var(--accent);border-radius:8px;background:rgba(250,48,48,.14);color:var(--accent);font-size:12px;font-weight:700;cursor:pointer;">✎ 스튜디오</button>
+    <button id="btn-studio" style="position:absolute;bottom:18px;right:110px;z-index:29;padding:9px 14px;border:1px solid var(--accent);border-radius:8px;background:rgba(250,48,48,.14);color:var(--accent);font-size:12px;font-weight:700;cursor:pointer;">✎ 디자인</button>
     <a href="docs/newton-wireframe.html#tokens" target="_blank" rel="noopener" id="link-wireframe" style="position:absolute;bottom:18px;right:214px;z-index:29;padding:9px 14px;border:1px solid var(--line);border-radius:8px;background:rgba(16,19,24,.9);color:var(--text);font-size:12px;font-weight:700;cursor:pointer;text-decoration:none;">📐 설계 문서</a>
-    <button id="btn-scenes" style="position:absolute;bottom:18px;right:318px;z-index:29;padding:9px 14px;border:1px solid var(--accent);border-radius:8px;background:rgba(250,48,48,.14);color:var(--accent);font-size:12px;font-weight:700;cursor:pointer;">🎬 장면 디자인</button>
     <div id="studio" style="position:absolute;top:0;left:0;bottom:0;width:400px;background:rgba(12,14,18,.98);border-right:1px solid var(--line);z-index:28;display:none;flex-direction:column;">
       <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px 8px;border-bottom:1px solid var(--line);">
-        <b style="font-size:13px;">✎ NEWTON Studio <span style="color:var(--dim);font-weight:400;font-size:11px;">· 러닝 지면</span></b>
+        <b style="font-size:13px;">✎ 디자인 <span style="color:var(--dim);font-weight:400;font-size:11px;">· 러닝 지면</span></b>
         <button id="studio-close" style="border:none;background:none;color:var(--dim);font-size:16px;cursor:pointer;">✕</button>
       </div>
+      <div id="studio-scope" style="display:flex;gap:5px;padding:9px 14px;border-bottom:1px solid var(--line);align-items:center;flex-wrap:wrap;">
+        <button class="stsp active" data-sport="running" style="padding:5px 9px;border:1px solid var(--accent);border-radius:5px;background:rgba(250,48,48,.16);color:var(--accent);font-size:10.5px;cursor:pointer;">러닝</button>
+        <button class="stsp" data-sport="boxing" style="padding:5px 9px;border:1px solid var(--line);border-radius:5px;background:var(--panel2);color:var(--text);font-size:10.5px;cursor:pointer;">복싱</button>
+        <button class="stsp" data-sport="basketball" style="padding:5px 9px;border:1px solid var(--line);border-radius:5px;background:var(--panel2);color:var(--text);font-size:10.5px;cursor:pointer;">농구</button>
+        <span style="width:1px;height:15px;background:var(--line);margin:0 3px;"></span>
+        <button class="stsc active" data-scope="pack" style="padding:5px 10px;border:1px solid var(--accent);border-radius:5px;background:rgba(250,48,48,.16);color:var(--accent);font-size:10.5px;font-weight:700;cursor:pointer;">토큰</button>
+        <button class="stsc" data-scope="scene" style="padding:5px 10px;border:1px solid var(--line);border-radius:5px;background:var(--panel2);color:var(--text);font-size:10.5px;font-weight:700;cursor:pointer;">장면</button>
+        <button id="studio-settings" style="margin-left:auto;padding:5px 9px;border:1px solid var(--line);border-radius:5px;background:var(--panel2);color:var(--dim);font-size:10.5px;cursor:pointer;">⚙ 설정</button>
+      </div>
+      <select id="studio-stage" style="display:none;margin:8px 14px 0;padding:7px;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:6px;font-size:11px;"></select>
       <div id="studio-palette" style="display:flex;gap:6px;padding:10px 14px;border-bottom:1px solid var(--line);flex-wrap:wrap;align-items:center;">
         <button class="stpal active" data-tool="select" style="padding:6px 12px;border:1px solid var(--accent);border-radius:6px;background:rgba(250,48,48,.16);color:var(--accent);font-size:11px;cursor:pointer;">↖ 고르기</button>
         <button class="stpal" data-tool="mark" style="padding:6px 12px;border:1px solid var(--line);border-radius:6px;background:var(--panel2);color:var(--text);font-size:11px;cursor:pointer;">＋ 토큰 넣기</button>
         <button id="studio-lane" style="padding:6px 10px;border:1px solid var(--line);border-radius:6px;background:var(--panel2);color:var(--dim);font-size:11px;cursor:pointer;">레인(선)</button>
         <span style="margin-left:auto;font-size:10px;color:var(--dim);">토큰을 클릭 → 아래에서 편집</span>
+      </div>
+      <div id="studio-scene-palette" style="display:none;gap:6px;padding:10px 14px;border-bottom:1px solid var(--line);flex-wrap:wrap;align-items:center;">
+        <button class="stadd" data-k="text" style="padding:6px 10px;border:1px solid var(--line);border-radius:6px;background:var(--panel2);color:var(--text);font-size:11px;cursor:pointer;">＋𝐓 글자</button>
+        <button class="stadd" data-k="ring" style="padding:6px 10px;border:1px solid var(--line);border-radius:6px;background:var(--panel2);color:var(--text);font-size:11px;cursor:pointer;">＋◎ 링</button>
+        <button class="stadd" data-k="arrow" style="padding:6px 10px;border:1px solid var(--line);border-radius:6px;background:var(--panel2);color:var(--text);font-size:11px;cursor:pointer;">＋➤ 화살표</button>
+        <button class="stadd" data-k="foot" style="padding:6px 10px;border:1px solid var(--line);border-radius:6px;background:var(--panel2);color:var(--text);font-size:11px;cursor:pointer;">＋👣 발</button>
+        <span style="margin-left:auto;font-size:10px;color:var(--dim);">요소를 클릭 → 아래에서 편집</span>
       </div>
       <div style="flex:1;position:relative;min-height:0;">
         <canvas id="studio-canvas" style="position:absolute;inset:0;width:100%;height:100%;"></canvas>
@@ -315,8 +331,7 @@
       </div>
     </div>
 
-    <!-- 토큰 에디터 드로어 -->
-    <button id="btn-editor" style="position:absolute;bottom:18px;right:14px;z-index:29;padding:9px 14px;border:1px solid var(--line);border-radius:8px;background:rgba(16,19,24,.9);color:var(--text);font-size:12px;font-weight:700;cursor:pointer;">🎛 에디터</button>
+    <!-- 전역 설정 드로어 — ✎ 디자인 안의 ⚙ 설정에서 연다 (전역=기본값) -->
     <div id="editor" style="position:absolute;top:0;right:0;bottom:0;width:330px;background:rgba(14,17,22,.97);border-left:1px solid var(--line);z-index:30;display:none;overflow-y:auto;padding:16px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
         <b style="font-size:13px;">🎛 토큰 에디터 — 라이브</b>

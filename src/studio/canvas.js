@@ -19,6 +19,14 @@ export class StudioCanvas {
     this.laneHalf = RUN.LANE_W / 2 + 0.25;
     this.drag = null;
 
+    // ── 장면 레이어 훅 ──
+    // 캔버스는 MARK만 알던 것에서, 스테이지 GUI 요소도 같은 미터 좌표계에
+    // 올려 그리고 집을 수 있게 확장된다. 리스트에서 고르던 걸 클릭으로.
+    this.extras = opts.extras || null;                 // () => [{key,h,v,kind,label,sel}]
+    this.onPickExtra = opts.onPickExtra || (() => {});
+    this.onDragExtra = opts.onDragExtra || (() => {});
+    this.extrasOnly = false;                           // 장면 스코프: MARK 숨김
+
     this._onDown = this._down.bind(this);
     this._onMove = this._move.bind(this);
     this._onUp = this._up.bind(this);
@@ -38,6 +46,28 @@ export class StudioCanvas {
   }
 
   setTool(t) { this.tool = t; this.el.style.cursor = t === 'select' ? 'default' : 'crosshair'; this.onTool(t); }
+
+  /** 숨겨진 채 생성되면 clientW/H=0 → 폴백 크기가 박힌다. 드로어를 연 뒤 한 번 호출.
+   *  ResizeObserver는 렌더링 기회가 있어야 콜백하므로 타이밍에 의존하면 안 된다. */
+  refresh() { this._resize(); this.draw(); }
+
+  /** 장면 스코프 전환 — MARK 대신 스테이지 요소를 그리고 집는다 */
+  setExtrasOnly(v) { this.extrasOnly = !!v; if (v) this.setTool('select'); this.draw(); }
+  _extras() { return (this.extrasOnly && this.extras) ? (this.extras() || []) : []; }
+  /** 스테이지 요소는 그룹 원점이 겹치는 경우가 흔하다(예: 발 2개+아크가 모두 z=-1.9).
+   *  가장 가까운 하나만 주면 나머지는 영영 선택할 수 없다 → 클릭할 때마다 순환. */
+  _hitExtra(px, py) {
+    const near = [];
+    for (const it of this._extras()) {
+      const [gx, gy] = this.worldToPx(it.h, it.v);
+      const d = Math.hypot(px - gx, py - gy);
+      if (d < HIT_PX) near.push({ it, d });
+    }
+    if (!near.length) return null;
+    near.sort((a, b) => a.d - b.d);
+    const cur = near.findIndex(o => o.it.sel);
+    return near[(cur + 1) % near.length].it;
+  }
 
   // ── 종목별 좌표: H(mk)/V(mk) = 캔버스 가로/세로(m) ──
   _map() { return mapFor(this.doc.sport); }
@@ -76,7 +106,8 @@ export class StudioCanvas {
     const M = this._map();
     if (M?.vMax) return M.vMax;
     let m = M ? 3 : 5;
-    for (const mk of this.doc.marks) m = Math.max(m, this._V(mk));
+    if (!this.extrasOnly) for (const mk of this.doc.marks) m = Math.max(m, this._V(mk));
+    for (const it of this._extras()) m = Math.max(m, it.v);
     return Math.ceil((m + 1.2) / 0.5) * 0.5;
   }
 
@@ -122,6 +153,13 @@ export class StudioCanvas {
   _down(e) {
     const [px, py] = this._evPx(e);
     if (px < PAD.l - 8 || px > this.W - PAD.r + 8) return;
+    if (this.extrasOnly) {
+      const it = this._hitExtra(px, py);
+      this.onPickExtra(it ? it.key : null);
+      if (it) this.drag = { extra: it.key };
+      try { this.el.setPointerCapture?.(e.pointerId); } catch {}
+      return;
+    }
     if (this.tool === 'mark') {
       const [hx, vy] = this.pxToWorld(px, py);
       const id = this._applyPos(null, hx, vy, true);
@@ -140,13 +178,20 @@ export class StudioCanvas {
     if (!this.drag) return;
     const [px, py] = this._evPx(e);
     const [hx, vy] = this.pxToWorld(px, py);
+    if (this.drag.extra !== undefined) { this.onDragExtra(this.drag.extra, hx, vy); this.draw(); return; }
     this._applyPos(this.drag.id, hx, vy);
     this.onEdit();
   }
 
-  _up() { if (this.drag) { this.drag = null; this.onEdit(); } }
+  _up() {
+    if (!this.drag) return;
+    const wasExtra = this.drag.extra !== undefined;   // 장면 요소는 팩 리빌드 대상이 아님
+    this.drag = null;
+    if (!wasExtra) this.onEdit();
+  }
 
   _key(e) {
+    if (this.extrasOnly) return;
     if (!this.doc.selection) return;
     if (e.key === 'Delete' || e.key === 'Backspace') {
       e.preventDefault();
@@ -197,8 +242,8 @@ export class StudioCanvas {
     ctx.textAlign = 'center'; ctx.fillStyle = '#8b93a3';
     ctx.fillText(SM?.origin || '러너', rx, ry + 12);
 
-    // 순서 연결선 (order 채널이 달린 마크만)
-    const ordered = this.doc.marks.filter(m => m.order).sort((a, b) => a.t - b.t);
+    // 순서 연결선 (order 채널이 달린 마크만) — 장면 스코프에선 MARK가 없으므로 생략
+    const ordered = this.extrasOnly ? [] : this.doc.marks.filter(m => m.order).sort((a, b) => a.t - b.t);
     if (ordered.length >= 2) {
       ctx.strokeStyle = 'rgba(250,48,48,0.22)'; ctx.lineWidth = 1.5; ctx.beginPath();
       ordered.forEach((m, i) => {
@@ -206,6 +251,47 @@ export class StudioCanvas {
         i ? ctx.lineTo(gx, gy) : ctx.moveTo(gx, gy);
       });
       ctx.stroke();
+    }
+
+    // 장면 요소 (스테이지 GUI) — MARK와 같은 미터 좌표계 위에
+    if (this.extrasOnly) {
+      const all = this._extras();
+      // 겹친 요소 수 집계 → 배지로 노출(안 보이면 있는 줄도 모른다)
+      const stack = new Map();
+      for (const it of all) {
+        const [gx, gy] = this.worldToPx(it.h, it.v);
+        const k = `${Math.round(gx)},${Math.round(gy)}`;
+        stack.set(k, (stack.get(k) || 0) + 1);
+      }
+      // 선택된 요소를 마지막에 그려 위로 올린다
+      for (const it of [...all].sort((a, b) => (a.sel ? 1 : 0) - (b.sel ? 1 : 0))) {
+        const [gx, gy] = this.worldToPx(it.h, it.v);
+        const s = it.sel;
+        ctx.fillStyle = s ? 'rgba(209,254,255,0.16)' : 'rgba(254,195,137,0.10)';
+        ctx.strokeStyle = s ? '#d1feff' : '#fec389';
+        ctx.lineWidth = s ? 2.5 : 1.5;
+        ctx.beginPath(); ctx.roundRect(gx - 13, gy - 13, 26, 26, 6); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = s ? '#d1feff' : '#fec389';
+        ctx.font = '12px -apple-system, sans-serif';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(it.glyph || '◆', gx, gy);
+        if (it.label) {
+          ctx.fillStyle = s ? '#e8eaf0' : '#8b93a3';
+          ctx.font = '9px -apple-system, sans-serif';
+          ctx.fillText(it.label.slice(0, 12), gx, gy + 22);
+        }
+        const n = stack.get(`${Math.round(gx)},${Math.round(gy)}`) || 1;
+        if (n > 1) {   // 겹침 — 클릭하면 순환 선택된다는 신호
+          ctx.beginPath(); ctx.arc(gx + 13, gy - 13, 7, 0, Math.PI * 2);
+          ctx.fillStyle = '#fa3030'; ctx.fill();
+          ctx.fillStyle = '#fff'; ctx.font = '700 9px -apple-system, sans-serif';
+          ctx.fillText(String(n), gx + 13, gy - 13);
+        }
+      }
+      ctx.fillStyle = '#6b7180'; ctx.font = '10px -apple-system, sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+      ctx.fillText(SM?.hLabel || '← 레인(m) →', (PAD.l + W - PAD.r) / 2, H - 6);
+      return;
     }
 
     // MARK

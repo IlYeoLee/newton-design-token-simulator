@@ -615,11 +615,18 @@ export class Session {
   patchElement(stageId, idx, patch) {
     const g = this.G[stageId]; const o = g?.children[idx]; if (!o) return;
     const el = o.userData.el || {};
-    if (!o.userData._orig) o.userData._orig = {
-      px: o.position.x, py: o.position.y, pz: o.position.z,
-      rz: o.rotation.z, s: o.scale.x, visible: o.visible,
-      el: el.type === 'text' ? { ...el } : null,
-    };
+    if (!o.userData._orig) {
+      // 재질 스냅샷 — 이게 없으면 '색·투명도 되돌리기'가 성립하지 않는다.
+      // 첫 패치 시점에 잡으므로 applySceneStore(부팅 복원)보다 먼저 = 원본 그대로.
+      const mats = [];
+      o.traverse(m => { if (m.material) mats.push({ m, c: m.material.color?.getHex(), op: m.material.opacity, tr: m.material.transparent }); });
+      o.userData._orig = {
+        px: o.position.x, py: o.position.y, pz: o.position.z,
+        rz: o.rotation.z, s: o.scale.x, visible: o.visible,
+        el: el.type === 'text' ? { ...el } : null,
+        mats,
+      };
+    }
     const wall = !!el.wall || this._isWallStage(stageId);
     if (patch.x !== undefined) o.position.x = patch.x;
     if (wall) { if (patch.y !== undefined) o.position.y = patch.y; }
@@ -641,6 +648,11 @@ export class Session {
   resetElement(stageId, idx) {
     const o = this.G[stageId]?.children[idx]; const s = o?.userData._orig; if (!s) return;
     o.position.set(s.px, s.py, s.pz); o.rotation.z = s.rz; o.scale.setScalar(s.s); o.visible = s.visible;
+    for (const r of s.mats || []) {
+      if (r.c !== undefined) r.m.material.color?.setHex(r.c);
+      r.m.material.opacity = r.op;
+      r.m.material.transparent = r.tr;
+    }
     if (s.el && (o.userData.redraw || o.userData.plane?.userData.redraw))
       (o.userData.redraw || o.userData.plane.userData.redraw)(s.el);
     o.userData._orig = null;
