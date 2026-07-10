@@ -4,7 +4,7 @@
 //   단일 MARK 배치/선택/드래그/삭제. 계약(도달·회피·유지)·반경(판정창)·
 //   순서/방향 채널을 그대로 반영해 그린다. 세부 편집은 속성 패널(props.js).
 // ─────────────────────────────────────────────────────────────
-import { RUN, runMap } from './doc.js';
+import { RUN, runMap, mapFor } from './doc.js';
 
 const PAD = { l: 46, r: 16, t: 16, b: 26 };
 const HIT_PX = 20;
@@ -39,6 +39,30 @@ export class StudioCanvas {
 
   setTool(t) { this.tool = t; this.el.style.cursor = t === 'select' ? 'default' : 'crosshair'; this.onTool(t); }
 
+  // ── 종목별 좌표: H(mk)/V(mk) = 캔버스 가로/세로(m) ──
+  _map() { return mapFor(this.doc.sport); }
+  _H(mk) { const M = this._map(); return M ? M.H(mk) : runMap.nxToLane(mk.nx); }
+  _V(mk) { const M = this._map(); return M ? M.V(mk) : runMap.tToDepth(mk.t); }
+  _hHalf() { const M = this._map(); return M ? M.hHalf : this.laneHalf; }
+  _applyPos(id, hx, vy, isAdd = false) {
+    const M = this._map();
+    if (!M) {
+      const laneX = Math.max(-this.laneHalf, Math.min(this.laneHalf, hx));
+      if (isAdd) return this.doc.addMark(runMap.laneToNx(laneX), runMap.depthToT(Math.max(0, vy)));
+      this.doc.move(id, runMap.laneToNx(laneX), runMap.depthToT(Math.max(0, vy)));
+      return id;
+    }
+    const { nx, ny } = M.fromPx(Math.max(-M.hHalf, Math.min(M.hHalf, hx)), vy);
+    if (isAdd) {
+      let maxT = 0; for (const m of this.doc.marks) maxT = Math.max(maxT, m.t);
+      const newId = this.doc.addMark(nx, maxT + 0.6);
+      this.doc.moveXY(newId, nx, ny);
+      return newId;
+    }
+    this.doc.moveXY(id, nx, ny);
+    return id;
+  }
+
   destroy() {
     this.el.removeEventListener('pointerdown', this._onDown);
     window.removeEventListener('pointermove', this._onMove);
@@ -49,8 +73,10 @@ export class StudioCanvas {
   }
 
   _depthMax() {
-    let m = 5;
-    for (const mk of this.doc.marks) m = Math.max(m, runMap.tToDepth(mk.t));
+    const M = this._map();
+    if (M?.vMax) return M.vMax;
+    let m = M ? 3 : 5;
+    for (const mk of this.doc.marks) m = Math.max(m, this._V(mk));
     return Math.ceil((m + 1.2) / 0.5) * 0.5;
   }
 
@@ -64,25 +90,27 @@ export class StudioCanvas {
     this.W = w; this.H = h;
   }
 
-  _pxPerM() { return (this.W - PAD.l - PAD.r) / (2 * this.laneHalf); }
+  _pxPerM() { return (this.W - PAD.l - PAD.r) / (2 * this._hHalf()); }
 
   worldToPx(laneX, depth) {
+    const hh = this._hHalf(), v0 = this._map()?.vMin ?? 0;
     const iw = this.W - PAD.l - PAD.r, ih = this.H - PAD.t - PAD.b;
-    const px = PAD.l + ((laneX + this.laneHalf) / (2 * this.laneHalf)) * iw;
-    const py = PAD.t + ih - (depth / this._dMax) * ih;
+    const px = PAD.l + ((laneX + hh) / (2 * hh)) * iw;
+    const py = PAD.t + ih - ((depth - v0) / (this._dMax - v0)) * ih;
     return [px, py];
   }
   pxToWorld(px, py) {
+    const hh = this._hHalf(), v0 = this._map()?.vMin ?? 0;
     const iw = this.W - PAD.l - PAD.r, ih = this.H - PAD.t - PAD.b;
-    const laneX = ((px - PAD.l) / iw) * (2 * this.laneHalf) - this.laneHalf;
-    const depth = (1 - (py - PAD.t) / ih) * this._dMax;
+    const laneX = ((px - PAD.l) / iw) * (2 * hh) - hh;
+    const depth = v0 + (1 - (py - PAD.t) / ih) * (this._dMax - v0);
     return [laneX, depth];
   }
 
   _hit(px, py) {
     let best = null, bd = HIT_PX;
     for (const mk of this.doc.marks) {
-      const [gx, gy] = this.worldToPx(runMap.nxToLane(mk.nx), runMap.tToDepth(mk.t));
+      const [gx, gy] = this.worldToPx(this._H(mk), this._V(mk));
       const d = Math.hypot(px - gx, py - gy);
       if (d < bd) { bd = d; best = mk; }
     }
@@ -95,9 +123,8 @@ export class StudioCanvas {
     const [px, py] = this._evPx(e);
     if (px < PAD.l - 8 || px > this.W - PAD.r + 8) return;
     if (this.tool === 'mark') {
-      let [laneX, depth] = this.pxToWorld(px, py);
-      laneX = Math.max(-this.laneHalf, Math.min(this.laneHalf, laneX));
-      const id = this.doc.addMark(runMap.laneToNx(laneX), runMap.depthToT(Math.max(0, depth)));
+      const [hx, vy] = this.pxToWorld(px, py);
+      const id = this._applyPos(null, hx, vy, true);
       this.drag = { id };
       this.setTool('select');                // 배치 즉시 선택 모드 — 이어서 조정/드래그
       this.onEdit();
@@ -106,15 +133,14 @@ export class StudioCanvas {
       this.doc.select(mk ? mk.id : null);
       if (mk) this.drag = { id: mk.id };
     }
-    this.el.setPointerCapture?.(e.pointerId);
+    try { this.el.setPointerCapture?.(e.pointerId); } catch {}
   }
 
   _move(e) {
     if (!this.drag) return;
     const [px, py] = this._evPx(e);
-    let [laneX, depth] = this.pxToWorld(px, py);
-    laneX = Math.max(-this.laneHalf, Math.min(this.laneHalf, laneX));
-    this.doc.move(this.drag.id, runMap.laneToNx(laneX), runMap.depthToT(Math.max(0, depth)));
+    const [hx, vy] = this.pxToWorld(px, py);
+    this._applyPos(this.drag.id, hx, vy);
     this.onEdit();
   }
 
@@ -138,42 +164,45 @@ export class StudioCanvas {
     ctx.fillStyle = '#0f1116';
     ctx.fillRect(PAD.l, PAD.t, W - PAD.l - PAD.r, H - PAD.t - PAD.b);
 
-    // 레인 경계 + 중앙 대시
-    const half = RUN.LANE_W / 2;
-    ctx.strokeStyle = 'rgba(250,48,48,0.35)'; ctx.lineWidth = 2;
-    for (const lx of [-half, half]) {
-      const [lpx] = this.worldToPx(lx, 0);
-      ctx.beginPath(); ctx.moveTo(lpx, PAD.t); ctx.lineTo(lpx, H - PAD.b); ctx.stroke();
+    // 레인 경계 + 중앙 대시 (러닝 전용)
+    const SM = this._map();
+    if (!SM) {
+      const half = RUN.LANE_W / 2;
+      ctx.strokeStyle = 'rgba(250,48,48,0.35)'; ctx.lineWidth = 2;
+      for (const lx of [-half, half]) {
+        const [lpx] = this.worldToPx(lx, 0);
+        ctx.beginPath(); ctx.moveTo(lpx, PAD.t); ctx.lineTo(lpx, H - PAD.b); ctx.stroke();
+      }
+      const [cpx] = this.worldToPx(0, 0);
+      ctx.strokeStyle = this.doc.laneOn ? 'rgba(250,48,48,0.3)' : 'rgba(120,120,130,0.18)';
+      ctx.setLineDash([6, 9]);
+      ctx.beginPath(); ctx.moveTo(cpx, PAD.t); ctx.lineTo(cpx, H - PAD.b); ctx.stroke();
+      ctx.setLineDash([]);
     }
-    const [cpx] = this.worldToPx(0, 0);
-    ctx.strokeStyle = this.doc.laneOn ? 'rgba(250,48,48,0.3)' : 'rgba(120,120,130,0.18)';
-    ctx.setLineDash([6, 9]);
-    ctx.beginPath(); ctx.moveTo(cpx, PAD.t); ctx.lineTo(cpx, H - PAD.b); ctx.stroke();
-    ctx.setLineDash([]);
 
     // 깊이 그리드 + 라벨
     ctx.fillStyle = '#6b7180'; ctx.font = '10px -apple-system, sans-serif';
     ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
     ctx.strokeStyle = 'rgba(255,255,255,0.05)'; ctx.lineWidth = 1;
-    for (let d = 0; d <= this._dMax; d += 1) {
+    for (let d = Math.ceil(SM?.vMin ?? 0); d <= this._dMax; d += 1) {
       const [, gy] = this.worldToPx(0, d);
       ctx.beginPath(); ctx.moveTo(PAD.l, gy); ctx.lineTo(W - PAD.r, gy); ctx.stroke();
       ctx.fillText(`${d}m`, PAD.l - 6, gy);
     }
 
-    // 러너 시작점
-    const [rx, ry] = this.worldToPx(0, 0);
+    // 기준점 (러너 / 플레이어 / 가드 높이)
+    const [rx, ry] = this.worldToPx(0, SM?.wall ? 0.73 : 0);
     ctx.fillStyle = 'rgba(232,234,240,0.6)';
     ctx.beginPath(); ctx.arc(rx, ry, 5, 0, Math.PI * 2); ctx.fill();
     ctx.textAlign = 'center'; ctx.fillStyle = '#8b93a3';
-    ctx.fillText('러너', rx, ry + 12);
+    ctx.fillText(SM?.origin || '러너', rx, ry + 12);
 
     // 순서 연결선 (order 채널이 달린 마크만)
     const ordered = this.doc.marks.filter(m => m.order).sort((a, b) => a.t - b.t);
     if (ordered.length >= 2) {
       ctx.strokeStyle = 'rgba(250,48,48,0.22)'; ctx.lineWidth = 1.5; ctx.beginPath();
       ordered.forEach((m, i) => {
-        const [gx, gy] = this.worldToPx(runMap.nxToLane(m.nx), runMap.tToDepth(m.t));
+        const [gx, gy] = this.worldToPx(this._H(m), this._V(m));
         i ? ctx.lineTo(gx, gy) : ctx.moveTo(gx, gy);
       });
       ctx.stroke();
@@ -182,7 +211,7 @@ export class StudioCanvas {
     // MARK
     const pxM = this._pxPerM();
     for (const mk of this.doc.marks) {
-      const [gx, gy] = this.worldToPx(runMap.nxToLane(mk.nx), runMap.tToDepth(mk.t));
+      const [gx, gy] = this.worldToPx(this._H(mk), this._V(mk));
       const sel = mk.id === this.doc.selection;
       const rZone = Math.max(10, Math.min(48, (mk.radiusCm / 100) * pxM));  // 판정 허용창(반경)
       const col = mk.contract === 'avoid' ? '#fec389' : '#fa3030';
@@ -221,6 +250,6 @@ export class StudioCanvas {
 
     ctx.fillStyle = '#6b7180'; ctx.font = '10px -apple-system, sans-serif';
     ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
-    ctx.fillText('← 레인(m) →', (PAD.l + W - PAD.r) / 2, H - 6);
+    ctx.fillText(SM?.hLabel || '← 레인(m) →', (PAD.l + W - PAD.r) / 2, H - 6);
   }
 }

@@ -45,6 +45,21 @@ export const DIRECTION_TYPES = [
 ];
 export const DEFAULT_RADIUS_CM = 17;
 
+// 종목별 저작 좌표 매핑 — 캔버스 가로/세로(m) ↔ 정규화 nx/ny. running은 runMap(시간축).
+export function mapFor(sport) {
+  if (sport === 'basketball') return {
+    H: m => m.nx * 5, V: m => -m.ny * 5,
+    fromPx: (hx, vy) => ({ nx: hx / 5, ny: -vy / 5 }),
+    hHalf: 3.0, vMin: -1, hLabel: '← 코트 가로(m) →', origin: '플레이어',
+  };
+  if (sport === 'boxing') return {
+    H: m => m.nx * 2.2, V: m => 0.73 + m.ny * 1.2,
+    fromPx: (hx, vy) => ({ nx: hx / 2.2, ny: (vy - 0.73) / 1.2 }),
+    hHalf: 1.5, vMax: 2.4, vMin: 0, wall: true, hLabel: '← 벽 가로(m) →', origin: '가드 높이',
+  };
+  return null;   // running = runMap
+}
+
 let _uid = 1;
 const nextId = () => 'm' + _uid++;
 
@@ -124,6 +139,7 @@ export class StudioDoc {
           contract: tk.contract || 'reach',
           radiusCm: tk.radiusCm || DEFAULT_RADIUS_CM,
           holdRing: !!tk.holdRing,
+          lifetime: tk.lifetime,
           order: false, n: null,
           direction: null,
           design: tk.design ? { ...tk.design, _img: null } : null,   // 비주얼 디자인 스펙
@@ -159,7 +175,7 @@ export class StudioDoc {
     this._snap();
     const foot = opts.foot !== undefined ? opts.foot : (nx < 0 ? 'left' : 'right');  // 레인 쪽=발형 스킨
     const m = {
-      id: nextId(), surface: 'floor', foot,
+      id: nextId(), surface: this.sport === 'boxing' ? 'wall' : 'floor', foot,
       nx, ny: 0, t: Math.max(0, t),
       contract: 'reach', radiusCm: DEFAULT_RADIUS_CM, holdRing: false,
       order: this.sport === 'running', n: null, direction: null, design: null,
@@ -181,6 +197,7 @@ export class StudioDoc {
     this.emit('update');
   }
   move(id, nx, t) { this.update(id, { nx, t }); }
+  moveXY(id, nx, ny) { this.update(id, { nx, ny }); }
 
   remove(id) {
     this._snap();
@@ -211,7 +228,7 @@ export class StudioDoc {
     const out = [];
     if (this.laneOn) out.push({ t: 0, type: 'pathLane', nx: 0, ny: 0, lifetime: dur });
     for (const m of this.marks) {
-      const life = RUN.STEP_LIFETIME;
+      const life = m.lifetime || RUN.STEP_LIFETIME;
       out.push({
         t: m.t, type: m.surface === 'wall' ? 'targetMark' : 'stepMark',
         foot: m.foot, nx: m.nx, ny: m.ny ?? 0, lifetime: life,
@@ -223,6 +240,7 @@ export class StudioDoc {
         out.push({ t: m.t, type: 'directionGuide', nx: m.nx, ny: m.ny ?? 0, angle: m.direction.angle || 0, dirType: m.direction.type, tip: m.direction.tip || 'triangle', lifetime: life });
     }
     out.sort((a, b) => a.t - b.t);
-    return { ...this.base, sport: this.sport, duration: dur, hasWall: false, tokens: out, _authored: true };
+    const hasWall = this.sport === 'boxing' ? true : !!this.base.hasWall && this.sport !== 'running';
+    return { ...this.base, sport: this.sport, duration: dur, hasWall, tokens: out, _authored: true };
   }
 }

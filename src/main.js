@@ -109,20 +109,26 @@ async function boot() {
     xbot.load(),
   ]);
   for (const [k, v] of packEntries) state.packs[k] = v;
-  const ORIGINAL_RUNNING = structuredClone(state.packs.running);  // Studio 원본 복원용
+  const ORIGINAL_PACKS = {
+    running: structuredClone(state.packs.running),
+    boxing: structuredClone(state.packs.boxing),
+    basketball: structuredClone(state.packs.basketball),
+  };  // Studio 원본 복원용
 
   // 스튜디오 편집 자동 복원 — 새로고침/탭 닫기 후에도 유지 (localStorage)
-  const STUDIO_KEY = 'newton_studio_running';
-  try {
-    const saved = localStorage.getItem(STUDIO_KEY);
-    if (saved) {
-      const p = JSON.parse(saved);
-      await Promise.all((p.tokens || []).filter(t => t.design?.svgUrl).map(t => loadSvg(t.design)));  // svg 동기 렌더 대비
-      state.packs.running = p;
-    }
-  } catch (e) { console.warn('[studio restore]', e); }
-  function saveStudio(pack) {
-    try { localStorage.setItem(STUDIO_KEY, JSON.stringify(pack, (k, v) => k === '_img' ? undefined : v)); } catch (e) {}
+  const STUDIO_KEY = (sport) => sport === 'running' ? 'newton_studio_running' : `newton_studio_${sport}`;
+  for (const sp of ['running', 'boxing', 'basketball']) {
+    try {
+      const saved = localStorage.getItem(STUDIO_KEY(sp));
+      if (saved) {
+        const p = JSON.parse(saved);
+        await Promise.all((p.tokens || []).filter(t => t.design?.svgUrl).map(t => loadSvg(t.design)));  // svg 동기 렌더 대비
+        state.packs[sp] = p;
+      }
+    } catch (e) { console.warn('[studio restore]', sp, e); }
+  }
+  function saveStudio(sport, pack) {
+    try { localStorage.setItem(STUDIO_KEY(sport), JSON.stringify(pack, (k, v) => k === '_img' ? undefined : v)); } catch (e) {}
   }
 
   ghost.setData(posePayload);
@@ -781,40 +787,50 @@ async function boot() {
   const studioCanvasEl = document.getElementById('studio-canvas');
 
   // 편집 팩을 러닝 파이프라인에 재적용 (시간 연속성 유지 — switchPack 대비 경량)
-  function rebuildRunning(pack) {
-    state.packs.running = pack;
+  let studioSport = 'running';
+  function rebuildPack(sport, pack) {
+    state.packs[sport] = pack;
     tokens.setPack(pack);
     xbot.setPack(pack, tokens.events);
-    rig.setPack('running', tokens.events);
+    rig.setPack(sport, tokens.events);
     tokens.footprintTest = (x, z, inset) => rig.contains(x, z, inset);
     effects.clip = (x, z) => rig.contains(x, z);
-    judge.setPack(tokens.events, 'running');
+    judge.setPack(tokens.events, sport);
     tokens.resetLoop();
     panel.setPack(pack, tokens.events);
     lastBodyZ = xbot.group.position.z;
-    saveStudio(pack);   // 편집 자동 저장 (새로고침해도 유지)
+    saveStudio(sport, pack);   // 편집 자동 저장 (새로고침해도 유지)
   }
   function scheduleStudioRebuild() {
     clearTimeout(studioRebuildTimer);
-    studioRebuildTimer = setTimeout(() => { if (studioDoc) rebuildRunning(studioDoc.toPack()); }, 110);
+    studioRebuildTimer = setTimeout(() => { if (studioDoc) rebuildPack(studioSport, studioDoc.toPack()); }, 110);
   }
 
   function studioTopView() {
-    // 3/4 버드아이 — 좌측 스튜디오 패널을 피해 트랙이 우측 3D에 또렷이 들어오게.
-    camera.position.set(-4.4, 3.4, 3.6);
-    controls.target.set(0.8, 0, -2.6);
+    if (studioSport === 'boxing') {
+      // 벽면 정면 뷰
+      camera.position.set(0.9, 1.5, 2.2);
+      controls.target.set(0, 1.1, -2.6);
+    } else {
+      // 3/4 버드아이 — 좌측 스튜디오 패널을 피해 트랙이 우측 3D에 또렷이 들어오게.
+      camera.position.set(-4.4, 3.4, 3.6);
+      controls.target.set(0.8, 0, -2.6);
+    }
     controls.update();
   }
 
   function enterStudio() {
     if (studioActive) return;
-    if (state.pack !== 'running') switchPack('running');
+    studioSport = ['running', 'boxing', 'basketball'].includes(state.pack) ? state.pack : 'running';
+    if (state.pack !== studioSport) switchPack(studioSport);
     studioActive = true;
     studioPlayingWas = state.playing;
     state.playing = false; panel.setPlaying(false);
     tokens.layoutPreview = true;               // 지면 토큰 상시 표시(시간·풋프린트 무관)
     tokens.setParams({ maxVisible: 99 });
-    studioDoc = new StudioDoc(state.packs.running);
+    const stLabel = document.querySelector('#studio b span');
+    if (stLabel) stLabel.textContent = '· ' + ({ running: '러닝 지면', boxing: '복싱 벽면', basketball: '농구 코트' })[studioSport];
+    studioDoc = new StudioDoc(state.packs[studioSport]);
     studioCanvas = new StudioCanvas(studioCanvasEl, studioDoc, {
       onEdit: scheduleStudioRebuild,
       onTool: t => setStudioToolUI(t),         // 배치 후 자동 선택복귀 시 팔레트 동기화
@@ -822,12 +838,12 @@ async function boot() {
     });
     studioProps = new StudioProps(document.getElementById('studio-props'), studioDoc, {
       onEdit: scheduleStudioRebuild,
-      onPreviewBurst: (mark) => { rebuildRunning(studioDoc.toPack()); tokens.studioBurst(mark); },
+      onPreviewBurst: (mark) => { rebuildPack(studioSport, studioDoc.toPack()); tokens.studioBurst(mark); },
     });
     // 안내 팁: 토큰을 처음 고르면 사라짐
     const tipEl = document.getElementById('studio-tip');
     if (tipEl) { tipEl.style.display = 'block'; studioDoc.onChange(d => { tipEl.style.display = d.selection ? 'none' : 'block'; }); }
-    rebuildRunning(studioDoc.toPack());        // layoutPreview 반영 리빌드(클리핑 해제)
+    rebuildPack(studioSport, studioDoc.toPack());        // layoutPreview 반영 리빌드(클리핑 해제)
     studioEl.style.display = 'flex';
     // 저작 포커스 모드: 좌측 컨트롤 패널 숨김 → 3D 프리뷰에 공간 확보 (캔버스 | 3D 스플릿)
     document.getElementById('panel').style.display = 'none';
@@ -844,7 +860,7 @@ async function boot() {
     studioEl.style.display = 'none';
     document.getElementById('panel').style.display = 'flex';
     resize();
-    switchPack('running');                     // 클리핑·카메라·시간 정상 복원
+    switchPack(studioSport);                   // 클리핑·카메라·시간 정상 복원
     state.playing = studioPlayingWas; panel.setPlaying(studioPlayingWas);
   }
   document.getElementById('btn-studio')?.addEventListener('click', () => studioActive ? exitStudio() : enterStudio());
@@ -893,7 +909,7 @@ async function boot() {
   document.getElementById('studio-reset')?.addEventListener('click', () => {
     if (!studioDoc) return;
     studioDoc._snap();
-    studioDoc.load(structuredClone(ORIGINAL_RUNNING), true);
+    studioDoc.load(structuredClone(ORIGINAL_PACKS[studioSport] || ORIGINAL_PACKS.running), true);
     scheduleStudioRebuild();
   });
   // 편집 결과 팩 JSON 복사
