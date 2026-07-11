@@ -36,8 +36,8 @@ export class Panel {
     this.tlCanvas = document.getElementById('timeline');
     this.tlCtx = this.tlCanvas.getContext('2d');
 
-    // 팩 탭
-    document.querySelectorAll('#pack-tabs button').forEach(btn => {
+    // 팩 탭 — data-pack 있는 버튼만 (⭐커리 등 변형 토글은 main.js가 직접 처리)
+    document.querySelectorAll('#pack-tabs button[data-pack]').forEach(btn => {
       btn.addEventListener('click', () => {
         document.querySelectorAll('#pack-tabs button').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
