@@ -44,7 +44,7 @@ const state = {
 
 async function boot() {
   const stage = document.getElementById('stage');
-  const { renderer, scene, camera, controls, setPackEnvironment, resize } = createScene(stage);
+  const { renderer, scene, camera, controls, setPackEnvironment, resize, renderFrame } = createScene(stage);
 
   let sessionSkillSink = null;   // 슬라이더가 session 생성 전 초기 apply 시 TDZ 회피
   let refreshEditorStages = null; // switchPack → 에디터 스테이지 편집기 갱신 훅
@@ -1491,7 +1491,7 @@ async function boot() {
     // 1인칭에서만 OrbitControls 스킵 — 세션 3인칭에선 자유 회전 허용
     if (!fpMode) controls.update();
     renderGhostLayer();
-    renderer.render(scene, camera);
+    renderFrame(clock.elapsedTime);   // 블룸 + 그레인·비네트 컴포저 (scene.js FX)
   }
   loop();
 }

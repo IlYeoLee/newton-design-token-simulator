@@ -1,5 +1,46 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
+import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
+import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
+
+// 화면 룩 파라미터 — FX Lab에서 확정한 값이 기본, 프로 편집 모드가 라이브 조절
+export const FX = {
+  bloomThreshold: 0.55,
+  bloomStrength: 0.55,
+  bloomRadius: 0.6,
+  grain: 0.035,
+  vignette: 0.16,
+  exposure: 1.0,
+};
+
+// FilmPass 대체 — 가벼운 그레인+비네트+노출 (톤 왜곡 없음), 디더로 밴딩 제거
+const GrainVignetteShader = {
+  uniforms: {
+    tDiffuse: { value: null },
+    uGrain: { value: FX.grain },
+    uVignette: { value: FX.vignette },
+    uExposure: { value: FX.exposure },
+    uTime: { value: 0 },
+  },
+  vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+  fragmentShader: `
+    uniform sampler2D tDiffuse;
+    uniform float uGrain, uVignette, uExposure, uTime;
+    varying vec2 vUv;
+    float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+    void main(){
+      vec4 c = texture2D(tDiffuse, vUv);
+      c.rgb *= uExposure;
+      float d = distance(vUv, vec2(0.5));
+      c.rgb *= 1.0 - smoothstep(0.45, 0.95, d) * uVignette;
+      c.rgb += (hash(vUv * 913.7 + fract(uTime) * 7.0) - 0.5) * uGrain;   // 필름 그레인
+      c.rgb += (hash(vUv * 517.3) - 0.5) * (2.0 / 255.0);                  // 디더 (밴딩 제거)
+      gl_FragColor = c;
+    }`,
+};
 
 // 좌표계: X Bot은 원점에서 -Z(벽 방향)를 바라봄. 바닥 투사 레인은 -Z 앞쪽.
 export const WALL_Z = -1.8;   // 벽을 인물 가까이 (복싱 훈련 거리)
@@ -89,13 +130,37 @@ export function createScene(container) {
     applyCamera(pack);
   }
 
+  // ── 후처리: 블룸(마크·이펙트 발광) + 그레인·비네트 ─────
+  const composer = new EffectComposer(renderer);
+  composer.addPass(new RenderPass(scene, camera));
+  const bloomPass = new UnrealBloomPass(
+    new THREE.Vector2(container.clientWidth / 2, container.clientHeight / 2),
+    FX.bloomStrength, FX.bloomRadius, FX.bloomThreshold);
+  composer.addPass(bloomPass);
+  const gradePass = new ShaderPass(GrainVignetteShader);
+  composer.addPass(gradePass);
+  composer.addPass(new OutputPass());
+
+  function renderFrame(timeSec) {
+    bloomPass.threshold = FX.bloomThreshold;
+    bloomPass.strength = FX.bloomStrength;
+    bloomPass.radius = FX.bloomRadius;
+    gradePass.uniforms.uGrain.value = FX.grain;
+    gradePass.uniforms.uVignette.value = FX.vignette;
+    gradePass.uniforms.uExposure.value = FX.exposure;
+    gradePass.uniforms.uTime.value = timeSec;
+    composer.render();
+  }
+
   function resize() {
     const w = container.clientWidth, h = container.clientHeight;
     camera.aspect = w / h;
     camera.updateProjectionMatrix();
     renderer.setSize(w, h);
+    composer.setSize(w, h);
+    bloomPass.setSize(w / 2, h / 2);
   }
   window.addEventListener('resize', resize);
 
-  return { renderer, scene, camera, controls, setPackEnvironment, resize };
+  return { renderer, scene, camera, controls, setPackEnvironment, resize, renderFrame, composer };
 }
