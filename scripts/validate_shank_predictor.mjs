@@ -6,7 +6,7 @@ for(const raw of txt){const line=raw.trim();
  if(/^(ROOT|JOINT)\s+(\S+)/.test(line)){const j={name:line.split(/\s+/)[1],parent:stack.length?stack[stack.length-1]:null,channels:[]};joints.push(j);cur=j;}
  else if(line==='{')stack.push(cur); else if(line==='}')stack.pop();
  else if(/^CHANNELS/.test(line)){const p=line.split(/\s+/);cur.channels=p.slice(2,2+ +p[1]);}
- else if(line.startsWith('End Site'))stack.push({name:'__end',channels:[]});}
+ else if(line.startsWith('End Site'))cur={name:'__end',channels:[]};}   // push 금지 — '{'가 push함. 미리 push하면 End Site 이후 형제 관절의 부모가 한 단계 어긋남 (expert_pipeline서 발견)
 let col=0;for(const j of joints){j.col=col;col+=j.channels.length;}
 const byName=Object.fromEntries(joints.map(j=>[j.name,j]));
 const iF=txt.findIndex(l=>/^Frames:/.test(l.trim()));

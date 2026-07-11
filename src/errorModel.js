@@ -34,7 +34,7 @@ export const PARAMS = {
 
   // ── 지연 예산 (motion-to-photon, 단계 합) ──
   latencyMs: P(30, 'ms', '센서(1ms)+퓨전(2ms)+명령+짐벌/OIS 응답+프로젝터 프레임의 합. 대표 25~45ms', 'assumed'),
-  ffCancelFrac: P(0.67, 'ratio', '측정: 등각속도 예측기 검증(Bandai 런 모캡 FK, 33ms 호라이즌, 스윙 10.9→3.6cm). 보수적 하한 — 고레이트 IMU+학습예측기는 더 높음', 'measured'),
+  ffCancelFrac: P(0.67, 'ratio', '측정: 등각속도 예측기 검증(Bandai 런 모캡 FK, 33ms 호라이즌, 스윙 10.88→3.58cm). BVH 파서 End Site 버그 수정 후 재검증 동일(2026-07-11). 보수적 하한', 'measured'),
 
   // ── 거리 측정 (ToF) ──
   tofAccuracyMm: P(10, 'mm', '멀티존 ToF 대표 측距 오차 (예: VL53L5CX급, 근거리 ±(5~15)mm)', 'assumed'),

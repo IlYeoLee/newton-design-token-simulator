@@ -1,0 +1,159 @@
+{
+ "sport": "running",
+ "packName": "러닝 / 전문가 자동추출 Pack",
+ "dataStatus": "auto-extracted",
+ "source": {
+  "name": "Bandai Namco Motiondataset — run_normal.bvh (실측 러너)",
+  "url": "https://github.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset",
+  "dataType": "30fps 풀스켈레톤 BVH → 발 접지 FK 자동 추출 (손 배치 0)",
+  "licenseNote": "CC BY-NC-ND 4.0 (연구·프로토타입)",
+  "pipeline": "scripts/expert_pipeline.mjs",
+  "extractedStrikesPerCycle": 2,
+  "cycleDurSec": 0.8
+ },
+ "duration": 3.2,
+ "hasWall": false,
+ "tokenCombination": [
+  "pathLane",
+  "stepMark",
+  "orderPulse"
+ ],
+ "tokens": [
+  {
+   "t": 0,
+   "type": "pathLane",
+   "nx": 0,
+   "ny": 0,
+   "lifetime": 3.135996864
+  },
+  {
+   "t": 0.3333,
+   "type": "stepMark",
+   "foot": "right",
+   "nx": -0.0076,
+   "ny": 0.35,
+   "lifetime": 1.19
+  },
+  {
+   "t": 0.3333,
+   "type": "orderPulse",
+   "n": 1,
+   "nx": -0.0076,
+   "ny": 0.35,
+   "lifetime": 1.19
+  },
+  {
+   "t": 0.7333,
+   "type": "stepMark",
+   "foot": "left",
+   "nx": 0.0207,
+   "ny": 0.35,
+   "lifetime": 1.19
+  },
+  {
+   "t": 0.7333,
+   "type": "orderPulse",
+   "n": 2,
+   "nx": 0.0207,
+   "ny": 0.35,
+   "lifetime": 1.19
+  },
+  {
+   "t": 1.1333,
+   "type": "stepMark",
+   "foot": "right",
+   "nx": -0.0076,
+   "ny": 0.35,
+   "lifetime": 1.19
+  },
+  {
+   "t": 1.1333,
+   "type": "orderPulse",
+   "n": 3,
+   "nx": -0.0076,
+   "ny": 0.35,
+   "lifetime": 1.19
+  },
+  {
+   "t": 1.5333,
+   "type": "stepMark",
+   "foot": "left",
+   "nx": 0.0207,
+   "ny": 0.35,
+   "lifetime": 1.19
+  },
+  {
+   "t": 1.5333,
+   "type": "orderPulse",
+   "n": 4,
+   "nx": 0.0207,
+   "ny": 0.35,
+   "lifetime": 1.19
+  },
+  {
+   "t": 1.9333,
+   "type": "stepMark",
+   "foot": "right",
+   "nx": -0.0076,
+   "ny": 0.35,
+   "lifetime": 1.19
+  },
+  {
+   "t": 1.9333,
+   "type": "orderPulse",
+   "n": 5,
+   "nx": -0.0076,
+   "ny": 0.35,
+   "lifetime": 1.19
+  },
+  {
+   "t": 2.3333,
+   "type": "stepMark",
+   "foot": "left",
+   "nx": 0.0207,
+   "ny": 0.35,
+   "lifetime": 1.19
+  },
+  {
+   "t": 2.3333,
+   "type": "orderPulse",
+   "n": 6,
+   "nx": 0.0207,
+   "ny": 0.35,
+   "lifetime": 1.19
+  },
+  {
+   "t": 2.7333,
+   "type": "stepMark",
+   "foot": "right",
+   "nx": -0.0076,
+   "ny": 0.35,
+   "lifetime": 1.19
+  },
+  {
+   "t": 2.7333,
+   "type": "orderPulse",
+   "n": 7,
+   "nx": -0.0076,
+   "ny": 0.35,
+   "lifetime": 1.19
+  },
+  {
+   "t": 3.1333,
+   "type": "stepMark",
+   "foot": "left",
+   "nx": 0.0207,
+   "ny": 0.35,
+   "lifetime": 1.19
+  },
+  {
+   "t": 3.1333,
+   "type": "orderPulse",
+   "n": 8,
+   "nx": 0.0207,
+   "ny": 0.35,
+   "lifetime": 1.19
+  }
+ ],
+ "cues": []
+}
