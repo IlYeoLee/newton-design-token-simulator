@@ -1,6 +1,80 @@
 import * as THREE from 'three';
 import { WALL_Z } from './scene.js';
 import { renderDesignCanvas } from './studio/design.js';
+import { getLUT, FXP, FX_GLSL } from './fxlut.js';
+
+// ── MARK 파동 셰이더 (FX Lab 이식) — 재료는 열 하나, 상태는 파동의 위상 ──
+const MARKFX_VERT = `
+#include <common>
+#include <clipping_planes_pars_vertex>
+varying vec2 vUv;
+void main() {
+  vUv = uv;
+  vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+  gl_Position = projectionMatrix * mvPosition;
+  #include <clipping_planes_vertex>
+}`;
+const MARKFX_FRAG = `
+#include <common>
+#include <clipping_planes_pars_fragment>
+` + FX_GLSL + `
+uniform float uPhase, uProg, uFade, uStrong, uContract, uTime, uSeed;
+uniform float uW, uHalo, uPool, uSweepA, uWobble, uGain;
+varying vec2 vUv;
+void main() {
+  #include <clipping_planes_fragment>
+  vec2 uv = (vUv - 0.5) * 2.0;
+  float d = length(uv);
+  float ang = atan(uv.y, uv.x);
+  float u1 = fxundul(ang + uSeed, uTime * 1.6);
+  float Rz = 0.72;                                     // 쿼드 로컬 존 반경
+  float sd = d * (1.0 + u1 * uWobble * 0.05) - Rz;
+  float edgeW = 0.03 * uW;
+  float edge = exp(-pow(abs(sd) / edgeW, 2.0)) + exp(-pow(abs(sd) / (edgeW * 5.0), 2.0)) * 0.45 * uHalo;
+  if (uContract > 0.5) edge *= smoothstep(0.15, 0.55, 0.5 + 0.5 * sin(ang * 18.0 + u1));   // 회피 점선
+  float poolN = fxfbm(uv * 2.6 + vec2(uTime * 0.18, -uTime * 0.12) + uSeed);
+  float pool = smoothstep(0.02, -0.10, sd) * (0.55 + 0.45 * poolN) * (uPool * 1.82);
+  float heat = 0.0; float alpha = 1.0; float hot = 0.0;
+  if (uPhase < 0.5) {            // Preview: 잔잔한 저온 숨쉬기
+    alpha = mix(mix(0.6, 0.4, 0.5 + 0.5 * sin(uTime * 2.2)), 1.0, uStrong) * uFade;
+    heat = edge * 0.8 + pool * 0.12;
+  } else if (uPhase < 1.5) {     // Active: 바깥 파면이 존으로 수축 — 다가올수록 백열
+    float off = (Rz * 0.85) * (1.0 - uProg);
+    float cSD = abs(sd - off);
+    float cR = (exp(-pow(cSD / (0.022 * uW), 2.0)) + exp(-pow(cSD / (0.10 * uW), 2.0)) * 0.4 * uHalo) * (0.3 + 0.7 * uProg);
+    heat = edge + pool * (0.35 + uProg * 0.25) + cR;
+    hot = uProg * 0.22 + cR * 0.18;
+  } else {                       // Success 잔상: Hit Glow → 등고선 파문 → 소멸
+    float k = 1.0 - uProg;
+    float e = 1.0 - pow(1.0 - uProg, 2.2);
+    float rip = exp(-pow(abs(sd - e * 0.5) / (0.05 * uW), 2.0)) * k;
+    heat = pool * exp(-uProg * 6.0) * 1.5 + edge * pow(k, 1.3) + rip * 0.8;
+    hot = exp(-uProg * 6.0) * 0.3;
+  }
+  float sweep = (0.10 * sin(ang - uTime * 1.9) + 0.05 * sin(ang * 2.0 + uTime * 0.9)) * uSweepA;
+  vec3 col = lut(clamp(heat * 0.72 + hot + sweep * min(heat, 1.0), 0.0, 1.0)) * min(heat, 1.35) * alpha * uGain;
+  gl_FragColor = vec4(col, 1.0);   // additive: 검정 = 무기여
+}`;
+function makeMarkFXMaterial() {
+  const mat = new THREE.ShaderMaterial({
+    vertexShader: MARKFX_VERT,
+    fragmentShader: MARKFX_FRAG,
+    uniforms: {
+      uLUT: { value: getLUT() },
+      uPhase: { value: 0 }, uProg: { value: 0 }, uFade: { value: 1 },
+      uStrong: { value: 0 }, uContract: { value: 0 },
+      uTime: { value: 0 }, uSeed: { value: Math.random() * 6.2832 },
+      uW: { value: 1 }, uHalo: { value: 0.9 }, uPool: { value: 0.55 }, uGain: { value: 1 },
+      uSweepA: { value: 1 }, uWobble: { value: 0.5 },
+    },
+    transparent: true,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+  });
+  mat.clipping = true;
+  return mat;
+}
 
 // ─────────────────────────────────────────────────────────────
 // 디자인 토큰 공식 (공통)
@@ -152,6 +226,14 @@ class Marker {
     this.cd   = new THREE.Mesh(new THREE.RingGeometry(radius * 0.93, radius, 44), flatMat(0xffffff, 0.9));
     this.num  = null;
 
+    // 파동 셰이더 존 (FX Lab 언어) — 구 벡터 링(fill/edge/cd)은 숨기고 계측·레거시용으로만 유지
+    this.fx = new THREE.Mesh(new THREE.PlaneGeometry(radius * 2.78, radius * 2.78), makeMarkFXMaterial());
+    this.fx.position.z = 0.002;
+    // 벽면은 열화상 고스트 위 가산이라 과노출 방지 게인
+    this.fx.material.uniforms.uGain.value = surface === 'wall' ? 0.6 : 1.0;
+    this.fill.visible = this.edge.visible = this.cd.visible = false;
+    this.group.add(this.fx);
+
     this.group.add(this.fill, this.edge, this.cd);
     if (surface === 'floor') {
       this.group.rotation.x = -Math.PI / 2;
@@ -168,10 +250,11 @@ class Marker {
     this.art.material.clippingPlanes = this.edge.material.clippingPlanes;
     this.group.add(this.art);
     this.fill.visible = false; this.edge.visible = false;
+    this.fx.visible = false;   // 커스텀 아트가 존 비주얼을 대체
   }
   clearArt() {
     if (this.art) { this.group.remove(this.art); this.art.material.dispose(); this.art = null; }
-    this.fill.visible = true; this.edge.visible = true;
+    this.fx.visible = true;    // 기본 존 = 파동 셰이더 (구 벡터 링은 계속 숨김)
   }
   setNumber(n) {
     const m = new THREE.MeshBasicMaterial({
@@ -188,15 +271,8 @@ class Marker {
     if (this.avoidArt) { this.group.remove(this.avoidArt); this.avoidArt.material.dispose(); this.avoidArt = null; }
     if (this.holdArt) { this.group.remove(this.holdArt); this.holdArt.material.dispose(); this.holdArt = null; }
     const sz = this.radius * 2.35;
-    if (contract === 'avoid') {
-      this.edge.visible = false;
-      this.avoidArt = new THREE.Mesh(new THREE.PlaneGeometry(sz, sz),
-        new THREE.MeshBasicMaterial({ map: makeDashedRingTexture(this.color), transparent: true, depthWrite: false }));
-      this.avoidArt.position.z = 0.003;
-      this.group.add(this.avoidArt);
-    } else {
-      this.edge.visible = true;
-    }
+    // 회피 = 파동 셰이더의 점선 반전 (별도 오버레이 불필요)
+    this.fx.material.uniforms.uContract.value = contract === 'avoid' ? 1 : 0;
     if (contract === 'hold' || holdRing) {
       this.holdArt = new THREE.Mesh(new THREE.PlaneGeometry(sz, sz),
         new THREE.MeshBasicMaterial({ map: makeHoldRingTexture(this.color, 0.66), transparent: true, depthWrite: false }));
@@ -213,6 +289,21 @@ class Marker {
     if (this.art) this.art.material.opacity = phase === 'preview' ? (this.strongPreview ? 1 : 0.55) : 1;
 
     const fade = FADE_STEPS[Math.min(orderIdx, FADE_STEPS.length - 1)];
+
+    // 파동 셰이더 구동 — FXP.mark 라이브 파라미터 (프로 편집 모드)
+    if (this.fx.visible) {
+      const U = this.fx.material.uniforms;
+      U.uTime.value = performance.now() / 1000;
+      U.uPhase.value = phase === 'preview' ? 0 : phase === 'countdown' ? 1 : 2;
+      U.uProg.value = progress;
+      U.uFade.value = fade;
+      U.uStrong.value = this.strongPreview ? 1 : 0;
+      U.uW.value = FXP.mark.core;
+      U.uHalo.value = FXP.mark.halo;
+      U.uPool.value = FXP.mark.pool;
+      U.uSweepA.value = FXP.mark.sweep;
+      U.uWobble.value = FXP.mark.wobble;
+    }
     if (phase === 'preview') {
       // 저작 프리뷰: 전 토큰을 또렷한 상시 강도로 (위계 감쇠 없음)
       const strong = this.strongPreview;
