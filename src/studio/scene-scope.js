@@ -31,6 +31,57 @@ export class SceneScope {
     this.stageId = null;
     this.sel = -1;
     this.onDirty = opts.onDirty || (() => {});
+    this._undo = [];
+    this._redo = [];
+    this._pending = null;   // 편집 전 스냅샷 (연속 편집은 디바운스로 1스텝 병합)
+  }
+
+  // ── 되돌리기: 스테이지 patches 스냅샷 스택 ──
+  _snap() {
+    const st = this.store.stageStore(this.stageId);
+    return JSON.stringify(st.patches || {});
+  }
+  _beginEdit() {
+    clearTimeout(this._coalesce);
+    if (this._pending === null && this.stageId) this._pending = this._snap();
+  }
+  _endEdit() {
+    clearTimeout(this._coalesce);
+    this._coalesce = setTimeout(() => {
+      if (this._pending !== null && this._pending !== this._snap()) {
+        this._undo.push({ stage: this.stageId, snap: this._pending });
+        if (this._undo.length > 60) this._undo.shift();
+        this._redo = [];
+      }
+      this._pending = null;
+    }, 350);
+  }
+  _applySnap(stageId, snapStr) {
+    const patches = JSON.parse(snapStr);
+    this.store.stageStore(stageId).patches = patches;
+    // 세션 3D 원복 후 스냅샷 patches 재적용 (resetElement가 _orig 소비 → patchElement가 재스냅)
+    const n = this.s.sceneElements(stageId).length;
+    for (let i = 0; i < n; i++) this.s.resetElement(stageId, i);
+    for (const [idx, patch] of Object.entries(patches)) this.s.patchElement(stageId, Number(idx), patch);
+    this.store.save();
+  }
+  undo() {
+    const h = this._undo.pop();
+    if (!h) return false;
+    this._redo.push({ stage: h.stage, snap: (this.stageId === h.stage) ? this._snap() : JSON.stringify(this.store.stageStore(h.stage).patches || {}) });
+    if (this.stageId !== h.stage) this.setStage(h.stage);
+    this._applySnap(h.stage, h.snap);
+    this.sel = -1;
+    return true;
+  }
+  redo() {
+    const h = this._redo.pop();
+    if (!h) return false;
+    this._undo.push({ stage: h.stage, snap: (this.stageId === h.stage) ? this._snap() : JSON.stringify(this.store.stageStore(h.stage).patches || {}) });
+    if (this.stageId !== h.stage) this.setStage(h.stage);
+    this._applySnap(h.stage, h.snap);
+    this.sel = -1;
+    return true;
   }
 
   get wall() { return this.sport === 'boxing'; }
@@ -54,6 +105,16 @@ export class SceneScope {
 
   _target(idx = this.sel) { return { kind: 'el', stageId: this.stageId, idx }; }
 
+  _label(el) {
+    const type = el.type || 'mesh';
+    if (type === 'text') return `"${(el.content || '글자').slice(0, 10)}"`;
+    if (type === 'group') {
+      const parts = (el.parts || []).map(p => TYPE_KO[p] || p);
+      return parts.length ? `묶음(${parts.join('·')})` : '묶음';
+    }
+    return TYPE_KO[type] || type;
+  }
+
   // ── 캔버스 공급 ──
   items() {
     if (!this.stageId) return [];
@@ -64,7 +125,7 @@ export class SceneScope {
         h: o.position.x,
         v: this.wall ? o.position.y : -o.position.z,
         glyph: GLYPH[type] || '◆',
-        label: type === 'text' ? (el.content || '글자') : TYPE_KO[type] || type,
+        label: this._label(el),
         sel: i === this.sel,
       };
     });
@@ -73,10 +134,12 @@ export class SceneScope {
   pick(key) { this.sel = key ?? -1; }
 
   dragTo(key, h, v) {
+    this._beginEdit();
     const patch = this.wall ? { x: h, y: v } : { x: h, z: -v };
     this.s.patchElement(this.stageId, key, patch);
     for (const [k, val] of Object.entries(patch)) this.store.setOverride(this._target(key), k, val);
     this.onDirty();
+    this._endEdit();
   }
 
   /** 한 속성만 기본값(원본 디자인)으로 — 나머지 덮어쓰기는 살린다 */
@@ -90,17 +153,21 @@ export class SceneScope {
   }
 
   set(prop, value) {
+    this._beginEdit();
     this.s.patchElement(this.stageId, this.sel, { [prop]: value });
     this.store.setOverride(this._target(), prop, value);
     this.onDirty();
+    this._endEdit();
   }
 
   setText(patch) {
+    this._beginEdit();
     const cur = this.store.stageStore(this.stageId).patches[this.sel]?.text || {};
     const text = { ...cur, ...patch };
     this.s.patchElement(this.stageId, this.sel, { text });
     this.store.setOverride(this._target(), 'text', text);
     this.onDirty();
+    this._endEdit();
   }
 
   // ── 속성 패널 (마크 패널과 같은 어휘: 모양·색·크기·흐림·투명도 + ▾고급) ──
@@ -118,6 +185,8 @@ export class SceneScope {
     const cur = els.find(e => e.i === this.sel);
     if (!cur) { host.innerHTML = ''; return; }
     const type = cur.el.type || 'mesh';
+    const isText = type === 'text';
+    const curText = bagText => bagText ?? cur.el.content ?? '';
     const bag = this.store.stageStore(this.stageId).patches[this.sel] || {};
     const has = p => this.store.isOverridden(this._target(), p);
     const tag = p => has(p)
@@ -134,13 +203,13 @@ export class SceneScope {
     host.innerHTML = `
       <div style="padding:10px 14px;max-height:38vh;overflow-y:auto;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-          <b style="font-size:12px;">${GLYPH[type] || '◆'} ${TYPE_KO[type] || type}</b>
+          <b style="font-size:12px;">${GLYPH[type] || '◆'} ${this._label(cur.el)}</b>
           <span style="font-size:10px;color:var(--dim);">#${this.sel}</span>
         </div>
 
-        ${type === 'text' ? `
-        <div style="${S_ROW}"><span>글자</span>${tag('text')}</div>
-        <input id="sc-text" value="${esc(bag.text?.content ?? cur.el.content ?? '')}"
+        ${isText ? `
+        <div style="${S_ROW}"><span>글자 내용</span>${tag('text')}</div>
+        <input id="sc-text" value="${esc(curText(bag.text?.content))}"
           style="width:100%;padding:6px;margin-bottom:9px;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:5px;font-size:11px;">` : ''}
 
         <div style="${S_ROW}"><span>색</span>${tag('color')}</div>

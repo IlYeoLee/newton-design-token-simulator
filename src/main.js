@@ -975,8 +975,14 @@ async function boot() {
     scheduleStudioRebuild();
   });
   // 되돌리기 / 다시하기
-  function studioUndo() { if (studioDoc?.undo()) scheduleStudioRebuild(); }
-  function studioRedo() { if (studioDoc?.redo()) scheduleStudioRebuild(); }
+  function studioUndo() {
+    if (studioScope === 'scene') { if (sceneScope.undo()) { studioCanvas?.draw(); renderScopeProps(); } return; }
+    if (studioDoc?.undo()) scheduleStudioRebuild();
+  }
+  function studioRedo() {
+    if (studioScope === 'scene') { if (sceneScope.redo()) { studioCanvas?.draw(); renderScopeProps(); } return; }
+    if (studioDoc?.redo()) scheduleStudioRebuild();
+  }
   document.getElementById('studio-undo')?.addEventListener('click', studioUndo);
   document.getElementById('studio-redo')?.addEventListener('click', studioRedo);
   window.addEventListener('keydown', (e) => {

@@ -605,10 +605,31 @@ export class Session {
     if (!this.active) { this.root.visible = false; for (const id in this.G) this.G[id].visible = false; }
   }
 
-  /** 장면의 편집 가능 요소 목록: [{i, o, el}] */
+  /** 그룹 안 어디든 편집 가능한 텍스트(makeTextMesh)가 있으면 그 el을 찾아준다.
+   *  세션 프롬프트(TAP ×2 등)는 텍스트를 자식으로 품은 복합 그룹이라 최상위 메타가 없다. */
+  _findTextEl(o) {
+    let found = null;
+    o.traverse(c => { if (!found && c.userData?.el?.type === 'text' && c.userData?.redraw) found = c.userData.el; });
+    return found;
+  }
+
+  /** 장면의 편집 가능 요소 목록: [{i, o, el}]. el.type이 UI 라벨·편집 분기를 결정한다. */
   sceneElements(stageId) {
     const g = this.G[stageId]; if (!g) return [];
-    return g.children.map((o, i) => ({ i, o, el: o.userData.el || { type: o.isGroup ? 'group' : (o.isLine ? 'line' : 'mesh') } }));
+    return g.children.map((o, i) => {
+      let el = o.userData.el;
+      if (!el) {
+        const txt = this._findTextEl(o);
+        if (txt) el = { type: 'text', content: txt.content, _proxy: true };   // 메타없는 그룹 속 텍스트
+        else {
+          // 정체불명 그룹 — 최소한 뭘로 이뤄졌는지 알려준다("그룹"만으론 알 수 없다는 피드백)
+          const kinds = new Set();
+          o.traverse(c => { if (c.userData?.el?.type) kinds.add(c.userData.el.type); });
+          el = { type: o.isGroup ? 'group' : (o.isLine ? 'line' : 'mesh'), parts: [...kinds] };
+        }
+      }
+      return { i, o, el };
+    });
   }
 
   /** 요소 패치: {x,z,y,rot,scale,color,opacity,hidden, text:{content,size,color,weight,family}} */
@@ -640,8 +661,12 @@ export class Session {
     }
     if (patch.color !== undefined && el.type !== 'text' && el.type !== 'foot')
       o.traverse(m => { if (m.material?.color) m.material.color.set(patch.color); });
-    if (patch.text && o.userData.redraw) o.userData.redraw(patch.text);
-    else if (patch.text && o.userData.plane?.userData.redraw) o.userData.plane.userData.redraw(patch.text);
+    if (patch.text) {
+      // 최상위 redraw(1급 텍스트) 우선, 없으면 그룹 안 텍스트 자식들을 갱신
+      if (o.userData.redraw) o.userData.redraw(patch.text);
+      else if (o.userData.plane?.userData.redraw) o.userData.plane.userData.redraw(patch.text);
+      else o.traverse(c => { if (c !== o && c.userData?.redraw) c.userData.redraw(patch.text); });
+    }
   }
 
   /** 원본 복원 (첫 패치 전 스냅샷으로) */
