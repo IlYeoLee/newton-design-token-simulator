@@ -325,24 +325,36 @@ export class TokenSystem {
       변형 팩(전문가/영상/커리)에서 "무엇이 달라졌는가"를 투사면 안에서 직접 보여준다.
       투사 원칙 준수: 지면 2D 광 패턴 + 풋프린트 클리핑 (공중 그래픽 아님). */
   setCompare(basePack) {
-    if (this._compareRoot) { this._compareRoot.removeFromParent(); this._compareRoot = null; }
-    if (!basePack || !this.pack || basePack.sport !== this.pack.sport) return;
-    const root = new THREE.Group();
-    const tex = makeDashedRingTexture(0x9aa3ad);   // 무음 그레이 — 판정색과 혼동 없음
-    for (const tk of basePack.tokens) {
-      if (tk.type !== 'stepMark') continue;
-      const p = this._mapFloor(tk);                // 같은 종목 = 같은 매핑
-      const m = new THREE.Mesh(
-        new THREE.PlaneGeometry(0.40, 0.40),
-        new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: 0.5, depthWrite: false }));
-      m.rotation.x = -Math.PI / 2;
-      m.position.set(p.x, 0.011, p.z);
-      m.renderOrder = 3;
-      root.add(m);
+    if (this._compareRoot) {
+      for (const g of this._compareRoot) g.removeFromParent();
+      this._compareRoot = null;
     }
-    this._applyClip(root, this._floorClipFor());
-    this.floorRoot.add(root);
-    this._compareRoot = root;
+    if (!basePack || !this.pack || basePack.sport !== this.pack.sport) return;
+    const floorG = new THREE.Group();   // 지면 고스트 — 무릎 흔들림 동승
+    const wallG = new THREE.Group();    // 벽면 고스트 — 스테이션 고정
+    const tex = makeDashedRingTexture(0x9aa3ad);   // 무음 그레이 — 판정색과 혼동 없음
+    const mat = () => new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: 0.5, depthWrite: false });
+    for (const tk of basePack.tokens) {
+      if (tk.type === 'stepMark') {
+        const p = this._mapFloor(tk);              // 같은 종목 = 같은 매핑
+        const m = new THREE.Mesh(new THREE.PlaneGeometry(0.40, 0.40), mat());
+        m.rotation.x = -Math.PI / 2;
+        m.position.set(p.x, 0.011, p.z);
+        m.renderOrder = 3;
+        this._applyClip(m, this._floorClipFor());
+        floorG.add(m);
+      } else if (tk.type === 'targetMark' && this.pack.hasWall) {
+        const p = this._mapWall(tk);               // 벽면 고스트 (기본 팩 타겟 위치)
+        const m = new THREE.Mesh(new THREE.PlaneGeometry(0.34, 0.34), mat());
+        m.position.set(p.x, p.y, p.z - 0.005);
+        m.renderOrder = 3;
+        this._applyClip(m, this.wallClip);
+        wallG.add(m);
+      }
+    }
+    this.floorRoot.add(floorG);
+    this.wallRoot.add(wallG);
+    this._compareRoot = [floorG, wallG];
   }
 
   /** 에디터: 팔레트 변경을 기존 마커·화살표에 즉시 반영 */

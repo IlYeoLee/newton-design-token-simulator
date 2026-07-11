@@ -1,0 +1,543 @@
+{
+  "sport": "boxing",
+  "packName": "복싱 / 영상 자동추출 Pack",
+  "dataStatus": "auto-extracted",
+  "source": {
+    "name": "Pexels 7187515 — 섀도복싱 측면 실사 (RDNE Stock project, Pexels 무료 라이선스)",
+    "dataType": "monocular video → MediaPipe Pose(world) → 펀치(손목 신전 피크) 자동 추출 (손 배치 0)",
+    "pipeline": "scripts/video_pose_extract.py --sport boxing",
+    "poseDetectRate": 1.0,
+    "punchCount": 33,
+    "avgIntervalSec": 0.616,
+    "sourceErrorNote": "monocular: 펀치 타이밍·리듬은 강건, 타겟 높이는 힙높이 0.9m 가정(assumed) 근사"
+  },
+  "duration": 22.083,
+  "hasWall": true,
+  "tokenCombination": [
+    "pathLane",
+    "stepMark",
+    "orderPulse",
+    "targetMark"
+  ],
+  "tokens": [
+    {
+      "t": 0,
+      "type": "pathLane",
+      "nx": 0,
+      "ny": 0,
+      "lifetime": 22.083
+    },
+    {
+      "t": 0,
+      "type": "stepMark",
+      "foot": "left",
+      "nx": -0.0914,
+      "ny": -0.0026,
+      "lifetime": 22.083
+    },
+    {
+      "t": 0,
+      "type": "stepMark",
+      "foot": "right",
+      "nx": 0.1315,
+      "ny": -0.068,
+      "lifetime": 22.083
+    },
+    {
+      "t": 2.2083,
+      "type": "targetMark",
+      "nx": -0.1729,
+      "ny": 0.5074,
+      "lifetime": 0.22
+    },
+    {
+      "t": 2.2083,
+      "type": "orderPulse",
+      "n": 1,
+      "nx": -0.1729,
+      "ny": 0.5074,
+      "lifetime": 0.35
+    },
+    {
+      "t": 2.4167,
+      "type": "targetMark",
+      "nx": -0.2242,
+      "ny": 0.5209,
+      "lifetime": 0.22
+    },
+    {
+      "t": 2.4167,
+      "type": "orderPulse",
+      "n": 2,
+      "nx": -0.2242,
+      "ny": 0.5209,
+      "lifetime": 0.35
+    },
+    {
+      "t": 3.0417,
+      "type": "targetMark",
+      "nx": -0.2734,
+      "ny": 0.5068,
+      "lifetime": 0.22
+    },
+    {
+      "t": 3.0417,
+      "type": "orderPulse",
+      "n": 3,
+      "nx": -0.2734,
+      "ny": 0.5068,
+      "lifetime": 0.35
+    },
+    {
+      "t": 3.3333,
+      "type": "targetMark",
+      "nx": -0.0849,
+      "ny": 0.4249,
+      "lifetime": 0.22
+    },
+    {
+      "t": 3.3333,
+      "type": "orderPulse",
+      "n": 4,
+      "nx": -0.0849,
+      "ny": 0.4249,
+      "lifetime": 0.35
+    },
+    {
+      "t": 3.875,
+      "type": "targetMark",
+      "nx": -0.2837,
+      "ny": 0.4875,
+      "lifetime": 0.22
+    },
+    {
+      "t": 3.875,
+      "type": "orderPulse",
+      "n": 5,
+      "nx": -0.2837,
+      "ny": 0.4875,
+      "lifetime": 0.35
+    },
+    {
+      "t": 4.25,
+      "type": "targetMark",
+      "nx": -0.2359,
+      "ny": 0.442,
+      "lifetime": 0.22
+    },
+    {
+      "t": 4.25,
+      "type": "orderPulse",
+      "n": 6,
+      "nx": -0.2359,
+      "ny": 0.442,
+      "lifetime": 0.35
+    },
+    {
+      "t": 4.75,
+      "type": "targetMark",
+      "nx": -0.2861,
+      "ny": 0.4683,
+      "lifetime": 0.22
+    },
+    {
+      "t": 4.75,
+      "type": "orderPulse",
+      "n": 7,
+      "nx": -0.2861,
+      "ny": 0.4683,
+      "lifetime": 0.35
+    },
+    {
+      "t": 5.1667,
+      "type": "targetMark",
+      "nx": -0.1481,
+      "ny": 0.4318,
+      "lifetime": 0.22
+    },
+    {
+      "t": 5.1667,
+      "type": "orderPulse",
+      "n": 8,
+      "nx": -0.1481,
+      "ny": 0.4318,
+      "lifetime": 0.35
+    },
+    {
+      "t": 5.7917,
+      "type": "targetMark",
+      "nx": -0.1703,
+      "ny": 0.4812,
+      "lifetime": 0.22
+    },
+    {
+      "t": 5.7917,
+      "type": "orderPulse",
+      "n": 9,
+      "nx": -0.1703,
+      "ny": 0.4812,
+      "lifetime": 0.35
+    },
+    {
+      "t": 6.1667,
+      "type": "targetMark",
+      "nx": -0.2465,
+      "ny": 0.5359,
+      "lifetime": 0.22
+    },
+    {
+      "t": 6.1667,
+      "type": "orderPulse",
+      "n": 10,
+      "nx": -0.2465,
+      "ny": 0.5359,
+      "lifetime": 0.35
+    },
+    {
+      "t": 6.8333,
+      "type": "targetMark",
+      "nx": -0.1795,
+      "ny": 0.4763,
+      "lifetime": 0.22
+    },
+    {
+      "t": 6.8333,
+      "type": "orderPulse",
+      "n": 11,
+      "nx": -0.1795,
+      "ny": 0.4763,
+      "lifetime": 0.35
+    },
+    {
+      "t": 7.0417,
+      "type": "targetMark",
+      "nx": -0.1164,
+      "ny": 0.4019,
+      "lifetime": 0.22
+    },
+    {
+      "t": 7.0417,
+      "type": "orderPulse",
+      "n": 12,
+      "nx": -0.1164,
+      "ny": 0.4019,
+      "lifetime": 0.35
+    },
+    {
+      "t": 7.4583,
+      "type": "targetMark",
+      "nx": -0.2001,
+      "ny": 0.4112,
+      "lifetime": 0.22
+    },
+    {
+      "t": 7.4583,
+      "type": "orderPulse",
+      "n": 13,
+      "nx": -0.2001,
+      "ny": 0.4112,
+      "lifetime": 0.35
+    },
+    {
+      "t": 8.0,
+      "type": "targetMark",
+      "nx": -0.1563,
+      "ny": 0.4752,
+      "lifetime": 0.22
+    },
+    {
+      "t": 8.0,
+      "type": "orderPulse",
+      "n": 14,
+      "nx": -0.1563,
+      "ny": 0.4752,
+      "lifetime": 0.35
+    },
+    {
+      "t": 8.5417,
+      "type": "targetMark",
+      "nx": -0.1506,
+      "ny": 0.4484,
+      "lifetime": 0.22
+    },
+    {
+      "t": 8.5417,
+      "type": "orderPulse",
+      "n": 15,
+      "nx": -0.1506,
+      "ny": 0.4484,
+      "lifetime": 0.35
+    },
+    {
+      "t": 9.0833,
+      "type": "targetMark",
+      "nx": -0.2636,
+      "ny": 0.382,
+      "lifetime": 0.22
+    },
+    {
+      "t": 9.0833,
+      "type": "orderPulse",
+      "n": 16,
+      "nx": -0.2636,
+      "ny": 0.382,
+      "lifetime": 0.35
+    },
+    {
+      "t": 9.8333,
+      "type": "targetMark",
+      "nx": -0.2562,
+      "ny": 0.563,
+      "lifetime": 0.22
+    },
+    {
+      "t": 9.8333,
+      "type": "orderPulse",
+      "n": 17,
+      "nx": -0.2562,
+      "ny": 0.563,
+      "lifetime": 0.35
+    },
+    {
+      "t": 10.2083,
+      "type": "targetMark",
+      "nx": -0.2113,
+      "ny": 0.4934,
+      "lifetime": 0.22
+    },
+    {
+      "t": 10.2083,
+      "type": "orderPulse",
+      "n": 18,
+      "nx": -0.2113,
+      "ny": 0.4934,
+      "lifetime": 0.35
+    },
+    {
+      "t": 11.8333,
+      "type": "targetMark",
+      "nx": -0.2395,
+      "ny": 0.4692,
+      "lifetime": 0.22
+    },
+    {
+      "t": 11.8333,
+      "type": "orderPulse",
+      "n": 19,
+      "nx": -0.2395,
+      "ny": 0.4692,
+      "lifetime": 0.35
+    },
+    {
+      "t": 12.7917,
+      "type": "targetMark",
+      "nx": -0.208,
+      "ny": 0.4898,
+      "lifetime": 0.22
+    },
+    {
+      "t": 12.7917,
+      "type": "orderPulse",
+      "n": 20,
+      "nx": -0.208,
+      "ny": 0.4898,
+      "lifetime": 0.35
+    },
+    {
+      "t": 13.1667,
+      "type": "targetMark",
+      "nx": -0.2397,
+      "ny": 0.5,
+      "lifetime": 0.22
+    },
+    {
+      "t": 13.1667,
+      "type": "orderPulse",
+      "n": 21,
+      "nx": -0.2397,
+      "ny": 0.5,
+      "lifetime": 0.35
+    },
+    {
+      "t": 14.0417,
+      "type": "targetMark",
+      "nx": -0.2155,
+      "ny": 0.466,
+      "lifetime": 0.22
+    },
+    {
+      "t": 14.0417,
+      "type": "orderPulse",
+      "n": 22,
+      "nx": -0.2155,
+      "ny": 0.466,
+      "lifetime": 0.35
+    },
+    {
+      "t": 14.4583,
+      "type": "targetMark",
+      "nx": -0.1477,
+      "ny": 0.4531,
+      "lifetime": 0.22
+    },
+    {
+      "t": 14.4583,
+      "type": "orderPulse",
+      "n": 23,
+      "nx": -0.1477,
+      "ny": 0.4531,
+      "lifetime": 0.35
+    },
+    {
+      "t": 15.0417,
+      "type": "targetMark",
+      "nx": -0.0432,
+      "ny": 0.3794,
+      "lifetime": 0.22
+    },
+    {
+      "t": 15.0417,
+      "type": "orderPulse",
+      "n": 24,
+      "nx": -0.0432,
+      "ny": 0.3794,
+      "lifetime": 0.35
+    },
+    {
+      "t": 15.5417,
+      "type": "targetMark",
+      "nx": -0.1624,
+      "ny": 0.4698,
+      "lifetime": 0.22
+    },
+    {
+      "t": 15.5417,
+      "type": "orderPulse",
+      "n": 25,
+      "nx": -0.1624,
+      "ny": 0.4698,
+      "lifetime": 0.35
+    },
+    {
+      "t": 16.0833,
+      "type": "targetMark",
+      "nx": -0.1795,
+      "ny": 0.4392,
+      "lifetime": 0.22
+    },
+    {
+      "t": 16.0833,
+      "type": "orderPulse",
+      "n": 26,
+      "nx": -0.1795,
+      "ny": 0.4392,
+      "lifetime": 0.35
+    },
+    {
+      "t": 17.5417,
+      "type": "targetMark",
+      "nx": -0.234,
+      "ny": 0.4867,
+      "lifetime": 0.22
+    },
+    {
+      "t": 17.5417,
+      "type": "orderPulse",
+      "n": 27,
+      "nx": -0.234,
+      "ny": 0.4867,
+      "lifetime": 0.35
+    },
+    {
+      "t": 18.875,
+      "type": "targetMark",
+      "nx": -0.1709,
+      "ny": 0.4781,
+      "lifetime": 0.22
+    },
+    {
+      "t": 18.875,
+      "type": "orderPulse",
+      "n": 28,
+      "nx": -0.1709,
+      "ny": 0.4781,
+      "lifetime": 0.35
+    },
+    {
+      "t": 19.0833,
+      "type": "targetMark",
+      "nx": -0.2885,
+      "ny": 0.5096,
+      "lifetime": 0.22
+    },
+    {
+      "t": 19.0833,
+      "type": "orderPulse",
+      "n": 29,
+      "nx": -0.2885,
+      "ny": 0.5096,
+      "lifetime": 0.35
+    },
+    {
+      "t": 20.0417,
+      "type": "targetMark",
+      "nx": -0.1593,
+      "ny": 0.4462,
+      "lifetime": 0.22
+    },
+    {
+      "t": 20.0417,
+      "type": "orderPulse",
+      "n": 30,
+      "nx": -0.1593,
+      "ny": 0.4462,
+      "lifetime": 0.35
+    },
+    {
+      "t": 20.5417,
+      "type": "targetMark",
+      "nx": -0.2744,
+      "ny": 0.5486,
+      "lifetime": 0.22
+    },
+    {
+      "t": 20.5417,
+      "type": "orderPulse",
+      "n": 31,
+      "nx": -0.2744,
+      "ny": 0.5486,
+      "lifetime": 0.35
+    },
+    {
+      "t": 20.875,
+      "type": "targetMark",
+      "nx": -0.01,
+      "ny": 0.3731,
+      "lifetime": 0.22
+    },
+    {
+      "t": 20.875,
+      "type": "orderPulse",
+      "n": 32,
+      "nx": -0.01,
+      "ny": 0.3731,
+      "lifetime": 0.35
+    },
+    {
+      "t": 21.9167,
+      "type": "targetMark",
+      "nx": -0.244,
+      "ny": 0.4991,
+      "lifetime": 0.22
+    },
+    {
+      "t": 21.9167,
+      "type": "orderPulse",
+      "n": 33,
+      "nx": -0.244,
+      "ny": 0.4991,
+      "lifetime": 0.35
+    }
+  ],
+  "cues": []
+}

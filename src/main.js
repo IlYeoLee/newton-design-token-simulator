@@ -30,6 +30,8 @@ const PACK_FILES = {
   running_expert: `${BASE}packs/running_expert_auto.json`,
   // 영상 자동 팩 — monocular 포즈 추출 (video_pose_extract.py 산출). botClip 없음(표준 클립).
   running_video: `${BASE}packs/running_video_auto.json`,
+  // 복싱 영상 자동 팩 — 실사 섀도복싱(Pexels)에서 펀치 리듬·타겟 추출.
+  boxing_video: `${BASE}packs/boxing_video_auto.json`,
 };
 
 const state = {
@@ -173,6 +175,18 @@ async function boot() {
       tokens.setCompare(runVariant !== 'real' ? runVariants.real : null);  // 기본 팩 고스트 = 차이 가시화
     });
   }
+
+  // 복싱 팩 변형 토글: IMU 잽 리듬(기본) ↔ 실사 영상 추출 (동일 패턴).
+  const bxVariants = { real: state.packs.boxing, video: state.packs.boxing_video };
+  let bxVariant = 'real';
+  const bxVideoBtn = document.getElementById('bx-video');
+  bxVideoBtn?.addEventListener('click', () => {
+    bxVariant = bxVariant === 'video' ? 'real' : 'video';
+    state.packs.boxing = bxVariants[bxVariant];
+    document.querySelector('[data-pack=boxing]')?.click();
+    bxVideoBtn.classList.toggle('active', bxVariant === 'video');
+    tokens.setCompare(bxVariant === 'video' ? bxVariants.real : null);
+  });
 
   ghost.setData(posePayload);
 

@@ -161,6 +161,85 @@ def detect_strikes(frames):
     return strikes, good
 
 
+def detect_punches(frames):
+    """펀치 검출 — 손목 신전(어깨 중점에서 수평 거리) 국소 최대 ∧ 상위 확장 구간.
+    양손 각각 검출해 잽/스트레이트를 손별로 태깅. 리듬(간격)이 복서의 시그니처."""
+    good = [f for f in frames if 'lm' in f]
+    if len(good) < 10:
+        return [], good
+    punches = []
+    for side in ('LEFT', 'RIGHT'):
+        ext, wr = [], []
+        for f in good:
+            l = f['lm']
+            sx = (l['LEFT_SHOULDER'][0] + l['RIGHT_SHOULDER'][0]) / 2
+            sz = (l['LEFT_SHOULDER'][2] + l['RIGHT_SHOULDER'][2]) / 2
+            w = l[f'{side}_WRIST']
+            ext.append(math.hypot(w[0] - sx, w[2] - sz))
+            wr.append(w)
+        es = sorted(ext)
+        thr = es[int(len(es) * 0.75)]          # 상위 25% 확장 = 펀치 후보
+        rng = es[-1] - es[0]
+        for i in range(1, len(ext) - 1):
+            if ext[i] >= thr and ext[i] >= ext[i - 1] and ext[i] >= ext[i + 1] and rng > 0.15:
+                if any(p['hand'] == side and abs(good[i]['t'] - p['t']) < 0.35 for p in punches):
+                    continue
+                punches.append({'hand': side, 't': good[i]['t'], 'ext': round(ext[i], 3),
+                                'x': round(wr[i][0], 4), 'y': round(wr[i][1], 4), 'z': round(wr[i][2], 4)})
+    punches.sort(key=lambda p: p['t'])
+    # 양손 동시 피크(0.2s 이내)는 몸통 회전 부수효과 — 신전 큰 손만 유지
+    dedup = []
+    for p in punches:
+        if dedup and abs(p['t'] - dedup[-1]['t']) < 0.2 and p['hand'] != dedup[-1]['hand']:
+            if p['ext'] > dedup[-1]['ext']:
+                dedup[-1] = p
+            continue
+        dedup.append(p)
+    return dedup, good
+
+
+def build_pack_boxing(punches, frames, duration, src_desc, pose_rate):
+    """복싱 팩 — targetMark(펀치 시각·손목 위치) + 스탠스 stepMark(발목 평균).
+    벽 좌표 규약: x=nx*2.2, y=0.73+ny*1.2 (tokens.js WALL). 힙원점 손목 y → 벽 y로
+    힙 높이(~0.9m 가정, assumed)를 더해 근사 — monocular 한계는 sourceError에 명시."""
+    good = [f for f in frames if 'lm' in f]
+    HIP_H, Y0, YS, XS = 0.9, 0.73, 1.2, 2.2
+    tokens = [{'t': 0, 'type': 'pathLane', 'nx': 0, 'ny': 0, 'lifetime': round(duration, 3)}]
+    # 스탠스: 발목 위치 시간 평균 (지면 좌표 nx=좌우/1.6·ny=전후/1.6, FLOOR_SCALE)
+    for side, foot in (('LEFT', 'left'), ('RIGHT', 'right')):
+        ax = sum(f['lm'][f'{side}_ANKLE'][0] for f in good) / len(good)
+        az = sum(f['lm'][f'{side}_ANKLE'][2] for f in good) / len(good)
+        tokens.append({'t': 0, 'type': 'stepMark', 'foot': foot,
+                       'nx': round(ax / 1.6, 4), 'ny': round(-az / 1.6, 4), 'lifetime': round(duration, 3)})
+    for n, p in enumerate(punches, 1):
+        ny = (p['y'] + HIP_H - Y0) / YS
+        nx = p['x'] / XS
+        tokens.append({'t': round(p['t'], 4), 'type': 'targetMark',
+                       'nx': round(nx, 4), 'ny': round(ny, 4), 'lifetime': 0.22})
+        tokens.append({'t': round(p['t'], 4), 'type': 'orderPulse', 'n': n,
+                       'nx': round(nx, 4), 'ny': round(ny, 4), 'lifetime': 0.35})
+    gaps = [round(punches[i + 1]['t'] - punches[i]['t'], 3) for i in range(len(punches) - 1)]
+    return {
+        'sport': 'boxing',
+        'packName': '복싱 / 영상 자동추출 Pack',
+        'dataStatus': 'auto-extracted',
+        'source': {
+            'name': src_desc,
+            'dataType': 'monocular video → MediaPipe Pose(world) → 펀치(손목 신전 피크) 자동 추출 (손 배치 0)',
+            'pipeline': 'scripts/video_pose_extract.py --sport boxing',
+            'poseDetectRate': round(pose_rate, 3),
+            'punchCount': len(punches),
+            'avgIntervalSec': round(sum(gaps) / len(gaps), 3) if gaps else None,
+            'sourceErrorNote': 'monocular: 펀치 타이밍·리듬은 강건, 타겟 높이는 힙높이 0.9m 가정(assumed) 근사',
+        },
+        'duration': round(duration, 3),
+        'hasWall': True,
+        'tokenCombination': ['pathLane', 'stepMark', 'orderPulse', 'targetMark'],
+        'tokens': tokens,
+        'cues': [],
+    }
+
+
 def build_pack(strikes, duration, src_desc, pose_rate):
     """stepMark 팩 — expert_pipeline과 같은 규약 (nx=좌우/X_SCALE, 시각=접지 t)."""
     X_SCALE = 2.0
@@ -201,6 +280,7 @@ def main():
     ap.add_argument('--out', default='data/video_pose.json')
     ap.add_argument('--pack', help='팩 JSON 출력 경로 (선택)')
     ap.add_argument('--src-desc', default='영상 소스')
+    ap.add_argument('--sport', default='running', choices=['running', 'boxing'])
     args = ap.parse_args()
     if not args.video and not args.frames:
         sys.exit('--video 또는 --frames 필요')
@@ -210,23 +290,35 @@ def main():
     rate = detected / n if n else 0
     print(f'■ 포즈 추출: {n}프레임 중 검출 {detected} ({rate*100:.0f}%)')
 
-    strikes, good = detect_strikes(frames)
-    print(f'■ 접지 검출: {len(strikes)}건')
-    for s in strikes:
-        print(f"   {s['side']:5s} t={s['t']:.3f}s  x={s['x']*100:+.1f}cm  y={s['y']*100:.1f}cm")
+    duration = frames[-1]['t'] if frames else 0
+    if args.sport == 'boxing':
+        punches, good = detect_punches(frames)
+        print(f'■ 펀치 검출: {len(punches)}건')
+        for p in punches:
+            print(f"   {p['hand']:5s} t={p['t']:.3f}s  신전={p['ext']*100:.0f}cm  손높이={p['y']*100:+.0f}cm")
+        payload = {'source': args.src_desc, 'poseDetectRate': round(rate, 3),
+                   'frames': frames, 'punches': punches}
+        pack = build_pack_boxing(punches, frames, duration, args.src_desc, rate) if punches else None
+        count = f'targetMark {len(punches)}'
+    else:
+        strikes, good = detect_strikes(frames)
+        print(f'■ 접지 검출: {len(strikes)}건')
+        for s in strikes:
+            print(f"   {s['side']:5s} t={s['t']:.3f}s  x={s['x']*100:+.1f}cm  y={s['y']*100:.1f}cm")
+        payload = {'source': args.src_desc, 'poseDetectRate': round(rate, 3),
+                   'frames': frames, 'strikes': strikes}
+        pack = build_pack(strikes, duration, args.src_desc, rate) if strikes else None
+        count = f"stepMark {len(strikes)}"
 
     os.makedirs(os.path.dirname(args.out) or '.', exist_ok=True)
     with open(args.out, 'w') as f:
-        json.dump({'source': args.src_desc, 'poseDetectRate': round(rate, 3),
-                   'frames': frames, 'strikes': strikes}, f, ensure_ascii=False)
+        json.dump(payload, f, ensure_ascii=False)
     print(f'→ {args.out}')
 
-    if args.pack and strikes:
-        duration = frames[-1]['t'] if frames else 0
-        pack = build_pack(strikes, duration, args.src_desc, rate)
+    if args.pack and pack:
         with open(args.pack, 'w') as f:
             json.dump(pack, f, ensure_ascii=False, indent=2)
-        print(f'→ {args.pack} (stepMark {len(strikes)})')
+        print(f'→ {args.pack} ({count})')
 
 
 if __name__ == '__main__':
