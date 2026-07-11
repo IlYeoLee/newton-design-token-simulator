@@ -774,6 +774,10 @@ async function boot() {
   // ── 토큰 에디터 드로어: 팔레트·세션 타이밍 라이브 편집 + JSON 내보내기 ──
   const editorEl = document.getElementById('editor');
   document.getElementById('btn-editor')?.addEventListener('click', () => { editorEl.style.display = 'block'; });
+  document.getElementById('btn-fxlook')?.addEventListener('click', () => {
+    editorEl.style.display = editorEl.style.display === 'block' ? 'none' : 'block';
+    editorEl.scrollTop = 0;   // FX 룩 섹션이 최상단
+  });
   document.getElementById('editor-close')?.addEventListener('click', () => { editorEl.style.display = 'none'; });
   document.getElementById('ed-open-doc')?.addEventListener('click', e => { e.preventDefault(); window.open(`${BASE}docs/newton-wireframe.html`, '_blank'); });
 

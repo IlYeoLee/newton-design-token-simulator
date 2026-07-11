@@ -11,8 +11,8 @@ export const FX = {
   bloomThreshold: 0.55,
   bloomStrength: 0.55,
   bloomRadius: 0.6,
-  grain: 0.035,
-  vignette: 0.16,
+  grain: 0.012,
+  vignette: 0.12,
   exposure: 1.0,
 };
 
