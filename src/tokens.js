@@ -55,6 +55,48 @@ void main() {
   vec3 col = lut(clamp(heat * 0.72 + hot + sweep * min(heat, 1.0), 0.0, 1.0)) * min(heat, 1.35) * alpha * uGain;
   gl_FragColor = vec4(col, 1.0);   // additive: 검정 = 무기여
 }`;
+// ── 레인 광류 셰이더 (FX Lab ④경로) — 얇은 코어 + 흐르는 대시 펄스 + 새벽빛 스윕 ──
+const LANEFX_FRAG = `
+#include <common>
+#include <clipping_planes_pars_fragment>
+` + FX_GLSL + `
+uniform float uTime, uLen, uW, uHalo;
+varying vec2 vUv;
+void main() {
+  #include <clipping_planes_fragment>
+  float lat = (vUv.x - 0.5) * 2.0;                     // 폭방향 -1..1
+  float along = vUv.y * uLen;                          // 진행 좌표 (m)
+  // 미세 측면 웨이브 — 살아있는 빛줄기
+  lat += sin(along * 2.1 + uTime * 1.4) * 0.06;
+  float core = exp(-pow(lat / (0.10 * uW), 2.0)) + exp(-pow(lat / (0.42 * uW), 2.0)) * 0.30 * uHalo;
+  // 대시 흐름: 전방(-z)으로 흐르는 광 펄스 (대시 간격 = 속도 언어)
+  float pulse = 0.30 + 0.70 * smoothstep(0.22, 0.58, 0.5 + 0.5 * sin(along * 9.0 - uTime * 5.2));
+  float heat = core * pulse * 0.5;
+  heat *= smoothstep(0.0, 0.04, vUv.y) * smoothstep(1.0, 0.96, vUv.y);
+  float sweep = 0.12 * sin(along * 0.9 - uTime * 1.7);
+  vec3 col = lut(clamp(0.42 + sweep + heat * 0.25, 0.0, 1.0)) * heat;
+  gl_FragColor = vec4(col, 1.0);
+}`;
+function makeLaneFXMaterial(lenM) {
+  const mat = new THREE.ShaderMaterial({
+    vertexShader: MARKFX_VERT,
+    fragmentShader: LANEFX_FRAG,
+    uniforms: {
+      uLUT: { value: getLUT() },
+      uTime: { value: 0 },
+      uLen: { value: lenM },
+      uW: { value: 1 },
+      uHalo: { value: 0.9 },
+    },
+    transparent: true,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+  });
+  mat.clipping = true;
+  return mat;
+}
+
 function makeMarkFXMaterial() {
   const mat = new THREE.ShaderMaterial({
     vertexShader: MARKFX_VERT,
@@ -343,7 +385,11 @@ class Marker {
 function makeArrow(color, len = 0.55, tip = 'triangle') {
   const g = new THREE.Group();
   const w = 0.09, hw = 0.24, hl = 0.22;
-  const mesh = (geo) => { const m = new THREE.Mesh(geo, flatMat(color, 0.85)); g.add(m); return m; };
+  const mesh = (geo) => {
+    const m = new THREE.Mesh(geo, flatMat(color, 0.85));
+    m.material.blending = THREE.AdditiveBlending;   // 광류 언어 — 블룸이 살림
+    g.add(m); return m;
+  };
   const shape = (build) => { const s = new THREE.Shape(); build(s); return new THREE.ShapeGeometry(s); };
 
   // 자루(shaft) — 촉이 있으면 촉 밑동까지, 없으면 끝까지
@@ -476,7 +522,8 @@ export class TokenSystem {
     // 기존 비주얼 제거
     this.floorRoot.clear();
     this.wallRoot.clear();
-    this._compareRoot = null;   // 비교 오버레이도 floorRoot.clear()로 제거됨
+    this._compareRoot = null;   // 비교 오버레이도 floorRoot.clear()로 제거
+    this.laneFX = null;
     this.floorRoot.position.set(0, 0, 0);
     this.events = [];
     this.ambient = [];
@@ -649,20 +696,15 @@ export class TokenSystem {
     // 경로 토큰: 전체 형상을 그리되 GPU 클리핑으로 투사 풋프린트 안에서만 보임
     const L = this.layout;
     if (L.mode === 'advance') {
-      // 러닝: 진행 방향 중앙 대시 라인
-      const len = L.V * packData.duration + 3;
-      const pts = [];
-      for (let z = 1.2; z > -len; z -= 0.45) pts.push(new THREE.Vector3(0, 0.012, z));
-      const line = new THREE.Line(
-        new THREE.BufferGeometry().setFromPoints(pts),
-        new THREE.LineDashedMaterial({
-          color: COLORS.lane, dashSize: 0.16, gapSize: 0.24,
-          transparent: true, opacity: 0.55,
-        })
-      );
-      line.computeLineDistances();
-      this.floorRoot.add(line);
-      this._applyClip(line, this._floorClipFor());
+      // 러닝: 진행 방향 광류 레인 (셰이더 — 흐르는 대시 펄스 + 코어·헤일로)
+      const len = L.V * packData.duration + 3 + 1.2;
+      const lane = new THREE.Mesh(new THREE.PlaneGeometry(0.55, len), makeLaneFXMaterial(len));
+      lane.rotation.x = -Math.PI / 2;
+      lane.position.set(0, 0.010, 1.2 - len / 2);   // z=1.2 → -len 구간, 로컬 +y = 전방(-z)
+      lane.renderOrder = 3;
+      this.floorRoot.add(lane);
+      this._applyClip(lane, this._floorClipFor());
+      this.laneFX = lane;
     } else if (L.mode === 'spatial') {
       // 농구: 컷인 경로 곡선 대시
       const pts = this.pack.tokens
@@ -698,6 +740,7 @@ export class TokenSystem {
     const { lead, size, maxVisible } = this.params;
     const L = this.layout;
     if (!L) return;
+    if (this.laneFX) this.laneFX.material.uniforms.uTime.value = performance.now() / 1000;
 
     // 다가오는 이벤트 순서 계산 (preview 투명도 감쇠용)
     const upcoming = this.events.filter(e => e.t >= now - TCFG.linger);
