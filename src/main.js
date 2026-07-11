@@ -675,9 +675,14 @@ async function boot() {
     'Silhouette':   [['#141114', 0], ['#41232A', .24], ['#B03A44', .48], ['#FA5A50', .68], ['#FFC9A6', .86], ['#FFFFFF', 1]],
   };
   function buildFxPanel() {
-    const host = document.getElementById('ed-fx');
-    if (!host) return;
-    // 저장분 복원 (designStore.global.fx — 기존 '전역설정 미저장' 미완 해소)
+    const hosts = {
+      palette: document.getElementById('fx-palette'),
+      screen: document.getElementById('fx-screen'),
+      graphics: document.getElementById('fx-graphics'),
+      mark: document.getElementById('fx-mark'),
+    };
+    if (!hosts.palette) return;
+    // 저장분 복원 (designStore.global.fx)
     const saved = designStore.globalGet('fx', 'all', null);
     if (saved) {
       if (saved.stops) FXP.stops = saved.stops.map(s => [...s]);
@@ -687,7 +692,8 @@ async function boot() {
       Object.assign(FX, saved.screen || {});
       rebuildLUT();
     }
-    let saveTimer = null;
+    const savedEl = document.getElementById('fx-saved');
+    let saveTimer = null, savedFlashTimer = null;
     const save = () => {
       clearTimeout(saveTimer);
       saveTimer = setTimeout(() => {
@@ -696,38 +702,42 @@ async function boot() {
           graphics: { ...FXP.graphics }, mark: { ...FXP.mark }, screen: { ...FX },
         });
         designStore.save();
+        if (savedEl) {
+          savedEl.style.opacity = '1';
+          clearTimeout(savedFlashTimer);
+          savedFlashTimer = setTimeout(() => { savedEl.style.opacity = '0'; }, 1400);
+        }
       }, 350);
     };
 
     const el = (html) => { const d = document.createElement('div'); d.innerHTML = html; return d.firstElementChild; };
-    // 프리셋 칩
-    const chips = el('<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px;"></div>');
+    // ── 팔레트 열: 프리셋 칩 + 스탑 + LUT 바 + 채도 ──
+    const chips = el('<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;"></div>');
     for (const name of Object.keys(FX_PRESETS)) {
-      const b = el(`<button style="padding:3px 9px;border:1px solid var(--line);border-radius:99px;background:none;color:var(--dim);font-size:10px;cursor:pointer;">${name}</button>`);
+      const b = el(`<button style="padding:5px 12px;border:1px solid var(--line);border-radius:99px;background:none;color:var(--dim);font-size:11px;font-weight:600;cursor:pointer;">${name}</button>`);
       b.onclick = () => { FXP.stops = FX_PRESETS[name].map(s => [...s]); rebuildLUT(); renderStops(); save(); };
       chips.appendChild(b);
     }
-    host.appendChild(chips);
-    // LUT 스탑 (색·위치)
-    const stopsWrap = el('<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px;"></div>');
-    host.appendChild(stopsWrap);
-    const lutBar = el('<canvas width="600" height="12" style="width:100%;height:12px;border-radius:99px;border:1px solid var(--line);display:block;margin-bottom:8px;"></canvas>');
-    host.appendChild(lutBar);
+    hosts.palette.appendChild(chips);
+    const stopsWrap = el('<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;"></div>');
+    hosts.palette.appendChild(stopsWrap);
+    const lutBar = el('<canvas width="800" height="16" style="width:100%;height:16px;border-radius:99px;border:1px solid var(--line);display:block;margin-bottom:10px;"></canvas>');
+    hosts.palette.appendChild(lutBar);
     function drawLutBar() {
       const data = rebuildLUT();
       const g = lutBar.getContext('2d');
-      for (let x = 0; x < 600; x++) {
-        const i = Math.floor(x / 600 * 255) * 4;
+      for (let x = 0; x < 800; x++) {
+        const i = Math.floor(x / 800 * 255) * 4;
         g.fillStyle = `rgb(${data[i]},${data[i + 1]},${data[i + 2]})`;
-        g.fillRect(x, 0, 1, 12);
+        g.fillRect(x, 0, 1, 16);
       }
     }
     function renderStops() {
       stopsWrap.innerHTML = '';
       FXP.stops.forEach((s, i) => {
-        const d = el(`<div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
-          <input type="color" value="${s[0]}" style="width:32px;height:22px;border:1px solid var(--line);border-radius:5px;background:none;padding:1px;cursor:pointer;">
-          <input type="range" min="0" max="1" step="0.01" value="${s[1]}" style="width:44px;accent-color:var(--accent);"></div>`);
+        const d = el(`<div style="display:flex;flex-direction:column;align-items:center;gap:3px;">
+          <input type="color" value="${s[0]}" style="width:40px;height:28px;border:1px solid var(--line);border-radius:6px;background:none;padding:2px;cursor:pointer;">
+          <input type="range" min="0" max="1" step="0.01" value="${s[1]}" style="width:56px;accent-color:#fec389;"></div>`);
         const [ci, ri] = d.querySelectorAll('input');
         ci.oninput = () => { FXP.stops[i][0] = ci.value; drawLutBar(); save(); };
         ri.oninput = () => { FXP.stops[i][1] = +ri.value; drawLutBar(); save(); };
@@ -736,48 +746,45 @@ async function boot() {
       drawLutBar();
     }
     renderStops();
-    // 슬라이더 그룹
-    const slider = (label, obj, key, mn, mx, st) => {
-      const row = el(`<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;font-size:11px;color:var(--dim);">
-        <span style="width:72px;flex:none;">${label}</span>
+    // ── 슬라이더 (랩 스타일 — 넓고 시원하게) ──
+    const slider = (host, label, obj, key, mn, mx, st) => {
+      const row = el(`<div style="display:flex;align-items:center;gap:10px;margin-bottom:9px;font-size:12px;color:var(--dim);">
+        <span style="width:76px;flex:none;">${label}</span>
         <input type="range" min="${mn}" max="${mx}" step="${st}" value="${obj[key]}" style="flex:1;accent-color:var(--accent);">
-        <output style="width:36px;text-align:right;font-variant-numeric:tabular-nums;font-size:10px;">${obj[key]}</output></div>`);
+        <output style="width:42px;text-align:right;font-variant-numeric:tabular-nums;font-size:11px;">${obj[key]}</output></div>`);
       const inp = row.querySelector('input'), out = row.querySelector('output');
       inp.oninput = () => { obj[key] = +inp.value; out.textContent = inp.value; if (obj === FXP) rebuildLUT(); save(); };
       host.appendChild(row);
     };
-    const heading = (t) => host.appendChild(el(`<div style="font-size:10px;font-weight:700;color:var(--dim);letter-spacing:1px;margin:10px 0 6px;">${t}</div>`));
-    slider('채도', FXP, 'sat', 0, 1.3, 0.05);
-    heading('화면 룩');
-    slider('블룸 강도', FX, 'bloomStrength', 0, 1.5, 0.05);
-    slider('블룸 문턱', FX, 'bloomThreshold', 0, 1, 0.05);
-    slider('블룸 반경', FX, 'bloomRadius', 0, 1.2, 0.05);
-    slider('노출', FX, 'exposure', 0.6, 1.6, 0.05);
-    slider('그레인', FX, 'grain', 0, 0.1, 0.005);
-    slider('비네트', FX, 'vignette', 0, 0.5, 0.02);
-    heading('그래픽 — 터짐·레인');
-    slider('블러(폭)', FXP.graphics, 'width', 0.4, 2.2, 0.05);
-    slider('글로우', FXP.graphics, 'halo', 0, 2, 0.05);
-    slider('일렁임', FXP.graphics, 'noise', 0, 1, 0.05);
-    slider('잔열', FXP.graphics, 'ember', 0, 0.7, 0.05);
-    slider('지속(s)', FXP.graphics, 'duration', 0.4, 2.6, 0.05);
-    slider('크기(m)', FXP.graphics, 'size', 0.6, 2.6, 0.05);
-    heading('마크 판정 토큰');
-    slider('코어 두께', FXP.mark, 'core', 0.5, 2.2, 0.05);
-    slider('헤일로', FXP.mark, 'halo', 0, 2, 0.05);
-    slider('내부 광', FXP.mark, 'pool', 0, 1, 0.05);
-    slider('색 스윕', FXP.mark, 'sweep', 0, 2, 0.05);
-    slider('일렁임', FXP.mark, 'wobble', 0, 1, 0.05);
+    slider(hosts.palette, '채도', FXP, 'sat', 0, 1.3, 0.05);
+    slider(hosts.screen, '블룸 강도', FX, 'bloomStrength', 0, 1.5, 0.05);
+    slider(hosts.screen, '블룸 문턱', FX, 'bloomThreshold', 0, 1, 0.05);
+    slider(hosts.screen, '블룸 반경', FX, 'bloomRadius', 0, 1.2, 0.05);
+    slider(hosts.screen, '노출', FX, 'exposure', 0.6, 1.6, 0.05);
+    slider(hosts.screen, '그레인', FX, 'grain', 0, 0.1, 0.005);
+    slider(hosts.screen, '비네트', FX, 'vignette', 0, 0.5, 0.02);
+    slider(hosts.graphics, '블러(폭)', FXP.graphics, 'width', 0.4, 2.2, 0.05);
+    slider(hosts.graphics, '글로우', FXP.graphics, 'halo', 0, 2, 0.05);
+    slider(hosts.graphics, '일렁임', FXP.graphics, 'noise', 0, 1, 0.05);
+    slider(hosts.graphics, '잔열', FXP.graphics, 'ember', 0, 0.7, 0.05);
+    slider(hosts.graphics, '지속(s)', FXP.graphics, 'duration', 0.4, 2.6, 0.05);
+    slider(hosts.graphics, '크기(m)', FXP.graphics, 'size', 0.6, 2.6, 0.05);
+    slider(hosts.mark, '코어 두께', FXP.mark, 'core', 0.5, 2.2, 0.05);
+    slider(hosts.mark, '헤일로', FXP.mark, 'halo', 0, 2, 0.05);
+    slider(hosts.mark, '내부 광', FXP.mark, 'pool', 0, 1, 0.05);
+    slider(hosts.mark, '색 스윕', FXP.mark, 'sweep', 0, 2, 0.05);
+    slider(hosts.mark, '일렁임', FXP.mark, 'wobble', 0, 1, 0.05);
   }
   buildFxPanel();
 
   // ── 토큰 에디터 드로어: 팔레트·세션 타이밍 라이브 편집 + JSON 내보내기 ──
   const editorEl = document.getElementById('editor');
   document.getElementById('btn-editor')?.addEventListener('click', () => { editorEl.style.display = 'block'; });
+  const fxStudioEl = document.getElementById('fxstudio');
   document.getElementById('btn-fxlook')?.addEventListener('click', () => {
-    editorEl.style.display = editorEl.style.display === 'block' ? 'none' : 'block';
-    editorEl.scrollTop = 0;   // FX 룩 섹션이 최상단
+    fxStudioEl.style.display = fxStudioEl.style.display === 'block' ? 'none' : 'block';
   });
+  document.getElementById('fxstudio-close')?.addEventListener('click', () => { fxStudioEl.style.display = 'none'; });
   document.getElementById('editor-close')?.addEventListener('click', () => { editorEl.style.display = 'none'; });
   document.getElementById('ed-open-doc')?.addEventListener('click', e => { e.preventDefault(); window.open(`${BASE}docs/newton-wireframe.html`, '_blank'); });
 
