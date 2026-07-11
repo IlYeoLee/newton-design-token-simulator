@@ -17,7 +17,6 @@ import { loadSvg } from './studio/design.js';
 import { initBudgetPanel } from './budgetPanel.js';
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { getLUT, FXP, rebuildLUT } from './fxlut.js';
-import { buildFxPreviews } from './fxpreview.js';
 
 const BASE = import.meta.env.BASE_URL;
 const PACK_FILES = {
@@ -675,122 +674,59 @@ async function boot() {
     'NEWTON Heat':  [['#120609', 0], ['#8E1121', .26], ['#FA3030', .5], ['#FE6E3C', .7], ['#FEC389', .88], ['#FFF6E8', 1]],
     'Silhouette':   [['#141114', 0], ['#41232A', .24], ['#B03A44', .48], ['#FA5A50', .68], ['#FFC9A6', .86], ['#FFFFFF', 1]],
   };
-  function buildFxPanel() {
-    const hosts = {
-      palette: document.getElementById('fx-palette'),
-      screen: document.getElementById('fx-screen'),
-      graphics: document.getElementById('fx-graphics'),
-      mark: document.getElementById('fx-mark'),
-    };
-    if (!hosts.palette) return;
-    // 저장분 복원 (designStore.global.fx)
-    const saved = designStore.globalGet('fx', 'all', null);
-    if (saved) {
-      if (saved.stops) FXP.stops = saved.stops.map(s => [...s]);
-      if (saved.sat != null) FXP.sat = saved.sat;
-      Object.assign(FXP.graphics, saved.graphics || {});
-      Object.assign(FXP.mark, saved.mark || {});
-      Object.assign(FX, saved.screen || {});
-      rebuildLUT();
+  // ── 🔥 룩 스튜디오 = FX Lab 페이지 통째 임베드 ──────────────
+  // 랩에서 만지는 모든 값이 400ms 주기로 전송 → 시뮬 적용 + designStore 저장.
+  function applyLabState(st) {
+    if (!st) return;
+    if (st.stops) FXP.stops = st.stops.map(s => [...s]);
+    if (st.sat != null) FXP.sat = st.sat;
+    if (st.g) {
+      FXP.graphics.width = st.g.width ?? FXP.graphics.width;
+      FXP.graphics.halo = st.g.halo ?? FXP.graphics.halo;
+      FXP.graphics.noise = st.g.noise ?? FXP.graphics.noise;
+      FXP.graphics.ember = st.g.ember ?? FXP.graphics.ember;
+      FXP.graphics.size = st.g.size ?? FXP.graphics.size;
+      if (st.g.speed) FXP.graphics.duration = +(2.6 / st.g.speed).toFixed(2);   // 랩 속도 → 파문 지속
     }
-    const savedEl = document.getElementById('fx-saved');
-    let saveTimer = null, savedFlashTimer = null;
-    const save = () => {
-      clearTimeout(saveTimer);
-      saveTimer = setTimeout(() => {
-        designStore.globalSet('fx', 'all', {
-          stops: FXP.stops, sat: FXP.sat,
-          graphics: { ...FXP.graphics }, mark: { ...FXP.mark }, screen: { ...FX },
-        });
-        designStore.save();
-        if (savedEl) {
-          savedEl.style.opacity = '1';
-          clearTimeout(savedFlashTimer);
-          savedFlashTimer = setTimeout(() => { savedEl.style.opacity = '0'; }, 1400);
-        }
-      }, 350);
-    };
-
-    const el = (html) => { const d = document.createElement('div'); d.innerHTML = html; return d.firstElementChild; };
-    // ── 팔레트 열: 프리셋 칩 + 스탑 + LUT 바 + 채도 ──
-    const chips = el('<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;"></div>');
-    for (const name of Object.keys(FX_PRESETS)) {
-      const b = el(`<button style="padding:5px 12px;border:1px solid var(--line);border-radius:99px;background:none;color:var(--dim);font-size:11px;font-weight:600;cursor:pointer;">${name}</button>`);
-      b.onclick = () => { FXP.stops = FX_PRESETS[name].map(s => [...s]); rebuildLUT(); renderStops(); save(); };
-      chips.appendChild(b);
+    if (st.m) {
+      Object.assign(FXP.mark, { core: st.m.core, halo: st.m.halo, pool: st.m.pool, sweep: st.m.sweep, wobble: st.m.wobble });
+      if (st.m.radius) TCFG.markScale = st.m.radius;   // 존 반경 → 마크 크기 배율
     }
-    hosts.palette.appendChild(chips);
-    const stopsWrap = el('<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;"></div>');
-    hosts.palette.appendChild(stopsWrap);
-    const lutBar = el('<canvas width="800" height="16" style="width:100%;height:16px;border-radius:99px;border:1px solid var(--line);display:block;margin-bottom:10px;"></canvas>');
-    hosts.palette.appendChild(lutBar);
-    function drawLutBar() {
-      const data = rebuildLUT();
-      const g = lutBar.getContext('2d');
-      for (let x = 0; x < 800; x++) {
-        const i = Math.floor(x / 800 * 255) * 4;
-        g.fillStyle = `rgb(${data[i]},${data[i + 1]},${data[i + 2]})`;
-        g.fillRect(x, 0, 1, 16);
-      }
-    }
-    function renderStops() {
-      stopsWrap.innerHTML = '';
-      FXP.stops.forEach((s, i) => {
-        const d = el(`<div style="display:flex;flex-direction:column;align-items:center;gap:3px;">
-          <input type="color" value="${s[0]}" style="width:40px;height:28px;border:1px solid var(--line);border-radius:6px;background:none;padding:2px;cursor:pointer;">
-          <input type="range" min="0" max="1" step="0.01" value="${s[1]}" style="width:56px;accent-color:#fec389;"></div>`);
-        const [ci, ri] = d.querySelectorAll('input');
-        ci.oninput = () => { FXP.stops[i][0] = ci.value; drawLutBar(); save(); };
-        ri.oninput = () => { FXP.stops[i][1] = +ri.value; drawLutBar(); save(); };
-        stopsWrap.appendChild(d);
-      });
-      drawLutBar();
-    }
-    renderStops();
-    // ── 슬라이더 (랩 스타일 — 넓고 시원하게) ──
-    const slider = (host, label, obj, key, mn, mx, st) => {
-      const row = el(`<div style="display:flex;align-items:center;gap:10px;margin-bottom:9px;font-size:12px;color:var(--dim);">
-        <span style="width:76px;flex:none;">${label}</span>
-        <input type="range" min="${mn}" max="${mx}" step="${st}" value="${obj[key]}" style="flex:1;accent-color:var(--accent);">
-        <output style="width:42px;text-align:right;font-variant-numeric:tabular-nums;font-size:11px;">${obj[key]}</output></div>`);
-      const inp = row.querySelector('input'), out = row.querySelector('output');
-      inp.oninput = () => { obj[key] = +inp.value; out.textContent = inp.value; if (obj === FXP) rebuildLUT(); save(); };
-      host.appendChild(row);
-    };
-    slider(hosts.palette, '채도', FXP, 'sat', 0, 1.3, 0.05);
-    slider(hosts.screen, '블룸 강도', FX, 'bloomStrength', 0, 1.5, 0.05);
-    slider(hosts.screen, '블룸 문턱', FX, 'bloomThreshold', 0, 1, 0.05);
-    slider(hosts.screen, '블룸 반경', FX, 'bloomRadius', 0, 1.2, 0.05);
-    slider(hosts.screen, '노출', FX, 'exposure', 0.6, 1.6, 0.05);
-    slider(hosts.screen, '그레인', FX, 'grain', 0, 0.1, 0.005);
-    slider(hosts.screen, '비네트', FX, 'vignette', 0, 0.5, 0.02);
-    slider(hosts.graphics, '블러(폭)', FXP.graphics, 'width', 0.4, 2.2, 0.05);
-    slider(hosts.graphics, '글로우', FXP.graphics, 'halo', 0, 2, 0.05);
-    slider(hosts.graphics, '일렁임', FXP.graphics, 'noise', 0, 1, 0.05);
-    slider(hosts.graphics, '잔열', FXP.graphics, 'ember', 0, 0.7, 0.05);
-    slider(hosts.graphics, '지속(s)', FXP.graphics, 'duration', 0.4, 2.6, 0.05);
-    slider(hosts.graphics, '크기(m)', FXP.graphics, 'size', 0.6, 2.6, 0.05);
-    slider(hosts.mark, '코어 두께', FXP.mark, 'core', 0.5, 2.2, 0.05);
-    slider(hosts.mark, '헤일로', FXP.mark, 'halo', 0, 2, 0.05);
-    slider(hosts.mark, '내부 광', FXP.mark, 'pool', 0, 1, 0.05);
-    slider(hosts.mark, '색 스윕', FXP.mark, 'sweep', 0, 2, 0.05);
-    slider(hosts.mark, '일렁임', FXP.mark, 'wobble', 0, 1, 0.05);
+    if (st.p) Object.assign(FXP.person, { blur: st.p.blur, glow: st.p.glow, flow: st.p.flow, decay: st.p.decay });
+    if (st.s) Object.assign(FX, st.s);
+    rebuildLUT();
   }
-  buildFxPanel();
   {
-    const fxSheet = document.getElementById('fxstudio');
-    const prevHost = document.getElementById('fx-previews');
-    if (prevHost) buildFxPreviews(prevHost, () => fxSheet.style.display === 'block');
+    const savedLab = designStore.globalGet('fx', 'lab', null);
+    if (savedLab) applyLabState(savedLab);
+    const overlay = document.getElementById('fxlab-overlay');
+    const frame = document.getElementById('fxlab-frame');
+    let lastJson = savedLab ? JSON.stringify(savedLab) : '';
+    let saveTimer = null;
+    document.getElementById('btn-fxlook')?.addEventListener('click', () => {
+      if (!frame.src) frame.src = `${BASE}fxlab.html`;   // 최초 열 때 로드
+      overlay.style.display = 'block';
+    });
+    document.getElementById('fxlab-close')?.addEventListener('click', () => { overlay.style.display = 'none'; });
+    window.addEventListener('message', ev => {
+      const d = ev.data;
+      if (d?.type === 'fxlab-ready') {
+        frame.contentWindow?.postMessage({ type: 'fxlab-init', state: designStore.globalGet('fx', 'lab', null) }, '*');
+      } else if (d?.type === 'fxlab-state') {
+        const json = JSON.stringify(d.state);
+        if (json === lastJson) return;
+        lastJson = json;
+        applyLabState(d.state);
+        clearTimeout(saveTimer);
+        saveTimer = setTimeout(() => { designStore.globalSet('fx', 'lab', d.state); designStore.save(); }, 400);
+      }
+    });
   }
 
   // ── 토큰 에디터 드로어: 팔레트·세션 타이밍 라이브 편집 + JSON 내보내기 ──
   const editorEl = document.getElementById('editor');
   document.getElementById('btn-editor')?.addEventListener('click', () => { editorEl.style.display = 'block'; });
-  const fxStudioEl = document.getElementById('fxstudio');
-  document.getElementById('btn-fxlook')?.addEventListener('click', () => {
-    fxStudioEl.style.display = fxStudioEl.style.display === 'block' ? 'none' : 'block';
-  });
-  document.getElementById('fxstudio-close')?.addEventListener('click', () => { fxStudioEl.style.display = 'none'; });
+
   document.getElementById('editor-close')?.addEventListener('click', () => { editorEl.style.display = 'none'; });
   document.getElementById('ed-open-doc')?.addEventListener('click', e => { e.preventDefault(); window.open(`${BASE}docs/newton-wireframe.html`, '_blank'); });
 
