@@ -34,7 +34,7 @@ export const FXP = {
   // 팔레트: NEWTON Vivid — 브랜드 풀채도 (유저 확정 레퍼런스)
   stops: [['#B7231F', 0], ['#FA3030', .3], ['#FE6E3C', .56], ['#FEA35F', .74], ['#FEC389', .86], ['#FFF3DC', 1]],
   sat: 1.0,
-  graphics: { width: 1.0, halo: 0.9, noise: 0.5, ember: 0.3 },
+  graphics: { width: 1.0, halo: 0.9, noise: 0.5, ember: 0.3, duration: 1.05, size: 1.5 },
   mark: { radius: 1.0, core: 1.0, halo: 0.9, pool: 0.55, sweep: 1.0, wobble: 0.5 },
   person: { blur: 1.0, glow: 0.9, flow: 0.55, decay: 0.62 },
 };

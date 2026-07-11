@@ -97,10 +97,10 @@ export class Effects {
     const intensity = Math.max(0.2, opts.intensity ?? 1);
     const speed = Math.max(0.25, opts.speed ?? 1);
     const noClip = !!opts.noClip;
-    const maxLife = 0.62 / speed;
+    const maxLife = FXP.graphics.duration / speed;   // 랩 체감 유지 — 접지 간격보다 길어 파문이 겹치며 흐름
     const clipPlanes = noClip ? null : (isFloor ? this.floorClipPlanes : this.wallClipPlanes);
 
-    const size = 1.15 * Math.sqrt(intensity);   // 파문 도달 반경 (m)
+    const size = FXP.graphics.size * Math.sqrt(intensity);   // 파문 도달 반경 (m)
     const mat = this._makeMat(clipPlanes);
     mat.uniforms.uIntensity.value = Math.min(1.5, intensity);
     mat.uniforms.uForward.value = opts.forward ? 1 : 0;
@@ -115,7 +115,7 @@ export class Effects {
     }
     m.renderOrder = 8;
     this.scene.add(m);
-    this.items.push({ mesh: m, mat, life: 0, maxLife, isFloor, noClip, shader: true });
+    this.items.push({ mesh: m, mat, life: 0, maxLife, isFloor, noClip, shader: true, forward: !!opts.forward });
   }
 
   /** 착지점 도트 — 학습자의 실제 도달 위치 표시 (작은 채움 원, 서서히 소멸) */
@@ -141,9 +141,10 @@ export class Effects {
     for (let i = this.items.length - 1; i >= 0; i--) {
       const it = this.items[i];
       it.life += dt;
-      // 풋프린트 이탈(러너 전진) 시 가속 소멸 — 물리적 잘림은 GPU 클리핑이 담당하므로
-      // 여기선 완만히(2.5×)만 앞당김: 접지 마크가 패드 뒷전에 걸려도 파문이 읽힐 시간 확보
-      if (it.isFloor && !it.noClip && this.clip && !this.clip(it.mesh.position.x, it.mesh.position.z)) {
+      // 풋프린트 이탈(러너 전진) 시 가속 소멸 — 물리적 잘림은 GPU 클리핑이 담당.
+      // 전방 반파는 중심이 원래 패드 뒷전(착지점)이므로 중심 판정으로 죽이지 않는다 —
+      // 파문의 몸통은 전방(빔 안)에 있고, GPU 클리핑이 밖 부분을 정직하게 자른다.
+      if (it.isFloor && !it.noClip && !it.forward && this.clip && !this.clip(it.mesh.position.x, it.mesh.position.z)) {
         it.life += dt * 2.5;
       }
       const k = it.life / it.maxLife;
