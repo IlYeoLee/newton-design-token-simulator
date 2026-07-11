@@ -1,4 +1,29 @@
 // 좌측 패널: 팩 탭 / 원본 정보 / 타임라인 / 토큰 슬라이더 / 범례
+import { LAYOUT } from './tokens.js';
+
+// 팩 시그니처 — 토큰 데이터에서 계산한 수치 요약 (팩 간 차이를 언어로 보여줌).
+// 도메인 하드코딩 없음: stepMark의 t·nx에서 유도 (advance=레인 폭, spatial=이동 범위).
+function packSignature(packData) {
+  const marks = (packData.tokens || []).filter(t => t.type === 'stepMark' && t.foot);
+  if (marks.length < 2) return '';
+  const L = LAYOUT[packData.sport] || {};
+  const ts = marks.map(m => m.t).sort((a, b) => a - b);
+  const gaps = ts.slice(1).map((t, i) => t - ts[i]).filter(g => g > 0.05);
+  const med = gaps.sort((a, b) => a - b)[Math.floor(gaps.length / 2)];
+  const parts = [`마크 ${marks.length}개`];
+  if (med) parts.push(`스텝 간격 ${med.toFixed(2)}s (${Math.round(60 / med)}spm)`);
+  const xs = f => marks.filter(m => m.foot === f).map(m => m.nx);
+  const avg = a => a.reduce((s, v) => s + v, 0) / a.length;
+  const lp = xs('left'), rp = xs('right');
+  if (L.X_SCALE && lp.length && rp.length) {
+    parts.push(`좌우 폭 ${Math.abs((avg(rp) - avg(lp)) * L.X_SCALE * 100).toFixed(0)}cm`);
+  } else if (L.SCALE) {
+    const nx = marks.map(m => m.nx), ny = marks.map(m => m.ny);
+    parts.push(`이동 범위 ${((Math.max(...nx) - Math.min(...nx)) * L.SCALE * 100).toFixed(0)}×${((Math.max(...ny) - Math.min(...ny)) * L.SCALE * 100).toFixed(0)}cm`);
+  }
+  return parts.join(' · ');
+}
+
 const TYPE_COLORS = {
   stepMark: '#4fc3f7',
   orderPulse: '#ffffff',
@@ -80,11 +105,13 @@ export class Panel {
     this.events = tokenEvents;
 
     const s = packData.source || {};
+    const sig = packSignature(packData);
     document.getElementById('source-info').innerHTML = `
       <b>${packData.packName ?? packData.sport}</b>
       ${s.name ?? ''}<br>
       ${s.dataType ?? ''}<br>
       상태: <span style="color:#69f0ae">${packData.dataStatus}</span> · ${s.licenseNote ?? ''}
+      ${sig ? `<br>시그니처: <span style="color:#fec389">${sig}</span>` : ''}
     `;
 
     document.getElementById('token-legend').innerHTML =

@@ -157,6 +157,7 @@ async function boot() {
     state.packs.basketball = bkVariants[bkVariant];
     document.querySelector('[data-pack=basketball]')?.click();   // 탭 활성+switchPack (전 버튼 active 초기화)
     curryBtn.classList.toggle('active', bkVariant === 'curry');  // 초기화 뒤에 붙여야 살아남는다
+    tokens.setCompare(bkVariant === 'curry' ? bkVariants.real : null);  // 기본 팩 고스트 = 차이 가시화
   });
 
   // 러닝 팩 변형 토글: 실측 케이던스(기본) ↔ 전문가(BVH) ↔ 영상 추출 (커리 토글과 동일 패턴).
@@ -169,6 +170,7 @@ async function boot() {
       state.packs.running = runVariants[runVariant];
       document.querySelector('[data-pack=running]')?.click();
       for (const [k, b] of Object.entries(runBtns)) b?.classList.toggle('active', runVariant === k);
+      tokens.setCompare(runVariant !== 'real' ? runVariants.real : null);  // 기본 팩 고스트 = 차이 가시화
     });
   }
 
