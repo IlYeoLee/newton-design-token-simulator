@@ -17,6 +17,7 @@ import { loadSvg } from './studio/design.js';
 import { initBudgetPanel } from './budgetPanel.js';
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { getLUT, FXP, rebuildLUT } from './fxlut.js';
+import { buildFxPreviews } from './fxpreview.js';
 
 const BASE = import.meta.env.BASE_URL;
 const PACK_FILES = {
@@ -776,6 +777,11 @@ async function boot() {
     slider(hosts.mark, '일렁임', FXP.mark, 'wobble', 0, 1, 0.05);
   }
   buildFxPanel();
+  {
+    const fxSheet = document.getElementById('fxstudio');
+    const prevHost = document.getElementById('fx-previews');
+    if (prevHost) buildFxPreviews(prevHost, () => fxSheet.style.display === 'block');
+  }
 
   // ── 토큰 에디터 드로어: 팔레트·세션 타이밍 라이브 편집 + JSON 내보내기 ──
   const editorEl = document.getElementById('editor');
