@@ -1,0 +1,96 @@
+{
+ "sport": "basketball",
+ "packName": "농구 / 커리 스텝백 자동추출 Pack",
+ "dataStatus": "auto-extracted",
+ "source": {
+  "name": "NBA SportVU — 2015-10-31 GSW at NOP (0021500035) (커리 53득점)",
+  "moment": "커리 퀵 스텝백 3점 (3Q, 릴리스 0.16s)",
+  "playerid": 201939,
+  "dataType": "25fps 무게중심 트래킹 → 플랜트/스텝백/릴리스 앵커 기계 추출 (손 배치 0)",
+  "licenseNote": "research/prototype",
+  "pipeline": "scripts/expert_pipeline_bk.mjs",
+  "limits": "무게중심 기준(발 위치 아님) · 25fps = 타이밍 분해능 ±40ms",
+  "metrics": {
+   "approachSpeed": 1.43,
+   "separationM": 0.48,
+   "releaseAfterLandMs": 159,
+   "defBefore": 5.5,
+   "defAfter": 6,
+   "hoopDistM": 7.1
+  }
+ },
+ "duration": 2,
+ "hasWall": false,
+ "tokenCombination": [
+  "pathLane",
+  "stepMark",
+  "orderPulse",
+  "directionGuide"
+ ],
+ "tokens": [
+  {
+   "t": 0,
+   "type": "pathLane",
+   "nx": 0,
+   "ny": 0,
+   "lifetime": 1.9
+  },
+  {
+   "t": 0,
+   "type": "stepMark",
+   "foot": "right",
+   "nx": 0,
+   "ny": 0,
+   "lifetime": 0.9
+  },
+  {
+   "t": 0,
+   "type": "orderPulse",
+   "n": 1,
+   "nx": 0,
+   "ny": 0,
+   "lifetime": 0.9
+  },
+  {
+   "t": 0,
+   "type": "directionGuide",
+   "angle": 180,
+   "nx": 0,
+   "ny": 0,
+   "lifetime": 0.9
+  },
+  {
+   "t": 0.641,
+   "type": "stepMark",
+   "foot": "left",
+   "nx": -0.2108,
+   "ny": 0.0804,
+   "lifetime": 0.9
+  },
+  {
+   "t": 0.641,
+   "type": "orderPulse",
+   "n": 2,
+   "nx": -0.2108,
+   "ny": 0.0804,
+   "lifetime": 0.9
+  },
+  {
+   "t": 0.8,
+   "type": "stepMark",
+   "foot": "right",
+   "nx": -0.2237,
+   "ny": 0.0885,
+   "lifetime": 0.9
+  },
+  {
+   "t": 0.8,
+   "type": "orderPulse",
+   "n": 3,
+   "nx": -0.2237,
+   "ny": 0.0885,
+   "lifetime": 0.9
+  }
+ ],
+ "cues": []
+}
