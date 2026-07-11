@@ -1306,7 +1306,7 @@ async function boot() {
   });
 
   if (import.meta.env.DEV) window.__dbg = {
-    rig, xbot, state, session, sceneScope, camera, controls,
+    rig, xbot, state, session, sceneScope, camera, controls, tokens, effects, scene,
     get canvas() { return studioCanvas; },
     get scope() { return studioScope; },
   };

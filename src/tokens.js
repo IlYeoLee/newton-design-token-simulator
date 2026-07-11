@@ -696,7 +696,13 @@ export class TokenSystem {
       : new THREE.Vector3();
     const normal = ev.surface === 'wall' ? new THREE.Vector3(0, 0, 1) : new THREE.Vector3(0, 1, 0);
     const b = ev.srcToken?.design?.burst;   // 토큰별 터짐 조절 (없으면 기본 버스트)
-    this.effects.burst(pos, ev.color, normal, (b && b.on) ? b : {});
+    const opts = (b && b.on) ? { ...b } : {};
+    if (ev.surface !== 'wall' && this.layout?.mode === 'advance') {
+      // 러닝(전진 레인): 무릎 패드가 착지점을 지나치므로 파문은 전방 반파로 방출
+      opts.forward = true;
+      pos.z -= 0.18;   // 반파 중심을 살짝 전방으로 — 빔 안에서 사는 시간 확보
+    }
+    this.effects.burst(pos, ev.color, normal, opts);
     if (this.onEvent) this.onEvent(ev);
   }
 
