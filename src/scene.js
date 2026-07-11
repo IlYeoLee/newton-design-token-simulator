@@ -111,6 +111,77 @@ export function createScene(container) {
 
   // 빔 투사는 projector.js(무릎 모듈 / 후방 스테이션)가 전담
 
+  // ── 투사면 실측 텍스처 (ambientCG CC0) — 룩 스튜디오 칩과 연동 ──
+  // 바닥 = 잔디/러닝 트랙/보도블럭, 벽 = 텍스처 사용 시 석고벽. 'none' = 기본 다크 스크린.
+  const texLoader = new THREE.TextureLoader();
+  const surfCache = {};
+  const BASE_URL = import.meta.env.BASE_URL;
+  function loadSurf(file, repX, repY) {
+    return new Promise(resolve => {
+      texLoader.load(`${BASE_URL}tex/${file}`, tex => {
+        tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+        tex.repeat.set(repX, repY);
+        tex.anisotropy = 4;
+        tex.colorSpace = THREE.SRGBColorSpace;
+        resolve(tex);
+      });
+    });
+  }
+  async function getSurf(key) {
+    if (surfCache[key]) return surfCache[key];
+    if (key === 'grass') surfCache.grass = await loadSurf('grass.jpg', 12, 12);
+    else if (key === 'paving') surfCache.paving = await loadSurf('paving.jpg', 10, 10);
+    else if (key === 'plaster') surfCache.plaster = await loadSurf('plaster.jpg', 2.5, 1.6);
+    else if (key === 'track') {
+      // 러닝 트랙 = 아스팔트 × 레드 러버 틴트 + 레인 라인 (런타임 베이크)
+      const asphalt = await new Promise(res => {
+        const im = new Image();
+        im.onload = () => res(im);
+        im.src = `${BASE_URL}tex/asphalt.jpg`;
+      });
+      const c = document.createElement('canvas'); c.width = c.height = 512;
+      const g = c.getContext('2d');
+      g.drawImage(asphalt, 0, 0, 512, 512);
+      g.globalCompositeOperation = 'multiply';
+      g.fillStyle = '#D8503A'; g.fillRect(0, 0, 512, 512);
+      g.globalCompositeOperation = 'source-over';
+      g.fillStyle = 'rgba(245,245,240,0.8)';
+      g.fillRect(96, 0, 7, 512); g.fillRect(409, 0, 7, 512);
+      const tex = new THREE.CanvasTexture(c);
+      tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+      tex.repeat.set(12, 12);
+      tex.anisotropy = 4;
+      tex.colorSpace = THREE.SRGBColorSpace;
+      surfCache.track = tex;
+    }
+    return surfCache[key];
+  }
+  let surfSeq = 0;
+  async function setSurfaces(key) {
+    const seq = ++surfSeq;   // 연타 시 마지막 선택만 반영
+    if (!key || key === 'none') {
+      floor.material.map = null;
+      floor.material.color.setHex(0x171a20);
+      wall.material.map = null;
+      wall.material.color.setHex(0x1c2028);
+      floor.material.needsUpdate = true;
+      wall.material.needsUpdate = true;
+      grid.visible = true;
+      wallGrid.visible = true;
+      return;
+    }
+    const [fTex, wTex] = await Promise.all([getSurf(key), getSurf('plaster')]);
+    if (seq !== surfSeq) return;
+    floor.material.map = fTex;
+    floor.material.color.setHex(0x8a8a8a);   // 야간 투사 조건 톤 다운
+    wall.material.map = wTex;
+    wall.material.color.setHex(0x9a9a9a);
+    floor.material.needsUpdate = true;
+    wall.material.needsUpdate = true;
+    grid.visible = false;                     // 실측 표면엔 그리드 라인 제거
+    wallGrid.visible = false;
+  }
+
   // ── 카메라 프리셋 ─────────────────────────────────────
   const CAM_PRESETS = {
     running:    { pos: [2.9, 2.1, 2.9],  look: [0, 0.7, -0.6] },
@@ -162,5 +233,5 @@ export function createScene(container) {
   }
   window.addEventListener('resize', resize);
 
-  return { renderer, scene, camera, controls, setPackEnvironment, resize, renderFrame, composer };
+  return { renderer, scene, camera, controls, setPackEnvironment, resize, renderFrame, composer, setSurfaces };
 }

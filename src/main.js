@@ -45,7 +45,7 @@ const state = {
 
 async function boot() {
   const stage = document.getElementById('stage');
-  const { renderer, scene, camera, controls, setPackEnvironment, resize, renderFrame } = createScene(stage);
+  const { renderer, scene, camera, controls, setPackEnvironment, resize, renderFrame, setSurfaces } = createScene(stage);
 
   let sessionSkillSink = null;   // 슬라이더가 session 생성 전 초기 apply 시 TDZ 회피
   let refreshEditorStages = null; // switchPack → 에디터 스테이지 편집기 갱신 훅
@@ -694,6 +694,7 @@ async function boot() {
     }
     if (st.p) Object.assign(FXP.person, { blur: st.p.blur, glow: st.p.glow, flow: st.p.flow, decay: st.p.decay });
     if (st.s) Object.assign(FX, st.s);
+    if (st.bg !== undefined) setSurfaces(st.bg === 'none' ? null : st.bg);   // 투사면 칩 → 실물 바닥/벽
     rebuildLUT();
   }
   {
