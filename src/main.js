@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { createScene, WALL_Z } from './scene.js';
+import { createScene, WALL_Z, FX } from './scene.js';
 import { TokenSystem, COLORS, TCFG } from './tokens.js';
 import { Effects } from './effects.js';
 import { XBot } from './xbot.js';
@@ -16,6 +16,7 @@ import { DesignStore } from './studio/store.js';
 import { loadSvg } from './studio/design.js';
 import { initBudgetPanel } from './budgetPanel.js';
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
+import { getLUT, FXP, rebuildLUT } from './fxlut.js';
 
 const BASE = import.meta.env.BASE_URL;
 const PACK_FILES = {
@@ -666,6 +667,110 @@ async function boot() {
   document.getElementById('btn-stage-next')?.addEventListener('click', () => session.next());
   document.getElementById('btn-session-stop')?.addEventListener('click', () => stopSession());
   document.getElementById('btn-view')?.addEventListener('click', () => setFp(!fpMode));
+  // ── FX 룩 프로 패널 — FX Lab 컨트롤을 시뮬 안에 (실물 3D 실시간 반영 + 자동 저장) ──
+  const FX_PRESETS = {
+    'NEWTON Vivid': [['#B7231F', 0], ['#FA3030', .3], ['#FE6E3C', .56], ['#FEA35F', .74], ['#FEC389', .86], ['#FFF3DC', 1]],
+    'NEWTON Dawn':  [['#0B0710', 0], ['#6E0E1E', .18], ['#FA3030', .4], ['#FE6E3C', .62], ['#FEC389', .82], ['#D1FEFF', 1]],
+    'NEWTON Heat':  [['#120609', 0], ['#8E1121', .26], ['#FA3030', .5], ['#FE6E3C', .7], ['#FEC389', .88], ['#FFF6E8', 1]],
+    'Silhouette':   [['#141114', 0], ['#41232A', .24], ['#B03A44', .48], ['#FA5A50', .68], ['#FFC9A6', .86], ['#FFFFFF', 1]],
+  };
+  function buildFxPanel() {
+    const host = document.getElementById('ed-fx');
+    if (!host) return;
+    // 저장분 복원 (designStore.global.fx — 기존 '전역설정 미저장' 미완 해소)
+    const saved = designStore.globalGet('fx', 'all', null);
+    if (saved) {
+      if (saved.stops) FXP.stops = saved.stops.map(s => [...s]);
+      if (saved.sat != null) FXP.sat = saved.sat;
+      Object.assign(FXP.graphics, saved.graphics || {});
+      Object.assign(FXP.mark, saved.mark || {});
+      Object.assign(FX, saved.screen || {});
+      rebuildLUT();
+    }
+    let saveTimer = null;
+    const save = () => {
+      clearTimeout(saveTimer);
+      saveTimer = setTimeout(() => {
+        designStore.globalSet('fx', 'all', {
+          stops: FXP.stops, sat: FXP.sat,
+          graphics: { ...FXP.graphics }, mark: { ...FXP.mark }, screen: { ...FX },
+        });
+        designStore.save();
+      }, 350);
+    };
+
+    const el = (html) => { const d = document.createElement('div'); d.innerHTML = html; return d.firstElementChild; };
+    // 프리셋 칩
+    const chips = el('<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px;"></div>');
+    for (const name of Object.keys(FX_PRESETS)) {
+      const b = el(`<button style="padding:3px 9px;border:1px solid var(--line);border-radius:99px;background:none;color:var(--dim);font-size:10px;cursor:pointer;">${name}</button>`);
+      b.onclick = () => { FXP.stops = FX_PRESETS[name].map(s => [...s]); rebuildLUT(); renderStops(); save(); };
+      chips.appendChild(b);
+    }
+    host.appendChild(chips);
+    // LUT 스탑 (색·위치)
+    const stopsWrap = el('<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px;"></div>');
+    host.appendChild(stopsWrap);
+    const lutBar = el('<canvas width="600" height="12" style="width:100%;height:12px;border-radius:99px;border:1px solid var(--line);display:block;margin-bottom:8px;"></canvas>');
+    host.appendChild(lutBar);
+    function drawLutBar() {
+      const data = rebuildLUT();
+      const g = lutBar.getContext('2d');
+      for (let x = 0; x < 600; x++) {
+        const i = Math.floor(x / 600 * 255) * 4;
+        g.fillStyle = `rgb(${data[i]},${data[i + 1]},${data[i + 2]})`;
+        g.fillRect(x, 0, 1, 12);
+      }
+    }
+    function renderStops() {
+      stopsWrap.innerHTML = '';
+      FXP.stops.forEach((s, i) => {
+        const d = el(`<div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
+          <input type="color" value="${s[0]}" style="width:32px;height:22px;border:1px solid var(--line);border-radius:5px;background:none;padding:1px;cursor:pointer;">
+          <input type="range" min="0" max="1" step="0.01" value="${s[1]}" style="width:44px;accent-color:var(--accent);"></div>`);
+        const [ci, ri] = d.querySelectorAll('input');
+        ci.oninput = () => { FXP.stops[i][0] = ci.value; drawLutBar(); save(); };
+        ri.oninput = () => { FXP.stops[i][1] = +ri.value; drawLutBar(); save(); };
+        stopsWrap.appendChild(d);
+      });
+      drawLutBar();
+    }
+    renderStops();
+    // 슬라이더 그룹
+    const slider = (label, obj, key, mn, mx, st) => {
+      const row = el(`<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;font-size:11px;color:var(--dim);">
+        <span style="width:72px;flex:none;">${label}</span>
+        <input type="range" min="${mn}" max="${mx}" step="${st}" value="${obj[key]}" style="flex:1;accent-color:var(--accent);">
+        <output style="width:36px;text-align:right;font-variant-numeric:tabular-nums;font-size:10px;">${obj[key]}</output></div>`);
+      const inp = row.querySelector('input'), out = row.querySelector('output');
+      inp.oninput = () => { obj[key] = +inp.value; out.textContent = inp.value; if (obj === FXP) rebuildLUT(); save(); };
+      host.appendChild(row);
+    };
+    const heading = (t) => host.appendChild(el(`<div style="font-size:10px;font-weight:700;color:var(--dim);letter-spacing:1px;margin:10px 0 6px;">${t}</div>`));
+    slider('채도', FXP, 'sat', 0, 1.3, 0.05);
+    heading('화면 룩');
+    slider('블룸 강도', FX, 'bloomStrength', 0, 1.5, 0.05);
+    slider('블룸 문턱', FX, 'bloomThreshold', 0, 1, 0.05);
+    slider('블룸 반경', FX, 'bloomRadius', 0, 1.2, 0.05);
+    slider('노출', FX, 'exposure', 0.6, 1.6, 0.05);
+    slider('그레인', FX, 'grain', 0, 0.1, 0.005);
+    slider('비네트', FX, 'vignette', 0, 0.5, 0.02);
+    heading('그래픽 — 터짐·레인');
+    slider('블러(폭)', FXP.graphics, 'width', 0.4, 2.2, 0.05);
+    slider('글로우', FXP.graphics, 'halo', 0, 2, 0.05);
+    slider('일렁임', FXP.graphics, 'noise', 0, 1, 0.05);
+    slider('잔열', FXP.graphics, 'ember', 0, 0.7, 0.05);
+    slider('지속(s)', FXP.graphics, 'duration', 0.4, 2.6, 0.05);
+    slider('크기(m)', FXP.graphics, 'size', 0.6, 2.6, 0.05);
+    heading('마크 판정 토큰');
+    slider('코어 두께', FXP.mark, 'core', 0.5, 2.2, 0.05);
+    slider('헤일로', FXP.mark, 'halo', 0, 2, 0.05);
+    slider('내부 광', FXP.mark, 'pool', 0, 1, 0.05);
+    slider('색 스윕', FXP.mark, 'sweep', 0, 2, 0.05);
+    slider('일렁임', FXP.mark, 'wobble', 0, 1, 0.05);
+  }
+  buildFxPanel();
+
   // ── 토큰 에디터 드로어: 팔레트·세션 타이밍 라이브 편집 + JSON 내보내기 ──
   const editorEl = document.getElementById('editor');
   document.getElementById('btn-editor')?.addEventListener('click', () => { editorEl.style.display = 'block'; });
@@ -1106,26 +1211,33 @@ async function boot() {
     ghostScene = new THREE.Scene();
     const bot = SkeletonUtils.clone(xbot.model);
     // 깊이→열화상 재질: 카메라와의 거리로 몸 표면을 색칠 (레퍼런스: depth-map 실루엣)
+    // 공유 히트 LUT + 세로 그라디언트(위 어둡고 아래로 밝게 — 유저 확정 레퍼런스)
+    // 깊이는 보조 변조: 가까운 부위(뻗는 주먹)가 살짝 더 뜨겁게.
     const thermalMat = new THREE.ShaderMaterial({
-      uniforms: { zNear: { value: 2.15 }, zFar: { value: 3.45 } },
+      uniforms: { zNear: { value: 2.15 }, zFar: { value: 3.45 }, uLUT: { value: getLUT() }, uH: { value: 2.1 } },
       vertexShader: `
         #include <common>
         #include <skinning_pars_vertex>
-        varying float vVZ;
+        varying float vVZ; varying float vWY;
         void main(){
           #include <skinbase_vertex>
           #include <begin_vertex>
           #include <skinning_vertex>
           vec4 mv = modelViewMatrix * vec4(transformed, 1.0);
           vVZ = -mv.z;
+          vWY = (modelMatrix * vec4(transformed, 1.0)).y;
           gl_Position = projectionMatrix * mv;
         }`,
       fragmentShader: `
-        varying float vVZ; uniform float zNear, zFar;
-        ${GHOST_LUT_GLSL}
+        varying float vVZ; varying float vWY;
+        uniform float zNear, zFar, uH;
+        uniform sampler2D uLUT;
+        vec3 lut(float v){ return texture2D(uLUT, vec2(clamp(v, 0.004, 0.996), 0.5)).rgb; }
         void main(){
-          float t = 1.0 - clamp((vVZ - zNear) / (zFar - zNear), 0.0, 1.0);
-          gl_FragColor = vec4(gLut(t), 1.0);
+          float depth = 1.0 - clamp((vVZ - zNear) / (zFar - zNear), 0.0, 1.0);
+          float vert = pow(1.0 - clamp(vWY / uH, 0.0, 1.0), 1.6) * 0.96 + 0.03;    // 아래 밝게, 상부 딥레드
+          float heat = clamp(vert * 0.9 + (depth - 0.5) * 0.22, 0.0, 1.0);         // 깊이는 ±변조만
+          gl_FragColor = vec4(lut(heat), 1.0);
         }`,
     });
     bot.traverse(o => { if (o.isMesh) o.material = thermalMat; });

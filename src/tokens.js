@@ -179,10 +179,13 @@ function makeNumberTexture(n) {
   const c = document.createElement('canvas');
   c.width = c.height = 128;
   const ctx = c.getContext('2d');
-  ctx.fillStyle = 'rgba(255,255,255,0.96)';
-  ctx.font = '700 84px -apple-system, sans-serif';
+  // 웜 크림 + 경량 웨이트 + 히트 글로우 (FX Lab 확정 타이포)
+  ctx.fillStyle = 'rgba(255,240,220,0.95)';
+  ctx.font = '300 86px -apple-system, sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
+  ctx.shadowColor = 'rgba(254,150,90,0.75)';
+  ctx.shadowBlur = 14;
   ctx.fillText(String(n), 64, 70);
   const tex = new THREE.CanvasTexture(c);
   tex.anisotropy = 4;
@@ -740,7 +743,12 @@ export class TokenSystem {
     const { lead, size, maxVisible } = this.params;
     const L = this.layout;
     if (!L) return;
-    if (this.laneFX) this.laneFX.material.uniforms.uTime.value = performance.now() / 1000;
+    if (this.laneFX) {
+      const LU = this.laneFX.material.uniforms;
+      LU.uTime.value = performance.now() / 1000;
+      LU.uW.value = FXP.graphics.width;
+      LU.uHalo.value = FXP.graphics.halo;
+    }
 
     // 다가오는 이벤트 순서 계산 (preview 투명도 감쇠용)
     const upcoming = this.events.filter(e => e.t >= now - TCFG.linger);
