@@ -9,8 +9,11 @@
     "preview": "vite preview --host 127.0.0.1"
   },
   "dependencies": {
-    "vite": "^7.0.0",
+    "fflate": "^0.8.2",
     "three": "^0.178.0",
-    "fflate": "^0.8.2"
+    "vite": "^7.0.0"
+  },
+  "devDependencies": {
+    "puppeteer": "^25.3.0"
   }
 }
