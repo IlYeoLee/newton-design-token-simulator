@@ -184,6 +184,12 @@ def detect_punches(frames):
             if ext[i] >= thr and ext[i] >= ext[i - 1] and ext[i] >= ext[i + 1] and rng > 0.15:
                 if any(p['hand'] == side and abs(good[i]['t'] - p['t']) < 0.35 for p in punches):
                     continue
+                # prominence: 펀치 = 접힌 팔이 '빠르게' 뻗는 것 — 직전 0.35s 내 최소 신전과의
+                # 낙차가 작으면(가드에서 어슬렁 벌어진 팔) 펀치가 아님 (프레임 대조로 잡은 오검출)
+                lo = min(ext[j] for j in range(len(ext))
+                         if 0 <= good[i]['t'] - good[j]['t'] <= 0.35)
+                if ext[i] - lo < 0.10:
+                    continue
                 punches.append({'hand': side, 't': good[i]['t'], 'ext': round(ext[i], 3),
                                 'x': round(wr[i][0], 4), 'y': round(wr[i][1], 4), 'z': round(wr[i][2], 4)})
     punches.sort(key=lambda p: p['t'])
@@ -198,10 +204,41 @@ def detect_punches(frames):
     return dedup, good
 
 
+def select_combo_segment(punches, min_gap=0.35, max_gap=1.5, min_n=4, max_n=8):
+    """대표 콤보 구간 자동 선택 — 원본 영상 통짜는 가이드가 아니다(순간/시퀀스 상품).
+    간격이 [min_gap, max_gap]로 일정한 연속 펀치 묶음 중 (개수↑, 간격 분산↓) 최선을 고른다."""
+    best, best_score = None, -1e9
+    for i in range(len(punches)):
+        seg = [punches[i]]
+        for j in range(i + 1, len(punches)):
+            gap = punches[j]['t'] - seg[-1]['t']
+            if gap > max_gap:
+                break
+            if gap < min_gap:
+                continue
+            seg.append(punches[j])
+            if len(seg) > max_n:
+                break
+            if len(seg) >= min_n:
+                gaps = [seg[k + 1]['t'] - seg[k]['t'] for k in range(len(seg) - 1)]
+                mean = sum(gaps) / len(gaps)
+                var = sum((g - mean) ** 2 for g in gaps) / len(gaps)
+                score = len(seg) - 6.0 * math.sqrt(var)
+                if score > best_score:
+                    best, best_score = list(seg), score
+    return best or punches
+
+
 def build_pack_boxing(punches, frames, duration, src_desc, pose_rate):
     """복싱 팩 — targetMark(펀치 시각·손목 위치) + 스탠스 stepMark(발목 평균).
     벽 좌표 규약: x=nx*2.2, y=0.73+ny*1.2 (tokens.js WALL). 힙원점 손목 y → 벽 y로
-    힙 높이(~0.9m 가정, assumed)를 더해 근사 — monocular 한계는 sourceError에 명시."""
+    힙 높이(~0.9m 가정, assumed)를 더해 근사 — monocular 한계는 sourceError에 명시.
+    팩 = 원본 통짜가 아니라 대표 콤보 구간(리듬 일정 4~8발)으로 트림."""
+    seg = select_combo_segment(punches)
+    t0 = seg[0]['t'] - 0.8            # 프리롤(첫 펀치 예고 여유)
+    seg_note = f"원본 {duration:.1f}s 중 {seg[0]['t']:.1f}~{seg[-1]['t']:.1f}s 콤보 {len(seg)}발 구간"
+    punches = [{**p, 't': p['t'] - t0} for p in seg]
+    duration = punches[-1]['t'] + 1.2  # 테일(마지막 펀치 소화)
     good = [f for f in frames if 'lm' in f]
     HIP_H, Y0, YS, XS = 0.9, 0.73, 1.2, 2.2
     tokens = [{'t': 0, 'type': 'pathLane', 'nx': 0, 'ny': 0, 'lifetime': round(duration, 3)}]
@@ -230,6 +267,7 @@ def build_pack_boxing(punches, frames, duration, src_desc, pose_rate):
             'poseDetectRate': round(pose_rate, 3),
             'punchCount': len(punches),
             'avgIntervalSec': round(sum(gaps) / len(gaps), 3) if gaps else None,
+            'segment': seg_note,
             'sourceErrorNote': 'monocular: 펀치 타이밍·리듬은 강건, 타겟 높이는 힙높이 0.9m 가정(assumed) 근사',
         },
         'duration': round(duration, 3),
