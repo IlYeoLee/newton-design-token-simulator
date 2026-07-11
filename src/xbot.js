@@ -211,8 +211,11 @@ export class XBot {
       const stride = rights.length >= 2
         ? (rights[rights.length - 1] - rights[0]) / (rights.length - 1)
         : 0.76;
-      this.schedule = { t0: rights[0] ?? 0, stride, V: 2.5 };  // 실측 2.5m/s 전진
-      const a = this.actions.run;
+      // 전문가 팩: botClip = 가이드를 추출한 원천 BVH의 리타겟 클립.
+      // 팩 t가 클립 시간축 그대로라 packTime%사이클 = 클립 위상 — 발이 마크에 저절로 맞는다.
+      const clipKey = packData.botClip && this.actions[packData.botClip] ? packData.botClip : 'run';
+      this.schedule = { t0: rights[0] ?? 0, stride, V: 2.5, clipKey };  // 실측 2.5m/s 전진
+      const a = this.actions[clipKey];
       a.action.play(); a.action.paused = true;
       this.model.rotation.y = Math.PI;   // -Z(전진 방향) 바라보기
     }
@@ -308,10 +311,17 @@ export class XBot {
     }
 
     if (this.mode === 'running') {
-      const { t0, stride, V } = this.schedule;
-      const a = this.actions.run;
-      const phase = (((packTime - t0) / stride) % 1 + 1) % 1;
-      a.action.time = ((phase + RUN_PHASE_R) % 1) * a.dur;
+      const { t0, stride, V, clipKey } = this.schedule;
+      const a = this.actions[clipKey || 'run'];
+      if (clipKey && clipKey !== 'run') {
+        // 원천 클립 직결: 팩 t = 클립 t (사이클 타일링) → 위상 보정 상수 불필요.
+        // 주의: 클립 dur(0.767s=마지막 키프레임)와 사이클(0.8s=프레임 수×dt)이 달라
+        // phase×dur로 스케일하면 사이클 내에서 위상이 밀린다 — 시간 그대로 쓰고 클램프.
+        a.action.time = Math.min(((packTime % stride) + stride) % stride, a.dur - 1e-4);
+      } else {
+        const phase = (((packTime - t0) / stride) % 1 + 1) % 1;
+        a.action.time = ((phase + RUN_PHASE_R) % 1) * a.dur;
+      }
       this.mixer.update(0);
       // 실제 전진: 지면 고정 마크를 향해 이동
       this.group.position.z = -V * packTime;

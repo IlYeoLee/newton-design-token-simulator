@@ -25,6 +25,9 @@ const PACK_FILES = {
   // 전문가 이식 자동 팩 — 커리 실경기 스텝백 (expert_pipeline_bk.mjs 산출).
   // 별도 종목이 아니라 농구 팩의 변형으로 스왑된다(종목 로직 공유).
   basketball_curry: `${BASE}packs/basketball_curry_stepback_auto.json`,
+  // 러닝 전문가 자동 팩 — Bandai run_normal.bvh 발 접지 FK 추출 (expert_pipeline.mjs 산출).
+  // botClip: 'bkRun' = 같은 BVH의 리타겟 클립 → 봇이 원본 러너 모션을 그대로 재생.
+  running_expert: `${BASE}packs/running_expert_auto.json`,
 };
 
 const state = {
@@ -152,6 +155,17 @@ async function boot() {
     state.packs.basketball = bkVariants[bkVariant];
     document.querySelector('[data-pack=basketball]')?.click();   // 탭 활성+switchPack (전 버튼 active 초기화)
     curryBtn.classList.toggle('active', bkVariant === 'curry');  // 초기화 뒤에 붙여야 살아남는다
+  });
+
+  // 러닝 팩 변형 토글: 실측 케이던스(기본) ↔ 전문가 자동추출 (커리 토글과 동일 패턴).
+  const runVariants = { real: state.packs.running, expert: state.packs.running_expert };
+  let runVariant = 'real';
+  const expertBtn = document.getElementById('run-expert');
+  expertBtn?.addEventListener('click', () => {
+    runVariant = runVariant === 'expert' ? 'real' : 'expert';
+    state.packs.running = runVariants[runVariant];
+    document.querySelector('[data-pack=running]')?.click();
+    expertBtn.classList.toggle('active', runVariant === 'expert');
   });
 
   ghost.setData(posePayload);

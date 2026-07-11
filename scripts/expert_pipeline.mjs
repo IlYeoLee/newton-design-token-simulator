@@ -151,6 +151,7 @@ function buildPack(src, K = 4) {
       },
       duration: +(cycleDur * K).toFixed(3),
       hasWall: false,
+      botClip: 'bkRun',   // 같은 BVH의 리타겟 클립(assets/mocap/xclip-run_normal.json) — 봇이 원본 러너 모션 재생
       tokenCombination: ['pathLane', 'stepMark', 'orderPulse'],
       tokens,
       cues: [],
