@@ -28,6 +28,8 @@ const PACK_FILES = {
   // 러닝 전문가 자동 팩 — Bandai run_normal.bvh 발 접지 FK 추출 (expert_pipeline.mjs 산출).
   // botClip: 'bkRun' = 같은 BVH의 리타겟 클립 → 봇이 원본 러너 모션을 그대로 재생.
   running_expert: `${BASE}packs/running_expert_auto.json`,
+  // 영상 자동 팩 — monocular 포즈 추출 (video_pose_extract.py 산출). botClip 없음(표준 클립).
+  running_video: `${BASE}packs/running_video_auto.json`,
 };
 
 const state = {
@@ -157,16 +159,18 @@ async function boot() {
     curryBtn.classList.toggle('active', bkVariant === 'curry');  // 초기화 뒤에 붙여야 살아남는다
   });
 
-  // 러닝 팩 변형 토글: 실측 케이던스(기본) ↔ 전문가 자동추출 (커리 토글과 동일 패턴).
-  const runVariants = { real: state.packs.running, expert: state.packs.running_expert };
+  // 러닝 팩 변형 토글: 실측 케이던스(기본) ↔ 전문가(BVH) ↔ 영상 추출 (커리 토글과 동일 패턴).
+  const runVariants = { real: state.packs.running, expert: state.packs.running_expert, video: state.packs.running_video };
   let runVariant = 'real';
-  const expertBtn = document.getElementById('run-expert');
-  expertBtn?.addEventListener('click', () => {
-    runVariant = runVariant === 'expert' ? 'real' : 'expert';
-    state.packs.running = runVariants[runVariant];
-    document.querySelector('[data-pack=running]')?.click();
-    expertBtn.classList.toggle('active', runVariant === 'expert');
-  });
+  const runBtns = { expert: document.getElementById('run-expert'), video: document.getElementById('run-video') };
+  for (const [key, btn] of Object.entries(runBtns)) {
+    btn?.addEventListener('click', () => {
+      runVariant = runVariant === key ? 'real' : key;
+      state.packs.running = runVariants[runVariant];
+      document.querySelector('[data-pack=running]')?.click();
+      for (const [k, b] of Object.entries(runBtns)) b?.classList.toggle('active', runVariant === k);
+    });
+  }
 
   ghost.setData(posePayload);
 
