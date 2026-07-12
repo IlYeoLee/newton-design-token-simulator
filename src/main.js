@@ -14,6 +14,7 @@ import { StudioProps } from './studio/props.js';
 import { SceneScope } from './studio/scene-scope.js';
 import { DesignStore } from './studio/store.js';
 import { loadSvg } from './studio/design.js';
+import { LookPanel } from './studio/look.js';
 import { initBudgetPanel } from './budgetPanel.js';
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { getLUT, FXP, rebuildLUT } from './fxlut.js';
@@ -828,7 +829,10 @@ async function boot() {
       overlay.style.display = 'block';
     };
     document.getElementById('studio-look')?.addEventListener('click', openFxLab);
-    document.getElementById('fxlab-close')?.addEventListener('click', () => { overlay.style.display = 'none'; });
+    document.getElementById('fxlab-close')?.addEventListener('click', () => {
+      overlay.style.display = 'none';
+      lookPanel?.sync(designStore.globalGet('fx', 'lab', null));   // iframe 왕복 후 네이티브 재동기
+    });
     window.addEventListener('message', ev => {
       const d = ev.data;
       if (d?.type === 'fxlab-ready') {
@@ -1014,6 +1018,22 @@ async function boot() {
   const studioEl = document.getElementById('studio');
   const studioCanvasEl = document.getElementById('studio-canvas');
 
+  // 룩 네이티브 패널 — 인스펙터 "선택 없음 = 전역 룩" (fxlab은 보조 실험실로 강등)
+  let lookPanel = null;
+  function getLookPanel() {
+    lookPanel ||= new LookPanel({
+      getSaved: () => designStore.globalGet('fx', 'lab', null),
+      apply: st => applyLabState(st),
+      save: st => {
+        designStore.globalSet('fx', 'lab', st);
+        designStore.save();
+        updateSurfChipsOut(st.bg || 'none');
+      },
+      openLab: () => openFxLab(),
+    });
+    return lookPanel;
+  }
+
   // 에디터 v3 Phase A — 라이브 3D 뷰에서 직접 선택·드래그 (피그마 모델)
   const editor3d = createEditor3D({
     dom: renderer.domElement, camera, controls, tokens,
@@ -1073,7 +1093,11 @@ async function boot() {
     b.style.background = on ? 'rgba(250,48,48,.16)' : 'var(--panel2)';
     b.style.color = on ? 'var(--accent)' : 'var(--text)';
   };
-  function renderScopeProps() { if (studioScope === 'scene') sceneScope.renderProps(propsHost(), () => { renderScopeProps(); fillLayers(); }); }
+  function renderScopeProps() {
+    if (studioScope !== 'scene') return;
+    sceneScope.getLookEl = () => getLookPanel().el;
+    sceneScope.renderProps(propsHost(), () => { renderScopeProps(); fillLayers(); });
+  }
 
   // ── 컷 보드 — 설계문서처럼 장면(컷)이 쫙 보이고, 컷을 고르면 그 장면을 편집 ──
   const CUT_TONE = { R: '#9aa4b2', A: '#FEC389', T: '#D1FEFF', B: '#FE6E3C', C: '#FA3030' };
@@ -1152,7 +1176,7 @@ async function boot() {
         studioProps = new StudioProps(propsHost(), studioDoc, {
           onEdit: scheduleStudioRebuild,
           onPreviewBurst: (mark) => { rebuildPack(studioSport, studioDoc.toPack()); tokens.studioBurst(mark); },
-          onOpenLook: () => openFxLab(),
+          getLookEl: () => getLookPanel().el,
         });
       }
     }
@@ -1211,7 +1235,7 @@ async function boot() {
     studioProps = new StudioProps(document.getElementById('studio-props'), studioDoc, {
       onEdit: scheduleStudioRebuild,
       onPreviewBurst: (mark) => { rebuildPack(studioSport, studioDoc.toPack()); tokens.studioBurst(mark); },
-          onOpenLook: () => openFxLab(),
+          getLookEl: () => getLookPanel().el,
     });
     // 안내 팁: 토큰을 처음 고르면 사라짐
     const tipEl = document.getElementById('studio-tip');
@@ -1607,7 +1631,7 @@ async function boot() {
   });
 
   if (import.meta.env.DEV) window.__dbg = {
-    rig, xbot, state, session, sceneScope, camera, controls, tokens, effects, scene, editor3d, sceneUI, FXP, designStore,
+    rig, xbot, state, session, sceneScope, camera, controls, tokens, effects, scene, editor3d, sceneUI, FXP, designStore, TCFG,
     get doc() { return studioDoc; },
     get canvas() { return studioCanvas; },
     get scope() { return studioScope; },

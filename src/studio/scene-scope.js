@@ -174,11 +174,12 @@ export class SceneScope {
   renderProps(host, onRerender) {
     if (!this.stageId) { host.innerHTML = ''; return; }
     if (this.sel < 0) {
-      host.innerHTML = `<div style="padding:12px 14px;font-size:11px;color:var(--dim);line-height:1.7;">
-        <b style="color:var(--text);">이 장면의 요소를 편집합니다.</b><br>
-        ① 위 화면에서 <b style="color:var(--accent);">네모(요소)를 클릭</b><br>
-        ② 아래에서 색·크기·글자를 바꾸면<br>
-        ③ 오른쪽 3D에 바로 반영됩니다.</div>`;
+      // 선택 없음 = 전역 룩 (팩 스코프와 동일 규칙 — LookPanel 영속 DOM)
+      host.innerHTML = `<div style="padding:10px 14px 0;font-size:11px;color:var(--dim);line-height:1.6;">
+        3D 장면(또는 레이어 목록)에서 요소를 <b style="color:var(--text)">클릭=선택 · 드래그=이동</b>. 글자는 선택하면 내용까지 편집돼요.
+      </div>`;
+      const lk = this.getLookEl?.();
+      if (lk) host.appendChild(lk);
       return;
     }
     const els = this.s.sceneElements(this.stageId);
