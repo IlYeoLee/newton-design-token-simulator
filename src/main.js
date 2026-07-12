@@ -150,6 +150,16 @@ async function boot() {
   // 레거시 3분할 키는 최초 1회 자동 이행된다(store.js).
   const { store: designStore, migrated } = DesignStore.load();
   if (migrated.length) console.log('[design store] 레거시 이행:', migrated.join(', '));
+  // 저장본이 없으면 리포에 굳힌 기본 룩(look-default.json)을 시드 — 서버 불필요, 깃이 기본값 보관
+  if (!designStore.globalGet('fx', 'lab', null)) {
+    try {
+      const r = await fetch(`${import.meta.env.BASE_URL}look-default.json`, { cache: 'no-cache' });
+      if (r.ok) {
+        const def = await r.json();
+        designStore.globalSet('fx', 'lab', def);   // save()는 안 함 — 유저가 편집하는 순간부터 본인 저장본
+      }
+    } catch (e) { /* 기본값 파일 없음 = 내장 디폴트 */ }
+  }
   // 저장된 룩의 LUT를 먼저 시드 — 세션 프리미티브(45컷)가 빌드 시 이 팔레트에서 파생됨
   {
     const lab0 = designStore.globalGet('fx', 'lab', null);

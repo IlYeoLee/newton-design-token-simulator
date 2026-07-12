@@ -1112,22 +1112,7 @@ function drawCustomGlyph(g, W, url) {
     glyphImgCache.set(url, img);
   }
   if (!img.complete || !img.naturalWidth) return false;
-  // 알파 마스크 → 웜 크림 틴트 (원본 색 무시 — 온도 언어 통일) + LUT 글로우
-  const off = document.createElement('canvas');
-  off.width = off.height = W;
-  const og = off.getContext('2d');
-  const R = glyphRaster(img);
-  const sc = Math.min((W - 24) / R.w, (W - 24) / R.h);
-  const w = R.w * sc, h = R.h * sc;
-  og.drawImage(R.canvas, R.x, R.y, R.w, R.h, (W - w) / 2, (W - h) / 2, w, h);
-  og.globalCompositeOperation = 'source-in';
-  og.fillStyle = 'rgba(255,240,220,0.95)';
-  og.fillRect(0, 0, W, W);
-  g.shadowColor = lutCss(0.72); g.shadowBlur = 16;
-  g.drawImage(off, 0, 0);
-  g.shadowBlur = 0;
-  g.drawImage(off, 0, 0);
-  return true;
+  return drawCustomGlyphAt(g, url, W / 2, W / 2, W - 24);
 }
 /** SVG → 비트맵 래스터 + 타이트 바운딩 (9인자 drawImage의 SVG 버그 회피 — 비트맵에서 크롭) */
 function glyphRaster(img) {
@@ -1145,6 +1130,7 @@ function glyphRaster(img) {
     { canvas: c, x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1 };
   return img._raster;
 }
+const _tintCache = new Map();
 /** 소비처 공용: 커스텀 SVG를 (x,y) 중심 size 크기로 히트 트리트먼트 렌더 */
 function drawCustomGlyphAt(g, url, x, y, size, locked = false) {
   let img = glyphImgCache.get(url);
@@ -1154,16 +1140,22 @@ function drawCustomGlyphAt(g, url, x, y, size, locked = false) {
     glyphImgCache.set(url, img);
   }
   if (!img.complete || !img.naturalWidth) return false;
-  const off = document.createElement('canvas');
-  off.width = off.height = size;
-  const og = off.getContext('2d');
-  const R = glyphRaster(img);
-  const sc = Math.min(size / R.w, size / R.h);
-  const w = R.w * sc, h = R.h * sc;
-  og.drawImage(R.canvas, R.x, R.y, R.w, R.h, (size - w) / 2, (size - h) / 2, w, h);
-  og.globalCompositeOperation = 'source-in';
-  og.fillStyle = locked ? 'rgba(152,158,166,0.85)' : 'rgba(255,240,220,0.95)';
-  og.fillRect(0, 0, size, size);
+  // 스프라이트 캐시 — 매 프레임 오프스크린 재생성은 GC 버벅임의 원인
+  const key = url + '|' + size + '|' + (locked ? 1 : 0);
+  let off = _tintCache.get(key);
+  if (!off) {
+    off = document.createElement('canvas');
+    off.width = off.height = size;
+    const og = off.getContext('2d');
+    const R = glyphRaster(img);
+    const sc = Math.min(size / R.w, size / R.h);
+    const w = R.w * sc, h = R.h * sc;
+    og.drawImage(R.canvas, R.x, R.y, R.w, R.h, (size - w) / 2, (size - h) / 2, w, h);
+    og.globalCompositeOperation = 'source-in';
+    og.fillStyle = locked ? 'rgba(152,158,166,0.85)' : 'rgba(255,240,220,0.95)';
+    og.fillRect(0, 0, size, size);
+    _tintCache.set(key, off);
+  }
   if (!locked) { g.shadowColor = lutCss(0.72); g.shadowBlur = 26; }
   g.drawImage(off, x - size / 2, y - size / 2);
   g.shadowBlur = 0;
@@ -1294,7 +1286,6 @@ function drawPrims() {
   }
 }
 drawPrims();
-setInterval(drawPrims, 120);   // 가벼운 애니메이션 (진행·펄스)
 
 // ═══ 화살표 경로 추종 데모 — 커스텀 TIP SVG의 회전 반영 방식 ═══
 const pathArrowC = document.getElementById('pathArrowC');
@@ -1347,8 +1338,11 @@ function drawPathArrow() {
     g.restore();
   }
 }
-setInterval(drawPathArrow, 60);
-drawPathArrow();
+(function primAnimLoop() {
+  drawPrims();
+  drawPathArrow();
+  requestAnimationFrame(primAnimLoop);
+})();
 // 라인 스타일 칩 + 두께
 const ARROW_LINES = [['solid', '실선'], ['dash', '대시'], ['dot', '도트'], ['taper', '테이퍼']];
 const arrowChips = document.getElementById('arrowLineChips');
@@ -1428,7 +1422,12 @@ if (window.parent !== window) {
   window.addEventListener('message', ev => {
     const d = ev.data;
     if (d?.type !== 'fxlab-init' || !d.state) return;
-    const st = d.state;
+    applyExternalState(d.state);
+  });
+  try { parent.postMessage({ type: 'fxlab-ready' }, '*'); } catch (e) {}
+}
+/** 외부 상태(부모 init·단독 localStorage) → UI 전체 복원 */
+function applyExternalState(st) {
     if (st.stops) state.stops = st.stops.map(x => [...x]);
     if (st.sat != null) { state.sat = st.sat; satSl.value = st.sat; satV.textContent = st.sat; }
     for (const k of ['g', 'm', 'p', 's']) Object.assign(state[k], st[k] || {});
@@ -1446,8 +1445,22 @@ if (window.parent !== window) {
       const v = state[inp.dataset.scope]?.[inp.dataset.key];
       if (v != null) { inp.value = v; const o = inp.parentElement.querySelector('output'); if (o) o.textContent = v; }
     });
-  });
-  try { parent.postMessage({ type: 'fxlab-ready' }, '*'); } catch (e) {}
+    drawGlyphLib(); drawPrims();
+}
+// ── 단독 페이지 영구 저장 — 서버 불필요: localStorage 자동 저장/복원 ──
+if (window.parent === window) {
+  const KEY = 'newton_fxlab_v1';
+  try {
+    const saved = localStorage.getItem(KEY);
+    if (saved) applyExternalState(JSON.parse(saved));
+  } catch (e) { console.warn('[fxlab] restore', e); }
+  let lastSave = '';
+  setInterval(() => {
+    try {
+      const json = JSON.stringify(labSnapshot());
+      if (json !== lastSave) { localStorage.setItem(KEY, json); lastSave = json; }
+    } catch (e) {}
+  }, 800);
 }
 
 </script>
