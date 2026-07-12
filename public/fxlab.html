@@ -1116,10 +1116,10 @@ function drawCustomGlyph(g, W, url) {
   const off = document.createElement('canvas');
   off.width = off.height = W;
   const og = off.getContext('2d');
-  const bb = glyphBBox(img);
-  const sc = Math.min((W - 24) / bb.w, (W - 24) / bb.h);
-  const w = bb.w * sc, h = bb.h * sc;
-  og.drawImage(img, bb.x, bb.y, bb.w, bb.h, (W - w) / 2, (W - h) / 2, w, h);
+  const R = glyphRaster(img);
+  const sc = Math.min((W - 24) / R.w, (W - 24) / R.h);
+  const w = R.w * sc, h = R.h * sc;
+  og.drawImage(R.canvas, R.x, R.y, R.w, R.h, (W - w) / 2, (W - h) / 2, w, h);
   og.globalCompositeOperation = 'source-in';
   og.fillStyle = 'rgba(255,240,220,0.95)';
   og.fillRect(0, 0, W, W);
@@ -1129,10 +1129,10 @@ function drawCustomGlyph(g, W, url) {
   g.drawImage(off, 0, 0);
   return true;
 }
-/** SVG 실픽셀 타이트 바운딩 (viewBox 여백 비대칭 보정) — 이미지별 1회 캐시 */
-function glyphBBox(img) {
-  if (img._bbox) return img._bbox;
-  const S = 128;
+/** SVG → 비트맵 래스터 + 타이트 바운딩 (9인자 drawImage의 SVG 버그 회피 — 비트맵에서 크롭) */
+function glyphRaster(img) {
+  if (img._raster) return img._raster;
+  const S = 256;
   const c = document.createElement('canvas'); c.width = c.height = S;
   const g = c.getContext('2d');
   const sc = Math.min(S / img.naturalWidth, S / img.naturalHeight);
@@ -1141,9 +1141,9 @@ function glyphBBox(img) {
   let x0 = S, y0 = S, x1 = -1, y1 = -1;
   for (let y = 0; y < S; y++) for (let x = 0; x < S; x++)
     if (d[(y * S + x) * 4 + 3] > 8) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
-  img._bbox = x1 < 0 ? { x: 0, y: 0, w: img.naturalWidth, h: img.naturalHeight } :
-    { x: x0 / sc, y: y0 / sc, w: (x1 - x0 + 1) / sc, h: (y1 - y0 + 1) / sc };
-  return img._bbox;
+  img._raster = x1 < 0 ? { canvas: c, x: 0, y: 0, w: S, h: S } :
+    { canvas: c, x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1 };
+  return img._raster;
 }
 /** 소비처 공용: 커스텀 SVG를 (x,y) 중심 size 크기로 히트 트리트먼트 렌더 */
 function drawCustomGlyphAt(g, url, x, y, size, locked = false) {
@@ -1157,10 +1157,10 @@ function drawCustomGlyphAt(g, url, x, y, size, locked = false) {
   const off = document.createElement('canvas');
   off.width = off.height = size;
   const og = off.getContext('2d');
-  const bb = glyphBBox(img);
-  const sc = Math.min(size / bb.w, size / bb.h);
-  const w = bb.w * sc, h = bb.h * sc;
-  og.drawImage(img, bb.x, bb.y, bb.w, bb.h, (size - w) / 2, (size - h) / 2, w, h);
+  const R = glyphRaster(img);
+  const sc = Math.min(size / R.w, size / R.h);
+  const w = R.w * sc, h = R.h * sc;
+  og.drawImage(R.canvas, R.x, R.y, R.w, R.h, (size - w) / 2, (size - h) / 2, w, h);
   og.globalCompositeOperation = 'source-in';
   og.fillStyle = locked ? 'rgba(152,158,166,0.85)' : 'rgba(255,240,220,0.95)';
   og.fillRect(0, 0, size, size);
