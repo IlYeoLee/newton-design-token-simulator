@@ -819,10 +819,14 @@ async function boot() {
         setDaylight(false);
         FXP.gainBoost = 1.0;
         setSurfaces(null);
+        // 직교 편집 카메라는 40m 거리 — 씬 안개(9~20m)가 바닥을 전부 삼킨다 → 편집 중 차단
+        if (scene.fog) { this._fog = scene.fog; scene.fog = null; }
+        scene.background = new THREE.Color(0x14181F);   // 캔버스 스테이지 차콜 (피그마 다크 보드)
         if (dayBtn) dayBtn.style.display = 'none';   // 강제 다크와 싸우는 유일한 컨트롤 봉인
       },
       /** 유저의 실제 주간/투사면 상태 재적용 (편집 중 '실물 배경으로 확인' + 편집 종료) */
       applyUser() {
+        if (this._fog) { scene.fog = this._fog; this._fog = null; }   // setDaylight가 fog 색을 만지므로 선복원
         dayOn = !!designStore.globalGet('fx', 'day', false);
         applyDay();
         const bg = designStore.globalGet('fx', 'lab', null)?.bg;
@@ -1077,6 +1081,53 @@ async function boot() {
     studioRebuildTimer = setTimeout(() => { if (studioDoc) rebuildPack(studioSport, studioDoc.toPack()); }, 110);
   }
 
+  // 편집 보드 — 평면도의 "아트보드": 차콜 맷 + 0.5m 그리드 + 깊이 눈금(m·s)
+  const editBoard = new THREE.Group();
+  editBoard.visible = false;
+  scene.add(editBoard);
+  function buildEditBoard(box) {
+    editBoard.clear();
+    const margin = 1.2;
+    const w = box.max.x - box.min.x + margin * 2, l = box.max.z - box.min.z + margin * 2;
+    const size = Math.max(w, l);
+    const cx = (box.min.x + box.max.x) / 2, cz = (box.min.z + box.max.z) / 2;
+    const mat = new THREE.Mesh(new THREE.PlaneGeometry(size, size),
+      new THREE.MeshBasicMaterial({ color: 0x1A1F27 }));
+    mat.rotation.x = -Math.PI / 2;
+    mat.position.set(cx, 0.003, cz);
+    editBoard.add(mat);
+    const grid = new THREE.GridHelper(size, Math.max(2, Math.round(size * 2)), 0x323A47, 0x252B35);
+    grid.position.set(cx, 0.005, cz);
+    editBoard.add(grid);
+    // 깊이 눈금 — 1m마다 "Nm · Ns" (러닝: 시간=거리/V — 평면도가 곧 타임라인)
+    const L = tokens.layout;
+    const V = L?.mode === 'advance' ? L.V : null;
+    const pxPerM = 96;
+    const stripW = 1.6;                          // 눈금 스트립 실폭 (m)
+    const cv = document.createElement('canvas');
+    cv.width = Math.round(stripW * pxPerM); cv.height = Math.max(64, Math.round(l * pxPerM));
+    const ctx = cv.getContext('2d');
+    ctx.font = '500 15px -apple-system, sans-serif';
+    ctx.textBaseline = 'middle';
+    const zTop = cz - l / 2;   // 캔버스 top = 전방(먼 쪽)
+    for (let k = Math.ceil(-(zTop + l)); k <= Math.floor(-zTop); k++) {
+      if (k < 0) continue;
+      const y = (-k - zTop) * pxPerM;
+      ctx.fillStyle = 'rgba(120,132,150,.5)';
+      ctx.fillRect(cv.width - 16, y - 1, 16, 2);
+      ctx.fillStyle = 'rgba(150,162,180,.75)';
+      ctx.textAlign = 'right';
+      ctx.fillText(`${k}m${V ? ` · ${Math.max(0, (k - 0.15) / V).toFixed(1)}s` : ''}`, cv.width - 22, y);
+    }
+    const tex = new THREE.CanvasTexture(cv);
+    tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
+    const strip = new THREE.Mesh(new THREE.PlaneGeometry(stripW, l),
+      new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false }));
+    strip.rotation.set(-Math.PI / 2, 0, 0);   // 화면 위 = 전방 정렬 (편집 카메라 기준 정방향 텍스트)
+    strip.position.set(box.min.x - 0.55 - stripW / 2, 0.007, cz);   // 콘텐츠 왼쪽 바깥
+    editBoard.add(strip);
+  }
+
   /** 직교 정면 프레이밍 — 바닥=평면도(화면 위=전방), 벽=정면도. 회전 없음. */
   function frameEditView() {
     const wallMode = (studioScope === 'scene') ? !!sceneScope.wall : studioSport === 'boxing';
@@ -1085,9 +1136,11 @@ async function boot() {
     if (wallMode) {
       const wc = rig._wallCenter || { cx: 0, cy: 1.4 };
       const w = rig.wallW || 3.4, h = rig.wallH || 2.4;
+      editBoard.visible = false;
       halfH = Math.max(h / 2 + 0.4, (w / 2 + 0.6) / aspect);
       halfW = halfH * aspect;
-      const shift = (200 * 2 * halfW) / window.innerWidth;   // 좌측 드로어(400px) 만큼 콘텐츠를 우측 가시영역 중앙으로
+      const dw = document.getElementById('studio')?.offsetWidth || 400;
+      const shift = ((dw / 2) * 2 * halfW) / window.innerWidth;   // 좌측 드로어 실폭만큼 콘텐츠를 가시영역 중앙으로
       editCam.up.set(0, 1, 0);
       editCam.position.set(wc.cx - shift, wc.cy, WALL_Z + 40);
       editControls.target.set(wc.cx - shift, wc.cy, WALL_Z);
@@ -1097,11 +1150,14 @@ async function boot() {
         for (const { o } of session.sceneElements(sceneScope.stageId)) if (o.visible) box.expandByObject(o);
       } else box.setFromObject(tokens.floorRoot);
       if (box.isEmpty()) { box.min.set(-2, 0, -5); box.max.set(2, 0, 1); }
+      buildEditBoard(box);
+      editBoard.visible = studioActive;
       const c = box.getCenter(new THREE.Vector3());
       const size = box.getSize(new THREE.Vector3());
-      halfH = Math.max(size.z / 2 + 1, (size.x / 2 + 1) / aspect, 2.2);
+      halfH = Math.max(size.z / 2 + 1.4, (size.x / 2 + 1.4) / aspect, 2.2);
       halfW = halfH * aspect;
-      const shift = (200 * 2 * halfW) / window.innerWidth;
+      const dw = document.getElementById('studio')?.offsetWidth || 400;
+      const shift = ((dw / 2) * 2 * halfW) / window.innerWidth;
       editCam.up.set(0, 0, -1);                              // 화면 위 = 전방(-Z) — 러너 진행 방향
       editCam.position.set(c.x - shift, 40, c.z);
       editControls.target.set(c.x - shift, 0, c.z);
@@ -1234,12 +1290,11 @@ async function boot() {
         });
       }
     }
-    // 장면 컷 = 3D+레이어가 캔버스 (짜부 2D 칩 뷰 은퇴); 팩 = 트랙 캔버스 유지
+    // 2D 트랙 캔버스 은퇴 — 직교 평면도 + 깊이 눈금(m·s)이 그 역할을 본화면에서 수행
     const wrap = document.getElementById('studio-canvas-wrap');
-    if (wrap) wrap.style.display = scene ? 'none' : 'block';
+    if (wrap) wrap.style.display = 'none';
     const layersEl = document.getElementById('scene-layers');
     if (layersEl) layersEl.style.maxHeight = '40vh';
-    if (!scene) studioCanvas?.refresh();
     renderCutBoard();
     fillLayers();
     if (scene) renderScopeProps();
@@ -1337,6 +1392,7 @@ async function boot() {
     setRenderCamera(camera);
     editControls.enabled = false;
     controls.enabled = true;
+    editBoard.visible = false;
     if (studioScope === 'scene') sceneScope.leave();   // 스테이지 프리뷰 해제
     studioScope = 'pack';
     studioCanvas?.destroy(); studioCanvas = null;

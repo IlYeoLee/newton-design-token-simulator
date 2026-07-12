@@ -301,7 +301,7 @@
     </div>
     <button id="btn-day" style="position:absolute;bottom:18px;right:18px;z-index:29;padding:9px 12px;border:1px solid var(--line);border-radius:8px;background:rgba(16,19,24,.9);color:var(--text);font-size:12px;font-weight:700;cursor:pointer;" title="주간 모드 — 낮에도 보이는 투사(주광 가시 레이저)가 제품 스토리">☀️</button>
     <a href="docs/newton-wireframe.html#tokens" target="_blank" rel="noopener" id="link-wireframe" style="position:absolute;bottom:18px;right:150px;z-index:29;padding:9px 14px;border:1px solid var(--line);border-radius:8px;background:rgba(16,19,24,.9);color:var(--text);font-size:12px;font-weight:700;cursor:pointer;text-decoration:none;">📐 설계 문서</a>
-    <div id="studio" style="position:absolute;top:0;left:0;bottom:0;width:400px;background:rgba(12,14,18,.98);border-right:1px solid var(--line);z-index:28;display:none;flex-direction:column;">
+    <div id="studio" style="position:absolute;top:0;left:0;bottom:0;width:min(560px,42vw);background:rgba(12,14,18,.98);border-right:1px solid var(--line);z-index:28;display:none;flex-direction:column;">
       <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px 8px;border-bottom:1px solid var(--line);">
         <b style="font-size:13px;">✎ 편집 <span style="color:var(--dim);font-weight:400;font-size:11px;">· 러닝 지면</span></b>
         <button id="studio-close" style="border:none;background:none;color:var(--dim);font-size:16px;cursor:pointer;">✕</button>
@@ -328,7 +328,7 @@
         <span style="margin-left:auto;font-size:10px;color:var(--dim);">요소를 클릭 → 아래에서 편집</span>
       </div>
       <div id="scene-layers" style="display:none;flex-direction:column;gap:2px;padding:6px 12px;border-bottom:1px solid var(--line);max-height:148px;overflow-y:auto;"></div>
-      <div id="studio-canvas-wrap" style="flex:0 0 180px;position:relative;min-height:0;">
+      <div id="studio-canvas-wrap" style="display:none;flex:0 0 180px;position:relative;min-height:0;">
         <canvas id="studio-canvas" style="position:absolute;inset:0;width:100%;height:100%;"></canvas>
         <div id="studio-tip" style="position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:2;background:rgba(250,48,48,.94);color:#fff;padding:7px 14px;border-radius:20px;font-size:12px;font-weight:600;pointer-events:none;box-shadow:0 3px 12px rgba(0,0,0,.5);">👇 동그라미(토큰) 하나를 클릭해 보세요</div>
       </div>
