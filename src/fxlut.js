@@ -97,8 +97,10 @@ float fxundul(float ang, float t){
 //   슬롯 키: '0'~'9', '+','−','×','%', 'FOOT_L/R', 'TIP_*'. 값 = dataURL.
 export const GLYPHS = {
   map: {},
+  flip: {},
   imgs: new Map(),
   _listeners: new Set(),
+  setFlips(flips) { this.flip = flips || {}; },
   set(map) {
     this.map = map || {};
     for (const url of Object.values(this.map)) {
@@ -146,7 +148,9 @@ export function drawGlyph(ctx, ch, x, y, sizePx, { color = 'rgba(255,240,220,0.9
   const R = glyphRaster(img);
   const sc = Math.min(sizePx / R.w, sizePx / R.h);
   const w = R.w * sc, h = R.h * sc;
+  if (GLYPHS.flip[ch]) { og.save(); og.translate(0, sizePx); og.scale(1, -1); }
   og.drawImage(R.canvas, R.x, R.y, R.w, R.h, (sizePx - w) / 2, (sizePx - h) / 2, w, h);
+  if (GLYPHS.flip[ch]) og.restore();
   og.globalCompositeOperation = 'source-in';
   og.fillStyle = color;
   og.fillRect(0, 0, sizePx, sizePx);

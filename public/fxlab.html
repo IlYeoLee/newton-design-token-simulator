@@ -116,7 +116,8 @@
 <div class="live" id="glyphLib" style="gap:10px;flex-wrap:wrap;"></div>
 <div style="margin-top:8px;display:flex;gap:8px;align-items:center;">
   <input id="glyphFile" type="file" accept=".svg,image/svg+xml" style="display:none">
-  <span style="font-size:11px;color:#8b93a3"><b style="color:#e8eaf0">글리프 셀 클릭 = 그 자리에 SVG 첨부</b>(즉시 히트 룩 적용·저장·이식) · Shift+클릭 = 기본 글리프 복원</span>
+  <span style="font-size:11px;color:#8b93a3"><b style="color:#e8eaf0">셀 클릭 = SVG 첨부</b> · Shift+클릭 = 기본 복원 · <b style="color:#e8eaf0">⌥(Alt)+클릭 = 상하 반전</b><br>
+규칙: <b style="color:#e8eaf0">↑ = 전방</b> — 발은 발가락 위·뒤꿈치 아래, 화살촉은 머리 위</span>
 </div>
 
 <h2>파생 토큰 — 최소 토큰의 조합 <span class="tag new">위계: LUT → MARK·LINE·GLYPH → 파생</span></h2>
@@ -218,7 +219,8 @@ const state = {
   s: { bloomStrength: 0.55, bloomThreshold: 0.55, bloomRadius: 0.6, exposure: 1.0, grain: 0, vignette: 0.12 },
   p: { blur: 1.0, glow: 0.9, flow: 0.55, decay: 0.62, grain: 0.03 },
   footShape: 1, personMode: 0, burstStyle: 0, laneStyle: 0,
-  glyphs: {},   // 슬롯별 커스텀 SVG {'0':dataURL, 'FOOT_L':...} — 저장·브리지 왕복
+  glyphs: {},   // 슬롯별 커스텀 SVG — 저장·브리지 왕복 (규칙: ↑=전방, 발가락 위·뒤꿈치 아래)
+  glyphFlip: {},   // 슬롯별 상하 반전 (⌥+클릭)
   arrow: { line: 'solid', w: 1 },   // 화살표 라인(자루·경로) 스타일 — solid|dash|dot|taper
   prims: {      // 장면 프리미티브 파라미터 (공통 w·glow·tempo + 프리미티브별 세부) — 저장·브리지 왕복
     wallRing: { w: 1, glow: 1, tempo: 1, pulse: 1, ring2: 0.35, gap: 1 },
@@ -636,7 +638,7 @@ function drawMarkNum() {
   }
   const custom = state.glyphs && state.glyphs[numCh];
   if (custom && typeof drawCustomGlyphAt === 'function') {
-    if (drawCustomGlyphAt(g, custom, 300, 300, 190, s === 6)) { g.globalAlpha = 1; return; }
+    if (drawCustomGlyphAt(g, custom, 300, 300, 190, s === 6, !!state.glyphFlip[numCh])) { g.globalAlpha = 1; return; }
   }
   g.font = '300 104px -apple-system, system-ui, sans-serif';
   if (s === 6) { g.fillStyle = 'rgba(152,158,166,0.85)'; g.shadowBlur = 0; }
@@ -1102,7 +1104,8 @@ for (const cv of glyphCells) {
   cv.title = '클릭 = SVG 첨부 (이 자리 교체) · Shift+클릭 = 기본 복원';
   cv.addEventListener('click', e => {
     const key = cv.dataset.g;
-    if (e.shiftKey) { delete state.glyphs[key]; drawGlyphLib(); return; }
+    if (e.shiftKey) { delete state.glyphs[key]; delete state.glyphFlip[key]; drawGlyphLib(); return; }
+    if (e.altKey) { if (state.glyphs[key]) { state.glyphFlip[key] = !state.glyphFlip[key]; drawGlyphLib(); } return; }
     pendingSlot = key;
     document.getElementById('glyphFile').click();
   });
@@ -1116,7 +1119,7 @@ document.getElementById('glyphFile').addEventListener('change', async e => {
   pendingSlot = null;
   drawGlyphLib();
 });
-function drawCustomGlyph(g, W, url) {
+function drawCustomGlyph(g, W, url, slotKey) {
   let img = glyphImgCache.get(url);
   if (!img) {
     img = new Image();
@@ -1125,7 +1128,7 @@ function drawCustomGlyph(g, W, url) {
     glyphImgCache.set(url, img);
   }
   if (!img.complete || !img.naturalWidth) return false;
-  return drawCustomGlyphAt(g, url, W / 2, W / 2, W - 24);
+  return drawCustomGlyphAt(g, url, W / 2, W / 2, W - 24, false, !!state.glyphFlip[slotKey]);
 }
 /** SVG → 비트맵 래스터 + 타이트 바운딩 (9인자 drawImage의 SVG 버그 회피 — 비트맵에서 크롭) */
 function glyphRaster(img) {
@@ -1145,7 +1148,7 @@ function glyphRaster(img) {
 }
 const _tintCache = new Map();
 /** 소비처 공용: 커스텀 SVG를 (x,y) 중심 size 크기로 히트 트리트먼트 렌더 */
-function drawCustomGlyphAt(g, url, x, y, size, locked = false) {
+function drawCustomGlyphAt(g, url, x, y, size, locked = false, flip = false) {
   let img = glyphImgCache.get(url);
   if (!img) {
     img = new Image(); img.src = url;
@@ -1154,7 +1157,7 @@ function drawCustomGlyphAt(g, url, x, y, size, locked = false) {
   }
   if (!img.complete || !img.naturalWidth) return false;
   // 스프라이트 캐시 — 매 프레임 오프스크린 재생성은 GC 버벅임의 원인
-  const key = url + '|' + size + '|' + (locked ? 1 : 0);
+  const key = url + '|' + size + '|' + (locked ? 1 : 0) + '|' + (flip ? 1 : 0);
   let off = _tintCache.get(key);
   if (!off) {
     off = document.createElement('canvas');
@@ -1163,7 +1166,9 @@ function drawCustomGlyphAt(g, url, x, y, size, locked = false) {
     const R = glyphRaster(img);
     const sc = Math.min(size / R.w, size / R.h);
     const w = R.w * sc, h = R.h * sc;
+    if (flip) { og.save(); og.translate(0, size); og.scale(1, -1); }
     og.drawImage(R.canvas, R.x, R.y, R.w, R.h, (size - w) / 2, (size - h) / 2, w, h);
+    if (flip) og.restore();
     og.globalCompositeOperation = 'source-in';
     og.fillStyle = locked ? 'rgba(152,158,166,0.85)' : 'rgba(255,240,220,0.95)';
     og.fillRect(0, 0, size, size);
@@ -1182,7 +1187,7 @@ drawGlyphLib = function() {
     if (url) {
       const g = cv.getContext('2d');
       g.clearRect(0, 0, cv.width, cv.height);
-      drawCustomGlyph(g, cv.width, url);
+      drawCustomGlyph(g, cv.width, url, cv.dataset.g);
       cv.style.outline = '1px solid rgba(254,195,137,.5)';   // 커스텀 표시
     } else cv.style.outline = '';
   }
@@ -1244,15 +1249,17 @@ const primCells = PRIMS.map(([key, label, recipe]) => {
 /** 프리미티브 숫자: 커스텀 글리프 슬롯 우선, 없으면 웜 크림 폰트 */
 function primNum(g, ch, x, y, size, fontPx) {
   const url = state.glyphs[ch];
-  if (url && drawCustomGlyphAt(g, url, x, y, size)) return;
+  if (url && drawCustomGlyphAt(g, url, x, y, size, false, !!state.glyphFlip[ch])) return;
   g.font = `300 ${fontPx}px Pretendard, -apple-system, sans-serif`;
   g.fillStyle = 'rgba(255,240,220,0.95)';
   fillCenteredText(g, ch, x, y);
 }
 /** 프리미티브 발: FOOT_L/R 슬롯 우선, 없으면 타원 윤곽 */
 function primFoot(g, right, x, y, size) {
-  const url = state.glyphs[right ? 'FOOT_IN_R' : 'FOOT_IN_L'] || state.glyphs[right ? 'FOOT_OUT_R' : 'FOOT_OUT_L'];
-  if (url && drawCustomGlyphAt(g, url, x, y, size)) return;
+  const k1 = right ? 'FOOT_IN_R' : 'FOOT_IN_L', k2 = right ? 'FOOT_OUT_R' : 'FOOT_OUT_L';
+  const key = state.glyphs[k1] ? k1 : k2;
+  const url = state.glyphs[key];
+  if (url && drawCustomGlyphAt(g, url, x, y, size, false, !!state.glyphFlip[key])) return;
   g.beginPath(); g.ellipse(x, y, size * 0.28, size * 0.48, 0, 0, Math.PI * 2); g.stroke();
 }
 function drawPrims() {
@@ -1379,7 +1386,7 @@ function drawPathArrow() {
     g.save();
     g.translate(x, y);
     g.rotate(ang);
-    if (!(customTip && typeof drawCustomGlyphAt === 'function' && drawCustomGlyphAt(g, customTip, 0, 0, 46))) {
+    if (!(customTip && typeof drawCustomGlyphAt === 'function' && drawCustomGlyphAt(g, customTip, 0, 0, 46, false, !!state.glyphFlip.TIP_TRI))) {
       g.fillStyle = lutCss(0.62);
       g.shadowColor = lutCss(0.75); g.shadowBlur = 10;
       g.beginPath(); g.moveTo(-11, 10); g.lineTo(0, -14); g.lineTo(11, 10); g.closePath(); g.fill();
@@ -1458,6 +1465,7 @@ function labSnapshot() {
     burstStyle: state.burstStyle, laneStyle: state.laneStyle,
     markShape: state.markShape, markForm: state.markForm, markContract: state.markContract,
     glyphs: { ...state.glyphs },
+    glyphFlip: { ...state.glyphFlip },
     prims: JSON.parse(JSON.stringify(state.prims)),
     arrow: { ...state.arrow },
     sys: { roles: { ...state.sys.roles }, tcfg: { ...state.sys.tcfg }, scfg: { ...state.sys.scfg } },
@@ -1489,6 +1497,7 @@ function applyExternalState(st) {
       if (!state.glyphs.TIP_TRI) { const alt = state.glyphs.TIP_CHEV || state.glyphs.TIP_DIA || state.glyphs.TIP_BAR; if (alt) state.glyphs.TIP_TRI = alt; }
       for (const k of ['FOOT_L', 'FOOT_R', 'TIP_CHEV', 'TIP_DIA', 'TIP_BAR']) delete state.glyphs[k];
     }
+    if (st.glyphFlip) state.glyphFlip = { ...st.glyphFlip };
     if (st.prims) for (const k in state.prims) Object.assign(state.prims[k], st.prims[k] || {});
     if (st.arrow) Object.assign(state.arrow, st.arrow);
     if (st.sys) {
