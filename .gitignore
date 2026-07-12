@@ -4,3 +4,4 @@ dist/
 *.log
 assets/models/*.task
 tmp_*.jpg
+tmp_*.mjs
