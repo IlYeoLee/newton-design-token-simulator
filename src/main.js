@@ -266,7 +266,10 @@ async function boot() {
     const id = session.curStage?.id || '';
     return STAGE_GAZE_DEG[id[0]] ?? -30;   // READY/FIN 등 = 중간값
   }
+  let manualGazeDeg = -18;   // 유저 수동 설정값 (세션 종료 시 복귀 기준)
+  let sessionDroveGaze = false;
   function updateSessionGaze(h) {
+    sessionDroveGaze = true;
     // 단계별 시선 각도로 부드럽게 (τ=0.9s) — 수동 슬라이더는 세션 밖에서만
     const tgt = THREE.MathUtils.degToRad(sessionGazeTarget());
     gazePitch += (tgt - gazePitch) * (1 - Math.exp(-h / 0.9));
@@ -548,7 +551,7 @@ async function boot() {
   bindSlider('s-tolt', 'v-tolt', v => `±${v}ms`, v => { judge.tolT = v / 1000; });
   bindSlider('s-tolp', 'v-tolp', v => `${v}cm`, v => { judge.tolP = v / 100; });
   bindSlider('s-skill', 'v-skill', v => `${v}%`, v => { judge.skill = v / 100; sessionSkillSink?.setSkill(v / 100); });
-  bindSlider('s-pitch', 'v-pitch', v => `${v}°`, v => { gazePitch = THREE.MathUtils.degToRad(v); });
+  bindSlider('s-pitch', 'v-pitch', v => `${v}°`, v => { gazePitch = THREE.MathUtils.degToRad(v); manualGazeDeg = v; });
   bindSlider('s-fpnear', 'v-fpnear', v => `${v}cm`, v => rig.setFootprint(v / 100, rig.fpFar));
   bindSlider('s-fpfar', 'v-fpfar', v => `${v}cm`, v => rig.setFootprint(rig.fpNear, v / 100));
   bindSlider('s-wallw', 'v-wallw', v => `${v}cm`, v => { rig.setWallSize(v / 100, rig.wallH); if (state.pack === 'boxing') computeStation(); });
@@ -1400,6 +1403,14 @@ async function boot() {
   function stepSim(h) {
     const data = state.packs[state.pack];
     if (!data) return;
+    if (!session.active && sessionDroveGaze) {
+      // 세션 종료 → 수동 시선각 복귀 (세션이 남긴 단계값이 디폴트처럼 굳는 것 방지)
+      sessionDroveGaze = false;
+      gazePitch = THREE.MathUtils.degToRad(manualGazeDeg);
+      const sl = document.getElementById('s-pitch'), lb = document.getElementById('v-pitch');
+      if (sl) sl.value = manualGazeDeg;
+      if (lb) lb.textContent = `${manualGazeDeg}°`;
+    }
     // 세션 비실전 단계: 팩 시간 정지, 봇은 단계별 동작을 제자리 시연(코치)
     if (session.active && !session.isLive) {
       session.update(h);
