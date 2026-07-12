@@ -1218,6 +1218,20 @@ const primCells = PRIMS.map(([key, label]) => {
   primHost.appendChild(cell);
   return [key, cv];
 });
+/** 프리미티브 숫자: 커스텀 글리프 슬롯 우선, 없으면 웜 크림 폰트 */
+function primNum(g, ch, x, y, size, fontPx) {
+  const url = state.glyphs[ch];
+  if (url && drawCustomGlyphAt(g, url, x, y, size)) return;
+  g.font = `300 ${fontPx}px Pretendard, -apple-system, sans-serif`;
+  g.fillStyle = 'rgba(255,240,220,0.95)';
+  fillCenteredText(g, ch, x, y);
+}
+/** 프리미티브 발: FOOT_L/R 슬롯 우선, 없으면 타원 윤곽 */
+function primFoot(g, right, x, y, size) {
+  const url = state.glyphs[right ? 'FOOT_R' : 'FOOT_L'];
+  if (url && drawCustomGlyphAt(g, url, x, y, size)) return;
+  g.beginPath(); g.ellipse(x, y, size * 0.28, size * 0.48, 0, 0, Math.PI * 2); g.stroke();
+}
 function drawPrims() {
   const t0 = performance.now() / 1000;
   for (const [key, cv] of primCells) {
@@ -1249,17 +1263,16 @@ function drawPrims() {
       g.globalAlpha = 1; g.strokeStyle = lutCss(0.72);
       g.shadowColor = lutCss(0.8); g.shadowBlur = GB;
       g.beginPath(); g.arc(C, C, 46, -Math.PI / 2, -Math.PI / 2 + ((t * 0.4) % 1) * Math.PI * 2); g.stroke();
-      g.font = '300 40px Pretendard, -apple-system, sans-serif';
-      g.fillStyle = 'rgba(255,240,220,0.95)';
-      fillCenteredText(g, String(1 + Math.floor((t * 0.4) % 8)), C, C);
+      primNum(g, String(1 + Math.floor((t * 0.4) % 8)), C, C, 52, 40);
     } else if (key === 'stanceBox') {
       g.strokeStyle = lutCss(0.45); g.lineWidth = LW * 0.8;
       g.setLineDash([10 * P.w, 8]);
       g.shadowColor = lutCss(0.6); g.shadowBlur = GB * 0.8;
       g.strokeRect(40, 48, W - 80, W - 96);
       g.setLineDash([]);
-      // 발 2
-      for (const dx of [-16, 16]) { g.beginPath(); g.ellipse(C + dx, C + 6, 7, 12, 0, 0, Math.PI * 2); g.stroke(); }
+      // 발 2 — FOOT_L/R 슬롯 소비
+      primFoot(g, false, C - 16, C + 6, 26);
+      primFoot(g, true, C + 16, C + 6, 26);
     } else if (key === 'punchLine') {
       g.strokeStyle = lutCss(0.55); g.lineWidth = LW * 0.8;
       g.shadowColor = lutCss(0.7); g.shadowBlur = GB;
@@ -1267,8 +1280,7 @@ function drawPrims() {
       g.beginPath(); pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.stroke();
       pts.forEach(([x, y], i) => {
         g.beginPath(); g.arc(x, y, 12, 0, Math.PI * 2); g.stroke();
-        g.font = '600 14px Pretendard, sans-serif'; g.fillStyle = 'rgba(255,240,220,0.95)';
-        fillCenteredText(g, String(i + 1), x, y);
+        primNum(g, String(i + 1), x, y, 16, 14);
       });
     } else if (key === 'decelDash') {
       g.strokeStyle = lutCss(0.5); g.lineWidth = LW;
