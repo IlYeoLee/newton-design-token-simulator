@@ -161,8 +161,7 @@ export function drawGlyph(ctx, ch, x, y, sizePx, { color = 'rgba(255,240,220,0.9
   return true;
 }
 
-/** 발형 슬롯 선택 — 투사면 컨텍스트: 잔디·트랙·보도블럭=야외, 그 외=실내 */
+/** 발형 슬롯 선택 — FX Lab 발 컨텍스트 칩(footCtx) 기준, 야외(신발) 기본 */
 export function footSlot(right) {
-  const outdoor = ['grass', 'track', 'paving'].includes(FXP.bg);
-  return (outdoor ? 'FOOT_OUT_' : 'FOOT_IN_') + (right ? 'R' : 'L');
+  return (FXP.footCtx === 'in' ? 'FOOT_IN_' : 'FOOT_OUT_') + (right ? 'R' : 'L');
 }

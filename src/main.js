@@ -199,6 +199,7 @@ async function boot() {
     rebuildLUT();
     if (lab0?.glyphs) {
       FXP.bg = lab0.bg;
+      FXP.footCtx = lab0.footCtx || 'out';
       FXP.customGlyphs = lab0.glyphs;
       GLYPHS.set(lab0.glyphs);
       GLYPHS.setFlips(lab0.glyphFlip || {});
@@ -835,6 +836,7 @@ async function boot() {
       FXP.customGlyphs = st.glyphs;
       GLYPHS.set(st.glyphs);
       GLYPHS.setFlips(st.glyphFlip || {});
+      FXP.footCtx = st.footCtx || 'out';
       if (changed) refreshGlyphConsumers();   // 순서 숫자 텍스처 리베이크
     }
     if (st.sys) {   // 시스템 설정 이관분: 판정·역할 색 / TCFG / SCFG (fxlab → 시뮬 실시간 + 영속)
