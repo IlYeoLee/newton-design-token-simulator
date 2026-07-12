@@ -408,8 +408,23 @@ class Marker {
 
 // ── 방향 화살표 ───────────────────────────────────────────────
 // tip = 화살표 끝(촉) 모양: triangle(▲) · chevron(》) · diamond(◆) · bar(▬) · none(선만)
+const TIP_SLOT = { triangle: 'TIP_TRI', chevron: 'TIP_CHEV', diamond: 'TIP_DIA', bar: 'TIP_BAR' };
 function makeArrow(color, len = 0.55, tip = 'triangle') {
   const g = new THREE.Group();
+  // 커스텀 화살표 SVG (FX Lab TIP 슬롯) — SVG ↑=전방 규칙, 기존 회전 로직이 각도 처리
+  const slotImg = GLYPHS.img(TIP_SLOT[tip]);
+  if (slotImg) {
+    const c = document.createElement('canvas');
+    c.width = c.height = 128;
+    drawGlyph(c.getContext('2d'), TIP_SLOT[tip], 64, 64, 112);
+    const tex = new THREE.CanvasTexture(c);
+    tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(len * 0.72, len),
+      new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+    m.position.y = len / 2;
+    g.add(m);
+    return g;
+  }
   const w = 0.09, hw = 0.24, hl = 0.22;
   const mesh = (geo) => {
     const m = new THREE.Mesh(geo, flatMat(color, 0.85));
