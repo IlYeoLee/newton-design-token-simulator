@@ -10,6 +10,8 @@
 //   session.patchElement가 맡는다. 이 모듈은 둘을 잇는 얇은 층이다.
 // ─────────────────────────────────────────────────────────────
 
+import { FONT_FAMILIES } from '../session.js';
+
 const GLYPH = {
   text: '𝐓', foot: '👣', ring: '◎', arc: '◜', arrow: '➤',
   stripe: '▬', lane: '┆', box: '▢', group: '⧉', mesh: '◆', line: '─',
@@ -177,9 +179,9 @@ export class SceneScope {
       // 선택 없음 = 전역 룩 (팩 스코프와 동일 규칙 — LookPanel 영속 DOM)
       host.innerHTML = `<div style="padding:9px 14px 0;font-size:10.5px;color:var(--dim);">캔버스에서 <b style="color:var(--text)">클릭=선택 · 드래그=이동 · 더블클릭=글자</b></div>`;
       const cut = this.getCutEl?.();
-      if (cut) host.appendChild(cut);          // 🎬 이 컷 — 지속·멘트
-      const lk = this.getLookEl?.();
-      if (lk) host.appendChild(lk);
+      if (cut) host.appendChild(cut);          // 🎬 이 컷 — 지속·멘트·시그널
+      const adv = this.getAdvEl?.();
+      if (adv) host.appendChild(adv);
       return;
     }
     const els = this.s.sceneElements(this.stageId);
@@ -209,9 +211,16 @@ export class SceneScope {
         </div>
 
         ${isText ? `
-        <div style="${S_ROW}"><span>글자 내용</span>${tag('text')}</div>
+        <div style="${S_ROW}"><span>글자 내용 <span style="color:var(--dim);font-weight:400;">(캔버스 더블클릭으로도)</span></span>${tag('text')}</div>
         <input id="sc-text" value="${esc(curText(bag.text?.content))}"
-          style="width:100%;padding:6px;margin-bottom:9px;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:5px;font-size:11px;">` : ''}
+          style="width:100%;padding:6px;margin-bottom:9px;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:5px;font-size:11px;">
+        <div style="${S_ROW}"><span>폰트</span>${tag('text')}</div>
+        <select id="sc-family" style="width:100%;padding:6px;margin-bottom:7px;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:5px;font-size:11px;">
+          ${FONT_FAMILIES.map(([v, l]) => `<option value='${v.replace(/'/g, "&#39;")}' ${(bag.text?.family || '') === v ? 'selected' : ''}>${l}</option>`).join('')}
+        </select>
+        <div style="display:flex;gap:5px;margin-bottom:9px;">
+          ${[300, 500, 700, 900].map(w => `<button class="sc-weight" data-w="${w}" style="flex:1;padding:5px 0;border:1px solid ${(bag.text?.weight ?? 700) === w ? 'var(--accent)' : 'var(--line)'};border-radius:5px;background:${(bag.text?.weight ?? 700) === w ? 'rgba(250,48,48,.14)' : 'var(--panel2)'};color:var(--text);font-size:10px;font-weight:${w};cursor:pointer;">${w}</button>`).join('')}
+        </div>` : ''}
 
         <div style="${S_ROW}"><span>색</span>${tag('color')}</div>
         <input id="sc-color" type="color" value="${color}" style="width:100%;height:28px;margin-bottom:9px;border:1px solid var(--line);border-radius:5px;background:var(--panel2);cursor:pointer;">
@@ -246,6 +255,8 @@ export class SceneScope {
     live('#sc-rot', 'input', e => { const v = +e.target.value; $('#sc-rv2').textContent = Math.round(v) + '°'; this.set('rot', v); });
     live('#sc-hidden', 'change', e => { this.set('hidden', e.target.checked); onRerender(); });
     live('#sc-text', 'input', e => this.setText({ content: e.target.value }));
+    live('#sc-family', 'change', e => { this.setText({ family: e.target.value }); onRerender(); });
+    host.querySelectorAll('.sc-weight').forEach(b => b.addEventListener('click', () => { this.setText({ weight: +b.dataset.w }); onRerender(); }));
     // '↺ 기본값' 버튼은 덮어쓰기가 생겨야 나타난다 → 값 확정 시 다시 그린다.
     // input이 아닌 change에 거는 이유: 슬라이더/색 드래그 중 리렌더하면 입력이 끊긴다.
     for (const s of ['#sc-color', '#sc-scale', '#sc-opacity', '#sc-rot', '#sc-text']) live(s, 'change', onRerender);

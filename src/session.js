@@ -27,10 +27,12 @@ function flatMat(color, opacity = 1) {
 // 장면 에디터: family(폰트)까지 편집 가능 — userData.el 메타 + redraw로 라이브 갱신
 export const FONT_FAMILIES = [
   ['Pretendard, -apple-system, sans-serif', '기본 (Pretendard)'],
-  ['Georgia, "Times New Roman", serif', '세리프'],
+  ['"Noto Sans KR", sans-serif', '노토 산스'],
+  ['"Noto Serif KR", serif', '노토 세리프 (명조)'],
+  ['"Black Han Sans", sans-serif', '블랙한산스 (헤비)'],
+  ['"Gowun Dodum", sans-serif', '고운돋움 (라운드)'],
+  ['Georgia, "Times New Roman", serif', '세리프 (라틴)'],
   ['Menlo, "SF Mono", monospace', '모노'],
-  ['"Arial Black", "Avenir Black", sans-serif', '헤비 디스플레이'],
-  ['"Brush Script MT", "Savoye LET", cursive', '스크립트'],
 ];
 function drawTextTex(text, { size = 0.10, color = '#ffffff', weight = 700, family = FONT_FAMILIES[0][0] } = {}) {
   const c = document.createElement('canvas'), ctx = c.getContext('2d');

@@ -94,6 +94,12 @@
     <div class="lab">인물 — 실사 복서 + 잔상</div></div>
 </div>
 
+
+<h2>토큰 글리프 라이브러리 — 숫자·연산·발형·화살촉 <span class="tag new">전체 어휘</span></h2>
+<p class="note">투사 UI가 쓰는 <b>모든 글리프</b>를 현재 룩(팔레트·글로우)으로 미리봅니다 — 숫자 0–9(순서·카운트), 연산 +−×%(리포트·배수),
+발형 L/R(Step-type 티칭 스킨), 화살촉 4종(방향 토큰). 여기서 확정한 형태가 시뮬의 숫자 텍스처·발 마크·화살표와 같은 스타일 엔진입니다.</p>
+<div class="live" id="glyphLib" style="gap:10px;flex-wrap:wrap;"></div>
+
 <h2>MARK 판정 토큰 — 최소 토큰 × 7상태 <span class="tag new">설계 문서 그대로</span></h2>
 <p class="note">카탈로그 원칙: 상호작용 지점은 <b>MARK 단 하나</b>(존 원 + 링 모디파이어 + 7상태) — 지면 stepMark든 벽면 targetMark든 같은 컴포넌트.
 계약이 갈라질 때만 최소 변조(도달 / 회피=점선 반전 / 유지=holdRing 채움). 7상태는 MARK만 갖고, ②숫자는 부모 상태를 따라가며 ③④⑥은 무상태 문맥 토큰.</p>
@@ -943,6 +949,80 @@ function frame(ts) {
   if (!REDUCED || !isNaN(frozen)) requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
+// ═══ 토큰 글리프 라이브러리 — 숫자·연산·발형·화살촉 (현재 LUT 반영) ═══
+const glyphHost = document.getElementById('glyphLib');
+const GLYPH_SETS = [
+  { name: '숫자 (순서·카운트)', items: ['0','1','2','3','4','5','6','7','8','9'] },
+  { name: '연산 (리포트·배수)', items: ['+','−','×','%'] },
+  { name: '발형 L/R', items: ['FOOT_L','FOOT_R'] },
+  { name: '화살촉 (방향)', items: ['TIP_TRI','TIP_CHEV','TIP_DIA','TIP_BAR'] },
+];
+const glyphCells = [];
+GLYPH_SETS.forEach(set => {
+  const cell = document.createElement('div');
+  cell.className = 'cell';
+  const row = document.createElement('div');
+  row.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;justify-content:center;max-width:420px;';
+  set.items.forEach(gl => {
+    const cv = document.createElement('canvas');
+    cv.width = cv.height = 96;
+    cv.style.cssText = 'width:64px;height:64px;background:#0A0C10;border-radius:8px;';
+    cv.dataset.g = gl;
+    row.appendChild(cv);
+    glyphCells.push(cv);
+  });
+  const lab = document.createElement('div');
+  lab.className = 'lab';
+  lab.textContent = set.name;
+  cell.append(row, lab);
+  glyphHost.appendChild(cell);
+});
+function lutCss(v) {
+  const i = Math.max(0, Math.min(255, Math.round(v * 255))) * 4;
+  return `rgb(${lutData[i]},${lutData[i+1]},${lutData[i+2]})`;
+}
+function drawFootGlyph(g, W, right) {
+  g.save();
+  g.translate(W/2, W/2);
+  if (right) g.scale(-1, 1);
+  g.strokeStyle = lutCss(0.55); g.lineWidth = 4; g.lineJoin = 'round';
+  g.shadowColor = lutCss(0.7); g.shadowBlur = 12;
+  g.beginPath(); g.ellipse(2, 10, 13, 20, -0.12, 0, Math.PI*2); g.stroke();   // 볼·뒤꿈치
+  g.beginPath(); g.ellipse(-2, -22, 9, 7, 0.1, 0, Math.PI*2); g.stroke();     // 발가락 뭉치
+  g.restore();
+}
+function drawTipGlyph(g, W, kind) {
+  g.save();
+  g.translate(W/2, W/2);
+  g.strokeStyle = lutCss(0.5); g.fillStyle = lutCss(0.6);
+  g.lineWidth = 4; g.lineJoin = 'round'; g.shadowColor = lutCss(0.75); g.shadowBlur = 12;
+  g.beginPath(); g.moveTo(0, 26); g.lineTo(0, -6); g.stroke();                 // 샤프트
+  if (kind === 'TIP_TRI') { g.beginPath(); g.moveTo(-13, -6); g.lineTo(0, -28); g.lineTo(13, -6); g.closePath(); g.fill(); }
+  if (kind === 'TIP_CHEV') { g.beginPath(); g.moveTo(-13, -8); g.lineTo(0, -24); g.lineTo(13, -8); g.stroke(); g.beginPath(); g.moveTo(-13, 2); g.lineTo(0, -14); g.lineTo(13, 2); g.stroke(); }
+  if (kind === 'TIP_DIA') { g.beginPath(); g.moveTo(0, -30); g.lineTo(11, -16); g.lineTo(0, -2); g.lineTo(-11, -16); g.closePath(); g.fill(); }
+  if (kind === 'TIP_BAR') { g.fillRect(-14, -26, 28, 7); }
+  g.restore();
+}
+function drawGlyphLib() {
+  for (const cv of glyphCells) {
+    const g = cv.getContext('2d');
+    const W = cv.width;
+    g.clearRect(0, 0, W, W);
+    const gl = cv.dataset.g;
+    if (gl.startsWith('FOOT')) { drawFootGlyph(g, W, gl === 'FOOT_R'); continue; }
+    if (gl.startsWith('TIP')) { drawTipGlyph(g, W, gl); continue; }
+    // 숫자·연산 — 웜 크림 경량 타이포 + LUT 히트 글로우 (시뮬 숫자 텍스처와 동일)
+    g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.font = '300 58px Pretendard, -apple-system, sans-serif';
+    g.shadowColor = lutCss(0.72); g.shadowBlur = 16;
+    g.fillStyle = 'rgba(255,240,220,0.95)';
+    g.fillText(gl, W/2, W/2 + 3);
+    g.shadowBlur = 0;
+    g.fillText(gl, W/2, W/2 + 3);
+  }
+}
+drawGlyphLib();
+setInterval(drawGlyphLib, 700);   // 팔레트·채도 변경 라이브 반영 (경량 2D — 부담 없음)
 // ═══ 시뮬 임베드 브리지 ═══════════════════════
 // 부모(시뮬)가 있으면: 상태를 주기 전송(적용·저장은 부모 몫), init 수신 시 UI 복원
 function labSnapshot() {
@@ -952,6 +1032,9 @@ function labSnapshot() {
     g: { ...state.g }, m: { ...state.m }, p: { ...state.p }, s: { ...state.s } };
 }
 if (window.parent !== window) {
+
+
+
   setInterval(() => { try { parent.postMessage({ type: 'fxlab-state', state: labSnapshot() }, '*'); } catch (e) {} }, 400);
   window.addEventListener('message', ev => {
     const d = ev.data;

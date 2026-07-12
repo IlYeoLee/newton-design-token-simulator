@@ -18,7 +18,7 @@ export class StudioProps {
     this.doc = doc;
     this.onEdit = opts.onEdit || (() => {});
     this.onPreviewBurst = opts.onPreviewBurst || (() => {});
-    this.getLookEl = opts.getLookEl || null;   // 비선택 = 전역 룩 (LookPanel 영속 DOM 마운트)
+    this.getAdvEl = opts.getAdvEl || null;   // 전역 고급(판정색·지오메트리·타이밍·프리셋)
     this._selfEdit = false;
     this._renderedId = undefined;
     this._renderedMode = undefined;
@@ -53,10 +53,11 @@ export class StudioProps {
     if (this.mode === 'code') { this._drawPreview(); return; }
     const q = s => this.el.querySelector(s);
     const set = (s, v) => { const e = q(s); if (e) e.textContent = v; };
-    const d = this._dsn(m);
+    const setV = (s, v) => { const e = q(s); if (e && document.activeElement !== e) e.value = v; };   // 3D 드래그 → 수치 라이브 동기
     set('#pr-szv', `${m.radiusCm}cm`);
-    set('#pr-blv', `${d.blur}`);
-    set('#pr-opv', `${Math.round(d.opacity * 100)}%`);
+    setV('#pr-nx', (m.nx ?? 0).toFixed(2));
+    setV('#pr-t', (m.t ?? 0).toFixed(2));
+    setV('#pr-ny', (m.ny ?? 0).toFixed(2));
     this._drawPreview();
   }
 
@@ -68,20 +69,19 @@ export class StudioProps {
 
     if (!m) {
       // 피그마 모델: 아무것도 선택 안 됨 = 전역(장면 룩) 편집 컨텍스트 — LookPanel 인라인
-      this.el.innerHTML = `<div style="padding:9px 14px 0;font-size:10.5px;color:var(--dim);">캔버스에서 <b style="color:var(--text)">클릭=선택 · 드래그=이동</b></div>`;
-      const lk = this.getLookEl?.();
-      if (lk) this.el.appendChild(lk);
+      this.el.innerHTML = `<div style="padding:12px 14px;font-size:10.5px;color:var(--dim);line-height:1.7;">
+        캔버스에서 토큰을 <b style="color:var(--text)">클릭=선택 · 드래그=이동</b>.<br>전체 분위기(팔레트·파동·투사면)는 위 <b style="color:#fec389">🔥 룩</b> — 전용 페이지가 열려요.</div>`;
+      const adv = this.getAdvEl?.();
+      if (adv) this.el.appendChild(adv);
       return;
     }
-    (this.mode === 'code' ? this._renderCode : this._renderEasy).call(this, m);
+    this._renderEasy(m);
   }
 
   _header(m) {
-    const other = this.mode === 'code' ? '쉬움' : '</> 코드';
     return `<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
       <canvas id="pr-preview" width="80" height="80" style="width:46px;height:46px;background:#0c0e12;border:1px solid var(--line);border-radius:8px;flex:none;"></canvas>
-      <div style="flex:1;min-width:0;"><div style="font-weight:700;color:var(--text);">이 토큰 편집</div><div style="color:var(--dim);font-size:11px;">바꾸면 3D에 바로 반영돼요</div></div>
-      <button id="pr-mode" style="padding:5px 9px;border:1px solid var(--accent);border-radius:6px;background:rgba(250,48,48,.14);color:var(--accent);font-size:11px;cursor:pointer;white-space:nowrap;">${other}</button>
+      <div style="flex:1;min-width:0;"><div style="font-weight:700;color:var(--text);">토큰 인스턴스</div><div style="color:var(--dim);font-size:10.5px;">비주얼은 🔥 룩 시스템 — 여기선 배치·판정만</div></div>
     </div>`;
   }
 
@@ -177,59 +177,48 @@ export class StudioProps {
   // ── 쉬움(슬라이더) 뷰 ──
   _renderEasy(m) {
     const prevScroll = this.el.querySelector('.pr-scroll')?.scrollTop || 0;
-    const d = this._dsn(m);
-    const b = d.burst || defaultDesign().burst;
     const seg = (opts, cur, cls, attr) => opts.map(([v, label]) =>
       `<button class="${cls}" data-attr="${attr}" data-val="${v}" style="padding:6px 9px;border:1px solid ${v === cur ? 'var(--accent)' : 'var(--line)'};border-radius:6px;background:${v === cur ? 'rgba(250,48,48,.16)' : 'var(--panel2)'};color:${v === cur ? 'var(--accent)' : 'var(--dim)'};font-size:11px;cursor:pointer;white-space:nowrap;">${label}</button>`).join('');
-    const grad = d.fill.type !== 'solid';
+    const isWall = m.surface === 'wall';
+    const numRow = (label, id, val, min, max, step, unit) => `
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px;">
+        <span style="color:var(--dim);">${label}</span>
+        <span style="display:flex;align-items:center;gap:4px;">
+          <input id="${id}" type="number" value="${val}" min="${min}" max="${max}" step="${step}"
+            style="width:74px;padding:5px;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:5px;font-size:11.5px;text-align:right;">
+          <span style="color:var(--dim);font-size:10.5px;width:18px;">${unit}</span>
+        </span>
+      </div>`;
 
     this.el.innerHTML = `
       <div class="pr-scroll" style="padding:12px 14px;font-size:12px;">
         ${this._header(m)}
 
-        <div style="color:var(--dim);margin-bottom:5px;">모양</div>
-        <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:${d.shape === 'svg' ? '6' : '12'}px;">${seg(SHAPES, d.shape, 'pr-shape', 'shape')}</div>
-        ${d.shape === 'svg' ? `<button id="pr-svg" style="width:100%;margin-bottom:12px;padding:8px 0;border:1px dashed var(--line);border-radius:6px;background:var(--panel2);color:var(--text);font-size:11px;cursor:pointer;">${d.svgUrl ? '✓ 그림 바꾸기 (SVG)' : '⬆ 그림 올리기 (SVG 파일)'}</button><input id="pr-svgfile" type="file" accept=".svg,image/svg+xml" style="display:none;">` : ''}
+        <div style="color:var(--dim);margin:2px 0 6px;font-weight:600;">배치 · 타이밍</div>
+        ${numRow('가로 위치 (레인)', 'pr-nx', (m.nx ?? 0).toFixed(2), -1, 1, 0.01, 'nx')}
+        ${isWall
+          ? numRow('높이', 'pr-ny', (m.ny ?? 0).toFixed(2), -1, 1.2, 0.01, 'ny')
+          : numRow('타이밍', 'pr-t', (m.t ?? 0).toFixed(2), 0, 99, 0.05, 's')}
 
-        <div style="color:var(--dim);margin-bottom:5px;">색 · 그라디언트</div>
-        <div style="display:flex;gap:4px;margin-bottom:8px;">${seg(GRADS, d.fill.type, 'pr-grad', 'grad')}</div>
-        <div style="display:flex;gap:8px;align-items:center;margin-bottom:${d.fill.type === 'linear' ? '8' : '10'}px;">
-          <input id="pr-c0" type="color" value="${d.fill.c0}" style="width:40px;height:30px;border:1px solid var(--line);border-radius:6px;background:none;cursor:pointer;">
-          ${grad ? `<span style="color:var(--dim);">→</span><input id="pr-c1" type="color" value="${d.fill.c1}" style="width:40px;height:30px;border:1px solid var(--line);border-radius:6px;background:none;cursor:pointer;">` : '<span style="color:var(--dim);font-size:11px;">단색</span>'}
-        </div>
-        ${d.fill.type === 'linear' ? `<div style="display:flex;justify-content:space-between;margin-bottom:3px;"><span style="color:var(--dim);">그라디언트 각도</span><span id="pr-agv" style="color:var(--accent);">${d.fill.angle}°</span></div><input id="pr-angle-g" type="range" min="0" max="360" step="5" value="${d.fill.angle}" style="width:100%;margin-bottom:10px;">` : ''}
-
-        <div style="display:flex;justify-content:space-between;margin-bottom:3px;"><span style="color:var(--dim);">크기</span><span id="pr-szv" style="color:var(--accent);">${m.radiusCm}cm</span></div>
+        <div style="display:flex;justify-content:space-between;margin:10px 0 3px;"><span style="color:var(--dim);font-weight:600;">판정 반경 (허용창)</span><span id="pr-szv" style="color:var(--accent);">${m.radiusCm}cm</span></div>
         <input id="pr-size" type="range" min="9" max="30" step="1" value="${m.radiusCm}" style="width:100%;margin-bottom:10px;">
 
-        <div style="display:flex;justify-content:space-between;margin-bottom:3px;"><span style="color:var(--dim);">흐림(블러)</span><span id="pr-blv" style="color:var(--accent);">${d.blur}</span></div>
-        <input id="pr-blur" type="range" min="0" max="20" step="1" value="${d.blur}" style="width:100%;margin-bottom:10px;">
+        ${!isWall && m.foot ? `
+        <div style="color:var(--dim);margin-bottom:5px;font-weight:600;">발</div>
+        <div style="display:flex;gap:4px;margin-bottom:10px;">${seg([['left', '왼발'], ['right', '오른발']], m.foot, 'pr-foot', 'foot')}</div>` : ''}
 
-        <div style="display:flex;justify-content:space-between;margin-bottom:3px;"><span style="color:var(--dim);">투명도</span><span id="pr-opv" style="color:var(--accent);">${Math.round(d.opacity * 100)}%</span></div>
-        <input id="pr-op" type="range" min="10" max="100" step="5" value="${Math.round(d.opacity * 100)}" style="width:100%;margin-bottom:8px;">
+        <div style="color:var(--dim);margin-bottom:5px;font-weight:600;">이 자리에서 뭘 하나요? (계약)</div>
+        <div style="display:flex;gap:4px;margin-bottom:8px;">${seg(ROLES, m.contract, 'pr-role', 'role')}</div>
+        <label style="display:flex;align-items:center;gap:7px;margin-bottom:6px;cursor:pointer;"><input id="pr-order" type="checkbox" ${m.order ? 'checked' : ''}> 순서 숫자 보이기</label>
+        <label style="display:flex;align-items:center;gap:7px;margin-bottom:10px;cursor:pointer;"><input id="pr-hold" type="checkbox" ${m.holdRing ? 'checked' : ''}> 버티기 링(채워지는 원)</label>
 
-        <label style="display:flex;align-items:center;gap:7px;margin:6px 0 4px;cursor:pointer;color:var(--text);"><input id="pr-bon" type="checkbox" ${b.on ? 'checked' : ''}> 💥 터지는 이펙트</label>
-        ${b.on ? `
-        <div style="display:flex;justify-content:space-between;margin-bottom:3px;"><span style="color:var(--dim);">세기</span><span id="pr-biv" style="color:var(--accent);">${b.intensity.toFixed(1)}</span></div>
-        <input id="pr-bi" type="range" min="0.3" max="2.5" step="0.1" value="${b.intensity}" style="width:100%;margin-bottom:6px;">
-        <div style="display:flex;justify-content:space-between;margin-bottom:3px;"><span style="color:var(--dim);">속도</span><span id="pr-bsv" style="color:var(--accent);">${b.speed.toFixed(1)}</span></div>
-        <input id="pr-bs" type="range" min="0.3" max="2.5" step="0.1" value="${b.speed}" style="width:100%;margin-bottom:6px;">` : ''}
-
-        <button id="pr-adv" style="width:100%;margin-top:8px;padding:7px 0;border:1px solid var(--line);border-radius:6px;background:none;color:var(--dim);font-size:11px;cursor:pointer;">${this.showAdv ? '▴ 고급 설정 접기' : '▾ 고급 설정 (역할·순서·방향)'}</button>
-        ${this.showAdv ? `
-        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--line);">
-          <div style="color:var(--dim);margin-bottom:5px;">이 자리에서 뭘 하나요?</div>
-          <div style="display:flex;gap:4px;margin-bottom:10px;">${seg(ROLES, m.contract, 'pr-role', 'role')}</div>
-          <label style="display:flex;align-items:center;gap:7px;margin-bottom:7px;cursor:pointer;"><input id="pr-order" type="checkbox" ${m.order ? 'checked' : ''}> 순서 숫자 보이기</label>
-          <label style="display:flex;align-items:center;gap:7px;margin-bottom:10px;cursor:pointer;"><input id="pr-hold" type="checkbox" ${m.holdRing ? 'checked' : ''}> 버티기 링(채워지는 원)</label>
-          <div style="color:var(--dim);margin-bottom:5px;">방향 화살표</div>
-          <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:${(m.direction && m.direction.type !== 'none') ? '8' : '0'}px;">${seg(DIRS, m.direction?.type || 'none', 'pr-dir', 'dir')}</div>
-          ${(m.direction && m.direction.type !== 'none') ? `
-          <div style="color:var(--dim);margin:6px 0 4px;">화살표 끝(촉) 모양</div>
-          <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px;">${seg(TIPS, m.direction.tip || 'triangle', 'pr-tip', 'tip')}</div>
-          <div style="display:flex;justify-content:space-between;margin-bottom:3px;"><span style="color:var(--dim);">방향 각도</span><span style="color:var(--accent);">${m.direction.angle || 0}°</span></div>
-          <input id="pr-angle" type="range" min="-180" max="180" step="5" value="${m.direction.angle || 0}" style="width:100%;">` : ''}
-        </div>` : ''}
+        <div style="color:var(--dim);margin-bottom:5px;font-weight:600;">방향 화살표</div>
+        <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:${(m.direction && m.direction.type !== 'none') ? '8' : '0'}px;">${seg(DIRS, m.direction?.type || 'none', 'pr-dir', 'dir')}</div>
+        ${(m.direction && m.direction.type !== 'none') ? `
+        <div style="color:var(--dim);margin:6px 0 4px;">화살표 끝(촉) 모양</div>
+        <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px;">${seg(TIPS, m.direction.tip || 'triangle', 'pr-tip', 'tip')}</div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:3px;"><span style="color:var(--dim);">방향 각도</span><span style="color:var(--accent);">${m.direction.angle || 0}°</span></div>
+        <input id="pr-angle" type="range" min="-180" max="180" step="5" value="${m.direction.angle || 0}" style="width:100%;">` : ''}
 
         ${this._footBtns()}
       </div>`;
@@ -257,30 +246,14 @@ export class StudioProps {
 
   _bindEasy() {
     const on = (sel, ev, fn) => { const el = this.el.querySelector(sel); if (el) el.addEventListener(ev, fn); };
-    this.el.querySelectorAll('.pr-shape').forEach(b => b.addEventListener('click', () => { this._editDesign({ shape: b.dataset.val }); this.render(); }));
-    on('#pr-svg', 'click', () => this.el.querySelector('#pr-svgfile').click());
-    on('#pr-svgfile', 'change', async e => {
-      const file = e.target.files?.[0]; if (!file) return;
-      const url = await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(file); });
-      const design = { ...this._dsn(this.doc.selected()), svgUrl: url, shape: 'svg' };
-      await loadSvg(design);
-      this._editDesign(design); this.render();
-    });
-    // 그라디언트 타입 · 색
-    this.el.querySelectorAll('.pr-grad').forEach(b => b.addEventListener('click', () => { this._editFill({ type: b.dataset.val }); this.render(); }));
-    on('#pr-c0', 'input', e => this._editFill({ c0: e.target.value }));
-    on('#pr-c1', 'input', e => this._editFill({ c1: e.target.value }));
-    on('#pr-angle-g', 'input', e => { this._editFill({ angle: Number(e.target.value) }); const v = this.el.querySelector('#pr-agv'); if (v) v.textContent = e.target.value + '°'; });
-    // 크기·흐림·투명도
+    // 배치·타이밍 수치 입력
+    on('#pr-nx', 'input', e => { const v = Number(e.target.value); if (!isNaN(v)) this._edit({ nx: Math.max(-1, Math.min(1, v)) }); });
+    on('#pr-t', 'input', e => { const v = Number(e.target.value); if (!isNaN(v) && v >= 0) this._edit({ t: v }); });
+    on('#pr-ny', 'input', e => { const v = Number(e.target.value); if (!isNaN(v)) this._edit({ ny: Math.max(-1, Math.min(1.2, v)) }); });
+    // 판정 반경
     on('#pr-size', 'input', e => { this._edit({ radiusCm: Number(e.target.value) }); const v = this.el.querySelector('#pr-szv'); if (v) v.textContent = e.target.value + 'cm'; });
-    on('#pr-blur', 'input', e => { this._editDesign({ blur: Number(e.target.value) }); const v = this.el.querySelector('#pr-blv'); if (v) v.textContent = e.target.value; });
-    on('#pr-op', 'input', e => { this._editDesign({ opacity: Number(e.target.value) / 100 }); const v = this.el.querySelector('#pr-opv'); if (v) v.textContent = e.target.value + '%'; });
-    // 터짐
-    on('#pr-bon', 'change', e => { this._editBurst({ on: e.target.checked }); this.render(); });
-    on('#pr-bi', 'input', e => { this._editBurst({ intensity: Number(e.target.value) }); const v = this.el.querySelector('#pr-biv'); if (v) v.textContent = Number(e.target.value).toFixed(1); });
-    on('#pr-bs', 'input', e => { this._editBurst({ speed: Number(e.target.value) }); const v = this.el.querySelector('#pr-bsv'); if (v) v.textContent = Number(e.target.value).toFixed(1); });
-    // 고급
-    on('#pr-adv', 'click', () => { this.showAdv = !this.showAdv; this.render(); });
+    // 발 · 계약 · 채널
+    this.el.querySelectorAll('.pr-foot').forEach(b => b.addEventListener('click', () => { this._edit({ foot: b.dataset.val }); this.render(); }));
     this.el.querySelectorAll('.pr-role').forEach(b => b.addEventListener('click', () => { this._edit({ contract: b.dataset.val }); this.render(); }));
     on('#pr-order', 'change', e => this._edit({ order: e.target.checked }));
     on('#pr-hold', 'change', e => this._edit({ holdRing: e.target.checked }));
@@ -296,4 +269,5 @@ export class StudioProps {
     }));
     on('#pr-angle', 'input', e => { const m = this.doc.selected(); this._edit({ direction: { type: m.direction?.type || 'transition', angle: Number(e.target.value), tip: m.direction?.tip || 'triangle' } }); });
   }
+
 }

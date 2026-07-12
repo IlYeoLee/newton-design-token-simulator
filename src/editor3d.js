@@ -275,7 +275,45 @@ export function createEditor3D({ dom, tokens, getCamera, getControls, getDoc, on
   dom.addEventListener('pointerdown', onDown);
   dom.addEventListener('pointermove', onMove);
   dom.addEventListener('pointerup', onUp);
-  // 더블클릭 = 묶음 요소의 글자 바로 편집 (피그마 더블클릭 진입의 등가물)
+  // 더블클릭 = 캔버스 인라인 텍스트 편집 (피그마: 그 자리에서 바로 타이핑)
+  let inlineInput = null;
+  function closeInline(commit = true) {
+    if (!inlineInput) return;
+    const el = inlineInput; inlineInput = null;
+    el.remove();
+    if (commit) onSceneChange?.('end');
+  }
+  function openInlineText(cand, sc) {
+    closeInline(false);
+    let txtEl = null;
+    cand.obj.traverse(c => { if (!txtEl && c.userData?.el?.type === 'text') txtEl = c.userData.el; });
+    // 요소 화면 위치에 입력창 (선택 링 중심)
+    const box = new THREE.Box3().setFromObject(cand.obj);
+    const c = box.getCenter(new THREE.Vector3()).project(getCamera());
+    const r = dom.getBoundingClientRect();
+    const x = r.left + (c.x * 0.5 + 0.5) * r.width;
+    const y = r.top + (-c.y * 0.5 + 0.5) * r.height;
+    const inp = document.createElement('input');
+    inp.id = 'inline-text';
+    inp.value = txtEl?.content ?? '';
+    inp.style.cssText = `position:fixed;left:${x}px;top:${y}px;transform:translate(-50%,-50%);z-index:60;
+      min-width:120px;width:${Math.max(120, (inp.value.length + 2) * 13)}px;padding:7px 10px;text-align:center;
+      background:rgba(12,14,18,.95);color:#FFF3DC;border:1.5px solid #FA3030;border-radius:8px;
+      font:600 14px Pretendard,-apple-system,sans-serif;outline:none;box-shadow:0 4px 18px rgba(0,0,0,.5);`;
+    inp.addEventListener('input', () => {
+      sc.scope.setText({ content: inp.value });                      // 타이핑 즉시 장면 반영
+      inp.style.width = Math.max(120, (inp.value.length + 2) * 13) + 'px';
+    });
+    inp.addEventListener('keydown', ev => {
+      if (ev.key === 'Enter') closeInline();
+      if (ev.key === 'Escape') closeInline();
+      ev.stopPropagation();
+    });
+    inp.addEventListener('blur', () => closeInline());
+    document.body.appendChild(inp);
+    inlineInput = inp;
+    inp.focus(); inp.select();
+  }
   dom.addEventListener('dblclick', e => {
     if (!enabled) return;
     const sc = getScene?.();
@@ -290,15 +328,15 @@ export function createEditor3D({ dom, tokens, getCamera, getControls, getDoc, on
     const cand = pickList(e, sc).find(c => hasText(c.obj))
       ?? (sc.scope.sel >= 0 ? { key: sc.scope.sel, obj: sc.session.sceneElements(sc.scope.stageId).find(x => x.i === sc.scope.sel)?.o } : null);
     if (!cand?.obj || !hasText(cand.obj)) return;
-    if (sc.scope.sel !== cand.key) { sc.scope.pick(cand.key); ringAround(cand.obj, !!sc.scope.wall); }
-    onSceneChange?.('text');
+    if (sc.scope.sel !== cand.key) { sc.scope.pick(cand.key); ringAround(cand.obj, !!sc.scope.wall); onSceneChange?.('pick'); }
+    openInlineText(cand, sc);
   });
 
   return {
     setTool: setToolFn,
     setEnabled(on) {
       enabled = !!on;
-      if (!on) { if (drag) endDrag(); dom.style.cursor = ''; if (hoverRing) hoverRing.visible = false; }
+      if (!on) { if (drag) endDrag(); dom.style.cursor = ''; if (hoverRing) hoverRing.visible = false; closeInline(false); }
       this.syncSelection();
     },
     /** 선택 ↔ 3D 윤곽 동기 (선택 변경·리빌드·스코프 전환 후 호출) */

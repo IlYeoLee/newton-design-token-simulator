@@ -991,16 +991,8 @@ async function boot() {
     });
     return root;
   }
-  // 전역 패널 = 룩(본진) + 고급 이관분 — 영속 DOM 래퍼
-  let globalPanelEl = null;
-  function getGlobalPanelEl() {
-    if (!globalPanelEl) {
-      globalPanelEl = document.createElement('div');
-      globalPanelEl.appendChild(getLookPanel().el);
-      globalPanelEl.appendChild(advEl = buildAdvPanel());
-    }
-    return globalPanelEl;
-  }
+  // 전역 고급 패널 (판정색·지오메트리·세션 타이밍·프리셋) — 디자인 탭 비선택 하단에 상주
+  function getAdvEl() { return advEl ||= buildAdvPanel(); }
   refreshEditorStages = () => { if (studioActive) renderCutBoard(); };
 
   // ── 제작자 모드: 이미지 드롭 → 토큰 아트 즉시 교체 (다빈 에셋 검수 리그) ──
@@ -1218,10 +1210,14 @@ async function boot() {
   }
   function renderScopeProps() {
     if (studioScope !== 'scene') return;
-    sceneScope.getLookEl = () => getGlobalPanelEl();
     sceneScope.getCutEl = () => buildCutCard();
+    sceneScope.getAdvEl = () => getAdvEl();
     sceneScope.renderProps(propsHost(), () => { renderScopeProps(); fillLayers(); });
   }
+
+  // ── 룩 편집 = FX Lab 전체 페이지 (유저 확정 — 프리뷰 셀이 있는 그 페이지가 룩의 본진) ──
+  const inspTab = 'design';   // 인스펙터는 디자인 전용, 룩 버튼은 런처
+  document.getElementById('insp-tab-look')?.addEventListener('click', () => openFxLab());
 
   // ── 컷 보드 — 설계문서의 컷 카드처럼: 미니 평면 다이어그램 + 지속 + 시그널 배지 ──
   const CUT_TONE = { R: '#9aa4b2', A: '#FEC389', T: '#D1FEFF', B: '#FE6E3C', C: '#FA3030' };
@@ -1383,7 +1379,7 @@ async function boot() {
         studioProps = new StudioProps(propsHost(), studioDoc, {
           onEdit: scheduleStudioRebuild,
           onPreviewBurst: (mark) => { rebuildPack(studioSport, studioDoc.toPack()); tokens.studioBurst(mark); },
-          getLookEl: () => getGlobalPanelEl(),
+          getAdvEl: () => getAdvEl(),
         });
       }
     }
@@ -1441,7 +1437,7 @@ async function boot() {
     studioProps = new StudioProps(document.getElementById('studio-props'), studioDoc, {
       onEdit: scheduleStudioRebuild,
       onPreviewBurst: (mark) => { rebuildPack(studioSport, studioDoc.toPack()); tokens.studioBurst(mark); },
-          getLookEl: () => getGlobalPanelEl(),
+      getAdvEl: () => getAdvEl(),
     });
     // 안내 팁: 토큰을 처음 고르면 사라짐
     const tipEl = document.getElementById('studio-tip');
