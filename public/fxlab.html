@@ -99,6 +99,11 @@
 <p class="note">투사 UI가 쓰는 <b>모든 글리프</b>를 현재 룩(팔레트·글로우)으로 미리봅니다 — 숫자 0–9(순서·카운트), 연산 +−×%(리포트·배수),
 발형 L/R(Step-type 티칭 스킨), 화살촉 4종(방향 토큰). 여기서 확정한 형태가 시뮬의 숫자 텍스처·발 마크·화살표와 같은 스타일 엔진입니다.</p>
 <div class="live" id="glyphLib" style="gap:10px;flex-wrap:wrap;"></div>
+<div style="margin-top:8px;display:flex;gap:8px;align-items:center;">
+  <button class="btn" id="glyphUpload">＋ SVG 글리프 첨부 (즉시 히트 룩 적용)</button>
+  <input id="glyphFile" type="file" accept=".svg,image/svg+xml" multiple style="display:none">
+  <span style="font-size:11px;color:#8b93a3">첨부한 SVG는 저장돼 시뮬로 함께 이식됩니다 · 셀 클릭 = 삭제</span>
+</div>
 
 <h2>MARK 판정 토큰 — 최소 토큰 × 7상태 <span class="tag new">설계 문서 그대로</span></h2>
 <p class="note">카탈로그 원칙: 상호작용 지점은 <b>MARK 단 하나</b>(존 원 + 링 모디파이어 + 7상태) — 지면 stepMark든 벽면 targetMark든 같은 컴포넌트.
@@ -179,6 +184,7 @@ const state = {
   s: { bloomStrength: 0.55, bloomThreshold: 0.55, bloomRadius: 0.6, exposure: 1.0, grain: 0, vignette: 0.12 },
   p: { blur: 1.0, glow: 0.9, flow: 0.55, decay: 0.62, grain: 0.03 },
   footShape: 1, personMode: 0, burstStyle: 0, laneStyle: 0,
+  glyphs: [],   // 커스텀 SVG 글리프 (dataURL) — 저장·브리지 왕복
 };
 const SLIDER_DEFS = {
   g: [
@@ -1003,7 +1009,7 @@ function drawTipGlyph(g, W, kind) {
   if (kind === 'TIP_BAR') { g.fillRect(-14, -26, 28, 7); }
   g.restore();
 }
-function drawGlyphLib() {
+let drawGlyphLib = function() {
   for (const cv of glyphCells) {
     const g = cv.getContext('2d');
     const W = cv.width;
@@ -1020,7 +1026,73 @@ function drawGlyphLib() {
     g.shadowBlur = 0;
     g.fillText(gl, W/2, W/2 + 3);
   }
+};
+// ── 커스텀 SVG 글리프: 첨부 즉시 히트 룩 적용, state.glyphs로 저장·이식 ──
+const customCell = document.createElement('div');
+customCell.className = 'cell';
+const customRow = document.createElement('div');
+customRow.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;justify-content:center;max-width:420px;min-height:64px;';
+const customLab = document.createElement('div');
+customLab.className = 'lab';
+customLab.textContent = '커스텀 (SVG 첨부)';
+customCell.append(customRow, customLab);
+glyphHost.appendChild(customCell);
+const glyphImgCache = new Map();
+function rebuildCustomGlyphs() {
+  customRow.innerHTML = '';
+  state.glyphs.forEach((url, idx) => {
+    const cv = document.createElement('canvas');
+    cv.width = cv.height = 96;
+    cv.style.cssText = 'width:64px;height:64px;background:#0A0C10;border-radius:8px;cursor:pointer;';
+    cv.title = '클릭 = 삭제';
+    cv.dataset.custom = idx;
+    cv.addEventListener('click', () => { state.glyphs.splice(idx, 1); rebuildCustomGlyphs(); });
+    customRow.appendChild(cv);
+  });
+  drawGlyphLib();
 }
+function drawCustomGlyph(g, W, url) {
+  let img = glyphImgCache.get(url);
+  if (!img) {
+    img = new Image();
+    img.src = url;
+    img.onload = drawGlyphLib;
+    glyphImgCache.set(url, img);
+  }
+  if (!img.complete || !img.naturalWidth) return;
+  // 알파 마스크 → 웜 크림 틴트 (원본 색 무시 — 온도 언어 통일) + LUT 글로우
+  const off = document.createElement('canvas');
+  off.width = off.height = W;
+  const og = off.getContext('2d');
+  const sc = Math.min((W - 24) / img.naturalWidth, (W - 24) / img.naturalHeight);
+  const w = img.naturalWidth * sc, h = img.naturalHeight * sc;
+  og.drawImage(img, (W - w) / 2, (W - h) / 2, w, h);
+  og.globalCompositeOperation = 'source-in';
+  og.fillStyle = 'rgba(255,240,220,0.95)';
+  og.fillRect(0, 0, W, W);
+  g.shadowColor = lutCss(0.72); g.shadowBlur = 16;
+  g.drawImage(off, 0, 0);
+  g.shadowBlur = 0;
+  g.drawImage(off, 0, 0);
+}
+document.getElementById('glyphUpload').addEventListener('click', () => document.getElementById('glyphFile').click());
+document.getElementById('glyphFile').addEventListener('change', async e => {
+  for (const f of e.target.files || []) {
+    const url = await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(f); });
+    state.glyphs.push(url);
+  }
+  e.target.value = '';
+  rebuildCustomGlyphs();
+});
+const _drawGlyphBase = drawGlyphLib;
+drawGlyphLib = function() {
+  _drawGlyphBase();
+  for (const cv of customRow.querySelectorAll('canvas')) {
+    const g = cv.getContext('2d');
+    g.clearRect(0, 0, cv.width, cv.height);
+    drawCustomGlyph(g, cv.width, state.glyphs[+cv.dataset.custom]);
+  }
+};
 drawGlyphLib();
 setInterval(drawGlyphLib, 700);   // 팔레트·채도 변경 라이브 반영 (경량 2D — 부담 없음)
 // ═══ 시뮬 임베드 브리지 ═══════════════════════
@@ -1029,6 +1101,7 @@ function labSnapshot() {
   return { stops: state.stops, sat: state.sat, bg: state.bg,
     burstStyle: state.burstStyle, laneStyle: state.laneStyle,
     markShape: state.markShape, markForm: state.markForm, markContract: state.markContract,
+    glyphs: state.glyphs.slice(),
     g: { ...state.g }, m: { ...state.m }, p: { ...state.p }, s: { ...state.s } };
 }
 if (window.parent !== window) {
@@ -1045,6 +1118,7 @@ if (window.parent !== window) {
     for (const k of ['g', 'm', 'p', 's']) Object.assign(state[k], st[k] || {});
     for (const k of ['burstStyle', 'laneStyle', 'markShape', 'markForm', 'markContract'])
       if (st[k] != null) state[k] = st[k];
+    if (Array.isArray(st.glyphs)) { state.glyphs = st.glyphs.slice(); rebuildCustomGlyphs(); }
     buildStops(); rebuildLUT();
     document.querySelectorAll('input[type=range][data-scope]').forEach(inp => {
       const v = state[inp.dataset.scope]?.[inp.dataset.key];

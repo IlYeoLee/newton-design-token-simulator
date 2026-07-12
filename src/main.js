@@ -760,6 +760,7 @@ async function boot() {
     if (st.p) Object.assign(FXP.person, { blur: st.p.blur, glow: st.p.glow, flow: st.p.flow, decay: st.p.decay });
     if (st.s) Object.assign(FX, st.s);
     if (st.bg !== undefined) setSurfaces(st.bg === 'none' ? null : st.bg);   // 투사면 칩 → 실물 바닥/벽
+    if (Array.isArray(st.glyphs)) FXP.customGlyphs = st.glyphs;   // 커스텀 SVG 글리프 (마커 아트 소스로 사용 예정)
     rebuildLUT();
   }
   {
