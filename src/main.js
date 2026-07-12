@@ -724,6 +724,8 @@ async function boot() {
   // ── 🔥 룩 스튜디오 = FX Lab 페이지 통째 임베드 ──────────────
   // 랩에서 만지는 모든 값이 400ms 주기로 전송 → 시뮬 적용 + designStore 저장.
   let openFxLab = () => {};   // 아래 FX 블록에서 실제 구현 주입 (스튜디오 룩 탭·인스펙터 공용)
+  let stageDark = null;       // 다크 저작 스테이지 — 편집 중 주간/투사면을 통제 (아래 FX 블록에서 주입)
+  let updateSurfChipsOut = () => {};   // 패널 투사면 칩 동기 (룩 패널 공용)
   function applyLabState(st) {
     if (!st) return;
     if (st.stops) FXP.stops = st.stops.map(s => [...s]);
@@ -790,7 +792,33 @@ async function boot() {
     }
     const savedLab = designStore.globalGet('fx', 'lab', null);
     updateSurfChips(savedLab?.bg || 'none');
+    updateSurfChipsOut = updateSurfChips;
     if (savedLab) applyLabState(savedLab);
+
+    // 다크 저작 스테이지 — 투사는 가산광: 편집은 통제된 다크 위에서만 성립.
+    // enter/exit는 뷰 상태만 바꾸고 designStore는 불변 — exit가 store를 재독해 복원.
+    stageDark = {
+      active: false,
+      enter() {
+        this.active = true;
+        setDaylight(false);
+        FXP.gainBoost = 1.0;
+        setSurfaces(null);
+        if (dayBtn) dayBtn.style.display = 'none';   // 강제 다크와 싸우는 유일한 컨트롤 봉인
+      },
+      /** 유저의 실제 주간/투사면 상태 재적용 (편집 중 '실물 배경으로 확인' + 편집 종료) */
+      applyUser() {
+        dayOn = !!designStore.globalGet('fx', 'day', false);
+        applyDay();
+        const bg = designStore.globalGet('fx', 'lab', null)?.bg;
+        setSurfaces(!bg || bg === 'none' ? null : bg);
+      },
+      exit() {
+        this.active = false;
+        this.applyUser();
+        if (dayBtn) dayBtn.style.display = '';
+      },
+    };
     const overlay = document.getElementById('fxlab-overlay');
     const frame = document.getElementById('fxlab-frame');
     let lastJson = savedLab ? JSON.stringify(savedLab) : '';
@@ -1192,6 +1220,8 @@ async function boot() {
     // 3D 직접 편집: 어디서 선택하든(3D·2D·속성) 윤곽 동기
     studioDoc.onChange((d, reason) => { if (['select', 'load', 'remove', 'add', 'undo', 'redo'].includes(reason)) editor3d.syncSelection(); });
     editor3d.setEnabled(true);
+    stageDark?.enter();                        // 편집 = 통제된 다크 스테이지 (가산광 전제)
+    bgPreviewOn = false; syncBgPreviewBtn();
     rebuildPack(studioSport, studioDoc.toPack());        // layoutPreview 반영 리빌드(클리핑 해제)
     studioScope = 'pack';
     document.querySelectorAll('.stsp').forEach(b => seg(b, b.dataset.sport === studioSport));
@@ -1207,10 +1237,27 @@ async function boot() {
     studioCanvas.refresh();   // 드로어가 보인 뒤 실제 크기 반영 (RO 타이밍 비의존)
     studioTopView();
   }
+  // ☀️ 실물 배경으로 확인 — 편집 중 유저의 주간/투사면 상태를 잠깐 적용
+  let bgPreviewOn = false;
+  function syncBgPreviewBtn() {
+    const b = document.getElementById('studio-bgpreview');
+    if (!b) return;
+    b.style.borderColor = bgPreviewOn ? '#fec389' : 'var(--line)';
+    b.style.color = bgPreviewOn ? '#fec389' : 'var(--dim)';
+  }
+  document.getElementById('studio-bgpreview')?.addEventListener('click', () => {
+    if (!studioActive || !stageDark) return;
+    bgPreviewOn = !bgPreviewOn;
+    if (bgPreviewOn) stageDark.applyUser();
+    else stageDark.enter();
+    syncBgPreviewBtn();
+  });
+
   function exitStudio() {
     if (!studioActive) return;
     studioActive = false;
     editor3d.setEnabled(false);
+    stageDark?.exit();
     if (studioScope === 'scene') sceneScope.leave();   // 스테이지 프리뷰 해제
     studioScope = 'pack';
     studioCanvas?.destroy(); studioCanvas = null;
@@ -1562,7 +1609,7 @@ async function boot() {
   });
 
   if (import.meta.env.DEV) window.__dbg = {
-    rig, xbot, state, session, sceneScope, camera, controls, tokens, effects, scene, editor3d, sceneUI,
+    rig, xbot, state, session, sceneScope, camera, controls, tokens, effects, scene, editor3d, sceneUI, FXP, designStore,
     get doc() { return studioDoc; },
     get canvas() { return studioCanvas; },
     get scope() { return studioScope; },
