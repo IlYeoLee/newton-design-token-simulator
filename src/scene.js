@@ -83,14 +83,14 @@ export function createScene(container) {
 
   // ── 바닥 ──────────────────────────────────────────────
   const floor = new THREE.Mesh(
-    new THREE.PlaneGeometry(24, 24),
+    new THREE.PlaneGeometry(120, 120),
     new THREE.MeshStandardMaterial({ color: 0x171a20, roughness: 0.92, metalness: 0.05 })
   );
   floor.rotation.x = -Math.PI / 2;
   floor.receiveShadow = true;
   scene.add(floor);
 
-  const grid = new THREE.GridHelper(24, 48, 0x232833, 0x1b202a);
+  const grid = new THREE.GridHelper(120, 240, 0x232833, 0x1b202a);
   grid.position.y = 0.002;
   scene.add(grid);
 
@@ -129,8 +129,8 @@ export function createScene(container) {
   }
   async function getSurf(key) {
     if (surfCache[key]) return surfCache[key];
-    if (key === 'grass') surfCache.grass = await loadSurf('grass.jpg', 12, 12);
-    else if (key === 'paving') surfCache.paving = await loadSurf('paving.jpg', 10, 10);
+    if (key === 'grass') surfCache.grass = await loadSurf('grass.jpg', 60, 60);
+    else if (key === 'paving') surfCache.paving = await loadSurf('paving.jpg', 50, 50);
     else if (key === 'plaster') surfCache.plaster = await loadSurf('plaster.jpg', 2.5, 1.6);
     else if (key === 'track') {
       // 러닝 트랙 = 아스팔트 × 레드 러버 틴트 + 레인 라인 (런타임 베이크)
@@ -149,7 +149,7 @@ export function createScene(container) {
       g.fillRect(96, 0, 7, 512); g.fillRect(409, 0, 7, 512);
       const tex = new THREE.CanvasTexture(c);
       tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-      tex.repeat.set(12, 12);
+      tex.repeat.set(60, 60);
       tex.anisotropy = 4;
       tex.colorSpace = THREE.SRGBColorSpace;
       surfCache.track = tex;

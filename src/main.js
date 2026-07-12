@@ -720,7 +720,35 @@ async function boot() {
       designStore.globalSet('fx', 'day', dayOn);
       designStore.save();
     });
+    // 투사면 퀵 칩 — 룩 스튜디오 안 열고도 바닥/벽 테마 전환
+    const SURF_DEFS = [['none', '다크'], ['grass', '잔디'], ['track', '트랙'], ['paving', '보도블럭']];
+    const surfWrap = document.getElementById('surf-chips');
+    function updateSurfChips(key) {
+      surfWrap?.querySelectorAll('button').forEach(b => {
+        const on = b.dataset.key === (key || 'none');
+        b.style.borderColor = on ? '#fec389' : 'var(--line)';
+        b.style.color = on ? '#fec389' : 'var(--dim)';
+      });
+    }
+    if (surfWrap) {
+      for (const [key, label] of SURF_DEFS) {
+        const b = document.createElement('button');
+        b.dataset.key = key;
+        b.textContent = label;
+        b.style.cssText = 'padding:5px 11px;border:1px solid var(--line);border-radius:99px;background:none;color:var(--dim);font-size:11px;font-weight:600;cursor:pointer;';
+        b.addEventListener('click', () => {
+          setSurfaces(key === 'none' ? null : key);
+          updateSurfChips(key);
+          const st = designStore.globalGet('fx', 'lab', null) || {};
+          st.bg = key;
+          designStore.globalSet('fx', 'lab', st);
+          designStore.save();
+        });
+        surfWrap.appendChild(b);
+      }
+    }
     const savedLab = designStore.globalGet('fx', 'lab', null);
+    updateSurfChips(savedLab?.bg || 'none');
     if (savedLab) applyLabState(savedLab);
     const overlay = document.getElementById('fxlab-overlay');
     const frame = document.getElementById('fxlab-frame');
@@ -736,10 +764,12 @@ async function boot() {
       if (d?.type === 'fxlab-ready') {
         frame.contentWindow?.postMessage({ type: 'fxlab-init', state: designStore.globalGet('fx', 'lab', null) }, '*');
       } else if (d?.type === 'fxlab-state') {
+        if (overlay.style.display !== 'block') return;   // 닫힌 랩의 주기 전송 무시
         const json = JSON.stringify(d.state);
         if (json === lastJson) return;
         lastJson = json;
         applyLabState(d.state);
+        updateSurfChips(d.state?.bg || 'none');
         clearTimeout(saveTimer);
         saveTimer = setTimeout(() => { designStore.globalSet('fx', 'lab', d.state); designStore.save(); }, 400);
       }
@@ -1319,6 +1349,8 @@ async function boot() {
   document.getElementById('loading').style.display = 'none';
 
   const clock = new THREE.Clock();
+
+
 
   // 비실전 단계 봇 시연 클립 매핑 (가진 클립으로 근사 — 코치가 동작을 보여줌)
   function demoClipFor(sport, id) {
