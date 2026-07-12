@@ -173,9 +173,9 @@ export function createScene(container) {
     const [fTex, wTex] = await Promise.all([getSurf(key), getSurf('plaster')]);
     if (seq !== surfSeq) return;
     floor.material.map = fTex;
-    floor.material.color.setHex(0x8a8a8a);   // 야간 투사 조건 톤 다운
+    floor.material.color.setHex(dayMode ? 0xFFFFFF : 0x8a8a8a);   // 주간=원색, 야간=톤 다운
     wall.material.map = wTex;
-    wall.material.color.setHex(0x9a9a9a);
+    wall.material.color.setHex(dayMode ? 0xFFFFFF : 0x9a9a9a);
     floor.material.needsUpdate = true;
     wall.material.needsUpdate = true;
     grid.visible = false;                     // 실측 표면엔 그리드 라인 제거
@@ -201,6 +201,37 @@ export function createScene(container) {
     applyCamera(pack);
   }
 
+  // ── 주간 모드 — '낮에도 보이는 투사'가 제품 스토리 (MEMS 레이저 주광 가시) ──
+  const hemi = scene.children.find(o => o.isHemisphereLight);
+  let dayMode = false;
+  function setDaylight(on) {
+    dayMode = !!on;
+    FX.day = dayMode;
+    if (dayMode) {
+      scene.background.setHex(0xDDE4EC);
+      scene.fog.color.setHex(0xDDE4EC); scene.fog.near = 14; scene.fog.far = 40;
+      hemi.color.setHex(0xEAF1FA); hemi.groundColor.setHex(0x9AA0A8); hemi.intensity = 1.5;
+      key.intensity = 2.4; key.color.setHex(0xFFF3E0);
+      rim.intensity = 0.12;
+      if (!floor.material.map) floor.material.color.setHex(0xB9BEC6);
+      if (!wall.material.map) wall.material.color.setHex(0xC9CDD4);
+      if (floor.material.map) floor.material.color.setHex(0xFFFFFF);
+      if (wall.material.map) wall.material.color.setHex(0xFFFFFF);
+    } else {
+      scene.background.setHex(0x0c0e12);
+      scene.fog.color.setHex(0x0c0e12); scene.fog.near = 9; scene.fog.far = 20;
+      hemi.color.setHex(0x39424f); hemi.groundColor.setHex(0x11141a); hemi.intensity = 1.1;
+      key.intensity = 1.5; key.color.setHex(0xffffff);
+      rim.intensity = 0.35;
+      if (!floor.material.map) floor.material.color.setHex(0x171a20);
+      if (!wall.material.map) wall.material.color.setHex(0x1c2028);
+      if (floor.material.map) floor.material.color.setHex(0x8a8a8a);
+      if (wall.material.map) wall.material.color.setHex(0x9a9a9a);
+    }
+    floor.material.needsUpdate = true;
+    wall.material.needsUpdate = true;
+  }
+
   // ── 후처리: 블룸(마크·이펙트 발광) + 그레인·비네트 ─────
   const composer = new EffectComposer(renderer);
   composer.addPass(new RenderPass(scene, camera));
@@ -213,7 +244,7 @@ export function createScene(container) {
   composer.addPass(new OutputPass());
 
   function renderFrame(timeSec) {
-    bloomPass.threshold = FX.bloomThreshold;
+    bloomPass.threshold = FX.bloomThreshold + (FX.day ? 0.38 : 0);
     bloomPass.strength = FX.bloomStrength;
     bloomPass.radius = FX.bloomRadius;
     gradePass.uniforms.uGrain.value = FX.grain;
@@ -233,5 +264,5 @@ export function createScene(container) {
   }
   window.addEventListener('resize', resize);
 
-  return { renderer, scene, camera, controls, setPackEnvironment, resize, renderFrame, composer, setSurfaces };
+  return { renderer, scene, camera, controls, setPackEnvironment, resize, renderFrame, composer, setSurfaces, setDaylight };
 }

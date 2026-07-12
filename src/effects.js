@@ -102,7 +102,7 @@ export class Effects {
 
     const size = opts.sizeM ?? FXP.graphics.size * Math.sqrt(intensity);   // 파문 도달 반경 (m) — 벽은 타겟 비례
     const mat = this._makeMat(clipPlanes);
-    mat.uniforms.uIntensity.value = Math.min(1.5, intensity);
+    mat.uniforms.uIntensity.value = Math.min(1.5, intensity) * FXP.gainBoost;
     mat.uniforms.uForward.value = opts.forward ? 1 : 0;
     if (opts.rings != null) mat.uniforms.uHalo.value = FXP.graphics.halo * (0.5 + 0.35 * opts.rings);
     const m = new THREE.Mesh(new THREE.PlaneGeometry(size * 2, size * 2), mat);

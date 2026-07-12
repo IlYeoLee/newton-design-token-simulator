@@ -60,7 +60,7 @@ const LANEFX_FRAG = `
 #include <common>
 #include <clipping_planes_pars_fragment>
 ` + FX_GLSL + `
-uniform float uTime, uLen, uW, uHalo;
+uniform float uTime, uLen, uW, uHalo, uGain;
 varying vec2 vUv;
 void main() {
   #include <clipping_planes_fragment>
@@ -74,7 +74,7 @@ void main() {
   float heat = core * pulse * 0.5;
   heat *= smoothstep(0.0, 0.04, vUv.y) * smoothstep(1.0, 0.96, vUv.y);
   float sweep = 0.12 * sin(along * 0.9 - uTime * 1.7);
-  vec3 col = lut(clamp(0.42 + sweep + heat * 0.25, 0.0, 1.0)) * heat;
+  vec3 col = lut(clamp(0.42 + sweep + heat * 0.25, 0.0, 1.0)) * heat * uGain;
   gl_FragColor = vec4(col, 1.0);
 }`;
 function makeLaneFXMaterial(lenM) {
@@ -87,6 +87,7 @@ function makeLaneFXMaterial(lenM) {
       uLen: { value: lenM },
       uW: { value: 1 },
       uHalo: { value: 0.9 },
+      uGain: { value: 1 },
     },
     transparent: true,
     blending: THREE.AdditiveBlending,
@@ -275,7 +276,8 @@ class Marker {
     this.fx = new THREE.Mesh(new THREE.PlaneGeometry(radius * 2.78, radius * 2.78), makeMarkFXMaterial());
     this.fx.position.z = 0.002;
     // 벽면은 열화상 고스트 위 가산이라 과노출 방지 게인
-    this.fx.material.uniforms.uGain.value = surface === 'wall' ? 0.6 : 1.0;
+    this._baseGain = surface === 'wall' ? 0.6 : 1.0;
+    this.fx.material.uniforms.uGain.value = this._baseGain;
     this.fill.visible = this.edge.visible = this.cd.visible = false;
     this.group.add(this.fx);
 
@@ -348,6 +350,7 @@ class Marker {
       U.uPool.value = FXP.mark.pool;
       U.uSweepA.value = FXP.mark.sweep;
       U.uWobble.value = FXP.mark.wobble;
+      U.uGain.value = this._baseGain * FXP.gainBoost;   // 주간 = 투사 게인 부스트
     }
     if (phase === 'preview') {
       // 저작 프리뷰: 전 토큰을 또렷한 상시 강도로 (위계 감쇠 없음)
@@ -748,6 +751,7 @@ export class TokenSystem {
       LU.uTime.value = performance.now() / 1000;
       LU.uW.value = FXP.graphics.width;
       LU.uHalo.value = FXP.graphics.halo;
+      LU.uGain.value = FXP.gainBoost;
     }
 
     // 다가오는 이벤트 순서 계산 (preview 투명도 감쇠용)

@@ -37,6 +37,7 @@ export const FXP = {
   graphics: { width: 1.0, halo: 0.9, noise: 0.5, ember: 0.3, duration: 1.05, size: 1.5 },
   mark: { radius: 1.0, core: 1.0, halo: 0.9, pool: 0.55, sweep: 1.0, wobble: 0.5 },
   person: { blur: 1.0, glow: 0.9, flow: 0.55, decay: 0.62 },
+  gainBoost: 1.0,   // 주간 모드 투사 게인 (주광 가시 = 제품 스토리)
 };
 
 // ── LUT 256×1 DataTexture (전 셰이더 공유) ─────

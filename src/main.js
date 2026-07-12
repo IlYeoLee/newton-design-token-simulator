@@ -45,7 +45,7 @@ const state = {
 
 async function boot() {
   const stage = document.getElementById('stage');
-  const { renderer, scene, camera, controls, setPackEnvironment, resize, renderFrame, setSurfaces } = createScene(stage);
+  const { renderer, scene, camera, controls, setPackEnvironment, resize, renderFrame, setSurfaces, setDaylight } = createScene(stage);
 
   let sessionSkillSink = null;   // 슬라이더가 session 생성 전 초기 apply 시 TDZ 회피
   let refreshEditorStages = null; // switchPack → 에디터 스테이지 편집기 갱신 훅
@@ -705,6 +705,21 @@ async function boot() {
     rebuildLUT();
   }
   {
+    // ☀️ 주간 모드 — 주광 가시 투사(제품 스토리) 시연: 밝은 환경 + 투사 게인 부스트
+    let dayOn = !!designStore.globalGet('fx', 'day', false);
+    const dayBtn = document.getElementById('btn-day');
+    const applyDay = () => {
+      setDaylight(dayOn);
+      FXP.gainBoost = dayOn ? 1.55 : 1.0;
+      if (dayBtn) { dayBtn.textContent = dayOn ? '🌙' : '☀️'; dayBtn.style.borderColor = dayOn ? '#fec389' : 'var(--line)'; }
+    };
+    applyDay();
+    dayBtn?.addEventListener('click', () => {
+      dayOn = !dayOn;
+      applyDay();
+      designStore.globalSet('fx', 'day', dayOn);
+      designStore.save();
+    });
     const savedLab = designStore.globalGet('fx', 'lab', null);
     if (savedLab) applyLabState(savedLab);
     const overlay = document.getElementById('fxlab-overlay');
