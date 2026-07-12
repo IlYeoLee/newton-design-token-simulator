@@ -85,6 +85,7 @@
   <div class="sliders" id="slidersP"></div>
   <div class="foot">
     <span style="font-size:12px;color:var(--dim)">전부 프로 편집 모드의 슬라이더가 됩니다</span>
+    <button class="btn" id="resetBtn" title="스타일 전부를 권장 기본값으로 — 글리프 SVG는 보존 (Shift+클릭 = 글리프까지 초기화)">↺ 권장 기본값</button>
     <button class="btn" id="exportBtn">설정 내보내기 (JSON)</button>
   </div>
   <textarea id="exportBox" readonly></textarea>
@@ -118,17 +119,18 @@
   <span style="font-size:11px;color:#8b93a3"><b style="color:#e8eaf0">글리프 셀 클릭 = 그 자리에 SVG 첨부</b>(즉시 히트 룩 적용·저장·이식) · Shift+클릭 = 기본 글리프 복원</span>
 </div>
 
-<h2>장면 프리미티브 — 세션 컷이 쓰는 나머지 토큰 전부 <span class="tag new">카탈로그 완결</span></h2>
-<p class="note">스테이지 장면에 등장하는 보조 프리미티브도 같은 온도 언어를 따릅니다 — 팔레트를 바꾸면 여기도 함께 변합니다.
-(감속선·펀치 라인·스탠스 박스가 "이상한 요소"로 보였다면 여기서 이름과 역할을 확인하세요.)</p>
+<h2>파생 토큰 — 최소 토큰의 조합 <span class="tag new">위계: LUT → MARK·LINE·GLYPH → 파생</span></h2>
+<p class="note">세션 컷의 보조 요소는 <b>독립 토큰이 아니라 최소 토큰의 조합</b>입니다 — 각 셀의 레시피 뱃지가 무엇의 조합인지 보여주고,
+두께·글로우·일렁임은 <b>MARK 슬라이더에서</b>, 선 두께·스타일은 <b>LINE(화살표 라인)에서 상속</b>됩니다. 여기엔 각 파생의 고유 변수만 남습니다.</p>
 <div class="live" id="primLib" style="gap:10px;flex-wrap:wrap;"></div>
 <div class="row" style="margin-top:12px">
   <div class="cell"><canvas id="pathArrowC" width="360" height="240" style="width:300px;height:200px;background:#0A0C10"></canvas>
     <div class="ctl" id="arrowLineChips"></div>
     <div class="prim-sld" style="max-width:280px;margin:4px auto 0"><span style="width:34px;flex:none">두께</span>
       <input id="arrowW" type="range" min="40" max="220" value="100"><output id="arrowWV">1.0</output></div>
-    <div class="lab">화살표 — 경로 추종 회전 + 라인 스타일 · <b style="color:var(--sand)">TIP 슬롯 SVG = 촉 디자인</b><br>
-    <span style="font-size:10px">규칙: SVG는 ↑(위)가 전방 — 엔진이 경로 접선에 맞춰 자동 회전 · 라인 스타일은 시뮬 화살표 자루에도 적용</span></div></div>
+    <div class="lab"><b style="color:var(--text)">LINE 최소 토큰</b> — 선 엔진 (실선·대시·도트·테이퍼 × 두께)<br>
+    <span style="font-size:10px;color:var(--sand)">화살표 = LINE + TIP 글리프 (독립 토큰 아님) · 레인·연결선·감속선이 전부 이 엔진의 파생</span><br>
+    <span style="font-size:10px">규칙: TIP SVG는 ↑(위)가 전방 — 엔진이 경로 접선 회전 · 여기 값이 시뮬 화살표 자루·펀치 라인·감속선에 상속</span></div></div>
 </div>
 
 <details style="margin:18px 0 4px"><summary style="cursor:pointer;font-size:13px;color:var(--dim)">세션 리듬 타이밍 (전역 — A/B 단계 박자·홀드)</summary>
@@ -227,6 +229,7 @@ const state = {
     decelDash: { w: 1, glow: 1, tempo: 1, n: 4, grow: 1.6, len: 1 },
   },
 };
+const FACTORY = JSON.parse(JSON.stringify(state));   // 권장 기본값 (로드 시 원본)
 const SLIDER_DEFS = {
   g: [
     ['speed',  '속도',   0.4, 1.8, 0.05],
@@ -1183,11 +1186,15 @@ setInterval(drawGlyphLib, 700);   // 팔레트·채도 변경 라이브 반영 (
 
 // ═══ 장면 프리미티브 카탈로그 — 세션 컷의 보조 토큰 (LUT 연동) ═══
 const PRIMS = [
-  ['wallRing', '벽 링 (타겟 대기)'], ['sweepBand', '스윕 밴드 (구간 진행)'], ['countRing', '카운트 링 (반복 횟수)'],
-  ['stanceBox', '스탠스 박스 (서는 영역)'], ['punchLine', '펀치 라인 (콤보 연결)'], ['decelDash', '감속선 (속도 낮추기)'],
+  ['wallRing', '벽 링 (타겟 대기)', 'MARK·Preview'],
+  ['sweepBand', '스윕 밴드 (구간 진행)', 'MARK·유지 파동'],
+  ['countRing', '카운트 링 (반복 횟수)', 'MARK·Hold + GLYPH'],
+  ['stanceBox', '스탠스 박스 (서는 영역)', 'LINE·대시 + FOOT'],
+  ['punchLine', '펀치 라인 (콤보 연결)', 'LINE + MARK노드 + GLYPH'],
+  ['decelDash', '감속선 (속도 낮추기)', 'LINE·리듬 변주'],
 ];
 const primHost = document.getElementById('primLib');
-const primCells = PRIMS.map(([key, label]) => {
+const primCells = PRIMS.map(([key, label, recipe]) => {
   const cell = document.createElement('div');
   cell.className = 'cell';
   cell.style.width = '190px';
@@ -1197,8 +1204,11 @@ const primCells = PRIMS.map(([key, label]) => {
   const lab = document.createElement('div');
   lab.className = 'lab';
   lab.textContent = label;
-  cell.append(cv, lab);
-  // 하나하나 편집: 공통 3 + 프리미티브별 세부
+  const badge = document.createElement('div');
+  badge.style.cssText = 'font-size:9px;color:var(--sand);letter-spacing:.04em;margin-top:2px;';
+  badge.textContent = '= ' + recipe;
+  cell.append(cv, lab, badge);
+  // 파생 토큰: 두께·글로우는 MARK/LINE에서 상속 — 고유 변수만 노출
   const PRIM_DETAIL = {
     wallRing: [['pulse', '펄스 폭', 0, 3], ['ring2', '외곽 링', 0, 1], ['gap', '링 간격', 0.5, 2]],
     sweepBand: [['h', '밴드 높이', 0.4, 1.6], ['base', '바닥 투명', 0, 0.8], ['edge', '전연 광', 0, 2]],
@@ -1214,16 +1224,13 @@ const primCells = PRIMS.map(([key, label]) => {
     out.textContent = (+state.prims[key][pk]).toFixed(1);
     const inp = document.createElement('input');
     inp.type = 'range'; inp.min = mn * 100; inp.max = mx * 100; inp.value = state.prims[key][pk] * 100;
+    inp.dataset.prim = key; inp.dataset.pk = pk;
     inp.addEventListener('input', () => { state.prims[key][pk] = inp.value / 100; out.textContent = (+inp.value / 100).toFixed(1); });
     row.append(Object.assign(document.createElement('span'), { textContent: pl, style: 'width:40px;flex:none' }), inp, out);
     host.appendChild(row);
   };
-  for (const [pk, pl, mn, mx] of [['w', '두께', 0.4, 2.2], ['glow', '글로우', 0, 2], ['tempo', '템포', 0.3, 2.2]])
-    sldRow(cell, pk, pl, mn, mx);
-  const det = document.createElement('details');
-  det.innerHTML = '<summary style="font-size:10px;color:#8b93a3;cursor:pointer;margin-top:4px">세부 조절</summary>';
-  for (const [pk, pl, mn, mx] of PRIM_DETAIL[key] || []) sldRow(det, pk, pl, mn, mx);
-  cell.appendChild(det);
+  sldRow(cell, 'tempo', '템포', 0.3, 2.2);
+  for (const [pk, pl, mn, mx] of PRIM_DETAIL[key] || []) sldRow(cell, pk, pl, mn, mx);
   primHost.appendChild(cell);
   return [key, cv];
 });
@@ -1246,7 +1253,11 @@ function drawPrims() {
   for (const [key, cv] of primCells) {
     const P = state.prims[key];
     const t = t0 * P.tempo;
-    const LW = 5 * P.w, GB = 12 * P.glow;
+    // 위계 상속: 링·면 = MARK 토큰(core·halo·wobble), 선 = LINE 엔진(arrow.w·line)
+    const LW = 4.5 * state.m.core;          // MARK 코어 두께
+    const GB = 13 * state.m.halo;           // MARK 헤일로
+    const LNW = 4 * state.arrow.w;          // LINE 두께
+    const wob = state.m.wobble;
     const g = cv.getContext('2d');
     const W = cv.width, C = W / 2;
     g.clearRect(0, 0, W, W);
@@ -1254,7 +1265,7 @@ function drawPrims() {
     if (key === 'wallRing') {
       g.strokeStyle = lutCss(0.42); g.lineWidth = LW;
       g.shadowColor = lutCss(0.6); g.shadowBlur = GB * 1.2;
-      g.beginPath(); g.arc(C, C, 44 + Math.sin(t * 2.2) * 3 * P.pulse, 0, Math.PI * 2); g.stroke();
+      g.beginPath(); g.arc(C, C, 44 + Math.sin(t * 2.2) * 3 * P.pulse * (0.5 + wob), 0, Math.PI * 2); g.stroke();
       g.globalAlpha = P.ring2;
       g.beginPath(); g.arc(C, C, 44 + 14 * P.gap, 0, Math.PI * 2); g.stroke();
       g.globalAlpha = 1;
@@ -1280,7 +1291,7 @@ function drawPrims() {
       g.beginPath(); g.arc(C, C, 46, -Math.PI / 2, -Math.PI / 2 + ((t * 0.4) % 1) * Math.PI * 2); g.stroke();
       primNum(g, String(1 + Math.floor((t * 0.4) % 8)), C, C, 52 * P.numS, Math.round(40 * P.numS));
     } else if (key === 'stanceBox') {
-      g.strokeStyle = lutCss(0.45); g.lineWidth = LW * 0.8;
+      g.strokeStyle = lutCss(0.45); g.lineWidth = LNW;
       g.setLineDash([10 * P.dash, 8]);
       g.shadowColor = lutCss(0.6); g.shadowBlur = GB * 0.8;
       const rr = 18 * P.round;
@@ -1291,18 +1302,20 @@ function drawPrims() {
         primFoot(g, true, C + 16 * P.feet, C + 6, 26 * P.feet);
       }
     } else if (key === 'punchLine') {
-      g.strokeStyle = lutCss(0.55); g.lineWidth = LW * 0.8;
+      g.strokeStyle = lutCss(0.55); g.lineWidth = LNW;
       g.shadowColor = lutCss(0.7); g.shadowBlur = GB;
-      if (P.dash > 0.05) g.setLineDash([9 * P.dash, 7 * P.dash]);
+      // LINE 엔진 스타일 상속 (실선/대시/도트) + 고유 대시 계수
+      if (state.arrow.line === 'dash' || P.dash > 0.05) g.setLineDash([9 * Math.max(P.dash, 1), 7]);
+      else if (state.arrow.line === 'dot') { g.setLineDash([0.5, 10]); g.lineCap = 'round'; }
       const pts = [[45, 120], [90, 60], [135, 100]];
       g.beginPath(); pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.stroke();
-      g.setLineDash([]);
+      g.setLineDash([]); g.lineCap = 'butt';
       pts.forEach(([x, y], i) => {
         g.beginPath(); g.arc(x, y, 12 * P.node, 0, Math.PI * 2); g.stroke();
         primNum(g, String(i + 1), x, y, 16 * P.numS, Math.round(14 * P.numS));
       });
     } else if (key === 'decelDash') {
-      g.strokeStyle = lutCss(0.5); g.lineWidth = LW;
+      g.strokeStyle = lutCss(0.5); g.lineWidth = LNW;
       g.shadowColor = lutCss(0.62); g.shadowBlur = GB * 0.8;
       let y = 24, gap = 10;
       const x0 = C - (C - 30) * P.len, x1 = C + (C - 30) * P.len;
@@ -1474,8 +1487,23 @@ function applyExternalState(st) {
       const v = state[inp.dataset.scope]?.[inp.dataset.key];
       if (v != null) { inp.value = v; const o = inp.parentElement.querySelector('output'); if (o) o.textContent = v; }
     });
+    // 파생 토큰·LINE 엔진 UI 동기 (리셋·복원 공통)
+    document.querySelectorAll('input[data-prim]').forEach(inp => {
+      const v = state.prims[inp.dataset.prim]?.[inp.dataset.pk];
+      if (v != null) { inp.value = v * 100; const o = inp.parentElement.querySelector('output'); if (o) o.textContent = (+v).toFixed(1); }
+    });
+    const aw = document.getElementById('arrowW');
+    if (aw) { aw.value = state.arrow.w * 100; const wv = document.getElementById('arrowWV'); if (wv) wv.textContent = (+state.arrow.w).toFixed(1); }
+    document.querySelectorAll('#arrowLineChips .btn').forEach(b2 => b2.classList.toggle('on', b2.textContent === ({ solid: '실선', dash: '대시', dot: '도트', taper: '테이퍼' })[state.arrow.line]));
     drawGlyphLib(); drawPrims();
 }
+// ── 권장 기본값 리셋 — 글리프(자산)는 보존, Shift+클릭 시 전부 ──
+document.getElementById('resetBtn')?.addEventListener('click', e => {
+  const st = JSON.parse(JSON.stringify(FACTORY));
+  if (!e.shiftKey) st.glyphs = { ...state.glyphs };   // SVG 자산 유지
+  applyExternalState(st);
+});
+
 // ── 단독 페이지 영구 저장 — 서버 불필요: localStorage 자동 저장/복원 ──
 if (window.parent === window) {
   const KEY = 'newton_fxlab_v1';

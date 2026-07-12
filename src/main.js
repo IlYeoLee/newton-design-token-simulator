@@ -822,6 +822,20 @@ async function boot() {
       designStore.globalSet('fx', 'day', dayOn);
       designStore.save();
     });
+    // 👁 실물 뷰 — 투사 커버리지 시각화 숨김 (실제 러너의 눈: 투사된 UI만)
+    let realView = !!designStore.globalGet('fx', 'realview', false);
+    const realBtn = document.getElementById('btn-real');
+    const applyReal = () => {
+      rig.setVisualize(!realView);
+      if (realBtn) { realBtn.style.borderColor = realView ? '#fec389' : 'var(--line)'; realBtn.style.color = realView ? '#fec389' : 'var(--text)'; }
+    };
+    applyReal();
+    realBtn?.addEventListener('click', () => {
+      realView = !realView;
+      applyReal();
+      designStore.globalSet('fx', 'realview', realView);
+      designStore.save();
+    });
     // 투사면 퀵 칩 — 룩 스튜디오 안 열고도 바닥/벽 테마 전환
     const SURF_DEFS = [['none', '다크'], ['grass', '잔디'], ['track', '트랙'], ['paving', '보도블럭']];
     const surfWrap = document.getElementById('surf-chips');

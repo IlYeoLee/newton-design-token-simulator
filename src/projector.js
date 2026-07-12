@@ -182,12 +182,14 @@ export class ProjectorRig {
     this.events = tokenEvents;
 
     const isKnee = sport === 'running' || sport === 'basketball';
+    this._sport = sport;
+    const viz = this.visualize !== false;   // 실물 뷰: 커버리지 시각화 숨김 (실제 눈엔 투사 UI만 보임)
     this.kneeBox.visible = isKnee;
-    this.floorBeam.visible = isKnee;
-    this.footFill.visible = isKnee;
+    this.floorBeam.visible = isKnee && viz;
+    this.footFill.visible = isKnee && viz;
     this.station.visible = sport === 'boxing';
-    this.wallBeam.visible = sport === 'boxing';
-    this.wallFill.visible = sport === 'boxing';
+    this.wallBeam.visible = sport === 'boxing' && viz;
+    this.wallFill.visible = sport === 'boxing' && viz;
     if (!isKnee) this._fp = null;
 
     // 농구 무릎 유닛: 컷 중 스윙을 줄이려 적당한 폭(발 앞 근접 존). 러닝은 스트리밍 레인.
@@ -445,6 +447,16 @@ export class ProjectorRig {
     const aNear = Math.atan2(kneeH, nearD) * 180 / Math.PI;
     const aFar  = Math.atan2(kneeH, farD) * 180 / Math.PI;
     this.geom = { kneeH, aNear, aFar, fovNeed: Math.abs(aNear - aFar) };
+  }
+
+  /** 실물 뷰 토글 — 빔·커버리지 시각화 on/off (하드웨어·투사 UI는 유지) */
+  setVisualize(on) {
+    this.visualize = !!on;
+    const isKnee = this._sport === 'running' || this._sport === 'basketball';
+    this.floorBeam.visible = isKnee && this.visualize;
+    this.footFill.visible = isKnee && this.visualize;
+    this.wallBeam.visible = this._sport === 'boxing' && this.visualize;
+    this.wallFill.visible = this._sport === 'boxing' && this.visualize;
   }
 
   /** 풋프린트 내 전방거리 d0~d1 구간의 사다리꼴 코너 (교집합 시각화용) */
