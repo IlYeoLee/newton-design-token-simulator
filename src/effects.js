@@ -100,7 +100,7 @@ export class Effects {
     const maxLife = FXP.graphics.duration / speed;   // 랩 체감 유지 — 접지 간격보다 길어 파문이 겹치며 흐름
     const clipPlanes = noClip ? null : (isFloor ? this.floorClipPlanes : this.wallClipPlanes);
 
-    const size = FXP.graphics.size * Math.sqrt(intensity);   // 파문 도달 반경 (m)
+    const size = opts.sizeM ?? FXP.graphics.size * Math.sqrt(intensity);   // 파문 도달 반경 (m) — 벽은 타겟 비례
     const mat = this._makeMat(clipPlanes);
     mat.uniforms.uIntensity.value = Math.min(1.5, intensity);
     mat.uniforms.uForward.value = opts.forward ? 1 : 0;

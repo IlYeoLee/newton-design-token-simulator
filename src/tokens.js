@@ -839,6 +839,12 @@ export class TokenSystem {
     const normal = ev.surface === 'wall' ? new THREE.Vector3(0, 0, 1) : new THREE.Vector3(0, 1, 0);
     const b = ev.srcToken?.design?.burst;   // 토큰별 터짐 조절 (없으면 기본 버스트)
     const opts = (b && b.on) ? { ...b } : {};
+    if (ev.surface === 'wall') {
+      // 벽 파문은 타겟 크기에 비례 — 전역 크기(지면 기준 1.5m)를 그대로 쓰면 벽 절반을 덮음
+      opts.sizeM = (ev.marker?.radius ?? 0.15) * 3.4;
+      opts.intensity = (opts.intensity ?? 1) * 0.8;
+      opts.speed = (opts.speed ?? 1) * 1.35;   // 잽 리듬에 맞게 짧게
+    }
     if (ev.surface !== 'wall' && this.layout?.mode === 'advance') {
       // 러닝(전진 레인): 무릎 패드가 착지점을 지나치므로 파문은 전방 반파로 방출
       opts.forward = true;
