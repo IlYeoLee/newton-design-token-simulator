@@ -408,7 +408,7 @@ class Marker {
 
 // ── 방향 화살표 ───────────────────────────────────────────────
 // tip = 화살표 끝(촉) 모양: triangle(▲) · chevron(》) · diamond(◆) · bar(▬) · none(선만)
-const TIP_SLOT = { triangle: 'TIP_TRI', chevron: 'TIP_CHEV', diamond: 'TIP_DIA', bar: 'TIP_BAR' };
+const TIP_SLOT = { triangle: 'TIP_TRI' };   // 커스텀 촉은 삼각 머리 1종만 (유저 확정)
 function makeArrow(color, len = 0.55, tip = 'triangle') {
   const g = new THREE.Group();
   // 커스텀 화살표 SVG (FX Lab TIP 슬롯) — SVG ↑=전방 규칙, 기존 회전 로직이 각도 처리

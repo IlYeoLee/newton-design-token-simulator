@@ -1020,8 +1020,8 @@ const glyphHost = document.getElementById('glyphLib');
 const GLYPH_SETS = [
   { name: '숫자 (순서·카운트)', items: ['0','1','2','3','4','5','6','7','8','9'] },
   { name: '연산 (리포트·배수)', items: ['+','−','×','%'] },
-  { name: '발형 L/R', items: ['FOOT_L','FOOT_R'] },
-  { name: '화살촉 (방향)', items: ['TIP_TRI','TIP_CHEV','TIP_DIA','TIP_BAR'] },
+  { name: '발형 — 실내 L·R / 야외 L·R', items: ['FOOT_IN_L','FOOT_IN_R','FOOT_OUT_L','FOOT_OUT_R'] },
+  { name: '화살촉 — 삼각 머리 1종', items: ['TIP_TRI'] },
 ];
 const glyphCells = [];
 GLYPH_SETS.forEach(set => {
@@ -1047,14 +1047,21 @@ function lutCss(v) {
   const i = Math.max(0, Math.min(255, Math.round(v * 255))) * 4;
   return `rgb(${lutData[i]},${lutData[i+1]},${lutData[i+2]})`;
 }
-function drawFootGlyph(g, W, right) {
+function drawFootGlyph(g, W, right, outdoor) {
   g.save();
   g.translate(W/2, W/2);
   if (right) g.scale(-1, 1);
   g.strokeStyle = lutCss(0.55); g.lineWidth = 4; g.lineJoin = 'round';
   g.shadowColor = lutCss(0.7); g.shadowBlur = 12;
-  g.beginPath(); g.ellipse(2, 10, 13, 20, -0.12, 0, Math.PI*2); g.stroke();   // 볼·뒤꿈치
-  g.beginPath(); g.ellipse(-2, -22, 9, 7, 0.1, 0, Math.PI*2); g.stroke();     // 발가락 뭉치
+  if (outdoor) {
+    // 야외 = 신발 밑창 (러그 라인)
+    g.beginPath(); g.ellipse(0, 0, 14, 28, -0.08, 0, Math.PI * 2); g.stroke();
+    for (const y of [-14, -2, 10]) { g.beginPath(); g.moveTo(-9, y); g.lineTo(9, y); g.stroke(); }
+  } else {
+    // 실내 = 맨발 윤곽
+    g.beginPath(); g.ellipse(2, 10, 13, 20, -0.12, 0, Math.PI*2); g.stroke();   // 볼·뒤꿈치
+    g.beginPath(); g.ellipse(-2, -22, 9, 7, 0.1, 0, Math.PI*2); g.stroke();     // 발가락 뭉치
+  }
   g.restore();
 }
 function drawTipGlyph(g, W, kind) {
@@ -1076,7 +1083,7 @@ let drawGlyphLib = function() {
     const g = cv.getContext('2d');
     const W = cv.width;
     g.clearRect(0, 0, W, W);
-    if (gl.startsWith('FOOT')) { drawFootGlyph(g, W, gl === 'FOOT_R'); continue; }
+    if (gl.startsWith('FOOT')) { drawFootGlyph(g, W, gl.endsWith('_R'), gl.includes('OUT')); continue; }
     if (gl.startsWith('TIP')) { drawTipGlyph(g, W, gl); continue; }
     // 숫자·연산 — 웜 크림 경량 타이포 + LUT 히트 글로우 (시뮬 숫자 텍스처와 동일)
     g.font = '300 58px Pretendard, -apple-system, sans-serif';
@@ -1244,7 +1251,7 @@ function primNum(g, ch, x, y, size, fontPx) {
 }
 /** 프리미티브 발: FOOT_L/R 슬롯 우선, 없으면 타원 윤곽 */
 function primFoot(g, right, x, y, size) {
-  const url = state.glyphs[right ? 'FOOT_R' : 'FOOT_L'];
+  const url = state.glyphs[right ? 'FOOT_IN_R' : 'FOOT_IN_L'] || state.glyphs[right ? 'FOOT_OUT_R' : 'FOOT_OUT_L'];
   if (url && drawCustomGlyphAt(g, url, x, y, size)) return;
   g.beginPath(); g.ellipse(x, y, size * 0.28, size * 0.48, 0, 0, Math.PI * 2); g.stroke();
 }
@@ -1363,7 +1370,7 @@ function drawPathArrow() {
   g.setLineDash([]); g.lineCap = 'butt'; g.shadowBlur = 0;
   g.globalAlpha = 1;
   // 경로 위 화살표 3개 — 접선 각도로 회전
-  const customTip = state.glyphs['TIP_TRI'] || state.glyphs['TIP_CHEV'] || state.glyphs['TIP_DIA'] || state.glyphs['TIP_BAR'];
+  const customTip = state.glyphs['TIP_TRI'];
   for (let i = 0; i < 3; i++) {
     const u = ((t * 0.12) + i / 3) % 1;
     const [x, y] = pt(u);
@@ -1475,7 +1482,13 @@ function applyExternalState(st) {
     for (const k of ['g', 'm', 'p', 's']) Object.assign(state[k], st[k] || {});
     for (const k of ['burstStyle', 'laneStyle', 'markShape', 'markForm', 'markContract'])
       if (st[k] != null) state[k] = st[k];
-    if (st.glyphs && !Array.isArray(st.glyphs)) state.glyphs = { ...st.glyphs };
+    if (st.glyphs && !Array.isArray(st.glyphs)) {
+      state.glyphs = { ...st.glyphs };
+      if (state.glyphs.FOOT_L && !state.glyphs.FOOT_IN_L) state.glyphs.FOOT_IN_L = state.glyphs.FOOT_L;
+      if (state.glyphs.FOOT_R && !state.glyphs.FOOT_IN_R) state.glyphs.FOOT_IN_R = state.glyphs.FOOT_R;
+      if (!state.glyphs.TIP_TRI) { const alt = state.glyphs.TIP_CHEV || state.glyphs.TIP_DIA || state.glyphs.TIP_BAR; if (alt) state.glyphs.TIP_TRI = alt; }
+      for (const k of ['FOOT_L', 'FOOT_R', 'TIP_CHEV', 'TIP_DIA', 'TIP_BAR']) delete state.glyphs[k];
+    }
     if (st.prims) for (const k in state.prims) Object.assign(state.prims[k], st.prims[k] || {});
     if (st.arrow) Object.assign(state.arrow, st.arrow);
     if (st.sys) {

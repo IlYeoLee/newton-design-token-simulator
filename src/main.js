@@ -148,13 +148,33 @@ async function boot() {
 
   // 통합 디자인 저장소 — 팩 토큰 + 장면 오버라이드 + 전역 설정이 한 키(newton_design_v1).
   // 레거시 3분할 키는 최초 1회 자동 이행된다(store.js).
-  // 저장본이 전혀 없는 새 방문자: 리포에 굳힌 전체 기본 스토어(design-default.json — 팩 편집·장면·룩·글리프)를 시드
-  if (!localStorage.getItem('newton_design_v1')) {
-    try {
-      const r0 = await fetch(`${BASE}design-default.json`, { cache: 'no-cache' });
-      if (r0.ok) localStorage.setItem('newton_design_v1', JSON.stringify(await r0.json()));
-    } catch (e) { /* 기본 스토어 없음 = 내장 디폴트 */ }
-  }
+  // 기본 스토어(design-default.json — 리포에 굳힌 팩 편집·장면·룩·글리프) 시드:
+  //   새 방문자 = 통째 시드 / 기존 방문자 = '없는 항목만' 보강 (글리프·프리미티브·시스템 — 저장값은 절대 안 덮음)
+  try {
+    const r0 = await fetch(`${BASE}design-default.json`, { cache: 'no-cache' });
+    if (r0.ok) {
+      const def = await r0.json();
+      const raw = localStorage.getItem('newton_design_v1');
+      if (!raw) {
+        localStorage.setItem('newton_design_v1', JSON.stringify(def));
+      } else {
+        const cur = JSON.parse(raw);
+        const lab = cur?.global?.fx?.lab;
+        const dlab = def?.global?.fx?.lab;
+        if (lab && dlab) {
+          let changed = false;
+          for (const k of ['glyphs', 'prims', 'sys', 'arrow']) {
+            const empty = lab[k] == null || (typeof lab[k] === 'object' && Object.keys(lab[k]).length === 0);
+            if (dlab[k] && empty) { lab[k] = dlab[k]; changed = true; }
+          }
+          if (changed) localStorage.setItem('newton_design_v1', JSON.stringify(cur));
+        } else if (dlab && cur?.global?.fx && !lab) {
+          cur.global.fx.lab = dlab;
+          localStorage.setItem('newton_design_v1', JSON.stringify(cur));
+        }
+      }
+    }
+  } catch (e) { /* 기본 스토어 없음 = 내장 디폴트 */ }
   const { store: designStore, migrated } = DesignStore.load();
   if (migrated.length) console.log('[design store] 레거시 이행:', migrated.join(', '));
   // 저장본이 없으면 리포에 굳힌 기본 룩(look-default.json)을 시드 — 서버 불필요, 깃이 기본값 보관
