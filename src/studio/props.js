@@ -5,6 +5,7 @@
 //   그라디언트(선형/방사·각도)·터짐 이펙트·화살표 촉 모양·0→N 숫자 지원.
 // ─────────────────────────────────────────────────────────────
 import { defaultDesign, renderDesignCanvas, loadSvg } from './design.js';
+import { lutColor, FXP, GLYPHS, drawGlyph } from '../fxlut.js';
 
 const SHAPES = [['zone', '● 동그라미'], ['foot', '👣 발자국'], ['ring', '◎ 링'], ['number', '① 숫자'], ['svg', '🖼 그림']];
 const GRADS  = [['solid', '단색'], ['linear', '선형'], ['radial', '방사']];
@@ -226,10 +227,35 @@ export class StudioProps {
   }
 
   _drawPreview() {
+    // 룩 시스템 반영 미리보기 — LUT 팔레트 + 마크 파라미터 + 커스텀 글리프 (마크 파동 언어의 정지 근사)
     const cv = this.el.querySelector('#pr-preview'); const m = this.doc.selected();
     if (!cv || !m) return;
-    const g = cv.getContext('2d'); g.clearRect(0, 0, cv.width, cv.height);
-    g.drawImage(renderDesignCanvas(this._dsn(m), 128), 0, 0, cv.width, cv.height);
+    const g = cv.getContext('2d'); const W = cv.width;
+    g.clearRect(0, 0, W, W);
+    const cx = W / 2, r = W * 0.30 * (FXP.mark.radius || 1);
+    g.strokeStyle = lutColor(0.45);
+    g.lineWidth = 3.5 * (FXP.mark.core || 1);
+    g.shadowColor = lutColor(0.68);
+    g.shadowBlur = 9 * (FXP.mark.halo || 1);
+    if (m.contract === 'avoid') g.setLineDash([5, 4]);   // 회피 = 점선 (계약 변조)
+    g.beginPath(); g.arc(cx, cx, r, 0, Math.PI * 2); g.stroke();
+    g.setLineDash([]);
+    if (m.holdRing || m.contract === 'hold') {           // 유지 = 차오르는 내부 광
+      g.globalAlpha = 0.45; g.fillStyle = lutColor(0.30);
+      g.beginPath(); g.arc(cx, cx, r * 0.82, 0, Math.PI * 2); g.fill();
+      g.globalAlpha = 1;
+    }
+    if (m.order) {                                       // 순서 숫자 — 커스텀 글리프 우선
+      const n = String(m.n ?? 1);
+      if (!drawGlyph(g, n, cx, cx, r * 1.1)) {
+        g.font = `300 ${Math.round(r * 0.95)}px -apple-system, sans-serif`;
+        g.textAlign = 'center'; g.textBaseline = 'middle';
+        g.shadowColor = 'rgba(254,150,90,0.75)'; g.shadowBlur = 8;
+        g.fillStyle = 'rgba(255,240,220,0.95)';
+        g.fillText(n, cx, cx + 1);
+      }
+    }
+    g.shadowBlur = 0;
   }
 
   // 모드 토글·삭제·미리보기·0→N — 두 뷰 공통

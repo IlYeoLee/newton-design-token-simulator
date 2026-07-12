@@ -124,8 +124,11 @@
 <div class="live" id="primLib" style="gap:10px;flex-wrap:wrap;"></div>
 <div class="row" style="margin-top:12px">
   <div class="cell"><canvas id="pathArrowC" width="360" height="240" style="width:300px;height:200px;background:#0A0C10"></canvas>
-    <div class="lab">화살표 — 경로 추종 회전 · <b style="color:var(--sand)">TIP 슬롯에 SVG를 넣으면 이 화살표가 그 디자인으로</b><br>
-    <span style="font-size:10px">규칙: SVG는 ↑(위) 방향이 전방 — 엔진이 경로 접선에 맞춰 자동 회전·연속 배치합니다</span></div></div>
+    <div class="ctl" id="arrowLineChips"></div>
+    <div class="prim-sld" style="max-width:280px;margin:4px auto 0"><span style="width:34px;flex:none">두께</span>
+      <input id="arrowW" type="range" min="40" max="220" value="100"><output id="arrowWV">1.0</output></div>
+    <div class="lab">화살표 — 경로 추종 회전 + 라인 스타일 · <b style="color:var(--sand)">TIP 슬롯 SVG = 촉 디자인</b><br>
+    <span style="font-size:10px">규칙: SVG는 ↑(위)가 전방 — 엔진이 경로 접선에 맞춰 자동 회전 · 라인 스타일은 시뮬 화살표 자루에도 적용</span></div></div>
 </div>
 
 <details style="margin:18px 0 4px"><summary style="cursor:pointer;font-size:13px;color:var(--dim)">세션 리듬 타이밍 (전역 — A/B 단계 박자·홀드)</summary>
@@ -214,6 +217,7 @@ const state = {
   p: { blur: 1.0, glow: 0.9, flow: 0.55, decay: 0.62, grain: 0.03 },
   footShape: 1, personMode: 0, burstStyle: 0, laneStyle: 0,
   glyphs: {},   // 슬롯별 커스텀 SVG {'0':dataURL, 'FOOT_L':...} — 저장·브리지 왕복
+  arrow: { line: 'solid', w: 1 },   // 화살표 라인(자루·경로) 스타일 — solid|dash|dot|taper
   prims: {      // 장면 프리미티브 파라미터 (두께·글로우·템포) — 저장·브리지 왕복
     wallRing: { w: 1, glow: 1, tempo: 1 }, sweepBand: { w: 1, glow: 1, tempo: 1 },
     countRing: { w: 1, glow: 1, tempo: 1 }, stanceBox: { w: 1, glow: 1, tempo: 1 },
@@ -1112,9 +1116,10 @@ function drawCustomGlyph(g, W, url) {
   const off = document.createElement('canvas');
   off.width = off.height = W;
   const og = off.getContext('2d');
-  const sc = Math.min((W - 24) / img.naturalWidth, (W - 24) / img.naturalHeight);
-  const w = img.naturalWidth * sc, h = img.naturalHeight * sc;
-  og.drawImage(img, (W - w) / 2, (W - h) / 2, w, h);
+  const bb = glyphBBox(img);
+  const sc = Math.min((W - 24) / bb.w, (W - 24) / bb.h);
+  const w = bb.w * sc, h = bb.h * sc;
+  og.drawImage(img, bb.x, bb.y, bb.w, bb.h, (W - w) / 2, (W - h) / 2, w, h);
   og.globalCompositeOperation = 'source-in';
   og.fillStyle = 'rgba(255,240,220,0.95)';
   og.fillRect(0, 0, W, W);
@@ -1123,6 +1128,22 @@ function drawCustomGlyph(g, W, url) {
   g.shadowBlur = 0;
   g.drawImage(off, 0, 0);
   return true;
+}
+/** SVG 실픽셀 타이트 바운딩 (viewBox 여백 비대칭 보정) — 이미지별 1회 캐시 */
+function glyphBBox(img) {
+  if (img._bbox) return img._bbox;
+  const S = 128;
+  const c = document.createElement('canvas'); c.width = c.height = S;
+  const g = c.getContext('2d');
+  const sc = Math.min(S / img.naturalWidth, S / img.naturalHeight);
+  g.drawImage(img, 0, 0, img.naturalWidth * sc, img.naturalHeight * sc);
+  const d = g.getImageData(0, 0, S, S).data;
+  let x0 = S, y0 = S, x1 = -1, y1 = -1;
+  for (let y = 0; y < S; y++) for (let x = 0; x < S; x++)
+    if (d[(y * S + x) * 4 + 3] > 8) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+  img._bbox = x1 < 0 ? { x: 0, y: 0, w: img.naturalWidth, h: img.naturalHeight } :
+    { x: x0 / sc, y: y0 / sc, w: (x1 - x0 + 1) / sc, h: (y1 - y0 + 1) / sc };
+  return img._bbox;
 }
 /** 소비처 공용: 커스텀 SVG를 (x,y) 중심 size 크기로 히트 트리트먼트 렌더 */
 function drawCustomGlyphAt(g, url, x, y, size, locked = false) {
@@ -1136,9 +1157,10 @@ function drawCustomGlyphAt(g, url, x, y, size, locked = false) {
   const off = document.createElement('canvas');
   off.width = off.height = size;
   const og = off.getContext('2d');
-  const sc = Math.min(size / img.naturalWidth, size / img.naturalHeight);
-  const w = img.naturalWidth * sc, h = img.naturalHeight * sc;
-  og.drawImage(img, (size - w) / 2, (size - h) / 2, w, h);
+  const bb = glyphBBox(img);
+  const sc = Math.min(size / bb.w, size / bb.h);
+  const w = bb.w * sc, h = bb.h * sc;
+  og.drawImage(img, bb.x, bb.y, bb.w, bb.h, (size - w) / 2, (size - h) / 2, w, h);
   og.globalCompositeOperation = 'source-in';
   og.fillStyle = locked ? 'rgba(152,158,166,0.85)' : 'rgba(255,240,220,0.95)';
   og.fillRect(0, 0, size, size);
@@ -1275,10 +1297,25 @@ function drawPathArrow() {
     const y = H / 2 + Math.sin(u * Math.PI * 2) * (H * 0.28);
     return [x, y];
   };
-  g.strokeStyle = lutCss(0.35); g.lineWidth = 3; g.globalAlpha = 0.5;
-  g.beginPath();
-  for (let u = 0; u <= 1.001; u += 0.02) { const [x, y] = pt(u); u ? g.lineTo(x, y) : g.moveTo(x, y); }
-  g.stroke();
+  const AW = state.arrow.w;
+  g.strokeStyle = lutCss(0.35); g.lineWidth = 3 * AW; g.globalAlpha = 0.55;
+  g.shadowColor = lutCss(0.5); g.shadowBlur = 6 * AW;
+  if (state.arrow.line === 'dash') g.setLineDash([12 * AW, 10]);
+  else if (state.arrow.line === 'dot') { g.setLineDash([0.5, 12]); g.lineCap = 'round'; g.lineWidth = 5 * AW; }
+  else g.setLineDash([]);
+  if (state.arrow.line === 'taper') {
+    // 테이퍼: 진행할수록 굵어지는 선 (세그먼트 두께 가변)
+    for (let u = 0; u < 1; u += 0.02) {
+      const [x, y] = pt(u), [x2, y2] = pt(u + 0.02);
+      g.lineWidth = (0.5 + u * 4.5) * AW;
+      g.beginPath(); g.moveTo(x, y); g.lineTo(x2, y2); g.stroke();
+    }
+  } else {
+    g.beginPath();
+    for (let u = 0; u <= 1.001; u += 0.02) { const [x, y] = pt(u); u ? g.lineTo(x, y) : g.moveTo(x, y); }
+    g.stroke();
+  }
+  g.setLineDash([]); g.lineCap = 'butt'; g.shadowBlur = 0;
   g.globalAlpha = 1;
   // 경로 위 화살표 3개 — 접선 각도로 회전
   const customTip = state.glyphs['TIP_TRI'] || state.glyphs['TIP_CHEV'] || state.glyphs['TIP_DIA'] || state.glyphs['TIP_BAR'];
@@ -1300,6 +1337,24 @@ function drawPathArrow() {
 }
 setInterval(drawPathArrow, 60);
 drawPathArrow();
+// 라인 스타일 칩 + 두께
+const ARROW_LINES = [['solid', '실선'], ['dash', '대시'], ['dot', '도트'], ['taper', '테이퍼']];
+const arrowChips = document.getElementById('arrowLineChips');
+ARROW_LINES.forEach(([v, label]) => {
+  const bt = document.createElement('button');
+  bt.className = 'btn' + (state.arrow.line === v ? ' on' : '');
+  bt.textContent = label;
+  bt.style.padding = '4px 9px'; bt.style.fontSize = '11px';
+  bt.onclick = () => {
+    state.arrow.line = v;
+    arrowChips.querySelectorAll('.btn').forEach(x => x.classList.toggle('on', x === bt));
+  };
+  arrowChips.appendChild(bt);
+});
+document.getElementById('arrowW').addEventListener('input', e => {
+  state.arrow.w = e.target.value / 100;
+  document.getElementById('arrowWV').textContent = state.arrow.w.toFixed(1);
+});
 
 // ═══ 시스템 설정 — 판정·역할 색 / TCFG / SCFG (브리지로 시뮬 실시간 반영) ═══
 state.sys = {
@@ -1349,6 +1404,7 @@ function labSnapshot() {
     markShape: state.markShape, markForm: state.markForm, markContract: state.markContract,
     glyphs: { ...state.glyphs },
     prims: JSON.parse(JSON.stringify(state.prims)),
+    arrow: { ...state.arrow },
     sys: { roles: { ...state.sys.roles }, tcfg: { ...state.sys.tcfg }, scfg: { ...state.sys.scfg } },
     g: { ...state.g }, m: { ...state.m }, p: { ...state.p }, s: { ...state.s } };
 }
@@ -1368,6 +1424,7 @@ if (window.parent !== window) {
       if (st[k] != null) state[k] = st[k];
     if (st.glyphs && !Array.isArray(st.glyphs)) state.glyphs = { ...st.glyphs };
     if (st.prims) for (const k in state.prims) Object.assign(state.prims[k], st.prims[k] || {});
+    if (st.arrow) Object.assign(state.arrow, st.arrow);
     if (st.sys) {
       for (const ns of ['roles', 'tcfg', 'scfg']) Object.assign(state.sys[ns], st.sys[ns] || {});
       buildSys();

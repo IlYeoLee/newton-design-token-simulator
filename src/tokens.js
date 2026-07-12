@@ -433,10 +433,32 @@ function makeArrow(color, len = 0.55, tip = 'triangle') {
   };
   const shape = (build) => { const s = new THREE.Shape(); build(s); return new THREE.ShapeGeometry(s); };
 
-  // 자루(shaft) — 촉이 있으면 촉 밑동까지, 없으면 끝까지
+  // 자루(shaft) — 라인 스타일(FX Lab state.arrow) 소비: solid|dash|dot|taper
   const shaftLen = tip === 'none' ? len : Math.max(0.02, len - hl * 0.55);
-  const shaft = mesh(new THREE.PlaneGeometry(w, shaftLen));
-  shaft.position.y = shaftLen / 2;
+  const A = FXP.arrow || { line: 'solid', w: 1 };
+  const sw = w * (A.w || 1);
+  if (A.line === 'dash') {
+    const seg = 0.085, gap = 0.055;
+    for (let y = 0; y + seg * 0.5 < shaftLen; y += seg + gap) {
+      const d = mesh(new THREE.PlaneGeometry(sw, Math.min(seg, shaftLen - y)));
+      d.position.y = y + Math.min(seg, shaftLen - y) / 2;
+    }
+  } else if (A.line === 'dot') {
+    const gap = 0.11;
+    for (let y = gap / 2; y < shaftLen; y += gap) {
+      const d = mesh(new THREE.CircleGeometry(sw * 0.55, 16));
+      d.position.y = y;
+    }
+  } else if (A.line === 'taper') {
+    mesh(shape(sp => {
+      sp.moveTo(-sw * 0.12, 0); sp.lineTo(sw * 0.12, 0);
+      sp.lineTo(sw * 0.72, shaftLen); sp.lineTo(-sw * 0.72, shaftLen);
+      sp.closePath();
+    }));
+  } else {
+    const shaft = mesh(new THREE.PlaneGeometry(sw, shaftLen));
+    shaft.position.y = shaftLen / 2;
+  }
 
   const hy = len - hl;   // 촉 밑동 y
   if (tip === 'triangle') {

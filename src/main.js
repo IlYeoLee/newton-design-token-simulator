@@ -772,6 +772,11 @@ async function boot() {
     if (st.s) Object.assign(FX, st.s);
     if (st.bg !== undefined) setSurfaces(st.bg === 'none' ? null : st.bg);   // 투사면 칩 → 실물 바닥/벽
     if (st.prims) FXP.prims = st.prims;   // 프리미티브 파라미터 (세션 빌드 소비는 다음 단계)
+    if (st.arrow) {
+      const changed = JSON.stringify(st.arrow) !== JSON.stringify(FXP.arrow);
+      Object.assign(FXP.arrow, st.arrow);
+      if (changed) refreshGlyphConsumers();   // 화살표 자루 리빌드
+    }
     if (st.glyphs && typeof st.glyphs === 'object') {
       const changed = JSON.stringify(st.glyphs) !== JSON.stringify(GLYPHS.map);
       FXP.customGlyphs = st.glyphs;

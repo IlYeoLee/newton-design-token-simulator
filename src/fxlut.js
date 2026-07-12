@@ -38,6 +38,7 @@ export const FXP = {
   mark: { radius: 1.0, core: 1.0, halo: 0.9, pool: 0.55, sweep: 1.0, wobble: 0.5 },
   person: { blur: 1.0, glow: 0.9, flow: 0.55, decay: 0.62 },
   gainBoost: 1.0,   // 주간 모드 투사 게인 (주광 가시 = 제품 스토리)
+  arrow: { line: 'solid', w: 1 },   // 화살표 라인 스타일 (FX Lab에서 편집)
 };
 
 // ── LUT 256×1 DataTexture (전 셰이더 공유) ─────
@@ -117,6 +118,22 @@ export const GLYPHS = {
     return (img && img.complete && img.naturalWidth) ? img : null;
   },
 };
+/** SVG 실픽셀 타이트 바운딩 (viewBox 여백 비대칭 보정) — 이미지별 1회 캐시 */
+function glyphBBox(img) {
+  if (img._bbox) return img._bbox;
+  const S = 128;
+  const c = document.createElement('canvas'); c.width = c.height = S;
+  const g = c.getContext('2d');
+  const sc = Math.min(S / img.naturalWidth, S / img.naturalHeight);
+  g.drawImage(img, 0, 0, img.naturalWidth * sc, img.naturalHeight * sc);
+  const d = g.getImageData(0, 0, S, S).data;
+  let x0 = S, y0 = S, x1 = -1, y1 = -1;
+  for (let y = 0; y < S; y++) for (let x = 0; x < S; x++)
+    if (d[(y * S + x) * 4 + 3] > 8) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+  img._bbox = x1 < 0 ? { x: 0, y: 0, w: img.naturalWidth, h: img.naturalHeight } :
+    { x: x0 / sc, y: y0 / sc, w: (x1 - x0 + 1) / sc, h: (y1 - y0 + 1) / sc };
+  return img._bbox;
+}
 /** 캔버스에 커스텀 글리프를 웜 크림 틴트+글로우로 (x,y) 중심 렌더. 성공 시 true. */
 export function drawGlyph(ctx, ch, x, y, sizePx, { color = 'rgba(255,240,220,0.95)', glowColor = 'rgba(254,150,90,0.75)', glow = 14 } = {}) {
   const img = GLYPHS.img(ch);
@@ -124,9 +141,10 @@ export function drawGlyph(ctx, ch, x, y, sizePx, { color = 'rgba(255,240,220,0.9
   const off = document.createElement('canvas');
   off.width = off.height = sizePx;
   const og = off.getContext('2d');
-  const sc = Math.min(sizePx / img.naturalWidth, sizePx / img.naturalHeight);
-  const w = img.naturalWidth * sc, h = img.naturalHeight * sc;
-  og.drawImage(img, (sizePx - w) / 2, (sizePx - h) / 2, w, h);
+  const bb = glyphBBox(img);
+  const sc = Math.min(sizePx / bb.w, sizePx / bb.h);
+  const w = bb.w * sc, h = bb.h * sc;
+  og.drawImage(img, bb.x, bb.y, bb.w, bb.h, (sizePx - w) / 2, (sizePx - h) / 2, w, h);
   og.globalCompositeOperation = 'source-in';
   og.fillStyle = color;
   og.fillRect(0, 0, sizePx, sizePx);
