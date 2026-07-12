@@ -218,10 +218,13 @@ const state = {
   footShape: 1, personMode: 0, burstStyle: 0, laneStyle: 0,
   glyphs: {},   // 슬롯별 커스텀 SVG {'0':dataURL, 'FOOT_L':...} — 저장·브리지 왕복
   arrow: { line: 'solid', w: 1 },   // 화살표 라인(자루·경로) 스타일 — solid|dash|dot|taper
-  prims: {      // 장면 프리미티브 파라미터 (두께·글로우·템포) — 저장·브리지 왕복
-    wallRing: { w: 1, glow: 1, tempo: 1 }, sweepBand: { w: 1, glow: 1, tempo: 1 },
-    countRing: { w: 1, glow: 1, tempo: 1 }, stanceBox: { w: 1, glow: 1, tempo: 1 },
-    punchLine: { w: 1, glow: 1, tempo: 1 }, decelDash: { w: 1, glow: 1, tempo: 1 },
+  prims: {      // 장면 프리미티브 파라미터 (공통 w·glow·tempo + 프리미티브별 세부) — 저장·브리지 왕복
+    wallRing: { w: 1, glow: 1, tempo: 1, pulse: 1, ring2: 0.35, gap: 1 },
+    sweepBand: { w: 1, glow: 1, tempo: 1, h: 1, base: 0.3, edge: 1 },
+    countRing: { w: 1, glow: 1, tempo: 1, arcV: 0.72, numS: 1 },
+    stanceBox: { w: 1, glow: 1, tempo: 1, dash: 1, round: 0.2, feet: 1 },
+    punchLine: { w: 1, glow: 1, tempo: 1, node: 1, numS: 1, dash: 0 },
+    decelDash: { w: 1, glow: 1, tempo: 1, n: 4, grow: 1.6, len: 1 },
   },
 };
 const SLIDER_DEFS = {
@@ -1195,18 +1198,32 @@ const primCells = PRIMS.map(([key, label]) => {
   lab.className = 'lab';
   lab.textContent = label;
   cell.append(cv, lab);
-  // 하나하나 편집: 두께·글로우·템포
-  for (const [pk, pl, mn, mx] of [['w', '두께', 0.4, 2.2], ['glow', '글로우', 0, 2], ['tempo', '템포', 0.3, 2.2]]) {
+  // 하나하나 편집: 공통 3 + 프리미티브별 세부
+  const PRIM_DETAIL = {
+    wallRing: [['pulse', '펄스 폭', 0, 3], ['ring2', '외곽 링', 0, 1], ['gap', '링 간격', 0.5, 2]],
+    sweepBand: [['h', '밴드 높이', 0.4, 1.6], ['base', '바닥 투명', 0, 0.8], ['edge', '전연 광', 0, 2]],
+    countRing: [['arcV', '호 색(LUT)', 0, 1], ['numS', '숫자 크기', 0.5, 2]],
+    stanceBox: [['dash', '대시 길이', 0.3, 2.5], ['round', '모서리', 0, 1], ['feet', '발 크기', 0, 2]],
+    punchLine: [['node', '노드 반경', 0.5, 2], ['numS', '숫자 크기', 0.5, 2], ['dash', '선 대시', 0, 1]],
+    decelDash: [['n', '선 개수', 2, 7], ['grow', '간격 증가', 1, 3], ['len', '길이', 0.5, 1.4]],
+  };
+  const sldRow = (host, pk, pl, mn, mx) => {
     const row = document.createElement('div');
     row.className = 'prim-sld';
     const out = document.createElement('output');
-    out.textContent = state.prims[key][pk].toFixed(1);
+    out.textContent = (+state.prims[key][pk]).toFixed(1);
     const inp = document.createElement('input');
     inp.type = 'range'; inp.min = mn * 100; inp.max = mx * 100; inp.value = state.prims[key][pk] * 100;
     inp.addEventListener('input', () => { state.prims[key][pk] = inp.value / 100; out.textContent = (+inp.value / 100).toFixed(1); });
-    row.append(Object.assign(document.createElement('span'), { textContent: pl, style: 'width:34px;flex:none' }), inp, out);
-    cell.appendChild(row);
-  }
+    row.append(Object.assign(document.createElement('span'), { textContent: pl, style: 'width:40px;flex:none' }), inp, out);
+    host.appendChild(row);
+  };
+  for (const [pk, pl, mn, mx] of [['w', '두께', 0.4, 2.2], ['glow', '글로우', 0, 2], ['tempo', '템포', 0.3, 2.2]])
+    sldRow(cell, pk, pl, mn, mx);
+  const det = document.createElement('details');
+  det.innerHTML = '<summary style="font-size:10px;color:#8b93a3;cursor:pointer;margin-top:4px">세부 조절</summary>';
+  for (const [pk, pl, mn, mx] of PRIM_DETAIL[key] || []) sldRow(det, pk, pl, mn, mx);
+  cell.appendChild(det);
   primHost.appendChild(cell);
   return [key, cv];
 });
@@ -1237,50 +1254,62 @@ function drawPrims() {
     if (key === 'wallRing') {
       g.strokeStyle = lutCss(0.42); g.lineWidth = LW;
       g.shadowColor = lutCss(0.6); g.shadowBlur = GB * 1.2;
-      g.beginPath(); g.arc(C, C, 44 + Math.sin(t * 2.2) * 3, 0, Math.PI * 2); g.stroke();
-      g.globalAlpha = 0.35;
-      g.beginPath(); g.arc(C, C, 58, 0, Math.PI * 2); g.stroke();
+      g.beginPath(); g.arc(C, C, 44 + Math.sin(t * 2.2) * 3 * P.pulse, 0, Math.PI * 2); g.stroke();
+      g.globalAlpha = P.ring2;
+      g.beginPath(); g.arc(C, C, 44 + 14 * P.gap, 0, Math.PI * 2); g.stroke();
       g.globalAlpha = 1;
     } else if (key === 'sweepBand') {
       const prog = (t * 0.25) % 1;
-      g.fillStyle = lutCss(0.30); g.globalAlpha = 0.30;
-      g.fillRect(24, 40, W - 48, 100);
+      const bh = 100 * P.h, by = C - bh / 2;
+      g.fillStyle = lutCss(0.30); g.globalAlpha = P.base;
+      g.fillRect(24, by, W - 48, bh);
       g.globalAlpha = 0.85; g.fillStyle = lutCss(0.62);
       g.shadowColor = lutCss(0.7); g.shadowBlur = GB;
-      g.fillRect(24, 40, (W - 48) * prog, 100);
+      g.fillRect(24, by, (W - 48) * prog, bh);
+      if (P.edge > 0.02) {   // 전연 하이라이트 — 진행 최전선의 백열
+        g.globalAlpha = Math.min(1, P.edge);
+        g.fillStyle = lutCss(0.95);
+        g.fillRect(24 + (W - 48) * prog - 2 * P.edge, by, 4 * P.edge, bh);
+      }
       g.globalAlpha = 1;
     } else if (key === 'countRing') {
       g.strokeStyle = lutCss(0.35); g.lineWidth = LW * 1.2; g.globalAlpha = 0.35;
       g.beginPath(); g.arc(C, C, 46, 0, Math.PI * 2); g.stroke();
-      g.globalAlpha = 1; g.strokeStyle = lutCss(0.72);
-      g.shadowColor = lutCss(0.8); g.shadowBlur = GB;
+      g.globalAlpha = 1; g.strokeStyle = lutCss(P.arcV);
+      g.shadowColor = lutCss(Math.min(1, P.arcV + 0.1)); g.shadowBlur = GB;
       g.beginPath(); g.arc(C, C, 46, -Math.PI / 2, -Math.PI / 2 + ((t * 0.4) % 1) * Math.PI * 2); g.stroke();
-      primNum(g, String(1 + Math.floor((t * 0.4) % 8)), C, C, 52, 40);
+      primNum(g, String(1 + Math.floor((t * 0.4) % 8)), C, C, 52 * P.numS, Math.round(40 * P.numS));
     } else if (key === 'stanceBox') {
       g.strokeStyle = lutCss(0.45); g.lineWidth = LW * 0.8;
-      g.setLineDash([10 * P.w, 8]);
+      g.setLineDash([10 * P.dash, 8]);
       g.shadowColor = lutCss(0.6); g.shadowBlur = GB * 0.8;
-      g.strokeRect(40, 48, W - 80, W - 96);
+      const rr = 18 * P.round;
+      g.beginPath(); g.roundRect(40, 48, W - 80, W - 96, rr); g.stroke();
       g.setLineDash([]);
-      // 발 2 — FOOT_L/R 슬롯 소비
-      primFoot(g, false, C - 16, C + 6, 26);
-      primFoot(g, true, C + 16, C + 6, 26);
+      if (P.feet > 0.05) {   // 발 2 — FOOT_L/R 슬롯 소비
+        primFoot(g, false, C - 16 * P.feet, C + 6, 26 * P.feet);
+        primFoot(g, true, C + 16 * P.feet, C + 6, 26 * P.feet);
+      }
     } else if (key === 'punchLine') {
       g.strokeStyle = lutCss(0.55); g.lineWidth = LW * 0.8;
       g.shadowColor = lutCss(0.7); g.shadowBlur = GB;
+      if (P.dash > 0.05) g.setLineDash([9 * P.dash, 7 * P.dash]);
       const pts = [[45, 120], [90, 60], [135, 100]];
       g.beginPath(); pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.stroke();
+      g.setLineDash([]);
       pts.forEach(([x, y], i) => {
-        g.beginPath(); g.arc(x, y, 12, 0, Math.PI * 2); g.stroke();
-        primNum(g, String(i + 1), x, y, 16, 14);
+        g.beginPath(); g.arc(x, y, 12 * P.node, 0, Math.PI * 2); g.stroke();
+        primNum(g, String(i + 1), x, y, 16 * P.numS, Math.round(14 * P.numS));
       });
     } else if (key === 'decelDash') {
       g.strokeStyle = lutCss(0.5); g.lineWidth = LW;
       g.shadowColor = lutCss(0.62); g.shadowBlur = GB * 0.8;
-      let y = 24;
-      for (const gap of [10, 16, 24, 34]) {   // 간격이 벌어짐 = 감속 언어
-        g.beginPath(); g.moveTo(50, y); g.lineTo(W - 50, y); g.stroke();
+      let y = 24, gap = 10;
+      const x0 = C - (C - 30) * P.len, x1 = C + (C - 30) * P.len;
+      for (let i = 0; i < Math.round(P.n); i++) {   // 간격이 벌어짐 = 감속 언어
+        g.beginPath(); g.moveTo(x0, y); g.lineTo(x1, y); g.stroke();
         y += gap + 8;
+        gap *= P.grow;
       }
     }
   }
