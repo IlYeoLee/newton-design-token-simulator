@@ -684,7 +684,7 @@ export class TokenSystem {
   _mapFloor(tk) {
     const L = this.layout;
     if (L.mode === 'spatial') return { x: tk.nx * L.SCALE, z: tk.ny * L.SCALE };
-    if (L.mode === 'static')  return { x: tk.nx * L.FLOOR_SCALE, z: -tk.ny * L.FLOOR_SCALE };
+    if (L.mode === 'static')  return { x: tk.nx * L.FLOOR_SCALE, z: -tk.ny * L.FLOOR_SCALE + (this.stanceOffsetZ || 0) };
     // advance: 이벤트 시각의 러너 위치 앞에 지면 고정 (+ 실측 캘리브레이션)
     const c = (L.CAL && L.CAL[tk.foot]) || { x: 0, z: 0 };
     return { x: tk.nx * L.X_SCALE + c.x, z: -L.V * tk.t - L.STRIKE_AHEAD + c.z };

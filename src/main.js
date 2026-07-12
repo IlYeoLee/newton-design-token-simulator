@@ -224,7 +224,11 @@ async function boot() {
 
     // 벽면 고스트 → 실제 모션 고스트봇으로 대체 (실루엣은 보조로 끔)
     ghost.group.visible = false;
-    if (data.sport === 'boxing') { ensureGhostBot(); computeStation(); }
+    if (data.sport === 'boxing') {
+      ensureGhostBot(); computeStation();
+      // 설계 정합: 유저(봇)는 유닛 뒤 전신 인식 최적 링(standZ)에 선다 — z=0(유닛 코앞) 아님
+      xbot.group.position.z = opt.standZ;
+    }
     if (ghostLayer) ghostLayer.visible = data.sport === 'boxing';
     if (data.sport === 'boxing') {
       const punchTimes = tokens.events.filter(e => e.surface === 'wall').map(e => e.t);
@@ -374,7 +378,7 @@ async function boot() {
 
     // 시뮬은 봇을 z=0에 렌더하지만 설계상 유저는 standZ(스테이션 뒤)에 선다.
     // 그림자 판정은 '설계 거리'로: 팔 좌표를 standZ만큼 유저측(+z)으로 이동해 평가.
-    const OFF = opt.standZ;   // 봇(z=0) → 설계 서기 위치
+    const OFF = opt.standZ - xbot.group.position.z;   // 봇이 설계 위치에 서면 0
     const arm2 = {
       elbow: arm.elbow.clone().setZ(arm.elbow.z + OFF),
       wrist: arm.wrist.clone().setZ(arm.wrist.z + OFF),
@@ -425,6 +429,7 @@ async function boot() {
     const dCamReq = (1.8 / 2) / Math.tan(CAM_V / 2);           // 전신 프레이밍 최소 거리
     const standZ = zU + dCamReq;                               // 유저가 서야 할 z (유닛 뒤)
     Object.assign(opt, { zU, dProj, tilt, standZ, dCam: dCamReq });
+    tokens.stanceOffsetZ = standZ;   // 복싱 스탠스 발판 = 서기 위치 기준
 
     rig.setStation(new THREE.Vector3(0, LENS_H, zU));
     camMark.position.set(0, LENS_H, zU + 0.06);

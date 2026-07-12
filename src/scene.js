@@ -185,7 +185,7 @@ export function createScene(container) {
   // ── 카메라 프리셋 ─────────────────────────────────────
   const CAM_PRESETS = {
     running:    { pos: [2.9, 2.1, 2.9],  look: [0, 0.7, -0.6] },
-    boxing:     { pos: [2.6, 1.7, 1.7],  look: [0, 1.2, -1.2] },
+    boxing:     { pos: [3.5, 1.9, 3.9],  look: [0, 1.1, -0.1] },   // 봇(standZ≈1.6)+벽(-1.8) 동시 프레이밍
     basketball: { pos: [3.4, 2.6, 2.6],  look: [0, 0.6, -1.0] },
   };
 
