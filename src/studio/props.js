@@ -18,7 +18,6 @@ export class StudioProps {
     this.doc = doc;
     this.onEdit = opts.onEdit || (() => {});
     this.onPreviewBurst = opts.onPreviewBurst || (() => {});
-    this.getAdvEl = opts.getAdvEl || null;   // 전역 고급(판정색·지오메트리·타이밍·프리셋)
     this._selfEdit = false;
     this._renderedId = undefined;
     this._renderedMode = undefined;
@@ -71,8 +70,6 @@ export class StudioProps {
       // 피그마 모델: 아무것도 선택 안 됨 = 전역(장면 룩) 편집 컨텍스트 — LookPanel 인라인
       this.el.innerHTML = `<div style="padding:12px 14px;font-size:10.5px;color:var(--dim);line-height:1.7;">
         캔버스에서 토큰을 <b style="color:var(--text)">클릭=선택 · 드래그=이동</b>.<br>전체 분위기(팔레트·파동·투사면)는 위 <b style="color:#fec389">🔥 룩</b> — 전용 페이지가 열려요.</div>`;
-      const adv = this.getAdvEl?.();
-      if (adv) this.el.appendChild(adv);
       return;
     }
     this._renderEasy(m);

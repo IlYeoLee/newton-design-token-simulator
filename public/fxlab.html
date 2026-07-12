@@ -100,10 +100,13 @@
 발형 L/R(Step-type 티칭 스킨), 화살촉 4종(방향 토큰). 여기서 확정한 형태가 시뮬의 숫자 텍스처·발 마크·화살표와 같은 스타일 엔진입니다.</p>
 <div class="live" id="glyphLib" style="gap:10px;flex-wrap:wrap;"></div>
 <div style="margin-top:8px;display:flex;gap:8px;align-items:center;">
-  <button class="btn" id="glyphUpload">＋ SVG 글리프 첨부 (즉시 히트 룩 적용)</button>
-  <input id="glyphFile" type="file" accept=".svg,image/svg+xml" multiple style="display:none">
-  <span style="font-size:11px;color:#8b93a3">첨부한 SVG는 저장돼 시뮬로 함께 이식됩니다 · 셀 클릭 = 삭제</span>
+  <input id="glyphFile" type="file" accept=".svg,image/svg+xml" style="display:none">
+  <span style="font-size:11px;color:#8b93a3"><b style="color:#e8eaf0">글리프 셀 클릭 = 그 자리에 SVG 첨부</b>(즉시 히트 룩 적용·저장·이식) · Shift+클릭 = 기본 글리프 복원</span>
 </div>
+
+<h2>시스템 설정 — 판정·역할 색 / 토큰 지오메트리 / 세션 타이밍 <span class="tag new">에디터에서 이관</span></h2>
+<p class="note">전역 시스템 값 전부가 이 페이지 한 곳에서 — 시뮬에 실시간 반영·저장됩니다. (배치·판정 인스턴스만 에디터 소관)</p>
+<div class="live" id="sysWrap" style="gap:14px;flex-wrap:wrap;"></div>
 
 <h2>MARK 판정 토큰 — 최소 토큰 × 7상태 <span class="tag new">설계 문서 그대로</span></h2>
 <p class="note">카탈로그 원칙: 상호작용 지점은 <b>MARK 단 하나</b>(존 원 + 링 모디파이어 + 7상태) — 지면 stepMark든 벽면 targetMark든 같은 컴포넌트.
@@ -184,7 +187,7 @@ const state = {
   s: { bloomStrength: 0.55, bloomThreshold: 0.55, bloomRadius: 0.6, exposure: 1.0, grain: 0, vignette: 0.12 },
   p: { blur: 1.0, glow: 0.9, flow: 0.55, decay: 0.62, grain: 0.03 },
   footShape: 1, personMode: 0, burstStyle: 0, laneStyle: 0,
-  glyphs: [],   // 커스텀 SVG 글리프 (dataURL) — 저장·브리지 왕복
+  glyphs: {},   // 슬롯별 커스텀 SVG {'0':dataURL, 'FOOT_L':...} — 저장·브리지 왕복
 };
 const SLIDER_DEFS = {
   g: [
@@ -1011,10 +1014,11 @@ function drawTipGlyph(g, W, kind) {
 }
 let drawGlyphLib = function() {
   for (const cv of glyphCells) {
+    const gl = cv.dataset.g;
+    if (state.glyphs && state.glyphs[gl]) continue;   // 커스텀 SVG 슬롯
     const g = cv.getContext('2d');
     const W = cv.width;
     g.clearRect(0, 0, W, W);
-    const gl = cv.dataset.g;
     if (gl.startsWith('FOOT')) { drawFootGlyph(g, W, gl === 'FOOT_R'); continue; }
     if (gl.startsWith('TIP')) { drawTipGlyph(g, W, gl); continue; }
     // 숫자·연산 — 웜 크림 경량 타이포 + LUT 히트 글로우 (시뮬 숫자 텍스처와 동일)
@@ -1027,39 +1031,37 @@ let drawGlyphLib = function() {
     g.fillText(gl, W/2, W/2 + 3);
   }
 };
-// ── 커스텀 SVG 글리프: 첨부 즉시 히트 룩 적용, state.glyphs로 저장·이식 ──
-const customCell = document.createElement('div');
-customCell.className = 'cell';
-const customRow = document.createElement('div');
-customRow.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;justify-content:center;max-width:420px;min-height:64px;';
-const customLab = document.createElement('div');
-customLab.className = 'lab';
-customLab.textContent = '커스텀 (SVG 첨부)';
-customCell.append(customRow, customLab);
-glyphHost.appendChild(customCell);
+// ── 슬롯 교체형 SVG: 셀 클릭 = 그 글리프 자리에 SVG 첨부 / Shift+클릭 = 기본 복원 ──
 const glyphImgCache = new Map();
-function rebuildCustomGlyphs() {
-  customRow.innerHTML = '';
-  state.glyphs.forEach((url, idx) => {
-    const cv = document.createElement('canvas');
-    cv.width = cv.height = 96;
-    cv.style.cssText = 'width:64px;height:64px;background:#0A0C10;border-radius:8px;cursor:pointer;';
-    cv.title = '클릭 = 삭제';
-    cv.dataset.custom = idx;
-    cv.addEventListener('click', () => { state.glyphs.splice(idx, 1); rebuildCustomGlyphs(); });
-    customRow.appendChild(cv);
+let pendingSlot = null;
+for (const cv of glyphCells) {
+  cv.style.cursor = 'pointer';
+  cv.title = '클릭 = SVG 첨부 (이 자리 교체) · Shift+클릭 = 기본 복원';
+  cv.addEventListener('click', e => {
+    const key = cv.dataset.g;
+    if (e.shiftKey) { delete state.glyphs[key]; drawGlyphLib(); return; }
+    pendingSlot = key;
+    document.getElementById('glyphFile').click();
   });
-  drawGlyphLib();
 }
+document.getElementById('glyphFile').addEventListener('change', async e => {
+  const f = e.target.files?.[0];
+  e.target.value = '';
+  if (!f || !pendingSlot) return;
+  const url = await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(f); });
+  state.glyphs[pendingSlot] = url;
+  pendingSlot = null;
+  drawGlyphLib();
+});
 function drawCustomGlyph(g, W, url) {
   let img = glyphImgCache.get(url);
   if (!img) {
     img = new Image();
     img.src = url;
-    img.onload = drawGlyphLib;
+    img.onload = () => drawGlyphLib();
     glyphImgCache.set(url, img);
   }
-  if (!img.complete || !img.naturalWidth) return;
+  if (!img.complete || !img.naturalWidth) return false;
   // 알파 마스크 → 웜 크림 틴트 (원본 색 무시 — 온도 언어 통일) + LUT 글로우
   const off = document.createElement('canvas');
   off.width = off.height = W;
@@ -1074,34 +1076,78 @@ function drawCustomGlyph(g, W, url) {
   g.drawImage(off, 0, 0);
   g.shadowBlur = 0;
   g.drawImage(off, 0, 0);
+  return true;
 }
-document.getElementById('glyphUpload').addEventListener('click', () => document.getElementById('glyphFile').click());
-document.getElementById('glyphFile').addEventListener('change', async e => {
-  for (const f of e.target.files || []) {
-    const url = await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(f); });
-    state.glyphs.push(url);
-  }
-  e.target.value = '';
-  rebuildCustomGlyphs();
-});
 const _drawGlyphBase = drawGlyphLib;
 drawGlyphLib = function() {
-  _drawGlyphBase();
-  for (const cv of customRow.querySelectorAll('canvas')) {
-    const g = cv.getContext('2d');
-    g.clearRect(0, 0, cv.width, cv.height);
-    drawCustomGlyph(g, cv.width, state.glyphs[+cv.dataset.custom]);
+  for (const cv of glyphCells) {
+    const url = state.glyphs[cv.dataset.g];
+    if (url) {
+      const g = cv.getContext('2d');
+      g.clearRect(0, 0, cv.width, cv.height);
+      drawCustomGlyph(g, cv.width, url);
+      cv.style.outline = '1px solid rgba(254,195,137,.5)';   // 커스텀 표시
+    } else cv.style.outline = '';
   }
+  _drawGlyphBase();   // 기본 렌더 (커스텀 슬롯은 내부에서 스킵)
 };
-drawGlyphLib();
 setInterval(drawGlyphLib, 700);   // 팔레트·채도 변경 라이브 반영 (경량 2D — 부담 없음)
+
+// ═══ 시스템 설정 — 판정·역할 색 / TCFG / SCFG (브리지로 시뮬 실시간 반영) ═══
+state.sys = {
+  roles: { left:'#fa3030', right:'#fa3030', target:'#fa3030', guide:'#fe6e3c', lane:'#fa3030', success:'#d1feff' },
+  tcfg: { fillOpacity:0.20, previewEdge:0.5, cdContractFrom:1.9, cdGain:0.6, lingerEdge:0.9, linger:0.35 },
+  scfg: { a1Rep:1.1, a2Hold:8, a3Swing:1.4, a4Beat:0.62, b1Beat:0.62, b2Beat:0.66, b3Step:1.0, b4Beat:0.62 },
+};
+const SYS_ROLES = [['left','스텝 마크 (좌)'],['right','스텝 마크 (우)'],['target','벽면 타겟'],['guide','방향 화살표'],['lane','레인'],['success','성공 (프리즘)']];
+const SYS_TCFG = [['fillOpacity','채움 투명도',0.05,0.6],['previewEdge','프리뷰 윤곽',0.1,1],['cdContractFrom','수축 시작 배율',1.2,3],['cdGain','수축 링 강도',0.2,1],['lingerEdge','성공 잔상',0.3,1.5],['linger','잔상 지속(s)',0.15,1]];
+const SYS_SCFG = [['a1Rep','A1 발목 1회전',0.4,2.5],['a2Hold','A2 홀드 길이',3,15],['a3Swing','A3 스윙 왕복',0.6,3],['a4Beat','A4 걷기 박자',0.3,1.2],['b1Beat','B1 듣기 박자',0.3,1.2],['b2Beat','B2 스텝 박자',0.3,1.4],['b3Step','B3 걸음 간격',0.5,2],['b4Beat','B4 리듬 박자',0.3,1.2]];
+const sysWrap = document.getElementById('sysWrap');
+function sysCell(title) {
+  const c = document.createElement('div');
+  c.className = 'cell';
+  c.style.cssText = 'min-width:250px;align-items:stretch;text-align:left;';
+  c.innerHTML = `<div class="lab" style="margin-bottom:6px;text-align:left">${title}</div>`;
+  sysWrap.appendChild(c);
+  return c;
+}
+function buildSys() {
+  sysWrap.innerHTML = '';
+  const cr = sysCell('판정·역할 색');
+  for (const [k, label] of SYS_ROLES) {
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;justify-content:space-between;align-items:center;gap:8px;margin:3px 0;font-size:11px;color:#8b93a3;';
+    row.innerHTML = `<span>${label}</span><input type="color" value="${state.sys.roles[k]}" style="width:40px;height:22px;border:1px solid #2a3140;border-radius:5px;background:none;cursor:pointer;">`;
+    row.querySelector('input').addEventListener('input', e => { state.sys.roles[k] = e.target.value; });
+    cr.appendChild(row);
+  }
+  const mkSliders = (host, defs, bag) => {
+    for (const [k, label, mn, mx] of defs) {
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex;justify-content:space-between;align-items:center;gap:8px;margin:3px 0;font-size:11px;color:#8b93a3;';
+      const val = document.createElement('span');
+      val.style.cssText = 'min-width:34px;text-align:right;color:#e8eaf0;';
+      val.textContent = (+bag[k]).toFixed(2);
+      const inp = document.createElement('input');
+      inp.type = 'range'; inp.min = mn * 100; inp.max = mx * 100; inp.value = bag[k] * 100;
+      inp.style.cssText = 'flex:1;';
+      inp.addEventListener('input', () => { bag[k] = inp.value / 100; val.textContent = (+bag[k]).toFixed(2); });
+      row.append(Object.assign(document.createElement('span'), { textContent: label }), inp, val);
+      host.appendChild(row);
+    }
+  };
+  mkSliders(sysCell('토큰 지오메트리'), SYS_TCFG, state.sys.tcfg);
+  mkSliders(sysCell('세션 타이밍 (전역)'), SYS_SCFG, state.sys.scfg);
+}
+buildSys();
 // ═══ 시뮬 임베드 브리지 ═══════════════════════
 // 부모(시뮬)가 있으면: 상태를 주기 전송(적용·저장은 부모 몫), init 수신 시 UI 복원
 function labSnapshot() {
   return { stops: state.stops, sat: state.sat, bg: state.bg,
     burstStyle: state.burstStyle, laneStyle: state.laneStyle,
     markShape: state.markShape, markForm: state.markForm, markContract: state.markContract,
-    glyphs: state.glyphs.slice(),
+    glyphs: { ...state.glyphs },
+    sys: { roles: { ...state.sys.roles }, tcfg: { ...state.sys.tcfg }, scfg: { ...state.sys.scfg } },
     g: { ...state.g }, m: { ...state.m }, p: { ...state.p }, s: { ...state.s } };
 }
 if (window.parent !== window) {
@@ -1118,7 +1164,11 @@ if (window.parent !== window) {
     for (const k of ['g', 'm', 'p', 's']) Object.assign(state[k], st[k] || {});
     for (const k of ['burstStyle', 'laneStyle', 'markShape', 'markForm', 'markContract'])
       if (st[k] != null) state[k] = st[k];
-    if (Array.isArray(st.glyphs)) { state.glyphs = st.glyphs.slice(); rebuildCustomGlyphs(); }
+    if (st.glyphs && !Array.isArray(st.glyphs)) state.glyphs = { ...st.glyphs };
+    if (st.sys) {
+      for (const ns of ['roles', 'tcfg', 'scfg']) Object.assign(state.sys[ns], st.sys[ns] || {});
+      buildSys();
+    }
     buildStops(); rebuildLUT();
     document.querySelectorAll('input[type=range][data-scope]').forEach(inp => {
       const v = state[inp.dataset.scope]?.[inp.dataset.key];

@@ -180,8 +180,6 @@ export class SceneScope {
       host.innerHTML = `<div style="padding:9px 14px 0;font-size:10.5px;color:var(--dim);">캔버스에서 <b style="color:var(--text)">클릭=선택 · 드래그=이동 · 더블클릭=글자</b></div>`;
       const cut = this.getCutEl?.();
       if (cut) host.appendChild(cut);          // 🎬 이 컷 — 지속·멘트·시그널
-      const adv = this.getAdvEl?.();
-      if (adv) host.appendChild(adv);
       return;
     }
     const els = this.s.sceneElements(this.stageId);

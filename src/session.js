@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { WALL_Z } from './scene.js';
 import { thermalColor, heatBlob, grainPattern } from './thermal.js';
+import { lutColor } from './fxlut.js';
 
 // ─────────────────────────────────────────────────────────────
 // 러닝 세션 흐름 — 와이어프레임 v2 전체 15프레임 이식
@@ -16,8 +17,21 @@ import { thermalColor, heatBlob, grainPattern } from './thermal.js';
 // 에디터에서 실시간 조절되는 세션 타이밍 (초)
 export const SCFG = { a1Rep: 1.0, a2Hold: 10, a3Swing: 1.5, a4Beat: 0.6, b1Beat: 0.6, b2Beat: 0.7, b3Step: 1.1, b4Beat: 0.55 };
 
-export const BRAND = { red: 0xfa3030, coral: 0xfe6e3c, sand: 0xfec389, prism: 0xd1feff, ink: 0xffffff, dim: 0x9b9b9b };
+const BRAND = { red: 0xfa3030, coral: 0xfe6e3c, sand: 0xfec389, prism: 0xd1feff, ink: 0xffffff, dim: 0x9b9b9b };
+export { BRAND };
+// 히트 계열(red·coral·sand)은 룩 LUT의 정준 위치에서 파생 — 기본 Vivid 룩에선 기존 값과 동일,
+// 룩 팔레트를 바꾸면 세션 45컷이 함께 따라온다 (부트 시 파생 — 룩 저장 후 새 세션/새로고침 반영).
+// prism(판정·성공)·ink(잉크)는 상태 부호화 전용이라 고정 (색=상태 원칙).
 const CS = { red:'#fa3030', coral:'#fe6e3c', sand:'#fec389', prism:'#d1feff', ink:'#ffffff', dim:'#c9c9c9', mute:'#9b9b9b' };
+export function deriveSessionPalette() {
+  const toHex = css => { const m = css.match(/rgb\((\d+),(\d+),(\d+)\)/); return m ? (+m[1] << 16) | (+m[2] << 8) | +m[3] : 0xfa3030; };
+  CS.red = lutColor(0.30);
+  CS.coral = lutColor(0.56);
+  CS.sand = lutColor(0.86);
+  BRAND.red = toHex(CS.red);
+  BRAND.coral = toHex(CS.coral);
+  BRAND.sand = toHex(CS.sand);
+}
 
 function flatMat(color, opacity = 1) {
   return new THREE.MeshBasicMaterial({ color, transparent: true, opacity, depthWrite: false, side: THREE.DoubleSide });
@@ -289,6 +303,8 @@ const STAGES = {
 
 export class Session {
   constructor(scene, tokens, xbot, rig, onStage) {
+    deriveSessionPalette();   // 룩 LUT → 세션 히트 팔레트 (빌드 전에)
+    this._CS = CS;   // 디버그 노출
     this.tokens = tokens; this.xbot = xbot; this.rig = rig; this.onStage = onStage;
     this.active = false; this.stageIdx = 0; this.t = 0; this.auto = false;
     this.sport = 'running'; this.stages = STAGES.running;
@@ -562,7 +578,7 @@ export class Session {
     const label = makeTextPlane('TAP ×2', { size: 0.055, color: CS.prism }); label.position.set(0, -0.16, 0.001); g.add(label);
     g.rotation.x = -Math.PI / 2; g.position.y = 0.013; g.renderOrder = 7; return g;
   }
-  _setCount(n, color = '#fa3030') {
+  _setCount(n, color = CS.red) {
     while (this.countGroup.children.length) { const c = this.countGroup.children.pop(); c.traverse?.(o => { o.geometry?.dispose(); o.material?.map?.dispose(); o.material?.dispose(); }); }
     if (n == null) { this.countRing.material.opacity = 0; return; }
     const m = floorNum(String(n), 0, 0, 0.34, color); this._clip(m); this.countGroup.add(m);
@@ -708,8 +724,8 @@ export class Session {
         ? wallText(p.content || '텍스트', p.x ?? 0, p.y ?? 1.2, { size: p.size ?? 0.12, color: p.color || '#ffffff', weight: p.weight ?? 700, family: p.family })
         : floorText(p.content || '텍스트', p.x ?? 0, p.z ?? -1.8, { size: p.size ?? 0.12, color: p.color || '#ffffff', weight: p.weight ?? 700, family: p.family });
     } else if (spec.kind === 'ring') {
-      o = wall ? wallRing(p.x ?? 0, p.y ?? 1.2, 0.15, 0.175, p.color || 0xfa3030, 0.9)
-               : floorRing(p.x ?? 0, p.z ?? -1.8, 0.15, 0.175, p.color || 0xfa3030, 0.9);
+      o = wall ? wallRing(p.x ?? 0, p.y ?? 1.2, 0.15, 0.175, p.color || BRAND.red, 0.9)
+               : floorRing(p.x ?? 0, p.z ?? -1.8, 0.15, 0.175, p.color || BRAND.red, 0.9);
     } else if (spec.kind === 'arrow' && !wall) {
       o = floorArrow(p.x ?? 0, p.z ?? -1.8, p.rot ?? 0, p.color || 0xfe6e3c, 0.4);
     } else if (spec.kind === 'foot' && !wall) {
@@ -822,7 +838,7 @@ export class Session {
     if (!text) return;
     const p = makeTextPlane(text, opts); this._clip(p, true); slot.add(p);
   }
-  _setCountWall(n, color = '#fa3030') {
+  _setCountWall(n, color = CS.red) {
     while (this.wCount.children.length) { const c = this.wCount.children.pop(); c.geometry?.dispose(); c.material?.map?.dispose(); c.material?.dispose(); }
     if (n == null) return;
     const p = makeTextPlane(String(n), { size: 0.28, color, weight: 800 }); this._clip(p, true); this.wCount.add(p);
