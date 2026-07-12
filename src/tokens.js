@@ -303,6 +303,18 @@ class Marker {
     if (this.art) { this.group.remove(this.art); this.art.material.dispose(); this.art = null; }
     this.fx.visible = true;    // 기본 존 = 파동 셰이더 (구 벡터 링은 계속 숨김)
   }
+  /** 에디터 v3: 3D 직접 선택 윤곽 (흰 링 — 피그마 선택 박스의 투사면 등가물) */
+  setSelected(on) {
+    if (on && !this.sel) {
+      this.sel = new THREE.Mesh(
+        new THREE.RingGeometry(this.radius * 1.32, this.radius * 1.44, 48),
+        new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9, depthWrite: false, side: THREE.DoubleSide }));
+      this.sel.position.z = 0.005;
+      this.sel.renderOrder = 7;
+      this.group.add(this.sel);
+    }
+    if (this.sel) this.sel.visible = !!on;
+  }
   setNumber(n) {
     const m = new THREE.MeshBasicMaterial({
       map: makeNumberTexture(n), transparent: true, depthWrite: false,

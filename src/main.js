@@ -17,6 +17,7 @@ import { loadSvg } from './studio/design.js';
 import { initBudgetPanel } from './budgetPanel.js';
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { getLUT, FXP, rebuildLUT } from './fxlut.js';
+import { createEditor3D } from './editor3d.js';
 
 const BASE = import.meta.env.BASE_URL;
 const PACK_FILES = {
@@ -970,6 +971,13 @@ async function boot() {
   const studioEl = document.getElementById('studio');
   const studioCanvasEl = document.getElementById('studio-canvas');
 
+  // 에디터 v3 Phase A — 라이브 3D 뷰에서 직접 선택·드래그 (피그마 모델)
+  const editor3d = createEditor3D({
+    dom: renderer.domElement, camera, controls, tokens,
+    getDoc: () => studioDoc,
+    onEdit: () => scheduleStudioRebuild(),
+  });
+
   // 편집 팩을 러닝 파이프라인에 재적용 (시간 연속성 유지 — switchPack 대비 경량)
   let studioSport = 'running';
   function rebuildPack(sport, pack) {
@@ -984,6 +992,7 @@ async function boot() {
     panel.setPack(pack, tokens.events);
     lastBodyZ = xbot.group.position.z;
     saveStudio(sport, pack);   // 편집 자동 저장 (새로고침해도 유지)
+    editor3d.syncSelection();  // 리빌드로 마커가 새로 생겼으니 3D 선택 윤곽 재적용
   }
   function scheduleStudioRebuild() {
     clearTimeout(studioRebuildTimer);
@@ -1103,6 +1112,9 @@ async function boot() {
     // 안내 팁: 토큰을 처음 고르면 사라짐
     const tipEl = document.getElementById('studio-tip');
     if (tipEl) { tipEl.style.display = 'block'; studioDoc.onChange(d => { tipEl.style.display = d.selection ? 'none' : 'block'; }); }
+    // 3D 직접 편집: 어디서 선택하든(3D·2D·속성) 윤곽 동기
+    studioDoc.onChange((d, reason) => { if (['select', 'load', 'remove', 'add', 'undo', 'redo'].includes(reason)) editor3d.syncSelection(); });
+    editor3d.setEnabled(true);
     rebuildPack(studioSport, studioDoc.toPack());        // layoutPreview 반영 리빌드(클리핑 해제)
     studioScope = 'pack';
     document.querySelectorAll('.stsc').forEach(b => seg(b, b.dataset.scope === 'pack'));
@@ -1121,6 +1133,7 @@ async function boot() {
   function exitStudio() {
     if (!studioActive) return;
     studioActive = false;
+    editor3d.setEnabled(false);
     if (studioScope === 'scene') sceneScope.leave();   // 스테이지 프리뷰 해제
     studioScope = 'pack';
     studioCanvas?.destroy(); studioCanvas = null;
@@ -1472,7 +1485,8 @@ async function boot() {
   });
 
   if (import.meta.env.DEV) window.__dbg = {
-    rig, xbot, state, session, sceneScope, camera, controls, tokens, effects, scene,
+    rig, xbot, state, session, sceneScope, camera, controls, tokens, effects, scene, editor3d,
+    get doc() { return studioDoc; },
     get canvas() { return studioCanvas; },
     get scope() { return studioScope; },
   };

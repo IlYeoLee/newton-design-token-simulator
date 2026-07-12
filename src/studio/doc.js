@@ -231,6 +231,7 @@ export class StudioDoc {
       const life = m.lifetime || RUN.STEP_LIFETIME;
       out.push({
         t: m.t, type: m.surface === 'wall' ? 'targetMark' : 'stepMark',
+        _docId: m.id,   // 3D 직접 편집: 장면 마커 → doc 마크 역참조 (내보내기 시 무해)
         foot: m.foot, nx: m.nx, ny: m.ny ?? 0, lifetime: life,
         contract: m.contract, radiusCm: m.radiusCm, holdRing: m.holdRing,
         design: m.design || undefined,   // 비주얼 디자인(_img 런타임 캐시 포함 — 내보내기 시 제거)
