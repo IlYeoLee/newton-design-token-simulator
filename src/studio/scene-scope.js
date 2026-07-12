@@ -175,9 +175,7 @@ export class SceneScope {
     if (!this.stageId) { host.innerHTML = ''; return; }
     if (this.sel < 0) {
       // 선택 없음 = 전역 룩 (팩 스코프와 동일 규칙 — LookPanel 영속 DOM)
-      host.innerHTML = `<div style="padding:10px 14px 0;font-size:11px;color:var(--dim);line-height:1.6;">
-        3D 장면(또는 레이어 목록)에서 요소를 <b style="color:var(--text)">클릭=선택 · 드래그=이동</b>. 글자는 선택하면 내용까지 편집돼요.
-      </div>`;
+      host.innerHTML = `<div style="padding:9px 14px 0;font-size:10.5px;color:var(--dim);">캔버스에서 <b style="color:var(--text)">클릭=선택 · 드래그=이동 · 더블클릭=글자</b></div>`;
       const cut = this.getCutEl?.();
       if (cut) host.appendChild(cut);          // 🎬 이 컷 — 지속·멘트
       const lk = this.getLookEl?.();

@@ -68,9 +68,7 @@ export class StudioProps {
 
     if (!m) {
       // 피그마 모델: 아무것도 선택 안 됨 = 전역(장면 룩) 편집 컨텍스트 — LookPanel 인라인
-      this.el.innerHTML = `<div style="padding:10px 14px 0;font-size:11px;color:var(--dim);line-height:1.6;">
-        3D 장면의 마크를 <b style="color:var(--text)">클릭=선택 · 드래그=이동</b>. 선택이 없을 땐 아래에서 전역 룩을 다듬어요.
-      </div>`;
+      this.el.innerHTML = `<div style="padding:9px 14px 0;font-size:10.5px;color:var(--dim);">캔버스에서 <b style="color:var(--text)">클릭=선택 · 드래그=이동</b></div>`;
       const lk = this.getLookEl?.();
       if (lk) this.el.appendChild(lk);
       return;

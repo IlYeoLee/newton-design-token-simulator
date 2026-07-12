@@ -1139,8 +1139,9 @@ async function boot() {
       editBoard.visible = false;
       halfH = Math.max(h / 2 + 0.4, (w / 2 + 0.6) / aspect);
       halfW = halfH * aspect;
-      const dw = document.getElementById('studio')?.offsetWidth || 400;
-      const shift = ((dw / 2) * 2 * halfW) / window.innerWidth;   // 좌측 드로어 실폭만큼 콘텐츠를 가시영역 중앙으로
+      const dwL = document.getElementById('studio')?.offsetWidth || 0;
+      const dwR = document.getElementById('inspector')?.offsetWidth || 0;
+      const shift = (((dwL - dwR) / 2) * 2 * halfW) / window.innerWidth;   // 좌우 드로어 사이 중앙
       editCam.up.set(0, 1, 0);
       editCam.position.set(wc.cx - shift, wc.cy, WALL_Z + 40);
       editControls.target.set(wc.cx - shift, wc.cy, WALL_Z);
@@ -1156,8 +1157,9 @@ async function boot() {
       const size = box.getSize(new THREE.Vector3());
       halfH = Math.max(size.z / 2 + 1.4, (size.x / 2 + 1.4) / aspect, 2.2);
       halfW = halfH * aspect;
-      const dw = document.getElementById('studio')?.offsetWidth || 400;
-      const shift = ((dw / 2) * 2 * halfW) / window.innerWidth;
+      const dwL = document.getElementById('studio')?.offsetWidth || 0;
+      const dwR = document.getElementById('inspector')?.offsetWidth || 0;
+      const shift = (((dwL - dwR) / 2) * 2 * halfW) / window.innerWidth;
       editCam.up.set(0, 0, -1);                              // 화면 위 = 전방(-Z) — 러너 진행 방향
       editCam.position.set(c.x - shift, 40, c.z);
       editControls.target.set(c.x - shift, 0, c.z);
@@ -1460,6 +1462,7 @@ async function boot() {
     renderCutBoard();
     fillLayers();
     studioEl.style.display = 'flex';
+    document.getElementById('inspector').style.display = 'flex';
     // 저작 포커스 모드: 좌측 컨트롤 패널 숨김 → 3D 프리뷰에 공간 확보 (캔버스 | 3D 스플릿)
     document.getElementById('panel').style.display = 'none';
     resize();
@@ -1500,6 +1503,7 @@ async function boot() {
     tokens.layoutPreview = false;
     tokens.setParams({ maxVisible: Number(document.getElementById('s-count').value) || 3 });
     studioEl.style.display = 'none';
+    document.getElementById('inspector').style.display = 'none';
     document.getElementById('panel').style.display = 'flex';
     resize();
     switchPack(studioSport);                   // 클리핑·카메라·시간 정상 복원
