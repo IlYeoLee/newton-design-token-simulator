@@ -12,7 +12,7 @@ import { WALL_Z } from './scene.js';
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
-export function createEditor3D({ dom, camera, controls, tokens, getDoc, onEdit, getScene, onSceneChange, onTool }) {
+export function createEditor3D({ dom, tokens, getCamera, getControls, getDoc, onEdit, getScene, onSceneChange, onTool }) {
   const ray = new THREE.Raycaster();
   const ndc = new THREE.Vector2();
   const hitW = new THREE.Vector3();
@@ -62,7 +62,7 @@ export function createEditor3D({ dom, camera, controls, tokens, getDoc, onEdit, 
   function setNdc(e) {
     const r = dom.getBoundingClientRect();
     ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
-    ray.setFromCamera(ndc, camera);
+    ray.setFromCamera(ndc, getCamera());
   }
 
   // ── 후보 수집: 팩(마커) / 장면(요소) 을 같은 형태로 ──
@@ -80,7 +80,7 @@ export function createEditor3D({ dom, camera, controls, tokens, getDoc, onEdit, 
   }
   const ASSIST_PX = 16;   // strict 미스 시 화면 반경 어시스트 (링 구멍·빈틈 클릭 구제)
   function screenPx(worldV, rect) {
-    const v = worldV.clone().project(camera);
+    const v = worldV.clone().project(getCamera());
     return { x: rect.left + (v.x * 0.5 + 0.5) * rect.width, y: rect.top + (-v.y * 0.5 + 0.5) * rect.height };
   }
   /** 커서 기준 정렬된 near-set: strict 히트(거리순) 뒤에 어시스트 후보(픽셀거리순) */
@@ -101,17 +101,20 @@ export function createEditor3D({ dom, camera, controls, tokens, getDoc, onEdit, 
     return [...strict, ...assist].map(x => x.c);
   }
   // 스택 순환: 같은 지점 재클릭 = 겹친 다음 요소
-  let lastClick = null;   // { x, y, sig, i }
+  let lastClick = null;   // { x, y, sig, t }
   function pickAt(e, sc, currentKey) {
     const list = pickList(e, sc);
     if (!list.length) { lastClick = null; return null; }
     const sig = list.map(c => c.kind + ':' + c.key).join('|');
     let i = 0;
+    const now = performance.now();
     if (lastClick && Math.hypot(e.clientX - lastClick.x, e.clientY - lastClick.y) < 8 && lastClick.sig === sig) {
       const cur = list.findIndex(c => c.key === currentKey);
-      i = cur >= 0 ? (cur + 1) % list.length : 0;
+      // 더블클릭(350ms 내)은 순환하지 않음 — 글자 진입용. 천천히 재클릭 = 겹침 순환.
+      if (now - lastClick.t < 350) i = Math.max(0, cur);
+      else i = cur >= 0 ? (cur + 1) % list.length : 0;
     }
-    lastClick = { x: e.clientX, y: e.clientY, sig, i };
+    lastClick = { x: e.clientX, y: e.clientY, sig, t: now };
     return list[i];
   }
 
@@ -138,7 +141,7 @@ export function createEditor3D({ dom, camera, controls, tokens, getDoc, onEdit, 
     grab(e);
   }
   function grab(e) {
-    controls.enabled = false;
+    getControls().enabled = false;
     try { dom.setPointerCapture(e.pointerId); } catch { /* 합성 이벤트(테스트)는 캡처 불가 */ }
     dom.style.cursor = 'grabbing';
   }
@@ -179,7 +182,7 @@ export function createEditor3D({ dom, camera, controls, tokens, getDoc, onEdit, 
     const wasScene = drag?.sceneKey != null;
     drag = null;
     if (wasScene) onSceneChange?.('end');
-    controls.enabled = true;
+    getControls().enabled = true;
     dom.style.cursor = '';
   }
 
@@ -272,6 +275,24 @@ export function createEditor3D({ dom, camera, controls, tokens, getDoc, onEdit, 
   dom.addEventListener('pointerdown', onDown);
   dom.addEventListener('pointermove', onMove);
   dom.addEventListener('pointerup', onUp);
+  // 더블클릭 = 묶음 요소의 글자 바로 편집 (피그마 더블클릭 진입의 등가물)
+  dom.addEventListener('dblclick', e => {
+    if (!enabled) return;
+    const sc = getScene?.();
+    if (!sc) return;
+    setNdc(e);
+    const hasText = o => {
+      let f = false;
+      o.traverse(c => { if (c.userData?.el?.type === 'text') f = true; });
+      return f;
+    };
+    // 커서 아래 후보 중 글자 보유 요소 우선 (TAP ×2 같은 묶음의 글자 직행)
+    const cand = pickList(e, sc).find(c => hasText(c.obj))
+      ?? (sc.scope.sel >= 0 ? { key: sc.scope.sel, obj: sc.session.sceneElements(sc.scope.stageId).find(x => x.i === sc.scope.sel)?.o } : null);
+    if (!cand?.obj || !hasText(cand.obj)) return;
+    if (sc.scope.sel !== cand.key) { sc.scope.pick(cand.key); ringAround(cand.obj, !!sc.scope.wall); }
+    onSceneChange?.('text');
+  });
 
   return {
     setTool: setToolFn,

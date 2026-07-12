@@ -110,9 +110,12 @@ export class LookPanel {
     this.lutBar.width = 512; this.lutBar.height = 18;
     this.lutBar.style.cssText = 'width:100%;height:14px;border-radius:7px;display:block;';
     el.appendChild(this.lutBar);
+    const stopsDet = document.createElement('details');
+    stopsDet.innerHTML = `<summary style="font-size:11.5px;color:var(--text);font-weight:600;cursor:pointer;padding:3px 0;">팔레트 스탑 (색·위치)</summary>`;
     this.stopsHost = document.createElement('div');
     this.stopsHost.style.cssText = 'display:flex;flex-direction:column;gap:2px;';
-    el.appendChild(this.stopsHost);
+    stopsDet.appendChild(this.stopsHost);
+    el.appendChild(stopsDet);
     this._buildStops();
 
     // ── 채도 ──
@@ -122,7 +125,7 @@ export class LookPanel {
     // ── 그룹 슬라이더 ──
     for (const gk of ['m', 'g', 's', 'p']) {
       const det = document.createElement('details');
-      det.open = gk === 'm';
+      det.open = false;
       det.innerHTML = `<summary style="font-size:11.5px;color:var(--text);font-weight:600;cursor:pointer;padding:3px 0;">${GROUP_LABEL[gk]}</summary>`;
       for (const [key, label, min, max, step] of SLIDERS[gk])
         det.appendChild(this._slider(label, min, max, step,

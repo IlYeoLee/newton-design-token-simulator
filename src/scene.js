@@ -234,7 +234,8 @@ export function createScene(container) {
 
   // ── 후처리: 블룸(마크·이펙트 발광) + 그레인·비네트 ─────
   const composer = new EffectComposer(renderer);
-  composer.addPass(new RenderPass(scene, camera));
+  const renderPass = new RenderPass(scene, camera);
+  composer.addPass(renderPass);
   const bloomPass = new UnrealBloomPass(
     new THREE.Vector2(container.clientWidth / 2, container.clientHeight / 2),
     FX.bloomStrength, FX.bloomRadius, FX.bloomThreshold);
@@ -271,5 +272,5 @@ export function createScene(container) {
     grid.position.z = snapped;
   }
 
-  return { renderer, scene, camera, controls, setPackEnvironment, resize, renderFrame, composer, setSurfaces, setDaylight, followFloor };
+  return { renderer, scene, camera, controls, setPackEnvironment, resize, renderFrame, composer, setSurfaces, setDaylight, followFloor, setRenderCamera: cam => { renderPass.camera = cam; } };
 }

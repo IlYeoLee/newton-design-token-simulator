@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { createScene, WALL_Z, FX } from './scene.js';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { TokenSystem, COLORS, TCFG } from './tokens.js';
 import { Effects } from './effects.js';
 import { XBot } from './xbot.js';
@@ -48,10 +49,18 @@ const state = {
 
 async function boot() {
   const stage = document.getElementById('stage');
-  const { renderer, scene, camera, controls, setPackEnvironment, resize, renderFrame, setSurfaces, setDaylight, followFloor } = createScene(stage);
+  const { renderer, scene, camera, controls, setPackEnvironment, resize, renderFrame, setSurfaces, setDaylight, followFloor, setRenderCamera } = createScene(stage);
 
   let sessionSkillSink = null;   // 슬라이더가 session 생성 전 초기 apply 시 TDZ 회피
   let refreshEditorStages = null; // switchPack → 에디터 스테이지 편집기 갱신 훅
+  // ── 직교 편집 카메라 — 편집은 정면(평면도/정면도)에서: 회전 없음, 팬/줌만 (피그마 모델) ──
+  const editCam = new THREE.OrthographicCamera(-5, 5, 5, -5, 0.1, 200);
+  const editControls = new OrbitControls(editCam, renderer.domElement);
+  editControls.enableRotate = false;
+  editControls.screenSpacePanning = true;
+  editControls.mouseButtons = { LEFT: THREE.MOUSE.PAN, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.PAN };
+  editControls.enabled = false;
+
   const effects = new Effects(scene);
   const tokens = new TokenSystem(scene, effects);
   const xbot = new XBot(scene);
@@ -1031,13 +1040,19 @@ async function boot() {
 
   // 에디터 v3 Phase A — 라이브 3D 뷰에서 직접 선택·드래그 (피그마 모델)
   const editor3d = createEditor3D({
-    dom: renderer.domElement, camera, controls, tokens,
+    dom: renderer.domElement, tokens,
+    getCamera: () => (studioActive ? editCam : camera),
+    getControls: () => (studioActive ? editControls : controls),
     getDoc: () => studioDoc,
     onEdit: () => scheduleStudioRebuild(),
     // 장면(컷) 스코프일 때 3D에서 세션 요소(글자·링·화살표…)를 직접 선택·드래그
     getScene: () => (studioActive && studioScope === 'scene' && sceneScope.stageId) ? { scope: sceneScope, session } : null,
     onSceneChange: (phase) => {
       if (phase !== 'drag') { renderScopeProps(); fillLayers(); }   // 드래그 중엔 패널 재렌더 생략
+      if (phase === 'text') {                    // 더블클릭 = 글자 바로 편집
+        const t = document.getElementById('sc-text');
+        if (t) { t.focus(); t.select(); }
+      }
     },
   });
 
@@ -1062,22 +1077,42 @@ async function boot() {
     studioRebuildTimer = setTimeout(() => { if (studioDoc) rebuildPack(studioSport, studioDoc.toPack()); }, 110);
   }
 
-  function studioTopView() {
-    if (studioSport === 'boxing') {
-      // 벽면 정면 뷰
-      camera.position.set(0.9, 1.5, 2.2);
-      controls.target.set(0, 1.1, -2.6);
-    } else if (studioScope === 'scene') {
-      // 장면 컷 편집 = 준-직하 탑뷰 — 지면 요소를 평면도처럼 (피그마 정면 편집)
-      camera.position.set(0.5, 7.6, 0.6);
-      controls.target.set(0.5, 0, -1.6);
+  /** 직교 정면 프레이밍 — 바닥=평면도(화면 위=전방), 벽=정면도. 회전 없음. */
+  function frameEditView() {
+    const wallMode = (studioScope === 'scene') ? !!sceneScope.wall : studioSport === 'boxing';
+    const aspect = window.innerWidth / window.innerHeight;
+    let halfH, halfW;
+    if (wallMode) {
+      const wc = rig._wallCenter || { cx: 0, cy: 1.4 };
+      const w = rig.wallW || 3.4, h = rig.wallH || 2.4;
+      halfH = Math.max(h / 2 + 0.4, (w / 2 + 0.6) / aspect);
+      halfW = halfH * aspect;
+      const shift = (200 * 2 * halfW) / window.innerWidth;   // 좌측 드로어(400px) 만큼 콘텐츠를 우측 가시영역 중앙으로
+      editCam.up.set(0, 1, 0);
+      editCam.position.set(wc.cx - shift, wc.cy, WALL_Z + 40);
+      editControls.target.set(wc.cx - shift, wc.cy, WALL_Z);
     } else {
-      // 3/4 버드아이 — 좌측 스튜디오 패널을 피해 트랙이 우측 3D에 또렷이 들어오게.
-      camera.position.set(-4.4, 3.4, 3.6);
-      controls.target.set(0.8, 0, -2.6);
+      const box = new THREE.Box3();
+      if (studioScope === 'scene' && sceneScope.stageId) {
+        for (const { o } of session.sceneElements(sceneScope.stageId)) if (o.visible) box.expandByObject(o);
+      } else box.setFromObject(tokens.floorRoot);
+      if (box.isEmpty()) { box.min.set(-2, 0, -5); box.max.set(2, 0, 1); }
+      const c = box.getCenter(new THREE.Vector3());
+      const size = box.getSize(new THREE.Vector3());
+      halfH = Math.max(size.z / 2 + 1, (size.x / 2 + 1) / aspect, 2.2);
+      halfW = halfH * aspect;
+      const shift = (200 * 2 * halfW) / window.innerWidth;
+      editCam.up.set(0, 0, -1);                              // 화면 위 = 전방(-Z) — 러너 진행 방향
+      editCam.position.set(c.x - shift, 40, c.z);
+      editControls.target.set(c.x - shift, 0, c.z);
     }
-    controls.update();
+    editCam.left = -halfW; editCam.right = halfW; editCam.top = halfH; editCam.bottom = -halfH;
+    editCam.zoom = 1;
+    editCam.updateProjectionMatrix();
+    editControls.update();
   }
+  const studioTopView = frameEditView;   // 기존 호출부 호환
+  window.addEventListener('resize', () => { if (studioActive) frameEditView(); });
 
   // ── 스코프: [토큰] = 팩 MARK / [장면] = 스테이지 GUI 요소 ──
   // 진입점·캔버스·속성 패널은 하나. 스코프가 '무엇을 편집 중인가'만 바꾼다.
@@ -1260,6 +1295,9 @@ async function boot() {
     studioDoc.onChange((d, reason) => { if (['select', 'load', 'remove', 'add', 'undo', 'redo'].includes(reason)) editor3d.syncSelection(); });
     editor3d.setEnabled(true);
     stageDark?.enter();                        // 편집 = 통제된 다크 스테이지 (가산광 전제)
+    setRenderCamera(editCam);                  // 편집 = 직교 정면 뷰 (회전 없음, 팬/줌만)
+    controls.enabled = false;
+    editControls.enabled = true;
     bgPreviewOn = false; syncBgPreviewBtn();
     rebuildPack(studioSport, studioDoc.toPack());        // layoutPreview 반영 리빌드(클리핑 해제)
     studioScope = 'pack';
@@ -1296,6 +1334,9 @@ async function boot() {
     studioActive = false;
     editor3d.setEnabled(false);
     stageDark?.exit();
+    setRenderCamera(camera);
+    editControls.enabled = false;
+    controls.enabled = true;
     if (studioScope === 'scene') sceneScope.leave();   // 스테이지 프리뷰 해제
     studioScope = 'pack';
     studioCanvas?.destroy(); studioCanvas = null;
@@ -1647,7 +1688,8 @@ async function boot() {
   });
 
   if (import.meta.env.DEV) window.__dbg = {
-    rig, xbot, state, session, sceneScope, camera, controls, tokens, effects, scene, editor3d, sceneUI, FXP, designStore, TCFG,
+    rig, xbot, state, session, sceneScope, camera, controls, tokens, effects, scene, editor3d, sceneUI, FXP, designStore, TCFG, editCam, editControls,
+    get activeCam() { return studioActive ? editCam : camera; },
     get doc() { return studioDoc; },
     get canvas() { return studioCanvas; },
     get scope() { return studioScope; },

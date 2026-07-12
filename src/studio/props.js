@@ -23,7 +23,7 @@ export class StudioProps {
     this._renderedId = undefined;
     this._renderedMode = undefined;
     this.showAdv = false;
-    this.mode = opts.startMode || 'code';   // 유저 선택: 라이브 코드 창 기본
+    this.mode = opts.startMode || 'easy';   // 기본 = 쉬움(슬라이더+미리보기) — 코드 창은 토글로
     this._unsub = doc.onChange((d, reason) => {
       if (this._selfEdit) return;
       if (this.doc.selection !== this._renderedId || this.mode !== this._renderedMode || ['load', 'remove', 'add'].includes(reason)) this.render();
