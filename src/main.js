@@ -56,12 +56,12 @@ async function boot() {
   const ghost = new WallGhost(scene);
   const judge = new Judge();
 
-  // 판정 색상 피드백: hit 초록 / near 앰버 / miss 레드 — 마커 링 + 실제 착지점 도트
+  // 판정 색상 피드백: 착지점 도트만 (프리즘/샌드/무음 그레이).
+  // 판정 버스트는 제거 — 마크 발화 버스트와 이중 발사였고, t=0 이벤트의 판정이
+  // 랩 직후 확정되며 매 루프 화면 번쩍임을 만들던 진범.
   judge.onVerdict = (ev, verdict, best) => {
-    const col = verdict === 'hit' ? 0xd1feff : verdict === 'near' ? 0xfec389 : 0x9b9b9b; // 프리즘/샌드/무음 그레이
-    const pos = ev.marker.group.getWorldPosition(new THREE.Vector3());
+    const col = verdict === 'hit' ? 0xd1feff : verdict === 'near' ? 0xfec389 : 0x9b9b9b;
     const n = ev.surface === 'wall' ? new THREE.Vector3(0, 0, 1) : new THREE.Vector3(0, 1, 0);
-    effects.burst(pos, col, n);
     if (best) {
       const dotPos = ev.surface === 'wall'
         ? new THREE.Vector3(best.px, best.p2, WALL_Z + 0.03)

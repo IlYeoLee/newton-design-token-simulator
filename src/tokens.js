@@ -837,6 +837,9 @@ export class TokenSystem {
   }
 
   _fire(ev) {
+    // 루프 시작 순간(t≈0) 이벤트는 랩 아티팩트 — 매 루프 화면이 번쩍이므로 버스트 억제
+    // (마크 자체의 잔상·판정은 그대로, 폭발 이펙트만 생략)
+    const wrapArtifact = ev.t < 0.15;
     const pos = ev.marker
       ? ev.marker.group.getWorldPosition(new THREE.Vector3())
       : new THREE.Vector3();
@@ -854,7 +857,7 @@ export class TokenSystem {
       opts.forward = true;
       pos.z -= 0.18;   // 반파 중심을 살짝 전방으로 — 빔 안에서 사는 시간 확보
     }
-    this.effects.burst(pos, ev.color, normal, opts);
+    if (!wrapArtifact) this.effects.burst(pos, ev.color, normal, opts);
     if (this.onEvent) this.onEvent(ev);
   }
 
