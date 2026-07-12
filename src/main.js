@@ -18,6 +18,7 @@ import { initBudgetPanel } from './budgetPanel.js';
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { getLUT, FXP, rebuildLUT } from './fxlut.js';
 import { createEditor3D } from './editor3d.js';
+import { SceneUI } from './sceneui.js';
 
 const BASE = import.meta.env.BASE_URL;
 const PACK_FILES = {
@@ -56,6 +57,9 @@ async function boot() {
   const rig = new ProjectorRig(scene, xbot);
   const ghost = new WallGhost(scene);
   const judge = new Judge();
+  // 장면 UI 시스템 — 타이틀·지시문·상태의 고정 슬롯 (풋프린트-상대 + 클리핑)
+  const sceneUI = new SceneUI(scene, WALL_Z);
+  sceneUI.setClip(rig.floorClip, rig.wallClip);
 
   // 판정 색상 피드백: 착지점 도트만 (프리즘/샌드/무음 그레이).
   // 판정 버스트는 제거 — 마크 발화 버스트와 이중 발사였고, t=0 이벤트의 판정이
@@ -242,6 +246,11 @@ async function boot() {
     panel.setPack(data, tokens.events);
     tokens.resetLoop();
     lastBodyZ = 0;
+
+    // 장면 UI 시스템: PRIME 면 재규정 + 타이틀 슬롯 (복싱만 벽이 PRIME)
+    sceneUI.setSport(data.sport, data.sport === 'boxing');
+    sceneUI.setTitle(`NEWTON · ${({ running: '러닝', boxing: '복싱', basketball: '농구' })[data.sport] || data.sport}`);
+    sceneUI.setStatus('');
 
     // 세션 가용성 표시 — 러닝·농구·복싱 지원
     const availEl = document.getElementById('session-avail');
@@ -605,6 +614,7 @@ async function boot() {
     wearTimer = setTimeout(() => { wearFxEl.style.opacity = '0'; }, ms);
   }
   function showCaption(who, text) {
+    sceneUI.setInstruction(text);   // 지시문 슬롯 — PRIME 면 텍스트 밴드 중앙 (장면 UI 시스템)
     if (!captionEl) return;
     captionEl.innerHTML = `<b>🔊 ${who}</b> · ${text}`;
     captionEl.style.opacity = '1';
@@ -625,6 +635,7 @@ async function boot() {
     if (sessionStageEl) sessionStageEl.innerHTML = html;
     if (hudStageEl) hudStageEl.innerHTML = html;
     if (hudIdxEl) hudIdxEl.textContent = `${session.stageIdx + 1} / ${session.total}`;
+    sceneUI.setStatus(st.label);   // 상태 슬롯 — 텍스트 밴드 우측 (장면 UI 시스템)
     veil();  // 단계 전환 암전 (끊김 → 의도된 전환으로)
     if (st.voice) { showCaption(st.voice[0], st.voice[1]); speak(st.voice[0], st.voice[1], st.id); }
     if (st.wear) {
@@ -673,6 +684,8 @@ async function boot() {
     sessionBtn.textContent = '세션 시작 (1인칭 전환)';
     if (sessionStageEl) sessionStageEl.textContent = '—';
     if (sessionHud) sessionHud.style.display = 'none';
+    sceneUI.setStatus('');
+    sceneUI.setInstruction('');
     setFp(false);           // 중단 → X봇 3인칭 복귀
   }
   // ── 데모 투어: 러닝→복싱→농구 자동 순회 (영상 녹화용) ──
@@ -1489,7 +1502,7 @@ async function boot() {
   });
 
   if (import.meta.env.DEV) window.__dbg = {
-    rig, xbot, state, session, sceneScope, camera, controls, tokens, effects, scene, editor3d,
+    rig, xbot, state, session, sceneScope, camera, controls, tokens, effects, scene, editor3d, sceneUI,
     get doc() { return studioDoc; },
     get canvas() { return studioCanvas; },
     get scope() { return studioScope; },
@@ -1674,6 +1687,7 @@ async function boot() {
 
     // 1인칭에서만 OrbitControls 스킵 — 세션 3인칭에선 자유 회전 허용
     if (!fpMode) controls.update();
+    sceneUI.update(rawDt, rig);       // 장면 UI 슬롯 — 풋프린트 추종 재배치 + 페이드
     renderGhostLayer();
     renderFrame(clock.elapsedTime);   // 블룸 + 그레인·비네트 컴포저 (scene.js FX)
   }
