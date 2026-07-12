@@ -186,7 +186,7 @@ export class StudioProps {
     const grad = d.fill.type !== 'solid';
 
     this.el.innerHTML = `
-      <div class="pr-scroll" style="padding:12px 14px;overflow-y:auto;max-height:380px;font-size:12px;">
+      <div class="pr-scroll" style="padding:12px 14px;font-size:12px;">
         ${this._header(m)}
 
         <div style="color:var(--dim);margin-bottom:5px;">모양</div>
