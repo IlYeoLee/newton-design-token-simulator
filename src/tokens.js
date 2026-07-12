@@ -306,11 +306,17 @@ class Marker {
   /** 에디터 v3: 3D 직접 선택 윤곽 (흰 링 — 피그마 선택 박스의 투사면 등가물) */
   setSelected(on) {
     if (on && !this.sel) {
-      this.sel = new THREE.Mesh(
-        new THREE.RingGeometry(this.radius * 1.32, this.radius * 1.44, 48),
-        new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9, depthWrite: false, side: THREE.DoubleSide }));
+      // 2톤(흰 코어 + 다크 림) — 주간·실물 배경에서도 보이는 선택 윤곽
+      this.sel = new THREE.Group();
+      const ring = (r0, r1, color, op, order) => {
+        const m = new THREE.Mesh(new THREE.RingGeometry(r0, r1, 48),
+          new THREE.MeshBasicMaterial({ color, transparent: true, opacity: op, depthWrite: false, side: THREE.DoubleSide }));
+        m.renderOrder = order;
+        return m;
+      };
+      this.sel.add(ring(this.radius * 1.44, this.radius * 1.58, 0x0c0e12, 0.85, 6));
+      this.sel.add(ring(this.radius * 1.32, this.radius * 1.44, 0xffffff, 0.95, 7));
       this.sel.position.z = 0.005;
-      this.sel.renderOrder = 7;
       this.group.add(this.sel);
     }
     if (this.sel) this.sel.visible = !!on;

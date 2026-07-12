@@ -19,30 +19,43 @@ export function createEditor3D({ dom, camera, controls, tokens, getDoc, onEdit, 
   let drag = null;          // 팩: { id, surface, foot, plane, parent } / 장면: { sceneKey, obj, plane, wall }
   let emptyDown = null;     // 빈 곳 클릭 시작점 — 이동 없이 떼면 선택 해제
 
-  // 장면 요소 선택 링 (요소 크기에 맞춰 스케일)
-  let sceneRing = null;
+  // 장면 요소 선택 링 — 2톤(안 흰 / 밖 다크): 어떤 배경(주간·실물 확인)에서도 보임
+  let sceneRing = null, hoverRing = null;
+  function makeRing(inner, outer, color, opacity, order) {
+    const m = new THREE.Mesh(
+      new THREE.RingGeometry(inner, outer, 48),
+      new THREE.MeshBasicMaterial({ color, transparent: true, opacity, depthWrite: false, side: THREE.DoubleSide }));
+    m.renderOrder = order;
+    return m;
+  }
   function ensureRing() {
     if (sceneRing) return sceneRing;
-    sceneRing = new THREE.Mesh(
-      new THREE.RingGeometry(1.0, 1.09, 48),
-      new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9, depthWrite: false, side: THREE.DoubleSide }));
-    sceneRing.renderOrder = 8;
+    sceneRing = new THREE.Group();
+    sceneRing.add(makeRing(1.10, 1.24, 0x0c0e12, 0.85, 8));   // 다크 컨트라스트
+    sceneRing.add(makeRing(1.00, 1.10, 0xffffff, 0.95, 9));   // 흰 코어
     sceneRing.visible = false;
-    tokens.root.parent?.add(sceneRing) ?? tokens.root.add(sceneRing);
+    (tokens.root.parent || tokens.root).add(sceneRing);
     return sceneRing;
   }
-  function ringAround(obj, wall) {
-    const r = ensureRing();
+  function ensureHover() {
+    if (hoverRing) return hoverRing;
+    hoverRing = makeRing(1.0, 1.07, 0xffffff, 0.3, 8);
+    hoverRing.visible = false;
+    (tokens.root.parent || tokens.root).add(hoverRing);
+    return hoverRing;
+  }
+  function placeRing(r, obj, wall) {
     const box = new THREE.Box3().setFromObject(obj);
     if (box.isEmpty()) { r.visible = false; return; }
     const c = box.getCenter(new THREE.Vector3());
-    const s = box.getSize(new THREE.Vector3());
-    const rad = Math.max(0.12, Math.hypot(wall ? s.x : s.x, wall ? s.y : s.z) * 0.62);
+    const sz = box.getSize(new THREE.Vector3());
+    const rad = Math.max(0.12, Math.hypot(sz.x, wall ? sz.y : sz.z) * 0.62);
     r.scale.setScalar(rad);
     if (wall) { r.rotation.set(0, 0, 0); r.position.set(c.x, c.y, c.z + 0.03); }
     else { r.rotation.set(-Math.PI / 2, 0, 0); r.position.set(c.x, Math.max(0.016, box.min.y + 0.004), c.z); }
     r.visible = true;
   }
+  function ringAround(obj, wall) { placeRing(ensureRing(), obj, wall); }
 
   function setNdc(e) {
     const r = dom.getBoundingClientRect();
@@ -50,26 +63,54 @@ export function createEditor3D({ dom, camera, controls, tokens, getDoc, onEdit, 
     ray.setFromCamera(ndc, camera);
   }
 
-  // ── 팩 토큰 픽 ──
-  function pickPack(e) {
-    let best = null;
-    for (const ev of tokens.events) {
-      if (!ev.marker || ev.srcToken?._docId == null || !ev.marker.group.visible) continue;
-      const hit = ray.intersectObject(ev.marker.fx, false)[0];
-      if (hit && (!best || hit.distance < best.d)) best = { d: hit.distance, ev };
+  // ── 후보 수집: 팩(마커) / 장면(요소) 을 같은 형태로 ──
+  function candidates(sc) {
+    const out = [];
+    if (sc) {
+      for (const { i, o } of sc.session.sceneElements(sc.scope.stageId))
+        if (o.visible) out.push({ kind: 'scene', key: i, obj: o, hitObj: o, recursive: true });
+    } else {
+      for (const ev of tokens.events)
+        if (ev.marker && ev.srcToken?._docId != null && ev.marker.group.visible)
+          out.push({ kind: 'pack', key: ev.srcToken._docId, obj: ev.marker.group, hitObj: ev.marker.fx, recursive: false, ev });
     }
-    return best?.ev || null;
+    return out;
   }
-
-  // ── 장면 요소 픽 (글자·링·화살표·발… — 그룹 재귀) ──
-  function pickScene(e, sc) {
-    let best = null;
-    for (const { i, o } of sc.session.sceneElements(sc.scope.stageId)) {
-      if (!o.visible) continue;
-      const hit = ray.intersectObject(o, true)[0];
-      if (hit && (!best || hit.distance < best.d)) best = { d: hit.distance, key: i, obj: o };
+  const ASSIST_PX = 16;   // strict 미스 시 화면 반경 어시스트 (링 구멍·빈틈 클릭 구제)
+  function screenPx(worldV, rect) {
+    const v = worldV.clone().project(camera);
+    return { x: rect.left + (v.x * 0.5 + 0.5) * rect.width, y: rect.top + (-v.y * 0.5 + 0.5) * rect.height };
+  }
+  /** 커서 기준 정렬된 near-set: strict 히트(거리순) 뒤에 어시스트 후보(픽셀거리순) */
+  function pickList(e, sc) {
+    const rect = dom.getBoundingClientRect();
+    const cands = candidates(sc);
+    const strict = [], assist = [];
+    for (const c of cands) {
+      const hit = ray.intersectObject(c.hitObj, c.recursive)[0];
+      if (hit) { strict.push({ c, d: hit.distance }); continue; }
+      const center = new THREE.Box3().setFromObject(c.obj).getCenter(new THREE.Vector3());
+      const px = screenPx(center, rect);
+      const dpx = Math.hypot(px.x - e.clientX, px.y - e.clientY);
+      if (dpx <= ASSIST_PX) assist.push({ c, d: dpx });
     }
-    return best;
+    strict.sort((a, b) => a.d - b.d);
+    assist.sort((a, b) => a.d - b.d);
+    return [...strict, ...assist].map(x => x.c);
+  }
+  // 스택 순환: 같은 지점 재클릭 = 겹친 다음 요소
+  let lastClick = null;   // { x, y, sig, i }
+  function pickAt(e, sc, currentKey) {
+    const list = pickList(e, sc);
+    if (!list.length) { lastClick = null; return null; }
+    const sig = list.map(c => c.kind + ':' + c.key).join('|');
+    let i = 0;
+    if (lastClick && Math.hypot(e.clientX - lastClick.x, e.clientY - lastClick.y) < 8 && lastClick.sig === sig) {
+      const cur = list.findIndex(c => c.key === currentKey);
+      i = cur >= 0 ? (cur + 1) % list.length : 0;
+    }
+    lastClick = { x: e.clientX, y: e.clientY, sig, i };
+    return list[i];
   }
 
   function beginPackDrag(ev, e) {
@@ -144,22 +185,20 @@ export function createEditor3D({ dom, camera, controls, tokens, getDoc, onEdit, 
     if (!enabled || e.button !== 0) return;
     setNdc(e);
     const sc = getScene?.();
-    if (sc) {
-      const hit = pickScene(e, sc);
-      if (hit) {
+    const currentKey = sc ? sc.scope.sel : getDoc()?.selection;
+    const hit = pickAt(e, sc, currentKey);
+    if (hit) {
+      if (hoverRing) hoverRing.visible = false;
+      if (hit.kind === 'scene') {
         sc.scope.pick(hit.key);
         ringAround(hit.obj, !!sc.scope.wall);
         onSceneChange?.('pick');
-        beginSceneDrag(hit, e, sc);
-        return;
+        beginSceneDrag({ key: hit.key, obj: hit.obj }, e, sc);
+      } else {
+        getDoc()?.select(hit.key);
+        beginPackDrag(hit.ev, e);
       }
-    } else {
-      const ev = pickPack(e);
-      if (ev) {
-        getDoc()?.select(ev.srcToken._docId);
-        beginPackDrag(ev, e);
-        return;
-      }
+      return;
     }
     emptyDown = { x: e.clientX, y: e.clientY };
   }
@@ -169,7 +208,12 @@ export function createEditor3D({ dom, camera, controls, tokens, getDoc, onEdit, 
     if (e.buttons) return;                       // 궤도 회전 중 — 호버 검사 생략
     setNdc(e);
     const sc = getScene?.();
-    dom.style.cursor = (sc ? pickScene(e, sc) : pickPack(e)) ? 'grab' : '';
+    const over = pickList(e, sc)[0] || null;
+    dom.style.cursor = over ? 'grab' : '';
+    // 호버 프리하이라이트 — 무엇이 잡힐지 미리 보여줌 (선택과 동일 대상이면 생략)
+    const currentKey = sc ? sc.scope.sel : getDoc()?.selection;
+    if (over && over.key !== currentKey) placeRing(ensureHover(), over.obj, sc ? !!sc.scope.wall : over.ev?.surface === 'wall');
+    else if (hoverRing) hoverRing.visible = false;
   }
   function onUp(e) {
     if (!enabled) return;
@@ -189,7 +233,7 @@ export function createEditor3D({ dom, camera, controls, tokens, getDoc, onEdit, 
   return {
     setEnabled(on) {
       enabled = !!on;
-      if (!on) { if (drag) endDrag(); dom.style.cursor = ''; }
+      if (!on) { if (drag) endDrag(); dom.style.cursor = ''; if (hoverRing) hoverRing.visible = false; }
       this.syncSelection();
     },
     /** 선택 ↔ 3D 윤곽 동기 (선택 변경·리빌드·스코프 전환 후 호출) */
