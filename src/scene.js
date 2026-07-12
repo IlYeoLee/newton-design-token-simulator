@@ -264,5 +264,12 @@ export function createScene(container) {
   }
   window.addEventListener('resize', resize);
 
-  return { renderer, scene, camera, controls, setPackEnvironment, resize, renderFrame, composer, setSurfaces, setDaylight };
+  // 무한 지면: 바닥·그리드를 기준점 따라 텍스처 주기(2m) 스냅 이동 — 패턴 연속이라 눈에 안 보임
+  function followFloor(z) {
+    const snapped = Math.round(z / 2) * 2;
+    floor.position.z = snapped;
+    grid.position.z = snapped;
+  }
+
+  return { renderer, scene, camera, controls, setPackEnvironment, resize, renderFrame, composer, setSurfaces, setDaylight, followFloor };
 }

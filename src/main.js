@@ -45,7 +45,7 @@ const state = {
 
 async function boot() {
   const stage = document.getElementById('stage');
-  const { renderer, scene, camera, controls, setPackEnvironment, resize, renderFrame, setSurfaces, setDaylight } = createScene(stage);
+  const { renderer, scene, camera, controls, setPackEnvironment, resize, renderFrame, setSurfaces, setDaylight, followFloor } = createScene(stage);
 
   let sessionSkillSink = null;   // 슬라이더가 session 생성 전 초기 apply 시 TDZ 회피
   let refreshEditorStages = null; // switchPack → 에디터 스테이지 편집기 갱신 훅
@@ -113,7 +113,7 @@ async function boot() {
     onCount: v => tokens.setParams({ maxVisible: v }),
     onSpeed: v => { state.speed = v; },
     onTogglePlay: () => { state.playing = !state.playing; panel.setPlaying(state.playing); },
-    onSeek: t => { state.time = t; tokens.resetLoop(); markFiredBefore(t); },
+    onSeek: t => { state.time = t; state.loop = 0; tokens.loopShiftZ = 0; tokens.resetLoop(); markFiredBefore(t); },
   });
 
   // 데이터 + X Bot + 고스트 포즈 병렬 로드
@@ -201,6 +201,8 @@ async function boot() {
     if (typeof stopSession === 'function') stopSession();  // 팩 전환 시 세션 종료
     state.pack = p;
     state.time = 0;
+    state.loop = 0;
+    tokens.loopShiftZ = 0;
     const data = state.packs[p];
     tokens.setPack(data);
     xbot.setPack(data, tokens.events);
@@ -1392,12 +1394,20 @@ async function boot() {
     if (state.time >= data.duration) {
       state.time %= data.duration;
       tokens.resetLoop();
-      rig.resetOmega();   // 되감기 = 포즈 순간이동. ω 미분을 한 샘플 건너뛴다
-
+      if (data.sport === 'running') {
+        // 심리스 루프: 러너는 계속 전진, 마크 필드가 다음 구간으로 이동 — 텔레포트 없음
+        state.loop = (state.loop || 0) + 1;
+        tokens.loopShiftZ = -2.5 * data.duration * state.loop;
+      } else {
+        rig.resetOmega();   // 되감기 = 포즈 순간이동. ω 미분을 한 샘플 건너뛴다
+      }
       renderReport(judge.finishLoop());   // 세션 리포트 (문서 03 루프)
     }
     tokens.update(state.time, h);
-    xbot.update(state.time, h);
+    // 러닝: 봇은 연속 시간으로 구동 (z = -V·t 영원히 전진, 클립 위상은 % 주기라 동일)
+    const xbotT = data.sport === 'running' ? state.time + (state.loop || 0) * data.duration : state.time;
+    xbot.update(xbotT, h);
+    if (data.sport === 'running') followFloor(xbot.group.position.z);
     rig.update(state.time, h);
     tokens.setShake(rig.shake.x, rig.shake.y);
     if (ghostMixer && ghostLayer?.visible) ghostMixer.update(h);

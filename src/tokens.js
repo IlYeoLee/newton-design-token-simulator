@@ -739,7 +739,7 @@ export class TokenSystem {
   /** 무릎 투사 흔들림 오프셋 — 바닥 토큰 전체에 적용 */
   setShake(dx, dz) {
     this.floorRoot.position.x = dx;
-    this.floorRoot.position.z = dz;
+    this.floorRoot.position.z = dz + (this.loopShiftZ || 0);   // 심리스 루프: 마크 필드 전체 이동
   }
 
   update(now, dt) {
