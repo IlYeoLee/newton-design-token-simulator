@@ -254,6 +254,27 @@ async function boot() {
 
   // ── 시야 콘 (자연 시선, 조절 가능) ──────────────
   let gazePitch = THREE.MathUtils.degToRad(-18);
+  // ── 세션 단계별 시선 각도 (문헌 도출) ─────────────────────────
+  // 근거: ①Matthis·Yates·Hayhoe 2018(Current Biology) — 보행자는 약 2보 앞(~1.5s 시간창)을
+  //   응시. 평지+가이드에선 더 멀리 → 실전 C = -18°(낙하점 ~5m, 안정 시선 10–20° 하향 범위).
+  // ②시각 인간공학(ISO 9241 계열) — 지속 주시 편안 범위 수평 아래 0–35°, 지속 목 굴곡은
+  //   ~20° 이내 권장, 단시간 깊은 굴곡은 허용 → 학습 단계만 깊게, 실전은 얕게.
+  // ③학습자는 발 근처를 봄(novice 근거리 주시): 익히기 B = -38°(낙하점 ≈2.1m, 마크 시인),
+  //   스트레칭 A = -42°(발 앞 ~1.8m 마크, 동작 10초 단위라 지속 굴곡 아님), 전환 T = -30°.
+  const STAGE_GAZE_DEG = { A: -42, B: -38, T: -30, C: -18 };
+  function sessionGazeTarget() {
+    const id = session.curStage?.id || '';
+    return STAGE_GAZE_DEG[id[0]] ?? -30;   // READY/FIN 등 = 중간값
+  }
+  function updateSessionGaze(h) {
+    // 단계별 시선 각도로 부드럽게 (τ=0.9s) — 수동 슬라이더는 세션 밖에서만
+    const tgt = THREE.MathUtils.degToRad(sessionGazeTarget());
+    gazePitch += (tgt - gazePitch) * (1 - Math.exp(-h / 0.9));
+    const sl = document.getElementById('s-pitch'), lb = document.getElementById('v-pitch');
+    const deg = Math.round(THREE.MathUtils.radToDeg(gazePitch));
+    if (sl) sl.value = deg;
+    if (lb) lb.textContent = `${deg}°`;
+  }
   const FOV_V = THREE.MathUtils.degToRad(60);  // 인간 유효 수직 시야
   const coneGeo = new THREE.BufferGeometry();
   coneGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(24 * 3), 3));
@@ -1382,6 +1403,7 @@ async function boot() {
     // 세션 비실전 단계: 팩 시간 정지, 봇은 단계별 동작을 제자리 시연(코치)
     if (session.active && !session.isLive) {
       session.update(h);
+      updateSessionGaze(h);
       state.time = 0;
       tokens.update(0, 0);
       xbot.playDemo(demoClipFor(session.sport, session.stage), h);
@@ -1389,7 +1411,10 @@ async function boot() {
       tokens.setShake(rig.shake.x, rig.shake.y);
       return;
     }
-    if (session.active) session.update(h);
+    if (session.active) {
+      session.update(h);
+      updateSessionGaze(h);
+    }
     state.time += h;
     if (state.time >= data.duration) {
       state.time %= data.duration;
