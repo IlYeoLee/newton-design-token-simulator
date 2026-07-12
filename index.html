@@ -312,7 +312,6 @@
         <button class="stsp" data-sport="basketball" style="padding:5px 9px;border:1px solid var(--line);border-radius:5px;background:var(--panel2);color:var(--text);font-size:10.5px;cursor:pointer;">농구</button>
         <button id="studio-bgpreview" style="margin-left:auto;padding:5px 9px;border:1px solid var(--line);border-radius:5px;background:var(--panel2);color:var(--dim);font-size:10.5px;cursor:pointer;" title="편집은 다크 스테이지 위에서 — 실물(주간/바닥 테마) 배경을 잠깐 켜서 확인">☀️ 실물 확인</button>
         <button id="studio-look" style="padding:5px 10px;border:1px solid #fec389;border-radius:5px;background:rgba(254,195,137,.12);color:#fec389;font-size:10.5px;font-weight:700;cursor:pointer;">🔥 룩</button>
-        <button id="studio-settings" style="padding:5px 9px;border:1px solid var(--line);border-radius:5px;background:var(--panel2);color:var(--dim);font-size:10.5px;cursor:pointer;">⚙ 설정</button>
       </div>
       <div id="cut-board" style="display:flex;gap:6px;padding:8px 12px;border-bottom:1px solid var(--line);overflow-x:auto;scrollbar-width:thin;"></div>
       <select id="studio-stage" style="display:none;"></select>
@@ -347,41 +346,6 @@
       </div>
     </div>
 
-    <!-- 전역 설정 드로어 — ✎ 디자인 안의 ⚙ 설정에서 연다 (전역=기본값) -->
-    <div id="editor" style="position:absolute;top:0;right:0;bottom:0;width:330px;background:rgba(14,17,22,.97);border-left:1px solid var(--line);z-index:30;display:none;overflow-y:auto;padding:16px;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-        <b style="font-size:13px;">🎛 토큰 에디터 — 라이브</b>
-        <button id="editor-close" style="border:none;background:none;color:var(--dim);font-size:16px;cursor:pointer;">✕</button>
-      </div>
-      <p style="font-size:11px;color:var(--dim);line-height:1.5;margin-bottom:12px;">모든 값이 즉시 화면에 반영됩니다. 규칙·시나리오는 <a href="#" id="ed-open-doc" style="color:var(--accent)">디자인 문서</a> 참조.</p>
-
-      <div style="font-size:11px;font-weight:700;color:var(--dim);letter-spacing:1px;margin:16px 0 8px;">팔레트 (색=상태)</div>
-      <div id="ed-colors"></div>
-
-      <div style="font-size:11px;font-weight:700;color:var(--dim);letter-spacing:1px;margin:16px 0 8px;">세션 타이밍 (초)</div>
-      <div id="ed-timings"></div>
-      <p style="font-size:10px;color:var(--dim);margin-top:6px;">세션 진행 중에도 즉시 적용 — 박자를 바꾸면 링 수축·카운트가 그 자리에서 바뀝니다.</p>
-
-      <div style="font-size:11px;font-weight:700;color:var(--dim);letter-spacing:1px;margin:16px 0 8px;">토큰 지오메트리·상태</div>
-      <div id="ed-geom"></div>
-      <p style="font-size:10px;color:var(--dim);margin-top:6px;">마크 크기·채움·프리뷰 윤곽·수축 링·성공 잔상 — 실전 토큰에 즉시 반영.</p>
-
-      <div style="font-size:11px;font-weight:700;color:var(--dim);letter-spacing:1px;margin:16px 0 8px;">스테이지 타임라인 <span id="ed-stage-sport" style="color:var(--accent);font-weight:400"></span></div>
-      <div id="ed-stages" style="max-height:240px;overflow-y:auto;border:1px solid var(--line);border-radius:6px;padding:6px;"></div>
-      <p style="font-size:10px;color:var(--dim);margin-top:6px;">지속시간·멘트 편집 → 즉시 적용. 멘트를 바꾸면 <b style="color:var(--text)">🔊 재생성 필요</b> 표시(음성 mp3는 로컬 스크립트로).</p>
-
-      <div style="font-size:11px;font-weight:700;color:var(--dim);letter-spacing:1px;margin:16px 0 8px;">에셋 (형태)</div>
-      <p style="font-size:11px;color:var(--dim);line-height:1.5;">PNG/SVG를 화면에 드롭 → 좌측 <b style="color:var(--text)">제작자 모드</b> 대상에 적용.</p>
-
-      <div style="font-size:11px;font-weight:700;color:var(--dim);letter-spacing:1px;margin:16px 0 8px;">프리셋 · 내보내기</div>
-      <div style="display:flex;gap:6px;margin-bottom:6px;">
-        <button id="ed-save" style="flex:1;padding:8px 0;border:1px solid var(--line);border-radius:7px;background:var(--panel2);color:var(--text);font-size:12px;cursor:pointer;">💾 프리셋 저장(.json)</button>
-        <button id="ed-load" style="flex:1;padding:8px 0;border:1px solid var(--line);border-radius:7px;background:var(--panel2);color:var(--text);font-size:12px;cursor:pointer;">📂 불러오기</button>
-        <input type="file" id="ed-file" accept="application/json" style="display:none;">
-      </div>
-      <button id="ed-export" style="width:100%;padding:9px 0;border:1px solid var(--accent);border-radius:7px;background:rgba(250,48,48,.12);color:var(--accent);font-size:12px;font-weight:700;cursor:pointer;">토큰 JSON 복사 (클립보드)</button>
-      <p id="ed-export-msg" style="font-size:10px;color:var(--ok);margin-top:6px;visibility:hidden;">복사됨 — 노션/문서에 붙여넣기</p>
-    </div>
 
     <!-- 전환 베일 (단계 전환 시 부드러운 암전) -->
     <div id="stage-veil" style="position:absolute;inset:0;background:#0c0e12;opacity:0;transition:opacity .28s;pointer-events:none;"></div>

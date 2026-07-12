@@ -142,6 +142,11 @@ async function boot() {
   // 레거시 3분할 키는 최초 1회 자동 이행된다(store.js).
   const { store: designStore, migrated } = DesignStore.load();
   if (migrated.length) console.log('[design store] 레거시 이행:', migrated.join(', '));
+  // 전역 기본값 복원 — v4에서 레거시 드로어 해체와 함께 영속화된 값들
+  for (const [k, v] of Object.entries(designStore.d.global.colors || {})) if (k in COLORS) COLORS[k] = v;
+  Object.assign(TCFG, designStore.d.global.tcfg || {});
+  Object.assign(SCFG, designStore.d.global.scfg || {});
+  tokens.recolor?.();
   for (const sp of ['running', 'boxing', 'basketball']) {
     const p = designStore.getPack(sp);
     if (!p) continue;
@@ -850,111 +855,95 @@ async function boot() {
     });
   }
 
-  // ── 토큰 에디터 드로어: 팔레트·세션 타이밍 라이브 편집 + JSON 내보내기 ──
-  const editorEl = document.getElementById('editor');
-  document.getElementById('btn-editor')?.addEventListener('click', () => { editorEl.style.display = 'block'; });
-
-  document.getElementById('editor-close')?.addEventListener('click', () => { editorEl.style.display = 'none'; });
-  document.getElementById('ed-open-doc')?.addEventListener('click', e => { e.preventDefault(); window.open(`${BASE}docs/newton-wireframe.html`, '_blank'); });
-
+  // ── 전역 고급 패널 — 레거시 "🎛 토큰 에디터" 드로어의 고유 기능을 인스펙터로 이관 (v4 P5) ──
+  //   판정·역할 색(COLORS) / 토큰 지오메트리(TCFG, markScale 제외 — 마크 크기 단일 소스는 룩 m.radius) /
+  //   세션 타이밍(SCFG) / 프리셋 JSON. 전부 designStore 전역 ns로 영속.
   const COLOR_ROLES = [
     ['left', '스텝 마크 (좌)'], ['right', '스텝 마크 (우)'], ['target', '벽면 타겟'],
     ['guide', '방향 화살표'], ['lane', '레인'], ['success', '성공 (프리즘)'],
   ];
-  const colWrap = document.getElementById('ed-colors');
-  for (const [k, label] of COLOR_ROLES) {
-    const row = document.createElement('div');
-    row.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin-bottom:7px;font-size:12px;';
-    row.innerHTML = `<span>${label}</span><input type="color" data-role="${k}" value="#${COLORS[k].toString(16).padStart(6, '0')}" style="width:52px;height:26px;border:1px solid var(--line);border-radius:5px;background:var(--panel2);cursor:pointer;">`;
-    colWrap.appendChild(row);
-    row.querySelector('input').addEventListener('input', e => {
-      COLORS[e.target.dataset.role] = parseInt(e.target.value.slice(1), 16);
-      tokens.recolor();
-    });
-  }
-
+  const GEOM = [
+    ['fillOpacity', '채움 투명도', 0.05, 0.6], ['previewEdge', '프리뷰 윤곽', 0.1, 1],
+    ['cdContractFrom', '수축 시작 배율', 1.2, 3], ['cdGain', '수축 링 강도', 0.2, 1],
+    ['lingerEdge', '성공 잔상', 0.3, 1.5], ['linger', '잔상 지속(s)', 0.15, 1],
+  ];
   const TIMINGS = [
     ['a1Rep', 'A1 발목 1회전', 0.4, 2.5], ['a2Hold', 'A2 홀드 길이', 3, 15],
     ['a3Swing', 'A3 스윙 왕복', 0.6, 3], ['a4Beat', 'A4 걷기 박자', 0.3, 1.2],
     ['b1Beat', 'B1 듣기 박자', 0.3, 1.2], ['b2Beat', 'B2 스텝 박자', 0.3, 1.4],
     ['b3Step', 'B3 걸음 간격', 0.5, 2], ['b4Beat', 'B4 리듬 박자', 0.3, 1.2],
   ];
-  const timWrap = document.getElementById('ed-timings');
-  for (const [k, label, mn, mx] of TIMINGS) {
-    const row = document.createElement('div');
-    row.style.cssText = 'margin-bottom:9px;font-size:12px;';
-    row.innerHTML = `<div style="display:flex;justify-content:space-between;margin-bottom:3px;"><span>${label}</span><span style="color:var(--accent);font-variant-numeric:tabular-nums;" id="edv-${k}">${SCFG[k]}s</span></div>
-      <input type="range" min="${mn * 100}" max="${mx * 100}" value="${SCFG[k] * 100}" style="width:100%;">`;
-    timWrap.appendChild(row);
-    row.querySelector('input').addEventListener('input', e => {
-      SCFG[k] = parseInt(e.target.value, 10) / 100;
-      document.getElementById(`edv-${k}`).textContent = SCFG[k].toFixed(2) + 's';
-    });
-  }
-
-  // ── 토큰 지오메트리·상태 슬라이더 (TCFG 라이브 반영) ──
-  const GEOM = [
-    ['markScale', '마크 크기', 0.5, 2, 'x'], ['fillOpacity', '채움 투명도', 0.05, 0.6, ''],
-    ['previewEdge', '프리뷰 윤곽', 0.1, 1, ''], ['cdContractFrom', '수축 시작 배율', 1.2, 3, 'x'],
-    ['cdGain', '수축 링 강도', 0.2, 1, ''], ['lingerEdge', '성공 잔상', 0.3, 1.5, ''],
-    ['linger', '잔상 지속', 0.15, 1, 's'],
-  ];
-  const geomWrap = document.getElementById('ed-geom');
-  for (const [k, label, mn, mx, unit] of GEOM) {
-    const row = document.createElement('div');
-    row.style.cssText = 'margin-bottom:9px;font-size:12px;';
-    row.innerHTML = `<div style="display:flex;justify-content:space-between;margin-bottom:3px;"><span>${label}</span><span style="color:var(--accent);font-variant-numeric:tabular-nums;" id="edg-${k}">${TCFG[k]}${unit}</span></div>
-      <input type="range" min="${mn * 100}" max="${mx * 100}" value="${TCFG[k] * 100}" style="width:100%;">`;
-    geomWrap.appendChild(row);
-    row.querySelector('input').addEventListener('input', e => {
-      TCFG[k] = parseInt(e.target.value, 10) / 100;
-      document.getElementById(`edg-${k}`).textContent = TCFG[k].toFixed(2) + unit;
-    });
-  }
-
-  // ── 스테이지 타임라인 편집기 (현재 팩의 종목) ──
-  const stagesWrap = document.getElementById('ed-stages');
-  const stageSportEl = document.getElementById('ed-stage-sport');
-  function renderStageEditor() {
-    const sport = ['running', 'basketball', 'boxing'].includes(state.pack) ? state.pack : 'running';
-    const stages = session.stagesFor(sport);
-    stageSportEl.textContent = `· ${{ running: '러닝', basketball: '농구', boxing: '복싱' }[sport]}`;
-    stagesWrap.innerHTML = '';
-    stages.forEach((st, i) => {
+  let advEl = null;
+  function buildAdvPanel() {
+    const root = document.createElement('div');
+    root.style.cssText = 'padding:0 14px 14px;display:flex;flex-direction:column;gap:8px;';
+    const details = (label, open = false) => {
+      const d = document.createElement('details');
+      d.open = open;
+      d.innerHTML = `<summary style="font-size:11.5px;color:var(--text);font-weight:600;cursor:pointer;padding:3px 0;">${label}</summary>`;
+      root.appendChild(d);
+      return d;
+    };
+    const sliderRow = (host, label, min, max, get, set) => {
       const row = document.createElement('div');
-      row.style.cssText = 'padding:5px 0;border-bottom:1px solid var(--line);font-size:11px;';
-      const dur = st.dur != null ? st.dur : '';
-      row.innerHTML =
-        `<div style="display:flex;gap:6px;align-items:center;margin-bottom:3px;">
-          <span style="color:var(--dim);width:14px;">${i + 1}</span>
-          <span style="flex:1;color:var(--text);">${st.label.split('—').pop().trim().slice(0, 22)}</span>
-          <input type="number" step="0.5" placeholder="auto" value="${dur}" title="지속(초)" style="width:48px;padding:3px;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:4px;font-size:11px;">
-        </div>
-        <div style="display:flex;gap:4px;align-items:center;">
-          <input type="text" value="${(st.voice?.[1] || '').replace(/"/g, '&quot;')}" title="멘트" style="flex:1;padding:3px;background:var(--panel2);color:var(--dim);border:1px solid var(--line);border-radius:4px;font-size:10px;">
-          <span id="edm-${i}" style="color:#ffc94d;font-size:9px;visibility:hidden;">🔊재생성</span>
-        </div>`;
-      const [durEl, txtEl] = row.querySelectorAll('input');
-      durEl.addEventListener('input', e => {
-        const v = parseFloat(e.target.value);
-        if (!isNaN(v) && v > 0) st.dur = v; else if (e.target.value === '') delete st.dur;
-      });
-      txtEl.addEventListener('input', e => {
-        if (st.voice) { st.voice[1] = e.target.value; document.getElementById(`edm-${i}`).style.visibility = 'visible'; }
-      });
-      stagesWrap.appendChild(row);
-    });
-  }
-  refreshEditorStages = renderStageEditor;
-  renderStageEditor();
+      row.style.cssText = 'display:flex;justify-content:space-between;align-items:center;gap:8px;margin:3px 0;font-size:11px;color:var(--dim);';
+      const val = document.createElement('span');
+      val.style.cssText = 'min-width:34px;text-align:right;color:var(--text);font-variant-numeric:tabular-nums;';
+      const inp = document.createElement('input');
+      inp.type = 'range'; inp.min = min * 100; inp.max = max * 100; inp.step = 1;
+      inp.style.cssText = 'flex:1;';
+      inp.addEventListener('input', () => { set(inp.value / 100); val.textContent = (inp.value / 100).toFixed(2); });
+      row.append(Object.assign(document.createElement('span'), { textContent: label }), inp, val);
+      row._sync = () => { inp.value = get() * 100; val.textContent = (+get()).toFixed(2); };
+      row._sync();
+      host.appendChild(row);
+      return row;
+    };
+    const persist = (ns, k, v) => { designStore.globalSet(ns, k, v); designStore.save(); };
 
-  // ── 프리셋 저장/불러오기 (JSON 파일) ──
-  function collectPreset() {
-    return {
-      _newton: 'token-preset', version: 2,
+    // 판정·역할 색
+    const dc = details('판정·역할 색');
+    for (const [k, label] of COLOR_ROLES) {
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin:3px 0;font-size:11px;color:var(--dim);';
+      row.innerHTML = `<span>${label}</span><input type="color" data-role="${k}" style="width:44px;height:22px;border:1px solid var(--line);border-radius:5px;background:var(--panel2);cursor:pointer;">`;
+      const inp = row.querySelector('input');
+      inp.addEventListener('input', () => {
+        COLORS[k] = parseInt(inp.value.slice(1), 16);
+        tokens.recolor();
+        persist('colors', k, COLORS[k]);
+      });
+      row._sync = () => { inp.value = '#' + COLORS[k].toString(16).padStart(6, '0'); };
+      row._sync();
+      dc.appendChild(row);
+    }
+
+    // 토큰 지오메트리 (마크 크기는 룩 m.radius가 단일 소스 — 여기 없음)
+    const dg = details('토큰 지오메트리 (고급)');
+    for (const [k, label, mn, mx] of GEOM)
+      sliderRow(dg, label, mn, mx, () => TCFG[k], v => { TCFG[k] = v; persist('tcfg', k, v); });
+
+    // 세션 타이밍 (전역)
+    const dt = details('세션 타이밍 (전역)');
+    for (const [k, label, mn, mx] of TIMINGS)
+      sliderRow(dt, label, mn, mx, () => SCFG[k], v => { SCFG[k] = v; persist('scfg', k, v); });
+
+    // 프리셋 JSON
+    const dp = details('프리셋 (JSON 저장/불러오기)');
+    dp.insertAdjacentHTML('beforeend', `
+      <div style="display:flex;gap:6px;margin-top:4px;">
+        <button id="adv-save" style="flex:1;padding:6px 0;border:1px solid var(--line);border-radius:6px;background:var(--panel2);color:var(--text);font-size:11px;cursor:pointer;">💾 저장</button>
+        <button id="adv-load" style="flex:1;padding:6px 0;border:1px solid var(--line);border-radius:6px;background:var(--panel2);color:var(--text);font-size:11px;cursor:pointer;">📂 불러오기</button>
+        <button id="adv-copy" style="flex:1;padding:6px 0;border:1px solid var(--line);border-radius:6px;background:var(--panel2);color:var(--text);font-size:11px;cursor:pointer;">📋 복사</button>
+      </div>
+      <input id="adv-file" type="file" accept="application/json" style="display:none;">`);
+    const syncAll = () => root.querySelectorAll('*').forEach(n => n._sync?.());
+    const collectPreset = () => ({
+      _newton: 'token-preset', version: 3,
       palette: Object.fromEntries(Object.entries(COLORS).map(([k, v]) => [k, '#' + v.toString(16).padStart(6, '0')])),
       sessionTiming: { ...SCFG },
       geometry: { ...TCFG },
+      look: designStore.globalGet('fx', 'lab', null) || undefined,
       token: {
         leadMs: parseInt(document.getElementById('s-lead').value, 10),
         sizeScale: parseInt(document.getElementById('s-size').value, 10) / 100,
@@ -964,36 +953,42 @@ async function boot() {
         tolTimeMs: parseInt(document.getElementById('s-tolt').value, 10),
         tolPosCm: parseInt(document.getElementById('s-tolp').value, 10),
       },
+    });
+    const applyPreset = (pr) => {
+      if (pr.palette) for (const [k, v] of Object.entries(pr.palette)) if (k in COLORS) { COLORS[k] = parseInt(v.slice(1), 16); persist('colors', k, COLORS[k]); }
+      if (pr.sessionTiming) for (const [k, v] of Object.entries(pr.sessionTiming)) { SCFG[k] = v; persist('scfg', k, v); }
+      if (pr.geometry) for (const [k, v] of Object.entries(pr.geometry)) { if (k === 'markScale') continue; TCFG[k] = v; persist('tcfg', k, v); }   // 구버전 markScale 무시
+      if (pr.look) { applyLabState(pr.look); designStore.globalSet('fx', 'lab', pr.look); designStore.save(); lookPanel?.sync(pr.look); }
+      tokens.recolor();
+      syncAll();
     };
+    dp.querySelector('#adv-save').addEventListener('click', () => {
+      const blob = new Blob([JSON.stringify(collectPreset(), null, 2)], { type: 'application/json' });
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+      a.download = `newton-preset-${Date.now()}.json`; a.click();
+    });
+    dp.querySelector('#adv-load').addEventListener('click', () => dp.querySelector('#adv-file').click());
+    dp.querySelector('#adv-file').addEventListener('change', async e => {
+      const f = e.target.files?.[0]; if (!f) return;
+      try { applyPreset(JSON.parse(await f.text())); } catch (err) { console.warn('[preset]', err); }
+      e.target.value = '';
+    });
+    dp.querySelector('#adv-copy').addEventListener('click', async () => {
+      await navigator.clipboard.writeText(JSON.stringify(collectPreset(), null, 2));
+    });
+    return root;
   }
-  function applyPreset(p) {
-    if (p.palette) for (const [k, v] of Object.entries(p.palette)) if (k in COLORS) COLORS[k] = parseInt(v.slice(1), 16);
-    if (p.sessionTiming) Object.assign(SCFG, p.sessionTiming);
-    if (p.geometry) Object.assign(TCFG, p.geometry);
-    tokens.recolor();
-    // 슬라이더 UI 동기화
-    for (const [k] of GEOM) { const el = document.getElementById(`edg-${k}`); if (el) el.textContent = TCFG[k].toFixed(2); }
-    document.querySelectorAll('#ed-geom input').forEach((el, i) => { el.value = TCFG[GEOM[i][0]] * 100; });
-    document.querySelectorAll('#ed-timings input').forEach((el, i) => { el.value = SCFG[TIMINGS[i][0]] * 100; });
-    document.querySelectorAll('#ed-colors input').forEach(el => { el.value = '#' + COLORS[el.dataset.role].toString(16).padStart(6, '0'); });
+  // 전역 패널 = 룩(본진) + 고급 이관분 — 영속 DOM 래퍼
+  let globalPanelEl = null;
+  function getGlobalPanelEl() {
+    if (!globalPanelEl) {
+      globalPanelEl = document.createElement('div');
+      globalPanelEl.appendChild(getLookPanel().el);
+      globalPanelEl.appendChild(advEl = buildAdvPanel());
+    }
+    return globalPanelEl;
   }
-  document.getElementById('ed-save')?.addEventListener('click', () => {
-    const blob = new Blob([JSON.stringify(collectPreset(), null, 2)], { type: 'application/json' });
-    const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-    a.download = `newton-preset-${Date.now()}.json`; a.click();
-  });
-  document.getElementById('ed-load')?.addEventListener('click', () => document.getElementById('ed-file').click());
-  document.getElementById('ed-file')?.addEventListener('change', async e => {
-    const f = e.target.files?.[0]; if (!f) return;
-    try { applyPreset(JSON.parse(await f.text())); } catch (err) { console.warn('[preset]', err); }
-    e.target.value = '';
-  });
-
-  document.getElementById('ed-export')?.addEventListener('click', async () => {
-    await navigator.clipboard.writeText(JSON.stringify(collectPreset(), null, 2));
-    const msg = document.getElementById('ed-export-msg');
-    msg.style.visibility = 'visible'; setTimeout(() => { msg.style.visibility = 'hidden'; }, 2000);
-  });
+  refreshEditorStages = () => { if (studioActive) renderCutBoard(); };
 
   // ── 제작자 모드: 이미지 드롭 → 토큰 아트 즉시 교체 (다빈 에셋 검수 리그) ──
   const dropTarget = document.getElementById('drop-target');
@@ -1093,9 +1088,33 @@ async function boot() {
     b.style.background = on ? 'rgba(250,48,48,.16)' : 'var(--panel2)';
     b.style.color = on ? 'var(--accent)' : 'var(--text)';
   };
+  /** '이 컷' 카드 — 현재 스테이지의 지속·멘트를 컷 단위로 편집 (레거시 스테이지 타임라인 이관) */
+  function buildCutCard() {
+    const st = (session.stagesFor(studioSport) || []).find(x => x.id === sceneScope.stageId);
+    if (!st) return null;
+    const el = document.createElement('div');
+    el.style.cssText = 'margin:8px 14px 0;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--panel2);';
+    el.innerHTML = `
+      <div style="font-size:11.5px;color:var(--text);font-weight:700;margin-bottom:6px;">🎬 이 컷 · ${st.id}</div>
+      <div style="display:flex;gap:6px;align-items:center;margin-bottom:5px;font-size:11px;color:var(--dim);">
+        <span style="flex:0 0 auto;">지속(초)</span>
+        <input id="cut-dur" type="number" step="0.5" placeholder="auto" value="${st.dur ?? ''}" style="width:60px;padding:3px;background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:4px;font-size:11px;">
+        <span id="cut-voice-msg" style="margin-left:auto;color:#ffc94d;font-size:9px;visibility:hidden;">🔊 멘트 재생성 필요</span>
+      </div>
+      <input id="cut-voice" type="text" value="${(st.voice?.[1] || '').replace(/"/g, '&quot;')}" placeholder="코치 멘트" style="width:100%;padding:4px;background:var(--panel);color:var(--dim);border:1px solid var(--line);border-radius:4px;font-size:10.5px;">`;
+    el.querySelector('#cut-dur').addEventListener('input', e => {
+      const v = parseFloat(e.target.value);
+      if (!isNaN(v) && v > 0) st.dur = v; else if (e.target.value === '') delete st.dur;
+    });
+    el.querySelector('#cut-voice').addEventListener('input', e => {
+      if (st.voice) { st.voice[1] = e.target.value; el.querySelector('#cut-voice-msg').style.visibility = 'visible'; }
+    });
+    return el;
+  }
   function renderScopeProps() {
     if (studioScope !== 'scene') return;
-    sceneScope.getLookEl = () => getLookPanel().el;
+    sceneScope.getLookEl = () => getGlobalPanelEl();
+    sceneScope.getCutEl = () => buildCutCard();
     sceneScope.renderProps(propsHost(), () => { renderScopeProps(); fillLayers(); });
   }
 
@@ -1176,7 +1195,7 @@ async function boot() {
         studioProps = new StudioProps(propsHost(), studioDoc, {
           onEdit: scheduleStudioRebuild,
           onPreviewBurst: (mark) => { rebuildPack(studioSport, studioDoc.toPack()); tokens.studioBurst(mark); },
-          getLookEl: () => getLookPanel().el,
+          getLookEl: () => getGlobalPanelEl(),
         });
       }
     }
@@ -1201,9 +1220,6 @@ async function boot() {
     if (keep === 'scene') setScope('scene');
   }
   document.querySelectorAll('.stsp').forEach(b => b.addEventListener('click', () => switchStudioSport(b.dataset.sport)));
-  document.getElementById('studio-settings')?.addEventListener('click', () => {
-    document.getElementById('editor').style.display = 'block';
-  });
   document.querySelectorAll('.stadd').forEach(b => b.addEventListener('click', () => {
     if (studioScope !== 'scene' || !sceneScope.stageId) return;
     const spec = { kind: b.dataset.k, props: {} };
@@ -1235,7 +1251,7 @@ async function boot() {
     studioProps = new StudioProps(document.getElementById('studio-props'), studioDoc, {
       onEdit: scheduleStudioRebuild,
       onPreviewBurst: (mark) => { rebuildPack(studioSport, studioDoc.toPack()); tokens.studioBurst(mark); },
-          getLookEl: () => getLookPanel().el,
+          getLookEl: () => getGlobalPanelEl(),
     });
     // 안내 팁: 토큰을 처음 고르면 사라짐
     const tipEl = document.getElementById('studio-tip');
