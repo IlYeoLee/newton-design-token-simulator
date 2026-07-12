@@ -710,6 +710,7 @@ async function boot() {
   };
   // ── 🔥 룩 스튜디오 = FX Lab 페이지 통째 임베드 ──────────────
   // 랩에서 만지는 모든 값이 400ms 주기로 전송 → 시뮬 적용 + designStore 저장.
+  let openFxLab = () => {};   // 아래 FX 블록에서 실제 구현 주입 (스튜디오 룩 탭·인스펙터 공용)
   function applyLabState(st) {
     if (!st) return;
     if (st.stops) FXP.stops = st.stops.map(s => [...s]);
@@ -781,10 +782,11 @@ async function boot() {
     const frame = document.getElementById('fxlab-frame');
     let lastJson = savedLab ? JSON.stringify(savedLab) : '';
     let saveTimer = null;
-    document.getElementById('btn-fxlook')?.addEventListener('click', () => {
+    openFxLab = () => {
       if (!frame.src) frame.src = `${BASE}fxlab.html`;   // 최초 열 때 로드
       overlay.style.display = 'block';
-    });
+    };
+    document.getElementById('studio-look')?.addEventListener('click', openFxLab);
     document.getElementById('fxlab-close')?.addEventListener('click', () => { overlay.style.display = 'none'; });
     window.addEventListener('message', ev => {
       const d = ev.data;
@@ -1050,6 +1052,7 @@ async function boot() {
         studioProps = new StudioProps(propsHost(), studioDoc, {
           onEdit: scheduleStudioRebuild,
           onPreviewBurst: (mark) => { rebuildPack(studioSport, studioDoc.toPack()); tokens.studioBurst(mark); },
+          onOpenLook: () => openFxLab(),
         });
       }
     }
@@ -1108,6 +1111,7 @@ async function boot() {
     studioProps = new StudioProps(document.getElementById('studio-props'), studioDoc, {
       onEdit: scheduleStudioRebuild,
       onPreviewBurst: (mark) => { rebuildPack(studioSport, studioDoc.toPack()); tokens.studioBurst(mark); },
+          onOpenLook: () => openFxLab(),
     });
     // 안내 팁: 토큰을 처음 고르면 사라짐
     const tipEl = document.getElementById('studio-tip');

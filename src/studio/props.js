@@ -18,6 +18,7 @@ export class StudioProps {
     this.doc = doc;
     this.onEdit = opts.onEdit || (() => {});
     this.onPreviewBurst = opts.onPreviewBurst || (() => {});
+    this.onOpenLook = opts.onOpenLook || null;   // 비선택 = 전역 스타일(룩) 진입
     this._selfEdit = false;
     this._renderedId = undefined;
     this._renderedMode = undefined;
@@ -66,13 +67,19 @@ export class StudioProps {
     const m = this.doc.selected();
 
     if (!m) {
+      // 피그마 모델: 아무것도 선택 안 됨 = 전역(장면 룩) 편집 컨텍스트
       this.el.innerHTML = `<div style="padding:14px 16px;font-size:12px;color:var(--dim);line-height:1.7;">
-        <div style="font-size:13px;color:var(--text);font-weight:700;margin-bottom:10px;">🎨 토큰을 디자인해요</div>
-        <div style="display:flex;gap:9px;margin-bottom:7px;"><span style="color:var(--accent);font-weight:700;">1</span><span>아래 트랙에서 <b style="color:var(--text)">동그라미(토큰) 하나</b>를 클릭하세요.</span></div>
-        <div style="display:flex;gap:9px;margin-bottom:7px;"><span style="color:var(--accent);font-weight:700;">2</span><span>색·모양·크기·<b style="color:var(--text)">그라디언트·터짐</b>을 바꾸면</span></div>
-        <div style="display:flex;gap:9px;margin-bottom:12px;"><span style="color:var(--accent);font-weight:700;">3</span><span>오른쪽 <b style="color:var(--text)">3D 화면에 바로</b> 나타나요.</span></div>
-        <div style="padding-top:10px;border-top:1px solid var(--line);color:var(--dim);">토큰을 고르면 <b style="color:var(--text)">코드 창</b>에서 값을 직접 타이핑해 세밀하게 조절할 수 있어요.</div>
+        <div style="font-size:13px;color:var(--text);font-weight:700;margin-bottom:10px;">🎨 장면에서 바로 편집해요</div>
+        <div style="display:flex;gap:9px;margin-bottom:7px;"><span style="color:var(--accent);font-weight:700;">1</span><span>오른쪽 <b style="color:var(--text)">3D 장면의 마크를 직접 클릭</b>하면 선택되고,</span></div>
+        <div style="display:flex;gap:9px;margin-bottom:7px;"><span style="color:var(--accent);font-weight:700;">2</span><span><b style="color:var(--text)">그대로 끌면</b> 위치·타이밍이 실시간으로 바뀌어요.</span></div>
+        <div style="display:flex;gap:9px;margin-bottom:12px;"><span style="color:var(--accent);font-weight:700;">3</span><span>여기 인스펙터에서 색·모양·계약을 세밀 조정해요.</span></div>
+        <div style="padding-top:12px;border-top:1px solid var(--line);">
+          <div style="font-size:12px;color:var(--text);font-weight:700;margin-bottom:6px;">전역 스타일</div>
+          <div style="margin-bottom:9px;">선택이 없을 땐 장면 전체의 룩(팔레트·파동·투사면)을 다듬는 차례예요.</div>
+          <button id="pr-open-look" style="width:100%;padding:8px 0;border:1px solid #fec389;border-radius:7px;background:rgba(254,195,137,.12);color:#fec389;font-size:12px;font-weight:700;cursor:pointer;">🔥 전체 룩 편집</button>
+        </div>
       </div>`;
+      this.el.querySelector('#pr-open-look')?.addEventListener('click', () => this.onOpenLook?.());
       return;
     }
     (this.mode === 'code' ? this._renderCode : this._renderEasy).call(this, m);
