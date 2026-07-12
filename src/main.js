@@ -991,6 +991,12 @@ async function boot() {
     dom: renderer.domElement, camera, controls, tokens,
     getDoc: () => studioDoc,
     onEdit: () => scheduleStudioRebuild(),
+    // 장면(컷) 스코프일 때 3D에서 세션 요소(글자·링·화살표…)를 직접 선택·드래그
+    getScene: () => (studioActive && studioScope === 'scene' && sceneScope.stageId) ? { scope: sceneScope, session } : null,
+    onSceneChange: (phase) => {
+      studioCanvas?.draw();
+      if (phase !== 'drag') { renderScopeProps(); fillLayers(); }   // 드래그 중엔 패널 재렌더 생략
+    },
   });
 
   // 편집 팩을 러닝 파이프라인에 재적용 (시간 연속성 유지 — switchPack 대비 경량)
@@ -1019,6 +1025,10 @@ async function boot() {
       // 벽면 정면 뷰
       camera.position.set(0.9, 1.5, 2.2);
       controls.target.set(0, 1.1, -2.6);
+    } else if (studioScope === 'scene') {
+      // 장면 컷 편집 = 준-직하 탑뷰 — 지면 요소를 평면도처럼 (피그마 정면 편집)
+      camera.position.set(0.5, 7.6, 0.6);
+      controls.target.set(0.5, 0, -1.6);
     } else {
       // 3/4 버드아이 — 좌측 스튜디오 패널을 피해 트랙이 우측 3D에 또렷이 들어오게.
       camera.position.set(-4.4, 3.4, 3.6);
@@ -1036,29 +1046,80 @@ async function boot() {
     b.style.background = on ? 'rgba(250,48,48,.16)' : 'var(--panel2)';
     b.style.color = on ? 'var(--accent)' : 'var(--text)';
   };
-  function renderScopeProps() { if (studioScope === 'scene') sceneScope.renderProps(propsHost(), renderScopeProps); }
-  function fillStageSelect() {
-    const sel = document.getElementById('studio-stage');
-    sel.innerHTML = sceneScope.stages().map(s => `<option value="${s.id}">${s.id}${s.title ? ' · ' + s.title : ''}</option>`).join('');
-    if (sceneScope.stageId) sel.value = sceneScope.stageId;
+  function renderScopeProps() { if (studioScope === 'scene') sceneScope.renderProps(propsHost(), () => { renderScopeProps(); fillLayers(); }); }
+
+  // ── 컷 보드 — 설계문서처럼 장면(컷)이 쫙 보이고, 컷을 고르면 그 장면을 편집 ──
+  const CUT_TONE = { R: '#9aa4b2', A: '#FEC389', T: '#D1FEFF', B: '#FE6E3C', C: '#FA3030' };
+  function renderCutBoard() {
+    const host = document.getElementById('cut-board');
+    if (!host) return;
+    const stages = session.stagesFor(studioSport) || [];
+    const card = (key, tone, top, bottom, on) => `
+      <button class="cutcard" data-cut="${key}" style="flex:0 0 auto;display:flex;flex-direction:column;align-items:flex-start;gap:2px;
+        padding:6px 9px;border-radius:7px;cursor:pointer;min-width:74px;text-align:left;
+        border:1px solid ${on ? tone : 'var(--line)'};background:${on ? 'rgba(255,255,255,.06)' : 'var(--panel2)'};">
+        <span style="font-size:9px;font-weight:700;letter-spacing:.4px;color:${tone};">${top}</span>
+        <span style="font-size:10.5px;color:${on ? 'var(--text)' : 'var(--dim)'};line-height:1.25;">${bottom}</span>
+      </button>`;
+    const cur = studioScope === 'scene' ? sceneScope.stageId : 'pack';
+    let html = card('pack', 'var(--accent)', '루프', '토큰 트랙', cur === 'pack');
+    for (const st of stages) {
+      const tone = CUT_TONE[st.id[0]] || '#9aa4b2';
+      const [top, ...rest] = (st.label || st.id).split(' — ');
+      html += card(st.id, tone, st.id, (rest.join(' — ') || top).slice(0, 14), cur === st.id);
+    }
+    host.innerHTML = html;
+    host.querySelectorAll('.cutcard').forEach(b => b.addEventListener('click', () => selectCut(b.dataset.cut)));
   }
-  function setScope(scope) {
+  function selectCut(key) {
+    if (key === 'pack') setScope('pack');
+    else { setScope('scene', key); }
+    studioTopView();
+  }
+
+  // ── 레이어 패널 — 현재 컷의 컴포넌트 목록 (클릭=선택, 피그마 레이어) ──
+  function fillLayers() {
+    const host = document.getElementById('scene-layers');
+    if (!host) return;
+    if (studioScope !== 'scene' || !sceneScope.stageId) { host.style.display = 'none'; return; }
+    host.style.display = 'flex';
+    const items = sceneScope.items();
+    host.innerHTML = items.length ? items.map(it => `
+      <button class="lyr" data-key="${it.key}" style="display:flex;gap:8px;align-items:center;padding:4px 8px;border-radius:5px;cursor:pointer;text-align:left;
+        border:1px solid ${it.sel ? 'var(--accent)' : 'transparent'};background:${it.sel ? 'rgba(250,48,48,.12)' : 'transparent'};">
+        <span style="font-size:11px;width:16px;text-align:center;">${it.glyph}</span>
+        <span style="font-size:11px;color:${it.sel ? 'var(--text)' : 'var(--dim)'};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${it.label}</span>
+      </button>`).join('')
+      : '<div style="font-size:10.5px;color:var(--dim);padding:4px 8px;">이 컷에는 편집 요소가 없어요 — 위 ＋버튼으로 추가</div>';
+    host.querySelectorAll('.lyr').forEach(b => b.addEventListener('click', () => {
+      sceneScope.pick(Number(b.dataset.key));
+      refreshSceneSel();
+    }));
+  }
+  /** 장면 선택 변경을 모든 뷰(3D 링·레이어·속성·2D)에 전파 — 하나의 선택 */
+  function refreshSceneSel() {
+    renderScopeProps();
+    fillLayers();
+    studioCanvas?.draw();
+    editor3d.syncSelection();
+  }
+
+  function setScope(scope, stageId) {
     if (!studioActive) return;
     studioScope = scope;
     const scene = scope === 'scene';
     document.getElementById('studio-palette').style.display = scene ? 'none' : 'flex';
     document.getElementById('studio-scene-palette').style.display = scene ? 'flex' : 'none';
-    document.getElementById('studio-stage').style.display = scene ? 'block' : 'none';
     const tip = document.getElementById('studio-tip');
     if (tip && scene) tip.style.display = 'none';
-    document.querySelectorAll('.stsc').forEach(b => seg(b, b.dataset.scope === scope));
 
     // 두 패널이 같은 호스트를 공유한다 — doc.onChange가 장면 패널을 덮어쓰지 않도록
     // 토큰 패널은 장면 스코프에서 아예 파괴한다.
     if (scene) {
       studioProps?.destroy(); studioProps = null;
-      sceneScope.setSport(studioSport);
-      fillStageSelect();
+      if (sceneScope.sport !== studioSport) sceneScope.setSport(studioSport);
+      if (stageId && stageId !== sceneScope.stageId) sceneScope.setStage(stageId);
+      else if (!sceneScope.stageId) sceneScope.setSport(studioSport);
     } else {
       sceneScope.leave();
       if (!studioProps) {
@@ -1070,7 +1131,10 @@ async function boot() {
       }
     }
     studioCanvas?.setExtrasOnly(scene);
+    renderCutBoard();
+    fillLayers();
     if (scene) renderScopeProps();
+    editor3d.syncSelection();
   }
   function switchStudioSport(sp) {
     if (sp === studioSport || !studioActive) return;
@@ -1081,13 +1145,7 @@ async function boot() {
     document.querySelectorAll('.stsp').forEach(b => seg(b, b.dataset.sport === sp));
     if (keep === 'scene') setScope('scene');
   }
-  document.querySelectorAll('.stsc').forEach(b => b.addEventListener('click', () => setScope(b.dataset.scope)));
   document.querySelectorAll('.stsp').forEach(b => b.addEventListener('click', () => switchStudioSport(b.dataset.sport)));
-  document.getElementById('studio-stage')?.addEventListener('change', e => {
-    sceneScope.setStage(e.target.value);
-    studioCanvas?.draw();
-    renderScopeProps();
-  });
   document.getElementById('studio-settings')?.addEventListener('click', () => {
     document.getElementById('editor').style.display = 'block';
   });
@@ -1097,7 +1155,9 @@ async function boot() {
     if (!session.createElement(sceneScope.stageId, spec)) return;   // 벽면에 화살표/발 등 불가 조합
     designStore.stageStore(sceneScope.stageId).added.push(spec);
     saveScenes();
-    studioCanvas?.draw();
+    // 새 요소 즉시 선택 — 넣자마자 만질 수 있게
+    sceneScope.pick(sceneScope.items().length - 1);
+    refreshSceneSel();
   }));
 
   function enterStudio() {
@@ -1118,7 +1178,7 @@ async function boot() {
       getWindow: () => null,                   // 러닝 창은 러너와 함께 이동 — 고정 밴드 미표시(정직)
       // 장면 스코프: 같은 캔버스에 스테이지 요소를 올려 직접 클릭·드래그
       extras: () => sceneScope.items(),
-      onPickExtra: (key) => { sceneScope.pick(key); renderScopeProps(); studioCanvas.draw(); },
+      onPickExtra: (key) => { sceneScope.pick(key); refreshSceneSel(); },
       onDragExtra: (key, h, v) => sceneScope.dragTo(key, h, v),
     });
     studioProps = new StudioProps(document.getElementById('studio-props'), studioDoc, {
@@ -1134,11 +1194,11 @@ async function boot() {
     editor3d.setEnabled(true);
     rebuildPack(studioSport, studioDoc.toPack());        // layoutPreview 반영 리빌드(클리핑 해제)
     studioScope = 'pack';
-    document.querySelectorAll('.stsc').forEach(b => seg(b, b.dataset.scope === 'pack'));
     document.querySelectorAll('.stsp').forEach(b => seg(b, b.dataset.sport === studioSport));
     document.getElementById('studio-palette').style.display = 'flex';
     document.getElementById('studio-scene-palette').style.display = 'none';
-    document.getElementById('studio-stage').style.display = 'none';
+    renderCutBoard();
+    fillLayers();
     studioCanvas.setExtrasOnly(false);
     studioEl.style.display = 'flex';
     // 저작 포커스 모드: 좌측 컨트롤 패널 숨김 → 3D 프리뷰에 공간 확보 (캔버스 | 3D 스플릿)
