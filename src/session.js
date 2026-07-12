@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { WALL_Z } from './scene.js';
 import { thermalColor, heatBlob, grainPattern } from './thermal.js';
-import { lutColor } from './fxlut.js';
+import { lutColor, GLYPHS, drawGlyph, footSlot } from './fxlut.js';
 
 // ─────────────────────────────────────────────────────────────
 // 러닝 세션 흐름 — 와이어프레임 v2 전체 15프레임 이식
@@ -92,6 +92,16 @@ function _footPaths() {
   return { fore, heel };
 }
 function makeFootTexture(mirror) {
+  // 커스텀 발형 SVG (FX Lab 슬롯 — 실내/야외 × L/R, 투사면 컨텍스트 자동 선택)
+  const slot = footSlot(mirror);
+  if (GLYPHS.img(slot)) {
+    const W = 384, H = 640;
+    const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+    drawGlyph(cv.getContext('2d'), slot, W / 2, H / 2, Math.min(W, H * 0.62), { glow: 26 });
+    const tex = new THREE.CanvasTexture(cv);
+    tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
+    return tex;
+  }
   // 캔버스 384×640 = 콘텐츠(128×256)의 2배 해상도 + 헤일로 여백 32px(콘텐츠 좌표)
   const W = 384, H = 640;
   const shape = document.createElement('canvas'); shape.width = W; shape.height = H;

@@ -163,9 +163,14 @@ async function boot() {
         const dlab = def?.global?.fx?.lab;
         if (lab && dlab) {
           let changed = false;
-          for (const k of ['glyphs', 'prims', 'sys', 'arrow']) {
+          for (const k of ['prims', 'sys', 'arrow']) {
             const empty = lab[k] == null || (typeof lab[k] === 'object' && Object.keys(lab[k]).length === 0);
             if (dlab[k] && empty) { lab[k] = dlab[k]; changed = true; }
+          }
+          // 글리프는 키 단위 보강 — 기본값에 새 슬롯(발형·촉 등)이 추가되면 기존 방문자도 받음
+          if (dlab.glyphs) {
+            lab.glyphs = lab.glyphs || {};
+            for (const gk in dlab.glyphs) if (!lab.glyphs[gk]) { lab.glyphs[gk] = dlab.glyphs[gk]; changed = true; }
           }
           if (changed) localStorage.setItem('newton_design_v1', JSON.stringify(cur));
         } else if (dlab && cur?.global?.fx && !lab) {
@@ -187,11 +192,22 @@ async function boot() {
       }
     } catch (e) { /* 기본값 파일 없음 = 내장 디폴트 */ }
   }
-  // 저장된 룩의 LUT를 먼저 시드 — 세션 프리미티브(45컷)가 빌드 시 이 팔레트에서 파생됨
+  // 저장된 룩의 LUT·글리프를 먼저 시드 — 세션 45컷(팔레트 파생 + 발형 텍스처)이 빌드 시 사용
   {
     const lab0 = designStore.globalGet('fx', 'lab', null);
     if (lab0?.stops) { FXP.stops = lab0.stops.map(x => [...x]); FXP.sat = lab0.sat ?? 1; }
     rebuildLUT();
+    if (lab0?.glyphs) {
+      FXP.bg = lab0.bg;
+      FXP.customGlyphs = lab0.glyphs;
+      GLYPHS.set(lab0.glyphs);
+      GLYPHS.setFlips(lab0.glyphFlip || {});
+      // dataURL 디코드 완료 대기 (수 ms — 발형 텍스처가 빌드 시점에 읽을 수 있게)
+      await Promise.race([
+        Promise.all([...GLYPHS.imgs.values()].map(img => img.complete ? null : new Promise(res => { img.addEventListener('load', res, { once: true }); img.addEventListener('error', res, { once: true }); }))),
+        new Promise(res => setTimeout(res, 1500)),
+      ]);
+    }
   }
   // 전역 기본값 복원 — v4에서 레거시 드로어 해체와 함께 영속화된 값들
   for (const [k, v] of Object.entries(designStore.d.global.colors || {})) if (k in COLORS) COLORS[k] = v;
@@ -807,7 +823,7 @@ async function boot() {
     }
     if (st.p) Object.assign(FXP.person, { blur: st.p.blur, glow: st.p.glow, flow: st.p.flow, decay: st.p.decay });
     if (st.s) Object.assign(FX, st.s);
-    if (st.bg !== undefined) setSurfaces(st.bg === 'none' ? null : st.bg);   // 투사면 칩 → 실물 바닥/벽
+    if (st.bg !== undefined) { FXP.bg = st.bg; setSurfaces(st.bg === 'none' ? null : st.bg); }   // 투사면 칩 → 실물 바닥/벽 (+발형 컨텍스트)
     if (st.prims) FXP.prims = st.prims;   // 프리미티브 파라미터 (세션 빌드 소비는 다음 단계)
     if (st.arrow) {
       const changed = JSON.stringify(st.arrow) !== JSON.stringify(FXP.arrow);
