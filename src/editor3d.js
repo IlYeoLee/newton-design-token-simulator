@@ -8,14 +8,16 @@
 //   좌표 역매핑은 tokens._mapFloor/_mapWall의 역함수 (레이아웃 모드별).
 // ─────────────────────────────────────────────────────────────
 import * as THREE from 'three';
+import { WALL_Z } from './scene.js';
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
-export function createEditor3D({ dom, camera, controls, tokens, getDoc, onEdit, getScene, onSceneChange }) {
+export function createEditor3D({ dom, camera, controls, tokens, getDoc, onEdit, getScene, onSceneChange, onTool }) {
   const ray = new THREE.Raycaster();
   const ndc = new THREE.Vector2();
   const hitW = new THREE.Vector3();
   let enabled = false;
+  let tool = 'select';      // 'select' | 'mark' — 팔레트와 동기 (2D 캔버스와 같은 도구 모델)
   let drag = null;          // 팩: { id, surface, foot, plane, parent } / 장면: { sceneKey, obj, plane, wall }
   let emptyDown = null;     // 빈 곳 클릭 시작점 — 이동 없이 떼면 선택 해제
 
@@ -181,10 +183,50 @@ export function createEditor3D({ dom, camera, controls, tokens, getDoc, onEdit, 
     dom.style.cursor = '';
   }
 
+  /** '＋ 토큰 넣기' — 3D에서 직접: 투사면 평면 교차 → 역매핑 → addMark */
+  function addMarkAt(e) {
+    const doc = getDoc(); if (!doc) return false;
+    const L = tokens.layout;
+    const wallMode = L.mode === 'static';        // 복싱: 저작 대상은 벽 타겟
+    const parent = wallMode ? tokens.wallRoot : tokens.floorRoot;
+    const pW = new THREE.Vector3();
+    parent.getWorldPosition(pW);
+    const plane = wallMode
+      ? new THREE.Plane().setFromNormalAndCoplanarPoint(new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, 0, WALL_Z + 0.02))
+      : new THREE.Plane().setFromNormalAndCoplanarPoint(new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, pW.y, 0));
+    if (!ray.ray.intersectPlane(plane, hitW)) return false;
+    const local = parent.worldToLocal(hitW.clone());
+    let id = null;
+    if (wallMode) {
+      const W = L.WALL;
+      id = doc.addMark(clamp(local.x / W.XS, -1, 1), maxT(doc) + 0.6);
+      doc.moveXY(id, clamp(local.x / W.XS, -1, 1), clamp((local.y - W.Y0) / W.YS, -1, 1.2));
+    } else if (L.mode === 'advance') {
+      id = doc.addMark(clamp(local.x / L.X_SCALE, -1, 1), Math.max(0, -(local.z + L.STRIKE_AHEAD) / L.V));
+    } else if (L.mode === 'spatial') {
+      const nx = clamp(local.x / L.SCALE, -1.5, 1.5);
+      id = doc.addMark(nx, maxT(doc) + 0.6);
+      doc.moveXY(id, nx, clamp(local.z / L.SCALE, -1.5, 1.5));
+    }
+    if (id == null) return false;
+    doc.select(id);
+    onEdit();
+    setToolFn('select');   // 배치 즉시 선택 복귀 (2D 캔버스와 동일 관례)
+    return true;
+  }
+  function maxT(doc) { let m = 0; for (const mk of doc.marks) m = Math.max(m, mk.t); return m; }
+  function setToolFn(t) {
+    tool = t;
+    dom.style.cursor = t === 'mark' ? 'crosshair' : '';
+    if (t === 'mark' && hoverRing) hoverRing.visible = false;
+    onTool?.(t);
+  }
+
   function onDown(e) {
     if (!enabled || e.button !== 0) return;
     setNdc(e);
     const sc = getScene?.();
+    if (!sc && tool === 'mark') { if (addMarkAt(e)) return; }
     const currentKey = sc ? sc.scope.sel : getDoc()?.selection;
     const hit = pickAt(e, sc, currentKey);
     if (hit) {
@@ -206,6 +248,7 @@ export function createEditor3D({ dom, camera, controls, tokens, getDoc, onEdit, 
     if (!enabled) return;
     if (drag) { applyDrag(e); return; }
     if (e.buttons) return;                       // 궤도 회전 중 — 호버 검사 생략
+    if (tool === 'mark') { dom.style.cursor = 'crosshair'; return; }
     setNdc(e);
     const sc = getScene?.();
     const over = pickList(e, sc)[0] || null;
@@ -231,6 +274,7 @@ export function createEditor3D({ dom, camera, controls, tokens, getDoc, onEdit, 
   dom.addEventListener('pointerup', onUp);
 
   return {
+    setTool: setToolFn,
     setEnabled(on) {
       enabled = !!on;
       if (!on) { if (drag) endDrag(); dom.style.cursor = ''; if (hoverRing) hoverRing.visible = false; }

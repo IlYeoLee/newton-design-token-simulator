@@ -1022,7 +1022,6 @@ async function boot() {
     // 장면(컷) 스코프일 때 3D에서 세션 요소(글자·링·화살표…)를 직접 선택·드래그
     getScene: () => (studioActive && studioScope === 'scene' && sceneScope.stageId) ? { scope: sceneScope, session } : null,
     onSceneChange: (phase) => {
-      studioCanvas?.draw();
       if (phase !== 'drag') { renderScopeProps(); fillLayers(); }   // 드래그 중엔 패널 재렌더 생략
     },
   });
@@ -1128,7 +1127,6 @@ async function boot() {
   function refreshSceneSel() {
     renderScopeProps();
     fillLayers();
-    studioCanvas?.draw();
     editor3d.syncSelection();
   }
 
@@ -1158,7 +1156,12 @@ async function boot() {
         });
       }
     }
-    studioCanvas?.setExtrasOnly(scene);
+    // 장면 컷 = 3D+레이어가 캔버스 (짜부 2D 칩 뷰 은퇴); 팩 = 트랙 캔버스 유지
+    const wrap = document.getElementById('studio-canvas-wrap');
+    if (wrap) wrap.style.display = scene ? 'none' : 'block';
+    const layersEl = document.getElementById('scene-layers');
+    if (layersEl) layersEl.style.maxHeight = '40vh';
+    if (!scene) studioCanvas?.refresh();
     renderCutBoard();
     fillLayers();
     if (scene) renderScopeProps();
@@ -1202,12 +1205,8 @@ async function boot() {
     studioDoc = new StudioDoc(state.packs[studioSport]);
     studioCanvas = new StudioCanvas(studioCanvasEl, studioDoc, {
       onEdit: scheduleStudioRebuild,
-      onTool: t => setStudioToolUI(t),         // 배치 후 자동 선택복귀 시 팔레트 동기화
+      onTool: t => { setStudioToolUI(t); editor3d.setTool?.(t); },   // 3D·2D 도구 동기
       getWindow: () => null,                   // 러닝 창은 러너와 함께 이동 — 고정 밴드 미표시(정직)
-      // 장면 스코프: 같은 캔버스에 스테이지 요소를 올려 직접 클릭·드래그
-      extras: () => sceneScope.items(),
-      onPickExtra: (key) => { sceneScope.pick(key); refreshSceneSel(); },
-      onDragExtra: (key, h, v) => sceneScope.dragTo(key, h, v),
     });
     studioProps = new StudioProps(document.getElementById('studio-props'), studioDoc, {
       onEdit: scheduleStudioRebuild,
@@ -1229,7 +1228,6 @@ async function boot() {
     document.getElementById('studio-scene-palette').style.display = 'none';
     renderCutBoard();
     fillLayers();
-    studioCanvas.setExtrasOnly(false);
     studioEl.style.display = 'flex';
     // 저작 포커스 모드: 좌측 컨트롤 패널 숨김 → 3D 프리뷰에 공간 확보 (캔버스 | 3D 스플릿)
     document.getElementById('panel').style.display = 'none';
@@ -1285,7 +1283,7 @@ async function boot() {
     });
   }
   document.querySelectorAll('#studio-palette .stpal').forEach(btn => {
-    btn.addEventListener('click', () => { setStudioToolUI(btn.dataset.tool); studioCanvas?.setTool(btn.dataset.tool); });
+    btn.addEventListener('click', () => { setStudioToolUI(btn.dataset.tool); studioCanvas?.setTool(btn.dataset.tool); editor3d.setTool(btn.dataset.tool); });
   });
   // 레인 토글
   const laneBtn = document.getElementById('studio-lane');
