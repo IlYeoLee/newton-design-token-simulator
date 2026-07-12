@@ -639,7 +639,7 @@ let footCentroid = { x: 0.5, y: 0.5 };   // 발형 실루엣 무게중심 (숫�
 const MARK_STATES = [
   ['Preview', '예고 — 외곽선만 · 투명도 60→35% · 모션 없음', '언제: 다음 마크 예고 — 이벤트 −450ms(선행 시간)부터'],
   ['Active', '지금 — 100% 불투명 + 타이밍 링 수축 (수축 완료 = 이벤트 순간)', '언제: 이벤트 창 — 링이 다 조여든 순간이 밟는/치는 타이밍'],
-  ['Hold', '유지 — 링 시계방향 채움 · 떼면 되감김 (벌점 없음)', '언제: 버티기 계약 중 — 스트레칭 홀드·버티기 존'],
+  ['Hold', '유지 — 링 채움 · 떼면 되감김 · 중앙 숫자 = 반복/시간 카운트', '언제: 버티기 계약 + 반복 카운트(구 카운트 링) — A1 발목 8회, 홀드 10초'],
   ['Success', 'Hit Glow 200ms + 리플 → 잔상 소멸', '언제: 판정 성공 직후 200ms — 그리고 사라짐'],
   ['Miss', '흐려지며 미끄러져 소멸 — 붉은 X 금지, 무음이 신호', '언제: 이벤트 창을 놓쳤을 때 — 무음 소멸이 벌색을 대신'],
   ['Warning', '앰버 외곽 펄스 — 색+모션 이중 부호화', '언제: 세션이 폼 이상을 감지했을 때만 (판정과 무관)'],
@@ -656,9 +656,10 @@ function drawMarkNumOn(canvasEl, ax, ay) {
   const g = canvasEl.getContext('2d');
   g.clearRect(0, 0, 600, 600);
   const s = state.markState;
-  if (!(s === 6 || s === 0 || s === 1)) return;   // Locked·Preview·Active에서 순서 숫자
+  if (!(s === 6 || s === 0 || s === 1 || s === 2)) return;   // Locked·Preview·Active + Hold(카운트)
   g.globalAlpha = s === 0 ? 0.5 : 1;
   let numCh = '2';
+  if (s === 2) numCh = String(1 + Math.floor(performance.now() / 1000 * 0.45) % 8);   // Hold = 반복 카운트 (채움 주기와 동일 시계)
   if (!(state.glyphs && state.glyphs['2'])) {
     const firstCustom = '0123456789'.split('').find(ch => state.glyphs && state.glyphs[ch]);
     if (firstCustom) numCh = firstCustom;
@@ -1477,13 +1478,16 @@ function drawPrims() {
       }
       g.globalAlpha = 1;
     } else if (key === 'stanceBox') {
-      g.strokeStyle = lutCss(0.45); g.lineWidth = LNW;
-      g.setLineDash([10 * P.dash, 8]);
-      g.lineDashOffset = -t * 22;   // LINE 흐름 상속 — 대기 영역이 살아있게
-      g.shadowColor = lutCss(0.6); g.shadowBlur = GB * 0.8;
+      // 박스 경로를 샘플로 — 셰브런이면 둘레 행진, 코멧이면 순회 광
       const rr = 18 * P.round;
-      g.beginPath(); g.roundRect(40, 48, W - 80, W - 96, rr); g.stroke();
-      g.setLineDash([]); g.lineDashOffset = 0;
+      const bx0 = 40, by0 = 48, bw = W - 80, bh = W - 96;
+      const box = [];
+      const edge = (x0, y0, x1, y1) => { for (let f = 0; f <= 1; f += 0.12) box.push([x0 + (x1 - x0) * f, y0 + (y1 - y0) * f]); };
+      edge(bx0 + rr, by0, bx0 + bw - rr, by0); edge(bx0 + bw, by0 + rr, bx0 + bw, by0 + bh - rr);
+      edge(bx0 + bw - rr, by0 + bh, bx0 + rr, by0 + bh); edge(bx0, by0 + bh - rr, bx0, by0 + rr);
+      g.shadowColor = lutCss(0.6); g.shadowBlur = GB * 0.8;
+      if (state.arrow.line === 'solid') { g.setLineDash([10 * P.dash, 8]); g.lineDashOffset = -t * 22; g.strokeStyle = lutCss(0.45); g.lineWidth = LNW; g.beginPath(); g.roundRect(bx0, by0, bw, bh, rr); g.stroke(); g.setLineDash([]); g.lineDashOffset = 0; }
+      else strokeFlowPath(g, box, t, state.arrow.w, { color: lutCss(0.45), closed: true });
       if (P.feet > 0.05) {   // 발 2 — FOOT_L/R 슬롯 소비
         primFoot(g, false, C - 16 * P.feet, C + 6, 26 * P.feet);
         primFoot(g, true, C + 16 * P.feet, C + 6, 26 * P.feet);
@@ -1495,19 +1499,15 @@ function drawPrims() {
       const prog = Math.min(1, cyc * 1.25) * (pts.length - 1);
       const cur = Math.min(pts.length - 1, Math.floor(prog + 0.35));
       g.shadowColor = lutCss(0.7); g.shadowBlur = GB;
-      // 지나온 구간 — LINE 흐름 상속(행진), 밝게
-      applyLineStyle(g, state.arrow.w, t);
-      g.strokeStyle = lutCss(0.62);
-      g.beginPath();
-      g.moveTo(pts[0][0], pts[0][1]);
+      // 지나온 구간 — LINE 스타일(셰브런·코멧 포함) 상속
+      const passed = [[pts[0][0], pts[0][1]]];
       for (let i = 1; i <= pts.length - 1; i++) {
         const seg = Math.max(0, Math.min(1, prog - (i - 1)));
         if (seg <= 0) break;
-        const x = pts[i - 1][0] + (pts[i][0] - pts[i - 1][0]) * seg;
-        const y = pts[i - 1][1] + (pts[i][1] - pts[i - 1][1]) * seg;
-        g.lineTo(x, y);
+        passed.push([pts[i - 1][0] + (pts[i][0] - pts[i - 1][0]) * seg,
+                     pts[i - 1][1] + (pts[i][1] - pts[i - 1][1]) * seg]);
       }
-      g.stroke();
+      if (passed.length > 1) strokeFlowPath(g, passed, t, state.arrow.w, { color: lutCss(0.62) });
       // 남은 구간 — 흐릿한 예고
       g.setLineDash([4, 7]); g.lineDashOffset = 0; g.globalAlpha = 0.3;
       g.beginPath(); pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.stroke();
@@ -1542,24 +1542,10 @@ function drawPathArrow() {
     return [x, y];
   };
   const AW = state.arrow.w;
-  g.strokeStyle = lutCss(0.35); g.lineWidth = 3 * AW; g.globalAlpha = 0.55;
-  g.shadowColor = lutCss(0.5); g.shadowBlur = 6 * AW;
-  if (state.arrow.line === 'dash') g.setLineDash([12 * AW, 10]);
-  else if (state.arrow.line === 'dot') { g.setLineDash([0.5, 12]); g.lineCap = 'round'; g.lineWidth = 5 * AW; }
-  else g.setLineDash([]);
-  if (state.arrow.line === 'taper') {
-    // 테이퍼: 진행할수록 굵어지는 선 (세그먼트 두께 가변)
-    for (let u = 0; u < 1; u += 0.02) {
-      const [x, y] = pt(u), [x2, y2] = pt(u + 0.02);
-      g.lineWidth = (0.5 + u * 4.5) * AW;
-      g.beginPath(); g.moveTo(x, y); g.lineTo(x2, y2); g.stroke();
-    }
-  } else {
-    g.beginPath();
-    for (let u = 0; u <= 1.001; u += 0.02) { const [x, y] = pt(u); u ? g.lineTo(x, y) : g.moveTo(x, y); }
-    g.stroke();
-  }
-  g.setLineDash([]); g.lineCap = 'butt'; g.shadowBlur = 0;
+  const samples = [];
+  for (let u = 0; u <= 1.001; u += 0.02) samples.push(pt(u));
+  g.globalAlpha = state.arrow.line === 'comet' ? 1 : 0.6;
+  strokeFlowPath(g, samples, t, AW, { color: lutCss(0.4), glow: 6 });
   g.globalAlpha = 1;
   // 경로 위 화살표 3개 — 접선 각도로 회전
   const customTip = state.glyphs['TIP_TRI'];
@@ -1587,12 +1573,10 @@ function drawLineRot() {
   g.clearRect(0, 0, W, H);
   const t = performance.now() / 1000;
   const AW = state.arrow.w;
-  applyLineStyle(g, AW, t);
-  g.strokeStyle = lutCss(0.45);
-  g.shadowColor = lutCss(0.6); g.shadowBlur = 8 * AW;
   const R = 62;
-  g.beginPath(); g.arc(C[0], C[1], R, -Math.PI * 0.2, Math.PI * 1.1); g.stroke();
-  g.setLineDash([]); g.lineCap = 'butt';
+  const arc = [];
+  for (let a = -Math.PI * 0.2; a <= Math.PI * 1.1; a += 0.06) arc.push([C[0] + Math.cos(a) * R, C[1] + Math.sin(a) * R]);
+  strokeFlowPath(g, arc, t, AW, { color: lutCss(0.45) });
   // 원호 위를 도는 촉
   const a = -Math.PI * 0.2 + ((t * 0.35) % 1) * Math.PI * 1.3;
   const x = C[0] + Math.cos(a) * R, y = C[1] + Math.sin(a) * R;
@@ -1620,9 +1604,9 @@ function drawLineLane() {
     g.beginPath(); g.moveTo(lx, 10); g.lineTo(lx, H - 10); g.stroke();
   }
   g.globalAlpha = 1;
-  g.setLineDash([14, 20]); g.lineDashOffset = flow;   // 위(전방)로 흐름
-  g.beginPath(); g.moveTo(W / 2, H - 8); g.lineTo(W / 2, 8); g.stroke();
-  g.setLineDash([]); g.lineCap = 'butt';
+  const lane = [];
+  for (let y2 = H - 8; y2 >= 8; y2 -= 8) lane.push([W / 2, y2]);
+  strokeFlowPath(g, lane, t, AW, { color: lutCss(0.5) });
 }
 // ④ 감속 리듬 — 간격 증가 (구 감속선의 편입처)
 function drawLineDecel() {
@@ -1631,7 +1615,8 @@ function drawLineDecel() {
   const W = cv.width, H = cv.height;
   g.clearRect(0, 0, W, H);
   const AW = state.arrow.w;
-  applyLineStyle(g, AW, performance.now() / 1000);
+  const t2 = performance.now() / 1000;
+  applyLineStyle(g, AW, t2);
   g.strokeStyle = lutCss(0.5);
   g.shadowColor = lutCss(0.62); g.shadowBlur = 8 * AW;
   let y = H - 20, gap = 12;
@@ -1640,7 +1625,88 @@ function drawLineDecel() {
     y -= gap + 6 * AW;
     gap *= 1.45;   // 위(전방)로 갈수록 간격 벌어짐 = 감속
   }
-  g.setLineDash([]); g.lineCap = 'butt';
+  g.setLineDash([]); g.lineCap = 'butt'; g.lineDashOffset = 0;
+}
+/** 경로 샘플 배열을 LINE 스타일로 렌더 — 셰브런 트레인·코멧은 스트로크로 불가능한 형식 */
+function strokeFlowPath(g, pts, t, AW, opts = {}) {
+  const style = state.arrow.line;
+  const closed = !!opts.closed;
+  // 누적 길이
+  const L = [0];
+  for (let i = 1; i < pts.length; i++) L.push(L[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
+  const total = L[L.length - 1] || 1;
+  const at = (d) => {
+    d = ((d % total) + total) % total;
+    let i = 1;
+    while (i < L.length - 1 && L[i] < d) i++;
+    const f = (d - L[i - 1]) / Math.max(1e-4, L[i] - L[i - 1]);
+    return [pts[i - 1][0] + (pts[i][0] - pts[i - 1][0]) * f,
+            pts[i - 1][1] + (pts[i][1] - pts[i - 1][1]) * f,
+            Math.atan2(pts[i][1] - pts[i - 1][1], pts[i][0] - pts[i - 1][0])];
+  };
+  if (style === 'chevron') {
+    // 셰브런 트레인 — 방향 자체가 재료 (AR 내비 표준 문법)
+    const gap = 26 * AW + 8;
+    const n = Math.max(2, Math.floor(total / gap));
+    g.shadowColor = lutCss(0.7); g.shadowBlur = 8 * AW;
+    for (let k = 0; k < n; k++) {
+      const d = k * gap + (t * 42) % gap;
+      if (!closed && d > total - 4) continue;
+      const [x, y, a] = at(d);
+      const w = 7.5 * AW, h = 8.5 * AW;
+      const glow = 0.45 + 0.4 * Math.sin((d / total) * 6.283 - t * 2.2);
+      g.strokeStyle = lutCss(0.45 + glow * 0.3);
+      g.lineWidth = 3.2 * AW; g.lineJoin = 'round'; g.lineCap = 'round';
+      g.save(); g.translate(x, y); g.rotate(a);
+      g.beginPath(); g.moveTo(-h * 0.5, -w); g.lineTo(h * 0.5, 0); g.lineTo(-h * 0.5, w); g.stroke();
+      g.restore();
+    }
+    return true;
+  }
+  if (style === 'comet') {
+    // 코멧 — 백열 머리 + 잦아드는 꼬리 (네온 트레일 문법, 열 언어와 동일)
+    const head = (t * 0.35 % 1) * total;
+    const tail = total * 0.55;
+    const seg = Math.max(24, pts.length * 2);
+    g.lineCap = 'round';
+    for (let k = 0; k < seg; k++) {
+      const d0 = head - (k / seg) * tail, d1 = head - ((k + 1) / seg) * tail;
+      if (!closed && d1 < 0) break;
+      const f = 1 - k / seg;                      // 머리=1 → 꼬리=0
+      const [x0, y0] = at(d0), [x1, y1] = at(d1);
+      if (!closed && Math.hypot(x1 - x0, y1 - y0) > total * 0.4) continue;   // 랩어라운드 스킵
+      g.globalAlpha = Math.pow(f, 1.6);
+      g.strokeStyle = lutCss(0.35 + f * 0.55);
+      g.lineWidth = (1.5 + f * 4.5) * AW;
+      g.shadowColor = lutCss(0.8); g.shadowBlur = f * 14 * AW;
+      g.beginPath(); g.moveTo(x0, y0); g.lineTo(x1, y1); g.stroke();
+    }
+    g.globalAlpha = 1; g.lineCap = 'butt'; g.shadowBlur = 0;
+    // 머리 백열점
+    const [hx, hy] = at(head);
+    g.fillStyle = 'rgba(255,243,220,0.95)';
+    g.shadowColor = lutCss(0.9); g.shadowBlur = 16 * AW;
+    g.beginPath(); g.arc(hx, hy, 2.6 * AW, 0, 7); g.fill();
+    g.shadowBlur = 0;
+    return true;
+  }
+  // 스트로크 계열 (실선·대시·도트·테이퍼)
+  g.strokeStyle = opts.color || lutCss(0.5);
+  g.shadowColor = lutCss(0.62); g.shadowBlur = (opts.glow ?? 8) * AW;
+  if (style === 'taper') {
+    for (let i = 1; i < pts.length; i++) {
+      g.lineWidth = (0.5 + (i / pts.length) * 4.5) * AW;
+      g.beginPath(); g.moveTo(pts[i - 1][0], pts[i - 1][1]); g.lineTo(pts[i][0], pts[i][1]); g.stroke();
+    }
+  } else {
+    applyLineStyle(g, AW, t);
+    g.beginPath();
+    pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y));
+    if (closed) g.closePath();
+    g.stroke();
+  }
+  g.setLineDash([]); g.lineCap = 'butt'; g.lineDashOffset = 0; g.shadowBlur = 0;
+  return true;
 }
 function applyLineStyle(g, AW, flowT) {
   g.lineWidth = 4 * AW;
@@ -1667,7 +1733,12 @@ document.querySelectorAll('input[data-scope="m"]').forEach(i => i.addEventListen
 document.getElementById('arrowW')?.addEventListener('input', flashGallery);
 document.getElementById('arrowLineChips')?.addEventListener('click', flashGallery);
 
+let _lastHoldCount = -1;
 (function primAnimLoop() {
+  if (state.markState === 2) {
+    const c = Math.floor(performance.now() / 1000 * 0.45) % 8;
+    if (c !== _lastHoldCount) { _lastHoldCount = c; drawMarkNums(); }
+  }
   drawPrims();
   drawPathArrow();
   drawLineRot();
@@ -1676,7 +1747,7 @@ document.getElementById('arrowLineChips')?.addEventListener('click', flashGaller
   requestAnimationFrame(primAnimLoop);
 })();
 // 라인 스타일 칩 + 두께
-const ARROW_LINES = [['solid', '실선'], ['dash', '대시'], ['dot', '도트'], ['taper', '테이퍼']];
+const ARROW_LINES = [['solid', '실선'], ['dash', '대시'], ['dot', '도트'], ['chevron', '셰브런'], ['comet', '코멧'], ['taper', '테이퍼']];
 const arrowChips = document.getElementById('arrowLineChips');
 ARROW_LINES.forEach(([v, label]) => {
   const bt = document.createElement('button');
