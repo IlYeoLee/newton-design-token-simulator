@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { WALL_Z } from './scene.js';
 import { renderDesignCanvas } from './studio/design.js';
-import { getLUT, FXP, FX_GLSL } from './fxlut.js';
+import { getLUT, FXP, FX_GLSL, GLYPHS, drawGlyph } from './fxlut.js';
 
 // ── MARK 파동 셰이더 (FX Lab 이식) — 재료는 열 하나, 상태는 파동의 위상 ──
 const MARKFX_VERT = `
@@ -180,14 +180,16 @@ function makeNumberTexture(n) {
   const c = document.createElement('canvas');
   c.width = c.height = 128;
   const ctx = c.getContext('2d');
-  // 웜 크림 + 경량 웨이트 + 히트 글로우 (FX Lab 확정 타이포)
-  ctx.fillStyle = 'rgba(255,240,220,0.95)';
-  ctx.font = '300 86px -apple-system, sans-serif';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.shadowColor = 'rgba(254,150,90,0.75)';
-  ctx.shadowBlur = 14;
-  ctx.fillText(String(n), 64, 70);
+  // 커스텀 글리프(FX Lab 슬롯 SVG) 우선 — 없으면 웜 크림 타이포 (동일 온도 언어)
+  if (!drawGlyph(ctx, String(n), 64, 64, 96)) {
+    ctx.fillStyle = 'rgba(255,240,220,0.95)';
+    ctx.font = '300 86px -apple-system, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.shadowColor = 'rgba(254,150,90,0.75)';
+    ctx.shadowBlur = 14;
+    ctx.fillText(String(n), 64, 70);
+  }
   const tex = new THREE.CanvasTexture(c);
   tex.anisotropy = 4;
   return tex;

@@ -595,8 +595,13 @@ function drawMarkNum() {
   const s = state.markState;
   if (!(s === 6 || s === 0 || s === 1)) return;   // Locked·Preview·Active에서 순서 숫자
   g.globalAlpha = s === 0 ? 0.5 : 1;
-  // 유기 연결: 글리프 라이브러리에서 '2'를 SVG로 교체하면 여기 순서 숫자도 즉시 그 글리프
-  const custom = state.glyphs && state.glyphs['2'];
+  // 유기 연결: 어느 숫자 슬롯이든 SVG로 교체하면 순서 숫자가 그 글리프로 (기본 '2', 커스텀 숫자 우선)
+  let numCh = '2';
+  if (!(state.glyphs && state.glyphs['2'])) {
+    const firstCustom = '0123456789'.split('').find(ch => state.glyphs && state.glyphs[ch]);
+    if (firstCustom) numCh = firstCustom;
+  }
+  const custom = state.glyphs && state.glyphs[numCh];
   if (custom && typeof drawCustomGlyphAt === 'function') {
     if (drawCustomGlyphAt(g, custom, 300, 300, 190, s === 6)) { g.globalAlpha = 1; return; }
   }
@@ -606,7 +611,7 @@ function drawMarkNum() {
     g.fillStyle = 'rgba(255,240,220,0.95)';
     g.shadowColor = 'rgba(254,150,90,0.75)'; g.shadowBlur = 26;
   }
-  fillCenteredText(g, '2', 300, 300);
+  fillCenteredText(g, numCh, 300, 300);
   g.globalAlpha = 1;
 }
 MARK_STATES.forEach(([name], i) => {

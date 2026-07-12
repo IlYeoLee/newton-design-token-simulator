@@ -17,7 +17,7 @@ import { DesignStore } from './studio/store.js';
 import { loadSvg } from './studio/design.js';
 import { initBudgetPanel } from './budgetPanel.js';
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
-import { getLUT, FXP, rebuildLUT, lutColor } from './fxlut.js';
+import { getLUT, FXP, rebuildLUT, lutColor, GLYPHS } from './fxlut.js';
 import { createEditor3D } from './editor3d.js';
 import { SceneUI } from './sceneui.js';
 
@@ -743,6 +743,12 @@ async function boot() {
   };
   // ── 🔥 룩 스튜디오 = FX Lab 페이지 통째 임베드 ──────────────
   // 랩에서 만지는 모든 값이 400ms 주기로 전송 → 시뮬 적용 + designStore 저장.
+  /** 커스텀 글리프 변경/로드 → 현재 팩 마커의 숫자 텍스처 리베이크 */
+  function refreshGlyphConsumers() {
+    const data = state.packs[state.pack];
+    if (data) { tokens.setPack(data); tokens.resetLoop(); }
+  }
+  GLYPHS.onLoad(() => refreshGlyphConsumers());
   let openFxLab = () => {};   // 아래 FX 블록에서 실제 구현 주입 (스튜디오 룩 탭·인스펙터 공용)
   let stageDark = null;       // 다크 저작 스테이지 — 편집 중 주간/투사면을 통제 (아래 FX 블록에서 주입)
   let updateSurfChipsOut = () => {};   // 패널 투사면 칩 동기 (룩 패널 공용)
@@ -765,7 +771,12 @@ async function boot() {
     if (st.p) Object.assign(FXP.person, { blur: st.p.blur, glow: st.p.glow, flow: st.p.flow, decay: st.p.decay });
     if (st.s) Object.assign(FX, st.s);
     if (st.bg !== undefined) setSurfaces(st.bg === 'none' ? null : st.bg);   // 투사면 칩 → 실물 바닥/벽
-    if (st.glyphs && typeof st.glyphs === 'object') FXP.customGlyphs = st.glyphs;   // 슬롯별 커스텀 SVG (마커 아트 소스로 사용 예정)
+    if (st.glyphs && typeof st.glyphs === 'object') {
+      const changed = JSON.stringify(st.glyphs) !== JSON.stringify(GLYPHS.map);
+      FXP.customGlyphs = st.glyphs;
+      GLYPHS.set(st.glyphs);
+      if (changed) refreshGlyphConsumers();   // 순서 숫자 텍스처 리베이크
+    }
     if (st.sys) {   // 시스템 설정 이관분: 판정·역할 색 / TCFG / SCFG (fxlab → 시뮬 실시간 + 영속)
       if (st.sys.roles) {
         for (const [k, v] of Object.entries(st.sys.roles)) if (k in COLORS) {

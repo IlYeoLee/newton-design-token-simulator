@@ -91,3 +91,48 @@ float fxfbm(vec2 p){ return fxvn(p)*0.55 + fxvn(p*2.13+7.7)*0.28 + fxvn(p*4.31+3
 float fxundul(float ang, float t){
   return sin(ang*2.0 + t*1.1)*0.45 + sin(ang*3.0 - t*0.73 + 1.7)*0.33 + sin(ang*5.0 + t*0.41 + 4.2)*0.22;
 }`;
+
+// ── 커스텀 글리프 (FX Lab 슬롯 교체 SVG → 시뮬 소비) ─────────
+//   슬롯 키: '0'~'9', '+','−','×','%', 'FOOT_L/R', 'TIP_*'. 값 = dataURL.
+export const GLYPHS = {
+  map: {},
+  imgs: new Map(),
+  _listeners: new Set(),
+  set(map) {
+    this.map = map || {};
+    for (const url of Object.values(this.map)) {
+      if (this.imgs.has(url)) continue;
+      const img = new Image();
+      img.src = url;
+      img.onload = () => { for (const cb of this._listeners) cb(); };
+      this.imgs.set(url, img);
+    }
+  },
+  onLoad(cb) { this._listeners.add(cb); return () => this._listeners.delete(cb); },
+  /** ch 슬롯의 로드 완료된 이미지 (없거나 미로드면 null) */
+  img(ch) {
+    const url = this.map[ch];
+    if (!url) return null;
+    const img = this.imgs.get(url);
+    return (img && img.complete && img.naturalWidth) ? img : null;
+  },
+};
+/** 캔버스에 커스텀 글리프를 웜 크림 틴트+글로우로 (x,y) 중심 렌더. 성공 시 true. */
+export function drawGlyph(ctx, ch, x, y, sizePx, { color = 'rgba(255,240,220,0.95)', glowColor = 'rgba(254,150,90,0.75)', glow = 14 } = {}) {
+  const img = GLYPHS.img(ch);
+  if (!img) return false;
+  const off = document.createElement('canvas');
+  off.width = off.height = sizePx;
+  const og = off.getContext('2d');
+  const sc = Math.min(sizePx / img.naturalWidth, sizePx / img.naturalHeight);
+  const w = img.naturalWidth * sc, h = img.naturalHeight * sc;
+  og.drawImage(img, (sizePx - w) / 2, (sizePx - h) / 2, w, h);
+  og.globalCompositeOperation = 'source-in';
+  og.fillStyle = color;
+  og.fillRect(0, 0, sizePx, sizePx);
+  ctx.shadowColor = glowColor; ctx.shadowBlur = glow;
+  ctx.drawImage(off, x - sizePx / 2, y - sizePx / 2);
+  ctx.shadowBlur = 0;
+  ctx.drawImage(off, x - sizePx / 2, y - sizePx / 2);
+  return true;
+}
