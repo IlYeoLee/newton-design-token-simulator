@@ -1498,10 +1498,12 @@ function applyExternalState(st) {
     drawGlyphLib(); drawPrims();
 }
 // ── 권장 기본값 리셋 — 글리프(자산)는 보존, Shift+클릭 시 전부 ──
-document.getElementById('resetBtn')?.addEventListener('click', e => {
-  const st = JSON.parse(JSON.stringify(FACTORY));
-  if (!e.shiftKey) st.glyphs = { ...state.glyphs };   // SVG 자산 유지
-  applyExternalState(st);
+document.getElementById('resetBtn')?.addEventListener('click', async e => {
+  if (e.shiftKey) { applyExternalState(JSON.parse(JSON.stringify(FACTORY))); return; }   // 완전 초기화
+  // 권장 기본값 = 리포에 굳힌 브랜드 확정 룩 (look-default.json)
+  let st = null;
+  try { const r = await fetch('look-default.json', { cache: 'no-cache' }); if (r.ok) st = await r.json(); } catch (e2) {}
+  applyExternalState(st || JSON.parse(JSON.stringify(FACTORY)));
 });
 
 // ── 단독 페이지 영구 저장 — 서버 불필요: localStorage 자동 저장/복원 ──
@@ -1510,6 +1512,10 @@ if (window.parent === window) {
   try {
     const saved = localStorage.getItem(KEY);
     if (saved) applyExternalState(JSON.parse(saved));
+    else fetch('look-default.json', { cache: 'no-cache' })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d) applyExternalState(d); })
+      .catch(() => {});
   } catch (e) { console.warn('[fxlab] restore', e); }
   let lastSave = '';
   setInterval(() => {
