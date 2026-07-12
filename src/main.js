@@ -1185,20 +1185,32 @@ async function boot() {
     if (!st) return null;
     const el = document.createElement('div');
     el.style.cssText = 'margin:8px 14px 0;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--panel2);';
+    // 설계문서의 컷 메타 어휘 그대로: VOICE(편집) · HAPT · WEAR · CUE · FOOT
+    const metaRow = (k, v, tone) => v ? `<div style="display:flex;gap:7px;margin-top:4px;font-size:10px;line-height:1.45;">
+        <span style="flex:0 0 34px;color:${tone};font-weight:700;letter-spacing:.3px;">${k}</span>
+        <span style="color:var(--dim);">${v}</span></div>` : '';
     el.innerHTML = `
-      <div style="font-size:11.5px;color:var(--text);font-weight:700;margin-bottom:6px;">🎬 이 컷 · ${st.id}</div>
-      <div style="display:flex;gap:6px;align-items:center;margin-bottom:5px;font-size:11px;color:var(--dim);">
-        <span style="flex:0 0 auto;">지속(초)</span>
-        <input id="cut-dur" type="number" step="0.5" placeholder="auto" value="${st.dur ?? ''}" style="width:60px;padding:3px;background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:4px;font-size:11px;">
-        <span id="cut-voice-msg" style="margin-left:auto;color:#ffc94d;font-size:9px;visibility:hidden;">🔊 멘트 재생성 필요</span>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+        <span style="font-size:11.5px;color:var(--text);font-weight:700;">🎬 이 컷 · ${st.id.replace('BX_', '')}</span>
+        <span style="display:flex;gap:5px;align-items:center;font-size:10px;color:var(--dim);">지속
+          <input id="cut-dur" type="number" step="0.5" placeholder="auto" value="${st.dur ?? ''}" style="width:52px;padding:3px;background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:4px;font-size:11px;">s</span>
       </div>
-      <input id="cut-voice" type="text" value="${(st.voice?.[1] || '').replace(/"/g, '&quot;')}" placeholder="코치 멘트" style="width:100%;padding:4px;background:var(--panel);color:var(--dim);border:1px solid var(--line);border-radius:4px;font-size:10.5px;">`;
+      <div style="display:flex;gap:7px;align-items:center;font-size:10px;">
+        <span style="flex:0 0 34px;color:#FA3030;font-weight:700;letter-spacing:.3px;">VOICE</span>
+        <input id="cut-voice" type="text" value="${(st.voice?.[1] || '').replace(/"/g, '&quot;')}" placeholder="코치 멘트" style="flex:1;padding:4px;background:var(--panel);color:var(--dim);border:1px solid var(--line);border-radius:4px;font-size:10.5px;">
+      </div>
+      <div id="cut-voice-msg" style="text-align:right;color:#ffc94d;font-size:9px;visibility:hidden;">🔊 멘트 재생성 필요</div>
+      ${metaRow('HAPT', st.hap, '#FEC389')}
+      ${metaRow('WEAR', st.wear, '#8fd8df')}
+      ${metaRow('CUE', st.cue, '#FE6E3C')}
+      ${metaRow('FOOT', st.foot, '#d1feff')}`;
     el.querySelector('#cut-dur').addEventListener('input', e => {
       const v = parseFloat(e.target.value);
       if (!isNaN(v) && v > 0) st.dur = v; else if (e.target.value === '') delete st.dur;
     });
     el.querySelector('#cut-voice').addEventListener('input', e => {
       if (st.voice) { st.voice[1] = e.target.value; el.querySelector('#cut-voice-msg').style.visibility = 'visible'; }
+      renderCutBoard();   // 지속·멘트가 카드 메타에도 반영
     });
     return el;
   }
@@ -1209,28 +1221,111 @@ async function boot() {
     sceneScope.renderProps(propsHost(), () => { renderScopeProps(); fillLayers(); });
   }
 
-  // ── 컷 보드 — 설계문서처럼 장면(컷)이 쫙 보이고, 컷을 고르면 그 장면을 편집 ──
+  // ── 컷 보드 — 설계문서의 컷 카드처럼: 미니 평면 다이어그램 + 지속 + 시그널 배지 ──
   const CUT_TONE = { R: '#9aa4b2', A: '#FEC389', T: '#D1FEFF', B: '#FE6E3C', C: '#FA3030' };
+  /** 컷 썸네일 — 스테이지 요소(발자국·링·글자…)를 설계문서식 미니 다이어그램으로 */
+  function drawCutThumb(cv, stageId) {
+    const ctx = cv.getContext('2d');
+    const W = cv.width, H = cv.height;
+    ctx.fillStyle = '#14181F';
+    ctx.fillRect(0, 0, W, H);
+    ctx.strokeStyle = 'rgba(80,92,110,.28)';
+    ctx.lineWidth = 1;
+    for (let x = 0; x <= W; x += 14) { ctx.beginPath(); ctx.moveTo(x + .5, 0); ctx.lineTo(x + .5, H); ctx.stroke(); }
+    for (let y = 0; y <= H; y += 14) { ctx.beginPath(); ctx.moveTo(0, y + .5); ctx.lineTo(W, y + .5); ctx.stroke(); }
+    const els = session.sceneElements(stageId).filter(e => e.o.visible !== false);
+    if (!els.length) {
+      ctx.fillStyle = 'rgba(140,150,165,.5)';
+      ctx.font = '10px -apple-system, sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText('요소 없음', W / 2, H / 2);
+      return;
+    }
+    // 면 판정: 평균 높이가 크면 벽면(x·y), 아니면 지면(x·z — 위=전방)
+    const avgY = els.reduce((a, e) => a + Math.abs(e.o.position.y), 0) / els.length;
+    const wall = avgY > 0.4;
+    const pts = els.map(e => wall ? { x: e.o.position.x, v: -e.o.position.y } : { x: e.o.position.x, v: e.o.position.z });
+    let minX = Infinity, maxX = -Infinity, minV = Infinity, maxV = -Infinity;
+    for (const p2 of pts) { minX = Math.min(minX, p2.x); maxX = Math.max(maxX, p2.x); minV = Math.min(minV, p2.v); maxV = Math.max(maxV, p2.v); }
+    const spanX = Math.max(0.8, maxX - minX), spanV = Math.max(0.8, maxV - minV);
+    const sc = Math.min((W - 26) / spanX, (H - 22) / spanV);
+    const px = p2 => ({ x: W / 2 + (p2.x - (minX + maxX) / 2) * sc, y: H / 2 + (p2.v - (minV + maxV) / 2) * sc });
+    els.forEach((e, i) => {
+      const p2 = px(pts[i]);
+      const t = e.el.type || 'mesh';
+      ctx.strokeStyle = '#FA3030'; ctx.fillStyle = '#FA3030'; ctx.lineWidth = 1.6;
+      if (t === 'foot' || (t === 'group' && (e.el.parts || []).includes('foot'))) {
+        ctx.beginPath(); ctx.ellipse(p2.x, p2.y + 1.5, 3.2, 4.4, 0, 0, Math.PI * 2); ctx.stroke();
+        ctx.beginPath(); ctx.ellipse(p2.x, p2.y - 4.6, 2.1, 1.7, 0, 0, Math.PI * 2); ctx.stroke();
+      } else if (t === 'ring' || t === 'arc') {
+        ctx.beginPath(); ctx.arc(p2.x, p2.y, 5.5, t === 'arc' ? Math.PI * 0.15 : 0, t === 'arc' ? Math.PI * 0.85 : Math.PI * 2); ctx.stroke();
+      } else if (t === 'arrow') {
+        ctx.beginPath(); ctx.moveTo(p2.x, p2.y + 5); ctx.lineTo(p2.x, p2.y - 4); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(p2.x - 3, p2.y - 2); ctx.lineTo(p2.x, p2.y - 6); ctx.lineTo(p2.x + 3, p2.y - 2); ctx.fill();
+      } else if (t === 'text') {
+        ctx.fillStyle = 'rgba(255,243,220,.9)';
+        ctx.font = '600 8px -apple-system, sans-serif';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(String(e.el.content || '텍스트').slice(0, 8), p2.x, p2.y);
+      } else {
+        ctx.strokeRect(p2.x - 4, p2.y - 4, 8, 8);
+      }
+    });
+  }
+  /** 루프(팩) 썸네일 — 마크 트랙 미니 평면도 */
+  function drawPackThumb(cv) {
+    const ctx = cv.getContext('2d');
+    const W = cv.width, H = cv.height;
+    ctx.fillStyle = '#14181F'; ctx.fillRect(0, 0, W, H);
+    const marks = studioDoc?.marks || [];
+    if (!marks.length) return;
+    const depth = m => (tokens.layout?.mode === 'advance') ? m.t * (tokens.layout.V || 2.5) : (m.ny ?? 0);
+    let maxD = 0.8; for (const m of marks) maxD = Math.max(maxD, depth(m));
+    ctx.strokeStyle = 'rgba(250,48,48,.5)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(W / 2, 4); ctx.lineTo(W / 2, H - 4); ctx.stroke();   // 레인
+    for (const m of marks) {
+      const x = W / 2 + m.nx * (W * 0.34);
+      const y = H - 8 - (depth(m) / maxD) * (H - 16);    // 위=전방
+      ctx.strokeStyle = '#FA3030'; ctx.lineWidth = 1.6;
+      ctx.beginPath(); ctx.arc(x, y, 4, 0, Math.PI * 2); ctx.stroke();
+    }
+  }
   function renderCutBoard() {
     const host = document.getElementById('cut-board');
     if (!host) return;
     const stages = session.stagesFor(studioSport) || [];
-    const card = (key, tone, top, bottom, on) => `
-      <button class="cutcard" data-cut="${key}" style="flex:0 0 auto;display:flex;flex-direction:column;align-items:flex-start;gap:2px;
-        padding:6px 9px;border-radius:7px;cursor:pointer;min-width:74px;text-align:left;
-        border:1px solid ${on ? tone : 'var(--line)'};background:${on ? 'rgba(255,255,255,.06)' : 'var(--panel2)'};">
-        <span style="font-size:9px;font-weight:700;letter-spacing:.4px;color:${tone};">${top}</span>
-        <span style="font-size:10.5px;color:${on ? 'var(--text)' : 'var(--dim)'};line-height:1.25;">${bottom}</span>
-      </button>`;
     const cur = studioScope === 'scene' ? sceneScope.stageId : 'pack';
-    let html = card('pack', 'var(--accent)', '루프', '토큰 트랙', cur === 'pack');
+    host.innerHTML = '';
+    const mkCard = (key, tone, top, title, meta, badges) => {
+      const b = document.createElement('button');
+      b.className = 'cutcard';
+      b.dataset.cut = key;
+      const on = cur === key;
+      b.style.cssText = `flex:0 0 auto;display:flex;flex-direction:column;gap:3px;padding:6px 7px 5px;border-radius:8px;cursor:pointer;width:118px;text-align:left;
+        border:1px solid ${on ? tone : 'var(--line)'};background:${on ? 'rgba(255,255,255,.06)' : 'var(--panel2)'};`;
+      b.innerHTML = `
+        <span style="display:flex;justify-content:space-between;align-items:baseline;">
+          <span style="font-size:9px;font-weight:700;letter-spacing:.4px;color:${tone};">${top}</span>
+          <span style="font-size:8.5px;color:var(--dim);">${meta}</span>
+        </span>
+        <canvas width="104" height="58" style="width:104px;height:58px;border-radius:4px;display:block;"></canvas>
+        <span style="display:flex;justify-content:space-between;align-items:center;gap:4px;">
+          <span style="font-size:9.5px;color:${on ? 'var(--text)' : 'var(--dim)'};line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${title}</span>
+          <span style="font-size:8px;flex:none;">${badges}</span>
+        </span>`;
+      b.addEventListener('click', () => selectCut(key));
+      host.appendChild(b);
+      return b.querySelector('canvas');
+    };
+    // 루프 카드
+    drawPackThumb(mkCard('pack', 'var(--accent)', '루프', '토큰 트랙', `${studioDoc?.marks?.length ?? 0}마크`, ''));
+    // 세션 컷 카드 — 설계문서처럼: 다이어그램 + 지속 + 시그널
     for (const st of stages) {
-      const tone = CUT_TONE[st.id[0]] || '#9aa4b2';
+      const tone = CUT_TONE[st.id.replace('BX_', '')[0]] || '#9aa4b2';
       const [top, ...rest] = (st.label || st.id).split(' — ');
-      html += card(st.id, tone, st.id, (rest.join(' — ') || top).slice(0, 14), cur === st.id);
+      const badges = [st.voice && '🔊', st.hap && '📳', st.wear && '⌚', st.cue && '✨', st.foot && '👣'].filter(Boolean).join('');
+      drawCutThumb(mkCard(st.id, tone, st.id.replace('BX_', ''), (rest.join(' — ') || top), st.dur ? `${st.dur}s` : 'auto', badges), st.id);
     }
-    host.innerHTML = html;
-    host.querySelectorAll('.cutcard').forEach(b => b.addEventListener('click', () => selectCut(b.dataset.cut)));
   }
   function selectCut(key) {
     if (key === 'pack') setScope('pack');
@@ -1290,6 +1385,9 @@ async function boot() {
         });
       }
     }
+    // 장면 컷 = 그 장면만 미리보기 (팩 트랙·봇이 가리지 않게) — 설계문서 컷 원칙
+    tokens.root.visible = !scene;
+    xbot.group.visible = !scene;
     // 2D 트랙 캔버스 은퇴 — 직교 평면도 + 깊이 눈금(m·s)이 그 역할을 본화면에서 수행
     const wrap = document.getElementById('studio-canvas-wrap');
     if (wrap) wrap.style.display = 'none';
@@ -1393,6 +1491,8 @@ async function boot() {
     editControls.enabled = false;
     controls.enabled = true;
     editBoard.visible = false;
+    tokens.root.visible = true;
+    xbot.group.visible = true;
     if (studioScope === 'scene') sceneScope.leave();   // 스테이지 프리뷰 해제
     studioScope = 'pack';
     studioCanvas?.destroy(); studioCanvas = null;

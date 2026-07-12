@@ -599,9 +599,21 @@ export class Session {
     this.root.position.set(0, 0, 0);
     for (const id in this.G) this.G[id].visible = id === stageId;
     this.countGroup.visible = false; this.countRing.visible = false;
+    // 편집 미리보기 = 클리핑 해제 — 정지 시점 풋프린트에 장면이 잘려 안 보이는 문제
+    // (스튜디오 layoutPreview가 팩 토큰에 하는 것과 동일 원칙: 전체 형상을 보고 편집)
+    this.G[stageId]?.traverse(m => {
+      if (m.material && m.material.clippingPlanes) {
+        m.userData._clipKeep = m.material.clippingPlanes;
+        m.material.clippingPlanes = null;
+      }
+    });
   }
   endPreview() {
     this._previewId = null;
+    // 클리핑 복원 — 실제 세션에선 투사 정직성(풋프린트 안에서만) 유지
+    for (const id in this.G) this.G[id].traverse(m => {
+      if (m.userData._clipKeep) { m.material.clippingPlanes = m.userData._clipKeep; delete m.userData._clipKeep; }
+    });
     if (!this.active) { this.root.visible = false; for (const id in this.G) this.G[id].visible = false; }
   }
 
