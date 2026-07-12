@@ -163,7 +163,14 @@ export class ProjectorRig {
   }
 
   /** 팩 되감기 등 포즈가 순간이동하는 시점 — 다음 1샘플을 버려 가짜 ω를 막는다 */
-  resetOmega() { this._shinPrev = null; }
+  resetOmega() {
+    // 루프 랩 = 포즈·위치 순간이동: ω 미분뿐 아니라 투사 방향/이동 스무딩도 스냅 —
+    // 안 하면 저역통과(0.6s)가 옛 위치→새 위치를 보간하며 패드가 화면을 크게 휩쓴다
+    this._shinPrev = null;
+    this._smFwd = null;
+    this._travelDir = null;
+    this._bodyPrev = null;
+  }
 
   setPack(sport, tokenEvents) {
     this.mode = sport;
