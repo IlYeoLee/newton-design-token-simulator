@@ -165,3 +165,75 @@ export function drawGlyph(ctx, ch, x, y, sizePx, { color = 'rgba(255,240,220,0.9
 export function footSlot(right) {
   return (FXP.footCtx === 'in' ? 'FOOT_IN_' : 'FOOT_OUT_') + (right ? 'R' : 'L');
 }
+
+/** 발형 SDF 텍스처 — FX Lab sdfFromAlpha와 동일 레시피 (지면 마크의 발형 표현형) */
+const _sdfCache = new Map();
+export function footSDFTexture(right) {
+  const slot = footSlot(right);
+  const url = GLYPHS.map[slot];
+  const flip = !!GLYPHS.flip[slot];
+  const key = (url ? url.length : 'builtin') + '|' + slot + '|' + flip;
+  if (_sdfCache.has(key)) return _sdfCache.get(key);
+  const img = url ? GLYPHS.img(slot) : null;
+  if (url && !img) return null;   // 로드 전 — onLoad 리베이크가 재시도
+  const N = 160;
+  const c = document.createElement('canvas'); c.width = c.height = N;
+  const g = c.getContext('2d');
+  if (img) {
+    const R = (() => {   // glyphRaster 인라인 (fxlab과 동일)
+      if (img._raster) return img._raster;
+      const S = 256, rc = document.createElement('canvas'); rc.width = rc.height = S;
+      const rg = rc.getContext('2d');
+      const sc = Math.min(S / img.naturalWidth, S / img.naturalHeight);
+      rg.drawImage(img, 0, 0, img.naturalWidth * sc, img.naturalHeight * sc);
+      const d = rg.getImageData(0, 0, S, S).data;
+      let x0 = S, y0 = S, x1 = -1, y1 = -1;
+      for (let y = 0; y < S; y++) for (let x = 0; x < S; x++)
+        if (d[(y * S + x) * 4 + 3] > 8) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+      img._raster = x1 < 0 ? { canvas: rc, x: 0, y: 0, w: S, h: S } : { canvas: rc, x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1 };
+      return img._raster;
+    })();
+    const sc = Math.min((N * 0.78) / R.w, (N * 0.78) / R.h);
+    const w = R.w * sc, h = R.h * sc;
+    if (flip) { g.translate(0, N); g.scale(1, -1); }
+    g.drawImage(R.canvas, R.x, R.y, R.w, R.h, (N - w) / 2, (N - h) / 2, w, h);
+  } else {
+    // 내장 발 (fxlab footSDF 드로잉과 동일)
+    g.fillStyle = '#fff';
+    g.save(); g.translate(N / 2, N / 2); g.scale(N / 128, N / 128); g.rotate(-0.09);
+    if (right) g.scale(-1, 1);
+    g.beginPath(); g.ellipse(-1, -16, 13, 18, 0.06, 0, 7); g.fill();
+    g.beginPath(); g.ellipse(3, 24, 9.5, 12, -0.05, 0, 7); g.fill();
+    g.beginPath(); g.ellipse(1, 4, 8, 14, 0, 0, 7); g.fill();
+    for (let i = 0; i < 5; i++) {
+      const a = -1.0 + i * 0.44;
+      g.beginPath(); g.arc(Math.sin(a) * 15 - 1, -37 - Math.cos(a) * 3.5 + Math.abs(a) * 6, 4.4 - Math.abs(i - 1.4) * 0.55, 0, 7); g.fill();
+    }
+    g.restore();
+  }
+  const imgD = g.getImageData(0, 0, N, N).data;
+  const inside = new Uint8Array(N * N);
+  for (let i = 0; i < N * N; i++) inside[i] = imgD[i * 4 + 3] > 128 ? 1 : 0;
+  const bx = [], by = [];
+  for (let y = 1; y < N - 1; y++) for (let x = 1; x < N - 1; x++) {
+    const i = y * N + x;
+    if (inside[i] !== inside[i - 1] || inside[i] !== inside[i + 1] || inside[i] !== inside[i - N] || inside[i] !== inside[i + N]) { bx.push(x); by.push(y); }
+  }
+  const out = new Uint8Array(N * N);
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    let best = 1e9;
+    for (let k = 0; k < bx.length; k++) {
+      const dx = x - bx[k], dy = y - by[k];
+      const d2 = dx * dx + dy * dy;
+      if (d2 < best) best = d2;
+    }
+    let d = Math.sqrt(best);
+    if (inside[y * N + x]) d = -d;
+    out[y * N + x] = Math.max(0, Math.min(255, Math.round((d / (N / 2)) * 127 + 128)));
+  }
+  const tex = new THREE.DataTexture(out, N, N, THREE.RedFormat);
+  tex.minFilter = tex.magFilter = THREE.LinearFilter;
+  tex.needsUpdate = true;
+  _sdfCache.set(key, tex);
+  return tex;
+}

@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import { WALL_Z } from './scene.js';
 import { thermalColor, heatBlob, grainPattern } from './thermal.js';
-import { lutColor, GLYPHS, drawGlyph, footSlot } from './fxlut.js';
+import { lutColor, GLYPHS, drawGlyph, footSlot, FXP } from './fxlut.js';
+import { makeMarkFXMaterial } from './tokens.js';
 
 // ─────────────────────────────────────────────────────────────
 // 러닝 세션 흐름 — 와이어프레임 v2 전체 15프레임 이식
@@ -167,7 +168,9 @@ class FootMark {
 
 // ── 지면 프리미티브 (userData.el = 장면 에디터 메타) ──
 function floorRing(x, z, rIn, rOut, color, op = 0.9) {
-  const m = new THREE.Mesh(new THREE.RingGeometry(rIn, rOut, 48), flatMat(color, op));
+  const m = isHeatColor(color)
+    ? waveRingMesh(rIn, rOut, color, op, false)
+    : new THREE.Mesh(new THREE.RingGeometry(rIn, rOut, 48), flatMat(color, op));
   m.rotation.x = -Math.PI / 2; m.position.set(x, 0.013, z); m.renderOrder = 5;
   m.userData.el = { type: 'ring' }; return m;
 }
@@ -195,6 +198,24 @@ function floorNum(text, x, z, size, color) {
   const g = new THREE.Group(); const p = makeTextPlane(text, { size, color, weight: 800 });
   g.add(p); g.rotation.x = -Math.PI/2; g.position.set(x, 0.013, z); g.renderOrder = 7; g.userData.plane = p; return g;
 }
+// 파동 링 재질 틱 목록 (프리뷰·세션 공통 — main 루프가 tickWaves 호출)
+const WAVE_MATS = [];
+function isHeatColor(c) { return c === BRAND.red || c === BRAND.coral || c === BRAND.sand; }
+/** 히트 계열 링 = MARK Preview 파동 (설계 통일: 링 프리미티브는 MARK의 저온 숨쉬기) */
+function waveRingMesh(rIn, rOut, color, op, wall) {
+  const quadR = rOut / 0.72;
+  const mat = makeMarkFXMaterial();
+  const U = mat.uniforms;
+  U.uPhase.value = 0;                                   // Preview — 잔잔한 저온 숨쉬기
+  U.uFade.value = op;
+  U.uGain.value = wall ? 0.6 : 1.0;
+  U.uW.value = Math.max(0.5, Math.min(3, (0.72 * (rOut - rIn)) / rOut / 0.03));
+  U.uPool.value = 0.1;
+  WAVE_MATS.push(mat);
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(quadR * 2, quadR * 2), mat);
+  m.renderOrder = 5;
+  return m;
+}
 function laneLine(color, z0 = 1.0, z1 = -3.2) {
   const pts = []; for (let z = z0; z > z1; z -= 0.42) pts.push(new THREE.Vector3(0, 0.012, z));
   const l = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),
@@ -205,7 +226,9 @@ function laneLine(color, z0 = 1.0, z1 = -3.2) {
 // ── 벽면 프리미티브 (복싱 — z=WALL_Z 세워진 평면, 유저(+z) 바라봄, 눕힘 없음) ──
 const WZ = WALL_Z + 0.03;
 function wallRing(x, y, rIn, rOut, color, op = 0.9) {
-  const m = new THREE.Mesh(new THREE.RingGeometry(rIn, rOut, 48), flatMat(color, op));
+  const m = isHeatColor(color)
+    ? waveRingMesh(rIn, rOut, color, op, true)
+    : new THREE.Mesh(new THREE.RingGeometry(rIn, rOut, 48), flatMat(color, op));
   m.position.set(x, y, WZ); m.renderOrder = 5; m.userData.el = { type: 'ring', wall: true }; return m;
 }
 function wallArc(x, y, rIn, rOut, color, a0, len, op = 0.9) {
@@ -216,9 +239,10 @@ function wallText(text, x, y, opts) {
   const p = makeTextPlane(text, opts); p.position.set(x, y, WZ + 0.002); p.renderOrder = 7;
   if (p.userData.el) p.userData.el.wall = true; return p;
 }
-/** 가드 존 박스 — 신체 부위가 머물 영역 (라운드 사각 아웃라인) */
+/** 가드 존 박스 — 신체 부위가 머물 영역 (스탠스 박스 파생: FX Lab round·dash 소비) */
 function guardBox(x, y, w, h, color, op = 0.8) {
-  const s = new THREE.Shape(); const r = 0.05;
+  const P = (typeof FXP !== 'undefined' && FXP.prims && FXP.prims.stanceBox) || { round: 0.2, dash: 1 };
+  const s = new THREE.Shape(); const r = 0.02 + 0.1 * P.round;
   const hw = w / 2, hh = h / 2;
   s.moveTo(-hw + r, -hh); s.lineTo(hw - r, -hh); s.quadraticCurveTo(hw, -hh, hw, -hh + r);
   s.lineTo(hw, hh - r); s.quadraticCurveTo(hw, hh, hw - r, hh); s.lineTo(-hw + r, hh);
@@ -226,22 +250,26 @@ function guardBox(x, y, w, h, color, op = 0.8) {
   const pts = s.getPoints(48);
   const g = new THREE.Group();
   const line = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(pts.map(p => new THREE.Vector3(p.x, p.y, 0))),
-    new THREE.LineBasicMaterial({ color, transparent: true, opacity: op }));
+    new THREE.LineDashedMaterial({ color, transparent: true, opacity: op, dashSize: 0.05 * P.dash, gapSize: 0.035 }));
+  line.computeLineDistances();
   const fill = new THREE.Mesh(new THREE.ShapeGeometry(s), flatMat(color, 0.08));
   g.add(fill, line); g.position.set(x, y, WZ); g.renderOrder = 5; g.userData.el = { type: 'box', wall: true }; return g;
 }
 /** 잽 스윕 밴드 — ④ pathLane 벽면 표현형: 부위가 지나갈 호(弧) 면적, 그라디언트=진행 방향 */
 function sweepBand(x0, y0, x1, y1, color) {
+  const P = (typeof FXP !== 'undefined' && FXP.prims && FXP.prims.sweepBand) || { h: 1, base: 0.3, edge: 1 };
   const c = document.createElement('canvas'); c.width = 128; c.height = 128;
   const ctx = c.getContext('2d');
   const gr = ctx.createLinearGradient(0, 128, 128, 0);
   const hex = '#' + color.toString(16).padStart(6, '0');
-  gr.addColorStop(0, 'rgba(250,48,48,0.04)'); gr.addColorStop(1, hex);
+  gr.addColorStop(0, `rgba(250,48,48,${(0.04 + P.base * 0.25).toFixed(3)})`);   // 바닥 투명 (FX Lab)
+  if (P.edge > 0.05) gr.addColorStop(Math.max(0.7, 1 - P.edge * 0.12), hex);
+  gr.addColorStop(1, P.edge > 0.05 ? '#FFF3DC' : hex);   // 전연 백열 (FX Lab edge)
   ctx.fillStyle = gr;
   ctx.beginPath(); ctx.moveTo(12, 120); ctx.quadraticCurveTo(30, 40, 110, 24);
   ctx.lineTo(120, 52); ctx.quadraticCurveTo(52, 66, 34, 122); ctx.closePath(); ctx.fill();
   const tex = new THREE.CanvasTexture(c);
-  const w = Math.hypot(x1 - x0, y1 - y0) + 0.5;
+  const w = (Math.hypot(x1 - x0, y1 - y0) + 0.5) * ((typeof FXP !== 'undefined' && FXP.prims?.sweepBand?.h) || 1);
   const m = new THREE.Mesh(new THREE.PlaneGeometry(w, w),
     new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: 0.7, depthWrite: false }));
   m.position.set((x0 + x1) / 2, (y0 + y1) / 2, WZ + 0.001); m.renderOrder = 5; return m;
@@ -912,6 +940,12 @@ export class Session {
       case 'BX_C4': FS('COOL DOWN'); break;
       case 'BX_FIN': FS('REPORT'); break;
     }
+  }
+
+  /** 파동 링 시계 — 프리뷰(에디터)·세션 공통, main 루프가 매 프레임 호출 */
+  tickWaves() {
+    const t = performance.now() / 1000;
+    for (const m of WAVE_MATS) m.uniforms.uTime.value = t;
   }
 
   update(dt) {

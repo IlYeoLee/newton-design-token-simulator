@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { WALL_Z } from './scene.js';
 import { renderDesignCanvas } from './studio/design.js';
-import { getLUT, FXP, FX_GLSL, GLYPHS, drawGlyph } from './fxlut.js';
+import { getLUT, FXP, FX_GLSL, GLYPHS, drawGlyph, footSDFTexture } from './fxlut.js';
 
 // ── MARK 파동 셰이더 (FX Lab 이식) — 재료는 열 하나, 상태는 파동의 위상 ──
 const MARKFX_VERT = `
@@ -20,6 +20,8 @@ const MARKFX_FRAG = `
 ` + FX_GLSL + `
 uniform float uPhase, uProg, uFade, uStrong, uContract, uTime, uSeed;
 uniform float uW, uHalo, uPool, uSweepA, uWobble, uGain;
+uniform float uShape;               // 0=존 원 / 1=발형 (FX Lab markShape)
+uniform sampler2D uSDF;             // 발형 실루엣 SDF (FOOT 슬롯 SVG)
 varying vec2 vUv;
 void main() {
   #include <clipping_planes_fragment>
@@ -28,7 +30,13 @@ void main() {
   float ang = atan(uv.y, uv.x);
   float u1 = fxundul(ang + uSeed, uTime * 1.6);
   float Rz = 0.72;                                     // 쿼드 로컬 존 반경
-  float sd = d * (1.0 + u1 * uWobble * 0.05) - Rz;
+  float sd;
+  if (uShape > 0.5) {
+    vec2 suv = uv * 0.5 + 0.5;
+    sd = (texture2D(uSDF, vec2(suv.x, 1.0 - suv.y)).r - 0.5019) * 1.0 + u1 * uWobble * 0.02;
+  } else {
+    sd = d * (1.0 + u1 * uWobble * 0.05) - Rz;
+  }
   float edgeW = 0.03 * uW;
   float edge = exp(-pow(abs(sd) / edgeW, 2.0)) + exp(-pow(abs(sd) / (edgeW * 5.0), 2.0)) * 0.45 * uHalo;
   if (uContract > 0.5) edge *= smoothstep(0.15, 0.55, 0.5 + 0.5 * sin(ang * 18.0 + u1));   // 회피 점선
@@ -126,12 +134,14 @@ function makeLaneFXMaterial(lenM) {
   return mat;
 }
 
-function makeMarkFXMaterial() {
+export function makeMarkFXMaterial(footTex = null) {
   const mat = new THREE.ShaderMaterial({
     vertexShader: MARKFX_VERT,
     fragmentShader: MARKFX_FRAG,
     uniforms: {
       uLUT: { value: getLUT() },
+      uShape: { value: footTex ? 1 : 0 },
+      uSDF: { value: footTex || getLUT() },
       uPhase: { value: 0 }, uProg: { value: 0 }, uFade: { value: 1 },
       uStrong: { value: 0 }, uContract: { value: 0 },
       uTime: { value: 0 }, uSeed: { value: Math.random() * 6.2832 },
@@ -291,7 +301,8 @@ function flatMat(color, opacity = 1) {
 
 // ── 마커 비주얼: 채움 원 + 테두리 + 카운트다운 링 + 숫자 ──────
 class Marker {
-  constructor(radius, color, surface /* 'floor'|'wall' */) {
+  constructor(radius, color, surface /* 'floor'|'wall' */, footRight = false) {
+    this._footRight = footRight;
     this.group = new THREE.Group();
     this.radius = radius;
     this.color = color;
@@ -302,8 +313,12 @@ class Marker {
     this.cd   = new THREE.Mesh(new THREE.RingGeometry(radius * 0.93, radius, 44), flatMat(0xffffff, 0.9));
     this.num  = null;
 
-    // 파동 셰이더 존 (FX Lab 언어) — 구 벡터 링(fill/edge/cd)은 숨기고 계측·레거시용으로만 유지
-    this.fx = new THREE.Mesh(new THREE.PlaneGeometry(radius * 2.78, radius * 2.78), makeMarkFXMaterial());
+    // 파동 셰이더 존 (FX Lab 언어) — 발형 표현형(markShape=1)이면 FOOT 슬롯 SDF 위에서 같은 상태 머신
+    let footTex = null;
+    if (surface === 'floor' && FXP.markShape === 1) {
+      try { footTex = footSDFTexture(this._footRight === true); } catch (e) { footTex = null; }
+    }
+    this.fx = new THREE.Mesh(new THREE.PlaneGeometry(radius * 2.78, radius * 2.78), makeMarkFXMaterial(footTex));
     this.fx.position.z = 0.002;
     // 벽면은 열화상 고스트 위 가산이라 과노출 방지 게인
     this._baseGain = surface === 'wall' ? 0.6 : 1.0;
@@ -671,7 +686,7 @@ export class TokenSystem {
           const color = tk.type === 'targetMark' ? COLORS.target : COLORS[tk.foot] ?? COLORS.left;
           // 반경 = 판정 허용창 (저작값 radiusCm 우선)
           const radius = tk.radiusCm ? tk.radiusCm / 100 : (tk.type === 'targetMark' ? 0.20 : 0.17);
-          const mk = new Marker(radius, color, isWall ? 'wall' : 'floor');
+          const mk = new Marker(radius, color, isWall ? 'wall' : 'floor', tk.foot === 'right');
           // MARK 계약 변조 (도달/회피/유지) — 벽 불즈아이는 도달 전용
           if (!isWall && (tk.contract && tk.contract !== 'reach' || tk.holdRing)) mk.setContract(tk.contract, tk.holdRing);
           // 토큰 비주얼 디자인(그라디언트·블러·SVG) → CanvasTexture 아트로 교체

@@ -204,6 +204,7 @@ async function boot() {
     if (lab0?.glyphs) {
       FXP.bg = lab0.bg;
       FXP.footCtx = lab0.footCtx || 'out';
+      FXP.markShape = lab0.markShape ?? 0;
       FXP.customGlyphs = lab0.glyphs;
       GLYPHS.set(lab0.glyphs);
       GLYPHS.setFlips(lab0.glyphFlip || {});
@@ -833,7 +834,11 @@ async function boot() {
     if (st.p) Object.assign(FXP.person, { blur: st.p.blur, glow: st.p.glow, flow: st.p.flow, decay: st.p.decay });
     if (st.s) Object.assign(FX, st.s);
     if (st.bg !== undefined) { FXP.bg = st.bg; setSurfaces(st.bg === 'none' ? null : st.bg); }   // 투사면 칩 → 실물 바닥/벽 (+발형 컨텍스트)
-    if (st.prims) FXP.prims = st.prims;   // 프리미티브 파라미터 (세션 빌드 소비는 다음 단계)
+    if (st.prims) FXP.prims = st.prims;   // 프리미티브 파라미터 → 세션 스테이지 빌드 소비 (리로드 반영)
+    if (st.markShape != null && st.markShape !== FXP.markShape) {
+      FXP.markShape = st.markShape;       // 0=존 원 / 1=발형 (지면 마크 표현형)
+      refreshGlyphConsumers();
+    }
     if (st.arrow) {
       const changed = JSON.stringify(st.arrow) !== JSON.stringify(FXP.arrow);
       Object.assign(FXP.arrow, st.arrow);
@@ -2005,6 +2010,7 @@ async function boot() {
     // 1인칭에서만 OrbitControls 스킵 — 세션 3인칭에선 자유 회전 허용
     if (!fpMode) controls.update();
     sceneUI.update(rawDt, rig);       // 장면 UI 슬롯 — 풋프린트 추종 재배치 + 페이드
+    session.tickWaves();              // 스테이지 파동 링 시계 (프리뷰 포함)
     renderGhostLayer();
     renderFrame(clock.elapsedTime);   // 블룸 + 그레인·비네트 컴포저 (scene.js FX)
   }
