@@ -8,7 +8,7 @@ import { Panel } from './panel.js';
 import { ProjectorRig } from './projector.js';
 import { WallGhost } from './ghost.js';
 import { Judge } from './judge.js';
-import { Session, SCFG } from './session.js';
+import { Session, SCFG, STAGES } from './session.js';
 import { StudioDoc } from './studio/doc.js';
 import { StudioCanvas } from './studio/canvas.js';
 import { StudioProps } from './studio/props.js';
@@ -1860,6 +1860,70 @@ async function boot() {
     if (!document.hidden) clock.getDelta();  // 숨김 구간 이중 진행 방지
     bgLast = performance.now();
   });
+
+  // ── 🗺 장면 명세 보드 — 실제 씬 그래프에서 자동 생성 (도식 근사 금지: 어긋날 수 없음) ──
+  //    스테이지마다 "무엇이 뜨는지 + 어디서 고치는지"를 한눈에. READY 잔해 사고 재발 감시 겸용.
+  {
+    const SPEC_ROW = {
+      text:  n => ['T', `"${n.userData.el.content ?? '텍스트'}"`, '고정 카피 — 장면 UI 규정 (session.js)'],
+      foot:  () => ['👣', 'MARK 발형', '룩 › 글리프 FOOT 슬롯 · MARK 파라미터'],
+      ring:  n => n.material?.isShaderMaterial ? ['◉', 'MARK 파동 링', '룩 › MARK 파라미터·팔레트'] : ['◎', '가이드 링', '스튜디오 (위치·크기)'],
+      arc:   () => ['⤺', 'LINE 회전 호', '룩 › LINE'],
+      arrow: () => ['➤', 'LINE 방향 화살표', '룩 › LINE'],
+      stripe: () => ['―', '스트라이프', '스튜디오'],
+      box:   () => ['▭', '가드/스탠스 박스', '룩 › 프리미티브 › 스탠스'],
+      sweep: () => ['▬', '스윕 밴드', '룩 › 프리미티브 › 스윕'],
+      tap:   () => ['⊙', '두 번 탭 시작 존', '고정 — 시작 계약'],
+    };
+    function collectSpecs(group) {
+      const rows = [];
+      const stack = [...(group?.children || [])];
+      while (stack.length) {
+        const n = stack.pop();
+        const el = n.userData?.el;
+        if (n.userData?.addedSpec) { rows.push(['✚', n.userData.addedSpec.kind, '스튜디오 추가 (이 장면에만)']); continue; }
+        if (el && SPEC_ROW[el.type]) { rows.push(SPEC_ROW[el.type](n)); continue; }
+        stack.push(...(n.children || []));
+      }
+      // 동일 행 집계 (링 ×3 처럼)
+      const agg = new Map();
+      for (const [ic, nm, src] of rows) {
+        const k = ic + nm + src;
+        if (agg.has(k)) agg.get(k).n++; else agg.set(k, { ic, nm, src, n: 1 });
+      }
+      return [...agg.values()];
+    }
+    let specEl = null;
+    function openSpecMap() {
+      if (specEl) { specEl.remove(); specEl = null; return; }
+      const SPORT_KO = { running: '러닝', basketball: '농구', boxing: '복싱' };
+      let html = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div><b style="font-size:15px">🗺 장면 명세</b>
+        <span style="color:#8a8f98;font-size:11.5px;margin-left:10px">실제 씬 그래프에서 자동 생성 — 각 장면에 무엇이 뜨고, 어디서 고치는지</span></div>
+        <button id="spec-close" style="background:none;border:1px solid #333;border-radius:6px;color:#ccc;padding:4px 10px;cursor:pointer">닫기</button></div>`;
+      for (const [sport, stages] of Object.entries(STAGES)) {
+        html += `<div style="font-weight:800;color:#fec389;margin:14px 0 6px">${SPORT_KO[sport] || sport}</div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:8px">`;
+        for (const st of stages) {
+          const rows = collectSpecs(session.G[st.id]);
+          const ov = designStore.d.scenes?.[st.id];
+          const ovN = (ov?.added?.length || 0) + Object.keys(ov?.patches || {}).length;
+          html += `<div style="border:1px solid #262b33;border-radius:8px;padding:8px 10px;background:#12151b">
+            <div style="font-size:11.5px;font-weight:700;margin-bottom:5px">${st.id} <span style="color:#8a8f98;font-weight:400">${st.label || ''}</span></div>
+            ${rows.length ? rows.map(r => `<div style="font-size:11px;color:#cdd3da;margin:2px 0">${r.ic} ${r.nm}${r.n > 1 ? ` <b style="color:#fec389">×${r.n}</b>` : ''} <span style="color:#7b828c">— ${r.src}</span></div>`).join('') : '<div style="font-size:11px;color:#5b6069">투사 요소 없음 (음성·타이밍만)</div>'}
+            ${st.cue ? `<div style="font-size:10.5px;color:#8fd0d8;margin-top:4px">큐: ${st.cue}</div>` : ''}
+            ${ovN ? `<div style="font-size:10.5px;color:#fea35f;margin-top:4px">✎ 스튜디오 오버라이드 ${ovN}건</div>` : ''}
+          </div>`;
+        }
+        html += '</div>';
+      }
+      specEl = document.createElement('div');
+      specEl.style.cssText = 'position:absolute;inset:24px;z-index:40;background:rgba(10,12,16,.98);border:1px solid #2a2f38;border-radius:12px;padding:16px 18px;overflow:auto;color:#e8ebef;font-family:inherit';
+      specEl.innerHTML = html;
+      document.body.appendChild(specEl);
+      specEl.querySelector('#spec-close').onclick = () => { specEl.remove(); specEl = null; };
+    }
+    document.getElementById('btn-specmap')?.addEventListener('click', openSpecMap);
+  }
 
   if (import.meta.env.DEV) window.__dbg = {
     rig, xbot, state, session, sceneScope, camera, controls, tokens, effects, scene, editor3d, sceneUI, FXP, designStore, TCFG, editCam, editControls, judge, THREE,

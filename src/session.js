@@ -272,20 +272,20 @@ function sweepBand(x0, y0, x1, y1, color) {
   const w = (Math.hypot(x1 - x0, y1 - y0) + 0.5) * ((typeof FXP !== 'undefined' && FXP.prims?.sweepBand?.h) || 1);
   const m = new THREE.Mesh(new THREE.PlaneGeometry(w, w),
     new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: 0.7, depthWrite: false }));
-  m.position.set((x0 + x1) / 2, (y0 + y1) / 2, WZ + 0.001); m.renderOrder = 5; return m;
+  m.position.set((x0 + x1) / 2, (y0 + y1) / 2, WZ + 0.001); m.renderOrder = 5; m.userData.el = { type: 'sweep', wall: true }; return m;
 }
 function wallTap() {
   const g = new THREE.Group();
   for (let i = 0; i < 2; i++) { const r = new THREE.Mesh(new THREE.RingGeometry(0.055, 0.07, 32), flatMat(BRAND.prism, 0.95)); r.position.x = (i - 0.5) * 0.18; g.add(r); }
   const label = makeTextPlane('TAP ×2', { size: 0.055, color: CS.prism }); label.position.set(0, -0.16, 0.001); g.add(label);
-  g.position.z = WZ; g.renderOrder = 7; return g;
+  g.position.z = WZ; g.renderOrder = 7; g.userData.el = { type: 'tap', wall: true }; return g;
 }
 
 // ─────────────────────────────────────────────────────────────
 // 종목별 스테이지 스크립트. 공통 로직은 데이터 필드로 구동:
 //   live=실전 팩 재생 · boost=가속 · cooldown=감속정지 · count=카운트다운
 // 스테이지별 고유 비주얼은 sport-dispatch(_build/_enter/_update)로 처리.
-const STAGES = {
+export const STAGES = {
   running: [
     { id:'READY', label:'0 · READY — 준비', voice:['시스템','션의 마지막 1km 페이스 팩. 준비되면 발을 두 번 탭하세요.'], wear:'SAFE 대기', foot:'두 번 탭 → 시작' },
     { id:'A1', label:'A · 스트레칭 1/4 — 발목 돌리기', voice:['션','발목부터 풀어요. 원에 발끝 올리고 천천히 여덟 번.'], wear:'개입 없음 (가동범위 측정)' },
@@ -614,7 +614,7 @@ export class Session {
     const g = new THREE.Group();
     for (let i = 0; i < 2; i++) { const r = new THREE.Mesh(new THREE.RingGeometry(0.055, 0.07, 32), flatMat(BRAND.prism, 0.95)); r.position.x = (i - 0.5) * 0.18; g.add(r); }
     const label = makeTextPlane('TAP ×2', { size: 0.055, color: CS.prism }); label.position.set(0, -0.16, 0.001); g.add(label);
-    g.rotation.x = -Math.PI / 2; g.position.y = 0.013; g.renderOrder = 7; return g;
+    g.rotation.x = -Math.PI / 2; g.position.y = 0.013; g.renderOrder = 7; g.userData.el = { type: 'tap' }; return g;
   }
   _setCount(n, color = CS.red) {
     while (this.countGroup.children.length) { const c = this.countGroup.children.pop(); c.traverse?.(o => { o.geometry?.dispose(); o.material?.map?.dispose(); o.material?.dispose(); }); }
