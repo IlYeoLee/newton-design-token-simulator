@@ -731,7 +731,8 @@ async function boot() {
     wearTimer = setTimeout(() => { wearFxEl.style.opacity = '0'; }, ms);
   }
   function showCaption(who, text) {
-    sceneUI.setInstruction(text);   // 지시문 슬롯 — PRIME 면 텍스트 밴드 중앙 (장면 UI 시스템)
+    // 음성 문장을 바닥에 복제하던 지시문 슬롯 은퇴 — 3중 중복(음성+하단 캡션+바닥)이었고,
+    // 거대 문장이 잘린 채 발자국·가이드를 덮는 주범 (세션 짧은 구 카피 FL이 바닥 지시 담당)
     if (!captionEl) return;
     captionEl.innerHTML = `<b>🔊 ${who}</b> · ${text}`;
     captionEl.style.opacity = '1';
@@ -752,7 +753,8 @@ async function boot() {
     if (sessionStageEl) sessionStageEl.innerHTML = html;
     if (hudStageEl) hudStageEl.innerHTML = html;
     if (hudIdxEl) hudIdxEl.textContent = `${session.stageIdx + 1} / ${session.total}`;
-    sceneUI.setStatus(st.label);   // 상태 슬롯 — 텍스트 밴드 우측 (장면 UI 시스템)
+    // 스테이지 라벨을 바닥에 문장으로 깔던 상태 슬롯 은퇴 — 세션 HUD 카드 + 세션 FS 슬롯('LEARN 3/4')과
+    // 3중 중복이었고 발자국·가이드를 덮는 두 번째 주범. 투사면 = 훈련 큐 전용 원칙.
     veil();  // 단계 전환 암전 (끊김 → 의도된 전환으로)
     if (st.voice) { showCaption(st.voice[0], st.voice[1]); speak(st.voice[0], st.voice[1], st.id); }
     if (st.wear) {

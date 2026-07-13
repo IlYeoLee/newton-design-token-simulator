@@ -168,7 +168,7 @@ void main() {
   }
 }`;
 const LINE_STYLE_IDX = { solid: 0, dash: 1, dot: 2, chevron: 3, comet: 4, taper: 5 };
-function makeLaneFXMaterial(lenM) {
+export function makeLaneFXMaterial(lenM) {
   const mat = new THREE.ShaderMaterial({
     vertexShader: MARKFX_VERT,
     fragmentShader: LANEFX_FRAG,

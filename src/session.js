@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 import { WALL_Z } from './scene.js';
 import { thermalColor, heatBlob, grainPattern } from './thermal.js';
-import { lutColor, GLYPHS, drawGlyph, footSlot, FXP } from './fxlut.js';
-import { makeMarkFXMaterial, makeArrow } from './tokens.js';
+import { lutColor, GLYPHS, drawGlyph, footSlot, footSDFTexture, FXP } from './fxlut.js';
+import { makeMarkFXMaterial, makeArrow, makeLaneFXMaterial } from './tokens.js';
 
 // ─────────────────────────────────────────────────────────────
 // 러닝 세션 흐름 — 와이어프레임 v2 전체 15프레임 이식
@@ -49,18 +49,23 @@ export const FONT_FAMILIES = [
   ['Georgia, "Times New Roman", serif', '세리프 (라틴)'],
   ['Menlo, "SF Mono", monospace', '모노'],
 ];
-function drawTextTex(text, { size = 0.10, color = '#ffffff', weight = 700, family = FONT_FAMILIES[0][0] } = {}) {
+function drawTextTex(text, { size = 0.10, color = '#FFF3DC', weight = 700, family = FONT_FAMILIES[0][0] } = {}) {
+  // 장면 UI 잉크 규정과 동일 언어 (sceneui.makeTextTexture): 웜 크림 + 웜 글로우 — 세션만 따로 놀던 사제 잉크 은퇴
   const c = document.createElement('canvas'), ctx = c.getContext('2d');
   const font = `${weight} 64px ${family}`;
   ctx.font = font;
-  c.width = Math.max(8, Math.ceil(ctx.measureText(text).width) + 24); c.height = 88;
-  const x = c.getContext('2d'); x.font = font; x.fillStyle = color; x.textBaseline = 'middle';
-  x.fillText(text, 12, 46);
-  const tex = new THREE.CanvasTexture(c); tex.anisotropy = 8;
+  c.width = Math.max(8, Math.ceil(ctx.measureText(text).width) + 44); c.height = 96;
+  const x = c.getContext('2d'); x.font = font; x.textBaseline = 'middle';
+  x.shadowColor = 'rgba(254,163,95,.9)'; x.shadowBlur = 19;
+  x.fillStyle = color;
+  x.fillText(text, 22, 50);
+  x.shadowBlur = 0;
+  x.fillText(text, 22, 50);
+  const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
   return { tex, aspect: c.width / c.height };
 }
 function makeTextMesh(text, opts = {}) {
-  const o = { size: 0.10, color: '#ffffff', weight: 700, family: FONT_FAMILIES[0][0], ...opts };
+  const o = { size: 0.10, color: '#FFF3DC', weight: 700, family: FONT_FAMILIES[0][0], ...opts };
   const { tex, aspect } = drawTextTex(text, o);
   const plane = new THREE.Mesh(new THREE.PlaneGeometry(o.size * aspect, o.size),
     new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, side: THREE.DoubleSide }));
@@ -138,32 +143,35 @@ function makeFootTexture(mirror) {
   tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
   return tex;
 }
-const FOOTMARKS = [];
 class FootMark {
+  // 세션 발자국 = MARK 발형 상태 머신 소비 (시안 보드 7상태 그대로).
+  // 열화상 사제 텍스처·flatMat 카운트다운 링·홀드 호 전부 은퇴 — 룩 시스템이 유일한 형태:
+  //   대기=Preview 소프트 필 · 카운트다운=Active 헤일로 수축 · 유지=Hold 코닉 림 · 성공=Success 블룸
   constructor(foot) {
     this.foot = foot;
     this.group = new THREE.Group();
-    // 캔버스에 헤일로 여백 포함(192×320 콘텐츠좌표) — 발 시각 크기는 기존과 동일 유지
-    this.plane = new THREE.Mesh(new THREE.PlaneGeometry(0.145 * 192 / 128, 0.29 * 320 / 256),
-      new THREE.MeshBasicMaterial({ map: makeFootTexture(foot === 'right'), transparent: true, depthWrite: false, side: THREE.DoubleSide, toneMapped: false }));
-    this._origMap = this.plane.material.map;
-    FOOTMARKS.push(this);
-    this.ring = new THREE.Mesh(new THREE.RingGeometry(0.19, 0.215, 44), flatMat(BRAND.prism, 0)); this.ring.position.z = 0.001;
-    this.hold = new THREE.Mesh(new THREE.RingGeometry(0.19, 0.215, 44, 1, Math.PI / 2, 0.001), flatMat(BRAND.sand, 0)); this.hold.position.z = 0.002;
-    this.group.add(this.plane, this.ring, this.hold);
+    let tex = null;
+    try { tex = footSDFTexture(foot === 'right'); } catch (e) { tex = null; }
+    const mat = makeMarkFXMaterial(tex);
+    this._U = mat.uniforms;
+    this._U.uPhase.value = 0;
+    this._U.uFade.value = 1;
+    WAVE_MATS.push(mat);   // uTime·주간 잉크 규약 틱 동승
+    const S = 0.46;        // 실루엣 시각 높이 ≈ 0.36m (기존 0.29m보다 약간 큼 — MARK 존 기준)
+    this.plane = new THREE.Mesh(new THREE.PlaneGeometry(S, S), mat);
+    this.group.add(this.plane);
     this.group.rotation.x = -Math.PI / 2; this.group.position.y = 0.013; this.group.renderOrder = 6;
     this.plane.rotation.z = foot === 'left' ? THREE.MathUtils.degToRad(8) : THREE.MathUtils.degToRad(-8);
     this.group.userData.el = { type: 'foot', side: foot };
   }
   at(x, z, s = 1) { this.group.position.set(x, 0.013, z); this.group.scale.setScalar(s); return this; }
-  op(k) { this.plane.material.opacity = k; }
-  setHold(p) {
-    this.hold.geometry.dispose();
-    this.hold.geometry = new THREE.RingGeometry(0.19, 0.215, 44, 1, Math.PI / 2, Math.max(0.001, p * Math.PI * 2));
-    this.hold.material.opacity = p > 0 ? 0.95 : 0;
+  op(k) { this._U.uFade.value = k; }
+  setHold(p) { this._U.uPhase.value = 5; this._U.uProg.value = Math.max(0.001, p); }   // Hold 코닉 진행 림
+  countdown(p) {
+    if (p < 0) { this._U.uPhase.value = 0; this._U.uProg.value = 0; return; }          // 대기 = Preview 숨쉬기
+    this._U.uPhase.value = 1; this._U.uProg.value = p;                                 // Active — 헤일로 수축 = 타이밍
   }
-  countdown(p) { if (p < 0) { this.ring.material.opacity = 0; return; } this.ring.material.color.setHex(BRAND.prism); this.ring.material.opacity = 0.35 + 0.6 * p; this.ring.scale.setScalar(1.9 - 0.9 * p); }
-  glow(k) { this.ring.material.color.setHex(BRAND.prism); this.ring.material.opacity = 0.95 * k; this.ring.scale.setScalar(1 + 0.4 * (1 - k)); }
+  glow(k) { this._U.uPhase.value = 2; this._U.uProg.value = Math.min(1, 1 - k); }      // Success 진홍 블룸 잔상
 }
 
 // ── 지면 프리미티브 (userData.el = 장면 에디터 메타) ──
@@ -198,8 +206,24 @@ function floorStripe(x, z, w, color, op) {
 }
 function floorText(text, x, z, opts) { const g = makeTextMesh(text, opts); g.position.set(x, 0.013, z); return g; }
 function floorNum(text, x, z, size, color) {
-  const g = new THREE.Group(); const p = makeTextPlane(text, { size, color, weight: 800 });
-  g.add(p); g.rotation.x = -Math.PI/2; g.position.set(x, 0.013, z); g.renderOrder = 7; g.userData.plane = p; return g;
+  // 숫자 = 글리프 슬롯 소비 (시뮬 마크 숫자와 동일 언어 — 커스텀 SVG 우선, 웜 크림 폴백)
+  const c = document.createElement('canvas'); c.width = c.height = 128;
+  const g2 = c.getContext('2d');
+  if (!drawGlyph(g2, String(text), 64, 64, 96)) {
+    g2.fillStyle = 'rgba(255,240,220,0.95)';
+    g2.font = '300 86px -apple-system, sans-serif';
+    g2.textAlign = 'center'; g2.textBaseline = 'middle';
+    g2.shadowColor = 'rgba(254,150,90,0.75)'; g2.shadowBlur = 14;
+    g2.fillText(String(text), 64, 70);
+  }
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
+  const p = new THREE.Mesh(new THREE.PlaneGeometry(size * 1.5, size * 1.5),
+    new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, side: THREE.DoubleSide }));
+  const g = new THREE.Group();
+  g.add(p); g.rotation.x = -Math.PI / 2; g.position.set(x, 0.013, z); g.renderOrder = 7; g.userData.plane = p;
+  g.userData.el = { type: 'text', content: String(text) };
+  return g;
 }
 // 파동 링 재질 틱 목록 (프리뷰·세션 공통 — main 루프가 tickWaves 호출)
 const WAVE_MATS = [];
@@ -225,11 +249,19 @@ function waveRingMesh(rIn, rOut, color, op, wall, phase = 0) {
   return m;
 }
 function laneLine(color, z0 = 1.0, z1 = -3.2) {
-  const pts = []; for (let z = z0; z > z1; z -= 0.42) pts.push(new THREE.Vector3(0, 0.012, z));
-  const l = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),
-    new THREE.LineDashedMaterial({ color, dashSize: 0.16, gapSize: 0.22, transparent: true, opacity: 0.5 }));
-  l.computeLineDistances(); l.renderOrder = 4; l.userData.el = { type: 'lane' }; return l;
+  // 레인 = LINE 토큰 소비 — 시뮬 레인과 동일 LANEFX 셰이더 (스타일·속도·간격·온도 전부 룩 시스템).
+  // LineDashedMaterial 사제 점선 은퇴.
+  const len = z0 - z1;
+  const mat = makeLaneFXMaterial(len);
+  LANE_MATS.push(mat);
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(0.5, len), mat);
+  m.rotation.x = -Math.PI / 2;
+  m.position.set(0, 0.011, (z0 + z1) / 2);
+  m.renderOrder = 4;
+  m.userData.el = { type: 'lane' };
+  return m;
 }
+const LANE_MATS = [];   // 세션 레인 재질 틱 (tickWaves가 uTime·LINE 스타일 동승)
 
 // ── 벽면 프리미티브 (복싱 — z=WALL_Z 세워진 평면, 유저(+z) 바라봄, 눕힘 없음) ──
 const WZ = WALL_Z + 0.03;
@@ -285,7 +317,7 @@ function sweepBand(x0, y0, x1, y1, color) {
 }
 function wallTap() {
   const g = new THREE.Group();
-  for (let i = 0; i < 2; i++) { const r = new THREE.Mesh(new THREE.RingGeometry(0.055, 0.07, 32), flatMat(BRAND.prism, 0.95)); r.position.x = (i - 0.5) * 0.18; g.add(r); }
+  for (let i = 0; i < 2; i++) { const r = waveRingMesh(0.055, 0.07, BRAND.sand, 0.95, true, 0); r.position.set((i - 0.5) * 0.18, 0, 0); g.add(r); }   // 탭 존 = MARK 소형 Preview
   const label = makeTextPlane('TAP ×2', { size: 0.055, color: CS.prism }); label.position.set(0, -0.16, 0.001); g.add(label);
   g.position.z = WZ; g.renderOrder = 7; g.userData.el = { type: 'tap', wall: true }; return g;
 }
@@ -621,7 +653,7 @@ export class Session {
 
   _tap() {
     const g = new THREE.Group();
-    for (let i = 0; i < 2; i++) { const r = new THREE.Mesh(new THREE.RingGeometry(0.055, 0.07, 32), flatMat(BRAND.prism, 0.95)); r.position.x = (i - 0.5) * 0.18; g.add(r); }
+    for (let i = 0; i < 2; i++) { const r = waveRingMesh(0.055, 0.07, BRAND.sand, 0.95, false, 0); r.position.x = (i - 0.5) * 0.18; r.rotation.x = 0; g.add(r); }   // 탭 존 = MARK 소형 Preview (사제 링 은퇴)
     const label = makeTextPlane('TAP ×2', { size: 0.055, color: CS.prism }); label.position.set(0, -0.16, 0.001); g.add(label);
     g.rotation.x = -Math.PI / 2; g.position.y = 0.013; g.renderOrder = 7; g.userData.el = { type: 'tap' }; return g;
   }
@@ -951,6 +983,26 @@ export class Session {
       U.uTime.value = t;
       if (m._auto) U.uProg.value = (t * 0.3) % 1;   // 구동자 없는 Hold = 시연 루프
       if (U.uDay.value !== day) {   // 주간 풀컬러 잉크 규약 (마커와 동일)
+        U.uDay.value = day;
+        m.blending = day ? THREE.NormalBlending : THREE.AdditiveBlending;
+        m.needsUpdate = true;
+      }
+    }
+    // 세션 레인 = LINE 토큰 라이브 소비 (시뮬 laneFX와 동일 규약)
+    const A = FXP.arrow || {};
+    const styleIdx = ({ solid: 0, dash: 1, dot: 2, chevron: 3, comet: 4, taper: 5 })[(FXP.lane && FXP.lane.style) || 'dash'] ?? 1;
+    for (const m of LANE_MATS) {
+      const U = m.uniforms;
+      U.uTime.value = t;
+      U.uLStyle.value = styleIdx;
+      U.uW.value = FXP.graphics.width * (A.w || 1);
+      U.uHalo.value = FXP.graphics.halo * (A.glow ?? 1);
+      U.uLSpeed.value = A.speed ?? 1;
+      U.uLGap.value = A.gap ?? 1;
+      U.uLHeat.value = A.heat ?? 0.5;
+      U.uLTail.value = A.tail ?? 0.55;
+      U.uGain.value = FXP.gainBoost;
+      if (U.uDay.value !== day) {
         U.uDay.value = day;
         m.blending = day ? THREE.NormalBlending : THREE.AdditiveBlending;
         m.needsUpdate = true;
