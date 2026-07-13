@@ -126,7 +126,20 @@ async function boot() {
     onSize: v => tokens.setParams({ size: v }),
     onCount: v => tokens.setParams({ maxVisible: v }),
     onSpeed: v => { state.speed = v; },
-    onTogglePlay: () => { state.playing = !state.playing; panel.setPlaying(state.playing, session.active); },
+    onTogglePlay: () => {
+      state.playing = !state.playing;
+      panel.setPlaying(state.playing, session.active);
+      // 일시정지 = 세계 전체 동결 — 화면에 명시해 '버그 정지'로 오인되지 않게
+      let chip = document.getElementById('pause-chip');
+      if (!chip) {
+        chip = document.createElement('div');
+        chip.id = 'pause-chip';
+        chip.style.cssText = 'position:absolute;top:16px;left:50%;transform:translateX(-50%);z-index:30;padding:8px 16px;border:1px solid #fec389;border-radius:20px;background:rgba(16,19,24,.92);color:#fec389;font-size:12.5px;font-weight:700;pointer-events:none;';
+        document.body.appendChild(chip);
+      }
+      chip.textContent = session.active ? '⏸ 세션 일시정지 — ▶ 버튼으로 재개' : '⏸ 일시정지 — ▶ 버튼으로 재개';
+      chip.style.display = state.playing ? 'none' : 'block';
+    },
     onSeek: t => { state.time = t; state.loop = 0; tokens.loopShiftZ = 0; tokens.resetLoop(); markFiredBefore(t); },
   });
 

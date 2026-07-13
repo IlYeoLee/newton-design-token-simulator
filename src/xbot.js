@@ -283,7 +283,7 @@ export class XBot {
   playDemo(name, dt) {
     const key = this.actions[name] ? name : (this.actions.warmup ? 'warmup' : null);
     if (!key) return;
-    const breathW = (key !== 'warmup' && this.actions.warmup) ? 0.12 : 0;
+    const breathW = (key !== 'warmup' && this.actions.warmup) ? 0.18 : 0;
     for (const k in this.actions) {
       const x = this.actions[k]; x.action.play(); x.action.paused = true;
       x.action.setEffectiveWeight(k === key ? 1 : (k === 'warmup' ? breathW : 0));
