@@ -167,7 +167,7 @@ async function boot() {
             lab.arrow = lab.arrow || {};
             for (const ak in dlab.arrow) if (lab.arrow[ak] == null) { lab.arrow[ak] = dlab.arrow[ak]; changed = true; }
           }
-          for (const k of ['prims', 'sys']) {
+          for (const k of ['prims', 'sys', 'lane']) {
             const empty = lab[k] == null || (typeof lab[k] === 'object' && Object.keys(lab[k]).length === 0);
             if (dlab[k] && empty) { lab[k] = dlab[k]; changed = true; }
           }
@@ -204,7 +204,6 @@ async function boot() {
     if (lab0?.glyphs) {
       FXP.bg = lab0.bg;
       FXP.footCtx = lab0.footCtx || 'out';
-      FXP.markShape = lab0.markShape ?? 0;
       FXP.customGlyphs = lab0.glyphs;
       GLYPHS.set(lab0.glyphs);
       GLYPHS.setFlips(lab0.glyphFlip || {});
@@ -835,10 +834,9 @@ async function boot() {
     if (st.s) Object.assign(FX, st.s);
     if (st.bg !== undefined) { FXP.bg = st.bg; setSurfaces(st.bg === 'none' ? null : st.bg); }   // 투사면 칩 → 실물 바닥/벽 (+발형 컨텍스트)
     if (st.prims) FXP.prims = st.prims;   // 프리미티브 파라미터 → 세션 스테이지 빌드 소비 (리로드 반영)
-    if (st.markShape != null && st.markShape !== FXP.markShape) {
-      FXP.markShape = st.markShape;       // 0=존 원 / 1=발형 (지면 마크 표현형)
-      refreshGlyphConsumers();
-    }
+    if (st.lane) FXP.lane = st.lane;      // 레인 전용 스타일 (화살표 LINE과 분리 — 유저 확정)
+    // markShape(랩 표현형 토글)는 미리보기용 — 시뮬 루프 마크는 설계대로 존 원 고정
+    // (발형 SDF 인프라는 세션 티칭 컨텍스트용으로 보존: fxlut.footSDFTexture)
     if (st.arrow) {
       const changed = JSON.stringify(st.arrow) !== JSON.stringify(FXP.arrow);
       Object.assign(FXP.arrow, st.arrow);

@@ -137,7 +137,8 @@
   <div class="cell"><canvas id="lineRotC" width="360" height="240" style="width:270px;height:180px;background:#0A0C10"></canvas>
     <div class="lab">② 회전 가이드 — 원호 + 촉<br><span style="font-size:10px;color:var(--sand)">실전: A1 발목 돌리기 "원에 발끝 올리고 여덟 번"</span></div></div>
   <div class="cell"><canvas id="lineLaneC" width="360" height="240" style="width:270px;height:180px;background:#0A0C10"></canvas>
-    <div class="lab">③ 레인 광류 — 전진 흐름<br><span style="font-size:10px;color:var(--sand)">실전: 러닝 진행 레인 (대시 간격 = 속도 언어)</span></div></div>
+    <div class="ctl" id="laneStyleChips"></div>
+    <div class="lab">③ 레인 — <b style="color:var(--text)">전용 스타일</b> (화살표와 분리, 재료는 공유)<br><span style="font-size:10px;color:var(--sand)">실전: 러닝 진행 레인 — 기본 대시 흐름 (대시 간격 = 속도 언어)</span></div></div>
   <div class="cell"><canvas id="lineDecelC" width="360" height="240" style="width:270px;height:180px;background:#0A0C10"></canvas>
     <div class="lab">④ 감속 리듬 — 간격이 벌어짐<br><span style="font-size:10px;color:var(--sand)">실전: C-구간 마무리 "속도 낮추기"</span></div></div>
   <div class="side">
@@ -242,6 +243,7 @@ const state = {
   glyphs: {},   // 슬롯별 커스텀 SVG — 저장·브리지 왕복 (규칙: ↑=전방, 발가락 위·뒤꿈치 아래)
   glyphFlip: {},   // 슬롯별 상하 반전 (⌥+클릭)
   arrow: { line: 'solid', w: 1, speed: 1, gap: 1, glow: 1, heat: 0.5, tail: 0.55 },   // LINE 엔진 — 스타일·두께·흐름 속도·간격·글로우·온도·꼬리
+  lane: { style: 'dash' },   // 레인 전용 스타일 (기본=대시 흐름 — 화살표와 분리)
   prims: {      // 장면 프리미티브 파라미터 (공통 w·glow·tempo + 프리미티브별 세부) — 저장·브리지 왕복
     wallRing: { w: 1, glow: 1, tempo: 1, pulse: 1, ring2: 0.35, gap: 1 },
     sweepBand: { w: 1, glow: 1, tempo: 1, h: 1, base: 0.3, edge: 1 },
@@ -1615,7 +1617,7 @@ function drawLineLane() {
   g.globalAlpha = 1;
   const lane = [];
   for (let y2 = H - 8; y2 >= 8; y2 -= 8) lane.push([W / 2, y2]);
-  strokeFlowPath(g, lane, t, AW, { color: lutCss(0.5) });
+  strokeFlowPath(g, lane, t, AW, { color: lutCss(0.5), style: state.lane.style });   // 레인 전용 스타일
 }
 // ④ 감속 리듬 — 간격 증가 (구 감속선의 편입처)
 function drawLineDecel() {
@@ -1638,7 +1640,7 @@ function drawLineDecel() {
 }
 /** 경로 샘플 배열을 LINE 스타일로 렌더 — 셰브런 트레인·코멧은 스트로크로 불가능한 형식 */
 function strokeFlowPath(g, pts, t, AW, opts = {}) {
-  const style = state.arrow.line;
+  const style = opts.style || state.arrow.line;
   const closed = !!opts.closed;
   // 누적 길이
   const L = [0];
@@ -1762,6 +1764,21 @@ let _lastHoldCount = -1, _primTick = 0;
   }
   requestAnimationFrame(primAnimLoop);
 })();
+// 레인 전용 스타일 칩 (dash 기본)
+{
+  const laneChips = document.getElementById('laneStyleChips');
+  [['dash', '대시 흐름'], ['solid', '연속 광류'], ['chevron', '셰브런'], ['comet', '코멧']].forEach(([v, label]) => {
+    const bt = document.createElement('button');
+    bt.className = 'btn' + (state.lane.style === v ? ' on' : '');
+    bt.textContent = label;
+    bt.style.padding = '3px 8px'; bt.style.fontSize = '10px';
+    bt.onclick = () => {
+      state.lane.style = v;
+      laneChips.querySelectorAll('.btn').forEach(x => x.classList.toggle('on', x === bt));
+    };
+    laneChips.appendChild(bt);
+  });
+}
 // 라인 스타일 칩 + 두께
 const ARROW_LINES = [['solid', '실선'], ['dash', '대시'], ['dot', '도트'], ['chevron', '셰브런'], ['comet', '코멧'], ['taper', '테이퍼']];
 const arrowChips = document.getElementById('arrowLineChips');
@@ -1854,6 +1871,7 @@ function labSnapshot() {
     footCtx: state.footCtx,
     prims: JSON.parse(JSON.stringify(state.prims)),
     arrow: { ...state.arrow },
+    lane: { ...state.lane },
     sys: { roles: { ...state.sys.roles }, tcfg: { ...state.sys.tcfg }, scfg: { ...state.sys.scfg } },
     g: { ...state.g }, m: { ...state.m }, p: { ...state.p }, s: { ...state.s } };
 }
@@ -1887,6 +1905,7 @@ function applyExternalState(st) {
     if (st.footCtx) state.footCtx = st.footCtx;
     if (st.prims) for (const k in state.prims) Object.assign(state.prims[k], st.prims[k] || {});
     if (st.arrow) Object.assign(state.arrow, st.arrow);
+    if (st.lane) Object.assign(state.lane, st.lane);
     if (st.sys) {
       for (const ns of ['roles', 'tcfg', 'scfg']) Object.assign(state.sys[ns], st.sys[ns] || {});
       buildSys();

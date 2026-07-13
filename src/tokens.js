@@ -872,7 +872,7 @@ export class TokenSystem {
       LU.uW.value = FXP.graphics.width * (A.w || 1);
       LU.uHalo.value = FXP.graphics.halo * (A.glow ?? 1);
       LU.uGain.value = FXP.gainBoost;
-      LU.uLStyle.value = LINE_STYLE_IDX[A.line] ?? 1;
+      LU.uLStyle.value = LINE_STYLE_IDX[(FXP.lane && FXP.lane.style) || 'dash'] ?? 1;   // 레인 전용 스타일
       LU.uLSpeed.value = A.speed ?? 1;
       LU.uLGap.value = A.gap ?? 1;
       LU.uLHeat.value = A.heat ?? 0.5;
