@@ -822,7 +822,14 @@ async function boot() {
     clearTimeout(glyphRefreshTimer);
     glyphRefreshTimer = setTimeout(() => {
       const data = state.packs[state.pack];
-      if (data) { tokens.setPack(data); tokens.resetLoop(); }
+      if (!data) return;
+      tokens.setPack(data);
+      // 소비자 재연결 — setPack은 마커를 전부 새로 만든다. 미연결 시 judge·rig가
+      // 부모 잃은 옛 마커(월드=로컬, 루프 시프트 미적용)를 계속 판정 →
+      // "Pack 일치도 0% · 위치 오차 8만cm" 버그의 원인이었음.
+      judge.setPack(tokens.events, state.pack);
+      rig.events = tokens.events;
+      tokens.resetLoop();
     }, 280);
   }
   GLYPHS.onLoad(() => refreshGlyphConsumers());
@@ -1841,7 +1848,7 @@ async function boot() {
   });
 
   if (import.meta.env.DEV) window.__dbg = {
-    rig, xbot, state, session, sceneScope, camera, controls, tokens, effects, scene, editor3d, sceneUI, FXP, designStore, TCFG, editCam, editControls,
+    rig, xbot, state, session, sceneScope, camera, controls, tokens, effects, scene, editor3d, sceneUI, FXP, designStore, TCFG, editCam, editControls, judge, THREE,
     get activeCam() { return studioActive ? editCam : camera; },
     get doc() { return studioDoc; },
     get canvas() { return studioCanvas; },
