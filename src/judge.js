@@ -107,6 +107,7 @@ export class Judge {
     const okT = Math.abs(terr) <= this.tolT;
     const okP = perr <= this.tolP;
     const verdict = okT && okP ? 'hit' : (okT || okP ? 'near' : 'miss');
+    ev._verdict = verdict;   // 마크 상태 머신 소비 — miss = 시트의 회색 고스트 소멸
     this.results.push({ t: ev.t, terr, perr, verdict, surface: ev.surface });
     // 타임라인 마크 (같은 t 기존 항목 교체)
     const mi = this.marks.findIndex(m => m.t === ev.t);

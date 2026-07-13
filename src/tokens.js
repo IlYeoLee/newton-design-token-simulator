@@ -78,10 +78,17 @@ void main() {
     float fillA = (uProg < 0.4 ? 1.0 : pow(1.0 - (uProg - 0.4) / 0.6, 1.4)) * max(min(fillGain * 1.2, 1.0), 0.85);
     col = fc * inside * fillA;
     col += FXC_ICE * exp(-pow(abs(sd) / (0.04 * uW), 2.0)) * exp(-uProg * 9.0) * 0.8;
-  } else {                       // Locked: 회색 고스트 + 순번 — 시퀀스 전체가 먼저 보인다 (시안 보드)
+  } else if (uPhase < 3.5) {     // Locked: 회색 고스트 + 순번 — 시퀀스 전체가 먼저 보인다 (시안 보드)
     col = vec3(0.90) * inside * 0.085 * fillGain;
     col += vec3(0.80) * exp(-pow(sd / (0.028 * uW), 2.0)) * 0.42 * dashM;
     col *= uFade;
+  } else {                       // Miss: 온기가 식어 회색 고스트 → 무음 소멸 (판정 verdict 연동)
+    float cool = smoothstep(0.0, 0.35, uProg);
+    float gone = pow(1.0 - max(uProg - 0.45, 0.0) / 0.55, 1.6);
+    float q = length(uv - gcBall) / ext;
+    vec3 fc = mix(mix(FXC_CORAL, FXC_SAND, smoothstep(0.0, 0.733, q)), vec3(0.86), cool);
+    col = fc * inside * mix(0.45, 0.20, cool) * gone * fillGain;
+    col += vec3(0.80) * exp(-pow(sd / (0.03 * uW), 2.0)) * 0.5 * gone;
   }
   col *= uGain;
   // 주간 = 풀컬러 잉크(제품 스토리: 주광 가시 풀컬러 투사) — 가산은 밝은 바닥에서
@@ -462,7 +469,7 @@ class Marker {
     if (this.fx.visible) {
       const U = this.fx.material.uniforms;
       U.uTime.value = performance.now() / 1000;
-      U.uPhase.value = phase === 'preview' ? 0 : phase === 'countdown' ? 1 : phase === 'locked' ? 3 : 2;
+      U.uPhase.value = phase === 'preview' ? 0 : phase === 'countdown' ? 1 : phase === 'locked' ? 3 : phase === 'miss' ? 4 : 2;
       U.uProg.value = progress;
       U.uFade.value = fade;
       U.uStrong.value = this.strongPreview ? 1 : 0;
@@ -513,6 +520,12 @@ class Marker {
       this.edge.material.opacity = 0;
       this.cd.visible = false;
       if (this.num) this.num.material.opacity = 0.48 * fade;
+    } else if (phase === 'miss') {
+      // 놓친 마크 — 셰이더 고스트만, 벌색·X 금지 (무음이 신호)
+      this.fill.material.opacity = 0;
+      this.edge.material.opacity = 0;
+      this.cd.visible = false;
+      if (this.num) this.num.material.opacity = 0.3 * (1 - progress);
     }
     // 계약 오버레이(점선/holdRing)는 링 강도를 따라감
     if (this.avoidArt) this.avoidArt.material.opacity = Math.min(1, this.edge.material.opacity + 0.1);
@@ -969,7 +982,7 @@ export class TokenSystem {
   }
 
   resetLoop() {
-    for (const ev of this.events) { ev.fired = false; ev._wasVisible = false; }
+    for (const ev of this.events) { ev.fired = false; ev._wasVisible = false; ev._verdict = null; }
     this.stats = { inGaze: 0, total: 0 };
   }
 
@@ -1022,7 +1035,12 @@ export class TokenSystem {
       const order = orderOf.get(ev) ?? 99;
       let phase = 'hidden', progress = 0;
 
-      if (now >= ev.t && now < ev.t + TCFG.linger) {
+      const missDur = TCFG.linger + 0.6;   // miss 고스트는 잔상보다 길게 식는다 (verdict는 t+0.32에 확정)
+      if (ev._verdict === 'miss' && now >= ev.t && now < ev.t + missDur) {
+        phase = 'miss';
+        progress = (now - ev.t) / missDur;
+        if (!ev.fired) { ev.fired = true; this._fire(ev); }
+      } else if (now >= ev.t && now < ev.t + TCFG.linger) {
         phase = 'linger';
         progress = (now - ev.t) / TCFG.linger;
         if (!ev.fired) {
