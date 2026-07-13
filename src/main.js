@@ -186,6 +186,17 @@ async function boot() {
   } catch (e) { /* 기본 스토어 없음 = 내장 디폴트 */ }
   const { store: designStore, migrated } = DesignStore.load();
   if (migrated.length) console.log('[design store] 레거시 이행:', migrated.join(', '));
+  // 일회 정화: 저작 잔해가 시딩에 섞여 배포됐던 스테이지 장면(v11.10 이전) —
+  // '빈 props added가 5개 이상'인 스테이지는 전부 디버그 잔해로 판정, 오버라이드 리셋.
+  // (READY에 링·"텍스트" 무더기가 깔리던 사고 — 정상 저작은 이 패턴이 나올 수 없음)
+  {
+    let purged = false;
+    for (const [sid, st] of Object.entries(designStore.d.scenes || {})) {
+      const empties = (st.added || []).filter(a => !a.props || !Object.keys(a.props).length).length;
+      if (empties >= 5) { designStore.d.scenes[sid] = { patches: {}, added: [] }; purged = true; }
+    }
+    if (purged) { designStore.save(); console.log('[design store] 스테이지 장면 잔해 정화'); }
+  }
   // 저장본이 없으면 리포에 굳힌 기본 룩(look-default.json)을 시드 — 서버 불필요, 깃이 기본값 보관
   if (!designStore.globalGet('fx', 'lab', null)) {
     try {
