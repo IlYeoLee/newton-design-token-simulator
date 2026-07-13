@@ -163,7 +163,11 @@ async function boot() {
         const dlab = def?.global?.fx?.lab;
         if (lab && dlab) {
           let changed = false;
-          for (const k of ['prims', 'sys', 'arrow']) {
+          if (dlab.arrow) {
+            lab.arrow = lab.arrow || {};
+            for (const ak in dlab.arrow) if (lab.arrow[ak] == null) { lab.arrow[ak] = dlab.arrow[ak]; changed = true; }
+          }
+          for (const k of ['prims', 'sys']) {
             const empty = lab[k] == null || (typeof lab[k] === 'object' && Object.keys(lab[k]).length === 0);
             if (dlab[k] && empty) { lab[k] = dlab[k]; changed = true; }
           }

@@ -142,8 +142,7 @@
   <div class="side">
     <h3 style="margin:0 0 8px;font-size:12px;letter-spacing:.1em;color:var(--dim);text-transform:uppercase;font-weight:600">LINE 파라미터 — 4씬 동시 반영</h3>
     <div class="ctl" style="justify-content:flex-start" id="arrowLineChips"></div>
-    <div class="prim-sld" style="max-width:280px;margin:8px 0 0"><span style="width:34px;flex:none">두께</span>
-      <input id="arrowW" type="range" min="40" max="220" value="100"><output id="arrowWV">1.0</output></div>
+    <div id="lineSliders" style="margin-top:8px"></div>
     <div style="margin-top:10px;font-size:11px;color:var(--dim)">촉(TIP) — <button class="btn" id="tipAttachBtn" style="padding:3px 9px;font-size:10.5px">SVG 교체</button> <span style="font-size:10px">글리프 서랍의 TIP_TRI 슬롯과 동일</span></div>
   </div>
 </div>
@@ -244,7 +243,7 @@ const state = {
   footShape: 1, personMode: 0, burstStyle: 0, laneStyle: 0,
   glyphs: {},   // 슬롯별 커스텀 SVG — 저장·브리지 왕복 (규칙: ↑=전방, 발가락 위·뒤꿈치 아래)
   glyphFlip: {},   // 슬롯별 상하 반전 (⌥+클릭)
-  arrow: { line: 'solid', w: 1 },   // 화살표 라인(자루·경로) 스타일 — solid|dash|dot|taper
+  arrow: { line: 'solid', w: 1, speed: 1, gap: 1, glow: 1, heat: 0.5, tail: 0.55 },   // LINE 엔진 — 스타일·두께·흐름 속도·간격·글로우·온도·꼬리
   prims: {      // 장면 프리미티브 파라미터 (공통 w·glow·tempo + 프리미티브별 세부) — 저장·브리지 왕복
     wallRing: { w: 1, glow: 1, tempo: 1, pulse: 1, ring2: 0.35, gap: 1 },
     sweepBand: { w: 1, glow: 1, tempo: 1, h: 1, base: 0.3, edge: 1 },
@@ -1644,18 +1643,19 @@ function strokeFlowPath(g, pts, t, AW, opts = {}) {
             pts[i - 1][1] + (pts[i][1] - pts[i - 1][1]) * f,
             Math.atan2(pts[i][1] - pts[i - 1][1], pts[i][0] - pts[i - 1][0])];
   };
+  const A = state.arrow;
   if (style === 'chevron') {
     // 셰브런 트레인 — 방향 자체가 재료 (AR 내비 표준 문법)
-    const gap = 26 * AW + 8;
+    const gap = (26 * AW + 8) * A.gap;
     const n = Math.max(2, Math.floor(total / gap));
-    g.shadowColor = lutCss(0.7); g.shadowBlur = 8 * AW;
+    g.shadowColor = lutCss(Math.min(1, A.heat + 0.2)); g.shadowBlur = 8 * AW * A.glow;
     for (let k = 0; k < n; k++) {
-      const d = k * gap + (t * 42) % gap;
+      const d = k * gap + (t * 42 * A.speed) % gap;
       if (!closed && d > total - 4) continue;
       const [x, y, a] = at(d);
       const w = 7.5 * AW, h = 8.5 * AW;
-      const glow = 0.45 + 0.4 * Math.sin((d / total) * 6.283 - t * 2.2);
-      g.strokeStyle = lutCss(0.45 + glow * 0.3);
+      const glow = 0.45 + 0.4 * Math.sin((d / total) * 6.283 - t * 2.2 * A.speed);
+      g.strokeStyle = lutCss(A.heat - 0.05 + glow * 0.3);
       g.lineWidth = 3.2 * AW; g.lineJoin = 'round'; g.lineCap = 'round';
       g.save(); g.translate(x, y); g.rotate(a);
       g.beginPath(); g.moveTo(-h * 0.5, -w); g.lineTo(h * 0.5, 0); g.lineTo(-h * 0.5, w); g.stroke();
@@ -1665,8 +1665,8 @@ function strokeFlowPath(g, pts, t, AW, opts = {}) {
   }
   if (style === 'comet') {
     // 코멧 — 백열 머리 + 잦아드는 꼬리 (네온 트레일 문법, 열 언어와 동일)
-    const head = (t * 0.35 % 1) * total;
-    const tail = total * 0.55;
+    const head = (t * 0.35 * A.speed % 1) * total;
+    const tail = total * A.tail;
     const seg = Math.max(24, pts.length * 2);
     g.lineCap = 'round';
     for (let k = 0; k < seg; k++) {
@@ -1676,9 +1676,9 @@ function strokeFlowPath(g, pts, t, AW, opts = {}) {
       const [x0, y0] = at(d0), [x1, y1] = at(d1);
       if (!closed && Math.hypot(x1 - x0, y1 - y0) > total * 0.4) continue;   // 랩어라운드 스킵
       g.globalAlpha = Math.pow(f, 1.6);
-      g.strokeStyle = lutCss(0.35 + f * 0.55);
+      g.strokeStyle = lutCss(Math.max(0.05, A.heat - 0.2) + f * 0.55);
       g.lineWidth = (1.5 + f * 4.5) * AW;
-      g.shadowColor = lutCss(0.8); g.shadowBlur = f * 14 * AW;
+      g.shadowColor = lutCss(Math.min(1, A.heat + 0.3)); g.shadowBlur = f * 14 * AW * A.glow;
       g.beginPath(); g.moveTo(x0, y0); g.lineTo(x1, y1); g.stroke();
     }
     g.globalAlpha = 1; g.lineCap = 'butt'; g.shadowBlur = 0;
@@ -1691,8 +1691,8 @@ function strokeFlowPath(g, pts, t, AW, opts = {}) {
     return true;
   }
   // 스트로크 계열 (실선·대시·도트·테이퍼)
-  g.strokeStyle = opts.color || lutCss(0.5);
-  g.shadowColor = lutCss(0.62); g.shadowBlur = (opts.glow ?? 8) * AW;
+  g.strokeStyle = lutCss(A.heat);
+  g.shadowColor = lutCss(Math.min(1, A.heat + 0.15)); g.shadowBlur = (opts.glow ?? 8) * AW * A.glow;
   if (style === 'taper') {
     for (let i = 1; i < pts.length; i++) {
       g.lineWidth = (0.5 + (i / pts.length) * 4.5) * AW;
@@ -1710,11 +1710,12 @@ function strokeFlowPath(g, pts, t, AW, opts = {}) {
 }
 function applyLineStyle(g, AW, flowT) {
   g.lineWidth = 4 * AW;
-  if (state.arrow.line === 'dash') g.setLineDash([12 * AW, 10]);
-  else if (state.arrow.line === 'dot') { g.setLineDash([0.5, 12]); g.lineCap = 'round'; g.lineWidth = 5 * AW; }
+  const A2 = state.arrow;
+  if (A2.line === 'dash') g.setLineDash([12 * AW * A2.gap, 10 * A2.gap]);
+  else if (A2.line === 'dot') { g.setLineDash([0.5, 12 * A2.gap]); g.lineCap = 'round'; g.lineWidth = 5 * AW; }
   else g.setLineDash([]);
   // LINE 엔진의 흐름 — 대시·도트가 전방으로 행진 (모든 파생이 상속)
-  if (flowT != null && state.arrow.line !== 'solid' && state.arrow.line !== 'taper') g.lineDashOffset = -flowT * 40;
+  if (flowT != null && A2.line !== 'solid' && A2.line !== 'taper') g.lineDashOffset = -flowT * 40 * A2.speed;
 }
 document.getElementById('tipAttachBtn')?.addEventListener('click', () => {
   pendingSlot = 'TIP_TRI';
@@ -1760,10 +1761,32 @@ ARROW_LINES.forEach(([v, label]) => {
   };
   arrowChips.appendChild(bt);
 });
-document.getElementById('arrowW').addEventListener('input', e => {
-  state.arrow.w = e.target.value / 100;
-  document.getElementById('arrowWV').textContent = state.arrow.w.toFixed(1);
-});
+// LINE 파라미터 — Unity TrailRenderer 관례(폭·수명·색 그라디언트·페이드·간격)의 열 언어 번역
+const LINE_SLIDERS = [
+  ['w', '두께', 0.4, 2.2], ['speed', '속도', 0.2, 2.5], ['gap', '간격', 0.5, 2.2],
+  ['glow', '글로우', 0, 2.2], ['heat', '온도(색)', 0.2, 0.92], ['tail', '꼬리', 0.2, 1],
+];
+{
+  const host = document.getElementById('lineSliders');
+  for (const [k, label, mn, mx] of LINE_SLIDERS) {
+    const row = document.createElement('div');
+    row.className = 'prim-sld';
+    row.style.maxWidth = '280px';
+    const out = document.createElement('output');
+    out.textContent = (+state.arrow[k]).toFixed(2);
+    const inp = document.createElement('input');
+    inp.type = 'range'; inp.min = mn * 100; inp.max = mx * 100; inp.value = state.arrow[k] * 100;
+    inp.dataset.lineKey = k;
+    if (k === 'w') inp.id = 'arrowW';
+    inp.addEventListener('input', () => {
+      state.arrow[k] = inp.value / 100;
+      out.textContent = (+state.arrow[k]).toFixed(2);
+      if (typeof flashGallery === 'function') flashGallery();
+    });
+    row.append(Object.assign(document.createElement('span'), { textContent: label, style: 'width:44px;flex:none' }), inp, out);
+    host.appendChild(row);
+  }
+}
 
 // ═══ 시스템 설정 — 판정·역할 색 / TCFG / SCFG (브리지로 시뮬 실시간 반영) ═══
 state.sys = {
