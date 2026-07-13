@@ -87,12 +87,13 @@ void main() {
   } else if (uLStyle < 2.5) {                          // dot — 짧고 또렷한 점 행진
     pulse = smoothstep(0.75, 0.95, 0.5 + 0.5 * sin(along * (12.0 / uLGap) - uTime * 5.2 * uLSpeed));
     wEff *= 1.3;
-  } else if (uLStyle < 3.5) {                          // chevron — 꺾쇠 트레인 (^가 전방 행진)
-    float cf = fract(along * (1.6 / uLGap) - uTime * 1.4 * uLSpeed);
-    latEff = lat - (0.55 - abs(cf - 0.5) * 1.1) * 0.9;  // ^ 형상: 측면 오프셋이 산형
-    float band = smoothstep(0.16, 0.0, abs(cf - 0.5) - 0.28);
-    pulse = band * (0.6 + 0.4 * sin(along * 0.9 - uTime * 2.0 * uLSpeed));
-    wEff *= 0.8;
+  } else if (uLStyle < 3.5) {                          // chevron — 전방(^) 꺾쇠 트레인
+    float alongEff = along + abs(lat) * 0.34;           // 팔이 뒤로 = 촉이 전방(-z 진행 방향)
+    float cf = fract(alongEff * (1.5 / uLGap) - uTime * 1.2 * uLSpeed);
+    float band = exp(-pow((cf - 0.30) / (0.055 * uW), 2.0));   // 꺾쇠 획 두께
+    float armW = smoothstep(1.0, 0.86, abs(lat));       // 레인 폭 안에서만
+    pulse = band * armW * (0.75 + 0.25 * sin(along * 0.7 - uTime * 1.8 * uLSpeed));
+    latEff = 0.0;                                       // 형상은 band가 담당 (코어 가우시안 무력화)
   } else if (uLStyle < 4.5) {                          // comet — 백열 머리 + 감쇠 꼬리 순회
     float head = fract(uTime * 0.22 * uLSpeed) * uLen;
     float d = head - along;
