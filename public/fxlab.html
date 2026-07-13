@@ -224,7 +224,20 @@ const rgb2hex = c => '#' + c.map(v => v.toString(16).padStart(2,'0')).join('');
 // 브랜드 4색(RED FA3030 · Coral FE6E3C · Sand FEC389 · Prism D1FEFF) 기반.
 // 0쪽 어두운 스탑은 LUT의 소멸 구간용 파생 앵커(브랜드 레드 톤 유지).
 const PRESETS = {
-  // Vivid (기본): 유저 확정 레퍼런스 — 풀 채도 RED→Coral→Sand→크림, 탈색 없음
+  // Air: 유저 시안(발모양 이펙트) 무드 — 링·백열이 아니라 소프트 라디얼 필, 애플식 절제 그라디언트
+  'NEWTON Air': {
+    stops: [['#D64A33', 0], ['#F26A40', .3], ['#FE8B55', .55], ['#FEB27C', .76], ['#FED9AE', .9], ['#FFF1DF', 1]],
+    patch: {
+      sat: 0.92,
+      m: { radius: 0.9, core: 0.8, halo: 0.25, pool: 0.9, sweep: 0.4, wobble: 0.05 },
+      g: { speed: 0.9, width: 1.25, halo: 0.35, noise: 0.15, ember: 0.15, size: 1.2 },
+      s: { bloomStrength: 0.18, bloomThreshold: 0.7, bloomRadius: 0.45, exposure: 0.95, grain: 0, vignette: 0.08 },
+      p: { blur: 0.8, glow: 0.8, flow: 0.35, decay: 0.4 },
+      markForm: 1,
+      arrowPatch: { glow: 0.5, heat: 0.55 },
+    },
+  },
+  // Vivid: 풀 채도 RED→Coral→Sand→크림, 탈색 없음
   'NEWTON Vivid': { stops: [['#B7231F',0],['#FA3030',.3],['#FE6E3C',.56],['#FEA35F',.74],['#FEC389',.86],['#FFF3DC',1]] },
   'NEWTON Dawn': { stops: [['#0B0710',0],['#6E0E1E',.18],['#FA3030',.4],['#FE6E3C',.62],['#FEC389',.82],['#D1FEFF',1]] },
   'NEWTON Heat': { stops: [['#120609',0],['#8E1121',.26],['#FA3030',.5],['#FE6E3C',.7],['#FEC389',.88],['#FFF6E8',1]] },
@@ -1059,10 +1072,27 @@ function buildStops() {
   });
 }
 function presetOff() { document.querySelectorAll('#presets .btn').forEach(b => b.classList.remove('on')); }
+function applyPresetPatch(patch) {
+  if (!patch) return;
+  if (patch.sat != null) { state.sat = patch.sat; satSl.value = patch.sat; satV.textContent = patch.sat; }
+  for (const ns of ['m', 'g', 's', 'p']) if (patch[ns]) Object.assign(state[ns], patch[ns]);
+  if (patch.markForm != null) state.markForm = patch.markForm;
+  if (patch.arrowPatch) Object.assign(state.arrow, patch.arrowPatch);
+  // UI 동기 (applyExternalState의 동기 로직 재사용)
+  document.querySelectorAll('input[type=range][data-scope]').forEach(inp => {
+    const v = state[inp.dataset.scope]?.[inp.dataset.key];
+    if (v != null) { inp.value = v; const o = inp.parentElement.querySelector('output'); if (o) o.textContent = v; }
+  });
+  document.querySelectorAll('input[data-line-key]').forEach(inp => {
+    const v = state.arrow[inp.dataset.lineKey];
+    if (v != null) { inp.value = v * 100; const o = inp.parentElement.querySelector('output'); if (o) o.textContent = (+v).toFixed(2); }
+  });
+}
 Object.keys(PRESETS).forEach((name, idx) => {
   const b = document.createElement('button'); b.className = 'btn' + (idx === 0 ? ' on' : ''); b.textContent = name;
   b.onclick = () => {
     state.stops = PRESETS[name].stops.map(s => [...s]);
+    applyPresetPatch(PRESETS[name].patch);
     buildStops(); rebuildLUT(); presetOff(); b.classList.add('on');
   };
   presets.appendChild(b);
