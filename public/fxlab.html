@@ -680,7 +680,10 @@ uploadSDF(markP, { data: new Uint8Array([128]), N: 1 });   // 존 원 캔버스 
 state.markShape = 0; state.markForm = 0;
 state.markSurface = 'floor';   // floor | wall — 벽면 = 세션 '벽 링'의 정체
 state.markFootSide = 'L';
-state.numFoot = { L: null, R: null };   // 발형 숫자 앵커 — 유저 직접 조정 (null = 무게중심 자동)
+// 발형 숫자 앵커 — 유저 직접 조정 (null = 무게중심 자동).
+// 실내/야외는 실루엣이 다르므로 컨텍스트별 2키. 좌/우는 미러 대칭이라 왼발 기준 1개 저장, 오른발은 x 자동 미러.
+state.numFoot = { in: null, out: null };
+const numFootCtx = () => (state.footCtx === 'in' ? 'in' : 'out');
 state.footCtx = 'out';   // 발 컨텍스트 — 야외(신발) 기본, 칩으로 실내 전환
 let footCentroid = { x: 0.5, y: 0.5 };   // 발형 실루엣 무게중심 (숫자 앵커)
 const MARK_STATES = [
@@ -725,9 +728,15 @@ function drawMarkNumOn(canvasEl, ax, ay, scale = 1) {
   fillCenteredText(g, numCh, ax, ay);
   g.globalAlpha = 1; g.shadowBlur = 0;
 }
+// 현재 캔버스(선택된 발)에 보이는 앵커 좌표 — 저장은 왼발 기준, 오른발 표시는 x 미러
+function numFootView() {
+  const a = (state.numFoot || {})[numFootCtx()];
+  if (!a) return null;
+  return state.markFootSide === 'R' ? { x: 1 - a.x, y: a.y, s: a.s } : a;
+}
 function drawMarkNums() {
   drawMarkNumOn(markNum, 300, 300);                                   // 존 원 = 기하 중심
-  const a = (state.numFoot || {})[state.markFootSide];                 // 발형 = 유저 앵커 > 무게중심
+  const a = numFootView();                                             // 발형 = 유저 앵커 > 무게중심
   drawMarkNumOn(markNum2, (a ? a.x : footCentroid.x) * 600, (a ? a.y : footCentroid.y) * 600, a && a.s || 1);
 }
 const drawMarkNum = drawMarkNums;   // 기존 호출부 호환
@@ -735,17 +744,20 @@ const drawMarkNum = drawMarkNums;   // 기존 호출부 호환
 {
   const cv = markNum2;
   cv.style.pointerEvents = 'auto'; cv.style.cursor = 'grab'; cv.style.touchAction = 'none';
-  const anchor = () => ((state.numFoot ||= { L: null, R: null })[state.markFootSide] ||= { x: footCentroid.x, y: footCentroid.y, s: 1 });
+  const anchor = () => ((state.numFoot ||= { in: null, out: null })[numFootCtx()] ||= { x: footCentroid.x, y: footCentroid.y, s: 1 });
+  // 표시 좌표(현재 발) → 저장 좌표(왼발 기준)
+  const toStore = x => state.markFootSide === 'R' ? 1 - x : x;
   let drag = null;
   cv.addEventListener('pointerdown', e => {
-    const r = cv.getBoundingClientRect(), a = anchor();
-    drag = { dx: a.x - (e.clientX - r.left) / r.width, dy: a.y - (e.clientY - r.top) / r.height };
+    const r = cv.getBoundingClientRect(), v = numFootView() || anchor() && numFootView();
+    drag = { dx: v.x - (e.clientX - r.left) / r.width, dy: v.y - (e.clientY - r.top) / r.height };
     cv.setPointerCapture(e.pointerId); cv.style.cursor = 'grabbing';
   });
   cv.addEventListener('pointermove', e => {
     if (!drag) return;
     const r = cv.getBoundingClientRect(), a = anchor();
-    a.x = Math.min(0.95, Math.max(0.05, (e.clientX - r.left) / r.width + drag.dx));
+    const vx = Math.min(0.95, Math.max(0.05, (e.clientX - r.left) / r.width + drag.dx));
+    a.x = toStore(vx);
     a.y = Math.min(0.95, Math.max(0.05, (e.clientY - r.top) / r.height + drag.dy));
     drawMarkNums();
   });
@@ -757,7 +769,7 @@ const drawMarkNum = drawMarkNums;   // 기존 호출부 호환
     a.s = Math.min(2.6, Math.max(0.35, (a.s || 1) * Math.pow(1.0022, -e.deltaY)));
     drawMarkNums();
   }, { passive: false });
-  cv.addEventListener('dblclick', () => { (state.numFoot ||= {})[state.markFootSide] = null; drawMarkNums(); });
+  cv.addEventListener('dblclick', () => { (state.numFoot ||= {})[numFootCtx()] = null; drawMarkNums(); });
 }
 function setMarkState(i, fromScenario = false) {
   if (!fromScenario) stopScenario();
@@ -1957,7 +1969,7 @@ function labSnapshot() {
     glyphs: { ...state.glyphs },
     glyphFlip: { ...state.glyphFlip },
     footCtx: state.footCtx,
-    numFoot: JSON.parse(JSON.stringify(state.numFoot || { L: null, R: null })),
+    numFoot: JSON.parse(JSON.stringify(state.numFoot || { in: null, out: null })),
     prims: JSON.parse(JSON.stringify(state.prims)),
     arrow: { ...state.arrow },
     lane: { ...state.lane },
@@ -1992,7 +2004,13 @@ function applyExternalState(st) {
     }
     if (st.glyphFlip) state.glyphFlip = { ...st.glyphFlip };
     if (st.footCtx) state.footCtx = st.footCtx;
-    if (st.numFoot) state.numFoot = { L: st.numFoot.L || null, R: st.numFoot.R || null };
+    if (st.numFoot) {
+      // 레거시 이행: 초기 {L,R} 구조 → 야외 컨텍스트 앵커(왼발 기준; R만 있으면 미러)
+      if ('L' in st.numFoot || 'R' in st.numFoot) {
+        const o = st.numFoot.L || (st.numFoot.R ? { x: 1 - st.numFoot.R.x, y: st.numFoot.R.y, s: st.numFoot.R.s } : null);
+        state.numFoot = { in: null, out: o };
+      } else state.numFoot = { in: st.numFoot.in || null, out: st.numFoot.out || null };
+    }
     if (st.prims) for (const k in state.prims) Object.assign(state.prims[k], st.prims[k] || {});
     if (st.arrow) Object.assign(state.arrow, st.arrow);
     if (st.lane) Object.assign(state.lane, st.lane);

@@ -517,17 +517,15 @@ class Marker {
     // 계약 오버레이(점선/holdRing)는 링 강도를 따라감
     if (this.avoidArt) this.avoidArt.material.opacity = Math.min(1, this.edge.material.opacity + 0.1);
     if (this.holdArt) this.holdArt.material.opacity = Math.min(1, this.edge.material.opacity + 0.05);
-    // 발형 숫자 앵커 — FX Lab에서 유저가 드래그로 지정한 위치·크기 (없으면 중심 유지)
+    // 발형 숫자 앵커 — FX Lab 지정(컨텍스트별 1개, 왼발 기준 저장). 오른발 = x 미러. 없으면 중심 유지.
     if (this.num && this._isFoot && FXP.numFoot) {
-      const side = this._footRight ? 'R' : 'L', other = this._footRight ? 'L' : 'R';
-      let a = FXP.numFoot[side];
-      if (!a && FXP.numFoot[other]) {   // 한쪽만 지정 → 반대발은 x 미러
-        const o = FXP.numFoot[other];
-        a = { x: 1 - o.x, y: o.y, s: o.s };
-      }
+      const NF = FXP.numFoot;
+      const a = NF[FXP.footCtx === 'in' ? 'in' : 'out']
+        || NF.L || (NF.R ? { x: 1 - NF.R.x, y: NF.R.y, s: NF.R.s } : null);   // 레거시 {L,R} 폴백
       if (a) {
         const S = this.radius * 2.78;   // fx 쿼드 = 랩 캔버스와 같은 정규 좌표계
-        this.num.position.set((a.x - 0.5) * S, (0.5 - a.y) * S, 0.004);
+        const ax = this._footRight ? 1 - a.x : a.x;
+        this.num.position.set((ax - 0.5) * S, (0.5 - a.y) * S, 0.004);
         this.num.scale.setScalar(a.s || 1);
       }
     }
