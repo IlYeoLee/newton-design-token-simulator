@@ -138,8 +138,11 @@ export class Panel {
     `;
   }
 
-  setPlaying(playing) {
-    this.playBtn.textContent = playing ? '⏸ 일시정지' : '▶ 재생';
+  setPlaying(playing, inSession = false) {
+    // 세션 중 이 버튼은 세션 전체(단계·음성·인물)를 얼린다 — 라벨로 명시 (오인 방지)
+    this.playBtn.textContent = inSession
+      ? (playing ? '⏸ 세션 일시정지' : '▶ 세션 재개')
+      : (playing ? '⏸ 일시정지' : '▶ 재생');
   }
 
   flash(text) {

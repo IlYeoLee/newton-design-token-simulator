@@ -277,14 +277,21 @@ export class XBot {
     if (!name && this._lastPack) this.setPack(this._lastPack[0], this._lastPack[1]);
   }
 
-  /** 세션 비실전 단계 시연 — 지정 클립을 제자리 재생(코치가 동작을 보여줌) */
+  /** 세션 비실전 단계 시연 — 지정 클립을 제자리 재생(코치가 동작을 보여줌).
+      드릴은 지정 관절만 움직이므로(발목 돌리기=발만) 저강도 호흡 레이어(warmup 0.12)를
+      깔아 전신이 살아 보이게 — '인물이 완전 정지' 오인 방지 */
   playDemo(name, dt) {
     const key = this.actions[name] ? name : (this.actions.warmup ? 'warmup' : null);
     if (!key) return;
-    for (const k in this.actions) { const x = this.actions[k]; x.action.play(); x.action.paused = true; x.action.setEffectiveWeight(k === key ? 1 : 0); }
+    const breathW = (key !== 'warmup' && this.actions.warmup) ? 0.12 : 0;
+    for (const k in this.actions) {
+      const x = this.actions[k]; x.action.play(); x.action.paused = true;
+      x.action.setEffectiveWeight(k === key ? 1 : (k === 'warmup' ? breathW : 0));
+    }
     const a = this.actions[key];
     this._demoT = (this._demoT || 0) + dt;
     a.action.time = this._demoT % a.dur;
+    if (breathW) { const w = this.actions.warmup; w.action.time = (this._demoT * 0.5) % w.dur; }
     this.group.position.set(0, 0, 0);
     this.mixer.update(0);
     this._lockInPlace?.();

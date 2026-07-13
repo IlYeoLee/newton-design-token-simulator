@@ -126,7 +126,7 @@ async function boot() {
     onSize: v => tokens.setParams({ size: v }),
     onCount: v => tokens.setParams({ maxVisible: v }),
     onSpeed: v => { state.speed = v; },
-    onTogglePlay: () => { state.playing = !state.playing; panel.setPlaying(state.playing); },
+    onTogglePlay: () => { state.playing = !state.playing; panel.setPlaying(state.playing, session.active); },
     onSeek: t => { state.time = t; state.loop = 0; tokens.loopShiftZ = 0; tokens.resetLoop(); markFiredBefore(t); },
   });
 
@@ -784,6 +784,7 @@ async function boot() {
     lastBodyZ = 0;
     sceneUI.setSub('');   // 스펙 스탬프는 도입부 전용 — 운동 중엔 큐만
     session.start(sport);
+    panel.setPlaying(state.playing, true);
     sessionBtn.textContent = '세션 중지';
     if (sessionHud) sessionHud.style.display = 'block';
     setFp(true);
@@ -794,6 +795,7 @@ async function boot() {
     voiceAudio.pause();
     if ('speechSynthesis' in window) speechSynthesis.cancel();
     sessionBtn.textContent = '세션 시작 (1인칭 전환)';
+    panel.setPlaying(state.playing, false);
     if (sessionStageEl) sessionStageEl.textContent = '—';
     if (sessionHud) sessionHud.style.display = 'none';
     sceneUI.setStatus('');
