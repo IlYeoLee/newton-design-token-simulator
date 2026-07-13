@@ -375,6 +375,7 @@ class Marker {
     if (surface === 'floor' && FXP.markShape === 1) {
       try { footTex = footSDFTexture(this._footRight === true); } catch (e) { footTex = null; }
     }
+    this._isFoot = !!footTex;
     this.fx = new THREE.Mesh(new THREE.PlaneGeometry(radius * 2.78, radius * 2.78), makeMarkFXMaterial(footTex));
     this.fx.position.z = 0.002;
     // 벽면은 열화상 고스트 위 가산이라 과노출 방지 게인
@@ -516,6 +517,20 @@ class Marker {
     // 계약 오버레이(점선/holdRing)는 링 강도를 따라감
     if (this.avoidArt) this.avoidArt.material.opacity = Math.min(1, this.edge.material.opacity + 0.1);
     if (this.holdArt) this.holdArt.material.opacity = Math.min(1, this.edge.material.opacity + 0.05);
+    // 발형 숫자 앵커 — FX Lab에서 유저가 드래그로 지정한 위치·크기 (없으면 중심 유지)
+    if (this.num && this._isFoot && FXP.numFoot) {
+      const side = this._footRight ? 'R' : 'L', other = this._footRight ? 'L' : 'R';
+      let a = FXP.numFoot[side];
+      if (!a && FXP.numFoot[other]) {   // 한쪽만 지정 → 반대발은 x 미러
+        const o = FXP.numFoot[other];
+        a = { x: 1 - o.x, y: o.y, s: o.s };
+      }
+      if (a) {
+        const S = this.radius * 2.78;   // fx 쿼드 = 랩 캔버스와 같은 정규 좌표계
+        this.num.position.set((a.x - 0.5) * S, (0.5 - a.y) * S, 0.004);
+        this.num.scale.setScalar(a.s || 1);
+      }
+    }
   }
 }
 

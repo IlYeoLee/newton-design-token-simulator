@@ -680,6 +680,7 @@ uploadSDF(markP, { data: new Uint8Array([128]), N: 1 });   // 존 원 캔버스 
 state.markShape = 0; state.markForm = 0;
 state.markSurface = 'floor';   // floor | wall — 벽면 = 세션 '벽 링'의 정체
 state.markFootSide = 'L';
+state.numFoot = { L: null, R: null };   // 발형 숫자 앵커 — 유저 직접 조정 (null = 무게중심 자동)
 state.footCtx = 'out';   // 발 컨텍스트 — 야외(신발) 기본, 칩으로 실내 전환
 let footCentroid = { x: 0.5, y: 0.5 };   // 발형 실루엣 무게중심 (숫자 앵커)
 const MARK_STATES = [
@@ -698,7 +699,7 @@ function fillCenteredText(g, text, x, y) {
   const m = g.measureText(text);
   g.fillText(text, x, y + (m.actualBoundingBoxAscent - m.actualBoundingBoxDescent) / 2);
 }
-function drawMarkNumOn(canvasEl, ax, ay) {
+function drawMarkNumOn(canvasEl, ax, ay, scale = 1) {
   const g = canvasEl.getContext('2d');
   g.clearRect(0, 0, 600, 600);
   const s = state.markState;
@@ -710,7 +711,7 @@ function drawMarkNumOn(canvasEl, ax, ay) {
     const firstCustom = '0123456789'.split('').find(ch => state.glyphs && state.glyphs[ch]);
     if (firstCustom) numCh = firstCustom;
   }
-  const size = 140 * (state.m.radius || 1);
+  const size = 140 * (state.m.radius || 1) * scale;
   const custom = state.glyphs && state.glyphs[numCh];
   if (custom && typeof drawCustomGlyphAt === 'function') {
     if (drawCustomGlyphAt(g, custom, ax, ay, size, s === 6, !!state.glyphFlip[numCh])) { g.globalAlpha = 1; return; }
@@ -726,9 +727,38 @@ function drawMarkNumOn(canvasEl, ax, ay) {
 }
 function drawMarkNums() {
   drawMarkNumOn(markNum, 300, 300);                                   // 존 원 = 기하 중심
-  drawMarkNumOn(markNum2, footCentroid.x * 600, footCentroid.y * 600); // 발형 = 실루엣 무게중심
+  const a = (state.numFoot || {})[state.markFootSide];                 // 발형 = 유저 앵커 > 무게중심
+  drawMarkNumOn(markNum2, (a ? a.x : footCentroid.x) * 600, (a ? a.y : footCentroid.y) * 600, a && a.s || 1);
 }
 const drawMarkNum = drawMarkNums;   // 기존 호출부 호환
+// ── 발형 숫자 직접 조정: 드래그=위치 · 휠=크기 · 더블클릭=자동(무게중심) 복귀 — 시뮬 발자국에도 반영 ──
+{
+  const cv = markNum2;
+  cv.style.pointerEvents = 'auto'; cv.style.cursor = 'grab'; cv.style.touchAction = 'none';
+  const anchor = () => ((state.numFoot ||= { L: null, R: null })[state.markFootSide] ||= { x: footCentroid.x, y: footCentroid.y, s: 1 });
+  let drag = null;
+  cv.addEventListener('pointerdown', e => {
+    const r = cv.getBoundingClientRect(), a = anchor();
+    drag = { dx: a.x - (e.clientX - r.left) / r.width, dy: a.y - (e.clientY - r.top) / r.height };
+    cv.setPointerCapture(e.pointerId); cv.style.cursor = 'grabbing';
+  });
+  cv.addEventListener('pointermove', e => {
+    if (!drag) return;
+    const r = cv.getBoundingClientRect(), a = anchor();
+    a.x = Math.min(0.95, Math.max(0.05, (e.clientX - r.left) / r.width + drag.dx));
+    a.y = Math.min(0.95, Math.max(0.05, (e.clientY - r.top) / r.height + drag.dy));
+    drawMarkNums();
+  });
+  const endDrag = () => { drag = null; cv.style.cursor = 'grab'; };
+  cv.addEventListener('pointerup', endDrag); cv.addEventListener('pointercancel', endDrag);
+  cv.addEventListener('wheel', e => {
+    e.preventDefault();
+    const a = anchor();
+    a.s = Math.min(2.6, Math.max(0.35, (a.s || 1) * Math.pow(1.0022, -e.deltaY)));
+    drawMarkNums();
+  }, { passive: false });
+  cv.addEventListener('dblclick', () => { (state.numFoot ||= {})[state.markFootSide] = null; drawMarkNums(); });
+}
 function setMarkState(i, fromScenario = false) {
   if (!fromScenario) stopScenario();
   state.markState = i;
@@ -914,13 +944,13 @@ function updateFootSDF() {
     }
     uploadSDF(markP2, FS);
     footCentroid = { x: FS.cx, y: FS.cy };
-    if (lab) lab.innerHTML = `발형 — <b style="color:var(--sand)">${slot} 슬롯 SVG</b> (글리프 서랍에서 교체)`;
+    if (lab) lab.innerHTML = `발형 — <b style="color:var(--sand)">${slot} 슬롯 SVG</b> (글리프 서랍에서 교체) · 숫자: 드래그 이동 · 휠 크기 · 더블클릭 자동`;
   } else {
     const FS = getFootSDF();
     if (FS.cx == null) { const t = sdfFromAlpha(footAlphaData(), FS.N); FS.cx = t.cx; FS.cy = t.cy; }
     uploadSDF(markP2, FS);
     footCentroid = { x: FS.cx, y: FS.cy };
-    if (lab) lab.innerHTML = `발형 — 내장 발 <span style="color:var(--sand)">(FOOT 슬롯에 SVG를 넣으면 교체)</span>`;
+    if (lab) lab.innerHTML = `발형 — 내장 발 <span style="color:var(--sand)">(FOOT 슬롯에 SVG를 넣으면 교체)</span> · 숫자: 드래그 이동 · 휠 크기 · 더블클릭 자동`;
   }
   drawMarkNums();
 }
@@ -1927,6 +1957,7 @@ function labSnapshot() {
     glyphs: { ...state.glyphs },
     glyphFlip: { ...state.glyphFlip },
     footCtx: state.footCtx,
+    numFoot: JSON.parse(JSON.stringify(state.numFoot || { L: null, R: null })),
     prims: JSON.parse(JSON.stringify(state.prims)),
     arrow: { ...state.arrow },
     lane: { ...state.lane },
@@ -1961,6 +1992,7 @@ function applyExternalState(st) {
     }
     if (st.glyphFlip) state.glyphFlip = { ...st.glyphFlip };
     if (st.footCtx) state.footCtx = st.footCtx;
+    if (st.numFoot) state.numFoot = { L: st.numFoot.L || null, R: st.numFoot.R || null };
     if (st.prims) for (const k in state.prims) Object.assign(state.prims[k], st.prims[k] || {});
     if (st.arrow) Object.assign(state.arrow, st.arrow);
     if (st.lane) Object.assign(state.lane, st.lane);

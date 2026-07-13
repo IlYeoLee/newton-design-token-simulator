@@ -863,6 +863,7 @@ async function boot() {
       GLYPHS.set(st.glyphs);
       GLYPHS.setFlips(st.glyphFlip || {});
       FXP.footCtx = st.footCtx || 'out';
+      FXP.numFoot = st.numFoot || null;   // 발형 숫자 앵커 (FX Lab 드래그 지정)
       if (changed) refreshGlyphConsumers();   // 순서 숫자 텍스처 리베이크
     }
     if (st.sys) {   // 시스템 설정 이관분: 판정·역할 색 / TCFG / SCFG (fxlab → 시뮬 실시간 + 영속)
