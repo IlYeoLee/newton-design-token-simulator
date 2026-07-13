@@ -157,29 +157,42 @@ export function createScene(container) {
     return surfCache[key];
   }
   let surfSeq = 0;
+  let curSurfKey = null;   // 현재 투사면 테마 (none=다크) — 주간 하늘 톤이 이걸 따른다
+  // 주간 하늘/안개 톤 = 표면 테마 인지: 다크 바닥 위 밝은 하늘은 부조화 (유저 교정 —
+  // '바닥은 검정인데 배경이 흰색') → 어두운 표면일 땐 흐린 하늘도 어둡게
+  function daySky() { return (!curSurfKey || curSurfKey === 'none') ? 0x7E858F : 0xB9C0CA; }
+  function applyDayAmbience() {
+    if (!dayMode) return;
+    const sky = daySky();
+    scene.background.setHex(sky);
+    scene.fog.color.setHex(sky);
+  }
   async function setSurfaces(key) {
     const seq = ++surfSeq;   // 연타 시 마지막 선택만 반영
+    curSurfKey = (!key || key === 'none') ? null : key;
     if (!key || key === 'none') {
       floor.material.map = null;
-      floor.material.color.setHex(0x171a20);
+      floor.material.color.setHex(dayMode ? 0x666C76 : 0x171a20);   // 주간 다크 = 젖은 아스팔트 톤
       wall.material.map = null;
-      wall.material.color.setHex(0x1c2028);
+      wall.material.color.setHex(dayMode ? 0x767C86 : 0x1c2028);
       floor.material.needsUpdate = true;
       wall.material.needsUpdate = true;
       grid.visible = true;
       wallGrid.visible = true;
+      applyDayAmbience();
       return;
     }
     const [fTex, wTex] = await Promise.all([getSurf(key), getSurf('plaster')]);
     if (seq !== surfSeq) return;
     floor.material.map = fTex;
-    floor.material.color.setHex(dayMode ? 0xFFFFFF : 0x8a8a8a);   // 주간=원색, 야간=톤 다운
+    floor.material.color.setHex(dayMode ? 0xDBDBDB : 0x8a8a8a);   // 주간=약감쇠(v12.4 통일), 야간=톤 다운
     wall.material.map = wTex;
-    wall.material.color.setHex(dayMode ? 0xFFFFFF : 0x9a9a9a);
+    wall.material.color.setHex(dayMode ? 0xE2E2E2 : 0x9a9a9a);
     floor.material.needsUpdate = true;
     wall.material.needsUpdate = true;
     grid.visible = false;                     // 실측 표면엔 그리드 라인 제거
     wallGrid.visible = false;
+    applyDayAmbience();
   }
 
   // ── 카메라 프리셋 ─────────────────────────────────────
@@ -209,14 +222,15 @@ export function createScene(container) {
     FX.day = dayMode;
     if (dayMode) {
       // 주간 = '밝은 실내/흐린 야외' 톤 — 순백 바닥은 1인칭에서 화면 전체가 백열되므로 금지.
-      // (유저 교정: 라이트모드가 과하게 밝음 — 투사 UI 대비가 살아있는 미드그레이 기준)
-      scene.background.setHex(0xB9C0CA);
-      scene.fog.color.setHex(0xB9C0CA); scene.fog.near = 14; scene.fog.far = 40;
+      // 하늘·안개 톤은 표면 테마를 따른다 (daySky — 다크 바닥 위 흰 하늘 부조화 방지)
+      const sky = daySky();
+      scene.background.setHex(sky);
+      scene.fog.color.setHex(sky); scene.fog.near = 14; scene.fog.far = 40;
       hemi.color.setHex(0xDCE4EE); hemi.groundColor.setHex(0x7E848C); hemi.intensity = 1.1;
       key.intensity = 1.6; key.color.setHex(0xFFF3E0);
       rim.intensity = 0.12;
-      if (!floor.material.map) floor.material.color.setHex(0x969CA6);
-      if (!wall.material.map) wall.material.color.setHex(0xA8AEB8);
+      if (!floor.material.map) floor.material.color.setHex(0x666C76);
+      if (!wall.material.map) wall.material.color.setHex(0x767C86);
       if (floor.material.map) floor.material.color.setHex(0xDBDBDB);
       if (wall.material.map) wall.material.color.setHex(0xE2E2E2);
     } else {

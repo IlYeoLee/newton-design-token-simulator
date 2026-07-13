@@ -1951,6 +1951,14 @@ async function boot() {
     get scope() { return studioScope; },
   };
 
+  // 빌드 스탬프 — 캐시된 구버전 확인용 (좌하단 미세 표기)
+  {
+    const bs = document.createElement('div');
+    bs.textContent = `build ${typeof __BUILD_TAG__ !== 'undefined' ? __BUILD_TAG__ : 'dev'}`;
+    bs.style.cssText = 'position:absolute;bottom:4px;left:306px;z-index:29;font-size:9.5px;color:rgba(140,146,156,.55);pointer-events:none;font-family:monospace';
+    document.body.appendChild(bs);
+  }
+
   function loop() {
     requestAnimationFrame(loop);
     const rawDt = Math.min(clock.getDelta(), 2.0);
