@@ -884,7 +884,10 @@ async function boot() {
     const dayBtn = document.getElementById('btn-day');
     const applyDay = () => {
       setDaylight(dayOn);
-      FXP.gainBoost = dayOn ? 1.55 : 1.0;
+      // 주간 = 풀컬러 잉크 모드(FXP.day → 셰이더 노멀 블렌딩): 게인 부스트로 클리핑시키지 않는다
+      // (구 1.55 부스트가 밝은 바닥 + 가산에서 흰색 뭉개짐의 원인이었음)
+      FXP.day = dayOn;
+      FXP.gainBoost = dayOn ? 1.15 : 1.0;
       if (dayBtn) { dayBtn.textContent = dayOn ? '🌙' : '☀️'; dayBtn.style.borderColor = dayOn ? '#fec389' : 'var(--line)'; }
     };
     applyDay();
@@ -947,6 +950,7 @@ async function boot() {
       enter() {
         this.active = true;
         setDaylight(false);
+        FXP.day = false;   // 강제 다크 스테이지 = 야간 가산 광 규약
         FXP.gainBoost = 1.0;
         setSurfaces(null);
         // 직교 편집 카메라는 40m 거리 — 씬 안개(9~20m)가 바닥을 전부 삼킨다 → 편집 중 차단

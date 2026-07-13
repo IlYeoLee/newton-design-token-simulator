@@ -19,7 +19,7 @@ const MARKFX_FRAG = `
 #include <clipping_planes_pars_fragment>
 ` + FX_GLSL + `
 uniform float uPhase, uProg, uFade, uStrong, uContract, uTime, uSeed;
-uniform float uW, uHalo, uPool, uSweepA, uWobble, uGain;
+uniform float uW, uHalo, uPool, uSweepA, uWobble, uGain, uDay;
 uniform float uShape;               // 0=존 원 / 1=발형 (FX Lab markShape)
 uniform sampler2D uSDF;             // 발형 실루엣 SDF (FOOT 슬롯 SVG)
 varying vec2 vUv;
@@ -83,7 +83,15 @@ void main() {
     col += vec3(0.80) * exp(-pow(sd / (0.028 * uW), 2.0)) * 0.42 * dashM;
     col *= uFade;
   }
-  gl_FragColor = vec4(col * uGain, 1.0);   // additive: 검정 = 무기여
+  col *= uGain;
+  // 주간 = 풀컬러 잉크(제품 스토리: 주광 가시 풀컬러 투사) — 가산은 밝은 바닥에서
+  // 채널 클리핑으로 흰색으로 뭉개진다. 색상 보존 + 커버리지 알파로 표면색을 '대체'.
+  if (uDay > 0.5) {
+    float mc = max(col.r, max(col.g, col.b));
+    gl_FragColor = vec4(col / max(mc, 1e-4), clamp(mc * 1.45, 0.0, 1.0));   // 잉크 커버리지 부스트 — 거의 풀컬러
+  } else {
+    gl_FragColor = vec4(col, 1.0);   // 야간: 가산 광 — 검정 = 무기여
+  }
 }`;
 // ── 레인 광류 셰이더 — LINE 최소 토큰 소비 (스타일·두께·속도·간격·온도·글로우·꼬리) ──
 //    FX Lab의 LINE 스테이션과 같은 문법: solid=연속 광류 / dash·dot=행진 / chevron=꺾쇠 트레인 / comet=백열 순회 / taper
@@ -91,7 +99,7 @@ const LANEFX_FRAG = `
 #include <common>
 #include <clipping_planes_pars_fragment>
 ` + FX_GLSL + `
-uniform float uTime, uLen, uW, uHalo, uGain;
+uniform float uTime, uLen, uW, uHalo, uGain, uDay;
 uniform float uLStyle, uLSpeed, uLGap, uLHeat, uLTail;
 varying vec2 vUv;
 void main() {
@@ -132,7 +140,12 @@ void main() {
   heat *= smoothstep(0.0, 0.04, vUv.y) * smoothstep(1.0, 0.96, vUv.y);
   float sweep = 0.12 * sin(along * 0.9 - uTime * 1.7);
   vec3 col = lut(clamp(uLHeat - 0.08 + sweep + heat * 0.25, 0.0, 1.0)) * heat * uGain;
-  gl_FragColor = vec4(col, 1.0);
+  if (uDay > 0.5) {   // 주간 = 풀컬러 잉크 (MARKFX와 동일 규약)
+    float mc = max(col.r, max(col.g, col.b));
+    gl_FragColor = vec4(col / max(mc, 1e-4), clamp(mc * 1.45, 0.0, 1.0));   // 잉크 커버리지 부스트 — 거의 풀컬러
+  } else {
+    gl_FragColor = vec4(col, 1.0);
+  }
 }`;
 const LINE_STYLE_IDX = { solid: 0, dash: 1, dot: 2, chevron: 3, comet: 4, taper: 5 };
 function makeLaneFXMaterial(lenM) {
@@ -147,6 +160,7 @@ function makeLaneFXMaterial(lenM) {
       uHalo: { value: 0.9 },
       uGain: { value: 1 },
       uLStyle: { value: 1 }, uLSpeed: { value: 1 }, uLGap: { value: 1 }, uLHeat: { value: 0.5 }, uLTail: { value: 0.55 },
+      uDay: { value: 0 },
     },
     transparent: true,
     blending: THREE.AdditiveBlending,
@@ -169,7 +183,7 @@ export function makeMarkFXMaterial(footTex = null) {
       uStrong: { value: 0 }, uContract: { value: 0 },
       uTime: { value: 0 }, uSeed: { value: Math.random() * 6.2832 },
       uW: { value: 1 }, uHalo: { value: 0.9 }, uPool: { value: 0.55 }, uGain: { value: 1 },
-      uSweepA: { value: 1 }, uWobble: { value: 0.5 },
+      uSweepA: { value: 1 }, uWobble: { value: 0.5 }, uDay: { value: 0 },
     },
     transparent: true,
     blending: THREE.AdditiveBlending,
@@ -457,6 +471,13 @@ class Marker {
       U.uSweepA.value = FXP.mark.sweep;
       U.uWobble.value = FXP.mark.wobble;
       U.uGain.value = this._baseGain * FXP.gainBoost;   // 주간 = 투사 게인 부스트
+      // 주간 = 풀컬러 잉크 모드: 가산 → 노멀 블렌딩 (색 보존 알파 합성, 셰이더 규약과 짝)
+      const day = FXP.day ? 1 : 0;
+      if (U.uDay.value !== day) {
+        U.uDay.value = day;
+        this.fx.material.blending = day ? THREE.NormalBlending : THREE.AdditiveBlending;
+        this.fx.material.needsUpdate = true;
+      }
     }
     if (phase === 'preview') {
       // 저작 프리뷰: 전 토큰을 또렷한 상시 강도로 (위계 감쇠 없음)
@@ -971,6 +992,12 @@ export class TokenSystem {
       }
       LU.uLHeat.value = A.heat ?? 0.5;
       LU.uLTail.value = A.tail ?? 0.55;
+      const dayL = FXP.day ? 1 : 0;
+      if (LU.uDay.value !== dayL) {
+        LU.uDay.value = dayL;
+        this.laneFX.material.blending = dayL ? THREE.NormalBlending : THREE.AdditiveBlending;
+        this.laneFX.material.needsUpdate = true;
+      }
     }
 
     // 다가오는 이벤트 순서 계산 (preview 투명도 감쇠용)
@@ -1051,7 +1078,12 @@ export class TokenSystem {
         if (vis) {
           const k = this.layoutPreview ? 1 : Math.min(1, (now - (a.t - lead)) / Math.max(lead, 0.001));
           const op = 0.35 + 0.55 * k;
-          a.obj.traverse(o => { if (o.material) o.material.opacity = op; });   // 자루+촉 여러 메시
+          const aBlend = FXP.day ? THREE.NormalBlending : THREE.AdditiveBlending;   // 주간 = 풀컬러 잉크
+          a.obj.traverse(o => {
+            if (!o.material) return;
+            o.material.opacity = op;   // 자루+촉 여러 메시
+            if (o.material.blending !== aBlend) { o.material.blending = aBlend; o.material.needsUpdate = true; }
+          });
           a.obj.scale.setScalar(size);
         }
       }
