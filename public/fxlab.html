@@ -428,8 +428,8 @@ uniform float uT, uStyle;
 // 한 파면: 얇은 코어 + 넓은 블룸 (두꺼운 도넛 금지 — 절제가 세련됨)
 float front(float d, float e, float amp){
   float R = 0.06 + e * 0.84;
-  float W = (0.028 + e * 0.09) * uW;
-  return (exp(-pow((d - R) / W, 2.0)) + exp(-pow((d - R) / (W * 4.6), 2.0)) * 0.42 * uHalo) * amp;
+  float W = (0.028 + e * 0.09) * uW * 1.4;   // 시뮬 파리티 — 절제 파라미터에서도 파문이 읽히는 기저 폭
+  return (exp(-pow((d - R) / W, 2.0)) + exp(-pow((d - R) / (W * 4.6), 2.0)) * 0.6 * uHalo) * amp;
 }
 void main(){
   vec2 uv = (gl_FragCoord.xy - uRes*0.5) / (uRes.y*0.5);

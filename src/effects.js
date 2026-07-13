@@ -39,17 +39,19 @@ void main() {
   float wob = u1 + (fxfbm(vec2(ang * 1.3 + t + uSeed, d0 * 2.0)) - 0.5) * 0.5;
   float d = d0 * (1.0 + wob * uNoise * 0.10);
   // 본류 + 잔물결 1겹 (리퀴드)
+  // 기저 에너지 재캘리브레이션 — Air 절제 파라미터(글로우 .35·잔열 .15)에서도 파문이 읽히게
+  // (링 폭 1.4배 + 헤일로 항 상향 + 전체 게인 1.45: 임계 이하로 꺼지던 문제 보정)
   float R = 0.06 + e * 0.84;
-  float W = (0.028 + e * 0.09) * uW;
-  float heat = exp(-pow((d - R) / W, 2.0)) + exp(-pow((d - R) / (W * 4.6), 2.0)) * 0.42 * uHalo;
+  float W = (0.028 + e * 0.09) * uW * 1.4;
+  float heat = exp(-pow((d - R) / W, 2.0)) + exp(-pow((d - R) / (W * 4.6), 2.0)) * 0.6 * uHalo;
   float e2 = 1.0 - pow(1.0 - clamp(t - 0.14, 0.0, 1.0) / 0.86, 2.6);
   float R2 = 0.06 + e2 * 0.9 * 0.84;
-  heat += (exp(-pow((d - R2) / W, 2.0)) + exp(-pow((d - R2) / (W * 4.6), 2.0)) * 0.42 * uHalo) * 0.38;
+  heat += (exp(-pow((d - R2) / W, 2.0)) + exp(-pow((d - R2) / (W * 4.6), 2.0)) * 0.6 * uHalo) * 0.38;
   heat *= fade;
   // 잔열 + 코어 열점
   heat += smoothstep(R, R * 0.2, d0) * uEmber * fade * (0.8 + 0.2 * wob);
   heat += exp(-d0 * 6.5) * pow(1.0 - t, 2.2) * 1.15;
-  heat *= uIntensity * fwdGate;
+  heat *= uIntensity * fwdGate * 1.45;
   // 새벽빛 스윕
   float sweep = 0.09 * sin(ang - t * 2.4) + 0.05 * sin(ang * 2.0 + t * 1.1);
   vec3 col = lut(clamp(heat * (0.95 - 0.28 * t) + sweep * min(heat, 1.0), 0.0, 1.0)) * min(heat, 1.4);
