@@ -79,8 +79,8 @@ void main() {
     col = fc * inside * fillA;
     col += FXC_ICE * exp(-pow(abs(sd) / (0.04 * uW), 2.0)) * exp(-uProg * 9.0) * 0.8;
   } else if (uPhase < 3.5) {     // Locked: 회색 고스트 + 순번 — 시퀀스 전체가 먼저 보인다 (시안 보드)
-    col = vec3(0.90) * inside * 0.085 * fillGain;
-    col += vec3(0.80) * exp(-pow(sd / (0.028 * uW), 2.0)) * 0.42 * dashM;
+    col = vec3(0.90) * inside * 0.12 * fillGain;
+    col += vec3(0.80) * exp(-pow(sd / (0.028 * uW), 2.0)) * 0.55 * dashM;
     col *= uFade;
   } else {                       // Miss: 온기가 식어 회색 고스트 → 무음 소멸 (판정 verdict 연동)
     float cool = smoothstep(0.0, 0.35, uProg);
@@ -220,6 +220,11 @@ export const COLORS = {
 };
 
 const FADE_STEPS = [1.0, 0.6, 0.35, 0.2];
+// 1인칭(러너 눈): 바닥 그래픽이 시선 각도에서 수직으로 눌려 감쇠가 증발 —
+// 뒤 순번 감쇠를 완화한 전용 계단 + 전체 게인 보정 (setFp가 fpGain 스위치)
+const FADE_STEPS_FP = [1.0, 0.78, 0.58, 0.42];
+let FP_VIEW = false;
+export function setFPView(on) { FP_VIEW = !!on; }
 
 // 에디터 v2에서 실시간 조절되는 토큰 지오메트리·상태 파라미터 (라이브 반영)
 export const TCFG = {
@@ -463,7 +468,8 @@ class Marker {
     g.scale.setScalar(sizeScale * TCFG.markScale);
     if (this.art) this.art.material.opacity = phase === 'locked' ? 0.30 : phase === 'preview' ? (this.strongPreview ? 1 : 0.55) : 1;
 
-    const fade = FADE_STEPS[Math.min(orderIdx, FADE_STEPS.length - 1)];
+    const steps = FP_VIEW ? FADE_STEPS_FP : FADE_STEPS;
+    const fade = steps[Math.min(orderIdx, steps.length - 1)];
 
     // 파동 셰이더 구동 — FXP.mark 라이브 파라미터 (프로 편집 모드)
     if (this.fx.visible) {
@@ -478,7 +484,7 @@ class Marker {
       U.uPool.value = FXP.mark.pool;
       U.uSweepA.value = FXP.mark.sweep;
       U.uWobble.value = FXP.mark.wobble;
-      U.uGain.value = this._baseGain * FXP.gainBoost;   // 주간 = 투사 게인 부스트
+      U.uGain.value = this._baseGain * FXP.gainBoost * (FP_VIEW ? 1.35 : 1);   // 주간 부스트 · 1인칭 = 시선 각도 눌림 보정
       // 주간 = 풀컬러 잉크 모드: 가산 → 노멀 블렌딩 (색 보존 알파 합성, 셰이더 규약과 짝)
       const day = FXP.day ? 1 : 0;
       if (U.uDay.value !== day) {
@@ -1002,7 +1008,7 @@ export class TokenSystem {
       LU.uTime.value = performance.now() / 1000;
       LU.uW.value = FXP.graphics.width * (A.w || 1);
       LU.uHalo.value = FXP.graphics.halo * (A.glow ?? 1);
-      LU.uGain.value = FXP.gainBoost;
+      LU.uGain.value = FXP.gainBoost * (FP_VIEW ? 1.25 : 1);
       LU.uLStyle.value = LINE_STYLE_IDX[(FXP.lane && FXP.lane.style) || 'dash'] ?? 1;   // 레인 전용 스타일
       LU.uLSpeed.value = A.speed ?? 1;
       LU.uLGap.value = A.gap ?? 1;

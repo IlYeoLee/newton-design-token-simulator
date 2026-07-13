@@ -78,8 +78,9 @@
   <div id="rolesHost" style="display:grid;grid-template-columns:repeat(3,minmax(150px,1fr));gap:4px 14px;max-width:560px"></div>
   <h3>투사면 — 실측 텍스처 (ambientCG · CC0)</h3>
   <div class="presets" id="bgChips"></div>
-  <h3>화면 룩 — 시뮬 반영 (블룸·노출·그레인)</h3>
-  <div class="sliders" id="slidersS"></div>
+  <!-- 화면 룩(블룸·노출·그레인) 편집 은퇴 — 포스트프로세싱은 디자인 토큰이 아님 (유저 결정).
+       값은 state.s로 내부 유지(시뮬 안정), UI만 제거 -->
+  <div class="sliders" id="slidersS" style="display:none"></div>
   <h3 style="margin-top:16px">그래픽 — 터짐·발자국</h3>
   <div class="sliders" id="slidersG"></div>
   <h3 style="margin-top:16px">인물</h3>

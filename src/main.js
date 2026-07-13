@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { createScene, WALL_Z, FX } from './scene.js';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { TokenSystem, COLORS, TCFG } from './tokens.js';
+import { TokenSystem, COLORS, TCFG, setFPView } from './tokens.js';
 import { Effects } from './effects.js';
 import { XBot } from './xbot.js';
 import { Panel } from './panel.js';
@@ -595,6 +595,7 @@ async function boot() {
   };
   function setFp(on) {
     fpMode = on;
+    setFPView(on);   // 1인칭 가독 보정 — 순번 감쇠 완화 + 마크·레인 게인 (시선 각도 눌림)
     setBtnActive(fpBtn, fpMode);
     controls.enabled = !fpMode;
     // 진짜 눈 시점: 자기 몸은 시야를 가리지 않음 + 인간 유효 시야각
