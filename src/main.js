@@ -801,10 +801,14 @@ async function boot() {
   };
   // ── 🔥 룩 스튜디오 = FX Lab 페이지 통째 임베드 ──────────────
   // 랩에서 만지는 모든 값이 400ms 주기로 전송 → 시뮬 적용 + designStore 저장.
-  /** 커스텀 글리프 변경/로드 → 현재 팩 마커의 숫자 텍스처 리베이크 */
+  /** 커스텀 글리프/화살표 변경 → 현재 팩 리베이크 — 디바운스 (이미지 19장 로드·슬라이더 드래그마다 풀 리빌드 방지) */
+  let glyphRefreshTimer = null;
   function refreshGlyphConsumers() {
-    const data = state.packs[state.pack];
-    if (data) { tokens.setPack(data); tokens.resetLoop(); }
+    clearTimeout(glyphRefreshTimer);
+    glyphRefreshTimer = setTimeout(() => {
+      const data = state.packs[state.pack];
+      if (data) { tokens.setPack(data); tokens.resetLoop(); }
+    }, 280);
   }
   GLYPHS.onLoad(() => refreshGlyphConsumers());
   let openFxLab = () => {};   // 아래 FX 블록에서 실제 구현 주입 (스튜디오 룩 탭·인스펙터 공용)

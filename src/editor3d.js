@@ -247,11 +247,15 @@ export function createEditor3D({ dom, tokens, getCamera, getControls, getDoc, on
     }
     emptyDown = { x: e.clientX, y: e.clientY };
   }
+  let _hoverAt = 0;
   function onMove(e) {
     if (!enabled) return;
     if (drag) { applyDrag(e); return; }
     if (e.buttons) return;                       // 궤도 회전 중 — 호버 검사 생략
     if (tool === 'mark') { dom.style.cursor = 'crosshair'; return; }
+    const now = performance.now();               // 호버 픽 스로틀 — 레이캐스트+Box3 매 move는 과함
+    if (now - _hoverAt < 40) return;
+    _hoverAt = now;
     setNdc(e);
     const sc = getScene?.();
     const over = pickList(e, sc)[0] || null;
