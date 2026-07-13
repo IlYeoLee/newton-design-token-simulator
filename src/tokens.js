@@ -55,28 +55,55 @@ void main() {
   vec3 col = lut(clamp(heat * 0.72 + hot + sweep * min(heat, 1.0), 0.0, 1.0)) * min(heat, 1.35) * alpha * uGain;
   gl_FragColor = vec4(col, 1.0);   // additive: 검정 = 무기여
 }`;
-// ── 레인 광류 셰이더 (FX Lab ④경로) — 얇은 코어 + 흐르는 대시 펄스 + 새벽빛 스윕 ──
+// ── 레인 광류 셰이더 — LINE 최소 토큰 소비 (스타일·두께·속도·간격·온도·글로우·꼬리) ──
+//    FX Lab의 LINE 스테이션과 같은 문법: solid=연속 광류 / dash·dot=행진 / chevron=꺾쇠 트레인 / comet=백열 순회 / taper
 const LANEFX_FRAG = `
 #include <common>
 #include <clipping_planes_pars_fragment>
 ` + FX_GLSL + `
 uniform float uTime, uLen, uW, uHalo, uGain;
+uniform float uLStyle, uLSpeed, uLGap, uLHeat, uLTail;
 varying vec2 vUv;
 void main() {
   #include <clipping_planes_fragment>
   float lat = (vUv.x - 0.5) * 2.0;                     // 폭방향 -1..1
   float along = vUv.y * uLen;                          // 진행 좌표 (m)
-  // 미세 측면 웨이브 — 살아있는 빛줄기
-  lat += sin(along * 2.1 + uTime * 1.4) * 0.06;
-  float core = exp(-pow(lat / (0.10 * uW), 2.0)) + exp(-pow(lat / (0.42 * uW), 2.0)) * 0.30 * uHalo;
-  // 대시 흐름: 전방(-z)으로 흐르는 광 펄스 (대시 간격 = 속도 언어)
-  float pulse = 0.30 + 0.70 * smoothstep(0.22, 0.58, 0.5 + 0.5 * sin(along * 9.0 - uTime * 5.2));
+  lat += sin(along * 2.1 + uTime * 1.4) * 0.06;        // 미세 측면 웨이브
+  float pulse = 1.0;
+  float latEff = lat;
+  float wEff = uW;
+  if (uLStyle < 0.5) {                                 // solid — 연속 광류 (은은한 명멸)
+    pulse = 0.55 + 0.25 * sin(along * 0.8 - uTime * 2.0 * uLSpeed);
+  } else if (uLStyle < 1.5) {                          // dash — 행진 펄스 (간격 = uLGap)
+    pulse = 0.28 + 0.72 * smoothstep(0.22, 0.58, 0.5 + 0.5 * sin(along * (9.0 / uLGap) - uTime * 5.2 * uLSpeed));
+  } else if (uLStyle < 2.5) {                          // dot — 짧고 또렷한 점 행진
+    pulse = smoothstep(0.75, 0.95, 0.5 + 0.5 * sin(along * (12.0 / uLGap) - uTime * 5.2 * uLSpeed));
+    wEff *= 1.3;
+  } else if (uLStyle < 3.5) {                          // chevron — 꺾쇠 트레인 (^가 전방 행진)
+    float cf = fract(along * (1.6 / uLGap) - uTime * 1.4 * uLSpeed);
+    latEff = lat - (0.55 - abs(cf - 0.5) * 1.1) * 0.9;  // ^ 형상: 측면 오프셋이 산형
+    float band = smoothstep(0.16, 0.0, abs(cf - 0.5) - 0.28);
+    pulse = band * (0.6 + 0.4 * sin(along * 0.9 - uTime * 2.0 * uLSpeed));
+    wEff *= 0.8;
+  } else if (uLStyle < 4.5) {                          // comet — 백열 머리 + 감쇠 꼬리 순회
+    float head = fract(uTime * 0.22 * uLSpeed) * uLen;
+    float d = head - along;
+    if (d < 0.0) d += uLen;
+    float f = exp(-d / max(0.4, uLen * uLTail * 0.6));
+    pulse = f * 1.6 + 0.10;
+    wEff *= (0.7 + f * 0.9);
+  } else {                                             // taper — 전방으로 갈수록 넓게
+    wEff *= (0.35 + vUv.y * 1.4);
+    pulse = 0.5 + 0.2 * sin(along * 0.8 - uTime * 1.6 * uLSpeed);
+  }
+  float core = exp(-pow(latEff / (0.10 * wEff), 2.0)) + exp(-pow(latEff / (0.42 * wEff), 2.0)) * 0.30 * uHalo;
   float heat = core * pulse * 0.5;
   heat *= smoothstep(0.0, 0.04, vUv.y) * smoothstep(1.0, 0.96, vUv.y);
   float sweep = 0.12 * sin(along * 0.9 - uTime * 1.7);
-  vec3 col = lut(clamp(0.42 + sweep + heat * 0.25, 0.0, 1.0)) * heat * uGain;
+  vec3 col = lut(clamp(uLHeat - 0.08 + sweep + heat * 0.25, 0.0, 1.0)) * heat * uGain;
   gl_FragColor = vec4(col, 1.0);
 }`;
+const LINE_STYLE_IDX = { solid: 0, dash: 1, dot: 2, chevron: 3, comet: 4, taper: 5 };
 function makeLaneFXMaterial(lenM) {
   const mat = new THREE.ShaderMaterial({
     vertexShader: MARKFX_VERT,
@@ -88,6 +115,7 @@ function makeLaneFXMaterial(lenM) {
       uW: { value: 1 },
       uHalo: { value: 0.9 },
       uGain: { value: 1 },
+      uLStyle: { value: 1 }, uLSpeed: { value: 1 }, uLGap: { value: 1 }, uLHeat: { value: 0.5 }, uLTail: { value: 0.55 },
     },
     transparent: true,
     blending: THREE.AdditiveBlending,
@@ -411,20 +439,9 @@ class Marker {
 const TIP_SLOT = { triangle: 'TIP_TRI' };   // 커스텀 촉은 삼각 머리 1종만 (유저 확정)
 function makeArrow(color, len = 0.55, tip = 'triangle') {
   const g = new THREE.Group();
-  // 커스텀 화살표 SVG (FX Lab TIP 슬롯) — SVG ↑=전방 규칙, 기존 회전 로직이 각도 처리
+  // 커스텀 촉 SVG (FX Lab TIP 슬롯) — 촉(머리)만 교체, 자루는 LINE 스타일을 계속 따름
   const slotImg = GLYPHS.img(TIP_SLOT[tip]);
-  if (slotImg) {
-    const c = document.createElement('canvas');
-    c.width = c.height = 128;
-    drawGlyph(c.getContext('2d'), TIP_SLOT[tip], 64, 64, 112);
-    const tex = new THREE.CanvasTexture(c);
-    tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
-    const m = new THREE.Mesh(new THREE.PlaneGeometry(len * 0.72, len),
-      new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
-    m.position.y = len / 2;
-    g.add(m);
-    return g;
-  }
+  const customTip = !!slotImg;
   const w = 0.09, hw = 0.24, hl = 0.22;
   const mesh = (geo) => {
     const m = new THREE.Mesh(geo, flatMat(color, 0.85));
@@ -449,6 +466,26 @@ function makeArrow(color, len = 0.55, tip = 'triangle') {
       const d = mesh(new THREE.CircleGeometry(sw * 0.55, 16));
       d.position.y = y;
     }
+  } else if (A.line === 'chevron') {
+    // 꺾쇠 트레인 (정적 근사 — 애니는 레인 셰이더가 담당)
+    const step = 0.13 * (A.gap || 1);
+    for (let y = step * 0.5; y < shaftLen; y += step) {
+      const ch = mesh(shape(sp => {
+        sp.moveTo(-sw * 0.9, -0.035); sp.lineTo(0, 0.035); sp.lineTo(sw * 0.9, -0.035);
+        sp.lineTo(sw * 0.9, -0.075); sp.lineTo(0, -0.005); sp.lineTo(-sw * 0.9, -0.075);
+        sp.closePath();
+      }));
+      ch.position.y = y;
+    }
+  } else if (A.line === 'comet') {
+    // 백열 머리 + 테이퍼 꼬리 (정적 근사)
+    mesh(shape(sp => {
+      sp.moveTo(-sw * 0.1, 0); sp.lineTo(sw * 0.1, 0);
+      sp.lineTo(sw * 0.55, shaftLen * 0.92); sp.lineTo(-sw * 0.55, shaftLen * 0.92);
+      sp.closePath();
+    }));
+    const head = mesh(new THREE.CircleGeometry(sw * 0.7, 20));
+    head.position.y = shaftLen * 0.92;
   } else if (A.line === 'taper') {
     mesh(shape(sp => {
       sp.moveTo(-sw * 0.12, 0); sp.lineTo(sw * 0.12, 0);
@@ -461,7 +498,17 @@ function makeArrow(color, len = 0.55, tip = 'triangle') {
   }
 
   const hy = len - hl;   // 촉 밑동 y
-  if (tip === 'triangle') {
+  if (customTip) {
+    const c = document.createElement('canvas');
+    c.width = c.height = 128;
+    drawGlyph(c.getContext('2d'), TIP_SLOT[tip], 64, 64, 112);
+    const tex = new THREE.CanvasTexture(c);
+    tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
+    const tipM = new THREE.Mesh(new THREE.PlaneGeometry(hl * 2.1, hl * 2.6),
+      new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+    tipM.position.y = len - hl * 0.2;
+    g.add(tipM);
+  } else if (tip === 'triangle') {
     mesh(shape(s => { s.moveTo(-hw / 2, hy); s.lineTo(hw / 2, hy); s.lineTo(0, len); s.closePath(); }));
   } else if (tip === 'chevron') {
     // 열린 꺾쇠(^) — 얇은 두 막대로 확실히 구분되게
@@ -805,10 +852,16 @@ export class TokenSystem {
     if (!L) return;
     if (this.laneFX) {
       const LU = this.laneFX.material.uniforms;
+      const A = FXP.arrow || {};
       LU.uTime.value = performance.now() / 1000;
-      LU.uW.value = FXP.graphics.width;
-      LU.uHalo.value = FXP.graphics.halo;
+      LU.uW.value = FXP.graphics.width * (A.w || 1);
+      LU.uHalo.value = FXP.graphics.halo * (A.glow ?? 1);
       LU.uGain.value = FXP.gainBoost;
+      LU.uLStyle.value = LINE_STYLE_IDX[A.line] ?? 1;
+      LU.uLSpeed.value = A.speed ?? 1;
+      LU.uLGap.value = A.gap ?? 1;
+      LU.uLHeat.value = A.heat ?? 0.5;
+      LU.uLTail.value = A.tail ?? 0.55;
     }
 
     // 다가오는 이벤트 순서 계산 (preview 투명도 감쇠용)

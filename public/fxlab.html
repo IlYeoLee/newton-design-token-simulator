@@ -172,9 +172,6 @@
   <div class="cell"><canvas id="footC" style="width:250px;height:250px"></canvas>
     <div class="ctl"><button class="btn on" id="fShape">발 형태</button><button class="btn" id="fCircle">원형</button></div>
     <div class="lab">발자국 — SDF 윤곽 파문</div></div>
-  <div class="cell"><canvas id="laneC" style="width:250px;height:250px"></canvas>
-    <div class="ctl"><button class="btn on" id="lDash">대시 흐름</button><button class="btn" id="lFlow">연속 광류</button></div>
-    <div class="lab">레인 + 방향 화살표 — 그라디언트 광류</div></div>
   <div class="cell"><canvas id="personC" style="width:236px;height:386px"></canvas>
     <div class="ctl"><button class="btn on" id="pThermal">열화상</button><button class="btn" id="pWhite">화이트</button></div>
     <div class="lab">인물 — 실사 복서 + 잔상</div></div>
@@ -522,7 +519,7 @@ void main(){
   col = base * (1.0 - clamp(heat, 0.0, 1.0) * 0.85) + col;
   gl_FragColor = vec4(grade(col, gl_FragCoord.xy, t), 1.0);
 }`;
-const laneP = glProg(laneC, LANE_FRAG, 250, 250);
+const laneP = glProg((window.laneC || Object.assign(document.createElement('canvas'), { id: 'laneC' })), LANE_FRAG, 250, 250);   // 셀 은퇴 — 시뮬 레인은 LINE 토큰 소비 (tokens.js LANEFX)
 
 // ═══ MARK 판정 토큰 × 7상태 ═══════════════════
 // 0 Preview · 1 Active · 2 Hold · 3 Success · 4 Miss · 5 Warning · 6 Locked
@@ -1139,8 +1136,8 @@ exportBtn.onclick = () => {
     graphics: state.g, mark: state.m, person: state.p, screen: state.s }, null, 1);
   exportBox.select?.();
 };
-lDash.onclick = () => { state.laneStyle = 0; lDash.classList.add('on'); lFlow.classList.remove('on'); };
-lFlow.onclick = () => { state.laneStyle = 1; lFlow.classList.add('on'); lDash.classList.remove('on'); };
+if (window.lDash) lDash.onclick = () => { state.laneStyle = 0; lDash.classList.add('on'); lFlow.classList.remove('on'); };
+if (window.lFlow) lFlow.onclick = () => { state.laneStyle = 1; lFlow.classList.add('on'); lDash.classList.remove('on'); };
 const bBtns = [bLiquid, bFlare, bSonar];
 bBtns.forEach((b, i) => b.onclick = () => {
   state.burstStyle = i;
