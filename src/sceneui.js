@@ -49,8 +49,9 @@ function makeTextTexture(text, capM, { weight = 300 } = {}) {
 }
 
 class Slot {
-  constructor(parent, role /* 타이포 스케일 키 */, align = 'center') {
+  constructor(parent, role /* 타이포 스케일 키 */, align = 'center', dim = 1) {
     this.role = role; this.align = align;
+    this.dim = dim;   // 슬롯 위계 감광 — 타이틀·스펙은 큐(토큰)보다 항상 어둡다
     this.mesh = null; this.parent = parent;
     this.text = ''; this.opacity = 0; this.target = 0;
     this.clip = null; this.widthM = 0;
@@ -76,7 +77,7 @@ class Slot {
   tick(dt) {
     if (!this.mesh) return;
     this.opacity += (this.target - this.opacity) * Math.min(1, dt * 6);
-    this.mesh.material.opacity = this.opacity * 0.92;
+    this.mesh.material.opacity = this.opacity * 0.92 * this.dim;
   }
 }
 
@@ -87,16 +88,18 @@ export class SceneUI {
     this.wallG = new THREE.Group();           // 벽 풋프린트 추종
     scene.add(this.floorG, this.wallG);
     this.hasWall = false;
+    // 위계: 타이틀(브랜딩) 0.5 · 스펙(sub) 0.65 — 판정 큐(토큰)가 항상 가장 밝다
     this.f = {
-      title:  new Slot(this.floorG, 'F-M', 'left'),
+      title:  new Slot(this.floorG, 'F-M', 'left', 0.5),
       instr:  new Slot(this.floorG, 'F-L'),
       status: new Slot(this.floorG, 'F-M', 'right'),
-      sub:    new Slot(this.floorG, 'F-CUE'),
+      sub:    new Slot(this.floorG, 'F-CUE', 'center', 0.65),
     };
     this.w = {
-      title:  new Slot(this.wallG, 'W-M', 'left'),
+      title:  new Slot(this.wallG, 'W-M', 'left', 0.5),
       instr:  new Slot(this.wallG, 'W-L'),
       status: new Slot(this.wallG, 'W-M', 'right'),
+      sub:    new Slot(this.wallG, 'W-CUE', 'center', 0.65),
     };
     this._instrTimer = null;
   }
@@ -104,8 +107,7 @@ export class SceneUI {
   setSport(sport, hasWall) {
     this.hasWall = !!hasWall;
     const off = this.hasWall ? this.f : this.w;
-    for (const k of ['title', 'instr', 'status']) off[k]?.set('');
-    if (this.hasWall) this.f.sub.set('');
+    for (const k of ['title', 'instr', 'status', 'sub']) off[k]?.set('');
   }
   _prime() { return this.hasWall ? this.w : this.f; }
   setClip(floorPlanes, wallPlanes) {
@@ -129,7 +131,7 @@ export class SceneUI {
     if (P.status.text) P.status.target = instrOn ? 0 : 1;
     if (P.title.text) P.title.target = (instrOn || P.status.text) ? 0 : 1;
   }
-  setSub(text) { if (!this.hasWall) this.f.sub.set(text); }
+  setSub(text) { this._prime().sub.set(text); }   // 스펙 스탬프 — PRIME 면 보조 밴드 (지면=SUB 존, 벽=하단)
 
   /** 슬롯을 현재 투사 풋프린트의 규정 밴드에 재배치 (매 프레임) */
   update(dt, rig) {
@@ -154,7 +156,9 @@ export class SceneUI {
       put(this.f.title, dText, -half * 0.90);
       put(this.f.instr, dText, 0);
       put(this.f.status, dText, half * 0.90);
-      put(this.f.sub, (Z.SUB[0] + Z.SUB[1]) / 2, 0);
+      // 스펙 스탬프는 레인(중앙 광류)을 비켜 우측 — 텍스트가 큐 위에 겹치지 않는다 (표기 원칙)
+      const subHalf = rig._halfAt ? rig._halfAt((Z.SUB[0] + Z.SUB[1]) / 2) : 0.7;
+      put(this.f.sub, (Z.SUB[0] + Z.SUB[1]) / 2, subHalf * 0.52);
     }
 
     // 벽 — 풋프린트(cx,cy,wallW,wallH) 상단 밴드
@@ -168,6 +172,7 @@ export class SceneUI {
       putW(this.w.title, wc.cx - hx);
       putW(this.w.instr, wc.cx);
       putW(this.w.status, wc.cx + hx);
+      if (this.w.sub.mesh) this.w.sub.mesh.position.set(wc.cx, wc.cy - rig.wallH / 2 + 0.16, this.wallZ + 0.03);   // 하단 스펙 밴드
     }
   }
 }

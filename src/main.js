@@ -329,6 +329,19 @@ async function boot() {
     sceneUI.setSport(data.sport, data.sport === 'boxing');
     sceneUI.setTitle(`NEWTON · ${({ running: '러닝', boxing: '복싱', basketball: '농구' })[data.sport] || data.sport}`);
     sceneUI.setStatus('');
+    // 시그니처 스탬프 — 전문가 데이터의 수치가 투사면 위에 표기된다 ("이게 원본 데이터"의 증거).
+    // 위계: sub 슬롯(감광 0.65) — 큐보다 어둡고, 지시문·상태가 뜨면 그 아래.
+    sceneUI.setSub((() => {
+      const bt = tokens._beatT;
+      if (data.sport === 'running' && bt) return `전문가 케이던스 ${Math.round(60 / bt)}spm · 보폭 ${(tokens._strideM || 0).toFixed(2)}m`;
+      if (data.sport === 'boxing') {
+        const ts = tokens.events.filter(e => e.surface === 'wall').map(e => e.t).sort((a, b) => a - b);
+        const gap = ts.length > 1 ? (ts[1] - ts[0]).toFixed(2) : null;
+        return gap ? `엘리트 잽 리듬 ${gap}s 간격` : '';
+      }
+      if (data.sport === 'basketball' && bt) return `실경기 컷 리듬 ${bt.toFixed(2)}s · 스텝 ${tokens.events.filter(e => e.surface !== 'wall').length}개`;
+      return '';
+    })());
 
     // 세션 가용성 표시 — 러닝·농구·복싱 지원
     const availEl = document.getElementById('session-avail');
@@ -1955,8 +1968,10 @@ async function boot() {
       geomEl.textContent =
         `프로젝터 유닛(인물 앞): 벽앞 ${opt.dProj.toFixed(2)}m · 렌즈높이 ${(LENS_H*100).toFixed(0)}cm · 상향틸트 ${opt.tilt.toFixed(0)}° · 뒷면 카메라 FOV ${THREE.MathUtils.radToDeg(CAM_V).toFixed(0)}°×${THREE.MathUtils.radToDeg(CAM_H).toFixed(0)}° · 전신 인식 최적 거리 ${opt.dCam.toFixed(2)}m (링에 서기)`;
     } else if (geomEl) geomEl.textContent = '';
-    const boxOn = state.pack === 'boxing' && !fpMode;
-    trackVol.visible = trackEdge.visible = boxOn;   // 연하게 상시 표시
+    // 장비 시각화(인식 볼륨·최적 링)는 커버리지 시각화와 같은 층 — 실물 뷰(👁)에선 숨김.
+    // 훈련 장면의 주인공은 투사 UI: 설비 설명 그래픽이 큐를 압도하지 않는다.
+    const boxOn = state.pack === 'boxing' && !fpMode && rig.visualize !== false;
+    trackVol.visible = trackEdge.visible = boxOn;
     optRing.visible = camMark.visible = boxOn;
 
     // 농구 방향·리듬 큐 — 패드를 채우게: 중앙 큰 화살표 + 깊이 따라 흐르는 비트 3개 + 레인
@@ -1972,13 +1987,14 @@ async function boot() {
       bkArrow.position.set(ax, 0.018, az);
       bkArrow.rotation.y = Math.atan2(f.fx, f.fz);
       bkArrow.children[0].material.clippingPlanes = cp;
-      // 리듬 비트 3개 — 깊이 0.4/0.85/1.3m, 순차로 밝아짐(박자가 앞으로 흐름)
-      const beatT = performance.now() / 1000;
+      // 리듬 비트 3개 — 깊이 0.4/0.85/1.3m, 순차로 밝아짐. 박자 = 팩 실측 스텝 간격(0.88s 컷 리듬)
+      const stepT = tokens._beatT || 0.625;
+      const beatT = performance.now() / 1000 / stepT;
       const depths = [0.4, 0.85, 1.3];
       bkBeats.forEach((b, i) => {
         const [bx, , bz] = P(depths[i]);
         b.position.set(bx, 0.021, bz);
-        const ph = (beatT * 1.6 - i * 0.33) % 1;   // 앞으로 흐르는 박자
+        const ph = (beatT - i * 0.33) % 1;   // 앞으로 흐르는 박자 — 데이터 케이던스
         const glow = Math.max(0, 1 - Math.abs(ph) * 3);
         b.material.opacity = 0.3 + 0.6 * glow;
         b.scale.setScalar(0.85 + 0.35 * glow);

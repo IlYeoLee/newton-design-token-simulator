@@ -75,11 +75,19 @@ export class ProjectorRig {
     this.budget = null;                 // 현 프레임 오차예산 (errorModel)
     this._shinPrev = null;
 
-    // 무릎 모듈 하우징 (기존: 빨간 박스)
+    // 무릎 모듈 하우징 — 하드웨어는 무채색 (NEWTON RED는 판정 큐 전용: 장면 위계 원칙).
+    // 렌즈 도트만 작게 발광 — 장비임을 알리되 마크와 경쟁하지 않는다.
     this.kneeBox = new THREE.Mesh(
       new THREE.BoxGeometry(0.065, 0.065, 0.065),
-      new THREE.MeshStandardMaterial({ color: 0xff2828, roughness: 0.4, emissive: 0x551010 })
+      new THREE.MeshStandardMaterial({ color: 0x232833, roughness: 0.45, metalness: 0.55 })
     );
+    const kneeLens = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.012, 0.012, 0.008, 14),
+      new THREE.MeshStandardMaterial({ color: 0xfa3030, emissive: 0xb32222, emissiveIntensity: 1.3 })
+    );
+    kneeLens.rotation.x = Math.PI / 2;
+    kneeLens.position.set(0, -0.018, -0.034);
+    this.kneeBox.add(kneeLens);
     scene.add(this.kneeBox);
 
     // 후방 스테이션 (복싱 벽면 투사용)

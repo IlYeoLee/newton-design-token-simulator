@@ -69,7 +69,7 @@ void main() {
     float hw = max((0.22 - 0.16 * uProg) * uW, 0.035);
     float h = exp(-pow(outPos / hw, 1.3)) * (1.0 - inside);
     col += mix(FXC_SAND, FXC_ICE, smoothstep(0.15, 0.9, outPos / hw)) * h * uHalo * 0.5 * dashM;
-  } else {                       // Success 잔상: 진홍 블룸 + 얼음빛 림 플래시 → 소멸
+  } else if (uPhase < 2.5) {     // Success 잔상: 진홍 블룸 + 얼음빛 림 플래시 → 소멸
     float e = 1.0 - pow(1.0 - uProg, 2.6);
     float q = length(uv - gcBall) / (uShape > 0.5 ? 1.5 : ext * 1.3) / (0.55 + 0.55 * e);
     vec3 fc = mix(FXC_RED, FXC_CORAL, smoothstep(0.47, 0.70, q));
@@ -78,6 +78,10 @@ void main() {
     float fillA = (uProg < 0.4 ? 1.0 : pow(1.0 - (uProg - 0.4) / 0.6, 1.4)) * max(min(fillGain * 1.2, 1.0), 0.85);
     col = fc * inside * fillA;
     col += FXC_ICE * exp(-pow(abs(sd) / (0.04 * uW), 2.0)) * exp(-uProg * 9.0) * 0.8;
+  } else {                       // Locked: 회색 고스트 + 순번 — 시퀀스 전체가 먼저 보인다 (시안 보드)
+    col = vec3(0.90) * inside * 0.085 * fillGain;
+    col += vec3(0.80) * exp(-pow(sd / (0.028 * uW), 2.0)) * 0.42 * dashM;
+    col *= uFade;
   }
   gl_FragColor = vec4(col * uGain, 1.0);   // additive: 검정 = 무기여
 }`;
@@ -252,6 +256,26 @@ function makeNumberTexture(n) {
   return tex;
 }
 
+/** 소형 표기 라벨 — 웜 크림 타이포, 캡션 위계 (수치 표기 전용: 큐보다 항상 어둡다) */
+function makeSmallLabel(text) {
+  const capPx = 56, pad = 20;
+  const c = document.createElement('canvas');
+  c.width = 4; c.height = 4;
+  let ctx = c.getContext('2d');
+  ctx.font = `400 ${capPx}px -apple-system, 'Apple SD Gothic Neo', sans-serif`;
+  const w = Math.ceil(ctx.measureText(text).width);
+  c.width = w + pad * 2; c.height = capPx * 1.7;
+  ctx = c.getContext('2d');
+  ctx.font = `400 ${capPx}px -apple-system, 'Apple SD Gothic Neo', sans-serif`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.shadowColor = 'rgba(254,163,95,.7)'; ctx.shadowBlur = capPx * 0.25;
+  ctx.fillStyle = '#FFF3DC';
+  ctx.fillText(text, c.width / 2, c.height / 2);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
+  return { tex, aspect: c.width / c.height };
+}
+
 function makeBullseyeTexture(colorHex) {
   const c = document.createElement('canvas');
   c.width = c.height = 256;
@@ -409,13 +433,13 @@ class Marker {
       this.group.add(this.holdArt);
     }
   }
-  /** phase: hidden|preview|countdown|linger  progress: 0..1 */
+  /** phase: hidden|locked|preview|countdown|linger  progress: 0..1 */
   render(phase, progress, orderIdx, sizeScale) {
     const g = this.group;
     if (phase === 'hidden') { g.visible = false; return; }
     g.visible = true;
     g.scale.setScalar(sizeScale * TCFG.markScale);
-    if (this.art) this.art.material.opacity = phase === 'preview' ? (this.strongPreview ? 1 : 0.55) : 1;
+    if (this.art) this.art.material.opacity = phase === 'locked' ? 0.30 : phase === 'preview' ? (this.strongPreview ? 1 : 0.55) : 1;
 
     const fade = FADE_STEPS[Math.min(orderIdx, FADE_STEPS.length - 1)];
 
@@ -423,7 +447,7 @@ class Marker {
     if (this.fx.visible) {
       const U = this.fx.material.uniforms;
       U.uTime.value = performance.now() / 1000;
-      U.uPhase.value = phase === 'preview' ? 0 : phase === 'countdown' ? 1 : 2;
+      U.uPhase.value = phase === 'preview' ? 0 : phase === 'countdown' ? 1 : phase === 'locked' ? 3 : 2;
       U.uProg.value = progress;
       U.uFade.value = fade;
       U.uStrong.value = this.strongPreview ? 1 : 0;
@@ -461,6 +485,12 @@ class Marker {
       this.edge.material.opacity = TCFG.lingerEdge * k;
       this.cd.visible = false;
       if (this.num) this.num.material.opacity = 0.4 * k;
+    } else if (phase === 'locked') {
+      // 시퀀스 예고 — 회색 고스트(셰이더) + 순번만. 레거시 링은 침묵.
+      this.fill.material.opacity = 0;
+      this.edge.material.opacity = 0;
+      this.cd.visible = false;
+      if (this.num) this.num.material.opacity = 0.48 * fade;
     }
     // 계약 오버레이(점선/holdRing)는 링 강도를 따라감
     if (this.avoidArt) this.avoidArt.material.opacity = Math.min(1, this.edge.material.opacity + 0.1);
@@ -820,6 +850,41 @@ export class TokenSystem {
         this.stanceMarks.push(mk);
       }
     }
+
+    // ── 데이터 시그니처 추출 — 케이던스(스텝 간격 중앙값)·보폭. 레인 메트로놈·리듬 큐가 소비 ──
+    {
+      const ts = (packData.tokens || []).filter(t => t.type === 'stepMark' && t.t != null).map(t => t.t).sort((a, b) => a - b);
+      const dts = [];
+      for (let i = 1; i < ts.length; i++) { const d = ts[i] - ts[i - 1]; if (d > 0.05) dts.push(d); }
+      dts.sort((a, b) => a - b);
+      this._beatT = dts.length ? dts[Math.floor(dts.length / 2)] : 0;
+      this._strideM = (L.mode === 'advance' && this._beatT) ? L.V * this._beatT : 0;
+    }
+
+    // ── 복싱: 콤보 순번 자동 부여 (타깃 3개가 항상 1·2·3으로 먼저 보인다) + 타깃 높이 표기 ──
+    if (isBoxing && this.pack.hasWall) {
+      const tgts = this.events.filter(e => e.surface === 'wall' && e.marker).sort((a, b) => a.t - b.t);
+      tgts.forEach((e, i) => { if (!e.marker.num && !e.marker._skipNumber) e.marker.setNumber(i + 1); });
+      if (tgts.length) {
+        const ty = tgts.reduce((s, e) => s + this._mapWall(e.srcToken).y, 0) / tgts.length;
+        const W = this.layout.WALL;
+        // 높이 캘리브레이션 라인 — 데이터의 타격 높이가 그대로 벽의 눈금이 된다
+        const line = new THREE.Line(
+          new THREE.BufferGeometry().setFromPoints([
+            new THREE.Vector3(-W.XS * 0.72, ty, WALL_Z + 0.012),
+            new THREE.Vector3(W.XS * 0.72, ty, WALL_Z + 0.012)]),
+          new THREE.LineDashedMaterial({ color: 0xfec389, dashSize: 0.05, gapSize: 0.07, transparent: true, opacity: 0.30 }));
+        line.computeLineDistances();
+        this.wallRoot.add(line);
+        this._applyClip(line, this.wallClip);
+        const lbl = makeSmallLabel(`타깃 ${Math.round(ty * 100)}cm`);
+        const lm = new THREE.Mesh(new THREE.PlaneGeometry(lbl.aspect * 0.075, 0.075),
+          new THREE.MeshBasicMaterial({ map: lbl.tex, transparent: true, opacity: 0.55, depthWrite: false }));
+        lm.position.set(W.XS * 0.72 - lbl.aspect * 0.075 / 2, ty + 0.065, WALL_Z + 0.012);
+        this.wallRoot.add(lm);
+        this._applyClip(lm, this.wallClip);
+      }
+    }
   }
 
   _mapFloor(tk) {
@@ -894,6 +959,16 @@ export class TokenSystem {
       LU.uLStyle.value = LINE_STYLE_IDX[(FXP.lane && FXP.lane.style) || 'dash'] ?? 1;   // 레인 전용 스타일
       LU.uLSpeed.value = A.speed ?? 1;
       LU.uLGap.value = A.gap ?? 1;
+      // 러닝: 레인 = 데이터 메트로놈 — 대시 간격=실측 보폭, 통과 주기=스텝 간격(케이던스)
+      // 대시가 러너와 같은 속도로 흐른다 (보폭/스텝 = 2.5m/s = 페이스 라이트)
+      if (this.pack?.sport === 'running' && this._beatT > 0 && this._strideM > 0) {
+        const si = LU.uLStyle.value;
+        if (si === 1 || si === 2) {                       // dash·dot 행진만 (파형 계수: dash 9, dot 12)
+          const wave = si === 1 ? 9.0 : 12.0;
+          LU.uLGap.value = wave * this._strideM / (2 * Math.PI);
+          LU.uLSpeed.value = (2 * Math.PI) / (5.2 * this._beatT);
+        }
+      }
       LU.uLHeat.value = A.heat ?? 0.5;
       LU.uLTail.value = A.tail ?? 0.55;
     }
@@ -917,8 +992,10 @@ export class TokenSystem {
       } else if (now >= ev.t - lead && now < ev.t) {
         phase = 'countdown';
         progress = (now - (ev.t - lead)) / lead;
-      } else if (now < ev.t - lead && order < maxVisible) {
-        phase = 'preview';
+      } else if (now < ev.t - lead) {
+        // 시퀀스 상시 가시화: 가까운 maxVisible개 = Preview(데워짐), 그 뒤 = Locked(회색+순번)
+        // — 경로 전체가 먼저 보이고, 지금 밟을 곳이 데워진다 (시안 보드 상태 순환)
+        phase = order < maxVisible ? 'preview' : 'locked';
       }
 
       // 스튜디오 저작 프리뷰: 지면 토큰 전체를 시간·풋프린트 무관 상시 윤곽 표시
@@ -940,7 +1017,8 @@ export class TokenSystem {
             const inset = ev.marker.radius * size * 1.15;
             if (!this.footprintTest(wx, wz, inset)) phase = 'hidden';
             // 첫 출현 순간: 시선 낙하 영역 안에서 나타났는가? (배치 원칙 검증 지표)
-            const visNow = phase !== 'hidden';
+            // locked 고스트는 제외 — 지표는 '데워진 큐'의 등장 위치만 잰다
+            const visNow = phase === 'preview' || phase === 'countdown';
             if (visNow && !ev._wasVisible) {
               const inGaze = this.gazeTest ? this.gazeTest(wx, wz) : true;
               this.stats.total++;
