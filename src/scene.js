@@ -208,15 +208,17 @@ export function createScene(container) {
     dayMode = !!on;
     FX.day = dayMode;
     if (dayMode) {
-      scene.background.setHex(0xDDE4EC);
-      scene.fog.color.setHex(0xDDE4EC); scene.fog.near = 14; scene.fog.far = 40;
-      hemi.color.setHex(0xEAF1FA); hemi.groundColor.setHex(0x9AA0A8); hemi.intensity = 1.5;
-      key.intensity = 2.4; key.color.setHex(0xFFF3E0);
+      // 주간 = '밝은 실내/흐린 야외' 톤 — 순백 바닥은 1인칭에서 화면 전체가 백열되므로 금지.
+      // (유저 교정: 라이트모드가 과하게 밝음 — 투사 UI 대비가 살아있는 미드그레이 기준)
+      scene.background.setHex(0xB9C0CA);
+      scene.fog.color.setHex(0xB9C0CA); scene.fog.near = 14; scene.fog.far = 40;
+      hemi.color.setHex(0xDCE4EE); hemi.groundColor.setHex(0x7E848C); hemi.intensity = 1.1;
+      key.intensity = 1.6; key.color.setHex(0xFFF3E0);
       rim.intensity = 0.12;
-      if (!floor.material.map) floor.material.color.setHex(0xB9BEC6);
-      if (!wall.material.map) wall.material.color.setHex(0xC9CDD4);
-      if (floor.material.map) floor.material.color.setHex(0xFFFFFF);
-      if (wall.material.map) wall.material.color.setHex(0xFFFFFF);
+      if (!floor.material.map) floor.material.color.setHex(0x969CA6);
+      if (!wall.material.map) wall.material.color.setHex(0xA8AEB8);
+      if (floor.material.map) floor.material.color.setHex(0xDBDBDB);
+      if (wall.material.map) wall.material.color.setHex(0xE2E2E2);
     } else {
       scene.background.setHex(0x0c0e12);
       scene.fog.color.setHex(0x0c0e12); scene.fog.near = 9; scene.fog.far = 20;
