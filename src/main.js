@@ -325,9 +325,10 @@ async function boot() {
     tokens.resetLoop();
     lastBodyZ = 0;
 
-    // 장면 UI 시스템: PRIME 면 재규정 + 타이틀 슬롯 (복싱만 벽이 PRIME)
+    // 장면 UI 시스템: PRIME 면 재규정 (복싱만 벽이 PRIME)
+    // 브랜드 타이틀(NEWTON·종목) 은퇴 — 투사면은 훈련 큐 전용, 브랜딩은 투사면 밖(앱/하드웨어)에서
     sceneUI.setSport(data.sport, data.sport === 'boxing');
-    sceneUI.setTitle(`NEWTON · ${({ running: '러닝', boxing: '복싱', basketball: '농구' })[data.sport] || data.sport}`);
+    sceneUI.setTitle('');
     sceneUI.setStatus('');
     // 시그니처 스탬프 — 전문가 데이터의 수치가 투사면 위에 표기된다 ("이게 원본 데이터"의 증거).
     // 위계: sub 슬롯(감광 0.65) — 큐보다 어둡고, 지시문·상태가 뜨면 그 아래.
@@ -762,6 +763,7 @@ async function boot() {
     if (panelEl) panelEl.style.display = 'flex';
     if (state.pack !== sport) switchPack(sport);
     state.time = 0; tokens.resetLoop();
+    sceneUI.setSub('');   // 스펙 스탬프는 도입부 전용 — 운동 중엔 큐만
     session.start(sport);
     sessionBtn.textContent = '세션 중지';
     if (sessionHud) sessionHud.style.display = 'block';

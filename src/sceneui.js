@@ -131,7 +131,14 @@ export class SceneUI {
     if (P.status.text) P.status.target = instrOn ? 0 : 1;
     if (P.title.text) P.title.target = (instrOn || P.status.text) ? 0 : 1;
   }
-  setSub(text) { this._prime().sub.set(text); }   // 스펙 스탬프 — PRIME 면 보조 밴드 (지면=SUB 존, 벽=하단)
+  /** 스펙 스탬프 — PRIME 면 보조 밴드 (지면=SUB 존, 벽=하단).
+      도입부 증거 표기: holdMs 뒤 자동 소멸 — 운동 중 상시 수치는 소음 (표기 원칙) */
+  setSub(text, holdMs = 6000) {
+    const slot = this._prime().sub;
+    slot.set(text);
+    clearTimeout(this._subTimer);
+    if (text && holdMs) this._subTimer = setTimeout(() => { slot.target = 0; }, holdMs);
+  }
 
   /** 슬롯을 현재 투사 풋프린트의 규정 밴드에 재배치 (매 프레임) */
   update(dt, rig) {
