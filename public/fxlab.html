@@ -1993,7 +1993,9 @@ if (window.parent !== window) {
 function applyExternalState(st) {
     if (st.stops) state.stops = st.stops.map(x => [...x]);
     if (st.sat != null) { state.sat = st.sat; satSl.value = st.sat; satV.textContent = st.sat; }
-    for (const k of ['g', 'm', 'p', 's']) Object.assign(state[k], st[k] || {});
+    for (const k of ['g', 'm', 'p']) Object.assign(state[k], st[k] || {});
+    // 화면 룩 은퇴 — 저장본의 s(그레인 등)를 무시하고 고정 룩으로 (좀비 설정 방지)
+    state.s = { bloomStrength: 0.18, bloomThreshold: 0.7, bloomRadius: 0.45, exposure: 0.95, grain: 0, vignette: 0.08 };
     for (const k of ['burstStyle', 'laneStyle', 'markShape', 'markForm', 'markContract'])
       if (st[k] != null) state[k] = st[k];
     if (st.glyphs && !Array.isArray(st.glyphs)) {

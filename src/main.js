@@ -854,7 +854,9 @@ async function boot() {
       if (st.m.radius) TCFG.markScale = st.m.radius;   // 존 반경 → 마크 크기 배율
     }
     if (st.p) Object.assign(FXP.person, { blur: st.p.blur, glow: st.p.glow, flow: st.p.flow, decay: st.p.decay });
-    if (st.s) Object.assign(FX, st.s);
+    // 화면 룩(블룸·노출·그레인) 은퇴 — 저장값(st.s) 무시, 엔진 고정 룩만.
+    // (은퇴 전 저장된 그레인 등이 좀비처럼 남는 것 방지 — 포스트프로세싱은 토큰이 아님)
+    Object.assign(FX, { bloomStrength: 0.18, bloomThreshold: 0.7, bloomRadius: 0.45, exposure: 0.95, grain: 0, vignette: 0.08 });
     if (st.bg !== undefined) { FXP.bg = st.bg; setSurfaces(st.bg === 'none' ? null : st.bg); }   // 투사면 칩 → 실물 바닥/벽 (+발형 컨텍스트)
     if (st.prims) FXP.prims = st.prims;   // 프리미티브 파라미터 → 세션 스테이지 빌드 소비 (리로드 반영)
     if (st.lane) FXP.lane = st.lane;      // 레인 전용 스타일 (화살표 LINE과 분리 — 유저 확정)
