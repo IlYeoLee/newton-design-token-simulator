@@ -635,15 +635,6 @@ export class Session {
     if (!text) return; const m = makeTextMesh(text, opts); this._clip(m); slot.add(m);
   }
 
-  /** 제작자 모드: 세션 발자국 아트 교체 (왼발 기준, 오른발은 미러) */
-  setFootArt(tex) {
-    for (const f of FOOTMARKS) {
-      f.plane.material.map = tex || f._origMap;
-      f.plane.scale.x = (tex && f.foot === 'right') ? -1 : 1;
-      f.plane.material.needsUpdate = true;
-    }
-  }
-
   start(sport = 'running') {
     this.sport = STAGES[sport] ? sport : 'running';
     this.stages = STAGES[this.sport];

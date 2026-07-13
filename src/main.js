@@ -1032,21 +1032,12 @@ async function boot() {
   // 시스템 설정(판정색·지오메트리·세션 타이밍·프리셋)은 v6.2에서 FX Lab으로 이관 — 브리지 st.sys 참조
   refreshEditorStages = () => { if (studioActive) renderCutBoard(); };
 
-  // ── 제작자 모드: 이미지 드롭 → 토큰 아트 즉시 교체 (다빈 에셋 검수 리그) ──
-  const dropTarget = document.getElementById('drop-target');
+  // 제작자 모드 에셋 드롭인 은퇴 (v12.2) — 룩 시스템 이전 시대의 검수 도구.
+  // 드롭 아트가 setArt로 MARK 상태 셰이더를 꺼버려 토큰 원칙과 충돌했음.
+  // 대체: 발형 SVG=룩 글리프 FOOT 슬롯 · 마크 형태=MARK 토큰 · 토큰별 아트=스튜디오 디자인.
+  // 화면 드래그는 이제 무동작 (실수 드롭이 장면을 바꾸는 사고 방지).
   document.addEventListener('dragover', e => e.preventDefault());
-  document.addEventListener('drop', async e => {
-    e.preventDefault();
-    const f = e.dataTransfer?.files?.[0];
-    if (!f || !/(image|svg)/.test(f.type)) return;
-    const tex = await new THREE.TextureLoader().loadAsync(URL.createObjectURL(f));
-    tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
-    if (dropTarget?.value === 'foot') session.setFootArt(tex);
-    else tokens.setMarkerArt(tex);
-  });
-  document.getElementById('drop-reset')?.addEventListener('click', () => {
-    tokens.setMarkerArt(null); session.setFootArt(null);
-  });
+  document.addEventListener('drop', e => e.preventDefault());
 
   // ── NEWTON Studio — 2D 저작 캔버스 (러닝 지면 수직 슬라이스) ──
   let studioActive = false;

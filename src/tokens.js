@@ -747,15 +747,6 @@ export class TokenSystem {
     }
   }
 
-  /** 제작자 모드: 드롭인 아트를 모든 지면 마커에 적용/해제 */
-  setMarkerArt(tex) {
-    this.markerArt = tex;
-    for (const ev of this.events) {
-      if (!ev.marker || ev.surface === 'wall') continue;
-      tex ? ev.marker.setArt(tex) : ev.marker.clearArt();
-    }
-  }
-
   setParams(p) { Object.assign(this.params, p); }
 
   setPack(packData) {
@@ -810,7 +801,7 @@ export class TokenSystem {
             tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
             mk.setArt(tex);
             if (tk.design.shape === 'number') mk._skipNumber = true;
-          } else if (this.markerArt && !isWall) mk.setArt(this.markerArt);
+          }
           if (isWall) {
             // 벽면 불즈아이 텍스처 추가
             const bt = new THREE.Mesh(
@@ -903,7 +894,6 @@ export class TokenSystem {
         // 복싱 스탠스 발판 (상시)
         const mk = new Marker(0.16, COLORS[tk.foot] ?? COLORS.left, 'floor');
         mk.role = tk.foot ?? 'left';
-        if (this.markerArt) mk.setArt(this.markerArt);
         const p = this._mapFloor(tk);
         mk.group.position.x = p.x; mk.group.position.z = p.z;
         mk.render('preview', 0, 0, 1);
