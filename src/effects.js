@@ -51,10 +51,12 @@ void main() {
   // 잔열 + 코어 열점
   heat += smoothstep(R, R * 0.2, d0) * uEmber * fade * (0.8 + 0.2 * wob);
   heat += exp(-d0 * 6.5) * pow(1.0 - t, 2.2) * 1.15;
-  heat *= uIntensity * fwdGate * 1.45;
+  heat *= uIntensity * fwdGate;
   // 새벽빛 스윕
   float sweep = 0.09 * sin(ang - t * 2.4) + 0.05 * sin(ang * 2.0 + t * 1.1);
-  vec3 col = lut(clamp(heat * (0.95 - 0.28 * t) + sweep * min(heat, 1.0), 0.0, 1.0)) * min(heat, 1.4);
+  // 가시성 게인은 LUT 인덱스(색 위치)가 아니라 출력에만 — 열을 키우면 색이 크림 쪽으로
+  // 밀려 랩(진한 코럴)과 색이 갈라진다 (v11.9의 heat×1.45가 만든 편차 교정)
+  vec3 col = lut(clamp(heat * (0.95 - 0.28 * t) + sweep * min(heat, 1.0), 0.0, 1.0)) * min(heat, 1.4) * 1.45;
   gl_FragColor = vec4(col, 1.0);   // additive: 검정 = 무기여
 }`;
 
