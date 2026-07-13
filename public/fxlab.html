@@ -1152,26 +1152,38 @@ pThermal.onclick = () => { state.personMode = 0; pThermal.classList.add('on'); p
 pWhite.onclick = () => { state.personMode = 1; pWhite.classList.add('on'); pThermal.classList.remove('on'); };
 
 // ═══ 루프 ═════════════════════════════════════
+// 가시성 게이팅 — 화면 밖 셀은 그리지 않는다 (긴 페이지에서 프레임 예산의 핵심)
+const VIS = {};
+{
+  const io = new IntersectionObserver(es => {
+    for (const e of es) VIS[e.target.id] = e.isIntersecting;
+  }, { rootMargin: '80px' });
+  for (const id of ['oldC', 'burstC', 'footC', 'laneC', 'personC', 'markC', 'markC2',
+                    'pathArrowC', 'lineRotC', 'lineLaneC', 'lineDecelC', 'primLib', 'glyphLib']) {
+    const el = document.getElementById(id);
+    if (el) { VIS[id] = true; io.observe(el); }
+  }
+}
 buildStops(); rebuildLUT();
 const frozen = parseFloat((location.hash.match(/t=([\d.]+)/) || [])[1]);
 function frame(ts) {
   const T = 2600 / state.g.speed;
   const t = !isNaN(frozen) ? frozen : (REDUCED ? 0.3 : (ts % T) / T);
-  window.__drawOld((isNaN(frozen) ? (ts % 2600) / 2600 : frozen));
+  if (VIS.oldC) window.__drawOld((isNaN(frozen) ? (ts % 2600) / 2600 : frozen));
   const g = state.g, p = state.p;
-  { burstP.setCommon(g.width, g.halo, g.noise, g.ember, g.grain);
+  if (VIS.burstC) { burstP.setCommon(g.width, g.halo, g.noise, g.ember, g.grain);
     const { gl } = burstP; gl.uniform1f(burstP.u('uT'), t);
     gl.uniform1f(burstP.u('uStyle'), state.burstStyle); gl.drawArrays(gl.TRIANGLES, 0, 3); }
-  { footP.setCommon(g.width, g.halo, g.noise, g.ember, g.grain);
+  if (VIS.footC) { footP.setCommon(g.width, g.halo, g.noise, g.ember, g.grain);
     const { gl } = footP;
     gl.uniform1f(footP.u('uT'), t); gl.uniform1f(footP.u('uMode'), state.footShape);
     gl.drawArrays(gl.TRIANGLES, 0, 3); }
-  { laneP.setCommon(g.width, g.halo, g.noise, g.ember, g.grain);
+  if (VIS.laneC) { laneP.setCommon(g.width, g.halo, g.noise, g.ember, g.grain);
     const { gl } = laneP;
     gl.uniform1f(laneP.u('uT'), t); gl.uniform1f(laneP.u('uLaneStyle'), state.laneStyle);
     gl.uniform1f(laneP.u('uTime'), REDUCED ? 1.2 : ts / 1000);
     gl.drawArrays(gl.TRIANGLES, 0, 3); }
-  { const m = state.m;
+  if (VIS.markC || VIS.markC2) { const m = state.m;
     markP.setCommon(m.core, m.halo, m.wobble, 0, g.grain);
     markP2.setCommon(m.core, m.halo, m.wobble, 0, g.grain);
     const surfR = state.markSurface === 'wall' ? 1.22 : 1;   // 벽 링 = 같은 MARK, 반경 변형
@@ -1188,7 +1200,7 @@ function frame(ts) {
       pgl.uniform1f(P.u('uForm'), state.markForm);
       pgl.drawArrays(pgl.TRIANGLES, 0, 3);
     } }
-  if (personReady) {
+  if (personReady && VIS.personC) {
     personP.setCommon(p.blur, p.glow, p.flow, 0, p.grain);
     const { gl } = personP;
     gl.uniform1f(personP.u('uFrame'), (ts / 150) % 8);
@@ -1679,7 +1691,9 @@ function strokeFlowPath(g, pts, t, AW, opts = {}) {
       g.globalAlpha = Math.pow(f, 1.6);
       g.strokeStyle = lutCss(Math.max(0.05, A.heat - 0.2) + f * 0.55);
       g.lineWidth = (1.5 + f * 4.5) * AW;
-      g.shadowColor = lutCss(Math.min(1, A.heat + 0.3)); g.shadowBlur = f * 14 * AW * A.glow;
+      // 섀도 블러는 캔버스 최고가 연산 — 머리 근처 세그먼트에만 (꼬리는 알파 감쇠가 글로우를 대신)
+      if (f > 0.72) { g.shadowColor = lutCss(Math.min(1, A.heat + 0.3)); g.shadowBlur = f * 12 * AW * A.glow; }
+      else g.shadowBlur = 0;
       g.beginPath(); g.moveTo(x0, y0); g.lineTo(x1, y1); g.stroke();
     }
     g.globalAlpha = 1; g.lineCap = 'butt'; g.shadowBlur = 0;
@@ -1735,17 +1749,20 @@ document.querySelectorAll('input[data-scope="m"]').forEach(i => i.addEventListen
 document.getElementById('arrowW')?.addEventListener('input', flashGallery);
 document.getElementById('arrowLineChips')?.addEventListener('click', flashGallery);
 
-let _lastHoldCount = -1;
+let _lastHoldCount = -1, _primTick = 0;
 (function primAnimLoop() {
-  if (state.markState === 2) {
+  if (state.markState === 2 && (VIS.markC || VIS.markC2)) {
     const c = Math.floor(performance.now() / 1000 * 0.45) % 8;
     if (c !== _lastHoldCount) { _lastHoldCount = c; drawMarkNums(); }
   }
-  drawPrims();
-  drawPathArrow();
-  drawLineRot();
-  drawLineLane();
-  drawLineDecel();
+  // 2D 씬은 30fps로 충분 (셰이더 셀은 60 유지) + 화면 밖 스킵
+  if ((_primTick++ & 1) === 0) {
+    if (VIS.primLib) drawPrims();
+    if (VIS.pathArrowC) drawPathArrow();
+    if (VIS.lineRotC) drawLineRot();
+    if (VIS.lineLaneC) drawLineLane();
+    if (VIS.lineDecelC) drawLineDecel();
+  }
   requestAnimationFrame(primAnimLoop);
 })();
 // 라인 스타일 칩 + 두께
