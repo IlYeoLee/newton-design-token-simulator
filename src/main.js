@@ -774,7 +774,14 @@ async function boot() {
     const panelEl = document.getElementById('panel');
     if (panelEl) panelEl.style.display = 'flex';
     if (state.pack !== sport) switchPack(sport);
-    state.time = 0; tokens.resetLoop();
+    // 세션은 반드시 원점에서 시작 — 데모 루프의 심리스 시프트를 전부 리셋.
+    // (미리셋 시 세션 UI가 loopShiftZ만큼 밀린 곳(-8m×루프수)에 지어지고
+    //  풋프린트 스무딩이 순간이동을 뒤쫓다 전부 클리핑 → 'UI가 하나도 안 보임' 버그)
+    state.time = 0; state.loop = 0;
+    tokens.loopShiftZ = 0;
+    tokens.resetLoop();
+    rig.resetOmega();
+    lastBodyZ = 0;
     sceneUI.setSub('');   // 스펙 스탬프는 도입부 전용 — 운동 중엔 큐만
     session.start(sport);
     sessionBtn.textContent = '세션 중지';
