@@ -538,95 +538,129 @@ const laneP = glProg((window.laneC || Object.assign(document.createElement('canv
 
 // ═══ MARK 판정 토큰 × 7상태 ═══════════════════
 // 0 Preview · 1 Active · 2 Hold · 3 Success · 4 Miss · 5 Warning · 6 Locked
+// 시안 "발모양 자체 이펙트" 보드 그대로 — 상태별 색·구성은 SVG 스펙, 모션은 그 안에서만
+//   Preview: 아웃라인(#FEE2C6/#FEC389) → 소프트 라디얼 필(#FE6E3C→#FEC389)로 차오름
+//   Active:  적열 필(#FA3030→#FE6E3C→#FEC389→얼음빛 #D1FEFF 엣지) + 얼음빛 헤일로 수축
+//   Hold:    코닉 진행 림(회색 #D0CDCC 트랙 → #FA3030→#FE6E3C 스윕) + 열이 뒤꿈치로 고임
+//   Success: 진홍 블룸(#FA3030 47%까지 풀 레드 → 얼음빛 테두리) 200ms → 페이드
+//   Miss:    온기가 식어 회색 고스트(#ECECEC 필 + #D0D0D0 선) → 소멸
+//   Warning: 암적 리니어(#511815→#B7362F) + #EE2827 느낌표 점멸 (시안 '고민필요' — 절제판)
 const MARK_FRAG = GLSL_COMMON + `
 uniform float uTime, uState, uContract, uRadius, uPool, uSweepA, uShape, uForm;
 uniform sampler2D uSDF2;
+#define C_RED   vec3(0.980, 0.188, 0.188)
+#define C_CORAL vec3(0.996, 0.431, 0.235)
+#define C_SAND  vec3(0.996, 0.765, 0.537)
+#define C_CREAM vec3(0.996, 0.886, 0.776)
+#define C_ICE   vec3(0.820, 0.996, 1.000)
+#define C_GRAYF vec3(0.925, 0.925, 0.925)
+#define C_GRAYL vec3(0.816, 0.816, 0.816)
+#define C_RIMG  vec3(0.816, 0.804, 0.800)
+#define C_WINE  vec3(0.318, 0.094, 0.082)
+#define C_BRICK vec3(0.718, 0.212, 0.184)
+#define C_EXCL  vec3(0.933, 0.157, 0.153)
 // 일반화 부호 거리 — 존 원 / 발형이 같은 상태 머신을 공유
 float sdAt(vec2 p, float u1){
-  if (uShape < 0.5) return length(p) * (1.0 + u1 * uNoise * 0.05) - 0.46 * uRadius;
+  if (uShape < 0.5) return length(p) * (1.0 + u1 * uNoise * 0.04) - 0.46 * uRadius;
   vec2 suv = p * 0.5 + 0.5;
-  return (texture2D(uSDF2, vec2(suv.x, 1.0 - suv.y)).r - 0.5019) * 2.0 / max(uRadius, 0.3) + u1 * uNoise * 0.03;
+  return (texture2D(uSDF2, vec2(suv.x, 1.0 - suv.y)).r - 0.5019) * 2.0 / max(uRadius, 0.3) + u1 * uNoise * 0.02;
 }
-float band(float sd, float w, float haloAmp){
-  return exp(-pow(sd / w, 2.0)) + exp(-pow(sd / (w * 5.0), 2.0)) * haloAmp * uHalo;
+// 보드 라디얼 스탑 (오프셋 그대로)
+vec3 fillPreview(float q){ return mix(C_CORAL, C_SAND, smoothstep(0.0, 0.733, q)); }
+vec3 fillActive(float q){
+  vec3 c = mix(C_RED, C_CORAL, smoothstep(0.0, 0.479, q));
+  c = mix(c, C_SAND, smoothstep(0.479, 0.607, q));
+  return mix(c, C_ICE, smoothstep(0.607, 0.750, q));
+}
+vec3 fillHold(float q){
+  vec3 c = mix(C_RED, C_CORAL, smoothstep(0.0, 0.23, q));
+  return mix(c, C_SAND, smoothstep(0.23, 1.0, q));
+}
+vec3 fillSuccess(float q){
+  vec3 c = mix(C_RED, C_CORAL, smoothstep(0.47, 0.70, q));
+  c = mix(c, C_SAND, smoothstep(0.70, 0.843, q));
+  return mix(c, C_ICE, smoothstep(0.843, 0.931, q));
 }
 void main(){
-  vec2 uv0 = (gl_FragCoord.xy - uRes*0.5) / (uRes.y*0.5);
+  vec2 uv = (gl_FragCoord.xy - uRes*0.5) / (uRes.y*0.5);
   float tc = fract(uTime * 0.45);              // 상태 시연 루프
-  vec2 uv = uv0;
-  if (uState > 3.5 && uState < 4.5)            // Miss: 미끄러져 소멸
-    uv -= vec2(tc * 0.34, -tc * 0.13);
-  float d = length(uv);
   float ang = atan(uv.y, uv.x);
   float a01 = fract(0.25 - ang / 6.2832);      // 12시 기준 시계방향
   float u1 = undul(ang, uTime * 1.6);
   float sd = sdAt(uv, u1);
-  float edgeW = 0.013 * uW;
-  float edge = band(abs(sd), edgeW, 0.45);
-  if (uContract > 0.5 && uContract < 1.5)      // 회피 = 점선 반전
-    edge *= smoothstep(0.15, 0.55, 0.5 + 0.5 * sin(ang * 18.0 + u1));
-  float poolN = fbm(uv * 2.6 + vec2(uTime * 0.18, -uTime * 0.12));
-  float pool = smoothstep(0.02, -0.10, sd) * (0.55 + 0.45 * poolN) * (uPool * 1.82);
+  float inside = smoothstep(0.010, -0.010, sd);
+  float outPos = max(sd, 0.0);
+  // 점선 = 회피 계약 (윤곽·림에 적용)
+  float dashM = (uContract > 0.5 && uContract < 1.5)
+              ? smoothstep(0.15, 0.55, 0.5 + 0.5 * sin(ang * 18.0 + u1)) : 1.0;
+  // 그라디언트 기하: 존 원=중심 / 발형=발볼(위) — Hold는 뒤꿈치로 슬라이드
+  float ext = uShape < 0.5 ? 0.46 * uRadius : 0.72;
+  vec2 gcBall = uShape < 0.5 ? vec2(0.0) : vec2(0.0, 0.20);
+  vec2 gcHeel = uShape < 0.5 ? vec2(0.0, -0.5 * ext) : vec2(0.0, -0.32);
 
-  // ── 형태 2종: 윤곽 링 / 광막 — 상태 구분은 스타일이 아니라 '파동의 위상'
-  if (uForm > 0.5) {
-    // 광막: 윤곽 없는 열 광장
-    edge *= 0.12;
-    pool = smoothstep(0.22, -0.30, sd) * (0.72 + 0.28 * poolN) * (uPool * 2.1);
-  }
-  float heat = 0.0; float alpha = 1.0; float desat = 0.0; float amber = 0.0;
-  float hot = 0.0;
-
-  if (uState < 0.5) {            // Preview: 은은한 예고 — 숨쉬는 60→35%
-    alpha = mix(0.6, 0.35, 0.5 + 0.5 * sin(uTime * 2.2));
-    heat = edge * 0.85 + pool * 0.10;
-  } else if (uState < 1.5) {     // Active: 등고선 수축 (도트 폼은 점등 카운트다운이 겸함)
-    float off = 0.5 * (1.0 - tc);
-    float cR = (uForm > 2.5 && uForm < 3.5) ? 0.0
-             : band(abs(sd - off), (uForm > 0.5 && uForm < 1.5 ? 0.045 : 0.011) * uW, 0.4) * (0.3 + 0.7 * tc);
-    heat = edge + pool * 0.4 + cR;
-    hot = tc * 0.22 + cR * 0.2;
-  } else if (uState < 2.5) {     // Hold: 열이 수위처럼 차오름 — 표면이 찰랑이는 정상파, 떼면 수위 하강
-    float pr = tc < 0.68 ? tc / 0.68 : 1.0 - (tc - 0.68) / 0.32;
-    float Rz2 = 0.46 * uRadius;
-    float lvl = mix(-Rz2 * 1.05, Rz2 * 1.1, pr);
-    float surf = sin(uv.x * 9.0 - uTime * 3.2) * 0.018 + sin(uv.x * 15.0 + uTime * 4.4) * 0.008;
-    float inside = smoothstep(0.015, -0.015, sd);
-    float fillLvl = smoothstep(0.012, -0.012, uv.y - (lvl + surf)) * inside;
-    float surfGlow = exp(-pow((uv.y - (lvl + surf)) / 0.03, 2.0)) * inside * 1.1;  // 수면 = 백열
-    heat = edge * 0.6 + fillLvl * (0.5 + 0.25 * poolN) + surfGlow + pool * 0.12;
-    hot = surfGlow * 0.3;
-  } else if (uState < 3.5) {     // Success: Hit Glow + 등고선 파문
-    float e = 1.0 - pow(1.0 - tc, 2.6);
-    float wob = (undul(ang, uTime * 2.2) + (fbm(vec2(ang * 1.3 + tc, d * 2.0)) - 0.5) * 0.5) * uNoise * 0.06;
-    float flash = exp(-tc * 8.0) * 1.7;
-    float rip = band(abs(sd + wob - e * 0.55), (0.028 + e * 0.09) * uW, 0.42) * pow(1.0 - tc, 1.5);
-    rip += band(abs(sd + wob - max(e - 0.16, 0.0) * 0.5), (0.03 + e * 0.07) * uW, 0.42) * pow(1.0 - tc, 1.5) * 0.38;
-    heat = pool * flash + edge * pow(1.0 - tc, 1.4) + rip;
-    hot = flash * 0.25;
-  } else if (uState < 4.5) {     // Miss: 위상 붕괴 — 파형이 흐트러지며 식어 소멸 (X 금지)
-    float chaos = fbm(uv * 5.0 + uTime * 1.5) - 0.5;
-    float sdb = sd + chaos * tc * 0.28;
-    alpha = pow(1.0 - tc, 1.7) * 0.75;
-    heat = band(abs(sdb), edgeW * (1.0 + tc * 3.0), 0.45) * 0.8 + pool * 0.2 * (1.0 - tc);
-    hot = -tc * 0.3;
-  } else if (uState < 5.5) {     // Warning: 파형 떨림(고주파 지터) + 앰버 외곽 펄스
-    float jit = sin(ang * 22.0 + uTime * 18.0) * 0.012 + (fbm(uv * 8.0 + uTime * 3.0) - 0.5) * 0.02;
-    float sdj = sd + jit;
-    float off = 0.5 * (1.0 - tc);
-    heat = band(abs(sdj), edgeW, 0.45) + pool * 0.4 + band(abs(sdj - off), 0.011 * uW, 0.4) * 0.5;
-    amber = band(abs(sd - 0.16), edgeW * 2.2, 0.5) * (0.4 + 0.6 * (0.5 + 0.5 * sin(uTime * 7.0)));
-  } else {                       // Locked: 저채도 + 순서 숫자만
-    heat = edge * 0.5 + pool * 0.16;
-    desat = 1.0;
-  }
-  float sweep = (0.10 * sin(ang - uTime * 1.9) + 0.05 * sin(ang * 2.0 + uTime * 0.9)) * uSweepA;
-  vec3 col = lut(clamp(heat * 0.72 + hot + sweep * min(heat, 1.0), 0.0, 1.0)) * min(heat, 1.4) * alpha;
-  col += vec3(1.0, 0.62, 0.22) * amber * 0.85;
-  float lum = dot(col, vec3(0.299, 0.587, 0.114));
-  col = mix(col, vec3(lum) * 0.62, desat);
   vec3 base = baseBG(gl_FragCoord.xy / uRes);
-  col = base * (1.0 - clamp(heat, 0.0, 1.0) * 0.85) + col;
+  vec3 col = base;
+  float fillGain = clamp(uPool * 1.6, 0.0, 1.35);   // 내부 광 슬라이더 = 필 강도
+
+  if (uState < 0.5) {            // ── Preview: 아웃라인 → 소프트 필 차오름 (리드타임)
+    float f = smoothstep(0.10, 0.88, tc);
+    float breath = 1.0 + 0.05 * sin(uTime * 2.0) * (0.4 + uNoise);
+    float q = length(uv - gcBall) / (ext * 0.98 * breath);
+    vec3 fillCol = mix(C_CREAM, fillPreview(q), f);
+    float fillA = mix(0.42, 0.82, f) * fillGain;
+    col = mix(col, fillCol, fillA * inside);
+    float ow = 0.016 * uW;
+    float stroke = exp(-pow(sd / ow, 2.0)) * dashM;
+    col = mix(col, C_SAND, stroke * (0.95 - 0.62 * f));
+  } else if (uState < 1.5) {     // ── Active: 적열 필 + 얼음빛 헤일로 수축 (수축 완료 = 타이밍)
+    float gradR = uShape < 0.5 ? ext * 1.38 : 1.72;            // 얼음빛은 가장자리 자락만 (시안) — 발형은 실루엣이 커서 반경 확대
+    float q = length(uv - gcBall) / gradR;
+    q *= 1.0 + 0.025 * sin(uTime * 3.1 + q * 5.0) * uNoise;   // 엣지 얼음빛 미세 일렁임
+    col = mix(col, fillActive(q), inside * min(fillGain * 1.15, 1.0));
+    float hw = max((0.115 - 0.075 * tc) * uW, 0.018);          // 헤일로 폭 수축 = 카운트다운
+    float h = exp(-pow(outPos / hw, 1.3)) * (1.0 - inside);    // 블러 글로우 (하드 링 금지)
+    vec3 hCol = mix(C_SAND, C_ICE, smoothstep(0.15, 0.9, outPos / hw));
+    col = mix(col, hCol, h * uHalo * (0.50 + 0.14 * sin(uTime * 5.0)) * dashM);
+  } else if (uState < 2.5) {     // ── Hold: 코닉 진행 림 + 열이 뒤꿈치로 고임 (떼면 되감김)
+    float pr = tc < 0.68 ? tc / 0.68 : 1.0 - (tc - 0.68) / 0.32;
+    vec2 gc = mix(gcBall, gcHeel, pr);
+    float q = length(uv - gc) / (ext * 1.02);
+    float qh = max(q - 0.24 * pr, 0.0);                       // 진행할수록 적색 반경 확장
+    col = mix(col, fillHold(qh), inside * min(fillGain, 1.0) * 0.95);
+    float rw = 0.05 * uW;                                     // 림 = 진행 시계 (보드 w=30 비율)
+    float rim = exp(-pow((sd - 0.012) / rw, 2.0)) * dashM;
+    float prog = smoothstep(pr + 0.045, pr - 0.045, a01);
+    vec3 arcCol = mix(C_RED, C_CORAL, clamp(a01 / max(pr, 0.001), 0.0, 1.0));
+    vec3 rimCol = mix(C_RIMG, arcCol, prog);
+    col = mix(col, rimCol, rim * mix(0.42, 0.92, prog));
+  } else if (uState < 3.5) {     // ── Success: 진홍 블룸 200ms → 잔상 소멸
+    float e = 1.0 - pow(1.0 - tc, 2.6);
+    float q = length(uv - gcBall) / (uShape < 0.5 ? ext * 1.3 : 1.75);
+    float fillA = (tc < 0.4 ? 1.0 : pow(1.0 - (tc - 0.4) / 0.6, 1.4)) * max(min(fillGain * 1.2, 1.0), 0.85);
+    col = mix(col, fillSuccess(q / (0.55 + 0.55 * e)), inside * fillA);
+    float flash = exp(-tc * 9.0);                              // 첫 순간 얼음빛 림 플래시
+    col = mix(col, C_ICE, exp(-pow(abs(sd) / (0.02 * uW), 2.0)) * flash * 0.8);
+  } else if (uState < 4.5) {     // ── Miss: 온기가 식어 회색 고스트 → 무음 소멸
+    float cool = smoothstep(0.0, 0.4, tc);
+    float gone = pow(1.0 - max(tc - 0.45, 0.0) / 0.55, 1.6);
+    float q = length(uv - gcBall) / ext;
+    vec3 fillCol = mix(fillPreview(q), C_GRAYF, cool);
+    col = mix(col, fillCol, inside * mix(0.55, 0.24, cool) * gone * fillGain);   // 식을수록 고스트
+    vec3 lineCol = mix(C_SAND, C_GRAYL, cool);
+    col = mix(col, lineCol, exp(-pow(sd / (0.014 * uW), 2.0)) * 0.85 * gone);
+  } else if (uState < 5.5) {     // ── Warning: 암적 리니어 + 느낌표 점멸
+    float ly = clamp(0.5 - uv.y / (2.2 * ext), 0.0, 1.0);
+    col = mix(col, mix(C_WINE, C_BRICK, ly), inside * min(fillGain * 1.05, 1.0));
+    float ex = ext;                                            // 느낌표 — 실루엣 중심부
+    float bar = length(vec2(uv.x, max(abs(uv.y - 0.16 * ex) - 0.17 * ex, 0.0))) - 0.055 * ex;
+    float dotd = length(uv - vec2(0.0, -0.24 * ex)) - 0.062 * ex;
+    float exM = smoothstep(0.008, -0.008, min(bar, dotd)) * inside;
+    col = mix(col, C_EXCL * 1.25, exM * (0.85 + 0.15 * sin(uTime * 5.5)));
+  } else {                       // ── Locked: 회색 아웃라인 변형 + 순서 숫자 (오버레이)
+    float q = length(uv - gcBall) / ext;
+    col = mix(col, C_GRAYF, inside * 0.30 * fillGain);
+    col = mix(col, C_GRAYL, exp(-pow(sd / (0.015 * uW), 2.0)) * 0.8 * dashM);
+  }
   gl_FragColor = vec4(grade(col, gl_FragCoord.xy, uTime), 1.0);
 }`;
 const markP = glProg(markC, MARK_FRAG, 300, 300);
@@ -649,13 +683,13 @@ state.markFootSide = 'L';
 state.footCtx = 'out';   // 발 컨텍스트 — 야외(신발) 기본, 칩으로 실내 전환
 let footCentroid = { x: 0.5, y: 0.5 };   // 발형 실루엣 무게중심 (숫자 앵커)
 const MARK_STATES = [
-  ['Preview', '예고 — 외곽선만 · 투명도 60→35% · 모션 없음', '언제: 다음 마크 예고 — 이벤트 −450ms(선행 시간)부터'],
-  ['Active', '지금 — 100% 불투명 + 타이밍 링 수축 (수축 완료 = 이벤트 순간)', '언제: 이벤트 창 — 링이 다 조여든 순간이 밟는/치는 타이밍'],
-  ['Hold', '유지 — 링 채움 · 떼면 되감김 · 중앙 숫자 = 반복/시간 카운트', '언제: 버티기 계약 + 반복 카운트(구 카운트 링) — A1 발목 8회, 홀드 10초'],
-  ['Success', 'Hit Glow 200ms + 리플 → 잔상 소멸', '언제: 판정 성공 직후 200ms — 그리고 사라짐'],
-  ['Miss', '흐려지며 미끄러져 소멸 — 붉은 X 금지, 무음이 신호', '언제: 이벤트 창을 놓쳤을 때 — 무음 소멸이 벌색을 대신'],
-  ['Warning', '앰버 외곽 펄스 — 색+모션 이중 부호화', '언제: 세션이 폼 이상을 감지했을 때만 (판정과 무관)'],
-  ['Locked', '아직 아님 — 저채도 + 순서 숫자만', '언제: 순서 콤보에서 내 차례가 오기 전'],
+  ['Preview', '예고 — 샌드 아웃라인이 소프트 필(코럴→피치)로 차오름 · 숨쉬기', '언제: 다음 마크 예고 — 이벤트 −450ms(선행 시간)부터 · 다 차면 Active'],
+  ['Active', '지금 — 적열 필 + 얼음빛 헤일로 수축 (수축 완료 = 이벤트 순간)', '언제: 이벤트 창 — 헤일로가 실루엣에 붙는 순간이 밟는/치는 타이밍'],
+  ['Hold', '유지 — 둘레 진행 림(회색→적색 스윕) + 열이 뒤꿈치로 고임 · 떼면 되감김', '언제: 버티기 계약 + 반복 카운트 — A1 발목 8회, 홀드 10초'],
+  ['Success', '진홍 블룸 + 얼음빛 림 플래시 200ms → 잔상 소멸', '언제: 판정 성공 직후 200ms — 그리고 사라짐'],
+  ['Miss', '온기가 식어 회색 고스트 → 무음 소멸 — 붉은 X 금지', '언제: 이벤트 창을 놓쳤을 때 — 무음 소멸이 벌색을 대신'],
+  ['Warning', '암적 필 + 붉은 느낌표 점멸 (시안 고민필요 — 절제판)', '언제: 세션이 폼 이상을 감지했을 때만 (판정과 무관)'],
+  ['Locked', '아직 아님 — 회색 아웃라인 + 순서 숫자만', '언제: 순서 콤보에서 내 차례가 오기 전'],
 ];
 state.markState = 1; state.markContract = 0;
 /** 폰트 메트릭 기반 광학 정중앙 — 숫자 가운데 정렬 (하드코딩 보정 금지) */
@@ -786,16 +820,13 @@ function applyMarkSurface() {
     }
   }
 }
-['윤곽 링', '광막'].forEach((name, i) => {
-  const b = document.createElement('button');
-  b.className = 'btn' + (i === 0 ? ' on' : ''); b.textContent = name;
-  b.style.padding = '4px 9px'; b.style.fontSize = '11px';
-  b.onclick = () => {
-    state.markForm = i;
-    formChips.querySelectorAll('.btn').forEach((x, j) => x.classList.toggle('on', i === j));
-  };
-  formChips.appendChild(b);
-});
+// 형태 토글(윤곽 링/광막) 은퇴 — 시안 보드 문법(소프트 라디얼 필)이 유일 형태. markForm은 저장 호환용으로만 유지.
+{
+  const cap = document.createElement('span');
+  cap.style.cssText = 'font-size:10.5px;color:var(--mut,#8a8f98)';
+  cap.textContent = '형태: 시안 소프트 필 (고정)';
+  formChips.appendChild(cap);
+}
 ['도달', '회피(점선)', '유지'].forEach((name, i) => {
   const b = document.createElement('button');
   b.className = 'btn' + (i === 0 ? ' on' : ''); b.textContent = name;

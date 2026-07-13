@@ -23,6 +23,12 @@ uniform float uW, uHalo, uPool, uSweepA, uWobble, uGain;
 uniform float uShape;               // 0=존 원 / 1=발형 (FX Lab markShape)
 uniform sampler2D uSDF;             // 발형 실루엣 SDF (FOOT 슬롯 SVG)
 varying vec2 vUv;
+// 시안 보드 팔레트 (발모양 자체 이펙트 시안.svg 그대로)
+#define FXC_RED   vec3(0.980, 0.188, 0.188)
+#define FXC_CORAL vec3(0.996, 0.431, 0.235)
+#define FXC_SAND  vec3(0.996, 0.765, 0.537)
+#define FXC_CREAM vec3(0.996, 0.886, 0.776)
+#define FXC_ICE   vec3(0.820, 0.996, 1.000)
 void main() {
   #include <clipping_planes_fragment>
   vec2 uv = (vUv - 0.5) * 2.0;
@@ -37,31 +43,43 @@ void main() {
   } else {
     sd = d * (1.0 + u1 * uWobble * 0.05) - Rz;
   }
-  float edgeW = 0.03 * uW;
-  float edge = exp(-pow(abs(sd) / edgeW, 2.0)) + exp(-pow(abs(sd) / (edgeW * 5.0), 2.0)) * 0.45 * uHalo;
-  if (uContract > 0.5) edge *= smoothstep(0.15, 0.55, 0.5 + 0.5 * sin(ang * 18.0 + u1));   // 회피 점선
-  float poolN = fxfbm(uv * 2.6 + vec2(uTime * 0.18, -uTime * 0.12) + uSeed);
-  float pool = smoothstep(0.02, -0.10, sd) * (0.55 + 0.45 * poolN) * (uPool * 1.82);
-  float heat = 0.0; float alpha = 1.0; float hot = 0.0;
-  if (uPhase < 0.5) {            // Preview: 잔잔한 저온 숨쉬기
-    alpha = mix(mix(0.6, 0.4, 0.5 + 0.5 * sin(uTime * 2.2)), 1.0, uStrong) * uFade;
-    heat = edge * 0.8 + pool * 0.12;
-  } else if (uPhase < 1.5) {     // Active: 바깥 파면이 존으로 수축 — 다가올수록 백열
-    float off = (Rz * 0.85) * (1.0 - uProg);
-    float cSD = abs(sd - off);
-    float cR = (exp(-pow(cSD / (0.022 * uW), 2.0)) + exp(-pow(cSD / (0.10 * uW), 2.0)) * 0.4 * uHalo) * (0.3 + 0.7 * uProg);
-    heat = edge + pool * (0.35 + uProg * 0.25) + cR;
-    hot = uProg * 0.22 + cR * 0.18;
-  } else {                       // Success 잔상: Hit Glow → 등고선 파문 → 소멸
-    float k = 1.0 - uProg;
-    float e = 1.0 - pow(1.0 - uProg, 2.2);
-    float rip = exp(-pow(abs(sd - e * 0.5) / (0.05 * uW), 2.0)) * k;
-    heat = pool * exp(-uProg * 6.0) * 1.5 + edge * pow(k, 1.3) + rip * 0.8;
-    hot = exp(-uProg * 6.0) * 0.3;
+  // ── 시안 '발모양 자체 이펙트' 보드 그대로 — 상태별 라디얼 필, 모션은 그 안에서만 (FX Lab MARK_FRAG와 동일 문법)
+  float inside = smoothstep(0.012, -0.012, sd);
+  float outPos = max(sd, 0.0);
+  float dashM = uContract > 0.5 ? smoothstep(0.15, 0.55, 0.5 + 0.5 * sin(ang * 18.0 + u1)) : 1.0;   // 회피 점선
+  float ext = uShape > 0.5 ? 0.60 : Rz;
+  vec2 gcBall = uShape > 0.5 ? vec2(0.0, 0.17) : vec2(0.0);
+  float fillGain = clamp(uPool * 1.6, 0.0, 1.2);
+  vec3 col = vec3(0.0);
+  if (uPhase < 0.5) {            // Preview: 샌드 아웃라인 ↔ 크림 필 — uStrong이 차오름을 구동
+    float f = uStrong;
+    float breath = 1.0 + 0.05 * sin(uTime * 2.0);
+    float q = length(uv - gcBall) / (ext * 0.98 * breath);
+    vec3 fillCol = mix(FXC_CREAM, mix(FXC_CORAL, FXC_SAND, smoothstep(0.0, 0.733, q)), f);
+    col = fillCol * inside * mix(0.30, 0.70, f) * fillGain;
+    col += FXC_SAND * exp(-pow(sd / (0.03 * uW), 2.0)) * dashM * (0.85 - 0.5 * f);
+    col *= uFade;
+  } else if (uPhase < 1.5) {     // Active: 적열 필 + 얼음빛 헤일로 수축 (수축 완료 = 이벤트)
+    float gradR = uShape > 0.5 ? 1.45 : ext * 1.38;            // 발형은 얼음빛이 가장자리 자락만
+    float q = length(uv - gcBall) / gradR;
+    vec3 fc = mix(FXC_RED, FXC_CORAL, smoothstep(0.0, 0.479, q));
+    fc = mix(fc, FXC_SAND, smoothstep(0.479, 0.607, q));
+    fc = mix(fc, FXC_ICE, smoothstep(0.607, 0.750, q));
+    col = fc * inside * min(fillGain * 1.15, 1.0);
+    float hw = max((0.22 - 0.16 * uProg) * uW, 0.035);
+    float h = exp(-pow(outPos / hw, 1.3)) * (1.0 - inside);
+    col += mix(FXC_SAND, FXC_ICE, smoothstep(0.15, 0.9, outPos / hw)) * h * uHalo * 0.5 * dashM;
+  } else {                       // Success 잔상: 진홍 블룸 + 얼음빛 림 플래시 → 소멸
+    float e = 1.0 - pow(1.0 - uProg, 2.6);
+    float q = length(uv - gcBall) / (uShape > 0.5 ? 1.5 : ext * 1.3) / (0.55 + 0.55 * e);
+    vec3 fc = mix(FXC_RED, FXC_CORAL, smoothstep(0.47, 0.70, q));
+    fc = mix(fc, FXC_SAND, smoothstep(0.70, 0.843, q));
+    fc = mix(fc, FXC_ICE, smoothstep(0.843, 0.931, q));
+    float fillA = (uProg < 0.4 ? 1.0 : pow(1.0 - (uProg - 0.4) / 0.6, 1.4)) * max(min(fillGain * 1.2, 1.0), 0.85);
+    col = fc * inside * fillA;
+    col += FXC_ICE * exp(-pow(abs(sd) / (0.04 * uW), 2.0)) * exp(-uProg * 9.0) * 0.8;
   }
-  float sweep = (0.10 * sin(ang - uTime * 1.9) + 0.05 * sin(ang * 2.0 + uTime * 0.9)) * uSweepA;
-  vec3 col = lut(clamp(heat * 0.72 + hot + sweep * min(heat, 1.0), 0.0, 1.0)) * min(heat, 1.35) * alpha * uGain;
-  gl_FragColor = vec4(col, 1.0);   // additive: 검정 = 무기여
+  gl_FragColor = vec4(col * uGain, 1.0);   // additive: 검정 = 무기여
 }`;
 // ── 레인 광류 셰이더 — LINE 최소 토큰 소비 (스타일·두께·속도·간격·온도·글로우·꼬리) ──
 //    FX Lab의 LINE 스테이션과 같은 문법: solid=연속 광류 / dash·dot=행진 / chevron=꺾쇠 트레인 / comet=백열 순회 / taper
