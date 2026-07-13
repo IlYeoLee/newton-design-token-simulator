@@ -82,6 +82,19 @@ void main() {
     col = vec3(0.90) * inside * 0.12 * fillGain;
     col += vec3(0.80) * exp(-pow(sd / (0.028 * uW), 2.0)) * 0.55 * dashM;
     col *= uFade;
+  } else if (uPhase > 4.5) {     // Hold: 코닉 진행 림 + 열이 아래로 고임 — uProg = 유지/회전/카운트 진행
+    float pr = clamp(uProg, 0.0, 1.0);
+    vec2 gcHeel = uShape > 0.5 ? vec2(0.0, -0.28) : vec2(0.0, -0.5 * ext);
+    float qh = max(length(uv - mix(gcBall, gcHeel, pr)) / (ext * 1.02) - 0.24 * pr, 0.0);
+    vec3 fc = mix(FXC_RED, FXC_CORAL, smoothstep(0.0, 0.23, qh));
+    fc = mix(fc, FXC_SAND, smoothstep(0.23, 1.0, qh));
+    col = fc * inside * min(fillGain, 1.0) * 0.5;
+    float a01 = fract(0.25 - ang / 6.2832);
+    float rim = exp(-pow((sd - 0.012) / (0.05 * uW), 2.0));
+    float prog = smoothstep(pr + 0.045, pr - 0.045, a01);
+    vec3 rimCol = mix(vec3(0.42), mix(FXC_RED, FXC_CORAL, clamp(a01 / max(pr, 0.001), 0.0, 1.0)), prog);
+    col += rimCol * rim * mix(0.25, 0.95, prog) * dashM;
+    col *= uFade;
   } else {                       // Miss: 온기가 식어 회색 고스트 → 무음 소멸 (판정 verdict 연동)
     float cool = smoothstep(0.0, 0.35, uProg);
     float gone = pow(1.0 - max(uProg - 0.45, 0.0) / 0.55, 1.6);
@@ -554,7 +567,7 @@ class Marker {
 // ── 방향 화살표 ───────────────────────────────────────────────
 // tip = 화살표 끝(촉) 모양: triangle(▲) · chevron(》) · diamond(◆) · bar(▬) · none(선만)
 const TIP_SLOT = { triangle: 'TIP_TRI' };   // 커스텀 촉은 삼각 머리 1종만 (유저 확정)
-function makeArrow(color, len = 0.55, tip = 'triangle') {
+export function makeArrow(color, len = 0.55, tip = 'triangle') {
   const g = new THREE.Group();
   // 커스텀 촉 SVG (FX Lab TIP 슬롯) — 촉(머리)만 교체, 자루는 LINE 스타일을 계속 따름
   const slotImg = GLYPHS.img(TIP_SLOT[tip]);

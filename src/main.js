@@ -1867,13 +1867,18 @@ async function boot() {
     const SPEC_ROW = {
       text:  n => ['T', `"${n.userData.el.content ?? '텍스트'}"`, '고정 카피 — 장면 UI 규정 (session.js)'],
       foot:  () => ['👣', 'MARK 발형', '룩 › 글리프 FOOT 슬롯 · MARK 파라미터'],
-      ring:  n => n.material?.isShaderMaterial ? ['◉', 'MARK 파동 링', '룩 › MARK 파라미터·팔레트'] : ['◎', '가이드 링', '스튜디오 (위치·크기)'],
-      arc:   () => ['⤺', 'LINE 회전 호', '룩 › LINE'],
-      arrow: () => ['➤', 'LINE 방향 화살표', '룩 › LINE'],
-      stripe: () => ['―', '스트라이프', '스튜디오'],
+      ring:  n => {
+        const ph = n.material?.uniforms?.uPhase?.value;
+        return ph === 3 ? ['◎', 'MARK Locked 고스트 존', '룩 › MARK']
+             : ph === 5 ? ['◉', 'MARK Hold 진행 림', '룩 › MARK']
+             : ['◉', 'MARK Preview 파동 존', '룩 › MARK 파라미터·팔레트'];
+      },
+      arc:   () => ['◉', 'MARK Hold 진행 림 (회전·유지·카운트)', '룩 › MARK'],
+      arrow: () => ['➤', 'LINE 방향 화살표', '룩 › LINE (자루 스타일·촉 슬롯)'],
+      stripe: () => ['―', 'LINE 자루 — 감속 리듬', '룩 › LINE'],
       box:   () => ['▭', '가드/스탠스 박스', '룩 › 프리미티브 › 스탠스'],
       sweep: () => ['▬', '스윕 밴드', '룩 › 프리미티브 › 스윕'],
-      tap:   () => ['⊙', '두 번 탭 시작 존', '고정 — 시작 계약'],
+      tap:   () => ['⊙', '두 번 탭 시작 계약 (입력 어포던스)', '고정 — 토큰 아님·장면 UI 규정'],
     };
     function collectSpecs(group) {
       const rows = [];

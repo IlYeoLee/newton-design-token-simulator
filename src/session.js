@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { WALL_Z } from './scene.js';
 import { thermalColor, heatBlob, grainPattern } from './thermal.js';
 import { lutColor, GLYPHS, drawGlyph, footSlot, FXP } from './fxlut.js';
-import { makeMarkFXMaterial } from './tokens.js';
+import { makeMarkFXMaterial, makeArrow } from './tokens.js';
 
 // ─────────────────────────────────────────────────────────────
 // 러닝 세션 흐름 — 와이어프레임 v2 전체 15프레임 이식
@@ -168,30 +168,33 @@ class FootMark {
 
 // ── 지면 프리미티브 (userData.el = 장면 에디터 메타) ──
 function floorRing(x, z, rIn, rOut, color, op = 0.9) {
-  const m = isHeatColor(color)
-    ? waveRingMesh(rIn, rOut, color, op, false)
-    : new THREE.Mesh(new THREE.RingGeometry(rIn, rOut, 48), flatMat(color, op));
-  m.rotation.x = -Math.PI / 2; m.position.set(x, 0.013, z); m.renderOrder = 5;
+  // 링 = MARK 존 원: 히트색 → Preview 파동 · 무채(dim) → Locked 고스트
+  const m = waveRingMesh(rIn, rOut, color, op, false, isHeatColor(color) ? 0 : 3);
+  m.rotation.x = -Math.PI / 2; m.position.set(x, 0.013, z);
   m.userData.el = { type: 'ring' }; return m;
 }
 function floorArc(x, z, color) {
-  const m = new THREE.Mesh(new THREE.RingGeometry(0.20, 0.235, 40, 1, Math.PI * 0.15, Math.PI * 1.4), flatMat(color, 0.85));
+  // 회전·카운트 진행 = MARK Hold 코닉 진행 림 (사제 아크 도형 은퇴 — 토큰 매핑 확정)
+  const m = waveRingMesh(0.20, 0.235, color, 0.95, false, 5);
+  m.material._auto = true;   // setProg 구동자가 없으면 시연 루프
   m.rotation.x = -Math.PI / 2; m.position.set(x, 0.0135, z); m.renderOrder = 6;
   m.userData.el = { type: 'arc' }; return m;
 }
 function floorArrow(x, z, deg, color, len = 0.4) {
-  const s = new THREE.Shape(); const w = 0.09, hw = 0.2, hl = 0.2;
-  s.moveTo(-w/2,0); s.lineTo(-w/2,len-hl); s.lineTo(-hw/2,len-hl); s.lineTo(0,len);
-  s.lineTo(hw/2,len-hl); s.lineTo(w/2,len-hl); s.lineTo(w/2,0); s.closePath();
-  const mesh = new THREE.Mesh(new THREE.ShapeGeometry(s), flatMat(color, 0.85));
-  const g = new THREE.Group(); g.add(mesh); g.rotation.x = -Math.PI/2; g.position.set(x, 0.014, z);
+  // 방향 = LINE 토큰 소비 (tokens.makeArrow — 자루 스타일·커스텀 촉 슬롯 그대로)
+  const g = makeArrow(color, len);
+  g.rotation.x = -Math.PI / 2; g.position.set(x, 0.014, z);
   g.rotation.z = THREE.MathUtils.degToRad(deg); g.renderOrder = 6;
   g.userData.el = { type: 'arrow' }; return g;
 }
 function floorStripe(x, z, w, color, op) {
-  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, 0.06), flatMat(color, op));
-  m.rotation.x = -Math.PI/2; m.position.set(x, 0.012, z); m.renderOrder = 4;
-  m.userData.el = { type: 'stripe' }; return m;
+  // 감속 리듬 바 = LINE 자루(촉 없음) — 스타일 토큰(solid/dash/dot/taper) 소비
+  const g = makeArrow(color, w, 'none');
+  g.rotation.x = -Math.PI / 2; g.position.set(x, 0.012, z);
+  g.rotation.z = Math.PI / 2;   // 가로 바 방향 유지
+  g.renderOrder = 4;
+  g.traverse(o => { if (o.material) o.material.opacity = op; });
+  g.userData.el = { type: 'stripe' }; return g;
 }
 function floorText(text, x, z, opts) { const g = makeTextMesh(text, opts); g.position.set(x, 0.013, z); return g; }
 function floorNum(text, x, z, size, color) {
@@ -201,12 +204,14 @@ function floorNum(text, x, z, size, color) {
 // 파동 링 재질 틱 목록 (프리뷰·세션 공통 — main 루프가 tickWaves 호출)
 const WAVE_MATS = [];
 function isHeatColor(c) { return c === BRAND.red || c === BRAND.coral || c === BRAND.sand; }
-/** 히트 계열 링 = MARK Preview 파동 (설계 통일: 링 프리미티브는 MARK의 저온 숨쉬기) */
-function waveRingMesh(rIn, rOut, color, op, wall) {
+/** 링·아크 = 전부 MARK 존 원의 상태 (사제 도형 금지 — 룩 시스템이 유일한 최소 단위):
+    히트색=Preview 파동 · 무채=Locked 고스트 · 진행(구 아크·홀드링)=Hold 코닉 림.
+    setOp/setProg/setPhase가 상태 구동 표준 — .material.opacity 직접 조작 금지(셰이더 무효). */
+function waveRingMesh(rIn, rOut, color, op, wall, phase = 0) {
   const quadR = rOut / 0.72;
   const mat = makeMarkFXMaterial();
   const U = mat.uniforms;
-  U.uPhase.value = 0;                                   // Preview — 잔잔한 저온 숨쉬기
+  U.uPhase.value = phase;
   U.uFade.value = op;
   U.uGain.value = wall ? 0.6 : 1.0;
   U.uW.value = Math.max(0.5, Math.min(3, (0.72 * (rOut - rIn)) / rOut / 0.03));
@@ -214,6 +219,9 @@ function waveRingMesh(rIn, rOut, color, op, wall) {
   WAVE_MATS.push(mat);
   const m = new THREE.Mesh(new THREE.PlaneGeometry(quadR * 2, quadR * 2), mat);
   m.renderOrder = 5;
+  m.setOp = k => { U.uFade.value = k; };
+  m.setProg = p => { mat._auto = false; U.uProg.value = p; };
+  m.setPhase = ph => { U.uPhase.value = ph; };
   return m;
 }
 function laneLine(color, z0 = 1.0, z1 = -3.2) {
@@ -226,13 +234,14 @@ function laneLine(color, z0 = 1.0, z1 = -3.2) {
 // ── 벽면 프리미티브 (복싱 — z=WALL_Z 세워진 평면, 유저(+z) 바라봄, 눕힘 없음) ──
 const WZ = WALL_Z + 0.03;
 function wallRing(x, y, rIn, rOut, color, op = 0.9) {
-  const m = isHeatColor(color)
-    ? waveRingMesh(rIn, rOut, color, op, true)
-    : new THREE.Mesh(new THREE.RingGeometry(rIn, rOut, 48), flatMat(color, op));
-  m.position.set(x, y, WZ); m.renderOrder = 5; m.userData.el = { type: 'ring', wall: true }; return m;
+  const m = waveRingMesh(rIn, rOut, color, op, true, isHeatColor(color) ? 0 : 3);
+  m.position.set(x, y, WZ); m.userData.el = { type: 'ring', wall: true }; return m;
 }
 function wallArc(x, y, rIn, rOut, color, a0, len, op = 0.9) {
-  const m = new THREE.Mesh(new THREE.RingGeometry(rIn, rOut, 40, 1, a0, len), flatMat(color, op));
+  // 벽 회전·유지 진행 = MARK Hold 코닉 림 (지면과 동일 토큰) — 부분호 길이는 uProg로
+  const m = waveRingMesh(rIn, rOut, color, op, true, 5);
+  if (len > 0.01) { m.material.uniforms.uProg.value = Math.min(1, len / (Math.PI * 2)); }
+  else m.material._auto = true;
   m.position.set(x, y, WZ + 0.001); m.renderOrder = 6; m.userData.el = { type: 'arc', wall: true }; return m;
 }
 function wallText(text, x, y, opts) {
@@ -618,7 +627,7 @@ export class Session {
   }
   _setCount(n, color = CS.red) {
     while (this.countGroup.children.length) { const c = this.countGroup.children.pop(); c.traverse?.(o => { o.geometry?.dispose(); o.material?.map?.dispose(); o.material?.dispose(); }); }
-    if (n == null) { this.countRing.material.opacity = 0; return; }
+    if (n == null) { this.countRing.setOp(0); return; }
     const m = floorNum(String(n), 0, 0, 0.34, color); this._clip(m); this.countGroup.add(m);
   }
   _slot(slot, text, opts) {
@@ -945,7 +954,17 @@ export class Session {
   /** 파동 링 시계 — 프리뷰(에디터)·세션 공통, main 루프가 매 프레임 호출 */
   tickWaves() {
     const t = performance.now() / 1000;
-    for (const m of WAVE_MATS) m.uniforms.uTime.value = t;
+    const day = FXP.day ? 1 : 0;
+    for (const m of WAVE_MATS) {
+      const U = m.uniforms;
+      U.uTime.value = t;
+      if (m._auto) U.uProg.value = (t * 0.3) % 1;   // 구동자 없는 Hold = 시연 루프
+      if (U.uDay.value !== day) {   // 주간 풀컬러 잉크 규약 (마커와 동일)
+        U.uDay.value = day;
+        m.blending = day ? THREE.NormalBlending : THREE.AdditiveBlending;
+        m.needsUpdate = true;
+      }
+    }
   }
 
   update(dt) {
@@ -968,7 +987,7 @@ export class Session {
     if (st.count) {
       const rem = Math.max(0, st.dur - this.t), n = Math.max(1, Math.ceil(rem));
       if (n !== this._lastCount) { wall ? this._setCountWall(n) : this._setCount(n); this._lastCount = n; }
-      if (!wall) { const f = rem - Math.floor(rem); this.countRing.material.opacity = 0.3 + 0.5 * f; this.countRing.scale.setScalar(0.8 + 0.6 * f); }
+      if (!wall) { const f = rem - Math.floor(rem); this.countRing.setOp(0.3 + 0.5 * f); this.countRing.scale.setScalar(0.8 + 0.6 * f); }
       this.bobY = 0;
       if (this.t >= st.dur) { this.next(); return; }
       return;
@@ -997,7 +1016,7 @@ export class Session {
       const REP = SCFG.a1Rep, half = 8 * REP;
       const side = this.t < half ? 0 : 1;
       this.a1L.group.visible = side === 0; this.a1R.group.visible = side === 1;
-      this.a1arc.rotation.z = -((this.t % REP) / REP) * Math.PI * 2;
+      this.a1arc.setProg((this.t % REP) / REP);   // MARK Hold 진행 림 = 발목 회전 진행
       const rep = Math.min(8, Math.floor((this.t - side * half) / REP) + 1);
       FMU(`${side === 0 ? '왼발' : '오른발'} ${rep} / 8`, CS.sand);
       if (this.t >= 2 * half + 0.6) { this.next(); return; }
@@ -1028,7 +1047,7 @@ export class Session {
       if (this.t >= 16 * BT + 0.4) { this.next(); return; }
     } else if (id === 'B1') {
       const BT = SCFG.b1Beat, k = 1 - beat(BT);
-      this.b1outer.material.opacity = 0.2 + 0.5 * k; this.b1inner.material.opacity = 0.5 + 0.4 * k;
+      this.b1outer.setOp(0.2 + 0.5 * k); this.b1inner.setOp(0.5 + 0.4 * k);
       this.b1outer.scale.setScalar(0.7 + 0.5 * (1 - k));
       FMU(`박자 ${Math.min(8, Math.floor(this.t / BT) + 1)} / 8 — 듣기만`);
       if (this.t >= 8 * BT + 0.3) { this.next(); return; }
@@ -1048,8 +1067,8 @@ export class Session {
       // 구간 리듬 — 발밑 → 전방 존 2개로 리듬이 흘러감
       const per = SCFG.b4Beat, seq = Math.floor(this.t / per) % 3, k = 1 - beat(per);
       this.b4foot.op(seq === 0 ? 0.45 + 0.55 * k : 0.45);
-      this.b4rings[0].material.opacity = seq === 1 ? 0.3 + 0.65 * k : 0.35;
-      this.b4rings[1].material.opacity = seq === 2 ? 0.3 + 0.65 * k : 0.25;
+      this.b4rings[0].setOp(seq === 1 ? 0.3 + 0.65 * k : 0.35);
+      this.b4rings[1].setOp(seq === 2 ? 0.3 + 0.65 * k : 0.25);
       if (this.t >= 9 * per + 0.3) { this._gateAdvance(); return; }
     } else if (id === 'C1') {
       const n = Math.max(1, 3 - Math.floor(this.t)); if (n !== this._lastCount) { this._setCount(n, CS.ink); this._lastCount = n; }
@@ -1063,7 +1082,7 @@ export class Session {
       if (this.t >= st.dur) { this.next(); return; }
     } else if (id === 'C5') {
       this.liveSpeed = Math.max(0.12, 1 - this.t / 2.8);   // 실제 감속
-      this.c5stripes.forEach((s, i) => { s.material.opacity = (0.7 - i * 0.13) * (0.5 + 0.5 * Math.sin(this.t * 3 - i)); });
+      this.c5stripes.forEach((s, i) => { const o = (0.7 - i * 0.13) * (0.5 + 0.5 * Math.sin(this.t * 3 - i)); s.traverse(n => { if (n.material) n.material.opacity = o; }); });
       if (this.liveSpeed <= 0.13 && this.t > 3.2) { this.liveSpeed = 1; this.stageIdx = this.stages.findIndex(s2 => s2.id === 'FIN'); this.t = 0; this._enter(); return; }
     }
   }
@@ -1087,14 +1106,14 @@ export class Session {
       // 사이드 풋워크 — 발이 좌우 존 사이 이동, 6회 카운트
       const per = 0.8, side = Math.floor(this.t / per) % 2;
       this.bkA2foot.at(side === 0 ? -0.42 : 0.42, -1.9);
-      this.bkA2L.material.opacity = side === 0 ? 0.9 : 0.35;
-      this.bkA2R.material.opacity = side === 1 ? 0.9 : 0.35;
+      this.bkA2L.setOp(side === 0 ? 0.9 : 0.35);
+      this.bkA2R.setOp(side === 1 ? 0.9 : 0.35);
       FMU(`좌우 ${Math.min(6, Math.floor(this.t / per) + 1)} / 6`, CS.sand);
       if (this.t >= 6 * per + 0.4) { this.next(); return; }
     } else if (id === 'BK_A3') {
       // 리듬 드리블 — 링 펄스, 8박
       const BT = 0.5, k = 1 - beat(BT);
-      this.bkA3ring.material.opacity = 0.3 + 0.6 * k; this.bkA3ring.scale.setScalar(0.8 + 0.6 * (1 - k));
+      this.bkA3ring.setOp(0.3 + 0.6 * k); this.bkA3ring.scale.setScalar(0.8 + 0.6 * (1 - k));
       FMU(`${Math.floor(this.t / BT) % 2 === 0 ? '하나' : '둘'} · ${Math.min(8, Math.floor(this.t / BT) + 1)} / 8`);
       if (this.t >= 8 * BT + 0.4) { this.next(); return; }
     } else if (id === 'BK_B1') {
@@ -1112,7 +1131,7 @@ export class Session {
       if (this.t >= 2 * cyc + 0.3) { this.next(); return; }
     } else if (id === 'BK_B3') {
       // 컷 감속 — 스트라이프 웨이브 + 디딤발 글로우
-      this.bkB3stripes.forEach((s, i) => { s.material.opacity = (0.7 - i * 0.15) * (0.5 + 0.5 * Math.sin(this.t * 4 - i)); });
+      this.bkB3stripes.forEach((s, i) => { const o = (0.7 - i * 0.15) * (0.5 + 0.5 * Math.sin(this.t * 4 - i)); s.traverse(n => { if (n.material) n.material.opacity = o; }); });
       this.bkB3foot.op(0.5 + 0.4 * (0.5 + 0.5 * Math.sin(this.t * 3)));
       if (this.t >= 5) { this._gateAdvance(); return; }
     } else if (id === 'BK_C1') {
@@ -1155,9 +1174,8 @@ export class Session {
       // 가드 유지 — 홀드 링 3초 채움 × 게이트(3회)
       const HOLD = 3, rep = Math.floor(this.t / (HOLD + 0.5));
       const lt = this.t - rep * (HOLD + 0.5), p = Math.min(1, lt / HOLD);
-      this.bxHold.geometry.dispose();
-      this.bxHold.geometry = new THREE.RingGeometry(0.20, 0.235, 44, 1, Math.PI / 2, Math.max(0.001, p * Math.PI * 2));
-      this.bxHold.material.opacity = 0.95;
+      this.bxHold.setProg(p);   // MARK Hold 코닉 림 = 가드 유지 진행 (지오메트리 재조립 은퇴)
+      this.bxHold.setOp(0.95);
       const done = Math.min(3, rep + (p >= 1 ? 1 : 0));
       FMU(`가드 유지 ${done} / 3 ✓`, done >= 3 ? CS.prism : CS.sand);
       this._gate = done;
