@@ -126,7 +126,7 @@ export const GLYPHS = {
  *  반드시 비트맵으로 구운 뒤 캔버스에서 크롭한다. */
 function glyphRaster(img) {
   if (img._raster) return img._raster;
-  const S = 256;
+  const S = 512;   // 발형 SDF 서브픽셀 시드 품질 — 고해상 래스터
   const c = document.createElement('canvas'); c.width = c.height = S;
   const g = c.getContext('2d');
   const sc = Math.min(S / img.naturalWidth, S / img.naturalHeight);
@@ -168,6 +168,29 @@ export function footSlot(right) {
 }
 
 /** 발형 SDF 텍스처 — FX Lab sdfFromAlpha와 동일 레시피 (지면 마크의 발형 표현형) */
+function edt1d(f, d, v, z, n) {
+  let k = 0; v[0] = 0; z[0] = -1e20; z[1] = 1e20;
+  for (let q = 1; q < n; q++) {
+    let s = ((f[q] + q * q) - (f[v[k]] + v[k] * v[k])) / (2 * q - 2 * v[k]);
+    while (s <= z[k]) { k--; s = ((f[q] + q * q) - (f[v[k]] + v[k] * v[k])) / (2 * q - 2 * v[k]); }
+    k++; v[k] = q; z[k] = s; z[k + 1] = 1e20;
+  }
+  k = 0;
+  for (let q = 0; q < n; q++) { while (z[k + 1] < q) k++; d[q] = (q - v[k]) * (q - v[k]) + f[v[k]]; }
+}
+function edt2d(f, N) {
+  const d = new Float32Array(N), v = new Int32Array(N), z = new Float32Array(N + 1), q = new Float32Array(N);
+  for (let x = 0; x < N; x++) {
+    for (let y = 0; y < N; y++) q[y] = f[y * N + x];
+    edt1d(q, d, v, z, N);
+    for (let y = 0; y < N; y++) f[y * N + x] = d[y];
+  }
+  for (let y = 0; y < N; y++) {
+    for (let x = 0; x < N; x++) q[x] = f[y * N + x];
+    edt1d(q, d, v, z, N);
+    for (let x = 0; x < N; x++) f[y * N + x] = d[x];
+  }
+}
 const _sdfCache = new Map();
 export function footSDFTexture(right) {
   const slot = footSlot(right);
@@ -177,13 +200,13 @@ export function footSDFTexture(right) {
   if (_sdfCache.has(key)) return _sdfCache.get(key);
   const img = url ? GLYPHS.img(slot) : null;
   if (url && !img) return null;   // 로드 전 — onLoad 리베이크가 재시도
-  const N = 160;
+  const N = 256;
   const c = document.createElement('canvas'); c.width = c.height = N;
   const g = c.getContext('2d');
   if (img) {
     const R = (() => {   // glyphRaster 인라인 (fxlab과 동일)
       if (img._raster) return img._raster;
-      const S = 256, rc = document.createElement('canvas'); rc.width = rc.height = S;
+      const S = 512, rc = document.createElement('canvas'); rc.width = rc.height = S;
       const rg = rc.getContext('2d');
       const sc = Math.min(S / img.naturalWidth, S / img.naturalHeight);
       rg.drawImage(img, 0, 0, img.naturalWidth * sc, img.naturalHeight * sc);
@@ -213,24 +236,19 @@ export function footSDFTexture(right) {
     g.restore();
   }
   const imgD = g.getImageData(0, 0, N, N).data;
-  const inside = new Uint8Array(N * N);
-  for (let i = 0; i < N * N; i++) inside[i] = imgD[i * 4 + 3] > 128 ? 1 : 0;
-  const bx = [], by = [];
-  for (let y = 1; y < N - 1; y++) for (let x = 1; x < N - 1; x++) {
-    const i = y * N + x;
-    if (inside[i] !== inside[i - 1] || inside[i] !== inside[i + 1] || inside[i] !== inside[i - N] || inside[i] !== inside[i + N]) { bx.push(x); by.push(y); }
+  // 정확 EDT(Felzenszwalb) + 알파 커버리지 서브픽셀 시드 — fxlab sdfFromAlpha와 동일 인코딩(±N/4)
+  const INF = 1e20;
+  const gO = new Float32Array(N * N), gI = new Float32Array(N * N);
+  for (let i = 0; i < N * N; i++) {
+    const a = imgD[i * 4 + 3] / 255;
+    gO[i] = a >= 1 ? 0 : a <= 0 ? INF : Math.pow(Math.max(0, 0.5 - a), 2);
+    gI[i] = a >= 1 ? INF : a <= 0 ? 0 : Math.pow(Math.max(0, a - 0.5), 2);
   }
+  edt2d(gO, N); edt2d(gI, N);
   const out = new Uint8Array(N * N);
-  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
-    let best = 1e9;
-    for (let k = 0; k < bx.length; k++) {
-      const dx = x - bx[k], dy = y - by[k];
-      const d2 = dx * dx + dy * dy;
-      if (d2 < best) best = d2;
-    }
-    let d = Math.sqrt(best);
-    if (inside[y * N + x]) d = -d;
-    out[y * N + x] = Math.max(0, Math.min(255, Math.round((d / (N / 2)) * 127 + 128)));
+  for (let i = 0; i < N * N; i++) {
+    const d = Math.sqrt(gO[i]) - Math.sqrt(gI[i]);
+    out[i] = Math.max(0, Math.min(255, Math.round((d / (N / 4)) * 127 + 128)));
   }
   const tex = new THREE.DataTexture(out, N, N, THREE.RedFormat);
   tex.minFilter = tex.magFilter = THREE.LinearFilter;

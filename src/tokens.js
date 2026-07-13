@@ -39,7 +39,7 @@ void main() {
   float sd;
   if (uShape > 0.5) {
     vec2 suv = uv * 0.5 + 0.5;
-    sd = (texture2D(uSDF, vec2(suv.x, 1.0 - suv.y)).r - 0.5019) * 1.0 + u1 * uWobble * 0.02;
+    sd = (texture2D(uSDF, vec2(suv.x, 1.0 - suv.y)).r - 0.5019) * 0.5 + u1 * uWobble * 0.02;   // 인코드 범위 ±N/4와 짝
   } else {
     sd = d * (1.0 + u1 * uWobble * 0.05) - Rz;
   }
