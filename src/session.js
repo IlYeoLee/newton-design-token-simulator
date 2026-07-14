@@ -317,7 +317,7 @@ function sweepBand(x0, y0, x1, y1, color) {
 }
 function wallTap() {
   const g = new THREE.Group();
-  for (let i = 0; i < 2; i++) { const r = waveRingMesh(0.055, 0.07, BRAND.sand, 0.95, true, 0); r.position.set((i - 0.5) * 0.18, 0, 0); g.add(r); }   // 탭 존 = MARK 소형 Preview
+  for (let i = 0; i < 2; i++) { const r = new THREE.Mesh(new THREE.RingGeometry(0.055, 0.07, 32), flatMat(BRAND.prism, 0.95)); r.position.x = (i - 0.5) * 0.18; g.add(r); }   // 탭 = 입력 어포던스(토큰 아님) 원복
   const label = makeTextPlane('TAP ×2', { size: 0.055, color: CS.prism }); label.position.set(0, -0.16, 0.001); g.add(label);
   g.position.z = WZ; g.renderOrder = 7; g.userData.el = { type: 'tap', wall: true }; return g;
 }
@@ -653,7 +653,7 @@ export class Session {
 
   _tap() {
     const g = new THREE.Group();
-    for (let i = 0; i < 2; i++) { const r = waveRingMesh(0.055, 0.07, BRAND.sand, 0.95, false, 0); r.position.x = (i - 0.5) * 0.18; r.rotation.x = 0; g.add(r); }   // 탭 존 = MARK 소형 Preview (사제 링 은퇴)
+    for (let i = 0; i < 2; i++) { const r = new THREE.Mesh(new THREE.RingGeometry(0.055, 0.07, 32), flatMat(BRAND.prism, 0.95)); r.position.x = (i - 0.5) * 0.18; g.add(r); }   // 탭 = 입력 어포던스(토큰 아님·기존 분류 유지) — 파동 전환은 7cm에서 뭉개져 원복
     const label = makeTextPlane('TAP ×2', { size: 0.055, color: CS.prism }); label.position.set(0, -0.16, 0.001); g.add(label);
     g.rotation.x = -Math.PI / 2; g.position.y = 0.013; g.renderOrder = 7; g.userData.el = { type: 'tap' }; return g;
   }
