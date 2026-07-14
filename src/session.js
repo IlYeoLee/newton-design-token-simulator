@@ -406,7 +406,7 @@ export class Session {
   _mk(id) { const g = new THREE.Group(); g.visible = false; this.root.add(g); this.G[id] = g; return g; }
 
   _build() {
-    // 스테이지 카드 대지 (지면 1.8×1.9m): 아이브로(-2.98) → 타이틀(-2.68) → CTA·운동 존(-1.6~-2.3) → 푸터(-1.28)
+    // 스테이지 카드 대지 (지면 1.8×1.9m): 아이브로(-2.98) → 타이틀(-2.68) → CTA·운동 존 → 푸터(-1.28) ⚠️ 빔 실측 한계 ~2.85m(무릎41cm·틸트8°): 존 위 헤더 밴드 불가 — 정보 설계 v3 논의 중
     // — 흩어진 좌표·극소 타이포를 UI 조판으로 (유저: 타이틀+보조+CTA/운동 영역 구조)
     this.slotFS = new THREE.Group(); this.slotFS.position.set(0, 0, -2.98);
     this.slotFL = new THREE.Group(); this.slotFL.position.set(0, 0, -2.68);
@@ -490,7 +490,7 @@ export class Session {
     g = this._mk('B4');
     g.add(laneLine(BRAND.red, 0.2, -3.0));
     this.b4foot = new FootMark('left').at(0.05, -1.6); g.add(this.b4foot.group);
-    this.b4rings = [floorRing(-0.05, -2.2, 0.15, 0.17, BRAND.red, 0.6), floorRing(0.05, -2.8, 0.15, 0.17, BRAND.red, 0.35)];
+    this.b4rings = [floorRing(-0.05, -2.2, 0.15, 0.17, BRAND.red, 0.6), floorRing(0.05, -2.6, 0.15, 0.17, BRAND.red, 0.35)];
     g.add(this.b4rings[0], this.b4rings[1]);
 
     g = this._mk('C1');
@@ -507,8 +507,8 @@ export class Session {
     g = this._mk('C5');
     this.c5stripes = [];
     for (let i = 0; i < 4; i++) { const st = floorStripe(0, -1.6 - i * 0.32, 0.5 - i * 0.06, BRAND.coral, 0.7 - i * 0.13); g.add(st); this.c5stripes.push(st); }
-    g.add(floorRing(0, -2.9, 0.20, 0.225, BRAND.dim, 0.9));
-    g.add(floorText('STOP', 0, -2.9, { size: 0.09, color: CS.mute }));
+    g.add(floorRing(0, -2.75, 0.20, 0.225, BRAND.dim, 0.9));
+    g.add(floorText('STOP', 0, -2.75, { size: 0.09, color: CS.mute }));
 
     g = this._mk('FIN');
     g.add(floorText('오늘의 러닝', 0, -1.7, { size: 0.11, color: CS.ink }));
