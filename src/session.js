@@ -1054,6 +1054,15 @@ export class Session {
     this.slotFL.position.z = -(CARD.titleZ ?? 2.68);
     this.slotFS.position.z = -((CARD.titleZ ?? 2.68) + (CARD.eyebrow ?? 0.30));
     this.slotFM.position.z = -(CARD.footerZ ?? 1.28);
+    // 타이틀·아이브로 = 진입 순간 플래시 후 페이드아웃 — 밀도 높은 장면(B3·B4·C5)은 실측 운동 요소가
+    // 타이틀 깊이(~2.68~2.98m)까지 뻗어 물리적으로 자리가 겹침(빔 도달 한계 ~2.85m 안에 둘 다 못 들어감).
+    // v3 결론: 정적 공존 대신 시간 분리 — 진입 1.0s간 크게 보였다가 0.6s에 걸쳐 사라짐(운동 시작 전에 비켜줌).
+    if (!wall) {
+      const titleFade = Math.max(0, 1 - Math.max(0, this.t - 1.0) / 0.6);
+      const flMesh = this.slotFL.children[0]?.children[0], fsMesh = this.slotFS.children[0]?.children[0];
+      if (flMesh?.material) flMesh.material.opacity = titleFade;
+      if (fsMesh?.material) fsMesh.material.opacity = titleFade * 0.85;
+    }
     const ctaS = CARD.cta ?? 1;
     if (this.tap) this.tap.scale.setScalar(ctaS);
     if (this.tap1) this.tap1.scale.setScalar(ctaS);
