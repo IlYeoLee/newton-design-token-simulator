@@ -799,8 +799,12 @@ async function boot() {
     rig.resetOmega();
     lastBodyZ = 0;
     sceneUI.setSub('');   // 스펙 스탬프는 도입부 전용 — 운동 중엔 큐만
+    // 재생 상태 강제 복구 — 일시정지가 끼어든 채 세션을 시작하면 t=0에 언 채로 시작됨
+    // (유저 '세션이 뿌옇게/봇 정지' 계열의 뿌리: 모드 전환은 반드시 재생 상태에서)
+    state.playing = true;
+    document.getElementById('pause-chip')?.style.setProperty('display', 'none');
     session.start(sport);
-    panel.setPlaying(state.playing, true);
+    panel.setPlaying(true, true);
     sessionBtn.textContent = '세션 중지';
     if (sessionHud) sessionHud.style.display = 'block';
     setFp(true);
@@ -811,7 +815,10 @@ async function boot() {
     voiceAudio.pause();
     if ('speechSynthesis' in window) speechSynthesis.cancel();
     sessionBtn.textContent = '세션 시작 (1인칭 전환)';
-    panel.setPlaying(state.playing, false);
+    // 세션 중지 = 데모 루프 재개 — 일시정지 잔존으로 봇이 얼어 보이던 문제
+    state.playing = true;
+    document.getElementById('pause-chip')?.style.setProperty('display', 'none');
+    panel.setPlaying(true, false);
     if (sessionStageEl) sessionStageEl.textContent = '—';
     if (sessionHud) sessionHud.style.display = 'none';
     sceneUI.setStatus('');
