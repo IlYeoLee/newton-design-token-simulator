@@ -64,7 +64,9 @@ void main() {
     col += FXC_SAND * exp(-pow(sd / (0.03 * uW), 2.0)) * dashM * (0.85 - 0.5 * f);
     col *= uFade;
   } else if (uPhase < 1.5) {     // Active: 적열 필 + 얼음빛 헤일로 수축 (수축 완료 = 이벤트)
-    float gradR = uShape > 0.5 ? 1.45 : ext * 1.38;            // 발형은 얼음빛이 가장자리 자락만
+    // Active의 존재 이유 = 주변시에서 '뜨겁다' 즉독 (0.45s 이벤트 창) — 원거리·소형에서
+    // 아이스 밴드가 면적을 먹지 않게 진홍 커버리지 확대 (아이스는 가장자리 실선 자락만)
+    float gradR = uShape > 0.5 ? 1.7 : ext * 1.62;
     float q = length(uv - gcBall) / gradR;
     vec3 fc = mix(FXC_RED, FXC_CORAL, smoothstep(0.0, 0.479, q));
     fc = mix(fc, FXC_SAND, smoothstep(0.479, 0.607, q));
