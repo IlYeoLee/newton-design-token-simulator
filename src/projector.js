@@ -289,9 +289,9 @@ export class ProjectorRig {
     const fwd0 = (this.mode === 'basketball' && this._smFwd) ? this._smFwd : fwdInst;
     const rightV = new THREE.Vector3(-fwd0.z, 0, fwd0.x);   // 몸 오른쪽(오른 무릎 바깥) 방향
     const kneeModule = knee.clone()
-      .addScaledVector(rightV, 0.10)                        // 바깥 옆면으로
-      .addScaledVector(fwd0, 0.03)                          // 살짝 앞
-      .add(new THREE.Vector3(0, 0.01, 0));
+      .addScaledVector(rightV, 0.055)                       // 바깥 옆면 — 부착감 (0.10은 떨어져 보임)
+      .addScaledVector(fwd0, 0.02)
+      .add(new THREE.Vector3(0, 0.015, 0));
     this.kneeBox.position.copy(kneeModule);
     // 다리 방향으로 회전(강체 부착 느낌) — 무릎이 굽으면 함께 기울어짐
     this.kneeBox.rotation.set(0, Math.atan2(fwd0.x, fwd0.z), 0);

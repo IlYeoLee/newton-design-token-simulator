@@ -320,6 +320,13 @@ export class XBot {
     if (this.mode === 'running') {
       const { t0, stride, V, clipKey } = this.schedule;
       const a = this.actions[clipKey || 'run'];
+      // 가중치 단독 확정 — playDemo(세션 드릴)가 잡아둔 가중치(run=0·드릴=1)가 남으면
+      // 라이브/복귀 시 봇이 드릴 포즈로 얼어붙는다 (유저: '실전에서 가만히 멈춤')
+      for (const k in this.actions) {
+        const x = this.actions[k];
+        x.action.play(); x.action.paused = true;
+        x.action.setEffectiveWeight(k === (clipKey || 'run') ? 1 : 0);
+      }
       if (clipKey && clipKey !== 'run') {
         // 원천 클립 직결: 팩 t = 클립 t (사이클 타일링) → 위상 보정 상수 불필요.
         // 주의: 클립 dur(0.767s=마지막 키프레임)와 사이클(0.8s=프레임 수×dt)이 달라
@@ -338,6 +345,11 @@ export class XBot {
     if (this.mode === 'boxing') {
       const { punches, ts, seg0, effDur } = this.schedule;
       const a = this.actions.hook;
+      for (const k in this.actions) {   // 가중치 단독 확정 (드릴 잔존 방지)
+        const x = this.actions[k];
+        x.action.play(); x.action.paused = true;
+        x.action.setEffectiveWeight(k === 'hook' ? 1 : 0);
+      }
       let target = 0;  // 기본: 가드 포즈
       for (const tp of punches) {
         const start = tp - HOOK_IMPACT * effDur;
@@ -358,6 +370,10 @@ export class XBot {
       const { path } = this.schedule;
       const run = this.actions.bkRun || this.actions.run;
       const drb = this.actions.dribble;
+      for (const k in this.actions) {   // 드릴 잔존 가중치 클리어 — 아래 자체 블렌딩이 필요한 것만 다시 세움
+        const x = this.actions[k];
+        x.action.play(); x.action.paused = true; x.action.setEffectiveWeight(0);
+      }
 
       if (path.length >= 2) {
         const p = this._samplePath(packTime);
