@@ -464,9 +464,12 @@ export class Session {
     this.tap1 = this._tap(); this.tap1.position.set(0, 0.013, -1.8); g.add(this.tap1);
 
     g = this._mk('B1');
-    this.b1outer = floorRing(0, -1.8, 0.24, 0.26, BRAND.red, 0.6);
-    this.b1inner = floorRing(0, -1.8, 0.12, 0.14, BRAND.red, 0.9);
-    g.add(this.b1outer, this.b1inner);
+    // 박자 듣기 = 시각 메트로놈: 비트 링(시선 밴드 중앙) + 글리프 숫자 1·2 박자 교대 펄스
+    // (기존: 화면 가장자리에 링 하나 — 장면이 비어 음성 의존이던 문제)
+    this.b1outer = floorRing(0, -2.1, 0.24, 0.26, BRAND.red, 0.6);
+    this.b1inner = floorRing(0, -2.1, 0.12, 0.14, BRAND.red, 0.9);
+    this.b1nums = [floorNum('1', -0.55, -2.1, 0.22), floorNum('2', 0.55, -2.1, 0.22)];
+    g.add(this.b1outer, this.b1inner, this.b1nums[0], this.b1nums[1]);
 
     g = this._mk('B2');
     this.b2L = new FootMark('left').at(-0.17, -1.7); g.add(this.b2L.group);
@@ -1092,6 +1095,9 @@ export class Session {
       const BT = SCFG.b1Beat, k = 1 - beat(BT);
       this.b1outer.setOp(0.2 + 0.5 * k); this.b1inner.setOp(0.5 + 0.4 * k);
       this.b1outer.scale.setScalar(0.7 + 0.5 * (1 - k));
+      // 글리프 숫자 1·2 = 박자 교대 펄스 (하나-둘이 눈에 보이는 메트로놈)
+      const bn = Math.floor(this.t / BT) % 2;
+      this.b1nums.forEach((n, i) => { const on = i === bn; n.userData.plane.material.opacity = on ? 0.35 + 0.65 * k : 0.18; n.scale.setScalar(on ? 1 + 0.25 * k : 0.9); });
       FMU(`박자 ${Math.min(8, Math.floor(this.t / BT) + 1)} / 8 — 듣기만`);
       if (this.t >= 8 * BT + 0.3) { this.next(); return; }
     } else if (id === 'B2') {

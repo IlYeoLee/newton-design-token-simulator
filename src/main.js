@@ -648,6 +648,7 @@ async function boot() {
   // 1인칭 VOR 안정화 상태 (인간 눈: 머리 요동을 시선이 상쇄)
   const fpPos = new THREE.Vector3();
   let fpInit = false;
+  const FP_FWD_FIXED = new THREE.Vector3(0, 0, -1);   // 세션 1인칭 시선 방위 (전 종목 전방 -z)
 
   // 시야∩투사면 교집합 하이라이트 + 시선 낙하 범위
   const gazeRange = { near: 0, far: 0 };
@@ -2023,7 +2024,9 @@ async function boot() {
     if (fpMode) {
       const eye = xbot.getEyeWorld();
       if (eye) {
-        const fwd = xbot.getForward();
+        // 세션 중엔 시선 방위 고정(-z 전방) — 데모 봇의 골반 회전(제자리 달리기·걷기)이
+        // 카메라를 좌우로 요잉시켜 프레임을 무너뜨리던 문제. 피치는 세션 단계값이 계속 담당.
+        const fwd = session.active ? FP_FWD_FIXED : xbot.getForward();
         const tx = eye.x + fwd.x * 0.05, ty = eye.y + (session.active ? session.bobY : 0), tz = eye.z + fwd.z * 0.05;
         if (!fpInit || Math.abs(tz - fpPos.z) > 3 || Math.abs(tx - fpPos.x) > 3) {
           fpPos.set(tx, ty, tz);

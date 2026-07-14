@@ -68,6 +68,8 @@ void main() {
     col = fc * inside * min(fillGain * 1.15, 1.0);
     float hw = max((0.22 - 0.16 * uProg) * uW, 0.035);
     float h = exp(-pow(outPos / hw, 1.3)) * (1.0 - inside);
+    // 발형: SDF 인코드 상한(±0.25)보다 헤일로가 넓으면 감쇠가 못 끝나 쿼드 전체가 판이 됨 — 도달거리 클램프
+    if (uShape > 0.5) h *= smoothstep(0.24, 0.12, outPos);
     col += mix(FXC_SAND, FXC_ICE, smoothstep(0.15, 0.9, outPos / hw)) * h * uHalo * 0.5 * dashM;
   } else if (uPhase < 2.5) {     // Success 잔상: 진홍 블룸 + 얼음빛 림 플래시 → 소멸
     float e = 1.0 - pow(1.0 - uProg, 2.6);
@@ -104,6 +106,9 @@ void main() {
     col += vec3(0.80) * exp(-pow(sd / (0.03 * uW), 2.0)) * 0.5 * gone;
   }
   col *= uGain;
+  // 쿼드 보더 페이드 — 헤일로가 평면 가장자리에서 뚝 잘려 사각 경계가 비치는 것 방지
+  // (발형 근접 시 특히 — 실루엣 자체(≤0.72)에는 영향 없음)
+  col *= smoothstep(1.0, 0.86, max(abs(uv.x), abs(uv.y)));
   // 주간 = 풀컬러 잉크(제품 스토리: 주광 가시 풀컬러 투사) — 가산은 밝은 바닥에서
   // 채널 클리핑으로 흰색으로 뭉개진다. 색상 보존 + 커버리지 알파로 표면색을 '대체'.
   if (uDay > 0.5) {
