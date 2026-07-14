@@ -525,10 +525,9 @@ class Marker {
       this.edge.material.opacity = 1.0;
       this.edge.material.color.setHex(this.color);
       this.fill.material.color.setHex(this.color);
-      this.cd.visible = true;
-      const s = TCFG.cdContractFrom - (TCFG.cdContractFrom - 1) * progress; // 시작배율 → 1.0 수축
-      this.cd.scale.setScalar(s);
-      this.cd.material.opacity = 0.35 + TCFG.cdGain * progress;
+      // 레거시 흰 카운트다운 링 은퇴 — 타이밍 큐는 FX Active의 얼음빛 헤일로 수축(시안 보드)이 담당.
+      // 장면 마크가 랩과 다르게 보이던 주범(룩 밖 벡터 링이 셰이더 위에 겹침).
+      this.cd.visible = false;
       if (this.num) this.num.material.opacity = 1.0;
     } else if (phase === 'linger') {
       const k = 1 - progress;
@@ -871,18 +870,17 @@ export class TokenSystem {
           const L = Math.hypot(dx, dz) || 1; dx /= L; dz /= L;
           const g = new THREE.Group();
           const yaw = Math.atan2(-dx, -dz);
+          // 감속 바 = LINE 자루(촉 없음) 소비 — flatMat 사제 바 은퇴 (룩 시스템만 원칙)
           for (let s = 0; s < 3; s++) {
-            const bar = new THREE.Mesh(
-              new THREE.PlaneGeometry(0.5, 0.07),
-              flatMat(0xfe6e3c, 0.55 - s * 0.13)
-            );
+            const bar = makeArrow(0xfe6e3c, 0.5, 'none');
             bar.rotation.x = -Math.PI / 2;
-            bar.rotation.z = yaw;
+            bar.rotation.z = yaw + Math.PI / 2;   // 진행에 직교하는 가로 바
             bar.position.set(
               cp.x - dx * (0.4 + s * 0.24), 0.011,
               cp.z - dz * (0.4 + s * 0.24)
             );
             bar.renderOrder = 4;
+            bar.traverse(o => { if (o.material) o.material.opacity = 0.55 - s * 0.13; });
             g.add(bar);
           }
           cur.stripes = g;
