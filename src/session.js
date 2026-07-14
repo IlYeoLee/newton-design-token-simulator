@@ -330,9 +330,9 @@ export const STAGES = {
   running: [
     { id:'READY', label:'0 · READY — 준비', voice:['시스템','션의 마지막 1km 페이스 팩. 준비되면 발을 두 번 탭하세요.'], wear:'SAFE 대기', foot:'두 번 탭 → 시작' },
     { id:'A1', label:'A · 스트레칭 1/4 — 발목 돌리기', voice:['션','발목부터 풀어요. 원에 발끝 올리고 천천히 여덟 번.'], wear:'개입 없음 (가동범위 측정)' },
-    { id:'A2', label:'A · 스트레칭 2/4 — 종아리 늘리기', voice:['션','앞 원에 왼발. 뒤꿈치는 바닥 — 종아리가 당기면 잘 된 거예요.'], hap:'10초 종료 진동 1회' },
+    { id:'A2', label:'A · 스트레칭 2/4 — 종아리 펌프', voice:['션','앞 원에 왼발. 뒤꿈치를 높이 들었다 — 바닥까지. 가볍게 열 번.'], hap:'10회 종료 진동 1회' },
     { id:'A3', label:'A · 스트레칭 3/4 — 다리 스윙', voice:['션','골반 잡고 다리를 앞뒤로. 가볍게 열 번.'], foot:'완료 후 두 번 탭 → 다음' },
-    { id:'A4', label:'A · 스트레칭 4/4 — 몸풀기 박자 걷기', voice:['션','이제 내 걸음 박자로 제자리 걷기. 하나, 둘, 하나, 둘.'], hap:'워밍업 박자 (약)', wear:'낮은 강도 보조 시작' },
+    { id:'A4', label:'A · 스트레칭 4/4 — 션 박자 걷기', voice:['션','이제 내 걸음 박자로 제자리 걷기. 처음엔 천천히 — 점점 붙여요.'], hap:'워밍업 박자 (약)', wear:'낮은 강도 보조 시작' },
     { id:'T1', label:'T-1 · STAGE CLEAR → 사전 익히기', voice:['시스템','몸 다 풀렸어요. 탭 두 번이면 다음으로.'], foot:'두 번 탭 → 사전 익히기' },
     { id:'B1', label:'B · 사전 익히기 1/4 — 박자 듣기', voice:['션','마지막 1km에서 쓰는 박자예요. 먼저 듣기만. 하나, 둘.'], hap:'박자 동기 (약)' },
     { id:'B2', label:'B · 사전 익히기 2/4 — 제자리 스텝 맞추기', voice:['션','링이 닫힐 때 밟아요. 지금 — 좋아요, 그 박자예요.'], cue:'Hit Glow + Timing Pulse (성공 순간만)' },
@@ -411,7 +411,8 @@ export class Session {
     this.slotFS = new THREE.Group(); this.slotFS.position.set(0, 0, -2.98);
     this.slotFL = new THREE.Group(); this.slotFL.position.set(0, 0, -2.68);
     this.slotFM = new THREE.Group(); this.slotFM.position.set(0, 0, -1.28);
-    this.root.add(this.slotFS, this.slotFL, this.slotFM);
+    this.dirSlot = new THREE.Group();   // C 방향 피드백 글리프 (착지점 추종, _dirCue)
+    this.root.add(this.slotFS, this.slotFL, this.slotFM, this.dirSlot);
 
     this.countGroup = new THREE.Group(); this.countGroup.position.set(0, 0, -1.85);
     this.countRing = floorRing(0, -1.85, 0.30, 0.335, BRAND.red, 0);
@@ -848,16 +849,38 @@ export class Session {
     }
   }
   /** 실전 다운시프트 — 폼이 연속으로 흔들리면(non-hit ×2) 익히기로 복귀 */
-  reportVerdict(verdict) {
+  reportVerdict(verdict, terr, best) {
     if (!this.active || !this.isLive) return;
     if (this.sport === 'basketball') return;   // 농구 판정(hips 프로브) 미보정 — 다운시프트 보류
 
+    if (verdict !== 'hit' && best && this.sport === 'running') this._dirCue(terr, best);
     this._missStreak = verdict !== 'hit' ? this._missStreak + 1 : 0;
     if (this._missStreak >= 2) {
       this._missStreak = 0;
       const i = this._firstBIdx();
       if (i >= 0 && this.stageIdx > i) { this.onGate?.('downshift'); this.liveSpeed = 1; this.stageIdx = i; this.t = 0; this._enter(); }
     }
+  }
+  /** C 방향 피드백 — non-hit 착지점 앞에 왜 틀렸는지(빠름/늦음/위치) 글리프. GLYPH 잉크 토큰 소비. */
+  _dirCue(terr, best) {
+    if (this._dirT0 != null && this.t - this._dirT0 < 1.4) return;   // 과밀 방지
+    this._dirT0 = this.t;
+    const msg = terr > 0.03 ? '늦었어요' : terr < -0.03 ? '빨랐어요' : '간격';
+    this._slot(this.dirSlot, msg, { size: 0.11, color: CS.sand, weight: 800 });
+    // best.px/p2는 월드 좌표, dirSlot은 root 자식(라이브 중 러너 추종) — 로컬로 환산
+    this.dirSlot.position.set(best.px - this.root.position.x, 0, best.p2 - 0.55 - this.root.position.z);
+  }
+  /** 팩 시그니처 파생 — 좌우폭 반치(스텝 마크 |nx| 평균 × X_SCALE 2.0). 팩 없으면 기본 0.17. */
+  _packLaneHalf() {
+    const evs = (this.tokens?.pack?.tokens || this.tokens?.pack?.events || []).filter(e => e.type === 'stepMark' && typeof e.nx === 'number');
+    if (!evs.length) return 0.17;
+    const m = evs.reduce((s, e) => s + Math.abs(e.nx), 0) / evs.length * 2.0;
+    return Math.min(0.25, Math.max(0.03, m));
+  }
+  /** 팩 케이던스 파생 — 스텝 간격 중앙값(초). 범위 밖이면 폴백. */
+  _packBeat(mult = 1, fb = 0.6) {
+    const b = this.tokens?._beatT;
+    return (b > 0.2 && b < 1.5) ? b * mult : fb;
   }
   stop() { this.active = false; this.root.visible = false; this.tokens.root.visible = true; this.liveSpeed = 1; this.bobY = 0; }
   tapAdvance() {
@@ -908,6 +931,7 @@ export class Session {
       else this._enterRunning(st, H);
     }
     this._fmCache = null;
+    this._slot(this.dirSlot, ''); this._dirT0 = null;   // 방향 큐는 스테이지 경계에서 정리
   }
 
   _slotWall(slot, text, opts) {
@@ -925,12 +949,12 @@ export class Session {
     switch (st.id) {
       case 'READY': FS('SEAN · LAST 1KM'); FL('READY'); FM('발 두 번 탭 → 시작'); break;
       case 'A1': FS('STRETCH 1/4'); FL('발끝 올리고 돌리기'); FM('왼발 1 / 8', CS.sand); break;
-      case 'A2': FS('STRETCH 2/4'); FL('앞 원에 왼발'); FM('뒤꿈치 바닥 · 10초', CS.sand); break;
+      case 'A2': FS('STRETCH 2/4'); FL('뒤꿈치 펌프'); FM('앞 원에 왼발 · 들었다 내리기 ×10', CS.sand); break;
       case 'A3': FS('STRETCH 3/4'); FL('다리 앞뒤 스윙'); FM('1 / 10'); break;
-      case 'A4': FS('STRETCH 4/4'); FL('제자리 걷기 — 내 박자로'); FM('하나, 둘, 하나, 둘'); break;
+      case 'A4': FS('STRETCH 4/4'); FL('션 박자로 걷기'); FM('처음엔 천천히 — 점점 붙어요'); break;
       case 'T1': FS('T-1'); S(this.slotFL, 'STAGE CLEAR', { size: 0.12, color: CS.prism }); FM('탭 두 번 → 사전 익히기'); break;
-      case 'B1': FS('LEARN 1/4'); FL('듣기만 해요'); FM('먼저 귀로 배워요'); break;
-      case 'B2': FS('LEARN 2/4'); FL('링이 닫힐 때 밟기'); FM('맞춘 스텝 0 / 8'); break;
+      case 'B1': FS('LEARN 1/4'); FL('션의 박자 — 듣기만'); FM('먼저 귀로 배워요'); break;
+      case 'B2': { const h = this._packLaneHalf(); this._b2Half = h; this.b2L.group.position.x = -h; this.b2R.group.position.x = h; FS('LEARN 2/4'); FL(h < 0.08 ? '좁게 — 일자로 밟기' : '링이 닫힐 때 밟기'); FM('맞춘 스텝 0 / 8'); } break;
       case 'B3': FS('LEARN 3/4'); FL('세 걸음 · 순서대로'); FM('세트 1 / 2'); break;
       case 'B4': FS('LEARN 4/4'); FL('박자만'); FM('발밑=마지막 발형 · 전방=존 시작'); break;
       case 'T2': FS('T-2'); FM('두 번 탭 = 바로 · 가만히 있으면 자동 진행'); break;
@@ -1034,6 +1058,13 @@ export class Session {
     if (this.tap) this.tap.scale.setScalar(ctaS);
     if (this.tap1) this.tap1.scale.setScalar(ctaS);
     const beat = (per) => (this.t % per) / per;
+    // 방향 피드백 글리프 페이드아웃 (1.2s)
+    if (this._dirT0 != null) {
+      const a = 1 - (this.t - this._dirT0) / 1.2;
+      const m = this.dirSlot.children[0]?.userData?.plane?.material;
+      if (m) m.opacity = Math.max(0, Math.min(1, a * 1.2));
+      if (a <= 0) { this._slot(this.dirSlot, ''); this._dirT0 = null; }
+    }
     // FM 슬롯 갱신 헬퍼 — 값이 바뀔 때만 텍스처 재생성 (벽/지면 자동)
     const FMU = (text, color) => {
       if (text === this._fmCache) return; this._fmCache = text;
@@ -1079,16 +1110,17 @@ export class Session {
       FMU(`${side === 0 ? '왼발' : '오른발'} ${rep} / 8`, CS.sand);
       if (this.t >= 2 * half + 0.6) { this.next(); return; }
     } else if (id === 'A2') {
-      // 종아리 — 10초 홀드 채움 + 초 카운트, 좌우 교대
-      const HOLD = SCFG.a2Hold, PH = HOLD + 0.9;
+      // 종아리 펌프 — 뒤꿈치 들어올림→내림 ×10, 좌우 교대 (러닝 직전은 정적 홀드보다 동적 웜업)
+      const BT = 0.9, REPS = 10, PH = REPS * BT + 0.9;
       const phase = this.t < PH ? 0 : 1;
       this.a2[0].pg.visible = phase === 0; this.a2[1].pg.visible = phase === 1;
-      const lt = this.t - phase * PH, p = Math.min(1, lt / HOLD);
+      const lt = this.t - phase * PH;
       const pair = this.a2[phase];
-      pair.back.setHold(p);
-      if (p >= 1) pair.back.glow(Math.max(0, 1 - (lt - HOLD) / 0.6));
-      const secs = Math.max(0, Math.ceil(HOLD - lt));
-      FMU(`${phase === 0 ? '왼발 앞' : '오른발 앞'} · 뒤꿈치 바닥 · ${secs}초`, CS.sand);
+      const k = (lt % BT) / BT;
+      pair.back.setHold(Math.min(1, lt < REPS * BT ? (k < 0.5 ? k * 2 : 2 - k * 2) : 0));   // 홀드 링 = 뒤꿈치 높이
+      if (lt >= REPS * BT) pair.back.glow(Math.max(0, 1 - (lt - REPS * BT) / 0.6));
+      const rep = Math.min(REPS, Math.floor(lt / BT) + 1);
+      FMU(`${phase === 0 ? '왼발 앞' : '오른발 앞'} · 뒤꿈치 펌프 ${rep} / ${REPS}`, CS.sand);
       if (this.t >= 2 * PH) { this.next(); return; }
     } else if (id === 'A3') {
       // 다리 스윙 — 앞/뒤 화살표 교대 강조 + 10회 카운트
@@ -1099,12 +1131,18 @@ export class Session {
       FMU(`${Math.min(10, Math.floor(this.t / SW) + 1)} / 10`);
       if (this.t >= 10 * SW + 0.5) { this.next(); return; }
     } else if (id === 'A4') {
-      const BT = SCFG.a4Beat, b = Math.floor(this.t / BT) % 2, ph = 1 - beat(BT);
+      // 션 박자 램프 — 팩 케이던스 80%로 8스텝 → 100%로 8스텝 (웜업부터 팩 Core 소비)
+      const base = this._packBeat(1, SCFG.a4Beat);
+      const BT1 = base * 1.25, T1 = 8 * BT1;
+      const seg2 = this.t >= T1;
+      const BT = seg2 ? base : BT1, lt = seg2 ? this.t - T1 : this.t;
+      const idx = Math.min(15, (seg2 ? 8 : 0) + Math.floor(lt / BT));
+      const b = idx % 2, ph = 1 - (lt % BT) / BT;
       this.a4L.countdown(b === 0 ? ph : -1); this.a4R.countdown(b === 1 ? ph : -1);
-      FMU(`${b === 0 ? '하나' : '둘'} · ${Math.min(16, Math.floor(this.t / BT) + 1)} / 16`);
-      if (this.t >= 16 * BT + 0.4) { this.next(); return; }
+      FMU(`${b === 0 ? '하나' : '둘'} · ${idx + 1} / 16 — 션 박자 ${seg2 ? '100%' : '80%'}`);
+      if (this.t >= T1 + 8 * base + 0.4) { this.next(); return; }
     } else if (id === 'B1') {
-      const BT = SCFG.b1Beat, k = 1 - beat(BT);
+      const BT = this._packBeat(1, SCFG.b1Beat), k = 1 - beat(BT);
       this.b1outer.setOp(0.4 + 0.5 * k); this.b1inner.setOp(0.65 + 0.35 * k);
       this.b1outer.scale.setScalar(0.7 + 0.5 * (1 - k));
       // 글리프 숫자 1·2 = 박자 교대 펄스 (하나-둘이 눈에 보이는 메트로놈)
@@ -1113,11 +1151,11 @@ export class Session {
       FMU(`박자 ${Math.min(8, Math.floor(this.t / BT) + 1)} / 8 — 듣기만`);
       if (this.t >= 8 * BT + 0.3) { this.next(); return; }
     } else if (id === 'B2') {
-      const BT = SCFG.b2Beat, b = Math.floor(this.t / BT) % 2, ph = beat(BT);
+      const BT = this._packBeat(1.15, SCFG.b2Beat), b = Math.floor(this.t / BT) % 2, ph = beat(BT);
       this.b2L.countdown(b === 0 ? ph : -1); this.b2R.countdown(b === 1 ? ph : -1);
       const gl = ph > 0.9 ? 1 : 0; if (gl) (b === 0 ? this.b2L : this.b2R).glow(1);
       const hits = Math.min(8, Math.floor(this.t / BT));
-      FMU(`맞춘 스텝 ${hits} / 8`, hits >= 8 ? CS.prism : CS.dim);
+      FMU(`맞춘 스텝 ${hits} / 8${this._b2Half < 0.08 ? ' · 션 좌우폭 6cm' : ''}`, hits >= 8 ? CS.prism : CS.dim);
       if (this.t >= 8 * BT + 0.5) { this.next(); return; }
     } else if (id === 'B3') {
       const ST = SCFG.b3Step, cyc = 3 * ST, lt = this.t % cyc, W = ST * 0.82;
@@ -1126,7 +1164,7 @@ export class Session {
       if (this.t >= 2 * cyc + 0.4) { this.next(); return; }
     } else if (id === 'B4') {
       // 구간 리듬 — 발밑 → 전방 존 2개로 리듬이 흘러감
-      const per = SCFG.b4Beat, seq = Math.floor(this.t / per) % 3, k = 1 - beat(per);
+      const per = this._packBeat(1, SCFG.b4Beat), seq = Math.floor(this.t / per) % 3, k = 1 - beat(per);
       this.b4foot.op(seq === 0 ? 0.7 + 0.3 * k : 0.7);
       this.b4rings[0].setOp(seq === 1 ? 0.3 + 0.65 * k : 0.35);
       this.b4rings[1].setOp(seq === 2 ? 0.3 + 0.65 * k : 0.25);

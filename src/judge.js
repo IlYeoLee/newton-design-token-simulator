@@ -122,7 +122,7 @@ export class Judge {
         z: +(ev._jRaw.dz * 100).toFixed(1),
       });
     }
-    if (this.onVerdict) this.onVerdict(ev, verdict, ev._jBest);
+    if (this.onVerdict) this.onVerdict(ev, verdict, ev._jBest, terr);
   }
 
   /** 루프 종료: 리포트 생성 + 다음 루프 준비 */

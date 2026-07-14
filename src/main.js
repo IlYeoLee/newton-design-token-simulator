@@ -73,7 +73,7 @@ async function boot() {
   // 판정 색상 피드백: 착지점 도트만 (프리즘/샌드/무음 그레이).
   // 판정 버스트는 제거 — 마크 발화 버스트와 이중 발사였고, t=0 이벤트의 판정이
   // 랩 직후 확정되며 매 루프 화면 번쩍임을 만들던 진범.
-  judge.onVerdict = (ev, verdict, best) => {
+  judge.onVerdict = (ev, verdict, best, terr) => {
     const col = verdict === 'hit' ? 0xd1feff : verdict === 'near' ? 0xfec389 : 0x9b9b9b;
     const n = ev.surface === 'wall' ? new THREE.Vector3(0, 0, 1) : new THREE.Vector3(0, 1, 0);
     if (best) {
@@ -83,7 +83,7 @@ async function boot() {
       effects.dot(dotPos, col, n);
     }
     // 실전 다운시프트: 세션 라이브 중 연속 Miss 누적 → 익히기 복귀
-    session.reportVerdict(verdict);
+    session.reportVerdict(verdict, terr, best);
   };
 
   // 허용 오차 슬라이더 + 리포트 렌더
