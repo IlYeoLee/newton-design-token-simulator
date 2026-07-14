@@ -507,8 +507,8 @@ export class Session {
     g = this._mk('C5');
     this.c5stripes = [];
     for (let i = 0; i < 4; i++) { const st = floorStripe(0, -1.6 - i * 0.32, 0.5 - i * 0.06, BRAND.coral, 0.7 - i * 0.13); g.add(st); this.c5stripes.push(st); }
-    g.add(floorRing(0, -2.75, 0.20, 0.225, BRAND.dim, 0.9));
-    g.add(floorText('STOP', 0, -2.75, { size: 0.09, color: CS.mute }));
+    g.add(floorRing(0, -2.6, 0.20, 0.225, BRAND.dim, 0.9));
+    g.add(floorText('STOP', 0, -2.6, { size: 0.09, color: CS.mute }));
 
     g = this._mk('FIN');
     g.add(floorText('오늘의 러닝', 0, -1.7, { size: 0.11, color: CS.ink }));
