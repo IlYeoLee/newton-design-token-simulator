@@ -1543,6 +1543,9 @@ async function boot() {
     studioEl.style.display = 'none';
     document.getElementById('inspector').style.display = 'none';
     document.getElementById('panel').style.display = 'flex';
+    // 캔버스 리사이즈 강제 — 편집 중 전체 폭으로 커진 캔버스가 남아 부모가 뷰포트보다 넓어지고,
+    // 우측 앵커 버튼들(👁·☀️·설계·편집)이 화면 밖으로 밀려 '장면 명세만 남는' 버그
+    requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
     resize();
     switchPack(studioSport);                   // 클리핑·카메라·시간 정상 복원
     state.playing = studioPlayingWas; panel.setPlaying(studioPlayingWas);

@@ -272,6 +272,10 @@ export function createScene(container) {
   }
 
   function resize() {
+    // 캔버스의 명시적 px 크기가 부모 폭을 지탱하는 순환 차단 — 측정 전 0으로 접었다 실측
+    // (편집 종료 후 패널 복귀 시 stage가 1700px로 남아 우측 버튼들이 화면 밖으로 밀리던 버그)
+    renderer.domElement.style.width = '0px';
+    renderer.domElement.style.height = '0px';
     const w = container.clientWidth, h = container.clientHeight;
     camera.aspect = w / h;
     camera.updateProjectionMatrix();
