@@ -237,7 +237,7 @@ export const COLORS = {
   success: 0xd1feff, // PRISM — 성공 잔상
 };
 
-const FADE_STEPS = [1.0, 0.6, 0.35, 0.2];
+const FADE_STEPS = [1.0, 0.75, 0.55, 0.38];   // 뒤 순번 파스텔 워시 완화 — 랩 대비 '뿌연 컬러' 주범 1
 // 1인칭(러너 눈): 바닥 그래픽이 시선 각도에서 수직으로 눌려 감쇠가 증발 —
 // 뒤 순번 감쇠를 완화한 전용 계단 + 전체 게인 보정 (setFp가 fpGain 스위치)
 const FADE_STEPS_FP = [1.0, 0.78, 0.58, 0.42];

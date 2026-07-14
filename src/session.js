@@ -1093,7 +1093,7 @@ export class Session {
       if (this.t >= 16 * BT + 0.4) { this.next(); return; }
     } else if (id === 'B1') {
       const BT = SCFG.b1Beat, k = 1 - beat(BT);
-      this.b1outer.setOp(0.2 + 0.5 * k); this.b1inner.setOp(0.5 + 0.4 * k);
+      this.b1outer.setOp(0.4 + 0.5 * k); this.b1inner.setOp(0.65 + 0.35 * k);
       this.b1outer.scale.setScalar(0.7 + 0.5 * (1 - k));
       // 글리프 숫자 1·2 = 박자 교대 펄스 (하나-둘이 눈에 보이는 메트로놈)
       const bn = Math.floor(this.t / BT) % 2;
@@ -1115,7 +1115,7 @@ export class Session {
     } else if (id === 'B4') {
       // 구간 리듬 — 발밑 → 전방 존 2개로 리듬이 흘러감
       const per = SCFG.b4Beat, seq = Math.floor(this.t / per) % 3, k = 1 - beat(per);
-      this.b4foot.op(seq === 0 ? 0.45 + 0.55 * k : 0.45);
+      this.b4foot.op(seq === 0 ? 0.7 + 0.3 * k : 0.7);
       this.b4rings[0].setOp(seq === 1 ? 0.3 + 0.65 * k : 0.35);
       this.b4rings[1].setOp(seq === 2 ? 0.3 + 0.65 * k : 0.25);
       if (this.t >= 9 * per + 0.3) { this._gateAdvance(); return; }
@@ -1168,7 +1168,7 @@ export class Session {
     } else if (id === 'BK_B1') {
       // 스텝백 궤적 보기 — 3발 순차 강조(고스트 리플레이), 2회 루프
       const ST = 0.9, cyc = 3 * ST, lt = this.t % cyc;
-      this.bkB1.forEach((f, i) => { const t0 = i * ST; f.op(lt >= t0 && lt < t0 + ST ? 0.95 : 0.3); if (lt >= t0 && lt < t0 + ST * 0.8) f.countdown((lt - t0) / (ST * 0.8)); else f.countdown(-1); });
+      this.bkB1.forEach((f, i) => { const t0 = i * ST; f.op(lt >= t0 && lt < t0 + ST ? 0.95 : 0.55); if (lt >= t0 && lt < t0 + ST * 0.8) f.countdown((lt - t0) / (ST * 0.8)); else f.countdown(-1); });
       FMU(`궤적 ${Math.min(2, Math.floor(this.t / cyc) + 1)} / 2 — 눈으로`);
       if (this.t >= 2 * cyc + 0.3) { this.next(); return; }
     } else if (id === 'BK_B2') {
@@ -1181,7 +1181,7 @@ export class Session {
     } else if (id === 'BK_B3') {
       // 컷 감속 — 스트라이프 웨이브 + 디딤발 글로우
       this.bkB3stripes.forEach((s, i) => { const o = (0.7 - i * 0.15) * (0.5 + 0.5 * Math.sin(this.t * 4 - i)); s.traverse(n => { if (n.material) n.material.opacity = o; }); });
-      this.bkB3foot.op(0.5 + 0.4 * (0.5 + 0.5 * Math.sin(this.t * 3)));
+      this.bkB3foot.op(0.7 + 0.3 * (0.5 + 0.5 * Math.sin(this.t * 3)));
       if (this.t >= 5) { this._gateAdvance(); return; }
     } else if (id === 'BK_C1') {
       const n = Math.max(1, 3 - Math.floor(this.t)); if (n !== this._lastCount) { this._setCount(n, CS.ink); this._lastCount = n; }
