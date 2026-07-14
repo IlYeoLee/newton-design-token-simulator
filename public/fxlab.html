@@ -185,7 +185,10 @@
 
 <details open style="margin:18px 0 4px"><summary style="cursor:pointer;font-size:13px;color:var(--sand)">스테이지 카드 — 세션 UI 조판 (전 장면 공용: 아이브로·타이틀·CTA·푸터)</summary>
 <div style="font-size:11px;color:var(--dim);padding:6px 4px 2px">값 하나 = 17장면 전체 조판 — 장면별 자유 배치가 아니라 시스템 (거리 m 앞 · 캡높이 m)</div>
-<div id="cardHost" style="display:grid;grid-template-columns:repeat(2,minmax(200px,1fr));gap:2px 18px;max-width:640px;padding:10px 4px"></div></details>
+<div style="display:flex;gap:22px;align-items:flex-start;flex-wrap:wrap;padding:6px 4px">
+  <canvas id="cardPrev" width="340" height="540" style="width:255px;height:405px;background:#101318;border:1px solid #262b33;border-radius:10px;flex:none"></canvas>
+  <div id="cardHost" style="display:grid;grid-template-columns:repeat(1,minmax(220px,1fr));gap:2px 18px;min-width:240px;flex:1"></div>
+</div></details>
 
 <div class="notes">
   <b>애니메이션 퀄리티에서 바뀐 것</b> — ①프레임 크로스페이드(인물 8fps 원본을 보간해 부드럽게)
@@ -1966,6 +1969,50 @@ function buildSys() {
   mkSliders(tcfgHost, SYS_TCFG, state.sys.tcfg);
   mkSliders(scfgHost, SYS_SCFG, state.sys.scfg);
   mkSliders(document.getElementById('cardHost'), CARD_DEFS, state.card);
+  document.getElementById('cardHost').addEventListener('input', () => drawCardPreview());
+  drawCardPreview();
+}
+/** 스테이지 카드 미리보기 — 실측 스케일 탑다운 대지 (슬라이더와 라이브 연동, 레드라인 표기) */
+function drawCardPreview() {
+  const cv = document.getElementById('cardPrev');
+  if (!cv) return;
+  const g = cv.getContext('2d');
+  const W = cv.width, H = cv.height;
+  const C = state.card;
+  g.clearRect(0, 0, W, H);
+  // 대지: 폭 1.8m × 깊이 0.6~3.4m (유저 발끝이 아래) — px/m 스케일
+  const D0 = 0.6, D1 = 3.4, pxM = H / (D1 - D0);
+  const zy = z => H - (z - D0) * pxM;             // 전방 거리 z(m) → 캔버스 y
+  const cx = W / 2;
+  // 지면 격자 (0.5m)
+  g.strokeStyle = 'rgba(140,146,156,.12)'; g.lineWidth = 1;
+  for (let z = 1.0; z <= 3.0; z += 0.5) { g.beginPath(); g.moveTo(0, zy(z)); g.lineTo(W, zy(z)); g.stroke(); }
+  const ink = (a = 1) => `rgba(255,243,220,${a})`;
+  const capPx = m => Math.max(7, m * pxM);        // 캡높이(m) → px (같은 스케일 — 정직한 자)
+  const text = (t, z, capM, { color = ink(0.95), weight = 700 } = {}) => {
+    g.font = `${weight} ${capPx(capM)}px -apple-system, 'Apple SD Gothic Neo', sans-serif`;
+    g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.shadowColor = 'rgba(254,163,95,.75)'; g.shadowBlur = capPx(capM) * 0.25;
+    g.fillStyle = color; g.fillText(t, cx, zy(z)); g.shadowBlur = 0;
+  };
+  // 밴드: 아이브로 → 타이틀 → CTA·운동 존 → 푸터
+  text('STRETCH 1/4', C.titleZ + C.eyebrow, C.eyeCap, { color: 'rgba(160,166,176,.9)', weight: 600 });
+  text('발목 돌리기', C.titleZ, C.titleCap, { weight: 800 });
+  // 운동 존 표시 (고정 -1.6~-2.3) + CTA 유닛
+  g.strokeStyle = 'rgba(254,110,60,.28)'; g.setLineDash([5, 5]);
+  g.strokeRect(cx - 0.75 * pxM * 0.5 * 2 / 2, zy(2.3), 0.75 * pxM * 2 * 0.5 * 2, (2.3 - 1.6) * pxM);
+  g.setLineDash([]);
+  const ctaY = zy(1.95), ctaS = (C.cta ?? 1) * pxM;
+  g.strokeStyle = '#8fd0d8'; g.lineWidth = 2.5;
+  for (const s of [-1, 1]) { g.beginPath(); g.ellipse(cx + s * 0.12 * ctaS, ctaY - 0.05 * ctaS, 0.045 * ctaS, 0.032 * ctaS, 0, 0, 7); g.stroke(); }
+  g.font = `800 ${Math.max(8, 0.085 * ctaS)}px -apple-system, sans-serif`;
+  g.fillStyle = '#8fd0d8'; g.textAlign = 'center'; g.fillText('TAP ×2', cx, ctaY + 0.11 * ctaS);
+  text('왼발 3 / 8', C.footerZ, C.footCap, { color: 'rgba(254,195,137,.95)' });
+  // 레드라인: 거리 표기
+  g.font = '9px monospace'; g.fillStyle = 'rgba(140,146,156,.7)'; g.textAlign = 'left';
+  for (const [z, name] of [[C.titleZ + C.eyebrow, '아이브로'], [C.titleZ, '타이틀'], [C.footerZ, '푸터']])
+    g.fillText(`${name} ${z.toFixed(2)}m`, 6, zy(z) - capPx(0.05));
+  g.fillText('운동 존 1.6–2.3m', 6, zy(2.3) - 4);
 }
 buildSys();
 // ═══ 시뮬 임베드 브리지 ═══════════════════════
