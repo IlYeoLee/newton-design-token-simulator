@@ -44,7 +44,10 @@ void main() {
     sd = d * (1.0 + u1 * uWobble * 0.05) - Rz;
   }
   // ── 시안 '발모양 자체 이펙트' 보드 그대로 — 상태별 라디얼 필, 모션은 그 안에서만 (FX Lab MARK_FRAG와 동일 문법)
-  float inside = smoothstep(0.012, -0.012, sd);
+  // 화면공간 AA — 고정 폭(0.012)은 원거리·소형 마크(레인 위 먼 마크)에서 픽셀당 폭이 1px 미만으로 졸아
+  // 경계가 계단으로 앨리어싱되어 '아무 디자인도 없는 플랫한 원반'처럼 보임(먼 액티브 마크 실측 확인).
+  float aa = max(fwidth(sd), 0.004) * 1.4;
+  float inside = smoothstep(aa, -aa, sd);
   float outPos = max(sd, 0.0);
   float dashM = uContract > 0.5 ? smoothstep(0.15, 0.55, 0.5 + 0.5 * sin(ang * 18.0 + u1)) : 1.0;   // 회피 점선
   float ext = uShape > 0.5 ? 0.60 : Rz;
