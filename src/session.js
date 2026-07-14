@@ -4,6 +4,23 @@ import { thermalColor, heatBlob, grainPattern } from './thermal.js';
 import { lutColor, GLYPHS, drawGlyph, footSlot, footSDFTexture, FXP } from './fxlut.js';
 import { makeMarkFXMaterial, makeArrow, makeLaneFXMaterial } from './tokens.js';
 
+// 피그마 CTA 임포트 — StageCard/베이스 컴포넌트의 cta 노드를 다운로드한 에셋(150×44 원 비율).
+// 절차: 피그마에서 download_assets → public/textures/<sport>_running.png → 여기서 텍스처로 소비.
+// 새 디자인으로 갈아끼울 땐 같은 파일명으로 재수출 후 배포하면 끝(코드 변경 없음).
+const CTA_ASSET = { running: 'cta_running.png' };
+const _ctaTex = {};
+function ctaTexture(sport) {
+  const file = CTA_ASSET[sport];
+  if (!file) return null;
+  if (_ctaTex[sport] === undefined) {
+    const loader = new THREE.TextureLoader();
+    const tex = loader.load(`${import.meta.env.BASE_URL}textures/${file}`, () => {}, undefined, () => { _ctaTex[sport] = null; });
+    tex.colorSpace = THREE.SRGBColorSpace;
+    _ctaTex[sport] = tex;
+  }
+  return _ctaTex[sport];
+}
+
 // ─────────────────────────────────────────────────────────────
 // 러닝 세션 흐름 — 와이어프레임 v2 전체 15프레임 이식
 //   READY → A스트레칭(발목·종아리·다리스윙·박자걷기) → T-1
@@ -436,7 +453,7 @@ export class Session {
   _buildRunning() {
     let g = this._mk('READY');
     g.add(floorRing(0, -1.8, 0.20, 0.225, BRAND.dim, 0.9));
-    this.tap = this._tap(); this.tap.position.set(0, 0.013, -1.8); g.add(this.tap);
+    this.tap = this._tap('running'); this.tap.position.set(0, 0.013, -1.8); g.add(this.tap);
 
     g = this._mk('A1');
     this.a1L = new FootMark('left').at(0, -1.9, 1.15); g.add(this.a1L.group);
@@ -464,7 +481,7 @@ export class Session {
     this.a4R = new FootMark('right').at(0.17, -1.6); g.add(this.a4R.group);
 
     g = this._mk('T1');
-    this.tap1 = this._tap(); this.tap1.position.set(0, 0.013, -1.8); g.add(this.tap1);
+    this.tap1 = this._tap('running'); this.tap1.position.set(0, 0.013, -1.8); g.add(this.tap1);
 
     g = this._mk('B1');
     // 박자 듣기 = 시각 메트로놈: 비트 링(시선 밴드 중앙) + 글리프 숫자 1·2 박자 교대 펄스
@@ -521,7 +538,7 @@ export class Session {
   _buildBasketball() {
     let g = this._mk('BK_READY');
     g.add(floorRing(0, -1.8, 0.20, 0.225, BRAND.dim, 0.9));
-    this.bkTap = this._tap(); this.bkTap.position.set(0, 0.013, -1.8); g.add(this.bkTap);
+    this.bkTap = this._tap('boxing'); this.bkTap.position.set(0, 0.013, -1.8); g.add(this.bkTap);
 
     // A1 스탠스·무릎 — 어깨너비 두 발 기준형(중립) + 무릎 굽힘 아크
     g = this._mk('BK_A1');
@@ -542,7 +559,7 @@ export class Session {
     this.bkA3ring = floorRing(0, -1.5, 0.10, 0.12, BRAND.red, 0.8); g.add(this.bkA3ring);
 
     g = this._mk('BK_T1');
-    this.bkTap1 = this._tap(); this.bkTap1.position.set(0, 0.013, -1.8); g.add(this.bkTap1);
+    this.bkTap1 = this._tap('boxing'); this.bkTap1.position.set(0, 0.013, -1.8); g.add(this.bkTap1);
 
     // B1 스텝백 궤적 보기 — 3발 궤적 + 곡선 레인 (Ghost 리플레이)
     g = this._mk('BK_B1');
@@ -657,12 +674,21 @@ export class Session {
     l.computeLineDistances(); l.renderOrder = 6; return l;
   }
 
-  _tap() {
-    // CTA 유닛 — UI 버튼처럼 조판: 탭 도트 2개 + 'TAP ×2' 라벨 + 행동 카피가 존 안에 한 덩어리
-    // (탭 = 입력 어포던스, 토큰 아님 — 기존 분류 유지)
+  _tap(sport) {
+    // CTA 유닛 — 피그마 StageCard/베이스 cta 노드를 다운로드한 에셋이 있으면 그걸로, 없으면
+    // 절차적 도트+라벨로 폴백(탭 = 입력 어포던스, 토큰 아님 — 기존 분류 유지)
     const g = new THREE.Group();
-    for (let i = 0; i < 2; i++) { const r = new THREE.Mesh(new THREE.RingGeometry(0.072, 0.092, 36), flatMat(BRAND.prism, 0.95)); r.position.set((i - 0.5) * 0.24, 0.055, 0); g.add(r); }
-    const label = makeTextPlane('TAP ×2', { size: 0.085, color: CS.prism, weight: 800 }); label.position.set(0, -0.13, 0.001); g.add(label);
+    const tex = ctaTexture(sport);
+    if (tex) {
+      const aspect = 150 / 44;   // 피그마 cta 노드 실측 비율
+      const h = 0.30, w = h * aspect;
+      const plane = new THREE.Mesh(new THREE.PlaneGeometry(w, h),
+        new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false }));
+      g.add(plane); g.userData._ctaPlane = plane;
+    } else {
+      for (let i = 0; i < 2; i++) { const r = new THREE.Mesh(new THREE.RingGeometry(0.072, 0.092, 36), flatMat(BRAND.prism, 0.95)); r.position.set((i - 0.5) * 0.24, 0.055, 0); g.add(r); }
+      const label = makeTextPlane('TAP ×2', { size: 0.085, color: CS.prism, weight: 800 }); label.position.set(0, -0.13, 0.001); g.add(label);
+    }
     g.rotation.x = -Math.PI / 2; g.position.y = 0.013; g.renderOrder = 7; g.userData.el = { type: 'tap' }; return g;
   }
   _setCount(n, color = CS.red) {
@@ -1107,7 +1133,11 @@ export class Session {
 
     if (id === 'READY' || id === 'T1') {
       const tap = id === 'READY' ? this.tap : this.tap1; const k = 0.5 + 0.5 * Math.sin(this.t * 4);
-      tap.children[0].material.opacity = 0.5 + 0.45 * k; tap.children[1].material.opacity = 0.5 + 0.45 * (1 - k);
+      if (tap.userData._ctaPlane) {
+        tap.userData._ctaPlane.material.opacity = 0.75 + 0.25 * k;   // 피그마 CTA 에셋 — 통째로 맥동
+      } else {
+        tap.children[0].material.opacity = 0.5 + 0.45 * k; tap.children[1].material.opacity = 0.5 + 0.45 * (1 - k);
+      }
       if (id === 'T1' && this.t >= 4.5) { this.next(); return; }
     } else if (id === 'A1') {
       // 발목 돌리기 — 아크가 실제로 돌며 좌 8회 → 우 8회 카운트
