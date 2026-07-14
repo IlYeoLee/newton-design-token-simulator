@@ -243,17 +243,15 @@ async function boot() {
   Object.assign(TCFG, designStore.d.global.tcfg || {});
   Object.assign(SCFG, designStore.d.global.scfg || {});
   tokens.recolor?.();
-  for (const sp of ['running', 'boxing', 'basketball']) {
-    const p = designStore.getPack(sp);
-    if (!p) continue;
-    try {
-      await Promise.all((p.tokens || []).filter(t => t.design?.svgUrl).map(t => loadSvg(t.design)));  // svg 동기 렌더 대비
-      state.packs[sp] = p;
-    } catch (e) { console.warn('[design store] 팩 복원 실패', sp, e); }
-  }
-  function saveStudio(sport, pack) {
-    designStore.setPack(sport, pack);
+  // v15: 마크별 손편집(tokens[].design) 팩 복원 은퇴 — 구 스튜디오(✎ 편집) 진입점을 걷어내며
+  // 소비 경로를 안 죽였더니, 예전에 만든 커스텀 아트(setArt)가 마크의 상태 셰이더(fx)를
+  // 영구히 가려버리는 좀비가 남아있었음(판정 상태 불문 고정된 flat 원 — 유저 "새빨간 애" 신고로 발견).
+  // 지금 원칙: 마크 형태·색은 룩 시스템만, 마크 좌표·간격은 팩 파생만 — 개별 손편집 자리가 없다.
+  // 기존에 저장돼 있던 오버라이드도 여기서 일괄 정화(재부팅마다 재확인 필요 없게 즉시 지움).
+  if (designStore.d.packs && Object.keys(designStore.d.packs).length) {
+    designStore.d.packs = {};
     designStore.save();
+    console.log('[design store] 팩 손편집(마크 아트) 잔해 정화 — 룩 시스템/피그마로 이관 완료');
   }
   function saveScenes() { designStore.save(); }
 
@@ -1110,7 +1108,7 @@ async function boot() {
     tokens.resetLoop();
     panel.setPack(pack, tokens.events);
     lastBodyZ = xbot.group.position.z;
-    saveStudio(sport, pack);   // 편집 자동 저장 (새로고침해도 유지)
+    // saveStudio 은퇴(v15) — 팩 손편집 저장 경로 자체를 제거(위 부팅 정화 참조)
     editor3d.syncSelection();  // 리빌드로 마커가 새로 생겼으니 3D 선택 윤곽 재적용
   }
   function scheduleStudioRebuild() {
