@@ -56,7 +56,7 @@ void main() {
     float breath = 1.0 + 0.05 * sin(uTime * 2.0);
     float q = length(uv - gcBall) / (ext * 0.98 * breath);
     vec3 fillCol = mix(FXC_CREAM, mix(FXC_CORAL, FXC_SAND, smoothstep(0.0, 0.733, q)), f);
-    col = fillCol * inside * mix(0.30, 0.70, f) * fillGain;
+    col = fillCol * inside * mix(0.52, 0.80, f) * fillGain;   // 랩 기준 선명도 — 윤곽만 남지 않게
     col += FXC_SAND * exp(-pow(sd / (0.03 * uW), 2.0)) * dashM * (0.85 - 0.5 * f);
     col *= uFade;
   } else if (uPhase < 1.5) {     // Active: 적열 필 + 얼음빛 헤일로 수축 (수축 완료 = 이벤트)
@@ -70,7 +70,7 @@ void main() {
     float h = exp(-pow(outPos / hw, 1.3)) * (1.0 - inside);
     // 발형: SDF 인코드 상한(±0.25)보다 헤일로가 넓으면 감쇠가 못 끝나 쿼드 전체가 판이 됨 — 도달거리 클램프
     if (uShape > 0.5) h *= smoothstep(0.24, 0.12, outPos);
-    col += mix(FXC_SAND, FXC_ICE, smoothstep(0.15, 0.9, outPos / hw)) * h * uHalo * 0.5 * dashM;
+    col += mix(FXC_SAND, FXC_ICE, smoothstep(0.15, 0.9, outPos / hw)) * h * uHalo * 0.32 * dashM;   // 파란 광 과다 감쇠 (블룸 문댐 방지)
   } else if (uPhase < 2.5) {     // Success 잔상: 진홍 블룸 + 얼음빛 림 플래시 → 소멸
     float e = 1.0 - pow(1.0 - uProg, 2.6);
     float q = length(uv - gcBall) / (uShape > 0.5 ? 1.5 : ext * 1.3) / (0.55 + 0.55 * e);

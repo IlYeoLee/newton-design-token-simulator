@@ -295,6 +295,10 @@ export class XBot {
     this.group.position.set(0, 0, 0);
     this.mixer.update(0);
     this._lockInPlace?.();
+    // 최종 월드 확정 — 루트모션 상쇄(모델 오프셋) 이후를 rig가 읽도록. 미갱신 시 무릎 모듈이
+    // 상쇄 전 원시 힙 위치(런 클립 최대 0.9m 앞)에 놓여 '프로젝터가 몸에서 떨어져 떠다님'.
+    // (팩 경로는 판정 캘리브레이션이 기존 타이밍에 적합돼 있어 건드리지 않음)
+    this.model.updateMatrixWorld(true);
   }
 
   update(packTime, dt = 0.016) {
