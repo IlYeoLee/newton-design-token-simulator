@@ -406,9 +406,11 @@ export class Session {
   _mk(id) { const g = new THREE.Group(); g.visible = false; this.root.add(g); this.G[id] = g; return g; }
 
   _build() {
-    this.slotFS = new THREE.Group(); this.slotFS.position.set(-0.74, 0, -2.55);
-    this.slotFL = new THREE.Group(); this.slotFL.position.set(0, 0, -2.3);
-    this.slotFM = new THREE.Group(); this.slotFM.position.set(0, 0, -1.4);
+    // 스테이지 카드 대지 (지면 1.8×1.9m): 아이브로(-2.98) → 타이틀(-2.68) → CTA·운동 존(-1.6~-2.3) → 푸터(-1.28)
+    // — 흩어진 좌표·극소 타이포를 UI 조판으로 (유저: 타이틀+보조+CTA/운동 영역 구조)
+    this.slotFS = new THREE.Group(); this.slotFS.position.set(0, 0, -2.98);
+    this.slotFL = new THREE.Group(); this.slotFL.position.set(0, 0, -2.68);
+    this.slotFM = new THREE.Group(); this.slotFM.position.set(0, 0, -1.28);
     this.root.add(this.slotFS, this.slotFL, this.slotFM);
 
     this.countGroup = new THREE.Group(); this.countGroup.position.set(0, 0, -1.85);
@@ -655,9 +657,11 @@ export class Session {
   }
 
   _tap() {
+    // CTA 유닛 — UI 버튼처럼 조판: 탭 도트 2개 + 'TAP ×2' 라벨 + 행동 카피가 존 안에 한 덩어리
+    // (탭 = 입력 어포던스, 토큰 아님 — 기존 분류 유지)
     const g = new THREE.Group();
-    for (let i = 0; i < 2; i++) { const r = new THREE.Mesh(new THREE.RingGeometry(0.055, 0.07, 32), flatMat(BRAND.prism, 0.95)); r.position.x = (i - 0.5) * 0.18; g.add(r); }   // 탭 = 입력 어포던스(토큰 아님·기존 분류 유지) — 파동 전환은 7cm에서 뭉개져 원복
-    const label = makeTextPlane('TAP ×2', { size: 0.055, color: CS.prism }); label.position.set(0, -0.16, 0.001); g.add(label);
+    for (let i = 0; i < 2; i++) { const r = new THREE.Mesh(new THREE.RingGeometry(0.072, 0.092, 36), flatMat(BRAND.prism, 0.95)); r.position.set((i - 0.5) * 0.24, 0.055, 0); g.add(r); }
+    const label = makeTextPlane('TAP ×2', { size: 0.085, color: CS.prism, weight: 800 }); label.position.set(0, -0.13, 0.001); g.add(label);
     g.rotation.x = -Math.PI / 2; g.position.y = 0.013; g.renderOrder = 7; g.userData.el = { type: 'tap' }; return g;
   }
   _setCount(n, color = CS.red) {
@@ -894,9 +898,9 @@ export class Session {
       const S = this._slot.bind(this);
       const H = {
         S,
-        FS: t => S(this.slotFS, t, { size: 0.055, color: CS.mute }),
-        FL: t => S(this.slotFL, t, { size: 0.10, color: CS.ink }),
-        FM: (t, c = CS.dim) => S(this.slotFM, t, { size: 0.07, color: c }),
+        FS: t => S(this.slotFS, t, { size: (FXP.card?.eyeCap ?? 0.07), color: CS.mute, weight: 600 }),   // 아이브로
+        FL: t => S(this.slotFL, t, { size: (FXP.card?.titleCap ?? 0.17), color: CS.ink, weight: 800 }),  // 타이틀
+        FM: (t, c = CS.dim) => S(this.slotFM, t, { size: (FXP.card?.footCap ?? 0.095), color: c }),      // 푸터·카운터
       };
       H.FS(''); H.FL(''); H.FM('');
       if (st.count) this._setCount(5);
@@ -1021,6 +1025,14 @@ export class Session {
     const bodyZ = (!wall && this.isLive) ? this.xbot.getBodyPos().z : 0;
     this.root.position.x = wall ? 0 : this.tokens.floorRoot.position.x;
     this.root.position.z = wall ? 0 : (this.tokens.floorRoot.position.z + bodyZ);
+    // 스테이지 카드 조판 라이브 소비 (룩 '스테이지 카드' 슬라이더 — 위치는 즉시, 캡은 다음 텍스트 갱신 시)
+    const CARD = FXP.card || {};
+    this.slotFL.position.z = -(CARD.titleZ ?? 2.68);
+    this.slotFS.position.z = -((CARD.titleZ ?? 2.68) + (CARD.eyebrow ?? 0.30));
+    this.slotFM.position.z = -(CARD.footerZ ?? 1.28);
+    const ctaS = CARD.cta ?? 1;
+    if (this.tap) this.tap.scale.setScalar(ctaS);
+    if (this.tap1) this.tap1.scale.setScalar(ctaS);
     const beat = (per) => (this.t % per) / per;
     // FM 슬롯 갱신 헬퍼 — 값이 바뀔 때만 텍스처 재생성 (벽/지면 자동)
     const FMU = (text, color) => {
