@@ -352,17 +352,26 @@ async function boot() {
     sceneUI.setSport(data.sport, data.sport === 'boxing');
     sceneUI.setTitle('');
     sceneUI.setStatus('');
-    // 시그니처 스탬프 — 전문가 데이터의 수치가 투사면 위에 표기된다 ("이게 원본 데이터"의 증거).
+    // 시그니처 스탬프 — 실제 로드된 팩의 출처가 투사면 위에 표기된다 ("이게 원본 데이터"의 증거).
     // 위계: sub 슬롯(감광 0.65) — 큐보다 어둡고, 지시문·상태가 뜨면 그 아래.
+    // 라벨은 그 팩의 실제 출처에서 파생 — 기본 팩(real-parsed, 예: Fukuchi 실측 피험자)까지
+    // 무조건 '전문가'라 찍던 오표기 수정(유저 지적: "전문가 케이던스는 왜 뜨는거야").
+    const sourceTag = (() => {
+      const n = data.packName || '';
+      if (n.includes('전문가')) return '전문가';
+      if (n.includes('커리')) return '커리 실경기';
+      if (n.includes('영상')) return '영상 추출';
+      return data.dataStatus === 'real-parsed' ? '실측' : '자동추출';
+    })();
     sceneUI.setSub((() => {
       const bt = tokens._beatT;
-      if (data.sport === 'running' && bt) return `전문가 케이던스 ${Math.round(60 / bt)}spm · 보폭 ${(tokens._strideM || 0).toFixed(2)}m`;
+      if (data.sport === 'running' && bt) return `${sourceTag} 케이던스 ${Math.round(60 / bt)}spm · 보폭 ${(tokens._strideM || 0).toFixed(2)}m`;
       if (data.sport === 'boxing') {
         const ts = tokens.events.filter(e => e.surface === 'wall').map(e => e.t).sort((a, b) => a - b);
         const gap = ts.length > 1 ? (ts[1] - ts[0]).toFixed(2) : null;
-        return gap ? `엘리트 잽 리듬 ${gap}s 간격` : '';
+        return gap ? `${sourceTag} 잽 리듬 ${gap}s 간격` : '';
       }
-      if (data.sport === 'basketball' && bt) return `실경기 컷 리듬 ${bt.toFixed(2)}s · 스텝 ${tokens.events.filter(e => e.surface !== 'wall').length}개`;
+      if (data.sport === 'basketball' && bt) return `${sourceTag} 컷 리듬 ${bt.toFixed(2)}s · 스텝 ${tokens.events.filter(e => e.surface !== 'wall').length}개`;
       return '';
     })());
 
