@@ -183,12 +183,7 @@
 <details style="margin:18px 0 4px"><summary style="cursor:pointer;font-size:13px;color:var(--dim)">세션 리듬 타이밍 (전역 — A/B 단계 박자·홀드)</summary>
 <div id="scfgHost" style="display:grid;grid-template-columns:repeat(2,minmax(200px,1fr));gap:2px 18px;max-width:640px;padding:10px 4px"></div></details>
 
-<details open style="margin:18px 0 4px"><summary style="cursor:pointer;font-size:13px;color:var(--sand)">스테이지 카드 — 세션 UI 조판 (전 장면 공용: 아이브로·타이틀·CTA·푸터)</summary>
-<div style="font-size:11px;color:var(--dim);padding:6px 4px 2px">값 하나 = 17장면 전체 조판 · <b style="color:var(--text)">미리보기에서 직접: 밴드 드래그=거리 · 휠=크기</b> (슬라이더는 미세조정)</div>
-<div style="display:flex;gap:22px;align-items:flex-start;flex-wrap:wrap;padding:6px 4px">
-  <canvas id="cardPrev" width="340" height="540" style="width:255px;height:405px;background:#101318;border:1px solid #262b33;border-radius:10px;flex:none"></canvas>
-  <div id="cardHost" style="display:grid;grid-template-columns:repeat(1,minmax(220px,1fr));gap:2px 18px;min-width:240px;flex:1"></div>
-</div></details>
+<div style="margin:18px 0 4px;padding:10px 12px;border:1px dashed #3a4150;border-radius:8px;font-size:12px;color:var(--dim)">스테이지 카드 조판은 <b style="color:var(--sand)">피그마(StageCard/베이스 컴포넌트)</b>로 이관되었습니다 — 여기서 편집하지 않고 피그마 디자인을 임포트합니다. (FXP.card 소비 경로는 유지)</div>
 
 <div class="notes">
   <b>애니메이션 퀄리티에서 바뀐 것</b> — ①프레임 크로스페이드(인물 8fps 원본을 보간해 부드럽게)
@@ -1937,7 +1932,6 @@ state.sys = {
 state.card = { titleZ: 2.68, eyebrow: 0.30, footerZ: 1.28, titleCap: 0.17, eyeCap: 0.07, footCap: 0.095, cta: 1.0 };
 const SYS_ROLES = [['left','스텝 마크 (좌)'],['right','스텝 마크 (우)'],['target','벽면 타겟'],['guide','방향 화살표'],['lane','레인'],['success','성공 (프리즘)']];
 const SYS_TCFG = [['fillOpacity','채움 투명도',0.05,0.6],['previewEdge','프리뷰 윤곽',0.1,1],['cdContractFrom','수축 시작 배율',1.2,3],['cdGain','수축 링 강도',0.2,1],['lingerEdge','성공 잔상',0.3,1.5],['linger','잔상 지속(s)',0.15,1]];
-const CARD_DEFS = [['titleZ','타이틀 거리(m 앞)',1.2,2.85],['eyebrow','아이브로 간격',0.12,0.6],['footerZ','푸터 거리(m 앞)',0.8,2.0],['titleCap','타이틀 캡높이',0.08,0.3],['eyeCap','아이브로 캡',0.04,0.12],['footCap','푸터 캡',0.05,0.16],['cta','CTA 배율',0.6,1.8]];
 const SYS_SCFG = [['a1Rep','A1 발목 1회전',0.4,2.5],['a2Hold','A2 홀드 길이',3,15],['a3Swing','A3 스윙 왕복',0.6,3],['a4Beat','A4 걷기 박자',0.3,1.2],['b1Beat','B1 듣기 박자',0.3,1.2],['b2Beat','B2 스텝 박자',0.3,1.4],['b3Step','B3 걸음 간격',0.5,2],['b4Beat','B4 리듬 박자',0.3,1.2]];
 function buildSys() {
   const rolesHost = document.getElementById('rolesHost');
@@ -1968,96 +1962,8 @@ function buildSys() {
   };
   mkSliders(tcfgHost, SYS_TCFG, state.sys.tcfg);
   mkSliders(scfgHost, SYS_SCFG, state.sys.scfg);
-  window.__mkCard = () => {   // 카드 슬라이더 리빌드 (중복 방지: 항상 클리어 후 — buildSys 재호출·직접조작 동기 공용)
-    const host = document.getElementById('cardHost');
-    host.innerHTML = '';
-    mkSliders(host, CARD_DEFS, state.card);
-  };
-  window.__mkCard();
-  document.getElementById('cardHost').addEventListener('input', () => drawCardPreview());
-  drawCardPreview();
 }
-/** 스테이지 카드 미리보기 — 실측 스케일 탑다운 대지 (슬라이더와 라이브 연동, 레드라인 표기) */
-function drawCardPreview() {
-  const cv = document.getElementById('cardPrev');
-  if (!cv) return;
-  const g = cv.getContext('2d');
-  const W = cv.width, H = cv.height;
-  const C = state.card;
-  g.clearRect(0, 0, W, H);
-  // 대지: 폭 1.8m × 깊이 0.6~3.4m (유저 발끝이 아래) — px/m 스케일
-  const D0 = 0.6, D1 = 3.4, pxM = H / (D1 - D0);
-  const zy = z => H - (z - D0) * pxM;             // 전방 거리 z(m) → 캔버스 y
-  const cx = W / 2;
-  // 지면 격자 (0.5m)
-  g.strokeStyle = 'rgba(140,146,156,.12)'; g.lineWidth = 1;
-  for (let z = 1.0; z <= 3.0; z += 0.5) { g.beginPath(); g.moveTo(0, zy(z)); g.lineTo(W, zy(z)); g.stroke(); }
-  const ink = (a = 1) => `rgba(255,243,220,${a})`;
-  const capPx = m => Math.max(7, m * pxM);        // 캡높이(m) → px (같은 스케일 — 정직한 자)
-  const text = (t, z, capM, { color = ink(0.95), weight = 700 } = {}) => {
-    g.font = `${weight} ${capPx(capM)}px -apple-system, 'Apple SD Gothic Neo', sans-serif`;
-    g.textAlign = 'center'; g.textBaseline = 'middle';
-    g.shadowColor = 'rgba(254,163,95,.75)'; g.shadowBlur = capPx(capM) * 0.25;
-    g.fillStyle = color; g.fillText(t, cx, zy(z)); g.shadowBlur = 0;
-  };
-  // 밴드: 아이브로 → 타이틀 → CTA·운동 존 → 푸터
-  text('STRETCH 1/4', C.titleZ + C.eyebrow, C.eyeCap, { color: 'rgba(160,166,176,.9)', weight: 600 });
-  text('발목 돌리기', C.titleZ, C.titleCap, { weight: 800 });
-  // 운동 존 표시 (시스템 존: z 1.0~3.0m 고정) + CTA 유닛
-  g.strokeStyle = 'rgba(254,110,60,.28)'; g.setLineDash([5, 5]);
-  g.strokeRect(cx - 0.75 * pxM * 0.5 * 2 / 2, zy(2.85), 0.75 * pxM * 2 * 0.5 * 2, (2.85 - 1.0) * pxM);
-  g.setLineDash([]);
-  const ctaY = zy(1.95), ctaS = (C.cta ?? 1) * pxM;
-  g.strokeStyle = '#8fd0d8'; g.lineWidth = 2.5;
-  for (const s of [-1, 1]) { g.beginPath(); g.ellipse(cx + s * 0.12 * ctaS, ctaY - 0.05 * ctaS, 0.045 * ctaS, 0.032 * ctaS, 0, 0, 7); g.stroke(); }
-  g.font = `800 ${Math.max(8, 0.085 * ctaS)}px -apple-system, sans-serif`;
-  g.fillStyle = '#8fd0d8'; g.textAlign = 'center'; g.fillText('TAP ×2', cx, ctaY + 0.11 * ctaS);
-  text('왼발 3 / 8', C.footerZ, C.footCap, { color: 'rgba(254,195,137,.95)' });
-  // 레드라인: 거리 표기
-  g.font = '9px monospace'; g.fillStyle = 'rgba(140,146,156,.7)'; g.textAlign = 'left';
-  for (const [z, name] of [[C.titleZ + C.eyebrow, '아이브로'], [C.titleZ, '타이틀'], [C.footerZ, '푸터']])
-    g.fillText(`${name} ${z.toFixed(2)}m`, 6, zy(z) - capPx(0.05));
-  g.fillText('운동 존 1.0–2.85m · 2.85m=빔 도달 한계(실측)', 6, zy(2.85) - 4);
-}
-// ── 카드 미리보기 직접 조작 — 드래그=밴드 거리 · 휠=그 밴드 캡/CTA 크기 (숫자 앵커와 같은 문법) ──
-{
-  const cv = document.getElementById('cardPrev');
-  const D0 = 0.6, D1 = 3.4;
-  const yToZ = py => D0 + (cv.height - py) * (D1 - D0) / cv.height;
-  const pageY = e => { const r = cv.getBoundingClientRect(); return (e.clientY - r.top) * cv.height / r.height; };
-  const bandAt = z => {
-    const C = state.card;
-    const bands = [['eyebrow', C.titleZ + C.eyebrow], ['title', C.titleZ], ['cta', 1.95], ['footer', C.footerZ]];
-    let best = null, bd = 1e9;
-    for (const [k, bz] of bands) { const d = Math.abs(bz - z); if (d < bd) { bd = d; best = k; } }
-    return bd < 0.28 ? best : null;
-  };
-  let drag = null;
-  cv.style.cursor = 'ns-resize'; cv.style.touchAction = 'none';
-  cv.addEventListener('pointerdown', e => { drag = bandAt(yToZ(pageY(e))); if (drag) cv.setPointerCapture(e.pointerId); });
-  cv.addEventListener('pointermove', e => {
-    if (!drag) return;
-    const z = yToZ(pageY(e)), C = state.card;
-    if (drag === 'title') C.titleZ = Math.min(2.85, Math.max(1.2, z));
-    else if (drag === 'eyebrow') C.eyebrow = Math.min(0.6, Math.max(0.15, z - C.titleZ));
-    else if (drag === 'footer') C.footerZ = Math.min(2.0, Math.max(0.9, z));
-    drawCardPreview();
-  });
-  const endDrag = () => { if (drag) window.__mkCard?.(); drag = null; };
-  cv.addEventListener('pointerup', endDrag); cv.addEventListener('pointercancel', endDrag);
-  cv.addEventListener('wheel', e => {
-    e.preventDefault();
-    const b = bandAt(yToZ(pageY(e))), C = state.card;
-    if (!b) return;
-    const k = Math.pow(1.0018, -e.deltaY);
-    if (b === 'title') C.titleCap = Math.min(0.3, Math.max(0.08, C.titleCap * k));
-    else if (b === 'eyebrow') C.eyeCap = Math.min(0.12, Math.max(0.04, C.eyeCap * k));
-    else if (b === 'footer') C.footCap = Math.min(0.16, Math.max(0.05, C.footCap * k));
-    else if (b === 'cta') C.cta = Math.min(1.8, Math.max(0.6, C.cta * k));
-    drawCardPreview();
-    clearTimeout(cv._t); cv._t = setTimeout(() => window.__mkCard?.(), 300);
-  }, { passive: false });
-}
+// 스테이지 카드 편집은 피그마로 이관 (v15) — FXP.card는 임포트 값 소비 전용
 buildSys();
 // ═══ 시뮬 임베드 브리지 ═══════════════════════
 // 부모(시뮬)가 있으면: 상태를 주기 전송(적용·저장은 부모 몫), init 수신 시 UI 복원
