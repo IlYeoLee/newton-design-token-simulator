@@ -55,8 +55,12 @@ void main() {
     float f = uStrong;
     float breath = 1.0 + 0.05 * sin(uTime * 2.0);
     float q = length(uv - gcBall) / (ext * 0.98 * breath);
-    vec3 fillCol = mix(FXC_CREAM, mix(FXC_CORAL, FXC_SAND, smoothstep(0.0, 0.733, q)), f);
-    col = fillCol * inside * mix(0.52, 0.80, f) * fillGain;   // 랩 기준 선명도 — 윤곽만 남지 않게
+    // 강조 프리뷰(다음 마크) = 적열 코어 — 시안 Preview(파스텔)만으로는 장면 대부분이
+    // 물 빠져 보임(유저 확정). 약한 프리뷰는 시안 크림 유지, '다음'만 뜨겁게 = 위계+색 존재감.
+    vec3 hotFill = mix(FXC_RED, FXC_CORAL, smoothstep(0.0, 0.45, q));
+    hotFill = mix(hotFill, FXC_SAND, smoothstep(0.45, 1.0, q));
+    vec3 fillCol = mix(FXC_CREAM, hotFill, f);
+    col = fillCol * inside * mix(0.52, 0.92, f) * fillGain;
     col += FXC_SAND * exp(-pow(sd / (0.03 * uW), 2.0)) * dashM * (0.85 - 0.5 * f);
     col *= uFade;
   } else if (uPhase < 1.5) {     // Active: 적열 필 + 얼음빛 헤일로 수축 (수축 완료 = 이벤트)
