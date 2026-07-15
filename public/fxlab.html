@@ -638,7 +638,10 @@ void main(){
     float q = length(uv - gc) / (ext * 1.02);
     float qh = max(q - 0.24 * pr, 0.0);                       // 진행할수록 적색 반경 확장
     col = mix(col, fillHold(qh), inside * min(fillGain, 1.0) * 0.95);
-    float rw = 0.05 * uW;                                     // 림 = 진행 시계 (보드 w=30 비율)
+    // 림 = 진행 시계(보드 w=30 비율) — 폭이 좁아 발형 SDF 텍스처의 양자화 잡음을 그대로 드러내
+    // Hold 상태에서만 가장자리가 거칠어 보이던 원인(Active 등 다른 상태엔 이 항 자체가 없음).
+    // fwidth 기반 최소 폭으로 잡음보다 항상 넓게 유지.
+    float rw = max(0.05 * uW, fwidth(sd) * 1.8);
     float rim = exp(-pow((sd - 0.012) / rw, 2.0)) * dashM;
     float prog = smoothstep(pr + 0.045, pr - 0.045, a01);
     vec3 arcCol = mix(C_RED, C_CORAL, clamp(a01 / max(pr, 0.001), 0.0, 1.0));
