@@ -599,9 +599,11 @@ void main(){
   float aa = max(fwidth(sd), 0.004) * 1.4;
   float inside = smoothstep(aa, -aa, sd);
   float outPos = max(sd, 0.0);
-  // 점선 = 회피 계약 (윤곽·림에 적용)
+  // 점선 = 회피 계약 (윤곽·림에 적용) — 예전엔 일렁임 노이즈(u1)가 점선 위상까지 흔들고
+  // 주기가 너무 촘촘(18)해 '털 뜯긴 것처럼' 지저분해 보였음(유저 확대 캡처로 확인). 일렁임과
+  // 분리하고 주기를 낮춰 깔끔한 점선 링으로.
   float dashM = (uContract > 0.5 && uContract < 1.5)
-              ? smoothstep(0.15, 0.55, 0.5 + 0.5 * sin(ang * 18.0 + u1)) : 1.0;
+              ? smoothstep(0.30, 0.60, 0.5 + 0.5 * sin(ang * 10.0)) : 1.0;
   // 그라디언트 기하: 존 원=중심 / 발형=발볼(위) — Hold는 뒤꿈치로 슬라이드
   float ext = uShape < 0.5 ? 0.46 * uRadius : 0.72;
   vec2 gcBall = uShape < 0.5 ? vec2(0.0) : vec2(0.0, 0.20);
