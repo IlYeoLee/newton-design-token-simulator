@@ -661,9 +661,13 @@ void main(){
     // 레퍼런스 SVG 실측(홀드 행 크롭 픽셀 스캔): 얇은 선이 아니라 폭 넓은 소프트 글로우였음
     // (유저 "얇은데?" 지적 → 레퍼런스 다시 확대해보니 진짜였음, 스트로크 방향 자체가 오판).
     // 무한 꼬리(가우시안) 대신 유한폭 스무스스텝 — float 텍스처라 이제 넓혀도 안 지저분함.
-    float glowPx = 16.0 * uW;
+    float glowPx = 20.0 * uW;   // 16→20, 유저: "조금만 더 굵게"
     float rim = (1.0 - smoothstep(0.0, glowPx * fw, distToRim)) * dashM;
-    float prog = smoothstep(pr + 0.045, pr - 0.045, a01);
+    // 진행 시작점(12시, a01=0/1 랩어라운드)에서 회색↔적색 전환이 무 자르듯 뚝 끊겼던 원인:
+    // a01-pr을 그대로 smoothstep에 넣으면 0↔1 경계에서 불연속. 각도차를 [-0.5,0.5]로 감싸
+    // 랩어라운드를 없애고, 폭도 넓혀(0.045→0.09) 은은하게.
+    float angDist = a01 - pr; angDist -= floor(angDist + 0.5);
+    float prog = smoothstep(0.09, -0.09, angDist);
     vec3 arcCol = mix(C_RED, C_CORAL, clamp(a01 / max(pr, 0.001), 0.0, 1.0));
     vec3 rimCol = mix(C_RIMG, arcCol, prog);
     col = mix(col, rimCol, rim * mix(0.42, 0.92, prog));
