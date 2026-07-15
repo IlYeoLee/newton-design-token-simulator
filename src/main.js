@@ -992,6 +992,17 @@ async function boot() {
       savedLab.card = FIGMA_CARD;
       if (changed) { designStore.globalSet('fx', 'lab', savedLab); designStore.save(); }
     }
+    // 발형 숫자 글리프 크기 고정 — FX Lab에서 휠로 조정한 최종값을 정본으로 강제
+    // (유저 결정: 마크마다/유저마다 제각각이던 글리프 크기를 통일). FIGMA_CARD와 동일 패턴.
+    const FIXED_NUMFOOT = {
+      in:  { x: 0.5094339330826735, y: 0.3757961753613217, s: 0.7873316243260334 },
+      out: { x: 0.46862160868866765, y: 0.37879042550329767, s: 0.9548249031726418 },
+    };
+    if (savedLab) {
+      const changedNF = JSON.stringify(savedLab.numFoot || null) !== JSON.stringify(FIXED_NUMFOOT);
+      savedLab.numFoot = FIXED_NUMFOOT;
+      if (changedNF) { designStore.globalSet('fx', 'lab', savedLab); designStore.save(); }
+    }
     updateSurfChips(savedLab?.bg || 'none');
     updateSurfChipsOut = updateSurfChips;
     if (savedLab) applyLabState(savedLab);
