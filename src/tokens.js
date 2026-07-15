@@ -8,8 +8,10 @@ const MARKFX_VERT = `
 #include <common>
 #include <clipping_planes_pars_vertex>
 varying vec2 vUv;
+varying vec3 vWorldPos;   // 레인 풋프린트 소프트 페이드용 (LANEFX_FRAG 소비, MARKFX_FRAG는 미사용)
 void main() {
   vUv = uv;
+  vWorldPos = (modelMatrix * vec4(position, 1.0)).xyz;
   vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
   gl_Position = projectionMatrix * mvPosition;
   #include <clipping_planes_vertex>
@@ -161,9 +163,27 @@ const LANEFX_FRAG = `
 ` + FX_GLSL + `
 uniform float uTime, uLen, uW, uHalo, uGain, uDay;
 uniform float uLStyle, uLSpeed, uLGap, uLHeat, uLTail;
+// 풋프린트(투사면) 로컬 좌표계 — 무릎 원점 + 전방/우측 단위벡터(월드). 레인은 월드 고정
+// 지오메트리라 매 프레임 러너가 지나가는 부분만 GPU 클리핑(floorClip)으로 하드컷됐는데,
+// 가산 글로우가 꼬리 없이 뚝 잘려 사각형 프레임처럼 보였음(유저 스크린샷으로 확인).
+// 클리핑 자체(투사 경계 밖 금지)는 원칙대로 유지하되, 그 경계에 닿기 전에 셰이더에서
+// 먼저 알파를 죽여 하드컷이 안 보이게 한다.
+uniform vec3 uFPOrigin, uFPFwd, uFPRight;
+uniform float uFPNear, uFPFar, uFPHalfN, uFPHalfF, uFPFadeM;
 varying vec2 vUv;
+varying vec3 vWorldPos;
+float footprintFade(vec3 wp) {
+  vec2 rel = wp.xz - uFPOrigin.xz;
+  float d = rel.x * uFPFwd.x + rel.y * uFPFwd.z;
+  float h = rel.x * uFPRight.x + rel.y * uFPRight.z;
+  float half_ = mix(uFPHalfN, uFPHalfF, clamp((d - uFPNear) / max(0.01, uFPFar - uFPNear), 0.0, 1.0));
+  float fadeLen = smoothstep(uFPNear, uFPNear + uFPFadeM, d) * smoothstep(uFPFar, uFPFar - uFPFadeM, d);
+  float fadeW = smoothstep(half_, half_ - uFPFadeM, abs(h));
+  return fadeLen * fadeW;
+}
 void main() {
   #include <clipping_planes_fragment>
+  float fpFade = footprintFade(vWorldPos);
   float lat = (vUv.x - 0.5) * 2.0;                     // 폭방향 -1..1
   float along = vUv.y * uLen;                          // 진행 좌표 (m)
   lat += sin(along * 2.1 + uTime * 1.4) * 0.06;        // 미세 측면 웨이브
@@ -198,6 +218,7 @@ void main() {
   float core = exp(-pow(latEff / (0.10 * wEff), 2.0)) + exp(-pow(latEff / (0.42 * wEff), 2.0)) * 0.30 * uHalo;
   float heat = core * pulse * 0.5;
   heat *= smoothstep(0.0, 0.04, vUv.y) * smoothstep(1.0, 0.96, vUv.y);
+  heat *= fpFade;   // 풋프린트 경계 소프트 페이드 — 뒤이은 GPU 하드클립 전에 이미 0 근처
   float sweep = 0.12 * sin(along * 0.9 - uTime * 1.7);
   vec3 col = lut(clamp(uLHeat - 0.08 + sweep + heat * 0.25, 0.0, 1.0)) * heat * uGain;
   if (uDay > 0.5) {   // 주간 = 풀컬러 잉크 (MARKFX와 동일 규약)
@@ -221,6 +242,9 @@ export function makeLaneFXMaterial(lenM) {
       uGain: { value: 1 },
       uLStyle: { value: 1 }, uLSpeed: { value: 1 }, uLGap: { value: 1 }, uLHeat: { value: 0.5 }, uLTail: { value: 0.55 },
       uDay: { value: 0 },
+      // 풋프린트 소프트 페이드 기본값 — rig 미연결(FX Lab 등) 시 항상 안 죽게 넉넉한 범위
+      uFPOrigin: { value: new THREE.Vector3() }, uFPFwd: { value: new THREE.Vector3(0, 0, -1) }, uFPRight: { value: new THREE.Vector3(1, 0, 0) },
+      uFPNear: { value: -1e6 }, uFPFar: { value: 1e6 }, uFPHalfN: { value: 1e6 }, uFPHalfF: { value: 1e6 }, uFPFadeM: { value: 0.15 },
     },
     transparent: true,
     blending: THREE.AdditiveBlending,
@@ -1071,6 +1095,17 @@ export class TokenSystem {
         LU.uDay.value = dayL;
         this.laneFX.material.blending = dayL ? THREE.NormalBlending : THREE.AdditiveBlending;
         this.laneFX.material.needsUpdate = true;
+      }
+      // 풋프린트 경계 소프트 페이드 — 러너가 지나가며 매 프레임 이동하는 풋프린트를 반영
+      const fp = this.rig?._fp;
+      if (fp) {
+        LU.uFPOrigin.value.set(fp.ox, 0, fp.oz);
+        LU.uFPFwd.value.set(fp.fx, 0, fp.fz);
+        LU.uFPRight.value.set(fp.rx, 0, fp.rz);
+        LU.uFPNear.value = this.rig.fpNear;
+        LU.uFPFar.value = this.rig.fpFar;
+        LU.uFPHalfN.value = this.rig._halfAt(this.rig.fpNear);
+        LU.uFPHalfF.value = this.rig._halfAt(this.rig.fpFar);
       }
     }
 

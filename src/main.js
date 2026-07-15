@@ -104,6 +104,7 @@ async function boot() {
   tokens.wallClip = rig.wallClip;
   effects.floorClipPlanes = rig.floorClip;
   effects.wallClipPlanes = rig.wallClip;
+  tokens.rig = rig;   // 레인 글로우 소프트 페이드용 — 풋프린트 경계를 GPU 하드클립 전에 미리 죽인다
 
   // 흔들림 보정 토글
   const stabBtn = document.getElementById('btn-stab');
