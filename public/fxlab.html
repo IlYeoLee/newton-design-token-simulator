@@ -649,7 +649,7 @@ void main(){
     // 고정(경계를 얕은 각도로 지나는 곳도 폭이 안 벌어짐).
     float distToRim = abs(sd - 0.012);
     float fw = max(fwidth(sd), 1e-5);
-    float strokeHalfSd = 3.0 * uW * fw, aaSd = 1.2 * fw;
+    float strokeHalfSd = 3.0 * uW * fw, aaSd = 1.7 * fw;   // AA 소폭 확대 — 512 해상도 SDF 잔여 양자화 흡수
     float rim = (1.0 - smoothstep(strokeHalfSd - aaSd, strokeHalfSd + aaSd, distToRim)) * dashM;
     float prog = smoothstep(pr + 0.045, pr - 0.045, a01);
     vec3 arcCol = mix(C_RED, C_CORAL, clamp(a01 / max(pr, 0.001), 0.0, 1.0));
@@ -966,7 +966,10 @@ function updateFootSDF() {
       if (!img) { img = new Image(); img.src = url; img.onload = () => updateFootSDF(); glyphImgCache.set(url, img); }
       if (!img.complete || !img.naturalWidth) return;
       const R = glyphRaster(img);
-      const N = 256;
+      // 256→512: 8bit 인코딩 양자화 계단이 얇은 스트로크(직전 수정)에서 그대로 드러났음
+      // (유저: "SVG는 깨끗한데 왜 지글지글하냐" — 원본 SVG가 아니라 구운 SDF 해상도 문제였음).
+      // 인코딩 range=N/4가 N에 비례해 셰이더 디코드는 그대로 둬도 됨(해상도 독립 스킴).
+      const N = 768;
       const c = document.createElement('canvas'); c.width = c.height = N;
       const g = c.getContext('2d');
       const sc = Math.min((N * 0.78) / R.w, (N * 0.78) / R.h);
@@ -997,7 +1000,7 @@ function footAlphaData() {
   return d;
 }
 function footSDF() {
-  const N = 192;
+  const N = 384;   // 192→384, 커스텀 글리프와 동일 이유로 상향
   const oc = document.createElement('canvas'); oc.width = oc.height = N;
   const g = oc.getContext('2d');
   g.fillStyle = '#fff';
