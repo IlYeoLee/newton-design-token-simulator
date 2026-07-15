@@ -9,6 +9,11 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Gowun+Dodum&family=Noto+Sans+KR:wght@300;500;700;900&family=Noto+Serif+KR:wght@600;900&display=swap" rel="stylesheet">
   <style>
+    /* 피그마 StageCard 임포트 파이프라인 — 로컬 전용 폰트를 번들해 시뮬에서 직접 렌더.
+       Pretendard: OFL, Supreme: Fontshare(ITF) 무료 라이선스 — 둘 다 웹 임베드 명시 허용. */
+    @font-face { font-family: 'Pretendard'; src: url('fonts/Pretendard-Bold.woff2') format('woff2'); font-weight: 700; font-display: swap; }
+    @font-face { font-family: 'Supreme'; src: url('fonts/Supreme-Medium.woff2') format('woff2'); font-weight: 500; font-display: swap; }
+    @font-face { font-family: 'Supreme'; src: url('fonts/Supreme-Bold.woff2') format('woff2'); font-weight: 700; font-display: swap; }
     :root {
       --bg: #0c0e12;
       --panel: #14171d;

@@ -947,8 +947,9 @@ export class Session {
       const S = this._slot.bind(this);
       const H = {
         S,
-        FS: t => S(this.slotFS, t, { size: (FXP.card?.eyeCap ?? 0.07), color: CS.mute, weight: 600 }),   // 아이브로
-        FL: t => S(this.slotFL, t, { size: (FXP.card?.titleCap ?? 0.17), color: CS.ink, weight: 800 }),  // 타이틀
+        // 폰트는 피그마 StageCard/베이스와 실제 일치(임포트 파이프라인, 번들: public/fonts/)
+        FS: t => S(this.slotFS, t, { size: (FXP.card?.eyeCap ?? 0.07), color: CS.mute, weight: 500, family: 'Supreme, sans-serif' }),   // 아이브로
+        FL: t => S(this.slotFL, t, { size: (FXP.card?.titleCap ?? 0.17), color: CS.ink, weight: 700, family: 'Pretendard, sans-serif' }),  // 타이틀
         FM: (t, c = CS.dim) => S(this.slotFM, t, { size: (FXP.card?.footCap ?? 0.095), color: c }),      // 푸터·카운터
       };
       H.FS(''); H.FL(''); H.FM('');
