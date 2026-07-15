@@ -642,14 +642,15 @@ void main(){
     // 길게(반경 대비 ~17%) 옅게 늘어져 완만하게 밝아지다 안쪽 필 경계에서 갑자기 확 밝아지는
     // 2단 그라디언트가 생기고, 발형 곡률 따라 꼬리 길이가 각도별로 달라져 '솜털'처럼 보임
     // (그레인·일렁임·회피점선 아님 — 실측 스캔으로 확정). 하드 엔벌로프로 꼬리 자체를 짧게 자름.
-    float rw = max(0.05 * uW, fwidth(sd) * 1.8);
+    // 가우시안 블러(exp(-x²))는 정의상 꼬리가 무한히 이어져 아무리 폭을 좁혀도 옅게 계속
+    // 번짐 — 그게 진짜 원인이었음(유저 지적: SVG 스트로크처럼 딱 떨어지는 외곽선으로 그리면
+    // 되지 않냐 — 정확함). 가우시안 폐기, 진짜 스트로크(SDF 밴드)로 교체: sd=0.012 등고선에서
+    // 고정 픽셀 폭만큼만 칠하고 그 경계에만 얇게 AA. 폭·AA 둘 다 fwidth(sd)로 나눠 픽셀 단위로
+    // 고정(경계를 얕은 각도로 지나는 곳도 폭이 안 벌어짐).
     float distToRim = abs(sd - 0.012);
-    // sd 공간 거리로 폭을 자르면 sd 기울기가 얕은 지점(경계를 완만한 각도로 지나는 곳)에서
-    // 실제 화면 픽셀 폭이 그대로 넓게 남는다(실측 확인 — sd 자체가 픽셀당 아주 천천히 변함).
-    // 화면 픽셀 개수로 환산해서 잘라야 진짜 폭이 고정됨.
-    float pxDist = distToRim / max(fwidth(sd), 1e-5);
-    float rimEnvelope = 1.0 - smoothstep(4.0, 9.0, pxDist);
-    float rim = exp(-pow(distToRim / rw, 2.0)) * rimEnvelope * dashM;
+    float fw = max(fwidth(sd), 1e-5);
+    float strokeHalfSd = 3.0 * uW * fw, aaSd = 1.2 * fw;
+    float rim = (1.0 - smoothstep(strokeHalfSd - aaSd, strokeHalfSd + aaSd, distToRim)) * dashM;
     float prog = smoothstep(pr + 0.045, pr - 0.045, a01);
     vec3 arcCol = mix(C_RED, C_CORAL, clamp(a01 / max(pr, 0.001), 0.0, 1.0));
     vec3 rimCol = mix(C_RIMG, arcCol, prog);
