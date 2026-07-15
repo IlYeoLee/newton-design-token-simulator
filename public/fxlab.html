@@ -658,7 +658,7 @@ void main(){
     // 고정(경계를 얕은 각도로 지나는 곳도 폭이 안 벌어짐).
     float distToRim = abs(sd - 0.012);
     float fw = max(fwidth(sd), 1e-5);
-    float strokeHalfSd = 3.0 * uW * fw, aaSd = 1.7 * fw;   // AA 소폭 확대 — 512 해상도 SDF 잔여 양자화 흡수
+    float strokeHalfSd = 5.5 * uW * fw, aaSd = 1.5 * fw;   // 굵기 상향(3.0→5.5px) — 유저: "너무 얇다"
     float rim = (1.0 - smoothstep(strokeHalfSd - aaSd, strokeHalfSd + aaSd, distToRim)) * dashM;
     float prog = smoothstep(pr + 0.045, pr - 0.045, a01);
     vec3 arcCol = mix(C_RED, C_CORAL, clamp(a01 / max(pr, 0.001), 0.0, 1.0));
