@@ -370,6 +370,8 @@ function glProg(canvas, frag, cssW, cssH) {
   canvas.width = Math.round(cssW * ss); canvas.height = Math.round(cssH * ss);
   const gl = canvas.getContext('webgl');
   gl.getExtension('OES_standard_derivatives');   // fwidth() — 화면공간 AA(경계 앨리어싱 억제)
+  gl.getExtension('OES_texture_float');          // 발형 SDF float 텍스처 — 8bit 양자화 제거
+  gl.getExtension('OES_texture_float_linear');   // float 텍스처 LINEAR 보간
   const sh = (ty, src) => { const s = gl.createShader(ty); gl.shaderSource(s, src); gl.compileShader(s);
     if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) console.error(gl.getShaderInfoLog(s)); return s; };
   const pr = gl.createProgram();
@@ -573,7 +575,9 @@ uniform sampler2D uSDF2;
 float sdAt(vec2 p, float u1){
   if (uShape < 0.5) return length(p) * (1.0 + u1 * uNoise * 0.04) - 0.46 * uRadius;
   vec2 suv = p * 0.5 + 0.5;
-  return (texture2D(uSDF2, vec2(suv.x, 1.0 - suv.y)).r - 0.5019) * 1.0 / max(uRadius, 0.3) + u1 * uNoise * 0.02;   // 인코드 범위 ±N/4와 짝
+  // float 텍스처 직결 디코드(8bit 양자화 인코딩 폐기) — 기존 스케일과 동일 시각 결과를 내도록
+  // 계수(1.9922) 역산: 구 인코딩(range=N/4, 127/255 스케일)의 유효 배율과 동일.
+  return texture2D(uSDF2, vec2(suv.x, 1.0 - suv.y)).r * 1.9922 / max(uRadius, 0.3) + u1 * uNoise * 0.02;
 }
 // 보드 라디얼 스탑 (오프셋 그대로)
 vec3 fillPreview(float q){ return mix(C_CORAL, C_SAND, smoothstep(0.0, 0.733, q)); }
@@ -696,14 +700,16 @@ function uploadSDF(P, FS) {
   const { gl } = P;
   P._sdfTex ||= gl.createTexture();
   gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, P._sdfTex);
-  gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE, FS.N, FS.N, 0, gl.LUMINANCE, gl.UNSIGNED_BYTE, FS.data);
+  // float 텍스처(OES_texture_float) — 8bit 양자화 완전 제거. LINEAR 보간엔
+  // OES_texture_float_linear가 별도 필요(둘 다 아래서 요청·확인).
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE, FS.N, FS.N, 0, gl.LUMINANCE, gl.FLOAT, FS.data);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
   gl.useProgram(P.pr); gl.uniform1i(P.u('uSDF2'), 3);
 }
-uploadSDF(markP, { data: new Uint8Array([128]), N: 1 });   // 존 원 캔버스 — SDF 미사용(uShape=0)
+uploadSDF(markP, { data: new Float32Array([0]), N: 1 });   // 존 원 캔버스 — SDF 미사용(uShape=0)
 state.markShape = 0; state.markForm = 0;
 state.markSurface = 'floor';   // floor | wall — 벽면 = 세션 '벽 링'의 정체
 state.markFootSide = 'L';
@@ -948,11 +954,13 @@ function sdfFromAlpha(imgData, N) {
     if (a > 0.5) { cx += i % N; cy += (i / N) | 0; cn++; }
   }
   edt2d(gO, N); edt2d(gI, N);
-  const out = new Uint8Array(N * N);
-  const range = N / 4;   // ±N/4 px 클램프 = 8bit 정밀도 2배 (셰이더 디코드 계수 절반과 짝)
+  // 8bit LUMINANCE(0-255) 인코딩은 range가 N에 비례해 커지도록 설계돼 있어 해상도(N)를
+  // 아무리 올려도 정밀도가 절대 개선되지 않았음(양자화 계단의 진짜 원인 — 유저가 "SVG는
+  // 깨끗한데 왜 지글거리냐"고 반복 지적한 끝에 발견). float 텍스처로 교체해 양자화 자체를
+  // 없앰 — d/N을 그대로 저장(무손실), 셰이더 디코드 계수만 맞추면 됨.
+  const out = new Float32Array(N * N);
   for (let i = 0; i < N * N; i++) {
-    const d = Math.sqrt(gO[i]) - Math.sqrt(gI[i]);
-    out[i] = Math.max(0, Math.min(255, Math.round((d / range) * 127 + 128)));
+    out[i] = (Math.sqrt(gO[i]) - Math.sqrt(gI[i])) / N;
   }
   return { data: out, N, cx: cn ? cx / cn / N : 0.5, cy: cn ? cy / cn / N : 0.5 };
 }
@@ -965,16 +973,19 @@ function updateFootSDF() {
   const lab = document.getElementById('footLab');
   if (url) {
     const key = slot + '|' + url.length + '|' + flip;
-    let FS = customSDFCache.get(key);
+    // 캐시 키에 실제 캔버스 해상도를 포함 — 화면 배율이 바뀌면(창 이동·줌) 다시 구움
+    const liveN = Math.min(1536, Math.max(768, markC2.width));
+    const key2 = key + '|' + liveN;
+    let FS = customSDFCache.get(key2);
     if (!FS) {
       let img = glyphImgCache.get(url);
       if (!img) { img = new Image(); img.src = url; img.onload = () => updateFootSDF(); glyphImgCache.set(url, img); }
       if (!img.complete || !img.naturalWidth) return;
-      const R = glyphRaster(img);
-      // 256→512: 8bit 인코딩 양자화 계단이 얇은 스트로크(직전 수정)에서 그대로 드러났음
-      // (유저: "SVG는 깨끗한데 왜 지글지글하냐" — 원본 SVG가 아니라 구운 SDF 해상도 문제였음).
-      // 인코딩 range=N/4가 N에 비례해 셰이더 디코드는 그대로 둬도 됨(해상도 독립 스킴).
-      const N = 768;
+      // 원본은 벡터 SVG라 해상도 제한이 없음 — 실제 캔버스가 요구하는 만큼 그때그때 구움
+      // (고정 상수였을 땐 화면 배율이 커지면 구운 텍스처가 늘어나 보여 지글거렸음 — 유저 지적으로
+      // 확인: "SVG는 깨끗한데 왜 지글지글하냐" — 원본이 아니라 굽기 해상도가 화면과 안 맞았던 것).
+      const N = liveN;
+      const R = glyphRaster(img, N);   // 래스터 자체도 같은 해상도로 — 이전엔 512 고정이라 여기가 실제 병목
       const c = document.createElement('canvas'); c.width = c.height = N;
       const g = c.getContext('2d');
       const sc = Math.min((N * 0.78) / R.w, (N * 0.78) / R.h);
@@ -982,7 +993,7 @@ function updateFootSDF() {
       if (flip) { g.translate(0, N); g.scale(1, -1); }
       g.drawImage(R.canvas, R.x, R.y, R.w, R.h, (N - w) / 2, (N - h) / 2, w, h);
       FS = sdfFromAlpha(g.getImageData(0, 0, N, N).data, N);
-      customSDFCache.set(key, FS);
+      customSDFCache.set(key2, FS);
     }
     uploadSDF(markP2, FS);
     footCentroid = { x: FS.cx, y: FS.cy };
@@ -1001,7 +1012,7 @@ function footAlphaData() {
   // 내장 SDF에서 inside(<0.5019) 복원해 알파처럼 — centroid 계산용
   const N = FS.N;
   const d = new Uint8ClampedArray(N * N * 4);
-  for (let i = 0; i < N * N; i++) d[i * 4 + 3] = FS.data[i] < 128 ? 255 : 0;
+  for (let i = 0; i < N * N; i++) d[i * 4 + 3] = FS.data[i] < 0 ? 255 : 0;   // float 인코딩: 0 기준(구 128 오프셋 폐기)
   return d;
 }
 function footSDF() {
@@ -1458,9 +1469,12 @@ function drawCustomGlyph(g, W, url, slotKey) {
   return drawCustomGlyphAt(g, url, W / 2, W / 2, W - 24, false, !!state.glyphFlip[slotKey]);
 }
 /** SVG → 비트맵 래스터 + 타이트 바운딩 (9인자 drawImage의 SVG 버그 회피 — 비트맵에서 크롭) */
-function glyphRaster(img) {
-  if (img._raster) return img._raster;
-  const S = 512;   // 발형 SDF 서브픽셀 시드 품질 — 고해상 래스터
+function glyphRaster(img, S = 512) {
+  // 해상도별 캐시 — SDF 굽기(고해상)와 작은 스프라이트(저해상) 요구가 달라 image당 하나로
+  // 고정 캐싱하면 먼저 호출된 낮은 해상도가 나중 고해상 요청까지 계속 눌러버렸음
+  // (원본은 벡터 SVG라 해상도 제한이 없는데 이 캐시가 실질적 병목이었음).
+  const key = '_raster' + S;
+  if (img[key]) return img[key];
   const c = document.createElement('canvas'); c.width = c.height = S;
   const g = c.getContext('2d');
   const sc = Math.min(S / img.naturalWidth, S / img.naturalHeight);
@@ -1469,9 +1483,9 @@ function glyphRaster(img) {
   let x0 = S, y0 = S, x1 = -1, y1 = -1;
   for (let y = 0; y < S; y++) for (let x = 0; x < S; x++)
     if (d[(y * S + x) * 4 + 3] > 8) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
-  img._raster = x1 < 0 ? { canvas: c, x: 0, y: 0, w: S, h: S } :
+  img[key] = x1 < 0 ? { canvas: c, x: 0, y: 0, w: S, h: S } :
     { canvas: c, x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1 };
-  return img._raster;
+  return img[key];
 }
 const _tintCache = new Map();
 /** 소비처 공용: 커스텀 SVG를 (x,y) 중심 size 크기로 히트 트리트먼트 렌더 */
