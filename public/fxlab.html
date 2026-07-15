@@ -362,7 +362,12 @@ vec3 grade(vec3 col, vec2 fc, float seed){
 }`;
 const VERT = 'attribute vec2 p; void main(){ gl_Position = vec4(p,0.,1.); }';
 function glProg(canvas, frag, cssW, cssH) {
-  canvas.width = cssW * 2; canvas.height = cssH * 2;   // 2× 슈퍼샘플
+  // 고정 2배는 레티나(DPR 2)+브라우저 확대가 겹치면 실제 화면 픽셀 밀도보다 버퍼 해상도가
+  // 낮아져 브라우저가 캔버스를 '확대'해서 그리게 됨 — 그게 지글거림의 정체였음(유저 지적으로
+  // 재조사: 텍스처 없는 순수 수학 원(zone circle)도 똑같이 지글거려 SDF 해상도는 무죄였음).
+  // 실제 기기 배율(devicePixelRatio) 기준으로 여유 있게 버퍼를 잡는다.
+  const ss = Math.max(2, (window.devicePixelRatio || 1) * 2.2);
+  canvas.width = Math.round(cssW * ss); canvas.height = Math.round(cssH * ss);
   const gl = canvas.getContext('webgl');
   gl.getExtension('OES_standard_derivatives');   // fwidth() — 화면공간 AA(경계 앨리어싱 억제)
   const sh = (ty, src) => { const s = gl.createShader(ty); gl.shaderSource(s, src); gl.compileShader(s);
