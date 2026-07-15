@@ -34,6 +34,8 @@ function ctaTexture(sport) {
 
 // 에디터에서 실시간 조절되는 세션 타이밍 (초)
 export const SCFG = { a1Rep: 1.0, a2Hold: 10, a3Swing: 1.5, a4Beat: 0.6, b1Beat: 0.6, b2Beat: 0.7, b3Step: 1.1, b4Beat: 0.55 };
+// 타이틀·발형이 물리적으로 겹치는 장면(빔 원경계 ~2.85m 안에 실측 운동 요소가 타이틀 깊이까지 뻗음) — 이 셋뿐
+const DENSE_STAGES = new Set(['B3', 'B4', 'C5']);
 
 const BRAND = { red: 0xfa3030, coral: 0xfe6e3c, sand: 0xfec389, prism: 0xd1feff, ink: 0xffffff, dim: 0x9b9b9b };
 export { BRAND };
@@ -431,8 +433,8 @@ export class Session {
     this.dirSlot = new THREE.Group();   // C 방향 피드백 글리프 (착지점 추종, _dirCue)
     this.root.add(this.slotFS, this.slotFL, this.slotFM, this.dirSlot);
 
-    this.countGroup = new THREE.Group(); this.countGroup.position.set(0, 0, -1.85);
-    this.countRing = floorRing(0, -1.85, 0.30, 0.335, BRAND.red, 0);
+    this.countGroup = new THREE.Group(); this.countGroup.position.set(0, 0, -1.1);
+    this.countRing = floorRing(0, -1.1, 0.30, 0.335, BRAND.red, 0);
     this.root.add(this.countGroup, this.countRing);
 
     // 벽면 텍스트 슬롯 (복싱) — 세워진 평면, 유저 방향
@@ -452,8 +454,8 @@ export class Session {
 
   _buildRunning() {
     let g = this._mk('READY');
-    g.add(floorRing(0, -1.8, 0.20, 0.225, BRAND.dim, 0.9));
-    this.tap = this._tap('running'); this.tap.position.set(0, 0.013, -1.8); g.add(this.tap);
+    g.add(floorRing(0, -1.1, 0.20, 0.225, BRAND.dim, 0.9));
+    this.tap = this._tap('running'); this.tap.position.set(0, 0.013, -1.1); g.add(this.tap);
 
     g = this._mk('A1');
     this.a1L = new FootMark('left').at(0, -1.9, 1.15); g.add(this.a1L.group);
@@ -481,7 +483,7 @@ export class Session {
     this.a4R = new FootMark('right').at(0.17, -1.6); g.add(this.a4R.group);
 
     g = this._mk('T1');
-    this.tap1 = this._tap('running'); this.tap1.position.set(0, 0.013, -1.8); g.add(this.tap1);
+    this.tap1 = this._tap('running'); this.tap1.position.set(0, 0.013, -1.1); g.add(this.tap1);
 
     g = this._mk('B1');
     // 박자 듣기 = 시각 메트로놈: 비트 링(시선 밴드 중앙) + 글리프 숫자 1·2 박자 교대 펄스
@@ -537,8 +539,8 @@ export class Session {
 
   _buildBasketball() {
     let g = this._mk('BK_READY');
-    g.add(floorRing(0, -1.8, 0.20, 0.225, BRAND.dim, 0.9));
-    this.bkTap = this._tap('boxing'); this.bkTap.position.set(0, 0.013, -1.8); g.add(this.bkTap);
+    g.add(floorRing(0, -1.1, 0.20, 0.225, BRAND.dim, 0.9));
+    this.bkTap = this._tap('boxing'); this.bkTap.position.set(0, 0.013, -1.1); g.add(this.bkTap);
 
     // A1 스탠스·무릎 — 어깨너비 두 발 기준형(중립) + 무릎 굽힘 아크
     g = this._mk('BK_A1');
@@ -559,7 +561,7 @@ export class Session {
     this.bkA3ring = floorRing(0, -1.5, 0.10, 0.12, BRAND.red, 0.8); g.add(this.bkA3ring);
 
     g = this._mk('BK_T1');
-    this.bkTap1 = this._tap('boxing'); this.bkTap1.position.set(0, 0.013, -1.8); g.add(this.bkTap1);
+    this.bkTap1 = this._tap('boxing'); this.bkTap1.position.set(0, 0.013, -1.1); g.add(this.bkTap1);
 
     // B1 스텝백 궤적 보기 — 3발 궤적 + 곡선 레인 (Ghost 리플레이)
     g = this._mk('BK_B1');
@@ -974,12 +976,12 @@ export class Session {
 
   _enterRunning(st, { S, FS, FL, FM }) {
     switch (st.id) {
-      case 'READY': FS('SEAN · LAST 1KM'); FL('READY'); FM('발 두 번 탭 → 시작'); break;
+      case 'READY': FS('SEAN · LAST 1KM'); FL('READY'); break;   // 푸터 제거: CTA 라벨과 중복 + CTA 근접 이동으로 겹침
       case 'A1': FS('STRETCH 1/4'); FL('발끝 올리고 돌리기'); FM('왼발 1 / 8', CS.sand); break;
       case 'A2': FS('STRETCH 2/4'); FL('뒤꿈치 펌프'); FM('앞 원에 왼발 · 들었다 내리기 ×10', CS.sand); break;
       case 'A3': FS('STRETCH 3/4'); FL('다리 앞뒤 스윙'); FM('1 / 10'); break;
       case 'A4': FS('STRETCH 4/4'); FL('션 박자로 걷기'); FM('처음엔 천천히 — 점점 붙어요'); break;
-      case 'T1': FS('T-1'); S(this.slotFL, 'STAGE CLEAR', { size: 0.12, color: CS.prism }); FM('탭 두 번 → 사전 익히기'); break;
+      case 'T1': FS('T-1'); S(this.slotFL, 'STAGE CLEAR', { size: 0.12, color: CS.prism }); break;   // 푸터 제거: CTA 라벨과 중복
       case 'B1': FS('LEARN 1/4'); FL('션의 박자 — 듣기만'); FM('먼저 귀로 배워요'); break;
       case 'B2': { const h = this._packLaneHalf(); this._b2Half = h; this.b2L.group.position.x = -h; this.b2R.group.position.x = h; FS('LEARN 2/4'); FL(h < 0.08 ? '좁게 — 일자로 밟기' : '링이 닫힐 때 밟기'); FM('맞춘 스텝 0 / 8'); } break;
       case 'B3': FS('LEARN 3/4'); FL('세 걸음 · 순서대로'); FM('세트 1 / 2'); break;
@@ -996,11 +998,11 @@ export class Session {
 
   _enterBasketball(st, { S, FS, FL, FM }) {
     switch (st.id) {
-      case 'BK_READY': FS('CURRY · STEP-BACK 3'); FL('READY'); FM('발 두 번 탭 → 시작'); break;
+      case 'BK_READY': FS('CURRY · STEP-BACK 3'); FL('READY'); break;
       case 'BK_A1': FS('WARM 1/3'); FL('스탠스 · 무릎 굽히기'); FM('어깨너비 · 발끝 앞', CS.sand); break;
       case 'BK_A2': FS('WARM 2/3'); FL('사이드 스텝'); FM('좌우 6회', CS.sand); break;
       case 'BK_A3': FS('WARM 3/3'); FL('제자리 리듬 드리블'); FM('하나, 둘'); break;
-      case 'BK_T1': FS('T-1'); S(this.slotFL, 'STAGE CLEAR', { size: 0.12, color: CS.prism }); FM('탭 두 번 → 사전 익히기'); break;
+      case 'BK_T1': FS('T-1'); S(this.slotFL, 'STAGE CLEAR', { size: 0.12, color: CS.prism }); break;
       case 'BK_B1': FS('LEARN 1/3'); FL('스텝백 궤적 보기'); FM('눈으로 따라가요'); break;
       case 'BK_B2': FS('LEARN 2/3'); FL('순서대로 밟기'); FM('맞춘 스텝 0 / 3'); break;
       case 'BK_B3': FS('LEARN 3/3'); FL('디딤발에서 감속'); FM('감속이 슛의 시작'); break;
@@ -1081,14 +1083,18 @@ export class Session {
     this.slotFL.position.z = -(CARD.titleZ ?? 2.68);
     this.slotFS.position.z = -((CARD.titleZ ?? 2.68) + (CARD.eyebrow ?? 0.30));
     this.slotFM.position.z = -(CARD.footerZ ?? 1.28);
-    // 타이틀·아이브로 = 진입 순간 플래시 후 페이드아웃 — 밀도 높은 장면(B3·B4·C5)은 실측 운동 요소가
-    // 타이틀 깊이(~2.68~2.98m)까지 뻗어 물리적으로 자리가 겹침(빔 도달 한계 ~2.85m 안에 둘 다 못 들어감).
-    // v3 결론: 정적 공존 대신 시간 분리 — 진입 1.0s간 크게 보였다가 0.6s에 걸쳐 사라짐(운동 시작 전에 비켜줌).
-    if (!wall) {
+    // 타이틀·아이브로 페이드는 딱 3장면(B3·B4·C5)에만 — 실측 운동 요소가 타이틀 깊이(~2.68~2.98m)까지
+    // 뻗어 물리적으로 자리가 겹치는 곳은 이 셋뿐(빔 도달 한계 ~2.85m 안에 둘 다 못 들어감).
+    // 나머지 14장면은 겹칠 이유가 없는데 지시 자막을 없앨 이유도 없음 — 전체 페이드는 과했음(유저 지적).
+    if (!wall && DENSE_STAGES.has(id)) {
       const titleFade = Math.max(0, 1 - Math.max(0, this.t - 1.0) / 0.6);
       const flMesh = this.slotFL.children[0]?.children[0], fsMesh = this.slotFS.children[0]?.children[0];
       if (flMesh?.material) flMesh.material.opacity = titleFade;
       if (fsMesh?.material) fsMesh.material.opacity = titleFade * 0.85;
+    } else if (!wall) {
+      const flMesh = this.slotFL.children[0]?.children[0], fsMesh = this.slotFS.children[0]?.children[0];
+      if (flMesh?.material) flMesh.material.opacity = 1;
+      if (fsMesh?.material) fsMesh.material.opacity = 0.85;
     }
     const ctaS = CARD.cta ?? 1;
     if (this.tap) this.tap.scale.setScalar(ctaS);
