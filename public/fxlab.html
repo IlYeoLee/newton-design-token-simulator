@@ -1286,8 +1286,11 @@ function frame(ts) {
     gl.uniform1f(laneP.u('uTime'), REDUCED ? 1.2 : ts / 1000);
     gl.drawArrays(gl.TRIANGLES, 0, 3); }
   if (VIS.markC || VIS.markC2) { const m = state.m;
-    markP.setCommon(m.core, m.halo, m.wobble, 0, g.grain);
-    markP2.setCommon(m.core, m.halo, m.wobble, 0, g.grain);
+    // MARK 판정 토큰 = 순수 카탈로그(포스트프로세싱 아님) — 화면 그레인 원칙상 여기 안 씀.
+    // 예전엔 그래픽 스코프(g.grain)를 몰래 물려받아 MARK 패널 슬라이더로는 절대 안 지워지는
+    // 노이즈가 껴 있었음(유저 "부숭부숭" 신고로 발견) — 0 고정으로 근본 제거.
+    markP.setCommon(m.core, m.halo, m.wobble, 0, 0);
+    markP2.setCommon(m.core, m.halo, m.wobble, 0, 0);
     const surfR = state.markSurface === 'wall' ? 1.22 : 1;   // 벽 링 = 같은 MARK, 반경 변형
     for (const [P, shape] of [[markP, 0], [markP2, 1]]) {
       const pgl = P.gl;
