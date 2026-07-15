@@ -111,7 +111,7 @@
         <div class="lab" id="footLab">발형 — Step-type 티칭 스킨 <span style="color:var(--sand)">(FOOT 슬롯 SVG)</span></div>
       </div>
     </div>
-    <div class="ctl" style="margin-top:10px"><button class="btn" id="scenarioBtn" style="border-color:var(--sand);color:var(--sand)">▶ 시나리오 재생 — 마크의 4초</button><span id="stateChips" style="display:contents"></span></div>
+    <div class="ctl" style="margin-top:10px"><button class="btn" id="scenarioBtn" style="border-color:var(--sand);color:var(--sand)">▶ 시나리오 재생 — 마크의 생애주기</button><span id="stateChips" style="display:contents"></span></div>
     <div class="lab" id="stateDesc" style="max-width:560px;margin:8px auto 0"></div>
   </div>
   <div class="side">
@@ -829,17 +829,18 @@ MARK_STATES.forEach(([name, , when], i) => {
   b.onclick = () => setMarkState(i);
   stateChips.appendChild(b);
 });
-// ▶ 시나리오 — 마크 하나가 실전에서 겪는 생애주기 (Locked→Preview→Active→Success, 다음 바퀴는 Miss)
+// ▶ 시나리오 — 마크 하나가 실전에서 겪는 생애주기 (Locked→Preview→Active→Hold→Success, 다음 바퀴는 Miss)
+// Hold는 원래 빠져 있었음(도달 계약 생애주기만 반영했던 예전 설계) — 유지 계약도 체험 가능하게 편입.
 let scenarioTimer = null, scenarioEndMiss = false;
 function stopScenario() {
   if (!scenarioTimer) return;
   clearTimeout(scenarioTimer);
   scenarioTimer = null;
-  scenarioBtn.textContent = '▶ 시나리오 재생 — 마크의 4초';
+  scenarioBtn.textContent = '▶ 시나리오 재생 — 마크의 생애주기';
   scenarioBtn.classList.remove('on');
 }
 function playScenario() {
-  const seq = [[6, 1100], [0, 1300], [1, 1900], [scenarioEndMiss ? 4 : 3, 1500]];
+  const seq = [[6, 1100], [0, 1300], [1, 1900], [2, 2000], [scenarioEndMiss ? 4 : 3, 1500]];
   scenarioEndMiss = !scenarioEndMiss;
   let k = 0;
   const step = () => {
