@@ -247,6 +247,9 @@ const PRESETS = {
   'Silhouette':  { stops: [['#141114',0],['#41232A',.24],['#B03A44',.48],['#FA5A50',.68],['#FFC9A6',.86],['#FFFFFF',1]] },
   'Prism Cool':  { stops: [['#04070E',0],['#0E2A3E',.3],['#3E7F96',.55],['#8FD8DF',.78],['#D1FEFF',.92],['#F4FFFF',1]] },
 };
+// 워닝 느낌표 — 유저 제공 SVG(느낌표.svg) 내장 기본값. 전 유저 배포 고정값이라
+// 파일 업로드 없이도 항상 존재하도록 state.glyphs 기본값에 직접 심는다.
+const WARN_EXCL_SVG = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjExIiBoZWlnaHQ9IjYxMSIgdmlld0JveD0iMCAwIDYxMSA2MTEiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxwYXRoIGQ9Ik0yODcuMjg5IDYyLjcxOTNDMzAwLjk3NiA2MC4xMDI2IDMyMS4xNDEgNzEuNDE5MyAzMzMuMjA3IDc2LjkxNjRDMzQxLjM3NSA4MC42MzkzIDM1My44MyA4NC44ODQ3IDM2MC4xMTkgOTAuOTk1QzM2OS41NCAxMDAuMjY1IDM2My40NDcgMTE1LjkzMiAzNTkuMTY3IDEyNi4wODVDMzUxLjQ5NyAxNDQuMjYyIDM0OC4wNjQgMTYyLjMxIDM0OS4wMDggMTgxLjk1NkMzNDkuNDU5IDE5MS4zODUgMzUwLjA0IDIwMS42MDUgMzQ4LjUgMjEwLjk5MkMzNDcuMTYyIDIxOS4xMjQgMzQzLjU1NSAyMjYuODU1IDM0MC4wOTYgMjM0LjMyOUMzMzMuMTA5IDI0OS4wNDEgMzMwLjA2NCAyNjEuNzA4IDMzMC40MDkgMjc3Ljk3OEMzMzAuODg5IDMwMC42MzggMzQzLjkyOSAzMTYuMzk0IDM0My4yOTcgMzM5LjI0NkMzNDIuOTExIDM1My4xODMgMzM5LjI1NiAzNjMuODgxIDMzNi45NDYgMzc3LjM4OEMzMzQuODY0IDM4OS41NTYgMzM0Ljg5NiA0MDIuNDUzIDMzMS4xOTQgNDE0LjI2NUMzMjkuNTcgNDE5LjQ0MyAzMjYuNzU0IDQyMy43NzMgMzIyLjc0MyA0MjcuNTExQzMwNS40MjMgNDM5LjExOSAyOTMuNTM4IDQyNS41NjYgMjg3LjIxMiA0MTAuMzMzQzI3NS4zMTIgMzgxLjY3NSAyOTIuNjQzIDM1My40NCAyODUuNjI1IDMyNi4yNDdDMjgwLjE5NiAzMDUuMjA3IDI1OC41ODQgMjg5LjcyMSAyNTYuMjU5IDI2NS41NDlDMjU0LjAzNiAyNDIuNDMgMjY2LjA1MSAyMjYuOTQ1IDI2Ni4yNzMgMjA0LjM2MUMyNjYuNDgxIDE3OS45MyAyNTQuNDY3IDE1Ny44OTcgMjUwLjE5MiAxMzQuMjQzQzI0Ny42OTcgMTIwLjQzNiAyNTAuOTc4IDExMS41OCAyNTUuNDQ1IDk4LjkyMjFDMjYxLjQ2OSA4MS44NTU0IDI2Ni40MTUgNjUuNzk3MiAyODcuMjg5IDYyLjcxOTNaIiBmaWxsPSJibGFjayIvPgo8cGF0aCBkPSJNMzEwLjAwNSA0NjMuMDg1QzMyMS43OTMgNDYyLjQ5NyAzMzAuNTg2IDQ2Ny45MTEgMzM2Ljc4MSA0NzcuODE3QzM0NC43MzMgNDkwLjUyOCAzNDkuNTY2IDUwNy4zOTUgMzQ2LjE5MiA1MjIuMjk2QzM0NC4yNzQgNTMwLjc1OSAzMzkuNjE5IDUzOS4yMjkgMzMyLjA0MiA1NDMuODkxQzMyMi43MSA1NDkuNTkgMzEzLjM1NSA1NDcuNjc0IDMwMy40NjcgNTQ1LjM4N0MyODcuMjA0IDU0MC4yMDkgMjY0LjE4NSA1NDAuNDA0IDI2Mi43MzYgNTE3Ljc0OUMyNjIuNTI1IDUxNC40NzMgMjYzLjAwNyA1MTEuMTg4IDI2NC4xNTIgNTA4LjEwN0MyNjYuMDY0IDUwMi44MjYgMjY5LjgzOSA0OTcuNzk4IDI3Mi41MDMgNDkyLjg0N0MyNzUuNTkzIDQ4Ny4wOTYgMjc3LjQ1MyA0ODAuNTMyIDI4MS44MTkgNDc1LjU1N0MyODguMjkgNDY4LjE4NiAzMDAuMzg3IDQ2My43MzIgMzEwLjAwNSA0NjMuMDg1WiIgZmlsbD0iYmxhY2siLz4KPC9zdmc+Cg==';
 const state = {
   stops: PRESETS['NEWTON Vivid'].stops.map(s => [...s]),
   sat: 1.0,          // 채도 — 0이면 완전 회색조 (OKLab a·b 스케일)
@@ -256,7 +259,7 @@ const state = {
   s: { bloomStrength: 0.55, bloomThreshold: 0.55, bloomRadius: 0.6, exposure: 1.0, grain: 0, vignette: 0.12 },
   p: { blur: 1.0, glow: 0.9, flow: 0.55, decay: 0.62, grain: 0.03 },
   footShape: 1, personMode: 0, burstStyle: 0, laneStyle: 0,
-  glyphs: {},   // 슬롯별 커스텀 SVG — 저장·브리지 왕복 (규칙: ↑=전방, 발가락 위·뒤꿈치 아래)
+  glyphs: { WARN_EXCL: WARN_EXCL_SVG },   // 슬롯별 커스텀 SVG — 저장·브리지 왕복 (규칙: ↑=전방, 발가락 위·뒤꿈치 아래)
   glyphFlip: {},   // 슬롯별 상하 반전 (⌥+클릭)
   arrow: { line: 'solid', w: 1, speed: 1, gap: 1, glow: 1, heat: 0.5, tail: 0.55 },   // LINE 엔진 — 스타일·두께·흐름 속도·간격·글로우·온도·꼬리
   lane: { style: 'dash' },   // 레인 전용 스타일 (기본=대시 흐름 — 화살표와 분리)
@@ -560,6 +563,7 @@ const laneP = glProg((window.laneC || Object.assign(document.createElement('canv
 const MARK_FRAG = GLSL_COMMON + `
 uniform float uTime, uState, uContract, uRadius, uPool, uSweepA, uShape, uForm;
 uniform sampler2D uSDF2;
+uniform sampler2D uSDFWarn;   // 워닝 느낌표 — 유저 SVG(느낌표.svg) float SDF, 발형과 별도 텍스처 유닛
 #define C_RED   vec3(0.980, 0.188, 0.188)
 #define C_CORAL vec3(0.996, 0.431, 0.235)
 #define C_SAND  vec3(0.996, 0.765, 0.537)
@@ -689,13 +693,18 @@ void main(){
     col = mix(col, fillCol, inside * mix(0.55, 0.24, cool) * gone * fillGain);   // 식을수록 고스트
     vec3 lineCol = mix(C_SAND, C_GRAYL, cool);
     col = mix(col, lineCol, exp(-pow(sd / (0.014 * uW), 2.0)) * 0.85 * gone);
-  } else if (uState < 5.5) {     // ── Warning: 암적 리니어 + 느낌표 점멸
+  } else if (uState < 5.5) {     // ── Warning: 암적 리니어 + 느낌표(유저 SVG) 점멸
     float ly = clamp(0.5 - uv.y / (2.2 * ext), 0.0, 1.0);
     col = mix(col, mix(C_WINE, C_BRICK, ly), inside * min(fillGain * 1.05, 1.0));
-    float ex = ext;                                            // 느낌표 — 실루엣 중심부
-    float bar = length(vec2(uv.x, max(abs(uv.y - 0.16 * ex) - 0.17 * ex, 0.0))) - 0.055 * ex;
-    float dotd = length(uv - vec2(0.0, -0.24 * ex)) - 0.062 * ex;
-    float exM = smoothstep(0.008, -0.008, min(bar, dotd)) * inside;
+    // 느낌표 글리프 — 절차적 bar/dot 대신 유저 SVG(느낌표.svg)를 발형과 같은 float SDF
+    // 파이프라인으로 구워 샘플(홀드 사태에서 확립: 8bit 양자화 폐기, 타이트크롭+중앙정렬
+    // 래스터). wScale = 텍스처 윈도우 반폭(로컬 ext 단위) — 78% 채움 기준 역산.
+    float ex = ext;
+    float wScale = 0.44 * ex;
+    vec2 wuv = uv / wScale * 0.5 + 0.5;
+    float wSD = texture2D(uSDFWarn, vec2(wuv.x, 1.0 - wuv.y)).r * (2.0 * wScale);
+    float aaW = max(fwidth(wSD), 0.0015);
+    float exM = smoothstep(aaW, -aaW, wSD) * inside;
     col = mix(col, C_EXCL * 1.25, exM * (0.85 + 0.15 * sin(uTime * 5.5)));
   } else {                       // ── Locked: 회색 아웃라인 변형 + 순서 숫자 (오버레이)
     float q = length(uv - gcBall) / ext;
@@ -719,7 +728,20 @@ function uploadSDF(P, FS) {
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
   gl.useProgram(P.pr); gl.uniform1i(P.u('uSDF2'), 3);
 }
+function uploadWarnSDF(P, FS) {
+  const { gl } = P;
+  P._warnTex ||= gl.createTexture();
+  gl.activeTexture(gl.TEXTURE4); gl.bindTexture(gl.TEXTURE_2D, P._warnTex);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE, FS.N, FS.N, 0, gl.LUMINANCE, gl.FLOAT, FS.data);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.useProgram(P.pr); gl.uniform1i(P.u('uSDFWarn'), 4);
+}
 uploadSDF(markP, { data: new Float32Array([0]), N: 1 });   // 존 원 캔버스 — SDF 미사용(uShape=0)
+uploadWarnSDF(markP, { data: new Float32Array([0]), N: 1 });    // 실제 느낌표 SDF는 updateWarnSDF()가 곧 덮어씀
+uploadWarnSDF(markP2, { data: new Float32Array([0]), N: 1 });
 state.markShape = 0; state.markForm = 0;
 state.markSurface = 'floor';   // floor | wall — 벽면 = 세션 '벽 링'의 정체
 state.markFootSide = 'L';
@@ -840,7 +862,7 @@ function stopScenario() {
   scenarioBtn.classList.remove('on');
 }
 function playScenario() {
-  const seq = [[6, 1100], [0, 1300], [1, 1900], [2, 2000], [scenarioEndMiss ? 4 : 3, 1500]];
+  const seq = [[6, 1100], [0, 1300], [1, 1900], [2, 2000], [5, 1600], [scenarioEndMiss ? 4 : 3, 1500]];
   scenarioEndMiss = !scenarioEndMiss;
   let k = 0;
   const step = () => {
@@ -926,6 +948,7 @@ function applyMarkSurface() {
 });
 setMarkState(1);
 setTimeout(() => updateFootSDF(), 0);   // bgImgs·글리프 이후
+setTimeout(() => updateWarnSDF(), 0);   // 워닝 느낌표 SDF — 기본값이 항상 있어 즉시 구움
 
 // ═══ 발자국 SDF ═══════════════════════════════
 function getFootSDF() { return (getFootSDF._m ||= footSDF()); }
@@ -1017,6 +1040,29 @@ function updateFootSDF() {
     if (lab) lab.innerHTML = `발형 — 내장 발 <span style="color:var(--sand)">(FOOT 슬롯에 SVG를 넣으면 교체)</span> · 숫자: 드래그 이동 · 휠 크기 · 더블클릭 자동`;
   }
   drawMarkNums();
+}
+let warnSDFCache = null;
+/** 워닝 느낌표 SDF 갱신 — WARN_EXCL 슬롯 SVG(유저 제공, 전 유저 고정 기본값)를 발형과
+ * 같은 float SDF 파이프라인으로 구움. 발형과 달리 좌우·컨텍스트 구분 없이 고정 1개. */
+function updateWarnSDF() {
+  const url = state.glyphs.WARN_EXCL;
+  if (!url) return;
+  let img = glyphImgCache.get(url);
+  if (!img) { img = new Image(); img.src = url; img.onload = () => updateWarnSDF(); glyphImgCache.set(url, img); }
+  if (!img.complete || !img.naturalWidth) return;
+  const N = 512;   // 항상 작게 표시되는 아이콘 — 발형만큼 큰 해상도 불필요
+  const key = url.length + '|' + N;
+  if (warnSDFCache && warnSDFCache.key === key) return;
+  const R = glyphRaster(img, N);
+  const c = document.createElement('canvas'); c.width = c.height = N;
+  const g = c.getContext('2d');
+  const sc = Math.min((N * 0.78) / R.w, (N * 0.78) / R.h);
+  const w = R.w * sc, h = R.h * sc;
+  g.drawImage(R.canvas, R.x, R.y, R.w, R.h, (N - w) / 2, (N - h) / 2, w, h);
+  const FS = sdfFromAlpha(g.getImageData(0, 0, N, N).data, N);
+  warnSDFCache = { key, FS };
+  uploadWarnSDF(markP, FS);
+  uploadWarnSDF(markP2, FS);
 }
 function footAlphaData() {
   const FS = getFootSDF();
@@ -1546,6 +1592,7 @@ drawGlyphLib = function() {
   _drawGlyphBase();   // 기본 렌더 (커스텀 슬롯은 내부에서 스킵)
   if (typeof drawMarkNum === 'function') drawMarkNum();
   if (typeof updateFootSDF === 'function') updateFootSDF();
+  if (typeof updateWarnSDF === 'function') updateWarnSDF();
 };
 setInterval(drawGlyphLib, 700);   // 팔레트·채도 변경 라이브 반영 (경량 2D — 부담 없음)
 
@@ -2064,6 +2111,8 @@ function applyExternalState(st) {
       if (state.glyphs.FOOT_R && !state.glyphs.FOOT_IN_R) state.glyphs.FOOT_IN_R = state.glyphs.FOOT_R;
       if (!state.glyphs.TIP_TRI) { const alt = state.glyphs.TIP_CHEV || state.glyphs.TIP_DIA || state.glyphs.TIP_BAR; if (alt) state.glyphs.TIP_TRI = alt; }
       for (const k of ['FOOT_L', 'FOOT_R', 'TIP_CHEV', 'TIP_DIA', 'TIP_BAR']) delete state.glyphs[k];
+      if (!state.glyphs.WARN_EXCL) state.glyphs.WARN_EXCL = WARN_EXCL_SVG;   // 배포 시점 이전 저장본 방어
+      if (typeof updateWarnSDF === 'function') updateWarnSDF();
     }
     if (st.glyphFlip) state.glyphFlip = { ...st.glyphFlip };
     if (st.footCtx) state.footCtx = st.footCtx;
