@@ -638,11 +638,18 @@ void main(){
     float q = length(uv - gc) / (ext * 1.02);
     float qh = max(q - 0.24 * pr, 0.0);                       // 진행할수록 적색 반경 확장
     col = mix(col, fillHold(qh), inside * min(fillGain, 1.0) * 0.95);
-    // 림 = 진행 시계(보드 w=30 비율) — 폭이 좁아 발형 SDF 텍스처의 양자화 잡음을 그대로 드러내
-    // Hold 상태에서만 가장자리가 거칠어 보이던 원인(Active 등 다른 상태엔 이 항 자체가 없음).
-    // fwidth 기반 최소 폭으로 잡음보다 항상 넓게 유지.
+    // 림 = 진행 시계(보드 w=30 비율). 실측 스캔라인으로 확인: 가우시안 특성상 꼬리가 배경까지
+    // 길게(반경 대비 ~17%) 옅게 늘어져 완만하게 밝아지다 안쪽 필 경계에서 갑자기 확 밝아지는
+    // 2단 그라디언트가 생기고, 발형 곡률 따라 꼬리 길이가 각도별로 달라져 '솜털'처럼 보임
+    // (그레인·일렁임·회피점선 아님 — 실측 스캔으로 확정). 하드 엔벌로프로 꼬리 자체를 짧게 자름.
     float rw = max(0.05 * uW, fwidth(sd) * 1.8);
-    float rim = exp(-pow((sd - 0.012) / rw, 2.0)) * dashM;
+    float distToRim = abs(sd - 0.012);
+    // sd 공간 거리로 폭을 자르면 sd 기울기가 얕은 지점(경계를 완만한 각도로 지나는 곳)에서
+    // 실제 화면 픽셀 폭이 그대로 넓게 남는다(실측 확인 — sd 자체가 픽셀당 아주 천천히 변함).
+    // 화면 픽셀 개수로 환산해서 잘라야 진짜 폭이 고정됨.
+    float pxDist = distToRim / max(fwidth(sd), 1e-5);
+    float rimEnvelope = 1.0 - smoothstep(4.0, 9.0, pxDist);
+    float rim = exp(-pow(distToRim / rw, 2.0)) * rimEnvelope * dashM;
     float prog = smoothstep(pr + 0.045, pr - 0.045, a01);
     vec3 arcCol = mix(C_RED, C_CORAL, clamp(a01 / max(pr, 0.001), 0.0, 1.0));
     vec3 rimCol = mix(C_RIMG, arcCol, prog);
