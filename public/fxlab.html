@@ -642,7 +642,10 @@ void main(){
     vec3 hCol = mix(C_SAND, C_ICE, smoothstep(0.15, 0.9, outPos / hw));
     col = mix(col, hCol, h * uHalo * (0.50 + 0.14 * sin(uTime * 5.0)) * dashM);
   } else if (uState < 2.5) {     // ── Hold: 코닉 진행 림 + 열이 뒤꿈치로 고임 (떼면 되감김)
-    float pr = tc < 0.68 ? tc / 0.68 : 1.0 - (tc - 0.68) / 0.32;
+    // 데모 루프 단순화 — 원래는 채움→되감김(떼면 취소) 두 동작을 한 루프에 다 보여줬는데
+    // 유저가 보기엔 '역주행'처럼 헷갈렸음. 카탈로그 미리보기는 '홀드는 채워진다'만 깔끔하게:
+    // 0→1 채우고 경계에서 바로 리셋(되감김 자체는 실제 세션 판정에서 별도로 살아있음).
+    float pr = tc;
     vec2 gc = mix(gcBall, gcHeel, pr);
     float q = length(uv - gc) / (ext * 1.02);
     float qh = max(q - 0.24 * pr, 0.0);                       // 진행할수록 적색 반경 확장
