@@ -1846,6 +1846,11 @@ async function boot() {
       xbot.playDemo(demoClipFor(session.sport, session.stage), h);
       rig.update(0, h);
       tokens.setShake(rig.shake.x, rig.shake.y);
+      // 이 분기는 아래 followFloor 호출을 건너뛰어(early return) 무한 지면(그리드·바닥)이
+      // 세션 시작 직전 스튜디오 대기 루프가 드리프트시킨 옛 z에 멈춰있었음 — 1인칭 카메라는
+      // xbot의 새로 리셋된 위치를 따라가는데 바닥만 수백m 밖에 남아 "그냥 뿌옇게"(사실은 바닥
+      // 자체가 시야 밖) 보였던 원인. READY/준비 단계에서도 동기화.
+      if (data.sport === 'running') followFloor(xbot.group.position.z);
       return;
     }
     if (session.active) {
