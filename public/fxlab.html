@@ -333,6 +333,7 @@ const lutSubs = [];
 
 // ═══ 공용 GL ══════════════════════════════════
 const GLSL_COMMON = `
+#extension GL_OES_standard_derivatives : enable
 precision highp float;
 uniform sampler2D uLUT;
 uniform vec2 uRes;
@@ -363,6 +364,7 @@ const VERT = 'attribute vec2 p; void main(){ gl_Position = vec4(p,0.,1.); }';
 function glProg(canvas, frag, cssW, cssH) {
   canvas.width = cssW * 2; canvas.height = cssH * 2;   // 2× 슈퍼샘플
   const gl = canvas.getContext('webgl');
+  gl.getExtension('OES_standard_derivatives');   // fwidth() — 화면공간 AA(경계 앨리어싱 억제)
   const sh = (ty, src) => { const s = gl.createShader(ty); gl.shaderSource(s, src); gl.compileShader(s);
     if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) console.error(gl.getShaderInfoLog(s)); return s; };
   const pr = gl.createProgram();
@@ -591,7 +593,11 @@ void main(){
   float a01 = fract(0.25 - ang / 6.2832);      // 12시 기준 시계방향
   float u1 = undul(ang, uTime * 1.6);
   float sd = sdAt(uv, u1);
-  float inside = smoothstep(0.010, -0.010, sd);
+  // 화면공간 AA — 고정 폭(0.010)은 일렁임(undul) 진동을 그대로 계단처럼 트레이싱해
+  // 테두리가 솜털/물결처럼 울퉁불퉁해 보임(유저 확대 스크린샷으로 확인). 시뮬 본체(tokens.js
+  // MARKFX_FRAG)엔 이미 적용한 fwidth 기반 AA를 여기(랩 사본)에도 동일 적용.
+  float aa = max(fwidth(sd), 0.004) * 1.4;
+  float inside = smoothstep(aa, -aa, sd);
   float outPos = max(sd, 0.0);
   // 점선 = 회피 계약 (윤곽·림에 적용)
   float dashM = (uContract > 0.5 && uContract < 1.5)
