@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { WALL_Z } from './scene.js';
 import { renderDesignCanvas } from './studio/design.js';
-import { getLUT, FXP, FX_GLSL, GLYPHS, drawGlyph, footSDFTexture } from './fxlut.js';
+import { getLUT, FXP, FX_GLSL, GLYPHS, drawGlyph, footSDFTexture, warnSDFTexture } from './fxlut.js';
 
 // ── MARK 파동 셰이더 (FX Lab 이식) — 재료는 열 하나, 상태는 파동의 위상 ──
 const MARKFX_VERT = `
@@ -22,6 +22,7 @@ uniform float uPhase, uProg, uFade, uStrong, uContract, uTime, uSeed;
 uniform float uW, uHalo, uPool, uSweepA, uWobble, uGain, uDay;
 uniform float uShape;               // 0=존 원 / 1=발형 (FX Lab markShape)
 uniform sampler2D uSDF;             // 발형 실루엣 SDF (FOOT 슬롯 SVG)
+uniform sampler2D uSDFWarn;         // 워닝 느낌표 SDF (WARN_EXCL 슬롯, FX Lab과 동일 파이프라인)
 varying vec2 vUv;
 // 시안 보드 팔레트 (발모양 자체 이펙트 시안.svg 그대로)
 #define FXC_RED   vec3(0.980, 0.188, 0.188)
@@ -29,6 +30,9 @@ varying vec2 vUv;
 #define FXC_SAND  vec3(0.996, 0.765, 0.537)
 #define FXC_CREAM vec3(0.996, 0.886, 0.776)
 #define FXC_ICE   vec3(0.820, 0.996, 1.000)
+#define FXC_WINE  vec3(0.318, 0.094, 0.082)
+#define FXC_BRICK vec3(0.718, 0.212, 0.184)
+#define FXC_EXCL  vec3(0.933, 0.157, 0.153)
 void main() {
   #include <clipping_planes_fragment>
   vec2 uv = (vUv - 0.5) * 2.0;
@@ -39,7 +43,11 @@ void main() {
   float sd;
   if (uShape > 0.5) {
     vec2 suv = uv * 0.5 + 0.5;
-    sd = (texture2D(uSDF, vec2(suv.x, 1.0 - suv.y)).r - 0.5019) * 0.5 + u1 * uWobble * 0.02;   // 인코드 범위 ±N/4와 짝
+    // float 텍스처 직결 디코드(8bit 양자화 폐기 — FX Lab과 동일 근본 수정). 구 인코딩은
+    // range=N/4가 해상도에 비례해 커져 N을 아무리 올려도 정밀도가 개선 안 됐던 것이
+    // 라이브 세션이 FX Lab보다 흐리고 뭉개져 보인 진짜 원인이었음(구 인코딩이 라이브엔
+    // 한 번도 이식된 적 없었음). raw 값이 이미 d/N 단위라 별도 보정 계수 불필요.
+    sd = texture2D(uSDF, vec2(suv.x, 1.0 - suv.y)).r + u1 * uWobble * 0.02;
   } else {
     sd = d * (1.0 + u1 * uWobble * 0.05) - Rz;
   }
@@ -93,7 +101,7 @@ void main() {
     col = vec3(0.90) * inside * 0.12 * fillGain;
     col += vec3(0.80) * exp(-pow(sd / (0.028 * uW), 2.0)) * 0.55 * dashM;
     col *= uFade;
-  } else if (uPhase > 4.5) {     // Hold: 코닉 진행 림 + 열이 아래로 고임 — uProg = 유지/회전/카운트 진행
+  } else if (uPhase > 4.5 && uPhase < 5.5) {     // Hold: 코닉 진행 림 + 열이 아래로 고임 — uProg = 유지/회전/카운트 진행
     float pr = clamp(uProg, 0.0, 1.0);
     vec2 gcHeel = uShape > 0.5 ? vec2(0.0, -0.28) : vec2(0.0, -0.5 * ext);
     float qh = max(length(uv - mix(gcBall, gcHeel, pr)) / (ext * 1.02) - 0.24 * pr, 0.0);
@@ -101,10 +109,28 @@ void main() {
     fc = mix(fc, FXC_SAND, smoothstep(0.23, 1.0, qh));
     col = fc * inside * min(fillGain, 1.0) * 0.5;
     float a01 = fract(0.25 - ang / 6.2832);
-    float rim = exp(-pow((sd - 0.012) / (0.05 * uW), 2.0));
-    float prog = smoothstep(pr + 0.045, pr - 0.045, a01);
+    // 무한꼬리 가우시안 폐기, 유한폭 스무스스텝(FX Lab과 동일 근본 수정) — 라이브 세션의
+    // "부숭부숭" 림이 여기 있었음(이 셰이더가 FX Lab에서 이미 고친 뒤로 한 번도 안 맞춰짐).
+    float distToRim = abs(sd - 0.012);
+    float fw = max(fwidth(sd), 1e-5);
+    float glowPx = 20.0 * uW;
+    float rim = (1.0 - smoothstep(0.0, glowPx * fw, distToRim)) * dashM;
+    // 진행 시작점(12시, a01=0/1 랩어라운드) 각도차 랩어라운드 수정 — 옛 공식은 여기서
+    // 회색↔적색 전환이 "무 자르듯" 뚝 끊겼음(FX Lab에서 이미 고친 버그, 동일 수정).
+    float angDist = a01 - pr; angDist -= floor(angDist + 0.5);
+    float prog = smoothstep(0.09, -0.09, angDist);
     vec3 rimCol = mix(vec3(0.42), mix(FXC_RED, FXC_CORAL, clamp(a01 / max(pr, 0.001), 0.0, 1.0)), prog);
-    col += rimCol * rim * mix(0.25, 0.95, prog) * dashM;
+    col += rimCol * rim * mix(0.25, 0.95, prog);
+    col *= uFade;
+  } else if (uPhase > 5.5) {     // Warning: 암적 리니어 + 느낌표(유저 SVG) 점멸 — FX Lab MARK_FRAG와 동일 SDF 파이프라인
+    float ly = clamp(0.5 - uv.y / (2.2 * ext), 0.0, 1.0);
+    col = mix(col, mix(FXC_WINE, FXC_BRICK, ly), inside * min(fillGain * 1.05, 1.0));
+    float wScale = 0.44 * ext;
+    vec2 wuv = uv / wScale * 0.5 + 0.5;
+    float wSD = texture2D(uSDFWarn, vec2(wuv.x, 1.0 - wuv.y)).r * (2.0 * wScale);
+    float aaW = max(fwidth(wSD), 0.0015);
+    float exM = smoothstep(aaW, -aaW, wSD) * inside;
+    col = mix(col, FXC_EXCL * 1.25, exM * (0.85 + 0.15 * sin(uTime * 5.5)));
     col *= uFade;
   } else {                       // Miss: 온기가 식어 회색 고스트 → 무음 소멸 (판정 verdict 연동)
     float cool = smoothstep(0.0, 0.35, uProg);
@@ -213,6 +239,7 @@ export function makeMarkFXMaterial(footTex = null) {
       uLUT: { value: getLUT() },
       uShape: { value: footTex ? 1 : 0 },
       uSDF: { value: footTex || getLUT() },
+      uSDFWarn: { value: warnSDFTexture() || getLUT() },
       uPhase: { value: 0 }, uProg: { value: 0 }, uFade: { value: 1 },
       uStrong: { value: 0 }, uContract: { value: 0 },
       uTime: { value: 0 }, uSeed: { value: Math.random() * 6.2832 },

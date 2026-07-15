@@ -201,7 +201,11 @@ export function footSDFTexture(right) {
   if (_sdfCache.has(key)) return _sdfCache.get(key);
   const img = url ? GLYPHS.img(slot) : null;
   if (url && !img) return null;   // 로드 전 — onLoad 리베이크가 재시도
-  const N = 256;
+  // N=256 8bit 인코딩은 FX Lab에서 이미 폐기된 방식(양자화 상한이 N과 무관하게 고정돼
+  // 해상도를 올려도 지글거림이 안 없어짐 — 실측으로 확정된 근본 원인). 라이브 세션이
+  // FX Lab에서 확인한 것보다 흐리고 뭉개져 보인 진짜 이유가 이 구버전 인코딩이 라이브에는
+  // 한 번도 이식된 적 없었기 때문이었음. float 텍스처 + 해상도 상향으로 동일하게 맞춘다.
+  const N = 768;
   const c = document.createElement('canvas'); c.width = c.height = N;
   const g = c.getContext('2d');
   if (img) {
@@ -237,7 +241,8 @@ export function footSDFTexture(right) {
     g.restore();
   }
   const imgD = g.getImageData(0, 0, N, N).data;
-  // 정확 EDT(Felzenszwalb) + 알파 커버리지 서브픽셀 시드 — fxlab sdfFromAlpha와 동일 인코딩(±N/4)
+  // 정확 EDT(Felzenszwalb) + 알파 커버리지 서브픽셀 시드 — fxlab sdfFromAlpha와 동일
+  // 레시피(무손실 d/N float 인코딩, 8bit 양자화 폐기).
   const INF = 1e20;
   const gO = new Float32Array(N * N), gI = new Float32Array(N * N);
   for (let i = 0; i < N * N; i++) {
@@ -246,14 +251,47 @@ export function footSDFTexture(right) {
     gI[i] = a >= 1 ? INF : a <= 0 ? 0 : Math.pow(Math.max(0, a - 0.5), 2);
   }
   edt2d(gO, N); edt2d(gI, N);
-  const out = new Uint8Array(N * N);
+  const out = new Float32Array(N * N);
   for (let i = 0; i < N * N; i++) {
-    const d = Math.sqrt(gO[i]) - Math.sqrt(gI[i]);
-    out[i] = Math.max(0, Math.min(255, Math.round((d / (N / 4)) * 127 + 128)));
+    out[i] = (Math.sqrt(gO[i]) - Math.sqrt(gI[i])) / N;
   }
-  const tex = new THREE.DataTexture(out, N, N, THREE.RedFormat);
+  const tex = new THREE.DataTexture(out, N, N, THREE.RedFormat, THREE.FloatType);
   tex.minFilter = tex.magFilter = THREE.LinearFilter;
   tex.needsUpdate = true;
   _sdfCache.set(key, tex);
+  return tex;
+}
+/** 워닝 느낌표 SDF — WARN_EXCL 글리프 슬롯(전 유저 고정 기본값)을 발형과 동일한
+ * float SDF 레시피로 구움. 좌우 구분 없이 고정 1개, 모듈 레벨 싱글턴 캐시. */
+let _warnTex = null, _warnKey = null;
+export function warnSDFTexture() {
+  const url = GLYPHS.map.WARN_EXCL;
+  if (!url) return null;
+  const img = GLYPHS.img('WARN_EXCL');
+  if (!img) return null;   // 로드 전 — onLoad 리베이크가 재시도
+  const key = url.length;
+  if (_warnTex && _warnKey === key) return _warnTex;
+  const N = 512;   // 항상 작게 표시되는 아이콘 — 발형만큼 큰 해상도 불필요
+  const R = glyphRaster(img);
+  const c = document.createElement('canvas'); c.width = c.height = N;
+  const g = c.getContext('2d');
+  const sc = Math.min((N * 0.78) / R.w, (N * 0.78) / R.h);
+  const w = R.w * sc, h = R.h * sc;
+  g.drawImage(R.canvas, R.x, R.y, R.w, R.h, (N - w) / 2, (N - h) / 2, w, h);
+  const imgD = g.getImageData(0, 0, N, N).data;
+  const INF = 1e20;
+  const gO = new Float32Array(N * N), gI = new Float32Array(N * N);
+  for (let i = 0; i < N * N; i++) {
+    const a = imgD[i * 4 + 3] / 255;
+    gO[i] = a >= 1 ? 0 : a <= 0 ? INF : Math.pow(Math.max(0, 0.5 - a), 2);
+    gI[i] = a >= 1 ? INF : a <= 0 ? 0 : Math.pow(Math.max(0, a - 0.5), 2);
+  }
+  edt2d(gO, N); edt2d(gI, N);
+  const out = new Float32Array(N * N);
+  for (let i = 0; i < N * N; i++) out[i] = (Math.sqrt(gO[i]) - Math.sqrt(gI[i])) / N;
+  const tex = new THREE.DataTexture(out, N, N, THREE.RedFormat, THREE.FloatType);
+  tex.minFilter = tex.magFilter = THREE.LinearFilter;
+  tex.needsUpdate = true;
+  _warnTex = tex; _warnKey = key;
   return tex;
 }
