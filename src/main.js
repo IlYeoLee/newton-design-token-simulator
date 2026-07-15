@@ -985,7 +985,7 @@ async function boot() {
     const savedLab = designStore.globalGet('fx', 'lab', null);
     // 피그마 카드 임포트 파이프라인 — StageCard/베이스(fileKey 92a2mffNpTZ5PltLln7cgq, node 26:139) 실측값을
     // 정본으로 강제(브라우저에 저장된 구 랩 편집값보다 우선). 재실행 시 이 상수만 갱신하면 전원 반영.
-    const FIGMA_CARD = { titleZ: 2.68, eyebrow: 0.30, footerZ: 1.28, titleCap: 0.13, eyeCap: 0.055, footCap: 0.065, cta: 1.0 };
+    const FIGMA_CARD = { titleZ: 2.68, eyebrow: 0.30, footerZ: 1.28, titleCap: 0.13, eyeCap: 0.07, footCap: 0.065, cta: 1.0 };
     if (savedLab) {
       const changed = JSON.stringify(savedLab.card || null) !== JSON.stringify(FIGMA_CARD);
       savedLab.card = FIGMA_CARD;
