@@ -986,12 +986,14 @@ async function boot() {
     const savedLab = designStore.globalGet('fx', 'lab', null);
     // 피그마 카드 임포트 파이프라인 — StageCard/베이스(fileKey 92a2mffNpTZ5PltLln7cgq, node 26:139) 실측값을
     // 정본으로 강제(브라우저에 저장된 구 랩 편집값보다 우선). 재실행 시 이 상수만 갱신하면 전원 반영.
-    // titleZ 2.68→1.5: 원래 임포트값은 투사 풋프린트 원경(fpFar) 슬라이더 기본값(3.0m)엔
-    // 들어맞았지만 여유가 0.3m뿐이었고, eyebrow(titleZ+0.30=2.98m)는 사실상 빔 끝단(3.0m)에
-    // 걸쳐있었음 — fpFar를 슬라이더로 조금만 줄여도(예: 2.0m) 타이틀·아이브로가 투사 경계
-    // 밖으로 나가 안 보이는 상태였음(유저 "3.2m면 너무 멀잖아" 지적으로 실측 후 확인).
-    // footerZ(1.28)는 그대로, title/eyebrow만 당겨 카드 깊이를 압축.
-    const FIGMA_CARD = { titleZ: 1.5, eyebrow: 0.30, footerZ: 1.28, titleCap: 0.13, eyeCap: 0.07, footCap: 0.065, cta: 1.0 };
+    // titleZ 2.68→1.05, footerZ 1.28→0.75: 원래 임포트값은 fpFar 슬라이더 기본값(3.0m)
+    // 대비 여유가 0.3m뿐이었고 eyebrow(titleZ+0.30)는 사실상 빔 끝단에 걸쳐있었음(유저
+    // "3.2m면 너무 멀잖아" 지적). 1차로 titleZ만 당겼더니 이번엔 A1~B4 스테이지의 발형·
+    // 화살표 그래픽(원래 1.28~2.7m 대역)과 새 타이틀 위치가 겹치는 2차 사고 발생(유저
+    // "그래픽 영역이랑 또 겹친다" 지적 — 타이틀만 당기지 말고 그래픽 존까지 안정적으로
+    // 같이 당겼어야 한다는 지적 그대로 반영). 카드(footer/title/eyebrow)를 0.75~1.25m로,
+    // A1~B4 그래픽도 session.js에서 1.5~2.3m로 함께 선형 압축해 서로 최소 0.25m 여유.
+    const FIGMA_CARD = { titleZ: 1.05, eyebrow: 0.20, footerZ: 0.75, titleCap: 0.13, eyeCap: 0.07, footCap: 0.065, cta: 1.0 };
     if (savedLab) {
       const changed = JSON.stringify(savedLab.card || null) !== JSON.stringify(FIGMA_CARD);
       savedLab.card = FIGMA_CARD;
