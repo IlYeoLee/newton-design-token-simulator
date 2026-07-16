@@ -986,7 +986,12 @@ async function boot() {
     const savedLab = designStore.globalGet('fx', 'lab', null);
     // 피그마 카드 임포트 파이프라인 — StageCard/베이스(fileKey 92a2mffNpTZ5PltLln7cgq, node 26:139) 실측값을
     // 정본으로 강제(브라우저에 저장된 구 랩 편집값보다 우선). 재실행 시 이 상수만 갱신하면 전원 반영.
-    const FIGMA_CARD = { titleZ: 2.68, eyebrow: 0.30, footerZ: 1.28, titleCap: 0.13, eyeCap: 0.07, footCap: 0.065, cta: 1.0 };
+    // titleZ 2.68→1.5: 원래 임포트값은 투사 풋프린트 원경(fpFar) 슬라이더 기본값(3.0m)엔
+    // 들어맞았지만 여유가 0.3m뿐이었고, eyebrow(titleZ+0.30=2.98m)는 사실상 빔 끝단(3.0m)에
+    // 걸쳐있었음 — fpFar를 슬라이더로 조금만 줄여도(예: 2.0m) 타이틀·아이브로가 투사 경계
+    // 밖으로 나가 안 보이는 상태였음(유저 "3.2m면 너무 멀잖아" 지적으로 실측 후 확인).
+    // footerZ(1.28)는 그대로, title/eyebrow만 당겨 카드 깊이를 압축.
+    const FIGMA_CARD = { titleZ: 1.5, eyebrow: 0.30, footerZ: 1.28, titleCap: 0.13, eyeCap: 0.07, footCap: 0.065, cta: 1.0 };
     if (savedLab) {
       const changed = JSON.stringify(savedLab.card || null) !== JSON.stringify(FIGMA_CARD);
       savedLab.card = FIGMA_CARD;
