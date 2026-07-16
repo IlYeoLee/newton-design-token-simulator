@@ -986,14 +986,16 @@ async function boot() {
     const savedLab = designStore.globalGet('fx', 'lab', null);
     // 피그마 카드 임포트 파이프라인 — StageCard/베이스(fileKey 92a2mffNpTZ5PltLln7cgq, node 26:139) 실측값을
     // 정본으로 강제(브라우저에 저장된 구 랩 편집값보다 우선). 재실행 시 이 상수만 갱신하면 전원 반영.
-    // titleZ 2.68→1.05, footerZ 1.28→0.75: 원래 임포트값은 fpFar 슬라이더 기본값(3.0m)
-    // 대비 여유가 0.3m뿐이었고 eyebrow(titleZ+0.30)는 사실상 빔 끝단에 걸쳐있었음(유저
-    // "3.2m면 너무 멀잖아" 지적). 1차로 titleZ만 당겼더니 이번엔 A1~B4 스테이지의 발형·
-    // 화살표 그래픽(원래 1.28~2.7m 대역)과 새 타이틀 위치가 겹치는 2차 사고 발생(유저
-    // "그래픽 영역이랑 또 겹친다" 지적 — 타이틀만 당기지 말고 그래픽 존까지 안정적으로
-    // 같이 당겼어야 한다는 지적 그대로 반영). 카드(footer/title/eyebrow)를 0.75~1.25m로,
-    // A1~B4 그래픽도 session.js에서 1.5~2.3m로 함께 선형 압축해 서로 최소 0.25m 여유.
-    const FIGMA_CARD = { titleZ: 1.05, eyebrow: 0.20, footerZ: 0.75, titleCap: 0.13, eyeCap: 0.07, footCap: 0.065, cta: 1.0 };
+    // titleZ 2.68→1.05→0.68→1.8→2.0 (최종): 겹침만 보고 네 번 연속 잘못 고쳤음 —
+    // ①원래 2.68은 빔 끝단(fpFar 3.0m) 여유 0.3m뿐 ②1.05는 A1~B4 그래픽과 겹침
+    // ③0.68은 CTA(1.1)와 겹침, 게다가 시선각 67°(발끝을 거의 수직으로 봐야 함) ④1.8로
+    // 시선각은 고쳤지만 이번엔 **그래픽을 title보다 더 멀리(2.3~2.75m) 보내는 방향
+    // 자체가 거꾸로**였음(유저 지적: "그래픽 존은 눈앞~발앞까지고 타이틀이 그 위로
+    // 가야" — 그래픽=가까운 존, 타이틀=그 뒤(화면상 위)여야 함, 그 반대가 아님).
+    // 최종: **그래픽(A1~B4)을 가까운 존(1.0~1.6m)으로 압축**(session.js), 타이틀
+    // (2.0m,≈39°)·아이브로(2.3m,≈35°)는 그래픽보다 뒤에서 편안한 시선각 유지, 푸터
+    // (0.7m,≈66°)만 그래픽보다 앞(CTA 55°와 비슷한 성격 — 순간 카운터라 허용).
+    const FIGMA_CARD = { titleZ: 2.0, eyebrow: 0.30, footerZ: 0.7, titleCap: 0.13, eyeCap: 0.07, footCap: 0.065, cta: 1.0 };
     if (savedLab) {
       const changed = JSON.stringify(savedLab.card || null) !== JSON.stringify(FIGMA_CARD);
       savedLab.card = FIGMA_CARD;

@@ -457,35 +457,35 @@ export class Session {
     g.add(floorRing(0, -1.1, 0.20, 0.225, BRAND.dim, 0.9));
     this.tap = this._tap('running'); this.tap.position.set(0, 0.013, -1.1); g.add(this.tap);
 
-    // A1~B4 발형/화살표 그래픽 z — 원래 1.28~2.7m에 퍼져있어 카드 타이틀(옛 2.68m)
-    // 뒤쪽에서만 안전했는데, 타이틀을 빔 여유 확보차 1.05m로 당기면서(FIGMA_CARD) 겹치는
-    // 사고 발생(유저 스크린샷 — "다리 앞뒤 스윙" 타이틀이 발+화살표 그래픽과 겹침).
-    // 그래픽 쪽도 선형 압축(1.28~2.7→1.5~2.3, 상대 간격·순서 보존)해 타이틀(1.05)·
-    // 아이브로(1.25) 둘 다와 항상 0.25m 이상 여유가 생기도록.
+    // A1~B4 발형/화살표 그래픽 z — "그래픽=가까운 존(눈앞~발앞), 타이틀=그 뒤(위)"
+    // 원칙(유저 지적, 반대로 짰던 이전 시도 정정)에 맞춰 가까운 존(1.0~1.6m)으로 압축.
+    // 원래 1.28~2.7m 대역을 상대 간격·순서 보존한 선형 압축(스케일 0.423)으로 이동 —
+    // title(2.0m)·eyebrow(2.3m, FIGMA_CARD)보다 항상 0.4m+ 앞(가까움), footer(0.7m)
+    // 보다는 0.3m+ 뒤(멂). CTA(1.1m, READY/T1 전용)와는 애초에 같은 스테이지에 안 나옴.
     g = this._mk('A1');
-    this.a1L = new FootMark('left').at(0, -1.85, 1.15); g.add(this.a1L.group);
-    this.a1R = new FootMark('right').at(0, -1.85, 1.15); g.add(this.a1R.group);
-    this.a1arc = floorArc(0, -1.85, BRAND.sand); g.add(this.a1arc);
+    this.a1L = new FootMark('left').at(0, -1.00, 1.15); g.add(this.a1L.group);
+    this.a1R = new FootMark('right').at(0, -1.00, 1.15); g.add(this.a1R.group);
+    this.a1arc = floorArc(0, -1.00, BRAND.sand); g.add(this.a1arc);
 
     g = this._mk('A2');
     this.a2 = [];
     for (let i = 0; i < 2; i++) {          // 0=왼발 앞, 1=오른발 앞 (좌우 교대)
       const pg = new THREE.Group(); g.add(pg);
       const sx = i === 0 ? 1 : -1;
-      const front = new FootMark(i === 0 ? 'left' : 'right').at(-0.13 * sx, -1.91);
-      const back = new FootMark(i === 0 ? 'right' : 'left').at(0.14 * sx, -1.50);
-      pg.add(front.group, back.group, floorRing(0.14 * sx, -1.50, 0.235, 0.255, BRAND.sand, 0.5));
+      const front = new FootMark(i === 0 ? 'left' : 'right').at(-0.13 * sx, -1.30);
+      const back = new FootMark(i === 0 ? 'right' : 'left').at(0.14 * sx, -1.00);
+      pg.add(front.group, back.group, floorRing(0.14 * sx, -1.00, 0.235, 0.255, BRAND.sand, 0.5));
       this.a2.push({ pg, front, back });
     }
 
     g = this._mk('A3');
-    this.a3foot = new FootMark('left').at(-0.05, -1.74, 1.1); g.add(this.a3foot.group);
-    this.a3fwd = floorArrow(0.22, -1.54, 0, BRAND.dim, 0.34); g.add(this.a3fwd);
-    this.a3bwd = floorArrow(0.22, -1.93, 180, BRAND.dim, 0.34); g.add(this.a3bwd);
+    this.a3foot = new FootMark('left').at(-0.05, -1.14, 1.1); g.add(this.a3foot.group);
+    this.a3fwd = floorArrow(0.22, -1.03, 0, BRAND.dim, 0.34); g.add(this.a3fwd);
+    this.a3bwd = floorArrow(0.22, -1.33, 180, BRAND.dim, 0.34); g.add(this.a3bwd);
 
     g = this._mk('A4');
-    this.a4L = new FootMark('left').at(-0.17, -1.68); g.add(this.a4L.group);
-    this.a4R = new FootMark('right').at(0.17, -1.68); g.add(this.a4R.group);
+    this.a4L = new FootMark('left').at(-0.17, -1.14); g.add(this.a4L.group);
+    this.a4R = new FootMark('right').at(0.17, -1.14); g.add(this.a4R.group);
 
     g = this._mk('T1');
     this.tap1 = this._tap('running'); this.tap1.position.set(0, 0.013, -1.1); g.add(this.tap1);
@@ -493,19 +493,19 @@ export class Session {
     g = this._mk('B1');
     // 박자 듣기 = 시각 메트로놈: 비트 링(시선 밴드 중앙) + 글리프 숫자 1·2 박자 교대 펄스
     // (기존: 화면 가장자리에 링 하나 — 장면이 비어 음성 의존이던 문제)
-    this.b1outer = floorRing(0, -1.96, 0.24, 0.26, BRAND.red, 0.6);
-    this.b1inner = floorRing(0, -1.96, 0.12, 0.14, BRAND.red, 0.9);
-    this.b1nums = [floorNum('1', -0.55, -1.96, 0.22), floorNum('2', 0.55, -1.96, 0.22)];
+    this.b1outer = floorRing(0, -1.35, 0.24, 0.26, BRAND.red, 0.6);
+    this.b1inner = floorRing(0, -1.35, 0.12, 0.14, BRAND.red, 0.9);
+    this.b1nums = [floorNum('1', -0.55, -1.35, 0.22), floorNum('2', 0.55, -1.35, 0.22)];
     g.add(this.b1outer, this.b1inner, this.b1nums[0], this.b1nums[1]);
 
     g = this._mk('B2');
-    this.b2L = new FootMark('left').at(-0.17, -1.74); g.add(this.b2L.group);
-    this.b2R = new FootMark('right').at(0.17, -1.74); g.add(this.b2R.group);
+    this.b2L = new FootMark('left').at(-0.17, -1.14); g.add(this.b2L.group);
+    this.b2R = new FootMark('right').at(0.17, -1.14); g.add(this.b2R.group);
 
     g = this._mk('B3');
     g.add(laneLine(BRAND.red, 0.2, -3.0));
     this.b3 = [];
-    const bp = [[-0.17, -1.68], [0.18, -1.99], [-0.14, -2.30]];
+    const bp = [[-0.17, -1.14], [0.18, -1.37], [-0.14, -1.60]];
     for (let i = 0; i < 3; i++) {
       const fm = new FootMark(i % 2 === 0 ? 'left' : 'right').at(bp[i][0], bp[i][1]);
       g.add(fm.group); g.add(floorNum(String(i + 1), bp[i][0] - 0.22, bp[i][1] + 0.12, 0.12, CS.ink));
@@ -514,8 +514,8 @@ export class Session {
 
     g = this._mk('B4');
     g.add(laneLine(BRAND.red, 0.2, -3.0));
-    this.b4foot = new FootMark('left').at(0.05, -1.68); g.add(this.b4foot.group);
-    this.b4rings = [floorRing(-0.05, -2.02, 0.15, 0.17, BRAND.red, 0.6), floorRing(0.05, -2.24, 0.15, 0.17, BRAND.red, 0.35)];
+    this.b4foot = new FootMark('left').at(0.05, -1.14); g.add(this.b4foot.group);
+    this.b4rings = [floorRing(-0.05, -1.39, 0.15, 0.17, BRAND.red, 0.6), floorRing(0.05, -1.56, 0.15, 0.17, BRAND.red, 0.35)];
     g.add(this.b4rings[0], this.b4rings[1]);
 
     g = this._mk('C1');
