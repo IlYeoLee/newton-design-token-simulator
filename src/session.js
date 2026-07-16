@@ -1074,10 +1074,16 @@ export class Session {
     if (!this.active) return;
     const st = this.stages[this.stageIdx]; this.t += dt; const id = st.id;
     const wall = !!st.wall;
-    // 오버레이 좌표: 벽면(복싱)은 고정, 지면은 러너/컷을 따라감
-    const bodyZ = (!wall && this.isLive) ? this.xbot.getBodyPos().z : 0;
-    this.root.position.x = wall ? 0 : this.tokens.floorRoot.position.x;
-    this.root.position.z = wall ? 0 : (this.tokens.floorRoot.position.z + bodyZ);
+    // 오버레이 좌표: 벽면(복싱)은 고정, 지면은 러너/컷을 따라감.
+    // 비실전 단계(READY·스트레칭 등, !isLive)는 러너가 실제로 전진하지 않으므로 원점 고정.
+    // tokens.floorRoot는 대기 루프의 loopShiftZ(무한 트랙 심리스 시프트)를 그대로 갖고 있어서
+    // — 세션 시작 리셋 타이밍과 살짝 어긋나면 카드가 실제로 수십m 밖에 지어져 타이틀·아이브로
+    // 글자가 화면상 훨씬 작게 보였음(유저 "1인칭 글자 작아보인다" 신고, 실측 각크기 24arcmin
+    // 미만으로 확인). bodyZ와 동일하게 isLive로 게이팅해 비실전 단계엔 아예 안 건드림.
+    const live = !wall && this.isLive;
+    const bodyZ = live ? this.xbot.getBodyPos().z : 0;
+    this.root.position.x = live ? this.tokens.floorRoot.position.x : 0;
+    this.root.position.z = live ? (this.tokens.floorRoot.position.z + bodyZ) : 0;
     // 스테이지 카드 조판 라이브 소비 (룩 '스테이지 카드' 슬라이더 — 위치는 즉시, 캡은 다음 텍스트 갱신 시)
     const CARD = FXP.card || {};
     this.slotFL.position.z = -(CARD.titleZ ?? 2.68);
