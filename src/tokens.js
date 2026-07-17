@@ -1,6 +1,5 @@
 import * as THREE from 'three';
 import { WALL_Z } from './scene.js';
-import { renderDesignCanvas } from './studio/design.js';
 import { getLUT, FXP, FX_GLSL, GLYPHS, drawGlyph, footSDFTexture, warnSDFTexture } from './fxlut.js';
 import { MARK_NUM, MARK_GLSL } from './fx-core.js';
 
@@ -294,22 +293,6 @@ function makeDashedRingTexture(colorHex) {
   return new THREE.CanvasTexture(c);
 }
 
-// 유지(hold) = holdRing 채움 — 시계방향 채움(진행률). 정적 프리뷰는 표본 66%.
-function makeHoldRingTexture(colorHex, frac = 0.66) {
-  const c = document.createElement('canvas');
-  c.width = c.height = 256;
-  const ctx = c.getContext('2d');
-  const col = '#' + colorHex.toString(16).padStart(6, '0');
-  // 트랙(옅은 전체 링)
-  ctx.strokeStyle = col; ctx.globalAlpha = 0.35; ctx.lineWidth = 20;
-  ctx.beginPath(); ctx.arc(128, 128, 96, 0, Math.PI * 2); ctx.stroke();
-  // 채움 호 (12시부터 시계방향)
-  ctx.globalAlpha = 0.95; ctx.lineCap = 'round';
-  const a0 = -Math.PI / 2, a1 = a0 + Math.PI * 2 * Math.max(0, Math.min(1, frac));
-  ctx.beginPath(); ctx.arc(128, 128, 96, a0, a1); ctx.stroke();
-  return new THREE.CanvasTexture(c);
-}
-
 function makeLaneTexture() {
   const c = document.createElement('canvas');
   c.width = 64; c.height = 256;
@@ -341,10 +324,8 @@ class Marker {
     this.color = color;
     this.surface = surface;
 
-    this.fill = new THREE.Mesh(new THREE.CircleGeometry(radius, 40), flatMat(color, 0.22));
-    this.edge = new THREE.Mesh(new THREE.RingGeometry(radius * 0.88, radius, 44), flatMat(color, 0.95));
-    this.cd   = new THREE.Mesh(new THREE.RingGeometry(radius * 0.93, radius, 44), flatMat(0xffffff, 0.9));
     this.num  = null;
+    // 룩 이전 벡터 링(fill/edge/cd)은 완전 은퇴 — 상태 비주얼은 fx 셰이더가 전담.
 
     // 파동 셰이더 존 (FX Lab 언어) — 발형 표현형(markShape=1)이면 FOOT 슬롯 SDF 위에서 같은 상태 머신
     let footTex = null;
@@ -357,30 +338,12 @@ class Marker {
     // 벽면은 열화상 고스트 위 가산이라 과노출 방지 게인
     this._baseGain = surface === 'wall' ? 0.6 : 1.0;
     this.fx.material.uniforms.uGain.value = this._baseGain;
-    this.fill.visible = this.edge.visible = this.cd.visible = false;
     this.group.add(this.fx);
-
-    this.group.add(this.fill, this.edge, this.cd);
     if (surface === 'floor') {
       this.group.rotation.x = -Math.PI / 2;
       this.group.position.y = 0.012;
     }
     this.group.renderOrder = 5;
-  }
-  /** 제작자 모드: 형태를 외부 아트로 교체 — 상태(cd 링)는 엔진 유지 */
-  setArt(tex) {
-    this.clearArt();
-    this.art = new THREE.Mesh(new THREE.PlaneGeometry(this.radius * 2.2, this.radius * 2.2),
-      new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false }));
-    this.art.position.z = 0.003;
-    this.art.material.clippingPlanes = this.edge.material.clippingPlanes;
-    this.group.add(this.art);
-    this.fill.visible = false; this.edge.visible = false;
-    this.fx.visible = false;   // 커스텀 아트가 존 비주얼을 대체
-  }
-  clearArt() {
-    if (this.art) { this.group.remove(this.art); this.art.material.dispose(); this.art = null; }
-    this.fx.visible = true;    // 기본 존 = 파동 셰이더 (구 벡터 링은 계속 숨김)
   }
   /** 에디터 v3: 3D 직접 선택 윤곽 (흰 링 — 피그마 선택 박스의 투사면 등가물) */
   setSelected(on) {
@@ -411,20 +374,12 @@ class Marker {
     // 바닥 눕힘(rx=-90°)만으로 글자 위쪽이 -Z(전방) = 유저가 읽는 방향 (rz 추가 회전 없음)
     this.group.add(this.num);
   }
-  /** MARK 계약 변조: reach(실선) / avoid(점선 반전) / hold(holdRing 채움) */
-  setContract(contract = 'reach', holdRing = false) {
+  /** MARK 계약 변조: reach(실선) / avoid(점선 반전 — 셰이더 uContract).
+      구 holdArt 캔버스 링은 은퇴(카탈로그에 없는 종·현행 팩 데이터 미사용) —
+      유지 계약이 다시 필요해지면 fx Hold 상태(코닉 림)로 구동할 것. */
+  setContract(contract = 'reach') {
     this.contract = contract;
-    if (this.avoidArt) { this.group.remove(this.avoidArt); this.avoidArt.material.dispose(); this.avoidArt = null; }
-    if (this.holdArt) { this.group.remove(this.holdArt); this.holdArt.material.dispose(); this.holdArt = null; }
-    const sz = this.radius * 2.35;
-    // 회피 = 파동 셰이더의 점선 반전 (별도 오버레이 불필요)
     this.fx.material.uniforms.uContract.value = contract === 'avoid' ? 1 : 0;
-    if (contract === 'hold' || holdRing) {
-      this.holdArt = new THREE.Mesh(new THREE.PlaneGeometry(sz, sz),
-        new THREE.MeshBasicMaterial({ map: makeHoldRingTexture(this.color, 0.66), transparent: true, depthWrite: false }));
-      this.holdArt.position.z = 0.0035;
-      this.group.add(this.holdArt);
-    }
   }
   /** phase: hidden|locked|preview|countdown|linger  progress: 0..1 */
   render(phase, progress, orderIdx, sizeScale) {
@@ -432,8 +387,6 @@ class Marker {
     if (phase === 'hidden') { g.visible = false; return; }
     g.visible = true;
     g.scale.setScalar(sizeScale * TCFG.markScale);
-    if (this.art) this.art.material.opacity = phase === 'locked' ? 0.30 : phase === 'preview' ? (this.strongPreview ? 1 : 0.55) : 1;
-
     const steps = FP_VIEW ? FADE_STEPS_FP : FADE_STEPS;
     const fade = steps[Math.min(orderIdx, steps.length - 1)];
 
@@ -459,48 +412,15 @@ class Marker {
         this.fx.material.needsUpdate = true;
       }
     }
-    if (phase === 'preview') {
-      // 저작 프리뷰: 전 토큰을 또렷한 상시 강도로 (위계 감쇠 없음)
-      const strong = this.strongPreview;
-      this.fill.material.opacity = (strong ? 0.2 : 0.03) * fade;
-      this.edge.material.opacity = (strong ? 0.95 : TCFG.previewEdge) * fade;
-      this.edge.material.color.setHex(this.color);
-      this.fill.material.color.setHex(this.color);
-      this.cd.visible = false;
-      if (this.num) this.num.material.opacity = (strong ? 1.0 : 0.5) * fade;
-    } else if (phase === 'countdown') {
-      this.fill.material.opacity = TCFG.fillOpacity + 0.15 * progress;
-      this.edge.material.opacity = 1.0;
-      this.edge.material.color.setHex(this.color);
-      this.fill.material.color.setHex(this.color);
-      // 레거시 흰 카운트다운 링 은퇴 — 타이밍 큐는 FX Active의 얼음빛 헤일로 수축(시안 보드)이 담당.
-      // 장면 마크가 랩과 다르게 보이던 주범(룩 밖 벡터 링이 셰이더 위에 겹침).
-      this.cd.visible = false;
-      if (this.num) this.num.material.opacity = 1.0;
-    } else if (phase === 'linger') {
-      const k = 1 - progress;
-      this.fill.material.color.setHex(COLORS.success);
-      this.edge.material.color.setHex(COLORS.success);
-      this.fill.material.opacity = 0.3 * k;
-      this.edge.material.opacity = TCFG.lingerEdge * k;
-      this.cd.visible = false;
-      if (this.num) this.num.material.opacity = 0.4 * k;
-    } else if (phase === 'locked') {
-      // 시퀀스 예고 — 회색 고스트(셰이더) + 순번만. 레거시 링은 침묵.
-      this.fill.material.opacity = 0;
-      this.edge.material.opacity = 0;
-      this.cd.visible = false;
-      if (this.num) this.num.material.opacity = 0.48 * fade;
-    } else if (phase === 'miss') {
-      // 놓친 마크 — 셰이더 고스트만, 벌색·X 금지 (무음이 신호)
-      this.fill.material.opacity = 0;
-      this.edge.material.opacity = 0;
-      this.cd.visible = false;
-      if (this.num) this.num.material.opacity = 0.3 * (1 - progress);
+    // 숫자 = 마크 안 글리프, 표시 강도만 상태 연동 (MARK_NUM 규약) — 형태는 전부 fx 셰이더
+    if (this.num) {
+      this.num.material.opacity =
+        phase === 'preview' ? (this.strongPreview ? 1.0 : 0.5) * fade
+        : phase === 'countdown' ? 1.0
+        : phase === 'linger' ? 0.4 * (1 - progress)
+        : phase === 'locked' ? 0.48 * fade
+        : phase === 'miss' ? 0.3 * (1 - progress) : 1.0;
     }
-    // 계약 오버레이(점선/holdRing)는 링 강도를 따라감
-    if (this.avoidArt) this.avoidArt.material.opacity = Math.min(1, this.edge.material.opacity + 0.1);
-    if (this.holdArt) this.holdArt.material.opacity = Math.min(1, this.edge.material.opacity + 0.05);
     // 발형 숫자 앵커 — FX Lab 지정(컨텍스트별 1개, 왼발 기준 저장). 오른발 = x 미러. 없으면 중심 유지.
     if (this.num && this._isFoot && FXP.numFoot) {
       const NF = FXP.numFoot;
@@ -655,7 +575,6 @@ export class TokenSystem {
       if (ev.marker) {
         const c = COLORS[ev.marker.role] ?? COLORS.left;
         ev.marker.color = c; ev.color = c;
-        ev.marker.fill.material.color.setHex(c);
       }
       // 화살표는 LUT 히트색 소비(LANEFX) — 역할색 리컬러 대상 아님
     }
@@ -708,14 +627,10 @@ export class TokenSystem {
           const radius = tk.radiusCm ? tk.radiusCm / 100 : (tk.type === 'targetMark' ? 0.20 : 0.17);
           const mk = new Marker(radius, color, isWall ? 'wall' : 'floor', tk.foot === 'right');
           // MARK 계약 변조 (도달/회피/유지) — 벽 불즈아이는 도달 전용
-          if (!isWall && (tk.contract && tk.contract !== 'reach' || tk.holdRing)) mk.setContract(tk.contract, tk.holdRing);
-          // 토큰 비주얼 디자인(그라디언트·블러·SVG) → CanvasTexture 아트로 교체
-          if (!isWall && tk.design) {
-            const tex = new THREE.CanvasTexture(renderDesignCanvas(tk.design, 256));
-            tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
-            mk.setArt(tex);
-            if (tk.design.shape === 'number') mk._skipNumber = true;
-          }
+          if (!isWall && (tk.contract && tk.contract !== 'reach' || tk.holdRing)) mk.setContract(tk.contract);
+          // 구 마크별 손편집(tk.design → setArt 캔버스 아트)은 소비 안 함 — 카탈로그 셰이더를
+          // 영구히 가리는 좀비였음(v15에서 로컬 편집은 정화했지만 시드 팩 데이터가 남아 있었음).
+          // 원칙: 마크 형태·색은 룩 시스템만, 팩은 좌표·시간만.
           // 구 벽면 불즈아이(사제 동심원 과녁 캔버스)는 은퇴 — 카탈로그에 없는 종.
           // 벽 타겟 = MARK 존 원 7상태 그대로 (지면과 동일 토큰, 숫자는 마크 안 글리프).
           mk.role = tk.type === 'targetMark' ? 'target' : (tk.foot ?? 'left');
@@ -801,8 +716,6 @@ export class TokenSystem {
         const p = this._mapFloor(tk);
         mk.group.position.x = p.x; mk.group.position.z = p.z;
         mk.render('preview', 0, 0, 1);
-        mk.fill.material.opacity = 0.16;
-        mk.edge.material.opacity = 0.7;
         mk.isStance = true;
         this.floorRoot.add(mk.group);
         this._applyClip(mk.group, this._floorClipFor());
