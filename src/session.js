@@ -1,6 +1,5 @@
 import * as THREE from 'three';
 import { WALL_Z } from './scene.js';
-import { thermalColor, heatBlob, grainPattern } from './thermal.js';
 import { lutColor, GLYPHS, drawGlyph, footSlot, footSDFTexture, FXP } from './fxlut.js';
 import { makeMarkFXMaterial, makeArrow, makeLaneFXMaterial } from './tokens.js';
 
@@ -103,65 +102,8 @@ function makeTextMesh(text, opts = {}) {
 }
 function makeTextPlane(text, opts = {}) { const g = makeTextMesh(text, opts); const p = g.userData.plane; g.remove(p); return p; }
 
-// ── 발형 마크 v2 — 족저 압력 히트맵 (열화상 실루엣: 핫스팟 + 소프트 헤일로) ──
-// 발끝 박스 위 + 뒤꿈치 아래 = -Z 전방 (방향 규칙 유지)
-function _footPaths() {
-  const fore = new Path2D();
-  fore.moveTo(64,14); fore.bezierCurveTo(106,14,116,52,110,96); fore.bezierCurveTo(107,122,102,138,102,156);
-  fore.bezierCurveTo(102,176,84,186,64,186); fore.bezierCurveTo(44,186,26,176,26,156);
-  fore.bezierCurveTo(26,138,21,122,18,96); fore.bezierCurveTo(12,52,22,14,64,14); fore.closePath();
-  const heel = new Path2D();
-  heel.moveTo(42,206); heel.lineTo(86,206); heel.quadraticCurveTo(96,206,94,220);
-  heel.quadraticCurveTo(90,242,64,242); heel.quadraticCurveTo(38,242,34,220); heel.quadraticCurveTo(32,206,42,206);
-  heel.closePath();
-  return { fore, heel };
-}
-function makeFootTexture(mirror) {
-  // 커스텀 발형 SVG (FX Lab 슬롯 — 실내/야외 × L/R, 투사면 컨텍스트 자동 선택)
-  const slot = footSlot(mirror);
-  if (GLYPHS.img(slot)) {
-    const W = 384, H = 640;
-    const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
-    drawGlyph(cv.getContext('2d'), slot, W / 2, H / 2, Math.min(W, H * 0.62), { glow: 26 });
-    const tex = new THREE.CanvasTexture(cv);
-    tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
-    return tex;
-  }
-  // 캔버스 384×640 = 콘텐츠(128×256)의 2배 해상도 + 헤일로 여백 32px(콘텐츠 좌표)
-  const W = 384, H = 640;
-  const shape = document.createElement('canvas'); shape.width = W; shape.height = H;
-  const ctx = shape.getContext('2d');
-  ctx.translate(64, 64); ctx.scale(2, 2);
-  if (mirror) { ctx.translate(128, 0); ctx.scale(-1, 1); }
-  const { fore, heel } = _footPaths();
-  // 전족부: 은은한 바탕 + 압력 핫스팟(볼·발끝·외측)
-  ctx.save(); ctx.clip(fore);
-  ctx.fillStyle = thermalColor(0.3, 0.34); ctx.fill(fore);
-  heatBlob(ctx, 64, 82, 54, 0.88, 0.92);    // 볼(ball) — 최대 압력
-  heatBlob(ctx, 64, 34, 32, 0.6, 0.7);      // 발끝
-  heatBlob(ctx, 98, 108, 27, 0.52, 0.55);   // 외측 아치
-  heatBlob(ctx, 30, 108, 26, 0.46, 0.5);
-  ctx.restore();
-  // 뒤꿈치: 진한 핫스팟
-  ctx.save(); ctx.clip(heel);
-  ctx.fillStyle = thermalColor(0.35, 0.36); ctx.fill(heel);
-  heatBlob(ctx, 64, 224, 32, 0.93, 0.95);
-  ctx.restore();
-
-  // 합성: 헤일로(빛 번짐) + 본체 소프트 + 그레인
-  const out = document.createElement('canvas'); out.width = W; out.height = H;
-  const oc = out.getContext('2d');
-  oc.globalAlpha = 0.55; oc.filter = 'blur(11px)'; oc.drawImage(shape, 0, 0);
-  oc.globalAlpha = 1; oc.filter = 'blur(2px)'; oc.drawImage(shape, 0, 0);
-  oc.filter = 'none';
-  oc.globalCompositeOperation = 'source-atop'; oc.globalAlpha = 0.08;   // 실루엣 안에만 그레인
-  oc.fillStyle = grainPattern(oc); oc.fillRect(0, 0, W, H);
-  oc.globalCompositeOperation = 'source-over'; oc.globalAlpha = 1;
-
-  const tex = new THREE.CanvasTexture(out);
-  tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
-  return tex;
-}
+// 구 발형 마크 v2(족저 압력 히트맵 캔버스 텍스처) 삭제 — FootMark가 MARK 발형 셰이더로
+// 대체한 뒤 호출처 0인 죽은 코드였음 (룩 시스템 외 사제 렌더의 마지막 잔재).
 class FootMark {
   // 세션 발자국 = MARK 발형 상태 머신 소비 (시안 보드 7상태 그대로).
   // 열화상 사제 텍스처·flatMat 카운트다운 링·홀드 호 전부 은퇴 — 룩 시스템이 유일한 형태:
@@ -257,8 +199,10 @@ function waveRingMesh(rIn, rOut, color, op, wall, phase = 0) {
   U.uPhase.value = phase;
   U.uFade.value = op;
   U.uGain.value = wall ? 0.6 : 1.0;
-  U.uW.value = Math.max(0.5, Math.min(3, (0.72 * (rOut - rIn)) / rOut / 0.03));
-  U.uPool.value = 0.1;
+  // 오버라이드 금지 — 세션 링 = 카탈로그의 MARK 원형 그대로(반경·상태·진행만 이 자리서 지정).
+  // 예전엔 uPool=0.1 하드코딩 + rIn/rOut로 uW 재계산해 카탈로그와 다른 '새 종'처럼 보였음
+  // (유저: "룩 시스템 토큰으로 진행되고 있지 않다" — 정확한 지적). 룩 값은 tickWaves가
+  // 팩 마커(tokens.js)와 동일하게 매 프레임 FXP.mark에서 직결 주입.
   WAVE_MATS.push(mat);
   const m = new THREE.Mesh(new THREE.PlaneGeometry(quadR * 2, quadR * 2), mat);
   m.renderOrder = 5;
@@ -1047,9 +991,15 @@ export class Session {
   tickWaves() {
     const t = performance.now() / 1000;
     const day = FXP.day ? 1 : 0;
+    const MK = FXP.mark;   // 룩 시스템 MARK 슬라이더 — 팩 마커(tokens.js)와 동일하게 세션 재질도 라이브 소비
     for (const m of WAVE_MATS) {
       const U = m.uniforms;
       U.uTime.value = t;
+      U.uW.value = MK.core;
+      U.uHalo.value = MK.halo;
+      U.uPool.value = MK.pool;
+      U.uSweepA.value = MK.sweep;
+      U.uWobble.value = MK.wobble;
       if (m._auto) U.uProg.value = (t * 0.3) % 1;   // 구동자 없는 Hold = 시연 루프
       if (U.uDay.value !== day) {   // 주간 풀컬러 잉크 규약 (마커와 동일)
         U.uDay.value = day;
