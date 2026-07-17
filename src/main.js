@@ -759,6 +759,8 @@ async function boot() {
     }
   });
   session.judge = judge;   // 판정 오차 소비 (페이스 라이트·FIN 겹쳐보기·C3 흔들림)
+  // 단계 중간 음성 큐 — 시범→실행 전환("이제 같이") 등 코칭 3층 문법의 동작 큐 채널
+  session.say = (who, line) => { showCaption(who, line); speak(who, line, 'cue:' + line.slice(0, 16)); };
   // 게이트/다운시프트 안내 자막 + 웨어러블 신호
   sessionSkillSink = session;
   session.setSkill(parseInt(document.getElementById('s-skill')?.value ?? '70', 10) / 100);

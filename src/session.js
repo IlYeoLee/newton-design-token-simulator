@@ -319,9 +319,9 @@ function wallTap() {
 export const STAGES = {
   running: [
     { id:'READY', label:'0 · READY — 준비', voice:['시스템','션의 마지막 1km 페이스 팩. 준비되면 발을 두 번 탭하세요.'], wear:'SAFE 대기', foot:'두 번 탭 → 시작' },
-    { id:'A1', label:'A · 스트레칭 1/4 — 발목 돌리기', voice:['션','발목부터 풀어요. 원에 발끝 올리고 천천히 여덟 번.'], wear:'개입 없음 (가동범위 측정)' },
-    { id:'A2', label:'A · 스트레칭 2/4 — 종아리 펌프', voice:['션','왼발을 앞에. 뒤꿈치를 높이 들었다 — 바닥까지. 가볍게 열 번.'], hap:'10회 종료 진동 1회' },
-    { id:'A3', label:'A · 스트레칭 3/4 — 다리 스윙', voice:['션','골반 잡고 다리를 앞뒤로. 가볍게 열 번.'], foot:'완료 후 두 번 탭 → 다음' },
+    { id:'A1', label:'A · 스트레칭 1/4 — 발목 풀기 (링 따라 원 그리기)', voice:['션','발목부터 풀게요. 링이 도는 속도가 발목이 도는 속도예요 — 먼저 두 바퀴는 그냥 보세요.'], wear:'개입 없음 (가동범위 측정)' },
+    { id:'A2', label:'A · 스트레칭 2/4 — 종아리 깨우기 (까치발 펌프)', voice:['션','다음은 종아리를 깨워요. 왼발을 앞 발자국 위에 올려 두세요 — 박자를 먼저 보여줄게요.'], hap:'10회 종료 진동 1회' },
+    { id:'A3', label:'A · 스트레칭 3/4 — 다리 흔들기 (시계추 스윙)', voice:['션','다리에 힘을 빼고 시계추처럼 흔들 거예요. 앞뒤 두 원이 스윙 폭이에요 — 먼저 보세요.'], foot:'완료 후 두 번 탭 → 다음' },
     { id:'A4', label:'A · 스트레칭 4/4 — 션 박자 걷기', voice:['션','이제 내 걸음 박자로 제자리 걷기. 처음엔 천천히 — 점점 붙여요.'], hap:'워밍업 박자 (약)', wear:'낮은 강도 보조 시작' },
     { id:'T1', label:'T-1 · STAGE CLEAR → 사전 익히기', voice:['시스템','몸 다 풀렸어요. 탭 두 번이면 다음으로.'], foot:'두 번 탭 → 사전 익히기' },
     { id:'B1', label:'B · 사전 익히기 1/5 — 박자 듣기', voice:['션','마지막 1km에서 쓰는 박자예요. 먼저 듣기만. 하나, 둘.'], hap:'박자 동기 (약)' },
@@ -912,6 +912,13 @@ export class Session {
     return Math.min(0.25, Math.max(0.03, m));
   }
   /** 팩 케이던스 파생 — 스텝 간격 중앙값(초). 범위 밖이면 폴백. */
+  /** 단계 중간 음성 큐 — 스테이지당 1회 (같은 key 중복 발화 방지, _enter가 리셋) */
+  _say(key, who, line) {
+    if (!this._saidKeys) this._saidKeys = new Set();
+    if (this._saidKeys.has(key)) return;
+    this._saidKeys.add(key);
+    this.say?.(who, line);
+  }
   /** 페이스 라이트 틱 — 최근 판정 3개의 평균 타이밍 오차를 거리(×팩속도 2.5m/s)로 번역 */
   _paceTick() {
     this.paceLight.visible = true;
@@ -943,6 +950,7 @@ export class Session {
     this.bobY = 0;
     for (const id in this.G) this.G[id].visible = false;
     this.paceLight.visible = false;   // C 실전 틱(_paceTick)이 프레임마다 다시 켬
+    this._saidKeys?.clear();          // 단계 중간 음성 큐 리셋
     this._setCount(null); this._setCountWall(null);
     if (this.G[st.id]) this.G[st.id].visible = true;
     // FIN Ghost Review — 션 발자국 격자 + 내 착지점(판정 오차 벡터, ±30cm 클램프)
@@ -1010,9 +1018,9 @@ export class Session {
   _enterRunning(st, { S, FS, FL, FM }) {
     switch (st.id) {
       case 'READY': FS('SEAN · LAST 1KM'); FL('READY'); break;   // 푸터 제거: CTA 라벨과 중복 + CTA 근접 이동으로 겹침
-      case 'A1': FS('STRETCH 1/4'); FL('발끝 올리고 돌리기'); FM('왼발 1 / 8', CS.sand); break;
-      case 'A2': FS('STRETCH 2/4'); FL('뒤꿈치 펌프'); FM('왼발 앞 · 들었다 내리기 ×10', CS.sand); break;
-      case 'A3': FS('STRETCH 3/4'); FL('다리 앞뒤 스윙'); FM('1 / 10'); break;
+      case 'A1': FS('STRETCH 1/4'); FL('발끝으로 링 따라 원 그리기'); FM('먼저 보세요', CS.sand); break;
+      case 'A2': FS('STRETCH 2/4'); FL('까치발 펌프 — 뒤꿈치 들었다 내리기'); FM('먼저 보세요', CS.sand); break;
+      case 'A3': FS('STRETCH 3/4'); FL('다리 힘 빼고 앞뒤로 흔들기'); FM('먼저 보세요'); break;
       case 'A4': FS('STRETCH 4/4'); FL('션 박자로 걷기'); FM('처음엔 천천히 — 점점 붙어요'); break;
       case 'T1': FS('T-1'); S(this.slotFL, 'STAGE CLEAR', { size: 0.12, color: CS.prism }); break;   // 푸터 제거: CTA 라벨과 중복
       case 'B1': FS('LEARN 1/5'); FL('션의 박자 — 듣기만'); FM('먼저 귀로 배워요'); break;
@@ -1196,35 +1204,56 @@ export class Session {
       }
       if (id === 'T1' && this.t >= 4.5) { this.next(); return; }
     } else if (id === 'A1') {
-      // 발목 돌리기 — 아크가 실제로 돌며 좌 8회 → 우 8회 카운트
-      const REP = SCFG.a1Rep, half = 8 * REP;
-      const side = this.t < half ? 0 : 1;
-      this.a1L.group.visible = side === 0; this.a1R.group.visible = side === 1;
-      this.a1arc.setProg((this.t % REP) / REP);   // MARK Hold 진행 림 = 발목 회전 진행
-      const rep = Math.min(8, Math.floor((this.t - side * half) / REP) + 1);
-      FMU(`${side === 0 ? '왼발' : '오른발'} ${rep} / 8`, CS.sand);
-      if (this.t >= 2 * half + 0.6) { this.next(); return; }
+      // 발목 돌리기 — 코칭 3층(목적→세팅→동작): 시범(2바퀴 보기만) → "이제 같이" → 좌 8회·우 8회
+      const REP = SCFG.a1Rep, DEMO = 2 * REP, half = 8 * REP;
+      this.a1arc.setProg((this.t % REP) / REP);   // MARK Hold 진행 림 = 발목 회전 속도 (시범부터 동일)
+      if (this.t < DEMO) {
+        this.a1L.group.visible = true; this.a1R.group.visible = false;
+        FMU('먼저 보세요 — 링을 따라 발목이 돕니다', CS.sand);
+      } else {
+        this._say('a1go', '션', '이제 같이 — 발끝을 링에 올리고 천천히 여덟 번.');
+        const t2 = this.t - DEMO, side = t2 < half ? 0 : 1;
+        this.a1L.group.visible = side === 0; this.a1R.group.visible = side === 1;
+        const rep = Math.min(8, Math.floor((t2 - side * half) / REP) + 1);
+        FMU(`${side === 0 ? '왼발' : '오른발'} ${rep} / 8`, CS.sand);
+        if (t2 >= 2 * half + 0.6) { this.next(); return; }
+      }
     } else if (id === 'A2') {
-      // 종아리 펌프 — 뒤꿈치 들어올림→내림 ×10, 좌우 교대 (러닝 직전은 정적 홀드보다 동적 웜업)
-      const BT = 0.9, REPS = 10, PH = REPS * BT + 0.9;
-      const phase = this.t < PH ? 0 : 1;
-      this.a2[0].pg.visible = phase === 0; this.a2[1].pg.visible = phase === 1;
-      const lt = this.t - phase * PH;
-      const pair = this.a2[phase];
-      const k = (lt % BT) / BT;
-      pair.back.setHold(Math.min(1, lt < REPS * BT ? (k < 0.5 ? k * 2 : 2 - k * 2) : 0));   // 홀드 링 = 뒤꿈치 높이
-      if (lt >= REPS * BT) pair.back.glow(Math.max(0, 1 - (lt - REPS * BT) / 0.6));
-      const rep = Math.min(REPS, Math.floor(lt / BT) + 1);
-      FMU(`${phase === 0 ? '왼발 앞' : '오른발 앞'} · 뒤꿈치 펌프 ${rep} / ${REPS}`, CS.sand);
-      if (this.t >= 2 * PH) { this.next(); return; }
+      // 종아리 펌프 — 시범(2박 보기) → "이제 같이" → 좌우 각 10회 (동적 웜업)
+      const BT = 0.9, REPS = 10, DEMO = 2 * BT, PH = REPS * BT + 0.9;
+      if (this.t < DEMO) {
+        this.a2[0].pg.visible = true; this.a2[1].pg.visible = false;
+        const k0 = (this.t % BT) / BT;
+        this.a2[0].back.setHold(Math.max(0.001, k0 < 0.5 ? k0 * 2 : 2 - k0 * 2));   // 뒤꿈치 박자 시범
+        FMU('먼저 보세요 — 뒤꿈치가 올라갔다 내려오는 박자', CS.sand);
+      } else {
+        this._say('a2go', '션', '이제 같이 — 까치발 서듯 뒤꿈치를 올렸다, 바닥까지 내려요.');
+        const t2 = this.t - DEMO;
+        const phase = t2 < PH ? 0 : 1;
+        this.a2[0].pg.visible = phase === 0; this.a2[1].pg.visible = phase === 1;
+        const lt = t2 - phase * PH;
+        const pair = this.a2[phase];
+        const k = (lt % BT) / BT;
+        pair.back.setHold(Math.min(1, lt < REPS * BT ? Math.max(0.001, k < 0.5 ? k * 2 : 2 - k * 2) : 0.001));   // 홀드 링 = 뒤꿈치 높이
+        if (lt >= REPS * BT) pair.back.glow(Math.max(0, 1 - (lt - REPS * BT) / 0.6));
+        const rep = Math.min(REPS, Math.floor(lt / BT) + 1);
+        FMU(`${phase === 0 ? '왼발 앞' : '오른발 앞'} · 까치발 펌프 ${rep} / ${REPS}`, CS.sand);
+        if (t2 >= 2 * PH) { this.next(); return; }
+      }
     } else if (id === 'A3') {
-      // 다리 스윙 — 종점 존 교대 글로우 (반주기마다 앞존↔뒷존이 차오름 = 스윙 박자·진폭)
-      const SW = SCFG.a3Swing, ph = beat(SW);
+      // 다리 스윙 — 시범(2왕복 보기) → "이제 같이" → 열 번 (종점 존 교대 글로우 = 박자·진폭)
+      const SW = SCFG.a3Swing, DEMO = 2 * SW, ph = beat(SW);
       const fwd = ph < 0.5, k = fwd ? ph * 2 : (ph - 0.5) * 2;
       this.a3zones[0].setOp(fwd ? 0.3 + 0.65 * k : 0.3);
       this.a3zones[1].setOp(!fwd ? 0.3 + 0.65 * k : 0.3);
-      FMU(`${Math.min(10, Math.floor(this.t / SW) + 1)} / 10`);
-      if (this.t >= 10 * SW + 0.5) { this.next(); return; }
+      if (this.t < DEMO) {
+        FMU('먼저 보세요 — 앞뒤로 오가는 박자');
+      } else {
+        this._say('a3go', '션', '이제 골반을 잡고 — 다리를 시계추처럼 앞뒤로, 가볍게 열 번.');
+        const t2 = this.t - DEMO;
+        FMU(`${Math.min(10, Math.floor(t2 / SW) + 1)} / 10`);
+        if (t2 >= 10 * SW + 0.5) { this.next(); return; }
+      }
     } else if (id === 'A4') {
       // 션 박자 램프 — 팩 케이던스 80%로 8스텝 → 100%로 8스텝 (웜업부터 팩 Core 소비)
       const base = this._packBeat(1, SCFG.a4Beat);
