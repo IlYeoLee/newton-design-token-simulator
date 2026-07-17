@@ -7,6 +7,7 @@ import { XBot } from './xbot.js';
 import { Panel } from './panel.js';
 import { ProjectorRig } from './projector.js';
 import { WallGhost } from './ghost.js';
+import { heatBlob, composeThermal, ensureGooFilter } from './thermal.js';
 import { Judge } from './judge.js';
 import { Session, SCFG, STAGES } from './session.js';
 import { StudioDoc } from './studio/doc.js';
@@ -1807,47 +1808,76 @@ async function boot() {
     renderer.setClearAlpha(prevAlpha);
   }
 
-  // ── 동작 클립 패널 (프리뷰) — A 시범 구간: 코치 실루엣 '영상'을 발앞에 소형 투사 ──
-  //    봇이 이미 드릴을 실연 중(playDemo 절차 드릴) → 레이어 마스크(3)로 봇만 측면
-  //    실루엣 캡처해 RT에 굽고, 지면 패널로 재생. 유튜브 클립의 투사 번역 — 과대 금지(0.44m).
-  const demoRT = new THREE.WebGLRenderTarget(256, 384);
-  const demoCam = new THREE.OrthographicCamera(-0.65, 0.65, 1.0, -0.95, 0.1, 10);   // 전신 (발 포함)
-  demoCam.position.set(2.4, 0.9, 0); demoCam.lookAt(0, 0.9, 0);   // 측면 — 까치발·스윙이 크게 읽힘
-  demoCam.layers.set(3);
-  // 실루엣 = 캡처 알파 커버리지 (scene.overrideMaterial은 스킨드 메시에 무효라 원 재질로 찍음)
+  // ── 동작 클립 = 열화상 그라디언트 사람 (룩 시스템 person 언어 — WallGhost와 동일 파이프라인) ──
+  //    시퀀스: A 단계 도입 = 클립 '단독' 재생(설명 영상, 다른 마크 숨김) → 끝나면 따라하기 UI.
+  //    봇이 실연 중인 드릴의 본 좌표를 측면 투영해 열 블롭→goo→헤일로로 캔버스에 굽는다.
+  //    패널은 아나모픽(전방 3배 늘림): 유저 시점에서 서 있는 코치로 읽힘. RT/레이어 캡처 은퇴.
+  const DEMO_SEGS = [
+    ['mixamorigHips', 'mixamorigNeck', 7, 0.16], ['mixamorigNeck', 'mixamorigHead', 2, 0.10],
+    ['mixamorigHead', 'mixamorigHead', 1, 0.13],
+    ['mixamorigRightArm', 'mixamorigRightForeArm', 4, 0.078], ['mixamorigRightForeArm', 'mixamorigRightHand', 4, 0.062],
+    ['mixamorigLeftArm', 'mixamorigLeftForeArm', 4, 0.078], ['mixamorigLeftForeArm', 'mixamorigLeftHand', 4, 0.062],
+    ['mixamorigHips', 'mixamorigRightLeg', 5, 0.10], ['mixamorigRightLeg', 'mixamorigRightToeBase', 5, 0.074],
+    ['mixamorigHips', 'mixamorigLeftLeg', 5, 0.10], ['mixamorigLeftLeg', 'mixamorigLeftToeBase', 5, 0.074],
+  ];
+  const DCW = 256, DCH = 384;
+  ensureGooFilter();
+  const demoShape = document.createElement('canvas'); demoShape.width = DCW; demoShape.height = DCH;
+  const demoGoo = document.createElement('canvas'); demoGoo.width = DCW; demoGoo.height = DCH;
+  const demoOut = document.createElement('canvas'); demoOut.width = DCW; demoOut.height = DCH;
+  const demoTex = new THREE.CanvasTexture(demoOut);
+  demoTex.colorSpace = THREE.SRGBColorSpace;
   const demoPanel = new THREE.Mesh(
-    new THREE.PlaneGeometry(0.44, 0.66),
-    new THREE.ShaderMaterial({
-      uniforms: { tex: { value: demoRT.texture } },
-      vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
-      fragmentShader: `varying vec2 vUv; uniform sampler2D tex;
-        void main(){
-          float a = texture2D(tex, vUv).a;
-          gl_FragColor = vec4(vec3(1.0, 0.953, 0.863) * a, a * 0.9);   // 웜 크림 실루엣
-        }`,
-      transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
-    }));
+    new THREE.PlaneGeometry(0.55, 1.65),
+    new THREE.MeshBasicMaterial({ map: demoTex, transparent: true, opacity: 0.94, depthWrite: false, toneMapped: false }));
   demoPanel.rotation.x = -Math.PI / 2;
-  demoPanel.position.set(0.35, 0.016, -1.25);
+  demoPanel.position.set(0, 0.016, -1.75);   // 단독 재생이라 중앙 — 발앞 0.95~2.55m 아나모픽 띠
   demoPanel.renderOrder = 7;
   demoPanel.visible = false;
   scene.add(demoPanel);
-  function renderDemoPanel() {
+  let demoBones = null, demoBlobs = null, demoLast = -1;
+  const _dv = new THREE.Vector3();
+  function renderDemoPanel() {   // (이름 유지 — 이제 캔버스 열화상 굽기)
     const on = session.active && !session.isLive && session.demoActive;
     demoPanel.visible = !!on;
     if (!on) return;
-    // 봇 FBX는 비동기 로드 — 1회 래치는 로드 전 소진될 수 있어 매 프레임 지정 (메시 2개, 무비용)
-    xbot.group.traverse(o => { if (o.isMesh || o.isSkinnedMesh) o.layers.enable(3); });
-    // 세션 = 1인칭 자동 전환으로 봇 본체가 숨김 상태 — 캡처하는 이 렌더 동안만 켠다
-    const unhidden = [];
-    xbot.group.traverse(o => { if (!o.visible) { unhidden.push(o); o.visible = true; } });
-    const prevT = renderer.getRenderTarget(), prevA = renderer.getClearAlpha(), prevBg = scene.background;
-    renderer.setClearColor(0x000000, 0);
-    scene.background = null;
-    renderer.setRenderTarget(demoRT); renderer.clear(); renderer.render(scene, demoCam);
-    scene.background = prevBg;
-    renderer.setRenderTarget(prevT); renderer.setClearAlpha(prevA);
-    unhidden.forEach(o => o.visible = false);
+    if (!demoBones) {
+      if (!xbot.model) return;
+      demoBones = {};
+      for (const seg of DEMO_SEGS) for (const n of [seg[0], seg[1]]) {
+        if (!demoBones[n]) demoBones[n] = xbot.model.getObjectByName(n) || xbot.model.getObjectByName(n.replace('ToeBase', 'Foot'));
+      }
+      demoBlobs = [];
+      for (const [a, b, n, r] of DEMO_SEGS)
+        for (let i = 0; i < n; i++) demoBlobs.push({ a, b, k: n === 1 ? 0.5 : i / (n - 1), r });
+    }
+    const now = performance.now() / 1000;
+    if (now - demoLast < 1 / 45) return;   // 45Hz 상한 (캔버스 비용)
+    demoLast = now;
+    const S = (DCH * 0.86) / 1.85;   // px/m — 성인 남성 전신 프레이밍
+    const sc = demoShape.getContext('2d');
+    sc.clearRect(0, 0, DCW, DCH);
+    const items = [];
+    for (const b of demoBlobs) {
+      const A = demoBones[b.a], B = demoBones[b.b];
+      if (!A || !B) continue;
+      A.getWorldPosition(_dv);
+      const ax = _dv.x, ay = _dv.y, az = _dv.z;
+      B.getWorldPosition(_dv);
+      const x = az + (_dv.z - az) * b.k;        // 측면: 가로 = 전후(z)
+      const y = ay + (_dv.y - ay) * b.k;        // 세로 = 높이
+      const dep = ax + (_dv.x - ax) * b.k;      // 색 = 측방 깊이 (열화상 그라디언트)
+      items.push({
+        px: DCW / 2 + x * S,
+        py: DCH - 8 - y * S,
+        pr: Math.max(4, b.r * S * 1.18),
+        t: Math.max(0, Math.min(1, (dep + 0.35) / 0.7)),
+      });
+    }
+    items.sort((a, b) => a.t - b.t);
+    for (const it of items) heatBlob(sc, it.px, it.py, it.pr, it.t);
+    composeThermal(demoShape, demoGoo, demoOut, { halo: 16, haloA: 0.5, bodyBlur: 1.5, grain: 0.09 });
+    demoTex.needsUpdate = true;
   }
 
   switchPack('running');
@@ -2026,7 +2056,7 @@ async function boot() {
 
   if (import.meta.env.DEV) window.__dbg = {
     rig, xbot, state, session, sceneScope, camera, controls, tokens, effects, scene, editor3d, sceneUI, FXP, designStore, TCFG, editCam, editControls, judge, THREE,
-    renderer, demoRT, demoCam, renderDemoPanel,
+    renderer, renderDemoPanel,
     get activeCam() { return studioActive ? editCam : camera; },
     get doc() { return studioDoc; },
     get canvas() { return studioCanvas; },
