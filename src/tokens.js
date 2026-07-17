@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { WALL_Z } from './scene.js';
 import { renderDesignCanvas } from './studio/design.js';
 import { getLUT, FXP, FX_GLSL, GLYPHS, drawGlyph, footSDFTexture, warnSDFTexture } from './fxlut.js';
-import { MARK_NUM } from './fx-core.js';
+import { MARK_NUM, MARK_GLSL } from './fx-core.js';
 
 // ── MARK 파동 셰이더 (FX Lab 이식) — 재료는 열 하나, 상태는 파동의 위상 ──
 const MARKFX_VERT = `
@@ -21,146 +21,28 @@ const MARKFX_FRAG = `
 #include <common>
 #include <clipping_planes_pars_fragment>
 ` + FX_GLSL + `
-uniform float uPhase, uProg, uFade, uStrong, uContract, uTime, uSeed;
-uniform float uW, uHalo, uPool, uSweepA, uWobble, uGain, uDay;
-uniform float uShape;               // 0=존 원 / 1=발형 (FX Lab markShape)
-uniform sampler2D uSDF;             // 발형 실루엣 SDF (FOOT 슬롯 SVG)
-uniform sampler2D uSDFWarn;         // 워닝 느낌표 SDF (WARN_EXCL 슬롯, FX Lab과 동일 파이프라인)
+uniform float uW, uHalo, uNoise;
+` + MARK_GLSL + `
+uniform float uPhase, uProg, uFade, uStrong, uTime, uGain, uDay;
 varying vec2 vUv;
-// 시안 보드 팔레트 (발모양 자체 이펙트 시안.svg 그대로)
-#define FXC_RED   vec3(0.980, 0.188, 0.188)
-#define FXC_CORAL vec3(0.996, 0.431, 0.235)
-#define FXC_SAND  vec3(0.996, 0.765, 0.537)
-#define FXC_CREAM vec3(0.996, 0.886, 0.776)
-#define FXC_ICE   vec3(0.820, 0.996, 1.000)
-#define FXC_WINE  vec3(0.318, 0.094, 0.082)
-#define FXC_BRICK vec3(0.718, 0.212, 0.184)
-#define FXC_EXCL  vec3(0.933, 0.157, 0.153)
 void main() {
   #include <clipping_planes_fragment>
   vec2 uv = (vUv - 0.5) * 2.0;
-  float d = length(uv);
-  float ang = atan(uv.y, uv.x);
-  float u1 = fxundul(ang + uSeed, uTime * 1.6);
-  float Rz = 0.72;                                     // 쿼드 로컬 존 반경
-  float sd;
-  if (uShape > 0.5) {
-    vec2 suv = uv * 0.5 + 0.5;
-    // float 텍스처 직결 디코드(8bit 양자화 폐기 — FX Lab과 동일 근본 수정).
-    // ×1.9922 = FX Lab sdAt()과 동일 계수. raw d/N은 텍스처 span 기준이라 uv([-1,1])
-    // 기준으로는 절반 스케일 — 이 계수를 빼먹으면(이전 이식 실수) 발형의 모든 등고선
-    // 효과(홀드 림·윤곽·헤일로)가 FX Lab 대비 2배 넓게 퍼져 뭉개져 보임(유저 지적으로 발견).
-    sd = texture2D(uSDF, vec2(suv.x, 1.0 - suv.y)).r * 1.9922 + u1 * uWobble * 0.02;
-  } else {
-    sd = d * (1.0 + u1 * uWobble * 0.05) - Rz;
-  }
-  // ── 시안 '발모양 자체 이펙트' 보드 그대로 — 상태별 라디얼 필, 모션은 그 안에서만 (FX Lab MARK_FRAG와 동일 문법)
-  // 화면공간 AA — 고정 폭(0.012)은 원거리·소형 마크(레인 위 먼 마크)에서 픽셀당 폭이 1px 미만으로 졸아
-  // 경계가 계단으로 앨리어싱되어 '아무 디자인도 없는 플랫한 원반'처럼 보임(먼 액티브 마크 실측 확인).
-  float aa = max(fwidth(sd), 0.004) * 1.4;
-  float inside = smoothstep(aa, -aa, sd);
-  float outPos = max(sd, 0.0);
-  float dashM = uContract > 0.5 ? smoothstep(0.15, 0.55, 0.5 + 0.5 * sin(ang * 18.0 + u1)) : 1.0;   // 회피 점선
-  float ext = uShape > 0.5 ? 0.60 : Rz;
-  vec2 gcBall = uShape > 0.5 ? vec2(0.0, 0.17) : vec2(0.0);
-  float fillGain = clamp(uPool * 1.6, 0.0, 1.2);
-  vec3 col = vec3(0.0);
-  if (uPhase < 0.5) {            // Preview: 샌드 아웃라인 ↔ 크림 필 — uStrong이 차오름을 구동
-    float f = uStrong;
-    float breath = 1.0 + 0.05 * sin(uTime * 2.0);
-    float q = length(uv - gcBall) / (ext * 0.98 * breath);
-    // 강조 프리뷰(다음 마크) = 적열 코어 — 시안 Preview(파스텔)만으로는 장면 대부분이
-    // 물 빠져 보임(유저 확정). 약한 프리뷰는 시안 크림 유지, '다음'만 뜨겁게 = 위계+색 존재감.
-    vec3 hotFill = mix(FXC_RED, FXC_CORAL, smoothstep(0.0, 0.45, q));
-    hotFill = mix(hotFill, FXC_SAND, smoothstep(0.45, 1.0, q));
-    vec3 fillCol = mix(FXC_CREAM, hotFill, f);
-    col = fillCol * inside * mix(0.52, 0.92, f) * fillGain;
-    col += FXC_SAND * exp(-pow(sd / (0.03 * uW), 2.0)) * dashM * (0.85 - 0.5 * f);
-    col *= uFade;
-  } else if (uPhase < 1.5) {     // Active: 적열 필 + 얼음빛 헤일로 수축 (수축 완료 = 이벤트)
-    // Active의 존재 이유 = 주변시에서 '뜨겁다' 즉독 (0.45s 이벤트 창) — 원거리·소형에서
-    // 아이스 밴드가 면적을 먹지 않게 진홍 커버리지 확대 (아이스는 가장자리 실선 자락만)
-    float gradR = uShape > 0.5 ? 1.7 : ext * 1.62;
-    float q = length(uv - gcBall) / gradR;
-    vec3 fc = mix(FXC_RED, FXC_CORAL, smoothstep(0.0, 0.479, q));
-    fc = mix(fc, FXC_SAND, smoothstep(0.479, 0.607, q));
-    fc = mix(fc, FXC_ICE, smoothstep(0.607, 0.750, q));
-    col = fc * inside * min(fillGain * 1.15, 1.0);
-    float hw = max((0.22 - 0.16 * uProg) * uW, 0.035);
-    float h = exp(-pow(outPos / hw, 1.3)) * (1.0 - inside);
-    // 발형: SDF 인코드 상한(±0.25)보다 헤일로가 넓으면 감쇠가 못 끝나 쿼드 전체가 판이 됨 — 도달거리 클램프
-    if (uShape > 0.5) h *= smoothstep(0.24, 0.12, outPos);
-    col += mix(FXC_SAND, FXC_ICE, smoothstep(0.15, 0.9, outPos / hw)) * h * uHalo * 0.32 * dashM;   // 파란 광 과다 감쇠 (블룸 문댐 방지)
-  } else if (uPhase < 2.5) {     // Success 잔상: 진홍 블룸 + 얼음빛 림 플래시 → 소멸
-    float e = 1.0 - pow(1.0 - uProg, 2.6);
-    float q = length(uv - gcBall) / (uShape > 0.5 ? 1.5 : ext * 1.3) / (0.55 + 0.55 * e);
-    vec3 fc = mix(FXC_RED, FXC_CORAL, smoothstep(0.47, 0.70, q));
-    fc = mix(fc, FXC_SAND, smoothstep(0.70, 0.843, q));
-    fc = mix(fc, FXC_ICE, smoothstep(0.843, 0.931, q));
-    float fillA = (uProg < 0.4 ? 1.0 : pow(1.0 - (uProg - 0.4) / 0.6, 1.4)) * max(min(fillGain * 1.2, 1.0), 0.85);
-    col = fc * inside * fillA;
-    col += FXC_ICE * exp(-pow(abs(sd) / (0.04 * uW), 2.0)) * exp(-uProg * 9.0) * 0.8;
-  } else if (uPhase < 3.5) {     // Locked: 회색 고스트 + 순번 — 시퀀스 전체가 먼저 보인다 (시안 보드)
-    col = vec3(0.90) * inside * 0.12 * fillGain;
-    col += vec3(0.80) * exp(-pow(sd / (0.028 * uW), 2.0)) * 0.55 * dashM;
-    col *= uFade;
-  } else if (uPhase > 4.5 && uPhase < 5.5) {     // Hold: 코닉 진행 림 + 열이 아래로 고임 — uProg = 유지/회전/카운트 진행
-    float pr = clamp(uProg, 0.0, 1.0);
-    vec2 gcHeel = uShape > 0.5 ? vec2(0.0, -0.28) : vec2(0.0, -0.5 * ext);
-    float qh = max(length(uv - mix(gcBall, gcHeel, pr)) / (ext * 1.02) - 0.24 * pr, 0.0);
-    vec3 fc = mix(FXC_RED, FXC_CORAL, smoothstep(0.0, 0.23, qh));
-    fc = mix(fc, FXC_SAND, smoothstep(0.23, 1.0, qh));
-    col = fc * inside * min(fillGain, 1.0) * 0.5;
-    float a01 = fract(0.25 - ang / 6.2832);
-    // 무한꼬리 가우시안 폐기, 유한폭 스무스스텝(FX Lab과 동일 근본 수정) — 라이브 세션의
-    // "부숭부숭" 림이 여기 있었음(이 셰이더가 FX Lab에서 이미 고친 뒤로 한 번도 안 맞춰짐).
-    float distToRim = abs(sd - 0.012);
-    float fw = max(fwidth(sd), 1e-5);
-    // 림 폭: FX Lab은 화면 픽셀 고정(20px×fwidth)이었는데 라이브 3D에선 마크가 화면상
-    // 아무리 작아도 20px를 유지해 실루엣 폭의 절반을 먹는 구름이 됨(유저 "원형 홀드처럼
-    // 보임" 지적의 절반). 실루엣 크기 비례 고정폭(sd 0.03 ≈ FX Lab 캔버스에서의 20px과
-    // 동일 비율)으로 교체 — 원거리 앨리어싱 방지로 최소 1.5px만 fwidth 보장.
-    float rimW = max(0.03 * uW, 1.5 * fw);
-    float rim = (1.0 - smoothstep(0.0, rimW, distToRim)) * dashM;
-    // 진행 시작점(12시, a01=0/1 랩어라운드) 각도차 랩어라운드 수정 — 옛 공식은 여기서
-    // 회색↔적색 전환이 "무 자르듯" 뚝 끊겼음(FX Lab에서 이미 고친 버그, 동일 수정).
-    float angDist = a01 - pr; angDist -= floor(angDist + 0.5);
-    float prog = smoothstep(0.09, -0.09, angDist);
-    vec3 rimCol = mix(vec3(0.42), mix(FXC_RED, FXC_CORAL, clamp(a01 / max(pr, 0.001), 0.0, 1.0)), prog);
-    col += rimCol * rim * mix(0.25, 0.95, prog);
-    col *= uFade;
-  } else if (uPhase > 5.5) {     // Warning: 암적 리니어 + 느낌표(유저 SVG) 점멸 — FX Lab MARK_FRAG와 동일 SDF 파이프라인
-    float ly = clamp(0.5 - uv.y / (2.2 * ext), 0.0, 1.0);
-    col = mix(col, mix(FXC_WINE, FXC_BRICK, ly), inside * min(fillGain * 1.05, 1.0));
-    float wScale = 0.44 * ext;
-    vec2 wuv = uv / wScale * 0.5 + 0.5;
-    float wSD = texture2D(uSDFWarn, vec2(wuv.x, 1.0 - wuv.y)).r * (2.0 * wScale);
-    float aaW = max(fwidth(wSD), 0.0015);
-    float exM = smoothstep(aaW, -aaW, wSD) * inside;
-    col = mix(col, FXC_EXCL * 1.25, exM * (0.85 + 0.15 * sin(uTime * 5.5)));
-    col *= uFade;
-  } else {                       // Miss: 온기가 식어 회색 고스트 → 무음 소멸 (판정 verdict 연동)
-    float cool = smoothstep(0.0, 0.35, uProg);
-    float gone = pow(1.0 - max(uProg - 0.45, 0.0) / 0.55, 1.6);
-    float q = length(uv - gcBall) / ext;
-    vec3 fc = mix(mix(FXC_CORAL, FXC_SAND, smoothstep(0.0, 0.733, q)), vec3(0.86), cool);
-    col = fc * inside * mix(0.45, 0.20, cool) * gone * fillGain;
-    col += vec3(0.80) * exp(-pow(sd / (0.03 * uW), 2.0)) * 0.5 * gone;
-  }
-  col *= uGain;
-  // 쿼드 보더 페이드 — 헤일로가 평면 가장자리에서 뚝 잘려 사각 경계가 비치는 것 방지.
-  // max(|x|,|y|)(체비셰프 거리)로 페이드하면 마크 자체는 원형인데 경계식만 사각형이라
-  // 대각선 방향이 축 방향보다 더 늦게 죽어 사각형 헤일로가 비쳤음(유저 스크린샷 확인 —
-  // 러닝 마크 주변에 뚜렷한 사각 테두리). length(uv)(유클리드 거리)로 교체해 헤일로의
-  // 원형 대칭과 페이드 경계의 대칭을 맞춤 — 발형(실루엣 ≤0.72)도 원형 안쪽이라 안전.
-  col *= smoothstep(1.0, 0.82, length(uv));
-  // 주간 = 풀컬러 잉크(제품 스토리: 주광 가시 풀컬러 투사) — 가산은 밝은 바닥에서
-  // 채널 클리핑으로 흰색으로 뭉개진다. 색상 보존 + 커버리지 알파로 표면색을 '대체'.
-  if (uDay > 0.5) {
+  // 라이브 판정 상태(uPhase) → 카탈로그 상태 번호 매핑 (fx-core MARK_GLSL 기준):
+  //   0 Preview·1 Active·2 Success→3·3 Locked→6·4 Miss·5 Hold→2·6 Warning→5
+  float st = uPhase < 0.5 ? 0.0 : uPhase < 1.5 ? 1.0 : uPhase < 2.5 ? 3.0
+           : uPhase < 3.5 ? 6.0 : uPhase < 4.5 ? 4.0 : uPhase < 5.5 ? 2.0 : 5.0;
+  // Preview의 진행은 uStrong(다음 마크 강조), 그 외는 판정 uProg — 카탈로그 데모시계의 라이브 대응
+  float prog = uPhase < 0.5 ? uStrong : clamp(uProg, 0.0, 1.0);
+  vec4 r = markState(uv, st, prog, uStrong, uTime);
+  // 쿼드 보더 원형 페이드 — 평면 가장자리에서 헤일로가 뚝 잘리는 것 방지 (라이브 전용)
+  float border = smoothstep(1.0, 0.82, length(uv));
+  vec3 col = r.rgb * uFade * uGain * border;
+  if (uDay > 0.5) {   // 주간 = 풀컬러 잉크 (색 보존 + 커버리지 알파)
     float mc = max(col.r, max(col.g, col.b));
-    gl_FragColor = vec4(col / max(mc, 1e-4), clamp(mc * 1.45, 0.0, 1.0));   // 잉크 커버리지 부스트 — 거의 풀컬러
+    gl_FragColor = vec4(col / max(mc, 1e-4), clamp(mc * 1.45, 0.0, 1.0));
   } else {
-    gl_FragColor = vec4(col, 1.0);   // 야간: 가산 광 — 검정 = 무기여
+    gl_FragColor = vec4(col, 1.0);   // 야간: 가산 광
   }
 }`;
 // ── 레인 광류 셰이더 — LINE 최소 토큰 소비 (스타일·두께·속도·간격·온도·글로우·꼬리) ──
@@ -270,13 +152,15 @@ export function makeMarkFXMaterial(footTex = null) {
     uniforms: {
       uLUT: { value: getLUT() },
       uShape: { value: footTex ? 1 : 0 },
-      uSDF: { value: footTex || getLUT() },
+      // uRadius: 존 원은 실루엣 0.72(구 Rz)가 나오도록 0.72/0.46, 발형은 카탈로그 기준 1
+      uRadius: { value: footTex ? 1.0 : 0.72 / 0.46 },
+      uSDF2: { value: footTex || getLUT() },
       uSDFWarn: { value: warnSDFTexture() || getLUT() },
       uPhase: { value: 0 }, uProg: { value: 0 }, uFade: { value: 1 },
       uStrong: { value: 0 }, uContract: { value: 0 },
       uTime: { value: 0 }, uSeed: { value: Math.random() * 6.2832 },
       uW: { value: 1 }, uHalo: { value: 0.9 }, uPool: { value: 0.55 }, uGain: { value: 1 },
-      uSweepA: { value: 1 }, uWobble: { value: 0.5 }, uDay: { value: 0 },
+      uSweepA: { value: 1 }, uNoise: { value: 0.5 }, uDay: { value: 0 },
     },
     transparent: true,
     blending: THREE.AdditiveBlending,
@@ -571,7 +455,7 @@ class Marker {
       U.uHalo.value = FXP.mark.halo;
       U.uPool.value = FXP.mark.pool;
       U.uSweepA.value = FXP.mark.sweep;
-      U.uWobble.value = FXP.mark.wobble;
+      U.uNoise.value = FXP.mark.wobble;
       U.uGain.value = this._baseGain * FXP.gainBoost * (FP_VIEW ? 1.35 : 1);   // 주간 부스트 · 1인칭 = 시선 각도 눌림 보정
       // 주간 = 풀컬러 잉크 모드: 가산 → 노멀 블렌딩 (색 보존 알파 합성, 셰이더 규약과 짝)
       const day = FXP.day ? 1 : 0;

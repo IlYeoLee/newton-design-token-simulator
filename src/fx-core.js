@@ -142,3 +142,137 @@ export function buildLUT(stops, sat = 1, out = new Uint8Array(256 * 4)) {
   }
   return out;
 }
+
+// ─────────────────────────────────────────────────────────────
+// MARK 7상태 GLSL 코어 — 룩 카탈로그(fxlab)와 라이브(tokens.js)가 같은 문자열을 포함.
+//   순수 상태 함수: markState(uv, state, prog, strong, t) → vec4(빛 premultiplied, 커버리지)
+//   호스트가 합성 결정: fxlab = bg*(1-a)+rgb (배경 위), 라이브 = rgb 가산광 / 주간 잉크.
+//   상태 번호는 카탈로그 기준(0 Preview·1 Active·2 Hold·3 Success·4 Miss·5 Warning·6 Locked)
+//   — 라이브는 자기 uPhase를 이 번호로 매핑해 호출.
+//   전제: 호스트 공통부가 uW·uHalo·uNoise(float)를 선언. 여기가 uRadius·uPool·uContract·
+//   uShape·uSeed·uSDF2·uSDFWarn을 선언(호스트 헤더에서 중복 선언 금지).
+// ─────────────────────────────────────────────────────────────
+export const MARK_GLSL = `
+uniform float uRadius, uPool, uContract, uShape, uSeed;
+uniform sampler2D uSDF2, uSDFWarn;
+#define C_RED   vec3(0.980, 0.188, 0.188)
+#define C_CORAL vec3(0.996, 0.431, 0.235)
+#define C_SAND  vec3(0.996, 0.765, 0.537)
+#define C_CREAM vec3(0.996, 0.886, 0.776)
+#define C_ICE   vec3(0.820, 0.996, 1.000)
+#define C_GRAYF vec3(0.925, 0.925, 0.925)
+#define C_GRAYL vec3(0.816, 0.816, 0.816)
+#define C_RIMG  vec3(0.816, 0.804, 0.800)
+#define C_WINE  vec3(0.318, 0.094, 0.082)
+#define C_BRICK vec3(0.718, 0.212, 0.184)
+#define C_EXCL  vec3(0.933, 0.157, 0.153)
+float mkUndul(float ang, float t){
+  return sin(ang*2.0 + t*1.1)*0.45 + sin(ang*3.0 - t*0.73 + 1.7)*0.33 + sin(ang*5.0 + t*0.41 + 4.2)*0.22;
+}
+// 일반화 부호 거리 — 존 원 / 발형이 같은 상태 머신을 공유 (1.9922 = float SDF 디코드 정본 계수)
+float mkSD(vec2 p, float u1){
+  if (uShape < 0.5) return length(p) * (1.0 + u1 * uNoise * 0.04) - 0.46 * uRadius;
+  vec2 suv = p * 0.5 + 0.5;
+  return texture2D(uSDF2, vec2(suv.x, 1.0 - suv.y)).r * 1.9922 / max(uRadius, 0.3) + u1 * uNoise * 0.02;
+}
+vec3 fillPreview(float q){ return mix(C_CORAL, C_SAND, smoothstep(0.0, 0.733, q)); }
+vec3 fillHot(float q){
+  vec3 c = mix(C_RED, C_CORAL, smoothstep(0.0, 0.45, q));
+  return mix(c, C_SAND, smoothstep(0.45, 1.0, q));
+}
+vec3 fillActive(float q){
+  vec3 c = mix(C_RED, C_CORAL, smoothstep(0.0, 0.479, q));
+  c = mix(c, C_SAND, smoothstep(0.479, 0.607, q));
+  return mix(c, C_ICE, smoothstep(0.607, 0.750, q));
+}
+vec3 fillHold(float q){
+  vec3 c = mix(C_RED, C_CORAL, smoothstep(0.0, 0.23, q));
+  return mix(c, C_SAND, smoothstep(0.23, 1.0, q));
+}
+vec3 fillSuccess(float q){
+  vec3 c = mix(C_RED, C_CORAL, smoothstep(0.47, 0.70, q));
+  c = mix(c, C_SAND, smoothstep(0.70, 0.843, q));
+  return mix(c, C_ICE, smoothstep(0.843, 0.931, q));
+}
+// over 연산 누적 (premultiplied) — 원본 mix(col, X, k) 체인의 기계적 등가 변환
+void lay(inout vec4 A, vec3 X, float k){ A.rgb = A.rgb * (1.0 - k) + X * k; A.a = A.a * (1.0 - k) + k; }
+vec4 markState(vec2 uv, float state, float prog, float strong, float t){
+  float ang = atan(uv.y, uv.x);
+  float a01 = fract(0.25 - ang / 6.2832);      // 12시 기준 시계방향
+  float u1 = mkUndul(ang + uSeed, t * 1.6);
+  float sd = mkSD(uv, u1);
+  float aa = max(fwidth(sd), 0.004) * 1.4;     // 화면공간 AA
+  float inside = smoothstep(aa, -aa, sd);
+  float outPos = max(sd, 0.0);
+  // 점선 = 회피 계약 (일렁임과 분리한 저주기 — '털 뜯김' 방지 확정판)
+  float dashM = (uContract > 0.5 && uContract < 1.5)
+              ? smoothstep(0.30, 0.60, 0.5 + 0.5 * sin(ang * 10.0)) : 1.0;
+  float ext = uShape < 0.5 ? 0.46 * uRadius : 0.72;
+  vec2 gcBall = uShape < 0.5 ? vec2(0.0) : vec2(0.0, 0.20);
+  vec2 gcHeel = uShape < 0.5 ? vec2(0.0, -0.5 * ext) : vec2(0.0, -0.32);
+  vec4 A = vec4(0.0);
+  float fillGain = clamp(uPool * 1.6, 0.0, 1.35);
+
+  if (state < 0.5) {            // ── Preview: 아웃라인 → 소프트 필 차오름 (strong=라이브 '다음' 적열 강조)
+    float f = prog;
+    float breath = 1.0 + 0.05 * sin(t * 2.0) * (0.4 + uNoise);
+    float q = length(uv - gcBall) / (ext * 0.98 * breath);
+    vec3 fillCol = mix(C_CREAM, mix(fillPreview(q), fillHot(q), strong), f);
+    float fillA = mix(0.42, 0.82, f) * fillGain;
+    lay(A, fillCol, fillA * inside);
+    float ow = 0.016 * uW;
+    float stroke = exp(-pow(sd / ow, 2.0)) * dashM;
+    lay(A, C_SAND, stroke * (0.95 - 0.62 * f));
+  } else if (state < 1.5) {     // ── Active: 적열 필 + 얼음빛 헤일로 수축 (수축 완료 = 타이밍)
+    float gradR = uShape < 0.5 ? ext * 1.38 : 1.72;
+    float q = length(uv - gcBall) / gradR;
+    q *= 1.0 + 0.025 * sin(t * 3.1 + q * 5.0) * uNoise;
+    lay(A, fillActive(q), inside * min(fillGain * 1.15, 1.0));
+    float hw = max((0.115 - 0.075 * prog) * uW, 0.018);
+    float h = exp(-pow(outPos / hw, 1.3)) * (1.0 - inside);
+    vec3 hCol = mix(C_SAND, C_ICE, smoothstep(0.15, 0.9, outPos / hw));
+    lay(A, hCol, h * uHalo * (0.50 + 0.14 * sin(t * 5.0)) * dashM);
+  } else if (state < 2.5) {     // ── Hold: 코닉 진행 림 + 열이 뒤꿈치로 고임
+    float pr = prog;
+    vec2 gc = mix(gcBall, gcHeel, pr);
+    float q = length(uv - gc) / (ext * 1.02);
+    float qh = max(q - 0.24 * pr, 0.0);
+    lay(A, fillHold(qh), inside * min(fillGain, 1.0) * 0.95);
+    float distToRim = abs(sd - 0.012);
+    float fw = max(fwidth(sd), 1e-5);
+    // 림 폭: 카탈로그 20px(고정 캔버스) ≡ 실루엣 비례 sd 0.03 — 화면 크기가 가변인
+    // 라이브에서도 같은 비율. 원거리 앨리어싱만 fwidth 하한.
+    float rimW = max(0.03 * uW, 1.5 * fw);
+    float rim = (1.0 - smoothstep(0.0, rimW, distToRim)) * dashM;
+    float angDist = a01 - pr; angDist -= floor(angDist + 0.5);   // 랩어라운드 제거
+    float pgo = smoothstep(0.09, -0.09, angDist);
+    vec3 arcCol = mix(C_RED, C_CORAL, clamp(a01 / max(pr, 0.001), 0.0, 1.0));
+    lay(A, mix(C_RIMG, arcCol, pgo), rim * mix(0.42, 0.92, pgo));
+  } else if (state < 3.5) {     // ── Success: 진홍 블룸 → 잔상 소멸
+    float e = 1.0 - pow(1.0 - prog, 2.6);
+    float q = length(uv - gcBall) / (uShape < 0.5 ? ext * 1.3 : 1.75);
+    float fillA = (prog < 0.4 ? 1.0 : pow(1.0 - (prog - 0.4) / 0.6, 1.4)) * max(min(fillGain * 1.2, 1.0), 0.85);
+    lay(A, fillSuccess(q / (0.55 + 0.55 * e)), inside * fillA);
+    float flash = exp(-prog * 9.0);
+    lay(A, C_ICE, exp(-pow(abs(sd) / (0.02 * uW), 2.0)) * flash * 0.8);
+  } else if (state < 4.5) {     // ── Miss: 온기가 식어 회색 고스트 → 무음 소멸
+    float cool = smoothstep(0.0, 0.4, prog);
+    float gone = pow(1.0 - max(prog - 0.45, 0.0) / 0.55, 1.6);
+    float q = length(uv - gcBall) / ext;
+    lay(A, mix(fillPreview(q), C_GRAYF, cool), inside * mix(0.55, 0.24, cool) * gone * fillGain);
+    lay(A, mix(C_SAND, C_GRAYL, cool), exp(-pow(sd / (0.014 * uW), 2.0)) * 0.85 * gone);
+  } else if (state < 5.5) {     // ── Warning: 암적 리니어 + 느낌표(유저 SVG) 점멸
+    float ly = clamp(0.5 - uv.y / (2.2 * ext), 0.0, 1.0);
+    lay(A, mix(C_WINE, C_BRICK, ly), inside * min(fillGain * 1.05, 1.0));
+    float wScale = 0.44 * ext;
+    vec2 wuv = uv / wScale * 0.5 + 0.5;
+    float wSD = texture2D(uSDFWarn, vec2(wuv.x, 1.0 - wuv.y)).r * (2.0 * wScale);
+    float aaW = max(fwidth(wSD), 0.0015);
+    float exM = smoothstep(aaW, -aaW, wSD) * inside;
+    lay(A, C_EXCL * 1.25, exM * (0.85 + 0.15 * sin(t * 5.5)));
+  } else {                       // ── Locked: 회색 아웃라인 + (숫자는 호스트 오버레이)
+    lay(A, C_GRAYF, inside * 0.30 * fillGain);
+    lay(A, C_GRAYL, exp(-pow(sd / (0.015 * uW), 2.0)) * 0.8 * dashM);
+  }
+  return A;
+}`;

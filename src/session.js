@@ -1032,7 +1032,7 @@ export class Session {
       U.uHalo.value = MK.halo;
       U.uPool.value = MK.pool;
       U.uSweepA.value = MK.sweep;
-      U.uWobble.value = MK.wobble;
+      U.uNoise.value = MK.wobble;
       if (m._auto) U.uProg.value = (t * 0.3) % 1;   // 구동자 없는 Hold = 시연 루프
       if (U.uDay.value !== day) {   // 주간 풀컬러 잉크 규약 (마커와 동일)
         U.uDay.value = day;
