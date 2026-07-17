@@ -473,22 +473,24 @@ export class Session {
 
     g = this._mk('B3');
     g.add(laneLine(BRAND.red, 0.2, -3.0));
-    this.b3 = [];
+    this.b3 = []; this.b3nums = [];
     const bp = [[-0.17, -1.14], [0.18, -1.37], [-0.14, -1.60]];
     for (let i = 0; i < 3; i++) {
       const right = i % 2 === 1;
       const fm = new FootMark(right ? 'right' : 'left').at(bp[i][0], bp[i][1]);
-      // 순서 숫자 = 발자국 '안' 글리프 오버레이 (tokens.js 마커와 동일 numFoot 앵커 소비 —
-      // 글리프를 발 옆에 따로 띄우는 건 카탈로그에 없는 조합이었음, 유저 지적)
+      // 순서 숫자 = 발자국 '안' 글리프 오버레이 (tokens.js 마커와 동일 numFoot 앵커 소비).
+      // 크기 = FX Lab 규약(글리프 ≈ 쿼드의 0.223배): 0.09플레인×1.5×0.75채움 ≈ 0.101/0.46.
+      // 표시는 상태 연동(업데이트 블록) — FX Lab 규약: Preview 50%·Active 100%·Success 숨김.
       const a = (FXP.numFoot && FXP.numFoot[FXP.footCtx === 'in' ? 'in' : 'out']) || { x: 0.5, y: 0.38, s: 1 };
       const ax = right ? 1 - a.x : a.x;
       const S = 0.46;   // FootMark 쿼드 크기
-      const p = floorNum(String(i + 1), 0, 0, 0.13, CS.ink).userData.plane;
+      const p = floorNum(String(i + 1), 0, 0, 0.09, CS.ink).userData.plane;
       p.position.set((ax - 0.5) * S, (0.5 - a.y) * S, 0.002);
       p.scale.setScalar(a.s || 1);
+      p.renderOrder = 7;
       fm.group.add(p);
       g.add(fm.group);
-      this.b3.push(fm);
+      this.b3.push(fm); this.b3nums.push(p);
     }
 
     g = this._mk('B4');
@@ -1204,7 +1206,14 @@ export class Session {
       if (this.t >= 8 * BT + 0.5) { this.next(); return; }
     } else if (id === 'B3') {
       const ST = SCFG.b3Step, cyc = 3 * ST, lt = this.t % cyc, W = ST * 0.82;
-      this.b3.forEach((f, i) => { const t0 = i * ST; if (lt >= t0 && lt < t0 + W) f.countdown((lt - t0) / W); else if (lt >= t0 + W && lt < t0 + ST) f.glow(1 - (lt - t0 - W) / (ST - W)); else f.countdown(-1); });
+      this.b3.forEach((f, i) => {
+        const t0 = i * ST;
+        let numOp;   // 숫자 = 마크 상태 연동 (FX Lab 규약: Preview 0.5 · Active 1 · Success 숨김)
+        if (lt >= t0 && lt < t0 + W) { f.countdown((lt - t0) / W); numOp = 1; }
+        else if (lt >= t0 + W && lt < t0 + ST) { f.glow(1 - (lt - t0 - W) / (ST - W)); numOp = 0; }
+        else { f.countdown(-1); numOp = 0.5; }
+        this.b3nums[i].material.opacity = numOp;
+      });
       FMU(`세트 ${Math.min(2, Math.floor(this.t / cyc) + 1)} / 2`);
       if (this.t >= 2 * cyc + 0.4) { this.next(); return; }
     } else if (id === 'B4') {
