@@ -33,7 +33,7 @@ void main() {
   float st = uPhase < 0.5 ? 0.0 : uPhase < 1.5 ? 1.0 : uPhase < 2.5 ? 3.0
            : uPhase < 3.5 ? 6.0 : uPhase < 4.5 ? 4.0 : uPhase < 5.5 ? 2.0 : 5.0;
   // Preview의 진행은 uStrong(다음 마크 강조), 그 외는 판정 uProg — 카탈로그 데모시계의 라이브 대응
-  float prog = uPhase < 0.5 ? uStrong : clamp(uProg, 0.0, 1.0);
+  float prog = uPhase < 0.5 ? max(uStrong, uProg) : clamp(uProg, 0.0, 1.0);
   vec4 r = markState(uv, st, prog, uStrong, uTime);
   // 쿼드 보더 원형 페이드 — 평면 가장자리에서 헤일로가 뚝 잘리는 것 방지 (라이브 전용)
   float border = smoothstep(1.0, 0.82, length(uv));

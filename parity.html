@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>FX 패리티 — 룩 카탈로그 vs 라이브 셰이더 픽셀 diff</title>
+<style>
+  body { background: #0c0e13; color: #e8eaf0; font: 13px/1.5 -apple-system, sans-serif; margin: 20px; }
+  table { border-collapse: collapse; margin-top: 12px; }
+  td, th { border: 1px solid #333; padding: 4px 10px; text-align: right; }
+  .ok { color: #7ce38b; } .warn { color: #fec389; } .fail { color: #fa5050; }
+  .pair img, .pair canvas { width: 150px; height: 150px; image-rendering: pixelated; border: 1px solid #333; }
+</style>
+</head>
+<body>
+<h2>MARK 패리티 — 카탈로그(FX Lab) vs 라이브(three.js) · 상태 7 × 도형 2</h2>
+<div id="status">준비 중…</div>
+<table id="tbl"><tr><th>상태</th><th>존 원 diff</th><th>발형 diff</th><th>판정</th></tr></table>
+<div id="pairs"></div>
+<iframe id="lab" src="./fxlab.html" style="width:1200px;height:300px;opacity:0;position:absolute;pointer-events:none"></iframe>
+<script type="module">
+import * as THREE from 'three';
+import { FXP, GLYPHS, rebuildLUT, footSDFTexture, warnSDFTexture } from './src/fxlut.js';
+import { makeMarkFXMaterial } from './src/tokens.js';
+
+// 패리티의 정의: 같은 (상태, 진행, 시각, 룩 값)에서 카탈로그와 라이브 셰이더의 픽셀이 같다.
+// 허용 잔차: ①배경 합성 모델(카탈로그=bg 위 over, 라이브=가산 — 어두운 배경에서 bg*a 만큼)
+// ②디더 ±1/255. 그 이상 벌어지면 드리프트 알람.
+const T_FIXED = 1.234;           // 결정적 시각
+const STATES = ['Preview', 'Active', 'Hold', 'Success', 'Miss', 'Warning', 'Locked'];
+const CAT2LIVE = [0, 1, 5, 2, 4, 6, 3];   // 카탈로그 상태 → 라이브 uPhase
+const BG = [12, 14, 19];         // fxlab baseBG(uBGOn=0) = vec3(0.047,0.055,0.075)
+const WARN_AT = 4.5, FAIL_AT = 8.0;   // 채널 평균 절대차(0-255) — 모델 잔차(bg×커버리지 ≤ ~4) 위가 진짜 드리프트
+
+const status = document.getElementById('status');
+const lab = document.getElementById('lab');
+
+function progFor(st, t) {
+  const tc = (t * 0.45) % 1;
+  return st === 0 ? Math.min(1, Math.max(0, (tc - 0.10) / 0.78)) * 0 + smoothstep(0.10, 0.88, tc) : tc;
+}
+function smoothstep(a, b, x) { const k = Math.min(1, Math.max(0, (x - a) / (b - a))); return k * k * (3 - 2 * k); }
+
+async function liveRender(size, labState) {
+  // 라이브 입력 = iframe 카탈로그의 '실제' state 복사 (localStorage 편집본 포함 — 소스 단일화)
+  FXP.stops = labState.stops.map(x => [...x]); FXP.sat = labState.sat ?? 1;
+  Object.assign(FXP.mark, labState.m || {});
+  FXP.footCtx = labState.footCtx || 'out';
+  GLYPHS.set(labState.glyphs || {}); GLYPHS.setFlips(labState.glyphFlip || {});
+  rebuildLUT();
+  await Promise.all([...GLYPHS.imgs.values()].map(im => im.complete ? 0 : new Promise(r2 => { im.onload = r2; im.onerror = r2; })));
+  // raw 출력 고정 — three 기본(outputColorSpace=sRGB)은 배경·광에 linear→sRGB 인코딩을
+  // 한 번 더 얹어 카탈로그(raw WebGL)와 전면 불일치(실측: bg 12→58). 셰이더 코어 동등성
+  // 검증이 목적이므로 색관리 무효화. ※시뮬 본체의 OutputPass 인코딩은 P4에서 별도 처리.
+  THREE.ColorManagement.enabled = false;
+  const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+  renderer.outputColorSpace = THREE.LinearSRGBColorSpace;
+  renderer.setSize(size, size, false);
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(BG[0] / 255, BG[1] / 255, BG[2] / 255);
+  const cam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.01, 10); cam.position.z = 1;
+  const mats = [makeMarkFXMaterial(null), makeMarkFXMaterial(footSDFTexture(false))];
+  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), mats[0]);
+  scene.add(mesh);
+  return { renderer, scene, cam, mats, mesh };
+}
+
+function setLive(mat, catSt, t) {
+  const U = mat.uniforms;
+  U.uPhase.value = CAT2LIVE[catSt];
+  U.uTime.value = t;
+  U.uProg.value = catSt === 0 ? smoothstep(0.10, 0.88, (t * 0.45) % 1) : (t * 0.45) % 1;
+  U.uStrong.value = 0;   // 카탈로그 Preview = 크림 (적열 강조는 시뮬 전용 strong)
+  U.uSeed.value = 0;
+  U.uFade.value = 1; U.uGain.value = 1; U.uDay.value = 0;
+  U.uContract.value = lab.contentWindow.__lab.state.markContract || 0;
+  U.uRadius.value = FXP.mark.radius;   // 카탈로그와 동일 반경 (시뮬 월드 사이징 제외한 순수 셰이더 비교)
+  U.uW.value = FXP.mark.core; U.uHalo.value = FXP.mark.halo;
+  U.uPool.value = FXP.mark.pool; U.uNoise.value = FXP.mark.wobble;
+}
+
+function meanDiff(imgA, imgB, size, borderCut) {
+  const c = document.createElement('canvas'); c.width = c.height = size;
+  const g = c.getContext('2d', { willReadFrequently: true });
+  g.drawImage(imgA, 0, 0, size, size);
+  const A = g.getImageData(0, 0, size, size).data;
+  g.clearRect(0, 0, size, size);
+  g.drawImage(imgB, 0, 0, size, size);
+  const B = g.getImageData(0, 0, size, size).data;
+  let sum = 0, n = 0;
+  const cut = Math.floor(size * borderCut);   // 라이브 보더 페이드 링 제외 (라이브 전용 처리)
+  for (let y = cut; y < size - cut; y++) for (let x = cut; x < size - cut; x++) {
+    const i = (y * size + x) * 4;
+    sum += Math.abs(A[i] - B[i]) + Math.abs(A[i + 1] - B[i + 1]) + Math.abs(A[i + 2] - B[i + 2]);
+    n += 3;
+  }
+  return sum / n;
+}
+const toImg = url => new Promise(res => { const im = new Image(); im.onload = () => res(im); im.src = url; });
+
+window.__parityRun = async () => {
+  status.textContent = '카탈로그(iframe) 준비 대기…';
+  const size = 256;
+  await new Promise(res => {
+    const chk = () => lab.contentWindow?.__lab?.renderMark ? res() : setTimeout(chk, 200);
+    chk();
+  });
+  await new Promise(r => setTimeout(r, 1200));   // fxlab 발형 SDF·글리프 비동기 로드 대기
+  lab.contentWindow.__lab.updateFootSDF();
+  status.textContent = '라이브 파이프라인 준비…';
+  const L = await liveRender(600, lab.contentWindow.__lab.state);
+
+  const results = [];
+  const tbl = document.getElementById('tbl');
+  for (let st = 0; st < 7; st++) {
+    const [zoneURL, footURL] = lab.contentWindow.__lab.renderMark(st, T_FIXED);
+    const row = { state: STATES[st] };
+    for (const [k, url, matIdx] of [['zone', zoneURL, 0], ['foot', footURL, 1]]) {
+      L.mesh.material = L.mats[matIdx];
+      setLive(L.mats[matIdx], st, T_FIXED);
+      L.renderer.render(L.scene, L.cam);
+      const liveURL = L.renderer.domElement.toDataURL();
+      const [a, b] = await Promise.all([toImg(url), toImg(liveURL)]);
+      row[k] = meanDiff(a, b, size, 0.06);
+      if (st === 2 || row[k] > WARN_AT) {   // Hold는 항상 표본 노출
+        const d = document.createElement('div'); d.className = 'pair';
+        d.innerHTML = `<b>${STATES[st]} ${k}</b> diff=${row[k].toFixed(2)} `;
+        d.append(a, b); document.getElementById('pairs').append(d);
+      }
+    }
+    row.verdict = Math.max(row.zone, row.foot) > FAIL_AT ? 'FAIL' : Math.max(row.zone, row.foot) > WARN_AT ? 'WARN' : 'OK';
+    results.push(row);
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${row.state}</td><td>${row.zone.toFixed(2)}</td><td>${row.foot.toFixed(2)}</td>` +
+      `<td class="${row.verdict === 'OK' ? 'ok' : row.verdict === 'WARN' ? 'warn' : 'fail'}">${row.verdict}</td>`;
+    tbl.append(tr);
+  }
+  status.textContent = '완료 — 채널 평균 절대차(0-255), 허용 잔차: 배경 합성 + 디더';
+  return results;
+};
+window.__parityRun().then(r => { window.__parityResult = r; });
+</script>
+</body>
+</html>

@@ -466,60 +466,9 @@ void main(){
 const burstP = glProg(burstC, BURST_FRAG, 250, 250);
 
 // ═══ 레인 + 방향 화살표 (pathLane + directionGuide) ═══
-const LANE_FRAG = GLSL_COMMON + `
-uniform float uT, uLaneStyle, uTime;
-// 선분 SDF
-float segSD(vec2 p, vec2 a, vec2 b){
-  vec2 pa = p - a, ba = b - a;
-  float h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
-  return length(pa - ba * h);
-}
-void main(){
-  vec2 uv = gl_FragCoord.xy / uRes;            // 0..1, y=0 아래
-  float t = uTime;
-  // 미세 측면 웨이브 (일렁임 슬라이더) — 레인이 살아있는 빛줄기처럼
-  float wave = sin(uv.y * 5.2 + t * 1.4) * 0.012 * uNoise;
-  float x = uv.x - 0.5 + wave;
-  float along = uv.y;                          // 진행 좌표 (아래→위)
-  float latD = abs(x);
+// GLSL 레인 셀 은퇴·삭제 — LINE 셰이더 정본은 tokens.js LANEFX 한 벌(손복사 쌍둥이 없음),
+// FX Lab LINE 스테이션은 2D 캔버스 데모가 파라미터(state.arrow)만 공유.
 
-  // ── 레인 본체: 얇은 코어 + 넓은 글로우
-  float coreW = 0.006 * uW;
-  float lane = exp(-pow(latD / coreW, 2.0)) + exp(-pow(latD / (coreW * 7.0), 2.0)) * 0.32 * uHalo;
-  // 진행 방향 그라디언트: 화살표 쪽이 뜨겁게 + 흐르는 광류
-  float grad = along * 0.55 + 0.25;
-  float pulse;
-  if (uLaneStyle < 0.5) {
-    // 대시 흐름: 대시 간격 = 속도 언어 (또렷한 사각 펄스가 위로 흐름)
-    pulse = smoothstep(0.25, 0.55, 0.5 + 0.5 * sin(along * 34.0 - t * 6.0));
-    pulse = 0.35 + 0.65 * pulse;
-  } else {
-    // 연속 광류: 부드러운 빛 덩어리들이 흐름 (오로라 느낌)
-    pulse = 0.55 + 0.45 * sin(along * 9.0 - t * 3.2 + sin(along * 21.0 - t * 5.0) * 0.7);
-  }
-  lane *= pulse;
-  lane *= smoothstep(0.02, 0.12, along) * smoothstep(0.98, 0.80, along);  // 상하 페이드
-
-  // ── 방향 화살표 (셰브론): 위쪽에서 주기적으로 앞서 나감
-  float ahead = fract(t * 0.5);
-  float ay = 0.62 + ahead * 0.18;
-  float aw = 0.075, ah = 0.05;
-  vec2 p = vec2(x, uv.y);
-  float ch = min(segSD(p, vec2(-aw, ay - ah), vec2(0.0, ay)),
-                 segSD(p, vec2(aw, ay - ah), vec2(0.0, ay)));
-  float chFade = pow(1.0 - ahead, 1.6);
-  float chW = 0.009 * uW;
-  float arrow = (exp(-pow(ch / chW, 2.0)) + exp(-pow(ch / (chW * 5.0), 2.0)) * 0.4 * uHalo) * chFade * 1.25;
-
-  float heat = lane * 0.85 + arrow;
-  // 새벽빛 스윕: 진행 좌표 따라 색이 흐름
-  float sweep = 0.10 * sin(along * 3.0 - t * 1.6);
-  vec3 col = lut(clamp(grad + arrow * 0.35 + sweep, 0.0, 1.0)) * min(heat, 1.4);
-  vec3 base = baseBG(gl_FragCoord.xy / uRes);
-  col = base * (1.0 - clamp(heat, 0.0, 1.0) * 0.85) + col;
-  gl_FragColor = vec4(grade(col, gl_FragCoord.xy, t), 1.0);
-}`;
-const laneP = glProg((window.laneC || Object.assign(document.createElement('canvas'), { id: 'laneC' })), LANE_FRAG, 250, 250);   // 셀 은퇴 — 시뮬 레인은 LINE 토큰 소비 (tokens.js LANEFX)
 
 // ═══ MARK 판정 토큰 × 7상태 ═══════════════════
 // 0 Preview · 1 Active · 2 Hold · 3 Success · 4 Miss · 5 Warning · 6 Locked
@@ -996,7 +945,7 @@ let personReady = false;
 }
 
 // ═══ 컨트롤 UI ════════════════════════════════
-const PROGS = [burstP, footP, laneP, markP, markP2, personP];
+const PROGS = [burstP, footP, markP, markP2, personP];
 function buildStops() {
   stops.innerHTML = '';
   state.stops.forEach((s, i) => {
@@ -1145,11 +1094,6 @@ function frame(ts) {
   if (VIS.footC) { footP.setCommon(g.width, g.halo, g.noise, g.ember, g.grain);
     const { gl } = footP;
     gl.uniform1f(footP.u('uT'), t); gl.uniform1f(footP.u('uMode'), state.footShape);
-    gl.drawArrays(gl.TRIANGLES, 0, 3); }
-  if (VIS.laneC) { laneP.setCommon(g.width, g.halo, g.noise, g.ember, g.grain);
-    const { gl } = laneP;
-    gl.uniform1f(laneP.u('uT'), t); gl.uniform1f(laneP.u('uLaneStyle'), state.laneStyle);
-    gl.uniform1f(laneP.u('uTime'), REDUCED ? 1.2 : ts / 1000);
     gl.drawArrays(gl.TRIANGLES, 0, 3); }
   if (VIS.markC || VIS.markC2) { const m = state.m;
     // MARK 판정 토큰 = 순수 카탈로그(포스트프로세싱 아님) — 화면 그레인 원칙상 여기 안 씀.
@@ -1930,6 +1874,25 @@ if (window.parent === window) {
 }
 
 // 모듈 전환으로 끊긴 전역 접근 보상 — 헤드리스 검증·패리티 하니스 전용 (앱 로직은 사용 금지)
-window.__lab = { state, setMarkState, updateFootSDF, updateWarnSDF };
+window.__lab = { state, setMarkState, updateFootSDF, updateWarnSDF,
+  // 패리티 하니스용 결정적 렌더 — (상태, 시각)을 고정해 존원·발형을 한 프레임 그리고 캡처.
+  // 같은 JS 틱 안에서 draw→toDataURL이라 rAF 루프와 경합 없음.
+  renderMark(st, t) {
+    const out = [];
+    for (const [P, shape] of [[markP, 0], [markP2, 1]]) {
+      const gl = P.gl;
+      gl.useProgram(P.pr);
+      P.setCommon(state.m.core, state.m.halo, state.m.wobble, 0, 0);
+      gl.uniform1f(P.u('uTime'), t);
+      gl.uniform1f(P.u('uState'), st);
+      gl.uniform1f(P.u('uContract'), state.markContract);
+      gl.uniform1f(P.u('uRadius'), state.m.radius);
+      gl.uniform1f(P.u('uPool'), state.m.pool);
+      gl.uniform1f(P.u('uShape'), shape);
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+      out.push(gl.canvas.toDataURL());
+    }
+    return out;
+  } };
 </script>
 </body></html>
