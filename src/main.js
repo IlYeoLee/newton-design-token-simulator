@@ -7,6 +7,7 @@ import { XBot } from './xbot.js';
 import { Panel } from './panel.js';
 import { ProjectorRig } from './projector.js';
 import { WallGhost } from './ghost.js';
+import { FilesetResolver, ImageSegmenter } from '@mediapipe/tasks-vision';
 import { Judge } from './judge.js';
 import { Session, SCFG, STAGES } from './session.js';
 import { StudioDoc } from './studio/doc.js';
@@ -17,7 +18,7 @@ import { DesignStore } from './studio/store.js';
 import { loadSvg } from './studio/design.js';
 import { initBudgetPanel } from './budgetPanel.js';
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
-import { getLUT, FXP, rebuildLUT, lutColor, GLYPHS } from './fxlut.js';
+import { getLUT, FXP, rebuildLUT, lutColor, GLYPHS, FX_GLSL } from './fxlut.js';
 import { createEditor3D } from './editor3d.js';
 import { SceneUI } from './sceneui.js';
 
@@ -1807,44 +1808,170 @@ async function boot() {
     renderer.setClearAlpha(prevAlpha);
   }
 
-  // ── 시범 실사 클립 — A 단계 '먼저 보세요' 구간에 코치 영상을 지면 투사 ──
-  //    소스: Mixkit 무료 라이선스 "Man stretching in the spotlight"(1025) — 어두운 배경 실사.
-  //    검정=빛 없음=투명(가산광): 배경이 어두운 실사는 인물만 빛으로 떠오름 — 투사 네이티브.
-  //    (대안 클립: assets.mixkit.co/videos/948 "dark and smoke")
+  // ── 시범 인물 = FX Lab PERSON_FRAG 정본 이식 (인물 — 실사 + 잔상) ──────────
+  //    실사 영상(실루엣 촬영: 밝은 배경·검은 인물)에서 움직임만 따오고, 렌더는 룩 시스템
+  //    person 언어 그대로: 역키잉 마스크 → 소프트엣지 → 세로 그라디언트(머리 근흑→발 근백)
+  //    + 내부 열 대류(fbm) → 공유 히트 LUT. 잔상은 핑퐁 RT 누적(max(cur, prev·decay)) —
+  //    랩의 과거 프레임 3탭과 시각 등가. 룩 슬라이더(person.decay/flow) 라이브 소비.
   const demoVideo = document.createElement('video');
-  demoVideo.src = import.meta.env.BASE_URL + 'coach_stretch.mp4';
+  demoVideo.src = import.meta.env.BASE_URL + 'cand_36949.mp4';   // Mixkit 36949 — 피트니스 남성 다리 스트레칭
   demoVideo.muted = true; demoVideo.loop = true; demoVideo.playsInline = true;
   demoVideo.crossOrigin = 'anonymous';
   const demoTex = new THREE.VideoTexture(demoVideo);
-  demoTex.colorSpace = THREE.SRGBColorSpace;
-  // 인물 = 룩 시스템 히트 영역 처리: 실사의 움직임만 따오고, 밝기(어두운 배경 키잉)를
-  // 공유 히트 LUT로 변환 — 코치가 NEWTON 주황 그라디언트 인물로 투사됨 (원본 RGB 미노출).
+  const DPW = 256, DPH = 384;
+  // 인물 마스크 = MediaPipe ImageSegmenter (밝기 키잉 은퇴 — 임의 실사에서 인물만 분리).
+  // 모델·wasm 로컬 번들(public/models, public/mediapipe-wasm) — 런타임 CDN 의존 없음.
+  const demoMaskCanvas = document.createElement('canvas');
+  const demoMaskTex = new THREE.CanvasTexture(demoMaskCanvas);
+  demoMaskTex.minFilter = THREE.LinearFilter; demoMaskTex.magFilter = THREE.LinearFilter;
+  let demoSeg = null, demoSegInit = false;
+  async function initDemoSeg() {
+    demoSegInit = true;
+    const fileset = await FilesetResolver.forVisionTasks(import.meta.env.BASE_URL + 'mediapipe-wasm');
+    demoSeg = await ImageSegmenter.createFromOptions(fileset, {
+      baseOptions: { modelAssetPath: import.meta.env.BASE_URL + 'models/selfie_segmenter.tflite' },
+      runningMode: 'VIDEO', outputConfidenceMasks: true,
+    });
+  }
+  const MASK_GLSL = `
+    uniform sampler2D uMask;
+    uniform vec2 uCropC, uCropS;   // 인물 bbox 자동 크롭 (중심·반크기, 비디오 UV)
+    float pmask(vec2 uv){
+      vec2 vuv = uCropC + (uv - 0.5) * uCropS;
+      if (vuv.x < 0.0 || vuv.x > 1.0 || vuv.y < 0.0 || vuv.y > 1.0) return 0.0;
+      float m = smoothstep(0.45, 0.62, texture2D(uMask, vuv).r);   // 세그 신뢰도 → 또렷한 실루엣
+      m *= smoothstep(0.0, 0.03, uv.y) * smoothstep(1.0, 0.97, uv.y);
+      return m;
+    }`;
+  const trailRTs = [new THREE.WebGLRenderTarget(DPW, DPH), new THREE.WebGLRenderTarget(DPW, DPH)];
+  let trailFlip = 0;
+  const trailMat = new THREE.ShaderMaterial({
+    uniforms: {
+      uMask: { value: demoMaskTex }, prev: { value: trailRTs[1].texture }, uDecay: { value: 0.9 },
+      uCropC: { value: new THREE.Vector2(0.5, 0.5) }, uCropS: { value: new THREE.Vector2(1, 1) },
+    },
+    vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }',
+    fragmentShader: `varying vec2 vUv; uniform sampler2D prev; uniform float uDecay;
+      ` + MASK_GLSL + `
+      void main(){
+        float m = pmask(vUv);
+        float t = max(m, texture2D(prev, vUv).r * uDecay);
+        gl_FragColor = vec4(t, 0.0, 0.0, 1.0);
+      }`,
+    depthTest: false, depthWrite: false,
+  });
+  const trailQuadCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+  const trailScene = new THREE.Scene();
+  trailScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), trailMat));
   const demoPanel = new THREE.Mesh(
-    new THREE.PlaneGeometry(0.96, 0.54),   // 16:9 가로 카드 — 과대 금지
+    new THREE.PlaneGeometry(0.62, 0.93),   // 세로 카드 (영상 세로 프레이밍)
     new THREE.ShaderMaterial({
-      uniforms: { tex: { value: demoTex }, uLUT: { value: getLUT() } },
+      uniforms: {
+        uMask: { value: demoMaskTex }, uTrail: { value: trailRTs[0].texture }, uLUT: { value: getLUT() },
+        uTime: { value: 0 }, uNoise: { value: 0.55 }, uW: { value: 1 },
+        uCropC: { value: new THREE.Vector2(0.5, 0.5) }, uCropS: { value: new THREE.Vector2(1, 1) },
+      },
       vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
-      fragmentShader: `varying vec2 vUv; uniform sampler2D tex, uLUT;
+      fragmentShader: `varying vec2 vUv;
+        uniform sampler2D uTrail, uLUT; uniform float uTime, uNoise, uW;
         vec3 lut(float v){ return texture2D(uLUT, vec2(clamp(v, 0.004, 0.996), 0.5)).rgb; }
+        ` + FX_GLSL.replace('uniform sampler2D uLUT;', '').replace('vec3 lut(float v){ return texture2D(uLUT, vec2(clamp(v, 0.004, 0.996), 0.5)).rgb; }', '') + `
+        ` + MASK_GLSL + `
         void main(){
-          vec3 c = texture2D(tex, vUv).rgb;
-          float lum = dot(c, vec3(0.299, 0.587, 0.114));
-          float heat = smoothstep(0.10, 0.80, lum);   // 어두운 배경 컷 + 정규화
-          vec3 col = lut(heat) * heat * 1.5;
+          vec2 uv = vUv;
+          float m = pmask(uv);
+          float trail = texture2D(uTrail, uv).r * (1.0 - m);
+          // 소프트 엣지 5탭 (랩 정본)
+          float mSoft = m * 0.52;
+          for (int k = 0; k < 4; k++) {
+            float a = 1.5708 * float(k) + 0.7;
+            mSoft += pmask(uv + vec2(cos(a), sin(a)) * 0.007 * uW) * 0.12;
+          }
+          // 내부 열 대류 + 세로 그라디언트 (랩 정본 수식 그대로)
+          float flow = fxfbm(vec2(uv.x * 3.2 + sin(uTime * 0.4) * 0.3, uv.y * 2.4 - uTime * 0.5));
+          float flow2 = fxfbm(vec2(uv.x * 6.5 - uTime * 0.22, uv.y * 5.2 - uTime * 0.9));
+          float vert = pow(1.0 - uv.y, 1.35) * 0.92 + 0.06;
+          float heat = mix(vert, clamp(vert + (flow - 0.5) * 0.55 + (flow2 - 0.5) * 0.25, 0.0, 1.0), uNoise);
+          heat += clamp(m - mSoft, 0.0, 1.0) * 0.10;
+          vec3 col = lut(clamp(heat, 0.0, 1.0)) * mSoft * 1.45;
+          col += lut(clamp(heat * 0.45, 0.0, 1.0)) * trail * 0.8;
           gl_FragColor = vec4(col, 1.0);   // 가산: 검정 = 무기여
         }`,
       transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
     }));
   demoPanel.rotation.x = -Math.PI / 2;
-  demoPanel.position.set(0, 0.016, -1.45);   // 발앞 중앙 — 시범 구간엔 다른 마크 없음
+  demoPanel.position.set(0, 0.016, -1.45);
   demoPanel.renderOrder = 7;
   demoPanel.visible = false;
   scene.add(demoPanel);
+  let demoLastT = 0;
+  const demoCrop = { cx: 0.5, cy: 0.5, sx: 1, sy: 1 };
   function renderDemoPanel() {
     const on = session.active && !session.isLive && session.demoActive;
     demoPanel.visible = !!on;
     if (on) { if (demoVideo.paused) demoVideo.play().catch(() => {}); }
-    else if (!demoVideo.paused) demoVideo.pause();
+    else { if (!demoVideo.paused) demoVideo.pause(); return; }
+    const now = performance.now() / 1000;
+    if (now - demoLastT < 1 / 45) return;
+    demoLastT = now;
+    // 인물 세그멘테이션 → 마스크 캔버스 (신뢰도 R채널)
+    if (!demoSegInit) initDemoSeg();
+    if (!demoSeg || demoVideo.readyState < 2) return;
+    const segRes = demoSeg.segmentForVideo(demoVideo, performance.now());
+    const mk = segRes.confidenceMasks[0];
+    const mw = mk.width, mh = mk.height;
+    if (demoMaskCanvas.width !== mw) { demoMaskCanvas.width = mw; demoMaskCanvas.height = mh; }
+    const arr = mk.getAsFloat32Array();
+    // 인물 bbox — 자동 프레이밍 (아무 클립이든 인물을 패널에 맞춤)
+    let bx0 = 1, bx1 = 0, by0 = 1, by1 = 0, bn = 0;
+    for (let y = 0; y < mh; y += 2) for (let x = 0; x < mw; x += 2) {
+      if (arr[y * mw + x] > 0.5) {
+        const nx = x / mw, ny = y / mh;
+        if (nx < bx0) bx0 = nx; if (nx > bx1) bx1 = nx;
+        if (ny < by0) by0 = ny; if (ny > by1) by1 = ny;
+        bn++;
+      }
+    }
+    if (bn > 40) {
+      const cx = (bx0 + bx1) / 2, cyImg = (by0 + by1) / 2;
+      const bh = Math.max(0.15, (by1 - by0) * 1.25);           // 세로 여유 25%
+      const panelAR = 0.62 / 0.93;                              // 패널 종횡비
+      const vidAR = mw / mh;
+      let sx = bh * panelAR / vidAR;                            // 픽셀 정방 유지 가로 반경
+      sx = Math.max(sx, (bx1 - bx0) * 1.2);                     // 인물 폭 보장
+      const k = 0.12;                                           // 스무딩 (프레이밍 요동 방지)
+      demoCrop.cx += (cx - demoCrop.cx) * k;
+      demoCrop.cy += ((1 - cyImg) - demoCrop.cy) * k;           // 텍스처 UV는 y-플립
+      demoCrop.sx += (sx - demoCrop.sx) * k;
+      demoCrop.sy += (bh - demoCrop.sy) * k;
+      for (const M of [trailMat, demoPanel.material]) {
+        M.uniforms.uCropC.value.set(demoCrop.cx, demoCrop.cy);
+        M.uniforms.uCropS.value.set(demoCrop.sx, demoCrop.sy);
+      }
+    }
+    if (import.meta.env.DEV) { let mx = 0, s = 0; for (let i = 0; i < arr.length; i += 7) { if (arr[i] > mx) mx = arr[i]; s += arr[i]; } window.__segDbg = { w: mw, h: mh, max: +mx.toFixed(3), mean: +(s / (arr.length / 7)).toFixed(4), n: (window.__segDbg?.n || 0) + 1 }; }
+    const g2 = demoMaskCanvas.getContext('2d');
+    const img = g2.createImageData(mw, mh);
+    for (let i = 0; i < arr.length; i++) {
+      const v = arr[i] * 255;
+      const j = i * 4;
+      img.data[j] = v; img.data[j + 3] = 255;
+    }
+    g2.putImageData(img, 0, 0);
+    demoMaskTex.needsUpdate = true;
+    mk.close();
+    // 잔상 누적 (핑퐁) — 룩 person.decay 라이브 소비
+    trailMat.uniforms.uDecay.value = 0.86 + 0.12 * (FXP.person?.decay ?? 0.6);
+    trailMat.uniforms.prev.value = trailRTs[1 - trailFlip].texture;
+    const prevT = renderer.getRenderTarget();
+    renderer.setRenderTarget(trailRTs[trailFlip]);
+    renderer.render(trailScene, trailQuadCam);
+    renderer.setRenderTarget(prevT);
+    const PU = demoPanel.material.uniforms;
+    PU.uTrail.value = trailRTs[trailFlip].texture;
+    PU.uTime.value = now;
+    PU.uNoise.value = FXP.person?.flow ?? 0.55;
+    trailFlip = 1 - trailFlip;
   }
 
   switchPack('running');
@@ -2023,6 +2150,7 @@ async function boot() {
 
   if (import.meta.env.DEV) window.__dbg = {
     rig, xbot, state, session, sceneScope, camera, controls, tokens, effects, scene, editor3d, sceneUI, FXP, designStore, TCFG, editCam, editControls, judge, THREE,
+    renderer, demoVideo, renderDemoPanel,
     get activeCam() { return studioActive ? editCam : camera; },
     get doc() { return studioDoc; },
     get canvas() { return studioCanvas; },
