@@ -33,7 +33,7 @@ function ctaTexture(sport) {
 // ─────────────────────────────────────────────────────────────
 
 // 에디터에서 실시간 조절되는 세션 타이밍 (초)
-export const SCFG = { a1Rep: 1.0, a2Hold: 10, a3Swing: 1.5, a4Beat: 0.6, b1Beat: 0.6, b2Beat: 0.7, b3Step: 1.1, b4Beat: 0.55 };
+export const SCFG = { a1Rep: 2.0, a2Hold: 10, a3Swing: 1.8, a4Beat: 0.6, b1Beat: 0.6, b2Beat: 0.7, b3Step: 1.1, b4Beat: 0.55 };   // A 템포 = 실제 스트레칭 속도 (발목 1바퀴 2s·펌프 1.6s·스윙 1.8s — 빠르면 못 따라함)
 // 타이틀·발형이 물리적으로 겹치는 장면(빔 원경계 ~2.85m 안에 실측 운동 요소가 타이틀 깊이까지 뻗음) — 이 셋뿐
 const DENSE_STAGES = new Set(['B3', 'B4', 'C5']);
 
@@ -1220,11 +1220,11 @@ export class Session {
       }
     } else if (id === 'A2') {
       // 종아리 펌프 — 시범(2박 보기) → "이제 같이" → 좌우 각 10회 (동적 웜업)
-      const BT = 0.9, REPS = 10, DEMO = 2 * BT, PH = REPS * BT + 0.9;
+      const BT = 1.6, REPS = 10, DEMO = 2 * BT, PH = REPS * BT + 0.9;
       if (this.t < DEMO) {
         this.a2[0].pg.visible = true; this.a2[1].pg.visible = false;
         const k0 = (this.t % BT) / BT;
-        this.a2[0].back.setHold(Math.max(0.001, k0 < 0.5 ? k0 * 2 : 2 - k0 * 2));   // 뒤꿈치 박자 시범
+        this.a2[0].back.setHold(Math.max(0.001, k0));   // 회당 림 1회 채움 — 역주행 없는 순환
         FMU('먼저 보세요 — 뒤꿈치가 올라갔다 내려오는 박자', CS.sand);
       } else {
         this._say('a2go', '션', '이제 같이 — 까치발 서듯 뒤꿈치를 올렸다, 바닥까지 내려요.');
@@ -1234,7 +1234,7 @@ export class Session {
         const lt = t2 - phase * PH;
         const pair = this.a2[phase];
         const k = (lt % BT) / BT;
-        pair.back.setHold(Math.min(1, lt < REPS * BT ? Math.max(0.001, k < 0.5 ? k * 2 : 2 - k * 2) : 0.001));   // 홀드 링 = 뒤꿈치 높이
+        pair.back.setHold(lt < REPS * BT ? Math.max(0.001, k) : 0.001);   // 홀드 림 = 회당 1회 채움 (핑퐁 은퇴 — 진행은 역주행하지 않는다)
         if (lt >= REPS * BT) pair.back.glow(Math.max(0, 1 - (lt - REPS * BT) / 0.6));
         const rep = Math.min(REPS, Math.floor(lt / BT) + 1);
         FMU(`${phase === 0 ? '왼발 앞' : '오른발 앞'} · 까치발 펌프 ${rep} / ${REPS}`, CS.sand);
