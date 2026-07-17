@@ -145,8 +145,8 @@ export class ProjectorRig {
     // 조절 가능한 투사면 파라미터
     this.fpNear = 0.05;   // 무릎(몸) 앞 시작 거리 (m)
     this.fpFar = 2.0;     // 끝 거리 (m)
-    this.wallW = 1.8;     // 벽면 투사 가로 (m)
-    this.wallH = 1.8;     // 벽면 투사 세로 (m)
+    this.wallW = 2.4;     // 벽면 투사 가로 (m) — 시원한 기본값 (유저 확정)
+    this.wallH = 2.1;     // 벽면 투사 세로 (m)
 
     // GPU 클리핑 플레인 — 모든 투사 UI 재질에 공유 (참조 유지, 값만 갱신)
     this.floorClip = [new THREE.Plane(), new THREE.Plane(), new THREE.Plane(), new THREE.Plane()];

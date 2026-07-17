@@ -1921,14 +1921,18 @@ void main(){
   const DEMO_CLIP_MODE = 'wall';
   if (DEMO_CLIP_MODE === 'wall') {
     demoPanel.rotation.x = 0;                          // 벽 = 직립
-    demoPanel.position.set(-0.38, 1.02, WALL_Z + 0.035);
-    demoPanel.scale.setScalar(1.8);                    // 0.93m 지오메트리 → 실신장 ~1.7m
+    demoPanel.scale.setScalar(1.85);                   // 0.93m 지오메트리 → 실신장 ~1.7m
   }
   function renderDemoPanel() {
     const on = DEMO_CLIP_MODE !== 'off' && session.active && !session.isLive
       && (DEMO_CLIP_MODE === 'wall' ? state.pack === 'boxing' : session.demoActive);
-    if (DEMO_CLIP_MODE === 'wall' && rig.wallClip && demoPanel.material.clippingPlanes !== rig.wallClip)
-      demoPanel.material.clippingPlanes = rig.wallClip;   // 투사면 밖 금지 — 벽 클리핑
+    if (DEMO_CLIP_MODE === 'wall') {
+      if (rig.wallClip && demoPanel.material.clippingPlanes !== rig.wallClip)
+        demoPanel.material.clippingPlanes = rig.wallClip;   // 투사면 밖 금지 — 벽 클리핑
+      // 유저 정면 = 벽 투사 중심 추종 (시선 높이) — 코치를 마주 보고 따라한다
+      const wc = rig._wallCenter;
+      demoPanel.position.set(wc ? wc.cx : 0, 1.02, WALL_Z + 0.035);
+    }
     demoPanel.visible = !!on;
     if (on) { if (demoVideo.paused) demoVideo.play().catch(() => {}); }
     else { if (!demoVideo.paused) demoVideo.pause(); return; }
