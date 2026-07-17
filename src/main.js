@@ -1982,6 +1982,7 @@ async function boot() {
   //    잔상 = 아틀라스 과거 프레임 3탭 (랩 그대로 — 핑퐁 불필요). 출력만 가산광(라이브 규약).
   const bxAtlas = document.createElement('canvas'); bxAtlas.width = 176 * 4; bxAtlas.height = 288 * 2;
   const bxAtlasTex = new THREE.CanvasTexture(bxAtlas);
+  bxAtlasTex.flipY = false;   // 랩은 raw WebGL(y-다운) — three 기본 flipY와 이중 플립되면 인물이 뒤집힘
   bxAtlasTex.minFilter = THREE.LinearFilter; bxAtlasTex.magFilter = THREE.LinearFilter;
   let bxPersonReady = false;
   {
