@@ -282,22 +282,6 @@ function makeSmallLabel(text) {
   return { tex, aspect: c.width / c.height };
 }
 
-function makeBullseyeTexture(colorHex) {
-  const c = document.createElement('canvas');
-  c.width = c.height = 256;
-  const ctx = c.getContext('2d');
-  const col = '#' + colorHex.toString(16).padStart(6, '0');
-  ctx.strokeStyle = col;
-  for (const [r, w, a] of [[112, 7, 0.95], [76, 5, 0.6], [40, 4, 0.45]]) {
-    ctx.globalAlpha = a;
-    ctx.lineWidth = w;
-    ctx.beginPath(); ctx.arc(128, 128, r, 0, Math.PI * 2); ctx.stroke();
-  }
-  ctx.globalAlpha = 0.9; ctx.fillStyle = col;
-  ctx.beginPath(); ctx.arc(128, 128, 12, 0, Math.PI * 2); ctx.fill();
-  return new THREE.CanvasTexture(c);
-}
-
 // 회피(avoid) = 점선 반전 링 — 도달과 같은 그림 금지(정반대 계약)
 function makeDashedRingTexture(colorHex) {
   const c = document.createElement('canvas');
@@ -708,7 +692,6 @@ export class TokenSystem {
         const c = COLORS[ev.marker.role] ?? COLORS.left;
         ev.marker.color = c; ev.color = c;
         ev.marker.fill.material.color.setHex(c);
-        if (ev.marker.bullseye) { ev.marker.bullseye.material.map = makeBullseyeTexture(c); ev.marker.bullseye.material.needsUpdate = true; }
       }
       if (ev.arrow) ev.arrow.obj.traverse(o => o.material?.color?.setHex(COLORS.guide));
     }
@@ -769,16 +752,8 @@ export class TokenSystem {
             mk.setArt(tex);
             if (tk.design.shape === 'number') mk._skipNumber = true;
           }
-          if (isWall) {
-            // 벽면 불즈아이 텍스처 추가
-            const bt = new THREE.Mesh(
-              new THREE.PlaneGeometry(radius * 2.4, radius * 2.4),
-              new THREE.MeshBasicMaterial({ map: makeBullseyeTexture(color), transparent: true, depthWrite: false })
-            );
-            bt.position.z = 0.003;
-            mk.group.add(bt);
-            mk.bullseye = bt;
-          }
+          // 구 벽면 불즈아이(사제 동심원 과녁 캔버스)는 은퇴 — 카탈로그에 없는 종.
+          // 벽 타겟 = MARK 존 원 7상태 그대로 (지면과 동일 토큰, 숫자는 마크 안 글리프).
           mk.role = tk.type === 'targetMark' ? 'target' : (tk.foot ?? 'left');
           ev.marker = mk;
           ev.surface = isWall ? 'wall' : 'floor';
