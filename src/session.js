@@ -209,6 +209,29 @@ function floorNum(text, x, z, size, color) {
   g.userData.el = { type: 'text', content: String(text) };
   return g;
 }
+// 발 안 순서 숫자 — 카탈로그 조합 그대로 '기울어진 발 플레인'의 자식으로 부착:
+// 발이 기울면 숫자도 통째로 기울고(구성 고정), 크기 = 랩 공식 140·radius·s/600,
+// 앵커 폴백 = 랩과 동일(실루엣 무게중심). (유저 원칙: 이식은 구성 고정 + 스케일만)
+function attachMarkNum(fm, label, right) {
+  const S = 0.46;   // FootMark 쿼드
+  const p = floorNum(String(label), 0, 0, S * MARK_NUM.RATIO / 0.75 / 1.5, CS.ink).userData.plane;
+  p._numRight = right;
+  p._numFm = fm;
+  p.renderOrder = 7;
+  fm.plane.add(p);
+  placeMarkNum(p);
+  return p;
+}
+// 앵커·스케일은 매 프레임 룩 값에서 — 세션 그래픽은 부트에 빌드되는데 applyLabState
+// (numFoot·mark.radius 주입)는 그 뒤라, 빌드 시 1회 읽기는 항상 폴백에 박제됐음.
+function placeMarkNum(p) {
+  const tex = p._numFm._U.uSDF2.value;
+  const a = (FXP.numFoot && FXP.numFoot[FXP.footCtx === 'in' ? 'in' : 'out'])
+         || { x: tex?._cx ?? 0.5, y: tex?._cy ?? 0.42, s: 1 };
+  const off = MARK_NUM.anchor(a, p._numRight, 0.46);
+  p.position.set(off.x, off.y, 0.002);
+  p.scale.setScalar((off.s || 1) * (FXP.mark.radius || 1));
+}
 // 파동 링 재질 틱 목록 (프리뷰·세션 공통 — main 루프가 tickWaves 호출)
 const WAVE_MATS = [];
 function isHeatColor(c) { return c === BRAND.red || c === BRAND.coral || c === BRAND.sand; }
@@ -479,18 +502,8 @@ export class Session {
     for (let i = 0; i < 3; i++) {
       const right = i % 2 === 1;
       const fm = new FootMark(right ? 'right' : 'left').at(bp[i][0], bp[i][1]);
-      // 순서 숫자 = 발자국 '안' 글리프 오버레이 — 크기·앵커·표시 전부 fx-core MARK_NUM 규약
-      // (표시는 업데이트 블록에서 MARK_NUM.opacity(상태) 소비).
-      const a = (FXP.numFoot && FXP.numFoot[FXP.footCtx === 'in' ? 'in' : 'out']) || { x: 0.5, y: 0.38, s: 1 };
-      const S = 0.46;   // FootMark 쿼드 크기
-      const p = floorNum(String(i + 1), 0, 0, S * MARK_NUM.RATIO / 0.75 / 1.5, CS.ink).userData.plane;
-      const off = MARK_NUM.anchor(a, right, S);
-      p.position.set(off.x, off.y, 0.002);
-      p.scale.setScalar(off.s);
-      p.renderOrder = 7;
-      fm.group.add(p);
       g.add(fm.group);
-      this.b3.push(fm); this.b3nums.push(p);
+      this.b3.push(fm); this.b3nums.push(attachMarkNum(fm, i + 1, right));
     }
 
     g = this._mk('B4');
@@ -566,14 +579,8 @@ export class Session {
     for (let i = 0; i < 3; i++) {
       const right = i % 2 === 1;
       const fm = new FootMark(right ? 'right' : 'left').at(bkp[i][0], bkp[i][1]);
-      const a = (FXP.numFoot && FXP.numFoot[FXP.footCtx === 'in' ? 'in' : 'out']) || { x: 0.5, y: 0.38, s: 1 };
-      const S = 0.46;
-      const np = floorNum(String(i + 1), 0, 0, S * MARK_NUM.RATIO / 0.75 / 1.5, CS.ink).userData.plane;
-      const off = MARK_NUM.anchor(a, right, S);
-      np.position.set(off.x, off.y, 0.002); np.scale.setScalar(off.s); np.renderOrder = 7;
-      fm.group.add(np);
       g.add(fm.group);
-      this.bkB2.push(fm); this.bkB2nums.push(np);
+      this.bkB2.push(fm); this.bkB2nums.push(attachMarkNum(fm, i + 1, right));
     }
 
     // B3 컷 방향·감속 — 디딤발 + 감속 스트라이프 + 방향 화살표
@@ -1216,6 +1223,7 @@ export class Session {
         else if (lt >= t0 + W && lt < t0 + ST) { f.glow(1 - (lt - t0 - W) / (ST - W)); ph = 2; }
         else { f.countdown(-1); ph = 0; }
         this.b3nums[i].material.opacity = MARK_NUM.opacity(ph);
+        placeMarkNum(this.b3nums[i]);
       });
       FMU(`세트 ${Math.min(2, Math.floor(this.t / cyc) + 1)} / 2`);
       if (this.t >= 2 * cyc + 0.4) { this.next(); return; }
@@ -1287,6 +1295,7 @@ export class Session {
         else if (lt >= t0 + W && lt < t0 + ST) { f.glow(1 - (lt - t0 - W) / (ST - W)); ph = 2; }
         else { f.countdown(-1); ph = 0; }
         this.bkB2nums[i].material.opacity = MARK_NUM.opacity(ph);
+        placeMarkNum(this.bkB2nums[i]);
       });
       const hits = Math.min(3, Math.floor((this.t % cyc) / ST) + 3 * Math.floor(this.t / cyc));
       FMU(`맞춘 스텝 ${Math.min(3, Math.floor(this.t / ST))} / 3`, this.t >= cyc ? CS.prism : CS.dim);

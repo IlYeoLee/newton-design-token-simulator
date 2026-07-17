@@ -124,6 +124,7 @@ function sdfTexture(FS) {
   const tex = new THREE.DataTexture(FS.data, FS.N, FS.N, THREE.RedFormat, THREE.FloatType);
   tex.minFilter = tex.magFilter = THREE.LinearFilter;
   tex.needsUpdate = true;
+  tex._cx = FS.cx; tex._cy = FS.cy;   // 실루엣 무게중심 — 마크 숫자 폴백 앵커(랩과 동일 규약)
   return tex;
 }
 const _sdfCache = new Map();
