@@ -1817,9 +1817,24 @@ async function boot() {
   demoVideo.crossOrigin = 'anonymous';
   const demoTex = new THREE.VideoTexture(demoVideo);
   demoTex.colorSpace = THREE.SRGBColorSpace;
+  // 인물 = 룩 시스템 히트 영역 처리: 실사의 움직임만 따오고, 밝기(어두운 배경 키잉)를
+  // 공유 히트 LUT로 변환 — 코치가 NEWTON 주황 그라디언트 인물로 투사됨 (원본 RGB 미노출).
   const demoPanel = new THREE.Mesh(
     new THREE.PlaneGeometry(0.96, 0.54),   // 16:9 가로 카드 — 과대 금지
-    new THREE.MeshBasicMaterial({ map: demoTex, transparent: true, opacity: 0.95, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false }));
+    new THREE.ShaderMaterial({
+      uniforms: { tex: { value: demoTex }, uLUT: { value: getLUT() } },
+      vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+      fragmentShader: `varying vec2 vUv; uniform sampler2D tex, uLUT;
+        vec3 lut(float v){ return texture2D(uLUT, vec2(clamp(v, 0.004, 0.996), 0.5)).rgb; }
+        void main(){
+          vec3 c = texture2D(tex, vUv).rgb;
+          float lum = dot(c, vec3(0.299, 0.587, 0.114));
+          float heat = smoothstep(0.10, 0.80, lum);   // 어두운 배경 컷 + 정규화
+          vec3 col = lut(heat) * heat * 1.5;
+          gl_FragColor = vec4(col, 1.0);   // 가산: 검정 = 무기여
+        }`,
+      transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+    }));
   demoPanel.rotation.x = -Math.PI / 2;
   demoPanel.position.set(0, 0.016, -1.45);   // 발앞 중앙 — 시범 구간엔 다른 마크 없음
   demoPanel.renderOrder = 7;
