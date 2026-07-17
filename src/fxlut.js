@@ -6,29 +6,8 @@
 //   OKLab 보간(RGB 직선 보간의 탁한 갈색 구간 제거) + 채도 스케일(회색조 혼합).
 // ─────────────────────────────────────────────────────────────
 import * as THREE from 'three';
-import { sdfFromAlpha, glyphRaster, bakeGlyphSDF } from './fx-core.js';
-
-// ── OKLab ↔ sRGB ──────────────────────────────
-const s2l = c => { c /= 255; return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); };
-const l2s = c => { c = Math.max(0, Math.min(1, c)); return Math.round(255 * (c <= 0.0031308 ? 12.92 * c : 1.055 * Math.pow(c, 1 / 2.4) - 0.055)); };
-function rgb2ok(r, g, b) {
-  r = s2l(r); g = s2l(g); b = s2l(b);
-  const l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b);
-  const m = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b);
-  const s = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b);
-  return [0.2104542553 * l + 0.7936177850 * m - 0.0040720468 * s,
-          1.9779984951 * l - 2.4285922050 * m + 0.4505937099 * s,
-          0.0259040371 * l + 0.7827717662 * m - 0.8086757660 * s];
-}
-function ok2rgb(L, a, b) {
-  const l = (L + 0.3963377774 * a + 0.2158037573 * b) ** 3;
-  const m = (L - 0.1055613458 * a - 0.0638541728 * b) ** 3;
-  const s = (L - 0.0894841775 * a - 1.2914855480 * b) ** 3;
-  return [l2s(4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s),
-          l2s(-1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s),
-          l2s(-0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s)];
-}
-const hex2rgb = h => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+import { sdfFromAlpha, glyphRaster, bakeGlyphSDF, buildLUT } from './fx-core.js';
+// OKLab 변환·LUT 빌더는 fx-core(정본)에서 — 중복 2벌 폐기.
 
 // ── 라이브 파라미터 (프로 편집 모드가 조절, 프레임마다 읽힘) ──
 export const FXP = {
@@ -48,19 +27,7 @@ export const FXP = {
 const lutData = new Uint8Array(256 * 4);
 let lutTex = null;
 export function rebuildLUT() {
-  const st = [...FXP.stops].sort((a, b) => a[1] - b[1]);
-  for (let i = 0; i < 256; i++) {
-    const v = i / 255;
-    let j = 0;
-    while (j < st.length - 2 && v > st[j + 1][1]) j++;
-    const [c0, p0] = st[j], [c1, p1] = st[j + 1];
-    const f = Math.max(0, Math.min(1, (v - p0) / Math.max(1e-5, p1 - p0)));
-    const a = rgb2ok(...hex2rgb(c0)), b = rgb2ok(...hex2rgb(c1));
-    const rgb = ok2rgb(a[0] + (b[0] - a[0]) * f,
-                       (a[1] + (b[1] - a[1]) * f) * FXP.sat,
-                       (a[2] + (b[2] - a[2]) * f) * FXP.sat);
-    lutData.set([...rgb, 255], i * 4);
-  }
+  buildLUT(FXP.stops, FXP.sat, lutData);   // fx-core 정본 — FX Lab과 같은 코드로 굽는다
   if (lutTex) lutTex.needsUpdate = true;
   return lutData;
 }
