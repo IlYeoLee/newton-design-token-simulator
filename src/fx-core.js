@@ -276,3 +276,182 @@ vec4 markState(vec2 uv, float state, float prog, float strong, float t){
   }
   return A;
 }`;
+
+// ═══ 파생 프리미티브 정본 (FX Lab drawPrims 승격 — 랩·라이브가 같은 코드로 그린다) ═══
+//   ENV = { arrow: {line,w,speed,gap,glow,heat,tail}, lut: v→cssColor,
+//           num?: (g,ch,x,y,size,fontPx)→void, foot?: (g,right,x,y,size)→void }
+//   look = { core, halo, wobble } (MARK 상속) — 파생은 스타일을 부모에게서 상속(위계 원칙).
+export function applyLineStyle(g, AW, flowT, ENV) {
+  g.lineWidth = 4 * AW;
+  const A2 = ENV.arrow;
+  if (A2.line === 'dash') g.setLineDash([12 * AW * A2.gap, 10 * A2.gap]);
+  else if (A2.line === 'dot') { g.setLineDash([0.5, 12 * A2.gap]); g.lineCap = 'round'; g.lineWidth = 5 * AW; }
+  else g.setLineDash([]);
+  if (flowT != null && A2.line !== 'solid' && A2.line !== 'taper') g.lineDashOffset = -flowT * 40 * A2.speed;
+}
+export function strokeFlowPath(g, pts, t, AW, opts, ENV) {
+  opts = opts || {};
+  const lut = ENV.lut;
+  const style = opts.style || ENV.arrow.line;
+  const closed = !!opts.closed;
+  const L = [0];
+  for (let i = 1; i < pts.length; i++) L.push(L[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
+  const total = L[L.length - 1] || 1;
+  const at = (d) => {
+    d = ((d % total) + total) % total;
+    let i = 1;
+    while (i < L.length - 1 && L[i] < d) i++;
+    const f = (d - L[i - 1]) / Math.max(1e-4, L[i] - L[i - 1]);
+    return [pts[i - 1][0] + (pts[i][0] - pts[i - 1][0]) * f,
+            pts[i - 1][1] + (pts[i][1] - pts[i - 1][1]) * f,
+            Math.atan2(pts[i][1] - pts[i - 1][1], pts[i][0] - pts[i - 1][0])];
+  };
+  const A = ENV.arrow;
+  if (style === 'chevron') {
+    const gap = (26 * AW + 8) * A.gap;
+    const n = Math.max(2, Math.floor(total / gap));
+    g.shadowColor = lut(Math.min(1, A.heat + 0.2)); g.shadowBlur = 8 * AW * A.glow;
+    for (let k = 0; k < n; k++) {
+      const d = k * gap + (t * 42 * A.speed) % gap;
+      if (!closed && d > total - 4) continue;
+      const [x, y, a] = at(d);
+      const w = 7.5 * AW, h = 8.5 * AW;
+      const glow = 0.45 + 0.4 * Math.sin((d / total) * 6.283 - t * 2.2 * A.speed);
+      g.strokeStyle = lut(A.heat - 0.05 + glow * 0.3);
+      g.lineWidth = 3.2 * AW; g.lineJoin = 'round'; g.lineCap = 'round';
+      g.save(); g.translate(x, y); g.rotate(a);
+      g.beginPath(); g.moveTo(-h * 0.5, -w); g.lineTo(h * 0.5, 0); g.lineTo(-h * 0.5, w); g.stroke();
+      g.restore();
+    }
+    return true;
+  }
+  if (style === 'comet') {
+    const head = (t * 0.35 * A.speed % 1) * total;
+    const tail = total * A.tail;
+    const seg = Math.max(24, pts.length * 2);
+    g.lineCap = 'round';
+    for (let k = 0; k < seg; k++) {
+      const d0 = head - (k / seg) * tail, d1 = head - ((k + 1) / seg) * tail;
+      if (!closed && d1 < 0) break;
+      const f = 1 - k / seg;
+      const [x0, y0] = at(d0), [x1, y1] = at(d1);
+      if (!closed && Math.hypot(x1 - x0, y1 - y0) > total * 0.4) continue;
+      g.globalAlpha = Math.pow(f, 1.6);
+      g.strokeStyle = lut(Math.max(0.05, A.heat - 0.2) + f * 0.55);
+      g.lineWidth = (1.5 + f * 4.5) * AW;
+      if (f > 0.72) { g.shadowColor = lut(Math.min(1, A.heat + 0.3)); g.shadowBlur = f * 12 * AW * A.glow; }
+      else g.shadowBlur = 0;
+      g.beginPath(); g.moveTo(x0, y0); g.lineTo(x1, y1); g.stroke();
+    }
+    g.globalAlpha = 1; g.lineCap = 'butt'; g.shadowBlur = 0;
+    const [hx, hy] = at(head);
+    g.fillStyle = 'rgba(255,243,220,0.95)';
+    g.shadowColor = lut(0.9); g.shadowBlur = 16 * AW;
+    g.beginPath(); g.arc(hx, hy, 2.6 * AW, 0, 7); g.fill();
+    g.shadowBlur = 0;
+    return true;
+  }
+  g.strokeStyle = opts.color || lut(A.heat);
+  g.shadowColor = lut(Math.min(1, A.heat + 0.15)); g.shadowBlur = (opts.glow ?? 8) * AW * A.glow;
+  if (style === 'taper') {
+    for (let i = 1; i < pts.length; i++) {
+      g.lineWidth = (0.5 + (i / pts.length) * 4.5) * AW;
+      g.beginPath(); g.moveTo(pts[i - 1][0], pts[i - 1][1]); g.lineTo(pts[i][0], pts[i][1]); g.stroke();
+    }
+  } else {
+    applyLineStyle(g, AW, t, ENV);
+    g.beginPath();
+    pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y));
+    if (closed) g.closePath();
+    g.stroke();
+  }
+  g.setLineDash([]); g.lineCap = 'butt'; g.lineDashOffset = 0; g.shadowBlur = 0;
+  return true;
+}
+/** 스윕 밴드 — 구간 진행 (트랙 + 진행 채움 + 전연 백열). prog 미지정 시 데모 루프. */
+export function drawSweepBand(g, W, P, look, t, ENV, prog) {
+  const GB = 13 * look.halo;
+  const lut = ENV.lut;
+  g.clearRect(0, 0, W, W); g.lineJoin = 'round';
+  const p = prog != null ? Math.max(0, Math.min(1, prog)) : (t * 0.25) % 1;
+  const C = W / 2;
+  const bh = (100 / 220) * W * P.h, by = C - bh / 2, m = W * (24 / 220);
+  g.fillStyle = lut(0.30); g.globalAlpha = P.base;
+  g.fillRect(m, by, W - 2 * m, bh);
+  g.globalAlpha = 0.85; g.fillStyle = lut(0.62);
+  g.shadowColor = lut(0.7); g.shadowBlur = GB;
+  g.fillRect(m, by, (W - 2 * m) * p, bh);
+  if (P.edge > 0.02) {
+    g.globalAlpha = Math.min(1, P.edge);
+    g.fillStyle = lut(0.95);
+    g.fillRect(m + (W - 2 * m) * p - 2 * P.edge, by, 4 * P.edge, bh);
+  }
+  g.globalAlpha = 1; g.shadowBlur = 0;
+}
+/** 스탠스 박스 — 서는 영역 (LINE 상속 둘레 + FOOT 글리프) */
+export function drawStanceBox(g, W, P, look, t, ENV) {
+  const GB = 13 * look.halo;
+  const lut = ENV.lut;
+  g.clearRect(0, 0, W, W); g.lineJoin = 'round';
+  const s = W / 220, C = W / 2;
+  const rr = 18 * P.round * s;
+  const bx0 = 40 * s, by0 = 48 * s, bw = W - 80 * s, bh = W - 96 * s;
+  const box = [];
+  const edge = (x0, y0, x1, y1) => { for (let f = 0; f <= 1; f += 0.12) box.push([x0 + (x1 - x0) * f, y0 + (y1 - y0) * f]); };
+  edge(bx0 + rr, by0, bx0 + bw - rr, by0); edge(bx0 + bw, by0 + rr, bx0 + bw, by0 + bh - rr);
+  edge(bx0 + bw - rr, by0 + bh, bx0 + rr, by0 + bh); edge(bx0, by0 + bh - rr, bx0, by0 + rr);
+  g.shadowColor = lut(0.6); g.shadowBlur = GB * 0.8;
+  const LNW = 4 * ENV.arrow.w * s;
+  if (ENV.arrow.line === 'solid') {
+    g.setLineDash([10 * P.dash * s, 8 * s]); g.lineDashOffset = -t * 22 * s;
+    g.strokeStyle = lut(0.45); g.lineWidth = LNW;
+    g.beginPath(); g.roundRect(bx0, by0, bw, bh, rr); g.stroke();
+    g.setLineDash([]); g.lineDashOffset = 0;
+  } else {
+    strokeFlowPath(g, box, t, ENV.arrow.w * s, { color: lut(0.45), closed: true }, ENV);
+  }
+  if (P.feet > 0.05 && ENV.foot) {
+    ENV.foot(g, false, C - 16 * P.feet * s, C + 6 * s, 26 * P.feet * s);
+    ENV.foot(g, true, C + 16 * P.feet * s, C + 6 * s, 26 * P.feet * s);
+  }
+  g.shadowBlur = 0;
+}
+/** 펀치 라인 — 콤보 연결·순서 (노드=MARK 상속 링, 선=LINE, 숫자=GLYPH). prog 0..1(콤보 진행) */
+export function drawPunchLine(g, W, P, look, t, ENV, ptsIn, prog) {
+  const GB = 13 * look.halo;
+  const LNW = 4 * ENV.arrow.w * (W / 220);
+  const lut = ENV.lut;
+  g.clearRect(0, 0, W, W); g.lineJoin = 'round';
+  const s = W / 220;
+  const pts = ptsIn || [[45 * s, 130 * s], [110 * s, 60 * s], [175 * s, 110 * s]];
+  const cyc = prog != null ? prog : (t * 0.5) % 1;
+  const pr = Math.min(1, cyc * 1.25) * (pts.length - 1);
+  const cur = Math.min(pts.length - 1, Math.floor(pr + 0.35));
+  g.shadowColor = lut(0.7); g.shadowBlur = GB;
+  const passed = [[pts[0][0], pts[0][1]]];
+  for (let i = 1; i <= pts.length - 1; i++) {
+    const seg = Math.max(0, Math.min(1, pr - (i - 1)));
+    if (seg <= 0) break;
+    passed.push([pts[i - 1][0] + (pts[i][0] - pts[i - 1][0]) * seg,
+                 pts[i - 1][1] + (pts[i][1] - pts[i - 1][1]) * seg]);
+  }
+  if (passed.length > 1) strokeFlowPath(g, passed, t, ENV.arrow.w * s, { color: lut(0.62) }, ENV);
+  g.setLineDash([4 * s, 7 * s]); g.lineDashOffset = 0; g.globalAlpha = 0.3;
+  g.strokeStyle = lut(0.45); g.lineWidth = LNW;
+  g.beginPath(); pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.stroke();
+  g.globalAlpha = 1; g.setLineDash([]); g.lineCap = 'butt'; g.lineDashOffset = 0;
+  pts.forEach(([x, y], i) => {
+    const active = i === cur;
+    const pulse = active ? 1 + Math.sin(t * 6) * 0.14 : 1;
+    g.strokeStyle = lut(active ? 0.8 : 0.45);
+    g.lineWidth = LNW * (active ? 1.3 : 0.9);
+    g.shadowBlur = active ? GB * 1.6 : GB * 0.6;
+    g.beginPath(); g.arc(x, y, 12 * P.node * pulse * s, 0, Math.PI * 2); g.stroke();
+    if (ENV.num) {
+      g.globalAlpha = i <= cur ? 1 : 0.45;
+      ENV.num(g, String(i + 1), x, y, 16 * P.numS * pulse * s, Math.round(14 * P.numS * s));
+      g.globalAlpha = 1;
+    }
+  });
+  g.shadowBlur = 0;
+}
