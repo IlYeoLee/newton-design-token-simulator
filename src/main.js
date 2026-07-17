@@ -1906,8 +1906,11 @@ async function boot() {
   scene.add(demoPanel);
   let demoLastT = 0;
   const demoCrop = { cx: 0.5, cy: 0.5, sx: 1, sy: 1 };
+  // 실사 시범은 소스 확보 전까지 휴면 — 스톡 클립으로는 레퍼런스 미학 불성립(유저 확정).
+  // 살리는 조건: 전신·직립·측면·인물 큼·깨끗한 배경 클립 확보 후 DEMO_CLIP_ON = true.
+  const DEMO_CLIP_ON = false;
   function renderDemoPanel() {
-    const on = session.active && !session.isLive && session.demoActive;
+    const on = DEMO_CLIP_ON && session.active && !session.isLive && session.demoActive;
     demoPanel.visible = !!on;
     if (on) { if (demoVideo.paused) demoVideo.play().catch(() => {}); }
     else { if (!demoVideo.paused) demoVideo.pause(); return; }

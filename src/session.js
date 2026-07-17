@@ -1209,10 +1209,9 @@ export class Session {
       const REP = SCFG.a1Rep, DEMO = 2 * REP, half = 8 * REP;
       this.a1arc.setProg((this.t % REP) / REP);   // MARK Hold 진행 림 = 발목 회전 속도 (시범부터 동일)
       if (this.t < DEMO) {
-        // 설명 클립 '단독' 재생 — 마크는 따라하기 구간에서 등장
-        this.a1L.group.visible = false; this.a1R.group.visible = false; this.a1arc.visible = false;
-        this.demoActive = true;
-        FMU('먼저 보세요 — 코치 영상', CS.sand);
+        this.a1L.group.visible = true; this.a1R.group.visible = false; this.a1arc.visible = true;
+        this.demoActive = true;   // 실사 클립은 휴면 — 시범 = 링 리듬 시각
+        FMU('먼저 보세요 — 링 속도가 내 발목 속도', CS.sand);
       } else {
         this.a1arc.visible = true;
         this._say('a1go', '션', '이제 같이 — 발끝 올리고, 링 따라 천천히 여덟 번.');
@@ -1226,10 +1225,11 @@ export class Session {
       // 종아리 펌프 — 시범(2박 보기) → "이제 같이" → 좌우 각 10회 (동적 웜업)
       const BT = 1.6, REPS = 10, DEMO = 2 * BT, PH = REPS * BT + 0.9;
       if (this.t < DEMO) {
-        // 설명 클립 '단독' 재생 — 발자국은 따라하기 구간에서 등장
-        this.a2[0].pg.visible = false; this.a2[1].pg.visible = false;
+        this.a2[0].pg.visible = true; this.a2[1].pg.visible = false;
+        const k0 = (this.t % BT) / BT;
+        this.a2[0].back.setHold(Math.max(0.001, k0));   // 회당 1회 채움 시범
         this.demoActive = true;
-        FMU('먼저 보세요 — 코치 영상', CS.sand);
+        FMU('먼저 보세요 — 링이 차는 동안 뒤꿈치 올리기', CS.sand);
       } else {
         this._say('a2go', '션', '이제 같이 — 까치발 서듯 뒤꿈치를 올렸다, 바닥까지 내려요.');
         const t2 = this.t - DEMO;
@@ -1249,14 +1249,13 @@ export class Session {
       const SW = SCFG.a3Swing, DEMO = 2 * SW, ph = beat(SW);
       const fwd = ph < 0.5, k = fwd ? ph * 2 : (ph - 0.5) * 2;
       const inDemo = this.t < DEMO;
-      // 설명 클립 '단독' 재생 — 존·축발은 따라하기 구간에서 등장
-      this.a3zones[0].visible = !inDemo; this.a3zones[1].visible = !inDemo;
-      this.a3foot.group.visible = !inDemo;
+      this.a3zones[0].visible = true; this.a3zones[1].visible = true;
+      this.a3foot.group.visible = true;
       this.a3zones[0].setOp(fwd ? 0.3 + 0.65 * k : 0.3);
       this.a3zones[1].setOp(!fwd ? 0.3 + 0.65 * k : 0.3);
       if (inDemo) {
         this.demoActive = true;
-        FMU('먼저 보세요 — 코치 영상');
+        FMU('먼저 보세요 — 원이 켜지는 쪽으로 갔다 오기');
       } else {
         this._say('a3go', '션', '이제 골반을 잡고 — 다리를 시계추처럼 앞뒤로, 가볍게 열 번.');
         const t2 = this.t - DEMO;
