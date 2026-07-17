@@ -1807,6 +1807,31 @@ async function boot() {
     renderer.setClearAlpha(prevAlpha);
   }
 
+  // ── 시범 실사 클립 — A 단계 '먼저 보세요' 구간에 코치 영상을 지면 투사 ──
+  //    소스: Mixkit 무료 라이선스 "Man stretching in the spotlight"(1025) — 어두운 배경 실사.
+  //    검정=빛 없음=투명(가산광): 배경이 어두운 실사는 인물만 빛으로 떠오름 — 투사 네이티브.
+  //    (대안 클립: assets.mixkit.co/videos/948 "dark and smoke")
+  const demoVideo = document.createElement('video');
+  demoVideo.src = import.meta.env.BASE_URL + 'coach_stretch.mp4';
+  demoVideo.muted = true; demoVideo.loop = true; demoVideo.playsInline = true;
+  demoVideo.crossOrigin = 'anonymous';
+  const demoTex = new THREE.VideoTexture(demoVideo);
+  demoTex.colorSpace = THREE.SRGBColorSpace;
+  const demoPanel = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.96, 0.54),   // 16:9 가로 카드 — 과대 금지
+    new THREE.MeshBasicMaterial({ map: demoTex, transparent: true, opacity: 0.95, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false }));
+  demoPanel.rotation.x = -Math.PI / 2;
+  demoPanel.position.set(0, 0.016, -1.45);   // 발앞 중앙 — 시범 구간엔 다른 마크 없음
+  demoPanel.renderOrder = 7;
+  demoPanel.visible = false;
+  scene.add(demoPanel);
+  function renderDemoPanel() {
+    const on = session.active && !session.isLive && session.demoActive;
+    demoPanel.visible = !!on;
+    if (on) { if (demoVideo.paused) demoVideo.play().catch(() => {}); }
+    else if (!demoVideo.paused) demoVideo.pause();
+  }
+
   switchPack('running');
   document.getElementById('loading').style.display = 'none';
 
@@ -2214,6 +2239,7 @@ async function boot() {
     sceneUI.update(rawDt, rig);       // 장면 UI 슬롯 — 풋프린트 추종 재배치 + 페이드
     session.tickWaves();              // 스테이지 파동 링 시계 (프리뷰 포함)
     renderGhostLayer();
+    renderDemoPanel();   // A 시범 구간 실사 클립
     renderFrame(clock.elapsedTime);   // 블룸 + 그레인·비네트 컴포저 (scene.js FX)
   }
   loop();
