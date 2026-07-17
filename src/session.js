@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { WALL_Z } from './scene.js';
 import { lutColor, GLYPHS, drawGlyph, footSlot, footSDFTexture, FXP } from './fxlut.js';
-import { MARK_NUM } from './fx-core.js';
+import { MARK_NUM, drawSweepBand, drawStanceBox, drawPunchLine } from './fx-core.js';
 import { makeMarkFXMaterial, makeLaneFXMaterial, makeFlowArrow, tickFlowArrows } from './tokens.js';
 
 // 피그마 CTA 임포트 — StageCard/베이스 컴포넌트의 cta 노드를 다운로드한 에셋(150×44 원 비율).
@@ -253,6 +253,62 @@ function laneLine(color, z0 = 1.0, z1 = -3.2) {
 }
 const LANE_MATS = [];   // 세션 레인 재질 틱 (tickWaves가 uTime·LINE 스타일 동승)
 
+// ── 파생 프리미티브 = fx-core 정본 캔버스 소비 (랩과 같은 코드 — 100% 동일 이식) ──
+const PRIM_DEFAULTS = {
+  sweepBand: { w: 1, glow: 1, tempo: 1, h: 1, base: 0.3, edge: 1 },
+  stanceBox: { w: 1, glow: 1, tempo: 1, dash: 1, round: 0.2, feet: 1 },
+  punchLine: { w: 1, glow: 1, tempo: 1, node: 1, numS: 1, dash: 0 },
+};
+function livePrimEnv() {
+  return {
+    arrow: FXP.arrow,
+    lut: lutColor,
+    num: (g, ch, x, y, size, fontPx) => {
+      if (drawGlyph(g, String(ch), x, y, size)) return;
+      g.font = `300 ${fontPx}px -apple-system, sans-serif`;
+      g.fillStyle = 'rgba(255,240,220,0.95)';
+      g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.fillText(String(ch), x, y);
+    },
+    foot: (g, right, x, y, size) => {
+      if (drawGlyph(g, footSlot(right), x, y, size)) return;
+      g.beginPath(); g.ellipse(x, y, size * 0.28, size * 0.48, 0, 0, Math.PI * 2); g.stroke();
+    },
+  };
+}
+const PRIM_PANELS = [];
+function primPanel(kind, sizeM, wall) {
+  const c = document.createElement('canvas'); c.width = c.height = 256;
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(sizeM, sizeM),
+    new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false }));
+  if (!wall) m.rotation.x = -Math.PI / 2;
+  m.renderOrder = 6;
+  m.userData.el = { type: kind, wall: !!wall };
+  const panel = { kind, c, tex, m, prog: null, pts: null };
+  m._prim = panel;
+  PRIM_PANELS.push(panel);
+  return m;
+}
+let _primLastT = 0;
+function tickPrims(t) {
+  if (t - _primLastT < 1 / 30) return;   // 캔버스 비용 — 30Hz면 충분
+  _primLastT = t;
+  for (const p of PRIM_PANELS) {
+    let o = p.m, vis = true;
+    while (o) { if (!o.visible) { vis = false; break; } o = o.parent; }
+    if (!vis || !p.m.parent) continue;
+    const g = p.c.getContext('2d');
+    const look = { halo: FXP.mark.halo };
+    const P = (FXP.prims && FXP.prims[p.kind]) || PRIM_DEFAULTS[p.kind];
+    if (p.kind === 'sweepBand') drawSweepBand(g, 256, P, look, t, livePrimEnv(), p.prog);
+    else if (p.kind === 'stanceBox') drawStanceBox(g, 256, P, look, t, livePrimEnv());
+    else drawPunchLine(g, 256, P, look, t, livePrimEnv(), p.pts, p.prog);
+    p.tex.needsUpdate = true;
+  }
+}
+
 // ── 벽면 프리미티브 (복싱 — z=WALL_Z 세워진 평면, 유저(+z) 바라봄, 눕힘 없음) ──
 const WZ = WALL_Z + 0.03;
 function wallRing(x, y, rIn, rOut, color, op = 0.9) {
@@ -272,38 +328,18 @@ function wallText(text, x, y, opts) {
 }
 /** 가드 존 박스 — 신체 부위가 머물 영역 (스탠스 박스 파생: FX Lab round·dash 소비) */
 function guardBox(x, y, w, h, color, op = 0.8) {
-  const P = (typeof FXP !== 'undefined' && FXP.prims && FXP.prims.stanceBox) || { round: 0.2, dash: 1 };
-  const s = new THREE.Shape(); const r = 0.02 + 0.1 * P.round;
-  const hw = w / 2, hh = h / 2;
-  s.moveTo(-hw + r, -hh); s.lineTo(hw - r, -hh); s.quadraticCurveTo(hw, -hh, hw, -hh + r);
-  s.lineTo(hw, hh - r); s.quadraticCurveTo(hw, hh, hw - r, hh); s.lineTo(-hw + r, hh);
-  s.quadraticCurveTo(-hw, hh, -hw, hh - r); s.lineTo(-hw, -hh + r); s.quadraticCurveTo(-hw, -hh, -hw + r, -hh);
-  const pts = s.getPoints(48);
-  const g = new THREE.Group();
-  const line = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(pts.map(p => new THREE.Vector3(p.x, p.y, 0))),
-    new THREE.LineDashedMaterial({ color, transparent: true, opacity: op, dashSize: 0.05 * P.dash, gapSize: 0.035 }));
-  line.computeLineDistances();
-  const fill = new THREE.Mesh(new THREE.ShapeGeometry(s), flatMat(color, 0.08));
-  g.add(fill, line); g.position.set(x, y, WZ); g.renderOrder = 5; g.userData.el = { type: 'box', wall: true }; return g;
+  // 파생 ② 스탠스 박스 — fx-core 정본 드로잉 (LINE 상속 둘레 + MARK 헤일로 + FOOT 글리프)
+  const m = primPanel('stanceBox', w / 0.636, true);   // 캔버스 내 박스 폭비 140/220
+  m.material.opacity = op;
+  m.position.set(x, y, WZ); return m;
 }
-/** 잽 스윕 밴드 — ④ pathLane 벽면 표현형: 부위가 지나갈 호(弧) 면적, 그라디언트=진행 방향 */
 function sweepBand(x0, y0, x1, y1, color) {
-  const P = (typeof FXP !== 'undefined' && FXP.prims && FXP.prims.sweepBand) || { h: 1, base: 0.3, edge: 1 };
-  const c = document.createElement('canvas'); c.width = 128; c.height = 128;
-  const ctx = c.getContext('2d');
-  const gr = ctx.createLinearGradient(0, 128, 128, 0);
-  const hex = '#' + color.toString(16).padStart(6, '0');
-  gr.addColorStop(0, `rgba(250,48,48,${(0.04 + P.base * 0.25).toFixed(3)})`);   // 바닥 투명 (FX Lab)
-  if (P.edge > 0.05) gr.addColorStop(Math.max(0.7, 1 - P.edge * 0.12), hex);
-  gr.addColorStop(1, P.edge > 0.05 ? '#FFF3DC' : hex);   // 전연 백열 (FX Lab edge)
-  ctx.fillStyle = gr;
-  ctx.beginPath(); ctx.moveTo(12, 120); ctx.quadraticCurveTo(30, 40, 110, 24);
-  ctx.lineTo(120, 52); ctx.quadraticCurveTo(52, 66, 34, 122); ctx.closePath(); ctx.fill();
-  const tex = new THREE.CanvasTexture(c);
-  const w = (Math.hypot(x1 - x0, y1 - y0) + 0.5) * ((typeof FXP !== 'undefined' && FXP.prims?.sweepBand?.h) || 1);
-  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, w),
-    new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: 0.7, depthWrite: false }));
-  m.position.set((x0 + x1) / 2, (y0 + y1) / 2, WZ + 0.001); m.renderOrder = 5; m.userData.el = { type: 'sweep', wall: true }; return m;
+  // 파생 ① 스윕 밴드 — fx-core 정본 (트랙+진행 채움+전연 백열). prog는 장면이 구동(_prim.prog).
+  const dist = Math.hypot(x1 - x0, y1 - y0);
+  const m = primPanel('sweepBand', (dist + 0.4) / 0.782, true);   // 캔버스 내 밴드 길이비
+  m.position.set((x0 + x1) / 2, (y0 + y1) / 2, WZ + 0.001);
+  m.rotation.z = Math.atan2(y1 - y0, x1 - x0);
+  m.renderOrder = 5; return m;
 }
 function wallTap() {
   const g = new THREE.Group();
@@ -670,7 +706,10 @@ export class Session {
     g.add(guardBox(0, 1.35, 0.5, 0.42, BRAND.red, 0.5));
 
     this._mk('BX_C2');       // 라이브 — 벽 타겟 팩 흐름
-    this._mk('BX_C3');       // 라이브 콤비 (가속)
+    g = this._mk('BX_C3');   // 라이브 콤비 (가속) + 파생 ③ 펀치 라인 (콤보 연결·순서)
+    this.bxCombo = primPanel('punchLine', 1.15, true);
+    this.bxCombo.position.set(0, 1.35, WZ + 0.002);
+    g.add(this.bxCombo);
 
     g = this._mk('BX_C4');
     g.add(wallText('숨 고르기', 0, 1.2, { size: 0.09, color: CS.mute }));
@@ -1120,6 +1159,7 @@ export class Session {
       }
     }
     tickFlowArrows(t);   // 화살표(세션+팩) — 촉 이동 + 자루 LINE 유니폼 (단일 급이자)
+    tickPrims(t);        // 파생 프리미티브 — fx-core 정본 캔버스 (30Hz)
   }
 
   update(dt) {
@@ -1465,7 +1505,7 @@ export class Session {
     } else if (id === 'BX_B3') {
       // 잽 스윕 — 스윕 밴드 밝기 + 타겟 수축 링, 맞춘 잽 카운트
       const BT = 0.9, ph = beat(BT);
-      this.bxSweep.material.opacity = 0.4 + 0.5 * (1 - ph);
+      this.bxSweep._prim.prog = ph;   // 잽 뻗기 진행 = 정본 밴드 채움
       this.bxB3cd.setOp(0.4 + 0.55 * ph); this.bxB3cd.scale.setScalar(1.9 - 0.9 * ph);   // setOp 규약 (구 .opacity는 셰이더에 무효 — 링이 안 보였음)
       const hits = Math.min(6, Math.floor(this.t / BT));
       FMU(`맞춘 잽 ${hits} / 6`, hits >= 6 ? CS.prism : CS.dim);
@@ -1474,6 +1514,7 @@ export class Session {
       const n = Math.max(1, 3 - Math.floor(this.t)); if (n !== this._lastCount) { this._setCountWall(n, CS.ink); this._lastCount = n; }
       if (this.t >= st.dur) { this.next(); return; }
     } else if (id === 'BX_C2' || id === 'BX_C3') {
+      if (id === 'BX_C3' && this.bxCombo) this.bxCombo._prim.prog = (this.t % 2.4) / 2.4;   // 콤보 사이클
       if (this.t >= st.dur) { this.next(); return; }
     } else if (id === 'BX_C4') {
       this.liveSpeed = Math.max(0.12, 1 - this.t / 2.4);

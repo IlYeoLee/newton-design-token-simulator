@@ -338,7 +338,7 @@ async function boot() {
       // 설계 정합: 유저(봇)는 유닛 뒤 전신 인식 최적 링(standZ)에 선다 — z=0(유닛 코앞) 아님
       xbot.group.position.z = opt.standZ;
     }
-    if (ghostLayer) ghostLayer.visible = data.sport === 'boxing';
+    if (ghostLayer) ghostLayer.visible = false;   // 열화상 봇 시연 은퇴 — 실사 그라디언트 코치가 대체 (유저 확정)
     if (data.sport === 'boxing') {
       const punchTimes = tokens.events.filter(e => e.surface === 'wall').map(e => e.t);
       ghost.configure(punchTimes, rig._wallCenter, rig.wallH);
@@ -1927,8 +1927,10 @@ void main(){
     demoPanel.scale.setScalar(1.85);                   // 0.93m 지오메트리 → 실신장 ~1.7m
   }
   function renderDemoPanel() {
-    const on = DEMO_CLIP_MODE !== 'off' && session.active && !session.isLive
-      && (DEMO_CLIP_MODE === 'wall' ? state.pack === 'boxing' : session.demoActive);
+    const on = DEMO_CLIP_MODE !== 'off' && session.active
+      && (DEMO_CLIP_MODE === 'wall'
+        ? state.pack === 'boxing'                       // 코치 = 구 열화상 시연의 자리 (라이브 포함 상시)
+        : (!session.isLive && session.demoActive));
     if (DEMO_CLIP_MODE === 'wall') {
       if (rig.wallClip && demoPanel.material.clippingPlanes !== rig.wallClip)
         demoPanel.material.clippingPlanes = rig.wallClip;   // 투사면 밖 금지 — 벽 클리핑
