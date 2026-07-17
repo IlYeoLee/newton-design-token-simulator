@@ -951,6 +951,7 @@ export class Session {
     for (const id in this.G) this.G[id].visible = false;
     this.paceLight.visible = false;   // C 실전 틱(_paceTick)이 프레임마다 다시 켬
     this._saidKeys?.clear();          // 단계 중간 음성 큐 리셋
+    this.demoActive = false;          // A 시범 구간 신호 (동작 클립 패널 소비)
     this._setCount(null); this._setCountWall(null);
     if (this.G[st.id]) this.G[st.id].visible = true;
     // FIN Ghost Review — 션 발자국 격자 + 내 착지점(판정 오차 벡터, ±30cm 클램프)
@@ -1209,8 +1210,10 @@ export class Session {
       this.a1arc.setProg((this.t % REP) / REP);   // MARK Hold 진행 림 = 발목 회전 속도 (시범부터 동일)
       if (this.t < DEMO) {
         this.a1L.group.visible = true; this.a1R.group.visible = false;
+        this.demoActive = true;
         FMU('먼저 보세요 — 링을 따라 발목이 돕니다', CS.sand);
       } else {
+        this.demoActive = false;
         this._say('a1go', '션', '이제 같이 — 발끝을 링에 올리고 천천히 여덟 번.');
         const t2 = this.t - DEMO, side = t2 < half ? 0 : 1;
         this.a1L.group.visible = side === 0; this.a1R.group.visible = side === 1;
@@ -1225,8 +1228,10 @@ export class Session {
         this.a2[0].pg.visible = true; this.a2[1].pg.visible = false;
         const k0 = (this.t % BT) / BT;
         this.a2[0].back.setHold(Math.max(0.001, k0 < 0.5 ? k0 * 2 : 2 - k0 * 2));   // 뒤꿈치 박자 시범
+        this.demoActive = true;
         FMU('먼저 보세요 — 뒤꿈치가 올라갔다 내려오는 박자', CS.sand);
       } else {
+        this.demoActive = false;
         this._say('a2go', '션', '이제 같이 — 까치발 서듯 뒤꿈치를 올렸다, 바닥까지 내려요.');
         const t2 = this.t - DEMO;
         const phase = t2 < PH ? 0 : 1;
@@ -1247,8 +1252,10 @@ export class Session {
       this.a3zones[0].setOp(fwd ? 0.3 + 0.65 * k : 0.3);
       this.a3zones[1].setOp(!fwd ? 0.3 + 0.65 * k : 0.3);
       if (this.t < DEMO) {
+        this.demoActive = true;
         FMU('먼저 보세요 — 앞뒤로 오가는 박자');
       } else {
+        this.demoActive = false;
         this._say('a3go', '션', '이제 골반을 잡고 — 다리를 시계추처럼 앞뒤로, 가볍게 열 번.');
         const t2 = this.t - DEMO;
         FMU(`${Math.min(10, Math.floor(t2 / SW) + 1)} / 10`);

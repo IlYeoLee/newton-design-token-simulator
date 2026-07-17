@@ -1807,6 +1807,49 @@ async function boot() {
     renderer.setClearAlpha(prevAlpha);
   }
 
+  // ── 동작 클립 패널 (프리뷰) — A 시범 구간: 코치 실루엣 '영상'을 발앞에 소형 투사 ──
+  //    봇이 이미 드릴을 실연 중(playDemo 절차 드릴) → 레이어 마스크(3)로 봇만 측면
+  //    실루엣 캡처해 RT에 굽고, 지면 패널로 재생. 유튜브 클립의 투사 번역 — 과대 금지(0.44m).
+  const demoRT = new THREE.WebGLRenderTarget(256, 384);
+  const demoCam = new THREE.OrthographicCamera(-0.65, 0.65, 1.0, -0.95, 0.1, 10);   // 전신 (발 포함)
+  demoCam.position.set(2.4, 0.9, 0); demoCam.lookAt(0, 0.9, 0);   // 측면 — 까치발·스윙이 크게 읽힘
+  demoCam.layers.set(3);
+  // 실루엣 = 캡처 알파 커버리지 (scene.overrideMaterial은 스킨드 메시에 무효라 원 재질로 찍음)
+  const demoPanel = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.44, 0.66),
+    new THREE.ShaderMaterial({
+      uniforms: { tex: { value: demoRT.texture } },
+      vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+      fragmentShader: `varying vec2 vUv; uniform sampler2D tex;
+        void main(){
+          float a = texture2D(tex, vUv).a;
+          gl_FragColor = vec4(vec3(1.0, 0.953, 0.863) * a, a * 0.9);   // 웜 크림 실루엣
+        }`,
+      transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+    }));
+  demoPanel.rotation.x = -Math.PI / 2;
+  demoPanel.position.set(0.35, 0.016, -1.25);
+  demoPanel.renderOrder = 7;
+  demoPanel.visible = false;
+  scene.add(demoPanel);
+  function renderDemoPanel() {
+    const on = session.active && !session.isLive && session.demoActive;
+    demoPanel.visible = !!on;
+    if (!on) return;
+    // 봇 FBX는 비동기 로드 — 1회 래치는 로드 전 소진될 수 있어 매 프레임 지정 (메시 2개, 무비용)
+    xbot.group.traverse(o => { if (o.isMesh || o.isSkinnedMesh) o.layers.enable(3); });
+    // 세션 = 1인칭 자동 전환으로 봇 본체가 숨김 상태 — 캡처하는 이 렌더 동안만 켠다
+    const unhidden = [];
+    xbot.group.traverse(o => { if (!o.visible) { unhidden.push(o); o.visible = true; } });
+    const prevT = renderer.getRenderTarget(), prevA = renderer.getClearAlpha(), prevBg = scene.background;
+    renderer.setClearColor(0x000000, 0);
+    scene.background = null;
+    renderer.setRenderTarget(demoRT); renderer.clear(); renderer.render(scene, demoCam);
+    scene.background = prevBg;
+    renderer.setRenderTarget(prevT); renderer.setClearAlpha(prevA);
+    unhidden.forEach(o => o.visible = false);
+  }
+
   switchPack('running');
   document.getElementById('loading').style.display = 'none';
 
@@ -1983,6 +2026,7 @@ async function boot() {
 
   if (import.meta.env.DEV) window.__dbg = {
     rig, xbot, state, session, sceneScope, camera, controls, tokens, effects, scene, editor3d, sceneUI, FXP, designStore, TCFG, editCam, editControls, judge, THREE,
+    renderer, demoRT, demoCam, renderDemoPanel,
     get activeCam() { return studioActive ? editCam : camera; },
     get doc() { return studioDoc; },
     get canvas() { return studioCanvas; },
@@ -2214,6 +2258,7 @@ async function boot() {
     sceneUI.update(rawDt, rig);       // 장면 UI 슬롯 — 풋프린트 추종 재배치 + 페이드
     session.tickWaves();              // 스테이지 파동 링 시계 (프리뷰 포함)
     renderGhostLayer();
+    renderDemoPanel();   // A 시범 구간 동작 클립 패널 (프리뷰)
     renderFrame(clock.elapsedTime);   // 블룸 + 그레인·비네트 컴포저 (scene.js FX)
   }
   loop();
