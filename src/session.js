@@ -951,7 +951,6 @@ export class Session {
     for (const id in this.G) this.G[id].visible = false;
     this.paceLight.visible = false;   // C 실전 틱(_paceTick)이 프레임마다 다시 켬
     this._saidKeys?.clear();          // 단계 중간 음성 큐 리셋
-    this.demoActive = false;          // A 시범 구간 신호 (동작 클립 패널 소비)
     this._setCount(null); this._setCountWall(null);
     if (this.G[st.id]) this.G[st.id].visible = true;
     // FIN Ghost Review — 션 발자국 격자 + 내 착지점(판정 오차 벡터, ±30cm 클램프)
@@ -1207,15 +1206,11 @@ export class Session {
     } else if (id === 'A1') {
       // 발목 돌리기 — 코칭 3층(목적→세팅→동작): 시범(2바퀴 보기만) → "이제 같이" → 좌 8회·우 8회
       const REP = SCFG.a1Rep, DEMO = 2 * REP, half = 8 * REP;
-      this.a1arc.setProg((this.t % REP) / REP);   // MARK Hold 진행 림 = 발목 회전 속도
+      this.a1arc.setProg((this.t % REP) / REP);   // MARK Hold 진행 림 = 발목 회전 속도 (시범부터 동일)
       if (this.t < DEMO) {
-        // 설명 클립 '단독' 재생 — 마크는 따라하기 구간에서 등장 (유저 확정 시퀀스)
-        this.a1L.group.visible = false; this.a1R.group.visible = false; this.a1arc.visible = false;
-        this.demoActive = true;
-        FMU('먼저 보세요 — 코치의 발목 돌리기', CS.sand);
+        this.a1L.group.visible = true; this.a1R.group.visible = false;
+        FMU('먼저 보세요 — 링을 따라 발목이 돕니다', CS.sand);
       } else {
-        this.a1arc.visible = true;
-        this.demoActive = false;
         this._say('a1go', '션', '이제 같이 — 발끝을 링에 올리고 천천히 여덟 번.');
         const t2 = this.t - DEMO, side = t2 < half ? 0 : 1;
         this.a1L.group.visible = side === 0; this.a1R.group.visible = side === 1;
@@ -1225,14 +1220,13 @@ export class Session {
       }
     } else if (id === 'A2') {
       // 종아리 펌프 — 시범(2박 보기) → "이제 같이" → 좌우 각 10회 (동적 웜업)
-      const BT = 0.9, REPS = 10, DEMO = 3 * BT, PH = REPS * BT + 0.9;
+      const BT = 0.9, REPS = 10, DEMO = 2 * BT, PH = REPS * BT + 0.9;
       if (this.t < DEMO) {
-        // 설명 클립 '단독' 재생 — 발자국은 따라하기 구간에서 등장
-        this.a2[0].pg.visible = false; this.a2[1].pg.visible = false;
-        this.demoActive = true;
-        FMU('먼저 보세요 — 코치의 까치발 펌프', CS.sand);
+        this.a2[0].pg.visible = true; this.a2[1].pg.visible = false;
+        const k0 = (this.t % BT) / BT;
+        this.a2[0].back.setHold(Math.max(0.001, k0 < 0.5 ? k0 * 2 : 2 - k0 * 2));   // 뒤꿈치 박자 시범
+        FMU('먼저 보세요 — 뒤꿈치가 올라갔다 내려오는 박자', CS.sand);
       } else {
-        this.demoActive = false;
         this._say('a2go', '션', '이제 같이 — 까치발 서듯 뒤꿈치를 올렸다, 바닥까지 내려요.');
         const t2 = this.t - DEMO;
         const phase = t2 < PH ? 0 : 1;
@@ -1250,17 +1244,11 @@ export class Session {
       // 다리 스윙 — 시범(2왕복 보기) → "이제 같이" → 열 번 (종점 존 교대 글로우 = 박자·진폭)
       const SW = SCFG.a3Swing, DEMO = 2 * SW, ph = beat(SW);
       const fwd = ph < 0.5, k = fwd ? ph * 2 : (ph - 0.5) * 2;
-      const inDemo = this.t < DEMO;
-      // 설명 클립 '단독' 재생 — 존·축발은 따라하기 구간에서 등장
-      this.a3zones[0].visible = !inDemo; this.a3zones[1].visible = !inDemo;
-      this.a3foot.group.visible = !inDemo;
       this.a3zones[0].setOp(fwd ? 0.3 + 0.65 * k : 0.3);
       this.a3zones[1].setOp(!fwd ? 0.3 + 0.65 * k : 0.3);
-      if (inDemo) {
-        this.demoActive = true;
-        FMU('먼저 보세요 — 코치의 다리 스윙');
+      if (this.t < DEMO) {
+        FMU('먼저 보세요 — 앞뒤로 오가는 박자');
       } else {
-        this.demoActive = false;
         this._say('a3go', '션', '이제 골반을 잡고 — 다리를 시계추처럼 앞뒤로, 가볍게 열 번.');
         const t2 = this.t - DEMO;
         FMU(`${Math.min(10, Math.floor(t2 / SW) + 1)} / 10`);

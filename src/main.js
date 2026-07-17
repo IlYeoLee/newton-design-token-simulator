@@ -7,7 +7,6 @@ import { XBot } from './xbot.js';
 import { Panel } from './panel.js';
 import { ProjectorRig } from './projector.js';
 import { WallGhost } from './ghost.js';
-import { heatBlob, composeThermal, ensureGooFilter } from './thermal.js';
 import { Judge } from './judge.js';
 import { Session, SCFG, STAGES } from './session.js';
 import { StudioDoc } from './studio/doc.js';
@@ -1808,78 +1807,6 @@ async function boot() {
     renderer.setClearAlpha(prevAlpha);
   }
 
-  // ── 동작 클립 = 열화상 그라디언트 사람 (룩 시스템 person 언어 — WallGhost와 동일 파이프라인) ──
-  //    시퀀스: A 단계 도입 = 클립 '단독' 재생(설명 영상, 다른 마크 숨김) → 끝나면 따라하기 UI.
-  //    봇이 실연 중인 드릴의 본 좌표를 측면 투영해 열 블롭→goo→헤일로로 캔버스에 굽는다.
-  //    패널은 아나모픽(전방 3배 늘림): 유저 시점에서 서 있는 코치로 읽힘. RT/레이어 캡처 은퇴.
-  const DEMO_SEGS = [
-    ['mixamorigHips', 'mixamorigNeck', 7, 0.16], ['mixamorigNeck', 'mixamorigHead', 2, 0.10],
-    ['mixamorigHead', 'mixamorigHead', 1, 0.13],
-    ['mixamorigRightArm', 'mixamorigRightForeArm', 4, 0.078], ['mixamorigRightForeArm', 'mixamorigRightHand', 4, 0.062],
-    ['mixamorigLeftArm', 'mixamorigLeftForeArm', 4, 0.078], ['mixamorigLeftForeArm', 'mixamorigLeftHand', 4, 0.062],
-    ['mixamorigHips', 'mixamorigRightLeg', 5, 0.10], ['mixamorigRightLeg', 'mixamorigRightToeBase', 5, 0.074],
-    ['mixamorigHips', 'mixamorigLeftLeg', 5, 0.10], ['mixamorigLeftLeg', 'mixamorigLeftToeBase', 5, 0.074],
-  ];
-  const DCW = 256, DCH = 384;
-  ensureGooFilter();
-  const demoShape = document.createElement('canvas'); demoShape.width = DCW; demoShape.height = DCH;
-  const demoGoo = document.createElement('canvas'); demoGoo.width = DCW; demoGoo.height = DCH;
-  const demoOut = document.createElement('canvas'); demoOut.width = DCW; demoOut.height = DCH;
-  const demoTex = new THREE.CanvasTexture(demoOut);
-  demoTex.colorSpace = THREE.SRGBColorSpace;
-  const demoPanel = new THREE.Mesh(
-    new THREE.PlaneGeometry(0.55, 1.65),
-    new THREE.MeshBasicMaterial({ map: demoTex, transparent: true, opacity: 0.94, depthWrite: false, toneMapped: false }));
-  demoPanel.rotation.x = -Math.PI / 2;
-  demoPanel.position.set(0, 0.016, -1.75);   // 단독 재생이라 중앙 — 발앞 0.95~2.55m 아나모픽 띠
-  demoPanel.renderOrder = 7;
-  demoPanel.visible = false;
-  scene.add(demoPanel);
-  let demoBones = null, demoBlobs = null, demoLast = -1;
-  const _dv = new THREE.Vector3();
-  function renderDemoPanel() {   // (이름 유지 — 이제 캔버스 열화상 굽기)
-    const on = session.active && !session.isLive && session.demoActive;
-    demoPanel.visible = !!on;
-    if (!on) return;
-    if (!demoBones) {
-      if (!xbot.model) return;
-      demoBones = {};
-      for (const seg of DEMO_SEGS) for (const n of [seg[0], seg[1]]) {
-        if (!demoBones[n]) demoBones[n] = xbot.model.getObjectByName(n) || xbot.model.getObjectByName(n.replace('ToeBase', 'Foot'));
-      }
-      demoBlobs = [];
-      for (const [a, b, n, r] of DEMO_SEGS)
-        for (let i = 0; i < n; i++) demoBlobs.push({ a, b, k: n === 1 ? 0.5 : i / (n - 1), r });
-    }
-    const now = performance.now() / 1000;
-    if (now - demoLast < 1 / 45) return;   // 45Hz 상한 (캔버스 비용)
-    demoLast = now;
-    const S = (DCH * 0.86) / 1.85;   // px/m — 성인 남성 전신 프레이밍
-    const sc = demoShape.getContext('2d');
-    sc.clearRect(0, 0, DCW, DCH);
-    const items = [];
-    for (const b of demoBlobs) {
-      const A = demoBones[b.a], B = demoBones[b.b];
-      if (!A || !B) continue;
-      A.getWorldPosition(_dv);
-      const ax = _dv.x, ay = _dv.y, az = _dv.z;
-      B.getWorldPosition(_dv);
-      const x = az + (_dv.z - az) * b.k;        // 측면: 가로 = 전후(z)
-      const y = ay + (_dv.y - ay) * b.k;        // 세로 = 높이
-      const dep = ax + (_dv.x - ax) * b.k;      // 색 = 측방 깊이 (열화상 그라디언트)
-      items.push({
-        px: DCW / 2 + x * S,
-        py: DCH - 8 - y * S,
-        pr: Math.max(4, b.r * S * 1.18),
-        t: Math.max(0, Math.min(1, (dep + 0.35) / 0.7)),
-      });
-    }
-    items.sort((a, b) => a.t - b.t);
-    for (const it of items) heatBlob(sc, it.px, it.py, it.pr, it.t);
-    composeThermal(demoShape, demoGoo, demoOut, { halo: 16, haloA: 0.5, bodyBlur: 1.5, grain: 0.09 });
-    demoTex.needsUpdate = true;
-  }
-
   switchPack('running');
   document.getElementById('loading').style.display = 'none';
 
@@ -2056,7 +1983,6 @@ async function boot() {
 
   if (import.meta.env.DEV) window.__dbg = {
     rig, xbot, state, session, sceneScope, camera, controls, tokens, effects, scene, editor3d, sceneUI, FXP, designStore, TCFG, editCam, editControls, judge, THREE,
-    renderer, renderDemoPanel,
     get activeCam() { return studioActive ? editCam : camera; },
     get doc() { return studioDoc; },
     get canvas() { return studioCanvas; },
@@ -2288,7 +2214,6 @@ async function boot() {
     sceneUI.update(rawDt, rig);       // 장면 UI 슬롯 — 풋프린트 추종 재배치 + 페이드
     session.tickWaves();              // 스테이지 파동 링 시계 (프리뷰 포함)
     renderGhostLayer();
-    renderDemoPanel();   // A 시범 구간 동작 클립 패널 (프리뷰)
     renderFrame(clock.elapsedTime);   // 블룸 + 그레인·비네트 컴포저 (scene.js FX)
   }
   loop();
