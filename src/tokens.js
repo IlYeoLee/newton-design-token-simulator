@@ -515,102 +515,66 @@ class Marker {
   }
 }
 
-// ── 방향 화살표 ───────────────────────────────────────────────
-// tip = 화살표 끝(촉) 모양: triangle(▲) · chevron(》) · diamond(◆) · bar(▬) · none(선만)
-const TIP_SLOT = { triangle: 'TIP_TRI' };   // 커스텀 촉은 삼각 머리 1종만 (유저 확정)
-export function makeArrow(color, len = 0.55, tip = 'triangle') {
+// ── 방향 화살표 = LINE ① 경로 추종 (카탈로그 pathArrow 구성 그대로) ──────
+//    광류 자루(LANEFX) + 경로 위를 '이동'하는 촉 3개(u = t·0.12 + i/3, 접선 정렬).
+//    촉 크기 = 경로의 0.12 (랩 46px/380px 실측 비율 — 구성 고정, 스케일만 원칙).
+//    구 makeArrow(flatMat 정적 도형 통화살표)와 '촉 끝 주차'는 카탈로그에 없는 종 — 은퇴.
+export const FLOW_ARROWS = [];
+export function makeFlowArrow(len, { tips = 3 } = {}) {
   const g = new THREE.Group();
-  // 커스텀 촉 SVG (FX Lab TIP 슬롯) — 촉(머리)만 교체, 자루는 LINE 스타일을 계속 따름
-  const slotImg = GLYPHS.img(TIP_SLOT[tip]);
-  const customTip = !!slotImg;
-  const w = 0.09, hw = 0.24, hl = 0.22;
-  const mesh = (geo) => {
-    const m = new THREE.Mesh(geo, flatMat(color, 0.85));
-    m.material.blending = THREE.AdditiveBlending;   // 광류 언어 — 블룸이 살림
-    g.add(m); return m;
-  };
-  const shape = (build) => { const s = new THREE.Shape(); build(s); return new THREE.ShapeGeometry(s); };
-
-  // 자루(shaft) — 라인 스타일(FX Lab state.arrow) 소비: solid|dash|dot|taper
-  const shaftLen = tip === 'none' ? len : Math.max(0.02, len - hl * 0.55);
-  const A = FXP.arrow || { line: 'solid', w: 1 };
-  const sw = w * (A.w || 1);
-  if (A.line === 'dash') {
-    const seg = 0.085, gap = 0.055;
-    for (let y = 0; y + seg * 0.5 < shaftLen; y += seg + gap) {
-      const d = mesh(new THREE.PlaneGeometry(sw, Math.min(seg, shaftLen - y)));
-      d.position.y = y + Math.min(seg, shaftLen - y) / 2;
+  const mat = makeLaneFXMaterial(len);
+  mat._arrowStyle = true;   // 스타일 = FXP.arrow.line (레인과 분리 — 유저 확정)
+  const shaft = new THREE.Mesh(new THREE.PlaneGeometry(0.16, len), mat);
+  shaft.position.y = len / 2;
+  g.add(shaft);
+  g._mat = mat; g._len = len; g._tips = [];
+  if (tips > 0) {
+    const c = document.createElement('canvas'); c.width = c.height = 128;
+    const g2 = c.getContext('2d');
+    if (!drawGlyph(g2, 'TIP_TRI', 64, 64, 112)) {
+      g2.fillStyle = 'rgba(255,240,220,0.95)';
+      g2.beginPath(); g2.moveTo(20, 104); g2.lineTo(64, 24); g2.lineTo(108, 104); g2.closePath(); g2.fill();
     }
-  } else if (A.line === 'dot') {
-    const gap = 0.11;
-    for (let y = gap / 2; y < shaftLen; y += gap) {
-      const d = mesh(new THREE.CircleGeometry(sw * 0.55, 16));
-      d.position.y = y;
-    }
-  } else if (A.line === 'chevron') {
-    // 꺾쇠 트레인 (정적 근사 — 애니는 레인 셰이더가 담당)
-    const step = 0.13 * (A.gap || 1);
-    for (let y = step * 0.5; y < shaftLen; y += step) {
-      const ch = mesh(shape(sp => {
-        sp.moveTo(-sw * 0.9, -0.035); sp.lineTo(0, 0.035); sp.lineTo(sw * 0.9, -0.035);
-        sp.lineTo(sw * 0.9, -0.075); sp.lineTo(0, -0.005); sp.lineTo(-sw * 0.9, -0.075);
-        sp.closePath();
-      }));
-      ch.position.y = y;
-    }
-  } else if (A.line === 'comet') {
-    // 백열 머리 + 테이퍼 꼬리 (정적 근사)
-    mesh(shape(sp => {
-      sp.moveTo(-sw * 0.1, 0); sp.lineTo(sw * 0.1, 0);
-      sp.lineTo(sw * 0.55, shaftLen * 0.92); sp.lineTo(-sw * 0.55, shaftLen * 0.92);
-      sp.closePath();
-    }));
-    const head = mesh(new THREE.CircleGeometry(sw * 0.7, 20));
-    head.position.y = shaftLen * 0.92;
-  } else if (A.line === 'taper') {
-    mesh(shape(sp => {
-      sp.moveTo(-sw * 0.12, 0); sp.lineTo(sw * 0.12, 0);
-      sp.lineTo(sw * 0.72, shaftLen); sp.lineTo(-sw * 0.72, shaftLen);
-      sp.closePath();
-    }));
-  } else {
-    const shaft = mesh(new THREE.PlaneGeometry(sw, shaftLen));
-    shaft.position.y = shaftLen / 2;
-  }
-
-  const hy = len - hl;   // 촉 밑동 y
-  if (customTip) {
-    const c = document.createElement('canvas');
-    c.width = c.height = 128;
-    drawGlyph(c.getContext('2d'), TIP_SLOT[tip], 64, 64, 112);
     const tex = new THREE.CanvasTexture(c);
     tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
-    const tipM = new THREE.Mesh(new THREE.PlaneGeometry(hl * 2.1, hl * 2.6),
-      new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
-    tipM.position.y = len - hl * 0.2;
-    g.add(tipM);
-  } else if (tip === 'triangle') {
-    mesh(shape(s => { s.moveTo(-hw / 2, hy); s.lineTo(hw / 2, hy); s.lineTo(0, len); s.closePath(); }));
-  } else if (tip === 'chevron') {
-    // 열린 꺾쇠(^) — 얇은 두 막대로 확실히 구분되게
-    const armLen = hl * 1.35, arm = (sx) => {
-      const bar = mesh(new THREE.PlaneGeometry(0.06, armLen));
-      bar.position.set(sx * hw * 0.26, len - hl * 0.5, 0);
-      bar.rotation.z = sx * 0.62;
-    };
-    arm(1); arm(-1);
-  } else if (tip === 'diamond') {
-    const cy = len - hl * 0.5, r = hl * 0.62;
-    mesh(shape(s => { s.moveTo(0, cy - r); s.lineTo(r, cy); s.lineTo(0, cy + r); s.lineTo(-r, cy); s.closePath(); }));
-  } else if (tip === 'bar') {
-    const bar = mesh(new THREE.PlaneGeometry(hw, 0.06));
-    bar.position.y = len - 0.03;
-  } // 'none' → 자루만
-
-  g.rotation.x = -Math.PI / 2;
-  g.position.y = 0.014;
-  g.renderOrder = 6;
+    const tipS = Math.max(0.05, len * 0.12);   // ponytail: 0.05 하한 = 원거리 가독 캘리브레이션
+    for (let i = 0; i < tips; i++) {
+      const tip = new THREE.Mesh(new THREE.PlaneGeometry(tipS, tipS),
+        new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+      tip.position.z = 0.001;
+      g.add(tip); g._tips.push(tip);
+    }
+  }
+  g.rotation.x = -Math.PI / 2; g.position.y = 0.014; g.renderOrder = 6;
+  FLOW_ARROWS.push(g);
   return g;
+}
+/** 매 프레임 — 촉 이동(카탈로그 u-시계) + 자루 LINE 유니폼 급이. 부모 잃은 화살표는 자동 정리. */
+export function tickFlowArrows(t) {
+  const A = FXP.arrow || {};
+  const styleIdx = LINE_STYLE_IDX[A.line || 'solid'] ?? 0;
+  const day = FXP.day ? 1 : 0;
+  for (let i = FLOW_ARROWS.length - 1; i >= 0; i--) {
+    const g = FLOW_ARROWS[i];
+    if (!g.parent) { FLOW_ARROWS.splice(i, 1); continue; }
+    const n = g._tips.length;
+    for (let k = 0; k < n; k++) g._tips[k].position.y = ((t * 0.12 + k / n) % 1) * g._len;
+    const U = g._mat.uniforms;
+    U.uTime.value = t;
+    U.uLStyle.value = styleIdx;
+    U.uW.value = FXP.graphics.width * (A.w || 1);
+    U.uHalo.value = FXP.graphics.halo * (A.glow ?? 1);
+    U.uLSpeed.value = A.speed ?? 1;
+    U.uLGap.value = A.gap ?? 1;
+    U.uLHeat.value = A.heat ?? 0.5;
+    U.uLTail.value = A.tail ?? 0.55;
+    U.uGain.value = FXP.gainBoost * (g._mat._gainK ?? 1);
+    if (U.uDay.value !== day) {
+      U.uDay.value = day;
+      g._mat.blending = day ? THREE.NormalBlending : THREE.AdditiveBlending;
+      g._mat.needsUpdate = true;
+    }
+  }
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -693,7 +657,7 @@ export class TokenSystem {
         ev.marker.color = c; ev.color = c;
         ev.marker.fill.material.color.setHex(c);
       }
-      if (ev.arrow) ev.arrow.obj.traverse(o => o.material?.color?.setHex(COLORS.guide));
+      // 화살표는 LUT 히트색 소비(LANEFX) — 역할색 리컬러 대상 아님
     }
   }
 
@@ -767,7 +731,7 @@ export class TokenSystem {
           ev.marker.setNumber(tk.n);
         }
         if (tk.type === 'directionGuide') {
-          const arrow = makeArrow(COLORS.guide, packData.sport === 'basketball' ? 0.9 : 0.55, tk.tip || 'triangle');
+          const arrow = makeFlowArrow(packData.sport === 'basketball' ? 0.9 : 0.55);
           const p = this._mapFloor(tk);
           arrow.position.x = p.x; arrow.position.z = p.z;
           // angle: 0 = 전방(-Z). 시계 방향 회전.
@@ -810,15 +774,14 @@ export class TokenSystem {
           const yaw = Math.atan2(-dx, -dz);
           // 감속 바 = LINE 자루(촉 없음) 소비 — flatMat 사제 바 은퇴 (룩 시스템만 원칙)
           for (let s = 0; s < 3; s++) {
-            const bar = makeArrow(0xfe6e3c, 0.5, 'none');
-            bar.rotation.x = -Math.PI / 2;
+            const bar = makeFlowArrow(0.5, { tips: 0 });
             bar.rotation.z = yaw + Math.PI / 2;   // 진행에 직교하는 가로 바
             bar.position.set(
               cp.x - dx * (0.4 + s * 0.24), 0.011,
               cp.z - dz * (0.4 + s * 0.24)
             );
             bar.renderOrder = 4;
-            bar.traverse(o => { if (o.material) o.material.opacity = 0.55 - s * 0.13; });
+            bar._mat._gainK = 0.55 - s * 0.13;   // 페이드 = _gainK 규약 (셰이더 재질에 opacity 무효)
             g.add(bar);
           }
           cur.stripes = g;
@@ -1070,12 +1033,8 @@ export class TokenSystem {
         if (vis) {
           const k = this.layoutPreview ? 1 : Math.min(1, (now - (a.t - lead)) / Math.max(lead, 0.001));
           const op = 0.35 + 0.55 * k;
-          const aBlend = FXP.day ? THREE.NormalBlending : THREE.AdditiveBlending;   // 주간 = 풀컬러 잉크
-          a.obj.traverse(o => {
-            if (!o.material) return;
-            o.material.opacity = op;   // 자루+촉 여러 메시
-            if (o.material.blending !== aBlend) { o.material.blending = aBlend; o.material.needsUpdate = true; }
-          });
+          a.obj._mat._gainK = op;   // 자루 페이드 = _gainK 규약 (주간 블렌딩은 tickFlowArrows 담당)
+          for (const tp of a.obj._tips) tp.material.opacity = op;
           a.obj.scale.setScalar(size);
         }
       }

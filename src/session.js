@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { WALL_Z } from './scene.js';
 import { lutColor, GLYPHS, drawGlyph, footSlot, footSDFTexture, FXP } from './fxlut.js';
 import { MARK_NUM } from './fx-core.js';
-import { makeMarkFXMaterial, makeLaneFXMaterial } from './tokens.js';
+import { makeMarkFXMaterial, makeLaneFXMaterial, makeFlowArrow, tickFlowArrows } from './tokens.js';
 
 // 피그마 CTA 임포트 — StageCard/베이스 컴포넌트의 cta 노드를 다운로드한 에셋(150×44 원 비율).
 // 절차: 피그마에서 download_assets → public/textures/<sport>_running.png → 여기서 텍스처로 소비.
@@ -150,32 +150,12 @@ function floorArc(x, z, color) {
   m.rotation.x = -Math.PI / 2; m.position.set(x, 0.0135, z); m.renderOrder = 6;
   m.userData.el = { type: 'arc' }; return m;
 }
-function tipGlyphPlane(size = 0.14) {
-  // 촉 = TIP_TRI 글리프 슬롯 (커스텀 SVG 우선, 웜 크림 삼각 폴백 — 카탈로그와 동일 언어)
-  const c = document.createElement('canvas'); c.width = c.height = 128;
-  const g2 = c.getContext('2d');
-  if (!drawGlyph(g2, 'TIP_TRI', 64, 64, 108)) {
-    g2.fillStyle = 'rgba(255,240,220,0.95)';
-    g2.beginPath(); g2.moveTo(20, 100); g2.lineTo(64, 22); g2.lineTo(108, 100); g2.closePath(); g2.fill();
-  }
-  const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
-  return new THREE.Mesh(new THREE.PlaneGeometry(size, size),
-    new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, side: THREE.DoubleSide }));
-}
 function floorArrow(x, z, deg, color, len = 0.4) {
-  // 방향 = LINE ① 경로 추종 화살표: LANEFX 광류 자루(움직임) + TIP 글리프 촉.
-  // 구 makeArrow(정적 통화살표)는 카탈로그의 '움직이는 라인 4규칙' 어디에도 없는 새 종이었음
-  // (유저 지적: "왜 갑자기 통화살표 써") — LINE 엔진 직결로 교체.
-  const g = new THREE.Group();
-  const mat = makeLaneFXMaterial(len);
-  mat._arrowStyle = true;   // tickWaves: 스타일을 lane이 아닌 FXP.arrow.line에서
-  LANE_MATS.push(mat);
-  const shaft = new THREE.Mesh(new THREE.PlaneGeometry(0.16, len), mat);
-  shaft.position.y = len / 2 - 0.02;
-  g.add(shaft);
-  const tip = tipGlyphPlane(); tip.position.y = len + 0.04; g.add(tip);
-  g.rotation.x = -Math.PI / 2; g.position.set(x, 0.014, z);
-  g.rotation.z = THREE.MathUtils.degToRad(deg); g.renderOrder = 6;
+  // 방향 = LINE ① 경로 추종 화살표 — 카탈로그 구성 통째(광류 자루 + 이동 촉, tokens.makeFlowArrow).
+  // 촉 끝 주차·정적 통화살표는 카탈로그에 없는 종 (유저 지적 2회 — 촉은 경로 위를 이동).
+  const g = makeFlowArrow(len);
+  g.position.set(x, 0.014, z);
+  g.rotation.z = THREE.MathUtils.degToRad(deg);
   g.userData.el = { type: 'arrow' }; return g;
 }
 function floorStripe(x, z, w, color, op) {
@@ -1072,6 +1052,7 @@ export class Session {
         m.needsUpdate = true;
       }
     }
+    tickFlowArrows(t);   // 화살표(세션+팩) — 촉 이동 + 자루 LINE 유니폼 (단일 급이자)
   }
 
   update(dt) {
@@ -1182,8 +1163,8 @@ export class Session {
       // 다리 스윙 — 앞/뒤 화살표 교대 강조 + 10회 카운트 (강조 = _gainK 페이드 규약)
       const SW = SCFG.a3Swing, fwd = beat(SW) < 0.5;
       const em = (arrow, on) => {
-        arrow.children[0].material._gainK = on ? 1.25 : 0.3;
-        if (arrow.children[1]) arrow.children[1].material.opacity = on ? 0.95 : 0.25;
+        arrow._mat._gainK = on ? 1.25 : 0.3;
+        for (const tp of arrow._tips) tp.material.opacity = on ? 0.95 : 0.25;
       };
       em(this.a3fwd, fwd); em(this.a3bwd, !fwd);
       FMU(`${Math.min(10, Math.floor(this.t / SW) + 1)} / 10`);
@@ -1362,7 +1343,7 @@ export class Session {
       // 잽 스윕 — 스윕 밴드 밝기 + 타겟 수축 링, 맞춘 잽 카운트
       const BT = 0.9, ph = beat(BT);
       this.bxSweep.material.opacity = 0.4 + 0.5 * (1 - ph);
-      this.bxB3cd.material.opacity = 0.4 + 0.55 * ph; this.bxB3cd.scale.setScalar(1.9 - 0.9 * ph);
+      this.bxB3cd.setOp(0.4 + 0.55 * ph); this.bxB3cd.scale.setScalar(1.9 - 0.9 * ph);   // setOp 규약 (구 .opacity는 셰이더에 무효 — 링이 안 보였음)
       const hits = Math.min(6, Math.floor(this.t / BT));
       FMU(`맞춘 잽 ${hits} / 6`, hits >= 6 ? CS.prism : CS.dim);
       if (this.t >= 6 * BT + 0.4) { this._gateAdvance(); return; }
