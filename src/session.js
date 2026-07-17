@@ -134,6 +134,7 @@ class FootMark {
     this._U.uPhase.value = 1; this._U.uProg.value = p;                                 // Active — 헤일로 수축 = 타이밍
   }
   glow(k) { this._U.uPhase.value = 2; this._U.uProg.value = Math.min(1, 1 - k); }      // Success 진홍 블룸 잔상
+  ghost() { this._U.uPhase.value = 3; this._U.uProg.value = 0; }                        // Locked 무채 고스트 — 션 발자국 시범·예고
 }
 
 // ── 지면 프리미티브 (userData.el = 장면 에디터 메타) ──
@@ -323,10 +324,11 @@ export const STAGES = {
     { id:'A3', label:'A · 스트레칭 3/4 — 다리 스윙', voice:['션','골반 잡고 다리를 앞뒤로. 가볍게 열 번.'], foot:'완료 후 두 번 탭 → 다음' },
     { id:'A4', label:'A · 스트레칭 4/4 — 션 박자 걷기', voice:['션','이제 내 걸음 박자로 제자리 걷기. 처음엔 천천히 — 점점 붙여요.'], hap:'워밍업 박자 (약)', wear:'낮은 강도 보조 시작' },
     { id:'T1', label:'T-1 · STAGE CLEAR → 사전 익히기', voice:['시스템','몸 다 풀렸어요. 탭 두 번이면 다음으로.'], foot:'두 번 탭 → 사전 익히기' },
-    { id:'B1', label:'B · 사전 익히기 1/4 — 박자 듣기', voice:['션','마지막 1km에서 쓰는 박자예요. 먼저 듣기만. 하나, 둘.'], hap:'박자 동기 (약)' },
-    { id:'B2', label:'B · 사전 익히기 2/4 — 제자리 스텝 맞추기', voice:['션','링이 닫힐 때 밟아요. 지금 — 좋아요, 그 박자예요.'], cue:'Hit Glow + Timing Pulse (성공 순간만)' },
-    { id:'B3', label:'B · 사전 익히기 3/4 — 3스텝 이어 밟기', voice:['션','이제 앞으로 세 걸음, 숫자 순서대로.'], cue:'Step Combo ×2 ×3' },
-    { id:'B4', label:'B · 사전 익히기 4/4 — 구간 리듬 유지', voice:['션','이제 문장은 그만할게요. 박자만 지켜요.'], foot:'두 번 탭 → 실전 준비 (발형→존형 전환)' },
+    { id:'B1', label:'B · 사전 익히기 1/5 — 박자 듣기', voice:['션','마지막 1km에서 쓰는 박자예요. 먼저 듣기만. 하나, 둘.'], hap:'박자 동기 (약)' },
+    { id:'BW', label:'B · 사전 익히기 2/5 — 션 발자국 보기', voice:['션','이게 내 걸음이에요. 발자국 찍히는 박자를 눈으로만 따라와요.'], cue:'Ghost 발자국 리플레이 (보기 전용)' },
+    { id:'B2', label:'B · 사전 익히기 3/5 — 션 위에 겹쳐 밟기', voice:['션','내 발자국이 먼저 찍혀요. 그 위를 그대로 밟아요.'], cue:'Ghost 예고 → Hit Glow (성공 순간만)' },
+    { id:'B3', label:'B · 사전 익히기 4/5 — 3스텝 이어 밟기', voice:['션','이제 앞으로 세 걸음, 숫자 순서대로.'], cue:'Step Combo ×2 ×3' },
+    { id:'B4', label:'B · 사전 익히기 5/5 — 구간 리듬 유지', voice:['션','이제 문장은 그만할게요. 박자만 지켜요.'], foot:'두 번 탭 → 실전 준비 (발형→존형 전환)' },
     { id:'T2', label:'T-2 · 5초 뒤 실전 준비로 자동 진행 (두 번 탭 = 바로)', voice:['션','5초 뒤에 넘어갈게요. 준비됐으면 두 번 탭으로 바로 가요.'], dur:5, count:true, foot:'두 번 탭 = 즉시 · 무입력 = 자동 진행 — 반복은 게이트·다운시프트가 담당' },
     { id:'C1', dur:3, label:'C · 실전 1/5 — 출발', voice:['시스템','3, 2, 1.'], hap:'시작 타이밍 진동', foot:'두 번 탭 → 출발 (이후 잠금)' },
     { id:'C2', dur:7, live:true, label:'C · 실전 2/5 — 페이스 유지 (라이브)', voice:['션','좋아요, 그 박자 그대로.'], wear:'SAFE 착지 안정화' },
@@ -470,6 +472,15 @@ export class Session {
     this.b1ring = floorRing(0, -1.35, 0.24, 0.26, BRAND.red, 0.9);
     this.b1nums = [floorNum('1', 0, -1.35, 0.15), floorNum('2', 0, -1.35, 0.15)];
     g.add(this.b1ring, this.b1nums[0], this.b1nums[1]);
+
+    // BW 션 발자국 보기 — '시범' 단계: 션의 실측 케이던스·보폭이 발자국으로 찍히며 멀어짐.
+    // 학습 사이클(보기→듣기→겹쳐→혼자)의 '보기' 공백을 메움 — 유일한 단서 = 발자국 3개.
+    g = this._mk('BW');
+    this.bwFeet = [];
+    for (let i = 0; i < 3; i++) {
+      const fm = new FootMark(i % 2 ? 'right' : 'left');
+      fm.op(0); g.add(fm.group); this.bwFeet.push(fm);
+    }
 
     g = this._mk('B2');
     this.b2L = new FootMark('left').at(-0.17, -1.14); g.add(this.b2L.group);
@@ -958,10 +969,11 @@ export class Session {
       case 'A3': FS('STRETCH 3/4'); FL('다리 앞뒤 스윙'); FM('1 / 10'); break;
       case 'A4': FS('STRETCH 4/4'); FL('션 박자로 걷기'); FM('처음엔 천천히 — 점점 붙어요'); break;
       case 'T1': FS('T-1'); S(this.slotFL, 'STAGE CLEAR', { size: 0.12, color: CS.prism }); break;   // 푸터 제거: CTA 라벨과 중복
-      case 'B1': FS('LEARN 1/4'); FL('션의 박자 — 듣기만'); FM('먼저 귀로 배워요'); break;
-      case 'B2': { const h = this._packLaneHalf(); this._b2Half = h; this.b2L.group.position.x = -h; this.b2R.group.position.x = h; FS('LEARN 2/4'); FL(h < 0.08 ? '좁게 — 일자로 밟기' : '링이 닫힐 때 밟기'); FM('맞춘 스텝 0 / 8'); } break;
-      case 'B3': FS('LEARN 3/4'); FL('세 걸음 · 순서대로'); FM('세트 1 / 2'); break;
-      case 'B4': FS('LEARN 4/4'); FL('박자만'); FM('발밑=마지막 발형 · 전방=존 시작'); break;
+      case 'B1': FS('LEARN 1/5'); FL('션의 박자 — 듣기만'); FM('먼저 귀로 배워요'); break;
+      case 'BW': FS('LEARN 2/5'); FL('션 발자국 — 보기만'); FM('찍히는 박자를 눈으로'); break;
+      case 'B2': { const h = this._packLaneHalf(); this._b2Half = h; this.b2L.group.position.x = -h; this.b2R.group.position.x = h; FS('LEARN 3/5'); FL(h < 0.08 ? '좁게 — 션 위에 일자로' : '션 발자국 위에 겹쳐 밟기'); FM('맞춘 스텝 0 / 8'); } break;
+      case 'B3': FS('LEARN 4/5'); FL('세 걸음 · 순서대로'); FM('세트 1 / 2'); break;
+      case 'B4': FS('LEARN 5/5'); FL('박자만'); FM('발밑=마지막 발형 · 전방=존 시작'); break;
       case 'T2': FS('T-2'); FM('두 번 탭 = 바로 · 가만히 있으면 자동 진행'); break;
       case 'C1': FS('RUN 00:00'); break;
       case 'C2': FS('RUN 04:12 · SAFE'); FM('발밑 비움 · 전방 선행 발자국'); break;
@@ -1188,10 +1200,29 @@ export class Session {
       this.b1nums.forEach((n, i) => { const on = i === bn; n.userData.plane.material.opacity = on ? 0.35 + 0.65 * k : 0; n.scale.setScalar(on ? 1 + 0.2 * k : 0.9); });
       FMU(`박자 ${Math.min(8, Math.floor(this.t / BT) + 1)} / 8 — 듣기만`);
       if (this.t >= 8 * BT + 0.3) { this.next(); return; }
+    } else if (id === 'BW') {
+      // 션 발자국 리플레이 — 실측 케이던스(BT)·보폭으로 3발자국이 찍히며 멀어짐.
+      // 착지 순간만 Success 펄스 → 곧장 무채 고스트로 식음: 케이던스가 눈에 박히는 단계.
+      const BT = this._packBeat(1, SCFG.b1Beat);
+      const stride = Math.min(0.78, (this.tokens._strideM || 0.8) * 0.8);   // 표시구간 1.05~2.6m 안
+      const half = Math.max(0.1, this._packLaneHalf());   // 션 실측 좌우폭 (표시 최소 10cm)
+      const cyc = 3 * BT + 1.1, lt = this.t % cyc;
+      this.bwFeet.forEach((fm, i) => {
+        fm.group.position.set((i % 2 ? 1 : -1) * half, 0.013, -1.05 - i * stride);
+        const t0 = i * BT;
+        if (lt < t0) fm.op(0);
+        else if (lt < t0 + 0.25) { fm.op(1); fm.glow(1 - (lt - t0) / 0.25); }
+        else { fm.op(0.85); fm.ghost(); }
+      });
+      FMU(`션의 걸음 ${Math.min(4, Math.floor(this.t / cyc) + 1)} / 4 — 보기만`);
+      if (this.t >= 4 * cyc + 0.3) { this.next(); return; }
     } else if (id === 'B2') {
+      // 겹쳐 밟기 — 션의 다음 발자국이 고스트로 '먼저' 찍히고(예고), 유저가 그 위를 밟는다.
       const BT = this._packBeat(1.15, SCFG.b2Beat), b = Math.floor(this.t / BT) % 2, ph = beat(BT);
-      this.b2L.countdown(b === 0 ? ph : -1); this.b2R.countdown(b === 1 ? ph : -1);
-      const gl = ph > 0.9 ? 1 : 0; if (gl) (b === 0 ? this.b2L : this.b2R).glow(1);
+      const cur = b === 0 ? this.b2L : this.b2R, nxt = b === 0 ? this.b2R : this.b2L;
+      cur.op(1); cur.countdown(ph);
+      nxt.ghost(); nxt.op(0.4 + 0.45 * ph);   // 다음 발 예고가 박자 따라 차오름
+      if (ph > 0.9) cur.glow(1);
       const hits = Math.min(8, Math.floor(this.t / BT));
       FMU(`맞춘 스텝 ${hits} / 8${this._b2Half < 0.08 ? ' · 션 좌우폭 6cm' : ''}`, hits >= 8 ? CS.prism : CS.dim);
       if (this.t >= 8 * BT + 0.5) { this.next(); return; }
