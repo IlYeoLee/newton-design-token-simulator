@@ -72,6 +72,7 @@ function setLive(mat, catSt, t) {
   U.uStrong.value = 0;   // 카탈로그 Preview = 크림 (적열 강조는 시뮬 전용 strong)
   U.uSeed.value = 0;
   U.uFade.value = 1; U.uGain.value = 1; U.uDay.value = 0;
+  U.uOut.value = 0;   // raw 비교 — 시뮬 전용 OutputPass 상쇄 끔
   U.uContract.value = lab.contentWindow.__lab.state.markContract || 0;
   U.uRadius.value = FXP.mark.radius;   // 카탈로그와 동일 반경 (시뮬 월드 사이징 제외한 순수 셰이더 비교)
   U.uW.value = FXP.mark.core; U.uHalo.value = FXP.mark.halo;

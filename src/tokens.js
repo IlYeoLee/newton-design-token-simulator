@@ -23,8 +23,12 @@ const MARKFX_FRAG = `
 ` + FX_GLSL + `
 uniform float uW, uHalo, uNoise;
 ` + MARK_GLSL + `
-uniform float uPhase, uProg, uFade, uStrong, uTime, uGain, uDay;
+uniform float uPhase, uProg, uFade, uStrong, uTime, uGain, uDay, uOut;
 varying vec2 vUv;
+// 컴포저 OutputPass가 전 화면에 linear→sRGB 인코딩을 얹음(장면 PBR엔 옳지만 토큰 광은
+// 카탈로그(raw)보다 미드톤이 ~30% 들떠 보임 — 패리티 하니스로 실측). 장면 파이프라인은
+// 유지하고 토큰만 출력 직전 역변환으로 상쇄(uOut=1). raw 컨텍스트(패리티)는 uOut=0.
+vec3 toLin(vec3 c){ return mix(c / 12.92, pow((c + 0.055) / 1.055, vec3(2.4)), step(0.04045, c)); }
 void main() {
   #include <clipping_planes_fragment>
   vec2 uv = (vUv - 0.5) * 2.0;
@@ -40,9 +44,10 @@ void main() {
   vec3 col = r.rgb * uFade * uGain * border;
   if (uDay > 0.5) {   // 주간 = 풀컬러 잉크 (색 보존 + 커버리지 알파)
     float mc = max(col.r, max(col.g, col.b));
-    gl_FragColor = vec4(col / max(mc, 1e-4), clamp(mc * 1.45, 0.0, 1.0));
+    vec3 ink = col / max(mc, 1e-4);
+    gl_FragColor = vec4(uOut > 0.5 ? toLin(ink) : ink, clamp(mc * 1.45, 0.0, 1.0));
   } else {
-    gl_FragColor = vec4(col, 1.0);   // 야간: 가산 광
+    gl_FragColor = vec4(uOut > 0.5 ? toLin(col) : col, 1.0);   // 야간: 가산 광
   }
 }`;
 // ── 레인 광류 셰이더 — LINE 최소 토큰 소비 (스타일·두께·속도·간격·온도·글로우·꼬리) ──
@@ -52,7 +57,7 @@ const LANEFX_FRAG = `
 #include <clipping_planes_pars_fragment>
 ` + FX_GLSL + `
 uniform float uTime, uLen, uW, uHalo, uGain, uDay;
-uniform float uLStyle, uLSpeed, uLGap, uLHeat, uLTail;
+uniform float uLStyle, uLSpeed, uLGap, uLHeat, uLTail, uOut;
 // 풋프린트(투사면) 로컬 좌표계 — 무릎 원점 + 전방/우측 단위벡터(월드). 레인은 월드 고정
 // 지오메트리라 매 프레임 러너가 지나가는 부분만 GPU 클리핑(floorClip)으로 하드컷됐는데,
 // 가산 글로우가 꼬리 없이 뚝 잘려 사각형 프레임처럼 보였음(유저 스크린샷으로 확인).
@@ -111,11 +116,13 @@ void main() {
   heat *= fpFade;   // 풋프린트 경계 소프트 페이드 — 뒤이은 GPU 하드클립 전에 이미 0 근처
   float sweep = 0.12 * sin(along * 0.9 - uTime * 1.7);
   vec3 col = lut(clamp(uLHeat - 0.08 + sweep + heat * 0.25, 0.0, 1.0)) * heat * uGain;
+  vec3 outLin = mix(col / 12.92, pow((col + 0.055) / 1.055, vec3(2.4)), step(0.04045, col));
+  vec3 co = uOut > 0.5 ? outLin : col;   // OutputPass 인코딩 상쇄 (MARKFX와 동일 규약)
   if (uDay > 0.5) {   // 주간 = 풀컬러 잉크 (MARKFX와 동일 규약)
-    float mc = max(col.r, max(col.g, col.b));
-    gl_FragColor = vec4(col / max(mc, 1e-4), clamp(mc * 1.45, 0.0, 1.0));   // 잉크 커버리지 부스트 — 거의 풀컬러
+    float mc = max(co.r, max(co.g, co.b));
+    gl_FragColor = vec4(co / max(mc, 1e-4), clamp(max(col.r, max(col.g, col.b)) * 1.45, 0.0, 1.0));
   } else {
-    gl_FragColor = vec4(col, 1.0);
+    gl_FragColor = vec4(co, 1.0);
   }
 }`;
 const LINE_STYLE_IDX = { solid: 0, dash: 1, dot: 2, chevron: 3, comet: 4, taper: 5 };
@@ -131,7 +138,7 @@ export function makeLaneFXMaterial(lenM) {
       uHalo: { value: 0.9 },
       uGain: { value: 1 },
       uLStyle: { value: 1 }, uLSpeed: { value: 1 }, uLGap: { value: 1 }, uLHeat: { value: 0.5 }, uLTail: { value: 0.55 },
-      uDay: { value: 0 },
+      uDay: { value: 0 }, uOut: { value: 1 },
       // 풋프린트 소프트 페이드 기본값 — rig 미연결(FX Lab 등) 시 항상 안 죽게 넉넉한 범위
       uFPOrigin: { value: new THREE.Vector3() }, uFPFwd: { value: new THREE.Vector3(0, 0, -1) }, uFPRight: { value: new THREE.Vector3(1, 0, 0) },
       uFPNear: { value: -1e6 }, uFPFar: { value: 1e6 }, uFPHalfN: { value: 1e6 }, uFPHalfF: { value: 1e6 }, uFPFadeM: { value: 0.15 },
@@ -160,7 +167,7 @@ export function makeMarkFXMaterial(footTex = null) {
       uStrong: { value: 0 }, uContract: { value: 0 },
       uTime: { value: 0 }, uSeed: { value: Math.random() * 6.2832 },
       uW: { value: 1 }, uHalo: { value: 0.9 }, uPool: { value: 0.55 }, uGain: { value: 1 },
-      uSweepA: { value: 1 }, uNoise: { value: 0.5 }, uDay: { value: 0 },
+      uSweepA: { value: 1 }, uNoise: { value: 0.5 }, uDay: { value: 0 }, uOut: { value: 1 },
     },
     transparent: true,
     blending: THREE.AdditiveBlending,
