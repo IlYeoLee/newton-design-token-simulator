@@ -6,6 +6,7 @@
 //   OKLab 보간(RGB 직선 보간의 탁한 갈색 구간 제거) + 채도 스케일(회색조 혼합).
 // ─────────────────────────────────────────────────────────────
 import * as THREE from 'three';
+import { sdfFromAlpha, glyphRaster, bakeGlyphSDF } from './fx-core.js';
 
 // ── OKLab ↔ sRGB ──────────────────────────────
 const s2l = c => { c /= 255; return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); };
@@ -122,24 +123,7 @@ export const GLYPHS = {
     return (img && img.complete && img.naturalWidth) ? img : null;
   },
 };
-/** SVG → 비트맵 래스터 + 실픽셀 타이트 바운딩 (viewBox 여백 비대칭 보정) — 이미지별 1회 캐시.
- *  주의: SVG에 9인자 drawImage(소스 사각형)는 브라우저 래스터 버그가 있어
- *  반드시 비트맵으로 구운 뒤 캔버스에서 크롭한다. */
-function glyphRaster(img) {
-  if (img._raster) return img._raster;
-  const S = 512;   // 발형 SDF 서브픽셀 시드 품질 — 고해상 래스터
-  const c = document.createElement('canvas'); c.width = c.height = S;
-  const g = c.getContext('2d');
-  const sc = Math.min(S / img.naturalWidth, S / img.naturalHeight);
-  g.drawImage(img, 0, 0, img.naturalWidth * sc, img.naturalHeight * sc);
-  const d = g.getImageData(0, 0, S, S).data;
-  let x0 = S, y0 = S, x1 = -1, y1 = -1;
-  for (let y = 0; y < S; y++) for (let x = 0; x < S; x++)
-    if (d[(y * S + x) * 4 + 3] > 8) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
-  img._raster = x1 < 0 ? { canvas: c, x: 0, y: 0, w: S, h: S } :
-    { canvas: c, x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1 };
-  return img._raster;
-}
+// SVG 래스터·SDF 베이커는 fx-core(정본, FX Lab 구현 승격)에서 — 중복 2벌 폐기.
 /** 캔버스에 커스텀 글리프를 웜 크림 틴트+글로우로 (x,y) 중심 렌더. 성공 시 true. */
 export function drawGlyph(ctx, ch, x, y, sizePx, { color = 'rgba(255,240,220,0.95)', glowColor = 'rgba(254,150,90,0.75)', glow = 14 } = {}) {
   const img = GLYPHS.img(ch);
@@ -168,31 +152,15 @@ export function footSlot(right) {
   return (FXP.footCtx === 'in' ? 'FOOT_IN_' : 'FOOT_OUT_') + (right ? 'R' : 'L');
 }
 
-/** 발형 SDF 텍스처 — FX Lab sdfFromAlpha와 동일 레시피 (지면 마크의 발형 표현형) */
-function edt1d(f, d, v, z, n) {
-  let k = 0; v[0] = 0; z[0] = -1e20; z[1] = 1e20;
-  for (let q = 1; q < n; q++) {
-    let s = ((f[q] + q * q) - (f[v[k]] + v[k] * v[k])) / (2 * q - 2 * v[k]);
-    while (s <= z[k]) { k--; s = ((f[q] + q * q) - (f[v[k]] + v[k] * v[k])) / (2 * q - 2 * v[k]); }
-    k++; v[k] = q; z[k] = s; z[k + 1] = 1e20;
-  }
-  k = 0;
-  for (let q = 0; q < n; q++) { while (z[k + 1] < q) k++; d[q] = (q - v[k]) * (q - v[k]) + f[v[k]]; }
-}
-function edt2d(f, N) {
-  const d = new Float32Array(N), v = new Int32Array(N), z = new Float32Array(N + 1), q = new Float32Array(N);
-  for (let x = 0; x < N; x++) {
-    for (let y = 0; y < N; y++) q[y] = f[y * N + x];
-    edt1d(q, d, v, z, N);
-    for (let y = 0; y < N; y++) f[y * N + x] = d[y];
-  }
-  for (let y = 0; y < N; y++) {
-    for (let x = 0; x < N; x++) q[x] = f[y * N + x];
-    edt1d(q, d, v, z, N);
-    for (let x = 0; x < N; x++) f[y * N + x] = d[x];
-  }
+/** float SDF → three.js 텍스처 (무손실 d/N — 8bit 양자화 폐기가 지글거림의 근본 해결) */
+function sdfTexture(FS) {
+  const tex = new THREE.DataTexture(FS.data, FS.N, FS.N, THREE.RedFormat, THREE.FloatType);
+  tex.minFilter = tex.magFilter = THREE.LinearFilter;
+  tex.needsUpdate = true;
+  return tex;
 }
 const _sdfCache = new Map();
+/** 발형 SDF 텍스처 — fx-core 베이커(FX Lab과 같은 코드) 소비. */
 export function footSDFTexture(right) {
   const slot = footSlot(right);
   const url = GLYPHS.map[slot];
@@ -201,33 +169,14 @@ export function footSDFTexture(right) {
   if (_sdfCache.has(key)) return _sdfCache.get(key);
   const img = url ? GLYPHS.img(slot) : null;
   if (url && !img) return null;   // 로드 전 — onLoad 리베이크가 재시도
-  // N=256 8bit 인코딩은 FX Lab에서 이미 폐기된 방식(양자화 상한이 N과 무관하게 고정돼
-  // 해상도를 올려도 지글거림이 안 없어짐 — 실측으로 확정된 근본 원인). 라이브 세션이
-  // FX Lab에서 확인한 것보다 흐리고 뭉개져 보인 진짜 이유가 이 구버전 인코딩이 라이브에는
-  // 한 번도 이식된 적 없었기 때문이었음. float 텍스처 + 해상도 상향으로 동일하게 맞춘다.
   const N = 768;
-  const c = document.createElement('canvas'); c.width = c.height = N;
-  const g = c.getContext('2d');
+  let FS;
   if (img) {
-    const R = (() => {   // glyphRaster 인라인 (fxlab과 동일)
-      if (img._raster) return img._raster;
-      const S = 512, rc = document.createElement('canvas'); rc.width = rc.height = S;
-      const rg = rc.getContext('2d');
-      const sc = Math.min(S / img.naturalWidth, S / img.naturalHeight);
-      rg.drawImage(img, 0, 0, img.naturalWidth * sc, img.naturalHeight * sc);
-      const d = rg.getImageData(0, 0, S, S).data;
-      let x0 = S, y0 = S, x1 = -1, y1 = -1;
-      for (let y = 0; y < S; y++) for (let x = 0; x < S; x++)
-        if (d[(y * S + x) * 4 + 3] > 8) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
-      img._raster = x1 < 0 ? { canvas: rc, x: 0, y: 0, w: S, h: S } : { canvas: rc, x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1 };
-      return img._raster;
-    })();
-    const sc = Math.min((N * 0.78) / R.w, (N * 0.78) / R.h);
-    const w = R.w * sc, h = R.h * sc;
-    if (flip) { g.translate(0, N); g.scale(1, -1); }
-    g.drawImage(R.canvas, R.x, R.y, R.w, R.h, (N - w) / 2, (N - h) / 2, w, h);
+    FS = bakeGlyphSDF(img, N, flip);
   } else {
-    // 내장 발 (fxlab footSDF 드로잉과 동일)
+    // 내장 발 폴백 (fxlab footSDF 드로잉과 동일)
+    const c = document.createElement('canvas'); c.width = c.height = N;
+    const g = c.getContext('2d');
     g.fillStyle = '#fff';
     g.save(); g.translate(N / 2, N / 2); g.scale(N / 128, N / 128); g.rotate(-0.09);
     if (right) g.scale(-1, 1);
@@ -239,30 +188,13 @@ export function footSDFTexture(right) {
       g.beginPath(); g.arc(Math.sin(a) * 15 - 1, -37 - Math.cos(a) * 3.5 + Math.abs(a) * 6, 4.4 - Math.abs(i - 1.4) * 0.55, 0, 7); g.fill();
     }
     g.restore();
+    FS = sdfFromAlpha(g.getImageData(0, 0, N, N).data, N);
   }
-  const imgD = g.getImageData(0, 0, N, N).data;
-  // 정확 EDT(Felzenszwalb) + 알파 커버리지 서브픽셀 시드 — fxlab sdfFromAlpha와 동일
-  // 레시피(무손실 d/N float 인코딩, 8bit 양자화 폐기).
-  const INF = 1e20;
-  const gO = new Float32Array(N * N), gI = new Float32Array(N * N);
-  for (let i = 0; i < N * N; i++) {
-    const a = imgD[i * 4 + 3] / 255;
-    gO[i] = a >= 1 ? 0 : a <= 0 ? INF : Math.pow(Math.max(0, 0.5 - a), 2);
-    gI[i] = a >= 1 ? INF : a <= 0 ? 0 : Math.pow(Math.max(0, a - 0.5), 2);
-  }
-  edt2d(gO, N); edt2d(gI, N);
-  const out = new Float32Array(N * N);
-  for (let i = 0; i < N * N; i++) {
-    out[i] = (Math.sqrt(gO[i]) - Math.sqrt(gI[i])) / N;
-  }
-  const tex = new THREE.DataTexture(out, N, N, THREE.RedFormat, THREE.FloatType);
-  tex.minFilter = tex.magFilter = THREE.LinearFilter;
-  tex.needsUpdate = true;
+  const tex = sdfTexture(FS);
   _sdfCache.set(key, tex);
   return tex;
 }
-/** 워닝 느낌표 SDF — WARN_EXCL 글리프 슬롯(전 유저 고정 기본값)을 발형과 동일한
- * float SDF 레시피로 구움. 좌우 구분 없이 고정 1개, 모듈 레벨 싱글턴 캐시. */
+/** 워닝 느낌표 SDF — WARN_EXCL 슬롯, fx-core 베이커 소비. 싱글턴 캐시. */
 let _warnTex = null, _warnKey = null;
 export function warnSDFTexture() {
   const url = GLYPHS.map.WARN_EXCL;
@@ -271,27 +203,7 @@ export function warnSDFTexture() {
   if (!img) return null;   // 로드 전 — onLoad 리베이크가 재시도
   const key = url.length;
   if (_warnTex && _warnKey === key) return _warnTex;
-  const N = 512;   // 항상 작게 표시되는 아이콘 — 발형만큼 큰 해상도 불필요
-  const R = glyphRaster(img);
-  const c = document.createElement('canvas'); c.width = c.height = N;
-  const g = c.getContext('2d');
-  const sc = Math.min((N * 0.78) / R.w, (N * 0.78) / R.h);
-  const w = R.w * sc, h = R.h * sc;
-  g.drawImage(R.canvas, R.x, R.y, R.w, R.h, (N - w) / 2, (N - h) / 2, w, h);
-  const imgD = g.getImageData(0, 0, N, N).data;
-  const INF = 1e20;
-  const gO = new Float32Array(N * N), gI = new Float32Array(N * N);
-  for (let i = 0; i < N * N; i++) {
-    const a = imgD[i * 4 + 3] / 255;
-    gO[i] = a >= 1 ? 0 : a <= 0 ? INF : Math.pow(Math.max(0, 0.5 - a), 2);
-    gI[i] = a >= 1 ? INF : a <= 0 ? 0 : Math.pow(Math.max(0, a - 0.5), 2);
-  }
-  edt2d(gO, N); edt2d(gI, N);
-  const out = new Float32Array(N * N);
-  for (let i = 0; i < N * N; i++) out[i] = (Math.sqrt(gO[i]) - Math.sqrt(gI[i])) / N;
-  const tex = new THREE.DataTexture(out, N, N, THREE.RedFormat, THREE.FloatType);
-  tex.minFilter = tex.magFilter = THREE.LinearFilter;
-  tex.needsUpdate = true;
-  _warnTex = tex; _warnKey = key;
-  return tex;
+  _warnTex = sdfTexture(bakeGlyphSDF(img, 512));
+  _warnKey = key;
+  return _warnTex;
 }
