@@ -559,13 +559,21 @@ export class Session {
     }
     this.bkPath = bkp;
 
-    // B2 스텝 분해 밟기 — 같은 3발 + 순서 숫자
+    // B2 스텝 분해 밟기 — 같은 3발 + 순서 숫자는 발 '안' 글리프 오버레이 (MARK_NUM 규약,
+    // 러닝 B3와 동일 — 발 옆 부유 글리프는 카탈로그에 없는 조합)
     g = this._mk('BK_B2');
-    this.bkB2 = [];
+    this.bkB2 = []; this.bkB2nums = [];
     for (let i = 0; i < 3; i++) {
-      const fm = new FootMark(i % 2 === 0 ? 'left' : 'right').at(bkp[i][0], bkp[i][1]);
-      g.add(fm.group); g.add(floorNum(String(i + 1), bkp[i][0] - 0.22, bkp[i][1] + 0.12, 0.12, CS.ink));
-      this.bkB2.push(fm);
+      const right = i % 2 === 1;
+      const fm = new FootMark(right ? 'right' : 'left').at(bkp[i][0], bkp[i][1]);
+      const a = (FXP.numFoot && FXP.numFoot[FXP.footCtx === 'in' ? 'in' : 'out']) || { x: 0.5, y: 0.38, s: 1 };
+      const S = 0.46;
+      const np = floorNum(String(i + 1), 0, 0, S * MARK_NUM.RATIO / 0.75 / 1.5, CS.ink).userData.plane;
+      const off = MARK_NUM.anchor(a, right, S);
+      np.position.set(off.x, off.y, 0.002); np.scale.setScalar(off.s); np.renderOrder = 7;
+      fm.group.add(np);
+      g.add(fm.group);
+      this.bkB2.push(fm); this.bkB2nums.push(np);
     }
 
     // B3 컷 방향·감속 — 디딤발 + 감속 스트라이프 + 방향 화살표
@@ -621,13 +629,16 @@ export class Session {
     // B1 가드 유지 — 가드 박스 + 홀드 링 (채움)
     g = this._mk('BX_B1');
     g.add(guardBox(0, 1.35, 0.5, 0.42, BRAND.red, 0.8));
-    this.bxHoldBg = wallRing(0, 1.35, 0.20, 0.235, 0x3a3a38, 0.5); g.add(this.bxHoldBg);
+    // 카탈로그 Hold 림은 회색 트랙+진행 스윕을 한 림에 내장 — 배경 링 별도 스택 금지(러닝 B1과 동일 정리)
     this.bxHold = wallArc(0, 1.35, 0.20, 0.235, BRAND.sand, Math.PI/2, 0.001, 0); g.add(this.bxHold);
 
     // B2 회피 스텝 — 회피형 점선 존(공격 범위) 좌우
     g = this._mk('BX_B2');
-    this.bxDodgeL = this._dashRing(-0.34, 1.45, 0.19, BRAND.coral); g.add(this.bxDodgeL);
-    this.bxDodgeR = this._dashRing(0.34, 1.45, 0.19, BRAND.coral); g.add(this.bxDodgeR);
+    // 회피 존 = MARK 원형 + 회피 계약(uContract=1 → 카탈로그 점선 변조) — 사제 LineDashed 점선 은퇴
+    this.bxDodgeL = wallRing(-0.34, 1.45, 0.17, 0.19, BRAND.coral, 0.95); g.add(this.bxDodgeL);
+    this.bxDodgeR = wallRing(0.34, 1.45, 0.17, 0.19, BRAND.coral, 0.95); g.add(this.bxDodgeR);
+    this.bxDodgeL.material.uniforms.uContract.value = 1;
+    this.bxDodgeR.material.uniforms.uContract.value = 1;
     g.add(wallText('피해요', 0, 1.02, { size: 0.09, color: CS.coral, weight: 800 }));
 
     // B3 잽 스윕 — 스윕 밴드 + 타겟(수축 링)
@@ -652,14 +663,6 @@ export class Session {
     g.add(wallText('Pack 일치도 71% · 가드 유지율 82%', 0, 1.3, { size: 0.06, color: CS.dim }));
     g.add(wallText('회피 후 복귀가 반 박자 느림', 0, 1.12, { size: 0.055, color: CS.mute }));
     g.add(wallText('다음: 회피→잽 3박자 +1세트', 0, 0.95, { size: 0.055, color: CS.prism }));
-  }
-
-  _dashRing(x, y, r, color) {
-    const seg = 32, pts = [];
-    for (let i = 0; i <= seg; i++) { const a = i / seg * Math.PI * 2; pts.push(new THREE.Vector3(x + Math.cos(a) * r, y + Math.sin(a) * r, WZ + 0.001)); }
-    const l = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(pts),
-      new THREE.LineDashedMaterial({ color, dashSize: 0.06, gapSize: 0.05, transparent: true, opacity: 0.85 }));
-    l.computeLineDistances(); l.renderOrder = 6; return l;
   }
 
   _tap(sport) {
@@ -1278,7 +1281,13 @@ export class Session {
     } else if (id === 'BK_B2') {
       // 스텝 분해 밟기 — 순서 카운트다운 링, 맞춘 스텝 x/3
       const ST = 1.0, cyc = 3 * ST, lt = this.t % cyc, W = ST * 0.82;
-      this.bkB2.forEach((f, i) => { const t0 = i * ST; if (lt >= t0 && lt < t0 + W) f.countdown((lt - t0) / W); else if (lt >= t0 + W && lt < t0 + ST) f.glow(1 - (lt - t0 - W) / (ST - W)); else f.countdown(-1); });
+      this.bkB2.forEach((f, i) => {
+        const t0 = i * ST; let ph;   // 숫자 표시 = MARK_NUM.opacity(상태) — 카탈로그 규약
+        if (lt >= t0 && lt < t0 + W) { f.countdown((lt - t0) / W); ph = 1; }
+        else if (lt >= t0 + W && lt < t0 + ST) { f.glow(1 - (lt - t0 - W) / (ST - W)); ph = 2; }
+        else { f.countdown(-1); ph = 0; }
+        this.bkB2nums[i].material.opacity = MARK_NUM.opacity(ph);
+      });
       const hits = Math.min(3, Math.floor((this.t % cyc) / ST) + 3 * Math.floor(this.t / cyc));
       FMU(`맞춘 스텝 ${Math.min(3, Math.floor(this.t / ST))} / 3`, this.t >= cyc ? CS.prism : CS.dim);
       if (this.t >= 2 * cyc + 0.3) { this.next(); return; }
@@ -1336,8 +1345,8 @@ export class Session {
     } else if (id === 'BX_B2') {
       // 회피 슬립 — 좌우 점선 존 교대 위협
       const per = 1.0, left = Math.floor(this.t / per) % 2 === 0;
-      this.bxDodgeL.material.opacity = left ? 0.95 : 0.3;
-      this.bxDodgeR.material.opacity = left ? 0.3 : 0.95;
+      this.bxDodgeL.setOp(left ? 0.95 : 0.3);
+      this.bxDodgeR.setOp(left ? 0.3 : 0.95);
       FMU(`슬립 ${Math.min(6, Math.floor(this.t / per) + 1)} / 6`, CS.coral);
       if (this.t >= 6 * per + 0.3) { this.next(); return; }
     } else if (id === 'BX_B3') {
