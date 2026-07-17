@@ -45,11 +45,11 @@ void main() {
   float sd;
   if (uShape > 0.5) {
     vec2 suv = uv * 0.5 + 0.5;
-    // float 텍스처 직결 디코드(8bit 양자화 폐기 — FX Lab과 동일 근본 수정). 구 인코딩은
-    // range=N/4가 해상도에 비례해 커져 N을 아무리 올려도 정밀도가 개선 안 됐던 것이
-    // 라이브 세션이 FX Lab보다 흐리고 뭉개져 보인 진짜 원인이었음(구 인코딩이 라이브엔
-    // 한 번도 이식된 적 없었음). raw 값이 이미 d/N 단위라 별도 보정 계수 불필요.
-    sd = texture2D(uSDF, vec2(suv.x, 1.0 - suv.y)).r + u1 * uWobble * 0.02;
+    // float 텍스처 직결 디코드(8bit 양자화 폐기 — FX Lab과 동일 근본 수정).
+    // ×1.9922 = FX Lab sdAt()과 동일 계수. raw d/N은 텍스처 span 기준이라 uv([-1,1])
+    // 기준으로는 절반 스케일 — 이 계수를 빼먹으면(이전 이식 실수) 발형의 모든 등고선
+    // 효과(홀드 림·윤곽·헤일로)가 FX Lab 대비 2배 넓게 퍼져 뭉개져 보임(유저 지적으로 발견).
+    sd = texture2D(uSDF, vec2(suv.x, 1.0 - suv.y)).r * 1.9922 + u1 * uWobble * 0.02;
   } else {
     sd = d * (1.0 + u1 * uWobble * 0.05) - Rz;
   }
@@ -115,8 +115,12 @@ void main() {
     // "부숭부숭" 림이 여기 있었음(이 셰이더가 FX Lab에서 이미 고친 뒤로 한 번도 안 맞춰짐).
     float distToRim = abs(sd - 0.012);
     float fw = max(fwidth(sd), 1e-5);
-    float glowPx = 20.0 * uW;
-    float rim = (1.0 - smoothstep(0.0, glowPx * fw, distToRim)) * dashM;
+    // 림 폭: FX Lab은 화면 픽셀 고정(20px×fwidth)이었는데 라이브 3D에선 마크가 화면상
+    // 아무리 작아도 20px를 유지해 실루엣 폭의 절반을 먹는 구름이 됨(유저 "원형 홀드처럼
+    // 보임" 지적의 절반). 실루엣 크기 비례 고정폭(sd 0.03 ≈ FX Lab 캔버스에서의 20px과
+    // 동일 비율)으로 교체 — 원거리 앨리어싱 방지로 최소 1.5px만 fwidth 보장.
+    float rimW = max(0.03 * uW, 1.5 * fw);
+    float rim = (1.0 - smoothstep(0.0, rimW, distToRim)) * dashM;
     // 진행 시작점(12시, a01=0/1 랩어라운드) 각도차 랩어라운드 수정 — 옛 공식은 여기서
     // 회색↔적색 전환이 "무 자르듯" 뚝 끊겼음(FX Lab에서 이미 고친 버그, 동일 수정).
     float angDist = a01 - pr; angDist -= floor(angDist + 0.5);

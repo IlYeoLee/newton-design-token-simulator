@@ -349,7 +349,7 @@ export const STAGES = {
   running: [
     { id:'READY', label:'0 · READY — 준비', voice:['시스템','션의 마지막 1km 페이스 팩. 준비되면 발을 두 번 탭하세요.'], wear:'SAFE 대기', foot:'두 번 탭 → 시작' },
     { id:'A1', label:'A · 스트레칭 1/4 — 발목 돌리기', voice:['션','발목부터 풀어요. 원에 발끝 올리고 천천히 여덟 번.'], wear:'개입 없음 (가동범위 측정)' },
-    { id:'A2', label:'A · 스트레칭 2/4 — 종아리 펌프', voice:['션','앞 원에 왼발. 뒤꿈치를 높이 들었다 — 바닥까지. 가볍게 열 번.'], hap:'10회 종료 진동 1회' },
+    { id:'A2', label:'A · 스트레칭 2/4 — 종아리 펌프', voice:['션','왼발을 앞에. 뒤꿈치를 높이 들었다 — 바닥까지. 가볍게 열 번.'], hap:'10회 종료 진동 1회' },
     { id:'A3', label:'A · 스트레칭 3/4 — 다리 스윙', voice:['션','골반 잡고 다리를 앞뒤로. 가볍게 열 번.'], foot:'완료 후 두 번 탭 → 다음' },
     { id:'A4', label:'A · 스트레칭 4/4 — 션 박자 걷기', voice:['션','이제 내 걸음 박자로 제자리 걷기. 처음엔 천천히 — 점점 붙여요.'], hap:'워밍업 박자 (약)', wear:'낮은 강도 보조 시작' },
     { id:'T1', label:'T-1 · STAGE CLEAR → 사전 익히기', voice:['시스템','몸 다 풀렸어요. 탭 두 번이면 다음으로.'], foot:'두 번 탭 → 사전 익히기' },
@@ -474,7 +474,11 @@ export class Session {
       const sx = i === 0 ? 1 : -1;
       const front = new FootMark(i === 0 ? 'left' : 'right').at(-0.13 * sx, -1.30);
       const back = new FootMark(i === 0 ? 'right' : 'left').at(0.14 * sx, -1.00);
-      pg.add(front.group, back.group, floorRing(0.14 * sx, -1.00, 0.235, 0.255, BRAND.sand, 0.5));
+      // 뒤꿈치 펌프 진행은 back 발형 자신의 Hold 코닉 림(발 테두리를 따라 도는 라인)이 전담.
+      // 예전에 여기 있던 히트색 floorRing은 MARK Preview 상태(숨쉬는 필+윤곽)로 통째로
+      // 렌더돼 발형 Hold 위에 "원형 홀드처럼 보이는 별개 토큰"이 겹침 — 발·링·글로우
+      // 3겹이 뭉개져 저품질로 보이던 주범(유저 스크린샷 확인). 링 제거, 발형만.
+      pg.add(front.group, back.group);
       this.a2.push({ pg, front, back });
     }
 
@@ -983,7 +987,7 @@ export class Session {
     switch (st.id) {
       case 'READY': FS('SEAN · LAST 1KM'); FL('READY'); break;   // 푸터 제거: CTA 라벨과 중복 + CTA 근접 이동으로 겹침
       case 'A1': FS('STRETCH 1/4'); FL('발끝 올리고 돌리기'); FM('왼발 1 / 8', CS.sand); break;
-      case 'A2': FS('STRETCH 2/4'); FL('뒤꿈치 펌프'); FM('앞 원에 왼발 · 들었다 내리기 ×10', CS.sand); break;
+      case 'A2': FS('STRETCH 2/4'); FL('뒤꿈치 펌프'); FM('왼발 앞 · 들었다 내리기 ×10', CS.sand); break;
       case 'A3': FS('STRETCH 3/4'); FL('다리 앞뒤 스윙'); FM('1 / 10'); break;
       case 'A4': FS('STRETCH 4/4'); FL('션 박자로 걷기'); FM('처음엔 천천히 — 점점 붙어요'); break;
       case 'T1': FS('T-1'); S(this.slotFL, 'STAGE CLEAR', { size: 0.12, color: CS.prism }); break;   // 푸터 제거: CTA 라벨과 중복
