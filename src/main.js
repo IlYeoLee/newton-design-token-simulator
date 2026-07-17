@@ -730,6 +730,7 @@ async function boot() {
   const sessionHud = document.getElementById('session-hud');
   const hudStageEl = document.getElementById('hud-stage');
   const hudIdxEl = document.getElementById('hud-idx');
+  // 세션이 판정 오차를 소비 (페이스 라이트 = 타이밍 오차의 공간 번역, C3 흔들림 시연)
   const session = new Session(scene, tokens, xbot, rig, st => {
     const sig = [];
     if (st.hap) sig.push(`<span style="color:var(--warn)">햅틱</span> ${st.hap}`);
@@ -757,6 +758,7 @@ async function boot() {
       if (/FIN$/.test(st.id)) setTimeout(() => demoAdvance(), 4500);
     }
   });
+  session.judge = judge;   // 판정 오차 소비 (페이스 라이트·FIN 겹쳐보기·C3 흔들림)
   // 게이트/다운시프트 안내 자막 + 웨어러블 신호
   sessionSkillSink = session;
   session.setSkill(parseInt(document.getElementById('s-skill')?.value ?? '70', 10) / 100);

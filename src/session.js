@@ -402,8 +402,12 @@ export class Session {
     this.slotFS = new THREE.Group(); this.slotFS.position.set(0, 0, -2.98);
     this.slotFL = new THREE.Group(); this.slotFL.position.set(0, 0, -2.68);
     this.slotFM = new THREE.Group(); this.slotFM.position.set(0, 0, -1.28);
+    // 페이스 라이트 — '션의 현재 위치' 광점 (C 실전 상설, 소형 존 원 = 마크와 크기·위치로 구분).
+    // 페이스 일치 = 발앞 1.6m 고정, 내가 늦으면 멀어짐(션이 앞서감) — 타이밍 오차의 공간 번역.
+    this.paceLight = floorRing(0, -1.6, 0.09, 0.105, BRAND.red, 0.85);
+    this.paceLight.visible = false;
     this.dirSlot = new THREE.Group();   // C 방향 피드백 글리프 (착지점 추종, _dirCue)
-    this.root.add(this.slotFS, this.slotFL, this.slotFM, this.dirSlot);
+    this.root.add(this.slotFS, this.slotFL, this.slotFM, this.dirSlot, this.paceLight);
 
     this.countGroup = new THREE.Group(); this.countGroup.position.set(0, 0, -1.1);
     this.countRing = floorRing(0, -1.1, 0.30, 0.335, BRAND.red, 0);
@@ -455,9 +459,11 @@ export class Session {
     }
 
     g = this._mk('A3');
+    // 다리 스윙 = 지면이 판정 못 하는 공중 동작 — 판정형 화살표 대신 '스윙 종점 존' 2개가
+    // 진폭을 공간으로 보여주고 교대 글로우가 박자를 보여줌 (축발 + 존 2 = 단서 3개).
     this.a3foot = new FootMark('left').at(-0.05, -1.14, 1.1); g.add(this.a3foot.group);
-    this.a3fwd = floorArrow(0.22, -1.03, 0, BRAND.dim, 0.34); g.add(this.a3fwd);
-    this.a3bwd = floorArrow(0.22, -1.33, 180, BRAND.dim, 0.34); g.add(this.a3bwd);
+    this.a3zones = [floorRing(0.22, -0.92, 0.10, 0.115, BRAND.red, 0.3), floorRing(0.22, -1.42, 0.10, 0.115, BRAND.red, 0.3)];
+    g.add(this.a3zones[0], this.a3zones[1]);
 
     g = this._mk('A4');
     this.a4L = new FootMark('left').at(-0.17, -1.14); g.add(this.a4L.group);
@@ -521,6 +527,15 @@ export class Session {
     g.add(floorText('STOP', 0, -2.6, { size: 0.09, color: CS.mute }));
 
     g = this._mk('FIN');
+    // Ghost Review 실체화 — 션 발자국(무채 고스트) 위에 내 착지점(소형 존 원)을 오차 벡터만큼
+    // 어긋나게 겹쳐 투사 (도식 격자 — 리뷰는 오차'만' 말한다). 데이터 = judge 최근 판정 4개.
+    this.finGhost = []; this.finMine = [];
+    for (let i = 0; i < 4; i++) {
+      const fm = new FootMark(i % 2 ? 'right' : 'left');
+      fm.ghost(); fm.op(0.75); g.add(fm.group); this.finGhost.push(fm);
+      const r = floorRing(0, 0, 0.05, 0.062, BRAND.red, 0.9);
+      g.add(r); this.finMine.push(r);
+    }
     g.add(floorText('오늘의 러닝', 0, -1.7, { size: 0.11, color: CS.ink }));
     g.add(floorText('Pack 일치도 78% · 숙련 근접도 64% (+6%)', 0, -2.05, { size: 0.07, color: CS.dim }));
     g.add(floorText('후반 리듬 800m부터 흔들림', 0, -2.3, { size: 0.06, color: CS.mute }));
@@ -893,6 +908,16 @@ export class Session {
     return Math.min(0.25, Math.max(0.03, m));
   }
   /** 팩 케이던스 파생 — 스텝 간격 중앙값(초). 범위 밖이면 폴백. */
+  /** 페이스 라이트 틱 — 최근 판정 3개의 평균 타이밍 오차를 거리(×팩속도 2.5m/s)로 번역 */
+  _paceTick() {
+    this.paceLight.visible = true;
+    const R = this.judge?.results || [];
+    let err = 0;
+    for (let i = Math.max(0, R.length - 3); i < R.length; i++) err += R[i].terr;
+    err /= Math.min(3, Math.max(1, R.length));
+    const z = -1.6 - Math.max(-0.5, Math.min(1.0, err * 2.5));
+    this.paceLight.position.z += (z - this.paceLight.position.z) * 0.05;   // 부드러운 추종
+  }
   _packBeat(mult = 1, fb = 0.6) {
     const b = this.tokens?._beatT;
     return (b > 0.2 && b < 1.5) ? b * mult : fb;
@@ -913,8 +938,25 @@ export class Session {
     this.liveSpeed = st.boost ? 1.18 : 1;
     this.bobY = 0;
     for (const id in this.G) this.G[id].visible = false;
+    this.paceLight.visible = false;   // C 실전 틱(_paceTick)이 프레임마다 다시 켬
     this._setCount(null); this._setCountWall(null);
     if (this.G[st.id]) this.G[st.id].visible = true;
+    // FIN Ghost Review — 션 발자국 격자 + 내 착지점(판정 오차 벡터, ±30cm 클램프)
+    if (st.id === 'FIN' && this.finGhost) {
+      const R = (this.judge?.results || []).filter(r => r.surface === 'floor').slice(-4);
+      this.finGhost.forEach((fm, i) => {
+        const r = R[i];
+        const on = !!r;
+        fm.op(on ? 0.75 : 0);
+        this.finMine[i].setOp(on ? 0.9 : 0);
+        if (!on) return;
+        const x = (r.foot === 'right' ? 1 : -1) * 0.13, z = -0.95 - i * 0.18;
+        fm.group.position.set(x, 0.013, z);
+        this.finMine[i].position.set(
+          x + Math.max(-0.3, Math.min(0.3, r.dx)), 0.014,
+          z + Math.max(-0.3, Math.min(0.3, r.dz)));
+      });
+    }
     this._lastCount = null;
     // 지면/벽 슬롯 전환
     const wall = !!st.wall;
@@ -1172,13 +1214,11 @@ export class Session {
       FMU(`${phase === 0 ? '왼발 앞' : '오른발 앞'} · 뒤꿈치 펌프 ${rep} / ${REPS}`, CS.sand);
       if (this.t >= 2 * PH) { this.next(); return; }
     } else if (id === 'A3') {
-      // 다리 스윙 — 앞/뒤 화살표 교대 강조 + 10회 카운트 (강조 = _gainK 페이드 규약)
-      const SW = SCFG.a3Swing, fwd = beat(SW) < 0.5;
-      const em = (arrow, on) => {
-        arrow._mat._gainK = on ? 1.25 : 0.3;
-        for (const tp of arrow._tips) tp.material.opacity = on ? 0.95 : 0.25;
-      };
-      em(this.a3fwd, fwd); em(this.a3bwd, !fwd);
+      // 다리 스윙 — 종점 존 교대 글로우 (반주기마다 앞존↔뒷존이 차오름 = 스윙 박자·진폭)
+      const SW = SCFG.a3Swing, ph = beat(SW);
+      const fwd = ph < 0.5, k = fwd ? ph * 2 : (ph - 0.5) * 2;
+      this.a3zones[0].setOp(fwd ? 0.3 + 0.65 * k : 0.3);
+      this.a3zones[1].setOp(!fwd ? 0.3 + 0.65 * k : 0.3);
       FMU(`${Math.min(10, Math.floor(this.t / SW) + 1)} / 10`);
       if (this.t >= 10 * SW + 0.5) { this.next(); return; }
     } else if (id === 'A4') {
@@ -1250,11 +1290,22 @@ export class Session {
       const n = Math.max(1, 3 - Math.floor(this.t)); if (n !== this._lastCount) { this._setCount(n, CS.ink); this._lastCount = n; }
       if (this.t >= st.dur) { this.next(); return; }   // 출발!
     } else if (id === 'C2') {
+      this._paceTick();
       if (this.t >= st.dur) { this.next(); return; }
     } else if (id === 'C3') {
+      // 흔들림 보정 시연 — 2.0~4.5s 구간 실력 하락 주입(진짜 miss 발생) → 페이스 라이트가
+      // 멀어지고 음성·F-CUE 개입 → 복귀. 요소 추가 0, 판정·리포트에 정직하게 반영.
+      const J = this.judge;
+      if (J) {
+        if (this._c3Skill == null) this._c3Skill = J.skill;
+        const wobble = this.t >= 2.0 && this.t < 4.5;
+        J.skill = wobble ? Math.min(this._c3Skill, 0.35) : this._c3Skill;
+      }
+      this._paceTick();
       if (this.c3cue.userData.plane) this.c3cue.userData.plane.material.opacity = (this.t % 1.4) < 1.0 ? 1 : 0;
-      if (this.t >= st.dur) { this.next(); return; }
+      if (this.t >= st.dur) { if (J && this._c3Skill != null) { J.skill = this._c3Skill; this._c3Skill = null; } this.next(); return; }
     } else if (id === 'C4') {
+      this._paceTick();
       if (this.t >= st.dur) { this.next(); return; }
     } else if (id === 'C5') {
       this.liveSpeed = Math.max(0.12, 1 - this.t / 2.8);   // 실제 감속

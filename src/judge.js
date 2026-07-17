@@ -108,7 +108,11 @@ export class Judge {
     const okP = perr <= this.tolP;
     const verdict = okT && okP ? 'hit' : (okT || okP ? 'near' : 'miss');
     ev._verdict = verdict;   // 마크 상태 머신 소비 — miss = 시트의 회색 고스트 소멸
-    this.results.push({ t: ev.t, terr, perr, verdict, surface: ev.surface });
+    // dx/dz = 마크 기준 착지 오차 벡터 (FIN Ghost Review 겹쳐보기 소비)
+    this.results.push({
+      t: ev.t, terr, perr, verdict, surface: ev.surface, foot: ev.foot || null,
+      dx: ev._jRaw ? ev._jRaw.dx : 0, dz: ev._jRaw ? ev._jRaw.dz : 0,
+    });
     // 타임라인 마크 (같은 t 기존 항목 교체)
     const mi = this.marks.findIndex(m => m.t === ev.t);
     const mark = { t: ev.t, verdict };
