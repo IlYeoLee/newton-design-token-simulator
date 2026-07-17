@@ -380,6 +380,9 @@ async function boot() {
   //   스트레칭 A = -42°(발 앞 ~1.8m 마크, 동작 10초 단위라 지속 굴곡 아님), 전환 T = -30°.
   const STAGE_GAZE_DEG = { A: -42, B: -38, T: -30, C: -18 };
   function sessionGazeTarget() {
+    // 벽 종목(복싱): 시선은 벽 정면 — 코치(y≈1.0~1.7)·타겟(y≈1.14)이 전부 시야에 안정적으로.
+    // 눈높이 1.6m·벽앞 1.75m 기준 -8° ≈ 벽 중심 응시 (버그였음: 'BX_'의 B가 익히기 -38°로 매칭돼 바닥만 봄)
+    if (session.curStage?.wall) return -8;
     const id = session.curStage?.id || '';
     return STAGE_GAZE_DEG[id[0]] ?? -30;   // READY/FIN 등 = 중간값
   }
