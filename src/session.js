@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { WALL_Z } from './scene.js';
 import { lutColor, GLYPHS, drawGlyph, footSlot, footSDFTexture, FXP } from './fxlut.js';
-import { makeMarkFXMaterial, makeArrow, makeLaneFXMaterial } from './tokens.js';
+import { makeMarkFXMaterial, makeLaneFXMaterial } from './tokens.js';
 
 // 피그마 CTA 임포트 — StageCard/베이스 컴포넌트의 cta 노드를 다운로드한 에셋(150×44 원 비율).
 // 절차: 피그마에서 download_assets → public/textures/<sport>_running.png → 여기서 텍스처로 소비.
@@ -149,21 +149,43 @@ function floorArc(x, z, color) {
   m.rotation.x = -Math.PI / 2; m.position.set(x, 0.0135, z); m.renderOrder = 6;
   m.userData.el = { type: 'arc' }; return m;
 }
+function tipGlyphPlane(size = 0.14) {
+  // 촉 = TIP_TRI 글리프 슬롯 (커스텀 SVG 우선, 웜 크림 삼각 폴백 — 카탈로그와 동일 언어)
+  const c = document.createElement('canvas'); c.width = c.height = 128;
+  const g2 = c.getContext('2d');
+  if (!drawGlyph(g2, 'TIP_TRI', 64, 64, 108)) {
+    g2.fillStyle = 'rgba(255,240,220,0.95)';
+    g2.beginPath(); g2.moveTo(20, 100); g2.lineTo(64, 22); g2.lineTo(108, 100); g2.closePath(); g2.fill();
+  }
+  const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
+  return new THREE.Mesh(new THREE.PlaneGeometry(size, size),
+    new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, side: THREE.DoubleSide }));
+}
 function floorArrow(x, z, deg, color, len = 0.4) {
-  // 방향 = LINE 토큰 소비 (tokens.makeArrow — 자루 스타일·커스텀 촉 슬롯 그대로)
-  const g = makeArrow(color, len);
+  // 방향 = LINE ① 경로 추종 화살표: LANEFX 광류 자루(움직임) + TIP 글리프 촉.
+  // 구 makeArrow(정적 통화살표)는 카탈로그의 '움직이는 라인 4규칙' 어디에도 없는 새 종이었음
+  // (유저 지적: "왜 갑자기 통화살표 써") — LINE 엔진 직결로 교체.
+  const g = new THREE.Group();
+  const mat = makeLaneFXMaterial(len);
+  mat._arrowStyle = true;   // tickWaves: 스타일을 lane이 아닌 FXP.arrow.line에서
+  LANE_MATS.push(mat);
+  const shaft = new THREE.Mesh(new THREE.PlaneGeometry(0.16, len), mat);
+  shaft.position.y = len / 2 - 0.02;
+  g.add(shaft);
+  const tip = tipGlyphPlane(); tip.position.y = len + 0.04; g.add(tip);
   g.rotation.x = -Math.PI / 2; g.position.set(x, 0.014, z);
   g.rotation.z = THREE.MathUtils.degToRad(deg); g.renderOrder = 6;
   g.userData.el = { type: 'arrow' }; return g;
 }
 function floorStripe(x, z, w, color, op) {
-  // 감속 리듬 바 = LINE 자루(촉 없음) — 스타일 토큰(solid/dash/dot/taper) 소비
-  const g = makeArrow(color, w, 'none');
-  g.rotation.x = -Math.PI / 2; g.position.set(x, 0.012, z);
-  g.rotation.z = Math.PI / 2;   // 가로 바 방향 유지
-  g.renderOrder = 4;
-  g.traverse(o => { if (o.material) o.material.opacity = op; });
-  g.userData.el = { type: 'stripe' }; return g;
+  // 감속 리듬 바 = LINE ④ — LANEFX 광류 자루(촉 없음), 강조는 _gainK(페이드 규약)
+  const mat = makeLaneFXMaterial(w);
+  mat._arrowStyle = true; mat._gainK = op;
+  LANE_MATS.push(mat);
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(0.14, w), mat);
+  m.rotation.x = -Math.PI / 2; m.rotation.z = Math.PI / 2;   // 가로 바 방향 유지
+  m.position.set(x, 0.012, z); m.renderOrder = 4;
+  m.userData.el = { type: 'stripe' }; return m;
 }
 function floorText(text, x, z, opts) { const g = makeTextMesh(text, opts); g.position.set(x, 0.013, z); return g; }
 function floorNum(text, x, z, size, color) {
@@ -439,12 +461,11 @@ export class Session {
     this.tap1 = this._tap('running'); this.tap1.position.set(0, 0.013, -1.1); g.add(this.tap1);
 
     g = this._mk('B1');
-    // 박자 듣기 = 시각 메트로놈: 비트 링(시선 밴드 중앙) + 글리프 숫자 1·2 박자 교대 펄스
-    // (기존: 화면 가장자리에 링 하나 — 장면이 비어 음성 의존이던 문제)
-    this.b1outer = floorRing(0, -1.35, 0.24, 0.26, BRAND.red, 0.6);
-    this.b1inner = floorRing(0, -1.35, 0.12, 0.14, BRAND.red, 0.9);
-    this.b1nums = [floorNum('1', -0.55, -1.35, 0.22), floorNum('2', 0.55, -1.35, 0.22)];
-    g.add(this.b1outer, this.b1inner, this.b1nums[0], this.b1nums[1]);
+    // 박자 메트로놈 = MARK 원형 하나(카탈로그 그대로 — 링 2겹 스택은 카탈로그에 없는 종이었음)
+    // + 숫자 글리프 1·2는 마크 '안' 오버레이(글리프 단독 부유 금지 — 토큰 조합 규약)
+    this.b1ring = floorRing(0, -1.35, 0.24, 0.26, BRAND.red, 0.9);
+    this.b1nums = [floorNum('1', 0, -1.35, 0.15), floorNum('2', 0, -1.35, 0.15)];
+    g.add(this.b1ring, this.b1nums[0], this.b1nums[1]);
 
     g = this._mk('B2');
     this.b2L = new FootMark('left').at(-0.17, -1.14); g.add(this.b2L.group);
@@ -455,8 +476,18 @@ export class Session {
     this.b3 = [];
     const bp = [[-0.17, -1.14], [0.18, -1.37], [-0.14, -1.60]];
     for (let i = 0; i < 3; i++) {
-      const fm = new FootMark(i % 2 === 0 ? 'left' : 'right').at(bp[i][0], bp[i][1]);
-      g.add(fm.group); g.add(floorNum(String(i + 1), bp[i][0] - 0.22, bp[i][1] + 0.12, 0.12, CS.ink));
+      const right = i % 2 === 1;
+      const fm = new FootMark(right ? 'right' : 'left').at(bp[i][0], bp[i][1]);
+      // 순서 숫자 = 발자국 '안' 글리프 오버레이 (tokens.js 마커와 동일 numFoot 앵커 소비 —
+      // 글리프를 발 옆에 따로 띄우는 건 카탈로그에 없는 조합이었음, 유저 지적)
+      const a = (FXP.numFoot && FXP.numFoot[FXP.footCtx === 'in' ? 'in' : 'out']) || { x: 0.5, y: 0.38, s: 1 };
+      const ax = right ? 1 - a.x : a.x;
+      const S = 0.46;   // FootMark 쿼드 크기
+      const p = floorNum(String(i + 1), 0, 0, 0.13, CS.ink).userData.plane;
+      p.position.set((ax - 0.5) * S, (0.5 - a.y) * S, 0.002);
+      p.scale.setScalar(a.s || 1);
+      fm.group.add(p);
+      g.add(fm.group);
       this.b3.push(fm);
     }
 
@@ -1007,20 +1038,22 @@ export class Session {
         m.needsUpdate = true;
       }
     }
-    // 세션 레인 = LINE 토큰 라이브 소비 (시뮬 laneFX와 동일 규약)
+    // 세션 레인·화살표·감속바 = LINE 토큰 라이브 소비 (시뮬 laneFX와 동일 규약)
     const A = FXP.arrow || {};
-    const styleIdx = ({ solid: 0, dash: 1, dot: 2, chevron: 3, comet: 4, taper: 5 })[(FXP.lane && FXP.lane.style) || 'dash'] ?? 1;
+    const IDX = { solid: 0, dash: 1, dot: 2, chevron: 3, comet: 4, taper: 5 };
+    const styleIdx = IDX[(FXP.lane && FXP.lane.style) || 'dash'] ?? 1;
+    const arrowIdx = IDX[A.line || 'solid'] ?? 0;   // 화살표·감속바는 arrow 라인 스타일
     for (const m of LANE_MATS) {
       const U = m.uniforms;
       U.uTime.value = t;
-      U.uLStyle.value = styleIdx;
+      U.uLStyle.value = m._arrowStyle ? arrowIdx : styleIdx;
       U.uW.value = FXP.graphics.width * (A.w || 1);
       U.uHalo.value = FXP.graphics.halo * (A.glow ?? 1);
       U.uLSpeed.value = A.speed ?? 1;
       U.uLGap.value = A.gap ?? 1;
       U.uLHeat.value = A.heat ?? 0.5;
       U.uLTail.value = A.tail ?? 0.55;
-      U.uGain.value = FXP.gainBoost;
+      U.uGain.value = FXP.gainBoost * (m._gainK ?? 1);   // _gainK = 장면 강조/페이드 (허용 매개변수)
       if (U.uDay.value !== day) {
         U.uDay.value = day;
         m.blending = day ? THREE.NormalBlending : THREE.AdditiveBlending;
@@ -1134,11 +1167,13 @@ export class Session {
       FMU(`${phase === 0 ? '왼발 앞' : '오른발 앞'} · 뒤꿈치 펌프 ${rep} / ${REPS}`, CS.sand);
       if (this.t >= 2 * PH) { this.next(); return; }
     } else if (id === 'A3') {
-      // 다리 스윙 — 앞/뒤 화살표 교대 강조 + 10회 카운트
+      // 다리 스윙 — 앞/뒤 화살표 교대 강조 + 10회 카운트 (강조 = _gainK 페이드 규약)
       const SW = SCFG.a3Swing, fwd = beat(SW) < 0.5;
-      const fm2 = this.a3fwd.children[0].material, bm = this.a3bwd.children[0].material;
-      fm2.opacity = fwd ? 0.95 : 0.22; bm.opacity = fwd ? 0.22 : 0.95;
-      fm2.color.setHex(fwd ? BRAND.coral : BRAND.dim); bm.color.setHex(fwd ? BRAND.dim : BRAND.coral);
+      const em = (arrow, on) => {
+        arrow.children[0].material._gainK = on ? 1.25 : 0.3;
+        if (arrow.children[1]) arrow.children[1].material.opacity = on ? 0.95 : 0.25;
+      };
+      em(this.a3fwd, fwd); em(this.a3bwd, !fwd);
       FMU(`${Math.min(10, Math.floor(this.t / SW) + 1)} / 10`);
       if (this.t >= 10 * SW + 0.5) { this.next(); return; }
     } else if (id === 'A4') {
@@ -1154,11 +1189,10 @@ export class Session {
       if (this.t >= T1 + 8 * base + 0.4) { this.next(); return; }
     } else if (id === 'B1') {
       const BT = this._packBeat(1, SCFG.b1Beat), k = 1 - beat(BT);
-      this.b1outer.setOp(0.4 + 0.5 * k); this.b1inner.setOp(0.65 + 0.35 * k);
-      this.b1outer.scale.setScalar(0.7 + 0.5 * (1 - k));
-      // 글리프 숫자 1·2 = 박자 교대 펄스 (하나-둘이 눈에 보이는 메트로놈)
+      this.b1ring.setOp(0.45 + 0.55 * k);
+      // 마크 안 숫자 1·2 교대 펄스 (하나-둘이 눈에 보이는 메트로놈)
       const bn = Math.floor(this.t / BT) % 2;
-      this.b1nums.forEach((n, i) => { const on = i === bn; n.userData.plane.material.opacity = on ? 0.35 + 0.65 * k : 0.18; n.scale.setScalar(on ? 1 + 0.25 * k : 0.9); });
+      this.b1nums.forEach((n, i) => { const on = i === bn; n.userData.plane.material.opacity = on ? 0.35 + 0.65 * k : 0; n.scale.setScalar(on ? 1 + 0.2 * k : 0.9); });
       FMU(`박자 ${Math.min(8, Math.floor(this.t / BT) + 1)} / 8 — 듣기만`);
       if (this.t >= 8 * BT + 0.3) { this.next(); return; }
     } else if (id === 'B2') {
@@ -1192,7 +1226,7 @@ export class Session {
       if (this.t >= st.dur) { this.next(); return; }
     } else if (id === 'C5') {
       this.liveSpeed = Math.max(0.12, 1 - this.t / 2.8);   // 실제 감속
-      this.c5stripes.forEach((s, i) => { const o = (0.7 - i * 0.13) * (0.5 + 0.5 * Math.sin(this.t * 3 - i)); s.traverse(n => { if (n.material) n.material.opacity = o; }); });
+      this.c5stripes.forEach((s, i) => { s.material._gainK = (0.7 - i * 0.13) * (0.5 + 0.5 * Math.sin(this.t * 3 - i)); });
       if (this.liveSpeed <= 0.13 && this.t > 3.2) { this.liveSpeed = 1; this.stageIdx = this.stages.findIndex(s2 => s2.id === 'FIN'); this.t = 0; this._enter(); return; }
     }
   }
@@ -1241,7 +1275,7 @@ export class Session {
       if (this.t >= 2 * cyc + 0.3) { this.next(); return; }
     } else if (id === 'BK_B3') {
       // 컷 감속 — 스트라이프 웨이브 + 디딤발 글로우
-      this.bkB3stripes.forEach((s, i) => { const o = (0.7 - i * 0.15) * (0.5 + 0.5 * Math.sin(this.t * 4 - i)); s.traverse(n => { if (n.material) n.material.opacity = o; }); });
+      this.bkB3stripes.forEach((s, i) => { s.material._gainK = (0.7 - i * 0.15) * (0.5 + 0.5 * Math.sin(this.t * 4 - i)); });
       this.bkB3foot.op(0.7 + 0.3 * (0.5 + 0.5 * Math.sin(this.t * 3)));
       if (this.t >= 5) { this._gateAdvance(); return; }
     } else if (id === 'BK_C1') {
