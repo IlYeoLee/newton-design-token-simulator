@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { WALL_Z } from './scene.js';
 import { renderDesignCanvas } from './studio/design.js';
 import { getLUT, FXP, FX_GLSL, GLYPHS, drawGlyph, footSDFTexture, warnSDFTexture } from './fxlut.js';
+import { MARK_NUM } from './fx-core.js';
 
 // ── MARK 파동 셰이더 (FX Lab 이식) — 재료는 열 하나, 상태는 파동의 위상 ──
 const MARKFX_VERT = `
@@ -525,7 +526,9 @@ class Marker {
     const m = new THREE.MeshBasicMaterial({
       map: makeNumberTexture(n), transparent: true, depthWrite: false,
     });
-    this.num = new THREE.Mesh(new THREE.PlaneGeometry(this.radius * 1.1, this.radius * 1.1), m);
+    // 크기 = FX Lab 규약: 글리프 = 쿼드(radius*2.78)의 MARK_NUM.RATIO배, 텍스처 채움률 0.75 보정
+    const numS = this.radius * 2.78 * MARK_NUM.RATIO / 0.75;
+    this.num = new THREE.Mesh(new THREE.PlaneGeometry(numS, numS), m);
     this.num.position.z = 0.004;
     // 바닥 눕힘(rx=-90°)만으로 글자 위쪽이 -Z(전방) = 유저가 읽는 방향 (rz 추가 회전 없음)
     this.group.add(this.num);
@@ -626,10 +629,9 @@ class Marker {
       const a = NF[FXP.footCtx === 'in' ? 'in' : 'out']
         || NF.L || (NF.R ? { x: 1 - NF.R.x, y: NF.R.y, s: NF.R.s } : null);   // 레거시 {L,R} 폴백
       if (a) {
-        const S = this.radius * 2.78;   // fx 쿼드 = 랩 캔버스와 같은 정규 좌표계
-        const ax = this._footRight ? 1 - a.x : a.x;
-        this.num.position.set((ax - 0.5) * S, (0.5 - a.y) * S, 0.004);
-        this.num.scale.setScalar(a.s || 1);
+        const off = MARK_NUM.anchor(a, this._footRight, this.radius * 2.78);   // fx-core 규약
+        this.num.position.set(off.x, off.y, 0.004);
+        this.num.scale.setScalar(off.s);
       }
     }
   }

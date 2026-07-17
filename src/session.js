@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { WALL_Z } from './scene.js';
 import { lutColor, GLYPHS, drawGlyph, footSlot, footSDFTexture, FXP } from './fxlut.js';
+import { MARK_NUM } from './fx-core.js';
 import { makeMarkFXMaterial, makeLaneFXMaterial } from './tokens.js';
 
 // 피그마 CTA 임포트 — StageCard/베이스 컴포넌트의 cta 노드를 다운로드한 에셋(150×44 원 비율).
@@ -478,15 +479,14 @@ export class Session {
     for (let i = 0; i < 3; i++) {
       const right = i % 2 === 1;
       const fm = new FootMark(right ? 'right' : 'left').at(bp[i][0], bp[i][1]);
-      // 순서 숫자 = 발자국 '안' 글리프 오버레이 (tokens.js 마커와 동일 numFoot 앵커 소비).
-      // 크기 = FX Lab 규약(글리프 ≈ 쿼드의 0.223배): 0.09플레인×1.5×0.75채움 ≈ 0.101/0.46.
-      // 표시는 상태 연동(업데이트 블록) — FX Lab 규약: Preview 50%·Active 100%·Success 숨김.
+      // 순서 숫자 = 발자국 '안' 글리프 오버레이 — 크기·앵커·표시 전부 fx-core MARK_NUM 규약
+      // (표시는 업데이트 블록에서 MARK_NUM.opacity(상태) 소비).
       const a = (FXP.numFoot && FXP.numFoot[FXP.footCtx === 'in' ? 'in' : 'out']) || { x: 0.5, y: 0.38, s: 1 };
-      const ax = right ? 1 - a.x : a.x;
       const S = 0.46;   // FootMark 쿼드 크기
-      const p = floorNum(String(i + 1), 0, 0, 0.09, CS.ink).userData.plane;
-      p.position.set((ax - 0.5) * S, (0.5 - a.y) * S, 0.002);
-      p.scale.setScalar(a.s || 1);
+      const p = floorNum(String(i + 1), 0, 0, S * MARK_NUM.RATIO / 0.75 / 1.5, CS.ink).userData.plane;
+      const off = MARK_NUM.anchor(a, right, S);
+      p.position.set(off.x, off.y, 0.002);
+      p.scale.setScalar(off.s);
       p.renderOrder = 7;
       fm.group.add(p);
       g.add(fm.group);
@@ -1208,11 +1208,11 @@ export class Session {
       const ST = SCFG.b3Step, cyc = 3 * ST, lt = this.t % cyc, W = ST * 0.82;
       this.b3.forEach((f, i) => {
         const t0 = i * ST;
-        let numOp;   // 숫자 = 마크 상태 연동 (FX Lab 규약: Preview 0.5 · Active 1 · Success 숨김)
-        if (lt >= t0 && lt < t0 + W) { f.countdown((lt - t0) / W); numOp = 1; }
-        else if (lt >= t0 + W && lt < t0 + ST) { f.glow(1 - (lt - t0 - W) / (ST - W)); numOp = 0; }
-        else { f.countdown(-1); numOp = 0.5; }
-        this.b3nums[i].material.opacity = numOp;
+        let ph;   // 숫자 표시 = fx-core MARK_NUM.opacity(상태) — FX Lab drawMarkNumOn과 동일 규약
+        if (lt >= t0 && lt < t0 + W) { f.countdown((lt - t0) / W); ph = 1; }
+        else if (lt >= t0 + W && lt < t0 + ST) { f.glow(1 - (lt - t0 - W) / (ST - W)); ph = 2; }
+        else { f.countdown(-1); ph = 0; }
+        this.b3nums[i].material.opacity = MARK_NUM.opacity(ph);
       });
       FMU(`세트 ${Math.min(2, Math.floor(this.t / cyc) + 1)} / 2`);
       if (this.t >= 2 * cyc + 0.4) { this.next(); return; }
