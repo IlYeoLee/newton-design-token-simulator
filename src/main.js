@@ -1977,6 +1977,102 @@ async function boot() {
     trailFlip = 1 - trailFlip;
   }
 
+  // ── 복싱 벽면 인물 시범 = FX Lab PERSON_FRAG 정본 포트 (인물 — 실사 복서 + 잔상) ──
+  //    소스: 랩 카드와 동일한 실사 스틸 8장(public/person/) → 4×2 아틀라스, 같은 수식·같은 LUT.
+  //    잔상 = 아틀라스 과거 프레임 3탭 (랩 그대로 — 핑퐁 불필요). 출력만 가산광(라이브 규약).
+  const bxAtlas = document.createElement('canvas'); bxAtlas.width = 176 * 4; bxAtlas.height = 288 * 2;
+  const bxAtlasTex = new THREE.CanvasTexture(bxAtlas);
+  bxAtlasTex.minFilter = THREE.LinearFilter; bxAtlasTex.magFilter = THREE.LinearFilter;
+  let bxPersonReady = false;
+  {
+    const ag = bxAtlas.getContext('2d');
+    let loaded = 0;
+    for (let i = 0; i < 8; i++) {
+      const im = new Image();
+      im.src = import.meta.env.BASE_URL + 'person/boxer_' + i + '.jpg';
+      im.onload = () => {
+        ag.drawImage(im, (i % 4) * 176, Math.floor(i / 4) * 288, 176, 288);
+        if (++loaded === 8) { bxAtlasTex.needsUpdate = true; bxPersonReady = true; }
+      };
+    }
+  }
+  const bxPerson = new THREE.Mesh(
+    new THREE.PlaneGeometry(1.7 * 236 / 386, 1.7),   // 랩 캔버스 종횡비 × 실신장 1.7m
+    new THREE.ShaderMaterial({
+      uniforms: {
+        uAtlas: { value: bxAtlasTex }, uLUT: { value: getLUT() },
+        uFrame: { value: 0 }, uDecay: { value: 0.6 }, uTime: { value: 0 },
+        uW: { value: 1 }, uNoise: { value: 0.55 },
+      },
+      vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+      fragmentShader: `varying vec2 vUv;
+        uniform sampler2D uAtlas, uLUT;
+        uniform float uFrame, uDecay, uTime, uW, uNoise;
+        vec3 lut(float v){ return texture2D(uLUT, vec2(clamp(v, 0.004, 0.996), 0.5)).rgb; }
+        float phash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+        float pvn(vec2 p){
+          vec2 i = floor(p), f = fract(p); f = f*f*f*(f*(f*6.0-15.0)+10.0);
+          return mix(mix(phash(i), phash(i+vec2(1,0)), f.x), mix(phash(i+vec2(0,1)), phash(i+vec2(1,1)), f.x), f.y);
+        }
+        float pfbm(vec2 p){ return pvn(p)*0.55 + pvn(p*2.13+7.7)*0.28 + pvn(p*4.31+3.1)*0.17; }
+        vec2 tileUV(vec2 uv, float f){
+          float ff = mod(f + 16.0, 8.0);
+          float cx = mod(ff, 4.0), cy = floor(ff / 4.0);
+          return (vec2(uv.x, 1.0 - uv.y) + vec2(cx, cy)) / vec2(4.0, 2.0);
+        }
+        float mask1(vec2 uv, float f){
+          vec3 rgb = texture2D(uAtlas, tileUV(uv, f)).rgb;
+          float lum = dot(rgb, vec3(0.299, 0.587, 0.114));
+          float m = smoothstep(0.52, 0.34, lum);
+          m *= smoothstep(0.0, 0.03, uv.y) * smoothstep(1.0, 0.97, uv.y);
+          return m;
+        }
+        float maskF(vec2 uv, float fk){
+          float f0 = floor(fk);
+          return mix(mask1(uv, f0), mask1(uv, f0 + 1.0), fract(fk));
+        }
+        void main(){
+          vec2 uv = vUv;
+          float m = maskF(uv, uFrame);
+          float trail = 0.0;
+          for (int j = 1; j <= 3; j++) {
+            float w = pow(uDecay, float(j));
+            trail = max(trail, maskF(uv, uFrame - float(j) * 0.85) * w);
+          }
+          trail *= (1.0 - m);
+          float mSoft = m * 0.36;
+          for (int k = 0; k < 4; k++) {
+            float a = 1.5708 * float(k) + 0.7;
+            mSoft += maskF(uv + vec2(cos(a), sin(a)) * 0.011 * uW, uFrame) * 0.16;
+          }
+          float flow = pfbm(vec2(uv.x * 3.2 + sin(uTime * 0.4) * 0.3, uv.y * 2.4 - uTime * 0.5));
+          float flow2 = pfbm(vec2(uv.x * 6.5 - uTime * 0.22, uv.y * 5.2 - uTime * 0.9));
+          float vert = pow(1.0 - uv.y, 1.35) * 0.92 + 0.06;
+          float heat = mix(vert, clamp(vert + (flow - 0.5) * 0.55 + (flow2 - 0.5) * 0.25, 0.0, 1.0), uNoise);
+          heat += clamp(m - mSoft, 0.0, 1.0) * 0.10;
+          vec3 col = lut(clamp(heat, 0.0, 1.0)) * mSoft * 1.12;
+          col += lut(clamp(heat * 0.45, 0.0, 1.0)) * trail * 0.8;
+          gl_FragColor = vec4(col, 1.0);   // 가산: 검정 = 무기여 (라이브 출력 규약)
+        }`,
+      transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+    }));
+  bxPerson.position.set(0.62, 1.7 / 2 + 0.12, WALL_Z + 0.03);
+  bxPerson.renderOrder = 5;
+  bxPerson.visible = false;
+  scene.add(bxPerson);
+  function renderBxPerson() {
+    const on = bxPersonReady && state.pack === 'boxing' && session.active && !session.isLive;
+    bxPerson.visible = !!on;
+    if (!on) return;
+    const U = bxPerson.material.uniforms;
+    const ms = performance.now();
+    U.uFrame.value = (ms / 150) % 8;
+    U.uTime.value = ms / 1000;
+    U.uDecay.value = FXP.person?.decay ?? 0.6;
+    U.uNoise.value = FXP.person?.flow ?? 0.55;
+    U.uW.value = FXP.person?.blur ?? 1;
+  }
+
   switchPack('running');
   document.getElementById('loading').style.display = 'none';
 
@@ -2153,7 +2249,7 @@ async function boot() {
 
   if (import.meta.env.DEV) window.__dbg = {
     rig, xbot, state, session, sceneScope, camera, controls, tokens, effects, scene, editor3d, sceneUI, FXP, designStore, TCFG, editCam, editControls, judge, THREE,
-    renderer, demoVideo, renderDemoPanel,
+    renderer, demoVideo, renderDemoPanel, renderBxPerson,
     get activeCam() { return studioActive ? editCam : camera; },
     get doc() { return studioDoc; },
     get canvas() { return studioCanvas; },
@@ -2385,7 +2481,8 @@ async function boot() {
     sceneUI.update(rawDt, rig);       // 장면 UI 슬롯 — 풋프린트 추종 재배치 + 페이드
     session.tickWaves();              // 스테이지 파동 링 시계 (프리뷰 포함)
     renderGhostLayer();
-    renderDemoPanel();   // A 시범 구간 실사 클립
+    renderDemoPanel();   // A 시범 구간 실사 클립 (휴면)
+    renderBxPerson();    // 복싱 벽면 인물 시범 (정본 포트)
     renderFrame(clock.elapsedTime);   // 블룸 + 그레인·비네트 컴포저 (scene.js FX)
   }
   loop();
