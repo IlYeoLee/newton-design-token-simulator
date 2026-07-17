@@ -36,8 +36,11 @@ void main() {
   //   0 Preview·1 Active·2 Success→3·3 Locked→6·4 Miss·5 Hold→2·6 Warning→5
   float st = uPhase < 0.5 ? 0.0 : uPhase < 1.5 ? 1.0 : uPhase < 2.5 ? 3.0
            : uPhase < 3.5 ? 6.0 : uPhase < 4.5 ? 4.0 : uPhase < 5.5 ? 2.0 : 5.0;
-  // Preview의 진행은 uStrong(다음 마크 강조), 그 외는 판정 uProg — 카탈로그 데모시계의 라이브 대응
-  float prog = uPhase < 0.5 ? max(uStrong, uProg) : clamp(uProg, 0.0, 1.0);
+  // Preview의 진행: 카탈로그 데모시계(숨쉬기)가 바닥 — 구동자 없는 라이브 Preview가
+  // prog=0에 얼어붙어 '얇은 정지 외곽선'(카탈로그에 없는 모습)으로 보이던 것의 근본 해결.
+  // uStrong(다음 마크 강조)·uProg(판정 구동)는 max로 그 위에 얹힘.
+  float breath = smoothstep(0.10, 0.88, fract(uTime * 0.45));
+  float prog = uPhase < 0.5 ? max(breath, max(uStrong, uProg)) : clamp(uProg, 0.0, 1.0);
   vec4 r = markState(uv, st, prog, uStrong, uTime);
   // 쿼드 보더 원형 페이드 — 평면 가장자리에서 헤일로가 뚝 잘리는 것 방지 (라이브 전용)
   float border = smoothstep(1.0, 0.82, length(uv));
