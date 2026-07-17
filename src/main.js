@@ -1814,7 +1814,7 @@ async function boot() {
   //    + 내부 열 대류(fbm) → 공유 히트 LUT. 잔상은 핑퐁 RT 누적(max(cur, prev·decay)) —
   //    랩의 과거 프레임 3탭과 시각 등가. 룩 슬라이더(person.decay/flow) 라이브 소비.
   const demoVideo = document.createElement('video');
-  demoVideo.src = import.meta.env.BASE_URL + 'cand_36949.mp4';   // Mixkit 36949 — 피트니스 남성 다리 스트레칭
+  demoVideo.src = import.meta.env.BASE_URL + 'bx_45874.mp4';   // Mixkit 45874 — 남성 복서 연습 (외부 실사, 3안 중 최선)
   demoVideo.muted = true; demoVideo.loop = true; demoVideo.playsInline = true;
   demoVideo.crossOrigin = 'anonymous';
   const demoTex = new THREE.VideoTexture(demoVideo);
@@ -1871,13 +1871,24 @@ async function boot() {
         uTime: { value: 0 }, uNoise: { value: 0.55 }, uW: { value: 1 },
         uCropC: { value: new THREE.Vector2(0.5, 0.5) }, uCropS: { value: new THREE.Vector2(1, 1) },
       },
-      vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
-      fragmentShader: `varying vec2 vUv;
+      vertexShader: `#include <common>
+#include <clipping_planes_pars_vertex>
+varying vec2 vUv;
+void main(){
+  vUv = uv;
+  vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+  gl_Position = projectionMatrix * mvPosition;
+  #include <clipping_planes_vertex>
+}`,
+      fragmentShader: `#include <common>
+#include <clipping_planes_pars_fragment>
+        varying vec2 vUv;
         uniform sampler2D uTrail, uLUT; uniform float uTime, uNoise, uW;
         vec3 lut(float v){ return texture2D(uLUT, vec2(clamp(v, 0.004, 0.996), 0.5)).rgb; }
         ` + FX_GLSL.replace('uniform sampler2D uLUT;', '').replace('vec3 lut(float v){ return texture2D(uLUT, vec2(clamp(v, 0.004, 0.996), 0.5)).rgb; }', '') + `
         ` + MASK_GLSL + `
         void main(){
+          #include <clipping_planes_fragment>
           vec2 uv = vUv;
           float m = pmask(uv);
           float trail = texture2D(uTrail, uv).r * (1.0 - m);
@@ -1906,11 +1917,18 @@ async function boot() {
   scene.add(demoPanel);
   let demoLastT = 0;
   const demoCrop = { cx: 0.5, cy: 0.5, sx: 1, sy: 1 };
-  // 실사 시범은 소스 확보 전까지 휴면 — 스톡 클립으로는 레퍼런스 미학 불성립(유저 확정).
-  // 살리는 조건: 전신·직립·측면·인물 큼·깨끗한 배경 클립 확보 후 DEMO_CLIP_ON = true.
-  const DEMO_CLIP_ON = false;
+  // 실사 시범 모드: 'off' | 'floor'(러닝 A 시범 — 휴면) | 'wall'(복싱 벽 실사 시험).
+  const DEMO_CLIP_MODE = 'wall';
+  if (DEMO_CLIP_MODE === 'wall') {
+    demoPanel.rotation.x = 0;                          // 벽 = 직립
+    demoPanel.position.set(-0.38, 1.02, WALL_Z + 0.035);
+    demoPanel.scale.setScalar(1.8);                    // 0.93m 지오메트리 → 실신장 ~1.7m
+  }
   function renderDemoPanel() {
-    const on = DEMO_CLIP_ON && session.active && !session.isLive && session.demoActive;
+    const on = DEMO_CLIP_MODE !== 'off' && session.active && !session.isLive
+      && (DEMO_CLIP_MODE === 'wall' ? state.pack === 'boxing' : session.demoActive);
+    if (DEMO_CLIP_MODE === 'wall' && rig.wallClip && demoPanel.material.clippingPlanes !== rig.wallClip)
+      demoPanel.material.clippingPlanes = rig.wallClip;   // 투사면 밖 금지 — 벽 클리핑
     demoPanel.visible = !!on;
     if (on) { if (demoVideo.paused) demoVideo.play().catch(() => {}); }
     else { if (!demoVideo.paused) demoVideo.pause(); return; }
@@ -2005,8 +2023,18 @@ async function boot() {
         uFrame: { value: 0 }, uDecay: { value: 0.6 }, uTime: { value: 0 },
         uW: { value: 1 }, uNoise: { value: 0.55 },
       },
-      vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
-      fragmentShader: `varying vec2 vUv;
+      vertexShader: `#include <common>
+#include <clipping_planes_pars_vertex>
+varying vec2 vUv;
+void main(){
+  vUv = uv;
+  vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+  gl_Position = projectionMatrix * mvPosition;
+  #include <clipping_planes_vertex>
+}`,
+      fragmentShader: `#include <common>
+#include <clipping_planes_pars_fragment>
+        varying vec2 vUv;
         uniform sampler2D uAtlas, uLUT;
         uniform float uFrame, uDecay, uTime, uW, uNoise;
         vec3 lut(float v){ return texture2D(uLUT, vec2(clamp(v, 0.004, 0.996), 0.5)).rgb; }
@@ -2033,6 +2061,7 @@ async function boot() {
           return mix(mask1(uv, f0), mask1(uv, f0 + 1.0), fract(fk));
         }
         void main(){
+          #include <clipping_planes_fragment>
           vec2 uv = vUv;
           float m = maskF(uv, uFrame);
           float trail = 0.0;
@@ -2057,14 +2086,17 @@ async function boot() {
         }`,
       transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
     }));
-  bxPerson.position.set(0.62, 1.7 / 2 + 0.12, WALL_Z + 0.03);
+  bxPerson.material.clipping = true;
+  bxPerson.position.set(0.42, 1.7 / 2 + 0.12, WALL_Z + 0.03);   // 투사 영역 안 (클리핑이 최종 보증)
   bxPerson.renderOrder = 5;
   bxPerson.visible = false;
   scene.add(bxPerson);
   function renderBxPerson() {
-    const on = bxPersonReady && state.pack === 'boxing' && session.active && !session.isLive;
+    const on = bxPersonReady && state.pack === 'boxing' && session.active && !session.isLive
+      && DEMO_CLIP_MODE !== 'wall';   // 실사 벽 시험 중엔 아틀라스 복서 숨김
     bxPerson.visible = !!on;
     if (!on) return;
+    if (rig.wallClip && bxPerson.material.clippingPlanes !== rig.wallClip) bxPerson.material.clippingPlanes = rig.wallClip;
     const U = bxPerson.material.uniforms;
     const ms = performance.now();
     U.uFrame.value = (ms / 150) % 8;
