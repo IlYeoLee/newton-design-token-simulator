@@ -1948,6 +1948,7 @@ void main(){
           float faceW = smoothstep(0.70, 0.84, uv.y) * (1.0 - smoothstep(0.965, 1.0, uv.y));
           // 실사 결 = 주 텍스처 (팔·다리·몸통 근육·주름이 온도로 살아남) — 얼굴 대역만 제거
           T = clamp(T * 0.72 + (dlum - 0.42) * uDetail * 1.5 * m * (1.0 - faceW), 0.0, 1.0);
+          T = pow(T, 1.38);   // 밀도 대비 — 어두운 부위를 더 깊게 (레퍼런스: 그늘진 팔이 암색으로 잠김)
           T = max(T, trail * 0.6);
           // 형태: 전신 크리스프 실루엣 + 약한 확산 헤일로 — 얼굴도 윤곽 유지,
           // 이목구비는 faceW의 결 제거(위 uDetail 항)만으로 은닉 (내부 온도 필드는 원래 매끈)
@@ -1955,6 +1956,8 @@ void main(){
           float shape = max(m * 0.9, soft * 0.25);
           shape = max(shape, trail * 0.5);
           vec3 col = mix(thermo(T), lut(clamp(T * 0.96, 0.0, 1.0)), uTone) * shape;   // 뉴턴톤 기본 = 룩 팔레트
+          float cl = dot(col, vec3(0.299, 0.587, 0.114));
+          col = clamp(mix(vec3(cl), col, 1.32), 0.0, 1.0);   // 채도 부스트 — 룩시스템 '쟁한' 고채도 유지
           col += (fxhash(uv * 977.0 + uTime) - 0.5) * (2.0 / 255.0);
           col += (fxhash(uv * 1661.0 + uTime * 3.0) - 0.5) * uGrain;
           // 검은 필드 = 패널 전체 차폐 (레퍼런스: 흑 배경 위 발광) — 가장자리만 페이드

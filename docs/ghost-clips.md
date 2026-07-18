@@ -59,3 +59,10 @@ A(준비운동)에서는 전문가 시범 역할, B·C(익히기·실전)에서�
 1. 생성된 클립을 위 파일명 그대로 `public/ghost/`에 저장
 2. 새로고침 → 복싱 세션 시작 → 스테이지마다 자동 교체 확인
 3. 크로마 품질 확인: 인물 안에 구멍·배경 잔녹색이 보이면 배경 균일도가 낮은 것 — 재생성
+
+## 명암 깊이 (히트맵 밀도차의 원천 — 생성 시 강력 권장)
+
+열화상 룩은 원본의 명암을 온도로 읽는다. 평평한 정면 조명이면 밀도차가 안 나온다.
+프롬프트에 추가: **"dramatic side lighting, one key light from the side, strong soft shadows
+across the body, limbs in front of the torso fall into shadow"** — 몸 앞을 지나는 팔·그늘진
+부위가 자연스럽게 어두워져(→깊은 암색) 히트맵 밀도 차이가 원본에서부터 생긴다.
