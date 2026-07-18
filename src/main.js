@@ -2504,62 +2504,33 @@ void main(){
     hudChip(g, 800 - w / 2, 912, w, 54, 27, HUD_MAIN, text, 800, 948);
   }
   function hudCTA(g, text, y, tS) {
-    // codefronts layered-depth-gradient-button 이식 — 뉴턴 레드 칩 그라디언트(920F0F→FA3030→FE6E3C)
-    // 3층: 블러 백 글로우 / 그라디언트 페이스+탑 하이라이트 / 글림 캡슐. 풀 잉크(쨍하게).
+    // codefronts gb-01 (gradient button with glow shadow) 1:1 — 컬러만 뉴턴 칩
+    // 구조 원본 그대로: 120deg 그라디언트 필 + 동일 그라디언트 blur(22) 글로우(::before)
+    // 모션도 원본의 hover 상태만 사용(translateY -3px·글로우 .55→.85), 탭 박자에 맞춰 발동
     g.font = '700 26px Pretendard, sans-serif'; g.textAlign = 'center';
-    const w = g.measureText(text).width + 72, h = 58, R = 16, yy = y ?? 908;
+    const w = g.measureText(text).width + 64, h = 58, R = 16, yy = y ?? 908;
     const cyc = (tS ?? 0) % 2.2;
-    const bump = t0 => { const u = (cyc - t0) / 0.17; return u >= 0 && u <= 1 ? Math.sin(u * Math.PI) : 0; };
-    const press = Math.max(bump(0), bump(0.4));   // 퉁·퉁 → 쉼 (2번 탭 암시)
+    const bump = t0 => { const u = (cyc - t0) / 0.28; return u >= 0 && u <= 1 ? Math.sin(u * Math.PI) : 0; };
+    const hov = Math.max(bump(0), bump(0.45));
+    const mkGrad = () => {
+      const gr = g.createLinearGradient(-w / 2, -h / 2, w / 2, h / 4);   // 120deg
+      gr.addColorStop(0, '#FA3030'); gr.addColorStop(0.55, '#FE6E3C'); gr.addColorStop(1, '#FEC389');
+      return gr;
+    };
     g.save();
-    g.translate(800, yy + h / 2);
-    // 확산 펄스 — 면 그라디언트 파동 (레드 계열)
-    for (const t0 of [0, 0.4]) {
-      const u = (cyc - t0) / 0.75;
-      if (u > 0 && u < 1) {
-        const ex = u * 46, a = (1 - u) * (1 - u) * 0.8;
-        const grd = g.createRadialGradient(0, 0, Math.max(1, w / 2 - 26), 0, 0, w / 2 + ex + 30);
-        grd.addColorStop(0, 'rgba(250,48,48,0)');
-        grd.addColorStop(0.55, `rgba(250,48,48,${(a * 0.7).toFixed(3)})`);
-        grd.addColorStop(1, 'rgba(254,110,60,0)');
-        g.beginPath(); g.roundRect(-w / 2 - ex, -h / 2 - ex, w + ex * 2, h + ex * 2, R + ex);
-        g.fillStyle = grd; g.__rawFill();
-      }
-    }
-    const s = 1 - press * 0.06;
-    g.scale(s, s);
-    const py = press * 3;   // 눌림 하강
-    // ① back — 블러 다크 레드 글로우 (깊이)
+    g.translate(800, yy + h / 2 - 3 * hov);
+    // ::before — inset(8px -4px -10px) 동일 그라디언트 blur 22, opacity .55→.85
     g.save();
-    g.filter = 'blur(9px)'; g.globalAlpha = 0.6;
-    const gb = g.createLinearGradient(-w / 2, -h / 2, w / 2, h / 2);
-    gb.addColorStop(0, '#510d0d'); gb.addColorStop(0.55, '#8f1d1d'); gb.addColorStop(1, '#93401f');
-    g.beginPath(); g.roundRect(-w / 2 + 2, -h / 2 + 9, w, h, R);
-    g.fillStyle = gb; g.__rawFill();
+    g.filter = 'blur(22px)';
+    g.globalAlpha = 0.55 + 0.30 * hov;
+    g.beginPath(); g.roundRect(-w / 2 - 4, -h / 2 + 8, w + 8, h + 2, R);
+    g.fillStyle = mkGrad(); g.__rawFill();
     g.restore();
-    // ② face — 뉴턴 레드 그라디언트 + 탑 화이트 하이라이트
-    g.beginPath(); g.roundRect(-w / 2, -h / 2 + py, w, h, R);
-    const gf = g.createLinearGradient(-w / 2, -h / 2, w / 2, h / 2);
-    gf.addColorStop(0, '#920F0F'); gf.addColorStop(0.55, '#FA3030'); gf.addColorStop(1, '#FE6E3C');
-    g.fillStyle = gf; g.__rawFill();
-    const gh = g.createRadialGradient(0, -h / 2 + py, 4, 0, -h / 2 + py, h);
-    gh.addColorStop(0, 'rgba(255,255,255,0.22)'); gh.addColorStop(0.55, 'rgba(255,255,255,0)');
-    g.beginPath(); g.roundRect(-w / 2, -h / 2 + py, w, h, R);
-    g.fillStyle = gh; g.__rawFill();
-    // 인셋 탑 라인
-    g.globalAlpha = 0.3;
-    g.beginPath(); g.roundRect(-w / 2 + R * 0.6, -h / 2 + py + 1.5, w - R * 1.2, 2, 1);
-    g.fillStyle = '#ffffff'; g.__rawFill();
-    g.globalAlpha = 1;
-    // ③ gleam — 탑 캡슐 광택
-    g.save();
-    g.filter = 'blur(3px)'; g.globalAlpha = 0.5;
-    g.beginPath(); g.ellipse(0, -h / 2 + py + 11, w * 0.28, 7, 0, 0, 6.284);
-    g.fillStyle = '#ffffff'; g.__rawFill();
-    g.restore();
-    // 라벨 — 풀 화이트 잉크
+    // 버튼 면
+    g.beginPath(); g.roundRect(-w / 2, -h / 2, w, h, R);
+    g.fillStyle = mkGrad(); g.__rawFill();
     g.fillStyle = '#ffffff';
-    g.__rawFillText(text, 0, 9 + py);
+    g.__rawFillText(text, 0, 9);
     g.restore();
     g.textAlign = 'center';
   }
