@@ -2505,52 +2505,41 @@ void main(){
     hudChip(g, 800 - w / 2, 912, w, 54, 27, HUD_MAIN, text, 800, 948);
   }
   function hudCTA(g, text, y, tS) {
-    // magicui shimmer-button 1:1 — 다크 바디 + 림을 도는 샤이머(spread 90deg, 3s 회전)
-    // 변형 2가지(유저): 샤이머 = 뉴턴 칩 그라디언트 / 텍스트 = 펀치아웃(뒤 배경 노출)
+    // '고인 빛' CTA — 용기 없음. 벽에 고인 레드 광 웅덩이(pool) + 크림 글리프.
+    // 룩 시스템 mark의 pool·halo 언어 그대로 (버튼 = 칩이 아니라 프로젝터가 쏜 빛)
     const LABEL = '발 두 번 탭해서 시작';
-    g.font = '700 34px Pretendard, sans-serif'; g.textAlign = 'center';   // 900은 과볼드 (유저)
+    g.font = '700 36px Pretendard, sans-serif'; g.textAlign = 'center';
     const tw = g.measureText(LABEL).width;
-    const w = tw + 120, h = 78, R = 39, CUT = 2.5, yy = y ?? 908;   // 헤어라인 림 (정제)
-    const t = tS ?? 0;
-    const cyc = t % 2.6;
+    const yy = y ?? 908, cy = yy + 30;
+    const t = tS ?? 0, cyc = t % 2.6;
     const bump = t0 => { const u = (cyc - t0) / 0.42; return u >= 0 && u <= 1 ? Math.sin(Math.PI * u) ** 2 : 0; };
-    const s = 1 + 0.04 * Math.max(bump(0), bump(0.55));   // 둥·둥 → 쉼 — 절제된 진폭·sin² 이징
+    const p = Math.max(bump(0), bump(0.55));   // 둥·둥 → 쉼 (웅덩이 숨)
+    const K = hudGlowK;
     g.save();
-    g.translate(800, yy + h / 2);
-    g.scale(s, s);
-    // ⓪ 외곽 halo — 룩 시스템 mark.halo 연동 (빔 발광감)
+    g.translate(800, cy);
+    // 광 웅덩이 — 납작한 타원 레이어 3겹 (전부 부드러운 라디얼, 경계 없음)
     g.save();
-    g.filter = `blur(${18 * hudGlowK}px)`;
-    g.globalAlpha = 0.32 * hudGlowK;
-    g.beginPath(); g.roundRect(-w / 2 - 6, -h / 2 - 6, w + 12, h + 12, R + 6);
-    g.fillStyle = 'rgba(250,48,48,0.9)'; g.__rawFill();
+    g.scale(1 + 0.05 * p, 0.34 * (1 + 0.03 * p));   // 숨쉴 때 살짝 번짐
+    const RW = tw * 0.78 + 90;
+    // 뉴턴 새벽 램프 방사: 중심 연주황 열원 → 주황 → 레드 → 외곽 딥레드
+    const pool = [
+      [RW * 1.55, `rgba(146,15,15,${0.28 + 0.08 * p})`],    // 외곽 딥레드 여운
+      [RW,        `rgba(250,48,48,${0.46 + 0.14 * p})`],    // 레드 본체
+      [RW * 0.60, `rgba(254,110,60,${0.55 + 0.20 * p})`],   // 주황 중역
+      [RW * 0.30, `rgba(254,195,137,${0.60 + 0.25 * p})`],  // 연주황 열원 코어
+    ];
+    for (const [r, c] of pool) {
+      const rg = g.createRadialGradient(0, 0, 0, 0, 0, r);
+      rg.addColorStop(0, c); rg.addColorStop(0.55, c.replace(/[\d.]+\)$/, a => (parseFloat(a) * 0.55).toFixed(3) + ')'));
+      rg.addColorStop(1, 'rgba(250,48,48,0)');
+      g.fillStyle = rg;
+      g.beginPath(); g.arc(0, 0, r, 0, 6.284); g.__rawFill();
+    }
     g.restore();
-    // ① 샤이머 — 회전 콘익 세그먼트 (뉴턴 그라디언트, --speed 3s)
-    const a0 = (t / 6) * Math.PI * 2;   // 6s 슬로우 (정제)
-    const cg = g.createConicGradient(a0, 0, 0);
-    cg.addColorStop(0, 'rgba(254,195,137,0.12)');
-    cg.addColorStop(0.18, 'rgba(255,243,220,0.95)');    // 넓고 완만한 아크 피크
-    cg.addColorStop(0.42, 'rgba(254,195,137,0.12)');
-    cg.addColorStop(1, 'rgba(254,195,137,0.12)');
-    g.save();
-    g.filter = 'blur(1.5px)';
-    g.beginPath(); g.roundRect(-w / 2, -h / 2, w, h, R);
-    g.fillStyle = cg; g.__rawFill();
-    g.restore();
-    // ② 백드롭 — 다크 바디가 중앙을 덮어 림만 남김 (--cut)
-    g.beginPath(); g.roundRect(-w / 2 + CUT, -h / 2 + CUT, w - CUT * 2, h - CUT * 2, R - CUT);
-    g.fillStyle = '#FA3030'; g.__rawFill();   // 플랫 단색 (그라디언트 제거 — 유저)
-    // ③ 인셋 하이라이트 (rgba 255 .1 상단)
-    g.save();
-    g.beginPath(); g.roundRect(-w / 2 + CUT, -h / 2 + CUT, w - CUT * 2, h - CUT * 2, R - CUT); g.clip();
-    const hl = g.createLinearGradient(0, -h / 2, 0, 0);
-    hl.addColorStop(0, 'rgba(255,255,255,0.22)'); hl.addColorStop(1, 'rgba(255,255,255,0)');
-    g.beginPath(); g.roundRect(-w / 2 + CUT, -h / 2 + CUT, w - CUT * 2, h * 0.5, R - CUT);
-    g.fillStyle = hl; g.__rawFill();
-    g.restore();
-    // ④ 텍스트 — 룩 시스템 글리프 재질 (웜 글로우 + 화이트 코어)
-    g.shadowColor = 'rgba(254,195,137,0.95)'; g.shadowBlur = 14 * hudGlowK;
-    g.fillStyle = '#ffffff';
+    // 크림 글리프 라벨 — 룩 시스템 정본 재질 (웜 글로우 + 크림 코어)
+    g.shadowColor = `rgba(254,195,137,${0.85 + 0.15 * p})`;
+    g.shadowBlur = (16 + 10 * p) * K;
+    g.fillStyle = '#fff6ea';
     g.__rawFillText(LABEL, 0, 12); g.__rawFillText(LABEL, 0, 12);
     g.shadowBlur = 0;
     g.__rawFillText(LABEL, 0, 12);
