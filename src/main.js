@@ -2139,11 +2139,16 @@ void main(){
   //    캔버스 1600×1000 = 벽 3.2×2.0m (500px/m, 피그마 좌표 1:1). 프레임리스 —
   //    발광 요소만(배경·프레임 박스 금지), 검정=투명. 합성·감마 = 고스트 동일 규약(P4).
   const HUDW = 1600, HUDH = 1000;
+  const HUD_SS = 2;   // 슈퍼샘플 — 1000px/m: 비트맵 확대 블러 해소 (SDF 승격 전 즉효)
   const hudCanvas = document.createElement('canvas');
-  hudCanvas.width = HUDW; hudCanvas.height = HUDH;
+  hudCanvas.width = HUDW * HUD_SS; hudCanvas.height = HUDH * HUD_SS;
   const hudCtx = hudCanvas.getContext('2d');
+  hudCtx.scale(HUD_SS, HUD_SS);   // 드로 코드는 1600×1000 좌표계 유지
   const hudTex = new THREE.CanvasTexture(hudCanvas);
-  hudTex.minFilter = THREE.LinearFilter; hudTex.magFilter = THREE.LinearFilter;
+  hudTex.minFilter = THREE.LinearMipmapLinearFilter;
+  hudTex.magFilter = THREE.LinearFilter;
+  hudTex.generateMipmaps = true;
+  hudTex.anisotropy = 8;
   const hudPanel = new THREE.Mesh(
     new THREE.PlaneGeometry(3.2, 2.0),
     new THREE.ShaderMaterial({
@@ -2175,19 +2180,26 @@ void main(){
   const HUD_RING = new Set(['BX_C1', 'BX_C2', 'BX_C3', 'BX_C4']);
   // 스테이지별 목표치 (피그마 스탯패널 사양)
   const HUD_GOALS = { BX_A1: ['목표', 8, '회'], BX_A2: ['목표 박자', 153, ''], BX_A3: ['목표 잽', 6, ''], BX_B1: ['버티기 목표', 3.0, '초'], BX_B3: ['열리는 횟수', 6, ''] };
-  function hudGlass(g, x, y, w, h, r) {
+  function hudGlass(g, x, y, w, h, r, border) {
     g.beginPath(); g.roundRect(x, y, w, h, r);
-    g.fillStyle = 'rgba(255,250,242,0.13)'; g.fill();
-    g.strokeStyle = 'rgba(255,236,214,0.55)'; g.lineWidth = 2; g.stroke();
+    g.fillStyle = 'rgba(255,252,246,0.18)'; g.fill();
+    g.strokeStyle = border || HUD_MAIN; g.lineWidth = 3; g.stroke();
+  }
+  function hudText(g, text, x, y, rim, rimW) {
+    g.lineJoin = 'round';
+    g.strokeStyle = rim || HUD_MAIN; g.lineWidth = rimW || 6;
+    g.strokeText(text, x, y);
+    g.fillStyle = '#fff8ef';
+    g.fillText(text, x, y);
   }
   function hudStat(g, x, label, num, col, frac) {
     hudGlass(g, x, 806, 480, 150, 20);
     g.fillStyle = HUD_MAIN; g.globalAlpha = 0.9;
     g.font = '500 24px Pretendard, sans-serif'; g.textAlign = 'left';
     g.fillText(label, x + 30, 44);
-    g.globalAlpha = 1; g.fillStyle = col;
+    g.globalAlpha = 1;
     g.font = '700 68px Pretendard, sans-serif';
-    g.fillText(String(num), x + 28, 108 + (frac != null ? -4 : 8));
+    hudText(g, String(num), x + 28, 108 + (frac != null ? -4 : 8), col, 6);
     if (frac != null) {
       g.fillStyle = 'rgba(255,148,71,0.3)'; g.fillRect(x + 28, 122, 424, 10);
       g.fillStyle = HUD_CYAN; g.fillRect(x + 28, 122, Math.max(12, 424 * Math.min(1, frac)), 10);
@@ -2196,7 +2208,7 @@ void main(){
   function hudTag(g, cx, text, col) {
     g.font = '700 22px Pretendard, sans-serif';
     const w = g.measureText(text).width + 52;
-    hudGlass(g, cx - w / 2, 8, w, 44, 12);
+    hudGlass(g, cx - w / 2, 8, w, 44, 12, col);
     g.fillStyle = col;
     g.beginPath(); g.arc(cx - w / 2 + 22, 30, 6, 0, 6.284); g.fill();
     g.textAlign = 'left';
@@ -2257,8 +2269,8 @@ void main(){
       g.fillStyle = '#ff9447'; g.font = '500 26px Pretendard, sans-serif';
       g.fillText(eyebrow, 800, 88);
     }
-    g.fillStyle = HUD_MAIN; g.font = '700 58px Pretendard, sans-serif';
-    g.fillText(title, 800, 152);
+    g.font = '700 58px Pretendard, sans-serif';
+    hudText(g, title, 800, 152, HUD_MAIN, 8);
   }
   function hudCaption(g, text) {
     g.font = '700 24px Pretendard, sans-serif';
