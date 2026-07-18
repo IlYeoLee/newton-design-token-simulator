@@ -2318,7 +2318,7 @@ void main(){
       float sigma = 0.18 * 4.0;
       float band = exp(-0.5 * dz * dz / (sigma * sigma)) * win;
       float aura = exp(-0.5 * dz * dz / (sigma * sigma * 4.0)) * 0.25 * win;
-      col += uLines * line * fog * 0.88;   // 배경선 업 2차 (유저)
+      col += uLines * line * fog * 1.15;   // 배경선 업 3차 (유저)
       col += uScan * (line * band * 1.1 + aura * fog * 0.5);
     }
   }
@@ -2339,7 +2339,7 @@ void main(){
              * smoothstep(0.0, 0.20, vUv.y) * smoothstep(0.0, 0.20, 1.0 - vUv.y);
   col *= vign;
   float lumG = max(col.r, max(col.g, col.b));
-  float aInk = smoothstep(0.22, 0.70, lumG) * 0.55;   // 배경 그리드 = 가장 투과
+  float aInk = smoothstep(0.16, 0.60, lumG) * 0.72;   // 배경 그리드 투과 완화 (유저: 너무 투명)
   // 감마 변환 제거 — 리니어화가 주황 칩(FE6E3C·FEC389)의 G/B를 죽여 레드로 표류시킴
   gl_FragColor = vec4(col, aInk);
 }`,
