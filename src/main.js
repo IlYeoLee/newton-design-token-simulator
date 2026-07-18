@@ -1946,7 +1946,8 @@ void main(){
           float dlum = dot(texture2D(tex, clamp(dvuv, 0.0, 1.0)).rgb, vec3(0.299, 0.587, 0.114));
           // 얼굴 대역(상단) = 이목구비 의도적 은닉 — 실사 결 제거 + 강한 확산
           float faceW = smoothstep(0.70, 0.84, uv.y) * (1.0 - smoothstep(0.965, 1.0, uv.y));
-          T = clamp(T + (dlum - 0.5) * uDetail * 0.3 * m * (1.0 - faceW), 0.0, 1.0);
+          // 실사 결 = 주 텍스처 (팔·다리·몸통 근육·주름이 온도로 살아남) — 얼굴 대역만 제거
+          T = clamp(T * 0.72 + (dlum - 0.42) * uDetail * 1.5 * m * (1.0 - faceW), 0.0, 1.0);
           T = max(T, trail * 0.6);
           // 형태: 전신 크리스프 실루엣 + 약한 확산 헤일로 — 얼굴도 윤곽 유지,
           // 이목구비는 faceW의 결 제거(위 uDetail 항)만으로 은닉 (내부 온도 필드는 원래 매끈)
