@@ -238,7 +238,7 @@ const state = {
   g: { speed: 1.0, width: 1.0, halo: 0.9, noise: 0.5, ember: 0.3, grain: 0.035, size: 1.5 },
   m: { radius: 1.0, core: 1.0, halo: 0.9, pool: 0.55, sweep: 1.0, wobble: 0.5 },
   s: { bloomStrength: 0.55, bloomThreshold: 0.55, bloomRadius: 0.6, exposure: 1.0, grain: 0, vignette: 0.12 },
-  p: { blur: 1.0, glow: 0.9, flow: 0.55, decay: 0.62, grain: 0.03 },
+  p: { blur: 1.0, glow: 0.9, flow: 0.55, decay: 0.62, grain: 0.03, detail: 0.62 },
   footShape: 1, personMode: 0, burstStyle: 0, laneStyle: 0,
   glyphs: { WARN_EXCL: WARN_EXCL_SVG },   // 슬롯별 커스텀 SVG — 저장·브리지 왕복 (규칙: ↑=전방, 발가락 위·뒤꿈치 아래)
   glyphFlip: {},   // 슬롯별 상하 반전 (⌥+클릭)
@@ -284,6 +284,7 @@ const SLIDER_DEFS = {
     ['blur',   '엣지 블러',0.3, 2.5, 0.05],
     ['glow',   '글로우', 0,   2,   0.05],
     ['flow',   '내부 흐름',0,  1,   0.05],
+    ['detail', '음영',   0,   1.2, 0.02],
     ['decay',  '잔상',   0,   0.92,0.02],
     ['grain',  '그레인', 0,   0.1, 0.005],
   ],
@@ -852,7 +853,7 @@ const footP = glProg(footC, FOOT_FRAG, 250, 250);
 // ═══ 인물 (크로스페이드 + 잔상) ═══════════════
 const PERSON_FRAG = GLSL_COMMON + `
 uniform sampler2D uAtlas;
-uniform float uFrame, uMode, uDecay, uTime;
+uniform float uFrame, uMode, uDecay, uTime, uDetail, uChroma;
 vec2 tileUV(vec2 uv, float f){
   float ff = mod(f + 16.0, 8.0);
   float cx = mod(ff, 4.0), cy = floor(ff / 4.0);
@@ -860,8 +861,14 @@ vec2 tileUV(vec2 uv, float f){
 }
 float mask1(vec2 uv, float f){
   vec3 rgb = texture2D(uAtlas, tileUV(uv, f)).rgb;
-  float lum = dot(rgb, vec3(0.299, 0.587, 0.114));
-  float m = smoothstep(0.52, 0.34, lum);
+  float m;
+  if (uChroma > 0.5) {                      // 크로마 소스(그린스크린 실사) — 결정론 키
+    float k = rgb.g - max(rgb.r, rgb.b);
+    m = 1.0 - smoothstep(0.05, 0.16, k);
+  } else {
+    float lum = dot(rgb, vec3(0.299, 0.587, 0.114));
+    m = smoothstep(0.52, 0.34, lum);
+  }
   m *= smoothstep(0.0, 0.03, uv.y) * smoothstep(1.0, 0.97, uv.y);
   return m;
 }
@@ -893,6 +900,10 @@ void main(){
     float vert = pow(1.0 - uv.y, 1.35) * 0.92 + 0.06;
     // 내부 흐름 슬라이더(uNoise) = 대류 혼합비 — 0이면 순수 세로 그라디언트
     float heat = mix(vert, clamp(vert + (flow - 0.5) * 0.55 + (flow2 - 0.5) * 0.25, 0.0, 1.0), uNoise);
+    // 음영 가산 — 실사 명암이 실루엣 안에서 이목구비·근육으로 (팔레트는 LUT 그대로)
+    vec3 rgbC = texture2D(uAtlas, tileUV(uv, floor(uFrame + 0.5))).rgb;
+    float lumC = dot(rgbC, vec3(0.299, 0.587, 0.114));
+    heat = clamp(heat + (lumC - 0.45) * uDetail, 0.0, 1.0);
     heat += clamp(m - mSoft, 0.0, 1.0) * 0.10;   // 림은 아주 은은하게
     col = lut(clamp(heat, 0.0, 1.0)) * mSoft * 1.12;
     col += lut(clamp(heat * 0.45, 0.0, 1.0)) * trail * 0.8;
@@ -942,6 +953,23 @@ let personReady = false;
     };
     im.src = u;
   });
+  // 크로마 실사 코치(시뮬과 동일 소스)를 같은 아틀라스 파이프라인에 주입 — 실패 시 스틸 유지
+  {
+    const vv = document.createElement('video');
+    vv.src = './coach_chroma.mp4'; vv.muted = true; vv.crossOrigin = 'anonymous';
+    vv.onloadeddata = async () => {
+      const seek = t => new Promise(res => { vv.onseeked = res; vv.currentTime = t; setTimeout(res, 700); });
+      const sw = vv.videoHeight * (176 / 288);
+      for (let i = 0; i < 8; i++) {
+        await seek(0.6 + i * 1.05);
+        ag.drawImage(vv, (vv.videoWidth - sw) / 2, 0, sw, vv.videoHeight, (i % 4) * 176, Math.floor(i / 4) * 288, 176, 288);
+      }
+      gl.activeTexture(gl.TEXTURE1);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, atlas);
+      gl.useProgram(personP.pr); gl.uniform1f(personP.u('uChroma'), 1);
+      personReady = true;
+    };
+  }
 }
 
 // ═══ 컨트롤 UI ════════════════════════════════
@@ -1121,6 +1149,7 @@ function frame(ts) {
     gl.uniform1f(personP.u('uFrame'), (ts / 150) % 8);
     gl.uniform1f(personP.u('uMode'), state.personMode);
     gl.uniform1f(personP.u('uDecay'), p.decay);
+    gl.uniform1f(personP.u('uDetail'), p.detail ?? 0.62);
     gl.uniform1f(personP.u('uTime'), ts / 1000);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
   }

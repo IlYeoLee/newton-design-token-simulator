@@ -897,6 +897,7 @@ async function boot() {
     Object.assign(FX, { bloomStrength: 0.14, bloomThreshold: 0.85, bloomRadius: 0.4, exposure: 0.95, grain: 0, vignette: 0.08 });   // 블룸 축소 — 소형 고휘도 코어가 문대지며 '과한 블러'로 보이던 것 (랩=블룸 거의 없음)
     if (st.bg !== undefined) { FXP.bg = st.bg; setSurfaces(st.bg === 'none' ? null : st.bg); }   // 투사면 칩 → 실물 바닥/벽 (+발형 컨텍스트)
     if (st.prims) FXP.prims = st.prims;   // 프리미티브 파라미터 → 세션 스테이지 빌드 소비 (리로드 반영)
+    if (st.person) Object.assign(FXP.person, st.person);   // 인물(코치) 룩 — 음영·잔상·흐름 동기
     if (st.lane) FXP.lane = st.lane;      // 레인 전용 스타일 (화살표 LINE과 분리 — 유저 확정)
     // markShape(랩 표현형 토글)는 미리보기용 — 시뮬 루프 마크는 설계대로 존 원 고정
     // (발형 SDF 인프라는 세션 티칭 컨텍스트용으로 보존: fxlut.footSDFTexture)
@@ -1879,7 +1880,7 @@ async function boot() {
     new THREE.ShaderMaterial({
       uniforms: {
         tex: { value: demoTex }, uTrail: { value: trailRTs[0].texture }, uLUT: { value: getLUT() },
-        uTime: { value: 0 }, uNoise: { value: 0.55 }, uW: { value: 1 },
+        uTime: { value: 0 }, uNoise: { value: 0.55 }, uW: { value: 1 }, uDetail: { value: 0.62 },
         uCropC: { value: new THREE.Vector2(0.5, 0.5) }, uCropS: { value: new THREE.Vector2(1, 1) },
       },
       vertexShader: `#include <common>
@@ -1894,7 +1895,7 @@ void main(){
       fragmentShader: `#include <common>
 #include <clipping_planes_pars_fragment>
         varying vec2 vUv;
-        uniform sampler2D uTrail, uLUT; uniform float uTime, uNoise, uW;
+        uniform sampler2D uTrail, uLUT; uniform float uTime, uNoise, uW, uDetail;
         vec3 lut(float v){ return texture2D(uLUT, vec2(clamp(v, 0.004, 0.996), 0.5)).rgb; }
         ` + FX_GLSL.replace('uniform sampler2D uLUT;', '').replace('vec3 lut(float v){ return texture2D(uLUT, vec2(clamp(v, 0.004, 0.996), 0.5)).rgb; }', '') + `
         ` + MASK_GLSL + `
@@ -1918,7 +1919,7 @@ void main(){
           vec2 dvuv = uCropC + (uv - 0.5) * uCropS;
           vec3 dvc = texture2D(tex, clamp(dvuv, 0.0, 1.0)).rgb;
           float dlum = dot(dvc, vec3(0.299, 0.587, 0.114));
-          heat = clamp(heat + (dlum - 0.45) * 0.62, 0.0, 1.0);
+          heat = clamp(heat + (dlum - 0.45) * uDetail, 0.0, 1.0);
           heat += clamp(m - mSoft, 0.0, 1.0) * 0.10;
           vec3 col = lut(clamp(heat, 0.0, 1.0)) * mSoft * 1.45;
           col += lut(clamp(heat * 0.45, 0.0, 1.0)) * trail * 0.38;
@@ -1971,6 +1972,7 @@ void main(){
     PU.uTrail.value = trailRTs[trailFlip].texture;
     PU.uTime.value = now;
     PU.uNoise.value = FXP.person?.flow ?? 0.55;
+    PU.uDetail.value = FXP.person?.detail ?? 0.62;
     trailFlip = 1 - trailFlip;
   }
 
