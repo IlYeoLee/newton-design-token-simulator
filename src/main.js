@@ -2505,51 +2505,50 @@ void main(){
     hudChip(g, 800 - w / 2, 912, w, 54, 27, HUD_MAIN, text, 800, 948);
   }
   function hudCTA(g, text, y, tS) {
-    // Uiverse.io by cssbuttons-io (네온 글로우 버튼) 통짜 이식 — 컬러만 뉴턴 칩
-    // glow=FEC389(연주황) spread=FE6E3C(주황) btn=511815(다크 마룬 칩) / 1em=27px
-    g.font = '700 27px Pretendard, sans-serif'; g.textAlign = 'center';
-    const EM = 27, tw = g.measureText(text).width;
-    const w = tw + EM * 6, h = EM + EM * 2, R = EM, B = EM * 0.25, yy = y ?? 908;
-    const GLOW = '#FEC389', SPREAD = 'rgba(254,110,60,0.781)', BTN = '#511815';
+    // 유저 제공 CSS(그라디언트 링 + 레드 바디 + 인셋 시트 + 레터 쉬머) 1:1 이식
+    // --button-color FA3030 / ::before linear-gradient(0deg, FE6E3C→FEC389) / R24·pad4
+    g.font = '400 27px Poppins, Pretendard, sans-serif'; g.textAlign = 'left';
+    const tw = g.measureText(text).width;
+    const w = tw + 27 * 1.7, h = 27 + 27, R = 24, P = 4, yy = y ?? 908;
+    const t = tS ?? 0;
     g.save();
     g.translate(800, yy + h / 2);
-    // ::after — 바닥 반사 블롭 (top:120%, blur 2em, scale(1,.6))
-    g.save();
-    g.filter = `blur(${EM * 2}px)`; g.globalAlpha = 0.7;
-    g.fillStyle = SPREAD;
-    g.beginPath(); g.roundRect(-w / 2, h * 0.7, w, h * 0.6, R * 0.6); g.__rawFill();
-    g.restore();
-    // box-shadow: 0 0 4em 1em spread (대확산)
-    g.save();
-    g.filter = `blur(${EM * 2.2}px)`;
-    g.fillStyle = SPREAD;
-    g.beginPath(); g.roundRect(-w / 2 - EM, -h / 2 - EM, w + EM * 2, h + EM * 2, R + EM); g.__rawFill();
-    g.restore();
-    // box-shadow: 0 0 1em .25em glow (근접 글로우)
-    g.save();
-    g.filter = `blur(${EM * 0.55}px)`;
-    g.fillStyle = GLOW;
-    g.beginPath(); g.roundRect(-w / 2 - B, -h / 2 - B, w + B * 2, h + B * 2, R + B); g.__rawFill();
-    g.restore();
-    // 버튼 몸체 + 보더
+    // ::before — 그라디언트 링 (아래 FE6E3C → 위 FEC389) + 화이트 에지 글린트
+    g.beginPath(); g.roundRect(-w / 2 - P, -h / 2 - P, w + P * 2, h + P * 2, R + P);
+    const grB = g.createLinearGradient(0, h / 2 + P, 0, -h / 2 - P);
+    grB.addColorStop(0, '#FE6E3C'); grB.addColorStop(1, '#FEC389');
+    g.fillStyle = grB; g.__rawFill();
+    g.lineWidth = 1.5; g.strokeStyle = 'rgba(255,255,255,0.55)';
+    g.beginPath(); g.roundRect(-w / 2 - P - 1, -h / 2 - P - 1, w + P * 2 + 2, h + P * 2 + 2, R + P + 1);
+    g.__rawStroke();
+    // .btn 바디 — FA3030 + 1px 화이트 보더
     g.beginPath(); g.roundRect(-w / 2, -h / 2, w, h, R);
-    g.fillStyle = BTN; g.__rawFill();
-    g.lineWidth = B; g.strokeStyle = GLOW;
-    g.beginPath(); g.roundRect(-w / 2 + B / 2, -h / 2 + B / 2, w - B, h - B, R - B / 2);
-    g.__rawStroke();
-    // inset 0 0 .75em .25em glow — 내부 글로우
+    g.fillStyle = '#FA3030'; g.__rawFill();
+    // 인셋 화이트 시트 (top 1·2·4·8·16px 레이어) — 위에서 내려오는 광
     g.save();
-    g.beginPath(); g.roundRect(-w / 2 + B, -h / 2 + B, w - B * 2, h - B * 2, R - B);
-    g.clip();
-    g.filter = `blur(${EM * 0.4}px)`;
-    g.lineWidth = B * 1.6; g.strokeStyle = GLOW;
-    g.beginPath(); g.roundRect(-w / 2 + B / 2, -h / 2 + B / 2, w - B, h - B, R - B / 2);
-    g.__rawStroke();
+    g.beginPath(); g.roundRect(-w / 2, -h / 2, w, h, R); g.clip();
+    const sheen = g.createLinearGradient(0, -h / 2, 0, -h / 2 + h * 0.62);
+    sheen.addColorStop(0, 'rgba(255,255,255,0.30)');
+    sheen.addColorStop(0.25, 'rgba(255,255,255,0.12)');
+    sheen.addColorStop(1, 'rgba(255,255,255,0)');
+    g.beginPath(); g.roundRect(-w / 2, -h / 2, w, h, R);
+    g.fillStyle = sheen; g.__rawFill();
     g.restore();
-    // 라벨 — glow 컬러 + text-shadow .5em
-    g.shadowColor = GLOW; g.shadowBlur = EM * 0.5;
-    g.fillStyle = GLOW;
-    g.__rawFillText(text, 0, 9); g.__rawFillText(text, 0, 9);
+    g.lineWidth = 1; g.strokeStyle = 'rgba(255,255,255,0.13)';
+    g.beginPath(); g.roundRect(-w / 2 + 0.5, -h / 2 + 0.5, w - 1, h - 1, R);
+    g.__rawStroke();
+    // 레터 쉬머 — letter-anim 2s, per-letter 0.08s 딜레이 (text-shadow 0 0 3px #fff8)
+    let x = -tw / 2;
+    for (let i = 0; i < text.length; i++) {
+      const ch = text[i];
+      const ph = ((t - i * 0.08) % 2 + 2) % 2;
+      const k = Math.sin(Math.PI * ph);            // 0→1→0 (50% 피크)
+      g.shadowColor = 'rgba(255,255,255,0.53)';
+      g.shadowBlur = 3 * Math.max(0, k) * 2;
+      g.fillStyle = '#ffffff';
+      g.__rawFillText(ch, x, 9);
+      x += g.measureText(ch).width;
+    }
     g.shadowBlur = 0;
     g.restore();
     g.textAlign = 'center';
@@ -2594,7 +2593,7 @@ void main(){
         g.strokeStyle = HUD_CYAN; g.lineWidth = 1.5; g.stroke();
         g.fillStyle = HUD_CYAN; g.textAlign = 'center';
         g.fillText(wtxt, 1520 - ww / 2, 191);
-        hudCTA(ctaCtx, '발 두 번 탭 → 시작', 916, tS);
+        hudCTA(ctaCtx, '발 두 번 탭해서 시작', 916, tS);
         // 우하: 가드 브래킷 + 카피
         g.strokeStyle = HUD_MAIN; g.lineWidth = 4;
         const bx = 1372, by = 830, bw = 64, bh = 54, L = 16;
