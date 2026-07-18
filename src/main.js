@@ -1948,9 +1948,10 @@ void main(){
           float faceW = smoothstep(0.70, 0.84, uv.y) * (1.0 - smoothstep(0.965, 1.0, uv.y));
           T = clamp(T + (dlum - 0.5) * uDetail * 0.3 * m * (1.0 - faceW), 0.0, 1.0);
           T = max(T, trail * 0.6);
-          // 형태: 몸 = 크리스프 실루엣 + 약한 확산 헤일로 / 얼굴 = 확산 필드만 (블러 블롭)
+          // 형태: 전신 크리스프 실루엣 + 약한 확산 헤일로 — 얼굴도 윤곽 유지,
+          // 이목구비는 faceW의 결 제거(위 uDetail 항)만으로 은닉 (내부 온도 필드는 원래 매끈)
           float soft = clamp(H * 1.55, 0.0, 1.0);
-          float shape = mix(max(m * 0.85, soft * 0.28), soft, faceW);
+          float shape = max(m * 0.9, soft * 0.25);
           shape = max(shape, trail * 0.5);
           vec3 col = mix(thermo(T), lut(clamp(T * 0.96, 0.0, 1.0)), uTone) * shape;   // 뉴턴톤 기본 = 룩 팔레트
           col += (fxhash(uv * 977.0 + uTime) - 0.5) * (2.0 / 255.0);
