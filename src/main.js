@@ -2505,28 +2505,26 @@ void main(){
     hudChip(g, 800 - w / 2, 912, w, 54, 27, HUD_MAIN, text, 800, 948);
   }
   function hudCTA(g, text, y, tS) {
-    // '고인 빛' CTA — 용기 없음. 벽에 고인 레드 광 웅덩이(pool) + 크림 글리프.
-    // 룩 시스템 mark의 pool·halo 언어 그대로 (버튼 = 칩이 아니라 프로젝터가 쏜 빛)
+    // 최종 하이브리드: 고인 빛 웅덩이(아우라·재질) + 발광 코어 필(어포던스·가독)
     const LABEL = '발 두 번 탭해서 시작';
-    g.font = '700 36px Pretendard, sans-serif'; g.textAlign = 'center';
+    g.font = '700 34px Pretendard, sans-serif'; g.textAlign = 'center';
     const tw = g.measureText(LABEL).width;
     const yy = y ?? 908, cy = yy + 30;
     const t = tS ?? 0, cyc = t % 2.6;
     const bump = t0 => { const u = (cyc - t0) / 0.42; return u >= 0 && u <= 1 ? Math.sin(Math.PI * u) ** 2 : 0; };
-    const p = Math.max(bump(0), bump(0.55));   // 둥·둥 → 쉼 (웅덩이 숨)
+    const p = Math.max(bump(0), bump(0.55));   // 둥·둥 → 쉼
     const K = hudGlowK;
     g.save();
     g.translate(800, cy);
-    // 광 웅덩이 — 콤팩트·고밀도 (배경 일렁임과 분리), 열원은 텍스트 아래로
+    // ① 웅덩이 아우라 — 뉴턴 새벽 램프 방사 (은은, 배경과 필 사이의 빛 재질층)
     g.save();
-    g.translate(0, 16);                              // 최열점을 글자 밑으로 — 글자는 레드 위에 얹힘 (가독)
-    g.scale(1 + 0.03 * p, 0.34 * (1 + 0.02 * p));    // 숨 = 진폭 절제 (인위적 번쩍임 기각)
+    g.translate(0, 10);
+    g.scale(1 + 0.03 * p, 0.34 * (1 + 0.02 * p));
     const RW = tw * 0.72 + 80;
     const pool = [
-      [RW * 1.15, `rgba(146,15,15,${0.44 + 0.04 * p})`],
-      [RW * 0.85, `rgba(250,48,48,${0.66 + 0.05 * p})`],
-      [RW * 0.52, `rgba(254,110,60,${0.62 + 0.06 * p})`],
-      [RW * 0.26, `rgba(254,195,137,${0.50 + 0.06 * p})`],
+      [RW * 1.15, `rgba(146,15,15,${0.34 + 0.05 * p})`],
+      [RW * 0.85, `rgba(250,48,48,${0.50 + 0.06 * p})`],
+      [RW * 0.52, `rgba(254,110,60,${0.44 + 0.06 * p})`],
     ];
     for (const [r, c] of pool) {
       const rg = g.createRadialGradient(0, 0, 0, 0, 0, r);
@@ -2536,13 +2534,28 @@ void main(){
       g.beginPath(); g.arc(0, 0, r, 0, 6.284); g.__rawFill();
     }
     g.restore();
-    // 크림 글리프 라벨 — 룩 시스템 정본 재질 (웜 글로우 + 크림 코어)
-    g.shadowColor = 'rgba(254,195,137,0.9)';
-    g.shadowBlur = (14 + 4 * p) * K;
-    g.fillStyle = '#fffaf3';
-    g.__rawFillText(LABEL, 0, 12); g.__rawFillText(LABEL, 0, 12);
+    // ② 발광 코어 필 — 작고 단단한 캡슐 (텍스트는 항상 이 안 = 가독 불변)
+    const s = 1 + 0.025 * p;
+    g.scale(s, s);
+    const w = tw + 76, h = 62, R = 31;
+    g.beginPath(); g.roundRect(-w / 2, -h / 2, w, h, R);
+    const gf = g.createLinearGradient(0, h / 2, 0, -h / 2);
+    gf.addColorStop(0, '#FA3030'); gf.addColorStop(1, '#FE6E3C');
+    g.fillStyle = gf; g.__rawFill();
+    // 상단 시트 (발광체의 은은한 윗광)
+    g.save();
+    g.beginPath(); g.roundRect(-w / 2, -h / 2, w, h, R); g.clip();
+    const hl = g.createLinearGradient(0, -h / 2, 0, 0);
+    hl.addColorStop(0, 'rgba(255,255,255,0.20)'); hl.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = hl;
+    g.beginPath(); g.roundRect(-w / 2, -h / 2, w, h * 0.5, R); g.__rawFill();
+    g.restore();
+    // ③ 라벨 — 크리스프 화이트 (필 안 고정 = 배경 무관 가독)
+    g.shadowColor = 'rgba(146,15,15,0.5)'; g.shadowBlur = 4;
+    g.fillStyle = '#ffffff';
+    g.__rawFillText(LABEL, 0, 12);
     g.shadowBlur = 0;
-    g.__rawFillText(LABEL, 0, 12); g.__rawFillText(LABEL, 0, 12);   // 코어 2패스 — 피크에도 가독 확보
+    g.__rawFillText(LABEL, 0, 12);
     g.restore();
     g.textAlign = 'center';
   }
