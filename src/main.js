@@ -932,7 +932,7 @@ async function boot() {
   }
   {
     // ☀️ 주간 모드 — 주광 가시 투사(제품 스토리) 시연: 밝은 환경 + 투사 게인 부스트
-    let dayOn = !!designStore.globalGet('fx', 'day', false);
+    let dayOn = !!designStore.globalGet('fx', 'day', true);   // 기본 = 주간(라이트) 모드 — 배포 첫 화면 기준 (유저 확정)
     const dayBtn = document.getElementById('btn-day');
     const applyDay = () => {
       setDaylight(dayOn);
