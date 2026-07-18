@@ -1835,7 +1835,7 @@ void main(){
         depthWrite: false, toneMapped: false,
       })
     );
-    ghostLayer.position.set(-0.55, H * 0.85 / 2, WALL_Z + 0.025);
+    ghostLayer.position.set(-0.55, H * 0.85 / 2, WALL_Z + 0.035);
     ghostLayer.renderOrder = 4;
     if (rig.wallClip) ghostLayer.material.clippingPlanes = rig.wallClip;
     scene.add(ghostLayer);
@@ -2030,7 +2030,7 @@ void main(){
     }));
   demoPanel.rotation.x = -Math.PI / 2;
   demoPanel.position.set(0, 0.016, -1.45);
-  demoPanel.renderOrder = 5;   // 인물 = 배경 그리드 위·HUD 아래 (유저: 인물 뒤로)
+  demoPanel.renderOrder = 7;   // 인물 = HUD 위 맨 앞 (버튼만 그 위 — 유저)
   demoPanel.visible = false;
   scene.add(demoPanel);
   let demoLastT = 0;
@@ -2128,7 +2128,7 @@ void main(){
       const mir = HUD_MIRROR.has(session.curStage?.id);
       const gsc = mir ? 0.8 : 1;
       demoPanel.scale.set(GHOST_H * (9 / 16) / 0.62 * gsc, GHOST_H / 0.93 * gsc, 1);
-      demoPanel.position.set((wc ? wc.cx : 0) + (mir ? -0.868 : 0), wallBot + GHOST_H * gsc / 2 + (mir ? 0.33 : 0.01), WALL_Z + 0.025);
+      demoPanel.position.set((wc ? wc.cx : 0) + (mir ? -0.868 : 0), wallBot + GHOST_H * gsc / 2 + (mir ? 0.33 : 0.01), WALL_Z + 0.035);
     }
     demoPanel.visible = !!on;
     if (on) setGhostClip(session.curStage?.id);   // 스테이지별 클립 자동 전환 (404 → 기본)
@@ -2195,7 +2195,7 @@ void main(){
   // ── 글리프 라이브러리 재질 전역 강제: 무엇을 그리든 [컬러 = 네온 글로우, 코어 = 크림-화이트]
   //    (룩 시스템 숫자 글리프 스타일 — 유저 확정. 개별 드로 코드는 순수 컬러만 지정하면 됨)
   let hudInkCore = false;   // 밝은 벽 = 코어를 채도 풀컬러로 (토큰 uDay 잉크 규약)
-  (function neonize(g) {
+  function neonize(g) {
     // 코어 = 웜화이트에 그 컬러 30% 틴트 — 순백 코어는 '컬러 아웃라인만 친' 위화감 (유저 기각)
     const coreCache = {};
     const coreOf = c => typeof c === 'string'
@@ -2230,7 +2230,14 @@ void main(){
       p ? rawStroke(p) : rawStroke();
       this.strokeStyle = c; this.lineWidth = w;
     };
-  })(hudCtx);
+  }
+  neonize(hudCtx);
+  // CTA 전용 오버레이 캔버스 — 인물(7)보다 위(8)에 버튼만 얹는 층
+  const ctaCanvas = document.createElement('canvas');
+  ctaCanvas.width = HUDW * HUD_SS; ctaCanvas.height = HUDH * HUD_SS;
+  const ctaCtx = ctaCanvas.getContext('2d');
+  ctaCtx.scale(HUD_SS, HUD_SS);
+  neonize(ctaCtx);
   const hudTex = new THREE.CanvasTexture(hudCanvas);
   hudTex.minFilter = THREE.LinearMipmapLinearFilter;
   hudTex.magFilter = THREE.LinearFilter;
@@ -2265,8 +2272,18 @@ void main(){
       blending: THREE.CustomBlending, blendSrc: THREE.OneFactor, blendDst: THREE.OneMinusSrcAlphaFactor,   // 잉크 하이브리드
     }));
   hudPanel.renderOrder = 6;
+  const ctaTex = new THREE.CanvasTexture(ctaCanvas);
+  ctaTex.minFilter = THREE.LinearMipmapLinearFilter;
+  ctaTex.magFilter = THREE.LinearFilter;
+  ctaTex.generateMipmaps = true;
+  ctaTex.anisotropy = 8;
+  const ctaPanel = new THREE.Mesh(hudPanel.geometry, hudPanel.material.clone());
+  ctaPanel.material.uniforms.tex.value = ctaTex;
+  ctaPanel.renderOrder = 8;   // 인물(7) 위 — 버튼만 최상층
   hudPanel.visible = false;
   scene.add(hudPanel);
+  scene.add(ctaPanel);
+  ctaPanel.visible = false;
   // ── GridScan 배경 (reactbits GridScan 포팅) — 복싱 벽 배경 라인의 정본.
   //    레이캐스트 코리도(바닥·천장·좌우벽 그리드) + 깊이로 진행하는 가우시안 스캔 펄스.
   //    파라미터 = 유저 확정: softness 4, jitter 0, post 없음. 컬러 = 뉴턴 시스템.
@@ -2556,13 +2573,7 @@ void main(){
         g.strokeStyle = HUD_CYAN; g.lineWidth = 1.5; g.stroke();
         g.fillStyle = HUD_CYAN; g.textAlign = 'center';
         g.fillText(wtxt, 1520 - ww / 2, 191);
-        // 중앙 하단: TAP 링 2 + CTA
-        for (const [x, a] of [[750, 0.5], [850, 0.95]]) {
-          g.globalAlpha = a; g.strokeStyle = HUD_CYAN; g.lineWidth = 5;
-          g.beginPath(); g.arc(x, 844, 38, 0, 6.284); g.stroke();
-          g.globalAlpha = 1;
-        }
-        hudCTA(g, 'TAP ×2 — 발 두 번 탭 → 시작', 916, tS);
+        hudCTA(ctaCtx, 'TAP ×2 — 발 두 번 탭 → 시작', 916, tS);
         // 우하: 가드 브래킷 + 카피
         g.strokeStyle = HUD_MAIN; g.lineWidth = 4;
         const bx = 1372, by = 830, bw = 64, bh = 54, L = 16;
@@ -2645,7 +2656,7 @@ void main(){
         g.fillStyle = '#fec389'; g.font = '500 30px Pretendard, sans-serif';
         g.fillText('몸 풀렸어요 — 다음: 사전 익히기', 800, 500);
         hudPhaseDots(g, 800 - 69, 560, 1);
-        hudCTA(g, 'TAP ×2 — 탭 두 번 → 사전 익히기', 620, tS);
+        hudCTA(ctaCtx, 'TAP ×2 — 탭 두 번 → 사전 익히기', 620, tS);
         break;
       }
       case 'BX_T2': {
@@ -2657,7 +2668,7 @@ void main(){
         g.fillText(String(Math.ceil(remain)), 270, 450);
         g.fillStyle = '#fec389'; g.font = '500 28px Pretendard, sans-serif';
         g.fillText('5초 뒤 실전', 270, 570);
-        hudCTA(g, 'TAP ×2 — 두 번 탭 = 바로', 908, tS);
+        hudCTA(ctaCtx, 'TAP ×2 — 두 번 탭 = 바로', 908, tS);
         break;
       }
       case 'BX_C1': {
@@ -2779,6 +2790,7 @@ void main(){
     const st = session.active && state.pack === 'boxing' ? session.curStage : null;
     const on = !!st && st.id?.startsWith('BX_');
     hudPanel.visible = on;
+    ctaPanel.visible = on;
     if (!on) gridScanPanel.visible = false;
     // 구 벽 텍스트 시스템 중복 억제 (복싱 = HUD가 록업·자막 담당)
     if (state.pack === 'boxing') {
@@ -2792,6 +2804,10 @@ void main(){
     hudPanel.position.set(wc ? wc.cx : 0, ((wc?.cy ?? 1.4) - rig.wallH / 2) + rig.wallH / 2, WALL_Z + 0.028);
     hudInkCore = false;   // 채도 코어 기각(유저: 흰색이 노랑으로 물듦) — 코어는 항상 화이트
     hudPanel.material.uniforms.uBoost.value = FXP.day ? 2.6 : 1.7;   // 자연광 풀컬러 레이저 전제 = 당당한 풀 광량
+    ctaPanel.material.uniforms.uBoost.value = FXP.day ? 2.6 : 1.7;
+    ctaPanel.position.copy(hudPanel.position); ctaPanel.scale.copy(hudPanel.scale);
+    if (rig.wallClip && ctaPanel.material.clippingPlanes !== rig.wallClip)
+      ctaPanel.material.clippingPlanes = rig.wallClip;
     gridScanPanel.visible = true;
     gridScanPanel.position.copy(hudPanel.position); gridScanPanel.position.z -= 0.006;
     gridScanPanel.scale.copy(hudPanel.scale);
@@ -2811,9 +2827,11 @@ void main(){
     const g = hudCtx;
     hudSyncPalette();
     g.clearRect(0, 0, HUDW, HUDH);
+    ctaCtx.clearRect(0, 0, HUDW, HUDH);
     // 배경 라인 = GridScan 플레인이 전담 (기존 룸·링 캔버스 라인 제거 — 유저 확정)
     drawStage(g, st.id, tS);
     hudTex.needsUpdate = true;
+    ctaTex.needsUpdate = true;
   }
 
   // ── 복싱 벽면 인물 시범 = FX Lab PERSON_FRAG 정본 포트 (인물 — 실사 복서 + 잔상) ──

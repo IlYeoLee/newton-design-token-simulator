@@ -344,7 +344,6 @@ function sweepBand(x0, y0, x1, y1, color) {
 function wallTap() {
   const g = new THREE.Group();
   for (let i = 0; i < 2; i++) { const r = new THREE.Mesh(new THREE.RingGeometry(0.055, 0.07, 32), flatMat(BRAND.prism, 0.95)); r.position.x = (i - 0.5) * 0.18; g.add(r); }   // 탭 = 입력 어포던스(토큰 아님) 원복
-  const label = makeTextPlane('TAP ×2', { size: 0.055, color: CS.prism }); label.position.set(0, -0.16, 0.001); g.add(label);
   g.position.z = WZ; g.renderOrder = 7; g.userData.el = { type: 'tap', wall: true }; return g;
 }
 
@@ -658,8 +657,7 @@ export class Session {
     // 가드 존 기준: 얼굴 앞 (y≈1.35), 타겟은 그 위 (y≈1.14 실제 판정 높이 Y0=0.73+ny)
     const TX = -0.13, TY = 1.14;   // 벽 타겟 중심 (tokens LAYOUT.boxing WALL 매핑)
     let g = this._mk('BX_READY');
-    g.add(guardBox(0, 1.35, 0.5, 0.42, BRAND.dim, 0.7));
-    this.bxTap = wallTap(); this.bxTap.position.set(0, 0.9, WZ); g.add(this.bxTap);
+    this.bxTap = wallTap();   // 미부착 — 원·발판·라벨 중복 제거 (HUD CTA 버튼 전담, 유저)
 
     // A1 목·어깨 — 회전 아크(어깨 좌우)
     g = this._mk('BX_A1');
@@ -677,7 +675,7 @@ export class Session {
     this.bxA3ring = wallRing(TX, TY, 0.12, 0.14, BRAND.red, 0.8); g.add(this.bxA3ring);
 
     g = this._mk('BX_T1');
-    this.bxTap1 = wallTap(); this.bxTap1.position.set(0, 0.9, WZ); g.add(this.bxTap1);
+    this.bxTap1 = wallTap();   // 미부착 — HUD CTA 전담
 
     // B1 가드 유지 — 가드 박스 + 홀드 링 (채움)
     g = this._mk('BX_B1');
