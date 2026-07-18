@@ -846,6 +846,8 @@ void main(){
     // (유저 '세션이 뿌옇게/봇 정지' 계열의 뿌리: 모드 전환은 반드시 재생 상태에서)
     state.playing = true;
     document.getElementById('pause-chip')?.style.setProperty('display', 'none');
+    // 복싱: 유저(봇)를 카메라 전신 인식 최적 링(standZ)으로 후퇴 배치 (유저: 세션 시작 시 인물 뒤로)
+    if (sport === 'boxing') { computeStation(); xbot.group.position.z = opt.standZ; }
     session.start(sport);
     panel.setPlaying(true, true);
     sessionBtn.textContent = '세션 중지';
