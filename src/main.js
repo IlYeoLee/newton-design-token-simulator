@@ -1817,7 +1817,7 @@ async function boot() {
   //    + 내부 열 대류(fbm) → 공유 히트 LUT. 잔상은 핑퐁 RT 누적(max(cur, prev·decay)) —
   //    랩의 과거 프레임 3탭과 시각 등가. 룩 슬라이더(person.decay/flow) 라이브 소비.
   const demoVideo = document.createElement('video');
-  demoVideo.src = import.meta.env.BASE_URL + 'bx_2161.mp4';   // Mixkit 2161 — 남성 복싱 워밍업 (마스크 정량평가 1위: bbox 0.32×1.0 · fill 0.66)
+  demoVideo.src = import.meta.env.BASE_URL + 'coach_chroma.mp4';   // 'Angry boxer' 그린스크린 (Wavebreak/Magnific 무료)
   demoVideo.muted = true; demoVideo.loop = true; demoVideo.playsInline = true;
   demoVideo.crossOrigin = 'anonymous';
   const demoTex = new THREE.VideoTexture(demoVideo);
@@ -1931,10 +1931,10 @@ void main(){
   // 실사 시범 모드: 'off' | 'floor'(러닝 A 시범 — 휴면) | 'wall'(복싱 벽 실사 시험).
   // 실시간 세그 실사는 기각(구멍·플리커·프레임 드랍 — 스톡 다수로 실증). 'wall'은
   // 사전에 매트를 구운 소스(알파 영상/스틸 시퀀스)가 준비된 경우에만 켠다.
-  const DEMO_CLIP_MODE = 'off';   // 크로마 키잉 배선 완료 — 진짜 그린스크린 소스(public/*.mp4) 확보 시 'wall'로
+  const DEMO_CLIP_MODE = 'wall';   // 크로마 코치 가동 (그린스크린 실사 — Magnific/Freepik 무료)
   if (DEMO_CLIP_MODE === 'wall') {
     demoPanel.rotation.x = 0;                          // 벽 = 직립
-    demoPanel.scale.setScalar(1.85);                   // 0.93m 지오메트리 → 실신장 ~1.7m
+    demoPanel.scale.set(3.06, 1.15, 1);                // 16:9 영상 종횡비 보정 → 1.9×1.07m
   }
   function renderDemoPanel() {
     const on = DEMO_CLIP_MODE !== 'off' && session.active
