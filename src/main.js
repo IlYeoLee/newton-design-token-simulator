@@ -2196,15 +2196,13 @@ void main(){
   #include <clipping_planes_fragment>
   vec4 t = texture2D(tex, vUv);
   vec3 col = clamp(t.rgb * t.a, 0.0, 1.0);
-  // 발광 기반 차폐: 알파 = 픽셀 광량 — 어두운·반투명 픽셀이 벽을 회색으로
-  // 가리던 것(흰 벽의 '시커먼 그림자' 정체) 종결. 글리프 라이브러리와 동일 지각.
-  float lum = max(col.r, max(col.g, col.b));
-  float aOut = clamp(lum * 1.2, 0.0, 1.0) * 0.9;
+  // 순수 가산 발광 — 벽을 어둡게 만들 물리 경로가 없음 (룩 시스템 글로우와 동일:
+  // 글로우 프린지가 차폐와 섞이면 밝은 벽에서 갈색 그림자가 되던 것 종결)
   col = mix(col / 12.92, pow((col + 0.055) / 1.055, vec3(2.4)), step(0.04045, col));
-  gl_FragColor = vec4(col, aOut);
+  gl_FragColor = vec4(col, 1.0);
 }`,
       transparent: true, depthWrite: false,
-      blending: THREE.CustomBlending, blendSrc: THREE.OneFactor, blendDst: THREE.OneMinusSrcAlphaFactor,
+      blending: THREE.CustomBlending, blendSrc: THREE.OneFactor, blendDst: THREE.OneFactor,   // 순수 가산
     }));
   hudPanel.renderOrder = 6;
   hudPanel.visible = false;
