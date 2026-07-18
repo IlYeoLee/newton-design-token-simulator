@@ -2209,6 +2209,7 @@ void main(){
     g.__rawFillText = rawFillText;   // 앰비언트(워터마크 등) = 네온 멀티패스 우회용
     g.__rawFill = rawFill;           // 플랫 면(그림자 등) = 글로우·코어 우회
     const rawStroke = g.stroke.bind(g), rawFillRect = g.fillRect.bind(g);
+    g.__rawStroke = rawStroke;       // 플랫 스트로크 = 동일 우회
     g.fillText = function (t, x, y) {
       const c = this.fillStyle;
       this.shadowColor = c; this.shadowBlur = 14 * hudGlowK; rawFillText(t, x, y); rawFillText(t, x, y);
@@ -2285,7 +2286,7 @@ void main(){
   ctaPanel.material.uniforms.tex.value = ctaTex;
   // 버튼 = 최고 위계 풀 잉크 (인물 0.985와 동급 이상 — 유저: '사람보다 쨍하게')
   ctaPanel.material.fragmentShader = ctaPanel.material.fragmentShader.replace(
-    'smoothstep(0.20, 0.65, lum) * 0.68', 'smoothstep(0.12, 0.50, lum) * 1.0');
+    'smoothstep(0.20, 0.65, lum) * 0.68', 't.a');
   ctaPanel.material.needsUpdate = true;
   ctaPanel.renderOrder = 8;   // 인물(7) 위 — 버튼만 최상층
   hudPanel.visible = false;
@@ -2504,50 +2505,52 @@ void main(){
     hudChip(g, 800 - w / 2, 912, w, 54, 27, HUD_MAIN, text, 800, 948);
   }
   function hudCTA(g, text, y, tS) {
-    // uiverse(rotateX 퍼스펙티브·하단 보더·원거리 섀도) 베이스 + 큰 R + 뉴턴 풀 그라디언트
-    // 펄스: 퉁·퉁(스케일) → 쉼 루프
-    g.font = '900 27px Pretendard, sans-serif'; g.textAlign = 'center';
-    const tw = g.measureText(text).width;
-    const w = tw + 92, h0 = 72, yy = y ?? 908;
-    const h = h0 * 0.966, k = 0.965, R = 30;   // 큰 라운드 · 완만한 퍼스펙티브
-    const cyc = (tS ?? 0) % 2.4;
-    const bump = t0 => { const u = (cyc - t0) / 0.32; return u >= 0 && u <= 1 ? Math.sin(u * Math.PI) : 0; };
-    const p = Math.max(bump(0), bump(0.45));
-    const s = 1 + 0.075 * p;   // 자연스러운 크기 펄스
+    // Uiverse.io by cssbuttons-io (네온 글로우 버튼) 통짜 이식 — 컬러만 뉴턴 칩
+    // glow=FEC389(연주황) spread=FE6E3C(주황) btn=511815(다크 마룬 칩) / 1em=27px
+    g.font = '700 27px Pretendard, sans-serif'; g.textAlign = 'center';
+    const EM = 27, tw = g.measureText(text).width;
+    const w = tw + EM * 6, h = EM + EM * 2, R = EM, B = EM * 0.25, yy = y ?? 908;
+    const GLOW = '#FEC389', SPREAD = 'rgba(254,110,60,0.781)', BTN = '#511815';
     g.save();
     g.translate(800, yy + h / 2);
-    g.scale(s, s);
-    // 원거리 소프트 섀도 (uiverse box-shadow 0 40px 29px .2)
+    // ::after — 바닥 반사 블롭 (top:120%, blur 2em, scale(1,.6))
     g.save();
-    g.filter = 'blur(15px)';
-    g.fillStyle = `rgba(250,48,48,${(0.2 + 0.12 * p).toFixed(3)})`;
-    g.beginPath(); g.roundRect(-w / 2, -h / 2 + 38, w, h, R); g.__rawFill();
+    g.filter = `blur(${EM * 2}px)`; g.globalAlpha = 0.7;
+    g.fillStyle = SPREAD;
+    g.beginPath(); g.roundRect(-w / 2, h * 0.7, w, h * 0.6, R * 0.6); g.__rawFill();
     g.restore();
-    const trap = (dy = 0) => {
-      g.beginPath();
-      g.moveTo(-w / 2 + R, h / 2 + dy);
-      g.lineTo(w / 2 - R, h / 2 + dy);
-      g.quadraticCurveTo(w / 2, h / 2 + dy, w / 2, h / 2 + dy - R);
-      g.lineTo(w * k / 2, -h / 2 + dy + R);
-      g.quadraticCurveTo(w * k / 2, -h / 2 + dy, w * k / 2 - R, -h / 2 + dy);
-      g.lineTo(-w * k / 2 + R, -h / 2 + dy);
-      g.quadraticCurveTo(-w * k / 2, -h / 2 + dy, -w * k / 2, -h / 2 + dy + R);
-      g.lineTo(-w / 2, h / 2 + dy - R);
-      g.quadraticCurveTo(-w / 2, h / 2 + dy, -w / 2 + R, h / 2 + dy);
-      g.closePath();
-    };
-    // border-bottom (밝은 연주황)
-    g.save(); trap(2.5); g.fillStyle = '#FEC389'; g.__rawFill(); g.restore();
-    // 뉴턴 풀 그라디언트 (새벽 램프: 딥레드→레드→주황→연주황)
-    trap();
-    const gr = g.createLinearGradient(-w / 2, h / 2, w / 2, -h / 2);
-    gr.addColorStop(0, '#920F0F');
-    gr.addColorStop(0.38, '#FA3030');
-    gr.addColorStop(0.72, '#FE6E3C');
-    gr.addColorStop(1, '#FEC389');
-    g.fillStyle = gr; g.__rawFill();
-    g.fillStyle = '#ffffff';
-    g.__rawFillText(text, 0, 9);
+    // box-shadow: 0 0 4em 1em spread (대확산)
+    g.save();
+    g.filter = `blur(${EM * 2.2}px)`;
+    g.fillStyle = SPREAD;
+    g.beginPath(); g.roundRect(-w / 2 - EM, -h / 2 - EM, w + EM * 2, h + EM * 2, R + EM); g.__rawFill();
+    g.restore();
+    // box-shadow: 0 0 1em .25em glow (근접 글로우)
+    g.save();
+    g.filter = `blur(${EM * 0.55}px)`;
+    g.fillStyle = GLOW;
+    g.beginPath(); g.roundRect(-w / 2 - B, -h / 2 - B, w + B * 2, h + B * 2, R + B); g.__rawFill();
+    g.restore();
+    // 버튼 몸체 + 보더
+    g.beginPath(); g.roundRect(-w / 2, -h / 2, w, h, R);
+    g.fillStyle = BTN; g.__rawFill();
+    g.lineWidth = B; g.strokeStyle = GLOW;
+    g.beginPath(); g.roundRect(-w / 2 + B / 2, -h / 2 + B / 2, w - B, h - B, R - B / 2);
+    g.__rawStroke();
+    // inset 0 0 .75em .25em glow — 내부 글로우
+    g.save();
+    g.beginPath(); g.roundRect(-w / 2 + B, -h / 2 + B, w - B * 2, h - B * 2, R - B);
+    g.clip();
+    g.filter = `blur(${EM * 0.4}px)`;
+    g.lineWidth = B * 1.6; g.strokeStyle = GLOW;
+    g.beginPath(); g.roundRect(-w / 2 + B / 2, -h / 2 + B / 2, w - B, h - B, R - B / 2);
+    g.__rawStroke();
+    g.restore();
+    // 라벨 — glow 컬러 + text-shadow .5em
+    g.shadowColor = GLOW; g.shadowBlur = EM * 0.5;
+    g.fillStyle = GLOW;
+    g.__rawFillText(text, 0, 9); g.__rawFillText(text, 0, 9);
+    g.shadowBlur = 0;
     g.restore();
     g.textAlign = 'center';
   }
