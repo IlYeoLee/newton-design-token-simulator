@@ -1852,8 +1852,8 @@ async function boot() {
       if (vuv.x < 0.0 || vuv.x > 1.0 || vuv.y < 0.0 || vuv.y > 1.0) return 0.0;
       vec3 c = texture2D(tex, vuv).rgb;
       float k = c.g - max(c.r, c.b);                     // 그린 우세도 — 결정론적 크로마 키
-      float m = 1.0 - smoothstep(0.03, 0.14, k);
-      m *= smoothstep(0.0, 0.02, uv.y) * smoothstep(1.0, 0.98, uv.y);
+      float m = 1.0 - smoothstep(0.05, 0.16, k);         // 임계값 = 랩 mask1 정본
+      m *= smoothstep(0.0, 0.03, uv.y) * smoothstep(1.0, 0.97, uv.y);
       return m;
     }`;
   const trailRTs = [new THREE.WebGLRenderTarget(DPW, DPH), new THREE.WebGLRenderTarget(DPW, DPH)];
@@ -1881,7 +1881,7 @@ async function boot() {
     new THREE.ShaderMaterial({
       uniforms: {
         tex: { value: demoTex }, uTrail: { value: trailRTs[0].texture }, uLUT: { value: getLUT() },
-        uTime: { value: 0 }, uNoise: { value: 0.55 }, uW: { value: 1 }, uDetail: { value: 0.62 }, uTrailGain: { value: 1 },
+        uTime: { value: 0 }, uNoise: { value: 0.55 }, uW: { value: 1 }, uDetail: { value: 0.62 }, uTrailGain: { value: 1 }, uGrain: { value: 0 },
         uCropC: { value: new THREE.Vector2(0.5, 0.5) }, uCropS: { value: new THREE.Vector2(1, 1) },
       },
       vertexShader: `#include <common>
@@ -1896,7 +1896,7 @@ void main(){
       fragmentShader: `#include <common>
 #include <clipping_planes_pars_fragment>
         varying vec2 vUv;
-        uniform sampler2D uTrail, uLUT; uniform float uTime, uNoise, uW, uDetail, uTrailGain;
+        uniform sampler2D uTrail, uLUT; uniform float uTime, uNoise, uW, uDetail, uTrailGain, uGrain;
         vec3 lut(float v){ return texture2D(uLUT, vec2(clamp(v, 0.004, 0.996), 0.5)).rgb; }
         ` + FX_GLSL.replace('uniform sampler2D uLUT;', '').replace('vec3 lut(float v){ return texture2D(uLUT, vec2(clamp(v, 0.004, 0.996), 0.5)).rgb; }', '') + `
         ` + MASK_GLSL + `
@@ -1904,7 +1904,7 @@ void main(){
           #include <clipping_planes_fragment>
           vec2 uv = vUv;
           float m = pmask(uv);
-          float trail = texture2D(uTrail, uv).r * (1.0 - m);
+          float trail = texture2D(uTrail, uv).r * (1.0 - m) * uTrailGain;
           // 소프트 엣지 5탭 (랩 정본)
           float mSoft = m * 0.36;
           for (int k = 0; k < 4; k++) {
@@ -1922,11 +1922,21 @@ void main(){
           float dlum = dot(dvc, vec3(0.299, 0.587, 0.114));
           heat = clamp(heat + (dlum - 0.45) * uDetail, 0.0, 1.0);
           heat += clamp(m - mSoft, 0.0, 1.0) * 0.10;
-          vec3 col = lut(clamp(heat, 0.0, 1.0)) * mSoft * 1.45;
-          col += lut(clamp(heat * 0.45, 0.0, 1.0)) * trail * 0.38;
-          gl_FragColor = vec4(col, 1.0);   // 가산: 검정 = 무기여
+          // ↓ 랩 PERSON_FRAG 정본 그대로 (게인 1.12 / 잔상 0.8 / 차폐 88% / 디더+그레인)
+          vec3 col = lut(clamp(heat, 0.0, 1.0)) * mSoft * 1.12;
+          col += lut(clamp(heat * 0.45, 0.0, 1.0)) * trail * 0.8;
+          col += (fxhash(uv * 977.0 + uTime) - 0.5) * (2.0 / 255.0);
+          col += (fxhash(uv * 1661.0 + uTime * 3.0) - 0.5) * uGrain;
+          // 컴포저 OutputPass(linear→sRGB)가 전 화면을 들어올림 → 출력 직전 역변환으로 상쇄
+          // (tokens.js uOut=1 규약과 동일 — 이 상쇄가 없으면 랩 대비 파스텔 워시)
+          col = clamp(col, 0.0, 1.0);
+          col = mix(col / 12.92, pow((col + 0.055) / 1.055, vec3(2.4)), step(0.04045, col));
+          float aOut = clamp(m + trail * 0.6, 0.0, 1.0) * 0.88;
+          gl_FragColor = vec4(col, aOut);   // 프리멀티: 벽을 88% 차폐 후 가산 = 랩 baseBG 합성식
         }`,
-      transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+      transparent: true, depthWrite: false,
+      // out = col + dst·(1−a) — 랩의 base·(1−a·0.88)+col 과 동일 (프리멀티 커스텀 블렌딩)
+      blending: THREE.CustomBlending, blendSrc: THREE.OneFactor, blendDst: THREE.OneMinusSrcAlphaFactor,
     }));
   demoPanel.rotation.x = -Math.PI / 2;
   demoPanel.position.set(0, 0.016, -1.45);
@@ -1941,7 +1951,15 @@ void main(){
   const DEMO_CLIP_MODE = 'wall';   // 크로마 코치 가동 (그린스크린 실사 — Magnific/Freepik 무료)
   if (DEMO_CLIP_MODE === 'wall') {
     demoPanel.rotation.x = 0;                          // 벽 = 직립
-    demoPanel.scale.set(3.06, 1.15, 1);                // 16:9 영상 종횡비 보정 → 1.9×1.07m
+    // 랩 person 카드와 동일한 세로 크롭(176:288) — 그라디언트·소프트엣지가 카드와 같은
+    // 인물 프레이밍에 걸려야 룩이 1:1 (16:9 풀프레임이면 밝은 하단 대역만 보여 크림 워시)
+    const CH = 1.9;                                    // 코치 실높이 (벽 2.1m 안)
+    demoPanel.scale.set(CH * (176 / 288) / 0.62, CH / 0.93, 1);
+    demoVideo.addEventListener('loadedmetadata', () => {
+      const sx = (demoVideo.videoHeight * (176 / 288)) / demoVideo.videoWidth;
+      trailMat.uniforms.uCropS.value.set(sx, 1);
+      demoPanel.material.uniforms.uCropS.value.set(sx, 1);
+    });
   }
   function renderDemoPanel() {
     const on = DEMO_CLIP_MODE !== 'off' && session.active
@@ -1981,6 +1999,7 @@ void main(){
     PU.uNoise.value = FXP.person?.flow ?? 0.55;
     PU.uDetail.value = FXP.person?.detail ?? 0.62;
     PU.uW.value = FXP.person?.blur ?? 1;   // 엣지 블러 — 랩 person 슬라이더 (누락돼 기본 1.0으로 돌던 버그)
+    PU.uGrain.value = FXP.person?.grain ?? 0;
     trailFlip = 1 - trailFlip;
   }
 
