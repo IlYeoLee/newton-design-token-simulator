@@ -2164,8 +2164,12 @@ void main(){
   #include <clipping_planes_fragment>
   vec4 t = texture2D(tex, vUv);
   vec3 col = clamp(t.rgb * t.a, 0.0, 1.0);
+  // 발광 기반 차폐: 알파 = 픽셀 광량 — 어두운·반투명 픽셀이 벽을 회색으로
+  // 가리던 것(흰 벽의 '시커먼 그림자' 정체) 종결. 글리프 라이브러리와 동일 지각.
+  float lum = max(col.r, max(col.g, col.b));
+  float aOut = clamp(lum * 1.2, 0.0, 1.0) * 0.9;
   col = mix(col / 12.92, pow((col + 0.055) / 1.055, vec3(2.4)), step(0.04045, col));
-  gl_FragColor = vec4(col, t.a * 0.92);
+  gl_FragColor = vec4(col, aOut);
 }`,
       transparent: true, depthWrite: false,
       blending: THREE.CustomBlending, blendSrc: THREE.OneFactor, blendDst: THREE.OneMinusSrcAlphaFactor,
