@@ -2192,11 +2192,12 @@ void main(){
   (function neonize(g) {
     const CORE = 'rgba(255,243,228,0.97)';
     const rawFillText = g.fillText.bind(g), rawFill = g.fill.bind(g);
+    g.__rawFillText = rawFillText;   // 앰비언트(워터마크 등) = 네온 멀티패스 우회용
     const rawStroke = g.stroke.bind(g), rawFillRect = g.fillRect.bind(g);
     g.fillText = function (t, x, y) {
       const c = this.fillStyle;
       this.shadowColor = c; this.shadowBlur = 14 * hudGlowK; rawFillText(t, x, y); rawFillText(t, x, y);
-      this.shadowBlur = 0; this.fillStyle = CORE; rawFillText(t, x, y);
+      this.shadowBlur = 0; this.fillStyle = CORE; rawFillText(t, x, y); rawFillText(t, x, y);
       this.fillStyle = c;
     };
     g.fill = function (p) {
@@ -2297,10 +2298,11 @@ void main(){
     hudChip(g, cx - w / 2, 8, w, 46, 23, col, text, cx, 39);
   }
   function hudLine(g, x1, y1, x2, y2, wd, alpha) {
-    g.globalAlpha = alpha; g.lineWidth = wd;
+    g.globalAlpha = alpha * HUD_AMBIENT; g.lineWidth = wd;
     g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke();
     g.globalAlpha = 1;
   }
+  const HUD_AMBIENT = 0.55;   // 광량 위계: 앰비언트 구조선 = 핵심 대비 55%
   function drawHudRoom(g) {
     g.strokeStyle = HUD_MAIN;
     const BW = 1040, BX0 = 280, BY = 120, BBOT = 730;
@@ -2432,9 +2434,9 @@ void main(){
         }[id];
         const goal = HUD_GOALS[id];
         // 워터마크 (요소들보다 먼저 = 뒤)
-        g.fillStyle = HUD_MAIN; g.globalAlpha = 0.12;
+        g.fillStyle = HUD_MAIN; g.globalAlpha = 0.10;
         g.font = '700 560px Pretendard, sans-serif'; g.textAlign = 'center';
-        g.fillText(String(goal[1]).padStart(2, '0'), 800, 700);
+        g.__rawFillText(String(goal[1]).padStart(2, '0'), 800, 700);   // 앰비언트 = 네온 우회
         g.globalAlpha = 1;
         hudLockup(g, LOCK[0], LOCK[1]);
         hudTag(g, 366, '코치 — 따라 하세요', HUD_MAIN);
@@ -2638,7 +2640,7 @@ void main(){
     const wc = rig._wallCenter;
     hudPanel.scale.set(rig.wallW / 3.2, rig.wallH / 2.0, 1);   // 캔버스 1600×1000 = 벽 전체 추종
     hudPanel.position.set(wc ? wc.cx : 0, ((wc?.cy ?? 1.4) - rig.wallH / 2) + rig.wallH / 2, WALL_Z + 0.028);
-    hudPanel.material.uniforms.uBoost.value = FXP.day ? 2.2 : 1.6;   // 주간 = 풀 부스트
+    hudPanel.material.uniforms.uBoost.value = FXP.day ? 2.6 : 1.7;   // 자연광 풀컬러 레이저 전제 = 당당한 풀 광량
     const now = performance.now() / 1000;
     if (st.id !== hudStageId) { hudStageId = st.id; hudStageT0 = now; }
     if (now - hudLastT < 1 / 15) return;
