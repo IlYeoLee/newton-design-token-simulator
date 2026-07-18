@@ -2372,7 +2372,7 @@ void main(){
           + op.z * vec3(0.996, 0.765, 0.537);    // FEC389
   float prL = dot(pr, vec3(0.2126, 0.7152, 0.0722));
   pr = clamp(mix(vec3(prL), pr, 1.85), 0.0, 1.0);   // 컬러감 2차 업 (유저)
-  col += pr * 0.18;
+  col += pr * 0.24;
   col = clamp(col * uBoost, 0.0, 1.0);
   // 테두리 페더 — 사각 경계가 안 보이게 가장자리로 갈수록 블러 소멸
   float vign = smoothstep(0.0, 0.24, vUv.x) * smoothstep(0.0, 0.24, 1.0 - vUv.x)
@@ -2506,15 +2506,18 @@ void main(){
     const press = Math.max(bump(0), bump(0.4));   // 퉁·퉁 → 1.4s 쉼 (2번 탭 암시)
     g.save();
     g.translate(800, yy + h / 2);   // 가운데 정렬 · 기울기 0 (magicui 기본형 엄수 — 유저)
-    // 확산 펄스 링 (탭 박자마다 방출)
+    // 확산 펄스 — 아웃라인 대신 은은한 면 그라디언트 파동 (유저)
     for (const t0 of [0, 0.4]) {
       const u = (cyc - t0) / 0.75;
       if (u > 0 && u < 1) {
-        const ex = u * 30;
-        g.globalAlpha = (1 - u) * (1 - u) * 0.6;
+        const ex = u * 36;
+        const a = (1 - u) * (1 - u) * 0.38;
+        const grd = g.createRadialGradient(0, 0, Math.max(1, w / 2 - 26), 0, 0, w / 2 + ex + 30);
+        grd.addColorStop(0, 'rgba(209,254,255,0)');
+        grd.addColorStop(0.55, `rgba(209,254,255,${a.toFixed(3)})`);
+        grd.addColorStop(1, 'rgba(209,254,255,0)');
         g.beginPath(); g.roundRect(-w / 2 - ex, -h / 2 - ex, w + ex * 2, h + ex * 2, 27 + ex);
-        g.strokeStyle = HUD_CYAN; g.lineWidth = 3; g.stroke();
-        g.globalAlpha = 1;
+        g.fillStyle = grd; g.__rawFill();
       }
     }
     const s = 1 - press * 0.07;                    // 눌림 스케일
