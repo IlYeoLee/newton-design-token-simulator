@@ -3118,14 +3118,10 @@ void main(){
     const bkOn = state.pack === 'basketball' && rig._fp;
     bkArrow.visible = bkLane.visible = bkOn;
     // 앰비언트 토포 공간 (농구 두 투사면 — 세션·재생 중 상시 은은)
-    const topoOn = state.pack === 'basketball';
-    bkTopoFloor.visible = topoOn;
-    bkTopoWall.visible = false;   // 농구엔 벽 투사면 없음 — 공중 부유 오류의 원인, 바닥만 사용
-    if (topoOn) {
-      const tt = performance.now() / 1000;
-      bkTopoFloor.material.uniforms.uGain.value = FXP.day ? 0.5 : 0.3;   // 주간 가시 보정
-      bkTopoFloor.material.uniforms.uTime.value = tt;
-    }
+    // 앰비언트 토포 필드 기각(유저): 존 경계 없는 전면 랜덤 라인 = 바닥 얼룩으로 보임.
+    // 재질(makeTopoMaterial)은 보존 — 존 '내부' 채움으로만 재사용할 것.
+    bkTopoFloor.visible = false;
+    bkTopoWall.visible = false;
     bkBeats.forEach(b => b.visible = bkOn);
     if (bkOn) {
       const f = rig._fp;
