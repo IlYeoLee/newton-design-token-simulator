@@ -1827,15 +1827,21 @@ async function boot() {
   const demoMaskCanvas = document.createElement('canvas');
   const demoMaskTex = new THREE.CanvasTexture(demoMaskCanvas);
   demoMaskTex.minFilter = THREE.LinearFilter; demoMaskTex.magFilter = THREE.LinearFilter;
-  let demoSeg = null, demoSegInit = false;
+  let demoSeg = null, demoSegInit = false, demoSegFail = false;
   async function initDemoSeg() {
     demoSegInit = true;
-    const fileset = await FilesetResolver.forVisionTasks(import.meta.env.BASE_URL + 'mediapipe-wasm');
-    demoSeg = await ImageSegmenter.createFromOptions(fileset, {
-      baseOptions: { modelAssetPath: import.meta.env.BASE_URL + 'models/selfie_segmenter.tflite' },
-      runningMode: 'VIDEO', outputConfidenceMasks: true,
-    });
+    try {
+      const fileset = await FilesetResolver.forVisionTasks(import.meta.env.BASE_URL + 'mediapipe-wasm');
+      demoSeg = await ImageSegmenter.createFromOptions(fileset, {
+        baseOptions: { modelAssetPath: import.meta.env.BASE_URL + 'models/selfie_segmenter.tflite' },
+        runningMode: 'VIDEO', outputConfidenceMasks: true,
+      });
+    } catch (e) {
+      demoSegFail = true;   // 밝기 키잉 폴백으로 (아래) — 코치가 어떤 환경에서도 뜬다
+      console.warn('[코치] 세그 초기화 실패 — 키잉 폴백', e);
+    }
   }
+  setTimeout(initDemoSeg, 1200);   // 부트 선초기화 — 세션 시작 즉시 코치 등장
   const MASK_GLSL = `
     uniform sampler2D uMask;
     uniform vec2 uCropC, uCropS;   // 인물 bbox 자동 크롭 (중심·반크기, 비디오 UV)
@@ -1946,7 +1952,36 @@ void main(){
     demoLastT = now;
     // 인물 세그멘테이션 → 마스크 캔버스 (신뢰도 R채널)
     if (!demoSegInit) initDemoSeg();
-    if (!demoSeg || demoVideo.readyState < 2) return;
+    if (demoVideo.readyState < 2) return;
+    if (!demoSeg) {
+      if (!demoSegFail) return;   // 초기화 중
+      // 폴백: 밝기 키잉 (어두운 배경 실사 전제) — 세그 없이도 코치는 뜬다
+      const FW = 320, FH = 180;
+      if (demoMaskCanvas.width !== FW) { demoMaskCanvas.width = FW; demoMaskCanvas.height = FH; }
+      const g2 = demoMaskCanvas.getContext('2d');
+      g2.drawImage(demoVideo, 0, 0, FW, FH);
+      const img = g2.getImageData(0, 0, FW, FH);
+      const dd = img.data;
+      for (let i = 0; i < dd.length; i += 4) {
+        const lum = 0.299 * dd[i] + 0.587 * dd[i + 1] + 0.114 * dd[i + 2];
+        dd[i] = lum > 70 ? 255 : 0; dd[i + 3] = 255;
+      }
+      g2.putImageData(img, 0, 0);
+      demoMaskTex.needsUpdate = true;
+      // 잔상 누적만 수행
+      trailMat.uniforms.uDecay.value = 0.86 + 0.12 * (FXP.person?.decay ?? 0.6);
+      trailMat.uniforms.prev.value = trailRTs[1 - trailFlip].texture;
+      const pT = renderer.getRenderTarget();
+      renderer.setRenderTarget(trailRTs[trailFlip]);
+      renderer.render(trailScene, trailQuadCam);
+      renderer.setRenderTarget(pT);
+      const PU2 = demoPanel.material.uniforms;
+      PU2.uTrail.value = trailRTs[trailFlip].texture;
+      PU2.uTime.value = now;
+      PU2.uNoise.value = FXP.person?.flow ?? 0.55;
+      trailFlip = 1 - trailFlip;
+      return;
+    }
     const segRes = demoSeg.segmentForVideo(demoVideo, performance.now());
     const mk = segRes.confidenceMasks[0];
     const mw = mk.width, mh = mk.height;
