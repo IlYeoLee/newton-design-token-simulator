@@ -2017,7 +2017,7 @@ void main(){
           // 컴포저 OutputPass(linear→sRGB) 역변환 상쇄 (tokens.js uOut=1 규약)
           col = clamp(col, 0.0, 1.0);
           col = mix(col / 12.92, pow((col + 0.055) / 1.055, vec3(2.4)), step(0.04045, col));
-          gl_FragColor = vec4(col, clamp(shape * 1.15, 0.0, 1.0) * field * 0.92);   // 알파 = 실루엣 추종
+          gl_FragColor = vec4(col, clamp(shape * 1.2, 0.0, 1.0) * field * 0.985);   // 알파 = 실루엣 추종
         }`,
       transparent: true, depthWrite: false,
       // out = col + dst·(1−a) — 랩의 base·(1−a·0.88)+col 과 동일 (프리멀티 커스텀 블렌딩)
@@ -2189,6 +2189,7 @@ void main(){
   hudCtx.scale(HUD_SS, HUD_SS);   // 드로 코드는 1600×1000 좌표계 유지
   // ── 글리프 라이브러리 재질 전역 강제: 무엇을 그리든 [컬러 = 네온 글로우, 코어 = 크림-화이트]
   //    (룩 시스템 숫자 글리프 스타일 — 유저 확정. 개별 드로 코드는 순수 컬러만 지정하면 됨)
+  let hudInkCore = false;   // 밝은 벽 = 코어를 채도 풀컬러로 (토큰 uDay 잉크 규약)
   (function neonize(g) {
     const CORE = 'rgba(255,243,228,0.97)';
     const rawFillText = g.fillText.bind(g), rawFill = g.fill.bind(g);
@@ -2197,25 +2198,25 @@ void main(){
     g.fillText = function (t, x, y) {
       const c = this.fillStyle;
       this.shadowColor = c; this.shadowBlur = 14 * hudGlowK; rawFillText(t, x, y); rawFillText(t, x, y);
-      this.shadowBlur = 0; this.fillStyle = CORE; rawFillText(t, x, y); rawFillText(t, x, y);
+      this.shadowBlur = 0; this.fillStyle = hudInkCore ? c : CORE; rawFillText(t, x, y); rawFillText(t, x, y);
       this.fillStyle = c;
     };
     g.fill = function (p) {
       const c = this.fillStyle;
       this.shadowColor = c; this.shadowBlur = 12 * hudGlowK; p ? rawFill(p) : rawFill();
-      this.shadowBlur = 0; this.fillStyle = CORE; p ? rawFill(p) : rawFill();
+      this.shadowBlur = 0; this.fillStyle = hudInkCore ? c : CORE; p ? rawFill(p) : rawFill();
       this.fillStyle = c;
     };
     g.fillRect = function (x, y, w, h) {
       const c = this.fillStyle;
       this.shadowColor = c; this.shadowBlur = 10 * hudGlowK; rawFillRect(x, y, w, h);
-      this.shadowBlur = 0; this.fillStyle = CORE; rawFillRect(x, y, w, h);
+      this.shadowBlur = 0; this.fillStyle = hudInkCore ? c : CORE; rawFillRect(x, y, w, h);
       this.fillStyle = c;
     };
     g.stroke = function (p) {
       const c = this.strokeStyle, w = this.lineWidth;
       this.shadowColor = c; this.shadowBlur = Math.max(6, w * 2.2) * hudGlowK; p ? rawStroke(p) : rawStroke();
-      this.shadowBlur = 0; this.strokeStyle = CORE; this.lineWidth = Math.max(1, w * 0.5);
+      this.shadowBlur = 0; this.strokeStyle = hudInkCore ? c : CORE; this.lineWidth = Math.max(1, w * 0.5);
       p ? rawStroke(p) : rawStroke();
       this.strokeStyle = c; this.lineWidth = w;
     };
@@ -2246,7 +2247,7 @@ void main(){
   // 풀컬러 레이저 전제: 강한 픽셀 = 벽을 덮는 불투명 잉크(급경사 알파),
   // 약한 글로우 = 가산에 수렴(알파≈0) — 반투명 워시 종결 + 갈색 프린지 회피
   float lum = max(col.r, max(col.g, col.b));
-  float aInk = smoothstep(0.22, 0.70, lum) * 0.96;
+  float aInk = smoothstep(0.20, 0.65, lum) * 0.985;
   col = mix(col / 12.92, pow((col + 0.055) / 1.055, vec3(2.4)), step(0.04045, col));
   gl_FragColor = vec4(col, aInk);
 }`,
@@ -2714,6 +2715,7 @@ void main(){
     const wc = rig._wallCenter;
     hudPanel.scale.set(rig.wallW / 3.2, rig.wallH / 2.0, 1);   // 캔버스 1600×1000 = 벽 전체 추종
     hudPanel.position.set(wc ? wc.cx : 0, ((wc?.cy ?? 1.4) - rig.wallH / 2) + rig.wallH / 2, WALL_Z + 0.028);
+    hudInkCore = !!FXP.day || (!!FXP.bg && FXP.bg !== 'none');   // 밝은 벽 = 채도 잉크 코어
     hudPanel.material.uniforms.uBoost.value = FXP.day ? 2.6 : 1.7;   // 자연광 풀컬러 레이저 전제 = 당당한 풀 광량
     gridScanPanel.visible = true;
     gridScanPanel.position.copy(hudPanel.position); gridScanPanel.position.z -= 0.006;
