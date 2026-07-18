@@ -1927,7 +1927,9 @@ void main(){
   let demoLastT = 0;
   const demoCrop = { cx: 0.5, cy: 0.5, sx: 1, sy: 1 };
   // 실사 시범 모드: 'off' | 'floor'(러닝 A 시범 — 휴면) | 'wall'(복싱 벽 실사 시험).
-  const DEMO_CLIP_MODE = 'wall';
+  // 실시간 세그 실사는 기각(구멍·플리커·프레임 드랍 — 스톡 다수로 실증). 'wall'은
+  // 사전에 매트를 구운 소스(알파 영상/스틸 시퀀스)가 준비된 경우에만 켠다.
+  const DEMO_CLIP_MODE = 'off';
   if (DEMO_CLIP_MODE === 'wall') {
     demoPanel.rotation.x = 0;                          // 벽 = 직립
     demoPanel.scale.setScalar(1.85);                   // 0.93m 지오메트리 → 실신장 ~1.7m
@@ -2144,6 +2146,8 @@ void main(){
     bxPerson.visible = !!on;
     if (!on) return;
     if (rig.wallClip && bxPerson.material.clippingPlanes !== rig.wallClip) bxPerson.material.clippingPlanes = rig.wallClip;
+    const wc = rig._wallCenter;
+    bxPerson.position.set(wc ? wc.cx : 0, 1.7 / 2 + 0.12, WALL_Z + 0.03);   // 유저 정면 = 벽 중심 추종
     const U = bxPerson.material.uniforms;
     const ms = performance.now();
     U.uFrame.value = (ms / 150) % 8;
