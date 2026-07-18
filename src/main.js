@@ -1843,20 +1843,22 @@ async function boot() {
   }
   setTimeout(initDemoSeg, 1200);   // 부트 선초기화 — 세션 시작 즉시 코치 등장
   const MASK_GLSL = `
-    uniform sampler2D uMask;
-    uniform vec2 uCropC, uCropS;   // 인물 bbox 자동 크롭 (중심·반크기, 비디오 UV)
+    uniform sampler2D tex;   // 비디오 (그린스크린 소스)
+    uniform vec2 uCropC, uCropS;
     float pmask(vec2 uv){
       vec2 vuv = uCropC + (uv - 0.5) * uCropS;
       if (vuv.x < 0.0 || vuv.x > 1.0 || vuv.y < 0.0 || vuv.y > 1.0) return 0.0;
-      float m = smoothstep(0.45, 0.62, texture2D(uMask, vuv).r);   // 세그 신뢰도 → 또렷한 실루엣
-      m *= smoothstep(0.0, 0.03, uv.y) * smoothstep(1.0, 0.97, uv.y);
+      vec3 c = texture2D(tex, vuv).rgb;
+      float k = c.g - max(c.r, c.b);                     // 그린 우세도 — 결정론적 크로마 키
+      float m = 1.0 - smoothstep(0.03, 0.14, k);
+      m *= smoothstep(0.0, 0.02, uv.y) * smoothstep(1.0, 0.98, uv.y);
       return m;
     }`;
   const trailRTs = [new THREE.WebGLRenderTarget(DPW, DPH), new THREE.WebGLRenderTarget(DPW, DPH)];
   let trailFlip = 0;
   const trailMat = new THREE.ShaderMaterial({
     uniforms: {
-      uMask: { value: demoMaskTex }, prev: { value: trailRTs[1].texture }, uDecay: { value: 0.9 },
+      tex: { value: demoTex }, prev: { value: trailRTs[1].texture }, uDecay: { value: 0.9 },
       uCropC: { value: new THREE.Vector2(0.5, 0.5) }, uCropS: { value: new THREE.Vector2(1, 1) },
     },
     vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }',
@@ -1876,7 +1878,7 @@ async function boot() {
     new THREE.PlaneGeometry(0.62, 0.93),   // 세로 카드 (영상 세로 프레이밍)
     new THREE.ShaderMaterial({
       uniforms: {
-        uMask: { value: demoMaskTex }, uTrail: { value: trailRTs[0].texture }, uLUT: { value: getLUT() },
+        tex: { value: demoTex }, uTrail: { value: trailRTs[0].texture }, uLUT: { value: getLUT() },
         uTime: { value: 0 }, uNoise: { value: 0.55 }, uW: { value: 1 },
         uCropC: { value: new THREE.Vector2(0.5, 0.5) }, uCropS: { value: new THREE.Vector2(1, 1) },
       },
@@ -1929,7 +1931,7 @@ void main(){
   // 실사 시범 모드: 'off' | 'floor'(러닝 A 시범 — 휴면) | 'wall'(복싱 벽 실사 시험).
   // 실시간 세그 실사는 기각(구멍·플리커·프레임 드랍 — 스톡 다수로 실증). 'wall'은
   // 사전에 매트를 구운 소스(알파 영상/스틸 시퀀스)가 준비된 경우에만 켠다.
-  const DEMO_CLIP_MODE = 'off';
+  const DEMO_CLIP_MODE = 'off';   // 크로마 키잉 배선 완료 — 진짜 그린스크린 소스(public/*.mp4) 확보 시 'wall'로
   if (DEMO_CLIP_MODE === 'wall') {
     demoPanel.rotation.x = 0;                          // 벽 = 직립
     demoPanel.scale.setScalar(1.85);                   // 0.93m 지오메트리 → 실신장 ~1.7m
@@ -1952,84 +1954,7 @@ void main(){
     const now = performance.now() / 1000;
     if (now - demoLastT < 1 / 45) return;
     demoLastT = now;
-    // 인물 세그멘테이션 → 마스크 캔버스 (신뢰도 R채널)
-    if (!demoSegInit) initDemoSeg();
     if (demoVideo.readyState < 2) return;
-    if (!demoSeg) {
-      if (!demoSegFail) return;   // 초기화 중
-      // 폴백: 밝기 키잉 (어두운 배경 실사 전제) — 세그 없이도 코치는 뜬다
-      const FW = 320, FH = 180;
-      if (demoMaskCanvas.width !== FW) { demoMaskCanvas.width = FW; demoMaskCanvas.height = FH; }
-      const g2 = demoMaskCanvas.getContext('2d');
-      g2.drawImage(demoVideo, 0, 0, FW, FH);
-      const img = g2.getImageData(0, 0, FW, FH);
-      const dd = img.data;
-      for (let i = 0; i < dd.length; i += 4) {
-        const lum = 0.299 * dd[i] + 0.587 * dd[i + 1] + 0.114 * dd[i + 2];
-        dd[i] = lum > 70 ? 255 : 0; dd[i + 3] = 255;
-      }
-      g2.putImageData(img, 0, 0);
-      demoMaskTex.needsUpdate = true;
-      // 잔상 누적만 수행
-      trailMat.uniforms.uDecay.value = 0.62 + 0.24 * (FXP.person?.decay ?? 0.6);   // 연속 누적 보정 — 과잉 스미어 방지
-      trailMat.uniforms.prev.value = trailRTs[1 - trailFlip].texture;
-      const pT = renderer.getRenderTarget();
-      renderer.setRenderTarget(trailRTs[trailFlip]);
-      renderer.render(trailScene, trailQuadCam);
-      renderer.setRenderTarget(pT);
-      const PU2 = demoPanel.material.uniforms;
-      PU2.uTrail.value = trailRTs[trailFlip].texture;
-      PU2.uTime.value = now;
-      PU2.uNoise.value = FXP.person?.flow ?? 0.55;
-      trailFlip = 1 - trailFlip;
-      return;
-    }
-    const segRes = demoSeg.segmentForVideo(demoVideo, performance.now());
-    const mk = segRes.confidenceMasks[0];
-    const mw = mk.width, mh = mk.height;
-    if (demoMaskCanvas.width !== mw) { demoMaskCanvas.width = mw; demoMaskCanvas.height = mh; }
-    const arr = mk.getAsFloat32Array();
-    // 인물 bbox — 자동 프레이밍 (아무 클립이든 인물을 패널에 맞춤)
-    let bx0 = 1, bx1 = 0, by0 = 1, by1 = 0, bn = 0;
-    for (let y = 0; y < mh; y += 2) for (let x = 0; x < mw; x += 2) {
-      if (arr[y * mw + x] > 0.5) {
-        const nx = x / mw, ny = y / mh;
-        if (nx < bx0) bx0 = nx; if (nx > bx1) bx1 = nx;
-        if (ny < by0) by0 = ny; if (ny > by1) by1 = ny;
-        bn++;
-      }
-    }
-    if (bn > 40) {
-      by0 = Math.max(0, by0 - 0.07);                            // 상단 패딩 — 머리 잘림 방지
-      const cx = (bx0 + bx1) / 2, cyImg = (by0 + by1) / 2;
-      const bh = Math.max(0.15, (by1 - by0) * 1.18);
-      const panelAR = 0.62 / 0.93;                              // 패널 종횡비
-      const vidAR = mw / mh;
-      let sx = bh * panelAR / vidAR;                            // 픽셀 정방 유지 가로 반경
-      sx = Math.max(sx, (bx1 - bx0) * 1.2);                     // 인물 폭 보장
-      // 느린 적응 + 데드밴드 — 프레이밍이 매 프레임 흔들리면 잔상 RT가 통째로 스미어(뭉개짐 1원인)
-      const k = 0.035, dead = 0.02;
-      const step = (cur, tgt) => Math.abs(tgt - cur) < dead ? cur : cur + (tgt - cur) * k;
-      demoCrop.cx = step(demoCrop.cx, cx);
-      demoCrop.cy = step(demoCrop.cy, 1 - cyImg);               // 텍스처 UV는 y-플립
-      demoCrop.sx = step(demoCrop.sx, sx);
-      demoCrop.sy = step(demoCrop.sy, bh);
-      for (const M of [trailMat, demoPanel.material]) {
-        M.uniforms.uCropC.value.set(demoCrop.cx, demoCrop.cy);
-        M.uniforms.uCropS.value.set(demoCrop.sx, demoCrop.sy);
-      }
-    }
-    if (import.meta.env.DEV) { let mx = 0, s = 0; for (let i = 0; i < arr.length; i += 7) { if (arr[i] > mx) mx = arr[i]; s += arr[i]; } window.__segDbg = { w: mw, h: mh, max: +mx.toFixed(3), mean: +(s / (arr.length / 7)).toFixed(4), n: (window.__segDbg?.n || 0) + 1 }; }
-    const g2 = demoMaskCanvas.getContext('2d');
-    const img = g2.createImageData(mw, mh);
-    for (let i = 0; i < arr.length; i++) {
-      const v = arr[i] * 255;
-      const j = i * 4;
-      img.data[j] = v; img.data[j + 3] = 255;
-    }
-    g2.putImageData(img, 0, 0);
-    demoMaskTex.needsUpdate = true;
-    mk.close();
     // 잔상 누적 (핑퐁) — 룩 person.decay 라이브 소비
     trailMat.uniforms.uDecay.value = 0.62 + 0.24 * (FXP.person?.decay ?? 0.6);   // 연속 누적 보정 — 과잉 스미어 방지
     trailMat.uniforms.prev.value = trailRTs[1 - trailFlip].texture;
