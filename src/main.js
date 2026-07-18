@@ -2242,13 +2242,16 @@ void main(){
   #include <clipping_planes_fragment>
   vec4 t = texture2D(tex, vUv);
   vec3 col = clamp(t.rgb * t.a, 0.0, 1.0);
-  col = clamp(col * uBoost, 0.0, 1.0);   // 광량 부스트 — 코어는 백색 포화, 글로우는 진하게
-  // 순수 가산 발광 — 벽을 어둡게 만들 물리 경로가 없음
+  col = clamp(col * uBoost, 0.0, 1.0);
+  // 풀컬러 레이저 전제: 강한 픽셀 = 벽을 덮는 불투명 잉크(급경사 알파),
+  // 약한 글로우 = 가산에 수렴(알파≈0) — 반투명 워시 종결 + 갈색 프린지 회피
+  float lum = max(col.r, max(col.g, col.b));
+  float aInk = smoothstep(0.22, 0.70, lum) * 0.96;
   col = mix(col / 12.92, pow((col + 0.055) / 1.055, vec3(2.4)), step(0.04045, col));
-  gl_FragColor = vec4(col, 1.0);
+  gl_FragColor = vec4(col, aInk);
 }`,
       transparent: true, depthWrite: false,
-      blending: THREE.CustomBlending, blendSrc: THREE.OneFactor, blendDst: THREE.OneFactor,   // 순수 가산
+      blending: THREE.CustomBlending, blendSrc: THREE.OneFactor, blendDst: THREE.OneMinusSrcAlphaFactor,   // 잉크 하이브리드
     }));
   hudPanel.renderOrder = 6;
   hudPanel.visible = false;
@@ -2312,11 +2315,13 @@ void main(){
   float hz = exp(-abs(suv.y * 0.55 - 0.22) * 26.0) * 0.10;
   col += uLines * hz;
   col = clamp(col * uBoost, 0.0, 1.0);
+  float lumG = max(col.r, max(col.g, col.b));
+  float aInk = smoothstep(0.22, 0.70, lumG) * 0.9;
   col = mix(col / 12.92, pow((col + 0.055) / 1.055, vec3(2.4)), step(0.04045, col));
-  gl_FragColor = vec4(col, 1.0);
+  gl_FragColor = vec4(col, aInk);
 }`,
       transparent: true, depthWrite: false,
-      blending: THREE.CustomBlending, blendSrc: THREE.OneFactor, blendDst: THREE.OneFactor,
+      blending: THREE.CustomBlending, blendSrc: THREE.OneFactor, blendDst: THREE.OneMinusSrcAlphaFactor,
     }));
   gridScanPanel.renderOrder = 5;
   gridScanPanel.visible = false;
