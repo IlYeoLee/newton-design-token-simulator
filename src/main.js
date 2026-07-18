@@ -1906,10 +1906,10 @@ void main(){
           float m = pmask(uv);
           float trail = texture2D(uTrail, uv).r * (1.0 - m);
           // 소프트 엣지 5탭 (랩 정본)
-          float mSoft = m * 0.66;
+          float mSoft = m * 0.36;
           for (int k = 0; k < 4; k++) {
             float a = 1.5708 * float(k) + 0.7;
-            mSoft += pmask(uv + vec2(cos(a), sin(a)) * 0.004 * uW) * 0.085;
+            mSoft += pmask(uv + vec2(cos(a), sin(a)) * 0.011 * uW) * 0.16;
           }
           // 내부 열 대류 + 세로 그라디언트 (랩 정본 수식 그대로)
           float flow = fxfbm(vec2(uv.x * 3.2 + sin(uTime * 0.4) * 0.3, uv.y * 2.4 - uTime * 0.5));
@@ -1977,6 +1977,7 @@ void main(){
     PU.uTime.value = now;
     PU.uNoise.value = FXP.person?.flow ?? 0.55;
     PU.uDetail.value = FXP.person?.detail ?? 0.62;
+    PU.uW.value = FXP.person?.blur ?? 1;   // 엣지 블러 — 랩 person 슬라이더 (누락돼 기본 1.0으로 돌던 버그)
     trailFlip = 1 - trailFlip;
   }
 
@@ -2075,7 +2076,7 @@ void main(){
           col += lut(clamp(heat * 0.45, 0.0, 1.0)) * trail * 0.38;
           gl_FragColor = vec4(col, 1.0);   // 가산: 검정 = 무기여 (라이브 출력 규약)
         }`,
-      transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+      transparent: true, depthWrite: false, blending: THREE.NormalBlending,
     }));
   bxPerson.material.clipping = true;
   bxPerson.position.set(0.42, 1.7 / 2 + 0.12, WALL_Z + 0.03);   // 투사 영역 안 (클리핑이 최종 보증)
