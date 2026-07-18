@@ -2504,44 +2504,48 @@ void main(){
     hudChip(g, 800 - w / 2, 912, w, 54, 27, HUD_MAIN, text, 800, 948);
   }
   function hudCTA(g, text, y, tS) {
-    // Uiverse.io by adamgiebl 1:1 — perspective(200px) rotateX(15deg) 버튼, 컬러만 뉴턴 레드
-    // border-radius 5 / 0deg 그라디언트(아래→위) / box-shadow 0 40px 29px .2 / border-bottom 2px
-    g.font = '900 26px Pretendard, sans-serif'; g.textAlign = 'center';
+    // uiverse(rotateX 퍼스펙티브·하단 보더·원거리 섀도) 베이스 + 큰 R + 뉴턴 풀 그라디언트
+    // 펄스: 퉁·퉁(스케일) → 쉼 루프
+    g.font = '900 27px Pretendard, sans-serif'; g.textAlign = 'center';
     const tw = g.measureText(text).width;
-    const w = tw + 86 * 2, h0 = 76, yy = y ?? 908;
-    const h = h0 * 0.966;            // rotateX(15deg) 수직 압축
-    const k = 0.92;                  // 퍼스펙티브 상단 수렴
+    const w = tw + 92, h0 = 72, yy = y ?? 908;
+    const h = h0 * 0.966, k = 0.965, R = 30;   // 큰 라운드 · 완만한 퍼스펙티브
+    const cyc = (tS ?? 0) % 2.4;
+    const bump = t0 => { const u = (cyc - t0) / 0.32; return u >= 0 && u <= 1 ? Math.sin(u * Math.PI) : 0; };
+    const p = Math.max(bump(0), bump(0.45));
+    const s = 1 + 0.075 * p;   // 자연스러운 크기 펄스
     g.save();
     g.translate(800, yy + h / 2);
-    // box-shadow: rgba(뉴턴레드, .2) 0px 40px 29px
+    g.scale(s, s);
+    // 원거리 소프트 섀도 (uiverse box-shadow 0 40px 29px .2)
     g.save();
     g.filter = 'blur(15px)';
-    g.fillStyle = 'rgba(250,48,48,0.2)';
-    g.beginPath(); g.roundRect(-w / 2, -h / 2 + 40, w, h, 5); g.__rawFill();
+    g.fillStyle = `rgba(250,48,48,${(0.2 + 0.12 * p).toFixed(3)})`;
+    g.beginPath(); g.roundRect(-w / 2, -h / 2 + 38, w, h, R); g.__rawFill();
     g.restore();
-    // 버튼 몸체 — rotateX 트라페조이드 (상단이 뒤로 기움)
-    const trap = () => {
+    const trap = (dy = 0) => {
       g.beginPath();
-      g.moveTo(-w / 2 + 5, h / 2);
-      g.lineTo(w / 2 - 5, h / 2);
-      g.quadraticCurveTo(w / 2, h / 2, w / 2, h / 2 - 5);
-      g.lineTo(w * k / 2, -h / 2 + 5);
-      g.quadraticCurveTo(w * k / 2, -h / 2, w * k / 2 - 5, -h / 2);
-      g.lineTo(-w * k / 2 + 5, -h / 2);
-      g.quadraticCurveTo(-w * k / 2, -h / 2, -w * k / 2, -h / 2 + 5);
-      g.lineTo(-w / 2, h / 2 - 5);
-      g.quadraticCurveTo(-w / 2, h / 2, -w / 2 + 5, h / 2);
+      g.moveTo(-w / 2 + R, h / 2 + dy);
+      g.lineTo(w / 2 - R, h / 2 + dy);
+      g.quadraticCurveTo(w / 2, h / 2 + dy, w / 2, h / 2 + dy - R);
+      g.lineTo(w * k / 2, -h / 2 + dy + R);
+      g.quadraticCurveTo(w * k / 2, -h / 2 + dy, w * k / 2 - R, -h / 2 + dy);
+      g.lineTo(-w * k / 2 + R, -h / 2 + dy);
+      g.quadraticCurveTo(-w * k / 2, -h / 2 + dy, -w * k / 2, -h / 2 + dy + R);
+      g.lineTo(-w / 2, h / 2 + dy - R);
+      g.quadraticCurveTo(-w / 2, h / 2 + dy, -w / 2 + R, h / 2 + dy);
       g.closePath();
     };
-    // border-bottom 2px solid (밝은 쪽 = FE6E3C) — 몸체보다 2px 아래로 먼저
-    g.save(); g.translate(0, 2); trap(); g.fillStyle = '#FE6E3C'; g.__rawFill(); g.restore();
-    // linear-gradient(0deg, 아래 → 위) : FA3030 → FE6E3C
+    // border-bottom (밝은 연주황)
+    g.save(); trap(2.5); g.fillStyle = '#FEC389'; g.__rawFill(); g.restore();
+    // 뉴턴 풀 그라디언트 (새벽 램프: 딥레드→레드→주황→연주황)
     trap();
-    const gr = g.createLinearGradient(0, h / 2, 0, -h / 2);
-    gr.addColorStop(0, 'rgba(250,48,48,1)');
-    gr.addColorStop(1, 'rgba(254,110,60,1)');
+    const gr = g.createLinearGradient(-w / 2, h / 2, w / 2, -h / 2);
+    gr.addColorStop(0, '#920F0F');
+    gr.addColorStop(0.38, '#FA3030');
+    gr.addColorStop(0.72, '#FE6E3C');
+    gr.addColorStop(1, '#FEC389');
     g.fillStyle = gr; g.__rawFill();
-    // 라벨 — white / 900
     g.fillStyle = '#ffffff';
     g.__rawFillText(text, 0, 9);
     g.restore();
@@ -2587,7 +2591,7 @@ void main(){
         g.strokeStyle = HUD_CYAN; g.lineWidth = 1.5; g.stroke();
         g.fillStyle = HUD_CYAN; g.textAlign = 'center';
         g.fillText(wtxt, 1520 - ww / 2, 191);
-        hudCTA(ctaCtx, 'TAP ×2 — 발 두 번 탭 → 시작', 916, tS);
+        hudCTA(ctaCtx, '발 두 번 탭 → 시작', 916, tS);
         // 우하: 가드 브래킷 + 카피
         g.strokeStyle = HUD_MAIN; g.lineWidth = 4;
         const bx = 1372, by = 830, bw = 64, bh = 54, L = 16;
@@ -2670,7 +2674,7 @@ void main(){
         g.fillStyle = '#fec389'; g.font = '500 30px Pretendard, sans-serif';
         g.fillText('몸 풀렸어요 — 다음: 사전 익히기', 800, 500);
         hudPhaseDots(g, 800 - 69, 560, 1);
-        hudCTA(ctaCtx, 'TAP ×2 — 탭 두 번 → 사전 익히기', 620, tS);
+        hudCTA(ctaCtx, '두 번 탭 → 익히기', 620, tS);
         break;
       }
       case 'BX_T2': {
@@ -2682,7 +2686,7 @@ void main(){
         g.fillText(String(Math.ceil(remain)), 270, 450);
         g.fillStyle = '#fec389'; g.font = '500 28px Pretendard, sans-serif';
         g.fillText('5초 뒤 실전', 270, 570);
-        hudCTA(ctaCtx, 'TAP ×2 — 두 번 탭 = 바로', 908, tS);
+        hudCTA(ctaCtx, '두 번 탭 → 바로', 908, tS);
         break;
       }
       case 'BX_C1': {
