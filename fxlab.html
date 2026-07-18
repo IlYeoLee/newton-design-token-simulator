@@ -931,7 +931,8 @@ void main(){
     float dlum = dot(rgbC, vec3(0.299, 0.587, 0.114));
     dlum = smoothstep(0.36, 0.60, dlum);   // 원본 대비 선보정 극대화
     float faceW = smoothstep(0.70, 0.84, uv.y) * (1.0 - smoothstep(0.965, 1.0, uv.y));
-    T = clamp(T * 0.72 + (dlum - 0.42) * uDetail * 1.5 * m * (1.0 - faceW), 0.0, 1.0);
+    float mIn = smoothstep(0.55, 0.95, m);   // 내부 침식 — 엣지 그린 밝기 유입 차단 (시뮬 동일)
+    T = clamp(T * 0.72 + (dlum - 0.42) * uDetail * 1.5 * mIn * (1.0 - faceW), 0.0, 1.0);
     T = pow(T, 1.38);   // 밀도 대비 — 암부 심화
     T = max(T, trail * 0.6);
     float soft = clamp(H * 1.55, 0.0, 1.0);
