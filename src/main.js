@@ -2289,6 +2289,13 @@ void main(){ vUv = uv; vec4 mvPosition = modelViewMatrix * vec4(position, 1.0); 
 varying vec2 vUv;
 uniform float uTime, uBoost;
 uniform vec3 uLines, uScan, uAccent;
+// ── reactbits Prism 정본 (height 3.5 / baseWidth 5.5 / scale 3.6) ──
+vec4 tanh4(vec4 x){ vec4 e2x = exp(2.0 * x); return (e2x - 1.0) / (e2x + 1.0); }
+float sdPyramid(vec3 p){
+  vec3 q = vec3(abs(p.x) * 0.36364, abs(p.y) * 0.28571, abs(p.z) * 0.36364);
+  float oct = (q.x + q.y + q.z - 1.0) * 2.75 * 0.57735;
+  return max(oct, -p.y);
+}
 float gridLine(vec2 guv){
   vec2 f = fract(guv);
   vec2 a = min(f, 1.0 - f);
@@ -2325,18 +2332,29 @@ void main(){
   // 지평선 은은한 라인
   float hz = exp(-abs(suv.y * 0.55 - 0.22) * 26.0) * 0.10;
   col += uLines * hz;
-  // Prism풍 앰비언트 워시 — 뉴턴 컬러칩 투사광이 은은히 흐르며 밀도를 채움 (알파 없는 순수 투과광)
-  float tw = uTime * 0.12;
-  vec2 c1 = vec2(0.30 + 0.10 * sin(tw),            0.62 + 0.06 * cos(tw * 0.7));
-  vec2 c2 = vec2(0.72 + 0.09 * cos(tw * 0.9),      0.52 + 0.08 * sin(tw * 0.6));
-  vec2 c3 = vec2(0.50 + 0.12 * sin(tw * 0.5 + 2.0), 0.24 + 0.05 * cos(tw));
-  col += uScan   * exp(-6.0 * dot(vUv - c1, vUv - c1)) * 0.14;
-  col += uLines  * exp(-5.0 * dot(vUv - c2, vUv - c2)) * 0.10;
-  col += uAccent * exp(-7.0 * dot(vUv - c3, vUv - c3)) * 0.09;
+  // reactbits Prism 정본 레이마치 — 채널 위상 누적을 뉴턴 칩 가중으로 매핑 (칩 조합 그라디언트만)
+  vec2 fp = (vUv - 0.5) * vec2(1.6, 1.0) * 2.78;
+  float zz = 5.0;
+  vec4 acc = vec4(0.0);
+  float tp = uTime * 0.5;
+  mat2 wob = mat2(cos(tp), cos(tp + 33.0), cos(tp + 11.0), cos(tp));
+  for (int i = 0; i < 100; i++) {
+    vec3 pp = vec3(fp, zz);
+    pp.xz = wob * pp.xz;
+    vec3 qq = pp; qq.y += 0.875;
+    float dd = 0.1 + 0.2 * abs(sdPyramid(qq));
+    zz -= dd;
+    acc += (sin((pp.y + zz) + vec4(0.0, 1.0, 2.0, 3.0)) + 1.0) / dd;
+  }
+  vec4 op = tanh4(acc * acc / 1e5);
+  col += (op.x * vec3(0.980, 0.188, 0.188)     // FA3030
+        + op.y * vec3(0.996, 0.431, 0.235)     // FE6E3C
+        + op.z * vec3(0.996, 0.765, 0.537))    // FEC389
+        * 0.12;   // 은은한 배경 투사광 (0.32 = 슬래브처럼 압도 — 다운)
   col = clamp(col * uBoost, 0.0, 1.0);
-  // 테두리 페더 — 투사 경계가 딱 끊기지 않고 은은히 소멸
-  float vign = smoothstep(0.0, 0.16, vUv.x) * smoothstep(0.0, 0.16, 1.0 - vUv.x)
-             * smoothstep(0.0, 0.20, vUv.y) * smoothstep(0.0, 0.20, 1.0 - vUv.y);
+  // 테두리 페더 — 사각 경계가 안 보이게 가장자리로 갈수록 블러 소멸
+  float vign = smoothstep(0.0, 0.24, vUv.x) * smoothstep(0.0, 0.24, 1.0 - vUv.x)
+             * smoothstep(0.0, 0.28, vUv.y) * smoothstep(0.0, 0.28, 1.0 - vUv.y);
   col *= vign;
   float lumG = max(col.r, max(col.g, col.b));
   float aInk = smoothstep(0.16, 0.60, lumG) * 0.72;   // 배경 그리드 투과 완화 (유저: 너무 투명)
