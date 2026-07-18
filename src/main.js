@@ -850,6 +850,9 @@ void main(){
     panel.setPlaying(true, true);
     sessionBtn.textContent = '세션 중지';
     if (sessionHud) sessionHud.style.display = 'block';
+    // 세션 = 화면 집중: 좌측 패널·팩 카드 숨김 (중지 시 복귀)
+    document.getElementById('panel')?.style.setProperty('display', 'none');
+    document.getElementById('hud')?.style.setProperty('display', 'none');
     setFp(true);
   }
   function stopSession() {
@@ -866,6 +869,8 @@ void main(){
     if (sessionHud) sessionHud.style.display = 'none';
     sceneUI.setStatus('');
     sceneUI.setInstruction('');
+    document.getElementById('panel')?.style.removeProperty('display');
+    document.getElementById('hud')?.style.removeProperty('display');
     setFp(false);           // 중단 → X봇 3인칭 복귀
   }
   // ── 데모 투어: 러닝→복싱→농구 자동 순회 (영상 녹화용) ──
