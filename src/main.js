@@ -2505,51 +2505,44 @@ void main(){
     hudChip(g, 800 - w / 2, 912, w, 54, 27, HUD_MAIN, text, 800, 948);
   }
   function hudCTA(g, text, y, tS) {
-    // 유저 제공 CSS(그라디언트 링 + 레드 바디 + 인셋 시트 + 레터 쉬머) 1:1 이식
-    // --button-color FA3030 / ::before linear-gradient(0deg, FE6E3C→FEC389) / R24·pad4
-    g.font = '400 27px Poppins, Pretendard, sans-serif'; g.textAlign = 'left';
-    const tw = g.measureText(text).width;
-    const w = tw + 27 * 1.7, h = 27 + 27, R = 24, P = 4, yy = y ?? 908;
-    const t = tS ?? 0;
+    // 최종형: 뉴턴 그라디언트 필 버튼 + 둥둥×2-쉼 스케일 펄스 + 펄스 링 강조
+    // 그림자 없음 · 큰 텍스트 · 넉넉한 패딩 (유저)
+    const LABEL = '발 두 번 탭해서 시작';
+    g.font = '900 34px Pretendard, sans-serif'; g.textAlign = 'center';
+    const tw = g.measureText(LABEL).width;
+    const w = tw + 130, h = 78, R = 32, yy = y ?? 908;
+    const cyc = (tS ?? 0) % 2.6;
+    const bump = t0 => { const u = (cyc - t0) / 0.34; return u >= 0 && u <= 1 ? Math.sin(Math.PI * u) : 0; };
+    const p = Math.max(bump(0), bump(0.5));      // 둥·둥 → 쉼
     g.save();
     g.translate(800, yy + h / 2);
-    // ::before — 그라디언트 링 (아래 FE6E3C → 위 FEC389) + 화이트 에지 글린트
-    g.beginPath(); g.roundRect(-w / 2 - P, -h / 2 - P, w + P * 2, h + P * 2, R + P);
-    const grB = g.createLinearGradient(0, h / 2 + P, 0, -h / 2 - P);
-    grB.addColorStop(0, '#FE6E3C'); grB.addColorStop(1, '#FEC389');
-    g.fillStyle = grB; g.__rawFill();
-    g.lineWidth = 1.5; g.strokeStyle = 'rgba(255,255,255,0.55)';
-    g.beginPath(); g.roundRect(-w / 2 - P - 1, -h / 2 - P - 1, w + P * 2 + 2, h + P * 2 + 2, R + P + 1);
-    g.__rawStroke();
-    // .btn 바디 — FA3030 + 1px 화이트 보더
-    g.beginPath(); g.roundRect(-w / 2, -h / 2, w, h, R);
-    g.fillStyle = '#FA3030'; g.__rawFill();
-    // 인셋 화이트 시트 (top 1·2·4·8·16px 레이어) — 위에서 내려오는 광
-    g.save();
-    g.beginPath(); g.roundRect(-w / 2, -h / 2, w, h, R); g.clip();
-    const sheen = g.createLinearGradient(0, -h / 2, 0, -h / 2 + h * 0.62);
-    sheen.addColorStop(0, 'rgba(255,255,255,0.30)');
-    sheen.addColorStop(0.25, 'rgba(255,255,255,0.12)');
-    sheen.addColorStop(1, 'rgba(255,255,255,0)');
-    g.beginPath(); g.roundRect(-w / 2, -h / 2, w, h, R);
-    g.fillStyle = sheen; g.__rawFill();
-    g.restore();
-    g.lineWidth = 1; g.strokeStyle = 'rgba(255,255,255,0.13)';
-    g.beginPath(); g.roundRect(-w / 2 + 0.5, -h / 2 + 0.5, w - 1, h - 1, R);
-    g.__rawStroke();
-    // 레터 쉬머 — letter-anim 2s, per-letter 0.08s 딜레이 (text-shadow 0 0 3px #fff8)
-    let x = -tw / 2;
-    for (let i = 0; i < text.length; i++) {
-      const ch = text[i];
-      const ph = ((t - i * 0.08) % 2 + 2) % 2;
-      const k = Math.sin(Math.PI * ph);            // 0→1→0 (50% 피크)
-      g.shadowColor = 'rgba(255,255,255,0.53)';
-      g.shadowBlur = 3 * Math.max(0, k) * 2;
-      g.fillStyle = '#ffffff';
-      g.__rawFillText(ch, x, 9);
-      x += g.measureText(ch).width;
+    // 펄스 링 — 둥 박자마다 부드러운 그라디언트 링 확산 (pulsating-button 계열)
+    for (const t0 of [0, 0.5]) {
+      const u = (cyc - t0) / 0.9;
+      if (u > 0 && u < 1) {
+        const ex = u * 54, a = (1 - u) * (1 - u) * 0.55;
+        const grd = g.createRadialGradient(0, 0, Math.max(1, w / 2 - 10), 0, 0, w / 2 + ex + 26);
+        grd.addColorStop(0, 'rgba(250,48,48,0)');
+        grd.addColorStop(0.6, `rgba(254,110,60,${(a * 0.8).toFixed(3)})`);
+        grd.addColorStop(0.85, `rgba(254,195,137,${a.toFixed(3)})`);
+        grd.addColorStop(1, 'rgba(254,195,137,0)');
+        g.beginPath(); g.roundRect(-w / 2 - ex, -h / 2 - ex, w + ex * 2, h + ex * 2, R + ex);
+        g.fillStyle = grd; g.__rawFill();
+      }
     }
-    g.shadowBlur = 0;
+    const s = 1 + 0.085 * p;   // 둥둥 크기 변화
+    g.scale(s, s);
+    // 뉴턴 그라디언트 바디 (새벽 램프 대각) — 그림자 없음
+    g.beginPath(); g.roundRect(-w / 2, -h / 2, w, h, R);
+    const gr = g.createLinearGradient(-w / 2, h / 2, w / 2, -h / 2);
+    gr.addColorStop(0, '#920F0F');
+    gr.addColorStop(0.4, '#FA3030');
+    gr.addColorStop(0.75, '#FE6E3C');
+    gr.addColorStop(1, '#FEC389');
+    g.fillStyle = gr; g.__rawFill();
+    // 라벨 — 크게, 화이트
+    g.fillStyle = '#ffffff';
+    g.__rawFillText(LABEL, 0, 12);
     g.restore();
     g.textAlign = 'center';
   }
