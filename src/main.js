@@ -2283,6 +2283,10 @@ void main(){
   ctaTex.anisotropy = 8;
   const ctaPanel = new THREE.Mesh(hudPanel.geometry, hudPanel.material.clone());
   ctaPanel.material.uniforms.tex.value = ctaTex;
+  // 버튼 = 최고 위계 풀 잉크 (인물 0.985와 동급 이상 — 유저: '사람보다 쨍하게')
+  ctaPanel.material.fragmentShader = ctaPanel.material.fragmentShader.replace(
+    'smoothstep(0.20, 0.65, lum) * 0.68', 'smoothstep(0.12, 0.50, lum) * 1.0');
+  ctaPanel.material.needsUpdate = true;
   ctaPanel.renderOrder = 8;   // 인물(7) 위 — 버튼만 최상층
   hudPanel.visible = false;
   scene.add(hudPanel);
@@ -2500,43 +2504,62 @@ void main(){
     hudChip(g, 800 - w / 2, 912, w, 54, 27, HUD_MAIN, text, 800, 948);
   }
   function hudCTA(g, text, y, tS) {
-    // 펄스 2연타(퉁퉁-쉼) + 기운 3D 눌림 버튼 — magicui pulsating + uiverse hot-catfish 믹스
+    // codefronts layered-depth-gradient-button 이식 — 뉴턴 레드 칩 그라디언트(920F0F→FA3030→FE6E3C)
+    // 3층: 블러 백 글로우 / 그라디언트 페이스+탑 하이라이트 / 글림 캡슐. 풀 잉크(쨍하게).
     g.font = '700 26px Pretendard, sans-serif'; g.textAlign = 'center';
-    const w = g.measureText(text).width + 64, h = 54, yy = y ?? 908;
+    const w = g.measureText(text).width + 72, h = 58, R = 16, yy = y ?? 908;
     const cyc = (tS ?? 0) % 2.2;
     const bump = t0 => { const u = (cyc - t0) / 0.17; return u >= 0 && u <= 1 ? Math.sin(u * Math.PI) : 0; };
-    const press = Math.max(bump(0), bump(0.4));   // 퉁·퉁 → 1.4s 쉼 (2번 탭 암시)
+    const press = Math.max(bump(0), bump(0.4));   // 퉁·퉁 → 쉼 (2번 탭 암시)
     g.save();
-    g.translate(800, yy + h / 2);   // 가운데 정렬 · 기울기 0 (magicui 기본형 엄수 — 유저)
-    // 확산 펄스 — 아웃라인 대신 은은한 면 그라디언트 파동 (유저)
+    g.translate(800, yy + h / 2);
+    // 확산 펄스 — 면 그라디언트 파동 (레드 계열)
     for (const t0 of [0, 0.4]) {
       const u = (cyc - t0) / 0.75;
       if (u > 0 && u < 1) {
-        const ex = u * 46;
-        const a = (1 - u) * (1 - u) * 0.8;   // 가시성 업 (유저)
+        const ex = u * 46, a = (1 - u) * (1 - u) * 0.8;
         const grd = g.createRadialGradient(0, 0, Math.max(1, w / 2 - 26), 0, 0, w / 2 + ex + 30);
-        grd.addColorStop(0, 'rgba(209,254,255,0)');
-        grd.addColorStop(0.55, `rgba(209,254,255,${a.toFixed(3)})`);
-        grd.addColorStop(1, 'rgba(209,254,255,0)');
-        g.beginPath(); g.roundRect(-w / 2 - ex, -h / 2 - ex, w + ex * 2, h + ex * 2, 27 + ex);
+        grd.addColorStop(0, 'rgba(250,48,48,0)');
+        grd.addColorStop(0.55, `rgba(250,48,48,${(a * 0.7).toFixed(3)})`);
+        grd.addColorStop(1, 'rgba(254,110,60,0)');
+        g.beginPath(); g.roundRect(-w / 2 - ex, -h / 2 - ex, w + ex * 2, h + ex * 2, R + ex);
         g.fillStyle = grd; g.__rawFill();
       }
     }
-    const s = 1 - press * 0.07;                    // 눌림 스케일
+    const s = 1 - press * 0.06;
     g.scale(s, s);
-    // 색 그림자 — 정하향 오프셋만 (기울기 없음). 누르면 가라앉음
-    const drop = 9 - press * 6;
-    g.globalAlpha = 0.5;
-    g.beginPath(); g.roundRect(-w / 2, -h / 2 + drop, w, h, 27);
-    g.fillStyle = `color-mix(in srgb, ${HUD_CYAN} 45%, #091212 55%)`;
-    g.__rawFill();
+    const py = press * 3;   // 눌림 하강
+    // ① back — 블러 다크 레드 글로우 (깊이)
+    g.save();
+    g.filter = 'blur(9px)'; g.globalAlpha = 0.6;
+    const gb = g.createLinearGradient(-w / 2, -h / 2, w / 2, h / 2);
+    gb.addColorStop(0, '#510d0d'); gb.addColorStop(0.55, '#8f1d1d'); gb.addColorStop(1, '#93401f');
+    g.beginPath(); g.roundRect(-w / 2 + 2, -h / 2 + 9, w, h, R);
+    g.fillStyle = gb; g.__rawFill();
+    g.restore();
+    // ② face — 뉴턴 레드 그라디언트 + 탑 화이트 하이라이트
+    g.beginPath(); g.roundRect(-w / 2, -h / 2 + py, w, h, R);
+    const gf = g.createLinearGradient(-w / 2, -h / 2, w / 2, h / 2);
+    gf.addColorStop(0, '#920F0F'); gf.addColorStop(0.55, '#FA3030'); gf.addColorStop(1, '#FE6E3C');
+    g.fillStyle = gf; g.__rawFill();
+    const gh = g.createRadialGradient(0, -h / 2 + py, 4, 0, -h / 2 + py, h);
+    gh.addColorStop(0, 'rgba(255,255,255,0.22)'); gh.addColorStop(0.55, 'rgba(255,255,255,0)');
+    g.beginPath(); g.roundRect(-w / 2, -h / 2 + py, w, h, R);
+    g.fillStyle = gh; g.__rawFill();
+    // 인셋 탑 라인
+    g.globalAlpha = 0.3;
+    g.beginPath(); g.roundRect(-w / 2 + R * 0.6, -h / 2 + py + 1.5, w - R * 1.2, 2, 1);
+    g.fillStyle = '#ffffff'; g.__rawFill();
     g.globalAlpha = 1;
-    // 버튼 면 = magicui 솔리드 필 + 다크 텍스트
-    g.beginPath(); g.roundRect(-w / 2, -h / 2 + press * 3, w, h, 27);
-    g.fillStyle = HUD_CYAN; g.__rawFill();
-    g.strokeStyle = HUD_CYAN; g.lineWidth = 2; g.stroke();
-    g.fillStyle = '#091212';
-    g.__rawFillText(text, 0, 8 + press * 3);
+    // ③ gleam — 탑 캡슐 광택
+    g.save();
+    g.filter = 'blur(3px)'; g.globalAlpha = 0.5;
+    g.beginPath(); g.ellipse(0, -h / 2 + py + 11, w * 0.28, 7, 0, 0, 6.284);
+    g.fillStyle = '#ffffff'; g.__rawFill();
+    g.restore();
+    // 라벨 — 풀 화이트 잉크
+    g.fillStyle = '#ffffff';
+    g.__rawFillText(text, 0, 9 + py);
     g.restore();
     g.textAlign = 'center';
   }
@@ -2811,7 +2834,7 @@ void main(){
     hudPanel.position.set(wc ? wc.cx : 0, ((wc?.cy ?? 1.4) - rig.wallH / 2) + rig.wallH / 2, WALL_Z + 0.028);
     hudInkCore = false;   // 채도 코어 기각(유저: 흰색이 노랑으로 물듦) — 코어는 항상 화이트
     hudPanel.material.uniforms.uBoost.value = FXP.day ? 2.6 : 1.7;   // 자연광 풀컬러 레이저 전제 = 당당한 풀 광량
-    ctaPanel.material.uniforms.uBoost.value = FXP.day ? 2.6 : 1.7;
+    ctaPanel.material.uniforms.uBoost.value = 1.0;   // 버튼 = 원색 그라디언트 그대로 (부스트 시 화이트로 날아감)
     ctaPanel.position.copy(hudPanel.position); ctaPanel.scale.copy(hudPanel.scale);
     if (rig.wallClip && ctaPanel.material.clippingPlanes !== rig.wallClip)
       ctaPanel.material.clippingPlanes = rig.wallClip;
