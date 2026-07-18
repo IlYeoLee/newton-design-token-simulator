@@ -1817,7 +1817,7 @@ async function boot() {
   //    + 내부 열 대류(fbm) → 공유 히트 LUT. 잔상은 핑퐁 RT 누적(max(cur, prev·decay)) —
   //    랩의 과거 프레임 3탭과 시각 등가. 룩 슬라이더(person.decay/flow) 라이브 소비.
   const demoVideo = document.createElement('video');
-  demoVideo.src = import.meta.env.BASE_URL + 'bx_45874.mp4';   // Mixkit 45874 — 남성 복서 연습 (외부 실사, 3안 중 최선)
+  demoVideo.src = import.meta.env.BASE_URL + 'bx_2161.mp4';   // Mixkit 2161 — 남성 복싱 워밍업 (마스크 정량평가 1위: bbox 0.32×1.0 · fill 0.66)
   demoVideo.muted = true; demoVideo.loop = true; demoVideo.playsInline = true;
   demoVideo.crossOrigin = 'anonymous';
   const demoTex = new THREE.VideoTexture(demoVideo);
@@ -1902,10 +1902,10 @@ void main(){
           float m = pmask(uv);
           float trail = texture2D(uTrail, uv).r * (1.0 - m);
           // 소프트 엣지 5탭 (랩 정본)
-          float mSoft = m * 0.52;
+          float mSoft = m * 0.66;
           for (int k = 0; k < 4; k++) {
             float a = 1.5708 * float(k) + 0.7;
-            mSoft += pmask(uv + vec2(cos(a), sin(a)) * 0.007 * uW) * 0.12;
+            mSoft += pmask(uv + vec2(cos(a), sin(a)) * 0.004 * uW) * 0.085;
           }
           // 내부 열 대류 + 세로 그라디언트 (랩 정본 수식 그대로)
           float flow = fxfbm(vec2(uv.x * 3.2 + sin(uTime * 0.4) * 0.3, uv.y * 2.4 - uTime * 0.5));
@@ -1914,7 +1914,7 @@ void main(){
           float heat = mix(vert, clamp(vert + (flow - 0.5) * 0.55 + (flow2 - 0.5) * 0.25, 0.0, 1.0), uNoise);
           heat += clamp(m - mSoft, 0.0, 1.0) * 0.10;
           vec3 col = lut(clamp(heat, 0.0, 1.0)) * mSoft * 1.45;
-          col += lut(clamp(heat * 0.45, 0.0, 1.0)) * trail * 0.8;
+          col += lut(clamp(heat * 0.45, 0.0, 1.0)) * trail * 0.38;
           gl_FragColor = vec4(col, 1.0);   // 가산: 검정 = 무기여
         }`,
       transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
@@ -1969,7 +1969,7 @@ void main(){
       g2.putImageData(img, 0, 0);
       demoMaskTex.needsUpdate = true;
       // 잔상 누적만 수행
-      trailMat.uniforms.uDecay.value = 0.86 + 0.12 * (FXP.person?.decay ?? 0.6);
+      trailMat.uniforms.uDecay.value = 0.62 + 0.24 * (FXP.person?.decay ?? 0.6);   // 연속 누적 보정 — 과잉 스미어 방지
       trailMat.uniforms.prev.value = trailRTs[1 - trailFlip].texture;
       const pT = renderer.getRenderTarget();
       renderer.setRenderTarget(trailRTs[trailFlip]);
@@ -1998,17 +1998,20 @@ void main(){
       }
     }
     if (bn > 40) {
+      by0 = Math.max(0, by0 - 0.07);                            // 상단 패딩 — 머리 잘림 방지
       const cx = (bx0 + bx1) / 2, cyImg = (by0 + by1) / 2;
-      const bh = Math.max(0.15, (by1 - by0) * 1.25);           // 세로 여유 25%
+      const bh = Math.max(0.15, (by1 - by0) * 1.18);
       const panelAR = 0.62 / 0.93;                              // 패널 종횡비
       const vidAR = mw / mh;
       let sx = bh * panelAR / vidAR;                            // 픽셀 정방 유지 가로 반경
       sx = Math.max(sx, (bx1 - bx0) * 1.2);                     // 인물 폭 보장
-      const k = 0.12;                                           // 스무딩 (프레이밍 요동 방지)
-      demoCrop.cx += (cx - demoCrop.cx) * k;
-      demoCrop.cy += ((1 - cyImg) - demoCrop.cy) * k;           // 텍스처 UV는 y-플립
-      demoCrop.sx += (sx - demoCrop.sx) * k;
-      demoCrop.sy += (bh - demoCrop.sy) * k;
+      // 느린 적응 + 데드밴드 — 프레이밍이 매 프레임 흔들리면 잔상 RT가 통째로 스미어(뭉개짐 1원인)
+      const k = 0.035, dead = 0.02;
+      const step = (cur, tgt) => Math.abs(tgt - cur) < dead ? cur : cur + (tgt - cur) * k;
+      demoCrop.cx = step(demoCrop.cx, cx);
+      demoCrop.cy = step(demoCrop.cy, 1 - cyImg);               // 텍스처 UV는 y-플립
+      demoCrop.sx = step(demoCrop.sx, sx);
+      demoCrop.sy = step(demoCrop.sy, bh);
       for (const M of [trailMat, demoPanel.material]) {
         M.uniforms.uCropC.value.set(demoCrop.cx, demoCrop.cy);
         M.uniforms.uCropS.value.set(demoCrop.sx, demoCrop.sy);
@@ -2026,7 +2029,7 @@ void main(){
     demoMaskTex.needsUpdate = true;
     mk.close();
     // 잔상 누적 (핑퐁) — 룩 person.decay 라이브 소비
-    trailMat.uniforms.uDecay.value = 0.86 + 0.12 * (FXP.person?.decay ?? 0.6);
+    trailMat.uniforms.uDecay.value = 0.62 + 0.24 * (FXP.person?.decay ?? 0.6);   // 연속 누적 보정 — 과잉 스미어 방지
     trailMat.uniforms.prev.value = trailRTs[1 - trailFlip].texture;
     const prevT = renderer.getRenderTarget();
     renderer.setRenderTarget(trailRTs[trailFlip]);
@@ -2125,7 +2128,7 @@ void main(){
           float heat = mix(vert, clamp(vert + (flow - 0.5) * 0.55 + (flow2 - 0.5) * 0.25, 0.0, 1.0), uNoise);
           heat += clamp(m - mSoft, 0.0, 1.0) * 0.10;
           vec3 col = lut(clamp(heat, 0.0, 1.0)) * mSoft * 1.12;
-          col += lut(clamp(heat * 0.45, 0.0, 1.0)) * trail * 0.8;
+          col += lut(clamp(heat * 0.45, 0.0, 1.0)) * trail * 0.38;
           gl_FragColor = vec4(col, 1.0);   // 가산: 검정 = 무기여 (라이브 출력 규약)
         }`,
       transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
