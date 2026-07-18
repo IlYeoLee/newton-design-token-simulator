@@ -2505,44 +2505,47 @@ void main(){
     hudChip(g, 800 - w / 2, 912, w, 54, 27, HUD_MAIN, text, 800, 948);
   }
   function hudCTA(g, text, y, tS) {
-    // 최종형: 뉴턴 그라디언트 필 버튼 + 둥둥×2-쉼 스케일 펄스 + 펄스 링 강조
-    // 그림자 없음 · 큰 텍스트 · 넉넉한 패딩 (유저)
+    // magicui shimmer-button 1:1 — 다크 바디 + 림을 도는 샤이머(spread 90deg, 3s 회전)
+    // 변형 2가지(유저): 샤이머 = 뉴턴 칩 그라디언트 / 텍스트 = 펀치아웃(뒤 배경 노출)
     const LABEL = '발 두 번 탭해서 시작';
     g.font = '900 34px Pretendard, sans-serif'; g.textAlign = 'center';
     const tw = g.measureText(LABEL).width;
-    const w = tw + 130, h = 78, R = 32, yy = y ?? 908;
-    const cyc = (tS ?? 0) % 2.6;
-    const bump = t0 => { const u = (cyc - t0) / 0.34; return u >= 0 && u <= 1 ? Math.sin(Math.PI * u) : 0; };
-    const p = Math.max(bump(0), bump(0.5));      // 둥·둥 → 쉼
+    const w = tw + 120, h = 78, R = 39, CUT = 3.5, yy = y ?? 908;   // --radius 100px 필 / --cut
+    const t = tS ?? 0;
     g.save();
     g.translate(800, yy + h / 2);
-    // 펄스 링 — 둥 박자마다 부드러운 그라디언트 링 확산 (pulsating-button 계열)
-    for (const t0 of [0, 0.5]) {
-      const u = (cyc - t0) / 0.9;
-      if (u > 0 && u < 1) {
-        const ex = u * 54, a = (1 - u) * (1 - u) * 0.55;
-        const grd = g.createRadialGradient(0, 0, Math.max(1, w / 2 - 10), 0, 0, w / 2 + ex + 26);
-        grd.addColorStop(0, 'rgba(250,48,48,0)');
-        grd.addColorStop(0.6, `rgba(254,110,60,${(a * 0.8).toFixed(3)})`);
-        grd.addColorStop(0.85, `rgba(254,195,137,${a.toFixed(3)})`);
-        grd.addColorStop(1, 'rgba(254,195,137,0)');
-        g.beginPath(); g.roundRect(-w / 2 - ex, -h / 2 - ex, w + ex * 2, h + ex * 2, R + ex);
-        g.fillStyle = grd; g.__rawFill();
-      }
-    }
-    const s = 1 + 0.085 * p;   // 둥둥 크기 변화
-    g.scale(s, s);
-    // 뉴턴 그라디언트 바디 (새벽 램프 대각) — 그림자 없음
+    // ① 샤이머 — 회전 콘익 세그먼트 (뉴턴 그라디언트, --speed 3s)
+    const a0 = (t / 3) * Math.PI * 2;
+    const cg = g.createConicGradient(a0, 0, 0);
+    cg.addColorStop(0, 'rgba(250,48,48,0)');
+    cg.addColorStop(0.04, 'rgba(250,48,48,0.95)');
+    cg.addColorStop(0.125, 'rgba(254,110,60,1)');
+    cg.addColorStop(0.21, 'rgba(254,195,137,0.95)');
+    cg.addColorStop(0.25, 'rgba(254,195,137,0)');
+    cg.addColorStop(1, 'rgba(250,48,48,0)');
+    g.save();
+    g.filter = 'blur(3px)';
     g.beginPath(); g.roundRect(-w / 2, -h / 2, w, h, R);
-    const gr = g.createLinearGradient(-w / 2, h / 2, w / 2, -h / 2);
-    gr.addColorStop(0, '#920F0F');
-    gr.addColorStop(0.4, '#FA3030');
-    gr.addColorStop(0.75, '#FE6E3C');
-    gr.addColorStop(1, '#FEC389');
-    g.fillStyle = gr; g.__rawFill();
-    // 라벨 — 크게, 화이트
-    g.fillStyle = '#ffffff';
+    g.fillStyle = cg; g.__rawFill();
+    g.restore();
+    // ② 백드롭 — 다크 바디가 중앙을 덮어 림만 남김 (--cut)
+    g.beginPath(); g.roundRect(-w / 2 + CUT, -h / 2 + CUT, w - CUT * 2, h - CUT * 2, R - CUT);
+    g.fillStyle = '#091212'; g.__rawFill();
+    // ③ 인셋 하이라이트 (rgba 255 .1 상단)
+    g.save();
+    g.beginPath(); g.roundRect(-w / 2 + CUT, -h / 2 + CUT, w - CUT * 2, h - CUT * 2, R - CUT); g.clip();
+    const hl = g.createLinearGradient(0, -h / 2, 0, 0);
+    hl.addColorStop(0, 'rgba(255,255,255,0.12)'); hl.addColorStop(1, 'rgba(255,255,255,0)');
+    g.beginPath(); g.roundRect(-w / 2 + CUT, -h / 2 + CUT, w - CUT * 2, h * 0.5, R - CUT);
+    g.fillStyle = hl; g.__rawFill();
+    g.restore();
+    // ④ 텍스트 펀치아웃 — 글자 모양대로 구멍 (뒤 인물·배경이 비침)
+    g.save();
+    g.globalCompositeOperation = 'destination-out';
+    g.shadowBlur = 0;
+    g.fillStyle = '#fff';
     g.__rawFillText(LABEL, 0, 12);
+    g.restore();
     g.restore();
     g.textAlign = 'center';
   }
