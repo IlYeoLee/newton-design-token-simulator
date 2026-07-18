@@ -1914,6 +1914,11 @@ void main(){
           float flow2 = fxfbm(vec2(uv.x * 6.5 - uTime * 0.22, uv.y * 5.2 - uTime * 0.9));
           float vert = pow(1.0 - uv.y, 1.35) * 0.92 + 0.06;
           float heat = mix(vert, clamp(vert + (flow - 0.5) * 0.55 + (flow2 - 0.5) * 0.25, 0.0, 1.0), uNoise);
+          // 실사 음영을 열로 — 팔레트는 LUT 그대로, 이목구비·근육 디테일이 실루엣 안에 살아남
+          vec2 dvuv = uCropC + (uv - 0.5) * uCropS;
+          vec3 dvc = texture2D(tex, clamp(dvuv, 0.0, 1.0)).rgb;
+          float dlum = dot(dvc, vec3(0.299, 0.587, 0.114));
+          heat = clamp(heat + (dlum - 0.45) * 0.62, 0.0, 1.0);
           heat += clamp(m - mSoft, 0.0, 1.0) * 0.10;
           vec3 col = lut(clamp(heat, 0.0, 1.0)) * mSoft * 1.45;
           col += lut(clamp(heat * 0.45, 0.0, 1.0)) * trail * 0.38;
