@@ -2351,8 +2351,8 @@ void main(){
           + op.y * vec3(0.996, 0.431, 0.235)     // FE6E3C
           + op.z * vec3(0.996, 0.765, 0.537);    // FEC389
   float prL = dot(pr, vec3(0.2126, 0.7152, 0.0722));
-  pr = clamp(mix(vec3(prL), pr, 1.45), 0.0, 1.0);   // 채도만 업 (강도 유지 — 유저)
-  col += pr * 0.12;
+  pr = clamp(mix(vec3(prL), pr, 1.85), 0.0, 1.0);   // 컬러감 2차 업 (유저)
+  col += pr * 0.18;
   col = clamp(col * uBoost, 0.0, 1.0);
   // 테두리 페더 — 사각 경계가 안 보이게 가장자리로 갈수록 블러 소멸
   float vign = smoothstep(0.0, 0.24, vUv.x) * smoothstep(0.0, 0.24, 1.0 - vUv.x)
