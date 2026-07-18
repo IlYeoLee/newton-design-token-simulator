@@ -2253,6 +2253,74 @@ void main(){
   hudPanel.renderOrder = 6;
   hudPanel.visible = false;
   scene.add(hudPanel);
+  // ── GridScan 배경 (reactbits GridScan 포팅) — 복싱 벽 배경 라인의 정본.
+  //    레이캐스트 코리도(바닥·천장·좌우벽 그리드) + 깊이로 진행하는 가우시안 스캔 펄스.
+  //    파라미터 = 유저 확정: softness 4, jitter 0, post 없음. 컬러 = 뉴턴 시스템.
+  const gridScanPanel = new THREE.Mesh(
+    new THREE.PlaneGeometry(3.2, 2.0),
+    new THREE.ShaderMaterial({
+      uniforms: {
+        uTime: { value: 0 }, uBoost: { value: 1 },
+        uLines: { value: new THREE.Color(0.55, 0.28, 0.14) },
+        uScan: { value: new THREE.Color(0.98, 0.19, 0.19) },
+      },
+      vertexShader: `#include <common>
+#include <clipping_planes_pars_vertex>
+varying vec2 vUv;
+void main(){ vUv = uv; vec4 mvPosition = modelViewMatrix * vec4(position, 1.0); gl_Position = projectionMatrix * mvPosition;
+#include <clipping_planes_vertex>
+}`,
+      fragmentShader: `#include <common>
+#include <clipping_planes_pars_fragment>
+varying vec2 vUv;
+uniform float uTime, uBoost;
+uniform vec3 uLines, uScan;
+float gridLine(vec2 guv){
+  vec2 f = fract(guv);
+  vec2 a = min(f, 1.0 - f);
+  vec2 w = fwidth(guv) * 1.1;
+  vec2 l = 1.0 - smoothstep(w, w * 2.4, a);
+  return max(l.x, l.y);
+}
+void main(){
+  #include <clipping_planes_fragment>
+  vec2 suv = vUv * 2.0 - 1.0;
+  // 원본 GridScan 구도: 단일 바닥 평면이 지평선으로 물러나는 퍼스펙티브 그리드
+  vec3 ro = vec3(0.0, 0.34, 0.0);
+  vec3 rd = normalize(vec3(suv.x * 0.9, suv.y * 0.55 - 0.22, 1.0));
+  vec3 col = vec3(0.0);
+  float cyc = mod(uTime, 4.0);
+  float phase = clamp(cyc / 2.0, 0.0, 1.0);
+  float scanZ = phase * 9.0;
+  float win = smoothstep(0.0, 0.12, phase) * (1.0 - smoothstep(0.88, 1.0, phase)) * step(cyc, 2.0);
+  if (rd.y < -0.001) {
+    float t = -ro.y / rd.y;
+    vec3 h = ro + rd * t;
+    if (h.z > 0.0 && h.z < 12.0) {
+      vec2 guv = h.xz / 0.30;
+      float line = gridLine(guv);
+      float fog = exp(-h.z * 0.20);
+      float dz = h.z - scanZ;
+      float sigma = 0.18 * 4.0;
+      float band = exp(-0.5 * dz * dz / (sigma * sigma)) * win;
+      float aura = exp(-0.5 * dz * dz / (sigma * sigma * 4.0)) * 0.25 * win;
+      col += uLines * line * fog * 0.5;
+      col += uScan * (line * band * 1.5 + aura * fog * 0.7);
+    }
+  }
+  // 지평선 은은한 라인
+  float hz = exp(-abs(suv.y * 0.55 - 0.22) * 26.0) * 0.10;
+  col += uLines * hz;
+  col = clamp(col * uBoost, 0.0, 1.0);
+  col = mix(col / 12.92, pow((col + 0.055) / 1.055, vec3(2.4)), step(0.04045, col));
+  gl_FragColor = vec4(col, 1.0);
+}`,
+      transparent: true, depthWrite: false,
+      blending: THREE.CustomBlending, blendSrc: THREE.OneFactor, blendDst: THREE.OneFactor,
+    }));
+  gridScanPanel.renderOrder = 5;
+  gridScanPanel.visible = false;
+  scene.add(gridScanPanel);
   let HUD_MAIN = '#ff6b21', HUD_CREAM = '#fff3e2', HUD_CYAN = '#21ccdb', hudGlowK = 1;
   function hudSyncPalette() {
     // 룩 시스템 완전 연동: 팔레트=LUT 샘플, 시안=역할색 user, 글로우 강도=마크 halo 슬라이더
@@ -2630,6 +2698,7 @@ void main(){
     const st = session.active && state.pack === 'boxing' ? session.curStage : null;
     const on = !!st && st.id?.startsWith('BX_');
     hudPanel.visible = on;
+    if (!on) gridScanPanel.visible = false;
     // 구 벽 텍스트 시스템 중복 억제 (복싱 = HUD가 록업·자막 담당)
     if (state.pack === 'boxing') {
       for (const s of [session.wSlotFS, session.wSlotFL, session.wSlotFM]) if (s) s.visible = s.visible && !on;
@@ -2641,6 +2710,18 @@ void main(){
     hudPanel.scale.set(rig.wallW / 3.2, rig.wallH / 2.0, 1);   // 캔버스 1600×1000 = 벽 전체 추종
     hudPanel.position.set(wc ? wc.cx : 0, ((wc?.cy ?? 1.4) - rig.wallH / 2) + rig.wallH / 2, WALL_Z + 0.028);
     hudPanel.material.uniforms.uBoost.value = FXP.day ? 2.6 : 1.7;   // 자연광 풀컬러 레이저 전제 = 당당한 풀 광량
+    gridScanPanel.visible = true;
+    gridScanPanel.position.copy(hudPanel.position); gridScanPanel.position.z -= 0.006;
+    gridScanPanel.scale.copy(hudPanel.scale);
+    if (rig.wallClip && gridScanPanel.material.clippingPlanes !== rig.wallClip)
+      gridScanPanel.material.clippingPlanes = rig.wallClip;
+    const GU = gridScanPanel.material.uniforms;
+    GU.uTime.value = performance.now() / 1000;
+    GU.uBoost.value = FXP.day ? 1.15 : 0.85;
+    const lc = lutColor(0.42).match(/\d+/g).map(Number);
+    GU.uLines.value.setRGB(lc[0] / 255, lc[1] / 255, lc[2] / 255);
+    const sc = COLORS.left ?? 0xfa3030;
+    GU.uScan.value.setHex(sc);
     const now = performance.now() / 1000;
     if (st.id !== hudStageId) { hudStageId = st.id; hudStageT0 = now; }
     if (now - hudLastT < 1 / 15) return;
@@ -2649,8 +2730,7 @@ void main(){
     const g = hudCtx;
     hudSyncPalette();
     g.clearRect(0, 0, HUDW, HUDH);
-    if (HUD_RING.has(st.id)) drawHudRing(g);
-    else if (st.id !== 'BX_FIN' && st.id !== 'BX_T1') drawHudRoom(g);
+    // 배경 라인 = GridScan 플레인이 전담 (기존 룸·링 캔버스 라인 제거 — 유저 확정)
     drawStage(g, st.id, tS);
     hudTex.needsUpdate = true;
   }
