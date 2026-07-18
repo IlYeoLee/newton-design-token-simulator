@@ -2227,7 +2227,7 @@ void main(){
   const hudPanel = new THREE.Mesh(
     new THREE.PlaneGeometry(3.2, 2.0),
     new THREE.ShaderMaterial({
-      uniforms: { tex: { value: hudTex } },
+      uniforms: { tex: { value: hudTex }, uBoost: { value: 1.8 } },
       vertexShader: `#include <common>
 #include <clipping_planes_pars_vertex>
 varying vec2 vUv;
@@ -2236,13 +2236,13 @@ void main(){ vUv = uv; vec4 mvPosition = modelViewMatrix * vec4(position, 1.0); 
 }`,
       fragmentShader: `#include <common>
 #include <clipping_planes_pars_fragment>
-varying vec2 vUv; uniform sampler2D tex;
+varying vec2 vUv; uniform sampler2D tex; uniform float uBoost;
 void main(){
   #include <clipping_planes_fragment>
   vec4 t = texture2D(tex, vUv);
   vec3 col = clamp(t.rgb * t.a, 0.0, 1.0);
-  // 순수 가산 발광 — 벽을 어둡게 만들 물리 경로가 없음 (룩 시스템 글로우와 동일:
-  // 글로우 프린지가 차폐와 섞이면 밝은 벽에서 갈색 그림자가 되던 것 종결)
+  col = clamp(col * uBoost, 0.0, 1.0);   // 광량 부스트 — 코어는 백색 포화, 글로우는 진하게
+  // 순수 가산 발광 — 벽을 어둡게 만들 물리 경로가 없음
   col = mix(col / 12.92, pow((col + 0.055) / 1.055, vec3(2.4)), step(0.04045, col));
   gl_FragColor = vec4(col, 1.0);
 }`,
@@ -2638,6 +2638,7 @@ void main(){
     const wc = rig._wallCenter;
     hudPanel.scale.set(rig.wallW / 3.2, rig.wallH / 2.0, 1);   // 캔버스 1600×1000 = 벽 전체 추종
     hudPanel.position.set(wc ? wc.cx : 0, ((wc?.cy ?? 1.4) - rig.wallH / 2) + rig.wallH / 2, WALL_Z + 0.028);
+    hudPanel.material.uniforms.uBoost.value = FXP.day ? 2.2 : 1.6;   // 주간 = 풀 부스트
     const now = performance.now() / 1000;
     if (st.id !== hudStageId) { hudStageId = st.id; hudStageT0 = now; }
     if (now - hudLastT < 1 / 15) return;
