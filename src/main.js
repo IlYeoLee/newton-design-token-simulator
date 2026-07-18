@@ -1966,10 +1966,10 @@ void main(){
     // 랩 잔상 시맨틱 등가: 랩은 6.7fps 탭 decay^j — 45Hz 연속 누적으로 환산(decay^(1/5.7)).
     // 0이면 완전 꺼짐 (구 매핑은 바닥 0.62가 있어 랩에서 꺼도 시뮬에 잔상이 남던 버그).
     const pd = FXP.person?.decay ?? 0.6;
-    trailMat.uniforms.uDecay.value = pd <= 0.001 ? 0 : Math.pow(pd, 1 / 5.7);
-    // 지각 등가 보정: 랩은 127ms 탭 가중=pd라 pd가 작으면 잔상이 '안 보임' — 연속 누적은
-    // 직전 잔상이 그대로 보이므로 기여도도 pd 비례로 (0.04 → 사실상 꺼짐, 랩과 동일 지각)
-    demoPanel.material.uniforms.uTrailGain.value = Math.min(1, pd * 2.2);
+    // pd<0.1 = 지각상 꺼짐 — 잔상 경로 완전 차단(하드 0: 1틱 지연 림·엣지 잔광까지 소멸)
+    const trailOff = pd < 0.1;
+    demoPanel.material.uniforms.uTrailGain.value = trailOff ? 0 : Math.min(1, pd * 2.2);
+    trailMat.uniforms.uDecay.value = trailOff ? 0 : Math.pow(pd, 1 / 5.7);
     trailMat.uniforms.prev.value = trailRTs[1 - trailFlip].texture;
     const prevT = renderer.getRenderTarget();
     renderer.setRenderTarget(trailRTs[trailFlip]);
