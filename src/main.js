@@ -1957,10 +1957,8 @@ void main(){
           T = clamp(T * 0.72 + (dlum - 0.42) * uDetail * 1.5 * mIn * (1.0 - faceW), 0.0, 1.0);
           T = pow(T, 1.38);   // 밀도 대비 — 어두운 부위를 더 깊게 (레퍼런스: 그늘진 팔이 암색으로 잠김)
           T = max(T, trail * 0.6);
-          // 형태: 전신 크리스프 실루엣 + 약한 확산 헤일로 — 얼굴도 윤곽 유지,
-          // 이목구비는 faceW의 결 제거(위 uDetail 항)만으로 은닉 (내부 온도 필드는 원래 매끈)
-          float soft = clamp(H * 1.55, 0.0, 1.0);
-          float shape = max(m * 0.9, soft * 0.25);
+          // 형태: 전신 크리스프 실루엣만 — 헤일로·확산 완전 제거 (유저 확정: 그림자 금지)
+          float shape = m * 0.92;
           shape = max(shape, trail * 0.5);
           vec3 col = mix(thermo(T), lut(clamp(T * 0.96, 0.0, 1.0)), uTone) * shape;   // 뉴턴톤 기본 = 룩 팔레트
           float cl = dot(col, vec3(0.299, 0.587, 0.114));
@@ -2180,39 +2178,43 @@ void main(){
   const HUD_RING = new Set(['BX_C1', 'BX_C2', 'BX_C3', 'BX_C4']);
   // 스테이지별 목표치 (피그마 스탯패널 사양)
   const HUD_GOALS = { BX_A1: ['목표', 8, '회'], BX_A2: ['목표 박자', 153, ''], BX_A3: ['목표 잽', 6, ''], BX_B1: ['버티기 목표', 3.0, '초'], BX_B3: ['열리는 횟수', 6, ''] };
-  function hudGlass(g, x, y, w, h, r, border) {
+  function hudChip(g, x, y, w, h, r, col, text, tx, ty) {
+    // 칩 = 솔리드 채도 필, 타이포 = 녹아웃(빛 뚫림 → 벽 원색) — 흰 벽·다크 벽 양쪽 성립
     g.beginPath(); g.roundRect(x, y, w, h, r);
-    g.fillStyle = 'rgba(255,252,246,0.18)'; g.fill();
+    g.fillStyle = col; g.fill();
+    if (text) {
+      g.globalCompositeOperation = 'destination-out';
+      g.fillStyle = '#000'; g.fillText(text, tx, ty);
+      g.globalCompositeOperation = 'source-over';
+    }
+  }
+  function hudGlass(g, x, y, w, h, r, border) {
+    // (스탯 존 표기용 최소 잔존 — 면 없이 테두리만)
+    g.beginPath(); g.roundRect(x, y, w, h, r);
     g.strokeStyle = border || HUD_MAIN; g.lineWidth = 3; g.stroke();
   }
   function hudText(g, text, x, y, rim, rimW) {
-    g.lineJoin = 'round';
-    g.strokeStyle = rim || HUD_MAIN; g.lineWidth = rimW || 6;
-    g.strokeText(text, x, y);
-    g.fillStyle = '#fff8ef';
+    // 장식 제로: 솔리드 채도 단색 (아웃라인·섀도 금지 — 가독은 굵기·크기)
+    g.fillStyle = rim || HUD_MAIN;
     g.fillText(text, x, y);
   }
   function hudStat(g, x, label, num, col, frac) {
-    hudGlass(g, x, 806, 480, 150, 20);
-    g.fillStyle = HUD_MAIN; g.globalAlpha = 0.9;
-    g.font = '500 24px Pretendard, sans-serif'; g.textAlign = 'left';
-    g.fillText(label, x + 30, 44);
-    g.globalAlpha = 1;
-    g.font = '700 68px Pretendard, sans-serif';
-    hudText(g, String(num), x + 28, 108 + (frac != null ? -4 : 8), col, 6);
+    g.textAlign = 'left';
+    g.fillStyle = col; g.globalAlpha = 0.85;
+    g.font = '700 24px Pretendard, sans-serif';
+    g.fillText(label, x + 28, 44); g.globalAlpha = 1;
+    g.font = '800 78px Pretendard, sans-serif';
+    g.fillStyle = col;
+    g.fillText(String(num), x + 28, 118);
     if (frac != null) {
-      g.fillStyle = 'rgba(255,148,71,0.3)'; g.fillRect(x + 28, 122, 424, 10);
-      g.fillStyle = HUD_CYAN; g.fillRect(x + 28, 122, Math.max(12, 424 * Math.min(1, frac)), 10);
+      g.fillStyle = col; g.globalAlpha = 0.22; g.fillRect(x + 28, 134, 424, 10); g.globalAlpha = 1;
+      g.fillStyle = HUD_CYAN; g.fillRect(x + 28, 134, Math.max(12, 424 * Math.min(1, frac)), 10);
     }
   }
   function hudTag(g, cx, text, col) {
-    g.font = '700 22px Pretendard, sans-serif';
-    const w = g.measureText(text).width + 52;
-    hudGlass(g, cx - w / 2, 8, w, 44, 12, col);
-    g.fillStyle = col;
-    g.beginPath(); g.arc(cx - w / 2 + 22, 30, 6, 0, 6.284); g.fill();
-    g.textAlign = 'left';
-    g.fillText(text, cx - w / 2 + 38, 38);
+    g.font = '700 22px Pretendard, sans-serif'; g.textAlign = 'center';
+    const w = g.measureText(text).width + 48;
+    hudChip(g, cx - w / 2, 8, w, 46, 23, col, text, cx, 39);
   }
   function hudLine(g, x1, y1, x2, y2, wd, alpha) {
     g.globalAlpha = alpha; g.lineWidth = wd;
@@ -2273,21 +2275,15 @@ void main(){
     hudText(g, title, 800, 152, HUD_MAIN, 8);
   }
   function hudCaption(g, text) {
-    g.font = '700 24px Pretendard, sans-serif';
-    const w = g.measureText(text).width + 56;
-    hudGlass(g, 800 - w / 2, 916, w, 50, 25);
-    g.fillStyle = HUD_MAIN; g.textAlign = 'center';
-    g.fillText(text, 800, 949);
+    g.font = '700 26px Pretendard, sans-serif'; g.textAlign = 'center';
+    const w = g.measureText(text).width + 64;
+    hudChip(g, 800 - w / 2, 912, w, 54, 27, HUD_MAIN, text, 800, 948);
   }
   function hudCTA(g, text, y) {
-    g.font = '700 24px Pretendard, sans-serif';
-    const w = g.measureText(text).width + 56;
+    g.font = '700 26px Pretendard, sans-serif'; g.textAlign = 'center';
+    const w = g.measureText(text).width + 64;
     const yy = y ?? 908;
-    g.beginPath(); g.roundRect(800 - w / 2, yy, w, 50, 25);
-    g.fillStyle = 'rgba(33,204,219,0.13)'; g.fill();
-    g.strokeStyle = HUD_CYAN; g.lineWidth = 2; g.stroke();
-    g.fillStyle = HUD_CYAN; g.textAlign = 'center';
-    g.fillText(text, 800, yy + 33);
+    hudChip(g, 800 - w / 2, yy, w, 54, 27, HUD_CYAN, text, 800, yy + 36);
   }
   function hudPhaseDots(g, cx, y, active) {
     const names = 4;
