@@ -2191,7 +2191,7 @@ void main(){
   //    (룩 시스템 숫자 글리프 스타일 — 유저 확정. 개별 드로 코드는 순수 컬러만 지정하면 됨)
   let hudInkCore = false;   // 밝은 벽 = 코어를 채도 풀컬러로 (토큰 uDay 잉크 규약)
   (function neonize(g) {
-    const CORE = 'rgba(255,243,228,0.97)';
+    const CORE = 'rgba(255,250,244,0.98)';
     const rawFillText = g.fillText.bind(g), rawFill = g.fill.bind(g);
     g.__rawFillText = rawFillText;   // 앰비언트(워터마크 등) = 네온 멀티패스 우회용
     const rawStroke = g.stroke.bind(g), rawFillRect = g.fillRect.bind(g);
@@ -2715,7 +2715,7 @@ void main(){
     const wc = rig._wallCenter;
     hudPanel.scale.set(rig.wallW / 3.2, rig.wallH / 2.0, 1);   // 캔버스 1600×1000 = 벽 전체 추종
     hudPanel.position.set(wc ? wc.cx : 0, ((wc?.cy ?? 1.4) - rig.wallH / 2) + rig.wallH / 2, WALL_Z + 0.028);
-    hudInkCore = !!FXP.day || (!!FXP.bg && FXP.bg !== 'none');   // 밝은 벽 = 채도 잉크 코어
+    hudInkCore = false;   // 채도 코어 기각(유저: 흰색이 노랑으로 물듦) — 코어는 항상 화이트
     hudPanel.material.uniforms.uBoost.value = FXP.day ? 2.6 : 1.7;   // 자연광 풀컬러 레이저 전제 = 당당한 풀 광량
     gridScanPanel.visible = true;
     gridScanPanel.position.copy(hudPanel.position); gridScanPanel.position.z -= 0.006;
