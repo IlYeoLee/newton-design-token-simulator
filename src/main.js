@@ -2517,16 +2517,16 @@ void main(){
     const K = hudGlowK;
     g.save();
     g.translate(800, cy);
-    // 광 웅덩이 — 납작한 타원 레이어 3겹 (전부 부드러운 라디얼, 경계 없음)
+    // 광 웅덩이 — 콤팩트·고밀도 (배경 일렁임과 분리), 열원은 텍스트 아래로
     g.save();
-    g.scale(1 + 0.05 * p, 0.34 * (1 + 0.03 * p));   // 숨쉴 때 살짝 번짐
-    const RW = tw * 0.78 + 90;
-    // 뉴턴 새벽 램프 방사: 중심 연주황 열원 → 주황 → 레드 → 외곽 딥레드
+    g.translate(0, 16);                              // 최열점을 글자 밑으로 — 글자는 레드 위에 얹힘 (가독)
+    g.scale(1 + 0.03 * p, 0.34 * (1 + 0.02 * p));    // 숨 = 진폭 절제 (인위적 번쩍임 기각)
+    const RW = tw * 0.72 + 80;
     const pool = [
-      [RW * 1.55, `rgba(146,15,15,${0.28 + 0.08 * p})`],    // 외곽 딥레드 여운
-      [RW,        `rgba(250,48,48,${0.46 + 0.14 * p})`],    // 레드 본체
-      [RW * 0.60, `rgba(254,110,60,${0.55 + 0.20 * p})`],   // 주황 중역
-      [RW * 0.30, `rgba(254,195,137,${0.60 + 0.25 * p})`],  // 연주황 열원 코어
+      [RW * 1.15, `rgba(146,15,15,${0.44 + 0.04 * p})`],
+      [RW * 0.85, `rgba(250,48,48,${0.66 + 0.05 * p})`],
+      [RW * 0.52, `rgba(254,110,60,${0.62 + 0.06 * p})`],
+      [RW * 0.26, `rgba(254,195,137,${0.50 + 0.06 * p})`],
     ];
     for (const [r, c] of pool) {
       const rg = g.createRadialGradient(0, 0, 0, 0, 0, r);
@@ -2537,12 +2537,12 @@ void main(){
     }
     g.restore();
     // 크림 글리프 라벨 — 룩 시스템 정본 재질 (웜 글로우 + 크림 코어)
-    g.shadowColor = `rgba(254,195,137,${0.85 + 0.15 * p})`;
-    g.shadowBlur = (16 + 10 * p) * K;
-    g.fillStyle = '#fff6ea';
+    g.shadowColor = 'rgba(254,195,137,0.9)';
+    g.shadowBlur = (14 + 4 * p) * K;
+    g.fillStyle = '#fffaf3';
     g.__rawFillText(LABEL, 0, 12); g.__rawFillText(LABEL, 0, 12);
     g.shadowBlur = 0;
-    g.__rawFillText(LABEL, 0, 12);
+    g.__rawFillText(LABEL, 0, 12); g.__rawFillText(LABEL, 0, 12);   // 코어 2패스 — 피크에도 가독 확보
     g.restore();
     g.textAlign = 'center';
   }
