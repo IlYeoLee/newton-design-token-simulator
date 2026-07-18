@@ -2512,8 +2512,12 @@ void main(){
     const tw = g.measureText(LABEL).width;
     const w = tw + 120, h = 78, R = 39, CUT = 3.5, yy = y ?? 908;   // --radius 100px 필 / --cut
     const t = tS ?? 0;
+    const cyc = t % 2.6;
+    const bump = t0 => { const u = (cyc - t0) / 0.34; return u >= 0 && u <= 1 ? Math.sin(Math.PI * u) : 0; };
+    const s = 1 + 0.085 * Math.max(bump(0), bump(0.5));   // 둥·둥 → 쉼 (크기 변화만)
     g.save();
     g.translate(800, yy + h / 2);
+    g.scale(s, s);
     // ① 샤이머 — 회전 콘익 세그먼트 (뉴턴 그라디언트, --speed 3s)
     const a0 = (t / 3) * Math.PI * 2;
     const cg = g.createConicGradient(a0, 0, 0);
@@ -2530,12 +2534,12 @@ void main(){
     g.restore();
     // ② 백드롭 — 다크 바디가 중앙을 덮어 림만 남김 (--cut)
     g.beginPath(); g.roundRect(-w / 2 + CUT, -h / 2 + CUT, w - CUT * 2, h - CUT * 2, R - CUT);
-    g.fillStyle = '#091212'; g.__rawFill();
+    g.fillStyle = '#ffffff'; g.__rawFill();
     // ③ 인셋 하이라이트 (rgba 255 .1 상단)
     g.save();
     g.beginPath(); g.roundRect(-w / 2 + CUT, -h / 2 + CUT, w - CUT * 2, h - CUT * 2, R - CUT); g.clip();
     const hl = g.createLinearGradient(0, -h / 2, 0, 0);
-    hl.addColorStop(0, 'rgba(255,255,255,0.12)'); hl.addColorStop(1, 'rgba(255,255,255,0)');
+    hl.addColorStop(0, 'rgba(254,195,137,0.25)'); hl.addColorStop(1, 'rgba(254,195,137,0)');
     g.beginPath(); g.roundRect(-w / 2 + CUT, -h / 2 + CUT, w - CUT * 2, h * 0.5, R - CUT);
     g.fillStyle = hl; g.__rawFill();
     g.restore();
