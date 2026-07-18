@@ -2071,9 +2071,13 @@ void main(){
         demoPanel.material.clippingPlanes = rig.wallClip;   // 투사면 밖 금지 — 벽 클리핑
       // 유저 정면 = 벽 투사 중심 추종 (시선 높이) — 코치를 마주 보고 따라한다
       const wc = rig._wallCenter;
-      // 전신 스탠딩: 패널 바닥 = 벽 투사 하단 (발이 잘리지 않게 — 실물 키 스케일의 전제)
+      // 전신 스탠딩: 패널 바닥 = 벽 투사 하단. 반반 미러 스테이지(학습)는 좌측 80%
+      // (피그마 WallUI 확정 레이아웃 — 우측은 '내 자세' 슬롯)
       const wallBot = (wc?.cy ?? 1.4) - rig.wallH / 2;
-      demoPanel.position.set(wc ? wc.cx : 0, wallBot + GHOST_H / 2 + 0.01, WALL_Z + 0.035);
+      const mir = HUD_MIRROR.has(session.curStage?.id);
+      const gsc = mir ? 0.8 : 1;
+      demoPanel.scale.set(GHOST_H * (9 / 16) / 0.62 * gsc, GHOST_H / 0.93 * gsc, 1);
+      demoPanel.position.set((wc ? wc.cx : 0) + (mir ? -0.868 : 0), wallBot + GHOST_H * gsc / 2 + (mir ? 0.33 : 0.01), WALL_Z + 0.035);
     }
     demoPanel.visible = !!on;
     if (on) setGhostClip(session.curStage?.id);   // 스테이지별 클립 자동 전환 (404 → 기본)
@@ -2126,6 +2130,179 @@ void main(){
     PU.uGrain.value = FXP.person?.grain ?? 0;
     PU.uTone.value = FXP.person?.tone ?? 0;
     trailFlip = 1 - trailFlip;
+  }
+
+  // ── 벽면 게임 HUD (피그마 WallUI 이식: A·B 학습=반반 미러 룸, C 실전=복싱 링) ──
+  //    캔버스 1600×1000 = 벽 3.2×2.0m (500px/m, 피그마 좌표 1:1). 프레임리스 —
+  //    발광 요소만(배경·프레임 박스 금지), 검정=투명. 합성·감마 = 고스트 동일 규약(P4).
+  const HUDW = 1600, HUDH = 1000;
+  const hudCanvas = document.createElement('canvas');
+  hudCanvas.width = HUDW; hudCanvas.height = HUDH;
+  const hudCtx = hudCanvas.getContext('2d');
+  const hudTex = new THREE.CanvasTexture(hudCanvas);
+  hudTex.minFilter = THREE.LinearFilter; hudTex.magFilter = THREE.LinearFilter;
+  const hudPanel = new THREE.Mesh(
+    new THREE.PlaneGeometry(3.2, 2.0),
+    new THREE.ShaderMaterial({
+      uniforms: { tex: { value: hudTex } },
+      vertexShader: `#include <common>
+#include <clipping_planes_pars_vertex>
+varying vec2 vUv;
+void main(){ vUv = uv; vec4 mvPosition = modelViewMatrix * vec4(position, 1.0); gl_Position = projectionMatrix * mvPosition;
+#include <clipping_planes_vertex>
+}`,
+      fragmentShader: `#include <common>
+#include <clipping_planes_pars_fragment>
+varying vec2 vUv; uniform sampler2D tex;
+void main(){
+  #include <clipping_planes_fragment>
+  vec4 t = texture2D(tex, vUv);
+  vec3 col = clamp(t.rgb * t.a, 0.0, 1.0);
+  col = mix(col / 12.92, pow((col + 0.055) / 1.055, vec3(2.4)), step(0.04045, col));
+  gl_FragColor = vec4(col, t.a * 0.92);
+}`,
+      transparent: true, depthWrite: false,
+      blending: THREE.CustomBlending, blendSrc: THREE.OneFactor, blendDst: THREE.OneMinusSrcAlphaFactor,
+    }));
+  hudPanel.renderOrder = 6;
+  hudPanel.visible = false;
+  scene.add(hudPanel);
+  const HUD_MAIN = '#ff6b21', HUD_CYAN = '#21ccdb';
+  const HUD_MIRROR = new Set(['BX_A1', 'BX_A2', 'BX_A3', 'BX_B1', 'BX_B3']);
+  const HUD_RING = new Set(['BX_C1', 'BX_C2', 'BX_C3', 'BX_C4']);
+  // 스테이지별 목표치 (피그마 스탯패널 사양)
+  const HUD_GOALS = { BX_A1: ['목표', 8, '회'], BX_A2: ['목표 박자', 153, ''], BX_A3: ['목표 잽', 6, ''], BX_B1: ['버티기 목표', 3.0, '초'], BX_B3: ['열리는 횟수', 6, ''] };
+  function hudGlass(g, x, y, w, h, r) {
+    g.beginPath(); g.roundRect(x, y, w, h, r);
+    g.fillStyle = 'rgba(255,250,242,0.13)'; g.fill();
+    g.strokeStyle = 'rgba(255,236,214,0.55)'; g.lineWidth = 2; g.stroke();
+  }
+  function hudStat(g, x, label, num, col, frac) {
+    hudGlass(g, x, 806, 480, 150, 20);
+    g.fillStyle = HUD_MAIN; g.globalAlpha = 0.9;
+    g.font = '500 24px Pretendard, sans-serif'; g.textAlign = 'left';
+    g.fillText(label, x + 30, 44);
+    g.globalAlpha = 1; g.fillStyle = col;
+    g.font = '700 68px Pretendard, sans-serif';
+    g.fillText(String(num), x + 28, 108 + (frac != null ? -4 : 8));
+    if (frac != null) {
+      g.fillStyle = 'rgba(255,148,71,0.3)'; g.fillRect(x + 28, 122, 424, 10);
+      g.fillStyle = HUD_CYAN; g.fillRect(x + 28, 122, Math.max(12, 424 * Math.min(1, frac)), 10);
+    }
+  }
+  function hudTag(g, cx, text, col) {
+    g.font = '700 22px Pretendard, sans-serif';
+    const w = g.measureText(text).width + 52;
+    hudGlass(g, cx - w / 2, 8, w, 44, 12);
+    g.fillStyle = col;
+    g.beginPath(); g.arc(cx - w / 2 + 22, 30, 6, 0, 6.284); g.fill();
+    g.textAlign = 'left';
+    g.fillText(text, cx - w / 2 + 38, 38);
+  }
+  function hudLine(g, x1, y1, x2, y2, wd, alpha) {
+    g.globalAlpha = alpha; g.lineWidth = wd;
+    g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke();
+    g.globalAlpha = 1;
+  }
+  function drawHudRoom(g) {
+    g.strokeStyle = HUD_MAIN;
+    const BW = 1040, BX0 = 280, BY = 120, BBOT = 730;
+    hudLine(g, 0, HUDH, BX0, BBOT, 3, 0.55);
+    hudLine(g, HUDW, HUDH, BX0 + BW, BBOT, 3, 0.55);
+    for (const f of [0.26, 0.5, 0.72, 0.88, 1.0]) {
+      const xl = BX0 * f, xr = HUDW - BX0 * f;
+      const yF = HUDH - (HUDH - BBOT) * f;
+      const a = f === 1.0 ? 0.55 : 0.34;
+      hudLine(g, xl, yF, xr, yF, 2.5, a);
+      hudLine(g, xl, yF - 60, xl, yF, 2.5, a * 0.8);
+      hudLine(g, xr, yF - 60, xr, yF, 2.5, a * 0.8);
+    }
+    g.globalAlpha = 0.55; g.lineWidth = 3;
+    g.strokeRect(BX0, BY, BW, BBOT - BY);
+    g.globalAlpha = 1;
+    for (let i = 1; i < 4; i++) hudLine(g, BX0 + (BW / 4) * i, BY, BX0 + (BW / 4) * i, BBOT, 1.5, 0.22);
+    for (const f of [0.14, 0.38, 0.62, 0.86]) {
+      const y1 = HUDH - (HUDH - BBOT) * f, y2 = HUDH - (HUDH - BBOT) * (f + 0.11);
+      hudLine(g, HUDW / 2, y1, HUDW / 2, y2, 4, 0.45);
+    }
+  }
+  function drawHudRing(g) {
+    g.strokeStyle = HUD_MAIN; g.fillStyle = HUD_MAIN; g.lineCap = 'round';
+    function post(x, yT, yB, w, a) {
+      g.globalAlpha = a;
+      g.beginPath(); g.roundRect(x - w / 2, yT, w, yB - yT, w / 2); g.fill();
+      g.globalAlpha = 1;
+    }
+    post(120, 430, 985, 18, 0.85); post(1480, 430, 985, 18, 0.85);
+    post(470, 500, 800, 12, 0.6); post(1130, 500, 800, 12, 0.6);
+    for (const t of [0.30, 0.55, 0.80]) {
+      const yF = 430 + 555 * t, yB = 500 + 300 * t;
+      const wd = 5 - t * 1.5;
+      hudLine(g, 120, yF, 470, yB, wd, 0.7);
+      hudLine(g, 1480, yF, 1130, yB, wd, 0.7);
+      hudLine(g, 470, yB, 1130, yB, wd * 0.85, 0.55);
+    }
+    hudLine(g, 120, 985, 1480, 985, 4, 0.5);
+    hudLine(g, 120, 985, 470, 800, 3, 0.4);
+    hudLine(g, 1480, 985, 1130, 800, 3, 0.4);
+    hudLine(g, 470, 800, 1130, 800, 3, 0.4);
+  }
+  let hudLastT = 0, hudStageT0 = 0, hudStageId = '';
+  function renderWallHUD() {
+    const st = session.active && state.pack === 'boxing' ? session.curStage : null;
+    const on = !!st && (HUD_MIRROR.has(st.id) || HUD_RING.has(st.id));
+    hudPanel.visible = on;
+    if (!on) return;
+    if (rig.wallClip && hudPanel.material.clippingPlanes !== rig.wallClip)
+      hudPanel.material.clippingPlanes = rig.wallClip;
+    const wc = rig._wallCenter;
+    hudPanel.position.set(wc ? wc.cx : 0, ((wc?.cy ?? 1.4) - rig.wallH / 2) + 1.0, WALL_Z + 0.028);
+    const now = performance.now() / 1000;
+    if (st.id !== hudStageId) { hudStageId = st.id; hudStageT0 = now; }
+    if (now - hudLastT < 1 / 15) return;
+    hudLastT = now;
+    const tS = now - hudStageT0;
+    const g = hudCtx;
+    g.clearRect(0, 0, HUDW, HUDH);
+    if (HUD_RING.has(st.id)) {
+      drawHudRing(g);
+      hudTag(g, 800, '상대 — 맞서세요', HUD_MAIN);
+      // 우상: 정확도 (judge 실측 있으면 사용)
+      const pct = judge.lastReport?.matchPct ?? 84;
+      g.textAlign = 'right'; g.fillStyle = HUD_MAIN;
+      g.font = '700 96px Pretendard, sans-serif';
+      g.fillText(pct + '%', 1520, 140);
+      g.font = '500 22px Pretendard, sans-serif'; g.globalAlpha = 0.85;
+      g.fillText('정확도', 1520, 176); g.globalAlpha = 1;
+      // 좌상: 라운드 타이머
+      g.textAlign = 'left'; g.fillStyle = HUD_CYAN;
+      g.font = '700 54px Pretendard, sans-serif';
+      const mm = Math.floor(tS / 60), ss = String(Math.floor(tS % 60)).padStart(2, '0');
+      g.fillText(mm + ':' + ss, 64, 110);
+      g.fillStyle = HUD_MAIN; g.font = '500 24px Pretendard, sans-serif'; g.globalAlpha = 0.85;
+      g.fillText('실전 라운드', 64, 148); g.globalAlpha = 1;
+    } else {
+      drawHudRoom(g);
+      // 워터마크 (인물 뒤 — HUD 패널이 고스트보다 뒤 renderOrder라 자연 레이어)
+      const goal = HUD_GOALS[st.id] || ['목표', 6, ''];
+      g.fillStyle = HUD_MAIN; g.globalAlpha = 0.12;
+      g.font = '700 560px Pretendard, sans-serif'; g.textAlign = 'center';
+      g.fillText(String(goal[1]).padStart(2, '0'), 800, 700);
+      g.globalAlpha = 1;
+      hudTag(g, 366, '코치 — 따라 하세요', HUD_MAIN);
+      hudTag(g, 1234, '내 자세', HUD_CYAN);
+      // 스탯 패널: 목표(좌) / 내 기록(우, 목 카운트 = 스테이지 경과 기반 목업)
+      const mine = st.id === 'BX_B1' ? Math.min(goal[1], tS % 4).toFixed(1) : Math.min(goal[1], Math.floor(tS / 2.2));
+      g.textAlign = 'left';
+      hudStat(g, 127, goal[0], goal[1] + goal[2], HUD_MAIN, null);
+      hudStat(g, 992, '내 기록', mine + goal[2], HUD_CYAN, (parseFloat(mine) || 0) / goal[1]);
+      // 내 자세 미러 자리 (비전 미구현 — 점선 슬롯)
+      g.strokeStyle = HUD_CYAN; g.setLineDash([10, 10]);
+      g.globalAlpha = 0.5; g.lineWidth = 2.5;
+      g.strokeRect(1008, 36, 452, 760);
+      g.setLineDash([]); g.globalAlpha = 1;
+    }
+    hudTex.needsUpdate = true;
   }
 
   // ── 복싱 벽면 인물 시범 = FX Lab PERSON_FRAG 정본 포트 (인물 — 실사 복서 + 잔상) ──
@@ -2664,6 +2841,7 @@ void main(){
     session.tickWaves();              // 스테이지 파동 링 시계 (프리뷰 포함)
     renderGhostLayer();
     renderDemoPanel();   // A 시범 구간 실사 클립 (휴면)
+    renderWallHUD();     // 벽면 게임 HUD (피그마 WallUI 이식)
     renderBxPerson();    // 복싱 벽면 인물 시범 (정본 포트)
     renderFrame(clock.elapsedTime);   // 블룸 + 그레인·비네트 컴포저 (scene.js FX)
   }
