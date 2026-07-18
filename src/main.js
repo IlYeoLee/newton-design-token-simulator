@@ -2510,7 +2510,7 @@ void main(){
     const LABEL = '발 두 번 탭해서 시작';
     g.font = '900 34px Pretendard, sans-serif'; g.textAlign = 'center';
     const tw = g.measureText(LABEL).width;
-    const w = tw + 120, h = 78, R = 39, CUT = 3.5, yy = y ?? 908;   // --radius 100px 필 / --cut
+    const w = tw + 120, h = 78, R = 39, CUT = 6, yy = y ?? 908;   // 림 두께 업 (유저)
     const t = tS ?? 0;
     const cyc = t % 2.6;
     const bump = t0 => { const u = (cyc - t0) / 0.34; return u >= 0 && u <= 1 ? Math.sin(Math.PI * u) : 0; };
@@ -2521,20 +2521,37 @@ void main(){
     // ① 샤이머 — 회전 콘익 세그먼트 (뉴턴 그라디언트, --speed 3s)
     const a0 = (t / 3) * Math.PI * 2;
     const cg = g.createConicGradient(a0, 0, 0);
-    cg.addColorStop(0, 'rgba(250,48,48,0)');
-    cg.addColorStop(0.04, 'rgba(250,48,48,0.95)');
-    cg.addColorStop(0.125, 'rgba(254,110,60,1)');
-    cg.addColorStop(0.21, 'rgba(254,195,137,0.95)');
+    cg.addColorStop(0, 'rgba(254,195,137,0)');
+    cg.addColorStop(0.05, 'rgba(254,195,137,0.9)');
+    cg.addColorStop(0.125, 'rgba(255,243,220,1)');      // 웜 화이트-옐로 피크 (그리드 라인 톤)
+    cg.addColorStop(0.20, 'rgba(254,195,137,0.9)');
     cg.addColorStop(0.25, 'rgba(254,195,137,0)');
-    cg.addColorStop(1, 'rgba(250,48,48,0)');
+    cg.addColorStop(1, 'rgba(254,195,137,0)');
     g.save();
-    g.filter = 'blur(3px)';
+    g.filter = 'blur(4px)';
     g.beginPath(); g.roundRect(-w / 2, -h / 2, w, h, R);
     g.fillStyle = cg; g.__rawFill();
     g.restore();
     // ② 백드롭 — 다크 바디가 중앙을 덮어 림만 남김 (--cut)
     g.beginPath(); g.roundRect(-w / 2 + CUT, -h / 2 + CUT, w - CUT * 2, h - CUT * 2, R - CUT);
-    g.fillStyle = '#FA3030'; g.__rawFill();
+    const rampG = g.createLinearGradient(-w / 2, h / 2, w / 2, -h / 2);
+    rampG.addColorStop(0, '#920F0F'); rampG.addColorStop(0.45, '#FA3030'); rampG.addColorStop(1, '#FE6E3C');
+    g.fillStyle = rampG; g.__rawFill();
+    // 열화상풍 유동 블롭 — 인물 그라디언트 기법의 흐르는 온기 (주황·연주황 저알파 드리프트)
+    g.save();
+    g.beginPath(); g.roundRect(-w / 2 + CUT, -h / 2 + CUT, w - CUT * 2, h - CUT * 2, R - CUT); g.clip();
+    const bl = [
+      [Math.sin(t * 0.7) * w * 0.28,        Math.cos(t * 0.9) * h * 0.2,  h * 1.1, 'rgba(254,110,60,0.55)'],
+      [Math.cos(t * 0.5 + 2) * w * 0.33,    Math.sin(t * 0.8 + 1) * h * 0.25, h * 0.85, 'rgba(254,195,137,0.4)'],
+      [Math.sin(t * 0.35 + 4) * w * 0.38,   Math.cos(t * 0.6 + 3) * h * 0.3,  h * 0.7, 'rgba(146,15,15,0.5)'],
+    ];
+    for (const [bx, by, br, bc] of bl) {
+      const rg = g.createRadialGradient(bx, by, 0, bx, by, br);
+      rg.addColorStop(0, bc); rg.addColorStop(1, 'rgba(0,0,0,0)');
+      g.fillStyle = rg;
+      g.beginPath(); g.rect(-w / 2, -h / 2, w, h); g.__rawFill();
+    }
+    g.restore();
     // ③ 인셋 하이라이트 (rgba 255 .1 상단)
     g.save();
     g.beginPath(); g.roundRect(-w / 2 + CUT, -h / 2 + CUT, w - CUT * 2, h - CUT * 2, R - CUT); g.clip();
