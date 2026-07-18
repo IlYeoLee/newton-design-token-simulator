@@ -2956,6 +2956,15 @@ void main(){
         fpPos.x += (tx - fpPos.x) * kXZ;
         fpPos.z += (tz - fpPos.z) * kXZ;
         fpPos.y += (ty - fpPos.y) * kY;
+        // 복싱 벽 스테이지: UI 벽면 전체(좌우·상하 끝)가 한눈에 들어오는 최소 후퇴 강제
+        // (유저 교정: '1인칭에서 벽 끝이 다 보여야') — 실제 카메라 FOV로 산출
+        if (session.active && state.pack === 'boxing' && session.curStage?.wall) {
+          const vf = camera.fov * Math.PI / 180;
+          const hf = 2 * Math.atan(Math.tan(vf / 2) * camera.aspect);
+          const needH = (rig.wallW / 2 + 0.12) / Math.tan(hf / 2);
+          const needV = (rig.wallH * 0.64 + 0.12) / Math.tan(vf / 2);
+          fpPos.z = Math.max(fpPos.z, WALL_Z + Math.max(needH, needV));
+        }
         camera.position.copy(fpPos);
         camera.lookAt(
           fpPos.x + fwd.x * Math.cos(gazePitch),
