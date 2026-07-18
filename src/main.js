@@ -1881,7 +1881,7 @@ async function boot() {
     new THREE.ShaderMaterial({
       uniforms: {
         tex: { value: demoTex }, uTrail: { value: trailRTs[0].texture }, uLUT: { value: getLUT() },
-        uTime: { value: 0 }, uNoise: { value: 0.55 }, uW: { value: 1 }, uDetail: { value: 0.62 }, uTrailGain: { value: 1 }, uGrain: { value: 0 },
+        uTime: { value: 0 }, uNoise: { value: 0.55 }, uW: { value: 1 }, uDetail: { value: 0.62 }, uTrailGain: { value: 1 }, uGrain: { value: 0 }, uTone: { value: 0 },
         uCropC: { value: new THREE.Vector2(0.5, 0.5) }, uCropS: { value: new THREE.Vector2(1, 1) },
       },
       vertexShader: `#include <common>
@@ -1896,43 +1896,54 @@ void main(){
       fragmentShader: `#include <common>
 #include <clipping_planes_pars_fragment>
         varying vec2 vUv;
-        uniform sampler2D uTrail, uLUT; uniform float uTime, uNoise, uW, uDetail, uTrailGain, uGrain;
+        uniform sampler2D uTrail, uLUT; uniform float uTime, uNoise, uW, uDetail, uTrailGain, uGrain, uTone;
         vec3 lut(float v){ return texture2D(uLUT, vec2(clamp(v, 0.004, 0.996), 0.5)).rgb; }
         ` + FX_GLSL.replace('uniform sampler2D uLUT;', '').replace('vec3 lut(float v){ return texture2D(uLUT, vec2(clamp(v, 0.004, 0.996), 0.5)).rgb; }', '') + `
         ` + MASK_GLSL + `
+        vec3 thermo(float h){
+          // 확산 유리 열화상 램프 — 랩 PERSON_FRAG thermo()와 동일 상수 (레퍼런스 확정 2026-07-18)
+          h = clamp(h, 0.0, 1.0);
+          vec3 c = mix(vec3(0.0), vec3(0.30, 0.01, 0.02), smoothstep(0.0, 0.20, h));
+          c = mix(c, vec3(0.86, 0.10, 0.02), smoothstep(0.20, 0.40, h));
+          c = mix(c, vec3(1.0, 0.56, 0.02), smoothstep(0.40, 0.55, h));
+          c = mix(c, vec3(1.0, 0.96, 0.10), smoothstep(0.55, 0.66, h));
+          c = mix(c, vec3(0.22, 0.84, 0.24), smoothstep(0.66, 0.80, h));
+          c = mix(c, vec3(0.10, 0.72, 0.82), smoothstep(0.80, 0.92, h));
+          return mix(c, vec3(0.40, 0.88, 0.96), smoothstep(0.92, 1.0, h));
+        }
         void main(){
           #include <clipping_planes_fragment>
           vec2 uv = vUv;
           float m = pmask(uv);
           float trail = texture2D(uTrail, uv).r * (1.0 - m) * uTrailGain;
-          // 소프트 엣지 5탭 (랩 정본)
-          float mSoft = m * 0.36;
-          for (int k = 0; k < 4; k++) {
-            float a = 1.5708 * float(k) + 0.7;
-            mSoft += pmask(uv + vec2(cos(a), sin(a)) * 0.011 * uW) * 0.16;
+          // 확산 유리 열 필드: 실루엣 3링 대반경 블러 = 두께/밀도 (랩과 동일 수식)
+          float R = 0.018 + 0.05 * uW;
+          float H = m * 0.18;
+          for (int k = 0; k < 8; k++) {
+            float a = 0.7854 * float(k);
+            H += pmask(uv + vec2(cos(a), sin(a)) * R * 0.5) * 0.05;
+            H += pmask(uv + vec2(cos(a + 0.3927), sin(a + 0.3927)) * R) * 0.035;
+            H += pmask(uv + vec2(cos(a + 0.19), sin(a + 0.19)) * R * 2.2) * 0.018;
           }
-          // 내부 열 대류 + 세로 그라디언트 (랩 정본 수식 그대로)
           float flow = fxfbm(vec2(uv.x * 3.2 + sin(uTime * 0.4) * 0.3, uv.y * 2.4 - uTime * 0.5));
-          float flow2 = fxfbm(vec2(uv.x * 6.5 - uTime * 0.22, uv.y * 5.2 - uTime * 0.9));
-          float vert = pow(1.0 - uv.y, 1.35) * 0.92 + 0.06;
-          float heat = mix(vert, clamp(vert + (flow - 0.5) * 0.55 + (flow2 - 0.5) * 0.25, 0.0, 1.0), uNoise);
-          // 실사 음영을 열로 — 팔레트는 LUT 그대로, 이목구비·근육 디테일이 실루엣 안에 살아남
+          H *= 1.0 + (flow - 0.5) * uNoise * 0.6;
+          // 음영(uDetail) = 실사 명암이 열 온도로 — 심부 시안/초록의 근육 결
           vec2 dvuv = uCropC + (uv - 0.5) * uCropS;
           vec3 dvc = texture2D(tex, clamp(dvuv, 0.0, 1.0)).rgb;
           float dlum = dot(dvc, vec3(0.299, 0.587, 0.114));
-          heat = clamp(heat + (dlum - 0.45) * uDetail, 0.0, 1.0);
-          heat += clamp(m - mSoft, 0.0, 1.0) * 0.10;
-          // ↓ 랩 PERSON_FRAG 정본 그대로 (게인 1.12 / 잔상 0.8 / 차폐 88% / 디더+그레인)
-          vec3 col = lut(clamp(heat, 0.0, 1.0)) * mSoft * 1.12;
-          col += lut(clamp(heat * 0.45, 0.0, 1.0)) * trail * 0.8;
+          H = clamp(H + (dlum - 0.5) * uDetail * 0.4 * m, 0.0, 1.0);
+          H = max(H, trail * 0.75);
+          vec3 col = mix(thermo(H), lut(clamp(H * 0.96, 0.0, 1.0)), uTone);   // 뉴턴톤 = 룩 팔레트 열화상
           col += (fxhash(uv * 977.0 + uTime) - 0.5) * (2.0 / 255.0);
           col += (fxhash(uv * 1661.0 + uTime * 3.0) - 0.5) * uGrain;
-          // 컴포저 OutputPass(linear→sRGB)가 전 화면을 들어올림 → 출력 직전 역변환으로 상쇄
-          // (tokens.js uOut=1 규약과 동일 — 이 상쇄가 없으면 랩 대비 파스텔 워시)
+          // 검은 필드 = 패널 전체 차폐 (레퍼런스: 흑 배경 위 발광) — 가장자리만 페이드
+          float field = smoothstep(0.0, 0.05, uv.x) * smoothstep(1.0, 0.95, uv.x)
+                      * smoothstep(0.0, 0.04, uv.y) * smoothstep(1.0, 0.96, uv.y);
+          col *= field;
+          // 컴포저 OutputPass(linear→sRGB) 역변환 상쇄 (tokens.js uOut=1 규약)
           col = clamp(col, 0.0, 1.0);
           col = mix(col / 12.92, pow((col + 0.055) / 1.055, vec3(2.4)), step(0.04045, col));
-          float aOut = clamp(m + trail * 0.6, 0.0, 1.0) * 0.88;
-          gl_FragColor = vec4(col, aOut);   // 프리멀티: 벽을 88% 차폐 후 가산 = 랩 baseBG 합성식
+          gl_FragColor = vec4(col, field * 0.92);   // 프리멀티: 벽 차폐 후 가산 = 랩 합성식
         }`,
       transparent: true, depthWrite: false,
       // out = col + dst·(1−a) — 랩의 base·(1−a·0.88)+col 과 동일 (프리멀티 커스텀 블렌딩)
@@ -2071,6 +2082,7 @@ void main(){
     PU.uDetail.value = FXP.person?.detail ?? 0.62;
     PU.uW.value = FXP.person?.blur ?? 1;   // 엣지 블러 — 랩 person 슬라이더 (누락돼 기본 1.0으로 돌던 버그)
     PU.uGrain.value = FXP.person?.grain ?? 0;
+    PU.uTone.value = FXP.person?.tone ?? 0;
     trailFlip = 1 - trailFlip;
   }
 

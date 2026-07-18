@@ -238,7 +238,7 @@ const state = {
   g: { speed: 1.0, width: 1.0, halo: 0.9, noise: 0.5, ember: 0.3, grain: 0.035, size: 1.5 },
   m: { radius: 1.0, core: 1.0, halo: 0.9, pool: 0.55, sweep: 1.0, wobble: 0.5 },
   s: { bloomStrength: 0.55, bloomThreshold: 0.55, bloomRadius: 0.6, exposure: 1.0, grain: 0, vignette: 0.12 },
-  p: { blur: 0.3, glow: 0, flow: 0.4, decay: 0.04, grain: 0, detail: 0.62 },   // 유저 확정 룩 = 공장 기본 (2026-07-18)
+  p: { blur: 0.3, glow: 0, flow: 0.4, decay: 0.04, grain: 0, detail: 0.62, tone: 0 },   // 유저 확정 룩 = 공장 기본 (2026-07-18)
   footShape: 1, personMode: 0, burstStyle: 0, laneStyle: 0,
   glyphs: { WARN_EXCL: WARN_EXCL_SVG },   // 슬롯별 커스텀 SVG — 저장·브리지 왕복 (규칙: ↑=전방, 발가락 위·뒤꿈치 아래)
   glyphFlip: {},   // 슬롯별 상하 반전 (⌥+클릭)
@@ -287,6 +287,7 @@ const SLIDER_DEFS = {
     ['detail', '음영',   0,   1.2, 0.02],
     ['decay',  '잔상',   0,   0.92,0.02],
     ['grain',  '그레인', 0,   0.1, 0.005],
+    ['tone',   '뉴턴톤', 0,   1,   0.02],
   ],
 };
 
@@ -853,7 +854,7 @@ const footP = glProg(footC, FOOT_FRAG, 250, 250);
 // ═══ 인물 (크로스페이드 + 잔상) ═══════════════
 const PERSON_FRAG = GLSL_COMMON + `
 uniform sampler2D uAtlas;
-uniform float uFrame, uMode, uDecay, uTime, uDetail, uChroma;
+uniform float uFrame, uMode, uDecay, uTime, uDetail, uChroma, uTone;
 vec2 tileUV(vec2 uv, float f){
   float ff = mod(f + 16.0, 8.0);
   float cx = mod(ff, 4.0), cy = floor(ff / 4.0);
@@ -876,6 +877,17 @@ float maskF(vec2 uv, float fk){       // 프레임 크로스페이드
   float f0 = floor(fk);
   return mix(mask1(uv, f0), mask1(uv, f0 + 1.0), fract(fk));
 }
+vec3 thermo(float h){
+  // 확산 유리 열화상 램프 (레퍼런스 확정 2026-07-18): 흑 → 암적 → 주황 → 노랑 → 초록 → 심부 시안
+  h = clamp(h, 0.0, 1.0);
+  vec3 c = mix(vec3(0.0), vec3(0.30, 0.01, 0.02), smoothstep(0.0, 0.20, h));
+  c = mix(c, vec3(0.86, 0.10, 0.02), smoothstep(0.20, 0.40, h));
+  c = mix(c, vec3(1.0, 0.56, 0.02), smoothstep(0.40, 0.55, h));
+  c = mix(c, vec3(1.0, 0.96, 0.10), smoothstep(0.55, 0.66, h));
+  c = mix(c, vec3(0.22, 0.84, 0.24), smoothstep(0.66, 0.80, h));
+  c = mix(c, vec3(0.10, 0.72, 0.82), smoothstep(0.80, 0.92, h));
+  return mix(c, vec3(0.40, 0.88, 0.96), smoothstep(0.92, 1.0, h));
+}
 void main(){
   vec2 uv = gl_FragCoord.xy / uRes;
   float m = maskF(uv, uFrame);
@@ -886,27 +898,27 @@ void main(){
   }
   trail *= (1.0 - m);
   vec3 col;
+  float occ;
   if (uMode < 0.5) {
-    // 소프트 엣지: 마스크 5탭 블러 (실루엣 경계가 광학적으로 풀림)
-    float mSoft = m * 0.36;
-    for (int k = 0; k < 4; k++) {
-      float a = 1.5708 * float(k) + 0.7;
-      mSoft += maskF(uv + vec2(cos(a), sin(a)) * 0.011 * uW, uFrame) * 0.16;
+    // 확산 유리 열 필드: 실루엣의 3링 대반경 블러 = 두께/밀도 (SVG 히트맵 기법 이식)
+    float R = 0.018 + 0.05 * uW;
+    float H = m * 0.18;
+    for (int k = 0; k < 8; k++) {
+      float a = 0.7854 * float(k);
+      H += maskF(uv + vec2(cos(a), sin(a)) * R * 0.5, uFrame) * 0.05;
+      H += maskF(uv + vec2(cos(a + 0.3927), sin(a + 0.3927)) * R, uFrame) * 0.035;
+      H += maskF(uv + vec2(cos(a + 0.19), sin(a + 0.19)) * R * 2.2, uFrame) * 0.018;
     }
-    // 내부 열 대류: 노이즈장이 위로 흐름 + 느린 횡파 — 그라디언트가 살아서 움직임
+    // 내부 흐름(uNoise) = 열 필드의 살아있는 일렁임
     float flow = fbm(vec2(uv.x * 3.2 + sin(uTime * 0.4) * 0.3, uv.y * 2.4 - uTime * 0.5));
-    float flow2 = fbm(vec2(uv.x * 6.5 - uTime * 0.22, uv.y * 5.2 - uTime * 0.9));
-    // 기본 = 위가 어둡고 아래로 갈수록 밝게 (레퍼런스: 머리 근흑 → 발 근백)
-    float vert = pow(1.0 - uv.y, 1.35) * 0.92 + 0.06;
-    // 내부 흐름 슬라이더(uNoise) = 대류 혼합비 — 0이면 순수 세로 그라디언트
-    float heat = mix(vert, clamp(vert + (flow - 0.5) * 0.55 + (flow2 - 0.5) * 0.25, 0.0, 1.0), uNoise);
-    // 음영 가산 — 실사 명암이 실루엣 안에서 이목구비·근육으로 (팔레트는 LUT 그대로)
+    H *= 1.0 + (flow - 0.5) * uNoise * 0.6;
+    // 음영(uDetail) = 실사 명암이 열 온도로 — 심부 시안/초록의 근육 결
     vec3 rgbC = texture2D(uAtlas, tileUV(uv, floor(uFrame + 0.5))).rgb;
     float lumC = dot(rgbC, vec3(0.299, 0.587, 0.114));
-    heat = clamp(heat + (lumC - 0.45) * uDetail, 0.0, 1.0);
-    heat += clamp(m - mSoft, 0.0, 1.0) * 0.10;   // 림은 아주 은은하게
-    col = lut(clamp(heat, 0.0, 1.0)) * mSoft * 1.12;
-    col += lut(clamp(heat * 0.45, 0.0, 1.0)) * trail * 0.8;
+    H = clamp(H + (lumC - 0.5) * uDetail * 0.4 * m, 0.0, 1.0);
+    H = max(H, trail * 0.75);
+    col = mix(thermo(H), lut(clamp(H * 0.96, 0.0, 1.0)), uTone);   // 뉴턴톤 = 룩 팔레트 열화상
+    occ = 1.045;   // 검은 필드 = 카드 전체 차폐 (레퍼런스: 흑 배경 위 발광, ×0.88=0.92)
   } else {
     float halo = 0.0;
     for (int ring = 0; ring < 3; ring++) {
@@ -923,9 +935,10 @@ void main(){
     vec3 warm = lut(0.93);
     col = vec3(1.0) * body + warm * halo * 0.42 * uHalo * (1.0 - body);
     col += lut(0.75) * trail * 0.4;
+    occ = clamp(m + trail * 0.6, 0.0, 1.0);
   }
   vec3 base = baseBG(uv);
-  col = base * (1.0 - clamp(m + trail * 0.6, 0.0, 1.0) * 0.88) + col;
+  col = base * (1.0 - occ * 0.88) + col;
   gl_FragColor = vec4(grade(col, gl_FragCoord.xy, uTime), 1.0);
 }`;
 const personP = glProg(personC, PERSON_FRAG, 236, 386);
@@ -1150,6 +1163,7 @@ function frame(ts) {
     gl.uniform1f(personP.u('uMode'), state.personMode);
     gl.uniform1f(personP.u('uDecay'), p.decay);
     gl.uniform1f(personP.u('uDetail'), p.detail ?? 0.62);
+    gl.uniform1f(personP.u('uTone'), p.tone ?? 0);
     gl.uniform1f(personP.u('uTime'), ts / 1000);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
   }
