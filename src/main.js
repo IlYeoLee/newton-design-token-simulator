@@ -2030,7 +2030,7 @@ void main(){
     }));
   demoPanel.rotation.x = -Math.PI / 2;
   demoPanel.position.set(0, 0.016, -1.45);
-  demoPanel.renderOrder = 7;
+  demoPanel.renderOrder = 5;   // 인물 = 배경 그리드 위·HUD 아래 (유저: 인물 뒤로)
   demoPanel.visible = false;
   scene.add(demoPanel);
   let demoLastT = 0;
@@ -2128,7 +2128,7 @@ void main(){
       const mir = HUD_MIRROR.has(session.curStage?.id);
       const gsc = mir ? 0.8 : 1;
       demoPanel.scale.set(GHOST_H * (9 / 16) / 0.62 * gsc, GHOST_H / 0.93 * gsc, 1);
-      demoPanel.position.set((wc ? wc.cx : 0) + (mir ? -0.868 : 0), wallBot + GHOST_H * gsc / 2 + (mir ? 0.33 : 0.01), WALL_Z + 0.035);
+      demoPanel.position.set((wc ? wc.cx : 0) + (mir ? -0.868 : 0), wallBot + GHOST_H * gsc / 2 + (mir ? 0.33 : 0.01), WALL_Z + 0.025);
     }
     demoPanel.visible = !!on;
     if (on) setGhostClip(session.curStage?.id);   // 스테이지별 클립 자동 전환 (404 → 기본)
@@ -2486,8 +2486,7 @@ void main(){
     const bump = t0 => { const u = (cyc - t0) / 0.17; return u >= 0 && u <= 1 ? Math.sin(u * Math.PI) : 0; };
     const press = Math.max(bump(0), bump(0.4));   // 퉁·퉁 → 1.4s 쉼 (2번 탭 암시)
     g.save();
-    g.translate(800, yy + h / 2);
-    g.rotate(-0.045);                              // 살짝 기운 버튼
+    g.translate(800, yy + h / 2);   // 가운데 정렬 · 기울기 0 (magicui 기본형 엄수 — 유저)
     // 확산 펄스 링 (탭 박자마다 방출)
     for (const t0 of [0, 0.4]) {
       const u = (cyc - t0) / 0.75;
@@ -2501,18 +2500,19 @@ void main(){
     }
     const s = 1 - press * 0.07;                    // 눌림 스케일
     g.scale(s, s);
-    // 색 그림자 — 버튼이 바닥(벽면)을 누르는 깊이. 누르면 그림자로 가라앉음
-    const drop = 10 - press * 7;
-    g.globalAlpha = 0.55;
-    g.beginPath(); g.roundRect(-w / 2 + 3, -h / 2 + drop, w, h, 27);
+    // 색 그림자 — 정하향 오프셋만 (기울기 없음). 누르면 가라앉음
+    const drop = 9 - press * 6;
+    g.globalAlpha = 0.5;
+    g.beginPath(); g.roundRect(-w / 2, -h / 2 + drop, w, h, 27);
     g.fillStyle = `color-mix(in srgb, ${HUD_CYAN} 45%, #091212 55%)`;
     g.__rawFill();
     g.globalAlpha = 1;
-    // 버튼 면 + 텍스트
-    g.beginPath(); g.roundRect(-w / 2, -h / 2 + press * 4, w, h, 27);
-    g.strokeStyle = HUD_CYAN; g.lineWidth = 3; g.stroke();
-    g.fillStyle = HUD_CYAN;
-    g.fillText(text, 0, 8 + press * 4);
+    // 버튼 면 = magicui 솔리드 필 + 다크 텍스트
+    g.beginPath(); g.roundRect(-w / 2, -h / 2 + press * 3, w, h, 27);
+    g.fillStyle = HUD_CYAN; g.__rawFill();
+    g.strokeStyle = HUD_CYAN; g.lineWidth = 2; g.stroke();
+    g.fillStyle = '#091212';
+    g.__rawFillText(text, 0, 8 + press * 3);
     g.restore();
     g.textAlign = 'center';
   }
