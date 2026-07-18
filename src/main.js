@@ -2203,6 +2203,7 @@ void main(){
       : c;
     const rawFillText = g.fillText.bind(g), rawFill = g.fill.bind(g);
     g.__rawFillText = rawFillText;   // 앰비언트(워터마크 등) = 네온 멀티패스 우회용
+    g.__rawFill = rawFill;           // 플랫 면(그림자 등) = 글로우·코어 우회
     const rawStroke = g.stroke.bind(g), rawFillRect = g.fillRect.bind(g);
     g.fillText = function (t, x, y) {
       const c = this.fillStyle;
@@ -2477,11 +2478,43 @@ void main(){
     const w = g.measureText(text).width + 64;
     hudChip(g, 800 - w / 2, 912, w, 54, 27, HUD_MAIN, text, 800, 948);
   }
-  function hudCTA(g, text, y) {
+  function hudCTA(g, text, y, tS) {
+    // 펄스 2연타(퉁퉁-쉼) + 기운 3D 눌림 버튼 — magicui pulsating + uiverse hot-catfish 믹스
     g.font = '700 26px Pretendard, sans-serif'; g.textAlign = 'center';
-    const w = g.measureText(text).width + 64;
-    const yy = y ?? 908;
-    hudChip(g, 800 - w / 2, yy, w, 54, 27, HUD_CYAN, text, 800, yy + 36);
+    const w = g.measureText(text).width + 64, h = 54, yy = y ?? 908;
+    const cyc = (tS ?? 0) % 2.2;
+    const bump = t0 => { const u = (cyc - t0) / 0.17; return u >= 0 && u <= 1 ? Math.sin(u * Math.PI) : 0; };
+    const press = Math.max(bump(0), bump(0.4));   // 퉁·퉁 → 1.4s 쉼 (2번 탭 암시)
+    g.save();
+    g.translate(800, yy + h / 2);
+    g.rotate(-0.045);                              // 살짝 기운 버튼
+    // 확산 펄스 링 (탭 박자마다 방출)
+    for (const t0 of [0, 0.4]) {
+      const u = (cyc - t0) / 0.75;
+      if (u > 0 && u < 1) {
+        const ex = u * 30;
+        g.globalAlpha = (1 - u) * (1 - u) * 0.6;
+        g.beginPath(); g.roundRect(-w / 2 - ex, -h / 2 - ex, w + ex * 2, h + ex * 2, 27 + ex);
+        g.strokeStyle = HUD_CYAN; g.lineWidth = 3; g.stroke();
+        g.globalAlpha = 1;
+      }
+    }
+    const s = 1 - press * 0.07;                    // 눌림 스케일
+    g.scale(s, s);
+    // 색 그림자 — 버튼이 바닥(벽면)을 누르는 깊이. 누르면 그림자로 가라앉음
+    const drop = 10 - press * 7;
+    g.globalAlpha = 0.55;
+    g.beginPath(); g.roundRect(-w / 2 + 3, -h / 2 + drop, w, h, 27);
+    g.fillStyle = `color-mix(in srgb, ${HUD_CYAN} 45%, #091212 55%)`;
+    g.__rawFill();
+    g.globalAlpha = 1;
+    // 버튼 면 + 텍스트
+    g.beginPath(); g.roundRect(-w / 2, -h / 2 + press * 4, w, h, 27);
+    g.strokeStyle = HUD_CYAN; g.lineWidth = 3; g.stroke();
+    g.fillStyle = HUD_CYAN;
+    g.fillText(text, 0, 8 + press * 4);
+    g.restore();
+    g.textAlign = 'center';
   }
   function hudPhaseDots(g, cx, y, active) {
     const names = 4;
@@ -2529,7 +2562,7 @@ void main(){
           g.beginPath(); g.arc(x, 844, 38, 0, 6.284); g.stroke();
           g.globalAlpha = 1;
         }
-        hudCTA(g, 'TAP ×2 — 발 두 번 탭 → 시작', 916);
+        hudCTA(g, 'TAP ×2 — 발 두 번 탭 → 시작', 916, tS);
         // 우하: 가드 브래킷 + 카피
         g.strokeStyle = HUD_MAIN; g.lineWidth = 4;
         const bx = 1372, by = 830, bw = 64, bh = 54, L = 16;
@@ -2612,7 +2645,7 @@ void main(){
         g.fillStyle = '#fec389'; g.font = '500 30px Pretendard, sans-serif';
         g.fillText('몸 풀렸어요 — 다음: 사전 익히기', 800, 500);
         hudPhaseDots(g, 800 - 69, 560, 1);
-        hudCTA(g, 'TAP ×2 — 탭 두 번 → 사전 익히기', 620);
+        hudCTA(g, 'TAP ×2 — 탭 두 번 → 사전 익히기', 620, tS);
         break;
       }
       case 'BX_T2': {
@@ -2624,7 +2657,7 @@ void main(){
         g.fillText(String(Math.ceil(remain)), 270, 450);
         g.fillStyle = '#fec389'; g.font = '500 28px Pretendard, sans-serif';
         g.fillText('5초 뒤 실전', 270, 570);
-        hudCTA(g, 'TAP ×2 — 두 번 탭 = 바로', 908);
+        hudCTA(g, 'TAP ×2 — 두 번 탭 = 바로', 908, tS);
         break;
       }
       case 'BX_C1': {
