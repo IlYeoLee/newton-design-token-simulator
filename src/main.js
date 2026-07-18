@@ -2534,22 +2534,19 @@ void main(){
     g.restore();
     // ② 백드롭 — 다크 바디가 중앙을 덮어 림만 남김 (--cut)
     g.beginPath(); g.roundRect(-w / 2 + CUT, -h / 2 + CUT, w - CUT * 2, h - CUT * 2, R - CUT);
-    g.fillStyle = '#ffffff'; g.__rawFill();
+    g.fillStyle = '#FA3030'; g.__rawFill();
     // ③ 인셋 하이라이트 (rgba 255 .1 상단)
     g.save();
     g.beginPath(); g.roundRect(-w / 2 + CUT, -h / 2 + CUT, w - CUT * 2, h - CUT * 2, R - CUT); g.clip();
     const hl = g.createLinearGradient(0, -h / 2, 0, 0);
-    hl.addColorStop(0, 'rgba(254,195,137,0.25)'); hl.addColorStop(1, 'rgba(254,195,137,0)');
+    hl.addColorStop(0, 'rgba(255,255,255,0.22)'); hl.addColorStop(1, 'rgba(255,255,255,0)');
     g.beginPath(); g.roundRect(-w / 2 + CUT, -h / 2 + CUT, w - CUT * 2, h * 0.5, R - CUT);
     g.fillStyle = hl; g.__rawFill();
     g.restore();
-    // ④ 텍스트 펀치아웃 — 글자 모양대로 구멍 (뒤 인물·배경이 비침)
-    g.save();
-    g.globalCompositeOperation = 'destination-out';
+    // ④ 텍스트 — 화이트 (유저)
     g.shadowBlur = 0;
-    g.fillStyle = '#fff';
+    g.fillStyle = '#ffffff';
     g.__rawFillText(LABEL, 0, 12);
-    g.restore();
     g.restore();
     g.textAlign = 'center';
   }
