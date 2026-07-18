@@ -203,6 +203,7 @@ export function createScene(container) {
       floor.material.color.setHex(dayMode ? 0x666C76 : 0x171a20);   // 주간 다크 = 젖은 아스팔트 톤
       wall.material.map = null;
       wall.material.color.setHex(dayMode ? 0x767C86 : 0x1c2028);
+      wall.material.emissive?.setHex(0x000000);
       floor.material.needsUpdate = true;
       wall.material.needsUpdate = true;
       grid.visible = true;
@@ -215,11 +216,13 @@ export function createScene(container) {
     floor.material.map = fTex;
     wall.material.map = wTex;
     if (key === 'indoor') {
-      // 실내: 마루 + 형광등 아래 흰백·아이보리 벽 (야간에도 실내등 켜진 밝기)
-      floor.material.color.setHex(dayMode ? 0xF2EDE4 : 0xCEC6B8);
-      wall.material.map = null;                        // 석고 텍스처 톤 다운 제거 — 순백에 가깝게
-      wall.material.color.setHex(dayMode ? 0xFFFDF7 : 0xE8E3D8);
+      // 실내: 마루 + 형광등 아래 '진짜 흰' 벽 — 조명 감쇠를 이기도록 자발광 가산
+      floor.material.color.setHex(dayMode ? 0xF6F1E8 : 0xD8D0C2);
+      wall.material.map = null;
+      wall.material.color.setHex(0xFFFFFF);
+      wall.material.emissive?.setHex(dayMode ? 0x6E6A63 : 0x57534B);
     } else {
+      wall.material.emissive?.setHex(0x000000);
       floor.material.color.setHex(dayMode ? 0xDBDBDB : 0x8a8a8a);   // 주간=약감쇠(v12.4 통일), 야간=톤 다운
       wall.material.color.setHex(dayMode ? 0xE2E2E2 : 0x9a9a9a);
     }
