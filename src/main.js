@@ -2518,6 +2518,13 @@ void main(){
     g.save();
     g.translate(800, yy + h / 2);
     g.scale(s, s);
+    // ⓪ 외곽 halo — 룩 시스템 mark.halo 연동 (빔 발광감)
+    g.save();
+    g.filter = `blur(${18 * hudGlowK}px)`;
+    g.globalAlpha = 0.5 * hudGlowK;
+    g.beginPath(); g.roundRect(-w / 2 - 6, -h / 2 - 6, w + 12, h + 12, R + 6);
+    g.fillStyle = 'rgba(250,48,48,0.9)'; g.__rawFill();
+    g.restore();
     // ① 샤이머 — 회전 콘익 세그먼트 (뉴턴 그라디언트, --speed 3s)
     const a0 = (t / 3) * Math.PI * 2;
     const cg = g.createConicGradient(a0, 0, 0);
@@ -2560,9 +2567,11 @@ void main(){
     g.beginPath(); g.roundRect(-w / 2 + CUT, -h / 2 + CUT, w - CUT * 2, h * 0.5, R - CUT);
     g.fillStyle = hl; g.__rawFill();
     g.restore();
-    // ④ 텍스트 — 화이트 (유저)
-    g.shadowBlur = 0;
+    // ④ 텍스트 — 룩 시스템 글리프 재질 (웜 글로우 + 화이트 코어)
+    g.shadowColor = 'rgba(254,195,137,0.95)'; g.shadowBlur = 14 * hudGlowK;
     g.fillStyle = '#ffffff';
+    g.__rawFillText(LABEL, 0, 12); g.__rawFillText(LABEL, 0, 12);
+    g.shadowBlur = 0;
     g.__rawFillText(LABEL, 0, 12);
     g.restore();
     g.textAlign = 'center';
@@ -2838,7 +2847,7 @@ void main(){
     hudPanel.position.set(wc ? wc.cx : 0, ((wc?.cy ?? 1.4) - rig.wallH / 2) + rig.wallH / 2, WALL_Z + 0.028);
     hudInkCore = false;   // 채도 코어 기각(유저: 흰색이 노랑으로 물듦) — 코어는 항상 화이트
     hudPanel.material.uniforms.uBoost.value = FXP.day ? 2.6 : 1.7;   // 자연광 풀컬러 레이저 전제 = 당당한 풀 광량
-    ctaPanel.material.uniforms.uBoost.value = 1.0;   // 버튼 = 원색 그라디언트 그대로 (부스트 시 화이트로 날아감)
+    ctaPanel.material.uniforms.uBoost.value = FXP.day ? 1.45 : 1.15;   // 주변 광량과 위계 정합 (2.6은 블로우아웃)
     ctaPanel.position.copy(hudPanel.position); ctaPanel.scale.copy(hudPanel.scale);
     if (rig.wallClip && ctaPanel.material.clippingPlanes !== rig.wallClip)
       ctaPanel.material.clippingPlanes = rig.wallClip;
