@@ -2504,31 +2504,44 @@ void main(){
     hudChip(g, 800 - w / 2, 912, w, 54, 27, HUD_MAIN, text, 800, 948);
   }
   function hudCTA(g, text, y, tS) {
-    // codefronts gb-01 (gradient button with glow shadow) 1:1 — 컬러만 뉴턴 칩
-    // 구조 원본 그대로: 120deg 그라디언트 필 + 동일 그라디언트 blur(22) 글로우(::before)
-    // 모션도 원본의 hover 상태만 사용(translateY -3px·글로우 .55→.85), 탭 박자에 맞춰 발동
-    g.font = '700 26px Pretendard, sans-serif'; g.textAlign = 'center';
-    const w = g.measureText(text).width + 64, h = 58, R = 16, yy = y ?? 908;
-    const cyc = (tS ?? 0) % 2.2;
-    const bump = t0 => { const u = (cyc - t0) / 0.28; return u >= 0 && u <= 1 ? Math.sin(u * Math.PI) : 0; };
-    const hov = Math.max(bump(0), bump(0.45));
-    const mkGrad = () => {
-      const gr = g.createLinearGradient(-w / 2, -h / 2, w / 2, h / 4);   // 120deg
-      gr.addColorStop(0, '#FA3030'); gr.addColorStop(0.55, '#FE6E3C'); gr.addColorStop(1, '#FEC389');
-      return gr;
-    };
+    // Uiverse.io by adamgiebl 1:1 — perspective(200px) rotateX(15deg) 버튼, 컬러만 뉴턴 레드
+    // border-radius 5 / 0deg 그라디언트(아래→위) / box-shadow 0 40px 29px .2 / border-bottom 2px
+    g.font = '900 26px Pretendard, sans-serif'; g.textAlign = 'center';
+    const tw = g.measureText(text).width;
+    const w = tw + 86 * 2, h0 = 76, yy = y ?? 908;
+    const h = h0 * 0.966;            // rotateX(15deg) 수직 압축
+    const k = 0.92;                  // 퍼스펙티브 상단 수렴
     g.save();
-    g.translate(800, yy + h / 2 - 3 * hov);
-    // ::before — inset(8px -4px -10px) 동일 그라디언트 blur 22, opacity .55→.85
+    g.translate(800, yy + h / 2);
+    // box-shadow: rgba(뉴턴레드, .2) 0px 40px 29px
     g.save();
-    g.filter = 'blur(22px)';
-    g.globalAlpha = 0.55 + 0.30 * hov;
-    g.beginPath(); g.roundRect(-w / 2 - 4, -h / 2 + 8, w + 8, h + 2, R);
-    g.fillStyle = mkGrad(); g.__rawFill();
+    g.filter = 'blur(15px)';
+    g.fillStyle = 'rgba(250,48,48,0.2)';
+    g.beginPath(); g.roundRect(-w / 2, -h / 2 + 40, w, h, 5); g.__rawFill();
     g.restore();
-    // 버튼 면
-    g.beginPath(); g.roundRect(-w / 2, -h / 2, w, h, R);
-    g.fillStyle = mkGrad(); g.__rawFill();
+    // 버튼 몸체 — rotateX 트라페조이드 (상단이 뒤로 기움)
+    const trap = () => {
+      g.beginPath();
+      g.moveTo(-w / 2 + 5, h / 2);
+      g.lineTo(w / 2 - 5, h / 2);
+      g.quadraticCurveTo(w / 2, h / 2, w / 2, h / 2 - 5);
+      g.lineTo(w * k / 2, -h / 2 + 5);
+      g.quadraticCurveTo(w * k / 2, -h / 2, w * k / 2 - 5, -h / 2);
+      g.lineTo(-w * k / 2 + 5, -h / 2);
+      g.quadraticCurveTo(-w * k / 2, -h / 2, -w * k / 2, -h / 2 + 5);
+      g.lineTo(-w / 2, h / 2 - 5);
+      g.quadraticCurveTo(-w / 2, h / 2, -w / 2 + 5, h / 2);
+      g.closePath();
+    };
+    // border-bottom 2px solid (밝은 쪽 = FE6E3C) — 몸체보다 2px 아래로 먼저
+    g.save(); g.translate(0, 2); trap(); g.fillStyle = '#FE6E3C'; g.__rawFill(); g.restore();
+    // linear-gradient(0deg, 아래 → 위) : FA3030 → FE6E3C
+    trap();
+    const gr = g.createLinearGradient(0, h / 2, 0, -h / 2);
+    gr.addColorStop(0, 'rgba(250,48,48,1)');
+    gr.addColorStop(1, 'rgba(254,110,60,1)');
+    g.fillStyle = gr; g.__rawFill();
+    // 라벨 — white / 900
     g.fillStyle = '#ffffff';
     g.__rawFillText(text, 0, 9);
     g.restore();
