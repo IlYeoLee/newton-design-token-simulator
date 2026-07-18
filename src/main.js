@@ -3120,20 +3120,11 @@ void main(){
     // 앰비언트 토포 공간 (농구 두 투사면 — 세션·재생 중 상시 은은)
     const topoOn = state.pack === 'basketball';
     bkTopoFloor.visible = topoOn;
-    bkTopoWall.visible = topoOn;
+    bkTopoWall.visible = false;   // 농구엔 벽 투사면 없음 — 공중 부유 오류의 원인, 바닥만 사용
     if (topoOn) {
       const tt = performance.now() / 1000;
-      const tg = FXP.day ? 0.5 : 0.3;   // 주간 = 밝은 면 위 가시 보정
-      bkTopoFloor.material.uniforms.uGain.value = tg;
-      bkTopoWall.material.uniforms.uGain.value = tg * 0.8;
+      bkTopoFloor.material.uniforms.uGain.value = FXP.day ? 0.5 : 0.3;   // 주간 가시 보정
       bkTopoFloor.material.uniforms.uTime.value = tt;
-      bkTopoWall.material.uniforms.uTime.value = tt;
-      const wcT = rig._wallCenter;
-      bkTopoWall.position.set(wcT ? wcT.cx : 0, (wcT?.cy ?? 1.4), WALL_Z + 0.015);
-      bkTopoWall.scale.set(rig.wallW / 3.2, rig.wallH / 2.0, 1);
-      if (rig.wallClip) {
-        if (bkTopoWall.material.clippingPlanes !== rig.wallClip) bkTopoWall.material.clippingPlanes = rig.wallClip;
-      }
     }
     bkBeats.forEach(b => b.visible = bkOn);
     if (bkOn) {
