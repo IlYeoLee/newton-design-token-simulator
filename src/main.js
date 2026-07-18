@@ -1944,8 +1944,8 @@ void main(){
           float T = clamp(H * 1.25, 0.0, 1.0);   // 온도 = 두께 필드
           vec2 dvuv = uCropC + (uv - 0.5) * uCropS;
           float dlum = dot(texture2D(tex, clamp(dvuv, 0.0, 1.0)).rgb, vec3(0.299, 0.587, 0.114));
-          // 원본 밝기 대비 선보정(S-커브) — 밝고 어두운 영역을 먼저 분리한 뒤 온도로
-          dlum = smoothstep(0.22, 0.78, dlum);
+          // 원본 밝기 대비 선보정 = 극대화 (급경사 S-커브: 밝음/어두움을 거의 이진 분리)
+          dlum = smoothstep(0.36, 0.60, dlum);
           // 얼굴 대역(상단) = 이목구비 의도적 은닉 — 실사 결 제거 + 강한 확산
           float faceW = smoothstep(0.70, 0.84, uv.y) * (1.0 - smoothstep(0.965, 1.0, uv.y));
           // 실사 결 = 주 텍스처 (팔·다리·몸통 근육·주름이 온도로 살아남) — 얼굴 대역만 제거
