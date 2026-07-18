@@ -2313,7 +2313,7 @@ void main(){
       float sigma = 0.18 * 4.0;
       float band = exp(-0.5 * dz * dz / (sigma * sigma)) * win;
       float aura = exp(-0.5 * dz * dz / (sigma * sigma * 4.0)) * 0.25 * win;
-      col += uLines * line * fog * 0.5;
+      col += uLines * line * fog * 0.68;   // 배경선 아주 조금 업 (유저)
       col += uScan * (line * band * 1.1 + aura * fog * 0.5);
     }
   }
