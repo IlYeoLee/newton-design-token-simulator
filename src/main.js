@@ -1937,17 +1937,22 @@ void main(){
           vec2 uv = vUv;
           float m = pmask(uv);
           float trail = texture2D(uTrail, uv).r * (1.0 - m) * uTrailGain;
-          // 확산 유리 열 필드 v3: 가우시안 RT 체인 샘플 — 두께=온도, 매끈한 연속 필드
+          // 열화상 v4: 형태(실루엣)와 온도(확산 필드) 분리 — 몸 테두리 크리스프, 얼굴만 은닉
           float H = texture2D(uHeat, uv).r;
           float flow = fxfbm(vec2(uv.x * 3.2 + sin(uTime * 0.4) * 0.3, uv.y * 2.4 - uTime * 0.5));
           H *= 1.0 + (flow - 0.5) * uNoise * 0.5;
-          H = clamp(H * 1.30, 0.0, 1.0);
-          // 미세 결(uDetail 소량) — 옷 블록 방지 위해 약하게만
+          float T = clamp(H * 1.25, 0.0, 1.0);   // 온도 = 두께 필드
           vec2 dvuv = uCropC + (uv - 0.5) * uCropS;
           float dlum = dot(texture2D(tex, clamp(dvuv, 0.0, 1.0)).rgb, vec3(0.299, 0.587, 0.114));
-          H = clamp(H + (dlum - 0.5) * uDetail * 0.3 * m, 0.0, 1.0);
-          H = max(H, trail * 0.75);
-          vec3 col = mix(thermo(H), lut(clamp(H * 0.96, 0.0, 1.0)), uTone);   // 뉴턴톤 = 룩 팔레트 열화상
+          // 얼굴 대역(상단) = 이목구비 의도적 은닉 — 실사 결 제거 + 강한 확산
+          float faceW = smoothstep(0.70, 0.84, uv.y) * (1.0 - smoothstep(0.965, 1.0, uv.y));
+          T = clamp(T + (dlum - 0.5) * uDetail * 0.3 * m * (1.0 - faceW), 0.0, 1.0);
+          T = max(T, trail * 0.6);
+          // 형태: 몸 = 크리스프 실루엣 + 약한 확산 헤일로 / 얼굴 = 확산 필드만 (블러 블롭)
+          float soft = clamp(H * 1.55, 0.0, 1.0);
+          float shape = mix(max(m * 0.85, soft * 0.28), soft, faceW);
+          shape = max(shape, trail * 0.5);
+          vec3 col = mix(thermo(T), lut(clamp(T * 0.96, 0.0, 1.0)), uTone) * shape;   // 뉴턴톤 기본 = 룩 팔레트
           col += (fxhash(uv * 977.0 + uTime) - 0.5) * (2.0 / 255.0);
           col += (fxhash(uv * 1661.0 + uTime * 3.0) - 0.5) * uGrain;
           // 검은 필드 = 패널 전체 차폐 (레퍼런스: 흑 배경 위 발광) — 가장자리만 페이드
