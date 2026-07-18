@@ -2508,7 +2508,7 @@ void main(){
     // magicui shimmer-button 1:1 — 다크 바디 + 림을 도는 샤이머(spread 90deg, 3s 회전)
     // 변형 2가지(유저): 샤이머 = 뉴턴 칩 그라디언트 / 텍스트 = 펀치아웃(뒤 배경 노출)
     const LABEL = '발 두 번 탭해서 시작';
-    g.font = '900 34px Pretendard, sans-serif'; g.textAlign = 'center';
+    g.font = '700 34px Pretendard, sans-serif'; g.textAlign = 'center';   // 900은 과볼드 (유저)
     const tw = g.measureText(LABEL).width;
     const w = tw + 120, h = 78, R = 39, CUT = 6, yy = y ?? 908;   // 림 두께 업 (유저)
     const t = tS ?? 0;
