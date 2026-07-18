@@ -2333,7 +2333,7 @@ void main(){
   float hz = exp(-abs(suv.y * 0.55 - 0.22) * 26.0) * 0.10;
   col += uLines * hz;
   // reactbits Prism 정본 레이마치 — 채널 위상 누적을 뉴턴 칩 가중으로 매핑 (칩 조합 그라디언트만)
-  vec2 fp = (vUv - 0.5) * vec2(1.6, 1.0) * 2.78;
+  vec2 fp = (vUv - vec2(0.5, 0.70)) * vec2(1.6, 1.0) * 4.1;
   float zz = 5.0;
   vec4 acc = vec4(0.0);
   float tp = uTime * 0.5;
