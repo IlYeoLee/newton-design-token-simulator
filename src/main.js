@@ -1949,16 +1949,49 @@ void main(){
   // 실시간 세그 실사는 기각(구멍·플리커·프레임 드랍 — 스톡 다수로 실증). 'wall'은
   // 사전에 매트를 구운 소스(알파 영상/스틸 시퀀스)가 준비된 경우에만 켠다.
   const DEMO_CLIP_MODE = 'wall';   // 크로마 코치 가동 (그린스크린 실사 — Magnific/Freepik 무료)
+  const GHOST_H = 2.0;             // 고스트 패널 세로(m) — 인물 여백 10% 감안 실키 ≈1.75m
+  // ── 스테이지별 고스트 클립 (유저 AI 크로마 소스 반입 지점) ──────────────────
+  //    public/ghost/<파일명>에 떨어뜨리면 코드 수정 없이 스테이지 전환 시 자동 교체.
+  //    파일 없음(404) → 기본 클립 폴백. 스펙·프롬프트 = docs/ghost-clips.md
+  const GHOST_DEFAULT = import.meta.env.BASE_URL + 'coach_chroma.mp4';
+  const GHOST_CLIPS = {
+    BX_READY: 'bx_idle_guard.mp4',   BX_A1: 'bx_warm_neck.mp4',
+    BX_A2:    'bx_warm_step.mp4',    BX_A3: 'bx_warm_jab.mp4',
+    BX_T1:    'bx_idle_guard.mp4',
+    BX_B1:    'bx_opp_jab_slow.mp4', BX_B2: 'bx_opp_straight.mp4',
+    BX_B3:    'bx_opp_opening.mp4',  BX_T2: 'bx_idle_bounce.mp4',
+    BX_C1:    'bx_idle_bounce.mp4',  BX_C2: 'bx_spar_live.mp4',
+    BX_C3:    'bx_spar_combo.mp4',   BX_C4: 'bx_cooldown.mp4',
+    BX_FIN:   'bx_idle_guard.mp4',
+  };
+  let ghostClipCur = '';
+  const ghostClipBad = new Set();   // 404 등 실패 URL 기억 — 매 프레임 재시도 루프 방지
+  function setGhostClip(stageId) {
+    const f = GHOST_CLIPS[stageId];
+    let url = f ? import.meta.env.BASE_URL + 'ghost/' + f : GHOST_DEFAULT;
+    if (ghostClipBad.has(url)) url = GHOST_DEFAULT;
+    if (url === ghostClipCur) return;
+    ghostClipCur = url;
+    demoVideo.src = url;
+    demoVideo.play().catch(() => {});
+  }
+  demoVideo.addEventListener('error', () => {   // 클립 미반입 → 기본 클립 폴백
+    if (ghostClipCur !== GHOST_DEFAULT) {
+      ghostClipBad.add(ghostClipCur);
+      ghostClipCur = GHOST_DEFAULT; demoVideo.src = GHOST_DEFAULT; demoVideo.play().catch(() => {});
+    }
+  });
   if (DEMO_CLIP_MODE === 'wall') {
     demoPanel.rotation.x = 0;                          // 벽 = 직립
-    // 랩 person 카드와 동일한 세로 크롭(176:288) — 그라디언트·소프트엣지가 카드와 같은
-    // 인물 프레이밍에 걸려야 룩이 1:1 (16:9 풀프레임이면 밝은 하단 대역만 보여 크림 워시)
-    const CH = 1.9;                                    // 코치 실높이 (벽 2.1m 안)
-    demoPanel.scale.set(CH * (176 / 288) / 0.62, CH / 0.93, 1);
+    // 가상 상대(스파링 고스트) = 전신·실제 키 스케일 — 패널 9:16 세로, 발이 벽 하단에 닿게.
+    // 소스 규약: 전신이 다 담긴 크로마 영상(상하 여백 ~10%) → 인물 실높이 ≈ 1.75m.
+    // 크롭은 커버핏(9:16 창) — 랩 카드와 같은 인물 프레이밍에 그라디언트가 걸림.
+    demoPanel.scale.set(GHOST_H * (9 / 16) / 0.62, GHOST_H / 0.93, 1);
     demoVideo.addEventListener('loadedmetadata', () => {
-      const sx = (demoVideo.videoHeight * (176 / 288)) / demoVideo.videoWidth;
-      trailMat.uniforms.uCropS.value.set(sx, 1);
-      demoPanel.material.uniforms.uCropS.value.set(sx, 1);
+      const A = 9 / 16, va = demoVideo.videoWidth / demoVideo.videoHeight;
+      const s = va > A ? [A / va, 1] : [1, va / A];
+      trailMat.uniforms.uCropS.value.set(s[0], s[1]);
+      demoPanel.material.uniforms.uCropS.value.set(s[0], s[1]);
     });
   }
   function renderDemoPanel() {
@@ -1971,9 +2004,12 @@ void main(){
         demoPanel.material.clippingPlanes = rig.wallClip;   // 투사면 밖 금지 — 벽 클리핑
       // 유저 정면 = 벽 투사 중심 추종 (시선 높이) — 코치를 마주 보고 따라한다
       const wc = rig._wallCenter;
-      demoPanel.position.set(wc ? wc.cx : 0, 1.02, WALL_Z + 0.035);
+      // 전신 스탠딩: 패널 바닥 = 벽 투사 하단 (발이 잘리지 않게 — 실물 키 스케일의 전제)
+      const wallBot = (wc?.cy ?? 1.4) - rig.wallH / 2;
+      demoPanel.position.set(wc ? wc.cx : 0, wallBot + GHOST_H / 2 + 0.01, WALL_Z + 0.035);
     }
     demoPanel.visible = !!on;
+    if (on) setGhostClip(session.curStage?.id);   // 스테이지별 클립 자동 전환 (404 → 기본)
     if (on) { if (demoVideo.paused) demoVideo.play().catch(() => {}); }
     else { if (!demoVideo.paused) demoVideo.pause(); return; }
     const now = performance.now() / 1000;
