@@ -1964,14 +1964,14 @@ void main(){
           col = clamp(mix(vec3(cl), col, 1.32), 0.0, 1.0);   // 채도 부스트 — 룩시스템 '쟁한' 고채도 유지
           col += (fxhash(uv * 977.0 + uTime) - 0.5) * (2.0 / 255.0);
           col += (fxhash(uv * 1661.0 + uTime * 3.0) - 0.5) * uGrain;
-          // 검은 필드 = 패널 전체 차폐 (레퍼런스: 흑 배경 위 발광) — 가장자리만 페이드
+          // 필드 없음(유저 확정: 인물만 벽에 뜬다) — 패널 경계 하드컷 방지 페이드만
           float field = smoothstep(0.0, 0.05, uv.x) * smoothstep(1.0, 0.95, uv.x)
                       * smoothstep(0.0, 0.04, uv.y) * smoothstep(1.0, 0.96, uv.y);
           col *= field;
           // 컴포저 OutputPass(linear→sRGB) 역변환 상쇄 (tokens.js uOut=1 규약)
           col = clamp(col, 0.0, 1.0);
           col = mix(col / 12.92, pow((col + 0.055) / 1.055, vec3(2.4)), step(0.04045, col));
-          gl_FragColor = vec4(col, field * 0.92);   // 프리멀티: 벽 차폐 후 가산 = 랩 합성식
+          gl_FragColor = vec4(col, clamp(shape * 1.15, 0.0, 1.0) * field * 0.92);   // 알파 = 실루엣 추종
         }`,
       transparent: true, depthWrite: false,
       // out = col + dst·(1−a) — 랩의 base·(1−a·0.88)+col 과 동일 (프리멀티 커스텀 블렌딩)

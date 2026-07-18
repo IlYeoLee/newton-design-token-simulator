@@ -941,7 +941,7 @@ void main(){
     col = mix(thermo(T), lut(clamp(T * 0.96, 0.0, 1.0)), uTone) * shape;
     float cl = dot(col, vec3(0.299, 0.587, 0.114));
     col = clamp(mix(vec3(cl), col, 1.32), 0.0, 1.0);   // 채도 부스트 (쟁한 룩)
-    occ = 1.045;   // 검은 필드 = 카드 전체 차폐 (×0.88=0.92)
+    occ = clamp(shape * 1.15, 0.0, 1.0) * 1.045;   // 알파 = 실루엣 추종 (필드 제거 — 시뮬 동일)
   } else {
     float halo = 0.0;
     for (int ring = 0; ring < 3; ring++) {
