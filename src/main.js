@@ -1041,7 +1041,7 @@ async function boot() {
       /** 유저의 실제 주간/투사면 상태 재적용 (편집 중 '실물 배경으로 확인' + 편집 종료) */
       applyUser() {
         if (this._fog) { scene.fog = this._fog; this._fog = null; }   // setDaylight가 fog 색을 만지므로 선복원
-        dayOn = !!designStore.globalGet('fx', 'day', false);
+        dayOn = !!designStore.globalGet('fx', 'day', true);
         applyDay();
         const bg = designStore.globalGet('fx', 'lab', null)?.bg;
         setSurfaces(!bg || bg === 'none' ? null : bg);
