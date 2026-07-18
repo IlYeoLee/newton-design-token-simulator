@@ -2142,6 +2142,38 @@ void main(){
   hudCanvas.width = HUDW * HUD_SS; hudCanvas.height = HUDH * HUD_SS;
   const hudCtx = hudCanvas.getContext('2d');
   hudCtx.scale(HUD_SS, HUD_SS);   // 드로 코드는 1600×1000 좌표계 유지
+  // ── 글리프 라이브러리 재질 전역 강제: 무엇을 그리든 [컬러 = 네온 글로우, 코어 = 크림-화이트]
+  //    (룩 시스템 숫자 글리프 스타일 — 유저 확정. 개별 드로 코드는 순수 컬러만 지정하면 됨)
+  (function neonize(g) {
+    const CORE = 'rgba(255,243,228,0.97)';
+    const rawFillText = g.fillText.bind(g), rawFill = g.fill.bind(g);
+    const rawStroke = g.stroke.bind(g), rawFillRect = g.fillRect.bind(g);
+    g.fillText = function (t, x, y) {
+      const c = this.fillStyle;
+      this.shadowColor = c; this.shadowBlur = 14; rawFillText(t, x, y); rawFillText(t, x, y);
+      this.shadowBlur = 0; this.fillStyle = CORE; rawFillText(t, x, y);
+      this.fillStyle = c;
+    };
+    g.fill = function (p) {
+      const c = this.fillStyle;
+      this.shadowColor = c; this.shadowBlur = 12; p ? rawFill(p) : rawFill();
+      this.shadowBlur = 0; this.fillStyle = CORE; p ? rawFill(p) : rawFill();
+      this.fillStyle = c;
+    };
+    g.fillRect = function (x, y, w, h) {
+      const c = this.fillStyle;
+      this.shadowColor = c; this.shadowBlur = 10; rawFillRect(x, y, w, h);
+      this.shadowBlur = 0; this.fillStyle = CORE; rawFillRect(x, y, w, h);
+      this.fillStyle = c;
+    };
+    g.stroke = function (p) {
+      const c = this.strokeStyle, w = this.lineWidth;
+      this.shadowColor = c; this.shadowBlur = Math.max(6, w * 2.2); p ? rawStroke(p) : rawStroke();
+      this.shadowBlur = 0; this.strokeStyle = CORE; this.lineWidth = Math.max(1, w * 0.5);
+      p ? rawStroke(p) : rawStroke();
+      this.strokeStyle = c; this.lineWidth = w;
+    };
+  })(hudCtx);
   const hudTex = new THREE.CanvasTexture(hudCanvas);
   hudTex.minFilter = THREE.LinearMipmapLinearFilter;
   hudTex.magFilter = THREE.LinearFilter;
@@ -2189,10 +2221,7 @@ void main(){
   const HUD_GOALS = { BX_A1: ['목표', 8, '회'], BX_A2: ['목표 박자', 153, ''], BX_A3: ['목표 잽', 6, ''], BX_B1: ['버티기 목표', 3.0, '초'], BX_B3: ['열리는 횟수', 6, ''] };
   function hudChip(g, x, y, w, h, r, col, text, tx, ty) {
     g.beginPath(); g.roundRect(x, y, w, h, r);
-    g.fillStyle = 'rgba(255,244,228,0.92)'; g.fill();
-    g.shadowColor = col; g.shadowBlur = 10;
     g.strokeStyle = col; g.lineWidth = 3; g.stroke();
-    g.shadowBlur = 0;
     if (text) { g.fillStyle = col; g.fillText(text, tx, ty); }
   }
   function hudGlass(g, x, y, w, h, r, border) {
@@ -2201,26 +2230,20 @@ void main(){
     g.strokeStyle = border || HUD_MAIN; g.lineWidth = 3; g.stroke();
   }
   function hudText(g, text, x, y, rim, rimW) {
-    // 룩 시스템 글리프 스타일 정본 (fxlut.drawGlyph 동일 파라미터) — 크림 필 + 웜 네온 글로우
-    const glow = rim === HUD_CYAN ? 'rgba(63,205,218,0.8)' : 'rgba(254,150,90,0.85)';
-    g.shadowColor = glow; g.shadowBlur = 14;
-    g.fillStyle = 'rgba(255,240,220,0.97)';
+    g.fillStyle = rim || HUD_MAIN;
     g.fillText(text, x, y);
-    g.fillText(text, x, y);   // 2패스 = 세션 벽 텍스트와 동일 발광 밀도
-    g.shadowBlur = 0;
   }
   function hudStat(g, x, label, num, col, frac) {
     g.textAlign = 'left';
-    g.fillStyle = col; g.globalAlpha = 0.9;
+    g.fillStyle = col;
     g.font = '700 24px Pretendard, sans-serif';
-    g.fillText(label, x + 28, 44); g.globalAlpha = 1;
+    g.fillText(label, x + 28, 44);
     g.font = '800 78px Pretendard, sans-serif';
-    hudText(g, String(num), x + 28, 118, col);
+    g.fillStyle = col;
+    g.fillText(String(num), x + 28, 118);
     if (frac != null) {
-      g.fillStyle = col; g.globalAlpha = 0.22; g.fillRect(x + 28, 134, 424, 10); g.globalAlpha = 1;
-      g.shadowColor = HUD_CYAN; g.shadowBlur = 8;
+      g.globalAlpha = 0.25; g.fillStyle = col; g.fillRect(x + 28, 134, 424, 10); g.globalAlpha = 1;
       g.fillStyle = HUD_CYAN; g.fillRect(x + 28, 134, Math.max(12, 424 * Math.min(1, frac)), 10);
-      g.shadowBlur = 0;
     }
   }
   function hudTag(g, cx, text, col) {
@@ -2230,9 +2253,8 @@ void main(){
   }
   function hudLine(g, x1, y1, x2, y2, wd, alpha) {
     g.globalAlpha = alpha; g.lineWidth = wd;
-    g.shadowColor = g.strokeStyle; g.shadowBlur = 6;
     g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke();
-    g.shadowBlur = 0; g.globalAlpha = 1;
+    g.globalAlpha = 1;
   }
   function drawHudRoom(g) {
     g.strokeStyle = HUD_MAIN;
