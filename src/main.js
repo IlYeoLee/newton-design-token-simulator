@@ -487,6 +487,51 @@ async function boot() {
     r.rotation.x = -Math.PI / 2; r.position.y = 0.021; r.renderOrder = 6; r.visible = false;
     scene.add(r); bkBeats.push(r);
   }
+  // ── 앰비언트 토포그래피 라인 (농구 공간 2면) — Vanta TOPOLOGY 계열 기법의 GLSL 포팅:
+  //    fbm 고도장 → fract 등고선 밴드가 은은히 흐름. 룩 LUT 팔레트·순수 가산(그림자 불가)·P4 감마.
+  function makeTopoMaterial(scale) {
+    return new THREE.ShaderMaterial({
+      uniforms: { uTime: { value: 0 }, uLUT: { value: getLUT() }, uGain: { value: 0.34 }, uScale: { value: scale } },
+      vertexShader: `#include <common>
+#include <clipping_planes_pars_vertex>
+varying vec2 vUv;
+void main(){ vUv = uv; vec4 mvPosition = modelViewMatrix * vec4(position, 1.0); gl_Position = projectionMatrix * mvPosition;
+#include <clipping_planes_vertex>
+}`,
+      fragmentShader: `#include <common>
+#include <clipping_planes_pars_fragment>
+varying vec2 vUv;
+uniform float uTime, uGain, uScale;
+uniform sampler2D uLUT;
+vec3 lut(float v){ return texture2D(uLUT, vec2(clamp(v, 0.004, 0.996), 0.5)).rgb; }
+` + FX_GLSL.replace('uniform sampler2D uLUT;', '').replace('vec3 lut(float v){ return texture2D(uLUT, vec2(clamp(v, 0.004, 0.996), 0.5)).rgb; }', '') + `
+void main(){
+  #include <clipping_planes_fragment>
+  vec2 p = vUv * uScale;
+  float h = fxfbm(p + vec2(uTime * 0.04, uTime * 0.023));
+  h += 0.35 * fxfbm(p * 2.3 - vec2(uTime * 0.031, 0.0));
+  float band = abs(fract(h * 7.0) - 0.5) * 2.0;           // 등고선 밴드
+  float line = smoothstep(0.13, 0.0, band);
+  float major = smoothstep(0.07, 0.0, abs(fract(h * 1.75) - 0.5) * 2.0);   // 굵은 주 등고선
+  float glow = smoothstep(0.5, 0.0, band) * 0.22;
+  float e0 = smoothstep(0.0, 0.10, vUv.x) * smoothstep(1.0, 0.90, vUv.x)
+           * smoothstep(0.0, 0.10, vUv.y) * smoothstep(1.0, 0.90, vUv.y);  // 가장자리 페이드
+  vec3 col = lut(clamp(0.30 + h * 0.35, 0.0, 1.0)) * (line * 0.85 + major * 0.6 + glow) * uGain * e0;
+  col = mix(col / 12.92, pow((col + 0.055) / 1.055, vec3(2.4)), step(0.04045, col));
+  gl_FragColor = vec4(col, 1.0);
+}`,
+      transparent: true, depthWrite: false,
+      blending: THREE.CustomBlending, blendSrc: THREE.OneFactor, blendDst: THREE.OneFactor,
+    });
+  }
+  const bkTopoFloor = new THREE.Mesh(new THREE.PlaneGeometry(3.8, 3.2), makeTopoMaterial(3.4));
+  bkTopoFloor.rotation.x = -Math.PI / 2;
+  bkTopoFloor.position.set(0, 0.005, -1.1);
+  bkTopoFloor.renderOrder = 3; bkTopoFloor.visible = false;
+  scene.add(bkTopoFloor);
+  const bkTopoWall = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 2.0), makeTopoMaterial(2.8));
+  bkTopoWall.renderOrder = 3; bkTopoWall.visible = false;
+  scene.add(bkTopoWall);
   const bkLaneMat = makeLaneFXMaterial(1.4);
   const bkLane = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 1.4), bkLaneMat);
   bkLane.rotation.x = -Math.PI / 2; bkLane.renderOrder = 5; bkLane.visible = false;
@@ -3072,6 +3117,24 @@ void main(){
     // 농구 방향·리듬 큐 — 렌더는 전부 카탈로그 토큰 (화살표 촉·자루는 tickFlowArrows가 급이)
     const bkOn = state.pack === 'basketball' && rig._fp;
     bkArrow.visible = bkLane.visible = bkOn;
+    // 앰비언트 토포 공간 (농구 두 투사면 — 세션·재생 중 상시 은은)
+    const topoOn = state.pack === 'basketball';
+    bkTopoFloor.visible = topoOn;
+    bkTopoWall.visible = topoOn;
+    if (topoOn) {
+      const tt = performance.now() / 1000;
+      const tg = FXP.day ? 0.5 : 0.3;   // 주간 = 밝은 면 위 가시 보정
+      bkTopoFloor.material.uniforms.uGain.value = tg;
+      bkTopoWall.material.uniforms.uGain.value = tg * 0.8;
+      bkTopoFloor.material.uniforms.uTime.value = tt;
+      bkTopoWall.material.uniforms.uTime.value = tt;
+      const wcT = rig._wallCenter;
+      bkTopoWall.position.set(wcT ? wcT.cx : 0, (wcT?.cy ?? 1.4), WALL_Z + 0.015);
+      bkTopoWall.scale.set(rig.wallW / 3.2, rig.wallH / 2.0, 1);
+      if (rig.wallClip) {
+        if (bkTopoWall.material.clippingPlanes !== rig.wallClip) bkTopoWall.material.clippingPlanes = rig.wallClip;
+      }
+    }
     bkBeats.forEach(b => b.visible = bkOn);
     if (bkOn) {
       const f = rig._fp;
