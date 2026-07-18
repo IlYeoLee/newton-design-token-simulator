@@ -2150,25 +2150,25 @@ void main(){
     const rawStroke = g.stroke.bind(g), rawFillRect = g.fillRect.bind(g);
     g.fillText = function (t, x, y) {
       const c = this.fillStyle;
-      this.shadowColor = c; this.shadowBlur = 14; rawFillText(t, x, y); rawFillText(t, x, y);
+      this.shadowColor = c; this.shadowBlur = 14 * hudGlowK; rawFillText(t, x, y); rawFillText(t, x, y);
       this.shadowBlur = 0; this.fillStyle = CORE; rawFillText(t, x, y);
       this.fillStyle = c;
     };
     g.fill = function (p) {
       const c = this.fillStyle;
-      this.shadowColor = c; this.shadowBlur = 12; p ? rawFill(p) : rawFill();
+      this.shadowColor = c; this.shadowBlur = 12 * hudGlowK; p ? rawFill(p) : rawFill();
       this.shadowBlur = 0; this.fillStyle = CORE; p ? rawFill(p) : rawFill();
       this.fillStyle = c;
     };
     g.fillRect = function (x, y, w, h) {
       const c = this.fillStyle;
-      this.shadowColor = c; this.shadowBlur = 10; rawFillRect(x, y, w, h);
+      this.shadowColor = c; this.shadowBlur = 10 * hudGlowK; rawFillRect(x, y, w, h);
       this.shadowBlur = 0; this.fillStyle = CORE; rawFillRect(x, y, w, h);
       this.fillStyle = c;
     };
     g.stroke = function (p) {
       const c = this.strokeStyle, w = this.lineWidth;
-      this.shadowColor = c; this.shadowBlur = Math.max(6, w * 2.2); p ? rawStroke(p) : rawStroke();
+      this.shadowColor = c; this.shadowBlur = Math.max(6, w * 2.2) * hudGlowK; p ? rawStroke(p) : rawStroke();
       this.shadowBlur = 0; this.strokeStyle = CORE; this.lineWidth = Math.max(1, w * 0.5);
       p ? rawStroke(p) : rawStroke();
       this.strokeStyle = c; this.lineWidth = w;
@@ -2207,11 +2207,13 @@ void main(){
   hudPanel.renderOrder = 6;
   hudPanel.visible = false;
   scene.add(hudPanel);
-  let HUD_MAIN = '#ff6b21', HUD_CREAM = '#fff3e2', HUD_CYAN = '#21ccdb';
+  let HUD_MAIN = '#ff6b21', HUD_CREAM = '#fff3e2', HUD_CYAN = '#21ccdb', hudGlowK = 1;
   function hudSyncPalette() {
-    // 룩 시스템 LUT에서 파생 — 팔레트를 바꾸면 벽 HUD도 따라온다 (주간 마크 재질 규약)
-    HUD_MAIN = lutColor(0.40);    // 네온 채도 대역
-    HUD_CREAM = lutColor(0.96);   // 밝은 크림-화이트 필
+    // 룩 시스템 완전 연동: 팔레트=LUT 샘플, 시안=역할색 user, 글로우 강도=마크 halo 슬라이더
+    HUD_MAIN = lutColor(0.40);
+    HUD_CREAM = lutColor(0.96);
+    HUD_CYAN = '#' + (COLORS.user ?? 0x21ccdb).toString(16).padStart(6, '0');
+    hudGlowK = (FXP.mark?.halo ?? 0.9) / 0.9;
   }
   const HUD_MIRROR = new Set(['BX_A1', 'BX_A2', 'BX_A3', 'BX_B1', 'BX_B3']);
   const HUD_RING = new Set(['BX_C1', 'BX_C2', 'BX_C3', 'BX_C4']);
