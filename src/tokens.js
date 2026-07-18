@@ -196,7 +196,7 @@ export const COLORS = {
   guide: 0xfe6e3c,   // CORAL — 전환 화살표
   lane:  0xfa3030,
   success: 0xd1feff, // PRISM — 성공 잔상
-  user: 0x21ccdb,    // CYAN — 유저 액션·내 것 (TAP·내 자세 미러·CTA) — 벽 HUD 역할색
+  user: 0xd1feff,    // PRISM — 유저 액션·내 것 (TAP·내 자세 미러·CTA) — 팔레트 칩 강제(시안 0x21ccdb 기각)
 };
 
 const FADE_STEPS = [1.0, 0.75, 0.55, 0.38];   // 뒤 순번 파스텔 워시 완화 — 랩 대비 '뿌연 컬러' 주범 1

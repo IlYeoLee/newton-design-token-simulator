@@ -402,7 +402,7 @@ async function boot() {
   const coneGeo = new THREE.BufferGeometry();
   coneGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(24 * 3), 3));
   const fovCone = new THREE.LineSegments(coneGeo,
-    new THREE.LineBasicMaterial({ color: 0xffe27a, transparent: true, opacity: 0.55 }));
+    new THREE.LineBasicMaterial({ color: 0xfec389, transparent: true, opacity: 0.55 }));
   fovCone.visible = false;
   fovCone.frustumCulled = false;
   scene.add(fovCone);
@@ -440,7 +440,7 @@ async function boot() {
   // ── 밟을 수 있는 영역 (보폭 도달 범위) — 몸 앞 반경 0.5~1.15m 부채꼴 ──
   const reach = new THREE.Mesh(
     new THREE.RingGeometry(0.5, 1.15, 36, 1, Math.PI / 6, Math.PI * 2 / 3),
-    new THREE.MeshBasicMaterial({ color: 0x69f0ae, transparent: true, opacity: 0.10, side: THREE.DoubleSide, depthWrite: false })
+    new THREE.MeshBasicMaterial({ color: 0xd1feff, transparent: true, opacity: 0.10, side: THREE.DoubleSide, depthWrite: false })
   );
   reach.rotation.x = -Math.PI / 2;
   reach.renderOrder = 1;
@@ -455,19 +455,19 @@ async function boot() {
 
   // 카메라 인식 볼륨(연한 반투명) + 뒷면 카메라 렌즈 표식 + 최적 위치 링
   const trackVol = new THREE.Mesh(new THREE.BufferGeometry(),
-    new THREE.MeshBasicMaterial({ color: 0x6ad4de, transparent: true, opacity: 0.055,
+    new THREE.MeshBasicMaterial({ color: 0xd1feff, transparent: true, opacity: 0.055,
       side: THREE.DoubleSide, depthWrite: false }));
   const trackEdge = new THREE.LineSegments(new THREE.BufferGeometry(),
-    new THREE.LineBasicMaterial({ color: 0x6ad4de, transparent: true, opacity: 0.30 }));
+    new THREE.LineBasicMaterial({ color: 0xd1feff, transparent: true, opacity: 0.30 }));
   trackVol.frustumCulled = trackEdge.frustumCulled = false;
   trackVol.renderOrder = 2;
   const optRing = new THREE.Mesh(
     new THREE.RingGeometry(0.30, 0.345, 48),
-    new THREE.MeshBasicMaterial({ color: 0x6ad4de, transparent: true, opacity: 0.5, side: THREE.DoubleSide, depthWrite: false }));
+    new THREE.MeshBasicMaterial({ color: 0xd1feff, transparent: true, opacity: 0.5, side: THREE.DoubleSide, depthWrite: false }));
   optRing.rotation.x = -Math.PI / 2;
   const camMark = new THREE.Mesh(
     new THREE.CylinderGeometry(0.028, 0.028, 0.015, 16),
-    new THREE.MeshStandardMaterial({ color: 0x6ad4de, emissive: 0x2f8a92, emissiveIntensity: 1.4 }));
+    new THREE.MeshStandardMaterial({ color: 0xd1feff, emissive: 0x21585c, emissiveIntensity: 1.4 }));
   camMark.rotation.x = Math.PI / 2;
   trackVol.visible = trackEdge.visible = optRing.visible = camMark.visible = false;
   scene.add(trackVol, trackEdge, optRing, camMark);
@@ -694,7 +694,7 @@ void main(){
   const gazeMesh = new THREE.Mesh(
     new THREE.BufferGeometry(),
     new THREE.MeshBasicMaterial({
-      color: 0x69f0ae, transparent: true, opacity: 0.13,
+      color: 0xd1feff, transparent: true, opacity: 0.13,
       side: THREE.DoubleSide, depthWrite: false,
     })
   );
@@ -801,7 +801,7 @@ void main(){
     if (st.wear) {
       const w = st.wear;
       const c = w.includes('BOOST') ? '#d1feff' : w.includes('LOAD') ? '#fec389'
-              : w.includes('SAFE') ? '#8fd8de' : '#9b9b9b';
+              : w.includes('SAFE') ? '#d1feff' : '#9b9b9b';
       wearPulse(c);
     } else if (wearFxEl) wearFxEl.style.opacity = '0';
     // 데모 투어: READY 진입 시 자동 시작(탭), FIN 도달 시 다음 종목으로
@@ -1313,7 +1313,7 @@ void main(){
       </div>
       <div id="cut-voice-msg" style="text-align:right;color:#ffc94d;font-size:9px;visibility:hidden;">🔊 멘트 재생성 필요</div>
       ${metaRow('HAPT', st.hap, '#FEC389')}
-      ${metaRow('WEAR', st.wear, '#8fd8df')}
+      ${metaRow('WEAR', st.wear, '#d1feff')}
       ${metaRow('CUE', st.cue, '#FE6E3C')}
       ${metaRow('FOOT', st.foot, '#d1feff')}`;
     el.querySelector('#cut-dur').addEventListener('input', e => {
@@ -2191,32 +2191,36 @@ void main(){
   //    (룩 시스템 숫자 글리프 스타일 — 유저 확정. 개별 드로 코드는 순수 컬러만 지정하면 됨)
   let hudInkCore = false;   // 밝은 벽 = 코어를 채도 풀컬러로 (토큰 uDay 잉크 규약)
   (function neonize(g) {
-    const CORE = 'rgba(255,250,244,0.98)';
+    // 코어 = 웜화이트에 그 컬러 30% 틴트 — 순백 코어는 '컬러 아웃라인만 친' 위화감 (유저 기각)
+    const coreCache = {};
+    const coreOf = c => typeof c === 'string'
+      ? (coreCache[c] ??= `color-mix(in srgb, ${c} 30%, rgba(255,250,244,0.98) 70%)`)
+      : c;
     const rawFillText = g.fillText.bind(g), rawFill = g.fill.bind(g);
     g.__rawFillText = rawFillText;   // 앰비언트(워터마크 등) = 네온 멀티패스 우회용
     const rawStroke = g.stroke.bind(g), rawFillRect = g.fillRect.bind(g);
     g.fillText = function (t, x, y) {
       const c = this.fillStyle;
       this.shadowColor = c; this.shadowBlur = 14 * hudGlowK; rawFillText(t, x, y); rawFillText(t, x, y);
-      this.shadowBlur = 0; this.fillStyle = hudInkCore ? c : CORE; rawFillText(t, x, y); rawFillText(t, x, y);
+      this.shadowBlur = 0; this.fillStyle = hudInkCore ? c : coreOf(c); rawFillText(t, x, y); rawFillText(t, x, y);
       this.fillStyle = c;
     };
     g.fill = function (p) {
       const c = this.fillStyle;
       this.shadowColor = c; this.shadowBlur = 12 * hudGlowK; p ? rawFill(p) : rawFill();
-      this.shadowBlur = 0; this.fillStyle = hudInkCore ? c : CORE; p ? rawFill(p) : rawFill();
+      this.shadowBlur = 0; this.fillStyle = hudInkCore ? c : coreOf(c); p ? rawFill(p) : rawFill();
       this.fillStyle = c;
     };
     g.fillRect = function (x, y, w, h) {
       const c = this.fillStyle;
       this.shadowColor = c; this.shadowBlur = 10 * hudGlowK; rawFillRect(x, y, w, h);
-      this.shadowBlur = 0; this.fillStyle = hudInkCore ? c : CORE; rawFillRect(x, y, w, h);
+      this.shadowBlur = 0; this.fillStyle = hudInkCore ? c : coreOf(c); rawFillRect(x, y, w, h);
       this.fillStyle = c;
     };
     g.stroke = function (p) {
       const c = this.strokeStyle, w = this.lineWidth;
       this.shadowColor = c; this.shadowBlur = Math.max(6, w * 2.2) * hudGlowK; p ? rawStroke(p) : rawStroke();
-      this.shadowBlur = 0; this.strokeStyle = hudInkCore ? c : CORE; this.lineWidth = Math.max(1, w * 0.5);
+      this.shadowBlur = 0; this.strokeStyle = hudInkCore ? c : coreOf(c); this.lineWidth = Math.max(1, w * 0.5);
       p ? rawStroke(p) : rawStroke();
       this.strokeStyle = c; this.lineWidth = w;
     };
@@ -2247,7 +2251,7 @@ void main(){
   // 풀컬러 레이저 전제: 강한 픽셀 = 벽을 덮는 불투명 잉크(급경사 알파),
   // 약한 글로우 = 가산에 수렴(알파≈0) — 반투명 워시 종결 + 갈색 프린지 회피
   float lum = max(col.r, max(col.g, col.b));
-  float aInk = smoothstep(0.20, 0.65, lum) * 0.985;
+  float aInk = smoothstep(0.20, 0.65, lum) * 0.68;   // 벽 HUD = 빛 투과 잉크 (풀 불투명은 '합성한 느낌' 기각)
   col = mix(col / 12.92, pow((col + 0.055) / 1.055, vec3(2.4)), step(0.04045, col));
   gl_FragColor = vec4(col, aInk);
 }`,
@@ -2267,6 +2271,7 @@ void main(){
         uTime: { value: 0 }, uBoost: { value: 1 },
         uLines: { value: new THREE.Color(0.55, 0.28, 0.14) },
         uScan: { value: new THREE.Color(0.98, 0.19, 0.19) },
+        uAccent: { value: new THREE.Color(0.13, 0.80, 0.86) },
       },
       vertexShader: `#include <common>
 #include <clipping_planes_pars_vertex>
@@ -2278,11 +2283,11 @@ void main(){ vUv = uv; vec4 mvPosition = modelViewMatrix * vec4(position, 1.0); 
 #include <clipping_planes_pars_fragment>
 varying vec2 vUv;
 uniform float uTime, uBoost;
-uniform vec3 uLines, uScan;
+uniform vec3 uLines, uScan, uAccent;
 float gridLine(vec2 guv){
   vec2 f = fract(guv);
   vec2 a = min(f, 1.0 - f);
-  vec2 w = fwidth(guv) * 1.1;
+  vec2 w = fwidth(guv) * 0.7;
   vec2 l = 1.0 - smoothstep(w, w * 2.4, a);
   return max(l.x, l.y);
 }
@@ -2302,23 +2307,35 @@ void main(){
     vec3 h = ro + rd * t;
     if (h.z > 0.0 && h.z < 12.0) {
       vec2 guv = h.xz / 0.30;
-      float line = gridLine(guv);
+      float line = gridLine(guv) * (1.0 - smoothstep(3.5, 11.0, h.z));   // 뒤로 뻗을수록 연하게 소멸
       float fog = exp(-h.z * 0.20);
       float dz = h.z - scanZ;
       float sigma = 0.18 * 4.0;
       float band = exp(-0.5 * dz * dz / (sigma * sigma)) * win;
       float aura = exp(-0.5 * dz * dz / (sigma * sigma * 4.0)) * 0.25 * win;
       col += uLines * line * fog * 0.5;
-      col += uScan * (line * band * 1.5 + aura * fog * 0.7);
+      col += uScan * (line * band * 1.1 + aura * fog * 0.5);
     }
   }
   // 지평선 은은한 라인
   float hz = exp(-abs(suv.y * 0.55 - 0.22) * 26.0) * 0.10;
   col += uLines * hz;
+  // Prism풍 앰비언트 워시 — 뉴턴 컬러칩 투사광이 은은히 흐르며 밀도를 채움 (알파 없는 순수 투과광)
+  float tw = uTime * 0.12;
+  vec2 c1 = vec2(0.30 + 0.10 * sin(tw),            0.62 + 0.06 * cos(tw * 0.7));
+  vec2 c2 = vec2(0.72 + 0.09 * cos(tw * 0.9),      0.52 + 0.08 * sin(tw * 0.6));
+  vec2 c3 = vec2(0.50 + 0.12 * sin(tw * 0.5 + 2.0), 0.24 + 0.05 * cos(tw));
+  col += uScan   * exp(-6.0 * dot(vUv - c1, vUv - c1)) * 0.14;
+  col += uLines  * exp(-5.0 * dot(vUv - c2, vUv - c2)) * 0.10;
+  col += uAccent * exp(-7.0 * dot(vUv - c3, vUv - c3)) * 0.09;
   col = clamp(col * uBoost, 0.0, 1.0);
+  // 테두리 페더 — 투사 경계가 딱 끊기지 않고 은은히 소멸
+  float vign = smoothstep(0.0, 0.16, vUv.x) * smoothstep(0.0, 0.16, 1.0 - vUv.x)
+             * smoothstep(0.0, 0.20, vUv.y) * smoothstep(0.0, 0.20, 1.0 - vUv.y);
+  col *= vign;
   float lumG = max(col.r, max(col.g, col.b));
-  float aInk = smoothstep(0.22, 0.70, lumG) * 0.9;
-  col = mix(col / 12.92, pow((col + 0.055) / 1.055, vec3(2.4)), step(0.04045, col));
+  float aInk = smoothstep(0.22, 0.70, lumG) * 0.55;   // 배경 그리드 = 가장 투과
+  // 감마 변환 제거 — 리니어화가 주황 칩(FE6E3C·FEC389)의 G/B를 죽여 레드로 표류시킴
   gl_FragColor = vec4(col, aInk);
 }`,
       transparent: true, depthWrite: false,
@@ -2330,8 +2347,8 @@ void main(){
   let HUD_MAIN = '#ff6b21', HUD_CREAM = '#fff3e2', HUD_CYAN = '#21ccdb', hudGlowK = 1;
   function hudSyncPalette() {
     // 룩 시스템 완전 연동: 팔레트=LUT 샘플, 시안=역할색 user, 글로우 강도=마크 halo 슬라이더
-    HUD_MAIN = lutColor(0.40);
-    HUD_CREAM = lutColor(0.96);
+    HUD_MAIN = '#fe6e3c';    // 주황 칩 고정 (LUT 샘플 표류 기각)
+    HUD_CREAM = '#fff3e2';   // 중성 웜화이트
     HUD_CYAN = '#' + (COLORS.user ?? 0x21ccdb).toString(16).padStart(6, '0');
     hudGlowK = (FXP.mark?.halo ?? 0.9) / 0.9;
   }
@@ -2424,7 +2441,7 @@ void main(){
   function hudLockup(g, eyebrow, title) {
     g.textAlign = 'center';
     if (eyebrow) {
-      g.fillStyle = '#ff9447'; g.font = '500 26px Pretendard, sans-serif';
+      g.fillStyle = '#fec389'; g.font = '500 26px Pretendard, sans-serif';
       g.fillText(eyebrow, 800, 88);
     }
     g.font = '700 58px Pretendard, sans-serif';
@@ -2467,12 +2484,12 @@ void main(){
         g.textAlign = 'left'; g.fillStyle = HUD_MAIN;
         g.font = '700 34px Pretendard, sans-serif'; g.fillText('0 · 준비', 64, 92);
         hudPhaseDots(g, 72, 122, 0);
-        g.fillStyle = '#ff9447'; g.font = '500 20px Pretendard, sans-serif';
+        g.fillStyle = '#fec389'; g.font = '500 20px Pretendard, sans-serif';
         g.fillText('가드 · 거리 재기', 64, 160);
         // 우상: 링 거리 + 웨어러블
         g.textAlign = 'right'; g.fillStyle = HUD_MAIN;
         g.font = '700 64px Pretendard, sans-serif'; g.fillText('1.93', 1520, 108);
-        g.font = '500 22px Pretendard, sans-serif'; g.fillStyle = '#ff9447';
+        g.font = '500 22px Pretendard, sans-serif'; g.fillStyle = '#fec389';
         g.fillText('m — 링에 서기', 1520, 142);
         g.font = '700 18px Pretendard, sans-serif';
         const wtxt = '웨어러블 안전 모드';
@@ -2555,7 +2572,7 @@ void main(){
           g.font = '700 26px Pretendard, sans-serif';
           const wt = '주먹 온다!';
           const ww2 = g.measureText(wt).width + 36;
-          g.fillStyle = '#ff3b33';
+          g.fillStyle = '#fa3030';
           g.beginPath(); g.roundRect(900, 300, ww2, 48, 10); g.fill();
           g.fillStyle = '#fff3ec'; g.textAlign = 'left';
           g.fillText(wt, 918, 333);
@@ -2567,7 +2584,7 @@ void main(){
         g.fillStyle = HUD_MAIN; g.textAlign = 'center';
         g.font = '700 96px Pretendard, sans-serif';
         g.fillText('몸풀기 끝!', 800, 430);
-        g.fillStyle = '#ff9447'; g.font = '500 30px Pretendard, sans-serif';
+        g.fillStyle = '#fec389'; g.font = '500 30px Pretendard, sans-serif';
         g.fillText('몸 풀렸어요 — 다음: 사전 익히기', 800, 500);
         hudPhaseDots(g, 800 - 69, 560, 1);
         hudCTA(g, 'TAP ×2 — 탭 두 번 → 사전 익히기', 620);
@@ -2580,7 +2597,7 @@ void main(){
         g.fillStyle = HUD_MAIN; g.textAlign = 'center';
         g.font = '700 110px Pretendard, sans-serif';
         g.fillText(String(Math.ceil(remain)), 270, 450);
-        g.fillStyle = '#ff9447'; g.font = '500 28px Pretendard, sans-serif';
+        g.fillStyle = '#fec389'; g.font = '500 28px Pretendard, sans-serif';
         g.fillText('5초 뒤 실전', 270, 570);
         hudCTA(g, 'TAP ×2 — 두 번 탭 = 바로', 908);
         break;
@@ -2591,7 +2608,7 @@ void main(){
         g.fillStyle = HUD_MAIN; g.textAlign = 'center';
         g.font = '700 300px Pretendard, sans-serif';
         g.fillText(String(n), 300, 560);
-        g.fillStyle = '#ff9447'; g.font = '500 30px Pretendard, sans-serif';
+        g.fillStyle = '#fec389'; g.font = '500 30px Pretendard, sans-serif';
         g.fillText('실전 시작 전', 300, 640);
         break;
       }
@@ -2630,7 +2647,7 @@ void main(){
         const bw2 = g.measureText(bt).width + 32;
         g.fillStyle = HUD_CYAN;
         g.beginPath(); g.roundRect(120, 250, bw2, 40, 8); g.fill();
-        g.fillStyle = '#04252a'; g.textAlign = 'left';
+        g.fillStyle = '#091212'; g.textAlign = 'left';
         g.fillText(bt, 136, 277);
         const chips = ['잽', '잽', '훅'];
         const litN = Math.floor(tS * 1.4) % 4;
@@ -2641,11 +2658,11 @@ void main(){
           if (i < litN) {
             g.fillStyle = HUD_MAIN;
             g.beginPath(); g.roundRect(cx0, 310, cw, 58, 12); g.fill();
-            g.fillStyle = '#2b0d02';
+            g.fillStyle = '#091212';
           } else {
             g.strokeStyle = 'rgba(255,148,71,0.5)'; g.lineWidth = 2;
             g.beginPath(); g.roundRect(cx0, 310, cw, 58, 12); g.stroke();
-            g.fillStyle = '#ff9447';
+            g.fillStyle = '#fec389';
           }
           g.fillText(chips[i], cx0 + 22, 350);
           cx0 += cw + 24;
@@ -2678,7 +2695,7 @@ void main(){
       }
       case 'BX_FIN': {
         hudGlass(g, 460, 130, 680, 640, 28);
-        g.textAlign = 'left'; g.fillStyle = '#ff9447';
+        g.textAlign = 'left'; g.fillStyle = '#fec389';
         g.font = '500 26px Pretendard, sans-serif';
         g.fillText('오늘의 결과', 520, 200);
         g.fillStyle = HUD_MAIN; g.font = '700 150px Pretendard, sans-serif';
@@ -2689,7 +2706,7 @@ void main(){
         ROWS.forEach(([v, k], i) => {
           g.fillStyle = HUD_MAIN; g.font = '700 40px Pretendard, sans-serif';
           g.fillText(v, 520, 470 + i * 62);
-          g.fillStyle = '#ff9447'; g.font = '500 24px Pretendard, sans-serif';
+          g.fillStyle = '#fec389'; g.font = '500 24px Pretendard, sans-serif';
           g.fillText(k, 800, 470 + i * 62);
         });
         g.fillStyle = HUD_CYAN; g.textAlign = 'center';
@@ -2725,10 +2742,9 @@ void main(){
     const GU = gridScanPanel.material.uniforms;
     GU.uTime.value = performance.now() / 1000;
     GU.uBoost.value = FXP.day ? 1.15 : 0.85;
-    const lc = lutColor(0.42).match(/\d+/g).map(Number);
-    GU.uLines.value.setRGB(lc[0] / 255, lc[1] / 255, lc[2] / 255);
-    const sc = COLORS.left ?? 0xfa3030;
-    GU.uScan.value.setHex(sc);
+    GU.uLines.value.setHex(0xfec389);   // 연주황 칩 (레드 기각 — 유저)
+    GU.uScan.value.setHex(0xfe6e3c);    // 주황 칩
+    GU.uAccent.value.setHex(COLORS.user ?? 0x21ccdb);
     const now = performance.now() / 1000;
     if (st.id !== hudStageId) { hudStageId = st.id; hudStageT0 = now; }
     if (now - hudLastT < 1 / 15) return;

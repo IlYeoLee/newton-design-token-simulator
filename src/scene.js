@@ -182,6 +182,28 @@ export function createScene(container) {
       tex.colorSpace = THREE.SRGBColorSpace;
       surfCache.indoorwood = tex;
     }
+    else if (key === 'wallpaper') {
+      // 실내 벽지 = 런타임 베이크 (아이보리 화이트 + 연한 세로 결)
+      const c = document.createElement('canvas'); c.width = c.height = 256;
+      const g = c.getContext('2d');
+      g.fillStyle = '#F7F4EE'; g.fillRect(0, 0, 256, 256);
+      const rnd = (() => { let s0 = 13; return () => (s0 = (s0 * 16807) % 2147483647) / 2147483647; })();
+      for (let x = 0; x < 256; x += 2) {
+        const a = 0.020 + rnd() * 0.045;
+        g.fillStyle = rnd() < 0.5 ? `rgba(210,202,188,${a})` : `rgba(255,255,255,${a})`;
+        g.fillRect(x, 0, 1 + rnd() * 1.5, 256);
+      }
+      for (let i = 0; i < 90; i++) {   // 미세 섬유 노이즈
+        g.fillStyle = `rgba(196,188,174,${0.03 + rnd() * 0.04})`;
+        g.fillRect(rnd() * 256, rnd() * 256, 1, 3 + rnd() * 9);
+      }
+      const tex = new THREE.CanvasTexture(c);
+      tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+      tex.repeat.set(9, 5);
+      tex.anisotropy = 4;
+      tex.colorSpace = THREE.SRGBColorSpace;
+      surfCache.wallpaper = tex;
+    }
     return surfCache[key];
   }
   let surfSeq = 0;
@@ -218,7 +240,7 @@ export function createScene(container) {
     if (key === 'indoor') {
       // 실내: 마루 + 형광등 아래 '진짜 흰' 벽 — 조명 감쇠를 이기도록 자발광 가산
       floor.material.color.setHex(dayMode ? 0xF6F1E8 : 0xD8D0C2);
-      wall.material.map = null;
+      wall.material.map = await getSurf('wallpaper');   // 세로 결 벽지 (민무늬 기각)
       wall.material.color.setHex(0xFFFFFF);
       wall.material.emissive?.setHex(dayMode ? 0x6E6A63 : 0x57534B);
     } else {
