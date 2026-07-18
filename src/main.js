@@ -1900,38 +1900,46 @@ void main(){
         vec3 lut(float v){ return texture2D(uLUT, vec2(clamp(v, 0.004, 0.996), 0.5)).rgb; }
         ` + FX_GLSL.replace('uniform sampler2D uLUT;', '').replace('vec3 lut(float v){ return texture2D(uLUT, vec2(clamp(v, 0.004, 0.996), 0.5)).rgb; }', '') + `
         ` + MASK_GLSL + `
+        float pheat(vec2 uv){
+          // 온도원 = 마스크 × 실사 밝기(uDetail=밝기 영향도) — 내부 온도 요동의 근원
+          vec2 vuv = uCropC + (uv - 0.5) * uCropS;
+          if (vuv.x < 0.0 || vuv.x > 1.0 || vuv.y < 0.0 || vuv.y > 1.0) return 0.0;
+          vec3 c = texture2D(tex, vuv).rgb;
+          float k = c.g - max(c.r, c.b);
+          float mm = 1.0 - smoothstep(0.05, 0.16, k);
+          mm *= smoothstep(0.0, 0.03, uv.y) * smoothstep(1.0, 0.97, uv.y);
+          float lum = dot(c, vec3(0.299, 0.587, 0.114));
+          return mm * mix(1.0, 0.30 + 0.70 * lum, clamp(uDetail * 1.4, 0.0, 1.0));
+        }
         vec3 thermo(float h){
           // 확산 유리 열화상 램프 — 랩 PERSON_FRAG thermo()와 동일 상수 (레퍼런스 확정 2026-07-18)
           h = clamp(h, 0.0, 1.0);
-          vec3 c = mix(vec3(0.0), vec3(0.30, 0.01, 0.02), smoothstep(0.0, 0.20, h));
-          c = mix(c, vec3(0.86, 0.10, 0.02), smoothstep(0.20, 0.40, h));
-          c = mix(c, vec3(1.0, 0.56, 0.02), smoothstep(0.40, 0.55, h));
-          c = mix(c, vec3(1.0, 0.96, 0.10), smoothstep(0.55, 0.66, h));
-          c = mix(c, vec3(0.22, 0.84, 0.24), smoothstep(0.66, 0.80, h));
-          c = mix(c, vec3(0.10, 0.72, 0.82), smoothstep(0.80, 0.92, h));
-          return mix(c, vec3(0.40, 0.88, 0.96), smoothstep(0.92, 1.0, h));
+          vec3 c = mix(vec3(0.0), vec3(0.45, 0.01, 0.0), smoothstep(0.08, 0.30, h));
+          c = mix(c, vec3(0.90, 0.16, 0.0), smoothstep(0.30, 0.48, h));
+          c = mix(c, vec3(1.0, 0.52, 0.0), smoothstep(0.48, 0.60, h));
+          c = mix(c, vec3(1.0, 0.93, 0.05), smoothstep(0.60, 0.70, h));
+          c = mix(c, vec3(0.25, 0.82, 0.15), smoothstep(0.70, 0.82, h));
+          c = mix(c, vec3(0.05, 0.75, 0.70), smoothstep(0.82, 0.95, h));
+          return mix(c, vec3(0.45, 0.90, 0.95), smoothstep(0.95, 1.0, h));
         }
         void main(){
           #include <clipping_planes_fragment>
           vec2 uv = vUv;
           float m = pmask(uv);
           float trail = texture2D(uTrail, uv).r * (1.0 - m) * uTrailGain;
-          // 확산 유리 열 필드: 실루엣 3링 대반경 블러 = 두께/밀도 (랩과 동일 수식)
-          float R = 0.018 + 0.05 * uW;
-          float H = m * 0.18;
+          // 확산 유리 열 필드 v2: 온도원 = 마스크×실사 밝기 (내부가 구름처럼 요동,
+          // 얇은 팔다리는 블러 확산으로 식어 주황·적색 — 레퍼런스의 핵심 조리법)
+          float R = 0.05 + 0.08 * uW;
+          float H = pheat(uv) * 0.10;
           for (int k = 0; k < 8; k++) {
             float a = 0.7854 * float(k);
-            H += pmask(uv + vec2(cos(a), sin(a)) * R * 0.5) * 0.05;
-            H += pmask(uv + vec2(cos(a + 0.3927), sin(a + 0.3927)) * R) * 0.035;
-            H += pmask(uv + vec2(cos(a + 0.19), sin(a + 0.19)) * R * 2.2) * 0.018;
+            H += pheat(uv + vec2(cos(a), sin(a)) * R * 0.45) * 0.048;
+            H += pheat(uv + vec2(cos(a + 0.3927), sin(a + 0.3927)) * R) * 0.040;
+            H += pheat(uv + vec2(cos(a + 0.19), sin(a + 0.19)) * R * 1.9) * 0.0245;
           }
           float flow = fxfbm(vec2(uv.x * 3.2 + sin(uTime * 0.4) * 0.3, uv.y * 2.4 - uTime * 0.5));
           H *= 1.0 + (flow - 0.5) * uNoise * 0.6;
-          // 음영(uDetail) = 실사 명암이 열 온도로 — 심부 시안/초록의 근육 결
-          vec2 dvuv = uCropC + (uv - 0.5) * uCropS;
-          vec3 dvc = texture2D(tex, clamp(dvuv, 0.0, 1.0)).rgb;
-          float dlum = dot(dvc, vec3(0.299, 0.587, 0.114));
-          H = clamp(H + (dlum - 0.5) * uDetail * 0.4 * m, 0.0, 1.0);
+          H = clamp(H * 1.15, 0.0, 1.0);
           H = max(H, trail * 0.75);
           vec3 col = mix(thermo(H), lut(clamp(H * 0.96, 0.0, 1.0)), uTone);   // 뉴턴톤 = 룩 팔레트 열화상
           col += (fxhash(uv * 977.0 + uTime) - 0.5) * (2.0 / 255.0);

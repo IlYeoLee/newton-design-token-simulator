@@ -238,7 +238,7 @@ const state = {
   g: { speed: 1.0, width: 1.0, halo: 0.9, noise: 0.5, ember: 0.3, grain: 0.035, size: 1.5 },
   m: { radius: 1.0, core: 1.0, halo: 0.9, pool: 0.55, sweep: 1.0, wobble: 0.5 },
   s: { bloomStrength: 0.55, bloomThreshold: 0.55, bloomRadius: 0.6, exposure: 1.0, grain: 0, vignette: 0.12 },
-  p: { blur: 0.3, glow: 0, flow: 0.4, decay: 0.04, grain: 0, detail: 0.62, tone: 0 },   // 유저 확정 룩 = 공장 기본 (2026-07-18)
+  p: { blur: 0.3, glow: 0, flow: 0.4, decay: 0.04, grain: 0.07, detail: 0.62, tone: 0 },   // 유저 확정 룩 = 공장 기본 (2026-07-18)
   footShape: 1, personMode: 0, burstStyle: 0, laneStyle: 0,
   glyphs: { WARN_EXCL: WARN_EXCL_SVG },   // 슬롯별 커스텀 SVG — 저장·브리지 왕복 (규칙: ↑=전방, 발가락 위·뒤꿈치 아래)
   glyphFlip: {},   // 슬롯별 상하 반전 (⌥+클릭)
@@ -877,16 +877,30 @@ float maskF(vec2 uv, float fk){       // 프레임 크로스페이드
   float f0 = floor(fk);
   return mix(mask1(uv, f0), mask1(uv, f0 + 1.0), fract(fk));
 }
+float ph(vec2 uv, float fr){
+  vec3 rgb = texture2D(uAtlas, tileUV(uv, fr)).rgb;
+  float mm;
+  if (uChroma > 0.5) {
+    float k = rgb.g - max(rgb.r, rgb.b);
+    mm = 1.0 - smoothstep(0.05, 0.16, k);
+  } else {
+    float lm = dot(rgb, vec3(0.299, 0.587, 0.114));
+    mm = smoothstep(0.52, 0.34, lm);
+  }
+  mm *= smoothstep(0.0, 0.03, uv.y) * smoothstep(1.0, 0.97, uv.y);
+  float lum = dot(rgb, vec3(0.299, 0.587, 0.114));
+  return mm * mix(1.0, 0.30 + 0.70 * lum, clamp(uDetail * 1.4, 0.0, 1.0));
+}
 vec3 thermo(float h){
   // 확산 유리 열화상 램프 (레퍼런스 확정 2026-07-18): 흑 → 암적 → 주황 → 노랑 → 초록 → 심부 시안
   h = clamp(h, 0.0, 1.0);
-  vec3 c = mix(vec3(0.0), vec3(0.30, 0.01, 0.02), smoothstep(0.0, 0.20, h));
-  c = mix(c, vec3(0.86, 0.10, 0.02), smoothstep(0.20, 0.40, h));
-  c = mix(c, vec3(1.0, 0.56, 0.02), smoothstep(0.40, 0.55, h));
-  c = mix(c, vec3(1.0, 0.96, 0.10), smoothstep(0.55, 0.66, h));
-  c = mix(c, vec3(0.22, 0.84, 0.24), smoothstep(0.66, 0.80, h));
-  c = mix(c, vec3(0.10, 0.72, 0.82), smoothstep(0.80, 0.92, h));
-  return mix(c, vec3(0.40, 0.88, 0.96), smoothstep(0.92, 1.0, h));
+  vec3 c = mix(vec3(0.0), vec3(0.45, 0.01, 0.0), smoothstep(0.08, 0.30, h));
+  c = mix(c, vec3(0.90, 0.16, 0.0), smoothstep(0.30, 0.48, h));
+  c = mix(c, vec3(1.0, 0.52, 0.0), smoothstep(0.48, 0.60, h));
+  c = mix(c, vec3(1.0, 0.93, 0.05), smoothstep(0.60, 0.70, h));
+  c = mix(c, vec3(0.25, 0.82, 0.15), smoothstep(0.70, 0.82, h));
+  c = mix(c, vec3(0.05, 0.75, 0.70), smoothstep(0.82, 0.95, h));
+  return mix(c, vec3(0.45, 0.90, 0.95), smoothstep(0.95, 1.0, h));
 }
 void main(){
   vec2 uv = gl_FragCoord.xy / uRes;
@@ -900,22 +914,19 @@ void main(){
   vec3 col;
   float occ;
   if (uMode < 0.5) {
-    // 확산 유리 열 필드: 실루엣의 3링 대반경 블러 = 두께/밀도 (SVG 히트맵 기법 이식)
-    float R = 0.018 + 0.05 * uW;
-    float H = m * 0.18;
+    // 확산 유리 열 필드 v2: 온도원 = 마스크×실사 밝기 (시뮬 demoPanel과 동일 수식)
+    float R = 0.05 + 0.08 * uW;
+    float fr = floor(uFrame + 0.5);
+    float H = ph(uv, fr) * 0.10;
     for (int k = 0; k < 8; k++) {
       float a = 0.7854 * float(k);
-      H += maskF(uv + vec2(cos(a), sin(a)) * R * 0.5, uFrame) * 0.05;
-      H += maskF(uv + vec2(cos(a + 0.3927), sin(a + 0.3927)) * R, uFrame) * 0.035;
-      H += maskF(uv + vec2(cos(a + 0.19), sin(a + 0.19)) * R * 2.2, uFrame) * 0.018;
+      H += ph(uv + vec2(cos(a), sin(a)) * R * 0.45, fr) * 0.048;
+      H += ph(uv + vec2(cos(a + 0.3927), sin(a + 0.3927)) * R, fr) * 0.040;
+      H += ph(uv + vec2(cos(a + 0.19), sin(a + 0.19)) * R * 1.9, fr) * 0.0245;
     }
-    // 내부 흐름(uNoise) = 열 필드의 살아있는 일렁임
     float flow = fbm(vec2(uv.x * 3.2 + sin(uTime * 0.4) * 0.3, uv.y * 2.4 - uTime * 0.5));
     H *= 1.0 + (flow - 0.5) * uNoise * 0.6;
-    // 음영(uDetail) = 실사 명암이 열 온도로 — 심부 시안/초록의 근육 결
-    vec3 rgbC = texture2D(uAtlas, tileUV(uv, floor(uFrame + 0.5))).rgb;
-    float lumC = dot(rgbC, vec3(0.299, 0.587, 0.114));
-    H = clamp(H + (lumC - 0.5) * uDetail * 0.4 * m, 0.0, 1.0);
+    H = clamp(H * 1.15, 0.0, 1.0);
     H = max(H, trail * 0.75);
     col = mix(thermo(H), lut(clamp(H * 0.96, 0.0, 1.0)), uTone);   // 뉴턴톤 = 룩 팔레트 열화상
     occ = 1.045;   // 검은 필드 = 카드 전체 차폐 (레퍼런스: 흑 배경 위 발광, ×0.88=0.92)
