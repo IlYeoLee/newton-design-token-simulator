@@ -897,7 +897,8 @@ async function boot() {
     Object.assign(FX, { bloomStrength: 0.14, bloomThreshold: 0.85, bloomRadius: 0.4, exposure: 0.95, grain: 0, vignette: 0.08 });   // 블룸 축소 — 소형 고휘도 코어가 문대지며 '과한 블러'로 보이던 것 (랩=블룸 거의 없음)
     if (st.bg !== undefined) { FXP.bg = st.bg; setSurfaces(st.bg === 'none' ? null : st.bg); }   // 투사면 칩 → 실물 바닥/벽 (+발형 컨텍스트)
     if (st.prims) FXP.prims = st.prims;   // 프리미티브 파라미터 → 세션 스테이지 빌드 소비 (리로드 반영)
-    if (st.person) Object.assign(FXP.person, st.person);   // 인물(코치) 룩 — 음영·잔상·흐름 동기
+    const stPerson = st.person || st.p;   // 라이브 스냅샷은 'p', 내보내기는 'person'
+    if (stPerson) Object.assign(FXP.person, stPerson);   // 인물(코치) 룩 — 음영·잔상·흐름 동기
     if (st.lane) FXP.lane = st.lane;      // 레인 전용 스타일 (화살표 LINE과 분리 — 유저 확정)
     // markShape(랩 표현형 토글)는 미리보기용 — 시뮬 루프 마크는 설계대로 존 원 고정
     // (발형 SDF 인프라는 세션 티칭 컨텍스트용으로 보존: fxlut.footSDFTexture)
