@@ -1954,27 +1954,54 @@ void main(){
   //    public/ghost/<파일명>에 떨어뜨리면 코드 수정 없이 스테이지 전환 시 자동 교체.
   //    파일 없음(404) → 기본 클립 폴백. 스펙·프롬프트 = docs/ghost-clips.md
   const GHOST_DEFAULT = import.meta.env.BASE_URL + 'coach_chroma.mp4';
+  //    맵에 없는 스테이지(BX_T1 전환·BX_FIN 리포트) = 고스트 자체를 안 띄움 (인물 불필요 장면)
   const GHOST_CLIPS = {
-    BX_READY: 'bx_idle_guard.mp4',   BX_A1: 'bx_warm_neck.mp4',
-    BX_A2:    'bx_warm_step.mp4',    BX_A3: 'bx_warm_jab.mp4',
-    BX_T1:    'bx_idle_guard.mp4',
-    BX_B1:    'bx_opp_jab_slow.mp4', BX_B2: 'bx_opp_straight.mp4',
-    BX_B3:    'bx_opp_opening.mp4',  BX_T2: 'bx_idle_bounce.mp4',
-    BX_C1:    'bx_idle_bounce.mp4',  BX_C2: 'bx_spar_live.mp4',
-    BX_C3:    'bx_spar_combo.mp4',   BX_C4: 'bx_cooldown.mp4',
-    BX_FIN:   'bx_idle_guard.mp4',
+    BX_READY: ['bx_idle_guard.mp4', '상대 대기 — 가드 바운스'],
+    BX_A1:    ['bx_warm_neck.mp4', '시범 — 목·어깨 풀기'],
+    BX_A2:    ['bx_warm_step.mp4', '시범 — 스텝 인·아웃'],
+    BX_A3:    ['bx_warm_jab.mp4', '시범 — 잽 폼 6회'],
+    BX_B1:    ['bx_opp_jab_slow.mp4', '상대 — 느린 잽 (가드 버티기)'],
+    BX_B2:    ['bx_opp_straight.mp4', '상대 — 스트레이트 (슬립)'],
+    BX_B3:    ['bx_opp_opening.mp4', '상대 — 가드 열림 (잽 타이밍)'],
+    BX_T2:    ['bx_idle_bounce.mp4', '상대 — 대련 직전 바운스'],
+    BX_C1:    ['bx_idle_bounce.mp4', '상대 — 대련 직전 바운스'],
+    BX_C2:    ['bx_spar_live.mp4', '상대 — 잽 대련 리듬'],
+    BX_C3:    ['bx_spar_combo.mp4', '상대 — 잽잽훅 콤비'],
+    BX_C4:    ['bx_cooldown.mp4', '상대 — 마무리 호흡'],
   };
-  let ghostClipCur = '';
-  const ghostClipBad = new Set();   // 404 등 실패 URL 기억 — 매 프레임 재시도 루프 방지
+  let ghostClipCur = '', ghostClipWant = null;
+  // 반입 검사: HEAD + content-type — 데브 서버는 없는 파일에 404 대신 index.html(SPA 폴백)을
+  // 주므로 미디어 error 이벤트만으론 감지 불가(검정 화면·전면 마스크 회귀의 원인).
+  const ghostClipBad = new Set(), ghostClipOk = new Set(), ghostClipChecking = new Set();
   function setGhostClip(stageId) {
-    const f = GHOST_CLIPS[stageId];
-    let url = f ? import.meta.env.BASE_URL + 'ghost/' + f : GHOST_DEFAULT;
-    if (ghostClipBad.has(url)) url = GHOST_DEFAULT;
-    if (url === ghostClipCur) return;
-    ghostClipCur = url;
-    demoVideo.src = url;
+    const ent = GHOST_CLIPS[stageId];
+    ghostClipWant = ent || null;
+    const url = ent ? import.meta.env.BASE_URL + 'ghost/' + ent[0] : GHOST_DEFAULT;
+    const tgt = ghostClipBad.has(url) ? GHOST_DEFAULT : url;
+    if (tgt !== GHOST_DEFAULT && !ghostClipOk.has(tgt)) {
+      if (!ghostClipChecking.has(tgt)) {
+        ghostClipChecking.add(tgt);
+        fetch(tgt, { method: 'HEAD' })
+          .then(r => (r.ok && /video|octet-stream/.test(r.headers.get('content-type') || '') ? ghostClipOk : ghostClipBad).add(tgt))
+          .catch(() => ghostClipBad.add(tgt));
+      }
+      // 검사 완료 전엔 기본 클립 유지 (다음 프레임 호출에서 승격)
+      if (ghostClipCur !== GHOST_DEFAULT) { ghostClipCur = GHOST_DEFAULT; demoVideo.src = GHOST_DEFAULT; demoVideo.play().catch(() => {}); }
+      return;
+    }
+    if (tgt === ghostClipCur) return;
+    ghostClipCur = tgt;
+    demoVideo.src = tgt;
     demoVideo.play().catch(() => {});
   }
+  // 소형 미리보기 — 지금 벽에 나가는 원본 클립이 무엇인지 (원본 영상 그대로 + 파일명)
+  const ghostPrev = document.createElement('div');
+  ghostPrev.style.cssText = 'position:absolute;right:14px;top:196px;z-index:30;display:none;width:158px;background:rgba(14,16,21,.92);border:1px solid #2a2f38;border-radius:10px;padding:8px;box-sizing:border-box';
+  demoVideo.style.cssText = 'width:100%;border-radius:6px;display:block;background:#000';
+  const ghostPrevLb = document.createElement('div');
+  ghostPrevLb.style.cssText = 'margin-top:6px;font-size:10.5px;line-height:1.45;color:#c9ced6;font-family:inherit;word-break:break-all';
+  ghostPrev.append(demoVideo, ghostPrevLb);
+  document.body.appendChild(ghostPrev);
   demoVideo.addEventListener('error', () => {   // 클립 미반입 → 기본 클립 폴백
     if (ghostClipCur !== GHOST_DEFAULT) {
       ghostClipBad.add(ghostClipCur);
@@ -1997,7 +2024,7 @@ void main(){
   function renderDemoPanel() {
     const on = DEMO_CLIP_MODE !== 'off' && session.active
       && (DEMO_CLIP_MODE === 'wall'
-        ? state.pack === 'boxing'                       // 코치 = 구 열화상 시연의 자리 (라이브 포함 상시)
+        ? state.pack === 'boxing' && !!GHOST_CLIPS[session.curStage?.id]   // 맵에 없는 장면 = 인물 제거
         : (!session.isLive && session.demoActive));
     if (DEMO_CLIP_MODE === 'wall') {
       if (rig.wallClip && demoPanel.material.clippingPlanes !== rig.wallClip)
@@ -2010,6 +2037,14 @@ void main(){
     }
     demoPanel.visible = !!on;
     if (on) setGhostClip(session.curStage?.id);   // 스테이지별 클립 자동 전환 (404 → 기본)
+    ghostPrev.style.display = on ? 'block' : 'none';
+    if (on && ghostClipWant) {
+      ghostPrevLb.style.whiteSpace = 'pre-line';
+      const fallback = ghostClipCur === GHOST_DEFAULT;
+      ghostPrevLb.textContent = fallback
+        ? `🎬 기본 클립 (미반입: ${ghostClipWant[0]})\n${ghostClipWant[1]}`
+        : `🎬 ${ghostClipWant[0]}\n${ghostClipWant[1]}`;
+    }
     if (on) { if (demoVideo.paused) demoVideo.play().catch(() => {}); }
     else { if (!demoVideo.paused) demoVideo.pause(); return; }
     const now = performance.now() / 1000;
