@@ -2047,29 +2047,30 @@ void main(){
   // ── 복싱 벽면 인물 시범 = FX Lab PERSON_FRAG 정본 포트 (인물 — 실사 복서 + 잔상) ──
   //    소스: 랩 카드와 동일한 실사 스틸 8장(public/person/) → 4×2 아틀라스, 같은 수식·같은 LUT.
   //    잔상 = 아틀라스 과거 프레임 3탭 (랩 그대로 — 핑퐁 불필요). 출력만 가산광(라이브 규약).
-  const bxAtlas = document.createElement('canvas'); bxAtlas.width = 176 * 4; bxAtlas.height = 288 * 2;
+  // 코치 소스 = 외부 실사 영상의 '사전 베이크' 마스크 아틀라스 (오프라인 세그+EMA — 런타임 세그 0회)
+  //   bx_2161 워밍업 → 64프레임 @15fps, 8×8 그리드 200×112. 재베이크: __bakeStep 시퀀스(메모리 (140)).
+  const COACH = { url: 'person/coach_mask_atlas.png', cols: 8, rows: 8, n: 64, fps: 15, direct: 1, tileAR: 200 / 112 };
+  const bxAtlas = document.createElement('canvas'); bxAtlas.width = 1600; bxAtlas.height = 896;
   const bxAtlasTex = new THREE.CanvasTexture(bxAtlas);
-  bxAtlasTex.flipY = false;   // 랩은 raw WebGL(y-다운) — three 기본 flipY와 이중 플립되면 인물이 뒤집힘
+  bxAtlasTex.flipY = false;   // 캔버스 y-다운 규약 (tileUV가 1-uv.y 플립)
   bxAtlasTex.minFilter = THREE.LinearFilter; bxAtlasTex.magFilter = THREE.LinearFilter;
   let bxPersonReady = false;
   {
-    const ag = bxAtlas.getContext('2d');
-    let loaded = 0;
-    for (let i = 0; i < 8; i++) {
-      const im = new Image();
-      im.src = import.meta.env.BASE_URL + 'person/boxer_' + i + '.jpg';
-      im.onload = () => {
-        ag.drawImage(im, (i % 4) * 176, Math.floor(i / 4) * 288, 176, 288);
-        if (++loaded === 8) { bxAtlasTex.needsUpdate = true; bxPersonReady = true; }
-      };
-    }
+    const im = new Image();
+    im.src = import.meta.env.BASE_URL + COACH.url;
+    im.onload = () => {
+      bxAtlas.width = im.width; bxAtlas.height = im.height;
+      bxAtlas.getContext('2d').drawImage(im, 0, 0);
+      bxAtlasTex.needsUpdate = true; bxPersonReady = true;
+    };
   }
   const bxPerson = new THREE.Mesh(
-    new THREE.PlaneGeometry(1.7 * 236 / 386, 1.7),   // 랩 캔버스 종횡비 × 실신장 1.7m
+    new THREE.PlaneGeometry(1.35 * (200 / 112), 1.35),   // 베이크 타일 종횡비 × 세로 1.35m
     new THREE.ShaderMaterial({
       uniforms: {
         uAtlas: { value: bxAtlasTex }, uLUT: { value: getLUT() },
         uFrame: { value: 0 }, uDecay: { value: 0.6 }, uTime: { value: 0 },
+        uCols: { value: 8 }, uRows: { value: 8 }, uN: { value: 64 }, uDirect: { value: 1 },
         uW: { value: 1 }, uNoise: { value: 0.55 },
       },
       vertexShader: `#include <common>
@@ -2085,7 +2086,7 @@ void main(){
 #include <clipping_planes_pars_fragment>
         varying vec2 vUv;
         uniform sampler2D uAtlas, uLUT;
-        uniform float uFrame, uDecay, uTime, uW, uNoise;
+        uniform float uFrame, uDecay, uTime, uW, uNoise, uCols, uRows, uN, uDirect;
         vec3 lut(float v){ return texture2D(uLUT, vec2(clamp(v, 0.004, 0.996), 0.5)).rgb; }
         float phash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
         float pvn(vec2 p){
@@ -2094,14 +2095,14 @@ void main(){
         }
         float pfbm(vec2 p){ return pvn(p)*0.55 + pvn(p*2.13+7.7)*0.28 + pvn(p*4.31+3.1)*0.17; }
         vec2 tileUV(vec2 uv, float f){
-          float ff = mod(f + 16.0, 8.0);
-          float cx = mod(ff, 4.0), cy = floor(ff / 4.0);
-          return (vec2(uv.x, 1.0 - uv.y) + vec2(cx, cy)) / vec2(4.0, 2.0);
+          float ff = mod(f + uN * 2.0, uN);
+          float cx = mod(ff, uCols), cy = floor(ff / uCols);
+          return (vec2(uv.x, 1.0 - uv.y) + vec2(cx, cy)) / vec2(uCols, uRows);
         }
         float mask1(vec2 uv, float f){
           vec3 rgb = texture2D(uAtlas, tileUV(uv, f)).rgb;
           float lum = dot(rgb, vec3(0.299, 0.587, 0.114));
-          float m = smoothstep(0.52, 0.34, lum);
+          float m = uDirect > 0.5 ? smoothstep(0.30, 0.55, lum) : smoothstep(0.52, 0.34, lum);
           m *= smoothstep(0.0, 0.03, uv.y) * smoothstep(1.0, 0.97, uv.y);
           return m;
         }
@@ -2147,10 +2148,10 @@ void main(){
     if (!on) return;
     if (rig.wallClip && bxPerson.material.clippingPlanes !== rig.wallClip) bxPerson.material.clippingPlanes = rig.wallClip;
     const wc = rig._wallCenter;
-    bxPerson.position.set(wc ? wc.cx : 0, 1.7 / 2 + 0.12, WALL_Z + 0.03);   // 유저 정면 = 벽 중심 추종
+    bxPerson.position.set(wc ? wc.cx : 0, 1.35 / 2 + 0.28, WALL_Z + 0.03);   // 유저 정면 = 벽 중심 추종
     const U = bxPerson.material.uniforms;
     const ms = performance.now();
-    U.uFrame.value = (ms / 150) % 8;
+    U.uFrame.value = (ms / 1000 * COACH.fps) % COACH.n;
     U.uTime.value = ms / 1000;
     U.uDecay.value = FXP.person?.decay ?? 0.6;
     U.uNoise.value = FXP.person?.flow ?? 0.55;
@@ -2334,6 +2335,14 @@ void main(){
   if (import.meta.env.DEV) window.__dbg = {
     rig, xbot, state, session, sceneScope, camera, controls, tokens, effects, scene, editor3d, sceneUI, FXP, designStore, TCFG, editCam, editControls, judge, THREE,
     renderer, demoVideo, renderDemoPanel, renderBxPerson,
+    get demoSeg() { return demoSeg; }, initDemoSeg,
+    makeImageSegmenter: async () => {
+      const fileset = await FilesetResolver.forVisionTasks(import.meta.env.BASE_URL + 'mediapipe-wasm');
+      return ImageSegmenter.createFromOptions(fileset, {
+        baseOptions: { modelAssetPath: import.meta.env.BASE_URL + 'models/selfie_segmenter.tflite' },
+        runningMode: 'IMAGE', outputConfidenceMasks: true,
+      });
+    },
     get activeCam() { return studioActive ? editCam : camera; },
     get doc() { return studioDoc; },
     get canvas() { return studioCanvas; },
