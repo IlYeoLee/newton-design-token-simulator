@@ -2173,20 +2173,23 @@ void main(){
   hudPanel.renderOrder = 6;
   hudPanel.visible = false;
   scene.add(hudPanel);
-  const HUD_MAIN = '#ff6b21', HUD_CYAN = '#21ccdb';
+  let HUD_MAIN = '#ff6b21', HUD_CREAM = '#fff3e2', HUD_CYAN = '#21ccdb';
+  function hudSyncPalette() {
+    // 룩 시스템 LUT에서 파생 — 팔레트를 바꾸면 벽 HUD도 따라온다 (주간 마크 재질 규약)
+    HUD_MAIN = lutColor(0.40);    // 네온 채도 대역
+    HUD_CREAM = lutColor(0.96);   // 밝은 크림-화이트 필
+  }
   const HUD_MIRROR = new Set(['BX_A1', 'BX_A2', 'BX_A3', 'BX_B1', 'BX_B3']);
   const HUD_RING = new Set(['BX_C1', 'BX_C2', 'BX_C3', 'BX_C4']);
   // 스테이지별 목표치 (피그마 스탯패널 사양)
   const HUD_GOALS = { BX_A1: ['목표', 8, '회'], BX_A2: ['목표 박자', 153, ''], BX_A3: ['목표 잽', 6, ''], BX_B1: ['버티기 목표', 3.0, '초'], BX_B3: ['열리는 횟수', 6, ''] };
   function hudChip(g, x, y, w, h, r, col, text, tx, ty) {
-    // 칩 = 솔리드 채도 필, 타이포 = 녹아웃(빛 뚫림 → 벽 원색) — 흰 벽·다크 벽 양쪽 성립
     g.beginPath(); g.roundRect(x, y, w, h, r);
-    g.fillStyle = col; g.fill();
-    if (text) {
-      g.globalCompositeOperation = 'destination-out';
-      g.fillStyle = '#000'; g.fillText(text, tx, ty);
-      g.globalCompositeOperation = 'source-over';
-    }
+    g.fillStyle = 'rgba(255,244,228,0.92)'; g.fill();
+    g.shadowColor = col; g.shadowBlur = 10;
+    g.strokeStyle = col; g.lineWidth = 3; g.stroke();
+    g.shadowBlur = 0;
+    if (text) { g.fillStyle = col; g.fillText(text, tx, ty); }
   }
   function hudGlass(g, x, y, w, h, r, border) {
     // (스탯 존 표기용 최소 잔존 — 면 없이 테두리만)
@@ -2194,21 +2197,26 @@ void main(){
     g.strokeStyle = border || HUD_MAIN; g.lineWidth = 3; g.stroke();
   }
   function hudText(g, text, x, y, rim, rimW) {
-    // 장식 제로: 솔리드 채도 단색 (아웃라인·섀도 금지 — 가독은 굵기·크기)
-    g.fillStyle = rim || HUD_MAIN;
+    // 룩 시스템 글리프 스타일 정본 (fxlut.drawGlyph 동일 파라미터) — 크림 필 + 웜 네온 글로우
+    const glow = rim === HUD_CYAN ? 'rgba(63,205,218,0.8)' : 'rgba(254,150,90,0.85)';
+    g.shadowColor = glow; g.shadowBlur = 14;
+    g.fillStyle = 'rgba(255,240,220,0.97)';
     g.fillText(text, x, y);
+    g.fillText(text, x, y);   // 2패스 = 세션 벽 텍스트와 동일 발광 밀도
+    g.shadowBlur = 0;
   }
   function hudStat(g, x, label, num, col, frac) {
     g.textAlign = 'left';
-    g.fillStyle = col; g.globalAlpha = 0.85;
+    g.fillStyle = col; g.globalAlpha = 0.9;
     g.font = '700 24px Pretendard, sans-serif';
     g.fillText(label, x + 28, 44); g.globalAlpha = 1;
     g.font = '800 78px Pretendard, sans-serif';
-    g.fillStyle = col;
-    g.fillText(String(num), x + 28, 118);
+    hudText(g, String(num), x + 28, 118, col);
     if (frac != null) {
       g.fillStyle = col; g.globalAlpha = 0.22; g.fillRect(x + 28, 134, 424, 10); g.globalAlpha = 1;
+      g.shadowColor = HUD_CYAN; g.shadowBlur = 8;
       g.fillStyle = HUD_CYAN; g.fillRect(x + 28, 134, Math.max(12, 424 * Math.min(1, frac)), 10);
+      g.shadowBlur = 0;
     }
   }
   function hudTag(g, cx, text, col) {
@@ -2218,8 +2226,9 @@ void main(){
   }
   function hudLine(g, x1, y1, x2, y2, wd, alpha) {
     g.globalAlpha = alpha; g.lineWidth = wd;
+    g.shadowColor = g.strokeStyle; g.shadowBlur = 6;
     g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke();
-    g.globalAlpha = 1;
+    g.shadowBlur = 0; g.globalAlpha = 1;
   }
   function drawHudRoom(g) {
     g.strokeStyle = HUD_MAIN;
@@ -2564,6 +2573,7 @@ void main(){
     hudLastT = now;
     const tS = now - hudStageT0;
     const g = hudCtx;
+    hudSyncPalette();
     g.clearRect(0, 0, HUDW, HUDH);
     if (HUD_RING.has(st.id)) drawHudRing(g);
     else if (st.id !== 'BX_FIN' && st.id !== 'BX_T1') drawHudRoom(g);

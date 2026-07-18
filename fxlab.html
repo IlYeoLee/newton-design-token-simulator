@@ -68,7 +68,8 @@
 </header>
 
 <div class="deck">
-  <h3>팔레트 (OKLab 보간)</h3>
+  <button id="wallCtxBtn" style="margin:0 0 14px;padding:7px 14px;border-radius:999px;border:1.5px solid #FE6E3C;background:transparent;color:#FE6E3C;font-weight:700;cursor:pointer;font-size:12.5px">🌞 흰 벽 컨텍스트 보기</button>
+<h3>팔레트 (OKLab 보간)</h3>
   <div class="presets" id="presets"></div>
   <div class="stops" id="stops"></div>
   <div class="sld" style="max-width:340px;margin-top:8px"><label>채도</label>
@@ -1359,6 +1360,13 @@ drawGlyphLib = function() {
   if (typeof updateWarnSDF === 'function') updateWarnSDF();
 };
 setInterval(drawGlyphLib, 700);   // 팔레트·채도 변경 라이브 반영 (경량 2D — 부담 없음)
+// 흰 벽 컨텍스트 토글 — 전 카드 baseBG를 주간 흰 벽으로 (양쪽 검수용)
+document.getElementById('wallCtxBtn')?.addEventListener('click', () => {
+  window.__WALL_LIGHT = !window.__WALL_LIGHT;
+  const b = document.getElementById('wallCtxBtn');
+  b.style.background = window.__WALL_LIGHT ? '#FE6E3C' : 'transparent';
+  b.style.color = window.__WALL_LIGHT ? '#14181F' : '#FE6E3C';
+});
 
 // ═══ 장면 프리미티브 카탈로그 — 세션 컷의 보조 토큰 (LUT 연동) ═══
 const PRIMS = [
