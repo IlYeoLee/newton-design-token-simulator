@@ -1962,7 +1962,10 @@ void main(){
     demoLastT = now;
     if (demoVideo.readyState < 2) return;
     // 잔상 누적 (핑퐁) — 룩 person.decay 라이브 소비
-    trailMat.uniforms.uDecay.value = 0.62 + 0.24 * (FXP.person?.decay ?? 0.6);   // 연속 누적 보정 — 과잉 스미어 방지
+    // 랩 잔상 시맨틱 등가: 랩은 6.7fps 탭 decay^j — 45Hz 연속 누적으로 환산(decay^(1/5.7)).
+    // 0이면 완전 꺼짐 (구 매핑은 바닥 0.62가 있어 랩에서 꺼도 시뮬에 잔상이 남던 버그).
+    const pd = FXP.person?.decay ?? 0.6;
+    trailMat.uniforms.uDecay.value = pd <= 0.001 ? 0 : Math.pow(pd, 1 / 5.7);
     trailMat.uniforms.prev.value = trailRTs[1 - trailFlip].texture;
     const prevT = renderer.getRenderTarget();
     renderer.setRenderTarget(trailRTs[trailFlip]);
