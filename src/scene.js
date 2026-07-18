@@ -154,13 +154,41 @@ export function createScene(container) {
       tex.colorSpace = THREE.SRGBColorSpace;
       surfCache.track = tex;
     }
+    else if (key === 'indoorwood') {
+      // 실내 마루 = 런타임 베이크 (플랭크 + 심 + 결) — 외부 에셋 불필요
+      const c = document.createElement('canvas'); c.width = c.height = 512;
+      const g = c.getContext('2d');
+      const rnd = (() => { let s0 = 7; return () => (s0 = (s0 * 16807) % 2147483647) / 2147483647; })();
+      for (let row = 0; row < 8; row++) {
+        const off = (row % 2) * 128;
+        for (let px = -1; px < 3; px++) {
+          const x = px * 256 + off, y = row * 64;
+          const tone = 0.82 + rnd() * 0.30;
+          g.fillStyle = `rgb(${Math.round(168 * tone)}, ${Math.round(126 * tone)}, ${Math.round(84 * tone)})`;
+          g.fillRect(x, y, 256, 64);
+          g.strokeStyle = 'rgba(70,48,30,0.55)'; g.lineWidth = 2;
+          g.strokeRect(x + 1, y + 1, 254, 62);
+          g.strokeStyle = 'rgba(90,62,40,0.25)'; g.lineWidth = 1;
+          for (let k = 0; k < 4; k++) {
+            const gy = y + 10 + rnd() * 46;
+            g.beginPath(); g.moveTo(x + 6, gy); g.lineTo(x + 250, gy + (rnd() - 0.5) * 6); g.stroke();
+          }
+        }
+      }
+      const tex = new THREE.CanvasTexture(c);
+      tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+      tex.repeat.set(26, 26);
+      tex.anisotropy = 4;
+      tex.colorSpace = THREE.SRGBColorSpace;
+      surfCache.indoorwood = tex;
+    }
     return surfCache[key];
   }
   let surfSeq = 0;
   let curSurfKey = null;   // 현재 투사면 테마 (none=다크) — 주간 하늘 톤이 이걸 따른다
   // 주간 하늘/안개 톤 = 표면 테마 인지: 다크 바닥 위 밝은 하늘은 부조화 (유저 교정 —
   // '바닥은 검정인데 배경이 흰색') → 어두운 표면일 땐 흐린 하늘도 어둡게
-  function daySky() { return (!curSurfKey || curSurfKey === 'none') ? 0x7E858F : 0xB9C0CA; }
+  function daySky() { if (curSurfKey === 'indoor') return 0xEFEBE2; return (!curSurfKey || curSurfKey === 'none') ? 0x7E858F : 0xB9C0CA; }
   function applyDayAmbience() {
     if (!dayMode) return;
     const sky = daySky();
@@ -182,12 +210,19 @@ export function createScene(container) {
       applyDayAmbience();
       return;
     }
-    const [fTex, wTex] = await Promise.all([getSurf(key), getSurf('plaster')]);
+    const [fTex, wTex] = await Promise.all([getSurf(key === 'indoor' ? 'indoorwood' : key), getSurf('plaster')]);
     if (seq !== surfSeq) return;
     floor.material.map = fTex;
-    floor.material.color.setHex(dayMode ? 0xDBDBDB : 0x8a8a8a);   // 주간=약감쇠(v12.4 통일), 야간=톤 다운
     wall.material.map = wTex;
-    wall.material.color.setHex(dayMode ? 0xE2E2E2 : 0x9a9a9a);
+    if (key === 'indoor') {
+      // 실내: 마루 + 형광등 아래 흰백·아이보리 벽 (야간에도 실내등 켜진 밝기)
+      floor.material.color.setHex(dayMode ? 0xF2EDE4 : 0xCEC6B8);
+      wall.material.map = null;                        // 석고 텍스처 톤 다운 제거 — 순백에 가깝게
+      wall.material.color.setHex(dayMode ? 0xFFFDF7 : 0xE8E3D8);
+    } else {
+      floor.material.color.setHex(dayMode ? 0xDBDBDB : 0x8a8a8a);   // 주간=약감쇠(v12.4 통일), 야간=톤 다운
+      wall.material.color.setHex(dayMode ? 0xE2E2E2 : 0x9a9a9a);
+    }
     floor.material.needsUpdate = true;
     wall.material.needsUpdate = true;
     grid.visible = false;                     // 실측 표면엔 그리드 라인 제거

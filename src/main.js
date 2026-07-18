@@ -570,7 +570,10 @@ async function boot() {
     const zU = WALL_Z + dProj;                                 // 유닛 z (인물 앞)
     const tilt = Math.atan2(cy - LENS_H, dProj) * 180 / Math.PI;
     const dCamReq = (1.8 / 2) / Math.tan(CAM_V / 2);           // 전신 프레이밍 최소 거리
-    const standZ = zU + dCamReq;                               // 유저가 서야 할 z (유닛 뒤)
+    // UI 전체 가시 거리: 벽 가로가 편안한 수평 시야(~55°)에 들어오는 최소 거리 (유저 교정:
+    // 'UI 전체를 봐야 하니 뒤로') — 벽으로부터의 거리 기준이라 유닛 z에서 환산
+    const dView = (rig.wallW / 2) / Math.tan(55 / 2 * Math.PI / 180);
+    const standZ = Math.max(zU + dCamReq, WALL_Z + dView);     // 유저가 서야 할 z (유닛 뒤)
     Object.assign(opt, { zU, dProj, tilt, standZ, dCam: dCamReq });
     tokens.stanceOffsetZ = standZ;   // 복싱 스탠스 발판 = 서기 위치 기준
 
@@ -964,7 +967,7 @@ async function boot() {
       designStore.save();
     });
     // 투사면 퀵 칩 — 룩 스튜디오 안 열고도 바닥/벽 테마 전환
-    const SURF_DEFS = [['none', '다크'], ['grass', '잔디'], ['track', '트랙'], ['paving', '보도블럭']];
+    const SURF_DEFS = [['none', '다크'], ['indoor', '실내'], ['grass', '잔디'], ['track', '트랙'], ['paving', '보도블럭']];
     const surfWrap = document.getElementById('surf-chips');
     function updateSurfChips(key) {
       surfWrap?.querySelectorAll('button').forEach(b => {
@@ -1988,7 +1991,7 @@ void main(){
   // 실시간 세그 실사는 기각(구멍·플리커·프레임 드랍 — 스톡 다수로 실증). 'wall'은
   // 사전에 매트를 구운 소스(알파 영상/스틸 시퀀스)가 준비된 경우에만 켠다.
   const DEMO_CLIP_MODE = 'wall';   // 크로마 코치 가동 (그린스크린 실사 — Magnific/Freepik 무료)
-  const GHOST_H = 1.9;             // 고스트 패널 세로(m) — 벽 2.0m 안, 실키 ≈1.75m
+  const GHOST_H = 1.5;             // 고스트 패널 세로(m) — 벽 1.63m 안 (자취방 스케일)
   // ── 스테이지별 고스트 클립 (유저 AI 크로마 소스 반입 지점) ──────────────────
   //    public/ghost/<파일명>에 떨어뜨리면 코드 수정 없이 스테이지 전환 시 자동 교체.
   //    파일 없음(404) → 기본 클립 폴백. 스펙·프롬프트 = docs/ghost-clips.md
@@ -2247,16 +2250,306 @@ void main(){
     hudLine(g, 1480, 985, 1130, 800, 3, 0.4);
     hudLine(g, 470, 800, 1130, 800, 3, 0.4);
   }
+  // 보조 드로어 (피그마 컴포넌트 1:1)
+  function hudLockup(g, eyebrow, title) {
+    g.textAlign = 'center';
+    if (eyebrow) {
+      g.fillStyle = '#ff9447'; g.font = '500 26px Pretendard, sans-serif';
+      g.fillText(eyebrow, 800, 88);
+    }
+    g.fillStyle = HUD_MAIN; g.font = '700 58px Pretendard, sans-serif';
+    g.fillText(title, 800, 152);
+  }
+  function hudCaption(g, text) {
+    g.font = '700 24px Pretendard, sans-serif';
+    const w = g.measureText(text).width + 56;
+    hudGlass(g, 800 - w / 2, 916, w, 50, 25);
+    g.fillStyle = HUD_MAIN; g.textAlign = 'center';
+    g.fillText(text, 800, 949);
+  }
+  function hudCTA(g, text, y) {
+    g.font = '700 24px Pretendard, sans-serif';
+    const w = g.measureText(text).width + 56;
+    const yy = y ?? 908;
+    g.beginPath(); g.roundRect(800 - w / 2, yy, w, 50, 25);
+    g.fillStyle = 'rgba(33,204,219,0.13)'; g.fill();
+    g.strokeStyle = HUD_CYAN; g.lineWidth = 2; g.stroke();
+    g.fillStyle = HUD_CYAN; g.textAlign = 'center';
+    g.fillText(text, 800, yy + 33);
+  }
+  function hudPhaseDots(g, cx, y, active) {
+    const names = 4;
+    for (let i = 0; i < names; i++) {
+      g.beginPath(); g.arc(cx + i * 46, y, 8, 0, 6.284);
+      g.fillStyle = i === active ? HUD_MAIN : 'rgba(255,148,71,0.3)';
+      g.fill();
+    }
+  }
+  function hudArc(g, cx, cy, r, frac, wd, col) {
+    g.strokeStyle = 'rgba(255,148,71,0.28)'; g.lineWidth = wd;
+    g.beginPath(); g.arc(cx, cy, r, 0, 6.284); g.stroke();
+    g.strokeStyle = col; g.lineCap = 'round';
+    g.beginPath(); g.arc(cx, cy, r, -1.5708, -1.5708 + 6.283 * Math.min(1, frac)); g.stroke();
+    g.lineCap = 'butt';
+  }
+  function drawStage(g, id, tS) {
+    const R = judge.lastReport;
+    const pct = R?.matchPct ?? 84;
+    switch (id) {
+      case 'BX_READY': {
+        hudLockup(g, '섀도복싱 · 잽', '가드 올리고 READY');
+        hudTag(g, 800, '상대 — 맞서세요', HUD_MAIN);
+        // 좌상: 스테이지 + 페이즈 도트
+        g.textAlign = 'left'; g.fillStyle = HUD_MAIN;
+        g.font = '700 34px Pretendard, sans-serif'; g.fillText('0 · 준비', 64, 92);
+        hudPhaseDots(g, 72, 122, 0);
+        g.fillStyle = '#ff9447'; g.font = '500 20px Pretendard, sans-serif';
+        g.fillText('가드 · 거리 재기', 64, 160);
+        // 우상: 링 거리 + 웨어러블
+        g.textAlign = 'right'; g.fillStyle = HUD_MAIN;
+        g.font = '700 64px Pretendard, sans-serif'; g.fillText('1.93', 1520, 108);
+        g.font = '500 22px Pretendard, sans-serif'; g.fillStyle = '#ff9447';
+        g.fillText('m — 링에 서기', 1520, 142);
+        g.font = '700 18px Pretendard, sans-serif';
+        const wtxt = '웨어러블 안전 모드';
+        const ww = g.measureText(wtxt).width + 40;
+        g.beginPath(); g.roundRect(1520 - ww, 166, ww, 38, 19);
+        g.strokeStyle = HUD_CYAN; g.lineWidth = 1.5; g.stroke();
+        g.fillStyle = HUD_CYAN; g.textAlign = 'center';
+        g.fillText(wtxt, 1520 - ww / 2, 191);
+        // 중앙 하단: TAP 링 2 + CTA
+        for (const [x, a] of [[750, 0.5], [850, 0.95]]) {
+          g.globalAlpha = a; g.strokeStyle = HUD_CYAN; g.lineWidth = 5;
+          g.beginPath(); g.arc(x, 844, 38, 0, 6.284); g.stroke();
+          g.globalAlpha = 1;
+        }
+        hudCTA(g, 'TAP ×2 — 발 두 번 탭 → 시작', 916);
+        // 우하: 가드 브래킷 + 카피
+        g.strokeStyle = HUD_MAIN; g.lineWidth = 4;
+        const bx = 1372, by = 830, bw = 64, bh = 54, L = 16;
+        for (const [px, py, sx, sy] of [[bx, by, 1, 1], [bx + bw, by, -1, 1], [bx, by + bh, 1, -1], [bx + bw, by + bh, -1, -1]]) {
+          g.beginPath(); g.moveTo(px + sx * L, py); g.lineTo(px, py); g.lineTo(px, py + sy * L); g.stroke();
+        }
+        g.fillStyle = HUD_MAIN; g.textAlign = 'left';
+        g.font = '700 26px Pretendard, sans-serif'; g.fillText('가드 올리기', 1372, 930);
+        break;
+      }
+      case 'BX_A1': case 'BX_A2': case 'BX_A3': case 'BX_B1': case 'BX_B3': {
+        const LOCK = {
+          BX_A1: ['몸풀기 1/3', '목·어깨 돌리기', '천천히 크게 — 따라 하세요'],
+          BX_A2: ['몸풀기 2/3', '스텝 인·아웃', '앞뒤 6회 — 무게는 앞발에'],
+          BX_A3: ['몸풀기 3/3', '잽 폼 가볍게', '어깨에서 뻗고 바로 회수'],
+          BX_B1: ['익히기 1/3', '가드 유지', '가드 박스 안에 주먹 유지 — 링이 찰 때까지'],
+          BX_B3: ['익히기 3/3', '잽 스윕', '스윕 따라 — 열리면 잽'],
+        }[id];
+        const goal = HUD_GOALS[id];
+        // 워터마크 (요소들보다 먼저 = 뒤)
+        g.fillStyle = HUD_MAIN; g.globalAlpha = 0.12;
+        g.font = '700 560px Pretendard, sans-serif'; g.textAlign = 'center';
+        g.fillText(String(goal[1]).padStart(2, '0'), 800, 700);
+        g.globalAlpha = 1;
+        hudLockup(g, LOCK[0], LOCK[1]);
+        hudTag(g, 366, '코치 — 따라 하세요', HUD_MAIN);
+        hudTag(g, 1234, '내 자세', HUD_CYAN);
+        const mine = id === 'BX_B1' ? (tS % 4).toFixed(1) : Math.min(goal[1], Math.floor(tS / 2.2));
+        g.textAlign = 'left';
+        hudStat(g, 127, goal[0], goal[1] + goal[2], HUD_MAIN, null);
+        hudStat(g, 992, '내 기록', mine + goal[2], HUD_CYAN, (parseFloat(mine) || 0) / goal[1]);
+        if (id === 'BX_A2') {
+          for (let i = 0; i < 6; i++) {
+            const lit = i < (Math.floor(tS / 1.6) % 7);
+            g.fillStyle = lit ? HUD_MAIN : 'rgba(255,148,71,0.25)';
+            g.beginPath(); g.roundRect(660 + i * 50, 764, 40, 12, 4); g.fill();
+          }
+        }
+        if (id === 'BX_B3') {
+          for (let i = 0; i < 12; i++) {
+            const lit = i < (tS * 1.8) % 13;
+            g.fillStyle = lit ? HUD_MAIN : 'rgba(255,148,71,0.25)';
+            g.beginPath(); g.roundRect(240 + i * 34, 430, 26, 10, 4); g.fill();
+          }
+        }
+        // 내 자세 슬롯 (비전 미구현 — 점선)
+        g.strokeStyle = HUD_CYAN; g.setLineDash([10, 10]); g.globalAlpha = 0.5; g.lineWidth = 2.5;
+        g.strokeRect(1008, 180, 452, 616);
+        g.setLineDash([]); g.globalAlpha = 1;
+        hudCaption(g, LOCK[2]);
+        break;
+      }
+      case 'BX_B2': {
+        hudLockup(g, '익히기 2/3', '회피 슬립');
+        hudTag(g, 800, '상대 — 맞서세요', HUD_MAIN);
+        for (const [x, ar] of [[120, '←'], [1240, '→']]) {
+          g.strokeStyle = HUD_CYAN; g.setLineDash([10, 10]); g.lineWidth = 3; g.globalAlpha = 0.7;
+          g.beginPath(); g.roundRect(x, 300, 240, 420, 24); g.stroke();
+          g.setLineDash([]); g.globalAlpha = 1;
+          g.fillStyle = HUD_CYAN; g.font = '700 72px Pretendard, sans-serif'; g.textAlign = 'center';
+          g.fillText(ar, x + 120, 540);
+        }
+        // 주먹 온다! 경고 (박자 점멸)
+        if (Math.sin(tS * 6.4) > -0.2) {
+          g.font = '700 26px Pretendard, sans-serif';
+          const wt = '주먹 온다!';
+          const ww2 = g.measureText(wt).width + 36;
+          g.fillStyle = '#ff3b33';
+          g.beginPath(); g.roundRect(900, 300, ww2, 48, 10); g.fill();
+          g.fillStyle = '#fff3ec'; g.textAlign = 'left';
+          g.fillText(wt, 918, 333);
+        }
+        hudCaption(g, '주먹 온다 — 점선 존 밖으로 슬립');
+        break;
+      }
+      case 'BX_T1': {
+        g.fillStyle = HUD_MAIN; g.textAlign = 'center';
+        g.font = '700 96px Pretendard, sans-serif';
+        g.fillText('몸풀기 끝!', 800, 430);
+        g.fillStyle = '#ff9447'; g.font = '500 30px Pretendard, sans-serif';
+        g.fillText('몸 풀렸어요 — 다음: 사전 익히기', 800, 500);
+        hudPhaseDots(g, 800 - 69, 560, 1);
+        hudCTA(g, 'TAP ×2 — 탭 두 번 → 사전 익히기', 620);
+        break;
+      }
+      case 'BX_T2': {
+        hudTag(g, 800, '상대 — 맞서세요', HUD_MAIN);
+        const remain = Math.max(0, 5 - tS);
+        hudArc(g, 270, 410, 105, remain / 5, 12, HUD_MAIN);
+        g.fillStyle = HUD_MAIN; g.textAlign = 'center';
+        g.font = '700 110px Pretendard, sans-serif';
+        g.fillText(String(Math.ceil(remain)), 270, 450);
+        g.fillStyle = '#ff9447'; g.font = '500 28px Pretendard, sans-serif';
+        g.fillText('5초 뒤 실전', 270, 570);
+        hudCTA(g, 'TAP ×2 — 두 번 탭 = 바로', 908);
+        break;
+      }
+      case 'BX_C1': {
+        hudTag(g, 800, '상대 — 맞서세요', HUD_MAIN);
+        const n = Math.max(1, 3 - Math.floor(tS));
+        g.fillStyle = HUD_MAIN; g.textAlign = 'center';
+        g.font = '700 300px Pretendard, sans-serif';
+        g.fillText(String(n), 300, 560);
+        g.fillStyle = '#ff9447'; g.font = '500 30px Pretendard, sans-serif';
+        g.fillText('실전 시작 전', 300, 640);
+        break;
+      }
+      case 'BX_C2': {
+        hudTag(g, 800, '상대 — 맞서세요', HUD_MAIN);
+        g.textAlign = 'right'; g.fillStyle = HUD_MAIN;
+        g.font = '700 96px Pretendard, sans-serif';
+        g.fillText(pct + '%', 1520, 140);
+        g.font = '500 22px Pretendard, sans-serif'; g.globalAlpha = 0.85;
+        g.fillText('정확도', 1520, 176); g.globalAlpha = 1;
+        g.textAlign = 'left'; g.fillStyle = HUD_CYAN;
+        g.font = '700 54px Pretendard, sans-serif';
+        g.fillText('0:' + String(Math.floor(tS)).padStart(2, '0'), 64, 110);
+        g.fillStyle = HUD_MAIN; g.font = '500 24px Pretendard, sans-serif'; g.globalAlpha = 0.85;
+        g.fillText('실전 라운드', 64, 148); g.globalAlpha = 1;
+        // 우하: 잽 빠르기 + 세그
+        g.fillStyle = HUD_MAIN; g.font = '700 84px Pretendard, sans-serif';
+        g.fillText('7.2', 1130, 800);
+        g.font = '500 22px Pretendard, sans-serif'; g.globalAlpha = 0.85;
+        g.fillText('잽 빠르기 m/s', 1136, 836); g.globalAlpha = 1;
+        for (let i = 0; i < 10; i++) {
+          g.fillStyle = i < 7 ? HUD_MAIN : 'rgba(255,148,71,0.25)';
+          g.beginPath(); g.roundRect(1130 + i * 34, 856, 30, 12, 4); g.fill();
+        }
+        g.fillStyle = HUD_MAIN; g.font = '700 60px Pretendard, sans-serif';
+        g.fillText('×3', 64, 840);
+        g.font = '500 22px Pretendard, sans-serif'; g.globalAlpha = 0.85;
+        g.fillText('콤보 · 12번 맞힘', 64, 876); g.globalAlpha = 1;
+        hudCaption(g, '타겟 뜨면 바로 잽');
+        break;
+      }
+      case 'BX_C3': {
+        hudTag(g, 800, '상대 — 맞서세요', HUD_MAIN);
+        g.font = '700 20px Pretendard, sans-serif';
+        const bt = '콤보 — 속도 올라감';
+        const bw2 = g.measureText(bt).width + 32;
+        g.fillStyle = HUD_CYAN;
+        g.beginPath(); g.roundRect(120, 250, bw2, 40, 8); g.fill();
+        g.fillStyle = '#04252a'; g.textAlign = 'left';
+        g.fillText(bt, 136, 277);
+        const chips = ['잽', '잽', '훅'];
+        const litN = Math.floor(tS * 1.4) % 4;
+        let cx0 = 120;
+        for (let i = 0; i < 3; i++) {
+          g.font = '700 28px Pretendard, sans-serif';
+          const cw = g.measureText(chips[i]).width + 44;
+          if (i < litN) {
+            g.fillStyle = HUD_MAIN;
+            g.beginPath(); g.roundRect(cx0, 310, cw, 58, 12); g.fill();
+            g.fillStyle = '#2b0d02';
+          } else {
+            g.strokeStyle = 'rgba(255,148,71,0.5)'; g.lineWidth = 2;
+            g.beginPath(); g.roundRect(cx0, 310, cw, 58, 12); g.stroke();
+            g.fillStyle = '#ff9447';
+          }
+          g.fillText(chips[i], cx0 + 22, 350);
+          cx0 += cw + 24;
+        }
+        g.fillStyle = HUD_MAIN; g.textAlign = 'right';
+        g.font = '700 96px Pretendard, sans-serif';
+        g.fillText('×5', 1520, 140);
+        g.font = '500 22px Pretendard, sans-serif'; g.globalAlpha = 0.85;
+        g.fillText('연속 성공', 1520, 176); g.globalAlpha = 1;
+        hudCaption(g, '잽-잽-훅 — 리듬 놓치지 말고');
+        break;
+      }
+      case 'BX_C4': {
+        hudLockup(g, '마무리', '가드 내리고 숨 고르기');
+        const br = 1 + 0.25 * Math.sin(tS * 1.05);
+        for (const [r0, a] of [[130, 0.2], [100, 0.45], [75, 0.9]]) {
+          g.strokeStyle = HUD_CYAN; g.globalAlpha = a; g.lineWidth = 4;
+          g.beginPath(); g.arc(300, 480, r0 * br, 0, 6.284); g.stroke();
+          g.globalAlpha = 1;
+        }
+        g.fillStyle = HUD_CYAN; g.textAlign = 'center';
+        g.font = '500 24px Pretendard, sans-serif';
+        g.fillText('들숨 — 링 따라 크게', 300, 660);
+        g.fillStyle = HUD_MAIN; g.textAlign = 'right';
+        g.font = '700 64px Pretendard, sans-serif';
+        g.fillText('118 ↓', 1520, 860);
+        g.font = '500 22px Pretendard, sans-serif'; g.globalAlpha = 0.85;
+        g.fillText('심박 회복', 1520, 896); g.globalAlpha = 1;
+        break;
+      }
+      case 'BX_FIN': {
+        hudGlass(g, 460, 130, 680, 640, 28);
+        g.textAlign = 'left'; g.fillStyle = '#ff9447';
+        g.font = '500 26px Pretendard, sans-serif';
+        g.fillText('오늘의 결과', 520, 200);
+        g.fillStyle = HUD_MAIN; g.font = '700 150px Pretendard, sans-serif';
+        g.fillText(pct + '%', 512, 350);
+        g.font = '500 26px Pretendard, sans-serif';
+        g.fillText('정확도 — 지난번보다 +6%', 520, 400);
+        const ROWS = [['12번 맞힘', '맞힌 잽'], ['×5', '최고 콤보'], ['7.2 m/s', '평균 잽 빠르기'], ['132→118', '심박 회복']];
+        ROWS.forEach(([v, k], i) => {
+          g.fillStyle = HUD_MAIN; g.font = '700 40px Pretendard, sans-serif';
+          g.fillText(v, 520, 470 + i * 62);
+          g.fillStyle = '#ff9447'; g.font = '500 24px Pretendard, sans-serif';
+          g.fillText(k, 800, 470 + i * 62);
+        });
+        g.fillStyle = HUD_CYAN; g.textAlign = 'center';
+        g.font = '500 26px Pretendard, sans-serif';
+        g.fillText('다시보기 — 코치 잽과 내 자세 겹쳐 보기 →', 800, 850);
+        break;
+      }
+    }
+  }
   let hudLastT = 0, hudStageT0 = 0, hudStageId = '';
   function renderWallHUD() {
     const st = session.active && state.pack === 'boxing' ? session.curStage : null;
-    const on = !!st && (HUD_MIRROR.has(st.id) || HUD_RING.has(st.id));
+    const on = !!st && st.id?.startsWith('BX_');
     hudPanel.visible = on;
+    // 구 벽 텍스트 시스템 중복 억제 (복싱 = HUD가 록업·자막 담당)
+    if (state.pack === 'boxing') {
+      for (const s of [session.wSlotFS, session.wSlotFL, session.wSlotFM]) if (s) s.visible = s.visible && !on;
+    }
     if (!on) return;
     if (rig.wallClip && hudPanel.material.clippingPlanes !== rig.wallClip)
       hudPanel.material.clippingPlanes = rig.wallClip;
     const wc = rig._wallCenter;
-    hudPanel.position.set(wc ? wc.cx : 0, ((wc?.cy ?? 1.4) - rig.wallH / 2) + 1.0, WALL_Z + 0.028);
+    hudPanel.scale.set(rig.wallW / 3.2, rig.wallH / 2.0, 1);   // 캔버스 1600×1000 = 벽 전체 추종
+    hudPanel.position.set(wc ? wc.cx : 0, ((wc?.cy ?? 1.4) - rig.wallH / 2) + rig.wallH / 2, WALL_Z + 0.028);
     const now = performance.now() / 1000;
     if (st.id !== hudStageId) { hudStageId = st.id; hudStageT0 = now; }
     if (now - hudLastT < 1 / 15) return;
@@ -2264,44 +2557,9 @@ void main(){
     const tS = now - hudStageT0;
     const g = hudCtx;
     g.clearRect(0, 0, HUDW, HUDH);
-    if (HUD_RING.has(st.id)) {
-      drawHudRing(g);
-      hudTag(g, 800, '상대 — 맞서세요', HUD_MAIN);
-      // 우상: 정확도 (judge 실측 있으면 사용)
-      const pct = judge.lastReport?.matchPct ?? 84;
-      g.textAlign = 'right'; g.fillStyle = HUD_MAIN;
-      g.font = '700 96px Pretendard, sans-serif';
-      g.fillText(pct + '%', 1520, 140);
-      g.font = '500 22px Pretendard, sans-serif'; g.globalAlpha = 0.85;
-      g.fillText('정확도', 1520, 176); g.globalAlpha = 1;
-      // 좌상: 라운드 타이머
-      g.textAlign = 'left'; g.fillStyle = HUD_CYAN;
-      g.font = '700 54px Pretendard, sans-serif';
-      const mm = Math.floor(tS / 60), ss = String(Math.floor(tS % 60)).padStart(2, '0');
-      g.fillText(mm + ':' + ss, 64, 110);
-      g.fillStyle = HUD_MAIN; g.font = '500 24px Pretendard, sans-serif'; g.globalAlpha = 0.85;
-      g.fillText('실전 라운드', 64, 148); g.globalAlpha = 1;
-    } else {
-      drawHudRoom(g);
-      // 워터마크 (인물 뒤 — HUD 패널이 고스트보다 뒤 renderOrder라 자연 레이어)
-      const goal = HUD_GOALS[st.id] || ['목표', 6, ''];
-      g.fillStyle = HUD_MAIN; g.globalAlpha = 0.12;
-      g.font = '700 560px Pretendard, sans-serif'; g.textAlign = 'center';
-      g.fillText(String(goal[1]).padStart(2, '0'), 800, 700);
-      g.globalAlpha = 1;
-      hudTag(g, 366, '코치 — 따라 하세요', HUD_MAIN);
-      hudTag(g, 1234, '내 자세', HUD_CYAN);
-      // 스탯 패널: 목표(좌) / 내 기록(우, 목 카운트 = 스테이지 경과 기반 목업)
-      const mine = st.id === 'BX_B1' ? Math.min(goal[1], tS % 4).toFixed(1) : Math.min(goal[1], Math.floor(tS / 2.2));
-      g.textAlign = 'left';
-      hudStat(g, 127, goal[0], goal[1] + goal[2], HUD_MAIN, null);
-      hudStat(g, 992, '내 기록', mine + goal[2], HUD_CYAN, (parseFloat(mine) || 0) / goal[1]);
-      // 내 자세 미러 자리 (비전 미구현 — 점선 슬롯)
-      g.strokeStyle = HUD_CYAN; g.setLineDash([10, 10]);
-      g.globalAlpha = 0.5; g.lineWidth = 2.5;
-      g.strokeRect(1008, 36, 452, 760);
-      g.setLineDash([]); g.globalAlpha = 1;
-    }
+    if (HUD_RING.has(st.id)) drawHudRing(g);
+    else if (st.id !== 'BX_FIN' && st.id !== 'BX_T1') drawHudRoom(g);
+    drawStage(g, st.id, tS);
     hudTex.needsUpdate = true;
   }
 
