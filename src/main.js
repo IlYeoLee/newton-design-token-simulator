@@ -2049,28 +2049,33 @@ void main(){
   //    잔상 = 아틀라스 과거 프레임 3탭 (랩 그대로 — 핑퐁 불필요). 출력만 가산광(라이브 규약).
   // 코치 소스 = 외부 실사 영상의 '사전 베이크' 마스크 아틀라스 (오프라인 세그+EMA — 런타임 세그 0회)
   //   bx_2161 워밍업 → 64프레임 @15fps, 8×8 그리드 200×112. 재베이크: __bakeStep 시퀀스(메모리 (140)).
-  const COACH = { url: 'person/coach_mask_atlas.png', cols: 8, rows: 8, n: 64, fps: 15, direct: 1, tileAR: 200 / 112 };
-  const bxAtlas = document.createElement('canvas'); bxAtlas.width = 1600; bxAtlas.height = 896;
+  // 코치 기본 = 정본 스틸(검증된 미학). 크로마키/알파 실사 소스가 확보되면 COACH만 교체:
+  //   { url:'person/coach_mask_atlas.png', cols:8, rows:8, n:64, fps:15, direct:1 } (베이크 절차 = 메모리 (140))
+  const COACH = { stills: true, cols: 4, rows: 2, n: 8, fps: 1000 / 150, direct: 0 };
+  const bxAtlas = document.createElement('canvas'); bxAtlas.width = 176 * 4; bxAtlas.height = 288 * 2;
   const bxAtlasTex = new THREE.CanvasTexture(bxAtlas);
   bxAtlasTex.flipY = false;   // 캔버스 y-다운 규약 (tileUV가 1-uv.y 플립)
   bxAtlasTex.minFilter = THREE.LinearFilter; bxAtlasTex.magFilter = THREE.LinearFilter;
   let bxPersonReady = false;
   {
-    const im = new Image();
-    im.src = import.meta.env.BASE_URL + COACH.url;
-    im.onload = () => {
-      bxAtlas.width = im.width; bxAtlas.height = im.height;
-      bxAtlas.getContext('2d').drawImage(im, 0, 0);
-      bxAtlasTex.needsUpdate = true; bxPersonReady = true;
-    };
+    const ag = bxAtlas.getContext('2d');
+    let loaded = 0;
+    for (let i = 0; i < 8; i++) {
+      const im = new Image();
+      im.src = import.meta.env.BASE_URL + 'person/boxer_' + i + '.jpg';
+      im.onload = () => {
+        ag.drawImage(im, (i % 4) * 176, Math.floor(i / 4) * 288, 176, 288);
+        if (++loaded === 8) { bxAtlasTex.needsUpdate = true; bxPersonReady = true; }
+      };
+    }
   }
   const bxPerson = new THREE.Mesh(
-    new THREE.PlaneGeometry(1.35 * (200 / 112), 1.35),   // 베이크 타일 종횡비 × 세로 1.35m
+    new THREE.PlaneGeometry(1.7 * 176 / 288, 1.7),   // 스틸 타일 종횡비 × 실신장 1.7m
     new THREE.ShaderMaterial({
       uniforms: {
         uAtlas: { value: bxAtlasTex }, uLUT: { value: getLUT() },
         uFrame: { value: 0 }, uDecay: { value: 0.6 }, uTime: { value: 0 },
-        uCols: { value: 8 }, uRows: { value: 8 }, uN: { value: 64 }, uDirect: { value: 1 },
+        uCols: { value: COACH.cols }, uRows: { value: COACH.rows }, uN: { value: COACH.n }, uDirect: { value: COACH.direct },
         uW: { value: 1 }, uNoise: { value: 0.55 },
       },
       vertexShader: `#include <common>
@@ -2148,7 +2153,7 @@ void main(){
     if (!on) return;
     if (rig.wallClip && bxPerson.material.clippingPlanes !== rig.wallClip) bxPerson.material.clippingPlanes = rig.wallClip;
     const wc = rig._wallCenter;
-    bxPerson.position.set(wc ? wc.cx : 0, 1.35 / 2 + 0.28, WALL_Z + 0.03);   // 유저 정면 = 벽 중심 추종
+    bxPerson.position.set(wc ? wc.cx : 0, 1.7 / 2 + 0.12, WALL_Z + 0.03);   // 유저 정면 = 벽 중심 추종
     const U = bxPerson.material.uniforms;
     const ms = performance.now();
     U.uFrame.value = (ms / 1000 * COACH.fps) % COACH.n;
