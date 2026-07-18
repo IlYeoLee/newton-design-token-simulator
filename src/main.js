@@ -1876,11 +1876,32 @@ async function boot() {
   const trailQuadCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
   const trailScene = new THREE.Scene();
   trailScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), trailMat));
+  // 열 필드 = 마스크의 진짜 가우시안 확산 (저해상 128×192, 분리형 3회 반복 — 탭 클럼프 근절)
+  const heatRTs = [0, 1].map(() => new THREE.WebGLRenderTarget(128, 192));
+  const heatMaskMat = new THREE.ShaderMaterial({
+    uniforms: { tex: { value: demoTex }, uCropC: { value: new THREE.Vector2(0.5, 0.5) }, uCropS: { value: new THREE.Vector2(1, 1) } },
+    vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }',
+    fragmentShader: 'varying vec2 vUv;\n' + MASK_GLSL + '\nvoid main(){ gl_FragColor = vec4(pmask(vUv), 0.0, 0.0, 1.0); }',
+    depthTest: false, depthWrite: false,
+  });
+  const heatBlurMat = new THREE.ShaderMaterial({
+    uniforms: { tex: { value: null }, uDir: { value: new THREE.Vector2(1, 0) }, uStep: { value: 3 } },
+    vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }',
+    fragmentShader: `varying vec2 vUv; uniform sampler2D tex; uniform vec2 uDir; uniform float uStep;
+      void main(){
+        vec2 px = uDir * uStep / vec2(128.0, 192.0);
+        float s = texture2D(tex, vUv).r * 0.227;
+        s += (texture2D(tex, vUv + px * 1.385).r + texture2D(tex, vUv - px * 1.385).r) * 0.3165;
+        s += (texture2D(tex, vUv + px * 3.23).r + texture2D(tex, vUv - px * 3.23).r) * 0.070;
+        gl_FragColor = vec4(s, 0.0, 0.0, 1.0);
+      }`,
+    depthTest: false, depthWrite: false,
+  });
   const demoPanel = new THREE.Mesh(
     new THREE.PlaneGeometry(0.62, 0.93),   // 세로 카드 (영상 세로 프레이밍)
     new THREE.ShaderMaterial({
       uniforms: {
-        tex: { value: demoTex }, uTrail: { value: trailRTs[0].texture }, uLUT: { value: getLUT() },
+        tex: { value: demoTex }, uTrail: { value: trailRTs[0].texture }, uHeat: { value: heatRTs[0].texture }, uLUT: { value: getLUT() },
         uTime: { value: 0 }, uNoise: { value: 0.55 }, uW: { value: 1 }, uDetail: { value: 0.62 }, uTrailGain: { value: 1 }, uGrain: { value: 0 }, uTone: { value: 0 },
         uCropC: { value: new THREE.Vector2(0.5, 0.5) }, uCropS: { value: new THREE.Vector2(1, 1) },
       },
@@ -1896,21 +1917,10 @@ void main(){
       fragmentShader: `#include <common>
 #include <clipping_planes_pars_fragment>
         varying vec2 vUv;
-        uniform sampler2D uTrail, uLUT; uniform float uTime, uNoise, uW, uDetail, uTrailGain, uGrain, uTone;
+        uniform sampler2D uTrail, uLUT, uHeat; uniform float uTime, uNoise, uW, uDetail, uTrailGain, uGrain, uTone;
         vec3 lut(float v){ return texture2D(uLUT, vec2(clamp(v, 0.004, 0.996), 0.5)).rgb; }
         ` + FX_GLSL.replace('uniform sampler2D uLUT;', '').replace('vec3 lut(float v){ return texture2D(uLUT, vec2(clamp(v, 0.004, 0.996), 0.5)).rgb; }', '') + `
         ` + MASK_GLSL + `
-        float pheat(vec2 uv){
-          // 온도원 = 마스크 × 실사 밝기(uDetail=밝기 영향도) — 내부 온도 요동의 근원
-          vec2 vuv = uCropC + (uv - 0.5) * uCropS;
-          if (vuv.x < 0.0 || vuv.x > 1.0 || vuv.y < 0.0 || vuv.y > 1.0) return 0.0;
-          vec3 c = texture2D(tex, vuv).rgb;
-          float k = c.g - max(c.r, c.b);
-          float mm = 1.0 - smoothstep(0.05, 0.16, k);
-          mm *= smoothstep(0.0, 0.03, uv.y) * smoothstep(1.0, 0.97, uv.y);
-          float lum = dot(c, vec3(0.299, 0.587, 0.114));
-          return mm * mix(1.0, 0.30 + 0.70 * lum, clamp(uDetail * 1.4, 0.0, 1.0));
-        }
         vec3 thermo(float h){
           // 확산 유리 열화상 램프 — 랩 PERSON_FRAG thermo()와 동일 상수 (레퍼런스 확정 2026-07-18)
           h = clamp(h, 0.0, 1.0);
@@ -1927,19 +1937,15 @@ void main(){
           vec2 uv = vUv;
           float m = pmask(uv);
           float trail = texture2D(uTrail, uv).r * (1.0 - m) * uTrailGain;
-          // 확산 유리 열 필드 v2: 온도원 = 마스크×실사 밝기 (내부가 구름처럼 요동,
-          // 얇은 팔다리는 블러 확산으로 식어 주황·적색 — 레퍼런스의 핵심 조리법)
-          float R = 0.05 + 0.08 * uW;
-          float H = pheat(uv) * 0.10;
-          for (int k = 0; k < 8; k++) {
-            float a = 0.7854 * float(k);
-            H += pheat(uv + vec2(cos(a), sin(a)) * R * 0.45) * 0.048;
-            H += pheat(uv + vec2(cos(a + 0.3927), sin(a + 0.3927)) * R) * 0.040;
-            H += pheat(uv + vec2(cos(a + 0.19), sin(a + 0.19)) * R * 1.9) * 0.0245;
-          }
+          // 확산 유리 열 필드 v3: 가우시안 RT 체인 샘플 — 두께=온도, 매끈한 연속 필드
+          float H = texture2D(uHeat, uv).r;
           float flow = fxfbm(vec2(uv.x * 3.2 + sin(uTime * 0.4) * 0.3, uv.y * 2.4 - uTime * 0.5));
-          H *= 1.0 + (flow - 0.5) * uNoise * 0.6;
-          H = clamp(H * 1.15, 0.0, 1.0);
+          H *= 1.0 + (flow - 0.5) * uNoise * 0.5;
+          H = clamp(H * 1.30, 0.0, 1.0);
+          // 미세 결(uDetail 소량) — 옷 블록 방지 위해 약하게만
+          vec2 dvuv = uCropC + (uv - 0.5) * uCropS;
+          float dlum = dot(texture2D(tex, clamp(dvuv, 0.0, 1.0)).rgb, vec3(0.299, 0.587, 0.114));
+          H = clamp(H + (dlum - 0.5) * uDetail * 0.3 * m, 0.0, 1.0);
           H = max(H, trail * 0.75);
           vec3 col = mix(thermo(H), lut(clamp(H * 0.96, 0.0, 1.0)), uTone);   // 뉴턴톤 = 룩 팔레트 열화상
           col += (fxhash(uv * 977.0 + uTime) - 0.5) * (2.0 / 255.0);
@@ -2037,6 +2043,7 @@ void main(){
       const A = 9 / 16, va = demoVideo.videoWidth / demoVideo.videoHeight;
       const s = va > A ? [A / va, 1] : [1, va / A];
       trailMat.uniforms.uCropS.value.set(s[0], s[1]);
+      heatMaskMat.uniforms.uCropS.value.set(s[0], s[1]);
       demoPanel.material.uniforms.uCropS.value.set(s[0], s[1]);
     });
   }
@@ -2082,6 +2089,19 @@ void main(){
     const prevT = renderer.getRenderTarget();
     renderer.setRenderTarget(trailRTs[trailFlip]);
     renderer.render(trailScene, trailQuadCam);
+    // 열 필드 확산: 마스크 → 분리형 가우시안 ×3 반복 (128×192)
+    const fxQuad = trailScene.children[0];
+    fxQuad.material = heatMaskMat;
+    renderer.setRenderTarget(heatRTs[0]); renderer.render(trailScene, trailQuadCam);
+    heatBlurMat.uniforms.uStep.value = 1.4 + 2.4 * (FXP.person?.blur ?? 1);
+    fxQuad.material = heatBlurMat;
+    for (let i = 0; i < 3; i++) {
+      heatBlurMat.uniforms.tex.value = heatRTs[0].texture; heatBlurMat.uniforms.uDir.value.set(1, 0);
+      renderer.setRenderTarget(heatRTs[1]); renderer.render(trailScene, trailQuadCam);
+      heatBlurMat.uniforms.tex.value = heatRTs[1].texture; heatBlurMat.uniforms.uDir.value.set(0, 1);
+      renderer.setRenderTarget(heatRTs[0]); renderer.render(trailScene, trailQuadCam);
+    }
+    fxQuad.material = trailMat;
     renderer.setRenderTarget(prevT);
     const PU = demoPanel.material.uniforms;
     PU.uTrail.value = trailRTs[trailFlip].texture;
