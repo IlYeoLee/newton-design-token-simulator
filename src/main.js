@@ -1881,7 +1881,7 @@ async function boot() {
     new THREE.ShaderMaterial({
       uniforms: {
         tex: { value: demoTex }, uTrail: { value: trailRTs[0].texture }, uLUT: { value: getLUT() },
-        uTime: { value: 0 }, uNoise: { value: 0.55 }, uW: { value: 1 }, uDetail: { value: 0.62 },
+        uTime: { value: 0 }, uNoise: { value: 0.55 }, uW: { value: 1 }, uDetail: { value: 0.62 }, uTrailGain: { value: 1 },
         uCropC: { value: new THREE.Vector2(0.5, 0.5) }, uCropS: { value: new THREE.Vector2(1, 1) },
       },
       vertexShader: `#include <common>
@@ -1896,7 +1896,7 @@ void main(){
       fragmentShader: `#include <common>
 #include <clipping_planes_pars_fragment>
         varying vec2 vUv;
-        uniform sampler2D uTrail, uLUT; uniform float uTime, uNoise, uW, uDetail;
+        uniform sampler2D uTrail, uLUT; uniform float uTime, uNoise, uW, uDetail, uTrailGain;
         vec3 lut(float v){ return texture2D(uLUT, vec2(clamp(v, 0.004, 0.996), 0.5)).rgb; }
         ` + FX_GLSL.replace('uniform sampler2D uLUT;', '').replace('vec3 lut(float v){ return texture2D(uLUT, vec2(clamp(v, 0.004, 0.996), 0.5)).rgb; }', '') + `
         ` + MASK_GLSL + `
@@ -1967,6 +1967,9 @@ void main(){
     // 0이면 완전 꺼짐 (구 매핑은 바닥 0.62가 있어 랩에서 꺼도 시뮬에 잔상이 남던 버그).
     const pd = FXP.person?.decay ?? 0.6;
     trailMat.uniforms.uDecay.value = pd <= 0.001 ? 0 : Math.pow(pd, 1 / 5.7);
+    // 지각 등가 보정: 랩은 127ms 탭 가중=pd라 pd가 작으면 잔상이 '안 보임' — 연속 누적은
+    // 직전 잔상이 그대로 보이므로 기여도도 pd 비례로 (0.04 → 사실상 꺼짐, 랩과 동일 지각)
+    demoPanel.material.uniforms.uTrailGain.value = Math.min(1, pd * 2.2);
     trailMat.uniforms.prev.value = trailRTs[1 - trailFlip].texture;
     const prevT = renderer.getRenderTarget();
     renderer.setRenderTarget(trailRTs[trailFlip]);
