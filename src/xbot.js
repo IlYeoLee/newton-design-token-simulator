@@ -292,7 +292,9 @@ export class XBot {
     this._demoT = (this._demoT || 0) + dt;
     a.action.time = this._demoT % a.dur;
     if (breathW) { const w = this.actions.warmup; w.action.time = (this._demoT * 0.5) % w.dur; }
-    this.group.position.set(0, 0, 0);
+    // demoStandZ: 세션이 지정한 서기 위치(복싱 = 카메라 인식 링) — 매 프레임 원점 리셋이
+    // 외부 배치를 덮어쓰던 버그의 뿌리 (유저: '세션 시작해도 인물이 안 물러남')
+    this.group.position.set(0, 0, this.demoStandZ || 0);
     this.mixer.update(0);
     this._lockInPlace?.();
     // 최종 월드 확정 — 루트모션 상쇄(모델 오프셋) 이후를 rig가 읽도록. 미갱신 시 무릎 모듈이

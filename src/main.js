@@ -847,7 +847,8 @@ void main(){
     state.playing = true;
     document.getElementById('pause-chip')?.style.setProperty('display', 'none');
     // 복싱: 유저(봇)를 카메라 전신 인식 최적 링(standZ)으로 후퇴 배치 (유저: 세션 시작 시 인물 뒤로)
-    if (sport === 'boxing') { computeStation(); xbot.group.position.z = opt.standZ; }
+    if (sport === 'boxing') { computeStation(); xbot.demoStandZ = opt.standZ; xbot.group.position.z = opt.standZ; }
+    else xbot.demoStandZ = 0;
     session.start(sport);
     panel.setPlaying(true, true);
     sessionBtn.textContent = '세션 중지';
@@ -871,6 +872,7 @@ void main(){
     if (sessionHud) sessionHud.style.display = 'none';
     sceneUI.setStatus('');
     sceneUI.setInstruction('');
+    xbot.demoStandZ = 0;
     document.getElementById('panel')?.style.removeProperty('display');
     document.getElementById('hud')?.style.removeProperty('display');
     setFp(false);           // 중단 → X봇 3인칭 복귀
@@ -2510,8 +2512,8 @@ void main(){
     for (const t0 of [0, 0.4]) {
       const u = (cyc - t0) / 0.75;
       if (u > 0 && u < 1) {
-        const ex = u * 36;
-        const a = (1 - u) * (1 - u) * 0.38;
+        const ex = u * 46;
+        const a = (1 - u) * (1 - u) * 0.8;   // 가시성 업 (유저)
         const grd = g.createRadialGradient(0, 0, Math.max(1, w / 2 - 26), 0, 0, w / 2 + ex + 30);
         grd.addColorStop(0, 'rgba(209,254,255,0)');
         grd.addColorStop(0.55, `rgba(209,254,255,${a.toFixed(3)})`);
