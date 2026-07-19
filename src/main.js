@@ -2030,8 +2030,11 @@ void main(){
           T = pow(T, 1.38);   // 밀도 대비 — 어두운 부위를 더 깊게 (레퍼런스: 그늘진 팔이 암색으로 잠김)
           T = max(T, trail * 0.6);
           // 형태: 전신 크리스프 실루엣만 — 헤일로·확산 완전 제거 (유저 확정: 그림자 금지)
-          float shape = m * 0.92;
-          shape = max(shape, trail * 0.5);
+          // 마스크 침식: 크로마키가 불완전한 클립(비순수 그린 배경)에서 마스크 바닥값(~0.2)이
+          // 쿼드 전체를 반투명 워시 박스로 칠하던 근본 원인 — 저신뢰 마스크는 0으로
+          float mEro = smoothstep(0.30, 0.68, m);
+          float shape = mEro * 0.92;
+          shape = max(shape, trail * 0.5 * smoothstep(0.06, 0.22, trail));
           vec3 col = mix(thermo(T), lut(clamp(T * 0.96, 0.0, 1.0)), uTone) * shape;   // 뉴턴톤 기본 = 룩 팔레트
           float cl = dot(col, vec3(0.299, 0.587, 0.114));
           col = clamp(mix(vec3(cl), col, 1.32), 0.0, 1.0);   // 채도 부스트 — 룩시스템 '쟁한' 고채도 유지

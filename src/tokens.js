@@ -41,13 +41,15 @@ void main() {
   float breath = smoothstep(0.10, 0.88, fract(uTime * 0.45));
   float prog = uPhase < 0.5 ? max(breath, max(uStrong, uProg)) : clamp(uProg, 0.0, 1.0);
   vec4 r = markState(uv, st, prog, uStrong, uTime);
-  // 쿼드 보더 원형 페이드 — 평면 가장자리에서 헤일로가 뚝 잘리는 것 방지 (라이브 전용)
-  float border = smoothstep(1.0, 0.82, length(uv));
+  // 쿼드 보더 페이드 — 원형 + 사각 경계(체비셰프) 이중: 어떤 경로에서도 평면 모서리가
+  // 사각 박스로 드러나지 않게 (주간 잉크의 색 정규화가 원형 페이드를 상쇄하던 구멍 봉인)
+  float border = smoothstep(1.0, 0.82, length(uv))
+               * smoothstep(1.0, 0.84, max(abs(uv.x), abs(uv.y)));
   vec3 col = r.rgb * uFade * uGain * border;
   if (uDay > 0.5) {   // 주간 = 풀컬러 잉크 (색 보존 + 커버리지 알파)
     float mc = max(col.r, max(col.g, col.b));
     vec3 ink = col / max(mc, 1e-4);
-    gl_FragColor = vec4(uOut > 0.5 ? toLin(ink) : ink, clamp(mc * 1.45, 0.0, 1.0));
+    gl_FragColor = vec4(uOut > 0.5 ? toLin(ink) : ink, clamp(mc * 1.45, 0.0, 1.0) * border);
   } else {
     gl_FragColor = vec4(uOut > 0.5 ? toLin(col) : col, 1.0);   // 야간: 가산 광
   }
