@@ -2290,9 +2290,9 @@ void main(){
     runs.forEach(([, t], i) => { g.font = fonts[i]; g.fillText(t, cx, y); cx += g.measureText(t).width; });
     g.textAlign = pa;
   }
-  // SS=1: 벽 캔버스(1600)가 화면 투영 폭(~1100-1500px)과 거의 1:1 — SS=2는 밉맵 없는
-  // 3배 축소 샘플링이 되어 글자가 뭉개졌음(유저 가독 지적). 선명·업로드 4배 절감 동시 달성.
-  const HUD_SS = 1;
+  // SS=2 + 밉맵: 레티나(DPR2)에선 SS1이 확대 블러가 됨 — 밉맵 복원이 정답
+  // (밉맵 재생성 비용은 감수 — 가독이 우선. 다른 최적화 항목은 유지)
+  const HUD_SS = 2;
   const hudCanvas = document.createElement('canvas');
   hudCanvas.width = HUDW * HUD_SS; hudCanvas.height = HUDH * HUD_SS;
   const hudCtx = hudCanvas.getContext('2d');
@@ -2345,10 +2345,9 @@ void main(){
   ctaCtx.scale(HUD_SS, HUD_SS);
   neonize(ctaCtx);
   const hudTex = new THREE.CanvasTexture(hudCanvas);
-  // ponytail 최적화: 밉맵 재생성(리드로마다 3200×2000 풀 밉체인) 제거 — 벽은 확대 시야라 시각 동일
-  hudTex.minFilter = THREE.LinearFilter;
+  hudTex.minFilter = THREE.LinearMipmapLinearFilter;
   hudTex.magFilter = THREE.LinearFilter;
-  hudTex.generateMipmaps = false;
+  hudTex.generateMipmaps = true;
   hudTex.anisotropy = 8;
   const hudPanel = new THREE.Mesh(
     new THREE.PlaneGeometry(3.2, 2.0),
@@ -2381,9 +2380,9 @@ void main(){
     }));
   hudPanel.renderOrder = 6;
   const ctaTex = new THREE.CanvasTexture(ctaCanvas);
-  ctaTex.minFilter = THREE.LinearFilter;
+  ctaTex.minFilter = THREE.LinearMipmapLinearFilter;
   ctaTex.magFilter = THREE.LinearFilter;
-  ctaTex.generateMipmaps = false;
+  ctaTex.generateMipmaps = true;
   ctaTex.anisotropy = 8;
   const ctaPanel = new THREE.Mesh(hudPanel.geometry, hudPanel.material.clone());
   ctaPanel.material.uniforms.tex.value = ctaTex;
