@@ -2725,16 +2725,16 @@ void main(){
   function hudMilestone(g, eyebrow, title, sub) {
     // 전환 인터스티셜 공통계 (T1·T2·C1 — FIN 히어로와 동일 문법: 정중앙·대형·수직)
     const ke = aIn(0.0), kt = aIn(0.1), ks = aIn(0.3);
+    const numeric = /^[0-9]+$/.test(String(title));
     g.textAlign = 'center';
     if (eyebrow && ke > 0) {
       g.save(); g.globalAlpha = ke; g.translate(0, (1 - ke) * -14);
       g.fillStyle = '#fec389'; g.font = '500 34px Overused, Pretendard, sans-serif';
-      g.fillText(eyebrow, 800, 330);
+      g.fillText(eyebrow, 800, numeric ? 240 : 330);   // 카운트형 = 링(상단 290) 위 — 겹침 방지
       g.restore();
     }
     if (kt > 0) {
       g.save(); g.globalAlpha = kt; g.translate(0, (1 - kt) * 26);
-      const numeric = /^[0-9]+$/.test(String(title));
       g.fillStyle = HUD_INK;
       g.font = numeric ? NUMF(800, 220) : '700 104px Overused, Pretendard, sans-serif';
       g.fillText(String(title), 800, numeric ? 560 : 500);
