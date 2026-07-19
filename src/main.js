@@ -2169,9 +2169,9 @@ void main(){
       // (피그마 WallUI 확정 레이아웃 — 우측은 '내 자세' 슬롯)
       const wallBot = (wc?.cy ?? 1.4) - rig.wallH / 2;
       const mir = HUD_MIRROR.has(session.curStage?.id);
-      const gsc = mir ? 0.775 : 1;   // 프레임(1.22m) 내부 수납: 1.16m + 상단 여백 (잘림 금지)
+      const gsc = mir ? 0.59 : 1;   // 실측 보정: 이 클립은 쿼드를 꽉 채움 → 인물 1.16m = gsc 0.59
       demoPanel.scale.set(GHOST_H * (9 / 16) / 0.62 * gsc * GHOST_PAD, GHOST_H / 0.93 * gsc * GHOST_PAD, 1);
-      demoPanel.position.set((wc ? wc.cx : 0) + (mir ? -1.042 : 0), wallBot + GHOST_H * gsc / 2 + (mir ? 0.033 : 0.01), WALL_Z + 0.035);
+      demoPanel.position.set((wc ? wc.cx : 0) + (mir ? -1.042 : 0), wallBot + GHOST_H * gsc / 2 + (mir ? 0.17 : 0.01), WALL_Z + 0.035);
     }
     demoPanel.visible = !!on;
     if (on) setGhostClip(session.curStage?.id);   // 스테이지별 클립 자동 전환 (404 → 기본)
@@ -2549,7 +2549,7 @@ void main(){
     const wc = rig._wallCenter;
     const wallBot = (wc?.cy ?? 1.4) - rig.wallH / 2;
     // 미러 = 프레임 내부 수납 1.16m / READY = 우열 미니뷰 0.60m
-    const hS = ready ? 0.60 : GHOST_H * 0.775;
+    const hS = ready ? 0.60 : GHOST_H * 0.667;   // 코치 실측 등신(≈1.0m)과 일치
     const wS = hS * (452 / 616);
     const botCanvas = ready ? 632 : 980;             // 프레임 바닥선(캔버스) — 프레임 안 8px 여백
     const yBot = wallBot + (1000 - botCanvas) / 1000 * rig.wallH;
