@@ -661,8 +661,8 @@ export class Session {
 
     // A1 목·어깨 — 회전 아크(어깨 좌우)
     g = this._mk('BX_A1');
-    this.bxA1arcL = wallArc(-0.35, 1.4, 0.14, 0.165, BRAND.sand, Math.PI*0.15, Math.PI*1.4); g.add(this.bxA1arcL);
-    this.bxA1arcR = wallArc(0.35, 1.4, 0.14, 0.165, BRAND.sand, Math.PI*0.15, Math.PI*1.4); g.add(this.bxA1arcR);
+    this.bxA1arcL = wallArc(-0.45, 1.4, 0.14, 0.165, BRAND.sand, Math.PI*0.15, Math.PI*1.4); g.add(this.bxA1arcL);
+    this.bxA1arcR = wallArc(-0.05, 1.4, 0.14, 0.165, BRAND.sand, Math.PI*0.15, Math.PI*1.4); g.add(this.bxA1arcR);   // 중앙 갭 — 내 폼 존 침범 금지
 
     // A2 스텝 인·아웃 — 위/아래 방향 존
     g = this._mk('BX_A2');

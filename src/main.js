@@ -2171,7 +2171,7 @@ void main(){
       const mir = HUD_MIRROR.has(session.curStage?.id);
       const gsc = mir ? 0.82 : 1;   // 카드 밴드 아래(240px~바닥) 컬럼을 꽉 채우는 등신 — 실루엣과 페어
       demoPanel.scale.set(GHOST_H * (9 / 16) / 0.62 * gsc * GHOST_PAD, GHOST_H / 0.93 * gsc * GHOST_PAD, 1);
-      demoPanel.position.set((wc ? wc.cx : 0) + (mir ? -0.868 : 0), wallBot + GHOST_H * gsc / 2 + (mir ? 0.01 : 0.01), WALL_Z + 0.035);
+      demoPanel.position.set((wc ? wc.cx : 0) + (mir ? -1.042 : 0), wallBot + GHOST_H * gsc / 2 + (mir ? 0.01 : 0.01), WALL_Z + 0.035);
     }
     demoPanel.visible = !!on;
     if (on) setGhostClip(session.curStage?.id);   // 스테이지별 클립 자동 전환 (404 → 기본)
