@@ -2422,23 +2422,54 @@ void main(){
     g.fillStyle = rim || HUD_MAIN;
     g.fillText(text, x, y);
   }
+  // ── VR 스포츠 UI 모션 프리미티브 (SkyTrak·TV 트레이서·GYM 레퍼런스 문법) ──
+  let HUD_T = 0;   // 스테이지 경과 시간 — drawStage가 세팅, 모든 등장 모션의 시계
+  const easeO = x => { x = Math.min(1, Math.max(0, x)); return 1 - Math.pow(1 - x, 4); };
+  const aIn = (d, dur = 0.6) => easeO((HUD_T - d) / dur);   // delay 스태거 등장 0→1
+  function hudCountUp(num, d = 0.25, dur = 0.9) {
+    // 수치 카운트업 — '116'·'4.2' 형은 굴리고, '4/8' 같은 복합 문자열은 그대로
+    const s = String(num), n = parseFloat(s);
+    if (!isFinite(n) || String(n) !== s) return s;
+    const k = easeO((HUD_T - d) / dur);
+    const dec = (s.split('.')[1] || '').length;
+    return (n * k).toFixed(dec);
+  }
   function hudStat(g, x, label, num, col, frac) {
+    const k = aIn(0.2 + (x / 1600) * 0.25);   // 좌→우 스태거 등장
+    if (k <= 0) return;
+    g.save();
+    g.globalAlpha = k;
+    g.translate(0, (1 - k) * 26);             // 라이즈 인
     g.textAlign = 'left';
     g.fillStyle = col;
-    g.font = '700 24px Pretendard, sans-serif';
+    g.font = '600 23px Pretendard, sans-serif';
     g.fillText(label, x + 28, 44);
-    g.font = '800 78px Pretendard, sans-serif';
-    g.fillStyle = col;
-    g.fillText(String(num), x + 28, 118);
+    g.font = '800 84px Pretendard, sans-serif';
+    g.fillText(hudCountUp(num), x + 28, 122);
     if (frac != null) {
-      g.globalAlpha = 0.25; g.fillStyle = col; g.fillRect(x + 28, 134, 424, 10); g.globalAlpha = 1;
-      g.fillStyle = HUD_CYAN; g.fillRect(x + 28, 134, Math.max(12, 424 * Math.min(1, frac)), 10);
+      g.globalAlpha = 0.25 * k; g.fillStyle = col; g.fillRect(x + 28, 138, 424, 8); g.globalAlpha = k;
+      g.fillStyle = HUD_CYAN; g.fillRect(x + 28, 138, Math.max(10, 424 * Math.min(1, frac) * k), 8);
     }
+    g.restore();
   }
   function hudTag(g, cx, text, col) {
+    const k = aIn(0.15);
+    if (k <= 0) return;
+    g.save();
+    g.globalAlpha = k;
+    g.translate(cx, 31); g.scale(0.85 + 0.15 * k, 0.85 + 0.15 * k); g.translate(-cx, -31);
     g.font = '700 22px Pretendard, sans-serif'; g.textAlign = 'center';
     const w = g.measureText(text).width + 48;
     hudChip(g, cx - w / 2, 8, w, 46, 23, col, text, cx, 39);
+    // 리더 도트 — 태그 아래 점·짧은 수선 (어노테이션 앵커)
+    const lk = aIn(0.5, 0.5);
+    if (lk > 0) {
+      g.strokeStyle = col; g.lineWidth = 2; g.globalAlpha = k * 0.9;
+      g.beginPath(); g.moveTo(cx, 58); g.lineTo(cx, 58 + 26 * lk); g.stroke();
+      g.fillStyle = col;
+      g.beginPath(); g.arc(cx, 58 + 26 * lk + 5, 5 * lk, 0, 6.284); g.fill();
+    }
+    g.restore();
   }
   function hudLine(g, x1, y1, x2, y2, wd, alpha) {
     g.globalAlpha = alpha * HUD_AMBIENT; g.lineWidth = wd;
@@ -2492,17 +2523,38 @@ void main(){
   // 보조 드로어 (피그마 컴포넌트 1:1)
   function hudLockup(g, eyebrow, title) {
     g.textAlign = 'center';
-    if (eyebrow) {
+    const ke = aIn(0.0), kt = aIn(0.12), kr = aIn(0.35, 0.55);
+    if (eyebrow && ke > 0) {
+      g.save(); g.globalAlpha = ke; g.translate(0, (1 - ke) * -14);
       g.fillStyle = '#fec389'; g.font = '500 26px Pretendard, sans-serif';
       g.fillText(eyebrow, 800, 88);
+      g.restore();
     }
-    g.font = '700 58px Pretendard, sans-serif';
-    hudText(g, title, 800, 152, HUD_MAIN, 8);
+    if (kt > 0) {
+      g.save(); g.globalAlpha = kt; g.translate(0, (1 - kt) * 22);
+      g.font = '700 58px Pretendard, sans-serif';
+      hudText(g, title, 800, 152, HUD_MAIN, 8);
+      g.restore();
+    }
+    if (kr > 0) {
+      // 타이틀 하단 룰 — 중앙에서 양측으로 드로-인, 도트 터미널 (GYM 라인 문법)
+      const half = 150 * kr;
+      g.strokeStyle = '#fec389'; g.lineWidth = 2; g.globalAlpha = 0.85;
+      g.beginPath(); g.moveTo(800 - half, 176); g.lineTo(800 + half, 176); g.stroke();
+      g.fillStyle = '#fec389';
+      g.beginPath(); g.arc(800 - half, 176, 4, 0, 6.284); g.fill();
+      g.beginPath(); g.arc(800 + half, 176, 4, 0, 6.284); g.fill();
+      g.globalAlpha = 1;
+    }
   }
   function hudCaption(g, text) {
+    const k = aIn(0.3);
+    if (k <= 0) return;
+    g.save(); g.globalAlpha = k; g.translate(0, (1 - k) * 20);
     g.font = '700 26px Pretendard, sans-serif'; g.textAlign = 'center';
     const w = g.measureText(text).width + 64;
     hudChip(g, 800 - w / 2, 912, w, 54, 27, HUD_MAIN, text, 800, 948);
+    g.restore();
   }
   function hudCTA(g, text, y, tS) {
     // 최종 하이브리드: 고인 빛 웅덩이(아우라·재질) + 발광 코어 필(어포던스·가독)
@@ -2575,6 +2627,7 @@ void main(){
     g.lineCap = 'butt';
   }
   function drawStage(g, id, tS) {
+    HUD_T = tS;   // 등장 모션 시계 (스테이지 전환마다 0부터)
     const R = judge.lastReport;
     const pct = R?.matchPct ?? 84;
     switch (id) {
