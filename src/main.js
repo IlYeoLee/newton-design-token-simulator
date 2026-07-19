@@ -2646,6 +2646,29 @@ void main(){
     hudLine(g, 470, 800, 1130, 800, 3, 0.4);
   }
   // 보조 드로어 (피그마 컴포넌트 1:1)
+  function hudLockupCorner(g, eyebrow, title) {
+    // 좌상 아이덴티티 블록 — 중앙(인물 존)과 절대 불겹침 (애플식 정돈: 텍스트는 존 밖)
+    const ke = aIn(0.0), kt = aIn(0.12), kr = aIn(0.35, 0.55);
+    g.textAlign = 'left';
+    if (eyebrow && ke > 0) {
+      g.save(); g.globalAlpha = ke; g.translate(0, (1 - ke) * -12);
+      g.fillStyle = '#fec389'; g.font = '500 24px Overused, Pretendard, sans-serif';
+      g.fillText(eyebrow, 64, 84);
+      g.restore();
+    }
+    if (kt > 0) {
+      g.save(); g.globalAlpha = kt; g.translate(0, (1 - kt) * 18);
+      g.font = '700 46px Overused, Pretendard, sans-serif';
+      hudText(g, title, 64, 138, HUD_INK, 8);
+      g.restore();
+    }
+    if (kr > 0) {
+      g.fillStyle = '#fec389'; g.globalAlpha = 0.85;
+      for (let dx = 0; dx <= 240 * kr; dx += 16) { g.beginPath(); g.arc(64 + dx, 166, 2.2, 0, 6.284); g.fill(); }
+      g.globalAlpha = 1;
+    }
+    g.textAlign = 'center';
+  }
   function hudLockup(g, eyebrow, title) {
     g.textAlign = 'center';
     const ke = aIn(0.0), kt = aIn(0.12), kr = aIn(0.35, 0.55);
@@ -2672,7 +2695,10 @@ void main(){
       g.globalAlpha = 1;
     }
   }
-  function hudCaption(g, text) {
+  function hudCaption(_g, text) {
+    // 지시 캡션 = CTA 오버레이 레이어(인물 위) — 인물 존과 겹쳐도 항상 가독
+    const g = ctaCtx;
+    ctaDrawn = true; ctaHas = true;
     const k = aIn(0.3);
     if (k <= 0) return;
     g.save(); g.globalAlpha = k; g.translate(0, (1 - k) * 20);
@@ -2760,14 +2786,14 @@ void main(){
     const pct = R?.matchPct ?? 84;
     switch (id) {
       case 'BX_READY': {
-        hudLockup(g, T('섀도복싱 · 잽'), T('가드 올리고 READY'));
+        hudLockupCorner(g, T('섀도복싱 · 잽'), T('가드 올리고 READY'));
         hudTag(g, 800, T('상대 — 맞서세요'), HUD_MAIN);
-        // 좌상: 스테이지 + 페이즈 도트
+        // 좌열 중단: 페이즈 블록 (아이덴티티 아래 — 존 규율)
         g.textAlign = 'left'; g.fillStyle = HUD_MAIN;
-        mixedText(g, T('0 · 준비'), 64, 92, 700, 34, 'left');
-        hudPhaseDots(g, 72, 122, 0);
+        mixedText(g, T('0 · 준비'), 64, 252, 700, 34, 'left');
+        hudPhaseDots(g, 72, 284, 0);
         g.fillStyle = '#fec389'; g.font = '500 20px Overused, Pretendard, sans-serif';
-        g.fillText(T('가드 · 거리 재기'), 64, 160);
+        g.fillText(T('가드 · 거리 재기'), 64, 322);
         // 우상: 링 거리 + 웨어러블
         g.textAlign = 'right'; g.fillStyle = HUD_INK;
         g.font = NUMF(700, 64); g.fillText('1.93', 1520, 108);
@@ -2834,7 +2860,7 @@ void main(){
         break;
       }
       case 'BX_B2': {
-        hudLockup(g, T('익히기 2/3'), T('회피 슬립'));
+        hudLockupCorner(g, T('익히기 2/3'), T('회피 슬립'));
         hudTag(g, 800, T('상대 — 맞서세요'), HUD_MAIN);
         for (const [x, ar] of [[120, '←'], [1240, '→']]) {
           g.strokeStyle = HUD_CYAN; g.setLineDash([10, 10]); g.lineWidth = 3; g.globalAlpha = 0.7;
@@ -2843,25 +2869,25 @@ void main(){
           g.fillStyle = HUD_CYAN; g.font = '700 72px Overused, Pretendard, sans-serif'; g.textAlign = 'center';
           g.fillText(ar, x + 120, 540);
         }
-        // 주먹 온다! 경고 (박자 점멸)
+        // 주먹 온다! 경고 (박자 점멸) — 좌열, 인물 존 밖
         if (Math.sin(tS * 6.4) > -0.2) {
           g.font = '700 26px Overused, Pretendard, sans-serif';
           const wt = T('주먹 온다!');
           const ww2 = g.measureText(wt).width + 36;
           g.fillStyle = '#fa3030';
-          g.beginPath(); g.roundRect(900, 300, ww2, 48, 10); g.fill();
-          g.fillStyle = '#fff3ec'; g.textAlign = 'left';
-          g.fillText(wt, 918, 333);
+          g.beginPath(); g.roundRect(64, 200, ww2, 48, 10); g.__rawFill();
+          g.fillStyle = '#ffffff'; g.textAlign = 'left';
+          g.__rawFillText(wt, 82, 233);
         }
         hudCaption(g, T('주먹 온다 — 점선 존 밖으로 슬립'));
         break;
       }
       case 'BX_T1': {
-        g.fillStyle = HUD_INK; g.textAlign = 'center';
-        g.font = '700 96px Overused, Pretendard, sans-serif';
-        g.fillText(T('몸풀기 끝!'), 800, 430);
-        g.fillStyle = '#fec389'; g.font = '500 30px Overused, Pretendard, sans-serif';
-        g.fillText(T('몸 풀렸어요 — 다음: 사전 익히기'), 800, 500);
+        hudLockupCorner(g, T('섀도복싱 · 잽'), T('몸풀기 끝!'));
+        g.textAlign = 'left';
+        g.fillStyle = '#fec389'; g.font = '500 26px Overused, Pretendard, sans-serif';
+        g.fillText(T('몸 풀렸어요 — 다음: 사전 익히기'), 64, 214);
+        g.textAlign = 'center';
         hudPhaseDots(g, 800 - 69, 560, 1);
         hudCTA(ctaCtx, T('두 번 탭 → 익히기'), 620, tS);
         break;
@@ -2922,9 +2948,9 @@ void main(){
         const bt = T('콤보 — 속도 올라감');
         const bw2 = g.measureText(bt).width + 32;
         g.fillStyle = HUD_CYAN;
-        g.beginPath(); g.roundRect(120, 250, bw2, 40, 8); g.fill();
+        g.beginPath(); g.roundRect(120, 250, bw2, 40, 8); g.__rawFill();
         g.fillStyle = '#091212'; g.textAlign = 'left';
-        g.fillText(bt, 136, 277);
+        g.__rawFillText(bt, 136, 277);
         const chips = ['잽', '잽', '훅'];
         const litN = Math.floor(tS * 1.4) % 4;
         let cx0 = 120;
@@ -2933,7 +2959,7 @@ void main(){
           const cw = g.measureText(chips[i]).width + 44;
           if (i < litN) {
             g.fillStyle = HUD_MAIN;
-            g.beginPath(); g.roundRect(cx0, 310, cw, 58, 12); g.fill();
+            g.beginPath(); g.roundRect(cx0, 310, cw, 58, 12); g.__rawFill();
             g.fillStyle = '#091212';
           } else {
             g.strokeStyle = 'rgba(255,148,71,0.5)'; g.lineWidth = 2;
@@ -2952,7 +2978,7 @@ void main(){
         break;
       }
       case 'BX_C4': {
-        hudLockup(g, T('마무리'), T('가드 내리고 숨 고르기'));
+        hudLockupCorner(g, T('마무리'), T('가드 내리고 숨 고르기'));
         const br = 1 + 0.25 * Math.sin(tS * 1.05);
         for (const [r0, a] of [[130, 0.2], [100, 0.45], [75, 0.9]]) {
           g.strokeStyle = HUD_CYAN; g.globalAlpha = a; g.lineWidth = 4;
@@ -2964,9 +2990,9 @@ void main(){
         g.fillText(T('들숨 — 링 따라 크게'), 300, 660);
         g.fillStyle = HUD_INK; g.textAlign = 'right';
         g.font = NUMF(700, 64);
-        g.fillText('118 ↓', 1520, 860);
+        g.fillText('118 ↓', 1520, 128);
         g.font = '500 22px Overused, Pretendard, sans-serif'; g.globalAlpha = 0.85;
-        g.fillText(T('심박 회복'), 1520, 896); g.globalAlpha = 1;
+        g.fillText(T('심박 회복'), 1520, 164); g.globalAlpha = 1;
         break;
       }
       case 'BX_FIN': {
