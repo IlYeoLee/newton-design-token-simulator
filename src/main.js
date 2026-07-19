@@ -2573,8 +2573,8 @@ void main(){
     if (k <= 0) return;
     g.save();
     g.translate(0, (1 - k) * 26);             // 라이즈 인
-    // 지오메트리 좌우 통일 — 하단 밴드 (인물 영역 아래, 부가정보 위계 — 유저)
-    const y0 = 720, ch = 160;
+    // 지오메트리 좌우 통일 — 상단 (수치 컨테이너는 위 — 유저 확정)
+    const y0 = 56, ch = 160;
     hudCard(g, x, y0, 430, ch, 30, k);
     hudKnock(g, label, '600 23px Overused, Pretendard, sans-serif', x + 32, y0 + 44);
     hudKnock(g, hudCountUp(num), NUMF(800, 76), x + 32, y0 + 118);
@@ -2586,11 +2586,13 @@ void main(){
     }
     g.restore();
   }
-  function hudTag(g, cx, text, col, ty = 8) {
+  function hudTag(g, cx, text, col, ty = 848) {
+    // 역할 태그 = 하단 · 원샷 (진입 시 1회 노출 후 소멸 — 유저: 상시 정보 아님)
     const k = aIn(0.15);
-    if (k <= 0) return;
+    const out = 1 - easeQ((HUD_T - 3.2) / 0.7);
+    if (k <= 0 || out <= 0) return;
     g.save();
-    g.globalAlpha = k;
+    g.globalAlpha = k * out;
     g.translate(cx, ty + 23); g.scale(0.85 + 0.15 * k, 0.85 + 0.15 * k); g.translate(-cx, -(ty + 23));
     g.font = '700 22px Overused, Pretendard, sans-serif'; g.textAlign = 'center';
     const w = g.measureText(text).width + 48;
@@ -2598,7 +2600,7 @@ void main(){
     // 리더 도트 — 태그 아래 점·짧은 수선 (어노테이션 앵커)
     const lk = aIn(0.5, 0.5);
     if (lk > 0) {
-      g.strokeStyle = col; g.lineWidth = 2; g.globalAlpha = k * 0.9;
+      g.strokeStyle = col; g.lineWidth = 2; g.globalAlpha = k * out * 0.9;
       g.beginPath(); g.moveTo(cx, ty + 50); g.lineTo(cx, ty + 50 + 22 * lk); g.stroke();
       g.fillStyle = col;
       g.beginPath(); g.arc(cx, ty + 50 + 22 * lk + 5, 5 * lk, 0, 6.284); g.fill();
@@ -2873,8 +2875,8 @@ void main(){
         g.__rawFillText(String(goal[1]).padStart(2, '0'), 800, 700);   // 앰비언트 = 네온 우회
         g.globalAlpha = 1;
         hudLockup(g, LOCK[0], LOCK[1]);
-        hudTag(g, 279, T('코치 — 따라 하세요'), HUD_MAIN, 648);
-        hudTag(g, 1321, T('내 자세'), HUD_CYAN, 648);
+        hudTag(g, 279, T('코치 — 따라 하세요'), HUD_MAIN, 880);
+        hudTag(g, 1321, T('내 자세'), HUD_CYAN, 880);
         const mine = id === 'BX_B1' ? (tS % 4).toFixed(1) : Math.min(goal[1], Math.floor(tS / 2.2));
         g.textAlign = 'left';
         hudStat(g, 64, T(goal[0]), goal[1] + T(goal[2]), HUD_MAIN, null);
