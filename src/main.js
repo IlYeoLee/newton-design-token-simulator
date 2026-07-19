@@ -2023,10 +2023,14 @@ void main(){
           float field = smoothstep(0.0, 0.05, uv.x) * smoothstep(1.0, 0.95, uv.x)
                       * smoothstep(0.0, 0.04, uv.y) * smoothstep(1.0, 0.96, uv.y);
           col *= field;
+          // 소스 휘도 게이트 — 블랙/정지/미로드 프레임은 기여 0 (통짜 불투명 박스가 이펙트를 가리던 근본 원인:
+          // 크로마키가 아닌 어두운 프레임에서 m=1 → shape·알파가 쿼드 전체를 칠함)
+          float srcL = dot(texture2D(tex, clamp(dvuv, 0.0, 1.0)).rgb, vec3(0.299, 0.587, 0.114));
+          float live = smoothstep(0.025, 0.10, srcL);
           // 컴포저 OutputPass(linear→sRGB) 역변환 상쇄 (tokens.js uOut=1 규약)
           col = clamp(col, 0.0, 1.0);
           col = mix(col / 12.92, pow((col + 0.055) / 1.055, vec3(2.4)), step(0.04045, col));
-          gl_FragColor = vec4(col, clamp(shape * 1.2, 0.0, 1.0) * field * 0.985);   // 알파 = 실루엣 추종
+          gl_FragColor = vec4(col * live, clamp(shape * 1.2, 0.0, 1.0) * field * live * 0.985);   // 알파 = 실루엣×라이브 소스 추종
         }`,
       transparent: true, depthWrite: false,
       // out = col + dst·(1−a) — 랩의 base·(1−a·0.88)+col 과 동일 (프리멀티 커스텀 블렌딩)
