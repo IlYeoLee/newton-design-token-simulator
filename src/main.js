@@ -2542,18 +2542,30 @@ void main(){
   // ── 카드 낙아웃 (모바일 정합 3단계): 밝은 카드 광면 + 무광 텍스트 = 투사식 '검정 타이포' ──
   //    프로젝터는 검정을 못 쏘지만, 밝은 광면 안에서 빛을 안 쏜 영역은 검정으로 읽힌다 (유저 사진 원리)
   function hudCard(g, x, y, w, h, r, a) {
+    // 조도 적응 카드: 밝은 벽 = 화이트 카드 / 어두운 벽 = 프로스티드 글래스 (유저)
+    const day = !!FXP.day;
     g.save();
     g.beginPath(); g.roundRect(x, y, w, h, r);
-    g.fillStyle = `rgba(255,246,234,${(0.94 * a).toFixed(3)})`;
+    g.fillStyle = day
+      ? `rgba(255,246,234,${(0.94 * a).toFixed(3)})`
+      : `rgba(255,250,244,${(0.13 * a).toFixed(3)})`;
     g.__rawFill();
+    // 헤어라인 에지 — 야간=글래스 윤곽 / 주간=순백 벽 대비 웜 보더 (경계 정의)
+    g.strokeStyle = day
+      ? `rgba(254,110,60,${(0.32 * a).toFixed(3)})`
+      : `rgba(255,246,234,${(0.30 * a).toFixed(3)})`;
+    g.lineWidth = 2;
+    g.beginPath(); g.roundRect(x + 1, y + 1, w - 2, h - 2, r - 1);
+    g.__rawStroke();
     g.restore();
   }
+  const cardInk = (a = 1) => FXP.day ? `rgba(42,32,24,${0.94 * a})` : `rgba(255,250,244,${0.96 * a})`;
   function hudKnock(g, text, font, x, y, align = 'left') {
     // '낙아웃' 렌더 = 다크 잉크 솔리드 — 진짜 구멍은 시뮬 레이어상 뒤 인물이 비쳐 지저분
     // (실물 프로젝터에선 카드 영역에서 인물 광이 꺼져 구멍=벽색 — 그 지각을 다크 잉크로 재현)
     g.save();
     g.font = font; g.textAlign = align;
-    g.fillStyle = 'rgba(42,32,24,0.94)';
+    g.fillStyle = cardInk();
     g.__rawFillText(text, x, y);
     g.restore();
   }
@@ -2567,11 +2579,11 @@ void main(){
     g.translate(0, (1 - k) * 26);             // 라이즈 인
     // 지오메트리 좌우 통일 — 같은 y·같은 높이 (게이지 유무와 무관)
     const y0 = 56, ch = 160;
-    hudCard(g, x, y0, 430, ch, 24, k);
+    hudCard(g, x, y0, 430, ch, 30, k);
     hudKnock(g, label, '600 23px Overused, Pretendard, sans-serif', x + 30, y0 + 42);
     hudKnock(g, hudCountUp(num), NUMF(800, 78), x + 30, y0 + 114);
     if (frac != null) {
-      g.fillStyle = 'rgba(42,32,24,0.35)';
+      g.fillStyle = FXP.day ? 'rgba(42,32,24,0.35)' : 'rgba(255,250,244,0.22)';
       g.beginPath(); g.roundRect(x + 30, y0 + 134, 370, 8, 4); g.__rawFill();
       g.fillStyle = col;
       g.beginPath(); g.roundRect(x + 30, y0 + 134, Math.max(10, 370 * Math.min(1, frac)), 8, 4); g.__rawFill();
