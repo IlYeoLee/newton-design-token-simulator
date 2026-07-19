@@ -2500,6 +2500,7 @@ void main(){
   gridScanPanel.visible = false;
   scene.add(gridScanPanel);
   let HUD_MAIN = '#ff6b21', HUD_CREAM = '#fff3e2', HUD_CYAN = '#21ccdb', hudGlowK = 1;
+  const HUD_INK = '#fff6ea';   // 뉴트럴 잉크 — 모바일 '블랙 타이포'의 벽 등가 (정보는 뉴트럴, 레드는 악센트)
   function hudSyncPalette() {
     // 룩 시스템 완전 연동: 팔레트=LUT 샘플, 시안=역할색 user, 글로우 강도=마크 halo 슬라이더
     HUD_MAIN = '#fe6e3c';    // 주황 칩 고정 (LUT 샘플 표류 기각)
@@ -2636,7 +2637,7 @@ void main(){
     if (kt > 0) {
       g.save(); g.globalAlpha = kt; g.translate(0, (1 - kt) * 22);
       g.font = '700 58px Overused, Pretendard, sans-serif';
-      hudText(g, title, 800, 152, HUD_MAIN, 8);
+      hudText(g, title, 800, 152, HUD_INK, 8);
       g.restore();
     }
     if (kr > 0) {
@@ -2747,7 +2748,7 @@ void main(){
         g.fillStyle = '#fec389'; g.font = '500 20px Overused, Pretendard, sans-serif';
         g.fillText(T('가드 · 거리 재기'), 64, 160);
         // 우상: 링 거리 + 웨어러블
-        g.textAlign = 'right'; g.fillStyle = HUD_MAIN;
+        g.textAlign = 'right'; g.fillStyle = HUD_INK;
         g.font = NUMF(700, 64); g.fillText('1.93', 1520, 108);
         g.font = '500 22px Overused, Pretendard, sans-serif'; g.fillStyle = '#fec389';
         g.fillText(T('m — 링에 서기'), 1520, 142);
@@ -2788,7 +2789,7 @@ void main(){
         hudTag(g, 1234, T('내 자세'), HUD_CYAN);
         const mine = id === 'BX_B1' ? (tS % 4).toFixed(1) : Math.min(goal[1], Math.floor(tS / 2.2));
         g.textAlign = 'left';
-        hudStat(g, 127, T(goal[0]), goal[1] + T(goal[2]), HUD_MAIN, null);
+        hudStat(g, 127, T(goal[0]), goal[1] + T(goal[2]), HUD_INK, null);
         hudStat(g, 992, T('내 기록'), mine + T(goal[2]), HUD_CYAN, (parseFloat(mine) || 0) / goal[1]);
         if (id === 'BX_A2') {
           for (let i = 0; i < 6; i++) {
@@ -2835,7 +2836,7 @@ void main(){
         break;
       }
       case 'BX_T1': {
-        g.fillStyle = HUD_MAIN; g.textAlign = 'center';
+        g.fillStyle = HUD_INK; g.textAlign = 'center';
         g.font = '700 96px Overused, Pretendard, sans-serif';
         g.fillText(T('몸풀기 끝!'), 800, 430);
         g.fillStyle = '#fec389'; g.font = '500 30px Overused, Pretendard, sans-serif';
@@ -2859,7 +2860,7 @@ void main(){
       case 'BX_C1': {
         hudTag(g, 800, T('상대 — 맞서세요'), HUD_MAIN);
         const n = Math.max(1, 3 - Math.floor(tS));
-        g.fillStyle = HUD_MAIN; g.textAlign = 'center';
+        g.fillStyle = HUD_INK; g.textAlign = 'center';
         g.font = NUMF(700, 300);
         g.fillText(String(n), 300, 560);
         g.fillStyle = '#fec389'; g.font = '500 30px Overused, Pretendard, sans-serif';
@@ -2868,7 +2869,7 @@ void main(){
       }
       case 'BX_C2': {
         hudTag(g, 800, T('상대 — 맞서세요'), HUD_MAIN);
-        g.textAlign = 'right'; g.fillStyle = HUD_MAIN;
+        g.textAlign = 'right'; g.fillStyle = HUD_INK;
         g.font = NUMF(700, 96);
         g.fillText(pct + '%', 1520, 140);
         g.font = '500 22px Overused, Pretendard, sans-serif'; g.globalAlpha = 0.85;
@@ -2879,7 +2880,7 @@ void main(){
         g.fillStyle = HUD_MAIN; g.font = '500 24px Overused, Pretendard, sans-serif'; g.globalAlpha = 0.85;
         g.fillText(T('실전 라운드'), 64, 148); g.globalAlpha = 1;
         // 우하: 잽 빠르기 + 세그
-        g.fillStyle = HUD_MAIN; g.font = NUMF(700, 84);
+        g.fillStyle = HUD_INK; g.font = NUMF(700, 84);
         g.fillText('7.2', 1130, 800);
         g.font = '500 22px Overused, Pretendard, sans-serif'; g.globalAlpha = 0.85;
         g.fillText(T('잽 빠르기 m/s'), 1136, 836); g.globalAlpha = 1;
@@ -2887,7 +2888,7 @@ void main(){
           g.fillStyle = i < 7 ? HUD_MAIN : 'rgba(255,148,71,0.25)';
           g.beginPath(); g.roundRect(1130 + i * 34, 856, 30, 12, 4); g.fill();
         }
-        g.fillStyle = HUD_MAIN; g.font = NUMF(700, 60);
+        g.fillStyle = HUD_INK; g.font = NUMF(700, 60);
         g.fillText('×3', 64, 840);
         g.font = '500 22px Overused, Pretendard, sans-serif'; g.globalAlpha = 0.85;
         g.fillText(T('콤보 · 12번 맞힘'), 64, 876); g.globalAlpha = 1;
@@ -2921,7 +2922,7 @@ void main(){
           g.fillText(chips[i], cx0 + 22, 350);
           cx0 += cw + 24;
         }
-        g.fillStyle = HUD_MAIN; g.textAlign = 'right';
+        g.fillStyle = HUD_INK; g.textAlign = 'right';
         g.font = NUMF(700, 96);
         g.fillText('×5', 1520, 140);
         g.font = '500 22px Overused, Pretendard, sans-serif'; g.globalAlpha = 0.85;
@@ -2940,7 +2941,7 @@ void main(){
         g.fillStyle = HUD_CYAN; g.textAlign = 'center';
         g.font = '500 24px Overused, Pretendard, sans-serif';
         g.fillText(T('들숨 — 링 따라 크게'), 300, 660);
-        g.fillStyle = HUD_MAIN; g.textAlign = 'right';
+        g.fillStyle = HUD_INK; g.textAlign = 'right';
         g.font = NUMF(700, 64);
         g.fillText('118 ↓', 1520, 860);
         g.font = '500 22px Overused, Pretendard, sans-serif'; g.globalAlpha = 0.85;
@@ -2961,7 +2962,7 @@ void main(){
         }
         if (k2 > 0) {
           g.save(); g.globalAlpha = k2; g.translate(0, (1 - k2) * 20);
-          g.fillStyle = HUD_MAIN; g.font = '700 54px Overused, Pretendard, sans-serif';
+          g.fillStyle = HUD_INK; g.font = '700 54px Overused, Pretendard, sans-serif';
           g.fillText(T('세션 완료'), cx, 160);
           g.restore();
         }
@@ -2987,7 +2988,7 @@ void main(){
         g.beginPath(); g.arc(cx, by, br, -1.5708, -1.5708 + 6.283 * (pct / 100) * kb); g.stroke();
         g.lineCap = 'butt';
         // 대수치
-        g.fillStyle = HUD_MAIN; g.font = NUMF(800, 128);
+        g.fillStyle = HUD_INK; g.font = NUMF(800, 128);
         g.fillText(Math.round(pct * kb) + '%', cx, by + 34);
         g.fillStyle = '#fec389';
         mixedText(g, T('PACK 일치도 — 지난번 +6%'), cx, by + 92, 600, 25);
@@ -3000,7 +3001,7 @@ void main(){
           g.save(); g.globalAlpha = kc; g.translate(0, (1 - kc) * 24);
           g.fillStyle = '#fec389'; g.font = '600 23px Overused, Pretendard, sans-serif';
           g.fillText(lab, colx, 660);
-          g.fillStyle = HUD_MAIN; g.font = NUMF(800, 64);
+          g.fillStyle = HUD_INK; g.font = NUMF(800, 64);
           g.fillText(val, colx, 730);
           g.restore();
         });
