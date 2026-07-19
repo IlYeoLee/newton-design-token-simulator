@@ -2169,9 +2169,9 @@ void main(){
       // (피그마 WallUI 확정 레이아웃 — 우측은 '내 자세' 슬롯)
       const wallBot = (wc?.cy ?? 1.4) - rig.wallH / 2;
       const mir = HUD_MIRROR.has(session.curStage?.id);
-      const gsc = mir ? 0.82 : 1;   // 카드 밴드 아래(240px~바닥) 컬럼을 꽉 채우는 등신 — 실루엣과 페어
+      const gsc = mir ? 0.775 : 1;   // 프레임(1.22m) 내부 수납: 1.16m + 상단 여백 (잘림 금지)
       demoPanel.scale.set(GHOST_H * (9 / 16) / 0.62 * gsc * GHOST_PAD, GHOST_H / 0.93 * gsc * GHOST_PAD, 1);
-      demoPanel.position.set((wc ? wc.cx : 0) + (mir ? -1.042 : 0), wallBot + GHOST_H * gsc / 2 + (mir ? 0.01 : 0.01), WALL_Z + 0.035);
+      demoPanel.position.set((wc ? wc.cx : 0) + (mir ? -1.042 : 0), wallBot + GHOST_H * gsc / 2 + (mir ? 0.033 : 0.01), WALL_Z + 0.035);
     }
     demoPanel.visible = !!on;
     if (on) setGhostClip(session.curStage?.id);   // 스테이지별 클립 자동 전환 (404 → 기본)
@@ -2540,17 +2540,21 @@ void main(){
   scene.add(mirrorPanel);
   function renderMirrorView() {
     const st = session.active && state.pack === 'boxing' ? session.curStage : null;
-    const on = !!st && HUD_MIRROR.has(st.id) && xbot.model;
+    const ready = !!st && st.id === 'BX_READY';
+    const on = !!st && (HUD_MIRROR.has(st.id) || ready) && xbot.model;
     mirrorPanel.visible = on;
     if (!on) return;
     if (!xbot._mirrorTagged) { xbot.model.traverse(o => o.layers.enable(7)); xbot._mirrorTagged = true; }
     // 미터 정합: RT = 봇 0~1.75m 정확 프레임 → 패널 = 코치와 동일 높이·동일 바닥선
     const wc = rig._wallCenter;
     const wallBot = (wc?.cy ?? 1.4) - rig.wallH / 2;
-    const hS = GHOST_H * 0.82;                       // 코치와 동일 (1.23m — 카드 아래 24px부터 바닥)
+    // 미러 = 프레임 내부 수납 1.16m / READY = 우열 미니뷰 0.60m
+    const hS = ready ? 0.60 : GHOST_H * 0.775;
     const wS = hS * (452 / 616);
-    const zx = (1234 - 800) / 1600 * rig.wallW;      // 존 중심축 유지
-    mirrorPanel.position.set((wc ? wc.cx : 0) + zx, wallBot + hS / 2, WALL_Z + 0.026);
+    const botCanvas = ready ? 632 : 980;             // 프레임 바닥선(캔버스) — 프레임 안 8px 여백
+    const yBot = wallBot + (1000 - botCanvas) / 1000 * rig.wallH;
+    const zx = (1321 - 800) / 1600 * rig.wallW;      // 축 = 우측 카드 중심(1321)
+    mirrorPanel.position.set((wc ? wc.cx : 0) + zx, yBot + hS / 2, WALL_Z + 0.026);
     mirrorPanel.scale.set(wS, hS, 1);
     if (rig.wallClip && mirrorPanel.material.clippingPlanes !== rig.wallClip)
       mirrorPanel.material.clippingPlanes = rig.wallClip;
@@ -2909,6 +2913,11 @@ void main(){
         g.strokeStyle = '#fec389'; g.lineWidth = 1.5; g.stroke();   // 웨어러블 = 시스템 (시안 회수)
         g.fillStyle = '#fec389'; g.textAlign = 'center';
         g.fillText(wtxt, 1536 - ww / 2, 191);
+        // 내 폼 미니뷰 — '가드 올리고' 지시의 폐루프 (카메라가 내 가드를 비춤)
+        g.strokeStyle = HUD_CYAN; g.setLineDash([10, 10]); g.globalAlpha = 0.5; g.lineWidth = 2.5;
+        g.beginPath(); g.roundRect(1106, 240, 430, 400, 16); g.stroke();
+        g.setLineDash([]); g.globalAlpha = 1;
+        hudTag(g, 1321, T('내 자세'), HUD_CYAN, 656);
         hudCTA(ctaCtx, T('발 두 번 탭해서 시작'), 916, tS);
         // 우하: 가드 브래킷 + 카피
         g.strokeStyle = HUD_MAIN; g.lineWidth = 4;
@@ -2955,9 +2964,12 @@ void main(){
             g.beginPath(); g.roundRect(240 + i * 34, 430, 26, 10, 4); g.fill();
           }
         }
-        // 내 자세 슬롯 (비전 미구현 — 점선)
-        g.strokeStyle = HUD_CYAN; g.setLineDash([10, 10]); g.globalAlpha = 0.5; g.lineWidth = 2.5;
-        g.strokeRect(1010, 240, 448, 748);   // 카드 하단+24px → 바닥 — 실루엣 패널 정합
+        // 인물 프레임 2개 — 카드 컬럼과 동일 축·폭, 역할색 (코치=주황 / 나=시안)
+        g.setLineDash([10, 10]); g.globalAlpha = 0.5; g.lineWidth = 2.5;
+        g.strokeStyle = HUD_MAIN;
+        g.beginPath(); g.roundRect(64, 240, 430, 748, 16); g.stroke();
+        g.strokeStyle = HUD_CYAN;
+        g.beginPath(); g.roundRect(1106, 240, 430, 748, 16); g.stroke();
         g.setLineDash([]); g.globalAlpha = 1;
         hudCaption(g, LOCK[2]);
         break;
