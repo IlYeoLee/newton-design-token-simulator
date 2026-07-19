@@ -315,6 +315,7 @@ async function boot() {
     xbot.setPack(data, tokens.events);
     rig.setPack(data.sport, tokens.events);
     const isKneePack = data.sport === 'running' || data.sport === 'basketball';
+    window.__updateSurfAvail?.();   // 실내 테마 = 복싱 전용 게이트
     tokens.footprintTest = isKneePack ? (x, z, inset) => rig.contains(x, z, inset) : null;
     effects.clip = isKneePack ? (x, z) => rig.contains(x, z) : null;
 
@@ -1037,6 +1038,7 @@ void main(){
         b.textContent = label;
         b.style.cssText = 'padding:5px 11px;border:1px solid var(--line);border-radius:99px;background:none;color:var(--dim);font-size:11px;font-weight:600;cursor:pointer;';
         b.addEventListener('click', () => {
+          if (b.disabled) return;
           setSurfaces(key === 'none' ? null : key);
           updateSurfChips(key);
           const st = designStore.globalGet('fx', 'lab', null) || {};
@@ -1047,6 +1049,22 @@ void main(){
         surfWrap.appendChild(b);
       }
     }
+    // 실내 테마 = 복싱 전용 (자취방 벽 시나리오) — 러닝·농구에선 선택 불가 + 자동 해제
+    window.__updateSurfAvail = () => {
+      const ok = state.pack === 'boxing';
+      const b = surfWrap?.querySelector('button[data-key="indoor"]');
+      if (!b) return;
+      b.disabled = !ok;
+      b.style.opacity = ok ? '1' : '0.35';
+      b.style.cursor = ok ? 'pointer' : 'not-allowed';
+      b.title = ok ? '' : '실내 테마는 복싱 전용';
+      const st = designStore.globalGet('fx', 'lab', null) || {};
+      if (!ok && st.bg === 'indoor') {
+        setSurfaces(null); updateSurfChips('none');
+        st.bg = 'none'; designStore.globalSet('fx', 'lab', st); designStore.save();
+      }
+    };
+    window.__updateSurfAvail();
     const savedLab = designStore.globalGet('fx', 'lab', null);
     // 피그마 카드 임포트 파이프라인 — StageCard/베이스(fileKey 92a2mffNpTZ5PltLln7cgq, node 26:139) 실측값을
     // 정본으로 강제(브라우저에 저장된 구 랩 편집값보다 우선). 재실행 시 이 상수만 갱신하면 전원 반영.
