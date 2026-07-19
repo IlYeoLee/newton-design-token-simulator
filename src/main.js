@@ -2544,19 +2544,20 @@ void main(){
     mirrorPanel.visible = on;
     if (!on) return;
     if (!xbot._mirrorTagged) { xbot.model.traverse(o => o.layers.enable(7)); xbot._mirrorTagged = true; }
-    // 존 사각형(캔버스 좌표) → 벽 미터 좌표
+    // 미터 정합: RT = 봇 0~1.75m 정확 프레임 → 패널 = 코치와 동일 높이·동일 바닥선
     const wc = rig._wallCenter;
     const wallBot = (wc?.cy ?? 1.4) - rig.wallH / 2;
-    const zx = (1234 - 800) / 1600 * rig.wallW;
-    const zy = wallBot + (1000 - 488) / 1000 * rig.wallH;
-    mirrorPanel.position.set((wc ? wc.cx : 0) + zx, zy, WALL_Z + 0.026);
-    mirrorPanel.scale.set(452 / 1600 * rig.wallW, 616 / 1000 * rig.wallH, 1);
+    const hS = GHOST_H * 0.68;                       // 코치 투사 높이와 동일 (1.02m)
+    const wS = hS * (452 / 616);
+    const zx = (1234 - 800) / 1600 * rig.wallW;      // 존 중심축 유지
+    mirrorPanel.position.set((wc ? wc.cx : 0) + zx, wallBot + hS / 2, WALL_Z + 0.026);
+    mirrorPanel.scale.set(wS, hS, 1);
     if (rig.wallClip && mirrorPanel.material.clippingPlanes !== rig.wallClip)
       mirrorPanel.material.clippingPlanes = rig.wallClip;
-    // 스테이션 후면 카메라 → 봇 프레이밍
+    // 스테이션 후면 카메라 — 봇 [0, 1.75m]를 수직으로 딱 프레임 (FOV 48 → d=1.97)
     const bx = xbot.group.position;
-    mirrorCam.position.set(bx.x, 1.15, (opt.zU ?? -0.3) + 0.05);
-    mirrorCam.lookAt(bx.x, 0.95, bx.z);
+    mirrorCam.position.set(bx.x, 0.875, bx.z - 1.97);
+    mirrorCam.lookAt(bx.x, 0.875, bx.z);
     // 실루엣 패스 (봇 전용 레이어 + 플랫 시안) — 1인칭에선 봇이 숨겨져 있어 패스 동안만 강제 표시
     const prevVis = xbot.model.visible;
     xbot.model.visible = true;
@@ -2956,7 +2957,7 @@ void main(){
         }
         // 내 자세 슬롯 (비전 미구현 — 점선)
         g.strokeStyle = HUD_CYAN; g.setLineDash([10, 10]); g.globalAlpha = 0.5; g.lineWidth = 2.5;
-        g.strokeRect(1008, 180, 452, 616);
+        g.strokeRect(1044, 368, 380, 622);   // 실루엣 패널(1.02m 접지)과 정합
         g.setLineDash([]); g.globalAlpha = 1;
         hudCaption(g, LOCK[2]);
         break;
