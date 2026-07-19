@@ -2033,8 +2033,8 @@ void main(){
           // 마스크 침식: 크로마키가 불완전한 클립(비순수 그린 배경)에서 마스크 바닥값(~0.2)이
           // 쿼드 전체를 반투명 워시 박스로 칠하던 근본 원인 — 저신뢰 마스크는 0으로
           float mEro = smoothstep(0.30, 0.68, m);
-          float shape = mEro * 0.92;
-          shape = max(shape, trail * 0.5 * smoothstep(0.06, 0.22, trail));
+          float shapeA = mEro * 0.92;   // 알파용 형태 = 실루엣만 (잔상 제외)
+          float shape = max(shapeA, trail * 0.5 * smoothstep(0.06, 0.22, trail));
           vec3 col = mix(thermo(T), lut(clamp(T * 0.96, 0.0, 1.0)), uTone) * shape;   // 뉴턴톤 기본 = 룩 팔레트
           float cl = dot(col, vec3(0.299, 0.587, 0.114));
           col = clamp(mix(vec3(cl), col, 1.32), 0.0, 1.0);   // 채도 부스트 — 룩시스템 '쟁한' 고채도 유지
@@ -2050,7 +2050,9 @@ void main(){
           // 컴포저 OutputPass(linear→sRGB) 역변환 상쇄 (tokens.js uOut=1 규약)
           col = clamp(col, 0.0, 1.0);
           col = mix(col / 12.92, pow((col + 0.055) / 1.055, vec3(2.4)), step(0.04045, col));
-          gl_FragColor = vec4(col * live, clamp(shape * 1.2, 0.0, 1.0) * field * live * 0.985);   // 알파 = 실루엣×라이브 소스 추종
+          // 잔상 = 순수 가산광 (알파 0 = 절대 어둡게 못 함) — 잔상 구름이 잉크 알파를 갖고
+          // 벽을 어둑한 사각으로 덮던 문제('터질 때 박스') 종결. 실루엣만 잉크 불투명.
+          gl_FragColor = vec4(col * live, clamp(shapeA * 1.2, 0.0, 1.0) * field * live * 0.985);
         }`,
       transparent: true, depthWrite: false,
       // out = col + dst·(1−a) — 랩의 base·(1−a·0.88)+col 과 동일 (프리멀티 커스텀 블렌딩)
