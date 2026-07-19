@@ -2560,8 +2560,9 @@ void main(){
       mirrorPanel.material.clippingPlanes = rig.wallClip;
     // 스테이션 후면 카메라 — 봇 [0, 1.75m]를 수직으로 딱 프레임 (FOV 48 → d=1.97)
     const bx = xbot.group.position;
-    mirrorCam.position.set(bx.x - 0.06, 0.875, bx.z - 1.97);   // 스탠스 힙 오프셋 보정 (프레임 센터링)
-    mirrorCam.lookAt(bx.x - 0.06, 0.875, bx.z);
+    // 프레임 [-0.08, 1.80]m — 하단 8cm 여백 (발 잘림 방지), FOV48 → d=2.11
+    mirrorCam.position.set(bx.x - 0.06, 0.86, bx.z - 2.11);
+    mirrorCam.lookAt(bx.x - 0.06, 0.86, bx.z);
     // 실루엣 패스 (봇 전용 레이어 + 플랫 시안) — 1인칭에선 봇이 숨겨져 있어 패스 동안만 강제 표시
     const prevVis = xbot.model.visible;
     xbot.model.visible = true;
