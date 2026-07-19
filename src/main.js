@@ -2842,24 +2842,81 @@ void main(){
         break;
       }
       case 'BX_FIN': {
-        hudGlass(g, 460, 130, 680, 640, 28);
-        g.textAlign = 'left'; g.fillStyle = '#fec389';
-        g.font = '500 26px Pretendard, sans-serif';
-        g.fillText('오늘의 결과', 520, 200);
-        g.fillStyle = HUD_MAIN; g.font = '700 150px Pretendard, sans-serif';
-        g.fillText(pct + '%', 512, 350);
-        g.font = '500 26px Pretendard, sans-serif';
-        g.fillText('정확도 — 지난번보다 +6%', 520, 400);
-        const ROWS = [['12번 맞힘', '맞힌 잽'], ['×5', '최고 콤보'], ['7.2 m/s', '평균 잽 빠르기'], ['132→118', '심박 회복']];
-        ROWS.forEach(([v, k], i) => {
-          g.fillStyle = HUD_MAIN; g.font = '700 40px Pretendard, sans-serif';
-          g.fillText(v, 520, 470 + i * 62);
-          g.fillStyle = '#fec389'; g.font = '500 24px Pretendard, sans-serif';
-          g.fillText(k, 800, 470 + i * 62);
+        // 세션 결과 — 세로 원컬럼 구성 (Nike 결과 카드 히어로 배지 + Strava 아이브로 수치 + Track Info 룰)
+        const cx = 800;
+        // ① 아이브로 + 타이틀 + 도티드 룰
+        const k1 = aIn(0.0), k2 = aIn(0.12), k3 = aIn(0.3, 0.5);
+        g.textAlign = 'center';
+        if (k1 > 0) {
+          g.save(); g.globalAlpha = k1;
+          g.fillStyle = '#fec389'; g.font = '600 26px Pretendard, sans-serif';
+          g.fillText('섀도복싱 · 잽 — 오늘의 결과', cx, 96);
+          g.restore();
+        }
+        if (k2 > 0) {
+          g.save(); g.globalAlpha = k2; g.translate(0, (1 - k2) * 20);
+          g.fillStyle = HUD_MAIN; g.font = '700 54px Pretendard, sans-serif';
+          g.fillText('세션 완료', cx, 160);
+          g.restore();
+        }
+        if (k3 > 0) {
+          g.fillStyle = '#fec389'; g.globalAlpha = 0.9;
+          const half = 170 * k3;
+          for (let dx = -half; dx <= half; dx += 18) { g.beginPath(); g.arc(cx + dx, 186, 2.4, 0, 6.284); g.fill(); }
+          g.globalAlpha = 1;
+        }
+        // ② 히어로 메달 배지 — 아크 게이지 스윕 + 대수치 카운트업 (Nike 배지)
+        const by = 400, br = 150;
+        const kb = aIn(0.35, 0.9);
+        // 도티드 외곽 링
+        g.save(); g.globalAlpha = 0.85 * Math.min(1, kb * 1.5);
+        g.strokeStyle = '#fec389'; g.lineWidth = 2.5; g.setLineDash([2, 12]);
+        g.beginPath(); g.arc(cx, by, br + 22, 0, 6.284); g.stroke();
+        g.setLineDash([]); g.restore();
+        // 베이스 링 + 게이지 스윕
+        g.strokeStyle = HUD_MAIN; g.globalAlpha = 0.25; g.lineWidth = 10;
+        g.beginPath(); g.arc(cx, by, br, 0, 6.284); g.stroke(); g.globalAlpha = 1;
+        g.lineCap = 'round'; g.lineWidth = 10;
+        g.strokeStyle = HUD_MAIN;
+        g.beginPath(); g.arc(cx, by, br, -1.5708, -1.5708 + 6.283 * (pct / 100) * kb); g.stroke();
+        g.lineCap = 'butt';
+        // 대수치
+        g.fillStyle = HUD_MAIN; g.font = '800 128px Pretendard, sans-serif';
+        g.fillText(Math.round(pct * kb) + '%', cx, by + 34);
+        g.fillStyle = '#fec389'; g.font = '600 25px Pretendard, sans-serif';
+        g.fillText('PACK 일치도 — 지난번 +6%', cx, by + 92);
+        // ③ 수치 3열 — 아이브로 위·대수치 아래 (Strava 위계)
+        const cols = [['맞힌 잽', '12'], ['최고 콤보', '×5'], ['평균 잽 속도', '7.2']];
+        cols.forEach(([lab, val], i) => {
+          const kc = aIn(0.7 + i * 0.12);
+          if (kc <= 0) return;
+          const colx = cx + (i - 1) * 300;
+          g.save(); g.globalAlpha = kc; g.translate(0, (1 - kc) * 24);
+          g.fillStyle = '#fec389'; g.font = '600 23px Pretendard, sans-serif';
+          g.fillText(lab, colx, 660);
+          g.fillStyle = HUD_MAIN; g.font = '800 64px Pretendard, sans-serif';
+          g.fillText(val, colx, 730);
+          g.restore();
         });
-        g.fillStyle = HUD_CYAN; g.textAlign = 'center';
-        g.font = '500 26px Pretendard, sans-serif';
-        g.fillText('다시보기 — 코치 잽과 내 자세 겹쳐 보기 →', 800, 850);
+        // 열 구분 수선
+        const kd = aIn(0.95, 0.5);
+        if (kd > 0) {
+          g.strokeStyle = '#fec389'; g.globalAlpha = 0.5 * kd; g.lineWidth = 2;
+          for (const dx of [-150, 150]) {
+            g.beginPath(); g.moveTo(cx + dx, 700 - 32 * kd); g.lineTo(cx + dx, 700 + 32 * kd); g.stroke();
+          }
+          g.globalAlpha = 1;
+        }
+        // ④ 하단 심박 회복 + 다시보기
+        const k5 = aIn(1.1);
+        if (k5 > 0) {
+          g.save(); g.globalAlpha = k5;
+          g.fillStyle = '#fec389'; g.font = '600 24px Pretendard, sans-serif';
+          g.fillText('심박 회복 132 → 118', cx, 812);
+          g.fillStyle = HUD_CYAN; g.font = '500 26px Pretendard, sans-serif';
+          g.fillText('다시보기 — 코치 잽과 내 자세 겹쳐 보기 →', cx, 872);
+          g.restore();
+        }
         break;
       }
     }

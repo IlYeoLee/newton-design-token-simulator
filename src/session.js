@@ -712,11 +712,7 @@ export class Session {
     g = this._mk('BX_C4');
     g.add(wallText('숨 고르기', 0, 1.2, { size: 0.09, color: CS.mute }));
 
-    g = this._mk('BX_FIN');
-    g.add(wallText('오늘의 잽', 0, 1.55, { size: 0.11, color: CS.ink }));
-    g.add(wallText('Pack 일치도 71% · 가드 유지율 82%', 0, 1.3, { size: 0.06, color: CS.dim }));
-    g.add(wallText('회피 후 복귀가 반 박자 느림', 0, 1.12, { size: 0.055, color: CS.mute }));
-    g.add(wallText('다음: 회피→잽 3박자 +1세트', 0, 0.95, { size: 0.055, color: CS.prism }));
+    g = this._mk('BX_FIN');   // 결과 화면 = 벽 HUD 세로 리포트 전담 (구 벽 텍스트 제거 — 중복)
   }
 
   _tap(sport) {
