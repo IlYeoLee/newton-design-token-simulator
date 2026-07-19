@@ -2544,9 +2544,11 @@ void main(){
     g.restore();
   }
   function hudKnock(g, text, font, x, y, align = 'left') {
+    // '낙아웃' 렌더 = 다크 잉크 솔리드 — 진짜 구멍은 시뮬 레이어상 뒤 인물이 비쳐 지저분
+    // (실물 프로젝터에선 카드 영역에서 인물 광이 꺼져 구멍=벽색 — 그 지각을 다크 잉크로 재현)
     g.save();
-    g.globalCompositeOperation = 'destination-out';
-    g.font = font; g.textAlign = align; g.fillStyle = '#000';
+    g.font = font; g.textAlign = align;
+    g.fillStyle = 'rgba(42,32,24,0.94)';
     g.__rawFillText(text, x, y);
     g.restore();
   }
@@ -2558,21 +2560,16 @@ void main(){
     if (k <= 0) return;
     g.save();
     g.translate(0, (1 - k) * 26);             // 라이즈 인
-    const y0 = frac != null ? 76 : 56;               // 무-게이지 카드 = 슬림 (인물 머리 회피)
-    hudCard(g, x, y0, 430, frac != null ? 168 : 148, 24, k);
+    // 지오메트리 좌우 통일 — 같은 y·같은 높이 (게이지 유무와 무관)
+    const y0 = 56, ch = 160;
+    hudCard(g, x, y0, 430, ch, 24, k);
     hudKnock(g, label, '600 23px Overused, Pretendard, sans-serif', x + 30, y0 + 42);
-    hudKnock(g, hudCountUp(num), NUMF(800, 84), x + 30, y0 + 120);
+    hudKnock(g, hudCountUp(num), NUMF(800, 78), x + 30, y0 + 114);
     if (frac != null) {
-      // 게이지: 슬롯은 낙아웃(무광), 채움만 역할색 — 모바일 프로그레스 문법
-      g.save();
-      g.globalCompositeOperation = 'destination-out';
-      g.fillStyle = '#000';
-      g.beginPath(); g.roundRect(x + 30, 212, 370, 8, 4); g.__rawFill();
-      g.restore();
-      g.globalAlpha = k;
+      g.fillStyle = 'rgba(42,32,24,0.35)';
+      g.beginPath(); g.roundRect(x + 30, y0 + 134, 370, 8, 4); g.__rawFill();
       g.fillStyle = col;
-      g.beginPath(); g.roundRect(x + 30, 212, Math.max(10, 370 * Math.min(1, frac) * k), 8, 4); g.__rawFill();
-      g.globalAlpha = 1;
+      g.beginPath(); g.roundRect(x + 30, y0 + 134, Math.max(10, 370 * Math.min(1, frac)), 8, 4); g.__rawFill();
     }
     g.restore();
   }
