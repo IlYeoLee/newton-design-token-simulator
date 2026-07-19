@@ -2155,9 +2155,9 @@ void main(){
       // (피그마 WallUI 확정 레이아웃 — 우측은 '내 자세' 슬롯)
       const wallBot = (wc?.cy ?? 1.4) - rig.wallH / 2;
       const mir = HUD_MIRROR.has(session.curStage?.id);
-      const gsc = mir ? 0.66 : 1;   // 미러 축소 — 상단 카드 밴드와 불겹침 (유저)
+      const gsc = mir ? 0.78 : 1;   // 머리 = 카드 밴드(y216) 바로 아래, 발 = 벽 바닥 (수식: off+1.5g ≤ 1.25)
       demoPanel.scale.set(GHOST_H * (9 / 16) / 0.62 * gsc * GHOST_PAD, GHOST_H / 0.93 * gsc * GHOST_PAD, 1);
-      demoPanel.position.set((wc ? wc.cx : 0) + (mir ? -0.868 : 0), wallBot + GHOST_H * gsc / 2 + (mir ? 0.10 : 0.01), WALL_Z + 0.035);
+      demoPanel.position.set((wc ? wc.cx : 0) + (mir ? -0.868 : 0), wallBot + GHOST_H * gsc / 2 + (mir ? 0.01 : 0.01), WALL_Z + 0.035);
     }
     demoPanel.visible = !!on;
     if (on) setGhostClip(session.curStage?.id);   // 스테이지별 클립 자동 전환 (404 → 기본)
@@ -2865,8 +2865,8 @@ void main(){
         g.__rawFillText(String(goal[1]).padStart(2, '0'), 800, 700);   // 앰비언트 = 네온 우회
         g.globalAlpha = 1;
         hudLockup(g, LOCK[0], LOCK[1]);
-        hudTag(g, 279, T('코치 — 따라 하세요'), HUD_MAIN);
-        hudTag(g, 1321, T('내 자세'), HUD_CYAN);
+        hudTag(g, 279, T('코치 — 따라 하세요'), HUD_MAIN, 224);
+        hudTag(g, 1321, T('내 자세'), HUD_CYAN, 224);
         const mine = id === 'BX_B1' ? (tS % 4).toFixed(1) : Math.min(goal[1], Math.floor(tS / 2.2));
         g.textAlign = 'left';
         hudStat(g, 64, T(goal[0]), goal[1] + T(goal[2]), HUD_MAIN, null, 56);
