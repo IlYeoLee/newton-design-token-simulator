@@ -2529,14 +2529,10 @@ void main(){
   // ── VR 스포츠 UI 모션 프리미티브 (SkyTrak·TV 트레이서·GYM 레퍼런스 문법) ──
   let HUD_T = 0;   // 스테이지 경과 시간 — drawStage가 세팅, 모든 등장 모션의 시계
   const easeO = x => { x = Math.min(1, Math.max(0, x)); return 1 - Math.pow(1 - x, 4); };
-  const aIn = (d, dur = 0.6) => easeO((HUD_T - d) / dur);   // delay 스태거 등장 0→1
+  const aIn = () => 1;   // 등장 슬라이드-인 전면 제거 (유저: 전환마다 애니 불필요) — 즉시 표시
   function hudCountUp(num, d = 0.25, dur = 0.9) {
     // 수치 카운트업 — '116'·'4.2' 형은 굴리고, '4/8' 같은 복합 문자열은 그대로
-    const s = String(num), n = parseFloat(s);
-    if (!isFinite(n) || String(n) !== s) return s;
-    const k = easeO((HUD_T - d) / dur);
-    const dec = (s.split('.')[1] || '').length;
-    return (n * k).toFixed(dec);
+    return String(num);   // 카운트업도 전환 애니 — 제거 (유저)
   }
   // ── 카드 낙아웃 (모바일 정합 3단계): 밝은 카드 광면 + 무광 텍스트 = 투사식 '검정 타이포' ──
   //    프로젝터는 검정을 못 쏘지만, 밝은 광면 안에서 빛을 안 쏜 영역은 검정으로 읽힌다 (유저 사진 원리)
@@ -2554,7 +2550,10 @@ void main(){
     g.__rawFillText(text, x, y);
     g.restore();
   }
-  function hudStat(g, x, label, num, col, frac) {
+  function hudStat(_g, x, label, num, col, frac) {
+    // 스탯 카드 = 오버레이 레이어(인물 위) — 방송 그래픽 규율: 정보 카드가 최상층
+    const g = ctaCtx;
+    ctaDrawn = true; ctaHas = true;
     const k = aIn(0.2 + (x / 1600) * 0.25);   // 좌→우 스태거 등장
     if (k <= 0) return;
     g.save();
