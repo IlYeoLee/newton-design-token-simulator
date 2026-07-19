@@ -2068,6 +2068,7 @@ void main(){
   // 사전에 매트를 구운 소스(알파 영상/스틸 시퀀스)가 준비된 경우에만 켠다.
   const DEMO_CLIP_MODE = 'wall';   // 크로마 코치 가동 (그린스크린 실사 — Magnific/Freepik 무료)
   const GHOST_H = 1.5;             // 고스트 패널 세로(m) — 벽 1.63m 안 (자취방 스케일)
+  const GHOST_PAD = 1.22;          // 프레임 여백 배수 — 페더가 인물이 아닌 여백에서만 작동 (유저)
   // ── 스테이지별 고스트 클립 (유저 AI 크로마 소스 반입 지점) ──────────────────
   //    public/ghost/<파일명>에 떨어뜨리면 코드 수정 없이 스테이지 전환 시 자동 교체.
   //    파일 없음(404) → 기본 클립 폴백. 스펙·프롬프트 = docs/ghost-clips.md
@@ -2131,13 +2132,13 @@ void main(){
     // 가상 상대(스파링 고스트) = 전신·실제 키 스케일 — 패널 9:16 세로, 발이 벽 하단에 닿게.
     // 소스 규약: 전신이 다 담긴 크로마 영상(상하 여백 ~10%) → 인물 실높이 ≈ 1.75m.
     // 크롭은 커버핏(9:16 창) — 랩 카드와 같은 인물 프레이밍에 그라디언트가 걸림.
-    demoPanel.scale.set(GHOST_H * (9 / 16) / 0.62, GHOST_H / 0.93, 1);
+    demoPanel.scale.set(GHOST_H * (9 / 16) / 0.62 * GHOST_PAD, GHOST_H / 0.93 * GHOST_PAD, 1);
     demoVideo.addEventListener('loadedmetadata', () => {
       const A = 9 / 16, va = demoVideo.videoWidth / demoVideo.videoHeight;
       const s = va > A ? [A / va, 1] : [1, va / A];
-      trailMat.uniforms.uCropS.value.set(s[0], s[1]);
-      heatMaskMat.uniforms.uCropS.value.set(s[0], s[1]);
-      demoPanel.material.uniforms.uCropS.value.set(s[0], s[1]);
+      trailMat.uniforms.uCropS.value.set(s[0] * GHOST_PAD, s[1] * GHOST_PAD);
+      heatMaskMat.uniforms.uCropS.value.set(s[0] * GHOST_PAD, s[1] * GHOST_PAD);
+      demoPanel.material.uniforms.uCropS.value.set(s[0] * GHOST_PAD, s[1] * GHOST_PAD);
     });
   }
   function renderDemoPanel() {
@@ -2155,7 +2156,7 @@ void main(){
       const wallBot = (wc?.cy ?? 1.4) - rig.wallH / 2;
       const mir = HUD_MIRROR.has(session.curStage?.id);
       const gsc = mir ? 0.8 : 1;
-      demoPanel.scale.set(GHOST_H * (9 / 16) / 0.62 * gsc, GHOST_H / 0.93 * gsc, 1);
+      demoPanel.scale.set(GHOST_H * (9 / 16) / 0.62 * gsc * GHOST_PAD, GHOST_H / 0.93 * gsc * GHOST_PAD, 1);
       demoPanel.position.set((wc ? wc.cx : 0) + (mir ? -0.868 : 0), wallBot + GHOST_H * gsc / 2 + (mir ? 0.33 : 0.01), WALL_Z + 0.035);
     }
     demoPanel.visible = !!on;
