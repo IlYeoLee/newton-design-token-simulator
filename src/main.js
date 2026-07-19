@@ -2538,21 +2538,42 @@ void main(){
     const dec = (s.split('.')[1] || '').length;
     return (n * k).toFixed(dec);
   }
+  // ── 카드 낙아웃 (모바일 정합 3단계): 밝은 카드 광면 + 무광 텍스트 = 투사식 '검정 타이포' ──
+  //    프로젝터는 검정을 못 쏘지만, 밝은 광면 안에서 빛을 안 쏜 영역은 검정으로 읽힌다 (유저 사진 원리)
+  function hudCard(g, x, y, w, h, r, a) {
+    g.save();
+    g.beginPath(); g.roundRect(x, y, w, h, r);
+    g.fillStyle = `rgba(255,246,234,${(0.94 * a).toFixed(3)})`;
+    g.__rawFill();
+    g.restore();
+  }
+  function hudKnock(g, text, font, x, y, align = 'left') {
+    g.save();
+    g.globalCompositeOperation = 'destination-out';
+    g.font = font; g.textAlign = align; g.fillStyle = '#000';
+    g.__rawFillText(text, x, y);
+    g.restore();
+  }
   function hudStat(g, x, label, num, col, frac) {
     const k = aIn(0.2 + (x / 1600) * 0.25);   // 좌→우 스태거 등장
     if (k <= 0) return;
     g.save();
-    g.globalAlpha = k;
     g.translate(0, (1 - k) * 26);             // 라이즈 인
-    g.textAlign = 'left';
-    g.fillStyle = col;
-    g.font = '600 23px Overused, Pretendard, sans-serif';
-    g.fillText(label, x + 28, 44);
-    g.font = NUMF(800, 84);
-    g.fillText(hudCountUp(num), x + 28, 122);
+    const y0 = frac != null ? 76 : 56;               // 무-게이지 카드 = 슬림 (인물 머리 회피)
+    hudCard(g, x, y0, 430, frac != null ? 168 : 148, 24, k);
+    hudKnock(g, label, '600 23px Overused, Pretendard, sans-serif', x + 30, y0 + 42);
+    hudKnock(g, hudCountUp(num), NUMF(800, 84), x + 30, y0 + 120);
     if (frac != null) {
-      g.globalAlpha = 0.25 * k; g.fillStyle = col; g.fillRect(x + 28, 138, 424, 8); g.globalAlpha = k;
-      g.fillStyle = HUD_CYAN; g.fillRect(x + 28, 138, Math.max(10, 424 * Math.min(1, frac) * k), 8);
+      // 게이지: 슬롯은 낙아웃(무광), 채움만 역할색 — 모바일 프로그레스 문법
+      g.save();
+      g.globalCompositeOperation = 'destination-out';
+      g.fillStyle = '#000';
+      g.beginPath(); g.roundRect(x + 30, 212, 370, 8, 4); g.__rawFill();
+      g.restore();
+      g.globalAlpha = k;
+      g.fillStyle = col;
+      g.beginPath(); g.roundRect(x + 30, 212, Math.max(10, 370 * Math.min(1, frac) * k), 8, 4); g.__rawFill();
+      g.globalAlpha = 1;
     }
     g.restore();
   }
@@ -2789,8 +2810,8 @@ void main(){
         hudTag(g, 1234, T('내 자세'), HUD_CYAN);
         const mine = id === 'BX_B1' ? (tS % 4).toFixed(1) : Math.min(goal[1], Math.floor(tS / 2.2));
         g.textAlign = 'left';
-        hudStat(g, 127, T(goal[0]), goal[1] + T(goal[2]), HUD_INK, null);
-        hudStat(g, 992, T('내 기록'), mine + T(goal[2]), HUD_CYAN, (parseFloat(mine) || 0) / goal[1]);
+        hudStat(g, 48, T(goal[0]), goal[1] + T(goal[2]), HUD_MAIN, null);
+        hudStat(g, 1130, T('내 기록'), mine + T(goal[2]), HUD_CYAN, (parseFloat(mine) || 0) / goal[1]);
         if (id === 'BX_A2') {
           for (let i = 0; i < 6; i++) {
             const lit = i < (Math.floor(tS / 1.6) % 7);
