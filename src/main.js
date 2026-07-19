@@ -2833,7 +2833,7 @@ void main(){
         g.fillStyle = HUD_MAIN; g.font = '500 24px Pretendard, sans-serif'; g.globalAlpha = 0.85;
         g.fillText('실전 라운드', 64, 148); g.globalAlpha = 1;
         // 우하: 잽 빠르기 + 세그
-        g.fillStyle = HUD_MAIN; g.font = '700 84px Pretendard, sans-serif';
+        g.fillStyle = HUD_MAIN; g.font = NUMF(700, 84);
         g.fillText('7.2', 1130, 800);
         g.font = '500 22px Pretendard, sans-serif'; g.globalAlpha = 0.85;
         g.fillText('잽 빠르기 m/s', 1136, 836); g.globalAlpha = 1;
@@ -2841,7 +2841,7 @@ void main(){
           g.fillStyle = i < 7 ? HUD_MAIN : 'rgba(255,148,71,0.25)';
           g.beginPath(); g.roundRect(1130 + i * 34, 856, 30, 12, 4); g.fill();
         }
-        g.fillStyle = HUD_MAIN; g.font = '700 60px Pretendard, sans-serif';
+        g.fillStyle = HUD_MAIN; g.font = NUMF(700, 60);
         g.fillText('×3', 64, 840);
         g.font = '500 22px Pretendard, sans-serif'; g.globalAlpha = 0.85;
         g.fillText('콤보 · 12번 맞힘', 64, 876); g.globalAlpha = 1;
@@ -2876,7 +2876,7 @@ void main(){
           cx0 += cw + 24;
         }
         g.fillStyle = HUD_MAIN; g.textAlign = 'right';
-        g.font = '700 96px Pretendard, sans-serif';
+        g.font = NUMF(700, 96);
         g.fillText('×5', 1520, 140);
         g.font = '500 22px Pretendard, sans-serif'; g.globalAlpha = 0.85;
         g.fillText('연속 성공', 1520, 176); g.globalAlpha = 1;
@@ -2895,7 +2895,7 @@ void main(){
         g.font = '500 24px Pretendard, sans-serif';
         g.fillText('들숨 — 링 따라 크게', 300, 660);
         g.fillStyle = HUD_MAIN; g.textAlign = 'right';
-        g.font = '700 64px Pretendard, sans-serif';
+        g.font = NUMF(700, 64);
         g.fillText('118 ↓', 1520, 860);
         g.font = '500 22px Pretendard, sans-serif'; g.globalAlpha = 0.85;
         g.fillText('심박 회복', 1520, 896); g.globalAlpha = 1;
