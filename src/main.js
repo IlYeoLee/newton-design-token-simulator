@@ -2269,6 +2269,7 @@ void main(){
     "타겟 뜨면 바로 잽": "Jab when the target lights", "평균 잽 속도": "Avg jab speed", "회피 슬립": "Slip the punch",
     "코치 — 따라 하세요": "Coach — follow along",
     "실전 2/4": "Live 2/4", "잽 대련": "Jab sparring", "실전 3/4": "Live 3/4", "콤비 가속": "Combo speed-up",
+    "실전!": "GO!", "가드 올리고 — 타겟 뜨면 잽": "Guard up — jab when the target lights",
     "잽": "Jab", "훅": "Hook",
     "목표": "Goal", "목표 박자": "Target BPM", "목표 잽": "Target jabs", "버티기 목표": "Hold goal", "열리는 횟수": "Openings",
     "회": " reps", "초": "s",
@@ -2966,6 +2967,7 @@ void main(){
         g.strokeStyle = HUD_CYAN;
         g.beginPath(); g.roundRect(1106, 240, 430, 748, 16); g.stroke();
         g.setLineDash([]); g.globalAlpha = 1;
+        window.__mirDbg = (window.__mirDbg || 0) + 1;
         hudCaption(g, LOCK[2]);
         break;
       }
@@ -3006,8 +3008,8 @@ void main(){
         break;
       }
       case 'BX_C1': {
-        const n = Math.max(1, 3 - Math.floor(tS));
-        hudMilestone(g, T('실전 시작 전'), String(n), null);
+        // T2가 이미 5초 카운트 — 연속 이중 카운트다운 중복 제거(유저), 'GO' 플래시로
+        hudMilestone(g, null, T('실전!'), T('가드 올리고 — 타겟 뜨면 잽'));
         break;
       }
       case 'BX_C2': {

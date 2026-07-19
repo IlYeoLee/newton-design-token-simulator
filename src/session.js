@@ -690,7 +690,7 @@ export class Session {
     this.bxDodgeR = wallRing(0.34, 1.45, 0.17, 0.19, BRAND.coral, 0.95); g.add(this.bxDodgeR);
     this.bxDodgeL.material.uniforms.uContract.value = 1;
     this.bxDodgeR.material.uniforms.uContract.value = 1;
-    g.add(wallText('피해요', 0, 1.02, { size: 0.09, color: CS.coral, weight: 800 }));
+    // '피해요' 사제 텍스트 은퇴 — HUD 캡션('주먹 온다 — 점선 존 밖으로 슬립')이 전담
 
     // B3 잽 스윕 — 스윕 밴드 + 타겟(수축 링)
     g = this._mk('BX_B3');
