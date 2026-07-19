@@ -45,6 +45,9 @@ export class WallGhost {
     this.mat = new THREE.MeshBasicMaterial({
       map: this.tex, transparent: true, opacity: 0.92,
       depthWrite: false, toneMapped: false,
+      // goo(SVG 필터) 알파 매트릭스가 캔버스 전면에 미세 알파 바닥을 깔아
+      // 플레인이 '사각 박스'로 비치던 문제 — 저알파 프래그먼트 폐기 (유저 전수검사)
+      alphaTest: 0.04,
     });
     this.plane = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), this.mat);
     this.plane.renderOrder = 4;

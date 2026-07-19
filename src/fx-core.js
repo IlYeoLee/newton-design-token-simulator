@@ -376,8 +376,11 @@ export function drawSweepBand(g, W, P, look, t, ENV, prog) {
   const p = prog != null ? Math.max(0, Math.min(1, prog)) : (t * 0.25) % 1;
   const C = W / 2;
   const bh = (100 / 220) * W * P.h, by = C - bh / 2, m = W * (24 / 220);
+  // 필(pill) 실루엣 — 하드 사각 필이 벽에서 '사각 박스'로 읽히던 문제 (유저 전수검사)
+  const pill = () => { g.beginPath(); g.roundRect(m, by, W - 2 * m, bh, bh / 2); };
   g.fillStyle = lut(0.30); g.globalAlpha = P.base;
-  g.fillRect(m, by, W - 2 * m, bh);
+  pill(); g.fill();
+  g.save(); pill(); g.clip();
   g.globalAlpha = 0.85; g.fillStyle = lut(0.62);
   g.shadowColor = lut(0.7); g.shadowBlur = GB;
   g.fillRect(m, by, (W - 2 * m) * p, bh);
@@ -386,6 +389,7 @@ export function drawSweepBand(g, W, P, look, t, ENV, prog) {
     g.fillStyle = lut(0.95);
     g.fillRect(m + (W - 2 * m) * p - 2 * P.edge, by, 4 * P.edge, bh);
   }
+  g.restore();
   g.globalAlpha = 1; g.shadowBlur = 0;
 }
 /** 스탠스 박스 — 서는 영역 (LINE 상속 둘레 + FOOT 글리프) */
