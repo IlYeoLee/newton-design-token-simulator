@@ -2585,8 +2585,10 @@ void main(){
     }
     g.restore();
   }
-  function hudTag(g, cx, text, col, ty = 916) {
-    // 역할 태그 = 하단 행(캡션과 동일 베이스라인) · 원샷 · 리더 라인 없음 (유저 정돈)
+  function hudTag(_g, cx, text, col, ty = 916) {
+    // 역할 태그 = 하단 행 · 원샷 · 오버레이(인물 위 이름표 — 방송 네임플레이트 규율)
+    const g = ctaCtx;
+    ctaDrawn = true; ctaHas = true;
     const k = aIn(0.15);
     const out = 1 - easeQ((HUD_T - 3.2) / 0.7);
     if (k <= 0 || out <= 0) return;
@@ -2865,8 +2867,8 @@ void main(){
         g.__rawFillText(String(goal[1]).padStart(2, '0'), 800, 700);   // 앰비언트 = 네온 우회
         g.globalAlpha = 1;
         hudLockup(g, LOCK[0], LOCK[1]);
-        hudTag(g, 540, T('코치 — 따라 하세요'), HUD_MAIN);   // 하단 — 인물(좌) 우측으로 비킴
-        hudTag(g, 1321, T('내 자세'), HUD_CYAN);   // 하단
+        hudTag(g, 279, T('코치 — 따라 하세요'), HUD_MAIN);   // 하단 — 인물 위 이름표(오버레이)
+        hudTag(g, 1321, T('내 자세'), HUD_CYAN);
         const mine = id === 'BX_B1' ? (tS % 4).toFixed(1) : Math.min(goal[1], Math.floor(tS / 2.2));
         g.textAlign = 'left';
         hudStat(g, 64, T(goal[0]), goal[1] + T(goal[2]), HUD_MAIN, null, 56);
