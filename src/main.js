@@ -2290,7 +2290,9 @@ void main(){
     runs.forEach(([, t], i) => { g.font = fonts[i]; g.fillText(t, cx, y); cx += g.measureText(t).width; });
     g.textAlign = pa;
   }
-  const HUD_SS = 2;   // 슈퍼샘플 — 1000px/m: 비트맵 확대 블러 해소 (SDF 승격 전 즉효)
+  // SS=1: 벽 캔버스(1600)가 화면 투영 폭(~1100-1500px)과 거의 1:1 — SS=2는 밉맵 없는
+  // 3배 축소 샘플링이 되어 글자가 뭉개졌음(유저 가독 지적). 선명·업로드 4배 절감 동시 달성.
+  const HUD_SS = 1;
   const hudCanvas = document.createElement('canvas');
   hudCanvas.width = HUDW * HUD_SS; hudCanvas.height = HUDH * HUD_SS;
   const hudCtx = hudCanvas.getContext('2d');
