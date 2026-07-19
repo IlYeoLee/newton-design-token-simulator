@@ -1044,9 +1044,8 @@ export class Session {
     const p = makeTextPlane(text, opts); this._clip(p, true); slot.add(p);
   }
   _setCountWall(n, color = CS.red) {
+    // 벽 카운트다운 = HUD 마일스톤(정중앙 대형)이 전담 — 3D 텍스트 플레인 중복 은퇴
     while (this.wCount.children.length) { const c = this.wCount.children.pop(); c.geometry?.dispose(); c.material?.map?.dispose(); c.material?.dispose(); }
-    if (n == null) return;
-    const p = makeTextPlane(String(n), { size: 0.28, color, weight: 800 }); this._clip(p, true); this.wCount.add(p);
   }
 
   _enterRunning(st, { S, FS, FL, FM }) {
