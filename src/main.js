@@ -2248,9 +2248,10 @@ void main(){
   ctaCtx.scale(HUD_SS, HUD_SS);
   neonize(ctaCtx);
   const hudTex = new THREE.CanvasTexture(hudCanvas);
-  hudTex.minFilter = THREE.LinearMipmapLinearFilter;
+  // ponytail 최적화: 밉맵 재생성(리드로마다 3200×2000 풀 밉체인) 제거 — 벽은 확대 시야라 시각 동일
+  hudTex.minFilter = THREE.LinearFilter;
   hudTex.magFilter = THREE.LinearFilter;
-  hudTex.generateMipmaps = true;
+  hudTex.generateMipmaps = false;
   hudTex.anisotropy = 8;
   const hudPanel = new THREE.Mesh(
     new THREE.PlaneGeometry(3.2, 2.0),
@@ -2273,6 +2274,7 @@ void main(){
   // 풀컬러 레이저 전제: 강한 픽셀 = 벽을 덮는 불투명 잉크(급경사 알파),
   // 약한 글로우 = 가산에 수렴(알파≈0) — 반투명 워시 종결 + 갈색 프린지 회피
   float lum = max(col.r, max(col.g, col.b));
+  if (lum < 0.004) discard;   // ponytail 최적화: 빈 픽셀(캔버스 대부분) 블렌딩 탈락
   float aInk = smoothstep(0.20, 0.65, lum) * 0.68;   // 벽 HUD = 빛 투과 잉크 (풀 불투명은 '합성한 느낌' 기각)
   col = mix(col / 12.92, pow((col + 0.055) / 1.055, vec3(2.4)), step(0.04045, col));
   gl_FragColor = vec4(col, aInk);
@@ -2282,9 +2284,9 @@ void main(){
     }));
   hudPanel.renderOrder = 6;
   const ctaTex = new THREE.CanvasTexture(ctaCanvas);
-  ctaTex.minFilter = THREE.LinearMipmapLinearFilter;
+  ctaTex.minFilter = THREE.LinearFilter;
   ctaTex.magFilter = THREE.LinearFilter;
-  ctaTex.generateMipmaps = true;
+  ctaTex.generateMipmaps = false;
   ctaTex.anisotropy = 8;
   const ctaPanel = new THREE.Mesh(hudPanel.geometry, hudPanel.material.clone());
   ctaPanel.material.uniforms.tex.value = ctaTex;
@@ -2336,6 +2338,10 @@ float gridLine(vec2 guv){
 }
 void main(){
   #include <clipping_planes_fragment>
+  // ponytail 최적화: 테두리 페더가 0으로 만드는 픽셀은 레이마치 전 조기 탈락 (시각 동일)
+  float vignE = smoothstep(0.0, 0.24, vUv.x) * smoothstep(0.0, 0.24, 1.0 - vUv.x)
+              * smoothstep(0.0, 0.28, vUv.y) * smoothstep(0.0, 0.28, 1.0 - vUv.y);
+  if (vignE < 0.004) discard;
   vec2 suv = vUv * 2.0 - 1.0;
   // 원본 GridScan 구도: 단일 바닥 평면이 지평선으로 물러나는 퍼스펙티브 그리드
   vec3 ro = vec3(0.0, 0.34, 0.0);
@@ -2386,9 +2392,7 @@ void main(){
   col += pr * 0.24;
   col = clamp(col * uBoost, 0.0, 1.0);
   // 테두리 페더 — 사각 경계가 안 보이게 가장자리로 갈수록 블러 소멸
-  float vign = smoothstep(0.0, 0.24, vUv.x) * smoothstep(0.0, 0.24, 1.0 - vUv.x)
-             * smoothstep(0.0, 0.28, vUv.y) * smoothstep(0.0, 0.28, 1.0 - vUv.y);
-  col *= vign;
+  col *= vignE;
   float lumG = max(col.r, max(col.g, col.b));
   float aInk = smoothstep(0.16, 0.60, lumG) * 0.72;   // 배경 그리드 투과 완화 (유저: 너무 투명)
   // 감마 변환 제거 — 리니어화가 주황 칩(FE6E3C·FEC389)의 G/B를 죽여 레드로 표류시킴
@@ -2560,7 +2564,9 @@ void main(){
     hudChip(g, 800 - w / 2, 912, w, 54, 27, HUD_MAIN, text, 800, 948);
     g.restore();
   }
+  let ctaDrawn = true;   // CTA 캔버스 더티 플래그 (초기 1회 클리어)
   function hudCTA(g, text, y, tS) {
+    ctaDrawn = true;
     // 최종 하이브리드: 고인 빛 웅덩이(아우라·재질) + 발광 코어 필(어포던스·가독)
     const LABEL = '발 두 번 탭해서 시작';
     g.font = '700 34px Pretendard, sans-serif'; g.textAlign = 'center';
@@ -2967,11 +2973,11 @@ void main(){
     const g = hudCtx;
     hudSyncPalette();
     g.clearRect(0, 0, HUDW, HUDH);
-    ctaCtx.clearRect(0, 0, HUDW, HUDH);
-    // 배경 라인 = GridScan 플레인이 전담 (기존 룸·링 캔버스 라인 제거 — 유저 확정)
+    // ponytail 최적화: CTA 캔버스는 그린 프레임에만 clear+업로드 (비-CTA 스테이지 25MB/리드로 절감)
+    if (ctaDrawn) { ctaCtx.clearRect(0, 0, HUDW, HUDH); ctaDrawn = false; }
     drawStage(g, st.id, tS);
     hudTex.needsUpdate = true;
-    ctaTex.needsUpdate = true;
+    if (ctaDrawn) ctaTex.needsUpdate = true;
   }
 
   // ── 복싱 벽면 인물 시범 = FX Lab PERSON_FRAG 정본 포트 (인물 — 실사 복서 + 잔상) ──
