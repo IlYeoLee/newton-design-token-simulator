@@ -2222,9 +2222,28 @@ void main(){
   //    발광 요소만(배경·프레임 박스 금지), 검정=투명. 합성·감마 = 고스트 동일 규약(P4).
   const HUDW = 1600, HUDH = 1000;
   // 수치 전용 디스플레이 폰트 (OffBit — 숫자·글리프만, 영단어·한글은 Pretendard 유지. 유저)
-  const offbit = new FontFace('OffBit', `url(${import.meta.env.BASE_URL}fonts/OffBitTrial-Bold.ttf)`);
+  const offbit = new FontFace('OffBit', `url(${import.meta.env.BASE_URL}fonts/OffBitTrial-101Bold.ttf)`);
   offbit.load().then(f => document.fonts.add(f)).catch(() => {});
   const NUMF = (w, s) => `${w} ${s}px OffBit, Pretendard, sans-serif`;
+  const NUM_RE = /[0-9.%×+→:·\/±]/;
+  function mixedText(g, text, x, y, w, s, align = 'center') {
+    // 숫자·글리프 런 = OffBit / 나머지 = Pretendard (유저: 퍼센트·글리프도 반영)
+    const runs = [];
+    let buf = '', num = null;
+    for (const ch of String(text)) {
+      const isN = NUM_RE.test(ch);
+      if (num === null || isN !== num) { if (buf) runs.push([num, buf]); buf = ch; num = isN; }
+      else buf += ch;
+    }
+    if (buf) runs.push([num, buf]);
+    const fonts = runs.map(([n]) => n ? NUMF(w, s) : `${w} ${s}px Pretendard, sans-serif`);
+    let total = 0;
+    runs.forEach(([, t], i) => { g.font = fonts[i]; total += g.measureText(t).width; });
+    let cx = align === 'center' ? x - total / 2 : align === 'right' ? x - total : x;
+    const pa = g.textAlign; g.textAlign = 'left';
+    runs.forEach(([, t], i) => { g.font = fonts[i]; g.fillText(t, cx, y); cx += g.measureText(t).width; });
+    g.textAlign = pa;
+  }
   const HUD_SS = 2;   // 슈퍼샘플 — 1000px/m: 비트맵 확대 블러 해소 (SDF 승격 전 즉효)
   const hudCanvas = document.createElement('canvas');
   hudCanvas.width = HUDW * HUD_SS; hudCanvas.height = HUDH * HUD_SS;
@@ -2594,11 +2613,12 @@ void main(){
     hudChip(g, 800 - w / 2, 912, w, 54, 27, HUD_MAIN, text, 800, 948);
     g.restore();
   }
-  let ctaDrawn = true;   // CTA 캔버스 더티 플래그 (초기 1회 클리어)
+  let ctaDrawn = true;    // 이번 프레임에 CTA를 그렸는가
+  let ctaHas = false;     // 캔버스에 내용 잔존 여부 (스틱 방지)
   function hudCTA(g, text, y, tS) {
-    ctaDrawn = true;
+    ctaDrawn = true; ctaHas = true;
     // 최종 하이브리드: 고인 빛 웅덩이(아우라·재질) + 발광 코어 필(어포던스·가독)
-    const LABEL = '발 두 번 탭해서 시작';
+    const LABEL = text || '발 두 번 탭해서 시작';   // 장면별 카피 존중
     g.font = '700 34px Pretendard, sans-serif'; g.textAlign = 'center';
     const tw = g.measureText(LABEL).width;
     const yy = y ?? 908, cy = yy + 30;
@@ -2676,7 +2696,7 @@ void main(){
         hudTag(g, 800, '상대 — 맞서세요', HUD_MAIN);
         // 좌상: 스테이지 + 페이즈 도트
         g.textAlign = 'left'; g.fillStyle = HUD_MAIN;
-        g.font = '700 34px Pretendard, sans-serif'; g.fillText('0 · 준비', 64, 92);
+        mixedText(g, '0 · 준비', 64, 92, 700, 34, 'left');
         hudPhaseDots(g, 72, 122, 0);
         g.fillStyle = '#fec389'; g.font = '500 20px Pretendard, sans-serif';
         g.fillText('가드 · 거리 재기', 64, 160);
@@ -2923,8 +2943,8 @@ void main(){
         // 대수치
         g.fillStyle = HUD_MAIN; g.font = NUMF(800, 128);
         g.fillText(Math.round(pct * kb) + '%', cx, by + 34);
-        g.fillStyle = '#fec389'; g.font = '600 25px Pretendard, sans-serif';
-        g.fillText('PACK 일치도 — 지난번 +6%', cx, by + 92);
+        g.fillStyle = '#fec389';
+        mixedText(g, 'PACK 일치도 — 지난번 +6%', cx, by + 92, 600, 25);
         // ③ 수치 3열 — 아이브로 위·대수치 아래 (Strava 위계)
         const cols = [['맞힌 잽', '12'], ['최고 콤보', '×5'], ['평균 잽 속도', '7.2']];
         cols.forEach(([lab, val], i) => {
@@ -2951,8 +2971,8 @@ void main(){
         const k5 = aIn(1.1);
         if (k5 > 0) {
           g.save(); g.globalAlpha = k5;
-          g.fillStyle = '#fec389'; g.font = '600 24px Pretendard, sans-serif';
-          g.fillText('심박 회복 132 → 118', cx, 812);
+          g.fillStyle = '#fec389';
+          mixedText(g, '심박 회복 132 → 118', cx, 812, 600, 24);
           g.fillStyle = HUD_CYAN; g.font = '500 26px Pretendard, sans-serif';
           g.fillText('다시보기 — 코치 잽과 내 자세 겹쳐 보기 →', cx, 872);
           g.restore();
@@ -3003,11 +3023,14 @@ void main(){
     const g = hudCtx;
     hudSyncPalette();
     g.clearRect(0, 0, HUDW, HUDH);
-    // ponytail 최적화: CTA 캔버스는 그린 프레임에만 clear+업로드 (비-CTA 스테이지 25MB/리드로 절감)
-    if (ctaDrawn) { ctaCtx.clearRect(0, 0, HUDW, HUDH); ctaDrawn = false; }
+    // CTA: 매 리드로 클리어, 업로드는 [그린 프레임] 또는 [잔존 제거 1회]만 —
+    // 이전 게이트가 안 그린 프레임에 클리어를 생략해 버튼이 전 장면에 잔류(유저)
+    ctaCtx.clearRect(0, 0, HUDW, HUDH);
+    ctaDrawn = false;
     drawStage(g, st.id, tS);
     hudTex.needsUpdate = true;
-    if (ctaDrawn) ctaTex.needsUpdate = true;
+    if (ctaDrawn) { ctaTex.needsUpdate = true; }
+    else if (ctaHas) { ctaTex.needsUpdate = true; ctaHas = false; }
   }
 
   // ── 복싱 벽면 인물 시범 = FX Lab PERSON_FRAG 정본 포트 (인물 — 실사 복서 + 잔상) ──
