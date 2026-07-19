@@ -2576,13 +2576,13 @@ void main(){
     // 지오메트리 좌우 통일 — 같은 y·같은 높이 (게이지 유무와 무관)
     const y0 = 56, ch = 160;
     hudCard(g, x, y0, 430, ch, 30, k);
-    hudKnock(g, label, '600 23px Overused, Pretendard, sans-serif', x + 30, y0 + 42);
-    hudKnock(g, hudCountUp(num), NUMF(800, 78), x + 30, y0 + 114);
+    hudKnock(g, label, '600 23px Overused, Pretendard, sans-serif', x + 32, y0 + 44);
+    hudKnock(g, hudCountUp(num), NUMF(800, 76), x + 32, y0 + 118);
     if (frac != null) {
       g.fillStyle = 'rgba(255,250,244,0.22)';
-      g.beginPath(); g.roundRect(x + 30, y0 + 134, 370, 8, 4); g.__rawFill();
+      g.beginPath(); g.roundRect(x + 32, y0 + 140, 366, 8, 4); g.__rawFill();
       g.fillStyle = col;
-      g.beginPath(); g.roundRect(x + 30, y0 + 134, Math.max(10, 370 * Math.min(1, frac)), 8, 4); g.__rawFill();
+      g.beginPath(); g.roundRect(x + 32, y0 + 140, Math.max(10, 366 * Math.min(1, frac)), 8, 4); g.__rawFill();
     }
     g.restore();
   }
@@ -2837,16 +2837,16 @@ void main(){
         g.fillText(T('가드 · 거리 재기'), 64, 322);
         // 우상: 링 거리 + 웨어러블
         g.textAlign = 'right'; g.fillStyle = HUD_INK;
-        g.font = NUMF(700, 64); g.fillText('1.93', 1520, 108);
+        g.font = NUMF(700, 64); g.fillText('1.93', 1536, 108);
         g.font = '500 22px Overused, Pretendard, sans-serif'; g.fillStyle = '#fec389';
-        g.fillText(T('m — 링에 서기'), 1520, 142);
+        g.fillText(T('m — 링에 서기'), 1536, 142);
         g.font = '700 18px Overused, Pretendard, sans-serif';
         const wtxt = T('웨어러블 안전 모드');
         const ww = g.measureText(wtxt).width + 40;
-        g.beginPath(); g.roundRect(1520 - ww, 166, ww, 38, 19);
+        g.beginPath(); g.roundRect(1536 - ww, 166, ww, 38, 19);
         g.strokeStyle = '#fec389'; g.lineWidth = 1.5; g.stroke();   // 웨어러블 = 시스템 (시안 회수)
         g.fillStyle = '#fec389'; g.textAlign = 'center';
-        g.fillText(wtxt, 1520 - ww / 2, 191);
+        g.fillText(wtxt, 1536 - ww / 2, 191);
         hudCTA(ctaCtx, T('발 두 번 탭해서 시작'), 916, tS);
         // 우하: 가드 브래킷 + 카피
         g.strokeStyle = HUD_MAIN; g.lineWidth = 4;
@@ -2873,12 +2873,12 @@ void main(){
         g.__rawFillText(String(goal[1]).padStart(2, '0'), 800, 700);   // 앰비언트 = 네온 우회
         g.globalAlpha = 1;
         hudLockup(g, LOCK[0], LOCK[1]);
-        hudTag(g, 366, T('코치 — 따라 하세요'), HUD_MAIN);
-        hudTag(g, 1234, T('내 자세'), HUD_CYAN);
+        hudTag(g, 279, T('코치 — 따라 하세요'), HUD_MAIN);
+        hudTag(g, 1321, T('내 자세'), HUD_CYAN);
         const mine = id === 'BX_B1' ? (tS % 4).toFixed(1) : Math.min(goal[1], Math.floor(tS / 2.2));
         g.textAlign = 'left';
-        hudStat(g, 48, T(goal[0]), goal[1] + T(goal[2]), HUD_MAIN, null);
-        hudStat(g, 1130, T('내 기록'), mine + T(goal[2]), HUD_CYAN, (parseFloat(mine) || 0) / goal[1]);
+        hudStat(g, 64, T(goal[0]), goal[1] + T(goal[2]), HUD_MAIN, null);
+        hudStat(g, 1106, T('내 기록'), mine + T(goal[2]), HUD_CYAN, (parseFloat(mine) || 0) / goal[1]);
         if (id === 'BX_A2') {
           for (let i = 0; i < 6; i++) {
             const lit = i < (Math.floor(tS / 1.6) % 7);
@@ -2946,9 +2946,9 @@ void main(){
         hudTag(g, 800, T('상대 — 맞서세요'), HUD_MAIN);
         g.textAlign = 'right'; g.fillStyle = HUD_INK;
         g.font = NUMF(700, 96);
-        g.fillText(pct + '%', 1520, 140);
+        g.fillText(pct + '%', 1536, 140);
         g.font = '500 22px Overused, Pretendard, sans-serif'; g.globalAlpha = 0.85;
-        g.fillText(T('정확도'), 1520, 176); g.globalAlpha = 1;
+        g.fillText(T('정확도'), 1536, 176); g.globalAlpha = 1;
         g.textAlign = 'left'; g.fillStyle = HUD_INK;   // 타이머 = 시스템 정보 (시안 회수)
         g.font = NUMF(700, 54);
         g.fillText('0:' + String(Math.floor(tS)).padStart(2, '0'), 64, 252);
@@ -2956,12 +2956,12 @@ void main(){
         g.fillText(T('실전 라운드'), 64, 290); g.globalAlpha = 1;
         // 우하: 잽 빠르기 + 세그
         g.fillStyle = HUD_INK; g.font = NUMF(700, 84);
-        g.fillText('7.2', 1130, 800);
+        g.fillText('7.2', 1106, 800);
         g.font = '500 22px Overused, Pretendard, sans-serif'; g.globalAlpha = 0.85;
-        g.fillText(T('잽 빠르기 m/s'), 1136, 836); g.globalAlpha = 1;
+        g.fillText(T('잽 빠르기 m/s'), 1106, 836); g.globalAlpha = 1;
         for (let i = 0; i < 10; i++) {
           g.fillStyle = i < 7 ? HUD_MAIN : 'rgba(255,148,71,0.25)';
-          g.beginPath(); g.roundRect(1130 + i * 34, 856, 30, 12, 4); g.fill();
+          g.beginPath(); g.roundRect(1106 + i * 34, 856, 30, 12, 4); g.fill();
         }
         g.fillStyle = HUD_INK; g.font = NUMF(700, 60);
         g.fillText('×3', 64, 840);
@@ -3000,9 +3000,9 @@ void main(){
         }
         g.fillStyle = HUD_INK; g.textAlign = 'right';
         g.font = NUMF(700, 96);
-        g.fillText('×5', 1520, 140);
+        g.fillText('×5', 1536, 140);
         g.font = '500 22px Overused, Pretendard, sans-serif'; g.globalAlpha = 0.85;
-        g.fillText(T('연속 성공'), 1520, 176); g.globalAlpha = 1;
+        g.fillText(T('연속 성공'), 1536, 176); g.globalAlpha = 1;
         hudCaption(g, T('잽-잽-훅 — 리듬 놓치지 말고'));
         break;
       }
@@ -3019,9 +3019,9 @@ void main(){
         g.fillText(T('들숨 — 링 따라 크게'), 300, 660);
         g.fillStyle = HUD_INK; g.textAlign = 'right';
         g.font = NUMF(700, 64);
-        g.fillText('118 ↓', 1520, 128);
+        g.fillText('118 ↓', 1536, 128);
         g.font = '500 22px Overused, Pretendard, sans-serif'; g.globalAlpha = 0.85;
-        g.fillText(T('심박 회복'), 1520, 164); g.globalAlpha = 1;
+        g.fillText(T('심박 회복'), 1536, 164); g.globalAlpha = 1;
         break;
       }
       case 'BX_FIN': {
