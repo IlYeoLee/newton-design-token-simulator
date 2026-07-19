@@ -316,6 +316,7 @@ async function boot() {
     rig.setPack(data.sport, tokens.events);
     const isKneePack = data.sport === 'running' || data.sport === 'basketball';
     window.__updateSurfAvail?.();   // 실내 테마 = 복싱 전용 게이트
+    window.__applySurfDefault?.(p);   // 팩별 기본 투사면 자동 적용
     tokens.footprintTest = isKneePack ? (x, z, inset) => rig.contains(x, z, inset) : null;
     effects.clip = isKneePack ? (x, z) => rig.contains(x, z) : null;
 
@@ -1065,6 +1066,18 @@ void main(){
       }
     };
     window.__updateSurfAvail();
+    // 팩별 기본 투사면 — 매번 수동 선택 제거 (유저): 러닝=잔디 · 복싱=실내 · 농구=트랙
+    const SURF_DEFAULT = { running: 'grass', boxing: 'indoor', basketball: 'track' };
+    window.__applySurfDefault = (pack) => {
+      const key = SURF_DEFAULT[pack];
+      if (!key) return;
+      setSurfaces(key);
+      updateSurfChips(key);
+      const st = designStore.globalGet('fx', 'lab', null) || {};
+      st.bg = key;
+      designStore.globalSet('fx', 'lab', st);
+      designStore.save();
+    };
     const savedLab = designStore.globalGet('fx', 'lab', null);
     // 피그마 카드 임포트 파이프라인 — StageCard/베이스(fileKey 92a2mffNpTZ5PltLln7cgq, node 26:139) 실측값을
     // 정본으로 강제(브라우저에 저장된 구 랩 편집값보다 우선). 재실행 시 이 상수만 갱신하면 전원 반영.
