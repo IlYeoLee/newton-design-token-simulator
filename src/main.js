@@ -2091,12 +2091,13 @@ void main(){
   //    맵에 없는 스테이지(BX_T1 전환·BX_FIN 리포트) = 고스트 자체를 안 띄움 (인물 불필요 장면)
   const GHOST_CLIPS = {
     BX_READY: ['bx_idle_guard.mp4', '상대 대기 — 가드 바운스'],
-    BX_A1:    ['bx_warm_neck.mp4', '시범 — 목·어깨 풀기'],
-    BX_A2:    ['bx_warm_step.mp4', '시범 — 스텝 인·아웃'],
-    BX_A3:    ['bx_warm_jab.mp4', '시범 — 잽 폼 6회'],
-    BX_B1:    ['bx_opp_jab_slow.mp4', '상대 — 느린 잽 (가드 버티기)'],
-    BX_B2:    ['bx_opp_straight.mp4', '상대 — 스트레이트 (슬립)'],
-    BX_B3:    ['bx_opp_opening.mp4', '상대 — 가드 열림 (잽 타이밍)'],
+    // 실전 전 = 전신 가이드 클립 통일 (전용 클립 반입 시 파일명만 교체 — 토르소 폴백 금지)
+    BX_A1:    ['bx_idle_guard.mp4', '시범 — 목·어깨 풀기 (전신)'],
+    BX_A2:    ['bx_idle_guard.mp4', '시범 — 스텝 인·아웃 (전신)'],
+    BX_A3:    ['bx_idle_guard.mp4', '시범 — 잽 폼 (전신)'],
+    BX_B1:    ['bx_idle_guard.mp4', '상대 — 느린 잽 (전신)'],
+    BX_B2:    ['bx_idle_guard.mp4', '상대 — 스트레이트 (전신)'],
+    BX_B3:    ['bx_idle_guard.mp4', '상대 — 가드 열림 (전신)'],
     BX_C2:    ['bx_spar_live.mp4', '상대 — 잽 대련 리듬'],
     BX_C3:    ['bx_spar_combo.mp4', '상대 — 잽잽훅 콤비'],
     BX_C4:    ['bx_cooldown.mp4', '상대 — 마무리 호흡'],
@@ -2168,7 +2169,7 @@ void main(){
       // (피그마 WallUI 확정 레이아웃 — 우측은 '내 자세' 슬롯)
       const wallBot = (wc?.cy ?? 1.4) - rig.wallH / 2;
       const mir = HUD_MIRROR.has(session.curStage?.id);
-      const gsc = mir ? 0.78 : 1;   // 머리 = 카드 밴드(y216) 바로 아래, 발 = 벽 바닥 (수식: off+1.5g ≤ 1.25)
+      const gsc = mir ? 0.68 : 1;   // 코치 1.02m ≈ 내 실루엣 1.0m — 두 인물 사이즈감 일치 (유저)
       demoPanel.scale.set(GHOST_H * (9 / 16) / 0.62 * gsc * GHOST_PAD, GHOST_H / 0.93 * gsc * GHOST_PAD, 1);
       demoPanel.position.set((wc ? wc.cx : 0) + (mir ? -0.868 : 0), wallBot + GHOST_H * gsc / 2 + (mir ? 0.01 : 0.01), WALL_Z + 0.035);
     }
@@ -2529,7 +2530,7 @@ void main(){
   // 내 폼 미니뷰 — 스테이션 후면 카메라가 보는 유저(X봇)를 '내 자세' 존(1008,180,452,616)에
   // 시안 실루엣 라이브로 투사 (제품 서사: 비전 인식 미리보기). 봇은 장면 드릴을 실연 중.
   const mirrorRT = new THREE.WebGLRenderTarget(226, 308);
-  const mirrorCam = new THREE.PerspectiveCamera(52, 452 / 616, 0.1, 12);   // 여유 프레이밍 — 펀치 전진에도 전신 유지
+  const mirrorCam = new THREE.PerspectiveCamera(48, 452 / 616, 0.1, 12);   // 실루엣 ≈ 1.0m — 코치와 등신 일치
   const MIRROR_MAT = new THREE.MeshBasicMaterial({ color: 0xd1feff });
   const mirrorPanel = new THREE.Mesh(
     new THREE.PlaneGeometry(1, 1),
