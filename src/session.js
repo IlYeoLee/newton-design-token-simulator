@@ -710,7 +710,7 @@ export class Session {
     g.add(this.bxCombo);
 
     g = this._mk('BX_C4');
-    g.add(wallText('숨 고르기', 0, 1.2, { size: 0.09, color: CS.mute }));
+    // '숨 고르기' 3D 텍스트 은퇴 — HUD 코너 아이덴티티가 전담 (EN 미번역 잔재 제거)
 
     g = this._mk('BX_FIN');   // 결과 화면 = 벽 HUD 세로 리포트 전담 (구 벽 텍스트 제거 — 중복)
   }
