@@ -2865,8 +2865,8 @@ void main(){
         g.__rawFillText(String(goal[1]).padStart(2, '0'), 800, 700);   // 앰비언트 = 네온 우회
         g.globalAlpha = 1;
         hudLockup(g, LOCK[0], LOCK[1]);
-        hudTag(g, 279, T('코치 — 따라 하세요'), HUD_MAIN, 224);
-        hudTag(g, 1321, T('내 자세'), HUD_CYAN, 224);
+        hudTag(g, 540, T('코치 — 따라 하세요'), HUD_MAIN);   // 하단 — 인물(좌) 우측으로 비킴
+        hudTag(g, 1321, T('내 자세'), HUD_CYAN);   // 하단
         const mine = id === 'BX_B1' ? (tS % 4).toFixed(1) : Math.min(goal[1], Math.floor(tS / 2.2));
         g.textAlign = 'left';
         hudStat(g, 64, T(goal[0]), goal[1] + T(goal[2]), HUD_MAIN, null, 56);
