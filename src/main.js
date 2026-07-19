@@ -2526,6 +2526,55 @@ void main(){
     hudGlowK = (FXP.mark?.halo ?? 0.9) / 0.9;
   }
   const HUD_MIRROR = new Set(['BX_A1', 'BX_A2', 'BX_A3', 'BX_B1', 'BX_B3']);
+  // 내 폼 미니뷰 — 스테이션 후면 카메라가 보는 유저(X봇)를 '내 자세' 존(1008,180,452,616)에
+  // 시안 실루엣 라이브로 투사 (제품 서사: 비전 인식 미리보기). 봇은 장면 드릴을 실연 중.
+  const mirrorRT = new THREE.WebGLRenderTarget(226, 308);
+  const mirrorCam = new THREE.PerspectiveCamera(52, 452 / 616, 0.1, 12);   // 여유 프레이밍 — 펀치 전진에도 전신 유지
+  const MIRROR_MAT = new THREE.MeshBasicMaterial({ color: 0xd1feff });
+  const mirrorPanel = new THREE.Mesh(
+    new THREE.PlaneGeometry(1, 1),
+    new THREE.MeshBasicMaterial({ map: mirrorRT.texture, transparent: true, opacity: 0.92, depthWrite: false }));
+  mirrorPanel.renderOrder = 6;
+  mirrorPanel.visible = false;
+  scene.add(mirrorPanel);
+  function renderMirrorView() {
+    const st = session.active && state.pack === 'boxing' ? session.curStage : null;
+    const on = !!st && HUD_MIRROR.has(st.id) && xbot.model;
+    mirrorPanel.visible = on;
+    if (!on) return;
+    if (!xbot._mirrorTagged) { xbot.model.traverse(o => o.layers.enable(7)); xbot._mirrorTagged = true; }
+    // 존 사각형(캔버스 좌표) → 벽 미터 좌표
+    const wc = rig._wallCenter;
+    const wallBot = (wc?.cy ?? 1.4) - rig.wallH / 2;
+    const zx = (1234 - 800) / 1600 * rig.wallW;
+    const zy = wallBot + (1000 - 488) / 1000 * rig.wallH;
+    mirrorPanel.position.set((wc ? wc.cx : 0) + zx, zy, WALL_Z + 0.026);
+    mirrorPanel.scale.set(452 / 1600 * rig.wallW, 616 / 1000 * rig.wallH, 1);
+    if (rig.wallClip && mirrorPanel.material.clippingPlanes !== rig.wallClip)
+      mirrorPanel.material.clippingPlanes = rig.wallClip;
+    // 스테이션 후면 카메라 → 봇 프레이밍
+    const bx = xbot.group.position;
+    mirrorCam.position.set(bx.x, 1.15, (opt.zU ?? -0.3) + 0.05);
+    mirrorCam.lookAt(bx.x, 0.95, bx.z);
+    // 실루엣 패스 (봇 전용 레이어 + 플랫 시안) — 1인칭에선 봇이 숨겨져 있어 패스 동안만 강제 표시
+    const prevVis = xbot.model.visible;
+    xbot.model.visible = true;
+    const prevBg = scene.background, prevFog = scene.fog;
+    scene.background = null; scene.fog = null;
+    scene.overrideMaterial = MIRROR_MAT;
+    mirrorCam.layers.set(7);
+    const prevRT = renderer.getRenderTarget();
+    const prevAlpha = renderer.getClearAlpha();
+    renderer.setClearAlpha(0);
+    renderer.setRenderTarget(mirrorRT);
+    renderer.clear();
+    renderer.render(scene, mirrorCam);
+    renderer.setRenderTarget(prevRT);
+    renderer.setClearAlpha(prevAlpha);
+    scene.overrideMaterial = null;
+    scene.background = prevBg; scene.fog = prevFog;
+    xbot.model.visible = prevVis;
+  }
   const HUD_RING = new Set(['BX_C1', 'BX_C2', 'BX_C3', 'BX_C4']);
   // 스테이지별 목표치 (피그마 스탯패널 사양)
   const HUD_GOALS = { BX_A1: ['목표', 8, '회'], BX_A2: ['목표 박자', 153, ''], BX_A3: ['목표 잽', 6, ''], BX_B1: ['버티기 목표', 3.0, '초'], BX_B3: ['열리는 횟수', 6, ''] };
@@ -3304,7 +3353,7 @@ void main(){
       // 복싱 = Mixamo 실측 모캡 (목풀기만 절차)
       BX_A1: 'bx_neck', BX_A2: 'boxGuard', BX_A3: 'boxJab',
       BX_B1: 'boxGuard', BX_B2: 'boxGuard', BX_B3: 'boxCombo',
-      BX_READY: 'boxGuard', BX_T1: 'boxGuard', BX_T2: 'boxGuard',
+      BX_READY: 'boxGuard', BX_T1: 'boxGuard', BX_T2: 'boxGuard', BX_C1: 'boxGuard',
       // 농구 = 실측 스탠스 + 기존 사이드스텝·드리블
       BK_A1: 'bkStance', BK_A2: 'sidestep', BK_A3: 'dribble',
     };
@@ -3720,6 +3769,7 @@ void main(){
     renderGhostLayer();
     renderDemoPanel();   // A 시범 구간 실사 클립 (휴면)
     renderWallHUD();     // 벽면 게임 HUD (피그마 WallUI 이식)
+    renderMirrorView();  // 내 폼 존 = 스테이션 카메라 실루엣 라이브
     renderBxPerson();    // 복싱 벽면 인물 시범 (정본 포트)
     renderFrame(clock.elapsedTime);   // 블룸 + 그레인·비네트 컴포저 (scene.js FX)
   }
