@@ -2171,7 +2171,7 @@ void main(){
       const mir = HUD_MIRROR.has(session.curStage?.id);
       const gsc = mir ? 0.59 : 1;   // 실측 보정: 이 클립은 쿼드를 꽉 채움 → 인물 1.16m = gsc 0.59
       demoPanel.scale.set(GHOST_H * (9 / 16) / 0.62 * gsc * GHOST_PAD, GHOST_H / 0.93 * gsc * GHOST_PAD, 1);
-      demoPanel.position.set((wc ? wc.cx : 0) + (mir ? -1.042 : 0), wallBot + GHOST_H * gsc / 2 + (mir ? 0.17 : 0.01), WALL_Z + 0.035);
+      demoPanel.position.set((wc ? wc.cx : 0) + (mir ? -0.80 : 0), wallBot + GHOST_H * gsc / 2 + (mir ? 0.17 : 0.01), WALL_Z + 0.035);
     }
     demoPanel.visible = !!on;
     if (on) setGhostClip(session.curStage?.id);   // 스테이지별 클립 자동 전환 (404 → 기본)
@@ -2560,8 +2560,8 @@ void main(){
       mirrorPanel.material.clippingPlanes = rig.wallClip;
     // 스테이션 후면 카메라 — 봇 [0, 1.75m]를 수직으로 딱 프레임 (FOV 48 → d=1.97)
     const bx = xbot.group.position;
-    mirrorCam.position.set(bx.x, 0.875, bx.z - 1.97);
-    mirrorCam.lookAt(bx.x, 0.875, bx.z);
+    mirrorCam.position.set(bx.x - 0.06, 0.875, bx.z - 1.97);   // 스탠스 힙 오프셋 보정 (프레임 센터링)
+    mirrorCam.lookAt(bx.x - 0.06, 0.875, bx.z);
     // 실루엣 패스 (봇 전용 레이어 + 플랫 시안) — 1인칭에선 봇이 숨겨져 있어 패스 동안만 강제 표시
     const prevVis = xbot.model.visible;
     xbot.model.visible = true;
