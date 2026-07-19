@@ -3063,7 +3063,8 @@ void main(){
           heat += clamp(m - mSoft, 0.0, 1.0) * 0.10;
           vec3 col = lut(clamp(heat, 0.0, 1.0)) * mSoft * 1.12;
           col += lut(clamp(heat * 0.45, 0.0, 1.0)) * trail * 0.38;
-          gl_FragColor = vec4(col, 1.0);   // 가산: 검정 = 무기여 (라이브 출력 규약)
+          // 알파 = 실루엣 마스크 추종 — 알파 1.0 고정이 흰 벽에서 쿼드 사각 박스로 드러났음 (유저)
+          gl_FragColor = vec4(col, clamp(max(mSoft * 1.15, trail * 0.5), 0.0, 1.0));
         }`,
       transparent: true, depthWrite: false, blending: THREE.NormalBlending,
     }));
