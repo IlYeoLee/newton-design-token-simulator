@@ -2730,7 +2730,7 @@ void main(){
     if (eyebrow && ke > 0) {
       g.save(); g.globalAlpha = ke; g.translate(0, (1 - ke) * -14);
       g.fillStyle = '#fec389'; g.font = '500 34px Overused, Pretendard, sans-serif';
-      g.fillText(eyebrow, 800, numeric ? 240 : 330);   // 카운트형 = 링(상단 290) 위 — 겹침 방지
+      g.fillText(eyebrow, 800, numeric ? 240 : 386);   // 워드형 = 타이틀 캡 위 40px — 리듬 정합
       g.restore();
     }
     if (kt > 0) {
@@ -3001,7 +3001,7 @@ void main(){
       case 'BX_T1': {
         hudMilestone(g, T('섀도복싱 · 잽'), T('몸풀기 끝!'), T('몸 풀렸어요 — 다음: 사전 익히기'));
         hudPhaseDots(g, 800 - 69, 560, 1);
-        hudCTA(ctaCtx, T('두 번 탭 → 익히기'), 620, tS);
+        hudCTA(ctaCtx, T('두 번 탭 → 익히기'), 700, tS);   // 서브(612) 아래 88px — 밀착 해소
         break;
       }
       case 'BX_T2': {
