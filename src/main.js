@@ -2740,13 +2740,7 @@ void main(){
       g.fillText(String(title), 800, numeric ? 560 : 500);
       g.restore();
     }
-    const ry = 552;
-    if (kt > 0 && !/^[0-9]+$/.test(String(title))) {
-      g.fillStyle = '#fec389'; g.globalAlpha = 0.9 * kt;
-      const half = 170 * kt;
-      for (let dx = -half; dx <= half; dx += 18) { g.beginPath(); g.arc(800 + dx, ry, 2.4, 0, 6.284); g.fill(); }
-      g.globalAlpha = 1;
-    }
+    // 도트 룰 제거 — 이중 점선 지각(유저) + 타이포 위계만으로 충분
     if (sub && ks > 0) {
       g.save(); g.globalAlpha = ks; g.translate(0, (1 - ks) * 16);
       g.fillStyle = '#fec389'; g.font = '500 34px Overused, Pretendard, sans-serif';
@@ -3000,7 +2994,7 @@ void main(){
       }
       case 'BX_T1': {
         hudMilestone(g, T('섀도복싱 · 잽'), T('몸풀기 끝!'), T('몸 풀렸어요 — 다음: 사전 익히기'));
-        hudPhaseDots(g, 800 - 69, 560, 1);
+        hudPhaseDots(g, 800 - 69, 660, 1);   // 진행 도트 = 서브 아래·CTA 위 (룰과 이중 점선 해소)
         hudCTA(ctaCtx, T('두 번 탭 → 익히기'), 700, tS);   // 서브(612) 아래 88px — 밀착 해소
         break;
       }
