@@ -1928,6 +1928,12 @@ void main(){
       vec3 c = texture2D(tex, vuv).rgb;
       float k = c.g - max(c.r, c.b);                     // 그린 우세도 — 결정론적 크로마 키
       float m = 1.0 - smoothstep(0.05, 0.16, k);         // 임계값 = 랩 mask1 정본
+      // 화이트/그레이 스튜디오 키 — 그린이 아닌 배경 클립(비규격 생성물) 대응:
+      // 밝고 무채색(저채도)인 픽셀 = 배경. 피부·장갑은 채도가 있어 생존 (유저: 배경 박스 잔존)
+      float lum = dot(c, vec3(0.299, 0.587, 0.114));
+      float sat = (max(c.r, max(c.g, c.b)) - min(c.r, min(c.g, c.b))) / max(max(c.r, max(c.g, c.b)), 1e-4);
+      float whiteBg = smoothstep(0.52, 0.72, lum) * smoothstep(0.30, 0.12, sat);
+      m *= 1.0 - whiteBg;
       m *= smoothstep(0.0, 0.03, uv.y) * smoothstep(1.0, 0.97, uv.y);
       return m;
     }`;
