@@ -1977,7 +1977,7 @@ void main(){
     new THREE.ShaderMaterial({
       uniforms: {
         tex: { value: demoTex }, uTrail: { value: trailRTs[0].texture }, uHeat: { value: heatRTs[0].texture }, uLUT: { value: getLUT() },
-        uTime: { value: 0 }, uNoise: { value: 0.55 }, uW: { value: 1 }, uDetail: { value: 0.62 }, uTrailGain: { value: 1 }, uGrain: { value: 0 }, uTone: { value: 0 },
+        uTime: { value: 0 }, uNoise: { value: 0.55 }, uW: { value: 1 }, uDetail: { value: 0.62 }, uTrailGain: { value: 1 }, uGrain: { value: 0 }, uTone: { value: 0 }, uLive: { value: 0 },
         uCropC: { value: new THREE.Vector2(0.5, 0.5) }, uCropS: { value: new THREE.Vector2(1, 1) },
       },
       vertexShader: `#include <common>
@@ -1992,7 +1992,7 @@ void main(){
       fragmentShader: `#include <common>
 #include <clipping_planes_pars_fragment>
         varying vec2 vUv;
-        uniform sampler2D uTrail, uLUT, uHeat; uniform float uTime, uNoise, uW, uDetail, uTrailGain, uGrain, uTone;
+        uniform sampler2D uTrail, uLUT, uHeat; uniform float uTime, uNoise, uW, uDetail, uTrailGain, uGrain, uTone, uLive;
         vec3 lut(float v){ return texture2D(uLUT, vec2(clamp(v, 0.004, 0.996), 0.5)).rgb; }
         ` + FX_GLSL.replace('uniform sampler2D uLUT;', '').replace('vec3 lut(float v){ return texture2D(uLUT, vec2(clamp(v, 0.004, 0.996), 0.5)).rgb; }', '') + `
         ` + MASK_GLSL + `
@@ -2041,10 +2041,9 @@ void main(){
           float field = smoothstep(0.0, 0.05, uv.x) * smoothstep(1.0, 0.95, uv.x)
                       * smoothstep(0.0, 0.04, uv.y) * smoothstep(1.0, 0.96, uv.y);
           col *= field;
-          // 소스 휘도 게이트 — 블랙/정지/미로드 프레임은 기여 0 (통짜 불투명 박스가 이펙트를 가리던 근본 원인:
-          // 크로마키가 아닌 어두운 프레임에서 m=1 → shape·알파가 쿼드 전체를 칠함)
-          float srcL = dot(texture2D(tex, clamp(dvuv, 0.0, 1.0)).rgb, vec3(0.299, 0.587, 0.114));
-          float live = smoothstep(0.025, 0.10, srcL);
+          // 프레임 게이트(uLive: CPU에서 비디오 재생 상태) — 블랙/정지/미로드 프레임 기여 0.
+          // 픽셀 휘도 게이트는 인물 내부 어두운 부위(그늘·옷)까지 깎아 투명해짐 → 기각(유저)
+          float live = uLive;
           // 컴포저 OutputPass(linear→sRGB) 역변환 상쇄 (tokens.js uOut=1 규약)
           col = clamp(col, 0.0, 1.0);
           col = mix(col / 12.92, pow((col + 0.055) / 1.055, vec3(2.4)), step(0.04045, col));
@@ -2169,6 +2168,9 @@ void main(){
     if (on) { if (demoVideo.paused) demoVideo.play().catch(() => {}); }
     else { if (!demoVideo.paused) demoVideo.pause(); return; }
     const now = performance.now() / 1000;
+    // 프레임 게이트 — 재생 가능한 살아있는 프레임일 때만 인물 기여 (블랙/정지 = 박스 방지)
+    demoPanel.material.uniforms.uLive.value =
+      (demoVideo.readyState >= 2 && !demoVideo.ended && !demoVideo.paused) ? 1 : 0;
     if (now - demoLastT < 1 / 45) return;
     demoLastT = now;
     if (demoVideo.readyState < 2) return;
