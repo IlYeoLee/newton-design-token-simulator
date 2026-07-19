@@ -2155,9 +2155,9 @@ void main(){
       // (피그마 WallUI 확정 레이아웃 — 우측은 '내 자세' 슬롯)
       const wallBot = (wc?.cy ?? 1.4) - rig.wallH / 2;
       const mir = HUD_MIRROR.has(session.curStage?.id);
-      const gsc = mir ? 0.8 : 1;
+      const gsc = mir ? 0.66 : 1;   // 미러 축소 — 상단 카드 밴드와 불겹침 (유저)
       demoPanel.scale.set(GHOST_H * (9 / 16) / 0.62 * gsc * GHOST_PAD, GHOST_H / 0.93 * gsc * GHOST_PAD, 1);
-      demoPanel.position.set((wc ? wc.cx : 0) + (mir ? -0.868 : 0), wallBot + GHOST_H * gsc / 2 + (mir ? 0.33 : 0.01), WALL_Z + 0.035);
+      demoPanel.position.set((wc ? wc.cx : 0) + (mir ? -0.868 : 0), wallBot + GHOST_H * gsc / 2 + (mir ? 0.10 : 0.01), WALL_Z + 0.035);
     }
     demoPanel.visible = !!on;
     if (on) setGhostClip(session.curStage?.id);   // 스테이지별 클립 자동 전환 (404 → 기본)
@@ -2869,8 +2869,8 @@ void main(){
         hudTag(g, 1321, T('내 자세'), HUD_CYAN);
         const mine = id === 'BX_B1' ? (tS % 4).toFixed(1) : Math.min(goal[1], Math.floor(tS / 2.2));
         g.textAlign = 'left';
-        hudStat(g, 1106, T(goal[0]), goal[1] + T(goal[2]), HUD_MAIN, null, 56);
-        hudStat(g, 1106, T('내 기록'), mine + T(goal[2]), HUD_CYAN, (parseFloat(mine) || 0) / goal[1], 240);
+        hudStat(g, 64, T(goal[0]), goal[1] + T(goal[2]), HUD_MAIN, null, 56);
+        hudStat(g, 1106, T('내 기록'), mine + T(goal[2]), HUD_CYAN, (parseFloat(mine) || 0) / goal[1], 56);
         if (id === 'BX_A2') {
           for (let i = 0; i < 6; i++) {
             const lit = i < (Math.floor(tS / 1.6) % 7);
