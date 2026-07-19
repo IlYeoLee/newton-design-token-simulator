@@ -52,6 +52,9 @@ void main() {
   heat += smoothstep(R, R * 0.2, d0) * uEmber * fade * (0.8 + 0.2 * wob);
   heat += exp(-d0 * 6.5) * pow(1.0 - t, 2.2) * 1.15;
   heat *= uIntensity * fwdGate;
+  // 쿼드 경계 페이드 — 와이드 헤일로가 평면 모서리까지 살아남아 '터질 때 사각 박스'로
+  // 드러나던 진범 (경계 페이드 부재는 이 셰이더뿐이었음). 파문 본체(R≤0.9)는 불변.
+  heat *= smoothstep(1.0, 0.78, d0);
   // 새벽빛 스윕
   float sweep = 0.09 * sin(ang - t * 2.4) + 0.05 * sin(ang * 2.0 + t * 1.1);
   // 가시성 게인은 LUT 인덱스(색 위치)가 아니라 출력에만 — 열을 키우면 색이 크림 쪽으로
