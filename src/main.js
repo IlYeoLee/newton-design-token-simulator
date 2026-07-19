@@ -1928,12 +1928,6 @@ void main(){
       vec3 c = texture2D(tex, vuv).rgb;
       float k = c.g - max(c.r, c.b);                     // 그린 우세도 — 결정론적 크로마 키
       float m = 1.0 - smoothstep(0.05, 0.16, k);         // 임계값 = 랩 mask1 정본
-      // 화이트/그레이 스튜디오 키 — 그린이 아닌 배경 클립(비규격 생성물) 대응:
-      // 밝고 무채색(저채도)인 픽셀 = 배경. 피부·장갑은 채도가 있어 생존 (유저: 배경 박스 잔존)
-      float lum = dot(c, vec3(0.299, 0.587, 0.114));
-      float sat = (max(c.r, max(c.g, c.b)) - min(c.r, min(c.g, c.b))) / max(max(c.r, max(c.g, c.b)), 1e-4);
-      float whiteBg = smoothstep(0.52, 0.72, lum) * smoothstep(0.30, 0.12, sat);
-      m *= 1.0 - whiteBg;
       m *= smoothstep(0.0, 0.03, uv.y) * smoothstep(1.0, 0.97, uv.y);
       return m;
     }`;
@@ -2046,9 +2040,9 @@ void main(){
           col = clamp(mix(vec3(cl), col, 1.32), 0.0, 1.0);   // 채도 부스트 — 룩시스템 '쟁한' 고채도 유지
           col += (fxhash(uv * 977.0 + uTime) - 0.5) * (2.0 / 255.0);
           col += (fxhash(uv * 1661.0 + uTime * 3.0) - 0.5) * uGrain;
-          // 필드 없음(유저 확정: 인물만 벽에 뜬다) — 패널 경계 하드컷 방지 페이드만
-          float field = smoothstep(0.0, 0.05, uv.x) * smoothstep(1.0, 0.95, uv.x)
-                      * smoothstep(0.0, 0.04, uv.y) * smoothstep(1.0, 0.96, uv.y);
+          // 프레임 원천 제거(유저): 타원 페더 — 잔여 배경·워시가 직선 경계 없이 곡선으로 소멸
+          float rE = length(vec2((uv.x - 0.5) * 2.0, (uv.y - 0.5) * 1.84));
+          float field = 1.0 - smoothstep(0.88, 1.0, rE);
           col *= field;
           // 프레임 게이트(uLive: CPU에서 비디오 재생 상태) — 블랙/정지/미로드 프레임 기여 0.
           // 픽셀 휘도 게이트는 인물 내부 어두운 부위(그늘·옷)까지 깎아 투명해짐 → 기각(유저)
