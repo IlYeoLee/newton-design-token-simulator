@@ -2221,6 +2221,10 @@ void main(){
   //    캔버스 1600×1000 = 벽 3.2×2.0m (500px/m, 피그마 좌표 1:1). 프레임리스 —
   //    발광 요소만(배경·프레임 박스 금지), 검정=투명. 합성·감마 = 고스트 동일 규약(P4).
   const HUDW = 1600, HUDH = 1000;
+  // 수치 전용 디스플레이 폰트 (OffBit — 숫자·글리프만, 영단어·한글은 Pretendard 유지. 유저)
+  const offbit = new FontFace('OffBit', `url(${import.meta.env.BASE_URL}fonts/OffBitTrial-Bold.ttf)`);
+  offbit.load().then(f => document.fonts.add(f)).catch(() => {});
+  const NUMF = (w, s) => `${w} ${s}px OffBit, Pretendard, sans-serif`;
   const HUD_SS = 2;   // 슈퍼샘플 — 1000px/m: 비트맵 확대 블러 해소 (SDF 승격 전 즉효)
   const hudCanvas = document.createElement('canvas');
   hudCanvas.width = HUDW * HUD_SS; hudCanvas.height = HUDH * HUD_SS;
@@ -2478,7 +2482,7 @@ void main(){
     g.fillStyle = col;
     g.font = '600 23px Pretendard, sans-serif';
     g.fillText(label, x + 28, 44);
-    g.font = '800 84px Pretendard, sans-serif';
+    g.font = NUMF(800, 84);
     g.fillText(hudCountUp(num), x + 28, 122);
     if (frac != null) {
       g.globalAlpha = 0.25 * k; g.fillStyle = col; g.fillRect(x + 28, 138, 424, 8); g.globalAlpha = k;
@@ -2678,7 +2682,7 @@ void main(){
         g.fillText('가드 · 거리 재기', 64, 160);
         // 우상: 링 거리 + 웨어러블
         g.textAlign = 'right'; g.fillStyle = HUD_MAIN;
-        g.font = '700 64px Pretendard, sans-serif'; g.fillText('1.93', 1520, 108);
+        g.font = NUMF(700, 64); g.fillText('1.93', 1520, 108);
         g.font = '500 22px Pretendard, sans-serif'; g.fillStyle = '#fec389';
         g.fillText('m — 링에 서기', 1520, 142);
         g.font = '700 18px Pretendard, sans-serif';
@@ -2710,7 +2714,7 @@ void main(){
         const goal = HUD_GOALS[id];
         // 워터마크 (요소들보다 먼저 = 뒤)
         g.fillStyle = HUD_MAIN; g.globalAlpha = 0.10;
-        g.font = '700 560px Pretendard, sans-serif'; g.textAlign = 'center';
+        g.font = NUMF(700, 560); g.textAlign = 'center';
         g.__rawFillText(String(goal[1]).padStart(2, '0'), 800, 700);   // 앰비언트 = 네온 우회
         g.globalAlpha = 1;
         hudLockup(g, LOCK[0], LOCK[1]);
@@ -2779,7 +2783,7 @@ void main(){
         const remain = Math.max(0, 5 - tS);
         hudArc(g, 270, 410, 105, remain / 5, 12, HUD_MAIN);
         g.fillStyle = HUD_MAIN; g.textAlign = 'center';
-        g.font = '700 110px Pretendard, sans-serif';
+        g.font = NUMF(700, 110);
         g.fillText(String(Math.ceil(remain)), 270, 450);
         g.fillStyle = '#fec389'; g.font = '500 28px Pretendard, sans-serif';
         g.fillText('5초 뒤 실전', 270, 570);
@@ -2790,7 +2794,7 @@ void main(){
         hudTag(g, 800, '상대 — 맞서세요', HUD_MAIN);
         const n = Math.max(1, 3 - Math.floor(tS));
         g.fillStyle = HUD_MAIN; g.textAlign = 'center';
-        g.font = '700 300px Pretendard, sans-serif';
+        g.font = NUMF(700, 300);
         g.fillText(String(n), 300, 560);
         g.fillStyle = '#fec389'; g.font = '500 30px Pretendard, sans-serif';
         g.fillText('실전 시작 전', 300, 640);
@@ -2799,12 +2803,12 @@ void main(){
       case 'BX_C2': {
         hudTag(g, 800, '상대 — 맞서세요', HUD_MAIN);
         g.textAlign = 'right'; g.fillStyle = HUD_MAIN;
-        g.font = '700 96px Pretendard, sans-serif';
+        g.font = NUMF(700, 96);
         g.fillText(pct + '%', 1520, 140);
         g.font = '500 22px Pretendard, sans-serif'; g.globalAlpha = 0.85;
         g.fillText('정확도', 1520, 176); g.globalAlpha = 1;
         g.textAlign = 'left'; g.fillStyle = HUD_CYAN;
-        g.font = '700 54px Pretendard, sans-serif';
+        g.font = NUMF(700, 54);
         g.fillText('0:' + String(Math.floor(tS)).padStart(2, '0'), 64, 110);
         g.fillStyle = HUD_MAIN; g.font = '500 24px Pretendard, sans-serif'; g.globalAlpha = 0.85;
         g.fillText('실전 라운드', 64, 148); g.globalAlpha = 1;
@@ -2917,7 +2921,7 @@ void main(){
         g.beginPath(); g.arc(cx, by, br, -1.5708, -1.5708 + 6.283 * (pct / 100) * kb); g.stroke();
         g.lineCap = 'butt';
         // 대수치
-        g.fillStyle = HUD_MAIN; g.font = '800 128px Pretendard, sans-serif';
+        g.fillStyle = HUD_MAIN; g.font = NUMF(800, 128);
         g.fillText(Math.round(pct * kb) + '%', cx, by + 34);
         g.fillStyle = '#fec389'; g.font = '600 25px Pretendard, sans-serif';
         g.fillText('PACK 일치도 — 지난번 +6%', cx, by + 92);
@@ -2930,7 +2934,7 @@ void main(){
           g.save(); g.globalAlpha = kc; g.translate(0, (1 - kc) * 24);
           g.fillStyle = '#fec389'; g.font = '600 23px Pretendard, sans-serif';
           g.fillText(lab, colx, 660);
-          g.fillStyle = HUD_MAIN; g.font = '800 64px Pretendard, sans-serif';
+          g.fillStyle = HUD_MAIN; g.font = NUMF(800, 64);
           g.fillText(val, colx, 730);
           g.restore();
         });
