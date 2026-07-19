@@ -2256,6 +2256,8 @@ void main(){
     "콤보 · 12번 맞힘": "Combo · 12 landed", "콤보 — 속도 올라감": "Combo — speeding up",
     "타겟 뜨면 바로 잽": "Jab when the target lights", "평균 잽 속도": "Avg jab speed", "회피 슬립": "Slip the punch",
     "코치 — 따라 하세요": "Coach — follow along",
+    "실전 2/4": "Live 2/4", "잽 대련": "Jab sparring", "실전 3/4": "Live 3/4", "콤비 가속": "Combo speed-up",
+    "잽": "Jab", "훅": "Hook",
     "목표": "Goal", "목표 박자": "Target BPM", "목표 잽": "Target jabs", "버티기 목표": "Hold goal", "열리는 횟수": "Openings",
     "회": " reps", "초": "s",
   };
@@ -2529,10 +2531,15 @@ void main(){
   // ── VR 스포츠 UI 모션 프리미티브 (SkyTrak·TV 트레이서·GYM 레퍼런스 문법) ──
   let HUD_T = 0;   // 스테이지 경과 시간 — drawStage가 세팅, 모든 등장 모션의 시계
   const easeO = x => { x = Math.min(1, Math.max(0, x)); return 1 - Math.pow(1 - x, 4); };
-  const aIn = () => 1;   // 등장 슬라이드-인 전면 제거 (유저: 전환마다 애니 불필요) — 즉시 표시
+  const easeQ = x => { x = Math.min(1, Math.max(0, x)); return 1 - Math.pow(1 - x, 5); };
+  const aIn = (d, dur = 0.75) => easeQ((HUD_T - d) / dur);   // 바뀌는 요소만 소프트 슬라이드-인 (유저 확정)
   function hudCountUp(num, d = 0.25, dur = 0.9) {
     // 수치 카운트업 — '116'·'4.2' 형은 굴리고, '4/8' 같은 복합 문자열은 그대로
-    return String(num);   // 카운트업도 전환 애니 — 제거 (유저)
+    const s = String(num), n = parseFloat(s);
+    if (!isFinite(n) || String(n) !== s) return s;
+    const k = easeQ((HUD_T - d) / dur);   // reactbits count-up — 등장 시 숫자 굴림
+    const dec = (s.split('.')[1] || '').length;
+    return (n * k).toFixed(dec);
   }
   // ── 카드 낙아웃 (모바일 정합 3단계): 밝은 카드 광면 + 무광 텍스트 = 투사식 '검정 타이포' ──
   //    프로젝터는 검정을 못 쏘지만, 밝은 광면 안에서 빛을 안 쏜 영역은 검정으로 읽힌다 (유저 사진 원리)
@@ -2911,6 +2918,7 @@ void main(){
         break;
       }
       case 'BX_C2': {
+        hudLockupCorner(g, T('실전 2/4'), T('잽 대련'));
         hudTag(g, 800, T('상대 — 맞서세요'), HUD_MAIN);
         g.textAlign = 'right'; g.fillStyle = HUD_INK;
         g.font = NUMF(700, 96);
@@ -2919,9 +2927,9 @@ void main(){
         g.fillText(T('정확도'), 1520, 176); g.globalAlpha = 1;
         g.textAlign = 'left'; g.fillStyle = HUD_CYAN;
         g.font = NUMF(700, 54);
-        g.fillText('0:' + String(Math.floor(tS)).padStart(2, '0'), 64, 110);
+        g.fillText('0:' + String(Math.floor(tS)).padStart(2, '0'), 64, 252);
         g.fillStyle = HUD_MAIN; g.font = '500 24px Overused, Pretendard, sans-serif'; g.globalAlpha = 0.85;
-        g.fillText(T('실전 라운드'), 64, 148); g.globalAlpha = 1;
+        g.fillText(T('실전 라운드'), 64, 290); g.globalAlpha = 1;
         // 우하: 잽 빠르기 + 세그
         g.fillStyle = HUD_INK; g.font = NUMF(700, 84);
         g.fillText('7.2', 1130, 800);
@@ -2939,27 +2947,28 @@ void main(){
         break;
       }
       case 'BX_C3': {
+        hudLockupCorner(g, T('실전 3/4'), T('콤비 가속'));
         hudTag(g, 800, T('상대 — 맞서세요'), HUD_MAIN);
         g.font = '700 20px Overused, Pretendard, sans-serif';
         const bt = T('콤보 — 속도 올라감');
         const bw2 = g.measureText(bt).width + 32;
         g.fillStyle = HUD_CYAN;
-        g.beginPath(); g.roundRect(120, 250, bw2, 40, 8); g.__rawFill();
+        g.beginPath(); g.roundRect(64, 210, bw2, 40, 8); g.__rawFill();
         g.fillStyle = '#091212'; g.textAlign = 'left';
-        g.__rawFillText(bt, 136, 277);
-        const chips = ['잽', '잽', '훅'];
+        g.__rawFillText(bt, 80, 237);
+        const chips = [T('잽'), T('잽'), T('훅')];
         const litN = Math.floor(tS * 1.4) % 4;
-        let cx0 = 120;
+        let cx0 = 64;
         for (let i = 0; i < 3; i++) {
           g.font = '700 28px Overused, Pretendard, sans-serif';
           const cw = g.measureText(chips[i]).width + 44;
           if (i < litN) {
             g.fillStyle = HUD_MAIN;
-            g.beginPath(); g.roundRect(cx0, 310, cw, 58, 12); g.__rawFill();
+            g.beginPath(); g.roundRect(cx0, 274, cw, 58, 12); g.__rawFill();
             g.fillStyle = '#091212';
           } else {
             g.strokeStyle = 'rgba(255,148,71,0.5)'; g.lineWidth = 2;
-            g.beginPath(); g.roundRect(cx0, 310, cw, 58, 12); g.stroke();
+            g.beginPath(); g.roundRect(cx0, 274, cw, 58, 12); g.stroke();
             g.fillStyle = '#fec389';
           }
           g.fillText(chips[i], cx0 + 22, 350);
