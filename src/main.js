@@ -2169,7 +2169,7 @@ void main(){
       // (피그마 WallUI 확정 레이아웃 — 우측은 '내 자세' 슬롯)
       const wallBot = (wc?.cy ?? 1.4) - rig.wallH / 2;
       const mir = HUD_MIRROR.has(session.curStage?.id);
-      const gsc = mir ? 0.68 : 1;   // 코치 1.02m ≈ 내 실루엣 1.0m — 두 인물 사이즈감 일치 (유저)
+      const gsc = mir ? 0.82 : 1;   // 카드 밴드 아래(240px~바닥) 컬럼을 꽉 채우는 등신 — 실루엣과 페어
       demoPanel.scale.set(GHOST_H * (9 / 16) / 0.62 * gsc * GHOST_PAD, GHOST_H / 0.93 * gsc * GHOST_PAD, 1);
       demoPanel.position.set((wc ? wc.cx : 0) + (mir ? -0.868 : 0), wallBot + GHOST_H * gsc / 2 + (mir ? 0.01 : 0.01), WALL_Z + 0.035);
     }
@@ -2547,7 +2547,7 @@ void main(){
     // 미터 정합: RT = 봇 0~1.75m 정확 프레임 → 패널 = 코치와 동일 높이·동일 바닥선
     const wc = rig._wallCenter;
     const wallBot = (wc?.cy ?? 1.4) - rig.wallH / 2;
-    const hS = GHOST_H * 0.68;                       // 코치 투사 높이와 동일 (1.02m)
+    const hS = GHOST_H * 0.82;                       // 코치와 동일 (1.23m — 카드 아래 24px부터 바닥)
     const wS = hS * (452 / 616);
     const zx = (1234 - 800) / 1600 * rig.wallW;      // 존 중심축 유지
     mirrorPanel.position.set((wc ? wc.cx : 0) + zx, wallBot + hS / 2, WALL_Z + 0.026);
@@ -2957,7 +2957,7 @@ void main(){
         }
         // 내 자세 슬롯 (비전 미구현 — 점선)
         g.strokeStyle = HUD_CYAN; g.setLineDash([10, 10]); g.globalAlpha = 0.5; g.lineWidth = 2.5;
-        g.strokeRect(1044, 368, 380, 622);   // 실루엣 패널(1.02m 접지)과 정합
+        g.strokeRect(1010, 240, 448, 748);   // 카드 하단+24px → 바닥 — 실루엣 패널 정합
         g.setLineDash([]); g.globalAlpha = 1;
         hudCaption(g, LOCK[2]);
         break;
