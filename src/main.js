@@ -2546,20 +2546,16 @@ void main(){
     const day = !!FXP.day;
     g.save();
     g.beginPath(); g.roundRect(x, y, w, h, r);
-    g.fillStyle = day
-      ? `rgba(255,246,234,${(0.94 * a).toFixed(3)})`
-      : `rgba(255,250,244,${(0.13 * a).toFixed(3)})`;
+    // 통일: 양 조도 모두 프로스티드 글래스 (유저) — 주간은 막·보더를 한 단계 강하게
+    g.fillStyle = `rgba(255,250,244,${((day ? 0.20 : 0.13) * a).toFixed(3)})`;
     g.__rawFill();
-    // 헤어라인 에지 — 야간=글래스 윤곽 / 주간=순백 벽 대비 웜 보더 (경계 정의)
-    g.strokeStyle = day
-      ? `rgba(254,110,60,${(0.32 * a).toFixed(3)})`
-      : `rgba(255,246,234,${(0.30 * a).toFixed(3)})`;
+    g.strokeStyle = `rgba(255,246,234,${((day ? 0.45 : 0.30) * a).toFixed(3)})`;
     g.lineWidth = 2;
     g.beginPath(); g.roundRect(x + 1, y + 1, w - 2, h - 2, r - 1);
     g.__rawStroke();
     g.restore();
   }
-  const cardInk = (a = 1) => FXP.day ? `rgba(42,32,24,${0.94 * a})` : `rgba(255,250,244,${0.96 * a})`;
+  const cardInk = (a = 1) => `rgba(255,250,244,${0.97 * a})`;   // 글래스 통일 = 항상 화이트 잉크
   function hudKnock(g, text, font, x, y, align = 'left') {
     // '낙아웃' 렌더 = 다크 잉크 솔리드 — 진짜 구멍은 시뮬 레이어상 뒤 인물이 비쳐 지저분
     // (실물 프로젝터에선 카드 영역에서 인물 광이 꺼져 구멍=벽색 — 그 지각을 다크 잉크로 재현)
@@ -2583,7 +2579,7 @@ void main(){
     hudKnock(g, label, '600 23px Overused, Pretendard, sans-serif', x + 30, y0 + 42);
     hudKnock(g, hudCountUp(num), NUMF(800, 78), x + 30, y0 + 114);
     if (frac != null) {
-      g.fillStyle = FXP.day ? 'rgba(42,32,24,0.35)' : 'rgba(255,250,244,0.22)';
+      g.fillStyle = 'rgba(255,250,244,0.22)';
       g.beginPath(); g.roundRect(x + 30, y0 + 134, 370, 8, 4); g.__rawFill();
       g.fillStyle = col;
       g.beginPath(); g.roundRect(x + 30, y0 + 134, Math.max(10, 370 * Math.min(1, frac)), 8, 4); g.__rawFill();
