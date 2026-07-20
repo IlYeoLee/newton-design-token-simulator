@@ -77,20 +77,21 @@ async function boot() {
     // 열화상 룩: 표면 텍스처 무시 → 뉴턴 레드 발광 (예전 열화상 실루엣과 통일)
     // 열화상 그라디언트: 카메라 향함=핫(크림/주황) / 비낌=쿨(딥레드) — 뉴턴 램프 (부위별 명암)
     const thermalMat = () => {
-      const mm = new THREE.MeshStandardMaterial({ color: 0xffffff, metalness: 0, roughness: 1 });
+      const mm = new THREE.MeshStandardMaterial({ color: 0xffffff, metalness: 0, roughness: 0.9, emissive: 0x1a0604, emissiveIntensity: 1 });
       mm.onBeforeCompile = (sh) => {
         sh.fragmentShader = `
+          // 뉴턴 주황 밴드 (흰색 없음): 딥레드 → 레드 → 주황 → 연주황
           vec3 nRamp(float t){
-            vec3 c0=vec3(0.57,0.06,0.06), c1=vec3(0.98,0.19,0.19), c2=vec3(0.996,0.43,0.235), c3=vec3(0.996,0.76,0.54), c4=vec3(1.0,0.95,0.86);
-            if(t<0.25) return mix(c0,c1,t/0.25);
-            if(t<0.5)  return mix(c1,c2,(t-0.25)/0.25);
-            if(t<0.75) return mix(c2,c3,(t-0.5)/0.25);
-            return mix(c3,c4,(t-0.75)/0.25);
+            vec3 c0=vec3(0.57,0.06,0.06), c1=vec3(0.98,0.19,0.19), c2=vec3(0.996,0.43,0.235), c3=vec3(0.996,0.76,0.54);
+            if(t<0.34) return mix(c0,c1,t/0.34);
+            if(t<0.67) return mix(c1,c2,(t-0.34)/0.33);
+            return mix(c2,c3,(t-0.67)/0.33);
           }
         ` + sh.fragmentShader.replace(
           '#include <dithering_fragment>',
-          `float _f = clamp(dot(normalize(vNormal), normalize(vViewPosition)), 0.0, 1.0);
-           float _heat = pow(_f, 0.75);
+          `// 실제 음영 휘도를 온도로 (벽 코치와 동일 원리): 그늘=딥레드, 밝음=주황
+           float _lum = dot(gl_FragColor.rgb, vec3(0.299, 0.587, 0.114));
+           float _heat = clamp(_lum * 1.35, 0.04, 0.9);   // 주황 지배 밴드, 흰색 없음
            gl_FragColor = vec4(nRamp(_heat), 1.0);`
         );
       };
