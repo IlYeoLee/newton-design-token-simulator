@@ -54,13 +54,18 @@ html,body{background:transparent}
 @keyframes sUpC{from{opacity:0;transform:translate(-50%,54px)}to{opacity:1;transform:translate(-50%,0)}}
 @keyframes titleIn{0%{opacity:0;transform:translateY(40px) scale(.94)}70%{opacity:1;transform:translateY(0) scale(1.02)}100%{transform:scale(1)}}
 @keyframes ringPop{0%{opacity:0;transform:scale(.6)}70%{opacity:1;transform:scale(1.05)}100%{transform:scale(1)}}
+@keyframes ringBreath{0%,100%{filter:drop-shadow(0 0 0 rgba(255,255,255,0))}50%{filter:drop-shadow(0 0 26px rgba(255,255,255,.35))}}
 @keyframes arcFill{from{stroke-dashoffset:1445}to{stroke-dashoffset:var(--off,145)}}
 @keyframes btnPulse{0%,100%{box-shadow:0 0 0 0 rgba(255,255,255,0)}50%{box-shadow:0 0 60px 6px rgba(255,255,255,.35)}}
+@keyframes btnFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-18px)}}
+/* 타이틀 루프 웨이브 — 글자별 스태거로 촤라락 물결 */
+.ttl span{display:inline-block}
+@keyframes charWave{0%,58%,100%{transform:translateY(0)}29%{transform:translateY(-16px)}}
 .tgrp{animation:titleIn .8s .1s cubic-bezier(.22,1,.36,1) both}
-.ring{animation:ringPop .8s .35s cubic-bezier(.34,1.56,.64,1) both}
+.ring{animation:ringPop .8s .35s cubic-bezier(.34,1.56,.64,1) both, ringBreath 3s 1.3s ease-in-out infinite}
 .stat{opacity:0;animation:sUp .7s both}
 .stat.s1{animation-delay:1.0s}.stat.s2{animation-delay:1.15s}.stat.s3{animation-delay:1.3s}
-.btn{opacity:0;animation:sUp .8s 1.4s cubic-bezier(.22,1,.36,1) both, btnPulse 3s 2.3s ease-in-out infinite}
+.btn{opacity:0;animation:sUp .8s 1.4s cubic-bezier(.22,1,.36,1) both, btnFloat 3.6s 2.3s ease-in-out infinite, btnPulse 3s 2.3s ease-in-out infinite}
 </style>
 </head>
 <body>
@@ -85,7 +90,12 @@ const RP = { BX_FIN: { sub:'Boxing Basic Jab Combo', title:'Session Complete', p
 const $ = id => document.getElementById(id);
 const stage = new URLSearchParams(location.search).get('stage') || 'BX_FIN';
 const R = RP[stage] || RP.BX_FIN;
-$('r-sub').textContent = R.sub; $('r-ttl').textContent = R.title; $('r-btn').textContent = R.btn;
+$('r-sub').textContent = R.sub; $('r-btn').textContent = R.btn;
+// 타이틀 글자별 span → 루프 웨이브(촤라락)
+(function(el, t){ el.textContent=''; [...t].forEach((ch,i)=>{ const s=document.createElement('span');
+  s.textContent = /\s/.test(ch) ? String.fromCharCode(160) : ch;
+  s.style.animation = 'charWave 2.4s ' + (0.9 + i*0.05) + 's ease-in-out infinite'; el.appendChild(s); });
+})($('r-ttl'), R.title);
 // 링 아크 최종 오프셋(0→pct%) = 원둘레*(1-pct/100)
 const C = 1445, off = C * (1 - R.pct/100);
 const arc = document.querySelector('.arc'); arc.style.setProperty('--off', off);

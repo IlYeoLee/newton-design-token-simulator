@@ -45,14 +45,19 @@ html,body{background:transparent}
 @keyframes sUp{from{opacity:0;transform:translateY(48px)}to{opacity:1;transform:translateY(0)}}
 @keyframes titleIn{0%{opacity:0;transform:translateY(40px) scale(.94)}70%{opacity:1;transform:translateY(0) scale(1.02)}100%{transform:scale(1)}}
 @keyframes ringPop{0%{opacity:0;transform:scale(.6)}70%{opacity:1;transform:scale(1.05)}100%{transform:scale(1)}}
-@keyframes numPulse{0%{transform:scale(1.35);opacity:0}30%{opacity:1}100%{transform:scale(1);opacity:1}}
+@keyframes numPulse{0%{transform:scale(1.5);opacity:0}35%{opacity:1}100%{transform:scale(1);opacity:1}}
+@keyframes ringBreath{0%,100%{filter:drop-shadow(0 0 0 rgba(255,255,255,0))}50%{filter:drop-shadow(0 0 26px rgba(255,255,255,.35))}}
+/* 타이틀 루프 웨이브 — 글자별 스태거로 촤라락 물결 */
+.ttl span{display:inline-block}
+@keyframes charWave{0%,58%,100%{transform:translateY(0)}29%{transform:translateY(-16px)}}
 .tgrp{animation:titleIn .8s .1s cubic-bezier(.22,1,.36,1) both}
-.ring{animation:ringPop .8s .35s cubic-bezier(.34,1.56,.64,1) both}
+.ring{animation:ringPop .8s .35s cubic-bezier(.34,1.56,.64,1) both, ringBreath 3s 1.2s ease-in-out infinite}
 .tnum{animation:numPulse .5s both}
 </style>
 </head>
 <body>
 <div class="stage">
+ <div class="bg-glow"><img src="assets/bg_glow.svg" alt=""></div>
  <div class="wrap">
    <div class="tgrp"><div class="tsub" id="t-sub"></div><div class="ttl" id="t-ttl"></div></div>
    <div class="ring">
@@ -72,11 +77,18 @@ const q = new URLSearchParams(location.search);
 const stage = q.get('stage') || 'BX_C1';
 const M = TM[stage] || TM.BX_C1;
 const dur = parseFloat(q.get('dur')) || 3;
-$('t-sub').textContent = M.sub; $('t-ttl').textContent = M.title;
+$('t-sub').textContent = M.sub;
+// 타이틀 글자별 span → 루프 웨이브(촤라락)
+(function(el, t){ el.textContent=''; [...t].forEach((ch,i)=>{ const s=document.createElement('span');
+  s.textContent = ch===' ' ? String.fromCharCode(160) : ch;
+  s.style.animation = 'charWave 2.4s ' + (0.9 + i*0.05) + 's ease-in-out infinite'; el.appendChild(s); });
+})($('t-ttl'), M.title);
 // 중앙 숫자 카운트다운(정수 초) → 0이면 GO
-const num = $('tnum'), t0 = performance.now();
+const num = $('tnum'), t0 = performance.now(); let last = null;
 (function tick(now){ const el=(now-t0)/1000, rem=dur-el;
-  num.textContent = rem > 0.05 ? String(Math.ceil(rem)) : 'GO';
+  const val = rem > 0.05 ? String(Math.ceil(rem)) : 'GO';
+  if(val !== last){ num.textContent = val;   // 카운트 바뀔 때마다 팝
+    num.style.animation='none'; void num.offsetWidth; num.style.animation='numPulse .45s both'; last = val; }
   if(el < dur + 0.4) requestAnimationFrame(tick);
 })(performance.now());
 </script>
