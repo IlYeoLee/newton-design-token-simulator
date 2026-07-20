@@ -3890,39 +3890,46 @@ void main(){
     renderMirrorView();  // 내 폼 존 = 스테이션 카메라 실루엣 라이브
     renderBxPerson();    // 복싱 벽면 인물 시범 (정본 포트)
     renderJointMarkers();   // 관절 추종 마커 (증명 데모)
-    renderReadyCSS3D();  // BX_READY 피그마 뷰 = 벽 평면 CSS3D 레이어 (열화상 위 합성)
+    renderDesignFrame();  // 벽 = 스테이지별 대지 프레임(CSS3D). 프레임 스테이지는 기존 벽 UI 숨김(사람+배경만)
     renderFrame(clock.elapsedTime);   // 블룸 + 그레인·비네트 컴포저 (scene.js FX)
   }
 
-  // ── BX_READY 뷰: 피그마 디자인(애니 iframe)을 벽 평면에 CSS3D로 얹음 ──
-  //   WebGL 열화상/그라디언트는 그대로 배경, 이 레이어가 그 앞에 원근 맞춰 합성.
-  //   iframe 배경 투명 → 카드 밖 영역은 벽 열화상이 그대로 비침. 투사면=벽 크기라 밖 안 나감.
-  const READY_W = 2600, READY_H = 1600;   // 디자인 px (벽 2.6×1.6m 실측 1:1)
+  // ── 벽 대지 프레임 시스템: 스테이지별 대지(2600×1600) 뷰를 벽 평면에 CSS3D로 얹음 ──
+  //   프레임 스테이지 = 기존 벽/바닥 UI 전부 숨김(사람+배경만) → 다른 각도에서도 "벽에 프레임 하나 붙은 것"으로 인지.
+  //   iframe 배경 투명 → 프레임 밖은 벽 배경이 비침. 투사면=벽 크기라 밖 안 나감.
+  const DESIGN_FRAMES = { BX_READY: 'ready-view/index.html' };   // 스테이지 → 대지 프레임 (디자인되는 대로 추가)
+  const FRAME_W = 2600;   // 디자인 px (벽 2.6×1.6m 실측 1:1)
   const cssRenderer = new CSS3DRenderer();
   cssRenderer.setSize(window.innerWidth, window.innerHeight);
   Object.assign(cssRenderer.domElement.style, { position: 'absolute', top: '0', left: '0', pointerEvents: 'none', zIndex: '6' });
   (renderer.domElement.parentNode || stage).appendChild(cssRenderer.domElement);
-  const readyIframe = document.createElement('iframe');
-  readyIframe.src = import.meta.env.BASE_URL + 'ready-view/index.html';
-  readyIframe.setAttribute('scrolling', 'no');
-  Object.assign(readyIframe.style, { width: READY_W + 'px', height: READY_H + 'px', border: '0', background: 'transparent' });
-  const readyCssScene = new THREE.Scene();
-  const readyObj = new CSS3DObject(readyIframe);
-  readyObj.visible = false;
-  readyCssScene.add(readyObj);
+  const frameIframe = document.createElement('iframe');
+  frameIframe.setAttribute('scrolling', 'no');
+  Object.assign(frameIframe.style, { width: FRAME_W + 'px', height: (FRAME_W * 1600 / 2600) + 'px', border: '0', background: 'transparent' });
+  const frameCssScene = new THREE.Scene();
+  const frameObj = new CSS3DObject(frameIframe);
+  frameObj.visible = false;
+  frameCssScene.add(frameObj);
   window.addEventListener('resize', () => cssRenderer.setSize(window.innerWidth, window.innerHeight));
-  let readyWasShown = false;
-  function renderReadyCSS3D() {
-    const show = session.active && state.pack === 'boxing' && session.curStage?.id === 'BX_READY';
-    readyObj.visible = show;
-    if (show && !readyWasShown) { try { readyIframe.contentWindow.location.reload(); } catch (e) {} }  // 진입마다 등장 애니 재생
-    readyWasShown = show;
-    if (!show) return;
+  let lastFrameView = null;
+  function renderDesignFrame() {
+    const view = (session.active && state.pack === 'boxing') ? DESIGN_FRAMES[session.curStage?.id] : null;
+    frameObj.visible = !!view;
+    if (!view) { lastFrameView = null; return; }
+    if (view !== lastFrameView) { frameIframe.src = import.meta.env.BASE_URL + view; lastFrameView = view; }  // 스테이지 바뀌면 뷰 교체(+애니 재생)
     const wc = rig._wallCenter;
-    readyObj.position.set(wc?.cx ?? 0, wc?.cy ?? 1.4, WALL_Z + 0.02);
-    readyObj.rotation.set(0, 0, 0);            // 벽 전면 = +z (유저 방향)
-    readyObj.scale.setScalar(rig.wallW / READY_W);   // px→m (세로도 동일 비율 = wallH)
-    cssRenderer.render(readyCssScene, camera);
+    frameObj.position.set(wc?.cx ?? 0, wc?.cy ?? 1.4, WALL_Z + 0.02);
+    frameObj.rotation.set(0, 0, 0);            // 벽 전면 = +z (유저 방향)
+    frameObj.scale.setScalar(rig.wallW / FRAME_W);   // px→m
+    cssRenderer.render(frameCssScene, camera);
+    // 구 UI만 선별 숨김 — 유지: demoPanel(주황 열화상 전문가)·배경 그리드·프로젝션
+    //   숨김: 파란 가이드 실루엣(bxPerson) · 구 HUD 텍스트 · 세션 바닥 큐/레티클/텍스트
+    // 구 UI만 숨김 — 유지: demoPanel(주황 열화상 전문가)·격자 배경·프로젝션
+    //   숨김: 하늘색 "나" 실루엣(거울 뷰) · 구 HUD 텍스트/버튼 · 세션 큐/레티클/텍스트
+    mirrorPanel.visible = false;
+    hudPanel.visible = ctaPanel.visible = false;
+    optRing.visible = camMark.visible = false;
+    session.root.visible = false;
   }
 
   loop();
