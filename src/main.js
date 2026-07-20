@@ -74,8 +74,8 @@ async function boot() {
   const COACH_LAYER = 6;
   const coach3d = { model: null, mixer: null, rightHand: null, group: new THREE.Group(), wired: false };
   scene.add(coach3d.group);
-  const coachRT = new THREE.WebGLRenderTarget(256, 384);   // DPW×DPH 세로 (영상과 동일 프레이밍)
-  const coachCam = new THREE.PerspectiveCamera(42, 256 / 384, 0.1, 12);
+  const coachRT = new THREE.WebGLRenderTarget(1024, 1536, { samples: 4 });   // DPW×DPH 4배 + MSAA (실루엣 에지 블록 방지)
+  const coachCam = new THREE.PerspectiveCamera(42, 1024 / 1536, 0.1, 12);
   coachCam.layers.set(COACH_LAYER);
   new GLTFLoader().load(import.meta.env.BASE_URL + 'models/boxer.glb', (gltf) => {
     const root = gltf.scene;
