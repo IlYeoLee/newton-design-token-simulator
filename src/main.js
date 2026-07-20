@@ -3914,11 +3914,15 @@ void main(){
     BX_READY: 'ready-view/index.html',
     BX_A1: 'ready-view/scene.html?stage=BX_A1', BX_A2: 'ready-view/scene.html?stage=BX_A2', BX_A3: 'ready-view/scene.html?stage=BX_A3',
     BX_B1: 'ready-view/scene.html?stage=BX_B1', BX_B2: 'ready-view/scene.html?stage=BX_B2', BX_B3: 'ready-view/scene.html?stage=BX_B3',
-    BX_C1: 'ready-view/scene.html?stage=BX_C1', BX_C2: 'ready-view/scene.html?stage=BX_C2', BX_C3: 'ready-view/scene.html?stage=BX_C3', BX_C4: 'ready-view/scene.html?stage=BX_C4',
+    BX_C1: 'ready-view/timer.html?stage=BX_C1',   // 실전 직전 3·2·1 카운트다운 타이머
+    BX_C2: 'ready-view/scene.html?stage=BX_C2', BX_C3: 'ready-view/scene.html?stage=BX_C3', BX_C4: 'ready-view/scene.html?stage=BX_C4',
+    BX_T1: 'ready-view/transition.html?stage=BX_T1',   // 스트레칭 → 학습 전환
+    BX_T2: 'ready-view/transition.html?stage=BX_T2',   // 학습 → 실전 전환
+    BX_FIN: 'ready-view/report.html?stage=BX_FIN',     // 세션 리포트
   };
-  // 장면별 자동재생 지속시간(초) — 프로그래스 링이 0→100% 차오르는 시간.
+  // 장면별 자동재생 지속시간(초) — 로딩바·카운트다운이 0→100% 차오르는 시간.
   // ponytail: 근사값 (복싱 A/B는 beat 기반이라 템포 따라 소폭 변동, B1은 rep 게이트). 필요 시 튜닝.
-  const STAGE_DUR = { BX_A1: 5.6, BX_A2: 4.6, BX_A3: 4, BX_B1: 9, BX_B2: 4.5, BX_B3: 4, BX_C1: 3, BX_C2: 6, BX_C3: 6, BX_C4: 4 };
+  const STAGE_DUR = { BX_A1: 5.6, BX_A2: 4.6, BX_A3: 4, BX_B1: 9, BX_B2: 4.5, BX_B3: 4, BX_C1: 3, BX_C2: 6, BX_C3: 6, BX_C4: 4, BX_T1: 4.5, BX_T2: 5 };
   const FRAME_W = 2600, FRAME_H = 1600;   // 디자인 대지 px (벽 2.6×1.6m 실측 1:1) — 모든 DESIGN_FRAMES 뷰는 이 대지로 저작
   const cssRenderer = new CSS3DRenderer();
   Object.assign(cssRenderer.domElement.style, { position: 'fixed', pointerEvents: 'none', zIndex: '6' });
@@ -3947,7 +3951,8 @@ void main(){
     if (frameObj.visible) {
       if (view !== loadedView) {   // 다른 뷰만 로드(같은 뷰 재진입=그대로)
         const dur = STAGE_DUR[session.curStage?.id] ?? session.curStage?.dur ?? 8;
-        frameIframe.src = import.meta.env.BASE_URL + view + (view.includes('scene.html') ? '&dur=' + dur : '');
+        const needsDur = view.includes('scene.html') || view.includes('timer.html');
+        frameIframe.src = import.meta.env.BASE_URL + view + (needsDur ? '&dur=' + dur : '');
         loadedView = view;
       }
       // 매 프레임 벽 정합 — 대지 2600×1600 → 벽(wallW×wallH), x/y 독립 스케일(aspect 무관, 이식 안전)

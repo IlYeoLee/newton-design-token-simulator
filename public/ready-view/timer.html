@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Newton 복싱 — 타이머</title>
+<script>document.documentElement.style.setProperty('--dur',(parseFloat(new URLSearchParams(location.search).get('dur'))||3)+'s')</script>
+<style>
+@font-face{font-family:'Supreme';src:url('../fonts/Supreme-Bold.woff2') format('woff2');font-weight:700;font-style:normal;font-display:block}
+@font-face{font-family:'Supreme';src:url('../fonts/Supreme-Medium.woff2') format('woff2');font-weight:400;font-style:normal;font-display:block}
+@font-face{font-family:'OffBit';src:url('../fonts/OffBitTrial-101Bold.ttf') format('truetype');font-weight:700;font-style:normal;font-display:block}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{background:transparent}
+.stage{position:relative;width:2600px;height:1600px;overflow:hidden;
+  font-family:'Supreme',sans-serif;color:#fff;-webkit-font-smoothing:antialiased}
+.wrap{position:absolute;left:50%;transform:translateX(-50%);top:341px;width:1200px;
+  display:flex;flex-direction:column;gap:80px;align-items:center}
+.tgrp{display:flex;flex-direction:column;gap:8px;align-items:center;text-align:center}
+.tsub{font-weight:400;font-size:48px;letter-spacing:-4.2px;color:rgba(255,255,255,.8)}
+.ttl{font-weight:700;font-size:120px;letter-spacing:-4.8px;white-space:nowrap;line-height:1.05}
+
+/* 카운트다운 링 — 점선 트랙 + 채워지는 아크 + 끝점 불꽃 */
+.ring{position:relative;width:548.638px;height:548.638px}
+.ring svg{position:absolute;inset:0;width:100%;height:100%}
+.tnum{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  font-family:'OffBit';font-size:200px;color:#fff;line-height:1}
+.tip{position:absolute;inset:0;transform-origin:center;animation:tipSpin var(--dur,3s) linear both}
+.tip img{position:absolute;left:50%;top:-4px;width:69px;height:69px;transform:translateX(-50%);
+  filter:drop-shadow(0 0 18px rgba(250,48,48,.6))}
+@keyframes tipSpin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+.arc{stroke-dasharray:1570.8;stroke-dashoffset:1570.8;animation:arcFill var(--dur,3s) linear both}
+@keyframes arcFill{from{stroke-dashoffset:1570.8}to{stroke-dashoffset:0}}
+
+@keyframes sUp{from{opacity:0;transform:translateY(48px)}to{opacity:1;transform:translateY(0)}}
+@keyframes titleIn{0%{opacity:0;transform:translateY(40px) scale(.94)}70%{opacity:1;transform:translateY(0) scale(1.02)}100%{transform:scale(1)}}
+@keyframes ringPop{0%{opacity:0;transform:scale(.6)}70%{opacity:1;transform:scale(1.05)}100%{transform:scale(1)}}
+@keyframes numPulse{0%{transform:scale(1.35);opacity:0}30%{opacity:1}100%{transform:scale(1);opacity:1}}
+.tgrp{animation:titleIn .8s .1s cubic-bezier(.22,1,.36,1) both}
+.ring{animation:ringPop .8s .35s cubic-bezier(.34,1.56,.64,1) both}
+.tnum{animation:numPulse .5s both}
+</style>
+</head>
+<body>
+<div class="stage">
+ <div class="wrap">
+   <div class="tgrp"><div class="tsub" id="t-sub"></div><div class="ttl" id="t-ttl"></div></div>
+   <div class="ring">
+     <svg viewBox="0 0 549 549">
+       <circle cx="274.5" cy="274.5" r="250" fill="none" stroke="#fff" stroke-opacity=".28" stroke-width="6" stroke-dasharray="0.5 20.5" stroke-linecap="round"/>
+       <circle class="arc" cx="274.5" cy="274.5" r="250" fill="none" stroke="#fff" stroke-width="10" stroke-linecap="round" transform="rotate(-90 274.5 274.5)"/>
+     </svg>
+     <div class="tip"><img src="assets/timer_tip.svg" alt=""></div>
+     <div class="tnum" id="tnum">3</div>
+   </div>
+ </div>
+</div>
+<script>
+const TM = { BX_C1: { sub:'Boxing Basic Jab Combo', title:'Get Ready!' } };
+const $ = id => document.getElementById(id);
+const q = new URLSearchParams(location.search);
+const stage = q.get('stage') || 'BX_C1';
+const M = TM[stage] || TM.BX_C1;
+const dur = parseFloat(q.get('dur')) || 3;
+$('t-sub').textContent = M.sub; $('t-ttl').textContent = M.title;
+// 중앙 숫자 카운트다운(정수 초) → 0이면 GO
+const num = $('tnum'), t0 = performance.now();
+(function tick(now){ const el=(now-t0)/1000, rem=dur-el;
+  num.textContent = rem > 0.05 ? String(Math.ceil(rem)) : 'GO';
+  if(el < dur + 0.4) requestAnimationFrame(tick);
+})(performance.now());
+</script>
+</body>
+</html>

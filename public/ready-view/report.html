@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Newton 복싱 — 리포트</title>
+<style>
+@font-face{font-family:'Supreme';src:url('../fonts/Supreme-Bold.woff2') format('woff2');font-weight:700;font-style:normal;font-display:block}
+@font-face{font-family:'Supreme';src:url('../fonts/Supreme-Medium.woff2') format('woff2');font-weight:400;font-style:normal;font-display:block}
+@font-face{font-family:'OffBit';src:url('../fonts/OffBitTrial-Bold.ttf') format('truetype');font-weight:700;font-style:normal;font-display:block}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{background:transparent}
+.stage{position:relative;width:2600px;height:1600px;overflow:hidden;
+  font-family:'Supreme',sans-serif;color:#fff;-webkit-font-smoothing:antialiased}
+.wrap{position:absolute;left:50%;transform:translateX(-50%);top:200px;width:1200px;
+  display:flex;flex-direction:column;gap:70px;align-items:center}
+.tgrp{display:flex;flex-direction:column;gap:8px;align-items:center;text-align:center}
+.tsub{font-weight:400;font-size:48px;letter-spacing:-4.2px;color:rgba(255,255,255,.8)}
+.ttl{font-weight:700;font-size:120px;letter-spacing:-4.8px;white-space:nowrap;line-height:1.05}
+
+/* % 링 */
+.ring{position:relative;width:500px;height:500px}
+.ring svg{position:absolute;inset:0;width:100%;height:100%}
+.pct{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:8px;
+  font-family:'OffBit';color:#fff;line-height:1.2}
+.pct .n{font-size:128.5px;letter-spacing:-3.57px}
+.pct .s{font-size:90.3px;letter-spacing:-2.5px}
+.arc{stroke-dasharray:1445;stroke-dashoffset:1445;animation:arcFill 1.3s .5s cubic-bezier(.22,1,.36,1) both}
+
+/* 통계 3열 */
+.stats{display:flex;gap:12px;align-items:center;justify-content:center}
+.stat{width:281px;display:flex;flex-direction:column;gap:18px;text-align:center}
+.stat .k{font-weight:400;font-size:39.2px;opacity:.7;letter-spacing:-1.5px}
+.stat .v{font-weight:700;font-size:64px;letter-spacing:-1.5px}
+.sep{width:1px;height:99.55px;background:rgba(255,255,255,.25)}
+
+/* 버튼 */
+.btn{background:#fff;border-radius:999px;padding:42.614px 53.268px;display:flex;align-items:center;justify-content:center;width:802px}
+.btn p{font-weight:700;font-size:72px;color:#050a0a;letter-spacing:-1.33px;white-space:nowrap;line-height:1.2}
+
+/* ── 모션 ── */
+@keyframes sUp{from{opacity:0;transform:translateY(48px)}to{opacity:1;transform:translateY(0)}}
+@keyframes sUpC{from{opacity:0;transform:translate(-50%,54px)}to{opacity:1;transform:translate(-50%,0)}}
+@keyframes titleIn{0%{opacity:0;transform:translateY(40px) scale(.94)}70%{opacity:1;transform:translateY(0) scale(1.02)}100%{transform:scale(1)}}
+@keyframes ringPop{0%{opacity:0;transform:scale(.6)}70%{opacity:1;transform:scale(1.05)}100%{transform:scale(1)}}
+@keyframes arcFill{from{stroke-dashoffset:1445}to{stroke-dashoffset:var(--off,145)}}
+@keyframes btnPulse{0%,100%{box-shadow:0 0 0 0 rgba(255,255,255,0)}50%{box-shadow:0 0 60px 6px rgba(255,255,255,.35)}}
+.tgrp{animation:titleIn .8s .1s cubic-bezier(.22,1,.36,1) both}
+.ring{animation:ringPop .8s .35s cubic-bezier(.34,1.56,.64,1) both}
+.stat{opacity:0;animation:sUp .7s both}
+.stat.s1{animation-delay:1.0s}.stat.s2{animation-delay:1.15s}.stat.s3{animation-delay:1.3s}
+.btn{opacity:0;animation:sUp .8s 1.4s cubic-bezier(.22,1,.36,1) both, btnPulse 3s 2.3s ease-in-out infinite}
+</style>
+</head>
+<body>
+<div class="stage">
+ <div class="wrap">
+   <div class="tgrp"><div class="tsub" id="r-sub"></div><div class="ttl" id="r-ttl"></div></div>
+   <div class="ring">
+     <svg viewBox="0 0 500 500">
+       <circle cx="250" cy="250" r="230" fill="none" stroke="#fff" stroke-opacity=".22" stroke-width="16"/>
+       <circle class="arc" cx="250" cy="250" r="230" fill="none" stroke="#fff" stroke-width="16" stroke-linecap="round" transform="rotate(-90 250 250)"/>
+     </svg>
+     <div class="pct"><span class="n" id="r-pct">0</span><span class="s">%</span></div>
+   </div>
+   <div class="stats" id="r-stats"></div>
+   <div class="btn"><p id="r-btn"></p></div>
+ </div>
+</div>
+<script>
+const RP = { BX_FIN: { sub:'Boxing Basic Jab Combo', title:'Session Complete', pct:92,
+  stats:[['Sport','Boxing'],['Joined','877'],['Recommended','Jab Combo']], btn:'Tap X2 For Retry!' } };
+const $ = id => document.getElementById(id);
+const stage = new URLSearchParams(location.search).get('stage') || 'BX_FIN';
+const R = RP[stage] || RP.BX_FIN;
+$('r-sub').textContent = R.sub; $('r-ttl').textContent = R.title; $('r-btn').textContent = R.btn;
+// 링 아크 최종 오프셋(0→pct%) = 원둘레*(1-pct/100)
+const C = 1445, off = C * (1 - R.pct/100);
+const arc = document.querySelector('.arc'); arc.style.setProperty('--off', off);
+// 통계 렌더
+const sw = $('r-stats');
+R.stats.forEach(([k,v],i)=>{ if(i){ const s=document.createElement('div'); s.className='sep'; sw.appendChild(s); }
+  const d=document.createElement('div'); d.className='stat s'+(i+1);
+  d.innerHTML='<div class="k"></div><div class="v"></div>'; d.querySelector('.k').textContent=k; d.querySelector('.v').textContent=v; sw.appendChild(d); });
+// % 카운트업(0→pct) 아크와 동기
+const pctEl=$('r-pct'), end=R.pct, t0=performance.now(), dur=1300, delay=500;
+setTimeout(()=>{ const s=performance.now();
+  (function tick(now){ const p=Math.min(1,(now-s)/dur), e=1-Math.pow(1-p,3);
+    pctEl.textContent=Math.round(end*e); if(p<1) requestAnimationFrame(tick); })(performance.now());
+}, delay);
+</script>
+</body>
+</html>
