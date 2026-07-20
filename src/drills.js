@@ -92,12 +92,17 @@ function runningDrills(neutral) {
 // ── 복싱 준비운동 (BX_A1~A3) — 섀도복싱 ──
 function boxingDrills(neutral) {
   return {
-    // 목·어깨 풀기 — 머리·목 원 회전 (팔 축은 불확실 → 목/척추만)
-    bx_neck: makeClip('bx_neck', neutral, 4.0, (n, t) => {
-      const ph = t * 2 * TWO_PI;
-      if (n === R.neck) return rot(Z, 18 * Math.sin(ph)).multiply(rot(X, 13 * Math.cos(ph)));
-      if (n === R.head) return rot(Z, 9 * Math.sin(ph));
-      if (n === R.spine1) return rot(Z, 5 * Math.sin(ph));
+    // 목·어깨 풀기 — 목을 크게 완전한 원으로 돌리기 + 양 어깨 원 돌리기(롤)
+    //  목: X=끄덕(아래/뒤), Z=옆기울임 을 90° 위상차로 → 아래→옆→뒤→옆 원.
+    //  어깨: 상완(Arm)을 원뿔로 굴려 어깨 롤 표현(팔은 아래로). 좌우 대칭(Z 부호 반전).
+    bx_neck: makeClip('bx_neck', neutral, 5.0, (n, t) => {
+      const nph = t * 2 * TWO_PI;   // 목 원 2바퀴
+      const sph = t * 3 * TWO_PI;   // 어깨 롤 3바퀴(경쾌)
+      if (n === R.neck) return rot(X, 20 * Math.cos(nph)).multiply(rot(Z, 20 * Math.sin(nph)));
+      if (n === R.head) return rot(X, 8 * Math.cos(nph)).multiply(rot(Z, 8 * Math.sin(nph)));
+      if (n === R.spine1) return rot(Z, 6 * Math.sin(nph));
+      if (n === R.armR) return rot(X, 13 * Math.cos(sph)).multiply(rot(Z, -11 * Math.sin(sph)));
+      if (n === R.armL) return rot(X, 13 * Math.cos(sph)).multiply(rot(Z, 11 * Math.sin(sph)));
       return null;
     }),
     // 스텝 인·아웃 — 상체 앞뒤 무게 이동 + 살짝 바운스
