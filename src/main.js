@@ -2228,9 +2228,16 @@ void main(){
     else { if (!demoVideo.paused) demoVideo.pause(); return; }
     const now = performance.now() / 1000;
     // 프레임 게이트 — 재생 가능한 살아있는 프레임일 때만 인물 기여 (블랙/정지 = 박스 방지)
-    // 루프 순간 readyState 순간 하락에도 인물 유지 — 8프레임 유예(마지막 프레임 홀드) → 깜빡임 제거
-    const demoLiveNow = (demoVideo.readyState >= 2 && !demoVideo.ended && !demoVideo.paused);
-    demoLiveHold = demoLiveNow ? 8 : Math.max(0, demoLiveHold - 1);
+    // uLive 게이트: ①올바른 클립일 때만 표시 → 전환 중 기본 클립(근육질 남자) 번쩍 방지
+    //   ②올바른 클립이면 루프 순간 readyState 하락에 8프레임 유예 → 깜빡임 제거
+    const wantUrl = ghostClipWant ? (import.meta.env.BASE_URL + 'ghost/' + ghostClipWant[0]) : GHOST_DEFAULT;
+    const onCorrectClip = (ghostClipCur === wantUrl) || ghostClipBad.has(wantUrl);   // 원하는 클립이거나, 미반입이라 기본 폴백된 경우만
+    if (!onCorrectClip) {
+      demoLiveHold = 0;   // 전환 중/잘못된 클립 = 즉시 숨김(유예 없음)
+    } else {
+      const demoLiveNow = (demoVideo.readyState >= 2 && !demoVideo.ended && !demoVideo.paused);
+      demoLiveHold = demoLiveNow ? 8 : Math.max(0, demoLiveHold - 1);
+    }
     demoPanel.material.uniforms.uLive.value = demoLiveHold > 0 ? 1 : 0;
     if (now - demoLastT < 1 / 45) return;
     demoLastT = now;
