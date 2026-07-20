@@ -2168,10 +2168,10 @@ void main(){
       // 전신 스탠딩: 패널 바닥 = 벽 투사 하단. 반반 미러 스테이지(학습)는 좌측 80%
       // (피그마 WallUI 확정 레이아웃 — 우측은 '내 자세' 슬롯)
       const wallBot = (wc?.cy ?? 1.4) - rig.wallH / 2;
-      const mir = HUD_MIRROR.has(session.curStage?.id);
+      const mir = HUD_MIRROR.has(session.curStage?.id);   // 수납 크기 유지
       const gsc = mir ? 0.59 : 1;   // 실측 보정: 이 클립은 쿼드를 꽉 채움 → 인물 1.16m = gsc 0.59
       demoPanel.scale.set(GHOST_H * (9 / 16) / 0.62 * gsc * GHOST_PAD, GHOST_H / 0.93 * gsc * GHOST_PAD, 1);
-      demoPanel.position.set((wc ? wc.cx : 0) + (mir ? -0.80 : 0), wallBot + GHOST_H * gsc / 2 + (mir ? 0.17 : 0.01), WALL_Z + 0.035);
+      demoPanel.position.set((wc ? wc.cx : 0) + (mir ? 0 : 0), wallBot + GHOST_H * gsc / 2 + (mir ? 0.17 : 0.01), WALL_Z + 0.035);
     }
     demoPanel.visible = !!on;
     if (on) setGhostClip(session.curStage?.id);   // 스테이지별 클립 자동 전환 (404 → 기본)
@@ -2542,7 +2542,7 @@ void main(){
   function renderMirrorView() {
     const st = session.active && state.pack === 'boxing' ? session.curStage : null;
     const ready = !!st && st.id === 'BX_READY';
-    const on = !!st && (HUD_MIRROR.has(st.id) || ready) && xbot.model;
+    const on = ready && xbot.model;   // 실루엣 = READY 가드 확인 전용 (A·B 기각 — 시선 단일 초점)
     mirrorPanel.visible = on;
     if (!on) return;
     if (!xbot._mirrorTagged) { xbot.model.traverse(o => o.layers.enable(7)); xbot._mirrorTagged = true; }
@@ -2941,7 +2941,6 @@ void main(){
         g.globalAlpha = 1;
         hudLockup(g, LOCK[0], LOCK[1]);
         hudTag(g, 279, T('코치 — 따라 하세요'), HUD_MAIN);   // 하단 — 인물 위 이름표(오버레이)
-        hudTag(g, 1321, T('내 자세'), HUD_CYAN);
         const mine = id === 'BX_B1' ? (tS % 4).toFixed(1) : Math.min(goal[1], Math.floor(tS / 2.2));
         g.textAlign = 'left';
         hudStat(g, 64, T(goal[0]), goal[1] + T(goal[2]), HUD_MAIN, null, 56);
@@ -2960,13 +2959,6 @@ void main(){
             g.beginPath(); g.roundRect(240 + i * 34, 430, 26, 10, 4); g.fill();
           }
         }
-        // 인물 프레임 2개 — 카드 컬럼과 동일 축·폭, 역할색 (코치=주황 / 나=시안)
-        g.setLineDash([10, 10]); g.globalAlpha = 0.5; g.lineWidth = 2.5;
-        g.strokeStyle = HUD_MAIN;
-        g.beginPath(); g.roundRect(64, 240, 430, 748, 16); g.stroke();
-        g.strokeStyle = HUD_CYAN;
-        g.beginPath(); g.roundRect(1106, 240, 430, 748, 16); g.stroke();
-        g.setLineDash([]); g.globalAlpha = 1;
         window.__mirDbg = (window.__mirDbg || 0) + 1;
         hudCaption(g, LOCK[2]);
         break;
