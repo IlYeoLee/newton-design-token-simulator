@@ -66,6 +66,44 @@ async function boot() {
   const xbot = new XBot(scene);
   const rig = new ProjectorRig(scene, xbot);
   const ghost = new WallGhost(scene);
+  // ── 관절 추종 마커 (증명 데모): X봇 실제 주먹 관절에 앵커 — 고정 좌표 아님 ──
+  const fistRing = new THREE.Mesh(
+    new THREE.RingGeometry(0.05, 0.075, 32),
+    new THREE.MeshBasicMaterial({ color: 0xfa3030, transparent: true, opacity: 0.95, depthTest: false, side: THREE.DoubleSide }));
+  fistRing.renderOrder = 20; fistRing.visible = false; scene.add(fistRing);
+  const impactRing = new THREE.Mesh(
+    new THREE.RingGeometry(0.06, 0.11, 40),
+    new THREE.MeshBasicMaterial({ color: 0xfec389, transparent: true, opacity: 0, depthTest: false, side: THREE.DoubleSide }));
+  impactRing.renderOrder = 21; scene.add(impactRing);
+  const armLine = new THREE.Line(
+    new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()]),
+    new THREE.LineBasicMaterial({ color: 0xfe6e3c, transparent: true, opacity: 0.7, depthTest: false }));
+  armLine.renderOrder = 19; armLine.visible = false; scene.add(armLine);
+  let _fistPrevZ = 0, _impactT = 0;
+  function renderJointMarkers() {
+    const on = jointDemo && !fpMode && session.active && state.pack === 'boxing' && xbot.model;   // 3인칭 전용
+    fistRing.visible = armLine.visible = !!on;
+    if (!on) { impactRing.material.opacity = 0; return; }
+    const arm = xbot.getRightArm();
+    if (!arm.wrist) return;
+    // 주먹 추종 링 — 카메라를 향하게 (빌보드)
+    fistRing.position.copy(arm.wrist);
+    fistRing.quaternion.copy(camera.quaternion);
+    // 어깨→팔꿈치→손목 궤적 라인
+    armLine.geometry.setFromPoints([arm.shoulder, arm.elbow, arm.wrist]);
+    armLine.geometry.attributes.position.needsUpdate = true;
+    // 최대 신전(전방 속도 피크) = 타격 지점 → 임팩트 링 방출
+    const vz = arm.wrist.z - _fistPrevZ; _fistPrevZ = arm.wrist.z;
+    if (vz < -0.006 && performance.now() / 1000 - _impactT > 0.4) {
+      _impactT = performance.now() / 1000;
+      impactRing.position.copy(arm.wrist);
+    }
+    const age = performance.now() / 1000 - _impactT;
+    impactRing.quaternion.copy(camera.quaternion);
+    impactRing.material.opacity = Math.max(0, 1 - age / 0.5) * 0.9;
+    impactRing.scale.setScalar(1 + age * 3);
+  }
+  let jointDemo = true;   // 관절 추종 마커 데모 토글
   const judge = new Judge();
   // 장면 UI 시스템 — 타이틀·지시문·상태의 고정 슬롯 (풋프린트-상대 + 클리핑)
   const sceneUI = new SceneUI(scene, WALL_Z);
@@ -2756,6 +2794,44 @@ void main(){
     }
     g.restore();
   }
+  // ── 스피드 스트릭 (펀치 방향 모션블러 잔상선) — 리본 대체안 B ──
+  //    주먹→전방으로 빠르게 뻗었다 소멸. 평행 잔상선 다발 + 뉴턴 램프(머리 레드/꼬리 연주황).
+  function hudStreak(tS, x0, y0, x1, y1, period) {
+    const g = ctaCtx;
+    const u = (tS % period) / period;
+    const STRIKE = 0.11, HOLD = 0.24, FADE = 0.22;
+    if (u > HOLD + FADE) return;
+    ctaDrawn = true; ctaHas = true;
+    const eo = t => 1 - Math.pow(1 - Math.min(1, Math.max(0, t)), 3);
+    const ext = eo(u / STRIKE);                              // 리드가 전방으로 쏘는 진행
+    const tailF = Math.max(0, ext - 0.62);                   // 세그먼트 길이 (다발 몸통)
+    const fade = u > HOLD ? 1 - (u - HOLD) / FADE : 1;
+    const dx = x1 - x0, dy = y1 - y0, L = Math.hypot(dx, dy) || 1;
+    const nx = dx / L, ny = dy / L, px = -ny, py = nx;       // 진행·수직 단위
+    const ramp = k => {                                      // 꼬리(연주황)→머리(레드)
+      const s = [[254,195,137],[254,110,60],[250,48,48]];
+      const p = k * 2, i = Math.min(1, Math.floor(p)), f = p - i;
+      return s[i].map((c, j) => Math.round(c + (s[i+1][j] - c) * f));
+    };
+    g.save(); g.lineCap = 'round';
+    const N = 12;
+    for (const off of [-26, -13, 0, 13, 26]) {               // 평행 잔상 다발
+      const oa = 1 - Math.abs(off) / 34;                     // 가운데 진할수록
+      for (let i = 0; i < N; i++) {
+        const f0 = tailF + (ext - tailF) * (i / N);
+        const f1 = tailF + (ext - tailF) * ((i + 1) / N);
+        const ox = px * off, oy = py * off;
+        const ax = x0 + dx * f0 + ox, ay = y0 + dy * f0 + oy;
+        const bx = x0 + dx * f1 + ox, by = y0 + dy * f1 + oy;
+        const k = i / N;                                     // 0=꼬리 → 1=머리
+        g.lineWidth = 3 + 15 * k;
+        const [r, gg, b] = ramp(k);
+        g.strokeStyle = `rgba(${r},${gg},${b},${(0.06 + 0.7 * k) * oa * fade})`;
+        g.beginPath(); g.moveTo(ax, ay); g.lineTo(bx, by); g.__rawStroke();
+      }
+    }
+    g.restore();
+  }
   function hudMilestone(g, eyebrow, title, sub) {
     // 전환 인터스티셜 공통계 (T1·T2·C1 — FIN 히어로와 동일 문법: 정중앙·대형·수직)
     const ke = aIn(0.0), kt = aIn(0.1), ks = aIn(0.3);
@@ -3064,7 +3140,7 @@ void main(){
         g.font = '500 28px Overused, Pretendard, sans-serif'; g.globalAlpha = 0.85;
         g.fillText(T('콤보 · 12번 맞힘'), 64, 876); g.globalAlpha = 1;
         const side2 = Math.floor(tS / 1.95) % 2;
-        hudRibbon(tS, 800, 620, side2 ? 1150 : 450, 400, 1.95);
+        hudStreak(tS, side2 ? 690 : 910, 300, side2 ? 610 : 990, 560, 1.95);
         hudCaption(g, T('타겟 뜨면 바로 잽'));
         break;
       }
@@ -3102,7 +3178,7 @@ void main(){
         g.font = '500 28px Overused, Pretendard, sans-serif'; g.globalAlpha = 0.85;
         g.fillText(T('연속 성공'), 1536, 176); g.globalAlpha = 1;
         const side3 = Math.floor(tS / 1.2) % 2;
-        hudRibbon(tS, 800, 620, side3 ? 1180 : 420, 380, 1.2);
+        hudStreak(tS, side3 ? 690 : 910, 300, side3 ? 600 : 1000, 560, 1.2);
         hudCaption(g, T('잽-잽-훅 — 리듬 놓치지 말고'));
         break;
       }
@@ -3811,6 +3887,7 @@ void main(){
     renderWallHUD();     // 벽면 게임 HUD (피그마 WallUI 이식)
     renderMirrorView();  // 내 폼 존 = 스테이션 카메라 실루엣 라이브
     renderBxPerson();    // 복싱 벽면 인물 시범 (정본 포트)
+    renderJointMarkers();   // 관절 추종 마커 (증명 데모)
     renderFrame(clock.elapsedTime);   // 블룸 + 그레인·비네트 컴포저 (scene.js FX)
   }
   loop();
