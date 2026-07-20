@@ -2169,9 +2169,9 @@ void main(){
       // (피그마 WallUI 확정 레이아웃 — 우측은 '내 자세' 슬롯)
       const wallBot = (wc?.cy ?? 1.4) - rig.wallH / 2;
       const mir = HUD_MIRROR.has(session.curStage?.id);   // 수납 크기 유지
-      const gsc = mir ? 0.59 : 1;   // 실측 보정: 이 클립은 쿼드를 꽉 채움 → 인물 1.16m = gsc 0.59
+      const gsc = mir ? 0.66 : 1;   // 중앙 단독 확대: 1.30m (타이틀 아래~바닥)
       demoPanel.scale.set(GHOST_H * (9 / 16) / 0.62 * gsc * GHOST_PAD, GHOST_H / 0.93 * gsc * GHOST_PAD, 1);
-      demoPanel.position.set((wc ? wc.cx : 0) + (mir ? 0 : 0), wallBot + GHOST_H * gsc / 2 + (mir ? 0.17 : 0.01), WALL_Z + 0.035);
+      demoPanel.position.set((wc ? wc.cx : 0) + (mir ? 0 : 0), wallBot + GHOST_H * gsc / 2 + (mir ? 0.10 : 0.01), WALL_Z + 0.035);
     }
     demoPanel.visible = !!on;
     if (on) setGhostClip(session.curStage?.id);   // 스테이지별 클립 자동 전환 (404 → 기본)
