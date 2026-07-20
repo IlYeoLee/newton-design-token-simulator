@@ -3931,7 +3931,7 @@ void main(){
     hudPanel.visible = ctaPanel.visible = false;
     optRing.visible = camMark.visible = false;
     session.root.visible = false;
-    demoPanel.position.x += rig.wallW * 0.27;   // 주황 전문가 우측 이동 — 좌측 카드 UI와 겹침 방지
+    demoPanel.position.x += rig.wallW * 0.16;   // 주황 전문가 우측 이동(살짝) — 좌측 카드 UI와 겹침 방지
   }
 
   loop();
