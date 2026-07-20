@@ -2116,6 +2116,7 @@ void main(){
   demoPanel.visible = false;
   scene.add(demoPanel);
   let demoLastT = 0;
+  let demoLiveHold = 0;   // uLive 유예 — 영상 루프 순간 readyState 1프레임 하락에도 인물 유지(깜빡임 방지)
   const demoCrop = { cx: 0.5, cy: 0.5, sx: 1, sy: 1 };
   // 실사 시범 모드: 'off' | 'floor'(러닝 A 시범 — 휴면) | 'wall'(복싱 벽 실사 시험).
   // 실시간 세그 실사는 기각(구멍·플리커·프레임 드랍 — 스톡 다수로 실증). 'wall'은
@@ -2227,8 +2228,10 @@ void main(){
     else { if (!demoVideo.paused) demoVideo.pause(); return; }
     const now = performance.now() / 1000;
     // 프레임 게이트 — 재생 가능한 살아있는 프레임일 때만 인물 기여 (블랙/정지 = 박스 방지)
-    demoPanel.material.uniforms.uLive.value =
-      (demoVideo.readyState >= 2 && !demoVideo.ended && !demoVideo.paused) ? 1 : 0;
+    // 루프 순간 readyState 순간 하락에도 인물 유지 — 8프레임 유예(마지막 프레임 홀드) → 깜빡임 제거
+    const demoLiveNow = (demoVideo.readyState >= 2 && !demoVideo.ended && !demoVideo.paused);
+    demoLiveHold = demoLiveNow ? 8 : Math.max(0, demoLiveHold - 1);
+    demoPanel.material.uniforms.uLive.value = demoLiveHold > 0 ? 1 : 0;
     if (now - demoLastT < 1 / 45) return;
     demoLastT = now;
     if (demoVideo.readyState < 2) return;
@@ -3911,13 +3914,13 @@ void main(){
   frameObj.visible = false;
   frameCssScene.add(frameObj);
   window.addEventListener('resize', () => cssRenderer.setSize(window.innerWidth, window.innerHeight));
-  let lastFrameView = null;
+  let loadedView = null;
   function renderDesignFrame() {
     const view = (session.active && state.pack === 'boxing') ? DESIGN_FRAMES[session.curStage?.id] : null;
     frameObj.visible = !!view;
     frameIframe.style.display = view ? 'block' : 'none';   // DOM 확실히 숨김 — 세션 밖/다음 스테이지 잔류 방지
-    if (!view) { lastFrameView = null; return; }
-    if (view !== lastFrameView) { frameIframe.src = import.meta.env.BASE_URL + view; lastFrameView = view; }  // 스테이지 바뀌면 뷰 교체(+애니 재생)
+    if (!view) return;   // loadedView 유지 → 재진입해도 리로드/재배치 안 함(위치 안정). 숨김만.
+    if (view !== loadedView) { frameIframe.src = import.meta.env.BASE_URL + view; loadedView = view; }  // 다른 뷰만 로드(같은 뷰 재진입 = 그대로)
     const wc = rig._wallCenter;
     frameObj.position.set(wc?.cx ?? 0, wc?.cy ?? 1.4, WALL_Z + 0.02);
     frameObj.rotation.set(0, 0, 0);            // 벽 전면 = +z (유저 방향)
