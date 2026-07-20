@@ -2728,23 +2728,29 @@ void main(){
   function hudRibbon(tS, x0, y0, x1, y1, period) {
     const g = ctaCtx;
     const u = (tS % period) / period;
-    const LIFE = 0.42, FADE = 0.22;
+    const LIFE = 0.55, FADE = 0.3;
     if (u > LIFE + FADE) return;
     ctaDrawn = true; ctaHas = true;
-    const mx = (x0 + x1) / 2, my = Math.min(y0, y1) - 110;   // 아크 경로
+    const mx = (x0 + x1) / 2, my = Math.min(y0, y1) - 240;    // 넓은 아크 (반경 업)
     const P = t => { const a = 1 - t; return [a*a*x0 + 2*a*t*mx + t*t*x1, a*a*y0 + 2*a*t*my + t*t*y1]; };
     const head = Math.min(1, u / LIFE);
-    const tail = Math.max(0, head - 0.55);                    // maxAge — 꼬리 소멸
-    const fade = u > LIFE ? 1 - (u - LIFE) / FADE : 1;        // enableFade
-    g.save(); g.lineCap = 'round';
-    const N = 14;
+    const tail = Math.max(0, head - 0.85);                    // 긴 잔류 — 경로 전체가 리본으로
+    const fade = u > LIFE ? 1 - (u - LIFE) / FADE : 1;
+    g.save(); g.lineCap = 'round'; g.lineJoin = 'round';
+    const N = 26;
+    // 그라디언트 충실: 획마다 stop이 아니라 경로를 따라 연속 램프 (딥레드→레드→주황→연주황)
+    const ramp = k => {
+      const s = [[146,15,15],[250,48,48],[254,110,60],[254,195,137]];
+      const p = k * 3, i = Math.min(2, Math.floor(p)), f = p - i;
+      return s[i].map((c, j) => Math.round(c + (s[i+1][j] - c) * f));
+    };
     for (let i = 0; i < N; i++) {
       const [xa, ya] = P(tail + (head - tail) * (i / N));
       const [xb, yb] = P(tail + (head - tail) * ((i + 1) / N));
-      const k = i / N;                                        // 0=꼬리 → 1=머리
-      g.lineWidth = 4 + 36 * k;                               // thickness 40 테이퍼
-      const r = Math.round(254 + (250 - 254) * k), gg = Math.round(195 + (48 - 195) * k), b = Math.round(137 + (48 - 137) * k);
-      g.strokeStyle = `rgba(${r},${gg},${b},${(0.15 + 0.75 * k) * fade})`;
+      const k = i / N;
+      g.lineWidth = 10 + 70 * Math.sin(Math.PI * (0.15 + 0.85 * k) * 0.6 + 0.35);   // 폭 넓게(최대 ~80), 부드러운 테이퍼
+      const [r, gg, b] = ramp(k);
+      g.strokeStyle = `rgba(${r},${gg},${b},${(0.10 + 0.72 * k) * fade})`;
       g.beginPath(); g.moveTo(xa, ya); g.lineTo(xb, yb);
       g.__rawStroke();
     }
