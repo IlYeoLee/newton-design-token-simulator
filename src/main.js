@@ -2127,18 +2127,19 @@ void main(){
   //    파일 없음(404) → 기본 클립 폴백. 스펙·프롬프트 = docs/ghost-clips.md
   const GHOST_DEFAULT = import.meta.env.BASE_URL + 'coach_chroma.mp4';
   //    맵에 없는 스테이지(BX_T1 전환·BX_FIN 리포트) = 고스트 자체를 안 띄움 (인물 불필요 장면)
+  // 10-클립 풀세트 (힉스필드 생성 타겟). 역할 = 혼합: A·B 코치 시범 / C 상대 스파링.
+  //   미반입 파일은 자동으로 GHOST_DEFAULT 폴백 → 생성된 mp4를 public/ghost/에 드롭만 하면 반영.
   const GHOST_CLIPS = {
-    BX_READY: ['bx_idle_guard.mp4', '상대 대기 — 가드 바운스'],
-    // 실전 전 = 전신 가이드 클립 통일 (전용 클립 반입 시 파일명만 교체 — 토르소 폴백 금지)
-    BX_A1:    ['bx_idle_guard.mp4', '시범 — 목·어깨 풀기 (전신)'],
-    BX_A2:    ['bx_idle_guard.mp4', '시범 — 스텝 인·아웃 (전신)'],
-    BX_A3:    ['bx_idle_guard.mp4', '시범 — 잽 폼 (전신)'],
-    BX_B1:    ['bx_idle_guard.mp4', '상대 — 느린 잽 (전신)'],
-    BX_B2:    ['bx_idle_guard.mp4', '상대 — 스트레이트 (전신)'],
-    BX_B3:    ['bx_idle_guard.mp4', '상대 — 가드 열림 (전신)'],
-    BX_C2:    ['bx_spar_live.mp4', '상대 — 잽 대련 리듬'],
-    BX_C3:    ['bx_spar_combo.mp4', '상대 — 잽잽훅 콤비'],
-    BX_C4:    ['bx_cooldown.mp4', '상대 — 마무리 호흡'],
+    BX_READY: ['bx_idle_guard.mp4', '대기 — 가드 바운스'],
+    BX_A1:    ['bx_a1_neck.mp4',    '시범 — 목·어깨 풀기'],
+    BX_A2:    ['bx_a2_step.mp4',    '시범 — 스텝 인·아웃'],
+    BX_A3:    ['bx_a3_jab.mp4',     '시범 — 잽 폼'],
+    BX_B1:    ['bx_b1_guard.mp4',   '시범 — 가드 유지'],
+    BX_B2:    ['bx_b2_slip.mp4',    '시범 — 회피 슬립'],
+    BX_B3:    ['bx_b3_jab.mp4',     '시범 — 잽 스윕'],
+    BX_C2:    ['bx_c2_spar.mp4',    '상대 — 잽 대련'],
+    BX_C3:    ['bx_c3_combo.mp4',   '상대 — 잽잽훅 콤비'],
+    BX_C4:    ['bx_c4_cooldown.mp4','상대 — 마무리 호흡'],
   };
   let ghostClipCur = '', ghostClipWant = null;
   // 반입 검사: HEAD + content-type — 데브 서버는 없는 파일에 404 대신 index.html(SPA 폴백)을
@@ -3074,7 +3075,7 @@ void main(){
       }
       case 'BX_B2': {
         hudLockupCorner(g, T('익히기 2/3'), T('회피 슬립'));
-        hudTag(g, 800, T('상대 — 맞서세요'), HUD_MAIN);
+        hudTag(g, 800, T('코치 — 따라 하세요'), HUD_MAIN);   // B단계=코치 시범(혼합 설계) — C부터 상대
         for (const [x, ar] of [[120, '←'], [1240, '→']]) {
           g.strokeStyle = HUD_CYAN; g.setLineDash([10, 10]); g.lineWidth = 3; g.globalAlpha = 0.7;
           g.beginPath(); g.roundRect(x, 300, 240, 420, 24); g.stroke();
