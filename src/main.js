@@ -3910,7 +3910,12 @@ void main(){
   // ── 벽 대지 프레임 시스템: 스테이지별 대지(2600×1600) 뷰를 벽 평면에 CSS3D로 얹음 ──
   //   프레임 스테이지 = 기존 벽/바닥 UI 전부 숨김(사람+배경만) → 다른 각도에서도 "벽에 프레임 하나 붙은 것"으로 인지.
   //   iframe 배경 투명 → 프레임 밖은 벽 배경이 비침. 투사면=벽 크기라 밖 안 나감.
-  const DESIGN_FRAMES = { BX_READY: 'ready-view/index.html' };   // 스테이지 → 대지 프레임 (디자인되는 대로 추가)
+  const DESIGN_FRAMES = {   // 스테이지 → 대지 프레임. A~C는 공통 템플릿(scene.html) + ?stage= 데이터(scenes.js)
+    BX_READY: 'ready-view/index.html',
+    BX_A1: 'ready-view/scene.html?stage=BX_A1', BX_A2: 'ready-view/scene.html?stage=BX_A2', BX_A3: 'ready-view/scene.html?stage=BX_A3',
+    BX_B1: 'ready-view/scene.html?stage=BX_B1', BX_B2: 'ready-view/scene.html?stage=BX_B2', BX_B3: 'ready-view/scene.html?stage=BX_B3',
+    BX_C1: 'ready-view/scene.html?stage=BX_C1', BX_C2: 'ready-view/scene.html?stage=BX_C2', BX_C3: 'ready-view/scene.html?stage=BX_C3', BX_C4: 'ready-view/scene.html?stage=BX_C4',
+  };
   const FRAME_W = 2600, FRAME_H = 1600;   // 디자인 대지 px (벽 2.6×1.6m 실측 1:1) — 모든 DESIGN_FRAMES 뷰는 이 대지로 저작
   const cssRenderer = new CSS3DRenderer();
   Object.assign(cssRenderer.domElement.style, { position: 'fixed', pointerEvents: 'none', zIndex: '6' });

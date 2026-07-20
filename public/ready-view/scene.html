@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Newton 복싱 — 운동중</title>
+<style>
+@font-face{font-family:'Supreme';src:url('../fonts/Supreme-Bold.woff2') format('woff2');font-weight:700;font-style:normal;font-display:block}
+@font-face{font-family:'Supreme';src:url('../fonts/Supreme-Medium.woff2') format('woff2');font-weight:500;font-style:normal;font-display:block}
+@font-face{font-family:'OffBit';src:url('../fonts/OffBitTrial-101Bold.ttf') format('truetype');font-weight:700;font-style:normal;font-display:block}
+@font-face{font-family:'OffBitB';src:url('../fonts/OffBitTrial-Bold.ttf') format('truetype');font-weight:700;font-style:normal;font-display:block}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{background:transparent}
+.stage{position:relative;width:2600px;height:1600px;overflow:hidden;
+  font-family:'Supreme',sans-serif;color:#fff;-webkit-font-smoothing:antialiased}
+
+/* 상단좌: 운동 타이틀 + 세션 프로그래스 도트 */
+.head{position:absolute;left:100px;top:140px;display:flex;flex-direction:column;gap:27px;align-items:flex-start;width:2109px}
+.title{font-weight:700;font-size:80px;line-height:normal;white-space:nowrap}
+.dots{display:flex;height:45px}
+.dot{width:45.734px;height:45.734px;border-radius:999px;background:#d0d0d0;position:relative;overflow:hidden}
+.dot.on{background:#fa3030}
+.dot.half{background:#fa3030}
+.dot.half::after{content:"";position:absolute;right:-15.06px;top:0;width:34px;height:48px;background:#d9d9d9}
+
+/* 상단우: 페이즈(START / WARM UP n/N / STRETCH / FIGHT!) */
+.phases{position:absolute;left:2244px;top:100px;width:256px;display:flex;flex-direction:column;gap:56px;align-items:flex-end;text-align:right}
+.phase{font-weight:500;font-size:32px;color:rgba(255,255,255,.7);line-height:41.087px}
+.phase.active{font-weight:700;font-size:40px;color:#fff}
+.phase.far{color:rgba(255,255,255,.5)}
+
+/* 좌/우: 아바타 + 큰 숫자 + 단위 */
+.avatar{position:absolute;background:#fff;border-radius:999px;padding:10px;width:237px;height:237px;top:855px}
+.avatar.coach{left:100px}
+.avatar.you{left:2263px}
+.avatar .ph{position:relative;width:217px;height:217px;border-radius:999px;overflow:hidden}
+.avatar .ph img{position:absolute;left:-28.09px;top:-74.05px;width:275.305px;height:511.608px;object-fit:cover;max-width:none}
+.num{position:absolute;font-family:'OffBit';font-size:200px;line-height:normal;letter-spacing:-8px;top:1148px;width:364px}
+.num.l{left:100px;text-align:left}
+.num.r{left:2136px;text-align:right}
+.unit{position:absolute;font-weight:500;font-size:64px;letter-spacing:-2.56px;top:1368px;width:364px}
+.unit.l{left:100px;text-align:left}
+.unit.r{left:2136px;text-align:right}
+.you-badge{position:absolute;left:2319px;top:1043px;background:rgba(255,255,255,.9);
+  border-radius:80px;padding:15.76px 31.52px;box-shadow:0 0 47.28px rgba(0,0,0,.12);display:flex;align-items:center}
+.you-badge p{font-weight:500;font-size:47.28px;color:#525252;letter-spacing:-.5px}
+
+/* 하단중앙: 코치 지시(따라할 참고, 짧게) */
+.coach-say{position:absolute;left:50%;top:1370px;transform:translateX(-50%);
+  background:#fff;border-radius:9999px;padding:24px 32px;display:flex;align-items:center;justify-content:center;max-width:1600px}
+.coach-say p{font-weight:500;font-size:56px;color:#000;letter-spacing:-2.24px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* 중앙: 콤보 팝업(등장→은은히 페이드, 최대 2~3 순차) */
+.combos{position:absolute;left:50%;top:1202px;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:16px}
+.combo{background:rgba(255,255,255,.2);border-radius:47.28px;padding:15.76px 31.52px;height:114.26px;
+  display:flex;align-items:center;gap:15.76px;justify-content:center}
+.combo img{width:47.28px;height:52px;display:block}
+.combo p{font-family:'OffBitB';font-size:59.1px;color:#fff;letter-spacing:-1.97px;white-space:nowrap}
+
+/* ── 등장 모션 (READY와 동일 어휘, 스테이지 진입 시 스태거) ── */
+@keyframes sUp{from{opacity:0;transform:translateY(48px)}to{opacity:1;transform:translateY(0)}}
+@keyframes sLeft{from{opacity:0;transform:translateX(-60px)}to{opacity:1;transform:translateX(0)}}
+@keyframes sRight{from{opacity:0;transform:translateX(60px)}to{opacity:1;transform:translateX(0)}}
+@keyframes sPop{from{opacity:0;transform:scale(.6)}to{opacity:1;transform:scale(1)}}
+@keyframes dotPop{from{opacity:0;transform:scale(0)}to{opacity:1;transform:scale(1)}}
+@keyframes comboIn{0%{opacity:0;transform:translateY(24px) scale(.7)}60%{opacity:1;transform:translateY(0) scale(1.05)}100%{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes comboBreath{0%,100%{opacity:.92;transform:translateY(0)}50%{opacity:.5;transform:translateY(-8px)}}
+@keyframes sUpC{from{opacity:0;transform:translate(-50%,48px)}to{opacity:1;transform:translate(-50%,0)}}
+.title{animation:sUp .7s .10s both}
+.avatar.coach{animation:sLeft .7s .30s both}
+.avatar.you{animation:sRight .7s .30s both}
+.num.l,.num.r{animation:sPop .6s .50s both}
+.unit.l,.unit.r{animation:sUp .6s .55s both}
+.you-badge{animation:sPop .6s .62s both}
+.coach-say{animation:sUpC .7s .70s both}
+</style>
+</head>
+<body>
+<div class="stage">
+ <div class="head">
+   <div class="title" id="s-title">NECK &amp; SHOULDER ROLLS</div>
+   <div class="dots" id="s-dots"></div>
+ </div>
+ <div class="phases" id="s-phases"></div>
+
+ <div class="avatar coach"><div class="ph"><img src="assets/coach_a.png" alt=""><img src="assets/coach_b.png" alt=""></div></div>
+ <div class="num l" id="s-coach-num">153</div>
+ <div class="unit l" id="s-coach-unit">Steps</div>
+
+ <div class="avatar you"><div class="ph"><img src="assets/you_avatar.png" alt=""></div></div>
+ <div class="you-badge"><p>You</p></div>
+ <div class="num r" id="s-you-num">1</div>
+ <div class="unit r" id="s-you-unit">Steps</div>
+
+ <div class="coach-say"><p id="s-coach-say">Coach · Light on your feet — front and back.</p></div>
+ <div class="combos" id="s-combos"></div>
+</div>
+
+<script src="scenes.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const stage = new URLSearchParams(location.search).get('stage') || 'BX_A1';
+const S = window.SCENES[stage] || window.SCENES.BX_A1;
+
+$('s-title').textContent = S.title;
+
+// 페이즈: 현재 볼드+sub / 이전·다음 0.7 / 2단계+ 뒤 0.5 (공통 컴포넌트, 라벨은 PHASES 데이터)
+const pw = $('s-phases'); pw.innerHTML='';
+window.PHASES.forEach((label,i)=>{ const d=document.createElement('div');
+  const active = i===S.phase;
+  d.className='phase'+(active?' active':(i>S.phase+1?' far':''));
+  d.textContent = label + (active && S.sub ? ' '+S.sub : '');
+  d.style.animation='sRight .6s '+(0.15+i*0.07)+'s both';
+  pw.appendChild(d); });
+
+const dw = $('s-dots'); dw.innerHTML='';
+const full = Math.floor(S.dotsOn), hasHalf = (S.dotsOn - full) >= 0.4;
+for(let i=0;i<S.dots;i++){ const d=document.createElement('div');
+  d.className='dot'+(i<full?' on':(i===full&&hasHalf?' half':''));
+  d.style.animation='dotPop .4s '+(0.30+i*0.05)+'s both'; dw.appendChild(d); }
+
+$('s-coach-num').textContent=S.coach.num; $('s-coach-unit').textContent=S.coach.unit;
+$('s-you-num').textContent=S.you.num;     $('s-you-unit').textContent=S.you.unit;
+$('s-coach-say').textContent=S.say;
+
+const cw=$('s-combos'); cw.innerHTML='';
+(S.combos||[]).forEach((c,i)=>{ const d=document.createElement('div'); d.className='combo';
+  d.innerHTML='<img src="assets/flame.svg" alt=""><p></p>'; d.querySelector('p').textContent=c;
+  const t=1.0+i*0.5;   // 순차 등장(최대 2~3) → 등장 후 은은하게 호흡
+  d.style.animation='comboIn .6s '+t+'s both, comboBreath 3.2s '+(t+0.6)+'s infinite'; cw.appendChild(d); });
+</script>
+</body>
+</html>
