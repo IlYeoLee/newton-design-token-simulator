@@ -67,70 +67,61 @@ async function boot() {
   const xbot = new XBot(scene);
   const rig = new ProjectorRig(scene, xbot);
   const ghost = new WallGhost(scene);
-  // ── 3D 복서 코치 (Boxer 1, CC-BY Petit) — 실사 인체 리그, 열화상 룩 + 관절 마커 ──
+  // ── 3D 복서 코치 (Boxer 1, CC-BY Petit) — 초록 배경 RT 렌더 → 기존 영상 열화상 파이프라인 ──
+  //    3D에 열화상 셰이더를 새로 만드는 대신, 복서를 그린스크린에 렌더한 텍스처를 벽 코치
+  //    영상 파이프라인(크로마키→LUT→벽 투사)에 그대로 먹인다 = 벽 코치와 100% 동일 룩 (유저 안).
   const COACH3D = true;
-  const coach3d = { model: null, mixer: null, rightHand: null, group: new THREE.Group() };
-  coach3d.group.visible = false;
+  const COACH_LAYER = 6;
+  const coach3d = { model: null, mixer: null, rightHand: null, group: new THREE.Group(), wired: false };
   scene.add(coach3d.group);
+  const coachRT = new THREE.WebGLRenderTarget(256, 384);   // DPW×DPH 세로 (영상과 동일 프레이밍)
+  const coachCam = new THREE.PerspectiveCamera(42, 256 / 384, 0.1, 12);
+  coachCam.layers.set(COACH_LAYER);
   new GLTFLoader().load(import.meta.env.BASE_URL + 'models/boxer.glb', (gltf) => {
     const root = gltf.scene;
-    // 열화상 룩: 표면 텍스처 무시 → 뉴턴 레드 발광 (예전 열화상 실루엣과 통일)
-    // 열화상 그라디언트: 카메라 향함=핫(크림/주황) / 비낌=쿨(딥레드) — 뉴턴 램프 (부위별 명암)
-    const thermalMat = () => {
-      const mm = new THREE.MeshStandardMaterial({ color: 0xffffff, metalness: 0, roughness: 0.9, emissive: 0x1a0604, emissiveIntensity: 1 });
-      mm.onBeforeCompile = (sh) => {
-        sh.fragmentShader = `
-          // 뉴턴 주황 밴드 (흰색 없음): 딥레드 → 레드 → 주황 → 연주황
-          vec3 nRamp(float t){
-            vec3 c0=vec3(0.57,0.06,0.06), c1=vec3(0.98,0.19,0.19), c2=vec3(0.996,0.43,0.235), c3=vec3(0.996,0.76,0.54);
-            if(t<0.34) return mix(c0,c1,t/0.34);
-            if(t<0.67) return mix(c1,c2,(t-0.34)/0.33);
-            return mix(c2,c3,(t-0.67)/0.33);
-          }
-        ` + sh.fragmentShader.replace(
-          '#include <dithering_fragment>',
-          `// 실제 음영 휘도를 온도로 (벽 코치와 동일 원리): 그늘=딥레드, 밝음=주황
-           float _lum = dot(gl_FragColor.rgb, vec3(0.299, 0.587, 0.114));
-           float _heat = clamp(_lum * 1.35, 0.04, 0.9);   // 주황 지배 밴드, 흰색 없음
-           gl_FragColor = vec4(nRamp(_heat), 1.0);`
-        );
-      };
-      return mm;
-    };
-    root.traverse(o => {
-      if (o.isMesh) { o.material = thermalMat(); o.frustumCulled = false; }
-    });
-    // 스케일: 실제 키 1.75m 맞춤 (모델 원본 높이로 정규화)
+    root.traverse(o => { if (o.isMesh || o.isBone || o.isObject3D) o.layers.set(COACH_LAYER); });  // 메인 카메라엔 안 보임
+    root.traverse(o => { if (o.isMesh) { o.material = new THREE.MeshBasicMaterial({ color: 0xffffff }); o.frustumCulled = false; } });   // 플랫 백색(조명 무관) — 열화상은 파이프라인이 생성
     const box = new THREE.Box3().setFromObject(root);
-    const h = box.max.y - box.min.y || 1;
-    const s = 1.75 / h;
+    const h = box.max.y - box.min.y || 1, s = 1.75 / h;
     root.scale.setScalar(s);
-    root.position.y = -box.min.y * s;
+    root.position.set(0, -box.min.y * s, 0);
+    root.rotation.y = Math.PI;   // 앞면이 코치캠(+z)을 향하도록 (mixamo 기본 -z 정면)
     coach3d.group.add(root);
+    coach3d.group.position.set(0, 0, 0);
     coach3d.model = root;
     coach3d.rightHand = root.getObjectByName('mixamorig_RightHand_Armature');
     coach3d.mixer = new THREE.AnimationMixer(root);
     if (gltf.animations[0]) coach3d.mixer.clipAction(gltf.animations[0]).play();
-    console.log('[coach3d] loaded — bones', !!coach3d.rightHand, 'anims', gltf.animations.length);
+    // 코치캠: 전신 [0, 1.75m]를 세로로 프레임
+    coachCam.position.set(0, 0.9, 2.55);
+    coachCam.lookAt(0, 0.9, 0);
+    console.log('[coach3d] RT loaded — hand', !!coach3d.rightHand, 'anims', gltf.animations.length);
   }, undefined, (e) => console.warn('[coach3d] load fail', e));
-  const coach3dFist = new THREE.Mesh(
-    new THREE.RingGeometry(0.05, 0.075, 32),
-    new THREE.MeshBasicMaterial({ color: 0xfec389, transparent: true, opacity: 0.95, depthTest: false, side: THREE.DoubleSide }));
-  coach3dFist.renderOrder = 22; coach3dFist.visible = false; scene.add(coach3dFist);
-  function renderCoach3d(dt) {
-    const on = COACH3D && !fpMode && coach3d.model && session.active && state.pack === 'boxing';   // 3인칭 프로토타입 (1인칭 벽 가림 방지)
-    coach3d.group.visible = !!on;
-    coach3dFist.visible = !!on && !fpMode;
+  // 초록 배경 RT 렌더 → 파이프라인 소스 교체. renderDemoPanel 앞에서 호출.
+  function renderCoachToRT(dt) {
+    const on = COACH3D && coach3d.model && session.active && state.pack === 'boxing';
     if (!on) return;
     coach3d.mixer.update(dt);
-    // 배치: 벽 앞에 서서 유저를 마주 봄 (상대/코치 위치)
-    const wc = rig._wallCenter;
-    coach3d.group.position.set(wc ? wc.cx : 0, 0, WALL_Z + 0.35);
-    coach3d.group.rotation.y = 0;   // +z(유저) 바라봄
-    if (coach3d.rightHand && !fpMode) {
-      coach3dFist.position.setFromMatrixPosition(coach3d.rightHand.matrixWorld);
-      coach3dFist.quaternion.copy(camera.quaternion);
+    // 파이프라인 소스 1회 교체: demoTex → coachRT (트레일·히트마스크·패널)
+    if (!coach3d.wired) {
+      trailMat.uniforms.tex.value = coachRT.texture;
+      heatMaskMat.uniforms.tex.value = coachRT.texture;
+      demoPanel.material.uniforms.tex.value = coachRT.texture;
+      coach3d.wired = true;
     }
+    const prevRT = renderer.getRenderTarget();
+    const prevBg = scene.background;
+    const prevClear = new THREE.Color(); renderer.getClearColor(prevClear);
+    const prevAlpha = renderer.getClearAlpha();
+    scene.background = null;
+    renderer.setClearColor(0x00ff00, 1);   // 그린스크린 (기존 크로마키가 키잉)
+    renderer.setRenderTarget(coachRT);
+    renderer.clear();
+    renderer.render(scene, coachCam);      // coachCam = COACH_LAYER → 복서만 렌더
+    renderer.setRenderTarget(prevRT);
+    renderer.setClearColor(prevClear, prevAlpha);
+    scene.background = prevBg;
+    demoPanel.material.uniforms.uLive.value = 1;   // 프레임 게이트 = 항상 라이브
   }
   // ── 관절 추종 마커 (증명 데모): X봇 실제 주먹 관절에 앵커 — 고정 좌표 아님 ──
   const fistRing = new THREE.Mesh(
@@ -2287,15 +2278,19 @@ void main(){
         ? `🎬 기본 클립 (미반입: ${ghostClipWant[0]})\n${ghostClipWant[1]}`
         : `🎬 ${ghostClipWant[0]}\n${ghostClipWant[1]}`;
     }
-    if (on) { if (demoVideo.paused) demoVideo.play().catch(() => {}); }
-    else { if (!demoVideo.paused) demoVideo.pause(); return; }
     const now = performance.now() / 1000;
-    // 프레임 게이트 — 재생 가능한 살아있는 프레임일 때만 인물 기여 (블랙/정지 = 박스 방지)
-    demoPanel.material.uniforms.uLive.value =
-      (demoVideo.readyState >= 2 && !demoVideo.ended && !demoVideo.paused) ? 1 : 0;
+    if (coach3d.wired) {
+      // RT 소스: 비디오 게이트 우회 (uLive는 renderCoachToRT가 1로 세팅). 트레일/히트만 갱신.
+      demoPanel.material.uniforms.uLive.value = 1;
+    } else {
+      if (on) { if (demoVideo.paused) demoVideo.play().catch(() => {}); }
+      else { if (!demoVideo.paused) demoVideo.pause(); return; }
+      demoPanel.material.uniforms.uLive.value =
+        (demoVideo.readyState >= 2 && !demoVideo.ended && !demoVideo.paused) ? 1 : 0;
+      if (demoVideo.readyState < 2) return;
+    }
     if (now - demoLastT < 1 / 45) return;
     demoLastT = now;
-    if (demoVideo.readyState < 2) return;
     // 잔상 누적 (핑퐁) — 룩 person.decay 라이브 소비
     // 랩 잔상 시맨틱 등가: 랩은 6.7fps 탭 decay^j — 45Hz 연속 누적으로 환산(decay^(1/5.7)).
     // 0이면 완전 꺼짐 (구 매핑은 바닥 0.62가 있어 랩에서 꺼도 시뮬에 잔상이 남던 버그).
@@ -3949,12 +3944,12 @@ void main(){
     sceneUI.update(rawDt, rig);       // 장면 UI 슬롯 — 풋프린트 추종 재배치 + 페이드
     session.tickWaves();              // 스테이지 파동 링 시계 (프리뷰 포함)
     renderGhostLayer();
-    renderDemoPanel();   // A 시범 구간 실사 클립 (휴면)
+    renderCoachToRT(rawDt);   // 3D 복서 → 그린 RT (파이프라인 소스)
+    renderDemoPanel();   // 벽 열화상 파이프라인 (RT 프레임 처리)
     renderWallHUD();     // 벽면 게임 HUD (피그마 WallUI 이식)
     renderMirrorView();  // 내 폼 존 = 스테이션 카메라 실루엣 라이브
     renderBxPerson();    // 복싱 벽면 인물 시범 (정본 포트)
     renderJointMarkers();   // 관절 추종 마커 (증명 데모)
-    renderCoach3d(rawDt);   // 3D 복서 코치 (Boxer 1)
     renderFrame(clock.elapsedTime);   // 블룸 + 그레인·비네트 컴포저 (scene.js FX)
   }
   loop();
