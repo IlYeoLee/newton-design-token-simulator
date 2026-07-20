@@ -217,7 +217,10 @@ async function boot() {
         const dlab = def?.global?.fx?.lab;
         if (lab && dlab) {
           let changed = false;
-          if (dlab.arrow) {
+          // 룩 리비전 — 배포로 기본 룩이 바뀌면(rev↑) 기존 방문자도 로드 시 최신 룩으로 자동 갱신(구버전 고착 방지).
+          //   뷰어는 룩 편집 안 하므로 통째 교체 안전. 개발자는 로컬(다른 오리진)에서 자유 편집.
+          if (dlab.rev != null && lab.rev !== dlab.rev) { cur.global.fx.lab = dlab; changed = true; }
+          else if (dlab.arrow) {
             lab.arrow = lab.arrow || {};
             for (const ak in dlab.arrow) if (lab.arrow[ak] == null) { lab.arrow[ak] = dlab.arrow[ak]; changed = true; }
           }
