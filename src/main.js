@@ -3918,24 +3918,22 @@ void main(){
   function renderDesignFrame() {
     const view = (session.active && state.pack === 'boxing') ? DESIGN_FRAMES[session.curStage?.id] : null;
     frameObj.visible = !!view;
-    frameIframe.style.display = view ? 'block' : 'none';   // DOM 확실히 숨김 — 세션 밖/다음 스테이지 잔류 방지
-    if (!view) return;   // loadedView 유지 → 재진입해도 리로드/재배치 안 함(위치 안정). 숨김만.
-    if (view !== loadedView) { frameIframe.src = import.meta.env.BASE_URL + view; loadedView = view; }  // 다른 뷰만 로드(같은 뷰 재진입 = 그대로)
-    const wc = rig._wallCenter;
-    frameObj.position.set(wc?.cx ?? 0, wc?.cy ?? 1.4, WALL_Z + 0.02);
-    frameObj.rotation.set(0, 0, 0);            // 벽 전면 = +z (유저 방향)
-    // 대지 2600×1600 → 벽(wallW×wallH) 정확 정합. x/y 독립 스케일 = aspect 달라도 투사면 꽉 채움(이식 안전).
-    frameObj.scale.set(rig.wallW / FRAME_W, rig.wallH / FRAME_H, 1);
+    if (view) {
+      if (view !== loadedView) { frameIframe.src = import.meta.env.BASE_URL + view; loadedView = view; }  // 다른 뷰만 로드(같은 뷰 재진입=그대로)
+      // 매 프레임 벽 정합 — 대지 2600×1600 → 벽(wallW×wallH), x/y 독립 스케일(aspect 무관, 이식 안전)
+      const wc = rig._wallCenter;
+      frameObj.position.set(wc?.cx ?? 0, wc?.cy ?? 1.4, WALL_Z + 0.02);
+      frameObj.rotation.set(0, 0, 0);
+      frameObj.scale.set(rig.wallW / FRAME_W, rig.wallH / FRAME_H, 1);
+      // 구 UI 선별 숨김 — 유지: demoPanel(주황 전문가)·격자 배경 / 숨김: 거울"나"·HUD·세션 큐
+      mirrorPanel.visible = false;
+      hudPanel.visible = ctaPanel.visible = false;
+      optRing.visible = camMark.visible = false;
+      session.root.visible = false;
+      demoPanel.position.x += rig.wallW * 0.12;   // 주황 전문가 = 중앙 인물 슬롯 (왼쪽 50px)
+    }
+    // 항상 렌더 — 표시/숨김 전환에도 CSS3D transform 항상 동기(재진입 시 위치 어긋남·잔류 방지)
     cssRenderer.render(frameCssScene, camera);
-    // 구 UI만 선별 숨김 — 유지: demoPanel(주황 열화상 전문가)·배경 그리드·프로젝션
-    //   숨김: 파란 가이드 실루엣(bxPerson) · 구 HUD 텍스트 · 세션 바닥 큐/레티클/텍스트
-    // 구 UI만 숨김 — 유지: demoPanel(주황 열화상 전문가)·격자 배경·프로젝션
-    //   숨김: 하늘색 "나" 실루엣(거울 뷰) · 구 HUD 텍스트/버튼 · 세션 큐/레티클/텍스트
-    mirrorPanel.visible = false;
-    hudPanel.visible = ctaPanel.visible = false;
-    optRing.visible = camMark.visible = false;
-    session.root.visible = false;
-    demoPanel.position.x += rig.wallW * 0.14;   // 주황 전문가 = 중앙 인물 슬롯 (넓은 좌 카드에서 확실히 우측)
   }
 
   loop();
