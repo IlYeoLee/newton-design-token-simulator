@@ -3903,9 +3903,8 @@ void main(){
   const DESIGN_FRAMES = { BX_READY: 'ready-view/index.html' };   // 스테이지 → 대지 프레임 (디자인되는 대로 추가)
   const FRAME_W = 2600, FRAME_H = 1600;   // 디자인 대지 px (벽 2.6×1.6m 실측 1:1) — 모든 DESIGN_FRAMES 뷰는 이 대지로 저작
   const cssRenderer = new CSS3DRenderer();
-  cssRenderer.setSize(window.innerWidth, window.innerHeight);
-  Object.assign(cssRenderer.domElement.style, { position: 'absolute', top: '0', left: '0', pointerEvents: 'none', zIndex: '6' });
-  (renderer.domElement.parentNode || stage).appendChild(cssRenderer.domElement);
+  Object.assign(cssRenderer.domElement.style, { position: 'fixed', pointerEvents: 'none', zIndex: '6' });
+  document.body.appendChild(cssRenderer.domElement);   // 크기·위치는 매 프레임 WebGL 캔버스에 정합(아래 renderDesignFrame)
   const frameIframe = document.createElement('iframe');
   frameIframe.setAttribute('scrolling', 'no');
   Object.assign(frameIframe.style, { width: FRAME_W + 'px', height: (FRAME_W * 1600 / 2600) + 'px', border: '0', background: 'transparent' });
@@ -3913,9 +3912,17 @@ void main(){
   const frameObj = new CSS3DObject(frameIframe);
   frameObj.visible = false;
   frameCssScene.add(frameObj);
-  window.addEventListener('resize', () => cssRenderer.setSize(window.innerWidth, window.innerHeight));
   let loadedView = null;
   function renderDesignFrame() {
+    // CSS3D 레이어 = WebGL 캔버스에 매 프레임 정확 정합 — 창≠캔버스(크기·aspect)여도 원근·스케일 일치
+    //   (이게 안 맞으면 디자인이 벽보다 크게 부풀어 프레임영역 밖으로 넘침 — 유저 창 크기 의존 버그의 원인)
+    const cvr = renderer.domElement.getBoundingClientRect();
+    if (cssRenderer._sw !== cvr.width || cssRenderer._sh !== cvr.height) {
+      cssRenderer.setSize(cvr.width, cvr.height);
+      cssRenderer._sw = cvr.width; cssRenderer._sh = cvr.height;
+    }
+    cssRenderer.domElement.style.left = cvr.left + 'px';
+    cssRenderer.domElement.style.top = cvr.top + 'px';
     const view = (session.active && state.pack === 'boxing') ? DESIGN_FRAMES[session.curStage?.id] : null;
     const wc = view ? rig._wallCenter : null;
     frameObj.visible = !!view && !!wc;   // 벽 좌표 준비 전엔 숨김 — 재진입 초기 _wallCenter undefined일 때 프레임이 (0,1.4) '중앙'으로 튀는 플래시 방지
