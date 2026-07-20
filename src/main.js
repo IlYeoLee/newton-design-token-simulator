@@ -3916,6 +3916,9 @@ void main(){
     BX_B1: 'ready-view/scene.html?stage=BX_B1', BX_B2: 'ready-view/scene.html?stage=BX_B2', BX_B3: 'ready-view/scene.html?stage=BX_B3',
     BX_C1: 'ready-view/scene.html?stage=BX_C1', BX_C2: 'ready-view/scene.html?stage=BX_C2', BX_C3: 'ready-view/scene.html?stage=BX_C3', BX_C4: 'ready-view/scene.html?stage=BX_C4',
   };
+  // 장면별 자동재생 지속시간(초) — 프로그래스 링이 0→100% 차오르는 시간.
+  // ponytail: 근사값 (복싱 A/B는 beat 기반이라 템포 따라 소폭 변동, B1은 rep 게이트). 필요 시 튜닝.
+  const STAGE_DUR = { BX_A1: 5.6, BX_A2: 4.6, BX_A3: 4, BX_B1: 9, BX_B2: 4.5, BX_B3: 4, BX_C1: 3, BX_C2: 6, BX_C3: 6, BX_C4: 4 };
   const FRAME_W = 2600, FRAME_H = 1600;   // 디자인 대지 px (벽 2.6×1.6m 실측 1:1) — 모든 DESIGN_FRAMES 뷰는 이 대지로 저작
   const cssRenderer = new CSS3DRenderer();
   Object.assign(cssRenderer.domElement.style, { position: 'fixed', pointerEvents: 'none', zIndex: '6' });
@@ -3942,7 +3945,11 @@ void main(){
     const wc = view ? rig._wallCenter : null;
     frameObj.visible = !!view && !!wc;   // 벽 좌표 준비 전엔 숨김 — 재진입 초기 _wallCenter undefined일 때 프레임이 (0,1.4) '중앙'으로 튀는 플래시 방지
     if (frameObj.visible) {
-      if (view !== loadedView) { frameIframe.src = import.meta.env.BASE_URL + view; loadedView = view; }  // 다른 뷰만 로드(같은 뷰 재진입=그대로)
+      if (view !== loadedView) {   // 다른 뷰만 로드(같은 뷰 재진입=그대로)
+        const dur = STAGE_DUR[session.curStage?.id] ?? session.curStage?.dur ?? 8;
+        frameIframe.src = import.meta.env.BASE_URL + view + (view.includes('scene.html') ? '&dur=' + dur : '');
+        loadedView = view;
+      }
       // 매 프레임 벽 정합 — 대지 2600×1600 → 벽(wallW×wallH), x/y 독립 스케일(aspect 무관, 이식 안전)
       frameObj.position.set(wc.cx, wc.cy, WALL_Z + 0.02);
       frameObj.rotation.set(0, 0, 0);
@@ -3952,7 +3959,14 @@ void main(){
       hudPanel.visible = ctaPanel.visible = false;
       optRing.visible = camMark.visible = false;
       session.root.visible = false;
-      demoPanel.position.x += rig.wallW * 0.12;   // 주황 전문가 = 중앙 인물 슬롯 (왼쪽 50px)
+      if (session.curStage?.id === 'BX_READY') {
+        demoPanel.position.x += rig.wallW * 0.12;   // READY = 기존 우측 슬롯 (유저 확정 레이아웃)
+      } else {
+        // A/B/C = 주황 전문가를 벽 정중앙 + 크게. 머리·발이 투사 프레임 안에 들도록 상한.
+        const DBIG = 1.12;
+        demoPanel.scale.set(GHOST_H * (9 / 16) / 0.62 * GHOST_PAD * DBIG, GHOST_H / 0.93 * GHOST_PAD * DBIG, 1);
+        demoPanel.position.set(wc.cx, wc.cy, WALL_Z + 0.035);
+      }
     }
     // 항상 렌더 — 표시/숨김 전환에도 CSS3D transform 항상 동기(재진입 시 위치 어긋남·잔류 방지)
     cssRenderer.render(frameCssScene, camera);
