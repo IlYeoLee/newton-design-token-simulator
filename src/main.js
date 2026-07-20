@@ -3915,6 +3915,7 @@ void main(){
   function renderDesignFrame() {
     const view = (session.active && state.pack === 'boxing') ? DESIGN_FRAMES[session.curStage?.id] : null;
     frameObj.visible = !!view;
+    frameIframe.style.display = view ? 'block' : 'none';   // DOM 확실히 숨김 — 세션 밖/다음 스테이지 잔류 방지
     if (!view) { lastFrameView = null; return; }
     if (view !== lastFrameView) { frameIframe.src = import.meta.env.BASE_URL + view; lastFrameView = view; }  // 스테이지 바뀌면 뷰 교체(+애니 재생)
     const wc = rig._wallCenter;
@@ -3931,7 +3932,7 @@ void main(){
     hudPanel.visible = ctaPanel.visible = false;
     optRing.visible = camMark.visible = false;
     session.root.visible = false;
-    demoPanel.position.x += rig.wallW * 0.16;   // 주황 전문가 우측 이동(살짝) — 좌측 카드 UI와 겹침 방지
+    demoPanel.position.x += rig.wallW * 0.09;   // 주황 전문가 = 중앙 인물 슬롯 (좌 카드/우 텍스트 사이)
   }
 
   loop();
