@@ -9,13 +9,21 @@
 @font-face{font-family:'Supreme';src:url('../fonts/Supreme-Medium.woff2') format('woff2');font-weight:400;font-style:normal;font-display:block}
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{background:transparent}
-/* Figma 배경 — 짙은 베이스 + 붉은 라디얼 글로우 + 하단 코너 쿨톤 (인물 없는 화면은 꽉 찬 배경) */
 .stage{position:relative;width:2600px;height:1600px;overflow:hidden;
-  font-family:'Supreme',sans-serif;color:#fff;-webkit-font-smoothing:antialiased;
-  background:
-    radial-gradient(42% 38% at 12% 100%, rgba(170,215,225,.18), transparent 60%),
-    radial-gradient(48% 44% at 88% 97%, rgba(195,230,238,.22), transparent 62%),
-    radial-gradient(78% 68% at 50% 22%, #fb3b33 0%, rgba(222,44,40,.62) 26%, rgba(130,26,24,.22) 48%, rgba(12,14,18,0) 70%)}
+  font-family:'Supreme',sans-serif;color:#fff;-webkit-font-smoothing:antialiased}
+/* Figma 배경 그라디언트(Ellipse 31226, 블러 내장) — 은은하게 움직임.
+   컨테이너 라디얼 마스크로 프레임 가장자리 전에 완전 투명 → 빔 투사 시 사각 모서리 원천 차단 */
+.bg-glow{position:absolute;inset:0;overflow:hidden;pointer-events:none;
+  -webkit-mask:radial-gradient(58% 52% at 50% 42%, #000 26%, transparent 76%);
+          mask:radial-gradient(58% 52% at 50% 42%, #000 26%, transparent 76%)}
+.bg-glow img{position:absolute;left:50%;top:50%;width:2050px;transform:translate(-50%,-50%);
+  will-change:transform;animation:glowDrift 15s ease-in-out infinite}
+@keyframes glowDrift{
+  0%{transform:translate(-50%,-50%) scale(1) rotate(0deg)}
+  25%{transform:translate(-59%,-44%) scale(1.14) rotate(5deg)}
+  50%{transform:translate(-42%,-58%) scale(1.05) rotate(-4deg)}
+  75%{transform:translate(-55%,-45%) scale(1.16) rotate(3deg)}
+  100%{transform:translate(-50%,-50%) scale(1) rotate(0deg)}}
 
 /* 타이틀 */
 .tgrp{position:absolute;left:50%;transform:translateX(-50%);top:221px;width:1200px;
@@ -74,6 +82,7 @@ html,body{background:transparent}
 </head>
 <body>
 <div class="stage">
+ <div class="bg-glow"><img src="assets/bg_glow.svg" alt=""></div>
  <div class="tgrp"><div class="tsub" id="t-sub"></div><div class="ttl" id="t-ttl"></div></div>
  <div class="cards">
    <div class="card done a1" id="c-done">
