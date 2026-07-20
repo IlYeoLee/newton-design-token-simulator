@@ -18,6 +18,7 @@ import { DesignStore } from './studio/store.js';
 import { loadSvg } from './studio/design.js';
 import { initBudgetPanel } from './budgetPanel.js';
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
+import { CSS3DRenderer, CSS3DObject } from 'three/examples/jsm/renderers/CSS3DRenderer.js';
 import { getLUT, FXP, rebuildLUT, lutColor, GLYPHS, FX_GLSL } from './fxlut.js';
 import { createEditor3D } from './editor3d.js';
 import { SceneUI } from './sceneui.js';
@@ -3889,8 +3890,41 @@ void main(){
     renderMirrorView();  // 내 폼 존 = 스테이션 카메라 실루엣 라이브
     renderBxPerson();    // 복싱 벽면 인물 시범 (정본 포트)
     renderJointMarkers();   // 관절 추종 마커 (증명 데모)
+    renderReadyCSS3D();  // BX_READY 피그마 뷰 = 벽 평면 CSS3D 레이어 (열화상 위 합성)
     renderFrame(clock.elapsedTime);   // 블룸 + 그레인·비네트 컴포저 (scene.js FX)
   }
+
+  // ── BX_READY 뷰: 피그마 디자인(애니 iframe)을 벽 평면에 CSS3D로 얹음 ──
+  //   WebGL 열화상/그라디언트는 그대로 배경, 이 레이어가 그 앞에 원근 맞춰 합성.
+  //   iframe 배경 투명 → 카드 밖 영역은 벽 열화상이 그대로 비침. 투사면=벽 크기라 밖 안 나감.
+  const READY_W = 2600, READY_H = 1600;   // 디자인 px (벽 2.6×1.6m 실측 1:1)
+  const cssRenderer = new CSS3DRenderer();
+  cssRenderer.setSize(window.innerWidth, window.innerHeight);
+  Object.assign(cssRenderer.domElement.style, { position: 'absolute', top: '0', left: '0', pointerEvents: 'none', zIndex: '6' });
+  (renderer.domElement.parentNode || stage).appendChild(cssRenderer.domElement);
+  const readyIframe = document.createElement('iframe');
+  readyIframe.src = import.meta.env.BASE_URL + 'ready-view/index.html';
+  readyIframe.setAttribute('scrolling', 'no');
+  Object.assign(readyIframe.style, { width: READY_W + 'px', height: READY_H + 'px', border: '0', background: 'transparent' });
+  const readyCssScene = new THREE.Scene();
+  const readyObj = new CSS3DObject(readyIframe);
+  readyObj.visible = false;
+  readyCssScene.add(readyObj);
+  window.addEventListener('resize', () => cssRenderer.setSize(window.innerWidth, window.innerHeight));
+  let readyWasShown = false;
+  function renderReadyCSS3D() {
+    const show = session.active && state.pack === 'boxing' && session.curStage?.id === 'BX_READY';
+    readyObj.visible = show;
+    if (show && !readyWasShown) { try { readyIframe.contentWindow.location.reload(); } catch (e) {} }  // 진입마다 등장 애니 재생
+    readyWasShown = show;
+    if (!show) return;
+    const wc = rig._wallCenter;
+    readyObj.position.set(wc?.cx ?? 0, wc?.cy ?? 1.4, WALL_Z + 0.02);
+    readyObj.rotation.set(0, 0, 0);            // 벽 전면 = +z (유저 방향)
+    readyObj.scale.setScalar(rig.wallW / READY_W);   // px→m (세로도 동일 비율 = wallH)
+    cssRenderer.render(readyCssScene, camera);
+  }
+
   loop();
 }
 
