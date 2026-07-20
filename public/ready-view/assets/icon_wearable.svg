@@ -1,0 +1,16 @@
+<svg preserveAspectRatio="none" width="100%" height="100%" overflow="visible" style="display: block;" viewBox="0 0 85.8267 57.2181" fill="none" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<g id="Group 2147228933">
+<rect id="&#225;&#132;&#137;&#225;&#133;&#179;&#225;&#132;&#143;&#225;&#133;&#179;&#225;&#132;&#133;&#225;&#133;&#181;&#225;&#134;&#171;&#225;&#132;&#137;&#225;&#133;&#163;&#225;&#134;&#186; 2026-07-18 135627 1 4 1" x="40.7334" y="0.171875" width="45.0933" height="57.0458" fill="url(#pattern0_0_15)"/>
+<rect id="&#225;&#132;&#137;&#225;&#133;&#179;&#225;&#132;&#143;&#225;&#133;&#179;&#225;&#132;&#133;&#225;&#133;&#181;&#225;&#134;&#171;&#225;&#132;&#137;&#225;&#133;&#163;&#225;&#134;&#186; 2026-07-18 135627 1 4 2" width="40.8701" height="57.2181" transform="matrix(-1 0 0 1 40.8701 0)" fill="url(#pattern1_0_15)"/>
+</g>
+<defs>
+<pattern id="pattern0_0_15" patternContentUnits="objectBoundingBox" width="1" height="1">
+<use xlink:href="#image0_0_15" transform="matrix(0.000403021 0 0 0.000318578 -0.349398 -0.190543)"/>
+</pattern>
+<pattern id="pattern1_0_15" patternContentUnits="objectBoundingBox" width="1" height="1">
+<use xlink:href="#image1_0_15" transform="matrix(0.000446009 0 0 0.000318578 -0.373333 -0.190543)"/>
+</pattern>
+<image id="image0_0_15" data-name="bg_removal [Background removed](edit).png" width="3976" height="4096" preserveAspectRatio="none" xlink:href="data:application/octet-stream;base64,"/>
+<image id="image1_0_15" data-name="bg_removal [Background removed](edit).png" width="3976" height="4096" preserveAspectRatio="none" xlink:href="data:application/octet-stream;base64,"/>
+</defs>
+</svg>

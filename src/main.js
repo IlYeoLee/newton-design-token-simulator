@@ -2130,7 +2130,7 @@ void main(){
   // 10-클립 풀세트 (힉스필드 생성 타겟). 역할 = 혼합: A·B 코치 시범 / C 상대 스파링.
   //   미반입 파일은 자동으로 GHOST_DEFAULT 폴백 → 생성된 mp4를 public/ghost/에 드롭만 하면 반영.
   const GHOST_CLIPS = {
-    BX_READY: ['bx_idle_guard.mp4', '대기 — 가드 바운스'],
+    BX_READY: ['bx_b1_guard.mp4', '대기 — 가드 자세'],
     BX_A1:    ['bx_a1_neck.mp4',    '시범 — 목·어깨 풀기'],
     BX_A2:    ['bx_a2_step.mp4',    '시범 — 스텝 인·아웃'],
     BX_A3:    ['bx_a3_jab.mp4',     '시범 — 잽 폼'],
@@ -3500,7 +3500,7 @@ void main(){
       updateSessionGaze(h);
       state.time = 0;
       tokens.update(0, 0);
-      xbot.playDemo(demoClipFor(session.sport, session.stage), h);
+      xbot.playDemo(demoClipFor(session.sport, session.stage), h, session.stage === 'BX_READY');
       rig.update(0, h);
       tokens.setShake(rig.shake.x, rig.shake.y);
       // 이 분기는 아래 followFloor 호출을 건너뛰어(early return) 무한 지면(그리드·바닥)이

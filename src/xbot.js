@@ -280,7 +280,7 @@ export class XBot {
   /** 세션 비실전 단계 시연 — 지정 클립을 제자리 재생(코치가 동작을 보여줌).
       드릴은 지정 관절만 움직이므로(발목 돌리기=발만) 저강도 호흡 레이어(warmup 0.12)를
       깔아 전신이 살아 보이게 — '인물이 완전 정지' 오인 방지 */
-  playDemo(name, dt) {
+  playDemo(name, dt, hold = false) {
     const key = this.actions[name] ? name : (this.actions.warmup ? 'warmup' : null);
     if (!key) return;
     const breathW = (key !== 'warmup' && this.actions.warmup) ? 0.18 : 0;
@@ -289,9 +289,11 @@ export class XBot {
       x.action.setEffectiveWeight(k === key ? 1 : (k === 'warmup' ? breathW : 0));
     }
     const a = this.actions[key];
-    this._demoT = (this._demoT || 0) + dt;
-    a.action.time = this._demoT % a.dur;
-    if (breathW) { const w = this.actions.warmup; w.action.time = (this._demoT * 0.5) % w.dur; }
+    // hold=가드 정지: 메인 클립은 대표 프레임에 고정(움직임 X), 호흡 레이어만 진행 → '가드 하고 가만히'
+    this._breathT = (this._breathT || 0) + dt;
+    if (hold) { a.action.time = 0.5 * a.dur; }
+    else { this._demoT = (this._demoT || 0) + dt; a.action.time = this._demoT % a.dur; }
+    if (breathW) { const w = this.actions.warmup; w.action.time = (this._breathT * 0.5) % w.dur; }
     // demoStandZ: 세션이 지정한 서기 위치(복싱 = 카메라 인식 링) — 매 프레임 원점 리셋이
     // 외부 배치를 덮어쓰던 버그의 뿌리 (유저: '세션 시작해도 인물이 안 물러남')
     this.group.position.set(0, 0, this.demoStandZ || 0);
