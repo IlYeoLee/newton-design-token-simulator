@@ -197,6 +197,24 @@ html,body{background:transparent}
 /* CTA */
 .cta{left:calc(50% + 40px)!important;top:760px!important;transform:none!important;opacity:0;
   animation:slideInUp .85s ease-out 1.05s both}
+
+/* ── Foot 영역 (Image #20: 둥근 글로우 + 화살표→ + 텍스트 + 발 + 원반) ── */
+.footblock{position:absolute;left:calc(50% - 95px);top:520px;width:760px;height:770px;
+  opacity:0;animation:slideInUp .9s cubic-bezier(.2,.75,.2,1) .6s both}
+.fb-glow{position:absolute;left:-70px;top:-70px;width:900px;height:910px;
+  transform-origin:50% 50%;animation:glowPulse 4.6s ease-in-out infinite}
+.fb-cta{position:absolute;left:0;right:0;top:100px;display:flex;flex-direction:column;align-items:center;text-align:center}
+.fb-arrow{width:62px;height:62px;display:block;margin-bottom:26px}
+.fb-a{font-weight:700;font-size:64px;line-height:1.1;letter-spacing:-4.5652px;color:#fff;white-space:nowrap;margin-bottom:14px}
+.fb-b{font-weight:500;font-size:32px;line-height:1.2;color:rgba(255,255,255,.8)}
+.fb-foot{position:absolute;left:50%;margin-left:-150px;top:290px;width:300px;height:410px;opacity:.9;
+  -webkit-mask-image:url('assets/foot_shape.png');mask-image:url('assets/foot_shape.png');
+  -webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-size:contain;mask-size:contain;
+  -webkit-mask-position:center;mask-position:center;
+  background-image:linear-gradient(168deg,rgba(102,102,102,0) 19%,rgba(0,0,0,.22) 88%),linear-gradient(169deg,rgba(254,195,137,0) 37%,#fa3030 94%);
+  animation:footBob 5.5s cubic-bezier(.4,0,.3,1) infinite 2.2s}
+.fb-disc{position:absolute;left:50%;margin-left:-185px;top:590px;width:370px;height:auto;display:block;
+  animation:floatY 5s ease-in-out infinite 2.2s}
 </style>
 </head>
 <body>
@@ -296,11 +314,6 @@ html,body{background:transparent}
 
    <!-- ══ 우측 ══ -->
    <div class="rightcol">
-    <div class="glow"><div class="box"><img src="assets/glow.svg" alt=""></div></div>
-    <div class="footgrp">
-     <div class="foot-shape"></div>
-     <div class="foot-imgs"><img src="assets/footprint_shadow.svg" alt="" style="display:block;width:376px;height:auto"></div>
-    </div>
     <div class="titlegrp">
      <div class="big-title">Guard Up &amp; Ready</div>
      <div class="dots">
@@ -310,10 +323,15 @@ html,body{background:transparent}
       <div class="dot" style="--i:9"></div>
      </div>
     </div>
-    <div class="cta">
-     <img class="cta-arrow" src="assets/arrow.svg" alt="">
-     <p class="a">Tap your foot Twice</p>
-     <p class="b">with the Wearable on</p>
+    <div class="footblock">
+     <img class="fb-glow" src="assets/glow.svg" alt="">
+     <div class="fb-foot"></div>
+     <img class="fb-disc" src="assets/footprint_shadow.svg" alt="">
+     <div class="fb-cta">
+      <img class="fb-arrow" src="assets/arrow-right.svg" alt="">
+      <p class="fb-a">Tap your foot Twice</p>
+      <p class="fb-b">with the Wearable on</p>
+     </div>
     </div>
    </div><!-- /rightcol -->
 

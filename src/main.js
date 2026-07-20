@@ -3935,7 +3935,7 @@ void main(){
     hudPanel.visible = ctaPanel.visible = false;
     optRing.visible = camMark.visible = false;
     session.root.visible = false;
-    demoPanel.position.x += rig.wallW * 0.09;   // 주황 전문가 = 중앙 인물 슬롯 (좌 카드/우 텍스트 사이)
+    demoPanel.position.x += rig.wallW * 0.14;   // 주황 전문가 = 중앙 인물 슬롯 (넓은 좌 카드에서 확실히 우측)
   }
 
   loop();
