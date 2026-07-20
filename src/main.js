@@ -2723,6 +2723,33 @@ void main(){
     hudLine(g, 470, 800, 1130, 800, 3, 0.4);
   }
   // 보조 드로어 (피그마 컴포넌트 1:1)
+  // ── 리본 궤적 (reactbits Ribbons 포팅: count1·thickness40·fade·waves off·maxAge~0.5s) ──
+  //    펀치 방향·이동 경로의 빠른 흐름 시각화 — 뉴턴 램프(꼬리 연주황→머리 레드), 오버레이 레이어
+  function hudRibbon(tS, x0, y0, x1, y1, period) {
+    const g = ctaCtx;
+    const u = (tS % period) / period;
+    const LIFE = 0.42, FADE = 0.22;
+    if (u > LIFE + FADE) return;
+    ctaDrawn = true; ctaHas = true;
+    const mx = (x0 + x1) / 2, my = Math.min(y0, y1) - 110;   // 아크 경로
+    const P = t => { const a = 1 - t; return [a*a*x0 + 2*a*t*mx + t*t*x1, a*a*y0 + 2*a*t*my + t*t*y1]; };
+    const head = Math.min(1, u / LIFE);
+    const tail = Math.max(0, head - 0.55);                    // maxAge — 꼬리 소멸
+    const fade = u > LIFE ? 1 - (u - LIFE) / FADE : 1;        // enableFade
+    g.save(); g.lineCap = 'round';
+    const N = 14;
+    for (let i = 0; i < N; i++) {
+      const [xa, ya] = P(tail + (head - tail) * (i / N));
+      const [xb, yb] = P(tail + (head - tail) * ((i + 1) / N));
+      const k = i / N;                                        // 0=꼬리 → 1=머리
+      g.lineWidth = 4 + 36 * k;                               // thickness 40 테이퍼
+      const r = Math.round(254 + (250 - 254) * k), gg = Math.round(195 + (48 - 195) * k), b = Math.round(137 + (48 - 137) * k);
+      g.strokeStyle = `rgba(${r},${gg},${b},${(0.15 + 0.75 * k) * fade})`;
+      g.beginPath(); g.moveTo(xa, ya); g.lineTo(xb, yb);
+      g.__rawStroke();
+    }
+    g.restore();
+  }
   function hudMilestone(g, eyebrow, title, sub) {
     // 전환 인터스티셜 공통계 (T1·T2·C1 — FIN 히어로와 동일 문법: 정중앙·대형·수직)
     const ke = aIn(0.0), kt = aIn(0.1), ks = aIn(0.3);
@@ -3030,6 +3057,8 @@ void main(){
         g.fillText('×3', 64, 840);
         g.font = '500 28px Overused, Pretendard, sans-serif'; g.globalAlpha = 0.85;
         g.fillText(T('콤보 · 12번 맞힘'), 64, 876); g.globalAlpha = 1;
+        const side2 = Math.floor(tS / 1.95) % 2;
+        hudRibbon(tS, 800, 620, side2 ? 1150 : 450, 400, 1.95);
         hudCaption(g, T('타겟 뜨면 바로 잽'));
         break;
       }
@@ -3066,6 +3095,8 @@ void main(){
         g.fillText('×5', 1536, 140);
         g.font = '500 28px Overused, Pretendard, sans-serif'; g.globalAlpha = 0.85;
         g.fillText(T('연속 성공'), 1536, 176); g.globalAlpha = 1;
+        const side3 = Math.floor(tS / 1.2) % 2;
+        hudRibbon(tS, 800, 620, side3 ? 1180 : 420, 380, 1.2);
         hudCaption(g, T('잽-잽-훅 — 리듬 놓치지 말고'));
         break;
       }
