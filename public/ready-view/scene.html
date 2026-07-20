@@ -13,17 +13,18 @@ html,body{background:transparent}
 .stage{position:relative;width:2600px;height:1600px;overflow:hidden;
   font-family:'Supreme',sans-serif;color:#fff;-webkit-font-smoothing:antialiased}
 
-/* 상단좌: 운동 타이틀 + 장면 진행 프로그래스(원형 빨간 링) */
-.head{position:absolute;left:100px;top:140px;display:flex;flex-direction:column;gap:30px;align-items:flex-start;width:2109px}
+/* 상단좌: 운동 타이틀 + 장면 진행 로딩바(원형 도트 10개, node 13-6955) */
+.head{position:absolute;left:100px;top:140px;display:flex;flex-direction:column;gap:27px;align-items:flex-start;width:2109px}
 .title{font-weight:700;font-size:80px;line-height:normal;white-space:nowrap}
-/* 이 장면 자동재생 지속시간(--dur) 동안 0→100% 차오르는 빨간 원형 영역 */
-@property --p{syntax:'<percentage>';initial-value:0%;inherits:false}
-.prog{width:108px;height:108px;border-radius:999px;
-  background:conic-gradient(#fa3030 var(--p,0%), rgba(255,255,255,.16) 0);
-  -webkit-mask:radial-gradient(closest-side, transparent 63%, #000 64%);
-          mask:radial-gradient(closest-side, transparent 63%, #000 64%);
-  animation:fillP var(--dur,8s) linear both}
-@keyframes fillP{from{--p:0%}to{--p:100%}}
+/* 원형 도트 로딩바 — 회색 바탕 위 빨간 도트를 클립으로 좌→우 드러내며 장면 시간(--dur) 동안 0→100% 차오름 */
+.dots{position:relative;height:45.734px;animation:sUp .6s .20s both}
+.drow{display:flex;height:45.734px}
+.dot{width:45.734px;height:45.734px;border-radius:157.704px;flex:0 0 auto}
+.dot.g{background:#d0d0d0}
+.dot.r{background:#fa3030}
+.dclip{position:absolute;left:0;top:0;height:45.734px;overflow:hidden;width:0;animation:dotsFill var(--dur,8s) linear both}
+.dclip .drow{width:457.34px}
+@keyframes dotsFill{from{width:0}to{width:457.34px}}
 
 /* 상단우: 페이즈(START / WARM UP n/N / STRETCH / FIGHT!) */
 .phases{position:absolute;left:2244px;top:100px;width:256px;display:flex;flex-direction:column;gap:56px;align-items:flex-end;text-align:right}
@@ -89,7 +90,10 @@ body.mid .avatar.coach,body.mid .avatar.you,body.mid .you-badge,body.mid .phase{
 <div class="stage">
  <div class="head">
    <div class="title" id="s-title">NECK &amp; SHOULDER ROLLS</div>
-   <div class="prog" id="s-prog"></div>
+   <div class="dots" id="s-dots">
+     <div class="drow" id="drow-g"></div>
+     <div class="dclip" id="s-dclip"><div class="drow" id="drow-r"></div></div>
+   </div>
  </div>
  <div class="phases" id="s-phases"></div>
 
@@ -144,9 +148,13 @@ $('s-coach-unit').textContent=S.coach.unit;
 $('s-you-unit').textContent=S.you.unit;
 $('s-coach-say').textContent=S.say;
 
-// 장면 진행 프로그래스 — 링이 이 장면 자동재생 지속시간(?dur=) 동안 0→100% 차오름.
+// 장면 진행 로딩바 — 회색 10도트 위에 빨간 10도트를 클립으로 드러냄. 클립 폭이
+// 이 장면 자동재생 지속시간(?dur=) 동안 0→100%(0→457.34px) 차올라 도트가 좌→우로 빨개짐.
 const dur = parseFloat(new URLSearchParams(location.search).get('dur')) || 8;
-$('s-prog').style.setProperty('--dur', dur + 's');
+const gr=$('drow-g'), rr=$('drow-r');
+for(let i=0;i<10;i++){ const a=document.createElement('div'); a.className='dot g'; gr.appendChild(a);
+  const b=document.createElement('div'); b.className='dot r'; rr.appendChild(b); }
+$('s-dclip').style.setProperty('--dur', dur + 's');
 
 const cw=$('s-combos'); cw.innerHTML='';
 (S.combos||[]).forEach((c,i)=>{ const d=document.createElement('div'); d.className='combo';
