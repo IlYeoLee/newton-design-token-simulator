@@ -3898,7 +3898,7 @@ void main(){
   //   프레임 스테이지 = 기존 벽/바닥 UI 전부 숨김(사람+배경만) → 다른 각도에서도 "벽에 프레임 하나 붙은 것"으로 인지.
   //   iframe 배경 투명 → 프레임 밖은 벽 배경이 비침. 투사면=벽 크기라 밖 안 나감.
   const DESIGN_FRAMES = { BX_READY: 'ready-view/index.html' };   // 스테이지 → 대지 프레임 (디자인되는 대로 추가)
-  const FRAME_W = 2600;   // 디자인 px (벽 2.6×1.6m 실측 1:1)
+  const FRAME_W = 2600, FRAME_H = 1600;   // 디자인 대지 px (벽 2.6×1.6m 실측 1:1) — 모든 DESIGN_FRAMES 뷰는 이 대지로 저작
   const cssRenderer = new CSS3DRenderer();
   cssRenderer.setSize(window.innerWidth, window.innerHeight);
   Object.assign(cssRenderer.domElement.style, { position: 'absolute', top: '0', left: '0', pointerEvents: 'none', zIndex: '6' });
@@ -3920,7 +3920,8 @@ void main(){
     const wc = rig._wallCenter;
     frameObj.position.set(wc?.cx ?? 0, wc?.cy ?? 1.4, WALL_Z + 0.02);
     frameObj.rotation.set(0, 0, 0);            // 벽 전면 = +z (유저 방향)
-    frameObj.scale.setScalar(rig.wallW / FRAME_W);   // px→m
+    // 대지 2600×1600 → 벽(wallW×wallH) 정확 정합. x/y 독립 스케일 = aspect 달라도 투사면 꽉 채움(이식 안전).
+    frameObj.scale.set(rig.wallW / FRAME_W, rig.wallH / FRAME_H, 1);
     cssRenderer.render(frameCssScene, camera);
     // 구 UI만 선별 숨김 — 유지: demoPanel(주황 열화상 전문가)·배경 그리드·프로젝션
     //   숨김: 파란 가이드 실루엣(bxPerson) · 구 HUD 텍스트 · 세션 바닥 큐/레티클/텍스트
@@ -3930,6 +3931,7 @@ void main(){
     hudPanel.visible = ctaPanel.visible = false;
     optRing.visible = camMark.visible = false;
     session.root.visible = false;
+    demoPanel.position.x += rig.wallW * 0.27;   // 주황 전문가 우측 이동 — 좌측 카드 UI와 겹침 방지
   }
 
   loop();
