@@ -1,7 +1,6 @@
 import * as THREE from 'three';
 import { createScene, WALL_Z, FX } from './scene.js';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { TokenSystem, COLORS, TCFG, setFPView, makeMarkFXMaterial, makeLaneFXMaterial, makeFlowArrow } from './tokens.js';
 import { Effects } from './effects.js';
 import { XBot } from './xbot.js';
@@ -67,100 +66,6 @@ async function boot() {
   const xbot = new XBot(scene);
   const rig = new ProjectorRig(scene, xbot);
   const ghost = new WallGhost(scene);
-  // ── 3D 복서 코치 (Boxer 1, CC-BY Petit) — 초록 배경 RT 렌더 → 기존 영상 열화상 파이프라인 ──
-  //    3D에 열화상 셰이더를 새로 만드는 대신, 복서를 그린스크린에 렌더한 텍스처를 벽 코치
-  //    영상 파이프라인(크로마키→LUT→벽 투사)에 그대로 먹인다 = 벽 코치와 100% 동일 룩 (유저 안).
-  const COACH3D = true;
-  const COACH_LAYER = 6;
-  const coach3d = { model: null, mixer: null, rightHand: null, group: new THREE.Group(), wired: false, actions: {} };
-  scene.add(coach3d.group);
-  const coachRT = new THREE.WebGLRenderTarget(1024, 1536, { samples: 4 });   // DPW×DPH 4배 + MSAA (실루엣 에지 블록 방지)
-  const coachCam = new THREE.PerspectiveCamera(42, 1024 / 1536, 0.1, 12);
-  coachCam.layers.set(COACH_LAYER);
-  // xbot 클립(mixamorigX 본명, X Bot 리그)을 Boxer1 리그(mixamorig_X_Armature 본명)로 재타겟.
-  // 본명만 바꿔치기하면 두 스켈레톤의 바인드 포즈(rest pose)가 달라 포즈가 깨짐(팔이 위로 꺾여 솟음).
-  // SkeletonUtils.retargetClip(월드 매트릭스 기반)은 Boxer1의 스켈레톤이 SkinnedMesh의 직계 자손이
-  // 아닌 Sketchfab 특유 계층 구조라 실측 결과 폭발(본 위치가 수십 m로 튐) — 대신 본별 로컬 쿼터니언
-  // 델타 보정(각 스켈레톤 자기 바인드 포즈 기준 상대회전만 옮김, 월드 매트릭스·계층 구조 무관)으로 대체.
-  function findSkinnedMesh(root) { let m = null; root.traverse(o => { if (!m && o.isSkinnedMesh) m = o; }); return m; }
-  function retargetToBoxer(coachSkinned, xbotSkinned, clip) {
-    const srcSkel = xbotSkinned.skeleton, tgtSkel = coachSkinned.skeleton;
-    srcSkel.pose(); tgtSkel.pose();   // 각자의 바인드 포즈로
-    const bind = {};   // 소스 본명 → { 소스/타겟 바인드 쿼터니언, 타겟 본명 }
-    srcSkel.bones.forEach(b => {
-      const m = b.name.match(/^mixamorig(.+)$/);
-      if (!m) return;
-      const tgtName = `mixamorig_${m[1]}_Armature`;
-      const tb = tgtSkel.getBoneByName(tgtName);
-      if (tb) bind[b.name] = { src: b.quaternion.clone(), tgt: tb.quaternion.clone(), tgtName };
-    });
-    const tracks = [];
-    const q = new THREE.Quaternion(), srcInv = new THREE.Quaternion();
-    for (const t of clip.tracks) {
-      if (!t.name.endsWith('.quaternion')) continue;   // 힙 위치(.position)는 드롭 — 발이 제자리 유지
-      const b = bind[t.name.slice(0, -'.quaternion'.length)];
-      if (!b) continue;
-      srcInv.copy(b.src).invert();
-      const values = new Float32Array(t.values.length);
-      for (let i = 0; i < t.values.length; i += 4) {
-        q.set(t.values[i], t.values[i + 1], t.values[i + 2], t.values[i + 3]);
-        q.premultiply(srcInv).premultiply(b.tgt);   // targetBind · (srcBind⁻¹ · animated)
-        q.toArray(values, i);
-      }
-      tracks.push(new THREE.QuaternionKeyframeTrack(`${b.tgtName}.quaternion`, t.times, values));
-    }
-    return new THREE.AnimationClip(clip.name, clip.duration, tracks);
-  }
-  // 세션 비실전(A/B/READY/T) 단계 시연 — xbot.playDemo와 동일한 가중치 스위칭(코치가 그 동작을 직접 함)
-  function coachPlayDemo(name, dt) {
-    const acts = coach3d.actions;
-    const key = acts[name] ? name : (acts.boxGuard ? 'boxGuard' : null);
-    if (!key) return;
-    // 호흡 레이어는 단일 관절 드릴(bx_neck=목만 움직임)에만 필요 — 전신 클립(가드·잽·콤보)에 섞으면
-    // warmup(스트레칭, 팔을 위로 뻗는 동작 포함)이 18%나 끼어들어 팔이 불쑥 솟는 아티팩트가 남
-    const breathW = (key === 'bx_neck' && acts.warmup) ? 0.18 : 0;
-    for (const k in acts) {
-      const x = acts[k]; x.action.play(); x.action.paused = true;
-      x.action.setEffectiveWeight(k === key ? 1 : (k === 'warmup' ? breathW : 0));
-    }
-    const a = acts[key];
-    coach3d._demoT = (coach3d._demoT || 0) + dt;
-    a.action.time = coach3d._demoT % a.dur;
-    if (breathW) { const w = acts.warmup; w.action.time = (coach3d._demoT * 0.5) % w.dur; }
-    coach3d.mixer.update(0);
-  }
-  // 초록 배경 RT 렌더 → 파이프라인 소스 교체. renderDemoPanel 앞에서 호출.
-  function renderCoachToRT(dt) {
-    const on = COACH3D && coach3d.model && session.active && state.pack === 'boxing';
-    if (!on) return;
-    if (Object.keys(coach3d.actions).length) {
-      // 실전(C, live) 단계 = 벽 코치는 기본 가드로 대기(실제 대련은 유저×타겟이 담당).
-      // 비실전(A/B 등) 단계 = 그 문구가 지시하는 동작을 코치가 직접 시연.
-      coachPlayDemo(session.isLive ? 'boxGuard' : demoClipFor('boxing', session.stage), dt);
-    } else {
-      coach3d.mixer.update(dt);   // 폴백: 재타겟 실패 시 모델 내장 단일 클립 루프
-    }
-    // 파이프라인 소스 1회 교체: demoTex → coachRT (트레일·히트마스크·패널)
-    if (!coach3d.wired) {
-      trailMat.uniforms.tex.value = coachRT.texture;
-      heatMaskMat.uniforms.tex.value = coachRT.texture;
-      demoPanel.material.uniforms.tex.value = coachRT.texture;
-      coach3d.wired = true;
-    }
-    const prevRT = renderer.getRenderTarget();
-    const prevBg = scene.background;
-    const prevClear = new THREE.Color(); renderer.getClearColor(prevClear);
-    const prevAlpha = renderer.getClearAlpha();
-    scene.background = null;
-    renderer.setClearColor(0x00ff00, 1);   // 그린스크린 (기존 크로마키가 키잉)
-    renderer.setRenderTarget(coachRT);
-    renderer.clear();
-    renderer.render(scene, coachCam);      // coachCam = COACH_LAYER → 복서만 렌더
-    renderer.setRenderTarget(prevRT);
-    renderer.setClearColor(prevClear, prevAlpha);
-    scene.background = prevBg;
-    demoPanel.material.uniforms.uLive.value = 1;   // 프레임 게이트 = 항상 라이브
-  }
   // ── 관절 추종 마커 (증명 데모): X봇 실제 주먹 관절에 앵커 — 고정 좌표 아님 ──
   const fistRing = new THREE.Mesh(
     new THREE.RingGeometry(0.05, 0.075, 32),
@@ -279,49 +184,15 @@ async function boot() {
   });
 
   // 데이터 + X Bot + 고스트 포즈 병렬 로드
-  const [packEntries, posePayload, , coach3dGltf] = await Promise.all([
+  const [packEntries, posePayload] = await Promise.all([
     Promise.all(Object.entries(PACK_FILES).map(async ([k, url]) => {
       const res = await fetch(url);
       return [k, await res.json()];
     })),
     fetch(`${BASE}packs/boxing_pose_timeline.json`).then(r => r.json()),
     xbot.load(),
-    new GLTFLoader().loadAsync(import.meta.env.BASE_URL + 'models/boxer.glb').catch(e => { console.warn('[coach3d] load fail', e); return null; }),
   ]);
   for (const [k, v] of packEntries) state.packs[k] = v;
-  // 3D 복서 코치 배치 — xbot.load()·coach3dGltf 둘 다 끝난 시점(actions 재타겟에 xbot 클립 필요)
-  if (coach3dGltf) {
-    const root = coach3dGltf.scene;
-    root.traverse(o => { if (o.isMesh || o.isBone || o.isObject3D) o.layers.set(COACH_LAYER); });  // 메인 카메라엔 안 보임
-    root.traverse(o => { if (o.isMesh) { o.material = new THREE.MeshBasicMaterial({ color: 0xffffff }); o.frustumCulled = false; } });   // 플랫 백색(조명 무관) — 열화상은 파이프라인이 생성
-    const box = new THREE.Box3().setFromObject(root);
-    const hgt = box.max.y - box.min.y || 1, s = 1.75 / hgt;
-    root.scale.setScalar(s);
-    root.position.set(0, -box.min.y * s, 0);
-    root.rotation.y = Math.PI;   // 앞면이 코치캠(+z)을 향하도록 (mixamo 기본 -z 정면)
-    coach3d.group.add(root);
-    coach3d.model = root;
-    coach3d.rightHand = root.getObjectByName('mixamorig_RightHand_Armature');
-    coach3d.mixer = new THREE.AnimationMixer(root);
-    // 세션 대본 9개 문구(BX_A1~C1)가 실제로 요구하는 클립만 재타겟 — xbot이 이미 로드해둔 것 재사용(중복 fetch 없음)
-    const coachSkinned = findSkinnedMesh(root), xbotSkinned = findSkinnedMesh(xbot.model);
-    if (coachSkinned && xbotSkinned) {
-      for (const name of ['bx_neck', 'boxGuard', 'boxJab', 'boxCombo', 'warmup']) {
-        const src = xbot.actions[name];
-        if (!src) continue;
-        const clip = retargetToBoxer(coachSkinned, xbotSkinned, src.action.getClip());
-        const action = coach3d.mixer.clipAction(clip);
-        action.setLoop(THREE.LoopRepeat, Infinity);
-        coach3d.actions[name] = { action, dur: clip.duration };
-      }
-    }
-    if (!Object.keys(coach3d.actions).length && coach3dGltf.animations[0]) {
-      coach3d.mixer.clipAction(coach3dGltf.animations[0]).play();   // 재타겟 전멸 시 모델 내장 클립 폴백
-    }
-    coachCam.position.set(0, 0.9, 2.55);
-    coachCam.lookAt(0, 0.9, 0);
-    console.log('[coach3d] loaded — hand', !!coach3d.rightHand, 'retargeted', Object.keys(coach3d.actions));
-  }
   const ORIGINAL_PACKS = {
     running: structuredClone(state.packs.running),
     boxing: structuredClone(state.packs.boxing),
@@ -2350,19 +2221,15 @@ void main(){
         ? `🎬 기본 클립 (미반입: ${ghostClipWant[0]})\n${ghostClipWant[1]}`
         : `🎬 ${ghostClipWant[0]}\n${ghostClipWant[1]}`;
     }
+    if (on) { if (demoVideo.paused) demoVideo.play().catch(() => {}); }
+    else { if (!demoVideo.paused) demoVideo.pause(); return; }
     const now = performance.now() / 1000;
-    if (coach3d.wired) {
-      // RT 소스: 비디오 게이트 우회 (uLive는 renderCoachToRT가 1로 세팅). 트레일/히트만 갱신.
-      demoPanel.material.uniforms.uLive.value = 1;
-    } else {
-      if (on) { if (demoVideo.paused) demoVideo.play().catch(() => {}); }
-      else { if (!demoVideo.paused) demoVideo.pause(); return; }
-      demoPanel.material.uniforms.uLive.value =
-        (demoVideo.readyState >= 2 && !demoVideo.ended && !demoVideo.paused) ? 1 : 0;
-      if (demoVideo.readyState < 2) return;
-    }
+    // 프레임 게이트 — 재생 가능한 살아있는 프레임일 때만 인물 기여 (블랙/정지 = 박스 방지)
+    demoPanel.material.uniforms.uLive.value =
+      (demoVideo.readyState >= 2 && !demoVideo.ended && !demoVideo.paused) ? 1 : 0;
     if (now - demoLastT < 1 / 45) return;
     demoLastT = now;
+    if (demoVideo.readyState < 2) return;
     // 잔상 누적 (핑퐁) — 룩 person.decay 라이브 소비
     // 랩 잔상 시맨틱 등가: 랩은 6.7fps 탭 decay^j — 45Hz 연속 누적으로 환산(decay^(1/5.7)).
     // 0이면 완전 꺼짐 (구 매핑은 바닥 0.62가 있어 랩에서 꺼도 시뮬에 잔상이 남던 버그).
@@ -3761,7 +3628,7 @@ void main(){
   }
 
   if (import.meta.env.DEV) window.__dbg = {
-    rig, xbot, state, session, sceneScope, camera, controls, tokens, effects, scene, editor3d, sceneUI, FXP, designStore, TCFG, editCam, editControls, judge, THREE, coach3d,
+    rig, xbot, state, session, sceneScope, camera, controls, tokens, effects, scene, editor3d, sceneUI, FXP, designStore, TCFG, editCam, editControls, judge, THREE,
     renderer, demoVideo, renderDemoPanel, renderBxPerson,
     get demoSeg() { return demoSeg; }, initDemoSeg,
     makeImageSegmenter: async () => {
@@ -4016,8 +3883,7 @@ void main(){
     sceneUI.update(rawDt, rig);       // 장면 UI 슬롯 — 풋프린트 추종 재배치 + 페이드
     session.tickWaves();              // 스테이지 파동 링 시계 (프리뷰 포함)
     renderGhostLayer();
-    renderCoachToRT(rawDt);   // 3D 복서 → 그린 RT (파이프라인 소스)
-    renderDemoPanel();   // 벽 열화상 파이프라인 (RT 프레임 처리)
+    renderDemoPanel();   // A 시범 구간 실사 클립 (휴면)
     renderWallHUD();     // 벽면 게임 HUD (피그마 WallUI 이식)
     renderMirrorView();  // 내 폼 존 = 스테이션 카메라 실루엣 라이브
     renderBxPerson();    // 복싱 벽면 인물 시범 (정본 포트)
