@@ -9,8 +9,13 @@
 @font-face{font-family:'OffBit';src:url('../fonts/OffBitTrial-Bold.ttf') format('truetype');font-weight:700;font-style:normal;font-display:block}
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{background:transparent}
+/* Figma 배경 — 짙은 베이스 + 붉은 라디얼 글로우 + 하단 코너 쿨톤 */
 .stage{position:relative;width:2600px;height:1600px;overflow:hidden;
-  font-family:'Supreme',sans-serif;color:#fff;-webkit-font-smoothing:antialiased}
+  font-family:'Supreme',sans-serif;color:#fff;-webkit-font-smoothing:antialiased;
+  background:
+    radial-gradient(42% 38% at 12% 100%, rgba(170,215,225,.18), transparent 60%),
+    radial-gradient(48% 44% at 88% 97%, rgba(195,230,238,.22), transparent 62%),
+    radial-gradient(78% 68% at 50% 22%, #fb3b33 0%, rgba(222,44,40,.62) 26%, rgba(130,26,24,.22) 48%, rgba(12,14,18,0) 70%)}
 .wrap{position:absolute;left:50%;transform:translateX(-50%);top:200px;width:1200px;
   display:flex;flex-direction:column;gap:70px;align-items:center}
 .tgrp{display:flex;flex-direction:column;gap:8px;align-items:center;text-align:center}
@@ -30,7 +35,7 @@ html,body{background:transparent}
 .stats{display:flex;gap:12px;align-items:center;justify-content:center}
 .stat{width:281px;display:flex;flex-direction:column;gap:18px;text-align:center}
 .stat .k{font-weight:400;font-size:39.2px;opacity:.7;letter-spacing:-1.5px}
-.stat .v{font-weight:700;font-size:64px;letter-spacing:-1.5px}
+.stat .v{font-weight:700;font-size:64px;letter-spacing:-1.5px;white-space:nowrap}
 .sep{width:1px;height:99.55px;background:rgba(255,255,255,.25)}
 
 /* 버튼 */
@@ -67,8 +72,8 @@ html,body{background:transparent}
  </div>
 </div>
 <script>
-const RP = { BX_FIN: { sub:'Boxing Basic Jab Combo', title:'Session Complete', pct:92,
-  stats:[['Sport','Boxing'],['Joined','877'],['Recommended','Jab Combo']], btn:'Tap X2 For Retry!' } };
+const RP = { BX_FIN: { sub:'Boxing Basic Jab Combo', title:'Session Complete', pct:100,
+  stats:[['Sport','Running'],['Joined','877'],['Recommended','Pace On']], btn:'Tap X2 For Retry!' } };
 const $ = id => document.getElementById(id);
 const stage = new URLSearchParams(location.search).get('stage') || 'BX_FIN';
 const R = RP[stage] || RP.BX_FIN;

@@ -9,8 +9,13 @@
 @font-face{font-family:'Supreme';src:url('../fonts/Supreme-Medium.woff2') format('woff2');font-weight:400;font-style:normal;font-display:block}
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{background:transparent}
+/* Figma 배경 — 짙은 베이스 + 붉은 라디얼 글로우 + 하단 코너 쿨톤 (인물 없는 화면은 꽉 찬 배경) */
 .stage{position:relative;width:2600px;height:1600px;overflow:hidden;
-  font-family:'Supreme',sans-serif;color:#fff;-webkit-font-smoothing:antialiased}
+  font-family:'Supreme',sans-serif;color:#fff;-webkit-font-smoothing:antialiased;
+  background:
+    radial-gradient(42% 38% at 12% 100%, rgba(170,215,225,.18), transparent 60%),
+    radial-gradient(48% 44% at 88% 97%, rgba(195,230,238,.22), transparent 62%),
+    radial-gradient(78% 68% at 50% 22%, #fb3b33 0%, rgba(222,44,40,.62) 26%, rgba(130,26,24,.22) 48%, rgba(12,14,18,0) 70%)}
 
 /* 타이틀 */
 .tgrp{position:absolute;left:50%;transform:translateX(-50%);top:221px;width:1200px;
@@ -62,7 +67,6 @@ html,body{background:transparent}
 .card{opacity:0}
 .card.a1{animation:cardIn .8s .38s cubic-bezier(.22,1,.36,1) both}
 .card.a2{animation:cardIn .8s .54s cubic-bezier(.22,1,.36,1) both}
-.cardfloat{animation:floatY 4.5s ease-in-out infinite}
 .chk{animation:sPop .6s .95s cubic-bezier(.34,1.56,.64,1) both}
 .badge{animation:sPop .6s 1.0s cubic-bezier(.34,1.56,.64,1) both}
 .btn{opacity:0;animation:sUpC .8s .95s cubic-bezier(.22,1,.36,1) both, btnPulse 3s 1.9s ease-in-out infinite}
@@ -73,7 +77,6 @@ html,body{background:transparent}
  <div class="tgrp"><div class="tsub" id="t-sub"></div><div class="ttl" id="t-ttl"></div></div>
  <div class="cards">
    <div class="card done a1" id="c-done">
-     <div class="cardfloat"></div>
      <img class="boxer" id="d-img" alt="">
      <svg class="chk" viewBox="0 0 92 92"><circle cx="46" cy="46" r="46" fill="rgba(255,255,255,.28)"/><path d="M27 47l13 13 25-28" fill="none" stroke="#fff" stroke-width="7.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
      <div class="meta"><div class="lbl" id="d-lbl"></div><div class="time" id="d-time"></div></div>
@@ -91,11 +94,11 @@ const TR = {
   BX_T1: { sub:'Boxing Basic Jab Combo', title:'Warm-Up Done!',
     done:{lbl:'Stretch', time:'5min', img:'assets/boxer_stretch.png'},
     next:{lbl:'Learn', time:'10min', img:'assets/boxer_learn.png', badge:'Next'},
-    btn:'Tap X2 → Learn' },
-  BX_T2: { sub:'Boxing Basic Jab Combo', title:'Learning Complete!',
+    btn:'Tap X2 For Retry!' },
+  BX_T2: { sub:'Boxing Basic Jab Combo', title:'Learning complete!',
     done:{lbl:'Learn', time:'10min', img:'assets/boxer_learn.png'},
     next:{lbl:'Let’s Fight!', time:'10min', img:'assets/boxer_fight.png', badge:'Next'},
-    btn:'Tap X2 → Fight' },
+    btn:'Tap X2 For Retry!' },
 };
 const $ = id => document.getElementById(id);
 const stage = new URLSearchParams(location.search).get('stage') || 'BX_T1';

@@ -10,8 +10,13 @@
 @font-face{font-family:'OffBit';src:url('../fonts/OffBitTrial-101Bold.ttf') format('truetype');font-weight:700;font-style:normal;font-display:block}
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{background:transparent}
+/* Figma 배경 — 짙은 베이스 + 붉은 라디얼 글로우 + 하단 코너 쿨톤 */
 .stage{position:relative;width:2600px;height:1600px;overflow:hidden;
-  font-family:'Supreme',sans-serif;color:#fff;-webkit-font-smoothing:antialiased}
+  font-family:'Supreme',sans-serif;color:#fff;-webkit-font-smoothing:antialiased;
+  background:
+    radial-gradient(42% 38% at 12% 100%, rgba(170,215,225,.18), transparent 60%),
+    radial-gradient(48% 44% at 88% 97%, rgba(195,230,238,.22), transparent 62%),
+    radial-gradient(78% 68% at 50% 22%, #fb3b33 0%, rgba(222,44,40,.62) 26%, rgba(130,26,24,.22) 48%, rgba(12,14,18,0) 70%)}
 .wrap{position:absolute;left:50%;transform:translateX(-50%);top:341px;width:1200px;
   display:flex;flex-direction:column;gap:80px;align-items:center}
 .tgrp{display:flex;flex-direction:column;gap:8px;align-items:center;text-align:center}
@@ -54,7 +59,7 @@ html,body{background:transparent}
  </div>
 </div>
 <script>
-const TM = { BX_C1: { sub:'Boxing Basic Jab Combo', title:'Get Ready!' } };
+const TM = { BX_C1: { sub:'Boxing Basic Jab Combo', title:'Session Complete' } };
 const $ = id => document.getElementById(id);
 const q = new URLSearchParams(location.search);
 const stage = q.get('stage') || 'BX_C1';
