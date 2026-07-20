@@ -3917,12 +3917,12 @@ void main(){
   let loadedView = null;
   function renderDesignFrame() {
     const view = (session.active && state.pack === 'boxing') ? DESIGN_FRAMES[session.curStage?.id] : null;
-    frameObj.visible = !!view;
-    if (view) {
+    const wc = view ? rig._wallCenter : null;
+    frameObj.visible = !!view && !!wc;   // 벽 좌표 준비 전엔 숨김 — 재진입 초기 _wallCenter undefined일 때 프레임이 (0,1.4) '중앙'으로 튀는 플래시 방지
+    if (frameObj.visible) {
       if (view !== loadedView) { frameIframe.src = import.meta.env.BASE_URL + view; loadedView = view; }  // 다른 뷰만 로드(같은 뷰 재진입=그대로)
       // 매 프레임 벽 정합 — 대지 2600×1600 → 벽(wallW×wallH), x/y 독립 스케일(aspect 무관, 이식 안전)
-      const wc = rig._wallCenter;
-      frameObj.position.set(wc?.cx ?? 0, wc?.cy ?? 1.4, WALL_Z + 0.02);
+      frameObj.position.set(wc.cx, wc.cy, WALL_Z + 0.02);
       frameObj.rotation.set(0, 0, 0);
       frameObj.scale.set(rig.wallW / FRAME_W, rig.wallH / FRAME_H, 1);
       // 구 UI 선별 숨김 — 유지: demoPanel(주황 전문가)·격자 배경 / 숨김: 거울"나"·HUD·세션 큐
