@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { createScene, WALL_Z, FX } from './scene.js';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { TokenSystem, COLORS, TCFG, setFPView, makeMarkFXMaterial, makeLaneFXMaterial, makeFlowArrow } from './tokens.js';
 import { Effects } from './effects.js';
 import { XBot } from './xbot.js';
@@ -66,6 +67,52 @@ async function boot() {
   const xbot = new XBot(scene);
   const rig = new ProjectorRig(scene, xbot);
   const ghost = new WallGhost(scene);
+  // ── 3D 복서 코치 (Boxer 1, CC-BY Petit) — 실사 인체 리그, 열화상 룩 + 관절 마커 ──
+  const COACH3D = true;
+  const coach3d = { model: null, mixer: null, rightHand: null, group: new THREE.Group() };
+  coach3d.group.visible = false;
+  scene.add(coach3d.group);
+  new GLTFLoader().load(import.meta.env.BASE_URL + 'models/boxer.glb', (gltf) => {
+    const root = gltf.scene;
+    // 열화상 룩: 표면 텍스처 무시 → 뉴턴 레드 발광 (예전 열화상 실루엣과 통일)
+    root.traverse(o => {
+      if (o.isMesh) {
+        o.material = new THREE.MeshBasicMaterial({ color: 0xfa3030, toneMapped: false });
+        o.frustumCulled = false;
+      }
+    });
+    // 스케일: 실제 키 1.75m 맞춤 (모델 원본 높이로 정규화)
+    const box = new THREE.Box3().setFromObject(root);
+    const h = box.max.y - box.min.y || 1;
+    const s = 1.75 / h;
+    root.scale.setScalar(s);
+    root.position.y = -box.min.y * s;
+    coach3d.group.add(root);
+    coach3d.model = root;
+    coach3d.rightHand = root.getObjectByName('mixamorig_RightHand_Armature');
+    coach3d.mixer = new THREE.AnimationMixer(root);
+    if (gltf.animations[0]) coach3d.mixer.clipAction(gltf.animations[0]).play();
+    console.log('[coach3d] loaded — bones', !!coach3d.rightHand, 'anims', gltf.animations.length);
+  }, undefined, (e) => console.warn('[coach3d] load fail', e));
+  const coach3dFist = new THREE.Mesh(
+    new THREE.RingGeometry(0.05, 0.075, 32),
+    new THREE.MeshBasicMaterial({ color: 0xfec389, transparent: true, opacity: 0.95, depthTest: false, side: THREE.DoubleSide }));
+  coach3dFist.renderOrder = 22; coach3dFist.visible = false; scene.add(coach3dFist);
+  function renderCoach3d(dt) {
+    const on = COACH3D && !fpMode && coach3d.model && session.active && state.pack === 'boxing';   // 3인칭 프로토타입 (1인칭 벽 가림 방지)
+    coach3d.group.visible = !!on;
+    coach3dFist.visible = !!on && !fpMode;
+    if (!on) return;
+    coach3d.mixer.update(dt);
+    // 배치: 벽 앞에 서서 유저를 마주 봄 (상대/코치 위치)
+    const wc = rig._wallCenter;
+    coach3d.group.position.set(wc ? wc.cx : 0, 0, WALL_Z + 0.35);
+    coach3d.group.rotation.y = 0;   // +z(유저) 바라봄
+    if (coach3d.rightHand && !fpMode) {
+      coach3dFist.position.setFromMatrixPosition(coach3d.rightHand.matrixWorld);
+      coach3dFist.quaternion.copy(camera.quaternion);
+    }
+  }
   // ── 관절 추종 마커 (증명 데모): X봇 실제 주먹 관절에 앵커 — 고정 좌표 아님 ──
   const fistRing = new THREE.Mesh(
     new THREE.RingGeometry(0.05, 0.075, 32),
@@ -3888,6 +3935,7 @@ void main(){
     renderMirrorView();  // 내 폼 존 = 스테이션 카메라 실루엣 라이브
     renderBxPerson();    // 복싱 벽면 인물 시범 (정본 포트)
     renderJointMarkers();   // 관절 추종 마커 (증명 데모)
+    renderCoach3d(rawDt);   // 3D 복서 코치 (Boxer 1)
     renderFrame(clock.elapsedTime);   // 블룸 + 그레인·비네트 컴포저 (scene.js FX)
   }
   loop();
