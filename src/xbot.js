@@ -300,7 +300,8 @@ export class XBot {
     const a = this.actions[key];
     // hold=가드 정지: 메인 클립은 대표 프레임에 고정(움직임 X), 호흡 레이어만 진행 → '가드 하고 가만히'
     this._breathT = (this._breathT || 0) + dt;
-    if (hold) { a.action.time = 0.5 * a.dur; }
+    // warmup=프레임0(손 내린 중립 서있기, 러닝 대기용) / 그 외=0.5·dur 대표 프레임(복싱 가드 등)
+    if (hold) { a.action.time = key === 'warmup' ? 0 : 0.5 * a.dur; }
     else { this._demoT = (this._demoT || 0) + dt; a.action.time = this._demoT % a.dur; }
     if (breathW) { const w = this.actions.warmup; w.action.time = (this._breathT * 0.5) % w.dur; }
     // demoStandZ: 세션이 지정한 서기 위치(복싱 = 카메라 인식 링) — 매 프레임 원점 리셋이
