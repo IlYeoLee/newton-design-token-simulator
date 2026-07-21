@@ -3981,7 +3981,8 @@ void main(){
   //    벽=사람 뒤라 가림 문제 없음 / 바닥=발밑이라 x봇 실루엣만큼 클립해 다리 뒤로 사라지게(occlusion 근사).
   //    스테이지 → { src, w, h } (대지 px). 러닝 1600×2000(세로). HTML/CSS 모션 = Figma export 프레임 자리.
   const FLOOR_FRAMES = {
-    READY: { src: 'ready-view/floor.html', w: 1600, h: 2000 },
+    READY: { src: 'ready-view/floor.html', w: 1600, h: 2000 },        // 러닝 (세로)
+    BK_READY: { src: 'ready-view/floor-bk.html', w: 1600, h: 1600 },  // 농구 (정사각) — 동일 파이프라인
   };
   const floorIframe = document.createElement('iframe');
   floorIframe.setAttribute('scrolling', 'no');
