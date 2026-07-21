@@ -3994,6 +3994,13 @@ void main(){
   frameCssScene.add(floorObj);
   let loadedFloorView = null;
   const _rV = new THREE.Vector3(), _fV = new THREE.Vector3(), _uV = new THREE.Vector3(0, 1, 0), _mBasis = new THREE.Matrix4();
+  // 바닥 프리즘 배경 = 복싱 벽 gridScanPanel(reactbits Prism+GridScan)의 지면판. 같은 셰이더를 눕혀 풋프린트에 깔음.
+  // WebGL이라 잔디와 제대로 블렌드(CustomBlending 프리멀티) + x봇에 자연 가려짐 + 테두리 페더 내장.
+  const floorPrism = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), gridScanPanel.material.clone());
+  floorPrism.rotation.x = -Math.PI / 2;
+  floorPrism.renderOrder = 4;   // 잔디 위, UI 프레임(CSS3D) 아래
+  floorPrism.visible = false;
+  scene.add(floorPrism);
   function renderDesignFrame() {
     // CSS3D 레이어 = WebGL 캔버스에 매 프레임 정확 정합 — 창≠캔버스(크기·aspect)여도 원근·스케일 일치
     //   (이게 안 맞으면 디자인이 벽보다 크게 부풀어 프레임영역 밖으로 넘침 — 유저 창 크기 의존 버그의 원인)
@@ -4053,9 +4060,6 @@ void main(){
     const fView = isFloorSport ? FLOOR_FRAMES[session.curStage?.id] : null;
     const fp = rig._fp;   // 무릎 투사 풋프린트 (rig.update가 매 프레임 세팅)
     floorObj.visible = !!fView && !!fp;
-    // 바닥 프레임 = 가산 블렌드(screen)로 잔디에 '투사된 빛'처럼 물들게. 벽(복싱)은 기존 노멀 유지.
-    // (CSS3D를 잔디 위에 노멀 합성하면 빨간 딱지처럼 붕 떠 보였음 — 유저 지적)
-    cssRenderer.domElement.style.mixBlendMode = floorObj.visible ? 'screen' : 'normal';
     if (floorObj.visible) {
       if (fView.src !== loadedFloorView) {
         floorIframe.style.width = fView.w + 'px';
@@ -4078,6 +4082,19 @@ void main(){
       // 프레임이 헤더를 다 담으므로 세션 3D 헤더 슬롯 숨김(중복 제거) — 복싱 벽 프레임과 동일 규약.
       if (session.slotFS) session.slotFS.visible = false;
       if (session.slotFL) session.slotFL.visible = false;
+      // ── 바닥 프리즘 배경 (복싱 벽과 동일 셰이더/컬러) — 풋프린트에 눕혀 깔음 ──
+      floorPrism.visible = true;
+      floorPrism.position.set(cx, 0.008, cz);
+      floorPrism.rotation.set(-Math.PI / 2, 0, Math.atan2(fp.fx, fp.fz) + Math.PI);
+      floorPrism.scale.set(2 * rig._halfAt(dMid), rig.fpFar - rig.fpNear, 1);
+      if (rig.floorClip && floorPrism.material.clippingPlanes !== rig.floorClip)
+        floorPrism.material.clippingPlanes = rig.floorClip;
+      const FU = floorPrism.material.uniforms;
+      FU.uTime.value = performance.now() / 1000;
+      FU.uBoost.value = FXP.day ? 1.15 : 0.85;
+      FU.uLines.value.setHex(0xfec389); FU.uScan.value.setHex(0xfe6e3c); FU.uAccent.value.setHex(COLORS.user ?? 0x21ccdb);
+    } else {
+      floorPrism.visible = false;
     }
     // 항상 렌더 — 표시/숨김 전환에도 CSS3D transform 항상 동기(재진입 시 위치 어긋남·잔류 방지)
     cssRenderer.render(frameCssScene, camera);
