@@ -4023,24 +4023,29 @@ void main(){
         floorIframe.src = import.meta.env.BASE_URL + fView.src;
         loadedFloorView = fView.src;
       }
-      // 풋프린트 중앙(전방 fpNear~fpFar 중간)에 대지 중심을 앵커.
-      const dMid = (rig.fpNear + rig.fpFar) / 2;
-      const cx = fp.ox + fp.fx * dMid, cz = fp.oz + fp.fz * dMid;
+      // 사다리꼴 풋프린트에 대지 종횡비를 유지한 채 내접하는 '최대 직사각형'을 계산.
+      //   대지는 직사각(near~far 일정 폭)인데 풋프린트는 근거리가 좁음 → 그냥 채우면 근거리 측면이 삐져나옴.
+      //   근단 변이 사다리꼴 측면에 정확히 접하도록 근단거리 z0를 잡고, 종횡비대로 깊이 D를 정해 무왜곡·무넘침.
+      const A = fView.w / fView.h;                              // 대지 종횡비(폭/깊이)
+      const hN = rig._halfAt(rig.fpNear), hF = rig._halfAt(rig.fpFar);
+      const k = (hF - hN) / Math.max(0.01, rig.fpFar - rig.fpNear);   // 반폭 증가율(선형)
+      let z0 = (rig.fpFar - 2 * hN / A + 2 * k * rig.fpNear / A) / (1 + 2 * k / A);
+      z0 = Math.max(rig.fpNear, z0);
+      let W = 2 * (hN + k * (z0 - rig.fpNear)), D = W / A;
+      if (z0 + D > rig.fpFar) { D = rig.fpFar - z0; W = D * A; }  // 원단 클램프(안전)
+      const dCenter = z0 + D / 2;
+      const cx = fp.ox + fp.fx * dCenter, cz = fp.oz + fp.fz * dCenter;
       // 로컬축 → 월드: 대지 폭(+X)→풋프린트 우측, 대지 높이(+Y=위쪽/제목)→전방(far), 법선(+Z)→상방.
       _rV.set(fp.rx, 0, fp.rz); _fV.set(fp.fx, 0, fp.fz);
       _mBasis.makeBasis(_rV, _fV, _uV);
       floorObj.quaternion.setFromRotationMatrix(_mBasis);
       floorObj.position.set(cx, 0.012, cz);
-      // 대지 px → 물리 m. 폭=풋프린트 중앙폭(2·halfAt), 깊이=fpFar−fpNear. x/y 독립(대지 종횡비 무관).
-      // ponytail: 풋프린트는 사다리꼴이라 근거리 좌우가 대지보다 좁음 → 측면 소폭 넘침 가능.
-      //           키스톤 워프(matrix3d)로 정밀 정합은 넘침이 문제될 때 추가.
-      const laneW = 2 * rig._halfAt(dMid), laneD = rig.fpFar - rig.fpNear;
-      floorObj.scale.set(laneW / fView.w, laneD / fView.h, 1);
+      floorObj.scale.set(W / fView.w, D / fView.h, 1);
       // 대지가 네이티브 씬 텍스트/프롬프트를 대체 — 중복 숨김(복싱 벽 프레임과 동일 규약).
       //   훈련 토큰(발마크·페이스라이트·판정 링)은 session.G 그룹이라 그대로 유지.
       // ponytail: 현재 FLOOR_FRAMES=READY만 → 프롬프트 슬롯만 숨기면 충분. 라이브 대지 추가 시 재검토.
       [session.slotFS, session.slotFL, session.slotFM, session.dirSlot, session.countGroup, session.countRing,
-       session.tap, session.tap1]   // tap/tap1 = 네이티브 "TAP ×2" 링 → 대지 CTA가 대체
+       session.tap, session.tap1, session.paceLight]   // tap/tap1=네이티브 "TAP ×2" 링, paceLight=흰 타원 → 대지가 대체
         .forEach(o => { if (o) o.visible = false; });
     }
     // 항상 렌더 — 표시/숨김 전환에도 CSS3D transform 항상 동기(재진입 시 위치 어긋남·잔류 방지)
