@@ -15,18 +15,20 @@
   .glow{position:absolute;inset:40px;border-radius:90px;
     background:radial-gradient(115% 85% at 50% 100%, rgba(255,60,50,.30), rgba(255,90,60,.12) 45%, transparent 72%)}
   /* near 라인감 — 발 앞쪽에 은은한 발광 경계선(테두리 아닌 그라디언트 띠) */
-  .nearline{position:absolute;left:12%;right:12%;bottom:120px;height:3px;
-    background:linear-gradient(to right,transparent,rgba(255,120,90,.7) 25%,rgba(255,120,90,.7) 75%,transparent);
+  /* 데드존 경계선 — 1인칭 near 가시한계(y≈1583). 이 아래는 화면 밖이라 핵심 요소 금지 */
+  .nearline{position:absolute;left:12%;right:12%;top:1583px;height:3px;
+    background:linear-gradient(to right,transparent,rgba(255,120,90,.55) 25%,rgba(255,120,90,.55) 75%,transparent);
     filter:blur(1px)}
   .eyebrow{position:absolute;top:150px;left:0;right:0;text-align:center;
     font-size:44px;letter-spacing:.3em;color:#ff9a4d;font-weight:800}
   .title{position:absolute;top:240px;left:0;right:0;text-align:center;
     font-size:104px;font-weight:800;line-height:1.06}
   .sub{position:absolute;top:430px;left:0;right:0;text-align:center;font-size:46px;color:#eef1f6}
-  .cta{position:absolute;bottom:200px;left:50%;transform:translateX(-50%);
+  /* CTA = 프라임 존(가시+가독). 하단 ~420px는 1인칭 데드존(발앞 0.6m 안쪽, 화면 밖)이라 그 위로. */
+  .cta{position:absolute;bottom:560px;left:50%;transform:translateX(-50%);
     width:920px;height:150px;border:6px solid #ff5a3c;border-radius:80px;
     background:rgba(255,90,60,.14);
-    display:flex;align-items:center;justify-content:center;font-size:60px;font-weight:800;
+    display:flex;align-items:center;justify-content:center;font-size:64px;font-weight:800;
     animation:ctaPulse 1.6s ease-in-out infinite}
   /* ── CSS 모션 데모(라이브) — HTML 그대로 바닥에 투사·밟힘 검증. Figma export 시 교체 ── */
   .eyebrow,.title,.sub{animation:fadeUp .6s ease-out both}

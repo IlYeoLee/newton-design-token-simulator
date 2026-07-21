@@ -11,8 +11,9 @@
     -webkit-mask-composite:source-in; mask-composite:intersect;}
   .glow{position:absolute;inset:40px;border-radius:90px;
     background:radial-gradient(115% 85% at 50% 100%, rgba(255,60,50,.30), rgba(255,90,60,.12) 45%, transparent 72%)}
-  .nearline{position:absolute;left:12%;right:12%;bottom:110px;height:3px;
-    background:linear-gradient(to right,transparent,rgba(255,120,90,.7) 25%,rgba(255,120,90,.7) 75%,transparent);
+  /* 데드존 경계선 — 1인칭 near 가시한계(y≈1509). 이 아래는 화면 밖 */
+  .nearline{position:absolute;left:12%;right:12%;top:1509px;height:3px;
+    background:linear-gradient(to right,transparent,rgba(255,120,90,.55) 25%,rgba(255,120,90,.55) 75%,transparent);
     filter:blur(1px)}
   .eyebrow{position:absolute;top:150px;left:0;right:0;text-align:center;
     font-size:44px;letter-spacing:.3em;color:#ff9a4d;font-weight:800;
@@ -21,10 +22,10 @@
     font-size:104px;font-weight:800;line-height:1.06;animation:fadeUp .6s .1s ease-out both}
   .sub{position:absolute;top:390px;left:0;right:0;text-align:center;font-size:46px;color:#eef1f6;
     animation:fadeUp .6s .22s ease-out both}
-  .cta{position:absolute;bottom:180px;left:50%;transform:translateX(-50%);
+  .cta{position:absolute;bottom:280px;left:50%;transform:translateX(-50%);
     width:920px;height:150px;border:6px solid #ff5a3c;border-radius:80px;
     background:rgba(255,90,60,.14);
-    display:flex;align-items:center;justify-content:center;font-size:60px;font-weight:800;
+    display:flex;align-items:center;justify-content:center;font-size:64px;font-weight:800;
     animation:ctaPulse 1.6s ease-in-out infinite}
   @keyframes fadeUp{from{opacity:0;transform:translateY(40px)}to{opacity:1;transform:translateY(0)}}
   @keyframes ctaPulse{0%,100%{box-shadow:0 0 30px rgba(255,90,60,.4)}50%{box-shadow:0 0 70px rgba(255,110,70,.85)}}
