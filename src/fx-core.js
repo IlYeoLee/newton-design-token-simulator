@@ -588,3 +588,42 @@ export function drawTrajectory(g, W, P, look, t, ENV, prog, ptsIn) {
   g.beginPath(); g.arc(hx, hy, (3.4 + 1.8 * spd) * base * wid, 0, Math.PI * 2); g.fill();
   g.globalAlpha = 1; g.shadowBlur = 0;
 }
+/** 회전 — 관절 돌리기 토큰(파생). 관절(피벗) 둘레를 곡선 화살촉이 도는 회전 화살표 + 가이드 링.
+ *  '목·어깨 돌리기'처럼 회전 동작을 명확히 지시. dir: 1=시계 · -1=반시계. prog/tempo로 회전. */
+export function drawRotate(g, W, P, look, t, ENV, prog) {
+  const lut = ENV.lut, GB = 13 * look.halo, s = W / 220, C = W / 2;
+  const AW = (ENV.arrow && ENV.arrow.w) || 1;
+  g.clearRect(0, 0, W, W); g.lineJoin = 'round'; g.lineCap = 'round';
+  const R = (P.r != null ? P.r : 0.3) * W;
+  const wid = (P.width != null ? P.width : 1), lw = 4.2 * AW * s * wid;
+  const dir = (P.dir != null ? P.dir : 1);
+  const arcLen = (P.sweep != null ? P.sweep : 0.66) * Math.PI * 2;   // 밝은 호(꼬리) 길이
+  const p = prog != null ? Math.max(0, Math.min(1, prog)) : (t * (P.tempo || 0.5)) % 1;
+  const head = -Math.PI / 2 + dir * p * Math.PI * 2;                // 12시에서 dir 방향으로 회전
+
+  g.save(); g.translate(C, C);
+  // 가이드 링(희미) — 회전 경로
+  g.globalAlpha = 0.16; g.lineWidth = lw * 0.7; g.strokeStyle = lut(0.44);
+  g.shadowColor = lut(0.6); g.shadowBlur = GB * 0.4;
+  g.beginPath(); g.arc(0, 0, R, 0, Math.PI * 2); g.stroke(); g.shadowBlur = 0;
+  // 회전 호 — 선단 밝음 → 꼬리 페이드(모션). dir 방향으로 도는 게 곧 '돌리기'.
+  const seg = 16;
+  for (let i = 0; i < seg; i++) {
+    const f = i / (seg - 1), a = head - dir * f * arcLen, b = head - dir * (f + 1.2 / seg) * arcLen;
+    g.globalAlpha = (1 - f) * 0.9; g.strokeStyle = lut(0.55 + 0.35 * (1 - f));
+    g.lineWidth = lw * (0.55 + 0.55 * (1 - f)); g.shadowColor = lut(0.8); g.shadowBlur = GB * (0.4 + 0.5 * (1 - f));
+    g.beginPath(); g.arc(0, 0, R, Math.min(a, b), Math.max(a, b), false); g.stroke();
+  }
+  g.shadowBlur = 0;
+  // 선단 화살촉 — 접선 방향(회전 방향 지시)
+  const hx = Math.cos(head) * R, hy = Math.sin(head) * R, tang = head + dir * Math.PI / 2;
+  g.save(); g.translate(hx, hy); g.rotate(tang);
+  g.globalAlpha = 1; g.strokeStyle = lut(0.96); g.lineWidth = lw * 0.9; g.shadowColor = lut(0.9); g.shadowBlur = GB * 1.2;
+  const ah = 8 * s * wid;
+  g.beginPath(); g.moveTo(-ah, -ah * 0.9); g.lineTo(ah * 0.5, 0); g.lineTo(-ah, ah * 0.9); g.stroke();
+  g.restore();
+  // 중심 피벗(관절)
+  g.globalAlpha = 0.62; g.shadowColor = lut(0.75); g.shadowBlur = GB * 0.6; g.fillStyle = lut(0.6);
+  g.beginPath(); g.arc(0, 0, lw * 0.6, 0, Math.PI * 2); g.fill();
+  g.restore(); g.globalAlpha = 1; g.shadowBlur = 0;
+}

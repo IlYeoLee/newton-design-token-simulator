@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { WALL_Z } from './scene.js';
 import { lutColor, GLYPHS, drawGlyph, footSlot, footSDFTexture, FXP } from './fxlut.js';
-import { MARK_NUM, drawSweepBand, drawStanceBox, drawPunchLine, drawApproachRing, drawTrajectory } from './fx-core.js';
+import { MARK_NUM, drawSweepBand, drawStanceBox, drawPunchLine, drawApproachRing, drawTrajectory, drawRotate } from './fx-core.js';
 import { makeMarkFXMaterial, makeLaneFXMaterial, makeFlowArrow, tickFlowArrows } from './tokens.js';
 
 // 피그마 CTA 임포트 — StageCard/베이스 컴포넌트의 cta 노드를 다운로드한 에셋(150×44 원 비율).
@@ -260,6 +260,7 @@ const PRIM_DEFAULTS = {
   punchLine: { w: 1, glow: 1, tempo: 1, node: 1, numS: 1, dash: 0 },
   approachRing: { w: 1, glow: 1, tempo: 0.6, r: 0.42, rt: 0.36 },
   trajectory: { w: 1, glow: 1, tempo: 0.5, spread: 1, width: 1.4, tail: 1, taper: 1.6, spark: 0.6 },
+  rotate: { w: 1, glow: 1, tempo: 0.5, r: 0.3, sweep: 0.66, dir: 1, width: 1 },
 };
 function livePrimEnv() {
   return {
@@ -309,6 +310,7 @@ function tickPrims(t) {
     else if (p.kind === 'stanceBox') drawStanceBox(g, 256, P, look, t, livePrimEnv());
     else if (p.kind === 'approachRing') drawApproachRing(g, 256, P, look, t, livePrimEnv(), p.prog);
     else if (p.kind === 'trajectory') drawTrajectory(g, 256, P, look, t, livePrimEnv(), p.prog, p.pts);
+    else if (p.kind === 'rotate') drawRotate(g, 256, P, look, t, livePrimEnv(), p.prog);
     else drawPunchLine(g, 256, P, look, t, livePrimEnv(), p.pts, p.prog);
     p.tex.needsUpdate = true;
   }
@@ -638,10 +640,12 @@ export class Session {
     let g = this._mk('BX_READY');
     this.bxTap = wallTap();   // 미부착 — 원·발판·라벨 중복 제거 (HUD CTA 버튼 전담, 유저)
 
-    // A1 목·어깨 돌리기 — 어깨 좌우 회전 아크(MARK Hold 코닉 림 = '돌리기')
+    // A1 목·어깨 돌리기 — 어깨 좌우 '회전 토큰'(관절 피벗 + 회전 화살표) = 돌리기 명확 지시
     g = this._mk('BX_A1');
-    this.bxA1arcL = wallArc(-0.18, 1.66, 0.10, 0.125, BRAND.sand, Math.PI*0.15, Math.PI*1.4); g.add(this.bxA1arcL);
-    this.bxA1arcR = wallArc( 0.18, 1.66, 0.10, 0.125, BRAND.sand, Math.PI*0.15, Math.PI*1.4); g.add(this.bxA1arcR);
+    this.bxA1rotL = primPanel('rotate', 0.42, true); this.bxA1rotL.position.set(-0.2, 1.66, WZ + 0.004);
+    this.bxA1rotL._prim.P = { dir: -1, r: 0.28 }; g.add(this.bxA1rotL);
+    this.bxA1rotR = primPanel('rotate', 0.42, true); this.bxA1rotR.position.set( 0.2, 1.66, WZ + 0.004);
+    this.bxA1rotR._prim.P = { dir: 1, r: 0.28 }; g.add(this.bxA1rotR);
 
     // A2 스텝 인·아웃 — 발밑 근/원 존 + 전진(위쪽) 방향 화살표(LINE 토큰)
     g = this._mk('BX_A2');
@@ -1398,8 +1402,7 @@ export class Session {
       tap.children[0].material.opacity = 0.5 + 0.45 * k; tap.children[1].material.opacity = 0.5 + 0.45 * (1 - k);
       if (id === 'BX_T1' && this.t >= 4.5) { this.next(); return; }
     } else if (id === 'BX_A1') {
-      // 목·어깨 회전 아크
-      this.bxA1arcL.rotation.z = this.t * 2; this.bxA1arcR.rotation.z = -this.t * 2;
+      // 목·어깨 회전 토큰 = 자체 회전(데모 루프)으로 '돌리기' 표시. 카운트만 갱신.
       FMU(`${Math.min(8, Math.floor(this.t / 0.7) + 1)} / 8`, CS.sand);
       if (this.t >= 8 * 0.7) { this.next(); return; }
     } else if (id === 'BX_A2') {

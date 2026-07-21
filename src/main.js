@@ -855,6 +855,8 @@ void main(){
     }
   });
   session.judge = judge;   // 판정 오차 소비 (페이스 라이트·FIN 겹쳐보기·C3 흔들림)
+  if (import.meta.env.DEV) window.__sess = session;   // 디버그 훅 — 콘솔에서 스테이지 고정·검수용
+
   // 단계 중간 음성 큐 — 시범→실행 전환("이제 같이") 등 코칭 3층 문법의 동작 큐 채널
   session.say = (who, line) => { showCaption(who, line); speak(who, line, 'cue:' + line.slice(0, 16)); };
   // 게이트/다운시프트 안내 자막 + 웨어러블 신호
