@@ -252,7 +252,7 @@ const state = {
     stanceBox: { w: 1, glow: 1, tempo: 1, dash: 1, round: 0.2, feet: 1 },
     punchLine: { w: 1, glow: 1, tempo: 1, node: 1, numS: 1, dash: 0 },
     approachRing: { w: 1, glow: 1, tempo: 0.6, r: 0.42, rt: 0.36 },
-    trajectory: { w: 1, glow: 1, tempo: 0.5, spread: 1, taper: 1.4, spark: 1 },
+    trajectory: { w: 1, glow: 1, tempo: 0.5, spread: 1, width: 1.4, tail: 1, taper: 1.6, spark: 0.6 },
     decelDash: { w: 1, glow: 1, tempo: 1, n: 4, grow: 1.6, len: 1 },
   },
 };
@@ -1408,7 +1408,7 @@ const primCells = PRIMS.map(([key, label, recipe]) => {
     stanceBox: [['dash', '대시 길이', 0.3, 2.5], ['round', '모서리', 0, 1], ['feet', '발 크기', 0, 2]],
     punchLine: [['node', '노드 반경', 0.5, 2], ['numS', '숫자 크기', 0.5, 2]],
     approachRing: [['r', '반경', 0.28, 0.46], ['rt', '타겟 비율', 0.24, 0.5]],
-    trajectory: [['spread', '경로 크기', 0.6, 1.3], ['taper', '테이퍼', 0.6, 2.4], ['spark', '스파크', 0, 2]],
+    trajectory: [['spread', '경로 크기', 0.6, 1.3], ['width', '굵기', 0.5, 2.4], ['tail', '꼬리 길이', 0.5, 1.6]],
   };
   const sldRow = (host, pk, pl, mn, mx) => {
     const row = document.createElement('div');

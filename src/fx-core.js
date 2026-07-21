@@ -525,9 +525,10 @@ export function drawApproachRing(g, W, P, look, t, ENV, prog) {
 export function drawTrajectory(g, W, P, look, t, ENV, prog, ptsIn) {
   const lut = ENV.lut, GB = 13 * look.halo, s = W / 220, C = W / 2;
   const AW = (ENV.arrow && ENV.arrow.w) || 1, base = AW * s;
+  const rgba = (v, a) => lut(v).replace('rgb(', 'rgba(').replace(')', ',' + a + ')');
   g.clearRect(0, 0, W, W); g.lineJoin = 'round'; g.lineCap = 'round';
   const sc = W * 0.42 * (P.spread != null ? P.spread : 1);
-  const ctrl = ptsIn || [[-1.0, 0.62], [-0.6, -0.28], [0.05, -0.78], [0.66, -0.26], [0.98, 0.58]];
+  const ctrl = ptsIn || [[-0.95, 0.5], [-0.48, -0.42], [0, -0.8], [0.48, -0.42], [0.95, 0.5]];   // 매끈한 대칭 아크
   const CP = ctrl.map(([x, y]) => [C + x * sc, C + y * sc]);
   const N = 80, path = [];
   for (let i = 0; i <= N; i++) {                         // Catmull-Rom 스플라인 샘플(부드러운 곡선)
@@ -536,38 +537,54 @@ export function drawTrajectory(g, W, P, look, t, ENV, prog, ptsIn) {
     const cr = (A, B, Cc, D) => 0.5 * (2 * B + (-A + Cc) * f + (2 * A - 5 * B + 4 * Cc - D) * f * f + (-A + 3 * B - 3 * Cc + D) * f * f * f);
     path.push([cr(a[0], b[0], c[0], d[0]), cr(a[1], b[1], c[1], d[1])]);
   }
-  const p = prog != null ? Math.max(0, Math.min(1, prog)) : (t * (P.tempo || 0.5)) % 1;
-  const head = Math.max(1, p * N), hi = Math.min(N, Math.floor(head));
-  const taper = P.taper != null ? P.taper : 1.4;
+  const at = u => { const q = Math.max(0, Math.min(N, u * N)), i = Math.floor(q), f = q - i, a = path[i], b = path[Math.min(N, i + 1)]; return [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f]; };
+  // ── 사이클: 스윕(경로를 그림) → 소멸(끝 도착 후 꼬리가 헤드로 수렴하며 페이드=증발) → 빈 갭 → 반복.
+  //    prog 주어지면 스윕만(세션 비트 구동). null이면 데모 루프가 전체 사이클을 돈다.
+  const SW = 0.68;
+  let sweep, outA, catchUp;
+  if (prog != null) { sweep = Math.max(0, Math.min(1, prog)); outA = 1; catchUp = 0; }
+  else {
+    const c = (t * (P.tempo || 0.42)) % 1;
+    if (c < SW) { sweep = c / SW; outA = 1; catchUp = 0; }
+    else { const o = (c - SW) / (1 - SW); sweep = 1; outA = 1 - o * o; catchUp = o; }
+  }
+  if (outA <= 0.012) return;                                 // 완전 소멸 = 빈 프레임(자연 갭)
+  const headU = sweep * sweep * sweep * (sweep * (6 * sweep - 15) + 10);   // smootherstep 휘핑
+  const spd = Math.min(1, 16 * sweep * sweep * (1 - sweep) * (1 - sweep)); // 속도(중앙 최대, 끝=0)
+  const taper = P.taper != null ? P.taper : 1.6;
+  const tail = 0.36 * (P.tail != null ? P.tail : 1);
+  const wid = P.width != null ? P.width : 1;
 
-  // 1) 전체 경로 고스트 — 어디로 갈지 예고(희미)
-  g.globalAlpha = 0.13; g.strokeStyle = lut(0.42); g.lineWidth = 2.4 * base; g.shadowBlur = 0;
-  g.beginPath(); path.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.stroke();
+  // 1) 경로 힌트 — 아주 옅은 넓은 글로우(어디로 갈지 암시만, 또렷한 선 아님)
+  g.globalAlpha = 0.045 * outA; g.strokeStyle = lut(0.46); g.lineWidth = 9 * base;
+  g.shadowColor = lut(0.6); g.shadowBlur = GB * 2.0;
+  g.beginPath(); path.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.stroke(); g.shadowBlur = 0;
 
-  // 2) 발광 언더레이 — 페인팅 구간 한 번에(shadowBlur 1회 = 블룸, 비용 절감)
-  g.globalAlpha = 0.5; g.strokeStyle = lut(0.62); g.lineWidth = 7 * base;
-  g.shadowColor = lut(0.8); g.shadowBlur = GB * 1.4;
-  g.beginPath(); for (let i = 0; i <= hi; i++) { const q = path[i]; i ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1]); } g.stroke();
-  g.shadowBlur = 0;
-
-  // 3) 테이퍼 코어 — 꼬리 얇고 흐림 → 헤드 두껍고 밝음(히트업)
-  for (let i = 1; i <= hi; i++) {
-    const f = i / head;
-    g.globalAlpha = Math.pow(f, 1.3); g.strokeStyle = lut(0.55 + 0.4 * f);
-    g.lineWidth = (0.8 + 5.5 * Math.pow(f, taper)) * base;
-    g.beginPath(); g.moveTo(path[i - 1][0], path[i - 1][1]); g.lineTo(path[i][0], path[i][1]); g.stroke();
+  // 2) 리본 — 헤드(앞)는 진하고 또렷, 꼬리로 갈수록만 연해지고 흐려져 소멸(끝만 흐릿).
+  const M = 40, u0 = Math.max(0, headU - tail * (1 - catchUp)), win = [];
+  for (let i = 0; i <= M; i++) win.push(at(u0 + (headU - u0) * (i / M)));
+  const ribbon = () => { g.beginPath(); win.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.stroke(); };
+  const grad = () => { const gr = g.createLinearGradient(win[0][0], win[0][1], win[M][0], win[M][1]);
+    gr.addColorStop(0, rgba(0.55, 0)); gr.addColorStop(0.45, rgba(0.58, 0.05));
+    gr.addColorStop(0.82, rgba(0.62, 0.18)); gr.addColorStop(1, rgba(0.68, 0.4)); return gr; };
+  const spr = 1 + 0.5 * spd;
+  // 소프트 글로우(꼬리 투명→헤드 진함) — 꼬리쪽만 흐릿한 잔상. 벽 투사용으로 두툼하게.
+  g.globalAlpha = outA; g.strokeStyle = grad(); g.lineWidth = (20 + 10 * spd) * base * wid;
+  g.shadowColor = lut(0.72); g.shadowBlur = GB * 2.2; ribbon();
+  g.strokeStyle = grad(); g.lineWidth = (10 + 5 * spd) * base * wid; g.shadowBlur = GB * 1.0; ribbon(); g.shadowBlur = 0;
+  // 또렷한 코어 — 두툼·균일(smooth) → 꼬리로만 알파·폭 감소. 앞은 진한 선, 끝은 흐릿 소멸.
+  for (let i = 1; i <= M; i++) {
+    const f = i / M;
+    g.globalAlpha = Math.pow(f, 1.35) * 0.95 * outA; g.strokeStyle = lut(0.55 + 0.38 * f);
+    g.lineWidth = (1.6 + 6.5 * Math.pow(f, 0.7)) * base * wid * spr;
+    g.beginPath(); g.moveTo(win[i - 1][0], win[i - 1][1]); g.lineTo(win[i][0], win[i][1]); g.stroke();
   }
 
-  // 4) 코멧 헤드 블룸 + 스파크(라이트페인팅)
-  const hx = path[hi][0], hy = path[hi][1];
-  g.globalAlpha = 1; g.shadowColor = lut(0.9); g.shadowBlur = GB * 1.8; g.fillStyle = lut(0.96);
-  g.beginPath(); g.arc(hx, hy, 4.5 * base, 0, Math.PI * 2); g.fill();
-  const spark = P.spark != null ? P.spark : 1;
-  for (let j = 0; j < 6; j++) {
-    const ang = j * 1.9 + t * 3.2, rad = (5 + (j % 3) * 6) * s * (0.5 + 0.5 * Math.sin(t * 8 + j * 2.1));
-    g.globalAlpha = 0.55 * spark * (0.4 + 0.6 * Math.abs(Math.sin(t * 6 + j)));
-    g.fillStyle = lut(0.92); g.shadowBlur = GB * 0.5;
-    g.beginPath(); g.arc(hx + Math.cos(ang) * rad, hy + Math.sin(ang) * rad, 1.5 * s, 0, Math.PI * 2); g.fill();
-  }
+  // 3) 헤드 — 진하고 또렷한 코어 + 헤일로(선 두께에 맞춰)
+  const hx = win[M][0], hy = win[M][1];
+  g.globalAlpha = 0.8 * outA; g.fillStyle = lut(0.6); g.shadowColor = lut(0.8); g.shadowBlur = GB * 1.6;   // 소프트 헤일로
+  g.beginPath(); g.arc(hx, hy, (9 + 5 * spd) * base * wid, 0, Math.PI * 2); g.fill();
+  g.globalAlpha = outA; g.fillStyle = lut(0.93); g.shadowBlur = GB * 0.6;                                  // 진한 코어
+  g.beginPath(); g.arc(hx, hy, (3.4 + 1.8 * spd) * base * wid, 0, Math.PI * 2); g.fill();
   g.globalAlpha = 1; g.shadowBlur = 0;
 }

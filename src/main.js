@@ -3929,7 +3929,8 @@ void main(){
   document.body.appendChild(cssRenderer.domElement);   // 크기·위치는 매 프레임 WebGL 캔버스에 정합(아래 renderDesignFrame)
   const frameIframe = document.createElement('iframe');
   frameIframe.setAttribute('scrolling', 'no');
-  Object.assign(frameIframe.style, { width: FRAME_W + 'px', height: (FRAME_W * 1600 / 2600) + 'px', border: '0', background: 'transparent' });
+  // 투사 UI = 벽에 살짝 녹아들게 opacity 0.9 (검정 = 이미 구멍/투명, 나머지 합성 UI만 ~10% 벽 비침)
+  Object.assign(frameIframe.style, { width: FRAME_W + 'px', height: (FRAME_W * 1600 / 2600) + 'px', border: '0', background: 'transparent', opacity: '0.9' });
   const frameCssScene = new THREE.Scene();
   const frameObj = new CSS3DObject(frameIframe);
   frameObj.visible = false;
