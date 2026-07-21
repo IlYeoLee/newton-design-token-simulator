@@ -1,68 +1,85 @@
 <!doctype html>
-<!-- 러닝 준비 대지 (1600×2000) — Figma "러닝 준비"(node 59:3582) 그대로 이식. 배경 투명(빔은 검정 못 쏨).
-     가독성 개선판: 3칸 정보 스트립(Time/Connection/Mode) + 디바이스 3 + Tap 히어로. 정적 재현(정확도 체크용). -->
+<!-- 러닝 준비 대지 (1600×2670) — Figma "러닝 준비"(node 59:3772) 이식. 배경 투명.
+     디바이스 = 프로그래스 컴포넌트: Track+Progress 링은 SVG로 직접(애니메이션 차오름 가능, --pct), 안쪽 아이콘은 리소스 SVG.
+     콘텐츠는 상단~프라임(y0~1700), 하단은 데드존(비움). -->
 <html><head><meta charset="utf-8"><style>
 @font-face{font-family:'Supreme';src:url('../fonts/Supreme-Bold.woff2') format('woff2');font-weight:700;font-display:block}
 @font-face{font-family:'Supreme';src:url('../fonts/Supreme-Medium.woff2') format('woff2');font-weight:500;font-display:block}
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{background:transparent}
-#board{position:relative;width:1600px;height:2000px;background:transparent;overflow:hidden;
+#board{position:relative;width:1600px;height:2670px;background:transparent;overflow:hidden;
   font-family:'Supreme',sans-serif;color:#fff;-webkit-font-smoothing:antialiased}
 
-/* 하단 큰 글로우 (Ellipse 31226) */
-.bigglow{position:absolute;left:50%;top:1310px;transform:translate(-50%,-50%);width:1300px;height:1170px}
+/* 하단 큰 글로우 */
+.bigglow{position:absolute;left:50%;top:1365px;transform:translate(-50%,-50%);width:1320px;height:1200px}
 .bigglow img{width:100%;height:100%;display:block}
 
 /* 타이틀 */
-.title{position:absolute;top:200px;left:0;right:0;text-align:center;
-  font-weight:700;font-size:100px;line-height:1;letter-spacing:-4px}
+.title{position:absolute;top:166px;left:0;right:0;text-align:center;
+  font-weight:700;font-size:120px;line-height:1.1;letter-spacing:-4px}
 
-/* ── 3칸 정보 스트립 ── */
-.strip{position:absolute;top:430px;left:0;right:0;display:flex;justify-content:center;align-items:center;gap:56px}
-.col{display:flex;flex-direction:column;align-items:center;text-align:center}
-.col .k{font-weight:500;font-size:40px;color:rgba(255,255,255,.55);letter-spacing:-.5px;margin-bottom:16px}
+/* 3칸 정보 스트립 */
+/* 커넥션(중앙) 정중앙 + Time/Mode 좌우 동일폭 대칭(같은 간격). 각 값은 좌측정렬, 커넥션만 중앙정렬 */
+.strip{position:absolute;top:452px;left:50%;transform:translateX(-50%);height:142px;display:flex;align-items:center}
+.col{display:flex;flex-direction:column;justify-content:center;align-items:center;padding:0 40px;text-align:center}
+.col.side{width:400px}
+.col .k{font-weight:500;font-size:40px;color:rgba(255,255,255,.55);letter-spacing:-.5px;margin-bottom:14px}
 .col .v{font-weight:700;font-size:64px;letter-spacing:-2px;white-space:nowrap}
 .col .v.sm{font-size:52px}
-.divider{width:2px;height:100px;background:rgba(255,255,255,.22)}
+.divider{width:2px;height:100px;background:rgba(255,255,255,.22);flex:none}
 
-/* ── 디바이스 3개 링 (Figma 합성 export) ── */
-.devs{position:absolute;top:660px;left:50%;transform:translateX(-50%);width:585px;height:195px}
-.devs img{width:100%;height:100%;display:block}
+/* 디바이스 프로그래스 링 (직접 그림 · 차오름 애니 가능) */
+.devs{position:absolute;top:654px;left:50%;transform:translateX(-50%);display:flex;gap:28px}
+.dev{position:relative;width:170px;height:170px}
+.dev svg{position:absolute;inset:0;width:100%;height:100%}
+.dev .track{fill:none;stroke:rgba(255,255,255,.16);stroke-width:13}
+.dev .prog{fill:none;stroke:#fff;stroke-width:13;stroke-linecap:round;
+  transform:rotate(-90deg);transform-origin:50% 50%;
+  stroke-dasharray:477;stroke-dashoffset:calc(477 * (1 - var(--pct,0)));
+  transition:stroke-dashoffset .8s cubic-bezier(.3,.8,.3,1)}
+.dev .ic{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:block}
+.ic-glasses{width:96px}.ic-watch{width:56px}.ic-earbuds{width:82px}
 
-/* ── 중앙 하단: Tap-foot 히어로 ── */
-.hero{position:absolute;left:50%;top:1044px;transform:translateX(-50%);width:900px;text-align:center}
+/* 중앙 하단 Tap-foot 히어로 */
+.hero{position:absolute;left:50%;top:1057px;transform:translateX(-50%);width:1000px;text-align:center}
 .hero .arrow{width:86px;height:86px;display:block;margin:0 auto 30px}
-.hero .a{font-weight:700;font-size:94px;line-height:1.05;letter-spacing:-6.7px}
-.foot{position:absolute;left:50%;top:1270px;transform:translateX(-50%);width:300px;height:400px;opacity:.92;
-  -webkit-mask-image:url('assets/fig/foot_mask.png');mask-image:url('assets/fig/foot_mask.png');
-  -webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-size:contain;mask-size:contain;-webkit-mask-position:center;mask-position:center;
-  background-image:linear-gradient(168.9deg,rgba(102,102,102,0) 19%,rgba(0,0,0,.2) 88%),
-    linear-gradient(169.6deg,rgba(254,195,137,0) 37%,#fa3030 94%)}
-.disc{position:absolute;left:50%;top:1575px;transform:translateX(-50%);width:370px;height:auto;display:block}
+.hero .a{font-weight:700;font-size:88px;line-height:1.05;letter-spacing:-5px}
+.foot{position:absolute;left:606px;top:1140px;width:400px;height:539px}
+.foot img{width:100%;height:100%;display:block}
 </style></head><body>
   <div id="board">
     <div class="bigglow"><img src="assets/fig/big_glow.svg" alt=""></div>
 
     <div class="title">Sean's Final 1km Pace</div>
 
-    <!-- 3칸 정보 스트립 -->
     <div class="strip">
-      <div class="col"><div class="k">Time</div><div class="v">30min</div></div>
+      <div class="col side"><div class="k">Time</div><div class="v">30min</div></div>
       <div class="divider"></div>
-      <div class="col"><div class="k">Connection</div><div class="v">Good</div></div>
+      <div class="col mid"><div class="k">Connection</div><div class="v">Good</div></div>
       <div class="divider"></div>
-      <div class="col"><div class="k">Mode</div><div class="v sm">Pace &amp; BoostOn</div></div>
+      <div class="col side"><div class="k">Mode</div><div class="v sm">Pace &amp; Boost On</div></div>
     </div>
 
-    <!-- 디바이스 링 3개 (Figma 합성 PNG) -->
-    <div class="devs"><img src="assets/fig/devices.png" alt=""></div>
+    <!-- 디바이스 프로그래스 링 3개 (배터리 충전) -->
+    <div class="devs">
+      <div class="dev">
+        <svg viewBox="0 0 170 170"><circle class="track" cx="85" cy="85" r="76"/><circle class="prog" cx="85" cy="85" r="76" style="--pct:.9"/></svg>
+        <img class="ic ic-glasses" src="assets/run/ic_glasses.png">
+      </div>
+      <div class="dev">
+        <svg viewBox="0 0 170 170"><circle class="track" cx="85" cy="85" r="76"/><circle class="prog" cx="85" cy="85" r="76" style="--pct:.3"/></svg>
+        <img class="ic ic-watch" src="assets/run/ic_watch.png">
+      </div>
+      <div class="dev">
+        <svg viewBox="0 0 170 170"><circle class="track" cx="85" cy="85" r="76"/><circle class="prog" cx="85" cy="85" r="76" style="--pct:.6"/></svg>
+        <img class="ic ic-earbuds" src="assets/run/ic_earbuds.png">
+      </div>
+    </div>
 
-    <!-- Tap-foot 히어로 -->
     <div class="hero">
-      <img class="arrow" src="assets/fig/arrow.svg" alt="">
+      <img class="arrow" src="assets/run/arrow.svg" alt="">
       <div class="a">Tap your foot Twice</div>
     </div>
-    <div class="foot"></div>
-    <img class="disc" src="assets/footprint_shadow.svg" alt="">
+    <div class="foot"><img src="assets/run/foot.svg" alt=""></div>
   </div>
 </body></html>
