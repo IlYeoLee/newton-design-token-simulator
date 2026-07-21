@@ -130,31 +130,33 @@ window.PHASES.forEach((label,i)=>{ const d=document.createElement('div');
   if (isEntry) d.style.animation='sRight .6s '+(0.15+i*0.07)+'s both';
   pw.appendChild(d); });
 
-// 숫자 카운트업 (0→목표). 순수 숫자만 애니메이션, '—'·'' 등은 그대로.
-function countUp(el, target, delay){
+// 장면 지속시간 — 로딩바·라이브 카운트업 공통 (?dur=)
+const sdur = parseFloat(new URLSearchParams(location.search).get('dur')) || 8;
+// 숫자 카운트업 (0→목표). 순수 숫자만, '—'·'' 등은 그대로. cdur=상승에 걸리는 시간(ms).
+function countUp(el, target, delay, cdur){
   const m = String(target).match(/^(\d+(?:\.\d+)?)$/);
   if(!m){ el.textContent = target; return; }
-  const end = parseFloat(m[1]), dec = (m[1].split('.')[1]||'').length, dur = 950;
+  const end = parseFloat(m[1]), dec = (m[1].split('.')[1]||'').length, cd = cdur || 950;
   el.textContent = dec ? (0).toFixed(dec) : '0';   // .num 폭 고정 → 시프트 없음
   setTimeout(()=>{ const t0=performance.now();
-    (function tick(now){ const p=Math.min(1,(now-t0)/dur), e=1-Math.pow(1-p,3);
+    (function tick(now){ const p=Math.min(1,(now-t0)/cd), e=1-Math.pow(1-p,3);
       el.textContent = dec ? (end*e).toFixed(dec) : Math.round(end*e);
       if(p<1) requestAnimationFrame(tick); })(performance.now());
   }, delay);
 }
-countUp($('s-coach-num'), S.coach.num, 620);
-countUp($('s-you-num'),   S.you.num,   720);
+// 코치(전문가 목표) = 진입 직후 빠르게 / You(내 판정값) = 장면 체험하며 라이브로 촤라락 상승
+countUp($('s-coach-num'), S.coach.num, 620, 1000);
+countUp($('s-you-num'),   S.you.num,   760, Math.max(1500, sdur*1000*0.8));
 $('s-coach-unit').textContent=S.coach.unit;
 $('s-you-unit').textContent=S.you.unit;
 $('s-coach-say').textContent=S.say;
 
 // 장면 진행 로딩바 — 회색 10도트 위에 빨간 10도트를 클립으로 드러냄. 클립 폭이
 // 이 장면 자동재생 지속시간(?dur=) 동안 0→100%(0→457.34px) 차올라 도트가 좌→우로 빨개짐.
-const dur = parseFloat(new URLSearchParams(location.search).get('dur')) || 8;
 const gr=$('drow-g'), rr=$('drow-r');
 for(let i=0;i<10;i++){ const a=document.createElement('div'); a.className='dot g'; gr.appendChild(a);
   const b=document.createElement('div'); b.className='dot r'; rr.appendChild(b); }
-$('s-dclip').style.setProperty('--dur', dur + 's');
+$('s-dclip').style.setProperty('--dur', sdur + 's');
 
 const cw=$('s-combos'); cw.innerHTML='';
 (S.combos||[]).forEach((c,i)=>{ const d=document.createElement('div'); d.className='combo';

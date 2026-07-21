@@ -9,9 +9,10 @@
 <feGaussianBlur stdDeviation="180.04" result="effect1_foregroundBlur_19_7075"/>
 </filter>
 <radialGradient id="paint0_radial_19_7075" cx="0" cy="0" r="1" gradientTransform="matrix(0 1005.78 -831.5 0.319962 1095.9 406.925)" gradientUnits="userSpaceOnUse">
-<stop offset="0.32" stop-color="#FA3030"/>
-<stop offset="0.56" stop-color="#FE6E3C"/>
-<stop offset="0.80" stop-color="#FEC389"/>
+<stop offset="0.20" stop-color="#FA3030"/>
+<stop offset="0.40" stop-color="#FE6E3C"/>
+<stop offset="0.58" stop-color="#FEC389"/>
+<stop offset="0.76" stop-color="#D1FEFF"/>
 <stop offset="1" stop-color="#D1FEFF"/>
 </radialGradient>
 </defs>
