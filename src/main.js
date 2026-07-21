@@ -3494,9 +3494,8 @@ void main(){
     if (DRILL[id] && xbot.actions[DRILL[id]]) return DRILL[id];
     if (sport === 'basketball') return 'dribble';           // 그 외 제자리 드리블
     if (sport === 'boxing') return /B\d/.test(id) ? 'hook' : 'warmup';
-    // 러닝: 대기·전환(READY/T1/T2/FIN)=중립 서있기. warmup 프레임0=손 내린 서있는 포즈(playDemo가 고정).
-    // (bkStance=농구 수비스탠스라 손 올라감 / warmup 재생=복서 바운스 → 둘 다 부적합, 유저 지적)
-    if (['READY', 'T1', 'T2', 'FIN'].includes(id)) return 'warmup';
+    // 러닝: 대기·전환(READY/T1/T2/FIN)=자연 호흡 idle(Mixamo Breathing Idle, 손 내림). 완전정지 어색(유저) → 재생.
+    if (['READY', 'T1', 'T2', 'FIN'].includes(id)) return 'idle';
     return 'run';
   }
 
@@ -3518,10 +3517,8 @@ void main(){
       updateSessionGaze(h);
       state.time = 0;
       tokens.update(0, 0);
-      // hold=포즈 고정: 복싱 READY(가드 유지) + 러닝 대기(중립 서있기, warmup 프레임0 고정)
-      const holdPose = session.stage === 'BX_READY'
-        || (session.sport === 'running' && ['READY', 'T1', 'T2', 'FIN'].includes(session.stage));
-      xbot.playDemo(demoClipFor(session.sport, session.stage), h, holdPose);
+      // hold=포즈 고정(복싱 READY 가드 유지). 러닝 대기는 idle 재생(호흡)이라 hold 안 함.
+      xbot.playDemo(demoClipFor(session.sport, session.stage), h, session.stage === 'BX_READY');
       rig.update(0, h);
       tokens.setShake(rig.shake.x, rig.shake.y);
       // 이 분기는 아래 followFloor 호출을 건너뛰어(early return) 무한 지면(그리드·바닥)이
