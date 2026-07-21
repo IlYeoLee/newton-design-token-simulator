@@ -3931,8 +3931,18 @@ void main(){
   document.body.appendChild(cssRenderer.domElement);   // 크기·위치는 매 프레임 WebGL 캔버스에 정합(아래 renderDesignFrame)
   const frameIframe = document.createElement('iframe');
   frameIframe.setAttribute('scrolling', 'no');
-  // 투사 UI = 일반 합성 + opacity 0.9 (검정은 이미 투명/구멍, 흰 카드는 자연스러운 흰색·살짝 투사감).
-  Object.assign(frameIframe.style, { width: FRAME_W + 'px', height: (FRAME_W * 1600 / 2600) + 'px', border: '0', background: 'transparent', opacity: '0.9' });
+  // 루마 키 필터 — 밝은 UI(흰 카드·컬러 알약)는 불투명, 어두운 글자만 투명(뒤 벽 비침 = 구멍).
+  //   feColorMatrix: 알파 = 휘도(밝을수록 불투명). feComponentTransfer: 임계 → 어두운 글자만 알파 0.
+  //   빔프 원리(검정=빛 없음=벽)를 '어두운 픽셀만' 정확히 재현. 흰/컬러는 그대로 불투명.
+  const lumaSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  lumaSvg.setAttribute('width', '0'); lumaSvg.setAttribute('height', '0');
+  lumaSvg.style.cssText = 'position:absolute;width:0;height:0';
+  lumaSvg.innerHTML = '<defs><filter id="ui-lumakey" color-interpolation-filters="sRGB">'
+    + '<feColorMatrix type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0.3 0.4 0.3 0 0"/>'
+    + '<feComponentTransfer><feFuncA type="table" tableValues="0 0 1 1"/></feComponentTransfer>'
+    + '</filter></defs>';
+  document.body.appendChild(lumaSvg);
+  Object.assign(frameIframe.style, { width: FRAME_W + 'px', height: (FRAME_W * 1600 / 2600) + 'px', border: '0', background: 'transparent', filter: 'url(#ui-lumakey)' });
   const frameCssScene = new THREE.Scene();
   const frameObj = new CSS3DObject(frameIframe);
   frameObj.visible = false;
