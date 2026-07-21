@@ -1,47 +1,68 @@
 <!doctype html>
-<!-- 바닥 대지 플레이스홀더 — Figma 러닝/농구 대지(1600×2000)가 이 자리에 export되어 들어옴.
-     바닥 규약: 배경 투명(빔프는 검정을 못 쏨 → 잔디 비침), 발광 요소(글자·테두리·글로우)만 투사. -->
+<!-- 러닝 준비 대지 (1600×2000) — Figma "러닝 준비"(node 59:3582) 그대로 이식. 배경 투명(빔은 검정 못 쏨).
+     가독성 개선판: 3칸 정보 스트립(Time/Connection/Mode) + 디바이스 3 + Tap 히어로. 정적 재현(정확도 체크용). -->
 <html><head><meta charset="utf-8"><style>
-  html,body{margin:0;background:transparent}
-  /* 지면 투사 규약: 사각 대지 경계를 4변 페더로 지워 사다리꼴 풋프린트에 자연스럽게 스밈(하드 테두리 금지).
-     빔은 가장자리가 번지므로 라인이 아니라 그라디언트로 존을 암시 — 이 마스크는 안쪽 콘텐츠 전체에 적용. */
-  #board{position:relative;width:1600px;height:2000px;background:transparent;overflow:hidden;
-    font-family:'Noto Sans KR',-apple-system,sans-serif;color:#fff;
-    text-shadow:0 0 24px rgba(0,0,0,.55);
-    -webkit-mask-image:linear-gradient(to right,transparent,#000 9%,#000 91%,transparent),
-      linear-gradient(to bottom,transparent,#000 6%,#000 90%,transparent);
-    -webkit-mask-composite:source-in; mask-composite:intersect;}
-  /* 투사 존을 은은히 인지시키는 발광 패널(검정 아님) — near(하단) 진홍 → far(상단) 투명, 가장자리 페더 */
-  .glow{position:absolute;inset:40px;border-radius:90px;
-    background:radial-gradient(115% 85% at 50% 100%, rgba(255,60,50,.30), rgba(255,90,60,.12) 45%, transparent 72%)}
-  /* near 라인감 — 발 앞쪽에 은은한 발광 경계선(테두리 아닌 그라디언트 띠) */
-  /* 데드존 경계선 — 1인칭 near 가시한계(y≈1583). 이 아래는 화면 밖이라 핵심 요소 금지 */
-  .nearline{position:absolute;left:12%;right:12%;top:1583px;height:3px;
-    background:linear-gradient(to right,transparent,rgba(255,120,90,.55) 25%,rgba(255,120,90,.55) 75%,transparent);
-    filter:blur(1px)}
-  .eyebrow{position:absolute;top:150px;left:0;right:0;text-align:center;
-    font-size:44px;letter-spacing:.3em;color:#ff9a4d;font-weight:800}
-  .title{position:absolute;top:240px;left:0;right:0;text-align:center;
-    font-size:104px;font-weight:800;line-height:1.06}
-  .sub{position:absolute;top:430px;left:0;right:0;text-align:center;font-size:46px;color:#eef1f6}
-  /* CTA = 프라임 존(가시+가독). 하단 ~420px는 1인칭 데드존(발앞 0.6m 안쪽, 화면 밖)이라 그 위로. */
-  .cta{position:absolute;bottom:560px;left:50%;transform:translateX(-50%);
-    width:920px;height:150px;border:6px solid #ff5a3c;border-radius:80px;
-    background:rgba(255,90,60,.14);
-    display:flex;align-items:center;justify-content:center;font-size:64px;font-weight:800;
-    animation:ctaPulse 1.6s ease-in-out infinite}
-  /* ── CSS 모션 데모(라이브) — HTML 그대로 바닥에 투사·밟힘 검증. Figma export 시 교체 ── */
-  .eyebrow,.title,.sub{animation:fadeUp .6s ease-out both}
-  .title{animation-delay:.1s} .sub{animation-delay:.22s}
-  @keyframes fadeUp{from{opacity:0;transform:translateY(40px)}to{opacity:1;transform:translateY(0)}}
-  @keyframes ctaPulse{0%,100%{box-shadow:0 0 30px rgba(255,90,60,.4)}50%{box-shadow:0 0 70px rgba(255,110,70,.85)}}
+@font-face{font-family:'Supreme';src:url('../fonts/Supreme-Bold.woff2') format('woff2');font-weight:700;font-display:block}
+@font-face{font-family:'Supreme';src:url('../fonts/Supreme-Medium.woff2') format('woff2');font-weight:500;font-display:block}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{background:transparent}
+#board{position:relative;width:1600px;height:2000px;background:transparent;overflow:hidden;
+  font-family:'Supreme',sans-serif;color:#fff;-webkit-font-smoothing:antialiased}
+
+/* 하단 큰 글로우 (Ellipse 31226) */
+.bigglow{position:absolute;left:50%;top:1310px;transform:translate(-50%,-50%);width:1300px;height:1170px}
+.bigglow img{width:100%;height:100%;display:block}
+
+/* 타이틀 */
+.title{position:absolute;top:200px;left:0;right:0;text-align:center;
+  font-weight:700;font-size:100px;line-height:1;letter-spacing:-4px}
+
+/* ── 3칸 정보 스트립 ── */
+.strip{position:absolute;top:430px;left:0;right:0;display:flex;justify-content:center;align-items:center;gap:56px}
+.col{display:flex;flex-direction:column;align-items:center;text-align:center}
+.col .k{font-weight:500;font-size:40px;color:rgba(255,255,255,.55);letter-spacing:-.5px;margin-bottom:16px}
+.col .v{font-weight:700;font-size:64px;letter-spacing:-2px;white-space:nowrap}
+.col .v.sm{font-size:52px}
+.divider{width:2px;height:100px;background:rgba(255,255,255,.22)}
+
+/* ── 디바이스 3개 링 (Figma 합성 export) ── */
+.devs{position:absolute;top:660px;left:50%;transform:translateX(-50%);width:585px;height:195px}
+.devs img{width:100%;height:100%;display:block}
+
+/* ── 중앙 하단: Tap-foot 히어로 ── */
+.hero{position:absolute;left:50%;top:1044px;transform:translateX(-50%);width:900px;text-align:center}
+.hero .arrow{width:86px;height:86px;display:block;margin:0 auto 30px}
+.hero .a{font-weight:700;font-size:94px;line-height:1.05;letter-spacing:-6.7px}
+.foot{position:absolute;left:50%;top:1270px;transform:translateX(-50%);width:300px;height:400px;opacity:.92;
+  -webkit-mask-image:url('assets/fig/foot_mask.png');mask-image:url('assets/fig/foot_mask.png');
+  -webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-size:contain;mask-size:contain;-webkit-mask-position:center;mask-position:center;
+  background-image:linear-gradient(168.9deg,rgba(102,102,102,0) 19%,rgba(0,0,0,.2) 88%),
+    linear-gradient(169.6deg,rgba(254,195,137,0) 37%,#fa3030 94%)}
+.disc{position:absolute;left:50%;top:1575px;transform:translateX(-50%);width:370px;height:auto;display:block}
 </style></head><body>
   <div id="board">
-    <div class="glow"></div>
-    <div class="nearline"></div>
-    <div class="eyebrow">RUNNING · READY</div>
-    <div class="title">준비 —<br>발 두 번 구르면 시작</div>
-    <div class="sub">션의 마지막 1km 페이스로</div>
-    <div class="cta">👣 발 두 번 구르기</div>
+    <div class="bigglow"><img src="assets/fig/big_glow.svg" alt=""></div>
+
+    <div class="title">Sean's Final 1km Pace</div>
+
+    <!-- 3칸 정보 스트립 -->
+    <div class="strip">
+      <div class="col"><div class="k">Time</div><div class="v">30min</div></div>
+      <div class="divider"></div>
+      <div class="col"><div class="k">Connection</div><div class="v">Good</div></div>
+      <div class="divider"></div>
+      <div class="col"><div class="k">Mode</div><div class="v sm">Pace &amp; BoostOn</div></div>
+    </div>
+
+    <!-- 디바이스 링 3개 (Figma 합성 PNG) -->
+    <div class="devs"><img src="assets/fig/devices.png" alt=""></div>
+
+    <!-- Tap-foot 히어로 -->
+    <div class="hero">
+      <img class="arrow" src="assets/fig/arrow.svg" alt="">
+      <div class="a">Tap your foot Twice</div>
+    </div>
+    <div class="foot"></div>
+    <img class="disc" src="assets/footprint_shadow.svg" alt="">
   </div>
 </body></html>
