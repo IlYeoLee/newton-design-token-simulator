@@ -3963,7 +3963,15 @@ void main(){
       mirrorPanel.visible = false;
       hudPanel.visible = ctaPanel.visible = false;
       optRing.visible = camMark.visible = false;
-      session.root.visible = false;
+      // A/B/C 씬(scene.html) = 판정토큰(현재 스테이지 G그룹) 유지 — 디자인 UI가 대체한 레거시 벽텍스트·바닥만 숨김.
+      //   그 외(READY·타이머·전환·리포트) = 세션 마크 전체 숨김.
+      const isSceneFrame = view.includes('scene.html');
+      session.root.visible = isSceneFrame;
+      if (isSceneFrame) {
+        [session.slotFS, session.slotFL, session.slotFM, session.dirSlot, session.paceLight,
+         session.countGroup, session.countRing, session.wSlotFS, session.wSlotFL, session.wSlotFM, session.wCount]
+          .forEach(o => { if (o) o.visible = false; });
+      }
       if (session.curStage?.id === 'BX_READY') {
         demoPanel.position.x += rig.wallW * 0.12;   // READY = 기존 우측 슬롯 (유저 확정 레이아웃)
       } else {
