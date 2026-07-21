@@ -55,10 +55,12 @@ html,body{background:transparent}
 
 /* 중앙: 콤보 팝업(등장→은은히 페이드, 최대 2~3 순차) */
 .combos{position:absolute;left:50%;top:1202px;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:16px}
-.combo{background:rgba(255,255,255,.2);border-radius:47.28px;padding:15.76px 31.52px;height:114.26px;
-  display:flex;align-items:center;gap:15.76px;justify-content:center}
-.combo img{width:47.28px;height:52px;display:block}
-.combo p{font-family:'OffBitB';font-size:59.1px;color:#fff;letter-spacing:-1.97px;white-space:nowrap}
+.combo{position:relative;background:linear-gradient(135deg,rgba(250,48,48,.4),rgba(254,110,60,.28));
+  border:2px solid rgba(255,255,255,.4);border-radius:47.28px;padding:15.76px 36px;height:114.26px;
+  display:flex;align-items:center;gap:15.76px;justify-content:center;
+  box-shadow:0 0 44px rgba(254,110,60,.55), inset 0 0 26px rgba(255,255,255,.28)}
+.combo img{width:47.28px;height:52px;display:block;filter:drop-shadow(0 0 12px rgba(255,205,130,.95));animation:flameFlick 1.05s ease-in-out infinite}
+.combo p{font-family:'OffBitB';font-size:59.1px;color:#fff;letter-spacing:-1.97px;white-space:nowrap;text-shadow:0 0 22px rgba(255,222,165,.75)}
 
 /* ── 등장 모션 ──
    진입(페이즈 첫 단계)=전체 등장. 같은 페이즈 후속 단계(body.mid)=골격(아바타·배지·페이즈열)은
@@ -70,8 +72,13 @@ html,body{background:transparent}
 @keyframes titleIn{0%{opacity:0;transform:translateY(40px) scale(.94)}70%{opacity:1;transform:translateY(0) scale(1.02)}100%{opacity:1;transform:scale(1)}}
 @keyframes dotPop{from{opacity:0;transform:scale(0)}to{opacity:1;transform:scale(1)}}
 @keyframes dotLight{0%{transform:scale(1)}45%{transform:scale(1.5);box-shadow:0 0 22px rgba(250,48,48,.9)}100%{transform:scale(1)}}
-@keyframes comboIn{0%{opacity:0;transform:translateY(28px) scale(.6)}55%{opacity:1;transform:translateY(0) scale(1.12)}100%{opacity:1;transform:translateY(0) scale(1)}}
-@keyframes comboBreath{0%,100%{opacity:.95;transform:translateY(0)}50%{opacity:.5;transform:translateY(-9px)}}
+@keyframes comboIn{0%{opacity:0;transform:translateY(34px) scale(.3) rotate(-8deg)}
+  50%{opacity:1;transform:translateY(0) scale(1.22) rotate(3deg)}
+  72%{transform:scale(.94) rotate(-1.5deg)}100%{opacity:1;transform:scale(1) rotate(0)}}
+@keyframes comboGlow{0%,100%{box-shadow:0 0 44px rgba(254,110,60,.55),inset 0 0 26px rgba(255,255,255,.28);transform:translateY(0)}
+  50%{box-shadow:0 0 78px rgba(254,110,60,.9),inset 0 0 36px rgba(255,255,255,.42);transform:translateY(-7px)}}
+@keyframes flameFlick{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-3px) scale(1.14)}}
+@keyframes cueSwap{0%{opacity:0;transform:translateY(10px) scale(.9)}60%{opacity:1;transform:scale(1.06)}100%{opacity:1;transform:scale(1)}}
 @keyframes sUpC{from{opacity:0;transform:translate(-50%,48px)}to{opacity:1;transform:translate(-50%,0)}}
 @keyframes phasePulse{0%,100%{opacity:1}50%{opacity:.6}}
 .title{animation:titleIn .8s .10s cubic-bezier(.22,1,.36,1) both}
@@ -106,7 +113,7 @@ body.mid .avatar.coach,body.mid .avatar.you,body.mid .you-badge,body.mid .phase{
  <div class="num r" id="s-you-num">1</div>
  <div class="unit r" id="s-you-unit">Steps</div>
 
- <div class="coach-say"><p id="s-coach-say">Coach · Light on your feet — front and back.</p></div>
+ <div class="coach-say"><p id="s-coach-say"></p></div>
  <div class="combos" id="s-combos"></div>
 </div>
 
@@ -149,7 +156,17 @@ countUp($('s-coach-num'), S.coach.num, 620, 1000);
 countUp($('s-you-num'),   S.you.num,   760, Math.max(1500, sdur*1000*0.8));
 $('s-coach-unit').textContent=S.coach.unit;
 $('s-you-unit').textContent=S.you.unit;
-$('s-coach-say').textContent=S.say;
+// 코치 자막 = say(진입 안내) → cues(비트처럼 흐르는 짧은 콜)를 장면 동안 순환. 매 교체마다 팝('말하듯이').
+(function(){
+  const el = $('s-coach-say');
+  const seq = (S.cues && S.cues.length) ? [S.say, ...S.cues] : [S.say];
+  let i = 0;
+  const swap = () => { el.textContent = seq[i++ % seq.length];
+    el.style.animation = 'none'; void el.offsetWidth;
+    el.style.animation = 'cueSwap .5s cubic-bezier(.34,1.56,.64,1) both'; };
+  swap();
+  if (seq.length > 1) setInterval(swap, Math.max(1100, sdur * 1000 / (seq.length + 0.5)));
+})();
 
 // 장면 진행 로딩바 — 회색 10도트 위에 빨간 10도트를 클립으로 드러냄. 클립 폭이
 // 이 장면 자동재생 지속시간(?dur=) 동안 0→100%(0→457.34px) 차올라 도트가 좌→우로 빨개짐.
@@ -161,8 +178,8 @@ $('s-dclip').style.setProperty('--dur', sdur + 's');
 const cw=$('s-combos'); cw.innerHTML='';
 (S.combos||[]).forEach((c,i)=>{ const d=document.createElement('div'); d.className='combo';
   d.innerHTML='<img src="assets/flame.svg" alt=""><p></p>'; d.querySelector('p').textContent=c;
-  const t=1.0+i*0.5;   // 순차 등장(최대 2~3) → 등장 후 은은하게 호흡
-  d.style.animation='comboIn .6s '+t+'s cubic-bezier(.34,1.56,.64,1) both, comboBreath 3.2s '+(t+0.6)+'s infinite'; cw.appendChild(d); });
+  const t=1.0+i*0.5;   // 순차 등장(최대 2~3) → 튀어오른 뒤 불빛처럼 맥동
+  d.style.animation='comboIn .6s '+t+'s cubic-bezier(.34,1.7,.5,1) both, comboGlow 1.6s '+(t+0.6)+'s ease-in-out infinite'; cw.appendChild(d); });
 </script>
 </body>
 </html>
