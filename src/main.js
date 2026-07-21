@@ -4007,16 +4007,18 @@ void main(){
         vec2 p = vUv - 0.5;
         float r = length(p) * 2.0;           // 0=중심, ~1.4=모서리
         float ang = atan(p.y, p.x);
-        // 은은한 움직임: 숨쉬기(반지름 요동) + 아주 미세한 방향 흔들림 (회오리 아님)
-        r /= 1.0 + sin(uTime * 0.7) * 0.035;
-        r += sin(uTime * 0.45 + ang * 2.0) * 0.012;
+        float breathe = 1.0 + sin(uTime * 0.8) * 0.05;   // 은은한 숨쉬기
+        // 정본 색 — 쨍하게(밝기↑)
         vec3 red = vec3(0.980, 0.188, 0.188), org = vec3(0.996, 0.431, 0.235),
              sand = vec3(0.996, 0.765, 0.537), cyan = vec3(0.820, 0.996, 1.0);
-        vec3 c = mix(red, org, smoothstep(0.42, 0.66, r));
-        c = mix(c, sand, smoothstep(0.66, 0.80, r));
-        c = mix(c, cyan, smoothstep(0.80, 0.92, r));
-        float alpha = 1.0 - smoothstep(0.60, 1.0, r);   // 중심 불투명(쨍한 레드) → 가장자리 페이드
-        gl_FragColor = vec4(c, alpha);
+        vec3 c = mix(red, org, smoothstep(0.30, 0.58, r));
+        c = mix(c, sand, smoothstep(0.58, 0.74, r));
+        c = mix(c, cyan, smoothstep(0.74, 0.90, r));
+        c *= 1.18;
+        // 부드러운 패더 애니 — 가장자리 경계가 은은히 숨쉬며 파동 (넓은 소프트 페이드)
+        float edge = breathe + sin(ang * 3.0 + uTime * 0.5) * 0.045 + sin(ang * -2.0 + uTime * 0.33) * 0.03;
+        float alpha = 1.0 - smoothstep(0.48, edge, r);   // 코어 불투명(쨍) → 넓고 부드러운 패더
+        gl_FragColor = vec4(clamp(c, 0.0, 1.0), alpha);
       }`,
   }));
   floorGlow.rotation.x = -Math.PI / 2; floorGlow.renderOrder = 3; floorGlow.visible = false;
@@ -4109,7 +4111,8 @@ void main(){
       const gdy = (1365 - fView.h / 2) * sUni;     // 캔버스 아래(+) = 근거리 방향(-forward)
       floorGlow.position.set(cx + fp.rx * gdx - fp.fx * gdy, 0.008, cz + fp.rz * gdx - fp.fz * gdy);
       floorGlow.rotation.set(-Math.PI / 2, 0, Math.atan2(fp.fx, fp.fz) + Math.PI);
-      floorGlow.scale.set(1301 * sUni, 1262 * sUni, 1);   // PNG 실측 크기 그대로
+      const gScale = 0.62;   // Figma 크기 기준 축소 (유저: 더 작게)
+      floorGlow.scale.set(1301 * sUni * gScale, 1262 * sUni * gScale, 1);
       floorGlow.material.uniforms.uTime.value = performance.now() / 1000;   // 스월 애니
     } else {
       floorGlow.visible = false;
