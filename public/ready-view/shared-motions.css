@@ -1,0 +1,61 @@
+/* ─────────────────────────────────────────────────────────────
+   shared-motions.css — 뉴턴 투사 UI 공용 모션 라이브러리
+   복싱 씬 프레임(scene/timer/transition/report/index)에서 검증된 모션 키프레임 모음.
+   바닥(러닝·농구) UI 편집 시 <link rel="stylesheet" href="shared-motions.css"> 로 그대로 재사용.
+
+   분류:
+   · 등장   : sUp sLeft sRight sPop sUpC fadeIn popIn slideInLeft slideInUp cardIn
+   · 타이틀 : titleIn charWave charIn            (charWave = '촤라락' 글자 물결)
+   · 부유   : floatY floatY2 cardFloat btnFloat btnFloatC footBob
+   · 맥동   : btnPulse ringBreath phasePulse numPulse glowPulse ringPop
+   · 진행   : dotsFill dotFill dotPop dotLight arcFill sepGrow graphReveal
+   · 콤보   : comboIn comboBreath
+   · 배경   : glowDrift        · 기타: tipSpin tapTwice
+   재사용 JS 헬퍼(카운트업·글자 웨이브)는 shared-ui.js 참고.
+   ───────────────────────────────────────────────────────────── */
+
+@keyframes dotsFill{from{width:0}to{width:457.34px}}
+@keyframes sUp{from{opacity:0;transform:translateY(48px)}to{opacity:1;transform:translateY(0)}}
+@keyframes sLeft{from{opacity:0;transform:translateX(-70px)}to{opacity:1;transform:translateX(0)}}
+@keyframes sRight{from{opacity:0;transform:translateX(70px)}to{opacity:1;transform:translateX(0)}}
+@keyframes sPop{0%{opacity:0;transform:scale(.5)}60%{opacity:1;transform:scale(1.12)}100%{opacity:1;transform:scale(1)}}
+@keyframes titleIn{0%{opacity:0;transform:translateY(40px) scale(.94)}70%{opacity:1;transform:translateY(0) scale(1.02)}100%{opacity:1;transform:scale(1)}}
+@keyframes dotPop{from{opacity:0;transform:scale(0)}to{opacity:1;transform:scale(1)}}
+@keyframes dotLight{0%{transform:scale(1)}45%{transform:scale(1.5);box-shadow:0 0 22px rgba(250,48,48,.9)}100%{transform:scale(1)}}
+@keyframes comboIn{0%{opacity:0;transform:translateY(28px) scale(.6)}55%{opacity:1;transform:translateY(0) scale(1.12)}100%{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes comboBreath{0%,100%{opacity:.95;transform:translateY(0)}50%{opacity:.5;transform:translateY(-9px)}}
+@keyframes sUpC{from{opacity:0;transform:translate(-50%,48px)}to{opacity:1;transform:translate(-50%,0)}}
+@keyframes phasePulse{0%,100%{opacity:1}50%{opacity:.6}}
+@keyframes glowDrift{
+  0%{transform:translate(-50%,-50%) scale(1) rotate(0deg)}
+  25%{transform:translate(-59%,-44%) scale(1.14) rotate(5deg)}
+  50%{transform:translate(-42%,-58%) scale(1.05) rotate(-4deg)}
+  75%{transform:translate(-55%,-45%) scale(1.16) rotate(3deg)}
+  100%{transform:translate(-50%,-50%) scale(1) rotate(0deg)}}
+@keyframes tipSpin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+@keyframes arcFill{from{stroke-dashoffset:1570.8}to{stroke-dashoffset:0}}
+@keyframes ringPop{0%{opacity:0;transform:scale(.6)}70%{opacity:1;transform:scale(1.05)}100%{transform:scale(1)}}
+@keyframes numPulse{0%{transform:scale(1.5);opacity:0}35%{opacity:1}100%{transform:scale(1);opacity:1}}
+@keyframes ringBreath{0%,100%{filter:drop-shadow(0 0 0 rgba(255,255,255,0))}50%{filter:drop-shadow(0 0 26px rgba(255,255,255,.35))}}
+@keyframes charWave{0%,58%,100%{transform:translateY(0)}29%{transform:translateY(-16px)}}
+@keyframes cardIn{0%{opacity:0;transform:translateY(70px) scale(.92)}100%{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes cardFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-13px)}}
+@keyframes btnPulse{0%,100%{box-shadow:0 0 0 0 rgba(255,255,255,0)}50%{box-shadow:0 0 60px 6px rgba(255,255,255,.35)}}
+@keyframes btnFloatC{0%,100%{transform:translate(-50%,0)}50%{transform:translate(-50%,-18px)}}
+@keyframes sepGrow{0%{transform:scaleY(0);opacity:0}100%{transform:scaleY(1);opacity:1}}
+@keyframes btnFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-18px)}}
+@keyframes slideInLeft{from{opacity:0;transform:translateX(-90px)}to{opacity:1;transform:translateX(0)}}
+@keyframes slideInUp{from{opacity:0;transform:translateY(52px)}to{opacity:1;transform:translateY(0)}}
+@keyframes popIn{from{opacity:0;transform:translateY(26px) scale(.95)}to{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes graphReveal{from{clip-path:inset(0 0 0 100%)}to{clip-path:inset(0 0 0 0)}}
+@keyframes charIn{from{opacity:0;transform:translateY(64px) rotate(6deg)}to{opacity:1;transform:translateY(0) rotate(0)}}
+@keyframes dotFill{from{background:#d0d0d0}to{background:#fa3030}}
+@keyframes tapTwice{
+  0%,72%,100%{transform:translateY(0)}
+  10%{transform:translateY(30px)}18%{transform:translateY(4px)}
+  30%{transform:translateY(28px)}40%{transform:translateY(0)}}
+@keyframes glowPulse{0%,100%{transform:scale(1);opacity:.86}50%{transform:scale(1.055);opacity:1}}
+@keyframes footBob{0%,70%,100%{transform:translateY(0)}10%{transform:translateY(34px)}20%{transform:translateY(6px)}32%{transform:translateY(31px)}44%{transform:translateY(0)}}
+@keyframes floatY{0%,100%{transform:translateY(-7px)}50%{transform:translateY(9px)}}
+@keyframes floatY2{0%,100%{transform:translateY(-10px)}50%{transform:translateY(8px)}}
