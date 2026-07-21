@@ -459,3 +459,115 @@ export function drawPunchLine(g, W, P, look, t, ENV, ptsIn, prog) {
   });
   g.shadowBlur = 0;
 }
+/** 어프로치 링 — 타이밍 토큰(파생). 시스템 공통 언어(소프트 열 글로우·파문)로 통일 —
+ *  하드 지오메트리 없이, 부드러운 글로우 링이 바깥 R → 타겟 Rt로 '수축'(뒤에 파문 에코 잔상),
+ *  타겟과 맞물리는 순간 = 동작 타이밍 → 소프트 핑이 퍼진다. prog 0..1(비트). 색은 룩 LUT만. */
+export function drawApproachRing(g, W, P, look, t, ENV, prog) {
+  const lut = ENV.lut, GB = 13 * look.halo, s = W / 220, C = W / 2;
+  const AW = (ENV.arrow && ENV.arrow.w) || 1;
+  const rgba = (v, a) => lut(v).replace('rgb(', 'rgba(').replace(')', `,${a})`);
+  g.clearRect(0, 0, W, W); g.lineJoin = 'round'; g.lineCap = 'round';
+  const R = (P.r != null ? P.r : 0.42) * W;                 // 접근 시작(최외곽) 반경
+  const Rt = R * (P.rt != null ? P.rt : 0.36);              // 타겟 반경(수축 도착점)
+  const lw = 3.4 * AW * s;
+  const p = prog != null ? Math.max(0, Math.min(1, prog)) : (t * (P.tempo || 0.6)) % 1;
+  const e = Math.pow(p, 1.6);                               // 가속 진입 = 기대감 상승
+  const lock = Math.max(0, (p - 0.9) / 0.1);               // 도착 순간 = 비트
+
+  g.save(); g.translate(C, C);
+  // 볼류메트릭 글로우 링 — radial gradient 밴드(부피감 있는 발광) + 크리스프 코어(정의).
+  //   shadowBlur 스트로크보다 부드럽고 프리미엄한 발광 폴오프. 형태는 순수 원(시스템 공통 언어).
+  const glowRing = (r, v, a, wMul = 1) => {
+    if (r <= 0.6) return;
+    const w = lw * 2.6 * wMul, inner = Math.max(0.1, r - w), outer = r + w;
+    const grad = g.createRadialGradient(0, 0, inner, 0, 0, outer);
+    grad.addColorStop(0, rgba(v - 0.05, 0));
+    grad.addColorStop(0.5, rgba(v, a * 0.85));
+    grad.addColorStop(1, rgba(v - 0.05, 0));
+    g.globalAlpha = 1; g.fillStyle = grad; g.shadowBlur = 0;
+    g.beginPath(); g.arc(0, 0, outer, 0, Math.PI * 2); g.fill();
+    g.globalAlpha = Math.min(1, a * 1.1); g.lineWidth = lw * 0.85;
+    g.strokeStyle = lut(Math.min(0.98, v + 0.12)); g.shadowColor = lut(0.88); g.shadowBlur = GB * 0.6;
+    g.beginPath(); g.arc(0, 0, r, 0, Math.PI * 2); g.stroke(); g.shadowBlur = 0;
+  };
+
+  // 타겟 존 — 내부 풀 글로우(soft radial fill, 잠금 때 차오름) + 링(은은한 호흡)
+  const pool = g.createRadialGradient(0, 0, 0, 0, 0, Rt * 1.08);
+  pool.addColorStop(0, rgba(0.6, 0.10 + 0.18 * lock));
+  pool.addColorStop(0.65, rgba(0.5, 0.05 + 0.08 * lock));
+  pool.addColorStop(1, rgba(0.5, 0));
+  g.globalAlpha = 1; g.fillStyle = pool; g.beginPath(); g.arc(0, 0, Rt * 1.08, 0, Math.PI * 2); g.fill();
+  const breath = 1 + 0.02 * Math.sin(t * 2.6);
+  glowRing(Rt * breath, 0.55 + 0.4 * lock, 0.5 + 0.45 * lock, 0.9);
+
+  // 수축 링(주역) — R→Rt. 실키 트레일(2겹 후행 잔상) + 히트업(접근할수록 밝고 하얗게)
+  for (let k = 2; k >= 0; k--) {
+    const pe = Math.pow(Math.max(0, p - k * 0.05), 1.6);   // k>0 = 살짝 이전(바깥) 위치 = 잔상
+    const rr = R - (R - Rt) * pe;
+    const a = k === 0 ? (0.6 + 0.4 * e) : (0.18 / k) * (1 - lock);
+    glowRing(rr, 0.55 + 0.4 * e, a * (1 - lock * 0.45), 1.15 - 0.35 * e);
+  }
+
+  // 잠금 — 팽창 블룸 핑(밖으로 퍼지며 소멸)
+  if (lock > 0.01) glowRing(Rt * (1 + 1.4 * lock), 0.9, (1 - lock) * 0.8, 1.1);
+
+  // 중심 핍 — 히트업
+  g.globalAlpha = 0.6 + 0.3 * lock; g.shadowColor = lut(0.85); g.shadowBlur = GB * (0.9 + lock);
+  g.fillStyle = lut(0.62 + 0.3 * lock);
+  g.beginPath(); g.arc(0, 0, lw * 0.85 + 3 * s * lock, 0, Math.PI * 2); g.fill();
+
+  g.restore();
+  g.globalAlpha = 1; g.shadowBlur = 0;
+}
+/** 궤적 — 동작 경로 토큰(파생). 동작이 지나갈 곡선 경로를 빛으로 '그리며' 코멧 헤드가 훑고,
+ *  꼬리는 테이퍼+페이드(라이트페인팅), 헤드엔 블룸+스파크. LINE 광류 언어의 대형 궤적 확장.
+ *  prog 0..1 = 헤드가 경로 시작→끝. ptsIn = 정규[-1,1] 제어점(팩 실동작 좌표로 대체 가능). */
+export function drawTrajectory(g, W, P, look, t, ENV, prog, ptsIn) {
+  const lut = ENV.lut, GB = 13 * look.halo, s = W / 220, C = W / 2;
+  const AW = (ENV.arrow && ENV.arrow.w) || 1, base = AW * s;
+  g.clearRect(0, 0, W, W); g.lineJoin = 'round'; g.lineCap = 'round';
+  const sc = W * 0.42 * (P.spread != null ? P.spread : 1);
+  const ctrl = ptsIn || [[-1.0, 0.62], [-0.6, -0.28], [0.05, -0.78], [0.66, -0.26], [0.98, 0.58]];
+  const CP = ctrl.map(([x, y]) => [C + x * sc, C + y * sc]);
+  const N = 80, path = [];
+  for (let i = 0; i <= N; i++) {                         // Catmull-Rom 스플라인 샘플(부드러운 곡선)
+    const u = i / N * (CP.length - 1), k = Math.min(CP.length - 2, Math.floor(u)), f = u - k;
+    const a = CP[Math.max(0, k - 1)], b = CP[k], c = CP[k + 1], d = CP[Math.min(CP.length - 1, k + 2)];
+    const cr = (A, B, Cc, D) => 0.5 * (2 * B + (-A + Cc) * f + (2 * A - 5 * B + 4 * Cc - D) * f * f + (-A + 3 * B - 3 * Cc + D) * f * f * f);
+    path.push([cr(a[0], b[0], c[0], d[0]), cr(a[1], b[1], c[1], d[1])]);
+  }
+  const p = prog != null ? Math.max(0, Math.min(1, prog)) : (t * (P.tempo || 0.5)) % 1;
+  const head = Math.max(1, p * N), hi = Math.min(N, Math.floor(head));
+  const taper = P.taper != null ? P.taper : 1.4;
+
+  // 1) 전체 경로 고스트 — 어디로 갈지 예고(희미)
+  g.globalAlpha = 0.13; g.strokeStyle = lut(0.42); g.lineWidth = 2.4 * base; g.shadowBlur = 0;
+  g.beginPath(); path.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.stroke();
+
+  // 2) 발광 언더레이 — 페인팅 구간 한 번에(shadowBlur 1회 = 블룸, 비용 절감)
+  g.globalAlpha = 0.5; g.strokeStyle = lut(0.62); g.lineWidth = 7 * base;
+  g.shadowColor = lut(0.8); g.shadowBlur = GB * 1.4;
+  g.beginPath(); for (let i = 0; i <= hi; i++) { const q = path[i]; i ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1]); } g.stroke();
+  g.shadowBlur = 0;
+
+  // 3) 테이퍼 코어 — 꼬리 얇고 흐림 → 헤드 두껍고 밝음(히트업)
+  for (let i = 1; i <= hi; i++) {
+    const f = i / head;
+    g.globalAlpha = Math.pow(f, 1.3); g.strokeStyle = lut(0.55 + 0.4 * f);
+    g.lineWidth = (0.8 + 5.5 * Math.pow(f, taper)) * base;
+    g.beginPath(); g.moveTo(path[i - 1][0], path[i - 1][1]); g.lineTo(path[i][0], path[i][1]); g.stroke();
+  }
+
+  // 4) 코멧 헤드 블룸 + 스파크(라이트페인팅)
+  const hx = path[hi][0], hy = path[hi][1];
+  g.globalAlpha = 1; g.shadowColor = lut(0.9); g.shadowBlur = GB * 1.8; g.fillStyle = lut(0.96);
+  g.beginPath(); g.arc(hx, hy, 4.5 * base, 0, Math.PI * 2); g.fill();
+  const spark = P.spark != null ? P.spark : 1;
+  for (let j = 0; j < 6; j++) {
+    const ang = j * 1.9 + t * 3.2, rad = (5 + (j % 3) * 6) * s * (0.5 + 0.5 * Math.sin(t * 8 + j * 2.1));
+    g.globalAlpha = 0.55 * spark * (0.4 + 0.6 * Math.abs(Math.sin(t * 6 + j)));
+    g.fillStyle = lut(0.92); g.shadowBlur = GB * 0.5;
+    g.beginPath(); g.arc(hx + Math.cos(ang) * rad, hy + Math.sin(ang) * rad, 1.5 * s, 0, Math.PI * 2); g.fill();
+  }
+  g.globalAlpha = 1; g.shadowBlur = 0;
+}

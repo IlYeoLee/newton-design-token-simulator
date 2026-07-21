@@ -3963,20 +3963,28 @@ void main(){
       mirrorPanel.visible = false;
       hudPanel.visible = ctaPanel.visible = false;
       optRing.visible = camMark.visible = false;
-      // A/B/C 씬(scene.html) = 판정토큰(현재 스테이지 G그룹) 유지 — 디자인 UI가 대체한 레거시 벽텍스트·바닥만 숨김.
-      //   그 외(READY·타이머·전환·리포트) = 세션 마크 전체 숨김.
+      // A/B/C 씬 = 룩 시스템 판정 토큰(현재 스테이지 G그룹: 아크·링·가드박스·스윕·화살표) 유지.
+      //   디자인 UI가 이미 표시하는 레거시 벽 텍스트·카운트 슬롯만 숨김(중복 방지).
+      //   그 외(타이머·전환·리포트) = 세션 마크 전체 숨김.
       const isSceneFrame = view.includes('scene.html');
       session.root.visible = isSceneFrame;
       if (isSceneFrame) {
+        // 토큰은 대지 설계 기준 (0, 1.4)에 저작 — 인물 실제 중심(wc.cx, wc.cy)으로 그룹을 통째 이동해
+        // 어깨·발·머리 존이 창 크기·벽 중심과 무관하게 인물에 정렬 (하드코딩 1.4 가정 제거).
+        // z(+0.012) = 인물(demoPanel, WALL_Z+0.035) '앞'으로 — 판정 토큰이 인물에 가리지 않고 부위 지시.
+        session.root.position.set(wc.cx, wc.cy - 1.4, 0.012);
         [session.slotFS, session.slotFL, session.slotFM, session.dirSlot, session.paceLight,
          session.countGroup, session.countRing, session.wSlotFS, session.wSlotFL, session.wSlotFM, session.wCount]
           .forEach(o => { if (o) o.visible = false; });
+      } else {
+        session.root.position.set(0, 0, 0);
       }
       if (session.curStage?.id === 'BX_READY') {
         demoPanel.position.x += rig.wallW * 0.12;   // READY = 기존 우측 슬롯 (유저 확정 레이아웃)
       } else {
-        // A/B/C = 주황 전문가를 벽 정중앙 + 크게. 머리·발이 투사 프레임 안에 들도록 상한.
-        const DBIG = 1.12;
+        // A/B/C = 주황 전문가를 벽 정중앙에 크게. 단, 쿼드(GHOST_H·PAD·DBIG)가 벽 높이를 넘으면
+        // 벽 클리핑에 머리·발이 잘리고 과확대로 흐려짐 → 벽 안에 딱 맞는 상한(DBIG)으로 선명·미절단.
+        const DBIG = 0.88;   // 1.5·1.22·0.88 ≈ 1.61m ≤ 벽 1.63m (uncut) — 과확대 블러 해소
         demoPanel.scale.set(GHOST_H * (9 / 16) / 0.62 * GHOST_PAD * DBIG, GHOST_H / 0.93 * GHOST_PAD * DBIG, 1);
         demoPanel.position.set(wc.cx, wc.cy, WALL_Z + 0.035);
       }

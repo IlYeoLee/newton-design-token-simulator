@@ -443,7 +443,7 @@ class Marker {
 //    촉 크기 = 경로의 0.12 (랩 46px/380px 실측 비율 — 구성 고정, 스케일만 원칙).
 //    구 makeArrow(flatMat 정적 도형 통화살표)와 '촉 끝 주차'는 카탈로그에 없는 종 — 은퇴.
 export const FLOW_ARROWS = [];
-export function makeFlowArrow(len, { tips = 3 } = {}) {
+export function makeFlowArrow(len, { tips = 3, wall = false } = {}) {
   const g = new THREE.Group();
   const mat = makeLaneFXMaterial(len);
   mat._arrowStyle = true;   // 스타일 = FXP.arrow.line (레인과 분리 — 유저 확정)
@@ -468,7 +468,9 @@ export function makeFlowArrow(len, { tips = 3 } = {}) {
       g.add(tip); g._tips.push(tip);
     }
   }
-  g.rotation.x = -Math.PI / 2; g.position.y = 0.014; g.renderOrder = 6;
+  // 바닥 = 수평면(x=-90°, 살짝 띄움). 벽 = 수직면 유지(x=0) → 자루가 +Y로 서고 caller가 rotation.z로 방향 지정.
+  if (wall) { g.rotation.x = 0; g.position.y = 0; } else { g.rotation.x = -Math.PI / 2; g.position.y = 0.014; }
+  g.renderOrder = 6;
   FLOW_ARROWS.push(g);
   return g;
 }

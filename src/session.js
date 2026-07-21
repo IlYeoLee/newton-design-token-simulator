@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { WALL_Z } from './scene.js';
 import { lutColor, GLYPHS, drawGlyph, footSlot, footSDFTexture, FXP } from './fxlut.js';
-import { MARK_NUM, drawSweepBand, drawStanceBox, drawPunchLine } from './fx-core.js';
+import { MARK_NUM, drawSweepBand, drawStanceBox, drawPunchLine, drawApproachRing, drawTrajectory } from './fx-core.js';
 import { makeMarkFXMaterial, makeLaneFXMaterial, makeFlowArrow, tickFlowArrows } from './tokens.js';
 
 // 피그마 CTA 임포트 — StageCard/베이스 컴포넌트의 cta 노드를 다운로드한 에셋(150×44 원 비율).
@@ -258,6 +258,8 @@ const PRIM_DEFAULTS = {
   sweepBand: { w: 1, glow: 1, tempo: 1, h: 1, base: 0.3, edge: 1 },
   stanceBox: { w: 1, glow: 1, tempo: 1, dash: 1, round: 0.2, feet: 1 },
   punchLine: { w: 1, glow: 1, tempo: 1, node: 1, numS: 1, dash: 0 },
+  approachRing: { w: 1, glow: 1, tempo: 0.6, r: 0.42, rt: 0.36 },
+  trajectory: { w: 1, glow: 1, tempo: 0.5, spread: 1, taper: 1.4, spark: 1 },
 };
 function livePrimEnv() {
   return {
@@ -304,6 +306,8 @@ function tickPrims(t) {
     const P = (FXP.prims && FXP.prims[p.kind]) || PRIM_DEFAULTS[p.kind];
     if (p.kind === 'sweepBand') drawSweepBand(g, 256, P, look, t, livePrimEnv(), p.prog);
     else if (p.kind === 'stanceBox') drawStanceBox(g, 256, P, look, t, livePrimEnv());
+    else if (p.kind === 'approachRing') drawApproachRing(g, 256, P, look, t, livePrimEnv(), p.prog);
+    else if (p.kind === 'trajectory') drawTrajectory(g, 256, P, look, t, livePrimEnv(), p.prog, p.pts);
     else drawPunchLine(g, 256, P, look, t, livePrimEnv(), p.pts, p.prog);
     p.tex.needsUpdate = true;
   }
@@ -340,6 +344,15 @@ function sweepBand(x0, y0, x1, y1, color) {
   m.position.set((x0 + x1) / 2, (y0 + y1) / 2, WZ + 0.001);
   m.rotation.z = Math.atan2(y1 - y0, x1 - x0);
   m.renderOrder = 5; return m;
+}
+/** 벽면 방향 화살표 = 룩 시스템 LINE 촉이동 토큰(makeFlowArrow, 수직면).
+ *  (x,y)에서 자루가 뻗고 angleDeg로 지시 방향 회전 — 0=위 · 90=왼쪽 · -90=오른쪽 · 180=아래.
+ *  촉·자루 애니메이션은 tickFlowArrows(세션 tickWaves 내부)가 매 프레임 급이. */
+function wallArrow(x, y, len, angleDeg = 0) {
+  const a = makeFlowArrow(len, { wall: true });
+  a.position.set(x, y, WZ + 0.004);
+  a.rotation.z = THREE.MathUtils.degToRad(angleDeg);
+  return a;
 }
 function wallTap() {
   const g = new THREE.Group();
@@ -654,65 +667,75 @@ export class Session {
   }
 
   _buildBoxing() {
-    // 가드 존 기준: 얼굴 앞 (y≈1.35), 타겟은 그 위 (y≈1.14 실제 판정 높이 Y0=0.73+ny)
-    const TX = -0.13, TY = 1.14;   // 벽 타겟 중심 (tokens LAYOUT.boxing WALL 매핑)
+    // ── 좌표 기준: 인물(주황 전문가)이 벽 정중앙 (0, 1.4)에 서 있고, 실측 투사 결과 신체가
+    //    세계 y ≈ 발 1.10 ~ 머리 1.75 (중심 ≈1.42)에 나타남. 토큰은 그 부위 존에 정렬 —
+    //    머리≈1.74 · 어깨≈1.66 · 가드(주먹)≈1.60 · 가슴≈1.55 · 허리≈1.42 · 무릎≈1.28 · 발≈1.12,
+    //    좌우 반폭 어깨±0.18·발 0·회피±0.26. (Phase 1: 정적 정렬. Phase 2 = x봇 관절 추종 이후.)
+    //    방향성 동작은 룩 시스템 화살표(wallArrow)로 지시.
+    const TX = 0, TY = 1.58;   // 잽 타겟 중심 (가슴~얼굴 앞)
     let g = this._mk('BX_READY');
     this.bxTap = wallTap();   // 미부착 — 원·발판·라벨 중복 제거 (HUD CTA 버튼 전담, 유저)
 
-    // A1 목·어깨 — 회전 아크(어깨 좌우)
+    // A1 목·어깨 돌리기 — 어깨 좌우 회전 아크(MARK Hold 코닉 림 = '돌리기')
     g = this._mk('BX_A1');
-    this.bxA1arcL = wallArc(-0.45, 1.4, 0.14, 0.165, BRAND.sand, Math.PI*0.15, Math.PI*1.4); g.add(this.bxA1arcL);
-    this.bxA1arcR = wallArc(-0.05, 1.4, 0.14, 0.165, BRAND.sand, Math.PI*0.15, Math.PI*1.4); g.add(this.bxA1arcR);   // 중앙 갭 — 내 폼 존 침범 금지
+    this.bxA1arcL = wallArc(-0.18, 1.66, 0.10, 0.125, BRAND.sand, Math.PI*0.15, Math.PI*1.4); g.add(this.bxA1arcL);
+    this.bxA1arcR = wallArc( 0.18, 1.66, 0.10, 0.125, BRAND.sand, Math.PI*0.15, Math.PI*1.4); g.add(this.bxA1arcR);
 
-    // A2 스텝 인·아웃 — 위/아래 방향 존
+    // A2 스텝 인·아웃 — 발밑 근/원 존 + 전진(위쪽) 방향 화살표(LINE 토큰)
     g = this._mk('BX_A2');
-    this.bxA2near = wallRing(0, 1.0, 0.14, 0.16, BRAND.red, 0.4); g.add(this.bxA2near);
-    this.bxA2far = wallRing(0, 1.5, 0.14, 0.16, BRAND.red, 0.4); g.add(this.bxA2far);
+    this.bxA2near = wallRing(0, 1.12, 0.11, 0.13, BRAND.red, 0.4); g.add(this.bxA2near);
+    this.bxA2far  = wallRing(0, 1.30, 0.11, 0.13, BRAND.red, 0.4); g.add(this.bxA2far);
+    g.add(wallArrow(0, 1.10, 0.22, 0));   // 앞으로(in) — 발밑에서 위로
 
-    // A3 잽 폼 — 스윕 + 타겟
+    // A3 잽 폼 — 타겟 링(가슴 앞) + 잽 화살표(허리→타겟, 뻗기)
     g = this._mk('BX_A3');
-    g.add(sweepBand(0.15, 1.15, TX, TY, BRAND.red));
-    this.bxA3ring = wallRing(TX, TY, 0.12, 0.14, BRAND.red, 0.8); g.add(this.bxA3ring);
+    this.bxA3ring = wallRing(TX, TY, 0.10, 0.12, BRAND.red, 0.8); g.add(this.bxA3ring);
+    g.add(wallArrow(0, 1.40, 0.16, 0));   // 잽 = 위로 뻗어 타겟
 
     g = this._mk('BX_T1');
     this.bxTap1 = wallTap();   // 미부착 — HUD CTA 전담
 
-    // B1 가드 유지 — 가드 박스 + 홀드 링 (채움)
+    // B1 가드 유지 — 얼굴+주먹 가드 박스 + 홀드 링(채움)
     g = this._mk('BX_B1');
-    g.add(guardBox(0, 1.35, 0.5, 0.42, BRAND.red, 0.8));
-    // 카탈로그 Hold 림은 회색 트랙+진행 스윕을 한 림에 내장 — 배경 링 별도 스택 금지(러닝 B1과 동일 정리)
-    this.bxHold = wallArc(0, 1.35, 0.20, 0.235, BRAND.sand, Math.PI/2, 0.001, 0); g.add(this.bxHold);
+    g.add(guardBox(0, 1.62, 0.42, 0.36, BRAND.red, 0.8));
+    this.bxHold = wallArc(0, 1.62, 0.17, 0.20, BRAND.sand, Math.PI/2, 0.001, 0); g.add(this.bxHold);
 
-    // B2 회피 스텝 — 회피형 점선 존(공격 범위) 좌우
+    // B2 회피 슬립 — 머리 좌우 회피 존(점선 계약) + 좌/우 슬립 화살표
     g = this._mk('BX_B2');
-    // 회피 존 = MARK 원형 + 회피 계약(uContract=1 → 카탈로그 점선 변조) — 사제 LineDashed 점선 은퇴
-    this.bxDodgeL = wallRing(-0.34, 1.45, 0.17, 0.19, BRAND.coral, 0.95); g.add(this.bxDodgeL);
-    this.bxDodgeR = wallRing(0.34, 1.45, 0.17, 0.19, BRAND.coral, 0.95); g.add(this.bxDodgeR);
+    this.bxDodgeL = wallRing(-0.26, 1.72, 0.12, 0.14, BRAND.coral, 0.95); g.add(this.bxDodgeL);
+    this.bxDodgeR = wallRing( 0.26, 1.72, 0.12, 0.14, BRAND.coral, 0.95); g.add(this.bxDodgeR);
     this.bxDodgeL.material.uniforms.uContract.value = 1;
     this.bxDodgeR.material.uniforms.uContract.value = 1;
-    // '피해요' 사제 텍스트 은퇴 — HUD 캡션('주먹 온다 — 점선 존 밖으로 슬립')이 전담
+    g.add(wallArrow(-0.08, 1.72, 0.17, 90));    // 왼쪽 슬립
+    g.add(wallArrow( 0.08, 1.72, 0.17, -90));   // 오른쪽 슬립
 
-    // B3 잽 스윕 — 스윕 밴드 + 타겟(수축 링)
+    // B3 잽 스윕 — 스윕 밴드(허리→타겟) + 타겟 수축 링 + 잽 화살표
     g = this._mk('BX_B3');
-    this.bxSweep = sweepBand(0.15, 1.15, TX, TY, BRAND.red); g.add(this.bxSweep);
-    this.bxB3ring = wallRing(TX, TY, 0.18, 0.205, BRAND.red, 0.8); g.add(this.bxB3ring);
-    this.bxB3cd = wallRing(TX, TY, 0.18, 0.205, BRAND.prism, 0); g.add(this.bxB3cd);
+    this.bxSweep = sweepBand(0, 1.40, 0, 1.56, BRAND.red); g.add(this.bxSweep);
+    this.bxB3ring = wallRing(TX, TY, 0.14, 0.16, BRAND.red, 0.8); g.add(this.bxB3ring);
+    this.bxB3cd = wallRing(TX, TY, 0.14, 0.16, BRAND.prism, 0); g.add(this.bxB3cd);
 
     this._mk('BX_T2');
 
     g = this._mk('BX_C1');
-    g.add(guardBox(0, 1.35, 0.5, 0.42, BRAND.red, 0.5));
+    g.add(guardBox(0, 1.62, 0.42, 0.36, BRAND.red, 0.5));
 
-    this._mk('BX_C2');       // 라이브 — 벽 타겟 팩 흐름
-    g = this._mk('BX_C3');   // 라이브 콤비 (가속) + 파생 ③ 펀치 라인 (콤보 연결·순서)
-    this.bxCombo = primPanel('punchLine', 1.15, true);
-    this.bxCombo.position.set(0, 1.35, WZ + 0.002);
+    this._mk('BX_C2');       // 라이브 — 벽 타겟은 TokenSystem 팩 흐름이 전담
+    g = this._mk('BX_C3');   // 라이브 콤비 (가속) + 파생 ③ 펀치 라인 (콤보 연결·순서), 주먹 높이
+    this.bxCombo = primPanel('punchLine', 0.9, true);
+    this.bxCombo.position.set(0, 1.52, WZ + 0.002);
     g.add(this.bxCombo);
 
     g = this._mk('BX_C4');
     // '숨 고르기' 3D 텍스트 은퇴 — HUD 코너 아이덴티티가 전담 (EN 미번역 잔재 제거)
 
     g = this._mk('BX_FIN');   // 결과 화면 = 벽 HUD 세로 리포트 전담 (구 벽 텍스트 제거 — 중복)
+
+    // 판정 토큰은 인물(demoPanel renderOrder 7) '앞'에 그려 부위 지시가 인물에 가리지 않게.
+    // (인물 셰이더 depthWrite=false → 가림은 draw order = renderOrder로 결정)
+    for (const id of ['BX_A1','BX_A2','BX_A3','BX_B1','BX_B2','BX_B3','BX_C1','BX_C3']) {
+      this.G[id]?.traverse(o => { if (o.isMesh) o.renderOrder = 9; });
+    }
   }
 
   _tap(sport) {

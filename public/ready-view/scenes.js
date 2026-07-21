@@ -1,6 +1,8 @@
 // 복싱 운동중 화면 데이터 — 공통 템플릿(scene.html)에 stage별로 주입.
 //   phase: 0=START · 1=WARM UP(A) · 2=DRILL(B) · 3=FIGHT(C). 현재 phase 볼드 + sub(n/N).
 //   coach/you 숫자·dotsOn 은 라이브 판정·세션 시간으로 채울 자리(지금은 정적 샘플).
+//   판정 토큰(화살표·타겟·가드)은 여기서 그리지 않음 — 룩 시스템 토큰(session.js _buildBoxing,
+//   tokens.js LINE/MARK)이 벽 3D로 전담. UI 프레임은 텍스트·아바타·진행바만 담당.
 window.PHASES = ['START', 'WARM UP', 'DRILL', 'FIGHT'];
 window.SCENES = {
   // ── A · 준비운동 (WARM UP) ──
