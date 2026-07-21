@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { WALL_Z } from './scene.js';
 import { lutColor, GLYPHS, drawGlyph, footSlot, footSDFTexture, FXP } from './fxlut.js';
-import { MARK_NUM, drawSweepBand, drawStanceBox, drawPunchLine, drawApproachRing, drawTrajectory, drawRotate } from './fx-core.js';
+import { MARK_NUM, drawStanceBox, drawPunchLine, drawApproachRing, drawTrajectory, drawRotate } from './fx-core.js';
 import { makeMarkFXMaterial, makeLaneFXMaterial, makeFlowArrow, tickFlowArrows } from './tokens.js';
 
 // 피그마 CTA 임포트 — StageCard/베이스 컴포넌트의 cta 노드를 다운로드한 에셋(150×44 원 비율).
@@ -255,7 +255,6 @@ const LANE_MATS = [];   // 세션 레인 재질 틱 (tickWaves가 uTime·LINE �
 
 // ── 파생 프리미티브 = fx-core 정본 캔버스 소비 (랩과 같은 코드 — 100% 동일 이식) ──
 const PRIM_DEFAULTS = {
-  sweepBand: { w: 1, glow: 1, tempo: 1, h: 1, base: 0.3, edge: 1 },
   stanceBox: { w: 1, glow: 1, tempo: 1, dash: 1, round: 0.2, feet: 1 },
   punchLine: { w: 1, glow: 1, tempo: 1, node: 1, numS: 1, dash: 0 },
   approachRing: { w: 1, glow: 1, tempo: 0.6, r: 0.42, rt: 0.36 },
@@ -306,8 +305,7 @@ function tickPrims(t) {
     const look = { halo: FXP.mark.halo };
     const base = (FXP.prims && FXP.prims[p.kind]) || PRIM_DEFAULTS[p.kind];
     const P = p.P ? { ...base, ...p.P } : base;
-    if (p.kind === 'sweepBand') drawSweepBand(g, 256, P, look, t, livePrimEnv(), p.prog);
-    else if (p.kind === 'stanceBox') drawStanceBox(g, 256, P, look, t, livePrimEnv());
+    if (p.kind === 'stanceBox') drawStanceBox(g, 256, P, look, t, livePrimEnv());
     else if (p.kind === 'approachRing') drawApproachRing(g, 256, P, look, t, livePrimEnv(), p.prog);
     else if (p.kind === 'trajectory') drawTrajectory(g, 256, P, look, t, livePrimEnv(), p.prog, p.pts);
     else if (p.kind === 'rotate') drawRotate(g, 256, P, look, t, livePrimEnv(), p.prog);
@@ -341,14 +339,6 @@ function guardBox(x, y, w, h, color, op = 0.8) {
   m._prim.P = { feet: 0, round: 0.5 };
   m.material.opacity = op;
   m.position.set(x, y, WZ); return m;
-}
-function sweepBand(x0, y0, x1, y1, color) {
-  // 파생 ① 스윕 밴드 — fx-core 정본 (트랙+진행 채움+전연 백열). prog는 장면이 구동(_prim.prog).
-  const dist = Math.hypot(x1 - x0, y1 - y0);
-  const m = primPanel('sweepBand', (dist + 0.4) / 0.782, true);   // 캔버스 내 밴드 길이비
-  m.position.set((x0 + x1) / 2, (y0 + y1) / 2, WZ + 0.001);
-  m.rotation.z = Math.atan2(y1 - y0, x1 - x0);
-  m.renderOrder = 5; return m;
 }
 /** 벽면 방향 화살표 = 룩 시스템 LINE 촉이동 토큰(makeFlowArrow, 수직면).
  *  (x,y)에서 자루가 뻗고 angleDeg로 지시 방향 회전 — 0=위 · 90=왼쪽 · -90=오른쪽 · 180=아래.

@@ -368,30 +368,6 @@ export function strokeFlowPath(g, pts, t, AW, opts, ENV) {
   g.setLineDash([]); g.lineCap = 'butt'; g.lineDashOffset = 0; g.shadowBlur = 0;
   return true;
 }
-/** 스윕 밴드 — 구간 진행 (트랙 + 진행 채움 + 전연 백열). prog 미지정 시 데모 루프. */
-export function drawSweepBand(g, W, P, look, t, ENV, prog) {
-  const GB = 13 * look.halo;
-  const lut = ENV.lut;
-  g.clearRect(0, 0, W, W); g.lineJoin = 'round';
-  const p = prog != null ? Math.max(0, Math.min(1, prog)) : (t * 0.25) % 1;
-  const C = W / 2;
-  const bh = (100 / 220) * W * P.h, by = C - bh / 2, m = W * (24 / 220);
-  // 필(pill) 실루엣 — 하드 사각 필이 벽에서 '사각 박스'로 읽히던 문제 (유저 전수검사)
-  const pill = () => { g.beginPath(); g.roundRect(m, by, W - 2 * m, bh, bh / 2); };
-  g.fillStyle = lut(0.30); g.globalAlpha = P.base;
-  pill(); g.fill();
-  g.save(); pill(); g.clip();
-  g.globalAlpha = 0.85; g.fillStyle = lut(0.62);
-  g.shadowColor = lut(0.7); g.shadowBlur = GB;
-  g.fillRect(m, by, (W - 2 * m) * p, bh);
-  if (P.edge > 0.02) {
-    g.globalAlpha = Math.min(1, P.edge);
-    g.fillStyle = lut(0.95);
-    g.fillRect(m + (W - 2 * m) * p - 2 * P.edge, by, 4 * P.edge, bh);
-  }
-  g.restore();
-  g.globalAlpha = 1; g.shadowBlur = 0;
-}
 /** 스탠스 박스 — 서는 영역 (LINE 상속 둘레 + FOOT 글리프) */
 export function drawStanceBox(g, W, P, look, t, ENV) {
   const GB = 13 * look.halo;
