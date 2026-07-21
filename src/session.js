@@ -288,7 +288,7 @@ function primPanel(kind, sizeM, wall) {
   if (!wall) m.rotation.x = -Math.PI / 2;
   m.renderOrder = 6;
   m.userData.el = { type: kind, wall: !!wall };
-  const panel = { kind, c, tex, m, prog: null, pts: null };
+  const panel = { kind, c, tex, m, prog: null, pts: null, P: null };   // P = 인스턴스별 파라미터 오버라이드
   m._prim = panel;
   PRIM_PANELS.push(panel);
   return m;
@@ -303,7 +303,8 @@ function tickPrims(t) {
     if (!vis || !p.m.parent) continue;
     const g = p.c.getContext('2d');
     const look = { halo: FXP.mark.halo };
-    const P = (FXP.prims && FXP.prims[p.kind]) || PRIM_DEFAULTS[p.kind];
+    const base = (FXP.prims && FXP.prims[p.kind]) || PRIM_DEFAULTS[p.kind];
+    const P = p.P ? { ...base, ...p.P } : base;
     if (p.kind === 'sweepBand') drawSweepBand(g, 256, P, look, t, livePrimEnv(), p.prog);
     else if (p.kind === 'stanceBox') drawStanceBox(g, 256, P, look, t, livePrimEnv());
     else if (p.kind === 'approachRing') drawApproachRing(g, 256, P, look, t, livePrimEnv(), p.prog);
@@ -332,8 +333,10 @@ function wallText(text, x, y, opts) {
 }
 /** 가드 존 박스 — 신체 부위가 머물 영역 (스탠스 박스 파생: FX Lab round·dash 소비) */
 function guardBox(x, y, w, h, color, op = 0.8) {
-  // 파생 ② 스탠스 박스 — fx-core 정본 드로잉 (LINE 상속 둘레 + MARK 헤일로 + FOOT 글리프)
+  // 가드 박스 = 스탠스 박스 파생(LINE 둘레 + MARK 헤일로)이되, 가드는 발이 아니라 주먹/얼굴이므로
+  // FOOT 글리프 제거(feet:0) + 모서리 둥글게. (발자국은 스텝/스탠스 전용)
   const m = primPanel('stanceBox', w / 0.636, true);   // 캔버스 내 박스 폭비 140/220
+  m._prim.P = { feet: 0, round: 0.5 };
   m.material.opacity = op;
   m.position.set(x, y, WZ); return m;
 }
@@ -1206,9 +1209,10 @@ export class Session {
       return;
     }
 
-    // 실전 러닝(live)만 바닥 step 마크 통째 숨김 — 달리며 밟을 과녁 제거(페이서·리듬만).
-    // 농구 라이브는 제자리 스텝 드릴이라 스폿 유지(숨김 X) → 종목으로 스코프.
-    this.tokens.liveHideFloorMarks = (this.sport === 'running' && !!st.live);
+    // 실전 러닝(C)만 바닥 step 마크 숨김 — 달리며 밟을 과녁 제거(페이서·리듬만).
+    // 페이스 익히기(P1/P2)는 1·2·3 밟기 마크 유지 = 연습 큐. "연습엔 큐, 실전엔 페이딩".
+    // 농구 라이브는 제자리 스텝 드릴이라 스폿 유지 → 러닝 C에만 스코프.
+    this.tokens.liveHideFloorMarks = (this.sport === 'running' && !!st.live && id[0] === 'C');
     if (this.sport === 'boxing') this._updateBoxing(id, st, beat, FMU);
     else if (this.sport === 'basketball') this._updateBasketball(id, st, beat, FMU);
     else this._updateRunning(id, st, beat, FMU);
