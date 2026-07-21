@@ -3994,6 +3994,21 @@ void main(){
   frameCssScene.add(floorObj);
   let loadedFloorView = null;
   const _rV = new THREE.Vector3(), _fV = new THREE.Vector3(), _uV = new THREE.Vector3(0, 1, 0), _mBasis = new THREE.Matrix4();
+  // 발밑 글로우 = WebGL 가산 블렌드 평면. CSS(floor.html)는 잔디와 블렌드 불가라 빨간 딱지처럼 떴음(유저).
+  // 가산광이라 잔디에 빛을 '더해' 진짜 투사광처럼 자연스럽게 물듦.
+  const glowCanvas = document.createElement('canvas'); glowCanvas.width = glowCanvas.height = 256;
+  {
+    const gx = glowCanvas.getContext('2d');
+    const gr = gx.createRadialGradient(128, 128, 0, 128, 128, 128);
+    gr.addColorStop(0, 'rgba(255,64,50,0.95)'); gr.addColorStop(0.32, 'rgba(255,96,58,0.5)');
+    gr.addColorStop(0.62, 'rgba(210,250,255,0.14)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+    gx.fillStyle = gr; gx.fillRect(0, 0, 256, 256);
+  }
+  const floorGlowTex = new THREE.CanvasTexture(glowCanvas);
+  const floorGlow = new THREE.Mesh(new THREE.PlaneGeometry(1, 1),
+    new THREE.MeshBasicMaterial({ map: floorGlowTex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+  floorGlow.rotation.x = -Math.PI / 2; floorGlow.renderOrder = 3; floorGlow.visible = false;
+  scene.add(floorGlow);
   function renderDesignFrame() {
     // CSS3D 레이어 = WebGL 캔버스에 매 프레임 정확 정합 — 창≠캔버스(크기·aspect)여도 원근·스케일 일치
     //   (이게 안 맞으면 디자인이 벽보다 크게 부풀어 프레임영역 밖으로 넘침 — 유저 창 크기 의존 버그의 원인)
@@ -4075,6 +4090,15 @@ void main(){
       // 프레임이 헤더를 다 담으므로 세션 3D 헤더 슬롯 숨김(중복 제거) — 복싱 벽 프레임과 동일 규약.
       if (session.slotFS) session.slotFS.visible = false;
       if (session.slotFL) session.slotFL.visible = false;
+      // 발밑 글로우 — floor.html 발(foot) 위치(대지 y≈1400/2670≈near-mid)에 가산광. 잔디에 자연 투사광.
+      const glowD = rig.fpNear + (rig.fpFar - rig.fpNear) * 0.42;
+      floorGlow.visible = true;
+      floorGlow.position.set(fp.ox + fp.fx * glowD, 0.006, fp.oz + fp.fz * glowD);
+      floorGlow.rotation.set(-Math.PI / 2, 0, Math.atan2(fp.fx, fp.fz) + Math.PI);
+      const gsz = 2 * rig._halfAt(glowD) * 1.05;
+      floorGlow.scale.set(gsz, gsz, 1);
+    } else {
+      floorGlow.visible = false;
     }
     // 항상 렌더 — 표시/숨김 전환에도 CSS3D transform 항상 동기(재진입 시 위치 어긋남·잔류 방지)
     cssRenderer.render(frameCssScene, camera);
