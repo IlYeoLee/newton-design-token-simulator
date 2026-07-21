@@ -3983,7 +3983,7 @@ void main(){
   //    스테이지 → { src, w, h } (대지 px). 러닝 1600×2000(세로). HTML/CSS 모션 = Figma export 프레임 자리.
   const FLOOR_FRAMES = {
     READY: { src: 'ready-view/floor.html', w: 1600, h: 2670 },        // 러닝 (세로) — 2m 안정투사 꽉 채움
-    BK_READY: { src: 'ready-view/floor-bk.html', w: 1600, h: 1600 },  // 농구 (정사각) — 동일 파이프라인
+    BK_READY: { src: 'ready-view/floor-bk.html', w: 1600, h: 2670 },  // 농구 — 러닝 첫화면 이식(폭은 균일스케일 자동 조정)
   };
   const floorIframe = document.createElement('iframe');
   floorIframe.setAttribute('scrolling', 'no');
