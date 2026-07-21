@@ -708,9 +708,9 @@ void main(){
     controls.enabled = !fpMode;
     // 진짜 눈 시점: 자기 몸은 시야를 가리지 않음 + 인간 유효 시야각
     xbot.model.visible = !fpMode;
-    // 1인칭 화각 = 종목별: 복싱(제자리·벽 응시)은 사람 체감에 맞게 좁게 —
-    // 85° 광각은 모니터에서 3.4m 벽 투사(실제 체감 36°=1.5m 앞 55인치 TV급)를 과소하게 보이게 함
-    camera.fov = fpMode ? (state.pack === 'boxing' ? 58 : 85) : 50;
+    // 1인칭 화각 = 종목별: 복싱(벽 응시) 58°. 러닝도 광각(85°)이면 발앞 투사 UI가 과소하게 멀리·작게
+    // 보임(유저) → 사람 유효 중심시야(~55°)에 맞춰 62°로 좁혀 UI가 화면을 자연히 채우게.
+    camera.fov = fpMode ? (state.pack === 'boxing' ? 58 : 62) : 50;
     camera.updateProjectionMatrix();
     const vb = document.getElementById('btn-view');
     if (vb) vb.textContent = fpMode ? '3인칭 보기' : '1인칭 보기';
