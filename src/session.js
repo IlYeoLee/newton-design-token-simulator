@@ -1218,8 +1218,7 @@ export class Session {
     // 실전 러닝(C)만 바닥 step 마크 숨김 — 달리며 밟을 과녁 제거(페이서·리듬만).
     // 페이스 익히기(P1/P2)는 1·2·3 밟기 마크 유지 = 연습 큐. "연습엔 큐, 실전엔 페이딩".
     // 농구 라이브는 제자리 스텝 드릴이라 스폿 유지 → 러닝 C에만 스코프.
-    // READY = 바닥 대지 프레임(floor.html)이 프롬프트를 대체 → 네이티브 마크 숨김(중복 제거).
-    this.tokens.liveHideFloorMarks = (this.sport === 'running' && ((!!st.live && id[0] === 'C') || id === 'READY'));
+    this.tokens.liveHideFloorMarks = (this.sport === 'running' && !!st.live && id[0] === 'C');
     if (this.sport === 'boxing') this._updateBoxing(id, st, beat, FMU);
     else if (this.sport === 'basketball') this._updateBasketball(id, st, beat, FMU);
     else this._updateRunning(id, st, beat, FMU);
@@ -1407,7 +1406,6 @@ export class Session {
     } else if (id === 'BX_A1') {
       // 목·어깨 회전 토큰 = 자체 회전(데모 루프)으로 '돌리기' 표시. 카운트만 갱신.
       FMU(`${Math.min(8, Math.floor(this.t / 0.7) + 1)} / 8`, CS.sand);
-      this._cueBeat = Math.floor(this.t / 2.1);   // 자막 비트 = 마크 3회(~2.1s)마다
       if (this.t >= 8 * 0.7) { this.next(); return; }
     } else if (id === 'BX_A2') {
       // 스텝 인·아웃 — 근/원 존 교대
@@ -1415,7 +1413,6 @@ export class Session {
       this.bxA2near.material.opacity = near ? 0.9 : 0.35;
       this.bxA2far.material.opacity = near ? 0.35 : 0.9;
       FMU(`앞뒤 ${Math.min(6, Math.floor(this.t / per) + 1)} / 6`, CS.sand);
-      this._cueBeat = Math.floor(this.t / (per * 3));   // 스텝 3회(~2.1s)마다
       if (this.t >= 6 * per + 0.4) { this.next(); return; }
     } else if (id === 'BX_A3') {
       // 잽 폼 — 어프로치 링(타이밍) + 잽 궤적. 렙마다 방향을 바꿔 다양한 잽(정면·크로스·좌우)
@@ -1424,7 +1421,6 @@ export class Session {
       this.bxA3ap._prim.prog = ph;    // 링이 맞물리는 순간 = 잽 타이밍
       this.bxA3jab._prim.prog = ph;   // 잽 궤적 뻗기
       FMU(`잽 ${Math.min(6, Math.floor(this.t / BT) + 1)} / 6`);
-      this._cueBeat = Math.floor(this.t / (BT * 2));   // 잽 2회(~1.8s)마다
       if (this.t >= 6 * BT + 0.4) { this.next(); return; }
     } else if (id === 'BX_B1') {
       // 가드 유지 — 홀드 링 3초 채움 × 게이트(3회)
@@ -1435,7 +1431,6 @@ export class Session {
       const done = Math.min(3, rep + (p >= 1 ? 1 : 0));
       FMU(`가드 유지 ${done} / 3 ✓`, done >= 3 ? CS.prism : CS.sand);
       this._gate = done;
-      this._cueBeat = rep;   // 홀드 1회(~3.5s)마다
       if (done >= 3) { this.next(); return; }
     } else if (id === 'BX_B2') {
       // 회피 슬립 — 좌우 점선 존 교대 위협
@@ -1443,7 +1438,6 @@ export class Session {
       this.bxDodgeL.setOp(left ? 0.95 : 0.3);
       this.bxDodgeR.setOp(left ? 0.3 : 0.95);
       FMU(`슬립 ${Math.min(6, Math.floor(this.t / per) + 1)} / 6`, CS.coral);
-      this._cueBeat = Math.floor(this.t / (per * 2));   // 슬립 2회(~2s)마다
       if (this.t >= 6 * per + 0.3) { this.next(); return; }
     } else if (id === 'BX_B3') {
       // 잽 스윕 — 스윕 밴드 밝기 + 타겟 수축 링, 맞춘 잽 카운트
@@ -1453,17 +1447,14 @@ export class Session {
       this.bxB3cd.setOp(0.4 + 0.55 * ph); this.bxB3cd.scale.setScalar(1.9 - 0.9 * ph);   // setOp 규약 (구 .opacity는 셰이더에 무효 — 링이 안 보였음)
       const hits = Math.min(6, Math.floor(this.t / BT));
       FMU(`맞춘 잽 ${hits} / 6`, hits >= 6 ? CS.prism : CS.dim);
-      this._cueBeat = Math.floor(this.t / (BT * 2));   // 스윕 2회(~1.8s)마다
       if (this.t >= 6 * BT + 0.4) { this._gateAdvance(); return; }
     } else if (id === 'BX_C1') {
       const n = Math.max(1, 3 - Math.floor(this.t)); if (n !== this._lastCount) { this._setCountWall(n, CS.ink); this._lastCount = n; }
       if (this.t >= st.dur) { this.next(); return; }
     } else if (id === 'BX_C2' || id === 'BX_C3') {
       if (id === 'BX_C3' && this.bxCombo) this.bxCombo._prim.prog = (this.t % 2.4) / 2.4;   // 콤보 사이클
-      this._cueBeat = Math.floor(this.t / 2.0);   // 실전 콜 ~2s마다
       if (this.t >= st.dur) { this.next(); return; }
     } else if (id === 'BX_C4') {
-      this._cueBeat = Math.floor(this.t / 1.5);   // 쿨다운 콜 ~1.5s마다
       this.liveSpeed = Math.max(0.12, 1 - this.t / 2.4);
       if (this.liveSpeed <= 0.13 && this.t > 2.8) { this.liveSpeed = 1; this.stageIdx = this.stages.findIndex(s2 => s2.id === 'BX_FIN'); this.t = 0; this._enter(); return; }
     }

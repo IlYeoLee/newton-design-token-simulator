@@ -3938,8 +3938,6 @@ void main(){
   frameObj.visible = false;
   frameCssScene.add(frameObj);
   let loadedView = null;
-  let frameReady = false, lastCueBeat = -1;   // frameReady=현재 src 로드 완료 · lastCueBeat=마지막으로 iframe에 전달한 코치 콜 비트
-  frameIframe.addEventListener('load', () => { frameReady = true; });
 
   // ── 바닥 대지 프레임 (러닝/농구): 무릎 투사 풋프린트에 CSS3D 대지를 눕혀 얹음 ──
   //   벽 프레임과 같은 cssScene·같은 render camera(1인칭이든 3인칭이든 자동 정합).
@@ -3951,14 +3949,12 @@ void main(){
   const floorIframe = document.createElement('iframe');
   floorIframe.setAttribute('scrolling', 'no');
   // 벽과 동일 루마키: 검정(투사 안 함)=투명→바닥 비침, 흰·컬러=불투명 선명.
-  // 바닥 대지는 배경 투명 저작(검정 없음) → 루마키 불필요. 발광 요소만 잔디에 얹힘.
-  Object.assign(floorIframe.style, { border: '0', background: 'transparent' });
+  Object.assign(floorIframe.style, { border: '0', background: 'transparent', filter: 'url(#ui-lumakey)' });
   const floorObj = new CSS3DObject(floorIframe);
   floorObj.visible = false;
   frameCssScene.add(floorObj);
   let loadedFloorView = null;
   const _rV = new THREE.Vector3(), _fV = new THREE.Vector3(), _uV = new THREE.Vector3(0, 1, 0), _mBasis = new THREE.Matrix4();
-  if (import.meta.env.DEV && window.__dbg) window.__dbg.floorObj = floorObj;
   function renderDesignFrame() {
     // CSS3D 레이어 = WebGL 캔버스에 매 프레임 정확 정합 — 창≠캔버스(크기·aspect)여도 원근·스케일 일치
     //   (이게 안 맞으면 디자인이 벽보다 크게 부풀어 프레임영역 밖으로 넘침 — 유저 창 크기 의존 버그의 원인)
@@ -3971,15 +3967,14 @@ void main(){
     cssRenderer.domElement.style.top = cvr.top + 'px';
     const view = (session.active && state.pack === 'boxing') ? DESIGN_FRAMES[session.curStage?.id] : null;
     const wc = view ? rig._wallCenter : null;
-    if (view && wc && view !== loadedView) {   // 벽 준비 후 새 뷰만 로드(같은 뷰 재진입=그대로). 로드는 여기서, 노출은 아래 frameReady로 게이트.
-      const dur = STAGE_DUR[session.curStage?.id] ?? session.curStage?.dur ?? 8;
-      const needsDur = view.includes('scene.html') || view.includes('timer.html');
-      frameReady = false; lastCueBeat = -1;   // 새 프레임 로드 완료 전엔 숨김 → 재진입 시 이전 세션의 옛 자막 DOM이 잠깐 비쳤다 튀는 버그 방지
-      frameIframe.src = import.meta.env.BASE_URL + view + (needsDur ? '&dur=' + dur : '');
-      loadedView = view;
-    }
-    frameObj.visible = !!view && !!wc && frameReady;   // wc 준비 + 새 프레임 로드 완료 후에만 노출 (초기 (0,1.4) 튐 + stale 프레임 동시 차단)
+    frameObj.visible = !!view && !!wc;   // 벽 좌표 준비 전엔 숨김 — 재진입 초기 _wallCenter undefined일 때 프레임이 (0,1.4) '중앙'으로 튀는 플래시 방지
     if (frameObj.visible) {
+      if (view !== loadedView) {   // 다른 뷰만 로드(같은 뷰 재진입=그대로)
+        const dur = STAGE_DUR[session.curStage?.id] ?? session.curStage?.dur ?? 8;
+        const needsDur = view.includes('scene.html') || view.includes('timer.html');
+        frameIframe.src = import.meta.env.BASE_URL + view + (needsDur ? '&dur=' + dur : '');
+        loadedView = view;
+      }
       // 매 프레임 벽 정합 — 대지 2600×1600 → 벽(wallW×wallH), x/y 독립 스케일(aspect 무관, 이식 안전)
       frameObj.position.set(wc.cx, wc.cy, WALL_Z + 0.02);
       frameObj.rotation.set(0, 0, 0);
@@ -3993,10 +3988,6 @@ void main(){
       //   그 외(타이머·전환·리포트) = 세션 마크 전체 숨김.
       const isSceneFrame = view.includes('scene.html');
       session.root.visible = isSceneFrame;
-      if (isSceneFrame && (session._cueBeat || 0) !== lastCueBeat) {   // 코치 자막을 실제 mark 비트에 동기 — 세션이 비트를 넘길 때만 iframe 자막 교체(시간 타이머 X → 정신없음 해소)
-        lastCueBeat = session._cueBeat || 0;
-        frameIframe.contentWindow?.__setCue?.(lastCueBeat);
-      }
       if (isSceneFrame) {
         // 토큰은 대지 설계 기준 (0, 1.4)에 저작 — 인물 실제 중심(wc.cx, wc.cy)으로 그룹을 통째 이동해
         // 어깨·발·머리 존이 창 크기·벽 중심과 무관하게 인물에 정렬 (하드코딩 1.4 가정 제거).
@@ -4030,32 +4021,19 @@ void main(){
         floorIframe.src = import.meta.env.BASE_URL + fView.src;
         loadedFloorView = fView.src;
       }
-      // 사다리꼴 풋프린트에 대지 종횡비를 유지한 채 내접하는 '최대 직사각형'을 계산.
-      //   대지는 직사각(near~far 일정 폭)인데 풋프린트는 근거리가 좁음 → 그냥 채우면 근거리 측면이 삐져나옴.
-      //   근단 변이 사다리꼴 측면에 정확히 접하도록 근단거리 z0를 잡고, 종횡비대로 깊이 D를 정해 무왜곡·무넘침.
-      const A = fView.w / fView.h;                              // 대지 종횡비(폭/깊이)
-      const hN = rig._halfAt(rig.fpNear), hF = rig._halfAt(rig.fpFar);
-      const k = (hF - hN) / Math.max(0.01, rig.fpFar - rig.fpNear);   // 반폭 증가율(선형)
-      let z0 = (rig.fpFar - 2 * hN / A + 2 * k * rig.fpNear / A) / (1 + 2 * k / A);
-      z0 = Math.max(rig.fpNear, z0);
-      let W = 2 * (hN + k * (z0 - rig.fpNear)), D = W / A;
-      if (z0 + D > rig.fpFar) { D = rig.fpFar - z0; W = D * A; }  // 원단 클램프(안전)
-      const dCenter = z0 + D / 2;
-      const cx = fp.ox + fp.fx * dCenter, cz = fp.oz + fp.fz * dCenter;
+      // 풋프린트 중앙(전방 fpNear~fpFar 중간)에 대지 중심을 앵커.
+      const dMid = (rig.fpNear + rig.fpFar) / 2;
+      const cx = fp.ox + fp.fx * dMid, cz = fp.oz + fp.fz * dMid;
       // 로컬축 → 월드: 대지 폭(+X)→풋프린트 우측, 대지 높이(+Y=위쪽/제목)→전방(far), 법선(+Z)→상방.
       _rV.set(fp.rx, 0, fp.rz); _fV.set(fp.fx, 0, fp.fz);
       _mBasis.makeBasis(_rV, _fV, _uV);
       floorObj.quaternion.setFromRotationMatrix(_mBasis);
       floorObj.position.set(cx, 0.012, cz);
-      floorObj.scale.set(W / fView.w, D / fView.h, 1);
-    }
-    // 대지가 네이티브 바닥 UI를 통째 대체 — 복싱 비(非)씬 프레임처럼 session.root 숨김.
-    //   개별 마크/슬롯 두더지잡기 대신 레이어 통째. 풋프린트 글로우는 rig 소속이라 유지.
-    //   매 프레임 보드 유무로 결정 → READY 벗어나면(A1 등) 자동 복원(숨김 고착 방지).
-    //   라이브 대지(발마크 필요)는 유지: !curStage.live 일 때만 숨김.
-    if (isFloorSport) {
-      const hideNative = floorObj.visible && !session.curStage?.live;
-      if (session.root) session.root.visible = !hideNative;
+      // 대지 px → 물리 m. 폭=풋프린트 중앙폭(2·halfAt), 깊이=fpFar−fpNear. x/y 독립(대지 종횡비 무관).
+      // ponytail: 풋프린트는 사다리꼴이라 근거리 좌우가 대지보다 좁음 → 측면 소폭 넘침 가능.
+      //           키스톤 워프(matrix3d)로 정밀 정합은 넘침이 문제될 때 추가.
+      const laneW = 2 * rig._halfAt(dMid), laneD = rig.fpFar - rig.fpNear;
+      floorObj.scale.set(laneW / fView.w, laneD / fView.h, 1);
     }
     // 항상 렌더 — 표시/숨김 전환에도 CSS3D transform 항상 동기(재진입 시 위치 어긋남·잔류 방지)
     cssRenderer.render(frameCssScene, camera);
