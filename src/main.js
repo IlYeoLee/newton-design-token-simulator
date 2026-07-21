@@ -3931,23 +3931,30 @@ void main(){
   document.body.appendChild(cssRenderer.domElement);   // 크기·위치는 매 프레임 WebGL 캔버스에 정합(아래 renderDesignFrame)
   const frameIframe = document.createElement('iframe');
   frameIframe.setAttribute('scrolling', 'no');
-  // 루마 키 필터 — 밝은 UI(흰 카드·컬러 알약)는 불투명, 어두운 글자만 투명(뒤 벽 비침 = 구멍).
-  //   feColorMatrix: 알파 = 휘도(밝을수록 불투명). feComponentTransfer: 임계 → 어두운 글자만 알파 0.
-  //   빔프 원리(검정=빛 없음=벽)를 '어두운 픽셀만' 정확히 재현. 흰/컬러는 그대로 불투명.
-  const lumaSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  lumaSvg.setAttribute('width', '0'); lumaSvg.setAttribute('height', '0');
-  lumaSvg.style.cssText = 'position:absolute;width:0;height:0';
-  lumaSvg.innerHTML = '<defs><filter id="ui-lumakey" color-interpolation-filters="sRGB">'
-    + '<feColorMatrix type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0.3 0.4 0.3 0 0"/>'
-    + '<feComponentTransfer><feFuncA type="table" tableValues="0 0 1 1"/></feComponentTransfer>'
-    + '</filter></defs>';
-  document.body.appendChild(lumaSvg);
-  Object.assign(frameIframe.style, { width: FRAME_W + 'px', height: (FRAME_W * 1600 / 2600) + 'px', border: '0', background: 'transparent', filter: 'url(#ui-lumakey)' });
+  // 투사 UI = 솔리드 그대로(검정 글자 검정으로) + 전체에 딱 5%만 균일 투명도(opacity 0.95) → 벽에 은은한 투사감.
+  Object.assign(frameIframe.style, { width: FRAME_W + 'px', height: (FRAME_W * 1600 / 2600) + 'px', border: '0', background: 'transparent', opacity: '0.95' });
   const frameCssScene = new THREE.Scene();
   const frameObj = new CSS3DObject(frameIframe);
   frameObj.visible = false;
   frameCssScene.add(frameObj);
   let loadedView = null;
+
+  // ── 바닥 대지 프레임 (러닝/농구): 무릎 투사 풋프린트에 CSS3D 대지를 눕혀 얹음 ──
+  //   벽 프레임과 같은 cssScene·같은 render camera(1인칭이든 3인칭이든 자동 정합).
+  //   벽=복싱 / 바닥=러닝·농구 로 종목 배타 → 두 프레임 충돌 없음.
+  //   스테이지 → { src, w, h } (대지 px). 러닝 1600×2000(세로), 농구 1600×1600(정사각).
+  const FLOOR_FRAMES = {
+    READY: { src: 'ready-view/floor.html', w: 1600, h: 2000 },   // 러닝 준비 대지 (플레이스홀더 — Figma export 자리)
+  };
+  const floorIframe = document.createElement('iframe');
+  floorIframe.setAttribute('scrolling', 'no');
+  // 벽과 동일 루마키: 검정(투사 안 함)=투명→바닥 비침, 흰·컬러=불투명 선명.
+  Object.assign(floorIframe.style, { border: '0', background: 'transparent', filter: 'url(#ui-lumakey)' });
+  const floorObj = new CSS3DObject(floorIframe);
+  floorObj.visible = false;
+  frameCssScene.add(floorObj);
+  let loadedFloorView = null;
+  const _rV = new THREE.Vector3(), _fV = new THREE.Vector3(), _uV = new THREE.Vector3(0, 1, 0), _mBasis = new THREE.Matrix4();
   function renderDesignFrame() {
     // CSS3D 레이어 = WebGL 캔버스에 매 프레임 정확 정합 — 창≠캔버스(크기·aspect)여도 원근·스케일 일치
     //   (이게 안 맞으면 디자인이 벽보다 크게 부풀어 프레임영역 밖으로 넘침 — 유저 창 크기 의존 버그의 원인)
@@ -4001,6 +4008,32 @@ void main(){
         demoPanel.scale.set(GHOST_H * (9 / 16) / 0.62 * GHOST_PAD * DBIG, GHOST_H / 0.93 * GHOST_PAD * DBIG, 1);
         demoPanel.position.set(wc.cx, wc.cy, WALL_Z + 0.035);
       }
+    }
+    // ── 바닥 대지 프레임 정합 (러닝/농구) ──
+    const isFloorSport = session.active && (session.sport === 'running' || session.sport === 'basketball');
+    const fView = isFloorSport ? FLOOR_FRAMES[session.curStage?.id] : null;
+    const fp = rig._fp;   // 무릎 투사 풋프린트 (rig.update가 매 프레임 세팅)
+    floorObj.visible = !!fView && !!fp;
+    if (floorObj.visible) {
+      if (fView.src !== loadedFloorView) {
+        floorIframe.style.width = fView.w + 'px';
+        floorIframe.style.height = fView.h + 'px';
+        floorIframe.src = import.meta.env.BASE_URL + fView.src;
+        loadedFloorView = fView.src;
+      }
+      // 풋프린트 중앙(전방 fpNear~fpFar 중간)에 대지 중심을 앵커.
+      const dMid = (rig.fpNear + rig.fpFar) / 2;
+      const cx = fp.ox + fp.fx * dMid, cz = fp.oz + fp.fz * dMid;
+      // 로컬축 → 월드: 대지 폭(+X)→풋프린트 우측, 대지 높이(+Y=위쪽/제목)→전방(far), 법선(+Z)→상방.
+      _rV.set(fp.rx, 0, fp.rz); _fV.set(fp.fx, 0, fp.fz);
+      _mBasis.makeBasis(_rV, _fV, _uV);
+      floorObj.quaternion.setFromRotationMatrix(_mBasis);
+      floorObj.position.set(cx, 0.012, cz);
+      // 대지 px → 물리 m. 폭=풋프린트 중앙폭(2·halfAt), 깊이=fpFar−fpNear. x/y 독립(대지 종횡비 무관).
+      // ponytail: 풋프린트는 사다리꼴이라 근거리 좌우가 대지보다 좁음 → 측면 소폭 넘침 가능.
+      //           키스톤 워프(matrix3d)로 정밀 정합은 넘침이 문제될 때 추가.
+      const laneW = 2 * rig._halfAt(dMid), laneD = rig.fpFar - rig.fpNear;
+      floorObj.scale.set(laneW / fView.w, laneD / fView.h, 1);
     }
     // 항상 렌더 — 표시/숨김 전환에도 CSS3D transform 항상 동기(재진입 시 위치 어긋남·잔류 방지)
     cssRenderer.render(frameCssScene, camera);
