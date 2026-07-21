@@ -4053,6 +4053,9 @@ void main(){
     const fView = isFloorSport ? FLOOR_FRAMES[session.curStage?.id] : null;
     const fp = rig._fp;   // 무릎 투사 풋프린트 (rig.update가 매 프레임 세팅)
     floorObj.visible = !!fView && !!fp;
+    // 바닥 프레임 = 가산 블렌드(screen)로 잔디에 '투사된 빛'처럼 물들게. 벽(복싱)은 기존 노멀 유지.
+    // (CSS3D를 잔디 위에 노멀 합성하면 빨간 딱지처럼 붕 떠 보였음 — 유저 지적)
+    cssRenderer.domElement.style.mixBlendMode = floorObj.visible ? 'screen' : 'normal';
     if (floorObj.visible) {
       if (fView.src !== loadedFloorView) {
         floorIframe.style.width = fView.w + 'px';
