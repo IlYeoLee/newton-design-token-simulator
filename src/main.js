@@ -4007,18 +4007,17 @@ void main(){
         vec2 p = vUv - 0.5;
         float r = length(p) * 2.0;           // 0=중심, ~1.4=모서리
         float ang = atan(p.y, p.x);
-        float breathe = 1.0 + sin(uTime * 0.8) * 0.05;   // 은은한 숨쉬기
-        // 정본 색 — 쨍하게(밝기↑)
+        // 정본 색 (순수 — 밝기 부스트 없이 쨍한 딥레드). #FA3030→FE6E3C→FEC389→D1FEFF
         vec3 red = vec3(0.980, 0.188, 0.188), org = vec3(0.996, 0.431, 0.235),
              sand = vec3(0.996, 0.765, 0.537), cyan = vec3(0.820, 0.996, 1.0);
-        vec3 c = mix(red, org, smoothstep(0.30, 0.58, r));
-        c = mix(c, sand, smoothstep(0.58, 0.74, r));
-        c = mix(c, cyan, smoothstep(0.74, 0.90, r));
-        c *= 1.18;
-        // 부드러운 패더 애니 — 가장자리 경계가 은은히 숨쉬며 파동 (넓은 소프트 페이드)
-        float edge = breathe + sin(ang * 3.0 + uTime * 0.5) * 0.045 + sin(ang * -2.0 + uTime * 0.33) * 0.03;
-        float alpha = 1.0 - smoothstep(0.48, edge, r);   // 코어 불투명(쨍) → 넓고 부드러운 패더
-        gl_FragColor = vec4(clamp(c, 0.0, 1.0), alpha);
+        vec3 c = mix(red, org, smoothstep(0.32, 0.56, r));
+        c = mix(c, sand, smoothstep(0.56, 0.72, r));
+        c = mix(c, cyan, smoothstep(0.72, 0.92, r));
+        // 핵심: 색 영역은 완전 불투명(잔디 안 비쳐 쨍) → 바깥 가장자리만 예쁘게 페이드.
+        // 페더 경계가 은은히 숨쉬며 파동(부드러운 패더 애니).
+        float edge = 0.80 + sin(uTime * 0.8) * 0.03 + sin(ang * 3.0 + uTime * 0.5) * 0.03;
+        float alpha = 1.0 - smoothstep(edge, edge + 0.34, r);
+        gl_FragColor = vec4(c, alpha);
       }`,
   }));
   floorGlow.rotation.x = -Math.PI / 2; floorGlow.renderOrder = 3; floorGlow.visible = false;
