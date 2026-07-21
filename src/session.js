@@ -1171,8 +1171,14 @@ export class Session {
     this.root.position.z = live ? (this.tokens.floorRoot.position.z + bodyZ) : 0;
     // 스테이지 카드 조판 라이브 소비 (룩 '스테이지 카드' 슬라이더 — 위치는 즉시, 캡은 다음 텍스트 갱신 시)
     const CARD = FXP.card || {};
-    this.slotFL.position.z = -(CARD.titleZ ?? 2.68);
-    this.slotFS.position.z = -((CARD.titleZ ?? 2.68) + (CARD.eyebrow ?? 0.30));
+    // 헤더 밴드(타이틀+아이브로)는 빔 투사 풋프린트 안에만 상주 — 고정 z(2.0/2.3m)는 풋프린트가
+    // 작으면(fpFar↓) 오렌지 밖 먼 존으로 떠 보였음(유저: "사람 위 둥둥"). 가장 먼 요소(아이브로)를
+    // 끝단 안쪽으로 클램프하고 타이틀은 간격 유지하며 함께 당김. fpFar 크면 기존값 그대로.
+    const eyeGap = CARD.eyebrow ?? 0.30;
+    const far = this.rig?.fpFar ?? 3.0;
+    const eyeZ = Math.min((CARD.titleZ ?? 2.68) + eyeGap, far - 0.10);
+    this.slotFL.position.z = -(eyeZ - eyeGap);
+    this.slotFS.position.z = -eyeZ;
     this.slotFM.position.z = -(CARD.footerZ ?? 1.28);
     // 타이틀·아이브로 페이드는 딱 3장면(B3·B4·C5)에만 — 실측 운동 요소가 타이틀 깊이(~2.68~2.98m)까지
     // 뻗어 물리적으로 자리가 겹치는 곳은 이 셋뿐(빔 도달 한계 ~2.85m 안에 둘 다 못 들어감).
