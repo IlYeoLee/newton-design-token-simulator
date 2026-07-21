@@ -16,8 +16,14 @@
   .sub{position:absolute;top:430px;left:0;right:0;text-align:center;font-size:46px;color:#eef1f6}
   .cta{position:absolute;bottom:200px;left:50%;transform:translateX(-50%);
     width:920px;height:150px;border:6px solid #ff5a3c;border-radius:80px;
-    background:rgba(255,90,60,.14);box-shadow:0 0 40px rgba(255,90,60,.5);
-    display:flex;align-items:center;justify-content:center;font-size:60px;font-weight:800}
+    background:rgba(255,90,60,.14);
+    display:flex;align-items:center;justify-content:center;font-size:60px;font-weight:800;
+    animation:ctaPulse 1.6s ease-in-out infinite}
+  /* ── CSS 모션 데모(라이브) — HTML 그대로 바닥에 투사·밟힘 검증. Figma export 시 교체 ── */
+  .eyebrow,.title,.sub{animation:fadeUp .6s ease-out both}
+  .title{animation-delay:.1s} .sub{animation-delay:.22s}
+  @keyframes fadeUp{from{opacity:0;transform:translateY(40px)}to{opacity:1;transform:translateY(0)}}
+  @keyframes ctaPulse{0%,100%{box-shadow:0 0 30px rgba(255,90,60,.4)}50%{box-shadow:0 0 70px rgba(255,110,70,.85)}}
 </style></head><body>
   <div id="board">
     <div class="glow"></div>
