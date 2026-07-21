@@ -3996,21 +3996,23 @@ void main(){
   const _rV = new THREE.Vector3(), _fV = new THREE.Vector3(), _uV = new THREE.Vector3(0, 1, 0), _mBasis = new THREE.Matrix4();
   // 발밑 글로우 = WebGL 가산 블렌드 평면. CSS(floor.html)는 잔디와 블렌드 불가라 빨간 딱지처럼 떴음(유저).
   // 가산광이라 잔디에 빛을 '더해' 진짜 투사광처럼 자연스럽게 물듦.
-  const glowCanvas = document.createElement('canvas'); glowCanvas.width = glowCanvas.height = 256;
-  {
-    const gx = glowCanvas.getContext('2d');
-    const gr = gx.createRadialGradient(128, 128, 0, 128, 128, 128);
-    // 밝고 맑게(루미너스): 화이트-웜 핫코어 → 비비드 오렌지 → 밝은 시안 림 (가산광이라 코어 블룸)
-    gr.addColorStop(0, 'rgba(255,244,232,1)');
-    gr.addColorStop(0.16, 'rgba(255,150,96,0.95)');
-    gr.addColorStop(0.40, 'rgba(255,74,60,0.6)');
-    gr.addColorStop(0.66, 'rgba(150,238,255,0.42)');
-    gr.addColorStop(1, 'rgba(0,0,0,0)');
-    gx.fillStyle = gr; gx.fillRect(0, 0, 256, 256);
-  }
+  const glowCanvas = document.createElement('canvas'); glowCanvas.width = glowCanvas.height = 512;
   const floorGlowTex = new THREE.CanvasTexture(glowCanvas);
+  floorGlowTex.colorSpace = THREE.SRGBColorSpace;
+  {
+    // Figma 글로우(node 69:3936) 그대로 사용. 어두운 배경 → alpha=luminance로 투명화(가산 haze 방지).
+    const gimg = new Image();
+    gimg.onload = () => {
+      const gx = glowCanvas.getContext('2d');
+      gx.drawImage(gimg, 0, 0, 512, 512);
+      const id = gx.getImageData(0, 0, 512, 512), d = id.data;
+      for (let i = 0; i < d.length; i += 4) d[i + 3] = Math.max(d[i], d[i + 1], d[i + 2]);
+      gx.putImageData(id, 0, 0); floorGlowTex.needsUpdate = true;
+    };
+    gimg.src = import.meta.env.BASE_URL + 'ready-view/assets/fig/glow69.png';
+  }
   const floorGlow = new THREE.Mesh(new THREE.PlaneGeometry(1, 1),
-    new THREE.MeshBasicMaterial({ map: floorGlowTex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+    new THREE.MeshBasicMaterial({ map: floorGlowTex, transparent: true, depthWrite: false }));   // 노멀 블렌드 = Figma 글로우 색 그대로
   floorGlow.rotation.x = -Math.PI / 2; floorGlow.renderOrder = 3; floorGlow.visible = false;
   scene.add(floorGlow);
   function renderDesignFrame() {
@@ -4099,7 +4101,7 @@ void main(){
       floorGlow.visible = true;
       floorGlow.position.set(fp.ox + fp.fx * glowD, 0.006, fp.oz + fp.fz * glowD);
       floorGlow.rotation.set(-Math.PI / 2, 0, Math.atan2(fp.fx, fp.fz) + Math.PI);
-      const gsz = 2 * rig._halfAt(glowD) * 1.05;
+      const gsz = 2 * rig._halfAt(glowD) * 0.9;   // Figma(node 69) 비율 — 크림 링까지 크게
       floorGlow.scale.set(gsz, gsz, 1);
     } else {
       floorGlow.visible = false;
