@@ -3931,8 +3931,8 @@ void main(){
   document.body.appendChild(cssRenderer.domElement);   // 크기·위치는 매 프레임 WebGL 캔버스에 정합(아래 renderDesignFrame)
   const frameIframe = document.createElement('iframe');
   frameIframe.setAttribute('scrolling', 'no');
-  // 투사 UI = 벽에 자연스럽게 녹아들게 opacity 0.85 (검정 = 이미 구멍/투명, 합성 UI만 ~15% 벽 비침)
-  Object.assign(frameIframe.style, { width: FRAME_W + 'px', height: (FRAME_W * 1600 / 2600) + 'px', border: '0', background: 'transparent', opacity: '0.85' });
+  // 투사 UI = 일반 합성 + opacity 0.9 (검정은 이미 투명/구멍, 흰 카드는 자연스러운 흰색·살짝 투사감).
+  Object.assign(frameIframe.style, { width: FRAME_W + 'px', height: (FRAME_W * 1600 / 2600) + 'px', border: '0', background: 'transparent', opacity: '0.9' });
   const frameCssScene = new THREE.Scene();
   const frameObj = new CSS3DObject(frameIframe);
   frameObj.visible = false;
