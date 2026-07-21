@@ -3949,12 +3949,14 @@ void main(){
   const floorIframe = document.createElement('iframe');
   floorIframe.setAttribute('scrolling', 'no');
   // 벽과 동일 루마키: 검정(투사 안 함)=투명→바닥 비침, 흰·컬러=불투명 선명.
-  Object.assign(floorIframe.style, { border: '0', background: 'transparent', filter: 'url(#ui-lumakey)' });
+  // 바닥 대지는 배경 투명 저작(검정 없음) → 루마키 불필요. 발광 요소만 잔디에 얹힘.
+  Object.assign(floorIframe.style, { border: '0', background: 'transparent' });
   const floorObj = new CSS3DObject(floorIframe);
   floorObj.visible = false;
   frameCssScene.add(floorObj);
   let loadedFloorView = null;
   const _rV = new THREE.Vector3(), _fV = new THREE.Vector3(), _uV = new THREE.Vector3(0, 1, 0), _mBasis = new THREE.Matrix4();
+  if (import.meta.env.DEV && window.__dbg) window.__dbg.floorObj = floorObj;
   function renderDesignFrame() {
     // CSS3D 레이어 = WebGL 캔버스에 매 프레임 정확 정합 — 창≠캔버스(크기·aspect)여도 원근·스케일 일치
     //   (이게 안 맞으면 디자인이 벽보다 크게 부풀어 프레임영역 밖으로 넘침 — 유저 창 크기 의존 버그의 원인)
@@ -4034,6 +4036,12 @@ void main(){
       //           키스톤 워프(matrix3d)로 정밀 정합은 넘침이 문제될 때 추가.
       const laneW = 2 * rig._halfAt(dMid), laneD = rig.fpFar - rig.fpNear;
       floorObj.scale.set(laneW / fView.w, laneD / fView.h, 1);
+      // 대지가 네이티브 씬 텍스트/프롬프트를 대체 — 중복 숨김(복싱 벽 프레임과 동일 규약).
+      //   훈련 토큰(발마크·페이스라이트·판정 링)은 session.G 그룹이라 그대로 유지.
+      // ponytail: 현재 FLOOR_FRAMES=READY만 → 프롬프트 슬롯만 숨기면 충분. 라이브 대지 추가 시 재검토.
+      [session.slotFS, session.slotFL, session.slotFM, session.dirSlot, session.countGroup, session.countRing,
+       session.tap, session.tap1]   // tap/tap1 = 네이티브 "TAP ×2" 링 → 대지 CTA가 대체
+        .forEach(o => { if (o) o.visible = false; });
     }
     // 항상 렌더 — 표시/숨김 전환에도 CSS3D transform 항상 동기(재진입 시 위치 어긋남·잔류 방지)
     cssRenderer.render(frameCssScene, camera);

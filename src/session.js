@@ -1218,7 +1218,8 @@ export class Session {
     // 실전 러닝(C)만 바닥 step 마크 숨김 — 달리며 밟을 과녁 제거(페이서·리듬만).
     // 페이스 익히기(P1/P2)는 1·2·3 밟기 마크 유지 = 연습 큐. "연습엔 큐, 실전엔 페이딩".
     // 농구 라이브는 제자리 스텝 드릴이라 스폿 유지 → 러닝 C에만 스코프.
-    this.tokens.liveHideFloorMarks = (this.sport === 'running' && !!st.live && id[0] === 'C');
+    // READY = 바닥 대지 프레임(floor.html)이 프롬프트를 대체 → 네이티브 마크 숨김(중복 제거).
+    this.tokens.liveHideFloorMarks = (this.sport === 'running' && ((!!st.live && id[0] === 'C') || id === 'READY'));
     if (this.sport === 'boxing') this._updateBoxing(id, st, beat, FMU);
     else if (this.sport === 'basketball') this._updateBasketball(id, st, beat, FMU);
     else this._updateRunning(id, st, beat, FMU);
