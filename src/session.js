@@ -1206,10 +1206,11 @@ export class Session {
 
   _updateRunning(id, st, beat, FMU) {
     // 박자 시점 바운스 — 몸이 살아있는 느낌 (라이브는 실제 모캡 눈이 담당)
-    if (id === 'A4' || id === 'B2') this.bobY = 0.028 * Math.abs(Math.sin(Math.PI * this.t / 0.6));
-    else if (id === 'B1' || id === 'B3') this.bobY = 0.018 * Math.abs(Math.sin(Math.PI * this.t / 0.55));
-    else if (id[0] === 'A') this.bobY = 0.007 * Math.sin(this.t * 1.8);   // 호흡
+    if (id[0] === 'A') this.bobY = 0.007 * Math.sin(this.t * 1.8);   // 호흡
     else this.bobY = 0;
+    // 실전/페이스(live) = 페이서 광점·리듬이 주인공 → 밟기 발마크 톤다운(밝은 마크 3→1).
+    // 달리며 발 조준은 불편 — 마크는 은은한 흔적으로 강등, 판정은 리포트에서.
+    this.tokens.params.maxVisible = st.live ? 1 : 3;
 
     if (id === 'READY' || id === 'T1') {
       const tap = id === 'READY' ? this.tap : this.tap1; const k = 0.5 + 0.5 * Math.sin(this.t * 4);
