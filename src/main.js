@@ -3938,6 +3938,8 @@ void main(){
   frameObj.visible = false;
   frameCssScene.add(frameObj);
   let loadedView = null;
+  let frameReady = false, lastCueBeat = -1;   // frameReady=현재 src 로드 완료 · lastCueBeat=마지막으로 iframe에 전달한 코치 콜 비트
+  frameIframe.addEventListener('load', () => { frameReady = true; });
 
   // ── 바닥 대지 프레임 (러닝/농구): 무릎 투사 풋프린트에 CSS3D 대지를 눕혀 얹음 ──
   //   벽 프레임과 같은 cssScene·같은 render camera(1인칭이든 3인칭이든 자동 정합).
@@ -3969,14 +3971,15 @@ void main(){
     cssRenderer.domElement.style.top = cvr.top + 'px';
     const view = (session.active && state.pack === 'boxing') ? DESIGN_FRAMES[session.curStage?.id] : null;
     const wc = view ? rig._wallCenter : null;
-    frameObj.visible = !!view && !!wc;   // 벽 좌표 준비 전엔 숨김 — 재진입 초기 _wallCenter undefined일 때 프레임이 (0,1.4) '중앙'으로 튀는 플래시 방지
+    if (view && wc && view !== loadedView) {   // 벽 준비 후 새 뷰만 로드(같은 뷰 재진입=그대로). 로드는 여기서, 노출은 아래 frameReady로 게이트.
+      const dur = STAGE_DUR[session.curStage?.id] ?? session.curStage?.dur ?? 8;
+      const needsDur = view.includes('scene.html') || view.includes('timer.html');
+      frameReady = false; lastCueBeat = -1;   // 새 프레임 로드 완료 전엔 숨김 → 재진입 시 이전 세션의 옛 자막 DOM이 잠깐 비쳤다 튀는 버그 방지
+      frameIframe.src = import.meta.env.BASE_URL + view + (needsDur ? '&dur=' + dur : '');
+      loadedView = view;
+    }
+    frameObj.visible = !!view && !!wc && frameReady;   // wc 준비 + 새 프레임 로드 완료 후에만 노출 (초기 (0,1.4) 튐 + stale 프레임 동시 차단)
     if (frameObj.visible) {
-      if (view !== loadedView) {   // 다른 뷰만 로드(같은 뷰 재진입=그대로)
-        const dur = STAGE_DUR[session.curStage?.id] ?? session.curStage?.dur ?? 8;
-        const needsDur = view.includes('scene.html') || view.includes('timer.html');
-        frameIframe.src = import.meta.env.BASE_URL + view + (needsDur ? '&dur=' + dur : '');
-        loadedView = view;
-      }
       // 매 프레임 벽 정합 — 대지 2600×1600 → 벽(wallW×wallH), x/y 독립 스케일(aspect 무관, 이식 안전)
       frameObj.position.set(wc.cx, wc.cy, WALL_Z + 0.02);
       frameObj.rotation.set(0, 0, 0);
@@ -3990,6 +3993,10 @@ void main(){
       //   그 외(타이머·전환·리포트) = 세션 마크 전체 숨김.
       const isSceneFrame = view.includes('scene.html');
       session.root.visible = isSceneFrame;
+      if (isSceneFrame && (session._cueBeat || 0) !== lastCueBeat) {   // 코치 자막을 실제 mark 비트에 동기 — 세션이 비트를 넘길 때만 iframe 자막 교체(시간 타이머 X → 정신없음 해소)
+        lastCueBeat = session._cueBeat || 0;
+        frameIframe.contentWindow?.__setCue?.(lastCueBeat);
+      }
       if (isSceneFrame) {
         // 토큰은 대지 설계 기준 (0, 1.4)에 저작 — 인물 실제 중심(wc.cx, wc.cy)으로 그룹을 통째 이동해
         // 어깨·발·머리 존이 창 크기·벽 중심과 무관하게 인물에 정렬 (하드코딩 1.4 가정 제거).
@@ -4041,12 +4048,14 @@ void main(){
       floorObj.quaternion.setFromRotationMatrix(_mBasis);
       floorObj.position.set(cx, 0.012, cz);
       floorObj.scale.set(W / fView.w, D / fView.h, 1);
-      // 대지가 네이티브 씬 텍스트/프롬프트를 대체 — 중복 숨김(복싱 벽 프레임과 동일 규약).
-      //   훈련 토큰(발마크·페이스라이트·판정 링)은 session.G 그룹이라 그대로 유지.
-      // ponytail: 현재 FLOOR_FRAMES=READY만 → 프롬프트 슬롯만 숨기면 충분. 라이브 대지 추가 시 재검토.
-      [session.slotFS, session.slotFL, session.slotFM, session.dirSlot, session.countGroup, session.countRing,
-       session.tap, session.tap1, session.paceLight]   // tap/tap1=네이티브 "TAP ×2" 링, paceLight=흰 타원 → 대지가 대체
-        .forEach(o => { if (o) o.visible = false; });
+    }
+    // 대지가 네이티브 바닥 UI를 통째 대체 — 복싱 비(非)씬 프레임처럼 session.root 숨김.
+    //   개별 마크/슬롯 두더지잡기 대신 레이어 통째. 풋프린트 글로우는 rig 소속이라 유지.
+    //   매 프레임 보드 유무로 결정 → READY 벗어나면(A1 등) 자동 복원(숨김 고착 방지).
+    //   라이브 대지(발마크 필요)는 유지: !curStage.live 일 때만 숨김.
+    if (isFloorSport) {
+      const hideNative = floorObj.visible && !session.curStage?.live;
+      if (session.root) session.root.visible = !hideNative;
     }
     // 항상 렌더 — 표시/숨김 전환에도 CSS3D transform 항상 동기(재진입 시 위치 어긋남·잔류 방지)
     cssRenderer.render(frameCssScene, camera);
