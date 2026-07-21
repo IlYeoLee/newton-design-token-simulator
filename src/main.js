@@ -2476,7 +2476,7 @@ void main(){
     new THREE.PlaneGeometry(3.2, 2.0),
     new THREE.ShaderMaterial({
       uniforms: {
-        uTime: { value: 0 }, uBoost: { value: 1 },
+        uTime: { value: 0 }, uBoost: { value: 1 }, uGrid: { value: 1 },   // uGrid=0 → 퍼스펙티브 그리드 끔(바닥판)
         uLines: { value: new THREE.Color(0.55, 0.28, 0.14) },
         uScan: { value: new THREE.Color(0.98, 0.19, 0.19) },
         uAccent: { value: new THREE.Color(0.13, 0.80, 0.86) },
@@ -2490,7 +2490,7 @@ void main(){ vUv = uv; vec4 mvPosition = modelViewMatrix * vec4(position, 1.0); 
       fragmentShader: `#include <common>
 #include <clipping_planes_pars_fragment>
 varying vec2 vUv;
-uniform float uTime, uBoost;
+uniform float uTime, uBoost, uGrid;
 uniform vec3 uLines, uScan, uAccent;
 // ── reactbits Prism 정본 (height 3.5 / baseWidth 5.5 / scale 3.6) ──
 vec4 tanh4(vec4 x){ vec4 e2x = exp(2.0 * x); return (e2x - 1.0) / (e2x + 1.0); }
@@ -2532,13 +2532,13 @@ void main(){
       float sigma = 0.18 * 4.0;
       float band = exp(-0.5 * dz * dz / (sigma * sigma)) * win;
       float aura = exp(-0.5 * dz * dz / (sigma * sigma * 4.0)) * 0.25 * win;
-      col += uLines * line * fog * 1.15;   // 배경선 업 3차 (유저)
-      col += uScan * (line * band * 1.1 + aura * fog * 0.5);
+      col += uLines * line * fog * 1.15 * uGrid;   // 배경선 업 3차 (유저) · uGrid=0이면 그리드 제거
+      col += uScan * (line * band * 1.1 + aura * fog * 0.5) * uGrid;
     }
   }
   // 지평선 은은한 라인
   float hz = exp(-abs(suv.y * 0.55 - 0.22) * 26.0) * 0.10;
-  col += uLines * hz;
+  col += uLines * hz * uGrid;
   // reactbits Prism 정본 레이마치 — 채널 위상 누적을 뉴턴 칩 가중으로 매핑 (칩 조합 그라디언트만)
   vec2 fp = (vUv - vec2(0.5, 0.70)) * vec2(1.6, 1.0) * 4.1;
   float zz = 5.0;
@@ -4091,6 +4091,7 @@ void main(){
         floorPrism.material.clippingPlanes = rig.floorClip;
       const FU = floorPrism.material.uniforms;
       FU.uTime.value = performance.now() / 1000;
+      FU.uGrid.value = 0;   // 바닥판은 퍼스펙티브 그리드 끔 (프리즘 글로우만, 유저)
       FU.uBoost.value = FXP.day ? 1.15 : 0.85;
       FU.uLines.value.setHex(0xfec389); FU.uScan.value.setHex(0xfe6e3c); FU.uAccent.value.setHex(COLORS.user ?? 0x21ccdb);
     } else {
