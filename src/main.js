@@ -3988,7 +3988,7 @@ void main(){
   const floorIframe = document.createElement('iframe');
   floorIframe.setAttribute('scrolling', 'no');
   // 벽과 동일 루마키: 검정(투사 안 함)=투명→바닥 비침, 흰·컬러=불투명 선명.
-  Object.assign(floorIframe.style, { border: '0', background: 'transparent', filter: 'url(#ui-lumakey)' });
+  Object.assign(floorIframe.style, { border: '0', background: 'transparent' });   // 루마키 제거 — 어두운 발(딥레드)이 투명해지던 문제(유저)
   const floorObj = new CSS3DObject(floorIframe);
   floorObj.visible = false;
   frameCssScene.add(floorObj);
@@ -3996,25 +3996,27 @@ void main(){
   const _rV = new THREE.Vector3(), _fV = new THREE.Vector3(), _uV = new THREE.Vector3(0, 1, 0), _mBasis = new THREE.Matrix4();
   // 발밑 글로우 = WebGL 가산 블렌드 평면. CSS(floor.html)는 잔디와 블렌드 불가라 빨간 딱지처럼 떴음(유저).
   // 가산광이라 잔디에 빛을 '더해' 진짜 투사광처럼 자연스럽게 물듦.
-  // 발밑 글로우 = Figma 글로우(node 69:3936, 59-3582 추출) 그대로 + UV 스월로 회전·요동.
-  // 텍스처 색을 그대로 샘플하되 UV를 반지름 의존 각도로 비틀어(swirl) 색 밴드가 화려하게 돎.
-  const glowRunTex = new THREE.TextureLoader().load(import.meta.env.BASE_URL + 'ready-view/assets/fig/glow_run.png');
-  glowRunTex.colorSpace = THREE.SRGBColorSpace;
+  // 발밑 글로우 = Ellipse 31226 정본 그라디언트를 셰이더로 직접(쨍한 정확 색) + 은은한 숨쉬기.
+  // 스톱: #FA3030 레드 → #FE6E3C 오렌지 → #FEC389 샌드 → #D1FEFF 시안.
   const floorGlow = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.ShaderMaterial({
-    uniforms: { uTime: { value: 0 }, uTex: { value: glowRunTex } }, transparent: true, depthWrite: false,
+    uniforms: { uTime: { value: 0 } }, transparent: true, depthWrite: false,
     vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
     fragmentShader: `
-      varying vec2 vUv; uniform float uTime; uniform sampler2D uTex;
+      varying vec2 vUv; uniform float uTime;
       void main(){
         vec2 p = vUv - 0.5;
-        float r = length(p);
+        float r = length(p) * 2.0;           // 0=중심, ~1.4=모서리
         float ang = atan(p.y, p.x);
-        // 스월: 반지름 따라 각도를 비틀고 시간에 요동 → 색 밴드가 화려하게 회전
-        ang += uTime * 0.5 + sin(uTime * 0.7) * r * 4.0 + sin(uTime * 1.3 + r * 8.0) * 0.25;
-        vec2 uv2 = vec2(cos(ang), sin(ang)) * r + 0.5;
-        vec4 tx = texture2D(uTex, uv2);   // 59-3772 글로우 그대로
-        float a = max(tx.r, max(tx.g, tx.b));   // 검은 배경(luminance 0) → 투명, 글로우만 보이게
-        gl_FragColor = vec4(tx.rgb, a);
+        // 은은한 움직임: 숨쉬기(반지름 요동) + 아주 미세한 방향 흔들림 (회오리 아님)
+        r /= 1.0 + sin(uTime * 0.7) * 0.035;
+        r += sin(uTime * 0.45 + ang * 2.0) * 0.012;
+        vec3 red = vec3(0.980, 0.188, 0.188), org = vec3(0.996, 0.431, 0.235),
+             sand = vec3(0.996, 0.765, 0.537), cyan = vec3(0.820, 0.996, 1.0);
+        vec3 c = mix(red, org, smoothstep(0.42, 0.66, r));
+        c = mix(c, sand, smoothstep(0.66, 0.80, r));
+        c = mix(c, cyan, smoothstep(0.80, 0.92, r));
+        float alpha = 1.0 - smoothstep(0.60, 1.0, r);   // 중심 불투명(쨍한 레드) → 가장자리 페이드
+        gl_FragColor = vec4(c, alpha);
       }`,
   }));
   floorGlow.rotation.x = -Math.PI / 2; floorGlow.renderOrder = 3; floorGlow.visible = false;
