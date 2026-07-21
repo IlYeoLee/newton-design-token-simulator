@@ -3949,11 +3949,31 @@ void main(){
   const floorIframe = document.createElement('iframe');
   floorIframe.setAttribute('scrolling', 'no');
   // 벽과 동일 루마키: 검정(투사 안 함)=투명→바닥 비침, 흰·컬러=불투명 선명.
-  Object.assign(floorIframe.style, { border: '0', background: 'transparent', filter: 'url(#ui-lumakey)' });
-  const floorObj = new CSS3DObject(floorIframe);
+  Object.assign(floorIframe.style, { border: '0', background: 'transparent', filter: 'url(#ui-lumakey)', transformOrigin: '0 0' });
+  // 벽=직사각(어핀 스케일이면 끝) / 바닥=사다리꼴(near 좁고 far 넓음). 래퍼는 CSS3D가 지면에 눕히는
+  // 어핀 평판, 안쪽 iframe엔 키스톤 워프를 얹어 디자인이 무릎빔 풋프린트를 꽉 채우게 — 복싱 벽 프로세스의 바닥판.
+  const floorWrap = document.createElement('div');
+  Object.assign(floorWrap.style, { position: 'relative', overflow: 'visible' });
+  floorWrap.appendChild(floorIframe);
+  const floorObj = new CSS3DObject(floorWrap);
   floorObj.visible = false;
   frameCssScene.add(floorObj);
   let loadedFloorView = null;
+  // 대칭 수평 키스톤: 폭 W·높이 H 사각형 → 윗변 full·아랫변 W*k(중앙정렬) 사다리꼴 매핑 호모그래피 → CSS matrix3d.
+  const _kAdj = m => [m[4]*m[8]-m[5]*m[7], m[2]*m[7]-m[1]*m[8], m[1]*m[5]-m[2]*m[4],
+                      m[5]*m[6]-m[3]*m[8], m[0]*m[8]-m[2]*m[6], m[2]*m[3]-m[0]*m[5],
+                      m[3]*m[7]-m[4]*m[6], m[1]*m[6]-m[0]*m[7], m[0]*m[4]-m[1]*m[3]];
+  const _kMul = (a, b) => { const r = []; for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) { let s = 0; for (let k = 0; k < 3; k++) s += a[i*3+k]*b[k*3+j]; r[i*3+j] = s; } return r; };
+  const _kMulV = (m, v) => [m[0]*v[0]+m[1]*v[1]+m[2]*v[2], m[3]*v[0]+m[4]*v[1]+m[5]*v[2], m[6]*v[0]+m[7]*v[1]+m[8]*v[2]];
+  const _kBasis = (x1,y1,x2,y2,x3,y3,x4,y4) => { const m = [x1,x2,x3, y1,y2,y3, 1,1,1]; const v = _kMulV(_kAdj(m), [x4,y4,1]); return _kMul(m, [v[0],0,0, 0,v[1],0, 0,0,v[2]]); };
+  function keystoneMatrix3d(W, H, k) {
+    const bx = W * (1 - k) / 2, ex = W * (1 + k) / 2;   // 아랫변(near) 중앙정렬 좁힘
+    const s = _kBasis(0,0, W,0, W,H, 0,H);
+    const d = _kBasis(0,0, W,0, ex,H, bx,H);
+    const H3 = _kMul(d, _kAdj(s));
+    const c = H3.map(x => x / H3[8]);
+    return `matrix3d(${c[0]},${c[3]},0,${c[6]}, ${c[1]},${c[4]},0,${c[7]}, 0,0,1,0, ${c[2]},${c[5]},0,${c[8]})`;
+  }
   const _rV = new THREE.Vector3(), _fV = new THREE.Vector3(), _uV = new THREE.Vector3(0, 1, 0), _mBasis = new THREE.Matrix4();
   function renderDesignFrame() {
     // CSS3D 레이어 = WebGL 캔버스에 매 프레임 정확 정합 — 창≠캔버스(크기·aspect)여도 원근·스케일 일치
@@ -4018,6 +4038,8 @@ void main(){
       if (fView.src !== loadedFloorView) {
         floorIframe.style.width = fView.w + 'px';
         floorIframe.style.height = fView.h + 'px';
+        floorWrap.style.width = fView.w + 'px';
+        floorWrap.style.height = fView.h + 'px';
         floorIframe.src = import.meta.env.BASE_URL + fView.src;
         loadedFloorView = fView.src;
       }
@@ -4029,11 +4051,12 @@ void main(){
       _mBasis.makeBasis(_rV, _fV, _uV);
       floorObj.quaternion.setFromRotationMatrix(_mBasis);
       floorObj.position.set(cx, 0.012, cz);
-      // 대지 px → 물리 m. 폭=풋프린트 중앙폭(2·halfAt), 깊이=fpFar−fpNear. x/y 독립(대지 종횡비 무관).
-      // ponytail: 풋프린트는 사다리꼴이라 근거리 좌우가 대지보다 좁음 → 측면 소폭 넘침 가능.
-      //           키스톤 워프(matrix3d)로 정밀 정합은 넘침이 문제될 때 추가.
-      const laneW = 2 * rig._halfAt(dMid), laneD = rig.fpFar - rig.fpNear;
-      floorObj.scale.set(laneW / fView.w, laneD / fView.h, 1);
+      // 사다리꼴 정합: 외곽 평판은 far(최대폭)에 맞추고 안쪽 iframe을 키스톤으로 near만 좁힘 →
+      // 디자인이 무릎빔 풋프린트를 꽉 채워 "진짜 투사된 프레임"으로 보임(복싱 벽=직사각과 동일 원리).
+      const halfNear = rig._halfAt(rig.fpNear), halfFar = rig._halfAt(rig.fpFar);
+      const laneD = rig.fpFar - rig.fpNear;
+      floorObj.scale.set((2 * halfFar) / fView.w, laneD / fView.h, 1);
+      floorIframe.style.transform = keystoneMatrix3d(fView.w, fView.h, Math.min(1, halfNear / halfFar));
     }
     // 항상 렌더 — 표시/숨김 전환에도 CSS3D transform 항상 동기(재진입 시 위치 어긋남·잔류 방지)
     cssRenderer.render(frameCssScene, camera);
