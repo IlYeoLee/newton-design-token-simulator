@@ -107,6 +107,15 @@ export class XBot {
     this._shoulderR = xbot.getObjectByName('mixamorigRightArm');
     this._elbowR = xbot.getObjectByName('mixamorigRightForeArm');
 
+    // 농구 드리블 공 — 손 옆에서 박자에 맞춰 튕김 (물리 없이 스크립트 바운스)
+    this.ball = new THREE.Mesh(
+      new THREE.SphereGeometry(0.12, 20, 16),
+      new THREE.MeshStandardMaterial({ color: 0xd7622a, roughness: 0.75, metalness: 0.04 }),
+    );
+    this.ball.castShadow = true;
+    this.ball.visible = false;
+    this.scene.add(this.ball);
+
     // 손가락+손목 본 — 모캡 리타겟 시 벌어지는(splay)·꺾이는 아티팩트 방지:
     // 로드 직후 바인드(기본) 포즈 쿼터니언을 캡처해 매 프레임 그 중립으로 고정.
     this._fingerBones = [];
@@ -433,7 +442,36 @@ export class XBot {
       this._lockInPlace();
     }
 
+    if (this.mode === 'basketball') this._dribbleBall(packTime);
+    else if (this.ball) this.ball.visible = false;
     this._clampFeet();
+  }
+
+  // 손 위치 추종 + 박자 바운스 (드리블 클립 1사이클에 동기 — 매직 템포 없음)
+  _dribbleBall(packTime) {
+    const ball = this.ball;
+    if (!ball || !this._wristR) return;
+    ball.visible = true;
+    const w = new THREE.Vector3().setFromMatrixPosition(this._wristR.matrixWorld);
+    const r = 0.12;
+    const H = 0.6;                        // 바운스 정점 높이(손 근처, 고정 → 주기 안정)
+    const G = 20;                         // 중력 과장 — 낙하 스냅·탱탱함 (실측 9.8이면 물렁)
+    const T = 2 * Math.sqrt(2 * H / G);   // 물리 유도 주기 ≈0.49s → 손에서 빠르게 떨어지고 바닥서 탁
+    const phase = (packTime % T) / T;
+    // 비대칭: 하강(손이 밀어내림)을 상승보다 빠르게 → "손에서 확 떨어지는" 느낌
+    const C = 0.42;
+    const p = phase < C ? (phase / C) * 0.5 : 0.5 + ((phase - C) / (1 - C)) * 0.5;
+    const u = 2 * p - 1;                   // 정점=0(느림·행)·바닥=±1(빠름·임팩트)
+    const y = r + H * (1 - u * u);
+    // 스쿼시&스트레치 — 탱탱함의 핵심: 바닥 찍을 때 납작·빠른 낙하 중 길쭉
+    const air = (y - r) / H;               // 0 바닥 ~ 1 정점
+    const squash = Math.max(0, 1 - air / 0.12);   // 바닥 12% 이내에서만
+    const stretch = Math.abs(u) * (1 - squash);   // 빠른데 바닥 아닐 때
+    const sy = 1 - 0.35 * squash + 0.18 * stretch;
+    const sxz = 1 + 0.28 * squash - 0.09 * stretch;
+    ball.scale.set(sxz, sy, sxz);
+    const bottom = Math.max(0, y - r);            // 바닥면 고정(납작해도 바닥에 붙음)
+    ball.position.set(w.x + 0.1, bottom + r * sy, w.z);
   }
 
   _samplePath(t) {
