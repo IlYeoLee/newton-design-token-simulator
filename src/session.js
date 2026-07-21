@@ -643,11 +643,14 @@ export class Session {
     this.bxA2far  = wallRing(0, 1.30, 0.11, 0.13, BRAND.red, 0.4); g.add(this.bxA2far);
     g.add(wallArrow(0, 1.10, 0.22, 0));   // 앞으로(in) — 발밑에서 위로
 
-    // A3 잽 폼 — 타겟 링(가슴 앞) + 잽 궤적 토큰(가드→타겟 뻗기)
+    // A3 잽 폼 — 어프로치 링(타겟+타이밍: 맞물릴 때 잽) + 잽 궤적 토큰(가드→타겟 뻗기, 진하게)
     g = this._mk('BX_A3');
-    this.bxA3ring = wallRing(TX, TY, 0.10, 0.12, BRAND.red, 0.8); g.add(this.bxA3ring);
-    this.bxA3jab = primPanel('trajectory', 0.85, true);
+    this.bxA3ap = primPanel('approachRing', 0.5, true);
+    this.bxA3ap.position.set(TX, TY, WZ + 0.003);
+    g.add(this.bxA3ap);
+    this.bxA3jab = primPanel('trajectory', 1.05, true);
     this.bxA3jab.position.set(0, 1.46, WZ + 0.004);
+    this.bxA3jab._prim.P = { width: 2.0 };   // 벽 투사용으로 진하게
     this.bxA3jab._prim.pts = [[-0.16, 0.82], [0, 0.08], [0.12, -0.74]];   // 가드(아래)→타겟(위) 뻗기
     g.add(this.bxA3jab);
 
@@ -670,8 +673,9 @@ export class Session {
 
     // B3 잽 스윕 — 잽 궤적 토큰(스윕 아크) + 타겟 수축 링
     g = this._mk('BX_B3');
-    this.bxB3jab = primPanel('trajectory', 1.0, true);
+    this.bxB3jab = primPanel('trajectory', 1.2, true);
     this.bxB3jab.position.set(0, 1.46, WZ + 0.004);
+    this.bxB3jab._prim.P = { width: 2.0 };   // 벽 투사용으로 진하게
     this.bxB3jab._prim.pts = [[-0.55, 0.5], [0, -0.18], [0.55, 0.5]];   // 잽 스윕 아크
     g.add(this.bxB3jab);
     this.bxB3ring = wallRing(TX, TY, 0.14, 0.16, BRAND.red, 0.8); g.add(this.bxB3ring);
@@ -682,10 +686,7 @@ export class Session {
     g = this._mk('BX_C1');
     g.add(guardBox(0, 1.62, 0.42, 0.36, BRAND.red, 0.5));
 
-    g = this._mk('BX_C2');   // 라이브 — 벽 타겟(TokenSystem) + 잽 타이밍 어프로치 링
-    this.bxC2ap = primPanel('approachRing', 0.55, true);
-    this.bxC2ap.position.set(TX, TY, WZ + 0.004);
-    g.add(this.bxC2ap);
+    this._mk('BX_C2');   // 라이브 — 벽 타겟은 TokenSystem 팩 흐름이 전담 (어프로치 링은 라이브 타겟과 중복이라 제외)
     g = this._mk('BX_C3');   // 라이브 콤비 (가속) + 파생 ③ 펀치 라인 (콤보 연결·순서), 주먹 높이
     this.bxCombo = primPanel('punchLine', 0.9, true);
     this.bxCombo.position.set(0, 1.52, WZ + 0.002);
@@ -1403,10 +1404,10 @@ export class Session {
       FMU(`앞뒤 ${Math.min(6, Math.floor(this.t / per) + 1)} / 6`, CS.sand);
       if (this.t >= 6 * per + 0.4) { this.next(); return; }
     } else if (id === 'BX_A3') {
-      // 잽 폼 — 타겟 링 펄스 + 잽 궤적 뻗기(비트마다)
-      const BT = 0.9, ph = beat(BT), k = 1 - ph;
-      this.bxA3ring.material.opacity = 0.3 + 0.6 * k; this.bxA3ring.scale.setScalar(0.85 + 0.4 * k);
-      this.bxA3jab._prim.prog = ph;
+      // 잽 폼 — 어프로치 링 수축(타이밍) + 잽 궤적 뻗기(비트마다)
+      const BT = 0.9, ph = beat(BT);
+      this.bxA3ap._prim.prog = ph;    // 링이 맞물리는 순간 = 잽 타이밍
+      this.bxA3jab._prim.prog = ph;   // 잽 궤적 뻗기
       FMU(`잽 ${Math.min(6, Math.floor(this.t / BT) + 1)} / 6`);
       if (this.t >= 6 * BT + 0.4) { this.next(); return; }
     } else if (id === 'BX_B1') {
@@ -1438,7 +1439,6 @@ export class Session {
       const n = Math.max(1, 3 - Math.floor(this.t)); if (n !== this._lastCount) { this._setCountWall(n, CS.ink); this._lastCount = n; }
       if (this.t >= st.dur) { this.next(); return; }
     } else if (id === 'BX_C2' || id === 'BX_C3') {
-      if (id === 'BX_C2' && this.bxC2ap) this.bxC2ap._prim.prog = (this.t % 1.95) / 1.95;   // 잽 타이밍(타겟 간격 1.95s)
       if (id === 'BX_C3' && this.bxCombo) this.bxCombo._prim.prog = (this.t % 2.4) / 2.4;   // 콤보 사이클
       if (this.t >= st.dur) { this.next(); return; }
     } else if (id === 'BX_C4') {
