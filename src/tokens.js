@@ -901,6 +901,9 @@ export class TokenSystem {
       // 스튜디오 저작 프리뷰: 지면 토큰 전체를 시간·풋프린트 무관 상시 윤곽 표시
       // (저작한 공간 배치를 3D에서 즉시 확인 — 2D 캔버스와 파리티)
       if (this.layoutPreview && ev.surface !== 'wall') phase = 'preview';
+      // 실전 러닝: 바닥 step 마크(1·2·3) 통째 숨김 — 달리며 밟을 과녁 제거(페이서·리듬만).
+      // 판정 _fire는 위 linger/miss 블록에서 이미 실행 → 시각만 제거, 채점 그대로.
+      if (this.liveHideFloorMarks && ev.surface !== 'wall') phase = 'hidden';
 
       if (ev.marker) {
         // 위치 갱신

@@ -259,7 +259,7 @@ const PRIM_DEFAULTS = {
   stanceBox: { w: 1, glow: 1, tempo: 1, dash: 1, round: 0.2, feet: 1 },
   punchLine: { w: 1, glow: 1, tempo: 1, node: 1, numS: 1, dash: 0 },
   approachRing: { w: 1, glow: 1, tempo: 0.6, r: 0.42, rt: 0.36 },
-  trajectory: { w: 1, glow: 1, tempo: 0.5, spread: 1, width: 1, tail: 1, taper: 1.6, spark: 0.6 },
+  trajectory: { w: 1, glow: 1, tempo: 0.5, spread: 1, width: 1.4, tail: 1, taper: 1.6, spark: 0.6 },
 };
 function livePrimEnv() {
   return {
@@ -646,10 +646,13 @@ export class Session {
     this.bxA2far  = wallRing(0, 1.30, 0.11, 0.13, BRAND.red, 0.4); g.add(this.bxA2far);
     g.add(wallArrow(0, 1.10, 0.22, 0));   // 앞으로(in) — 발밑에서 위로
 
-    // A3 잽 폼 — 타겟 링(가슴 앞) + 잽 화살표(허리→타겟, 뻗기)
+    // A3 잽 폼 — 타겟 링(가슴 앞) + 잽 궤적 토큰(가드→타겟 뻗기)
     g = this._mk('BX_A3');
     this.bxA3ring = wallRing(TX, TY, 0.10, 0.12, BRAND.red, 0.8); g.add(this.bxA3ring);
-    g.add(wallArrow(0, 1.40, 0.16, 0));   // 잽 = 위로 뻗어 타겟
+    this.bxA3jab = primPanel('trajectory', 0.85, true);
+    this.bxA3jab.position.set(0, 1.46, WZ + 0.004);
+    this.bxA3jab._prim.pts = [[-0.16, 0.82], [0, 0.08], [0.12, -0.74]];   // 가드(아래)→타겟(위) 뻗기
+    g.add(this.bxA3jab);
 
     g = this._mk('BX_T1');
     this.bxTap1 = wallTap();   // 미부착 — HUD CTA 전담
@@ -668,9 +671,12 @@ export class Session {
     g.add(wallArrow(-0.08, 1.72, 0.17, 90));    // 왼쪽 슬립
     g.add(wallArrow( 0.08, 1.72, 0.17, -90));   // 오른쪽 슬립
 
-    // B3 잽 스윕 — 스윕 밴드(허리→타겟) + 타겟 수축 링 + 잽 화살표
+    // B3 잽 스윕 — 잽 궤적 토큰(스윕 아크) + 타겟 수축 링
     g = this._mk('BX_B3');
-    this.bxSweep = sweepBand(0, 1.40, 0, 1.56, BRAND.red); g.add(this.bxSweep);
+    this.bxB3jab = primPanel('trajectory', 1.0, true);
+    this.bxB3jab.position.set(0, 1.46, WZ + 0.004);
+    this.bxB3jab._prim.pts = [[-0.55, 0.5], [0, -0.18], [0.55, 0.5]];   // 잽 스윕 아크
+    g.add(this.bxB3jab);
     this.bxB3ring = wallRing(TX, TY, 0.14, 0.16, BRAND.red, 0.8); g.add(this.bxB3ring);
     this.bxB3cd = wallRing(TX, TY, 0.14, 0.16, BRAND.prism, 0); g.add(this.bxB3cd);
 
@@ -679,7 +685,10 @@ export class Session {
     g = this._mk('BX_C1');
     g.add(guardBox(0, 1.62, 0.42, 0.36, BRAND.red, 0.5));
 
-    this._mk('BX_C2');       // 라이브 — 벽 타겟은 TokenSystem 팩 흐름이 전담
+    g = this._mk('BX_C2');   // 라이브 — 벽 타겟(TokenSystem) + 잽 타이밍 어프로치 링
+    this.bxC2ap = primPanel('approachRing', 0.55, true);
+    this.bxC2ap.position.set(TX, TY, WZ + 0.004);
+    g.add(this.bxC2ap);
     g = this._mk('BX_C3');   // 라이브 콤비 (가속) + 파생 ③ 펀치 라인 (콤보 연결·순서), 주먹 높이
     this.bxCombo = primPanel('punchLine', 0.9, true);
     this.bxCombo.position.set(0, 1.52, WZ + 0.002);
@@ -1197,6 +1206,9 @@ export class Session {
       return;
     }
 
+    // 실전 러닝(live)만 바닥 step 마크 통째 숨김 — 달리며 밟을 과녁 제거(페이서·리듬만).
+    // 농구 라이브는 제자리 스텝 드릴이라 스폿 유지(숨김 X) → 종목으로 스코프.
+    this.tokens.liveHideFloorMarks = (this.sport === 'running' && !!st.live);
     if (this.sport === 'boxing') this._updateBoxing(id, st, beat, FMU);
     else if (this.sport === 'basketball') this._updateBasketball(id, st, beat, FMU);
     else this._updateRunning(id, st, beat, FMU);
@@ -1208,9 +1220,6 @@ export class Session {
     // 박자 시점 바운스 — 몸이 살아있는 느낌 (라이브는 실제 모캡 눈이 담당)
     if (id[0] === 'A') this.bobY = 0.007 * Math.sin(this.t * 1.8);   // 호흡
     else this.bobY = 0;
-    // 실전/페이스(live) = 페이서 광점·리듬이 주인공 → 밟기 발마크 톤다운(밝은 마크 3→1).
-    // 달리며 발 조준은 불편 — 마크는 은은한 흔적으로 강등, 판정은 리포트에서.
-    this.tokens.params.maxVisible = st.live ? 1 : 3;
 
     if (id === 'READY' || id === 'T1') {
       const tap = id === 'READY' ? this.tap : this.tap1; const k = 0.5 + 0.5 * Math.sin(this.t * 4);
@@ -1397,9 +1406,10 @@ export class Session {
       FMU(`앞뒤 ${Math.min(6, Math.floor(this.t / per) + 1)} / 6`, CS.sand);
       if (this.t >= 6 * per + 0.4) { this.next(); return; }
     } else if (id === 'BX_A3') {
-      // 잽 폼 — 타겟 링 펄스
-      const BT = 0.75, k = 1 - beat(BT);
-      this.bxA3ring.material.opacity = 0.3 + 0.6 * k; this.bxA3ring.scale.setScalar(0.8 + 0.5 * (1 - k));
+      // 잽 폼 — 타겟 링 펄스 + 잽 궤적 뻗기(비트마다)
+      const BT = 0.9, ph = beat(BT), k = 1 - ph;
+      this.bxA3ring.material.opacity = 0.3 + 0.6 * k; this.bxA3ring.scale.setScalar(0.85 + 0.4 * k);
+      this.bxA3jab._prim.prog = ph;
       FMU(`잽 ${Math.min(6, Math.floor(this.t / BT) + 1)} / 6`);
       if (this.t >= 6 * BT + 0.4) { this.next(); return; }
     } else if (id === 'BX_B1') {
@@ -1422,7 +1432,7 @@ export class Session {
     } else if (id === 'BX_B3') {
       // 잽 스윕 — 스윕 밴드 밝기 + 타겟 수축 링, 맞춘 잽 카운트
       const BT = 0.9, ph = beat(BT);
-      this.bxSweep._prim.prog = ph;   // 잽 뻗기 진행 = 정본 밴드 채움
+      this.bxB3jab._prim.prog = ph;   // 잽 궤적 스윕
       this.bxB3cd.setOp(0.4 + 0.55 * ph); this.bxB3cd.scale.setScalar(1.9 - 0.9 * ph);   // setOp 규약 (구 .opacity는 셰이더에 무효 — 링이 안 보였음)
       const hits = Math.min(6, Math.floor(this.t / BT));
       FMU(`맞춘 잽 ${hits} / 6`, hits >= 6 ? CS.prism : CS.dim);
@@ -1431,6 +1441,7 @@ export class Session {
       const n = Math.max(1, 3 - Math.floor(this.t)); if (n !== this._lastCount) { this._setCountWall(n, CS.ink); this._lastCount = n; }
       if (this.t >= st.dur) { this.next(); return; }
     } else if (id === 'BX_C2' || id === 'BX_C3') {
+      if (id === 'BX_C2' && this.bxC2ap) this.bxC2ap._prim.prog = (this.t % 1.95) / 1.95;   // 잽 타이밍(타겟 간격 1.95s)
       if (id === 'BX_C3' && this.bxCombo) this.bxCombo._prim.prog = (this.t % 2.4) / 2.4;   // 콤보 사이클
       if (this.t >= st.dur) { this.next(); return; }
     } else if (id === 'BX_C4') {
