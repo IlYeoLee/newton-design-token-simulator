@@ -3996,27 +3996,25 @@ void main(){
   const _rV = new THREE.Vector3(), _fV = new THREE.Vector3(), _uV = new THREE.Vector3(0, 1, 0), _mBasis = new THREE.Matrix4();
   // 발밑 글로우 = WebGL 가산 블렌드 평면. CSS(floor.html)는 잔디와 블렌드 불가라 빨간 딱지처럼 떴음(유저).
   // 가산광이라 잔디에 빛을 '더해' 진짜 투사광처럼 자연스럽게 물듦.
-  // 발밑 글로우 = 화려하게 도는 스월 셰이더 (glow69 색: 레드코어→오렌지→크림 링). 색 밴드가 회전·요동.
+  // 발밑 글로우 = Figma 글로우(node 69:3936, 59-3582 추출) 그대로 + UV 스월로 회전·요동.
+  // 텍스처 색을 그대로 샘플하되 UV를 반지름 의존 각도로 비틀어(swirl) 색 밴드가 화려하게 돎.
+  const glowRunTex = new THREE.TextureLoader().load(import.meta.env.BASE_URL + 'ready-view/assets/fig/glow_run.png');
+  glowRunTex.colorSpace = THREE.SRGBColorSpace;
   const floorGlow = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.ShaderMaterial({
-    uniforms: { uTime: { value: 0 } }, transparent: true, depthWrite: false,
+    uniforms: { uTime: { value: 0 }, uTex: { value: glowRunTex } }, transparent: true, depthWrite: false,
     vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
     fragmentShader: `
-      varying vec2 vUv; uniform float uTime;
+      varying vec2 vUv; uniform float uTime; uniform sampler2D uTex;
       void main(){
         vec2 p = vUv - 0.5;
-        float r = length(p) * 2.0;              // 0=중심, 1=가장자리
+        float r = length(p);
         float ang = atan(p.y, p.x);
-        float t = uTime;
-        // 화려하게 도는 스월 — 각도·시간·반지름 파동 2겹
-        float sw  = sin(ang * 3.0 + t * 1.4 + r * 5.0) * 0.5 + 0.5;
-        float sw2 = sin(ang * -2.0 - t * 0.95 + r * 3.5) * 0.5 + 0.5;
-        float rr = r + (sw - 0.5) * 0.12 + (sw2 - 0.5) * 0.06;   // 밴드를 밀어 회전감
-        vec3 red = vec3(0.98, 0.19, 0.19), org = vec3(1.0, 0.47, 0.26), cream = vec3(1.0, 0.93, 0.85);
-        vec3 col = mix(red, org, smoothstep(0.0, 0.52, rr));
-        col = mix(col, cream, smoothstep(0.52, 0.86, rr));
-        col += vec3(0.14, 0.09, 0.04) * sw2 * (1.0 - r);   // 반짝임
-        float alpha = smoothstep(1.0, 0.48, r);            // 가장자리 부드럽게 페이드(사각 테두리 X)
-        gl_FragColor = vec4(col, alpha);
+        // 스월: 반지름 따라 각도를 비틀고 시간에 요동 → 색 밴드가 화려하게 회전
+        ang += uTime * 0.5 + sin(uTime * 0.7) * r * 4.0 + sin(uTime * 1.3 + r * 8.0) * 0.25;
+        vec2 uv2 = vec2(cos(ang), sin(ang)) * r + 0.5;
+        vec4 tx = texture2D(uTex, uv2);   // 59-3772 글로우 그대로
+        float a = max(tx.r, max(tx.g, tx.b));   // 검은 배경(luminance 0) → 투명, 글로우만 보이게
+        gl_FragColor = vec4(tx.rgb, a);
       }`,
   }));
   floorGlow.rotation.x = -Math.PI / 2; floorGlow.renderOrder = 3; floorGlow.visible = false;
@@ -4102,13 +4100,14 @@ void main(){
       // 프레임이 헤더를 다 담으므로 세션 3D 헤더 슬롯 숨김(중복 제거) — 복싱 벽 프레임과 동일 규약.
       if (session.slotFS) session.slotFS.visible = false;
       if (session.slotFL) session.slotFL.visible = false;
-      // 발밑 글로우 — floor.html 발(foot) 위치(대지 y≈1400/2670≈near-mid)에 가산광. 잔디에 자연 투사광.
-      const glowD = rig.fpNear + (rig.fpFar - rig.fpNear) * 0.42;
+      // 발밑 글로우 = Figma 59-3772 Ellipse 31226 정확 배치. 노드 x410 y973 w823 h784 → 중심(821.5,1365),
+      // export PNG 1301×1262(블러 포함). 대지 캔버스(1600×2670) → 풋프린트 월드 매핑(sUni, 캔버스 중심=풋프린트 중심).
       floorGlow.visible = true;
-      floorGlow.position.set(fp.ox + fp.fx * glowD, 0.006, fp.oz + fp.fz * glowD);
+      const gdx = (821.5 - fView.w / 2) * sUni;   // 우측 오프셋(m)
+      const gdy = (1365 - fView.h / 2) * sUni;     // 캔버스 아래(+) = 근거리 방향(-forward)
+      floorGlow.position.set(cx + fp.rx * gdx - fp.fx * gdy, 0.008, cz + fp.rz * gdx - fp.fz * gdy);
       floorGlow.rotation.set(-Math.PI / 2, 0, Math.atan2(fp.fx, fp.fz) + Math.PI);
-      const gsz = 2 * rig._halfAt(glowD) * 0.9;   // Figma(node 69) 비율 — 크림 링까지 크게
-      floorGlow.scale.set(gsz, gsz, 1);
+      floorGlow.scale.set(1301 * sUni, 1262 * sUni, 1);   // PNG 실측 크기 그대로
       floorGlow.material.uniforms.uTime.value = performance.now() / 1000;   // 스월 애니
     } else {
       floorGlow.visible = false;
