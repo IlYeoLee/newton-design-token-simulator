@@ -3939,57 +3939,55 @@ void main(){
   frameCssScene.add(frameObj);
   let loadedView = null;
 
-  // ── 바닥 대지 프레임 (러닝/농구): 기존 바닥 UI(session.js floorText/FootMark)와 동일하게
-  //    WebGL 평면 텍스처를 지면에 깔아 x봇에 자동으로 가려지고(depthTest occlusion) 직사각형 유지.
-  //    CSS3D(DOM 레이어)는 3D 깊이가 없어 사람 위로 둥둥 떴음(유저 지적) — WebGL로 근본 해결.
-  //    소스: PNG(정적) / webm·mp4(Figma 모션→VideoTexture) / null(placeholder 캔버스). 종목 px: 러닝 1600×2000.
+  // ── 바닥 프레임 occlusion 오버레이 ──
+  //   CSS3D(z6)는 DOM 레이어라 3D 깊이가 없어 x봇 다리 위로 둥둥 뜸. 해결: x봇만 투명 배경으로
+  //   프레임 위(z7)에 재렌더 → 프레임이 다리 뒤로 사라져 "발밑에 밟히는" 착시. HTML 모션은 그대로 유지.
+  const OCCL_LAYER = 1;
+  const occlRenderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+  occlRenderer.setPixelRatio(window.devicePixelRatio || 1);
+  occlRenderer.setClearColor(0x000000, 0);
+  Object.assign(occlRenderer.domElement.style, { position: 'fixed', pointerEvents: 'none', zIndex: '7', display: 'none' });
+  document.body.appendChild(occlRenderer.domElement);
+  const occlCam = camera.clone();
+  // 오버레이 = 프레임 위 몸 실루엣 마스크. 2번째 GL 컨텍스트라 메인의 IBL(PMREM 환경맵) 재사용 불가 →
+  // 검게 나옴. 몸이 원래 무채 회색이라 바디톤 평면색으로 덮어 실루엣만 정확히 프레임을 가림(발밑 밟힘).
+  const OCCL_MAT = new THREE.MeshBasicMaterial({ color: 0xa2a4aa });
+  function renderFloorOcclusion(active) {
+    occlRenderer.domElement.style.display = active ? 'block' : 'none';
+    if (!active || !xbot.model) return;
+    const cvr = renderer.domElement.getBoundingClientRect();
+    if (occlRenderer._sw !== cvr.width || occlRenderer._sh !== cvr.height) {
+      occlRenderer.setSize(cvr.width, cvr.height);
+      occlRenderer._sw = cvr.width; occlRenderer._sh = cvr.height;
+    }
+    occlRenderer.domElement.style.left = cvr.left + 'px';
+    occlRenderer.domElement.style.top = cvr.top + 'px';
+    // x봇 본만 오클루전 레이어에 등록(로드/팩교체 대응 — 본 수십개라 가벼움). 오버레이 카메라는 이 레이어만 렌더.
+    xbot.group.traverse(o => o.layers.enable(OCCL_LAYER));
+    occlCam.copy(camera); occlCam.layers.set(OCCL_LAYER);
+    // 배경은 오버레이에서 렌더 금지 — x봇 픽셀만 불투명, 그 외 투명이어야 프레임이 몸에만 가려짐.
+    const bg = scene.background; scene.background = null;
+    scene.overrideMaterial = OCCL_MAT;   // 바디톤 평면색 실루엣 (IBL 없이 검게 나오는 것 회피)
+    occlRenderer.clear();
+    occlRenderer.render(scene, occlCam);
+    scene.overrideMaterial = null; scene.background = bg;
+  }
+
+  // ── 바닥 대지 프레임 (러닝/농구): 복싱 벽 프레임과 동일한 CSS3D HTML 방식 (CSS 모션 그대로 재생).
+  //    벽=사람 뒤라 가림 문제 없음 / 바닥=발밑이라 x봇 실루엣만큼 클립해 다리 뒤로 사라지게(occlusion 근사).
+  //    스테이지 → { src, w, h } (대지 px). 러닝 1600×2000(세로). HTML/CSS 모션 = Figma export 프레임 자리.
   const FLOOR_FRAMES = {
-    READY: { src: null, w: 1600, h: 2000 },   // src=Figma export(png/webm) 경로. null=placeholder 캔버스
+    READY: { src: 'ready-view/floor.html', w: 1600, h: 2000 },
   };
-  const floorCanvas = document.createElement('canvas');
-  const floorTex = new THREE.CanvasTexture(floorCanvas);
-  floorTex.colorSpace = THREE.SRGBColorSpace; floorTex.anisotropy = 8;
-  const floorFrameMesh = new THREE.Mesh(
-    new THREE.PlaneGeometry(1, 1),
-    // 빔 투사 = 가산광(검정=빛 없음=투명). depthWrite:false·depthTest:true(기본) → x봇/발에 가려짐.
-    new THREE.MeshBasicMaterial({ map: floorTex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }),
-  );
-  floorFrameMesh.rotation.x = -Math.PI / 2;   // 지면에 눕힘 (기존 floorText/FootMark와 동일)
-  floorFrameMesh.renderOrder = 5;
-  floorFrameMesh.visible = false;
-  scene.add(floorFrameMesh);
+  const floorIframe = document.createElement('iframe');
+  floorIframe.setAttribute('scrolling', 'no');
+  // 벽과 동일 루마키: 검정(투사 안 함)=투명→바닥 비침, 흰·컬러=불투명 선명.
+  Object.assign(floorIframe.style, { border: '0', background: 'transparent', filter: 'url(#ui-lumakey)' });
+  const floorObj = new CSS3DObject(floorIframe);
+  floorObj.visible = false;
+  frameCssScene.add(floorObj);
   let loadedFloorView = null;
-  // placeholder — floor.html 축약(Figma export 오면 통째 교체). 잔디 위 가독 위해 흰 글자+near 진홍 글로우.
-  function drawFloorReady(v) {
-    const c = floorCanvas; c.width = v.w; c.height = v.h;
-    const x = c.getContext('2d'); x.clearRect(0, 0, v.w, v.h); x.textAlign = 'center';
-    const g = x.createRadialGradient(v.w / 2, v.h, 0, v.w / 2, v.h, v.h * 0.9);
-    g.addColorStop(0, 'rgba(255,70,55,.5)'); g.addColorStop(.45, 'rgba(255,100,70,.18)'); g.addColorStop(.75, 'rgba(0,0,0,0)');
-    x.fillStyle = g; x.fillRect(0, 0, v.w, v.h);
-    x.fillStyle = '#ffb066'; x.font = '800 44px "Noto Sans KR",sans-serif'; x.fillText('RUNNING · READY', v.w / 2, 175);
-    x.fillStyle = '#fff'; x.font = '800 100px "Noto Sans KR",sans-serif';
-    x.fillText('준비 —', v.w / 2, 320); x.fillText('발 두 번 구르면 시작', v.w / 2, 440);
-    x.fillStyle = '#eef1f6'; x.font = '46px "Noto Sans KR",sans-serif'; x.fillText('션의 마지막 1km 페이스로', v.w / 2, 530);
-    x.strokeStyle = '#ff5a3c'; x.lineWidth = 6; x.beginPath(); x.roundRect(v.w / 2 - 460, v.h - 360, 920, 150, 80); x.stroke();
-    x.fillStyle = '#fff'; x.font = '800 58px "Noto Sans KR",sans-serif'; x.fillText('👣 발 두 번 구르기', v.w / 2, v.h - 265);
-    floorTex.needsUpdate = true;
-    floorFrameMesh.material.map = floorTex; floorFrameMesh.material.needsUpdate = true;
-  }
-  function loadFloorFrame(v) {
-    const ext = (v.src || '').split('.').pop().toLowerCase();
-    if (ext === 'webm' || ext === 'mp4') {   // Figma 모션 → VideoTexture (매 프레임 자동 갱신, 모션 유지)
-      const vid = document.createElement('video');
-      Object.assign(vid, { src: import.meta.env.BASE_URL + v.src, loop: true, muted: true, playsInline: true, crossOrigin: 'anonymous' });
-      vid.play().catch(() => {});
-      const vt = new THREE.VideoTexture(vid); vt.colorSpace = THREE.SRGBColorSpace;
-      floorFrameMesh.material.map = vt; floorFrameMesh.material.needsUpdate = true;
-    } else if (v.src) {   // 정적 PNG
-      const img = new Image(); img.crossOrigin = 'anonymous';
-      img.onload = () => { floorCanvas.width = v.w; floorCanvas.height = v.h; floorCanvas.getContext('2d').drawImage(img, 0, 0, v.w, v.h); floorTex.needsUpdate = true; floorFrameMesh.material.map = floorTex; floorFrameMesh.material.needsUpdate = true; };
-      img.src = import.meta.env.BASE_URL + v.src;
-    } else drawFloorReady(v);   // placeholder
-  }
-  document.fonts?.ready?.then(() => { if (loadedFloorView && !loadedFloorView.src) drawFloorReady(loadedFloorView); });
+  const _rV = new THREE.Vector3(), _fV = new THREE.Vector3(), _uV = new THREE.Vector3(0, 1, 0), _mBasis = new THREE.Matrix4();
   function renderDesignFrame() {
     // CSS3D 레이어 = WebGL 캔버스에 매 프레임 정확 정합 — 창≠캔버스(크기·aspect)여도 원근·스케일 일치
     //   (이게 안 맞으면 디자인이 벽보다 크게 부풀어 프레임영역 밖으로 넘침 — 유저 창 크기 의존 버그의 원인)
@@ -4048,23 +4046,32 @@ void main(){
     const isFloorSport = session.active && (session.sport === 'running' || session.sport === 'basketball');
     const fView = isFloorSport ? FLOOR_FRAMES[session.curStage?.id] : null;
     const fp = rig._fp;   // 무릎 투사 풋프린트 (rig.update가 매 프레임 세팅)
-    floorFrameMesh.visible = !!fView && !!fp;
-    if (floorFrameMesh.visible) {
-      if (fView !== loadedFloorView) { loadFloorFrame(fView); loadedFloorView = fView; }
-      // 대지 중심 = 풋프린트 전방 중간. 직사각형 유지 — 폭=중앙폭(2·halfAt), 깊이=fpFar−fpNear (키스톤 없음).
+    floorObj.visible = !!fView && !!fp;
+    if (floorObj.visible) {
+      if (fView.src !== loadedFloorView) {
+        floorIframe.style.width = fView.w + 'px';
+        floorIframe.style.height = fView.h + 'px';
+        floorIframe.src = import.meta.env.BASE_URL + fView.src;
+        loadedFloorView = fView.src;
+      }
+      // 풋프린트 중앙(전방 fpNear~fpFar 중간)에 대지 중심을 앵커. 직사각형(어핀) — 복싱 벽과 동일.
       const dMid = (rig.fpNear + rig.fpFar) / 2;
       const cx = fp.ox + fp.fx * dMid, cz = fp.oz + fp.fz * dMid;
+      // 로컬축 → 월드: 대지 폭(+X)→풋프린트 우측, 대지 높이(+Y=위쪽/제목)→전방(far), 법선(+Z)→상방.
+      _rV.set(fp.rx, 0, fp.rz); _fV.set(fp.fx, 0, fp.fz);
+      _mBasis.makeBasis(_rV, _fV, _uV);
+      floorObj.quaternion.setFromRotationMatrix(_mBasis);
+      floorObj.position.set(cx, 0.012, cz);
       const laneW = 2 * rig._halfAt(dMid), laneD = rig.fpFar - rig.fpNear;
-      floorFrameMesh.position.set(cx, 0.02, cz);
-      // 지면에 눕히고(-90°) 풋프린트 전방으로 heading 정렬 — 대지 +Y(제목쪽)가 far로 향함.
-      floorFrameMesh.rotation.set(-Math.PI / 2, 0, Math.atan2(fp.fx, fp.fz) + Math.PI);
-      floorFrameMesh.scale.set(laneW, laneD, 1);
+      floorObj.scale.set(laneW / fView.w, laneD / fView.h, 1);
       // 프레임이 헤더를 다 담으므로 세션 3D 헤더 슬롯 숨김(중복 제거) — 복싱 벽 프레임과 동일 규약.
       if (session.slotFS) session.slotFS.visible = false;
       if (session.slotFL) session.slotFL.visible = false;
     }
     // 항상 렌더 — 표시/숨김 전환에도 CSS3D transform 항상 동기(재진입 시 위치 어긋남·잔류 방지)
     cssRenderer.render(frameCssScene, camera);
+    // ── 바닥 프레임 occlusion: x봇만 투명 오버레이로 프레임(z6) 위(z7)에 다시 그려 다리 뒤로 밟히게 ──
+    renderFloorOcclusion(floorObj.visible);
   }
 
   loop();
