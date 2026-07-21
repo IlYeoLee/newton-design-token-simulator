@@ -3949,9 +3949,10 @@ void main(){
   Object.assign(occlRenderer.domElement.style, { position: 'fixed', pointerEvents: 'none', zIndex: '7', display: 'none' });
   document.body.appendChild(occlRenderer.domElement);
   const occlCam = camera.clone();
-  // 오버레이 = 프레임 위 몸 실루엣 마스크. 2번째 GL 컨텍스트라 메인의 IBL(PMREM 환경맵) 재사용 불가 →
-  // 검게 나옴. 몸이 원래 무채 회색이라 바디톤 평면색으로 덮어 실루엣만 정확히 프레임을 가림(발밑 밟힘).
-  const OCCL_MAT = new THREE.MeshBasicMaterial({ color: 0xa2a4aa });
+  // 오버레이 = 프레임 위 몸을 재렌더해 프레임을 몸에 가림(발밑 밟힘). 2번째 GL이라 메인 IBL(PMREM) 재사용
+  // 불가 → 원본 재질은 검게 나옴. Lambert 대체재질 + 씬 조명을 오버레이 레이어에도 켜서 3D 음영 유지(2D 방지).
+  const OCCL_MAT = new THREE.MeshLambertMaterial({ color: 0xb9bcc4 });
+  let occlLightsReady = false;
   function renderFloorOcclusion(active) {
     occlRenderer.domElement.style.display = active ? 'block' : 'none';
     if (!active || !xbot.model) return;
@@ -3964,6 +3965,8 @@ void main(){
     occlRenderer.domElement.style.top = cvr.top + 'px';
     // x봇 본만 오클루전 레이어에 등록(로드/팩교체 대응 — 본 수십개라 가벼움). 오버레이 카메라는 이 레이어만 렌더.
     xbot.group.traverse(o => o.layers.enable(OCCL_LAYER));
+    // 씬 조명도 오버레이 레이어에 켜서 Lambert 음영이 살아나게(2D 평면화 방지). 메인 레이어0는 그대로 유지.
+    if (!occlLightsReady) { scene.traverse(o => { if (o.isLight) o.layers.enable(OCCL_LAYER); }); occlLightsReady = true; }
     occlCam.copy(camera); occlCam.layers.set(OCCL_LAYER);
     // 배경은 오버레이에서 렌더 금지 — x봇 픽셀만 불투명, 그 외 투명이어야 프레임이 몸에만 가려짐.
     const bg = scene.background; scene.background = null;
@@ -4062,8 +4065,10 @@ void main(){
       _mBasis.makeBasis(_rV, _fV, _uV);
       floorObj.quaternion.setFromRotationMatrix(_mBasis);
       floorObj.position.set(cx, 0.012, cz);
-      const laneW = 2 * rig._halfAt(dMid), laneD = rig.fpFar - rig.fpNear;
-      floorObj.scale.set(laneW / fView.w, laneD / fView.h, 1);
+      // 균일 스케일(비율 유지) — 폭에 맞춤. 독립 x/y 스케일은 대지(0.8)와 풋프린트(≈0.49) 종횡비가
+      // 달라 글자가 세로로 늘고 가로로 짜부됐음(유저 지적). 깊이는 대지 비율 그대로 → 세로도 짧아짐.
+      const laneW = 2 * rig._halfAt(dMid), sUni = laneW / fView.w;
+      floorObj.scale.set(sUni, sUni, 1);
       // 프레임이 헤더를 다 담으므로 세션 3D 헤더 슬롯 숨김(중복 제거) — 복싱 벽 프레임과 동일 규약.
       if (session.slotFS) session.slotFS.visible = false;
       if (session.slotFL) session.slotFL.visible = false;
