@@ -261,6 +261,17 @@ const PRIM_DEFAULTS = {
   trajectory: { w: 1, glow: 1, tempo: 0.5, spread: 1, width: 1.4, tail: 1, taper: 1.6, spark: 0.6 },
   rotate: { w: 1, glow: 1, tempo: 0.5, r: 0.3, sweep: 0.66, dir: 1, width: 1 },
 };
+// 잽 궤적 방향 세트 — 렙마다 바꿔 정면·크로스·좌우 다양한 잽(정규 제어점, 가드 아래→타겟 위)
+const JAB_PATHS = [
+  [[-0.15, 0.82], [0, 0.05], [0.12, -0.72]],    // 정면 스트레이트
+  [[0.35, 0.72], [0.05, 0.0], [-0.3, -0.62]],   // 오른쪽에서 → 왼쪽 크로스
+  [[-0.35, 0.72], [-0.05, 0.0], [0.3, -0.62]],  // 왼쪽에서 → 오른쪽
+  [[-0.06, 0.85], [0.2, 0.1], [-0.04, -0.82]],  // 안쪽으로 감아치는 훅 느낌
+];
+const SWEEP_PATHS = [
+  [[-0.55, 0.5], [0, -0.2], [0.55, 0.5]],   // 좌 → 우 스윕
+  [[0.55, 0.5], [0, -0.2], [-0.55, 0.5]],   // 우 → 좌 스윕
+];
 function livePrimEnv() {
   return {
     arrow: FXP.arrow,
@@ -1404,8 +1415,9 @@ export class Session {
       FMU(`앞뒤 ${Math.min(6, Math.floor(this.t / per) + 1)} / 6`, CS.sand);
       if (this.t >= 6 * per + 0.4) { this.next(); return; }
     } else if (id === 'BX_A3') {
-      // 잽 폼 — 어프로치 링 수축(타이밍) + 잽 궤적 뻗기(비트마다)
-      const BT = 0.9, ph = beat(BT);
+      // 잽 폼 — 어프로치 링(타이밍) + 잽 궤적. 렙마다 방향을 바꿔 다양한 잽(정면·크로스·좌우)
+      const BT = 0.9, rep = Math.floor(this.t / BT), ph = (this.t % BT) / BT;
+      if (rep !== this._jabRep) { this._jabRep = rep; this.bxA3jab._prim.pts = JAB_PATHS[rep % JAB_PATHS.length]; }
       this.bxA3ap._prim.prog = ph;    // 링이 맞물리는 순간 = 잽 타이밍
       this.bxA3jab._prim.prog = ph;   // 잽 궤적 뻗기
       FMU(`잽 ${Math.min(6, Math.floor(this.t / BT) + 1)} / 6`);
@@ -1429,7 +1441,8 @@ export class Session {
       if (this.t >= 6 * per + 0.3) { this.next(); return; }
     } else if (id === 'BX_B3') {
       // 잽 스윕 — 스윕 밴드 밝기 + 타겟 수축 링, 맞춘 잽 카운트
-      const BT = 0.9, ph = beat(BT);
+      const BT = 0.9, rep = Math.floor(this.t / BT), ph = (this.t % BT) / BT;
+      if (rep !== this._jabRep) { this._jabRep = rep; this.bxB3jab._prim.pts = SWEEP_PATHS[rep % SWEEP_PATHS.length]; }   // 좌우 번갈아 스윕
       this.bxB3jab._prim.prog = ph;   // 잽 궤적 스윕
       this.bxB3cd.setOp(0.4 + 0.55 * ph); this.bxB3cd.scale.setScalar(1.9 - 0.9 * ph);   // setOp 규약 (구 .opacity는 셰이더에 무효 — 링이 안 보였음)
       const hits = Math.min(6, Math.floor(this.t / BT));
