@@ -357,7 +357,10 @@ export class ProjectorRig {
       dev.multiplyScalar(this.budget.termsM.latency);
       // ③ 지향 잔차: 저주파 wander(자세+커프) + 고주파(광학 양자화).
       //    σ는 2D 벡터 크기 기준이므로 축당 σ/√2로 나눠 총 RMS가 σ와 같게 한다.
-      const sSlow = slowSigmaM() / Math.SQRT2, sFast = fastSigmaM() / Math.SQRT2;
+      // 모션 게이트: wander는 다리 움직임(자세 변화·커프 슬립·서보 추적)에서 나온다. 무릎이 정지면(ω→0)
+      // 흔들림도 0이어야 함(유저: '봇 멈췄는데 빔이 흔들'). 정지 무릎=정지 빔. 주행 중엔 ω 커서 게이트≈1.
+      const motion = Math.min(1, this.omegaDps / 25);   // ponytail: 25dps 램프. 더 정밀히 하려면 실측 자세변화율로 교체
+      const sSlow = slowSigmaM() / Math.SQRT2 * motion, sFast = fastSigmaM() / Math.SQRT2 * motion;
       const t = performance.now() / 1000;
       const jx = (J_A * Math.sin(t * 7.3) + J_B * Math.sin(t * 13.1)) * sSlow + J_C * Math.sin(t * 41.3) * sFast;
       const jz = J_C * Math.cos(t * 8.7) * sSlow + J_C * Math.cos(t * 37.9) * sFast;
