@@ -3988,40 +3988,19 @@ void main(){
   const floorIframe = document.createElement('iframe');
   floorIframe.setAttribute('scrolling', 'no');
   // 벽과 동일 루마키: 검정(투사 안 함)=투명→바닥 비침, 흰·컬러=불투명 선명.
-  Object.assign(floorIframe.style, { border: '0', background: 'transparent' });   // 루마키 제거 — 어두운 발(딥레드)이 투명해지던 문제(유저)
+  Object.assign(floorIframe.style, { border: '0', background: 'transparent', filter: 'url(#ui-lumakey)' });
   const floorObj = new CSS3DObject(floorIframe);
   floorObj.visible = false;
   frameCssScene.add(floorObj);
   let loadedFloorView = null;
   const _rV = new THREE.Vector3(), _fV = new THREE.Vector3(), _uV = new THREE.Vector3(0, 1, 0), _mBasis = new THREE.Matrix4();
-  // 발밑 글로우 = WebGL 가산 블렌드 평면. CSS(floor.html)는 잔디와 블렌드 불가라 빨간 딱지처럼 떴음(유저).
-  // 가산광이라 잔디에 빛을 '더해' 진짜 투사광처럼 자연스럽게 물듦.
-  // 발밑 글로우 = Ellipse 31226 정본 그라디언트를 셰이더로 직접(쨍한 정확 색) + 은은한 숨쉬기.
-  // 스톱: #FA3030 레드 → #FE6E3C 오렌지 → #FEC389 샌드 → #D1FEFF 시안.
-  const floorGlow = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.ShaderMaterial({
-    uniforms: { uTime: { value: 0 } }, transparent: true, depthWrite: false,
-    vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
-    fragmentShader: `
-      varying vec2 vUv; uniform float uTime;
-      void main(){
-        vec2 p = vUv - 0.5;
-        float r = length(p) * 2.0;           // 0=중심, ~1.4=모서리
-        float ang = atan(p.y, p.x);
-        // 정본 색 (순수 — 밝기 부스트 없이 쨍한 딥레드). #FA3030→FE6E3C→FEC389→D1FEFF
-        vec3 red = vec3(0.980, 0.188, 0.188), org = vec3(0.996, 0.431, 0.235),
-             sand = vec3(0.996, 0.765, 0.537), cyan = vec3(0.820, 0.996, 1.0);
-        vec3 c = mix(red, org, smoothstep(0.32, 0.56, r));
-        c = mix(c, sand, smoothstep(0.56, 0.72, r));
-        c = mix(c, cyan, smoothstep(0.72, 0.92, r));
-        // 핵심: 색 영역은 완전 불투명(잔디 안 비쳐 쨍) → 바깥 가장자리만 예쁘게 페이드.
-        // 페더 경계가 은은히 숨쉬며 파동(부드러운 패더 애니).
-        float edge = 0.80 + sin(uTime * 0.8) * 0.03 + sin(ang * 3.0 + uTime * 0.5) * 0.03;
-        float alpha = 1.0 - smoothstep(edge, edge + 0.34, r);
-        gl_FragColor = vec4(c, alpha);
-      }`,
-  }));
-  floorGlow.rotation.x = -Math.PI / 2; floorGlow.renderOrder = 3; floorGlow.visible = false;
-  scene.add(floorGlow);
+  // 바닥 프리즘 배경 = 복싱 벽 gridScanPanel(reactbits Prism+GridScan)의 지면판. 같은 셰이더를 눕혀 풋프린트에 깔음.
+  // WebGL이라 잔디와 제대로 블렌드(CustomBlending 프리멀티) + x봇에 자연 가려짐 + 테두리 페더 내장.
+  const floorPrism = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), gridScanPanel.material.clone());
+  floorPrism.rotation.x = -Math.PI / 2;
+  floorPrism.renderOrder = 4;   // 잔디 위, UI 프레임(CSS3D) 아래
+  floorPrism.visible = false;
+  scene.add(floorPrism);
   function renderDesignFrame() {
     // CSS3D 레이어 = WebGL 캔버스에 매 프레임 정확 정합 — 창≠캔버스(크기·aspect)여도 원근·스케일 일치
     //   (이게 안 맞으면 디자인이 벽보다 크게 부풀어 프레임영역 밖으로 넘침 — 유저 창 크기 의존 버그의 원인)
@@ -4103,18 +4082,20 @@ void main(){
       // 프레임이 헤더를 다 담으므로 세션 3D 헤더 슬롯 숨김(중복 제거) — 복싱 벽 프레임과 동일 규약.
       if (session.slotFS) session.slotFS.visible = false;
       if (session.slotFL) session.slotFL.visible = false;
-      // 발밑 글로우 = Figma 59-3772 Ellipse 31226 정확 배치. 노드 x410 y973 w823 h784 → 중심(821.5,1365),
-      // export PNG 1301×1262(블러 포함). 대지 캔버스(1600×2670) → 풋프린트 월드 매핑(sUni, 캔버스 중심=풋프린트 중심).
-      floorGlow.visible = true;
-      const gdx = (821.5 - fView.w / 2) * sUni;   // 우측 오프셋(m)
-      const gdy = (1365 - fView.h / 2) * sUni;     // 캔버스 아래(+) = 근거리 방향(-forward)
-      floorGlow.position.set(cx + fp.rx * gdx - fp.fx * gdy, 0.008, cz + fp.rz * gdx - fp.fz * gdy);
-      floorGlow.rotation.set(-Math.PI / 2, 0, Math.atan2(fp.fx, fp.fz) + Math.PI);
-      const gScale = 0.62;   // Figma 크기 기준 축소 (유저: 더 작게)
-      floorGlow.scale.set(1301 * sUni * gScale, 1262 * sUni * gScale, 1);
-      floorGlow.material.uniforms.uTime.value = performance.now() / 1000;   // 스월 애니
+      // ── 바닥 프리즘 배경 (복싱 벽과 동일 셰이더/컬러) — 풋프린트에 눕혀 깔음 ──
+      floorPrism.visible = true;
+      floorPrism.position.set(cx, 0.008, cz);
+      floorPrism.rotation.set(-Math.PI / 2, 0, Math.atan2(fp.fx, fp.fz) + Math.PI);
+      floorPrism.scale.set(2 * rig._halfAt(dMid), rig.fpFar - rig.fpNear, 1);
+      if (rig.floorClip && floorPrism.material.clippingPlanes !== rig.floorClip)
+        floorPrism.material.clippingPlanes = rig.floorClip;
+      const FU = floorPrism.material.uniforms;
+      FU.uTime.value = performance.now() / 1000;
+      FU.uGrid.value = 0;   // 바닥판은 퍼스펙티브 그리드 끔 (프리즘 글로우만, 유저)
+      FU.uBoost.value = FXP.day ? 1.15 : 0.85;
+      FU.uLines.value.setHex(0xfec389); FU.uScan.value.setHex(0xfe6e3c); FU.uAccent.value.setHex(COLORS.user ?? 0x21ccdb);
     } else {
-      floorGlow.visible = false;
+      floorPrism.visible = false;
     }
     // 항상 렌더 — 표시/숨김 전환에도 CSS3D transform 항상 동기(재진입 시 위치 어긋남·잔류 방지)
     cssRenderer.render(frameCssScene, camera);
