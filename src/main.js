@@ -4000,8 +4000,12 @@ void main(){
   {
     const gx = glowCanvas.getContext('2d');
     const gr = gx.createRadialGradient(128, 128, 0, 128, 128, 128);
-    gr.addColorStop(0, 'rgba(255,64,50,0.95)'); gr.addColorStop(0.32, 'rgba(255,96,58,0.5)');
-    gr.addColorStop(0.62, 'rgba(210,250,255,0.14)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+    // 밝고 맑게(루미너스): 화이트-웜 핫코어 → 비비드 오렌지 → 밝은 시안 림 (가산광이라 코어 블룸)
+    gr.addColorStop(0, 'rgba(255,244,232,1)');
+    gr.addColorStop(0.16, 'rgba(255,150,96,0.95)');
+    gr.addColorStop(0.40, 'rgba(255,74,60,0.6)');
+    gr.addColorStop(0.66, 'rgba(150,238,255,0.42)');
+    gr.addColorStop(1, 'rgba(0,0,0,0)');
     gx.fillStyle = gr; gx.fillRect(0, 0, 256, 256);
   }
   const floorGlowTex = new THREE.CanvasTexture(glowCanvas);
