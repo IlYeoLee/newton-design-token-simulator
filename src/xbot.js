@@ -293,6 +293,7 @@ export class XBot {
       드릴은 지정 관절만 움직이므로(발목 돌리기=발만) 저강도 호흡 레이어(warmup 0.12)를
       깔아 전신이 살아 보이게 — '인물이 완전 정지' 오인 방지 */
   playDemo(name, dt, hold = false) {
+    this._dt = dt;
     const key = this.actions[name] ? name : (this.actions.warmup ? 'warmup' : null);
     if (!key) return;
     const breathW = (key !== 'warmup' && this.actions.warmup) ? 0.18 : 0;
@@ -312,6 +313,7 @@ export class XBot {
     this.group.position.set(0, 0, this.demoStandZ || 0);
     this.mixer.update(0);
     this._lockInPlace?.();
+    this._clampFeet();   // 데모 클립 루트 높이 미보정 → 봇 공중부양(유저: 'x봇이 공중에 떠있는데') 방지
     // 데모 중 공 관리 (playDemo는 여태 공을 안 건드려 이전 live 위치가 멀리 남아있었음 — 유저: '공이 저 멀리').
     // 드리블 클립일 때만 손에 붙여 튕기고, 그 외(idle·스탠스·사이드스텝·READY)엔 숨김.
     if (this.ball) {
