@@ -4075,6 +4075,8 @@ void main(){
       // 프레임이 헤더를 다 담으므로 세션 3D 헤더 슬롯 숨김(중복 제거) — 복싱 벽 프레임과 동일 규약.
       if (session.slotFS) session.slotFS.visible = false;
       if (session.slotFL) session.slotFL.visible = false;
+      // 시작 페이지(floor UI 프레임)에선 그 스테이지의 세션 마크 판정 토큰 숨김 (floor UI가 전담) — 유저.
+      if (session.G && session.G[session.stage]) session.G[session.stage].visible = false;
     }
     // 항상 렌더 — 표시/숨김 전환에도 CSS3D transform 항상 동기(재진입 시 위치 어긋남·잔류 방지)
     cssRenderer.render(frameCssScene, camera);
