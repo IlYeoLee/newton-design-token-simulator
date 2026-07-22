@@ -49,13 +49,7 @@ html,body{background:transparent}
 .hero .a{font-weight:700;font-size:88px;line-height:1.05;letter-spacing:-5px}
 .foot{position:absolute;left:606px;top:1140px;width:400px;height:539px;
   opacity:0;animation:slideInUp .9s cubic-bezier(.2,.75,.2,1) .7s both}
-/* 발 실루엣을 또렷하게: 글로우 SVG는 형태가 흐릿 → 발 사진(foot_mask.png)을 CSS 마스크로 써서
-   브랜드 레드를 '발 모양'으로 punch-out(크리스프 실루엣) + drop-shadow로 글로우 유지. footBob 탭 유지. */
-.foot .shape{position:absolute;inset:0;transform-origin:50% 100%;
-  background:linear-gradient(160deg,#ff6a4d,#ff3b21 55%,#e5220f);
-  -webkit-mask:url(assets/fig/foot_mask.png) no-repeat bottom center/contain;
-          mask:url(assets/fig/foot_mask.png) no-repeat bottom center/contain;
-  filter:drop-shadow(0 0 48px rgba(255,74,50,.55)) drop-shadow(0 0 18px rgba(255,90,64,.5));
+.foot img{width:100%;height:100%;display:block;transform-origin:50% 100%;
   animation:footBob 3s cubic-bezier(.4,0,.3,1) infinite 1.5s}
 
 /* ═══ 애니메이션 ═══ */
@@ -100,7 +94,7 @@ html,body{background:transparent}
       <img class="arrow" src="assets/run/arrow.svg" alt="">
       <div class="a">Tap your foot Twice</div>
     </div>
-    <div class="foot"><span class="shape"></span></div>
+    <div class="foot"><img src="assets/run/foot.svg" alt=""></div>
   </div>
   <script>
   (function(){
