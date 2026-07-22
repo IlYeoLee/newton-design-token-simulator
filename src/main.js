@@ -3488,8 +3488,8 @@ void main(){
       BX_A1: 'bx_neck', BX_A2: 'boxGuard', BX_A3: 'boxJab',
       BX_B1: 'boxGuard', BX_B2: 'boxGuard', BX_B3: 'boxCombo',
       BX_READY: 'boxGuard', BX_T1: 'boxGuard', BX_T2: 'boxGuard', BX_C1: 'boxGuard',
-      // 농구 = 실측 스탠스 + 기존 사이드스텝·드리블
-      BK_A1: 'bkStance', BK_A2: 'sidestep', BK_A3: 'dribble',
+      // 농구 = 실측 스탠스 + 기존 사이드스텝·드리블. 시작 화면(READY)은 러닝과 동일 calm idle(공 없음)
+      BK_READY: 'idle', BK_A1: 'bkStance', BK_A2: 'sidestep', BK_A3: 'dribble',
     };
     if (DRILL[id] && xbot.actions[DRILL[id]]) return DRILL[id];
     if (sport === 'basketball') return 'dribble';           // 그 외 제자리 드리블
@@ -3816,7 +3816,9 @@ void main(){
     optRing.visible = camMark.visible = boxOn;
 
     // 농구 방향·리듬 큐 — 렌더는 전부 카탈로그 토큰 (화살표 촉·자루는 tickFlowArrows가 급이)
-    const bkOn = state.pack === 'basketball' && rig._fp;
+    // 시작 페이지(floor UI 프레임) 스테이지에선 방향/리듬 큐 숨김 — floor UI가 전담(유저: mark 판정 토큰 제거)
+    const onFloorFrame = session.active && !!FLOOR_FRAMES[session.curStage?.id];
+    const bkOn = state.pack === 'basketball' && rig._fp && !onFloorFrame;
     bkArrow.visible = bkLane.visible = bkOn;
     // 앰비언트 토포 공간 (농구 두 투사면 — 세션·재생 중 상시 은은)
     // 앰비언트 토포 필드 기각(유저): 존 경계 없는 전면 랜덤 라인 = 바닥 얼룩으로 보임.
@@ -4053,6 +4055,8 @@ void main(){
     const fView = isFloorSport ? FLOOR_FRAMES[session.curStage?.id] : null;
     const fp = rig._fp;   // 무릎 투사 풋프린트 (rig.update가 매 프레임 세팅)
     floorObj.visible = !!fView && !!fp;
+    // 시작 페이지(floor UI 프레임) 뜰 땐 지면 토큰 마크/화살표 숨김 — 라이브 스테이지에선 복원
+    if (isFloorSport) tokens.floorRoot.visible = !floorObj.visible;
     if (floorObj.visible) {
       if (fView.src !== loadedFloorView) {
         floorIframe.style.width = fView.w + 'px';
@@ -4076,7 +4080,9 @@ void main(){
       if (session.slotFS) session.slotFS.visible = false;
       if (session.slotFL) session.slotFL.visible = false;
       // 시작 페이지(floor UI 프레임)에선 그 스테이지의 세션 마크 판정 토큰 숨김 (floor UI가 전담) — 유저.
-      if (session.G && session.G[session.stage]) session.G[session.stage].visible = false;
+      // fView와 동일 키(curStage.id)로 정확히 그 그룹을 끈다 (session.stage getter와 불일치했음).
+      const stageG = session.G && session.G[session.curStage?.id];
+      if (stageG) stageG.visible = false;
     }
     // 항상 렌더 — 표시/숨김 전환에도 CSS3D transform 항상 동기(재진입 시 위치 어긋남·잔류 방지)
     cssRenderer.render(frameCssScene, camera);

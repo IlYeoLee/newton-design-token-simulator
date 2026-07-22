@@ -312,6 +312,12 @@ export class XBot {
     this.group.position.set(0, 0, this.demoStandZ || 0);
     this.mixer.update(0);
     this._lockInPlace?.();
+    // 데모 중 공 관리 (playDemo는 여태 공을 안 건드려 이전 live 위치가 멀리 남아있었음 — 유저: '공이 저 멀리').
+    // 드리블 클립일 때만 손에 붙여 튕기고, 그 외(idle·스탠스·사이드스텝·READY)엔 숨김.
+    if (this.ball) {
+      if (this.mode === 'basketball' && key === 'dribble') this._dribbleBall(this._demoT || 0);
+      else this.ball.visible = false;
+    }
     // 최종 월드 확정 — 루트모션 상쇄(모델 오프셋) 이후를 rig가 읽도록. 미갱신 시 무릎 모듈이
     // 상쇄 전 원시 힙 위치(런 클립 최대 0.9m 앞)에 놓여 '프로젝터가 몸에서 떨어져 떠다님'.
     // (팩 경로는 판정 캘리브레이션이 기존 타이밍에 적합돼 있어 건드리지 않음)
