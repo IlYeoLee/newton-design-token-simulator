@@ -3674,6 +3674,7 @@ void main(){
   function loop() {
     requestAnimationFrame(loop);
     const rawDt = Math.min(clock.getDelta(), 2.0);
+    _uiDt = Math.min(rawDt, 0.05);   // UI 앵커 스무딩용 실시간 dt (프레임 튐 방지 클램프)
 
     if (state.playing) {
       // 큰 프레임은 1/50s 서브스텝으로 분할 — rAF 스로틀 시에도 판정 샘플링 정확
@@ -4001,6 +4002,8 @@ void main(){
   floorObj.visible = false;
   frameCssScene.add(floorObj);
   let loadedFloorView = null;
+  let _uiDt = 0.016;      // loop에서 매 프레임 실시간 dt 주입 (UI 앵커 저역통과용)
+  let _fpSmooth = null;   // 프레임·발자국 앵커용 저역통과 풋프린트 — 빔 흔들림(투사오차 지터) 제거해 글자 삐걱임 방지
   const _rV = new THREE.Vector3(), _fV = new THREE.Vector3(), _uV = new THREE.Vector3(0, 1, 0), _mBasis = new THREE.Matrix4();
   function renderDesignFrame() {
     // CSS3D 레이어 = WebGL 캔버스에 매 프레임 정확 정합 — 창≠캔버스(크기·aspect)여도 원근·스케일 일치
@@ -4073,12 +4076,25 @@ void main(){
         const durSuffix = fView.src.includes('floor-scene.html') ? '&dur=' + dur : '';
         floorIframe.src = import.meta.env.BASE_URL + fView.src + durSuffix;
         loadedFloorView = fView.src;
+        _fpSmooth = null;   // 스테이지 전환 = 앵커 스냅(슬라이딩 방지)
       }
+      // 읽는 UI(프레임·발자국)는 빔 흔들림(투사오차 지터, 무릎 각속도 비례 — 다리 스윙 때 최대)을 그대로
+      // 따르면 글자가 삐걱임(유저). 앵커를 저역통과(≈90ms 시정수)해 인물 총체 이동만 남기고 지터 제거.
+      // 빔·토큰은 원본 rig._fp 그대로라 '정직한 흔들림' 유지 — 읽기용 콘텐츠만 안정화.
+      if (!_fpSmooth) _fpSmooth = { ox: fp.ox, oz: fp.oz, fx: fp.fx, fz: fp.fz };
+      const aUI = 1 - Math.exp(-_uiDt / 0.09);
+      _fpSmooth.ox += (fp.ox - _fpSmooth.ox) * aUI;
+      _fpSmooth.oz += (fp.oz - _fpSmooth.oz) * aUI;
+      _fpSmooth.fx += (fp.fx - _fpSmooth.fx) * aUI;
+      _fpSmooth.fz += (fp.fz - _fpSmooth.fz) * aUI;
+      const _fl = Math.hypot(_fpSmooth.fx, _fpSmooth.fz) || 1;
+      const sfp = { ox: _fpSmooth.ox, oz: _fpSmooth.oz, fx: _fpSmooth.fx / _fl, fz: _fpSmooth.fz / _fl };
+      sfp.rx = -sfp.fz; sfp.rz = sfp.fx;   // right = (-fwd.z, fwd.x) — projector와 동일 규약
       // 풋프린트 중앙(전방 fpNear~fpFar 중간)에 대지 중심을 앵커. 직사각형(어핀) — 복싱 벽과 동일.
       const dMid = (rig.fpNear + rig.fpFar) / 2;
-      const cx = fp.ox + fp.fx * dMid, cz = fp.oz + fp.fz * dMid;
+      const cx = sfp.ox + sfp.fx * dMid, cz = sfp.oz + sfp.fz * dMid;
       // 로컬축 → 월드: 대지 폭(+X)→풋프린트 우측, 대지 높이(+Y=위쪽/제목)→전방(far), 법선(+Z)→상방.
-      _rV.set(fp.rx, 0, fp.rz); _fV.set(fp.fx, 0, fp.fz);
+      _rV.set(sfp.rx, 0, sfp.rz); _fV.set(sfp.fx, 0, sfp.fz);
       _mBasis.makeBasis(_rV, _fV, _uV);
       floorObj.quaternion.setFromRotationMatrix(_mBasis);
       floorObj.position.set(cx, 0.012, cz);
@@ -4104,9 +4120,9 @@ void main(){
           // 저작 로컬(+x=우, -z=전방, m) → 풋프린트 축(우, 상, -전방). 원점은 밴드 시프트(저작중심→dMid)만큼 뒤로:
           //   농구 발자국은 먼 존(z −1.5~−2.6)에 저작돼 프레임 타이틀(≈2.24m)·도트(≈1.95m)존 침범 → dMid로 당김.
           const S = (state.pack === 'basketball' ? 2.05 : 1.20) - dMid;
-          _mBasis.makeBasis(_rV, _uV, _fV.set(-fp.fx, 0, -fp.fz));
+          _mBasis.makeBasis(_rV, _uV, _fV.set(-sfp.fx, 0, -sfp.fz));   // sfp=저역통과 앵커(프레임과 동일)
           stageG.quaternion.setFromRotationMatrix(_mBasis);
-          stageG.position.set(fp.ox - fp.fx * S, 0.012, fp.oz - fp.fz * S);
+          stageG.position.set(sfp.ox - sfp.fx * S, 0.012, sfp.oz - sfp.fz * S);
         }
       }
     }
