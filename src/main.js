@@ -4090,13 +4090,24 @@ void main(){
       // 발자국 마크(G그룹)는 중앙 콘텐츠라 유지 — 슬롯만 끈다.
       [session.slotFS, session.slotFL, session.slotFM, session.dirSlot, session.paceLight,
        session.countGroup, session.countRing].forEach(o => { if (o) o.visible = false; });
-      // 발자국 판정 마크(G그룹) 정렬. 시작 페이지에선 숨김. 운동중엔 프레임 콘텐츠 밴드(중심≈dMid)로 당김:
-      // 농구 발자국은 먼 존(z −1.5~−2.6)에 저작돼 프레임 타이틀(≈2.24m)·도트(≈1.95m)존을 침범했음(유저).
-      // 종목별 저작 발자국 깊이 중심을 밴드 중심(dMid)에 맞춰 z-이동만(형태·좌우배치 보존). 러닝은 이미 근접 존이라 shift≈0.
+      // 발자국 판정 마크(G그룹) 정렬. 시작 페이지=숨김.
       const stageG = session.G && session.G[session.curStage?.id];
       if (stageG) {
-        if (isStartPage) stageG.visible = false;
-        else stageG.position.z = (state.pack === 'basketball' ? 2.05 : 1.20) - dMid;
+        if (isStartPage) {
+          stageG.visible = false;
+        } else if (session.isLive) {
+          // 실전(라이브)은 세션 root가 인물 이동을 추종 — G그룹은 저작 기본(원점·무회전) 유지.
+          stageG.position.set(0, 0, 0); stageG.quaternion.identity();
+        } else {
+          // 데모 단계: 발자국을 프레임과 '같은' 무릎 풋프린트 기준계에 실어 인물 흔들림에 함께 따라가게 함
+          // (기존엔 세션 원점 고정 → 프레임·타이틀만 흔들리고 발자국은 완전 고정, 유저 지적).
+          // 저작 로컬(+x=우, -z=전방, m) → 풋프린트 축(우, 상, -전방). 원점은 밴드 시프트(저작중심→dMid)만큼 뒤로:
+          //   농구 발자국은 먼 존(z −1.5~−2.6)에 저작돼 프레임 타이틀(≈2.24m)·도트(≈1.95m)존 침범 → dMid로 당김.
+          const S = (state.pack === 'basketball' ? 2.05 : 1.20) - dMid;
+          _mBasis.makeBasis(_rV, _uV, _fV.set(-fp.fx, 0, -fp.fz));
+          stageG.quaternion.setFromRotationMatrix(_mBasis);
+          stageG.position.set(fp.ox - fp.fx * S, 0.012, fp.oz - fp.fz * S);
+        }
       }
     }
     // 항상 렌더 — 표시/숨김 전환에도 CSS3D transform 항상 동기(재진입 시 위치 어긋남·잔류 방지)
