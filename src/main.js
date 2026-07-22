@@ -4090,10 +4090,13 @@ void main(){
       // 발자국 마크(G그룹)는 중앙 콘텐츠라 유지 — 슬롯만 끈다.
       [session.slotFS, session.slotFL, session.slotFM, session.dirSlot, session.paceLight,
        session.countGroup, session.countRing].forEach(o => { if (o) o.visible = false; });
-      // 시작 페이지에서만 발자국 판정 토큰(G그룹)까지 숨김. A/B/C 운동중엔 발자국=중앙 콘텐츠라 유지.
-      if (isStartPage) {
-        const stageG = session.G && session.G[session.curStage?.id];
-        if (stageG) stageG.visible = false;
+      // 발자국 판정 마크(G그룹) 정렬. 시작 페이지에선 숨김. 운동중엔 프레임 콘텐츠 밴드(중심≈dMid)로 당김:
+      // 농구 발자국은 먼 존(z −1.5~−2.6)에 저작돼 프레임 타이틀(≈2.24m)·도트(≈1.95m)존을 침범했음(유저).
+      // 종목별 저작 발자국 깊이 중심을 밴드 중심(dMid)에 맞춰 z-이동만(형태·좌우배치 보존). 러닝은 이미 근접 존이라 shift≈0.
+      const stageG = session.G && session.G[session.curStage?.id];
+      if (stageG) {
+        if (isStartPage) stageG.visible = false;
+        else stageG.position.z = (state.pack === 'basketball' ? 2.05 : 1.20) - dMid;
       }
     }
     // 항상 렌더 — 표시/숨김 전환에도 CSS3D transform 항상 동기(재진입 시 위치 어긋남·잔류 방지)
