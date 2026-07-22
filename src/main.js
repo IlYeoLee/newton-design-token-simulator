@@ -3816,9 +3816,9 @@ void main(){
     optRing.visible = camMark.visible = boxOn;
 
     // 농구 방향·리듬 큐 — 렌더는 전부 카탈로그 토큰 (화살표 촉·자루는 tickFlowArrows가 급이)
-    // 시작 페이지(floor UI 프레임) 스테이지에선 방향/리듬 큐 숨김 — floor UI가 전담(유저: mark 판정 토큰 제거)
-    const onFloorFrame = session.active && !!FLOOR_FRAMES[session.curStage?.id];
-    const bkOn = state.pack === 'basketball' && rig._fp && !onFloorFrame;
+    // 시작 페이지(BK_READY)에선 방향/리듬 큐 숨김 — floor UI가 전담(유저: mark 판정 토큰 제거).
+    // A/B/C 운동중엔 이 큐가 중앙 콘텐츠(발자국·가이드)라 유지.
+    const bkOn = state.pack === 'basketball' && rig._fp && session.curStage?.id !== 'BK_READY';
     bkArrow.visible = bkLane.visible = bkOn;
     // 앰비언트 토포 공간 (농구 두 투사면 — 세션·재생 중 상시 은은)
     // 앰비언트 토포 필드 기각(유저): 존 경계 없는 전면 랜덤 라인 = 바닥 얼룩으로 보임.
@@ -3984,13 +3984,19 @@ void main(){
   //    벽=사람 뒤라 가림 문제 없음 / 바닥=발밑이라 x봇 실루엣만큼 클립해 다리 뒤로 사라지게(occlusion 근사).
   //    스테이지 → { src, w, h } (대지 px). 러닝 1600×2000(세로). HTML/CSS 모션 = Figma export 프레임 자리.
   const FLOOR_FRAMES = {
-    READY: { src: 'ready-view/floor.html', w: 1600, h: 2670 },        // 러닝 (세로) — 2m 안정투사 꽉 채움
-    BK_READY: { src: 'ready-view/floor-bk.html', w: 1600, h: 2670 },  // 농구 — 러닝 첫화면 이식(폭은 균일스케일 자동 조정)
+    READY: { src: 'ready-view/floor.html', w: 1600, h: 2670 },        // 러닝 시작 (세로) — 2m 안정투사 꽉 채움
+    BK_READY: { src: 'ready-view/floor-bk.html', w: 1600, h: 2670 },  // 농구 시작 — 러닝 첫화면 이식(폭은 균일스케일 자동 조정)
   };
+  // 운동중 A/B/C 지면 화면 — 세로 공통 프레임(floor-scene.html)에 stage 주입. 시작화면과 달리 중앙 발자국은 유지.
+  for (const id of ['A1', 'A2', 'A3', 'P1', 'P2', 'C1', 'C2', 'C3', 'C4', 'C5',
+                    'BK_A1', 'BK_A2', 'BK_A3', 'BK_B1', 'BK_B2', 'BK_B3', 'BK_C1', 'BK_C2', 'BK_C3', 'BK_C4']) {
+    FLOOR_FRAMES[id] = { src: 'ready-view/floor-scene.html?stage=' + id, w: 1600, h: 2670 };
+  }
   const floorIframe = document.createElement('iframe');
   floorIframe.setAttribute('scrolling', 'no');
-  // 벽과 동일 루마키: 검정(투사 안 함)=투명→바닥 비침, 흰·컬러=불투명 선명.
-  Object.assign(floorIframe.style, { border: '0', background: 'transparent', filter: 'url(#ui-lumakey)' });
+  // 배경 투명(html/body transparent)이라 별도 루마키 불필요. filter:url(#ui-lumakey)는 정의 없는 댕글링 참조라
+  // Chrome이 iframe을 통째 안 그렸음(운동중 프레임 안 보이던 원인) → 제거.
+  Object.assign(floorIframe.style, { border: '0', background: 'transparent' });
   const floorObj = new CSS3DObject(floorIframe);
   floorObj.visible = false;
   frameCssScene.add(floorObj);
@@ -4055,13 +4061,17 @@ void main(){
     const fView = isFloorSport ? FLOOR_FRAMES[session.curStage?.id] : null;
     const fp = rig._fp;   // 무릎 투사 풋프린트 (rig.update가 매 프레임 세팅)
     floorObj.visible = !!fView && !!fp;
-    // 시작 페이지(floor UI 프레임) 뜰 땐 지면 토큰 마크/화살표 숨김 — 라이브 스테이지에선 복원
-    if (isFloorSport) tokens.floorRoot.visible = !floorObj.visible;
+    // 시작 페이지(READY/BK_READY)=발자국까지 전부 숨김(UI 전담). A/B/C 운동중=발자국은 콘텐츠라 유지, 프레임은 헤더만 대체.
+    const isStartPage = session.curStage?.id === 'READY' || session.curStage?.id === 'BK_READY';
+    if (isFloorSport) tokens.floorRoot.visible = !(floorObj.visible && isStartPage);
     if (floorObj.visible) {
       if (fView.src !== loadedFloorView) {
         floorIframe.style.width = fView.w + 'px';
         floorIframe.style.height = fView.h + 'px';
-        floorIframe.src = import.meta.env.BASE_URL + fView.src;
+        // 운동중 프레임(floor-scene.html)엔 장면 지속시간 전달 — 도트 로딩바가 이 시간 동안 0→100% 차오름
+        const dur = STAGE_DUR[session.curStage?.id] ?? session.curStage?.dur ?? 8;
+        const durSuffix = fView.src.includes('floor-scene.html') ? '&dur=' + dur : '';
+        floorIframe.src = import.meta.env.BASE_URL + fView.src + durSuffix;
         loadedFloorView = fView.src;
       }
       // 풋프린트 중앙(전방 fpNear~fpFar 중간)에 대지 중심을 앵커. 직사각형(어핀) — 복싱 벽과 동일.
@@ -4076,13 +4086,15 @@ void main(){
       // 달라 글자가 세로로 늘고 가로로 짜부됐음(유저 지적). 깊이는 대지 비율 그대로 → 세로도 짧아짐.
       const laneW = 2 * rig._halfAt(dMid), sUni = laneW / fView.w;
       floorObj.scale.set(sUni, sUni, 1);
-      // 프레임이 헤더를 다 담으므로 세션 3D 헤더 슬롯 숨김(중복 제거) — 복싱 벽 프레임과 동일 규약.
-      if (session.slotFS) session.slotFS.visible = false;
-      if (session.slotFL) session.slotFL.visible = false;
-      // 시작 페이지(floor UI 프레임)에선 그 스테이지의 세션 마크 판정 토큰 숨김 (floor UI가 전담) — 유저.
-      // fView와 동일 키(curStage.id)로 정확히 그 그룹을 끈다 (session.stage getter와 불일치했음).
-      const stageG = session.G && session.G[session.curStage?.id];
-      if (stageG) stageG.visible = false;
+      // 프레임이 헤더(타이틀·큐·페이즈)를 담으므로 발자국 아래 3D 보조 텍스트 슬롯 전부 숨김(중복 제거, 유저).
+      // 발자국 마크(G그룹)는 중앙 콘텐츠라 유지 — 슬롯만 끈다.
+      [session.slotFS, session.slotFL, session.slotFM, session.dirSlot, session.paceLight,
+       session.countGroup, session.countRing].forEach(o => { if (o) o.visible = false; });
+      // 시작 페이지에서만 발자국 판정 토큰(G그룹)까지 숨김. A/B/C 운동중엔 발자국=중앙 콘텐츠라 유지.
+      if (isStartPage) {
+        const stageG = session.G && session.G[session.curStage?.id];
+        if (stageG) stageG.visible = false;
+      }
     }
     // 항상 렌더 — 표시/숨김 전환에도 CSS3D transform 항상 동기(재진입 시 위치 어긋남·잔류 방지)
     cssRenderer.render(frameCssScene, camera);

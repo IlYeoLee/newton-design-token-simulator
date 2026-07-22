@@ -1,0 +1,93 @@
+<!doctype html>
+<!-- 러닝·농구 운동중 지면 화면 (세로 1600×2670) — Figma 복싱 node 85-3995 세로 이식.
+     타이틀(촤라락 글자 캐스케이드) + 원형 도트 프로그래스(복싱 scene.html 컴포넌트 재사용) + 하단 가로 페이즈 스트립.
+     중앙은 콘텐츠 영역(발자국·가이드=WebGL 토큰)이라 비움(투명). ?stage=&dur= 로 주입. -->
+<html lang="en"><head><meta charset="utf-8"><title>Newton — 운동중(지면)</title><style>
+@font-face{font-family:'Supreme';src:url('../fonts/Supreme-Bold.woff2') format('woff2');font-weight:700;font-display:block}
+@font-face{font-family:'Supreme';src:url('../fonts/Supreme-Medium.woff2') format('woff2');font-weight:500;font-display:block}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{background:transparent}
+#board{position:relative;width:1600px;height:2670px;overflow:hidden;
+  font-family:'Supreme',sans-serif;color:#fff;-webkit-font-smoothing:antialiased}
+
+/* 상단: 지시 타이틀(짧게) — 글자 하나하나 촤라락 슬라이드인 */
+.title{position:absolute;top:176px;left:0;right:0;text-align:center;white-space:nowrap;
+  font-weight:700;font-size:120px;line-height:1.05;letter-spacing:-4px}
+.title .ch{display:inline-block;animation:chIn .6s cubic-bezier(.2,.75,.2,1) both}
+.title .sp{display:inline-block;width:.28em}
+/* 타이틀 밑 짧은 지시(발자국 아래 있던 보조설명을 여기로 올림) */
+.cue{position:absolute;top:326px;left:0;right:0;text-align:center;white-space:nowrap;
+  font-weight:500;font-size:52px;color:rgba(255,255,255,.72);letter-spacing:-1px;
+  opacity:0;animation:sUpFlat .6s .28s both}
+
+/* 타이틀 아래: 원형 도트 로딩바(복싱 scene.html과 동일 규약) — 회색 위 빨강을 클립으로 좌→우 드러내며 --dur 동안 0→100% */
+.dots{position:absolute;top:452px;left:50%;transform:translateX(-50%);height:60px;
+  opacity:0;animation:sUp .6s .42s both}
+.drow{display:flex;height:60px}
+.dot{width:60px;height:60px;border-radius:999px;flex:0 0 auto}
+.dot.g{background:#d0d0d0}
+.dot.r{background:#fa3030}
+.dclip{position:absolute;left:0;top:0;height:60px;overflow:hidden;width:0;animation:dotsFill var(--dur,8s) linear both}
+@keyframes dotsFill{from{width:0}to{width:600px}}
+
+/* 하단: 페이즈 스트립(가로) — 현재 볼드+sub / 나머지 흐리게 */
+.phases{position:absolute;top:2168px;left:0;right:0;display:flex;justify-content:center;align-items:baseline;gap:64px;
+  opacity:0;animation:sUp .7s .5s both}
+.phase{font-weight:500;font-size:46px;color:rgba(255,255,255,.4);letter-spacing:-1px;white-space:nowrap}
+.phase.active{font-weight:700;font-size:58px;color:#fff;text-shadow:0 0 28px rgba(255,255,255,.4);
+  animation:phasePulse 2.4s 1.4s ease-in-out infinite}
+
+@keyframes chIn{from{opacity:0;transform:translateY(46px)}to{opacity:1;transform:translateY(0)}}
+@keyframes sUp{from{opacity:0;transform:translateX(-50%) translateY(40px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+@keyframes dotPad{}
+@keyframes phasePulse{0%,100%{opacity:1}50%{opacity:.62}}
+/* .phases는 translateX 없음 → sUp의 translateX(-50%)와 충돌하므로 별도 키프레임 */
+.phases{animation-name:sUpFlat}
+@keyframes sUpFlat{from{opacity:0;transform:translateY(40px)}to{opacity:1;transform:translateY(0)}}
+</style></head><body>
+  <div id="board">
+    <div class="title" id="s-title">Title</div>
+    <div class="cue" id="s-cue"></div>
+    <div class="dots" id="s-dots">
+      <div class="drow" id="drow-g"></div>
+      <div class="dclip"><div class="drow" id="drow-r"></div></div>
+    </div>
+    <div class="phases" id="s-phases"></div>
+  </div>
+  <script src="floor-scenes.js"></script>
+  <script>
+  const $ = id => document.getElementById(id);
+  const params = new URLSearchParams(location.search);
+  const stage = params.get('stage') || 'A1';
+  const S = window.FLOOR_SCENES[stage] || { title: stage, phase: 0, sub: '' };
+  const sport = stage.startsWith('BK_') ? 'basketball' : 'running';
+  const PH = window.FLOOR_PHASES[sport];
+
+  // 타이틀 — 글자 분해 후 좌→우 촤라락 슬라이드인
+  (function(){
+    const t = $('s-title'); t.textContent = ''; let vis = 0;
+    [...S.title].forEach(c => { const s = document.createElement('span');
+      if (c === ' ') { s.className = 'sp'; }
+      else { s.className = 'ch'; s.textContent = c; s.style.animationDelay = (0.1 + vis * 0.045) + 's'; vis++; }
+      t.appendChild(s); });
+  })();
+  $('s-cue').textContent = S.cue || '';
+
+  // 페이즈 스트립 — 3단계, 현재 볼드+sub
+  const pw = $('s-phases');
+  PH.forEach((label, i) => { const d = document.createElement('div');
+    const active = i === S.phase;
+    d.className = 'phase' + (active ? ' active' : '');
+    d.textContent = label + (active && S.sub ? ' ' + S.sub : '');
+    pw.appendChild(d); });
+
+  // 도트 로딩바 — 회색 10개 위 빨강 10개를 클립으로 드러냄. 클립 폭이 --dur 동안 0→100%.
+  const gr = $('drow-g'), rr = $('drow-r');
+  for (let i = 0; i < 10; i++) {
+    const a = document.createElement('div'); a.className = 'dot g'; gr.appendChild(a);
+    const b = document.createElement('div'); b.className = 'dot r'; rr.appendChild(b);
+  }
+  const dur = parseFloat(params.get('dur')) || 8;
+  document.querySelector('.dclip').style.setProperty('--dur', dur + 's');
+  </script>
+</body></html>
