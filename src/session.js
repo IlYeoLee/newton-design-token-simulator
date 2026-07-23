@@ -1290,30 +1290,22 @@ export class Session {
       }
       if (id === 'T1' && this.t >= 4.5) { this.next(); return; }
     } else if (id === 'A1') {
-      // 전방 발 리치 홀드 — 발을 앞으로 뻗어 앞의 가이드 발자국을 '밟고 버티면' hold 링이 찬다(하체 전방 스트레치).
-      //   가이드는 발 앞(전방 z=-1.55) 고정. 투사각(A1 게이즈 -30°)을 앞으로 눕혀 뻗은 발까지 보이게(미래 보정 가정).
-      //   버티기 진행 = 코치 리치 홀드(run_reach, session.t 위상잠금)와 동기 — 링 채움 = 홀드 지속.
-      const HOLD = 3.0, REPS = 3, DEMO = HOLD + 0.6, CYCLE = HOLD + 0.9;
-      // 링을 코치 왼발(전방 리치) 실위치에 정렬 → 코치가 그 발로 링을 '밟고' 채우는 게 보임(시뮬 유의미성).
+      // 싱글레그 쿼드 스트레치 — 한 다리로 서서 반대 발등을 잡아 허벅지 앞을 늘려 버티기(정지 홀드).
+      //   가이드 = 축발(선 발) 아래 홀드 링이 버틴 시간만큼 차오름 → 다 차면 완료. 코치 run_quad와 동기.
+      const HOLD = 4.0, REPS = 2, DEMO = HOLD + 0.6, CYCLE = HOLD + 1.0;
       const pb = this.xbot?.getProbes?.();
-      if (pb?.footL) {
-        this.a1L.group.position.set(pb.footL.x, 0.013, pb.footL.z);
-        this.a1arc.position.set(pb.footL.x, 0.0135, pb.footL.z);
-      }
-      this.a1L.group.visible = true; this.a1R.group.visible = false; this.a1arc.visible = true;
+      if (pb?.footR) this.a1arc.position.set(pb.footR.x, 0.0135, pb.footR.z);   // 축발(선 발) 아래 홀드 링
+      this.a1L.group.visible = false; this.a1R.group.visible = false; this.a1arc.visible = true;
       if (this.t < DEMO) {
         this.demoActive = true;
-        const p = Math.min(1, (this.t % CYCLE) / HOLD);
-        this.a1L.setHold(Math.max(0.001, p)); this.a1arc.setProg(p);   // 발자국 hold 링 + 타겟 아크 함께 채움
-        FMU('먼저 보세요 — 앞 발자국 밟고 지그시 눌러 링 채우기', CS.sand);
+        this.a1arc.setProg(Math.min(1, (this.t % CYCLE) / HOLD));
+        FMU('먼저 보세요 — 무릎 접어 발등 잡고 허벅지 앞 늘리기', CS.sand);
       } else {
-        this._say('a1go', '션', '이제 같이 — 앞 발자국에 발을 올리고, 몸무게 실어 지그시 눌러요. 링이 찰 때까지.');
+        this._say('a1go', '션', '이제 같이 — 한쪽 무릎을 접어 발등을 잡고, 허벅지 앞을 쭉 늘려요. 링이 찰 때까지 버텨요.');
         const t2 = this.t - DEMO;
         const rep = Math.floor(t2 / CYCLE), lt = t2 - rep * CYCLE;
-        const p = Math.min(1, lt / HOLD);
-        this.a1L.setHold(Math.max(0.001, p)); this.a1arc.setProg(p);
-        if (p >= 1) this.a1L.glow(Math.max(0, 1 - (lt - HOLD) / 0.6));   // 다 차면 성공 블룸
-        FMU(`발자국 지그시 누르기 ${Math.min(REPS, rep + 1)} / ${REPS}`, CS.sand);
+        this.a1arc.setProg(Math.min(1, lt / HOLD));
+        FMU(`허벅지 앞 늘리기 ${Math.min(REPS, rep + 1)} / ${REPS}`, CS.sand);
         if (rep >= REPS) { this.next(); return; }
       }
     } else if (id === 'A2') {

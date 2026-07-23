@@ -144,6 +144,8 @@ export class ProjectorRig {
     this.qStab = new THREE.Vector3();
     this.vel = new THREE.Vector3();
     this.initialized = false;
+    // 스트레치(준비운동) 빔 지면 고정 — 빔다리(오른)를 접어도 빔이 몸 앞 지면에 유지되게(미래 짐벌 보정 가정).
+    this.beamGroundLock = false;
 
     // 조절 가능한 투사면 파라미터
     this.fpNear = 0.05;   // 무릎(몸) 앞 시작 거리 (m)
@@ -409,6 +411,13 @@ export class ProjectorRig {
       oz = body.z + fwd.z * 0.35 + gimbalBreak.z;
       this.shake.set(0, 0);
       this.errorCm = Math.hypot(gimbalBreak.x, gimbalBreak.z) * 100;
+    } else if (this.beamGroundLock) {
+      // 스트레치: 다리 각도(빔다리 접힘 포함)와 무관하게 빔을 몸 앞 지면에 앵커 → 양다리 스트레치에도 빔 고정(미래 짐벌 보정).
+      fwd = this.xbot.getForward();
+      ox = body.x + fwd.x * 0.35;
+      oz = body.z + fwd.z * 0.35;
+      this.shake.set(0, 0);
+      this.errorCm = 0;
     } else {
       fwd = fwd0;
       ox = body.x + offLocal.x + gimbalBreak.x;

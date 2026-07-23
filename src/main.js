@@ -3486,8 +3486,8 @@ void main(){
   function demoClipFor(sport, id) {
     // 준비운동(A) 단계 = 절차적 드릴 — 봇이 실제 그 동작을 수행 (기존엔 전부 warmup/dribble)
     const DRILL = {
-      // 러닝 준비운동 = 절차 드릴. A1='발자국 눌러보기'(앞 마크 밟고 몸무게 실어 지그시 누름).
-      A1: 'run_press', A2: 'run_calf', A3: 'run_swing', A4: 'run_march',
+      // 러닝 준비운동 = 절차 드릴. A1=싱글레그 쿼드 스트레치(한 발 서서 반대 발등 잡고 허벅지 앞 늘리기 홀드).
+      A1: 'run_quad', A2: 'run_calf', A3: 'run_swing', A4: 'run_march',
       // 복싱 = Mixamo 실측 모캡 (목풀기만 절차)
       BX_A1: 'bx_neck', BX_A2: 'boxGuard', BX_A3: 'boxJab',
       BX_B1: 'boxGuard', BX_B2: 'boxGuard', BX_B3: 'boxCombo',
@@ -3507,6 +3507,8 @@ void main(){
   function stepSim(h) {
     const data = state.packs[state.pack];
     if (!data) return;
+    // 러닝 준비운동(A 스트레치): 빔을 몸 앞 지면에 고정 — 빔다리(오른)를 접는 스트레치에도 빔이 안 날아감(미래 짐벌 보정).
+    rig.beamGroundLock = session.active && session.sport === 'running' && /^A\d/.test(session.stage || '');
     if (!session.active && sessionDroveGaze) {
       // 세션 종료 → 수동 시선각 복귀 (세션이 남긴 단계값이 디폴트처럼 굳는 것 방지)
       sessionDroveGaze = false;
