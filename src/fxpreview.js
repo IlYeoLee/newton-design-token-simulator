@@ -63,36 +63,51 @@ void main(){
   gl_FragColor = vec4(vec3(0.047,0.055,0.075) + col, 1.0);
 }`;
 
-// ── 레인 + 방향 화살표 광류 ──
+// ── 레인 광류 — 실제 씬 셰이더(tokens.js LANEFX_FRAG)의 스타일 로직 그대로 이식.
+//   (구 LANE_FRAG는 uLStyle 없는 고정 물결선+화살표라 '레인 전용 스타일'을 바꿔도 프리뷰에 반영 안 됨 — 유저 지적.
+//    스타일·속도·간격은 화살표와 재료 공유, 스타일만 분리 — 씬 tickWaves와 동일 매핑.)
+const LINE_STYLE_IDX = { solid: 0, dash: 1, dot: 2, chevron: 3, comet: 4, taper: 5 };
 const LANE_FRAG = HEAD + `
-uniform float uTime, uW, uHalo;
-float segSD(vec2 p, vec2 a, vec2 b){
-  vec2 pa = p - a, ba = b - a;
-  float h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
-  return length(pa - ba * h);
-}
+uniform float uTime, uLen, uW, uHalo, uGain;
+uniform float uLStyle, uLSpeed, uLGap, uLHeat, uLTail;
 void main(){
   vec2 uv = gl_FragCoord.xy / uRes;
-  float t = uTime;
-  float wave = sin(uv.y * 5.2 + t * 1.4) * 0.012;
-  float x = uv.x - 0.5 + wave;
-  float along = uv.y;
-  float latD = abs(x);
-  float coreW = 0.006 * uW;
-  float lane = exp(-pow(latD / coreW, 2.0)) + exp(-pow(latD / (coreW * 7.0), 2.0)) * 0.32 * uHalo;
-  float pulse = smoothstep(0.25, 0.55, 0.5 + 0.5 * sin(along * 34.0 - t * 6.0));
-  lane *= 0.35 + 0.65 * pulse;
-  lane *= smoothstep(0.02, 0.12, along) * smoothstep(0.98, 0.80, along);
-  float ahead = fract(t * 0.5);
-  float ay = 0.62 + ahead * 0.18;
-  vec2 p = vec2(x, uv.y);
-  float ch = min(segSD(p, vec2(-0.075, ay - 0.05), vec2(0.0, ay)),
-                 segSD(p, vec2(0.075, ay - 0.05), vec2(0.0, ay)));
-  float chW = 0.009 * uW;
-  float arrow = (exp(-pow(ch / chW, 2.0)) + exp(-pow(ch / (chW * 5.0), 2.0)) * 0.4 * uHalo) * pow(1.0 - ahead, 1.6) * 1.25;
-  float heat = lane * 0.85 + arrow;
-  float sweep = 0.10 * sin(along * 3.0 - t * 1.6);
-  vec3 col = lutv(clamp(along * 0.55 + 0.25 + arrow * 0.35 + sweep, 0.0, 1.0)) * min(heat, 1.4);
+  float lat = (uv.x - 0.5) * 2.0;
+  float along = uv.y * uLen;
+  lat += sin(along * 2.1 + uTime * 1.4) * 0.06;        // 미세 측면 웨이브 (씬과 동일)
+  float pulse = 1.0;
+  float latEff = lat;
+  float wEff = uW;
+  if (uLStyle < 0.5) {                                 // solid
+    pulse = 0.55 + 0.25 * sin(along * 0.8 - uTime * 2.0 * uLSpeed);
+  } else if (uLStyle < 1.5) {                          // dash
+    pulse = 0.28 + 0.72 * smoothstep(0.22, 0.58, 0.5 + 0.5 * sin(along * (9.0 / uLGap) - uTime * 5.2 * uLSpeed));
+  } else if (uLStyle < 2.5) {                          // dot
+    pulse = smoothstep(0.75, 0.95, 0.5 + 0.5 * sin(along * (12.0 / uLGap) - uTime * 5.2 * uLSpeed));
+    wEff *= 1.3;
+  } else if (uLStyle < 3.5) {                          // chevron
+    float alongEff = along + abs(lat) * 0.34;
+    float cf = fract(alongEff * (1.5 / uLGap) - uTime * 1.2 * uLSpeed);
+    float band = exp(-pow((cf - 0.30) / (0.055 * uW), 2.0));
+    float armW = smoothstep(1.0, 0.86, abs(lat));
+    pulse = band * armW * (0.75 + 0.25 * sin(along * 0.7 - uTime * 1.8 * uLSpeed));
+    latEff = 0.0;
+  } else if (uLStyle < 4.5) {                          // comet
+    float head = fract(uTime * 0.22 * uLSpeed) * uLen;
+    float d = head - along;
+    if (d < 0.0) d += uLen;
+    float f = exp(-d / max(0.4, uLen * uLTail * 0.6));
+    pulse = f * 1.6 + 0.10;
+    wEff *= (0.7 + f * 0.9);
+  } else {                                             // taper
+    wEff *= (0.35 + uv.y * 1.4);
+    pulse = 0.5 + 0.2 * sin(along * 0.8 - uTime * 1.6 * uLSpeed);
+  }
+  float core = exp(-pow(latEff / (0.10 * wEff), 2.0)) + exp(-pow(latEff / (0.42 * wEff), 2.0)) * 0.30 * uHalo;
+  float heat = core * pulse * 0.5;
+  heat *= smoothstep(0.0, 0.04, uv.y) * smoothstep(1.0, 0.96, uv.y);
+  float sweep = 0.12 * sin(along * 0.9 - uTime * 1.7);
+  vec3 col = lut(clamp(uLHeat - 0.08 + sweep + heat * 0.25, 0.0, 1.0)) * heat * uGain;
   gl_FragColor = vec4(vec3(0.047,0.055,0.075) + col, 1.0);
 }`;
 
@@ -258,7 +273,7 @@ export function buildFxPreviews(host, isVisible) {
 
   const burst = glCell(cell('터짐 — 열 파문', 150, 150), BURST_FRAG);
   const foot = glCell(cell('발자국 — 윤곽 파문', 150, 150), FOOT_FRAG);
-  const lane = glCell(cell('레인 + 화살표', 150, 150), LANE_FRAG);
+  const lane = glCell(cell('레인 (전용 스타일)', 150, 150), LANE_FRAG);
   const markCanvas = cell('MARK 판정 토큰', 150, 150);
   const mark = glCell(markCanvas, MARK_FRAG);
   // MARK 상태 칩
@@ -313,10 +328,19 @@ export function buildFxPreviews(host, isVisible) {
     foot.gl.uniform1f(foot.u('uNoise'), g.noise);
     foot.gl.uniform1f(foot.u('uEmber'), g.ember);
     foot.draw();
+    // 레인 = 화살표와 재료(속도·간격·열·꼬리) 공유 + 레인 전용 스타일. 씬 tickWaves와 동일 매핑.
+    const A = FXP.arrow || {};
     lane.syncLUT(lut);
     lane.gl.uniform1f(lane.u('uTime'), ts / 1000);
-    lane.gl.uniform1f(lane.u('uW'), g.width);
-    lane.gl.uniform1f(lane.u('uHalo'), g.halo);
+    lane.gl.uniform1f(lane.u('uLen'), 2.0);
+    lane.gl.uniform1f(lane.u('uW'), g.width * (A.w || 1));
+    lane.gl.uniform1f(lane.u('uHalo'), g.halo * (A.glow ?? 1));
+    lane.gl.uniform1f(lane.u('uGain'), 1.0);
+    lane.gl.uniform1f(lane.u('uLStyle'), LINE_STYLE_IDX[(FXP.lane && FXP.lane.style) || 'dash'] ?? 1);
+    lane.gl.uniform1f(lane.u('uLSpeed'), A.speed ?? 1);
+    lane.gl.uniform1f(lane.u('uLGap'), A.gap ?? 1);
+    lane.gl.uniform1f(lane.u('uLHeat'), A.heat ?? 0.5);
+    lane.gl.uniform1f(lane.u('uLTail'), A.tail ?? 0.55);
     lane.draw();
     mark.syncLUT(lut);
     mark.gl.uniform1f(mark.u('uTime'), ts / 1000);
