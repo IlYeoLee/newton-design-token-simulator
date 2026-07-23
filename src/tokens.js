@@ -85,37 +85,45 @@ void main() {
   float fpFade = footprintFade(vWorldPos);
   float lat = (vUv.x - 0.5) * 2.0;                     // 폭방향 -1..1
   float along = vUv.y * uLen;                          // 진행 좌표 (m)
-  lat += sin(along * 2.1 + uTime * 1.4) * 0.06;        // 미세 측면 웨이브
-  float pulse = 1.0;
-  float latEff = lat;
-  float wEff = uW;
-  if (uLStyle < 0.5) {                                 // solid — 연속 광류 (은은한 명멸)
-    pulse = 0.55 + 0.25 * sin(along * 0.8 - uTime * 2.0 * uLSpeed);
-  } else if (uLStyle < 1.5) {                          // dash — 행진 펄스 (간격 = uLGap)
-    pulse = 0.28 + 0.72 * smoothstep(0.22, 0.58, 0.5 + 0.5 * sin(along * (9.0 / uLGap) - uTime * 5.2 * uLSpeed));
-  } else if (uLStyle < 2.5) {                          // dot — 짧고 또렷한 점 행진
-    pulse = smoothstep(0.75, 0.95, 0.5 + 0.5 * sin(along * (12.0 / uLGap) - uTime * 5.2 * uLSpeed));
-    wEff *= 1.3;
-  } else if (uLStyle < 3.5) {                          // chevron — 전방(^) 꺾쇠 트레인
-    float alongEff = along + abs(lat) * 0.34;           // 팔이 뒤로 = 촉이 전방(-z 진행 방향)
-    float cf = fract(alongEff * (1.5 / uLGap) - uTime * 1.2 * uLSpeed);
-    float band = exp(-pow((cf - 0.30) / (0.055 * uW), 2.0));   // 꺾쇠 획 두께
-    float armW = smoothstep(1.0, 0.86, abs(lat));       // 레인 폭 안에서만
-    pulse = band * armW * (0.75 + 0.25 * sin(along * 0.7 - uTime * 1.8 * uLSpeed));
-    latEff = 0.0;                                       // 형상은 band가 담당 (코어 가우시안 무력화)
-  } else if (uLStyle < 4.5) {                          // comet — 백열 머리 + 감쇠 꼬리 순회
-    float head = fract(uTime * 0.22 * uLSpeed) * uLen;
-    float d = head - along;
-    if (d < 0.0) d += uLen;
-    float f = exp(-d / max(0.4, uLen * uLTail * 0.6));
-    pulse = f * 1.6 + 0.10;
-    wEff *= (0.7 + f * 0.9);
-  } else {                                             // taper — 전방으로 갈수록 넓게
-    wEff *= (0.35 + vUv.y * 1.4);
-    pulse = 0.5 + 0.2 * sin(along * 0.8 - uTime * 1.6 * uLSpeed);
+  float heat;
+  if (uLStyle > 0.5 && uLStyle < 1.5) {                // dash — 러닝 진행 레인 = 레일 2줄 + 흐르는 점선
+    // 룩 시스템 스펙(fxlab drawLineLane)과 동일 룩으로 통일 — 매끈한 글로우 펄스(구)에서 교체(유저 지적:
+    // 룩 시스템 레인≠씬 레인). 레일=폭 경계 2줄, 점선=진행 방향 도트(간격 uLGap=속도 언어).
+    float rail = exp(-pow((abs(lat) - 0.60) / (0.05 * uW), 2.0)) * 0.5;
+    float ph = fract(along * (2.4 / uLGap) - uTime * 1.4 * uLSpeed);
+    float dots = exp(-pow((ph - 0.5) / 0.15, 2.0)) * exp(-pow(lat / (0.12 * uW), 2.0));
+    heat = (rail + dots) * 0.62;
+  } else {
+    lat += sin(along * 2.1 + uTime * 1.4) * 0.06;      // 미세 측면 웨이브
+    float pulse = 1.0;
+    float latEff = lat;
+    float wEff = uW;
+    if (uLStyle < 0.5) {                               // solid — 연속 광류 (은은한 명멸)
+      pulse = 0.55 + 0.25 * sin(along * 0.8 - uTime * 2.0 * uLSpeed);
+    } else if (uLStyle < 2.5) {                        // dot — 짧고 또렷한 점 행진
+      pulse = smoothstep(0.75, 0.95, 0.5 + 0.5 * sin(along * (12.0 / uLGap) - uTime * 5.2 * uLSpeed));
+      wEff *= 1.3;
+    } else if (uLStyle < 3.5) {                        // chevron — 전방(^) 꺾쇠 트레인
+      float alongEff = along + abs(lat) * 0.34;         // 팔이 뒤로 = 촉이 전방(-z 진행 방향)
+      float cf = fract(alongEff * (1.5 / uLGap) - uTime * 1.2 * uLSpeed);
+      float band = exp(-pow((cf - 0.30) / (0.055 * uW), 2.0));   // 꺾쇠 획 두께
+      float armW = smoothstep(1.0, 0.86, abs(lat));     // 레인 폭 안에서만
+      pulse = band * armW * (0.75 + 0.25 * sin(along * 0.7 - uTime * 1.8 * uLSpeed));
+      latEff = 0.0;                                     // 형상은 band가 담당 (코어 가우시안 무력화)
+    } else if (uLStyle < 4.5) {                        // comet — 백열 머리 + 감쇠 꼬리 순회
+      float head = fract(uTime * 0.22 * uLSpeed) * uLen;
+      float d = head - along;
+      if (d < 0.0) d += uLen;
+      float f = exp(-d / max(0.4, uLen * uLTail * 0.6));
+      pulse = f * 1.6 + 0.10;
+      wEff *= (0.7 + f * 0.9);
+    } else {                                           // taper — 전방으로 갈수록 넓게
+      wEff *= (0.35 + vUv.y * 1.4);
+      pulse = 0.5 + 0.2 * sin(along * 0.8 - uTime * 1.6 * uLSpeed);
+    }
+    float core = exp(-pow(latEff / (0.10 * wEff), 2.0)) + exp(-pow(latEff / (0.42 * wEff), 2.0)) * 0.30 * uHalo;
+    heat = core * pulse * 0.5;
   }
-  float core = exp(-pow(latEff / (0.10 * wEff), 2.0)) + exp(-pow(latEff / (0.42 * wEff), 2.0)) * 0.30 * uHalo;
-  float heat = core * pulse * 0.5;
   heat *= smoothstep(0.0, 0.04, vUv.y) * smoothstep(1.0, 0.96, vUv.y);
   heat *= fpFade;   // 풋프린트 경계 소프트 페이드 — 뒤이은 GPU 하드클립 전에 이미 0 근처
   float sweep = 0.12 * sin(along * 0.9 - uTime * 1.7);
