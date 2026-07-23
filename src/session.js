@@ -992,7 +992,9 @@ export class Session {
       fm.group.visible = true;
       // z는 러너(월드 원점) 기준 흐름 — root(팩 스크롤 추종)의 z를 상쇄해 이중 스크롤 방지, 션 속도만큼만.
       fm.group.position.set(i % 2 === 0 ? -0.12 : 0.12, 0.013, z - this.root.position.z);
-      fm.op((0.12 + 0.88 * g * g) * warm);
+      // 션 발자국: 멀리선 회색 예고(다가옴) → 스텝라인서 착지 블룸(진홍)으로 '지금 밟아' → 케이던스 리듬이 또렷.
+      if (g > 0.42) fm.glow(g); else fm.ghost();
+      fm.op((0.42 + 0.58 * g * g) * warm);   // 예고 발자국도 잘 보이게(줄지어 다가오는 게 읽히도록)
     }
   }
   _packBeat(mult = 1, fb = 0.6) {
