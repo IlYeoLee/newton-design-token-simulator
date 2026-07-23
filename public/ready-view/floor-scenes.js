@@ -10,7 +10,7 @@ window.FLOOR_PHASES = {
 window.FLOOR_SCENES = {
   // ── 러닝 ──
   // A · 준비운동 (WARM UP)
-  A1: { title: 'Press the Mark',   phase: 0, sub: '1/3', cue: 'Step on the mark · press & hold' },   // 발자국 눌러 풀기
+  A1: { title: 'Quad Stretch',     phase: 0, sub: '1/3', cue: 'Hold your ankle · stretch the thigh' },   // 쿼드 스트레치(허벅지 앞)
   A2: { title: 'Calf Raises',      phase: 0, sub: '2/3', cue: 'Heels up, then down · 10x' },   // 까치발 종아리
   A3: { title: 'Leg Swings',       phase: 0, sub: '3/3', cue: 'Swing front to back · 10x' },   // 다리 앞뒤로 흔들기
   // B · 페이스 잡기 (PACE = 러닝의 학습 구간)
