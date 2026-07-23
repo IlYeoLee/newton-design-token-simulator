@@ -8,6 +8,7 @@ import { Panel } from './panel.js';
 import { ProjectorRig } from './projector.js';
 import { WallGhost } from './ghost.js';
 import { FilesetResolver, ImageSegmenter } from '@mediapipe/tasks-vision';
+import { extractPose, retargetToClip } from './posemocap.js';   // 무료 로컬 비디오 모캡 (영상→3D 관절→클립)
 import { Judge } from './judge.js';
 import { Session, SCFG, STAGES } from './session.js';
 import { StudioDoc } from './studio/doc.js';
@@ -3656,6 +3657,7 @@ void main(){
   }
 
   if (import.meta.env.DEV) window.__dbg = {
+    extractPose, retargetToClip,   // 비디오 모캡 (dev: extractPose→retargetToClip→xbot)
     rig, xbot, state, session, sceneScope, camera, controls, tokens, effects, scene, editor3d, sceneUI, FXP, designStore, TCFG, editCam, editControls, judge, THREE,
     renderer, demoVideo, renderDemoPanel, renderBxPerson,
     get demoSeg() { return demoSeg; }, initDemoSeg,
