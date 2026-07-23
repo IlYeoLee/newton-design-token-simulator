@@ -1,5 +1,25 @@
 import * as THREE from 'three';
+import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
 import { FilesetResolver, PoseLandmarker } from '@mediapipe/tasks-vision';
+
+// ── FBX 애니 로드 + mixamorig 리타겟 (접두어 없는 mixamo 뼈세트 → 우리 x봇) ──
+//   Motifect 등: 뼈 이름이 Hips/Spine1/LeftArm... (mixamorig 접두어만 없음) → 접두어 붙이면 직결.
+export async function loadRetargetedFbx(url, xbotModel) {
+  const fbx = await new FBXLoader().loadAsync(url);
+  const clip = (fbx.animations && fbx.animations[0]);
+  if (!clip) throw new Error('no animation in fbx');
+  const valid = new Set(); xbotModel.traverse(o => { if (o.isBone) valid.add(o.name); });
+  const tracks = [];
+  for (const t of clip.tracks) {
+    if (!/\.quaternion$/.test(t.name)) continue;           // 회전만(위치·스케일 드롭 → 비율 오프셋 방지)
+    let bone = t.name.replace(/\.quaternion$/, '');
+    if (!bone.startsWith('mixamorig')) bone = 'mixamorig' + bone;
+    if (!valid.has(bone)) continue;                        // x봇에 있는 본만
+    t.name = bone + '.quaternion';
+    tracks.push(t);
+  }
+  return new THREE.AnimationClip('fbx_' + clip.name, clip.duration, tracks);
+}
 
 // ─────────────────────────────────────────────────────────────
 // 무료 로컬 비디오 모캡 파이프라인 (DeepMotion 대체)
