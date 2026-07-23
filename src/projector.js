@@ -26,6 +26,9 @@ const STATION_POS = new THREE.Vector3(0.55, 0.13, WALL_Z + 0.55);
 // 크기는 패널 슬라이더로 조절 (setFootprint / setWallSize)
 const FP_HALF_NEAR = 0.32;
 const FP_SPREAD = 0.27;     // 전방 1m당 반폭 증가량 (수평 확산각 ≈ 30°)
+// 마운트 = 무릎 관절이 아니라 윗종아리(무릎 아래, 정강이 강체 세그먼트) — 레퍼런스 스트랩 위치.
+const CALF_DROP = 0.11;     // 무릎에서 발목 방향으로 내린 거리(m) = 윗종아리
+const CALF_STEADY = 0.82;   // ponytail: 강체·스트랩 마운트가 무릎관절보다 안정 → sway 감쇠 노브(흔들림 실측 시 조정)
 
 // 보정 ON 잔여 오차는 errorModel.js가 하드웨어 스펙에서 유도한다 (매직상수 제거).
 // 정강이 각속도 ω를 매 프레임 실측해 지연항에 먹이므로, 스탠스/스윙 위상 의존성이
@@ -277,9 +280,12 @@ export class ProjectorRig {
     // 농구도 무릎 착용 유닛(러닝과 동일 하드웨어). 스트리밍 레인 대신 넓은 풋워크
     // 풋프린트(fixedPad 폭)를 강한 보정으로 몸 앞에 안정적으로 유지 — 아래 무릎 경로 공용.
 
-    // ── 무릎 모듈 월드 위치 — 오른 무릎 바깥 옆면에 착 부착 ──
+    // ── 투사 모듈 월드 위치 — 오른 윗종아리(무릎 아래) 바깥 옆면에 착 부착 ──
     const knee = this.xbot.getKneeWorld();
     if (!knee) return;
+    const shinDir = this.xbot.getRightShinDir?.();   // 무릎→발목 방향(정강이)
+    // 관절(무릎)이 아니라 정강이 강체 세그먼트 윗부분에 부착 → 무릎 굴곡 요동을 덜 탐(흔들림↓).
+    const mount = shinDir ? knee.clone().addScaledVector(shinDir, CALF_DROP) : knee;
     // 농구: 투사 방향을 저역통과 스무딩 — 매 컷·스텝마다 홱 도는 스윙 억제
     const fwdInst = this.xbot.getForward();
     if (this.mode === 'basketball') {
@@ -288,7 +294,7 @@ export class ProjectorRig {
     }
     const fwd0 = (this.mode === 'basketball' && this._smFwd) ? this._smFwd : fwdInst;
     const rightV = new THREE.Vector3(-fwd0.z, 0, fwd0.x);   // 몸 오른쪽(오른 무릎 바깥) 방향
-    const kneeModule = knee.clone()
+    const kneeModule = mount.clone()
       .addScaledVector(rightV, 0.055)                       // 바깥 옆면 — 부착감 (0.10은 떨어져 보임)
       .addScaledVector(fwd0, 0.02)
       .add(new THREE.Vector3(0, 0.015, 0));
@@ -302,7 +308,6 @@ export class ProjectorRig {
 
     // ── 정강이 각속도 ω 실측 — 오차모델 지연항의 입력 ──
     // 위상(스탠스/스윙)을 코드가 선언하지 않는다. ω를 재고, 위상은 그 결과로 나온다.
-    const shinDir = this.xbot.getRightShinDir?.();
     if (shinDir) {
       if (this._shinPrev && dt > 1e-4) {
         const c = Math.max(-1, Math.min(1, this._shinPrev.dot(shinDir)));
@@ -322,10 +327,11 @@ export class ProjectorRig {
     const kneeLocal = { x: kneeModule.x - body.x, z: kneeModule.z - body.z };
     const NEUTRAL = { x: 0.13, z: -0.05 };
     const LEVER = leverRatio();
+    // 윗종아리(강체·스트랩) 마운트 = 무릎관절보다 안정 → sway 편차에 steadiness 감쇠(CALF_STEADY).
     const rawLocal = new THREE.Vector3(
-      stableLocal.x + (kneeLocal.x - NEUTRAL.x) * LEVER,
+      stableLocal.x + (kneeLocal.x - NEUTRAL.x) * LEVER * CALF_STEADY,
       0.01,
-      stableLocal.z + (kneeLocal.z - NEUTRAL.z) * LEVER
+      stableLocal.z + (kneeLocal.z - NEUTRAL.z) * LEVER * CALF_STEADY
     );
 
     if (!this.initialized) {
