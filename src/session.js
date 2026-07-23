@@ -465,8 +465,12 @@ export class Session {
       this.paceFeet.push(fm);
       this.root.add(fm.group);
     }
+    // 실전 페이스 레인 — 러너 앞으로 뻗는 밝은 광류(모든 라이브 스테이지 상설). '달리는 느낌'·판정 흐름 담당(유저 되돌림).
+    this.paceLane = laneLine(BRAND.red, 0.4, -3.2);
+    this.paceLane.material._gainK = 1.7;
+    this.paceLane.visible = false;
     this.dirSlot = new THREE.Group();   // C 방향 피드백 글리프 (착지점 추종, _dirCue)
-    this.root.add(this.slotFS, this.slotFL, this.slotFM, this.dirSlot, this.paceLight);
+    this.root.add(this.slotFS, this.slotFL, this.slotFM, this.dirSlot, this.paceLight, this.paceLane);
 
     this.countGroup = new THREE.Group(); this.countGroup.position.set(0, 0, -1.1);
     this.countRing = floorRing(0, -1.1, 0.30, 0.335, BRAND.red, 0);
@@ -961,6 +965,7 @@ export class Session {
   /** 페이스 라이트 틱 — 최근 판정 3개의 평균 타이밍 오차를 거리(×팩속도 2.5m/s)로 번역 */
   _paceTick() {
     this.paceLight.visible = true;
+    this.paceLane.visible = true;   // 실전 상설 페이스 레인 (러너가 따라갈 밝은 광류 — 달리는 느낌)
     const R = this.judge?.results || [];
     let err = 0;
     for (let i = Math.max(0, R.length - 3); i < R.length; i++) err += R[i].terr;
@@ -1018,6 +1023,7 @@ export class Session {
     this.bobY = 0;
     for (const id in this.G) this.G[id].visible = false;
     this.paceLight.visible = false;   // C 실전 틱(_paceTick)이 프레임마다 다시 켬
+    this.paceLane.visible = false;
     this.paceFeet.forEach(fm => fm.group.visible = false);
     this._saidKeys?.clear();          // 단계 중간 음성 큐 리셋
     this.demoActive = false;          // A 시범 구간 신호 (실사 클립 패널 소비)

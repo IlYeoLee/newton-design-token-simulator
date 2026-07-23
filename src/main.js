@@ -3485,7 +3485,7 @@ void main(){
   function demoClipFor(sport, id) {
     // 준비운동(A) 단계 = 절차적 드릴 — 봇이 실제 그 동작을 수행 (기존엔 전부 warmup/dribble)
     const DRILL = {
-      // 러닝 준비운동 = 절차 드릴 (Mixamo에 매칭 없음)
+      // 러닝 준비운동 = 절차 드릴 (하체 스트레칭 실측 클립 확정 시 교체 예정 — jumpingJacks 등 로드됨)
       A1: 'run_ankle', A2: 'run_calf', A3: 'run_swing', A4: 'run_march',
       // 복싱 = Mixamo 실측 모캡 (목풀기만 절차)
       BX_A1: 'bx_neck', BX_A2: 'boxGuard', BX_A3: 'boxJab',
@@ -3522,8 +3522,9 @@ void main(){
       tokens.update(0, 0);
       // hold=포즈 고정(복싱 READY 가드 유지). 러닝 대기는 idle 재생(호흡)이라 hold 안 함.
       // 러닝 준비운동(A) = 코치 드릴을 세션 스테이지 시간(session.t)에 위상 잠금 → 씬 링·카운트·음성과 동기(유저: '타이밍 하나하나 맞춰')
-      const _phase = (session.sport === 'running' && /A\d$/.test(session.stage)) ? session.t : null;
-      xbot.playDemo(demoClipFor(session.sport, session.stage), h, session.stage === 'BX_READY', _phase);
+      const _clip = demoClipFor(session.sport, session.stage);
+      const _phase = (session.sport === 'running' && /^run_/.test(_clip)) ? session.t : null;   // 위상잠금은 절차 드릴만 — 실측 모캡은 자연 속도 재생(왜곡 방지)
+      xbot.playDemo(_clip, h, session.stage === 'BX_READY', _phase);
       rig.update(0, h);
       tokens.setShake(rig.shake.x, rig.shake.y);
       // 이 분기는 아래 followFloor 호출을 건너뛰어(early return) 무한 지면(그리드·바닥)이
@@ -4066,11 +4067,8 @@ void main(){
     }
     // ── 바닥 대지 프레임 정합 (러닝/농구) — WebGL 평면, 직사각형, x봇에 자동 가려짐 ──
     const isFloorSport = session.active && (session.sport === 'running' || session.sport === 'basketball');
-    // 실전 라이브 러닝: 정면 시선(-18°)에선 평면 텍스트 프레임이 납작하게 눌려 안 읽히고 오히려 방해 →
-    // 텍스트 프레임 숨기고 페이스 가이드 토큰(쫓는 광점·흐르는 레인·팩 흐름)만 남김. 상세 안내는 음성.
-    // (연구: 러너는 정면 6m 앞 응시·주변시야로 발 제어 — 달리며 글 읽기는 폼·주의 붕괴. WaveLight식 위치 큐가 유효.)
-    const liveRun = session.sport === 'running' && session.isLive;
-    const fView = (isFloorSport && !liveRun) ? FLOOR_FRAMES[session.curStage?.id] : null;
+    // 실전 라이브 러닝에서도 플로어 프레임(타이틀·큐·판정 헤더) 유지 — 껐더니 러닝 UI·판정토큰이 사라져 화면이 비었음(유저 되돌림).
+    const fView = isFloorSport ? FLOOR_FRAMES[session.curStage?.id] : null;
     const fp = rig._fp;   // 무릎 투사 풋프린트 (rig.update가 매 프레임 세팅)
     floorObj.visible = !!fView && !!fp;
     // 시작 페이지(READY/BK_READY)=발자국까지 전부 숨김(UI 전담). A/B/C 운동중=발자국은 콘텐츠라 유지, 프레임은 헤더만 대체.
@@ -4113,8 +4111,10 @@ void main(){
       floorObj.scale.set(sUni, sUni, 1);
       // 프레임이 헤더(타이틀·큐·페이즈)를 담으므로 발자국 아래 3D 보조 텍스트 슬롯 전부 숨김(중복 제거, 유저).
       // 발자국 마크(G그룹)는 중앙 콘텐츠라 유지 — 슬롯만 끈다.
-      [session.slotFS, session.slotFL, session.slotFM, session.dirSlot, session.paceLight,
+      [session.slotFS, session.slotFL, session.slotFM, session.dirSlot,
        session.countGroup, session.countRing].forEach(o => { if (o) o.visible = false; });
+      // 라이브(C 실전)는 _paceTick이 광점·페이스레인을 매 프레임 관리 — 프레임 켜져도 끄지 않음(러닝·판정 비주얼 유지).
+      if (!session.isLive && session.paceLight) session.paceLight.visible = false;
       // 발자국 판정 마크(G그룹) 정렬. 시작 페이지=숨김.
       const stageG = session.G && session.G[session.curStage?.id];
       if (stageG) {

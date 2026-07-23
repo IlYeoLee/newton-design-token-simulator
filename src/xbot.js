@@ -15,6 +15,7 @@ import boxComboUrl from '../assets/anim-box-combo.fbx?url';   // Jab Cross
 import boxGuardUrl from '../assets/anim-box-guard.fbx?url';   // Boxing (가드·풋워크)
 import bkStanceUrl from '../assets/anim-bk-stance.fbx?url';   // Ready Idle (애슬레틱 스탠스)
 import breathingIdleUrl from '../assets/anim-breathing-idle.fbx?url';   // Mixamo 'Breathing Idle' — 러닝 대기 자연 호흡
+import jumpingJacksUrl from '../assets/anim-jumping-jacks.fbx?url';   // Mixamo 'Jumping Jacks' — 러닝 준비운동(실측 모캡)
 // Bandai Namco Research MotionDataset (CC BY-NC) — BVH 실측 리타겟 클립
 import bkRunClipJson from '../assets/mocap/xclip-run_normal.json';
 import bkDashClipJson from '../assets/mocap/xclip-dash_normal.json';
@@ -41,7 +42,7 @@ export class XBot {
 
   async load() {
     const loader = new FBXLoader();
-    const [xbot, runFbx, hookFbx, dribbleFbx, sidestepFbx, warmupFbx, boxJabFbx, boxComboFbx, boxGuardFbx, bkStanceFbx, breathingIdleFbx] = await Promise.all([
+    const [xbot, runFbx, hookFbx, dribbleFbx, sidestepFbx, warmupFbx, boxJabFbx, boxComboFbx, boxGuardFbx, bkStanceFbx, breathingIdleFbx, jumpingJacksFbx] = await Promise.all([
       loader.loadAsync(xbotUrl),
       loader.loadAsync(runUrl),
       loader.loadAsync(hookUrl),
@@ -53,6 +54,7 @@ export class XBot {
       loader.loadAsync(boxGuardUrl),
       loader.loadAsync(bkStanceUrl),
       loader.loadAsync(breathingIdleUrl),
+      loader.loadAsync(jumpingJacksUrl),
     ]);
 
     xbot.scale.setScalar(0.01);
@@ -89,6 +91,7 @@ export class XBot {
     reg('boxGuard', boxGuardFbx);   // 복싱 가드·풋워크
     reg('bkStance', bkStanceFbx);   // 농구 애슬레틱 스탠스
     reg('idle', breathingIdleFbx);  // 러닝 대기 자연 호흡 idle
+    reg('jumpingJacks', jumpingJacksFbx);  // 러닝 준비운동 — 점핑잭(실측 모캡, 절차적 대체)
 
     // 실측 모캡 클립 (Bandai BVH → 오프라인 리타겟)
     const regJson = (name, json) => {
