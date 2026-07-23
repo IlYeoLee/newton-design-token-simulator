@@ -18,6 +18,7 @@ const TWO_PI = Math.PI * 2;
 // 씬 가이드 리듬(session.js SCFG)과 반드시 일치 — 코치 동작 1회 = 씬 링/카운트 1회.
 // 클립 duration = 1회 주기로 만들고(LoopRepeat), playDemo가 session.t에 위상 잠금 → 완전 동기.
 const A1_PERIOD = 2.0;   // = SCFG.a1Rep (발목 한 바퀴 2s)
+const A2_PERIOD = 1.6;   // = 씬 A2 BT (까치발 1회 1.6s)
 const A3_PERIOD = 1.8;   // = SCFG.a3Swing (다리 한 왕복 1.8s)
 
 // 드릴 스펙 → AnimationClip. drive(name,t01) → 로컬 delta 쿼터니언(없으면 null=중립 유지)
@@ -61,14 +62,13 @@ function runningDrills(neutral) {
       if (n === R.footR) return rot(X, 16 * Math.sin(ph)).multiply(rot(Z, 16 * Math.cos(ph)));
       return null;
     }),
-    // A2 종아리 늘리기 — 오른다리 뒤로 신전, 왼무릎 굽힘(런지), 상체 앞으로. 정적 홀드+미세 스웨이
-    run_calf: makeClip('run_calf', neutral, 4.0, (n, t) => {
-      const sway = 2.5 * Math.sin(t * 2 * TWO_PI);
-      if (n === R.hipR) return rot(X, -26);
-      if (n === R.kneeR) return rot(X, -6);
-      if (n === R.hipL) return rot(X, 16 + sway);
-      if (n === R.kneeL) return rot(X, -34);
-      if (n === R.spine) return rot(X, 12);
+    // A2 까치발(힐레이즈) — 뒤꿈치를 올렸다 바닥까지 1회(클립=1주기, 씬 BT와 동기). 음성과 동작 일치.
+    //   두 발목 플랜타플렉션 → _clampFeet가 몸을 토우 위로 들어올림(까치발). 무릎/힙은 곧게 유지.
+    run_calf: makeClip('run_calf', neutral, A2_PERIOD, (n, t) => {
+      const lift = 0.5 - 0.5 * Math.cos(t * TWO_PI);   // 0→1→0 : 올렸다 내림 1회
+      const ang = 36 * lift;
+      if (n === R.footL || n === R.footR) return rot(X, ang);   // 플랜타플렉션(뒤꿈치↑) — 부호 브라우저 검증
+      if (n === R.spine) return rot(X, 2 * lift);
       return null;
     }),
     // A3 다리 스윙 — 오른다리 앞뒤 진자 1왕복(클립=1주기, 씬 스윙과 동기)
