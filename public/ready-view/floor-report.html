@@ -1,0 +1,109 @@
+<!doctype html>
+<!-- 러닝·농구 세션 종료 리포트 (세로 1600×2670) — Figma [종료] 이식.
+     "Session Complete" + 100% 원형 프로그레스(0→100% 채움) + 통계 3열 + 버튼. ?stage=FIN|BK_FIN -->
+<html lang="en"><head><meta charset="utf-8"><title>Newton — 리포트(지면)</title><style>
+@font-face{font-family:'Supreme';src:url('../fonts/Supreme-Bold.woff2') format('woff2');font-weight:700;font-display:block}
+@font-face{font-family:'Supreme';src:url('../fonts/Supreme-Medium.woff2') format('woff2');font-weight:400;font-display:block}
+@font-face{font-family:'OffBit';src:url('../fonts/OffBitTrial-101Bold.ttf') format('truetype');font-weight:700;font-display:block}
+@font-face{font-family:'OffBitB';src:url('../fonts/OffBitTrial-Bold.ttf') format('truetype');font-weight:700;font-display:block}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{background:transparent}
+#board{position:relative;width:1600px;height:2670px;overflow:hidden;
+  font-family:'Supreme',sans-serif;color:#fff;-webkit-font-smoothing:antialiased}
+.bg-glow{position:absolute;inset:0;overflow:hidden;pointer-events:none;
+  -webkit-mask:radial-gradient(58% 46% at 50% 43%, #000 22%, transparent 82%);
+          mask:radial-gradient(58% 46% at 50% 43%, #000 22%, transparent 82%)}
+.bg-glow img{position:absolute;left:50%;top:1080px;width:2200px;transform:translate(-50%,-50%);
+  will-change:transform;animation:glowDrift 15s ease-in-out infinite}
+@keyframes glowDrift{
+  0%{transform:translate(-50%,-50%) scale(1) rotate(0deg)}
+  25%{transform:translate(-56%,-46%) scale(1.12) rotate(4deg)}
+  50%{transform:translate(-44%,-55%) scale(1.05) rotate(-3deg)}
+  75%{transform:translate(-53%,-46%) scale(1.13) rotate(3deg)}
+  100%{transform:translate(-50%,-50%) scale(1) rotate(0deg)}}
+.wrap{position:absolute;left:50%;transform:translateX(-50%);top:640px;width:1200px;
+  display:flex;flex-direction:column;gap:80px;align-items:center}
+.tgrp{display:flex;flex-direction:column;gap:8.8px;align-items:center;text-align:center}
+.tsub{font-weight:400;font-size:64px;letter-spacing:-4.6px;color:rgba(255,255,255,.8);white-space:nowrap}
+.ttl{font-weight:700;font-size:140px;letter-spacing:-5.6px;white-space:nowrap;line-height:1.05}
+/* 100% 원형 프로그레스 링 */
+.ring{position:relative;width:500px;height:500px}
+.ring svg{position:absolute;inset:0;width:100%;height:100%}
+.rprog{stroke-dasharray:1445.13;stroke-dashoffset:1445.13;animation:progFill 1.4s .5s cubic-bezier(.22,1,.36,1) both}
+@keyframes progFill{to{stroke-dashoffset:0}}
+.pct{position:absolute;inset:0;display:flex;align-items:baseline;justify-content:center;gap:8px;
+  font-family:'OffBitB'}
+.pct .n{font-size:128.5px;letter-spacing:-3.57px;line-height:1.2}
+.pct .s{font-size:90.3px;letter-spacing:-2.5px;line-height:1.2}
+/* 통계 3열 */
+.stats{display:flex;gap:12px;align-items:center;justify-content:center;width:100%}
+.stat{display:flex;flex-direction:column;gap:18px;align-items:center;text-align:center;min-width:280px}
+.stat .k{font-weight:400;font-size:39px;color:rgba(255,255,255,.7);letter-spacing:-1.5px}
+.stat .v{font-weight:700;font-size:64px;letter-spacing:-1.5px;white-space:nowrap}
+.stat .v.sm{font-size:48px}
+.divi{width:2px;height:100px;background:rgba(255,255,255,.25)}
+/* 버튼 */
+.btn{margin-top:16px;width:802px;background:#fff;border-radius:999px;padding:42.614px 53.268px;
+  display:flex;align-items:center;justify-content:center}
+.btn p{font-weight:700;font-size:80px;color:#050a0a;letter-spacing:-1.33px;white-space:nowrap;line-height:1.2}
+
+@keyframes titleIn{0%{opacity:0;transform:translateY(40px) scale(.94)}70%{opacity:1;transform:translateY(0) scale(1.02)}100%{transform:scale(1)}}
+@keyframes ringPop{0%{opacity:0;transform:scale(.6)}70%{opacity:1;transform:scale(1.05)}100%{transform:scale(1)}}
+@keyframes ringBreath{0%,100%{filter:drop-shadow(0 0 0 rgba(255,255,255,0))}50%{filter:drop-shadow(0 0 30px rgba(254,110,60,.4))}}
+@keyframes sUp{from{opacity:0;transform:translateY(40px)}to{opacity:1;transform:translateY(0)}}
+@keyframes btnPulse{0%,100%{box-shadow:0 0 0 0 rgba(255,255,255,0)}50%{box-shadow:0 0 60px 6px rgba(255,255,255,.35)}}
+.ttl span{display:inline-block}
+@keyframes charWave{0%,58%,100%{transform:translateY(0)}29%{transform:translateY(-16px)}}
+.tgrp{animation:titleIn .8s .1s cubic-bezier(.22,1,.36,1) both}
+.ring{animation:ringPop .8s .35s cubic-bezier(.34,1.56,.64,1) both, ringBreath 3.4s 1.4s ease-in-out infinite}
+.stats{opacity:0;animation:sUp .7s 1.15s both}
+.btn{opacity:0;animation:sUp .7s 1.35s both, btnPulse 3s 2s ease-in-out infinite}
+</style></head><body>
+  <div id="board">
+    <div class="bg-glow"><img src="assets/bg_glow.svg" alt=""></div>
+    <div class="wrap">
+      <div class="tgrp"><div class="tsub" id="t-sub"></div><div class="ttl" id="t-ttl"></div></div>
+      <div class="ring">
+        <svg viewBox="0 0 500 500">
+          <defs><linearGradient id="pg" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#fa3030"/><stop offset="0.6" stop-color="#fe6e3c"/><stop offset="1" stop-color="#fec389"/>
+          </linearGradient></defs>
+          <circle cx="250" cy="250" r="230" fill="none" stroke="rgba(255,255,255,.14)" stroke-width="26"/>
+          <circle class="rprog" cx="250" cy="250" r="230" fill="none" stroke="url(#pg)" stroke-width="26" stroke-linecap="round" transform="rotate(-90 250 250)"/>
+        </svg>
+        <div class="pct"><span class="n" id="r-pct">0</span><span class="s">%</span></div>
+      </div>
+      <div class="stats" id="r-stats"></div>
+      <div class="btn"><p id="t-btn">Tap X2 For Retry!</p></div>
+    </div>
+  </div>
+  <script>
+  const RP = {
+    FIN:    { sub:'Sean’s Final 1km Pace',  title:'Session Complete',
+      stats:[['Sport','Running'],['Joined','877'],['Recommended','Pace & Boost On','sm']] },
+    BK_FIN: { sub:'Curry’s Signature Move', title:'Session Complete',
+      stats:[['Sport','Basketball'],['Joined','642'],['Recommended','Step-Back Focus','sm']] },
+  };
+  const $ = id => document.getElementById(id);
+  const stage = new URLSearchParams(location.search).get('stage') || 'FIN';
+  const R = RP[stage] || RP.FIN;
+  $('t-sub').textContent = R.sub;
+  (function(el, t){ el.textContent=''; [...t].forEach((ch,i)=>{ const s=document.createElement('span');
+    s.textContent = ch===' ' ? String.fromCharCode(160) : ch;
+    s.style.animation = 'charWave 2.4s ' + (0.9 + i*0.05) + 's ease-in-out infinite'; el.appendChild(s); });
+  })($('t-ttl'), R.title);
+  // 통계 3열 (구분선 포함)
+  const sw = $('r-stats');
+  R.stats.forEach((st, i) => {
+    if (i) { const d = document.createElement('div'); d.className = 'divi'; sw.appendChild(d); }
+    const c = document.createElement('div'); c.className = 'stat';
+    c.innerHTML = '<div class="k"></div><div class="v' + (st[2] ? ' ' + st[2] : '') + '"></div>';
+    c.querySelector('.k').textContent = st[0]; c.querySelector('.v').textContent = st[1];
+    sw.appendChild(c);
+  });
+  // 100% 카운트업 (링 채움과 동기)
+  const pn = $('r-pct'), t0 = performance.now(), CD = 1400, DL = 500;
+  setTimeout(() => { (function tick(now){ const p = Math.min(1, (now - t0 - DL) / CD), e = 1 - Math.pow(1 - p, 3);
+    pn.textContent = Math.round(100 * e); if (p < 1) requestAnimationFrame(tick); })(performance.now()); }, DL);
+  </script>
+</body></html>

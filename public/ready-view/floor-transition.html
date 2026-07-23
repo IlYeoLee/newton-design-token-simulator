@@ -1,0 +1,135 @@
+<!doctype html>
+<!-- 러닝·농구 전환 화면 (세로 1600×2670) — Figma [러닝/농구] 스트레칭→학습·학습→실전 이식.
+     복싱 transition.html(가로)의 카드·모션을 세로 지면 프레임으로 이식. 배경 투명 + 빔 글로우.
+     ?stage=T1|T2|BK_T1|BK_T2 로 구동. Figma 좌표(1600×2670 대지)와 1:1. -->
+<html lang="en"><head><meta charset="utf-8"><title>Newton — 전환(지면)</title><style>
+@font-face{font-family:'Supreme';src:url('../fonts/Supreme-Bold.woff2') format('woff2');font-weight:700;font-display:block}
+@font-face{font-family:'Supreme';src:url('../fonts/Supreme-Medium.woff2') format('woff2');font-weight:500;font-display:block}
+@font-face{font-family:'Supreme';src:url('../fonts/Supreme-Medium.woff2') format('woff2');font-weight:400;font-display:block}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{background:transparent}
+#board{position:relative;width:1600px;height:2670px;overflow:hidden;
+  font-family:'Supreme',sans-serif;color:#fff;-webkit-font-smoothing:antialiased}
+
+/* 빔 글로우 — 라디얼 마스크로 프레임 모서리 전 완전 투명(사각 모서리 차단). 은은히 드리프트. */
+.bg-glow{position:absolute;inset:0;overflow:hidden;pointer-events:none;
+  -webkit-mask:radial-gradient(58% 46% at 50% 43%, #000 22%, transparent 82%);
+          mask:radial-gradient(58% 46% at 50% 43%, #000 22%, transparent 82%)}
+.bg-glow img{position:absolute;left:50%;top:1160px;width:2200px;transform:translate(-50%,-50%);
+  will-change:transform;animation:glowDrift 15s ease-in-out infinite}
+@keyframes glowDrift{
+  0%{transform:translate(-50%,-50%) scale(1) rotate(0deg)}
+  25%{transform:translate(-56%,-46%) scale(1.12) rotate(4deg)}
+  50%{transform:translate(-44%,-55%) scale(1.05) rotate(-3deg)}
+  75%{transform:translate(-53%,-46%) scale(1.13) rotate(3deg)}
+  100%{transform:translate(-50%,-50%) scale(1) rotate(0deg)}}
+
+/* 타이틀 그룹 (Figma: 상단, gap 8.8) */
+.tgrp{position:absolute;left:50%;transform:translateX(-50%);top:500px;width:1000px;
+  display:flex;flex-direction:column;gap:8.8px;align-items:center;text-align:center}
+.tsub{font-weight:400;font-size:64px;letter-spacing:-4.6px;color:rgba(255,255,255,.8);white-space:nowrap}
+.ttl{font-weight:700;font-size:140px;letter-spacing:-5.6px;white-space:nowrap;line-height:1.05}
+
+/* 카드 2장 (Figma: 654.902 정사각, gap 26.196, radius 65.49, padding 52.392) */
+.cards{position:absolute;left:50%;transform:translateX(-50%);top:850px;display:flex;gap:26.196px}
+.card{position:relative;width:654.902px;height:654.902px;border-radius:65.49px;overflow:hidden;
+  padding:52.392px;display:flex;flex-direction:column;justify-content:space-between;align-items:flex-end}
+.card .person{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 8%;pointer-events:none}
+/* 완료 카드 — 빨강 그라디언트 + 인물 plus-lighter + 흰 내부 글로우 */
+.card.done{background:linear-gradient(180deg,#fa3030 47.99%,#fe6e3c 77.59%,#fec389 100.55%,#d1feff 107.53%);
+  box-shadow:0 49.118px 190.969px 32.745px rgba(0,0,0,.05)}
+.card.done .person{mix-blend-mode:plus-lighter}
+.card.done::after{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+  box-shadow:inset 0 0 52.392px 19.647px rgba(255,255,255,.6)}
+/* 다음 카드 — 흰 배경 + 인물 + 빨강→주황 오버레이 plus-lighter */
+.card.next{background:#fff}
+.card.next .tint{position:absolute;inset:0;background:linear-gradient(180deg,#fa3030,#fe6e3c);mix-blend-mode:plus-lighter;pointer-events:none}
+.card .meta{position:relative;z-index:2;width:100%;display:flex;flex-direction:column;gap:13.098px;align-items:flex-start}
+.card .lbl{font-weight:700;font-size:64px;letter-spacing:-3.2745px;text-transform:uppercase;line-height:1.2}
+.card.done .lbl{color:#fff}
+.card.next .lbl{color:#050a0a}
+.card .time{font-weight:400;font-size:36px;letter-spacing:-1.6373px;line-height:1.2}
+.card.done .time{color:#fafafa}
+.card.next .time{color:#757575}
+/* 체크 뱃지(완료) / Next 뱃지(다음) */
+.chk{position:relative;z-index:2;width:91.6px;height:91.6px}
+.badge{position:relative;z-index:2;background:rgba(255,255,255,.9);border-radius:80px;padding:13.098px 26.196px;
+  box-shadow:0 0 39.294px rgba(0,0,0,.12);display:flex;align-items:center}
+.badge p{font-weight:500;font-size:52px;color:#525252;letter-spacing:-1.6373px;line-height:1.2}
+
+/* 버튼 (Figma: 흰 pill, w 802, radius 999) */
+.btn{position:absolute;left:50%;transform:translateX(-50%);top:1636px;width:802px;
+  background:#fff;border-radius:999px;padding:42.614px 53.268px;display:flex;align-items:center;justify-content:center}
+.btn p{font-weight:700;font-size:80px;color:#050a0a;letter-spacing:-1.33px;white-space:nowrap;line-height:1.2}
+
+/* ── 모션 (복싱 transition.html과 동일 규약) ── */
+@keyframes sUpC{from{opacity:0;transform:translate(-50%,54px)}to{opacity:1;transform:translate(-50%,0)}}
+@keyframes sPop{0%{opacity:0;transform:scale(.5)}60%{opacity:1;transform:scale(1.12)}100%{opacity:1;transform:scale(1)}}
+@keyframes cardIn{0%{opacity:0;transform:translateY(70px) scale(.92)}100%{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes titleIn{0%{opacity:0;transform:translate(-50%,44px) scale(.94)}70%{opacity:1;transform:translate(-50%,0) scale(1.02)}100%{transform:translate(-50%,0) scale(1)}}
+@keyframes cardFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-13px)}}
+@keyframes btnPulse{0%,100%{box-shadow:0 0 0 0 rgba(255,255,255,0)}50%{box-shadow:0 0 60px 6px rgba(255,255,255,.35)}}
+@keyframes btnFloatC{0%,100%{transform:translate(-50%,0)}50%{transform:translate(-50%,-18px)}}
+@keyframes charWave{0%,58%,100%{transform:translateY(0)}29%{transform:translateY(-16px)}}
+.ttl span{display:inline-block}
+.tgrp{animation:titleIn .85s .10s cubic-bezier(.22,1,.36,1) both}
+.card{opacity:0}
+.card.a1{animation:cardIn .8s .38s cubic-bezier(.22,1,.36,1) both, cardFloat 4s 1.5s ease-in-out infinite}
+.card.a2{animation:cardIn .8s .54s cubic-bezier(.22,1,.36,1) both, cardFloat 4.4s 1.85s ease-in-out infinite}
+.chk{animation:sPop .6s .95s cubic-bezier(.34,1.56,.64,1) both}
+.badge{animation:sPop .6s 1.0s cubic-bezier(.34,1.56,.64,1) both}
+.btn{opacity:0;animation:sUpC .8s .95s cubic-bezier(.22,1,.36,1) both, btnFloatC 3.6s 1.9s ease-in-out infinite, btnPulse 3s 1.9s ease-in-out infinite}
+</style></head><body>
+  <div id="board">
+    <div class="bg-glow"><img src="assets/bg_glow.svg" alt=""></div>
+    <div class="tgrp"><div class="tsub" id="t-sub"></div><div class="ttl" id="t-ttl"></div></div>
+    <div class="cards">
+      <div class="card done a1" id="c-done">
+        <img class="person" id="d-img" alt="">
+        <svg class="chk" viewBox="0 0 92 92"><circle cx="46" cy="46" r="46" fill="rgba(255,255,255,.28)"/><path d="M27 47l13 13 25-28" fill="none" stroke="#fff" stroke-width="7.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <div class="meta"><div class="lbl" id="d-lbl"></div><div class="time" id="d-time"></div></div>
+      </div>
+      <div class="card next a2" id="c-next">
+        <img class="person" id="n-img" alt=""><div class="tint"></div>
+        <div class="badge"><p id="n-badge">Next</p></div>
+        <div class="meta"><div class="lbl" id="n-lbl"></div><div class="time" id="n-time"></div></div>
+      </div>
+    </div>
+    <div class="btn"><p id="t-btn"></p></div>
+  </div>
+  <script>
+  // 러닝/농구 전환 데이터 — Figma [러닝/농구] 스트레칭→학습(T1)·학습→실전(T2)
+  const TR = {
+    T1: { sub:'Sean’s Final 1km Pace', title:'Warm-Up Done!',
+      done:{ lbl:'Stretch', time:'5min', img:'assets/run/run_stretch.png' },
+      next:{ lbl:'Learn',   time:'10min', img:'assets/run/run_learn.png', badge:'Next' },
+      btn:'Tap X2 For Retry!' },
+    T2: { sub:'Sean’s Final 1km Pace', title:'Learning Complete!',
+      done:{ lbl:'Learn', time:'10min', img:'assets/run/run_learn.png' },
+      next:{ lbl:'Run!',  time:'10min', img:'assets/run/run_run.png', badge:'Next' },
+      btn:'Tap X2 For Retry!' },
+    BK_T1: { sub:'Curry’s Signature Move', title:'Warm-Up Done!',
+      done:{ lbl:'Stretch', time:'5min', img:'assets/bk/bk_stretch.png' },
+      next:{ lbl:'Learn',   time:'10min', img:'assets/bk/bk_learn.png', badge:'Next' },
+      btn:'Tap X2 For Retry!' },
+    BK_T2: { sub:'Curry’s Signature Move', title:'Learning Complete!',
+      done:{ lbl:'Learn', time:'10min', img:'assets/bk/bk_learn.png' },
+      next:{ lbl:'Play!', time:'10min', img:'assets/bk/bk_play.png', badge:'Next' },
+      btn:'Tap X2 For Retry!' },
+  };
+  const $ = id => document.getElementById(id);
+  const stage = new URLSearchParams(location.search).get('stage') || 'T1';
+  const T = TR[stage] || TR.T1;
+  $('t-sub').textContent = T.sub;
+  // 타이틀 글자별 span → 루프 웨이브(촤라락)
+  (function(el, t){ el.textContent=''; [...t].forEach((ch,i)=>{ const s=document.createElement('span');
+    s.textContent = ch===' ' ? String.fromCharCode(160) : ch;
+    s.style.animation = 'charWave 2.4s ' + (0.9 + i*0.05) + 's ease-in-out infinite'; el.appendChild(s); });
+  })($('t-ttl'), T.title);
+  $('d-img').src = T.done.img; $('d-lbl').textContent = T.done.lbl; $('d-time').textContent = T.done.time;
+  $('n-img').src = T.next.img; $('n-lbl').textContent = T.next.lbl; $('n-time').textContent = T.next.time;
+  $('n-badge').textContent = T.next.badge; $('t-btn').textContent = T.btn;
+  // 다음 카드 인물 로드 실패(예: bk_play 미존재) → 학습 이미지로 폴백(깨진 이미지 방지)
+  $('n-img').onerror = () => { if (!$('n-img').dataset.fb) { $('n-img').dataset.fb='1'; $('n-img').src = T.done.img; } };
+  </script>
+</body></html>

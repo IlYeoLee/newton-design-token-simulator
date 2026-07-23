@@ -4011,9 +4011,21 @@ void main(){
     BK_READY: { src: 'ready-view/floor-bk.html', w: 1600, h: 2670 },  // 농구 시작 — 러닝 첫화면 이식(폭은 균일스케일 자동 조정)
   };
   // 운동중 A/B/C 지면 화면 — 세로 공통 프레임(floor-scene.html)에 stage 주입. 시작화면과 달리 중앙 발자국은 유지.
-  for (const id of ['A1', 'A2', 'A3', 'P1', 'P2', 'C1', 'C2', 'C3', 'C4', 'C5',
-                    'BK_A1', 'BK_A2', 'BK_A3', 'BK_B1', 'BK_B2', 'BK_B3', 'BK_C1', 'BK_C2', 'BK_C3', 'BK_C4']) {
+  for (const id of ['A1', 'A2', 'A3', 'P1', 'P2', 'C2', 'C3', 'C4', 'C5',
+                    'BK_A1', 'BK_A2', 'BK_A3', 'BK_B1', 'BK_B2', 'BK_B3', 'BK_C2', 'BK_C3', 'BK_C4']) {
     FLOOR_FRAMES[id] = { src: 'ready-view/floor-scene.html?stage=' + id, w: 1600, h: 2670 };
+  }
+  // 전환 화면 (스트레칭→학습·학습→실전) — Figma [러닝/농구] 세로 전환 템플릿 (복싱 transition.html 이식)
+  for (const id of ['T1', 'T2', 'BK_T1', 'BK_T2']) {
+    FLOOR_FRAMES[id] = { src: 'ready-view/floor-transition.html?stage=' + id, w: 1600, h: 2670 };
+  }
+  // 실전 직전 3·2·1 카운트다운 타이머 (복싱 timer.html 세로 이식) — 러닝 C1 · 농구 BK_C1
+  for (const id of ['C1', 'BK_C1']) {
+    FLOOR_FRAMES[id] = { src: 'ready-view/floor-timer.html?stage=' + id, w: 1600, h: 2670 };
+  }
+  // 세션 종료 리포트 (복싱 report.html 세로 이식) — 러닝 FIN · 농구 BK_FIN
+  for (const id of ['FIN', 'BK_FIN']) {
+    FLOOR_FRAMES[id] = { src: 'ready-view/floor-report.html?stage=' + id, w: 1600, h: 2670 };
   }
   const floorIframe = document.createElement('iframe');
   floorIframe.setAttribute('scrolling', 'no');
