@@ -54,12 +54,12 @@ const R = {
 // ── 러닝 준비운동 (A1~A4) ──
 function runningDrills(neutral) {
   return {
-    // A1 발목 돌리기 — 오른발 살짝 들고 발목으로 원 1바퀴(클립=1주기, 씬 링과 동기). 크라우치 완화.
+    // A1 발목 돌리기 — 왼발을 앞으로 들어(가이드 링 위) 발목으로 원 1바퀴(클립=1주기, 씬 링과 동기).
+    //   씬(session)이 링·발자국을 코치 왼발 실제 위치에 정렬 → '가이드 위에서 그 발로' 정확히 보임.
     run_ankle: makeClip('run_ankle', neutral, A1_PERIOD, (n, t) => {
       const ph = t * TWO_PI;   // 한 클립 = 한 바퀴
-      if (n === R.hipR) return rot(X, 12);
-      if (n === R.kneeR) return rot(X, -34);
-      if (n === R.footR) return rot(X, 16 * Math.sin(ph)).multiply(rot(Z, 16 * Math.cos(ph)));
+      // 다리 안 듦 → 발 지면 접촉, 발목만 회전(공중부양 방지). 완전한 풋롤은 IK 필요 → SayMotion 애니로 대체 예정.
+      if (n === R.footL) return rot(X, 13 * Math.sin(ph)).multiply(rot(Z, 15 * Math.cos(ph)));
       return null;
     }),
     // A2 까치발(힐레이즈) — 뒤꿈치를 올렸다 바닥까지 1회(클립=1주기, 씬 BT와 동기). 음성과 동작 일치.

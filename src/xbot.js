@@ -132,10 +132,13 @@ export class XBot {
     this._buildDrills();   // 절차적 준비운동 드릴 등록 (봇이 실제 그 동작 수행)
   }
 
-  /** 준비운동(A단계) 드릴 클립을 스켈레톤에 저작·등록. warmup 프레임0=중립 서있는 포즈 */
+  /** 준비운동(A단계) 드릴 클립을 스켈레톤에 저작·등록.
+      베이스 = idle(Breathing Idle) 프레임0 = 똑바로 선 자연 포즈. (warmup 프레임0은 웅크린 대기라
+      드릴이 전부 크라우치로 보였음 — 유저 지적. idle 없으면 warmup 폴백) */
   _buildDrills() {
-    const wa = this.actions.warmup; if (!wa) return;
-    for (const k in this.actions) { const a = this.actions[k].action; a.stop(); a.setEffectiveWeight(k === 'warmup' ? 1 : 0); a.play(); a.paused = true; }
+    const baseKey = this.actions.idle ? 'idle' : (this.actions.warmup ? 'warmup' : null);
+    const wa = this.actions[baseKey]; if (!wa) return;
+    for (const k in this.actions) { const a = this.actions[k].action; a.stop(); a.setEffectiveWeight(k === baseKey ? 1 : 0); a.play(); a.paused = true; }
     wa.action.time = 0; this.mixer.update(0);
     const want = [
       'mixamorigHips', 'mixamorigSpine', 'mixamorigSpine1', 'mixamorigSpine2', 'mixamorigNeck', 'mixamorigHead',

@@ -1283,21 +1283,23 @@ export class Session {
       }
       if (id === 'T1' && this.t >= 4.5) { this.next(); return; }
     } else if (id === 'A1') {
-      // 발목 돌리기 — 코칭 3층(목적→세팅→동작): 시범(2바퀴 보기만) → "이제 같이" → 좌 8회·우 8회
+      // 발목 돌리기 — 왼발을 링에 올리고 발목 원 8회. 링·발자국을 코치 왼발 실제 위치에 정렬 → '가이드 위 그 발로'.
       const REP = SCFG.a1Rep, DEMO = 2 * REP, half = 8 * REP;
-      this.a1arc.setProg((this.t % REP) / REP);   // MARK Hold 진행 림 = 발목 회전 속도 (시범부터 동일)
+      this.a1arc.setProg((this.t % REP) / REP);   // 진행 림 = 발목 회전 속도 (드릴과 동일 시계·동기)
+      const pb = this.xbot?.getProbes?.();
+      if (pb?.footL) {   // 코치 왼발 월드 위치에 가이드 정렬 (A=세션 root 원점이라 로컬≈월드)
+        this.a1arc.position.set(pb.footL.x, 0.0135, pb.footL.z);
+        this.a1L.group.position.set(pb.footL.x, 0.013, pb.footL.z);
+      }
+      this.a1L.group.visible = true; this.a1R.group.visible = false; this.a1arc.visible = true;
       if (this.t < DEMO) {
-        this.a1L.group.visible = true; this.a1R.group.visible = false; this.a1arc.visible = true;
-        this.demoActive = true;   // 실사 클립은 휴면 — 시범 = 링 리듬 시각
-        FMU('먼저 보세요 — 링 속도가 내 발목 속도', CS.sand);
+        this.demoActive = true;
+        FMU('먼저 보세요 — 왼발을 링에 올리고 발목으로 원', CS.sand);
       } else {
-        this.a1arc.visible = true;
-        this._say('a1go', '션', '이제 같이 — 발끝 올리고, 링 따라 천천히 여덟 번.');
-        const t2 = this.t - DEMO, side = t2 < half ? 0 : 1;
-        this.a1L.group.visible = side === 0; this.a1R.group.visible = side === 1;
-        const rep = Math.min(8, Math.floor((t2 - side * half) / REP) + 1);
-        FMU(`${side === 0 ? '왼발' : '오른발'} ${rep} / 8`, CS.sand);
-        if (t2 >= 2 * half + 0.6) { this.next(); return; }
+        this._say('a1go', '션', '이제 같이 — 왼발 끝을 링에 올리고, 링 따라 천천히 여덟 번.');
+        const t2 = this.t - DEMO;
+        FMU(`왼발 ${Math.min(8, Math.floor(t2 / REP) + 1)} / 8`, CS.sand);
+        if (t2 >= half + 0.6) { this.next(); return; }
       }
     } else if (id === 'A2') {
       // 종아리 펌프 — 시범(2박 보기) → "이제 같이" → 좌우 각 10회 (동적 웜업)
