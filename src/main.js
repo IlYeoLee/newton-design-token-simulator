@@ -3934,6 +3934,22 @@ void main(){
   const cssRenderer = new CSS3DRenderer();
   Object.assign(cssRenderer.domElement.style, { position: 'fixed', pointerEvents: 'none', zIndex: '6' });
   document.body.appendChild(cssRenderer.domElement);   // 크기·위치는 매 프레임 WebGL 캔버스에 정합(아래 renderDesignFrame)
+
+  // ── 임시 레인 룩 스위처 (A/B/C 비교용 — 하나 고르면 이 블록 통째 제거) ──
+  {
+    window.__laneLook = window.__laneLook || 0;
+    const bar = document.createElement('div');
+    bar.style.cssText = 'position:fixed;left:50%;top:10px;transform:translateX(-50%);z-index:99999;display:flex;gap:6px;align-items:center;background:rgba(10,12,16,.82);padding:6px 10px;border-radius:12px;border:1px solid #333;font:12px/1 system-ui,sans-serif;color:#ccc';
+    bar.innerHTML = '<span style="opacity:.7">레인 룩</span>';
+    [['A', '리퀴드'], ['B', '코멧'], ['C', '트레일']].forEach(([k, name], i) => {
+      const b = document.createElement('button');
+      b.textContent = k + ' ' + name;
+      b.style.cssText = 'padding:5px 11px;border-radius:8px;border:1px solid #555;background:' + (i === 0 ? '#c0392b' : '#222') + ';color:#fff;cursor:pointer;font:12px system-ui';
+      b.onclick = () => { window.__laneLook = i; [...bar.querySelectorAll('button')].forEach((x, j) => x.style.background = i === j ? '#c0392b' : '#222'); };
+      bar.appendChild(b);
+    });
+    document.body.appendChild(bar);
+  }
   const frameIframe = document.createElement('iframe');
   frameIframe.setAttribute('scrolling', 'no');
   // 투사 UI = 솔리드 그대로(검정 글자 검정으로) + 전체에 딱 5%만 균일 투명도(opacity 0.95) → 벽에 은은한 투사감.

@@ -61,7 +61,7 @@ const LANEFX_FRAG = `
 #include <clipping_planes_pars_fragment>
 ` + FX_GLSL + `
 uniform float uTime, uLen, uW, uHalo, uGain, uDay;
-uniform float uLStyle, uLSpeed, uLGap, uLHeat, uLTail, uOut;
+uniform float uLStyle, uLSpeed, uLGap, uLHeat, uLTail, uOut, uLook;
 // 풋프린트(투사면) 로컬 좌표계 — 무릎 원점 + 전방/우측 단위벡터(월드). 레인은 월드 고정
 // 지오메트리라 매 프레임 러너가 지나가는 부분만 GPU 클리핑(floorClip)으로 하드컷됐는데,
 // 가산 글로우가 꼬리 없이 뚝 잘려 사각형 프레임처럼 보였음(유저 스크린샷으로 확인).
@@ -86,17 +86,27 @@ void main() {
   float lat = (vUv.x - 0.5) * 2.0;                     // 폭방향 -1..1
   float along = vUv.y * uLen;                          // 진행 좌표 (m)
   float heat;
-  if (uLStyle > 0.5 && uLStyle < 1.5) {                // dash — 러닝 페이스 레인 (중앙 단선 · 흐르는 캡슐 대시)
-    // 레일 폐기(러닝은 좌우 경계가 과제 아님 · 저각서 수렴해 지저분). 얇은 연속 베이스=경로 존재감,
-    // 그 위 흐르는 둥근 캡슐 대시=리듬. 선단 광량↑로 진행감. 간격 uLGap=페이스, 속도 uLSpeed=케이던스.
-    float baseW = 0.08 * uW;
-    float base = exp(-pow(lat / baseW, 2.0)) + exp(-pow(lat / (baseW * 3.5), 2.0)) * 0.22 * uHalo;
-    float ph = fract(along * (1.7 / uLGap) - uTime * 1.35 * uLSpeed);
-    float cap = smoothstep(0.06, 0.24, ph) * smoothstep(0.60, 0.40, ph);   // 모서리 둥근 캡슐 대시
-    float lead = smoothstep(0.34, 0.46, ph);                               // 선단 강조 = 흐르는 방향감
-    float dashLat = exp(-pow(lat / (0.10 * uW), 2.0)) + exp(-pow(lat / (0.34 * uW), 2.0)) * 0.28 * uHalo;
-    float dash = cap * dashLat * (0.8 + 0.55 * lead);
-    heat = base * 0.30 + dash;
+  if (uLStyle > 0.5 && uLStyle < 1.5) {                // dash = 러닝 페이스 레인 — A/B/C 룩 비교(임시 스위처 uLook)
+    if (uLook < 0.5) {
+      // A. 리퀴드 페이스 스트림 — 숨쉬며 흐르는 유기적 리본 (시그니처·고급)
+      float w = (0.13 + 0.05 * sin(along * 1.3 - uTime * 2.0 * uLSpeed)) * uW;
+      float flow = 0.55 + 0.45 * sin(along * 1.1 - uTime * 2.4 * uLSpeed);
+      heat = (exp(-pow(lat / w, 2.0)) + exp(-pow(lat / (w * 3.0), 2.0)) * 0.22 * uHalo) * flow;
+    } else if (uLook < 1.5) {
+      // B. 코멧 페이서 — 빈 길 + 미끄러지는 광점 하나 (극도의 절제, 쫓기)
+      float head = fract(uTime * 0.20 * uLSpeed) * uLen;
+      float dd = head - along; if (dd < 0.0) dd += uLen;
+      float f = exp(-dd / max(0.4, uLen * 0.16));
+      float w = (0.09 + f * 0.13) * uW;
+      heat = exp(-pow(lat / w, 2.0)) * (f * 1.7 + 0.04);
+    } else {
+      // C. 반응형 트레일 — 근단(발)에서 태어나 앞으로 흐르며 소멸 (내 몸의 연장)
+      float birth = fract(along * (1.5 / uLGap) - uTime * 1.6 * uLSpeed);
+      float pulse = smoothstep(0.0, 0.14, birth) * smoothstep(0.55, 0.18, birth);
+      float fadeFwd = smoothstep(1.0, 0.0, vUv.y);
+      float w = 0.11 * uW;
+      heat = exp(-pow(lat / w, 2.0)) * (pulse * (0.35 + 0.65 * fadeFwd) + 0.10 * fadeFwd);
+    }
   } else {
     lat += sin(along * 2.1 + uTime * 1.4) * 0.06;      // 미세 측면 웨이브
     float pulse = 1.0;
@@ -153,7 +163,7 @@ export function makeLaneFXMaterial(lenM) {
       uW: { value: 1 },
       uHalo: { value: 0.9 },
       uGain: { value: 1 },
-      uLStyle: { value: 1 }, uLSpeed: { value: 1 }, uLGap: { value: 1 }, uLHeat: { value: 0.5 }, uLTail: { value: 0.55 },
+      uLStyle: { value: 1 }, uLSpeed: { value: 1 }, uLGap: { value: 1 }, uLHeat: { value: 0.5 }, uLTail: { value: 0.55 }, uLook: { value: 0 },
       uDay: { value: 0 }, uOut: { value: 1 },
       // 풋프린트 소프트 페이드 기본값 — rig 미연결(FX Lab 등) 시 항상 안 죽게 넉넉한 범위
       uFPOrigin: { value: new THREE.Vector3() }, uFPFwd: { value: new THREE.Vector3(0, 0, -1) }, uFPRight: { value: new THREE.Vector3(1, 0, 0) },
@@ -847,6 +857,7 @@ export class TokenSystem {
       LU.uHalo.value = FXP.graphics.halo * (A.glow ?? 1);
       LU.uGain.value = FXP.gainBoost * (FP_VIEW ? 1.25 : 1);
       LU.uLStyle.value = LINE_STYLE_IDX[(FXP.lane && FXP.lane.style) || 'dash'] ?? 1;   // 레인 전용 스타일
+      if (LU.uLook) LU.uLook.value = (typeof window !== 'undefined' && window.__laneLook) || 0;   // 임시 A/B/C 룩 스위처
       LU.uLSpeed.value = A.speed ?? 1;
       LU.uLGap.value = A.gap ?? 1;
       // 러닝: 레인 = 데이터 메트로놈 — 대시 간격=실측 보폭, 통과 주기=스텝 간격(케이던스)

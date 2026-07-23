@@ -1139,9 +1139,11 @@ export class Session {
     const IDX = { solid: 0, dash: 1, dot: 2, chevron: 3, comet: 4, taper: 5 };
     const styleIdx = IDX[(FXP.lane && FXP.lane.style) || 'dash'] ?? 1;
     const arrowIdx = IDX[A.line || 'solid'] ?? 0;   // 화살표·감속바는 arrow 라인 스타일
+    const look = (typeof window !== 'undefined' && window.__laneLook) || 0;   // 임시 A/B/C 룩 스위처
     for (const m of LANE_MATS) {
       const U = m.uniforms;
       U.uTime.value = t;
+      if (U.uLook) U.uLook.value = look;
       U.uLStyle.value = m._arrowStyle ? arrowIdx : styleIdx;
       U.uW.value = FXP.graphics.width * (A.w || 1);
       U.uHalo.value = FXP.graphics.halo * (A.glow ?? 1);
