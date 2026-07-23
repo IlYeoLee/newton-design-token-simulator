@@ -3486,8 +3486,8 @@ void main(){
   function demoClipFor(sport, id) {
     // 준비운동(A) 단계 = 절차적 드릴 — 봇이 실제 그 동작을 수행 (기존엔 전부 warmup/dribble)
     const DRILL = {
-      // 러닝 준비운동 = 절차 드릴. A1=전방 리치 홀드(발 앞 가이드 밟고 버티기).
-      A1: 'run_reach', A2: 'run_calf', A3: 'run_swing', A4: 'run_march',
+      // 러닝 준비운동 = 절차 드릴. A1='발자국 눌러보기'(앞 마크 밟고 몸무게 실어 지그시 누름).
+      A1: 'run_press', A2: 'run_calf', A3: 'run_swing', A4: 'run_march',
       // 복싱 = Mixamo 실측 모캡 (목풀기만 절차)
       BX_A1: 'bx_neck', BX_A2: 'boxGuard', BX_A3: 'boxJab',
       BX_B1: 'boxGuard', BX_B2: 'boxGuard', BX_B3: 'boxCombo',

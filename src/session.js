@@ -373,7 +373,7 @@ function wallTap() {
 export const STAGES = {
   running: [
     { id:'READY', label:'준비 — 발 두 번 구르면 시작', voice:['시스템','션의 마지막 1km 페이스로 달려 볼 거예요. 준비되면 제자리에서 발을 두 번 굴러 주세요.'], wear:'SAFE 대기', foot:'발 두 번 구르기 → 시작' },
-    { id:'A1', label:'A · 준비운동 1/4 — 전방 리치 홀드', voice:['션','먼저 하체 앞쪽을 풀어요. 한쪽 발을 앞의 링까지 쭉 뻗어 밟고, 링이 다 찰 때까지 버텨요 — 세 번 반복.'], foot:'발 앞으로 뻗어 밟기 → hold 링 채우기' },
+    { id:'A1', label:'A · 준비운동 1/4 — 발자국 눌러 풀기', voice:['션','앞에 발자국 보이죠? 그 위에 발을 올리고, 몸무게를 실어 지그시 눌러요 — 링이 다 찰 때까지. 세 번.'], foot:'앞 발자국 밟고 지그시 누르기 → hold 링 채우기' },
     { id:'A2', label:'A · 준비운동 2/4 — 까치발 들었다 내리기', voice:['션','이번엔 종아리예요. 왼발을 앞 발자국에 올리고, 뒤꿈치를 천천히 들어 까치발 — 그리고 바닥까지 내려요. 열 번.'], hap:'10회 종료 진동 1회' },
     { id:'A3', label:'A · 준비운동 3/4 — 다리 앞뒤로 흔들기', voice:['션','골반에 손을 얹고 한쪽 다리에 힘을 빼요. 시계추처럼 앞뒤로 — 발끝이 빛나는 원까지 갔다 오면 딱 좋아요. 열 번.'], foot:'완료 후 두 번 구르기 → 다음' },
     { id:'T1', label:'몸풀기 끝 — 다음은 페이스 잡기', voice:['시스템','몸 다 풀렸어요. 발 두 번 구르면 다음으로 가요.'], foot:'발 두 번 구르기 → 페이스 잡기' },
@@ -1305,15 +1305,15 @@ export class Session {
         this.demoActive = true;
         const p = Math.min(1, (this.t % CYCLE) / HOLD);
         this.a1L.setHold(Math.max(0.001, p)); this.a1arc.setProg(p);   // 발자국 hold 링 + 타겟 아크 함께 채움
-        FMU('먼저 보세요 — 발을 앞으로 뻗어 링을 밟고 버티기', CS.sand);
+        FMU('먼저 보세요 — 앞 발자국 밟고 지그시 눌러 링 채우기', CS.sand);
       } else {
-        this._say('a1go', '션', '이제 같이 — 발을 앞으로 쭉 뻗어 앞의 링을 밟고, 링이 다 찰 때까지 버텨요.');
+        this._say('a1go', '션', '이제 같이 — 앞 발자국에 발을 올리고, 몸무게 실어 지그시 눌러요. 링이 찰 때까지.');
         const t2 = this.t - DEMO;
         const rep = Math.floor(t2 / CYCLE), lt = t2 - rep * CYCLE;
         const p = Math.min(1, lt / HOLD);
         this.a1L.setHold(Math.max(0.001, p)); this.a1arc.setProg(p);
         if (p >= 1) this.a1L.glow(Math.max(0, 1 - (lt - HOLD) / 0.6));   // 다 차면 성공 블룸
-        FMU(`앞으로 뻗어 버티기 ${Math.min(REPS, rep + 1)} / ${REPS}`, CS.sand);
+        FMU(`발자국 지그시 누르기 ${Math.min(REPS, rep + 1)} / ${REPS}`, CS.sand);
         if (rep >= REPS) { this.next(); return; }
       }
     } else if (id === 'A2') {

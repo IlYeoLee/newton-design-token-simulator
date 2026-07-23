@@ -54,22 +54,20 @@ const R = {
 // ── 러닝 준비운동 (A1~A4) ──
 function runningDrills(neutral) {
   return {
-    // A1 전방 발 리치 홀드 — 왼발을 앞으로 뻗어 앞의 가이드 링을 '밟고' 버티기(하체 전방 스트레치).
-    //   왼발: 힙 굴곡(앞으로) + 발목 플랜타플렉션(토우 아래로) → 발끝이 앞·지면까지 리치(공중부양 상쇄).
-    //   오른발(축발)은 접지 유지 → _clampFeet가 축발 기준 접지. 씬은 링을 코치 왼발 실위치에 정렬.
-    //   ph 조절값(힙/발목 각·h 프로파일)은 공중부양 실측 보정 노브 — 브라우저 검증 후 튜닝.
-    run_reach: makeClip('run_reach', neutral, 3.9, (n, t) => {
-      const h = t < 0.32 ? t / 0.32 : (t < 0.85 ? 1 : 1 - (t - 0.85) / 0.15);   // 리치→홀드→복귀
-      // 전방 런지: 축(오른)무릎을 굽혀 골반을 낮추고, 앞(왼)다리를 뻗어 발이 앞·지면까지 닿게.
-      // 각도는 공중부양 실측 보정 노브 — footL_y≈0 되게 브라우저 검증하며 튜닝.
-      if (n === R.kneeR) return rot(X, -55 * h);   // 축무릎 굴곡 → 골반 하강(앞발이 지면에 닿게)
-      if (n === R.hipR)  return rot(X, 24 * h);    // 굴곡으로 상체 세움(런지 뒷다리)
-      if (n === R.footR) return rot(X, 18 * h);    // 뒷발 뒤꿈치 들려도 토우 접지
-      if (n === R.hipL)  return rot(X, 28 * h);    // 앞다리 앞으로
-      if (n === R.kneeL) return rot(X, 12 * h);    // 앞다리 거의 곧게(폄) — 지면 리치
-      if (n === R.footL) return rot(X, -16 * h);   // 앞발 도살플렉션(뒤꿈치↓ 지면 접지)
-      if (n === R.spine) return rot(X, 8 * h);     // 상체 살짝 앞으로
-      if (n === R.armL)  return rot(X, 30 * h);    // 팔 앞으로 리치
+    // A1 '발자국 눌러보기' — 앞발을 앞 마크에 올리고(리치·접지), 몸무게를 실어 마크를 지그시 눌러 내림(프레스 딥).
+    //   그 누름(press)으로 hold 링이 차오른다. 앞발은 마크에 계속 접지(공중부양 없음) — 누름=몸이 앞발/마크로 내려앉음.
+    //   각도는 공중부양 실측 보정 노브 — footL_y≈0(접지) 유지되게 브라우저 검증하며 튜닝.
+    run_press: makeClip('run_press', neutral, 3.6, (n, t) => {
+      const h = t < 0.3 ? t / 0.3 : (t < 0.9 ? 1 : 1 - (t - 0.9) / 0.1);         // 리치(앞발 마크로 접지)
+      const press = (t > 0.35 && t < 0.85) ? Math.sin((t - 0.35) / 0.5 * Math.PI) : 0;   // 지그시 눌러 내림(0→1→0)
+      if (n === R.kneeR) return rot(X, -(52 * h + 14 * press));   // 축무릎 굴곡 + 프레스 딥(몸무게 내려 누름)
+      if (n === R.hipR)  return rot(X, 24 * h + 6 * press);       // 뒷다리
+      if (n === R.footR) return rot(X, 18 * h);                   // 뒷발 토우 접지
+      if (n === R.hipL)  return rot(X, 28 * h + 4 * press);       // 앞다리(마크로)
+      if (n === R.kneeL) return rot(X, 12 * h - 8 * press);       // 프레스 시 앞무릎 굽혀 무게 실어 누름
+      if (n === R.footL) return rot(X, -16 * h);                  // 앞발 뒤꿈치↓ 마크 접지
+      if (n === R.spine) return rot(X, 8 * h + 10 * press);       // 상체 앞·아래(누르는 무게중심)
+      if (n === R.armL)  return rot(X, 30 * h);
       return null;
     }),
     // A2 까치발(힐레이즈) — 뒤꿈치를 올렸다 바닥까지 1회(클립=1주기, 씬 BT와 동기). 음성과 동작 일치.
