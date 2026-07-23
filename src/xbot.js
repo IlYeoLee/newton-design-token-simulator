@@ -350,6 +350,7 @@ export class XBot {
       this.mixer.update(0);
       this.group.position.set(0, 0, 0);
       this._lockInPlace?.();
+      this._clampFeet?.();   // 프리뷰/검증 클립 접지 (root 높이 미보정 방지)
       return;
     }
 

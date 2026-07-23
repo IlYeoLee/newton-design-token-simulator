@@ -1,24 +1,50 @@
 import * as THREE from 'three';
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
+import { retargetClip } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { FilesetResolver, PoseLandmarker } from '@mediapipe/tasks-vision';
 
-// ── FBX 애니 로드 + mixamorig 리타겟 (접두어 없는 mixamo 뼈세트 → 우리 x봇) ──
-//   Motifect 등: 뼈 이름이 Hips/Spine1/LeftArm... (mixamorig 접두어만 없음) → 접두어 붙이면 직결.
+// ── FBX 애니 로드 + mixamorig 리타겟 (순수 로컬, 바인드 차이 보정) ──
+//   Motifect 등: 뼈 이름=Hips/LeftArm...(mixamorig 접두어만 없음), 스켈레톤 구조 동일.
+//   접두어 리네임만 하면 스케일·접지는 맞으나 바인드가 다른 팔이 뒤틀림 → 각 본에
+//   newLocal = targetBind · inv(sourceBind) · sourceLocal 을 적용(바인드 차이만 보정, 스케일 그대로).
 export async function loadRetargetedFbx(url, xbotModel) {
   const fbx = await new FBXLoader().loadAsync(url);
   const clip = (fbx.animations && fbx.animations[0]);
   if (!clip) throw new Error('no animation in fbx');
-  const valid = new Set(); xbotModel.traverse(o => { if (o.isBone) valid.add(o.name); });
-  const tracks = [];
-  for (const t of clip.tracks) {
-    if (!/\.quaternion$/.test(t.name)) continue;           // 회전만(위치·스케일 드롭 → 비율 오프셋 방지)
-    let bone = t.name.replace(/\.quaternion$/, '');
-    if (!bone.startsWith('mixamorig')) bone = 'mixamorig' + bone;
-    if (!valid.has(bone)) continue;                        // x봇에 있는 본만
-    t.name = bone + '.quaternion';
-    tracks.push(t);
+  // 소스 바인드 로컬(로드 직후 rest)
+  const srcBind = {};
+  fbx.traverse(o => { if (o.isBone && !srcBind[o.name]) srcBind[o.name] = o.quaternion.clone(); });
+  // 타겟(x봇) 스켈레톤 + 바인드 로컬(boneInverses → 월드 → 로컬)
+  let tgtSkel = null; xbotModel.traverse(o => { if (o.isSkinnedMesh && o.skeleton) tgtSkel = o.skeleton; });
+  if (!tgtSkel) throw new Error('no target skeleton');
+  const bw = {};
+  tgtSkel.bones.forEach((b, i) => {
+    const m = tgtSkel.boneInverses[i].clone().invert();
+    const q = new THREE.Quaternion(); m.decompose(new THREE.Vector3(), q, new THREE.Vector3()); bw[b.name] = q;
+  });
+  const tgtBind = {}, tgtNames = new Set();
+  tgtSkel.bones.forEach(b => {
+    tgtNames.add(b.name);
+    const p = (b.parent && b.parent.isBone && bw[b.parent.name]) ? bw[b.parent.name] : new THREE.Quaternion();
+    tgtBind[b.name] = p.clone().invert().multiply(bw[b.name]);
+  });
+  const tracks = [], qs = new THREE.Quaternion(), qt = new THREE.Quaternion();
+  for (const tr of clip.tracks) {
+    if (!/\.quaternion$/.test(tr.name)) continue;
+    const src = tr.name.replace(/\.quaternion$/, '');
+    const tgt = src.startsWith('mixamorig') ? src : 'mixamorig' + src;
+    if (!tgtNames.has(tgt) || !srcBind[src] || !tgtBind[tgt]) continue;
+    const corr = tgtBind[tgt].clone().multiply(srcBind[src].clone().invert());   // targetBind · inv(sourceBind)
+    const v = tr.values, n = tr.times.length, out = new Float32Array(n * 4);
+    for (let i = 0; i < n; i++) {
+      qs.set(v[i * 4], v[i * 4 + 1], v[i * 4 + 2], v[i * 4 + 3]);
+      qt.copy(corr).multiply(qs);                                                 // newLocal = corr · sourceLocal
+      out[i * 4] = qt.x; out[i * 4 + 1] = qt.y; out[i * 4 + 2] = qt.z; out[i * 4 + 3] = qt.w;
+    }
+    tracks.push(new THREE.QuaternionKeyframeTrack(tgt + '.quaternion', tr.times, out));
   }
-  return new THREE.AnimationClip('fbx_' + clip.name, clip.duration, tracks);
+  if (!tracks.length) throw new Error('no matching bone tracks');
+  return new THREE.AnimationClip('fbx_' + (clip.name || 'c'), clip.duration, tracks);
 }
 
 // ─────────────────────────────────────────────────────────────

@@ -3508,6 +3508,13 @@ void main(){
   function stepSim(h) {
     const data = state.packs[state.pack];
     if (!data) return;
+    // 모션 프리뷰(dev): 검증된 playDemo 경로로 재생 → 접지·정상 렌더 (verify 경로 폭발 회피)
+    if (window.__previewActive && xbot.actions._preview) {
+      state.time = 0; tokens.update(0, 0);
+      xbot.playDemo('_preview', h, false, null);
+      rig.update(0, h);
+      return;
+    }
     // 러닝 준비운동(A 스트레치): 빔을 앞발 지면에 락 — 무게이동으로 빔다리(뒷발) 흔들려도 앞발 링 고정(미래 짐벌 보정).
     rig.beamGroundLock = session.active && session.sport === 'running' && /^A\d/.test(session.stage || '');
     if (rig.beamGroundLock) {
@@ -3683,6 +3690,37 @@ void main(){
     get canvas() { return studioCanvas; },
     get scope() { return studioScope; },
   };
+
+  // ── 모션 프리뷰 바 (dev) — Motifect 40개 FBX를 x봇에 순환 입혀 눈으로 확인 ──
+  if (import.meta.env.DEV) {
+    const MOTIFECT = ["american_football_throw","backward_roll","baseball_fielding_catch","baseball_pitch_windup","baseball_swing","basketball_block_attempt","basketball_chest_pass","basketball_dribble","basketball_jump_shot","basketball_layup","bicycle_pedaling","boxing_stance_footwork","cartwheel","discus_throw","dive_entry","finish_line_burst","forward_roll","golf_swing","handstand","high_jump_fosbury","hurdle_jump","javelin_throw","long_jump_flight","marathon_pace_run","rowing_stroke","soccer_goalie_dive_left","soccer_goalie_dive_right","soccer_header","soccer_kick_right","soccer_power_shot","soccer_sliding_tackle","sprint_start_blocks","swim_backstroke","swim_breaststroke","swim_freestyle","tennis_forehand","tennis_serve","volleyball_spike","weightlifting_clean","weightlifting_press_overhead"];
+    let mi = MOTIFECT.indexOf('marathon_pace_run'); if (mi < 0) mi = 0;
+    const bar = document.createElement('div');
+    bar.style.cssText = 'position:fixed;left:12px;bottom:44px;z-index:99999;display:flex;gap:6px;align-items:center;background:rgba(0,0,0,.82);padding:8px 10px;border-radius:9px;color:#fff;font:12px system-ui;';
+    const mk = t => { const b = document.createElement('button'); b.textContent = t; b.style.cssText = 'padding:5px 11px;border:1px solid #666;border-radius:6px;background:#1c1c1c;color:#fff;cursor:pointer;font-size:13px;'; return b; };
+    const prev = mk('◀'), next = mk('▶'), tag = document.createElement('span'); tag.textContent = '🏃 모션 프리뷰'; tag.style.opacity = '.7';
+    const lab = document.createElement('span'); lab.style.cssText = 'min-width:250px;text-align:center;font-weight:600;';
+    bar.append(tag, prev, lab, next); document.body.appendChild(bar);
+    async function show(i) {
+      mi = (i + MOTIFECT.length) % MOTIFECT.length; const name = MOTIFECT[mi];
+      lab.textContent = `${mi + 1}/40  ${name}  …`;
+      try {
+        const clip = await loadRetargetedFbx(import.meta.env.BASE_URL + 'motifect/' + name + '.fbx', xbot.model);
+        const act = xbot.mixer.clipAction(clip); act.setLoop(THREE.LoopRepeat, Infinity);
+        xbot.actions._preview = { action: act, dur: clip.duration };
+        stopSession();
+        if (state.pack !== 'running') document.querySelector('[data-pack=running]')?.click();
+        xbot.setVerify(null);
+        xbot._yOff = 0;                 // 접지 오프셋 리셋(스테일 값 폭발 방지)
+        window.__previewActive = true;  // stepSim이 playDemo 경로로 재생
+        setFp(false);                   // 3인칭 — x봇 보이게
+        camera.position.set(0.3, 1.5, 3.6); controls.target.set(0, 0.95, 0); controls.update?.();
+        lab.textContent = `${mi + 1}/40  ${name}`;
+      } catch (e) { lab.textContent = `${mi + 1}/40  ${name}  ⚠ ${e.message}`; }
+    }
+    prev.onclick = () => show(mi - 1); next.onclick = () => show(mi + 1);
+    window.__motifectShow = show;
+  }
 
   // 빌드 스탬프 — 캐시된 구버전 확인용 (좌하단 미세 표기)
   {
