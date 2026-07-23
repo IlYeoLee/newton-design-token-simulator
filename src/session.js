@@ -457,8 +457,13 @@ export class Session {
     // (라이브 러닝은 텍스트 프레임을 끄고 이 광점+흐르는 팩 토큰만 보여줌 — 정면 시선에 글자 대신 위치·리듬 큐.)
     this.paceLight = floorRing(0, -1.6, 0.19, 0.235, BRAND.red, 0.95);
     this.paceLight.visible = false;
+    // 실전 페이스 레인 — 러너 앞으로 길게 뻗는 '따라 달릴' 밝은 광류(모든 라이브 스테이지 상설).
+    // 실전 지면이 텍스트 대신 이 레인+광점(WaveLight식)만 보여줌 → 밝게(_gainK↑)해 유일 가이드로.
+    this.paceLane = laneLine(BRAND.red, 0.4, -3.2);
+    this.paceLane.material._gainK = 1.7;
+    this.paceLane.visible = false;
     this.dirSlot = new THREE.Group();   // C 방향 피드백 글리프 (착지점 추종, _dirCue)
-    this.root.add(this.slotFS, this.slotFL, this.slotFM, this.dirSlot, this.paceLight);
+    this.root.add(this.slotFS, this.slotFL, this.slotFM, this.dirSlot, this.paceLight, this.paceLane);
 
     this.countGroup = new THREE.Group(); this.countGroup.position.set(0, 0, -1.1);
     this.countRing = floorRing(0, -1.1, 0.30, 0.335, BRAND.red, 0);
@@ -521,11 +526,9 @@ export class Session {
 
     // 페이스 잡기 — 정지 학습(구 B1~B4) 폐기. 러닝은 뛰면서 페이스로 익힌다.
     // 가이드 = 흐르는 페이스 레인 + 공유 paceLight + 페이서 봇(따라 달리기). 밟기 마크 아님.
-    g = this._mk('P1');
-    g.add(laneLine(BRAND.red, 0.2, -3.0));       // 페이스 레인 — 흐르는 리듬
+    g = this._mk('P1');   // 페이스 레인은 상설 paceLane(_paceTick)이 전담 — 스테이지별 중복 레인 제거
 
     g = this._mk('P2');
-    g.add(laneLine(BRAND.prism, 0.3, -3.2));     // 잠금 = 프리즘 레인(실전 임박)
 
     g = this._mk('C1');
     g.add(floorRing(0.03, -2.6, 0.15, 0.17, BRAND.red, 0.5));
@@ -535,8 +538,7 @@ export class Session {
     g = this._mk('C3');  // 라이브 + F-CUE 오버레이 (러너를 따라감)
     this.c3cue = floorText('박자', 0.45, -2.1, { size: 0.13, color: CS.red, weight: 800 }); g.add(this.c3cue);
 
-    g = this._mk('C4');  // 라이브 + BOOST 프리즘 레인 오버레이
-    g.add(laneLine(BRAND.prism, 0.4, -3.2));
+    this._mk('C4');  // 라이브 — 상설 paceLane이 전담 (BOOST는 liveSpeed·음성으로)
 
     g = this._mk('C5');
     this.c5stripes = [];
@@ -956,6 +958,7 @@ export class Session {
   /** 페이스 라이트 틱 — 최근 판정 3개의 평균 타이밍 오차를 거리(×팩속도 2.5m/s)로 번역 */
   _paceTick() {
     this.paceLight.visible = true;
+    this.paceLane.visible = true;   // 실전 상설 페이스 레인 (러너가 따라갈 밝은 광류)
     const R = this.judge?.results || [];
     let err = 0;
     for (let i = Math.max(0, R.length - 3); i < R.length; i++) err += R[i].terr;
@@ -984,6 +987,7 @@ export class Session {
     this.bobY = 0;
     for (const id in this.G) this.G[id].visible = false;
     this.paceLight.visible = false;   // C 실전 틱(_paceTick)이 프레임마다 다시 켬
+    this.paceLane.visible = false;
     this._saidKeys?.clear();          // 단계 중간 음성 큐 리셋
     this.demoActive = false;          // A 시범 구간 신호 (실사 클립 패널 소비)
     this._setCount(null); this._setCountWall(null);
