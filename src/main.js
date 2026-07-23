@@ -839,6 +839,9 @@ void main(){
     if (sessionStageEl) sessionStageEl.innerHTML = html;
     if (hudStageEl) hudStageEl.innerHTML = html;
     if (hudIdxEl) hudIdxEl.textContent = `${session.stageIdx + 1} / ${session.total}`;
+    // 준비운동(A) 단계 = 코치가 리깅으로 실제 스트레칭 수행(발목 원·종아리·스윙) → 3인칭으로 '먼저 보고 따라'
+    //   하게 x봇을 보임. 1인칭은 내가 곧 x봇이라 코치 동작이 안 보였음(유저 지적). 실전·전환 = 1인칭 몰입.
+    setFp(!/A\d$/.test(st.id));
     // 스테이지 라벨을 바닥에 문장으로 깔던 상태 슬롯 은퇴 — 세션 HUD 카드 + 세션 FS 슬롯('LEARN 3/4')과
     // 3중 중복이었고 발자국·가이드를 덮는 두 번째 주범. 투사면 = 훈련 큐 전용 원칙.
     veil();  // 단계 전환 암전 (끊김 → 의도된 전환으로)
