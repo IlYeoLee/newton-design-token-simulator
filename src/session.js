@@ -144,6 +144,27 @@ function floorRing(x, z, rIn, rOut, color, op = 0.9) {
   m.rotation.x = -Math.PI / 2; m.position.set(x, 0.013, z);
   m.userData.el = { type: 'ring' }; return m;
 }
+// 션 얼굴 페이서 버블 (Zenly/스냅맵 룩) — 광점 위에 떠서 러닝 리듬으로 통통 튀는 코치.
+//   쫓기 = 페이스 피드백(멀어지면 뒤처짐) + 개성·동기. 얼굴은 플레이스홀더(🏃) — 실제 션 렌더로 교체 예정.
+function makeFaceBubble() {
+  const S = 256, cv = document.createElement('canvas'); cv.width = cv.height = S;
+  const g = cv.getContext('2d'), cx = S / 2, cy = S / 2 - 14, R = S * 0.32;
+  g.shadowColor = 'rgba(250,90,52,.95)'; g.shadowBlur = 34;                    // 글로우 링
+  g.beginPath(); g.arc(cx, cy, R + 9, 0, Math.PI * 2); g.lineWidth = 11; g.strokeStyle = '#FA5A34'; g.stroke();
+  g.shadowBlur = 0;
+  g.beginPath(); g.arc(cx, cy, R, 0, Math.PI * 2); g.closePath(); g.fillStyle = '#12151b'; g.fill();
+  g.save(); g.clip();
+  g.font = (R * 1.55) + 'px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillText('🏃', cx, cy + R * 0.06);                                         // 플레이스홀더 얼굴
+  g.restore();
+  g.font = 'bold 30px sans-serif'; g.textAlign = 'center'; g.fillStyle = '#fff';
+  g.shadowColor = 'rgba(0,0,0,.6)'; g.shadowBlur = 8;
+  g.fillText('SEAN', cx, cy + R + 26);
+  const tex = new THREE.CanvasTexture(cv); tex.anisotropy = 4;
+  const spr = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false }));
+  spr.scale.set(0.52, 0.52, 1); spr.renderOrder = 20;
+  return spr;
+}
 function floorArc(x, z, color) {
   // 회전·카운트 진행 = MARK Hold 코닉 진행 림 (사제 아크 도형 은퇴 — 토큰 매핑 확정)
   const m = waveRingMesh(0.20, 0.235, color, 0.95, false, 5);
@@ -452,9 +473,13 @@ export class Session {
     this.slotFS = new THREE.Group(); this.slotFS.position.set(0, 0, -2.98);
     this.slotFL = new THREE.Group(); this.slotFL.position.set(0, 0, -2.68);
     this.slotFM = new THREE.Group(); this.slotFM.position.set(0, 0, -1.28);
-    // 페이스 라이트 — '션의 현재 위치' 리드 마커 (쫓기·동기). 내가 늦으면 멀어짐(션이 앞서감).
+    // 페이스 라이트 — 션의 지면 발자취/그림자 앵커 (얼굴 버블의 발밑).
     this.paceLight = floorRing(0, -1.6, 0.19, 0.235, BRAND.red, 0.95);
     this.paceLight.visible = false;
+    // 션 얼굴 버블 — 광점 위에 떠서 앞서 달리는 코치(쫓기=페이스+동기). Zenly 룩.
+    this.seanFace = makeFaceBubble();
+    this.seanFace.visible = false;
+    this.root.add(this.seanFace);
     // 션 발자국 페이서 — "프로의 발자국을 그의 페이스로 따라 밟기". 추상 레인 폐기(정보값 0)하고
     //   ① 동기(프로 발자국 밟기·쫓기) + ② 페이스 학습(발자국 도착 리듬=케이던스, 간격=보폭)을 동시에.
     //   기존 디자인 토큰 FootMark(MARK 발형 셰이더) 재사용 — 좌/우 교대로 앞에서 켜지며 흘러옴.
@@ -967,6 +992,12 @@ export class Session {
     err /= Math.min(3, Math.max(1, R.length));
     const z = -1.6 - Math.max(-0.5, Math.min(1.0, err * 2.5));
     this.paceLight.position.z += (z - this.paceLight.position.z) * 0.05;   // 부드러운 추종
+    // 션 얼굴 버블 — 광점 위에서 러닝 리듬으로 통통. 처지면 옅어짐(멀어지는 코치).
+    const beat = Math.max(0.2, this.tokens?._beatT || 0.39);
+    const bob = Math.abs(Math.sin(performance.now() / 1000 / beat * Math.PI)) * 0.06;
+    this.seanFace.visible = true;
+    this.seanFace.position.set(this.paceLight.position.x, 0.40 + bob, this.paceLight.position.z);
+    this.seanFace.material.opacity = 0.9 - Math.min(0.35, Math.max(0, err) * 0.9);
     this._paceFeetTick(err);
   }
 
@@ -1016,6 +1047,7 @@ export class Session {
     this.bobY = 0;
     for (const id in this.G) this.G[id].visible = false;
     this.paceLight.visible = false;   // C 실전 틱(_paceTick)이 프레임마다 다시 켬
+    this.seanFace.visible = false;
     this.paceFeet.forEach(fm => fm.group.visible = false);
     this._saidKeys?.clear();          // 단계 중간 음성 큐 리셋
     this.demoActive = false;          // A 시범 구간 신호 (실사 클립 패널 소비)
