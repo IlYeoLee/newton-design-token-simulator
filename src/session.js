@@ -452,9 +452,10 @@ export class Session {
     this.slotFS = new THREE.Group(); this.slotFS.position.set(0, 0, -2.98);
     this.slotFL = new THREE.Group(); this.slotFL.position.set(0, 0, -2.68);
     this.slotFM = new THREE.Group(); this.slotFM.position.set(0, 0, -1.28);
-    // 페이스 라이트 — '션의 현재 위치' 광점 (C 실전 상설, 소형 존 원 = 마크와 크기·위치로 구분).
+    // 페이스 라이트 — '션의 현재 위치' 광점 (C 실전 상설). WaveLight식 쫓는 마커라 라이브 히어로로 크게.
     // 페이스 일치 = 발앞 1.6m 고정, 내가 늦으면 멀어짐(션이 앞서감) — 타이밍 오차의 공간 번역.
-    this.paceLight = floorRing(0, -1.6, 0.09, 0.105, BRAND.red, 0.85);
+    // (라이브 러닝은 텍스트 프레임을 끄고 이 광점+흐르는 팩 토큰만 보여줌 — 정면 시선에 글자 대신 위치·리듬 큐.)
+    this.paceLight = floorRing(0, -1.6, 0.19, 0.235, BRAND.red, 0.95);
     this.paceLight.visible = false;
     this.dirSlot = new THREE.Group();   // C 방향 피드백 글리프 (착지점 추종, _dirCue)
     this.root.add(this.slotFS, this.slotFL, this.slotFM, this.dirSlot, this.paceLight);

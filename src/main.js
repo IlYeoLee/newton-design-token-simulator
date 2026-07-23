@@ -4061,7 +4061,11 @@ void main(){
     }
     // ── 바닥 대지 프레임 정합 (러닝/농구) — WebGL 평면, 직사각형, x봇에 자동 가려짐 ──
     const isFloorSport = session.active && (session.sport === 'running' || session.sport === 'basketball');
-    const fView = isFloorSport ? FLOOR_FRAMES[session.curStage?.id] : null;
+    // 실전 라이브 러닝: 정면 시선(-18°)에선 평면 텍스트 프레임이 납작하게 눌려 안 읽히고 오히려 방해 →
+    // 텍스트 프레임 숨기고 페이스 가이드 토큰(쫓는 광점·흐르는 레인·팩 흐름)만 남김. 상세 안내는 음성.
+    // (연구: 러너는 정면 6m 앞 응시·주변시야로 발 제어 — 달리며 글 읽기는 폼·주의 붕괴. WaveLight식 위치 큐가 유효.)
+    const liveRun = session.sport === 'running' && session.isLive;
+    const fView = (isFloorSport && !liveRun) ? FLOOR_FRAMES[session.curStage?.id] : null;
     const fp = rig._fp;   // 무릎 투사 풋프린트 (rig.update가 매 프레임 세팅)
     floorObj.visible = !!fView && !!fp;
     // 시작 페이지(READY/BK_READY)=발자국까지 전부 숨김(UI 전담). A/B/C 운동중=발자국은 콘텐츠라 유지, 프레임은 헤더만 대체.
