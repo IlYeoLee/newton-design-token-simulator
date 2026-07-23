@@ -70,6 +70,20 @@ function runningDrills(neutral) {
       if (n === R.armL)  return rot(X, 30 * h);
       return null;
     }),
+    // 싱글레그 쿼드 스트레치 — 오른발 접지, 왼무릎 완전 굴곡(발뒤꿈치↑ 엉덩이로), 왼손이 뒤로 발목 잡기, 홀드.
+    //   Sketchfab 'Single-Leg Quad Stretch' 스캔 레퍼런스 → 정지 홀드 포즈라 절차적이 적합(한 발 접지=공중부양 없음).
+    //   각도는 브라우저 검증 노브(손-발 근접·균형).
+    run_quad: makeClip('run_quad', neutral, 3.2, (n, t) => {
+      const h = t < 0.3 ? t / 0.3 : (t < 0.9 ? 1 : 1 - (t - 0.9) / 0.1);
+      if (n === R.kneeL) return rot(X, -125 * h);   // 왼무릎 완전 굴곡(뒤꿈치↑)
+      if (n === R.hipL)  return rot(X, -6 * h);      // 왼허벅지 거의 수직(살짝 뒤)
+      if (n === R.footL) return rot(X, 18 * h);      // 발끝
+      if (n === R.armL)  return rot(X, -28 * h);     // 왼팔 뒤로(발목 잡으러)
+      if (n === R.foreL) return rot(X, -75 * h);     // 팔꿈치 굽혀 손이 뒤 발로
+      if (n === R.armR)  return rot(X, 14 * h);       // 오른팔 균형
+      if (n === R.spine) return rot(X, -3 * h);       // 상체 곧게(살짝 신전)
+      return null;
+    }),
     // A2 까치발(힐레이즈) — 뒤꿈치를 올렸다 바닥까지 1회(클립=1주기, 씬 BT와 동기). 음성과 동작 일치.
     //   두 발목 플랜타플렉션 → _clampFeet가 몸을 토우 위로 들어올림(까치발). 무릎/힙은 곧게 유지.
     run_calf: makeClip('run_calf', neutral, A2_PERIOD, (n, t) => {
