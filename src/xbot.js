@@ -292,7 +292,7 @@ export class XBot {
   /** 세션 비실전 단계 시연 — 지정 클립을 제자리 재생(코치가 동작을 보여줌).
       드릴은 지정 관절만 움직이므로(발목 돌리기=발만) 저강도 호흡 레이어(warmup 0.12)를
       깔아 전신이 살아 보이게 — '인물이 완전 정지' 오인 방지 */
-  playDemo(name, dt, hold = false) {
+  playDemo(name, dt, hold = false, phaseTime = null) {
     this._dt = dt;
     const key = this.actions[name] ? name : (this.actions.warmup ? 'warmup' : null);
     if (!key) return;
@@ -306,6 +306,7 @@ export class XBot {
     this._breathT = (this._breathT || 0) + dt;
     // warmup=프레임0(손 내린 중립 서있기, 러닝 대기용) / 그 외=0.5·dur 대표 프레임(복싱 가드 등)
     if (hold) { a.action.time = key === 'warmup' ? 0 : 0.5 * a.dur; }
+    else if (phaseTime != null) { a.action.time = phaseTime % a.dur; }   // 세션 스테이지 시간에 위상 잠금 → 씬 가이드(링·카운트)와 동기
     else { this._demoT = (this._demoT || 0) + dt; a.action.time = this._demoT % a.dur; }
     if (breathW) { const w = this.actions.warmup; w.action.time = (this._breathT * 0.5) % w.dur; }
     // demoStandZ: 세션이 지정한 서기 위치(복싱 = 카메라 인식 링) — 매 프레임 원점 리셋이

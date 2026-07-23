@@ -15,6 +15,11 @@ const Z = new THREE.Vector3(0, 0, 1);
 const rot = (axis, deg) => new THREE.Quaternion().setFromAxisAngle(axis, deg * DEG);
 const TWO_PI = Math.PI * 2;
 
+// 씬 가이드 리듬(session.js SCFG)과 반드시 일치 — 코치 동작 1회 = 씬 링/카운트 1회.
+// 클립 duration = 1회 주기로 만들고(LoopRepeat), playDemo가 session.t에 위상 잠금 → 완전 동기.
+const A1_PERIOD = 2.0;   // = SCFG.a1Rep (발목 한 바퀴 2s)
+const A3_PERIOD = 1.8;   // = SCFG.a3Swing (다리 한 왕복 1.8s)
+
 // 드릴 스펙 → AnimationClip. drive(name,t01) → 로컬 delta 쿼터니언(없으면 null=중립 유지)
 function makeClip(id, neutral, duration, drive, fps = 30) {
   const frames = Math.max(2, Math.round(duration * fps));
@@ -48,12 +53,12 @@ const R = {
 // ── 러닝 준비운동 (A1~A4) ──
 function runningDrills(neutral) {
   return {
-    // A1 발목 돌리기 — 오른다리 살짝 들고 발목으로 원 8회
-    run_ankle: makeClip('run_ankle', neutral, 4.0, (n, t) => {
-      const ph = t * 8 * TWO_PI;
-      if (n === R.hipR) return rot(X, 16);
-      if (n === R.kneeR) return rot(X, -28);
-      if (n === R.footR) return rot(X, 14 * Math.sin(ph)).multiply(rot(Z, 14 * Math.cos(ph)));
+    // A1 발목 돌리기 — 오른발 살짝 들고 발목으로 원 1바퀴(클립=1주기, 씬 링과 동기). 크라우치 완화.
+    run_ankle: makeClip('run_ankle', neutral, A1_PERIOD, (n, t) => {
+      const ph = t * TWO_PI;   // 한 클립 = 한 바퀴
+      if (n === R.hipR) return rot(X, 12);
+      if (n === R.kneeR) return rot(X, -34);
+      if (n === R.footR) return rot(X, 16 * Math.sin(ph)).multiply(rot(Z, 16 * Math.cos(ph)));
       return null;
     }),
     // A2 종아리 늘리기 — 오른다리 뒤로 신전, 왼무릎 굽힘(런지), 상체 앞으로. 정적 홀드+미세 스웨이
@@ -66,10 +71,10 @@ function runningDrills(neutral) {
       if (n === R.spine) return rot(X, 12);
       return null;
     }),
-    // A3 다리 스윙 — 오른다리 앞뒤 진자 (~5회)
-    run_swing: makeClip('run_swing', neutral, 3.6, (n, t) => {
-      const a = Math.sin(t * 5 * TWO_PI);
-      if (n === R.hipR) return rot(X, 38 * a);
+    // A3 다리 스윙 — 오른다리 앞뒤 진자 1왕복(클립=1주기, 씬 스윙과 동기)
+    run_swing: makeClip('run_swing', neutral, A3_PERIOD, (n, t) => {
+      const a = Math.sin(t * TWO_PI);   // 한 클립 = 한 왕복(앞뒤)
+      if (n === R.hipR) return rot(X, 40 * a);
       if (n === R.kneeR) return rot(X, -14 * Math.max(0, a));
       if (n === R.spine) return rot(X, 4);
       return null;

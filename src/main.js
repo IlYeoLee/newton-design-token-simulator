@@ -3521,7 +3521,9 @@ void main(){
       state.time = 0;
       tokens.update(0, 0);
       // hold=포즈 고정(복싱 READY 가드 유지). 러닝 대기는 idle 재생(호흡)이라 hold 안 함.
-      xbot.playDemo(demoClipFor(session.sport, session.stage), h, session.stage === 'BX_READY');
+      // 러닝 준비운동(A) = 코치 드릴을 세션 스테이지 시간(session.t)에 위상 잠금 → 씬 링·카운트·음성과 동기(유저: '타이밍 하나하나 맞춰')
+      const _phase = (session.sport === 'running' && /A\d$/.test(session.stage)) ? session.t : null;
+      xbot.playDemo(demoClipFor(session.sport, session.stage), h, session.stage === 'BX_READY', _phase);
       rig.update(0, h);
       tokens.setShake(rig.shake.x, rig.shake.y);
       // 이 분기는 아래 followFloor 호출을 건너뛰어(early return) 무한 지면(그리드·바닥)이
