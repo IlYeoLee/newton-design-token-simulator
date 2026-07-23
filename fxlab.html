@@ -1533,18 +1533,16 @@ function drawLineLane() {
   g.clearRect(0, 0, W, H);
   const t = performance.now() / 1000;
   const AW = state.arrow.w;
+  // 레일(양쪽 2줄) 폐기 — 러닝은 좌우 경계가 과제 아님(트레드밀식 제자리). 중앙 단선 · 흐르는 대시만.
+  // 얇은 연속 베이스(경로 존재감) 위에 흐르는 대시(리듬). 씬 LANEFX dash와 같은 디자인 의도.
   g.strokeStyle = lutCss(0.5);
-  g.shadowColor = lutCss(0.62); g.shadowBlur = 9 * AW;
-  g.lineWidth = 5 * AW; g.lineCap = 'round';
-  const flow = (t * 60) % 34;
-  for (const lx of [W / 2 - 26, W / 2 + 26]) {   // 레인 경계 2줄
-    g.globalAlpha = 0.35; g.setLineDash([]);
-    g.beginPath(); g.moveTo(lx, 10); g.lineTo(lx, H - 10); g.stroke();
-  }
-  g.globalAlpha = 1;
+  g.lineCap = 'round';
   const lane = [];
   for (let y2 = H - 8; y2 >= 8; y2 -= 8) lane.push([W / 2, y2]);
-  strokeFlowPath(g, lane, t, AW, { color: lutCss(0.5), style: state.lane.style });   // 레인 전용 스타일
+  g.globalAlpha = 0.28; g.setLineDash([]); g.shadowColor = lutCss(0.6); g.shadowBlur = 6 * AW;
+  g.lineWidth = 2.5 * AW; g.beginPath(); g.moveTo(W / 2, 8); g.lineTo(W / 2, H - 8); g.stroke();   // 연속 베이스
+  g.globalAlpha = 1; g.shadowBlur = 10 * AW; g.lineWidth = 6 * AW;
+  strokeFlowPath(g, lane, t, AW, { color: lutCss(0.5), style: state.lane.style });   // 흐르는 대시 (레인 전용 스타일)
 }
 // ④ 감속 리듬 — 간격 증가 (구 감속선의 편입처)
 function drawLineDecel() {

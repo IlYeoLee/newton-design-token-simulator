@@ -86,13 +86,17 @@ void main() {
   float lat = (vUv.x - 0.5) * 2.0;                     // 폭방향 -1..1
   float along = vUv.y * uLen;                          // 진행 좌표 (m)
   float heat;
-  if (uLStyle > 0.5 && uLStyle < 1.5) {                // dash — 러닝 진행 레인 = 레일 2줄 + 흐르는 점선
-    // 룩 시스템 스펙(fxlab drawLineLane)과 동일 룩으로 통일 — 매끈한 글로우 펄스(구)에서 교체(유저 지적:
-    // 룩 시스템 레인≠씬 레인). 레일=폭 경계 2줄, 점선=진행 방향 도트(간격 uLGap=속도 언어).
-    float rail = exp(-pow((abs(lat) - 0.60) / (0.05 * uW), 2.0)) * 0.5;
-    float ph = fract(along * (2.4 / uLGap) - uTime * 1.4 * uLSpeed);
-    float dots = exp(-pow((ph - 0.5) / 0.15, 2.0)) * exp(-pow(lat / (0.12 * uW), 2.0));
-    heat = (rail + dots) * 0.62;
+  if (uLStyle > 0.5 && uLStyle < 1.5) {                // dash — 러닝 페이스 레인 (중앙 단선 · 흐르는 캡슐 대시)
+    // 레일 폐기(러닝은 좌우 경계가 과제 아님 · 저각서 수렴해 지저분). 얇은 연속 베이스=경로 존재감,
+    // 그 위 흐르는 둥근 캡슐 대시=리듬. 선단 광량↑로 진행감. 간격 uLGap=페이스, 속도 uLSpeed=케이던스.
+    float baseW = 0.08 * uW;
+    float base = exp(-pow(lat / baseW, 2.0)) + exp(-pow(lat / (baseW * 3.5), 2.0)) * 0.22 * uHalo;
+    float ph = fract(along * (1.7 / uLGap) - uTime * 1.35 * uLSpeed);
+    float cap = smoothstep(0.06, 0.24, ph) * smoothstep(0.60, 0.40, ph);   // 모서리 둥근 캡슐 대시
+    float lead = smoothstep(0.34, 0.46, ph);                               // 선단 강조 = 흐르는 방향감
+    float dashLat = exp(-pow(lat / (0.10 * uW), 2.0)) + exp(-pow(lat / (0.34 * uW), 2.0)) * 0.28 * uHalo;
+    float dash = cap * dashLat * (0.8 + 0.55 * lead);
+    heat = base * 0.30 + dash;
   } else {
     lat += sin(along * 2.1 + uTime * 1.4) * 0.06;      // 미세 측면 웨이브
     float pulse = 1.0;
