@@ -452,18 +452,21 @@ export class Session {
     this.slotFS = new THREE.Group(); this.slotFS.position.set(0, 0, -2.98);
     this.slotFL = new THREE.Group(); this.slotFL.position.set(0, 0, -2.68);
     this.slotFM = new THREE.Group(); this.slotFM.position.set(0, 0, -1.28);
-    // 페이스 라이트 — '션의 현재 위치' 광점 (C 실전 상설). WaveLight식 쫓는 마커라 라이브 히어로로 크게.
-    // 페이스 일치 = 발앞 1.6m 고정, 내가 늦으면 멀어짐(션이 앞서감) — 타이밍 오차의 공간 번역.
-    // (라이브 러닝은 텍스트 프레임을 끄고 이 광점+흐르는 팩 토큰만 보여줌 — 정면 시선에 글자 대신 위치·리듬 큐.)
+    // 페이스 라이트 — '션의 현재 위치' 리드 마커 (쫓기·동기). 내가 늦으면 멀어짐(션이 앞서감).
     this.paceLight = floorRing(0, -1.6, 0.19, 0.235, BRAND.red, 0.95);
     this.paceLight.visible = false;
-    // 실전 페이스 레인 — 러너 앞으로 길게 뻗는 '따라 달릴' 밝은 광류(모든 라이브 스테이지 상설).
-    // 실전 지면이 텍스트 대신 이 레인+광점(WaveLight식)만 보여줌 → 밝게(_gainK↑)해 유일 가이드로.
-    this.paceLane = laneLine(BRAND.red, 0.4, -3.2);
-    this.paceLane.material._gainK = 1.7;
-    this.paceLane.visible = false;
+    // 션 발자국 페이서 — "프로의 발자국을 그의 페이스로 따라 밟기". 추상 레인 폐기(정보값 0)하고
+    //   ① 동기(프로 발자국 밟기·쫓기) + ② 페이스 학습(발자국 도착 리듬=케이던스, 간격=보폭)을 동시에.
+    //   기존 디자인 토큰 FootMark(MARK 발형 셰이더) 재사용 — 좌/우 교대로 앞에서 켜지며 흘러옴.
+    this.paceFeet = [];
+    for (let i = 0; i < 6; i++) {
+      const fm = new FootMark(i % 2 === 0 ? 'left' : 'right');
+      fm.group.visible = false;
+      this.paceFeet.push(fm);
+      this.root.add(fm.group);
+    }
     this.dirSlot = new THREE.Group();   // C 방향 피드백 글리프 (착지점 추종, _dirCue)
-    this.root.add(this.slotFS, this.slotFL, this.slotFM, this.dirSlot, this.paceLight, this.paceLane);
+    this.root.add(this.slotFS, this.slotFL, this.slotFM, this.dirSlot, this.paceLight);
 
     this.countGroup = new THREE.Group(); this.countGroup.position.set(0, 0, -1.1);
     this.countRing = floorRing(0, -1.1, 0.30, 0.335, BRAND.red, 0);
@@ -526,7 +529,7 @@ export class Session {
 
     // 페이스 잡기 — 정지 학습(구 B1~B4) 폐기. 러닝은 뛰면서 페이스로 익힌다.
     // 가이드 = 흐르는 페이스 레인 + 공유 paceLight + 페이서 봇(따라 달리기). 밟기 마크 아님.
-    g = this._mk('P1');   // 페이스 레인은 상설 paceLane(_paceTick)이 전담 — 스테이지별 중복 레인 제거
+    g = this._mk('P1');   // 페이스 레인은 션 발자국 페이서(_paceFeetTick)가 전담
 
     g = this._mk('P2');
 
@@ -538,7 +541,7 @@ export class Session {
     g = this._mk('C3');  // 라이브 + F-CUE 오버레이 (러너를 따라감)
     this.c3cue = floorText('박자', 0.45, -2.1, { size: 0.13, color: CS.red, weight: 800 }); g.add(this.c3cue);
 
-    this._mk('C4');  // 라이브 — 상설 paceLane이 전담 (BOOST는 liveSpeed·음성으로)
+    this._mk('C4');  // 라이브 — 션 발자국 페이서가 전담 (BOOST는 liveSpeed·음성으로)
 
     g = this._mk('C5');
     this.c5stripes = [];
@@ -958,13 +961,39 @@ export class Session {
   /** 페이스 라이트 틱 — 최근 판정 3개의 평균 타이밍 오차를 거리(×팩속도 2.5m/s)로 번역 */
   _paceTick() {
     this.paceLight.visible = true;
-    this.paceLane.visible = true;   // 실전 상설 페이스 레인 (러너가 따라갈 밝은 광류)
     const R = this.judge?.results || [];
     let err = 0;
     for (let i = Math.max(0, R.length - 3); i < R.length; i++) err += R[i].terr;
     err /= Math.min(3, Math.max(1, R.length));
     const z = -1.6 - Math.max(-0.5, Math.min(1.0, err * 2.5));
     this.paceLight.position.z += (z - this.paceLight.position.z) * 0.05;   // 부드러운 추종
+    this._paceFeetTick(err);
+  }
+
+  /** 션 발자국 페이서 — 좌/우 발자국이 션의 스텝 간격으로 앞에 놓여 그의 속도로 흘러옴.
+      '지금 밟아' 라인 근처에서 밝게 켜짐 → 도착 리듬=케이던스, 간격=보폭을 몸으로 익힘.
+      투사면(fpFar) 안에만 상주 — 밖 그래픽 금지 원칙. err(페이스 오차)로 전체 온도(밝기) 조절. */
+  _paceFeetTick(err = 0) {
+    const feet = this.paceFeet; if (!feet.length) return;
+    const stride = Math.max(0.55, this.tokens?._strideM || 0.98);   // 션 보폭(1스텝, m)
+    const beat = Math.max(0.2, this.tokens?._beatT || 0.39);        // 션 스텝 간격(s) = 케이던스
+    const speed = stride / beat;                                    // 션 속도(m/s)
+    const far = Math.min(2.2, (this.rig?.fpFar ?? 2.2) - 0.1);      // 투사 안쪽 끝
+    const zNear = 0.35, zFar = -far, span = zNear - zFar;
+    const stepLine = -0.95;                                         // '지금 밟아' 라인 (밝기 정점)
+    const N = Math.max(2, Math.min(feet.length, Math.floor(span / stride)));
+    this._paceScroll = (this._paceScroll || 0) + (this._dt || 0.016) * (this.liveSpeed || 1) * speed;
+    const warm = 1 - Math.min(0.7, Math.max(0, err) * 1.4);        // 처지면 식음(온도↓)
+    for (let i = 0; i < feet.length; i++) {
+      const fm = feet[i];
+      if (i >= N) { fm.group.visible = false; continue; }
+      const z = zFar + (((i * stride + this._paceScroll) % span) + span) % span;
+      const g = Math.max(0, 1 - Math.abs(z - stepLine) / (stride * 0.7));   // 스텝라인서 최대
+      fm.group.visible = true;
+      // z는 러너(월드 원점) 기준 흐름 — root(팩 스크롤 추종)의 z를 상쇄해 이중 스크롤 방지, 션 속도만큼만.
+      fm.group.position.set(i % 2 === 0 ? -0.12 : 0.12, 0.013, z - this.root.position.z);
+      fm.op((0.12 + 0.88 * g * g) * warm);
+    }
   }
   _packBeat(mult = 1, fb = 0.6) {
     const b = this.tokens?._beatT;
@@ -987,7 +1016,7 @@ export class Session {
     this.bobY = 0;
     for (const id in this.G) this.G[id].visible = false;
     this.paceLight.visible = false;   // C 실전 틱(_paceTick)이 프레임마다 다시 켬
-    this.paceLane.visible = false;
+    this.paceFeet.forEach(fm => fm.group.visible = false);
     this._saidKeys?.clear();          // 단계 중간 음성 큐 리셋
     this.demoActive = false;          // A 시범 구간 신호 (실사 클립 패널 소비)
     this._setCount(null); this._setCountWall(null);
@@ -1139,11 +1168,9 @@ export class Session {
     const IDX = { solid: 0, dash: 1, dot: 2, chevron: 3, comet: 4, taper: 5 };
     const styleIdx = IDX[(FXP.lane && FXP.lane.style) || 'dash'] ?? 1;
     const arrowIdx = IDX[A.line || 'solid'] ?? 0;   // 화살표·감속바는 arrow 라인 스타일
-    const look = (typeof window !== 'undefined' && window.__laneLook) || 0;   // 임시 A/B/C 룩 스위처
     for (const m of LANE_MATS) {
       const U = m.uniforms;
       U.uTime.value = t;
-      if (U.uLook) U.uLook.value = look;
       U.uLStyle.value = m._arrowStyle ? arrowIdx : styleIdx;
       U.uW.value = FXP.graphics.width * (A.w || 1);
       U.uHalo.value = FXP.graphics.halo * (A.glow ?? 1);
@@ -1164,6 +1191,7 @@ export class Session {
 
   update(dt) {
     if (!this.active) return;
+    this._dt = dt;   // 페이서 스크롤 등 dt 소비자용
     const st = this.stages[this.stageIdx]; this.t += dt; const id = st.id;
     const wall = !!st.wall;
     // 오버레이 좌표: 벽면(복싱)은 고정, 지면은 러너/컷을 따라감.
