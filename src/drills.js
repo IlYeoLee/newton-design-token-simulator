@@ -101,6 +101,38 @@ function runningDrills(neutral) {
       if (n === R.spine) return rot(X, 4);
       return null;
     }),
+    // 하이니 — 좌우 교대로 무릎을 골반 높이까지 빠르게 (러닝 워밍업: 고관절·코어 활성·심박↑, 스트라이드 무릎드라이브 리허설).
+    //   접지: 한 발 딛고 반대 무릎 UP(교대). 팔은 러닝 암(팔꿈치 90°) 카운터 스윙. 클립=2사이클(빠름).
+    run_highknees: makeClip('run_highknees', neutral, 2.0, (n, t) => {
+      const s = Math.sin(t * 2 * TWO_PI);
+      const upR = Math.max(0, s), upL = Math.max(0, -s);
+      if (n === R.hipR)  return rot(X, 82 * upR);    // 무릎을 골반 높이까지
+      if (n === R.kneeR) return rot(X, -72 * upR);
+      if (n === R.hipL)  return rot(X, 82 * upL);
+      if (n === R.kneeL) return rot(X, -72 * upL);
+      if (n === R.armR)  return rot(X, 34 * -s);     // 러닝 암 카운터 스윙
+      if (n === R.armL)  return rot(X, 34 * s);
+      if (n === R.foreR) return rot(X, -55);         // 팔꿈치 ~90°
+      if (n === R.foreL) return rot(X, -55);
+      if (n === R.spine) return rot(X, 4);
+      return null;
+    }),
+    // 버트킥 — 좌우 교대로 뒤꿈치를 엉덩이로 차올림 (햄스트링·후면사슬 워밍업, 빠른 발회전).
+    //   접지: 딛는 발 그대로, 반대 무릎 완전 굴곡(뒤꿈치↑). 허벅지는 거의 수직(살짝 신전). 팔 카운터.
+    run_buttkicks: makeClip('run_buttkicks', neutral, 1.8, (n, t) => {
+      const s = Math.sin(t * 2 * TWO_PI);
+      const kR = Math.max(0, s), kL = Math.max(0, -s);
+      if (n === R.kneeR) return rot(X, -125 * kR);   // 뒤꿈치 엉덩이로
+      if (n === R.hipR)  return rot(X, -8 * kR);      // 허벅지 약간 뒤(신전)
+      if (n === R.kneeL) return rot(X, -125 * kL);
+      if (n === R.hipL)  return rot(X, -8 * kL);
+      if (n === R.armR)  return rot(X, 30 * -s);
+      if (n === R.armL)  return rot(X, 30 * s);
+      if (n === R.foreR) return rot(X, -50);
+      if (n === R.foreL) return rot(X, -50);
+      if (n === R.spine) return rot(X, 3);
+      return null;
+    }),
     // A4 박자 걷기 — 좌우 교대 무릎 들기 (제자리 마칭), 팔 카운터 스윙
     run_march: makeClip('run_march', neutral, 3.2, (n, t) => {
       const s = Math.sin(t * 4 * TWO_PI);
