@@ -3508,8 +3508,18 @@ void main(){
   function stepSim(h) {
     const data = state.packs[state.pack];
     if (!data) return;
-    // 러닝 준비운동(A 스트레치): 빔을 몸 앞 지면에 고정 — 빔다리(오른)를 접는 스트레치에도 빔이 안 날아감(미래 짐벌 보정).
+    // 러닝 준비운동(A 스트레치): 빔을 앞발 지면에 락 — 무게이동으로 빔다리(뒷발) 흔들려도 앞발 링 고정(미래 짐벌 보정).
     rig.beamGroundLock = session.active && session.sport === 'running' && /^A\d/.test(session.stage || '');
+    if (rig.beamGroundLock) {
+      const pb = xbot.getProbes?.();
+      if (pb?.footL && pb?.footR) {
+        const front = pb.footL.z < pb.footR.z ? pb.footL : pb.footR;   // 더 앞(−z 전방)인 발 = 앞발(선 발)
+        if (!rig._beamTgt) rig._beamTgt = { x: front.x, z: front.z };
+        rig._beamTgt.x += (front.x - rig._beamTgt.x) * 0.08;           // 저역통과 = 앞발에 부드럽게 락(지터 제거)
+        rig._beamTgt.z += (front.z - rig._beamTgt.z) * 0.08;
+        rig.beamTarget = rig._beamTgt;
+      }
+    } else { rig.beamTarget = null; rig._beamTgt = null; }
     if (!session.active && sessionDroveGaze) {
       // 세션 종료 → 수동 시선각 복귀 (세션이 남긴 단계값이 디폴트처럼 굳는 것 방지)
       sessionDroveGaze = false;

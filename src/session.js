@@ -1293,8 +1293,10 @@ export class Session {
       // 싱글레그 쿼드 스트레치 — 한 다리로 서서 반대 발등을 잡아 허벅지 앞을 늘려 버티기(정지 홀드).
       //   가이드 = 축발(선 발) 아래 홀드 링이 버틴 시간만큼 차오름 → 다 차면 완료. 코치 run_quad와 동기.
       const HOLD = 4.0, REPS = 2, DEMO = HOLD + 0.6, CYCLE = HOLD + 1.0;
+      // 홀드 링을 빔 락 타겟(앞발/선 발)에 정렬 → 무게이동에도 링이 그 자리 고정(빔과 동일 앵커).
       const pb = this.xbot?.getProbes?.();
-      if (pb?.footR) this.a1arc.position.set(pb.footR.x, 0.0135, pb.footR.z);   // 축발(선 발) 아래 홀드 링
+      if (this.rig?.beamTarget) this.a1arc.position.set(this.rig.beamTarget.x, 0.0135, this.rig.beamTarget.z);
+      else if (pb?.footR) this.a1arc.position.set(pb.footR.x, 0.0135, pb.footR.z);
       this.a1L.group.visible = false; this.a1R.group.visible = false; this.a1arc.visible = true;
       if (this.t < DEMO) {
         this.demoActive = true;

@@ -146,6 +146,8 @@ export class ProjectorRig {
     this.initialized = false;
     // 스트레치(준비운동) 빔 지면 고정 — 빔다리(오른)를 접어도 빔이 몸 앞 지면에 유지되게(미래 짐벌 보정 가정).
     this.beamGroundLock = false;
+    // 빔을 특정 지면 타겟(앞발 위치)에 락 — 무게이동으로 빔다리 흔들려도 앞발 링이 그 자리 고정({x,z} 또는 null).
+    this.beamTarget = null;
 
     // 조절 가능한 투사면 파라미터
     this.fpNear = 0.05;   // 무릎(몸) 앞 시작 거리 (m)
@@ -412,10 +414,11 @@ export class ProjectorRig {
       this.shake.set(0, 0);
       this.errorCm = Math.hypot(gimbalBreak.x, gimbalBreak.z) * 100;
     } else if (this.beamGroundLock) {
-      // 스트레치: 다리 각도(빔다리 접힘 포함)와 무관하게 빔을 몸 앞 지면에 앵커 → 양다리 스트레치에도 빔 고정(미래 짐벌 보정).
+      // 스트레치: 다리 각도(빔다리 접힘 포함)와 무관하게 빔을 지면 타겟에 앵커(미래 짐벌 보정).
+      //   beamTarget(앞발 위치) 있으면 그 자리에 락 → 무게이동으로 뒷발(빔다리) 흔들려도 앞발 링 고정. 없으면 몸 앞.
       fwd = this.xbot.getForward();
-      ox = body.x + fwd.x * 0.35;
-      oz = body.z + fwd.z * 0.35;
+      if (this.beamTarget) { ox = this.beamTarget.x; oz = this.beamTarget.z; }
+      else { ox = body.x + fwd.x * 0.35; oz = body.z + fwd.z * 0.35; }
       this.shake.set(0, 0);
       this.errorCm = 0;
     } else {
