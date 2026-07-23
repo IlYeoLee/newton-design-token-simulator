@@ -373,7 +373,7 @@ function wallTap() {
 export const STAGES = {
   running: [
     { id:'READY', label:'준비 — 발 두 번 구르면 시작', voice:['시스템','션의 마지막 1km 페이스로 달려 볼 거예요. 준비되면 제자리에서 발을 두 번 굴러 주세요.'], wear:'SAFE 대기', foot:'발 두 번 구르기 → 시작' },
-    { id:'A1', label:'A · 준비운동 1/4 — 발목 돌리기', voice:['션','먼저 발목부터 풀어요. 한쪽 발끝을 앞의 링에 올리고, 링을 따라 발목으로 크게 원을 그려요 — 왼발 여덟 번, 오른발 여덟 번.'], wear:'개입 없음 (가동범위 측정)' },
+    { id:'A1', label:'A · 준비운동 1/4 — 전방 리치 홀드', voice:['션','먼저 하체 앞쪽을 풀어요. 한쪽 발을 앞의 링까지 쭉 뻗어 밟고, 링이 다 찰 때까지 버텨요 — 세 번 반복.'], foot:'발 앞으로 뻗어 밟기 → hold 링 채우기' },
     { id:'A2', label:'A · 준비운동 2/4 — 까치발 들었다 내리기', voice:['션','이번엔 종아리예요. 왼발을 앞 발자국에 올리고, 뒤꿈치를 천천히 들어 까치발 — 그리고 바닥까지 내려요. 열 번.'], hap:'10회 종료 진동 1회' },
     { id:'A3', label:'A · 준비운동 3/4 — 다리 앞뒤로 흔들기', voice:['션','골반에 손을 얹고 한쪽 다리에 힘을 빼요. 시계추처럼 앞뒤로 — 발끝이 빛나는 원까지 갔다 오면 딱 좋아요. 열 번.'], foot:'완료 후 두 번 구르기 → 다음' },
     { id:'T1', label:'몸풀기 끝 — 다음은 페이스 잡기', voice:['시스템','몸 다 풀렸어요. 발 두 번 구르면 다음으로 가요.'], foot:'발 두 번 구르기 → 페이스 잡기' },
@@ -502,9 +502,10 @@ export class Session {
     // title(2.0m)·eyebrow(2.3m, FIGMA_CARD)보다 항상 0.4m+ 앞(가까움), footer(0.7m)
     // 보다는 0.3m+ 뒤(멂). CTA(1.1m, READY/T1 전용)와는 애초에 같은 스테이지에 안 나옴.
     g = this._mk('A1');
-    this.a1L = new FootMark('left').at(0, -1.00, 1.15); g.add(this.a1L.group);
-    this.a1R = new FootMark('right').at(0, -1.00, 1.15); g.add(this.a1R.group);
-    this.a1arc = floorArc(0, -1.00, BRAND.sand); g.add(this.a1arc);
+    // 전방 리치 홀드 — 가이드 발자국을 발 앞(전방 z=-1.55)에 고정 배치(발을 앞으로 뻗어 밟는 타겟).
+    this.a1L = new FootMark('left').at(0, -1.55, 1.15); g.add(this.a1L.group);
+    this.a1R = new FootMark('right').at(0, -1.55, 1.15); g.add(this.a1R.group);
+    this.a1arc = floorArc(0, -1.55, BRAND.sand); g.add(this.a1arc);
 
     g = this._mk('A2');
     this.a2 = [];
@@ -1289,23 +1290,25 @@ export class Session {
       }
       if (id === 'T1' && this.t >= 4.5) { this.next(); return; }
     } else if (id === 'A1') {
-      // 발목 돌리기 — 왼발을 링에 올리고 발목 원 8회. 링·발자국을 코치 왼발 실제 위치에 정렬 → '가이드 위 그 발로'.
-      const REP = SCFG.a1Rep, DEMO = 2 * REP, half = 8 * REP;
-      this.a1arc.setProg((this.t % REP) / REP);   // 진행 림 = 발목 회전 속도 (드릴과 동일 시계·동기)
-      const pb = this.xbot?.getProbes?.();
-      if (pb?.footL) {   // 코치 왼발 월드 위치에 가이드 정렬 (A=세션 root 원점이라 로컬≈월드)
-        this.a1arc.position.set(pb.footL.x, 0.0135, pb.footL.z);
-        this.a1L.group.position.set(pb.footL.x, 0.013, pb.footL.z);
-      }
+      // 전방 발 리치 홀드 — 발을 앞으로 뻗어 앞의 가이드 발자국을 '밟고 버티면' hold 링이 찬다(하체 전방 스트레치).
+      //   가이드는 발 앞(전방 z=-1.55) 고정. 투사각(A1 게이즈 -30°)을 앞으로 눕혀 뻗은 발까지 보이게(미래 보정 가정).
+      //   버티기 진행 = 코치 리치 홀드(run_reach, session.t 위상잠금)와 동기 — 링 채움 = 홀드 지속.
+      const HOLD = 3.0, REPS = 3, DEMO = HOLD + 0.6, CYCLE = HOLD + 0.9;
       this.a1L.group.visible = true; this.a1R.group.visible = false; this.a1arc.visible = true;
       if (this.t < DEMO) {
         this.demoActive = true;
-        FMU('먼저 보세요 — 왼발을 링에 올리고 발목으로 원', CS.sand);
+        const p = Math.min(1, (this.t % CYCLE) / HOLD);
+        this.a1L.setHold(Math.max(0.001, p)); this.a1arc.setProg(p);   // 발자국 hold 링 + 타겟 아크 함께 채움
+        FMU('먼저 보세요 — 발을 앞으로 뻗어 링을 밟고 버티기', CS.sand);
       } else {
-        this._say('a1go', '션', '이제 같이 — 왼발 끝을 링에 올리고, 링 따라 천천히 여덟 번.');
+        this._say('a1go', '션', '이제 같이 — 발을 앞으로 쭉 뻗어 앞의 링을 밟고, 링이 다 찰 때까지 버텨요.');
         const t2 = this.t - DEMO;
-        FMU(`왼발 ${Math.min(8, Math.floor(t2 / REP) + 1)} / 8`, CS.sand);
-        if (t2 >= half + 0.6) { this.next(); return; }
+        const rep = Math.floor(t2 / CYCLE), lt = t2 - rep * CYCLE;
+        const p = Math.min(1, lt / HOLD);
+        this.a1L.setHold(Math.max(0.001, p)); this.a1arc.setProg(p);
+        if (p >= 1) this.a1L.glow(Math.max(0, 1 - (lt - HOLD) / 0.6));   // 다 차면 성공 블룸
+        FMU(`앞으로 뻗어 버티기 ${Math.min(REPS, rep + 1)} / ${REPS}`, CS.sand);
+        if (rep >= REPS) { this.next(); return; }
       }
     } else if (id === 'A2') {
       // 종아리 펌프 — 시범(2박 보기) → "이제 같이" → 좌우 각 10회 (동적 웜업)

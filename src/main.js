@@ -429,6 +429,7 @@ async function boot() {
     // 눈높이 1.6m·벽앞 1.75m 기준 -8° ≈ 벽 중심 응시 (버그였음: 'BX_'의 B가 익히기 -38°로 매칭돼 바닥만 봄)
     if (session.curStage?.wall) return -8;
     const id = session.curStage?.id || '';
+    if (id === 'A1') return -30;   // 전방 리치 홀드 — 투사각을 앞으로 눕혀 발 앞 가이드까지 보이게(미래 알고리즘 보정 가정)
     return STAGE_GAZE_DEG[id[0]] ?? -30;   // READY/FIN 등 = 중간값
   }
   let manualGazeDeg = -18;   // 유저 수동 설정값 (세션 종료 시 복귀 기준)
@@ -3485,8 +3486,8 @@ void main(){
   function demoClipFor(sport, id) {
     // 준비운동(A) 단계 = 절차적 드릴 — 봇이 실제 그 동작을 수행 (기존엔 전부 warmup/dribble)
     const DRILL = {
-      // 러닝 준비운동 = 절차 드릴 (하체 스트레칭 실측 클립 확정 시 교체 예정 — jumpingJacks 등 로드됨)
-      A1: 'run_ankle', A2: 'run_calf', A3: 'run_swing', A4: 'run_march',
+      // 러닝 준비운동 = 절차 드릴. A1=전방 리치 홀드(발 앞 가이드 밟고 버티기).
+      A1: 'run_reach', A2: 'run_calf', A3: 'run_swing', A4: 'run_march',
       // 복싱 = Mixamo 실측 모캡 (목풀기만 절차)
       BX_A1: 'bx_neck', BX_A2: 'boxGuard', BX_A3: 'boxJab',
       BX_B1: 'boxGuard', BX_B2: 'boxGuard', BX_B3: 'boxCombo',

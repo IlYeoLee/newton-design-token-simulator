@@ -54,12 +54,18 @@ const R = {
 // ── 러닝 준비운동 (A1~A4) ──
 function runningDrills(neutral) {
   return {
-    // A1 발목 돌리기 — 왼발을 앞으로 들어(가이드 링 위) 발목으로 원 1바퀴(클립=1주기, 씬 링과 동기).
-    //   씬(session)이 링·발자국을 코치 왼발 실제 위치에 정렬 → '가이드 위에서 그 발로' 정확히 보임.
-    run_ankle: makeClip('run_ankle', neutral, A1_PERIOD, (n, t) => {
-      const ph = t * TWO_PI;   // 한 클립 = 한 바퀴
-      // 다리 안 듦 → 발 지면 접촉, 발목만 회전(공중부양 방지). 완전한 풋롤은 IK 필요 → SayMotion 애니로 대체 예정.
-      if (n === R.footL) return rot(X, 13 * Math.sin(ph)).multiply(rot(Z, 15 * Math.cos(ph)));
+    // A1 전방 리치 홀드 — 상체를 앞으로 숙이고 팔을 뻗어 앞의 가이드까지 리치→버티기(하체 전방/햄스트링 스트레치).
+    //   두 발 접지 유지(관절은 상체·팔·힙힌지만) → 공중부양 없음. 클립=1 리치사이클, session.t에 위상잠금.
+    run_reach: makeClip('run_reach', neutral, 3.9, (n, t) => {
+      const h = t < 0.3 ? t / 0.3 : (t < 0.85 ? 1 : 1 - (t - 0.85) / 0.15);   // 리치→홀드→복귀
+      if (n === R.spine)  return rot(X, 22 * h);   // 상체 앞으로 숙임(전방 리치)
+      if (n === R.spine1) return rot(X, 10 * h);
+      if (n === R.hipL)   return rot(X, 9 * h);    // 골반 힌지(약간)
+      if (n === R.hipR)   return rot(X, 9 * h);
+      if (n === R.kneeL)  return rot(X, -7 * h);   // 무릎 살짝(부드러운 리치)
+      if (n === R.kneeR)  return rot(X, -7 * h);
+      if (n === R.armL)   return rot(X, 42 * h);   // 팔 앞으로 뻗기(가이드로 리치)
+      if (n === R.armR)   return rot(X, 42 * h);
       return null;
     }),
     // A2 까치발(힐레이즈) — 뒤꿈치를 올렸다 바닥까지 1회(클립=1주기, 씬 BT와 동기). 음성과 동작 일치.
