@@ -1294,6 +1294,12 @@ export class Session {
       //   가이드는 발 앞(전방 z=-1.55) 고정. 투사각(A1 게이즈 -30°)을 앞으로 눕혀 뻗은 발까지 보이게(미래 보정 가정).
       //   버티기 진행 = 코치 리치 홀드(run_reach, session.t 위상잠금)와 동기 — 링 채움 = 홀드 지속.
       const HOLD = 3.0, REPS = 3, DEMO = HOLD + 0.6, CYCLE = HOLD + 0.9;
+      // 링을 코치 왼발(전방 리치) 실위치에 정렬 → 코치가 그 발로 링을 '밟고' 채우는 게 보임(시뮬 유의미성).
+      const pb = this.xbot?.getProbes?.();
+      if (pb?.footL) {
+        this.a1L.group.position.set(pb.footL.x, 0.013, pb.footL.z);
+        this.a1arc.position.set(pb.footL.x, 0.0135, pb.footL.z);
+      }
       this.a1L.group.visible = true; this.a1R.group.visible = false; this.a1arc.visible = true;
       if (this.t < DEMO) {
         this.demoActive = true;
