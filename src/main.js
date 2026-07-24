@@ -832,6 +832,8 @@ void main(){
   const hudStageEl = document.getElementById('hud-stage');
   const hudIdxEl = document.getElementById('hud-idx');
   // 세션이 판정 오차를 소비 (페이스 라이트 = 타이밍 오차의 공간 번역, C3 흔들림 시연)
+  // 프레스 완료(원 다 채움) → 지면 버스트 — '누르면 반응하는 바닥'의 보상감 (기존 파문 이펙트 재사용)
+  const _pressBurst = wp => effects.burst(wp, 0xfec389, new THREE.Vector3(0, 1, 0), { intensity: 0.9, sizeM: 0.6 });
   const session = new Session(scene, tokens, xbot, rig, st => {
     const sig = [];
     if (st.hap) sig.push(`<span style="color:var(--warn)">햅틱</span> ${st.hap}`);
@@ -879,6 +881,7 @@ void main(){
     if (type === 'fail') { showCaption('시스템', '아직 폼이 덜 익었어요 — 익히기 한 번 더.'); wearPulse('#fec389', 1600); }
     else if (type === 'downshift') { showCaption('시스템', '폼이 흔들려요 — 익히기로 되돌립니다.'); wearPulse('#fec389', 1600); }
   };
+  session.onPress = _pressBurst;   // 프레스 완료 버스트 연결
   const sessionBtn = document.getElementById('btn-session');
   const demoBtn = document.getElementById('btn-demo');
   let demoTour = null;   // { queue:[sports], i }

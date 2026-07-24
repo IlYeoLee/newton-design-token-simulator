@@ -504,9 +504,9 @@ export class Session {
     g = this._mk('A1');
     // 사이드 런지 프레스 — 좌우 존원 2개(런지 착지 실측 ±0.72m, 전방 투사존에 배치).
     // 발이 옆으로 크게 딛어 누르면 그 원의 홀드 아크가 차오름(프로브 구동 — 왼/오른발 무관).
-    this.a1press = [-0.72, 0.72].map(x => ({
-      ring: floorRing(x, -1.3, 0.16, 0.18, BRAND.red, 0.4),
-      arc: floorArc(x, -1.3, BRAND.sand),
+    this.a1press = [-0.6, 0.6].map(x => ({
+      ring: floorRing(x, -1.35, 0.16, 0.18, BRAND.red, 0.4),
+      arc: floorArc(x, -1.35, BRAND.sand),
       fill: 0,
     }));
     this.a1press.forEach(p => { g.add(p.ring); g.add(p.arc); });
@@ -576,7 +576,7 @@ export class Session {
 
     // A2 사이드 런지 프레스 — 러닝 A1과 같은 '누르면 채워지는' 문법 (좌우 존원 + 홀드 아크)
     g = this._mk('BK_A2');
-    this.bkA2press = [-0.72, 0.72].map(x => ({
+    this.bkA2press = [-0.6, 0.6].map(x => ({
       ring: floorRing(x, -1.6, 0.16, 0.18, BRAND.red, 0.4),
       arc: floorArc(x, -1.6, BRAND.sand),
       fill: 0,
@@ -1211,6 +1211,12 @@ export class Session {
     // 페이스·판정 마크는 러너에 앵커 = bodyZ(러너 월드 z). floorRoot.z(무한트랙 스크롤)를 더하면
     // 전진 이동을 이중 계산해 마크가 러너의 2배 거리(지평선 밖)에 남았음(유저: '저 멀리 마크 판정 토큰').
     this.root.position.z = live ? bodyZ : 0;
+    // 투사 흔들림을 세션 가이드에도 반영 — 토큰 필드(setShake)만 흔들리고 세션 존원·아크는
+    // 고정이라 '새 가이드는 흔들림 미반영'(유저 지적). 같은 rig.shake를 동일 축으로 가산.
+    if (this.rig?.shake) {
+      this.root.position.x = this.rig.shake.x;
+      this.root.position.z += this.rig.shake.y;
+    }
     // 스테이지 카드 조판 라이브 소비 (룩 '스테이지 카드' 슬라이더 — 위치는 즉시, 캡은 다음 텍스트 갱신 시)
     const CARD = FXP.card || {};
     // 헤더 밴드(타이틀+아이브로)는 빔 투사 풋프린트 안에만 상주 — 고정 z(2.0/2.3m)는 풋프린트가
@@ -1305,7 +1311,10 @@ export class Session {
         p.fill = i === side ? Math.min(1, p.fill + dt / NEED) : Math.max(0, p.fill - dt * 1.5);
         p.arc.setProg(Math.max(0.001, p.fill));
         p.ring.setOp(i === side ? 0.85 : 0.4);
-        if (p.fill >= 1) { this.a1count = (this.a1count || 0) + 1; p.fill = 0; p.ring.setOp(1); }
+        if (p.fill >= 1) {
+          this.a1count = (this.a1count || 0) + 1; p.fill = 0; p.ring.setOp(1);
+          const wp = new THREE.Vector3(); p.arc.getWorldPosition(wp); this.onPress?.(wp);   // 완료 버스트(지면 반응 보상)
+        }
       });
       if (this.t < DEMO) {
         this.demoActive = true;
@@ -1427,7 +1436,10 @@ export class Session {
         p.fill = i === side ? Math.min(1, p.fill + dt / NEED) : Math.max(0, p.fill - dt * 1.5);
         p.arc.setProg(Math.max(0.001, p.fill));
         p.ring.setOp(i === side ? 0.85 : 0.4);
-        if (p.fill >= 1) { this.bkA2count = (this.bkA2count || 0) + 1; p.fill = 0; }
+        if (p.fill >= 1) {
+          this.bkA2count = (this.bkA2count || 0) + 1; p.fill = 0;
+          const wp = new THREE.Vector3(); p.arc.getWorldPosition(wp); this.onPress?.(wp);
+        }
       });
       if (this.t < DEMO) { this.demoActive = true; FMU('먼저 보세요 — 옆 원을 밟아 지그시 누르기', CS.sand); }
       else {
