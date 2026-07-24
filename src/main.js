@@ -3558,6 +3558,11 @@ void main(){
       if (data.sport === 'running') followFloor(xbot.group.position.z);
       return;
     }
+    // 라이브 진입 에지(러닝/농구): 무한트랙 시프트(loopShiftZ)를 러너에 재정렬. 재시도·스테이지 점프로
+    // 누적된 드리프트가 페이스 레인을 수십m 밖(지평선 오렌지 글로우)에 두던 문제 — 투사면 밖 그래픽 금지.
+    const _liveNow = session.active && session.isLive && (data.sport === 'running' || data.sport === 'basketball');
+    if (_liveNow && !_wasLive) { tokens.loopShiftZ = 0; state.loop = 0; state.time = 0; tokens.resetLoop?.(); }
+    _wasLive = _liveNow;
     if (session.active) {
       session.update(h);
       updateSessionGaze(h);
@@ -4047,6 +4052,7 @@ void main(){
   frameCssScene.add(floorObj);
   let loadedFloorView = null;
   let _uiDt = 0.016;      // loop에서 매 프레임 실시간 dt 주입 (UI 앵커 저역통과용)
+  let _wasLive = false;   // 라이브 진입 에지 감지 — loopShiftZ 드리프트 재정렬용
   let _fpSmooth = null;   // 프레임·발자국 앵커용 저역통과 풋프린트 — 빔 흔들림(투사오차 지터) 제거해 글자 삐걱임 방지
   const _rV = new THREE.Vector3(), _fV = new THREE.Vector3(), _uV = new THREE.Vector3(0, 1, 0), _mBasis = new THREE.Matrix4();
   function renderDesignFrame() {
