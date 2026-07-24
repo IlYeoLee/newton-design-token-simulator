@@ -1496,12 +1496,12 @@ export class Session {
     } else if (id === 'BK_B1') {
       // 스텝 스쿨 1막 — 드라이브 리듬 스텝: 한 번에 두 걸음(①②)만, 절반 속도 4회 반복.
       // 나머지 마크는 문맥 dim(전체 경로는 보이되 집중은 앞 두 발) — 배우기 쉬움 우선 재설계.
-      const RATE = 0.5, DUR = 1.0;
-      const lt = (this.t * RATE) % DUR;
+      const DUR = this.xbot?.actions?.cmu_crossover_shot?.dur || 4;
+      const lt = this.t % DUR;
       this.bkGuideMarks.forEach((fm, i) => {
         if (i >= 2) {
-          fm.op(0.2); fm.countdown(-1);
-          this.bkGuideNums[i].material.opacity = 0.12; placeMarkNum(this.bkGuideNums[i]);
+          fm.op(0.32); fm.countdown(-1);
+          this.bkGuideNums[i].material.opacity = 0.2; placeMarkNum(this.bkGuideNums[i]);
           return;
         }
         const d = BK_GUIDE[i].t - lt;
@@ -1521,20 +1521,20 @@ export class Session {
         ar.traverse(o => { if (o.material) o.material.opacity = on ? 0.95 : 0.12; });
       });
       this.bkJumpRing.setOp(0.1);
-      this.bkJumpTxt.material.opacity = 0.15;
+      this.bkJumpTxt.userData.plane.material.opacity = 0.15;
       this._bkG1lt = lt < (this._bkG1lt ?? 0) ? -0.01 : lt;   // 사이클 랩 처리
-      FMU(`리듬 스텝 ① 오른발 → ② 왼발 · ${Math.min(4, Math.floor(this.t * RATE / DUR) + 1)} / 4`, CS.sand);
-      if (this.t >= 4 * DUR / RATE + 0.4) { this.next(); return; }
+      FMU(`리듬 스텝 ① 오른발 → ② 왼발 · ${Math.min(3, Math.floor(this.t / DUR) + 1)} / 3`, CS.sand);
+      if (this.t >= 3 * DUR + 0.4) { this.next(); return; }
     } else if (id === 'BK_B2') {
       // 스텝 스쿨 2막 — 플랜트&브레이크: ③스텝→④디딤발 확! 구간 [0.9,2.2]만 절반 속도 4회.
       // ①②는 이미 익힌 문맥 dim, ⑤⑥은 다음 막 예고 dim.
-      const RATE = 0.5, T0 = 0.9, DUR = 2.2 - T0;
-      const ltc = T0 + ((this.t * RATE) % DUR);   // 클립 시간축
+      const RATE = 0.5, DUR = this.xbot?.actions?.cmu_crossover_shot?.dur || 4;
+      const ltc = (this.t * RATE) % DUR;   // 클립 시간축
       let done = 0;
       this.bkB2.forEach((f, i) => {
         if (i < 2 || i > 3) {
-          f.countdown(-1); f.op(0.2);
-          this.bkB2nums[i].material.opacity = 0.12; placeMarkNum(this.bkB2nums[i]);
+          f.countdown(-1); f.op(0.32);
+          this.bkB2nums[i].material.opacity = 0.2; placeMarkNum(this.bkB2nums[i]);
           return;
         }
         const d = BK_GUIDE[i].t - ltc; let ph;
@@ -1552,8 +1552,8 @@ export class Session {
         const k = dP <= 0 && dP > -0.9 ? Math.max(0, 1 + dP / 0.9 - i * 0.18) : 0;
         st.material._gainK = k;
       });
-      FMU(`③ 스텝 → ④ 디딤발에서 확! · ${Math.min(4, Math.floor(this.t * RATE / DUR) + 1)} / 4`, CS.sand);
-      if (this.t >= 4 * DUR / RATE + 0.4) { this.next(); return; }
+      FMU(`③ 스텝 → ④ 디딤발에서 확! · ${Math.min(3, Math.floor(this.t * RATE / DUR) + 1)} / 3`, CS.sand);
+      if (this.t >= 3 * DUR / RATE + 0.4) { this.next(); return; }
     } else if (id === 'BK_B3') {
       // 백스텝 분리·릴리즈 — 봇은 플랜트→백스텝→착지→슛 구간을 0.55배로 반복(위상은 main),
       // 바닥: 플랜트 카운트다운 → 분리 화살표 점등 → 착지존 글로우 → 릴리즈 링 수축(0.16s×5 슬로우)
@@ -1577,8 +1577,8 @@ export class Session {
         const k = Math.min(1, dR / relW);
         this.bkRelRing.setOp(0.95 - 0.5 * k);
         this.bkRelRing.scale.setScalar(1.35 - 0.75 * k);
-        this.bkRelTxt.material.opacity = 0.95;
-      } else { this.bkRelRing.setOp(0.12); this.bkRelRing.scale.setScalar(1.35); this.bkRelTxt.material.opacity = 0.4; }
+        this.bkRelTxt.userData.plane.material.opacity = 0.95;
+      } else { this.bkRelRing.setOp(0.12); this.bkRelRing.scale.setScalar(1.35); this.bkRelTxt.userData.plane.material.opacity = 0.4; }
       FMU(`분리 0.48m → 착지 → 0.16초 안에 릴리즈 · ${Math.min(3, Math.floor(this.t * RATE / SEG) + 1)} / 3`, CS.prism);
       if (this.t >= 3 * SEG / RATE + 0.5) { this._gateAdvance(); return; }
     } else if (id === 'BK_C1') {

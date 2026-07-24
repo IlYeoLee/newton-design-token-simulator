@@ -3599,7 +3599,7 @@ void main(){
     if (session.active) tokens.floorRoot.visible = session.isLive && session.stage !== 'BK_C4';
     // 스톰프 프레스 스테이지: 봇을 뒤로 당겨 착지(전방 0.38m)가 프레스 원 위에 정확히 떨어지게
     if (session.active && !session.isLive && data.sport !== 'boxing') {
-      xbot.demoStandZ = session.stage === 'A1' ? -0.92 : (session.stage === 'BK_A2' ? -1.22 : (/^BK_B[123]$/.test(session.stage) ? -1.85 : 0));
+      xbot.demoStandZ = session.stage === 'A1' ? -0.92 : (session.stage === 'BK_A2' ? -1.22 : (session.stage === 'BK_A3' ? -1.9 : (/^BK_B[123]$/.test(session.stage) ? -1.85 : 0)));
     }
     // 지면 풀스크린 화면(세션 컴플리트·전환·카운트다운) = 3인칭 봇도 바닥의 화면을 응시(머리 숙임).
     xbot.headPitch = (session.active && /^(T1|T2|C1|FIN|BK_T1|BK_T2|BK_C1|BK_FIN)$/.test(session.stage || ''))
@@ -3630,8 +3630,8 @@ void main(){
       let _phase = null;
       if (_clip === 'stomp_press') _phase = session.t;
       else if (session.sport === 'running' && (/^run_|^hj_/.test(_clip) || _clip === 'cmu_stretch' || _clip === 'jumpingJacks')) _phase = session.t;
-      else if (session.stage === 'BK_B1') _phase = (session.t * 0.5) % 1.0;             // 1막: 드라이브 스텝 [0,1.0]
-      else if (session.stage === 'BK_B2') _phase = 0.9 + ((session.t * 0.5) % 1.3);     // 2막: 플랜트 [0.9,2.2]
+      else if (session.stage === 'BK_B1') _phase = session.t;
+      else if (session.stage === 'BK_B2') _phase = session.t * 0.5;
       else if (session.stage === 'BK_B3') _phase = 1.55 + ((session.t * 0.55) % 2.45);   // 플랜트→백스텝→착지→슛 구간 0.55배 반복
       xbot.playDemo(_clip, h, session.stage === 'BX_READY', _phase);
       rig.update(0, h);
