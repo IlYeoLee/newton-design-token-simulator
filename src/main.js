@@ -3630,8 +3630,8 @@ void main(){
       let _phase = null;
       if (_clip === 'stomp_press') _phase = session.t;
       else if (session.sport === 'running' && (/^run_|^hj_/.test(_clip) || _clip === 'cmu_stretch' || _clip === 'jumpingJacks')) _phase = session.t;
-      else if (session.stage === 'BK_B1') _phase = session.t;
-      else if (session.stage === 'BK_B2') _phase = session.t * 0.5;
+      else if (session.stage === 'BK_B1') _phase = (session.t * 0.5) % 1.0;             // 1막: 드라이브 스텝 [0,1.0]
+      else if (session.stage === 'BK_B2') _phase = 0.9 + ((session.t * 0.5) % 1.3);     // 2막: 플랜트 [0.9,2.2]
       else if (session.stage === 'BK_B3') _phase = 1.55 + ((session.t * 0.55) % 2.45);   // 플랜트→백스텝→착지→슛 구간 0.55배 반복
       xbot.playDemo(_clip, h, session.stage === 'BX_READY', _phase);
       rig.update(0, h);

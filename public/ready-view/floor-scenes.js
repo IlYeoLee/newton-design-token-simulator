@@ -29,9 +29,9 @@ window.FLOOR_SCENES = {
   BK_A2: { title: 'Lunge Press',       phase: 0, sub: '2/3', cue: 'Reach forward · press 3s' },// 런지 프레스 (3초 홀드)
   BK_A3: { title: 'Rhythm Dribble',    phase: 0, sub: '3/3', cue: 'Dribble the rhythm' },         // 리듬 드리블
   // B · 사전 익히기 (DRILL)
-  BK_B1: { title: 'Read the Step-Back', phase: 1, sub: '1/3', cue: 'Watch the step-back path' },  // 스텝백 궤적 보기
-  BK_B2: { title: 'Step Through',       phase: 1, sub: '2/3', cue: 'Step through in order' },     // 스텝 분해 밟기
-  BK_B3: { title: 'Plant & Brake',      phase: 1, sub: '3/3', cue: 'Plant hard, decelerate' },    // 컷 방향·감속
+  BK_B1: { title: 'Rhythm Steps',        phase: 1, sub: '1/3', cue: 'Two steps — right, left' },     // 드라이브 리듬 스텝
+  BK_B2: { title: 'Plant & Brake',       phase: 1, sub: '2/3', cue: 'Step ③ — plant hard on ④' },   // 플랜트&브레이크
+  BK_B3: { title: 'Step-Back & Release', phase: 1, sub: '3/3', cue: 'Back 0.48m — land, shoot' },   // 백스텝 분리·릴리즈
   // C · 실전 (GAME)
   BK_C1: { title: 'Trigger',            phase: 2, sub: '1/4', cue: '3 · 2 · 1 — cut' },           // 3·2·1 컷 트리거
   BK_C2: { title: 'Drive the Cut',      phase: 2, sub: '2/4', cue: 'Drive into the defender' },   // 컷인 라이브
