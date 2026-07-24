@@ -1805,7 +1805,7 @@ void main(){
     const CLIPS = [
       ['lb_dribble', '★★ 르브론 드리블 (Sketchfab·mixamorig 네이티브)'],
       ['bp_dribble', '★★ 드리블 루프 2 (Sketchfab·네이티브 1.6s)'],
-      ['bl_crossover', '★★★ 크로스오버 (Fab→Blender 리타겟 검증)'],
+      ['bl_crossover', '(검증용) 코르크스크류 플립 — 곡예, 농구 아님 (Fab→Blender)'],
       ['mf_dribble', '★ 농구 드리블 10s (Motifect)'],
       ['mf_block', '★ 블록 점프 — 수비 (Motifect)'],
       ['mf_chest_pass', '★ 체스트 패스 (Motifect)'],
