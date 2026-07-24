@@ -60,6 +60,34 @@ const CMU_NAMES = {
   mixamorigRightToeBase: 'RightToeBase',
 };
 
+// Motifect AI 팩(76본, Hips=그룹·LeftLeg=허벅지·LeftShin=정강이 규약) → Mixamo.
+// 소스 FBX는 라이선스상 재배포 금지 → 저장소엔 리타겟 산출 JSON만 커밋(원본은 ~/Downloads 참조)
+const MF_NAMES = {
+  mixamorigHips: 'Hips',
+  mixamorigSpine: 'Spine1',
+  mixamorigSpine1: 'Spine2',
+  mixamorigSpine2: 'Chest',
+  mixamorigNeck: 'Neck1',
+  mixamorigHead: 'Head',
+  mixamorigLeftShoulder: 'LeftShoulder',
+  mixamorigLeftArm: 'LeftArm',
+  mixamorigLeftForeArm: 'LeftForeArm',
+  mixamorigLeftHand: 'LeftHand',
+  mixamorigRightShoulder: 'RightShoulder',
+  mixamorigRightArm: 'RightArm',
+  mixamorigRightForeArm: 'RightForeArm',
+  mixamorigRightHand: 'RightHand',
+  mixamorigLeftUpLeg: 'LeftLeg',
+  mixamorigLeftLeg: 'LeftShin',
+  mixamorigLeftFoot: 'LeftFoot',
+  mixamorigLeftToeBase: 'LeftToeBase',
+  mixamorigRightUpLeg: 'RightLeg',
+  mixamorigRightLeg: 'RightShin',
+  mixamorigRightFoot: 'RightFoot',
+  mixamorigRightToeBase: 'RightToeBase',
+};
+const MF_DIR = '/Users/iil-yeo/Downloads/motifect_sports_and_athletics_v1_0_fbx/Animations';
+
 // 변환 잡: BVH 파일 → 클립. trim=[초,초] 구간 발췌, fps=키 리샘플(용량·노이즈)
 const JOBS = {
   dash_normal: { file: 'public/mocap/dash_normal.bvh', names: NAMES, hip: 'Hips' },
@@ -70,7 +98,33 @@ const JOBS = {
   cmu_stretch: { file: 'public/mocap/cmu/42_01.bvh', names: CMU_NAMES, hip: 'Hips', fps: 30, yScale: true, trim: [0.5, 8.8], slow: 0.78 },
   cmu_dribble_low: { file: 'public/mocap/cmu/06_13.bvh', names: CMU_NAMES, hip: 'Hips', fps: 30, yScale: true },
   cmu_crossover_shot: { file: 'public/mocap/cmu/06_14.bvh', names: CMU_NAMES, hip: 'Hips', fps: 30, yScale: true },
+  mf_jump_shot: { file: `${MF_DIR}/basketball_jump_shot.fbx`, type: 'fbx', names: MF_NAMES, hip: 'Hips', fps: 30, yScale: true },
+  mf_dribble: { file: `${MF_DIR}/basketball_dribble.fbx`, type: 'fbx', names: MF_NAMES, hip: 'Hips', fps: 30, yScale: true },
+  mf_layup: { file: `${MF_DIR}/basketball_layup.fbx`, type: 'fbx', names: MF_NAMES, hip: 'Hips', fps: 30, yScale: true },
+  mf_marathon: { file: `${MF_DIR}/marathon_pace_run.fbx`, type: 'fbx', names: MF_NAMES, hip: 'Hips', fps: 30, yScale: true },
 };
+
+// FBX 소스 로드 → {skeleton, clip} (BVHLoader 반환과 동형).
+// Motifect류는 Hips가 Bone이 아니라 Group — 같은 이름의 Bone으로 치환해 스켈레톤 루트로 편입
+// (트랙은 노드명 바인딩이라 그대로 재생, retargetClip hip 옵션도 유효해짐)
+function loadFbxSource(file) {
+  const buf = fs.readFileSync(file);
+  const g = new FBXLoader().parse(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength), './');
+  let sm = null; g.traverse(o => { if (o.isSkinnedMesh && !sm) sm = o; });
+  if (!sm) throw new Error(`SkinnedMesh 없음: ${file}`);
+  let bones = sm.skeleton.bones;
+  const hips = g.getObjectByName('Hips');
+  if (hips && !hips.isBone) {
+    const hb = new THREE.Bone(); hb.name = 'Hips';
+    hb.position.copy(hips.position); hb.quaternion.copy(hips.quaternion); hb.scale.copy(hips.scale);
+    [...hips.children].forEach(c => hb.add(c));
+    hips.parent.add(hb); hips.parent.remove(hips);
+    bones = [hb, ...bones];
+  }
+  const clip = g.animations[0];
+  if (!clip) throw new Error(`애니메이션 없음: ${file}`);
+  return { skeleton: new THREE.Skeleton(bones), clip };
+}
 
 // 체인 방향 정렬용: 타깃 본 → 방향 기준이 되는 자식 본
 const CHAIN = {
@@ -152,8 +206,8 @@ const wanted = process.argv.slice(2);
 for (const name of (wanted.length ? wanted : Object.keys(JOBS))) {
   const job = JOBS[name];
   if (!job) { console.warn(`잡 없음: ${name}`); continue; }
-  const text = fs.readFileSync(path.join(ROOT, job.file), 'utf8');
-  const res = new BVHLoader().parse(text);
+  const srcPath = job.file.startsWith('/') ? job.file : path.join(ROOT, job.file);
+  const res = job.type === 'fbx' ? loadFbxSource(srcPath) : new BVHLoader().parse(fs.readFileSync(srcPath, 'utf8'));
   const localOffsets = computeLocalOffsets(res, job.names);
   const hipsBindPos = target.skeleton.bones.find(b => b.name === 'mixamorigHips').position.clone();
   let clip = SkeletonUtils.retargetClip(target, res.skeleton, res.clip, {

@@ -3531,6 +3531,8 @@ void main(){
         rig.beamTarget = rig._beamTgt;
       }
     } else { rig.beamTarget = null; rig._beamTgt = null; }
+    // BK_C4 릴리즈 = 실측 점프샷 원샷 (xbot 농구 라이브 경로에서 크로스페이드)
+    xbot.bkShot = session.active && session.stage === 'BK_C4';
     // 지면 풀스크린 화면(세션 컴플리트·전환·카운트다운) = 3인칭 봇도 바닥의 화면을 응시(머리 숙임).
     xbot.headPitch = (session.active && /^(T1|T2|C1|FIN|BK_T1|BK_T2|BK_C1|BK_FIN)$/.test(session.stage || ''))
       ? THREE.MathUtils.degToRad(24) : 0;

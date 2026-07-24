@@ -26,6 +26,10 @@ import quadStretchClipJson from '../assets/mocap/xclip-quad_stretch.json';
 import cmuStretchClipJson from '../assets/mocap/xclip-cmu_stretch.json';           // 42_01 전신 풀기
 import cmuDribbleLowClipJson from '../assets/mocap/xclip-cmu_dribble_low.json';    // 06_13 로우 프리스타일 드리블
 import cmuCrossoverClipJson from '../assets/mocap/xclip-cmu_crossover_shot.json';  // 06_14 크로스오버+슛
+// Motifect Sports 팩 (유료 소스, 리타겟 산출물만 커밋 — 원본 FBX 재배포 금지)
+import mfJumpShotClipJson from '../assets/mocap/xclip-mf_jump_shot.json';   // BK_C4 릴리즈 점프샷
+import mfMarathonClipJson from '../assets/mocap/xclip-mf_marathon.json';    // 예비: 러닝 페이스 런
+import mfLayupClipJson from '../assets/mocap/xclip-mf_layup.json';          // 예비: 레이업
 
 // X Bot = 투사된 토큰 UI를 "따라하는 사람" 역할.
 // 모든 안무는 팩 시간(packTime)의 순수 함수 → 루프/시크/속도 변경에 안전.
@@ -113,8 +117,11 @@ export class XBot {
     regJson('cmu_stretch', cmuStretchClipJson);            // A1 전신 풀기
     regJson('cmu_dribble_low', cmuDribbleLowClipJson);     // BK_A3·BK_B3 로우 드리블·컷
     regJson('cmu_crossover_shot', cmuCrossoverClipJson);   // BK_B1·B2 크로스오버+슛
+    regJson('mf_jump_shot', mfJumpShotClipJson);
+    regJson('mf_marathon', mfMarathonClipJson);
+    regJson('mf_layup', mfLayupClipJson);
     // 실측 모캡 클립 = 실사람 미세 움직임 포함 → playDemo 호흡 레이어 제외 대상(섞으면 포즈 희석)
-    this._vmClips = new Set(['quadStretch', 'cmu_stretch', 'cmu_dribble_low', 'cmu_crossover_shot', 'jumpingJacks']);
+    this._vmClips = new Set(['quadStretch', 'cmu_stretch', 'cmu_dribble_low', 'cmu_crossover_shot', 'jumpingJacks', 'mf_jump_shot', 'mf_marathon', 'mf_layup']);
 
     this._hips = xbot.getObjectByName('mixamorigHips');
     this._kneeR = xbot.getObjectByName('mixamorigRightLeg');
@@ -483,6 +490,20 @@ export class XBot {
         run.action.time = this._bkPhase * run.dur;
         drb.action.time = packTime % drb.dur;
 
+        // BK_C4 릴리즈 — 실측 점프샷 원샷(Motifect): 감속 정지 위에 슛 동작을 크로스페이드.
+        // 장면 지시('밸런스 잡고 릴리즈')와 봇 동작 일치. 시간은 자체 진행(경로 감속과 분리).
+        const shot = this.actions.mf_jump_shot;
+        if (this.bkShot && shot) {
+          this._bkShotT = (this._bkShotT ?? 0) + dt;
+          this._bkShotW = Math.min(1, (this._bkShotW ?? 0) + dt / 0.25);
+          const w = this._bkShotW;
+          run.action.setEffectiveWeight(rw * (1 - w));
+          drb.action.setEffectiveWeight(Math.max(0, 1 - pw - rw) * (1 - w));
+          if (ss) ss.action.setEffectiveWeight(pw * (1 - w));
+          shot.action.setEffectiveWeight(w);
+          shot.action.time = Math.min(this._bkShotT, shot.dur - 0.001);
+        } else { this._bkShotT = 0; this._bkShotW = 0; }
+
         // 농구 선수는 스텝백·컷 중에도 정면(수비/골대)을 향한다 — 이동만 하고 회전 안 함.
         // (이동 방향으로 회전시키면 스텝백 때 뒤를 보게 되고 빔프가 뒤로 쏨)
         this.group.rotation.y = 0;   // model.rotY(PI)로 -Z 정면 유지
@@ -491,8 +512,11 @@ export class XBot {
       this._lockInPlace();
     }
 
-    if (this.mode === 'basketball') this._dribbleBall(packTime);
-    else if (this.ball) this.ball.visible = false;
+    if (this.mode === 'basketball') {
+      // 슛 릴리즈 중엔 스크립트 바운스 공 숨김 (릴리즈 순간 공이 바닥에서 튀면 어색)
+      if ((this._bkShotW || 0) > 0.5) this.ball.visible = false;
+      else this._dribbleBall(packTime);
+    } else if (this.ball) this.ball.visible = false;
     this._clampFeet();
     this._applyHeadPitch(dt);
   }
@@ -570,9 +594,13 @@ export class XBot {
       minY = Math.min(minY, v.y);
     }
     if (!isFinite(minY)) return;
-    const targetY = Math.abs(minY) > 0.005 ? -minY + 0.02 : 0;
+    // 호버 0.02→0.005: 최저발을 지면 2cm 위에 두던 상수가 '발이 안 닿는' 부양감의 주범(유저).
+    const targetY = Math.abs(minY) > 0.005 ? -minY + 0.005 : 0;
     if (this._yOff === undefined) this._yOff = targetY;
-    this._yOff += (targetY - this._yOff) * Math.min(1, (this._dt ?? 0.016) * 12);
+    const diff = targetY - this._yOff;
+    // 큰 편차(클립 전환·포즈 점프)는 스냅, 평시는 빠른 추종(지연 부양 방지) — 미세 팝만 스무딩
+    if (Math.abs(diff) > 0.08) this._yOff = targetY;
+    else this._yOff += diff * Math.min(1, (this._dt ?? 0.016) * 24);
     this.model.position.y = this._yOff;
   }
 }
