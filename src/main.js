@@ -1796,6 +1796,35 @@ void main(){
     xbot.setVerify('warmup');
   });
   document.getElementById('verify-off')?.addEventListener('click', () => { xbot.setVerify(null); boxShadow.on = false; });
+
+  // 🎬 모션 미리보기 — 이식된 실측 클립을 첫 화면에서 바로 재생 (콘솔 불필요)
+  {
+    const CLIPS = [
+      ['quadStretch', '쿼드 스트레치 (실사 영상)'],
+      ['cmu_stretch', '전신 풀기 (CMU)'],
+      ['jumpingJacks', '점핑잭 (Mixamo)'],
+      ['sfu_jumprope', '줄넘기 (SFU 무료)'],
+      ['sfu_jogging', '조깅 (SFU 무료·이동)'],
+      ['cmu_dribble_low', '로우 드리블 (CMU)'],
+      ['cmu_crossover_shot', '크로스오버+슛 (CMU)'],
+      ['mf_jump_shot', '점프샷 (Motifect)'],
+      ['mf_layup', '레이업 (Motifect)'],
+      ['mf_marathon', '마라톤 런 (Motifect)'],
+      ['mf_boxing_footwork', '복싱 풋워크 (Motifect·이동)'],
+    ];
+    const sel = document.getElementById('mocap-preview-sel');
+    const btn = document.getElementById('mocap-preview-btn');
+    if (sel && btn) {
+      for (const [k, label] of CLIPS) { const o = document.createElement('option'); o.value = k; o.textContent = label; sel.appendChild(o); }
+      btn.addEventListener('click', () => {
+        if (xbot.verifyClip) { xbot.setVerify(null); btn.textContent = '▶ 재생'; return; }
+        stopSession();
+        xbot.setVerify(sel.value);
+        btn.textContent = '⏹ 정지';
+      });
+      sel.addEventListener('change', () => { if (xbot.verifyClip) xbot.setVerify(sel.value); });
+    }
+  }
   document.getElementById('verify-boxshadow')?.addEventListener('click', () => {
     xbot.setVerify(null);
     stopSession();
