@@ -66,7 +66,8 @@ const JOBS = {
   run_normal: { file: 'public/mocap/run_normal.bvh', names: NAMES, hip: 'Hips' },
   walk_right: { file: 'public/mocap/walk_right.bvh', names: NAMES, hip: 'Hips' },
   kick_normal: { file: 'public/mocap/kick_normal.bvh', names: NAMES, hip: 'Hips' },
-  cmu_stretch: { file: 'public/mocap/cmu/42_01.bvh', names: CMU_NAMES, hip: 'Hips', fps: 30, yScale: true },
+  // 차분 구간 발췌 + 0.78배 슬로우 — 실속도 재생이 마네킹에선 '촐싹거림'으로 보임(유저)
+  cmu_stretch: { file: 'public/mocap/cmu/42_01.bvh', names: CMU_NAMES, hip: 'Hips', fps: 30, yScale: true, trim: [0.5, 8.8], slow: 0.78 },
   cmu_dribble_low: { file: 'public/mocap/cmu/06_13.bvh', names: CMU_NAMES, hip: 'Hips', fps: 30, yScale: true },
   cmu_crossover_shot: { file: 'public/mocap/cmu/06_14.bvh', names: CMU_NAMES, hip: 'Hips', fps: 30, yScale: true },
 };
@@ -165,7 +166,8 @@ for (const name of (wanted.length ? wanted : Object.keys(JOBS))) {
   // 발췌·리샘플: trim=[t0,t1] 구간만, fps 지정 시 등간격 리샘플(용량·지터 정리)
   if (job.trim || job.fps) {
     const [t0, t1] = job.trim || [0, clip.duration];
-    const fps = job.fps || 30, n = Math.max(2, Math.round((t1 - t0) * fps));
+    const slow = job.slow || 1;   // <1 = 슬로우 재생을 클립에 베이크 (dur = 구간/slow)
+    const fps = job.fps || 30, n = Math.max(2, Math.round((t1 - t0) / slow * fps));
     const tracks = [];
     for (const tr of clip.tracks) {
       const isQ = tr.name.endsWith('.quaternion');
@@ -175,13 +177,13 @@ for (const name of (wanted.length ? wanted : Object.keys(JOBS))) {
       for (let i = 0; i <= n; i++) {
         const t = t0 + (t1 - t0) * (i / n);
         const v = interp.evaluate(Math.min(t, clip.duration - 1e-4));
-        times[i] = t - t0;
+        times[i] = (t - t0) / slow;
         values.set(v.slice(0, size), i * size);
       }
       tracks.push(isQ ? new THREE.QuaternionKeyframeTrack(tr.name, times, values)
         : new THREE.VectorKeyframeTrack(tr.name, times, values));
     }
-    clip = new THREE.AnimationClip(name, t1 - t0, tracks);
+    clip = new THREE.AnimationClip(name, (t1 - t0) / slow, tracks);
   }
 
   // 트랙명 변환: `.bones[X].prop`(SkinnedMesh 전용) → `X.prop`(노드명 바인딩)
