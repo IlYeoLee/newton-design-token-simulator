@@ -1803,6 +1803,7 @@ void main(){
   // 🎬 모션 미리보기 — 이식된 실측 클립을 첫 화면에서 바로 재생 (콘솔 불필요)
   {
     const CLIPS = [
+      ['rk_stepback', '★ 스텝백 튜토리얼 (Rokoko AI 모캡·이동)'],
       ['quadStretch', '쿼드 스트레치 (실사 영상)'],
       ['hj_legswing', '레그 스윙 (햇지런 영상)'],
       ['hj_jjack', '점핑잭 (햇지런 영상)'],
