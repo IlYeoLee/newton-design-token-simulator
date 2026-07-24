@@ -20,6 +20,12 @@ import jumpingJacksUrl from '../assets/anim-jumping-jacks.fbx?url';   // Mixamo 
 import bkRunClipJson from '../assets/mocap/xclip-run_normal.json';
 import bkDashClipJson from '../assets/mocap/xclip-dash_normal.json';
 import bkKickClipJson from '../assets/mocap/xclip-kick_normal.json';
+// 실사 영상 비디오모캡 (scripts/bake_pose_clip.mjs — MediaPipe 리타겟)
+import quadStretchClipJson from '../assets/mocap/xclip-quad_stretch.json';
+// CMU Graphics Lab 실측 모캡 (무료 라이선스, scripts/retarget_bvh.mjs)
+import cmuStretchClipJson from '../assets/mocap/xclip-cmu_stretch.json';           // 42_01 전신 풀기
+import cmuDribbleLowClipJson from '../assets/mocap/xclip-cmu_dribble_low.json';    // 06_13 로우 프리스타일 드리블
+import cmuCrossoverClipJson from '../assets/mocap/xclip-cmu_crossover_shot.json';  // 06_14 크로스오버+슛
 
 // X Bot = 투사된 토큰 UI를 "따라하는 사람" 역할.
 // 모든 안무는 팩 시간(packTime)의 순수 함수 → 루프/시크/속도 변경에 안전.
@@ -103,6 +109,12 @@ export class XBot {
     regJson('bkRun', bkRunClipJson);
     regJson('bkDash', bkDashClipJson);
     regJson('bkKick', bkKickClipJson);
+    regJson('quadStretch', quadStretchClipJson);   // FIN 쿨다운 쿼드 스트레치 — quad_src.mp4 실사 비디오모캡
+    regJson('cmu_stretch', cmuStretchClipJson);            // A1 전신 풀기
+    regJson('cmu_dribble_low', cmuDribbleLowClipJson);     // BK_A3·BK_B3 로우 드리블·컷
+    regJson('cmu_crossover_shot', cmuCrossoverClipJson);   // BK_B1·B2 크로스오버+슛
+    // 실측 모캡 클립 = 실사람 미세 움직임 포함 → playDemo 호흡 레이어 제외 대상(섞으면 포즈 희석)
+    this._vmClips = new Set(['quadStretch', 'cmu_stretch', 'cmu_dribble_low', 'cmu_crossover_shot', 'jumpingJacks']);
 
     this._hips = xbot.getObjectByName('mixamorigHips');
     this._kneeR = xbot.getObjectByName('mixamorigRightLeg');
@@ -302,10 +314,15 @@ export class XBot {
     this._dt = dt;
     const key = this.actions[name] ? name : (this.actions.warmup ? 'warmup' : null);
     if (!key) return;
-    const breathW = (key !== 'warmup' && this.actions.warmup) ? 0.18 : 0;
+    const breathW = (key !== 'warmup' && !this._vmClips?.has(key) && this.actions.warmup) ? 0.18 : 0;
+    // 스테이지 전환 크로스페이드(0.3s) — 즉시 가중치 스위치가 만들던 포즈 팝 제거
+    if (this._demoKey !== key) { this._demoPrev = this._demoKey; this._demoKey = key; this._demoXf = 0; }
+    this._demoXf = Math.min(1, (this._demoXf ?? 1) + dt / 0.3);
+    const xf = this._demoXf, prev = this._demoPrev;
     for (const k in this.actions) {
       const x = this.actions[k]; x.action.play(); x.action.paused = true;
-      x.action.setEffectiveWeight(k === key ? 1 : (k === 'warmup' ? breathW : 0));
+      const w = k === key ? xf : (k === prev ? 1 - xf : 0);
+      x.action.setEffectiveWeight(Math.max(w, k === 'warmup' ? breathW * xf : 0));
     }
     const a = this.actions[key];
     // hold=가드 정지: 메인 클립은 대표 프레임에 고정(움직임 X), 호흡 레이어만 진행 → '가드 하고 가만히'
@@ -324,7 +341,7 @@ export class XBot {
     // 데모 중 공 관리 (playDemo는 여태 공을 안 건드려 이전 live 위치가 멀리 남아있었음 — 유저: '공이 저 멀리').
     // 드리블 클립일 때만 손에 붙여 튕기고, 그 외(idle·스탠스·사이드스텝·READY)엔 숨김.
     if (this.ball) {
-      if (this.mode === 'basketball' && key === 'dribble') this._dribbleBall(this._demoT || 0);
+      if (this.mode === 'basketball' && (key === 'dribble' || key === 'cmu_dribble_low')) this._dribbleBall(this._demoT || 0);
       else this.ball.visible = false;
     }
     // 최종 월드 확정 — 루트모션 상쇄(모델 오프셋) 이후를 rig가 읽도록. 미갱신 시 무릎 모듈이

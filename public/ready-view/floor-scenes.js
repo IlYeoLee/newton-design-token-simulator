@@ -10,8 +10,8 @@ window.FLOOR_PHASES = {
 window.FLOOR_SCENES = {
   // ── 러닝 ──
   // A · 준비운동 (WARM UP)
-  A1: { title: 'Quad Stretch',     phase: 0, sub: '1/3', cue: 'Hold your ankle · stretch the thigh' },   // 쿼드 스트레치(허벅지 앞)
-  A2: { title: 'Calf Raises',      phase: 0, sub: '2/3', cue: 'Heels up, then down · 10x' },   // 까치발 종아리
+  A1: { title: 'Full-Body Warm-Up', phase: 0, sub: '1/3', cue: 'Roll head · shoulders · arms · legs' },   // 동적 전신 풀기 (CMU 42_01 실측)
+  A2: { title: 'Jumping Jacks',    phase: 0, sub: '2/3', cue: 'Arms up, feet wide · 10x' },   // 점핑잭 (심박 활성)
   A3: { title: 'Leg Swings',       phase: 0, sub: '3/3', cue: 'Swing front to back · 10x' },   // 다리 앞뒤로 흔들기
   // B · 페이스 잡기 (PACE = 러닝의 학습 구간)
   P1: { title: 'Catch the Pace',   phase: 1, sub: '1/2', cue: 'Ease into a light jog' },       // 페이서 붙어 가볍게 뛰기

@@ -373,9 +373,9 @@ function wallTap() {
 export const STAGES = {
   running: [
     { id:'READY', label:'준비 — 발 두 번 구르면 시작', voice:['시스템','션의 마지막 1km 페이스로 달려 볼 거예요. 준비되면 제자리에서 발을 두 번 굴러 주세요.'], wear:'SAFE 대기', foot:'발 두 번 구르기 → 시작' },
-    { id:'A1', label:'A · 준비운동 1/4 — 쿼드 스트레치(허벅지 앞 늘리기)', voice:['션','한쪽 무릎을 접어 발등을 잡고, 허벅지 앞을 쭉 늘려요 — 축발 아래 링이 다 찰 때까지 버텨요.'], foot:'무릎 접어 발등 잡고 허벅지 앞 늘리기 → hold 링 채우기' },
-    { id:'A2', label:'A · 준비운동 2/4 — 까치발 들었다 내리기', voice:['션','이번엔 종아리예요. 왼발을 앞 발자국에 올리고, 뒤꿈치를 천천히 들어 까치발 — 그리고 바닥까지 내려요. 열 번.'], hap:'10회 종료 진동 1회' },
-    { id:'A3', label:'A · 준비운동 3/4 — 다리 앞뒤로 흔들기', voice:['션','골반에 손을 얹고 한쪽 다리에 힘을 빼요. 시계추처럼 앞뒤로 — 발끝이 빛나는 원까지 갔다 오면 딱 좋아요. 열 번.'], foot:'완료 후 두 번 구르기 → 다음' },
+    { id:'A1', label:'A · 준비운동 1/3 — 전신 풀기(목·어깨·팔·다리 돌리기)', voice:['션','달리기 전엔 동적 워밍업이에요. 목, 어깨, 팔, 다리를 크게 돌려 풀어요 — 링이 다 찰 때까지 천천히.'], foot:'전신 크게 돌리기 → 링 채우기' },
+    { id:'A2', label:'A · 준비운동 2/3 — 점핑잭(팔 벌려 뛰기)', voice:['션','이제 심박을 올려요. 팔 벌려 뛰기 — 발은 양 마크 폭까지, 가볍게 열 번.'], hap:'10회 종료 진동 1회' },
+    { id:'A3', label:'A · 준비운동 3/3 — 다리 앞뒤로 흔들기', voice:['션','골반에 손을 얹고 한쪽 다리에 힘을 빼요. 시계추처럼 앞뒤로 — 발끝이 빛나는 원까지 갔다 오면 딱 좋아요. 열 번.'], foot:'완료 후 두 번 구르기 → 다음' },
     { id:'T1', label:'몸풀기 끝 — 다음은 페이스 잡기', voice:['시스템','몸 다 풀렸어요. 발 두 번 구르면 다음으로 가요.'], foot:'발 두 번 구르기 → 페이스 잡기' },
     { id:'P1', dur:6, live:true, label:'페이스 잡기 — 페이서 붙어 가볍게 뛰기', voice:['션','바로 가볍게 뛰기 시작해요. 앞의 광점이 나예요 — 이 페이스에 붙어봐요.'], wear:'낮은 강도 보조 시작' },
     { id:'P2', dur:6, live:true, label:'페이스 잠금 → 실전 진입', voice:['션','좋아요, 그 리듬. 몇 걸음만 더 맞추면 바로 실전이에요.'], wear:'SAFE 착지 안정화' },
@@ -385,7 +385,7 @@ export const STAGES = {
     { id:'C3', dur:7, live:true, label:'C · 실전 — 흔들리면 다시 붙기', voice:['션','박자! 나한테 다시 맞춰요.'], hap:'착지 보조 2박' },
     { id:'C4', dur:7, live:true, boost:true, label:'C · 실전 — 마지막 1km 스퍼트', voice:['션','여기서부터 마지막 1km. 나한테 붙어요.'], wear:'BOOST 추진 보조 · 리듬 저하 시 강도↑', cue:'구간 종료 일치율 표시' },
     { id:'C5', live:true, cooldown:true, label:'C · 실전 — 천천히 멈추기', voice:['시스템','여기까지. 잘 달렸어요.'], hap:'완료 진동' },
-    { id:'FIN', label:'오늘의 리포트', voice:['시스템','기록을 앱으로 보냈어요. 바닥에 내 착지와 션의 발자국을 겹쳐 봤어요.'], cue:'션 발자국 위에 내 착지 겹쳐 보기' },
+    { id:'FIN', label:'오늘의 리포트 · 쿨다운', voice:['시스템','기록을 앱으로 보냈어요. 리포트를 보는 동안, 허벅지 앞을 잡고 천천히 풀어 주세요.'], cue:'션 발자국 위에 내 착지 겹쳐 보기 · 쿼드 쿨다운' },
   ],
   basketball: [
     { id:'BK_READY', label:'0 · READY — 준비', voice:['시스템','커리의 스텝백 3점 팩. 준비되면 발을 두 번 탭하세요.'], wear:'SAFE 대기', foot:'두 번 탭 → 시작' },
@@ -508,19 +508,10 @@ export class Session {
     this.a1arc = floorArc(0, -1.55, BRAND.sand); g.add(this.a1arc);
 
     g = this._mk('A2');
-    this.a2 = [];
-    for (let i = 0; i < 2; i++) {          // 0=왼발 앞, 1=오른발 앞 (좌우 교대)
-      const pg = new THREE.Group(); g.add(pg);
-      const sx = i === 0 ? 1 : -1;
-      const front = new FootMark(i === 0 ? 'left' : 'right').at(-0.13 * sx, -1.30);
-      const back = new FootMark(i === 0 ? 'right' : 'left').at(0.14 * sx, -1.00);
-      // 뒤꿈치 펌프 진행은 back 발형 자신의 Hold 코닉 림(발 테두리를 따라 도는 라인)이 전담.
-      // 예전에 여기 있던 히트색 floorRing은 MARK Preview 상태(숨쉬는 필+윤곽)로 통째로
-      // 렌더돼 발형 Hold 위에 "원형 홀드처럼 보이는 별개 토큰"이 겹침 — 발·링·글로우
-      // 3겹이 뭉개져 저품질로 보이던 주범(유저 스크린샷 확인). 링 제거, 발형만.
-      pg.add(front.group, back.group);
-      this.a2.push({ pg, front, back });
-    }
+    // 점핑잭 착지 폭 가이드 — 어깨너비보다 넓은 양옆 발마크 2개(점프아웃 착지 타겟).
+    // 진행은 발형 자신의 Hold 코닉 림이 전담(별도 링 없음 — 겹침 저품질 방지 규약 유지).
+    this.a2marks = [new FootMark('left').at(-0.3, -1.15), new FootMark('right').at(0.3, -1.15)];
+    g.add(this.a2marks[0].group, this.a2marks[1].group);
 
     g = this._mk('A3');
     // 다리 스윙 = 지면이 판정 못 하는 공중 동작 — 판정형 화살표 대신 '스윙 종점 존' 2개가
@@ -1094,9 +1085,9 @@ export class Session {
   _enterRunning(st, { S, FS, FL, FM }) {
     switch (st.id) {
       case 'READY': FS('션 · 마지막 1KM'); FL('READY'); break;   // 푸터 제거: CTA 라벨과 중복 + CTA 근접 이동으로 겹침
-      case 'A1': FS('준비운동 1/4'); FL('발끝을 링에 올리고 · 발목으로 원 그리기'); FM('먼저 보세요 — 이 속도로 돌려요', CS.sand); break;
-      case 'A2': FS('준비운동 2/4'); FL('까치발 — 뒤꿈치 천천히 들었다 내리기'); FM('먼저 보세요 — 링이 차는 동안 올려요', CS.sand); break;
-      case 'A3': FS('준비운동 3/4'); FL('한쪽 다리를 시계추처럼 앞뒤로'); FM('먼저 보세요 — 원이 켜지는 쪽으로'); break;
+      case 'A1': FS('준비운동 1/3'); FL('목·어깨·팔·다리 크게 돌리기'); FM('먼저 보세요 — 이 속도로 풀어요', CS.sand); break;
+      case 'A2': FS('준비운동 2/3'); FL('점핑잭 — 팔 벌려 뛰기'); FM('먼저 보세요 — 발은 마크 폭까지', CS.sand); break;
+      case 'A3': FS('준비운동 3/3'); FL('한쪽 다리를 시계추처럼 앞뒤로'); FM('먼저 보세요 — 원이 켜지는 쪽으로'); break;
       case 'A4': FS('준비운동 4/4'); FL('켜지는 발자국 박자로 제자리 걷기'); FM('처음엔 천천히 — 점점 빨라져요'); break;
       case 'T1': FS('잠깐'); S(this.slotFL, '몸풀기 끝!', { size: 0.12, color: CS.prism }); break;   // 푸터 제거: CTA 라벨과 중복
       case 'B1': FS('미리 익히기 1/5'); FL('발은 가만히 — 박자만 들어요'); FM('귀로 먼저 배워요'); break;
@@ -1292,48 +1283,40 @@ export class Session {
       }
       if (id === 'T1' && this.t >= 4.5) { this.next(); return; }
     } else if (id === 'A1') {
-      // 싱글레그 쿼드 스트레치 — 한 다리로 서서 반대 발등을 잡아 허벅지 앞을 늘려 버티기(정지 홀드).
-      //   가이드 = 축발(선 발) 아래 홀드 링이 버틴 시간만큼 차오름 → 다 차면 완료. 코치 run_quad와 동기.
-      const HOLD = 4.0, REPS = 2, DEMO = HOLD + 0.6, CYCLE = HOLD + 1.0;
+      // 동적 전신 풀기 — CMU 42_01 실측 루틴(목·어깨·팔·다리 돌리기). 코치 클립과 링 진행을
+      // 같은 시간축(session.t 위상 잠금)에 태워 완전 동기: 루틴 1회 = 링 1회 채움.
+      const ROUTINE = this.xbot?.actions?.cmu_stretch?.dur || 9.45;
       // 홀드 링을 빔 락 타겟(앞발/선 발)에 정렬 → 무게이동에도 링이 그 자리 고정(빔과 동일 앵커).
       const pb = this.xbot?.getProbes?.();
       if (this.rig?.beamTarget) this.a1arc.position.set(this.rig.beamTarget.x, 0.0135, this.rig.beamTarget.z);
       else if (pb?.footR) this.a1arc.position.set(pb.footR.x, 0.0135, pb.footR.z);
       this.a1L.group.visible = false; this.a1R.group.visible = false; this.a1arc.visible = true;
-      if (this.t < DEMO) {
+      const rep = Math.floor(this.t / ROUTINE), lt = this.t - rep * ROUTINE;
+      this.a1arc.setProg(Math.min(1, lt / ROUTINE));
+      if (rep === 0) {
         this.demoActive = true;
-        this.a1arc.setProg(Math.min(1, (this.t % CYCLE) / HOLD));
-        FMU('먼저 보세요 — 무릎 접어 발등 잡고 허벅지 앞 늘리기', CS.sand);
+        FMU('먼저 보세요 — 목·어깨·팔·다리 크게 돌리기', CS.sand);
       } else {
-        this._say('a1go', '션', '이제 같이 — 한쪽 무릎을 접어 발등을 잡고, 허벅지 앞을 쭉 늘려요. 링이 찰 때까지 버텨요.');
-        const t2 = this.t - DEMO;
-        const rep = Math.floor(t2 / CYCLE), lt = t2 - rep * CYCLE;
-        this.a1arc.setProg(Math.min(1, lt / HOLD));
-        FMU(`허벅지 앞 늘리기 ${Math.min(REPS, rep + 1)} / ${REPS}`, CS.sand);
-        if (rep >= REPS) { this.next(); return; }
+        this._say('a1go', '션', '이제 같이 — 목, 어깨, 팔, 다리를 크게 돌려요. 링이 다 차면 완료예요.');
+        FMU('같이 — 링이 다 차면 완료', CS.sand);
+        if (rep >= 2) { this.next(); return; }
       }
     } else if (id === 'A2') {
-      // 종아리 펌프 — 시범(2박 보기) → "이제 같이" → 좌우 각 10회 (동적 웜업)
-      const BT = 1.6, REPS = 10, DEMO = 2 * BT, PH = REPS * BT + 0.9;
+      // 점핑잭 — 시범(2회 보기) → "이제 같이" → 10회. 마크 = 점프아웃 착지 폭, 회당 홀드 림 1회 채움.
+      // BT = 실측 클립 1사이클(위상 잠금으로 코치 점프와 림·카운트 동기).
+      const BT = this.xbot?.actions?.jumpingJacks?.dur || 1.0, REPS = 10, DEMO = 2 * BT;
+      const k = (this.t % BT) / BT;
+      this.a2marks.forEach(m => m.setHold(Math.max(0.001, k)));
       if (this.t < DEMO) {
-        this.a2[0].pg.visible = true; this.a2[1].pg.visible = false;
-        const k0 = (this.t % BT) / BT;
-        this.a2[0].back.setHold(Math.max(0.001, k0));   // 회당 1회 채움 시범
         this.demoActive = true;
-        FMU('먼저 보세요 — 링이 차는 동안 뒤꿈치 올리기', CS.sand);
+        FMU('먼저 보세요 — 팔 벌려 점프, 발은 마크 폭까지', CS.sand);
       } else {
-        this._say('a2go', '션', '이제 같이 — 까치발 서듯 뒤꿈치를 올렸다, 바닥까지 내려요.');
+        this._say('a2go', '션', '이제 같이 — 팔 벌려 뛰기. 발은 양 마크까지, 가볍게 열 번.');
         const t2 = this.t - DEMO;
-        const phase = t2 < PH ? 0 : 1;
-        this.a2[0].pg.visible = phase === 0; this.a2[1].pg.visible = phase === 1;
-        const lt = t2 - phase * PH;
-        const pair = this.a2[phase];
-        const k = (lt % BT) / BT;
-        pair.back.setHold(lt < REPS * BT ? Math.max(0.001, k) : 0.001);   // 홀드 림 = 회당 1회 채움 (핑퐁 은퇴 — 진행은 역주행하지 않는다)
-        if (lt >= REPS * BT) pair.back.glow(Math.max(0, 1 - (lt - REPS * BT) / 0.6));
-        const rep = Math.min(REPS, Math.floor(lt / BT) + 1);
-        FMU(`${phase === 0 ? '왼발 앞' : '오른발 앞'} · 까치발 ${rep} / ${REPS}`, CS.sand);
-        if (t2 >= 2 * PH) { this.next(); return; }
+        const rep = Math.min(REPS, Math.floor(t2 / BT) + 1);
+        if (t2 >= REPS * BT) this.a2marks.forEach(m => m.glow(Math.max(0, 1 - (t2 - REPS * BT) / 0.6)));
+        FMU(`점핑잭 ${rep} / ${REPS}`, CS.sand);
+        if (t2 >= REPS * BT + 0.7) { this.next(); return; }
       }
     } else if (id === 'A3') {
       // 다리 스윙 — 시범(2왕복 보기) → "이제 같이" → 열 번 (종점 존 교대 글로우 = 박자·진폭)

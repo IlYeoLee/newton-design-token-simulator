@@ -3494,14 +3494,18 @@ void main(){
   function demoClipFor(sport, id) {
     // 준비운동(A) 단계 = 절차적 드릴 — 봇이 실제 그 동작을 수행 (기존엔 전부 warmup/dribble)
     const DRILL = {
-      // 러닝 준비운동 = 절차 드릴. A1=싱글레그 쿼드 스트레치(한 발 서서 반대 발등 잡고 허벅지 앞 늘리기 홀드).
-      A1: 'run_quad', A2: 'run_calf', A3: 'run_swing', A4: 'run_march',
+      // 러닝 준비운동 = 동적 워밍업(스포츠과학: 러닝 전 정적 홀드 비권장). A1=CMU 42_01 실측
+      // 전신 풀기, A2=Mixamo 점핑잭 실측, A3=다리 스윙(동적 드릴 유지). FIN=쿨다운 쿼드
+      // 스트레치(quad_src.mp4 실사 비디오모캡 — 정적 스트레치의 올바른 위치는 운동 후).
+      A1: 'cmu_stretch', A2: 'jumpingJacks', A3: 'run_swing', A4: 'run_march', FIN: 'quadStretch',
       // 복싱 = Mixamo 실측 모캡 (목풀기만 절차)
       BX_A1: 'bx_neck', BX_A2: 'boxGuard', BX_A3: 'boxJab',
       BX_B1: 'boxGuard', BX_B2: 'boxGuard', BX_B3: 'boxCombo',
       BX_READY: 'boxGuard', BX_T1: 'boxGuard', BX_T2: 'boxGuard', BX_C1: 'boxGuard',
-      // 농구 = 실측 스탠스 + 기존 사이드스텝·드리블. 시작 화면(READY)은 러닝과 동일 calm idle(공 없음)
-      BK_READY: 'idle', BK_A1: 'bkStance', BK_A2: 'sidestep', BK_A3: 'dribble',
+      // 농구 — CMU 06 실측: A3 로우 프리스타일 드리블, B1·B2 크로스오버+슛(시그니처 무브 시범/분해),
+      // B3 컷·감속(드리블 컷 구간 창). 시작 화면(READY)은 러닝과 동일 calm idle(공 없음)
+      BK_READY: 'idle', BK_A1: 'bkStance', BK_A2: 'sidestep', BK_A3: 'cmu_dribble_low',
+      BK_B1: 'cmu_crossover_shot', BK_B2: 'cmu_crossover_shot', BK_B3: 'cmu_dribble_low',
     };
     if (DRILL[id] && xbot.actions[DRILL[id]]) return DRILL[id];
     if (sport === 'basketball') return 'dribble';           // 그 외 제자리 드리블
@@ -3550,7 +3554,13 @@ void main(){
       // hold=포즈 고정(복싱 READY 가드 유지). 러닝 대기는 idle 재생(호흡)이라 hold 안 함.
       // 러닝 준비운동(A) = 코치 드릴을 세션 스테이지 시간(session.t)에 위상 잠금 → 씬 링·카운트·음성과 동기(유저: '타이밍 하나하나 맞춰')
       const _clip = demoClipFor(session.sport, session.stage);
-      const _phase = (session.sport === 'running' && /^run_/.test(_clip)) ? session.t : null;   // 위상잠금은 절차 드릴만 — 실측 모캡은 자연 속도 재생(왜곡 방지)
+      // 위상잠금: 씬 링·카운트와 코치 동작을 같은 시간축에 — 절차 드릴 + A1 전신풀기·A2 점핑잭(주기=씬 BT).
+      // BK_B2 = 분해 밟기: 씬 3s 사이클당 크로스오버 1회(마크 1-2-3과 사이클 동기).
+      // BK_B3 = 컷·감속: 로우 드리블 클립의 컷 구간(16~21s) 창 반복. 그 외 실측 모캡은 자연 속도(왜곡 방지).
+      let _phase = null;
+      if (session.sport === 'running' && (/^run_/.test(_clip) || _clip === 'cmu_stretch' || _clip === 'jumpingJacks')) _phase = session.t;
+      else if (session.stage === 'BK_B2') _phase = (session.t % 3.0) / 3.0 * (xbot.actions.cmu_crossover_shot?.dur || 4);
+      else if (session.stage === 'BK_B3') _phase = 16 + (session.t % 5);
       xbot.playDemo(_clip, h, session.stage === 'BX_READY', _phase);
       rig.update(0, h);
       tokens.setShake(rig.shake.x, rig.shake.y);
