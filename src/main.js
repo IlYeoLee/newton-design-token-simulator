@@ -430,6 +430,8 @@ async function boot() {
     // 눈높이 1.6m·벽앞 1.75m 기준 -8° ≈ 벽 중심 응시 (버그였음: 'BX_'의 B가 익히기 -38°로 매칭돼 바닥만 봄)
     if (session.curStage?.wall) return -8;
     const id = session.curStage?.id || '';
+    // 전환·타이머·리포트(지면 풀스크린 화면) = x봇이 바닥의 화면을 보도록 게이즈 하향(세션 컴플리트·실전 직전).
+    if (/^(T1|T2|C1|FIN|BK_T1|BK_T2|BK_C1|BK_FIN)$/.test(id)) return -44;
     if (id === 'A1') return -30;   // 전방 리치 홀드 — 투사각을 앞으로 눕혀 발 앞 가이드까지 보이게(미래 알고리즘 보정 가정)
     return STAGE_GAZE_DEG[id[0]] ?? -30;   // READY/FIN 등 = 중간값
   }
@@ -4143,10 +4145,18 @@ void main(){
        session.countGroup, session.countRing].forEach(o => { if (o) o.visible = false; });
       // 라이브(C 실전)는 _paceTick이 광점·페이스레인을 매 프레임 관리 — 프레임 켜져도 끄지 않음(러닝·판정 비주얼 유지).
       if (!session.isLive && session.paceLight) session.paceLight.visible = false;
-      // 발자국 판정 마크(G그룹) 정렬. 시작 페이지=숨김.
+      // 전환·타이머·리포트 = 풀스크린 지면 그래픽 → 옛 운동 3D UI(발자국·가이드·레인·리포트 텍스트) 전부 숨김(겹침 방지).
+      const fullFrame = /floor-(transition|timer|report)\.html/.test(fView.src);
+      if (fullFrame) {
+        tokens.floorRoot.visible = false;
+        [session.a1arc, session.a1L, session.a1R, session.a3foot, session.paceLane, session.paceLight,
+         ...(session.a3zones || []), ...(session.paceFeet || []).map(f => f && f.group), ...(session.a2 || []).map(a => a && a.pg)]
+          .forEach(o => { if (o) o.visible = false; });
+      }
+      // 발자국 판정 마크(G그룹) 정렬. 시작 페이지·풀스크린 프레임=숨김.
       const stageG = session.G && session.G[session.curStage?.id];
       if (stageG) {
-        if (isStartPage) {
+        if (isStartPage || fullFrame) {
           stageG.visible = false;
         } else if (session.isLive) {
           // 실전(라이브)은 세션 root가 인물 이동을 추종 — G그룹은 저작 기본(원점·무회전) 유지.
