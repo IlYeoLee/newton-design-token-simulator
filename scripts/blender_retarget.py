@@ -123,34 +123,41 @@ tgt_arm.animation_data_create()
 new_act = bpy.data.actions.new("retarget")
 tgt_arm.animation_data.action = new_act
 for pb in tgt_arm.pose.bones: pb.rotation_mode = 'QUATERNION'
+_prev_q = {}   # 쿼터니언 반구 연속성 — q/-q 뒤집힘이 프레임별 홱홱(파닥임)의 원인
+def _cont(name, q):
+    pq = _prev_q.get(name)
+    if pq is not None and pq.dot(q) < 0: q = -q
+    _prev_q[name] = q.copy()
+    return q
+
+# 본별 레스트 데이터 사전 계산 (타겟)
+_rest_local_q = {}; _rest_world_q = {}; _parent_name = {}
+for b in tgt_arm.data.bones:
+    _rest_world_q[b.name] = (tgt_arm.matrix_world @ b.matrix_local).to_quaternion()
+    pr = b.parent.matrix_local if b.parent else Matrix.Identity(4)
+    _rest_local_q[b.name] = (pr.inverted() @ b.matrix_local).to_quaternion()
+    _parent_name[b.name] = b.parent.name if b.parent else None
+_arm_q = tgt_arm.matrix_world.to_quaternion()
 
 for f in range(f0, f1 + 1):
     scn.frame_set(f)
     bpy.context.view_layer.update()
+    # 1패스: 이번 프레임의 '목표 월드회전'을 전 본에 대해 계산 (스테일 부모 문제 원천 차단)
+    worldQ = {}
+    if HIP_OBJ:
+        worldQ[HIP_T] = (src_arm.matrix_world.to_quaternion() @ hipR0.inverted()) @ _rest_world_q[HIP_T]
     for tname, sname, tRest, sRest in pairs:
-        delta = pose_world_rot(src_arm, sname) @ sRest.inverted()
-        world_q = delta @ tRest
+        worldQ[tname] = (pose_world_rot(src_arm, sname) @ sRest.inverted()) @ tRest
+    # 2패스: 부모의 목표 월드회전(없으면 레스트) 기준으로 로컬 베이시스 산출 → 키
+    for tname in ([HIP_T] if HIP_OBJ else []) + [t for t, _, _, _ in pairs]:
+        world_q = worldQ[tname]
+        pname = _parent_name[tname]
+        parent_world = worldQ.get(pname, _rest_world_q.get(pname, _arm_q)) if pname else _arm_q
+        basis_q = (parent_world @ _rest_local_q[tname]).inverted() @ world_q
+        basis_q = _cont(tname, basis_q)
         pb = tgt_arm.pose.bones[tname]
-        # 월드 → 본 로컬: parent(pose) 월드행렬 역 · world
-        if pb.parent:
-            parent_w = tgt_arm.matrix_world @ pb.parent.matrix
-        else:
-            parent_w = tgt_arm.matrix_world
-        # matrix_basis 설정: local = (parent_w · bone_rest_local_offset)⁻¹ · world
-        rest_local = tgt_arm.data.bones[tname].matrix_local
-        parent_rest = tgt_arm.data.bones[tname].parent.matrix_local if tgt_arm.data.bones[tname].parent else Matrix.Identity(4)
-        offset = parent_rest.inverted() @ rest_local
-        basis_q = (parent_w.to_quaternion() @ offset.to_quaternion()).inverted() @ world_q
         pb.rotation_quaternion = basis_q
         pb.keyframe_insert('rotation_quaternion', frame=f)
-    # 힙: 오브젝트 힙(Motifect)이면 회전도 여기서 처리
-    if HIP_OBJ:
-        world_q = (src_arm.matrix_world.to_quaternion() @ hipR0.inverted()) @ tgt_hip_rest_q
-        pbh = tgt_arm.pose.bones[HIP_T]
-        rest_local_h = tgt_arm.data.bones[HIP_T].matrix_local
-        basis_qh = (tgt_arm.matrix_world.to_quaternion() @ rest_local_h.to_quaternion()).inverted() @ world_q
-        pbh.rotation_quaternion = basis_qh
-        pbh.keyframe_insert('rotation_quaternion', frame=f)
     # 힙 위치: 월드 델타 × k + 타겟 레스트
     hipw = src_arm.matrix_world.translation if HIP_OBJ else (src_arm.matrix_world @ src_arm.pose.bones[src_hip].matrix).translation
     d = (hipw - hip0) * k
