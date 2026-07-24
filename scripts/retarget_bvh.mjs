@@ -102,6 +102,7 @@ const JOBS = {
   mf_dribble: { file: `${MF_DIR}/basketball_dribble.fbx`, type: 'fbx', names: MF_NAMES, hip: 'Hips', fps: 30, yScale: true },
   mf_layup: { file: `${MF_DIR}/basketball_layup.fbx`, type: 'fbx', names: MF_NAMES, hip: 'Hips', fps: 30, yScale: true },
   mf_marathon: { file: `${MF_DIR}/marathon_pace_run.fbx`, type: 'fbx', names: MF_NAMES, hip: 'Hips', fps: 30, yScale: true },
+  mf_boxing_footwork: { file: `${MF_DIR}/boxing_stance_footwork.fbx`, type: 'fbx', names: MF_NAMES, hip: 'Hips', fps: 30, yScale: true },
 };
 
 // FBX 소스 로드 → {skeleton, clip} (BVHLoader 반환과 동형).
