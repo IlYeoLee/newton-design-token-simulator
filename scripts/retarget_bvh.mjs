@@ -88,6 +88,16 @@ const MF_NAMES = {
 };
 const MF_DIR = '/Users/iil-yeo/Downloads/motifect_sports_and_athletics_v1_0_fbx/Animations';
 
+// SFU/NUS: 접두사 없는 Mixamo 본명(Hips/Spine/Spine1/Neck/…) — Spine2 없음
+const SFU_NAMES = {
+  mixamorigHips: 'Hips', mixamorigSpine: 'Spine', mixamorigSpine1: 'Spine1',
+  mixamorigNeck: 'Neck', mixamorigHead: 'Head',
+  mixamorigLeftShoulder: 'LeftShoulder', mixamorigLeftArm: 'LeftArm', mixamorigLeftForeArm: 'LeftForeArm', mixamorigLeftHand: 'LeftHand',
+  mixamorigRightShoulder: 'RightShoulder', mixamorigRightArm: 'RightArm', mixamorigRightForeArm: 'RightForeArm', mixamorigRightHand: 'RightHand',
+  mixamorigLeftUpLeg: 'LeftUpLeg', mixamorigLeftLeg: 'LeftLeg', mixamorigLeftFoot: 'LeftFoot', mixamorigLeftToeBase: 'LeftToeBase',
+  mixamorigRightUpLeg: 'RightUpLeg', mixamorigRightLeg: 'RightLeg', mixamorigRightFoot: 'RightFoot', mixamorigRightToeBase: 'RightToeBase',
+};
+
 // 변환 잡: BVH 파일 → 클립. trim=[초,초] 구간 발췌, fps=키 리샘플(용량·노이즈)
 const JOBS = {
   dash_normal: { file: 'public/mocap/dash_normal.bvh', names: NAMES, hip: 'Hips' },
@@ -102,7 +112,10 @@ const JOBS = {
   mf_dribble: { file: `${MF_DIR}/basketball_dribble.fbx`, type: 'fbx', names: MF_NAMES, hip: 'Hips', fps: 30, yScale: true },
   mf_layup: { file: `${MF_DIR}/basketball_layup.fbx`, type: 'fbx', names: MF_NAMES, hip: 'Hips', fps: 30, yScale: true },
   mf_marathon: { file: `${MF_DIR}/marathon_pace_run.fbx`, type: 'fbx', names: MF_NAMES, hip: 'Hips', fps: 30, yScale: true },
-  mf_boxing_footwork: { file: `${MF_DIR}/boxing_stance_footwork.fbx`, type: 'fbx', names: MF_NAMES, hip: 'Hips', fps: 30, yScale: true },
+  mf_boxing_footwork: { file: `${MF_DIR}/boxing_stance_footwork.fbx`, type: 'fbx', names: MF_NAMES, hip: 'Hips', fps: 30, yScale: true, keepRootXZ: true },
+  // SFU/NUS 모캡 DB (mocap.cs.sfu.ca, 무료·무가입) — Mixamo 무프리픽스 본명 = 직결 맵
+  sfu_jumprope: { file: 'public/mocap/sfu/0005_JumpRope001.bvh', names: SFU_NAMES, hip: 'Hips', fps: 30, yScale: true },
+  sfu_jogging: { file: 'public/mocap/sfu/0005_Jogging001.bvh', names: SFU_NAMES, hip: 'Hips', fps: 30, yScale: true, keepRootXZ: true },
 };
 
 // FBX 소스 로드 → {skeleton, clip} (BVHLoader 반환과 동형).
@@ -252,13 +265,20 @@ for (const name of (wanted.length ? wanted : Object.keys(JOBS))) {
   const hipTrack = clip.tracks.find(t => t.name.endsWith('Hips.position'));
   if (hipTrack) {
     const v = hipTrack.values;
-    const y0 = v[1];
+    const y0 = v[1], x0 = v[0], z0 = v[2];
     // CMU: 소스 리그 키가 커서(단위 상이) Y 델타를 신장비로 스케일 (Bandai는 기존 그대로 k=1)
     const k = job.yScale && y0 > 1e-6 ? hipsBindPos.y / y0 : 1;
     for (let i = 0; i < v.length; i += 3) {
-      v[i] = hipsBindPos.x;
+      // keepRootXZ: 풋워크류(몸이 실제 이동)는 XZ 델타 보존 — 제자리화하면 이동량만큼
+      // 발이 미끄러짐(복싱 풋워크 4.3m 슬라이드 실측). 기본은 기존 제자리화(팩 경로가 이동 담당).
+      if (job.keepRootXZ) {
+        v[i] = (v[i] - x0) * k + hipsBindPos.x;
+        v[i + 2] = (v[i + 2] - z0) * k + hipsBindPos.z;
+      } else {
+        v[i] = hipsBindPos.x;
+        v[i + 2] = hipsBindPos.z;
+      }
       v[i + 1] = (v[i + 1] - y0) * k + hipsBindPos.y;
-      v[i + 2] = hipsBindPos.z;
     }
   }
 

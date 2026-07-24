@@ -30,6 +30,9 @@ import cmuCrossoverClipJson from '../assets/mocap/xclip-cmu_crossover_shot.json'
 import mfJumpShotClipJson from '../assets/mocap/xclip-mf_jump_shot.json';   // BK_C4 릴리즈 점프샷
 import mfMarathonClipJson from '../assets/mocap/xclip-mf_marathon.json';    // 예비: 러닝 페이스 런
 import mfLayupClipJson from '../assets/mocap/xclip-mf_layup.json';          // 예비: 레이업
+// SFU/NUS 모캡 DB (무료·무가입, mocap.cs.sfu.ca) — 외부 무료팩 100% 이식 성공 사례
+import sfuJumpRopeClipJson from '../assets/mocap/xclip-sfu_jumprope.json';  // 줄넘기 (워밍업 후보)
+import sfuJoggingClipJson from '../assets/mocap/xclip-sfu_jogging.json';    // 조깅 (루트모션 보존)
 
 // X Bot = 투사된 토큰 UI를 "따라하는 사람" 역할.
 // 모든 안무는 팩 시간(packTime)의 순수 함수 → 루프/시크/속도 변경에 안전.
@@ -120,8 +123,13 @@ export class XBot {
     regJson('mf_jump_shot', mfJumpShotClipJson);
     regJson('mf_marathon', mfMarathonClipJson);
     regJson('mf_layup', mfLayupClipJson);
+    regJson('sfu_jumprope', sfuJumpRopeClipJson);
+    regJson('sfu_jogging', sfuJoggingClipJson);
     // 실측 모캡 클립 = 실사람 미세 움직임 포함 → playDemo 호흡 레이어 제외 대상(섞으면 포즈 희석)
     this._vmClips = new Set(['quadStretch', 'cmu_stretch', 'cmu_dribble_low', 'cmu_crossover_shot', 'jumpingJacks', 'mf_jump_shot', 'mf_marathon', 'mf_layup']);
+    // keepRootXZ 베이크 클립(몸이 실제 이동) — 재생 시 힙 XZ 고정(_lockInPlace) 제외 대상
+    this._rootClips = new Set(['mf_boxing_footwork', 'sfu_jogging']);
+    for (const k of ['sfu_jumprope', 'sfu_jogging']) this._vmClips.add(k);
 
     this._hips = xbot.getObjectByName('mixamorigHips');
     this._kneeR = xbot.getObjectByName('mixamorigRightLeg');
@@ -385,7 +393,12 @@ export class XBot {
       a.action.time = this._vT % a.dur;
       this.mixer.update(0);
       this.group.position.set(0, 0, 0);
-      this._lockInPlace?.();
+      // 루트모션 클립(keepRootXZ 베이크)은 힙 XZ 고정 금지 — 고정하면 이동량만큼 발이 미끄러짐
+      if (this._rootClips?.has(this.verifyClip)) {
+        this._lockFingers();
+        this.model.position.x = 0; this.model.position.z = 0;
+        this.model.updateMatrixWorld(true);
+      } else this._lockInPlace?.();
       this._clampFeet?.();   // 프리뷰/검증 클립 접지 (root 높이 미보정 방지)
       return;
     }
