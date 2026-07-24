@@ -180,11 +180,20 @@ export class XBot {
     this.scene.add(this.ball);
 
     // 손가락+손목 본 — 모캡 리타겟 시 벌어지는(splay)·꺾이는 아티팩트 방지:
-    // 로드 직후 바인드(기본) 포즈 쿼터니언을 캡처해 매 프레임 그 중립으로 고정.
+    // 로드 직후 바인드 포즈를 캡처하되, 손가락 마디는 '이완 손'(마디당 22° 굴곡, 엄지 8°)으로
+    // 고정 — 바인드 그대로면 쫙 편 판자손이라 모든 동작에서 어색(유저: '손동작 너무 어색').
+    // 굴곡 축 = 로컬 X+ (수치 프로빙: 팁이 손바닥 쪽으로 — X-는 역젖힘, Z는 측면 꺾임).
     this._fingerBones = [];
+    const _curlQ = new THREE.Quaternion();
     xbot.traverse(o => {
       if (o.isBone && /Hand(Thumb|Index|Middle|Ring|Pinky)\d|Hand$/.test(o.name)) {
         o.userData.rest = o.quaternion.clone();   // 바인드 포즈
+        const m = o.name.match(/Hand(Thumb|Index|Middle|Ring|Pinky)\d/);
+        if (m) {
+          const deg = m[1] === 'Thumb' ? 8 : 22;
+          _curlQ.setFromAxisAngle(new THREE.Vector3(1, 0, 0), THREE.MathUtils.degToRad(deg));
+          o.userData.rest.multiply(_curlQ);       // 이완 커브를 고정 타깃에 베이크
+        }
         this._fingerBones.push(o);
       }
     });
