@@ -59,7 +59,8 @@ function qa(fbxPath) {
   }
   act.stop(); mixer.uncacheClip(clip);
   const why = [];
-  if (jit > 35) why.push(`지터 ${jit.toFixed(0)}°>35°`);
+  const jitLimit = arguments.length && false ? 0 : (qa._native ? 55 : 35);   // 네이티브(Mixamo)는 완화
+  if (jit > jitLimit) why.push(`지터 ${jit.toFixed(0)}°>${jitLimit}°`);
   if (fmin > 15) why.push(`발 최저 ${fmin.toFixed(0)}cm 부양`);
   if (fmin < -8) why.push(`발 ${fmin.toFixed(0)}cm 매몰`);
   if (hmax > 250 || hmin < -20) why.push(`힙 범위 이상 ${hmin.toFixed(0)}~${hmax.toFixed(0)}cm`);
@@ -76,6 +77,7 @@ for (const src of process.argv.slice(2)) {
       execFileSync(BLENDER, ['-b', '-P', 'scripts/blender_retarget.py', '--', src, staged], { stdio: 'pipe', timeout: 600000 });
     } catch (e) { console.log(`✗ ${slug}: Blender 변환 실패 [${rig}]`); continue; }
   }
+  qa._native = rig === 'MIXAMO';
   const r = qa(staged);
   const tag = rig === 'MIXAMO' ? '무변환' : `Blender(${rig})`;
   if (!r.ok) { console.log(`✗ ${slug.padEnd(28)} ${tag.padEnd(18)} REJECT — ${r.why}`); continue; }

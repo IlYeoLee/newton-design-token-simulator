@@ -1843,6 +1843,11 @@ void main(){
       ['mf_marathon', '마라톤 런 (Motifect)'],
       ['mf_boxing_footwork', '복싱 풋워크 (Motifect·이동)'],
     ];
+    // 대량 리타겟 자동 노출 (assets/mocap/auto/auto-manifest.json)
+    try {
+      const aman = (await import('../assets/mocap/auto/auto-manifest.json')).default;
+      for (const [nm, meta] of Object.entries(aman)) CLIPS.push(['auto_' + nm, `🎞 ${nm} (${meta.cat || 'CMU'} · ${meta.dur}s)`]);
+    } catch (e) {}
     // 인제스트 산출 자동 노출 (assets/imported/manifest.json)
     try {
       const man = (await import('../assets/imported/manifest.json')).default;

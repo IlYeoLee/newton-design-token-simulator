@@ -1,0 +1,162 @@
+{
+ "cmu06_03": {
+  "root": true,
+  "dur": 4.39,
+  "cat": "basketball"
+ },
+ "cmu06_04": {
+  "root": true,
+  "dur": 3.3,
+  "cat": "basketball"
+ },
+ "cmu06_05": {
+  "root": true,
+  "dur": 3.21,
+  "cat": "basketball"
+ },
+ "cmu06_07": {
+  "root": true,
+  "dur": 4.8,
+  "cat": "basketball"
+ },
+ "cmu06_09": {
+  "root": true,
+  "dur": 2.51,
+  "cat": "basketball"
+ },
+ "cmu06_10": {
+  "root": true,
+  "dur": 9.27,
+  "cat": "basketball"
+ },
+ "cmu06_11": {
+  "root": true,
+  "dur": 9.55,
+  "cat": "basketball"
+ },
+ "cmu86_14": {
+  "root": true,
+  "dur": 50.46,
+  "cat": "basketball"
+ },
+ "cmu124_03": {
+  "root": false,
+  "dur": 8.01,
+  "cat": "basketball"
+ },
+ "cmu124_04": {
+  "root": false,
+  "dur": 6.05,
+  "cat": "basketball"
+ },
+ "cmu124_05": {
+  "root": false,
+  "dur": 6.57,
+  "cat": "basketball"
+ },
+ "cmu124_06": {
+  "root": true,
+  "dur": 5.78,
+  "cat": "basketball"
+ },
+ "cmu13_18": {
+  "root": false,
+  "dur": 25,
+  "cat": "boxing"
+ },
+ "cmu14_02": {
+  "root": false,
+  "dur": 45.19,
+  "cat": "boxing"
+ },
+ "cmu14_03": {
+  "root": false,
+  "dur": 46.13,
+  "cat": "boxing"
+ },
+ "cmu143_23": {
+  "root": false,
+  "dur": 6.78,
+  "cat": "boxing"
+ },
+ "cmu144_20": {
+  "root": false,
+  "dur": 18.92,
+  "cat": "boxing"
+ },
+ "cmu88_09": {
+  "root": false,
+  "dur": 3.13,
+  "cat": "stretch"
+ },
+ "cmu88_10": {
+  "root": false,
+  "dur": 3.89,
+  "cat": "stretch"
+ },
+ "cmu88_11": {
+  "root": false,
+  "dur": 16.89,
+  "cat": "stretch"
+ },
+ "cmu114_10": {
+  "root": false,
+  "dur": 67.15,
+  "cat": "stretch"
+ },
+ "cmu114_12": {
+  "root": false,
+  "dur": 9.35,
+  "cat": "stretch"
+ },
+ "cmu141_13": {
+  "root": false,
+  "dur": 3.07,
+  "cat": "stretch"
+ },
+ "cmu13_29": {
+  "root": false,
+  "dur": 38.27,
+  "cat": "warmup"
+ },
+ "cmu13_30": {
+  "root": false,
+  "dur": 20.54,
+  "cat": "warmup"
+ },
+ "cmu14_14": {
+  "root": false,
+  "dur": 38.77,
+  "cat": "warmup"
+ },
+ "cmu14_20": {
+  "root": false,
+  "dur": 38.7,
+  "cat": "warmup"
+ },
+ "cmu86_02": {
+  "root": true,
+  "dur": 88.47,
+  "cat": "warmup"
+ },
+ "cmu144_17": {
+  "root": false,
+  "dur": 23.5,
+  "cat": "lunge"
+ },
+ "cmu02_03": {
+  "root": true,
+  "dur": 1.44,
+  "cat": "run"
+ },
+ "cmu09_01": {
+  "root": true,
+  "dur": 1.23,
+  "cat": "run"
+ },
+ "cmu07_12": {
+  "root": true,
+  "dur": 2.19,
+  "cat": "walk"
+ }
+}

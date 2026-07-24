@@ -192,6 +192,39 @@ const JOBS = {
   cmu_dribble_fwd: { file: 'public/mocap/cmu/06_02.bvh', names: DAZ_NAMES, hip: 'hip', fps: 30, yScale: true, keepRootXZ: true },
   cmu_dribble_back: { file: 'public/mocap/cmu/06_06.bvh', names: DAZ_NAMES, hip: 'hip', fps: 30, yScale: true, keepRootXZ: true },
   cmu_dribble_side: { file: 'public/mocap/cmu/06_08.bvh', names: DAZ_NAMES, hip: 'hip', fps: 30, yScale: true, keepRootXZ: true },
+  // ── 대량 자동 이식(--auto): 에이전트 인덱스 선별 32종 ──
+  cmu06_03: { file: 'public/mocap/cmu/06_03.bvh', names: DAZ_NAMES, hip: 'hip', fps: 30, yScale: true, cat: 'basketball', keepRootXZ: true, yaw180: true },
+  cmu06_04: { file: 'public/mocap/cmu/06_04.bvh', names: DAZ_NAMES, hip: 'hip', fps: 30, yScale: true, cat: 'basketball', keepRootXZ: true, yaw180: true },
+  cmu06_05: { file: 'public/mocap/cmu/06_05.bvh', names: DAZ_NAMES, hip: 'hip', fps: 30, yScale: true, cat: 'basketball', keepRootXZ: true, yaw180: true },
+  cmu06_07: { file: 'public/mocap/cmu/06_07.bvh', names: DAZ_NAMES, hip: 'hip', fps: 30, yScale: true, cat: 'basketball', keepRootXZ: true, yaw180: true },
+  cmu06_09: { file: 'public/mocap/cmu/06_09.bvh', names: DAZ_NAMES, hip: 'hip', fps: 30, yScale: true, cat: 'basketball', keepRootXZ: true, yaw180: true },
+  cmu06_10: { file: 'public/mocap/cmu/06_10.bvh', names: DAZ_NAMES, hip: 'hip', fps: 30, yScale: true, cat: 'basketball', keepRootXZ: true, yaw180: true },
+  cmu06_11: { file: 'public/mocap/cmu/06_11.bvh', names: DAZ_NAMES, hip: 'hip', fps: 30, yScale: true, cat: 'basketball', keepRootXZ: true, yaw180: true },
+  cmu86_14: { file: 'public/mocap/cmu/86_14.bvh', names: DAZ_NAMES, hip: 'hip', fps: 30, yScale: true, cat: 'basketball', keepRootXZ: true, yaw180: true },
+  cmu124_03: { file: 'public/mocap/cmu/124_03.bvh', names: DAZ_NAMES, hip: 'hip', fps: 30, yScale: true, cat: 'basketball' },
+  cmu124_04: { file: 'public/mocap/cmu/124_04.bvh', names: DAZ_NAMES, hip: 'hip', fps: 30, yScale: true, cat: 'basketball' },
+  cmu124_05: { file: 'public/mocap/cmu/124_05.bvh', names: DAZ_NAMES, hip: 'hip', fps: 30, yScale: true, cat: 'basketball' },
+  cmu124_06: { file: 'public/mocap/cmu/124_06.bvh', names: DAZ_NAMES, hip: 'hip', fps: 30, yScale: true, cat: 'basketball', keepRootXZ: true, yaw180: true },
+  cmu13_18: { file: 'public/mocap/cmu/13_18.bvh', names: DAZ_NAMES, hip: 'hip', fps: 30, yScale: true, cat: 'boxing' },
+  cmu14_02: { file: 'public/mocap/cmu/14_02.bvh', names: DAZ_NAMES, hip: 'hip', fps: 30, yScale: true, cat: 'boxing' },
+  cmu14_03: { file: 'public/mocap/cmu/14_03.bvh', names: DAZ_NAMES, hip: 'hip', fps: 30, yScale: true, cat: 'boxing' },
+  cmu143_23: { file: 'public/mocap/cmu/143_23.bvh', names: DAZ_NAMES, hip: 'hip', fps: 30, yScale: true, cat: 'boxing' },
+  cmu144_20: { file: 'public/mocap/cmu/144_20.bvh', names: DAZ_NAMES, hip: 'hip', fps: 30, yScale: true, cat: 'boxing' },
+  cmu88_09: { file: 'public/mocap/cmu/88_09.bvh', names: DAZ_NAMES, hip: 'hip', fps: 30, yScale: true, cat: 'stretch' },
+  cmu88_10: { file: 'public/mocap/cmu/88_10.bvh', names: DAZ_NAMES, hip: 'hip', fps: 30, yScale: true, cat: 'stretch' },
+  cmu88_11: { file: 'public/mocap/cmu/88_11.bvh', names: DAZ_NAMES, hip: 'hip', fps: 30, yScale: true, cat: 'stretch' },
+  cmu114_10: { file: 'public/mocap/cmu/114_10.bvh', names: DAZ_NAMES, hip: 'hip', fps: 30, yScale: true, cat: 'stretch' },
+  cmu114_12: { file: 'public/mocap/cmu/114_12.bvh', names: DAZ_NAMES, hip: 'hip', fps: 30, yScale: true, cat: 'stretch' },
+  cmu141_13: { file: 'public/mocap/cmu/141_13.bvh', names: DAZ_NAMES, hip: 'hip', fps: 30, yScale: true, cat: 'stretch' },
+  cmu13_29: { file: 'public/mocap/cmu/13_29.bvh', names: DAZ_NAMES, hip: 'hip', fps: 30, yScale: true, cat: 'warmup' },
+  cmu13_30: { file: 'public/mocap/cmu/13_30.bvh', names: DAZ_NAMES, hip: 'hip', fps: 30, yScale: true, cat: 'warmup' },
+  cmu14_14: { file: 'public/mocap/cmu/14_14.bvh', names: DAZ_NAMES, hip: 'hip', fps: 30, yScale: true, cat: 'warmup' },
+  cmu14_20: { file: 'public/mocap/cmu/14_20.bvh', names: DAZ_NAMES, hip: 'hip', fps: 30, yScale: true, cat: 'warmup' },
+  cmu86_02: { file: 'public/mocap/cmu/86_02.bvh', names: DAZ_NAMES, hip: 'hip', fps: 30, yScale: true, cat: 'warmup', keepRootXZ: true, yaw180: true },
+  cmu144_17: { file: 'public/mocap/cmu/144_17.bvh', names: DAZ_NAMES, hip: 'hip', fps: 30, yScale: true, cat: 'lunge' },
+  cmu02_03: { file: 'public/mocap/cmu/02_03.bvh', names: DAZ_NAMES, hip: 'hip', fps: 30, yScale: true, cat: 'run', keepRootXZ: true, yaw180: true },
+  cmu09_01: { file: 'public/mocap/cmu/09_01.bvh', names: DAZ_NAMES, hip: 'hip', fps: 30, yScale: true, cat: 'run', keepRootXZ: true, yaw180: true },
+  cmu07_12: { file: 'public/mocap/cmu/07_12.bvh', names: DAZ_NAMES, hip: 'hip', fps: 30, yScale: true, cat: 'walk', keepRootXZ: true, yaw180: true },
 };
 
 // FBX 소스 로드 → {skeleton, clip} (BVHLoader 반환과 동형).
@@ -298,7 +331,12 @@ function computeLocalOffsets(res, names) {
   return offsets;
 }
 
-const wanted = process.argv.slice(2);
+const AUTO = process.argv.includes('--auto');
+const wanted = process.argv.slice(2).filter(a => a !== '--auto');
+const AUTO_DIR = path.join(ROOT, 'assets/mocap/auto');
+if (AUTO) fs.mkdirSync(AUTO_DIR, { recursive: true });
+const AUTO_MAN = path.join(AUTO_DIR, 'auto-manifest.json');
+const autoMan = AUTO && fs.existsSync(AUTO_MAN) ? JSON.parse(fs.readFileSync(AUTO_MAN, 'utf8')) : {};
 for (const name of (wanted.length ? wanted : Object.keys(JOBS))) {
   const job = JOBS[name];
   if (!job) { console.warn(`잡 없음: ${name}`); continue; }
@@ -397,6 +435,20 @@ for (const name of (wanted.length ? wanted : Object.keys(JOBS))) {
     }
   }
 
+  // yaw180: 소스 전진 방향이 X봇 전방(-z)과 반대인 클립 보정 — 힙 위치 델타·회전 180°
+  if (job.yaw180 && hipTrack) {
+    const v = hipTrack.values;
+    for (let i = 0; i < v.length; i += 3) {
+      v[i] = 2 * hipsBindPos.x - v[i];
+      v[i + 2] = 2 * hipsBindPos.z - v[i + 2];
+    }
+    const hq = clip.tracks.find(t => t.name.endsWith('Hips.quaternion'));
+    if (hq) { const q = hq.values; for (let i = 0; i < q.length; i += 4) {
+      const x = q[i], y = q[i+1], z = q[i+2], w = q[i+3];
+      q[i] = z; q[i+1] = w; q[i+2] = -x; q[i+3] = -y;   // Ry(π) ⊗ q
+    } }
+  }
+
   // 접지 베이크 — 클립 전 구간 FK로 최저 발 높이를 바인드 발 높이에 1회 정렬.
   // 런타임 per-frame 클램프가 점프 클립과 매 프레임 싸우며 만들던 덜커덩(수직 홱당김) 제거:
   // 이 클립들은 재생 시 클램프를 끈다(xbot._groundedClips).
@@ -427,9 +479,10 @@ for (const name of (wanted.length ? wanted : Object.keys(JOBS))) {
   }
 
   const json = THREE.AnimationClip.toJSON(clip);
-  const out = path.join(outDir, `xclip-${name}.json`);
+  const out = AUTO ? path.join(AUTO_DIR, `${name}.json`) : path.join(outDir, `xclip-${name}.json`);
   fs.writeFileSync(out, JSON.stringify(json));
+  if (AUTO) { autoMan[name] = { root: !!job.keepRootXZ, dur: +clip.duration.toFixed(2), cat: job.cat || '' }; fs.writeFileSync(AUTO_MAN, JSON.stringify(autoMan, null, 1)); }
   const kb = (fs.statSync(out).size / 1024).toFixed(0);
-  console.log(`  ${name}: ${clip.duration.toFixed(2)}s · 트랙 ${clip.tracks.length} · ${kb}KB`);
+  console.log(`  ${name}: ${clip.duration.toFixed(2)}s · 트랙 ${clip.tracks.length} · ${kb}KB${AUTO ? ' [auto]' : ''}`);
 }
 console.log('완료');

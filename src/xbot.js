@@ -56,6 +56,7 @@ import cmuCrossoverTurnClipJson from '../assets/mocap/xclip-cmu_crossover_turn.j
 import cmuDribbleShotClipJson from '../assets/mocap/xclip-cmu_dribble_shot.json';    // 06_15 드리블→슛
 import rkStepbackClipJson from '../assets/mocap/xclip-rk_stepback.json';
 import importedManifest from '../assets/imported/manifest.json';   // 인제스트 파이프라인 산출(scripts/ingest_fbx.mjs)
+import autoManifest from '../assets/mocap/auto/auto-manifest.json';   // 대량 리타겟 자동 산출(--auto)
 import cmuDribbleFwdClipJson from '../assets/mocap/xclip-cmu_dribble_fwd.json';   // CMU 06_02 전진 드리블(이동)
 import cmuDribbleBackClipJson from '../assets/mocap/xclip-cmu_dribble_back.json'; // CMU 06_06 후진 드리블(이동)
 import cmuDribbleSideClipJson from '../assets/mocap/xclip-cmu_dribble_side.json'; // CMU 06_08 사이드 드리블(이동)
@@ -188,6 +189,21 @@ export class XBot {
     reg('lb_dribble', lbDribbleFbx);   // mixamorig 네이티브(Sketchfab) — 리타겟 0, 원본 품질
     reg('bp_dribble', bpDribbleFbx);   // 네이티브 드리블 2호(1.6s 루프)
     reg('bl_crossover', blCrossoverFbx);   // Blender 리타겟 검증 1호 — 성공 시 Fab UE 애니 전체 개방
+    // ── 대량 리타겟 클립 자동 등록: assets/mocap/auto/*.json (--auto 산출) ──
+    {
+      const jsons = import.meta.glob('../assets/mocap/auto/*.json', { eager: true });
+      for (const [pth, mod] of Object.entries(jsons)) {
+        if (pth.endsWith('auto-manifest.json')) continue;
+        const nm = 'auto_' + pth.split('/').pop().replace(/\.json$/i, '');
+        try {
+          regJson(nm, mod.default);
+          this._vmClips.add(nm);
+          const meta = autoManifest[nm.slice(5)] || {};
+          this._groundedClips.add(nm);
+          if (meta.root) this._rootClips.add(nm);
+        } catch (e) { console.warn('auto 클립 등록 실패', nm, e); }
+      }
+    }
     // ── 외부 이식 클립 자동 등록: assets/imported/*.fbx — 코드 수정 없이 인제스트만으로 장착 ──
     {
       const urls = import.meta.glob('../assets/imported/*.fbx', { eager: true, query: '?url', import: 'default' });

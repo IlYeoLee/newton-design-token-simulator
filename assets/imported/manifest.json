@@ -1,1 +1,32 @@
-{}
+{
+ "boxing": {
+  "grounded": false,
+  "rig": "MIXAMO",
+  "dur": 2.1,
+  "jit": 26.7
+ },
+ "basketball_chest_pass": {
+  "grounded": true,
+  "rig": "MOTIFECT",
+  "dur": 4,
+  "jit": 11
+ },
+ "boxing_1_": {
+  "grounded": false,
+  "rig": "MIXAMO",
+  "dur": 2.1,
+  "jit": 26.7
+ },
+ "boxing_2_": {
+  "grounded": false,
+  "rig": "MIXAMO",
+  "dur": 2.1,
+  "jit": 26.7
+ },
+ "warming_up_1_": {
+  "grounded": false,
+  "rig": "MIXAMO",
+  "dur": 6.3,
+  "jit": 40.2
+ }
+}
