@@ -3543,6 +3543,9 @@ void main(){
       session.update(h);
       updateSessionGaze(h);
       state.time = 0;
+      // 비실전 단계엔 러너가 전진하지 않으므로 무한트랙 시프트를 원점 고정 — 재시도로 누적된
+      // loopShiftZ 드리프트가 P/스트레치 단계에서 마크·판정 토큰을 지평선 밖에 남기던 문제.
+      if (data.sport === 'running' || data.sport === 'basketball') { tokens.loopShiftZ = 0; state.loop = 0; }
       tokens.update(0, 0);
       // hold=포즈 고정(복싱 READY 가드 유지). 러닝 대기는 idle 재생(호흡)이라 hold 안 함.
       // 러닝 준비운동(A) = 코치 드릴을 세션 스테이지 시간(session.t)에 위상 잠금 → 씬 링·카운트·음성과 동기(유저: '타이밍 하나하나 맞춰')

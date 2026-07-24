@@ -1212,7 +1212,9 @@ export class Session {
     const live = !wall && this.isLive;
     const bodyZ = live ? this.xbot.getBodyPos().z : 0;
     this.root.position.x = live ? this.tokens.floorRoot.position.x : 0;
-    this.root.position.z = live ? (this.tokens.floorRoot.position.z + bodyZ) : 0;
+    // 페이스·판정 마크는 러너에 앵커 = bodyZ(러너 월드 z). floorRoot.z(무한트랙 스크롤)를 더하면
+    // 전진 이동을 이중 계산해 마크가 러너의 2배 거리(지평선 밖)에 남았음(유저: '저 멀리 마크 판정 토큰').
+    this.root.position.z = live ? bodyZ : 0;
     // 스테이지 카드 조판 라이브 소비 (룩 '스테이지 카드' 슬라이더 — 위치는 즉시, 캡은 다음 텍스트 갱신 시)
     const CARD = FXP.card || {};
     // 헤더 밴드(타이틀+아이브로)는 빔 투사 풋프린트 안에만 상주 — 고정 z(2.0/2.3m)는 풋프린트가
