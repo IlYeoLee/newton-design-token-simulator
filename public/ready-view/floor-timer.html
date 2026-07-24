@@ -38,7 +38,8 @@ html,body{background:transparent}
 @keyframes tipSpin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
 .arc{stroke-dasharray:1727.9;stroke-dashoffset:1727.9;animation:arcFill var(--dur,3s) linear both}
 @keyframes arcFill{from{stroke-dashoffset:1727.9}to{stroke-dashoffset:0}}
-@keyframes titleIn{0%{opacity:0;transform:translateY(40px) scale(.94)}70%{opacity:1;transform:translateY(0) scale(1.02)}100%{transform:scale(1)}}
+/* 지면 프레임: 세로 translate=원근상 깊이 이동 → 제자리 scale 등장 */
+@keyframes titleIn{0%{opacity:0;transform:scale(.9)}70%{opacity:1;transform:scale(1.02)}100%{transform:scale(1)}}
 @keyframes ringPop{0%{opacity:0;transform:scale(.6)}70%{opacity:1;transform:scale(1.05)}100%{transform:scale(1)}}
 @keyframes numPulse{0%{transform:scale(1.5);opacity:0}35%{opacity:1}100%{transform:scale(1);opacity:1}}
 @keyframes ringBreath{0%,100%{filter:drop-shadow(0 0 0 rgba(255,255,255,0))}50%{filter:drop-shadow(0 0 26px rgba(255,255,255,.35))}}

@@ -37,13 +37,14 @@ html,body{background:transparent}
 .phase.active{font-weight:700;font-size:58px;color:#fff;text-shadow:0 0 28px rgba(255,255,255,.4);
   animation:phasePulse 2.4s 1.4s ease-in-out infinite}
 
-@keyframes chIn{from{opacity:0;transform:translateY(46px)}to{opacity:1;transform:translateY(0)}}
-@keyframes sUp{from{opacity:0;transform:translateX(-50%) translateY(40px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+/* 지면에 눕힌 프레임 = 세로 translate가 원근상 '깊이 이동'(멀리서 날아옴)으로 보임 →
+   등장은 제자리 스케일+페이드로(그 자리에서 자연스럽게 나타남). */
+@keyframes chIn{from{opacity:0;transform:scale(.82)}to{opacity:1;transform:scale(1)}}
+@keyframes sUp{from{opacity:0;transform:translateX(-50%) scale(.94)}to{opacity:1;transform:translateX(-50%) scale(1)}}
 @keyframes dotPad{}
 @keyframes phasePulse{0%,100%{opacity:1}50%{opacity:.62}}
-/* .phases는 translateX 없음 → sUp의 translateX(-50%)와 충돌하므로 별도 키프레임 */
 .phases{animation-name:sUpFlat}
-@keyframes sUpFlat{from{opacity:0;transform:translateY(40px)}to{opacity:1;transform:translateY(0)}}
+@keyframes sUpFlat{from{opacity:0;transform:scale(.94)}to{opacity:1;transform:scale(1)}}
 </style></head><body>
   <div id="board">
     <div class="title" id="s-title">Title</div>
