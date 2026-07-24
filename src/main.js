@@ -1816,6 +1816,7 @@ void main(){
       ['sfu_jogging', '조깅 (SFU 무료·이동)'],
       ['stomp_press', '스톰프 프레스 — 원 꾹 밟기 (Mixamo 합성)'],
       ['jogging', '조깅 (Mixamo)'],
+      ['bkBlock', '농구 점프 블록 (Mixamo)'],
       ['neckStretch', '목 스트레칭 (Mixamo)'],
       ['armStretch', '팔 스트레칭 (Mixamo)'],
       ['airSquat', '에어 스쿼트 (Mixamo)'],
