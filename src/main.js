@@ -1814,6 +1814,8 @@ void main(){
       ['jumpingJacks', '점핑잭 (Mixamo)'],
       ['sfu_jumprope', '줄넘기 (SFU 무료)'],
       ['sfu_jogging', '조깅 (SFU 무료·이동)'],
+      ['stomp_press', '스톰프 프레스 — 원 꾹 밟기 (Mixamo 합성)'],
+      ['jogging', '조깅 (Mixamo)'],
       ['neckStretch', '목 스트레칭 (Mixamo)'],
       ['armStretch', '팔 스트레칭 (Mixamo)'],
       ['airSquat', '에어 스쿼트 (Mixamo)'],
@@ -3549,7 +3551,7 @@ void main(){
       // 스트레치(quad_src.mp4 실사 비디오모캡 — 정적 스트레치의 올바른 위치는 운동 후).
       // A단계 v2(유저 기준: 퀄리티·지면 가이드 매력·설명 용이) — 전부 햇지런 실측 + 프로브 구동 UI.
       // A1 사이드 런지 프레스(원 눌러 채우기) · A2 레그 스윙 · A3 니 허그. T1 대기=CMU 스트레칭, FIN=쿨다운 쿼드.
-      A1: 'hj_sidelunge', A2: 'hj_legswing', A3: 'hj_kneehug', T1: 'neckStretch', T2: 'armStretch', FIN: 'quadStretch',
+      A1: 'stomp_press', A2: 'hj_legswing', A3: 'hj_kneehug', T1: 'neckStretch', T2: 'armStretch', FIN: 'quadStretch',
       // 복싱 = Mixamo 실측 모캡 (목풀기만 절차)
       BX_A1: 'bx_neck', BX_A2: 'boxGuard', BX_A3: 'boxJab',
       BX_B1: 'boxGuard', BX_B2: 'boxGuard', BX_B3: 'boxCombo',
@@ -3557,7 +3559,7 @@ void main(){
       // 농구 — CMU 06 실측: A3 로우 프리스타일 드리블, B1·B2 크로스오버+슛(시그니처 무브 시범/분해),
       // B3 컷·감속(드리블 컷 구간 창). 시작 화면(READY)은 러닝과 동일 calm idle(공 없음)
       // 농구 A단계 v2: A1 스쿼트·A2 사이드 런지 프레스(햇지런 실측) · A3 리듬 드리블(CMU)
-      BK_READY: 'idle', BK_A1: 'airSquat', BK_A2: 'hj_sidelunge', BK_A3: 'cmu_dribble_low',
+      BK_READY: 'idle', BK_A1: 'airSquat', BK_A2: 'stomp_press', BK_A3: 'cmu_dribble_low',
       // B1 시범 = 06_15 드리블→슛(온전한 무브 원테이크), B2 분해 = 06_14 크로스오버+슛 위상잠금
       BK_B1: 'cmu_dribble_shot', BK_B2: 'cmu_crossover_shot', BK_B3: 'cmu_dribble_low',
     };
@@ -3591,6 +3593,10 @@ void main(){
     } else { rig.beamTarget = null; rig._beamTgt = null; }
     // BK_C4 릴리즈 = 실측 점프샷 원샷 (xbot 농구 라이브 경로에서 크로스페이드)
     xbot.bkShot = session.active && session.stage === 'BK_C4';
+    // 스톰프 프레스 스테이지: 봇을 뒤로 당겨 착지(전방 0.38m)가 프레스 원 위에 정확히 떨어지게
+    if (session.active && !session.isLive && data.sport !== 'boxing') {
+      xbot.demoStandZ = session.stage === 'A1' ? -0.92 : (session.stage === 'BK_A2' ? -1.22 : 0);
+    }
     // 지면 풀스크린 화면(세션 컴플리트·전환·카운트다운) = 3인칭 봇도 바닥의 화면을 응시(머리 숙임).
     xbot.headPitch = (session.active && /^(T1|T2|C1|FIN|BK_T1|BK_T2|BK_C1|BK_FIN)$/.test(session.stage || ''))
       ? THREE.MathUtils.degToRad(24) : 0;
@@ -3618,7 +3624,8 @@ void main(){
       // BK_B2 = 분해 밟기: 씬 3s 사이클당 크로스오버 1회(마크 1-2-3과 사이클 동기).
       // BK_B3 = 컷·감속: 로우 드리블 클립의 컷 구간(16~21s) 창 반복. 그 외 실측 모캡은 자연 속도(왜곡 방지).
       let _phase = null;
-      if (session.sport === 'running' && (/^run_|^hj_/.test(_clip) || _clip === 'cmu_stretch' || _clip === 'jumpingJacks')) _phase = session.t;
+      if (_clip === 'stomp_press') _phase = session.t;
+      else if (session.sport === 'running' && (/^run_|^hj_/.test(_clip) || _clip === 'cmu_stretch' || _clip === 'jumpingJacks')) _phase = session.t;
       else if (session.stage === 'BK_B2') _phase = (session.t % 3.0) / 3.0 * (xbot.actions.cmu_crossover_shot?.dur || 4);
       else if (session.stage === 'BK_B3') _phase = 16 + (session.t % 5);
       xbot.playDemo(_clip, h, session.stage === 'BX_READY', _phase);

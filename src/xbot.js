@@ -19,6 +19,7 @@ import jumpingJacksUrl from '../assets/anim-jumping-jacks.fbx?url';   // Mixamo 
 import neckStretchUrl from '../assets/anim-neck-stretch.fbx?url';   // Mixamo 'Neck Stretching' — 전환 대기 정리(실측)
 import armStretchUrl from '../assets/anim-arm-stretch.fbx?url';     // Mixamo 'Arm Stretching' — 전환 대기 정리(실측)
 import airSquatUrl from '../assets/anim-air-squat.fbx?url';         // Mixamo 'Air Squat' — 농구 스쿼트(실측, 힙Y 정상)
+import joggingUrl from '../assets/anim-jogging.fbx?url';            // Mixamo 'Jogging' — 예비(워밍업 조깅)
 // Bandai Namco Research MotionDataset (CC BY-NC) — BVH 실측 리타겟 클립
 import bkRunClipJson from '../assets/mocap/xclip-run_normal.json';
 import bkDashClipJson from '../assets/mocap/xclip-dash_normal.json';
@@ -49,6 +50,8 @@ import cmuStretch3ClipJson from '../assets/mocap/xclip-cmu_stretch3.json';      
 import cmuWarmupRoutineClipJson from '../assets/mocap/xclip-cmu_warmup_routine.json';// 14_06 워밍업 루틴
 import cmuCrossoverTurnClipJson from '../assets/mocap/xclip-cmu_crossover_turn.json';// 06_12 크로스오버+턴
 import cmuDribbleShotClipJson from '../assets/mocap/xclip-cmu_dribble_shot.json';    // 06_15 드리블→슛
+// Mixamo Stomping 좌+우(미러) 오프라인 합성 — 프레스(원 꾹 밟기) 교대 클립
+import stompPressClipJson from '../assets/mocap/xclip-stomp_press.json';
 
 // X Bot = 투사된 토큰 UI를 "따라하는 사람" 역할.
 // 모든 안무는 팩 시간(packTime)의 순수 함수 → 루프/시크/속도 변경에 안전.
@@ -71,7 +74,7 @@ export class XBot {
 
   async load() {
     const loader = new FBXLoader();
-    const [xbot, runFbx, hookFbx, dribbleFbx, sidestepFbx, warmupFbx, boxJabFbx, boxComboFbx, boxGuardFbx, bkStanceFbx, breathingIdleFbx, jumpingJacksFbx, neckStretchFbx, armStretchFbx, airSquatFbx] = await Promise.all([
+    const [xbot, runFbx, hookFbx, dribbleFbx, sidestepFbx, warmupFbx, boxJabFbx, boxComboFbx, boxGuardFbx, bkStanceFbx, breathingIdleFbx, jumpingJacksFbx, neckStretchFbx, armStretchFbx, airSquatFbx, joggingFbx] = await Promise.all([
       loader.loadAsync(xbotUrl),
       loader.loadAsync(runUrl),
       loader.loadAsync(hookUrl),
@@ -87,6 +90,7 @@ export class XBot {
       loader.loadAsync(neckStretchUrl),
       loader.loadAsync(armStretchUrl),
       loader.loadAsync(airSquatUrl),
+      loader.loadAsync(joggingUrl),
     ]);
 
     xbot.scale.setScalar(0.01);
@@ -127,6 +131,7 @@ export class XBot {
     reg('neckStretch', neckStretchFbx);    // 전환 대기 — 목 스트레칭(Mixamo 실측)
     reg('armStretch', armStretchFbx);      // 전환 대기 — 팔 스트레칭(Mixamo 실측)
     reg('airSquat', airSquatFbx);          // 농구 스쿼트(Mixamo 실측 — 힙Y 정상 하강)
+    reg('jogging', joggingFbx);            // 예비 — 조깅(Mixamo 실측)
 
     // 실측 모캡 클립 (Bandai BVH → 오프라인 리타겟)
     const regJson = (name, json) => {
@@ -158,12 +163,13 @@ export class XBot {
     regJson('cmu_warmup_routine', cmuWarmupRoutineClipJson);
     regJson('cmu_crossover_turn', cmuCrossoverTurnClipJson);
     regJson('cmu_dribble_shot', cmuDribbleShotClipJson);
+    regJson('stomp_press', stompPressClipJson);   // 프레스 원 꾹 밟기 (Stomping L+R 합성)
     // 실측 모캡 클립 = 실사람 미세 움직임 포함 → playDemo 호흡 레이어 제외 대상(섞으면 포즈 희석)
     this._vmClips = new Set(['quadStretch', 'cmu_stretch', 'cmu_dribble_low', 'cmu_crossover_shot', 'jumpingJacks', 'mf_jump_shot', 'mf_marathon', 'mf_layup']);
     // keepRootXZ 베이크 클립(몸이 실제 이동) — 재생 시 힙 XZ 고정(_lockInPlace) 제외 대상
     this._rootClips = new Set(['mf_boxing_footwork', 'sfu_jogging', 'cmu_crossover_turn']);
     for (const k of ['sfu_jumprope', 'sfu_jogging', 'cmu_stretch2', 'cmu_stretch3', 'cmu_warmup_routine', 'cmu_crossover_turn', 'cmu_dribble_shot',
-      'hj_legswing', 'hj_jjack', 'hj_squat', 'hj_sidelunge', 'hj_kneehug', 'hj_sidebend', 'neckStretch', 'armStretch', 'airSquat']) this._vmClips.add(k);
+      'hj_legswing', 'hj_jjack', 'hj_squat', 'hj_sidelunge', 'hj_kneehug', 'hj_sidebend', 'neckStretch', 'armStretch', 'airSquat', 'jogging', 'stomp_press']) this._vmClips.add(k);
     // 접지 베이크 완료 클립 — 재생 시 per-frame 발 클램프 제외(점프와 싸우며 덜커덩 만들던 것).
     // 접지는 리타겟 스크립트가 클립 전 구간 1회 정렬(소스 독립 설계 — 어떤 팩이 와도 동일).
     this._groundedClips = new Set(['cmu_stretch', 'cmu_stretch2', 'cmu_stretch3', 'cmu_warmup_routine',
