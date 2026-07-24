@@ -10,9 +10,9 @@ window.FLOOR_PHASES = {
 window.FLOOR_SCENES = {
   // ── 러닝 ──
   // A · 준비운동 (WARM UP)
-  A1: { title: 'Full-Body Warm-Up', phase: 0, sub: '1/3', cue: 'Roll head · shoulders · arms · legs' },   // 동적 전신 풀기 (CMU 42_01 실측)
-  A2: { title: 'Jumping Jacks',    phase: 0, sub: '2/3', cue: 'Arms up, feet wide · 10x' },   // 점핑잭 (심박 활성)
-  A3: { title: 'Leg Swings',       phase: 0, sub: '3/3', cue: 'Swing front to back · 10x' },   // 다리 앞뒤로 흔들기
+  A1: { title: 'Side Lunge Press', phase: 0, sub: '1/3', cue: 'Step wide · press the circle' },   // 사이드 런지 프레스 (원 눌러 채우기)
+  A2: { title: 'Leg Swings',       phase: 0, sub: '2/3', cue: 'Swing front to back · 10x' },   // 다리 앞뒤로 흔들기
+  A3: { title: 'Knee Hugs',        phase: 0, sub: '3/3', cue: 'Hug knee to chest · hold' },   // 니 허그 (홀드)
   // B · 페이스 잡기 (PACE = 러닝의 학습 구간)
   P1: { title: 'Catch the Pace',   phase: 1, sub: '1/2', cue: 'Ease into a light jog' },       // 페이서 붙어 가볍게 뛰기
   P2: { title: 'Lock the Pace',    phase: 1, sub: '2/2', cue: 'Match the pacer’s rhythm' },    // 페이스 잠금
@@ -25,8 +25,8 @@ window.FLOOR_SCENES = {
 
   // ── 농구 ──
   // A · 준비운동 (WARM UP)
-  BK_A1: { title: 'Stance & Knees',    phase: 0, sub: '1/3', cue: 'Shoulder-width, soft knees' }, // 스탠스·무릎
-  BK_A2: { title: 'Side Footwork',     phase: 0, sub: '2/3', cue: 'Side steps, stay wide' },      // 사이드 풋워크
+  BK_A1: { title: 'Squats',            phase: 0, sub: '1/3', cue: 'Mark-width stance · slow 8x' }, // 스쿼트
+  BK_A2: { title: 'Side Lunge Press',  phase: 0, sub: '2/3', cue: 'Step wide · press the circle' },// 사이드 런지 프레스
   BK_A3: { title: 'Rhythm Dribble',    phase: 0, sub: '3/3', cue: 'Dribble the rhythm' },         // 리듬 드리블
   // B · 사전 익히기 (DRILL)
   BK_B1: { title: 'Read the Step-Back', phase: 1, sub: '1/3', cue: 'Watch the step-back path' },  // 스텝백 궤적 보기

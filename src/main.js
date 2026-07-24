@@ -3541,16 +3541,17 @@ void main(){
       // 러닝 준비운동 = 동적 워밍업(스포츠과학: 러닝 전 정적 홀드 비권장). A1=CMU 42_01 실측
       // 전신 풀기, A2=Mixamo 점핑잭 실측, A3=다리 스윙(동적 드릴 유지). FIN=쿨다운 쿼드
       // 스트레치(quad_src.mp4 실사 비디오모캡 — 정적 스트레치의 올바른 위치는 운동 후).
-      // T1(몸풀기 끝 대기) = CMU 77_21 가벼운 스트레칭 — idle 대신 마무리 정리 동작.
-      // A3 = 햇지런 영상 실측 레그 스윙(마지막 절차 드릴 퇴역 — 세션 시연 전 동작 실측화 완성)
-      A1: 'cmu_stretch', A2: 'jumpingJacks', A3: 'hj_legswing', A4: 'run_march', T1: 'cmu_stretch2', FIN: 'quadStretch',
+      // A단계 v2(유저 기준: 퀄리티·지면 가이드 매력·설명 용이) — 전부 햇지런 실측 + 프로브 구동 UI.
+      // A1 사이드 런지 프레스(원 눌러 채우기) · A2 레그 스윙 · A3 니 허그. T1 대기=CMU 스트레칭, FIN=쿨다운 쿼드.
+      A1: 'hj_sidelunge', A2: 'hj_legswing', A3: 'hj_kneehug', T1: 'cmu_stretch2', FIN: 'quadStretch',
       // 복싱 = Mixamo 실측 모캡 (목풀기만 절차)
       BX_A1: 'bx_neck', BX_A2: 'boxGuard', BX_A3: 'boxJab',
       BX_B1: 'boxGuard', BX_B2: 'boxGuard', BX_B3: 'boxCombo',
       BX_READY: 'boxGuard', BX_T1: 'boxGuard', BX_T2: 'boxGuard', BX_C1: 'boxGuard',
       // 농구 — CMU 06 실측: A3 로우 프리스타일 드리블, B1·B2 크로스오버+슛(시그니처 무브 시범/분해),
       // B3 컷·감속(드리블 컷 구간 창). 시작 화면(READY)은 러닝과 동일 calm idle(공 없음)
-      BK_READY: 'idle', BK_A1: 'bkStance', BK_A2: 'sidestep', BK_A3: 'cmu_dribble_low',
+      // 농구 A단계 v2: A1 스쿼트·A2 사이드 런지 프레스(햇지런 실측) · A3 리듬 드리블(CMU)
+      BK_READY: 'idle', BK_A1: 'hj_squat', BK_A2: 'hj_sidelunge', BK_A3: 'cmu_dribble_low',
       // B1 시범 = 06_15 드리블→슛(온전한 무브 원테이크), B2 분해 = 06_14 크로스오버+슛 위상잠금
       BK_B1: 'cmu_dribble_shot', BK_B2: 'cmu_crossover_shot', BK_B3: 'cmu_dribble_low',
     };
