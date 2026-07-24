@@ -3631,7 +3631,7 @@ void main(){
       if (_clip === 'stomp_press') _phase = session.t;
       else if (session.sport === 'running' && (/^run_|^hj_/.test(_clip) || _clip === 'cmu_stretch' || _clip === 'jumpingJacks')) _phase = session.t;
       else if (session.stage === 'BK_B1') _phase = session.t;
-      else if (session.stage === 'BK_B2') _phase = session.t * 0.5;
+      else if (session.stage === 'BK_B2') _phase = Math.min((session.t * 0.5) % 3.2, 2.2);   // 플랜트까지 + 홀드(슛 제거)
       else if (session.stage === 'BK_B3') _phase = 1.55 + ((session.t * 0.55) % 2.45);   // 플랜트→백스텝→착지→슛 구간 0.55배 반복
       xbot.playDemo(_clip, h, session.stage === 'BX_READY', _phase);
       rig.update(0, h);
@@ -4266,10 +4266,13 @@ void main(){
         } else if (session.isLive) {
           // 실전(라이브)은 세션 root가 인물 이동을 추종 — G그룹은 저작 기본(원점·무회전) 유지.
           stageG.position.set(0, 0, 0); stageG.quaternion.identity();
-        } else if (/^(A1|BK_A2|BK_B1|BK_B2|BK_B3)$/.test(session.curStage?.id || '')) {
-          // 봇-정합 스테이지(프레스 원·실측 스텝 가이드): 마크는 봇 발이 실제로 딛는 좌표 —
-          // 풋프린트 재앵커(밴드 시프트)를 태우면 마크가 봇 발에서 0.5m+ 이탈(실측). 원점 고정.
-          stageG.position.set(0, 0, 0); stageG.quaternion.identity();
+        } else if (/^(A1|BK_A2|BK_A3|BK_B1|BK_B2|BK_B3)$/.test(session.curStage?.id || '')) {
+          // 봇-정합 스테이지: 재앵커(밴드 시프트) 제외 + 스테이지별 전방 오프셋만 —
+          // 투사 법칙(가이드는 서기 앞 0.4~2.1m 창 안): 실측 감사에서 B1 28/30·B2 16/17
+          // 메쉬가 존 밖(반달 절단)이라 필드 통째 전진. 원점 고정이 여기서 오프셋을 매 프레임
+          // 지우고 있었으므로 오프셋을 이 브랜치가 직접 소유한다(단일 출처).
+          const FWD = { BK_B1: -1.1, BK_B2: -1.25, BK_A3: -0.85 };
+          stageG.position.set(0, 0, FWD[session.curStage?.id] || 0); stageG.quaternion.identity();
         } else {
           // 데모 단계: 발자국을 프레임과 '같은' 무릎 풋프린트 기준계에 실어 인물 흔들림에 함께 따라가게 함
           // (기존엔 세션 원점 고정 → 프레임·타이틀만 흔들리고 발자국은 완전 고정, 유저 지적).

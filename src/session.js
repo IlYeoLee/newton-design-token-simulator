@@ -405,7 +405,7 @@ export const STAGES = {
     { id:'BK_READY', label:'0 · READY — 준비', voice:['시스템','커리의 스텝백 3점 팩. 준비되면 발을 두 번 탭하세요.'], wear:'SAFE 대기', foot:'두 번 탭 → 시작' },
     { id:'BK_A1', label:'A · 준비운동 1/3 — 스쿼트', voice:['커리','마크 폭으로 서서 천천히 앉았다 일어나요. 무릎은 발끝 방향.'], wear:'개입 없음 (자세 측정)' },
     { id:'BK_A2', label:'A · 준비운동 2/3 — 런지 프레스', voice:['커리','앞으로 쭉 뻗어 원을 딛고 3초간 꾸욱. 왼발 오른발 번갈아.'], hap:'프레스 완료 진동 (약)' },
-    { id:'BK_A3', label:'A · 준비운동 3/3 — 리듬 드리블', voice:['커리','제자리 드리블로 리듬 잡아요. 하나, 둘.'], wear:'낮은 강도 보조 시작' },
+    { id:'BK_A3', label:'A · 준비운동 3/3 — 드리블 스팟', voice:['커리','발 앞의 스팟에 공을 튕겨요. 링에 정확히 — 열 번이면 리듬 완성.'], wear:'낮은 강도 보조 시작' },
     { id:'BK_T1', label:'T-1 · STAGE CLEAR → 사전 익히기', voice:['시스템','몸 풀렸어요. 탭 두 번이면 다음으로.'], foot:'두 번 탭 → 사전 익히기' },
     { id:'BK_B1', label:'B · 스텝 스쿨 1/3 — 드라이브 리듬 스텝', voice:['커리','한 번에 두 걸음만 갈게요. 오른발, 그리고 왼발 — 밝은 발자국 순서대로, 가볍게 리듬만 타요.'], cue:'스텝 ①② 반복 ×4' },
     { id:'BK_B2', label:'B · 스텝 스쿨 2/3 — 플랜트 & 브레이크', voice:['커리','이제 셋에서 디딤발이에요. 4번 발자국에서 확 — 잘 멈추는 게 슛의 시작이에요.'], cue:'③④ 플랜트 반복 ×4' },
@@ -586,14 +586,19 @@ export class Session {
 
     // A2 사이드 런지 프레스 — 러닝 A1과 같은 '누르면 채워지는' 문법 (좌우 존원 + 홀드 아크)
     g = this._mk('BK_A2');
-    this.bkA2press = { ring: floorRing(0, -1.6, 0.20, 0.225, BRAND.red, 0.45), arc: floorArc(0, -1.6, BRAND.sand), cx: 0, cz: -1.6, fill: 0 };
+    this.bkA2press = { ring: floorRing(0, -1.85, 0.20, 0.225, BRAND.red, 0.45), arc: floorArc(0, -1.85, BRAND.sand), cx: 0, cz: -1.85, fill: 0 };
     g.add(this.bkA2press.ring); g.add(this.bkA2press.arc);
 
     // A3 리듬 드리블 — 제자리 스탠스 + 박자 링
     g = this._mk('BK_A3');
     g.add(new FootMark('left').at(-0.2, -1.9).group);
     g.add(new FootMark('right').at(0.2, -1.9).group);
-    this.bkA3ring = floorRing(0, -1.5, 0.10, 0.12, BRAND.red, 0.8); g.add(this.bkA3ring);
+    this.bkA3ring = floorRing(0.30, -1.33, 0.14, 0.16, BRAND.red, 0.8); g.add(this.bkA3ring);   // 스팟 = 실측 바운스 평균(0.30, -2.18w)
+    // V자 공 경로(교본 드리블 일러스트 문법): 왼손↘바운스↗오른손 — 링(바운스 지점)에서 꺾임
+    g.add(floorArrow(0.16, -1.45, 148, BRAND.coral, 0.26));
+    g.add(floorArrow(0.44, -1.45, 32, BRAND.coral, 0.26));
+    g.add(floorText('BOUNCE', 0.30, -1.60, { size: 0.055, color: CS.mute }));
+    this.bkA3miss = floorRing(0.30, -1.33, 0.16, 0.175, BRAND.dim, 0); g.add(this.bkA3miss);   // 빗나간 바운스 위치 피드백
 
     g = this._mk('BK_T1');
     this.bkTap1 = this._tap('boxing'); this.bkTap1.position.set(0, 0.013, -1.1); g.add(this.bkTap1);
@@ -643,27 +648,43 @@ export class Session {
     // 플랜트 발자국 → 분리 벡터 화살표 → 거리 눈금 링(0.3/0.48/0.6m, 0.48=프리즘 강조) →
     // 착지존 양발 → 릴리즈 수축 링('창이 닫히기 전에 슛') — 바닥만 보고 거리·방향·타이밍을 익힘
     g = this._mk('BK_B3');
-    const p3 = BK_GUIDE[3];
-    const p3x = -p3.x * BK_ZOOM, p3z = BK_STAND - p3.z * BK_ZOOM;
-    const lmx = -(BK_GUIDE[4].x + BK_GUIDE[5].x) / 2 * BK_ZOOM, lmz = BK_STAND - (BK_GUIDE[4].z + BK_GUIDE[5].z) / 2 * BK_ZOOM;
-    this.bkB3plant = new FootMark('right').at(p3x, p3z, 1.1); g.add(this.bkB3plant.group);
-    // 분리 눈금 링(플랜트 중심)
-    this.bkSepRings = [
-      floorRing(p3x, p3z, 0.27 * BK_ZOOM, 0.30 * BK_ZOOM, BRAND.dim, 0.5),
-      floorRing(p3x, p3z, 0.44 * BK_ZOOM, 0.49 * BK_ZOOM, BRAND.prism, 0.95),
-      floorRing(p3x, p3z, 0.57 * BK_ZOOM, 0.61 * BK_ZOOM, BRAND.dim, 0.5),
-    ];
-    this.bkSepRings.forEach(r => g.add(r));
-    g.add(floorText('0.48m — 커리의 분리', p3x + 0.02, p3z + 0.72 * BK_ZOOM, { size: 0.11, color: CS.prism }));
-    // 분리 벡터 화살표(플랜트→착지 중점)
-    const sepAng = Math.atan2(lmx - p3x, lmz - p3z) * 180 / Math.PI + 180;
-    this.bkSepArrow = floorArrow((p3x + lmx) / 2, (p3z + lmz) / 2, sepAng, BRAND.coral, Math.max(0.25, Math.hypot(lmx - p3x, lmz - p3z) * 0.7));
-    g.add(this.bkSepArrow);
-    // 착지존 양발 + 릴리즈 수축 링
-    this.bkLand = [new FootMark('left').at(-BK_GUIDE[4].x * BK_ZOOM, BK_STAND - BK_GUIDE[4].z * BK_ZOOM, 1.15), new FootMark('right').at(-BK_GUIDE[5].x * BK_ZOOM, BK_STAND - BK_GUIDE[5].z * BK_ZOOM, 1.15)];
+    // B3 재창조(가독 우선): 세로 스토리 한 줄 — (멀리)플랜트 ④ → 굵은 후방 화살표 + 0.48m 자 눈금
+    // → (가까이)착지존(양발+얇은 아웃라인) → 오른쪽 SHOOT 타이머 링.
+    // 3중 눈금 링 폐기: 1인칭에서 겹쳐 '안개 원 덩어리'(유저 스크린샷 #73). 거리는 자(ruler)가 정직.
+    // 발자국 간 실척 0.48m 유지 — 유저가 몸으로 재현할 실제 거리.
+    const p3x = 0, p3z = -3.35;                   // 플랜트(멀리)
+    const lmz = p3z + 0.48;                       // 착지 중심 = 0.48m 뒤(유저 쪽) — '뒤로'가 화면에서도 아래
+    this.bkB3plant = new FootMark('right').at(p3x, p3z, 1.15); g.add(this.bkB3plant.group);
+    attachMarkNum(this.bkB3plant, 'R', true);
+    // 교본 언어(유저 제공 'YOU and BASKETBALL' 도식): X = 수비수. 스텝백의 '이유'를 한눈에 —
+    // X에게서 뒤로 확 분리해 슛 공간을 만든다. X는 플랜트 너머(더 멀리).
+    g.add(floorText('X', 0, p3z - 0.42, { size: 0.17, color: CS.ink, weight: 800 }));
+    g.add(floorText('수비수', 0.28, p3z - 0.42, { size: 0.06, color: CS.mute }));
+    this.bkSepArrow = floorArrow(0, (p3z + lmz) / 2, 180, BRAND.coral, 0.42); g.add(this.bkSepArrow);
+    // 자 눈금 3틱(0 / 0.24 / 0.48m) — 분리 진행에 따라 순차 점등
+    this.bkRuler = [];
+    for (let i = 0; i < 3; i++) { const tk = floorStripe(-0.36, p3z + 0.24 * i, 0.18, BRAND.sand, 0.5); g.add(tk); this.bkRuler.push(tk); }
+    g.add(floorText('0.48m', -0.50, lmz - 0.02, { size: 0.10, color: CS.prism }));
+    g.add(floorText('X에게서 뒤로 확 —', -0.50, p3z + 0.10, { size: 0.065, color: CS.mute }));
+    // 착지존: 양발 + 얇은 아웃라인(면 채움 없음 — 백열 방지)
+    this.bkLand = [new FootMark('left').at(-0.17, lmz + 0.10, 1.1), new FootMark('right').at(0.17, lmz + 0.04, 1.1)];
     this.bkLand.forEach(f => g.add(f.group));
-    this.bkRelRing = floorRing(lmx, lmz, 0.30, 0.37, BRAND.red, 0.0); g.add(this.bkRelRing);
-    this.bkRelTxt = floorText('릴리즈 0.16s — 링이 닫히기 전에', lmx, lmz - 0.55, { size: 0.10, color: CS.red }); g.add(this.bkRelTxt);
+    attachMarkNum(this.bkLand[0], 'L', false); attachMarkNum(this.bkLand[1], 'R', true);
+    // 릴리즈 타이머: 착지존 오른쪽 — 수축 링 + SHOOT (겹침 제로 배치)
+    this.bkRelRing = floorRing(0.55, lmz + 0.07, 0.13, 0.165, BRAND.red, 0.0); g.add(this.bkRelRing);
+    this.bkRelTxt = floorText('SHOOT 0.16s', 0.52, lmz + 0.40, { size: 0.075, color: CS.red }); g.add(this.bkRelTxt);
+    // 고스트 스텝 — 반투명 발자국 쌍이 플랜트→착지존으로 실제 미끄러지는 반복 모션.
+    // 정지 마크가 아니라 '움직임 그 자체'를 바닥이 시연 (유저: 이해되게끔 새 컴포넌트 창조).
+    this.bkGhost = [new FootMark('left').at(-0.17, p3z, 1.0), new FootMark('right').at(0.17, p3z, 1.0)];
+    this.bkGhost.forEach(f => { f.op(0.3); g.add(f.group); });
+    this._bkGhostFrom = p3z; this._bkGhostTo = [lmz + 0.10, lmz + 0.04];
+    // 단계 뱃지 — 지금 뭘 할 차례인지 한 단어로 (현재 단계만 점등)
+    this.bkBadges = [
+      floorText('1 PLANT', 0.52, p3z + 0.06, { size: 0.07, color: CS.ink }),
+      floorText('2 BACK', 0.52, p3z + 0.30, { size: 0.07, color: CS.ink }),
+      floorText('3 SHOOT', 0.52, lmz + 0.22, { size: 0.07, color: CS.ink }),
+    ];
+    this.bkBadges.forEach(b => g.add(b));
 
     g = this._mk('BK_T2');   // 카운트 공통(countGroup) 사용 — 별도 지오메트리 없음
 
@@ -675,6 +696,7 @@ export class Session {
     g = this._mk('BK_C4');
     g.add(floorRing(0, -2.6, 0.20, 0.225, BRAND.dim, 0.9));
     g.add(floorText('SHOOT', 0, -2.6, { size: 0.09, color: CS.mute }));
+
 
     g = this._mk('BK_FIN');
     g.add(floorText('오늘의 스텝백', 0, -1.7, { size: 0.11, color: CS.ink }));
@@ -1160,7 +1182,7 @@ export class Session {
       case 'BK_READY': FS('CURRY · STEP-BACK 3'); FL('READY'); break;
       case 'BK_A1': FS('WARM 1/3'); FL('스쿼트 — 마크 폭으로'); FM('천천히 8회', CS.sand); break;
       case 'BK_A2': FS('WARM 2/3'); FL('앞으로 뻗어 딛고 3초 꾸욱'); FM('링이 차면 발 교대', CS.sand); break;
-      case 'BK_A3': FS('WARM 3/3'); FL('제자리 리듬 드리블'); FM('하나, 둘'); break;
+      case 'BK_A3': FS('WARM 3/3'); FL('스팟에 공 튕기기 ×10'); FM('링에 정확히', CS.sand); break;
       case 'BK_T1': FS('T-1'); S(this.slotFL, 'STAGE CLEAR', { size: 0.12, color: CS.prism }); break;
       case 'BK_B1': FS('STEP 1/3'); FL('리듬 스텝 — ① 오른발 ② 왼발'); FM('가볍게, 리듬만'); break;
       case 'BK_B2': FS('STEP 2/3'); FL('③ 스텝 → ④ 디딤발 확!'); FM('멈춤이 슛의 시작'); break;
@@ -1488,11 +1510,30 @@ export class Session {
         if ((this.bkA2count || 0) >= REPS) { this.next(); return; }
       }
     } else if (id === 'BK_A3') {
-      // 리듬 드리블 — 링 펄스, 8박
+      // 드리블 스팟 — 공의 '실제 바운스 위치'를 감지해 스팟 명중 판정 (공 반응형 지면 UI).
+      // 명중: 임팩트 버스트+카운트 / 빗나감: 그 지점에 흐릿한 링(어디에 튕겼는지 피드백).
       const BT = 0.5, k = 1 - beat(BT);
-      this.bkA3ring.setOp(0.3 + 0.6 * k); this.bkA3ring.scale.setScalar(0.8 + 0.6 * (1 - k));
-      FMU(`${Math.floor(this.t / BT) % 2 === 0 ? '하나' : '둘'} · ${Math.min(8, Math.floor(this.t / BT) + 1)} / 8`);
-      if (this.t >= 8 * BT + 0.4) { this.next(); return; }
+      this.bkA3ring.setOp(0.35 + 0.55 * k); this.bkA3ring.scale.setScalar(0.9 + 0.4 * (1 - k));
+      const ball = this.xbot?.ball;
+      if (ball && ball.visible) {
+        const bw = new THREE.Vector3(); ball.getWorldPosition(bw);
+        const desc = (this._a3py ?? bw.y) > bw.y;
+        if (this._a3desc && !desc && bw.y < 0.35) {   // 하강→상승 전환 = 바운스 순간
+          const rw = new THREE.Vector3(); this.bkA3ring.getWorldPosition(rw);
+          if (Math.hypot(bw.x - rw.x, bw.z - rw.z) < 0.35) {
+            this._a3hit = (this._a3hit || 0) + 1;
+            this.bkA3ring.setOp(1); this.onPress?.(new THREE.Vector3(rw.x, 0.02, rw.z));
+          } else {
+            const lp = this.bkA3miss.parent.worldToLocal(new THREE.Vector3(bw.x, 0.013, bw.z));
+            this.bkA3miss.position.x = lp.x; this.bkA3miss.position.z = lp.z; this._a3missT = this.t;
+          }
+        }
+        this._a3desc = desc; this._a3py = bw.y;
+      }
+      this.bkA3miss.setOp(this._a3missT != null ? Math.max(0, 0.6 - 0.6 * (this.t - this._a3missT)) : 0);
+      const hits = this._a3hit || 0;
+      FMU(`스팟에 튕기기 · ${Math.min(10, hits)} / 10`, hits >= 10 ? CS.prism : CS.sand);
+      if (hits >= 10 || this.t >= 26) { this.next(); return; }
     } else if (id === 'BK_B1') {
       // 스텝 스쿨 1막 — 드라이브 리듬 스텝: 한 번에 두 걸음(①②)만, 절반 속도 4회 반복.
       // 나머지 마크는 문맥 dim(전체 경로는 보이되 집중은 앞 두 발) — 배우기 쉬움 우선 재설계.
@@ -1528,8 +1569,8 @@ export class Session {
     } else if (id === 'BK_B2') {
       // 스텝 스쿨 2막 — 플랜트&브레이크: ③스텝→④디딤발 확! 구간 [0.9,2.2]만 절반 속도 4회.
       // ①②는 이미 익힌 문맥 dim, ⑤⑥은 다음 막 예고 dim.
-      const RATE = 0.5, DUR = this.xbot?.actions?.cmu_crossover_shot?.dur || 4;
-      const ltc = (this.t * RATE) % DUR;   // 클립 시간축
+      const RATE = 0.5, CYC = 3.2;   // 클립 0~2.2(플랜트) 재생 + 1s 플랜트 홀드 = 슛 없는 순수 감속 시연
+      const ltc = Math.min((this.t * RATE) % CYC, 2.2);   // 클립 시간축(봇과 동일 매핑)
       let done = 0;
       this.bkB2.forEach((f, i) => {
         if (i < 2 || i > 3) {
@@ -1552,8 +1593,8 @@ export class Session {
         const k = dP <= 0 && dP > -0.9 ? Math.max(0, 1 + dP / 0.9 - i * 0.18) : 0;
         st.material._gainK = k;
       });
-      FMU(`③ 스텝 → ④ 디딤발에서 확! · ${Math.min(3, Math.floor(this.t * RATE / DUR) + 1)} / 3`, CS.sand);
-      if (this.t >= 3 * DUR / RATE + 0.4) { this.next(); return; }
+      FMU(`③ 스텝 → ④ 디딤발에서 확! · ${Math.min(3, Math.floor(this.t * RATE / CYC) + 1)} / 3`, CS.sand);
+      if (this.t >= 3 * CYC / RATE + 0.4) { this.next(); return; }
     } else if (id === 'BK_B3') {
       // 백스텝 분리·릴리즈 — 봇은 플랜트→백스텝→착지→슛 구간을 0.55배로 반복(위상은 main),
       // 바닥: 플랜트 카운트다운 → 분리 화살표 점등 → 착지존 글로우 → 릴리즈 링 수축(0.16s×5 슬로우)
@@ -1564,7 +1605,17 @@ export class Session {
       if (dPl > 0 && dPl < 0.5) this.bkB3plant.countdown(1 - dPl / 0.5); else this.bkB3plant.countdown(-1);
       const sepOn = ltc >= BK_GUIDE[3].t && ltc < 2.93;
       this.bkSepArrow.traverse(o => { if (o.material) o.material.opacity = sepOn ? 0.95 : 0.3; });
-      this.bkSepRings[1].setOp(sepOn ? 0.95 : 0.55);
+      const sepProg = Math.max(0, Math.min(1, (ltc - BK_GUIDE[3].t) / (2.93 - BK_GUIDE[3].t)));
+      this.bkRuler.forEach((tk, i) => { tk.material._gainK = ltc >= BK_GUIDE[3].t && sepProg >= i / 2 ? 1 : 0.35; });
+      // 고스트 스텝: 분리 구간 동안 플랜트→착지로 미끄러짐(이즈아웃), 그 외엔 플랜트에서 대기
+      const ge = 1 - Math.pow(1 - sepProg, 2.2);
+      this.bkGhost.forEach((f, i) => {
+        f.group.position.z = this._bkGhostFrom + (this._bkGhostTo[i] - this._bkGhostFrom) * ge;
+        f.op(sepOn ? 0.8 : (sepProg >= 1 ? 0.15 : 0.3));
+      });
+      // 단계 뱃지 점등: 지금 할 것 하나만 밝게
+      const phase = ltc < BK_GUIDE[3].t ? 0 : (sepProg < 1 ? 1 : 2);
+      this.bkBadges.forEach((b, i) => { b.userData.plane.material.opacity = i === phase ? 0.95 : 0.25; });
       this.bkLand.forEach((f, i) => {
         const tL = BK_GUIDE[4 + i].t, dL = tL - ltc;
         if (dL > 0.6 || dL < -0.9) { f.op(0.55); f.countdown(-1); }
