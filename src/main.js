@@ -1814,6 +1814,9 @@ void main(){
       ['jumpingJacks', '점핑잭 (Mixamo)'],
       ['sfu_jumprope', '줄넘기 (SFU 무료)'],
       ['sfu_jogging', '조깅 (SFU 무료·이동)'],
+      ['neckStretch', '목 스트레칭 (Mixamo)'],
+      ['armStretch', '팔 스트레칭 (Mixamo)'],
+      ['airSquat', '에어 스쿼트 (Mixamo)'],
       ['cmu_stretch2', '스트레칭 2 (CMU 77_21)'],
       ['cmu_stretch3', '스트레칭 3·장편 (CMU 83_22)'],
       ['cmu_warmup_routine', '워밍업 루틴 44s (CMU 14_06)'],
@@ -3546,7 +3549,7 @@ void main(){
       // 스트레치(quad_src.mp4 실사 비디오모캡 — 정적 스트레치의 올바른 위치는 운동 후).
       // A단계 v2(유저 기준: 퀄리티·지면 가이드 매력·설명 용이) — 전부 햇지런 실측 + 프로브 구동 UI.
       // A1 사이드 런지 프레스(원 눌러 채우기) · A2 레그 스윙 · A3 니 허그. T1 대기=CMU 스트레칭, FIN=쿨다운 쿼드.
-      A1: 'hj_sidelunge', A2: 'hj_legswing', A3: 'hj_kneehug', T1: 'cmu_stretch2', FIN: 'quadStretch',
+      A1: 'hj_sidelunge', A2: 'hj_legswing', A3: 'hj_kneehug', T1: 'neckStretch', T2: 'armStretch', FIN: 'quadStretch',
       // 복싱 = Mixamo 실측 모캡 (목풀기만 절차)
       BX_A1: 'bx_neck', BX_A2: 'boxGuard', BX_A3: 'boxJab',
       BX_B1: 'boxGuard', BX_B2: 'boxGuard', BX_B3: 'boxCombo',
@@ -3554,7 +3557,7 @@ void main(){
       // 농구 — CMU 06 실측: A3 로우 프리스타일 드리블, B1·B2 크로스오버+슛(시그니처 무브 시범/분해),
       // B3 컷·감속(드리블 컷 구간 창). 시작 화면(READY)은 러닝과 동일 calm idle(공 없음)
       // 농구 A단계 v2: A1 스쿼트·A2 사이드 런지 프레스(햇지런 실측) · A3 리듬 드리블(CMU)
-      BK_READY: 'idle', BK_A1: 'hj_squat', BK_A2: 'hj_sidelunge', BK_A3: 'cmu_dribble_low',
+      BK_READY: 'idle', BK_A1: 'airSquat', BK_A2: 'hj_sidelunge', BK_A3: 'cmu_dribble_low',
       // B1 시범 = 06_15 드리블→슛(온전한 무브 원테이크), B2 분해 = 06_14 크로스오버+슛 위상잠금
       BK_B1: 'cmu_dribble_shot', BK_B2: 'cmu_crossover_shot', BK_B3: 'cmu_dribble_low',
     };
