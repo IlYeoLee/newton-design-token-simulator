@@ -123,6 +123,7 @@ tgt_arm.animation_data_create()
 new_act = bpy.data.actions.new("retarget")
 tgt_arm.animation_data.action = new_act
 for pb in tgt_arm.pose.bones: pb.rotation_mode = 'QUATERNION'
+_hip_worlds = []; _min_foot = [1e9]   # 접지 정렬용 기록
 _prev_q = {}   # 쿼터니언 반구 연속성 — q/-q 뒤집힘이 프레임별 홱홱(파닥임)의 원인
 def _cont(name, q):
     pq = _prev_q.get(name)
@@ -160,14 +161,30 @@ for f in range(f0, f1 + 1):
         pb.keyframe_insert('rotation_quaternion', frame=f)
     # 힙 위치: 월드 델타 × k + 타겟 레스트
     hipw = src_arm.matrix_world.translation if HIP_OBJ else (src_arm.matrix_world @ src_arm.pose.bones[src_hip].matrix).translation
-    d = (hipw - hip0) * k
-    world_p = tgt_hip_rest + d
+    world_p = Vector((tgt_hip_rest.x + (hipw.x - hip0.x) * k,
+                      tgt_hip_rest.y + (hipw.y - hip0.y) * k,
+                      hipw.z * k))   # 높이는 절대 스케일 — 크라우치 시작이면 크라우치 높이 그대로
+    _hip_worlds.append((f, world_p.copy()))
     pb = tgt_arm.pose.bones[HIP_T]
     rest_local = tgt_arm.data.bones[HIP_T].matrix_local
     local_p = (tgt_arm.matrix_world @ rest_local).inverted() @ world_p
     pb.location = local_p
     pb.keyframe_insert('location', frame=f)
     bpy.context.view_layer.update()
+    # 접지 측정용: 이번 프레임 최저 발 높이
+    for _fb in (FT_T, T('mixamorigRightFoot')):
+        _fz = (tgt_arm.matrix_world @ tgt_arm.pose.bones[_fb].matrix).translation.z
+        if _fz < _min_foot[0]: _min_foot[0] = _fz
+
+# 접지 정렬: 클립 전체 발 최저점 → 1.5cm (힙 위치 키 재기록)
+shift = _min_foot[0] - 0.015
+print(f"[rt] 접지 시프트 {shift*100:.1f}cm (min foot {_min_foot[0]*100:.1f}cm)")
+pb = tgt_arm.pose.bones[HIP_T]
+rest_local = tgt_arm.data.bones[HIP_T].matrix_local
+for f, wp in _hip_worlds:
+    wp2 = Vector((wp.x, wp.y, wp.z - shift))
+    pb.location = (tgt_arm.matrix_world @ rest_local).inverted() @ wp2
+    pb.keyframe_insert('location', frame=f)
 
 # 소스 삭제, 타겟만 FBX 익스포트 (애니 포함)
 for o in src_objs:
