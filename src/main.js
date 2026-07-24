@@ -3562,7 +3562,7 @@ void main(){
       // 농구 A단계 v2: A1 스쿼트·A2 사이드 런지 프레스(햇지런 실측) · A3 리듬 드리블(CMU)
       BK_READY: 'idle', BK_A1: 'airSquat', BK_A2: 'stomp_press', BK_A3: 'cmu_dribble_low',
       // B1 시범 = 06_15 드리블→슛(온전한 무브 원테이크), B2 분해 = 06_14 크로스오버+슛 위상잠금
-      BK_B1: 'cmu_crossover_shot', BK_B2: 'cmu_crossover_shot', BK_B3: 'cmu_dribble_low',
+      BK_B1: 'cmu_crossover_shot', BK_B2: 'cmu_crossover_shot', BK_B3: 'cmu_crossover_shot',
     };
     if (DRILL[id] && xbot.actions[DRILL[id]]) return DRILL[id];
     if (sport === 'basketball') return 'dribble';           // 그 외 제자리 드리블
@@ -3594,9 +3594,12 @@ void main(){
     } else { rig.beamTarget = null; rig._beamTgt = null; }
     // BK_C4 릴리즈 = 실측 점프샷 원샷 (xbot 농구 라이브 경로에서 크로스페이드)
     xbot.bkShot = session.active && session.stage === 'BK_C4';
+    // 팩 판정 토큰 필드 정책(검증된 경로): 세션 비실전 전면 숨김 + 라이브 중 릴리즈(C4)도 숨김.
+    // 비실전 복귀(라이브 진입) 시에만 다시 켬 — 스트레칭·학습·전환 화면의 무관 마커 원천 차단.
+    if (session.active) tokens.floorRoot.visible = session.isLive && session.stage !== 'BK_C4';
     // 스톰프 프레스 스테이지: 봇을 뒤로 당겨 착지(전방 0.38m)가 프레스 원 위에 정확히 떨어지게
     if (session.active && !session.isLive && data.sport !== 'boxing') {
-      xbot.demoStandZ = session.stage === 'A1' ? -0.92 : (session.stage === 'BK_A2' ? -1.22 : (/^BK_B[12]$/.test(session.stage) ? -1.0 : 0));
+      xbot.demoStandZ = session.stage === 'A1' ? -0.92 : (session.stage === 'BK_A2' ? -1.22 : (/^BK_B[123]$/.test(session.stage) ? -1.0 : 0));
     }
     // 지면 풀스크린 화면(세션 컴플리트·전환·카운트다운) = 3인칭 봇도 바닥의 화면을 응시(머리 숙임).
     xbot.headPitch = (session.active && /^(T1|T2|C1|FIN|BK_T1|BK_T2|BK_C1|BK_FIN)$/.test(session.stage || ''))
@@ -3629,7 +3632,7 @@ void main(){
       else if (session.sport === 'running' && (/^run_|^hj_/.test(_clip) || _clip === 'cmu_stretch' || _clip === 'jumpingJacks')) _phase = session.t;
       else if (session.stage === 'BK_B1') _phase = session.t;
       else if (session.stage === 'BK_B2') _phase = session.t * 0.5;
-      else if (session.stage === 'BK_B3') _phase = 16 + (session.t % 5);
+      else if (session.stage === 'BK_B3') _phase = 1.55 + ((session.t * 0.55) % 2.45);   // 플랜트→백스텝→착지→슛 구간 0.55배 반복
       xbot.playDemo(_clip, h, session.stage === 'BX_READY', _phase);
       rig.update(0, h);
       tokens.setShake(rig.shake.x, rig.shake.y);
@@ -4260,7 +4263,7 @@ void main(){
         } else if (session.isLive) {
           // 실전(라이브)은 세션 root가 인물 이동을 추종 — G그룹은 저작 기본(원점·무회전) 유지.
           stageG.position.set(0, 0, 0); stageG.quaternion.identity();
-        } else if (/^(A1|BK_A2|BK_B1|BK_B2)$/.test(session.curStage?.id || '')) {
+        } else if (/^(A1|BK_A2|BK_B1|BK_B2|BK_B3)$/.test(session.curStage?.id || '')) {
           // 봇-정합 스테이지(프레스 원·실측 스텝 가이드): 마크는 봇 발이 실제로 딛는 좌표 —
           // 풋프린트 재앵커(밴드 시프트)를 태우면 마크가 봇 발에서 0.5m+ 이탈(실측). 원점 고정.
           stageG.position.set(0, 0, 0); stageG.quaternion.identity();
@@ -4276,6 +4279,9 @@ void main(){
         }
       }
     }
+    // 세션 비실전(+릴리즈 C4) = 팩 판정 토큰 필드 최종 강제 숨김 — 프레임별 어떤 경로가
+    // 다시 켜도 여기서 정리(무관 토큰이 스트레칭·학습 화면에 떠 있던 재발 방지, 최종 승자).
+    if (session.active && (!session.isLive || session.stage === 'BK_C4')) tokens.floorRoot.visible = false;
     // 항상 렌더 — 표시/숨김 전환에도 CSS3D transform 항상 동기(재진입 시 위치 어긋남·잔류 방지)
     cssRenderer.render(frameCssScene, camera);
     // ── 바닥 프레임 occlusion: x봇만 투명 오버레이로 프레임(z6) 위(z7)에 다시 그려 다리 뒤로 밟히게 ──
