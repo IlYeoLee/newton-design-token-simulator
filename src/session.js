@@ -380,6 +380,9 @@ const BK_GUIDE = [
   { t: 2.93, side: 'R', x: 0.10, z: 0.06 },    // 슛 착지 오른발
 ];
 const BK_STAND = -1.85;   // B1~B3 봇 배치(z) — 가이드 전체(마크·링·텍스트)가 투사존(-1.2~-2.8) 안에 들어오는 후퇴 위치
+// 학습 가이드 확대 계수 — 실측 무브 반경(~0.5m)을 그대로 그리면 1인칭 원근에서 발자국이
+// 한 덩어리로 뭉쳐 읽을 수 없음(유저 검수). 형태·순서는 실측 그대로, 간격만 2.2배 확대.
+const BK_ZOOM = 2.2;
 
 export const STAGES = {
   running: [
@@ -603,19 +606,19 @@ export class Session {
     // 바닥만 보고 익히는 학습 언어: 발자국(좌우형) + 순서 숫자 + 스텝 연결 화살표 + 점프 착지 존
     this.bkGuideMarks = []; this.bkGuideNums = []; this.bkGuideArrows = [];
     BK_GUIDE.forEach((c, i) => {
-      const fm = new FootMark(c.side === 'L' ? 'left' : 'right').at(-c.x, BK_STAND - c.z);
+      const fm = new FootMark(c.side === 'L' ? 'left' : 'right').at(-c.x * BK_ZOOM, BK_STAND - c.z * BK_ZOOM, 1.15);
       g.add(fm.group); this.bkGuideMarks.push(fm);
       this.bkGuideNums.push(attachMarkNum(fm, i + 1, c.side === 'R'));
     });
     for (let i = 0; i < 4; i++) {   // 스텝1→2→3→4 연결 화살표 (다음 발이 어디로 가는지)
       const a = BK_GUIDE[i], b = BK_GUIDE[i + 1];
-      const ax = -a.x, az = BK_STAND - a.z, bx = -b.x, bz = BK_STAND - b.z;
+      const ax = -a.x * BK_ZOOM, az = BK_STAND - a.z * BK_ZOOM, bx = -b.x * BK_ZOOM, bz = BK_STAND - b.z * BK_ZOOM;
       const ang = Math.atan2(bx - ax, bz - az) * 180 / Math.PI + 180;   // floorArrow 0°=-z 전방 기준
       const ar = floorArrow((ax + bx) / 2, (az + bz) / 2, ang, BRAND.coral, Math.max(0.2, Math.hypot(bx - ax, bz - az) * 0.55));
       g.add(ar); this.bkGuideArrows.push(ar);
     }
     // 점프 착지 존 — 양발(5·6) 동시 착지를 하나의 존으로 명시
-    const jx = -(BK_GUIDE[4].x + BK_GUIDE[5].x) / 2, jz = BK_STAND - (BK_GUIDE[4].z + BK_GUIDE[5].z) / 2;
+    const jx = -(BK_GUIDE[4].x + BK_GUIDE[5].x) / 2 * BK_ZOOM, jz = BK_STAND - (BK_GUIDE[4].z + BK_GUIDE[5].z) / 2 * BK_ZOOM;
     this.bkJumpRing = floorRing(jx, jz, 0.3, 0.33, BRAND.prism, 0.0); g.add(this.bkJumpRing);
     this.bkJumpTxt = floorText('JUMP · LAND', jx, jz - 0.45, { size: 0.07, color: CS.prism }); g.add(this.bkJumpTxt);
 
@@ -625,12 +628,12 @@ export class Session {
     this.bkB2 = []; this.bkB2nums = [];
     BK_GUIDE.forEach((c, i) => {
       const right = c.side === 'R';
-      const fm = new FootMark(right ? 'right' : 'left').at(-c.x, BK_STAND - c.z);
+      const fm = new FootMark(right ? 'right' : 'left').at(-c.x * BK_ZOOM, BK_STAND - c.z * BK_ZOOM, 1.15);
       g.add(fm.group);
       this.bkB2.push(fm); this.bkB2nums.push(attachMarkNum(fm, i + 1, right));
     });
     const plant = BK_GUIDE[3];   // t=1.95 오른발 = 플랜트(브레이크)
-    const px = -plant.x, pz = BK_STAND - plant.z;
+    const px = -plant.x * BK_ZOOM, pz = BK_STAND - plant.z * BK_ZOOM;
     this.bkBrakeBar = floorStripe(px, pz - 0.28, 0.6, BRAND.red, 0.85); g.add(this.bkBrakeBar);   // 발 앞 정지선
     this.bkBrakeStripes = [];
     for (let i = 0; i < 3; i++) { const st = floorStripe(px, pz + 0.22 + i * 0.2, 0.5 - i * 0.1, BRAND.coral, 0); g.add(st); this.bkBrakeStripes.push(st); }
@@ -641,23 +644,23 @@ export class Session {
     // 착지존 양발 → 릴리즈 수축 링('창이 닫히기 전에 슛') — 바닥만 보고 거리·방향·타이밍을 익힘
     g = this._mk('BK_B3');
     const p3 = BK_GUIDE[3];
-    const p3x = -p3.x, p3z = BK_STAND - p3.z;
-    const lmx = -(BK_GUIDE[4].x + BK_GUIDE[5].x) / 2, lmz = BK_STAND - (BK_GUIDE[4].z + BK_GUIDE[5].z) / 2;
+    const p3x = -p3.x * BK_ZOOM, p3z = BK_STAND - p3.z * BK_ZOOM;
+    const lmx = -(BK_GUIDE[4].x + BK_GUIDE[5].x) / 2 * BK_ZOOM, lmz = BK_STAND - (BK_GUIDE[4].z + BK_GUIDE[5].z) / 2 * BK_ZOOM;
     this.bkB3plant = new FootMark('right').at(p3x, p3z, 1.1); g.add(this.bkB3plant.group);
     // 분리 눈금 링(플랜트 중심)
     this.bkSepRings = [
-      floorRing(p3x, p3z, 0.27, 0.30, BRAND.dim, 0.5),
-      floorRing(p3x, p3z, 0.44, 0.49, BRAND.prism, 0.95),
-      floorRing(p3x, p3z, 0.57, 0.61, BRAND.dim, 0.5),
+      floorRing(p3x, p3z, 0.27 * BK_ZOOM, 0.30 * BK_ZOOM, BRAND.dim, 0.5),
+      floorRing(p3x, p3z, 0.44 * BK_ZOOM, 0.49 * BK_ZOOM, BRAND.prism, 0.95),
+      floorRing(p3x, p3z, 0.57 * BK_ZOOM, 0.61 * BK_ZOOM, BRAND.dim, 0.5),
     ];
     this.bkSepRings.forEach(r => g.add(r));
-    g.add(floorText('0.48m — 커리의 분리', p3x + 0.02, p3z + 0.72, { size: 0.11, color: CS.prism }));
+    g.add(floorText('0.48m — 커리의 분리', p3x + 0.02, p3z + 0.72 * BK_ZOOM, { size: 0.11, color: CS.prism }));
     // 분리 벡터 화살표(플랜트→착지 중점)
     const sepAng = Math.atan2(lmx - p3x, lmz - p3z) * 180 / Math.PI + 180;
     this.bkSepArrow = floorArrow((p3x + lmx) / 2, (p3z + lmz) / 2, sepAng, BRAND.coral, Math.max(0.25, Math.hypot(lmx - p3x, lmz - p3z) * 0.7));
     g.add(this.bkSepArrow);
     // 착지존 양발 + 릴리즈 수축 링
-    this.bkLand = [new FootMark('left').at(-BK_GUIDE[4].x, BK_STAND - BK_GUIDE[4].z), new FootMark('right').at(-BK_GUIDE[5].x, BK_STAND - BK_GUIDE[5].z)];
+    this.bkLand = [new FootMark('left').at(-BK_GUIDE[4].x * BK_ZOOM, BK_STAND - BK_GUIDE[4].z * BK_ZOOM, 1.15), new FootMark('right').at(-BK_GUIDE[5].x * BK_ZOOM, BK_STAND - BK_GUIDE[5].z * BK_ZOOM, 1.15)];
     this.bkLand.forEach(f => g.add(f.group));
     this.bkRelRing = floorRing(lmx, lmz, 0.30, 0.37, BRAND.red, 0.0); g.add(this.bkRelRing);
     this.bkRelTxt = floorText('릴리즈 0.16s — 링이 닫히기 전에', lmx, lmz - 0.55, { size: 0.10, color: CS.red }); g.add(this.bkRelTxt);

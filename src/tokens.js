@@ -972,6 +972,9 @@ export class TokenSystem {
   }
 
   _fire(ev) {
+    // 마커 필드가 숨겨진 상태(세션 비실전 등)에선 이펙트도 발화 금지 — 숨긴 마커의 버스트가
+    // 씬 직속 쿼드로 계속 쌓여 '정체불명 원 마커'처럼 화면을 점유하던 근본(유저 검수 지적)
+    if (ev.surface !== 'wall' && !this.floorRoot.visible) return;
     // 루프 시작 순간(t≈0) 이벤트는 랩 아티팩트 — 매 루프 화면이 번쩍이므로 버스트 억제
     // (마크 자체의 잔상·판정은 그대로, 폭발 이펙트만 생략)
     const wrapArtifact = ev.t < 0.15;
