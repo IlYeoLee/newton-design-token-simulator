@@ -1,0 +1,12 @@
+{
+ "clip": "cmu_dribble_low",
+ "duration": 40.87,
+ "contacts": [
+  {
+   "t": 24.7,
+   "side": "L",
+   "x": 0.03,
+   "z": -0.08
+  }
+ ]
+}

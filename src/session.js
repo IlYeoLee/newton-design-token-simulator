@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import bkStepContacts from '../assets/mocap/contacts-cmu_crossover_shot.json';   // 접지 자동 추출 산출물 (scripts/extract_contacts.mjs)
 import { WALL_Z } from './scene.js';
 import { lutColor, GLYPHS, drawGlyph, footSlot, footSDFTexture, FXP } from './fxlut.js';
 import { MARK_NUM, drawStanceBox, drawPunchLine, drawApproachRing, drawTrajectory, drawRotate } from './fx-core.js';
@@ -371,14 +372,9 @@ function wallTap() {
 //   live=실전 팩 재생 · boost=가속 · cooldown=감속정지 · count=카운트다운
 // 스테이지별 고유 비주얼은 sport-dispatch(_build/_enter/_update)로 처리.
 // 농구 스텝 가이드 — cmu_crossover_shot(CMU 06_14) FK 접지 추출: 스텝 4 + 양발 슛 착지 2
-const BK_GUIDE = [
-  { t: 0.23, side: 'L', x: -0.20, z: 0.18 },
-  { t: 0.68, side: 'R', x: 0.23, z: 0.09 },
-  { t: 1.27, side: 'L', x: -0.12, z: -0.25 },
-  { t: 1.95, side: 'R', x: 0.13, z: -0.07 },
-  { t: 2.88, side: 'L', x: -0.05, z: 0.14 },   // 슛 착지 왼발
-  { t: 2.93, side: 'R', x: 0.10, z: 0.06 },    // 슛 착지 오른발
-];
+// 실측 스텝 가이드 = 접지 자동 추출 데이터(contacts-*.json)에서 생성 — 하드코딩 좌표 금지.
+// 필터: 시작 스탠스(t<0.15)·슛 후 착지(t>3.0) 제외 → 학습 6접지(스텝4+양발 착지).
+const BK_GUIDE = bkStepContacts.contacts.filter(c => c.t >= 0.15 && c.t <= 3.0);
 const BK_STAND = -1.85;   // B1~B3 봇 배치(z) — 가이드 전체(마크·링·텍스트)가 투사존(-1.2~-2.8) 안에 들어오는 후퇴 위치
 // 학습 가이드 확대 계수 — 실측 무브 반경(~0.5m)을 그대로 그리면 1인칭 원근에서 발자국이
 // 한 덩어리로 뭉쳐 읽을 수 없음(유저 검수). 형태·순서는 실측 그대로, 간격만 2.2배 확대.
