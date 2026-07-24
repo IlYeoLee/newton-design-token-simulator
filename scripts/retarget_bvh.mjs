@@ -288,6 +288,35 @@ for (const name of (wanted.length ? wanted : Object.keys(JOBS))) {
     }
   }
 
+  // 접지 베이크 — 클립 전 구간 FK로 최저 발 높이를 바인드 발 높이에 1회 정렬.
+  // 런타임 per-frame 클램프가 점프 클립과 매 프레임 싸우며 만들던 덜커덩(수직 홱당김) 제거:
+  // 이 클립들은 재생 시 클램프를 끈다(xbot._groundedClips).
+  {
+    const feet = ['mixamorigLeftToeBase', 'mixamorigRightToeBase', 'mixamorigLeftFoot', 'mixamorigRightFoot']
+      .map(n => xbot.getObjectByName(n)).filter(Boolean);
+    const v = new THREE.Vector3();
+    const minFeetY = () => { let m = Infinity; for (const f of feet) { v.setFromMatrixPosition(f.matrixWorld); m = Math.min(m, v.y); } return m; };
+    target.skeleton.pose(); xbot.updateMatrixWorld(true);
+    const bindMin = minFeetY();
+    const mixer = new THREE.AnimationMixer(xbot);
+    mixer.clipAction(clip).play();
+    let clipMin = Infinity;
+    const ns = Math.max(2, Math.round(clip.duration * 30));
+    for (let i = 0; i <= ns; i++) {
+      mixer.setTime(clip.duration * i / ns - 1e-4 > 0 ? clip.duration * i / ns - 1e-4 : 0);
+      xbot.updateMatrixWorld(true);
+      clipMin = Math.min(clipMin, minFeetY());
+    }
+    mixer.stopAllAction(); mixer.uncacheRoot(xbot);
+    const hip = clip.tracks.find(t => t.name.endsWith('Hips.position'));
+    if (hip && isFinite(clipMin)) {
+      const shift = clipMin - bindMin;
+      for (let i = 1; i < hip.values.length; i += 3) hip.values[i] -= shift;
+      console.log(`  ${name}: 접지 베이크 시프트 ${(-shift).toFixed(1)}cm`);
+    }
+    target.skeleton.pose(); xbot.updateMatrixWorld(true);
+  }
+
   const json = THREE.AnimationClip.toJSON(clip);
   const out = path.join(outDir, `xclip-${name}.json`);
   fs.writeFileSync(out, JSON.stringify(json));

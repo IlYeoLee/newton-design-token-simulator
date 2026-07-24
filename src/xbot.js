@@ -141,6 +141,11 @@ export class XBot {
     // keepRootXZ 베이크 클립(몸이 실제 이동) — 재생 시 힙 XZ 고정(_lockInPlace) 제외 대상
     this._rootClips = new Set(['mf_boxing_footwork', 'sfu_jogging', 'cmu_crossover_turn']);
     for (const k of ['sfu_jumprope', 'sfu_jogging', 'cmu_stretch2', 'cmu_stretch3', 'cmu_warmup_routine', 'cmu_crossover_turn', 'cmu_dribble_shot']) this._vmClips.add(k);
+    // 접지 베이크 완료 클립 — 재생 시 per-frame 발 클램프 제외(점프와 싸우며 덜커덩 만들던 것).
+    // 접지는 리타겟 스크립트가 클립 전 구간 1회 정렬(소스 독립 설계 — 어떤 팩이 와도 동일).
+    this._groundedClips = new Set(['cmu_stretch', 'cmu_stretch2', 'cmu_stretch3', 'cmu_warmup_routine',
+      'cmu_dribble_low', 'cmu_crossover_shot', 'cmu_crossover_turn', 'cmu_dribble_shot',
+      'mf_jump_shot', 'mf_layup', 'mf_marathon', 'mf_boxing_footwork', 'sfu_jumprope', 'sfu_jogging']);
 
     this._hips = xbot.getObjectByName('mixamorigHips');
     this._kneeR = xbot.getObjectByName('mixamorigRightLeg');
@@ -362,8 +367,11 @@ export class XBot {
     // 외부 배치를 덮어쓰던 버그의 뿌리 (유저: '세션 시작해도 인물이 안 물러남')
     this.group.position.set(0, 0, this.demoStandZ || 0);
     this.mixer.update(0);
-    this._lockInPlace?.();
-    this._clampFeet();   // 데모 클립 루트 높이 미보정 → 봇 공중부양(유저: 'x봇이 공중에 떠있는데') 방지
+    // 루트모션 데모 클립은 XZ 고정 해제, 접지 베이크 클립은 per-frame 클램프 해제(덜커덩 방지)
+    if (this._rootClips?.has(key)) { this._lockFingers(); this.model.position.x = 0; this.model.position.z = 0; this.model.updateMatrixWorld(true); }
+    else this._lockInPlace?.();
+    if (this._groundedClips?.has(key)) { this.model.position.y = 0; this._yOff = undefined; this.model.updateMatrixWorld(true); }
+    else this._clampFeet();   // 데모 클립 루트 높이 미보정 → 봇 공중부양(유저: 'x봇이 공중에 떠있는데') 방지
     // 데모 중 공 관리 (playDemo는 여태 공을 안 건드려 이전 live 위치가 멀리 남아있었음 — 유저: '공이 저 멀리').
     // 드리블 클립일 때만 손에 붙여 튕기고, 그 외(idle·스탠스·사이드스텝·READY)엔 숨김.
     if (this.ball) {
@@ -410,7 +418,9 @@ export class XBot {
         this.model.position.x = 0; this.model.position.z = 0;
         this.model.updateMatrixWorld(true);
       } else this._lockInPlace?.();
-      this._clampFeet?.();   // 프리뷰/검증 클립 접지 (root 높이 미보정 방지)
+      // 접지 베이크 클립 = 클램프 금지(점프 보존·덜커덩 제거), 그 외만 per-frame 접지
+      if (this._groundedClips?.has(this.verifyClip)) { this.model.position.y = 0; this._yOff = undefined; this.model.updateMatrixWorld(true); }
+      else this._clampFeet?.();   // 프리뷰/검증 클립 접지 (root 높이 미보정 방지)
       return;
     }
 
@@ -541,7 +551,9 @@ export class XBot {
       if ((this._bkShotW || 0) > 0.5) this.ball.visible = false;
       else this._dribbleBall(packTime);
     } else if (this.ball) this.ball.visible = false;
-    this._clampFeet();
+    // 슛(접지 베이크 클립) 지배 중엔 클램프 해제 — 점프 릴리즈를 per-frame 접지가 끌어내리지 않게
+    if ((this._bkShotW || 0) > 0.5) { this.model.position.y = 0; this._yOff = undefined; }
+    else this._clampFeet();
     this._applyHeadPitch(dt);
   }
 
