@@ -33,6 +33,13 @@ import mfLayupClipJson from '../assets/mocap/xclip-mf_layup.json';          // �
 // SFU/NUS 모캡 DB (무료·무가입, mocap.cs.sfu.ca) — 외부 무료팩 100% 이식 성공 사례
 import sfuJumpRopeClipJson from '../assets/mocap/xclip-sfu_jumprope.json';  // 줄넘기 (워밍업 후보)
 import sfuJoggingClipJson from '../assets/mocap/xclip-sfu_jogging.json';    // 조깅 (루트모션 보존)
+// 햇지런 워밍업 영상 비디오모캡 (유저 제공 warmup_src.mp4 → 운동별 구간 베이크)
+import hjLegswingClipJson from '../assets/mocap/xclip-hj_legswing.json';   // 레그 스윙 (A3)
+import hjJjackClipJson from '../assets/mocap/xclip-hj_jjack.json';         // 점핑잭
+import hjSquatClipJson from '../assets/mocap/xclip-hj_squat.json';         // 스쿼트
+import hjSidelungeClipJson from '../assets/mocap/xclip-hj_sidelunge.json'; // 사이드 런지
+import hjKneehugClipJson from '../assets/mocap/xclip-hj_kneehug.json';     // 니 허그
+import hjSidebendClipJson from '../assets/mocap/xclip-hj_sidebend.json';   // 사이드 밴드
 // CMU 추가분 — 스트레칭·워밍업 루틴·농구
 import cmuStretch2ClipJson from '../assets/mocap/xclip-cmu_stretch2.json';           // 77_21 스트레칭
 import cmuStretch3ClipJson from '../assets/mocap/xclip-cmu_stretch3.json';           // 83_22 스트레칭(장편)
@@ -131,6 +138,12 @@ export class XBot {
     regJson('mf_layup', mfLayupClipJson);
     regJson('sfu_jumprope', sfuJumpRopeClipJson);
     regJson('sfu_jogging', sfuJoggingClipJson);
+    regJson('hj_legswing', hjLegswingClipJson);
+    regJson('hj_jjack', hjJjackClipJson);
+    regJson('hj_squat', hjSquatClipJson);
+    regJson('hj_sidelunge', hjSidelungeClipJson);
+    regJson('hj_kneehug', hjKneehugClipJson);
+    regJson('hj_sidebend', hjSidebendClipJson);
     regJson('cmu_stretch2', cmuStretch2ClipJson);
     regJson('cmu_stretch3', cmuStretch3ClipJson);
     regJson('cmu_warmup_routine', cmuWarmupRoutineClipJson);
@@ -140,7 +153,8 @@ export class XBot {
     this._vmClips = new Set(['quadStretch', 'cmu_stretch', 'cmu_dribble_low', 'cmu_crossover_shot', 'jumpingJacks', 'mf_jump_shot', 'mf_marathon', 'mf_layup']);
     // keepRootXZ 베이크 클립(몸이 실제 이동) — 재생 시 힙 XZ 고정(_lockInPlace) 제외 대상
     this._rootClips = new Set(['mf_boxing_footwork', 'sfu_jogging', 'cmu_crossover_turn']);
-    for (const k of ['sfu_jumprope', 'sfu_jogging', 'cmu_stretch2', 'cmu_stretch3', 'cmu_warmup_routine', 'cmu_crossover_turn', 'cmu_dribble_shot']) this._vmClips.add(k);
+    for (const k of ['sfu_jumprope', 'sfu_jogging', 'cmu_stretch2', 'cmu_stretch3', 'cmu_warmup_routine', 'cmu_crossover_turn', 'cmu_dribble_shot',
+      'hj_legswing', 'hj_jjack', 'hj_squat', 'hj_sidelunge', 'hj_kneehug', 'hj_sidebend']) this._vmClips.add(k);
     // 접지 베이크 완료 클립 — 재생 시 per-frame 발 클램프 제외(점프와 싸우며 덜커덩 만들던 것).
     // 접지는 리타겟 스크립트가 클립 전 구간 1회 정렬(소스 독립 설계 — 어떤 팩이 와도 동일).
     this._groundedClips = new Set(['cmu_stretch', 'cmu_stretch2', 'cmu_stretch3', 'cmu_warmup_routine',

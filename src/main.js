@@ -1801,6 +1801,12 @@ void main(){
   {
     const CLIPS = [
       ['quadStretch', '쿼드 스트레치 (실사 영상)'],
+      ['hj_legswing', '레그 스윙 (햇지런 영상)'],
+      ['hj_jjack', '점핑잭 (햇지런 영상)'],
+      ['hj_squat', '스쿼트 (햇지런 영상)'],
+      ['hj_sidelunge', '사이드 런지 (햇지런 영상)'],
+      ['hj_kneehug', '니 허그 (햇지런 영상)'],
+      ['hj_sidebend', '사이드 밴드 (햇지런 영상)'],
       ['cmu_stretch', '전신 풀기 (CMU)'],
       ['jumpingJacks', '점핑잭 (Mixamo)'],
       ['sfu_jumprope', '줄넘기 (SFU 무료)'],
@@ -3535,8 +3541,9 @@ void main(){
       // 러닝 준비운동 = 동적 워밍업(스포츠과학: 러닝 전 정적 홀드 비권장). A1=CMU 42_01 실측
       // 전신 풀기, A2=Mixamo 점핑잭 실측, A3=다리 스윙(동적 드릴 유지). FIN=쿨다운 쿼드
       // 스트레치(quad_src.mp4 실사 비디오모캡 — 정적 스트레치의 올바른 위치는 운동 후).
-      // T1(몸풀기 끝 대기) = CMU 77_21 가벼운 스트레칭 — idle 대신 마무리 정리 동작
-      A1: 'cmu_stretch', A2: 'jumpingJacks', A3: 'run_swing', A4: 'run_march', T1: 'cmu_stretch2', FIN: 'quadStretch',
+      // T1(몸풀기 끝 대기) = CMU 77_21 가벼운 스트레칭 — idle 대신 마무리 정리 동작.
+      // A3 = 햇지런 영상 실측 레그 스윙(마지막 절차 드릴 퇴역 — 세션 시연 전 동작 실측화 완성)
+      A1: 'cmu_stretch', A2: 'jumpingJacks', A3: 'hj_legswing', A4: 'run_march', T1: 'cmu_stretch2', FIN: 'quadStretch',
       // 복싱 = Mixamo 실측 모캡 (목풀기만 절차)
       BX_A1: 'bx_neck', BX_A2: 'boxGuard', BX_A3: 'boxJab',
       BX_B1: 'boxGuard', BX_B2: 'boxGuard', BX_B3: 'boxCombo',
@@ -3604,7 +3611,7 @@ void main(){
       // BK_B2 = 분해 밟기: 씬 3s 사이클당 크로스오버 1회(마크 1-2-3과 사이클 동기).
       // BK_B3 = 컷·감속: 로우 드리블 클립의 컷 구간(16~21s) 창 반복. 그 외 실측 모캡은 자연 속도(왜곡 방지).
       let _phase = null;
-      if (session.sport === 'running' && (/^run_/.test(_clip) || _clip === 'cmu_stretch' || _clip === 'jumpingJacks')) _phase = session.t;
+      if (session.sport === 'running' && (/^run_|^hj_/.test(_clip) || _clip === 'cmu_stretch' || _clip === 'jumpingJacks')) _phase = session.t;
       else if (session.stage === 'BK_B2') _phase = (session.t % 3.0) / 3.0 * (xbot.actions.cmu_crossover_shot?.dur || 4);
       else if (session.stage === 'BK_B3') _phase = 16 + (session.t % 5);
       xbot.playDemo(_clip, h, session.stage === 'BX_READY', _phase);

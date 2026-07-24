@@ -33,7 +33,7 @@ function ctaTexture(sport) {
 // ─────────────────────────────────────────────────────────────
 
 // 에디터에서 실시간 조절되는 세션 타이밍 (초)
-export const SCFG = { a1Rep: 2.0, a2Hold: 10, a3Swing: 1.8, a4Beat: 0.6, b1Beat: 0.6, b2Beat: 0.7, b3Step: 1.1, b4Beat: 0.55 };   // A 템포 = 실제 스트레칭 속도 (발목 1바퀴 2s·펌프 1.6s·스윙 1.8s — 빠르면 못 따라함)
+export const SCFG = { a1Rep: 2.0, a2Hold: 10, a3Swing: 1.55, a4Beat: 0.6, b1Beat: 0.6, b2Beat: 0.7, b3Step: 1.1, b4Beat: 0.55 };   // a3Swing=햇지런 영상 실측 스윙 주기 1.55s (FK 제로크로싱 측정 — 코치 클립과 카운트 동기)
 // 타이틀·발형이 물리적으로 겹치는 장면(빔 원경계 ~2.85m 안에 실측 운동 요소가 타이틀 깊이까지 뻗음) — 이 셋뿐
 const DENSE_STAGES = new Set(['B3', 'B4', 'C5']);
 
