@@ -331,6 +331,18 @@ export class XBot {
     // 상쇄 전 원시 힙 위치(런 클립 최대 0.9m 앞)에 놓여 '프로젝터가 몸에서 떨어져 떠다님'.
     // (팩 경로는 판정 캘리브레이션이 기존 타이밍에 적합돼 있어 건드리지 않음)
     this.model.updateMatrixWorld(true);
+    this._applyHeadPitch(dt);
+  }
+
+  /** 지면 화면(세션 컴플리트·전환·카운트다운)에서 3인칭 봇 머리를 아래로 숙여 바닥 UI를 응시.
+      클립이 매 프레임 head.quaternion을 재설정하므로 그 위에 로컬 X 피치를 덧대면 누적 없이 안정. */
+  _applyHeadPitch(dt) {
+    if (!this._head) return;
+    const tgt = this.headPitch || 0;
+    this._headPitchCur = (this._headPitchCur || 0) + (tgt - (this._headPitchCur || 0)) * (1 - Math.exp(-(dt || 0.016) / 0.5));
+    if (Math.abs(this._headPitchCur) < 1e-4) return;
+    this._head.rotateX(this._headPitchCur);
+    this.model.updateMatrixWorld(true);
   }
 
   update(packTime, dt = 0.016) {
@@ -465,6 +477,7 @@ export class XBot {
     if (this.mode === 'basketball') this._dribbleBall(packTime);
     else if (this.ball) this.ball.visible = false;
     this._clampFeet();
+    this._applyHeadPitch(dt);
   }
 
   // 손 위치 추종 + 박자 바운스 (드리블 클립 1사이클에 동기 — 매직 템포 없음)

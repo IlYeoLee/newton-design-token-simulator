@@ -49,7 +49,7 @@ html,body{background:transparent}
 
 @keyframes titleIn{0%{opacity:0;transform:translateY(40px) scale(.94)}70%{opacity:1;transform:translateY(0) scale(1.02)}100%{transform:scale(1)}}
 @keyframes ringPop{0%{opacity:0;transform:scale(.6)}70%{opacity:1;transform:scale(1.05)}100%{transform:scale(1)}}
-@keyframes ringBreath{0%,100%{filter:drop-shadow(0 0 0 rgba(255,255,255,0))}50%{filter:drop-shadow(0 0 30px rgba(254,110,60,.4))}}
+@keyframes ringBreath{0%,100%{filter:drop-shadow(0 0 0 rgba(255,255,255,0))}50%{filter:drop-shadow(0 0 26px rgba(255,255,255,.45))}}
 @keyframes sUp{from{opacity:0;transform:translateY(40px)}to{opacity:1;transform:translateY(0)}}
 @keyframes btnPulse{0%,100%{box-shadow:0 0 0 0 rgba(255,255,255,0)}50%{box-shadow:0 0 60px 6px rgba(255,255,255,.35)}}
 .ttl span{display:inline-block}
@@ -65,11 +65,8 @@ html,body{background:transparent}
       <div class="tgrp"><div class="tsub" id="t-sub"></div><div class="ttl" id="t-ttl"></div></div>
       <div class="ring">
         <svg viewBox="0 0 500 500">
-          <defs><linearGradient id="pg" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stop-color="#fa3030"/><stop offset="0.6" stop-color="#fe6e3c"/><stop offset="1" stop-color="#fec389"/>
-          </linearGradient></defs>
-          <circle cx="250" cy="250" r="230" fill="none" stroke="rgba(255,255,255,.14)" stroke-width="26"/>
-          <circle class="rprog" cx="250" cy="250" r="230" fill="none" stroke="url(#pg)" stroke-width="26" stroke-linecap="round" transform="rotate(-90 250 250)"/>
+          <circle cx="250" cy="250" r="230" fill="none" stroke="rgba(255,255,255,.16)" stroke-width="14"/>
+          <circle class="rprog" cx="250" cy="250" r="230" fill="none" stroke="#fff" stroke-width="14" stroke-linecap="round" transform="rotate(-90 250 250)"/>
         </svg>
         <div class="pct"><span class="row"><span class="n" id="r-pct">0</span><span class="s">%</span></span></div>
       </div>

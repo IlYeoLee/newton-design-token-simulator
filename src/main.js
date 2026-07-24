@@ -849,6 +849,11 @@ void main(){
     // 스테이지 라벨을 바닥에 문장으로 깔던 상태 슬롯 은퇴 — 세션 HUD 카드 + 세션 FS 슬롯('LEARN 3/4')과
     // 3중 중복이었고 발자국·가이드를 덮는 두 번째 주범. 투사면 = 훈련 큐 전용 원칙.
     veil();  // 단계 전환 암전 (끊김 → 의도된 전환으로)
+    // 전환/타이머/리포트(풀스크린 지면 화면)는 하단이 화면 콘텐츠(버튼)라 음성 캡션을 상단으로 이동(겹침 방지).
+    if (captionEl) {
+      const ff = /^(T1|T2|C1|FIN|BK_T1|BK_T2|BK_C1|BK_FIN)$/.test(st.id);
+      captionEl.style.top = ff ? '7%' : ''; captionEl.style.bottom = ff ? 'auto' : '';
+    }
     if (st.voice) { showCaption(st.voice[0], st.voice[1]); speak(st.voice[0], st.voice[1], st.id); }
     if (st.wear) {
       const w = st.wear;
@@ -3522,6 +3527,9 @@ void main(){
         rig.beamTarget = rig._beamTgt;
       }
     } else { rig.beamTarget = null; rig._beamTgt = null; }
+    // 지면 풀스크린 화면(세션 컴플리트·전환·카운트다운) = 3인칭 봇도 바닥의 화면을 응시(머리 숙임).
+    xbot.headPitch = (session.active && /^(T1|T2|C1|FIN|BK_T1|BK_T2|BK_C1|BK_FIN)$/.test(session.stage || ''))
+      ? THREE.MathUtils.degToRad(24) : 0;
     if (!session.active && sessionDroveGaze) {
       // 세션 종료 → 수동 시선각 복귀 (세션이 남긴 단계값이 디폴트처럼 굳는 것 방지)
       sessionDroveGaze = false;
