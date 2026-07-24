@@ -111,6 +111,31 @@ const RK_NAMES = {
   mixamorigRightFoot: 'RightFoot',
   mixamorigRightToeBase: 'RightToe',
 };
+// 언리얼(UE5) 마네킹 골격 — Fab 마켓 표준 리깅 (root/pelvis/spine_01..05/clavicle_l...)
+const UE_NAMES = {
+  mixamorigHips: 'pelvis',
+  mixamorigSpine: 'spine_01',
+  mixamorigSpine1: 'spine_03',
+  mixamorigSpine2: 'spine_05',
+  mixamorigNeck: 'neck_01',
+  mixamorigHead: 'head',
+  mixamorigLeftShoulder: 'clavicle_l',
+  mixamorigLeftArm: 'upperarm_l',
+  mixamorigLeftForeArm: 'lowerarm_l',
+  mixamorigLeftHand: 'hand_l',
+  mixamorigRightShoulder: 'clavicle_r',
+  mixamorigRightArm: 'upperarm_r',
+  mixamorigRightForeArm: 'lowerarm_r',
+  mixamorigRightHand: 'hand_r',
+  mixamorigLeftUpLeg: 'thigh_l',
+  mixamorigLeftLeg: 'calf_l',
+  mixamorigLeftFoot: 'foot_l',
+  mixamorigLeftToeBase: 'ball_l',
+  mixamorigRightUpLeg: 'thigh_r',
+  mixamorigRightLeg: 'calf_r',
+  mixamorigRightFoot: 'foot_r',
+  mixamorigRightToeBase: 'ball_r',
+};
 const MF_DIR = '/Users/iil-yeo/Downloads/motifect_sports_and_athletics_v1_0_fbx/Animations';
 
 // SFU/NUS: 접두사 없는 Mixamo 본명(Hips/Spine/Spine1/Neck/…) — Spine2 없음
@@ -149,6 +174,8 @@ const JOBS = {
   cmu_dribble_shot: { file: 'public/mocap/cmu/06_15.bvh', names: CMU_NAMES, hip: 'Hips', fps: 30, yScale: true },                   // 06_15 드리블→슛 (4.6s)
   // Rokoko Vision 비디오 모캡 (스텝백 튜토리얼 12.8s) — 실제 이동 보존(keepRootXZ)
   rk_stepback: { file: 'assets/anim-rk-stepback.fbx', type: 'fbx', names: RK_NAMES, hip: 'Hips', fps: 30, yScale: true, keepRootXZ: true },
+  // Fab 크로스오버 (UE 마네킹 리깅, 유저 다운로드)
+  fab_crossover: { file: 'assets/anim-fab-crossover.fbx', type: 'fbx', names: UE_NAMES, hip: 'pelvis', fps: 30, noHipPos: true },
 };
 
 // FBX 소스 로드 → {skeleton, clip} (BVHLoader 반환과 동형).
@@ -299,9 +326,42 @@ for (const name of (wanted.length ? wanted : Object.keys(JOBS))) {
     t.name = t.name.replace(/^\.bones\[([^\]]+)\]/, '$1');
   }
 
+  // fkHip: 힙 위치를 소스 FK '월드좌표'에서 재계산 — 로컬 트랙 단위/부모 스케일/축이 뒤엉킨
+  // 리그(UE 마네킹 등)에서 트랙값 스케일링이 폭주하는 문제의 정공법. 스케일 k = 바인드 힙높이/소스 서있는 힙높이.
+  if (job.noHipPos) {
+    // 업축 뒤엉킨 리그(일부 Fab/UE 익스포트): 힙 위치 신뢰 불가 → 바인드 상수 고정(회전만).
+    // 접지는 런타임 per-frame 클램프가 담당 (grounded 세트에 넣지 말 것).
+    const hipT = clip.tracks.find(t => t.name.endsWith('Hips.position'));
+    if (hipT) for (let i = 0; i < hipT.times.length; i++) {
+      hipT.values[i * 3] = hipsBindPos.x; hipT.values[i * 3 + 1] = hipsBindPos.y; hipT.values[i * 3 + 2] = hipsBindPos.z;
+    }
+  }
+  if (job.fkHip) {
+    const hipT = clip.tracks.find(t => t.name.endsWith('Hips.position'));
+    if (hipT) {
+      const srcHip = res.skeleton.bones.find(b => b.name === job.hip);
+      let srcRoot = srcHip; while (srcRoot.parent) srcRoot = srcRoot.parent;
+      const smixer = new THREE.AnimationMixer(srcRoot);
+      smixer.clipAction(res.clip).play();
+      const wv = new THREE.Vector3();
+      smixer.setTime(1e-4); srcRoot.updateMatrixWorld(true);
+      wv.setFromMatrixPosition(srcHip.matrixWorld);
+      const y0w = wv.y, x0w = wv.x, z0w = wv.z;
+      const k = hipsBindPos.y / Math.max(1e-6, y0w);
+      const times = hipT.times, vals = hipT.values;
+      for (let i = 0; i < times.length; i++) {
+        smixer.setTime(Math.max(1e-4, times[i] * (job.slow || 1) + (job.trim ? job.trim[0] : 0)));
+        srcRoot.updateMatrixWorld(true);
+        wv.setFromMatrixPosition(srcHip.matrixWorld);
+        vals[i * 3] = job.keepRootXZ ? (wv.x - x0w) * k + hipsBindPos.x : hipsBindPos.x;
+        vals[i * 3 + 1] = (wv.y - y0w) * k + hipsBindPos.y;
+        vals[i * 3 + 2] = job.keepRootXZ ? (wv.z - z0w) * k + hipsBindPos.z : hipsBindPos.z;
+      }
+    }
+  }
   // 제자리화 + 높이 정규화: 루트 이동은 시뮬레이터 경로가 담당 → XZ는 바인드 위치에 고정,
   // Y는 프레임0을 바인드 힙 높이에 맞추고 바운스(델타)만 유지 (소스 리그와 절대 높이 다름)
-  const hipTrack = clip.tracks.find(t => t.name.endsWith('Hips.position'));
+  const hipTrack = (job.fkHip || job.noHipPos) ? null : clip.tracks.find(t => t.name.endsWith('Hips.position'));
   if (hipTrack) {
     const v = hipTrack.values;
     const y0 = v[1], x0 = v[0], z0 = v[2];

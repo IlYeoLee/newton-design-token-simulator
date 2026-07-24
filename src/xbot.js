@@ -19,6 +19,7 @@ import jumpingJacksUrl from '../assets/anim-jumping-jacks.fbx?url';   // Mixamo 
 import neckStretchUrl from '../assets/anim-neck-stretch.fbx?url';   // Mixamo 'Neck Stretching' — 전환 대기 정리(실측)
 import armStretchUrl from '../assets/anim-arm-stretch.fbx?url';     // Mixamo 'Arm Stretching' — 전환 대기 정리(실측)
 import airSquatUrl from '../assets/anim-air-squat.fbx?url';         // Mixamo 'Air Squat' — 농구 스쿼트(실측, 힙Y 정상)
+import lbDribbleUrl from '../assets/anim-lb-dribble.fbx?url';       // Sketchfab 'LeBron Dribbles'(CC-BY, LasquetiSpice) — mixamorig 네이티브 드리블 3s
 import joggingUrl from '../assets/anim-jogging.fbx?url';            // Mixamo 'Jogging' — 예비(워밍업 조깅)
 import bkBlockUrl from '../assets/anim-bk-block.fbx?url';           // Mixamo 'Defender'(점프 블록) — 농구 수비 예비
 // Bandai Namco Research MotionDataset (CC BY-NC) — BVH 실측 리타겟 클립
@@ -51,7 +52,8 @@ import cmuStretch3ClipJson from '../assets/mocap/xclip-cmu_stretch3.json';      
 import cmuWarmupRoutineClipJson from '../assets/mocap/xclip-cmu_warmup_routine.json';// 14_06 워밍업 루틴
 import cmuCrossoverTurnClipJson from '../assets/mocap/xclip-cmu_crossover_turn.json';// 06_12 크로스오버+턴
 import cmuDribbleShotClipJson from '../assets/mocap/xclip-cmu_dribble_shot.json';    // 06_15 드리블→슛
-import rkStepbackClipJson from '../assets/mocap/xclip-rk_stepback.json';    // Rokoko Vision 비디오 모캡 — 스텝백 튜토리얼(파운드→45°스텝백→개더→슛)
+import rkStepbackClipJson from '../assets/mocap/xclip-rk_stepback.json';
+import fabCrossoverClipJson from '../assets/mocap/xclip-fab_crossover.json';   // Fab 크로스오버(UE 마네킹→리타겟, 힙 회전만+런타임 클램프)    // Rokoko Vision 비디오 모캡 — 스텝백 튜토리얼(파운드→45°스텝백→개더→슛)
 // Mixamo Stomping 좌+우(미러) 오프라인 합성 — 프레스(원 꾹 밟기) 교대 클립
 import stompPressClipJson from '../assets/mocap/xclip-stomp_press.json';
 
@@ -76,7 +78,7 @@ export class XBot {
 
   async load() {
     const loader = new FBXLoader();
-    const [xbot, runFbx, hookFbx, dribbleFbx, sidestepFbx, warmupFbx, boxJabFbx, boxComboFbx, boxGuardFbx, bkStanceFbx, breathingIdleFbx, jumpingJacksFbx, neckStretchFbx, armStretchFbx, airSquatFbx, joggingFbx, bkBlockFbx] = await Promise.all([
+    const [xbot, runFbx, hookFbx, dribbleFbx, sidestepFbx, warmupFbx, boxJabFbx, boxComboFbx, boxGuardFbx, bkStanceFbx, breathingIdleFbx, jumpingJacksFbx, neckStretchFbx, armStretchFbx, airSquatFbx, joggingFbx, bkBlockFbx, lbDribbleFbx] = await Promise.all([
       loader.loadAsync(xbotUrl),
       loader.loadAsync(runUrl),
       loader.loadAsync(hookUrl),
@@ -94,6 +96,7 @@ export class XBot {
       loader.loadAsync(airSquatUrl),
       loader.loadAsync(joggingUrl),
       loader.loadAsync(bkBlockUrl),
+      loader.loadAsync(lbDribbleUrl),
     ]);
 
     xbot.scale.setScalar(0.01);
@@ -168,12 +171,14 @@ export class XBot {
     regJson('cmu_crossover_turn', cmuCrossoverTurnClipJson);
     regJson('cmu_dribble_shot', cmuDribbleShotClipJson);
     regJson('rk_stepback', rkStepbackClipJson);   // 클린 AI 모캡 — B단계 스텝 소스 후보
+    reg('lb_dribble', lbDribbleFbx);   // mixamorig 네이티브(Sketchfab) — 리타겟 0, 원본 품질
+    regJson('fab_crossover', fabCrossoverClipJson);   // 유저 확보 Fab 크로스오버
     regJson('stomp_press', stompPressClipJson);   // 프레스 원 꾹 밟기 (Stomping L+R 합성)
     // 실측 모캡 클립 = 실사람 미세 움직임 포함 → playDemo 호흡 레이어 제외 대상(섞으면 포즈 희석)
     this._vmClips = new Set(['quadStretch', 'cmu_stretch', 'cmu_dribble_low', 'cmu_crossover_shot', 'jumpingJacks', 'mf_jump_shot', 'mf_marathon', 'mf_layup']);
     // keepRootXZ 베이크 클립(몸이 실제 이동) — 재생 시 힙 XZ 고정(_lockInPlace) 제외 대상
     this._rootClips = new Set(['mf_boxing_footwork', 'sfu_jogging', 'cmu_crossover_turn', 'rk_stepback']);
-    for (const k of ['rk_stepback', 'sfu_jumprope', 'sfu_jogging', 'cmu_stretch2', 'cmu_stretch3', 'cmu_warmup_routine', 'cmu_crossover_turn', 'cmu_dribble_shot',
+    for (const k of ['fab_crossover', 'lb_dribble', 'rk_stepback', 'sfu_jumprope', 'sfu_jogging', 'cmu_stretch2', 'cmu_stretch3', 'cmu_warmup_routine', 'cmu_crossover_turn', 'cmu_dribble_shot',
       'hj_legswing', 'hj_jjack', 'hj_squat', 'hj_sidelunge', 'hj_kneehug', 'hj_sidebend', 'neckStretch', 'armStretch', 'airSquat', 'jogging', 'bkBlock', 'stomp_press']) this._vmClips.add(k);
     // 접지 베이크 완료 클립 — 재생 시 per-frame 발 클램프 제외(점프와 싸우며 덜커덩 만들던 것).
     // 접지는 리타겟 스크립트가 클립 전 구간 1회 정렬(소스 독립 설계 — 어떤 팩이 와도 동일).
