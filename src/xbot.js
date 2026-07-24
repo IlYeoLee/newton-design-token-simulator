@@ -20,6 +20,7 @@ import neckStretchUrl from '../assets/anim-neck-stretch.fbx?url';   // Mixamo 'N
 import armStretchUrl from '../assets/anim-arm-stretch.fbx?url';     // Mixamo 'Arm Stretching' — 전환 대기 정리(실측)
 import airSquatUrl from '../assets/anim-air-squat.fbx?url';         // Mixamo 'Air Squat' — 농구 스쿼트(실측, 힙Y 정상)
 import lbDribbleUrl from '../assets/anim-lb-dribble.fbx?url';       // Sketchfab 'LeBron Dribbles'(CC-BY, LasquetiSpice) — mixamorig 네이티브 드리블 3s
+import bpDribbleUrl from '../assets/anim-bp-dribble.fbx?url';       // Sketchfab 'Dribbles Invisible Ball'(CC-BY, 동일 제작자) — 네이티브 1.6s 루프
 import joggingUrl from '../assets/anim-jogging.fbx?url';            // Mixamo 'Jogging' — 예비(워밍업 조깅)
 import bkBlockUrl from '../assets/anim-bk-block.fbx?url';           // Mixamo 'Defender'(점프 블록) — 농구 수비 예비
 // Bandai Namco Research MotionDataset (CC BY-NC) — BVH 실측 리타겟 클립
@@ -78,7 +79,7 @@ export class XBot {
 
   async load() {
     const loader = new FBXLoader();
-    const [xbot, runFbx, hookFbx, dribbleFbx, sidestepFbx, warmupFbx, boxJabFbx, boxComboFbx, boxGuardFbx, bkStanceFbx, breathingIdleFbx, jumpingJacksFbx, neckStretchFbx, armStretchFbx, airSquatFbx, joggingFbx, bkBlockFbx, lbDribbleFbx] = await Promise.all([
+    const [xbot, runFbx, hookFbx, dribbleFbx, sidestepFbx, warmupFbx, boxJabFbx, boxComboFbx, boxGuardFbx, bkStanceFbx, breathingIdleFbx, jumpingJacksFbx, neckStretchFbx, armStretchFbx, airSquatFbx, joggingFbx, bkBlockFbx, lbDribbleFbx, bpDribbleFbx] = await Promise.all([
       loader.loadAsync(xbotUrl),
       loader.loadAsync(runUrl),
       loader.loadAsync(hookUrl),
@@ -97,6 +98,7 @@ export class XBot {
       loader.loadAsync(joggingUrl),
       loader.loadAsync(bkBlockUrl),
       loader.loadAsync(lbDribbleUrl),
+      loader.loadAsync(bpDribbleUrl),
     ]);
 
     xbot.scale.setScalar(0.01);
@@ -172,13 +174,14 @@ export class XBot {
     regJson('cmu_dribble_shot', cmuDribbleShotClipJson);
     regJson('rk_stepback', rkStepbackClipJson);   // 클린 AI 모캡 — B단계 스텝 소스 후보
     reg('lb_dribble', lbDribbleFbx);   // mixamorig 네이티브(Sketchfab) — 리타겟 0, 원본 품질
+    reg('bp_dribble', bpDribbleFbx);   // 네이티브 드리블 2호(1.6s 루프)
     regJson('fab_crossover', fabCrossoverClipJson);   // 유저 확보 Fab 크로스오버
     regJson('stomp_press', stompPressClipJson);   // 프레스 원 꾹 밟기 (Stomping L+R 합성)
     // 실측 모캡 클립 = 실사람 미세 움직임 포함 → playDemo 호흡 레이어 제외 대상(섞으면 포즈 희석)
     this._vmClips = new Set(['quadStretch', 'cmu_stretch', 'cmu_dribble_low', 'cmu_crossover_shot', 'jumpingJacks', 'mf_jump_shot', 'mf_marathon', 'mf_layup']);
     // keepRootXZ 베이크 클립(몸이 실제 이동) — 재생 시 힙 XZ 고정(_lockInPlace) 제외 대상
     this._rootClips = new Set(['mf_boxing_footwork', 'sfu_jogging', 'cmu_crossover_turn', 'rk_stepback']);
-    for (const k of ['fab_crossover', 'lb_dribble', 'rk_stepback', 'sfu_jumprope', 'sfu_jogging', 'cmu_stretch2', 'cmu_stretch3', 'cmu_warmup_routine', 'cmu_crossover_turn', 'cmu_dribble_shot',
+    for (const k of ['bp_dribble', 'fab_crossover', 'lb_dribble', 'rk_stepback', 'sfu_jumprope', 'sfu_jogging', 'cmu_stretch2', 'cmu_stretch3', 'cmu_warmup_routine', 'cmu_crossover_turn', 'cmu_dribble_shot',
       'hj_legswing', 'hj_jjack', 'hj_squat', 'hj_sidelunge', 'hj_kneehug', 'hj_sidebend', 'neckStretch', 'armStretch', 'airSquat', 'jogging', 'bkBlock', 'stomp_press']) this._vmClips.add(k);
     // 접지 베이크 완료 클립 — 재생 시 per-frame 발 클램프 제외(점프와 싸우며 덜커덩 만들던 것).
     // 접지는 리타겟 스크립트가 클립 전 구간 1회 정렬(소스 독립 설계 — 어떤 팩이 와도 동일).

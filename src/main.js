@@ -1803,8 +1803,8 @@ void main(){
   // 🎬 모션 미리보기 — 이식된 실측 클립을 첫 화면에서 바로 재생 (콘솔 불필요)
   {
     const CLIPS = [
-      ['fab_crossover', '★★ 크로스오버 (Fab·유저 확보)'],
       ['lb_dribble', '★★ 르브론 드리블 (Sketchfab·mixamorig 네이티브)'],
+      ['bp_dribble', '★★ 드리블 루프 2 (Sketchfab·네이티브 1.6s)'],
       ['rk_stepback', '★ 스텝백 튜토리얼 (Rokoko AI 모캡·이동)'],
       ['quadStretch', '쿼드 스트레치 (실사 영상)'],
       ['hj_legswing', '레그 스윙 (햇지런 영상)'],
