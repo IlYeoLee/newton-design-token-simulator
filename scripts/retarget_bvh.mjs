@@ -116,6 +116,12 @@ const JOBS = {
   // SFU/NUS 모캡 DB (mocap.cs.sfu.ca, 무료·무가입) — Mixamo 무프리픽스 본명 = 직결 맵
   sfu_jumprope: { file: 'public/mocap/sfu/0005_JumpRope001.bvh', names: SFU_NAMES, hip: 'Hips', fps: 30, yScale: true },
   sfu_jogging: { file: 'public/mocap/sfu/0005_Jogging001.bvh', names: SFU_NAMES, hip: 'Hips', fps: 30, yScale: true, keepRootXZ: true },
+  // CMU 추가분 — 스트레칭 전용·워밍업 루틴·농구
+  cmu_stretch2: { file: 'public/mocap/cmu/77_21.bvh', names: CMU_NAMES, hip: 'Hips', fps: 30, yScale: true },                       // 77_21 stretching (10.9s)
+  cmu_stretch3: { file: 'public/mocap/cmu/83_22.bvh', names: CMU_NAMES, hip: 'Hips', fps: 30, yScale: true },                       // 83_22 stretching (44.8s)
+  cmu_warmup_routine: { file: 'public/mocap/cmu/14_06.bvh', names: CMU_NAMES, hip: 'Hips', fps: 30, yScale: true },                 // 14_06 점핑잭·조깅·스쿼트·트위스트·스트레치 (44.7s)
+  cmu_crossover_turn: { file: 'public/mocap/cmu/06_12.bvh', names: CMU_NAMES, hip: 'Hips', fps: 30, yScale: true, keepRootXZ: true }, // 06_12 크로스오버+90도턴 드리블
+  cmu_dribble_shot: { file: 'public/mocap/cmu/06_15.bvh', names: CMU_NAMES, hip: 'Hips', fps: 30, yScale: true },                   // 06_15 드리블→슛 (4.6s)
 };
 
 // FBX 소스 로드 → {skeleton, clip} (BVHLoader 반환과 동형).

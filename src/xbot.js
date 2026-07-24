@@ -33,6 +33,12 @@ import mfLayupClipJson from '../assets/mocap/xclip-mf_layup.json';          // �
 // SFU/NUS 모캡 DB (무료·무가입, mocap.cs.sfu.ca) — 외부 무료팩 100% 이식 성공 사례
 import sfuJumpRopeClipJson from '../assets/mocap/xclip-sfu_jumprope.json';  // 줄넘기 (워밍업 후보)
 import sfuJoggingClipJson from '../assets/mocap/xclip-sfu_jogging.json';    // 조깅 (루트모션 보존)
+// CMU 추가분 — 스트레칭·워밍업 루틴·농구
+import cmuStretch2ClipJson from '../assets/mocap/xclip-cmu_stretch2.json';           // 77_21 스트레칭
+import cmuStretch3ClipJson from '../assets/mocap/xclip-cmu_stretch3.json';           // 83_22 스트레칭(장편)
+import cmuWarmupRoutineClipJson from '../assets/mocap/xclip-cmu_warmup_routine.json';// 14_06 워밍업 루틴
+import cmuCrossoverTurnClipJson from '../assets/mocap/xclip-cmu_crossover_turn.json';// 06_12 크로스오버+턴
+import cmuDribbleShotClipJson from '../assets/mocap/xclip-cmu_dribble_shot.json';    // 06_15 드리블→슛
 
 // X Bot = 투사된 토큰 UI를 "따라하는 사람" 역할.
 // 모든 안무는 팩 시간(packTime)의 순수 함수 → 루프/시크/속도 변경에 안전.
@@ -125,11 +131,16 @@ export class XBot {
     regJson('mf_layup', mfLayupClipJson);
     regJson('sfu_jumprope', sfuJumpRopeClipJson);
     regJson('sfu_jogging', sfuJoggingClipJson);
+    regJson('cmu_stretch2', cmuStretch2ClipJson);
+    regJson('cmu_stretch3', cmuStretch3ClipJson);
+    regJson('cmu_warmup_routine', cmuWarmupRoutineClipJson);
+    regJson('cmu_crossover_turn', cmuCrossoverTurnClipJson);
+    regJson('cmu_dribble_shot', cmuDribbleShotClipJson);
     // 실측 모캡 클립 = 실사람 미세 움직임 포함 → playDemo 호흡 레이어 제외 대상(섞으면 포즈 희석)
     this._vmClips = new Set(['quadStretch', 'cmu_stretch', 'cmu_dribble_low', 'cmu_crossover_shot', 'jumpingJacks', 'mf_jump_shot', 'mf_marathon', 'mf_layup']);
     // keepRootXZ 베이크 클립(몸이 실제 이동) — 재생 시 힙 XZ 고정(_lockInPlace) 제외 대상
-    this._rootClips = new Set(['mf_boxing_footwork', 'sfu_jogging']);
-    for (const k of ['sfu_jumprope', 'sfu_jogging']) this._vmClips.add(k);
+    this._rootClips = new Set(['mf_boxing_footwork', 'sfu_jogging', 'cmu_crossover_turn']);
+    for (const k of ['sfu_jumprope', 'sfu_jogging', 'cmu_stretch2', 'cmu_stretch3', 'cmu_warmup_routine', 'cmu_crossover_turn', 'cmu_dribble_shot']) this._vmClips.add(k);
 
     this._hips = xbot.getObjectByName('mixamorigHips');
     this._kneeR = xbot.getObjectByName('mixamorigRightLeg');
