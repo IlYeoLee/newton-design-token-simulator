@@ -416,7 +416,7 @@ export class XBot {
     // 데모 중 공 관리 (playDemo는 여태 공을 안 건드려 이전 live 위치가 멀리 남아있었음 — 유저: '공이 저 멀리').
     // 드리블 클립일 때만 손에 붙여 튕기고, 그 외(idle·스탠스·사이드스텝·READY)엔 숨김.
     if (this.ball) {
-      if (this.mode === 'basketball' && (key === 'dribble' || key === 'cmu_dribble_low')) this._dribbleBall(this._demoT || 0);
+      if (this.mode === 'basketball' && (key === 'dribble' || key === 'cmu_dribble_low')) this._dribbleBall(this._demoT || 0, dt);
       else this.ball.visible = false;
     }
     // 최종 월드 확정 — 루트모션 상쇄(모델 오프셋) 이후를 rig가 읽도록. 미갱신 시 무릎 모듈이
@@ -590,7 +590,7 @@ export class XBot {
     if (this.mode === 'basketball') {
       // 슛 릴리즈 중엔 스크립트 바운스 공 숨김 (릴리즈 순간 공이 바닥에서 튀면 어색)
       if ((this._bkShotW || 0) > 0.5) this.ball.visible = false;
-      else this._dribbleBall(packTime);
+      else this._dribbleBall(packTime, dt);
     } else if (this.ball) this.ball.visible = false;
     // 슛(접지 베이크 클립) 지배 중엔 클램프 해제 — 점프 릴리즈를 per-frame 접지가 끌어내리지 않게
     if ((this._bkShotW || 0) > 0.5) { this.model.position.y = 0; this._yOff = undefined; }
@@ -598,31 +598,50 @@ export class XBot {
     this._applyHeadPitch(dt);
   }
 
-  // 손 위치 추종 + 박자 바운스 (드리블 클립 1사이클에 동기 — 매직 템포 없음)
-  _dribbleBall(packTime) {
+  // 손 구동 바운스 — 손목 높이의 실제 하강→상승 전환(=푸시 접촉 순간)을 검출해
+  // 공이 정확히 그 타이밍에 손에 닿고, 다음 접촉까지 바닥을 찍고 돌아온다 (유저:
+  // '손이 떨어지고 닿는 정확한 타이밍에 공이 튀게'). 고정 주기 스크립트 바운스 은퇴.
+  _dribbleBall(_, dt = 0.016) {
     const ball = this.ball;
     if (!ball || !this._wristR) return;
     ball.visible = true;
     const w = new THREE.Vector3().setFromMatrixPosition(this._wristR.matrixWorld);
     const r = 0.12;
-    const H = 0.6;                        // 바운스 정점 높이(손 근처, 고정 → 주기 안정)
-    const G = 20;                         // 중력 과장 — 낙하 스냅·탱탱함 (실측 9.8이면 물렁)
-    const T = 2 * Math.sqrt(2 * H / G);   // 물리 유도 주기 ≈0.49s → 손에서 빠르게 떨어지고 바닥서 탁
-    const phase = (packTime % T) / T;
-    // 비대칭: 하강(손이 밀어내림)을 상승보다 빠르게 → "손에서 확 떨어지는" 느낌
-    const C = 0.42;
-    const p = phase < C ? (phase / C) * 0.5 : 0.5 + ((phase - C) / (1 - C)) * 0.5;
-    const u = 2 * p - 1;                   // 정점=0(느림·행)·바닥=±1(빠름·임팩트)
-    const y = r + H * (1 - u * u);
-    // 스쿼시&스트레치 — 탱탱함의 핵심: 바닥 찍을 때 납작·빠른 낙하 중 길쭉
-    const air = (y - r) / H;               // 0 바닥 ~ 1 정점
-    const squash = Math.max(0, 1 - air / 0.12);   // 바닥 12% 이내에서만
-    const stretch = Math.abs(u) * (1 - squash);   // 빠른데 바닥 아닐 때
-    const sy = 1 - 0.35 * squash + 0.18 * stretch;
-    const sxz = 1 + 0.28 * squash - 0.09 * stretch;
+    const S = this._db = this._db || { t: 0, prevY: w.y, vy: 0, lastLow: -9, period: 0.55, minY: w.y, handLowY: w.y, hx: w.x, hz: w.z };
+    S.t += dt;
+    const vyRaw = (w.y - S.prevY) / Math.max(1e-3, dt);
+    S.vy = S.vy + (vyRaw - S.vy) * 0.5;
+    // 손 최저권 추적(적응형): 하강→상승 전환 + 최저권 근처 = 접촉 이벤트
+    S.minY += (Math.min(S.minY + 0.2, w.y) - S.minY) * 0.02;
+    const wasDesc = S.prevVy < -0.05, nowRise = S.vy >= -0.02;
+    if (wasDesc && nowRise && w.y < S.minY + 0.22 && S.t - S.lastLow > 0.25) {
+      const gap = S.t - S.lastLow;
+      if (gap < 1.4) S.period = S.period + (gap - S.period) * 0.5;   // 실측 주기 추정(EMA)
+      S.lastLow = S.t;
+      S.handLowY = w.y;
+    }
+    S.prevY = w.y; S.prevVy = S.vy;
+    // 손 XZ는 부드럽게 추종 (팔 스윙 지터 제거)
+    S.hx += (w.x + 0.1 - S.hx) * Math.min(1, dt * 14);
+    S.hz += (w.z - S.hz) * Math.min(1, dt * 14);
+    const since = S.t - S.lastLow;
+    if (since > 1.6) {
+      // 드리블 정지(손 진동 없음) — 공은 손 옆 바닥에 얌전히
+      ball.scale.set(1, 1, 1);
+      ball.position.set(S.hx, r, S.hz);
+      return;
+    }
+    // 접촉(u≈0/1) ~ 바닥(u=0.5) 파라볼라: 공은 손 최저점에서 출발해 다음 접촉 순간 손으로 복귀
+    const u = Math.min(1, since / Math.max(0.3, S.period));
+    const hTop = Math.max(S.handLowY - r * 0.2, r + 0.05);
+    const y = r + (hTop - r) * (1 - 4 * u * (1 - u));
+    const air = (y - r) / Math.max(0.05, hTop - r);
+    const squash = Math.max(0, 1 - air / 0.12);
+    const speed = Math.abs(1 - 2 * u);
+    const sy = 1 - 0.35 * squash + 0.16 * speed * (1 - squash);
+    const sxz = 1 + 0.28 * squash - 0.08 * speed * (1 - squash);
     ball.scale.set(sxz, sy, sxz);
-    const bottom = Math.max(0, y - r);            // 바닥면 고정(납작해도 바닥에 붙음)
-    ball.position.set(w.x + 0.1, bottom + r * sy, w.z);
+    ball.position.set(S.hx, Math.max(0, y - r) + r * sy, S.hz);
   }
 
   _samplePath(t) {

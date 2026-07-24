@@ -373,7 +373,7 @@ function wallTap() {
 export const STAGES = {
   running: [
     { id:'READY', label:'준비 — 발 두 번 구르면 시작', voice:['시스템','션의 마지막 1km 페이스로 달려 볼 거예요. 준비되면 제자리에서 발을 두 번 굴러 주세요.'], wear:'SAFE 대기', foot:'발 두 번 구르기 → 시작' },
-    { id:'A1', label:'A · 준비운동 1/3 — 스톰프 프레스(앞의 원 꾹 밟아 채우기)', voice:['션','발 앞의 원을 발로 꾹 밟아요. 누르는 동안 원이 차올라요 — 왼발 오른발 번갈아.'], foot:'앞의 원 꾹 밟기 → 홀드 채우기' },
+    { id:'A1', label:'A · 준비운동 1/3 — 런지 프레스(앞의 원 3초 꾹 누르기)', voice:['션','발을 앞으로 쭉 뻗어 원을 딛고, 3초간 꾸욱 눌러요. 링이 다 차면 발을 바꿔요.'], foot:'앞으로 뻗어 딛고 3초 홀드' },
     { id:'A2', label:'A · 준비운동 2/3 — 다리 앞뒤로 흔들기', voice:['션','골반에 손을 얹고 한쪽 다리에 힘을 빼요. 시계추처럼 앞뒤로 — 발끝이 빛나는 원까지 갔다 오면 딱 좋아요. 열 번.'], hap:'10회 종료 진동 1회' },
     { id:'A3', label:'A · 준비운동 3/3 — 니 허그(무릎 안아 당기기)', voice:['션','무릎을 안아 가슴까지 당겨요. 링이 차는 동안 버티고 — 좌우 번갈아 네 번.'], foot:'완료 후 두 번 구르기 → 다음' },
     { id:'T1', label:'몸풀기 끝 — 다음은 페이스 잡기', voice:['시스템','몸 다 풀렸어요. 발 두 번 구르면 다음으로 가요.'], foot:'발 두 번 구르기 → 페이스 잡기' },
@@ -390,7 +390,7 @@ export const STAGES = {
   basketball: [
     { id:'BK_READY', label:'0 · READY — 준비', voice:['시스템','커리의 스텝백 3점 팩. 준비되면 발을 두 번 탭하세요.'], wear:'SAFE 대기', foot:'두 번 탭 → 시작' },
     { id:'BK_A1', label:'A · 준비운동 1/3 — 스쿼트', voice:['커리','마크 폭으로 서서 천천히 앉았다 일어나요. 무릎은 발끝 방향.'], wear:'개입 없음 (자세 측정)' },
-    { id:'BK_A2', label:'A · 준비운동 2/3 — 스톰프 프레스', voice:['커리','발 앞의 원을 꾹 밟아요. 왼발 오른발 번갈아 — 리듬이 중요해요.'], hap:'프레스 완료 진동 (약)' },
+    { id:'BK_A2', label:'A · 준비운동 2/3 — 런지 프레스', voice:['커리','앞으로 쭉 뻗어 원을 딛고 3초간 꾸욱. 왼발 오른발 번갈아.'], hap:'프레스 완료 진동 (약)' },
     { id:'BK_A3', label:'A · 준비운동 3/3 — 리듬 드리블', voice:['커리','제자리 드리블로 리듬 잡아요. 하나, 둘.'], wear:'낮은 강도 보조 시작' },
     { id:'BK_T1', label:'T-1 · STAGE CLEAR → 사전 익히기', voice:['시스템','몸 풀렸어요. 탭 두 번이면 다음으로.'], foot:'두 번 탭 → 사전 익히기' },
     { id:'BK_B1', label:'B · 사전 익히기 1/3 — 스텝백 궤적 보기', voice:['커리','내 스텝백 발 궤적이에요. 먼저 눈으로 따라가요.'], cue:'Ghost 궤적 리플레이' },
@@ -1082,7 +1082,7 @@ export class Session {
   _enterRunning(st, { S, FS, FL, FM }) {
     switch (st.id) {
       case 'READY': FS('션 · 마지막 1KM'); FL('READY'); break;   // 푸터 제거: CTA 라벨과 중복 + CTA 근접 이동으로 겹침
-      case 'A1': FS('준비운동 1/3'); FL('앞의 원을 꾹 밟아 채우기'); FM('왼발 오른발 번갈아', CS.sand); break;
+      case 'A1': FS('준비운동 1/3'); FL('앞으로 뻗어 딛고 3초 꾸욱'); FM('링이 차면 발 교대', CS.sand); break;
       case 'A2': FS('준비운동 2/3'); FL('한쪽 다리를 시계추처럼 앞뒤로'); FM('먼저 보세요 — 원이 켜지는 쪽으로'); break;
       case 'A3': FS('준비운동 3/3'); FL('무릎을 안아 가슴까지'); FM('링이 차는 동안 버텨요', CS.sand); break;
       case 'A4': FS('준비운동 4/4'); FL('켜지는 발자국 박자로 제자리 걷기'); FM('처음엔 천천히 — 점점 빨라져요'); break;
@@ -1106,7 +1106,7 @@ export class Session {
     switch (st.id) {
       case 'BK_READY': FS('CURRY · STEP-BACK 3'); FL('READY'); break;
       case 'BK_A1': FS('WARM 1/3'); FL('스쿼트 — 마크 폭으로'); FM('천천히 8회', CS.sand); break;
-      case 'BK_A2': FS('WARM 2/3'); FL('앞의 원을 꾹 밟아 채우기'); FM('왼발 오른발 번갈아', CS.sand); break;
+      case 'BK_A2': FS('WARM 2/3'); FL('앞으로 뻗어 딛고 3초 꾸욱'); FM('링이 차면 발 교대', CS.sand); break;
       case 'BK_A3': FS('WARM 3/3'); FL('제자리 리듬 드리블'); FM('하나, 둘'); break;
       case 'BK_T1': FS('T-1'); S(this.slotFL, 'STAGE CLEAR', { size: 0.12, color: CS.prism }); break;
       case 'BK_B1': FS('LEARN 1/3'); FL('스텝백 궤적 보기'); FM('눈으로 따라가요'); break;
@@ -1288,7 +1288,7 @@ export class Session {
     } else if (id === 'A1') {
       // 사이드 런지 프레스 — 옆으로 크게 딛어 원을 지그시 누르면 그쪽 홀드 아크가 차오름.
       // 프로브 구동(왼/오른발 무관): 발이 접지 + 골반에서 옆으로 0.5m+ 벌어지면 '누름'.
-      const NEED = 0.2, REPS = 6, DEMO = 3.7;
+      const NEED = 2.6, REPS = 4, DEMO = 4.6;
       const dt = Math.max(0, this.t - (this._a1t ?? this.t));
       if ((this._a1t ?? 0) > this.t) { this.a1count = 0; this.a1press.fill = 0; }   // 재진입 리셋
       this._a1t = this.t;
@@ -1299,7 +1299,7 @@ export class Session {
       for (const f of [pb?.footL, pb?.footR]) {
         if (f && f.y < 0.09 && Math.hypot(f.x - P.cx, f.z - P.cz) < 0.27) pressing = true;
       }
-      P.fill = pressing ? Math.min(1, P.fill + dt / NEED) : Math.max(0, P.fill - dt * 0.8);
+      P.fill = pressing ? Math.min(1, P.fill + dt / NEED) : Math.max(0, P.fill - dt * 0.6);
       P.arc.setProg(Math.max(0.001, P.fill));
       P.ring.setOp(pressing ? 0.95 : 0.45);
       if (P.fill >= 1) {
@@ -1308,9 +1308,9 @@ export class Session {
       }
       if (this.t < DEMO) {
         this.demoActive = true;
-        FMU('먼저 보세요 — 앞의 원을 꾹 밟기', CS.sand);
+        FMU('먼저 보세요 — 앞으로 뻗어 딛고 3초 꾸욱', CS.sand);
       } else {
-        this._say('a1go', '션', '이제 같이 — 앞의 원을 발로 꾹, 누르는 동안 차올라요. 왼발 오른발 번갈아.');
+        this._say('a1go', '션', '이제 같이 — 앞으로 쭉 뻗어 딛고, 3초간 꾸욱. 링이 차면 발을 바꿔요.');
         FMU(`원 눌러 채우기 ${Math.min(REPS, this.a1count || 0)} / ${REPS}`, CS.sand);
         if ((this.a1count || 0) >= REPS) { this.next(); return; }
       }
@@ -1411,7 +1411,7 @@ export class Session {
       }
     } else if (id === 'BK_A2') {
       // 사이드 런지 프레스 — 러닝 A1과 동일 문법: 옆 원을 밟아 누르면 그쪽 아크 채움
-      const NEED = 0.2, REPS = 6, DEMO = 3.7;
+      const NEED = 2.6, REPS = 4, DEMO = 4.6;
       const dt = Math.max(0, this.t - (this._bkA2t ?? this.t));
       if ((this._bkA2t ?? 0) > this.t) { this.bkA2count = 0; this.bkA2press.fill = 0; }
       this._bkA2t = this.t;
@@ -1421,16 +1421,16 @@ export class Session {
       for (const f of [pb?.footL, pb?.footR]) {
         if (f && f.y < 0.09 && Math.hypot(f.x - P.cx, f.z - P.cz) < 0.27) pressing = true;
       }
-      P.fill = pressing ? Math.min(1, P.fill + dt / NEED) : Math.max(0, P.fill - dt * 0.8);
+      P.fill = pressing ? Math.min(1, P.fill + dt / NEED) : Math.max(0, P.fill - dt * 0.6);
       P.arc.setProg(Math.max(0.001, P.fill));
       P.ring.setOp(pressing ? 0.95 : 0.45);
       if (P.fill >= 1) {
         this.bkA2count = (this.bkA2count || 0) + 1; P.fill = 0;
         const wp = new THREE.Vector3(); P.arc.getWorldPosition(wp); this.onPress?.(wp);
       }
-      if (this.t < DEMO) { this.demoActive = true; FMU('먼저 보세요 — 앞의 원을 꾹 밟기', CS.sand); }
+      if (this.t < DEMO) { this.demoActive = true; FMU('먼저 보세요 — 앞으로 뻗어 딛고 3초 꾸욱', CS.sand); }
       else {
-        this._say('bka2go', '커리', '이제 같이 — 앞의 원을 꾹 밟아 채워요. 하나, 둘, 리듬으로.');
+        this._say('bka2go', '커리', '이제 같이 — 앞으로 쭉 뻗어 딛고 3초간 꾸욱 눌러요.');
         FMU(`원 눌러 채우기 ${Math.min(REPS, this.bkA2count || 0)} / ${REPS}`, CS.sand);
         if ((this.bkA2count || 0) >= REPS) { this.next(); return; }
       }
