@@ -1807,7 +1807,7 @@ void main(){
       ['sfu_jogging', '조깅 (SFU 무료·이동)'],
       ['cmu_stretch2', '스트레칭 2 (CMU 77_21)'],
       ['cmu_stretch3', '스트레칭 3·장편 (CMU 83_22)'],
-      ['cmu_warmup_routine', '워밍업 루틴 — 점핑잭·조깅·스쿼트·스트레치 (CMU 14_06)'],
+      ['cmu_warmup_routine', '워밍업 루틴 44s (CMU 14_06)'],
       ['cmu_dribble_low', '로우 드리블 (CMU)'],
       ['cmu_crossover_shot', '크로스오버+슛 (CMU)'],
       ['cmu_crossover_turn', '크로스오버+90°턴 드리블 (CMU·이동)'],
