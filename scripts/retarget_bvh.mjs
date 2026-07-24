@@ -86,6 +86,31 @@ const MF_NAMES = {
   mixamorigRightFoot: 'RightFoot',
   mixamorigRightToeBase: 'RightToeBase',
 };
+// Rokoko Vision(AI 비디오 모캡) 골격 — 클린 데이터, 손가락 포함. Spine 4개 → 3개 분배.
+const RK_NAMES = {
+  mixamorigHips: 'Hips',
+  mixamorigSpine: 'Spine1',
+  mixamorigSpine1: 'Spine3',
+  mixamorigSpine2: 'Spine4',
+  mixamorigNeck: 'Neck',
+  mixamorigHead: 'Head',
+  mixamorigLeftShoulder: 'LeftShoulder',
+  mixamorigLeftArm: 'LeftArm',
+  mixamorigLeftForeArm: 'LeftForeArm',
+  mixamorigLeftHand: 'LeftHand',
+  mixamorigRightShoulder: 'RightShoulder',
+  mixamorigRightArm: 'RightArm',
+  mixamorigRightForeArm: 'RightForeArm',
+  mixamorigRightHand: 'RightHand',
+  mixamorigLeftUpLeg: 'LeftThigh',
+  mixamorigLeftLeg: 'LeftShin',
+  mixamorigLeftFoot: 'LeftFoot',
+  mixamorigLeftToeBase: 'LeftToe',
+  mixamorigRightUpLeg: 'RightThigh',
+  mixamorigRightLeg: 'RightShin',
+  mixamorigRightFoot: 'RightFoot',
+  mixamorigRightToeBase: 'RightToe',
+};
 const MF_DIR = '/Users/iil-yeo/Downloads/motifect_sports_and_athletics_v1_0_fbx/Animations';
 
 // SFU/NUS: 접두사 없는 Mixamo 본명(Hips/Spine/Spine1/Neck/…) — Spine2 없음
@@ -122,6 +147,8 @@ const JOBS = {
   cmu_warmup_routine: { file: 'public/mocap/cmu/14_06.bvh', names: CMU_NAMES, hip: 'Hips', fps: 30, yScale: true },                 // 14_06 점핑잭·조깅·스쿼트·트위스트·스트레치 (44.7s)
   cmu_crossover_turn: { file: 'public/mocap/cmu/06_12.bvh', names: CMU_NAMES, hip: 'Hips', fps: 30, yScale: true, keepRootXZ: true }, // 06_12 크로스오버+90도턴 드리블
   cmu_dribble_shot: { file: 'public/mocap/cmu/06_15.bvh', names: CMU_NAMES, hip: 'Hips', fps: 30, yScale: true },                   // 06_15 드리블→슛 (4.6s)
+  // Rokoko Vision 비디오 모캡 (스텝백 튜토리얼 12.8s) — 실제 이동 보존(keepRootXZ)
+  rk_stepback: { file: 'assets/anim-rk-stepback.fbx', type: 'fbx', names: RK_NAMES, hip: 'Hips', fps: 30, yScale: true, keepRootXZ: true },
 };
 
 // FBX 소스 로드 → {skeleton, clip} (BVHLoader 반환과 동형).
@@ -133,6 +160,12 @@ function loadFbxSource(file) {
   let sm = null; g.traverse(o => { if (o.isSkinnedMesh && !sm) sm = o; });
   if (!sm) throw new Error(`SkinnedMesh 없음: ${file}`);
   let bones = sm.skeleton.bones;
+  // 멀티 스킨드메시 FBX(Rokoko 등): 첫 메시 스켈레톤이 부분 본만 가짐 → 계층 전체 본 통합
+  {
+    const all = []; const seen = new Set();
+    g.traverse(o => { if (o.isBone && !seen.has(o.name)) { seen.add(o.name); all.push(o); } });
+    if (all.length > bones.length) bones = all;
+  }
   const hips = g.getObjectByName('Hips');
   if (hips && !hips.isBone) {
     const hb = new THREE.Bone(); hb.name = 'Hips';
