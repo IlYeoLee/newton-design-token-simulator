@@ -3560,7 +3560,11 @@ void main(){
     const data = state.packs[state.pack];
     if (!data) return;
     // 러닝 준비운동(A 스트레치): 빔을 앞발 지면에 락 — 무게이동으로 빔다리(뒷발) 흔들려도 앞발 링 고정(미래 짐벌 보정).
-    rig.beamGroundLock = session.active && session.sport === 'running' && /^A\d/.test(session.stage || '');
+    // 투사 정책(실측 근거): 데모 스테이지 중 정강이 ω가 경계권인 농구 드리블(BK_A3 avg 143dps·
+    // 스윙 41%, BK_B3 137dps·44%)도 러닝 A단계처럼 빔을 앞발 지면에 락 — 무릎 원점 요동 격리.
+    rig.beamGroundLock = session.active && (
+      (session.sport === 'running' && /^A\d/.test(session.stage || '')) ||
+      (session.sport === 'basketball' && /^BK_[AB]\d/.test(session.stage || '')));
     if (rig.beamGroundLock) {
       const pb = xbot.getProbes?.();
       if (pb?.footL && pb?.footR) {
