@@ -1805,6 +1805,11 @@ void main(){
     const CLIPS = [
       ['lb_dribble', '★★ 르브론 드리블 (Sketchfab·mixamorig 네이티브)'],
       ['bp_dribble', '★★ 드리블 루프 2 (Sketchfab·네이티브 1.6s)'],
+      ['bl_crossover', '★★★ 크로스오버 (Fab→Blender 리타겟 검증)'],
+      ['mf_dribble', '★ 농구 드리블 10s (Motifect)'],
+      ['mf_block', '★ 블록 점프 — 수비 (Motifect)'],
+      ['mf_chest_pass', '★ 체스트 패스 (Motifect)'],
+      ['mf_sprint_start', '★ 스프린트 스타트 — 전진 (Motifect·이동)'],
       ['rk_stepback', '★ 스텝백 튜토리얼 (Rokoko AI 모캡·이동)'],
       ['quadStretch', '쿼드 스트레치 (실사 영상)'],
       ['hj_legswing', '레그 스윙 (햇지런 영상)'],

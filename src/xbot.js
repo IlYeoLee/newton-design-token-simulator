@@ -21,6 +21,7 @@ import armStretchUrl from '../assets/anim-arm-stretch.fbx?url';     // Mixamo 'A
 import airSquatUrl from '../assets/anim-air-squat.fbx?url';         // Mixamo 'Air Squat' — 농구 스쿼트(실측, 힙Y 정상)
 import lbDribbleUrl from '../assets/anim-lb-dribble.fbx?url';       // Sketchfab 'LeBron Dribbles'(CC-BY, LasquetiSpice) — mixamorig 네이티브 드리블 3s
 import bpDribbleUrl from '../assets/anim-bp-dribble.fbx?url';       // Sketchfab 'Dribbles Invisible Ball'(CC-BY, 동일 제작자) — 네이티브 1.6s 루프
+import blCrossoverUrl from '../assets/anim-bl-crossover.fbx?url';   // Fab 크로스오버 → Blender 정식 리타겟(월드델타 베이크) 산출 mixamorig
 import joggingUrl from '../assets/anim-jogging.fbx?url';            // Mixamo 'Jogging' — 예비(워밍업 조깅)
 import bkBlockUrl from '../assets/anim-bk-block.fbx?url';           // Mixamo 'Defender'(점프 블록) — 농구 수비 예비
 // Bandai Namco Research MotionDataset (CC BY-NC) — BVH 실측 리타겟 클립
@@ -54,7 +55,11 @@ import cmuWarmupRoutineClipJson from '../assets/mocap/xclip-cmu_warmup_routine.j
 import cmuCrossoverTurnClipJson from '../assets/mocap/xclip-cmu_crossover_turn.json';// 06_12 크로스오버+턴
 import cmuDribbleShotClipJson from '../assets/mocap/xclip-cmu_dribble_shot.json';    // 06_15 드리블→슛
 import rkStepbackClipJson from '../assets/mocap/xclip-rk_stepback.json';
-import fabCrossoverClipJson from '../assets/mocap/xclip-fab_crossover.json';   // Fab 크로스오버(UE 마네킹→리타겟, 힙 회전만+런타임 클램프)    // Rokoko Vision 비디오 모캡 — 스텝백 튜토리얼(파운드→45°스텝백→개더→슛)
+import fabCrossoverClipJson from '../assets/mocap/xclip-fab_crossover.json';   // Fab 크로스오버(UE 마네킹→리타겟, 힙 회전만+런타임 클램프)
+import mfDribbleClipJson from '../assets/mocap/xclip-mf_dribble.json';        // Motifect 농구 드리블(10s)
+import mfBlockClipJson from '../assets/mocap/xclip-mf_block.json';            // Motifect 블록 시도(수비 점프)
+import mfChestPassClipJson from '../assets/mocap/xclip-mf_chest_pass.json';   // Motifect 체스트 패스
+import mfSprintStartClipJson from '../assets/mocap/xclip-mf_sprint_start.json'; // Motifect 스프린트 스타트(전진·이동)    // Rokoko Vision 비디오 모캡 — 스텝백 튜토리얼(파운드→45°스텝백→개더→슛)
 // Mixamo Stomping 좌+우(미러) 오프라인 합성 — 프레스(원 꾹 밟기) 교대 클립
 import stompPressClipJson from '../assets/mocap/xclip-stomp_press.json';
 
@@ -79,7 +84,7 @@ export class XBot {
 
   async load() {
     const loader = new FBXLoader();
-    const [xbot, runFbx, hookFbx, dribbleFbx, sidestepFbx, warmupFbx, boxJabFbx, boxComboFbx, boxGuardFbx, bkStanceFbx, breathingIdleFbx, jumpingJacksFbx, neckStretchFbx, armStretchFbx, airSquatFbx, joggingFbx, bkBlockFbx, lbDribbleFbx, bpDribbleFbx] = await Promise.all([
+    const [xbot, runFbx, hookFbx, dribbleFbx, sidestepFbx, warmupFbx, boxJabFbx, boxComboFbx, boxGuardFbx, bkStanceFbx, breathingIdleFbx, jumpingJacksFbx, neckStretchFbx, armStretchFbx, airSquatFbx, joggingFbx, bkBlockFbx, lbDribbleFbx, bpDribbleFbx, blCrossoverFbx] = await Promise.all([
       loader.loadAsync(xbotUrl),
       loader.loadAsync(runUrl),
       loader.loadAsync(hookUrl),
@@ -99,6 +104,7 @@ export class XBot {
       loader.loadAsync(bkBlockUrl),
       loader.loadAsync(lbDribbleUrl),
       loader.loadAsync(bpDribbleUrl),
+      loader.loadAsync(blCrossoverUrl),
     ]);
 
     xbot.scale.setScalar(0.01);
@@ -175,19 +181,24 @@ export class XBot {
     regJson('rk_stepback', rkStepbackClipJson);   // 클린 AI 모캡 — B단계 스텝 소스 후보
     reg('lb_dribble', lbDribbleFbx);   // mixamorig 네이티브(Sketchfab) — 리타겟 0, 원본 품질
     reg('bp_dribble', bpDribbleFbx);   // 네이티브 드리블 2호(1.6s 루프)
+    reg('bl_crossover', blCrossoverFbx);   // Blender 리타겟 검증 1호 — 성공 시 Fab UE 애니 전체 개방
     regJson('fab_crossover', fabCrossoverClipJson);   // 유저 확보 Fab 크로스오버
+    regJson('mf_dribble', mfDribbleClipJson);
+    regJson('mf_block', mfBlockClipJson);
+    regJson('mf_chest_pass', mfChestPassClipJson);
+    regJson('mf_sprint_start', mfSprintStartClipJson);
     regJson('stomp_press', stompPressClipJson);   // 프레스 원 꾹 밟기 (Stomping L+R 합성)
     // 실측 모캡 클립 = 실사람 미세 움직임 포함 → playDemo 호흡 레이어 제외 대상(섞으면 포즈 희석)
     this._vmClips = new Set(['quadStretch', 'cmu_stretch', 'cmu_dribble_low', 'cmu_crossover_shot', 'jumpingJacks', 'mf_jump_shot', 'mf_marathon', 'mf_layup']);
     // keepRootXZ 베이크 클립(몸이 실제 이동) — 재생 시 힙 XZ 고정(_lockInPlace) 제외 대상
-    this._rootClips = new Set(['mf_boxing_footwork', 'sfu_jogging', 'cmu_crossover_turn', 'rk_stepback']);
-    for (const k of ['bp_dribble', 'fab_crossover', 'lb_dribble', 'rk_stepback', 'sfu_jumprope', 'sfu_jogging', 'cmu_stretch2', 'cmu_stretch3', 'cmu_warmup_routine', 'cmu_crossover_turn', 'cmu_dribble_shot',
+    this._rootClips = new Set(['mf_boxing_footwork', 'sfu_jogging', 'cmu_crossover_turn', 'rk_stepback', 'mf_sprint_start']);
+    for (const k of ['bl_crossover', 'mf_dribble', 'mf_block', 'mf_chest_pass', 'mf_sprint_start', 'bp_dribble', 'fab_crossover', 'lb_dribble', 'rk_stepback', 'sfu_jumprope', 'sfu_jogging', 'cmu_stretch2', 'cmu_stretch3', 'cmu_warmup_routine', 'cmu_crossover_turn', 'cmu_dribble_shot',
       'hj_legswing', 'hj_jjack', 'hj_squat', 'hj_sidelunge', 'hj_kneehug', 'hj_sidebend', 'neckStretch', 'armStretch', 'airSquat', 'jogging', 'bkBlock', 'stomp_press']) this._vmClips.add(k);
     // 접지 베이크 완료 클립 — 재생 시 per-frame 발 클램프 제외(점프와 싸우며 덜커덩 만들던 것).
     // 접지는 리타겟 스크립트가 클립 전 구간 1회 정렬(소스 독립 설계 — 어떤 팩이 와도 동일).
     this._groundedClips = new Set(['cmu_stretch', 'cmu_stretch2', 'cmu_stretch3', 'cmu_warmup_routine',
       'cmu_dribble_low', 'cmu_crossover_shot', 'cmu_crossover_turn', 'cmu_dribble_shot',
-      'mf_jump_shot', 'mf_layup', 'mf_marathon', 'mf_boxing_footwork', 'sfu_jumprope', 'sfu_jogging', 'rk_stepback']);
+      'mf_jump_shot', 'mf_layup', 'mf_marathon', 'mf_boxing_footwork', 'mf_dribble', 'mf_block', 'mf_chest_pass', 'mf_sprint_start', 'sfu_jumprope', 'sfu_jogging', 'rk_stepback']);
 
     this._hips = xbot.getObjectByName('mixamorigHips');
     this._kneeR = xbot.getObjectByName('mixamorigRightLeg');
