@@ -1823,11 +1823,15 @@ void main(){
       for (const [k, label] of CLIPS) { const o = document.createElement('option'); o.value = k; o.textContent = label; sel.appendChild(o); }
       btn.addEventListener('click', () => {
         if (xbot.verifyClip) { xbot.setVerify(null); btn.textContent = '▶ 재생'; return; }
+        if (!xbot.actions[sel.value]) { btn.textContent = '클립 없음(새로고침)'; setTimeout(() => { btn.textContent = '▶ 재생'; }, 1600); return; }
         stopSession();
+        // 어떤 상태(타 종목·일시정지·1인칭)에서 눌러도 보이게 — verify-warmup과 동일 정규화
+        if (state.pack !== 'running') document.querySelector('[data-pack=running]')?.click();
+        state.playing = true; panel.setPlaying(true);
         xbot.setVerify(sel.value);
         btn.textContent = '⏹ 정지';
       });
-      sel.addEventListener('change', () => { if (xbot.verifyClip) xbot.setVerify(sel.value); });
+      sel.addEventListener('change', () => { if (xbot.verifyClip && xbot.actions[sel.value]) xbot.setVerify(sel.value); });
     }
   }
   document.getElementById('verify-boxshadow')?.addEventListener('click', () => {
@@ -3531,7 +3535,8 @@ void main(){
       // 러닝 준비운동 = 동적 워밍업(스포츠과학: 러닝 전 정적 홀드 비권장). A1=CMU 42_01 실측
       // 전신 풀기, A2=Mixamo 점핑잭 실측, A3=다리 스윙(동적 드릴 유지). FIN=쿨다운 쿼드
       // 스트레치(quad_src.mp4 실사 비디오모캡 — 정적 스트레치의 올바른 위치는 운동 후).
-      A1: 'cmu_stretch', A2: 'jumpingJacks', A3: 'run_swing', A4: 'run_march', FIN: 'quadStretch',
+      // T1(몸풀기 끝 대기) = CMU 77_21 가벼운 스트레칭 — idle 대신 마무리 정리 동작
+      A1: 'cmu_stretch', A2: 'jumpingJacks', A3: 'run_swing', A4: 'run_march', T1: 'cmu_stretch2', FIN: 'quadStretch',
       // 복싱 = Mixamo 실측 모캡 (목풀기만 절차)
       BX_A1: 'bx_neck', BX_A2: 'boxGuard', BX_A3: 'boxJab',
       BX_B1: 'boxGuard', BX_B2: 'boxGuard', BX_B3: 'boxCombo',
@@ -3539,7 +3544,8 @@ void main(){
       // 농구 — CMU 06 실측: A3 로우 프리스타일 드리블, B1·B2 크로스오버+슛(시그니처 무브 시범/분해),
       // B3 컷·감속(드리블 컷 구간 창). 시작 화면(READY)은 러닝과 동일 calm idle(공 없음)
       BK_READY: 'idle', BK_A1: 'bkStance', BK_A2: 'sidestep', BK_A3: 'cmu_dribble_low',
-      BK_B1: 'cmu_crossover_shot', BK_B2: 'cmu_crossover_shot', BK_B3: 'cmu_dribble_low',
+      // B1 시범 = 06_15 드리블→슛(온전한 무브 원테이크), B2 분해 = 06_14 크로스오버+슛 위상잠금
+      BK_B1: 'cmu_dribble_shot', BK_B2: 'cmu_crossover_shot', BK_B3: 'cmu_dribble_low',
     };
     if (DRILL[id] && xbot.actions[DRILL[id]]) return DRILL[id];
     if (sport === 'basketball') return 'dribble';           // 그 외 제자리 드리블
