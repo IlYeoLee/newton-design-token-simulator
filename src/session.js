@@ -379,7 +379,7 @@ const BK_GUIDE = [
   { t: 2.88, side: 'L', x: -0.05, z: 0.14 },   // 슛 착지 왼발
   { t: 2.93, side: 'R', x: 0.10, z: 0.06 },    // 슛 착지 오른발
 ];
-const BK_STAND = -1.0;   // B1·B2 봇 배치(z) — 마크가 투사존에 들어오는 후퇴 위치
+const BK_STAND = -1.85;   // B1~B3 봇 배치(z) — 가이드 전체(마크·링·텍스트)가 투사존(-1.2~-2.8) 안에 들어오는 후퇴 위치
 
 export const STAGES = {
   running: [
@@ -646,12 +646,12 @@ export class Session {
     this.bkB3plant = new FootMark('right').at(p3x, p3z, 1.1); g.add(this.bkB3plant.group);
     // 분리 눈금 링(플랜트 중심)
     this.bkSepRings = [
-      floorRing(p3x, p3z, 0.295, 0.305, BRAND.dim, 0.35),
-      floorRing(p3x, p3z, 0.475, 0.49, BRAND.prism, 0.75),
-      floorRing(p3x, p3z, 0.595, 0.605, BRAND.dim, 0.35),
+      floorRing(p3x, p3z, 0.27, 0.30, BRAND.dim, 0.5),
+      floorRing(p3x, p3z, 0.44, 0.49, BRAND.prism, 0.95),
+      floorRing(p3x, p3z, 0.57, 0.61, BRAND.dim, 0.5),
     ];
     this.bkSepRings.forEach(r => g.add(r));
-    g.add(floorText('0.48m — 커리의 분리', p3x + 0.02, p3z + 0.62, { size: 0.055, color: CS.prism }));
+    g.add(floorText('0.48m — 커리의 분리', p3x + 0.02, p3z + 0.72, { size: 0.11, color: CS.prism }));
     // 분리 벡터 화살표(플랜트→착지 중점)
     const sepAng = Math.atan2(lmx - p3x, lmz - p3z) * 180 / Math.PI + 180;
     this.bkSepArrow = floorArrow((p3x + lmx) / 2, (p3z + lmz) / 2, sepAng, BRAND.coral, Math.max(0.25, Math.hypot(lmx - p3x, lmz - p3z) * 0.7));
@@ -659,8 +659,8 @@ export class Session {
     // 착지존 양발 + 릴리즈 수축 링
     this.bkLand = [new FootMark('left').at(-BK_GUIDE[4].x, BK_STAND - BK_GUIDE[4].z), new FootMark('right').at(-BK_GUIDE[5].x, BK_STAND - BK_GUIDE[5].z)];
     this.bkLand.forEach(f => g.add(f.group));
-    this.bkRelRing = floorRing(lmx, lmz, 0.34, 0.365, BRAND.red, 0.0); g.add(this.bkRelRing);
-    this.bkRelTxt = floorText('릴리즈 0.16s — 링이 닫히기 전에', lmx, lmz - 0.5, { size: 0.055, color: CS.red }); g.add(this.bkRelTxt);
+    this.bkRelRing = floorRing(lmx, lmz, 0.30, 0.37, BRAND.red, 0.0); g.add(this.bkRelRing);
+    this.bkRelTxt = floorText('릴리즈 0.16s — 링이 닫히기 전에', lmx, lmz - 0.55, { size: 0.10, color: CS.red }); g.add(this.bkRelTxt);
 
     g = this._mk('BK_T2');   // 카운트 공통(countGroup) 사용 — 별도 지오메트리 없음
 
