@@ -56,10 +56,10 @@ import cmuCrossoverTurnClipJson from '../assets/mocap/xclip-cmu_crossover_turn.j
 import cmuDribbleShotClipJson from '../assets/mocap/xclip-cmu_dribble_shot.json';    // 06_15 드리블→슛
 import rkStepbackClipJson from '../assets/mocap/xclip-rk_stepback.json';
 import fabCrossoverClipJson from '../assets/mocap/xclip-fab_crossover.json';   // Fab 크로스오버(UE 마네킹→리타겟, 힙 회전만+런타임 클램프)
-import mfDribbleClipJson from '../assets/mocap/xclip-mf_dribble.json';        // Motifect 농구 드리블(10s)
+import mfDribbleBlUrl from '../assets/anim-mf-dribble-bl.fbx?url';        // Motifect 드리블 → Blender 리타겟(오브젝트 힙·다리비율 스케일)
 import mfBlockClipJson from '../assets/mocap/xclip-mf_block.json';            // Motifect 블록 시도(수비 점프)
 import mfChestPassClipJson from '../assets/mocap/xclip-mf_chest_pass.json';   // Motifect 체스트 패스
-import mfSprintStartClipJson from '../assets/mocap/xclip-mf_sprint_start.json'; // Motifect 스프린트 스타트(전진·이동)    // Rokoko Vision 비디오 모캡 — 스텝백 튜토리얼(파운드→45°스텝백→개더→슛)
+import mfSprintBlUrl from '../assets/anim-mf-sprint-bl.fbx?url'; // Motifect 스프린트 스타트 → Blender 리타겟    // Rokoko Vision 비디오 모캡 — 스텝백 튜토리얼(파운드→45°스텝백→개더→슛)
 // Mixamo Stomping 좌+우(미러) 오프라인 합성 — 프레스(원 꾹 밟기) 교대 클립
 import stompPressClipJson from '../assets/mocap/xclip-stomp_press.json';
 
@@ -84,7 +84,7 @@ export class XBot {
 
   async load() {
     const loader = new FBXLoader();
-    const [xbot, runFbx, hookFbx, dribbleFbx, sidestepFbx, warmupFbx, boxJabFbx, boxComboFbx, boxGuardFbx, bkStanceFbx, breathingIdleFbx, jumpingJacksFbx, neckStretchFbx, armStretchFbx, airSquatFbx, joggingFbx, bkBlockFbx, lbDribbleFbx, bpDribbleFbx, blCrossoverFbx] = await Promise.all([
+    const [xbot, runFbx, hookFbx, dribbleFbx, sidestepFbx, warmupFbx, boxJabFbx, boxComboFbx, boxGuardFbx, bkStanceFbx, breathingIdleFbx, jumpingJacksFbx, neckStretchFbx, armStretchFbx, airSquatFbx, joggingFbx, bkBlockFbx, lbDribbleFbx, bpDribbleFbx, blCrossoverFbx, mfDribbleBlFbx, mfSprintBlFbx] = await Promise.all([
       loader.loadAsync(xbotUrl),
       loader.loadAsync(runUrl),
       loader.loadAsync(hookUrl),
@@ -105,6 +105,8 @@ export class XBot {
       loader.loadAsync(lbDribbleUrl),
       loader.loadAsync(bpDribbleUrl),
       loader.loadAsync(blCrossoverUrl),
+      loader.loadAsync(mfDribbleBlUrl),
+      loader.loadAsync(mfSprintBlUrl),
     ]);
 
     xbot.scale.setScalar(0.01);
@@ -183,10 +185,10 @@ export class XBot {
     reg('bp_dribble', bpDribbleFbx);   // 네이티브 드리블 2호(1.6s 루프)
     reg('bl_crossover', blCrossoverFbx);   // Blender 리타겟 검증 1호 — 성공 시 Fab UE 애니 전체 개방
     regJson('fab_crossover', fabCrossoverClipJson);   // 유저 확보 Fab 크로스오버
-    regJson('mf_dribble', mfDribbleClipJson);
+    reg('mf_dribble', mfDribbleBlFbx);
     regJson('mf_block', mfBlockClipJson);
     regJson('mf_chest_pass', mfChestPassClipJson);
-    regJson('mf_sprint_start', mfSprintStartClipJson);
+    reg('mf_sprint_start', mfSprintBlFbx);
     regJson('stomp_press', stompPressClipJson);   // 프레스 원 꾹 밟기 (Stomping L+R 합성)
     // 실측 모캡 클립 = 실사람 미세 움직임 포함 → playDemo 호흡 레이어 제외 대상(섞으면 포즈 희석)
     this._vmClips = new Set(['quadStretch', 'cmu_stretch', 'cmu_dribble_low', 'cmu_crossover_shot', 'jumpingJacks', 'mf_jump_shot', 'mf_marathon', 'mf_layup']);

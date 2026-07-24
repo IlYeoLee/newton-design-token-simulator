@@ -23,6 +23,19 @@ UE_MAP = {  # mixamorig → UE5 마네킹
     'mixamorigRightFoot': 'foot_r', 'mixamorigRightToeBase': 'ball_r',
 }
 
+MF_MAP = {  # mixamorig → Motifect (Hips/Spine1/Spine2/Chest/Neck1...)
+    'mixamorigHips': 'Hips', 'mixamorigSpine': 'Spine1', 'mixamorigSpine1': 'Spine2',
+    'mixamorigSpine2': 'Chest', 'mixamorigNeck': 'Neck1', 'mixamorigHead': 'Head',
+    'mixamorigLeftShoulder': 'LeftShoulder', 'mixamorigLeftArm': 'LeftArm',
+    'mixamorigLeftForeArm': 'LeftForeArm', 'mixamorigLeftHand': 'LeftHand',
+    'mixamorigRightShoulder': 'RightShoulder', 'mixamorigRightArm': 'RightArm',
+    'mixamorigRightForeArm': 'RightForeArm', 'mixamorigRightHand': 'RightHand',
+    'mixamorigLeftUpLeg': 'LeftLeg', 'mixamorigLeftLeg': 'LeftShin',
+    'mixamorigLeftFoot': 'LeftFoot', 'mixamorigLeftToeBase': 'LeftToeBase',
+    'mixamorigRightUpLeg': 'RightLeg', 'mixamorigRightLeg': 'RightShin',
+    'mixamorigRightFoot': 'RightFoot', 'mixamorigRightToeBase': 'RightToeBase',
+}
+
 def import_fbx(path):
     before = set(bpy.data.objects)
     bpy.ops.import_scene.fbx(filepath=path, ignore_leaf_bones=True, automatic_bone_orientation=False)
@@ -34,6 +47,16 @@ bpy.ops.wm.read_factory_settings(use_empty=True)
 src_arm, src_objs = import_fbx(SRC)
 tgt_arm, tgt_objs = import_fbx(XBOT)
 scn = bpy.context.scene
+
+# 소스 리그 자동 감지: UE(pelvis) / Motifect(Hips+Chest) / 그 외 UE_MAP 기본
+_src_bones = set(b.name for b in src_arm.data.bones)
+if 'pelvis' in _src_bones:
+    pass  # UE_MAP 그대로
+elif 'Chest' in _src_bones:
+    UE_MAP = MF_MAP
+    print('[rt] source rig: Motifect (Hips=오브젝트)')
+else:
+    print('[rt] source rig: UE(기본) — 본 목록:', sorted(list(_src_bones))[:8])
 
 # Blender는 mixamo 본을 'mixamorig:Hips'(콜론)로 읽음 — 양쪽 표기 해석
 def T(name):
@@ -59,23 +82,41 @@ def rest_world_rot(arm, bone):
 def pose_world_rot(arm, bone):
     return (arm.matrix_world @ arm.pose.bones[bone].matrix).to_quaternion()
 
+HIP_OBJ = UE_MAP.get(HIP_T) not in src_arm.data.bones
 pairs = []
 for t, s in UE_MAP.items():
     if t in tgt_arm.pose.bones and s in src_arm.pose.bones:
         pairs.append((t, s, rest_world_rot(tgt_arm, t), rest_world_rot(src_arm, s)))
-print(f"[rt] mapped bones: {len(pairs)}")
+print(f"[rt] mapped bones: {len(pairs)}  hipObj: {HIP_OBJ}")
 
 # 힙 스케일 (서있는 높이 비율) — 소스 rest 힙 월드높이 vs X봇
-src_hip_h = (src_arm.matrix_world @ src_arm.data.bones[UE_MAP[HIP_T]].matrix_local).translation.z
-tgt_hip_h = (tgt_arm.matrix_world @ tgt_arm.data.bones[HIP_T].matrix_local).translation.z
-k = tgt_hip_h / max(1e-6, src_hip_h)
-print(f"[rt] hip: src {src_hip_h:.3f} tgt {tgt_hip_h:.3f} k {k:.3f}")
-
-src_hip = UE_MAP[HIP_T]
 scn.frame_set(f0)
 bpy.context.view_layer.update()
-hip0 = (src_arm.matrix_world @ src_arm.pose.bones[src_hip].matrix).translation.copy()
+if HIP_OBJ:
+    hip0 = src_arm.matrix_world.translation.copy()
+    hipR0 = src_arm.matrix_world.to_quaternion()
+    src_hip_h = hip0.z
+else:
+    src_hip_h = (src_arm.matrix_world @ src_arm.data.bones[UE_MAP[HIP_T]].matrix_local).translation.z
+    src_hip = UE_MAP[HIP_T]
+    hip0 = (src_arm.matrix_world @ src_arm.pose.bones[src_hip].matrix).translation.copy()
+tgt_hip_h = (tgt_arm.matrix_world @ tgt_arm.data.bones[HIP_T].matrix_local).translation.z
+# 스케일 k = 다리 길이 비율(허벅지+정강이) — 첫 프레임이 쪼그린 자세여도 안전
+def leg_len(arm, up, lo, foot):
+    b = arm.data.bones
+    if up in b and lo in b and foot in b:
+        return (b[up].head_local - b[lo].head_local).length + (b[lo].head_local - b[foot].head_local).length
+    return None
+UP_T, LO_T, FT_T = T('mixamorigLeftUpLeg'), T('mixamorigLeftLeg'), T('mixamorigLeftFoot')
+tll = leg_len(tgt_arm, UP_T, LO_T, FT_T)
+sll = leg_len(src_arm, UE_MAP[UP_T], UE_MAP[LO_T], UE_MAP[FT_T])
+# 소스 스케일: armature 오브젝트 스케일 반영
+if sll is not None: sll *= (src_arm.matrix_world.to_scale().z)
+if tll is not None: tll *= (tgt_arm.matrix_world.to_scale().z)
+k = (tll / sll) if (tll and sll) else (tgt_hip_h / max(1e-6, src_hip_h))
+print(f"[rt] hip: srcH {src_hip_h:.3f} tgtH {tgt_hip_h:.3f} legRatio k {k:.3f}")
 tgt_hip_rest = (tgt_arm.matrix_world @ tgt_arm.data.bones[HIP_T].matrix_local).translation.copy()
+tgt_hip_rest_q = (tgt_arm.matrix_world @ tgt_arm.data.bones[HIP_T].matrix_local).to_quaternion()
 
 # 타겟 새 액션
 tgt_arm.animation_data_create()
@@ -102,8 +143,16 @@ for f in range(f0, f1 + 1):
         basis_q = (parent_w.to_quaternion() @ offset.to_quaternion()).inverted() @ world_q
         pb.rotation_quaternion = basis_q
         pb.keyframe_insert('rotation_quaternion', frame=f)
+    # 힙: 오브젝트 힙(Motifect)이면 회전도 여기서 처리
+    if HIP_OBJ:
+        world_q = (src_arm.matrix_world.to_quaternion() @ hipR0.inverted()) @ tgt_hip_rest_q
+        pbh = tgt_arm.pose.bones[HIP_T]
+        rest_local_h = tgt_arm.data.bones[HIP_T].matrix_local
+        basis_qh = (tgt_arm.matrix_world.to_quaternion() @ rest_local_h.to_quaternion()).inverted() @ world_q
+        pbh.rotation_quaternion = basis_qh
+        pbh.keyframe_insert('rotation_quaternion', frame=f)
     # 힙 위치: 월드 델타 × k + 타겟 레스트
-    hipw = (src_arm.matrix_world @ src_arm.pose.bones[src_hip].matrix).translation
+    hipw = src_arm.matrix_world.translation if HIP_OBJ else (src_arm.matrix_world @ src_arm.pose.bones[src_hip].matrix).translation
     d = (hipw - hip0) * k
     world_p = tgt_hip_rest + d
     pb = tgt_arm.pose.bones[HIP_T]
