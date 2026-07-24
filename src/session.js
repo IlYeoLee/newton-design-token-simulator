@@ -370,6 +370,17 @@ function wallTap() {
 // 종목별 스테이지 스크립트. 공통 로직은 데이터 필드로 구동:
 //   live=실전 팩 재생 · boost=가속 · cooldown=감속정지 · count=카운트다운
 // 스테이지별 고유 비주얼은 sport-dispatch(_build/_enter/_update)로 처리.
+// 농구 스텝 가이드 — cmu_crossover_shot(CMU 06_14) FK 접지 추출: 스텝 4 + 양발 슛 착지 2
+const BK_GUIDE = [
+  { t: 0.23, side: 'L', x: -0.20, z: 0.18 },
+  { t: 0.68, side: 'R', x: 0.23, z: 0.09 },
+  { t: 1.27, side: 'L', x: -0.12, z: -0.25 },
+  { t: 1.95, side: 'R', x: 0.13, z: -0.07 },
+  { t: 2.88, side: 'L', x: -0.05, z: 0.14 },   // 슛 착지 왼발
+  { t: 2.93, side: 'R', x: 0.10, z: 0.06 },    // 슛 착지 오른발
+];
+const BK_STAND = -1.0;   // B1·B2 봇 배치(z) — 마크가 투사존에 들어오는 후퇴 위치
+
 export const STAGES = {
   running: [
     { id:'READY', label:'준비 — 발 두 번 구르면 시작', voice:['시스템','션의 마지막 1km 페이스로 달려 볼 거예요. 준비되면 제자리에서 발을 두 번 굴러 주세요.'], wear:'SAFE 대기', foot:'발 두 번 구르기 → 시작' },
@@ -393,8 +404,8 @@ export const STAGES = {
     { id:'BK_A2', label:'A · 준비운동 2/3 — 런지 프레스', voice:['커리','앞으로 쭉 뻗어 원을 딛고 3초간 꾸욱. 왼발 오른발 번갈아.'], hap:'프레스 완료 진동 (약)' },
     { id:'BK_A3', label:'A · 준비운동 3/3 — 리듬 드리블', voice:['커리','제자리 드리블로 리듬 잡아요. 하나, 둘.'], wear:'낮은 강도 보조 시작' },
     { id:'BK_T1', label:'T-1 · STAGE CLEAR → 사전 익히기', voice:['시스템','몸 풀렸어요. 탭 두 번이면 다음으로.'], foot:'두 번 탭 → 사전 익히기' },
-    { id:'BK_B1', label:'B · 사전 익히기 1/3 — 스텝백 궤적 보기', voice:['커리','내 스텝백 발 궤적이에요. 먼저 눈으로 따라가요.'], cue:'Ghost 궤적 리플레이' },
-    { id:'BK_B2', label:'B · 사전 익히기 2/3 — 스텝 분해 밟기', voice:['커리','순서대로 밟아요. 하나 — 뒤로 — 셋.'], cue:'Step Combo ×3' },
+    { id:'BK_B1', label:'B · 사전 익히기 1/3 — 무브 궤적 보기', voice:['커리','내 발자국 그대로예요. 스텝 넷, 그리고 양발 착지 — 먼저 눈으로 따라가요.'], cue:'실측 발자국 리플레이' },
+    { id:'BK_B2', label:'B · 사전 익히기 2/3 — 스텝 따라 밟기', voice:['커리','절반 속도로 갈게요. 숫자 순서대로, 왼발 오른발 그대로 밟아요.'], cue:'Step Follow ×6' },
     { id:'BK_B3', label:'B · 사전 익히기 3/3 — 컷 방향·감속', voice:['커리','디딤발에서 확 멈춰요. 감속이 슛의 시작이에요.'], foot:'두 번 탭 → 실전 준비' },
     { id:'BK_T2', label:'T-2 · 5초 뒤 실전 자동 진행 (두 번 탭 = 바로)', voice:['커리','5초 뒤 넘어가요. 준비됐으면 두 번 탭.'], dur:5, count:true, foot:'두 번 탭 = 즉시 · 무입력 = 자동' },
     { id:'BK_C1', dur:3, label:'C · 실전 1/4 — 트리거', voice:['시스템','3, 2, 1. 컷 들어가요.'], hap:'컷 시작 진동', foot:'두 번 탭 → 출발' },
@@ -584,26 +595,39 @@ export class Session {
     g = this._mk('BK_T1');
     this.bkTap1 = this._tap('boxing'); this.bkTap1.position.set(0, 0.013, -1.1); g.add(this.bkTap1);
 
-    // B1 스텝백 궤적 보기 — 3발 궤적 + 곡선 레인 (Ghost 리플레이)
+    // B1·B2 스텝 가이드 = 실측 접지 시퀀스 — 코치 클립(cmu_crossover_shot 06_14)에서 FK로
+    // 발 접지(t,x,z,좌우)를 추출해 그대로 배치. 봇이 그 클립을 재생하므로 마크를 정의상
+    // 정확히 밟고, 유저는 진짜 따라 밟을 수 있는 순서·위치·좌우발을 본다.
+    // (모델 rotY π → world=(-x, BK_STAND-z), BK_STAND = 봇 후퇴 배치로 투사존 정합)
     g = this._mk('BK_B1');
-    const bkp = [[-0.1, -1.6], [0.05, -2.15], [0.3, -2.05]];  // 컷인 → 스텝백(뒤로 옆)
-    this.bkB1 = [];
-    for (let i = 0; i < 3; i++) {
-      const fm = new FootMark(i % 2 === 0 ? 'left' : 'right').at(bkp[i][0], bkp[i][1]);
-      g.add(fm.group); this.bkB1.push(fm);
+    // 바닥만 보고 익히는 학습 언어: 발자국(좌우형) + 순서 숫자 + 스텝 연결 화살표 + 점프 착지 존
+    this.bkGuideMarks = []; this.bkGuideNums = []; this.bkGuideArrows = [];
+    BK_GUIDE.forEach((c, i) => {
+      const fm = new FootMark(c.side === 'L' ? 'left' : 'right').at(-c.x, BK_STAND - c.z);
+      g.add(fm.group); this.bkGuideMarks.push(fm);
+      this.bkGuideNums.push(attachMarkNum(fm, i + 1, c.side === 'R'));
+    });
+    for (let i = 0; i < 4; i++) {   // 스텝1→2→3→4 연결 화살표 (다음 발이 어디로 가는지)
+      const a = BK_GUIDE[i], b = BK_GUIDE[i + 1];
+      const ax = -a.x, az = BK_STAND - a.z, bx = -b.x, bz = BK_STAND - b.z;
+      const ang = Math.atan2(bx - ax, bz - az) * 180 / Math.PI + 180;   // floorArrow 0°=-z 전방 기준
+      const ar = floorArrow((ax + bx) / 2, (az + bz) / 2, ang, BRAND.coral, Math.max(0.2, Math.hypot(bx - ax, bz - az) * 0.55));
+      g.add(ar); this.bkGuideArrows.push(ar);
     }
-    this.bkPath = bkp;
+    // 점프 착지 존 — 양발(5·6) 동시 착지를 하나의 존으로 명시
+    const jx = -(BK_GUIDE[4].x + BK_GUIDE[5].x) / 2, jz = BK_STAND - (BK_GUIDE[4].z + BK_GUIDE[5].z) / 2;
+    this.bkJumpRing = floorRing(jx, jz, 0.3, 0.33, BRAND.prism, 0.0); g.add(this.bkJumpRing);
+    this.bkJumpTxt = floorText('JUMP · LAND', jx, jz - 0.45, { size: 0.07, color: CS.prism }); g.add(this.bkJumpTxt);
 
-    // B2 스텝 분해 밟기 — 같은 3발 + 순서 숫자는 발 '안' 글리프 오버레이 (MARK_NUM 규약,
-    // 러닝 B3와 동일 — 발 옆 부유 글리프는 카탈로그에 없는 조합)
+    // B2 따라 밟기 — 같은 실측 마크 + 순서 숫자(MARK_NUM 규약), 봇은 0.5배 슬로우 재생
     g = this._mk('BK_B2');
     this.bkB2 = []; this.bkB2nums = [];
-    for (let i = 0; i < 3; i++) {
-      const right = i % 2 === 1;
-      const fm = new FootMark(right ? 'right' : 'left').at(bkp[i][0], bkp[i][1]);
+    BK_GUIDE.forEach((c, i) => {
+      const right = c.side === 'R';
+      const fm = new FootMark(right ? 'right' : 'left').at(-c.x, BK_STAND - c.z);
       g.add(fm.group);
       this.bkB2.push(fm); this.bkB2nums.push(attachMarkNum(fm, i + 1, right));
-    }
+    });
 
     // B3 컷 방향·감속 — 디딤발 + 감속 스트라이프 + 방향 화살표
     g = this._mk('BK_B3');
@@ -1109,8 +1133,8 @@ export class Session {
       case 'BK_A2': FS('WARM 2/3'); FL('앞으로 뻗어 딛고 3초 꾸욱'); FM('링이 차면 발 교대', CS.sand); break;
       case 'BK_A3': FS('WARM 3/3'); FL('제자리 리듬 드리블'); FM('하나, 둘'); break;
       case 'BK_T1': FS('T-1'); S(this.slotFL, 'STAGE CLEAR', { size: 0.12, color: CS.prism }); break;
-      case 'BK_B1': FS('LEARN 1/3'); FL('스텝백 궤적 보기'); FM('눈으로 따라가요'); break;
-      case 'BK_B2': FS('LEARN 2/3'); FL('순서대로 밟기'); FM('맞춘 스텝 0 / 3'); break;
+      case 'BK_B1': FS('LEARN 1/3'); FL('발자국 궤적 보기'); FM('스텝 넷 + 양발 착지'); break;
+      case 'BK_B2': FS('LEARN 2/3'); FL('숫자 순서대로 밟기'); FM('절반 속도 — 같이'); break;
       case 'BK_B3': FS('LEARN 3/3'); FL('디딤발에서 감속'); FM('감속이 슛의 시작'); break;
       case 'BK_T2': FS('T-2'); FM('두 번 탭 = 바로 · 가만히 있으면 자동'); break;
       case 'BK_C1': FS('GAME 3·2·1'); break;
@@ -1441,25 +1465,50 @@ export class Session {
       FMU(`${Math.floor(this.t / BT) % 2 === 0 ? '하나' : '둘'} · ${Math.min(8, Math.floor(this.t / BT) + 1)} / 8`);
       if (this.t >= 8 * BT + 0.4) { this.next(); return; }
     } else if (id === 'BK_B1') {
-      // 스텝백 궤적 보기 — 3발 순차 강조(고스트 리플레이), 2회 루프
-      const ST = 0.9, cyc = 3 * ST, lt = this.t % cyc;
-      this.bkB1.forEach((f, i) => { const t0 = i * ST; f.op(lt >= t0 && lt < t0 + ST ? 0.95 : 0.55); if (lt >= t0 && lt < t0 + ST * 0.8) f.countdown((lt - t0) / (ST * 0.8)); else f.countdown(-1); });
-      FMU(`궤적 ${Math.min(2, Math.floor(this.t / cyc) + 1)} / 2 — 눈으로`);
-      if (this.t >= 2 * cyc + 0.3) { this.next(); return; }
+      // 시범 보기 — 봇이 실측 무브를 재생, 마크는 예고 카운트다운 → 접지 순간 글로우+버스트
+      const DUR = this.xbot?.actions?.cmu_crossover_shot?.dur || 4;
+      const lt = this.t % DUR;
+      this.bkGuideMarks.forEach((fm, i) => {
+        const d = BK_GUIDE[i].t - lt;
+        if (d > 0.8 || d < -0.5) { fm.op(0.5); fm.countdown(-1); }
+        else if (d > 0) { fm.op(0.95); fm.countdown(1 - d / 0.8); }
+        else fm.glow(Math.max(0, 1 + d / 0.5));
+        this.bkGuideNums[i].material.opacity = MARK_NUM.opacity(d > 0.8 || d < -0.5 ? 0 : (d > 0 ? 1 : 2));
+        placeMarkNum(this.bkGuideNums[i]);
+        // 접지 순간 1회 버스트 (보상 언어 통일)
+        if (this._bkG1lt != null && this._bkG1lt < BK_GUIDE[i].t && lt >= BK_GUIDE[i].t) {
+          const wp = new THREE.Vector3(); fm.group.getWorldPosition(wp); this.onPress?.(wp);
+        }
+      });
+      // 연결 화살표: 현재 진행 중인 전이 구간(스텝 i→i+1)만 밝게 — '다음 발이 갈 곳'
+      this.bkGuideArrows.forEach((ar, i) => {
+        const on = lt >= BK_GUIDE[i].t && lt < BK_GUIDE[i + 1].t + 0.15;
+        ar.traverse(o => { if (o.material) o.material.opacity = on ? 0.95 : 0.22; });
+      });
+      // 점프 착지 존: 착지 1초 전 점등 → 착지 순간 최대
+      const dj = 2.88 - lt;
+      const jk = dj > 1 || dj < -0.6 ? 0 : (dj > 0 ? 1 - dj : 1 + dj / 0.6);
+      this.bkJumpRing.setOp(0.15 + 0.8 * Math.max(0, jk));
+      this.bkJumpTxt.material.opacity = 0.25 + 0.75 * Math.max(0, jk);
+      this._bkG1lt = lt < (this._bkG1lt ?? 0) ? -0.01 : lt;   // 사이클 랩 처리
+      FMU(`눈으로 따라가기 — 사이클 ${Math.min(2, Math.floor(this.t / DUR) + 1)} / 2`);
+      if (this.t >= 2 * DUR + 0.4) { this.next(); return; }
     } else if (id === 'BK_B2') {
-      // 스텝 분해 밟기 — 순서 카운트다운 링, 맞춘 스텝 x/3
-      const ST = 1.0, cyc = 3 * ST, lt = this.t % cyc, W = ST * 0.82;
+      // 따라 밟기 — 봇 0.5배 슬로우, 순서 숫자 + 접지 카운트다운, 접지 순간 성공 글로우
+      const RATE = 0.5, DUR = this.xbot?.actions?.cmu_crossover_shot?.dur || 4;
+      const ltc = (this.t * RATE) % DUR;   // 클립 시간축
+      let done = 0;
       this.bkB2.forEach((f, i) => {
-        const t0 = i * ST; let ph;   // 숫자 표시 = MARK_NUM.opacity(상태) — 카탈로그 규약
-        if (lt >= t0 && lt < t0 + W) { f.countdown((lt - t0) / W); ph = 1; }
-        else if (lt >= t0 + W && lt < t0 + ST) { f.glow(1 - (lt - t0 - W) / (ST - W)); ph = 2; }
-        else { f.countdown(-1); ph = 0; }
+        const d = BK_GUIDE[i].t - ltc; let ph;
+        if (d > 1.0 || d < -0.6) { f.countdown(-1); f.op(0.55); ph = 0; }
+        else if (d > 0) { f.op(0.95); f.countdown(1 - d); ph = 1; }
+        else { f.glow(Math.max(0, 1 + d / 0.6)); ph = 2; }
+        if (ltc > BK_GUIDE[i].t) done++;
         this.bkB2nums[i].material.opacity = MARK_NUM.opacity(ph);
         placeMarkNum(this.bkB2nums[i]);
       });
-      const hits = Math.min(3, Math.floor((this.t % cyc) / ST) + 3 * Math.floor(this.t / cyc));
-      FMU(`맞춘 스텝 ${Math.min(3, Math.floor(this.t / ST))} / 3`, this.t >= cyc ? CS.prism : CS.dim);
-      if (this.t >= 2 * cyc + 0.3) { this.next(); return; }
+      FMU(`스텝 ${done} / ${BK_GUIDE.length} — 순서대로 밟기`, done >= BK_GUIDE.length ? CS.prism : CS.dim);
+      if (this.t >= 2 * DUR / RATE + 0.4) { this.next(); return; }
     } else if (id === 'BK_B3') {
       // 컷 감속 — 스트라이프 웨이브 + 디딤발 글로우
       this.bkB3stripes.forEach((s, i) => { s.material._gainK = (0.7 - i * 0.15) * (0.5 + 0.5 * Math.sin(this.t * 4 - i)); });
