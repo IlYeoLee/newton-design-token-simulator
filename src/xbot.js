@@ -55,6 +55,10 @@ import cmuWarmupRoutineClipJson from '../assets/mocap/xclip-cmu_warmup_routine.j
 import cmuCrossoverTurnClipJson from '../assets/mocap/xclip-cmu_crossover_turn.json';// 06_12 크로스오버+턴
 import cmuDribbleShotClipJson from '../assets/mocap/xclip-cmu_dribble_shot.json';    // 06_15 드리블→슛
 import rkStepbackClipJson from '../assets/mocap/xclip-rk_stepback.json';
+import importedManifest from '../assets/imported/manifest.json';   // 인제스트 파이프라인 산출(scripts/ingest_fbx.mjs)
+import cmuDribbleFwdClipJson from '../assets/mocap/xclip-cmu_dribble_fwd.json';   // CMU 06_02 전진 드리블(이동)
+import cmuDribbleBackClipJson from '../assets/mocap/xclip-cmu_dribble_back.json'; // CMU 06_06 후진 드리블(이동)
+import cmuDribbleSideClipJson from '../assets/mocap/xclip-cmu_dribble_side.json'; // CMU 06_08 사이드 드리블(이동)
 import fabCrossoverClipJson from '../assets/mocap/xclip-fab_crossover.json';   // Fab 크로스오버(UE 마네킹→리타겟, 힙 회전만+런타임 클램프)
 import mfDribbleBlUrl from '../assets/anim-mf-dribble-bl.fbx?url';        // Motifect 드리블 → Blender 리타겟(오브젝트 힙·다리비율 스케일)
 import mfBlockClipJson from '../assets/mocap/xclip-mf_block.json';            // Motifect 블록 시도(수비 점프)
@@ -184,23 +188,40 @@ export class XBot {
     reg('lb_dribble', lbDribbleFbx);   // mixamorig 네이티브(Sketchfab) — 리타겟 0, 원본 품질
     reg('bp_dribble', bpDribbleFbx);   // 네이티브 드리블 2호(1.6s 루프)
     reg('bl_crossover', blCrossoverFbx);   // Blender 리타겟 검증 1호 — 성공 시 Fab UE 애니 전체 개방
+    // ── 외부 이식 클립 자동 등록: assets/imported/*.fbx — 코드 수정 없이 인제스트만으로 장착 ──
+    {
+      const urls = import.meta.glob('../assets/imported/*.fbx', { eager: true, query: '?url', import: 'default' });
+      for (const [pth, url] of Object.entries(urls)) {
+        const nm = 'imp_' + pth.split('/').pop().replace(/\.fbx$/i, '');
+        try {
+          const fbx = await loader.loadAsync(url);
+          reg(nm, fbx);
+          this._vmClips.add(nm);
+          const meta = importedManifest[nm.slice(4)];
+          if (meta?.grounded) this._groundedClips.add(nm);
+        } catch (e) { console.warn('이식 클립 로드 실패', nm, e); }
+      }
+    }
     regJson('fab_crossover', fabCrossoverClipJson);   // 유저 확보 Fab 크로스오버
     reg('mf_dribble', mfDribbleBlFbx);
     regJson('mf_block', mfBlockClipJson);
     regJson('mf_chest_pass', mfChestPassClipJson);
+    regJson('cmu_dribble_fwd', cmuDribbleFwdClipJson);
+    regJson('cmu_dribble_back', cmuDribbleBackClipJson);
+    regJson('cmu_dribble_side', cmuDribbleSideClipJson);
     reg('mf_sprint_start', mfSprintBlFbx);
     regJson('stomp_press', stompPressClipJson);   // 프레스 원 꾹 밟기 (Stomping L+R 합성)
     // 실측 모캡 클립 = 실사람 미세 움직임 포함 → playDemo 호흡 레이어 제외 대상(섞으면 포즈 희석)
     this._vmClips = new Set(['quadStretch', 'cmu_stretch', 'cmu_dribble_low', 'cmu_crossover_shot', 'jumpingJacks', 'mf_jump_shot', 'mf_marathon', 'mf_layup']);
     // keepRootXZ 베이크 클립(몸이 실제 이동) — 재생 시 힙 XZ 고정(_lockInPlace) 제외 대상
-    this._rootClips = new Set(['mf_boxing_footwork', 'sfu_jogging', 'cmu_crossover_turn', 'rk_stepback', 'mf_sprint_start']);
+    this._rootClips = new Set(['mf_boxing_footwork', 'sfu_jogging', 'cmu_crossover_turn', 'rk_stepback', 'mf_sprint_start', 'cmu_dribble_fwd', 'cmu_dribble_back', 'cmu_dribble_side']);
     for (const k of ['bl_crossover', 'mf_dribble', 'mf_block', 'mf_chest_pass', 'mf_sprint_start', 'bp_dribble', 'fab_crossover', 'lb_dribble', 'rk_stepback', 'sfu_jumprope', 'sfu_jogging', 'cmu_stretch2', 'cmu_stretch3', 'cmu_warmup_routine', 'cmu_crossover_turn', 'cmu_dribble_shot',
       'hj_legswing', 'hj_jjack', 'hj_squat', 'hj_sidelunge', 'hj_kneehug', 'hj_sidebend', 'neckStretch', 'armStretch', 'airSquat', 'jogging', 'bkBlock', 'stomp_press']) this._vmClips.add(k);
     // 접지 베이크 완료 클립 — 재생 시 per-frame 발 클램프 제외(점프와 싸우며 덜커덩 만들던 것).
     // 접지는 리타겟 스크립트가 클립 전 구간 1회 정렬(소스 독립 설계 — 어떤 팩이 와도 동일).
     this._groundedClips = new Set(['cmu_stretch', 'cmu_stretch2', 'cmu_stretch3', 'cmu_warmup_routine',
       'cmu_dribble_low', 'cmu_crossover_shot', 'cmu_crossover_turn', 'cmu_dribble_shot',
-      'mf_jump_shot', 'mf_layup', 'mf_marathon', 'mf_boxing_footwork', 'mf_dribble', 'mf_block', 'mf_chest_pass', 'mf_sprint_start', 'sfu_jumprope', 'sfu_jogging', 'rk_stepback']);
+      'mf_jump_shot', 'mf_layup', 'mf_marathon', 'mf_boxing_footwork', 'mf_dribble', 'mf_block', 'mf_chest_pass', 'mf_sprint_start', 'sfu_jumprope', 'sfu_jogging', 'rk_stepback', 'cmu_dribble_fwd', 'cmu_dribble_back', 'cmu_dribble_side']);
 
     this._hips = xbot.getObjectByName('mixamorigHips');
     this._kneeR = xbot.getObjectByName('mixamorigRightLeg');

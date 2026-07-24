@@ -136,6 +136,15 @@ const UE_NAMES = {
   mixamorigRightFoot: 'foot_r',
   mixamorigRightToeBase: 'ball_r',
 };
+// CMU daz-friendly BVH (outworldz/cgspeed 변환본: hip/abdomen/chest/lCollar...)
+const DAZ_NAMES = {
+  mixamorigHips: 'hip', mixamorigSpine: 'abdomen', mixamorigSpine1: 'chest',
+  mixamorigNeck: 'neck', mixamorigHead: 'head',
+  mixamorigLeftShoulder: 'lCollar', mixamorigLeftArm: 'lShldr', mixamorigLeftForeArm: 'lForeArm', mixamorigLeftHand: 'lHand',
+  mixamorigRightShoulder: 'rCollar', mixamorigRightArm: 'rShldr', mixamorigRightForeArm: 'rForeArm', mixamorigRightHand: 'rHand',
+  mixamorigLeftUpLeg: 'lThigh', mixamorigLeftLeg: 'lShin', mixamorigLeftFoot: 'lFoot',
+  mixamorigRightUpLeg: 'rThigh', mixamorigRightLeg: 'rShin', mixamorigRightFoot: 'rFoot',
+};
 const MF_DIR = '/Users/iil-yeo/Downloads/motifect_sports_and_athletics_v1_0_fbx/Animations';
 
 // SFU/NUS: 접두사 없는 Mixamo 본명(Hips/Spine/Spine1/Neck/…) — Spine2 없음
@@ -179,6 +188,10 @@ const JOBS = {
   rk_stepback: { file: 'assets/anim-rk-stepback.fbx', type: 'fbx', names: RK_NAMES, hip: 'Hips', fps: 30, yScale: true, keepRootXZ: true },
   // Fab 크로스오버 (UE 마네킹 리깅, 유저 다운로드)
   fab_crossover: { file: 'assets/anim-fab-crossover.fbx', type: 'fbx', names: UE_NAMES, hip: 'pelvis', fps: 30, noHipPos: true },
+  // CMU 06 신규 — 전진/후진/사이드 드리블(이동형: keepRootXZ)
+  cmu_dribble_fwd: { file: 'public/mocap/cmu/06_02.bvh', names: DAZ_NAMES, hip: 'hip', fps: 30, yScale: true, keepRootXZ: true },
+  cmu_dribble_back: { file: 'public/mocap/cmu/06_06.bvh', names: DAZ_NAMES, hip: 'hip', fps: 30, yScale: true, keepRootXZ: true },
+  cmu_dribble_side: { file: 'public/mocap/cmu/06_08.bvh', names: DAZ_NAMES, hip: 'hip', fps: 30, yScale: true, keepRootXZ: true },
 };
 
 // FBX 소스 로드 → {skeleton, clip} (BVHLoader 반환과 동형).

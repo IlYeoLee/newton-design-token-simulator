@@ -1806,6 +1806,9 @@ void main(){
       ['lb_dribble', '★★ 르브론 드리블 (Sketchfab·mixamorig 네이티브)'],
       ['bp_dribble', '★★ 드리블 루프 2 (Sketchfab·네이티브 1.6s)'],
       ['bl_crossover', '(검증용) 코르크스크류 플립 — 곡예, 농구 아님 (Fab→Blender)'],
+      ['cmu_dribble_fwd', '★★ 전진 드리블 (CMU 06_02·이동)'],
+      ['cmu_dribble_back', '★★ 후진 드리블 (CMU 06_06·이동)'],
+      ['cmu_dribble_side', '★★ 사이드 드리블 (CMU 06_08·이동)'],
       ['mf_dribble', '★ 농구 드리블 10s (Motifect)'],
       ['mf_block', '★ 블록 점프 — 수비 (Motifect)'],
       ['mf_chest_pass', '★ 체스트 패스 (Motifect)'],
@@ -1840,6 +1843,11 @@ void main(){
       ['mf_marathon', '마라톤 런 (Motifect)'],
       ['mf_boxing_footwork', '복싱 풋워크 (Motifect·이동)'],
     ];
+    // 인제스트 산출 자동 노출 (assets/imported/manifest.json)
+    try {
+      const man = (await import('../assets/imported/manifest.json')).default;
+      for (const [nm, meta] of Object.entries(man)) CLIPS.push(['imp_' + nm, `📦 ${nm} (이식 · ${meta.rig} · ${meta.dur}s)`]);
+    } catch (e) {}
     const sel = document.getElementById('mocap-preview-sel');
     const btn = document.getElementById('mocap-preview-btn');
     if (sel && btn) {
