@@ -3941,7 +3941,10 @@ void main(){
     // 농구 방향·리듬 큐 — 렌더는 전부 카탈로그 토큰 (화살표 촉·자루는 tickFlowArrows가 급이)
     // 시작 페이지(BK_READY)에선 방향/리듬 큐 숨김 — floor UI가 전담(유저: mark 판정 토큰 제거).
     // A/B/C 운동중엔 이 큐가 중앙 콘텐츠(발자국·가이드)라 유지.
-    const bkOn = state.pack === 'basketball' && rig._fp && session.curStage?.id !== 'BK_READY';
+    // 세션 중엔 전면 OFF — 세션은 자체 가이드(실측 스텝·프레스)가 전담. 이 레거시 큐가
+    // 모든 농구 세션 화면에 '존원 3개+화살표+레인'으로 남아 정체불명 마커로 보이던 근본
+    // (유저 스크린샷 다수 — 원인 추적 최종 확정).
+    const bkOn = state.pack === 'basketball' && rig._fp && !session.active;
     bkArrow.visible = bkLane.visible = bkOn;
     // 앰비언트 토포 공간 (농구 두 투사면 — 세션·재생 중 상시 은은)
     // 앰비언트 토포 필드 기각(유저): 존 경계 없는 전면 랜덤 라인 = 바닥 얼룩으로 보임.
