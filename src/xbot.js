@@ -428,6 +428,37 @@ export class XBot {
     this._applyHeadPitch(dt);
   }
 
+  /** 스텝백 합성 시연 — 네이티브 조각 3개를 이어붙임(관절 왜곡 0, 전부 검증된 클립):
+      드리블(Mixamo) → 개더 0.35s 동안 '루트만' 0.48m 후방 이동(커리 실측 분리) → 실측 점프샷(mf).
+      리타겟 신뢰 못하는 상황에서 품질 보장하는 유일한 길 = 검증된 포즈 + 절차적 루트 (stomp_press 전례). */
+  stepbackDemo(dt) {
+    const dribble = this.actions.dribble, shot = this.actions.mf_jump_shot;
+    if (!dribble || !shot) return;
+    this._dt = dt;
+    const CYC = 4.2, GATH = 1.4;
+    const T = (this._sbT = ((this._sbT || 0) + dt) % CYC);
+    const xf = Math.min(1, Math.max(0, (T - GATH) / 0.25));
+    for (const k in this.actions) {
+      const x = this.actions[k]; x.action.play(); x.action.paused = true;
+      x.action.setEffectiveWeight(k === 'dribble' ? 1 - xf : (k === 'mf_jump_shot' ? xf : 0));
+    }
+    dribble.action.time = T % dribble.dur;
+    shot.action.time = Math.min(Math.max(0, T - GATH), shot.dur - 0.001);
+    // 백스텝 분리 — 개더 구간 루트 슬라이드(이즈아웃). 포즈는 그대로, 몸 전체만 뒤로.
+    const sep = Math.min(1, Math.max(0, (T - (GATH + 0.05)) / 0.35));
+    const ofs = 0.48 * (1 - Math.pow(1 - sep, 2));
+    this.group.position.set(0, 0, (this.demoStandZ || 0) + ofs);
+    this.mixer.update(0);
+    if (xf > 0.5) { this._lockFingers(); this.model.position.y = 0; this._yOff = undefined; this.model.position.x = 0; this.model.position.z = 0; this.model.updateMatrixWorld(true); }
+    else { this._lockInPlace(); this._clampFeet?.(); }
+    if (this.ball) {
+      if (xf < 0.5) { this.ball.visible = true; this._dribbleBall(T, dt); }
+      else this.ball.visible = false;
+    }
+    this.model.updateMatrixWorld(true);
+    this._applyHeadPitch(dt);
+  }
+
   /** 지면 화면(세션 컴플리트·전환·카운트다운)에서 3인칭 봇 머리를 아래로 숙여 바닥 UI를 응시.
       클립이 매 프레임 head.quaternion을 재설정하므로 그 위에 로컬 X 피치를 덧대면 누적 없이 안정. */
   _applyHeadPitch(dt) {

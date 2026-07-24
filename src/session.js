@@ -1594,15 +1594,16 @@ export class Session {
     } else if (id === 'BK_B3') {
       // 백스텝 분리·릴리즈 — 봇은 플랜트→백스텝→착지→슛 구간을 0.55배로 반복(위상은 main),
       // 바닥: 플랜트 카운트다운 → 분리 화살표 점등 → 착지존 글로우 → 릴리즈 링 수축(0.16s×5 슬로우)
-      const T0 = 1.55, RATE = 0.55, SEG = 4.0 - T0;
-      const ltc = T0 + ((this.t * RATE) % SEG);   // 클립 시간축(재생 창과 동일)
-      const dPl = BK_GUIDE[3].t - ltc;            // 플랜트까지
+      // 합성 시연 사이클(4.2s): 드리블 → 개더/플랜트 1.45 → 백스텝 분리 → 착지 1.95 → 릴리즈 2.35
+      const CYC = 4.2, PLT = 1.45, LND = 1.95, REL = 2.35;
+      const ltc = this.t % CYC;                   // 실속도(봇 stepbackDemo와 동일 시간축)
+      const dPl = PLT - ltc;                      // 플랜트까지
       this.bkB3plant.op(0.6 + 0.4 * Math.max(0, 1 - Math.abs(dPl)));
       if (dPl > 0 && dPl < 0.5) this.bkB3plant.countdown(1 - dPl / 0.5); else this.bkB3plant.countdown(-1);
-      const sepOn = ltc >= BK_GUIDE[3].t && ltc < 2.93;
+      const sepOn = ltc >= PLT && ltc < LND;
       this.bkSepArrow.traverse(o => { if (o.material) o.material.opacity = sepOn ? 0.95 : 0.3; });
-      const sepProg = Math.max(0, Math.min(1, (ltc - BK_GUIDE[3].t) / (2.93 - BK_GUIDE[3].t)));
-      this.bkRuler.forEach((tk, i) => { tk.material._gainK = ltc >= BK_GUIDE[3].t && sepProg >= i / 2 ? 1 : 0.35; });
+      const sepProg = Math.max(0, Math.min(1, (ltc - PLT) / (LND - PLT)));
+      this.bkRuler.forEach((tk, i) => { tk.material._gainK = ltc >= PLT && sepProg >= i / 2 ? 1 : 0.35; });
       // 고스트 스텝: 분리 구간 동안 플랜트→착지로 미끄러짐(이즈아웃), 그 외엔 플랜트에서 대기
       const ge = 1 - Math.pow(1 - sepProg, 2.2);
       this.bkGhost.forEach((f, i) => {
@@ -1610,24 +1611,24 @@ export class Session {
         f.op(sepOn ? 0.8 : (sepProg >= 1 ? 0.15 : 0.3));
       });
       // 단계 뱃지 점등: 지금 할 것 하나만 밝게
-      const phase = ltc < BK_GUIDE[3].t ? 0 : (sepProg < 1 ? 1 : 2);
+      const phase = ltc < PLT ? 0 : (sepProg < 1 ? 1 : 2);
       this.bkBadges.forEach((b, i) => { b.userData.plane.material.opacity = i === phase ? 0.95 : 0.25; });
       this.bkLand.forEach((f, i) => {
-        const tL = BK_GUIDE[4 + i].t, dL = tL - ltc;
+        const tL = LND + i * 0.05, dL = tL - ltc;
         if (dL > 0.6 || dL < -0.9) { f.op(0.55); f.countdown(-1); }
         else if (dL > 0) { f.op(0.95); f.countdown(1 - dL / 0.6); }
         else f.glow(Math.max(0, 1 + dL / 0.9));
       });
       // 릴리즈 링: 착지(2.93) 순간부터 0.16s×5(슬로우 환산) 동안 수축 — 닫히기 전 슛
-      const relW = 0.16 / RATE, dR = ltc - 2.93;
+      const relW = 0.16 * 5, dR = ltc - REL;   // 0.16s 릴리즈 창 ×5 슬로우 표시
       if (dR >= 0 && dR < relW + 0.35) {
         const k = Math.min(1, dR / relW);
         this.bkRelRing.setOp(0.95 - 0.5 * k);
         this.bkRelRing.scale.setScalar(1.35 - 0.75 * k);
         this.bkRelTxt.userData.plane.material.opacity = 0.95;
       } else { this.bkRelRing.setOp(0.12); this.bkRelRing.scale.setScalar(1.35); this.bkRelTxt.userData.plane.material.opacity = 0.4; }
-      FMU(`분리 0.48m → 착지 → 0.16초 안에 릴리즈 · ${Math.min(3, Math.floor(this.t * RATE / SEG) + 1)} / 3`, CS.prism);
-      if (this.t >= 3 * SEG / RATE + 0.5) { this._gateAdvance(); return; }
+      FMU(`분리 0.48m → 착지 → 0.16초 안에 릴리즈 · ${Math.min(3, Math.floor(this.t / CYC) + 1)} / 3`, CS.prism);
+      if (this.t >= 3 * CYC + 0.5) { this._gateAdvance(); return; }
     } else if (id === 'BK_C1') {
       const n = Math.max(1, 3 - Math.floor(this.t)); if (n !== this._lastCount) { this._setCount(n, CS.ink); this._lastCount = n; }
       if (this.t >= st.dur) { this.next(); return; }

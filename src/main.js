@@ -3634,7 +3634,8 @@ void main(){
       else if (session.stage === 'BK_B1') _phase = session.t;
       else if (session.stage === 'BK_B2') _phase = Math.min((session.t * 0.5) % 3.2, 2.2);   // 플랜트까지 + 홀드(슛 제거)
       else if (session.stage === 'BK_B3') _phase = 1.55 + ((session.t * 0.55) % 2.45);   // 플랜트→백스텝→착지→슛 구간 0.55배 반복
-      xbot.playDemo(_clip, h, session.stage === 'BX_READY', _phase);
+      if (session.stage === 'BK_B3') xbot.stepbackDemo(h);   // 합성 시연(드리블→백스텝 분리→실측 점프샷)
+      else xbot.playDemo(_clip, h, session.stage === 'BX_READY', _phase);
       rig.update(0, h);
       tokens.setShake(rig.shake.x, rig.shake.y);
       // 이 분기는 아래 followFloor 호출을 건너뛰어(early return) 무한 지면(그리드·바닥)이
