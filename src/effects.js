@@ -11,8 +11,10 @@ const BURST_VERT = `
 #include <common>
 #include <clipping_planes_pars_vertex>
 varying vec2 vUv;
+varying vec3 vWorldPos;
 void main() {
   vUv = uv;
+  vWorldPos = (modelMatrix * vec4(position, 1.0)).xyz;
   vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
   gl_Position = projectionMatrix * mvPosition;
   #include <clipping_planes_vertex>
@@ -22,7 +24,20 @@ const BURST_FRAG = `
 #include <clipping_planes_pars_fragment>
 ` + FX_GLSL + `
 uniform float uT, uW, uHalo, uNoise, uEmber, uIntensity, uSeed, uForward;
+uniform vec3 uFPOrigin, uFPFwd, uFPRight;
+uniform float uFPNear, uFPFar, uFPHalfN, uFPHalfF, uFPFadeM;
 varying vec2 vUv;
+varying vec3 vWorldPos;
+// 투사면 경계 소프트 페이드(마크·레인과 동일) — 클리핑 하드컷이 사각 프레임으로 드러나기 전 알파 소멸.
+float footprintFade(vec3 wp) {
+  vec2 rel = wp.xz - uFPOrigin.xz;
+  float dd = rel.x * uFPFwd.x + rel.y * uFPFwd.z;
+  float hh = rel.x * uFPRight.x + rel.y * uFPRight.z;
+  float half_ = mix(uFPHalfN, uFPHalfF, clamp((dd - uFPNear) / max(0.01, uFPFar - uFPNear), 0.0, 1.0));
+  float fadeLen = smoothstep(uFPNear, uFPNear + uFPFadeM, dd) * smoothstep(uFPFar, uFPFar - uFPFadeM, dd);
+  float fadeW = smoothstep(half_, half_ - uFPFadeM, abs(hh));
+  return fadeLen * fadeW;
+}
 void main() {
   #include <clipping_planes_fragment>
   vec2 uv = (vUv - 0.5) * 2.0;
@@ -55,6 +70,7 @@ void main() {
   // 쿼드 경계 페이드 — 와이드 헤일로가 평면 모서리까지 살아남아 '터질 때 사각 박스'로
   // 드러나던 진범 (경계 페이드 부재는 이 셰이더뿐이었음). 파문 본체(R≤0.9)는 불변.
   heat *= smoothstep(1.0, 0.78, d0);
+  heat *= footprintFade(vWorldPos);   // 투사면 경계 소프트 페이드 — 사각 프레임 하드컷 제거(유저)
   // 새벽빛 스윕
   float sweep = 0.09 * sin(ang - t * 2.4) + 0.05 * sin(ang * 2.0 + t * 1.1);
   // 가시성 게인은 LUT 인덱스(색 위치)가 아니라 출력에만 — 열을 키우면 색이 크림 쪽으로
@@ -86,6 +102,8 @@ export class Effects {
         uIntensity: { value: 1 },
         uForward: { value: 0 },
         uSeed: { value: Math.random() * 6.2832 },
+        uFPOrigin: { value: new THREE.Vector3() }, uFPFwd: { value: new THREE.Vector3(0, 0, -1) }, uFPRight: { value: new THREE.Vector3(1, 0, 0) },
+        uFPNear: { value: -1e6 }, uFPFar: { value: 1e6 }, uFPHalfN: { value: 1e6 }, uFPHalfF: { value: 1e6 }, uFPFadeM: { value: 0.28 },
       },
       transparent: true,
       blending: THREE.AdditiveBlending,
@@ -168,6 +186,11 @@ export class Effects {
         it.mat.uniforms.uW.value = FXP.graphics.width;
         it.mat.uniforms.uNoise.value = FXP.graphics.noise;
         it.mat.uniforms.uEmber.value = FXP.graphics.ember;
+        if (this._fp && it.isFloor && !it.noClip) {   // 투사면 경계 소프트 페이드 주입(지면 파문만)
+          const U = it.mat.uniforms, fp = this._fp;
+          U.uFPOrigin.value.set(fp.ox, 0, fp.oz); U.uFPFwd.value.set(fp.fx, 0, fp.fz); U.uFPRight.value.set(fp.rx, 0, fp.rz);
+          U.uFPNear.value = fp.near; U.uFPFar.value = fp.far; U.uFPHalfN.value = fp.halfN; U.uFPHalfF.value = fp.halfF;
+        }
       } else {
         const e = 1 - Math.pow(1 - k, 2.2);
         it.mesh.scale.setScalar(1 + 0.5 * e);

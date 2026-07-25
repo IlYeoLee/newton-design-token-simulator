@@ -4036,6 +4036,7 @@ void main(){
       wearFxEl.style.boxShadow = 'inset 0 0 170px 30px #d1feff';
       wearFxEl.style.opacity = String(0.26 + 0.14 * Math.sin(performance.now() / 280));
     }
+    if (rig._fp) effects._fp = { ...rig._fp, near: rig.fpNear, far: rig.fpFar, halfN: rig._halfAt(rig.fpNear), halfF: rig._halfAt(rig.fpFar) };
     effects.update(rawDt);
     panel.drawTimeline(state.time, judge.marks);
 
