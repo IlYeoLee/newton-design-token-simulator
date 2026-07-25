@@ -1122,6 +1122,13 @@ export class Session {
     const isC = /^C/.test(this.stage);
     this.paceLight.visible = isC;
     this.paceLane.visible = isC;   // 실전 상설 페이스 레인 (러너가 따라갈 밝은 광류 — 달리는 느낌)
+    // 실전 플로어 UI(liveui.js) 활성 시 기존 페이스 광점·레인·발자국 은퇴 — 오차 수학(아래)은 계속 돌려
+    // paceLight.position이 liveUI의 션 위치(seanZ) 소스로 남는다.
+    if (FXP.liveUI && isC) {
+      this.paceLight.visible = false;
+      this.paceLane.visible = false;
+      this.paceFeet.forEach(fm => fm.group.visible = false);
+    }
     const R = this.judge?.results || [];
     let err = 0;
     for (let i = Math.max(0, R.length - 3); i < R.length; i++) err += R[i].terr;
@@ -1137,7 +1144,8 @@ export class Session {
   _paceFeetTick(err = 0) {
     const feet = this.paceFeet; if (!feet.length) return;
     // P(페이스) = 원형 판정 토큰+이펙트만(유저) — 션 발자국 고스트는 C 실전 전용
-    if (!/^C/.test(this.stage)) { feet.forEach(fm => fm.group.visible = false); return; }
+    // FXP.liveUI 활성이면 실전 플로어 UI가 대체 — 발자국 페이서도 은퇴
+    if (!/^C/.test(this.stage) || FXP.liveUI) { feet.forEach(fm => fm.group.visible = false); return; }
     const stride = Math.max(0.55, this.tokens?._strideM || 0.98);   // 션 보폭(1스텝, m)
     const beat = Math.max(0.2, this.tokens?._beatT || 0.39);        // 션 스텝 간격(s) = 케이던스
     const speed = stride / beat;                                    // 션 속도(m/s)

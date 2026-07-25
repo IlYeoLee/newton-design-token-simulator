@@ -23,6 +23,7 @@ import { CSS3DRenderer, CSS3DObject } from 'three/examples/jsm/renderers/CSS3DRe
 import { getLUT, FXP, rebuildLUT, lutColor, GLYPHS, FX_GLSL } from './fxlut.js';
 import { drawRotate } from './fx-core.js';
 import { createEditor3D } from './editor3d.js';
+import { LiveUI } from './liveui.js';
 import { SceneUI } from './sceneui.js';
 
 const BASE = import.meta.env.BASE_URL;
@@ -853,8 +854,22 @@ void main(){
     cuePick.appendChild(b);
   });
   document.body.appendChild(cuePick);
+  // 실전 UI 5안 픽커 — C 실전에서만 좌하단 표시, 클릭 즉시 전환 (a3cue-picker 패턴 복제)
+  const livePick = document.createElement('div');
+  livePick.id = 'liveui-picker';
+  livePick.style.cssText = 'position:fixed;left:16px;bottom:16px;z-index:60;display:none;gap:6px;align-items:center;'
+    + 'background:rgba(20,22,28,.88);border:1px solid #333;border-radius:10px;padding:8px 12px;font:600 12px sans-serif;color:#ccc';
+  livePick.innerHTML = '<span style="margin-right:4px">실전 UI</span>';
+  [1, 2, 3, 4, 5].forEach(n => {
+    const b = document.createElement('button'); b.textContent = n;
+    b.style.cssText = 'width:30px;height:30px;border-radius:8px;border:1px solid #444;background:' + (n === (FXP.liveUI || 1) ? '#fa3030' : '#1c1f26') + ';color:#eee;cursor:pointer;font:700 13px sans-serif';
+    b.onclick = () => { FXP.liveUI = n; [...livePick.querySelectorAll('button')].forEach((x, i) => x.style.background = (i + 1 === n) ? '#fa3030' : '#1c1f26'); };
+    livePick.appendChild(b);
+  });
+  document.body.appendChild(livePick);
   const session = new Session(scene, tokens, xbot, rig, st => {
     cuePick.style.display = st.id === 'A3' ? 'flex' : 'none';
+    livePick.style.display = /^C/.test(st.id) ? 'flex' : 'none';   // 러닝 C 실전에서만
     const sig = [];
     if (st.hap) sig.push(`<span style="color:var(--warn)">햅틱</span> ${st.hap}`);
     if (st.wear) sig.push(`<span style="color:var(--ok)">웨어러블</span> ${st.wear}`);
@@ -906,6 +921,9 @@ void main(){
     else if (type === 'downshift') { showCaption('시스템', '폼이 흔들려요 — 익히기로 되돌립니다.'); wearPulse('#fec389', 1600); }
   };
   session.onPress = _pressBurst;   // 프레스 완료 버스트 연결
+  // 실전 러닝 플로어 UI 5안 모듈 — C 라이브에서만 렌더 루프가 update
+  const liveUI = new LiveUI(scene, tokens, rig);
+  if (import.meta.env.DEV) window.__liveUI = liveUI;   // 헤드리스 검수 훅
   const sessionBtn = document.getElementById('btn-session');
   const demoBtn = document.getElementById('btn-demo');
   let demoTour = null;   // { queue:[sports], i }
@@ -4099,6 +4117,8 @@ void main(){
           const iv2 = (_strikeTs[_strikeTs.length - 1] - _strikeTs[0]) / (_strikeTs.length - 1);
           if (iv2 > 0.15 && iv2 < 2) my = Math.round(60 / iv2);
         }
+        window.__mySpm = my;   // 실전 플로어 UI(V5 스트립)가 소비
+
         try {
           const me = floorIframe.contentDocument?.getElementById('spm-me');
           if (me && my) {
@@ -4318,6 +4338,15 @@ void main(){
     // 1인칭에서만 OrbitControls 스킵 — 세션 3인칭에선 자유 회전 허용
     if (!fpMode) controls.update();
     sceneUI.update(rawDt, rig);       // 장면 UI 슬롯 — 풋프린트 추종 재배치 + 페이드
+    // 실전 러닝 플로어 UI — 러닝 C 라이브에서만 활성
+    {
+      const liveActive = session.active && session.isLive && session.sport === 'running' && /^C\d$/.test(session.stage || '');
+      liveUI.update(rawDt, {
+        active: liveActive, variant: FXP.liveUI || 1, beatT: tokens._beatT || 0.39,
+        seanZ: session.paceLight.position.z + session.root.position.z, myZ: 0,
+        spmTarget: Math.round(60 / (tokens._beatT || 0.39)), spmMine: window.__mySpm || 0, day: !!FXP.day,
+      });
+    }
     session.tickWaves();              // 스테이지 파동 링 시계 (프리뷰 포함)
     renderGhostLayer();
     tickA1Coach();

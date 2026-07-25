@@ -19,6 +19,7 @@ export const FXP = {
   person: { blur: 1.0, glow: 0, flow: 0.4, decay: 0.04, detail: 0.6, grain: 0.07, tone: 1 },   // 유저 확정 룩 = 공장 기본 (2026-07-18)
   gainBoost: 1.0,   // 주간 모드 투사 게인 (주광 가시 = 제품 스토리)
   a3Arrow: 4,       // 하이니 리프트 큐 (1 셰브론 · 2 스템+SVG촉 · 3 바 · 4 궤적 토큰=기본)
+  liveUI: 3,   // 실전 UI 기본 = 3안 셰브론 플로우(리서치 확정: 상대속도 흐름·락온)        // 실전 러닝 플로어 UI 5안 (1 페이스라인 · 2 펄스링 · 3 셰브론 · 4 도트 · 5 스트립)
   arrow: { line: 'solid', w: 1, speed: 1, gap: 1, glow: 1, heat: 0.5, tail: 0.55 },   // LINE 최소 토큰 (FX Lab)
   lane: { style: 'dash' },   // 레인 전용 스타일 — 화살표와 분리 (재료 파라미터는 arrow 공유)
   card: { titleZ: 2.68, eyebrow: 0.30, footerZ: 1.28, titleCap: 0.13, eyeCap: 0.07, footCap: 0.065, cta: 1.0 },   // 스테이지 카드 조판 — 피그마 StageCard/베이스 실측 임포트(v15 파이프라인)
