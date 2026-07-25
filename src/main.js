@@ -2112,10 +2112,10 @@ void main(){
     // 어떤 스테이지 코치를 켤지: A1 = 전 구간, A2 = 진입 후 ~3s 데모(런지 따라하기 전 시범)
     const st = session.active && !session.isLive && state.pack === 'running' ? session.stage : null;
     const showA1 = st === 'A1';
-    // 관찰 = 최소 5s + 진입 음성 끝까지. 단 팔로우 래치 후엔 큐 음성이 재생돼도 코치 영상 숨김(발자국과 겹침 방지).
-    const _vHold = !session._followLatch && !!(session.voiceBusy && session.voiceBusy());
-    const showA2 = st === 'A2' && !session._followLatch && ((session.t || 0) < 5.0 || _vHold);
-    const showA3 = st === 'A3' && !session._followLatch && ((session.t || 0) < 5.0 || _vHold);
+    // 관찰 후 팔로우에도 코치 유지(유저: 모델 보며 따라하고 싶음) — 팔로우 = 작게·멀리(발자국 위 레이아웃).
+    const showA2 = st === 'A2';
+    const showA3 = st === 'A3';
+    const _follow = !!session._followLatch;
     const activeId = showA1 ? 'A1' : (showA2 ? 'A2' : (showA3 ? 'A3' : null));
     for (const id of ['A1', 'A2', 'A3']) {
       const c = _coaches[id];
@@ -2146,7 +2146,11 @@ void main(){
         if (floorObj.visible) {
           co.plane.quaternion.copy(floorObj.quaternion);
           co._fwd.set(0, 1, 0).applyQuaternion(floorObj.quaternion);
-          co.plane.position.set(floorObj.position.x + co._fwd.x * co.fwd, 0.015, floorObj.position.z + co._fwd.z * co.fwd);
+          // 팔로우(A2/A3) = 시범자 작게·더 멀리(타이틀 쪽) + 발자국은 가까이 — '모델 위·토큰 아래' 레이아웃(유저)
+          const fw = id !== 'A1' && _follow;
+          const s = fw ? 0.62 : 1, fwdOff = co.fwd + (fw ? 0.55 : 0);
+          co.plane.scale.setScalar(s);
+          co.plane.position.set(floorObj.position.x + co._fwd.x * fwdOff, 0.015, floorObj.position.z + co._fwd.z * fwdOff);
         }
       } else if (c) { c.plane.visible = false; if (!c.video.paused) c.video.pause(); }
     }
