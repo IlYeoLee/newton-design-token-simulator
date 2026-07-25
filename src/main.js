@@ -2100,7 +2100,7 @@ void main(){
         plane.add(mesh);
         return { g, tex, mesh };
       };
-      co.rotCues = [mkCue(0.24, 0.16), mkCue(0.40, 0.00)];   // [목(위·작게), 어깨(아래·크게)]
+      co.rotCues = [mkCue(0.30, 0.13)];   // 1개만(유저) — 목·어깨 밴드에 회전 큐 하나
     }
     return co;
   }
