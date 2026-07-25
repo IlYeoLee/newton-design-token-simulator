@@ -1846,7 +1846,7 @@ void main(){
     // 대량 리타겟 자동 노출 (assets/mocap/auto/auto-manifest.json)
     try {
       const aman = (await import('../assets/mocap/auto/auto-manifest.json')).default;
-      for (const [nm, meta] of Object.entries(aman)) CLIPS.push(['auto_' + nm, `🎞 ${nm} (${meta.cat || 'CMU'} · ${meta.dur}s)`]);
+      for (const [nm, meta] of Object.entries(aman)) { if (!meta.qaFail) CLIPS.push(['auto_' + nm, `🎞 ${nm} (${meta.cat || 'CMU'} · ${meta.dur}s)`]); }
     } catch (e) {}
     // 인제스트 산출 자동 노출 (assets/imported/manifest.json)
     try {

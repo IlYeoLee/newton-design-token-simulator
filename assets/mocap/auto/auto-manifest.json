@@ -87,7 +87,8 @@
  "cmu88_09": {
   "root": false,
   "dur": 3.13,
-  "cat": "stretch"
+  "cat": "stretch",
+  "qaFail": "바닥 붕괴/사지 산개 (스틸 QA 2026-07-25)"
  },
  "cmu88_10": {
   "root": false,
@@ -157,6 +158,7 @@
  "cmu07_12": {
   "root": true,
   "dur": 2.19,
-  "cat": "walk"
+  "cat": "walk",
+  "qaFail": "자세 이상+무릎 텔레메트리 140~168cm (스틸 QA 2026-07-25)"
  }
 }
