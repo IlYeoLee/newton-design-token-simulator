@@ -2037,17 +2037,30 @@ void main(){
           float k = c.g - max(c.r, c.b);
           return 1.0 - smoothstep(0.04, 0.14, k);
         }
+        float ch(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7)))*43758.5453); }
+        float vn(vec2 p){ vec2 i=floor(p),f=fract(p); f=f*f*(3.0-2.0*f);
+          return mix(mix(ch(i),ch(i+vec2(1,0)),f.x),mix(ch(i+vec2(0,1)),ch(i+vec2(1,1)),f.x),f.y); }
         void main(){
           vec2 uv = vUv;
           float m = mask1(uv);
           float mEro = smoothstep(0.30, 0.68, m);   // 마스크 침식 — 엣지 그린 오염·헤일로 금지
           if (mEro < 0.02) discard;
           vec3 c = texture2D(map, vec2(uv.x, 0.40 + uv.y * 0.58)).rgb;
-          float lum = dot(c, vec3(0.299, 0.587, 0.114));
-          // 복싱 레퍼런스 톤: 위 딥레드(t 0.10) → 아래 코랄·오렌지(t 0.52), 부드러운 고채도 단색.
-          // 노이즈·명도 S커브 없음(지지직·백화 원인) — 휘도는 ±16% 미세 변조만.
-          vec3 col = lut(clamp(0.10 + (1.0 - uv.y) * 0.42, 0.0, 1.0)) * (0.92 + lum * 0.16);
-          float alpha = mEro * 0.95 * smoothstep(0.0, 0.22, uv.y);   // 하단 페더
+          // ── 데모 인물(renderDemoPanel) 열화상 파이프라인 이식 — 룩시스템 '쨍한' 대비 복원 ──
+          // 두께 필드 H(uHeat 대체): 방사형 코어(중심 뜨겁고 가장자리 딥레드 — 138 레퍼런스).
+          float H = clamp(1.18 - length(vec2((uv.x-0.5)*1.35, (uv.y-0.5)*1.02)), 0.0, 1.0);
+          float flow = vn(vec2(uv.x*3.2 + sin(uTime*0.4)*0.3, uv.y*2.4 - uTime*0.5));
+          H *= 1.0 + (flow - 0.5) * 0.28;                                   // 미세 확산 일렁임(약)
+          float dlum = dot(c, vec3(0.299, 0.587, 0.114));
+          dlum = smoothstep(0.34, 0.62, dlum);                             // 급경사 S커브 = 명암 대비 극대화
+          float mIn = smoothstep(0.55, 0.95, m);                           // 내부 침식 — 엣지 밝은 테두리 차단
+          float faceW = smoothstep(0.80, 0.92, uv.y) * (1.0 - smoothstep(0.97, 1.0, uv.y));  // 얼굴 은닉
+          float T = clamp(H * 0.86 + (dlum - 0.42) * 1.35 * mIn * (1.0 - faceW), 0.0, 1.0);
+          T = pow(T, 1.34);                                                // 밀도 대비 — 그늘 깊게
+          vec3 col = lut(clamp(T * 0.96, 0.0, 1.0)) * mEro * 1.12;
+          float cl = dot(col, vec3(0.299, 0.587, 0.114));
+          col = clamp(mix(vec3(cl), col, 1.32), 0.0, 1.0);                 // 채도 부스트 — 룩시스템 고채도
+          float alpha = mEro * 0.95 * smoothstep(0.0, 0.22, uv.y);         // 하단 페더
           gl_FragColor = vec4(col, alpha);
         }`,
     });
