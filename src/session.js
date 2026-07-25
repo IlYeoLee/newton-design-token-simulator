@@ -1369,7 +1369,7 @@ export class Session {
         this.demoActive = true;
         FMU('먼저 보세요 — 목과 어깨를 크게 천천히', CS.sand);
       } else {
-        this._say('a1go', '션', '이제 같이 — 제자리에 서서, 목과 어깨를 크게. 링이 다 찰 때까지.');
+        this._say('a1go', '션', '이제 같이 — 목부터 크게, 그다음 어깨.');
         FMU(`목·어깨 풀기 ${Math.round((this._a1fill || 0) * 100)}%`, CS.sand);
         if ((this._a1fill || 0) >= 1) { this.next(); return; }
       }
