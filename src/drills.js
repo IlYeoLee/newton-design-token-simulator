@@ -209,7 +209,7 @@ function boxingDrills(neutral) {
     }),
     // 무릎 올리며 몸통 비틀기 (러닝 A3, 유저 이미지 147) — 한쪽 무릎을 골반 높이로 올리며
     //  상체를 반대로 비틀어 반대쪽 팔꿈치를 무릎 쪽으로. 좌우 교대(4.8s=우2.4+좌2.4). 코어·균형 동적 워밍업.
-    kneeTwist: makeClip('kneeTwist', neutral, 4.8, (n, t) => {
+    kneeTwist: makeClip('kneeTwist', neutral, 2.4, (n, t) => {   // 2.4s = 좌우 1.2s씩 (리듬감 — 유저 '너무 느림')
       const right = t < 0.5;                              // 1막 = 오른 무릎, 2막 = 왼 무릎
       const u = (right ? t : t - 0.5) * 2;
       const lift = Math.sin(Math.max(0, Math.min(1, u)) * Math.PI);   // 0→1→0 (올렸다 내림)

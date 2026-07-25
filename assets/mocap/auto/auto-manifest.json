@@ -300,10 +300,5 @@
   "root": false,
   "dur": 25.8,
   "cat": "lunge"
- },
- "cmu14_20_knee": {
-  "root": false,
-  "dur": 1.2,
-  "cat": "stretch"
  }
 }
