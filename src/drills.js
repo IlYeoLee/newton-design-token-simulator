@@ -207,6 +207,27 @@ function boxingDrills(neutral) {
       }
       return null;
     }),
+    // 무릎 올리며 몸통 비틀기 (러닝 A3, 유저 이미지 147) — 한쪽 무릎을 골반 높이로 올리며
+    //  상체를 반대로 비틀어 반대쪽 팔꿈치를 무릎 쪽으로. 좌우 교대(4.8s=우2.4+좌2.4). 코어·균형 동적 워밍업.
+    kneeTwist: makeClip('kneeTwist', neutral, 4.8, (n, t) => {
+      const right = t < 0.5;                              // 1막 = 오른 무릎, 2막 = 왼 무릎
+      const u = (right ? t : t - 0.5) * 2;
+      const lift = Math.sin(Math.max(0, Math.min(1, u)) * Math.PI);   // 0→1→0 (올렸다 내림)
+      const sgn = right ? -1 : 1;                         // 비틀림 방향(무릎 반대)
+      const upHip = right ? R.hipR : R.hipL, upKnee = right ? R.kneeR : R.kneeL;
+      const crossArm = right ? R.armL : R.armR, crossFore = right ? R.foreL : R.foreR;
+      const openArm = right ? R.armR : R.armL;
+      if (n === upHip)   return rot(X, 96 * lift);         // 무릎을 골반 높이까지
+      if (n === upKnee)  return rot(X, -88 * lift);        // 무릎 굽힘
+      if (n === R.spine)  return rot(Y, sgn * 30 * lift);  // 상체 비틀기(무릎 반대쪽)
+      if (n === R.spine1) return rot(Y, sgn * 15 * lift);
+      if (n === R.neck)   return rot(Y, sgn * 12 * lift);  // 시선도 비트는 쪽
+      if (n === crossArm) return rot(X, 46 * lift).multiply(rot(Z, -sgn * 24 * lift));   // 반대 팔꿈치 무릎으로
+      if (n === crossFore) return rot(X, -64 * lift);
+      if (n === openArm)  return rot(Z, sgn * 34 * lift);  // 같은쪽 팔 벌려 균형
+      if (n === R.spine)  return null;
+      return null;
+    }),
     // 스텝 인·아웃 — 상체 앞뒤 무게 이동 + 살짝 바운스
     bx_stepio: makeClip('bx_stepio', neutral, 3.0, (n, t) => {
       const s = Math.sin(t * 3 * TWO_PI);
