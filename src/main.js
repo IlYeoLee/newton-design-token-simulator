@@ -3713,7 +3713,7 @@ void main(){
       tokens.update(0, 0);
       // hold=포즈 고정(복싱 READY 가드 유지). 러닝 대기는 idle 재생(호흡)이라 hold 안 함.
       // 러닝 준비운동(A) = 코치 드릴을 세션 스테이지 시간(session.t)에 위상 잠금 → 씬 링·카운트·음성과 동기(유저: '타이밍 하나하나 맞춰')
-      if (session.stage !== 'A2' && xbot.group.scale.x !== 1) xbot.group.scale.x = 1;   // A2 미러 잔류 방지
+      if (session.stage !== 'A2') { if (xbot.group.scale.x !== 1) xbot.group.scale.x = 1; xbot.lungeDeepen = 0; }   // A2 미러·깊이 잔류 방지
       const _clip = demoClipFor(session.sport, session.stage);
       // 위상잠금: 씬 링·카운트와 코치 동작을 같은 시간축에 — 절차 드릴 + A1 전신풀기·A2 점핑잭(주기=씬 BT).
       // BK_B2 = 분해 밟기: 씬 3s 사이클당 크로스오버 1회(마크 1-2-3과 사이클 동기).
@@ -3728,10 +3728,12 @@ void main(){
         // 유저 확정 페이싱: 쑤욱 내려가기 → 최심점 5초 정지 → 일어나기 → 반대발 동일.
         // 추출 클립(3.1s) 최심점 ≈ 1.5s. 홀드 = 위상 고정(완전 정지, 프레스 게이지 이 구간에 참).
         const L = xbot.actions['auto_cmu144_17_one']?.dur || 3.1;
-        const PD = 1.5, HOLD = 5.0, CYC = PD + HOLD + (L - PD);
+        const PD = 1.9, HOLD = 5.0, CYC = PD + HOLD + (L - PD);   // PD=앞발 접지 완료 시점(발 닿는 순간 멈춤)
         const c = session.t % CYC;
         _phase = c < PD ? c : (c < PD + HOLD ? PD : c - HOLD);
         xbot.group.scale.x = (Math.floor(session.t / CYC) % 2) ? -1 : 1;   // 회차마다 좌우 교대
+        // 깊이 노브: 접지 0.5s 전부터 램프인 → 홀드 내내 푹 → 일어나며 0.5s 램프아웃
+        xbot.lungeDeepen = c < PD - 0.5 ? 0 : (c < PD ? (c - (PD - 0.5)) / 0.5 : (c < PD + HOLD ? 1 : Math.max(0, 1 - (c - PD - HOLD) / 0.5)));
       }
       else if (session.stage === 'BK_B1') _phase = session.t;
       else if (session.stage === 'BK_B2') _phase = Math.min((session.t * 0.5) % 3.2, 2.2);   // 플랜트까지 + 홀드(슛 제거)

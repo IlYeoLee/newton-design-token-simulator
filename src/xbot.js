@@ -497,6 +497,20 @@ export class XBot {
       if (this.mode === 'basketball' && (key === 'dribble' || key === 'cmu_dribble_low')) this._dribbleBall(this._demoT || 0, dt);
       else this.ball.visible = false;
     }
+    // 런지 깊이 노브(lungeDeepen 0..1, main A2가 구동) — CMU 144_17이 얕아(무릎 h 47cm)
+    // 누름 구간에만 무릎·힙 굴곡을 가산해 '푹' 내려가게. 발은 아래 _clampFeet가 재접지.
+    if (this.lungeDeepen > 0.001 && key && key.startsWith('auto_cmu144_17')) {
+      const k = this.lungeDeepen, D = Math.PI / 180;
+      const B = n => this.model.getObjectByName(n);
+      const rx = (b, deg) => b && b.quaternion.multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), deg * D));
+      rx(B('mixamorigRightUpLeg'), 16 * k);   // 앞다리(R) — 미러 시 시각적으로 좌우 바뀜
+      rx(B('mixamorigRightLeg'), -30 * k);
+      rx(B('mixamorigLeftUpLeg'), -8 * k);    // 뒷다리 신전 유지
+      rx(B('mixamorigLeftLeg'), -24 * k);
+      rx(B('mixamorigSpine'), 6 * k);
+      this.model.updateMatrixWorld(true);
+      this._clampFeet?.();
+    }
     // 최종 월드 확정 — 루트모션 상쇄(모델 오프셋) 이후를 rig가 읽도록. 미갱신 시 무릎 모듈이
     // 상쇄 전 원시 힙 위치(런 클립 최대 0.9m 앞)에 놓여 '프로젝터가 몸에서 떨어져 떠다님'.
     // (팩 경로는 판정 캘리브레이션이 기존 타이밍에 적합돼 있어 건드리지 않음)
