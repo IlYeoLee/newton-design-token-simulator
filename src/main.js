@@ -3725,11 +3725,13 @@ void main(){
         // 교대 런지: 원본(cmu144_17)은 오른발 런지만 — 깨끗한 1사이클 창(10.4~14.0s)을 반복하고
         // 홀수 사이클마다 봇을 비주얼 미러(X스케일 반전) → 오른발 1회 꾹 → 왼발 1회 꾹.
         // (데이터 미러 합성은 mixamorig 로컬축 비대칭으로 실패 — 스케일 미러는 무손상·확실)
-        // 2번째 런지 단독 추출 클립(cmu144_17_one, 3.1s·힙 리베이스로 이음새 무이동) 반복.
-        // 홀수 회차 = X스케일 미러(왼발) — 경계는 중립 서기라 팝 없음.
+        // 유저 확정 페이싱: 쑤욱 내려가기 → 최심점 5초 정지 → 일어나기 → 반대발 동일.
+        // 추출 클립(3.1s) 최심점 ≈ 1.5s. 홀드 = 위상 고정(완전 정지, 프레스 게이지 이 구간에 참).
         const L = xbot.actions['auto_cmu144_17_one']?.dur || 3.1;
-        _phase = session.t % L;
-        xbot.group.scale.x = (Math.floor(session.t / L) % 2) ? -1 : 1;
+        const PD = 1.5, HOLD = 5.0, CYC = PD + HOLD + (L - PD);
+        const c = session.t % CYC;
+        _phase = c < PD ? c : (c < PD + HOLD ? PD : c - HOLD);
+        xbot.group.scale.x = (Math.floor(session.t / CYC) % 2) ? -1 : 1;   // 회차마다 좌우 교대
       }
       else if (session.stage === 'BK_B1') _phase = session.t;
       else if (session.stage === 'BK_B2') _phase = Math.min((session.t * 0.5) % 3.2, 2.2);   // 플랜트까지 + 홀드(슛 제거)
