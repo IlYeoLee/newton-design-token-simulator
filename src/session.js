@@ -1293,6 +1293,15 @@ export class Session {
       U.uLHeat.value = A.heat ?? 0.5;
       U.uLTail.value = A.tail ?? 0.55;
       U.uGain.value = FXP.gainBoost * (m._gainK ?? 1);   // _gainK = 장면 강조/페이드 (허용 매개변수)
+      if (fp && U.uFPNear) {   // 투사면 경계 소프트 페이드 — 페이스 레인이 투사영역 밖으로 뻗던 것(유저)
+        U.uFPOrigin.value.set(fp.ox, 0, fp.oz);
+        U.uFPFwd.value.set(fp.fx, 0, fp.fz);
+        U.uFPRight.value.set(fp.rx, 0, fp.rz);
+        U.uFPNear.value = this.rig.fpNear;
+        U.uFPFar.value = this.rig.fpFar;
+        U.uFPHalfN.value = this.rig._halfAt(this.rig.fpNear);
+        U.uFPHalfF.value = this.rig._halfAt(this.rig.fpFar);
+      }
       if (U.uDay.value !== day) {
         U.uDay.value = day;
         m.blending = day ? THREE.NormalBlending : THREE.AdditiveBlending;
@@ -1573,8 +1582,8 @@ export class Session {
       H.ring.scale.setScalar(1 + 0.06 * H._pop); H.timerArc.scale?.setScalar?.(1 + 0.06 * H._pop);
       // 중앙 = 누적 횟수(큼직) — '몇 개 했나' 한눈에
       if (H.reps !== H._numShown) { redrawFootNum(H.numCtr.userData.plane, H.reps); H._numShown = H.reps; }
-      FMU(`무릎 올리기 — ${H.reps}회 · ${Math.max(0, Math.ceil(HOLD_SEC - H.sec))}초`, CS.sand);
-      if (H.sec >= HOLD_SEC) { this.next(); return; }
+      FMU(`무릎 올리기 — ${H.reps}/${REP_TARGET}`, CS.sand);
+      if (H.reps >= REP_TARGET || H.sec >= MAXSEC) { this.next(); return; }
     } else if (id === 'P1' || id === 'P2') {
       // 페이스 잡기 — 뛰면서 페이스로 익힌다: 페이서 봇 + 흐르는 페이스 라이트에 리듬 맞추기.
       // (정지 학습 A4·B1~B4 폐기. 라이브 워밍업 런 = C 실전과 동일 머신 재사용.)
