@@ -519,11 +519,10 @@ export class Session {
     // 런지 프레스 = 룩 시스템 발형(MARK 상태머신) — Hold 코닉 림(차오르는 라인) + 숫자 5→1 카운트
     // + 완료 Success 블룸(리퀴드). A안=앞발 바로 아래 추종 / B안=전방 고정 (a2Guide 토글).
     this.a2press = {
-      fmL: new FootMark('left').at(0, -1.35, 1.15), fmR: new FootMark('right').at(0, -1.35, 1.15),
-      nums: [5, 4, 3, 2, 1].map(n => floorNum(n, 0, -1.35, 0.13)),   // 발형 '안' 글리프 슬롯 (룩시스템 FOOT 슬롯 SVG 규약)
-      cx: 0, cz: -1.35, fill: 0, _numIdx: -1, _pop: 0,
+      fmL: new FootMark('left').at(-0.13, -1.45, 1.5), fmR: new FootMark('right').at(0.13, -1.45, 1.5),
+      nums: [5, 4, 3, 2, 1].map(n => floorNum(n, 0, -1.49, 0.16)),   // 발형 볼 '안' 글리프 (룩시스템 슬롯)
+      fill: 0, _numIdx: -1, _pop: 0, _succ: 0, _succFM: null,
     };
-    this.a2press.fmL.group.visible = false; this.a2press.fmR.group.visible = false;
     g.add(this.a2press.fmL.group, this.a2press.fmR.group);
     for (const n of this.a2press.nums) { n.visible = false; g.add(n); }
 
@@ -1388,46 +1387,38 @@ export class Session {
       this._a2t = this.t;
       const pb = this.xbot?.getProbes?.();
       const P = this.a2press;
-      // AI 사출 보정(유저 스케치 정정): 원 = 앞발 '아래'(발이 원을 밟음) — 발끝 기준 거의 제자리(+0.05)
+      // ── 룩 시스템 MARK 상태머신 (유저 확정 플로우) ──
+      // 좌·우 발형 = 지면 고정 목표. Preview(둘 다 숨쉬기) → 딛는 발 Active(헤일로 수축)
+      // → 접지 Hold(코닉 림 + 5→1 글리프) → Success(블룸·버스트) → 반대발, 대기발은 Locked 고스트.
       const front = pb ? (pb.footL.z < pb.footR.z ? pb.footL : pb.footR) : null;
       const isL = front === pb?.footL;
-      if ((this.a2Guide || 'A') === 'A') {
-        // A안(알고리즘 보정): 앞발 '접지 순간' 그 자리에 스냅 락 — 발이 마크를 꾹 누름.
-        // 추종·지연 없음(밀려다니면 '밟는' 은유가 깨짐 — 유저). 발 들면 해제, 다음 접지에 재락.
-        if (front && front.y < 0.09) {
-          if (!P._lock) { P._lock = true; P.cx = front.x; P.cz = front.z; }
-        } else if (!front || front.y > 0.16) P._lock = false;
-      } else {
-        // B안: 전방 고정(-2.0) — 눈앞에서 차오르는 걸 바라보기
-        P.cx += (0 - P.cx) * 0.12;
-        P.cz += (-2.0 - P.cz) * 0.12;
-      }
-      // 발형 마크: 앞발 쪽 모양만 표시, 위치 동기
-      const showMark = (this.a2Guide || 'A') !== 'A' || P._lock;
-      P.fmL.group.visible = isL && showMark; P.fmR.group.visible = !isL && showMark;
-      const fm = isL ? P.fmL : P.fmR;
-      P.fmL.at(P.cx, P.cz, 1.15); P.fmR.at(P.cx, P.cz, 1.15);
-      let pressing = false;
-      if ((this.a2Guide || 'A') === 'A') {
-        for (const f of [pb?.footL, pb?.footR]) {
-          if (f && f.y < 0.09 && Math.hypot(f.x - P.cx, f.z - P.cz) < 0.27) pressing = true;
-        }
-      } else if (front && front.y < 0.09 && pb && Math.abs(pb.footL.z - pb.footR.z) > 0.4) {
-        pressing = true;   // B안 판정 = 앞발 접지 + 런지 스프레드(깊이 유지 중)
-      }
+      const spread = pb ? Math.abs(pb.footL.z - pb.footR.z) : 0;
+      const engaged = !!front && spread > 0.28;
+      const act = isL ? P.fmL : P.fmR, oth = isL ? P.fmR : P.fmL;
+      const ap = act.group.position;
+      const pressing = engaged && front.y < 0.09 && Math.hypot(front.x - ap.x, front.z - ap.z) < 0.34;
       P.fill = pressing ? Math.min(1, P.fill + dt / NEED) : Math.max(0, P.fill - dt * 0.6);
-      fm.setHold(P.fill);                       // Hold 코닉 림 = 차오르는 라인
-      fm.op(pressing ? 1 : 0.55);
-      // 숫자 카운트 5→1: 남은 홀드 초 — 바뀔 때 팝(스케일 1.45→1)
+      P._succ = Math.max(0, (P._succ || 0) - dt);
+      if (P._succ > 0 && P._succFM) P._succFM.glow(1 - P._succ / 0.9);           // Success 블룸 잔상
+      if (!engaged && P.fill <= 0.001) {
+        if (P._succ <= 0) { P.fmL.countdown(-1); P.fmR.countdown(-1); }          // Preview
+      } else {
+        if (P._succ <= 0 || P._succFM !== act) {
+          if (pressing) act.setHold(Math.max(0.001, P.fill));                     // Hold
+          else act.countdown(Math.min(1, Math.max(0, (spread - 0.28) / 0.45)));   // Active
+        }
+        if (P._succ <= 0 || P._succFM !== oth) oth.ghost();                       // Locked
+      }
+      // 글리프 5→1 — 발형 볼 중앙, 크게·안정 (삐져나옴 금지: 마크 1.5배 확대에 맞춤)
       const idx = Math.min(4, Math.floor(P.fill * 5));
-      for (let i = 0; i < 5; i++) { const n = P.nums[i]; n.visible = pressing && i === idx; n.position.x = P.cx; n.position.z = P.cz - 0.05; }   // 발형 볼(앞쪽) 슬롯
+      for (let i = 0; i < 5; i++) { const n = P.nums[i]; n.visible = pressing && i === idx; n.position.x = ap.x; n.position.z = ap.z - 0.04; }
       if (idx !== P._numIdx) { P._numIdx = idx; P._pop = 1; }
       P._pop = Math.max(0, P._pop - dt * 3.2);
-      const shown = P.nums[idx]; if (shown) shown.scale.setScalar(1 + 0.45 * P._pop);
+      const shown = P.nums[idx]; if (shown) shown.scale.setScalar(1 + 0.35 * P._pop);
       if (P.fill >= 1) {
         this.a2count = (this.a2count || 0) + 1; P.fill = 0;
-        fm.glow(0);                              // Success 블룸(리퀴드 잔상)
-        const wp = new THREE.Vector3(); fm.group.getWorldPosition(wp); this.onPress?.(wp);   // 완료 버스트
+        P._succ = 0.9; P._succFM = act;
+        const wp = new THREE.Vector3(); act.group.getWorldPosition(wp); this.onPress?.(wp);   // 완료 버스트(리퀴드)
       }
       if (this.t < DEMO) {
         this.demoActive = true;
