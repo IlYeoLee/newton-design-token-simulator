@@ -887,7 +887,12 @@ void main(){
   let demoTour = null;   // { queue:[sports], i }
   // ── 장면 스코프 — ✎ 디자인 안의 [장면] 탭. 별도 에디터가 아니다. ──
   const sceneScope = new SceneScope(session, designStore, { onDirty: saveScenes });
-  session.applySceneStore(designStore.sceneStore());   // 저장된 장면 편집 부팅 복원
+  {
+    const _ss = designStore.sceneStore();
+    // A1·A2 재설계됨(목돌리기 영상 패널 / 런지 발형) — 낡은 패치가 요소 위치를 봇 뒤로 끌어당김. 폐기.
+    if (_ss) { delete _ss.A1; delete _ss.A2; }
+    session.applySceneStore(_ss);   // 저장된 장면 편집 부팅 복원
+  }
 
   function startSessionFor(sport) {
     // 스튜디오가 좌측 패널을 숨긴 채 남았을 수 있음 — 세션 시작 시 항상 복원(스틱 방지)

@@ -3,7 +3,7 @@ import bkStepContacts from '../assets/mocap/contacts-cmu_crossover_shot.json';  
 import { WALL_Z } from './scene.js';
 import { lutColor, GLYPHS, drawGlyph, footSlot, footSDFTexture, FXP } from './fxlut.js';
 import { MARK_NUM, drawStanceBox, drawPunchLine, drawApproachRing, drawTrajectory, drawRotate } from './fx-core.js';
-import { makeMarkFXMaterial, makeLaneFXMaterial, makeFlowArrow, tickFlowArrows, Marker, COLORS } from './tokens.js';
+import { makeMarkFXMaterial, makeLaneFXMaterial, makeFlowArrow, tickFlowArrows } from './tokens.js';
 
 // 피그마 CTA 임포트 — StageCard/베이스 컴포넌트의 cta 노드를 다운로드한 에셋(150×44 원 비율).
 // 절차: 피그마에서 download_assets → public/textures/<sport>_running.png → 여기서 텍스처로 소비.
@@ -129,6 +129,29 @@ class FootMark {
   }
   at(x, z, s = 1) { this.group.position.set(x, 0.013, z); this.group.scale.setScalar(s); return this; }
   op(k) { this._U.uFade.value = k; }
+  /** 발형 볼(앞쪽) 안에 숫자 글리프 — 자식이라 발 위치·회전·스케일 자동 상속(삐짐·엇나감 없음) */
+  setNum(n, visible) {
+    if (!this._num) {
+      const c = document.createElement('canvas'); c.width = c.height = 128;
+      this._numCtx = c.getContext('2d'); this._numTex = new THREE.CanvasTexture(c);
+      this._numTex.colorSpace = THREE.SRGBColorSpace; this._numTex.anisotropy = 4;
+      this._num = new THREE.Mesh(new THREE.PlaneGeometry(0.19, 0.19),
+        new THREE.MeshBasicMaterial({ map: this._numTex, transparent: true, depthWrite: false }));
+      this._num.position.set(0, 0.06, 0.004);   // 볼(앞쪽 toe 방향 +Y) 살짝 위
+      this._num.renderOrder = 8; this.group.add(this._num);
+      this._numN = null;
+    }
+    this._num.visible = !!visible;
+    if (visible && n !== this._numN) {
+      this._numN = n; const g2 = this._numCtx; g2.clearRect(0, 0, 128, 128);
+      if (!drawGlyph(g2, String(n), 64, 64, 92)) {
+        g2.fillStyle = 'rgba(255,240,220,0.96)'; g2.font = '300 84px -apple-system, sans-serif';
+        g2.textAlign = 'center'; g2.textBaseline = 'middle';
+        g2.shadowColor = 'rgba(254,150,90,0.8)'; g2.shadowBlur = 14; g2.fillText(String(n), 64, 68);
+      }
+      this._numTex.needsUpdate = true;
+    }
+  }
   setHold(p) { this._U.uPhase.value = 5; this._U.uProg.value = Math.max(0.001, p); }   // Hold 코닉 진행 림
   countdown(p) {
     if (p < 0) { this._U.uPhase.value = 0; this._U.uProg.value = 0; return; }          // 대기 = Preview 숨쉬기
@@ -518,17 +541,12 @@ export class Session {
     g = this._mk('A2');
     // 런지 프레스 = 룩 시스템 발형(MARK 상태머신) — Hold 코닉 림(차오르는 라인) + 숫자 5→1 카운트
     // + 완료 Success 블룸(리퀴드). A안=앞발 바로 아래 추종 / B안=전방 고정 (a2Guide 토글).
-    // 룩시스템 정식 MARK 토큰(Marker) 2개 — 좌·우 발형 나란히. setNumber로 글리프 자동 앵커(삐짐 없음).
-    // render(phase, progress)가 Preview/Active(countdown)/Locked/Success(linger) 전부 전담.
-    const mkFoot = (right, x) => {
-      const m = new Marker(0.17, COLORS.left, 'floor', right);   // radius 0.17 = 작고 예쁜 발형
-      m.setNumber(5);
-      m.group.position.set(x, 0.013, -1.5);
-      return m;
-    };
+    // 좌·우 발형(FootMark = 룩시스템 발형 SDF, A3와 동일 방식·사이즈) 나란히 지면 고정.
+    // 상태 = countdown/setHold/glow/ghost로 Preview/Active/Hold/Success/Locked. 숫자는 발형 자식.
+    // 눈 앞 적정 투사존(A단계 시선 낙하 ~1.9m)에 나란히 — '진행상황을 눈앞에서 본다'(유저 확정)
     this.a2press = {
-      fmL: mkFoot(false, -0.14), fmR: mkFoot(true, 0.14),
-      fill: 0, _cnt: 5, _succ: 0, _succFM: null, _side: null,
+      fmL: new FootMark('left').at(-0.17, -1.9, 1.0), fmR: new FootMark('right').at(0.17, -1.9, 1.0),
+      fill: 0, _cnt: 5, _succ: 0, _succFM: null,
     };
     g.add(this.a2press.fmL.group, this.a2press.fmR.group);
 
@@ -1400,38 +1418,38 @@ export class Session {
       const front = pb ? (pb.footL.z < pb.footR.z ? pb.footL : pb.footR) : null;
       const isL = front === pb?.footL;
       const spread = pb ? Math.abs(pb.footL.z - pb.footR.z) : 0;
-      const engaged = !!front && spread > 0.28;                 // 발을 뻗기 시작 = Active
+      const engaged = !!front && spread > 0.28;                    // 발을 뻗기 시작 = Active
       const pressing = engaged && front.y < 0.10 && spread > 0.5;  // 깊이 밟음(홀드) = 숫자 카운트
       const act = isL ? P.fmL : P.fmR, oth = isL ? P.fmR : P.fmL;
       P.fill = pressing ? Math.min(1, P.fill + dt / NEED) : Math.max(0, P.fill - dt * 0.8);
       P._succ = Math.max(0, (P._succ || 0) - dt);
-      const T = performance.now() / 1000;
 
-      // 성공 잔상(linger) 우선 — 방금 완료한 발
-      if (P._succ > 0 && P._succFM) P._succFM.render('linger', 1 - P._succ / 0.9, 0, 1);
+      // 방금 완료한 발 = Success 블룸 잔상 (우선)
+      if (P._succ > 0 && P._succFM) { P._succFM.glow(1 - P._succ / 0.9); P._succFM.setNum(0, false); }
 
       if (!engaged && P.fill <= 0.001) {
-        // Preview — 둘 다 숨쉬기 (성공 잔상 중인 발은 위에서 이미 linger)
-        if (P._succ <= 0 || P._succFM !== P.fmL) P.fmL.render('preview', 0, 0, 1);
-        if (P._succ <= 0 || P._succFM !== P.fmR) P.fmR.render('preview', 0, 0, 1);
+        // Preview — 둘 다 숨쉬기
+        if (P._succ <= 0 || P._succFM !== P.fmL) { P.fmL.countdown(-1); P.fmL.setNum(0, false); }
+        if (P._succ <= 0 || P._succFM !== P.fmR) { P.fmR.countdown(-1); P.fmR.setNum(0, false); }
       } else {
-        // Active/Hold — 딛는 발. countdown 페이즈 progress = 접근도→홀드 채움
-        const prog = pressing ? P.fill : Math.min(0.35, Math.max(0, (spread - 0.28) / 0.6));
-        if (P._succ <= 0 || P._succFM !== act) act.render('countdown', prog, 0, 1);
-        // 숫자 5→1 — 밟는 동안만. 정수 바뀔 때만 텍스처 갱신
-        const n = pressing ? Math.max(1, 5 - Math.floor(P.fill * 5)) : 5;
-        if (n !== P._cnt) { act.setNumber(n); P._cnt = n; }
-        // Locked — 아직 안 한 발
-        if (P._succ <= 0 || P._succFM !== oth) oth.render('locked', 0, 0, 1);
+        // 딛는 발: 밟는 중 = Hold(코닉 림, op 진해짐) + 숫자 5→1 / 뻗는 중 = Active(수축 링)
+        if (P._succ <= 0 || P._succFM !== act) {
+          if (pressing) {
+            act.setHold(Math.max(0.001, P.fill));
+            act.op(0.5 + 0.5 * P.fill);                             // 꾹꾹 누를수록 진해짐
+            act.setNum(Math.max(1, 5 - Math.floor(P.fill * 5)), true);   // 5→1 카운트
+          } else {
+            act.countdown(Math.min(1, Math.max(0, (spread - 0.28) / 0.5)));
+            act.op(1); act.setNum(0, false);
+          }
+        }
+        // 아직 안 한 발 = Locked 고스트
+        if (P._succ <= 0 || P._succFM !== oth) { oth.ghost(); oth.setNum(0, false); }
       }
 
-      // 숫자 = 밟는 순간(pressing)에만 노출 — 스케치 '밟는 순간→숫자 카운트'
-      if (P.fmL.num) P.fmL.num.visible = pressing && act === P.fmL;
-      if (P.fmR.num) P.fmR.num.visible = pressing && act === P.fmR;
-
       if (P.fill >= 1) {
-        this.a2count = (this.a2count || 0) + 1; P.fill = 0; P._cnt = 5; act.setNumber(5);
-        P._succ = 0.9; P._succFM = act;                       // Success 블룸
+        this.a2count = (this.a2count || 0) + 1; P.fill = 0; P._cnt = 5;
+        P._succ = 0.9; P._succFM = act; act.setNum(0, false);
         const wp = new THREE.Vector3(); act.group.getWorldPosition(wp); this.onPress?.(wp);   // 완료 버스트(리퀴드)
       }
       if (this.t < DEMO) {
