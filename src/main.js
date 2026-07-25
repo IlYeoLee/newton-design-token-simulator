@@ -3668,7 +3668,10 @@ void main(){
       // A1 목·어깨: neckShoulder(목 먼저 2바퀴 → 어깨 롤 3바퀴, 순차 저작 — 유저 지정).
       // 주의: imp_warming_up_1_은 라벨과 달리 복싱 가드 동작(인제스트 라벨 오류) — 사용 금지.
       // A2: cmu144_17 실측 런지(다리 자연스러움) + 팔만 중립 덮어쓰기(_relaxArms) — 절차 런지는 다리가 어색(유저)
-      A1: 'neckShoulder', A2: 'auto_cmu144_11',   // Left_Lunges — 무릎 15cm 깊은 실측 런지(유저 발견 트라이얼) A3: 'quadStretch', T1: 'neckStretch', T2: 'armStretch', FIN: 'quadStretch',
+      A1: 'neckShoulder',              // 목 먼저 → 어깨 (순차)
+      A2: 'auto_cmu144_11',            // Left_Lunges — 무릎 15cm 깊은 실측 런지
+      A3: 'auto_cmu14_20_twist',       // 무릎 올리며 몸통 비틀기 (CMU 14_20 3번째 동작 추출)
+      T1: 'neckStretch', T2: 'armStretch', FIN: 'quadStretch',
       // 복싱 = Mixamo 실측 모캡 (목풀기만 절차)
       BX_A1: 'bx_neck', BX_A2: 'boxGuard', BX_A3: 'boxJab',
       BX_B1: 'boxGuard', BX_B2: 'boxGuard', BX_B3: 'boxCombo',

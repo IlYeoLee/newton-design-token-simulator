@@ -300,5 +300,10 @@
   "root": false,
   "dur": 25.8,
   "cat": "lunge"
+ },
+ "cmu14_20_twist": {
+  "root": false,
+  "dur": 3.3,
+  "cat": "stretch"
  }
 }

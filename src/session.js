@@ -397,7 +397,7 @@ export const STAGES = {
     { id:'READY', label:'준비 — 발 두 번 구르면 시작', voice:['션','안녕! 만나서 반가워요, 전 션이에요. 오늘 저랑 같이 가볍게 1킬로미터 달려볼 거예요. 준비되면 제자리에서 발을 두 번 굴러 주세요!'], wear:'SAFE 대기', foot:'발 두 번 구르기 → 시작' },
     { id:'A1', label:'A · 준비운동 1/3 — 목·어깨 풀기', voice:['션','먼저 몸부터 깨울게요. 편하게 서서 목과 어깨를 크게, 천천히 돌려요. 링이 다 찰 때까지!'], wear:'개입 없음 (자세 측정)' },
     { id:'A2', label:'A · 준비운동 2/3 — 런지(앞의 원 딛고 버티기)', voice:['션','좋아요, 잘하고 있어요! 이번엔 런지예요. 발을 앞으로 크게 딛어 원을 밟고, 무릎을 굽혀 지그시 버텨요. 링이 차면 발을 바꿔요.'], foot:'앞으로 딛고 버티기 · 발 교대' },
-    { id:'A3', label:'A · 준비운동 3/3 — 쿼드 스트레치(발등 잡고 당기기)', voice:['션','오, 잘했어요! 마지막 스트레칭이에요. 발등을 잡아 엉덩이 쪽으로 당기고, 링이 차는 동안 버텨요. 좌우 번갈아!'], foot:'완료 후 두 번 구르기 → 다음' },
+    { id:'A3', label:'A · 준비운동 3/3 — 무릎 올리며 몸통 비틀기', voice:['션','마지막이에요! 한쪽 무릎을 배 높이까지 쭉 올리면서 몸통을 반대로 비틀어요. 코어랑 균형 감각을 확 깨우는 동작이에요. 좌우 번갈아 가볍게!'], foot:'완료 후 두 번 구르기 → 다음' },
     { id:'T1', label:'몸풀기 끝 — 다음은 페이스 잡기', voice:['션','몸이 다 풀렸네요, 최고예요! 발 두 번 구르면 이제 페이스 잡으러 가요.'], foot:'발 두 번 구르기 → 페이스 잡기' },
     { id:'P1', dur:6, live:true, label:'페이스 잡기 — 페이서 붙어 가볍게 뛰기', voice:['션','자, 바로 가볍게 뛰기 시작할게요. 앞의 광점이 저예요 — 제 페이스에 한번 붙어 보세요!'], wear:'낮은 강도 보조 시작' },
     { id:'P2', dur:6, live:true, label:'페이스 잠금 → 실전 진입', voice:['션','오, 그 리듬 좋은데요! 몇 걸음만 더 맞추면 바로 실전이에요.'], wear:'SAFE 착지 안정화' },
@@ -1472,22 +1472,21 @@ export class Session {
         }
       }
     } else if (id === 'A3') {
-      // 쿼드 스트레치 — 발등을 잡아 당기는 동안 홀드 아크가 차오름 (프로브: 뒤로 접어 든 발 높이 0.3m+)
-      const NEED = 1.1, REPS = 4, DEMO = 3.0;
+      // 무릎 올리며 몸통 비틀기 — 무릎을 올릴 때마다(든 발 높이 0.3m+) 홀드 아크가 차오름·1회 카운트
+      const NEED = 0.9, REPS = 6, DEMO = 3.0;   // 좌우 번갈아 6회(가벼운 동적 워밍업)
       const dt = Math.max(0, this.t - (this._a3t ?? this.t));
       if ((this._a3t ?? 0) > this.t) { this.a3count = 0; this._a3fill = 0; }
       this._a3t = this.t;
       const pb = this.xbot?.getProbes?.();
       const raised = pb && Math.max(pb.footL?.y ?? 0, pb.footR?.y ?? 0) > 0.3;
-      this._a3fill = raised ? Math.min(1, (this._a3fill || 0) + dt / NEED) : Math.max(0, (this._a3fill || 0) - dt * 1.2);
+      this._a3fill = raised ? Math.min(1, (this._a3fill || 0) + dt / NEED) : Math.max(0, (this._a3fill || 0) - dt * 1.4);
       this.a3arc.setProg(Math.max(0.001, this._a3fill));
       if (this._a3fill >= 1) { this.a3count = (this.a3count || 0) + 1; this._a3fill = 0; }
       if (this.t < DEMO) {
         this.demoActive = true;
-        FMU('먼저 보세요 — 발등 잡고 엉덩이로', CS.sand);
+        FMU('먼저 보세요 — 무릎 올리며 몸통 비틀기', CS.sand);
       } else {
-        // 중간 재안내 제거 — 진입 문장 하나로
-        FMU(`쿼드 스트레치 ${Math.min(REPS, this.a3count || 0)} / ${REPS}`, CS.sand);
+        FMU(`무릎 올리기 ${Math.min(REPS, this.a3count || 0)} / ${REPS}`, CS.sand);
         if ((this.a3count || 0) >= REPS) { this.next(); return; }
       }
     } else if (id === 'P1' || id === 'P2') {
