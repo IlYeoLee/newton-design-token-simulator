@@ -81,13 +81,14 @@ function runningDrills(neutral) {
       const F = p1;                                                                      // F=왼발 앞
       // 손 = 중립(자연스럽게 늘어뜨림) — 절차 합장이 계속 어색(유저 2회 지적) → 팔 미구동.
       // 미구동 본은 중립 서있기 포즈 유지 + playDemo 호흡 레이어가 미세 생동감을 준다.
-      if (n === (F ? R.hipL : R.hipR))   return rot(X, 30 * h + 5 * press);   // 앞다리 내딛기
-      if (n === (F ? R.kneeL : R.kneeR)) return rot(X, 10 * h - 12 * press);  // 앞무릎 굽혀 무게 실어 누름
-      if (n === (F ? R.footL : R.footR)) return rot(X, -14 * h);              // 앞발 뒤꿈치↓ 접지
-      if (n === (F ? R.kneeR : R.kneeL)) return rot(X, -(48 * h + 16 * press)); // 축무릎 굴곡 + 프레스 딥
-      if (n === (F ? R.hipR : R.hipL))   return rot(X, 22 * h + 6 * press);
-      if (n === (F ? R.footR : R.footL)) return rot(X, 16 * h);               // 뒷발 토우
-      if (n === R.spine) return rot(X, 7 * h + 9 * press);                    // 상체 무게중심 앞·아래
+      // 보폭 넓게 + 앞무릎 깊은 굴곡(정면 가독) — 유저 확정. 뒷다리는 뒤로 뻗기(신전).
+      if (n === (F ? R.hipL : R.hipR))   return rot(X, 44 * h + 6 * press);   // 앞다리 크게 내딛기
+      if (n === (F ? R.kneeL : R.kneeR)) return rot(X, -(14 * h + 30 * press)); // 앞무릎 굽혀 깊이 누름
+      if (n === (F ? R.footL : R.footR)) return rot(X, -20 * h);              // 앞발 뒤꿈치↓ 접지
+      if (n === (F ? R.hipR : R.hipL))   return rot(X, -(10 * h) + 4 * press); // 뒷다리 뒤로 뻗음(신전)
+      if (n === (F ? R.kneeR : R.kneeL)) return rot(X, -(26 * h + 14 * press)); // 뒷무릎은 완만히
+      if (n === (F ? R.footR : R.footL)) return rot(X, 26 * h);               // 뒷발 토우
+      if (n === R.spine) return rot(X, 5 * h + 7 * press);                    // 상체는 곧게, 무게만 아래로
       return null;
     }),
     // 싱글레그 쿼드 스트레치 — 오른발 접지, 왼무릎 완전 굴곡(발뒤꿈치↑ 엉덩이로), 왼손이 뒤로 발목 잡기, 홀드.
