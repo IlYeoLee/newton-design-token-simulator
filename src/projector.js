@@ -431,6 +431,10 @@ export class ProjectorRig {
         ox = body.x + fwd.x * df + rx * dr;
         oz = body.z + fwd.z * df + rz * dr;
       }
+      // 발목 유닛 핸드오프(제품 2유닛 구성): 무릎 유닛 단독으론 타겟 '뒤쪽'(근접존)에 각이 안 나옴
+      // — 딥 런지에서 발형 마크 후반부가 클리핑되던 원인(유저 실화면). 커버리지 원점을 0.35m
+      // 후퇴시켜 마크 전체를 사출창 안에 (발목 유닛이 근접존을 이어받는 물리 표현).
+      ox -= fwd.x * 0.35; oz -= fwd.z * 0.35;
       this.shake.set(0, 0);
       this.errorCm = 0;
     } else {
