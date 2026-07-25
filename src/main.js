@@ -2105,9 +2105,10 @@ void main(){
     // 어떤 스테이지 코치를 켤지: A1 = 전 구간, A2 = 진입 후 ~3s 데모(런지 따라하기 전 시범)
     const st = session.active && !session.isLive && state.pack === 'running' ? session.stage : null;
     const showA1 = st === 'A1';
-    const _vHold = !!(session.voiceBusy && session.voiceBusy());   // 관찰 = 최소 5s + 진입 음성 끝까지
-    const showA2 = st === 'A2' && ((session.t || 0) < 5.0 || _vHold);   // 관찰 동안 전문가 런지 영상
-    const showA3 = st === 'A3' && ((session.t || 0) < 5.0 || _vHold);   // 관찰 동안 하이니 영상
+    // 관찰 = 최소 5s + 진입 음성 끝까지. 단 팔로우 래치 후엔 큐 음성이 재생돼도 코치 영상 숨김(발자국과 겹침 방지).
+    const _vHold = !session._followLatch && !!(session.voiceBusy && session.voiceBusy());
+    const showA2 = st === 'A2' && !session._followLatch && ((session.t || 0) < 5.0 || _vHold);
+    const showA3 = st === 'A3' && !session._followLatch && ((session.t || 0) < 5.0 || _vHold);
     const activeId = showA1 ? 'A1' : (showA2 ? 'A2' : (showA3 ? 'A3' : null));
     for (const id of ['A1', 'A2', 'A3']) {
       const c = _coaches[id];

@@ -1510,7 +1510,7 @@ export class Session {
       const WATCH = 5.0, REP_TARGET = 10, MAXSEC = 40;   // 총 10회(발 감지 실패 대비 40s 안전 상한)
       const H = this.a3hk;
       const dt = Math.max(0, this.t - (this._a3t ?? this.t));
-      if ((this._a3t ?? 0) > this.t) { H.sec = 0; H.reps = 0; H._upL = false; H._upR = false; }   // 재진입 리셋
+      if ((this._a3t ?? 0) > this.t) { H.sec = 0; H.reps = 0; H._beat = 0; H._prevLeft = undefined; }   // 재진입 리셋
       this._a3t = this.t;
       const pb = this.xbot?.getProbes?.();
 
@@ -1536,10 +1536,9 @@ export class Session {
       const PERIOD = 0.5, leftNow = (H._beat % (PERIOD * 2)) < PERIOD;
       const onFM = leftNow ? H.fmL : H.fmR, offFM = leftNow ? H.fmR : H.fmL;
       onFM.glow(0.85); onFM.op(0.95); offFM.ghost(); offFM.op(0.4);
-      // 발 감지 = 실제 올릴 때마다 카운트업 + 링 톡 튐
-      const lU = (pb?.footL?.y ?? 0) > 0.22, rU = (pb?.footR?.y ?? 0) > 0.22;
-      if ((lU && !H._upL) || (rU && !H._upR)) { H.reps++; H._pop = 1; }
-      H._upL = lU; H._upR = rU;
+      // 카운트 = 데모 비트(좌우 교대)마다 1회 — 봇 발이 실제로 안 올라와(발감지 실패) 확정 리듬으로 카운트
+      if (H._prevLeft !== undefined && leftNow !== H._prevLeft) { H.reps++; H._pop = 1; }
+      H._prevLeft = leftNow;
       H.ring.scale.setScalar(1 + 0.06 * H._pop); H.timerArc.scale?.setScalar?.(1 + 0.06 * H._pop);
       // 중앙 = 누적 횟수(큼직) — '몇 개 했나' 한눈에
       if (H.reps !== H._numShown) { redrawFootNum(H.numCtr.userData.plane, H.reps); H._numShown = H.reps; }

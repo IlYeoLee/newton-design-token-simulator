@@ -127,9 +127,9 @@ export class ProjectorRig {
         fragmentShader: `
           varying vec3 vColor; varying vec2 vUv; uniform float uOpacity, uFade;
           void main(){
-            // 투사 광원 사각 모서리를 4변 모두 페더 → 하드 코너 제거(유저)
-            float e = smoothstep(0.0, uFade, vUv.x) * smoothstep(1.0, 1.0 - uFade, vUv.x)
-                    * smoothstep(0.0, uFade, vUv.y) * smoothstep(1.0, 1.0 - uFade, vUv.y);
+            // 투사 광원면 = 중심서 방사형 페이드(타원) → 직선 모서리·코너가 원천적으로 안 생김(유저 반복 지적)
+            float r = length((vUv - 0.5) * 2.0);          // 0 중심 → 1 변 → ~1.41 코너
+            float e = 1.0 - smoothstep(0.55, 1.0, r);      // 가장자리로 갈수록 부드럽게 소멸
             gl_FragColor = vec4(vColor, uOpacity * e);
           }`,
       })
