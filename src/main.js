@@ -3725,10 +3725,12 @@ void main(){
         // 교대 런지: 원본(cmu144_17)은 오른발 런지만 — 깨끗한 1사이클 창(10.4~14.0s)을 반복하고
         // 홀수 사이클마다 봇을 비주얼 미러(X스케일 반전) → 오른발 1회 꾹 → 왼발 1회 꾹.
         // (데이터 미러 합성은 mixamorig 로컬축 비대칭으로 실패 — 스케일 미러는 무손상·확실)
-        const W0 = 10.4, W1 = 14.0, L = W1 - W0;
-        const cyc = session.t / L;
-        _phase = W0 + (cyc % 1) * L;
-        xbot.group.scale.x = (Math.floor(cyc) % 2) ? -1 : 1;
+        // 핑퐁 재생(정→역) — 루트 클립이라 단순 루프는 창 끝→시작 힙 순간이동으로 '뚝뚝' (유저).
+        // 시간을 왕복시키면 위치·포즈가 연속. 좌우 반전은 왕복 경계(중립 서기)에서만 = 팝 없음.
+        const W0 = 10.4, W1 = 14.0, L = W1 - W0, T2 = L * 2;
+        const c = session.t % T2;
+        _phase = W0 + (c < L ? c : T2 - c);
+        xbot.group.scale.x = (Math.floor(session.t / T2) % 2) ? -1 : 1;
       }
       else if (session.stage === 'BK_B1') _phase = session.t;
       else if (session.stage === 'BK_B2') _phase = Math.min((session.t * 0.5) % 3.2, 2.2);   // 플랜트까지 + 홀드(슛 제거)
