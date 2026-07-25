@@ -2015,80 +2015,85 @@ void main(){
   }
   // ── A1 바닥 코치 패널 — 션 실사 영상(힉스필드 생성, 그린스크린)을 크로마키로 바닥에 투사.
   //    목 먼저 2바퀴 → 어깨 롤 (10s 루프). 위치·회전은 매 프레임 타이틀 프레임(floorObj) 앵커에 글루.
-  let a1Coach = null;   // { video, plane, _fwd }
-  function ensureA1Coach() {
-    if (a1Coach) return;
+  // 룩시스템 열화상 코치 패널(A1 목·어깨, A2 런지 공용) — 그린스크린 영상 → 복싱 벽 톤 열화상.
+  //   cfg: { src, cropOff, cropScale(세로 크롭 창), w, h, fwd }  crop을 uniform으로 빼 스테이지별 대응.
+  const COACH_CFG = {
+    A1: { src: 'ready-view/assets/sean_neck_shoulder.webm', cropOff: 0.40, cropScale: 0.58, w: 0.64, h: 0.66, fwd: 0.16 },
+    A2: { src: 'ready-view/assets/sean_lunge.webm', cropOff: 0.0, cropScale: 1.0, w: 0.9, h: 0.9, fwd: 0.10 },   // 런지 전신 측면
+  };
+  const _coaches = {};   // stageId → { video, plane, _fwd }
+  function ensureCoach(id) {
+    if (_coaches[id]) return _coaches[id];
+    const cfg = COACH_CFG[id];
     const video = document.createElement('video');
-    video.src = import.meta.env.BASE_URL + 'ready-view/assets/sean_neck_shoulder.webm';   // VP9 — 전 브라우저 디코드(H.264 미탑재 크로미움 포함)
+    video.src = import.meta.env.BASE_URL + cfg.src;   // VP9 — 전 브라우저 디코드
     video.loop = true; video.muted = true; video.playsInline = true; video.crossOrigin = 'anonymous';
-    video.style.display = 'none'; document.body.appendChild(video);   // 일부 브라우저 디코드 안정화
-    video.play().catch(() => {});   // 세션 시작 클릭 제스처 컨텍스트에서 생성되므로 자동재생 허용됨
+    video.style.display = 'none'; document.body.appendChild(video);
+    video.play().catch(() => {});
     const tex = new THREE.VideoTexture(video);
     tex.colorSpace = THREE.SRGBColorSpace;
     const mat = new THREE.ShaderMaterial({
       transparent: true, depthWrite: false,
-      uniforms: { map: { value: tex }, uLUT: { value: getLUT() }, uTime: { value: 0 } },
+      uniforms: { map: { value: tex }, uLUT: { value: getLUT() }, uTime: { value: 0 },
+        uCropOff: { value: cfg.cropOff }, uCropScale: { value: cfg.cropScale } },
       vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
       fragmentShader: `
-        varying vec2 vUv; uniform sampler2D map; uniform sampler2D uLUT; uniform float uTime;
+        varying vec2 vUv; uniform sampler2D map; uniform sampler2D uLUT; uniform float uTime, uCropOff, uCropScale;
         vec3 lut(float v){ return texture2D(uLUT, vec2(clamp(v, 0.004, 0.996), 0.5)).rgb; }
-        float mask1(vec2 uv){
-          vec3 c = texture2D(map, vec2(uv.x, 0.40 + uv.y * 0.58)).rgb;
-          float k = c.g - max(c.r, c.b);
-          return 1.0 - smoothstep(0.04, 0.14, k);
-        }
+        vec2 crop(vec2 uv){ return vec2(uv.x, uCropOff + uv.y * uCropScale); }
+        float mask1(vec2 uv){ vec3 c = texture2D(map, crop(uv)).rgb; float k = c.g - max(c.r, c.b); return 1.0 - smoothstep(0.04, 0.14, k); }
         float ch(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7)))*43758.5453); }
         float vn(vec2 p){ vec2 i=floor(p),f=fract(p); f=f*f*(3.0-2.0*f);
           return mix(mix(ch(i),ch(i+vec2(1,0)),f.x),mix(ch(i+vec2(0,1)),ch(i+vec2(1,1)),f.x),f.y); }
         void main(){
           vec2 uv = vUv;
           float m = mask1(uv);
-          float mEro = smoothstep(0.30, 0.68, m);   // 마스크 침식 — 엣지 그린 오염·헤일로 금지
+          float mEro = smoothstep(0.30, 0.68, m);
           if (mEro < 0.02) discard;
-          vec3 c = texture2D(map, vec2(uv.x, 0.40 + uv.y * 0.58)).rgb;
-          // ── 데모 인물(renderDemoPanel) 열화상 파이프라인 이식 — 룩시스템 '쨍한' 대비 복원 ──
-          // 두께 필드 H(uHeat 대체): 방사형 코어(중심 뜨겁고 가장자리 딥레드 — 138 레퍼런스).
+          vec3 c = texture2D(map, crop(uv)).rgb;
+          // 복싱 벽(138) 딥레드 톤: 방사형 두께 코어 + S커브 대비 + 채도. 맨살 흰색 튐 억제(휘도 0.22·캡·pow1.5)
           float H = clamp(1.18 - length(vec2((uv.x-0.5)*1.35, (uv.y-0.5)*1.02)), 0.0, 1.0);
           float flow = vn(vec2(uv.x*3.2 + sin(uTime*0.4)*0.3, uv.y*2.4 - uTime*0.5));
-          H *= 1.0 + (flow - 0.5) * 0.28;                                   // 미세 확산 일렁임(약)
+          H *= 1.0 + (flow - 0.5) * 0.28;
           float dlum = dot(c, vec3(0.299, 0.587, 0.114));
-          dlum = smoothstep(0.34, 0.62, dlum);                             // 급경사 S커브 = 명암 대비
-          float mIn = smoothstep(0.55, 0.95, m);                           // 내부 침식 — 엣지 밝은 테두리 차단
-          float faceW = smoothstep(0.80, 0.92, uv.y) * (1.0 - smoothstep(0.97, 1.0, uv.y));  // 얼굴 은닉
-          // 복싱 벽(138) 딥레드 톤 매칭: 코어=오렌지, 가장자리·팔=딥레드. 휘도 영향 최소(0.22)로
-          // 맨살이 주황/흰색으로 튀는 것 억제 + pow 1.5로 중간톤을 레드 쪽 깊게(주황 과잉 완화 — 유저).
+          dlum = smoothstep(0.34, 0.62, dlum);
+          float mIn = smoothstep(0.55, 0.95, m);
+          float faceW = smoothstep(0.80, 0.92, uv.y) * (1.0 - smoothstep(0.97, 1.0, uv.y));
           float T = clamp(H * 0.74 + (dlum - 0.5) * 0.22 * mIn * (1.0 - faceW), 0.04, 0.90);
           T = pow(T, 1.5);
           vec3 col = lut(clamp(T, 0.0, 1.0)) * mEro * 1.12;
           float cl = dot(col, vec3(0.299, 0.587, 0.114));
-          col = clamp(mix(vec3(cl), col, 1.32), 0.0, 1.0);                 // 채도 부스트 — 룩시스템 고채도
-          float alpha = mEro * 0.95 * smoothstep(0.0, 0.22, uv.y);         // 하단 페더
+          col = clamp(mix(vec3(cl), col, 1.32), 0.0, 1.0);
+          float alpha = mEro * 0.95 * smoothstep(0.0, 0.22, uv.y);
           gl_FragColor = vec4(col, alpha);
         }`,
     });
-    // 상반신 크롭(0.58 창) 종횡비 ≈ 1:1 — 1인칭 안정영역에 여유 있게 (머리 잘림 방지)
-    const plane = new THREE.Mesh(new THREE.PlaneGeometry(0.64, 0.66), mat);
+    const plane = new THREE.Mesh(new THREE.PlaneGeometry(cfg.w, cfg.h), mat);
     plane.rotation.x = -Math.PI / 2;
     plane.position.set(0, 0.015, -1.35);
     plane.visible = false;
     scene.add(plane);
-    a1Coach = { video, plane, _fwd: new THREE.Vector3() };
+    return (_coaches[id] = { video, plane, _fwd: new THREE.Vector3(), fwd: cfg.fwd });
   }
   function tickA1Coach() {
-    const on = session.active && !session.isLive && session.stage === 'A1' && state.pack === 'running';
-    if (on) ensureA1Coach();
-    if (!a1Coach) return;
-    a1Coach.plane.visible = on;
-    if (!on) { if (!a1Coach.video.paused) a1Coach.video.pause(); return; }
-    if (a1Coach.video.paused) a1Coach.video.play().catch(() => {});
-    a1Coach.plane.material.uniforms.uTime.value = performance.now() / 1000;
-    // 타이틀 프레임(floorObj)과 '한 프레임' 거동 — 동일 저역통과 풋프린트 앵커에 글루 (유저 확정)
-    if (floorObj.visible) {
-      a1Coach.plane.quaternion.copy(floorObj.quaternion);
-      a1Coach._fwd.set(0, 1, 0).applyQuaternion(floorObj.quaternion);
-      a1Coach.plane.position.set(
-        floorObj.position.x + a1Coach._fwd.x * 0.16, 0.015,
-        floorObj.position.z + a1Coach._fwd.z * 0.16);   // 도트바 아래 · 패널 짧아져 머리 클리핑 여유
+    // 어떤 스테이지 코치를 켤지: A1 = 전 구간, A2 = 진입 후 ~3s 데모(런지 따라하기 전 시범)
+    const st = session.active && !session.isLive && state.pack === 'running' ? session.stage : null;
+    const showA1 = st === 'A1';
+    const showA2 = st === 'A2' && (session.t || 0) < 3.0;
+    const activeId = showA1 ? 'A1' : (showA2 ? 'A2' : null);
+    for (const id of ['A1', 'A2']) {
+      const c = _coaches[id];
+      if (id === activeId) {
+        const co = ensureCoach(id);
+        co.plane.visible = true;
+        if (co.video.paused) co.video.play().catch(() => {});
+        co.plane.material.uniforms.uTime.value = performance.now() / 1000;
+        if (floorObj.visible) {
+          co.plane.quaternion.copy(floorObj.quaternion);
+          co._fwd.set(0, 1, 0).applyQuaternion(floorObj.quaternion);
+          co.plane.position.set(floorObj.position.x + co._fwd.x * co.fwd, 0.015, floorObj.position.z + co._fwd.z * co.fwd);
+        }
+      } else if (c) { c.plane.visible = false; if (!c.video.paused) c.video.pause(); }
     }
   }
 

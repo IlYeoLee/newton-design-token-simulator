@@ -1434,6 +1434,10 @@ export class Session {
       P.fill = inHold ? cyc.prog : 0;   // 0→1 정확히 5초(봇 최심 정지 구간)
       placeMarkNum(P.numL); placeMarkNum(P.numR);
       P._pop = Math.max(0, (P._pop || 0) - dt * 3.8);
+      // 데모 3초(런지 영상 시범) 동안은 발자국 마크 숨김 — 영상만 보고, 이후 인터랙션 (유저)
+      const inDemo = this.t < 3.0;
+      P.fmL.group.visible = !inDemo; P.fmR.group.visible = !inDemo;
+      if (inDemo) { P.numL.visible = false; P.numR.visible = false; }
 
       // 딛는 발: 둘 다 Active(빈 링). 홀드 중이면 같은 Hold 페이즈에서 uProg만 0→1 채워짐(부드러운 전환, 팝 없음)
       act.setHold(Math.max(0.02, P.fill));   // 0.02 = 빈 링(Active 모양) → prog 채움
