@@ -2020,27 +2020,42 @@ void main(){
     tex.colorSpace = THREE.SRGBColorSpace;
     const mat = new THREE.ShaderMaterial({
       transparent: true, depthWrite: false,
-      uniforms: { map: { value: tex }, uLUT: { value: getLUT() } },
+      uniforms: { map: { value: tex }, uLUT: { value: getLUT() }, uTime: { value: 0 } },
       vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
       fragmentShader: `
-        varying vec2 vUv; uniform sampler2D map; uniform sampler2D uLUT;
+        varying vec2 vUv; uniform sampler2D map; uniform sampler2D uLUT; uniform float uTime;
+        vec3 lut(float v){ return texture2D(uLUT, vec2(clamp(v, 0.004, 0.996), 0.5)).rgb; }
+        float phash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+        float pvn(vec2 p){
+          vec2 i = floor(p), f = fract(p); f = f*f*f*(f*(f*6.0-15.0)+10.0);
+          return mix(mix(phash(i), phash(i+vec2(1,0)), f.x), mix(phash(i+vec2(0,1)), phash(i+vec2(1,1)), f.x), f.y);
+        }
+        float pfbm(vec2 p){ return pvn(p)*0.55 + pvn(p*2.13+7.7)*0.28 + pvn(p*4.31+3.1)*0.17; }
+        // 크로마키 마스크 — 상반신 크롭 창(y 0.40~0.98)
+        float mask1(vec2 uv){
+          vec3 c = texture2D(map, vec2(uv.x, 0.40 + uv.y * 0.58)).rgb;
+          float k = c.g - max(c.r, c.b);
+          return 1.0 - smoothstep(0.04, 0.14, k);
+        }
         void main(){
-          // 상반신 크롭: 목·어깨 운동이라 하체 불필요 — 영상 y 0.40~0.98 창만 샘플 (유저 확정)
-          vec2 uv = vec2(vUv.x, 0.40 + vUv.y * 0.58);
-          vec4 c = texture2D(map, uv);
-          float k = c.g - max(c.r, c.b);                      // 그린 초과분 = 키
-          float a = 1.0 - smoothstep(0.04, 0.14, k);          // 소프트 엣지 키잉
-          if (a < 0.02) discard;
-          c.g = min(c.g, max(c.r, c.b) + 0.06);               // despill
-          // 룩 시스템 그라디언트(복싱 인물 문법): 세로 히트 LUT × 휘도 변조 — 실사 디테일 위에 브랜드 톤
-          float lum = dot(c.rgb, vec3(0.299, 0.587, 0.114));
-          // 복싱 인물과 동일 문법: 위=딥레드, 아래로 밝은 오렌지 — 진한 단색 실루엣(휘도는 미세 변조만)
-          // LUT는 t=0=딥레드 → t=1=크림 (FXP stops). 위=딥레드(t 0.12), 발쪽=오렌지(t 0.62)
-          vec3 heat = texture2D(uLUT, vec2(clamp(0.12 + (1.0 - vUv.y) * 0.5, 0.004, 0.996), 0.5)).rgb;
-          vec3 col = heat * (0.88 + lum * 0.22);
-          // 하단 페더 — 크롭 경계가 은은하게 사라지게
-          a *= smoothstep(0.0, 0.22, vUv.y);
-          gl_FragColor = vec4(col, a * 0.98);
+          vec2 uv = vUv;
+          float m = mask1(uv);
+          // 복싱 인물(renderBxPerson)과 동일 문법: 소프트 마스크 + 세로 히트 + fbm 일렁임
+          float mSoft = m * 0.36;
+          for (int k = 0; k < 4; k++) {
+            float a = 1.5708 * float(k) + 0.7;
+            mSoft += mask1(uv + vec2(cos(a), sin(a)) * 0.011) * 0.16;
+          }
+          float flow = pfbm(vec2(uv.x * 3.2 + sin(uTime * 0.4) * 0.3, uv.y * 2.4 - uTime * 0.5));
+          float flow2 = pfbm(vec2(uv.x * 6.5 - uTime * 0.22, uv.y * 5.2 - uTime * 0.9));
+          float vert = pow(1.0 - uv.y, 1.35) * 0.92 + 0.06;
+          float heat = mix(vert, clamp(vert + (flow - 0.5) * 0.55 + (flow2 - 0.5) * 0.25, 0.0, 1.0), 0.55);
+          heat += clamp(m - mSoft, 0.0, 1.0) * 0.10;
+          vec3 col = lut(clamp(heat, 0.0, 1.0)) * mSoft * 1.12;
+          float alpha = clamp(mSoft * 1.15, 0.0, 1.0);
+          alpha *= smoothstep(0.0, 0.22, uv.y);   // 하단 페더 (크롭 경계 은은히)
+          if (alpha < 0.02) discard;
+          gl_FragColor = vec4(col, alpha);
         }`,
     });
     // 상반신 크롭(0.58 창) 종횡비 ≈ 1:1 — 1인칭 안정영역에 여유 있게 (머리 잘림 방지)
@@ -2058,6 +2073,7 @@ void main(){
     a1Coach.plane.visible = on;
     if (!on) { if (!a1Coach.video.paused) a1Coach.video.pause(); return; }
     if (a1Coach.video.paused) a1Coach.video.play().catch(() => {});
+    a1Coach.plane.material.uniforms.uTime.value = performance.now() / 1000;
     // 타이틀 프레임(floorObj)과 '한 프레임' 거동 — 동일 저역통과 풋프린트 앵커에 글루 (유저 확정)
     if (floorObj.visible) {
       a1Coach.plane.quaternion.copy(floorObj.quaternion);
