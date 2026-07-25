@@ -129,29 +129,6 @@ class FootMark {
   }
   at(x, z, s = 1) { this.group.position.set(x, 0.013, z); this.group.scale.setScalar(s); return this; }
   op(k) { this._U.uFade.value = k; }
-  /** 발형 볼(앞쪽) 안에 숫자 글리프 — 자식이라 발 위치·회전·스케일 자동 상속(삐짐·엇나감 없음) */
-  setNum(n, visible) {
-    if (!this._num) {
-      const c = document.createElement('canvas'); c.width = c.height = 128;
-      this._numCtx = c.getContext('2d'); this._numTex = new THREE.CanvasTexture(c);
-      this._numTex.colorSpace = THREE.SRGBColorSpace; this._numTex.anisotropy = 4;
-      this._num = new THREE.Mesh(new THREE.PlaneGeometry(0.19, 0.19),
-        new THREE.MeshBasicMaterial({ map: this._numTex, transparent: true, depthWrite: false }));
-      this._num.position.set(0, 0.06, 0.004);   // 볼(앞쪽 toe 방향 +Y) 살짝 위
-      this._num.renderOrder = 8; this.group.add(this._num);
-      this._numN = null;
-    }
-    this._num.visible = !!visible;
-    if (visible && n !== this._numN) {
-      this._numN = n; const g2 = this._numCtx; g2.clearRect(0, 0, 128, 128);
-      if (!drawGlyph(g2, String(n), 64, 64, 92)) {
-        g2.fillStyle = 'rgba(255,240,220,0.96)'; g2.font = '300 84px -apple-system, sans-serif';
-        g2.textAlign = 'center'; g2.textBaseline = 'middle';
-        g2.shadowColor = 'rgba(254,150,90,0.8)'; g2.shadowBlur = 14; g2.fillText(String(n), 64, 68);
-      }
-      this._numTex.needsUpdate = true;
-    }
-  }
   setHold(p) { this._U.uPhase.value = 5; this._U.uProg.value = Math.max(0.001, p); }   // Hold 코닉 진행 림
   countdown(p) {
     if (p < 0) { this._U.uPhase.value = 0; this._U.uProg.value = 0; return; }          // 대기 = Preview 숨쉬기
@@ -212,7 +189,19 @@ function floorNum(text, x, z, size, color) {
   const g = new THREE.Group();
   g.add(p); g.rotation.x = -Math.PI / 2; g.position.set(x, 0.013, z); g.renderOrder = 7; g.userData.plane = p;
   g.userData.el = { type: 'text', content: String(text) };
+  p.userData.canvas = c; p.userData.tex = tex;   // 카운트다운 갱신용 노출
   return g;
+}
+/** 발 안 숫자 글리프 갱신 (카운트다운 5→1) — 캔버스 재드로 */
+function redrawFootNum(p, n) {
+  const c = p.userData.canvas, g2 = c.getContext('2d');
+  g2.clearRect(0, 0, 128, 128);
+  if (!drawGlyph(g2, String(n), 64, 64, 96)) {
+    g2.fillStyle = 'rgba(255,240,220,0.95)'; g2.font = '300 86px -apple-system, sans-serif';
+    g2.textAlign = 'center'; g2.textBaseline = 'middle';
+    g2.shadowColor = 'rgba(254,150,90,0.75)'; g2.shadowBlur = 14; g2.fillText(String(n), 64, 70);
+  }
+  p.userData.tex.needsUpdate = true;
 }
 // 발 안 순서 숫자 — 카탈로그 조합 그대로 '기울어진 발 플레인'의 자식으로 부착:
 // 발이 기울면 숫자도 통째로 기울고(구성 고정), 크기 = 랩 공식 140·radius·s/600,
@@ -544,11 +533,12 @@ export class Session {
     // 좌·우 발형(FootMark = 룩시스템 발형 SDF, A3와 동일 방식·사이즈) 나란히 지면 고정.
     // 상태 = countdown/setHold/glow/ghost로 Preview/Active/Hold/Success/Locked. 숫자는 발형 자식.
     // 전방 투사존 — 타이틀·도트(상단, 먼 z) 아래 열린 콘텐츠 존에 나란히 (겹침 방지)
-    this.a2press = {
-      fmL: new FootMark('left').at(-0.18, -1.55, 1.05), fmR: new FootMark('right').at(0.18, -1.55, 1.05),
-      fill: 0, _cnt: 5, _succ: 0, _succFM: null,
-    };
-    g.add(this.a2press.fmL.group, this.a2press.fmR.group);
+    const fmL = new FootMark('left').at(-0.18, -1.55, 1.05), fmR = new FootMark('right').at(0.18, -1.55, 1.05);
+    // 숫자 = 룩시스템 attachMarkNum(발 plane 자식·MARK_NUM 크기·numFoot 앵커) — 삐짐 없는 정본 이식
+    const numL = attachMarkNum(fmL, '5', false), numR = attachMarkNum(fmR, '5', true);
+    numL.visible = false; numR.visible = false;
+    this.a2press = { fmL, fmR, numL, numR, fill: 0, _cnt: 5, _succ: 0, _succFM: null };
+    g.add(fmL.group, fmR.group);
 
     g = this._mk('A3');
     // 쿼드 스트레치(발등 잡고 당기기) — 축발 마크 + 홀드 아크 (프로브: 뒤로 접어 든 발 높이)
@@ -1424,32 +1414,39 @@ export class Session {
       P.fill = pressing ? Math.min(1, P.fill + dt / NEED) : Math.max(0, P.fill - dt * 0.8);
       P._succ = Math.max(0, (P._succ || 0) - dt);
 
+      const actNum = act === P.fmL ? P.numL : P.numR, othNum = act === P.fmL ? P.numR : P.numL;
+      placeMarkNum(P.numL); placeMarkNum(P.numR);   // 매 프레임 numFoot 앵커 (numL/numR = plane)
+
       // 방금 완료한 발 = Success 블룸 잔상 (우선)
-      if (P._succ > 0 && P._succFM) { P._succFM.glow(1 - P._succ / 0.9); P._succFM.setNum(0, false); }
+      if (P._succ > 0 && P._succFM) P._succFM.glow(1 - P._succ / 0.9);
 
       if (!engaged && P.fill <= 0.001) {
-        // Preview — 둘 다 숨쉬기
-        if (P._succ <= 0 || P._succFM !== P.fmL) { P.fmL.countdown(-1); P.fmL.setNum(0, false); }
-        if (P._succ <= 0 || P._succFM !== P.fmR) { P.fmR.countdown(-1); P.fmR.setNum(0, false); }
+        // Preview — 둘 다 숨쉬기, 숫자 숨김
+        if (P._succ <= 0 || P._succFM !== P.fmL) P.fmL.countdown(-1);
+        if (P._succ <= 0 || P._succFM !== P.fmR) P.fmR.countdown(-1);
+        P.numL.visible = false; P.numR.visible = false;
       } else {
         // 딛는 발: 밟는 중 = Hold(코닉 림, op 진해짐) + 숫자 5→1 / 뻗는 중 = Active(수축 링)
         if (P._succ <= 0 || P._succFM !== act) {
           if (pressing) {
             act.setHold(Math.max(0.001, P.fill));
             act.op(0.5 + 0.5 * P.fill);                             // 꾹꾹 누를수록 진해짐
-            act.setNum(Math.max(1, 5 - Math.floor(P.fill * 5)), true);   // 5→1 카운트
+            const n = Math.max(1, 5 - Math.floor(P.fill * 5));      // 5→1 카운트
+            if (n !== P._cnt) { redrawFootNum(actNum, n); P._cnt = n; }
           } else {
             act.countdown(Math.min(1, Math.max(0, (spread - 0.28) / 0.5)));
-            act.op(1); act.setNum(0, false);
+            act.op(1);
           }
         }
         // 아직 안 한 발 = Locked 고스트
-        if (P._succ <= 0 || P._succFM !== oth) { oth.ghost(); oth.setNum(0, false); }
+        if (P._succ <= 0 || P._succFM !== oth) oth.ghost();
+        actNum.visible = pressing; othNum.visible = false;         // 숫자 = 밟는 발만
       }
 
       if (P.fill >= 1) {
         this.a2count = (this.a2count || 0) + 1; P.fill = 0; P._cnt = 5;
-        P._succ = 0.9; P._succFM = act; act.setNum(0, false);
+        redrawFootNum(actNum, 5); actNum.visible = false;
+        P._succ = 0.9; P._succFM = act;
         const wp = new THREE.Vector3(); act.group.getWorldPosition(wp); this.onPress?.(wp);   // 완료 버스트(리퀴드)
       }
       if (this.t < DEMO) {
