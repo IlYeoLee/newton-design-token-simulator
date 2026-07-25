@@ -4476,6 +4476,15 @@ void main(){
           cueEl.textContent = !session._followLatch ? 'DEMO — 먼저 보세요, 끝나면 3·2·1'
             : (cd >= 0 && cd < 3 ? `시작까지 ${Math.max(1, Math.ceil(3 - cd))}` : cueEl._orig);
         }
+        // 라이브(B 페이스·C 실전) = 최소 UI(유저): 진입 2.5s 후 타이틀·큐·도트 페이드 — 판정 큐만 남김.
+        const doc = floorIframe.contentDocument;
+        if (doc) {
+          const hide = !!session.curStage?.live && session.t > 2.5;
+          for (const eid of ['s-title', 's-cue', 's-dots']) {
+            const el = doc.getElementById(eid);
+            if (el) { el.style.transition = 'opacity .7s'; el.style.opacity = hide ? '0' : '1'; }
+          }
+        }
       } catch (e) { /* iframe 로드 전 */ }
       // 프레임이 헤더(타이틀·큐·페이즈)를 담으므로 발자국 아래 3D 보조 텍스트 슬롯 전부 숨김(중복 제거, 유저).
       // 발자국 마크(G그룹)는 중앙 콘텐츠라 유지 — 슬롯만 끈다.

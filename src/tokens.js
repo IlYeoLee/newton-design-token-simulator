@@ -1011,6 +1011,9 @@ export class TokenSystem {
       // 러닝(전진 레인): 무릎 패드가 착지점을 지나치므로 파문은 전방 반파로 방출
       opts.forward = true;
       pos.z -= 0.18;   // 반파 중심을 살짝 전방으로 — 빔 안에서 사는 시간 확보
+      // 실전 착지 팡팡(유저): 바닥 닿는 순간이 몸으로 느껴지게 — 강도·헤일로 부스트
+      opts.intensity = (opts.intensity ?? 1) * 1.45;
+      opts.rings = Math.max(opts.rings ?? 1, 1.5);
     }
     if (!wrapArtifact) this.effects.burst(pos, ev.color, normal, opts);
     if (this.onEvent) this.onEvent(ev);
