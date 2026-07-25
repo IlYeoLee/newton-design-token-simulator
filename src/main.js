@@ -2035,8 +2035,9 @@ void main(){
           // 룩 시스템 그라디언트(복싱 인물 문법): 세로 히트 LUT × 휘도 변조 — 실사 디테일 위에 브랜드 톤
           float lum = dot(c.rgb, vec3(0.299, 0.587, 0.114));
           // 복싱 인물과 동일 문법: 위=딥레드, 아래로 밝은 오렌지 — 진한 단색 실루엣(휘도는 미세 변조만)
-          vec3 heat = texture2D(uLUT, vec2(clamp(0.45 + vUv.y * 0.45, 0.004, 0.996), 0.5)).rgb;
-          vec3 col = heat * (0.82 + lum * 0.28);
+          // LUT는 t=0=딥레드 → t=1=크림 (FXP stops). 위=딥레드(t 0.12), 발쪽=오렌지(t 0.62)
+          vec3 heat = texture2D(uLUT, vec2(clamp(0.12 + (1.0 - vUv.y) * 0.5, 0.004, 0.996), 0.5)).rgb;
+          vec3 col = heat * (0.88 + lum * 0.22);
           // 하단 페더 — 크롭 경계가 은은하게 사라지게
           a *= smoothstep(0.0, 0.22, vUv.y);
           gl_FragColor = vec4(col, a * 0.98);
