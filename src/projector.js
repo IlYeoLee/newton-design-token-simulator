@@ -431,29 +431,11 @@ export class ProjectorRig {
         ox = body.x + fwd.x * df + rx * dr;
         oz = body.z + fwd.z * df + rz * dr;
       }
-      // 실측 5년뒤 양산 소비자 짐벌 잔여(유저: '완벽정지=박힌 과보정', '실제 5년뒤 양산 수준').
-      //   ① 종아리(프로젝터 장착) 기울기 비례 잔여 = 빔이 종아리 따라 스윕하는데 짐벌이 ~88%만
-      //      보정, 남는 ~12%가 지면에서 이동. 하이니처럼 종아리 크게 움직이면 눈에 띄게 흔들림.
-      //   ② 정지 시엔 손·몸 미세 트레머 σ0.3cm(저주파 드리프트+고주파 서보 리플).
-      let jx = 0, jz = 0;
-      // 종아리(프로젝터) 월드 위치의 몸 대비 수평 이동 = 빔 스윕. 하이니처럼 종아리가 앞·위로 크게
-      //   움직이면 그만큼 빔이 쓸림. 짐벌 ~12% 잔여로 지면에서 눈에 띄게 이동(안정 중심 주변 진동).
-      const knee = this.xbot.getKneeWorld?.();
-      if (knee) {
-        // 무릎 편차: 수평(x,z) + 수직(y). 하이니는 무릎이 '위로' 올라가며 종아리가 피치되어
-        //   빔이 앞뒤로 스윕 → 수직 편차를 전방(fwd) 스윕으로 매핑(이게 실제 지배적 잔여).
-        if (!this._kneeRest) this._kneeRest = { x: knee.x - body.x, y: knee.y, z: knee.z - body.z };
-        const dx = knee.x - body.x, dy = knee.y, dz = knee.z - body.z;
-        this._kneeRest.x += (dx - this._kneeRest.x) * 0.02;
-        this._kneeRest.y += (dy - this._kneeRest.y) * 0.02;
-        this._kneeRest.z += (dz - this._kneeRest.z) * 0.02;
-        const vDev = dy - this._kneeRest.y;          // 무릎 높이 편차(하이니 = 큼)
-        jx += (dx - this._kneeRest.x) * 0.15 + fwd.x * vDev * 0.18;   // 수평 잔여 + 수직→전방 스윕(빔 축 방향)
-        jz += (dz - this._kneeRest.z) * 0.15 + fwd.z * vDev * 0.18;
-      }
-      const tt = (typeof performance !== 'undefined' ? performance.now() : 0) / 1000;
-      jx += (Math.sin(tt * 2.3 + 0.7) * 0.6 + Math.sin(tt * 11.0) * 0.4) * 0.003;
-      jz += (Math.cos(tt * 1.9) * 0.6 + Math.cos(tt * 9.5 + 1.3) * 0.4) * 0.003;
+      // 안정화 = errorModel 정본 그대로(유저: 우리 수준 알고리즘 보정, 5년뒤 양산, 모든 지면 UI 동일).
+      //   스프링-댐퍼(Ks22·Kd9)+서보 300°/s+정강이 각속도 예산 → offLocal(지연+slow/fast 시그마)
+      //   + gimbalBreak(종아리 하향각 한계 붕괴). 앞발/무릎 대신 hips 안정 앵커로 큰 드리프트만 제거하고
+      //   그 위에 실제 투사 오차를 얹음 → A3 같은 빠른 다리(각속도↑)일수록 오차↑, 정지 땐 작음.
+      const jx = offLocal.x + gimbalBreak.x, jz = offLocal.z + gimbalBreak.z;
       ox += jx; oz += jz;
       this.shake.set(jx, jz);
       this.errorCm = Math.hypot(jx, jz) * 100;
