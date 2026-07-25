@@ -383,9 +383,9 @@ const BK_ZOOM = 2.2;
 export const STAGES = {
   running: [
     { id:'READY', label:'준비 — 발 두 번 구르면 시작', voice:['시스템','션의 마지막 1km 페이스로 달려 볼 거예요. 준비되면 제자리에서 발을 두 번 굴러 주세요.'], wear:'SAFE 대기', foot:'발 두 번 구르기 → 시작' },
-    { id:'A1', label:'A · 준비운동 1/3 — 런지 프레스(앞의 원 3초 꾹 누르기)', voice:['션','발을 앞으로 쭉 뻗어 원을 딛고, 3초간 꾸욱 눌러요. 링이 다 차면 발을 바꿔요.'], foot:'앞으로 뻗어 딛고 3초 홀드' },
-    { id:'A2', label:'A · 준비운동 2/3 — 다리 앞뒤로 흔들기', voice:['션','골반에 손을 얹고 한쪽 다리에 힘을 빼요. 시계추처럼 앞뒤로 — 발끝이 빛나는 원까지 갔다 오면 딱 좋아요. 열 번.'], hap:'10회 종료 진동 1회' },
-    { id:'A3', label:'A · 준비운동 3/3 — 니 허그(무릎 안아 당기기)', voice:['션','무릎을 안아 가슴까지 당겨요. 링이 차는 동안 버티고 — 좌우 번갈아 네 번.'], foot:'완료 후 두 번 구르기 → 다음' },
+    { id:'A1', label:'A · 준비운동 1/3 — 목·어깨 풀기', voice:['션','제자리에 편하게 서서, 목과 어깨를 크게 천천히 돌려요. 링이 다 찰 때까지.'], wear:'개입 없음 (자세 측정)' },
+    { id:'A2', label:'A · 준비운동 2/3 — 런지(앞의 원 딛고 버티기)', voice:['션','발을 앞으로 크게 딛어 원을 밟고, 무릎을 굽혀 버텨요. 링이 다 차면 발을 바꿔요.'], foot:'앞으로 딛고 버티기 · 발 교대' },
+    { id:'A3', label:'A · 준비운동 3/3 — 쿼드 스트레치(발등 잡고 당기기)', voice:['션','발등을 잡아 엉덩이 쪽으로 당겨요. 링이 차는 동안 버티고 — 좌우 번갈아.'], foot:'완료 후 두 번 구르기 → 다음' },
     { id:'T1', label:'몸풀기 끝 — 다음은 페이스 잡기', voice:['시스템','몸 다 풀렸어요. 발 두 번 구르면 다음으로 가요.'], foot:'발 두 번 구르기 → 페이스 잡기' },
     { id:'P1', dur:6, live:true, label:'페이스 잡기 — 페이서 붙어 가볍게 뛰기', voice:['션','바로 가볍게 뛰기 시작해요. 앞의 광점이 나예요 — 이 페이스에 붙어봐요.'], wear:'낮은 강도 보조 시작' },
     { id:'P2', dur:6, live:true, label:'페이스 잠금 → 실전 진입', voice:['션','좋아요, 그 리듬. 몇 걸음만 더 맞추면 바로 실전이에요.'], wear:'SAFE 착지 안정화' },
@@ -512,19 +512,19 @@ export class Session {
     // title(2.0m)·eyebrow(2.3m, FIGMA_CARD)보다 항상 0.4m+ 앞(가까움), footer(0.7m)
     // 보다는 0.3m+ 뒤(멂). CTA(1.1m, READY/T1 전용)와는 애초에 같은 스테이지에 안 나옴.
     g = this._mk('A1');
-    // 스톰프 프레스 — 발 앞의 원 1개를 왼발/오른발이 번갈아 꾹 밟으면 홀드 아크가 차오름.
-    // 원 위치 = 스톰프 착지 FK 실측(봇 전방 0.38m, 중앙 ±0.07m) + 봇 후퇴 배치(z=-0.92)로 투사존 정합.
-    this.a1press = { ring: floorRing(0, -1.30, 0.20, 0.225, BRAND.red, 0.45), arc: floorArc(0, -1.30, BRAND.sand), cx: 0, cz: -1.30, fill: 0 };
-    g.add(this.a1press.ring); g.add(this.a1press.arc);
+    // 목·어깨 풀기 — 발폭 마크 2(제자리 고정 지시) + 시간 홀드 아크(프로브 없음: 목 회전은 지면 계측 불가)
+    this.a1feet = [new FootMark('left').at(-0.12, -1.14, 1.1), new FootMark('right').at(0.12, -1.14, 1.1)];
+    g.add(this.a1feet[0].group, this.a1feet[1].group);
+    this.a1arc = floorArc(0, -1.3, BRAND.sand); g.add(this.a1arc);
 
     g = this._mk('A2');
-    // 다리 스윙 — 스윙 종점 존 2개 + 축발 마크 (구 A3 문법 그대로, 클립=햇지런 실측)
-    this.a2foot = new FootMark('left').at(-0.05, -1.14, 1.1); g.add(this.a2foot.group);
-    this.a2zones = [floorRing(0.22, -0.92, 0.10, 0.115, BRAND.red, 0.3), floorRing(0.22, -1.42, 0.10, 0.115, BRAND.red, 0.3)];
-    g.add(this.a2zones[0], this.a2zones[1]);
+    // 런지 — 발 앞의 원을 크게 딛어 밟고 버티면 홀드 아크가 차오름 (구 A1 프레스 문법 재사용).
+    // 원 위치 초기값 = 구 스톰프 실측(-1.30) — 교대 런지 클립 착지에 맞춰 시각 검수로 보정.
+    this.a2press = { ring: floorRing(0, -1.30, 0.20, 0.225, BRAND.red, 0.45), arc: floorArc(0, -1.30, BRAND.sand), cx: 0, cz: -1.30, fill: 0 };
+    g.add(this.a2press.ring); g.add(this.a2press.arc);
 
     g = this._mk('A3');
-    // 니 허그 — 축발 마크 + 홀드 아크: 무릎을 안아 당기는 동안 차오름(프로브: 든 발 높이)
+    // 쿼드 스트레치(발등 잡고 당기기) — 축발 마크 + 홀드 아크 (프로브: 뒤로 접어 든 발 높이)
     this.a3foot = new FootMark('right').at(0.12, -1.2, 1.1); g.add(this.a3foot.group);
     this.a3arc = floorArc(-0.25, -1.3, BRAND.sand); g.add(this.a3arc);
 
@@ -1153,9 +1153,9 @@ export class Session {
   _enterRunning(st, { S, FS, FL, FM }) {
     switch (st.id) {
       case 'READY': FS('션 · 마지막 1KM'); FL('READY'); break;   // 푸터 제거: CTA 라벨과 중복 + CTA 근접 이동으로 겹침
-      case 'A1': FS('준비운동 1/3'); FL('앞으로 뻗어 딛고 3초 꾸욱'); FM('링이 차면 발 교대', CS.sand); break;
-      case 'A2': FS('준비운동 2/3'); FL('한쪽 다리를 시계추처럼 앞뒤로'); FM('먼저 보세요 — 원이 켜지는 쪽으로'); break;
-      case 'A3': FS('준비운동 3/3'); FL('무릎을 안아 가슴까지'); FM('링이 차는 동안 버텨요', CS.sand); break;
+      case 'A1': FS('준비운동 1/3'); FL('목·어깨 크게 천천히 돌리기'); FM('제자리에 서서 — 링이 찰 때까지', CS.sand); break;
+      case 'A2': FS('준비운동 2/3'); FL('앞으로 크게 딛어 원 밟고 버티기'); FM('링이 차면 발 교대', CS.sand); break;
+      case 'A3': FS('준비운동 3/3'); FL('발등 잡고 엉덩이 쪽으로'); FM('링이 차는 동안 버텨요', CS.sand); break;
       case 'A4': FS('준비운동 4/4'); FL('켜지는 발자국 박자로 제자리 걷기'); FM('처음엔 천천히 — 점점 빨라져요'); break;
       case 'T1': FS('잠깐'); S(this.slotFL, '몸풀기 끝!', { size: 0.12, color: CS.prism }); break;   // 푸터 제거: CTA 라벨과 중복
       case 'B1': FS('미리 익히기 1/5'); FL('발은 가만히 — 박자만 들어요'); FM('귀로 먼저 배워요'); break;
@@ -1357,15 +1357,33 @@ export class Session {
       }
       if (id === 'T1' && this.t >= 4.5) { this.next(); return; }
     } else if (id === 'A1') {
-      // 사이드 런지 프레스 — 옆으로 크게 딛어 원을 지그시 누르면 그쪽 홀드 아크가 차오름.
-      // 프로브 구동(왼/오른발 무관): 발이 접지 + 골반에서 옆으로 0.5m+ 벌어지면 '누름'.
-      const NEED = 2.6, REPS = 4, DEMO = 4.6;
+      // 목·어깨 풀기 — 지면 프로브가 없는 상체 동작: 시간 홀드 아크(DUR 차면 완료).
+      // 발폭 마크는 '제자리 고정' 지시 — 발이 마크를 벗어나면 아크 일시정지(자세 이탈 피드백).
+      const DUR = 12, DEMO = 3.0;
       const dt = Math.max(0, this.t - (this._a1t ?? this.t));
-      if ((this._a1t ?? 0) > this.t) { this.a1count = 0; this.a1press.fill = 0; }   // 재진입 리셋
+      if ((this._a1t ?? 0) > this.t) this._a1fill = 0;   // 재진입 리셋
       this._a1t = this.t;
-      // 프레스 판정: 어느 발이든 접지(y<6cm) + 원 반경(0.27m) 안 = 누르는 중
       const pb = this.xbot?.getProbes?.();
-      const P = this.a1press;
+      const planted = pb && (pb.footL?.y ?? 1) < 0.12 && (pb.footR?.y ?? 1) < 0.12;
+      this._a1fill = Math.min(1, (this._a1fill || 0) + (planted ? dt / DUR : 0));
+      this.a1arc.setProg(Math.max(0.001, this._a1fill));
+      if (this.t < DEMO) {
+        this.demoActive = true;
+        FMU('먼저 보세요 — 목과 어깨를 크게 천천히', CS.sand);
+      } else {
+        this._say('a1go', '션', '이제 같이 — 제자리에 서서, 목과 어깨를 크게. 링이 다 찰 때까지.');
+        FMU(`목·어깨 풀기 ${Math.round((this._a1fill || 0) * 100)}%`, CS.sand);
+        if ((this._a1fill || 0) >= 1) { this.next(); return; }
+      }
+    } else if (id === 'A2') {
+      // 런지 — 앞의 원을 크게 딛어 밟고 버티면 홀드 아크가 차오름 (구 A1 프레스 문법).
+      // 프로브 구동(왼/오른발 무관): 발이 접지 + 원 반경 안 = 버티는 중.
+      const NEED = 1.6, REPS = 4, DEMO = 4.6;
+      const dt = Math.max(0, this.t - (this._a2t ?? this.t));
+      if ((this._a2t ?? 0) > this.t) { this.a2count = 0; this.a2press.fill = 0; }   // 재진입 리셋
+      this._a2t = this.t;
+      const pb = this.xbot?.getProbes?.();
+      const P = this.a2press;
       let pressing = false;
       for (const f of [pb?.footL, pb?.footR]) {
         if (f && f.y < 0.09 && Math.hypot(f.x - P.cx, f.z - P.cz) < 0.27) pressing = true;
@@ -1374,34 +1392,19 @@ export class Session {
       P.arc.setProg(Math.max(0.001, P.fill));
       P.ring.setOp(pressing ? 0.95 : 0.45);
       if (P.fill >= 1) {
-        this.a1count = (this.a1count || 0) + 1; P.fill = 0;
+        this.a2count = (this.a2count || 0) + 1; P.fill = 0;
         const wp = new THREE.Vector3(); P.arc.getWorldPosition(wp); this.onPress?.(wp);   // 완료 버스트(지면 반응 보상)
       }
       if (this.t < DEMO) {
         this.demoActive = true;
-        FMU('먼저 보세요 — 앞으로 뻗어 딛고 3초 꾸욱', CS.sand);
+        FMU('먼저 보세요 — 앞으로 크게 딛고 버티기', CS.sand);
       } else {
-        this._say('a1go', '션', '이제 같이 — 앞으로 쭉 뻗어 딛고, 3초간 꾸욱. 링이 차면 발을 바꿔요.');
-        FMU(`원 눌러 채우기 ${Math.min(REPS, this.a1count || 0)} / ${REPS}`, CS.sand);
-        if ((this.a1count || 0) >= REPS) { this.next(); return; }
-      }
-    } else if (id === 'A2') {
-      // 다리 스윙 — 시범(2왕복) → "이제 같이" → 열 번 (종점 존 교대 글로우 = 박자·진폭)
-      const SW = SCFG.a3Swing, DEMO = 2 * SW, ph = beat(SW);
-      const fwd = ph < 0.5, k = fwd ? ph * 2 : (ph - 0.5) * 2;
-      this.a2zones[0].setOp(fwd ? 0.3 + 0.65 * k : 0.3);
-      this.a2zones[1].setOp(!fwd ? 0.3 + 0.65 * k : 0.3);
-      if (this.t < DEMO) {
-        this.demoActive = true;
-        FMU('먼저 보세요 — 원이 켜지는 쪽으로 갔다 오기');
-      } else {
-        this._say('a2go', '션', '골반에 손을 얹고 — 다리를 시계추처럼 앞뒤로, 가볍게 열 번.');
-        const t2 = this.t - DEMO;
-        FMU(`다리 스윙 ${Math.min(10, Math.floor(t2 / SW) + 1)} / 10`);
-        if (t2 >= 10 * SW + 0.5) { this.next(); return; }
+        this._say('a2go', '션', '이제 같이 — 앞으로 크게 딛어 원을 밟고, 무릎 굽혀 버텨요. 링이 차면 발 교대.');
+        FMU(`런지 ${Math.min(REPS, this.a2count || 0)} / ${REPS}`, CS.sand);
+        if ((this.a2count || 0) >= REPS) { this.next(); return; }
       }
     } else if (id === 'A3') {
-      // 니 허그 — 무릎을 안아 당기는 동안 홀드 아크가 차오름 (프로브: 든 발 높이 0.3m+)
+      // 쿼드 스트레치 — 발등을 잡아 당기는 동안 홀드 아크가 차오름 (프로브: 뒤로 접어 든 발 높이 0.3m+)
       const NEED = 1.1, REPS = 4, DEMO = 3.0;
       const dt = Math.max(0, this.t - (this._a3t ?? this.t));
       if ((this._a3t ?? 0) > this.t) { this.a3count = 0; this._a3fill = 0; }
@@ -1413,10 +1416,10 @@ export class Session {
       if (this._a3fill >= 1) { this.a3count = (this.a3count || 0) + 1; this._a3fill = 0; }
       if (this.t < DEMO) {
         this.demoActive = true;
-        FMU('먼저 보세요 — 무릎을 안아 가슴으로', CS.sand);
+        FMU('먼저 보세요 — 발등 잡고 엉덩이로', CS.sand);
       } else {
-        this._say('a3go', '션', '이제 같이 — 무릎을 안아 가슴까지, 링이 차는 동안 버텨요. 좌우 번갈아.');
-        FMU(`무릎 안기 ${Math.min(REPS, this.a3count || 0)} / ${REPS}`, CS.sand);
+        this._say('a3go', '션', '이제 같이 — 발등을 잡아 당기고, 링이 차는 동안 버텨요. 좌우 번갈아.');
+        FMU(`쿼드 스트레치 ${Math.min(REPS, this.a3count || 0)} / ${REPS}`, CS.sand);
         if ((this.a3count || 0) >= REPS) { this.next(); return; }
       }
     } else if (id === 'P1' || id === 'P2') {

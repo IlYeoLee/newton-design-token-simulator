@@ -3573,7 +3573,8 @@ void main(){
       // 스트레치(quad_src.mp4 실사 비디오모캡 — 정적 스트레치의 올바른 위치는 운동 후).
       // A단계 v2(유저 기준: 퀄리티·지면 가이드 매력·설명 용이) — 전부 햇지런 실측 + 프로브 구동 UI.
       // A1 사이드 런지 프레스(원 눌러 채우기) · A2 레그 스윙 · A3 니 허그. T1 대기=CMU 스트레칭, FIN=쿨다운 쿼드.
-      A1: 'stomp_press', A2: 'hj_legswing', A3: 'hj_kneehug', T1: 'neckStretch', T2: 'armStretch', FIN: 'quadStretch',
+      // 러닝 A 3종 확정(유저 지정): A1 목·어깨(Mixamo 실측) · A2 교대 런지(CMU 144_17, 유저 요청 확보) · A3 서서 쿼드 잡기(실사 모캡)
+      A1: 'neckStretch', A2: 'auto_cmu144_17', A3: 'quadStretch', T1: 'neckStretch', T2: 'armStretch', FIN: 'quadStretch',
       // 복싱 = Mixamo 실측 모캡 (목풀기만 절차)
       BX_A1: 'bx_neck', BX_A2: 'boxGuard', BX_A3: 'boxJab',
       BX_B1: 'boxGuard', BX_B2: 'boxGuard', BX_B3: 'boxCombo',
@@ -3620,7 +3621,8 @@ void main(){
     if (session.active) tokens.floorRoot.visible = session.isLive && session.stage !== 'BK_C4';
     // 스톰프 프레스 스테이지: 봇을 뒤로 당겨 착지(전방 0.38m)가 프레스 원 위에 정확히 떨어지게
     if (session.active && !session.isLive && data.sport !== 'boxing') {
-      xbot.demoStandZ = session.stage === 'A1' ? -0.92 : (session.stage === 'BK_A2' ? -1.22 : (session.stage === 'BK_A3' ? -1.9 : (/^BK_B[123]$/.test(session.stage) ? -1.85 : 0)));
+      // A2 런지: 봇을 뒤로 당겨 전방 착지가 프레스 원(-1.30) 위에 오게 (교대 런지 보폭 ≈0.7m 가정, 시각 검수로 보정)
+      xbot.demoStandZ = session.stage === 'A2' ? -0.85 : (session.stage === 'BK_A2' ? -1.22 : (session.stage === 'BK_A3' ? -1.9 : (/^BK_B[123]$/.test(session.stage) ? -1.85 : 0)));
     }
     // 지면 풀스크린 화면(세션 컴플리트·전환·카운트다운) = 3인칭 봇도 바닥의 화면을 응시(머리 숙임).
     xbot.headPitch = (session.active && /^(T1|T2|C1|FIN|BK_T1|BK_T2|BK_C1|BK_FIN)$/.test(session.stage || ''))
