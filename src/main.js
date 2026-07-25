@@ -4467,6 +4467,16 @@ void main(){
       // 달라 글자가 세로로 늘고 가로로 짜부됐음(유저 지적). 깊이는 대지 비율 그대로 → 세로도 짧아짐.
       const laneW = 2 * rig._halfAt(dMid), sUni = laneW / fView.w;
       floorObj.scale.set(sUni, sUni, 1);
+      // 시범/카운트다운 큐 — 플로어 프레임(동일 출처 iframe) cue를 단계별 갱신: 시범임과 곧 전환됨을 명시(유저)
+      try {
+        const cueEl = floorIframe.contentDocument?.getElementById('s-cue');
+        if (cueEl && /^(A2|A3)$/.test(session.stage || '')) {
+          if (cueEl._orig == null) cueEl._orig = cueEl.textContent;
+          const cd = session._followT0 != null ? (session.t - session._followT0) : -1;
+          cueEl.textContent = !session._followLatch ? 'DEMO — 먼저 보세요, 끝나면 3·2·1'
+            : (cd >= 0 && cd < 3 ? `시작까지 ${Math.max(1, Math.ceil(3 - cd))}` : cueEl._orig);
+        }
+      } catch (e) { /* iframe 로드 전 */ }
       // 프레임이 헤더(타이틀·큐·페이즈)를 담으므로 발자국 아래 3D 보조 텍스트 슬롯 전부 숨김(중복 제거, 유저).
       // 발자국 마크(G그룹)는 중앙 콘텐츠라 유지 — 슬롯만 끈다.
       [session.slotFS, session.slotFL, session.slotFM, session.dirSlot,
