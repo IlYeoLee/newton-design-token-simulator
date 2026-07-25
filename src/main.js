@@ -2031,29 +2031,27 @@ void main(){
           return mix(mix(phash(i), phash(i+vec2(1,0)), f.x), mix(phash(i+vec2(0,1)), phash(i+vec2(1,1)), f.x), f.y);
         }
         float pfbm(vec2 p){ return pvn(p)*0.55 + pvn(p*2.13+7.7)*0.28 + pvn(p*4.31+3.1)*0.17; }
-        // 크로마키 마스크 — 상반신 크롭 창(y 0.40~0.98)
-        float mask1(vec2 uv){
-          vec3 c = texture2D(map, vec2(uv.x, 0.40 + uv.y * 0.58)).rgb;
-          float k = c.g - max(c.r, c.b);
-          return 1.0 - smoothstep(0.04, 0.14, k);
-        }
         void main(){
           vec2 uv = vUv;
-          float m = mask1(uv);
-          // 복싱 인물(renderBxPerson)과 동일 문법: 소프트 마스크 + 세로 히트 + fbm 일렁임
-          float mSoft = m * 0.36;
-          for (int k = 0; k < 4; k++) {
-            float a = 1.5708 * float(k) + 0.7;
-            mSoft += mask1(uv + vec2(cos(a), sin(a)) * 0.011) * 0.16;
-          }
+          vec2 suv = vec2(uv.x, 0.40 + uv.y * 0.58);   // 상반신 크롭 창
+          vec3 c = texture2D(map, suv).rgb;
+          float k = c.g - max(c.r, c.b);
+          float m = 1.0 - smoothstep(0.04, 0.14, k);   // 크로마키 마스크
+          // ── 복싱 실사 열화상 편집 원칙 그대로 (main.js 데모 파이프라인과 동일 수식) ──
+          float dlum = dot(c.rgb, vec3(0.299, 0.587, 0.114));
+          dlum = smoothstep(0.36, 0.60, dlum);                       // 급경사 S-커브: 명도 대비 극대화(거의 이진)
+          float faceW = smoothstep(0.72, 0.86, uv.y) * (1.0 - smoothstep(0.965, 1.0, uv.y));   // 이목구비 은닉
+          float mIn = smoothstep(0.55, 0.95, m);                     // 내부 침식 — 엣지 그린 오염 차단
           float flow = pfbm(vec2(uv.x * 3.2 + sin(uTime * 0.4) * 0.3, uv.y * 2.4 - uTime * 0.5));
-          float flow2 = pfbm(vec2(uv.x * 6.5 - uTime * 0.22, uv.y * 5.2 - uTime * 0.9));
-          float vert = pow(1.0 - uv.y, 1.35) * 0.92 + 0.06;
-          float heat = mix(vert, clamp(vert + (flow - 0.5) * 0.55 + (flow2 - 0.5) * 0.25, 0.0, 1.0), 0.55);
-          heat += clamp(m - mSoft, 0.0, 1.0) * 0.10;
-          vec3 col = lut(clamp(heat, 0.0, 1.0)) * mSoft * 1.12;
-          float alpha = clamp(mSoft * 1.15, 0.0, 1.0);
-          alpha *= smoothstep(0.0, 0.22, uv.y);   // 하단 페더 (크롭 경계 은은히)
+          float vert = pow(1.0 - uv.y, 1.35) * 0.92 + 0.06;          // 세로 히트(위 딥레드)
+          float T = clamp(vert * 0.72 + (dlum - 0.42) * 1.5 * mIn * (1.0 - faceW) + (flow - 0.5) * 0.28, 0.0, 1.0);
+          T = pow(T, 1.38);                                          // 밀도 대비 — 어두운 부위 깊게
+          float mEro = smoothstep(0.30, 0.68, m);                    // 마스크 침식 — 헤일로·워시 박스 금지
+          float shape = mEro * 0.92;
+          vec3 col = lut(clamp(T * 0.96, 0.0, 1.0)) * shape;
+          float cl = dot(col, vec3(0.299, 0.587, 0.114));
+          col = clamp(mix(vec3(cl), col, 1.32), 0.0, 1.0);           // 채도 부스트 — 룩시스템 '쟁한' 고채도
+          float alpha = shape * smoothstep(0.0, 0.22, uv.y);         // 하단 페더
           if (alpha < 0.02) discard;
           gl_FragColor = vec4(col, alpha);
         }`,
