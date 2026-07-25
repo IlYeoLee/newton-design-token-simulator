@@ -4296,7 +4296,7 @@ void main(){
   };
   // 장면별 자동재생 지속시간(초) — 로딩바·카운트다운이 0→100% 차오르는 시간.
   // ponytail: 근사값 (복싱 A/B는 beat 기반이라 템포 따라 소폭 변동, B1은 rep 게이트). 필요 시 튜닝.
-  const STAGE_DUR = { BX_A1: 5.6, BX_A2: 4.6, BX_A3: 4, BX_B1: 9, BX_B2: 4.5, BX_B3: 4, BX_C1: 3, BX_C2: 6, BX_C3: 6, BX_C4: 4, BX_T1: 4.5, BX_T2: 5 };
+  const STAGE_DUR = { A1: 12, A2: 16, A3: 24, BX_A1: 5.6, BX_A2: 4.6, BX_A3: 4, BX_B1: 9, BX_B2: 4.5, BX_B3: 4, BX_C1: 3, BX_C2: 6, BX_C3: 6, BX_C4: 4, BX_T1: 4.5, BX_T2: 5 };
   const FRAME_W = 2600, FRAME_H = 1600;   // 디자인 대지 px (벽 2.6×1.6m 실측 1:1) — 모든 DESIGN_FRAMES 뷰는 이 대지로 저작
   const cssRenderer = new CSS3DRenderer();
   Object.assign(cssRenderer.domElement.style, { position: 'fixed', pointerEvents: 'none', zIndex: '6' });

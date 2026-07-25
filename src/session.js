@@ -1163,7 +1163,7 @@ export class Session {
     const b = this.tokens?._beatT;
     return (b > 0.2 && b < 1.5) ? b * mult : fb;
   }
-  stop() { this.active = false; this.root.visible = false; this.tokens.root.visible = true; this.liveSpeed = 1; this.bobY = 0; }
+  stop() { this.active = false; this.root.visible = false; this.tokens.root.visible = true; this.liveSpeed = 1; this.bobY = 0; FXP.hideOrderNums = false; }
   tapAdvance() {
     if (!this.active) return;
     if (!/FIN$/.test(this.stage)) this.next(true);   // 유저 탭 = 즉시 다음(음성 대기 무시)
@@ -1395,11 +1395,16 @@ export class Session {
     // 페이스·판정 마크는 러너에 앵커 = bodyZ(러너 월드 z). floorRoot.z(무한트랙 스크롤)를 더하면
     // 전진 이동을 이중 계산해 마크가 러너의 2배 거리(지평선 밖)에 남았음(유저: '저 멀리 마크 판정 토큰').
     this.root.position.z = live ? bodyZ : 0;
-    // 투사 흔들림을 세션 가이드에도 반영 — 토큰 필드(setShake)만 흔들리고 세션 존원·아크는
-    // 고정이라 '새 가이드는 흔들림 미반영'(유저 지적). 같은 rig.shake를 동일 축으로 가산.
+    // 투사 흔들림 → 세션 가이드: 저역통과(τ0.35s) 잔류만 — 하이니 무릎 스윙 같은 고주파는
+    // 보정 알고리즘이 잡는다는 가정(유저: 가이드가 봇 동작 따라 춤추면 안 됨, 바닥 투사로 읽혀야).
+    // 물리 정직성은 저주파 드리프트로 유지.
     if (this.rig?.shake) {
-      this.root.position.x = this.rig.shake.x;
-      this.root.position.z += this.rig.shake.y;
+      if (!this._shk) this._shk = { x: 0, z: 0 };
+      const aS = 1 - Math.exp(-(dt || 0.016) / 0.35);
+      this._shk.x += (this.rig.shake.x - this._shk.x) * aS;
+      this._shk.z += (this.rig.shake.y - this._shk.z) * aS;
+      this.root.position.x = this._shk.x;
+      this.root.position.z += this._shk.z;
     }
     // 스테이지 카드 조판 라이브 소비 (룩 '스테이지 카드' 슬라이더 — 위치는 즉시, 캡은 다음 텍스트 갱신 시)
     const CARD = FXP.card || {};
@@ -1458,6 +1463,10 @@ export class Session {
     // 농구 라이브는 제자리 스텝 드릴이라 스폿 유지 → 러닝 C에만 스코프.
     // P(페이스) = 원형 판정 토큰+이펙트만(유저 확정). C 실전만 마크 숨김(페이서·리듬 전용).
     this.tokens.liveHideFloorMarks = (this.sport === 'running' && !!st.live && id[0] === 'C');
+    // 러닝 라이브 = 순번 숫자 숨김(케이던스는 리듬이지 시퀀스가 아님 — 유저 확인)
+    FXP.hideOrderNums = (this.sport === 'running' && !!st.live);
+    // 박자 연습(P) = 중앙 레인 라인 제거 — 박자에 집중(유저)
+    this.tokens.liveHideLane = (this.sport === 'running' && id[0] === 'P');
     if (this.sport === 'boxing') this._updateBoxing(id, st, beat, FMU);
     else if (this.sport === 'basketball') this._updateBasketball(id, st, beat, FMU);
     else this._updateRunning(id, st, beat, FMU);

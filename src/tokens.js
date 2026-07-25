@@ -271,6 +271,23 @@ export const LAYOUT = {
 export const BK_SCALE = 5.0;   // xbot 경로와 공유 (봇·토큰 좌표 일치)
 
 // ── 텍스처 유틸 ───────────────────────────────────────────────
+// 러닝 라이브: 순번 대신 발 L/R 글리프(어느 발로 밟는지 — 순번은 러닝 교수법에 없음, 유저 확인).
+// 시퀀스 스포츠(복싱·농구)는 순번 유지. 텍스처 2종 캐시.
+const _footNumTex = {};
+function makeFootGlyphTexture(right) {
+  const k = right ? 'R' : 'L';
+  if (_footNumTex[k]) return _footNumTex[k];
+  const c = document.createElement('canvas'); c.width = c.height = 128;
+  const ctx = c.getContext('2d');
+  if (!drawGlyph(ctx, footSlot(right), 64, 64, 84)) {
+    ctx.strokeStyle = 'rgba(255,240,220,0.95)'; ctx.lineWidth = 5;
+    ctx.shadowColor = 'rgba(254,150,90,0.75)'; ctx.shadowBlur = 12;
+    ctx.beginPath(); ctx.ellipse(64, 64, 20, 34, right ? 0.12 : -0.12, 0, Math.PI * 2); ctx.stroke();
+  }
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
+  return (_footNumTex[k] = tex);
+}
 function makeNumberTexture(n) {
   const c = document.createElement('canvas');
   c.width = c.height = 128;
@@ -442,8 +459,10 @@ export class Marker {
       }
     }
     // 숫자 = 마크 안 글리프, 표시 강도만 상태 연동 (MARK_NUM 규약) — 형태는 전부 fx 셰이더
+    // 러닝 라이브(P/C) = 순번 숨김(FXP.hideOrderNums): 케이던스는 연속 리듬 — 1·2·3 순번은 콤보/스텝
+    // 드릴(복싱·농구) 문법이지 러닝 교수법 아님(유저 확인). 박자 펄스·과녁만.
     if (this.num) {
-      this.num.material.opacity =
+      this.num.material.opacity = FXP.hideOrderNums ? 0 :
         phase === 'preview' ? (this.strongPreview ? 1.0 : 0.5) * fade
         : phase === 'countdown' ? 1.0
         : phase === 'linger' ? 0.4 * (1 - progress)
@@ -947,6 +966,8 @@ export class TokenSystem {
       // 실전 러닝: 바닥 step 마크(1·2·3) 통째 숨김 — 달리며 밟을 과녁 제거(페이서·리듬만).
       // 판정 _fire는 위 linger/miss 블록에서 이미 실행 → 시각만 제거, 채점 그대로.
       if (this.liveHideFloorMarks && ev.surface !== 'wall') phase = 'hidden';
+      // 박자 연습(P) = 중앙 레인 제거(유저: 박자에 집중) — 마크 데워짐+이펙트만
+      if (this.laneFX) this.laneFX.visible = !this.liveHideLane;
 
       if (ev.marker) {
         // 위치 갱신
