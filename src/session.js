@@ -1406,10 +1406,24 @@ export class Session {
       //   → 끝나면 Success → 반대발 되면 상태 바뀜, 대기발은 Locked.
       // 판정 = 봇 다리 상태(발 접지+런지 깊이)로만 구동 — 고정 마크와의 거리 게이트 없음.
       if ((this._a2t ?? 0) > this.t) { P._doneL = false; P._doneR = false; }   // 재진입 시 완료상태 리셋
+      // ── 발자국이 x봇 실제 발을 따라 런지처럼 이동 (유저: 진짜 발 움직임에 맞춰) ──
+      // 발 월드좌표(미러 포함)를 발 중점 기준 상대 오프셋으로 → 투사존 중심(CZ)에 압축 배치.
+      const CZ = -1.5, SC = 0.62;   // 중심 z · 스프레드 압축(투사 mark 토큰 범위 유지)
+      if (pb) {
+        const fL = pb.footL, fR = pb.footR;
+        const lft = fL.x <= fR.x ? fL : fR, rgt = fL.x <= fR.x ? fR : fL;   // 시각 좌/우 (미러 자동 대응)
+        const mz = (fL.z + fR.z) / 2;
+        // 좌우 = 고정 스탠스 폭(겹침 방지·깔끔), 앞뒤 = 발을 따라 이동(런지 = 앞뒤 스텝)
+        const tgt = (fm, baseX, f) => {
+          const tx = baseX, tz = CZ + (f.z - mz) * SC;
+          const g = fm.group; const a = 1 - Math.exp(-(dt || 0.016) / 0.08);   // 저역통과(부드러운 추종)
+          g.position.x += (tx - g.position.x) * a; g.position.z += (tz - g.position.z) * a;
+        };
+        tgt(P.fmL, -0.16, lft); tgt(P.fmR, 0.16, rgt);
+        P._frontLeft = lft.z < rgt.z;   // 앞으로 나간 발(시각 좌?) = 활성
+      }
       const front = pb ? (pb.footL.z < pb.footR.z ? pb.footL : pb.footR) : null;
-      // 활성 발 = 미러 상태로 결정(시각 일치). 미러(scale.x<0)는 X만 뒤집어 해부학적 앞발이
-      // 안 바뀌므로 front-발로 고르면 한 발만 활성화됨(유저) → group.scale.x로 좌우 교대.
-      const isL = (this.xbot?.group?.scale?.x ?? 1) >= 0;
+      const isL = !!P._frontLeft;   // 활성 발 = 시각적으로 앞으로 나간 발
       const spread = pb ? Math.abs(pb.footL.z - pb.footR.z) : 0;
       const engaged = !!front && spread > 0.28;                    // 발을 뻗기 시작 = Active
       const pressing = engaged && front.y < 0.10 && spread > 0.5;  // 깊이 밟음(홀드) = 숫자 카운트
