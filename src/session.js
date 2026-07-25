@@ -512,9 +512,8 @@ export class Session {
     // title(2.0m)·eyebrow(2.3m, FIGMA_CARD)보다 항상 0.4m+ 앞(가까움), footer(0.7m)
     // 보다는 0.3m+ 뒤(멂). CTA(1.1m, READY/T1 전용)와는 애초에 같은 스테이지에 안 나옴.
     g = this._mk('A1');
-    // 목·어깨 풀기 — 중앙 그래픽 존(1.0~1.8m)은 코치 실루엣 패널(main.js a1Coach)이 차지.
-    // 홀드 아크는 패널 우측에 — 판정 마크 문법과 동일한 안정 배치(타이틀 2.0m 존과 분리).
-    this.a1arc = floorArc(0.55, -1.35, BRAND.sand); g.add(this.a1arc);
+    // 목·어깨 풀기 — 마크·판정 토큰 없음(유저 확정): 중앙은 코치 실루엣 패널(main.js a1Coach) 단독.
+    // 진행 표시는 플로어 프레임의 도트 로딩바 + FMU % 텍스트가 전담.
 
     g = this._mk('A2');
     // 런지 — 발 앞의 원을 크게 딛어 밟고 버티면 홀드 아크가 차오름 (구 A1 프레스 문법 재사용).
@@ -1365,7 +1364,7 @@ export class Session {
       const pb = this.xbot?.getProbes?.();
       const planted = pb && (pb.footL?.y ?? 1) < 0.12 && (pb.footR?.y ?? 1) < 0.12;
       this._a1fill = Math.min(1, (this._a1fill || 0) + (planted ? dt / DUR : 0));
-      this.a1arc.setProg(Math.max(0.001, this._a1fill));
+      // 시각 진행바 = 플로어 프레임 도트 로딩바 전담 (A1 마크·판정 토큰 제거 — 유저 확정)
       if (this.t < DEMO) {
         this.demoActive = true;
         FMU('먼저 보세요 — 목과 어깨를 크게 천천히', CS.sand);

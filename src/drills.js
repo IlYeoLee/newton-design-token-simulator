@@ -165,6 +165,24 @@ function boxingDrills(neutral) {
       if (n === R.armL) return rot(X, 22 * Math.cos(sph)).multiply(rot(Z, 18 * Math.sin(sph)));
       return null;
     }),
+    // 목→어깨 순차 풀기 (러닝 A1 전용, 유저 지정: '목을 먼저 크게 돌리고 → 그 다음 어깨')
+    //  1막(0~4s): 목 크게 원 2바퀴(팔 중립) → 2막(4~8s): 어깨 롤 3바퀴(목 중립).
+    //  막 경계 점프 방지: 각 막 양끝 10% 램프 엔벨로프로 진폭 0→1→0.
+    neckShoulder: makeClip('neckShoulder', neutral, 8.0, (n, t) => {
+      const p1 = t < 0.5, u = (p1 ? t : t - 0.5) * 2;
+      const env = u < 0.1 ? u / 0.1 : (u > 0.9 ? (1 - u) / 0.1 : 1);
+      if (p1) {
+        const nph = u * 2 * TWO_PI;
+        if (n === R.neck) return rot(X, 30 * env * Math.cos(nph)).multiply(rot(Z, 30 * env * Math.sin(nph)));
+        if (n === R.head) return rot(X, 12 * env * Math.cos(nph)).multiply(rot(Z, 12 * env * Math.sin(nph)));
+      } else {
+        const sph = u * 3 * TWO_PI;
+        if (n === R.armR) return rot(X, 26 * env * Math.cos(sph)).multiply(rot(Z, -20 * env * Math.sin(sph)));
+        if (n === R.armL) return rot(X, 26 * env * Math.cos(sph)).multiply(rot(Z, 20 * env * Math.sin(sph)));
+        if (n === R.spine1) return rot(Z, 8 * env * Math.sin(sph * 2 / 3));
+      }
+      return null;
+    }),
     // 스텝 인·아웃 — 상체 앞뒤 무게 이동 + 살짝 바운스
     bx_stepio: makeClip('bx_stepio', neutral, 3.0, (n, t) => {
       const s = Math.sin(t * 3 * TWO_PI);

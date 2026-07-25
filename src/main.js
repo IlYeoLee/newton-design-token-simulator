@@ -2050,21 +2050,27 @@ void main(){
       new THREE.PlaneGeometry(0.66, 0.9),
       new THREE.MeshBasicMaterial({ map: rt.texture, transparent: true, opacity: 0.92, depthWrite: false }),
     );
-    plane.rotation.x = -Math.PI / 2;   // 눕힘 — 텍스처 상단(머리)이 먼 쪽(-z)
-    // 판정 마크 존과 동일 문법: 그래픽 존(z -0.9~-1.8) 중앙 안정 배치 — 타이틀(-2.0)·아이브로우(-2.3)와 분리
+    plane.rotation.x = -Math.PI / 2;   // 눕힘 초기값 — 프레임 표시 중엔 매 프레임 floorObj 앵커에 글루됨
     plane.position.set(0, 0.015, -1.35);
     plane.visible = false;
-    // 세션 A1 그룹에 부착 — session.root의 rig.shake 가산(종아리 프로젝터 자연 흔들림)을
-    // 다른 지면 UI와 동일하게 상속 (월드 고정이면 '패널만 안 흔들림' 이질감 — 유저 지적)
-    (session.G?.A1 || scene).add(plane);
-    a1Coach = { rt, scene: cScene, cam, mixer, plane, key: clipKey };
+    scene.add(plane);   // 월드 소속 — 위치·회전은 tickA1Coach가 타이틀 프레임(floorObj)과 동일 앵커로 글루
+    a1Coach = { rt, scene: cScene, cam, mixer, plane, key: clipKey, _fwd: new THREE.Vector3() };
   }
   function tickA1Coach(h) {
     const on = session.active && !session.isLive && session.stage === 'A1' && state.pack === 'running';
-    if (on) ensureA1Coach('bx_neck');   // A1 목·어깨 클립과 동일 소스
+    if (on) ensureA1Coach('neckShoulder');   // A1 목·어깨 클립과 동일 소스
     if (!a1Coach) return;
     a1Coach.plane.visible = on;
     if (!on) return;
+    // 타이틀 프레임(floorObj)과 '한 프레임' 거동 — 동일 저역통과 풋프린트 앵커에 글루.
+    // (세션 그룹 shake 상속만으론 CSS3D 프레임과 앵커가 달라 투사 시 따로 놀았음 — 유저 지적)
+    if (floorObj.visible) {
+      a1Coach.plane.quaternion.copy(floorObj.quaternion);
+      a1Coach._fwd.set(0, 1, 0).applyQuaternion(floorObj.quaternion);   // 프레임 로컬 +Y = 전방(타이틀 쪽)
+      a1Coach.plane.position.set(
+        floorObj.position.x - a1Coach._fwd.x * 0.30, 0.015,
+        floorObj.position.z - a1Coach._fwd.z * 0.30);
+    }
     a1Coach.mixer.update(h);
     const oc = new THREE.Color(); renderer.getClearColor(oc); const oa = renderer.getClearAlpha();
     renderer.setClearColor(0x000000, 0);
@@ -3643,9 +3649,9 @@ void main(){
       // A단계 v2(유저 기준: 퀄리티·지면 가이드 매력·설명 용이) — 전부 햇지런 실측 + 프로브 구동 UI.
       // A1 사이드 런지 프레스(원 눌러 채우기) · A2 레그 스윙 · A3 니 허그. T1 대기=CMU 스트레칭, FIN=쿨다운 쿼드.
       // 러닝 A 3종 확정(유저 지정): A1 목·어깨(Mixamo 실측) · A2 교대 런지(CMU 144_17, 유저 요청 확보) · A3 서서 쿼드 잡기(실사 모캡)
-      // A1 목·어깨: bx_neck(복싱 A1과 공유 — 목 원 2바퀴+어깨 롤 3바퀴, 절차 저작. 유저 지정).
+      // A1 목·어깨: neckShoulder(목 먼저 2바퀴 → 어깨 롤 3바퀴, 순차 저작 — 유저 지정).
       // 주의: imp_warming_up_1_은 라벨과 달리 복싱 가드 동작(인제스트 라벨 오류) — 사용 금지.
-      A1: 'bx_neck', A2: 'auto_cmu144_17', A3: 'quadStretch', T1: 'neckStretch', T2: 'armStretch', FIN: 'quadStretch',
+      A1: 'neckShoulder', A2: 'auto_cmu144_17', A3: 'quadStretch', T1: 'neckStretch', T2: 'armStretch', FIN: 'quadStretch',
       // 복싱 = Mixamo 실측 모캡 (목풀기만 절차)
       BX_A1: 'bx_neck', BX_A2: 'boxGuard', BX_A3: 'boxJab',
       BX_B1: 'boxGuard', BX_B2: 'boxGuard', BX_B3: 'boxCombo',
