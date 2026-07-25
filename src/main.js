@@ -3761,6 +3761,10 @@ void main(){
         // '조금 더 꾹'(유저): 홀드 중에만 앞다리 소량 가산(0.35), 0.6s 이즈 램프
         const _hs = Math.max(0, Math.min(1, (c - DESC) / 0.6)), _he = Math.max(0, Math.min(1, (DESC + HOLD - c) / 0.6));
         xbot.lungeDeepen = 0.35 * Math.min(_hs, _he);
+        // 홀드 UI 정확 동기(유저: 실제 봇 앉아있는 시간에 맞춰) — 깊은 홀드 5s 창을 session에 직접 전달.
+        //   inHold: 최심 정지 구간 · prog: 0→1(그 5s), holdSec: 실제 홀드 초 · isLeft: 이번 회차 딛는 발.
+        session.a2Cyc = { inHold: c >= DESC && c < DESC + HOLD, prog: Math.max(0, Math.min(1, (c - DESC) / HOLD)),
+          holdSec: HOLD, isLeft: (Math.floor(session.t / CYC) % 2) === 0, descending: c < DESC };
       }
       else if (session.stage === 'BK_B1') _phase = session.t;
       else if (session.stage === 'BK_B2') _phase = Math.min((session.t * 0.5) % 3.2, 2.2);   // 플랜트까지 + 홀드(슛 제거)
