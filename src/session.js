@@ -160,7 +160,7 @@ function drawLiftCue(g, style, t, pulse, W = 128, Hh = 256) {
   if (style === 2) {          // 테이퍼 스템 + 촉 draw-on (미니멀 스틱 화살표)
     const ph = (t * 0.9) % 1, draw = Math.min(1, ph / 0.7), fade = ph > 0.85 ? (1 - ph) / 0.15 : 1;
     g.globalAlpha = fade * (0.45 + 0.55 * pulse);
-    const y0 = 232, y1 = 40, yEnd = y0 + (y1 - y0) * draw;
+    const y0 = 232, y1 = 58, yEnd = y0 + (y1 - y0) * draw;   // y1 상향 = 촉 글로우 상단 잘림 방지
     for (let s2 = 0; s2 < 1; s2 += 0.06) {
       const yy = y0 + (yEnd - y0) * s2;
       g.strokeStyle = col(0.45 + 0.5 * s2); g.lineCap = 'round'; g.lineWidth = 3 + 10 * s2;
@@ -170,8 +170,8 @@ function drawLiftCue(g, style, t, pulse, W = 128, Hh = 256) {
       // 꼭짓점 = 유저 제공 SVG 촉(lift_tip.svg, 유기적 손그림 화살촉). lazy 등록 — applyLabState의
       // GLYPHS.set이 맵을 통째로 교체해도 다음 프레임에 재등록됨. 미로드 시 TIP_TRI→스트로크 폴백.
       if (!GLYPHS.map.LIFT_TIP) { GLYPHS.map.LIFT_TIP = import.meta.env.BASE_URL + 'ready-view/assets/lift_tip.svg'; GLYPHS.set(GLYPHS.map); }
-      if (!drawGlyph(g, 'LIFT_TIP', cx, y1 + 24, 84, { color: col(0.95), glowColor: col(0.85), glow: 16 })
-        && !drawGlyph(g, 'TIP_TRI', cx, y1 + 20, 76, { color: col(0.95), glowColor: col(0.85), glow: 16 })) {
+      if (!drawGlyph(g, 'LIFT_TIP', cx, y1 + 16, 58, { color: col(0.95), glowColor: col(0.85), glow: 12 })
+        && !drawGlyph(g, 'TIP_TRI', cx, y1 + 14, 54, { color: col(0.95), glowColor: col(0.85), glow: 12 })) {
         g.strokeStyle = col(0.95); g.lineWidth = 13; g.lineCap = 'round'; g.lineJoin = 'round';
         g.shadowColor = col(0.9); g.shadowBlur = 18;
         g.beginPath(); g.moveTo(cx - 26, y1 + 30); g.lineTo(cx, y1); g.lineTo(cx + 26, y1 + 30); g.stroke();
@@ -604,11 +604,21 @@ export class Session {
       m._g = c.getContext('2d'); m._tex = tex; return m;
     };
     const arL = mkLift(-0.46), arR = mkLift(0.46);
+    // 4안(기본): 궤적 토큰 — 룩시스템 trajectory(잽 경로와 동일 정본). 코멧 prog = 실제 발 높이 직결.
+    const mkTraj = (x) => {
+      const m = primPanel('trajectory', 0.44, false);
+      m.position.set(x, 0.014, -1.05);
+      m._prim.pts = [[0, 0.8], [0.14, 0.02], [0, -0.72]];   // 아래(발)→위(들어올림) 상승 경로
+      m._prim.P = { width: 1.5, tail: 1.1, taper: 1.6 };
+      m._prim.prog = 0;
+      return m;
+    };
+    const tjL = mkTraj(-0.46), tjR = mkTraj(0.46);
     this.a3hk = {
-      fmL: a3L, fmR: a3R, numL: a3nL, numR: a3nR, arL, arR,
+      fmL: a3L, fmR: a3R, numL: a3nL, numR: a3nR, arL, arR, tjL, tjR,
       sec: 0, cntL: 0, cntR: 0, _prevLeft: undefined, _beat: 0, _pop: 0,
     };
-    g.add(a3L.group, a3R.group, arL, arR);
+    g.add(a3L.group, a3R.group, arL, arR, tjL, tjR);
 
     g = this._mk('T1');
     this.tap1 = this._tap('running'); this.tap1.position.set(0, 0.013, -1.1); g.add(this.tap1);
@@ -1578,7 +1588,7 @@ export class Session {
       if ((this._a3t ?? 0) > this.t) { H.sec = 0; H.cntL = 0; H.cntR = 0; H._upL = false; H._upR = false; H._lastLeft = undefined; H._shownL = -1; H._shownR = -1; }
       this._a3t = this.t;
 
-      const guide = [H.fmL.group, H.fmR.group, H.arL, H.arR];
+      const guide = [H.fmL.group, H.fmR.group, H.arL, H.arR, H.tjL, H.tjR];
       // 뉴턴 전환 문법: 시범(영상만) → 마크 워밍 등장 + '이제 같이' 음성 → 따라하기
       if (!this._followLatch) {
         for (const o of guide) o.visible = false;
@@ -1602,13 +1612,20 @@ export class Session {
       const onFM = leftNow ? H.fmL : H.fmR, offFM = leftNow ? H.fmR : H.fmL;
       onFM.glow(0.6 + 0.4 * H._pop); onFM.op(1);
       offFM.ghost(); offFM.op(0.45);
-      // 리프트 큐(발 옆) — 올리는 발 쪽 펄스, 30Hz 캔버스 재드로 (3안: FXP.a3Arrow = 1|2|3)
-      const nowT = performance.now() / 1000;
-      if (nowT - (this._a3cueT || 0) > 1 / 30) {
-        this._a3cueT = nowT;
-        const st3 = FXP.a3Arrow || 1;
-        drawLiftCue(H.arL._g, st3, nowT, leftNow ? H._pop : 0.15); H.arL._tex.needsUpdate = true;
-        drawLiftCue(H.arR._g, st3, nowT + 0.4, leftNow ? 0.15 : H._pop); H.arR._tex.needsUpdate = true;
+      // 리프트 큐(발 옆) — 4안: 궤적 토큰(코멧 prog = 실제 발 높이) / 1~3안: 캔버스 큐 (FXP.a3Arrow)
+      const st3 = FXP.a3Arrow || 4, useTraj = st3 === 4;
+      H.arL.visible = !useTraj; H.arR.visible = !useTraj;
+      H.tjL.visible = useTraj; H.tjR.visible = useTraj;
+      if (useTraj) {
+        H.tjL._prim.prog = Math.min(1, lY / 0.35);   // 왼발 높이 → 왼 경로 코멧 상승
+        H.tjR._prim.prog = Math.min(1, rY / 0.35);
+      } else {
+        const nowT = performance.now() / 1000;
+        if (nowT - (this._a3cueT || 0) > 1 / 30) {
+          this._a3cueT = nowT;
+          drawLiftCue(H.arL._g, st3, nowT, leftNow ? H._pop : 0.15); H.arL._tex.needsUpdate = true;
+          drawLiftCue(H.arR._g, st3, nowT + 0.4, leftNow ? 0.15 : H._pop); H.arR._tex.needsUpdate = true;
+        }
       }
       // 발 안 숫자 = 각자 카운트(1→10)
       if (H.cntL !== H._shownL) { redrawFootNum(H.numL, H.cntL); H._shownL = H.cntL; }

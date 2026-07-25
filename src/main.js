@@ -844,7 +844,7 @@ void main(){
   cuePick.style.cssText = 'position:fixed;left:16px;bottom:16px;z-index:60;display:none;gap:6px;align-items:center;'
     + 'background:rgba(20,22,28,.88);border:1px solid #333;border-radius:10px;padding:8px 12px;font:600 12px sans-serif;color:#ccc';
   cuePick.innerHTML = '<span style="margin-right:4px">리프트 큐</span>';
-  [1, 2, 3].forEach(n => {
+  [1, 2, 3, 4].forEach(n => {
     const b = document.createElement('button'); b.textContent = n;
     b.style.cssText = 'width:30px;height:30px;border-radius:8px;border:1px solid #444;background:' + (n === (FXP.a3Arrow || 1) ? '#fa3030' : '#1c1f26') + ';color:#eee;cursor:pointer;font:700 13px sans-serif';
     b.onclick = () => { FXP.a3Arrow = n; [...cuePick.querySelectorAll('button')].forEach((x, i) => x.style.background = (i + 1 === n) ? '#fa3030' : '#1c1f26'); };
