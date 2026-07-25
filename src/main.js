@@ -3789,7 +3789,14 @@ void main(){
       // 정직한 투사각(유저: 빔프는 종아리 우측 옆 단일 유닛, 바로 아래는 못 비춤):
       // near 시작을 몸 앞 0.3m로 — 종아리 높이/최대 하향각이 정하는 최소 투사 거리(수직 투사 금지).
       rig.fpNear = 0.30; rig.fpFar = Math.max(1.9, rig.fpNear + 0.3);
-    } else { rig.beamTarget = null; rig._beamTgt = null; rig.fpNear = 0.05; }
+    } else {
+      rig.beamTarget = null; rig._beamTgt = null;
+      // 라이브(P/C) = 전방 투사 연장(유저: 시선 앞에 미리 보여야) — near 0.4/far 2.4m.
+      // 달릴 땐 정강이가 뒤로 차올려져 하향각 여유가 생김 + 짐벌 틸트 보정 가정(5년 뒤 스펙).
+      if (session.active && session.isLive && session.sport === 'running') {
+        rig.fpNear = 0.4; rig.fpFar = 2.4;
+      } else rig.fpNear = 0.05;
+    }
     // BK_C4 릴리즈 = 실측 점프샷 원샷 (xbot 농구 라이브 경로에서 크로스페이드)
     xbot.bkShot = session.active && session.stage === 'BK_C4';
     // 팩 판정 토큰 필드 정책(검증된 경로): 세션 비실전 전면 숨김 + 라이브 중 릴리즈(C4)도 숨김.
