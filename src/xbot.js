@@ -299,7 +299,7 @@ export class XBot {
     const neutral = {};
     for (const n of want) { const b = this.model.getObjectByName(n); if (b) neutral[n] = b.quaternion.clone(); }
     this._neutralPose = neutral;   // 팔 중립 덮어쓰기(_relaxArms)용 보관
-    this._armNeutralClips = new Set(['auto_cmu144_17']);   // 팔 어색 모캡 — 팔만 중립 덮어쓰기
+    this._armNeutralClips = new Set(['auto_cmu144_17', 'auto_cmu144_17_one']);   // 팔 어색 모캡 — 팔만 중립 덮어쓰기
     const clips = buildDrillClips(neutral);
     for (const id in clips) {
       const action = this.mixer.clipAction(clips[id]);

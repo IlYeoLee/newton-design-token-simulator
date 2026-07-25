@@ -280,5 +280,10 @@
   "root": true,
   "dur": 47.28,
   "cat": "stretch"
+ },
+ "cmu144_17_one": {
+  "root": false,
+  "dur": 3.1,
+  "cat": "lunge"
  }
 }
