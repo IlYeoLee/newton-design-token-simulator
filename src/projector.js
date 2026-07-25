@@ -444,8 +444,8 @@ export class ProjectorRig {
         const ox0 = knee.x - body.x, oz0 = knee.z - body.z;
         this._kneeRest.x += (ox0 - this._kneeRest.x) * 0.02;   // 아주 느린 기준(제자리 평균)
         this._kneeRest.z += (oz0 - this._kneeRest.z) * 0.02;
-        jx += (ox0 - this._kneeRest.x) * 0.12;   // 종아리 순간 편차 × 짐벌 미보정 잔여(~12%, 양산 소비자 짐벌)
-        jz += (oz0 - this._kneeRest.z) * 0.12;
+        jx += (ox0 - this._kneeRest.x) * 0.18;   // 종아리 순간 편차 × 짐벌 미보정 잔여(~18%, 양산 소비자 짐벌 — 눈에 띄게)
+        jz += (oz0 - this._kneeRest.z) * 0.18;
       }
       const tt = (typeof performance !== 'undefined' ? performance.now() : 0) / 1000;
       jx += (Math.sin(tt * 2.3 + 0.7) * 0.6 + Math.sin(tt * 11.0) * 0.4) * 0.003;

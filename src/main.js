@@ -4393,7 +4393,7 @@ void main(){
       // 따르면 글자가 삐걱임(유저). 앵커를 저역통과(≈90ms 시정수)해 인물 총체 이동만 남기고 지터 제거.
       // 빔·토큰은 원본 rig._fp 그대로라 '정직한 흔들림' 유지 — 읽기용 콘텐츠만 안정화.
       if (!_fpSmooth) _fpSmooth = { ox: fp.ox, oz: fp.oz, fx: fp.fx, fz: fp.fz };
-      const aUI = 1 - Math.exp(-_uiDt / 0.09);
+      const aUI = 1 - Math.exp(-_uiDt / 0.05);   // 저역통과 완화(0.09→0.05) — 매트가 종아리 잔여를 더 따라감(유저: 박힌 느낌)
       _fpSmooth.ox += (fp.ox - _fpSmooth.ox) * aUI;
       _fpSmooth.oz += (fp.oz - _fpSmooth.oz) * aUI;
       _fpSmooth.fx += (fp.fx - _fpSmooth.fx) * aUI;

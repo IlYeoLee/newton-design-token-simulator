@@ -218,9 +218,9 @@ function boxingDrills(neutral) {
       if (n === R.kneeR) return rot(X, -88 * eR);
       if (n === R.hipL)  return rot(X, 96 * eL);
       if (n === R.kneeL) return rot(X, -88 * eL);
-      if (n === R.spine)  return rot(Y, -28 * s);          // 상체 비틀기(무릎 반대) — s에 연속
-      if (n === R.spine1) return rot(Y, -14 * s);
-      if (n === R.neck)   return rot(Y, -12 * s);
+      if (n === R.spine)  return rot(Y, -22 * s);          // 상체 비틀기(무릎 반대) — s에 연속
+      if (n === R.spine1) return rot(Y, -10 * s);
+      if (n === R.neck)   return rot(Y, -4 * s);           // 고개는 살짝만(유저: 과함) — 상체 비틀림에 자연 추종
       // 반대 팔 크로스: 오른무릎(eR)→왼팔 앞으로, 왼무릎(eL)→오른팔
       if (n === R.armL)  return rot(X, 44 * eR).multiply(rot(Z, -22 * eR)).multiply(rot(Z, 30 * eL));
       if (n === R.foreL) return rot(X, -60 * eR);
