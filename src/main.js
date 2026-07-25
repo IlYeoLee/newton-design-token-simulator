@@ -2047,7 +2047,7 @@ void main(){
     const cam = new THREE.OrthographicCamera(-W / 2, W / 2, H, 0, 0.1, 10);
     cam.position.set(0, 0, 3); cam.lookAt(0, 0, 0);   // 수평 유지 — 기울이면 직교 밴드(0..H) 밖으로 봇이 벗어나 빈 렌더
     const plane = new THREE.Mesh(
-      new THREE.PlaneGeometry(0.66, 0.9),
+      new THREE.PlaneGeometry(0.78, 1.06),   // 투사 안정영역 맞춤 확대 (발 잘림 방지 — 유저 지적)
       new THREE.MeshBasicMaterial({ map: rt.texture, transparent: true, opacity: 0.92, depthWrite: false }),
     );
     plane.rotation.x = -Math.PI / 2;   // 눕힘 초기값 — 프레임 표시 중엔 매 프레임 floorObj 앵커에 글루됨
@@ -2067,9 +2067,10 @@ void main(){
     if (floorObj.visible) {
       a1Coach.plane.quaternion.copy(floorObj.quaternion);
       a1Coach._fwd.set(0, 1, 0).applyQuaternion(floorObj.quaternion);   // 프레임 로컬 +Y = 전방(타이틀 쪽)
+      // 프레임 중심 근처(-0.05)로 상향 — 하단 페이즈 스트립에 발이 잘리지 않게 (유저 지적)
       a1Coach.plane.position.set(
-        floorObj.position.x - a1Coach._fwd.x * 0.30, 0.015,
-        floorObj.position.z - a1Coach._fwd.z * 0.30);
+        floorObj.position.x - a1Coach._fwd.x * 0.05, 0.015,
+        floorObj.position.z - a1Coach._fwd.z * 0.05);
     }
     a1Coach.mixer.update(h);
     const oc = new THREE.Color(); renderer.getClearColor(oc); const oa = renderer.getClearAlpha();
