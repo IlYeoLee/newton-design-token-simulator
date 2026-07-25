@@ -21,6 +21,7 @@ import { initBudgetPanel } from './budgetPanel.js';
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { CSS3DRenderer, CSS3DObject } from 'three/examples/jsm/renderers/CSS3DRenderer.js';
 import { getLUT, FXP, rebuildLUT, lutColor, GLYPHS, FX_GLSL } from './fxlut.js';
+import { drawRotate } from './fx-core.js';
 import { createEditor3D } from './editor3d.js';
 import { SceneUI } from './sceneui.js';
 
@@ -2076,7 +2077,19 @@ void main(){
     plane.position.set(0, 0.015, -1.35);
     plane.visible = false;
     scene.add(plane);
-    return (_coaches[id] = { video, plane, _fwd: new THREE.Vector3(), fwd: cfg.fwd });
+    const co = _coaches[id] = { video, plane, _fwd: new THREE.Vector3(), fwd: cfg.fwd };
+    // A1: 복싱처럼 코치 영상 어깨 밴드 위에 회전 큐(drawRotate 룩시스템) 오버레이 — "이 방향으로 돌려"
+    if (id === 'A1') {
+      const cv = document.createElement('canvas'); cv.width = cv.height = 256;
+      const g = cv.getContext('2d');
+      const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace;
+      const cue = new THREE.Mesh(new THREE.PlaneGeometry(0.34, 0.34),
+        new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+      cue.position.set(0, 0.20, 0.02);   // 부모 로컬: +y=머리쪽(어깨 밴드), +z=바닥 위로 띄움
+      plane.add(cue);
+      co.rotCue = { g, tex, mesh: cue };
+    }
+    return co;
   }
   function tickA1Coach() {
     // 어떤 스테이지 코치를 켤지: A1 = 전 구간, A2 = 진입 후 ~3s 데모(런지 따라하기 전 시범)
@@ -2094,6 +2107,14 @@ void main(){
         // 빨간 방사형 사각형으로 0.x초 깜빡이던 것 방지(유저). readyState≥3(HAVE_FUTURE_DATA)+재생 시작 후.
         co.plane.visible = co.video.readyState >= 3 && co.video.currentTime > 0.03;
         co.plane.material.uniforms.uTime.value = performance.now() / 1000;
+        if (co.rotCue) {   // 회전 큐 자체 루프 회전 = '돌리기' 지시 (복싱 데모 루프와 동일)
+          co.rotCue.mesh.visible = co.plane.visible;
+          if (co.plane.visible) {
+            drawRotate(co.rotCue.g, 256, { r: 0.30, width: 1.1, dir: 1, sweep: 0.62, tempo: 0.42 },
+              { halo: FXP.mark.halo }, performance.now() / 1000, { lut: lutColor, arrow: FXP.arrow });
+            co.rotCue.tex.needsUpdate = true;
+          }
+        }
         if (floorObj.visible) {
           co.plane.quaternion.copy(floorObj.quaternion);
           co._fwd.set(0, 1, 0).applyQuaternion(floorObj.quaternion);
