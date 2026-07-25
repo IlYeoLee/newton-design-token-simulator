@@ -419,22 +419,18 @@ export class ProjectorRig {
       fwd = this.xbot.getForward();
       if (this.beamTarget) { ox = this.beamTarget.x; oz = this.beamTarget.z; }
       else { ox = body.x + fwd.x * 0.35; oz = body.z + fwd.z * 0.35; }
-      // 물리 클램프(유저: '빛은 다리 유닛에서 나온다 — 투사면 월드 고정 금지'):
-      // 짐벌·AI 사출 보정으로 타겟 안정화는 유지하되, 타겟은 착용 유닛에서 물리적으로
-      // 닿는 사출창 안으로 제한 — 전방 0.15~1.2m · 좌우 ±0.45m. 착용자가 걸어가면
-      // 투사면이 창 경계에 밀려 함께 끌려간다(빛의 근원 = 다리).
+      // 물리 클램프(유저: '빔프는 종아리 우측 옆 단일 유닛 — 바로 아래는 못 비춤'):
+      //   단일 종아리 프로젝터가 실제 닿는 사출창 안으로 타겟 제한 — 전방 0.30~1.9m(near는
+      //   종아리 높이/최대 하향각으로 정해지는 최소 투사 거리, 바로 아래 금지) · 좌우 ±0.45m.
+      //   착용자가 이동하면 투사면이 창 경계에 밀려 함께 끌려간다(빛의 근원 = 종아리 유닛).
       {
         const rx = -fwd.z, rz = fwd.x;
         const dx = ox - body.x, dz = oz - body.z;
         let df = dx * fwd.x + dz * fwd.z, dr = dx * rx + dz * rz;
-        df = Math.min(1.2, Math.max(0.15, df)); dr = Math.min(0.45, Math.max(-0.45, dr));
+        df = Math.min(1.9, Math.max(0.30, df)); dr = Math.min(0.45, Math.max(-0.45, dr));
         ox = body.x + fwd.x * df + rx * dr;
         oz = body.z + fwd.z * df + rz * dr;
       }
-      // 발목 유닛 핸드오프(제품 2유닛 구성): 무릎 유닛 단독으론 타겟 '뒤쪽'(근접존)에 각이 안 나옴
-      // — 딥 런지에서 발형 마크 후반부가 클리핑되던 원인(유저 실화면). 커버리지 원점을 0.35m
-      // 후퇴시켜 마크 전체를 사출창 안에 (발목 유닛이 근접존을 이어받는 물리 표현).
-      ox -= fwd.x * 0.35; oz -= fwd.z * 0.35;
       this.shake.set(0, 0);
       this.errorCm = 0;
     } else {

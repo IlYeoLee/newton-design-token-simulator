@@ -3703,7 +3703,10 @@ void main(){
         rig._beamTgt.z += (anchor.z - rig._beamTgt.z) * 0.08;
         rig.beamTarget = rig._beamTgt;
       }
-    } else { rig.beamTarget = null; rig._beamTgt = null; }
+      // 정직한 투사각(유저: 빔프는 종아리 우측 옆 단일 유닛, 바로 아래는 못 비춤):
+      // near 시작을 몸 앞 0.3m로 — 종아리 높이/최대 하향각이 정하는 최소 투사 거리(수직 투사 금지).
+      rig.fpNear = 0.30; rig.fpFar = Math.max(1.9, rig.fpNear + 0.3);
+    } else { rig.beamTarget = null; rig._beamTgt = null; rig.fpNear = 0.05; }
     // BK_C4 릴리즈 = 실측 점프샷 원샷 (xbot 농구 라이브 경로에서 크로스페이드)
     xbot.bkShot = session.active && session.stage === 'BK_C4';
     // 팩 판정 토큰 필드 정책(검증된 경로): 세션 비실전 전면 숨김 + 라이브 중 릴리즈(C4)도 숨김.
