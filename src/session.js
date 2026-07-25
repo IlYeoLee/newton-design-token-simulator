@@ -239,6 +239,7 @@ function waveRingMesh(rIn, rOut, color, op, wall, phase = 0) {
   U.uPhase.value = phase;
   U.uFade.value = op;
   U.uGain.value = wall ? 0.6 : 1.0;
+  mat._wall = wall;   // 벽 마크는 지면 풋프린트 페이드 미적용(tickWaves 게이트)
   // 오버라이드 금지 — 세션 링 = 카탈로그의 MARK 원형 그대로(반경·상태·진행만 이 자리서 지정).
   // 예전엔 uPool=0.1 하드코딩 + rIn/rOut로 uW 재계산해 카탈로그와 다른 '새 종'처럼 보였음
   // (유저: "룩 시스템 토큰으로 진행되고 있지 않다" — 정확한 지적). 룩 값은 tickWaves가
@@ -1246,6 +1247,7 @@ export class Session {
     const t = performance.now() / 1000;
     const day = FXP.day ? 1 : 0;
     const MK = FXP.mark;   // 룩 시스템 MARK 슬라이더 — 팩 마커(tokens.js)와 동일하게 세션 재질도 라이브 소비
+    const fp = this.rig?._fp;   // 투사면 프레임 — 마크 글로우를 경계 전에 소프트 페이드(레인과 동일)
     for (const m of WAVE_MATS) {
       const U = m.uniforms;
       U.uTime.value = t;
@@ -1254,6 +1256,15 @@ export class Session {
       U.uPool.value = MK.pool;
       U.uSweepA.value = MK.sweep;
       U.uNoise.value = MK.wobble;
+      if (fp && U.uFPNear && !m._wall) {   // 지면 마크만: 벽 마크는 기본 1e6(무효) 유지
+        U.uFPOrigin.value.set(fp.ox, 0, fp.oz);
+        U.uFPFwd.value.set(fp.fx, 0, fp.fz);
+        U.uFPRight.value.set(fp.rx, 0, fp.rz);
+        U.uFPNear.value = this.rig.fpNear;
+        U.uFPFar.value = this.rig.fpFar;
+        U.uFPHalfN.value = this.rig._halfAt(this.rig.fpNear);
+        U.uFPHalfF.value = this.rig._halfAt(this.rig.fpFar);
+      }
       if (m._auto) U.uProg.value = (t * 0.3) % 1;   // 구동자 없는 Hold = 시연 루프
       if (U.uDay.value !== day) {   // 주간 풀컬러 잉크 규약 (마커와 동일)
         U.uDay.value = day;

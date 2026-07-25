@@ -23,7 +23,20 @@ const MARKFX_FRAG = `
 uniform float uW, uHalo, uNoise;
 ` + MARK_GLSL + `
 uniform float uPhase, uProg, uFade, uStrong, uTime, uGain, uDay, uOut;
+uniform vec3 uFPOrigin, uFPFwd, uFPRight;
+uniform float uFPNear, uFPFar, uFPHalfN, uFPHalfF, uFPFadeM;
 varying vec2 vUv;
+varying vec3 vWorldPos;
+// 투사면 경계 소프트 페이드(레인과 동일) — 클리핑 하드컷이 사각형으로 드러나기 전에 알파를 죽임.
+float footprintFade(vec3 wp) {
+  vec2 rel = wp.xz - uFPOrigin.xz;
+  float d = rel.x * uFPFwd.x + rel.y * uFPFwd.z;
+  float h = rel.x * uFPRight.x + rel.y * uFPRight.z;
+  float half_ = mix(uFPHalfN, uFPHalfF, clamp((d - uFPNear) / max(0.01, uFPFar - uFPNear), 0.0, 1.0));
+  float fadeLen = smoothstep(uFPNear, uFPNear + uFPFadeM, d) * smoothstep(uFPFar, uFPFar - uFPFadeM, d);
+  float fadeW = smoothstep(half_, half_ - uFPFadeM, abs(h));
+  return fadeLen * fadeW;
+}
 // 컴포저 OutputPass가 전 화면에 linear→sRGB 인코딩을 얹음(장면 PBR엔 옳지만 토큰 광은
 // 카탈로그(raw)보다 미드톤이 ~30% 들떠 보임 — 패리티 하니스로 실측). 장면 파이프라인은
 // 유지하고 토큰만 출력 직전 역변환으로 상쇄(uOut=1). raw 컨텍스트(패리티)는 uOut=0.
@@ -44,7 +57,8 @@ void main() {
   // 쿼드 보더 페이드 — 원형 + 사각 경계(체비셰프) 이중: 어떤 경로에서도 평면 모서리가
   // 사각 박스로 드러나지 않게 (주간 잉크의 색 정규화가 원형 페이드를 상쇄하던 구멍 봉인)
   float border = smoothstep(1.0, 0.82, length(uv))
-               * smoothstep(1.0, 0.84, max(abs(uv.x), abs(uv.y)));
+               * smoothstep(1.0, 0.84, max(abs(uv.x), abs(uv.y)))
+               * footprintFade(vWorldPos);   // 투사면 밖으로 새는 글로우를 사각 하드컷 전에 페이드
   vec3 col = r.rgb * uFade * uGain * border;
   if (uDay > 0.5) {   // 주간 = 풀컬러 잉크 (색 보존 + 커버리지 알파)
     float mc = max(col.r, max(col.g, col.b));
@@ -181,6 +195,9 @@ export function makeMarkFXMaterial(footTex = null) {
       uTime: { value: 0 }, uSeed: { value: Math.random() * 6.2832 },
       uW: { value: 1 }, uHalo: { value: 0.9 }, uPool: { value: 0.55 }, uGain: { value: 1 },
       uSweepA: { value: 1 }, uNoise: { value: 0.5 }, uDay: { value: 0 }, uOut: { value: 1 },
+      // 투사면(풋프린트) 소프트 페이드 — 레인과 동일. 기본 1e6 = 무효(벽 마크·미주입 시 페이드 없음).
+      uFPOrigin: { value: new THREE.Vector3() }, uFPFwd: { value: new THREE.Vector3(0, 0, -1) }, uFPRight: { value: new THREE.Vector3(1, 0, 0) },
+      uFPNear: { value: -1e6 }, uFPFar: { value: 1e6 }, uFPHalfN: { value: 1e6 }, uFPHalfF: { value: 1e6 }, uFPFadeM: { value: 0.12 },
     },
     transparent: true,
     blending: THREE.AdditiveBlending,
