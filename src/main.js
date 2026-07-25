@@ -2052,12 +2052,14 @@ void main(){
           float flow = vn(vec2(uv.x*3.2 + sin(uTime*0.4)*0.3, uv.y*2.4 - uTime*0.5));
           H *= 1.0 + (flow - 0.5) * 0.28;                                   // 미세 확산 일렁임(약)
           float dlum = dot(c, vec3(0.299, 0.587, 0.114));
-          dlum = smoothstep(0.34, 0.62, dlum);                             // 급경사 S커브 = 명암 대비 극대화
+          dlum = smoothstep(0.34, 0.62, dlum);                             // 급경사 S커브 = 명암 대비
           float mIn = smoothstep(0.55, 0.95, m);                           // 내부 침식 — 엣지 밝은 테두리 차단
           float faceW = smoothstep(0.80, 0.92, uv.y) * (1.0 - smoothstep(0.97, 1.0, uv.y));  // 얼굴 은닉
-          float T = clamp(H * 0.86 + (dlum - 0.42) * 1.35 * mIn * (1.0 - faceW), 0.0, 1.0);
-          T = pow(T, 1.34);                                                // 밀도 대비 — 그늘 깊게
-          vec3 col = lut(clamp(T * 0.96, 0.0, 1.0)) * mEro * 1.12;
+          // 휘도 영향 축소(0.45) + 상한 캡(0.70) — 맨살(밝음)이 크림/흰색으로 튀어 통일감 깨지던 것 방지(유저).
+          // 전신이 딥레드~오렌지 범위에만 머물게 (룩시스템 열화상 통일 톤).
+          float T = clamp(H * 0.62 + (dlum - 0.5) * 0.45 * mIn * (1.0 - faceW) + 0.12, 0.06, 0.70);
+          T = pow(T, 1.18);                                                // 밀도 대비(완화 — 캡과 함께)
+          vec3 col = lut(clamp(T, 0.0, 1.0)) * mEro * 1.12;
           float cl = dot(col, vec3(0.299, 0.587, 0.114));
           col = clamp(mix(vec3(cl), col, 1.32), 0.0, 1.0);                 // 채도 부스트 — 룩시스템 고채도
           float alpha = mEro * 0.95 * smoothstep(0.0, 0.22, uv.y);         // 하단 페더
