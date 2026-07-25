@@ -431,8 +431,17 @@ export class ProjectorRig {
         ox = body.x + fwd.x * df + rx * dr;
         oz = body.z + fwd.z * df + rz * dr;
       }
-      this.shake.set(0, 0);
-      this.errorCm = 0;
+      // 실측 5년뒤 양산 소비자 짐벌 잔여(유저: '완벽 정지=땅에 박힌 과보정', '실제 5년뒤 양산 수준으로').
+      //   정지 σ≈0.3cm(손·몸 미세 트레머) + 다리 각속도 비례 최대 +1.2cm(빠른 하이니일수록 짐벌 잔여↑).
+      //   저주파 드리프트(짐벌 추종 지연) + 미세 고주파(서보 리플) 합성 = 정직한 '살아있는' 안정화.
+      const omega = Math.abs(this.omegaDps || 0);
+      const sigma = 0.003 + Math.min(0.012, omega / 320 * 0.012);   // m (0.3~1.5cm)
+      const tt = (typeof performance !== 'undefined' ? performance.now() : 0) / 1000;
+      const jx = (Math.sin(tt * 2.3 + 0.7) * 0.6 + Math.sin(tt * 11.0) * 0.4) * sigma;
+      const jz = (Math.cos(tt * 1.9) * 0.6 + Math.cos(tt * 9.5 + 1.3) * 0.4) * sigma;
+      ox += jx; oz += jz;
+      this.shake.set(jx, jz);
+      this.errorCm = Math.hypot(jx, jz) * 100;
     } else {
       fwd = fwd0;
       ox = body.x + offLocal.x + gimbalBreak.x;
