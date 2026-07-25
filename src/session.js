@@ -538,8 +538,9 @@ export class Session {
     // 숫자 = 룩시스템 attachMarkNum(발 plane 자식·MARK_NUM 크기·numFoot 앵커) — 삐짐 없는 정본 이식
     const numL = attachMarkNum(fmL, '5', false), numR = attachMarkNum(fmR, '5', true);
     numL.visible = false; numR.visible = false;
-    this.a2press = { fmL, fmR, numL, numR, fill: 0, _cnt: 5, _succ: 0, _succFM: null };
-    g.add(fmL.group, fmR.group);
+    const a2cd = floorNum(0, 0, -1.35, 0.22); a2cd.visible = false;   // 시범→따라하기 3-2-1 카운트다운
+    this.a2press = { fmL, fmR, numL, numR, cd: a2cd, fill: 0, _cnt: 5, _succ: 0, _succFM: null };
+    g.add(fmL.group, fmR.group, a2cd);
 
     g = this._mk('A3');
     // High Knees 지면 가이드 = 두 질문에 답: (1)뭘 하나 (2)몇 개 했나.
@@ -1120,6 +1121,7 @@ export class Session {
     this._followLatch = false;        // 관찰→따라하기 래치 리셋(스테이지마다)
     this._aWatchEnd = undefined;      // 관찰 종료 시각(음성 끝) 리셋
     this._followT0 = null;            // 3-2-1 카운트다운 기준 시각 리셋
+    this._a2cdShown = null;           // A2 카운트다운 표시 숫자 리셋
     this.demoActive = false;          // A 시범 구간 신호 (실사 클립 패널 소비)
     this._setCount(null); this._setCountWall(null);
     if (this.G[st.id]) this.G[st.id].visible = true;
@@ -1459,16 +1461,31 @@ export class Session {
       const actNum = isL ? P.numL : P.numR, othNum = isL ? P.numR : P.numL;
       const othDone = isL ? P._doneR : P._doneL;
       // ── 2단계 흐름: [관찰] 전문가 영상 보며 프로그래스바 채움 → [따라하기] 실제 런지 ──
-      const watching = !!cyc?.watching;
+      // cyc 미설정(main 렌더루프가 아직 a2Cyc 안 넣은 첫 프레임) = 아직 관찰 — 카운트다운 조기시작 방지.
+      const watching = !cyc || !!cyc.watching;
       if (watching) {
         // 관찰 단계: 발자국 마크·홀드 전부 숨김, '먼저 볼게요' 프로그래스바만 채움.
         P.fmL.group.visible = false; P.fmR.group.visible = false; P.numL.visible = false; P.numR.visible = false;
-        FMU(`먼저 볼게요 — ${Math.round((cyc.watchProg || 0) * 100)}%`, CS.prism);   // 도트바 = 관찰 진행도
+        FMU(`먼저 볼게요 — ${Math.round((cyc?.watchProg || 0) * 100)}%`, CS.prism);   // 도트바 = 관찰 진행도
+        P.cd.visible = false;
         this.demoActive = true;
         return;   // 따라하기 로직(아래) 건너뜀
       }
       // 관찰 종료 직후 1회: '이제 같이' 큐 (watching=false로 넘어온 첫 프레임)
       this._say('a2follow', '션', '자, 이제 같이 따라해봐요! 앞으로 크게 딛고 무릎 굽혀 버텨요.');
+      // 3-2-1 카운트다운(3s) — 시범↔따라하기 큰 글리프로 구분(A3와 동일)
+      if (this._followT0 == null) this._followT0 = this.t;
+      const a2cdEl = this.t - this._followT0;
+      if (a2cdEl < 3.0) {
+        P.fmL.group.visible = false; P.fmR.group.visible = false; P.numL.visible = false; P.numR.visible = false;
+        P.cd.visible = true;
+        const cn = Math.max(1, Math.ceil(3.0 - a2cdEl));
+        if (cn !== this._a2cdShown) { redrawFootNum(P.cd.userData.plane, cn); this._a2cdShown = cn; }
+        P.cd.scale.setScalar(1.7 + 0.5 * (1 - (a2cdEl % 1)));
+        FMU('시범 끝 — 곧 시작!', CS.prism);
+        return;
+      }
+      P.cd.visible = false;
       P.fill = inHold ? cyc.prog : 0;   // 0→1 정확히 5초(봇 최심 정지 구간)
       placeMarkNum(P.numL); placeMarkNum(P.numR);
       P._pop = Math.max(0, (P._pop || 0) - dt * 3.8);
