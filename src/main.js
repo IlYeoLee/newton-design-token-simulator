@@ -3641,7 +3641,7 @@ void main(){
       // A1 목·어깨: neckShoulder(목 먼저 2바퀴 → 어깨 롤 3바퀴, 순차 저작 — 유저 지정).
       // 주의: imp_warming_up_1_은 라벨과 달리 복싱 가드 동작(인제스트 라벨 오류) — 사용 금지.
       // A2: cmu144_17 실측 런지(다리 자연스러움) + 팔만 중립 덮어쓰기(_relaxArms) — 절차 런지는 다리가 어색(유저)
-      A1: 'neckShoulder', A2: 'auto_cmu144_17_one', A3: 'quadStretch', T1: 'neckStretch', T2: 'armStretch', FIN: 'quadStretch',
+      A1: 'neckShoulder', A2: 'auto_cmu144_11',   // Left_Lunges — 무릎 15cm 깊은 실측 런지(유저 발견 트라이얼) A3: 'quadStretch', T1: 'neckStretch', T2: 'armStretch', FIN: 'quadStretch',
       // 복싱 = Mixamo 실측 모캡 (목풀기만 절차)
       BX_A1: 'bx_neck', BX_A2: 'boxGuard', BX_A3: 'boxJab',
       BX_B1: 'boxGuard', BX_B2: 'boxGuard', BX_B3: 'boxCombo',
@@ -3713,7 +3713,7 @@ void main(){
       tokens.update(0, 0);
       // hold=포즈 고정(복싱 READY 가드 유지). 러닝 대기는 idle 재생(호흡)이라 hold 안 함.
       // 러닝 준비운동(A) = 코치 드릴을 세션 스테이지 시간(session.t)에 위상 잠금 → 씬 링·카운트·음성과 동기(유저: '타이밍 하나하나 맞춰')
-      if (session.stage !== 'A2') { if (xbot.group.scale.x !== 1) xbot.group.scale.x = 1; xbot.lungeDeepen = 0; }   // A2 미러·깊이 잔류 방지
+      if (xbot.group.scale.x !== 1) xbot.group.scale.x = 1; xbot.lungeDeepen = 0;   // A2 실험 로직 제거 — 잔류 방지
       const _clip = demoClipFor(session.sport, session.stage);
       // 위상잠금: 씬 링·카운트와 코치 동작을 같은 시간축에 — 절차 드릴 + A1 전신풀기·A2 점핑잭(주기=씬 BT).
       // BK_B2 = 분해 밟기: 씬 3s 사이클당 크로스오버 1회(마크 1-2-3과 사이클 동기).
@@ -3721,22 +3721,6 @@ void main(){
       let _phase = null;
       if (_clip === 'stomp_press') _phase = session.t;
       else if (session.sport === 'running' && (/^run_|^hj_/.test(_clip) || _clip === 'cmu_stretch' || _clip === 'jumpingJacks')) _phase = session.t;
-      else if (session.stage === 'A2') {
-        // 교대 런지: 원본(cmu144_17)은 오른발 런지만 — 깨끗한 1사이클 창(10.4~14.0s)을 반복하고
-        // 홀수 사이클마다 봇을 비주얼 미러(X스케일 반전) → 오른발 1회 꾹 → 왼발 1회 꾹.
-        // (데이터 미러 합성은 mixamorig 로컬축 비대칭으로 실패 — 스케일 미러는 무손상·확실)
-        // 유저 확정 페이싱: 쑤욱 내려가기 → 최심점 5초 정지 → 일어나기 → 반대발 동일.
-        // 추출 클립(3.1s) 최심점 ≈ 1.5s. 홀드 = 위상 고정(완전 정지, 프레스 게이지 이 구간에 참).
-        const L = xbot.actions['auto_cmu144_17_one']?.dur || 3.1;
-        const PD = 1.9, HOLD = 5.0, CYC = PD + HOLD + (L - PD);   // PD=앞발 접지 완료 시점(발 닿는 순간 멈춤)
-        const c = session.t % CYC;
-        _phase = c < PD ? c : (c < PD + HOLD ? PD : c - HOLD);
-        xbot.group.scale.x = (Math.floor(session.t / CYC) % 2) ? -1 : 1;   // 회차마다 좌우 교대
-        // 깊이 노브: 접지 0.5s 전부터 램프인 → 홀드 내내 푹 → 일어나며 0.5s 램프아웃
-        // 램프 0.8s(이즈인아웃) — 급램프가 클램프 요동(튀김)을 유발했음
-        const _e = v => v * v * (3 - 2 * v);
-        xbot.lungeDeepen = _e(Math.max(0, Math.min(1, c < PD + HOLD ? (c - (PD - 0.8)) / 0.8 : 1 - (c - PD - HOLD) / 0.8)));
-      }
       else if (session.stage === 'BK_B1') _phase = session.t;
       else if (session.stage === 'BK_B2') _phase = Math.min((session.t * 0.5) % 3.2, 2.2);   // 플랜트까지 + 홀드(슛 제거)
       else if (session.stage === 'BK_B3') _phase = 1.55 + ((session.t * 0.55) % 2.45);   // 플랜트→백스텝→착지→슛 구간 0.55배 반복

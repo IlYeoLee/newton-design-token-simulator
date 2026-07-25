@@ -285,5 +285,20 @@
   "root": false,
   "dur": 3.1,
   "cat": "lunge"
+ },
+ "cmu144_11": {
+  "root": false,
+  "dur": 28.57,
+  "cat": "lunge"
+ },
+ "cmu144_12": {
+  "root": false,
+  "dur": 27.66,
+  "cat": "lunge"
+ },
+ "cmu144_18": {
+  "root": false,
+  "dur": 25.8,
+  "cat": "lunge"
  }
 }
