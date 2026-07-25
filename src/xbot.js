@@ -244,6 +244,7 @@ export class XBot {
 
     this._hips = xbot.getObjectByName('mixamorigHips');
     this._kneeR = xbot.getObjectByName('mixamorigRightLeg');
+    this._kneeL = xbot.getObjectByName('mixamorigLeftLeg');   // 미러 시 프로젝터 앵커 스위칭용
     this._head = xbot.getObjectByName('mixamorigHead');
     this._footL = xbot.getObjectByName('mixamorigLeftToeBase') || xbot.getObjectByName('mixamorigLeftFoot');
     this._footR = xbot.getObjectByName('mixamorigRightToeBase') || xbot.getObjectByName('mixamorigRightFoot');
@@ -348,17 +349,21 @@ export class XBot {
       .add(new THREE.Vector3(0, 0.11, 0));
   }
 
-  /** 오른 무릎 본 월드 위치 (무릎 장착 프로젝터 모듈 기준점) */
+  /** 프로젝터 모듈 기준 무릎 본 — 하드웨어는 항상 '월드 오른쪽 다리'에 고정(유저 확정).
+      A2 비주얼 미러(scale.x<0) 시 월드-오른쪽에 있는 건 Left 본 → 스위칭. */
   getKneeWorld() {
-    if (!this._kneeR) return null;
-    return new THREE.Vector3().setFromMatrixPosition(this._kneeR.matrixWorld);
+    const k = this.group.scale.x < 0 ? this._kneeL : this._kneeR;
+    if (!k) return null;
+    return new THREE.Vector3().setFromMatrixPosition(k.matrixWorld);
   }
 
-  /** 오른 정강이 방향(무릎→발목, 정규화) — 프로젝터 사출 축. 아래로 향할수록 y<0 */
+  /** 정강이 방향(무릎→발목, 정규화) — 프로젝터 사출 축. 미러 시 Left 체인 사용(위와 동일 사유) */
   getRightShinDir() {
-    if (!this._kneeR || !this._footR) return null;
-    const knee = new THREE.Vector3().setFromMatrixPosition(this._kneeR.matrixWorld);
-    const ankle = new THREE.Vector3().setFromMatrixPosition(this._footR.matrixWorld);
+    const mir = this.group.scale.x < 0;
+    const k = mir ? this._kneeL : this._kneeR, f = mir ? this._footL : this._footR;
+    if (!k || !f) return null;
+    const knee = new THREE.Vector3().setFromMatrixPosition(k.matrixWorld);
+    const ankle = new THREE.Vector3().setFromMatrixPosition(f.matrixWorld);
     return ankle.sub(knee).normalize();
   }
 
