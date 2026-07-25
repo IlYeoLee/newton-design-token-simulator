@@ -167,9 +167,12 @@ function drawLiftCue(g, style, t, pulse, W = 128, Hh = 256) {
       g.beginPath(); g.moveTo(cx, yy); g.lineTo(cx, y0 + (yEnd - y0) * Math.min(1, s2 + 0.06)); g.stroke();
     }
     if (draw > 0.9) {
-      g.strokeStyle = col(0.95); g.lineWidth = 13; g.lineCap = 'round'; g.lineJoin = 'round';
-      g.shadowColor = col(0.9); g.shadowBlur = 18;
-      g.beginPath(); g.moveTo(cx - 26, y1 + 30); g.lineTo(cx, y1); g.lineTo(cx + 26, y1 + 30); g.stroke();
+      // 꼭짓점 = 커스텀 SVG 촉(TIP_TRI — flow arrow와 동일 글리프, 유저 요청). 미로드 시 스트로크 폴백.
+      if (!drawGlyph(g, 'TIP_TRI', cx, y1 + 20, 76, { color: col(0.95), glowColor: col(0.85), glow: 16 })) {
+        g.strokeStyle = col(0.95); g.lineWidth = 13; g.lineCap = 'round'; g.lineJoin = 'round';
+        g.shadowColor = col(0.9); g.shadowBlur = 18;
+        g.beginPath(); g.moveTo(cx - 26, y1 + 30); g.lineTo(cx, y1); g.lineTo(cx + 26, y1 + 30); g.stroke();
+      }
     }
   } else if (style === 3) {   // 트리플 바 — 위로 갈수록 좁아지며 순차 점등
     for (let i = 0; i < 3; i++) {

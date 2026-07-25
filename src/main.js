@@ -846,7 +846,7 @@ void main(){
   cuePick.innerHTML = '<span style="margin-right:4px">리프트 큐</span>';
   [1, 2, 3].forEach(n => {
     const b = document.createElement('button'); b.textContent = n;
-    b.style.cssText = 'width:30px;height:30px;border-radius:8px;border:1px solid #444;background:' + (n === 1 ? '#fa3030' : '#1c1f26') + ';color:#eee;cursor:pointer;font:700 13px sans-serif';
+    b.style.cssText = 'width:30px;height:30px;border-radius:8px;border:1px solid #444;background:' + (n === (FXP.a3Arrow || 1) ? '#fa3030' : '#1c1f26') + ';color:#eee;cursor:pointer;font:700 13px sans-serif';
     b.onclick = () => { FXP.a3Arrow = n; [...cuePick.querySelectorAll('button')].forEach((x, i) => x.style.background = (i + 1 === n) ? '#fa3030' : '#1c1f26'); };
     cuePick.appendChild(b);
   });

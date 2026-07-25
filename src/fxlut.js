@@ -18,6 +18,7 @@ export const FXP = {
   mark: { radius: 1.0, core: 1.0, halo: 0.9, pool: 0.55, sweep: 1.0, wobble: 0.5 },
   person: { blur: 1.0, glow: 0, flow: 0.4, decay: 0.04, detail: 0.6, grain: 0.07, tone: 1 },   // 유저 확정 룩 = 공장 기본 (2026-07-18)
   gainBoost: 1.0,   // 주간 모드 투사 게인 (주광 가시 = 제품 스토리)
+  a3Arrow: 2,       // 하이니 리프트 큐 스타일 (1 셰브론 · 2 테이퍼 스템+SVG촉 · 3 트리플 바) — 유저 확정 2
   arrow: { line: 'solid', w: 1, speed: 1, gap: 1, glow: 1, heat: 0.5, tail: 0.55 },   // LINE 최소 토큰 (FX Lab)
   lane: { style: 'dash' },   // 레인 전용 스타일 — 화살표와 분리 (재료 파라미터는 arrow 공유)
   card: { titleZ: 2.68, eyebrow: 0.30, footerZ: 1.28, titleCap: 0.13, eyeCap: 0.07, footCap: 0.065, cta: 1.0 },   // 스테이지 카드 조판 — 피그마 StageCard/베이스 실측 임포트(v15 파이프라인)
