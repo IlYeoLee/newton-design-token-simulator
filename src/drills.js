@@ -48,6 +48,7 @@ const R = {
   hipR: 'mixamorigRightUpLeg', kneeR: 'mixamorigRightLeg', footR: 'mixamorigRightFoot',
   spine: 'mixamorigSpine', spine1: 'mixamorigSpine1', neck: 'mixamorigNeck', head: 'mixamorigHead',
   armL: 'mixamorigLeftArm', foreL: 'mixamorigLeftForeArm',
+  shL: 'mixamorigLeftShoulder', shR: 'mixamorigRightShoulder',
   armR: 'mixamorigRightArm', foreR: 'mixamorigRightForeArm',
 };
 
@@ -68,6 +69,28 @@ function runningDrills(neutral) {
       if (n === R.footL) return rot(X, -16 * h);                  // 앞발 뒤꿈치↓ 마크 접지
       if (n === R.spine) return rot(X, 8 * h + 10 * press);       // 상체 앞·아래(누르는 무게중심)
       if (n === R.armL)  return rot(X, 30 * h);
+      return null;
+    }),
+    // A2 교대 런지 프레스 — 오른발·왼발 각 1회씩 천천히 앞으로 딛고 꾹 눌러 내림(유저 확정).
+    //   run_press의 '지그시 눌러 내림' 문법을 좌우 교대(8s=우4s+좌4s)로 확장.
+    //   손 = 합장(가슴 앞 모음) 고정 — CMU 클립의 '얼굴막기' 팔 제거 사유(유저).
+    lunge_press: makeClip('lunge_press', neutral, 8.0, (n, t) => {
+      const p1 = t < 0.5, u = (p1 ? t : t - 0.5) * 2;                                   // 앞발: 1막=왼발, 2막=오른발
+      const h = u < 0.22 ? u / 0.22 : (u < 0.88 ? 1 : (1 - u) / 0.12);                  // 내딛기 램프
+      const press = (u > 0.3 && u < 0.82) ? Math.sin((u - 0.3) / 0.52 * Math.PI) : 0;   // 천천히 꾹(0→1→0)
+      const F = p1;                                                                      // F=왼발 앞
+      // 합장 — 두 팔 앞·안쪽, 팔꿈치 굽혀 가슴 앞에서 손 모음 (상시 유지)
+      if (n === R.armR) return rot(X, 42).multiply(rot(Z, -30));
+      if (n === R.armL) return rot(X, 42).multiply(rot(Z, 30));
+      if (n === R.foreR) return rot(X, -58);
+      if (n === R.foreL) return rot(X, -58);
+      if (n === (F ? R.hipL : R.hipR))   return rot(X, 30 * h + 5 * press);   // 앞다리 내딛기
+      if (n === (F ? R.kneeL : R.kneeR)) return rot(X, 10 * h - 12 * press);  // 앞무릎 굽혀 무게 실어 누름
+      if (n === (F ? R.footL : R.footR)) return rot(X, -14 * h);              // 앞발 뒤꿈치↓ 접지
+      if (n === (F ? R.kneeR : R.kneeL)) return rot(X, -(48 * h + 16 * press)); // 축무릎 굴곡 + 프레스 딥
+      if (n === (F ? R.hipR : R.hipL))   return rot(X, 22 * h + 6 * press);
+      if (n === (F ? R.footR : R.footL)) return rot(X, 16 * h);               // 뒷발 토우
+      if (n === R.spine) return rot(X, 7 * h + 9 * press);                    // 상체 무게중심 앞·아래
       return null;
     }),
     // 싱글레그 쿼드 스트레치 — 오른발 접지, 왼무릎 완전 굴곡(발뒤꿈치↑ 엉덩이로), 왼손이 뒤로 발목 잡기, 홀드.
@@ -176,10 +199,13 @@ function boxingDrills(neutral) {
         if (n === R.neck) return rot(X, 30 * env * Math.cos(nph)).multiply(rot(Z, 30 * env * Math.sin(nph)));
         if (n === R.head) return rot(X, 12 * env * Math.cos(nph)).multiply(rot(Z, 12 * env * Math.sin(nph)));
       } else {
+        // 어깨 '돌리기' = 쇄골 원운동(올림→뒤→내림→앞)이 주(진짜 어깨 롤), 상완은 소폭 수동 추종
         const sph = u * 3 * TWO_PI;
-        if (n === R.armR) return rot(X, 26 * env * Math.cos(sph)).multiply(rot(Z, -20 * env * Math.sin(sph)));
-        if (n === R.armL) return rot(X, 26 * env * Math.cos(sph)).multiply(rot(Z, 20 * env * Math.sin(sph)));
-        if (n === R.spine1) return rot(Z, 8 * env * Math.sin(sph * 2 / 3));
+        if (n === R.shR) return rot(Z, -12 * env * Math.cos(sph)).multiply(rot(X, 10 * env * Math.sin(sph)));
+        if (n === R.shL) return rot(Z, 12 * env * Math.cos(sph)).multiply(rot(X, 10 * env * Math.sin(sph)));
+        if (n === R.armR) return rot(X, 12 * env * Math.cos(sph)).multiply(rot(Z, -8 * env * Math.sin(sph)));
+        if (n === R.armL) return rot(X, 12 * env * Math.cos(sph)).multiply(rot(Z, 8 * env * Math.sin(sph)));
+        if (n === R.spine1) return rot(Z, 6 * env * Math.sin(sph * 2 / 3));
       }
       return null;
     }),

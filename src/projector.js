@@ -419,6 +419,18 @@ export class ProjectorRig {
       fwd = this.xbot.getForward();
       if (this.beamTarget) { ox = this.beamTarget.x; oz = this.beamTarget.z; }
       else { ox = body.x + fwd.x * 0.35; oz = body.z + fwd.z * 0.35; }
+      // 물리 클램프(유저: '빛은 다리 유닛에서 나온다 — 투사면 월드 고정 금지'):
+      // 짐벌·AI 사출 보정으로 타겟 안정화는 유지하되, 타겟은 착용 유닛에서 물리적으로
+      // 닿는 사출창 안으로 제한 — 전방 0.15~1.2m · 좌우 ±0.45m. 착용자가 걸어가면
+      // 투사면이 창 경계에 밀려 함께 끌려간다(빛의 근원 = 다리).
+      {
+        const rx = -fwd.z, rz = fwd.x;
+        const dx = ox - body.x, dz = oz - body.z;
+        let df = dx * fwd.x + dz * fwd.z, dr = dx * rx + dz * rz;
+        df = Math.min(1.2, Math.max(0.15, df)); dr = Math.min(0.45, Math.max(-0.45, dr));
+        ox = body.x + fwd.x * df + rx * dr;
+        oz = body.z + fwd.z * df + rz * dr;
+      }
       this.shake.set(0, 0);
       this.errorCm = 0;
     } else {

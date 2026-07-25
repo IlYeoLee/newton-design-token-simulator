@@ -2006,80 +2006,64 @@ void main(){
     if (rig.wallClip) ghostLayer.material.clippingPlanes = rig.wallClip;
     scene.add(ghostLayer);
   }
-  // ── A1 바닥 코치 패널 — x봇 복제가 목·어깨 풀기를 하는 모습을 오프스크린 정면
-  //    직교 카메라로 렌더 → 투사존 안 바닥 패널(눕힌 평면)에 영상처럼 표시.
-  //    지면 UI 규칙: 투사존(≤2.6m) 안, 히트 LUT 실루엣(수치·사진 금지), 세션 A1에서만.
-  let a1Coach = null;   // { rt, scene, cam, mixer, plane, key }
-  function ensureA1Coach(clipKey) {
+  // ── A1 바닥 코치 패널 — 션 실사 영상(힉스필드 생성, 그린스크린)을 크로마키로 바닥에 투사.
+  //    목 먼저 2바퀴 → 어깨 롤 (10s 루프). 위치·회전은 매 프레임 타이틀 프레임(floorObj) 앵커에 글루.
+  let a1Coach = null;   // { video, plane, _fwd }
+  function ensureA1Coach() {
     if (a1Coach) return;
-    const cScene = new THREE.Scene();
-    const bot = SkeletonUtils.clone(xbot.model);
-    // 고스트와 동일 문법의 열화상 실루엣(세로 그라디언트 히트 LUT) — 별도 재질(복싱 고스트 코드 불간섭)
+    const video = document.createElement('video');
+    video.src = import.meta.env.BASE_URL + 'ready-view/assets/sean_neck_shoulder.webm';   // VP9 — 전 브라우저 디코드(H.264 미탑재 크로미움 포함)
+    video.loop = true; video.muted = true; video.playsInline = true; video.crossOrigin = 'anonymous';
+    video.style.display = 'none'; document.body.appendChild(video);   // 일부 브라우저 디코드 안정화
+    video.play().catch(() => {});   // 세션 시작 클릭 제스처 컨텍스트에서 생성되므로 자동재생 허용됨
+    const tex = new THREE.VideoTexture(video);
+    tex.colorSpace = THREE.SRGBColorSpace;
     const mat = new THREE.ShaderMaterial({
-      uniforms: { uLUT: { value: getLUT() }, uH: { value: 2.1 } },
-      vertexShader: `
-        #include <common>
-        #include <skinning_pars_vertex>
-        varying float vWY;
-        void main(){
-          #include <skinbase_vertex>
-          #include <begin_vertex>
-          #include <skinning_vertex>
-          vec4 mv = modelViewMatrix * vec4(transformed, 1.0);
-          vWY = (modelMatrix * vec4(transformed, 1.0)).y;
-          gl_Position = projectionMatrix * mv;
-        }`,
+      transparent: true, depthWrite: false,
+      uniforms: { map: { value: tex }, uLUT: { value: getLUT() } },
+      vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
       fragmentShader: `
-        varying float vWY; uniform float uH; uniform sampler2D uLUT;
+        varying vec2 vUv; uniform sampler2D map; uniform sampler2D uLUT;
         void main(){
-          float vert = pow(1.0 - clamp(vWY / uH, 0.0, 1.0), 1.6) * 0.9 + 0.06;
-          gl_FragColor = vec4(texture2D(uLUT, vec2(clamp(vert,0.004,0.996), 0.5)).rgb, 1.0);
+          // 상반신 크롭: 목·어깨 운동이라 하체 불필요 — 영상 y 0.40~0.98 창만 샘플 (유저 확정)
+          vec2 uv = vec2(vUv.x, 0.40 + vUv.y * 0.58);
+          vec4 c = texture2D(map, uv);
+          float k = c.g - max(c.r, c.b);                      // 그린 초과분 = 키
+          float a = 1.0 - smoothstep(0.04, 0.14, k);          // 소프트 엣지 키잉
+          if (a < 0.02) discard;
+          c.g = min(c.g, max(c.r, c.b) + 0.06);               // despill
+          // 룩 시스템 그라디언트(복싱 인물 문법): 세로 히트 LUT × 휘도 변조 — 실사 디테일 위에 브랜드 톤
+          float lum = dot(c.rgb, vec3(0.299, 0.587, 0.114));
+          vec3 heat = texture2D(uLUT, vec2(clamp(0.15 + (1.0 - vUv.y) * 0.75, 0.004, 0.996), 0.5)).rgb;
+          vec3 col = heat * (0.38 + lum * 1.05);
+          // 하단 페더 — 크롭 경계가 은은하게 사라지게
+          a *= smoothstep(0.0, 0.22, vUv.y);
+          gl_FragColor = vec4(col, a * 0.95);
         }`,
     });
-    bot.traverse(o => { if (o.isMesh) o.material = mat; });
-    bot.rotation.y = Math.PI;   // 카메라(+Z) 정면
-    cScene.add(bot);
-    const mixer = new THREE.AnimationMixer(bot);
-    const clip = xbot.actions[clipKey]?.action.getClip();
-    if (clip) mixer.clipAction(clip).play();
-    const rt = new THREE.WebGLRenderTarget(384, 576, { samples: 2 });
-    const W = 1.5, H = 2.25;
-    const cam = new THREE.OrthographicCamera(-W / 2, W / 2, H, 0, 0.1, 10);
-    cam.position.set(0, 0, 3); cam.lookAt(0, 0, 0);   // 수평 유지 — 기울이면 직교 밴드(0..H) 밖으로 봇이 벗어나 빈 렌더
-    const plane = new THREE.Mesh(
-      new THREE.PlaneGeometry(0.7, 0.95),   // 1인칭 안정영역 실측 맞춤 (발 잘림 방지 — 유저 반복 확인)
-      new THREE.MeshBasicMaterial({ map: rt.texture, transparent: true, opacity: 0.92, depthWrite: false }),
-    );
-    plane.rotation.x = -Math.PI / 2;   // 눕힘 초기값 — 프레임 표시 중엔 매 프레임 floorObj 앵커에 글루됨
+    // 상반신 크롭(0.58 창) 종횡비 ≈ 1:1 — 1인칭 안정영역에 여유 있게 (머리 잘림 방지)
+    const plane = new THREE.Mesh(new THREE.PlaneGeometry(0.64, 0.66), mat);
+    plane.rotation.x = -Math.PI / 2;
     plane.position.set(0, 0.015, -1.35);
     plane.visible = false;
-    scene.add(plane);   // 월드 소속 — 위치·회전은 tickA1Coach가 타이틀 프레임(floorObj)과 동일 앵커로 글루
-    a1Coach = { rt, scene: cScene, cam, mixer, plane, key: clipKey, _fwd: new THREE.Vector3() };
+    scene.add(plane);
+    a1Coach = { video, plane, _fwd: new THREE.Vector3() };
   }
-  function tickA1Coach(h) {
+  function tickA1Coach() {
     const on = session.active && !session.isLive && session.stage === 'A1' && state.pack === 'running';
-    if (on) ensureA1Coach('neckShoulder');   // A1 목·어깨 클립과 동일 소스
+    if (on) ensureA1Coach();
     if (!a1Coach) return;
     a1Coach.plane.visible = on;
-    if (!on) return;
-    // 타이틀 프레임(floorObj)과 '한 프레임' 거동 — 동일 저역통과 풋프린트 앵커에 글루.
-    // (세션 그룹 shake 상속만으론 CSS3D 프레임과 앵커가 달라 투사 시 따로 놀았음 — 유저 지적)
+    if (!on) { if (!a1Coach.video.paused) a1Coach.video.pause(); return; }
+    if (a1Coach.video.paused) a1Coach.video.play().catch(() => {});
+    // 타이틀 프레임(floorObj)과 '한 프레임' 거동 — 동일 저역통과 풋프린트 앵커에 글루 (유저 확정)
     if (floorObj.visible) {
       a1Coach.plane.quaternion.copy(floorObj.quaternion);
-      a1Coach._fwd.set(0, 1, 0).applyQuaternion(floorObj.quaternion);   // 프레임 로컬 +Y = 전방(타이틀 쪽)
-      // 1인칭 안정영역: 프레임 먼쪽 절반(도트바 바로 아래)에 배치 — 근접부는 1인칭 화면 하단에서 잘림(유저 실화면 2회 확인)
+      a1Coach._fwd.set(0, 1, 0).applyQuaternion(floorObj.quaternion);
       a1Coach.plane.position.set(
-        floorObj.position.x + a1Coach._fwd.x * 0.32, 0.015,
-        floorObj.position.z + a1Coach._fwd.z * 0.32);
+        floorObj.position.x + a1Coach._fwd.x * 0.16, 0.015,
+        floorObj.position.z + a1Coach._fwd.z * 0.16);   // 도트바 아래 · 패널 짧아져 머리 클리핑 여유
     }
-    a1Coach.mixer.update(h);
-    const oc = new THREE.Color(); renderer.getClearColor(oc); const oa = renderer.getClearAlpha();
-    renderer.setClearColor(0x000000, 0);
-    renderer.setRenderTarget(a1Coach.rt);
-    renderer.clear();
-    renderer.render(a1Coach.scene, a1Coach.cam);
-    renderer.setRenderTarget(null);
-    renderer.setClearColor(oc, oa);
   }
 
   function renderGhostLayer() {
@@ -3652,7 +3636,8 @@ void main(){
       // 러닝 A 3종 확정(유저 지정): A1 목·어깨(Mixamo 실측) · A2 교대 런지(CMU 144_17, 유저 요청 확보) · A3 서서 쿼드 잡기(실사 모캡)
       // A1 목·어깨: neckShoulder(목 먼저 2바퀴 → 어깨 롤 3바퀴, 순차 저작 — 유저 지정).
       // 주의: imp_warming_up_1_은 라벨과 달리 복싱 가드 동작(인제스트 라벨 오류) — 사용 금지.
-      A1: 'neckShoulder', A2: 'auto_cmu144_17', A3: 'quadStretch', T1: 'neckStretch', T2: 'armStretch', FIN: 'quadStretch',
+      // A2: 절차 lunge_press(좌우 교대 꾹꾹 + 합장 손) — cmu144_17은 팔 자세('얼굴막기') 문제로 교체(유저)
+      A1: 'neckShoulder', A2: 'lunge_press', A3: 'quadStretch', T1: 'neckStretch', T2: 'armStretch', FIN: 'quadStretch',
       // 복싱 = Mixamo 실측 모캡 (목풀기만 절차)
       BX_A1: 'bx_neck', BX_A2: 'boxGuard', BX_A3: 'boxJab',
       BX_B1: 'boxGuard', BX_B2: 'boxGuard', BX_B3: 'boxCombo',
@@ -3700,7 +3685,7 @@ void main(){
     // 스톰프 프레스 스테이지: 봇을 뒤로 당겨 착지(전방 0.38m)가 프레스 원 위에 정확히 떨어지게
     if (session.active && !session.isLive && data.sport !== 'boxing') {
       // A2 런지: 봇을 뒤로 당겨 전방 착지가 프레스 원(-1.30) 위에 오게 (교대 런지 보폭 ≈0.7m 가정, 시각 검수로 보정)
-      xbot.demoStandZ = session.stage === 'A2' ? -0.85 : (session.stage === 'BK_A2' ? -1.22 : (session.stage === 'BK_A3' ? -1.9 : (/^BK_B[123]$/.test(session.stage) ? -1.85 : 0)));
+      xbot.demoStandZ = session.stage === 'A2' ? -1.0 : (session.stage === 'BK_A2' ? -1.22 : (session.stage === 'BK_A3' ? -1.9 : (/^BK_B[123]$/.test(session.stage) ? -1.85 : 0)));
     }
     // 지면 풀스크린 화면(세션 컴플리트·전환·카운트다운) = 3인칭 봇도 바닥의 화면을 응시(머리 숙임).
     xbot.headPitch = (session.active && /^(T1|T2|C1|FIN|BK_T1|BK_T2|BK_C1|BK_FIN)$/.test(session.stage || ''))
@@ -4132,7 +4117,7 @@ void main(){
     sceneUI.update(rawDt, rig);       // 장면 UI 슬롯 — 풋프린트 추종 재배치 + 페이드
     session.tickWaves();              // 스테이지 파동 링 시계 (프리뷰 포함)
     renderGhostLayer();
-    tickA1Coach(rawDt);
+    tickA1Coach();
     renderDemoPanel();   // A 시범 구간 실사 클립 (휴면)
     renderWallHUD();     // 벽면 게임 HUD (피그마 WallUI 이식)
     renderMirrorView();  // 내 폼 존 = 스테이션 카메라 실루엣 라이브
