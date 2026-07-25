@@ -435,7 +435,16 @@ export class ProjectorRig {
       //   스프링-댐퍼(Ks22·Kd9)+서보 300°/s+정강이 각속도 예산 → offLocal(지연+slow/fast 시그마)
       //   + gimbalBreak(종아리 하향각 한계 붕괴). 앞발/무릎 대신 hips 안정 앵커로 큰 드리프트만 제거하고
       //   그 위에 실제 투사 오차를 얹음 → A3 같은 빠른 다리(각속도↑)일수록 오차↑, 정지 땐 작음.
-      const jx = offLocal.x + gimbalBreak.x, jz = offLocal.z + gimbalBreak.z;
+      let jx = offLocal.x + gimbalBreak.x, jz = offLocal.z + gimbalBreak.z;
+      // 종아리 마운트 병진 성분(각속도 모델이 못 잡음): 무릎 올림은 회전보다 마운트가 위·앞으로
+      //   '이동'하는 게 커서 빔이 크게 스윕. 짐벌이 병진은 회전보다 보정 어려움 → ~15% 잔여.
+      //   (유저: 무릎 가슴까지 들어도 안 움직임 = 병진 누락) 아주 느린 평균 대비 편차만.
+      if (!this._mountRest) this._mountRest = mount.clone();
+      this._mountRest.lerp(mount, 1 - Math.exp(-dt / 2.5));
+      const mvx = mount.x - this._mountRest.x, mvy = mount.y - this._mountRest.y, mvz = mount.z - this._mountRest.z;
+      const TRES = 0.15;   // 병진 짐벌 미보정률(5년뒤 양산 소비자)
+      jx += (mvx + fwd.x * mvy * 1.2) * TRES;   // 수평 + 수직→전방 스윕(빔 각도)
+      jz += (mvz + fwd.z * mvy * 1.2) * TRES;
       ox += jx; oz += jz;
       this.shake.set(jx, jz);
       this.errorCm = Math.hypot(jx, jz) * 100;
