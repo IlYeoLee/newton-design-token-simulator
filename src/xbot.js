@@ -503,11 +503,11 @@ export class XBot {
       const k = this.lungeDeepen, D = Math.PI / 180;
       const B = n => this.model.getObjectByName(n);
       const rx = (b, deg) => b && b.quaternion.multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), deg * D));
-      rx(B('mixamorigRightUpLeg'), 16 * k);   // 앞다리(R) — 미러 시 시각적으로 좌우 바뀜
-      rx(B('mixamorigRightLeg'), -30 * k);
-      rx(B('mixamorigLeftUpLeg'), -8 * k);    // 뒷다리 신전 유지
-      rx(B('mixamorigLeftLeg'), -24 * k);
-      rx(B('mixamorigSpine'), 6 * k);
+      // 앞다리 중심 배분 — 뒷무릎 가산은 뒤꿈치를 차올려 클램프와 싸움(튀김 원인, 유저 확인) → 제거
+      rx(B('mixamorigRightUpLeg'), 20 * k);   // 앞다리(R) — 미러 시 시각적으로 좌우 바뀜
+      rx(B('mixamorigRightLeg'), -34 * k);
+      rx(B('mixamorigLeftUpLeg'), -12 * k);   // 뒷다리는 신전만(뒤꿈치 안정)
+      rx(B('mixamorigSpine'), 4 * k);
       this.model.updateMatrixWorld(true);
       this._clampFeet?.();
     }

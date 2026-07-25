@@ -3733,7 +3733,9 @@ void main(){
         _phase = c < PD ? c : (c < PD + HOLD ? PD : c - HOLD);
         xbot.group.scale.x = (Math.floor(session.t / CYC) % 2) ? -1 : 1;   // 회차마다 좌우 교대
         // 깊이 노브: 접지 0.5s 전부터 램프인 → 홀드 내내 푹 → 일어나며 0.5s 램프아웃
-        xbot.lungeDeepen = c < PD - 0.5 ? 0 : (c < PD ? (c - (PD - 0.5)) / 0.5 : (c < PD + HOLD ? 1 : Math.max(0, 1 - (c - PD - HOLD) / 0.5)));
+        // 램프 0.8s(이즈인아웃) — 급램프가 클램프 요동(튀김)을 유발했음
+        const _e = v => v * v * (3 - 2 * v);
+        xbot.lungeDeepen = _e(Math.max(0, Math.min(1, c < PD + HOLD ? (c - (PD - 0.8)) / 0.8 : 1 - (c - PD - HOLD) / 0.8)));
       }
       else if (session.stage === 'BK_B1') _phase = session.t;
       else if (session.stage === 'BK_B2') _phase = Math.min((session.t * 0.5) % 3.2, 2.2);   // 플랜트까지 + 홀드(슛 제거)
