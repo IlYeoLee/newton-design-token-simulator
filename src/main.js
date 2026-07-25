@@ -2047,13 +2047,16 @@ void main(){
     const cam = new THREE.OrthographicCamera(-W / 2, W / 2, H, 0, 0.1, 10);
     cam.position.set(0, 0, 3); cam.lookAt(0, 0, 0);   // 수평 유지 — 기울이면 직교 밴드(0..H) 밖으로 봇이 벗어나 빈 렌더
     const plane = new THREE.Mesh(
-      new THREE.PlaneGeometry(0.9, 1.35),
+      new THREE.PlaneGeometry(0.66, 0.9),
       new THREE.MeshBasicMaterial({ map: rt.texture, transparent: true, opacity: 0.92, depthWrite: false }),
     );
     plane.rotation.x = -Math.PI / 2;   // 눕힘 — 텍스처 상단(머리)이 먼 쪽(-z)
-    plane.position.set(0, 0.015, -1.95);
+    // 판정 마크 존과 동일 문법: 그래픽 존(z -0.9~-1.8) 중앙 안정 배치 — 타이틀(-2.0)·아이브로우(-2.3)와 분리
+    plane.position.set(0, 0.015, -1.35);
     plane.visible = false;
-    scene.add(plane);
+    // 세션 A1 그룹에 부착 — session.root의 rig.shake 가산(종아리 프로젝터 자연 흔들림)을
+    // 다른 지면 UI와 동일하게 상속 (월드 고정이면 '패널만 안 흔들림' 이질감 — 유저 지적)
+    (session.G?.A1 || scene).add(plane);
     a1Coach = { rt, scene: cScene, cam, mixer, plane, key: clipKey };
   }
   function tickA1Coach(h) {

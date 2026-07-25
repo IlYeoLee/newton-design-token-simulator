@@ -512,10 +512,9 @@ export class Session {
     // title(2.0m)·eyebrow(2.3m, FIGMA_CARD)보다 항상 0.4m+ 앞(가까움), footer(0.7m)
     // 보다는 0.3m+ 뒤(멂). CTA(1.1m, READY/T1 전용)와는 애초에 같은 스테이지에 안 나옴.
     g = this._mk('A1');
-    // 목·어깨 풀기 — 발폭 마크 2(제자리 고정 지시) + 시간 홀드 아크(프로브 없음: 목 회전은 지면 계측 불가)
-    this.a1feet = [new FootMark('left').at(-0.12, -1.14, 1.1), new FootMark('right').at(0.12, -1.14, 1.1)];
-    g.add(this.a1feet[0].group, this.a1feet[1].group);
-    this.a1arc = floorArc(0, -1.3, BRAND.sand); g.add(this.a1arc);
+    // 목·어깨 풀기 — 중앙 그래픽 존(1.0~1.8m)은 코치 실루엣 패널(main.js a1Coach)이 차지.
+    // 홀드 아크는 패널 우측에 — 판정 마크 문법과 동일한 안정 배치(타이틀 2.0m 존과 분리).
+    this.a1arc = floorArc(0.55, -1.35, BRAND.sand); g.add(this.a1arc);
 
     g = this._mk('A2');
     // 런지 — 발 앞의 원을 크게 딛어 밟고 버티면 홀드 아크가 차오름 (구 A1 프레스 문법 재사용).
