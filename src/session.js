@@ -541,16 +541,18 @@ export class Session {
     g.add(fmL.group, fmR.group);
 
     g = this._mk('A3');
-    // High Knees 지면 가이드 = 단일 초점(유저: 뭘 보라는지 모르겠음 → 하나만). 큰 중앙 타이머 링이
-    // 30초 동안 시계방향으로 차고, 그 안에 '남은 초'가 큼직하게. 발 올릴 때마다 링이 톡 튀어(리듬 확인).
-    // "링 다 찰 때까지 무릎 올려" — 이거 하나만 보면 됨.
+    // High Knees 지면 가이드 = 두 질문에 답: (1)뭘 하나 (2)몇 개 했나.
+    //   앞: 좌·우 발형(A2와 동일 언어)이 번갈아 켜짐 = "좌우 무릎 번갈아 올려"(템포·순서).
+    //   뒤: 큰 중앙 숫자 = 누적 횟수(카운트업) + 감싸는 얇은 링이 30초 시계방향 진행.
+    const a3L = new FootMark('left').at(-0.17, -1.15, 1.05), a3R = new FootMark('right').at(0.17, -1.15, 1.05);
     this.a3hk = {
-      ring: floorRing(0, -1.6, 0.30, 0.345, BRAND.dim, 0.35),   // 트랙(회색)
-      timerArc: floorArc(0, -1.6, BRAND.red),                    // 진행(빨강, 시계방향 채움)
-      numCtr: floorNum(0, 0, -1.6, 0.18),                        // 링 중앙 = 남은 초(큼직)
-      sec: 0, reps: 0, _upL: false, _upR: false, _pop: 0,
+      fmL: a3L, fmR: a3R,
+      ring: floorRing(0, -1.78, 0.20, 0.235, BRAND.dim, 0.35),   // 타이머 트랙(회색)
+      timerArc: floorArc(0, -1.78, BRAND.red),                    // 30초 진행(빨강, 시계방향)
+      numCtr: floorNum(0, 0, -1.78, 0.22),                        // 링 중앙 = 누적 횟수(큼직, 카운트업)
+      sec: 0, reps: 0, _upL: false, _upR: false, _pop: 0, _numShown: -1, _beat: 0,
     };
-    g.add(this.a3hk.ring, this.a3hk.timerArc, this.a3hk.numCtr);
+    g.add(a3L.group, a3R.group, this.a3hk.ring, this.a3hk.timerArc, this.a3hk.numCtr);
 
     g = this._mk('T1');
     this.tap1 = this._tap('running'); this.tap1.position.set(0, 0.013, -1.1); g.add(this.tap1);
@@ -1093,9 +1095,13 @@ export class Session {
   stop() { this.active = false; this.root.visible = false; this.tokens.root.visible = true; this.liveSpeed = 1; this.bobY = 0; }
   tapAdvance() {
     if (!this.active) return;
-    if (!/FIN$/.test(this.stage)) this._next();   // count 스테이지 탭 = 즉시 다음(= 실전 출발)
+    if (!/FIN$/.test(this.stage)) this.next(true);   // 유저 탭 = 즉시 다음(음성 대기 무시)
   }
-  next() { if (this.active && this.stageIdx < this.stages.length - 1) { this.stageIdx++; this.t = 0; this._enter(); } }
+  // 자동 전환은 준비된 음성이 다 끝난 뒤에만 넘어감(voiceBusy=main.js 주입). 유저 탭(force)은 즉시.
+  next(force = false) {
+    if (!force && this.voiceBusy?.()) return;   // 음성 재생 중 = 이번 프레임 보류(완료 조건 유지 → 다음 프레임 재시도)
+    if (this.active && this.stageIdx < this.stages.length - 1) { this.stageIdx++; this.t = 0; this._enter(); }
+  }
   prev() { if (this.active && this.stageIdx > 0) { this.stageIdx--; this.t = 0; this._enter(); } }
   _next() { this.next(); }
 
@@ -1179,7 +1185,7 @@ export class Session {
       case 'READY': FS('션 · 마지막 1KM'); FL('READY'); break;   // 푸터 제거: CTA 라벨과 중복 + CTA 근접 이동으로 겹침
       case 'A1': FS('준비운동 1/3'); FL('목·어깨 크게 천천히 돌리기'); FM('제자리에 서서 — 링이 찰 때까지', CS.sand); break;
       case 'A2': FS('준비운동 2/3'); FL('앞으로 크게 딛어 원 밟고 버티기'); FM('링이 차면 발 교대', CS.sand); break;
-      case 'A3': FS('준비운동 3/3'); FL('발등 잡고 엉덩이 쪽으로'); FM('링이 차는 동안 버텨요', CS.sand); break;
+      case 'A3': FS('준비운동 3/3'); FL('무릎 좌우 번갈아 높이 올리기'); FM('켜지는 발 박자로 · 30초', CS.sand); break;
       case 'A4': FS('준비운동 4/4'); FL('켜지는 발자국 박자로 제자리 걷기'); FM('처음엔 천천히 — 점점 빨라져요'); break;
       case 'T1': FS('잠깐'); S(this.slotFL, '몸풀기 끝!', { size: 0.12, color: CS.prism }); break;   // 푸터 제거: CTA 라벨과 중복
       case 'B1': FS('미리 익히기 1/5'); FL('발은 가만히 — 박자만 들어요'); FM('귀로 먼저 배워요'); break;
@@ -1494,28 +1500,33 @@ export class Session {
       this._a3t = this.t;
       const pb = this.xbot?.getProbes?.();
 
+      const guide = [H.fmL.group, H.fmR.group, H.ring, H.timerArc, H.numCtr];
       if (this.t < WATCH) {
         // 관찰: 영상만, 지면 가이드 숨김, 프로그레스바
-        for (const o of [H.ring, H.timerArc, H.numCtr]) o.visible = false;
+        for (const o of guide) o.visible = false;
         this.demoActive = true;
         FMU(`먼저 볼게요 — ${Math.round((this.t / WATCH) * 100)}%`, CS.prism);
         if (this.t >= WATCH - 0.15) this._say('a3follow', '션', '자, 이제 같이! 무릎을 배 높이까지, 좌우 번갈아 빠르게 올려요.');
         return;
       }
-      // 따라하기 — 큰 중앙 링이 30초 채워지고 안에 남은 초. 발 올릴 때마다 링이 톡 튐(리듬 확인).
-      H.ring.visible = true; H.timerArc.visible = true; H.numCtr.visible = true;
+      // 따라하기 — 앞 발형이 좌우 번갈아 켜져 템포 시범 + 중앙 숫자가 누적 횟수 카운트업 + 링이 30초 진행.
+      for (const o of guide) o.visible = true;
       H.sec = Math.min(HOLD_SEC, H.sec + dt);
-      H.timerArc.setProg(Math.max(0.001, H.sec / HOLD_SEC));   // 시계방향 타이머 채움
+      H.timerArc.setProg(Math.max(0.001, H.sec / HOLD_SEC));   // 시계방향 30초 타이머
       H._pop = Math.max(0, H._pop - dt * 4);
-      // 발 감지 = 리듬 확인용(카운트는 부차): 발 올라오면 링 톡 튐
+      // 좌·우 발형 = 템포·순서 시범: 0.5s마다 교대로 밝게(하이니 케이던스 ≈ 분당 120).
+      H._beat += dt;
+      const PERIOD = 0.5, leftNow = (H._beat % (PERIOD * 2)) < PERIOD;
+      const onFM = leftNow ? H.fmL : H.fmR, offFM = leftNow ? H.fmR : H.fmL;
+      onFM.glow(0.85); onFM.op(0.95); offFM.ghost(); offFM.op(0.4);
+      // 발 감지 = 실제 올릴 때마다 카운트업 + 링 톡 튐
       const lU = (pb?.footL?.y ?? 0) > 0.22, rU = (pb?.footR?.y ?? 0) > 0.22;
       if ((lU && !H._upL) || (rU && !H._upR)) { H.reps++; H._pop = 1; }
       H._upL = lU; H._upR = rU;
       H.ring.scale.setScalar(1 + 0.06 * H._pop); H.timerArc.scale?.setScalar?.(1 + 0.06 * H._pop);
-      // 중앙 = 남은 초(큼직) — '이거 하나만 보면 됨'
-      const rem = Math.max(0, Math.ceil(HOLD_SEC - H.sec));
-      if (rem !== H._numShown) { redrawFootNum(H.numCtr.userData.plane, rem); H._numShown = rem; }
-      FMU(`무릎 올리기 — ${rem}초`, CS.sand);
+      // 중앙 = 누적 횟수(큼직) — '몇 개 했나' 한눈에
+      if (H.reps !== H._numShown) { redrawFootNum(H.numCtr.userData.plane, H.reps); H._numShown = H.reps; }
+      FMU(`무릎 올리기 — ${H.reps}회 · ${Math.max(0, Math.ceil(HOLD_SEC - H.sec))}초`, CS.sand);
       if (H.sec >= HOLD_SEC) { this.next(); return; }
     } else if (id === 'P1' || id === 'P2') {
       // 페이스 잡기 — 뛰면서 페이스로 익힌다: 페이서 봇 + 흐르는 페이스 라이트에 리듬 맞추기.
