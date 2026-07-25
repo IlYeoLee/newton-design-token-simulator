@@ -619,7 +619,8 @@ export class Session {
     this._mk('C2');  // 라이브 — 팩 토큰이 그대로 흐름 (오버레이 없음)
 
     g = this._mk('C3');  // 라이브 + F-CUE 오버레이 (러너를 따라감)
-    this.c3cue = floorText('박자', 0.45, -2.1, { size: 0.13, color: CS.red, weight: 800 }); g.add(this.c3cue);
+    // c3cue '박자' 텍스트 은퇴(실전 무텍스트 — 유저): 흔들림 복귀는 페이스 라이트 거리·음성이 전달
+    this.c3cue = new THREE.Group(); this.c3cue.userData = {};
 
     this._mk('C4');  // 라이브 — 션 발자국 페이서가 전담 (BOOST는 liveSpeed·음성으로)
 
@@ -1252,11 +1253,8 @@ export class Session {
       case 'B3': FS('미리 익히기 4/5'); FL('1 → 2 → 3 순서로 세 걸음'); FM('세트 1 / 2'); break;
       case 'B4': FS('미리 익히기 5/5'); FL('박자만 보고 리듬 유지'); FM('링이 켜지는 순서대로'); break;
       case 'T2': FS('T-2'); FM('두 번 구르면 바로 · 가만히 있으면 자동'); break;
-      case 'C1': FS('RUN 00:00'); break;
-      case 'C2': FS('RUN 04:12 · SAFE'); FM('발자국 박자대로 · 앞 광점 = 션'); break;
-      case 'C3': FS('RUN 08:40'); break;
-      case 'C4': S(this.slotFS, '마지막 1KM · 스퍼트', { size: 0.055, color: CS.prism }); break;
-      case 'C5': FS('마무리'); break;
+      // 실전(C) = 무텍스트(유저 확정): 음성+빛 언어(페이스 라이트·발자국·버스트)만. 예외 = C1 3·2·1 글리프.
+      case 'C1': case 'C2': case 'C3': case 'C4': case 'C5': break;
       case 'FIN': FS('리포트'); break;
     }
   }

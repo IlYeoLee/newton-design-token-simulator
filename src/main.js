@@ -824,6 +824,8 @@ void main(){
     // 음성 문장을 바닥에 복제하던 지시문 슬롯 은퇴 — 3중 중복(음성+하단 캡션+바닥)이었고,
     // 거대 문장이 잘린 채 발자국·가이드를 덮는 주범 (세션 짧은 구 카피 FL이 바닥 지시 담당)
     if (!captionEl) return;
+    // 실전(C1~C5) = 무자막(유저 확정): 음성만. 달리며 글 읽기 금지 — 빛 언어가 전달.
+    if (session?.active && /^C\d$/.test(session.stage || '')) return;
     captionEl.innerHTML = `<b>🔊 ${who}</b> · ${text}`;
     captionEl.style.opacity = '1';
     clearTimeout(captionTimer);
