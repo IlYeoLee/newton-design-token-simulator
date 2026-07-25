@@ -152,6 +152,45 @@ function floorArc(x, z, color) {
   m.rotation.x = -Math.PI / 2; m.position.set(x, 0.0135, z); m.renderOrder = 6;
   m.userData.el = { type: 'arc' }; return m;
 }
+/** 하이니 리프트 큐 3안(유저: 룩시스템 화살표 짜침 → 외부 패턴 리서치 이식, 뉴턴 LUT 색).
+ *  1=셰브론 캐스케이드(scroll-cue 계열) · 2=테이퍼 스템 draw-on · 3=트리플 바 등화. FXP.a3Arrow로 토글. */
+function drawLiftCue(g, style, t, pulse, W = 128, Hh = 256) {
+  g.clearRect(0, 0, W, Hh);
+  const cx = W / 2, col = v => lutColor(v);
+  if (style === 2) {          // 테이퍼 스템 + 촉 draw-on (미니멀 스틱 화살표)
+    const ph = (t * 0.9) % 1, draw = Math.min(1, ph / 0.7), fade = ph > 0.85 ? (1 - ph) / 0.15 : 1;
+    g.globalAlpha = fade * (0.45 + 0.55 * pulse);
+    const y0 = 232, y1 = 40, yEnd = y0 + (y1 - y0) * draw;
+    for (let s2 = 0; s2 < 1; s2 += 0.06) {
+      const yy = y0 + (yEnd - y0) * s2;
+      g.strokeStyle = col(0.45 + 0.5 * s2); g.lineCap = 'round'; g.lineWidth = 3 + 10 * s2;
+      g.beginPath(); g.moveTo(cx, yy); g.lineTo(cx, y0 + (yEnd - y0) * Math.min(1, s2 + 0.06)); g.stroke();
+    }
+    if (draw > 0.9) {
+      g.strokeStyle = col(0.95); g.lineWidth = 13; g.lineCap = 'round'; g.lineJoin = 'round';
+      g.shadowColor = col(0.9); g.shadowBlur = 18;
+      g.beginPath(); g.moveTo(cx - 26, y1 + 30); g.lineTo(cx, y1); g.lineTo(cx + 26, y1 + 30); g.stroke();
+    }
+  } else if (style === 3) {   // 트리플 바 — 위로 갈수록 좁아지며 순차 점등
+    for (let i = 0; i < 3; i++) {
+      const w = [66, 46, 28][i], y = [206, 148, 92][i];
+      const on = ((t * 2 + i * 0.25) % 1) < 0.5 ? 1 : 0.35;
+      g.fillStyle = col(0.5 + 0.18 * i); g.globalAlpha = (0.25 + 0.75 * on) * (0.5 + 0.5 * pulse);
+      g.shadowColor = col(0.85); g.shadowBlur = 12;
+      g.beginPath(); g.roundRect(cx - w / 2, y, w, 18, 9); g.fill();
+    }
+  } else {                    // 1(기본) 셰브론 캐스케이드 — 아래→위 페이드 웨이브
+    for (let i = 0; i < 3; i++) {
+      const ph = (t * 1.4 + i * 0.33) % 1;
+      const y = 198 - i * 62, a = Math.sin(Math.PI * Math.min(1, ph / 0.85)) * (0.35 + 0.65 * pulse);
+      g.strokeStyle = col(0.55 + 0.3 * (1 - i / 3)); g.lineWidth = 15; g.lineCap = 'round'; g.lineJoin = 'round';
+      g.globalAlpha = Math.max(0.08, a);
+      g.shadowColor = col(0.8); g.shadowBlur = 13 * (0.5 + pulse);
+      g.beginPath(); g.moveTo(cx - 33, y + 22); g.lineTo(cx, y); g.lineTo(cx + 33, y + 22); g.stroke();
+    }
+  }
+  g.globalAlpha = 1; g.shadowBlur = 0;
+}
 function floorArrow(x, z, deg, color, len = 0.4) {
   // 방향 = LINE ① 경로 추종 화살표 — 카탈로그 구성 통째(광류 자루 + 이동 촉, tokens.makeFlowArrow).
   // 촉 끝 주차·정적 통화살표는 카탈로그에 없는 종 (유저 지적 2회 — 촉은 경로 위를 이동).
@@ -549,7 +588,16 @@ export class Session {
     // 하이니 재설계(유저): 원형 은퇴 — 발형 2개(안에 각자 카운트) + LINE 리프트 화살표 + 양발 각 10회.
     const a3L = new FootMark('left').at(-0.17, -1.05, 1.05), a3R = new FootMark('right').at(0.17, -1.05, 1.05);
     const a3nL = attachMarkNum(a3L, '0', false), a3nR = attachMarkNum(a3R, '0', true);
-    const arL = floorArrow(-0.17, -1.5, 0, BRAND.red, 0.3), arR = floorArrow(0.17, -1.5, 0, BRAND.red, 0.3);
+    // 리프트 큐 = 발 '옆'에 캔버스 플레인(drawLiftCue 3안, FXP.a3Arrow 토글)
+    const mkLift = (x) => {
+      const c = document.createElement('canvas'); c.width = 128; c.height = 256;
+      const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(0.17, 0.34),
+        new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+      m.rotation.x = -Math.PI / 2; m.position.set(x, 0.014, -1.05); m.renderOrder = 7;
+      m._g = c.getContext('2d'); m._tex = tex; return m;
+    };
+    const arL = mkLift(-0.46), arR = mkLift(0.46);
     this.a3hk = {
       fmL: a3L, fmR: a3R, numL: a3nL, numR: a3nR, arL, arR,
       sec: 0, cntL: 0, cntR: 0, _prevLeft: undefined, _beat: 0, _pop: 0,
@@ -1550,9 +1598,14 @@ export class Session {
       const onFM = leftNow ? H.fmL : H.fmR, offFM = leftNow ? H.fmR : H.fmL;
       onFM.glow(0.6 + 0.4 * H._pop); onFM.op(1);
       offFM.ghost(); offFM.op(0.45);
-      // LINE 리프트 화살표 — 올리는 발 쪽이 펄스(크게), 반대쪽 은은
-      const onAr = leftNow ? H.arL : H.arR, offAr = leftNow ? H.arR : H.arL;
-      onAr.scale.setScalar(1 + 0.25 * H._pop); offAr.scale.setScalar(0.85);
+      // 리프트 큐(발 옆) — 올리는 발 쪽 펄스, 30Hz 캔버스 재드로 (3안: FXP.a3Arrow = 1|2|3)
+      const nowT = performance.now() / 1000;
+      if (nowT - (this._a3cueT || 0) > 1 / 30) {
+        this._a3cueT = nowT;
+        const st3 = FXP.a3Arrow || 1;
+        drawLiftCue(H.arL._g, st3, nowT, leftNow ? H._pop : 0.15); H.arL._tex.needsUpdate = true;
+        drawLiftCue(H.arR._g, st3, nowT + 0.4, leftNow ? 0.15 : H._pop); H.arR._tex.needsUpdate = true;
+      }
       // 발 안 숫자 = 각자 카운트(1→10)
       if (H.cntL !== H._shownL) { redrawFootNum(H.numL, H.cntL); H._shownL = H.cntL; }
       if (H.cntR !== H._shownR) { redrawFootNum(H.numR, H.cntR); H._shownR = H.cntR; }
