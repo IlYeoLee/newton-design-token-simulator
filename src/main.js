@@ -2090,17 +2090,19 @@ void main(){
     const co = _coaches[id] = { video, plane, _fwd: new THREE.Vector3(), fwd: cfg.fwd };
     // A1: 코치 영상 위에 회전 큐 2개(drawRotate 룩시스템) — 목(위·작게) + 어깨(아래·크게) 동시에 돌리기 지시.
     if (id === 'A1') {
-      const mkCue = (size, y) => {
+      const mkCue = (size, x, y) => {
         const cv = document.createElement('canvas'); cv.width = cv.height = 256;
         const g = cv.getContext('2d');
         const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace;
         const mesh = new THREE.Mesh(new THREE.PlaneGeometry(size, size),
-          new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
-        mesh.position.set(0, y, 0.02);   // 부모 로컬: +y=머리쪽, +z=바닥 위로 띄움
+          new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, depthTest: false, blending: THREE.AdditiveBlending }));
+        mesh.position.set(x, y, 0.02);   // 부모 로컬: x=좌우, +y=머리쪽, +z=바닥 위로 띄움
+        mesh.renderOrder = 30;           // 코치 영상 레이어보다 앞(유저: 판정 토큰이 인물 앞에)
         plane.add(mesh);
         return { g, tex, mesh };
       };
-      co.rotCues = [mkCue(0.30, 0.13)];   // 1개만(유저) — 목·어깨 밴드에 회전 큐 하나
+      // 목 1개(중앙·위) + 어깨 작게 2개(좌·우) — 목 돌리고 어깨 돌리는 지시(유저)
+      co.rotCues = [mkCue(0.22, 0, 0.19), mkCue(0.15, -0.12, 0.08), mkCue(0.15, 0.12, 0.08)];
     }
     return co;
   }
