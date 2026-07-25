@@ -539,8 +539,13 @@ export class Session {
     const numL = attachMarkNum(fmL, '5', false), numR = attachMarkNum(fmR, '5', true);
     numL.visible = false; numR.visible = false;
     const a2cd = floorNum(0, 0, -1.35, 0.22); a2cd.visible = false;   // 시범→따라하기 3-2-1 카운트다운
-    this.a2press = { fmL, fmR, numL, numR, cd: a2cd, fill: 0, _cnt: 5, _succ: 0, _succFM: null };
-    g.add(fmL.group, fmR.group, a2cd);
+    // 운동 존 컨테이너 — 둥근 스탠스 박스(룩시스템 prim). 요소가 잔디에 흩어져 'UI 같지 않던' 문제(유저):
+    // 발자국 존을 카드처럼 감싸 시스템감 부여 (복싱 가드박스와 동일 언어, 발글리프 제거)
+    const a2zone = primPanel('stanceBox', 1.35, false);
+    a2zone.position.set(0, 0.011, -1.15);
+    a2zone._prim.P = { feet: 0, round: 0.32, dash: 1, w: 0.9, glow: 0.8 };
+    this.a2press = { fmL, fmR, numL, numR, cd: a2cd, zone: a2zone, fill: 0, _cnt: 5, _succ: 0, _succFM: null };
+    g.add(fmL.group, fmR.group, a2cd, a2zone);
 
     g = this._mk('A3');
     // High Knees 지면 가이드 = 두 질문에 답: (1)뭘 하나 (2)몇 개 했나.
@@ -554,7 +559,11 @@ export class Session {
       numCtr: floorNum(0, 0, -1.78, 0.22),                        // 링 중앙 = 누적 횟수(큼직, 카운트업)
       sec: 0, reps: 0, _upL: false, _upR: false, _pop: 0, _numShown: -1, _beat: 0,
     };
-    g.add(a3L.group, a3R.group, this.a3hk.ring, this.a3hk.timerArc, this.a3hk.numCtr);
+    const a3zone = primPanel('stanceBox', 1.35, false);   // 운동 존 컨테이너(A2와 동일 언어)
+    a3zone.position.set(0, 0.011, -1.3);
+    a3zone._prim.P = { feet: 0, round: 0.32, dash: 1, w: 0.9, glow: 0.8 };
+    this.a3hk.zone = a3zone;
+    g.add(a3L.group, a3R.group, this.a3hk.ring, this.a3hk.timerArc, this.a3hk.numCtr, a3zone);
 
     g = this._mk('T1');
     this.tap1 = this._tap('running'); this.tap1.position.set(0, 0.013, -1.1); g.add(this.tap1);
@@ -1444,21 +1453,19 @@ export class Session {
       //   → 끝나면 Success → 반대발 되면 상태 바뀜, 대기발은 Locked.
       // 판정 = 봇 다리 상태(발 접지+런지 깊이)로만 구동 — 고정 마크와의 거리 게이트 없음.
       if ((this._a2t ?? 0) > this.t) { P._doneL = false; P._doneR = false; P.sec = 0; P._press = false; P._cnt = 5; P._repLatch = false; }   // 재진입 리셋(왼발부터)
-      // ── 발자국이 x봇 실제 발을 따라 런지처럼 이동 (유저: 진짜 발 움직임에 맞춰) ──
-      // 발 월드좌표(미러 포함)를 발 중점 기준 상대 오프셋으로 → 투사존 중심(CZ)에 압축 배치.
-      const CZ = -1.15, SC = 0.42;   // 중심 z(타이틀·캡션 아래로 내림) · 이동폭 축소(캡션 침범 금지 — 유저)
+      // ── 발자국이 x봇 실제 발을 따라 런지처럼 이동 (고정 배치는 별로 — 유저 확정, 추적 복원) ──
+      const CZ = -1.15, SC = 0.42;
       if (pb) {
         const fL = pb.footL, fR = pb.footR;
-        const lft = fL.x <= fR.x ? fL : fR, rgt = fL.x <= fR.x ? fR : fL;   // 시각 좌/우 (미러 자동 대응)
+        const lft = fL.x <= fR.x ? fL : fR, rgt = fL.x <= fR.x ? fR : fL;
         const mz = (fL.z + fR.z) / 2;
-        // 좌우 = 고정 스탠스 폭(겹침 방지·깔끔), 앞뒤 = 발을 따라 이동(런지 = 앞뒤 스텝)
         const tgt = (fm, baseX, f) => {
           const tx = baseX, tz = CZ + (f.z - mz) * SC;
-          const g = fm.group; const a = 1 - Math.exp(-(dt || 0.016) / 0.08);   // 저역통과(부드러운 추종)
+          const g = fm.group; const a = 1 - Math.exp(-(dt || 0.016) / 0.08);
           g.position.x += (tx - g.position.x) * a; g.position.z += (tz - g.position.z) * a;
         };
         tgt(P.fmL, -0.16, lft); tgt(P.fmR, 0.16, rgt);
-        P._frontLeft = lft.z < rgt.z;   // 앞으로 나간 발(시각 좌?) = 활성
+        P._frontLeft = lft.z < rgt.z;
       }
       // ── 홀드 = UI 기준 타이머(5초). x봇 사이클(main a2Cyc)에 직결 — 봇 멈춤 5s와 정확 동기 ──
       // (스프레드 측정은 노이즈(5.7/6.3/3.2s 불규칙)라 폐기 → 봇 사이클 prog 직결)

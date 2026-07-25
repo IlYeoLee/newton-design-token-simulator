@@ -2146,10 +2146,10 @@ void main(){
         if (floorObj.visible) {
           co.plane.quaternion.copy(floorObj.quaternion);
           co._fwd.set(0, 1, 0).applyQuaternion(floorObj.quaternion);
-          // A2/A3 = 큰 코치 화면(타이틀 쪽) + 아래 발자국 토큰 — 단일 레이아웃(유저: 관찰 단계 폐기)
+          // A2/A3 모바일 UI식 세로 스택(유저): [타이틀] > [코치 0.8x, 중간 밴드] > [발자국 대칭 한 줄, 가까이]
           const fw = id !== 'A1';
-          const fwdOff = co.fwd + (fw ? 0.45 : 0);
-          co.plane.scale.setScalar(1);
+          const fwdOff = co.fwd + (fw ? 0.22 : 0);
+          co.plane.scale.setScalar(fw ? 0.8 : 1);
           co.plane.position.set(floorObj.position.x + co._fwd.x * fwdOff, 0.015, floorObj.position.z + co._fwd.z * fwdOff);
         }
       } else if (c) { c.plane.visible = false; if (!c.video.paused) c.video.pause(); }
@@ -3877,6 +3877,9 @@ void main(){
     xbot.update(xbotT, h);
     if (data.sport === 'running') followFloor(xbot.group.position.z);
     rig.update(state.time, h);
+    // 1인칭(실물 뷰) = 빔 볼륨·커버리지 시각화 숨김 — 갈색 사각 프레임으로 보이던 것(유저).
+    // 실제 눈엔 투사된 UI 광만 보인다(빔 자체는 공기 중에 안 보임).
+    if (fpMode) { rig.floorBeam.visible = false; rig.footFill.visible = false; }
     tokens.setShake(rig.shake.x, rig.shake.y);
     if (ghostMixer && ghostLayer?.visible) ghostMixer.update(h);
     judge.update(state.time, xbot.getProbes());
