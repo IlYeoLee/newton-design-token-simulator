@@ -3670,7 +3670,7 @@ void main(){
       // A2: cmu144_17 실측 런지(다리 자연스러움) + 팔만 중립 덮어쓰기(_relaxArms) — 절차 런지는 다리가 어색(유저)
       A1: 'neckShoulder',              // 목 먼저 → 어깨 (순차)
       A2: 'auto_cmu144_11',            // Left_Lunges — 무릎 15cm 깊은 실측 런지
-      A3: 'kneeTwist',                 // 무릎 올리며 몸통 비틀기 (절차 저작 — cmu14_20 리타겟 아티팩트로 클린 추출 불가)
+      A3: 'auto_cmu14_20_knee',        // 무릎 올리며 팔 뻗기 (CMU 14_20 8.0~11.5s 실측 리듬 동작 추출 — 유저 지정)
       T1: 'neckStretch', T2: 'armStretch', FIN: 'quadStretch',
       // 복싱 = Mixamo 실측 모캡 (목풀기만 절차)
       BX_A1: 'bx_neck', BX_A2: 'boxGuard', BX_A3: 'boxJab',
