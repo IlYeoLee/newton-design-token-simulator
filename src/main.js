@@ -3730,6 +3730,9 @@ void main(){
         // 정지 구간 = 실데이터 근방 프레임 미세 왕복(±0.07s) — '시간정지' 느낌 제거, 자연 미동 (유저)
         _phase = c < DESC ? T0 + c : (c < DESC + HOLD ? TD + Math.sin(session.t * 1.6) * 0.07 : TD + (c - DESC - HOLD));
         xbot.group.scale.x = (Math.floor(session.t / CYC) % 2) ? -1 : 1;
+        // '조금 더 꾹'(유저): 홀드 중에만 앞다리 소량 가산(0.35), 0.6s 이즈 램프
+        const _hs = Math.max(0, Math.min(1, (c - DESC) / 0.6)), _he = Math.max(0, Math.min(1, (DESC + HOLD - c) / 0.6));
+        xbot.lungeDeepen = 0.35 * Math.min(_hs, _he);
       }
       else if (session.stage === 'BK_B1') _phase = session.t;
       else if (session.stage === 'BK_B2') _phase = Math.min((session.t * 0.5) % 3.2, 2.2);   // 플랜트까지 + 홀드(슛 제거)

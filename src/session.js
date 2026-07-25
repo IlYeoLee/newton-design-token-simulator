@@ -1399,7 +1399,11 @@ export class Session {
       } else {
         // 중간 재안내 제거 — 진입 문장 하나로 (유저: '목소리 2개 안 나오게')
         FMU(`런지 ${Math.min(REPS, this.a2count || 0)} / ${REPS}`, CS.sand);
-        if ((this.a2count || 0) >= REPS) { this.next(); return; }
+        // 4회 완료 후에도 '서기 복귀'까지 대기 — 런지 자세 중 다음 단계로 튀지 않게 (유저)
+        if ((this.a2count || 0) >= REPS) {
+          const stand = pb?.footL && pb?.footR && Math.abs(pb.footL.z - pb.footR.z) < 0.18 && pb.footL.y < 0.09 && pb.footR.y < 0.09;
+          if (stand) { this.next(); return; }
+        }
       }
     } else if (id === 'A3') {
       // 쿼드 스트레치 — 발등을 잡아 당기는 동안 홀드 아크가 차오름 (프로브: 뒤로 접어 든 발 높이 0.3m+)
