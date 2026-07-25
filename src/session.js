@@ -1405,49 +1405,46 @@ export class Session {
       //   Preview(둘 다) → 딛는 발 Active(뻗을때) → 밟는 순간 Hold+숫자 5→1(이펙트 점점 커짐)
       //   → 끝나면 Success → 반대발 되면 상태 바뀜, 대기발은 Locked.
       // 판정 = 봇 다리 상태(발 접지+런지 깊이)로만 구동 — 고정 마크와의 거리 게이트 없음.
+      if ((this._a2t ?? 0) > this.t) { P._doneL = false; P._doneR = false; }   // 재진입 시 완료상태 리셋
       const front = pb ? (pb.footL.z < pb.footR.z ? pb.footL : pb.footR) : null;
-      const isL = front === pb?.footL;
+      // 활성 발 = 미러 상태로 결정(시각 일치). 미러(scale.x<0)는 X만 뒤집어 해부학적 앞발이
+      // 안 바뀌므로 front-발로 고르면 한 발만 활성화됨(유저) → group.scale.x로 좌우 교대.
+      const isL = (this.xbot?.group?.scale?.x ?? 1) >= 0;
       const spread = pb ? Math.abs(pb.footL.z - pb.footR.z) : 0;
       const engaged = !!front && spread > 0.28;                    // 발을 뻗기 시작 = Active
       const pressing = engaged && front.y < 0.10 && spread > 0.5;  // 깊이 밟음(홀드) = 숫자 카운트
       const act = isL ? P.fmL : P.fmR, oth = isL ? P.fmR : P.fmL;
+      const actNum = isL ? P.numL : P.numR, othNum = isL ? P.numR : P.numL;
+      const othDone = isL ? P._doneR : P._doneL;   // 반대발이 이미 완료됐나
       P.fill = pressing ? Math.min(1, P.fill + dt / NEED) : Math.max(0, P.fill - dt * 0.8);
-      P._succ = Math.max(0, (P._succ || 0) - dt);
+      placeMarkNum(P.numL); placeMarkNum(P.numR);   // 매 프레임 numFoot 앵커
 
-      const actNum = act === P.fmL ? P.numL : P.numR, othNum = act === P.fmL ? P.numR : P.numL;
-      placeMarkNum(P.numL); placeMarkNum(P.numR);   // 매 프레임 numFoot 앵커 (numL/numR = plane)
-
-      // 방금 완료한 발 = Success 블룸 잔상 (우선)
-      if (P._succ > 0 && P._succFM) P._succFM.glow(1 - P._succ / 0.9);
-
-      if (!engaged && P.fill <= 0.001) {
-        // Preview — 둘 다 숨쉬기, 숫자 숨김
-        if (P._succ <= 0 || P._succFM !== P.fmL) P.fmL.countdown(-1);
-        if (P._succ <= 0 || P._succFM !== P.fmR) P.fmR.countdown(-1);
-        P.numL.visible = false; P.numR.visible = false;
-      } else {
-        // 딛는 발: 밟는 중 = Hold(코닉 림, op 진해짐) + 숫자 5→1 / 뻗는 중 = Active(수축 링)
-        if (P._succ <= 0 || P._succFM !== act) {
-          if (pressing) {
-            act.setHold(Math.max(0.001, P.fill));
-            act.op(0.5 + 0.5 * P.fill);                             // 꾹꾹 누를수록 진해짐
-            const n = Math.max(1, 5 - Math.floor(P.fill * 5));      // 5→1 카운트
-            if (n !== P._cnt) { redrawFootNum(actNum, n); P._cnt = n; }
-          } else {
-            act.countdown(Math.min(1, Math.max(0, (spread - 0.28) / 0.5)));
-            act.op(1);
+      // ── 딛는(현재) 발 ──
+      if (engaged) {
+        if (pressing) {                                            // Hold + 카운트 5→1 (x봇 5s 홀드 동기)
+          act.setHold(Math.max(0.001, P.fill)); act.op(0.5 + 0.5 * P.fill);
+          const n = Math.max(1, 5 - Math.floor(P.fill * 5));
+          if (n !== P._cnt) {   // 카운트 틱마다 은은한 소형 펄스 (홀드 내내 살아있게 — 유저)
+            redrawFootNum(actNum, n); P._cnt = n;
+            const wp = new THREE.Vector3(); act.group.getWorldPosition(wp); this.onPress?.(wp, true);
           }
+          actNum.visible = true;
+        } else {                                                   // 뻗는 중 = Active 수축 링
+          act.countdown(Math.min(1, Math.max(0, (spread - 0.28) / 0.5))); act.op(1);
+          actNum.visible = false;
         }
-        // 아직 안 한 발 = Locked 고스트
-        if (P._succ <= 0 || P._succFM !== oth) oth.ghost();
-        actNum.visible = pressing; othNum.visible = false;         // 숫자 = 밟는 발만
+      } else {                                                     // 이 발이 지금 안 딛음: 서있기
+        act.countdown(-1); actNum.visible = false;
       }
+      // ── 반대(대기) 발: 완료됐으면 '홀드처리'(채운 채 유지), 아니면 Locked ──
+      if (othDone) { oth.setHold(1); oth.op(0.55); } else oth.ghost();
+      othNum.visible = false;
 
-      if (P.fill >= 1) {
+      if (P.fill >= 1) {                                           // 이 발 완료 → done 표시(홀드 유지)
         this.a2count = (this.a2count || 0) + 1; P.fill = 0; P._cnt = 5;
         redrawFootNum(actNum, 5); actNum.visible = false;
-        P._succ = 0.9; P._succFM = act;
-        const wp = new THREE.Vector3(); act.group.getWorldPosition(wp); this.onPress?.(wp);   // 완료 버스트(리퀴드)
+        if (isL) P._doneL = true; else P._doneR = true;
+        const wp = new THREE.Vector3(); act.group.getWorldPosition(wp); this.onPress?.(wp, false);   // 완료 = 조금 큰 버스트
       }
       if (this.t < DEMO) {
         this.demoActive = true;

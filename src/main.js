@@ -696,7 +696,7 @@ void main(){
   }
 
   // ── 1인칭 / 시야 콘 토글 ──
-  let fpMode = false, coneOn = false;
+  let fpMode = false, coneOn = false, fpUserSet = false;   // fpUserSet = 유저 수동 시점 선택(스테이지 강제전환 억제)
   let lastBodyZ = 0;
   const fpBtn = document.getElementById('btn-fp');
   const coneBtn = document.getElementById('btn-cone');
@@ -727,7 +727,7 @@ void main(){
       lastBodyZ = bz;
     }
   }
-  fpBtn.addEventListener('click', () => setFp(!fpMode));
+  fpBtn.addEventListener('click', () => { fpUserSet = true; setFp(!fpMode); });
   coneBtn.addEventListener('click', () => {
     coneOn = !coneOn;
     setBtnActive(coneBtn, coneOn);
@@ -833,7 +833,8 @@ void main(){
   const hudIdxEl = document.getElementById('hud-idx');
   // 세션이 판정 오차를 소비 (페이스 라이트 = 타이밍 오차의 공간 번역, C3 흔들림 시연)
   // 프레스 완료(원 다 채움) → 지면 버스트 — '누르면 반응하는 바닥'의 보상감 (기존 파문 이펙트 재사용)
-  const _pressBurst = wp => effects.burst(wp, 0xfec389, new THREE.Vector3(0, 1, 0), { intensity: 0.9, sizeM: 0.6 });
+  const _pressBurst = (wp, soft) => effects.burst(wp, 0xfec389, new THREE.Vector3(0, 1, 0),
+    soft ? { intensity: 0.28, sizeM: 0.32 } : { intensity: 0.72, sizeM: 0.52 });   // soft = 홀드 중 은은한 틱
   const session = new Session(scene, tokens, xbot, rig, st => {
     const sig = [];
     if (st.hap) sig.push(`<span style="color:var(--warn)">햅틱</span> ${st.hap}`);
@@ -847,7 +848,7 @@ void main(){
     if (hudIdxEl) hudIdxEl.textContent = `${session.stageIdx + 1} / ${session.total}`;
     // 준비운동(A) 단계 = 코치가 리깅으로 실제 스트레칭 수행(발목 원·종아리·스윙) → 3인칭으로 '먼저 보고 따라'
     //   하게 x봇을 보임. 1인칭은 내가 곧 x봇이라 코치 동작이 안 보였음(유저 지적). 실전·전환 = 1인칭 몰입.
-    setFp(!/A\d$/.test(st.id));
+    if (!fpUserSet) setFp(!/A\d$/.test(st.id));   // 유저가 수동 토글했으면 그 선택 유지(스테이지마다 강제전환 금지)
     // 스테이지 라벨을 바닥에 문장으로 깔던 상태 슬롯 은퇴 — 세션 HUD 카드 + 세션 FS 슬롯('LEARN 3/4')과
     // 3중 중복이었고 발자국·가이드를 덮는 두 번째 주범. 투사면 = 훈련 큐 전용 원칙.
     veil();  // 단계 전환 암전 (끊김 → 의도된 전환으로)
@@ -923,6 +924,7 @@ void main(){
     // 세션 = 화면 집중: 좌측 패널·팩 카드 숨김 (중지 시 복귀)
     document.getElementById('panel')?.style.setProperty('display', 'none');
     document.getElementById('hud')?.style.setProperty('display', 'none');
+    fpUserSet = false;   // 새 세션 = 자동 시점부터 (이후 유저 토글 시 고정)
     setFp(true);
   }
   function stopSession() {
@@ -969,7 +971,7 @@ void main(){
   document.getElementById('btn-stage-prev')?.addEventListener('click', () => session.prev());
   document.getElementById('btn-stage-next')?.addEventListener('click', () => session.next());
   document.getElementById('btn-session-stop')?.addEventListener('click', () => stopSession());
-  document.getElementById('btn-view')?.addEventListener('click', () => setFp(!fpMode));
+  document.getElementById('btn-view')?.addEventListener('click', () => { fpUserSet = true; setFp(!fpMode); });
   // ── FX 룩 프로 패널 — FX Lab 컨트롤을 시뮬 안에 (실물 3D 실시간 반영 + 자동 저장) ──
   const FX_PRESETS = {
     'NEWTON Vivid': [['#B7231F', 0], ['#FA3030', .3], ['#FE6E3C', .56], ['#FEA35F', .74], ['#FEC389', .86], ['#FFF3DC', 1]],
