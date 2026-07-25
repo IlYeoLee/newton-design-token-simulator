@@ -3822,7 +3822,7 @@ void main(){
       let _phase = null;
       if (_clip === 'stomp_press') _phase = session.t;
       else if (session.stage === 'A1') _phase = session.t;   // A1 neckShoulder 목부터 시작 (잔여 _demoT 위상 오류 방지)
-      else if (session.stage === 'A3') _phase = Math.max(0, session.t - (session._aWatchEnd ?? A2_WATCH)) * 1.6;   // 시범 후 하이니 — 1.6배속(스피디, 유저)
+      else if (session.stage === 'A3') _phase = Math.max(0, session.t - (session._aWatchEnd ?? A2_WATCH));   // 시범 후 하이니 (1.6배속 철회 — 동작 딱딱해짐)
       else if (session.sport === 'running' && (/^run_|^hj_/.test(_clip) || _clip === 'cmu_stretch' || _clip === 'jumpingJacks')) _phase = session.t;
       else if (session.stage === 'A2') {
         if (aWatching) { session.a2Cyc = { watching: true, watchProg: Math.max(0, Math.min(1, session.t / A2_WATCH)) }; }

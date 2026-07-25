@@ -1523,7 +1523,7 @@ export class Session {
       const PER_FOOT = 10, MAXSEC = 40;
       const H = this.a3hk;
       const dt = Math.max(0, this.t - (this._a3t ?? this.t));
-      if ((this._a3t ?? 0) > this.t) { H.sec = 0; H.cntL = 0; H.cntR = 0; H._beat = 0; H._prevLeft = undefined; H._shownL = -1; H._shownR = -1; }
+      if ((this._a3t ?? 0) > this.t) { H.sec = 0; H.cntL = 0; H.cntR = 0; H._upL = false; H._upR = false; H._lastLeft = undefined; H._shownL = -1; H._shownR = -1; }
       this._a3t = this.t;
 
       const guide = [H.fmL.group, H.fmR.group, H.arL, H.arR];
@@ -1539,15 +1539,14 @@ export class Session {
       placeMarkNum(H.numL); placeMarkNum(H.numR);
       H.sec = Math.min(MAXSEC, H.sec + dt);
       H._pop = Math.max(0, H._pop - dt * 5);
-      // 비트 = x봇 하이니 케이던스(1.6배속 kneeTwist: 2.4/1.6=1.5s 사이클, 발당 0.75s)와 동기
-      H._beat += dt;
-      const PERIOD = 0.75, leftNow = (H._beat % (PERIOD * 2)) < PERIOD;
-      // 올린 발 = Success 블룸으로 딱! + 그 발 카운트업. 반대발 = 고스트 대기.
-      if (H._prevLeft !== undefined && leftNow !== H._prevLeft) {
-        if (leftNow) H.cntL = Math.min(PER_FOOT, H.cntL + 1); else H.cntR = Math.min(PER_FOOT, H.cntR + 1);
-        H._pop = 1;
-      }
-      H._prevLeft = leftNow;
+      // 카운트 = x봇이 '실제로 들어올리는 발'에 직결(유저) — 발 높이 프로브 상승 엣지. 속도 무관 자동 동기.
+      const pb = this.xbot?.getProbes?.();
+      const lY = pb?.footL?.y ?? 0, rY = pb?.footR?.y ?? 0, TH = 0.12;
+      const lUp = lY > TH, rUp = rY > TH;
+      if (lUp && !H._upL) { H.cntL = Math.min(PER_FOOT, H.cntL + 1); H._pop = 1; H._lastLeft = true; }
+      if (rUp && !H._upR) { H.cntR = Math.min(PER_FOOT, H.cntR + 1); H._pop = 1; H._lastLeft = false; }
+      H._upL = lUp; H._upR = rUp;
+      const leftNow = lUp ? true : (rUp ? false : (H._lastLeft ?? true));   // 지금 올라간 발(없으면 마지막)
       const onFM = leftNow ? H.fmL : H.fmR, offFM = leftNow ? H.fmR : H.fmL;
       onFM.glow(0.6 + 0.4 * H._pop); onFM.op(1);
       offFM.ghost(); offFM.op(0.45);
