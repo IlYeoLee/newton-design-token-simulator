@@ -516,10 +516,16 @@ export class Session {
     // 진행 표시는 플로어 프레임의 도트 로딩바 + FMU % 텍스트가 전담.
 
     g = this._mk('A2');
-    // 런지 — 발 앞의 원을 크게 딛어 밟고 버티면 홀드 아크가 차오름 (구 A1 프레스 문법 재사용).
-    // 원 위치 초기값 = 구 스톰프 실측(-1.30) — 교대 런지 클립 착지에 맞춰 시각 검수로 보정.
-    this.a2press = { ring: floorRing(0, -1.30, 0.20, 0.225, BRAND.red, 0.45), arc: floorArc(0, -1.30, BRAND.sand), cx: 0, cz: -1.30, fill: 0 };
-    g.add(this.a2press.ring); g.add(this.a2press.arc);
+    // 런지 프레스 = 룩 시스템 발형(MARK 상태머신) — Hold 코닉 림(차오르는 라인) + 숫자 5→1 카운트
+    // + 완료 Success 블룸(리퀴드). A안=앞발 바로 아래 추종 / B안=전방 고정 (a2Guide 토글).
+    this.a2press = {
+      fmL: new FootMark('left').at(0, -1.35, 1.15), fmR: new FootMark('right').at(0, -1.35, 1.15),
+      nums: [5, 4, 3, 2, 1].map(n => floorNum(n, 0.36, -1.35, 0.15)),
+      cx: 0, cz: -1.35, fill: 0, _numIdx: -1, _pop: 0,
+    };
+    this.a2press.fmL.group.visible = false; this.a2press.fmR.group.visible = false;
+    g.add(this.a2press.fmL.group, this.a2press.fmR.group);
+    for (const n of this.a2press.nums) { n.visible = false; g.add(n); }
 
     g = this._mk('A3');
     // 쿼드 스트레치(발등 잡고 당기기) — 축발 마크 + 홀드 아크 (프로브: 뒤로 접어 든 발 높이)
@@ -1376,7 +1382,7 @@ export class Session {
     } else if (id === 'A2') {
       // 런지 — 앞의 원을 크게 딛어 밟고 버티면 홀드 아크가 차오름 (구 A1 프레스 문법).
       // 프로브 구동(왼/오른발 무관): 발이 접지 + 원 반경 안 = 버티는 중.
-      const NEED = 1.6, REPS = 4, DEMO = 4.6;
+      const NEED = 4.8, REPS = 4, DEMO = 4.6;   // 5-4-3-2-1 카운트와 동기(홀드 5s)
       const dt = Math.max(0, this.t - (this._a2t ?? this.t));
       if ((this._a2t ?? 0) > this.t) { this.a2count = 0; this.a2press.fill = 0; }   // 재진입 리셋
       this._a2t = this.t;
@@ -1384,20 +1390,22 @@ export class Session {
       const P = this.a2press;
       // AI 사출 보정(유저 스케치 정정): 원 = 앞발 '아래'(발이 원을 밟음) — 발끝 기준 거의 제자리(+0.05)
       const front = pb ? (pb.footL.z < pb.footR.z ? pb.footL : pb.footR) : null;
+      const isL = front === pb?.footL;
       if ((this.a2Guide || 'A') === 'A') {
-        // A안: 발 아래 추종 (밟는 원)
-        if (front && front.y < 0.12) {
-          P.cx += (front.x - P.cx) * 0.12;
-          P.cz += ((front.z - 0.05) - P.cz) * 0.12;
+        // A안: 앞에 나간 발 '바로 아래' — 오프셋 0, 빠른 추종(유저: 발 바로 아래 파형)
+        if (front && front.y < 0.14) {
+          P.cx += (front.x - P.cx) * 0.35;
+          P.cz += (front.z - P.cz) * 0.35;
         }
       } else {
-        // B안: 전방 고정 — 시선 낙하점(-1.4) 판정 마크 존. 프레스 판정은 발 위치와 무관하게
-        // '깊이 유지 중'으로 대체돼야 하나, 비교용이므로 판정 원점만 발 추종 유지(시각만 고정).
+        // B안: 전방 고정(-2.0) — 눈앞에서 차오르는 걸 바라보기
         P.cx += (0 - P.cx) * 0.12;
-        P.cz += (-2.0 - P.cz) * 0.12;   // 발 착지점(-1.45)과 겹치지 않게 명확히 전방
+        P.cz += (-2.0 - P.cz) * 0.12;
       }
-      P.ring.position.x = P.cx; P.ring.position.z = P.cz;
-      P.arc.position.x = P.cx; P.arc.position.z = P.cz;
+      // 발형 마크: 앞발 쪽 모양만 표시, 위치 동기
+      P.fmL.group.visible = isL; P.fmR.group.visible = !isL;
+      const fm = isL ? P.fmL : P.fmR;
+      P.fmL.at(P.cx, P.cz, 1.15); P.fmR.at(P.cx, P.cz, 1.15);
       let pressing = false;
       if ((this.a2Guide || 'A') === 'A') {
         for (const f of [pb?.footL, pb?.footR]) {
@@ -1407,11 +1415,18 @@ export class Session {
         pressing = true;   // B안 판정 = 앞발 접지 + 런지 스프레드(깊이 유지 중)
       }
       P.fill = pressing ? Math.min(1, P.fill + dt / NEED) : Math.max(0, P.fill - dt * 0.6);
-      P.arc.setProg(Math.max(0.001, P.fill));
-      P.ring.setOp(pressing ? 0.95 : 0.45);
+      fm.setHold(P.fill);                       // Hold 코닉 림 = 차오르는 라인
+      fm.op(pressing ? 1 : 0.55);
+      // 숫자 카운트 5→1: 남은 홀드 초 — 바뀔 때 팝(스케일 1.45→1)
+      const idx = Math.min(4, Math.floor(P.fill * 5));
+      for (let i = 0; i < 5; i++) { const n = P.nums[i]; n.visible = pressing && i === idx; n.position.x = P.cx + 0.36; n.position.z = P.cz; }
+      if (idx !== P._numIdx) { P._numIdx = idx; P._pop = 1; }
+      P._pop = Math.max(0, P._pop - dt * 3.2);
+      const shown = P.nums[idx]; if (shown) shown.scale.setScalar(1 + 0.45 * P._pop);
       if (P.fill >= 1) {
         this.a2count = (this.a2count || 0) + 1; P.fill = 0;
-        const wp = new THREE.Vector3(); P.arc.getWorldPosition(wp); this.onPress?.(wp);   // 완료 버스트(지면 반응 보상)
+        fm.glow(0);                              // Success 블룸(리퀴드 잔상)
+        const wp = new THREE.Vector3(); fm.group.getWorldPosition(wp); this.onPress?.(wp);   // 완료 버스트
       }
       if (this.t < DEMO) {
         this.demoActive = true;
