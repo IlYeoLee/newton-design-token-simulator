@@ -9,7 +9,7 @@ import os from 'os';
 import path from 'path';
 
 const TTS = path.join(os.homedir(), 'Library/Python/3.9/bin/edge-tts');
-const VOICE = { '션': ['ko-KR-HyunsuMultilingualNeural', '-8%'], '커리': ['ko-KR-HyunsuMultilingualNeural', '-8%'], '고수': ['ko-KR-HyunsuMultilingualNeural', '-8%'], '시스템': ['ko-KR-SunHiNeural', '-4%'] };
+const VOICE = { '션': ['ko-KR-HyunsuMultilingualNeural', '+15%', '-6Hz'], '커리': ['ko-KR-HyunsuMultilingualNeural', '-8%'], '고수': ['ko-KR-HyunsuMultilingualNeural', '-8%'], '시스템': ['ko-KR-SunHiNeural', '-4%'] };   // 션=활기(빠르고 높게, 유저 요청)
 const src = fs.readFileSync('src/session.js', 'utf8');
 const only = (() => { const i = process.argv.indexOf('--only'); return i < 0 ? null : new Set(process.argv[i + 1].split(',')); })();
 
@@ -26,9 +26,11 @@ for (const m of src.matchAll(/_say\(\s*'([^']+)'\s*,\s*'([^']+)'\s*,\s*'([^']+)'
 let n = 0;
 for (const j of jobs) {
   if (only && !only.has(j.file.replace('.mp3', ''))) continue;
-  const [voice, rate] = VOICE[j.who] || VOICE['시스템'];
+  const [voice, rate, pitch] = VOICE[j.who] || VOICE['시스템'];
   const text = j.text.replace(/—/g, ',');   // 대시는 쉼(pause)으로
-  execFileSync(TTS, ['-v', voice, `--rate=${rate}`, '--text', text, '--write-media', `public/voice/${j.file}`]);
+  const args = ['-v', voice, `--rate=${rate}`];
+  if (pitch) args.push(`--pitch=${pitch}`);
+  execFileSync(TTS, [...args, '--text', text, '--write-media', `public/voice/${j.file}`]);
   console.log('생성', j.file, `[${j.who}]`, text.slice(0, 30));
   n++;
 }

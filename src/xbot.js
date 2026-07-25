@@ -298,6 +298,8 @@ export class XBot {
     ];
     const neutral = {};
     for (const n of want) { const b = this.model.getObjectByName(n); if (b) neutral[n] = b.quaternion.clone(); }
+    this._neutralPose = neutral;   // 팔 중립 덮어쓰기(_relaxArms)용 보관
+    this._armNeutralClips = new Set(['auto_cmu144_17']);   // 팔 어색 모캡 — 팔만 중립 덮어쓰기
     const clips = buildDrillClips(neutral);
     for (const id in clips) {
       const action = this.mixer.clipAction(clips[id]);
@@ -305,6 +307,17 @@ export class XBot {
       this.actions[id] = { action, dur: clips[id].duration };
     }
     for (const k in this.actions) { this.actions[k].action.stop(); this.actions[k].action.setEffectiveWeight(1); }
+  }
+
+  /** 팔 전체를 중립(늘어뜨림)으로 덮어쓰기 — 모캡 클립의 어색한 팔만 무력화(다리는 실측 유지).
+      대상 클립: _armNeutralClips (예: cmu144_17 교대 런지 — 유저: '손만 자연스럽게') */
+  _relaxArms() {
+    if (!this._neutralPose) return;
+    for (const n of ['mixamorigLeftShoulder', 'mixamorigRightShoulder', 'mixamorigLeftArm', 'mixamorigRightArm', 'mixamorigLeftForeArm', 'mixamorigRightForeArm']) {
+      const b = this.model.getObjectByName(n), q = this._neutralPose[n];
+      if (b && q) b.quaternion.copy(q);
+    }
+    this.model.updateMatrixWorld(true);
   }
 
   /** 손가락·손목을 바인드 중립으로 고정 — 클립의 벌어진 손 아티팩트 덮어씀 */
@@ -475,6 +488,7 @@ export class XBot {
     // 루트모션 데모 클립은 XZ 고정 해제, 접지 베이크 클립은 per-frame 클램프 해제(덜커덩 방지)
     if (this._rootClips?.has(key)) { this._lockFingers(); this.model.position.x = 0; this.model.position.z = 0; this.model.updateMatrixWorld(true); }
     else this._lockInPlace?.();
+    if (this._armNeutralClips?.has(key)) this._relaxArms();   // 팔만 중립 — 다리는 실측 유지 (유저: '손만 자연스럽게')
     if (this._groundedClips?.has(key)) { this.model.position.y = 0; this._yOff = undefined; this.model.updateMatrixWorld(true); }
     else this._clampFeet();   // 데모 클립 루트 높이 미보정 → 봇 공중부양(유저: 'x봇이 공중에 떠있는데') 방지
     // 데모 중 공 관리 (playDemo는 여태 공을 안 건드려 이전 live 위치가 멀리 남아있었음 — 유저: '공이 저 멀리').

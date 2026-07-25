@@ -1397,7 +1397,7 @@ export class Session {
         this.demoActive = true;
         FMU('먼저 보세요 — 앞으로 크게 딛고 버티기', CS.sand);
       } else {
-        this._say('a2go', '션', '이제 같이 — 앞으로 크게 딛어 원을 밟고, 무릎 굽혀 버텨요. 링이 차면 발 교대.');
+        // 중간 재안내 제거 — 진입 문장 하나로 (유저: '목소리 2개 안 나오게')
         FMU(`런지 ${Math.min(REPS, this.a2count || 0)} / ${REPS}`, CS.sand);
         if ((this.a2count || 0) >= REPS) { this.next(); return; }
       }
@@ -1416,7 +1416,7 @@ export class Session {
         this.demoActive = true;
         FMU('먼저 보세요 — 발등 잡고 엉덩이로', CS.sand);
       } else {
-        this._say('a3go', '션', '이제 같이 — 발등을 잡아 당기고, 링이 차는 동안 버텨요. 좌우 번갈아.');
+        // 중간 재안내 제거 — 진입 문장 하나로
         FMU(`쿼드 스트레치 ${Math.min(REPS, this.a3count || 0)} / ${REPS}`, CS.sand);
         if ((this.a3count || 0) >= REPS) { this.next(); return; }
       }
