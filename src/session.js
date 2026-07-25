@@ -396,7 +396,7 @@ export const STAGES = {
   running: [
     { id:'READY', label:'준비 — 발 두 번 구르면 시작', voice:['션','안녕! 만나서 반가워요, 전 션이에요. 오늘 저랑 같이 가볍게 1킬로미터 달려볼 거예요. 준비되면 제자리에서 발을 두 번 굴러 주세요!'], wear:'SAFE 대기', foot:'발 두 번 구르기 → 시작' },
     { id:'A1', label:'A · 준비운동 1/3 — 목·어깨 풀기', voice:['션','먼저 몸부터 깨울게요. 편하게 서서 목과 어깨를 크게, 천천히 돌려요. 링이 다 찰 때까지!'], wear:'개입 없음 (자세 측정)' },
-    { id:'A2', label:'A · 준비운동 2/3 — 런지(앞의 원 딛고 버티기)', voice:['션','좋아요, 잘하고 있어요! 이번엔 런지예요. 발을 앞으로 크게 딛어 원을 밟고, 무릎을 굽혀 지그시 버텨요. 링이 차면 발을 바꿔요.'], foot:'앞으로 딛고 버티기 · 발 교대' },
+    { id:'A2', label:'A · 준비운동 2/3 — 런지(앞의 원 딛고 버티기)', voice:['션','좋아요, 잘하고 있어요! 이번엔 런지예요. 먼저 제가 어떻게 하는지 볼게요~'], foot:'앞으로 딛고 버티기 · 발 교대' },
     { id:'A3', label:'A · 준비운동 3/3 — 무릎 올리며 몸통 비틀기', voice:['션','마지막이에요! 한쪽 무릎을 배 높이까지 쭉 올리면서 몸통을 반대로 비틀어요. 코어랑 균형 감각을 확 깨우는 동작이에요. 좌우 번갈아 가볍게!'], foot:'완료 후 두 번 구르기 → 다음' },
     { id:'T1', label:'몸풀기 끝 — 다음은 페이스 잡기', voice:['션','몸이 다 풀렸네요, 최고예요! 발 두 번 구르면 이제 페이스 잡으러 가요.'], foot:'발 두 번 구르기 → 페이스 잡기' },
     { id:'P1', dur:6, live:true, label:'페이스 잡기 — 페이서 붙어 가볍게 뛰기', voice:['션','자, 바로 가볍게 뛰기 시작할게요. 앞의 광점이 저예요 — 제 페이스에 한번 붙어 보세요!'], wear:'낮은 강도 보조 시작' },
@@ -1431,13 +1431,20 @@ export class Session {
       const act = isL ? P.fmL : P.fmR, oth = isL ? P.fmR : P.fmL;
       const actNum = isL ? P.numL : P.numR, othNum = isL ? P.numR : P.numL;
       const othDone = isL ? P._doneR : P._doneL;
+      // ── 2단계 흐름: [관찰] 전문가 영상 보며 프로그래스바 채움 → [따라하기] 실제 런지 ──
+      const watching = !!cyc?.watching;
+      if (watching) {
+        // 관찰 단계: 발자국 마크·홀드 전부 숨김, '먼저 볼게요' 프로그래스바만 채움.
+        P.fmL.group.visible = false; P.fmR.group.visible = false; P.numL.visible = false; P.numR.visible = false;
+        FMU(`먼저 볼게요 — ${Math.round((cyc.watchProg || 0) * 100)}%`, CS.prism);   // 도트바 = 관찰 진행도
+        this.demoActive = true;
+        if ((cyc.watchProg || 0) >= 0.98) this._say('a2follow', '션', '자, 이제 같이 따라해봐요! 앞으로 크게 딛고 무릎 굽혀 버텨요.');
+        return;   // 따라하기 로직(아래) 건너뜀
+      }
       P.fill = inHold ? cyc.prog : 0;   // 0→1 정확히 5초(봇 최심 정지 구간)
       placeMarkNum(P.numL); placeMarkNum(P.numR);
       P._pop = Math.max(0, (P._pop || 0) - dt * 3.8);
-      // 데모 3초(런지 영상 시범) 동안은 발자국 마크 숨김 — 영상만 보고, 이후 인터랙션 (유저)
-      const inDemo = this.t < 3.0;
-      P.fmL.group.visible = !inDemo; P.fmR.group.visible = !inDemo;
-      if (inDemo) { P.numL.visible = false; P.numR.visible = false; }
+      P.fmL.group.visible = true; P.fmR.group.visible = true;   // 따라하기 = 마크 표시
 
       // 딛는 발: 둘 다 Active(빈 링). 홀드 중이면 같은 Hold 페이즈에서 uProg만 0→1 채워짐(부드러운 전환, 팝 없음)
       act.setHold(Math.max(0.02, P.fill));   // 0.02 = 빈 링(Active 모양) → prog 채움
