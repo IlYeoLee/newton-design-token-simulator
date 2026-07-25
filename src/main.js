@@ -3708,9 +3708,10 @@ void main(){
     if (rig.beamGroundLock) {
       const pb = xbot.getProbes?.();
       if (pb?.footL && pb?.footR) {
-        // A2 런지 = 착용자 제자리(앞발만 멀리 나감) → 앵커를 앞발로 두면 매트가 멀리 끌려감(유저 물리 지적).
-        //   런지는 몸(hips) 기준 안정 앵커, 그 외 스트레치(A1/A3·서있음)는 앞발 그대로.
-        const anchor = /^(A2|BK_A2)$/.test(session.stage || '') && pb.hips
+        // 제자리 동작(A2 런지·A3 하이니 등 발이 크게 움직이는)은 몸(hips) 기준 안정 앵커 —
+        //   앞발 앵커면 발이 위아래·앞뒤로 튈 때 투사면이 같이 흔들림(유저 A3 흔들림 지적).
+        //   A1(목·어깨, 발 고정)만 앞발 그대로.
+        const anchor = /^(A2|A3|BK_A2|BK_A3)$/.test(session.stage || '') && pb.hips
           ? { x: pb.hips.x, z: pb.hips.z } : (pb.footL.z < pb.footR.z ? pb.footL : pb.footR);
         if (!rig._beamTgt) rig._beamTgt = { x: anchor.x, z: anchor.z };
         rig._beamTgt.x += (anchor.x - rig._beamTgt.x) * 0.08;          // 저역통과(지터 제거)
