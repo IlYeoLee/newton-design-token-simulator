@@ -2034,11 +2034,12 @@ void main(){
           c.g = min(c.g, max(c.r, c.b) + 0.06);               // despill
           // 룩 시스템 그라디언트(복싱 인물 문법): 세로 히트 LUT × 휘도 변조 — 실사 디테일 위에 브랜드 톤
           float lum = dot(c.rgb, vec3(0.299, 0.587, 0.114));
-          vec3 heat = texture2D(uLUT, vec2(clamp(0.15 + (1.0 - vUv.y) * 0.75, 0.004, 0.996), 0.5)).rgb;
-          vec3 col = heat * (0.38 + lum * 1.05);
+          // 복싱 인물과 동일 문법: 위=딥레드, 아래로 밝은 오렌지 — 진한 단색 실루엣(휘도는 미세 변조만)
+          vec3 heat = texture2D(uLUT, vec2(clamp(0.45 + vUv.y * 0.45, 0.004, 0.996), 0.5)).rgb;
+          vec3 col = heat * (0.82 + lum * 0.28);
           // 하단 페더 — 크롭 경계가 은은하게 사라지게
           a *= smoothstep(0.0, 0.22, vUv.y);
-          gl_FragColor = vec4(col, a * 0.95);
+          gl_FragColor = vec4(col, a * 0.98);
         }`,
     });
     // 상반신 크롭(0.58 창) 종횡비 ≈ 1:1 — 1인칭 안정영역에 여유 있게 (머리 잘림 방지)
