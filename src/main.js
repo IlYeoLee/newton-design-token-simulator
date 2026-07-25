@@ -2025,34 +2025,22 @@ void main(){
       fragmentShader: `
         varying vec2 vUv; uniform sampler2D map; uniform sampler2D uLUT; uniform float uTime;
         vec3 lut(float v){ return texture2D(uLUT, vec2(clamp(v, 0.004, 0.996), 0.5)).rgb; }
-        float phash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
-        float pvn(vec2 p){
-          vec2 i = floor(p), f = fract(p); f = f*f*f*(f*(f*6.0-15.0)+10.0);
-          return mix(mix(phash(i), phash(i+vec2(1,0)), f.x), mix(phash(i+vec2(0,1)), phash(i+vec2(1,1)), f.x), f.y);
+        float mask1(vec2 uv){
+          vec3 c = texture2D(map, vec2(uv.x, 0.40 + uv.y * 0.58)).rgb;
+          float k = c.g - max(c.r, c.b);
+          return 1.0 - smoothstep(0.04, 0.14, k);
         }
-        float pfbm(vec2 p){ return pvn(p)*0.55 + pvn(p*2.13+7.7)*0.28 + pvn(p*4.31+3.1)*0.17; }
         void main(){
           vec2 uv = vUv;
-          vec2 suv = vec2(uv.x, 0.40 + uv.y * 0.58);   // 상반신 크롭 창
-          vec3 c = texture2D(map, suv).rgb;
-          float k = c.g - max(c.r, c.b);
-          float m = 1.0 - smoothstep(0.04, 0.14, k);   // 크로마키 마스크
-          // ── 복싱 실사 열화상 편집 원칙 그대로 (main.js 데모 파이프라인과 동일 수식) ──
-          float dlum = dot(c.rgb, vec3(0.299, 0.587, 0.114));
-          dlum = smoothstep(0.36, 0.60, dlum);                       // 급경사 S-커브: 명도 대비 극대화(거의 이진)
-          float faceW = smoothstep(0.72, 0.86, uv.y) * (1.0 - smoothstep(0.965, 1.0, uv.y));   // 이목구비 은닉
-          float mIn = smoothstep(0.55, 0.95, m);                     // 내부 침식 — 엣지 그린 오염 차단
-          float flow = pfbm(vec2(uv.x * 3.2 + sin(uTime * 0.4) * 0.3, uv.y * 2.4 - uTime * 0.5));
-          float vert = pow(1.0 - uv.y, 1.35) * 0.92 + 0.06;          // 세로 히트(위 딥레드)
-          float T = clamp(vert * 0.72 + (dlum - 0.42) * 1.5 * mIn * (1.0 - faceW) + (flow - 0.5) * 0.28, 0.0, 1.0);
-          T = pow(T, 1.38);                                          // 밀도 대비 — 어두운 부위 깊게
-          float mEro = smoothstep(0.30, 0.68, m);                    // 마스크 침식 — 헤일로·워시 박스 금지
-          float shape = mEro * 0.92;
-          vec3 col = lut(clamp(T * 0.96, 0.0, 1.0)) * shape;
-          float cl = dot(col, vec3(0.299, 0.587, 0.114));
-          col = clamp(mix(vec3(cl), col, 1.32), 0.0, 1.0);           // 채도 부스트 — 룩시스템 '쟁한' 고채도
-          float alpha = shape * smoothstep(0.0, 0.22, uv.y);         // 하단 페더
-          if (alpha < 0.02) discard;
+          float m = mask1(uv);
+          float mEro = smoothstep(0.30, 0.68, m);   // 마스크 침식 — 엣지 그린 오염·헤일로 금지
+          if (mEro < 0.02) discard;
+          vec3 c = texture2D(map, vec2(uv.x, 0.40 + uv.y * 0.58)).rgb;
+          float lum = dot(c, vec3(0.299, 0.587, 0.114));
+          // 복싱 레퍼런스 톤: 위 딥레드(t 0.10) → 아래 코랄·오렌지(t 0.52), 부드러운 고채도 단색.
+          // 노이즈·명도 S커브 없음(지지직·백화 원인) — 휘도는 ±16% 미세 변조만.
+          vec3 col = lut(clamp(0.10 + (1.0 - uv.y) * 0.42, 0.0, 1.0)) * (0.92 + lum * 0.16);
+          float alpha = mEro * 0.95 * smoothstep(0.0, 0.22, uv.y);   // 하단 페더
           gl_FragColor = vec4(col, alpha);
         }`,
     });
