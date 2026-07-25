@@ -68,7 +68,8 @@ html,body{background:transparent}
       else { s.className = 'ch'; s.textContent = c; s.style.animationDelay = (0.1 + vis * 0.045) + 's'; vis++; }
       t.appendChild(s); });
   })();
-  $('s-cue').textContent = S.cue || '';
+  // 보조설명(cue) 은퇴(유저: 실제 운동 영상엔 없음) — 타이틀+도트만
+  $('s-cue').style.display = 'none';
 
 
   // 도트 로딩바 — 회색 10개 위 빨강 10개를 클립으로 드러냄. 클립 폭이 --dur 동안 0→100%.

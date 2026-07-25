@@ -2146,10 +2146,10 @@ void main(){
         if (floorObj.visible) {
           co.plane.quaternion.copy(floorObj.quaternion);
           co._fwd.set(0, 1, 0).applyQuaternion(floorObj.quaternion);
-          // 팔로우(A2/A3) = 시범자 작게·더 멀리(타이틀 쪽) + 발자국은 가까이 — '모델 위·토큰 아래' 레이아웃(유저)
-          const fw = id !== 'A1' && _follow;
-          const s = fw ? 0.62 : 1, fwdOff = co.fwd + (fw ? 0.55 : 0);
-          co.plane.scale.setScalar(s);
+          // A2/A3 = 큰 코치 화면(타이틀 쪽) + 아래 발자국 토큰 — 단일 레이아웃(유저: 관찰 단계 폐기)
+          const fw = id !== 'A1';
+          const fwdOff = co.fwd + (fw ? 0.45 : 0);
+          co.plane.scale.setScalar(1);
           co.plane.position.set(floorObj.position.x + co._fwd.x * fwdOff, 0.015, floorObj.position.z + co._fwd.z * fwdOff);
         }
       } else if (c) { c.plane.visible = false; if (!c.video.paused) c.video.pause(); }
@@ -3812,39 +3812,28 @@ void main(){
       if (session.stage !== 'A2' && xbot.group.scale.x !== 1) xbot.group.scale.x = 1;   // A2 미러 잔류 방지
       let _clip = demoClipFor(session.sport, session.stage);
       // A2/A3 = 2단계 흐름(유저): [0~5s 관찰] 봇은 가만히 서서(idle) 전문가 영상 보기 → [5s~ 따라하기].
-      // 관찰 단계는 최소 5s + 진입 음성이 끝날 때까지(유저: "먼저 볼게요~" 말 끝나기 전에 넘어가면 안 됨).
-      // 래치: 팔로우 시작 후엔 '이제 같이' 큐 음성이 재생돼도 관찰로 되돌아가지 않음(바운스 방지).
-      const A2_WATCH = 5.0, _voiceHold = !!(session.voiceBusy && session.voiceBusy());
-      const _inWatchWin = /^(A2|A3)$/.test(session.stage || '') && !session._followLatch;
-      const aWatching = _inWatchWin && (session.t < A2_WATCH || _voiceHold);
-      if (_inWatchWin && !aWatching) session._followLatch = true;   // 관찰 종료 → 래치
-      const a2Watching = aWatching && session.stage === 'A2';
-      if (aWatching) { session._aWatchEnd = session.t; _clip = 'idle'; xbot.group.scale.x = 1; xbot.lungeDeepen = 0; xbot.headPitch = THREE.MathUtils.degToRad(-32); }   // 앞의 영상 응시
+      // 관찰 단계 폐기(유저): 큰 코치 화면 + 발자국 동시 레이아웃 — 처음부터 보면서 따라하기.
+      session._followLatch = true;   // 코치 레이아웃·세션 로직 = 항상 팔로우
       // 위상잠금: 씬 링·카운트와 코치 동작을 같은 시간축에 — 절차 드릴 + A1 전신풀기·A2 점핑잭(주기=씬 BT).
       // BK_B2 = 분해 밟기: 씬 3s 사이클당 크로스오버 1회(마크 1-2-3과 사이클 동기).
       // BK_B3 = 컷·감속: 로우 드리블 클립의 컷 구간(16~21s) 창 반복. 그 외 실측 모캡은 자연 속도(왜곡 방지).
       let _phase = null;
       if (_clip === 'stomp_press') _phase = session.t;
       else if (session.stage === 'A1') _phase = session.t;   // A1 neckShoulder 목부터 시작 (잔여 _demoT 위상 오류 방지)
-      else if (session.stage === 'A3') _phase = Math.max(0, session.t - (session._aWatchEnd ?? A2_WATCH));   // A3 = 관찰(음성 끝) 이후 하이니 시작
+      else if (session.stage === 'A3') _phase = session.t;   // 관찰 폐기 — 처음부터 하이니
       else if (session.sport === 'running' && (/^run_|^hj_/.test(_clip) || _clip === 'cmu_stretch' || _clip === 'jumpingJacks')) _phase = session.t;
       else if (session.stage === 'A2') {
-        if (a2Watching) {
-          // 관찰 단계: 봇 idle(위 _clip='idle'), 사이클 미가동. session에 관찰 진행도 전달(프로그래스바).
-          session.a2Cyc = { watching: true, watchProg: Math.max(0, Math.min(1, session.t / A2_WATCH)) };
-        } else {
-          // 따라하기 단계: 실측 사이클(cmu144_11). 시간축은 관찰(음성 끝) 이후부터(tt) — 첫 홀드가 깔끔히 시작.
-          const tt = session.t - (session._aWatchEnd ?? A2_WATCH);
-          const T0 = 5.4, TD = 6.5, T1 = 8.1, HOLD = 5.0;
-          const DESC = TD - T0, RISE = T1 - TD, CYC = DESC + HOLD + RISE;
-          const c = tt % CYC;
-          _phase = c < DESC ? T0 + c : (c < DESC + HOLD ? TD + Math.sin(tt * 1.6) * 0.07 : TD + (c - DESC - HOLD));
-          xbot.group.scale.x = (Math.floor(tt / CYC) % 2) ? -1 : 1;
-          const _hs = Math.max(0, Math.min(1, (c - DESC) / 0.6)), _he = Math.max(0, Math.min(1, (DESC + HOLD - c) / 0.6));
-          xbot.lungeDeepen = 0.35 * Math.min(_hs, _he);
-          session.a2Cyc = { inHold: c >= DESC && c < DESC + HOLD, prog: Math.max(0, Math.min(1, (c - DESC) / HOLD)),
-            holdSec: HOLD, isLeft: (Math.floor(tt / CYC) % 2) === 0, descending: c < DESC };
-        }
+        // 실측 사이클(cmu144_11) — 관찰 폐기, 처음부터 큰 화면+발자국 동시(유저).
+        const tt = session.t;
+        const T0 = 5.4, TD = 6.5, T1 = 8.1, HOLD = 5.0;
+        const DESC = TD - T0, RISE = T1 - TD, CYC = DESC + HOLD + RISE;
+        const c = tt % CYC;
+        _phase = c < DESC ? T0 + c : (c < DESC + HOLD ? TD + Math.sin(tt * 1.6) * 0.07 : TD + (c - DESC - HOLD));
+        xbot.group.scale.x = (Math.floor(tt / CYC) % 2) ? -1 : 1;
+        const _hs = Math.max(0, Math.min(1, (c - DESC) / 0.6)), _he = Math.max(0, Math.min(1, (DESC + HOLD - c) / 0.6));
+        xbot.lungeDeepen = 0.35 * Math.min(_hs, _he);
+        session.a2Cyc = { inHold: c >= DESC && c < DESC + HOLD, prog: Math.max(0, Math.min(1, (c - DESC) / HOLD)),
+          holdSec: HOLD, isLeft: (Math.floor(tt / CYC) % 2) === 0, descending: c < DESC };
       }
       else if (session.stage === 'BK_B1') _phase = session.t;
       else if (session.stage === 'BK_B2') _phase = Math.min((session.t * 0.5) % 3.2, 2.2);   // 플랜트까지 + 홀드(슛 제거)
@@ -4477,15 +4466,7 @@ void main(){
       // 달라 글자가 세로로 늘고 가로로 짜부됐음(유저 지적). 깊이는 대지 비율 그대로 → 세로도 짧아짐.
       const laneW = 2 * rig._halfAt(dMid), sUni = laneW / fView.w;
       floorObj.scale.set(sUni, sUni, 1);
-      // 시범/카운트다운 큐 — 플로어 프레임(동일 출처 iframe) cue를 단계별 갱신: 시범임과 곧 전환됨을 명시(유저)
       try {
-        const cueEl = floorIframe.contentDocument?.getElementById('s-cue');
-        if (cueEl && /^(A2|A3)$/.test(session.stage || '')) {
-          if (cueEl._orig == null) cueEl._orig = cueEl.textContent;
-          const cd = session._followT0 != null ? (session.t - session._followT0) : -1;
-          cueEl.textContent = !session._followLatch ? 'DEMO — 먼저 보세요, 끝나면 3·2·1'
-            : (cd >= 0 && cd < 3 ? `시작까지 ${Math.max(1, Math.ceil(3 - cd))}` : cueEl._orig);
-        }
         // 라이브(B 페이스·C 실전) = 최소 UI(유저): 진입 2.5s 후 타이틀·큐·도트 페이드 — 판정 큐만 남김.
         const doc = floorIframe.contentDocument;
         if (doc) {

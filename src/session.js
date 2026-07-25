@@ -397,8 +397,8 @@ export const STAGES = {
   running: [
     { id:'READY', label:'준비 — 발 두 번 구르면 시작', voice:['션','안녕! 션이에요. 오늘 가볍게 1킬로 뛰어볼까요? 발 두 번 구르면 시작!'], wear:'SAFE 대기', foot:'발 두 번 구르기 → 시작' },
     { id:'A1', label:'A · 준비운동 1/3 — 목·어깨 풀기', voice:['션','먼저 몸부터 깨울게요. 편하게 서서 목과 어깨를 크게, 천천히 돌려요. 링이 다 찰 때까지!'], wear:'개입 없음 (자세 측정)' },
-    { id:'A2', label:'A · 준비운동 2/3 — 런지(앞의 원 딛고 버티기)', voice:['션','좋아요, 잘하고 있어요! 이번엔 런지예요. 먼저 제가 어떻게 하는지 볼게요~'], foot:'앞으로 딛고 버티기 · 발 교대' },
-    { id:'A3', label:'A · 준비운동 3/3 — 하이니(제자리 무릎 올리기)', voice:['션','마지막이에요! 하이니 갈게요. 먼저 제가 어떻게 하는지 볼게요~'], foot:'완료 후 두 번 구르기 → 다음' },
+    { id:'A2', label:'A · 준비운동 2/3 — 런지(앞의 원 딛고 버티기)', voice:['션','좋아요! 이번엔 런지예요. 화면 보면서 같이 해봐요!'], foot:'앞으로 딛고 버티기 · 발 교대' },
+    { id:'A3', label:'A · 준비운동 3/3 — 하이니(제자리 무릎 올리기)', voice:['션','마지막! 하이니예요. 저 따라 무릎 높이 올려요!'], foot:'완료 후 두 번 구르기 → 다음' },
     { id:'T1', label:'몸풀기 끝 — 다음은 페이스 잡기', voice:['션','몸이 다 풀렸네요, 최고예요! 발 두 번 구르면 이제 페이스 잡으러 가요.'], foot:'발 두 번 구르기 → 페이스 잡기' },
     { id:'P1', dur:6, live:true, label:'페이스 잡기 — 페이서 붙어 가볍게 뛰기', voice:['션','자, 바로 가볍게 뛰기 시작할게요. 앞의 광점이 저예요 — 제 페이스에 한번 붙어 보세요!'], wear:'낮은 강도 보조 시작' },
     { id:'P2', dur:6, live:true, label:'페이스 잠금 → 실전 진입', voice:['션','오, 그 리듬 좋은데요! 몇 걸음만 더 맞추면 바로 실전이에요.'], wear:'SAFE 착지 안정화' },
@@ -1469,32 +1469,9 @@ export class Session {
       const act = isL ? P.fmL : P.fmR, oth = isL ? P.fmR : P.fmL;
       const actNum = isL ? P.numL : P.numR, othNum = isL ? P.numR : P.numL;
       const othDone = isL ? P._doneR : P._doneL;
-      // ── 2단계 흐름: [관찰] 전문가 영상 보며 프로그래스바 채움 → [따라하기] 실제 런지 ──
-      // cyc 미설정(main 렌더루프가 아직 a2Cyc 안 넣은 첫 프레임) = 아직 관찰 — 카운트다운 조기시작 방지.
-      const watching = !cyc || !!cyc.watching;
-      if (watching) {
-        // 관찰 단계: 발자국 마크·홀드 전부 숨김, '먼저 볼게요' 프로그래스바만 채움.
-        P.fmL.group.visible = false; P.fmR.group.visible = false; P.numL.visible = false; P.numR.visible = false;
-        FMU(`먼저 볼게요 — ${Math.round((cyc?.watchProg || 0) * 100)}%`, CS.prism);   // 도트바 = 관찰 진행도
-        P.cd.visible = false;
-        this.demoActive = true;
-        return;   // 따라하기 로직(아래) 건너뜀
-      }
-      // 관찰 종료 직후 1회: '이제 같이' 큐 (watching=false로 넘어온 첫 프레임)
-      this._say('a2follow', '션', '자, 이제 같이 따라해봐요! 앞으로 크게 딛고 무릎 굽혀 버텨요.');
-      // 3-2-1 카운트다운(3s) — 시범↔따라하기 큰 글리프로 구분(A3와 동일)
-      if (this._followT0 == null) this._followT0 = this.t;
-      const a2cdEl = this.t - this._followT0;
-      if (a2cdEl < 3.0) {
-        P.fmL.group.visible = false; P.fmR.group.visible = false; P.numL.visible = false; P.numR.visible = false;
-        P.cd.visible = true;
-        const cn = Math.max(1, Math.ceil(3.0 - a2cdEl));
-        if (cn !== this._a2cdShown) { redrawFootNum(P.cd.userData.plane, cn); this._a2cdShown = cn; }
-        P.cd.scale.setScalar(1.7 + 0.5 * (1 - (a2cdEl % 1)));
-        FMU('시범 끝 — 곧 시작!', CS.prism);
-        return;
-      }
+      // 관찰·카운트다운 폐기(유저): 큰 코치 화면 + 발자국 동시 — 처음부터 보면서 따라하기.
       P.cd.visible = false;
+      if (!cyc) return;   // main 렌더루프가 a2Cyc 넣기 전 첫 프레임
       P.fill = inHold ? cyc.prog : 0;   // 0→1 정확히 5초(봇 최심 정지 구간)
       placeMarkNum(P.numL); placeMarkNum(P.numR);
       P._pop = Math.max(0, (P._pop || 0) - dt * 3.8);
@@ -1542,30 +1519,7 @@ export class Session {
       const pb = this.xbot?.getProbes?.();
 
       const guide = [H.fmL.group, H.fmR.group, H.ring, H.timerArc, H.numCtr];
-      // 관찰 = 최소 5s + 진입 음성이 끝날 때까지(유저: 말 끝나기 전에 넘어가면 안 됨). 래치로 큐 음성 바운스 방지.
-      if (!this._followLatch && (this.t < WATCH || this.voiceBusy?.())) {
-        // 관찰: 영상만, 지면 가이드 숨김, 프로그레스바
-        for (const o of guide) o.visible = false;
-        this.demoActive = true;
-        FMU(`먼저 볼게요 — ${Math.round(Math.min(1, this.t / WATCH) * 100)}%`, CS.prism);
-        return;
-      }
-      this._followLatch = true;   // 팔로우 진입 래치(관찰 복귀 금지)
-      // 관찰 종료 직후 1회: '이제 같이' 큐
-      this._say('a3follow', '션', '자, 이제 같이! 무릎을 배 높이까지, 좌우 번갈아 빠르게 올려요.');
-      // 3-2-1 카운트다운(3s) — 시범↔따라하기를 큰 글리프로 명확히 구분(유저: 프로그래스바 대신)
-      if (this._followT0 == null) this._followT0 = this.t;
-      const CD = 3.0, cdEl = this.t - this._followT0;
-      if (cdEl < CD) {
-        for (const o of guide) o.visible = false;
-        H.numCtr.visible = true;
-        const n = Math.max(1, Math.ceil(CD - cdEl));
-        if (n !== H._cdShown) { redrawFootNum(H.numCtr.userData.plane, n); H._cdShown = n; }
-        H.numCtr.scale.setScalar(1.7 + 0.5 * (1 - (cdEl % 1)));   // 초마다 크게 팝
-        FMU('시범 끝 — 곧 시작!', CS.prism);
-        return;
-      }
-      H.numCtr.scale.setScalar(1);   // 카운트다운 종료 → 원래 크기(횟수 표시)
+      // 관찰·카운트다운 폐기(유저): 큰 코치 화면 + 발자국 동시 — 처음부터 보면서 따라하기.
       // 따라하기 — 앞 발형이 좌우 번갈아 켜져 템포 시범 + 중앙 숫자가 누적 횟수 카운트업 + 링이 10회 진행.
       for (const o of guide) o.visible = true;
       H.sec = Math.min(MAXSEC, H.sec + dt);
