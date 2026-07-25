@@ -80,13 +80,7 @@ html,body{background:transparent}
   })();
   // 보조설명(cue) 은퇴(유저: 실제 운동 영상엔 없음) — 타이틀+도트만
   $('s-cue').style.display = 'none';
-  // A2/A3 = 슬롯 레이아웃(코치 카드 + 운동 존 카드) — 전환화면과 같은 디자인 언어
-  if (/^(A2|A3)$/.test(stage)) {
-    const mk = (id, label) => { const d = document.createElement('div'); d.className = 'slot'; d.id = id;
-      d.innerHTML = `<div class="pill">${label}</div>`; document.getElementById('board').appendChild(d); };
-    mk('slot-coach', 'FOLLOW ALONG');
-    mk('slot-zone', S.cue || 'STEP ZONE');
-  }
+  // 슬롯 카드 레이아웃 은퇴(유저: 시범→따라하기 순차 문법 확정 — 투사면적 최소·초점 하나)
 
 
   // 도트 로딩바 — 회색 10개 위 빨강 10개를 클립으로 드러냄. 클립 폭이 --dur 동안 0→100%.

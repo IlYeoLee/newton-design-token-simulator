@@ -2112,10 +2112,9 @@ void main(){
     // 어떤 스테이지 코치를 켤지: A1 = 전 구간, A2 = 진입 후 ~3s 데모(런지 따라하기 전 시범)
     const st = session.active && !session.isLive && state.pack === 'running' ? session.stage : null;
     const showA1 = st === 'A1';
-    // 관찰 후 팔로우에도 코치 유지(유저: 모델 보며 따라하고 싶음) — 팔로우 = 작게·멀리(발자국 위 레이아웃).
-    const showA2 = st === 'A2';
-    const showA3 = st === 'A3';
-    const _follow = !!session._followLatch;
+    // 시범 문법: A2/A3 코치 영상은 시범(관찰) 동안만 — 따라하기 = 토큰 전용(작은 투사·초점 하나).
+    const showA2 = st === 'A2' && !session._followLatch;
+    const showA3 = st === 'A3' && !session._followLatch;
     const activeId = showA1 ? 'A1' : (showA2 ? 'A2' : (showA3 ? 'A3' : null));
     for (const id of ['A1', 'A2', 'A3']) {
       const c = _coaches[id];
@@ -2146,15 +2145,9 @@ void main(){
         if (floorObj.visible) {
           co.plane.quaternion.copy(floorObj.quaternion);
           co._fwd.set(0, 1, 0).applyQuaternion(floorObj.quaternion);
-          // A2/A3 = CSS 슬롯 카드에 정합(전환화면과 같은 디자인 언어) — 코치가 slot-coach 안에 앉음
-          const FS = id !== 'A1' && session.frameSlots;
-          if (FS) {
-            co.plane.scale.setScalar(FS.coachH / 0.9);   // 슬롯 높이에 맞춤(plane 기본 0.9m)
-            co.plane.position.set(FS.coachX, 0.015, FS.coachZ);
-          } else {
-            co.plane.scale.setScalar(1);
-            co.plane.position.set(floorObj.position.x + co._fwd.x * co.fwd, 0.015, floorObj.position.z + co._fwd.z * co.fwd);
-          }
+          // 시범 = 코치 영상 중앙 크게(초점 하나) — 원래 관찰 배치
+          co.plane.scale.setScalar(1);
+          co.plane.position.set(floorObj.position.x + co._fwd.x * co.fwd, 0.015, floorObj.position.z + co._fwd.z * co.fwd);
         }
       } else if (c) { c.plane.visible = false; if (!c.video.paused) c.video.pause(); }
     }
@@ -3816,19 +3809,26 @@ void main(){
       if (session.stage !== 'A2' && xbot.group.scale.x !== 1) xbot.group.scale.x = 1;   // A2 미러 잔류 방지
       let _clip = demoClipFor(session.sport, session.stage);
       // A2/A3 = 2단계 흐름(유저): [0~5s 관찰] 봇은 가만히 서서(idle) 전문가 영상 보기 → [5s~ 따라하기].
-      // 관찰 단계 폐기(유저): 큰 코치 화면 + 발자국 동시 레이아웃 — 처음부터 보면서 따라하기.
-      session._followLatch = true;   // 코치 레이아웃·세션 로직 = 항상 팔로우
+      // 뉴턴 전환 문법(유저 확정): 시범(영상만·도트바) → 마크 Preview 워밍 등장+음성 → 따라하기.
+      //   3·2·1은 실전 트리거(C1) 전용 — 학습 내 전환엔 안 씀(복싱 문법과 통일).
+      const A2_WATCH = 5.0, _vh = !!(session.voiceBusy && session.voiceBusy());
+      const _watchWin = /^(A2|A3)$/.test(session.stage || '') && !session._followLatch;
+      const aWatching = _watchWin && (session.t < A2_WATCH || _vh);
+      if (_watchWin && !aWatching) { session._followLatch = true; session._aWatchEnd = session.t; }
+      if (aWatching) { _clip = 'idle'; xbot.group.scale.x = 1; xbot.lungeDeepen = 0; xbot.headPitch = THREE.MathUtils.degToRad(-32); }
       // 위상잠금: 씬 링·카운트와 코치 동작을 같은 시간축에 — 절차 드릴 + A1 전신풀기·A2 점핑잭(주기=씬 BT).
       // BK_B2 = 분해 밟기: 씬 3s 사이클당 크로스오버 1회(마크 1-2-3과 사이클 동기).
       // BK_B3 = 컷·감속: 로우 드리블 클립의 컷 구간(16~21s) 창 반복. 그 외 실측 모캡은 자연 속도(왜곡 방지).
       let _phase = null;
       if (_clip === 'stomp_press') _phase = session.t;
       else if (session.stage === 'A1') _phase = session.t;   // A1 neckShoulder 목부터 시작 (잔여 _demoT 위상 오류 방지)
-      else if (session.stage === 'A3') _phase = session.t;   // 관찰 폐기 — 처음부터 하이니
+      else if (session.stage === 'A3') _phase = Math.max(0, session.t - (session._aWatchEnd ?? A2_WATCH));   // 시범 후 하이니
       else if (session.sport === 'running' && (/^run_|^hj_/.test(_clip) || _clip === 'cmu_stretch' || _clip === 'jumpingJacks')) _phase = session.t;
       else if (session.stage === 'A2') {
-        // 실측 사이클(cmu144_11) — 관찰 폐기, 처음부터 큰 화면+발자국 동시(유저).
-        const tt = session.t;
+        if (aWatching) { session.a2Cyc = { watching: true, watchProg: Math.max(0, Math.min(1, session.t / A2_WATCH)) }; }
+        else {
+        // 실측 사이클(cmu144_11) — 시범 종료 후부터(tt): 첫 홀드가 깔끔히 시작.
+        const tt = session.t - (session._aWatchEnd ?? A2_WATCH);
         const T0 = 5.4, TD = 6.5, T1 = 8.1, HOLD = 5.0;
         const DESC = TD - T0, RISE = T1 - TD, CYC = DESC + HOLD + RISE;
         const c = tt % CYC;
@@ -3838,6 +3838,7 @@ void main(){
         xbot.lungeDeepen = 0.35 * Math.min(_hs, _he);
         session.a2Cyc = { inHold: c >= DESC && c < DESC + HOLD, prog: Math.max(0, Math.min(1, (c - DESC) / HOLD)),
           holdSec: HOLD, isLeft: (Math.floor(tt / CYC) % 2) === 0, descending: c < DESC };
+        }
       }
       else if (session.stage === 'BK_B1') _phase = session.t;
       else if (session.stage === 'BK_B2') _phase = Math.min((session.t * 0.5) % 3.2, 2.2);   // 플랜트까지 + 홀드(슛 제거)
@@ -4473,14 +4474,7 @@ void main(){
       // 달라 글자가 세로로 늘고 가로로 짜부됐음(유저 지적). 깊이는 대지 비율 그대로 → 세로도 짧아짐.
       const laneW = 2 * rig._halfAt(dMid), sUni = laneW / fView.w;
       floorObj.scale.set(sUni, sUni, 1);
-      // A2/A3 슬롯 정합 — 프레임(1600×2670) 픽셀 좌표를 월드로 변환해 코치·발자국이 CSS 슬롯 안에 앉게.
-      //   slot-coach 중심 y=1090px(중심 1335 대비 +245 far) · slot-zone 중심 y=2080px(-745 near)
-      if (/^(A2|A3)$/.test(session.stage || '')) {
-        session.frameSlots = {
-          coachX: cx + _fV.x * (245 * sUni), coachZ: cz + _fV.z * (245 * sUni), coachH: 980 * sUni,
-          zoneX: cx - _fV.x * (745 * sUni), zoneZ: cz - _fV.z * (745 * sUni),
-        };
-      } else session.frameSlots = null;
+      session.frameSlots = null;   // 슬롯 카드 레이아웃 은퇴(유저: 시범→따라하기 순차 문법으로 확정)
       try {
         // 라이브(B 페이스·C 실전) = 최소 UI(유저): 진입 2.5s 후 타이틀·큐·도트 페이드 — 판정 큐만 남김.
         const doc = floorIframe.contentDocument;

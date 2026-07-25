@@ -397,8 +397,8 @@ export const STAGES = {
   running: [
     { id:'READY', label:'준비 — 발 두 번 구르면 시작', voice:['션','안녕! 션이에요. 오늘 가볍게 1킬로 뛰어볼까요? 발 두 번 구르면 시작!'], wear:'SAFE 대기', foot:'발 두 번 구르기 → 시작' },
     { id:'A1', label:'A · 준비운동 1/3 — 목·어깨 풀기', voice:['션','먼저 몸부터 깨울게요. 편하게 서서 목과 어깨를 크게, 천천히 돌려요. 링이 다 찰 때까지!'], wear:'개입 없음 (자세 측정)' },
-    { id:'A2', label:'A · 준비운동 2/3 — 런지(앞의 원 딛고 버티기)', voice:['션','좋아요! 이번엔 런지예요. 화면 보면서 같이 해봐요!'], foot:'앞으로 딛고 버티기 · 발 교대' },
-    { id:'A3', label:'A · 준비운동 3/3 — 하이니(제자리 무릎 올리기)', voice:['션','마지막! 하이니예요. 저 따라 무릎 높이 올려요!'], foot:'완료 후 두 번 구르기 → 다음' },
+    { id:'A2', label:'A · 준비운동 2/3 — 런지(앞의 원 딛고 버티기)', voice:['션','좋아요! 이번엔 런지예요. 먼저 보여드릴게요.'], foot:'앞으로 딛고 버티기 · 발 교대' },
+    { id:'A3', label:'A · 준비운동 3/3 — 하이니(제자리 무릎 올리기)', voice:['션','마지막! 하이니예요. 먼저 보여드릴게요.'], foot:'완료 후 두 번 구르기 → 다음' },
     { id:'T1', label:'몸풀기 끝 — 다음은 페이스 잡기', voice:['션','몸이 다 풀렸네요, 최고예요! 발 두 번 구르면 이제 페이스 잡으러 가요.'], foot:'발 두 번 구르기 → 페이스 잡기' },
     { id:'P1', dur:6, live:true, label:'페이스 잡기 — 페이서 붙어 가볍게 뛰기', voice:['션','자, 바로 가볍게 뛰기 시작할게요. 앞의 광점이 저예요 — 제 페이스에 한번 붙어 보세요!'], wear:'낮은 강도 보조 시작' },
     { id:'P2', dur:6, live:true, label:'페이스 잠금 → 실전 진입', voice:['션','오, 그 리듬 좋은데요! 몇 걸음만 더 맞추면 바로 실전이에요.'], wear:'SAFE 착지 안정화' },
@@ -1070,6 +1070,8 @@ export class Session {
       투사면(fpFar) 안에만 상주 — 밖 그래픽 금지 원칙. err(페이스 오차)로 전체 온도(밝기) 조절. */
   _paceFeetTick(err = 0) {
     const feet = this.paceFeet; if (!feet.length) return;
+    // P(페이스) = 원형 판정 토큰+이펙트만(유저) — 션 발자국 고스트는 C 실전 전용
+    if (!/^C/.test(this.stage)) { feet.forEach(fm => fm.group.visible = false); return; }
     const stride = Math.max(0.55, this.tokens?._strideM || 0.98);   // 션 보폭(1스텝, m)
     const beat = Math.max(0.2, this.tokens?._beatT || 0.39);        // 션 스텝 간격(s) = 케이던스
     const speed = stride / beat;                                    // 션 속도(m/s)
@@ -1392,8 +1394,8 @@ export class Session {
     // 실전 러닝(C)만 바닥 step 마크 숨김 — 달리며 밟을 과녁 제거(페이서·리듬만).
     // 페이스 익히기(P1/P2)는 1·2·3 밟기 마크 유지 = 연습 큐. "연습엔 큐, 실전엔 페이딩".
     // 농구 라이브는 제자리 스텝 드릴이라 스폿 유지 → 러닝 C에만 스코프.
-    // P(페이스)도 원형 마크 숨김(유저: 발자국만 밟는 경험) — 션 발자국(paceFeet)이 밟기 큐 전담.
-    this.tokens.liveHideFloorMarks = (this.sport === 'running' && !!st.live && (id[0] === 'C' || id[0] === 'P'));
+    // P(페이스) = 원형 판정 토큰+이펙트만(유저 확정). C 실전만 마크 숨김(페이서·리듬 전용).
+    this.tokens.liveHideFloorMarks = (this.sport === 'running' && !!st.live && id[0] === 'C');
     if (this.sport === 'boxing') this._updateBoxing(id, st, beat, FMU);
     else if (this.sport === 'basketball') this._updateBasketball(id, st, beat, FMU);
     else this._updateRunning(id, st, beat, FMU);
@@ -1446,9 +1448,9 @@ export class Session {
       //   Preview(둘 다) → 딛는 발 Active(뻗을때) → 밟는 순간 Hold+숫자 5→1(이펙트 점점 커짐)
       //   → 끝나면 Success → 반대발 되면 상태 바뀜, 대기발은 Locked.
       // 판정 = 봇 다리 상태(발 접지+런지 깊이)로만 구동 — 고정 마크와의 거리 게이트 없음.
-      if ((this._a2t ?? 0) > this.t) { P._doneL = false; P._doneR = false; P.sec = 0; P._press = false; P._cnt = 5; P._repLatch = false; }   // 재진입 리셋(왼발부터)
+      if ((this._a2t ?? 0) > this.t) { P._doneL = false; P._doneR = false; P.sec = 0; P._press = false; P._cnt = 5; P._repLatch = false; this.a2count = 0; }   // 재진입 리셋(a2count 미리셋=조기 전환 버그였음)
       // ── 발자국이 x봇 실제 발을 따라 런지처럼 이동 (고정 배치는 별로 — 유저 확정, 추적 복원) ──
-      const CZ = this.frameSlots?.zoneZ ?? -1.15, SC = 0.42;   // 존 = CSS slot-zone 카드에 정합
+      const CZ = -1.15, SC = 0.42;
       if (pb) {
         const fL = pb.footL, fR = pb.footR;
         const lft = fL.x <= fR.x ? fL : fR, rgt = fL.x <= fR.x ? fR : fL;
@@ -1470,9 +1472,15 @@ export class Session {
       const act = isL ? P.fmL : P.fmR, oth = isL ? P.fmR : P.fmL;
       const actNum = isL ? P.numL : P.numR, othNum = isL ? P.numR : P.numL;
       const othDone = isL ? P._doneR : P._doneL;
-      // 관찰·카운트다운 폐기(유저): 큰 코치 화면 + 발자국 동시 — 처음부터 보면서 따라하기.
+      // 뉴턴 전환 문법: [시범 = 영상만·도트바] → [마크 Preview 워밍 등장 + '이제 같이' 음성] → [따라하기]
       P.cd.visible = false;
-      if (!cyc) return;   // main 렌더루프가 a2Cyc 넣기 전 첫 프레임
+      if (!cyc || cyc.watching) {
+        P.fmL.group.visible = false; P.fmR.group.visible = false; P.numL.visible = false; P.numR.visible = false;
+        FMU(`먼저 보세요 — ${Math.round((cyc?.watchProg || 0) * 100)}%`, CS.prism);
+        this.demoActive = true;
+        return;
+      }
+      this._say('a2follow', '션', '자, 이제 같이 따라해봐요! 앞으로 크게 딛고 무릎 굽혀 버텨요.');
       P.fill = inHold ? cyc.prog : 0;   // 0→1 정확히 5초(봇 최심 정지 구간)
       placeMarkNum(P.numL); placeMarkNum(P.numR);
       P._pop = Math.max(0, (P._pop || 0) - dt * 3.8);
@@ -1520,13 +1528,14 @@ export class Session {
       const pb = this.xbot?.getProbes?.();
 
       const guide = [H.fmL.group, H.fmR.group, H.ring, H.timerArc, H.numCtr];
-      // 관찰·카운트다운 폐기(유저): 큰 코치 화면 + 발자국 동시 — 처음부터 보면서 따라하기.
-      if (this.frameSlots) {   // 존 = CSS slot-zone 카드에 정합: 링·카운트(위) + 발형(아래)
-        const z = this.frameSlots.zoneZ;
-        H.ring.position.z = H.timerArc.position.z = z - 0.15;
-        H.numCtr.position.z = z - 0.15;
-        H.fmL.group.position.z = H.fmR.group.position.z = z + 0.16;
+      // 뉴턴 전환 문법: 시범(영상만) → 마크 워밍 등장 + '이제 같이' 음성 → 따라하기
+      if (!this._followLatch) {
+        for (const o of guide) o.visible = false;
+        this.demoActive = true;
+        FMU(`먼저 보세요 — ${Math.round(Math.min(1, this.t / 5) * 100)}%`, CS.prism);
+        return;
       }
+      this._say('a3follow', '션', '자, 이제 같이! 무릎을 배 높이까지, 좌우 번갈아 올려요.');
       // 따라하기 — 앞 발형이 좌우 번갈아 켜져 템포 시범 + 중앙 숫자가 누적 횟수 카운트업 + 링이 10회 진행.
       for (const o of guide) o.visible = true;
       H.sec = Math.min(MAXSEC, H.sec + dt);
