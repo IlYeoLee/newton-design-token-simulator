@@ -4306,6 +4306,10 @@ void main(){
     const fView = isFloorSport ? FLOOR_FRAMES[session.curStage?.id] : null;
     const fp = rig._fp;   // 무릎 투사 풋프린트 (rig.update가 매 프레임 세팅)
     floorObj.visible = !!fView && !!fp;
+    // 👁 커버리지 채움판(footFill, 원시 빔 추종)과 플로어 프레임(저역통과 앵커)이 같은 자리에
+    // 미세 오프셋 2겹으로 보임(유저) → 프레임 표시 중엔 채움판 숨김, 빔 라인(floorBeam)은 유지
+    if (rig.footFill) rig.footFill.visible =
+      (state.pack === 'running' || state.pack === 'basketball') && rig.visualize !== false && !floorObj.visible;
     // 시작 페이지(READY/BK_READY)=발자국까지 전부 숨김(UI 전담). A/B/C 운동중=발자국은 콘텐츠라 유지, 프레임은 헤더만 대체.
     const isStartPage = session.curStage?.id === 'READY' || session.curStage?.id === 'BK_READY';
     // 팩 판정 토큰 필드 표시 정책(단일 소스): 세션 중엔 라이브에만, 릴리즈(C4)는 슛 집중 위해 제외.

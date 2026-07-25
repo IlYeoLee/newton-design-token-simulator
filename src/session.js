@@ -1369,7 +1369,7 @@ export class Session {
         this.demoActive = true;
         FMU('먼저 보세요 — 목과 어깨를 크게 천천히', CS.sand);
       } else {
-        this._say('a1go', '션', '이제 같이 — 목부터 크게, 그다음 어깨.');
+        // 중간 재안내 음성 제거 — 진입 긴 문장 하나로 충분 (유저: '2번 나오는 거 제거')
         FMU(`목·어깨 풀기 ${Math.round((this._a1fill || 0) * 100)}%`, CS.sand);
         if ((this._a1fill || 0) >= 1) { this.next(); return; }
       }
