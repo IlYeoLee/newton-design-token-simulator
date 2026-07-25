@@ -197,7 +197,7 @@ export function makeMarkFXMaterial(footTex = null) {
       uSweepA: { value: 1 }, uNoise: { value: 0.5 }, uDay: { value: 0 }, uOut: { value: 1 },
       // 투사면(풋프린트) 소프트 페이드 — 레인과 동일. 기본 1e6 = 무효(벽 마크·미주입 시 페이드 없음).
       uFPOrigin: { value: new THREE.Vector3() }, uFPFwd: { value: new THREE.Vector3(0, 0, -1) }, uFPRight: { value: new THREE.Vector3(1, 0, 0) },
-      uFPNear: { value: -1e6 }, uFPFar: { value: 1e6 }, uFPHalfN: { value: 1e6 }, uFPHalfF: { value: 1e6 }, uFPFadeM: { value: 0.12 },
+      uFPNear: { value: -1e6 }, uFPFar: { value: 1e6 }, uFPHalfN: { value: 1e6 }, uFPHalfF: { value: 1e6 }, uFPFadeM: { value: 0.28 },
     },
     transparent: true,
     blending: THREE.AdditiveBlending,
