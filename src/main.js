@@ -2040,10 +2040,11 @@ void main(){
     const mat = new THREE.ShaderMaterial({
       transparent: true, depthWrite: false,
       uniforms: { map: { value: tex }, uLUT: { value: getLUT() }, uTime: { value: 0 },
-        uCropOff: { value: cfg.cropOff }, uCropScale: { value: cfg.cropScale } },
+        uCropOff: { value: cfg.cropOff }, uCropScale: { value: cfg.cropScale },
+        uSat: { value: 1.32 }, uPulse: { value: 0.05 } },
       vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
       fragmentShader: `
-        varying vec2 vUv; uniform sampler2D map; uniform sampler2D uLUT; uniform float uTime, uCropOff, uCropScale;
+        varying vec2 vUv; uniform sampler2D map; uniform sampler2D uLUT; uniform float uTime, uCropOff, uCropScale, uSat, uPulse;
         vec3 lut(float v){ return texture2D(uLUT, vec2(clamp(v, 0.004, 0.996), 0.5)).rgb; }
         vec2 crop(vec2 uv){ return vec2(uv.x, uCropOff + uv.y * uCropScale); }
         float mask1(vec2 uv){ vec3 c = texture2D(map, crop(uv)).rgb; float k = c.g - max(c.r, c.b); return 1.0 - smoothstep(0.04, 0.14, k); }
@@ -2063,14 +2064,19 @@ void main(){
           float flow = vn(vec2(uv.x*3.2 + sin(uTime*0.4)*0.3, uv.y*2.4 - uTime*0.5));
           H *= 1.0 + (flow - 0.5) * 0.28;
           float dlum = dot(c, vec3(0.299, 0.587, 0.114));
-          dlum = smoothstep(0.34, 0.62, dlum);
+          dlum = smoothstep(0.28, 0.72, dlum);   // 완만한 대비(구 0.34~0.62는 미드톤이 눌려 색이 턱턱 끊김)
           float mIn = smoothstep(0.55, 0.95, m);
           float faceW = smoothstep(0.80, 0.92, uv.y) * (1.0 - smoothstep(0.97, 1.0, uv.y));
-          float T = clamp(H * 0.74 + (dlum - 0.5) * 0.22 * mIn * (1.0 - faceW), 0.04, 0.90);
-          T = pow(T, 1.5);
-          vec3 col = lut(clamp(T, 0.0, 1.0)) * mEro * 1.12;
+          float baseT = clamp(H * 0.74 + (dlum - 0.5) * 0.22 * mIn * (1.0 - faceW), 0.04, 0.90);
+          baseT = pow(baseT, 1.5);
+          // LUMA PULSE — 휘도를 따라 흐르는 그라디언트 펄스(effect.app 느낌, 뉴턴 LUT 안에서만 이동)
+          float pulse = uPulse * sin(uTime * 2.0 - dlum * 7.0);
+          // 디더 — 8bit 영상 양자화가 LUT 위에서 밴딩으로 드러나는 것을 픽셀 노이즈로 분해(색 사이 이음)
+          float dth = (ch(gl_FragCoord.xy + vec2(uTime, uTime * 1.3)) - 0.5) / 255.0;
+          float T = clamp(baseT + pulse + dth, 0.0, 1.0);
+          vec3 col = lut(T) * mEro * 1.12;
           float cl = dot(col, vec3(0.299, 0.587, 0.114));
-          col = clamp(mix(vec3(cl), col, 1.32), 0.0, 1.0);
+          col = clamp(mix(vec3(cl), col, uSat), 0.0, 1.0);   // 채도 = 마크 LUT와 같은 FXP.sat 소스(인물만 따로 놀던 1.32 상수 은퇴)
           float alpha = mEro * 0.95 * smoothstep(0.0, 0.22, uv.y);
           gl_FragColor = vec4(col, alpha);
         }`,
@@ -2110,6 +2116,8 @@ void main(){
         // 빨간 방사형 사각형으로 0.x초 깜빡이던 것 방지(유저). readyState≥3(HAVE_FUTURE_DATA)+재생 시작 후.
         co.plane.visible = co.video.readyState >= 3 && co.video.currentTime > 0.03;
         co.plane.material.uniforms.uTime.value = performance.now() / 1000;
+        // 채도는 마크 LUT와 같은 소스(FXP.sat)에서 — 인물·발자국 룩 통일(슬라이더 하나가 둘 다 이동)
+        co.plane.material.uniforms.uSat.value = 1.0 + (FXP.sat ?? 1) * 0.32;
         if (co.rotCue) {   // 회전 큐 자체 루프 회전 = '돌리기' 지시 (복싱 데모 루프와 동일)
           co.rotCue.mesh.visible = co.plane.visible;
           if (co.plane.visible) {

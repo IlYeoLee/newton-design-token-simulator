@@ -248,6 +248,9 @@ vec4 markState(vec2 uv, float state, float prog, float strong, float t){
     float pgo = smoothstep(0.09, -0.09, angDist);
     vec3 arcCol = mix(C_RED, C_CORAL, clamp(a01 / max(pr, 0.001), 0.0, 1.0));
     lay(A, mix(C_RIMG, arcCol, pgo), rim * mix(0.42, 0.92, pgo));
+    // 진행 선단 = 밝은 '시계 바늘' — 12시서 시계방향으로 도는 게 명확히 읽히게(유저: 타이머처럼 싹)
+    float head = smoothstep(0.05, 0.0, abs(angDist)) * step(0.01, pr) * step(pr, 0.995);
+    lay(A, C_CREAM, rim * head * 0.95);
   } else if (state < 3.5) {     // ── Success: 진홍 블룸 → 잔상 소멸
     float e = 1.0 - pow(1.0 - prog, 2.6);
     float q = length(uv - gcBall) / (uShape < 0.5 ? ext * 1.3 : 1.75);
