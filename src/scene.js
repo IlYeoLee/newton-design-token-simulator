@@ -217,6 +217,7 @@ export function createScene(container) {
     scene.background.setHex(sky);
     scene.fog.color.setHex(sky);
   }
+  let courtLines = null;
   async function setSurfaces(key) {
     const seq = ++surfSeq;   // 연타 시 마지막 선택만 반영
     curSurfKey = (!key || key === 'none') ? null : key;
@@ -230,14 +231,35 @@ export function createScene(container) {
       wall.material.needsUpdate = true;
       grid.visible = true;
       wallGrid.visible = true;
+      if (courtLines) courtLines.visible = false;
       applyDayAmbience();
       return;
     }
-    const [fTex, wTex] = await Promise.all([getSurf(key === 'indoor' ? 'indoorwood' : key), getSurf('plaster')]);
+    const [fTex, wTex] = await Promise.all([getSurf(key === 'indoor' || key === 'court' ? 'indoorwood' : key), getSurf('plaster')]);
     if (seq !== surfSeq) return;
+    // 농구 코트(유저: 기본 배경): 마루 바닥 + 하프코트 라인 오버레이(런타임 베이크, 외부 에셋 0)
+    if (!courtLines) {
+      const c = document.createElement('canvas'); c.width = c.height = 1024;
+      const g = c.getContext('2d');
+      const M = 1024 / 16;   // 16m 대지 → px/m
+      g.strokeStyle = 'rgba(250,250,245,0.85)'; g.lineWidth = 7; g.lineJoin = 'round';
+      const rc = (x, z, w, h) => g.strokeRect((x + 8) * M, (z + 8) * M, w * M, h * M);
+      const arc = (x, z, r, a0, a1) => { g.beginPath(); g.arc((x + 8) * M, (z + 8) * M, r * M, a0, a1); g.stroke(); };
+      rc(-7.5, -7.5, 15, 15);                    // 외곽(하프코트 15×15 근사)
+      rc(-2.45, -7.5, 4.9, 5.8);                 // 페인트존(키) — 골대는 -z 끝
+      arc(0, -1.7, 1.8, 0, Math.PI);             // 자유투 원(전방 반원)
+      arc(0, -6.325, 6.75, 0.18, Math.PI - 0.18);// 3점 아크
+      arc(0, 7.5, 1.8, Math.PI, Math.PI * 2);    // 센터서클(근측 절반)
+      const tex2 = new THREE.CanvasTexture(c); tex2.colorSpace = THREE.SRGBColorSpace; tex2.anisotropy = 4;
+      courtLines = new THREE.Mesh(new THREE.PlaneGeometry(16, 16),
+        new THREE.MeshBasicMaterial({ map: tex2, transparent: true, depthWrite: false }));
+      courtLines.rotation.x = -Math.PI / 2; courtLines.position.y = 0.006; courtLines.renderOrder = 1;
+      scene.add(courtLines);
+    }
+    courtLines.visible = key === 'court';
     floor.material.map = fTex;
     wall.material.map = wTex;
-    if (key === 'indoor') {
+    if (key === 'indoor' || key === 'court') {
       // 실내: 마루 + 형광등 아래 '진짜 흰' 벽 — 조명 감쇠를 이기도록 자발광 가산
       floor.material.color.setHex(dayMode ? 0xF6F1E8 : 0xD8D0C2);
       wall.material.map = await getSurf('wallpaper');   // 세로 결 벽지 (민무늬 기각)

@@ -784,6 +784,7 @@ void main(){
   // ── 음성: 사전 생성 뉴럴 보이스(mp3) 우선, 없으면 브라우저 TTS 폴백 ──
   let ttsOn = true;
   let _metroCtx = null, _metroPh = -1;   // P 케이던스 메트로놈 (WebAudio 클릭)
+  const _strikeTs = []; let _lcPrev = false, _rcPrev = false, _spmUpd = 0;   // 내 케이던스 실측(접지 간격)
   const voiceAudio = new Audio();
   function speak(who, text, stageId) {
     if (!ttsOn) return;
@@ -1112,7 +1113,7 @@ void main(){
       designStore.save();
     });
     // 투사면 퀵 칩 — 룩 스튜디오 안 열고도 바닥/벽 테마 전환
-    const SURF_DEFS = [['none', '다크'], ['indoor', '실내'], ['grass', '잔디'], ['track', '트랙'], ['paving', '보도블럭']];
+    const SURF_DEFS = [['none', '다크'], ['indoor', '실내'], ['grass', '잔디'], ['track', '트랙'], ['court', '코트'], ['paving', '보도블럭']];
     const surfWrap = document.getElementById('surf-chips');
     function updateSurfChips(key) {
       surfWrap?.querySelectorAll('button').forEach(b => {
@@ -1156,7 +1157,7 @@ void main(){
     };
     window.__updateSurfAvail();
     // 팩별 기본 투사면 — 매번 수동 선택 제거 (유저): 러닝=잔디 · 복싱=실내 · 농구=트랙
-    const SURF_DEFAULT = { running: 'grass', boxing: 'indoor', basketball: 'track' };
+    const SURF_DEFAULT = { running: 'track', boxing: 'indoor', basketball: 'court' };   // 러닝=트랙·농구=코트 기본(유저)
     window.__applySurfDefault = (pack) => {
       const key = SURF_DEFAULT[pack];
       if (!key) return;
@@ -4083,6 +4084,29 @@ void main(){
           o.connect(gn); gn.connect(_metroCtx.destination);
           o.start(); o.stop(_metroCtx.currentTime + 0.05);
         } catch (e) { /* 오디오 정책 — 제스처 후 재생 */ }
+      }
+      // 내 케이던스 실측 vs 목표(유저: 학습자는 항상 목표와 다름 — 비교가 학습) — 접지 간격→SPM
+      const pbc = xbot.getProbes?.(), nowS = performance.now() / 1000;
+      const lc = (pbc?.footL?.y ?? 1) < 0.05, rc = (pbc?.footR?.y ?? 1) < 0.05;
+      if (lc && !_lcPrev) _strikeTs.push(nowS);
+      if (rc && !_rcPrev) _strikeTs.push(nowS);
+      _lcPrev = lc; _rcPrev = rc;
+      while (_strikeTs.length > 7) _strikeTs.shift();
+      if (nowS - _spmUpd > 0.5) {
+        _spmUpd = nowS;
+        let my = 0;
+        if (_strikeTs.length >= 3) {
+          const iv2 = (_strikeTs[_strikeTs.length - 1] - _strikeTs[0]) / (_strikeTs.length - 1);
+          if (iv2 > 0.15 && iv2 < 2) my = Math.round(60 / iv2);
+        }
+        try {
+          const me = floorIframe.contentDocument?.getElementById('spm-me');
+          if (me && my) {
+            me.textContent = my;
+            const tgt2 = Math.round(60 / (tokens._beatT || 0.39));
+            me.style.color = Math.abs(my - tgt2) <= 8 ? '#d1feff' : '#fff';   // 근접=아이스(성공 온도)
+          }
+        } catch (e) { /* iframe 로드 전 */ }
       }
     }
     effects.update(rawDt);

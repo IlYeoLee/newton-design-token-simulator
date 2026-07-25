@@ -216,7 +216,8 @@ vec4 markState(vec2 uv, float state, float prog, float strong, float t){
   if (state < 0.5) {            // ── Preview: 아웃라인 → 소프트 필 차오름 (strong=라이브 '다음' 적열 강조)
     float f = prog;
     float breath = 1.0 + 0.05 * sin(t * 2.0) * (0.4 + uNoise);
-    float q = length(uv - gcBall) / (ext * 0.98 * breath);
+    // 중심 핫스팟 완화(유저: 가운데 원이 너무 또렷) — q 하한 0.22 = 중심도 은은한 미드톤
+    float q = 0.22 + 0.78 * length(uv - gcBall) / (ext * 0.98 * breath);
     vec3 fillCol = mix(C_CREAM, mix(fillPreview(q), fillHot(q), strong), f);
     float fillA = mix(0.42, 0.82, f) * fillGain;
     lay(A, fillCol, fillA * inside);
@@ -225,7 +226,7 @@ vec4 markState(vec2 uv, float state, float prog, float strong, float t){
     lay(A, C_SAND, stroke * (0.95 - 0.62 * f));
   } else if (state < 1.5) {     // ── Active: 적열 필 + 얼음빛 헤일로 수축 (수축 완료 = 타이밍)
     float gradR = uShape < 0.5 ? ext * 1.38 : 1.72;
-    float q = length(uv - gcBall) / gradR;
+    float q = 0.16 + 0.84 * length(uv - gcBall) / gradR;   // 중심 핫스팟 완화(Preview와 동일 원칙)
     q *= 1.0 + 0.025 * sin(t * 3.1 + q * 5.0) * uNoise;
     lay(A, fillActive(q), inside * min(fillGain * 1.15, 1.0));
     float hw = max((0.115 - 0.075 * prog) * uW, 0.018);
