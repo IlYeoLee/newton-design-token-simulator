@@ -520,7 +520,7 @@ export class Session {
     // + 완료 Success 블룸(리퀴드). A안=앞발 바로 아래 추종 / B안=전방 고정 (a2Guide 토글).
     this.a2press = {
       fmL: new FootMark('left').at(0, -1.35, 1.15), fmR: new FootMark('right').at(0, -1.35, 1.15),
-      nums: [5, 4, 3, 2, 1].map(n => floorNum(n, 0.36, -1.35, 0.15)),
+      nums: [5, 4, 3, 2, 1].map(n => floorNum(n, 0, -1.35, 0.13)),   // 발형 '안' 글리프 슬롯 (룩시스템 FOOT 슬롯 SVG 규약)
       cx: 0, cz: -1.35, fill: 0, _numIdx: -1, _pop: 0,
     };
     this.a2press.fmL.group.visible = false; this.a2press.fmR.group.visible = false;
@@ -1420,7 +1420,7 @@ export class Session {
       fm.op(pressing ? 1 : 0.55);
       // 숫자 카운트 5→1: 남은 홀드 초 — 바뀔 때 팝(스케일 1.45→1)
       const idx = Math.min(4, Math.floor(P.fill * 5));
-      for (let i = 0; i < 5; i++) { const n = P.nums[i]; n.visible = pressing && i === idx; n.position.x = P.cx + 0.36; n.position.z = P.cz; }
+      for (let i = 0; i < 5; i++) { const n = P.nums[i]; n.visible = pressing && i === idx; n.position.x = P.cx; n.position.z = P.cz - 0.05; }   // 발형 볼(앞쪽) 슬롯
       if (idx !== P._numIdx) { P._numIdx = idx; P._pop = 1; }
       P._pop = Math.max(0, P._pop - dt * 3.2);
       const shown = P.nums[idx]; if (shown) shown.scale.setScalar(1 + 0.45 * P._pop);
