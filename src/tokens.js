@@ -894,6 +894,23 @@ export class TokenSystem {
       }
     }
 
+    // 팩 마커에도 풋프린트 소프트 페이드 — 세션 마크만 먹여 아이들/팩 마커 글로우가
+    // 투사 경계에 하드컷(직선 프레임)되던 것(유저 반복 지적). 레인과 동일 주입.
+    const fpm = this.rig?._fp;
+    if (fpm) {
+      const hn = this.rig._halfAt(this.rig.fpNear), hf = this.rig._halfAt(this.rig.fpFar);
+      for (const ev of this.events) {
+        const MU = ev.marker?.fx?.material?.uniforms;
+        if (!MU || !MU.uFPNear) continue;
+        MU.uFPOrigin.value.set(fpm.ox, 0, fpm.oz);
+        MU.uFPFwd.value.set(fpm.fx, 0, fpm.fz);
+        MU.uFPRight.value.set(fpm.rx, 0, fpm.rz);
+        MU.uFPNear.value = this.rig.fpNear;
+        MU.uFPFar.value = this.rig.fpFar;
+        MU.uFPHalfN.value = hn; MU.uFPHalfF.value = hf;
+      }
+    }
+
     // 다가오는 이벤트 순서 계산 (preview 투명도 감쇠용)
     const upcoming = this.events.filter(e => e.t >= now - TCFG.linger);
     const orderOf = new Map();

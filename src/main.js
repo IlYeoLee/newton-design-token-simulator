@@ -2103,6 +2103,8 @@ void main(){
       };
       // 목 1개(중앙·위) + 어깨 작게 2개(좌·우) — 목 돌리고 어깨 돌리는 지시(유저)
       co.rotCues = [mkCue(0.22, 0, 0.19), mkCue(0.15, -0.12, 0.08), mkCue(0.15, 0.12, 0.08)];
+      // 어깨 회전 방향 = 좌우 미러(유저 스케치): 왼어깨 반시계 · 오른어깨 시계 (대칭 롤)
+      co.rotCues[0].dir = 1; co.rotCues[1].dir = -1; co.rotCues[2].dir = 1;
     }
     return co;
   }
@@ -2126,16 +2128,20 @@ void main(){
         co.plane.material.uniforms.uTime.value = performance.now() / 1000;
         // 채도는 마크 LUT와 같은 소스(FXP.sat)에서 — 인물·발자국 룩 통일(슬라이더 하나가 둘 다 이동)
         co.plane.material.uniforms.uSat.value = 1.0 + (FXP.sat ?? 1) * 0.32;
-        if (co.rotCues) {   // 회전 큐 2개(목·어깨) 자체 루프 회전 = '돌리기' 지시
+        if (co.rotCues) {   // 회전 큐 = 영상 타이밍 동기(유저): 전반(목 돌리기)=목 큐만, 후반(어깨 롤)=어깨 큐 2개만
           const now = performance.now() / 1000;
-          for (const c of co.rotCues) {
-            c.mesh.visible = co.plane.visible;
-            if (co.plane.visible) {
-              drawRotate(c.g, 256, { r: 0.30, width: 1.1, dir: 1, sweep: 0.62, tempo: 0.42 },
+          const vd = co.video.duration || 10, ct = co.video.currentTime % vd;
+          const neckPhase = ct < vd * 0.5;       // 영상 = 목 2바퀴 → 어깨 롤 (절반 분기)
+          const shoulderOn = ct > vd * 0.5 + 2;  // 어깨 큐는 분기 +2초 뒤부터(유저)
+          co.rotCues.forEach((c, i) => {
+            const on = co.plane.visible && (i === 0 ? neckPhase : shoulderOn);
+            c.mesh.visible = on;
+            if (on) {
+              drawRotate(c.g, 256, { r: 0.30, width: 1.1, dir: c.dir ?? 1, sweep: 0.62, tempo: 0.42 },
                 { halo: FXP.mark.halo }, now, { lut: lutColor, arrow: FXP.arrow });
               c.tex.needsUpdate = true;
             }
-          }
+          });
         }
         if (floorObj.visible) {
           co.plane.quaternion.copy(floorObj.quaternion);
