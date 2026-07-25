@@ -783,6 +783,7 @@ void main(){
 
   // ── 음성: 사전 생성 뉴럴 보이스(mp3) 우선, 없으면 브라우저 TTS 폴백 ──
   let ttsOn = true;
+  let _metroCtx = null, _metroPh = -1;   // P 케이던스 메트로놈 (WebAudio 클릭)
   const voiceAudio = new Audio();
   function speak(who, text, stageId) {
     if (!ttsOn) return;
@@ -4067,6 +4068,21 @@ void main(){
       wearFxEl.style.opacity = String(0.26 + 0.14 * Math.sin(performance.now() / 280));
     }
     if (rig._fp) effects._fp = { ...rig._fp, near: rig.fpNear, far: rig.fpFar, halfN: rig._halfAt(rig.fpNear), halfF: rig._halfAt(rig.fpFar) };
+    // P 학습 = 케이던스 메트로놈(사운드 우선 — 러닝 교수법: 목표 SPM은 귀로 먼저). 팩 박자 동기 클릭.
+    if (session.active && /^P\d$/.test(session.stage || '') && ttsOn && tokens._beatT > 0.2) {
+      const ph = Math.floor(state.time / tokens._beatT);
+      if (ph !== _metroPh) {
+        _metroPh = ph;
+        try {
+          if (!_metroCtx) _metroCtx = new (window.AudioContext || window.webkitAudioContext)();
+          const o = _metroCtx.createOscillator(), gn = _metroCtx.createGain();
+          o.frequency.value = 1700; gn.gain.setValueAtTime(0.06, _metroCtx.currentTime);
+          gn.gain.exponentialRampToValueAtTime(0.001, _metroCtx.currentTime + 0.05);
+          o.connect(gn); gn.connect(_metroCtx.destination);
+          o.start(); o.stop(_metroCtx.currentTime + 0.05);
+        } catch (e) { /* 오디오 정책 — 제스처 후 재생 */ }
+      }
+    }
     effects.update(rawDt);
     panel.drawTimeline(state.time, judge.marks);
 
@@ -4468,7 +4484,9 @@ void main(){
         floorIframe.style.height = fView.h + 'px';
         // 운동중 프레임(floor-scene.html)엔 장면 지속시간 전달 — 도트 로딩바가 이 시간 동안 0→100% 차오름
         const dur = STAGE_DUR[session.curStage?.id] ?? session.curStage?.dur ?? 8;
-        const durSuffix = fView.src.includes('floor-scene.html') ? '&dur=' + dur : '';
+        let durSuffix = fView.src.includes('floor-scene.html') ? '&dur=' + dur : '';
+        // P 학습 = 목표 케이던스(SPM) 표기 — 러닝 표준 단위(유저 확인: 간단한 숫자 정보 OK)
+        if (/^P\d$/.test(session.curStage?.id || '') && tokens._beatT) durSuffix += '&spm=' + Math.round(60 / tokens._beatT);
         floorIframe.src = import.meta.env.BASE_URL + fView.src + durSuffix;
         loadedFloorView = fView.src;
         _fpSmooth = null;   // 스테이지 전환 = 앵커 스냅(슬라이딩 방지)

@@ -63,6 +63,10 @@ html,body{background:transparent}
   filter:drop-shadow(0 0 8px rgba(250,48,48,.6))}
 @keyframes tipSpin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
 @keyframes demoOut{to{opacity:0;transform:translateX(-50%) scale(.85)}}
+#spm-lbl{position:absolute;top:300px;left:0;right:0;text-align:center;font-family:'Supreme',sans-serif;
+  opacity:0;animation:sUpFlat .6s .4s both}
+#spm-lbl b{font-weight:700;font-size:150px;letter-spacing:-4px;color:#fff;text-shadow:0 0 34px rgba(250,48,48,.45)}
+#spm-lbl span{font-weight:500;font-size:56px;color:rgba(255,255,255,.72);margin-left:14px}
 #next-lbl{position:absolute;top:104px;left:0;right:0;text-align:center;font-family:'Supreme',sans-serif;font-weight:700;font-size:54px;
   letter-spacing:8px;color:rgba(255,255,255,.8);opacity:0;
   animation:sUpFlat .5s .1s both, demoOutFlat .45s 5.05s both}
@@ -94,6 +98,9 @@ html,body{background:transparent}
   $('s-cue').style.display = 'none';
   // 박자 연습(P) = 도트 게이지도 제거(유저: 의미 불명 — 박자에 집중), 타이틀만(라이브 2.5s 페이드)
   if (/^P\d$/.test(stage)) $('s-dots').style.display = 'none';
+  const spm = params.get('spm');
+  if (spm) { const el = document.createElement('div'); el.id = 'spm-lbl';
+    el.innerHTML = `<b>${spm}</b><span>SPM</span>`; document.getElementById('board').appendChild(el); }
   // A2/A3 시범(3초) — 원본 실전직전 타이머 링(floor-timer.html) 소형 그대로 + DEMO 라벨.
   //   도트 로딩바는 시범 동안 숨김 → 3초 뒤 등장·채움 시작(따라하기 진행 전담).
   if (/^(A2|A3)$/.test(stage)) {

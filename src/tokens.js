@@ -272,21 +272,38 @@ export const BK_SCALE = 5.0;   // xbot 경로와 공유 (봇·토큰 좌표 일�
 
 // ── 텍스처 유틸 ───────────────────────────────────────────────
 // 러닝 라이브: 순번 대신 발 L/R 글리프(어느 발로 밟는지 — 순번은 러닝 교수법에 없음, 유저 확인).
-// 시퀀스 스포츠(복싱·농구)는 순번 유지. 텍스처 2종 캐시.
+// 글리프 = 유저 제공 SVG(pace_foot.svg), 이전 글리프 스타일(웜 크림 틴트+글로우), 우측=미러.
 const _footNumTex = {};
+const _pfImg = new Image();
+_pfImg.src = import.meta.env.BASE_URL + 'ready-view/assets/pace_foot.svg';
 function makeFootGlyphTexture(right) {
   const k = right ? 'R' : 'L';
   if (_footNumTex[k]) return _footNumTex[k];
   const c = document.createElement('canvas'); c.width = c.height = 128;
   const ctx = c.getContext('2d');
-  if (!drawGlyph(ctx, footSlot(right), 64, 64, 84)) {
+  const ready = _pfImg.complete && _pfImg.naturalWidth;
+  if (ready) {
+    // 틴트: SVG → source-in 웜 크림 (이전 글리프와 동일 온도 언어)
+    const off = document.createElement('canvas'); off.width = off.height = 128;
+    const og = off.getContext('2d');
+    const ar = _pfImg.naturalWidth / _pfImg.naturalHeight;
+    const w = 100, h = w / ar;
+    og.save(); if (right) { og.translate(128, 0); og.scale(-1, 1); }
+    og.drawImage(_pfImg, (128 - w) / 2, (128 - h) / 2, w, h);
+    og.restore();
+    og.globalCompositeOperation = 'source-in';
+    og.fillStyle = 'rgba(255,240,220,0.95)'; og.fillRect(0, 0, 128, 128);
+    ctx.shadowColor = 'rgba(254,150,90,0.75)'; ctx.shadowBlur = 12;
+    ctx.drawImage(off, 0, 0); ctx.shadowBlur = 0; ctx.drawImage(off, 0, 0);
+  } else {
     ctx.strokeStyle = 'rgba(255,240,220,0.95)'; ctx.lineWidth = 5;
     ctx.shadowColor = 'rgba(254,150,90,0.75)'; ctx.shadowBlur = 12;
     ctx.beginPath(); ctx.ellipse(64, 64, 20, 34, right ? 0.12 : -0.12, 0, Math.PI * 2); ctx.stroke();
   }
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
-  return (_footNumTex[k] = tex);
+  if (ready) _footNumTex[k] = tex;   // 로드 전 폴백은 캐시 안 함(로드 후 정본으로 재생성)
+  return tex;
 }
 function makeNumberTexture(n) {
   const c = document.createElement('canvas');
@@ -410,6 +427,7 @@ export class Marker {
     if (this.sel) this.sel.visible = !!on;
   }
   setNumber(n) {
+    this._numN = n;   // 발 글리프 ↔ 숫자 왕복 스왑용 원본 보존
     const m = new THREE.MeshBasicMaterial({
       map: makeNumberTexture(n), transparent: true, depthWrite: false,
     });
@@ -430,9 +448,26 @@ export class Marker {
   /** phase: hidden|locked|preview|countdown|linger  progress: 0..1 */
   render(phase, progress, orderIdx, sizeScale) {
     const g = this.group;
-    if (phase === 'hidden') { g.visible = false; return; }
+    if (phase === 'hidden') { g.visible = false; this._lastPhase = 'hidden'; return; }
     g.visible = true;
-    g.scale.setScalar(sizeScale * TCFG.markScale);
+    // ── 모션 고도화(유저: 기본 등장·타격 모션 밋밋) ──
+    //   등장 = 스케일 오버슈트 팝(0.55→1.08→1, 0.38s) · 히트(linger 진입) = 반동 팝(1.30→1, 0.3s)
+    const nowP = performance.now() / 1000;
+    if (phase !== this._lastPhase) {
+      if ((this._lastPhase === 'hidden' || this._lastPhase == null) && (phase === 'preview' || phase === 'countdown')) this._spawnT = nowP;
+      if (phase === 'linger') this._hitT = nowP;
+      this._lastPhase = phase;
+    }
+    let popS = 1;
+    if (this._spawnT != null) {
+      const e = (nowP - this._spawnT) / 0.38;
+      if (e < 1) { const k = 1 - Math.pow(1 - e, 3); popS *= 0.55 + 0.45 * k + 0.10 * Math.sin(Math.min(1, e) * Math.PI); }
+    }
+    if (this._hitT != null) {
+      const e = (nowP - this._hitT) / 0.3;
+      if (e < 1) popS *= 1 + 0.30 * (1 - e) * (1 - e);
+    }
+    g.scale.setScalar(sizeScale * TCFG.markScale * popS);
     const steps = FP_VIEW ? FADE_STEPS_FP : FADE_STEPS;
     const fade = steps[Math.min(orderIdx, steps.length - 1)];
 
@@ -462,7 +497,8 @@ export class Marker {
     // 러닝 라이브(P/C) = 순번 숨김(FXP.hideOrderNums): 케이던스는 연속 리듬 — 1·2·3 순번은 콤보/스텝
     // 드릴(복싱·농구) 문법이지 러닝 교수법 아님(유저 확인). 박자 펄스·과녁만.
     if (this.num) {
-      this.num.material.opacity = FXP.hideOrderNums ? 0 :
+      // hideOrderNums: 발 글리프로 스왑됐으면 정상 표시, 스왑 전(발 정보 없는 마커)만 숨김
+      this.num.material.opacity = (FXP.hideOrderNums && !this._numFoot) ? 0 :
         phase === 'preview' ? (this.strongPreview ? 1.0 : 0.5) * fade
         : phase === 'countdown' ? 1.0
         : phase === 'linger' ? 0.4 * (1 - progress)
@@ -968,6 +1004,16 @@ export class TokenSystem {
       if (this.liveHideFloorMarks && ev.surface !== 'wall') phase = 'hidden';
       // 박자 연습(P) = 중앙 레인 제거(유저: 박자에 집중) — 마크 데워짐+이펙트만
       if (this.laneFX) this.laneFX.visible = !this.liveHideLane;
+      // 러닝 라이브 = 마크 안 순번 → 발 L/R 글리프 스왑(왕복) — 유저 SVG(pace_foot)
+      const mkN = ev.marker;
+      if (mkN?.num && ev.surface !== 'wall' && ev.foot) {
+        const wantFoot = !!FXP.hideOrderNums;
+        if (wantFoot !== !!mkN._numFoot) {
+          mkN._numFoot = wantFoot;
+          mkN.num.material.map = wantFoot ? makeFootGlyphTexture(ev.foot === 'right') : makeNumberTexture(mkN._numN ?? '');
+          mkN.num.material.needsUpdate = true;
+        }
+      }
 
       if (ev.marker) {
         // 위치 갱신
