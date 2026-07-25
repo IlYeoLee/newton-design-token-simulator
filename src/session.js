@@ -1392,18 +1392,19 @@ export class Session {
       const front = pb ? (pb.footL.z < pb.footR.z ? pb.footL : pb.footR) : null;
       const isL = front === pb?.footL;
       if ((this.a2Guide || 'A') === 'A') {
-        // A안: 앞에 나간 발 '바로 아래' — 오프셋 0, 빠른 추종(유저: 발 바로 아래 파형)
-        if (front && front.y < 0.14) {
-          P.cx += (front.x - P.cx) * 0.35;
-          P.cz += (front.z - P.cz) * 0.35;
-        }
+        // A안(알고리즘 보정): 앞발 '접지 순간' 그 자리에 스냅 락 — 발이 마크를 꾹 누름.
+        // 추종·지연 없음(밀려다니면 '밟는' 은유가 깨짐 — 유저). 발 들면 해제, 다음 접지에 재락.
+        if (front && front.y < 0.09) {
+          if (!P._lock) { P._lock = true; P.cx = front.x; P.cz = front.z; }
+        } else if (!front || front.y > 0.16) P._lock = false;
       } else {
         // B안: 전방 고정(-2.0) — 눈앞에서 차오르는 걸 바라보기
         P.cx += (0 - P.cx) * 0.12;
         P.cz += (-2.0 - P.cz) * 0.12;
       }
       // 발형 마크: 앞발 쪽 모양만 표시, 위치 동기
-      P.fmL.group.visible = isL; P.fmR.group.visible = !isL;
+      const showMark = (this.a2Guide || 'A') !== 'A' || P._lock;
+      P.fmL.group.visible = isL && showMark; P.fmR.group.visible = !isL && showMark;
       const fm = isL ? P.fmL : P.fmR;
       P.fmL.at(P.cx, P.cz, 1.15); P.fmR.at(P.cx, P.cz, 1.15);
       let pressing = false;
