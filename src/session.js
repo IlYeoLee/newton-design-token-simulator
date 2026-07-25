@@ -1382,12 +1382,11 @@ export class Session {
       this._a2t = this.t;
       const pb = this.xbot?.getProbes?.();
       const P = this.a2press;
-      // AI 사출 보정(유저 확정 스케치): 원은 고정이 아니라 '앞발 끝 앞 0.22m'를 저역통과 추종 —
-      // 깊이 내려간 그 발 바로 앞에 꾹 눌리듯 투사. (빔 타겟도 main의 beamGroundLock이 앞발 추종)
+      // AI 사출 보정(유저 스케치 정정): 원 = 앞발 '아래'(발이 원을 밟음) — 발끝 기준 거의 제자리(+0.05)
       const front = pb ? (pb.footL.z < pb.footR.z ? pb.footL : pb.footR) : null;
       if (front && front.y < 0.12) {
         P.cx += (front.x - P.cx) * 0.12;
-        P.cz += ((front.z - 0.22) - P.cz) * 0.12;
+        P.cz += ((front.z - 0.05) - P.cz) * 0.12;
         P.ring.position.x = P.cx; P.ring.position.z = P.cz;
         P.arc.position.x = P.cx; P.arc.position.z = P.cz;
       }
