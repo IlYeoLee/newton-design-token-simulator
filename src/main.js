@@ -873,7 +873,7 @@ void main(){
   if (import.meta.env.DEV) { window.__sess = session; window.__cam = camera; window.__rig = rig; }   // 디버그 훅 — 콘솔에서 스테이지 고정·검수용
 
   // 단계 중간 음성 큐 — 시범→실행 전환("이제 같이") 등 코칭 3층 문법의 동작 큐 채널
-  session.say = (who, line) => { showCaption(who, line); speak(who, line, 'cue:' + line.slice(0, 16)); };
+  session.say = (who, line, vkey) => { showCaption(who, line); speak(who, line, vkey || 'cue:' + line.slice(0, 16)); };
   // 게이트/다운시프트 안내 자막 + 웨어러블 신호
   sessionSkillSink = session;
   session.setSkill(parseInt(document.getElementById('s-skill')?.value ?? '70', 10) / 100);
@@ -2006,6 +2006,72 @@ void main(){
     if (rig.wallClip) ghostLayer.material.clippingPlanes = rig.wallClip;
     scene.add(ghostLayer);
   }
+  // ── A1 바닥 코치 패널 — x봇 복제가 목·어깨 풀기를 하는 모습을 오프스크린 정면
+  //    직교 카메라로 렌더 → 투사존 안 바닥 패널(눕힌 평면)에 영상처럼 표시.
+  //    지면 UI 규칙: 투사존(≤2.6m) 안, 히트 LUT 실루엣(수치·사진 금지), 세션 A1에서만.
+  let a1Coach = null;   // { rt, scene, cam, mixer, plane, key }
+  function ensureA1Coach(clipKey) {
+    if (a1Coach) return;
+    const cScene = new THREE.Scene();
+    const bot = SkeletonUtils.clone(xbot.model);
+    // 고스트와 동일 문법의 열화상 실루엣(세로 그라디언트 히트 LUT) — 별도 재질(복싱 고스트 코드 불간섭)
+    const mat = new THREE.ShaderMaterial({
+      uniforms: { uLUT: { value: getLUT() }, uH: { value: 2.1 } },
+      vertexShader: `
+        #include <common>
+        #include <skinning_pars_vertex>
+        varying float vWY;
+        void main(){
+          #include <skinbase_vertex>
+          #include <begin_vertex>
+          #include <skinning_vertex>
+          vec4 mv = modelViewMatrix * vec4(transformed, 1.0);
+          vWY = (modelMatrix * vec4(transformed, 1.0)).y;
+          gl_Position = projectionMatrix * mv;
+        }`,
+      fragmentShader: `
+        varying float vWY; uniform float uH; uniform sampler2D uLUT;
+        void main(){
+          float vert = pow(1.0 - clamp(vWY / uH, 0.0, 1.0), 1.6) * 0.9 + 0.06;
+          gl_FragColor = vec4(texture2D(uLUT, vec2(clamp(vert,0.004,0.996), 0.5)).rgb, 1.0);
+        }`,
+    });
+    bot.traverse(o => { if (o.isMesh) o.material = mat; });
+    bot.rotation.y = Math.PI;   // 카메라(+Z) 정면
+    cScene.add(bot);
+    const mixer = new THREE.AnimationMixer(bot);
+    const clip = xbot.actions[clipKey]?.action.getClip();
+    if (clip) mixer.clipAction(clip).play();
+    const rt = new THREE.WebGLRenderTarget(384, 576, { samples: 2 });
+    const W = 1.5, H = 2.25;
+    const cam = new THREE.OrthographicCamera(-W / 2, W / 2, H, 0, 0.1, 10);
+    cam.position.set(0, 0, 3); cam.lookAt(0, 0, 0);   // 수평 유지 — 기울이면 직교 밴드(0..H) 밖으로 봇이 벗어나 빈 렌더
+    const plane = new THREE.Mesh(
+      new THREE.PlaneGeometry(0.9, 1.35),
+      new THREE.MeshBasicMaterial({ map: rt.texture, transparent: true, opacity: 0.92, depthWrite: false }),
+    );
+    plane.rotation.x = -Math.PI / 2;   // 눕힘 — 텍스처 상단(머리)이 먼 쪽(-z)
+    plane.position.set(0, 0.015, -1.95);
+    plane.visible = false;
+    scene.add(plane);
+    a1Coach = { rt, scene: cScene, cam, mixer, plane, key: clipKey };
+  }
+  function tickA1Coach(h) {
+    const on = session.active && !session.isLive && session.stage === 'A1' && state.pack === 'running';
+    if (on) ensureA1Coach('bx_neck');   // A1 목·어깨 클립과 동일 소스
+    if (!a1Coach) return;
+    a1Coach.plane.visible = on;
+    if (!on) return;
+    a1Coach.mixer.update(h);
+    const oc = new THREE.Color(); renderer.getClearColor(oc); const oa = renderer.getClearAlpha();
+    renderer.setClearColor(0x000000, 0);
+    renderer.setRenderTarget(a1Coach.rt);
+    renderer.clear();
+    renderer.render(a1Coach.scene, a1Coach.cam);
+    renderer.setRenderTarget(null);
+    renderer.setClearColor(oc, oa);
+  }
+
   function renderGhostLayer() {
     if (!ghostLayer || !ghostLayer.visible) return;
     const prevTarget = renderer.getRenderTarget();
@@ -3574,7 +3640,9 @@ void main(){
       // A단계 v2(유저 기준: 퀄리티·지면 가이드 매력·설명 용이) — 전부 햇지런 실측 + 프로브 구동 UI.
       // A1 사이드 런지 프레스(원 눌러 채우기) · A2 레그 스윙 · A3 니 허그. T1 대기=CMU 스트레칭, FIN=쿨다운 쿼드.
       // 러닝 A 3종 확정(유저 지정): A1 목·어깨(Mixamo 실측) · A2 교대 런지(CMU 144_17, 유저 요청 확보) · A3 서서 쿼드 잡기(실사 모캡)
-      A1: 'neckStretch', A2: 'auto_cmu144_17', A3: 'quadStretch', T1: 'neckStretch', T2: 'armStretch', FIN: 'quadStretch',
+      // A1 목·어깨: bx_neck(복싱 A1과 공유 — 목 원 2바퀴+어깨 롤 3바퀴, 절차 저작. 유저 지정).
+      // 주의: imp_warming_up_1_은 라벨과 달리 복싱 가드 동작(인제스트 라벨 오류) — 사용 금지.
+      A1: 'bx_neck', A2: 'auto_cmu144_17', A3: 'quadStretch', T1: 'neckStretch', T2: 'armStretch', FIN: 'quadStretch',
       // 복싱 = Mixamo 실측 모캡 (목풀기만 절차)
       BX_A1: 'bx_neck', BX_A2: 'boxGuard', BX_A3: 'boxJab',
       BX_B1: 'boxGuard', BX_B2: 'boxGuard', BX_B3: 'boxCombo',
@@ -4054,6 +4122,7 @@ void main(){
     sceneUI.update(rawDt, rig);       // 장면 UI 슬롯 — 풋프린트 추종 재배치 + 페이드
     session.tickWaves();              // 스테이지 파동 링 시계 (프리뷰 포함)
     renderGhostLayer();
+    tickA1Coach(rawDt);
     renderDemoPanel();   // A 시범 구간 실사 클립 (휴면)
     renderWallHUD();     // 벽면 게임 HUD (피그마 WallUI 이식)
     renderMirrorView();  // 내 폼 존 = 스테이션 카메라 실루엣 라이브

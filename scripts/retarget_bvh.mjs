@@ -225,6 +225,31 @@ const JOBS = {
   cmu02_03: { file: 'public/mocap/cmu/02_03.bvh', names: DAZ_NAMES, hip: 'hip', fps: 30, yScale: true, cat: 'run', keepRootXZ: true, yaw180: true },
   cmu09_01: { file: 'public/mocap/cmu/09_01.bvh', names: DAZ_NAMES, hip: 'hip', fps: 30, yScale: true, cat: 'run', keepRootXZ: true, yaw180: true },
   cmu07_12: { file: 'public/mocap/cmu/07_12.bvh', names: DAZ_NAMES, hip: 'hip', fps: 30, yScale: true, cat: 'walk', keepRootXZ: true, yaw180: true },
+  // ── stretch 키워드 전수 이식(2차): una-dinosauria BVH(Hips 본명 = CMU_NAMES) ──
+  cmu49_18: { file: 'public/mocap/cmu/49_18.bvh', names: CMU_NAMES, hip: 'Hips', fps: 30, yScale: true, cat: 'stretch' },   // 한발 밸런스+팔 뻗기
+  cmu49_19: { file: 'public/mocap/cmu/49_19.bvh', names: CMU_NAMES, hip: 'Hips', fps: 30, yScale: true, cat: 'stretch' },
+  cmu49_20: { file: 'public/mocap/cmu/49_20.bvh', names: CMU_NAMES, hip: 'Hips', fps: 30, yScale: true, cat: 'stretch' },
+  cmu74_02: { file: 'public/mocap/cmu/74_02.bvh', names: CMU_NAMES, hip: 'Hips', fps: 30, yScale: true, cat: 'stretch' },   // 비네트: 하품·스트레치 등
+  cmu74_03: { file: 'public/mocap/cmu/74_03.bvh', names: CMU_NAMES, hip: 'Hips', fps: 30, yScale: true, cat: 'stretch' },
+  cmu74_04: { file: 'public/mocap/cmu/74_04.bvh', names: CMU_NAMES, hip: 'Hips', fps: 30, yScale: true, cat: 'stretch' },
+  cmu74_05: { file: 'public/mocap/cmu/74_05.bvh', names: CMU_NAMES, hip: 'Hips', fps: 30, yScale: true, cat: 'stretch' },
+  cmu74_06: { file: 'public/mocap/cmu/74_06.bvh', names: CMU_NAMES, hip: 'Hips', fps: 30, yScale: true, cat: 'stretch' },
+  cmu74_07: { file: 'public/mocap/cmu/74_07.bvh', names: CMU_NAMES, hip: 'Hips', fps: 30, yScale: true, cat: 'stretch' },
+  cmu74_08: { file: 'public/mocap/cmu/74_08.bvh', names: CMU_NAMES, hip: 'Hips', fps: 30, yScale: true, cat: 'stretch' },
+  cmu86_03: { file: 'public/mocap/cmu/86_03.bvh', names: CMU_NAMES, hip: 'Hips', fps: 30, yScale: true, cat: 'stretch', keepRootXZ: true },  // 걷기·달리기·스트레치 종합
+  cmu86_04: { file: 'public/mocap/cmu/86_04.bvh', names: CMU_NAMES, hip: 'Hips', fps: 30, yScale: true, cat: 'stretch', keepRootXZ: true },
+  cmu86_06: { file: 'public/mocap/cmu/86_06.bvh', names: CMU_NAMES, hip: 'Hips', fps: 30, yScale: true, cat: 'stretch', keepRootXZ: true },
+  cmu86_07: { file: 'public/mocap/cmu/86_07.bvh', names: CMU_NAMES, hip: 'Hips', fps: 30, yScale: true, cat: 'stretch', keepRootXZ: true },
+  cmu86_08: { file: 'public/mocap/cmu/86_08.bvh', names: CMU_NAMES, hip: 'Hips', fps: 30, yScale: true, cat: 'stretch', keepRootXZ: true },
+  cmu86_11: { file: 'public/mocap/cmu/86_11.bvh', names: CMU_NAMES, hip: 'Hips', fps: 30, yScale: true, cat: 'stretch', keepRootXZ: true },
+  cmu88_04: { file: 'public/mocap/cmu/88_04.bvh', names: CMU_NAMES, hip: 'Hips', fps: 30, yScale: true, cat: 'stretch', keepRootXZ: true },  // 스트레치+카트휠·플립
+  cmu111_32: { file: 'public/mocap/cmu/111_32.bvh', names: CMU_NAMES, hip: 'Hips', fps: 30, yScale: true, cat: 'stretch' },  // 기지개+하품
+  cmu113_23: { file: 'public/mocap/cmu/113_23.bvh', names: CMU_NAMES, hip: 'Hips', fps: 30, yScale: true, cat: 'stretch' },
+  cmu114_16: { file: 'public/mocap/cmu/114_16.bvh', names: CMU_NAMES, hip: 'Hips', fps: 30, yScale: true, cat: 'stretch' }, // 앉아서 스트레치
+  cmu133_08: { file: 'public/mocap/cmu/133_08.bvh', names: CMU_NAMES, hip: 'Hips', fps: 30, yScale: true, cat: 'stretch', keepRootXZ: true }, // 스트레치 워크
+  cmu133_09: { file: 'public/mocap/cmu/133_09.bvh', names: CMU_NAMES, hip: 'Hips', fps: 30, yScale: true, cat: 'stretch', keepRootXZ: true },
+  cmu133_10: { file: 'public/mocap/cmu/133_10.bvh', names: CMU_NAMES, hip: 'Hips', fps: 30, yScale: true, cat: 'stretch', keepRootXZ: true },
+  cmu143_30: { file: 'public/mocap/cmu/143_30.bvh', names: CMU_NAMES, hip: 'Hips', fps: 30, yScale: true, cat: 'stretch' },  // 기지개+하품
 };
 
 // FBX 소스 로드 → {skeleton, clip} (BVHLoader 반환과 동형).

@@ -157,11 +157,12 @@ function boxingDrills(neutral) {
     bx_neck: makeClip('bx_neck', neutral, 5.0, (n, t) => {
       const nph = t * 2 * TWO_PI;   // 목 원 2바퀴
       const sph = t * 3 * TWO_PI;   // 어깨 롤 3바퀴(경쾌)
-      if (n === R.neck) return rot(X, 20 * Math.cos(nph)).multiply(rot(Z, 20 * Math.sin(nph)));
-      if (n === R.head) return rot(X, 8 * Math.cos(nph)).multiply(rot(Z, 8 * Math.sin(nph)));
-      if (n === R.spine1) return rot(Z, 6 * Math.sin(nph));
-      if (n === R.armR) return rot(X, 13 * Math.cos(sph)).multiply(rot(Z, -11 * Math.sin(sph)));
-      if (n === R.armL) return rot(X, 13 * Math.cos(sph)).multiply(rot(Z, 11 * Math.sin(sph)));
+      // 진폭 강화(유저: '더 적극적인 모션') — 목 28°/머리 11° 원, 어깨 롤 22°/18°
+      if (n === R.neck) return rot(X, 28 * Math.cos(nph)).multiply(rot(Z, 28 * Math.sin(nph)));
+      if (n === R.head) return rot(X, 11 * Math.cos(nph)).multiply(rot(Z, 11 * Math.sin(nph)));
+      if (n === R.spine1) return rot(Z, 8 * Math.sin(nph));
+      if (n === R.armR) return rot(X, 22 * Math.cos(sph)).multiply(rot(Z, -18 * Math.sin(sph)));
+      if (n === R.armL) return rot(X, 22 * Math.cos(sph)).multiply(rot(Z, 18 * Math.sin(sph)));
       return null;
     }),
     // 스텝 인·아웃 — 상체 앞뒤 무게 이동 + 살짝 바운스

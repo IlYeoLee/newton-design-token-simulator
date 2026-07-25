@@ -1020,7 +1020,7 @@ export class Session {
     if (!this._saidKeys) this._saidKeys = new Set();
     if (this._saidKeys.has(key)) return;
     this._saidKeys.add(key);
-    this.say?.(who, line);
+    this.say?.(who, line, 'say_' + key);   // 사전 생성 mp3(voice/say_<key>.mp3) — 브라우저 기계음 TTS 회피
   }
   /** 페이스 라이트 틱 — 최근 판정 3개의 평균 타이밍 오차를 거리(×팩속도 2.5m/s)로 번역 */
   _paceTick() {

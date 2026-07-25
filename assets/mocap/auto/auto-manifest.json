@@ -160,5 +160,125 @@
   "dur": 2.19,
   "cat": "walk",
   "qaFail": "자세 이상+무릎 텔레메트리 140~168cm (스틸 QA 2026-07-25)"
+ },
+ "cmu49_18": {
+  "root": false,
+  "dur": 9.18,
+  "cat": "stretch"
+ },
+ "cmu49_19": {
+  "root": false,
+  "dur": 7.97,
+  "cat": "stretch"
+ },
+ "cmu49_20": {
+  "root": false,
+  "dur": 7.48,
+  "cat": "stretch"
+ },
+ "cmu74_02": {
+  "root": false,
+  "dur": 2.21,
+  "cat": "stretch"
+ },
+ "cmu74_03": {
+  "root": false,
+  "dur": 3.3,
+  "cat": "stretch"
+ },
+ "cmu74_04": {
+  "root": false,
+  "dur": 2.62,
+  "cat": "stretch"
+ },
+ "cmu74_05": {
+  "root": false,
+  "dur": 2.69,
+  "cat": "stretch"
+ },
+ "cmu74_06": {
+  "root": false,
+  "dur": 2.71,
+  "cat": "stretch"
+ },
+ "cmu74_07": {
+  "root": false,
+  "dur": 2.59,
+  "cat": "stretch"
+ },
+ "cmu74_08": {
+  "root": false,
+  "dur": 1.4,
+  "cat": "stretch"
+ },
+ "cmu88_04": {
+  "root": true,
+  "dur": 10.33,
+  "cat": "stretch"
+ },
+ "cmu111_32": {
+  "root": false,
+  "dur": 6.23,
+  "cat": "stretch"
+ },
+ "cmu113_23": {
+  "root": false,
+  "dur": 8.42,
+  "cat": "stretch"
+ },
+ "cmu114_16": {
+  "root": false,
+  "dur": 14.41,
+  "cat": "stretch"
+ },
+ "cmu133_08": {
+  "root": true,
+  "dur": 10.26,
+  "cat": "stretch"
+ },
+ "cmu133_09": {
+  "root": true,
+  "dur": 14.41,
+  "cat": "stretch"
+ },
+ "cmu133_10": {
+  "root": true,
+  "dur": 11.02,
+  "cat": "stretch"
+ },
+ "cmu143_30": {
+  "root": false,
+  "dur": 3.08,
+  "cat": "stretch"
+ },
+ "cmu86_03": {
+  "root": true,
+  "dur": 70.01,
+  "cat": "stretch"
+ },
+ "cmu86_04": {
+  "root": true,
+  "dur": 83.98,
+  "cat": "stretch"
+ },
+ "cmu86_06": {
+  "root": true,
+  "dur": 82.82,
+  "cat": "stretch"
+ },
+ "cmu86_07": {
+  "root": true,
+  "dur": 72.52,
+  "cat": "stretch"
+ },
+ "cmu86_08": {
+  "root": true,
+  "dur": 76.72,
+  "cat": "stretch"
+ },
+ "cmu86_11": {
+  "root": true,
+  "dur": 47.28,
+  "cat": "stretch"
  }
 }

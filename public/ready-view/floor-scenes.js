@@ -10,9 +10,9 @@ window.FLOOR_PHASES = {
 window.FLOOR_SCENES = {
   // ── 러닝 ──
   // A · 준비운동 (WARM UP)
-  A1: { title: 'Lunge Press', phase: 0, sub: '1/3', cue: 'Reach forward · press 3s' },   // 런지 프레스 (3초 홀드)
-  A2: { title: 'Leg Swings',       phase: 0, sub: '2/3', cue: 'Swing front to back · 10x' },   // 다리 앞뒤로 흔들기
-  A3: { title: 'Knee Hugs',        phase: 0, sub: '3/3', cue: 'Hug knee to chest · hold' },   // 니 허그 (홀드)
+  A1: { title: 'Neck & Shoulders', phase: 0, sub: '1/3', cue: 'Roll big, slow circles' },      // 목·어깨 크게 돌리기
+  A2: { title: 'Lunges',           phase: 0, sub: '2/3', cue: 'Step onto the circle · hold' }, // 교대 런지 (원 딛고 버티기)
+  A3: { title: 'Quad Stretch',     phase: 0, sub: '3/3', cue: 'Grab foot · pull to hip' },     // 서서 쿼드 잡기
   // B · 페이스 잡기 (PACE = 러닝의 학습 구간)
   P1: { title: 'Catch the Pace',   phase: 1, sub: '1/2', cue: 'Ease into a light jog' },       // 페이서 붙어 가볍게 뛰기
   P2: { title: 'Lock the Pace',    phase: 1, sub: '2/2', cue: 'Match the pacer’s rhythm' },    // 페이스 잠금
