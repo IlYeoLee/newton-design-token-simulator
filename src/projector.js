@@ -440,12 +440,16 @@ export class ProjectorRig {
       //   움직이면 그만큼 빔이 쓸림. 짐벌 ~12% 잔여로 지면에서 눈에 띄게 이동(안정 중심 주변 진동).
       const knee = this.xbot.getKneeWorld?.();
       if (knee) {
-        if (!this._kneeRest) this._kneeRest = { x: knee.x - body.x, z: knee.z - body.z };
-        const ox0 = knee.x - body.x, oz0 = knee.z - body.z;
-        this._kneeRest.x += (ox0 - this._kneeRest.x) * 0.02;   // 아주 느린 기준(제자리 평균)
-        this._kneeRest.z += (oz0 - this._kneeRest.z) * 0.02;
-        jx += (ox0 - this._kneeRest.x) * 0.18;   // 종아리 순간 편차 × 짐벌 미보정 잔여(~18%, 양산 소비자 짐벌 — 눈에 띄게)
-        jz += (oz0 - this._kneeRest.z) * 0.18;
+        // 무릎 편차: 수평(x,z) + 수직(y). 하이니는 무릎이 '위로' 올라가며 종아리가 피치되어
+        //   빔이 앞뒤로 스윕 → 수직 편차를 전방(fwd) 스윕으로 매핑(이게 실제 지배적 잔여).
+        if (!this._kneeRest) this._kneeRest = { x: knee.x - body.x, y: knee.y, z: knee.z - body.z };
+        const dx = knee.x - body.x, dy = knee.y, dz = knee.z - body.z;
+        this._kneeRest.x += (dx - this._kneeRest.x) * 0.02;
+        this._kneeRest.y += (dy - this._kneeRest.y) * 0.02;
+        this._kneeRest.z += (dz - this._kneeRest.z) * 0.02;
+        const vDev = dy - this._kneeRest.y;          // 무릎 높이 편차(하이니 = 큼)
+        jx += (dx - this._kneeRest.x) * 0.15 + fwd.x * vDev * 0.18;   // 수평 잔여 + 수직→전방 스윕(빔 축 방향)
+        jz += (dz - this._kneeRest.z) * 0.15 + fwd.z * vDev * 0.18;
       }
       const tt = (typeof performance !== 'undefined' ? performance.now() : 0) / 1000;
       jx += (Math.sin(tt * 2.3 + 0.7) * 0.6 + Math.sin(tt * 11.0) * 0.4) * 0.003;

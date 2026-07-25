@@ -4019,7 +4019,7 @@ void main(){
         if (session.active && !session.isLive) {
           const sw = xbot.getHeadSwing?.();
           if (sw) {
-            const s = new THREE.Quaternion().slerp(sw, 0.6);   // 감쇠 60% (1:1은 어지러움)
+            const s = new THREE.Quaternion().slerp(sw, 0.25);   // 감쇠 25% — A3 상체 비틀림 따라 카메라 과하게 돌던 것 완화(유저)
             fwd = FP_FWD_FIXED.clone().applyQuaternion(s);
           }
         } else { xbot.resetHeadSwing?.(); }
