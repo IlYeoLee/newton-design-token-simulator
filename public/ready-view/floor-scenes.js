@@ -11,7 +11,7 @@ window.FLOOR_SCENES = {
   // ── 러닝 ──
   // A · 준비운동 (WARM UP)
   A1: { title: 'Neck & Shoulders', phase: 0, sub: '1/3', cue: 'Roll big, slow circles' },      // 목·어깨 크게 돌리기
-  A2: { title: 'Lunges',           phase: 0, sub: '2/3', cue: 'Sink low · hold 5s each side' }, // 교대 런지 (깊게 앉아 5초 홀드)
+  A2: { title: 'Calf Stretch',     phase: 0, sub: '2/3', cue: 'Bend front knee · back leg straight' }, // 런지 자세 종아리 스트레칭
   A3: { title: 'High Knees',       phase: 0, sub: '3/3', cue: 'Drive knees up · keep the pace' }, // 하이니(제자리 무릎 올리기)
   // B · 페이스 잡기 (PACE = 러닝의 학습 구간)
   P1: { title: 'Catch the Pace',   phase: 1, sub: '1/2', cue: 'Ease into a light jog' },       // 페이서 붙어 가볍게 뛰기

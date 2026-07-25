@@ -442,7 +442,7 @@ export const STAGES = {
   running: [
     { id:'READY', label:'준비 — 발 두 번 구르면 시작', voice:['션','안녕! 션이에요. 오늘 가볍게 1킬로 뛰어볼까요? 발 두 번 구르면 시작!'], wear:'SAFE 대기', foot:'발 두 번 구르기 → 시작' },
     { id:'A1', label:'A · 준비운동 1/3 — 목·어깨 풀기', voice:['션','먼저 몸부터 깨울게요. 편하게 서서 목과 어깨를 크게, 천천히 돌려요. 링이 다 찰 때까지!'], wear:'개입 없음 (자세 측정)' },
-    { id:'A2', label:'A · 준비운동 2/3 — 런지(앞의 원 딛고 버티기)', voice:['션','좋아요! 이번엔 런지예요.'], foot:'앞으로 딛고 버티기 · 발 교대' },
+    { id:'A2', label:'A · 준비운동 2/3 — 종아리 늘리기(앞무릎 굽히고 뒷다리 쭉)', voice:['션','좋아요! 앞무릎 굽히고 뒷다리 쭉, 종아리를 늘려요.'], foot:'앞으로 딛고 버티기 · 발 교대' },
     { id:'A3', label:'A · 준비운동 3/3 — 하이니(제자리 무릎 올리기)', voice:['션','마지막! 하이니예요.'], foot:'완료 후 두 번 구르기 → 다음' },
     { id:'T1', label:'몸풀기 끝 — 다음은 페이스 잡기', voice:['션','몸이 다 풀렸네요, 최고예요! 발 두 번 구르면 이제 페이스 잡으러 가요.'], foot:'발 두 번 구르기 → 페이스 잡기' },
     { id:'P1', dur:6, live:true, label:'페이스 잡기 — 페이서 붙어 가볍게 뛰기', voice:['션','자, 바로 가볍게 뛰기 시작할게요. 앞의 광점이 저예요 — 제 페이스에 한번 붙어 보세요!'], wear:'낮은 강도 보조 시작' },
@@ -1260,7 +1260,7 @@ export class Session {
     switch (st.id) {
       case 'READY': FS('션 · 마지막 1KM'); FL('READY'); break;   // 푸터 제거: CTA 라벨과 중복 + CTA 근접 이동으로 겹침
       case 'A1': FS('준비운동 1/3'); FL('목·어깨 크게 천천히 돌리기'); FM('제자리에 서서 — 링이 찰 때까지', CS.sand); break;
-      case 'A2': FS('준비운동 2/3'); FL('앞으로 크게 딛어 원 밟고 버티기'); FM('링이 차면 발 교대', CS.sand); break;
+      case 'A2': FS('준비운동 2/3'); FL('앞무릎 굽히고 뒷다리 쭉 — 종아리 늘리기'); FM('링이 차면 발 교대', CS.sand); break;
       case 'A3': FS('준비운동 3/3'); FL('무릎 좌우 번갈아 높이 올리기'); FM('켜지는 발 박자로 · 30초', CS.sand); break;
       case 'A4': FS('준비운동 4/4'); FL('켜지는 발자국 박자로 제자리 걷기'); FM('처음엔 천천히 — 점점 빨라져요'); break;
       case 'T1': FS('잠깐'); S(this.slotFL, '몸풀기 끝!', { size: 0.12, color: CS.prism }); break;   // 푸터 제거: CTA 라벨과 중복
@@ -1552,7 +1552,7 @@ export class Session {
         this.demoActive = true;
         return;
       }
-      this._say('a2follow', '션', '자, 이제 같이 따라해봐요! 앞으로 크게 딛고 무릎 굽혀 버텨요.');
+      this._say('a2follow', '션', '자, 이제 같이! 앞무릎 굽히고 뒷다리 쭉 펴서 버텨요.');
       P.fill = inHold ? cyc.prog : 0;   // 0→1 정확히 5초(봇 최심 정지 구간)
       placeMarkNum(P.numL); placeMarkNum(P.numR);
       P._pop = Math.max(0, (P._pop || 0) - dt * 3.8);
