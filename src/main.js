@@ -963,6 +963,12 @@ void main(){
   document.getElementById('btn-tap')?.addEventListener('click', () => session.tapAdvance());
   document.getElementById('btn-stage-prev')?.addEventListener('click', () => session.prev());
   document.getElementById('btn-stage-next')?.addEventListener('click', () => session.next());
+  // 런지 게이지 A/B안 비교 토글 (A=발 아래 추종, B=전방 고정) — 유저 비교 검토용
+  const a2abBtn = document.getElementById('btn-a2ab');
+  a2abBtn?.addEventListener('click', () => {
+    session.a2Guide = (session.a2Guide || 'A') === 'A' ? 'B' : 'A';
+    a2abBtn.textContent = `게이지 ${session.a2Guide}안`;
+  });
   document.getElementById('btn-session-stop')?.addEventListener('click', () => stopSession());
   document.getElementById('btn-view')?.addEventListener('click', () => setFp(!fpMode));
   // ── FX 룩 프로 패널 — FX Lab 컨트롤을 시뮬 안에 (실물 3D 실시간 반영 + 자동 저장) ──

@@ -1384,15 +1384,27 @@ export class Session {
       const P = this.a2press;
       // AI 사출 보정(유저 스케치 정정): 원 = 앞발 '아래'(발이 원을 밟음) — 발끝 기준 거의 제자리(+0.05)
       const front = pb ? (pb.footL.z < pb.footR.z ? pb.footL : pb.footR) : null;
-      if (front && front.y < 0.12) {
-        P.cx += (front.x - P.cx) * 0.12;
-        P.cz += ((front.z - 0.05) - P.cz) * 0.12;
-        P.ring.position.x = P.cx; P.ring.position.z = P.cz;
-        P.arc.position.x = P.cx; P.arc.position.z = P.cz;
+      if ((this.a2Guide || 'A') === 'A') {
+        // A안: 발 아래 추종 (밟는 원)
+        if (front && front.y < 0.12) {
+          P.cx += (front.x - P.cx) * 0.12;
+          P.cz += ((front.z - 0.05) - P.cz) * 0.12;
+        }
+      } else {
+        // B안: 전방 고정 — 시선 낙하점(-1.4) 판정 마크 존. 프레스 판정은 발 위치와 무관하게
+        // '깊이 유지 중'으로 대체돼야 하나, 비교용이므로 판정 원점만 발 추종 유지(시각만 고정).
+        P.cx += (0 - P.cx) * 0.12;
+        P.cz += (-1.4 - P.cz) * 0.12;
       }
+      P.ring.position.x = P.cx; P.ring.position.z = P.cz;
+      P.arc.position.x = P.cx; P.arc.position.z = P.cz;
       let pressing = false;
-      for (const f of [pb?.footL, pb?.footR]) {
-        if (f && f.y < 0.09 && Math.hypot(f.x - P.cx, f.z - P.cz) < 0.27) pressing = true;
+      if ((this.a2Guide || 'A') === 'A') {
+        for (const f of [pb?.footL, pb?.footR]) {
+          if (f && f.y < 0.09 && Math.hypot(f.x - P.cx, f.z - P.cz) < 0.27) pressing = true;
+        }
+      } else if (front && front.y < 0.09 && pb && Math.abs(pb.footL.z - pb.footR.z) > 0.4) {
+        pressing = true;   // B안 판정 = 앞발 접지 + 런지 스프레드(깊이 유지 중)
       }
       P.fill = pressing ? Math.min(1, P.fill + dt / NEED) : Math.max(0, P.fill - dt * 0.6);
       P.arc.setProg(Math.max(0.001, P.fill));
@@ -1502,8 +1514,12 @@ export class Session {
       const pb = this.xbot?.getProbes?.();
       const P = this.bkA2press;
       let pressing = false;
-      for (const f of [pb?.footL, pb?.footR]) {
-        if (f && f.y < 0.09 && Math.hypot(f.x - P.cx, f.z - P.cz) < 0.27) pressing = true;
+      if ((this.a2Guide || 'A') === 'A') {
+        for (const f of [pb?.footL, pb?.footR]) {
+          if (f && f.y < 0.09 && Math.hypot(f.x - P.cx, f.z - P.cz) < 0.27) pressing = true;
+        }
+      } else if (front && front.y < 0.09 && pb && Math.abs(pb.footL.z - pb.footR.z) > 0.4) {
+        pressing = true;   // B안 판정 = 앞발 접지 + 런지 스프레드(깊이 유지 중)
       }
       P.fill = pressing ? Math.min(1, P.fill + dt / NEED) : Math.max(0, P.fill - dt * 0.6);
       P.arc.setProg(Math.max(0.001, P.fill));
