@@ -2048,7 +2048,8 @@ void main(){
         void main(){
           vec2 uv = vUv;
           vec3 c = texture2D(map, crop(uv)).rgb;
-          if (max(c.r, max(c.g, c.b)) < 0.06) discard;   // 검은/미로드 프레임 = 빨간 사각형 깜빡임 방지(유저)
+          // 깜빡임 방지는 tickA1Coach의 readyState 게이트가 전담 — 픽셀 검은-discard는 어두운 셔츠·그림자에
+          // 구멍을 뚫으므로 제거(유저). 크로마키만: 초록 초과분으로 배경만 판정.
           float m = mask1(uv);
           float mEro = smoothstep(0.30, 0.68, m);
           if (mEro < 0.02) discard;
