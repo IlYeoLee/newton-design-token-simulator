@@ -3,7 +3,7 @@ import bkStepContacts from '../assets/mocap/contacts-cmu_crossover_shot.json';  
 import { WALL_Z } from './scene.js';
 import { lutColor, GLYPHS, drawGlyph, footSlot, footSDFTexture, FXP } from './fxlut.js';
 import { MARK_NUM, drawStanceBox, drawPunchLine, drawApproachRing, drawTrajectory, drawRotate } from './fx-core.js';
-import { makeMarkFXMaterial, makeLaneFXMaterial, makeFlowArrow, tickFlowArrows } from './tokens.js';
+import { makeMarkFXMaterial, makeLaneFXMaterial, makeFlowArrow, tickFlowArrows, Marker, COLORS } from './tokens.js';
 
 // 피그마 CTA 임포트 — StageCard/베이스 컴포넌트의 cta 노드를 다운로드한 에셋(150×44 원 비율).
 // 절차: 피그마에서 download_assets → public/textures/<sport>_running.png → 여기서 텍스처로 소비.
@@ -518,13 +518,19 @@ export class Session {
     g = this._mk('A2');
     // 런지 프레스 = 룩 시스템 발형(MARK 상태머신) — Hold 코닉 림(차오르는 라인) + 숫자 5→1 카운트
     // + 완료 Success 블룸(리퀴드). A안=앞발 바로 아래 추종 / B안=전방 고정 (a2Guide 토글).
+    // 룩시스템 정식 MARK 토큰(Marker) 2개 — 좌·우 발형 나란히. setNumber로 글리프 자동 앵커(삐짐 없음).
+    // render(phase, progress)가 Preview/Active(countdown)/Locked/Success(linger) 전부 전담.
+    const mkFoot = (right, x) => {
+      const m = new Marker(0.17, COLORS.left, 'floor', right);   // radius 0.17 = 작고 예쁜 발형
+      m.setNumber(5);
+      m.group.position.set(x, 0.013, -1.5);
+      return m;
+    };
     this.a2press = {
-      fmL: new FootMark('left').at(-0.13, -1.45, 1.5), fmR: new FootMark('right').at(0.13, -1.45, 1.5),
-      nums: [5, 4, 3, 2, 1].map(n => floorNum(n, 0, -1.45, 0.19)),   // 발형 '안' 글리프 — 크게·중앙 (룩시스템 슬롯)
-      fill: 0, _numIdx: -1, _pop: 0, _succ: 0, _succFM: null,
+      fmL: mkFoot(false, -0.14), fmR: mkFoot(true, 0.14),
+      fill: 0, _cnt: 5, _succ: 0, _succFM: null, _side: null,
     };
     g.add(this.a2press.fmL.group, this.a2press.fmR.group);
-    for (const n of this.a2press.nums) { n.visible = false; g.add(n); }
 
     g = this._mk('A3');
     // 쿼드 스트레치(발등 잡고 당기기) — 축발 마크 + 홀드 아크 (프로브: 뒤로 접어 든 발 높이)
@@ -1387,39 +1393,45 @@ export class Session {
       this._a2t = this.t;
       const pb = this.xbot?.getProbes?.();
       const P = this.a2press;
-      // ── 룩 시스템 MARK 상태머신 (유저 확정 플로우) ──
-      // 좌·우 발형 = 지면 고정 목표. Preview(둘 다 숨쉬기) → 딛는 발 Active(헤일로 수축)
-      // → 접지 Hold(코닉 림 + 5→1 글리프) → Success(블룸·버스트) → 반대발, 대기발은 Locked 고스트.
+      // ── 룩시스템 MARK 토큰 상태머신 (유저 스케치 흐름 그대로) ──
+      //   Preview(둘 다) → 딛는 발 Active(뻗을때) → 밟는 순간 Hold+숫자 5→1(이펙트 점점 커짐)
+      //   → 끝나면 Success → 반대발 되면 상태 바뀜, 대기발은 Locked.
+      // 판정 = 봇 다리 상태(발 접지+런지 깊이)로만 구동 — 고정 마크와의 거리 게이트 없음.
       const front = pb ? (pb.footL.z < pb.footR.z ? pb.footL : pb.footR) : null;
       const isL = front === pb?.footL;
       const spread = pb ? Math.abs(pb.footL.z - pb.footR.z) : 0;
-      const engaged = !!front && spread > 0.28;
+      const engaged = !!front && spread > 0.28;                 // 발을 뻗기 시작 = Active
+      const pressing = engaged && front.y < 0.10 && spread > 0.5;  // 깊이 밟음(홀드) = 숫자 카운트
       const act = isL ? P.fmL : P.fmR, oth = isL ? P.fmR : P.fmL;
-      const ap = act.group.position;
-      const pressing = engaged && front.y < 0.09 && Math.hypot(front.x - ap.x, front.z - ap.z) < 0.34;
-      P.fill = pressing ? Math.min(1, P.fill + dt / NEED) : Math.max(0, P.fill - dt * 0.6);
+      P.fill = pressing ? Math.min(1, P.fill + dt / NEED) : Math.max(0, P.fill - dt * 0.8);
       P._succ = Math.max(0, (P._succ || 0) - dt);
-      if (P._succ > 0 && P._succFM) P._succFM.glow(1 - P._succ / 0.9);           // Success 블룸 잔상
+      const T = performance.now() / 1000;
+
+      // 성공 잔상(linger) 우선 — 방금 완료한 발
+      if (P._succ > 0 && P._succFM) P._succFM.render('linger', 1 - P._succ / 0.9, 0, 1);
+
       if (!engaged && P.fill <= 0.001) {
-        if (P._succ <= 0) { P.fmL.countdown(-1); P.fmR.countdown(-1); }          // Preview
+        // Preview — 둘 다 숨쉬기 (성공 잔상 중인 발은 위에서 이미 linger)
+        if (P._succ <= 0 || P._succFM !== P.fmL) P.fmL.render('preview', 0, 0, 1);
+        if (P._succ <= 0 || P._succFM !== P.fmR) P.fmR.render('preview', 0, 0, 1);
       } else {
-        if (P._succ <= 0 || P._succFM !== act) {
-          if (pressing) {
-            act.setHold(Math.max(0.001, P.fill));                                 // Hold — 코닉 림 진행
-            act.op(0.45 + 0.55 * P.fill);   // 약하게 등장 → 꾹꾹 누를수록 진해짐 (유저)
-          } else act.countdown(Math.min(1, Math.max(0, (spread - 0.28) / 0.45))); // Active
-        }
-        if (P._succ <= 0 || P._succFM !== oth) oth.ghost();                       // Locked
+        // Active/Hold — 딛는 발. countdown 페이즈 progress = 접근도→홀드 채움
+        const prog = pressing ? P.fill : Math.min(0.35, Math.max(0, (spread - 0.28) / 0.6));
+        if (P._succ <= 0 || P._succFM !== act) act.render('countdown', prog, 0, 1);
+        // 숫자 5→1 — 밟는 동안만. 정수 바뀔 때만 텍스처 갱신
+        const n = pressing ? Math.max(1, 5 - Math.floor(P.fill * 5)) : 5;
+        if (n !== P._cnt) { act.setNumber(n); P._cnt = n; }
+        // Locked — 아직 안 한 발
+        if (P._succ <= 0 || P._succFM !== oth) oth.render('locked', 0, 0, 1);
       }
-      // 글리프 5→1 — 발형 볼 중앙, 크게·안정 (삐져나옴 금지: 마크 1.5배 확대에 맞춤)
-      const idx = Math.min(4, Math.floor(P.fill * 5));
-      for (let i = 0; i < 5; i++) { const n = P.nums[i]; n.visible = pressing && i === idx; n.position.x = ap.x; n.position.z = ap.z; }   // 발형 중앙
-      if (idx !== P._numIdx) { P._numIdx = idx; P._pop = 1; }
-      P._pop = Math.max(0, P._pop - dt * 3.2);
-      const shown = P.nums[idx]; if (shown) shown.scale.setScalar(1 + 0.35 * P._pop);
+
+      // 숫자 = 밟는 순간(pressing)에만 노출 — 스케치 '밟는 순간→숫자 카운트'
+      if (P.fmL.num) P.fmL.num.visible = pressing && act === P.fmL;
+      if (P.fmR.num) P.fmR.num.visible = pressing && act === P.fmR;
+
       if (P.fill >= 1) {
-        this.a2count = (this.a2count || 0) + 1; P.fill = 0;
-        P._succ = 0.9; P._succFM = act;
+        this.a2count = (this.a2count || 0) + 1; P.fill = 0; P._cnt = 5; act.setNumber(5);
+        P._succ = 0.9; P._succFM = act;                       // Success 블룸
         const wp = new THREE.Vector3(); act.group.getWorldPosition(wp); this.onPress?.(wp);   // 완료 버스트(리퀴드)
       }
       if (this.t < DEMO) {

@@ -328,7 +328,7 @@ function flatMat(color, opacity = 1) {
 }
 
 // ── 마커 비주얼: 채움 원 + 테두리 + 카운트다운 링 + 숫자 ──────
-class Marker {
+export class Marker {
   constructor(radius, color, surface /* 'floor'|'wall' */, footRight = false) {
     this._footRight = footRight;
     this.group = new THREE.Group();
