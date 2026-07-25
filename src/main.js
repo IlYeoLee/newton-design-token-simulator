@@ -2020,6 +2020,7 @@ void main(){
   const COACH_CFG = {
     A1: { src: 'ready-view/assets/sean_neck_shoulder.webm', cropOff: 0.40, cropScale: 0.58, w: 0.88, h: 0.9, fwd: 0.16 },   // A2 런지와 크기 맞춤(유저: 너무 작음)
     A2: { src: 'ready-view/assets/sean_lunge.webm', cropOff: 0.0, cropScale: 1.0, w: 0.9, h: 0.9, fwd: 0.10 },   // 런지 전신 측면
+    A3: { src: 'ready-view/assets/sean_highknee.webm', cropOff: 0.0, cropScale: 1.0, w: 0.9, h: 0.9, fwd: 0.10 },   // 하이니 전신 정면
   };
   const _coaches = {};   // stageId → { video, plane, _fwd }
   function ensureCoach(id) {
@@ -2082,8 +2083,9 @@ void main(){
     const st = session.active && !session.isLive && state.pack === 'running' ? session.stage : null;
     const showA1 = st === 'A1';
     const showA2 = st === 'A2' && (session.t || 0) < 5.0;   // 관찰 5초 동안 전문가 런지 영상
-    const activeId = showA1 ? 'A1' : (showA2 ? 'A2' : null);
-    for (const id of ['A1', 'A2']) {
+    const showA3 = st === 'A3' && (session.t || 0) < 5.0;   // 관찰 5초 동안 하이니 영상
+    const activeId = showA1 ? 'A1' : (showA2 ? 'A2' : (showA3 ? 'A3' : null));
+    for (const id of ['A1', 'A2', 'A3']) {
       const c = _coaches[id];
       if (id === activeId) {
         const co = ensureCoach(id);
@@ -3756,15 +3758,17 @@ void main(){
       // 러닝 준비운동(A) = 코치 드릴을 세션 스테이지 시간(session.t)에 위상 잠금 → 씬 링·카운트·음성과 동기(유저: '타이밍 하나하나 맞춰')
       if (session.stage !== 'A2' && xbot.group.scale.x !== 1) xbot.group.scale.x = 1;   // A2 미러 잔류 방지
       let _clip = demoClipFor(session.sport, session.stage);
-      // A2 = 2단계 흐름(유저): [0~5s 관찰] 봇은 가만히 서서(idle) 전문가 영상 보기 → [5s~ 따라하기] 실제 런지.
-      const A2_WATCH = 5.0, a2Watching = session.stage === 'A2' && session.t < A2_WATCH;
-      if (a2Watching) { _clip = 'idle'; xbot.group.scale.x = 1; xbot.lungeDeepen = 0; xbot.headPitch = THREE.MathUtils.degToRad(-38); }   // 앞의 영상 응시
+      // A2/A3 = 2단계 흐름(유저): [0~5s 관찰] 봇은 가만히 서서(idle) 전문가 영상 보기 → [5s~ 따라하기].
+      const A2_WATCH = 5.0, aWatching = /^(A2|A3)$/.test(session.stage || '') && session.t < A2_WATCH;
+      const a2Watching = aWatching && session.stage === 'A2';
+      if (aWatching) { _clip = 'idle'; xbot.group.scale.x = 1; xbot.lungeDeepen = 0; xbot.headPitch = THREE.MathUtils.degToRad(-32); }   // 앞의 영상 응시
       // 위상잠금: 씬 링·카운트와 코치 동작을 같은 시간축에 — 절차 드릴 + A1 전신풀기·A2 점핑잭(주기=씬 BT).
       // BK_B2 = 분해 밟기: 씬 3s 사이클당 크로스오버 1회(마크 1-2-3과 사이클 동기).
       // BK_B3 = 컷·감속: 로우 드리블 클립의 컷 구간(16~21s) 창 반복. 그 외 실측 모캡은 자연 속도(왜곡 방지).
       let _phase = null;
       if (_clip === 'stomp_press') _phase = session.t;
-      else if (session.stage === 'A1' || session.stage === 'A3') _phase = session.t;   // A1 neckShoulder 목부터·A3 kneeTwist 깔끔히 시작 (잔여 _demoT 위상 오류 방지)
+      else if (session.stage === 'A1') _phase = session.t;   // A1 neckShoulder 목부터 시작 (잔여 _demoT 위상 오류 방지)
+      else if (session.stage === 'A3') _phase = Math.max(0, session.t - A2_WATCH);   // A3 = 관찰 5s 이후 하이니 시작
       else if (session.sport === 'running' && (/^run_|^hj_/.test(_clip) || _clip === 'cmu_stretch' || _clip === 'jumpingJacks')) _phase = session.t;
       else if (session.stage === 'A2') {
         if (a2Watching) {

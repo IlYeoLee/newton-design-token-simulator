@@ -397,7 +397,7 @@ export const STAGES = {
     { id:'READY', label:'준비 — 발 두 번 구르면 시작', voice:['션','안녕! 만나서 반가워요, 전 션이에요. 오늘 저랑 같이 가볍게 1킬로미터 달려볼 거예요. 준비되면 제자리에서 발을 두 번 굴러 주세요!'], wear:'SAFE 대기', foot:'발 두 번 구르기 → 시작' },
     { id:'A1', label:'A · 준비운동 1/3 — 목·어깨 풀기', voice:['션','먼저 몸부터 깨울게요. 편하게 서서 목과 어깨를 크게, 천천히 돌려요. 링이 다 찰 때까지!'], wear:'개입 없음 (자세 측정)' },
     { id:'A2', label:'A · 준비운동 2/3 — 런지(앞의 원 딛고 버티기)', voice:['션','좋아요, 잘하고 있어요! 이번엔 런지예요. 먼저 제가 어떻게 하는지 볼게요~'], foot:'앞으로 딛고 버티기 · 발 교대' },
-    { id:'A3', label:'A · 준비운동 3/3 — 무릎 올리며 몸통 비틀기', voice:['션','마지막이에요! 한쪽 무릎을 배 높이까지 쭉 올리면서 몸통을 반대로 비틀어요. 코어랑 균형 감각을 확 깨우는 동작이에요. 좌우 번갈아 가볍게!'], foot:'완료 후 두 번 구르기 → 다음' },
+    { id:'A3', label:'A · 준비운동 3/3 — 하이니(제자리 무릎 올리기)', voice:['션','마지막이에요! 하이니 갈게요. 먼저 제가 어떻게 하는지 볼게요~'], foot:'완료 후 두 번 구르기 → 다음' },
     { id:'T1', label:'몸풀기 끝 — 다음은 페이스 잡기', voice:['션','몸이 다 풀렸네요, 최고예요! 발 두 번 구르면 이제 페이스 잡으러 가요.'], foot:'발 두 번 구르기 → 페이스 잡기' },
     { id:'P1', dur:6, live:true, label:'페이스 잡기 — 페이서 붙어 가볍게 뛰기', voice:['션','자, 바로 가볍게 뛰기 시작할게요. 앞의 광점이 저예요 — 제 페이스에 한번 붙어 보세요!'], wear:'낮은 강도 보조 시작' },
     { id:'P2', dur:6, live:true, label:'페이스 잠금 → 실전 진입', voice:['션','오, 그 리듬 좋은데요! 몇 걸음만 더 맞추면 바로 실전이에요.'], wear:'SAFE 착지 안정화' },
@@ -541,9 +541,16 @@ export class Session {
     g.add(fmL.group, fmR.group);
 
     g = this._mk('A3');
-    // 쿼드 스트레치(발등 잡고 당기기) — 축발 마크 + 홀드 아크 (프로브: 뒤로 접어 든 발 높이)
-    this.a3foot = new FootMark('right').at(0.12, -1.2, 1.1); g.add(this.a3foot.group);
-    this.a3arc = floorArc(-0.25, -1.3, BRAND.sand); g.add(this.a3arc);
+    // High Knees 지면 가이드 — 좌·우 발형 마크(드는 발 실시간 감지 교대 활성) + 중앙 30s 타이머 링
+    // + 리듬 카운트 + 템포 비트 펄스. 발 감지 활용 동적 가이드(런지처럼 단순치 않게 — 유저).
+    this.a3hk = {
+      fmL: new FootMark('left').at(-0.16, -1.35, 1.0), fmR: new FootMark('right').at(0.16, -1.35, 1.0),
+      numCtr: floorNum(0, 0, -1.92, 0.13),                 // 중앙 상단 = 누적 횟수
+      timerArc: floorArc(0, -1.62, BRAND.red),             // 30s 타이머 링
+      beat: floorRing(0, -1.35, 0.30, 0.35, BRAND.red, 0), // 템포 비트 펄스(발 사이 큰 링)
+      sec: 0, reps: 0, _upL: false, _upR: false, _pop: 0,
+    };
+    g.add(this.a3hk.fmL.group, this.a3hk.fmR.group, this.a3hk.numCtr, this.a3hk.timerArc, this.a3hk.beat);
 
     g = this._mk('T1');
     this.tap1 = this._tap('running'); this.tap1.position.set(0, 0.013, -1.1); g.add(this.tap1);
@@ -1479,23 +1486,43 @@ export class Session {
         }
       }
     } else if (id === 'A3') {
-      // 무릎 올리며 몸통 비틀기 — 무릎을 올릴 때마다(든 발 높이 0.3m+) 홀드 아크가 차오름·1회 카운트
-      const NEED = 0.9, REPS = 6, DEMO = 3.0;   // 좌우 번갈아 6회(가벼운 동적 워밍업)
+      // ── High Knees: [관찰 5s 영상] → [따라하기: 발 감지 좌우 교대 + 30s 타이머 + 카운트 + 템포] ──
+      const WATCH = 5.0, HOLD_SEC = 30, TEMPO = 0.5;   // 관찰 5s · 30초 지속 · 목표 케이던스 0.5s/스텝
+      const H = this.a3hk;
       const dt = Math.max(0, this.t - (this._a3t ?? this.t));
-      if ((this._a3t ?? 0) > this.t) { this.a3count = 0; this._a3fill = 0; }
+      if ((this._a3t ?? 0) > this.t) { H.sec = 0; H.reps = 0; H._upL = false; H._upR = false; }   // 재진입 리셋
       this._a3t = this.t;
       const pb = this.xbot?.getProbes?.();
-      const raised = pb && Math.max(pb.footL?.y ?? 0, pb.footR?.y ?? 0) > 0.3;
-      this._a3fill = raised ? Math.min(1, (this._a3fill || 0) + dt / NEED) : Math.max(0, (this._a3fill || 0) - dt * 1.4);
-      this.a3arc.setProg(Math.max(0.001, this._a3fill));
-      if (this._a3fill >= 1) { this.a3count = (this.a3count || 0) + 1; this._a3fill = 0; }
-      if (this.t < DEMO) {
+
+      if (this.t < WATCH) {
+        // 관찰: 영상만, 지면 마크 숨김, 프로그레스바
+        for (const o of [H.fmL.group, H.fmR.group, H.numCtr, H.timerArc, H.beat]) o.visible = false;
         this.demoActive = true;
-        FMU('먼저 보세요 — 무릎 올리며 몸통 비틀기', CS.sand);
-      } else {
-        FMU(`무릎 올리기 ${Math.min(REPS, this.a3count || 0)} / ${REPS}`, CS.sand);
-        if ((this.a3count || 0) >= REPS) { this.next(); return; }
+        FMU(`먼저 볼게요 — ${Math.round((this.t / WATCH) * 100)}%`, CS.prism);
+        if (this.t >= WATCH - 0.15) this._say('a3follow', '션', '자, 이제 같이! 무릎을 배 높이까지, 좌우 번갈아 빠르게 올려요.');
+        return;
       }
+      // 따라하기
+      H.fmL.group.visible = true; H.fmR.group.visible = true; H.numCtr.visible = true; H.timerArc.visible = true; H.beat.visible = true;
+      H.sec = Math.min(HOLD_SEC, H.sec + dt);
+      H.timerArc.setProg(Math.max(0.001, H.sec / HOLD_SEC));
+      H._pop = Math.max(0, H._pop - dt * 4);
+      // 발 감지: 각 발이 문턱(0.22m) 넘게 올라오면 그 발 Active(밝게 채움) + 상승 에지에서 1회 카운트
+      const lU = (pb?.footL?.y ?? 0) > 0.22, rU = (pb?.footR?.y ?? 0) > 0.22;
+      if (lU && !H._upL) { H.reps++; H._pop = 1; }         // 왼발 상승 에지
+      if (rU && !H._upR) { H.reps++; H._pop = 1; }         // 오른발 상승 에지
+      H._upL = lU; H._upR = rU;
+      H.fmL.setHold(lU ? 1 : 0.02); H.fmL.op(lU ? 1 : 0.5);
+      H.fmR.setHold(rU ? 1 : 0.02); H.fmR.op(rU ? 1 : 0.5);
+      // 중앙 누적 횟수 + 팝
+      if (H.reps !== H._numShown) { redrawFootNum(H.numCtr.userData.plane, H.reps); H._numShown = H.reps; }
+      H.numCtr.scale.setScalar(1 + 0.35 * H._pop);
+      // 템포 비트 — 목표 케이던스로 발 사이 링이 팽창·페이드 (유저가 속도 맞추게)
+      const beatPh = (this.t % TEMPO) / TEMPO;
+      H.beat.setOp(0.55 * (1 - beatPh));
+      H.beat.scale.setScalar(0.85 + beatPh * 0.4);
+      FMU(`${Math.max(0, Math.ceil(HOLD_SEC - H.sec))}초 · ${H.reps}회`, CS.sand);
+      if (H.sec >= HOLD_SEC) { this.next(); return; }
     } else if (id === 'P1' || id === 'P2') {
       // 페이스 잡기 — 뛰면서 페이스로 익힌다: 페이서 봇 + 흐르는 페이스 라이트에 리듬 맞추기.
       // (정지 학습 A4·B1~B4 폐기. 라이브 워밍업 런 = C 실전과 동일 머신 재사용.)
