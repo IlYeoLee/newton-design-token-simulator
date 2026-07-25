@@ -21,7 +21,7 @@ html,body{background:transparent}
   opacity:0;animation:sUpFlat .6s .28s both}
 
 /* 타이틀 아래: 원형 도트 로딩바(복싱 scene.html과 동일 규약) — 회색 위 빨강을 클립으로 좌→우 드러내며 --dur 동안 0→100% */
-.dots{position:absolute;top:452px;left:50%;transform:translateX(-50%);height:60px;
+.dots{position:absolute;top:220px;left:50%;transform:translateX(-50%);height:60px;
   opacity:0;animation:sUp .6s .42s both}
 .drow{display:flex;height:60px}
 .dot{width:60px;height:60px;border-radius:999px;flex:0 0 auto}
@@ -47,14 +47,12 @@ html,body{background:transparent}
 @keyframes sUpFlat{from{opacity:0;transform:scale(.94)}to{opacity:1;transform:scale(1)}}
 </style></head><body>
   <div id="board">
-    <div class="title" id="s-title">Title</div>
-    <div class="cue" id="s-cue"></div>
+    <!-- 타이틀·큐 제거: 운동중 텍스트는 1인칭에서 비가시 + 하방 시선 유도 위험(유저 확정). 지시는 음성 전담 -->
     <div class="dots" id="s-dots">
       <div class="drow" id="drow-g"></div>
       <div class="dclip"><div class="drow" id="drow-r"></div></div>
     </div>
-    <div class="phases" id="s-phases"></div>
-  </div>
+      </div>
   <script src="floor-scenes.js"></script>
   <script>
   const $ = id => document.getElementById(id);
@@ -64,23 +62,6 @@ html,body{background:transparent}
   const sport = stage.startsWith('BK_') ? 'basketball' : 'running';
   const PH = window.FLOOR_PHASES[sport];
 
-  // 타이틀 — 글자 분해 후 좌→우 촤라락 슬라이드인
-  (function(){
-    const t = $('s-title'); t.textContent = ''; let vis = 0;
-    [...S.title].forEach(c => { const s = document.createElement('span');
-      if (c === ' ') { s.className = 'sp'; }
-      else { s.className = 'ch'; s.textContent = c; s.style.animationDelay = (0.1 + vis * 0.045) + 's'; vis++; }
-      t.appendChild(s); });
-  })();
-  $('s-cue').textContent = S.cue || '';
-
-  // 페이즈 스트립 — 3단계, 현재 볼드+sub
-  const pw = $('s-phases');
-  PH.forEach((label, i) => { const d = document.createElement('div');
-    const active = i === S.phase;
-    d.className = 'phase' + (active ? ' active' : '');
-    d.textContent = label + (active && S.sub ? ' ' + S.sub : '');
-    pw.appendChild(d); });
 
   // 도트 로딩바 — 회색 10개 위 빨강 10개를 클립으로 드러냄. 클립 폭이 --dur 동안 0→100%.
   const gr = $('drow-g'), rr = $('drow-r');
