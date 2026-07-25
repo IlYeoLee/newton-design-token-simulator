@@ -3925,6 +3925,7 @@ void main(){
     extractPose, retargetToClip,   // 비디오 모캡 (dev)
     rig, xbot, state, session, sceneScope, camera, controls, tokens, effects, scene, editor3d, sceneUI, FXP, designStore, TCFG, editCam, editControls, judge, THREE,
     renderer, demoVideo, renderDemoPanel, renderBxPerson,
+    get floorObj() { return floorObj; },
     get demoSeg() { return demoSeg; }, initDemoSeg,
     makeImageSegmenter: async () => {
       const fileset = await FilesetResolver.forVisionTasks(import.meta.env.BASE_URL + 'mediapipe-wasm');
