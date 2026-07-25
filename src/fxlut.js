@@ -114,6 +114,19 @@ export function drawGlyph(ctx, ch, x, y, sizePx, { color = 'rgba(255,240,220,0.9
   return true;
 }
 
+/** 여러 자리 숫자 — 글리프로 커닝·자동 축소해 한 폭 안에 그림(마크 카운트 10~99 대응).
+ *  1자리는 drawGlyph 그대로. 2자리↑는 각 글리프 자연 종횡비로 폭을 재고 전체가 sizePx 안에
+ *  들도록 축소 + 미세 커닝('1'처럼 좁은 글리프는 자연 폭이라 자동으로 붙음). */
+export function drawNumber(ctx, num, cx, cy, sizePx, opts = {}) {
+  const s = String(num);
+  if (s.length <= 1) return drawGlyph(ctx, s, cx, cy, sizePx, opts);
+  const ds = sizePx * (s.length === 2 ? 0.52 : 0.4);   // 자리당 크기 축소(2자리는 절반 남짓)
+  const adv = ds * 0.56;                                // 자간 = 좁게(글리프는 ds박스 안에서 잉크만 그려져 안 겹침)
+  let x = cx - adv * (s.length - 1) / 2, ok = true;
+  for (let i = 0; i < s.length; i++) { ok = drawGlyph(ctx, s[i], x, cy, ds, opts) && ok; x += adv; }
+  return ok;
+}
+
 /** 발형 슬롯 선택 — FX Lab 발 컨텍스트 칩(footCtx) 기준, 야외(신발) 기본 */
 export function footSlot(right) {
   return (FXP.footCtx === 'in' ? 'FOOT_IN_' : 'FOOT_OUT_') + (right ? 'R' : 'L');

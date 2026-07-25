@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import bkStepContacts from '../assets/mocap/contacts-cmu_crossover_shot.json';   // 접지 자동 추출 산출물 (scripts/extract_contacts.mjs)
 import { WALL_Z } from './scene.js';
-import { lutColor, GLYPHS, drawGlyph, footSlot, footSDFTexture, FXP } from './fxlut.js';
+import { lutColor, GLYPHS, drawGlyph, drawNumber, footSlot, footSDFTexture, FXP } from './fxlut.js';
 import { MARK_NUM, drawStanceBox, drawPunchLine, drawApproachRing, drawTrajectory, drawRotate } from './fx-core.js';
 import { makeMarkFXMaterial, makeLaneFXMaterial, makeFlowArrow, tickFlowArrows } from './tokens.js';
 
@@ -175,9 +175,9 @@ function floorNum(text, x, z, size, color) {
   // 숫자 = 글리프 슬롯 소비 (시뮬 마크 숫자와 동일 언어 — 커스텀 SVG 우선, 웜 크림 폴백)
   const c = document.createElement('canvas'); c.width = c.height = 128;
   const g2 = c.getContext('2d');
-  if (!drawGlyph(g2, String(text), 64, 64, 96)) {
+  if (!drawNumber(g2, String(text), 64, 64, 96)) {
     g2.fillStyle = 'rgba(255,240,220,0.95)';
-    g2.font = '300 86px -apple-system, sans-serif';
+    g2.font = `300 ${String(text).length > 1 ? 60 : 86}px -apple-system, sans-serif`;
     g2.textAlign = 'center'; g2.textBaseline = 'middle';
     g2.shadowColor = 'rgba(254,150,90,0.75)'; g2.shadowBlur = 14;
     g2.fillText(String(text), 64, 70);
@@ -196,8 +196,8 @@ function floorNum(text, x, z, size, color) {
 function redrawFootNum(p, n) {
   const c = p.userData.canvas, g2 = c.getContext('2d');
   g2.clearRect(0, 0, 128, 128);
-  if (!drawGlyph(g2, String(n), 64, 64, 96)) {
-    g2.fillStyle = 'rgba(255,240,220,0.95)'; g2.font = '300 86px -apple-system, sans-serif';
+  if (!drawNumber(g2, String(n), 64, 64, 96)) {
+    g2.fillStyle = 'rgba(255,240,220,0.95)'; g2.font = `300 ${String(n).length > 1 ? 60 : 86}px -apple-system, sans-serif`;
     g2.textAlign = 'center'; g2.textBaseline = 'middle';
     g2.shadowColor = 'rgba(254,150,90,0.75)'; g2.shadowBlur = 14; g2.fillText(String(n), 64, 70);
   }
