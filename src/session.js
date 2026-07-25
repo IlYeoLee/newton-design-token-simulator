@@ -1394,7 +1394,7 @@ export class Session {
         // B안: 전방 고정 — 시선 낙하점(-1.4) 판정 마크 존. 프레스 판정은 발 위치와 무관하게
         // '깊이 유지 중'으로 대체돼야 하나, 비교용이므로 판정 원점만 발 추종 유지(시각만 고정).
         P.cx += (0 - P.cx) * 0.12;
-        P.cz += (-1.4 - P.cz) * 0.12;
+        P.cz += (-2.0 - P.cz) * 0.12;   // 발 착지점(-1.45)과 겹치지 않게 명확히 전방
       }
       P.ring.position.x = P.cx; P.ring.position.z = P.cz;
       P.arc.position.x = P.cx; P.arc.position.z = P.cz;
