@@ -167,8 +167,11 @@ function drawLiftCue(g, style, t, pulse, W = 128, Hh = 256) {
       g.beginPath(); g.moveTo(cx, yy); g.lineTo(cx, y0 + (yEnd - y0) * Math.min(1, s2 + 0.06)); g.stroke();
     }
     if (draw > 0.9) {
-      // 꼭짓점 = 커스텀 SVG 촉(TIP_TRI — flow arrow와 동일 글리프, 유저 요청). 미로드 시 스트로크 폴백.
-      if (!drawGlyph(g, 'TIP_TRI', cx, y1 + 20, 76, { color: col(0.95), glowColor: col(0.85), glow: 16 })) {
+      // 꼭짓점 = 유저 제공 SVG 촉(lift_tip.svg, 유기적 손그림 화살촉). lazy 등록 — applyLabState의
+      // GLYPHS.set이 맵을 통째로 교체해도 다음 프레임에 재등록됨. 미로드 시 TIP_TRI→스트로크 폴백.
+      if (!GLYPHS.map.LIFT_TIP) { GLYPHS.map.LIFT_TIP = import.meta.env.BASE_URL + 'ready-view/assets/lift_tip.svg'; GLYPHS.set(GLYPHS.map); }
+      if (!drawGlyph(g, 'LIFT_TIP', cx, y1 + 24, 84, { color: col(0.95), glowColor: col(0.85), glow: 16 })
+        && !drawGlyph(g, 'TIP_TRI', cx, y1 + 20, 76, { color: col(0.95), glowColor: col(0.85), glow: 16 })) {
         g.strokeStyle = col(0.95); g.lineWidth = 13; g.lineCap = 'round'; g.lineJoin = 'round';
         g.shadowColor = col(0.9); g.shadowBlur = 18;
         g.beginPath(); g.moveTo(cx - 26, y1 + 30); g.lineTo(cx, y1); g.lineTo(cx + 26, y1 + 30); g.stroke();
