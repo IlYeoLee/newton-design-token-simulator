@@ -299,7 +299,7 @@ export class XBot {
     const neutral = {};
     for (const n of want) { const b = this.model.getObjectByName(n); if (b) neutral[n] = b.quaternion.clone(); }
     this._neutralPose = neutral;   // 팔 중립 덮어쓰기(_relaxArms)용 보관
-    this._armNeutralClips = new Set(['auto_cmu144_17', 'auto_cmu144_17_one']);   // 팔 어색 모캡 — 팔만 중립 덮어쓰기
+    this._armNeutralClips = new Set(['auto_cmu144_17', 'auto_cmu144_17_one', 'auto_cmu144_11']);   // 팔 어색 모캡 — 팔만 중립 덮어쓰기
     const clips = buildDrillClips(neutral);
     for (const id in clips) {
       const action = this.mixer.clipAction(clips[id]);
@@ -313,9 +313,13 @@ export class XBot {
       대상 클립: _armNeutralClips (예: cmu144_17 교대 런지 — 유저: '손만 자연스럽게') */
   _relaxArms() {
     if (!this._neutralPose) return;
+    const t = this._breathT || 0;
     for (const n of ['mixamorigLeftShoulder', 'mixamorigRightShoulder', 'mixamorigLeftArm', 'mixamorigRightArm', 'mixamorigLeftForeArm', 'mixamorigRightForeArm']) {
       const b = this.model.getObjectByName(n), q = this._neutralPose[n];
-      if (b && q) b.quaternion.copy(q);
+      if (!b || !q) continue;
+      b.quaternion.copy(q);
+      // 미세 스웨이(±2°) — 판자팔 방지, 좌우 위상 어긋나게 (유저: '자연스럽게 내리자')
+      if (n.endsWith('Arm')) b.quaternion.multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), Math.sin(t * 1.3 + (n.includes('Left') ? 0 : 1.7)) * 0.035));
     }
     this.model.updateMatrixWorld(true);
   }

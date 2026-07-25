@@ -3713,7 +3713,7 @@ void main(){
       tokens.update(0, 0);
       // hold=포즈 고정(복싱 READY 가드 유지). 러닝 대기는 idle 재생(호흡)이라 hold 안 함.
       // 러닝 준비운동(A) = 코치 드릴을 세션 스테이지 시간(session.t)에 위상 잠금 → 씬 링·카운트·음성과 동기(유저: '타이밍 하나하나 맞춰')
-      if (xbot.group.scale.x !== 1) xbot.group.scale.x = 1; xbot.lungeDeepen = 0;   // A2 실험 로직 제거 — 잔류 방지
+      if (session.stage !== 'A2' && xbot.group.scale.x !== 1) xbot.group.scale.x = 1;   // A2 미러 잔류 방지
       const _clip = demoClipFor(session.sport, session.stage);
       // 위상잠금: 씬 링·카운트와 코치 동작을 같은 시간축에 — 절차 드릴 + A1 전신풀기·A2 점핑잭(주기=씬 BT).
       // BK_B2 = 분해 밟기: 씬 3s 사이클당 크로스오버 1회(마크 1-2-3과 사이클 동기).
@@ -3721,6 +3721,16 @@ void main(){
       let _phase = null;
       if (_clip === 'stomp_press') _phase = session.t;
       else if (session.sport === 'running' && (/^run_|^hj_/.test(_clip) || _clip === 'cmu_stretch' || _clip === 'jumpingJacks')) _phase = session.t;
+      else if (session.stage === 'A2') {
+        // 실측 사이클(cmu144_11): 서기5.4 → 최심6.5 → 서기8.1. 내려가기(1.1s) → 최심 5초 정지 → 일어나기(1.6s).
+        // 비루트 클립(힙 XZ 고정)이라 위상 점프·순간이동 없음. 반대발 = 회차 X스케일 미러(경계=서기).
+        const T0 = 5.4, TD = 6.5, T1 = 8.1, HOLD = 5.0;
+        const DESC = TD - T0, RISE = T1 - TD, CYC = DESC + HOLD + RISE;
+        const c = session.t % CYC;
+        // 정지 구간 = 실데이터 근방 프레임 미세 왕복(±0.07s) — '시간정지' 느낌 제거, 자연 미동 (유저)
+        _phase = c < DESC ? T0 + c : (c < DESC + HOLD ? TD + Math.sin(session.t * 1.6) * 0.07 : TD + (c - DESC - HOLD));
+        xbot.group.scale.x = (Math.floor(session.t / CYC) % 2) ? -1 : 1;
+      }
       else if (session.stage === 'BK_B1') _phase = session.t;
       else if (session.stage === 'BK_B2') _phase = Math.min((session.t * 0.5) % 3.2, 2.2);   // 플랜트까지 + 홀드(슛 제거)
       else if (session.stage === 'BK_B3') _phase = 1.55 + ((session.t * 0.55) % 2.45);   // 플랜트→백스텝→착지→슛 구간 0.55배 반복
