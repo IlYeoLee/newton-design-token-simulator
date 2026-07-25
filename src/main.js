@@ -2105,8 +2105,9 @@ void main(){
     // 어떤 스테이지 코치를 켤지: A1 = 전 구간, A2 = 진입 후 ~3s 데모(런지 따라하기 전 시범)
     const st = session.active && !session.isLive && state.pack === 'running' ? session.stage : null;
     const showA1 = st === 'A1';
-    const showA2 = st === 'A2' && (session.t || 0) < 5.0;   // 관찰 5초 동안 전문가 런지 영상
-    const showA3 = st === 'A3' && (session.t || 0) < 5.0;   // 관찰 5초 동안 하이니 영상
+    const _vHold = !!(session.voiceBusy && session.voiceBusy());   // 관찰 = 최소 5s + 진입 음성 끝까지
+    const showA2 = st === 'A2' && ((session.t || 0) < 5.0 || _vHold);   // 관찰 동안 전문가 런지 영상
+    const showA3 = st === 'A3' && ((session.t || 0) < 5.0 || _vHold);   // 관찰 동안 하이니 영상
     const activeId = showA1 ? 'A1' : (showA2 ? 'A2' : (showA3 ? 'A3' : null));
     for (const id of ['A1', 'A2', 'A3']) {
       const c = _coaches[id];
@@ -3792,24 +3793,29 @@ void main(){
       if (session.stage !== 'A2' && xbot.group.scale.x !== 1) xbot.group.scale.x = 1;   // A2 미러 잔류 방지
       let _clip = demoClipFor(session.sport, session.stage);
       // A2/A3 = 2단계 흐름(유저): [0~5s 관찰] 봇은 가만히 서서(idle) 전문가 영상 보기 → [5s~ 따라하기].
-      const A2_WATCH = 5.0, aWatching = /^(A2|A3)$/.test(session.stage || '') && session.t < A2_WATCH;
+      // 관찰 단계는 최소 5s + 진입 음성이 끝날 때까지(유저: "먼저 볼게요~" 말 끝나기 전에 넘어가면 안 됨).
+      // 래치: 팔로우 시작 후엔 '이제 같이' 큐 음성이 재생돼도 관찰로 되돌아가지 않음(바운스 방지).
+      const A2_WATCH = 5.0, _voiceHold = !!(session.voiceBusy && session.voiceBusy());
+      const _inWatchWin = /^(A2|A3)$/.test(session.stage || '') && !session._followLatch;
+      const aWatching = _inWatchWin && (session.t < A2_WATCH || _voiceHold);
+      if (_inWatchWin && !aWatching) session._followLatch = true;   // 관찰 종료 → 래치
       const a2Watching = aWatching && session.stage === 'A2';
-      if (aWatching) { _clip = 'idle'; xbot.group.scale.x = 1; xbot.lungeDeepen = 0; xbot.headPitch = THREE.MathUtils.degToRad(-32); }   // 앞의 영상 응시
+      if (aWatching) { session._aWatchEnd = session.t; _clip = 'idle'; xbot.group.scale.x = 1; xbot.lungeDeepen = 0; xbot.headPitch = THREE.MathUtils.degToRad(-32); }   // 앞의 영상 응시
       // 위상잠금: 씬 링·카운트와 코치 동작을 같은 시간축에 — 절차 드릴 + A1 전신풀기·A2 점핑잭(주기=씬 BT).
       // BK_B2 = 분해 밟기: 씬 3s 사이클당 크로스오버 1회(마크 1-2-3과 사이클 동기).
       // BK_B3 = 컷·감속: 로우 드리블 클립의 컷 구간(16~21s) 창 반복. 그 외 실측 모캡은 자연 속도(왜곡 방지).
       let _phase = null;
       if (_clip === 'stomp_press') _phase = session.t;
       else if (session.stage === 'A1') _phase = session.t;   // A1 neckShoulder 목부터 시작 (잔여 _demoT 위상 오류 방지)
-      else if (session.stage === 'A3') _phase = Math.max(0, session.t - A2_WATCH);   // A3 = 관찰 5s 이후 하이니 시작
+      else if (session.stage === 'A3') _phase = Math.max(0, session.t - (session._aWatchEnd ?? A2_WATCH));   // A3 = 관찰(음성 끝) 이후 하이니 시작
       else if (session.sport === 'running' && (/^run_|^hj_/.test(_clip) || _clip === 'cmu_stretch' || _clip === 'jumpingJacks')) _phase = session.t;
       else if (session.stage === 'A2') {
         if (a2Watching) {
           // 관찰 단계: 봇 idle(위 _clip='idle'), 사이클 미가동. session에 관찰 진행도 전달(프로그래스바).
           session.a2Cyc = { watching: true, watchProg: Math.max(0, Math.min(1, session.t / A2_WATCH)) };
         } else {
-          // 따라하기 단계: 실측 사이클(cmu144_11). 시간축은 관찰 5s 이후부터(tt) — 첫 홀드가 깔끔히 시작.
-          const tt = session.t - A2_WATCH;
+          // 따라하기 단계: 실측 사이클(cmu144_11). 시간축은 관찰(음성 끝) 이후부터(tt) — 첫 홀드가 깔끔히 시작.
+          const tt = session.t - (session._aWatchEnd ?? A2_WATCH);
           const T0 = 5.4, TD = 6.5, T1 = 8.1, HOLD = 5.0;
           const DESC = TD - T0, RISE = T1 - TD, CYC = DESC + HOLD + RISE;
           const c = tt % CYC;

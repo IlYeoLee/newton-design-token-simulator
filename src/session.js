@@ -1117,6 +1117,8 @@ export class Session {
     this.paceLane.visible = false;
     this.paceFeet.forEach(fm => fm.group.visible = false);
     this._saidKeys?.clear();          // 단계 중간 음성 큐 리셋
+    this._followLatch = false;        // 관찰→따라하기 래치 리셋(스테이지마다)
+    this._aWatchEnd = undefined;      // 관찰 종료 시각(음성 끝) 리셋
     this.demoActive = false;          // A 시범 구간 신호 (실사 클립 패널 소비)
     this._setCount(null); this._setCountWall(null);
     if (this.G[st.id]) this.G[st.id].visible = true;
@@ -1462,9 +1464,10 @@ export class Session {
         P.fmL.group.visible = false; P.fmR.group.visible = false; P.numL.visible = false; P.numR.visible = false;
         FMU(`먼저 볼게요 — ${Math.round((cyc.watchProg || 0) * 100)}%`, CS.prism);   // 도트바 = 관찰 진행도
         this.demoActive = true;
-        if ((cyc.watchProg || 0) >= 0.98) this._say('a2follow', '션', '자, 이제 같이 따라해봐요! 앞으로 크게 딛고 무릎 굽혀 버텨요.');
         return;   // 따라하기 로직(아래) 건너뜀
       }
+      // 관찰 종료 직후 1회: '이제 같이' 큐 (watching=false로 넘어온 첫 프레임)
+      this._say('a2follow', '션', '자, 이제 같이 따라해봐요! 앞으로 크게 딛고 무릎 굽혀 버텨요.');
       P.fill = inHold ? cyc.prog : 0;   // 0→1 정확히 5초(봇 최심 정지 구간)
       placeMarkNum(P.numL); placeMarkNum(P.numR);
       P._pop = Math.max(0, (P._pop || 0) - dt * 3.8);
@@ -1512,14 +1515,17 @@ export class Session {
       const pb = this.xbot?.getProbes?.();
 
       const guide = [H.fmL.group, H.fmR.group, H.ring, H.timerArc, H.numCtr];
-      if (this.t < WATCH) {
+      // 관찰 = 최소 5s + 진입 음성이 끝날 때까지(유저: 말 끝나기 전에 넘어가면 안 됨). 래치로 큐 음성 바운스 방지.
+      if (!this._followLatch && (this.t < WATCH || this.voiceBusy?.())) {
         // 관찰: 영상만, 지면 가이드 숨김, 프로그레스바
         for (const o of guide) o.visible = false;
         this.demoActive = true;
-        FMU(`먼저 볼게요 — ${Math.round((this.t / WATCH) * 100)}%`, CS.prism);
-        if (this.t >= WATCH - 0.15) this._say('a3follow', '션', '자, 이제 같이! 무릎을 배 높이까지, 좌우 번갈아 빠르게 올려요.');
+        FMU(`먼저 볼게요 — ${Math.round(Math.min(1, this.t / WATCH) * 100)}%`, CS.prism);
         return;
       }
+      this._followLatch = true;   // 팔로우 진입 래치(관찰 복귀 금지)
+      // 관찰 종료 직후 1회: '이제 같이' 큐
+      this._say('a3follow', '션', '자, 이제 같이! 무릎을 배 높이까지, 좌우 번갈아 빠르게 올려요.');
       // 따라하기 — 앞 발형이 좌우 번갈아 켜져 템포 시범 + 중앙 숫자가 누적 횟수 카운트업 + 링이 10회 진행.
       for (const o of guide) o.visible = true;
       H.sec = Math.min(MAXSEC, H.sec + dt);
