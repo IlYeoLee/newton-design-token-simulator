@@ -1119,6 +1119,7 @@ export class Session {
     this._saidKeys?.clear();          // 단계 중간 음성 큐 리셋
     this._followLatch = false;        // 관찰→따라하기 래치 리셋(스테이지마다)
     this._aWatchEnd = undefined;      // 관찰 종료 시각(음성 끝) 리셋
+    this._followT0 = null;            // 3-2-1 카운트다운 기준 시각 리셋
     this.demoActive = false;          // A 시범 구간 신호 (실사 클립 패널 소비)
     this._setCount(null); this._setCountWall(null);
     if (this.G[st.id]) this.G[st.id].visible = true;
@@ -1526,6 +1527,19 @@ export class Session {
       this._followLatch = true;   // 팔로우 진입 래치(관찰 복귀 금지)
       // 관찰 종료 직후 1회: '이제 같이' 큐
       this._say('a3follow', '션', '자, 이제 같이! 무릎을 배 높이까지, 좌우 번갈아 빠르게 올려요.');
+      // 3-2-1 카운트다운(3s) — 시범↔따라하기를 큰 글리프로 명확히 구분(유저: 프로그래스바 대신)
+      if (this._followT0 == null) this._followT0 = this.t;
+      const CD = 3.0, cdEl = this.t - this._followT0;
+      if (cdEl < CD) {
+        for (const o of guide) o.visible = false;
+        H.numCtr.visible = true;
+        const n = Math.max(1, Math.ceil(CD - cdEl));
+        if (n !== H._cdShown) { redrawFootNum(H.numCtr.userData.plane, n); H._cdShown = n; }
+        H.numCtr.scale.setScalar(1.7 + 0.5 * (1 - (cdEl % 1)));   // 초마다 크게 팝
+        FMU('시범 끝 — 곧 시작!', CS.prism);
+        return;
+      }
+      H.numCtr.scale.setScalar(1);   // 카운트다운 종료 → 원래 크기(횟수 표시)
       // 따라하기 — 앞 발형이 좌우 번갈아 켜져 템포 시범 + 중앙 숫자가 누적 횟수 카운트업 + 링이 10회 진행.
       for (const o of guide) o.visible = true;
       H.sec = Math.min(MAXSEC, H.sec + dt);

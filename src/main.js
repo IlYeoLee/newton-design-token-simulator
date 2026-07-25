@@ -2088,16 +2088,19 @@ void main(){
     plane.visible = false;
     scene.add(plane);
     const co = _coaches[id] = { video, plane, _fwd: new THREE.Vector3(), fwd: cfg.fwd };
-    // A1: 복싱처럼 코치 영상 어깨 밴드 위에 회전 큐(drawRotate 룩시스템) 오버레이 — "이 방향으로 돌려"
+    // A1: 코치 영상 위에 회전 큐 2개(drawRotate 룩시스템) — 목(위·작게) + 어깨(아래·크게) 동시에 돌리기 지시.
     if (id === 'A1') {
-      const cv = document.createElement('canvas'); cv.width = cv.height = 256;
-      const g = cv.getContext('2d');
-      const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace;
-      const cue = new THREE.Mesh(new THREE.PlaneGeometry(0.34, 0.34),
-        new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
-      cue.position.set(0, 0.20, 0.02);   // 부모 로컬: +y=머리쪽(어깨 밴드), +z=바닥 위로 띄움
-      plane.add(cue);
-      co.rotCue = { g, tex, mesh: cue };
+      const mkCue = (size, y) => {
+        const cv = document.createElement('canvas'); cv.width = cv.height = 256;
+        const g = cv.getContext('2d');
+        const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace;
+        const mesh = new THREE.Mesh(new THREE.PlaneGeometry(size, size),
+          new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+        mesh.position.set(0, y, 0.02);   // 부모 로컬: +y=머리쪽, +z=바닥 위로 띄움
+        plane.add(mesh);
+        return { g, tex, mesh };
+      };
+      co.rotCues = [mkCue(0.24, 0.16), mkCue(0.40, 0.00)];   // [목(위·작게), 어깨(아래·크게)]
     }
     return co;
   }
@@ -2121,12 +2124,15 @@ void main(){
         co.plane.material.uniforms.uTime.value = performance.now() / 1000;
         // 채도는 마크 LUT와 같은 소스(FXP.sat)에서 — 인물·발자국 룩 통일(슬라이더 하나가 둘 다 이동)
         co.plane.material.uniforms.uSat.value = 1.0 + (FXP.sat ?? 1) * 0.32;
-        if (co.rotCue) {   // 회전 큐 자체 루프 회전 = '돌리기' 지시 (복싱 데모 루프와 동일)
-          co.rotCue.mesh.visible = co.plane.visible;
-          if (co.plane.visible) {
-            drawRotate(co.rotCue.g, 256, { r: 0.30, width: 1.1, dir: 1, sweep: 0.62, tempo: 0.42 },
-              { halo: FXP.mark.halo }, performance.now() / 1000, { lut: lutColor, arrow: FXP.arrow });
-            co.rotCue.tex.needsUpdate = true;
+        if (co.rotCues) {   // 회전 큐 2개(목·어깨) 자체 루프 회전 = '돌리기' 지시
+          const now = performance.now() / 1000;
+          for (const c of co.rotCues) {
+            c.mesh.visible = co.plane.visible;
+            if (co.plane.visible) {
+              drawRotate(c.g, 256, { r: 0.30, width: 1.1, dir: 1, sweep: 0.62, tempo: 0.42 },
+                { halo: FXP.mark.halo }, now, { lut: lutColor, arrow: FXP.arrow });
+              c.tex.needsUpdate = true;
+            }
           }
         }
         if (floorObj.visible) {
