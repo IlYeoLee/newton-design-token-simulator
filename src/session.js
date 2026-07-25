@@ -543,9 +543,9 @@ export class Session {
     // + 완료 Success 블룸(리퀴드). A안=앞발 바로 아래 추종 / B안=전방 고정 (a2Guide 토글).
     // 좌·우 발형(FootMark = 룩시스템 발형 SDF, A3와 동일 방식·사이즈) 나란히 지면 고정.
     // 상태 = countdown/setHold/glow/ghost로 Preview/Active/Hold/Success/Locked. 숫자는 발형 자식.
-    // 눈 앞 적정 투사존(A단계 시선 낙하 ~1.9m)에 나란히 — '진행상황을 눈앞에서 본다'(유저 확정)
+    // 전방 투사존 — 타이틀·도트(상단, 먼 z) 아래 열린 콘텐츠 존에 나란히 (겹침 방지)
     this.a2press = {
-      fmL: new FootMark('left').at(-0.17, -1.9, 1.0), fmR: new FootMark('right').at(0.17, -1.9, 1.0),
+      fmL: new FootMark('left').at(-0.18, -1.55, 1.05), fmR: new FootMark('right').at(0.18, -1.55, 1.05),
       fill: 0, _cnt: 5, _succ: 0, _succFM: null,
     };
     g.add(this.a2press.fmL.group, this.a2press.fmR.group);
