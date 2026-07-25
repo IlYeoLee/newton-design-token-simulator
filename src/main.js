@@ -2018,7 +2018,7 @@ void main(){
   // 룩시스템 열화상 코치 패널(A1 목·어깨, A2 런지 공용) — 그린스크린 영상 → 복싱 벽 톤 열화상.
   //   cfg: { src, cropOff, cropScale(세로 크롭 창), w, h, fwd }  crop을 uniform으로 빼 스테이지별 대응.
   const COACH_CFG = {
-    A1: { src: 'ready-view/assets/sean_neck_shoulder.webm', cropOff: 0.40, cropScale: 0.58, w: 0.64, h: 0.66, fwd: 0.16 },
+    A1: { src: 'ready-view/assets/sean_neck_shoulder.webm', cropOff: 0.40, cropScale: 0.58, w: 0.88, h: 0.9, fwd: 0.16 },   // A2 런지와 크기 맞춤(유저: 너무 작음)
     A2: { src: 'ready-view/assets/sean_lunge.webm', cropOff: 0.0, cropScale: 1.0, w: 0.9, h: 0.9, fwd: 0.10 },   // 런지 전신 측면
   };
   const _coaches = {};   // stageId → { video, plane, _fwd }
