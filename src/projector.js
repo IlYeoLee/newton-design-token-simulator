@@ -118,9 +118,20 @@ export class ProjectorRig {
     // 투사 풋프린트 면 — 붉은 그라디언트 (무릎 쪽 진홍 → 원거리 연분홍, 참조 디자인)
     this.footFill = new THREE.Mesh(
       new THREE.BufferGeometry(),
-      new THREE.MeshBasicMaterial({
-        vertexColors: true, transparent: true, opacity: 0.30,
-        side: THREE.DoubleSide, depthWrite: false,
+      new THREE.ShaderMaterial({
+        transparent: true, depthWrite: false, side: THREE.DoubleSide,
+        uniforms: { uOpacity: { value: 0.30 }, uFade: { value: 0.26 } },
+        vertexShader: `
+          attribute vec3 aCol; varying vec3 vColor; varying vec2 vUv;
+          void main(){ vColor = aCol; vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+        fragmentShader: `
+          varying vec3 vColor; varying vec2 vUv; uniform float uOpacity, uFade;
+          void main(){
+            // 투사 광원 사각 모서리를 4변 모두 페더 → 하드 코너 제거(유저)
+            float e = smoothstep(0.0, uFade, vUv.x) * smoothstep(1.0, 1.0 - uFade, vUv.x)
+                    * smoothstep(0.0, uFade, vUv.y) * smoothstep(1.0, 1.0 - uFade, vUv.y);
+            gl_FragColor = vec4(vColor, uOpacity * e);
+          }`,
       })
     );
     this.footFill.renderOrder = 2;
@@ -466,18 +477,21 @@ export class ProjectorRig {
       pt(this.fpFar, halfFar, 1),    pt(this.fpFar, halfFar, -1),
     ];
 
-    // 풋프린트 면 — 붉은 그라디언트 (near 진홍 → far 연분홍)
-    const v = [], col = [];
+    // 풋프린트 면 — 붉은 그라디언트 (near 진홍 → far 연분홍) + 4변 페더 UV(모서리 하드컷 제거)
+    const v = [], col = [], uvA = [];
     const NEAR_C = [0.55, 0.07, 0.07], FAR_C = [1.0, 0.72, 0.72];
     const CORNER_C = [NEAR_C, NEAR_C, FAR_C, FAR_C];
+    const CORNER_UV = [[0, 0], [1, 0], [1, 1], [0, 1]];   // 좌우=lateral · near→far=y
     for (const idx of [0, 1, 2, 0, 2, 3]) {
       v.push(corners[idx].x, corners[idx].y, corners[idx].z);
       col.push(...CORNER_C[idx]);
+      uvA.push(...CORNER_UV[idx]);
     }
     this.footFill.geometry.dispose();
     this.footFill.geometry = new THREE.BufferGeometry();
     this.footFill.geometry.setAttribute('position', new THREE.Float32BufferAttribute(v, 3));
-    this.footFill.geometry.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+    this.footFill.geometry.setAttribute('aCol', new THREE.Float32BufferAttribute(col, 3));
+    this.footFill.geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvA, 2));
 
     setBeam(this.floorBeam, kneeModule, corners);
 

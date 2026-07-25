@@ -120,8 +120,8 @@ export function drawGlyph(ctx, ch, x, y, sizePx, { color = 'rgba(255,240,220,0.9
 export function drawNumber(ctx, num, cx, cy, sizePx, opts = {}) {
   const s = String(num);
   if (s.length <= 1) return drawGlyph(ctx, s, cx, cy, sizePx, opts);
-  const ds = sizePx * (s.length === 2 ? 0.52 : 0.4);   // 자리당 크기 축소(2자리는 절반 남짓)
-  const adv = ds * 0.56;                                // 자간 = 좁게(글리프는 ds박스 안에서 잉크만 그려져 안 겹침)
+  const ds = sizePx * (s.length === 2 ? 0.66 : 0.48);   // 자리당 크기 축소(2자리는 급하지 않게 0.66)
+  const adv = ds * 0.66;                                 // 자간 = 넉넉히(너무 붙지 않게)
   let x = cx - adv * (s.length - 1) / 2, ok = true;
   for (let i = 0; i < s.length; i++) { ok = drawGlyph(ctx, s[i], x, cy, ds, opts) && ok; x += adv; }
   return ok;

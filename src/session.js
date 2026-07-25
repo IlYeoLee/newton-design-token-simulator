@@ -1503,8 +1503,8 @@ export class Session {
         }
       }
     } else if (id === 'A3') {
-      // ── High Knees: [관찰 5s 영상] → [따라하기: 발 감지 좌우 교대 + 30s 타이머 + 카운트 + 템포] ──
-      const WATCH = 5.0, HOLD_SEC = 30;   // 관찰 5s · 30초 지속
+      // ── High Knees: [관찰 5s 영상] → [따라하기: 좌우 교대 + 총 10회 카운트 + 템포] ──
+      const WATCH = 5.0, REP_TARGET = 10, MAXSEC = 40;   // 총 10회(발 감지 실패 대비 40s 안전 상한)
       const H = this.a3hk;
       const dt = Math.max(0, this.t - (this._a3t ?? this.t));
       if ((this._a3t ?? 0) > this.t) { H.sec = 0; H.reps = 0; H._upL = false; H._upR = false; }   // 재진입 리셋
@@ -1520,10 +1520,10 @@ export class Session {
         if (this.t >= WATCH - 0.15) this._say('a3follow', '션', '자, 이제 같이! 무릎을 배 높이까지, 좌우 번갈아 빠르게 올려요.');
         return;
       }
-      // 따라하기 — 앞 발형이 좌우 번갈아 켜져 템포 시범 + 중앙 숫자가 누적 횟수 카운트업 + 링이 30초 진행.
+      // 따라하기 — 앞 발형이 좌우 번갈아 켜져 템포 시범 + 중앙 숫자가 누적 횟수 카운트업 + 링이 10회 진행.
       for (const o of guide) o.visible = true;
-      H.sec = Math.min(HOLD_SEC, H.sec + dt);
-      H.timerArc.setProg(Math.max(0.001, H.sec / HOLD_SEC));   // 시계방향 30초 타이머
+      H.sec = Math.min(MAXSEC, H.sec + dt);
+      H.timerArc.setProg(Math.max(0.02, Math.min(1, H.reps / REP_TARGET)));   // 링 = 횟수 진행(총 10회)
       H._pop = Math.max(0, H._pop - dt * 4);
       // 좌·우 발형 = 템포·순서 시범: 0.5s마다 교대로 밝게(하이니 케이던스 ≈ 분당 120).
       H._beat += dt;

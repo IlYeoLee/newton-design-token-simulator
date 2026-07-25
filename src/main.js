@@ -877,7 +877,8 @@ void main(){
   // 단계 중간 음성 큐 — 시범→실행 전환("이제 같이") 등 코칭 3층 문법의 동작 큐 채널
   session.say = (who, line, vkey) => { showCaption(who, line); speak(who, line, vkey || 'cue:' + line.slice(0, 16)); };
   // 자동 장면 전환 게이트: 준비된 음성(mp3 또는 폴백 TTS)이 재생 중이면 true → 세션이 자동 넘어가기 보류.
-  session.voiceBusy = () => (ttsOn && !voiceAudio.paused && !voiceAudio.ended && voiceAudio.currentTime > 0)
+  //   play() 직후 currentTime은 잠깐 0이지만 paused는 즉시 false → currentTime 조건 제거(시작 직후 잘림 방지).
+  session.voiceBusy = () => (ttsOn && !voiceAudio.paused && !voiceAudio.ended)
     || (('speechSynthesis' in window) && speechSynthesis.speaking);
   // 게이트/다운시프트 안내 자막 + 웨어러블 신호
   sessionSkillSink = session;
