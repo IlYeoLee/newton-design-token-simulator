@@ -1405,7 +1405,7 @@ export class Session {
       //   Preview(둘 다) → 딛는 발 Active(뻗을때) → 밟는 순간 Hold+숫자 5→1(이펙트 점점 커짐)
       //   → 끝나면 Success → 반대발 되면 상태 바뀜, 대기발은 Locked.
       // 판정 = 봇 다리 상태(발 접지+런지 깊이)로만 구동 — 고정 마크와의 거리 게이트 없음.
-      if ((this._a2t ?? 0) > this.t) { P._doneL = false; P._doneR = false; }   // 재진입 시 완료상태 리셋
+      if ((this._a2t ?? 0) > this.t) { P._doneL = false; P._doneR = false; P.sec = 0; P._press = false; P._cnt = 5; }   // 재진입 리셋(왼발부터)
       // ── 발자국이 x봇 실제 발을 따라 런지처럼 이동 (유저: 진짜 발 움직임에 맞춰) ──
       // 발 월드좌표(미러 포함)를 발 중점 기준 상대 오프셋으로 → 투사존 중심(CZ)에 압축 배치.
       const CZ = -1.15, SC = 0.42;   // 중심 z(타이틀·캡션 아래로 내림) · 이동폭 축소(캡션 침범 금지 — 유저)
@@ -1422,42 +1422,47 @@ export class Session {
         tgt(P.fmL, -0.16, lft); tgt(P.fmR, 0.16, rgt);
         P._frontLeft = lft.z < rgt.z;   // 앞으로 나간 발(시각 좌?) = 활성
       }
+      const HOLD_SEC = 5;   // 한 발 홀드 시간(초) — 이 초 수대로 타이머 채움·숫자 카운트
       const front = pb ? (pb.footL.z < pb.footR.z ? pb.footL : pb.footR) : null;
-      const isL = !!P._frontLeft;   // 활성 발 = 시각적으로 앞으로 나간 발
       const spread = pb ? Math.abs(pb.footL.z - pb.footR.z) : 0;
-      const engaged = !!front && spread > 0.28;                    // 발을 뻗기 시작 = Active
-      const pressing = engaged && front.y < 0.10 && spread > 0.5;  // 깊이 밟음(홀드) = 숫자 카운트
+      // 활성 발 = 앞으로 나간 발. 첫 진입은 항상 왼발(클립이 왼발 런지·scale.x=1) → _frontLeft 초기 true.
+      const isL = P._frontLeft !== false;
+      // 깜빡임 방지 히스테리시스: 한번 밟기 시작하면 spread 0.42 밑으로 떨어질 때까지 유지.
+      const engaged = spread > 0.30;
+      const deepOn = spread > 0.52, deepOff = spread > 0.42;
+      P._press = P._press ? (front && front.y < 0.13 && deepOff) : (!!front && front.y < 0.10 && deepOn);
+      const pressing = P._press;
       const act = isL ? P.fmL : P.fmR, oth = isL ? P.fmR : P.fmL;
       const actNum = isL ? P.numL : P.numR, othNum = isL ? P.numR : P.numL;
-      const othDone = isL ? P._doneR : P._doneL;   // 반대발이 이미 완료됐나
-      P.fill = pressing ? Math.min(1, P.fill + dt / NEED) : Math.max(0, P.fill - dt * 0.8);
-      placeMarkNum(P.numL); placeMarkNum(P.numR);   // 매 프레임 numFoot 앵커
+      const othDone = isL ? P._doneR : P._doneL;
+      // ── 홀드 타이머: 밟는 동안 실제 초 누적(0→HOLD_SEC), 시계방향 링이 그만큼 채워짐 ──
+      P.sec = pressing ? Math.min(HOLD_SEC, (P.sec || 0) + dt) : Math.max(0, (P.sec || 0) - dt * 1.6);
+      P.fill = P.sec / HOLD_SEC;
+      placeMarkNum(P.numL); placeMarkNum(P.numR);
 
-      // ── 딛는(현재) 발 ──
-      if (engaged) {
-        if (pressing) {                                            // Hold + 카운트 5→1 (x봇 5s 홀드 동기)
-          // 홀드 내내 은은하게: op = 진행도(진해짐) × 미세 숨쉬기(±8%). 별도 빨간 리퀴드 틱 제거(이질적 — 유저)
-          const breath = 0.92 + 0.08 * Math.sin(this.t * 4.2);
-          act.setHold(Math.max(0.001, P.fill)); act.op((0.5 + 0.5 * P.fill) * breath);
-          const n = Math.max(1, 5 - Math.floor(P.fill * 5));
-          if (n !== P._cnt) { redrawFootNum(actNum, n); P._cnt = n; }
-          actNum.visible = true;
-        } else {                                                   // 뻗는 중 = Active 수축 링
-          act.countdown(Math.min(1, Math.max(0, (spread - 0.28) / 0.5))); act.op(1);
-          actNum.visible = false;
-        }
-      } else {                                                     // 이 발이 지금 안 딛음: 서있기
-        act.countdown(-1); actNum.visible = false;
+      // ── 딛는 발: 프리뷰 없음. Active(숫자없음, 뻗는중) → Hold(타이머 채움+숫자) ──
+      P._pop = Math.max(0, (P._pop || 0) - dt * 3.8);   // 숫자 팝 감쇠
+      if (pressing) {
+        act.setHold(Math.max(0.001, P.fill));                      // 시계방향 프로그래스(타이머)
+        act.op(0.55 + 0.45 * P.fill);
+        const n = Math.max(1, Math.ceil(HOLD_SEC - P.sec));        // 남은 초 5→1 (실초 타이머)
+        if (n !== P._cnt) { redrawFootNum(actNum, n); P._cnt = n; P._pop = 1; }   // 바뀔 때 팝
+        actNum.visible = true;
+        actNum.scale.multiplyScalar(1 + 0.42 * P._pop);            // 숫자 전환 팝 모션(placeMarkNum 뒤 적용)
+      } else {                                                     // Active(뻗는중) 또는 대기 — 숫자 없음
+        act.countdown(Math.min(1, Math.max(0, (spread - 0.30) / 0.5))); act.op(1);
+        actNum.visible = false;
+        P._cnt = HOLD_SEC;   // 다음 홀드 위해 리셋
       }
-      // ── 반대(대기) 발: 완료됐으면 '홀드처리'(채운 채 유지), 아니면 Locked ──
+      // ── 반대 발: 완료됐으면 홀드처리(채운 채 유지), 아니면 Locked ──
       if (othDone) { oth.setHold(1); oth.op(0.55); } else oth.ghost();
       othNum.visible = false;
 
-      if (P.fill >= 1) {                                           // 이 발 완료 → done 표시(홀드 유지)
-        this.a2count = (this.a2count || 0) + 1; P.fill = 0; P._cnt = 5;
-        redrawFootNum(actNum, 5); actNum.visible = false;
+      if (P.sec >= HOLD_SEC) {                                     // 이 발 완료
+        this.a2count = (this.a2count || 0) + 1; P.sec = 0; P.fill = 0; P._cnt = HOLD_SEC;
+        redrawFootNum(actNum, HOLD_SEC); actNum.visible = false;
         if (isL) P._doneL = true; else P._doneR = true;
-        const wp = new THREE.Vector3(); act.group.getWorldPosition(wp); this.onPress?.(wp, false);   // 완료 = 조금 큰 버스트
+        const wp = new THREE.Vector3(); act.group.getWorldPosition(wp); this.onPress?.(wp, false);
       }
       if (this.t < DEMO) {
         this.demoActive = true;
