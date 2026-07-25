@@ -520,7 +520,7 @@ export class Session {
     // + 완료 Success 블룸(리퀴드). A안=앞발 바로 아래 추종 / B안=전방 고정 (a2Guide 토글).
     this.a2press = {
       fmL: new FootMark('left').at(-0.13, -1.45, 1.5), fmR: new FootMark('right').at(0.13, -1.45, 1.5),
-      nums: [5, 4, 3, 2, 1].map(n => floorNum(n, 0, -1.49, 0.16)),   // 발형 볼 '안' 글리프 (룩시스템 슬롯)
+      nums: [5, 4, 3, 2, 1].map(n => floorNum(n, 0, -1.45, 0.19)),   // 발형 '안' 글리프 — 크게·중앙 (룩시스템 슬롯)
       fill: 0, _numIdx: -1, _pop: 0, _succ: 0, _succFM: null,
     };
     g.add(this.a2press.fmL.group, this.a2press.fmR.group);
@@ -1404,14 +1404,16 @@ export class Session {
         if (P._succ <= 0) { P.fmL.countdown(-1); P.fmR.countdown(-1); }          // Preview
       } else {
         if (P._succ <= 0 || P._succFM !== act) {
-          if (pressing) act.setHold(Math.max(0.001, P.fill));                     // Hold
-          else act.countdown(Math.min(1, Math.max(0, (spread - 0.28) / 0.45)));   // Active
+          if (pressing) {
+            act.setHold(Math.max(0.001, P.fill));                                 // Hold — 코닉 림 진행
+            act.op(0.45 + 0.55 * P.fill);   // 약하게 등장 → 꾹꾹 누를수록 진해짐 (유저)
+          } else act.countdown(Math.min(1, Math.max(0, (spread - 0.28) / 0.45))); // Active
         }
         if (P._succ <= 0 || P._succFM !== oth) oth.ghost();                       // Locked
       }
       // 글리프 5→1 — 발형 볼 중앙, 크게·안정 (삐져나옴 금지: 마크 1.5배 확대에 맞춤)
       const idx = Math.min(4, Math.floor(P.fill * 5));
-      for (let i = 0; i < 5; i++) { const n = P.nums[i]; n.visible = pressing && i === idx; n.position.x = ap.x; n.position.z = ap.z - 0.04; }
+      for (let i = 0; i < 5; i++) { const n = P.nums[i]; n.visible = pressing && i === idx; n.position.x = ap.x; n.position.z = ap.z; }   // 발형 중앙
       if (idx !== P._numIdx) { P._numIdx = idx; P._pop = 1; }
       P._pop = Math.max(0, P._pop - dt * 3.2);
       const shown = P.nums[idx]; if (shown) shown.scale.setScalar(1 + 0.35 * P._pop);

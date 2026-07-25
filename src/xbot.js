@@ -349,6 +349,17 @@ export class XBot {
       .add(new THREE.Vector3(0, 0.11, 0));
   }
 
+  /** 머리 본 월드 쿼터니언 — 1인칭 시선을 실제 머리 회전에 붙이기 위한 것(목돌리기 등).
+      기준 쿼터니언(_headQ0, 첫 호출 시 캡처) 대비 상대 회전을 반환해, 시선이 목 움직임을 따라 흔들림. */
+  getHeadSwing() {
+    if (!this._head) return null;
+    const q = new THREE.Quaternion();
+    this._head.getWorldQuaternion(q);
+    if (!this._headQ0) this._headQ0 = q.clone();
+    return q.multiply(this._headQ0.clone().invert());   // Δ = 현재 · 기준⁻¹
+  }
+  resetHeadSwing() { this._headQ0 = null; }
+
   /** 프로젝터 모듈 기준 무릎 본 — 하드웨어는 항상 '월드 오른쪽 다리'에 고정(유저 확정).
       A2 비주얼 미러(scale.x<0) 시 월드-오른쪽에 있는 건 Left 본 → 스위칭. */
   getKneeWorld() {

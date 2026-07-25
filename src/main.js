@@ -3963,7 +3963,16 @@ void main(){
       if (eye) {
         // 세션 중엔 시선 방위 고정(-z 전방) — 데모 봇의 골반 회전(제자리 달리기·걷기)이
         // 카메라를 좌우로 요잉시켜 프레임을 무너뜨리던 문제. 피치는 세션 단계값이 계속 담당.
-        const fwd = session.active ? FP_FWD_FIXED : xbot.getForward();
+        let fwd = session.active ? FP_FWD_FIXED : xbot.getForward();
+        // 단, 비실전 '데모' 단계(목돌리기·스트레치)에선 실제 머리 회전을 시선에 붙임 —
+        // 눈이 머리에 달렸으니 목을 돌리면 시야도 함께 흔들려야(유저). 골반 요잉이 없는 구간만.
+        if (session.active && !session.isLive) {
+          const sw = xbot.getHeadSwing?.();
+          if (sw) {
+            const s = new THREE.Quaternion().slerp(sw, 0.6);   // 감쇠 60% (1:1은 어지러움)
+            fwd = FP_FWD_FIXED.clone().applyQuaternion(s);
+          }
+        } else { xbot.resetHeadSwing?.(); }
         const tx = eye.x + fwd.x * 0.05, ty = eye.y + (session.active ? session.bobY : 0), tz = eye.z + fwd.z * 0.05;
         if (!fpInit || Math.abs(tz - fpPos.z) > 3 || Math.abs(tx - fpPos.x) > 3) {
           fpPos.set(tx, ty, tz);
