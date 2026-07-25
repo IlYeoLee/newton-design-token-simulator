@@ -79,11 +79,8 @@ function runningDrills(neutral) {
       const h = u < 0.22 ? u / 0.22 : (u < 0.88 ? 1 : (1 - u) / 0.12);                  // 내딛기 램프
       const press = (u > 0.3 && u < 0.82) ? Math.sin((u - 0.3) / 0.52 * Math.PI) : 0;   // 천천히 꾹(0→1→0)
       const F = p1;                                                                      // F=왼발 앞
-      // 합장 — 두 팔 앞·안쪽, 팔꿈치 굽혀 가슴 앞에서 손 모음 (상시 유지)
-      if (n === R.armR) return rot(X, 42).multiply(rot(Z, -30));
-      if (n === R.armL) return rot(X, 42).multiply(rot(Z, 30));
-      if (n === R.foreR) return rot(X, -58);
-      if (n === R.foreL) return rot(X, -58);
+      // 손 = 중립(자연스럽게 늘어뜨림) — 절차 합장이 계속 어색(유저 2회 지적) → 팔 미구동.
+      // 미구동 본은 중립 서있기 포즈 유지 + playDemo 호흡 레이어가 미세 생동감을 준다.
       if (n === (F ? R.hipL : R.hipR))   return rot(X, 30 * h + 5 * press);   // 앞다리 내딛기
       if (n === (F ? R.kneeL : R.kneeR)) return rot(X, 10 * h - 12 * press);  // 앞무릎 굽혀 무게 실어 누름
       if (n === (F ? R.footL : R.footR)) return rot(X, -14 * h);              // 앞발 뒤꿈치↓ 접지
