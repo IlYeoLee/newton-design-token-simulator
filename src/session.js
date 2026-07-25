@@ -1422,12 +1422,11 @@ export class Session {
       // ── 딛는(현재) 발 ──
       if (engaged) {
         if (pressing) {                                            // Hold + 카운트 5→1 (x봇 5s 홀드 동기)
-          act.setHold(Math.max(0.001, P.fill)); act.op(0.5 + 0.5 * P.fill);
+          // 홀드 내내 은은하게: op = 진행도(진해짐) × 미세 숨쉬기(±8%). 별도 빨간 리퀴드 틱 제거(이질적 — 유저)
+          const breath = 0.92 + 0.08 * Math.sin(this.t * 4.2);
+          act.setHold(Math.max(0.001, P.fill)); act.op((0.5 + 0.5 * P.fill) * breath);
           const n = Math.max(1, 5 - Math.floor(P.fill * 5));
-          if (n !== P._cnt) {   // 카운트 틱마다 은은한 소형 펄스 (홀드 내내 살아있게 — 유저)
-            redrawFootNum(actNum, n); P._cnt = n;
-            const wp = new THREE.Vector3(); act.group.getWorldPosition(wp); this.onPress?.(wp, true);
-          }
+          if (n !== P._cnt) { redrawFootNum(actNum, n); P._cnt = n; }
           actNum.visible = true;
         } else {                                                   // 뻗는 중 = Active 수축 링
           act.countdown(Math.min(1, Math.max(0, (spread - 0.28) / 0.5))); act.op(1);
