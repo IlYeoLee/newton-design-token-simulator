@@ -431,14 +431,25 @@ export class ProjectorRig {
         ox = body.x + fwd.x * df + rx * dr;
         oz = body.z + fwd.z * df + rz * dr;
       }
-      // 실측 5년뒤 양산 소비자 짐벌 잔여(유저: '완벽 정지=땅에 박힌 과보정', '실제 5년뒤 양산 수준으로').
-      //   정지 σ≈0.3cm(손·몸 미세 트레머) + 다리 각속도 비례 최대 +1.2cm(빠른 하이니일수록 짐벌 잔여↑).
-      //   저주파 드리프트(짐벌 추종 지연) + 미세 고주파(서보 리플) 합성 = 정직한 '살아있는' 안정화.
-      const omega = Math.abs(this.omegaDps || 0);
-      const sigma = 0.003 + Math.min(0.012, omega / 320 * 0.012);   // m (0.3~1.5cm)
+      // 실측 5년뒤 양산 소비자 짐벌 잔여(유저: '완벽정지=박힌 과보정', '실제 5년뒤 양산 수준').
+      //   ① 종아리(프로젝터 장착) 기울기 비례 잔여 = 빔이 종아리 따라 스윕하는데 짐벌이 ~88%만
+      //      보정, 남는 ~12%가 지면에서 이동. 하이니처럼 종아리 크게 움직이면 눈에 띄게 흔들림.
+      //   ② 정지 시엔 손·몸 미세 트레머 σ0.3cm(저주파 드리프트+고주파 서보 리플).
+      let jx = 0, jz = 0;
+      // 종아리(프로젝터) 월드 위치의 몸 대비 수평 이동 = 빔 스윕. 하이니처럼 종아리가 앞·위로 크게
+      //   움직이면 그만큼 빔이 쓸림. 짐벌 ~12% 잔여로 지면에서 눈에 띄게 이동(안정 중심 주변 진동).
+      const knee = this.xbot.getKneeWorld?.();
+      if (knee) {
+        if (!this._kneeRest) this._kneeRest = { x: knee.x - body.x, z: knee.z - body.z };
+        const ox0 = knee.x - body.x, oz0 = knee.z - body.z;
+        this._kneeRest.x += (ox0 - this._kneeRest.x) * 0.02;   // 아주 느린 기준(제자리 평균)
+        this._kneeRest.z += (oz0 - this._kneeRest.z) * 0.02;
+        jx += (ox0 - this._kneeRest.x) * 0.12;   // 종아리 순간 편차 × 짐벌 미보정 잔여(~12%, 양산 소비자 짐벌)
+        jz += (oz0 - this._kneeRest.z) * 0.12;
+      }
       const tt = (typeof performance !== 'undefined' ? performance.now() : 0) / 1000;
-      const jx = (Math.sin(tt * 2.3 + 0.7) * 0.6 + Math.sin(tt * 11.0) * 0.4) * sigma;
-      const jz = (Math.cos(tt * 1.9) * 0.6 + Math.cos(tt * 9.5 + 1.3) * 0.4) * sigma;
+      jx += (Math.sin(tt * 2.3 + 0.7) * 0.6 + Math.sin(tt * 11.0) * 0.4) * 0.003;
+      jz += (Math.cos(tt * 1.9) * 0.6 + Math.cos(tt * 9.5 + 1.3) * 0.4) * 0.003;
       ox += jx; oz += jz;
       this.shake.set(jx, jz);
       this.errorCm = Math.hypot(jx, jz) * 100;
