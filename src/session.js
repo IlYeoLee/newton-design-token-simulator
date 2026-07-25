@@ -546,15 +546,15 @@ export class Session {
     // High Knees 지면 가이드 = 두 질문에 답: (1)뭘 하나 (2)몇 개 했나.
     //   앞: 좌·우 발형(A2와 동일 언어)이 번갈아 켜짐 = "좌우 무릎 번갈아 올려"(템포·순서).
     //   뒤: 큰 중앙 숫자 = 누적 횟수(카운트업) + 감싸는 얇은 링이 30초 시계방향 진행.
-    const a3L = new FootMark('left').at(-0.17, -1.15, 1.05), a3R = new FootMark('right').at(0.17, -1.15, 1.05);
+    // 하이니 재설계(유저): 원형 은퇴 — 발형 2개(안에 각자 카운트) + LINE 리프트 화살표 + 양발 각 10회.
+    const a3L = new FootMark('left').at(-0.17, -1.05, 1.05), a3R = new FootMark('right').at(0.17, -1.05, 1.05);
+    const a3nL = attachMarkNum(a3L, '0', false), a3nR = attachMarkNum(a3R, '0', true);
+    const arL = floorArrow(-0.17, -1.5, 0, BRAND.red, 0.3), arR = floorArrow(0.17, -1.5, 0, BRAND.red, 0.3);
     this.a3hk = {
-      fmL: a3L, fmR: a3R,
-      ring: floorRing(0, -1.78, 0.20, 0.235, BRAND.dim, 0.35),   // 타이머 트랙(회색)
-      timerArc: floorArc(0, -1.78, BRAND.red),                    // 30초 진행(빨강, 시계방향)
-      numCtr: floorNum(0, 0, -1.78, 0.22),                        // 링 중앙 = 누적 횟수(큼직, 카운트업)
-      sec: 0, reps: 0, _upL: false, _upR: false, _pop: 0, _numShown: -1, _beat: 0,
+      fmL: a3L, fmR: a3R, numL: a3nL, numR: a3nR, arL, arR,
+      sec: 0, cntL: 0, cntR: 0, _prevLeft: undefined, _beat: 0, _pop: 0,
     };
-    g.add(a3L.group, a3R.group, this.a3hk.ring, this.a3hk.timerArc, this.a3hk.numCtr);
+    g.add(a3L.group, a3R.group, arL, arR);
 
     g = this._mk('T1');
     this.tap1 = this._tap('running'); this.tap1.position.set(0, 0.013, -1.1); g.add(this.tap1);
@@ -1519,41 +1519,47 @@ export class Session {
         }
       }
     } else if (id === 'A3') {
-      // ── High Knees: [관찰 5s 영상] → [따라하기: 좌우 교대 + 총 10회 카운트 + 템포] ──
-      const WATCH = 5.0, REP_TARGET = 10, MAXSEC = 40;   // 총 10회(발 감지 실패 대비 40s 안전 상한)
+      // ── High Knees(재설계): 발형 2개(안에 각자 카운트) + LINE 리프트 화살표 + 양발 각 10회, 스피디 ──
+      const PER_FOOT = 10, MAXSEC = 40;
       const H = this.a3hk;
       const dt = Math.max(0, this.t - (this._a3t ?? this.t));
-      if ((this._a3t ?? 0) > this.t) { H.sec = 0; H.reps = 0; H._beat = 0; H._prevLeft = undefined; }   // 재진입 리셋
+      if ((this._a3t ?? 0) > this.t) { H.sec = 0; H.cntL = 0; H.cntR = 0; H._beat = 0; H._prevLeft = undefined; H._shownL = -1; H._shownR = -1; }
       this._a3t = this.t;
-      const pb = this.xbot?.getProbes?.();
 
-      const guide = [H.fmL.group, H.fmR.group, H.ring, H.timerArc, H.numCtr];
+      const guide = [H.fmL.group, H.fmR.group, H.arL, H.arR];
       // 뉴턴 전환 문법: 시범(영상만) → 마크 워밍 등장 + '이제 같이' 음성 → 따라하기
       if (!this._followLatch) {
         for (const o of guide) o.visible = false;
         this.demoActive = true;
-        FMU('먼저 보세요', CS.prism);   // 진행표시 = 프레임 미니 타이머 링 전담
+        FMU('먼저 보세요', CS.prism);
         return;
       }
       this._say('a3follow', '션', '자, 이제 같이! 무릎을 배 높이까지, 좌우 번갈아 올려요.');
-      // 따라하기 — 앞 발형이 좌우 번갈아 켜져 템포 시범 + 중앙 숫자가 누적 횟수 카운트업 + 링이 10회 진행.
       for (const o of guide) o.visible = true;
+      placeMarkNum(H.numL); placeMarkNum(H.numR);
       H.sec = Math.min(MAXSEC, H.sec + dt);
-      H.timerArc.setProg(Math.max(0.02, Math.min(1, H.reps / REP_TARGET)));   // 링 = 횟수 진행(총 10회)
-      H._pop = Math.max(0, H._pop - dt * 4);
-      // 좌·우 발형 = 템포·순서 시범: 0.5s마다 교대로 밝게(하이니 케이던스 ≈ 분당 120).
+      H._pop = Math.max(0, H._pop - dt * 5);
+      // 비트 = x봇 하이니 케이던스(1.6배속 kneeTwist: 2.4/1.6=1.5s 사이클, 발당 0.75s)와 동기
       H._beat += dt;
-      const PERIOD = 0.5, leftNow = (H._beat % (PERIOD * 2)) < PERIOD;
-      const onFM = leftNow ? H.fmL : H.fmR, offFM = leftNow ? H.fmR : H.fmL;
-      onFM.glow(0.85); onFM.op(0.95); offFM.ghost(); offFM.op(0.4);
-      // 카운트 = 데모 비트(좌우 교대)마다 1회 — 봇 발이 실제로 안 올라와(발감지 실패) 확정 리듬으로 카운트
-      if (H._prevLeft !== undefined && leftNow !== H._prevLeft) { H.reps++; H._pop = 1; }
+      const PERIOD = 0.75, leftNow = (H._beat % (PERIOD * 2)) < PERIOD;
+      // 올린 발 = Success 블룸으로 딱! + 그 발 카운트업. 반대발 = 고스트 대기.
+      if (H._prevLeft !== undefined && leftNow !== H._prevLeft) {
+        if (leftNow) H.cntL = Math.min(PER_FOOT, H.cntL + 1); else H.cntR = Math.min(PER_FOOT, H.cntR + 1);
+        H._pop = 1;
+      }
       H._prevLeft = leftNow;
-      H.ring.scale.setScalar(1 + 0.06 * H._pop); H.timerArc.scale?.setScalar?.(1 + 0.06 * H._pop);
-      // 중앙 = 누적 횟수(큼직) — '몇 개 했나' 한눈에
-      if (H.reps !== H._numShown) { redrawFootNum(H.numCtr.userData.plane, H.reps); H._numShown = H.reps; }
-      FMU(`무릎 올리기 — ${H.reps}/${REP_TARGET}`, CS.sand);
-      if (H.reps >= REP_TARGET || H.sec >= MAXSEC) { this.next(); return; }
+      const onFM = leftNow ? H.fmL : H.fmR, offFM = leftNow ? H.fmR : H.fmL;
+      onFM.glow(0.6 + 0.4 * H._pop); onFM.op(1);
+      offFM.ghost(); offFM.op(0.45);
+      // LINE 리프트 화살표 — 올리는 발 쪽이 펄스(크게), 반대쪽 은은
+      const onAr = leftNow ? H.arL : H.arR, offAr = leftNow ? H.arR : H.arL;
+      onAr.scale.setScalar(1 + 0.25 * H._pop); offAr.scale.setScalar(0.85);
+      // 발 안 숫자 = 각자 카운트(1→10)
+      if (H.cntL !== H._shownL) { redrawFootNum(H.numL, H.cntL); H._shownL = H.cntL; }
+      if (H.cntR !== H._shownR) { redrawFootNum(H.numR, H.cntR); H._shownR = H.cntR; }
+      H.numL.visible = true; H.numR.visible = true;
+      FMU(`하이니 — 왼 ${H.cntL} · 오른 ${H.cntR} / ${PER_FOOT}`, CS.sand);
+      if ((H.cntL >= PER_FOOT && H.cntR >= PER_FOOT) || H.sec >= MAXSEC) { this.next(); return; }
     } else if (id === 'P1' || id === 'P2') {
       // 페이스 잡기 — 뛰면서 페이스로 익힌다: 페이서 봇 + 흐르는 페이스 라이트에 리듬 맞추기.
       // (정지 학습 A4·B1~B4 폐기. 라이브 워밍업 런 = C 실전과 동일 머신 재사용.)
