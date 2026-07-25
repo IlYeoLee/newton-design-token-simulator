@@ -2146,11 +2146,15 @@ void main(){
         if (floorObj.visible) {
           co.plane.quaternion.copy(floorObj.quaternion);
           co._fwd.set(0, 1, 0).applyQuaternion(floorObj.quaternion);
-          // A2/A3 모바일 UI식 세로 스택(유저): [타이틀] > [코치 0.8x, 중간 밴드] > [발자국 대칭 한 줄, 가까이]
-          const fw = id !== 'A1';
-          const fwdOff = co.fwd + (fw ? 0.22 : 0);
-          co.plane.scale.setScalar(fw ? 0.8 : 1);
-          co.plane.position.set(floorObj.position.x + co._fwd.x * fwdOff, 0.015, floorObj.position.z + co._fwd.z * fwdOff);
+          // A2/A3 = CSS 슬롯 카드에 정합(전환화면과 같은 디자인 언어) — 코치가 slot-coach 안에 앉음
+          const FS = id !== 'A1' && session.frameSlots;
+          if (FS) {
+            co.plane.scale.setScalar(FS.coachH / 0.9);   // 슬롯 높이에 맞춤(plane 기본 0.9m)
+            co.plane.position.set(FS.coachX, 0.015, FS.coachZ);
+          } else {
+            co.plane.scale.setScalar(1);
+            co.plane.position.set(floorObj.position.x + co._fwd.x * co.fwd, 0.015, floorObj.position.z + co._fwd.z * co.fwd);
+          }
         }
       } else if (c) { c.plane.visible = false; if (!c.video.paused) c.video.pause(); }
     }
@@ -4469,6 +4473,14 @@ void main(){
       // 달라 글자가 세로로 늘고 가로로 짜부됐음(유저 지적). 깊이는 대지 비율 그대로 → 세로도 짧아짐.
       const laneW = 2 * rig._halfAt(dMid), sUni = laneW / fView.w;
       floorObj.scale.set(sUni, sUni, 1);
+      // A2/A3 슬롯 정합 — 프레임(1600×2670) 픽셀 좌표를 월드로 변환해 코치·발자국이 CSS 슬롯 안에 앉게.
+      //   slot-coach 중심 y=1090px(중심 1335 대비 +245 far) · slot-zone 중심 y=2080px(-745 near)
+      if (/^(A2|A3)$/.test(session.stage || '')) {
+        session.frameSlots = {
+          coachX: cx + _fV.x * (245 * sUni), coachZ: cz + _fV.z * (245 * sUni), coachH: 980 * sUni,
+          zoneX: cx - _fV.x * (745 * sUni), zoneZ: cz - _fV.z * (745 * sUni),
+        };
+      } else session.frameSlots = null;
       try {
         // 라이브(B 페이스·C 실전) = 최소 UI(유저): 진입 2.5s 후 타이틀·큐·도트 페이드 — 판정 큐만 남김.
         const doc = floorIframe.contentDocument;

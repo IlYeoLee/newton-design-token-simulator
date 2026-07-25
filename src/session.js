@@ -539,13 +539,8 @@ export class Session {
     const numL = attachMarkNum(fmL, '5', false), numR = attachMarkNum(fmR, '5', true);
     numL.visible = false; numR.visible = false;
     const a2cd = floorNum(0, 0, -1.35, 0.22); a2cd.visible = false;   // 시범→따라하기 3-2-1 카운트다운
-    // 운동 존 컨테이너 — 둥근 스탠스 박스(룩시스템 prim). 요소가 잔디에 흩어져 'UI 같지 않던' 문제(유저):
-    // 발자국 존을 카드처럼 감싸 시스템감 부여 (복싱 가드박스와 동일 언어, 발글리프 제거)
-    const a2zone = primPanel('stanceBox', 1.35, false);
-    a2zone.position.set(0, 0.011, -1.15);
-    a2zone._prim.P = { feet: 0, round: 0.32, dash: 1, w: 0.9, glow: 0.8 };
-    this.a2press = { fmL, fmR, numL, numR, cd: a2cd, zone: a2zone, fill: 0, _cnt: 5, _succ: 0, _succFM: null };
-    g.add(fmL.group, fmR.group, a2cd, a2zone);
+    this.a2press = { fmL, fmR, numL, numR, cd: a2cd, fill: 0, _cnt: 5, _succ: 0, _succFM: null };
+    g.add(fmL.group, fmR.group, a2cd);
 
     g = this._mk('A3');
     // High Knees 지면 가이드 = 두 질문에 답: (1)뭘 하나 (2)몇 개 했나.
@@ -559,11 +554,7 @@ export class Session {
       numCtr: floorNum(0, 0, -1.78, 0.22),                        // 링 중앙 = 누적 횟수(큼직, 카운트업)
       sec: 0, reps: 0, _upL: false, _upR: false, _pop: 0, _numShown: -1, _beat: 0,
     };
-    const a3zone = primPanel('stanceBox', 1.35, false);   // 운동 존 컨테이너(A2와 동일 언어)
-    a3zone.position.set(0, 0.011, -1.3);
-    a3zone._prim.P = { feet: 0, round: 0.32, dash: 1, w: 0.9, glow: 0.8 };
-    this.a3hk.zone = a3zone;
-    g.add(a3L.group, a3R.group, this.a3hk.ring, this.a3hk.timerArc, this.a3hk.numCtr, a3zone);
+    g.add(a3L.group, a3R.group, this.a3hk.ring, this.a3hk.timerArc, this.a3hk.numCtr);
 
     g = this._mk('T1');
     this.tap1 = this._tap('running'); this.tap1.position.set(0, 0.013, -1.1); g.add(this.tap1);
@@ -1061,8 +1052,10 @@ export class Session {
   }
   /** 페이스 라이트 틱 — 최근 판정 3개의 평균 타이밍 오차를 거리(×팩속도 2.5m/s)로 번역 */
   _paceTick() {
-    this.paceLight.visible = true;
-    this.paceLane.visible = true;   // 실전 상설 페이스 레인 (러너가 따라갈 밝은 광류 — 달리는 느낌)
+    // P(실전 직전) = 션 발자국만 밟는 경험(유저: 광점 블롭 제거, 아래 보며 직접 밟기). 광점·레인은 C 실전 전용.
+    const isC = /^C/.test(this.stage);
+    this.paceLight.visible = isC;
+    this.paceLane.visible = isC;   // 실전 상설 페이스 레인 (러너가 따라갈 밝은 광류 — 달리는 느낌)
     const R = this.judge?.results || [];
     let err = 0;
     for (let i = Math.max(0, R.length - 3); i < R.length; i++) err += R[i].terr;
@@ -1454,7 +1447,7 @@ export class Session {
       // 판정 = 봇 다리 상태(발 접지+런지 깊이)로만 구동 — 고정 마크와의 거리 게이트 없음.
       if ((this._a2t ?? 0) > this.t) { P._doneL = false; P._doneR = false; P.sec = 0; P._press = false; P._cnt = 5; P._repLatch = false; }   // 재진입 리셋(왼발부터)
       // ── 발자국이 x봇 실제 발을 따라 런지처럼 이동 (고정 배치는 별로 — 유저 확정, 추적 복원) ──
-      const CZ = -1.15, SC = 0.42;
+      const CZ = this.frameSlots?.zoneZ ?? -1.15, SC = 0.42;   // 존 = CSS slot-zone 카드에 정합
       if (pb) {
         const fL = pb.footL, fR = pb.footR;
         const lft = fL.x <= fR.x ? fL : fR, rgt = fL.x <= fR.x ? fR : fL;
@@ -1527,6 +1520,12 @@ export class Session {
 
       const guide = [H.fmL.group, H.fmR.group, H.ring, H.timerArc, H.numCtr];
       // 관찰·카운트다운 폐기(유저): 큰 코치 화면 + 발자국 동시 — 처음부터 보면서 따라하기.
+      if (this.frameSlots) {   // 존 = CSS slot-zone 카드에 정합: 링·카운트(위) + 발형(아래)
+        const z = this.frameSlots.zoneZ;
+        H.ring.position.z = H.timerArc.position.z = z - 0.15;
+        H.numCtr.position.z = z - 0.15;
+        H.fmL.group.position.z = H.fmR.group.position.z = z + 0.16;
+      }
       // 따라하기 — 앞 발형이 좌우 번갈아 켜져 템포 시범 + 중앙 숫자가 누적 횟수 카운트업 + 링이 10회 진행.
       for (const o of guide) o.visible = true;
       H.sec = Math.min(MAXSEC, H.sec + dt);

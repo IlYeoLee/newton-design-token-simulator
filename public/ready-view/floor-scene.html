@@ -45,6 +45,16 @@ html,body{background:transparent}
 @keyframes phasePulse{0%,100%{opacity:1}50%{opacity:.62}}
 .phases{animation-name:sUpFlat}
 @keyframes sUpFlat{from{opacity:0;transform:scale(.94)}to{opacity:1;transform:scale(1)}}
+
+/* A2/A3 슬롯 레이아웃 — 전환화면(Warm-Up Done)과 같은 디자인 언어: 흰 필 라벨 + 라운드 카드 아웃라인.
+   카드 내부는 투명(아래 WebGL 코치·발자국이 슬롯 안에 앉음). */
+.slot{position:absolute;left:50%;transform:translateX(-50%);border:5px solid rgba(255,255,255,.55);
+  border-radius:72px;opacity:0;animation:sUp .7s .5s both}
+.slot .pill{position:absolute;top:-44px;left:50%;transform:translateX(-50%);background:#fff;color:#191919;
+  font-weight:700;font-size:44px;letter-spacing:-1px;line-height:1;padding:20px 44px;border-radius:999px;
+  white-space:nowrap;box-shadow:0 6px 30px rgba(0,0,0,.25)}
+#slot-coach{top:600px;width:1180px;height:980px}
+#slot-zone{top:1700px;width:1240px;height:760px;border-color:rgba(255,255,255,.4)}
 </style></head><body>
   <div id="board">
     <div class="title" id="s-title">Title</div>
@@ -70,6 +80,13 @@ html,body{background:transparent}
   })();
   // 보조설명(cue) 은퇴(유저: 실제 운동 영상엔 없음) — 타이틀+도트만
   $('s-cue').style.display = 'none';
+  // A2/A3 = 슬롯 레이아웃(코치 카드 + 운동 존 카드) — 전환화면과 같은 디자인 언어
+  if (/^(A2|A3)$/.test(stage)) {
+    const mk = (id, label) => { const d = document.createElement('div'); d.className = 'slot'; d.id = id;
+      d.innerHTML = `<div class="pill">${label}</div>`; document.getElementById('board').appendChild(d); };
+    mk('slot-coach', 'FOLLOW ALONG');
+    mk('slot-zone', S.cue || 'STEP ZONE');
+  }
 
 
   // 도트 로딩바 — 회색 10개 위 빨강 10개를 클립으로 드러냄. 클립 폭이 --dur 동안 0→100%.
