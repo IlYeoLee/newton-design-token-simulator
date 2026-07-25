@@ -3811,9 +3811,9 @@ void main(){
       // A2/A3 = 2단계 흐름(유저): [0~5s 관찰] 봇은 가만히 서서(idle) 전문가 영상 보기 → [5s~ 따라하기].
       // 뉴턴 전환 문법(유저 확정): 시범(영상만·도트바) → 마크 Preview 워밍 등장+음성 → 따라하기.
       //   3·2·1은 실전 트리거(C1) 전용 — 학습 내 전환엔 안 씀(복싱 문법과 통일).
-      const A2_WATCH = 5.0, _vh = !!(session.voiceBusy && session.voiceBusy());
+      const A2_WATCH = 3.0;   // 시범 = 무조건 3초(유저 확정) — 미니 타이머 링과 동기
       const _watchWin = /^(A2|A3)$/.test(session.stage || '') && !session._followLatch;
-      const aWatching = _watchWin && (session.t < A2_WATCH || _vh);
+      const aWatching = _watchWin && session.t < A2_WATCH;
       if (_watchWin && !aWatching) { session._followLatch = true; session._aWatchEnd = session.t; }
       if (aWatching) { _clip = 'idle'; xbot.group.scale.x = 1; xbot.lungeDeepen = 0; xbot.headPitch = THREE.MathUtils.degToRad(-32); }
       // 위상잠금: 씬 링·카운트와 코치 동작을 같은 시간축에 — 절차 드릴 + A1 전신풀기·A2 점핑잭(주기=씬 BT).
