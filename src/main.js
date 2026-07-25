@@ -2047,10 +2047,11 @@ void main(){
           return mix(mix(ch(i),ch(i+vec2(1,0)),f.x),mix(ch(i+vec2(0,1)),ch(i+vec2(1,1)),f.x),f.y); }
         void main(){
           vec2 uv = vUv;
+          vec3 c = texture2D(map, crop(uv)).rgb;
+          if (max(c.r, max(c.g, c.b)) < 0.06) discard;   // 검은/미로드 프레임 = 빨간 사각형 깜빡임 방지(유저)
           float m = mask1(uv);
           float mEro = smoothstep(0.30, 0.68, m);
           if (mEro < 0.02) discard;
-          vec3 c = texture2D(map, crop(uv)).rgb;
           // 복싱 벽(138) 딥레드 톤: 방사형 두께 코어 + S커브 대비 + 채도. 맨살 흰색 튐 억제(휘도 0.22·캡·pow1.5)
           float H = clamp(1.18 - length(vec2((uv.x-0.5)*1.35, (uv.y-0.5)*1.02)), 0.0, 1.0);
           float flow = vn(vec2(uv.x*3.2 + sin(uTime*0.4)*0.3, uv.y*2.4 - uTime*0.5));
@@ -2085,8 +2086,10 @@ void main(){
       const c = _coaches[id];
       if (id === activeId) {
         const co = ensureCoach(id);
-        co.plane.visible = true;
         if (co.video.paused) co.video.play().catch(() => {});
+        // 영상 실제 프레임이 들어오기 전엔 숨김 — 검은/균일 텍스처가 크로마키 통과 못 해
+        // 빨간 방사형 사각형으로 0.x초 깜빡이던 것 방지(유저). readyState≥3(HAVE_FUTURE_DATA)+재생 시작 후.
+        co.plane.visible = co.video.readyState >= 3 && co.video.currentTime > 0.03;
         co.plane.material.uniforms.uTime.value = performance.now() / 1000;
         if (floorObj.visible) {
           co.plane.quaternion.copy(floorObj.quaternion);
