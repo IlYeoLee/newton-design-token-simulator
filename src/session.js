@@ -533,7 +533,7 @@ export class Session {
     // 좌·우 발형(FootMark = 룩시스템 발형 SDF, A3와 동일 방식·사이즈) 나란히 지면 고정.
     // 상태 = countdown/setHold/glow/ghost로 Preview/Active/Hold/Success/Locked. 숫자는 발형 자식.
     // 전방 투사존 — 타이틀·도트(상단, 먼 z) 아래 열린 콘텐츠 존에 나란히 (겹침 방지)
-    const fmL = new FootMark('left').at(-0.18, -1.55, 1.05), fmR = new FootMark('right').at(0.18, -1.55, 1.05);
+    const fmL = new FootMark('left').at(-0.16, -1.15, 1.05), fmR = new FootMark('right').at(0.16, -1.15, 1.05);
     // 숫자 = 룩시스템 attachMarkNum(발 plane 자식·MARK_NUM 크기·numFoot 앵커) — 삐짐 없는 정본 이식
     const numL = attachMarkNum(fmL, '5', false), numR = attachMarkNum(fmR, '5', true);
     numL.visible = false; numR.visible = false;
@@ -1408,7 +1408,7 @@ export class Session {
       if ((this._a2t ?? 0) > this.t) { P._doneL = false; P._doneR = false; }   // 재진입 시 완료상태 리셋
       // ── 발자국이 x봇 실제 발을 따라 런지처럼 이동 (유저: 진짜 발 움직임에 맞춰) ──
       // 발 월드좌표(미러 포함)를 발 중점 기준 상대 오프셋으로 → 투사존 중심(CZ)에 압축 배치.
-      const CZ = -1.5, SC = 0.62;   // 중심 z · 스프레드 압축(투사 mark 토큰 범위 유지)
+      const CZ = -1.15, SC = 0.42;   // 중심 z(타이틀·캡션 아래로 내림) · 이동폭 축소(캡션 침범 금지 — 유저)
       if (pb) {
         const fL = pb.footL, fR = pb.footR;
         const lft = fL.x <= fR.x ? fL : fR, rgt = fL.x <= fR.x ? fR : fL;   // 시각 좌/우 (미러 자동 대응)

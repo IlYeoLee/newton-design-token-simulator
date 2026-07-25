@@ -3694,10 +3694,13 @@ void main(){
     if (rig.beamGroundLock) {
       const pb = xbot.getProbes?.();
       if (pb?.footL && pb?.footR) {
-        const front = pb.footL.z < pb.footR.z ? pb.footL : pb.footR;   // 더 앞(−z 전방)인 발 = 앞발(선 발)
-        if (!rig._beamTgt) rig._beamTgt = { x: front.x, z: front.z };
-        rig._beamTgt.x += (front.x - rig._beamTgt.x) * 0.08;           // 저역통과 = 앞발에 부드럽게 락(지터 제거)
-        rig._beamTgt.z += (front.z - rig._beamTgt.z) * 0.08;
+        // A2 런지 = 착용자 제자리(앞발만 멀리 나감) → 앵커를 앞발로 두면 매트가 멀리 끌려감(유저 물리 지적).
+        //   런지는 몸(hips) 기준 안정 앵커, 그 외 스트레치(A1/A3·서있음)는 앞발 그대로.
+        const anchor = /^(A2|BK_A2)$/.test(session.stage || '') && pb.hips
+          ? { x: pb.hips.x, z: pb.hips.z } : (pb.footL.z < pb.footR.z ? pb.footL : pb.footR);
+        if (!rig._beamTgt) rig._beamTgt = { x: anchor.x, z: anchor.z };
+        rig._beamTgt.x += (anchor.x - rig._beamTgt.x) * 0.08;          // 저역통과(지터 제거)
+        rig._beamTgt.z += (anchor.z - rig._beamTgt.z) * 0.08;
         rig.beamTarget = rig._beamTgt;
       }
     } else { rig.beamTarget = null; rig._beamTgt = null; }
