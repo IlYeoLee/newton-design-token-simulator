@@ -213,18 +213,20 @@ function boxingDrills(neutral) {
       // 한 클립 = 좌우 1왕복. sin 연속 → 한 무릎 내려올 때 다른 무릎 올라감(마칭, 중간 멈춤 없음 — 유저 '덜 부드러움' 해소)
       const s = Math.sin(t * TWO_PI);                     // -1(왼무릎)…+1(오른무릎)
       const upR = Math.max(0, s), upL = Math.max(0, -s);  // 무릎 올림(연속)
-      const eR = upR * upR * (3 - 2 * upR), eL = upL * upL * (3 - 2 * upL);   // smoothstep 이즈
+      // 퀸틱(smootherstep) 이즈 — 가감속 양끝이 더 완만(유저: 움직임 더 부드럽게)
+      const q = u => u * u * u * (u * (u * 6 - 15) + 10);
+      const eR = q(upR), eL = q(upL);
       if (n === R.hipR)  return rot(X, 96 * eR);
       if (n === R.kneeR) return rot(X, -88 * eR);
       if (n === R.hipL)  return rot(X, 96 * eL);
       if (n === R.kneeL) return rot(X, -88 * eL);
-      // 상체 직립(비틀기 최소) + 반대 팔 크로스(무릎 쪽으로) — 유저 '이미 비슷' 수용, 리스크 회피로 원형 유지
       if (n === R.spine)  return rot(Y, -6 * s);           // 비틀기 최소(직립)
       if (n === R.spine1) return rot(Y, -3 * s);
-      if (n === R.armL)  return rot(X, 44 * eR).multiply(rot(Z, -22 * eR)).multiply(rot(Z, 30 * eL));
-      if (n === R.foreL) return rot(X, -60 * eR);
-      if (n === R.armR)  return rot(X, 44 * eL).multiply(rot(Z, 22 * eL)).multiply(rot(Z, -30 * eR));
-      if (n === R.foreR) return rot(X, -60 * eL);
+      // 팔 위상 좌우 스왑 — 화면상 같은발-같은손으로 보이던 것(유저): 반대팔이 무릎과 교차
+      if (n === R.armL)  return rot(X, 44 * eL).multiply(rot(Z, -22 * eL)).multiply(rot(Z, 30 * eR));
+      if (n === R.foreL) return rot(X, -60 * eL);
+      if (n === R.armR)  return rot(X, 44 * eR).multiply(rot(Z, 22 * eR)).multiply(rot(Z, -30 * eL));
+      if (n === R.foreR) return rot(X, -60 * eR);
       return null;
     }),
     // 스텝 인·아웃 — 상체 앞뒤 무게 이동 + 살짝 바운스

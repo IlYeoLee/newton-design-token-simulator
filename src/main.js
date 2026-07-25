@@ -3795,7 +3795,9 @@ void main(){
       // 라이브(P/C) = 전방 투사 연장(유저: 시선 앞에 미리 보여야) — near 0.4/far 2.4m.
       // 달릴 땐 정강이가 뒤로 차올려져 하향각 여유가 생김 + 짐벌 틸트 보정 가정(5년 뒤 스펙).
       if (session.active && session.isLive && session.sport === 'running') {
-        rig.fpNear = 0.4; rig.fpFar = 2.4;
+        // near 0.25 = 착지점(발밑) 커버(유저: 밟는 순간 글로우가 잘리면 안 됨) — 정강이 후방 스윙
+        // 순간 하향각 + 알고리즘 보정 가정. far 2.4 = 시선 앞 선행 마크.
+        rig.fpNear = 0.25; rig.fpFar = 2.4;
       } else rig.fpNear = 0.05;
     }
     // BK_C4 릴리즈 = 실측 점프샷 원샷 (xbot 농구 라이브 경로에서 크로스페이드)

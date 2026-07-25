@@ -484,7 +484,9 @@ export class Marker {
       U.uPool.value = FXP.mark.pool;
       U.uSweepA.value = FXP.mark.sweep;
       U.uNoise.value = FXP.mark.wobble;
-      U.uGain.value = this._baseGain * FXP.gainBoost * (FP_VIEW ? 1.35 : 1);   // 주간 부스트 · 1인칭 = 시선 각도 눌림 보정
+      // 밟는 순간(linger=Success 블룸) 게인 킥 — 룩시스템 글로우가 확 터지게(유저: 팡 부족)
+      const hitKick = phase === 'linger' ? 1 + 0.9 * Math.max(0, 1 - progress * 2.2) : 1;
+      U.uGain.value = this._baseGain * FXP.gainBoost * (FP_VIEW ? 1.35 : 1) * hitKick;   // 주간 부스트 · 1인칭 = 시선 각도 눌림 보정
       // 주간 = 풀컬러 잉크 모드: 가산 → 노멀 블렌딩 (색 보존 알파 합성, 셰이더 규약과 짝)
       const day = FXP.day ? 1 : 0;
       if (U.uDay.value !== day) {
@@ -1096,8 +1098,8 @@ export class TokenSystem {
       opts.forward = true;
       pos.z -= 0.18;   // 반파 중심을 살짝 전방으로 — 빔 안에서 사는 시간 확보
       // 실전 착지 팡팡(유저): 바닥 닿는 순간이 몸으로 느껴지게 — 강도·헤일로 부스트
-      opts.intensity = (opts.intensity ?? 1) * 1.45;
-      opts.rings = Math.max(opts.rings ?? 1, 1.5);
+      opts.intensity = (opts.intensity ?? 1) * 1.7;
+      opts.rings = Math.max(opts.rings ?? 1, 1.8);
     }
     if (!wrapArtifact) this.effects.burst(pos, ev.color, normal, opts);
     if (this.onEvent) this.onEvent(ev);

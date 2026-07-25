@@ -605,15 +605,16 @@ export class Session {
     };
     const arL = mkLift(-0.46), arR = mkLift(0.46);
     // 4안(기본): 궤적 토큰 — 룩시스템 trajectory(잽 경로와 동일 정본). 코멧 prog = 실제 발 높이 직결.
-    const mkTraj = (x) => {
-      const m = primPanel('trajectory', 0.44, false);
-      m.position.set(x, 0.014, -1.05);
-      m._prim.pts = [[0, 0.8], [0.14, 0.02], [0, -0.72]];   // 아래(발)→위(들어올림) 상승 경로
-      m._prim.P = { width: 1.5, tail: 1.1, taper: 1.6 };
+    const mkTraj = (x, mirror) => {
+      const m = primPanel('trajectory', 0.5, false);
+      m.position.set(x, 0.014, -1.38);   // 발형 마크 위쪽(전방) — 경로 끝이 마크로 내리꽂힘
+      // 위(멀리)에서 발형 마크 쪽으로 활강하는 경로 (prog 1 = 마크 도달 = 팡)
+      m._prim.pts = [[mirror ? 0.3 : -0.3, -0.72], [mirror ? 0.12 : -0.12, 0.05], [0, 0.8]];
+      m._prim.P = { width: 1.5, tail: 1.2, taper: 1.6 };
       m._prim.prog = 0;
       return m;
     };
-    const tjL = mkTraj(-0.46), tjR = mkTraj(0.46);
+    const tjL = mkTraj(-0.17, false), tjR = mkTraj(0.17, true);
     this.a3hk = {
       fmL: a3L, fmR: a3R, numL: a3nL, numR: a3nR, arL, arR, tjL, tjR,
       sec: 0, cntL: 0, cntR: 0, _prevLeft: undefined, _beat: 0, _pop: 0,
@@ -1610,13 +1611,24 @@ export class Session {
       placeMarkNum(H.numL); placeMarkNum(H.numR);
       H.sec = Math.min(MAXSEC, H.sec + dt);
       H._pop = Math.max(0, H._pop - dt * 5);
-      // 카운트 = x봇이 '실제로 들어올리는 발'에 직결(유저) — 발 높이 프로브 상승 엣지. 속도 무관 자동 동기.
+      // ── 안무(유저): 발 드는 순간 코멧이 '쉬잉' 마크로 활강(저역 τ0.13) → 무릎 정점(prog 0.88 돌파)
+      //    딱 그 타이밍에 '팡'(카운트+블룸 팝+버스트). 1:1 하드 매핑 아님 — 부드러운 추종 + 정점 트리거.
       const pb = this.xbot?.getProbes?.();
       const lY = pb?.footL?.y ?? 0, rY = pb?.footR?.y ?? 0, TH = 0.12;
       const lUp = lY > TH, rUp = rY > TH;
-      if (lUp && !H._upL) { H.cntL = Math.min(PER_FOOT, H.cntL + 1); H._pop = 1; H._lastLeft = true; }
-      if (rUp && !H._upR) { H.cntR = Math.min(PER_FOOT, H.cntR + 1); H._pop = 1; H._lastLeft = false; }
-      H._upL = lUp; H._upR = rUp;
+      const aUp = 1 - Math.exp(-dt / 0.13);
+      H._pL = (H._pL ?? 0) + (Math.min(1, lY / 0.30) - (H._pL ?? 0)) * aUp;
+      H._pR = (H._pR ?? 0) + (Math.min(1, rY / 0.30) - (H._pR ?? 0)) * aUp;
+      const apex = (isL2, p, prev, fm) => {
+        if (p > 0.88 && prev <= 0.88) {   // 정점 도달 순간 = 팡
+          if (isL2) H.cntL = Math.min(PER_FOOT, H.cntL + 1); else H.cntR = Math.min(PER_FOOT, H.cntR + 1);
+          H._pop = 1; H._lastLeft = isL2;
+          const wp = new THREE.Vector3(); fm.group.getWorldPosition(wp);
+          this.onPress?.(wp, false);      // 룩시스템 버스트 팡
+        }
+      };
+      apex(true, H._pL, H._prevPL ?? 0, H.fmL); apex(false, H._pR, H._prevPR ?? 0, H.fmR);
+      H._prevPL = H._pL; H._prevPR = H._pR;
       const leftNow = lUp ? true : (rUp ? false : (H._lastLeft ?? true));   // 지금 올라간 발(없으면 마지막)
       const onFM = leftNow ? H.fmL : H.fmR, offFM = leftNow ? H.fmR : H.fmL;
       onFM.glow(0.6 + 0.4 * H._pop); onFM.op(1);
@@ -1626,8 +1638,8 @@ export class Session {
       H.arL.visible = !useTraj; H.arR.visible = !useTraj;
       H.tjL.visible = useTraj; H.tjR.visible = useTraj;
       if (useTraj) {
-        H.tjL._prim.prog = Math.min(1, lY / 0.35);   // 왼발 높이 → 왼 경로 코멧 상승
-        H.tjR._prim.prog = Math.min(1, rY / 0.35);
+        H.tjL._prim.prog = H._pL;   // 저역 활강 코멧('쉬잉') — 정점 트리거와 동기
+        H.tjR._prim.prog = H._pR;
       } else {
         const nowT = performance.now() / 1000;
         if (nowT - (this._a3cueT || 0) > 1 / 30) {
