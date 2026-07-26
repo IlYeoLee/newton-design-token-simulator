@@ -3857,7 +3857,7 @@ void main(){
       A1: 'neckShoulder',              // 목 먼저 → 어깨 (순차)
       A2: 'auto_cmu144_11',            // Left_Lunges — 무릎 15cm 깊은 실측 런지
       A3: 'kneeTwist',                 // 무릎 올리며 몸통 비틀기 (절차·리듬 1.2s/rep — cmu14_20엔 클린 하이니 없음)
-      T1: 'neckStretch', T2: 'armStretch', FIN: 'quadStretch',
+      T1: 'neckStretch', T2: 'armStretch',   // FIN=quadStretch 제거 → idle(Breathing Idle=자연 서기, 3876행 폴백). 유저: 리포트에선 자연스럽게 서있게.
       // 복싱 = Mixamo 실측 모캡 (목풀기만 절차)
       BX_A1: 'bx_neck', BX_A2: 'boxGuard', BX_A3: 'boxJab',
       BX_B1: 'boxGuard', BX_B2: 'boxGuard', BX_B3: 'boxCombo',
