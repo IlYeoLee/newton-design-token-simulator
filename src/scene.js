@@ -341,7 +341,8 @@ export function createScene(container) {
     wall.material.map = wTex;
     if (isCourtColor) {
       // 회색/검정 코트 = 솔리드 바닥(무광) + 흰 라인. 벽은 실내 스타일.
-      floor.material.color.setHex(key === 'court_black' ? 0x121317 : 0x35383e);
+      // 푸른 톤 블렌드(유저): 중립 회색/검정 대신 쿨 블루그레이 — 코트에 살짝 파란 기운.
+      floor.material.color.setHex(key === 'court_black' ? 0x0f1420 : 0x2b3240);
       wall.material.map = await getSurf('wallpaper');
       wall.material.color.setHex(0xFFFFFF);
       wall.material.emissive?.setHex(dayMode ? 0x6E6A63 : 0x57534B);
