@@ -15,7 +15,7 @@ const only = (() => { const i = process.argv.indexOf('--only'); return i < 0 ? n
 
 const jobs = [];
 // 스테이지 진입 대사: { id:'A1', ... voice:['션','...'] }
-for (const m of src.matchAll(/id\s*:\s*'([A-Z0-9_]+)'[^\n]*?voice\s*:\s*\[\s*'([^']+)'\s*,\s*'([^']+)'\s*\]/g)) {
+for (const m of src.matchAll(/id\s*:\s*'([A-Z0-9_]+)'[^{}]*?voice\s*:\s*\[\s*'([^']+)'\s*,\s*'([^']+)'\s*\]/g)) {   // [^{}]=멀티라인 허용(객체 경계 내), P3 등 여러 줄 엔트리 누락 방지
   jobs.push({ file: `${m[1]}.mp3`, who: m[2], text: m[3] });
 }
 // 중간 코칭: this._say('key', '션', '대사')
