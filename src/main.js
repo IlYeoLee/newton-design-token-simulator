@@ -4194,7 +4194,8 @@ void main(){
           const col = tp.i > 0.7 ? '#ff8a5a' : tp.i > 0.45 ? '#ffcf9a' : '#fff';   // 강도 온도색
           // 타이틀 = 현재 구간명(리커버/스프린트 등). 보조텍스트 없음(유저).
           const title = fdoc?.getElementById('s-title');
-          if (title && title.textContent !== tp.n) title.textContent = tp.n;
+          const nm = tp.n.charAt(0).toUpperCase() + tp.n.slice(1).toLowerCase();   // 앞글자만 대문자(유저): EASY→Easy, SPRINT→Sprint
+          if (title && title.textContent !== nm) title.textContent = nm;
           // 내SPM / 전문가SPM (유저: 전문가 기준 대비 내가 몇). 전문가=기본 SPM×구간배속, 내=실측(없으면 대시).
           const tgtSpm = Math.round(60 / (tokens._beatT || 0.39) * tp.c);
           const me = fdoc?.getElementById('spm-me'); if (me) { const v = window.__mySpm ? String(window.__mySpm) : '--'; if (me.textContent !== v) me.textContent = v; }
