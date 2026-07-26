@@ -7,7 +7,7 @@
 // ─────────────────────────────────────────────────────────────
 import * as THREE from 'three';
 import { makeLaneFXMaterial } from './tokens.js';
-import { lutColor } from './fxlut.js';
+import { lutColor, getLUT, FX_GLSL } from './fxlut.js';
 
 const easeOutCubic = t => 1 - Math.pow(1 - t, 3);
 
@@ -38,17 +38,17 @@ export class LiveUI {
 
     // ── V1 페이스 라인: 얇은 레인 + 페이서 틱(션) + 내 위치 노치 ──
     this.v1 = new THREE.Group();
-    this.v1Lane = flat(new THREE.Mesh(new THREE.PlaneGeometry(0.05, 1.8), makeLaneFXMaterial(1.8)), 0.012);
+    this.v1Lane = flat(new THREE.Mesh(new THREE.PlaneGeometry(0.10, 1.8), makeLaneFXMaterial(1.8)), 0.012);
     this.v1Lane.material.uniforms.uLStyle.value = 0;   // solid
     this.v1Lane.position.z = -1.4;
-    this.v1Tick = flat(new THREE.Mesh(new THREE.PlaneGeometry(0.22, 0.035), basic(0.95, 0.95)), 0.015);
-    this.v1Notch = flat(new THREE.Mesh(new THREE.PlaneGeometry(0.22, 0.035), basic(0.7, 0.32)), 0.014);
+    this.v1Tick = flat(new THREE.Mesh(new THREE.PlaneGeometry(0.34, 0.06), basic(0.95, 0.95)), 0.015);
+    this.v1Notch = flat(new THREE.Mesh(new THREE.PlaneGeometry(0.34, 0.06), basic(0.7, 0.38)), 0.014);
     this.v1Notch.position.z = -1.0;   // 내 위치 = 고정 기준선 — 틱과의 간격이 앞섬/처짐
     this.v1.add(this.v1Lane, this.v1Tick, this.v1Notch);
 
     // ── V2 비트 펄스 링: 베이스 링(상시 은은) + 비트마다 확장·소멸 펄스 ──
     this.v2 = new THREE.Group();
-    const ringGeo = new THREE.RingGeometry(0.16, 0.20, 48);
+    const ringGeo = new THREE.RingGeometry(0.26, 0.315, 48);
     this.v2Base = flat(new THREE.Mesh(ringGeo, basic(0.55, 0.18)), 0.013);
     this.v2Pulse = flat(new THREE.Mesh(ringGeo.clone(), basic(0.55, 0)), 0.014);
     this.v2Base.position.z = this.v2Pulse.position.z = -1.2;
@@ -68,7 +68,7 @@ export class LiveUI {
     // ── V4 스트라이드 도트: 비트마다 좌/우 교대 팝인 + 반대편 프리뷰 ──
     this.v4 = new THREE.Group();
     this.v4Dots = [0, 1].map(i => {
-      const d = flat(new THREE.Mesh(new THREE.CircleGeometry(0.07, 32), basic(0.8, 0)), 0.013);
+      const d = flat(new THREE.Mesh(new THREE.CircleGeometry(0.115, 32), basic(0.8, 0)), 0.013);
       d.position.x = i ? 0.12 : -0.12;
       this.v4.add(d);
       return d;
@@ -83,7 +83,7 @@ export class LiveUI {
     this._c2d = this._cv.getContext('2d');
     this._cvTex = new THREE.CanvasTexture(this._cv);
     this.v5Strip = flat(new THREE.Mesh(
-      new THREE.PlaneGeometry(0.95, 0.18),
+      new THREE.PlaneGeometry(1.25, 0.24),
       new THREE.MeshBasicMaterial({
         map: this._cvTex, transparent: true,
         blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide,
@@ -92,6 +92,46 @@ export class LiveUI {
     this.v5.add(this.v5Strip);
 
     this.group.add(this.v1, this.v2, this.v3, this.v4, this.v5);
+
+    // ── C4 부스트 배경(테스트, 유저): hyperspeed풍 흐르는 그리드 + 그라디언트 글로우 —
+    //    복싱 벽 배경 문법의 지면판. 투사면(uFP 페이드) 안에서만, 은은하게(저알파). ──
+    this.boostBG = flat(new THREE.Mesh(new THREE.PlaneGeometry(3.0, 2.4), new THREE.ShaderMaterial({
+      transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+      uniforms: {
+        uLUT: { value: getLUT() }, uTime: { value: 0 },
+        uFPOrigin: { value: new THREE.Vector3() }, uFPFwd: { value: new THREE.Vector3(0, 0, -1) }, uFPRight: { value: new THREE.Vector3(1, 0, 0) },
+        uFPNear: { value: -1e6 }, uFPFar: { value: 1e6 }, uFPHalfN: { value: 1e6 }, uFPHalfF: { value: 1e6 }, uFPFadeM: { value: 0.3 },
+      },
+      vertexShader: `varying vec2 vUv; varying vec3 vWorldPos;
+        void main(){ vUv = uv; vWorldPos = (modelMatrix * vec4(position,1.0)).xyz;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
+      fragmentShader: FX_GLSL + `
+        uniform float uTime;
+        uniform vec3 uFPOrigin, uFPFwd, uFPRight;
+        uniform float uFPNear, uFPFar, uFPHalfN, uFPHalfF, uFPFadeM;
+        varying vec2 vUv; varying vec3 vWorldPos;
+        float fpFade(vec3 wp){
+          vec2 rel = wp.xz - uFPOrigin.xz;
+          float d = rel.x*uFPFwd.x + rel.y*uFPFwd.z, h = rel.x*uFPRight.x + rel.y*uFPRight.z;
+          float half_ = mix(uFPHalfN, uFPHalfF, clamp((d-uFPNear)/max(0.01,uFPFar-uFPNear),0.,1.));
+          return smoothstep(uFPNear,uFPNear+uFPFadeM,d)*smoothstep(uFPFar,uFPFar-uFPFadeM,d)*smoothstep(half_,half_-uFPFadeM,abs(h));
+        }
+        void main(){
+          float t = uTime;
+          // 흘러오는 가로줄(질주) + 고정 세로줄 — 원근 그리드
+          float lz = smoothstep(0.90, 1.0, fract(vUv.y*9.0 + t*2.6));
+          float lx = smoothstep(0.955, 1.0, 1.0 - abs(fract(vUv.x*7.0)-0.5)*2.0);
+          float grid = max(lz*0.75, lx*0.4);
+          // 중앙 그라디언트 글로우(복싱 배경 문법)
+          float rad = clamp(1.0 - length((vUv-vec2(0.5,0.55))*vec2(1.7,1.25)), 0.0, 1.0);
+          vec3 col = lut(0.22 + 0.5*rad);
+          float a = (0.085*rad + grid*0.16) * fpFade(vWorldPos);
+          gl_FragColor = vec4(col * a * 1.5, 1.0);   // 가산광 — 은은
+        }`,
+    })), 0.010);
+    this.boostBG.position.z = -1.3;
+    this.boostBG.visible = false;
+    this.group.add(this.boostBG);
   }
 
   /** 레인 재료에 투사면 소프트 페이드 주입 — tokens.js 레인과 동일 규약 */
@@ -135,6 +175,18 @@ export class LiveUI {
     }
 
     this._t += dt;
+    // C4 부스트 배경 — 마지막 1km에서만 은은히 (uFP 페이드로 투사면 안)
+    this.boostBG.visible = !!ctx.boost;
+    if (ctx.boost) {
+      const BU = this.boostBG.material.uniforms;
+      BU.uTime.value = this._t;
+      const fp = this.rig?._fp;
+      if (fp) {
+        BU.uFPOrigin.value.set(fp.ox, 0, fp.oz); BU.uFPFwd.value.set(fp.fx, 0, fp.fz); BU.uFPRight.value.set(fp.rx, 0, fp.rz);
+        BU.uFPNear.value = this.rig.fpNear; BU.uFPFar.value = this.rig.fpFar;
+        BU.uFPHalfN.value = this.rig._halfAt(this.rig.fpNear); BU.uFPHalfF.value = this.rig._halfAt(this.rig.fpFar);
+      }
+    }
     const beatT = Math.max(0.2, ctx.beatT || 0.39);
     this._beatAcc += dt;
     const beat = this._beatAcc >= beatT;   // 이번 프레임에 비트 발화?

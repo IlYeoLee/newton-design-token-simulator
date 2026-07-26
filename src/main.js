@@ -4344,6 +4344,7 @@ void main(){
       const liveActive = session.active && session.isLive && session.sport === 'running' && /^C\d$/.test(session.stage || '');
       liveUI.update(rawDt, {
         active: liveActive, variant: FXP.liveUI || 1, beatT: tokens._beatT || 0.39,
+        boost: session.stage === 'C4',   // 마지막 1km = hyperspeed풍 부스트 배경(테스트)
         seanZ: session.paceLight.position.z + session.root.position.z, myZ: 0,
         spmTarget: Math.round(60 / (tokens._beatT || 0.39)), spmMine: window.__mySpm || 0, day: !!FXP.day,
       });
