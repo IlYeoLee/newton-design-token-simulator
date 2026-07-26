@@ -1172,7 +1172,7 @@ export class Session {
     const b = this.tokens?._beatT;
     return (b > 0.2 && b < 1.5) ? b * mult : fb;
   }
-  stop() { this.active = false; this.root.visible = false; this.tokens.root.visible = true; this.liveSpeed = 1; if (this.xbot) this.xbot.decelK = 0; this.bobY = 0; FXP.hideOrderNums = false; }
+  stop() { this.active = false; this.root.visible = false; this.tokens.root.visible = true; this.liveSpeed = 1; if (this.xbot) this.xbot.decelK = 0; this.bobY = 0; FXP.hideOrderNums = false; if (this._c3Skill != null && this.judge) { this.judge.skill = this._c3Skill; this._c3Skill = null; } }
   tapAdvance() {
     if (!this.active) return;
     if (!/FIN$/.test(this.stage)) this.next(true);   // 유저 탭 = 즉시 다음(음성 대기 무시)
@@ -1191,6 +1191,8 @@ export class Session {
     this.tokens.root.visible = !!st.live;      // 라이브 = 실제 팩 토큰이 흐른다
     this.liveSpeed = st.boost ? 1.18 : 1;
     if (this.xbot) this.xbot.decelK = 0;   // C5 감속 잔재 제거 (다운시프트·FIN 진입 안전망)
+    this._a3hit = 0; this._a3missT = null;   // BK_A3 재진입 스테일 카운터 = 0초 스킵 버그 (a2count와 동일 클래스)
+    if (this._c3Skill != null && this.judge) { this.judge.skill = this._c3Skill; this._c3Skill = null; }   // C3 중 탭 스킵 시 skill 0.35 영구 잠김 방지
     this.bobY = 0;
     for (const id in this.G) this.G[id].visible = false;
     this.paceLight.visible = false;   // C 실전 틱(_paceTick)이 프레임마다 다시 켬
@@ -1384,7 +1386,7 @@ export class Session {
         m.needsUpdate = true;
       }
     }
-    tickFlowArrows(t);   // 화살표(세션+팩) — 촉 이동 + 자루 LINE 유니폼 (단일 급이자)
+    tickFlowArrows(t, this.rig);   // 화살표(세션+팩) — 촉 이동 + 자루 LINE 유니폼 + 투사면 페이드 (단일 급이자)
     tickPrims(t);        // 파생 프리미티브 — fx-core 정본 캔버스 (30Hz)
   }
 

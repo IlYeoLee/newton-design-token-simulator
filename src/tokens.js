@@ -554,11 +554,12 @@ export function makeFlowArrow(len, { tips = 3, wall = false } = {}) {
   // 바닥 = 수평면(x=-90°, 살짝 띄움). 벽 = 수직면 유지(x=0) → 자루가 +Y로 서고 caller가 rotation.z로 방향 지정.
   if (wall) { g.rotation.x = 0; g.position.y = 0; } else { g.rotation.x = -Math.PI / 2; g.position.y = 0.014; }
   g.renderOrder = 6;
+  g._wall = !!wall;   // 벽 화살표는 투사면 페이드 미적용 (지면 전용)
   FLOW_ARROWS.push(g);
   return g;
 }
 /** 매 프레임 — 촉 이동(카탈로그 u-시계) + 자루 LINE 유니폼 급이. 부모 잃은 화살표는 자동 정리. */
-export function tickFlowArrows(t) {
+export function tickFlowArrows(t, rig) {
   const A = FXP.arrow || {};
   const styleIdx = LINE_STYLE_IDX[A.line || 'solid'] ?? 0;
   const day = FXP.day ? 1 : 0;
@@ -577,6 +578,18 @@ export function tickFlowArrows(t) {
     U.uLHeat.value = A.heat ?? 0.5;
     U.uLTail.value = A.tail ?? 0.55;
     U.uGain.value = FXP.gainBoost * (g._mat._gainK ?? 1);
+    // 지면 화살표 자루에도 투사면 소프트 페이드 — 급이 누락으로 fade가 영구 무효(-1e6 기본값)라
+    // 농구 방향 화살표·감속바가 투사 경계에서 사각으로 잘리던 것 (스윕 확정 결함)
+    const fp = rig?._fp;
+    if (fp && U.uFPNear && !g._wall) {
+      U.uFPOrigin.value.set(fp.ox, 0, fp.oz);
+      U.uFPFwd.value.set(fp.fx, 0, fp.fz);
+      U.uFPRight.value.set(fp.rx, 0, fp.rz);
+      U.uFPNear.value = rig.fpNear;
+      U.uFPFar.value = rig.fpFar;
+      U.uFPHalfN.value = rig._halfAt(rig.fpNear);
+      U.uFPHalfF.value = rig._halfAt(rig.fpFar);
+    }
     if (U.uDay.value !== day) {
       U.uDay.value = day;
       g._mat.blending = day ? THREE.NormalBlending : THREE.AdditiveBlending;
