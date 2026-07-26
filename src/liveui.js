@@ -28,10 +28,45 @@ export class LiveUI {
     this._dotAge = 0;     // V4 활성 도트 경과
     this._stripAcc = 1;   // V5 10Hz 리드로 타이머 (첫 프레임 즉시 그림)
 
-    // 가산 블렌드 평면 재료 — 야간 투사 룩 (주간은 v1에선 가산 유지, 허용 범위)
-    const basic = (v, op) => new THREE.MeshBasicMaterial({
-      color: new THREE.Color(lutColor(v)), transparent: true, opacity: op,
-      blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide,
+    // 소프트 글로우 재료 — 화이트-핫 코어 + LUT 컬러 바디 + 헤일로 (룩시스템 마크 문법).
+    // 민짜 단색 평면(저퀄)의 근본 교체. uShape: 0=도트 1=링 2=캡슐. 가산 블렌드.
+    const soft = (shape, v, op, asp = 1) => new THREE.ShaderMaterial({
+      transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+      uniforms: {
+        uColor: { value: new THREE.Color(lutColor(v)) }, uOp: { value: op },
+        uShape: { value: shape }, uAsp: { value: asp },
+      },
+      vertexShader: `varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
+      fragmentShader: `
+        uniform vec3 uColor; uniform float uOp, uShape, uAsp;
+        varying vec2 vUv;
+        void main(){
+          vec2 p = (vUv - 0.5) * 2.0;
+          float core, halo, hot;
+          if (uShape < 0.5) {              // 도트: 핫코어 + 바디 + 넓은 헤일로
+            float d = length(p);
+            hot  = exp(-pow(d*5.5, 2.0));
+            core = exp(-pow(d*2.4, 2.0));
+            halo = exp(-pow(d*1.25, 2.0)) * 0.38;
+          } else if (uShape < 1.5) {       // 링: 가우시안 밴드 + 안팎 번짐
+            float d = abs(length(p) - 0.62);
+            hot  = exp(-pow(d*16.0, 2.0)) * 0.6;
+            core = exp(-pow(d*8.0, 2.0));
+            halo = exp(-pow(d*3.2, 2.0)) * 0.35;
+          } else {                         // 캡슐: 라이트 튜브 (얇은 발광심 + 글로우)
+            p.x *= uAsp;
+            vec2 q = vec2(max(abs(p.x) - (uAsp - 1.0), 0.0), p.y);
+            float d = length(q);
+            hot  = exp(-pow(d*3.4, 2.0)) * 0.7;
+            core = exp(-pow(d*1.9, 2.0));
+            halo = exp(-pow(d*0.95, 2.0)) * 0.35;
+          }
+          // 평면 경계 윈도우 — 헤일로 잔광이 지오메트리 모서리에 사각으로 잘리는 것 방지
+          vec2 b = abs(vUv - 0.5) * 2.0;
+          float win = smoothstep(1.0, 0.72, max(b.x, b.y));
+          vec3 col = (uColor * (core + halo) + vec3(1.0, 0.96, 0.88) * hot * 0.6) * win;
+          gl_FragColor = vec4(col * uOp, 1.0);
+        }`,
     });
     // 바닥 평면 공통: 눕히고 살짝 띄움 (z-파이팅 회피, y 0.012~0.016 층 분리)
     const flat = (mesh, y) => { mesh.rotation.x = -Math.PI / 2; mesh.position.y = y; return mesh; };
@@ -41,16 +76,16 @@ export class LiveUI {
     this.v1Lane = flat(new THREE.Mesh(new THREE.PlaneGeometry(0.10, 1.8), makeLaneFXMaterial(1.8)), 0.012);
     this.v1Lane.material.uniforms.uLStyle.value = 0;   // solid
     this.v1Lane.position.z = -1.4;
-    this.v1Tick = flat(new THREE.Mesh(new THREE.PlaneGeometry(0.34, 0.06), basic(0.95, 0.95)), 0.015);
-    this.v1Notch = flat(new THREE.Mesh(new THREE.PlaneGeometry(0.34, 0.06), basic(0.7, 0.38)), 0.014);
+    this.v1Tick = flat(new THREE.Mesh(new THREE.PlaneGeometry(0.46, 0.14), soft(2, 0.95, 0.95, 3.3)), 0.015);
+    this.v1Notch = flat(new THREE.Mesh(new THREE.PlaneGeometry(0.46, 0.14), soft(2, 0.7, 0.38, 3.3)), 0.014);
     this.v1Notch.position.z = -1.0;   // 내 위치 = 고정 기준선 — 틱과의 간격이 앞섬/처짐
     this.v1.add(this.v1Lane, this.v1Tick, this.v1Notch);
 
     // ── V2 비트 펄스 링: 베이스 링(상시 은은) + 비트마다 확장·소멸 펄스 ──
     this.v2 = new THREE.Group();
-    const ringGeo = new THREE.RingGeometry(0.26, 0.315, 48);
-    this.v2Base = flat(new THREE.Mesh(ringGeo, basic(0.55, 0.18)), 0.013);
-    this.v2Pulse = flat(new THREE.Mesh(ringGeo.clone(), basic(0.55, 0)), 0.014);
+    const ringGeo = new THREE.PlaneGeometry(0.95, 0.95);
+    this.v2Base = flat(new THREE.Mesh(ringGeo, soft(1, 0.55, 0.26)), 0.013);
+    this.v2Pulse = flat(new THREE.Mesh(ringGeo.clone(), soft(1, 0.55, 0)), 0.014);
     this.v2Base.position.z = this.v2Pulse.position.z = -1.2;
     this.v2.add(this.v2Base, this.v2Pulse);
     this._c2on = new THREE.Color(lutColor(0.55));    // 온페이스 온도
@@ -68,8 +103,8 @@ export class LiveUI {
     // ── V4 스트라이드 도트: 비트마다 좌/우 교대 팝인 + 반대편 프리뷰 ──
     this.v4 = new THREE.Group();
     this.v4Dots = [0, 1].map(i => {
-      const d = flat(new THREE.Mesh(new THREE.CircleGeometry(0.115, 32), basic(0.8, 0)), 0.013);
-      d.position.x = i ? 0.12 : -0.12;
+      const d = flat(new THREE.Mesh(new THREE.PlaneGeometry(0.46, 0.46), soft(0, 0.8, 0)), 0.013);
+      d.position.x = i ? 0.14 : -0.14;
       this.v4.add(d);
       return d;
     });
@@ -83,12 +118,12 @@ export class LiveUI {
     this._c2d = this._cv.getContext('2d');
     this._cvTex = new THREE.CanvasTexture(this._cv);
     this.v5Strip = flat(new THREE.Mesh(
-      new THREE.PlaneGeometry(1.25, 0.24),
+      new THREE.PlaneGeometry(1.35, 0.26),
       new THREE.MeshBasicMaterial({
         map: this._cvTex, transparent: true,
         blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide,
       })), 0.016);
-    this.v5Strip.position.z = -0.85;
+    this.v5Strip.position.z = -1.35;   // z-0.85는 1인칭 시선각이 얕아 뭉개짐 — 프레임 UI 깊이로
     this.v5.add(this.v5Strip);
 
     // inner = 인트로 연출용 로컬 오프셋 · group = 투사면 원점 추종 (실전에서 러너가 전진 → 월드 고정이면 즉시 투사면 밖)
@@ -240,8 +275,8 @@ export class LiveUI {
       const fs = 1 + 0.25 * Math.sin(this._fuseT * Math.PI);
       this.v1Tick.scale.setScalar(fs);
       this.v1Notch.scale.setScalar(fs);
-      this.v1Tick.material.opacity = fused ? 1.0 : 0.95;
-      this.v1Notch.material.opacity = fused ? 0.9 : 0.38;   // 융합 = 노치도 밝게, 두 요소가 하나로
+      this.v1Tick.material.uniforms.uOp.value = fused ? 1.0 : 0.95;
+      this.v1Notch.material.uniforms.uOp.value = fused ? 0.9 : 0.38;   // 융합 = 노치도 밝게, 두 요소가 하나로
       const U = this.v1Lane.material.uniforms;
       U.uTime.value = this._t;
       U.uDay.value = ctx.day ? 1 : 0;
@@ -255,9 +290,9 @@ export class LiveUI {
       const k = THREE.MathUtils.clamp((Math.abs(ctx.seanZ + 1.0) - 0.35) / 0.6, 0, 1);
       const q = 0.5 + 0.5 * k;   // 온페이스(k=0) = 진폭·불투명도 절반 — '조용해지는 링'이 일치의 보상
       this.v2Pulse.scale.setScalar(1 + 0.35 * q * e);
-      this.v2Pulse.material.opacity = 0.9 * q * (1 - e);
-      this.v2Base.material.color.lerpColors(this._c2on, this._c2off, k);
-      this.v2Pulse.material.color.copy(this.v2Base.material.color);
+      this.v2Pulse.material.uniforms.uOp.value = 0.9 * q * (1 - e);
+      this.v2Base.material.uniforms.uColor.value.lerpColors(this._c2on, this._c2off, k);
+      this.v2Pulse.material.uniforms.uColor.value.copy(this.v2Base.material.uniforms.uColor.value);
     } else if (v === 3) {
       // 셰브론 흐름 = '상대속도'(리서치 확정: Beryl·Audi 문법 + optic flow 안전) —
       //   션이 앞서면 셰브론이 앞으로 흘러 끌어당기고, 페이스 일치 = 흐름 정지 + 윤곽 또렷('락온').
@@ -279,14 +314,14 @@ export class LiveUI {
       this._dotAge += dt;
       const act = this.v4Dots[this._dotSide], pre = this.v4Dots[1 - this._dotSide];
       const pop = easeOutCubic(Math.min(1, this._dotAge / 0.12));
-      act.position.z = -0.95;
+      act.position.z = -1.15;   // 얕은 시선각(z-0.95)에서 뭉개지던 것 — 깊이로 이동
       act.scale.setScalar(0.5 + 0.5 * pop);
-      act.material.opacity = Math.max(0, 1 - this._dotAge / beatT);
-      act.material.color.copy(this._c4act);
-      pre.position.z = -1.25;
+      act.material.uniforms.uOp.value = Math.max(0, 1 - this._dotAge / beatT);
+      act.material.uniforms.uColor.value.copy(this._c4act);
+      pre.position.z = -1.5;
       pre.scale.setScalar(1);
-      pre.material.opacity = 0.35;
-      pre.material.color.copy(this._c4pre);
+      pre.material.uniforms.uOp.value = 0.45;
+      pre.material.uniforms.uColor.value.copy(this._c4pre);
     } else if (v === 5) {
       // SPM 표시: 페이스 이탈 시에만 슬라이드 인(0.3s), 일치 시 페이드 아웃 — 달리는 중 글자 최소화
       const offPace = Math.abs(ctx.seanZ + 1.0) >= 0.35;
@@ -297,26 +332,31 @@ export class LiveUI {
     }
   }
 
-  /** V5 스트립 드로잉: 트랙 바 + 센터 노치 + 페이스 마커 + SPM */
+  /** V5 스트립 드로잉: 그라디언트 트랙 바 + 글로우 노치 + 라디얼 마커 + SPM */
   _drawStrip(ctx) {
     const g = this._c2d, W = 512, H = 96, cy = 62;
     g.clearRect(0, 0, W, H);
-    g.shadowColor = lutColor(0.6); g.shadowBlur = 8;   // 은은한 글로우
-    // 트랙 바 (전폭 라운드 렉트, 높이 22px)
-    g.strokeStyle = lutColor(0.45); g.globalAlpha = 0.5; g.lineWidth = 2;
-    g.beginPath();
-    g.roundRect(4, cy - 11, W - 8, 22, 11);
-    g.stroke();
+    // 트랙 바: 중앙이 따뜻하게 밝아지는 그라디언트 필 + 글로우 윤곽 (민짜 스트로크 교체)
+    const bar = g.createLinearGradient(0, 0, W, 0);
+    bar.addColorStop(0, lutColor(0.18)); bar.addColorStop(0.5, lutColor(0.5)); bar.addColorStop(1, lutColor(0.18));
+    g.shadowColor = lutColor(0.55); g.shadowBlur = 14;
+    g.fillStyle = bar; g.globalAlpha = 0.30;
+    g.beginPath(); g.roundRect(4, cy - 11, W - 8, 22, 11); g.fill();
+    g.globalAlpha = 0.8; g.strokeStyle = lutColor(0.62); g.lineWidth = 1.5; g.stroke();
     g.globalAlpha = 1;
-    // 센터 노치 (온페이스 기준점)
-    g.fillStyle = '#fff';
-    g.fillRect(W / 2 - 1.5, cy - 15, 3, 30);
-    // 페이스 마커: 션 z 오프셋(기준 -1.0, ±0.5m) → 좌우 위치. 앞섬 = 오른쪽
+    // 센터 노치: 하드 렉트 → 글로우 라인
+    g.shadowBlur = 10; g.shadowColor = '#fff';
+    g.fillStyle = 'rgba(255,250,240,0.95)';
+    g.beginPath(); g.roundRect(W / 2 - 1.5, cy - 16, 3, 32, 1.5); g.fill();
+    // 페이스 마커: 화이트-핫 코어 → LUT 바디 → 투명 라디얼 (션 z 오프셋 기준 -1.0, ±0.5m. 앞섬 = 오른쪽)
     const off = THREE.MathUtils.clamp(-(ctx.seanZ + 1.0) / 0.5, -1, 1);
-    g.fillStyle = lutColor(0.85);
-    g.beginPath();
-    g.arc(W / 2 + off * (W / 2 - 40), cy, 9, 0, Math.PI * 2);
-    g.fill();
+    const mx = W / 2 + off * (W / 2 - 40);
+    const mg = g.createRadialGradient(mx, cy, 0, mx, cy, 17);
+    mg.addColorStop(0, '#fff8ec'); mg.addColorStop(0.35, lutColor(0.85)); mg.addColorStop(1, 'rgba(0,0,0,0)');
+    g.shadowBlur = 0;
+    g.fillStyle = mg;
+    g.beginPath(); g.arc(mx, cy, 17, 0, Math.PI * 2); g.fill();
+    g.shadowColor = lutColor(0.6); g.shadowBlur = 8;
     // 내 케이던스 (우상단): 페이스 이탈 시에만 오른쪽에서 슬라이드 인 — _spmK(0=숨김, 1=정착)
     const sk = this._spmK ?? 1;
     if (sk > 0.01) {
