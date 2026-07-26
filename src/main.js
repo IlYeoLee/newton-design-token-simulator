@@ -715,8 +715,10 @@ void main(){
     // 진짜 눈 시점: 자기 몸은 시야를 가리지 않음 + 인간 유효 시야각
     xbot.model.visible = !fpMode;
     // 1인칭 화각 = 종목별: 복싱(벽 응시) 58°. 러닝도 광각(85°)이면 발앞 투사 UI가 과소하게 멀리·작게
-    // 보임(유저) → 사람 유효 중심시야(~55°)에 맞춰 62°로 좁혀 UI가 화면을 자연히 채우게.
-    camera.fov = fpMode ? (state.pack === 'boxing' ? 58 : 62) : 50;
+    // 보임(유저) → 사람 유효 중심시야(~55°)에 맞춰 좁힘. 62→60°로 살짝 더 좁혀 화면을 더 채움.
+    // (56~58°까지 좁히면 지면 near-edge가 화면 밖으로 밀리고 훈련 정보가 페이스 발자국 3D 마크와 겹침 —
+    //  스크린샷 검증. '생생한 크기'는 fov 과좁힘이 아니라 near-field 훈련정보 블록의 큰 타이포가 담당.)
+    camera.fov = fpMode ? (state.pack === 'boxing' ? 58 : 60) : 50;
     camera.updateProjectionMatrix();
     const vb = document.getElementById('btn-view');
     if (vb) vb.textContent = fpMode ? '3인칭 보기' : '1인칭 보기';
@@ -875,8 +877,8 @@ void main(){
     const dur = STAGE_DUR[st.id] ?? st.dur ?? 8;
     let cyc = (((session.t / dur) * (st.loop || 1)) % 1 + 1) % 1;
     let acc = 0;
-    for (const p of ph) { acc += p.f; if (cyc <= acc + 1e-4) return p; }
-    return ph[ph.length - 1];
+    for (const p of ph) { const lo = acc; acc += p.f; if (cyc <= acc + 1e-4) return { ...p, prog: (cyc - lo) / Math.max(1e-4, p.f) }; }
+    const last = ph[ph.length - 1]; return { ...last, prog: 1 };
   };
   const session = new Session(scene, tokens, xbot, rig, st => {
     cuePick.style.display = st.id === 'A3' ? 'flex' : 'none';
@@ -4104,15 +4106,32 @@ void main(){
       wearFxEl.style.opacity = String(0.26 + 0.14 * Math.sin(performance.now() / 280));
     }
     if (rig._fp) effects._fp = { ...rig._fp, near: rig.fpNear, far: rig.fpFar, halfN: rig._halfAt(rig.fpNear), halfF: rig._halfAt(rig.fpFar) };
-    // ── 훈련 구간(눈으로 보이게): HUD 라벨+강도 게이지 + 마크·봇 속도 변조(전력↔회복, 가속↔풀기) ──
+    // ── 훈련 구간(미니멀·유저): 타이머 링(구간 진행) + 구간명 한 단어. 마크·봇 속도 변조. ──
     {
       const tp = trainPhase();
       try {
-        const cue = floorIframe.contentDocument?.getElementById('s-cue');
-        if (cue && tp && cue.textContent !== tp.n) {
-          // 기존 본문(cue) 라인을 현재 훈련 구간으로 라이브 갱신 (영문, 지면 투사 시스템 그대로)
-          cue.textContent = tp.n;
-          cue.style.color = tp.i > 0.7 ? '#ff8a5a' : tp.i > 0.45 ? '#ffcf9a' : '';   // 강도 온도(은은)
+        const fdoc = floorIframe.contentDocument;
+        if (tp) {
+          const col = tp.i > 0.7 ? '#ff8a5a' : tp.i > 0.45 ? '#ffcf9a' : '#fff';   // 강도 온도색(런지/하이니 타이머 컬러만 수정)
+          // 링 arc = 현재 구간 진행(0→1). 인터벌/스트라이드는 구간마다 리셋되며 채워짐.
+          const arc = fdoc?.getElementById('tp-arc');
+          if (arc) {
+            arc.style.strokeDashoffset = (1727.9 * (1 - (tp.prog || 0))).toFixed(1);
+            if (arc.getAttribute('stroke') !== col) arc.setAttribute('stroke', col);
+          }
+          // 중앙 카운트다운 = 구간 처방 초 × 남은 비율 (SPRINT 30→0 느낌)
+          const num = fdoc?.getElementById('tp-num');
+          if (num) {
+            const rem = Math.max(0, Math.ceil((tp.sec || Math.round((session.curStage?.dur || 8))) * (1 - (tp.prog || 0))));
+            const rs = String(rem);
+            if (num.textContent !== rs) num.textContent = rs;
+          }
+          // 구간명 라벨
+          const ph = fdoc?.getElementById('tp-phase');
+          if (ph) {
+            if (ph.textContent !== tp.n) ph.textContent = tp.n;
+            if (ph.style.color !== col) ph.style.color = col;
+          }
         }
       } catch (e) { /* iframe 로드 전 */ }
       if (tp) {
@@ -4604,7 +4623,9 @@ void main(){
         // 라이브(B 페이스·C 실전) = 최소 UI(유저): 진입 2.5s 후 타이틀·큐·도트 페이드 — 판정 큐만 남김.
         const doc = floorIframe.contentDocument;
         if (doc) {
-          const hide = !!session.curStage?.live && session.t > 2.5;
+          // 훈련(P1~P4)은 정보 학습 단계 → 페이드 제외(타이틀·설명·하단 라이브 정보 상시 유지).
+          // B 페이스·C 실전만 진입 2.5s 후 최소 UI로 페이드.
+          const hide = !!session.curStage?.live && session.t > 2.5 && !/^P\d$/.test(session.curStage.id);
           for (const eid of ['s-title', 's-cue', 's-dots']) {
             const el = doc.getElementById(eid);
             if (el) { el.style.transition = 'opacity .7s'; el.style.opacity = hide ? '0' : '1'; }

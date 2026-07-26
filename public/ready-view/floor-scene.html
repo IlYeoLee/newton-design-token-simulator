@@ -71,6 +71,17 @@ html,body{background:transparent}
   letter-spacing:8px;color:rgba(255,255,255,.8);opacity:0;
   animation:sUpFlat .5s .1s both, demoOutFlat .45s 5.05s both}
 @keyframes demoOutFlat{to{opacity:0}}
+
+/* 훈련(P) 라이브 정보 — 기존 컴포넌트 재사용(유저): 데모 타이머 링(런지/하이니 미리보기와 동일 문법,
+   컬러만 구간강도로). 링=현재 구간 진행+카운트다운, 라벨=구간명. 전체 시간은 도트 프로그래스(#s-dots). */
+#train-live{position:absolute;top:220px;left:50%;transform:translateX(-50%);width:330px;height:330px;
+  font-family:'Supreme',sans-serif;opacity:0;animation:sUpFlat .6s .5s both}
+#train-live svg{position:absolute;inset:0;width:100%;height:100%}
+#train-live #tp-arc{transition:stroke .35s}
+#tp-num{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  font-weight:700;font-size:150px;color:#fff;line-height:1;text-shadow:0 0 30px rgba(255,255,255,.4)}
+#tp-phase{position:absolute;top:378px;left:50%;transform:translateX(-50%);white-space:nowrap;
+  font-weight:700;font-size:66px;letter-spacing:2px;color:#fff;text-shadow:0 0 26px rgba(255,255,255,.38);transition:color .35s}
 </style></head><body>
   <div id="board">
     <div class="title" id="s-title">Title</div>
@@ -94,10 +105,26 @@ html,body{background:transparent}
       else { s.className = 'ch'; s.textContent = c; s.style.animationDelay = (0.1 + vis * 0.045) + 's'; vis++; }
       t.appendChild(s); });
   })();
-  // 보조설명(cue) 은퇴(유저: 실제 운동 영상엔 없음) — 타이틀+도트만
-  $('s-cue').style.display = 'none';
-  // 박자 연습(P) = 도트 게이지도 제거(유저: 의미 불명 — 박자에 집중), 타이틀만(라이브 2.5s 페이드)
-  if (/^P\d$/.test(stage)) $('s-dots').style.display = 'none';
+  // 보조설명(cue) 은퇴(유저: 실제 운동 영상엔 없음) — 타이틀+도트만. 단 훈련(P1~P4)은 예외:
+  //   1인칭 가독을 위해 (a) cue(영문 짧은 설명)를 되살리고, (b)(c) 하단 근거리에 라이브 훈련 정보 편입.
+  if (/^P\d$/.test(stage)) {
+    $('s-title').style.display = 'none';                  // P단계 = 데모 타이머 링 하나로 상황표시 통합
+    $('s-cue').style.display = 'none';                    // 설명 제거(유저: 정보 너무 많음)
+    $('s-dots').style.top = '110px';                      // 도트(전체 시간) = 링 위쪽으로 (세로 스택 분리)
+    // 상황표시 = 데모 타이머 링(런지/하이니 미리보기와 동일 문법) — arc 진행 + 중앙 카운트다운 + 구간명 라벨
+    const live = document.createElement('div'); live.id = 'train-live';
+    live.innerHTML = `
+      <svg viewBox="0 0 604 604">
+        <circle cx="302" cy="302" r="275" fill="none" stroke="rgba(255,255,255,.16)" stroke-width="10"/>
+        <circle id="tp-arc" cx="302" cy="302" r="275" fill="none" stroke="#fff" stroke-width="16" stroke-linecap="round"
+          transform="rotate(-90 302 302)" stroke-dasharray="1727.9" stroke-dashoffset="1727.9"/>
+      </svg>
+      <div id="tp-num">—</div>
+      <div id="tp-phase">—</div>`;
+    document.getElementById('board').appendChild(live);
+  } else {
+    $('s-cue').style.display = 'none';
+  }
   const spm = params.get('spm');
   if (spm) { const el = document.createElement('div'); el.id = 'spm-lbl';
     el.innerHTML = `<b id="spm-me">--</b><span> / ${spm} SPM</span><div style="font-weight:500;font-size:44px;color:rgba(255,255,255,.62);margin-top:6px">내 발걸음 / 목표 — 소리에 맞춰</div>`; document.getElementById('board').appendChild(el); }
