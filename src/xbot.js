@@ -67,6 +67,7 @@ import mfChestPassClipJson from '../assets/mocap/xclip-mf_chest_pass.json';   //
 import mfSprintBlUrl from '../assets/anim-mf-sprint-bl.fbx?url'; // Motifect 스프린트 스타트 → Blender 리타겟    // Rokoko Vision 비디오 모캡 — 스텝백 튜토리얼(파운드→45°스텝백→개더→슛)
 // Mixamo Stomping 좌+우(미러) 오프라인 합성 — 프레스(원 꾹 밟기) 교대 클립
 import stompPressClipJson from '../assets/mocap/xclip-stomp_press.json';
+import walkRightClipJson from '../assets/mocap/xclip-walk_right.json';   // 걷기(제자리 베이크) — C5 자연 감속용
 
 // X Bot = 투사된 토큰 UI를 "따라하는 사람" 역할.
 // 모든 안무는 팩 시간(packTime)의 순수 함수 → 루프/시크/속도 변경에 안전.
@@ -82,6 +83,7 @@ export class XBot {
     this.model = null;
     this.mixer = null;
     this.actions = {};
+    this.decelK = 0;   // C5 자연 감속 진행도 0~1 (session이 구동, 러닝 라이브 전용)
     this.mode = null;
     this.schedule = null;
     this.feet = [];
@@ -174,6 +176,7 @@ export class XBot {
     regJson('mf_layup', mfLayupClipJson);
     regJson('sfu_jumprope', sfuJumpRopeClipJson);
     regJson('sfu_jogging', sfuJoggingClipJson);
+    regJson('walk', walkRightClipJson);   // 걷기 — C5 자연 감속(런→조깅→걷기)
     regJson('hj_legswing', hjLegswingClipJson);
     regJson('hj_jjack', hjJjackClipJson);
     regJson('hj_squat', hjSquatClipJson);
@@ -400,6 +403,7 @@ export class XBot {
     // 모든 액션 정지 + 가중치 복원 (stop()은 weight를 리셋하지 않음 — 검증 모드 잔재 방지)
     for (const k in this.actions) { const x = this.actions[k]; x.action.stop(); x.action.setEffectiveWeight(1); }
     this.mode = packData.sport;
+    this.decelK = 0; this._dcT = 0; this._dcZ = null;   // C5 감속 상태 리셋
     this.group.position.set(0, 0, 0);
     this.group.rotation.set(0, 0, 0);
     this.model.position.set(0, 0, 0);
@@ -612,12 +616,16 @@ export class XBot {
     if (this.mode === 'running') {
       const { t0, stride, V, clipKey } = this.schedule;
       const a = this.actions[clipKey || 'run'];
-      // 가중치 단독 확정 — playDemo(세션 드릴)가 잡아둔 가중치(run=0·드릴=1)가 남으면
+      // C5 자연 감속(decelK 0→1): 런→조깅→걷기 크로스페이드 + 전진속도 실감속.
+      // 슬로모(liveSpeed) 아님 — 클립은 항상 정속 재생, 몸의 보법·속도만 느려진다.
+      const dk = Math.min(1, this.decelK || 0);
+      const wRun = Math.max(0, 1 - dk * 2), wWalk = Math.max(0, dk * 2 - 1), wJog = 1 - wRun - wWalk;
+      // 가중치 확정 — playDemo(세션 드릴)가 잡아둔 가중치(run=0·드릴=1)가 남으면
       // 라이브/복귀 시 봇이 드릴 포즈로 얼어붙는다 (유저: '실전에서 가만히 멈춤')
       for (const k in this.actions) {
         const x = this.actions[k];
         x.action.play(); x.action.paused = true;
-        x.action.setEffectiveWeight(k === (clipKey || 'run') ? 1 : 0);
+        x.action.setEffectiveWeight(k === (clipKey || 'run') ? wRun : k === 'jogging' ? wJog : k === 'walk' ? wWalk : 0);
       }
       if (clipKey && clipKey !== 'run') {
         // 원천 클립 직결: 팩 t = 클립 t (사이클 타일링) → 위상 보정 상수 불필요.
@@ -628,9 +636,23 @@ export class XBot {
         const phase = (((packTime - t0) / stride) % 1 + 1) % 1;
         a.action.time = ((phase + RUN_PHASE_R) % 1) * a.dur;
       }
+      if (dk > 0) {
+        // 조깅·걷기는 자유 위상(정속 재생) — 감속 중엔 마크 위상 잠금이 무의미
+        this._dcT = (this._dcT || 0) + dt;
+        const jg = this.actions.jogging, wk = this.actions.walk;
+        if (jg) jg.action.time = this._dcT % jg.dur;
+        if (wk) wk.action.time = this._dcT % wk.dur;
+      }
       this.mixer.update(0);
-      // 실제 전진: 지면 고정 마크를 향해 이동
-      this.group.position.z = -V * packTime;
+      // 실제 전진: 지면 고정 마크를 향해 이동. 감속 중엔 속도 적분(런 2.5→조깅 1.7→걷기 1.1 m/s)
+      if (dk > 0) {
+        if (this._dcZ == null) this._dcZ = -V * packTime;   // 감속 시작 지점에서 연속 이어받기
+        const v = dk < 0.5 ? V + (1.7 - V) * dk * 2 : 1.7 + (1.1 - 1.7) * (dk - 0.5) * 2;
+        this.group.position.z = (this._dcZ -= v * dt);
+      } else {
+        this._dcT = 0; this._dcZ = null;
+        this.group.position.z = -V * packTime;
+      }
       this._lockInPlace();
     }
 

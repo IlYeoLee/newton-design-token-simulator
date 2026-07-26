@@ -1172,7 +1172,7 @@ export class Session {
     const b = this.tokens?._beatT;
     return (b > 0.2 && b < 1.5) ? b * mult : fb;
   }
-  stop() { this.active = false; this.root.visible = false; this.tokens.root.visible = true; this.liveSpeed = 1; this.bobY = 0; FXP.hideOrderNums = false; }
+  stop() { this.active = false; this.root.visible = false; this.tokens.root.visible = true; this.liveSpeed = 1; if (this.xbot) this.xbot.decelK = 0; this.bobY = 0; FXP.hideOrderNums = false; }
   tapAdvance() {
     if (!this.active) return;
     if (!/FIN$/.test(this.stage)) this.next(true);   // 유저 탭 = 즉시 다음(음성 대기 무시)
@@ -1190,6 +1190,7 @@ export class Session {
     this.onStage?.(st);
     this.tokens.root.visible = !!st.live;      // 라이브 = 실제 팩 토큰이 흐른다
     this.liveSpeed = st.boost ? 1.18 : 1;
+    if (this.xbot) this.xbot.decelK = 0;   // C5 감속 잔재 제거 (다운시프트·FIN 진입 안전망)
     this.bobY = 0;
     for (const id in this.G) this.G[id].visible = false;
     this.paceLight.visible = false;   // C 실전 틱(_paceTick)이 프레임마다 다시 켬
@@ -1696,9 +1697,10 @@ export class Session {
       this._paceTick();
       if (this.t >= st.dur) { this.next(); return; }
     } else if (id === 'C5') {
-      this.liveSpeed = Math.max(0.12, 1 - this.t / 2.8);   // 실제 감속
+      // 자연 감속 — 슬로모(liveSpeed) 대신 봇이 런→조깅→걷기로 크로스페이드하며 실제로 느려진다 (xbot.decelK)
+      if (this.xbot) this.xbot.decelK = Math.min(1, this.t / 2.8);
       this.c5stripes.forEach((s, i) => { s.material._gainK = (0.7 - i * 0.13) * (0.5 + 0.5 * Math.sin(this.t * 3 - i)); });
-      if (this.liveSpeed <= 0.13 && this.t > 3.2) { this.liveSpeed = 1; this.stageIdx = this.stages.findIndex(s2 => s2.id === 'FIN'); this.t = 0; this._enter(); return; }
+      if (this.t > 4.0) { if (this.xbot) this.xbot.decelK = 0; this.stageIdx = this.stages.findIndex(s2 => s2.id === 'FIN'); this.t = 0; this._enter(); return; }
     }
   }
 

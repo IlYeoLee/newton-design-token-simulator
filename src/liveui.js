@@ -122,26 +122,36 @@ export class LiveUI {
         float hashf(float n){ return fract(sin(n*127.1)*43758.5453); }
         void main(){
           float t = uTime;
-          // 원근 차선 좌표 — vUv.y=1(먼 쪽) 소실점으로 수렴
-          float pers = mix(1.0, 0.34, vUv.y);
+          // 강한 소실점 수렴 = 도로 원근 (참조: hyperspeed의 '열로'감)
+          float pers = mix(1.0, 0.24, vUv.y);
           float x = (vUv.x - 0.5) / pers;
           vec3 acc = vec3(0.0);
-          // 질주하는 빛줄기 12개: 밝은 머리 + 길게 끌리는 꼬리, 개별 차선/속도/폭
-          for (int i = 0; i < 12; i++){
-            float fi = float(i);
-            float lane = (hashf(fi*3.7) - 0.5) * 0.88;
-            float spd  = 1.6 + hashf(fi*9.1) * 2.4;
-            float ph   = fract(vUv.y*1.15 + t*spd*0.5 + hashf(fi*5.3));   // +t = 시청자 쪽으로 질주
-            float head = smoothstep(0.02, 0.09, ph) * smoothstep(0.30, 0.10, ph);
-            float tail = smoothstep(0.09, 0.12, ph) * pow(max(0.0, 1.0 - (ph-0.12)/0.55), 2.0);
-            float core = exp(-pow((x - lane)/(0.011 + 0.007*hashf(fi*7.7)), 2.0));
-            float halo = 0.30 * exp(-pow((x - lane)/0.055, 2.0));
-            acc += lut(0.18 + 0.72*hashf(fi*2.3)) * (core + halo) * (head*1.1 + tail*0.5);
+          // 도로 레일: 러너 레인(중앙) 양옆 경계선 — 연속 라인이 도로 구조를 만든다
+          for (int s = 0; s < 2; s++){
+            float sx = s == 0 ? -0.145 : 0.145;
+            float rail = exp(-pow((x - sx)/0.008, 2.0)) + 0.25*exp(-pow((x - sx)/0.03, 2.0));
+            float flow = 0.75 + 0.25*sin(vUv.y*24.0 + t*7.0 + float(s)*3.14);
+            acc += lut(s == 0 ? 0.16 : 0.8) * rail * 0.12 * flow;
           }
-          // 중앙 그라디언트 베드 — 은은(빛줄기의 바닥광)
-          float rad = clamp(1.0 - length((vUv-vec2(0.5,0.55))*vec2(1.7,1.25)), 0.0, 1.0);
-          acc += lut(0.22 + 0.5*rad) * 0.045 * rad;
-          gl_FragColor = vec4(acc * 0.85 * fpFade(vWorldPos), 1.0);
+          // 양옆을 스쳐 지나가는 빛줄기 — 왼쪽 딥레드 · 오른쪽 크림 (참조의 좌우 광적).
+          // 중앙 코리도(|x|<0.145)는 비워서 러너 발밑 UI 가독 확보.
+          for (int i = 0; i < 14; i++){
+            float fi = float(i);
+            float side = mod(fi, 2.0) < 1.0 ? -1.0 : 1.0;
+            float lane = side * (0.19 + hashf(fi*3.7) * 0.30);
+            float spd  = 2.2 + hashf(fi*9.1) * 3.0;
+            float ph   = fract(vUv.y*0.85 + t*spd*0.45 + hashf(fi*5.3));   // +t = 시청자 쪽으로 질주
+            float head = smoothstep(0.02, 0.07, ph) * smoothstep(0.24, 0.08, ph);
+            float tail = smoothstep(0.07, 0.10, ph) * pow(max(0.0, 1.0 - (ph-0.10)/0.62), 2.0);
+            float core = exp(-pow((x - lane)/(0.009 + 0.006*hashf(fi*7.7)), 2.0));
+            float halo = 0.35 * exp(-pow((x - lane)/0.05, 2.0));
+            float hue  = side < 0.0 ? 0.10 + 0.14*hashf(fi*2.3) : 0.72 + 0.24*hashf(fi*2.3);
+            acc += lut(hue) * (core + halo) * (head*1.25 + tail*0.55);
+          }
+          // 도로면 시트글로우: 코리도가 은은히 밝고 바깥으로 감쇠 — 도로 볼륨감
+          float road = exp(-pow(x/0.30, 2.0)) * (0.35 + 0.65*vUv.y);
+          acc += lut(0.3) * road * 0.05;
+          gl_FragColor = vec4(acc * 0.9 * fpFade(vWorldPos), 1.0);
         }`,
     })), 0.010);
     this.boostBG.position.z = -1.3;

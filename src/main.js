@@ -3933,7 +3933,9 @@ void main(){
     if (fpMode) { rig.floorBeam.visible = false; rig.footFill.visible = false; }
     tokens.setShake(rig.shake.x, rig.shake.y);
     if (ghostMixer && ghostLayer?.visible) ghostMixer.update(h);
-    judge.update(state.time, xbot.getProbes());
+    // C5 쿨다운: 봇이 실제 감속해 마크에서 떨어진다 — 판정 시 가짜 miss가 리포트를 오염하므로 보류
+    // (관찰 없이 지난 이벤트는 finishLoop에서 _jBest 없음 → 리포트 제외)
+    if (!(session.active && session.stages?.[session.stageIdx]?.id === 'C5')) judge.update(state.time, xbot.getProbes());
     if (state.pack === 'boxing') {
       ghost.configure(ghost.punches, rig._wallCenter, rig.wallH);
       ghost.update(state.time);
