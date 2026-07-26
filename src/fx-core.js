@@ -175,24 +175,45 @@ float mkSD(vec2 p, float u1){
   vec2 suv = p * 0.5 + 0.5;
   return texture2D(uSDF2, vec2(suv.x, 1.0 - suv.y)).r * 1.9922 / max(uRadius, 0.3) + u1 * uNoise * 0.02;
 }
-vec3 fillPreview(float q){ return mix(C_CORAL, C_SAND, smoothstep(0.0, 0.733, q)); }
+// OKLab 지각 보간 — RGB mix는 중간톤이 회색으로 죽어 '종이 자르듯 턱턱'(유저). OKLab은 채도 유지하며 부드럽게.
+// (buildLUT의 rgb2ok/ok2rgb와 동일 규약: 입력을 그대로 OKLab으로 — LUT와 색 일관)
+vec3 _l2ok(vec3 c){
+  float l=0.4122214708*c.r+0.5363325363*c.g+0.0514459929*c.b;
+  float m=0.2119034982*c.r+0.6806995451*c.g+0.1073969566*c.b;
+  float s=0.0883024619*c.r+0.2817188376*c.g+0.6299787005*c.b;
+  l=pow(max(l,0.0),0.33333333); m=pow(max(m,0.0),0.33333333); s=pow(max(s,0.0),0.33333333);
+  return vec3(0.2104542553*l+0.7936177850*m-0.0040720468*s,
+              1.9779984951*l-2.4285922050*m+0.4505937099*s,
+              0.0259040371*l+0.7827717662*m-0.8086757660*s);
+}
+vec3 _ok2l(vec3 lab){
+  float l=lab.x+0.3963377774*lab.y+0.2158037573*lab.z;
+  float m=lab.x-0.1055613458*lab.y-0.0638541728*lab.z;
+  float s=lab.x-0.0894841775*lab.y-1.2914855480*lab.z;
+  l=l*l*l; m=m*m*m; s=s*s*s;
+  return vec3(4.0767416621*l-3.3077115913*m+0.2309699292*s,
+             -1.2684380046*l+2.6097574011*m-0.3413193965*s,
+             -0.0041960863*l-0.7034186147*m+1.7076147010*s);
+}
+vec3 okmix(vec3 a, vec3 b, float t){ return _ok2l(mix(_l2ok(a), _l2ok(b), t)); }
+vec3 fillPreview(float q){ return okmix(C_CORAL, C_SAND, smoothstep(0.0, 0.733, q)); }
 vec3 fillHot(float q){
-  vec3 c = mix(C_RED, C_CORAL, smoothstep(0.0, 0.45, q));
-  return mix(c, C_SAND, smoothstep(0.45, 1.0, q));
+  vec3 c = okmix(C_RED, C_CORAL, smoothstep(0.0, 0.45, q));
+  return okmix(c, C_SAND, smoothstep(0.45, 1.0, q));
 }
 vec3 fillActive(float q){
-  vec3 c = mix(C_RED, C_CORAL, smoothstep(0.0, 0.479, q));
-  c = mix(c, C_SAND, smoothstep(0.479, 0.607, q));
-  return mix(c, C_ICE, smoothstep(0.607, 0.750, q));
+  vec3 c = okmix(C_RED, C_CORAL, smoothstep(0.0, 0.479, q));
+  c = okmix(c, C_SAND, smoothstep(0.479, 0.607, q));
+  return okmix(c, C_ICE, smoothstep(0.607, 0.750, q));
 }
 vec3 fillHold(float q){
-  vec3 c = mix(C_RED, C_CORAL, smoothstep(0.0, 0.23, q));
-  return mix(c, C_SAND, smoothstep(0.23, 1.0, q));
+  vec3 c = okmix(C_RED, C_CORAL, smoothstep(0.0, 0.23, q));
+  return okmix(c, C_SAND, smoothstep(0.23, 1.0, q));
 }
 vec3 fillSuccess(float q){
-  vec3 c = mix(C_RED, C_CORAL, smoothstep(0.47, 0.70, q));
-  c = mix(c, C_SAND, smoothstep(0.70, 0.843, q));
-  return mix(c, C_ICE, smoothstep(0.843, 0.931, q));
+  vec3 c = okmix(C_RED, C_CORAL, smoothstep(0.47, 0.70, q));
+  c = okmix(c, C_SAND, smoothstep(0.70, 0.843, q));
+  return okmix(c, C_ICE, smoothstep(0.843, 0.931, q));
 }
 // over 연산 누적 (premultiplied) — 원본 mix(col, X, k) 체인의 기계적 등가 변환
 void lay(inout vec4 A, vec3 X, float k){ A.rgb = A.rgb * (1.0 - k) + X * k; A.a = A.a * (1.0 - k) + k; }
