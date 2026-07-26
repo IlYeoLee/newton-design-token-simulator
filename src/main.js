@@ -4223,7 +4223,7 @@ void main(){
       const inLive = session.active && session.sport === 'running' && /^C[2-5]$/.test(session.stage || '');
       if (inLive) {
         const TARGET_KM = 5, LIVE_SECS = 22;   // 목표 5km(유저 세팅), 라이브 구간 동안 0→5 채움(데모)
-        session._liveKm = Math.min(TARGET_KM, (session._liveKm ?? 0) + (h / LIVE_SECS) * TARGET_KM);
+        session._liveKm = Math.min(TARGET_KM, (session._liveKm ?? 0) + (_uiDt / LIVE_SECS) * TARGET_KM);
         try {
           const fdoc = floorIframe.contentDocument;
           const kn = fdoc?.getElementById('km-n');
