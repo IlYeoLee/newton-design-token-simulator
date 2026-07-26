@@ -4300,15 +4300,26 @@ void main(){
     }
     // 카메라는 강제하지 않음 — 3인칭(궤도 자유회전) / 1인칭 모두 사용 가능.
     // 러닝 전진 팔로우는 실제 재생(비세션 or 실전)일 때만.
-    // 3인칭 러닝: 봇 전진(실전 드리프트) + 리셋(FIN/전환 텔레포트)을 카메라·타깃이 '매 프레임' 델타-팔로우.
-    // → 상대 뷰(앵글·거리) 항상 유지. 실전→FIN 전환도 봇/리포트가 화면 밖으로 안 나가고 부드럽게 이어짐.
-    //   (프리뷰 A/T는 봇이 제자리라 dz≈0 → 영향 없음. 에지 감지는 전환 프레임을 놓쳐 실패했음, 유저.)
-    if (!studioActive && state.pack === 'running' && !fpMode) {
+    if (!inSessionPreview && !studioActive && state.pack === 'running' && !fpMode) {
       const bz = xbot.group.position.z;
       const dz = bz - lastBodyZ;
       camera.position.z += dz;
       controls.target.z += dz;
       lastBodyZ = bz;
+    }
+    // 라이브→FIN(3인칭): 씬이 원점으로 리셋됨. 카메라를 '현재 앵글·거리 그대로' 원점 프레이밍으로 재센터(한 번).
+    //   → 봇·리포트가 원점에 리셋되고 카메라도 같은 오프셋으로 원점을 보므로 상대 뷰 동일 = 회색 보이드/멀리서 오는 UI 없이 이어짐.
+    //   (매 프레임 델타-팔로우는 봇 z 오실레이션·풋프린트 앵커 불일치로 튐 유발했음 — 유저. 전환 시 1회 재센터가 안전.)
+    if (!studioActive && state.pack === 'running' && !fpMode) {
+      const liveNow = session.active && session.isLive;
+      if (session._camWasLive && !liveNow) {
+        const off = new THREE.Vector3().subVectors(camera.position, controls.target);
+        controls.target.set(0, 0.3, -1.3);
+        camera.position.copy(controls.target).add(off);
+        controls.update();
+        lastBodyZ = xbot.group.position.z;
+      }
+      session._camWasLive = liveNow;
     }
 
     // 1인칭 = X Bot의 눈 + VOR 안정화
