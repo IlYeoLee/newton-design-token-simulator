@@ -74,7 +74,7 @@ html,body{background:transparent}
 
 /* 훈련(P) 라이브 정보 — floor-timer(Figma 52-3084) 정본 스타일 그대로(유저): 점선 트랙 + 채우는
    아크 + 회전 팁 + 중앙 숫자. 컬러만 구간강도로. flex 정렬(링→구간명). 전체 시간은 도트(#s-dots). */
-#train-live{position:absolute;top:210px;left:50%;transform:translateX(-50%);
+#train-live{position:absolute;top:60px;left:50%;transform:translateX(-50%);
   display:flex;flex-direction:column;align-items:center;gap:44px;
   font-family:'Supreme',sans-serif;opacity:0;animation:sUpFlat .6s .5s both}
 #tp-ring{position:relative;width:344px;height:344px}
@@ -87,6 +87,7 @@ html,body{background:transparent}
   font-weight:700;font-size:150px;color:#fff;line-height:1}
 #tp-phase{font-weight:700;font-size:66px;letter-spacing:2px;color:#fff;white-space:nowrap;
   text-shadow:0 0 26px rgba(255,255,255,.38);transition:color .35s}
+#tp-cad{margin-top:-28px;font-weight:500;font-size:40px;letter-spacing:1px;color:rgba(255,255,255,.6);white-space:nowrap}
 </style></head><body>
   <div id="board">
     <div class="title" id="s-title">Title</div>
@@ -115,7 +116,6 @@ html,body{background:transparent}
   if (/^P\d$/.test(stage)) {
     $('s-title').style.display = 'none';                  // P단계 = 데모 타이머 링 하나로 상황표시 통합
     $('s-cue').style.display = 'none';                    // 설명 제거(유저: 정보 너무 많음)
-    $('s-dots').style.top = '110px';                      // 도트(전체 시간) = 링 위쪽으로 (세로 스택 분리)
     // 상황표시 = 데모 타이머 링(런지/하이니 미리보기와 동일 문법) — arc 진행 + 중앙 카운트다운 + 구간명 라벨
     const live = document.createElement('div'); live.id = 'train-live';
     live.innerHTML = `
@@ -128,8 +128,13 @@ html,body{background:transparent}
         <div id="tp-tip"><img src="assets/timer_tip.svg" alt=""></div>
         <div id="tp-num">—</div>
       </div>
-      <div id="tp-phase">—</div>`;
+      <div id="tp-phase">—</div>
+      <div id="tp-cad">—</div>`;
     document.getElementById('board').appendChild(live);
+    // 도트(전체 시간 프로그래스)를 클러스터 최상단으로 편입 — flex 세로 정렬(도트→링→구간명→SPM)
+    const dots = $('s-dots');
+    dots.style.position = 'static'; dots.style.transform = 'none'; dots.style.margin = '0 auto 26px';
+    live.insertBefore(dots, live.firstChild);
   } else {
     $('s-cue').style.display = 'none';
   }

@@ -4122,10 +4122,12 @@ void main(){
           // 회전 팁 = 아크 끝점 추종 (구간 진행 × 360°) — floor-timer 정본 문법
           const tip = fdoc?.getElementById('tp-tip');
           if (tip) tip.style.transform = 'rotate(' + ((tp.prog || 0) * 360).toFixed(1) + 'deg)';
-          // 중앙 카운트다운 = 구간 처방 초 × 남은 비율 (SPRINT 30→0 느낌)
+          // 중앙 카운트다운 = 구간 '실제' 남은 초 (session.t=실초라 1초에 1씩 내려감 — 유저: 초가 너무 빨랐음)
+          const st = session.curStage;
+          const phaseRealDur = (st.dur || 8) / (st.loop || 1) * (tp.f || 1);
           const num = fdoc?.getElementById('tp-num');
           if (num) {
-            const rem = Math.max(0, Math.ceil((tp.sec || Math.round((session.curStage?.dur || 8))) * (1 - (tp.prog || 0))));
+            const rem = Math.max(0, Math.ceil(phaseRealDur * (1 - (tp.prog || 0))));
             const rs = String(rem);
             if (num.textContent !== rs) num.textContent = rs;
           }
@@ -4134,6 +4136,12 @@ void main(){
           if (ph) {
             if (ph.textContent !== tp.n) ph.textContent = tp.n;
             if (ph.style.color !== col) ph.style.color = col;
+          }
+          // 목표 케이던스(SPM) — 구간 케이던스 배속 × 기본 SPM (메트로놈 소리와 동일 목표). 유저: 정보 더.
+          const cad = fdoc?.getElementById('tp-cad');
+          if (cad) {
+            const spm = Math.round(60 / (tokens._beatT || 0.39) * tp.c) + ' SPM';
+            if (cad.textContent !== spm) cad.textContent = spm;
           }
         }
       } catch (e) { /* iframe 로드 전 */ }
