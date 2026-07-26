@@ -869,7 +869,7 @@ void main(){
   document.body.appendChild(livePick);
   const session = new Session(scene, tokens, xbot, rig, st => {
     cuePick.style.display = st.id === 'A3' ? 'flex' : 'none';
-    livePick.style.display = /^C/.test(st.id) ? 'flex' : 'none';   // 러닝 C 실전에서만
+    livePick.style.display = 'none';   // 실전=연습 통일(유저): LiveUI 변형 은퇴 → 픽커 숨김
     const sig = [];
     if (st.hap) sig.push(`<span style="color:var(--warn)">햅틱</span> ${st.hap}`);
     if (st.wear) sig.push(`<span style="color:var(--ok)">웨어러블</span> ${st.wear}`);
@@ -4092,8 +4092,9 @@ void main(){
       wearFxEl.style.opacity = String(0.26 + 0.14 * Math.sin(performance.now() / 280));
     }
     if (rig._fp) effects._fp = { ...rig._fp, near: rig.fpNear, far: rig.fpFar, halfN: rig._halfAt(rig.fpNear), halfF: rig._halfAt(rig.fpFar) };
-    // P 학습 = 케이던스 메트로놈(사운드 우선 — 러닝 교수법: 목표 SPM은 귀로 먼저). 팩 박자 동기 클릭.
-    if (session.active && /^P\d$/.test(session.stage || '') && ttsOn && tokens._beatT > 0.2) {
+    // 케이던스 메트로놈(사운드 우선 — 러닝 교수법: 목표 SPM은 귀로 먼저). 팩 박자 동기 클릭.
+    // 실전=연습 통일(유저): P뿐 아니라 C 실전에서도 소리가 페이스를 가르친다.
+    if (session.active && /^[PC]\d$/.test(session.stage || '') && session.sport === 'running' && ttsOn && tokens._beatT > 0.2) {
       const ph = Math.floor(state.time / tokens._beatT);
       if (ph !== _metroPh) {
         _metroPh = ph;
@@ -4341,16 +4342,9 @@ void main(){
     // 1인칭에서만 OrbitControls 스킵 — 세션 3인칭에선 자유 회전 허용
     if (!fpMode) controls.update();
     sceneUI.update(rawDt, rig);       // 장면 UI 슬롯 — 풋프린트 추종 재배치 + 페이드
-    // 실전 러닝 플로어 UI — 러닝 C 라이브에서만 활성
-    {
-      const liveActive = session.active && session.isLive && session.sport === 'running' && /^C\d$/.test(session.stage || '');
-      liveUI.update(rawDt, {
-        active: liveActive, variant: FXP.liveUI || 1, beatT: tokens._beatT || 0.39,
-        boost: session.stage === 'C4',   // 마지막 1km = hyperspeed풍 부스트 배경(테스트)
-        seanZ: session.paceLight.position.z + session.root.position.z - (rig._fp?.oz ?? 0), myZ: 0,   // 투사면 원점 기준 상대 z (liveui 그룹이 원점 추종)
-        spmTarget: Math.round(60 / (tokens._beatT || 0.39)), spmMine: window.__mySpm || 0, day: !!FXP.day,
-      });
-    }
+    // 실전=연습 통일(유저): LiveUI 셰브론/변형/부스트 오버레이 은퇴 — 러닝은 P·C 모두
+    // '흐르는 원형 판정 마크 + 소리(메트로놈)'로. active:false로 그룹 통째 숨김.
+    liveUI.update(rawDt, { active: false });
     session.tickWaves();              // 스테이지 파동 링 시계 (프리뷰 포함)
     renderGhostLayer();
     tickA1Coach();
@@ -4544,8 +4538,8 @@ void main(){
         // 운동중 프레임(floor-scene.html)엔 장면 지속시간 전달 — 도트 로딩바가 이 시간 동안 0→100% 차오름
         const dur = STAGE_DUR[session.curStage?.id] ?? session.curStage?.dur ?? 8;
         let durSuffix = fView.src.includes('floor-scene.html') ? '&dur=' + dur : '';
-        // P 학습 = 목표 케이던스(SPM) 표기 — 러닝 표준 단위(유저 확인: 간단한 숫자 정보 OK)
-        if (/^P\d$/.test(session.curStage?.id || '') && tokens._beatT) durSuffix += '&spm=' + Math.round(60 / tokens._beatT);
+        // 목표 케이던스(SPM) 표기 — 러닝 표준 단위. 실전=연습 통일(유저): P·C 모두 표기.
+        if (/^[PC]\d$/.test(session.curStage?.id || '') && session.sport === 'running' && tokens._beatT) durSuffix += '&spm=' + Math.round(60 / tokens._beatT);
         floorIframe.src = import.meta.env.BASE_URL + fView.src + durSuffix;
         loadedFloorView = fView.src;
         _fpSmooth = null;   // 스테이지 전환 = 앵커 스냅(슬라이딩 방지)

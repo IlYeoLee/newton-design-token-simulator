@@ -118,13 +118,15 @@ void main() {
     } else if (uLStyle < 2.5) {                        // dot — 짧고 또렷한 점 행진
       pulse = smoothstep(0.75, 0.95, 0.5 + 0.5 * sin(along * (12.0 / uLGap) - uTime * 5.2 * uLSpeed));
       wEff *= 1.3;
-    } else if (uLStyle < 3.5) {                        // chevron — 전방(^) 꺾쇠 트레인
-      float alongEff = along + abs(lat) * 0.34;         // 팔이 뒤로 = 촉이 전방(-z 진행 방향)
-      float cf = fract(alongEff * (1.5 / uLGap) - uTime * 1.2 * uLSpeed);
-      float band = exp(-pow((cf - 0.30) / (0.055 * uW), 2.0));   // 꺾쇠 획 두께
-      float armW = smoothstep(1.0, 0.86, abs(lat));     // 레인 폭 안에서만
-      pulse = band * armW * (0.75 + 0.25 * sin(along * 0.7 - uTime * 1.8 * uLSpeed));
-      latEff = 0.0;                                     // 형상은 band가 담당 (코어 가우시안 무력화)
+    } else if (uLStyle < 3.5) {                        // chevron — 크리스프 화살촉 트레인 (프리미엄)
+      float alongEff = along + abs(lat) * 0.42;         // 팔이 뒤로 = 촉이 전방(-z 진행 방향)
+      float cf = fract(alongEff * (1.28 / uLGap) - uTime * 1.15 * uLSpeed);
+      // 무른 가우시안 획 → 정의된 엣지: 크리스프 앞선(화이트-핫) + 채운 몸통 + 짧은 트레일.
+      float edge = smoothstep(0.0, 0.022, cf) * smoothstep(0.12, 0.07, cf);   // 밝은 앞선
+      float body = smoothstep(0.02, 0.06, cf) * smoothstep(0.44, 0.20, cf);   // 채운 몸통
+      float armW = smoothstep(1.0, 0.80, abs(lat)) * smoothstep(0.995, 0.90, abs(lat)); // 크리스프 레인 엣지
+      pulse = armW * (edge * 3.4 + body * 0.85);        // 앞선 고강도 → LUT 상단(화이트-핫)으로 크리스프
+      latEff = 0.0;                                     // 형상은 edge/body가 담당 (코어 가우시안 무력화)
     } else if (uLStyle < 4.5) {                        // comet — 백열 머리 + 감쇠 꼬리 순회
       float head = fract(uTime * 0.22 * uLSpeed) * uLen;
       float d = head - along;

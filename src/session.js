@@ -1118,17 +1118,11 @@ export class Session {
   }
   /** 페이스 라이트 틱 — 최근 판정 3개의 평균 타이밍 오차를 거리(×팩속도 2.5m/s)로 번역 */
   _paceTick() {
-    // P(실전 직전) = 션 발자국만 밟는 경험(유저: 광점 블롭 제거, 아래 보며 직접 밟기). 광점·레인은 C 실전 전용.
-    const isC = /^C/.test(this.stage);
-    this.paceLight.visible = isC;
-    this.paceLane.visible = isC;   // 실전 상설 페이스 레인 (러너가 따라갈 밝은 광류 — 달리는 느낌)
-    // 실전 플로어 UI(liveui.js) 활성 시 기존 페이스 광점·레인·발자국 은퇴 — 오차 수학(아래)은 계속 돌려
-    // paceLight.position이 liveUI의 션 위치(seanZ) 소스로 남는다.
-    if (FXP.liveUI && isC) {
-      this.paceLight.visible = false;
-      this.paceLane.visible = false;
-      this.paceFeet.forEach(fm => fm.group.visible = false);
-    }
+    // 실전=연습 통일(유저): 화려한 광점·레인·발자국 페이서 전부 은퇴. P·C 모두 '흐르는 원형 판정
+    // 마크 + 소리(메트로놈)'만으로. paceLight.position은 오차 추종 소스로만 유지(비가시).
+    this.paceLight.visible = false;
+    this.paceLane.visible = false;
+    this.paceFeet.forEach(fm => fm.group.visible = false);
     const R = this.judge?.results || [];
     let err = 0;
     for (let i = Math.max(0, R.length - 3); i < R.length; i++) err += R[i].terr;
@@ -1143,9 +1137,8 @@ export class Session {
       투사면(fpFar) 안에만 상주 — 밖 그래픽 금지 원칙. err(페이스 오차)로 전체 온도(밝기) 조절. */
   _paceFeetTick(err = 0) {
     const feet = this.paceFeet; if (!feet.length) return;
-    // P(페이스) = 원형 판정 토큰+이펙트만(유저) — 션 발자국 고스트는 C 실전 전용
-    // FXP.liveUI 활성이면 실전 플로어 UI가 대체 — 발자국 페이서도 은퇴
-    if (!/^C/.test(this.stage) || FXP.liveUI) { feet.forEach(fm => fm.group.visible = false); return; }
+    // 실전=연습 통일(유저): 션 발자국 페이서 은퇴 — P·C 모두 원형 판정 토큰+이펙트만.
+    feet.forEach(fm => fm.group.visible = false); return;
     const stride = Math.max(0.55, this.tokens?._strideM || 0.98);   // 션 보폭(1스텝, m)
     const beat = Math.max(0.2, this.tokens?._beatT || 0.39);        // 션 스텝 간격(s) = 케이던스
     const speed = stride / beat;                                    // 션 속도(m/s)
@@ -1470,15 +1463,13 @@ export class Session {
       return;
     }
 
-    // 실전 러닝(C)만 바닥 step 마크 숨김 — 달리며 밟을 과녁 제거(페이서·리듬만).
-    // 페이스 익히기(P1/P2)는 1·2·3 밟기 마크 유지 = 연습 큐. "연습엔 큐, 실전엔 페이딩".
-    // 농구 라이브는 제자리 스텝 드릴이라 스폿 유지 → 러닝 C에만 스코프.
-    // P(페이스) = 원형 판정 토큰+이펙트만(유저 확정). C 실전만 마크 숨김(페이서·리듬 전용).
-    this.tokens.liveHideFloorMarks = (this.sport === 'running' && !!st.live && id[0] === 'C');
+    // 실전=연습 통일(유저): 러닝 P·C 모두 '흐르는 원형 판정 마크 + 소리(메트로놈)'로 동일.
+    // 예전엔 C에서 마크를 숨기고 LiveUI 셰브론으로 대체 → 화려하고 안 예뻐서 은퇴. 이제 C도 마크 흐름.
+    this.tokens.liveHideFloorMarks = false;
     // 러닝 라이브 = 순번 숫자 숨김(케이던스는 리듬이지 시퀀스가 아님 — 유저 확인)
     FXP.hideOrderNums = (this.sport === 'running' && !!st.live);
-    // 박자 연습(P) = 중앙 레인 라인 제거 — 박자에 집중(유저)
-    this.tokens.liveHideLane = (this.sport === 'running' && id[0] === 'P');
+    // 러닝 라이브 = 중앙 레인 라인 제거 — 박자·마크에 집중(P·C 공통)
+    this.tokens.liveHideLane = (this.sport === 'running' && !!st.live);
     if (this.sport === 'boxing') this._updateBoxing(id, st, beat, FMU);
     else if (this.sport === 'basketball') this._updateBasketball(id, st, beat, FMU);
     else this._updateRunning(id, st, beat, FMU);
