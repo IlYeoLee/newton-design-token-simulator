@@ -13,9 +13,11 @@ window.FLOOR_SCENES = {
   A1: { title: 'Neck & Shoulders', phase: 0, sub: '1/3', cue: 'Roll big, slow circles' },      // 목·어깨 크게 돌리기
   A2: { title: 'Calf Stretch',     phase: 0, sub: '2/3', cue: 'Bend front knee · back leg straight' }, // 런지 자세 종아리 스트레칭
   A3: { title: 'High Knees',       phase: 0, sub: '3/3', cue: 'Drive knees up · keep the pace' }, // 하이니(제자리 무릎 올리기)
-  // B · 페이스 잡기 (PACE = 러닝의 학습 구간)
-  P1: { title: 'Catch the Pace',   phase: 1, sub: '1/2', cue: 'Ease into a light jog' },       // 페이서 붙어 가볍게 뛰기
-  P2: { title: 'Lock the Pace',    phase: 1, sub: '2/2', cue: 'Match the pacer’s rhythm' },    // 페이스 잠금
+  // B · 페이스 훈련 (TRAINING = 페이스를 끌어올리는 훈련법 4종)
+  P1: { title: 'Easy Run',   phase: 1, sub: '1/4', cue: 'Relaxed · conversational' },   // 이지 런
+  P2: { title: 'Strides',    phase: 1, sub: '2/4', cue: 'Accelerate 10s · ease off' },  // 스트라이드
+  P3: { title: 'Intervals',  phase: 1, sub: '3/4', cue: 'Sprint · recover · repeat' },  // 인터벌
+  P4: { title: 'Threshold',  phase: 1, sub: '4/4', cue: 'Hold the hard pace' },         // 쓰레숄드
   // C · 실전 (RUN)
   C1: { title: 'Get Set',          phase: 2, sub: '1/5', cue: '3 · 2 · 1' },                   // 3·2·1 출발 카운트
   C2: { title: 'Run with Sean',    phase: 2, sub: '2/5', cue: 'Stay beside the light' },       // 나란히 달리기

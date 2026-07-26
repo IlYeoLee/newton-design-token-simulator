@@ -867,6 +867,17 @@ void main(){
     livePick.appendChild(b);
   });
   document.body.appendChild(livePick);
+  // 현재 훈련 구간 계산 — session.t/dur를 loop만큼 순환, f 비중으로 구간 선택.
+  // 표시는 화면 오버레이가 아니라 '지면 투사 프레임(floor-scene.html)' 안에 편입(유저) — updateFloorTrainPhase.
+  const trainPhase = () => {
+    const st = session.curStage; const ph = st?.phases;
+    if (!ph || !session.active || session.sport !== 'running') return null;
+    const dur = STAGE_DUR[st.id] ?? st.dur ?? 8;
+    let cyc = (((session.t / dur) * (st.loop || 1)) % 1 + 1) % 1;
+    let acc = 0;
+    for (const p of ph) { acc += p.f; if (cyc <= acc + 1e-4) return p; }
+    return ph[ph.length - 1];
+  };
   const session = new Session(scene, tokens, xbot, rig, st => {
     cuePick.style.display = st.id === 'A3' ? 'flex' : 'none';
     livePick.style.display = 'none';   // 실전=연습 통일(유저): LiveUI 변형 은퇴 → 픽커 숨김
@@ -4093,11 +4104,28 @@ void main(){
       wearFxEl.style.opacity = String(0.26 + 0.14 * Math.sin(performance.now() / 280));
     }
     if (rig._fp) effects._fp = { ...rig._fp, near: rig.fpNear, far: rig.fpFar, halfN: rig._halfAt(rig.fpNear), halfF: rig._halfAt(rig.fpFar) };
+    // ── 훈련 구간(눈으로 보이게): HUD 라벨+강도 게이지 + 마크·봇 속도 변조(전력↔회복, 가속↔풀기) ──
+    {
+      const tp = trainPhase();
+      try {
+        const cue = floorIframe.contentDocument?.getElementById('s-cue');
+        if (cue && tp && cue.textContent !== tp.n) {
+          // 기존 본문(cue) 라인을 현재 훈련 구간으로 라이브 갱신 (영문, 지면 투사 시스템 그대로)
+          cue.textContent = tp.n;
+          cue.style.color = tp.i > 0.7 ? '#ff8a5a' : tp.i > 0.45 ? '#ffcf9a' : '';   // 강도 온도(은은)
+        }
+      } catch (e) { /* iframe 로드 전 */ }
+      if (tp) {
+        // 마크·봇이 실제로 빨라지고 느려짐 — liveSpeed 변조(session.t와 독립이라 구간 타이밍 안전). 부드럽게 추종.
+        session._trainSpd = (session._trainSpd ?? tp.c) + (tp.c - (session._trainSpd ?? tp.c)) * 0.09;
+        session.liveSpeed = session._trainSpd;
+      } else { session._trainSpd = undefined; }
+    }
     // 케이던스 메트로놈(사운드 우선 — 러닝 교수법: 목표 SPM은 귀로 먼저). 팩 박자 동기 클릭.
     // 실전=연습 통일(유저): P뿐 아니라 C 실전에서도 소리가 페이스를 가르친다.
     if (session.active && /^[PC]\d$/.test(session.stage || '') && session.sport === 'running' && ttsOn && tokens._beatT > 0.2) {
-      // 훈련별 목표 케이던스 = 메트로놈 템포에 반영 (이지런 느리게·인터벌 빠르게). 소리가 페이스를 가르침.
-      const metroBeatT = tokens._beatT / (session.curStage?.cadence || 1);
+      // 훈련 구간 케이던스 = 메트로놈 템포에 반영 (전력 빠르게·회복 느리게). 소리가 페이스를 가르침.
+      const metroBeatT = tokens._beatT / (trainPhase()?.c || session.curStage?.cadence || 1);
       const ph = Math.floor(state.time / metroBeatT);
       if (ph !== _metroPh) {
         _metroPh = ph;
@@ -4435,7 +4463,7 @@ void main(){
     BK_READY: { src: 'ready-view/floor-bk.html', w: 1600, h: 2670 },  // 농구 시작 — 러닝 첫화면 이식(폭은 균일스케일 자동 조정)
   };
   // 운동중 A/B/C 지면 화면 — 세로 공통 프레임(floor-scene.html)에 stage 주입. 시작화면과 달리 중앙 발자국은 유지.
-  for (const id of ['A1', 'A2', 'A3', 'P1', 'P2', 'C2', 'C3', 'C4', 'C5',
+  for (const id of ['A1', 'A2', 'A3', 'P1', 'P2', 'P3', 'P4', 'C2', 'C3', 'C4', 'C5',
                     'BK_A1', 'BK_A2', 'BK_A3', 'BK_B1', 'BK_B2', 'BK_B3', 'BK_C2', 'BK_C3', 'BK_C4']) {
     FLOOR_FRAMES[id] = { src: 'ready-view/floor-scene.html?stage=' + id, w: 1600, h: 2670 };
   }
