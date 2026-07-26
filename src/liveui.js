@@ -110,13 +110,29 @@ export class LiveUI {
   update(dt, ctx) {
     if (!ctx.active) {
       if (this.group.visible) this.group.visible = false;   // 비활성 = 그룹 통째로 숨김 (싸게)
+      this._wasActive = false;
       return;
     }
     this.group.visible = true;
     const v = ctx.variant || 1;
     this.v1.visible = v === 1; this.v2.visible = v === 2; this.v3.visible = v === 3;
     this.v4.visible = v === 4; this.v5.visible = v === 5;
-    this.group.position.x = this.rig?._fp?.ox ?? 0;   // 투사면 앵커 추종
+    // ── 등장 '휙' 인트로(유저): 복싱 궤적 토큰처럼 멀리서 곡선 궤적으로 날아와 오버슈트로 꽂힘 ──
+    if (!this._wasActive || v !== this._lastV) { this._introT = 0; this._landed = false; }
+    this._wasActive = true; this._lastV = v;
+    this._introT = (this._introT ?? 1) + dt;
+    const ki = Math.min(1, this._introT / 0.55);
+    const c1 = 1.70158, c3 = c1 + 1;
+    const eb = 1 + c3 * Math.pow(ki - 1, 3) + c1 * Math.pow(ki - 1, 2);   // easeOutBack = 꽂히는 반동
+    const baseX = this.rig?._fp?.ox ?? 0;
+    this.group.position.x = baseX + Math.sin(ki * Math.PI) * 0.28 * (1 - ki);   // 곡선 스윕(궤적)
+    this.group.position.z = (1 - eb) * -1.5;                                    // 먼 곳에서 날아옴
+    this.group.scale.setScalar(0.72 + 0.28 * eb);
+    if (!this._landed && ki >= 1) {
+      this._landed = true;
+      this.group.position.z = 0; this.group.scale.setScalar(1);
+      this.onLand?.(new THREE.Vector3(baseX, 0.015, -1.3));   // 착지 순간 = 지면 버스트(꽂힘 타격감)
+    }
 
     this._t += dt;
     const beatT = Math.max(0.2, ctx.beatT || 0.39);

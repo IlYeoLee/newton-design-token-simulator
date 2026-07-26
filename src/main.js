@@ -923,6 +923,7 @@ void main(){
   session.onPress = _pressBurst;   // 프레스 완료 버스트 연결
   // 실전 러닝 플로어 UI 5안 모듈 — C 라이브에서만 렌더 루프가 update
   const liveUI = new LiveUI(scene, tokens, rig);
+  liveUI.onLand = wp => effects.burst(wp, 0xfec389, new THREE.Vector3(0, 1, 0), { intensity: 0.6, sizeM: 0.5 });   // 인트로 '꽂힘' 버스트
   if (import.meta.env.DEV) window.__liveUI = liveUI;   // 헤드리스 검수 훅
   const sessionBtn = document.getElementById('btn-session');
   const demoBtn = document.getElementById('btn-demo');
