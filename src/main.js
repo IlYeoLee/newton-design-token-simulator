@@ -4306,6 +4306,18 @@ void main(){
       controls.target.z += dz;
       lastBodyZ = bz;
     }
+    // 라이브→비라이브(FIN 리포트/전환) 3인칭 진입 = 카메라 드리프트 리셋. 안 하면 실전 전진팔로우로
+    // 드리프트한 궤도가 원점으로 리셋된 씬을 지나쳐 회색 보이드만 보이고 이탈함(유저: 3인칭 FIN 회색화면).
+    if (state.pack === 'running' && !fpMode && !studioActive) {
+      const liveNow = session.active && session.isLive;
+      if (session._camWasLive && !liveNow) {   // live→비라이브 에지: 리포트/원점을 다시 프레이밍
+        camera.position.set(0.05, 2.3, 2.4);
+        controls.target.set(0, 0.25, -1.3);
+        controls.update();
+        lastBodyZ = xbot.group.position.z;
+      }
+      session._camWasLive = liveNow;
+    }
 
     // 1인칭 = X Bot의 눈 + VOR 안정화
     // 인간 눈은 머리 요동을 전정안반사로 상쇄 — 수직은 강하게, 수평은 가볍게 저역필터
