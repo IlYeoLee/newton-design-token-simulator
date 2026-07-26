@@ -1637,6 +1637,12 @@ export class Session {
       };
       apex(true, H._pL, H._prevPL ?? 0, H.fmL); apex(false, H._pR, H._prevPR ?? 0, H.fmR);
       H._prevPL = H._pL; H._prevPR = H._pR;
+      // 발자국 '슈욱' 상승(유저): 실제 그 다리가 올라가면 그쪽 발형이 전방(시야상 위)으로 과감히
+      // 활강 상승 + 살짝 커짐 — 무릎이 위로 올라간 뉘앙스. A2(정적 추적)보다 다이내믹, 저역이라 부드러움.
+      H.fmL.group.position.z = -1.05 - 0.5 * H._pL;
+      H.fmR.group.position.z = -1.05 - 0.5 * H._pR;
+      H.fmL.group.scale.setScalar(1.05 * (1 + 0.16 * H._pL));
+      H.fmR.group.scale.setScalar(1.05 * (1 + 0.16 * H._pR));
       const leftNow = lUp ? true : (rUp ? false : (H._lastLeft ?? true));   // 지금 올라간 발(없으면 마지막)
       const onFM = leftNow ? H.fmL : H.fmR, offFM = leftNow ? H.fmR : H.fmL;
       onFM.glow(0.6 + 0.4 * H._pop); onFM.op(1);
