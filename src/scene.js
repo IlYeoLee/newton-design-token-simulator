@@ -109,6 +109,60 @@ export function createScene(container) {
   wallGroup.add(wallGrid);
   scene.add(wallGroup);
 
+  // ── 농구 골대 (절차 생성, 외부 에셋 0 / 규격 근사: 림 3.05m, 백보드 1.8×1.05) ──
+  // 코트 -z 끝(페인트존 z=-7.5 라인)에 배치, +z(플레이어) 향함. 농구+코트 표면일 때만 표시.
+  const hoop = (() => {
+    const g = new THREE.Group();
+    const rimY = 3.05, rimZ = -7.0, rimR = 0.225;   // 림 중심(높이/전방 위치/반지름)
+    const boardZ = rimZ - 0.15;                       // 백보드 면 = 림 뒤 0.15m
+    const dark = new THREE.MeshStandardMaterial({ color: 0x2b2f36, roughness: 0.6, metalness: 0.3 });
+    // 백보드(반투명 유리 톤) + 흰 테두리
+    const board = new THREE.Mesh(new THREE.BoxGeometry(1.8, 1.05, 0.03),
+      new THREE.MeshStandardMaterial({ color: 0xEDF2F7, roughness: 0.25, metalness: 0.05, transparent: true, opacity: 0.55 }));
+    board.position.set(0, rimY + 0.375, boardZ - 0.015);
+    board.castShadow = true; g.add(board);
+    // 슈터스 스퀘어(백보드 조준 사각, 주황 라인)
+    const sq = new THREE.LineSegments(
+      new THREE.EdgesGeometry(new THREE.BoxGeometry(0.59, 0.45, 0.001)),
+      new THREE.LineBasicMaterial({ color: 0xE8622A }));
+    sq.position.set(0, rimY + 0.19, boardZ + 0.02); g.add(sq);
+    // 림(주황 토러스, 수평)
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(rimR, 0.014, 10, 28),
+      new THREE.MeshStandardMaterial({ color: 0xE8622A, roughness: 0.4, metalness: 0.5 }));
+    rim.rotation.x = Math.PI / 2; rim.position.set(0, rimY, rimZ);
+    rim.castShadow = true; g.add(rim);
+    // 그물(흰 라인, 위 큰 링→아래 작은 링 12가닥 + 중간 링 2)
+    const N = 12, drop = 0.4, botR = 0.09;
+    const ring = (r, y) => Array.from({ length: N }, (_, i) => {
+      const a = (i / N) * Math.PI * 2;
+      return new THREE.Vector3(Math.cos(a) * r, y, rimZ + Math.sin(a) * r);
+    });
+    const top = ring(rimR, rimY), mid = ring((rimR + botR) / 2, rimY - drop * 0.5), bot = ring(botR, rimY - drop);
+    const pts = [];
+    for (let i = 0; i < N; i++) {                     // 세로 가닥
+      pts.push(top[i], mid[i], mid[i], bot[i]);
+    }
+    for (let i = 0; i < N; i++) {                      // 가로 링 2개(교차 대각)
+      pts.push(mid[i], mid[(i + 1) % N], bot[i], bot[(i + 1) % N]);
+    }
+    const net = new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(pts),
+      new THREE.LineBasicMaterial({ color: 0xF5F5F0, transparent: true, opacity: 0.75 }));
+    g.add(net);
+    // 지지 폴(바닥→백보드 뒤 수직) + 연결 암
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.06, board.position.y + 0.4, 12), dark);
+    pole.position.set(0, (board.position.y + 0.4) / 2, boardZ - 0.35);
+    pole.castShadow = true; g.add(pole);
+    const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.36, 10), dark);
+    arm.rotation.x = Math.PI / 2; arm.position.set(0, board.position.y, boardZ - 0.18); g.add(arm);
+    g.visible = false;
+    scene.add(g);
+    return g;
+  })();
+  let curPack = null;
+  function updateHoopVisible() {
+    hoop.visible = curPack === 'basketball' && ['court', 'court_gray', 'court_black'].includes(curSurfKey);
+  }
+
   // 빔 투사는 projector.js(무릎 모듈 / 후방 스테이션)가 전담
 
   // ── 투사면 실측 텍스처 (ambientCG CC0) — 룩 스튜디오 칩과 연동 ──
@@ -255,6 +309,7 @@ export function createScene(container) {
       grid.visible = true;
       wallGrid.visible = true;
       if (courtLines) courtLines.visible = false;
+      updateHoopVisible();
       applyDayAmbience();
       return;
     }
@@ -305,6 +360,7 @@ export function createScene(container) {
     wall.material.needsUpdate = true;
     grid.visible = false;                     // 실측 표면엔 그리드 라인 제거
     wallGrid.visible = false;
+    updateHoopVisible();
     applyDayAmbience();
   }
 
@@ -324,6 +380,8 @@ export function createScene(container) {
 
   function setPackEnvironment(pack, hasWall) {
     wallGroup.visible = !!hasWall;
+    curPack = pack;
+    updateHoopVisible();
     applyCamera(pack);
   }
 
@@ -405,5 +463,5 @@ export function createScene(container) {
     grid.position.z = snapped;
   }
 
-  return { renderer, scene, camera, controls, setPackEnvironment, resize, renderFrame, composer, setSurfaces, setDaylight, followFloor, wall, wallGroup, setRenderCamera: cam => { renderPass.camera = cam; } };
+  return { renderer, scene, camera, controls, setPackEnvironment, resize, renderFrame, composer, setSurfaces, setDaylight, followFloor, wall, wallGroup, hoop, setRenderCamera: cam => { renderPass.camera = cam; } };
 }
