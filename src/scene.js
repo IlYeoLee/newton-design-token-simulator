@@ -12,11 +12,11 @@ export const FX = {
   bloomStrength: 0.55,
   bloomRadius: 0.6,
   grain: 0.028,       // 미세 필름 그레인 (제품 무드 — 0=끔)
-  vignette: 0.34,     // 시네마틱 비네트 (프레임 몰입)
+  vignette: 0.32,     // 시네마틱 비네트 (프레임 몰입)
   exposure: 1.0,
-  saturation: 1.14,   // 채도 (룩 색이 살아있게)
-  warmth: 0.08,       // 스플릿톤: 섀도우 쿨 → 하이라이트 웜 (필름 무드)
-  contrast: 0.1,      // 대비 (펀치)
+  saturation: 1.02,   // 채도 — 실사 톤(과채도 형광 방지). 룩 토큰은 자체 발광이라 충분
+  warmth: 0.05,       // 스플릿톤: 섀도우 쿨 → 하이라이트 웜 (필름 무드, 은은)
+  contrast: 0.08,     // 대비 (펀치, 은은)
 };
 
 // 시네마틱 그레이드 (ACES 톤맵 前, 리니어 공간) — 채도·스플릿톤·대비·비네트·그레인.
@@ -198,11 +198,13 @@ export function createScene(container) {
       });
       const c = document.createElement('canvas'); c.width = c.height = 512;
       const g = c.getContext('2d');
-      // 레드 러버 베이스 = 제대로 된 트랙 색(몬도/타탄 톤). 아스팔트는 그레인 질감만 오버레이 —
-      // 예전 '아스팔트 × 레드 곱연산'은 검붉게 죽어 낮에도 트랙이 새까맸음(유저 지적).
-      g.fillStyle = '#C24A34'; g.fillRect(0, 0, 512, 512);
-      g.globalAlpha = 0.32; g.globalCompositeOperation = 'overlay';
+      // 레드 러버 베이스 = 실제 몬도/타탄 트랙의 뮤트된 벽돌빛 테라코타 (형광 레드 아님, 실사 톤).
+      // 아스팔트를 그레인 질감으로 오버레이 — 채도를 더 눌러 사진 같은 무광 표면.
+      g.fillStyle = '#9C5849'; g.fillRect(0, 0, 512, 512);
+      g.globalAlpha = 0.42; g.globalCompositeOperation = 'overlay';
       g.drawImage(asphalt, 0, 0, 512, 512);
+      g.globalAlpha = 0.14; g.globalCompositeOperation = 'saturation';   // 채도 낮춰 무광 실사감
+      g.fillStyle = '#808080'; g.fillRect(0, 0, 512, 512);
       g.globalAlpha = 1; g.globalCompositeOperation = 'source-over';
       g.fillStyle = 'rgba(248,248,244,0.9)';
       g.fillRect(96, 0, 7, 512); g.fillRect(409, 0, 7, 512);
@@ -406,7 +408,7 @@ export function createScene(container) {
 
   function renderFrame(timeSec) {
     // 노출 차등: 주간은 밝게(ACES 미드톤 하강 보상 — '낮인데 어둡다' 교정), 야간은 무드 유지
-    renderer.toneMappingExposure = FX.day ? 1.55 : 1.2;
+    renderer.toneMappingExposure = FX.day ? 1.42 : 1.2;
     bloomPass.threshold = FX.bloomThreshold + (FX.day ? 0.38 : 0);
     bloomPass.strength = FX.bloomStrength;
     bloomPass.radius = FX.bloomRadius;
