@@ -792,8 +792,8 @@ export class XBot {
       S.handLowY = w.y;
     }
     S.prevY = w.y; S.prevVy = S.vy;
-    // 손 XZ는 부드럽게 추종 (팔 스윙 지터 제거)
-    S.hx += (w.x + 0.1 - S.hx) * Math.min(1, dt * 14);
+    // 손 XZ는 부드럽게 추종 (팔 스윙 지터 제거). 오프셋 0.06 = 손바닥 앞(손 안에 박히지 않게)
+    S.hx += (w.x + 0.06 - S.hx) * Math.min(1, dt * 14);
     S.hz += (w.z - S.hz) * Math.min(1, dt * 14);
     const since = S.t - S.lastLow;
     if (since > 1.6) {
@@ -802,10 +802,16 @@ export class XBot {
       ball.position.set(S.hx, r, S.hz);
       return;
     }
-    // 접촉(u≈0/1) ~ 바닥(u=0.5) 파라볼라: 공은 손 최저점에서 출발해 다음 접촉 순간 손으로 복귀
-    const u = Math.min(1, since / Math.max(0.3, S.period));
+    // 진짜 중력 포물선: 접촉높이(손)에서 자유낙하 → 바닥 → 같은 높이 복귀.
+    //   주기 T는 높이에서 물리로 나온다(T = 2√(2h/g)) — 손 리듬(S.period)으로 시간축을 늘렸더니
+    //   높이와 주기가 따로 놀아 '퉁퉁 치는' 느낌이 없었음(유저). 손 최저점 이벤트는 위상만 리셋(스냅),
+    //   그 사이엔 물리 주기로 계속 튄다(리듬이 느리면 여러 번 튀는 게 물리적으로 맞다).
+    const G = 9.8;
     const hTop = Math.max(S.handLowY - r * 0.2, r + 0.05);
-    const y = r + (hTop - r) * (1 - 4 * u * (1 - u));
+    const T = 2 * Math.sqrt(2 * Math.max(0.02, hTop - r) / G);
+    const u = (since % T) / T;
+    const tt = (u - 0.5) * T;                    // 바닥 통과 = 사이클 중앙
+    const y = r + 0.5 * G * tt * tt;             // u=0/1 → 정확히 hTop(손 높이)에서 손과 만남
     const air = (y - r) / Math.max(0.05, hTop - r);
     const squash = Math.max(0, 1 - air / 0.12);
     const speed = Math.abs(1 - 2 * u);

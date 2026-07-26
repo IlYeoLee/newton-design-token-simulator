@@ -1495,7 +1495,7 @@ function drawPathArrow() {
     g.save();
     g.translate(x, y);
     g.rotate(ang);
-    if (!(customTip && typeof drawCustomGlyphAt === 'function' && drawCustomGlyphAt(g, customTip, 0, 0, 46, false, !!state.glyphFlip.TIP_TRI))) {
+    if (!(customTip && typeof drawCustomGlyphAt === 'function' && drawCustomGlyphAt(g, customTip, 0, 0, 34, false, !!state.glyphFlip.TIP_TRI))) {
       g.fillStyle = lutCss(0.62);
       g.shadowColor = lutCss(0.75); g.shadowBlur = 10;
       g.beginPath(); g.moveTo(-11, 10); g.lineTo(0, -14); g.lineTo(11, 10); g.closePath(); g.fill();
@@ -1519,7 +1519,7 @@ function drawLineRot() {
   const a = -Math.PI * 0.2 + ((t * 0.35) % 1) * Math.PI * 1.3;
   const x = C[0] + Math.cos(a) * R, y = C[1] + Math.sin(a) * R;
   g.save(); g.translate(x, y); g.rotate(a + Math.PI);   // 접선 방향
-  if (!(state.glyphs.TIP_TRI && drawCustomGlyphAt(g, state.glyphs.TIP_TRI, 0, 0, 40, false, !!state.glyphFlip.TIP_TRI))) {
+  if (!(state.glyphs.TIP_TRI && drawCustomGlyphAt(g, state.glyphs.TIP_TRI, 0, 0, 28, false, !!state.glyphFlip.TIP_TRI))) {
     g.fillStyle = lutCss(0.62); g.shadowColor = lutCss(0.75); g.shadowBlur = 9;
     g.beginPath(); g.moveTo(-9, 8); g.lineTo(0, -11); g.lineTo(9, 8); g.closePath(); g.fill();
   }

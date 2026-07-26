@@ -1375,6 +1375,19 @@ void main(){
         saveTimer = setTimeout(() => { designStore.globalSet('fx', 'lab', d.state); designStore.save(); }, 400);
       }
     });
+    // 별도 탭에서 연 룩 시스템(standalone fxlab)은 postMessage 부모가 없어 자기 localStorage에만 저장 →
+    // 시뮬에 반영이 안 됐음(유저: '수정한 화살표가 실시간 반영 안 돼'). storage 이벤트는 '다른 탭'의
+    // 쓰기에만 발생하므로 그대로 룩 브리지가 된다 (랩 자동저장 주기 0.8s = 반영 지연 상한).
+    window.addEventListener('storage', ev => {
+      if (ev.key !== 'newton_fxlab_v1' || !ev.newValue || ev.newValue === lastJson) return;
+      let st = null;
+      try { st = JSON.parse(ev.newValue); } catch (e) { return; }
+      lastJson = ev.newValue;
+      applyLabState(st);
+      updateSurfChips(st?.bg || 'none');
+      clearTimeout(saveTimer);
+      saveTimer = setTimeout(() => { designStore.globalSet('fx', 'lab', st); designStore.save(); }, 400);
+    });
   }
 
   // 시스템 설정(판정색·지오메트리·세션 타이밍·프리셋)은 v6.2에서 FX Lab으로 이관 — 브리지 st.sys 참조
@@ -2157,7 +2170,9 @@ void main(){
     A2: { src: 'ready-view/assets/sean_lunge.webm', cropOff: 0.0, cropScale: 1.0, w: 0.9, h: 0.9, fwd: 0.10 },   // 런지 전신 측면
     A3: { src: 'ready-view/assets/sean_highknee.webm', cropOff: 0.0, cropScale: 1.0, w: 0.9, h: 0.9, fwd: 0.10 },   // 하이니 전신 정면
     // 농구 워밍업 코치 영상(kling i2v·그린스크린 960²) — 러닝 A2/A3와 동일 크기(w/h 0.9). 인물이 프레임 채워 1.2는 넘침(유저).
-    BK_A1: { src: 'ready-view/assets/bk_sidebend.webm', cropOff: 0.0, cropScale: 1.0, w: 0.9, h: 0.9, fwd: 0.10 },   // 옆구리 스트레치
+    // _pp = 정방향+역방향 이어붙인 핑퐁 클립(ffmpeg reverse) — 끝에서 뚝 끊고 처음으로 점프하던 것 제거(유저).
+    //   loop=true 그대로 두고 자산만 교체 = 런타임 역재생(currentTime 역주행 시킹) 비용 0.
+    BK_A1: { src: 'ready-view/assets/bk_sidebend_pp.webm', cropOff: 0.0, cropScale: 1.0, w: 0.9, h: 0.9, fwd: 0.10 },   // 옆구리 스트레치
     BK_A2: { src: 'ready-view/assets/bk_highknee.webm', cropOff: 0.0, cropScale: 1.0, w: 0.9, h: 0.9, fwd: 0.10 },   // 무릎 들기
     BK_A3: { src: 'ready-view/assets/bk_squat.webm',    cropOff: 0.0, cropScale: 1.0, w: 0.9, h: 0.9, fwd: 0.10 },   // 스쿼트
   };
@@ -3922,7 +3937,9 @@ void main(){
     // 스톰프 프레스 스테이지: 봇을 뒤로 당겨 착지(전방 0.38m)가 프레스 원 위에 정확히 떨어지게
     if (session.active && !session.isLive && data.sport !== 'boxing') {
       // A2 런지: 봇을 뒤로 당겨 전방 착지가 프레스 원(-1.30) 위에 오게 (교대 런지 보폭 ≈0.7m 가정, 시각 검수로 보정)
-      xbot.demoStandZ = session.stage === 'A2' ? -1.0 : (/^BK_A[123]$/.test(session.stage) ? -1.15 : (/^BK_B[123]$/.test(session.stage) ? -1.85 : 0));
+      // 농구 워밍업(BK_A*)은 READY와 같은 자리(0) — 스테이지 진입마다 봇이 앞으로 1.15m 순간이동하던 것
+      // (유저: '농구 시작위치는 여긴데 스트레칭하면 앞으로 이동해'). 한 운동 장면 = 제자리 수행.
+      xbot.demoStandZ = session.stage === 'A2' ? -1.0 : (/^BK_B[123]$/.test(session.stage) ? -1.85 : 0);
     }
     // 지면 풀스크린 화면(세션 컴플리트·전환·카운트다운) = 3인칭 봇도 바닥의 화면을 응시(머리 숙임).
     xbot.headPitch = (session.active && /^(T1|T2|C1|FIN|BK_T1|BK_T2|BK_C1|BK_FIN)$/.test(session.stage || ''))
@@ -3952,6 +3969,7 @@ void main(){
       // 뉴턴 전환 문법(유저 확정): 시범(영상만·도트바) → 마크 Preview 워밍 등장+음성 → 따라하기.
       //   3·2·1은 실전 트리거(C1) 전용 — 학습 내 전환엔 안 씀(복싱 문법과 통일).
       const A2_WATCH = 5.0;   // 시범 = 무조건 5초(유저: 3초는 너무 짧음) — 미니 타이머 링과 동기
+      const BK_A1_RATE = 1.55;   // 옆구리 봇 배속(코치 영상 페이스 맞춤) — 시각 캘리브레이션 노브
       const _watchWin = /^(A2|A3|BK_A[23])$/.test(session.stage || '') && !session._followLatch;   // 농구 스쿼트도 관찰5초→따라하기
       const aWatching = _watchWin && session.t < A2_WATCH;
       if (_watchWin && !aWatching) { session._followLatch = true; session._aWatchEnd = session.t; }
@@ -3980,7 +3998,9 @@ void main(){
           holdSec: HOLD, isLeft: (Math.floor(tt / CYC) % 2) === 0, descending: c < DESC };
         }
       }
-      else if (session.stage === 'BK_A1') _phase = session.t;   // A1 옆구리 = hj_sidebend 자연 루프
+      // A1 옆구리 = hj_sidebend(26s 루틴) 루프. 자연 속도는 코치 영상(핑퐁 6.9s 주기)보다 느려
+      // '따라하는' 느낌이 안 났음(유저) → 배속 캘리브레이션 노브. 더 빠르게/느리게는 이 상수만.
+      else if (session.stage === 'BK_A1') _phase = session.t * BK_A1_RATE;
       else if (/^BK_A[23]$/.test(session.stage)) {   // A2·A3 = cmu13_30 구간 루프
         // 전환구간 잘라 순수 동작만 (유저: 앞 2초 이전 동작 겹침) — A2 하이니 7.5~9.8, A3 스쿼트 12.0~14.2
         const SEG = { BK_A2: [7.5, 9.8], BK_A3: [12.0, 14.2] }[session.stage];
@@ -4576,6 +4596,9 @@ void main(){
     occlRenderer.domElement.style.top = cvr.top + 'px';
     // x봇 본만 오클루전 레이어에 등록(로드/팩교체 대응 — 본 수십개라 가벼움). 오버레이 카메라는 이 레이어만 렌더.
     xbot.group.traverse(o => o.layers.enable(OCCL_LAYER));
+    // 농구공은 scene 직속(그룹 밖)이라 오클루전 실루엣에서 빠져 있었음 → CSS3D 지면 프레임이
+    // 공 앞을 덮어 '공이 투사 레이어 아래로 들어감'(유저). 공도 오클루더로 등록.
+    if (xbot.ball) xbot.ball.layers.enable(OCCL_LAYER);
     // 씬 조명도 오버레이 레이어에 켜서 Lambert 음영이 살아나게(2D 평면화 방지). 메인 레이어0는 그대로 유지.
     if (!occlLightsReady) { scene.traverse(o => { if (o.isLight) o.layers.enable(OCCL_LAYER); }); occlLightsReady = true; }
     occlCam.copy(camera); occlCam.layers.set(OCCL_LAYER);
@@ -4776,7 +4799,8 @@ void main(){
           // 투사 법칙(가이드는 서기 앞 0.4~2.1m 창 안): 실측 감사에서 B1 28/30·B2 16/17
           // 메쉬가 존 밖(반달 절단)이라 필드 통째 전진. 원점 고정이 여기서 오프셋을 매 프레임
           // 지우고 있었으므로 오프셋을 이 브랜치가 직접 소유한다(단일 출처).
-          const FWD = { BK_B1: -1.1, BK_B2: -1.25, BK_A3: -0.85 };
+          // BK_A3의 -0.85는 봇이 -1.15에 서 있던 시절의 보정 — 봇을 0으로 되돌리며 함께 제거(가이드 1.85m 앞 유지)
+          const FWD = { BK_B1: -1.1, BK_B2: -1.25 };
           stageG.position.set(0, 0, FWD[session.curStage?.id] || 0); stageG.quaternion.identity();
         } else {
           // 데모 단계: 발자국을 프레임과 '같은' 무릎 풋프린트 기준계에 실어 인물 흔들림에 함께 따라가게 함

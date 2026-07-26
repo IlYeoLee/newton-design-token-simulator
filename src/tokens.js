@@ -525,7 +525,7 @@ export class Marker {
 
 // ── 방향 화살표 = LINE ① 경로 추종 (카탈로그 pathArrow 구성 그대로) ──────
 //    광류 자루(LANEFX) + 경로 위를 '이동'하는 촉 3개(u = t·0.12 + i/3, 접선 정렬).
-//    촉 크기 = 경로의 0.12 (랩 46px/380px 실측 비율 — 구성 고정, 스케일만 원칙).
+//    촉 크기 = 경로의 0.09 (랩 34px/380px 실측 비율 — 구성 고정, 스케일만 원칙).
 //    구 makeArrow(flatMat 정적 도형 통화살표)와 '촉 끝 주차'는 카탈로그에 없는 종 — 은퇴.
 export const FLOW_ARROWS = [];
 export function makeFlowArrow(len, { tips = 1, wall = false } = {}) {   // 단일 촉(회전처럼 부드럽게 — 유저) — 3개 트레인 폐기
@@ -550,7 +550,7 @@ export function makeFlowArrow(len, { tips = 1, wall = false } = {}) {   // 단�
     g2.beginPath(); g2.moveTo(-ah * 0.9, ah); g2.lineTo(0, -ah * 0.5); g2.lineTo(ah * 0.9, ah); g2.stroke();
     const tex = new THREE.CanvasTexture(c);
     tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
-    const tipS = Math.max(0.05, len * 0.12);   // ponytail: 0.05 하한 = 원거리 가독 캘리브레이션
+    const tipS = Math.max(0.04, len * 0.09);   // 랩 34px/380px (촉 축소, 유저) · 0.04 하한 = 원거리 가독
     for (let i = 0; i < tips; i++) {
       const tip = new THREE.Mesh(new THREE.PlaneGeometry(tipS, tipS),
         new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));

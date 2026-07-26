@@ -441,6 +441,7 @@ const BK_ZOOM = 2.2;
 // 농구 워밍업 = 동적 웜업 3동작(하나의 실제 루틴 cmu13_30을 구간별로 반복).
 // 봇은 각 구간 루프(main.js phase), 코치 영상은 COACH_CFG(BK_A*)가 바닥 투사, 지면은 반복 카운트.
 // seg = auto_cmu13_30 클립 시간구간(초), per = 1회 주기, reps = 목표 횟수.
+const BK_SQUAT_REPS = 6;   // A3 스쿼트 목표 — 지면 숫자는 남은 횟수로 카운트다운(6→0, 유저)
 const BK_STR = {
   BK_A1: { per: 2.4, reps: 4,  side: true, noMark: true, fm: '옆구리 스트레치', say: '팔을 위로 뻗어 옆으로 쭉쭉. 왼쪽 오른쪽 번갈아 허리를 늘려요.' },
   // BK_A2(니 드라이브)는 러닝 A3(하이니) 컴포넌트 전용 핸들러 — bkA2hk
@@ -723,13 +724,14 @@ export class Session {
     this.bkA2hk = { fmL: k2L, fmR: k2R, numL: k2nL, numR: k2nR, arL: ar2L, arR: ar2R, tjL: tj2L, tjR: tj2R,
       sec: 0, cntL: 0, cntR: 0, _lastLeft: undefined, _pop: 0 };
     g.add(k2L.group, k2R.group, ar2L, ar2R, tj2L, tj2R);
-    // A3 스쿼트(유저 2안) = 발자국 없이 큰 중앙 링 + 깊이 채움 아크 + 큰 중앙 카운트 + 깊이 펄스.
+    // A3 스쿼트(유저 2안) = 발자국 없이 중앙 링 + 깊이 채움 아크 + 남은 횟수 카운트다운.
     //   발이 제자리 고정이라 발마크는 정보 없음 → 깊이·횟수에 집중.
+    //   크기는 룩 시스템 원형 토큰 표준(0.20/0.225) 그대로 — 확대·깊이 펄스는 유저가 반려(흰 테두리 펄스).
     g = this._mk('BK_A3');
-    const sqRing = floorRing(0, -1.85, 0.30, 0.335, BRAND.red, 0.45);   // 큰 링
-    const sqArc = floorArc(0, -1.85, BRAND.sand); sqArc.scale.setScalar(1.5);   // 깊이 채움(링 크기 맞춤)
-    const nc = document.createElement('canvas'); nc.width = nc.height = 128;   // 중앙 큰 카운트 숫자
-    const nmesh = new THREE.Mesh(new THREE.PlaneGeometry(0.34, 0.34),
+    const sqRing = floorRing(0, -1.85, 0.20, 0.225, BRAND.red, 0.45);
+    const sqArc = floorArc(0, -1.85, BRAND.sand);   // 깊이 채움(표준 링 크기)
+    const nc = document.createElement('canvas'); nc.width = nc.height = 128;   // 중앙 카운트다운 숫자
+    const nmesh = new THREE.Mesh(new THREE.PlaneGeometry(0.22, 0.22),
       new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(nc), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
     nmesh.material.map.colorSpace = THREE.SRGBColorSpace;
     nmesh.userData.canvas = nc; nmesh.userData.tex = nmesh.material.map;
@@ -1771,17 +1773,19 @@ export class Session {
         const hy = this.xbot?.getProbes?.()?.hips?.y ?? 1.0;
         const depth = Math.max(0, Math.min(1, (0.98 - hy) / (0.98 - 0.82)));   // 서기 0.98 ~ 바닥 0.82
         const deep = hy < 0.85;   // 검증된 스쿼트 바닥 임계(구 DOWN=0.85)
-        S.arc.setProg(Math.max(0.001, depth));
-        S.ring.setOp(0.4 + 0.5 * depth);            // 깊이 펄스 — 내려갈수록 밝게
-        S.ring.scale.setScalar(1 + 0.35 * depth);   // 깊이 펄스 — 내려갈수록 크게
+        S.arc.setProg(Math.max(0.001, depth));      // 깊이는 아크 채움만으로 — 링 밝기·크기 펄스는 유저 반려
         if (deep && !S._wasDeep) {   // 바닥 도달 순간 1회 카운트 + 보상 버스트
           S.count = (S.count || 0) + 1;
           const wp = new THREE.Vector3(); S.ring.getWorldPosition(wp); this.onPress?.(wp, false);
         }
         S._wasDeep = deep;
-        if (S.count !== S._shown) { redrawFootNum(S.num, S.count); S._shown = S.count; }   // 중앙 큰 카운트 숫자
-        FMU(`스쿼트 ${Math.min(6, S.count || 0)} / 6`, (S.count || 0) >= 6 ? CS.prism : CS.sand);
-        if ((S.count || 0) >= 6 || this.t >= 32) { this.next(); return; }   // 안전장치: 32초 캡
+        // 남은 횟수 카운트다운(6→0, 유저) — 숫자는 룩 SVG 글리프(drawNumber), 갱신 순간만 팝.
+        const left = Math.max(0, BK_SQUAT_REPS - (S.count || 0));
+        if (left !== S._shown) { redrawFootNum(S.num, left); S._shown = left; S._popT = this.t; }
+        const pk = Math.min(1, Math.max(0, (this.t - (S._popT ?? -9)) / 0.26));
+        S.num.scale.setScalar(1 + 0.5 * (1 - pk) * (1 - pk));
+        FMU(`스쿼트 남은 ${left}회`, left === 0 ? CS.prism : CS.sand);
+        if (left === 0 || this.t >= 32) { this.next(); return; }   // 안전장치: 32초 캡
       }
     } else if (id === 'BK_A2') {
       // 니 드라이브 = 러닝 A3(하이니) 컴포넌트 이식: 발높이 프로브→궤적 코멧→정점 카운트, 좌우 교대.
