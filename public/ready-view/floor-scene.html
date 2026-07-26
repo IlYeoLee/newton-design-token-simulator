@@ -10,19 +10,22 @@ html,body{background:transparent}
 #board{position:relative;width:1600px;height:2670px;overflow:hidden;
   font-family:'Supreme',sans-serif;color:#fff;-webkit-font-smoothing:antialiased}
 
+/* 콘텐츠 컬럼 = Figma 122:270/122:308 '콘텐츠 그룹'(flex 세로, gap 40, 중앙, top:280) 그대로 이식.
+   타이틀·(큐)·프로그래스·프리뷰/훈련 행을 한 레이어에 세로로 쌓아 → 기울어진 보드 투사에서도 함께 정렬(안 밀림·안 겹침). */
+#content{position:absolute;top:280px;left:0;right:0;display:flex;flex-direction:column;align-items:center;gap:40px}
+
 /* 상단: 지시 타이틀(짧게) — 글자 하나하나 촤라락 슬라이드인 */
-.title{position:absolute;top:176px;left:0;right:0;text-align:center;white-space:nowrap;
+.title{text-align:center;white-space:nowrap;
   font-weight:700;font-size:120px;line-height:1.05;letter-spacing:-4px}
 .title .ch{display:inline-block;animation:chIn .6s cubic-bezier(.2,.75,.2,1) both}
 .title .sp{display:inline-block;width:.28em}
-/* 타이틀 밑 짧은 지시(발자국 아래 있던 보조설명을 여기로 올림) */
-.cue{position:absolute;top:326px;left:0;right:0;text-align:center;white-space:nowrap;
+/* 타이틀 밑 짧은 지시 */
+.cue{text-align:center;white-space:nowrap;
   font-weight:500;font-size:52px;color:rgba(255,255,255,.72);letter-spacing:-1px;
   opacity:0;animation:sUpFlat .6s .28s both}
 
-/* 타이틀 아래: 원형 도트 로딩바(복싱 scene.html과 동일 규약) — 회색 위 빨강을 클립으로 좌→우 드러내며 --dur 동안 0→100% */
-.dots{position:absolute;top:452px;left:50%;transform:translateX(-50%);height:60px;
-  opacity:0;animation:sUp .6s .42s both}
+/* 프로그래스 도트 로딩바(복싱 scene.html 규약) — 회색 위 빨강을 클립으로 좌→우 드러내며 --dur 동안 0→100% */
+.dots{position:relative;height:60px;opacity:0;animation:sUpFlat .6s .42s both}
 .drow{display:flex;height:60px}
 .dot{width:60px;height:60px;border-radius:999px;flex:0 0 auto}
 .dot.g{background:#d0d0d0}
@@ -49,8 +52,9 @@ html,body{background:transparent}
 /* A 미리보기(프리뷰) — Figma 122:270 정확 이식: 타이틀 + [Preview 필(둥근 배경+화살표) · 타이머 링] 가로 행.
    링 = floor-timer(52-3084) 문법(점선 트랙+아크+회전 팁+중앙 숫자). 시범 5초, 끝나면 페이드아웃. */
 @font-face{font-family:'OffBit';src:url('../fonts/OffBitTrial-DotBold.woff2') format('woff2');font-weight:700;font-display:block}
-#prev-row{position:absolute;top:474px;left:0;right:0;display:flex;gap:120px;align-items:center;justify-content:center;
-  opacity:0;animation:sUp .5s .2s both, demoOutFlat .45s 5.05s both}
+/* Figma 122:270 프리뷰 행 = 콘텐츠 컬럼의 자식(타이틀 바로 아래 gap 40). [Preview 필 · 타이머 링] 가로. */
+#prev-row{display:flex;gap:120px;align-items:center;justify-content:center;
+  opacity:0;animation:sUpFlat .5s .2s both, demoOutFlat .45s 5.05s both}
 #prev-pill{display:flex;align-items:center;gap:20px;background:rgba(255,255,255,.14);border-radius:999px;padding:20px 30px 20px 40px}
 #prev-pill .pv{font-family:'Supreme',sans-serif;font-weight:700;font-size:60px;color:#fff;white-space:nowrap;line-height:1}
 #prev-pill svg{width:60px;height:60px;flex:0 0 auto}
@@ -75,7 +79,7 @@ html,body{background:transparent}
 
 /* 러닝 학습(P) — Figma 122-308 정확 이식(유저 배치): 타이틀=구간명 + 도트 프로그래스 + [내SPM/전문가SPM · 링] 가로 행.
    링(카운트다운) = 스트라이드·인터벌만. 이지런은 링 없이 SPM만. */
-#train-row{position:absolute;top:596px;left:0;right:0;display:flex;gap:110px;align-items:center;justify-content:center;
+#train-row{display:flex;gap:110px;align-items:center;justify-content:center;
   opacity:0;animation:sUpFlat .6s .5s both}
 #spm2{font-family:'Supreme',sans-serif;font-size:60px;white-space:nowrap;line-height:1}
 #spm2 b{font-weight:700;color:#fff}
@@ -92,13 +96,15 @@ html,body{background:transparent}
   font-family:'OffBit','Supreme',sans-serif;font-size:96px;color:#fff;line-height:1}
 </style></head><body>
   <div id="board">
-    <div class="title" id="s-title">Title</div>
-    <div class="cue" id="s-cue"></div>
-    <div class="dots" id="s-dots">
-      <div class="drow" id="drow-g"></div>
-      <div class="dclip"><div class="drow" id="drow-r"></div></div>
-    </div>
+    <div id="content">
+      <div class="title" id="s-title">Title</div>
+      <div class="cue" id="s-cue"></div>
+      <div class="dots" id="s-dots">
+        <div class="drow" id="drow-g"></div>
+        <div class="dclip"><div class="drow" id="drow-r"></div></div>
       </div>
+    </div>
+  </div>
   <script src="floor-scenes.js"></script>
   <script>
   const $ = id => document.getElementById(id);
@@ -135,7 +141,7 @@ html,body{background:transparent}
           <div id="tp-num">—</div>
         </div>` : '';
     row.innerHTML = `<div id="spm2"><b id="spm-me">--</b><span class="u"> SPM</span><span class="sl">/</span><b id="spm-tgt">--</b><span class="u"> SPM</span></div>` + ringHTML;
-    document.getElementById('board').appendChild(row);
+    document.getElementById('content').appendChild(row);   // 컬럼: 타이틀 → 도트 → SPM/링
   } else {
     $('s-cue').style.display = 'none';
   }
@@ -160,12 +166,14 @@ html,body{background:transparent}
         <div class="tip"><img src="assets/timer_tip.svg" alt=""></div>
         <div id="prev-num">5</div>
       </div>`;
-    document.getElementById('board').appendChild(row);
+    // 컬럼: 타이틀 → 프리뷰 행(도트 슬롯 자리). 시범 동안 도트는 숨김(공간도 차지 X) → 5s 뒤 프리뷰 사라지고 도트가 그 자리로.
+    const dots = $('s-dots');
+    document.getElementById('content').insertBefore(row, dots);
+    dots.style.display = 'none';
     let n = 5;
     const iv = setInterval(() => { n--; if (n < 1) { clearInterval(iv); return; }
       document.getElementById('prev-num').textContent = n; }, 1000);
-    // 도트바 = 시범 뒤부터
-    const dots = $('s-dots'); dots.style.animationDelay = '5.15s';
+    setTimeout(() => { row.style.display = 'none'; dots.style.display = ''; dots.style.animation = 'sUpFlat .6s both'; }, 5100);
     const clip = document.querySelector('.dclip'); if (clip) clip.style.animationDelay = '5.15s';
   }
 
