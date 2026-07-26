@@ -4345,7 +4345,7 @@ void main(){
       liveUI.update(rawDt, {
         active: liveActive, variant: FXP.liveUI || 1, beatT: tokens._beatT || 0.39,
         boost: session.stage === 'C4',   // 마지막 1km = hyperspeed풍 부스트 배경(테스트)
-        seanZ: session.paceLight.position.z + session.root.position.z, myZ: 0,
+        seanZ: session.paceLight.position.z + session.root.position.z - (rig._fp?.oz ?? 0), myZ: 0,   // 투사면 원점 기준 상대 z (liveui 그룹이 원점 추종)
         spmTarget: Math.round(60 / (tokens._beatT || 0.39)), spmMine: window.__mySpm || 0, day: !!FXP.day,
       });
     }

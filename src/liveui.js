@@ -91,7 +91,10 @@ export class LiveUI {
     this.v5Strip.position.z = -0.85;
     this.v5.add(this.v5Strip);
 
-    this.group.add(this.v1, this.v2, this.v3, this.v4, this.v5);
+    // inner = 인트로 연출용 로컬 오프셋 · group = 투사면 원점 추종 (실전에서 러너가 전진 → 월드 고정이면 즉시 투사면 밖)
+    this.inner = new THREE.Group();
+    this.inner.add(this.v1, this.v2, this.v3, this.v4, this.v5);
+    this.group.add(this.inner);
 
     // ── C4 부스트 배경(테스트, 유저): hyperspeed풍 흐르는 그리드 + 그라디언트 글로우 —
     //    복싱 벽 배경 문법의 지면판. 투사면(uFP 페이드) 안에서만, 은은하게(저알파). ──
@@ -131,7 +134,7 @@ export class LiveUI {
     })), 0.010);
     this.boostBG.position.z = -1.3;
     this.boostBG.visible = false;
-    this.group.add(this.boostBG);
+    this.inner.add(this.boostBG);
   }
 
   /** 레인 재료에 투사면 소프트 페이드 주입 — tokens.js 레인과 동일 규약 */
@@ -157,6 +160,17 @@ export class LiveUI {
     const v = ctx.variant || 1;
     this.v1.visible = v === 1; this.v2.visible = v === 2; this.v3.visible = v === 3;
     this.v4.visible = v === 4; this.v5.visible = v === 5;
+    // ── 투사면 원점 추종 (로우패스 τ0.25 — 발걸음 흔들림은 거르고 전진만 따라감) ──
+    const fp = this.rig?._fp;
+    if (fp) {
+      if (!this._wasActive) { this._ax = fp.ox; this._az = fp.oz; this._pz = fp.oz; this._vz = 0; }   // 재진입 = 스냅
+      const k = 1 - Math.exp(-dt / 0.25);
+      this._ax += (fp.ox - this._ax) * k;
+      this._az += (fp.oz - this._az) * k;
+      if (dt > 0) this._vz += ((fp.oz - this._pz) / dt - this._vz) * k;   // 전진 속도 추정
+      this._pz = fp.oz;
+      this.group.position.set(this._ax, 0, this._az + this._vz * 0.25);   // 로우패스 지연(v·τ) 보상 — 흔들림은 걸러지고 전진 lag만 상쇄
+    }
     // ── 등장 '휙' 인트로(유저): 복싱 궤적 토큰처럼 멀리서 곡선 궤적으로 날아와 오버슈트로 꽂힘 ──
     if (!this._wasActive || v !== this._lastV) { this._introT = 0; this._landed = false; }
     this._wasActive = true; this._lastV = v;
@@ -164,14 +178,13 @@ export class LiveUI {
     const ki = Math.min(1, this._introT / 0.55);
     const c1 = 1.70158, c3 = c1 + 1;
     const eb = 1 + c3 * Math.pow(ki - 1, 3) + c1 * Math.pow(ki - 1, 2);   // easeOutBack = 꽂히는 반동
-    const baseX = this.rig?._fp?.ox ?? 0;
-    this.group.position.x = baseX + Math.sin(ki * Math.PI) * 0.28 * (1 - ki);   // 곡선 스윕(궤적)
-    this.group.position.z = (1 - eb) * -1.5;                                    // 먼 곳에서 날아옴
-    this.group.scale.setScalar(0.72 + 0.28 * eb);
+    this.inner.position.x = Math.sin(ki * Math.PI) * 0.28 * (1 - ki);   // 곡선 스윕(궤적)
+    this.inner.position.z = (1 - eb) * -1.5;                            // 먼 곳에서 날아옴
+    this.inner.scale.setScalar(0.72 + 0.28 * eb);
     if (!this._landed && ki >= 1) {
       this._landed = true;
-      this.group.position.z = 0; this.group.scale.setScalar(1);
-      this.onLand?.(new THREE.Vector3(baseX, 0.015, -1.3));   // 착지 순간 = 지면 버스트(꽂힘 타격감)
+      this.inner.position.z = 0; this.inner.scale.setScalar(1);
+      this.onLand?.(new THREE.Vector3(this._ax ?? 0, 0.015, (this._az ?? 0) - 1.3));   // 착지 순간 = 지면 버스트(꽂힘 타격감)
     }
 
     this._t += dt;
