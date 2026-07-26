@@ -4119,6 +4119,9 @@ void main(){
             arc.style.strokeDashoffset = (1727.9 * (1 - (tp.prog || 0))).toFixed(1);
             if (arc.getAttribute('stroke') !== col) arc.setAttribute('stroke', col);
           }
+          // 회전 팁 = 아크 끝점 추종 (구간 진행 × 360°) — floor-timer 정본 문법
+          const tip = fdoc?.getElementById('tp-tip');
+          if (tip) tip.style.transform = 'rotate(' + ((tp.prog || 0) * 360).toFixed(1) + 'deg)';
           // 중앙 카운트다운 = 구간 처방 초 × 남은 비율 (SPRINT 30→0 느낌)
           const num = fdoc?.getElementById('tp-num');
           if (num) {
