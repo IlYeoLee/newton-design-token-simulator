@@ -1,0 +1,142 @@
+{
+  "sport": "running",
+  "packName": "러닝 / 영상 자동추출 Pack",
+  "dataStatus": "auto-extracted",
+  "botClip": null,
+  "source": {
+    "name": "폐루프 검증: 시뮬 봇 측면 캡처 (정답 접지 8건 대비 7건, 좌우 100%, Δt +9~32ms)",
+    "dataType": "monocular video → MediaPipe Pose(world) → 발 접지 자동 추출 (손 배치 0)",
+    "pipeline": "scripts/video_pose_extract.py",
+    "poseDetectRate": 1.0,
+    "sourceErrorNote": "monocular 3D는 깊이 모호성이 큼 — 접지 타이밍은 강건, 좌우 배치 ±수 cm, 전후 깊이 신뢰 낮음"
+  },
+  "duration": 3.167,
+  "hasWall": false,
+  "tokenCombination": [
+    "pathLane",
+    "stepMark",
+    "orderPulse"
+  ],
+  "tokens": [
+    {
+      "t": 0,
+      "type": "pathLane",
+      "nx": 0,
+      "ny": 0,
+      "lifetime": 3.103
+    },
+    {
+      "t": 0.3635,
+      "type": "stepMark",
+      "foot": "right",
+      "nx": -0.0428,
+      "ny": 0.35,
+      "lifetime": 1.19
+    },
+    {
+      "t": 0.3635,
+      "type": "orderPulse",
+      "n": 1,
+      "nx": -0.0428,
+      "ny": 0.35,
+      "lifetime": 1.19
+    },
+    {
+      "t": 0.75,
+      "type": "stepMark",
+      "foot": "left",
+      "nx": 0.0501,
+      "ny": 0.35,
+      "lifetime": 1.19
+    },
+    {
+      "t": 0.75,
+      "type": "orderPulse",
+      "n": 2,
+      "nx": 0.0501,
+      "ny": 0.35,
+      "lifetime": 1.19
+    },
+    {
+      "t": 1.1655,
+      "type": "stepMark",
+      "foot": "right",
+      "nx": -0.0367,
+      "ny": 0.35,
+      "lifetime": 1.19
+    },
+    {
+      "t": 1.1655,
+      "type": "orderPulse",
+      "n": 3,
+      "nx": -0.0367,
+      "ny": 0.35,
+      "lifetime": 1.19
+    },
+    {
+      "t": 1.5419,
+      "type": "stepMark",
+      "foot": "left",
+      "nx": 0.0525,
+      "ny": 0.35,
+      "lifetime": 1.19
+    },
+    {
+      "t": 1.5419,
+      "type": "orderPulse",
+      "n": 4,
+      "nx": 0.0525,
+      "ny": 0.35,
+      "lifetime": 1.19
+    },
+    {
+      "t": 1.9638,
+      "type": "stepMark",
+      "foot": "right",
+      "nx": -0.0382,
+      "ny": 0.35,
+      "lifetime": 1.19
+    },
+    {
+      "t": 1.9638,
+      "type": "orderPulse",
+      "n": 5,
+      "nx": -0.0382,
+      "ny": 0.35,
+      "lifetime": 1.19
+    },
+    {
+      "t": 2.3582,
+      "type": "stepMark",
+      "foot": "left",
+      "nx": 0.0526,
+      "ny": 0.35,
+      "lifetime": 1.19
+    },
+    {
+      "t": 2.3582,
+      "type": "orderPulse",
+      "n": 6,
+      "nx": 0.0526,
+      "ny": 0.35,
+      "lifetime": 1.19
+    },
+    {
+      "t": 2.7652,
+      "type": "stepMark",
+      "foot": "right",
+      "nx": -0.0375,
+      "ny": 0.35,
+      "lifetime": 1.19
+    },
+    {
+      "t": 2.7652,
+      "type": "orderPulse",
+      "n": 7,
+      "nx": -0.0375,
+      "ny": 0.35,
+      "lifetime": 1.19
+    }
+  ],
+  "cues": []
+}

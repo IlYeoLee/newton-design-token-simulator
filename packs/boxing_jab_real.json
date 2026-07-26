@@ -1,0 +1,246 @@
+{
+  "sport": "boxing",
+  "packName": "복싱 / 잽 리듬 Pack",
+  "dataStatus": "real-parsed",
+  "source": {
+    "name": "Zenodo 14965635 — Elite Boxer IMU (Lead Jab)",
+    "url": "https://zenodo.org/records/14965635",
+    "dataType": "200Hz IMU (acc+gyro) — Lead_jab.csv",
+    "licenseNote": "CC-BY-4.0",
+    "sampleRateHz": 200,
+    "punchCount": 6,
+    "avgIntervalSec": 0.949,
+    "avgBpm": 63
+  },
+  "duration": 5,
+  "hasWall": true,
+  "tokenCombination": [
+    "stepMark",
+    "orderPulse",
+    "directionGuide",
+    "pathLane",
+    "targetMark"
+  ],
+  "tokens": [
+    {
+      "t": 0,
+      "type": "pathLane",
+      "nx": 0,
+      "ny": 0,
+      "lifetime": 5
+    },
+    {
+      "t": 0,
+      "type": "stepMark",
+      "foot": "left",
+      "nx": -0.12,
+      "ny": 0.22,
+      "lifetime": 5
+    },
+    {
+      "t": 0,
+      "type": "stepMark",
+      "foot": "right",
+      "nx": 0.12,
+      "ny": -0.18,
+      "lifetime": 5
+    },
+    {
+      "t": 0,
+      "type": "orderPulse",
+      "n": 1,
+      "nx": -0.12,
+      "ny": 0.22,
+      "lifetime": 0.35
+    },
+    {
+      "t": 0,
+      "type": "directionGuide",
+      "angle": 0,
+      "nx": 0,
+      "ny": 0.05,
+      "lifetime": 0.25
+    },
+    {
+      "t": 0,
+      "type": "targetMark",
+      "nx": -0.06,
+      "ny": 0.33999999999999997,
+      "lifetime": 0.22
+    },
+    {
+      "t": 0.9349999999999864,
+      "type": "orderPulse",
+      "n": 2,
+      "nx": -0.12,
+      "ny": 0.22,
+      "lifetime": 0.35
+    },
+    {
+      "t": 0.9549999999999863,
+      "type": "directionGuide",
+      "angle": 0,
+      "nx": 0,
+      "ny": 0.05,
+      "lifetime": 0.25
+    },
+    {
+      "t": 1.874999999999984,
+      "type": "orderPulse",
+      "n": 3,
+      "nx": -0.12,
+      "ny": 0.22,
+      "lifetime": 0.35
+    },
+    {
+      "t": 1.894999999999984,
+      "type": "directionGuide",
+      "angle": 0,
+      "nx": 0,
+      "ny": 0.05,
+      "lifetime": 0.25
+    },
+    {
+      "t": 1.954999999999984,
+      "type": "targetMark",
+      "nx": -0.06,
+      "ny": 0.33999999999999997,
+      "lifetime": 0.22
+    },
+    {
+      "t": 2.8149999999999817,
+      "type": "orderPulse",
+      "n": 1,
+      "nx": -0.12,
+      "ny": 0.22,
+      "lifetime": 0.35
+    },
+    {
+      "t": 2.8349999999999818,
+      "type": "directionGuide",
+      "angle": 0,
+      "nx": 0,
+      "ny": 0.05,
+      "lifetime": 0.25
+    },
+    {
+      "t": 3.764999999999999,
+      "type": "orderPulse",
+      "n": 2,
+      "nx": -0.12,
+      "ny": 0.22,
+      "lifetime": 0.35
+    },
+    {
+      "t": 3.784999999999999,
+      "type": "directionGuide",
+      "angle": 0,
+      "nx": 0,
+      "ny": 0.05,
+      "lifetime": 0.25
+    },
+    {
+      "t": 3.844999999999999,
+      "type": "targetMark",
+      "nx": -0.06,
+      "ny": 0.33999999999999997,
+      "lifetime": 0.22
+    },
+    {
+      "t": 4.6650000000000045,
+      "type": "orderPulse",
+      "n": 3,
+      "nx": -0.12,
+      "ny": 0.22,
+      "lifetime": 0.35
+    },
+    {
+      "t": 4.685000000000005,
+      "type": "directionGuide",
+      "angle": 0,
+      "nx": 0,
+      "ny": 0.05,
+      "lifetime": 0.25
+    }
+  ],
+  "cues": [
+    {
+      "phase": "stretch",
+      "t": 0,
+      "text": "발을 어깨 너비로 벌려요",
+      "ko": true
+    },
+    {
+      "phase": "stretch",
+      "t": 2.5,
+      "text": "무게 중심을 살짝 앞으로",
+      "ko": true
+    },
+    {
+      "phase": "stretch",
+      "t": 5,
+      "text": "손을 가볍게 올려 준비해요",
+      "ko": true
+    },
+    {
+      "phase": "prelearn",
+      "t": 0,
+      "text": "잽 준비",
+      "ko": true
+    },
+    {
+      "phase": "prelearn",
+      "t": 0.9149999999999864,
+      "text": "잽!",
+      "ko": true
+    },
+    {
+      "phase": "prelearn",
+      "t": 1.854999999999984,
+      "text": "리듬 따라서",
+      "ko": true
+    },
+    {
+      "phase": "prelearn",
+      "t": 2.7949999999999817,
+      "text": "잽!",
+      "ko": true
+    },
+    {
+      "phase": "actual",
+      "t": 0,
+      "text": "잽!",
+      "ko": true
+    },
+    {
+      "phase": "actual",
+      "t": 0.9549999999999863,
+      "text": "유지",
+      "ko": true
+    },
+    {
+      "phase": "actual",
+      "t": 1.894999999999984,
+      "text": "잽!",
+      "ko": true
+    },
+    {
+      "phase": "actual",
+      "t": 2.8349999999999818,
+      "text": "잽!",
+      "ko": true
+    },
+    {
+      "phase": "actual",
+      "t": 3.784999999999999,
+      "text": "유지",
+      "ko": true
+    },
+    {
+      "phase": "actual",
+      "t": 4.685000000000005,
+      "text": "잽!",
+      "ko": true
+    }
+  ]
+}

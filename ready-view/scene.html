@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Newton 복싱 — 운동중</title>
+<style>
+@font-face{font-family:'Supreme';src:url('../fonts/Supreme-Bold.woff2') format('woff2');font-weight:700;font-style:normal;font-display:block}
+@font-face{font-family:'Supreme';src:url('../fonts/Supreme-Medium.woff2') format('woff2');font-weight:500;font-style:normal;font-display:block}
+@font-face{font-family:'OffBit';src:url('../fonts/OffBitTrial-DotBold.woff2') format('woff2');font-weight:700;font-style:normal;font-display:block}
+@font-face{font-family:'OffBitB';src:url('../fonts/Supreme-Bold.woff2') format('woff2');font-weight:700;font-style:normal;font-display:block}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{background:transparent}
+.stage{position:relative;width:2600px;height:1600px;overflow:hidden;
+  font-family:'Supreme',sans-serif;color:#fff;-webkit-font-smoothing:antialiased}
+
+/* 상단좌: 운동 타이틀 + 장면 진행 로딩바(원형 도트 10개, node 13-6955) */
+.head{position:absolute;left:100px;top:140px;display:flex;flex-direction:column;gap:27px;align-items:flex-start;width:2109px}
+.title{font-weight:700;font-size:80px;line-height:normal;white-space:nowrap}
+/* 원형 도트 로딩바 — 회색 바탕 위 빨간 도트를 클립으로 좌→우 드러내며 장면 시간(--dur) 동안 0→100% 차오름 */
+.dots{position:relative;height:45.734px;animation:sUp .6s .20s both}
+.drow{display:flex;height:45.734px}
+.dot{width:45.734px;height:45.734px;border-radius:157.704px;flex:0 0 auto}
+.dot.g{background:#d0d0d0}
+.dot.r{background:#fa3030}
+.dclip{position:absolute;left:0;top:0;height:45.734px;overflow:hidden;width:0;animation:dotsFill var(--dur,8s) linear both}
+.dclip .drow{width:457.34px}
+@keyframes dotsFill{from{width:0}to{width:457.34px}}
+
+/* 상단우: 페이즈(START / WARM UP n/N / STRETCH / FIGHT!) */
+.phases{position:absolute;left:2244px;top:100px;width:256px;display:flex;flex-direction:column;gap:56px;align-items:flex-end;text-align:right}
+.phase{font-weight:500;font-size:32px;color:rgba(255,255,255,.7);line-height:41.087px}
+.phase.active{font-weight:700;font-size:40px;color:#fff}
+.phase.far{color:rgba(255,255,255,.5)}
+
+/* 좌/우: 아바타 + 큰 숫자 + 단위 */
+.avatar{position:absolute;background:#fff;border-radius:999px;padding:10px;width:237px;height:237px;top:855px}
+.avatar.coach{left:100px}
+.avatar.you{left:2263px}
+.avatar .ph{position:relative;width:217px;height:217px;border-radius:999px;overflow:hidden}
+.avatar .ph img{position:absolute;left:-28.09px;top:-74.05px;width:275.305px;height:511.608px;object-fit:cover;max-width:none}
+.num{position:absolute;font-family:'OffBit';font-size:200px;line-height:normal;letter-spacing:-8px;top:1148px;width:364px}
+.num.l{left:100px;text-align:left}
+.num.r{left:2136px;text-align:right}
+.unit{position:absolute;font-weight:500;font-size:64px;letter-spacing:-2.56px;top:1368px;width:364px}
+.unit.l{left:100px;text-align:left}
+.unit.r{left:2136px;text-align:right}
+.you-badge{position:absolute;left:2319px;top:1043px;background:rgba(255,255,255,.9);
+  border-radius:80px;padding:15.76px 31.52px;box-shadow:0 0 47.28px rgba(0,0,0,.12);display:flex;align-items:center}
+.you-badge p{font-weight:500;font-size:47.28px;color:#525252;letter-spacing:-.5px}
+
+/* 하단중앙: 코치 지시(따라할 참고, 짧게) */
+.coach-say{position:absolute;left:50%;top:1370px;transform:translateX(-50%);
+  background:#fff;border-radius:9999px;padding:24px 32px;display:flex;align-items:center;justify-content:center;max-width:1600px}
+.coach-say p{font-weight:500;font-size:56px;color:#000;letter-spacing:-2.24px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* 중앙: 콤보 팝업(등장→은은히 페이드, 최대 2~3 순차) */
+.combos{position:absolute;left:50%;top:1202px;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:16px}
+.combo{position:relative;background:linear-gradient(135deg,rgba(250,48,48,.4),rgba(254,110,60,.28));
+  border:2px solid rgba(255,255,255,.4);border-radius:47.28px;padding:15.76px 36px;height:114.26px;
+  display:flex;align-items:center;gap:15.76px;justify-content:center;
+  box-shadow:0 0 44px rgba(254,110,60,.55), inset 0 0 26px rgba(255,255,255,.28)}
+.combo img{width:47.28px;height:52px;display:block;filter:drop-shadow(0 0 12px rgba(255,205,130,.95));animation:flameFlick 1.05s ease-in-out infinite}
+.combo p{font-family:'OffBitB';font-size:59.1px;color:#fff;letter-spacing:-1.97px;white-space:nowrap;text-shadow:0 0 22px rgba(255,222,165,.75)}
+
+/* ── 등장 모션 ──
+   진입(페이즈 첫 단계)=전체 등장. 같은 페이즈 후속 단계(body.mid)=골격(아바타·배지·페이즈열)은
+   고정, 바뀐 내용(타이틀·숫자·도트·멘트·콤보)만 움직임. */
+@keyframes sUp{from{opacity:0;transform:translateY(48px)}to{opacity:1;transform:translateY(0)}}
+@keyframes sLeft{from{opacity:0;transform:translateX(-70px)}to{opacity:1;transform:translateX(0)}}
+@keyframes sRight{from{opacity:0;transform:translateX(70px)}to{opacity:1;transform:translateX(0)}}
+@keyframes sPop{0%{opacity:0;transform:scale(.5)}60%{opacity:1;transform:scale(1.12)}100%{opacity:1;transform:scale(1)}}
+@keyframes titleIn{0%{opacity:0;transform:translateY(40px) scale(.94)}70%{opacity:1;transform:translateY(0) scale(1.02)}100%{opacity:1;transform:scale(1)}}
+@keyframes dotPop{from{opacity:0;transform:scale(0)}to{opacity:1;transform:scale(1)}}
+@keyframes dotLight{0%{transform:scale(1)}45%{transform:scale(1.5);box-shadow:0 0 22px rgba(250,48,48,.9)}100%{transform:scale(1)}}
+@keyframes comboIn{0%{opacity:0;transform:translateY(34px) scale(.3) rotate(-8deg)}
+  50%{opacity:1;transform:translateY(0) scale(1.22) rotate(3deg)}
+  72%{transform:scale(.94) rotate(-1.5deg)}100%{opacity:1;transform:scale(1) rotate(0)}}
+@keyframes comboGlow{0%,100%{box-shadow:0 0 44px rgba(254,110,60,.55),inset 0 0 26px rgba(255,255,255,.28);transform:translateY(0)}
+  50%{box-shadow:0 0 78px rgba(254,110,60,.9),inset 0 0 36px rgba(255,255,255,.42);transform:translateY(-7px)}}
+@keyframes flameFlick{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-3px) scale(1.14)}}
+@keyframes cueSwap{0%{opacity:0;transform:translateY(10px) scale(.9)}60%{opacity:1;transform:scale(1.06)}100%{opacity:1;transform:scale(1)}}
+@keyframes sUpC{from{opacity:0;transform:translate(-50%,48px)}to{opacity:1;transform:translate(-50%,0)}}
+@keyframes phasePulse{0%,100%{opacity:1}50%{opacity:.6}}
+.title{animation:titleIn .8s .10s cubic-bezier(.22,1,.36,1) both}
+.avatar.coach{animation:sLeft .8s .28s cubic-bezier(.22,1,.36,1) both}
+.avatar.you{animation:sRight .8s .28s cubic-bezier(.22,1,.36,1) both}
+.num.l,.num.r{animation:sPop .7s .48s cubic-bezier(.34,1.56,.64,1) both}
+.unit.l,.unit.r{animation:sUp .6s .58s both}
+.you-badge{animation:sPop .6s .62s cubic-bezier(.34,1.56,.64,1) both}
+.coach-say{animation:sUpC .8s .68s cubic-bezier(.22,1,.36,1) both}
+.phase.active{text-shadow:0 0 28px rgba(255,255,255,.45);animation:phasePulse 2.4s 1.2s ease-in-out infinite}
+/* 같은 페이즈 후속 단계 — 골격 고정(리슬라이드 방지) */
+body.mid .avatar.coach,body.mid .avatar.you,body.mid .you-badge,body.mid .phase{animation:none}
+</style>
+</head>
+<body>
+<div class="stage">
+ <div class="head">
+   <div class="title" id="s-title">NECK &amp; SHOULDER ROLLS</div>
+   <div class="dots" id="s-dots">
+     <div class="drow" id="drow-g"></div>
+     <div class="dclip" id="s-dclip"><div class="drow" id="drow-r"></div></div>
+   </div>
+ </div>
+ <div class="phases" id="s-phases"></div>
+
+ <div class="avatar coach"><div class="ph"><img src="assets/coach_a.png" alt=""><img src="assets/coach_b.png" alt=""></div></div>
+ <div class="num l" id="s-coach-num">153</div>
+ <div class="unit l" id="s-coach-unit">Steps</div>
+
+ <div class="avatar you"><div class="ph"><img src="assets/you_avatar.png" alt=""></div></div>
+ <div class="you-badge"><p>You</p></div>
+ <div class="num r" id="s-you-num">1</div>
+ <div class="unit r" id="s-you-unit">Steps</div>
+
+ <div class="coach-say"><p id="s-coach-say"></p></div>
+ <div class="combos" id="s-combos"></div>
+</div>
+
+<script src="scenes.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const stage = new URLSearchParams(location.search).get('stage') || 'BX_A1';
+const S = window.SCENES[stage] || window.SCENES.BX_A1;
+// 진입(페이즈 첫 단계)이면 전체 등장, 후속 단계면 골격 고정(내용만 갱신)
+const isEntry = (S.sub === '' || /^1\//.test(S.sub));
+if (!isEntry) document.body.classList.add('mid');
+
+$('s-title').textContent = S.title;
+
+// 페이즈: 현재 볼드+sub / 이전·다음 0.7 / 2단계+ 뒤 0.5 (공통 컴포넌트, 라벨은 PHASES 데이터)
+const pw = $('s-phases'); pw.innerHTML='';
+window.PHASES.forEach((label,i)=>{ const d=document.createElement('div');
+  const active = i===S.phase;
+  d.className='phase'+(active?' active':(i>S.phase+1?' far':''));
+  d.textContent = label + (active && S.sub ? ' '+S.sub : '');
+  if (isEntry) d.style.animation='sRight .6s '+(0.15+i*0.07)+'s both';
+  pw.appendChild(d); });
+
+// 장면 지속시간 — 로딩바·라이브 카운트업 공통 (?dur=)
+const sdur = parseFloat(new URLSearchParams(location.search).get('dur')) || 8;
+// 숫자 카운트업 (0→목표). 순수 숫자만, '—'·'' 등은 그대로. cdur=상승에 걸리는 시간(ms).
+function countUp(el, target, delay, cdur){
+  const m = String(target).match(/^(\d+(?:\.\d+)?)$/);
+  if(!m){ el.textContent = target; return; }
+  const end = parseFloat(m[1]), dec = (m[1].split('.')[1]||'').length, cd = cdur || 950;
+  el.textContent = dec ? (0).toFixed(dec) : '0';   // .num 폭 고정 → 시프트 없음
+  setTimeout(()=>{ const t0=performance.now();
+    (function tick(now){ const p=Math.min(1,(now-t0)/cd), e=1-Math.pow(1-p,3);
+      el.textContent = dec ? (end*e).toFixed(dec) : Math.round(end*e);
+      if(p<1) requestAnimationFrame(tick); })(performance.now());
+  }, delay);
+}
+// 코치(전문가 목표) = 진입 직후 빠르게 / You(내 판정값) = 장면 체험하며 라이브로 촤라락 상승
+countUp($('s-coach-num'), S.coach.num, 620, 1000);
+countUp($('s-you-num'),   S.you.num,   760, Math.max(1500, sdur*1000*0.8));
+$('s-coach-unit').textContent=S.coach.unit;
+$('s-you-unit').textContent=S.you.unit;
+// 코치 자막 = say(진입 안내) → cues(비트처럼 흐르는 짧은 콜)를 장면 동안 순환. 매 교체마다 팝('말하듯이').
+(function(){
+  const el = $('s-coach-say');
+  const seq = (S.cues && S.cues.length) ? [S.say, ...S.cues] : [S.say];
+  let i = 0;
+  const swap = () => { el.textContent = seq[i++ % seq.length];
+    el.style.animation = 'none'; void el.offsetWidth;
+    el.style.animation = 'cueSwap .5s cubic-bezier(.34,1.56,.64,1) both'; };
+  swap();
+  if (seq.length > 1) setInterval(swap, Math.max(1100, sdur * 1000 / (seq.length + 0.5)));
+})();
+
+// 장면 진행 로딩바 — 회색 10도트 위에 빨간 10도트를 클립으로 드러냄. 클립 폭이
+// 이 장면 자동재생 지속시간(?dur=) 동안 0→100%(0→457.34px) 차올라 도트가 좌→우로 빨개짐.
+const gr=$('drow-g'), rr=$('drow-r');
+for(let i=0;i<10;i++){ const a=document.createElement('div'); a.className='dot g'; gr.appendChild(a);
+  const b=document.createElement('div'); b.className='dot r'; rr.appendChild(b); }
+$('s-dclip').style.setProperty('--dur', sdur + 's');
+
+const cw=$('s-combos'); cw.innerHTML='';
+(S.combos||[]).forEach((c,i)=>{ const d=document.createElement('div'); d.className='combo';
+  d.innerHTML='<img src="assets/flame.svg" alt=""><p></p>'; d.querySelector('p').textContent=c;
+  const t=1.0+i*0.5;   // 순차 등장(최대 2~3) → 튀어오른 뒤 불빛처럼 맥동
+  d.style.animation='comboIn .6s '+t+'s cubic-bezier(.34,1.7,.5,1) both, comboGlow 1.6s '+(t+0.6)+'s ease-in-out infinite'; cw.appendChild(d); });
+</script>
+</body>
+</html>

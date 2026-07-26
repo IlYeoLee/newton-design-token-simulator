@@ -1,0 +1,90 @@
+<!doctype html>
+<!-- 러닝·농구 실전 직전 카운트다운 타이머 (세로 1600×2670) — Figma [운동종료·실전직전 타이머] 이식.
+     복싱 timer.html(가로)의 링·카운트다운 그대로 세로로. ?stage=C1|BK_C1 · ?dur=3 -->
+<html lang="en"><head><meta charset="utf-8"><title>Newton — 타이머(지면)</title>
+<script>document.documentElement.style.setProperty('--dur',(parseFloat(new URLSearchParams(location.search).get('dur'))||3)+'s')</script>
+<style>
+@font-face{font-family:'Supreme';src:url('../fonts/Supreme-Bold.woff2') format('woff2');font-weight:700;font-display:block}
+@font-face{font-family:'Supreme';src:url('../fonts/Supreme-Medium.woff2') format('woff2');font-weight:400;font-display:block}
+@font-face{font-family:'OffBit';src:url('../fonts/OffBitTrial-DotBold.woff2') format('woff2');font-weight:700;font-display:block}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{background:transparent}
+#board{position:relative;width:1600px;height:2670px;overflow:hidden;
+  font-family:'Supreme',sans-serif;color:#fff;-webkit-font-smoothing:antialiased}
+.bg-glow{position:absolute;inset:0;overflow:hidden;pointer-events:none;
+  -webkit-mask:radial-gradient(58% 46% at 50% 43%, #000 22%, transparent 82%);
+          mask:radial-gradient(58% 46% at 50% 43%, #000 22%, transparent 82%)}
+.bg-glow img{position:absolute;left:50%;top:1160px;width:2200px;transform:translate(-50%,-50%);
+  will-change:transform;animation:glowDrift 15s ease-in-out infinite}
+@keyframes glowDrift{
+  0%{transform:translate(-50%,-50%) scale(1) rotate(0deg)}
+  25%{transform:translate(-56%,-46%) scale(1.12) rotate(4deg)}
+  50%{transform:translate(-44%,-55%) scale(1.05) rotate(-3deg)}
+  75%{transform:translate(-53%,-46%) scale(1.13) rotate(3deg)}
+  100%{transform:translate(-50%,-50%) scale(1) rotate(0deg)}}
+.wrap{position:absolute;left:50%;transform:translateX(-50%);top:600px;width:1200px;
+  display:flex;flex-direction:column;gap:88px;align-items:center}
+.tgrp{display:flex;flex-direction:column;gap:8.8px;align-items:center;text-align:center}
+.tsub{font-weight:400;font-size:64px;letter-spacing:-4.6px;color:rgba(255,255,255,.8);white-space:nowrap}
+.ttl{font-weight:700;font-size:140px;letter-spacing:-5.6px;white-space:nowrap;line-height:1.05}
+/* 카운트다운 링 — 점선 트랙 + 채우는 아크 + 끝점 팁 + 중앙 숫자 */
+.ring{position:relative;width:604px;height:604px}
+.ring svg{position:absolute;inset:0;width:100%;height:100%}
+.tnum{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  font-family:'OffBit';font-size:220px;color:#fff;line-height:1}
+.tip{position:absolute;inset:0;transform-origin:center;animation:tipSpin var(--dur,3s) linear both}
+.tip img{position:absolute;left:50%;top:-6px;width:76px;height:76px;transform:translateX(-50%);
+  filter:drop-shadow(0 0 18px rgba(250,48,48,.6))}
+@keyframes tipSpin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+.arc{stroke-dasharray:1727.9;stroke-dashoffset:1727.9;animation:arcFill var(--dur,3s) linear both}
+@keyframes arcFill{from{stroke-dashoffset:1727.9}to{stroke-dashoffset:0}}
+/* 지면 프레임: 세로 translate=원근상 깊이 이동 → 제자리 scale 등장 */
+@keyframes titleIn{0%{opacity:0;transform:scale(.9)}70%{opacity:1;transform:scale(1.02)}100%{transform:scale(1)}}
+@keyframes ringPop{0%{opacity:0;transform:scale(.6)}70%{opacity:1;transform:scale(1.05)}100%{transform:scale(1)}}
+@keyframes numPulse{0%{transform:scale(1.5);opacity:0}35%{opacity:1}100%{transform:scale(1);opacity:1}}
+@keyframes ringBreath{0%,100%{filter:drop-shadow(0 0 0 rgba(255,255,255,0))}50%{filter:drop-shadow(0 0 26px rgba(255,255,255,.35))}}
+.ttl span{display:inline-block}
+@keyframes charWave{0%,58%,100%{transform:translateY(0)}29%{transform:translateY(-16px)}}
+.tgrp{animation:titleIn .8s .1s cubic-bezier(.22,1,.36,1) both}
+.ring{animation:ringPop .8s .35s cubic-bezier(.34,1.56,.64,1) both, ringBreath 3s 1.2s ease-in-out infinite}
+.tnum{animation:numPulse .5s both}
+</style></head><body>
+  <div id="board">
+    <div class="bg-glow"><img src="assets/bg_glow.svg" alt=""></div>
+    <div class="wrap">
+      <div class="tgrp"><div class="tsub" id="t-sub"></div><div class="ttl" id="t-ttl"></div></div>
+      <div class="ring">
+        <svg viewBox="0 0 604 604">
+          <circle cx="302" cy="302" r="275" fill="none" stroke="#fff" stroke-opacity=".28" stroke-width="6" stroke-dasharray="0.5 20.5" stroke-linecap="round"/>
+          <circle class="arc" cx="302" cy="302" r="275" fill="none" stroke="#fff" stroke-width="11" stroke-linecap="round" transform="rotate(-90 302 302)"/>
+        </svg>
+        <div class="tip"><img src="assets/timer_tip.svg" alt=""></div>
+        <div class="tnum" id="tnum">3</div>
+      </div>
+    </div>
+  </div>
+  <script>
+  const TM = {
+    C1:    { sub:'Sean’s Final 1km Pace',    title:'Session Complete' },
+    BK_C1: { sub:'Curry’s Signature Move',   title:'Session Complete' },
+  };
+  const $ = id => document.getElementById(id);
+  const q = new URLSearchParams(location.search);
+  const stage = q.get('stage') || 'C1';
+  const M = TM[stage] || TM.C1;
+  const dur = parseFloat(q.get('dur')) || 3;
+  $('t-sub').textContent = M.sub;
+  (function(el, t){ el.textContent=''; [...t].forEach((ch,i)=>{ const s=document.createElement('span');
+    s.textContent = ch===' ' ? String.fromCharCode(160) : ch;
+    s.style.animation = 'charWave 2.4s ' + (0.9 + i*0.05) + 's ease-in-out infinite'; el.appendChild(s); });
+  })($('t-ttl'), M.title);
+  // 중앙 숫자 카운트다운(정수 초) → 0이면 GO
+  const num = $('tnum'), t0 = performance.now(); let last = null;
+  (function tick(now){ const el=(now-t0)/1000, rem=dur-el;
+    const val = rem > 0.05 ? String(Math.ceil(rem)) : 'GO';
+    if(val !== last){ num.textContent = val;
+      num.style.animation='none'; void num.offsetWidth; num.style.animation='numPulse .45s both'; last = val; }
+    if(el < dur + 0.4) requestAnimationFrame(tick);
+  })(performance.now());
+  </script>
+</body></html>

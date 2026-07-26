@@ -1,0 +1,155 @@
+{
+  "sport": "basketball",
+  "packName": "농구 3x3 / 컷인 Pack",
+  "dataStatus": "real-parsed",
+  "source": {
+    "name": "NBA SportVU 2015-16 — DET at ATL (2015-10-27)",
+    "url": "https://github.com/neilmj/BasketballData",
+    "dataType": "25fps player x/y tracking (SportVU)",
+    "licenseNote": "Research / prototype use. Not for commercial redistribution.",
+    "playerId": 200757,
+    "eventId": "191",
+    "pointCount": 88
+  },
+  "duration": 3.48,
+  "hasWall": false,
+  "tokenCombination": [
+    "stepMark",
+    "orderPulse",
+    "directionGuide",
+    "pathLane",
+    "targetMark"
+  ],
+  "tokens": [
+    {
+      "t": 0,
+      "type": "pathLane",
+      "nx": 0,
+      "ny": 0,
+      "lifetime": 3.4104000186920165
+    },
+    {
+      "t": 0,
+      "type": "stepMark",
+      "foot": "right",
+      "nx": 0,
+      "ny": 0,
+      "lifetime": 0.8700000047683716
+    },
+    {
+      "t": 0,
+      "type": "orderPulse",
+      "n": 1,
+      "nx": 0,
+      "ny": 0,
+      "lifetime": 0.8700000047683716
+    },
+    {
+      "t": 0.16000008583068848,
+      "type": "directionGuide",
+      "angle": 358.85509487666724,
+      "nx": -0.001942947559603921,
+      "ny": -0.08518338695996902,
+      "lifetime": 0.9744000053405762
+    },
+    {
+      "t": 0.880000114440918,
+      "type": "stepMark",
+      "foot": "left",
+      "nx": 0.00025193378570243484,
+      "ny": -0.41516501714823073,
+      "lifetime": 0.8700000047683716
+    },
+    {
+      "t": 0.880000114440918,
+      "type": "orderPulse",
+      "n": 2,
+      "nx": 0.00025193378570243484,
+      "ny": -0.41516501714823073,
+      "lifetime": 0.8700000047683716
+    },
+    {
+      "t": 1.7590000629425049,
+      "type": "stepMark",
+      "foot": "right",
+      "nx": 0.02849731713163572,
+      "ny": -0.39068145778400604,
+      "lifetime": 0.8700000047683716
+    },
+    {
+      "t": 1.7590000629425049,
+      "type": "orderPulse",
+      "n": 3,
+      "nx": 0.02849731713163572,
+      "ny": -0.39068145778400604,
+      "lifetime": 0.8700000047683716
+    },
+    {
+      "t": 2.640000104904175,
+      "type": "stepMark",
+      "foot": "left",
+      "nx": 0.09180239660354399,
+      "ny": -0.3523575936238083,
+      "lifetime": 0.8700000047683716
+    },
+    {
+      "t": 2.958000016212463,
+      "type": "targetMark",
+      "nx": 0.16041970525325905,
+      "ny": -0.3131678936256522,
+      "lifetime": 0.6960000038146973
+    }
+  ],
+  "cues": [
+    {
+      "phase": "stretch",
+      "t": 0,
+      "text": "무릎 살짝 굽혀 준비 자세"
+    },
+    {
+      "phase": "stretch",
+      "t": 1.5,
+      "text": "어깨 힘 빼고"
+    },
+    {
+      "phase": "stretch",
+      "t": 3,
+      "text": "준비됐나요?"
+    },
+    {
+      "phase": "prelearn",
+      "t": 0,
+      "text": "출발!"
+    },
+    {
+      "phase": "prelearn",
+      "t": 0,
+      "text": "방향 전환 준비"
+    },
+    {
+      "phase": "prelearn",
+      "t": 0.16000008583068848,
+      "text": "컷인!"
+    },
+    {
+      "phase": "actual",
+      "t": 0,
+      "text": "출발!"
+    },
+    {
+      "phase": "actual",
+      "t": 0.010000085830688482,
+      "text": "전환!"
+    },
+    {
+      "phase": "actual",
+      "t": 0.21000008583068847,
+      "text": "폭발적으로!"
+    },
+    {
+      "phase": "actual",
+      "t": 2.590000104904175,
+      "text": "완료!"
+    }
+  ]
+}

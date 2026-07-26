@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>FX 패리티 — 룩 카탈로그 vs 라이브 셰이더 픽셀 diff</title>
+<style>
+  body { background: #0c0e13; color: #e8eaf0; font: 13px/1.5 -apple-system, sans-serif; margin: 20px; }
+  table { border-collapse: collapse; margin-top: 12px; }
+  td, th { border: 1px solid #333; padding: 4px 10px; text-align: right; }
+  .ok { color: #7ce38b; } .warn { color: #fec389; } .fail { color: #fa5050; }
+  .pair img, .pair canvas { width: 150px; height: 150px; image-rendering: pixelated; border: 1px solid #333; }
+</style>
+  <script type="module" crossorigin src="./assets/parity-2lkletYC.js"></script>
+  <link rel="modulepreload" crossorigin href="./assets/fx-core-xuHeILQq.js">
+  <link rel="modulepreload" crossorigin href="./assets/tokens-DxWm2CbO.js">
+</head>
+<body>
+<h2>MARK 패리티 — 카탈로그(FX Lab) vs 라이브(three.js) · 상태 7 × 도형 2</h2>
+<div id="status">준비 중…</div>
+<table id="tbl"><tr><th>상태</th><th>존 원 diff</th><th>발형 diff</th><th>판정</th></tr></table>
+<div id="pairs"></div>
+<iframe id="lab" src="./fxlab.html" style="width:1200px;height:300px;opacity:0;position:absolute;pointer-events:none"></iframe>
+</body>
+</html>

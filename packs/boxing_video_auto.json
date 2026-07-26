@@ -1,0 +1,169 @@
+{
+  "sport": "boxing",
+  "packName": "복싱 / 영상 자동추출 Pack",
+  "dataStatus": "auto-extracted",
+  "source": {
+    "name": "Pexels 7187515 — 섀도복싱 측면 실사 (RDNE Stock project, Pexels 무료 라이선스)",
+    "dataType": "monocular video → MediaPipe Pose(world) → 펀치(손목 신전 피크) 자동 추출 (손 배치 0)",
+    "pipeline": "scripts/video_pose_extract.py --sport boxing",
+    "poseDetectRate": 1.0,
+    "punchCount": 8,
+    "avgIntervalSec": 0.5,
+    "segment": "원본 22.1s 중 3.3~6.8s 콤보 8발 구간",
+    "sourceErrorNote": "monocular: 펀치 타이밍·리듬은 강건, 타겟 높이는 힙높이 0.9m 가정(assumed) 근사"
+  },
+  "duration": 5.5,
+  "hasWall": true,
+  "tokenCombination": [
+    "pathLane",
+    "stepMark",
+    "orderPulse",
+    "targetMark"
+  ],
+  "tokens": [
+    {
+      "t": 0,
+      "type": "pathLane",
+      "nx": 0,
+      "ny": 0,
+      "lifetime": 5.5
+    },
+    {
+      "t": 0,
+      "type": "stepMark",
+      "foot": "left",
+      "nx": -0.0914,
+      "ny": -0.0026,
+      "lifetime": 5.5
+    },
+    {
+      "t": 0,
+      "type": "stepMark",
+      "foot": "right",
+      "nx": 0.1315,
+      "ny": -0.068,
+      "lifetime": 5.5
+    },
+    {
+      "t": 0.8,
+      "type": "targetMark",
+      "nx": -0.0849,
+      "ny": 0.4249,
+      "lifetime": 0.22
+    },
+    {
+      "t": 0.8,
+      "type": "orderPulse",
+      "n": 1,
+      "nx": -0.0849,
+      "ny": 0.4249,
+      "lifetime": 0.35
+    },
+    {
+      "t": 1.3417,
+      "type": "targetMark",
+      "nx": -0.2837,
+      "ny": 0.4875,
+      "lifetime": 0.22
+    },
+    {
+      "t": 1.3417,
+      "type": "orderPulse",
+      "n": 2,
+      "nx": -0.2837,
+      "ny": 0.4875,
+      "lifetime": 0.35
+    },
+    {
+      "t": 1.7167,
+      "type": "targetMark",
+      "nx": -0.2359,
+      "ny": 0.442,
+      "lifetime": 0.22
+    },
+    {
+      "t": 1.7167,
+      "type": "orderPulse",
+      "n": 3,
+      "nx": -0.2359,
+      "ny": 0.442,
+      "lifetime": 0.35
+    },
+    {
+      "t": 2.2167,
+      "type": "targetMark",
+      "nx": -0.2861,
+      "ny": 0.4683,
+      "lifetime": 0.22
+    },
+    {
+      "t": 2.2167,
+      "type": "orderPulse",
+      "n": 4,
+      "nx": -0.2861,
+      "ny": 0.4683,
+      "lifetime": 0.35
+    },
+    {
+      "t": 2.6334,
+      "type": "targetMark",
+      "nx": -0.1481,
+      "ny": 0.4318,
+      "lifetime": 0.22
+    },
+    {
+      "t": 2.6334,
+      "type": "orderPulse",
+      "n": 5,
+      "nx": -0.1481,
+      "ny": 0.4318,
+      "lifetime": 0.35
+    },
+    {
+      "t": 3.2584,
+      "type": "targetMark",
+      "nx": -0.1703,
+      "ny": 0.4812,
+      "lifetime": 0.22
+    },
+    {
+      "t": 3.2584,
+      "type": "orderPulse",
+      "n": 6,
+      "nx": -0.1703,
+      "ny": 0.4812,
+      "lifetime": 0.35
+    },
+    {
+      "t": 3.6334,
+      "type": "targetMark",
+      "nx": -0.2465,
+      "ny": 0.5359,
+      "lifetime": 0.22
+    },
+    {
+      "t": 3.6334,
+      "type": "orderPulse",
+      "n": 7,
+      "nx": -0.2465,
+      "ny": 0.5359,
+      "lifetime": 0.35
+    },
+    {
+      "t": 4.3,
+      "type": "targetMark",
+      "nx": -0.1795,
+      "ny": 0.4763,
+      "lifetime": 0.22
+    },
+    {
+      "t": 4.3,
+      "type": "orderPulse",
+      "n": 8,
+      "nx": -0.1795,
+      "ny": 0.4763,
+      "lifetime": 0.35
+    }
+  ],
+  "cues": []
+}

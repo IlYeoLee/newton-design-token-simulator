@@ -1,0 +1,235 @@
+{
+  "sport": "running",
+  "packName": "러닝 / 케이던스 Pack",
+  "dataStatus": "real-parsed",
+  "source": {
+    "name": "Fukuchi et al. 2017 — Running Biomechanics Dataset",
+    "url": "https://figshare.com/articles/dataset/4543435",
+    "dataType": "100Hz 3D marker trajectory — Subject 001, 2.5 m/s treadmill",
+    "licenseNote": "CC BY 4.0",
+    "sampleRateHz": 143,
+    "cadenceSpm": 80,
+    "avgStrideSec": 0.753
+  },
+  "duration": 3.12,
+  "hasWall": false,
+  "tokenCombination": [
+    "stepMark",
+    "orderPulse",
+    "pathLane"
+  ],
+  "tokens": [
+    {
+      "t": 0,
+      "type": "pathLane",
+      "nx": 0,
+      "ny": 0,
+      "lifetime": 3.0576
+    },
+    {
+      "t": 0,
+      "type": "stepMark",
+      "foot": "right",
+      "nx": 0.13,
+      "ny": 0.35,
+      "lifetime": 1.1856
+    },
+    {
+      "t": 0,
+      "type": "orderPulse",
+      "n": 1,
+      "nx": 0.13,
+      "ny": 0.35,
+      "lifetime": 1.1856
+    },
+    {
+      "t": 0.33999999999999997,
+      "type": "stepMark",
+      "foot": "left",
+      "nx": -0.13,
+      "ny": 0.06999999999999995,
+      "lifetime": 1.1856
+    },
+    {
+      "t": 0.33999999999999997,
+      "type": "orderPulse",
+      "n": 2,
+      "nx": -0.13,
+      "ny": 0.06999999999999995,
+      "lifetime": 1.1856
+    },
+    {
+      "t": 0.774,
+      "type": "stepMark",
+      "foot": "right",
+      "nx": 0.13,
+      "ny": -0.21000000000000008,
+      "lifetime": 1.1856
+    },
+    {
+      "t": 0.774,
+      "type": "orderPulse",
+      "n": 3,
+      "nx": 0.13,
+      "ny": -0.21000000000000008,
+      "lifetime": 1.1856
+    },
+    {
+      "t": 1.167,
+      "type": "stepMark",
+      "foot": "left",
+      "nx": -0.13,
+      "ny": -0.42,
+      "lifetime": 1.1856
+    },
+    {
+      "t": 1.167,
+      "type": "orderPulse",
+      "n": 1,
+      "nx": -0.13,
+      "ny": -0.42,
+      "lifetime": 1.1856
+    },
+    {
+      "t": 1.487,
+      "type": "stepMark",
+      "foot": "right",
+      "nx": 0.13,
+      "ny": -0.42,
+      "lifetime": 1.1856
+    },
+    {
+      "t": 1.487,
+      "type": "orderPulse",
+      "n": 2,
+      "nx": 0.13,
+      "ny": -0.42,
+      "lifetime": 1.1856
+    },
+    {
+      "t": 1.9400000000000002,
+      "type": "stepMark",
+      "foot": "left",
+      "nx": -0.13,
+      "ny": -0.42,
+      "lifetime": 1.1856
+    },
+    {
+      "t": 1.9400000000000002,
+      "type": "orderPulse",
+      "n": 3,
+      "nx": -0.13,
+      "ny": -0.42,
+      "lifetime": 1.1856
+    },
+    {
+      "t": 2.2600000000000002,
+      "type": "stepMark",
+      "foot": "right",
+      "nx": 0.13,
+      "ny": -0.42,
+      "lifetime": 1.1856
+    },
+    {
+      "t": 2.2600000000000002,
+      "type": "orderPulse",
+      "n": 1,
+      "nx": 0.13,
+      "ny": -0.42,
+      "lifetime": 1.1856
+    },
+    {
+      "t": 2.72,
+      "type": "stepMark",
+      "foot": "left",
+      "nx": -0.13,
+      "ny": -0.42,
+      "lifetime": 1.1856
+    },
+    {
+      "t": 2.72,
+      "type": "orderPulse",
+      "n": 2,
+      "nx": -0.13,
+      "ny": -0.42,
+      "lifetime": 1.1856
+    }
+  ],
+  "cues": [
+    {
+      "phase": "stretch",
+      "t": 0,
+      "text": "발목을 가볍게 돌려주세요"
+    },
+    {
+      "phase": "stretch",
+      "t": 1.2,
+      "text": "무릎 살짝 구부려, 준비해요"
+    },
+    {
+      "phase": "stretch",
+      "t": 2.5,
+      "text": "호흡 가다듬고"
+    },
+    {
+      "phase": "prelearn",
+      "t": 0,
+      "text": "오른발 착지"
+    },
+    {
+      "phase": "prelearn",
+      "t": 0.27999999999999997,
+      "text": "왼발 착지"
+    },
+    {
+      "phase": "prelearn",
+      "t": 0.714,
+      "text": "리듬 따라서"
+    },
+    {
+      "phase": "prelearn",
+      "t": 1.107,
+      "text": "계속"
+    },
+    {
+      "phase": "actual",
+      "t": 0,
+      "text": "오른발"
+    },
+    {
+      "phase": "actual",
+      "t": 0.3,
+      "text": "왼발"
+    },
+    {
+      "phase": "actual",
+      "t": 0.734,
+      "text": "오른발"
+    },
+    {
+      "phase": "actual",
+      "t": 1.127,
+      "text": "왼발"
+    },
+    {
+      "phase": "actual",
+      "t": 1.447,
+      "text": "오른발"
+    },
+    {
+      "phase": "actual",
+      "t": 1.9000000000000001,
+      "text": "왼발"
+    },
+    {
+      "phase": "actual",
+      "t": 2.22,
+      "text": "오른발"
+    },
+    {
+      "phase": "actual",
+      "t": 2.68,
+      "text": "왼발"
+    }
+  ]
+}

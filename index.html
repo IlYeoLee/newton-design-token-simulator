@@ -1,0 +1,411 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- index.html은 절대 캐시 금지: 해시된 에셋(main-xxxx.js)을 새로 물어오게 함. 없으면 구버전 UI 고착 -->
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
+  <title>Newton — Design Token Simulator</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔥</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Gowun+Dodum&family=Noto+Sans+KR:wght@300;500;700;900&family=Noto+Serif+KR:wght@600;900&display=swap" rel="stylesheet">
+  <style>
+    /* 피그마 StageCard 임포트 파이프라인 — 로컬 전용 폰트를 번들해 시뮬에서 직접 렌더.
+       Pretendard: OFL, Supreme: Fontshare(ITF) 무료 라이선스 — 둘 다 웹 임베드 명시 허용. */
+    @font-face { font-family: 'Pretendard'; src: url('fonts/Pretendard-Bold.woff2') format('woff2'); font-weight: 700; font-display: swap; }
+    @font-face { font-family: 'Supreme'; src: url('fonts/Supreme-Medium.woff2') format('woff2'); font-weight: 500; font-display: swap; }
+    @font-face { font-family: 'Supreme'; src: url('fonts/Supreme-Bold.woff2') format('woff2'); font-weight: 700; font-display: swap; }
+    :root {
+      --bg: #0c0e12;
+      --panel: #14171d;
+      --panel2: #1a1e26;
+      --line: #262b35;
+      --text: #e8eaf0;
+      --dim: #8b93a3;
+      --accent: #fa3030;
+      --ok: #6ad4de;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { height: 100%; overflow: hidden; }
+    body {
+      background: var(--bg); color: var(--text);
+      font-family: "Pretendard", -apple-system, "Apple SD Gothic Neo", sans-serif;
+      display: flex;
+    }
+    #panel {
+      width: 300px; min-width: 300px; height: 100%;
+      background: var(--panel); border-right: 1px solid var(--line);
+      display: flex; flex-direction: column; overflow-y: auto;
+    }
+    #panel header { padding: 16px 16px 10px; border-bottom: 1px solid var(--line); }
+    #panel header h1 { font-size: 14px; font-weight: 700; letter-spacing: 0.4px; }
+    #panel header p { font-size: 11px; color: var(--dim); margin-top: 3px; }
+
+    .tabs { display: flex; gap: 6px; padding: 12px 16px; }
+    .tabs button {
+      flex: 1; padding: 8px 0; border: 1px solid var(--line); border-radius: 8px;
+      background: var(--panel2); color: var(--dim); font-size: 12px; font-weight: 600;
+      cursor: pointer; transition: all .15s;
+    }
+    .tabs button.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+    .section { padding: 12px 16px; border-bottom: 1px solid var(--line); }
+    .section h2 { font-size: 11px; font-weight: 700; color: var(--dim); letter-spacing: 1px; margin-bottom: 10px; }
+
+    #source-info { font-size: 11px; line-height: 1.6; color: var(--dim); }
+    #source-info b { color: var(--text); display: block; font-size: 12px; margin-bottom: 2px; }
+
+    .slider-row { margin-bottom: 12px; }
+    .slider-row label { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 5px; }
+    .slider-row label .val { color: var(--accent); font-variant-numeric: tabular-nums; font-weight: 600; }
+    .slider-row input[type=range] {
+      width: 100%; -webkit-appearance: none; height: 4px; border-radius: 2px;
+      background: var(--line); outline: none;
+    }
+    .slider-row input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%;
+      background: var(--accent); cursor: pointer;
+    }
+
+    #timeline-wrap { padding: 12px 16px; border-bottom: 1px solid var(--line); }
+    #timeline { width: 100%; height: 56px; background: var(--panel2); border-radius: 6px; cursor: pointer; }
+    #transport { display: flex; gap: 8px; margin-top: 10px; align-items: center; }
+    #transport button {
+      padding: 6px 14px; border: 1px solid var(--line); border-radius: 6px;
+      background: var(--panel2); color: var(--text); font-size: 12px; cursor: pointer;
+    }
+    #transport button:hover { border-color: var(--accent); }
+    #clock { font-size: 11px; color: var(--dim); font-variant-numeric: tabular-nums; margin-left: auto; }
+
+    #token-legend { font-size: 11px; color: var(--dim); line-height: 1.9; }
+    #token-legend .chip {
+      display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px;
+    }
+
+    #stage { flex: 1; position: relative; height: 100%; }
+    #stage canvas { display: block; }
+    #hud {
+      position: absolute; top: 14px; left: 14px; pointer-events: none;
+      font-size: 12px; color: var(--dim); background: rgba(12,14,18,.72);
+      padding: 8px 12px; border-radius: 8px; border: 1px solid var(--line);
+      max-width: 320px; line-height: 1.6;
+    }
+    #hud b { color: var(--text); }
+    #event-flash {
+      position: absolute; bottom: 18px; left: 50%; transform: translateX(-50%);
+      font-size: 13px; font-weight: 700; color: var(--ok);
+      opacity: 0; transition: opacity .12s; pointer-events: none;
+      background: rgba(12,14,18,.8); padding: 6px 16px; border-radius: 20px;
+      border: 1px solid rgba(105,240,174,.4);
+    }
+    #loading {
+      position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+      background: var(--bg); z-index: 10; font-size: 13px; color: var(--dim);
+      flex-direction: column; gap: 10px;
+    }
+    .spin {
+      width: 26px; height: 26px; border: 3px solid var(--line); border-top-color: var(--accent);
+      border-radius: 50%; animation: spin 0.9s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+  <script type="module" crossorigin src="./assets/main-BzeD67tI.js"></script>
+  <link rel="modulepreload" crossorigin href="./assets/fx-core-xuHeILQq.js">
+  <link rel="modulepreload" crossorigin href="./assets/tokens-DxWm2CbO.js">
+</head>
+<body>
+  <aside id="panel">
+    <header>
+      <h1>NEWTON · Design Token Simulator</h1>
+      <p>외부 데이터 → 디자인 토큰 → 빔 UI → 따라하기 검증</p>
+    </header>
+
+    <nav class="tabs" id="pack-tabs">
+      <button data-pack="running" class="active">러닝</button>
+      <button id="run-expert" title="Bandai 실측 러너(run_normal.bvh)에서 자동 추출된 전문가 팩 — 손 배치 0. 봇도 그 러너의 원본 모션을 그대로 재생" style="display:none;border-color:#fec389;color:#fec389;">⭐ 러너</button>
+      <button id="run-video" title="영상 → MediaPipe 포즈 → 발 접지 자동 추출 팩 (video_pose_extract.py). 현재는 폐루프 검증 샘플(시뮬 봇 측면 캡처, Δt +9~32ms) — 외부 영상으로 교체 가능" style="display:none;border-color:#d1feff;color:#d1feff;">🎥 영상</button>
+      <button data-pack="boxing">복싱</button>
+      <button id="bx-video" title="실사 섀도복싱 영상(Pexels 7187515, 측면)에서 펀치 33건 자동 추출 — 손 배치 0. 리듬·타겟 높이가 그 복서의 것" style="display:none;border-color:#d1feff;color:#d1feff;">🎥 복서</button>
+      <button data-pack="basketball">농구</button>
+      <button id="bk-curry" title="NBA SportVU 실경기(2015-10-31, 53득점)에서 자동 추출된 커리 스텝백 — 손 배치 0" style="display:none;border-color:#fec389;color:#fec389;">⭐ 커리</button>
+    </nav>
+
+    <div class="section">
+      <h2>원본 데이터</h2>
+      <div id="source-info">로드 중…</div>
+    </div>
+
+    <div id="timeline-wrap">
+      <h2 style="font-size:11px;font-weight:700;color:var(--dim);letter-spacing:1px;margin-bottom:10px;">이벤트 타임라인</h2>
+      <canvas id="timeline" width="268" height="56"></canvas>
+      <div id="transport">
+        <button id="btn-play">⏸ 일시정지</button>
+        <span id="clock">0.00 / 0.00s</span>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>디자인 토큰 조절</h2>
+      <div class="slider-row">
+        <label>선행 시간 <span class="val" id="v-lead">450ms</span></label>
+        <input type="range" id="s-lead" min="150" max="800" step="10" value="450">
+      </div>
+      <div class="slider-row">
+        <label>토큰 크기 <span class="val" id="v-size">1.0×</span></label>
+        <input type="range" id="s-size" min="60" max="160" step="5" value="100">
+      </div>
+      <div class="slider-row">
+        <label>동시 표시 이벤트 <span class="val" id="v-count">3개</span></label>
+        <input type="range" id="s-count" min="1" max="4" step="1" value="3">
+      </div>
+      <div class="slider-row">
+        <label>재생 속도 <span class="val" id="v-speed">1.0×</span></label>
+        <input type="range" id="s-speed" min="25" max="150" step="5" value="100">
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>투사면 <span style="color:var(--dim);font-weight:400;font-size:10px;">· 바닥/벽 테마</span></h2>
+      <div id="surf-chips" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
+    </div>
+
+    <div class="section" id="session-section">
+      <h2>세션 흐름 <span style="color:var(--accent)">A→B→C</span> <span id="session-avail" style="color:var(--dim);font-weight:400;font-size:10px;">· 러닝 전용</span></h2>
+      <button id="btn-session" style="width:100%;padding:9px 0;border:1px solid var(--accent);border-radius:6px;background:rgba(250,48,48,.12);color:var(--accent);font-size:12px;font-weight:700;cursor:pointer;">세션 시작 (1인칭 전환)</button>
+      <button id="btn-demo" style="width:100%;padding:8px 0;margin-top:6px;border:1px solid var(--line);border-radius:6px;background:var(--panel2);color:var(--text);font-size:12px;cursor:pointer;">🎬 데모 투어 (3종목 자동 순회)</button>
+      <p style="font-size:11px;color:var(--dim);line-height:1.5;margin-top:8px;">
+        시작하면 <b style="color:var(--text)">1인칭으로 자동 전환</b>되고, 무입력이면 각 단계가 자동 진행됩니다.
+        데모 투어는 러닝→복싱→농구를 손 안 대고 순회 — 영상 녹화용.
+      </p>
+    </div>
+
+    <!-- 제작자 모드 · 에셋 드롭인 은퇴 — 룩 시스템 이전 시대의 검수 도구.
+         아트 드롭이 MARK 상태 셰이더를 꺼버려 토큰 원칙과 충돌. 대체 경로:
+         발형 SVG=룩 글리프 FOOT 슬롯 · 마크 형태=MARK 토큰 · 토큰별 아트=스튜디오 디자인 -->
+
+    <div class="section">
+      <h2>🎬 모션 미리보기 · 이식 클립</h2>
+      <div style="display:flex;gap:6px;">
+        <select id="mocap-preview-sel" style="flex:1 1 0;min-width:0;padding:6px;border:1px solid var(--line);border-radius:6px;background:var(--panel2);color:var(--text);font-size:11px;"></select>
+        <button id="mocap-preview-btn" style="flex:0.55;padding:7px 0;border:1px solid var(--line);border-radius:6px;background:var(--panel2);color:var(--text);font-size:11px;cursor:pointer;">▶ 재생</button>
+      </div>
+      <p style="font-size:11px;color:var(--dim);line-height:1.5;margin-top:6px;">
+        외부 소스(실사 영상·CMU·SFU·Motifect)에서 이식한 실측 클립을 봇으로 바로 확인. 재생 중 다시 누르면 정지.
+      </p>
+    </div>
+
+    <div class="section">
+      <h2>모션 검증 · 실측 모캡</h2>
+      <div style="display:flex;gap:6px;">
+        <button id="verify-warmup" style="flex:1;padding:7px 0;border:1px solid var(--line);border-radius:6px;background:var(--panel2);color:var(--text);font-size:11px;cursor:pointer;">스트레칭</button>
+        <button id="verify-kick" style="flex:1;padding:7px 0;border:1px solid var(--line);border-radius:6px;background:var(--panel2);color:var(--text);font-size:11px;cursor:pointer;">킥 (최악)</button>
+        <button id="verify-off" style="flex:0.5;padding:7px 0;border:1px solid var(--line);border-radius:6px;background:var(--panel2);color:var(--dim);font-size:11px;cursor:pointer;">끄기</button>
+      </div>
+      <p style="font-size:11px;color:var(--dim);line-height:1.5;margin-top:8px;">
+        실제 모캡을 X봇에 입혀 <b style="color:var(--text)">무릎 유닛 투사가 버티는지</b> 검증 (오차=아래 <b style="color:var(--text)">흔들림 보정</b>).
+        <b style="color:var(--text)">스트레칭</b>은 통과(≈2cm). <b style="color:var(--text)">킥은 정강이가 위로 차올라 짐벌이 포화 → 투사 붕괴</b>(≈60cm+):
+        극단 동작에선 무릎유닛이 바닥 투사를 못 함(정직한 물리 한계). 결국 투사는 <b style="color:var(--text)">발이 지면에 닿는 스탠스 국면</b>에만 성립.
+      </p>
+      <button id="verify-boxshadow" style="width:100%;padding:7px 0;margin-top:8px;border:1px solid var(--line);border-radius:6px;background:var(--panel2);color:var(--text);font-size:11px;cursor:pointer;">복싱 그림자·거리 검증</button>
+      <p style="font-size:11px;color:var(--dim);line-height:1.5;margin-top:6px;">
+        복싱 팩으로 전환 후 스테이션 빔이 만드는 <b style="color:var(--text)">주먹 그림자가 벽 타겟을 가리는지</b> + 필요 공간 깊이를 실측 (상단 기하 HUD).
+      </p>
+    </div>
+
+    <div class="section">
+      <h2>판정 · 세션 리포트</h2>
+      <div class="slider-row">
+        <label>타이밍 허용 <span class="val" id="v-tolt">±120ms</span></label>
+        <input type="range" id="s-tolt" min="50" max="250" step="10" value="120">
+      </div>
+      <div class="slider-row">
+        <label>위치 허용 <span class="val" id="v-tolp">15cm</span></label>
+        <input type="range" id="s-tolp" min="5" max="30" step="1" value="15">
+      </div>
+      <div class="slider-row">
+        <label>학습자 실력 <span class="val" id="v-skill">70%</span></label>
+        <input type="range" id="s-skill" min="30" max="100" step="5" value="70">
+      </div>
+      <div id="report" style="font-size:12px;line-height:1.8;color:var(--dim);">
+        루프 1회 완료 시 리포트 생성…
+      </div>
+      <p style="font-size:11px;color:var(--dim);line-height:1.5;margin-top:6px;">
+        실력 100% = 완벽한 팔로워(상한 캘리브레이션).
+        낮출수록 타이밍 ±150ms·위치 ±12cm까지 오차 주입 — 허용 오차 설계 실험용.
+      </p>
+    </div>
+
+    <div class="section" id="view-section">
+      <h2>시점 / 시야 검증</h2>
+      <div style="display:flex;gap:8px;margin-bottom:8px;">
+        <button id="btn-fp" style="flex:1;padding:8px 0;border:1px solid var(--line);border-radius:6px;background:var(--panel2);color:var(--text);font-size:12px;font-weight:600;cursor:pointer;">1인칭 (러너 시선)</button>
+        <button id="btn-cone" style="flex:1;padding:8px 0;border:1px solid var(--line);border-radius:6px;background:var(--panel2);color:var(--text);font-size:12px;font-weight:600;cursor:pointer;">시야 콘</button>
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:8px;">
+        <button id="btn-edit" title="드래그로 빔프로젝터·인물 위치 이동 (3인칭)" style="flex:2;padding:8px 0;border:1px solid var(--line);border-radius:6px;background:var(--panel2);color:var(--text);font-size:12px;font-weight:600;cursor:pointer;">✥ 배치 편집 (드래그)</button>
+        <button id="btn-edit-reset" title="배치 되돌리기 (더블클릭도 가능)" style="flex:1;padding:8px 0;border:1px solid var(--line);border-radius:6px;background:var(--panel2);color:var(--text);font-size:12px;font-weight:600;cursor:pointer;">↺ 리셋</button>
+      </div>
+      <div class="slider-row">
+        <label>시선 각도 <span class="val" id="v-pitch">−18°</span></label>
+        <input type="range" id="s-pitch" min="-45" max="-10" step="1" value="-18">
+      </div>
+      <p style="font-size:11px;color:var(--dim);line-height:1.6;">
+        1인칭 = VOR 안정화된 눈 (머리는 흔들려도 응시점은 고정).
+        인간은 달릴 때 발이 아니라 <b style="color:var(--text)">시선 낙하점(전방 1.4m~)</b>을 봄 —
+        투사 끝 거리를 늘려 교집합을 실험.
+      </p>
+    </div>
+
+    <div class="section">
+      <h2>투사면 설정</h2>
+      <div class="slider-row">
+        <label>바닥 시작 (몸 앞) <span class="val" id="v-fpnear">5cm</span></label>
+        <input type="range" id="s-fpnear" min="5" max="60" step="5" value="5">
+      </div>
+      <div class="slider-row">
+        <label>바닥 끝 <span class="val" id="v-fpfar">200cm</span></label>
+        <input type="range" id="s-fpfar" min="120" max="400" step="10" value="200">
+      </div>
+      <div class="slider-row">
+        <label>벽면 가로 <span class="val" id="v-wallw">180cm</span></label>
+        <input type="range" id="s-wallw" min="80" max="340" step="10" value="260">
+      </div>
+      <div class="slider-row">
+        <label>벽면 세로 <span class="val" id="v-wallh">180cm</span></label>
+        <input type="range" id="s-wallh" min="80" max="280" step="10" value="160">
+      </div>
+    </div>
+
+    <div class="section" id="stab-section">
+      <h2>무릎 투사 안정화 <span style="color:#4fc3f7">(이식)</span></h2>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+        <button id="btn-stab" style="padding:7px 14px;border:1px solid var(--ok);border-radius:6px;background:rgba(105,240,174,.12);color:var(--ok);font-size:12px;font-weight:700;cursor:pointer;">보정 ON</button>
+        <span style="font-size:11px;color:var(--dim);">투사 오차 <b id="stab-err" style="color:var(--accent);font-variant-numeric:tabular-nums;">0.0cm</b></span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:11px;color:var(--dim);">
+        <span id="stab-phase" style="padding:2px 7px;border-radius:4px;border:1px solid var(--line);background:var(--panel2);font-weight:700;">착지</span>
+        <span>정강이 각속도 <b id="stab-omega" style="color:var(--text);font-variant-numeric:tabular-nums;">0</b>°/s</span>
+        <span style="opacity:.6">· 예산 <b id="stab-budget" style="color:var(--text);font-variant-numeric:tabular-nums;">0.00</b>cm</span>
+      </div>
+      <p style="font-size:11px;color:var(--dim);line-height:1.6;">
+        러닝·농구는 <b style="color:var(--text)">무릎 장착 모듈</b>에서 투사.
+        스프링-댐퍼(K<sub>s</sub>=22·K<sub>d</sub>=9)·서보 300°/s 제한.
+        OFF 시 무릎 스윙이 UI에 그대로 반영됩니다.
+      </p>
+      <button id="btn-budget" style="width:100%;padding:7px 0;margin-top:6px;border:1px solid var(--line);border-radius:6px;background:var(--panel2);color:var(--text);font-size:11px;cursor:pointer;">🛡 오차예산 · 가정과 출처</button>
+    </div>
+
+    <div class="section">
+      <h2>토큰 언어</h2>
+      <div id="token-legend"></div>
+    </div>
+  </aside>
+
+  <main id="stage">
+    <div id="loading"><div class="spin"></div><span>X Bot · 팩 데이터 로드 중…</span></div>
+    <div id="hud"></div>
+    <div id="event-flash"></div>
+    <div id="voice-caption" style="position:absolute;bottom:52px;left:50%;transform:translateX(-50%);
+      max-width:70%;padding:10px 18px;border-radius:22px;background:rgba(12,14,18,.82);
+      border:1px solid var(--line);font-size:14px;color:var(--text);opacity:0;transition:opacity .3s;
+      pointer-events:none;text-align:center;line-height:1.5;">
+    </div>
+
+    <button id="btn-real" style="position:absolute;bottom:18px;right:60px;z-index:29;padding:9px 12px;border:1px solid var(--line);border-radius:8px;background:rgba(16,19,24,.9);color:var(--text);font-size:12px;font-weight:700;cursor:pointer;" title="실물 뷰 — 투사 커버리지(붉은 영역·빔) 숨김: 실제 러너 눈에는 투사된 UI만 보입니다">👁</button>
+    <button id="btn-day" style="position:absolute;bottom:18px;right:18px;z-index:29;padding:9px 12px;border:1px solid var(--line);border-radius:8px;background:rgba(16,19,24,.9);color:var(--text);font-size:12px;font-weight:700;cursor:pointer;" title="주간 모드 — 낮에도 보이는 투사(주광 가시 레이저)가 제품 스토리">☀️</button>
+    <a href="docs/newton-wireframe.html#tokens" target="_blank" rel="noopener" id="link-wireframe" style="position:absolute;bottom:18px;right:352px;z-index:29;padding:9px 14px;border:1px solid var(--line);border-radius:8px;background:rgba(16,19,24,.9);color:var(--text);font-size:12px;font-weight:700;cursor:pointer;text-decoration:none;">📐 설계 문서</a>
+    <a href="https://www.figma.com/design/92a2mffNpTZ5PltLln7cgq" target="_blank" rel="noopener" id="link-figma" title="장면 정보 카드(제목·CTA·카피)·룩 색 토큰 디자인 원본 — 여기서 편집" style="position:absolute;bottom:18px;right:228px;z-index:29;padding:9px 14px;border:1px solid var(--line);border-radius:8px;background:rgba(16,19,24,.9);color:var(--text);font-size:12px;font-weight:700;cursor:pointer;text-decoration:none;">🎨 피그마</a>
+    <button id="btn-lang" title="벽 투사 텍스트 한/영 전환" style="position:absolute;bottom:18px;right:206px;z-index:29;padding:9px 14px;border:1px solid var(--line);border-radius:8px;background:rgba(16,19,24,.9);color:var(--text);font-size:12px;font-weight:700;cursor:pointer;">EN</button>
+    <button id="insp-tab-look" title="룩 시스템(FX Lab) — 셰이더·모션·타이밍·색 팔레트 전체 페이지" style="position:absolute;bottom:18px;right:104px;z-index:29;padding:9px 14px;border:1px solid #fec389;border-radius:8px;background:rgba(254,195,137,.12);color:#fec389;font-size:12px;font-weight:700;cursor:pointer;">🔥 룩 시스템</button>
+    <button id="btn-specmap" title="전 세션 장면의 실제 구성 요소와 편집 위치 — 씬 그래프에서 자동 생성 (도식 아님)" style="position:absolute;bottom:18px;right:476px;z-index:29;padding:9px 14px;border:1px solid var(--line);border-radius:8px;background:rgba(16,19,24,.9);color:var(--text);font-size:12px;font-weight:700;cursor:pointer;">🗺 장면 명세</button>
+    <div id="studio" style="position:absolute;top:0;left:0;bottom:0;width:min(420px,31vw);background:rgba(12,14,18,.98);border-right:1px solid var(--line);z-index:28;display:none;flex-direction:column;">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px 8px;border-bottom:1px solid var(--line);">
+        <b style="font-size:13px;">✎ 편집 <span style="color:var(--dim);font-weight:400;font-size:11px;">· 러닝 지면</span></b>
+        <button id="studio-close" style="border:none;background:none;color:var(--dim);font-size:16px;cursor:pointer;">✕</button>
+      </div>
+      <div id="studio-scope" style="display:flex;gap:5px;padding:9px 14px;border-bottom:1px solid var(--line);align-items:center;flex-wrap:wrap;">
+        <button class="stsp active" data-sport="running" style="padding:5px 9px;border:1px solid var(--accent);border-radius:5px;background:rgba(250,48,48,.16);color:var(--accent);font-size:10.5px;cursor:pointer;">러닝</button>
+        <button class="stsp" data-sport="boxing" style="padding:5px 9px;border:1px solid var(--line);border-radius:5px;background:var(--panel2);color:var(--text);font-size:10.5px;cursor:pointer;">복싱</button>
+        <button class="stsp" data-sport="basketball" style="padding:5px 9px;border:1px solid var(--line);border-radius:5px;background:var(--panel2);color:var(--text);font-size:10.5px;cursor:pointer;">농구</button>
+        <button id="studio-bgpreview" style="margin-left:auto;padding:5px 9px;border:1px solid var(--line);border-radius:5px;background:var(--panel2);color:var(--dim);font-size:10.5px;cursor:pointer;" title="편집은 다크 스테이지 위에서 — 실물(주간/바닥 테마) 배경을 잠깐 켜서 확인">☀️ 실물 확인</button>
+      </div>
+      <div id="cut-board" style="display:flex;gap:6px;padding:8px 12px;border-bottom:1px solid var(--line);overflow-x:auto;scrollbar-width:thin;"></div>
+      <select id="studio-stage" style="display:none;"></select>
+      <div id="studio-palette" style="display:flex;gap:6px;padding:10px 14px;border-bottom:1px solid var(--line);flex-wrap:wrap;align-items:center;">
+        <button class="stpal active" data-tool="select" style="padding:6px 12px;border:1px solid var(--accent);border-radius:6px;background:rgba(250,48,48,.16);color:var(--accent);font-size:11px;cursor:pointer;">↖ 고르기</button>
+        <button class="stpal" data-tool="mark" style="padding:6px 12px;border:1px solid var(--line);border-radius:6px;background:var(--panel2);color:var(--text);font-size:11px;cursor:pointer;">＋ 토큰 넣기</button>
+        <button id="studio-lane" style="padding:6px 10px;border:1px solid var(--line);border-radius:6px;background:var(--panel2);color:var(--dim);font-size:11px;cursor:pointer;">레인(선)</button>
+        
+      </div>
+      <div id="studio-scene-palette" style="display:none;gap:6px;padding:10px 14px;border-bottom:1px solid var(--line);flex-wrap:wrap;align-items:center;">
+        <button class="stadd" data-k="text" style="padding:6px 10px;border:1px solid var(--line);border-radius:6px;background:var(--panel2);color:var(--text);font-size:11px;cursor:pointer;">＋𝐓 글자</button>
+        <button class="stadd" data-k="ring" style="padding:6px 10px;border:1px solid var(--line);border-radius:6px;background:var(--panel2);color:var(--text);font-size:11px;cursor:pointer;">＋◎ 링</button>
+        <button class="stadd" data-k="arrow" style="padding:6px 10px;border:1px solid var(--line);border-radius:6px;background:var(--panel2);color:var(--text);font-size:11px;cursor:pointer;">＋➤ 화살표</button>
+        <button class="stadd" data-k="foot" style="padding:6px 10px;border:1px solid var(--line);border-radius:6px;background:var(--panel2);color:var(--text);font-size:11px;cursor:pointer;">＋👣 발</button>
+        
+      </div>
+      <div id="scene-layers" style="display:none;flex-direction:column;gap:2px;padding:6px 12px;border-bottom:1px solid var(--line);max-height:148px;overflow-y:auto;"></div>
+      <div id="studio-canvas-wrap" style="display:none;flex:0 0 180px;position:relative;min-height:0;">
+        <canvas id="studio-canvas" style="position:absolute;inset:0;width:100%;height:100%;"></canvas>
+        <div id="studio-tip" style="position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:2;background:rgba(250,48,48,.94);color:#fff;padding:7px 14px;border-radius:20px;font-size:12px;font-weight:600;pointer-events:none;box-shadow:0 3px 12px rgba(0,0,0,.5);">👇 동그라미(토큰) 하나를 클릭해 보세요</div>
+      </div>
+      <div style="flex:1;min-height:0;"></div>
+      <div style="padding:6px 14px 0;font-size:10px;color:var(--dim);border-top:1px solid var(--line);">✓ 편집 내용은 <b style="color:var(--ok)">자동 저장</b>돼요 · <b style="color:var(--text)">Ctrl+Z</b> 되돌리기 / <b style="color:var(--text)">Ctrl+Shift+Z</b> 다시.</div>
+      <div style="display:flex;gap:6px;padding:8px 14px 0;">
+        <button id="studio-undo" style="flex:1;padding:7px 0;border:1px solid var(--line);border-radius:6px;background:var(--panel2);color:var(--text);font-size:11px;cursor:pointer;">↶ 되돌리기</button>
+        <button id="studio-redo" style="flex:1;padding:7px 0;border:1px solid var(--line);border-radius:6px;background:var(--panel2);color:var(--text);font-size:11px;cursor:pointer;">↷ 다시</button>
+      </div>
+      <div style="display:flex;gap:6px;padding:8px 14px 12px;">
+        <button id="studio-top" style="flex:1;padding:7px 0;border:1px solid var(--line);border-radius:6px;background:var(--panel2);color:var(--text);font-size:11px;cursor:pointer;">⬒ 탑뷰</button>
+        <button id="studio-reset" style="flex:1;padding:7px 0;border:1px solid var(--line);border-radius:6px;background:var(--panel2);color:var(--dim);font-size:11px;cursor:pointer;">↺ 원본 팩</button>
+        <button id="studio-export" style="flex:1.3;padding:7px 0;border:1px solid var(--accent);border-radius:6px;background:rgba(250,48,48,.12);color:var(--accent);font-size:11px;font-weight:700;cursor:pointer;">⧉ 팩 복사</button>
+      </div>
+    </div>
+    <!-- 우측 인스펙터 — 좌=구조(컷·레이어) / 우=속성·룩 (피그마 2패널) -->
+    <div id="inspector" style="position:absolute;top:0;right:0;bottom:0;width:min(420px,31vw);background:rgba(12,14,18,.98);border-left:1px solid var(--line);z-index:28;display:none;flex-direction:column;">
+      <div style="display:flex;gap:8px;padding:9px 14px;border-bottom:1px solid var(--line);align-items:center;">
+        <b style="flex:1;font-size:12px;color:var(--text);">배치 · 판정 <span style="color:var(--dim);font-weight:400;font-size:10px;">비주얼은 룩 시스템이 정합니다</span></b>
+      </div>
+      <div id="studio-props" style="flex:1;min-height:0;overflow-y:auto;background:rgba(16,19,24,.6);"></div>
+    </div>
+
+
+    <!-- 전환 베일 (단계 전환 시 부드러운 암전) -->
+    <div id="stage-veil" style="position:absolute;inset:0;background:#0c0e12;opacity:0;transition:opacity .28s;pointer-events:none;"></div>
+    <!-- 웨어러블 개입 1인칭 표시 (화면 가장자리 글로우) -->
+    <div id="wear-fx" style="position:absolute;inset:0;opacity:0;transition:opacity .4s;pointer-events:none;"></div>
+
+    <!-- 세션 흐름 플로팅 컨트롤 (스테이지 위) -->
+    <div id="session-hud" style="position:absolute;top:16px;right:16px;width:280px;display:none;z-index:20;
+      background:rgba(16,19,24,.92);backdrop-filter:blur(8px);border:1px solid var(--line);
+      border-radius:12px;padding:12px 14px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+        <span style="font-size:11px;font-weight:700;color:var(--accent);letter-spacing:.3px;">세션 흐름</span>
+        <span id="hud-idx" style="font-size:10px;color:var(--dim2);margin-left:auto;">1 / 17</span>
+      </div>
+      <div id="hud-stage" style="font-size:13px;font-weight:700;color:var(--text);line-height:1.4;min-height:36px;">—</div>
+      <div style="display:flex;gap:6px;margin-top:10px;">
+        <button id="btn-stage-prev" style="flex:1;padding:8px 0;border:1px solid var(--line);border-radius:7px;background:var(--panel2);color:var(--text);font-size:12px;cursor:pointer;">◀ 이전</button>
+        <button id="btn-tap" style="flex:1.4;padding:8px 0;border:1px solid var(--accent);border-radius:7px;background:rgba(250,48,48,.14);color:var(--accent);font-size:12px;font-weight:700;cursor:pointer;">👣 두 번 탭</button>
+        <button id="btn-stage-next" style="flex:1;padding:8px 0;border:1px solid var(--line);border-radius:7px;background:var(--panel2);color:var(--text);font-size:12px;cursor:pointer;">다음 ▶</button>
+      </div>
+      <div style="display:flex;gap:6px;margin-top:6px;">
+        <button id="btn-tts" style="flex:0.5;padding:7px 0;border:1px solid var(--line);border-radius:7px;background:var(--panel2);color:var(--text);font-size:12px;cursor:pointer;">🔊</button>
+        <button id="btn-view" style="flex:1;padding:7px 0;border:1px solid var(--line);border-radius:7px;background:var(--panel2);color:var(--dim);font-size:11px;cursor:pointer;">3인칭 보기</button>
+        <button id="btn-session-stop" style="flex:1;padding:7px 0;border:1px solid var(--line);border-radius:7px;background:var(--panel2);color:var(--dim);font-size:11px;cursor:pointer;">■ 세션 중단</button>
+      </div>
+    </div>
+  </main>
+
+  <!-- 🔥 룩 시스템 — FX Lab. 우측 도킹 사이드패널(전체화면 아님) → 편집하는 동안 좌측에 씬이 보여
+       토큰 조절이 실시간 반영되는 걸 눈으로 확인(유저: '실시간 반영 안돼'=불투명 전체화면이 씬을 가렸던 것). -->
+  <div id="fxlab-overlay" style="position:fixed;top:0;right:0;bottom:0;width:64vw;min-width:900px;z-index:100;display:none;background:#0A0C10;box-shadow:-18px 0 46px rgba(0,0,0,.55);border-left:1px solid #2a2f3a;">
+    <iframe id="fxlab-frame" style="width:100%;height:100%;border:0;display:block;"></iframe>
+    <button id="fxlab-close" style="position:absolute;top:14px;right:20px;z-index:101;padding:8px 16px;border:1px solid #fec389;border-radius:8px;background:rgba(11,13,17,.92);color:#fec389;font-size:12px;font-weight:700;cursor:pointer;">✕ 시뮬로 돌아가기 (자동 저장됨)</button>
+  </div>
+
+</body>
+</html>
