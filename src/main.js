@@ -4686,8 +4686,11 @@ void main(){
       const sfp = { ox: _fpSmooth.ox, oz: _fpSmooth.oz, fx: _fpSmooth.fx / _fl, fz: _fpSmooth.fz / _fl };
       sfp.rx = -sfp.fz; sfp.rz = sfp.fx;   // right = (-fwd.z, fwd.x) — projector와 동일 규약
       // 풋프린트 중앙(전방 fpNear~fpFar 중간)에 대지 중심을 앵커. 직사각형(어핀) — 복싱 벽과 동일.
-      const dMid = (rig.fpNear + rig.fpFar) / 2;
-      const cx = sfp.ox + sfp.fx * dMid, cz = sfp.oz + sfp.fz * dMid;
+      const dMid = (rig.fpNear + rig.fpFar) / 2;   // 발자국·토큰 밴드 앵커용(러너 자세 추종 — 아래 stageG에서 사용)
+      // UI 프레임(타이틀·도트·SPM)은 자세(서기/달리기)로 fpNear/fpFar가 변해도 타이틀 투사 높이가 일정하도록 고정 전방거리 사용.
+      // 방향(fx/fz)·원점(ox/oz)은 그대로 추종(러너 따라 이동·회전 유지), 전방거리·스케일만 고정 → 전 화면 타이틀 Y 통일(유저: 시작 UI 기준).
+      const uiMid = 1.1;
+      const cx = sfp.ox + sfp.fx * uiMid, cz = sfp.oz + sfp.fz * uiMid;
       // 로컬축 → 월드: 대지 폭(+X)→풋프린트 우측, 대지 높이(+Y=위쪽/제목)→전방(far), 법선(+Z)→상방.
       _rV.set(sfp.rx, 0, sfp.rz); _fV.set(sfp.fx, 0, sfp.fz);
       _mBasis.makeBasis(_rV, _fV, _uV);
@@ -4695,7 +4698,7 @@ void main(){
       floorObj.position.set(cx, 0.012, cz);
       // 균일 스케일(비율 유지) — 폭에 맞춤. 독립 x/y 스케일은 대지(0.8)와 풋프린트(≈0.49) 종횡비가
       // 달라 글자가 세로로 늘고 가로로 짜부됐음(유저 지적). 깊이는 대지 비율 그대로 → 세로도 짧아짐.
-      const laneW = 2 * rig._halfAt(dMid), sUni = laneW / fView.w;
+      const laneW = 2 * rig._halfAt(uiMid), sUni = laneW / fView.w;   // 고정 전방거리 폭 → UI 스케일도 자세 무관 일정
       floorObj.scale.set(sUni, sUni, 1);
       session.frameSlots = null;   // 슬롯 카드 레이아웃 은퇴(유저: 시범→따라하기 순차 문법으로 확정)
       try {
