@@ -4021,9 +4021,9 @@ void main(){
     xbot.update(xbotT, h);
     if (data.sport === 'running') followFloor(xbot.group.position.z);
     rig.update(state.time, h);
-    // 1인칭(실물 뷰) = 빔 볼륨·커버리지 시각화 숨김 — 갈색 사각 프레임으로 보이던 것(유저).
-    // 실제 눈엔 투사된 UI 광만 보인다(빔 자체는 공기 중에 안 보임).
-    if (fpMode) { rig.floorBeam.visible = false; rig.footFill.visible = false; }
+    // 1인칭 실물 뷰(visualize off) = 빔 볼륨·커버리지 숨김(실제 눈엔 투사 UI 광만). 단 커버리지 모드(👁 visualize on)면
+    // 1인칭에서도 빔 그리드는 유지 — 훈련 중 투사 영역 확인용(유저: 눈 켜도 빨간 그리드 안 나옴).
+    if (fpMode && rig.visualize === false) { rig.floorBeam.visible = false; rig.footFill.visible = false; }
     tokens.setShake(rig.shake.x, rig.shake.y);
     if (ghostMixer && ghostLayer?.visible) ghostMixer.update(h);
     // C5 쿨다운: 봇이 실제 감속해 마크에서 떨어진다 — 판정 시 가짜 miss가 리포트를 오염하므로 보류
