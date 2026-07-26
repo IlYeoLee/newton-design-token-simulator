@@ -198,11 +198,13 @@ export function createScene(container) {
       });
       const c = document.createElement('canvas'); c.width = c.height = 512;
       const g = c.getContext('2d');
+      // 레드 러버 베이스 = 제대로 된 트랙 색(몬도/타탄 톤). 아스팔트는 그레인 질감만 오버레이 —
+      // 예전 '아스팔트 × 레드 곱연산'은 검붉게 죽어 낮에도 트랙이 새까맸음(유저 지적).
+      g.fillStyle = '#C24A34'; g.fillRect(0, 0, 512, 512);
+      g.globalAlpha = 0.32; g.globalCompositeOperation = 'overlay';
       g.drawImage(asphalt, 0, 0, 512, 512);
-      g.globalCompositeOperation = 'multiply';
-      g.fillStyle = '#D8503A'; g.fillRect(0, 0, 512, 512);
-      g.globalCompositeOperation = 'source-over';
-      g.fillStyle = 'rgba(245,245,240,0.8)';
+      g.globalAlpha = 1; g.globalCompositeOperation = 'source-over';
+      g.fillStyle = 'rgba(248,248,244,0.9)';
       g.fillRect(96, 0, 7, 512); g.fillRect(409, 0, 7, 512);
       const tex = new THREE.CanvasTexture(c);
       tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
@@ -403,6 +405,8 @@ export function createScene(container) {
   composer.addPass(new OutputPass());
 
   function renderFrame(timeSec) {
+    // 노출 차등: 주간은 밝게(ACES 미드톤 하강 보상 — '낮인데 어둡다' 교정), 야간은 무드 유지
+    renderer.toneMappingExposure = FX.day ? 1.55 : 1.2;
     bloomPass.threshold = FX.bloomThreshold + (FX.day ? 0.38 : 0);
     bloomPass.strength = FX.bloomStrength;
     bloomPass.radius = FX.bloomRadius;
