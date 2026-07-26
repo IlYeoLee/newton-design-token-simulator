@@ -140,7 +140,7 @@ html,body{background:transparent}
           <div id="tp-tip"><img src="assets/timer_tip.svg" alt=""></div>
           <div id="tp-num">—</div>
         </div>` : '';
-    row.innerHTML = `<div id="spm2"><b id="spm-me">--</b><span class="u"> SPM</span><span class="sl">/</span><b id="spm-tgt">--</b><span class="u"> SPM</span></div>` + ringHTML;
+    row.innerHTML = `<div id="spm2"><b id="spm-me">--</b><span class="sl">/</span><b id="spm-tgt">--</b><span class="u"> spm</span></div>` + ringHTML;
     document.getElementById('content').appendChild(row);   // 컬럼: 타이틀 → 도트 → SPM/링
   } else {
     $('s-cue').style.display = 'none';
