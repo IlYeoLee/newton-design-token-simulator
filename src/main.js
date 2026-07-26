@@ -53,7 +53,7 @@ const state = {
 
 async function boot() {
   const stage = document.getElementById('stage');
-  const { renderer, scene, camera, controls, setPackEnvironment, resize, renderFrame, setSurfaces, setDaylight, followFloor, setRenderCamera } = createScene(stage);
+  const { renderer, scene, camera, controls, setPackEnvironment, resize, renderFrame, setSurfaces, setDaylight, followFloor, wall, wallGroup, setRenderCamera } = createScene(stage);
 
   let sessionSkillSink = null;   // 슬라이더가 session 생성 전 초기 apply 시 TDZ 회피
   let refreshEditorStages = null; // switchPack → 에디터 스테이지 편집기 갱신 훅
@@ -736,6 +736,78 @@ void main(){
     coneOn = !coneOn;
     setBtnActive(coneBtn, coneOn);
   });
+
+  // ── 배치 편집(유저): 편집 모드에서 드래그로 '빔프로젝터 유닛(rig.station)'·인물만 이동. 벽 고정.
+  //    프레임마다 재적용해 세션 덮어쓰기 후에도 유지. 더블클릭 = 리셋(되돌리기). ──
+  const editBtn = document.getElementById('btn-edit');
+  let editMode = false;
+  const _edit = { botX: null, botZ: null, projX: null, projZ: null };   // 수동 위치(설정 시 매 프레임 재적용)
+  const _ray = new THREE.Raycaster();
+  const _ndc = new THREE.Vector2();
+  const _dragPlane = new THREE.Plane();
+  const _hit = new THREE.Vector3();
+  const _tmpV = new THREE.Vector3();
+  let _dragTarget = null, _dragOff = new THREE.Vector3();
+  const getProj = () => { const st = rig?.station; return st && st.visible ? st : null; };   // 빔프로젝터 유닛(복싱/농구 스테이션 = 검은 박스). 러닝=무릎모듈이라 미해당
+  function pickAt(ev) {
+    const r = renderer.domElement.getBoundingClientRect();
+    _ndc.x = ((ev.clientX - r.left) / r.width) * 2 - 1;
+    _ndc.y = -((ev.clientY - r.top) / r.height) * 2 + 1;
+    _ray.setFromCamera(_ndc, camera);
+    _dragPlane.setFromNormalAndCoplanarPoint(new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0, 0));
+    return _ray.ray.intersectPlane(_dragPlane, _hit) ? _hit : null;
+  }
+  editBtn?.addEventListener('click', () => {
+    editMode = !editMode;
+    setBtnActive(editBtn, editMode);
+    if (editMode && fpMode) setFp(false);   // 편집은 3인칭에서
+    controls.enabled = !editMode;
+    renderer.domElement.style.cursor = editMode ? 'grab' : '';
+  });
+  renderer.domElement.addEventListener('mousedown', ev => {
+    if (!editMode) return;
+    const p = pickAt(ev); if (!p) return;   // 지면 클릭점(드래그 이동용)
+    // 선택은 화면공간 근접 — 고도 있는 프로젝터도 정확히 잡힘
+    const r = renderer.domElement.getBoundingClientRect();
+    const cx = ev.clientX - r.left, cy = ev.clientY - r.top;
+    const scr = pos => { const v = pos.clone().project(camera); return [(v.x * 0.5 + 0.5) * r.width, (-v.y * 0.5 + 0.5) * r.height]; };
+    const botP = xbot?.group?.position;
+    const proj = getProj();
+    const projWP = proj ? proj.getWorldPosition(_tmpV.clone()) : null;
+    // 인물은 몸통(발 위 ~0.9m)을 스크린 기준점으로
+    const botMid = botP ? botP.clone().add(new THREE.Vector3(0, 0.9, 0)) : null;
+    const dBot = botMid ? (([x, y]) => Math.hypot(x - cx, y - cy))(scr(botMid)) : 1e9;
+    const dProj = projWP ? (([x, y]) => Math.hypot(x - cx, y - cy))(scr(projWP)) : 1e9;
+    if (Math.min(dBot, dProj) > 150) return;   // 150px 이내 클릭만
+    _dragTarget = dBot <= dProj ? 'bot' : 'proj';
+    const base = _dragTarget === 'bot' ? botP : projWP;
+    _dragOff.set(base.x - p.x, 0, base.z - p.z);   // 지면 오프셋(고도 오차 흡수 = 상대 드래그)
+    controls.enabled = false;
+    renderer.domElement.style.cursor = 'grabbing';
+    ev.preventDefault();
+  });
+  window.addEventListener('mousemove', ev => {
+    if (!editMode || !_dragTarget) return;
+    const p = pickAt(ev); if (!p) return;
+    const nx = p.x + _dragOff.x, nz = p.z + _dragOff.z;
+    if (_dragTarget === 'bot') { _edit.botX = nx; _edit.botZ = nz; }
+    else { _edit.projX = nx; _edit.projZ = nz; }
+  });
+  window.addEventListener('mouseup', () => {
+    if (_dragTarget) { _dragTarget = null; renderer.domElement.style.cursor = editMode ? 'grab' : ''; }
+  });
+  // 더블클릭 = 배치 리셋(되돌리기, 유저) — 모든 수동 위치 해제 → 원래 프로그래매틱 위치로
+  renderer.domElement.addEventListener('dblclick', () => {
+    if (!editMode) return;
+    _edit.botX = _edit.botZ = _edit.projX = _edit.projZ = null;
+  });
+  // 매 프레임 수동 위치 재적용 (세션/리그가 덮어써도 유지) — applyEditOverrides()가 렌더 루프에서 호출
+  function applyEditOverrides() {
+    if (_edit.botX != null && xbot?.group) { xbot.group.position.x = _edit.botX; xbot.group.position.z = _edit.botZ; }
+    const proj = getProj();
+    if (_edit.projZ != null && proj) { proj.position.x = _edit.projX; proj.position.z = _edit.projZ; }
+  }
+  window.__applyEditOverrides = applyEditOverrides;
 
   // 1인칭 VOR 안정화 상태 (인간 눈: 머리 요동을 시선이 상쇄)
   const fpPos = new THREE.Vector3();
@@ -4415,6 +4487,7 @@ void main(){
     renderBxPerson();    // 복싱 벽면 인물 시범 (정본 포트)
     renderJointMarkers();   // 관절 추종 마커 (증명 데모)
     renderDesignFrame();  // 벽 = 스테이지별 대지 프레임(CSS3D). 프레임 스테이지는 기존 벽 UI 숨김(사람+배경만)
+    applyEditOverrides();  // 배치 편집(유저): 드래그로 옮긴 벽·인물 위치를 세션 덮어쓰기 후 재적용
     renderFrame(clock.elapsedTime);   // 블룸 + 그레인·비네트 컴포저 (scene.js FX)
   }
 

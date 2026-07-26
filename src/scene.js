@@ -405,5 +405,5 @@ export function createScene(container) {
     grid.position.z = snapped;
   }
 
-  return { renderer, scene, camera, controls, setPackEnvironment, resize, renderFrame, composer, setSurfaces, setDaylight, followFloor, setRenderCamera: cam => { renderPass.camera = cam; } };
+  return { renderer, scene, camera, controls, setPackEnvironment, resize, renderFrame, composer, setSurfaces, setDaylight, followFloor, wall, wallGroup, setRenderCamera: cam => { renderPass.camera = cam; } };
 }
