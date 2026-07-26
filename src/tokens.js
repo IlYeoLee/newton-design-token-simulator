@@ -605,7 +605,7 @@ export class TokenSystem {
   constructor(scene, effects) {
     this.scene = scene;
     this.effects = effects;
-    this.params = { lead: 0.45, size: 1.0, maxVisible: 3 };
+    this.params = { lead: 0.7, size: 1.0, maxVisible: 3 };   // lead↑(0.45→0.7): active가 더 일찍 시작 → preview(희멀건) 시간↓, 발 가이드 선명(유저)
     this.root = new THREE.Group();
     scene.add(this.root);
     this.floorRoot = new THREE.Group();  // 바닥 토큰 — 무릎 투사 흔들림 대상
