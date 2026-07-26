@@ -156,6 +156,27 @@ export function createScene(container) {
       tex.colorSpace = THREE.SRGBColorSpace;
       surfCache.track = tex;
     }
+    else if (key === 'dirt') {
+      // 연한 흙/콘크리트 포장길 (유저: 공원 산책로) — 아스팔트 그레인 위 밝은 웜베이지 + 미세 균열/이음선
+      const asphalt = await new Promise(res => { const im = new Image(); im.onload = () => res(im); im.src = `${BASE_URL}tex/asphalt.jpg`; });
+      const c = document.createElement('canvas'); c.width = c.height = 512;
+      const g = c.getContext('2d');
+      g.fillStyle = '#C4BBA4'; g.fillRect(0, 0, 512, 512);            // 밝은 웜베이지 콘크리트
+      g.globalAlpha = 0.4; g.globalCompositeOperation = 'overlay';    // 아스팔트 = 자잘한 그레인
+      g.drawImage(asphalt, 0, 0, 512, 512);
+      g.globalAlpha = 0.16; g.globalCompositeOperation = 'saturation'; // 채도 낮춰 흙빛 무광
+      g.fillStyle = '#808080'; g.fillRect(0, 0, 512, 512);
+      g.globalAlpha = 1; g.globalCompositeOperation = 'source-over';
+      // 포장 이음선 (가로·세로 옅은 균열)
+      g.strokeStyle = 'rgba(120,110,92,0.35)'; g.lineWidth = 2;
+      g.beginPath(); g.moveTo(0, 256); g.lineTo(512, 262); g.moveTo(256, 0); g.lineTo(250, 512); g.stroke();
+      const tex = new THREE.CanvasTexture(c);
+      tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+      tex.repeat.set(24, 24);
+      tex.anisotropy = 4;
+      tex.colorSpace = THREE.SRGBColorSpace;
+      surfCache.dirt = tex;
+    }
     else if (key === 'indoorwood') {
       // 실내 마루 = 런타임 베이크 (플랭크 + 심 + 결) — 외부 에셋 불필요
       const c = document.createElement('canvas'); c.width = c.height = 512;

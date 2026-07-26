@@ -1146,7 +1146,7 @@ void main(){
       designStore.save();
     });
     // 투사면 퀵 칩 — 룩 스튜디오 안 열고도 바닥/벽 테마 전환
-    const SURF_DEFS = [['none', '다크'], ['indoor', '실내'], ['grass', '잔디'], ['track', '트랙'], ['court', '코트'], ['paving', '보도블럭']];
+    const SURF_DEFS = [['none', '다크'], ['indoor', '실내'], ['grass', '잔디'], ['track', '트랙'], ['court', '코트'], ['paving', '보도블럭'], ['dirt', '흙길']];
     const surfWrap = document.getElementById('surf-chips');
     function updateSurfChips(key) {
       surfWrap?.querySelectorAll('button').forEach(b => {
