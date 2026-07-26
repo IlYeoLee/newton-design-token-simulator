@@ -11,12 +11,12 @@ export const FX = {
   bloomThreshold: 0.55,
   bloomStrength: 0.55,
   bloomRadius: 0.6,
-  grain: 0.028,       // 미세 필름 그레인 (제품 무드 — 0=끔)
-  vignette: 0.32,     // 시네마틱 비네트 (프레임 몰입)
+  grain: 0.018,       // 미세 필름 그레인 (제품 무드 — 0=끔)
+  vignette: 0.18,     // 은은한 비네트 (과하면 화면 답답)
   exposure: 1.0,
-  saturation: 1.02,   // 채도 — 실사 톤(과채도 형광 방지). 룩 토큰은 자체 발광이라 충분
-  warmth: 0.05,       // 스플릿톤: 섀도우 쿨 → 하이라이트 웜 (필름 무드, 은은)
-  contrast: 0.08,     // 대비 (펀치, 은은)
+  saturation: 1.0,    // 중립 — 과채도/블로우아웃 방지 (유저: 화이트 날아감)
+  warmth: 0.03,       // 스플릿톤 아주 은은
+  contrast: 0.04,     // 대비 최소 (하이라이트 클립 방지)
 };
 
 // 시네마틱 그레이드 (ACES 톤맵 前, 리니어 공간) — 채도·스플릿톤·대비·비네트·그레인.
@@ -408,7 +408,7 @@ export function createScene(container) {
 
   function renderFrame(timeSec) {
     // 노출 차등: 주간은 밝게(ACES 미드톤 하강 보상 — '낮인데 어둡다' 교정), 야간은 무드 유지
-    renderer.toneMappingExposure = FX.day ? 1.42 : 1.2;
+    renderer.toneMappingExposure = FX.day ? 1.12 : 1.05;   // 낮춰 화이트 블로우아웃 방지(유저)
     bloomPass.threshold = FX.bloomThreshold + (FX.day ? 0.38 : 0);
     bloomPass.strength = FX.bloomStrength;
     bloomPass.radius = FX.bloomRadius;
