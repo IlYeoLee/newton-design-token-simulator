@@ -1146,7 +1146,7 @@ void main(){
       designStore.save();
     });
     // 투사면 퀵 칩 — 룩 스튜디오 안 열고도 바닥/벽 테마 전환
-    const SURF_DEFS = [['none', '다크'], ['indoor', '실내'], ['grass', '잔디'], ['track', '트랙'], ['court', '코트'], ['paving', '보도블럭'], ['dirt', '흙길']];
+    const SURF_DEFS = [['none', '다크'], ['indoor', '실내'], ['grass', '잔디'], ['track', '트랙'], ['court_gray', '코트(회색)'], ['court_black', '코트(검정)'], ['court', '코트(우드)'], ['paving', '보도블럭'], ['dirt', '흙길']];
     const surfWrap = document.getElementById('surf-chips');
     function updateSurfChips(key) {
       surfWrap?.querySelectorAll('button').forEach(b => {
@@ -1190,7 +1190,7 @@ void main(){
     };
     window.__updateSurfAvail();
     // 팩별 기본 투사면 — 매번 수동 선택 제거 (유저): 러닝=잔디 · 복싱=실내 · 농구=트랙
-    const SURF_DEFAULT = { running: 'track', boxing: 'indoor', basketball: 'court' };   // 러닝=트랙·농구=코트 기본(유저)
+    const SURF_DEFAULT = { running: 'track', boxing: 'indoor', basketball: 'court_gray' };   // 러닝=트랙·농구=회색코트 기본(유저)
     window.__applySurfDefault = (pack) => {
       const key = SURF_DEFAULT[pack];
       if (!key) return;

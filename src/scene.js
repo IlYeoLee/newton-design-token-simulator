@@ -258,7 +258,9 @@ export function createScene(container) {
       applyDayAmbience();
       return;
     }
-    const [fTex, wTex] = await Promise.all([getSurf(key === 'indoor' || key === 'court' ? 'indoorwood' : key), getSurf('plaster')]);
+    const isCourtColor = key === 'court_gray' || key === 'court_black';   // 회색/검정 코트 = 솔리드 바닥 + 라인
+    const floorKey = (key === 'indoor' || key === 'court') ? 'indoorwood' : key;
+    const [fTex, wTex] = await Promise.all([isCourtColor ? null : getSurf(floorKey), getSurf('plaster')]);
     if (seq !== surfSeq) return;
     // 농구 코트(유저: 기본 배경): 마루 바닥 + 하프코트 라인 오버레이(런타임 베이크, 외부 에셋 0)
     if (!courtLines) {
@@ -279,10 +281,16 @@ export function createScene(container) {
       courtLines.rotation.x = -Math.PI / 2; courtLines.position.y = 0.006; courtLines.renderOrder = 1;
       scene.add(courtLines);
     }
-    courtLines.visible = key === 'court';
-    floor.material.map = fTex;
+    courtLines.visible = key === 'court' || isCourtColor;
+    floor.material.map = isCourtColor ? null : fTex;
     wall.material.map = wTex;
-    if (key === 'indoor' || key === 'court') {
+    if (isCourtColor) {
+      // 회색/검정 코트 = 솔리드 바닥(무광) + 흰 라인. 벽은 실내 스타일.
+      floor.material.color.setHex(key === 'court_black' ? 0x121317 : 0x35383e);
+      wall.material.map = await getSurf('wallpaper');
+      wall.material.color.setHex(0xFFFFFF);
+      wall.material.emissive?.setHex(dayMode ? 0x6E6A63 : 0x57534B);
+    } else if (key === 'indoor' || key === 'court') {
       // 실내: 마루 + 형광등 아래 '진짜 흰' 벽 — 조명 감쇠를 이기도록 자발광 가산
       floor.material.color.setHex(dayMode ? 0xF6F1E8 : 0xD8D0C2);
       wall.material.map = await getSurf('wallpaper');   // 세로 결 벽지 (민무늬 기각)
