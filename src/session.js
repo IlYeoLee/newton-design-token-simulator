@@ -657,10 +657,7 @@ export class Session {
     this._mk('C4');  // 라이브 — 션 발자국 페이서가 전담 (BOOST는 liveSpeed·음성으로)
 
     g = this._mk('C5');
-    this.c5stripes = [];
-    for (let i = 0; i < 4; i++) { const st = floorStripe(0, -1.6 - i * 0.32, 0.5 - i * 0.06, BRAND.coral, 0.7 - i * 0.13); g.add(st); this.c5stripes.push(st); }
-    g.add(floorRing(0, -2.6, 0.20, 0.225, BRAND.dim, 0.9));
-    g.add(floorText('STOP', 0, -2.6, { size: 0.09, color: CS.mute }));
+    this.c5stripes = [];   // 가로선·STOP 링·STOP 텍스트(레거시 룩시스템) 제거(유저) — 쿨다운은 봇 감속+빛 이펙트만
 
     g = this._mk('FIN');
     // Ghost Review 실체화 — 션 발자국(무채 고스트) 위에 내 착지점(소형 존 원)을 오차 벡터만큼
