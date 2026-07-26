@@ -528,6 +528,32 @@ export class Marker {
 //    촉 크기 = 경로의 0.09 (랩 34px/380px 실측 비율 — 구성 고정, 스케일만 원칙).
 //    구 makeArrow(flatMat 정적 도형 통화살표)와 '촉 끝 주차'는 카탈로그에 없는 종 — 은퇴.
 export const FLOW_ARROWS = [];
+/** 촉 텍스처 굽기 — 룩 시스템 TIP_TRI(SVG) 우선, 미로드면 셰브런 폴백.
+ *  이전엔 셰브런만 고정으로 구워 룩에서 화살촉을 바꿔도 시뮬은 그대로였음(유저: '화살표가 반영 안 돼').
+ *  _tipKey = 현재 사용한 글리프 URL — tickFlowArrows가 매 프레임 비교해 바뀌면 다시 굽는다. */
+function paintFlowTip(g) {
+  const c = g._tipCanvas; if (!c) return;
+  const g2 = c.getContext('2d');
+  const url = GLYPHS.map.TIP_TRI || null;
+  g2.setTransform(1, 0, 0, 1, 0, 0);
+  g2.clearRect(0, 0, 256, 256);
+  // 룩 촉(SVG) — 랩 프리뷰와 같은 비율(34px/240px 캔버스 = 0.14) 기준으로 256 캔버스에 배치
+  if (url && drawGlyph(g2, 'TIP_TRI', 128, 128, 176,
+      { color: 'rgba(255,244,228,0.98)', glowColor: 'rgba(254,150,90,0.92)', glow: 46 })) {
+    g._tipKey = url; g._tipGlyph = true;
+    g._tipTex.needsUpdate = true;
+    return;
+  }
+  // 폴백 = 회전 토큰(drawRotate) 비율 셰브런. 전방(+Y=캔버스 위) 지향.
+  const ah = 36;
+  g2.translate(128, 118); g2.lineJoin = 'round'; g2.lineCap = 'round';
+  g2.shadowColor = 'rgba(254,150,90,0.92)'; g2.shadowBlur = ah * 1.6;
+  g2.strokeStyle = 'rgba(255,244,228,0.98)'; g2.lineWidth = ah * 0.47;
+  g2.beginPath(); g2.moveTo(-ah * 0.9, ah); g2.lineTo(0, -ah * 0.5); g2.lineTo(ah * 0.9, ah); g2.stroke();
+  g._tipKey = url; g._tipGlyph = false;   // 폴백 기록 — 글리프가 로드되면 GLYPHS.onLoad가 재굽기
+  g._tipTex.needsUpdate = true;
+}
+
 export function makeFlowArrow(len, { tips = 1, wall = false } = {}) {   // 단일 촉(회전처럼 부드럽게 — 유저) — 3개 트레인 폐기
   const g = new THREE.Group();
   const mat = makeLaneFXMaterial(len);
@@ -537,19 +563,11 @@ export function makeFlowArrow(len, { tips = 1, wall = false } = {}) {   // 단�
   g.add(shaft);
   g._mat = mat; g._len = len; g._tips = [];
   if (tips > 0) {
-    // 촉 = 캔버스 드로잉(SVG 글리프 의존 없음 → GLYPHS.set 맵교체에도 안 깨짐). 회전 셰브런과 동일 룩.
     const c = document.createElement('canvas'); c.width = c.height = 256;   // 큰 캔버스 = 회전처럼 넉넉한 소프트 글로우 여유
-    const g2 = c.getContext('2d');
-    // 촉 = 회전(drawRotate fx-core.js 619~624) 비율 이식 — 작은 라운드캡 셰브런 + 큰 소프트 글로우. 단일 촉.
-    //   회전: ah=8s, lineWidth=lw*0.9(≈0.47·ah), shadowBlur≈1.9·ah, stroke=lut(0.96)/shadow=lut(0.9).
-    //   전방(+Y=캔버스 위) 지향: 회전 셰브런(전방=+x)을 90° 회전 매핑.
-    const ah = 36;
-    g2.translate(128, 118); g2.lineJoin = 'round'; g2.lineCap = 'round';
-    g2.shadowColor = 'rgba(254,150,90,0.92)'; g2.shadowBlur = ah * 1.6;
-    g2.strokeStyle = 'rgba(255,244,228,0.98)'; g2.lineWidth = ah * 0.47;
-    g2.beginPath(); g2.moveTo(-ah * 0.9, ah); g2.lineTo(0, -ah * 0.5); g2.lineTo(ah * 0.9, ah); g2.stroke();
     const tex = new THREE.CanvasTexture(c);
     tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
+    g._tipCanvas = c; g._tipTex = tex; g._tipKey = null;
+    paintFlowTip(g);
     const tipS = Math.max(0.04, len * 0.09);   // 랩 34px/380px (촉 축소, 유저) · 0.04 하한 = 원거리 가독
     for (let i = 0; i < tips; i++) {
       const tip = new THREE.Mesh(new THREE.PlaneGeometry(tipS, tipS),
@@ -576,7 +594,14 @@ export function tickFlowArrows(t, rig) {
     const g = FLOW_ARROWS[i];
     if (!g.parent) { FLOW_ARROWS.splice(i, 1); continue; }
     const n = g._tips.length;
-    for (let k = 0; k < n; k++) g._tips[k].position.y = ((t * 0.12 + k / n) % 1) * g._len;
+    // 룩 반영: 촉 글리프가 바뀌었으면 다시 굽고, 굵기 슬라이더(arrow.w)는 촉 크기에 라이브로 먹인다.
+    // 글리프 URL이 바뀌었거나(룩 교체), 아직 폴백인데 이미지가 이제 로드됐으면 다시 굽는다(자가 치유)
+    if (n && (g._tipKey !== (GLYPHS.map.TIP_TRI || null) || (!g._tipGlyph && GLYPHS.img('TIP_TRI')))) paintFlowTip(g);
+    const tipK = 0.7 + 0.3 * (A.w ?? 1);
+    for (let k = 0; k < n; k++) {
+      g._tips[k].position.y = ((t * 0.12 + k / n) % 1) * g._len;
+      g._tips[k].scale.setScalar(tipK);
+    }
     const U = g._mat.uniforms;
     U.uTime.value = t;
     U.uLStyle.value = styleIdx;
