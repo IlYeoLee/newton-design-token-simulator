@@ -4306,14 +4306,14 @@ void main(){
       controls.target.z += dz;
       lastBodyZ = bz;
     }
-    // 라이브→비라이브(FIN 리포트/전환) 3인칭 진입 = 카메라 드리프트 리셋. 안 하면 실전 전진팔로우로
-    // 드리프트한 궤도가 원점으로 리셋된 씬을 지나쳐 회색 보이드만 보이고 이탈함(유저: 3인칭 FIN 회색화면).
+    // 라이브→비라이브(FIN 리포트) 전환 = 봇이 드리프트(-146)에서 원점(0)으로 텔레포트. 안 잡으면 3인칭 궤도가
+    // 리셋된 씬을 지나쳐 회색 보이드로 이탈함. 카메라를 '같은 델타'로 함께 이동 → 상대 뷰(앵글·거리) 유지,
+    // 급전환 없이 같은 봇 좌표에서 부드럽게 이어짐(유저: 앵글 급변 지적).
     if (state.pack === 'running' && !fpMode && !studioActive) {
       const liveNow = session.active && session.isLive;
-      if (session._camWasLive && !liveNow) {   // live→비라이브 에지: 리포트/원점을 다시 프레이밍
-        camera.position.set(0.05, 2.3, 2.4);
-        controls.target.set(0, 0.25, -1.3);
-        controls.update();
+      if (session._camWasLive && !liveNow) {
+        const dz = xbot.group.position.z - lastBodyZ;   // 텔레포트 델타(≈+드리프트량)
+        camera.position.z += dz; controls.target.z += dz; controls.update();
         lastBodyZ = xbot.group.position.z;
       }
       session._camWasLive = liveNow;
