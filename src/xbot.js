@@ -387,16 +387,48 @@ export class XBot {
   }
 
   /** X Bot 몸체(그룹) 월드 위치 — 무릎 편차 계산의 기준 */
-  getBodyPos() {
-    return this.group.position.clone();
+  /** 몸 앵커(추종 정본) — 그룹 트랜스폼이 아니라 실제 골반 본 월드행렬에서 위치·전방을 읽는다.
+   *  루트모션 클립의 옆이동·클립 내 회전(뒤로 돌기)은 그룹이 모르는 변화라, 그룹을 보던
+   *  빔프로젝터 풋프린트와 3인칭 카메라가 봇을 놓쳤음(유저: '나를 정확히 안 따라와').
+   *  빔·카메라·지면 UI는 전부 이 하나를 소비 → 한 몸처럼 움직인다.
+   *  위치는 강체 부착이므로 필터 없음(지연=떨어져 보임).
+   *  전방은 저역통과(τ=0.6s, 짐벌 응답과 동일) + 데드존 20°: 골반은 걸음마다 ±수십도 흔들리므로
+   *  그대로 쓰면 가이드 필드가 매 스텝 회전한다. 데드존 안이면 팩 정면(그룹 요) 유지, 넘으면 몸을 따라감
+   *  = '진짜 도는 동작'만 추종. */
+  getAnchor(dt = this._dt || 0.016) {
+    if (this._anchor) return this._anchor;   // 프레임당 1회 계산 — 소비자가 여럿이라 필터가 중복 진행되면 τ가 망가짐
+    const g = this.group.position;
+    if (!this._hips) return (this._anchor = { x: g.x, z: g.z, fx: 0, fz: -1 });
+    const e = this._hips.matrixWorld.elements;
+    let fx = e[8], fz = e[10];   // 골반 로컬 +Z = 몸 정면 (READY 실측: getForward와 일치)
+    const n = Math.hypot(fx, fz);
+    if (n > 1e-4) { fx /= n; fz /= n; } else { fx = 0; fz = -1; }
+    if (!this._anchFwd) this._anchFwd = { fx, fz };
+    const a = 1 - Math.exp(-dt / 0.6);
+    // 180° 근처 뒤집힘에서 최단 회전으로 붙게 — 성분 보간 후 재정규화(각도 언랩 불필요한 크기)
+    this._anchFwd.fx += (fx - this._anchFwd.fx) * a;
+    this._anchFwd.fz += (fz - this._anchFwd.fz) * a;
+    const m = Math.hypot(this._anchFwd.fx, this._anchFwd.fz);
+    if (m < 1e-3) { this._anchFwd.fx = fx; this._anchFwd.fz = fz; }
+    else { this._anchFwd.fx /= m; this._anchFwd.fz /= m; }
+    return (this._anchor = { x: e[12], z: e[14], fx: this._anchFwd.fx, fz: this._anchFwd.fz });
   }
 
-  /** 몸 전방 벡터 (월드, 수평) — 클립 본 회전과 무관한 팩 기준 방향 */
+  getBodyPos() {
+    const a = this.getAnchor();
+    return new THREE.Vector3(a.x, 0, a.z);
+  }
+
+  /** 몸 전방 벡터 (월드, 수평) — 농구는 골반 실측(컷·턴 추종), 러닝/복싱은 팩 기준 방향 고정 */
   getForward() {
     if (this.mode === 'basketball') {
-      // model.rotY(PI) 포함: 전방 = -sin/-cos(groupYaw) — 실제 컷 방향 따라감
+      const a = this.getAnchor();
       const yaw = this.group.rotation.y;
-      return new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw));
+      const px = -Math.sin(yaw), pz = -Math.cos(yaw);   // 팩 정면(그룹 요 — 컷 방향)
+      // 데드존: 골반이 팩 정면에서 20° 안쪽이면 걸음 흔들림으로 보고 정면 유지
+      return (a.fx * px + a.fz * pz) > 0.94
+        ? new THREE.Vector3(px, 0, pz)
+        : new THREE.Vector3(a.fx, 0, a.fz);
     }
     return new THREE.Vector3(0, 0, -1);  // 러닝/복싱: 전진·벽 방향
   }
@@ -489,7 +521,7 @@ export class XBot {
       드릴은 지정 관절만 움직이므로(발목 돌리기=발만) 저강도 호흡 레이어(warmup 0.12)를
       깔아 전신이 살아 보이게 — '인물이 완전 정지' 오인 방지 */
   playDemo(name, dt, hold = false, phaseTime = null) {
-    this._dt = dt;
+    this._dt = dt; this._anchor = null;   // 프레임 시작 = 몸 앵커 캐시 무효화
     const key = this.actions[name] ? name : (this.actions.warmup ? 'warmup' : null);
     if (!key) return;
     const breathW = (key !== 'warmup' && !this._vmClips?.has(key) && this.actions.warmup) ? 0.18 : 0;
@@ -554,7 +586,7 @@ export class XBot {
   stepbackDemo(dt) {
     const dribble = this.actions.dribble, shot = this.actions.mf_jump_shot;
     if (!dribble || !shot) return;
-    this._dt = dt;
+    this._dt = dt; this._anchor = null;   // 프레임 시작 = 몸 앵커 캐시 무효화
     const CYC = 4.2, GATH = 1.4;
     const T = (this._sbT = ((this._sbT || 0) + dt) % CYC);
     const xf = Math.min(1, Math.max(0, (T - GATH) / 0.25));
@@ -592,7 +624,7 @@ export class XBot {
 
   update(packTime, dt = 0.016) {
     if (!this.model || !this.mode) return;
-    this._dt = dt;
+    this._dt = dt; this._anchor = null;   // 프레임 시작 = 몸 앵커 캐시 무효화
 
     // 모션 검증: 실측 모캡을 제자리 재생 — 무릎 투사가 버티는지 rig가 측정
     if (this.verifyClip && this.actions[this.verifyClip]) {

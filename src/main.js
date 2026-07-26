@@ -395,7 +395,7 @@ async function boot() {
     setPackEnvironment(p, data.hasWall);
     panel.setPack(data, tokens.events);
     tokens.resetLoop();
-    lastBodyZ = 0;
+    lastBodyZ = 0; lastBodyX = 0;
 
     // 장면 UI 시스템: PRIME 면 재규정 (복싱만 벽이 PRIME)
     // 브랜드 타이틀(NEWTON·종목) 은퇴 — 투사면은 훈련 큐 전용, 브랜딩은 투사면 밖(앱/하드웨어)에서
@@ -699,7 +699,7 @@ void main(){
 
   // ── 1인칭 / 시야 콘 토글 ──
   let fpMode = false, coneOn = false, fpUserSet = false;   // fpUserSet = 유저 수동 시점 선택(스테이지 강제전환 억제)
-  let lastBodyZ = 0;
+  let lastBodyZ = 0, lastBodyX = 0;   // 3인칭 추종 기준(몸 앵커) — x도 함께
   const fpBtn = document.getElementById('btn-fp');
   const coneBtn = document.getElementById('btn-cone');
   const setBtnActive = (btn, on) => {
@@ -725,10 +725,10 @@ void main(){
     if (!fpMode) {
       const data = state.packs[state.pack];
       setPackEnvironment(state.pack, data.hasWall);
-      const bz = xbot.group.position.z;
-      camera.position.z += bz;
-      controls.target.z += bz;
-      lastBodyZ = bz;
+      const a = xbot.getAnchor();   // 1인칭 → 3인칭 복귀: 몸 앵커만큼 카메라 재정렬(추종과 같은 기준)
+      camera.position.x += a.x; camera.position.z += a.z;
+      controls.target.x += a.x; controls.target.z += a.z;
+      lastBodyX = a.x; lastBodyZ = a.z;
     }
   }
   fpBtn.addEventListener('click', () => { fpUserSet = true; setFp(!fpMode); });
@@ -1043,7 +1043,7 @@ void main(){
     tokens.loopShiftZ = 0;
     tokens.resetLoop();
     rig.resetOmega();
-    lastBodyZ = 0;
+    lastBodyZ = 0; lastBodyX = 0;
     sceneUI.setSub('');   // 스펙 스탬프는 도입부 전용 — 운동 중엔 큐만
     // 재생 상태 강제 복구 — 일시정지가 끼어든 채 세션을 시작하면 t=0에 언 채로 시작됨
     // (유저 '세션이 뿌옇게/봇 정지' 계열의 뿌리: 모드 전환은 반드시 재생 상태에서)
@@ -1437,7 +1437,7 @@ void main(){
     judge.setPack(tokens.events, sport);
     tokens.resetLoop();
     panel.setPack(pack, tokens.events);
-    lastBodyZ = xbot.group.position.z;
+    { const _a = xbot.getAnchor(); lastBodyX = _a.x; lastBodyZ = _a.z; }
     // saveStudio 은퇴(v15) — 팩 손편집 저장 경로 자체를 제거(위 부팅 정화 참조)
     editor3d.syncSelection();  // 리빌드로 마커가 새로 생겼으니 3D 선택 윤곽 재적용
   }
@@ -4330,12 +4330,14 @@ void main(){
     // 3인칭 러닝 전진 팔로우 — 봇 z 델타를 '같은 프레임에 즉시' 카메라·타깃에 적용(스무딩 X → 쓔욱 없음).
     // 게이트 없음: 라이브 전진뿐 아니라 FIN 진입 시 봇이 원점으로 순간 텔레포트(dz≈+드리프트)하는 것도 같이 잡아
     // 카메라가 리셋된 봇/리포트를 그대로 프레이밍(회색 보이드·멀리서 오는 UI 없음). 프리뷰 idle은 봇 정지라 dz≈0.
-    if (!studioActive && state.pack === 'running' && !fpMode) {
-      const bz = xbot.group.position.z;
-      const dz = bz - lastBodyZ;
-      camera.position.z += dz;
-      controls.target.z += dz;
-      lastBodyZ = bz;
+    // 추종 정본 = xbot.getAnchor()(골반 본). 그룹 z만 보던 시절엔 CMU 클립이 옆으로 가거나
+    // 뒤로 돌면 카메라가 봇을 놓쳤음(유저: '3인칭 카메라도 나를 안 따라와'). 빔 풋프린트와
+    // 같은 앵커를 쓰므로 봇·빔·카메라가 한 몸으로 움직인다. x도 함께 따라감(측면 컷 대응).
+    if (!studioActive && (state.pack === 'running' || state.pack === 'basketball') && !fpMode) {
+      const dx = body.x - lastBodyX, dz = body.z - lastBodyZ;
+      camera.position.x += dx; camera.position.z += dz;
+      controls.target.x += dx; controls.target.z += dz;
+      lastBodyX = body.x; lastBodyZ = body.z;
     }
 
     // 1인칭 = X Bot의 눈 + VOR 안정화
