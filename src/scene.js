@@ -11,50 +11,31 @@ export const FX = {
   bloomThreshold: 0.55,
   bloomStrength: 0.55,
   bloomRadius: 0.6,
-  grain: 0.018,       // 미세 필름 그레인 (제품 무드 — 0=끔)
-  vignette: 0.18,     // 은은한 비네트 (과하면 화면 답답)
+  grain: 0,
+  vignette: 0.12,
   exposure: 1.0,
-  saturation: 1.0,    // 중립 — 과채도/블로우아웃 방지 (유저: 화이트 날아감)
-  warmth: 0.03,       // 스플릿톤 아주 은은
-  contrast: 0.04,     // 대비 최소 (하이라이트 클립 방지)
 };
 
-// 시네마틱 그레이드 (ACES 톤맵 前, 리니어 공간) — 채도·스플릿톤·대비·비네트·그레인.
-// 최종 톤맵/sRGB는 OutputPass가 담당.
+// FilmPass 대체 — 가벼운 그레인+비네트+노출 (톤 왜곡 없음), 디더로 밴딩 제거
 const GrainVignetteShader = {
   uniforms: {
     tDiffuse: { value: null },
     uGrain: { value: FX.grain },
     uVignette: { value: FX.vignette },
     uExposure: { value: FX.exposure },
-    uSat: { value: FX.saturation },
-    uWarm: { value: FX.warmth },
-    uContrast: { value: FX.contrast },
     uTime: { value: 0 },
   },
   vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
   fragmentShader: `
     uniform sampler2D tDiffuse;
-    uniform float uGrain, uVignette, uExposure, uSat, uWarm, uContrast, uTime;
+    uniform float uGrain, uVignette, uExposure, uTime;
     varying vec2 vUv;
     float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
     void main(){
       vec4 c = texture2D(tDiffuse, vUv);
       c.rgb *= uExposure;
-      float luma = dot(c.rgb, vec3(0.2126, 0.7152, 0.0722));
-      // 채도
-      c.rgb = mix(vec3(luma), c.rgb, uSat);
-      // 스플릿톤: 어두운 곳은 살짝 쿨(블루), 밝은 곳은 웜(앰버) — 필름 룩
-      float hi = smoothstep(0.15, 0.85, luma);
-      vec3 cool = vec3(1.0 - uWarm * 0.5, 1.0, 1.0 + uWarm * 0.5);
-      vec3 warm = vec3(1.0 + uWarm * 0.7, 1.0 + uWarm * 0.15, 1.0 - uWarm * 0.5);
-      c.rgb *= mix(cool, warm, hi);
-      // 대비 (미드 0.4 기준 — 리니어라 약하게)
-      c.rgb = max(vec3(0.0), (c.rgb - 0.4) * (1.0 + uContrast) + 0.4);
-      // 방향성 비네트 (하단 무겁게 = 시선 아래 바닥 집중)
-      vec2 vd = vUv - vec2(0.5, 0.42);
-      float d = length(vd * vec2(1.0, 1.15));
-      c.rgb *= 1.0 - smoothstep(0.34, 0.92, d) * uVignette;
+      float d = distance(vUv, vec2(0.5));
+      c.rgb *= 1.0 - smoothstep(0.45, 0.95, d) * uVignette;
       c.rgb += (hash(vUv * 913.7 + fract(uTime) * 7.0) - 0.5) * uGrain;   // 필름 그레인
       c.rgb += (hash(vUv * 517.3) - 0.5) * (2.0 / 255.0);                  // 디더 (밴딩 제거)
       gl_FragColor = c;
@@ -71,50 +52,12 @@ export function createScene(container) {
   renderer.setSize(container.clientWidth, container.clientHeight);
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-  // 시네마틱: ACES 필름 톤맵 — 하이라이트 롤오프(딱딱한 클립 제거) + 실사 합성 표준.
-  // OutputPass가 이 설정으로 최종 톤맵. 노출은 ACES 미드톤 하강 보상.
-  renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.25;
   renderer.localClippingEnabled = true;  // 투사면 클리핑 — 모든 UI는 투사면 안에서만
   container.appendChild(renderer.domElement);
 
-  // 그라디언트 하늘 백드롭 — 납작한 단색 보이드를 대체 (여명/대기감).
-  // 화면고정 2D(카메라 패럴랙스 없음, 대기 무드엔 충분). 안개색은 호라이즌 톤과 맞춤.
-  function bakeSky(stops) {
-    const c = document.createElement('canvas'); c.width = 4; c.height = 512;
-    const g = c.getContext('2d');
-    const grad = g.createLinearGradient(0, 0, 0, 512);
-    for (const [p, col] of stops) grad.addColorStop(p, col);
-    g.fillStyle = grad; g.fillRect(0, 0, 4, 512);
-    const tex = new THREE.CanvasTexture(c);
-    tex.colorSpace = THREE.SRGBColorSpace;
-    return tex;
-  }
-  // 웜 호라이즌은 넓고 은은하게 — 좁고 진한 밴드는 하드엣지 '선'으로 읽힘(유저 지적).
-  const nightSky = bakeSky([
-    [0.00, '#0a0c12'], [0.30, '#0e0d10'], [0.50, '#15110e'], [0.66, '#181109'],
-    [0.80, '#120d0b'], [1.00, '#0a0709'],
-  ]);
-  // 주간 스카이 = 하늘색 hex에서 파생 (표면 테마 인지). 천정 쿨-어둡게 → 호라이즌 밝게 → 하단 헤이즈.
-  const dayScale = (hex, m) => {
-    const r = Math.min(255, ((hex >> 16) & 255) * m), gg = Math.min(255, ((hex >> 8) & 255) * m), b = Math.min(255, (hex & 255) * m);
-    return `rgb(${r | 0},${gg | 0},${b | 0})`;
-  };
-  let daySky_ = null;
-  function bakeDaySky(hex) {
-    // 완만한 단조 그라디언트 — 밝은 스파이크 밴드(=선) 없이 천정 어둡게 → 호라이즌 은은히 밝게
-    return bakeSky([
-      [0.00, dayScale(hex, 0.78)],   // 천정 = 살짝 어둡고 쿨
-      [0.35, dayScale(hex, 0.9)],
-      [0.60, dayScale(hex, 1.0)],
-      [0.80, dayScale(hex, 1.03)],   // 호라이즌 = 완만한 최고점 (스파이크 아님)
-      [1.00, dayScale(hex, 0.98)],
-    ]);
-  }
-
   const scene = new THREE.Scene();
-  scene.background = nightSky;
-  scene.fog = new THREE.Fog(0x1a1410, 9, 22);   // 웜 다크 — 트랙이 여명 호라이즌으로 사라짐
+  scene.background = new THREE.Color(0x0c0e12);
+  scene.fog = new THREE.Fog(0x0c0e12, 9, 20);
 
   const camera = new THREE.PerspectiveCamera(50, container.clientWidth / container.clientHeight, 0.05, 60);
 
@@ -198,15 +141,11 @@ export function createScene(container) {
       });
       const c = document.createElement('canvas'); c.width = c.height = 512;
       const g = c.getContext('2d');
-      // 레드 러버 베이스 = 실제 몬도/타탄 트랙의 뮤트된 벽돌빛 테라코타 (형광 레드 아님, 실사 톤).
-      // 아스팔트를 그레인 질감으로 오버레이 — 채도를 더 눌러 사진 같은 무광 표면.
-      g.fillStyle = '#9C5849'; g.fillRect(0, 0, 512, 512);
-      g.globalAlpha = 0.42; g.globalCompositeOperation = 'overlay';
       g.drawImage(asphalt, 0, 0, 512, 512);
-      g.globalAlpha = 0.14; g.globalCompositeOperation = 'saturation';   // 채도 낮춰 무광 실사감
-      g.fillStyle = '#808080'; g.fillRect(0, 0, 512, 512);
-      g.globalAlpha = 1; g.globalCompositeOperation = 'source-over';
-      g.fillStyle = 'rgba(248,248,244,0.9)';
+      g.globalCompositeOperation = 'multiply';
+      g.fillStyle = '#D8503A'; g.fillRect(0, 0, 512, 512);
+      g.globalCompositeOperation = 'source-over';
+      g.fillStyle = 'rgba(245,245,240,0.8)';
       g.fillRect(96, 0, 7, 512); g.fillRect(409, 0, 7, 512);
       const tex = new THREE.CanvasTexture(c);
       tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
@@ -272,12 +211,10 @@ export function createScene(container) {
   // 주간 하늘/안개 톤 = 표면 테마 인지: 다크 바닥 위 밝은 하늘은 부조화 (유저 교정 —
   // '바닥은 검정인데 배경이 흰색') → 어두운 표면일 땐 흐린 하늘도 어둡게
   function daySky() { if (curSurfKey === 'indoor') return 0xEFEBE2; return (!curSurfKey || curSurfKey === 'none') ? 0x7E858F : 0xB9C0CA; }
-  let daySkyHex = null;   // 현재 주간 스카이 텍스처가 구운 hex (표면 변경 시 리베이크 판정)
   function applyDayAmbience() {
     if (!dayMode) return;
     const sky = daySky();
-    if (daySkyHex !== sky) { daySky_?.dispose?.(); daySky_ = bakeDaySky(sky); daySkyHex = sky; }
-    scene.background = daySky_;
+    scene.background.setHex(sky);
     scene.fog.color.setHex(sky);
   }
   let courtLines = null;
@@ -369,8 +306,7 @@ export function createScene(container) {
       // 주간 = '밝은 실내/흐린 야외' 톤 — 순백 바닥은 1인칭에서 화면 전체가 백열되므로 금지.
       // 하늘·안개 톤은 표면 테마를 따른다 (daySky — 다크 바닥 위 흰 하늘 부조화 방지)
       const sky = daySky();
-      if (daySkyHex !== sky) { daySky_?.dispose?.(); daySky_ = bakeDaySky(sky); daySkyHex = sky; }
-      scene.background = daySky_;
+      scene.background.setHex(sky);
       scene.fog.color.setHex(sky); scene.fog.near = 14; scene.fog.far = 40;
       hemi.color.setHex(0xDCE4EE); hemi.groundColor.setHex(0x7E848C); hemi.intensity = 1.1;
       key.intensity = 1.6; key.color.setHex(0xFFF3E0);
@@ -380,8 +316,8 @@ export function createScene(container) {
       if (floor.material.map) floor.material.color.setHex(0xDBDBDB);
       if (wall.material.map) wall.material.color.setHex(0xE2E2E2);
     } else {
-      scene.background = nightSky;
-      scene.fog.color.setHex(0x1a1410); scene.fog.near = 9; scene.fog.far = 22;   // 웜 다크 여명
+      scene.background.setHex(0x0c0e12);
+      scene.fog.color.setHex(0x0c0e12); scene.fog.near = 9; scene.fog.far = 20;
       hemi.color.setHex(0x39424f); hemi.groundColor.setHex(0x11141a); hemi.intensity = 1.1;
       key.intensity = 1.5; key.color.setHex(0xffffff);
       rim.intensity = 0.35;
@@ -407,17 +343,12 @@ export function createScene(container) {
   composer.addPass(new OutputPass());
 
   function renderFrame(timeSec) {
-    // 노출 차등: 주간은 밝게(ACES 미드톤 하강 보상 — '낮인데 어둡다' 교정), 야간은 무드 유지
-    renderer.toneMappingExposure = FX.day ? 1.12 : 1.05;   // 낮춰 화이트 블로우아웃 방지(유저)
     bloomPass.threshold = FX.bloomThreshold + (FX.day ? 0.38 : 0);
     bloomPass.strength = FX.bloomStrength;
     bloomPass.radius = FX.bloomRadius;
     gradePass.uniforms.uGrain.value = FX.grain;
     gradePass.uniforms.uVignette.value = FX.vignette;
     gradePass.uniforms.uExposure.value = FX.exposure;
-    gradePass.uniforms.uSat.value = FX.saturation;
-    gradePass.uniforms.uWarm.value = FX.warmth;
-    gradePass.uniforms.uContrast.value = FX.contrast;
     gradePass.uniforms.uTime.value = timeSec;
     composer.render();
   }
