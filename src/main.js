@@ -796,16 +796,23 @@ void main(){
   window.addEventListener('mouseup', () => {
     if (_dragTarget) { _dragTarget = null; renderer.domElement.style.cursor = editMode ? 'grab' : ''; }
   });
-  // 더블클릭 = 배치 리셋(되돌리기, 유저) — 모든 수동 위치 해제 → 원래 프로그래매틱 위치로
-  renderer.domElement.addEventListener('dblclick', () => {
-    if (!editMode) return;
+  // 배치 리셋(되돌리기, 유저) — 수동 위치 해제 + 프로젝터 빔 원점 원복. 버튼·더블클릭 공용.
+  let _origStatPos = null;
+  function resetEdit() {
     _edit.botX = _edit.botZ = _edit.projX = _edit.projZ = null;
-  });
+    if (_origStatPos && rig?.stationPos) { rig.stationPos.copy(_origStatPos); rig.station?.position.copy(_origStatPos); }
+  }
+  document.getElementById('btn-edit-reset')?.addEventListener('click', resetEdit);
+  renderer.domElement.addEventListener('dblclick', () => { if (editMode) resetEdit(); });
   // 매 프레임 수동 위치 재적용 (세션/리그가 덮어써도 유지) — applyEditOverrides()가 렌더 루프에서 호출
   function applyEditOverrides() {
     if (_edit.botX != null && xbot?.group) { xbot.group.position.x = _edit.botX; xbot.group.position.z = _edit.botZ; }
-    const proj = getProj();
-    if (_edit.projZ != null && proj) { proj.position.x = _edit.projX; proj.position.z = _edit.projZ; }
+    if (_edit.projZ != null && rig) {
+      if (!_origStatPos && rig.stationPos) _origStatPos = rig.stationPos.clone();   // 첫 이동 시 원점 백업(리셋용)
+      // 빔 발사 원점(stationPos)까지 이동 → 실제 프로젝션이 함께 따라감(유저). 유닛 박스도 동기.
+      if (rig.stationPos) { rig.stationPos.x = _edit.projX; rig.stationPos.z = _edit.projZ; }
+      if (rig.station) { rig.station.position.x = _edit.projX; rig.station.position.z = _edit.projZ; }
+    }
   }
   window.__applyEditOverrides = applyEditOverrides;
 
