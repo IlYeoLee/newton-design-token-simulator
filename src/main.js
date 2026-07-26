@@ -4300,24 +4300,15 @@ void main(){
     }
     // 카메라는 강제하지 않음 — 3인칭(궤도 자유회전) / 1인칭 모두 사용 가능.
     // 러닝 전진 팔로우는 실제 재생(비세션 or 실전)일 때만.
-    if (!inSessionPreview && !studioActive && state.pack === 'running' && !fpMode) {
+    // 3인칭 러닝: 봇 전진(실전 드리프트) + 리셋(FIN/전환 텔레포트)을 카메라·타깃이 '매 프레임' 델타-팔로우.
+    // → 상대 뷰(앵글·거리) 항상 유지. 실전→FIN 전환도 봇/리포트가 화면 밖으로 안 나가고 부드럽게 이어짐.
+    //   (프리뷰 A/T는 봇이 제자리라 dz≈0 → 영향 없음. 에지 감지는 전환 프레임을 놓쳐 실패했음, 유저.)
+    if (!studioActive && state.pack === 'running' && !fpMode) {
       const bz = xbot.group.position.z;
       const dz = bz - lastBodyZ;
       camera.position.z += dz;
       controls.target.z += dz;
       lastBodyZ = bz;
-    }
-    // 라이브→비라이브(FIN 리포트) 전환 = 봇이 드리프트(-146)에서 원점(0)으로 텔레포트. 안 잡으면 3인칭 궤도가
-    // 리셋된 씬을 지나쳐 회색 보이드로 이탈함. 카메라를 '같은 델타'로 함께 이동 → 상대 뷰(앵글·거리) 유지,
-    // 급전환 없이 같은 봇 좌표에서 부드럽게 이어짐(유저: 앵글 급변 지적).
-    if (state.pack === 'running' && !fpMode && !studioActive) {
-      const liveNow = session.active && session.isLive;
-      if (session._camWasLive && !liveNow) {
-        const dz = xbot.group.position.z - lastBodyZ;   // 텔레포트 델타(≈+드리프트량)
-        camera.position.z += dz; controls.target.z += dz; controls.update();
-        lastBodyZ = xbot.group.position.z;
-      }
-      session._camWasLive = liveNow;
     }
 
     // 1인칭 = X Bot의 눈 + VOR 안정화
