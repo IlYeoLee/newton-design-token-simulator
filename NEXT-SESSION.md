@@ -37,3 +37,13 @@ _마지막 업데이트: 2026-07-26 · 브랜치 main · HEAD = 농구 골대 �
 - 스테이지 강제이동(콘솔): `const s=window.__sess; s.stageIdx=s.stages.findIndex(x=>x.id==='A3'); s.t=1; s._enter();`
 - 세션 머신: `src/session.js` STAGES.running (A워밍업→P훈련→C실전). P단계 phases 배열이 타이머·강도 정의.
 - 훈련 라이브값 주입: `src/main.js` trainPhase() → `#s-title/#spm-me/#spm-tgt/#tp-arc`.
+
+## ⚠️ 미해결 (forever-todo, 2026-07-26)
+1. **3인칭 실전→비라이브(FIN/T2 등) 전환 시 봇/리포트가 화면 밖·멀리서 쓔욱 등장**
+   - 근본: 3인칭 실전에서 봇이 월드 z로 무한 드리프트(러닝감의 원천). 전환 시 씬은 원점으로 텔레포트하는데 카메라·풋프린트 스무딩이 어긋남.
+   - 시도(부분): main.js 전진 follow 게이트 제거(텔레포트 델타 즉시 추종) + 리포트 앵커 `_fpSmooth` 점프>1m 스냅. 격리 테스트(FIN)는 봇/리포트 프레이밍 OK 나왔으나, 유저 실제 흐름(T2 등)에선 여전히 발생 보고.
+   - 제대로 된 해법 후보: (a) 봇 제자리뛰기(드리프트 0, 바닥만 스크롤)로 재설계 — 큰 변경, (b) 전환 전용 카메라 글라이드 + 풋프린트/봇 즉시 스냅 동기화.
+2. **"두 번 탭/다음"(스테이지 전진) 직후 화면 0.x초 어두워짐**
+   - 측정: renderer.toneMappingExposure·조명 intensity는 상수. gradePass FX.exposure/블룸은 미측정(composer 미노출). 
+   - 유력: 스테이지 전진마다 floor UI iframe(?stage 바뀜) 전체 리로드 → 컴포지팅/프레임 히치, 또는 블룸/그레이드 transient. 픽셀 밝기 측정 필요(백그라운드 탭 rAF 스로틀로 자동측정 실패).
+   - 다음: scene.js renderFrame에 밝기 급락 시 노출·블룸·조명 로깅하는 임시 진단 후 유저 탭 → 콘솔 판독.
