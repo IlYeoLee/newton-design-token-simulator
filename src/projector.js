@@ -235,12 +235,18 @@ export class ProjectorRig {
         cx = wallEvs.reduce((s, e) => s + e.srcToken.nx * 2.2, 0) / wallEvs.length;
         cy = wallEvs.reduce((s, e) => s + 1.1 + e.srcToken.ny * 1.2, 0) / wallEvs.length;
       }
+      this._wallCenterBase = { cx, cy };   // 토큰 기준 원점(프로젝터 오프셋 전) — 배치 편집 시 여기에 projDX 더함
       this._wallCenter = { cx, cy };
     }
   }
 
   _updateWall() {
-    const { cx, cy } = this._wallCenter ?? { cx: 0, cy: 1.4 };
+    // 프로젝터를 좌우로 옮기면 투사 영역(빔+코치+마크)이 그 앞으로 따라감(유저: 어디 있어도 같은 벽에 투사는 말 안 됨).
+    // _wallCenter를 매 프레임 base+projDX로 갱신 → 이걸 읽는 렌더 전반(코치·마크)도 함께 이동.
+    const base = this._wallCenterBase ?? this._wallCenter ?? { cx: 0, cy: 1.4 };
+    const projDX = this.stationPos.x - STATION_POS.x;
+    this._wallCenter = { cx: base.cx + projDX, cy: base.cy };
+    const { cx, cy } = this._wallCenter;
     const w = this.wallW, h = this.wallH;
     const corners = [
       new THREE.Vector3(cx - w / 2, cy - h / 2, WALL_Z + 0.01),
