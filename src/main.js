@@ -4538,8 +4538,8 @@ void main(){
         // 운동중 프레임(floor-scene.html)엔 장면 지속시간 전달 — 도트 로딩바가 이 시간 동안 0→100% 차오름
         const dur = STAGE_DUR[session.curStage?.id] ?? session.curStage?.dur ?? 8;
         let durSuffix = fView.src.includes('floor-scene.html') ? '&dur=' + dur : '';
-        // 목표 케이던스(SPM) 표기 — 러닝 표준 단위. 실전=연습 통일(유저): P·C 모두 표기.
-        if (/^[PC]\d$/.test(session.curStage?.id || '') && session.sport === 'running' && tokens._beatT) durSuffix += '&spm=' + Math.round(60 / tokens._beatT);
+        // SPM 숫자 위젯 은퇴(유저): 텍스트가 3D 마크와 겹쳐 뭉침 + 케이던스는 소리(메트로놈)가 가르침.
+        // 바닥은 흐르는 원형 마크만 — 미니멀·프리미엄.
         floorIframe.src = import.meta.env.BASE_URL + fView.src + durSuffix;
         loadedFloorView = fView.src;
         _fpSmooth = null;   // 스테이지 전환 = 앵커 스냅(슬라이딩 방지)
