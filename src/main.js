@@ -1138,6 +1138,8 @@ void main(){
   let updateSurfChipsOut = () => {};   // 패널 투사면 칩 동기 (룩 패널 공용)
   function applyLabState(st) {
     if (!st) return;
+    // 룩 반영 카운터 — 프로덕션 빌드에서도 "룩 편집이 시뮬에 도달했는가"를 콘솔로 확인 가능(진단용 1줄)
+    window.__lookRev = (window.__lookRev || 0) + 1;
     if (st.stops) FXP.stops = st.stops.map(s => [...s]);
     if (st.sat != null) FXP.sat = st.sat;
     if (st.g) {
@@ -4803,8 +4805,9 @@ void main(){
           // 지우고 있었으므로 오프셋을 이 브랜치가 직접 소유한다(단일 출처).
           // 봇을 -1.15 → 0으로 되돌린 만큼(+1.15) 가이드 필드도 당겨온다. 안 당기면 토큰이 투사창
           // far 경계로 밀려 지면 UI 제목 줄 위에 겹친다(유저 신고). 봇 기준 원래 거리 복원:
-          //   A2 = 0.70m 앞(-1.85+1.15) · A3 = 1.55m 앞(-1.85-0.85+1.15)
-          const FWD = { BK_A2: 1.15, BK_A3: 0.30, BK_B1: -1.1, BK_B2: -1.25 };
+          //   A2 = 0.70m 앞(-1.85+1.15) · A3 = 1.10m 앞(유저: 제목·도트 줄에서 더 떨어뜨려 안정 배치)
+          //   A3 링은 헤일로가 커서 0.52m 이격으로는 도트 줄과 붙어 보였음 → 0.97m 이격
+          const FWD = { BK_A2: 1.15, BK_A3: 0.75, BK_B1: -1.1, BK_B2: -1.25 };
           stageG.position.set(0, 0, FWD[session.curStage?.id] || 0); stageG.quaternion.identity();
         } else {
           // 데모 단계: 발자국을 프레임과 '같은' 무릎 풋프린트 기준계에 실어 인물 흔들림에 함께 따라가게 함
