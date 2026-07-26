@@ -4218,6 +4218,29 @@ void main(){
         session.liveSpeed = session._trainSpd;
       } else { session._trainSpd = undefined; }
     }
+    // ── 실전(C 라이브) — Figma 128:261: km 카운터(0→목표 5km, 실시간 count) + SPM + Pace ──
+    {
+      const inLive = session.active && session.sport === 'running' && /^C[2-5]$/.test(session.stage || '');
+      if (inLive) {
+        const TARGET_KM = 5, LIVE_SECS = 22;   // 목표 5km(유저 세팅), 라이브 구간 동안 0→5 채움(데모)
+        session._liveKm = Math.min(TARGET_KM, (session._liveKm ?? 0) + (h / LIVE_SECS) * TARGET_KM);
+        try {
+          const fdoc = floorIframe.contentDocument;
+          const kn = fdoc?.getElementById('km-n');
+          if (kn) { const v = session._liveKm.toFixed(2); if (kn.textContent !== v) kn.textContent = v; }
+          const tgtSpm = Math.round(60 / (tokens._beatT || 0.39));
+          const sme = fdoc?.getElementById('spm-me'); if (sme) { const v = window.__mySpm ? String(window.__mySpm) : '--'; if (sme.textContent !== v) sme.textContent = v; }
+          const stg = fdoc?.getElementById('spm-tgt'); if (stg && stg.textContent !== String(tgtSpm)) stg.textContent = tgtSpm;
+          // 페이스: 목표=고정 5'42", 내 페이스=케이던스 비례 근사(빠른 케이던스=빠른 페이스)
+          const fmtPace = s => { s = Math.round(s); return Math.floor(s / 60) + '’' + String(s % 60).padStart(2, '0') + '”'; };
+          const pt = fdoc?.getElementById('pace-tgt'); if (pt && pt.textContent !== '5’42”') pt.textContent = '5’42”';
+          const pm = fdoc?.getElementById('pace-me');
+          if (pm) { const v = window.__mySpm ? fmtPace(342 * tgtSpm / window.__mySpm) : '—'; if (pm.textContent !== v) pm.textContent = v; }
+        } catch (e) { /* iframe 로드 전 */ }
+      } else if (!/^C[2-5]$/.test(session.stage || '')) {
+        session._liveKm = null;   // 라이브 벗어나면 리셋(재진입 0부터)
+      }
+    }
     // 케이던스 메트로놈(사운드 우선 — 러닝 교수법: 목표 SPM은 귀로 먼저). 팩 박자 동기 클릭.
     // 실전=연습 통일(유저): P뿐 아니라 C 실전에서도 소리가 페이스를 가르친다.
     if (session.active && /^[PC]\d$/.test(session.stage || '') && session.sport === 'running' && ttsOn && tokens._beatT > 0.2) {

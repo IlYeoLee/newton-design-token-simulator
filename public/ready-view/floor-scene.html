@@ -58,7 +58,7 @@ html,body{background:transparent}
 #prev-pill{display:flex;align-items:center;gap:20px;background:rgba(255,255,255,.14);border-radius:999px;padding:20px 30px 20px 40px}
 #prev-pill .pv{font-family:'Supreme',sans-serif;font-weight:700;font-size:60px;color:#fff;white-space:nowrap;line-height:1}
 #prev-pill svg{width:60px;height:60px;flex:0 0 auto}
-#prev-ring{position:relative;width:214px;height:214px}
+#prev-ring{position:relative;width:200px;height:200px}   /* Figma 200×200 통일 */
 #prev-ring svg.rg{position:absolute;inset:0;width:100%;height:100%}
 #prev-ring .arc{stroke-dasharray:1727.9;stroke-dashoffset:1727.9;animation:arcFill 5s .15s linear both}
 @keyframes arcFill{from{stroke-dashoffset:1727.9}to{stroke-dashoffset:0}}
@@ -81,12 +81,17 @@ html,body{background:transparent}
    링(카운트다운) = 스트라이드·인터벌만. 이지런은 링 없이 SPM만. */
 #train-row{display:flex;gap:110px;align-items:center;justify-content:center;
   opacity:0;animation:sUpFlat .6s .5s both}
-#spm2{font-family:'Supreme',sans-serif;font-size:60px;white-space:nowrap;line-height:1}
-#spm2 b{font-weight:700;color:#fff}
-#spm2 .u{font-weight:700;color:#fff}
-#spm2 .sl{font-weight:400;color:rgba(255,255,255,.6);margin:0 12px}
-#spm2 #spm-tgt,#spm2 #spm-tgt+.u{font-weight:400;color:rgba(255,255,255,.6)}
-#train-timer{position:relative;width:214px;height:214px;flex:0 0 auto}
+/* 케이던스/페이스 컴포넌트(Figma 128-261): 숫자행 "150 / 150" + 아래 라벨(SPM/Pace). 실전·훈련 공용. */
+.lstat{display:flex;flex-direction:column;align-items:center;gap:12px}
+.lstat .lv{font-family:'Supreme',sans-serif;font-size:60px;line-height:1;white-space:nowrap;display:flex;gap:18px;align-items:baseline}
+.lstat .lv b{font-weight:700;color:#fff}
+.lstat .lv .d{font-weight:400;color:rgba(255,255,255,.6)}
+.lstat .lbl{font-family:'Supreme',sans-serif;font-weight:400;font-size:40px;color:rgba(255,255,255,.6);letter-spacing:-1px}
+/* 실전(Figma 128-261): 큰 km 카운터 + [SPM][Pace] 2열 */
+#km{font-family:'OffBit','Supreme',sans-serif;font-weight:700;font-size:180px;color:#fff;line-height:1;white-space:nowrap}
+#km .u{font-weight:400}
+#live-row{display:flex;gap:120px;align-items:flex-start;justify-content:center}
+#train-timer{position:relative;width:200px;height:200px;flex:0 0 auto}   /* Figma 200×200 통일 */
 #train-timer svg{position:absolute;inset:0;width:100%;height:100%}
 #train-timer #tp-arc{transition:stroke .35s}
 #tp-tip{position:absolute;inset:0;transform-origin:center}
@@ -140,10 +145,24 @@ html,body{background:transparent}
           <div id="tp-tip"><img src="assets/timer_tip.svg" alt=""></div>
           <div id="tp-num">—</div>
         </div>` : '';
-    row.innerHTML = `<div id="spm2"><b id="spm-me">--</b><span class="sl">/</span><b id="spm-tgt">--</b><span class="u"> spm</span></div>` + ringHTML;
+    // 케이던스 컴포넌트(Figma 128-261): "150 / 150" + 아래 SPM 라벨.
+    row.innerHTML = `<div class="lstat"><div class="lv"><b id="spm-me">--</b><span class="d">/</span><span class="d" id="spm-tgt">--</span></div><div class="lbl">SPM</div></div>` + ringHTML;
     document.getElementById('content').appendChild(row);   // 컬럼: 타이틀 → 도트 → SPM/링
   } else {
     $('s-cue').style.display = 'none';
+  }
+  // 실전(C 라이브) — Figma 128:261: 큰 km 카운터(0→목표) + 도트 + [SPM][Pace] 2열. 타이틀 대신 km.
+  if (/^C[2-5]$/.test(stage)) {
+    $('s-title').style.display = 'none';
+    const dots = $('s-dots');
+    const km = document.createElement('div'); km.id = 'km';
+    km.innerHTML = `<span id="km-n">0.00</span><span class="u">km</span>`;
+    document.getElementById('content').insertBefore(km, dots);   // 컬럼 맨 위(타이틀 자리)
+    const row = document.createElement('div'); row.id = 'live-row';
+    row.innerHTML = `
+      <div class="lstat"><div class="lv"><b id="spm-me">--</b><span class="d">/</span><span class="d" id="spm-tgt">--</span></div><div class="lbl">SPM</div></div>
+      <div class="lstat"><div class="lv"><b id="pace-me">--</b><span class="d">/</span><span class="d" id="pace-tgt">--</span></div><div class="lbl">Pace</div></div>`;
+    document.getElementById('content').appendChild(row);
   }
   const spm = params.get('spm');
   if (spm) { const el = document.createElement('div'); el.id = 'spm-lbl';
