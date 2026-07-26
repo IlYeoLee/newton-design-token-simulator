@@ -438,6 +438,15 @@ const BK_STAND = -1.85;   // B1~B3 봇 배치(z) — 가이드 전체(마크·�
 // 한 덩어리로 뭉쳐 읽을 수 없음(유저 검수). 형태·순서는 실측 그대로, 간격만 2.2배 확대.
 const BK_ZOOM = 2.2;
 
+// 농구 워밍업 = 동적 웜업 3동작(하나의 실제 루틴 cmu13_30을 구간별로 반복).
+// 봇은 각 구간 루프(main.js phase), 코치 영상은 COACH_CFG(BK_A*)가 바닥 투사, 지면은 반복 카운트.
+// seg = auto_cmu13_30 클립 시간구간(초), per = 1회 주기, reps = 목표 횟수.
+const BK_STR = {
+  BK_A1: { per: 2.4, reps: 4,  side: true, noMark: true, fm: '옆구리 스트레치', say: '팔을 위로 뻗어 옆으로 쭉쭉. 왼쪽 오른쪽 번갈아 허리를 늘려요.' },
+  // BK_A2(니 드라이브)는 러닝 A3(하이니) 컴포넌트 전용 핸들러 — bkA2hk
+  // BK_A3(스쿼트)는 러닝 A2 방식(관찰5초→따라하기 홀드필+카운트) 별도 핸들러 — bkSquat
+};
+
 export const STAGES = {
   running: [
     { id:'READY', label:'준비 — 발 두 번 구르면 시작', voice:['션','안녕! 션이에요. 오늘 가볍게 1킬로 뛰어볼까요? 발 두 번 구르면 시작!'], wear:'SAFE 대기', foot:'발 두 번 구르기 → 시작' },
@@ -472,9 +481,9 @@ export const STAGES = {
   ],
   basketball: [
     { id:'BK_READY', label:'0 · READY — 준비', voice:['시스템','커리의 스텝백 3점 팩. 준비되면 발을 두 번 탭하세요.'], wear:'SAFE 대기', foot:'두 번 탭 → 시작' },
-    { id:'BK_A1', label:'A · 준비운동 1/3 — 스쿼트', voice:['커리','마크 폭으로 서서 천천히 앉았다 일어나요. 무릎은 발끝 방향.'], wear:'개입 없음 (자세 측정)' },
-    { id:'BK_A2', label:'A · 준비운동 2/3 — 런지 프레스', voice:['커리','앞으로 쭉 뻗어 원을 딛고 3초간 꾸욱. 왼발 오른발 번갈아.'], hap:'프레스 완료 진동 (약)' },
-    { id:'BK_A3', label:'A · 준비운동 3/3 — 드리블 스팟', voice:['커리','발 앞의 스팟에 공을 튕겨요. 링에 정확히 — 열 번이면 리듬 완성.'], wear:'낮은 강도 보조 시작' },
+    { id:'BK_A1', label:'A · 워밍업 1/3 — 옆구리 스트레치', voice:['커리','팔을 위로 뻗어 옆으로 쭉쭉 늘려요. 왼쪽 오른쪽 번갈아 — 허리부터 풀어요.'], wear:'개입 없음 (자세 측정)' },
+    { id:'BK_A2', label:'A · 워밍업 2/3 — 니 드라이브', voice:['커리','무릎을 올리며 반대손으로 터치, 상체를 비틀어요. 컷 준비 동작.'], hap:'리듬 진동 (약)' },
+    { id:'BK_A3', label:'A · 워밍업 3/3 — 스쿼트', voice:['커리','마지막! 천천히 앉았다 일어나요. 점프와 착지의 힘을 깨워요.'], wear:'낮은 강도 보조 시작' },
     { id:'BK_T1', label:'T-1 · STAGE CLEAR → 사전 익히기', voice:['시스템','몸 풀렸어요. 탭 두 번이면 다음으로.'], foot:'두 번 탭 → 사전 익히기' },
     { id:'BK_B1', label:'B · 스텝 스쿨 1/3 — 드라이브 리듬 스텝', voice:['커리','한 번에 두 걸음만 갈게요. 오른발, 그리고 왼발 — 밝은 발자국 순서대로, 가볍게 리듬만 타요.'], cue:'스텝 ①② 반복 ×4' },
     { id:'BK_B2', label:'B · 스텝 스쿨 2/3 — 플랜트 & 브레이크', voice:['커리','이제 셋에서 디딤발이에요. 4번 발자국에서 확 — 잘 멈추는 게 슛의 시작이에요.'], cue:'③④ 플랜트 반복 ×4' },
@@ -680,27 +689,53 @@ export class Session {
     g.add(floorRing(0, -1.1, 0.20, 0.225, BRAND.dim, 0.9));
     this.bkTap = this._tap('boxing'); this.bkTap.position.set(0, 0.013, -1.1); g.add(this.bkTap);
 
-    // A1 스쿼트 — 발폭 마크 2 + 회당 카운트 아크 (프로브: 골반 하강)
+    // A1 옆구리 = 마크 없이 코치 영상만(noMark) — ring/arc는 최소 생성(핸들러가 숨김).
+    this.bkStretch = {};
     g = this._mk('BK_A1');
-    this.bkA1L = new FootMark('left').at(-0.22, -1.9); g.add(this.bkA1L.group);
-    this.bkA1R = new FootMark('right').at(0.22, -1.9); g.add(this.bkA1R.group);
-    this.bkA1arc = floorArc(0, -2.25, BRAND.sand); g.add(this.bkA1arc);
-
-    // A2 사이드 런지 프레스 — 러닝 A1과 같은 '누르면 채워지는' 문법 (좌우 존원 + 홀드 아크)
+    { const ring = floorRing(0, -1.85, 0.20, 0.225, BRAND.red, 0.45); g.add(ring);
+      const arc = floorArc(0, -1.85, BRAND.sand); g.add(arc);
+      // 옆구리 = 좌우 리치 방향 큐(LINE ① 화살표·유저 SVG 촉). 굽히는 쪽으로 촉이 흐름.
+      const arrow = floorArrow(0, -1.6, 90, BRAND.coral, 0.6); g.add(arrow);
+      this.bkStretch['BK_A1'] = { ring, arc, arrow }; }
+    // A2 니 드라이브 = 러닝 A3(하이니) 컴포넌트 그대로 이식 — 발형2+숫자+리프트큐+궤적토큰. 트위스트=코멧 크로스바디.
     g = this._mk('BK_A2');
-    this.bkA2press = { ring: floorRing(0, -1.85, 0.20, 0.225, BRAND.red, 0.45), arc: floorArc(0, -1.85, BRAND.sand), cx: 0, cz: -1.85, fill: 0 };
-    g.add(this.bkA2press.ring); g.add(this.bkA2press.arc);
-
-    // A3 리듬 드리블 — 제자리 스탠스 + 박자 링
+    const k2L = new FootMark('left').at(-0.17, -1.85, 1.05), k2R = new FootMark('right').at(0.17, -1.85, 1.05);   // 투사존(-1.2~-2.8) 안
+    const k2nL = attachMarkNum(k2L, '0', false), k2nR = attachMarkNum(k2R, '0', true);
+    const mkLift2 = (x) => {
+      const c = document.createElement('canvas'); c.width = 128; c.height = 256;
+      const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(0.17, 0.34),
+        new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+      m.rotation.x = -Math.PI / 2; m.position.set(x, 0.014, -1.85); m.renderOrder = 7;
+      m._g = c.getContext('2d'); m._tex = tex; return m;
+    };
+    const ar2L = mkLift2(-0.46), ar2R = mkLift2(0.46);
+    const mkTraj2 = (x, mirror) => {
+      const m = primPanel('trajectory', 0.5, false);
+      m.position.set(x, 0.014, -2.18);
+      // 트위스트 니: 코멧이 바깥→안쪽으로 크로스바디 활강(반대손 터치 뉘앙스 = 비틀림)
+      m._prim.pts = [[mirror ? 0.34 : -0.34, -0.72], [mirror ? -0.16 : 0.16, 0.02], [0, 0.8]];
+      m._prim.P = { width: 1.5, tail: 1.2, taper: 1.6 };
+      m._prim.prog = 0;
+      return m;
+    };
+    const tj2L = mkTraj2(-0.17, false), tj2R = mkTraj2(0.17, true);
+    this.bkA2hk = { fmL: k2L, fmR: k2R, numL: k2nL, numR: k2nR, arL: ar2L, arR: ar2R, tjL: tj2L, tjR: tj2R,
+      sec: 0, cntL: 0, cntR: 0, _lastLeft: undefined, _pop: 0 };
+    g.add(k2L.group, k2R.group, ar2L, ar2R, tj2L, tj2R);
+    // A3 스쿼트(유저 2안) = 발자국 없이 큰 중앙 링 + 깊이 채움 아크 + 큰 중앙 카운트 + 깊이 펄스.
+    //   발이 제자리 고정이라 발마크는 정보 없음 → 깊이·횟수에 집중.
     g = this._mk('BK_A3');
-    g.add(new FootMark('left').at(-0.2, -1.9).group);
-    g.add(new FootMark('right').at(0.2, -1.9).group);
-    this.bkA3ring = floorRing(0.30, -1.33, 0.14, 0.16, BRAND.red, 0.8); g.add(this.bkA3ring);   // 스팟 = 실측 바운스 평균(0.30, -2.18w)
-    // V자 공 경로(교본 드리블 일러스트 문법): 왼손↘바운스↗오른손 — 링(바운스 지점)에서 꺾임
-    g.add(floorArrow(0.16, -1.45, 148, BRAND.coral, 0.26));
-    g.add(floorArrow(0.44, -1.45, 32, BRAND.coral, 0.26));
-    g.add(floorText('BOUNCE', 0.30, -1.60, { size: 0.055, color: CS.mute }));
-    this.bkA3miss = floorRing(0.30, -1.33, 0.16, 0.175, BRAND.dim, 0); g.add(this.bkA3miss);   // 빗나간 바운스 위치 피드백
+    const sqRing = floorRing(0, -1.85, 0.30, 0.335, BRAND.red, 0.45);   // 큰 링
+    const sqArc = floorArc(0, -1.85, BRAND.sand); sqArc.scale.setScalar(1.5);   // 깊이 채움(링 크기 맞춤)
+    const nc = document.createElement('canvas'); nc.width = nc.height = 128;   // 중앙 큰 카운트 숫자
+    const nmesh = new THREE.Mesh(new THREE.PlaneGeometry(0.34, 0.34),
+      new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(nc), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+    nmesh.material.map.colorSpace = THREE.SRGBColorSpace;
+    nmesh.userData.canvas = nc; nmesh.userData.tex = nmesh.material.map;
+    nmesh.rotation.x = -Math.PI / 2; nmesh.position.set(0, 0.015, -1.85); nmesh.renderOrder = 7;
+    g.add(sqRing, sqArc, nmesh);
+    this.bkSquat = { ring: sqRing, arc: sqArc, num: nmesh, count: 0, _wasDeep: false, _shown: -1 };
 
     g = this._mk('BK_T1');
     this.bkTap1 = this._tap('boxing'); this.bkTap1.position.set(0, 0.013, -1.1); g.add(this.bkTap1);
@@ -1196,7 +1231,7 @@ export class Session {
     this.tokens.root.visible = !!st.live;      // 라이브 = 실제 팩 토큰이 흐른다
     this.liveSpeed = st.boost ? 1.18 : 1;
     if (this.xbot) this.xbot.decelK = 0;   // C5 감속 잔재 제거 (다운시프트·FIN 진입 안전망)
-    this._a3hit = 0; this._a3missT = null;   // BK_A3 재진입 스테일 카운터 = 0초 스킵 버그 (a2count와 동일 클래스)
+    this._bkStrId = null;   // 워밍업 스트레칭 재진입 리셋 (스테이지 전환 시 홀드 카운트 0)
     if (this._c3Skill != null && this.judge) { this.judge.skill = this._c3Skill; this._c3Skill = null; }   // C3 중 탭 스킵 시 skill 0.35 영구 잠김 방지
     this.bobY = 0;
     for (const id in this.G) this.G[id].visible = false;
@@ -1295,9 +1330,9 @@ export class Session {
   _enterBasketball(st, { S, FS, FL, FM }) {
     switch (st.id) {
       case 'BK_READY': FS('CURRY · STEP-BACK 3'); FL('READY'); break;
-      case 'BK_A1': FS('WARM 1/3'); FL('스쿼트 — 마크 폭으로'); FM('천천히 8회', CS.sand); break;
-      case 'BK_A2': FS('WARM 2/3'); FL('앞으로 뻗어 딛고 3초 꾸욱'); FM('링이 차면 발 교대', CS.sand); break;
-      case 'BK_A3': FS('WARM 3/3'); FL('스팟에 공 튕기기 ×10'); FM('링에 정확히', CS.sand); break;
+      case 'BK_A1': FS('WARM-UP 1/3'); FL('옆구리 스트레치 — 팔 뻗어 좌우로'); FM('허리 늘리기 · 번갈아', CS.sand); break;
+      case 'BK_A2': FS('WARM-UP 2/3'); FL('니 드라이브 — 무릎↑ 반대손 터치'); FM('상체 비틀며', CS.sand); break;
+      case 'BK_A3': FS('WARM-UP 3/3'); FL('스쿼트 — 천천히 앉았다 일어나기'); FM('무릎은 발끝 방향', CS.sand); break;
       case 'BK_T1': FS('T-1'); S(this.slotFL, 'STAGE CLEAR', { size: 0.12, color: CS.prism }); break;
       case 'BK_B1': FS('STEP 1/3'); FL('리듬 스텝 — ① 오른발 ② 왼발'); FM('가볍게, 리듬만'); break;
       case 'BK_B2': FS('STEP 2/3'); FL('③ 스텝 → ④ 디딤발 확!'); FM('멈춤이 슛의 시작'); break;
@@ -1711,8 +1746,8 @@ export class Session {
 
   _updateBasketball(id, st, beat, FMU) {
     // 박자 바운스
-    if (id === 'BK_A2' || id === 'BK_B2' || id === 'BK_C2') this.bobY = 0.026 * Math.abs(Math.sin(Math.PI * this.t / 0.7));
-    else if (id === 'BK_A3' || id === 'BK_C3') this.bobY = 0.022 * Math.abs(Math.sin(Math.PI * this.t / 0.55));
+    if (id === 'BK_B2' || id === 'BK_C2') this.bobY = 0.026 * Math.abs(Math.sin(Math.PI * this.t / 0.7));
+    else if (id === 'BK_C3') this.bobY = 0.022 * Math.abs(Math.sin(Math.PI * this.t / 0.55));
     else if (id[3] === 'A' || id[3] === 'B') this.bobY = 0.007 * Math.sin(this.t * 1.8);
     else this.bobY = 0;
 
@@ -1720,76 +1755,125 @@ export class Session {
       const tap = id === 'BK_READY' ? this.bkTap : this.bkTap1; const k = 0.5 + 0.5 * Math.sin(this.t * 4);
       tap.children[0].material.opacity = 0.5 + 0.45 * k; tap.children[1].material.opacity = 0.5 + 0.45 * (1 - k);
       if (id === 'BK_T1' && this.t >= 4.5) { this.next(); return; }
-    } else if (id === 'BK_A1') {
-      // 스쿼트 — 발폭 마크에 서서 골반 하강 시 아크 채움, 회당 카운트 (프로브: 골반 높이)
-      const REPS = 8, DEMO = 3.0, DOWN = 0.85;
-      const pb = this.xbot?.getProbes?.();
-      const inSquat = pb?.hips && pb.hips.y < DOWN;
-      if (inSquat && !this._bkSq) { this.bkA1count = (this.bkA1count || 0) + 1; }
-      this._bkSq = inSquat;
-      if ((this._bkA1t ?? 0) > this.t) this.bkA1count = 0;
-      this._bkA1t = this.t;
-      this.bkA1arc.setProg(Math.max(0.001, inSquat ? 1 : 0.001));
-      if (this.t < DEMO) { this.demoActive = true; FMU('먼저 보세요 — 마크 폭으로 서서 스쿼트', CS.sand); }
-      else {
-        this._say('bka1go', '커리', '이제 같이 — 마크 폭으로 서서, 천천히 앉았다 일어나요. 여덟 번.');
-        FMU(`스쿼트 ${Math.min(REPS, this.bkA1count || 0)} / ${REPS}`, CS.sand);
-        if ((this.bkA1count || 0) >= REPS) { this.next(); return; }
+    } else if (id === 'BK_A3') {
+      // 스쿼트(2안) = 발자국 없이 큰 중앙 링 + 깊이 채움 아크 + 중앙 큰 카운트 + 깊이 펄스(발 고정이라 발마크 무의미).
+      const S = this.bkSquat;
+      if ((this._bkStrT ?? 0) > this.t || this._bkStrId !== 'BK_A3') { S.count = 0; S._wasDeep = false; S._shown = -1; }   // 재진입 리셋
+      this._bkStrT = this.t; this._bkStrId = 'BK_A3';
+      const watching = !this._followLatch && this.t < 5.0;   // main.js A2_WATCH=5s와 동기
+      if (watching) {
+        this.demoActive = true;                              // 코치 영상 시범 — 토큰 전부 숨김(코치+타이머만)
+        S.ring.setOp(0); S.arc.visible = false; S.num.visible = false;
+        FMU('먼저 보세요 — 스쿼트', CS.sand);
+      } else {
+        this._say('bksqgo', '커리', '이제 같이 — 천천히 앉았다 일어나요. 여섯 번.');
+        S.arc.visible = true; S.num.visible = true;
+        const hy = this.xbot?.getProbes?.()?.hips?.y ?? 1.0;
+        const depth = Math.max(0, Math.min(1, (0.98 - hy) / (0.98 - 0.82)));   // 서기 0.98 ~ 바닥 0.82
+        const deep = hy < 0.85;   // 검증된 스쿼트 바닥 임계(구 DOWN=0.85)
+        S.arc.setProg(Math.max(0.001, depth));
+        S.ring.setOp(0.4 + 0.5 * depth);            // 깊이 펄스 — 내려갈수록 밝게
+        S.ring.scale.setScalar(1 + 0.35 * depth);   // 깊이 펄스 — 내려갈수록 크게
+        if (deep && !S._wasDeep) {   // 바닥 도달 순간 1회 카운트 + 보상 버스트
+          S.count = (S.count || 0) + 1;
+          const wp = new THREE.Vector3(); S.ring.getWorldPosition(wp); this.onPress?.(wp, false);
+        }
+        S._wasDeep = deep;
+        if (S.count !== S._shown) { redrawFootNum(S.num, S.count); S._shown = S.count; }   // 중앙 큰 카운트 숫자
+        FMU(`스쿼트 ${Math.min(6, S.count || 0)} / 6`, (S.count || 0) >= 6 ? CS.prism : CS.sand);
+        if ((S.count || 0) >= 6 || this.t >= 32) { this.next(); return; }   // 안전장치: 32초 캡
       }
     } else if (id === 'BK_A2') {
-      // 사이드 런지 프레스 — 러닝 A1과 동일 문법: 옆 원을 밟아 누르면 그쪽 아크 채움
-      const NEED = 2.6, REPS = 4, DEMO = 4.6;
+      // 니 드라이브 = 러닝 A3(하이니) 컴포넌트 이식: 발높이 프로브→궤적 코멧→정점 카운트, 좌우 교대.
+      //   트위스트 = 코멧 크로스바디(빌드 pts) + 올라간 발이 중앙으로 쏠림(x이동).
+      const PER_FOOT = 8, MAXSEC = 36;
+      const H = this.bkA2hk;
       const dt = Math.max(0, this.t - (this._bkA2t ?? this.t));
-      if ((this._bkA2t ?? 0) > this.t) { this.bkA2count = 0; this.bkA2press.fill = 0; }
+      if ((this._bkA2t ?? 0) > this.t) { H.sec = 0; H.cntL = 0; H.cntR = 0; H._lastLeft = undefined; H._shownL = -1; H._shownR = -1; H._pL = 0; H._pR = 0; }
       this._bkA2t = this.t;
+      const guide = [H.fmL.group, H.fmR.group, H.arL, H.arR, H.tjL, H.tjR];
+      if (!this._followLatch) {   // 관찰 5초 = 코치 영상만(마크 숨김)
+        for (const o of guide) o.visible = false;
+        this.demoActive = true;
+        FMU('먼저 보세요 — 니 드라이브', CS.prism);
+        return;
+      }
+      this._say('bka2go', '커리', '이제 같이 — 무릎 올리며 반대손 터치, 상체를 비틀어요.');
+      for (const o of guide) o.visible = true;
+      placeMarkNum(H.numL); placeMarkNum(H.numR);
+      H.sec = Math.min(MAXSEC, H.sec + dt);
+      H._pop = Math.max(0, H._pop - dt * 5);
       const pb = this.xbot?.getProbes?.();
-      const P = this.bkA2press;
-      let pressing = false;
-      if ((this.a2Guide || 'A') === 'A') {
-        for (const f of [pb?.footL, pb?.footR]) {
-          if (f && f.y < 0.09 && Math.hypot(f.x - P.cx, f.z - P.cz) < 0.27) pressing = true;
+      const lY = pb?.footL?.y ?? 0, rY = pb?.footR?.y ?? 0, TH = 0.12;
+      const lUp = lY > TH, rUp = rY > TH;
+      const aUp = 1 - Math.exp(-dt / 0.13);
+      H._pL = (H._pL ?? 0) + (Math.min(1, lY / 0.30) - (H._pL ?? 0)) * aUp;
+      H._pR = (H._pR ?? 0) + (Math.min(1, rY / 0.30) - (H._pR ?? 0)) * aUp;
+      const apex = (isL2, p, prev, fm) => {
+        if (p > 0.88 && prev <= 0.88) {
+          if (isL2) H.cntL = Math.min(PER_FOOT, H.cntL + 1); else H.cntR = Math.min(PER_FOOT, H.cntR + 1);
+          H._pop = 1; H._lastLeft = isL2;
+          const wp = new THREE.Vector3(); fm.group.getWorldPosition(wp); this.onPress?.(wp, false);
         }
-      } else if (front && front.y < 0.09 && pb && Math.abs(pb.footL.z - pb.footR.z) > 0.4) {
-        pressing = true;   // B안 판정 = 앞발 접지 + 런지 스프레드(깊이 유지 중)
-      }
-      P.fill = pressing ? Math.min(1, P.fill + dt / NEED) : Math.max(0, P.fill - dt * 0.6);
-      P.arc.setProg(Math.max(0.001, P.fill));
-      P.ring.setOp(pressing ? 0.95 : 0.45);
-      if (P.fill >= 1) {
-        this.bkA2count = (this.bkA2count || 0) + 1; P.fill = 0;
-        const wp = new THREE.Vector3(); P.arc.getWorldPosition(wp); this.onPress?.(wp);
-      }
-      if (this.t < DEMO) { this.demoActive = true; FMU('먼저 보세요 — 앞으로 뻗어 딛고 3초 꾸욱', CS.sand); }
+      };
+      apex(true, H._pL, H._prevPL ?? 0, H.fmL); apex(false, H._pR, H._prevPR ?? 0, H.fmR);
+      H._prevPL = H._pL; H._prevPR = H._pR;
+      // 발자국 상승 + 트위스트 x이동(크로스바디: 올라간 발이 중앙으로 쏠림)
+      H.fmL.group.position.z = -1.85 - 0.5 * H._pL; H.fmL.group.position.x = -0.17 + 0.10 * H._pL;
+      H.fmR.group.position.z = -1.85 - 0.5 * H._pR; H.fmR.group.position.x = 0.17 - 0.10 * H._pR;
+      H.fmL.group.scale.setScalar(1.05 * (1 + 0.16 * H._pL));
+      H.fmR.group.scale.setScalar(1.05 * (1 + 0.16 * H._pR));
+      const leftNow = lUp ? true : (rUp ? false : (H._lastLeft ?? true));
+      const onFM = leftNow ? H.fmL : H.fmR, offFM = leftNow ? H.fmR : H.fmL;
+      onFM.glow(0.6 + 0.4 * H._pop); onFM.op(1);
+      offFM.ghost(); offFM.op(0.45);
+      const st3 = FXP.a3Arrow || 4, useTraj = st3 === 4;
+      H.arL.visible = !useTraj; H.arR.visible = !useTraj;
+      H.tjL.visible = useTraj; H.tjR.visible = useTraj;
+      if (useTraj) { H.tjL._prim.prog = H._pL; H.tjR._prim.prog = H._pR; }
       else {
-        this._say('bka2go', '커리', '이제 같이 — 앞으로 쭉 뻗어 딛고 3초간 꾸욱 눌러요.');
-        FMU(`원 눌러 채우기 ${Math.min(REPS, this.bkA2count || 0)} / ${REPS}`, CS.sand);
-        if ((this.bkA2count || 0) >= REPS) { this.next(); return; }
-      }
-    } else if (id === 'BK_A3') {
-      // 드리블 스팟 — 공의 '실제 바운스 위치'를 감지해 스팟 명중 판정 (공 반응형 지면 UI).
-      // 명중: 임팩트 버스트+카운트 / 빗나감: 그 지점에 흐릿한 링(어디에 튕겼는지 피드백).
-      const BT = 0.5, k = 1 - beat(BT);
-      this.bkA3ring.setOp(0.35 + 0.55 * k); this.bkA3ring.scale.setScalar(0.9 + 0.4 * (1 - k));
-      const ball = this.xbot?.ball;
-      if (ball && ball.visible) {
-        const bw = new THREE.Vector3(); ball.getWorldPosition(bw);
-        const desc = (this._a3py ?? bw.y) > bw.y;
-        if (this._a3desc && !desc && bw.y < 0.35) {   // 하강→상승 전환 = 바운스 순간
-          const rw = new THREE.Vector3(); this.bkA3ring.getWorldPosition(rw);
-          if (Math.hypot(bw.x - rw.x, bw.z - rw.z) < 0.35) {
-            this._a3hit = (this._a3hit || 0) + 1;
-            this.bkA3ring.setOp(1); this.onPress?.(new THREE.Vector3(rw.x, 0.02, rw.z));
-          } else {
-            const lp = this.bkA3miss.parent.worldToLocal(new THREE.Vector3(bw.x, 0.013, bw.z));
-            this.bkA3miss.position.x = lp.x; this.bkA3miss.position.z = lp.z; this._a3missT = this.t;
-          }
+        const nowT = performance.now() / 1000;
+        if (nowT - (this._a3cueT || 0) > 1 / 30) {
+          this._a3cueT = nowT;
+          drawLiftCue(H.arL._g, st3, nowT, leftNow ? H._pop : 0.15); H.arL._tex.needsUpdate = true;
+          drawLiftCue(H.arR._g, st3, nowT + 0.4, leftNow ? 0.15 : H._pop); H.arR._tex.needsUpdate = true;
         }
-        this._a3desc = desc; this._a3py = bw.y;
       }
-      this.bkA3miss.setOp(this._a3missT != null ? Math.max(0, 0.6 - 0.6 * (this.t - this._a3missT)) : 0);
-      const hits = this._a3hit || 0;
-      FMU(`스팟에 튕기기 · ${Math.min(10, hits)} / 10`, hits >= 10 ? CS.prism : CS.sand);
-      if (hits >= 10 || this.t >= 26) { this.next(); return; }
+      if (H.cntL !== H._shownL) { redrawFootNum(H.numL, H.cntL); H._shownL = H.cntL; }
+      if (H.cntR !== H._shownR) { redrawFootNum(H.numR, H.cntR); H._shownR = H.cntR; }
+      H.numL.visible = true; H.numR.visible = true;
+      FMU(`니 드라이브 — 왼 ${H.cntL} · 오른 ${H.cntR} / ${PER_FOOT}`, CS.sand);
+      if ((H.cntL >= PER_FOOT && H.cntR >= PER_FOOT) || H.sec >= MAXSEC) { this.next(); return; }
+    } else if (BK_STR[id]) {
+      // 워밍업 동적 3동작(비틀기·하이니·스쿼트). 코치 영상 상시 투사(COACH_CFG) + 지면 반복 카운트.
+      const cfg = BK_STR[id], S = this.bkStretch[id];
+      if ((this._bkStrT ?? 0) > this.t || this._bkStrId !== id) { S.count = 0; S.latch = -1; }   // 재진입/전환 리셋
+      this._bkStrT = this.t; this._bkStrId = id;
+      this.demoActive = true;
+      if (cfg.watch && !this._followLatch && this.t < 5.0) {   // A2 = 관찰 5초(코치+Preview 타이머만, 마크 숨김) → 따라하기
+        S.ring.setOp(0); S.arc.visible = false;
+        FMU('먼저 보세요 — ' + cfg.fm, CS.sand);
+        return;
+      }
+      const t0 = cfg.watch ? (this._aWatchEnd ?? 5.0) : 0;   // 관찰형은 시범 종료 후부터 카운트
+      const tt = Math.max(0, this.t - t0);
+      const per = cfg.per, inRep = (tt % per) / per, rep = Math.floor(tt / per);
+      if (cfg.noMark) {   // 옆구리 = 판정 링/아크 대신 좌우 방향 화살표(LINE) — 굽히는 쪽으로 촉이 흐름
+        S.ring.setOp(0); S.arc.visible = false;
+        if (S.arrow) { S.arrow.visible = true; S.arrow.rotation.z = THREE.MathUtils.degToRad(rep % 2 === 0 ? 90 : -90); }
+      } else {
+        S.arc.visible = true;
+        S.arc.setProg(Math.max(0.001, inRep));                    // 한 동작 진행도
+        S.ring.setOp(0.4 + 0.5 * Math.abs(Math.sin(Math.PI * inRep)));   // 박자 펄스
+      }
+      if (rep > S.latch) {   // 1회 완료 순간 = 접지 보상 버스트(마크 있을 때만)
+        S.latch = rep; S.count = rep;
+        if (rep > 0 && !cfg.noMark) { const wp = new THREE.Vector3(); S.ring.getWorldPosition(wp); this.onPress?.(wp, false); }
+      }
+      if (cfg.side) this.bkStrSide = rep % 2 === 0;   // 좌우 교대 표시 (봇 미러는 main.js 참조)
+      const sideTxt = cfg.side ? (this.bkStrSide ? '왼쪽 · ' : '오른쪽 · ') : '';
+      FMU(`${cfg.fm} · ${sideTxt}${Math.min(cfg.reps, S.count)} / ${cfg.reps}`, S.count >= cfg.reps ? CS.prism : CS.sand);
+      if (S.count >= cfg.reps) { this.next(); return; }
     } else if (id === 'BK_B1') {
       // 스텝 스쿨 1막 — 드라이브 리듬 스텝: 한 번에 두 걸음(①②)만, 절반 속도 4회 반복.
       // 나머지 마크는 문맥 dim(전체 경로는 보이되 집중은 앞 두 발) — 배우기 쉬움 우선 재설계.

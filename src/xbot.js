@@ -25,49 +25,49 @@ import blCrossoverUrl from '../assets/anim-bl-crossover.fbx?url';   // Fab 크�
 import joggingUrl from '../assets/anim-jogging.fbx?url';            // Mixamo 'Jogging' — 예비(워밍업 조깅)
 import bkBlockUrl from '../assets/anim-bk-block.fbx?url';           // Mixamo 'Defender'(점프 블록) — 농구 수비 예비
 // Bandai Namco Research MotionDataset (CC BY-NC) — BVH 실측 리타겟 클립
-import bkRunClipJson from '../assets/mocap/xclip-run_normal.json';
-import bkDashClipJson from '../assets/mocap/xclip-dash_normal.json';
-import bkKickClipJson from '../assets/mocap/xclip-kick_normal.json';
+import bkRunClipJson from '../assets/mocap/xclip-run_normal.json?url';
+import bkDashClipJson from '../assets/mocap/xclip-dash_normal.json?url';
+import bkKickClipJson from '../assets/mocap/xclip-kick_normal.json?url';
 // 실사 영상 비디오모캡 (scripts/bake_pose_clip.mjs — MediaPipe 리타겟)
-import quadStretchClipJson from '../assets/mocap/xclip-quad_stretch.json';
+import quadStretchClipJson from '../assets/mocap/xclip-quad_stretch.json?url';
 // CMU Graphics Lab 실측 모캡 (무료 라이선스, scripts/retarget_bvh.mjs)
-import cmuStretchClipJson from '../assets/mocap/xclip-cmu_stretch.json';           // 42_01 전신 풀기
-import cmuDribbleLowClipJson from '../assets/mocap/xclip-cmu_dribble_low.json';    // 06_13 로우 프리스타일 드리블
-import cmuCrossoverClipJson from '../assets/mocap/xclip-cmu_crossover_shot.json';  // 06_14 크로스오버+슛
+import cmuStretchClipJson from '../assets/mocap/xclip-cmu_stretch.json?url';           // 42_01 전신 풀기
+import cmuDribbleLowClipJson from '../assets/mocap/xclip-cmu_dribble_low.json?url';    // 06_13 로우 프리스타일 드리블
+import cmuCrossoverClipJson from '../assets/mocap/xclip-cmu_crossover_shot.json?url';  // 06_14 크로스오버+슛
 // Motifect Sports 팩 (유료 소스, 리타겟 산출물만 커밋 — 원본 FBX 재배포 금지)
-import mfJumpShotClipJson from '../assets/mocap/xclip-mf_jump_shot.json';   // BK_C4 릴리즈 점프샷
-import mfMarathonClipJson from '../assets/mocap/xclip-mf_marathon.json';    // 예비: 러닝 페이스 런
-import mfLayupClipJson from '../assets/mocap/xclip-mf_layup.json';          // 예비: 레이업
+import mfJumpShotClipJson from '../assets/mocap/xclip-mf_jump_shot.json?url';   // BK_C4 릴리즈 점프샷
+import mfMarathonClipJson from '../assets/mocap/xclip-mf_marathon.json?url';    // 예비: 러닝 페이스 런
+import mfLayupClipJson from '../assets/mocap/xclip-mf_layup.json?url';          // 예비: 레이업
 // SFU/NUS 모캡 DB (무료·무가입, mocap.cs.sfu.ca) — 외부 무료팩 100% 이식 성공 사례
-import sfuJumpRopeClipJson from '../assets/mocap/xclip-sfu_jumprope.json';  // 줄넘기 (워밍업 후보)
-import sfuJoggingClipJson from '../assets/mocap/xclip-sfu_jogging.json';    // 조깅 (루트모션 보존)
+import sfuJumpRopeClipJson from '../assets/mocap/xclip-sfu_jumprope.json?url';  // 줄넘기 (워밍업 후보)
+import sfuJoggingClipJson from '../assets/mocap/xclip-sfu_jogging.json?url';    // 조깅 (루트모션 보존)
 // 햇지런 워밍업 영상 비디오모캡 (유저 제공 warmup_src.mp4 → 운동별 구간 베이크)
-import hjLegswingClipJson from '../assets/mocap/xclip-hj_legswing.json';   // 레그 스윙 (A3)
-import hjJjackClipJson from '../assets/mocap/xclip-hj_jjack.json';         // 점핑잭
-import hjSquatClipJson from '../assets/mocap/xclip-hj_squat.json';         // 스쿼트
-import hjSidelungeClipJson from '../assets/mocap/xclip-hj_sidelunge.json'; // 사이드 런지
-import hjKneehugClipJson from '../assets/mocap/xclip-hj_kneehug.json';     // 니 허그
-import hjSidebendClipJson from '../assets/mocap/xclip-hj_sidebend.json';   // 사이드 밴드
+import hjLegswingClipJson from '../assets/mocap/xclip-hj_legswing.json?url';   // 레그 스윙 (A3)
+import hjJjackClipJson from '../assets/mocap/xclip-hj_jjack.json?url';         // 점핑잭
+import hjSquatClipJson from '../assets/mocap/xclip-hj_squat.json?url';         // 스쿼트
+import hjSidelungeClipJson from '../assets/mocap/xclip-hj_sidelunge.json?url'; // 사이드 런지
+import hjKneehugClipJson from '../assets/mocap/xclip-hj_kneehug.json?url';     // 니 허그
+import hjSidebendClipJson from '../assets/mocap/xclip-hj_sidebend.json?url';   // 사이드 밴드
 // CMU 추가분 — 스트레칭·워밍업 루틴·농구
-import cmuStretch2ClipJson from '../assets/mocap/xclip-cmu_stretch2.json';           // 77_21 스트레칭
-import cmuStretch3ClipJson from '../assets/mocap/xclip-cmu_stretch3.json';           // 83_22 스트레칭(장편)
-import cmuWarmupRoutineClipJson from '../assets/mocap/xclip-cmu_warmup_routine.json';// 14_06 워밍업 루틴
-import cmuCrossoverTurnClipJson from '../assets/mocap/xclip-cmu_crossover_turn.json';// 06_12 크로스오버+턴
-import cmuDribbleShotClipJson from '../assets/mocap/xclip-cmu_dribble_shot.json';    // 06_15 드리블→슛
-import rkStepbackClipJson from '../assets/mocap/xclip-rk_stepback.json';
+import cmuStretch2ClipJson from '../assets/mocap/xclip-cmu_stretch2.json?url';           // 77_21 스트레칭
+import cmuStretch3ClipJson from '../assets/mocap/xclip-cmu_stretch3.json?url';           // 83_22 스트레칭(장편)
+import cmuWarmupRoutineClipJson from '../assets/mocap/xclip-cmu_warmup_routine.json?url';// 14_06 워밍업 루틴
+import cmuCrossoverTurnClipJson from '../assets/mocap/xclip-cmu_crossover_turn.json?url';// 06_12 크로스오버+턴
+import cmuDribbleShotClipJson from '../assets/mocap/xclip-cmu_dribble_shot.json?url';    // 06_15 드리블→슛
+import rkStepbackClipJson from '../assets/mocap/xclip-rk_stepback.json?url';
 import importedManifest from '../assets/imported/manifest.json';   // 인제스트 파이프라인 산출(scripts/ingest_fbx.mjs)
 import autoManifest from '../assets/mocap/auto/auto-manifest.json';   // 대량 리타겟 자동 산출(--auto)
-import cmuDribbleFwdClipJson from '../assets/mocap/xclip-cmu_dribble_fwd.json';   // CMU 06_02 전진 드리블(이동)
-import cmuDribbleBackClipJson from '../assets/mocap/xclip-cmu_dribble_back.json'; // CMU 06_06 후진 드리블(이동)
-import cmuDribbleSideClipJson from '../assets/mocap/xclip-cmu_dribble_side.json'; // CMU 06_08 사이드 드리블(이동)
-import fabCrossoverClipJson from '../assets/mocap/xclip-fab_crossover.json';   // Fab 크로스오버(UE 마네킹→리타겟, 힙 회전만+런타임 클램프)
+import cmuDribbleFwdClipJson from '../assets/mocap/xclip-cmu_dribble_fwd.json?url';   // CMU 06_02 전진 드리블(이동)
+import cmuDribbleBackClipJson from '../assets/mocap/xclip-cmu_dribble_back.json?url'; // CMU 06_06 후진 드리블(이동)
+import cmuDribbleSideClipJson from '../assets/mocap/xclip-cmu_dribble_side.json?url'; // CMU 06_08 사이드 드리블(이동)
+import fabCrossoverClipJson from '../assets/mocap/xclip-fab_crossover.json?url';   // Fab 크로스오버(UE 마네킹→리타겟, 힙 회전만+런타임 클램프)
 import mfDribbleBlUrl from '../assets/anim-mf-dribble-bl.fbx?url';        // Motifect 드리블 → Blender 리타겟(오브젝트 힙·다리비율 스케일)
-import mfBlockClipJson from '../assets/mocap/xclip-mf_block.json';            // Motifect 블록 시도(수비 점프)
-import mfChestPassClipJson from '../assets/mocap/xclip-mf_chest_pass.json';   // Motifect 체스트 패스
+import mfBlockClipJson from '../assets/mocap/xclip-mf_block.json?url';            // Motifect 블록 시도(수비 점프)
+import mfChestPassClipJson from '../assets/mocap/xclip-mf_chest_pass.json?url';   // Motifect 체스트 패스
 import mfSprintBlUrl from '../assets/anim-mf-sprint-bl.fbx?url'; // Motifect 스프린트 스타트 → Blender 리타겟    // Rokoko Vision 비디오 모캡 — 스텝백 튜토리얼(파운드→45°스텝백→개더→슛)
 // Mixamo Stomping 좌+우(미러) 오프라인 합성 — 프레스(원 꾹 밟기) 교대 클립
-import stompPressClipJson from '../assets/mocap/xclip-stomp_press.json';
-import walkRightClipJson from '../assets/mocap/xclip-walk_right.json';   // 걷기(제자리 베이크) — C5 자연 감속용
+import stompPressClipJson from '../assets/mocap/xclip-stomp_press.json?url';
+import walkRightClipJson from '../assets/mocap/xclip-walk_right.json?url';   // 걷기(제자리 베이크) — C5 자연 감속용
 
 // X Bot = 투사된 토큰 UI를 "따라하는 사람" 역할.
 // 모든 안무는 팩 시간(packTime)의 순수 함수 → 루프/시크/속도 변경에 안전.
@@ -158,11 +158,15 @@ export class XBot {
     reg('bkBlock', bkBlockFbx);            // 예비 — 농구 점프 블록(Mixamo 실측)
 
     // 실측 모캡 클립 (Bandai BVH → 오프라인 리타겟)
-    const regJson = (name, json) => {
-      const clip = THREE.AnimationClip.parse(json);
-      const action = this.mixer.clipAction(clip);
-      action.setLoop(THREE.LoopRepeat, Infinity);
-      this.actions[name] = { action, dur: clip.duration };
+    // 모캡 JSON은 ?url 임포트(런타임 fetch) — 번들에 인라인하면 main.js가 100MB+로 폭증.
+    const _clipJobs = [];
+    const regJson = (name, url) => {
+      _clipJobs.push(fetch(url).then(r => r.json()).then(json => {
+        const clip = THREE.AnimationClip.parse(json);
+        const action = this.mixer.clipAction(clip);
+        action.setLoop(THREE.LoopRepeat, Infinity);
+        this.actions[name] = { action, dur: clip.duration };
+      }).catch(e => console.warn('클립 로드 실패', name, e)));
     };
     regJson('bkRun', bkRunClipJson);
     regJson('bkDash', bkDashClipJson);
@@ -230,20 +234,21 @@ export class XBot {
     // ── 대량 리타겟 클립 자동 등록: assets/mocap/auto/*.json (--auto 산출) ──
     // 반드시 _vmClips/_rootClips/_groundedClips의 Set 리터럴 초기화 뒤에 — 앞에 두면 재할당이 auto 플래그를 전부 지움(루트클립 힙 고정→발 미끄러짐).
     {
-      const jsons = import.meta.glob('../assets/mocap/auto/*.json', { eager: true });
-      for (const [pth, mod] of Object.entries(jsons)) {
+      const jsons = import.meta.glob('../assets/mocap/auto/*.json', { eager: true, query: '?url', import: 'default' });
+      for (const [pth, url] of Object.entries(jsons)) {
         if (pth.endsWith('auto-manifest.json')) continue;
         const nm = 'auto_' + pth.split('/').pop().replace(/\.json$/i, '');
         const meta = autoManifest[nm.slice(5)] || {};
         if (meta.qaFail) continue;   // 시각 QA 불합격 — 파일은 보존(재리타겟 후보), 등록만 차단
         try {
-          regJson(nm, mod.default);
+          regJson(nm, url);
           this._vmClips.add(nm);
           this._groundedClips.add(nm);
           if (meta.root) this._rootClips.add(nm);
         } catch (e) { console.warn('auto 클립 등록 실패', nm, e); }
       }
     }
+    await Promise.all(_clipJobs);   // 모든 모캡 클립 fetch+parse 완료 대기 (이후 this.actions 사용 보장)
 
     this._hips = xbot.getObjectByName('mixamorigHips');
     this._kneeR = xbot.getObjectByName('mixamorigRightLeg');

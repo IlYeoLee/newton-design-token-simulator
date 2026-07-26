@@ -2156,6 +2156,10 @@ void main(){
     A1: { src: 'ready-view/assets/sean_neck_shoulder.webm', cropOff: 0.40, cropScale: 0.58, w: 0.88, h: 0.9, fwd: 0.16 },   // A2 런지와 크기 맞춤(유저: 너무 작음)
     A2: { src: 'ready-view/assets/sean_lunge.webm', cropOff: 0.0, cropScale: 1.0, w: 0.9, h: 0.9, fwd: 0.10 },   // 런지 전신 측면
     A3: { src: 'ready-view/assets/sean_highknee.webm', cropOff: 0.0, cropScale: 1.0, w: 0.9, h: 0.9, fwd: 0.10 },   // 하이니 전신 정면
+    // 농구 워밍업 코치 영상(kling i2v·그린스크린 960²) — 러닝 A2/A3와 동일 크기(w/h 0.9). 인물이 프레임 채워 1.2는 넘침(유저).
+    BK_A1: { src: 'ready-view/assets/bk_sidebend.webm', cropOff: 0.0, cropScale: 1.0, w: 0.9, h: 0.9, fwd: 0.10 },   // 옆구리 스트레치
+    BK_A2: { src: 'ready-view/assets/bk_highknee.webm', cropOff: 0.0, cropScale: 1.0, w: 0.9, h: 0.9, fwd: 0.10 },   // 무릎 들기
+    BK_A3: { src: 'ready-view/assets/bk_squat.webm',    cropOff: 0.0, cropScale: 1.0, w: 0.9, h: 0.9, fwd: 0.10 },   // 스쿼트
   };
   const _coaches = {};   // stageId → { video, plane, _fwd }
   function ensureCoach(id) {
@@ -2239,14 +2243,11 @@ void main(){
     return co;
   }
   function tickA1Coach() {
-    // 어떤 스테이지 코치를 켤지: A1 = 전 구간, A2 = 진입 후 ~3s 데모(런지 따라하기 전 시범)
-    const st = session.active && !session.isLive && state.pack === 'running' ? session.stage : null;
-    const showA1 = st === 'A1';
-    // 시범 문법: A2/A3 코치 영상은 시범(관찰) 동안만 — 따라하기 = 토큰 전용(작은 투사·초점 하나).
-    const showA2 = st === 'A2' && !session._followLatch;
-    const showA3 = st === 'A3' && !session._followLatch;
-    const activeId = showA1 ? 'A1' : (showA2 ? 'A2' : (showA3 ? 'A3' : null));
-    for (const id of ['A1', 'A2', 'A3']) {
+    // 어떤 스테이지 코치를 켤지: 러닝 A1·농구 워밍업 전부 = 전 구간 상시, 러닝 A2/A3 = 시범(관찰) 중에만.
+    const st = session.active && !session.isLive && (state.pack === 'running' || state.pack === 'basketball') ? session.stage : null;
+    const COACH_IDS = ['A1', 'A2', 'A3', 'BK_A1', 'BK_A2', 'BK_A3'];
+    const activeId = COACH_IDS.find(id => id === st && !((id === 'A2' || id === 'A3' || id === 'BK_A2' || id === 'BK_A3') && session._followLatch)) || null;
+    for (const id of COACH_IDS) {
       const c = _coaches[id];
       if (id === activeId) {
         const co = ensureCoach(id);
@@ -3864,8 +3865,8 @@ void main(){
       BX_READY: 'boxGuard', BX_T1: 'boxGuard', BX_T2: 'boxGuard', BX_C1: 'boxGuard',
       // 농구 — CMU 06 실측: A3 로우 프리스타일 드리블, B1·B2 크로스오버+슛(시그니처 무브 시범/분해),
       // B3 컷·감속(드리블 컷 구간 창). 시작 화면(READY)은 러닝과 동일 calm idle(공 없음)
-      // 농구 A단계 v2: A1 스쿼트·A2 사이드 런지 프레스(햇지런 실측) · A3 리듬 드리블(CMU)
-      BK_READY: 'idle', BK_A1: 'airSquat', BK_A2: 'stomp_press', BK_A3: 'cmu_dribble_low',
+      // 농구 A단계 v5: A1 옆구리 스트레치(hj_sidebend) + A2·A3 = cmu13_30 구간(무릎들기 5.5–9.8s·스쿼트 9.8–14.2s)
+      BK_READY: 'idle', BK_A1: 'hj_sidebend', BK_A2: 'auto_cmu13_30', BK_A3: 'auto_cmu13_30',
       // B1 시범 = 06_15 드리블→슛(온전한 무브 원테이크), B2 분해 = 06_14 크로스오버+슛 위상잠금
       BK_B1: 'cmu_crossover_shot', BK_B2: 'cmu_crossover_shot', BK_B3: 'cmu_crossover_shot',
     };
@@ -3893,7 +3894,7 @@ void main(){
         // 제자리 동작(A2 런지·A3 하이니 등 발이 크게 움직이는)은 몸(hips) 기준 안정 앵커 —
         //   앞발 앵커면 발이 위아래·앞뒤로 튈 때 투사면이 같이 흔들림(유저 A3 흔들림 지적).
         //   A1(목·어깨, 발 고정)만 앞발 그대로.
-        const anchor = /^(A2|A3|BK_A2|BK_A3)$/.test(session.stage || '') && pb.hips
+        const anchor = /^(A2|A3|BK_A[23])$/.test(session.stage || '') && pb.hips
           ? { x: pb.hips.x, z: pb.hips.z } : (pb.footL.z < pb.footR.z ? pb.footL : pb.footR);
         if (!rig._beamTgt) rig._beamTgt = { x: anchor.x, z: anchor.z };
         rig._beamTgt.x += (anchor.x - rig._beamTgt.x) * 0.08;          // 저역통과(지터 제거)
@@ -3921,7 +3922,7 @@ void main(){
     // 스톰프 프레스 스테이지: 봇을 뒤로 당겨 착지(전방 0.38m)가 프레스 원 위에 정확히 떨어지게
     if (session.active && !session.isLive && data.sport !== 'boxing') {
       // A2 런지: 봇을 뒤로 당겨 전방 착지가 프레스 원(-1.30) 위에 오게 (교대 런지 보폭 ≈0.7m 가정, 시각 검수로 보정)
-      xbot.demoStandZ = session.stage === 'A2' ? -1.0 : (session.stage === 'BK_A2' ? -1.22 : (session.stage === 'BK_A3' ? -1.9 : (/^BK_B[123]$/.test(session.stage) ? -1.85 : 0)));
+      xbot.demoStandZ = session.stage === 'A2' ? -1.0 : (/^BK_A[123]$/.test(session.stage) ? -1.15 : (/^BK_B[123]$/.test(session.stage) ? -1.85 : 0));
     }
     // 지면 풀스크린 화면(세션 컴플리트·전환·카운트다운) = 3인칭 봇도 바닥의 화면을 응시(머리 숙임).
     xbot.headPitch = (session.active && /^(T1|T2|C1|FIN|BK_T1|BK_T2|BK_C1|BK_FIN)$/.test(session.stage || ''))
@@ -3951,7 +3952,7 @@ void main(){
       // 뉴턴 전환 문법(유저 확정): 시범(영상만·도트바) → 마크 Preview 워밍 등장+음성 → 따라하기.
       //   3·2·1은 실전 트리거(C1) 전용 — 학습 내 전환엔 안 씀(복싱 문법과 통일).
       const A2_WATCH = 5.0;   // 시범 = 무조건 5초(유저: 3초는 너무 짧음) — 미니 타이머 링과 동기
-      const _watchWin = /^(A2|A3)$/.test(session.stage || '') && !session._followLatch;
+      const _watchWin = /^(A2|A3|BK_A[23])$/.test(session.stage || '') && !session._followLatch;   // 농구 스쿼트도 관찰5초→따라하기
       const aWatching = _watchWin && session.t < A2_WATCH;
       if (_watchWin && !aWatching) { session._followLatch = true; session._aWatchEnd = session.t; }
       if (aWatching) { _clip = 'idle'; xbot.group.scale.x = 1; xbot.lungeDeepen = 0; xbot.headPitch = THREE.MathUtils.degToRad(-32); }
@@ -3978,6 +3979,12 @@ void main(){
         session.a2Cyc = { inHold: c >= DESC && c < DESC + HOLD, prog: Math.max(0, Math.min(1, (c - DESC) / HOLD)),
           holdSec: HOLD, isLeft: (Math.floor(tt / CYC) % 2) === 0, descending: c < DESC };
         }
+      }
+      else if (session.stage === 'BK_A1') _phase = session.t;   // A1 옆구리 = hj_sidebend 자연 루프
+      else if (/^BK_A[23]$/.test(session.stage)) {   // A2·A3 = cmu13_30 구간 루프
+        // 전환구간 잘라 순수 동작만 (유저: 앞 2초 이전 동작 겹침) — A2 하이니 7.5~9.8, A3 스쿼트 12.0~14.2
+        const SEG = { BK_A2: [7.5, 9.8], BK_A3: [12.0, 14.2] }[session.stage];
+        _phase = SEG[0] + (session.t % (SEG[1] - SEG[0]));
       }
       else if (session.stage === 'BK_B1') _phase = session.t;
       else if (session.stage === 'BK_B2') _phase = Math.min((session.t * 0.5) % 3.2, 2.2);   // 플랜트까지 + 홀드(슛 제거)

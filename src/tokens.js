@@ -528,7 +528,7 @@ export class Marker {
 //    촉 크기 = 경로의 0.12 (랩 46px/380px 실측 비율 — 구성 고정, 스케일만 원칙).
 //    구 makeArrow(flatMat 정적 도형 통화살표)와 '촉 끝 주차'는 카탈로그에 없는 종 — 은퇴.
 export const FLOW_ARROWS = [];
-export function makeFlowArrow(len, { tips = 3, wall = false } = {}) {
+export function makeFlowArrow(len, { tips = 1, wall = false } = {}) {   // 단일 촉(회전처럼 부드럽게 — 유저) — 3개 트레인 폐기
   const g = new THREE.Group();
   const mat = makeLaneFXMaterial(len);
   mat._arrowStyle = true;   // 스타일 = FXP.arrow.line (레인과 분리 — 유저 확정)
@@ -537,12 +537,17 @@ export function makeFlowArrow(len, { tips = 3, wall = false } = {}) {
   g.add(shaft);
   g._mat = mat; g._len = len; g._tips = [];
   if (tips > 0) {
-    const c = document.createElement('canvas'); c.width = c.height = 128;
+    // 촉 = 캔버스 드로잉(SVG 글리프 의존 없음 → GLYPHS.set 맵교체에도 안 깨짐). 회전 셰브런과 동일 룩.
+    const c = document.createElement('canvas'); c.width = c.height = 256;   // 큰 캔버스 = 회전처럼 넉넉한 소프트 글로우 여유
     const g2 = c.getContext('2d');
-    if (!drawGlyph(g2, 'TIP_TRI', 64, 64, 112)) {
-      g2.fillStyle = 'rgba(255,240,220,0.95)';
-      g2.beginPath(); g2.moveTo(20, 104); g2.lineTo(64, 24); g2.lineTo(108, 104); g2.closePath(); g2.fill();
-    }
+    // 촉 = 회전(drawRotate fx-core.js 619~624) 비율 이식 — 작은 라운드캡 셰브런 + 큰 소프트 글로우. 단일 촉.
+    //   회전: ah=8s, lineWidth=lw*0.9(≈0.47·ah), shadowBlur≈1.9·ah, stroke=lut(0.96)/shadow=lut(0.9).
+    //   전방(+Y=캔버스 위) 지향: 회전 셰브런(전방=+x)을 90° 회전 매핑.
+    const ah = 36;
+    g2.translate(128, 118); g2.lineJoin = 'round'; g2.lineCap = 'round';
+    g2.shadowColor = 'rgba(254,150,90,0.92)'; g2.shadowBlur = ah * 1.6;
+    g2.strokeStyle = 'rgba(255,244,228,0.98)'; g2.lineWidth = ah * 0.47;
+    g2.beginPath(); g2.moveTo(-ah * 0.9, ah); g2.lineTo(0, -ah * 0.5); g2.lineTo(ah * 0.9, ah); g2.stroke();
     const tex = new THREE.CanvasTexture(c);
     tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
     const tipS = Math.max(0.05, len * 0.12);   // ponytail: 0.05 하한 = 원거리 가독 캘리브레이션
@@ -562,6 +567,8 @@ export function makeFlowArrow(len, { tips = 3, wall = false } = {}) {
 }
 /** 매 프레임 — 촉 이동(카탈로그 u-시계) + 자루 LINE 유니폼 급이. 부모 잃은 화살표는 자동 정리. */
 export function tickFlowArrows(t, rig) {
+  // TIP_TRI(화살촉 SVG) persistent 재등록 — GLYPHS.set(lab)가 맵을 통째 교체해도 살아남게(LIFT_TIP과 동일 방어).
+  if (!GLYPHS.map.TIP_TRI) { GLYPHS.map.TIP_TRI = import.meta.env.BASE_URL + 'ready-view/assets/arrow_tip.svg'; GLYPHS.set(GLYPHS.map); }
   const A = FXP.arrow || {};
   const styleIdx = LINE_STYLE_IDX[A.line || 'solid'] ?? 0;
   const day = FXP.day ? 1 : 0;
