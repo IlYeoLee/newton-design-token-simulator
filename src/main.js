@@ -4704,7 +4704,10 @@ void main(){
       // 따르면 글자가 삐걱임(유저). 앵커를 저역통과(≈90ms 시정수)해 인물 총체 이동만 남기고 지터 제거.
       // 빔·토큰은 원본 rig._fp 그대로라 '정직한 흔들림' 유지 — 읽기용 콘텐츠만 안정화.
       if (!_fpSmooth) _fpSmooth = { ox: fp.ox, oz: fp.oz, fx: fp.fx, fz: fp.fz };
-      const aUI = 1 - Math.exp(-_uiDt / 0.05);   // 저역통과 완화(0.09→0.05) — 매트가 종아리 잔여를 더 따라감(유저: 박힌 느낌)
+      // 큰 점프(스테이지 전환 텔레포트, 실전 드리프트→FIN 원점)는 즉시 스냅 — 안 하면 리포트가 멀리서 쓔욱 따라옴(유저 영상).
+      // 작은 지터(러닝 다리 스윙 각속도)만 저역통과(≈50ms)로 안정화.
+      const _jump = Math.hypot(fp.ox - _fpSmooth.ox, fp.oz - _fpSmooth.oz);
+      const aUI = _jump > 1.0 ? 1 : (1 - Math.exp(-_uiDt / 0.05));
       _fpSmooth.ox += (fp.ox - _fpSmooth.ox) * aUI;
       _fpSmooth.oz += (fp.oz - _fpSmooth.oz) * aUI;
       _fpSmooth.fx += (fp.fx - _fpSmooth.fx) * aUI;
