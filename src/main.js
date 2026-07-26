@@ -876,6 +876,7 @@ void main(){
     if (st.cue) sig.push(`<span style="color:#fa3030">보상</span> ${st.cue}`);
     if (st.foot) sig.push(`<span style="color:var(--accent)">발</span> ${st.foot}`);
     const html = `<b style="color:var(--text)">${st.label}</b>` +
+      (st.desc ? `<br><span style="font-size:11.5px;color:var(--dim);line-height:1.5">${st.desc}</span>` : '') +
       (sig.length ? `<br><span style="font-size:11px">${sig.join(' · ')}</span>` : '');
     if (sessionStageEl) sessionStageEl.innerHTML = html;
     if (hudStageEl) hudStageEl.innerHTML = html;
@@ -4095,7 +4096,9 @@ void main(){
     // 케이던스 메트로놈(사운드 우선 — 러닝 교수법: 목표 SPM은 귀로 먼저). 팩 박자 동기 클릭.
     // 실전=연습 통일(유저): P뿐 아니라 C 실전에서도 소리가 페이스를 가르친다.
     if (session.active && /^[PC]\d$/.test(session.stage || '') && session.sport === 'running' && ttsOn && tokens._beatT > 0.2) {
-      const ph = Math.floor(state.time / tokens._beatT);
+      // 훈련별 목표 케이던스 = 메트로놈 템포에 반영 (이지런 느리게·인터벌 빠르게). 소리가 페이스를 가르침.
+      const metroBeatT = tokens._beatT / (session.curStage?.cadence || 1);
+      const ph = Math.floor(state.time / metroBeatT);
       if (ph !== _metroPh) {
         _metroPh = ph;
         try {
