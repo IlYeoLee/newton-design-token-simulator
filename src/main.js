@@ -53,7 +53,7 @@ const state = {
 
 async function boot() {
   const stage = document.getElementById('stage');
-  const { renderer, scene, camera, controls, setPackEnvironment, resize, renderFrame, setSurfaces, setDaylight, followFloor, wall, wallGroup, setRenderCamera } = createScene(stage);
+  const { renderer, scene, camera, controls, setPackEnvironment, resize, renderFrame, setSurfaces, setDaylight, followFloor, wall, wallGroup, hoop, setRenderCamera } = createScene(stage);
 
   let sessionSkillSink = null;   // 슬라이더가 session 생성 전 초기 apply 시 TDZ 회피
   let refreshEditorStages = null; // switchPack → 에디터 스테이지 편집기 갱신 훅
@@ -998,7 +998,7 @@ void main(){
     }
   });
   session.judge = judge;   // 판정 오차 소비 (페이스 라이트·FIN 겹쳐보기·C3 흔들림)
-  if (import.meta.env.DEV) { window.__sess = session; window.__cam = camera; window.__rig = rig; }   // 디버그 훅 — 콘솔에서 스테이지 고정·검수용
+  if (import.meta.env.DEV) { window.__sess = session; window.__cam = camera; window.__rig = rig; window.__scene = scene; window.__hoop = hoop; }   // 디버그 훅 — 콘솔에서 스테이지 고정·검수용
 
   // 단계 중간 음성 큐 — 시범→실행 전환("이제 같이") 등 코칭 3층 문법의 동작 큐 채널
   session.say = (who, line, vkey) => { showCaption(who, line); speak(who, line, vkey || 'cue:' + line.slice(0, 16)); };
@@ -4185,42 +4185,30 @@ void main(){
       wearFxEl.style.opacity = String(0.26 + 0.14 * Math.sin(performance.now() / 280));
     }
     if (rig._fp) effects._fp = { ...rig._fp, near: rig.fpNear, far: rig.fpFar, halfN: rig._halfAt(rig.fpNear), halfF: rig._halfAt(rig.fpFar) };
-    // ── 훈련 구간(미니멀·유저): 타이머 링(구간 진행) + 구간명 한 단어. 마크·봇 속도 변조. ──
+    // ── 러닝 학습(Figma 122-308): 타이틀=구간명(라이브) + 내SPM/전문가SPM. 링(카운트다운)=스트라이드·인터벌만. ──
     {
       const tp = trainPhase();
       try {
         const fdoc = floorIframe.contentDocument;
         if (tp) {
-          const col = tp.i > 0.7 ? '#ff8a5a' : tp.i > 0.45 ? '#ffcf9a' : '#fff';   // 강도 온도색(런지/하이니 타이머 컬러만 수정)
-          // 링 arc = 현재 구간 진행(0→1). 인터벌/스트라이드는 구간마다 리셋되며 채워짐.
+          const col = tp.i > 0.7 ? '#ff8a5a' : tp.i > 0.45 ? '#ffcf9a' : '#fff';   // 강도 온도색
+          // 타이틀 = 현재 구간명(리커버/스프린트 등). 보조텍스트 없음(유저).
+          const title = fdoc?.getElementById('s-title');
+          if (title && title.textContent !== tp.n) title.textContent = tp.n;
+          // 내SPM / 전문가SPM (유저: 전문가 기준 대비 내가 몇). 전문가=기본 SPM×구간배속, 내=실측(없으면 대시).
+          const tgtSpm = Math.round(60 / (tokens._beatT || 0.39) * tp.c);
+          const me = fdoc?.getElementById('spm-me'); if (me) { const v = window.__mySpm ? String(window.__mySpm) : '--'; if (me.textContent !== v) me.textContent = v; }
+          const tg = fdoc?.getElementById('spm-tgt'); if (tg && tg.textContent !== String(tgtSpm)) tg.textContent = tgtSpm;
+          // 링(있을 때만 = P2/P3): arc 진행 + 회전 팁 + 실초 카운트다운
           const arc = fdoc?.getElementById('tp-arc');
           if (arc) {
             arc.style.strokeDashoffset = (1727.9 * (1 - (tp.prog || 0))).toFixed(1);
             if (arc.getAttribute('stroke') !== col) arc.setAttribute('stroke', col);
-          }
-          // 회전 팁 = 아크 끝점 추종 (구간 진행 × 360°) — floor-timer 정본 문법
-          const tip = fdoc?.getElementById('tp-tip');
-          if (tip) tip.style.transform = 'rotate(' + ((tp.prog || 0) * 360).toFixed(1) + 'deg)';
-          // 중앙 카운트다운 = 구간 '실제' 남은 초 (session.t=실초라 1초에 1씩 내려감 — 유저: 초가 너무 빨랐음)
-          const st = session.curStage;
-          const phaseRealDur = (st.dur || 8) / (st.loop || 1) * (tp.f || 1);
-          const num = fdoc?.getElementById('tp-num');
-          if (num) {
-            const rem = Math.max(0, Math.ceil(phaseRealDur * (1 - (tp.prog || 0))));
-            const rs = String(rem);
-            if (num.textContent !== rs) num.textContent = rs;
-          }
-          // 구간명 라벨
-          const ph = fdoc?.getElementById('tp-phase');
-          if (ph) {
-            if (ph.textContent !== tp.n) ph.textContent = tp.n;
-            if (ph.style.color !== col) ph.style.color = col;
-          }
-          // 목표 케이던스(SPM) — 구간 케이던스 배속 × 기본 SPM (메트로놈 소리와 동일 목표). 유저: 정보 더.
-          const cad = fdoc?.getElementById('tp-cad');
-          if (cad) {
-            const spm = Math.round(60 / (tokens._beatT || 0.39) * tp.c) + ' SPM';
-            if (cad.textContent !== spm) cad.textContent = spm;
+            const tip = fdoc.getElementById('tp-tip');
+            if (tip) tip.style.transform = 'rotate(' + ((tp.prog || 0) * 360).toFixed(1) + 'deg)';
+            // 카운트다운 = 처방 초(sec)에서 1초씩 감소(유저: 30/10초 세팅). phase sim길이=sec라 실제 1초/1sec.
+            const num = fdoc.getElementById('tp-num');
+            if (num) { const rem = String(Math.max(0, Math.ceil((tp.sec || 8) * (1 - (tp.prog || 0))))); if (num.textContent !== rem) num.textContent = rem; }
           }
         }
       } catch (e) { /* iframe 로드 전 */ }
@@ -4573,7 +4561,7 @@ void main(){
     BK_READY: { src: 'ready-view/floor-bk.html', w: 1600, h: 2670 },  // 농구 시작 — 러닝 첫화면 이식(폭은 균일스케일 자동 조정)
   };
   // 운동중 A/B/C 지면 화면 — 세로 공통 프레임(floor-scene.html)에 stage 주입. 시작화면과 달리 중앙 발자국은 유지.
-  for (const id of ['A1', 'A2', 'A3', 'P1', 'P2', 'P3', 'P4', 'C2', 'C3', 'C4', 'C5',
+  for (const id of ['A1', 'A2', 'A3', 'P1', 'P2', 'P3', 'C2', 'C3', 'C4', 'C5',
                     'BK_A1', 'BK_A2', 'BK_A3', 'BK_B1', 'BK_B2', 'BK_B3', 'BK_C2', 'BK_C3', 'BK_C4']) {
     FLOOR_FRAMES[id] = { src: 'ready-view/floor-scene.html?stage=' + id, w: 1600, h: 2670 };
   }

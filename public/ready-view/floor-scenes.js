@@ -14,10 +14,10 @@ window.FLOOR_SCENES = {
   A2: { title: 'Calf Stretch',     phase: 0, sub: '2/3', cue: 'Bend front knee · back leg straight' }, // 런지 자세 종아리 스트레칭
   A3: { title: 'High Knees',       phase: 0, sub: '3/3', cue: 'Drive knees up · keep the pace' }, // 하이니(제자리 무릎 올리기)
   // B · 페이스 훈련 (TRAINING = 페이스를 끌어올리는 훈련법 4종)
-  P1: { title: 'Easy Run',   phase: 1, sub: '1/4', cue: 'Relaxed · conversational' },   // 이지 런
-  P2: { title: 'Strides',    phase: 1, sub: '2/4', cue: 'Accelerate 10s · ease off' },  // 스트라이드
-  P3: { title: 'Intervals',  phase: 1, sub: '3/4', cue: 'Sprint · recover · repeat' },  // 인터벌
-  P4: { title: 'Threshold',  phase: 1, sub: '4/4', cue: 'Hold the hard pace' },         // 쓰레숄드
+  // 러닝 학습 3종(쓰레숄드 제거·유저). 타이틀은 main.js가 구간명으로 라이브 갱신하지만, 초기값 유지.
+  P1: { title: 'Easy Run',   phase: 1, sub: '1/3', cue: 'Relaxed · conversational' },   // 이지 런
+  P2: { title: 'Strides',    phase: 1, sub: '2/3', cue: 'Accelerate 10s · ease off' },  // 스트라이드
+  P3: { title: 'Intervals',  phase: 1, sub: '3/3', cue: 'Sprint · recover · repeat' },  // 인터벌
   // C · 실전 (RUN)
   C1: { title: 'Get Set',          phase: 2, sub: '1/5', cue: '3 · 2 · 1' },                   // 3·2·1 출발 카운트
   C2: { title: 'Run with Sean',    phase: 2, sub: '2/5', cue: 'Stay beside the light' },       // 나란히 달리기

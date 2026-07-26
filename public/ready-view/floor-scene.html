@@ -46,23 +46,24 @@ html,body{background:transparent}
 .phases{animation-name:sUpFlat}
 @keyframes sUpFlat{from{opacity:0;transform:scale(.94)}to{opacity:1;transform:scale(1)}}
 
-/* 시범 미니 타이머 — 실전직전 타이머(floor-timer.html, Figma 52-3084) 링을 소형 이식.
-   시범 = 무조건 3초: 아크 3s 채움 + 중앙 3→1 + DEMO 라벨, 끝나면 페이드아웃. */
+/* A 미리보기(프리뷰) — Figma 122:270 정확 이식: 타이틀 + [Preview 필(둥근 배경+화살표) · 타이머 링] 가로 행.
+   링 = floor-timer(52-3084) 문법(점선 트랙+아크+회전 팁+중앙 숫자). 시범 5초, 끝나면 페이드아웃. */
 @font-face{font-family:'OffBit';src:url('../fonts/OffBitTrial-DotBold.woff2') format('woff2');font-weight:700;font-display:block}
-#demo-timer{position:absolute;top:430px;left:82%;transform:translateX(-50%);width:230px;height:230px;
-  opacity:0;animation:sUp .5s .15s both, demoOut .45s 5.05s both}
-#demo-timer svg{position:absolute;inset:0;width:100%;height:100%}
-#demo-timer .arc{stroke-dasharray:1727.9;stroke-dashoffset:1727.9;animation:arcFill 5s .15s linear both}
+#prev-row{position:absolute;top:474px;left:0;right:0;display:flex;gap:120px;align-items:center;justify-content:center;
+  opacity:0;animation:sUp .5s .2s both, demoOutFlat .45s 5.05s both}
+#prev-pill{display:flex;align-items:center;gap:20px;background:rgba(255,255,255,.14);border-radius:999px;padding:20px 30px 20px 40px}
+#prev-pill .pv{font-family:'Supreme',sans-serif;font-weight:700;font-size:60px;color:#fff;white-space:nowrap;line-height:1}
+#prev-pill svg{width:60px;height:60px;flex:0 0 auto}
+#prev-ring{position:relative;width:214px;height:214px}
+#prev-ring svg.rg{position:absolute;inset:0;width:100%;height:100%}
+#prev-ring .arc{stroke-dasharray:1727.9;stroke-dashoffset:1727.9;animation:arcFill 5s .15s linear both}
 @keyframes arcFill{from{stroke-dashoffset:1727.9}to{stroke-dashoffset:0}}
-#demo-timer .dnum{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
-  font-family:'OffBit','Supreme',sans-serif;font-size:104px;color:#fff;line-height:1}
-#demo-timer .dlbl{position:absolute;top:246px;left:50%;transform:translateX(-50%);
-  font-weight:700;font-size:38px;letter-spacing:6px;color:rgba(255,255,255,.85);white-space:nowrap}
-#demo-timer .tip{position:absolute;inset:0;transform-origin:center;animation:tipSpin 5s .15s linear both}
-#demo-timer .tip img{position:absolute;left:50%;top:-3px;width:30px;height:30px;transform:translateX(-50%);
+#prev-ring .tip{position:absolute;inset:0;transform-origin:center;animation:tipSpin 5s .15s linear both}
+#prev-ring .tip img{position:absolute;left:50%;top:-3px;width:28px;height:28px;transform:translateX(-50%);
   filter:drop-shadow(0 0 8px rgba(250,48,48,.6))}
 @keyframes tipSpin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
-@keyframes demoOut{to{opacity:0;transform:translateX(-50%) scale(.85)}}
+#prev-num{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  font-family:'OffBit','Supreme',sans-serif;font-size:96px;color:#fff;line-height:1}
 #spm-lbl{position:absolute;top:300px;left:0;right:0;text-align:center;font-family:'Supreme',sans-serif;
   opacity:0;animation:sUpFlat .6s .4s both}
 #spm-lbl b{font-weight:700;font-size:150px;letter-spacing:-4px;color:#fff;text-shadow:0 0 34px rgba(250,48,48,.45)}
@@ -72,23 +73,23 @@ html,body{background:transparent}
   animation:sUpFlat .5s .1s both, demoOutFlat .45s 5.05s both}
 @keyframes demoOutFlat{to{opacity:0}}
 
-/* 훈련(P) — A2 미리보기 체계 그대로(유저: 같은 컴포넌트 사이즈 + 타이틀/프로그래스 유지):
-   구간(eyebrow, #next-lbl 급) + 타이틀(훈련명) + 도트 프로그래스 + 소형 데모 타이머 링(230px 동일).
-   링 = floor-timer(52-3084) 문법(점선 트랙+아크+회전 팁+중앙 숫자), 컬러만 구간강도로. */
-#tp-phase{position:absolute;top:104px;left:0;right:0;text-align:center;white-space:nowrap;
-  font-family:'Supreme',sans-serif;font-weight:700;font-size:54px;letter-spacing:8px;color:#fff;
-  opacity:0;animation:sUpFlat .5s .1s both;transition:color .35s}
-#train-timer{position:absolute;top:560px;left:50%;transform:translateX(-50%);width:230px;height:230px;
-  opacity:0;animation:sUp .5s .4s both}
+/* 러닝 학습(P) — Figma 122-308 정확 이식(유저 배치): 타이틀=구간명 + 도트 프로그래스 + [내SPM/전문가SPM · 링] 가로 행.
+   링(카운트다운) = 스트라이드·인터벌만. 이지런은 링 없이 SPM만. */
+#train-row{position:absolute;top:596px;left:0;right:0;display:flex;gap:110px;align-items:center;justify-content:center;
+  opacity:0;animation:sUpFlat .6s .5s both}
+#spm2{font-family:'Supreme',sans-serif;font-size:60px;white-space:nowrap;line-height:1}
+#spm2 b{font-weight:700;color:#fff}
+#spm2 .u{font-weight:700;color:#fff}
+#spm2 .sl{font-weight:400;color:rgba(255,255,255,.6);margin:0 12px}
+#spm2 #spm-tgt,#spm2 #spm-tgt+.u{font-weight:400;color:rgba(255,255,255,.6)}
+#train-timer{position:relative;width:214px;height:214px;flex:0 0 auto}
 #train-timer svg{position:absolute;inset:0;width:100%;height:100%}
 #train-timer #tp-arc{transition:stroke .35s}
 #tp-tip{position:absolute;inset:0;transform-origin:center}
-#tp-tip img{position:absolute;left:50%;top:-3px;width:30px;height:30px;transform:translateX(-50%);
+#tp-tip img{position:absolute;left:50%;top:-3px;width:28px;height:28px;transform:translateX(-50%);
   filter:drop-shadow(0 0 8px rgba(250,48,48,.6))}
 #tp-num{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
-  font-family:'OffBit','Supreme',sans-serif;font-size:104px;color:#fff;line-height:1}
-#tp-cad{position:absolute;top:822px;left:0;right:0;text-align:center;white-space:nowrap;
-  font-family:'Supreme',sans-serif;font-weight:500;font-size:40px;letter-spacing:1px;color:rgba(255,255,255,.6)}
+  font-family:'OffBit','Supreme',sans-serif;font-size:96px;color:#fff;line-height:1}
 </style></head><body>
   <div id="board">
     <div class="title" id="s-title">Title</div>
@@ -104,36 +105,37 @@ html,body{background:transparent}
   const params = new URLSearchParams(location.search);
   const stage = params.get('stage') || 'A1';
   const S = window.FLOOR_SCENES[stage] || { title: stage, phase: 0, sub: '' };
-  // 타이틀 — 글자 분해 후 좌→우 촤라락 슬라이드인 (유저: 타이틀+보조설명 유지, 하단 페이즈 스트립만 제거)
-  (function(){
+  const isP = /^P\d$/.test(stage);
+  // 타이틀 — 비훈련: 글자 분해 촤라락 슬라이드인. 훈련(P): 구간명을 main.js가 라이브 갱신하므로 캐스케이드 생략.
+  if (!isP) (function(){
     const t = $('s-title'); t.textContent = ''; let vis = 0;
     [...S.title].forEach(c => { const s = document.createElement('span');
       if (c === ' ') { s.className = 'sp'; }
       else { s.className = 'ch'; s.textContent = c; s.style.animationDelay = (0.1 + vis * 0.045) + 's'; vis++; }
       t.appendChild(s); });
   })();
-  // 보조설명(cue) 은퇴(유저: 실제 운동 영상엔 없음) — 타이틀+도트만. 단 훈련(P1~P4)은 예외:
-  //   1인칭 가독을 위해 (a) cue(영문 짧은 설명)를 되살리고, (b)(c) 하단 근거리에 라이브 훈련 정보 편입.
-  if (/^P\d$/.test(stage)) {
-    // A2 미리보기 체계 유지(유저): 타이틀(#s-title=훈련명) + 도트 프로그래스(#s-dots) 그대로 표시.
+  // 러닝 학습(P) — Figma 122-308 '운동 중' 정확 이식: 타이틀=구간명(라이브) + 도트 프로그래스 + 내SPM/전문가SPM.
+  //   보조텍스트 없음. 카운트다운 링 = 스트라이드(P2)·인터벌(P3)만(이지런은 정해진 횟수 없음).
+  if (isP) {
+    // Figma 122-308 배치(유저): 타이틀(구간명) → 도트 프로그래스 → [내SPM/전문가SPM · 링] 가로 행.
+    // 타이틀 Y는 전 지면 UI 공통 그리드(.title top:176) 유지 — 통일(유저: 규칙 없이 달랐음).
     $('s-cue').style.display = 'none';
-    // 구간(eyebrow) — 타이틀 위, #next-lbl PREVIEW 급 크기. main.js가 라이브 갱신(컬러=강도).
-    const eb = document.createElement('div'); eb.id = 'tp-phase'; eb.textContent = '—';
-    document.getElementById('board').appendChild(eb);
-    // 소형 데모 타이머 링(230px, floor-timer 52-3084 문법) — arc 진행 + 회전 팁 + 중앙 카운트다운.
-    const tm = document.createElement('div'); tm.id = 'train-timer';
-    tm.innerHTML = `
-      <svg viewBox="0 0 604 604">
-        <circle cx="302" cy="302" r="275" fill="none" stroke="#fff" stroke-opacity=".28" stroke-width="6" stroke-dasharray="0.5 20.5" stroke-linecap="round"/>
-        <circle id="tp-arc" cx="302" cy="302" r="275" fill="none" stroke="#fff" stroke-width="11" stroke-linecap="round"
-          transform="rotate(-90 302 302)" stroke-dasharray="1727.9" stroke-dashoffset="1727.9"/>
-      </svg>
-      <div id="tp-tip"><img src="assets/timer_tip.svg" alt=""></div>
-      <div id="tp-num">—</div>`;
-    document.getElementById('board').appendChild(tm);
-    // 목표 케이던스(SPM) — 링 아래
-    const cad = document.createElement('div'); cad.id = 'tp-cad'; cad.textContent = '—';
-    document.getElementById('board').appendChild(cad);
+    $('s-title').style.textTransform = 'capitalize';
+    $('s-title').textContent = '';                     // main.js가 구간명으로 라이브 채움
+    const hasRing = /^P[23]$/.test(stage);             // 링 = 스트라이드·인터벌만
+    const row = document.createElement('div'); row.id = 'train-row';
+    const ringHTML = hasRing ? `
+        <div id="train-timer">
+          <svg viewBox="0 0 604 604">
+            <circle cx="302" cy="302" r="275" fill="none" stroke="#fff" stroke-opacity=".28" stroke-width="6" stroke-dasharray="0.5 20.5" stroke-linecap="round"/>
+            <circle id="tp-arc" cx="302" cy="302" r="275" fill="none" stroke="#fff" stroke-width="11" stroke-linecap="round"
+              transform="rotate(-90 302 302)" stroke-dasharray="1727.9" stroke-dashoffset="1727.9"/>
+          </svg>
+          <div id="tp-tip"><img src="assets/timer_tip.svg" alt=""></div>
+          <div id="tp-num">—</div>
+        </div>` : '';
+    row.innerHTML = `<div id="spm2"><b id="spm-me">--</b><span class="u"> SPM</span><span class="sl">/</span><b id="spm-tgt">--</b><span class="u"> SPM</span></div>` + ringHTML;
+    document.getElementById('board').appendChild(row);
   } else {
     $('s-cue').style.display = 'none';
   }
@@ -143,21 +145,25 @@ html,body{background:transparent}
   // A2/A3 시범(3초) — 원본 실전직전 타이머 링(floor-timer.html) 소형 그대로 + DEMO 라벨.
   //   도트 로딩바는 시범 동안 숨김 → 3초 뒤 등장·채움 시작(따라하기 진행 전담).
   if (/^(A2|A3)$/.test(stage)) {
-    const t = document.createElement('div'); t.id = 'demo-timer';
-    t.innerHTML = `
-      <svg viewBox="0 0 604 604">
-        <circle cx="302" cy="302" r="275" fill="none" stroke="#fff" stroke-opacity=".28" stroke-width="6" stroke-dasharray="0.5 20.5" stroke-linecap="round"/>
-        <circle class="arc" cx="302" cy="302" r="275" fill="none" stroke="#fff" stroke-width="11" stroke-linecap="round" transform="rotate(-90 302 302)"/>
-      </svg>
-      <div class="tip"><img src="assets/timer_tip.svg" alt=""></div>
-      <div class="dnum" id="demo-num">5</div>
-      `;
-    document.getElementById('board').appendChild(t);
-    const nx = document.createElement('div'); nx.id = 'next-lbl'; nx.textContent = 'PREVIEW';
-    document.getElementById('board').appendChild(nx);
+    // Figma 122:270 정확 이식 — 타이틀(#s-title) 아래 [Preview 필 + 타이머 링] 가로 행. 시범 5초 카운트다운.
+    const row = document.createElement('div'); row.id = 'prev-row';
+    row.innerHTML = `
+      <div id="prev-pill">
+        <span class="pv">Preview</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h15M13 6l6 6-6 6"/></svg>
+      </div>
+      <div id="prev-ring">
+        <svg class="rg" viewBox="0 0 604 604">
+          <circle cx="302" cy="302" r="275" fill="none" stroke="#fff" stroke-opacity=".28" stroke-width="6" stroke-dasharray="0.5 20.5" stroke-linecap="round"/>
+          <circle class="arc" cx="302" cy="302" r="275" fill="none" stroke="#fff" stroke-width="11" stroke-linecap="round" transform="rotate(-90 302 302)"/>
+        </svg>
+        <div class="tip"><img src="assets/timer_tip.svg" alt=""></div>
+        <div id="prev-num">5</div>
+      </div>`;
+    document.getElementById('board').appendChild(row);
     let n = 5;
     const iv = setInterval(() => { n--; if (n < 1) { clearInterval(iv); return; }
-      document.getElementById('demo-num').textContent = n; }, 1000);
+      document.getElementById('prev-num').textContent = n; }, 1000);
     // 도트바 = 시범 뒤부터
     const dots = $('s-dots'); dots.style.animationDelay = '5.15s';
     const clip = document.querySelector('.dclip'); if (clip) clip.style.animationDelay = '5.15s';
