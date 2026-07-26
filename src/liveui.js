@@ -96,8 +96,8 @@ export class LiveUI {
     this.inner.add(this.v1, this.v2, this.v3, this.v4, this.v5);
     this.group.add(this.inner);
 
-    // ── C4 부스트 배경(테스트, 유저): hyperspeed풍 흐르는 그리드 + 그라디언트 글로우 —
-    //    복싱 벽 배경 문법의 지면판. 투사면(uFP 페이드) 안에서만, 은은하게(저알파). ──
+    // ── C4 부스트 배경(유저): reactbits hyperspeed 참조 — 질주하는 빛줄기 트레일
+    //    (밝은 머리 + 긴 꼬리, 소실점 수렴 원근) + 은은한 그라디언트 베드. uFP 페이드 안에서만. ──
     this.boostBG = flat(new THREE.Mesh(new THREE.PlaneGeometry(3.0, 2.4), new THREE.ShaderMaterial({
       transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
       uniforms: {
@@ -119,17 +119,29 @@ export class LiveUI {
           float half_ = mix(uFPHalfN, uFPHalfF, clamp((d-uFPNear)/max(0.01,uFPFar-uFPNear),0.,1.));
           return smoothstep(uFPNear,uFPNear+uFPFadeM,d)*smoothstep(uFPFar,uFPFar-uFPFadeM,d)*smoothstep(half_,half_-uFPFadeM,abs(h));
         }
+        float hashf(float n){ return fract(sin(n*127.1)*43758.5453); }
         void main(){
           float t = uTime;
-          // 흘러오는 가로줄(질주) + 고정 세로줄 — 원근 그리드
-          float lz = smoothstep(0.90, 1.0, fract(vUv.y*9.0 + t*2.6));
-          float lx = smoothstep(0.955, 1.0, 1.0 - abs(fract(vUv.x*7.0)-0.5)*2.0);
-          float grid = max(lz*0.75, lx*0.4);
-          // 중앙 그라디언트 글로우(복싱 배경 문법)
+          // 원근 차선 좌표 — vUv.y=1(먼 쪽) 소실점으로 수렴
+          float pers = mix(1.0, 0.34, vUv.y);
+          float x = (vUv.x - 0.5) / pers;
+          vec3 acc = vec3(0.0);
+          // 질주하는 빛줄기 12개: 밝은 머리 + 길게 끌리는 꼬리, 개별 차선/속도/폭
+          for (int i = 0; i < 12; i++){
+            float fi = float(i);
+            float lane = (hashf(fi*3.7) - 0.5) * 0.88;
+            float spd  = 1.6 + hashf(fi*9.1) * 2.4;
+            float ph   = fract(vUv.y*1.15 + t*spd*0.5 + hashf(fi*5.3));   // +t = 시청자 쪽으로 질주
+            float head = smoothstep(0.02, 0.09, ph) * smoothstep(0.30, 0.10, ph);
+            float tail = smoothstep(0.09, 0.12, ph) * pow(max(0.0, 1.0 - (ph-0.12)/0.55), 2.0);
+            float core = exp(-pow((x - lane)/(0.011 + 0.007*hashf(fi*7.7)), 2.0));
+            float halo = 0.30 * exp(-pow((x - lane)/0.055, 2.0));
+            acc += lut(0.18 + 0.72*hashf(fi*2.3)) * (core + halo) * (head*1.1 + tail*0.5);
+          }
+          // 중앙 그라디언트 베드 — 은은(빛줄기의 바닥광)
           float rad = clamp(1.0 - length((vUv-vec2(0.5,0.55))*vec2(1.7,1.25)), 0.0, 1.0);
-          vec3 col = lut(0.22 + 0.5*rad);
-          float a = (0.085*rad + grid*0.16) * fpFade(vWorldPos);
-          gl_FragColor = vec4(col * a * 1.5, 1.0);   // 가산광 — 은은
+          acc += lut(0.22 + 0.5*rad) * 0.045 * rad;
+          gl_FragColor = vec4(acc * 0.85 * fpFade(vWorldPos), 1.0);
         }`,
     })), 0.010);
     this.boostBG.position.z = -1.3;
@@ -210,6 +222,16 @@ export class LiveUI {
       const target = THREE.MathUtils.clamp(ctx.seanZ, -2.2, -0.6);
       this._tickZ += (target - this._tickZ) * (1 - Math.exp(-dt / 0.15));
       this.v1Tick.position.z = this._tickZ;
+      // 융합 펄스: 틱·노치가 겹치면(|Δz|<0.08) 하나로 '합쳐지는' 순간 보상 — 스케일 1→1.25→1 + 밝기 상승
+      const fused = Math.abs(this._tickZ - this.v1Notch.position.z) < 0.08;
+      if (fused && !this._v1Fused) this._fuseT = 0;   // 겹침 진입 순간 발화
+      this._v1Fused = fused;
+      this._fuseT = Math.min(1, (this._fuseT ?? 1) + dt / 0.3);
+      const fs = 1 + 0.25 * Math.sin(this._fuseT * Math.PI);
+      this.v1Tick.scale.setScalar(fs);
+      this.v1Notch.scale.setScalar(fs);
+      this.v1Tick.material.opacity = fused ? 1.0 : 0.95;
+      this.v1Notch.material.opacity = fused ? 0.9 : 0.38;   // 융합 = 노치도 밝게, 두 요소가 하나로
       const U = this.v1Lane.material.uniforms;
       U.uTime.value = this._t;
       U.uDay.value = ctx.day ? 1 : 0;
@@ -219,10 +241,11 @@ export class LiveUI {
       if (beat) this._pulseT = 0;
       this._pulseT = Math.min(1, this._pulseT + dt / 0.45);
       const e = easeOutCubic(this._pulseT);
-      this.v2Pulse.scale.setScalar(1 + 0.35 * e);
-      this.v2Pulse.material.opacity = 0.9 * (1 - e);
       // 오프페이스(|션-기준|>0.35m)일수록 딥 레드로
       const k = THREE.MathUtils.clamp((Math.abs(ctx.seanZ + 1.0) - 0.35) / 0.6, 0, 1);
+      const q = 0.5 + 0.5 * k;   // 온페이스(k=0) = 진폭·불투명도 절반 — '조용해지는 링'이 일치의 보상
+      this.v2Pulse.scale.setScalar(1 + 0.35 * q * e);
+      this.v2Pulse.material.opacity = 0.9 * q * (1 - e);
       this.v2Base.material.color.lerpColors(this._c2on, this._c2off, k);
       this.v2Pulse.material.color.copy(this.v2Base.material.color);
     } else if (v === 3) {
@@ -255,9 +278,12 @@ export class LiveUI {
       pre.material.opacity = 0.35;
       pre.material.color.copy(this._c4pre);
     } else if (v === 5) {
-      // 10Hz 리드로 — 매 프레임 캔버스 갱신은 낭비
+      // SPM 표시: 페이스 이탈 시에만 슬라이드 인(0.3s), 일치 시 페이드 아웃 — 달리는 중 글자 최소화
+      const offPace = Math.abs(ctx.seanZ + 1.0) >= 0.35;
+      this._spmK = THREE.MathUtils.clamp((this._spmK ?? 0) + (offPace ? dt : -dt) / 0.3, 0, 1);
+      // 10Hz 리드로 — 매 프레임 캔버스 갱신은 낭비 (단, SPM 애니 중엔 즉시 리드로)
       this._stripAcc += dt;
-      if (this._stripAcc >= 0.1) { this._stripAcc = 0; this._drawStrip(ctx); }
+      if (this._stripAcc >= 0.1 || this._spmK !== this._spmDrawnK) { this._stripAcc = 0; this._drawStrip(ctx); }
     }
   }
 
@@ -281,11 +307,17 @@ export class LiveUI {
     g.beginPath();
     g.arc(W / 2 + off * (W / 2 - 40), cy, 9, 0, Math.PI * 2);
     g.fill();
-    // 내 케이던스 (우상단)
-    g.fillStyle = lutColor(0.9);
-    g.font = '700 34px Supreme, sans-serif';
-    g.textAlign = 'right'; g.textBaseline = 'alphabetic';
-    g.fillText(`${ctx.spmMine || '--'} SPM`, W - 10, 36);
+    // 내 케이던스 (우상단): 페이스 이탈 시에만 오른쪽에서 슬라이드 인 — _spmK(0=숨김, 1=정착)
+    const sk = this._spmK ?? 1;
+    if (sk > 0.01) {
+      g.fillStyle = lutColor(0.9);
+      g.font = '700 34px Supreme, sans-serif';
+      g.textAlign = 'right'; g.textBaseline = 'alphabetic';
+      g.globalAlpha = sk;
+      g.fillText(`${ctx.spmMine || '--'} SPM`, W - 10 + (1 - easeOutCubic(sk)) * 80, 36);
+      g.globalAlpha = 1;
+    }
+    this._spmDrawnK = sk;
     g.shadowBlur = 0;
     this._cvTex.needsUpdate = true;
   }
