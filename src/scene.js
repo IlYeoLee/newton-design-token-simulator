@@ -133,7 +133,7 @@ export function createScene(container) {
     else if (key === 'paving') surfCache.paving = await loadSurf('paving.jpg', 50, 50);
     else if (key === 'plaster') surfCache.plaster = await loadSurf('plaster.jpg', 2.5, 1.6);
     else if (key === 'track') {
-      // 러닝 트랙 = 아스팔트 × 레드 러버 틴트 + 레인 라인 (런타임 베이크)
+      // 러닝 트랙 = 민트/연두 우레탄 (유저: 초록/연두빛 트랙 — 한국 공원 트랙) + 그레인 + 레인 라인
       const asphalt = await new Promise(res => {
         const im = new Image();
         im.onload = () => res(im);
@@ -141,11 +141,13 @@ export function createScene(container) {
       });
       const c = document.createElement('canvas'); c.width = c.height = 512;
       const g = c.getContext('2d');
+      g.fillStyle = '#6FA88C'; g.fillRect(0, 0, 512, 512);            // 민트-세이지 그린 베이스
+      g.globalAlpha = 0.34; g.globalCompositeOperation = 'overlay';   // 아스팔트 = 그레인 질감만(어둡게 안 함)
       g.drawImage(asphalt, 0, 0, 512, 512);
-      g.globalCompositeOperation = 'multiply';
-      g.fillStyle = '#D8503A'; g.fillRect(0, 0, 512, 512);
-      g.globalCompositeOperation = 'source-over';
-      g.fillStyle = 'rgba(245,245,240,0.8)';
+      g.globalAlpha = 0.12; g.globalCompositeOperation = 'saturation'; // 채도 살짝 낮춰 무광 실사감
+      g.fillStyle = '#808080'; g.fillRect(0, 0, 512, 512);
+      g.globalAlpha = 1; g.globalCompositeOperation = 'source-over';
+      g.fillStyle = 'rgba(248,248,244,0.85)';                          // 흰 레인 라인
       g.fillRect(96, 0, 7, 512); g.fillRect(409, 0, 7, 512);
       const tex = new THREE.CanvasTexture(c);
       tex.wrapS = tex.wrapT = THREE.RepeatWrapping;

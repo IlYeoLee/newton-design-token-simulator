@@ -72,22 +72,23 @@ html,body{background:transparent}
   animation:sUpFlat .5s .1s both, demoOutFlat .45s 5.05s both}
 @keyframes demoOutFlat{to{opacity:0}}
 
-/* 훈련(P) 라이브 정보 — floor-timer(Figma 52-3084) 정본 스타일 그대로(유저): 점선 트랙 + 채우는
-   아크 + 회전 팁 + 중앙 숫자. 컬러만 구간강도로. flex 정렬(링→구간명). 전체 시간은 도트(#s-dots). */
-#train-live{position:absolute;top:60px;left:50%;transform:translateX(-50%);
-  display:flex;flex-direction:column;align-items:center;gap:44px;
-  font-family:'Supreme',sans-serif;opacity:0;animation:sUpFlat .6s .5s both}
-#tp-ring{position:relative;width:344px;height:344px}
-#tp-ring svg{position:absolute;inset:0;width:100%;height:100%}
-#tp-ring #tp-arc{transition:stroke .35s}
+/* 훈련(P) — A2 미리보기 체계 그대로(유저: 같은 컴포넌트 사이즈 + 타이틀/프로그래스 유지):
+   구간(eyebrow, #next-lbl 급) + 타이틀(훈련명) + 도트 프로그래스 + 소형 데모 타이머 링(230px 동일).
+   링 = floor-timer(52-3084) 문법(점선 트랙+아크+회전 팁+중앙 숫자), 컬러만 구간강도로. */
+#tp-phase{position:absolute;top:104px;left:0;right:0;text-align:center;white-space:nowrap;
+  font-family:'Supreme',sans-serif;font-weight:700;font-size:54px;letter-spacing:8px;color:#fff;
+  opacity:0;animation:sUpFlat .5s .1s both;transition:color .35s}
+#train-timer{position:absolute;top:560px;left:50%;transform:translateX(-50%);width:230px;height:230px;
+  opacity:0;animation:sUp .5s .4s both}
+#train-timer svg{position:absolute;inset:0;width:100%;height:100%}
+#train-timer #tp-arc{transition:stroke .35s}
 #tp-tip{position:absolute;inset:0;transform-origin:center}
-#tp-tip img{position:absolute;left:50%;top:-4px;width:44px;height:44px;transform:translateX(-50%);
-  filter:drop-shadow(0 0 14px rgba(250,48,48,.6))}
+#tp-tip img{position:absolute;left:50%;top:-3px;width:30px;height:30px;transform:translateX(-50%);
+  filter:drop-shadow(0 0 8px rgba(250,48,48,.6))}
 #tp-num{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
-  font-family:'OffBit','Supreme',sans-serif;font-size:150px;color:#fff;line-height:1}
-#tp-phase{font-weight:700;font-size:66px;letter-spacing:2px;color:#fff;white-space:nowrap;
-  text-shadow:0 0 26px rgba(255,255,255,.38);transition:color .35s}
-#tp-cad{margin-top:-28px;font-weight:500;font-size:40px;letter-spacing:1px;color:rgba(255,255,255,.6);white-space:nowrap}
+  font-family:'OffBit','Supreme',sans-serif;font-size:104px;color:#fff;line-height:1}
+#tp-cad{position:absolute;top:822px;left:0;right:0;text-align:center;white-space:nowrap;
+  font-family:'Supreme',sans-serif;font-weight:500;font-size:40px;letter-spacing:1px;color:rgba(255,255,255,.6)}
 </style></head><body>
   <div id="board">
     <div class="title" id="s-title">Title</div>
@@ -114,27 +115,25 @@ html,body{background:transparent}
   // 보조설명(cue) 은퇴(유저: 실제 운동 영상엔 없음) — 타이틀+도트만. 단 훈련(P1~P4)은 예외:
   //   1인칭 가독을 위해 (a) cue(영문 짧은 설명)를 되살리고, (b)(c) 하단 근거리에 라이브 훈련 정보 편입.
   if (/^P\d$/.test(stage)) {
-    $('s-title').style.display = 'none';                  // P단계 = 데모 타이머 링 하나로 상황표시 통합
-    $('s-cue').style.display = 'none';                    // 설명 제거(유저: 정보 너무 많음)
-    // 상황표시 = 데모 타이머 링(런지/하이니 미리보기와 동일 문법) — arc 진행 + 중앙 카운트다운 + 구간명 라벨
-    const live = document.createElement('div'); live.id = 'train-live';
-    live.innerHTML = `
-      <div id="tp-ring">
-        <svg viewBox="0 0 604 604">
-          <circle cx="302" cy="302" r="275" fill="none" stroke="#fff" stroke-opacity=".28" stroke-width="6" stroke-dasharray="0.5 20.5" stroke-linecap="round"/>
-          <circle id="tp-arc" cx="302" cy="302" r="275" fill="none" stroke="#fff" stroke-width="11" stroke-linecap="round"
-            transform="rotate(-90 302 302)" stroke-dasharray="1727.9" stroke-dashoffset="1727.9"/>
-        </svg>
-        <div id="tp-tip"><img src="assets/timer_tip.svg" alt=""></div>
-        <div id="tp-num">—</div>
-      </div>
-      <div id="tp-phase">—</div>
-      <div id="tp-cad">—</div>`;
-    document.getElementById('board').appendChild(live);
-    // 도트(전체 시간 프로그래스)를 클러스터 최상단으로 편입 — flex 세로 정렬(도트→링→구간명→SPM)
-    const dots = $('s-dots');
-    dots.style.position = 'static'; dots.style.transform = 'none'; dots.style.margin = '0 auto 26px';
-    live.insertBefore(dots, live.firstChild);
+    // A2 미리보기 체계 유지(유저): 타이틀(#s-title=훈련명) + 도트 프로그래스(#s-dots) 그대로 표시.
+    $('s-cue').style.display = 'none';
+    // 구간(eyebrow) — 타이틀 위, #next-lbl PREVIEW 급 크기. main.js가 라이브 갱신(컬러=강도).
+    const eb = document.createElement('div'); eb.id = 'tp-phase'; eb.textContent = '—';
+    document.getElementById('board').appendChild(eb);
+    // 소형 데모 타이머 링(230px, floor-timer 52-3084 문법) — arc 진행 + 회전 팁 + 중앙 카운트다운.
+    const tm = document.createElement('div'); tm.id = 'train-timer';
+    tm.innerHTML = `
+      <svg viewBox="0 0 604 604">
+        <circle cx="302" cy="302" r="275" fill="none" stroke="#fff" stroke-opacity=".28" stroke-width="6" stroke-dasharray="0.5 20.5" stroke-linecap="round"/>
+        <circle id="tp-arc" cx="302" cy="302" r="275" fill="none" stroke="#fff" stroke-width="11" stroke-linecap="round"
+          transform="rotate(-90 302 302)" stroke-dasharray="1727.9" stroke-dashoffset="1727.9"/>
+      </svg>
+      <div id="tp-tip"><img src="assets/timer_tip.svg" alt=""></div>
+      <div id="tp-num">—</div>`;
+    document.getElementById('board').appendChild(tm);
+    // 목표 케이던스(SPM) — 링 아래
+    const cad = document.createElement('div'); cad.id = 'tp-cad'; cad.textContent = '—';
+    document.getElementById('board').appendChild(cad);
   } else {
     $('s-cue').style.display = 'none';
   }
