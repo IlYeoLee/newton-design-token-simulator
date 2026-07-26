@@ -2571,10 +2571,10 @@ void main(){
   //    캔버스 1600×1000 = 벽 3.2×2.0m (500px/m, 피그마 좌표 1:1). 프레임리스 —
   //    발광 요소만(배경·프레임 박스 금지), 검정=투명. 합성·감마 = 고스트 동일 규약(P4).
   const HUDW = 1600, HUDH = 1000;
-  // 수치 전용 디스플레이 폰트 (OffBit — 숫자·글리프만, 영단어·한글은 Pretendard 유지. 유저)
-  const offbit = new FontFace('OffBit', `url(${import.meta.env.BASE_URL}fonts/OffBitTrial-101Bold.ttf)`);
+  // 수치 전용 디스플레이 폰트 — 도트폰트(OffBit) 은퇴(유저) → Supreme으로. 'OffBit' 별칭에 Supreme 파일 로드.
+  const offbit = new FontFace('OffBit', `url(${import.meta.env.BASE_URL}fonts/Supreme-Bold.woff2)`);
   offbit.load().then(f => document.fonts.add(f)).catch(() => {});
-  const NUMF = (w, s) => `${w} ${s}px OffBit, Pretendard, sans-serif`;
+  const NUMF = (w, s) => `${w} ${s}px OffBit, Supreme, Pretendard, sans-serif`;
   // 한/영 벽 텍스트 — EN은 Overused Grotesk(모바일 UI 정합), 라틴만 커버라 KO엔 무영향
   for (const [w, f] of [[500, 'OverusedGrotesk-Medium'], [600, 'OverusedGrotesk-SemiBold'], [700, 'OverusedGrotesk-Bold'], [800, 'OverusedGrotesk-Bold'], [900, 'OverusedGrotesk-Bold']]) {
     const ff = new FontFace('Overused', `url(${import.meta.env.BASE_URL}fonts/${f}.ttf)`, { weight: String(w) });
