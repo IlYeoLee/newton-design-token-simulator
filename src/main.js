@@ -4063,7 +4063,9 @@ void main(){
         _phase = SEG[0] + (session.t % (SEG[1] - SEG[0]));
       }
       else if (session.stage === 'BK_B1') _phase = 1.2 + (session.t % 2.5);   // 124_04 안정 구간 루프
-      else if (session.stage === 'BK_B2' || session.stage === 'BK_B3') _phase = session.t;   // 핸들 클립 자유 루프
+      // 06_13 프리스타일 전체 루프는 이동·컷 구간이 섞여 어색(유저) — 안정 핸들 구간만 창 반복.
+      else if (session.stage === 'BK_B2') _phase = 2.0 + (session.t % 6.0);
+      else if (session.stage === 'BK_B3') _phase = 9.0 + (session.t % 6.0);
       // playDemo는 무조건 — stepbackDemo 분기 삭제 때 else가 체인에 붙어 위상 스테이지 전부에서
       // 재생이 건너뛰어졌던 사고(클립이 idle로 남음).
       xbot.playDemo(_clip, h, session.stage === 'BX_READY', _phase);

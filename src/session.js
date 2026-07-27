@@ -454,6 +454,9 @@ const BK_REPS = { BK_A1: 8, BK_A2: 10, BK_A3: 10 };
 // B단계 리듬 = 커리 SportVU 실측(2015-10-31 GSW@NOP, 53득점 경기). 두 소유 구간의 바운스 간격이
 // 각각 0.400s·0.395s로 독립 수렴 → 150 BPM. data/curry_stepback_sportvu.json 에서 추출.
 const BK_BEAT = 0.40, BK_B1_REPS = 8;
+// B 가이드 심도 시프트 — 실측 빔 창(origin 몸앞 0.35m + near 0.3 + far 1.9)은 z −2.5~−4.1.
+// 몸 바로 앞(0.3~0.55m)은 투사 불가 구간이라, 가이드는 '발 위치'가 아니라 '앞의 도식'으로 0.75m 깊이 배치.
+const BDEEP = 0.75;
 const BK_SQUAT_REPS = BK_REPS.BK_A3;
 const BK_STR = {
   BK_A1: { per: 2.4, reps: BK_REPS.BK_A1, side: true, noMark: true, fm: '옆구리 스트레치', say: '팔을 위로 뻗어 옆으로 쭉쭉. 왼쪽 오른쪽 번갈아 허리를 늘려요.' },
@@ -795,16 +798,16 @@ export class Session {
     //     0.45~0.70m = 바운스 존 (실측: 커리 바운스 시 공-몸 거리 0.44~0.83m)
     //     0.70m~     = 앰비언트(그림자가 스치는 구간)
     //   또 공이 무릎높이(0.32m) 위면 그림자 자체가 없다 = 로우 드리블 사이클의 68%.
-    const b1L = new FootMark('left').at(-0.15, BK_STAND - 0.28, 1.05);
-    const b1R = new FootMark('right').at(0.15, BK_STAND - 0.28, 1.05);
-    const b1zone = floorRing(0.34, BK_STAND - 0.55, 0.15, 0.19, BRAND.coral, 0.4);   // 바운스 존
-    const b1bar = floorStripe(0, BK_STAND - 1.0, 0.9, BRAND.sand, 0.7);              // 다가오는 비트 바
+    const b1L = new FootMark('left').at(-0.15, BK_STAND - 0.28 - BDEEP, 1.05);
+    const b1R = new FootMark('right').at(0.15, BK_STAND - 0.28 - BDEEP, 1.05);
+    const b1zone = floorRing(0.34, BK_STAND - 0.55 - BDEEP, 0.15, 0.19, BRAND.coral, 0.4);   // 바운스 존
+    const b1bar = floorStripe(0, BK_STAND - 1.0 - BDEEP, 0.9, BRAND.sand, 0.7);              // 다가오는 비트 바
     const b1c = document.createElement('canvas'); b1c.width = b1c.height = 128;      // 잔여 카운트
     const b1num = new THREE.Mesh(new THREE.PlaneGeometry(0.20, 0.20),
       new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(b1c), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
     b1num.material.map.colorSpace = THREE.SRGBColorSpace;
     b1num.userData.canvas = b1c; b1num.userData.tex = b1num.material.map;
-    b1num.rotation.x = -Math.PI / 2; b1num.position.set(-0.34, 0.015, BK_STAND - 0.55); b1num.renderOrder = 7;
+    b1num.rotation.x = -Math.PI / 2; b1num.position.set(-0.34, 0.015, BK_STAND - 0.55 - BDEEP); b1num.renderOrder = 7;
     this.bkB1 = { fmL: b1L, fmR: b1R, zone: b1zone, bar: b1bar, num: b1num,
       count: 0, _shown: -1, _wasLow: false, _popT: -9, _lowT: 0 };
     g.add(b1L.group, b1R.group, b1zone, b1bar, b1num);
@@ -814,33 +817,33 @@ export class Session {
     g = this._mk('BK_B2');
     // B2 · 크로스오버 — 좌우 바운스 존 교대 점등. '공이 우리 평면에 닿는 지점'이 곧 커서라
     //   가림이 판정 신호가 된다(광학 검수 결론). 존 위치는 커리 실측 바운스 거리(0.44~0.83m) 안.
-    const mkZone = (x) => floorRing(x, BK_STAND - 0.55, 0.15, 0.19, BRAND.coral, 0.2);
-    const x2L = new FootMark('left').at(-0.15, BK_STAND - 0.28, 1.05);
-    const x2R = new FootMark('right').at(0.15, BK_STAND - 0.28, 1.05);
+    const mkZone = (x) => floorRing(x, BK_STAND - 0.55 - BDEEP, 0.15, 0.19, BRAND.coral, 0.2);
+    const x2L = new FootMark('left').at(-0.15, BK_STAND - 0.28 - BDEEP, 1.05);
+    const x2R = new FootMark('right').at(0.15, BK_STAND - 0.28 - BDEEP, 1.05);
     const z2L = mkZone(-0.34), z2R = mkZone(0.34);
     const n2c = document.createElement('canvas'); n2c.width = n2c.height = 128;
     const n2 = new THREE.Mesh(new THREE.PlaneGeometry(0.20, 0.20),
       new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(n2c), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
     n2.material.map.colorSpace = THREE.SRGBColorSpace;
     n2.userData.canvas = n2c; n2.userData.tex = n2.material.map;
-    n2.rotation.x = -Math.PI / 2; n2.position.set(0, 0.015, BK_STAND - 0.85); n2.renderOrder = 7;
+    n2.rotation.x = -Math.PI / 2; n2.position.set(0, 0.015, BK_STAND - 0.85 - BDEEP); n2.renderOrder = 7;
     this.bkB2x = { fmL: x2L, fmR: x2R, zL: z2L, zR: z2R, num: n2,
       count: 0, _shown: -1, _wasLow: false, _popT: -9 };
     g.add(x2L.group, x2R.group, z2L, z2R, n2);
 
     g = this._mk('BK_B3');
     // B3 · 다리 사이 — 두 존 + 다리 밑 통과 라인. 발마크는 넓게(±0.22) = 통과 공간을 몸으로 만든다.
-    const x3L = new FootMark('left').at(-0.22, BK_STAND - 0.28, 1.05);
-    const x3R = new FootMark('right').at(0.22, BK_STAND - 0.28, 1.05);
+    const x3L = new FootMark('left').at(-0.22, BK_STAND - 0.28 - BDEEP, 1.05);
+    const x3R = new FootMark('right').at(0.22, BK_STAND - 0.28 - BDEEP, 1.05);
     const z3L = mkZone(-0.36), z3R = mkZone(0.36);
-    const pass = floorStripe(0, BK_STAND - 0.42, 0.34, BRAND.prism, 0.35);
+    const pass = floorStripe(0, BK_STAND - 0.42 - BDEEP, 0.34, BRAND.prism, 0.35);
     pass.rotation.z = 0;   // 가로 바 → 앞뒤 방향 라인(다리 사이 통과 경로)
     const n3c = document.createElement('canvas'); n3c.width = n3c.height = 128;
     const n3 = new THREE.Mesh(new THREE.PlaneGeometry(0.20, 0.20),
       new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(n3c), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
     n3.material.map.colorSpace = THREE.SRGBColorSpace;
     n3.userData.canvas = n3c; n3.userData.tex = n3.material.map;
-    n3.rotation.x = -Math.PI / 2; n3.position.set(0, 0.015, BK_STAND - 0.85); n3.renderOrder = 7;
+    n3.rotation.x = -Math.PI / 2; n3.position.set(0, 0.015, BK_STAND - 0.85 - BDEEP); n3.renderOrder = 7;
     this.bkB3x = { fmL: x3L, fmR: x3R, zL: z3L, zR: z3R, pass, num: n3,
       count: 0, _shown: -1, _wasLow: false, _lastX: 0, _crossed: false, _popT: -9, _passT: -9 };
     g.add(x3L.group, x3R.group, z3L, z3R, pass, n3);
@@ -1948,7 +1951,7 @@ export class Session {
       this._bkStrId = 'BK_B1';
       // 비트 바 — 먼 곳(1.30m)에서 발 라인으로 다가온다. 도착 = 튕기는 순간(발로 잡는 메트로놈).
       const u = (this.t % BK_BEAT) / BK_BEAT;
-      H.bar.position.z = BK_STAND - (1.30 - 1.02 * u);
+      H.bar.position.z = BK_STAND - (1.30 - 1.02 * u) - BDEEP;
       H.bar.material._gainK = 0.25 + 0.75 * u;
       // 스탠스 — 힙 낮게(BK_A3 스쿼트와 같은 축). 식으면 '더 앉으세요'.
       const hy = this.xbot?.getProbes?.()?.hips?.y ?? 1.0;
@@ -1988,9 +1991,9 @@ export class Session {
       if (isLow2 && !H._wasLow) {
         const wp = new THREE.Vector3(); onZ.getWorldPosition(wp);
         const dx = ball2.position.x - wp.x, dz = ball2.position.z - wp.z;
-        // 판정 타원 — 좌우(크로스오버 축)만 빡빡하게. 앞뒤는 사실상 무시(0.9m):
-        //   가르치는 축이 좌우이고, 실측 바운스 z 산포(-1.45~-2.4)가 존 z 기준 0.55를 넘었다.
-        if (Math.abs(dx) < 0.30 && Math.abs(dz) < 0.90) {
+        // 판정 = 측방(크로스오버 축)만. 존은 빔 창 안의 '도식'이라(BDEEP) 실제 바운스 z와 다르다 —
+        //   z를 재면 도식 위치에 공을 맞추라는 무의미한 요구가 된다.
+        if (Math.abs(dx) < 0.30) { void dz; 
           H.count += 1; H._popT = this.t;
           this.onPress?.(wp, false);
         }
@@ -2000,7 +2003,7 @@ export class Session {
       if (left2 !== H._shown) { redrawFootNum(H.num, left2); H._shown = left2; }
       this.repLeft = left2; this.repTotal = TOTAL;
       this.repFrac = Math.min(1, H.count / TOTAL);
-      FMU(`크로스오버 — ${leftSide ? '왼쪽' : '오른쪽'} 존 · 남은 ${left2}회`, CS.sand);
+      FMU(`크로스오버 — ${H._tgtL ? '왼쪽' : '오른쪽'} 존 · 남은 ${left2}회`, CS.sand);
       if (left2 === 0 || this.t >= MAXSEC) { this.next(); return; }
     } else if (id === 'BK_B3') {
       // B3 · 다리 사이 — 중앙 통과 라인을 지나 반대 존에 바운스해야 카운트.
