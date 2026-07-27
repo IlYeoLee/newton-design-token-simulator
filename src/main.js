@@ -2189,6 +2189,7 @@ void main(){
     //   loop=true 그대로 두고 자산만 교체 = 런타임 역재생(currentTime 역주행 시킹) 비용 0.
     BK_A1: { src: 'ready-view/assets/bk_sidebend_pp.webm', cropOff: 0.0, cropScale: 1.0, w: 0.9, h: 0.9, fwd: 0.10 },   // 옆구리 스트레치
     BK_A2: { src: 'ready-view/assets/bk_highknee.webm', cropOff: 0.0, cropScale: 1.0, w: 0.9, h: 0.9, fwd: 0.10 },   // 무릎 들기
+    BK_B2: { src: 'crossover2.mp4', cropOff: 0.0, cropScale: 1.0, w: 0.9, h: 0.9, fwd: 0.10 },   // 크로스오버 관찰(유저 제공 그린스크린) — 룩 크로마 실루엣 자동
     BK_A3: { src: 'ready-view/assets/bk_squat.webm',    cropOff: 0.0, cropScale: 1.0, w: 0.9, h: 0.9, fwd: 0.10 },   // 스쿼트
   };
   const _coaches = {};   // stageId → { video, plane, _fwd }
@@ -2276,8 +2277,8 @@ void main(){
   function tickA1Coach() {
     // 어떤 스테이지 코치를 켤지: 러닝 A1·농구 워밍업 전부 = 전 구간 상시, 러닝 A2/A3 = 시범(관찰) 중에만.
     const st = session.active && !session.isLive && (state.pack === 'running' || state.pack === 'basketball') ? session.stage : null;
-    const COACH_IDS = ['A1', 'A2', 'A3', 'BK_A1', 'BK_A2', 'BK_A3'];
-    const activeId = COACH_IDS.find(id => id === st && !((id === 'A2' || id === 'A3' || id === 'BK_A2' || id === 'BK_A3') && session._followLatch)) || null;
+    const COACH_IDS = ['A1', 'A2', 'A3', 'BK_A1', 'BK_A2', 'BK_A3', 'BK_B2'];
+    const activeId = COACH_IDS.find(id => id === st && !(/^(A2|A3|BK_A2|BK_A3|BK_B2)$/.test(id) && session._followLatch)) || null;
     for (const id of COACH_IDS) {
       const c = _coaches[id];
       if (id === activeId) {
@@ -4054,7 +4055,7 @@ void main(){
       //   3·2·1은 실전 트리거(C1) 전용 — 학습 내 전환엔 안 씀(복싱 문법과 통일).
       const A2_WATCH = 5.0;   // 시범 = 무조건 5초(유저: 3초는 너무 짧음) — 미니 타이머 링과 동기
       const BK_A1_RATE = 1.55;   // 옆구리 봇 배속(코치 영상 페이스 맞춤) — 시각 캘리브레이션 노브
-      const _watchWin = /^(A2|A3|BK_A[23])$/.test(session.stage || '') && !session._followLatch;   // 농구 스쿼트도 관찰5초→따라하기
+      const _watchWin = /^(A2|A3|BK_A[23]|BK_B2)$/.test(session.stage || '') && !session._followLatch;   // 훈련 크로스오버도 관찰5초→따라하기
       const aWatching = _watchWin && session.t < A2_WATCH;
       if (_watchWin && !aWatching) { session._followLatch = true; session._aWatchEnd = session.t; }
       if (aWatching) { _clip = 'idle'; xbot.group.scale.x = 1; xbot.lungeDeepen = 0; xbot.headPitch = THREE.MathUtils.degToRad(-32); }

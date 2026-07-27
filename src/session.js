@@ -2052,6 +2052,14 @@ export class Session {
       const H = this.bkB2x, TOTAL = 10, MAXSEC = 40;
       if (this._bkStrId !== 'BK_B2') { H.count = 0; H._shown = -1; H._wasLow = false; H._popT = -9; H._tgtL = true; }
       this._bkStrId = 'BK_B2';
+      if (!this._followLatch) {   // 관찰 5초 — 코치 실루엣(크로스오버 영상)+Preview 필만, 가이드 숨김
+        H.zL.setOp?.(0); H.zR.setOp?.(0); H.num.material.opacity = 0;
+        this.demoActive = true;
+        FMU('먼저 보세요 — 크로스오버', CS.prism);
+        return;
+      }
+      this._say('bkb2go', '커리', '이제 같이 — 켜진 존으로 공을 옮겨요.');
+      H.num.material.opacity = 1;
       // 점등 = 공이 향한 쪽 존(공 추종). 실측 검증: 교대 강제는 프리스타일 클립에서 1/8 적중,
       //   공 추종은 7/8 — 시뮬은 봇(프로) 시연이 구동하므로 '프로가 어느 존에 떨어뜨리는지'를
       //   보여주는 게 맞다. 실제 제품(유저 입력)에선 교대 강제로 되돌릴 것.
