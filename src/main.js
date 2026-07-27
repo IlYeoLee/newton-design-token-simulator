@@ -4787,11 +4787,20 @@ void main(){
   for (const id of ['FIN', 'BK_FIN']) {
     FLOOR_FRAMES[id] = { src: 'ready-view/floor-report.html?stage=' + id, w: 1600, h: 2670 };
   }
-  const floorIframe = document.createElement('iframe');
-  floorIframe.setAttribute('scrolling', 'no');
-  // 3D 변환된 iframe은 내용 repaint 때 검은 플래시(컴포지터 재래스터) — 자체 레이어로 승격해 완화
-  floorIframe.style.willChange = 'transform';
-  floorIframe.style.backfaceVisibility = 'hidden';
+  // 더블 버퍼(유저: 중간 장면장면 검은 깜빡): src 교체는 새 문서가 그려질 때까지 프레임 크기의
+  // 검은 공백을 노출한다. 뒤 iframe에 로드 → onload에 교체 — 전환 중에도 이전 화면 유지.
+  const mkFloorFrame = () => {
+    const f = document.createElement('iframe');
+    f.setAttribute('scrolling', 'no');
+    f.style.willChange = 'transform';
+    f.style.backfaceVisibility = 'hidden';
+    f.style.border = '0';                      // iframe 기본 테두리 = 프레임 흰 줄(유저)
+    f.style.background = 'transparent';
+    return f;
+  };
+  let floorIframe = mkFloorFrame();
+  let floorIframeBack = mkFloorFrame();
+  floorIframeBack.style.visibility = 'hidden';
   // 배경 투명(html/body transparent)이라 별도 루마키 불필요. filter:url(#ui-lumakey)는 정의 없는 댕글링 참조라
   // Chrome이 iframe을 통째 안 그렸음(운동중 프레임 안 보이던 원인) → 제거.
   Object.assign(floorIframe.style, { border: '0', background: 'transparent' });
@@ -4800,9 +4809,11 @@ void main(){
   // 무변환 배치 → 자체 레이어 유지 → repaint가 컴포지터 플래시를 만들지 않는다.
   const floorWrap = document.createElement('div');
   floorWrap.style.overflow = 'hidden';
-  floorWrap.appendChild(floorIframe);
-  floorIframe.style.position = 'absolute';
-  floorIframe.style.inset = '0';
+  for (const f of [floorIframe, floorIframeBack]) {
+    floorWrap.appendChild(f);
+    f.style.position = 'absolute';
+    f.style.inset = '0';
+  }
   const floorObj = new CSS3DObject(floorWrap);
   if (typeof NO_CSS !== 'undefined' && NO_CSS) floorWrap.style.display = 'none';
   floorObj.visible = false;
@@ -4884,16 +4895,21 @@ void main(){
       && (!session.active || (session.isLive && session.stage !== 'BK_C4'));
     if (floorObj.visible) {
       if (fView.src !== loadedFloorView) {
-        floorIframe.style.width = fView.w + 'px';
-        floorIframe.style.height = fView.h + 'px';
         floorWrap.style.width = fView.w + 'px';    // 래퍼가 CSS3D 변환·크기의 주체
         floorWrap.style.height = fView.h + 'px';
-        // 운동중 프레임(floor-scene.html)엔 장면 지속시간 전달 — 도트 로딩바가 이 시간 동안 0→100% 차오름
         const dur = STAGE_DUR[session.curStage?.id] ?? session.curStage?.dur ?? 8;
-        let durSuffix = fView.src.includes('floor-scene.html') ? '&dur=' + dur : '';
-        // SPM 숫자 위젯 은퇴(유저): 텍스트가 3D 마크와 겹쳐 뭉침 + 케이던스는 소리(메트로놈)가 가르침.
-        // 바닥은 흐르는 원형 마크만 — 미니멀·프리미엄.
-        floorIframe.src = import.meta.env.BASE_URL + fView.src + durSuffix;
+        const durSuffix = fView.src.includes('floor-scene.html') ? '&dur=' + dur : '';
+        // 더블 버퍼 교체 — 새 문서는 뒤 버퍼에서 로드되고, 완성된 뒤에만 앞으로 나온다(검은 공백 0)
+        const back = floorIframeBack;
+        back.style.width = fView.w + 'px';
+        back.style.height = fView.h + 'px';
+        back.onload = () => {
+          back.onload = null;
+          back.style.visibility = '';
+          floorIframe.style.visibility = 'hidden';
+          const t = floorIframe; floorIframe = back; floorIframeBack = t;
+        };
+        back.src = import.meta.env.BASE_URL + fView.src + durSuffix;
         loadedFloorView = fView.src;
         _fpSmooth = null;   // 스테이지 전환 = 앵커 스냅(슬라이딩 방지)
       }
