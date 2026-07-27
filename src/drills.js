@@ -247,6 +247,36 @@ function boxingDrills(neutral) {
 // ── 농구 준비운동 (BK_A1 스탠스) — 사이드풋워크/드리블은 기존 클립 사용 ──
 function basketballDrills(neutral) {
   return {
+    // 크로스오버 드릴(B2) — 제자리·무릎 굽힘·와이드 스탠스에서 양손 교차 드리블.
+    //   CMU 재고 전수 스캔 결과 '제자리 크로스오버'는 없음(06_12 이동·06_13 프리스타일·06_14 전환 0회)
+    //   → 절차 저작(유저 결정). 사이클 1.6s = 0.4s/바운스(커리 150BPM 실측), 반사이클마다 손 교대.
+    //   공(v5)은 낮은 손을 추적하므로 팔 스윙이 곧 공 궤적 — 별도 동기 불필요.
+    //   축: hip X+=굴곡·Z±=벌림(L+/R−) · Leg X−=무릎 · Arm Z+=하전방(L, R은 미러) — 전부 실측 캘리브레이션.
+    bk_crossover: makeClip('bk_crossover', neutral, 1.6, (n, t) => {
+      const dribL = t >= 0.5;                    // 전반=오른손, 후반=왼손
+      const u = (t * 2) % 1;                     // 반사이클 위상
+      const pump = Math.sin(u * TWO_PI * 2);     // 0.4s당 1펌프(손목 상하)
+      const crossK = u > 0.76 ? (u - 0.76) / 0.24 : 0;
+      const cs = Math.sin(crossK * Math.PI * 0.5);   // 반말미: 안쪽 크로스 스윕(다음 반사이클이 받음)
+      // 하체 — 고정 크라우치 + 와이드 (bk_stance 계보, 바운스 없음: 하체 고정이 드릴 핵심)
+      if (n === R.hipL) return rot(X, 30).multiply(rot(Z, 11));
+      if (n === R.hipR) return rot(X, 30).multiply(rot(Z, -11));
+      if (n === R.kneeL || n === R.kneeR) return rot(X, -46);
+      if (n === R.footL || n === R.footR) return rot(X, 17);
+      if (n === R.spine) return rot(X, 15).multiply(rot(Z, (dribL ? -4 : 4)));
+      // 팔 — 드리블 손: 하전방 + 펌프 + 반말미 안쪽 스윕 / 반대 손: 가드(앞-아래)
+      if (n === R.armL) {
+        if (dribL) return rot(Z, 50 + 13 * pump).multiply(rot(X, 34 * cs));
+        return rot(Z, 34).multiply(rot(X, 24));
+      }
+      if (n === R.foreL) return rot(X, dribL ? 16 : 30);
+      if (n === R.armR) {
+        if (!dribL) return rot(Z, -50 - 13 * pump).multiply(rot(X, -34 * cs));
+        return rot(Z, -34).multiply(rot(X, -24));
+      }
+      if (n === R.foreR) return rot(X, !dribL ? 16 : 30);
+      return null;
+    }),
     // 스탠스·무릎 — 애슬레틱 스탠스(양 무릎 굽힘) + 미세 바운스
     bk_stance: makeClip('bk_stance', neutral, 3.0, (n, t) => {
       const bob = (Math.sin(t * 3 * TWO_PI) + 1) / 2 * 6;

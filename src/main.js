@@ -3940,7 +3940,7 @@ void main(){
       // B1 시범 = 06_15 드리블→슛(온전한 무브 원테이크), B2 분해 = 06_14 크로스오버+슛 위상잠금
       // B단계 = 공을 튄다 → 튀기며 움직인다 → 튀기다 멈추고 뒤로(BK-B-CURRICULUM.md)
       BK_B1: 'auto_cmu124_04',        // 제자리 공 튀기기 (root:false → 제자리 고정 보장)
-      BK_B2: 'cmu_dribble_low',       // 크로스오버 = 06_13의 8~11s (본 스캔 실측: 손 전환 8연속). 06_14는 전환이 없었다(≤0.17, 오른손 고정)
+      BK_B2: 'bk_crossover',          // 절차 저작 크로스오버 드릴 — CMU엔 제자리 크로스오버가 없어 프랑켄 조합이 어색했음(유저 결정)
       BK_B3: 'cmu_dribble_low',       // 다리 사이도 같은 핸들 클립 루프
     };
     if (DRILL[id] && xbot.actions[DRILL[id]]) return DRILL[id];
@@ -4039,9 +4039,9 @@ void main(){
       // hold=포즈 고정(복싱 READY 가드 유지). 러닝 대기는 idle 재생(호흡)이라 hold 안 함.
       // 러닝 준비운동(A) = 코치 드릴을 세션 스테이지 시간(session.t)에 위상 잠금 → 씬 링·카운트·음성과 동기(유저: '타이밍 하나하나 맞춰')
       if (session.stage !== 'A2' && xbot.group.scale.x !== 1) xbot.group.scale.x = 1;   // A2 미러 잔류 방지
-      xbot.stanceWiden = /^BK_B[123]$/.test(session.stage || '') ? 1 : 0;   // 핸들 스쿨 전체 — 굽히고 넓힌 스탠스 유지(유저)
-      xbot.crossGuard = session.stage === 'BK_B2' ? 1 : 0;   // 크로스오버 가드 팔(반대손 앞-아래 실드)
-      xbot.legLock = session.stage === 'BK_B2';   // 크로스오버 = 하체 고정(무릎 굽힌 채) — 발 셔플 제거(유저)
+      xbot.stanceWiden = /^BK_B[13]$/.test(session.stage || '') ? 1 : 0;   // B2는 절차 드릴이 스탠스 소유
+      xbot.crossGuard = 0;   // 절차 드릴이 가드 팔까지 저작 — 덧대기 보정 은퇴
+      xbot.legLock = false;   // 절차 드릴은 하체가 저작부터 고정 — 스냅샷 고정 불필요
       // 세션 데모(비실전) 공통: CMU 클립이 몸을 돌려도 봇은 정면 유지(유저 원칙)
       xbot.lockYaw = session.active && !session.isLive && /^BK_[AB]/.test(session.stage || '');
       let _clip = demoClipFor(session.sport, session.stage);
@@ -4099,10 +4099,7 @@ void main(){
         }
       }
       // 06_13 프리스타일 전체 루프는 이동·컷 구간이 섞여 어색(유저) — 안정 핸들 구간만 창 반복.
-      else if (session.stage === 'BK_B2') {   // 06_13 크로스오버 연타 구간(본 스캔: 8~11s 손 전환 8회) 핑퐁
-        const SP2 = 3.0, m2 = session.t % (SP2 * 2);
-        _phase = 8.0 + (m2 < SP2 ? m2 : SP2 * 2 - m2);
-      }
+      else if (session.stage === 'BK_B2') _phase = session.t;   // 절차 드릴 = 위상 잠금(1.6s 사이클)
       else if (session.stage === 'BK_B3') _phase = 9.0 + (session.t % 6.0);
       // playDemo는 무조건 — stepbackDemo 분기 삭제 때 else가 체인에 붙어 위상 스테이지 전부에서
       // 재생이 건너뛰어졌던 사고(클립이 idle로 남음).
