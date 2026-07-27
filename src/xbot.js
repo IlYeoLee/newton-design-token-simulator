@@ -934,7 +934,7 @@ export class XBot {
       // 부착 — 손바닥 밑에 도킹, 손과 동행. 릴리즈 정보 계속 갱신
       y = Math.max(r, palm);
       bx = S.hx; bz = S.hz;
-      S.relY = palm; S.relX = S.hx; S.relZ = S.hz;
+      S.relY = palm; S.relX = S.hx; S.relZ = S.hz; S.relActR = S._actR;   // 릴리즈 시점 손 기억(V자 판정)
     } else {
       const s = (p - REL) / (CATCH - REL);
       const hR = Math.max(r + 0.08, S.relY), hC = Math.max(r + 0.08, palm);
@@ -943,8 +943,20 @@ export class XBot {
       if (s <= sf) { const q = s / sf; y = r + (hR - r) * (1 - q * q); }         // 가속 낙하
       else { const q = (1 - s) / (1 - sf); y = r + (hC - r) * (1 - q * q); }     // 감속 상승 = 소프트 캐치
       squash = Math.max(0, 1 - (y - r) / 0.10);
-      bx = S.relX + (S.hx - S.relX) * s;               // 탄도의 수평 성분 — 자석 추종 아님
-      bz = S.relZ + (S.hz - S.relZ) * s;
+      // 크로스오버 V자 경로(유저 레퍼런스 주석): 릴리즈 손이 닿은 지점 → '인물 중심 아래' 바닥에
+      // 튕김 → 올라가며 반대 손에 닿음. 손이 안 바뀌었으면(같은 손 드리블) 기존 직선 낙하-상승.
+      const crossed = S._actR !== S.relActR;
+      if (crossed && this._hips) {
+        const he = this._hips.matrixWorld.elements;
+        const cx2 = he[12], cz2 = he[14] - 0.10;       // 몸 중심(살짝 앞) = V자 꼭짓점
+        const a3 = Math.sqrt(Math.max(0.01, S.relY - r)), b3 = Math.sqrt(Math.max(0.01, (w.y - PALM) - r));
+        const sf2 = a3 / (a3 + b3);
+        if (s <= sf2) { const q2 = s / sf2; bx = S.relX + (cx2 - S.relX) * q2; bz = S.relZ + (cz2 - S.relZ) * q2; }
+        else { const q2 = (s - sf2) / (1 - sf2); bx = cx2 + (S.hx - cx2) * q2; bz = cz2 + (S.hz - cz2) * q2; }
+      } else {
+        bx = S.relX + (S.hx - S.relX) * s;             // 같은 손 — 탄도의 수평 성분
+        bz = S.relZ + (S.hz - S.relZ) * s;
+      }
     }
     const sy = 1 - 0.35 * squash;
     const sxz = 1 + 0.28 * squash;
