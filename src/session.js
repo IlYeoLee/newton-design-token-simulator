@@ -467,110 +467,52 @@ const A_WATCH = 3.0;
 // 따라하기(스텝백 1/4·2/4) 지면 배치 — 한 곳에서만 고친다.
 //   V=빔 창 앞뒤(작을수록 화면 하단) · UX=발 페어 좌우 반간격(어깨너비 이상, 실제 농구 스탠스)
 //   S=발자국 배율(농구 지면 UI 공통 1.0)
-const FOLLOW_S = 1.0;   // 따라하기 발자국 배율(농구 지면 UI 공통). 위치는 SB_BOX+SB_KEY가 자동 결정
 
-// ── 스텝백 1/4~4/4 자동 배치 ────────────────────────────────────────────────
-// 단계마다 좌표를 손으로 잡지 않는다(유저). 소스는 둘뿐:
-//   ① STEP_SEG = 각 단계가 보여주는 누적 구간 끝(초) — 1 / 1→2 / 1→2→3 / 1→2→3→4
-//   ② SB_KEY  = 레퍼런스 영상 실측 키프레임(흰 신발 클러스터 픽셀 계측, 컷 시각과 동일 t)
-// 마크는 영상 재생 위치(session.stepVidT)를 그대로 따라간다 = 타이밍·박자가 영상 그 자체.
-export const STEP_SEG = { BK_B2: 0.60, BK_B3: 1.44, BK_B4: 1.81, BK_B5: 3.10 };   // 2/4 = 1.44(유저 지정: 오른발 딛는 프레임)
-// 발마다 자기 타임라인 — 실측(15Hz 추적)에서 뽑은 리프트/플랜트 시각. 두 발을 한 이징으로
-// 묶으면 유리판 위를 미끄러진다(유저). 실측: 1.13~1.47 둘 다 이동(체공) → 왼발 1.67 착지 →
-// 오른발은 1.73까지 대기했다가 2.07에 착지. 즉 왼발이 먼저 닿고 오른발이 뒤따른다.
-//   u = 화면 가로 정규화(-1~1) · d = 화면 아래끝 기준 깊이(px, 클수록 멀다)
-const SB_FOOT = {
-  // 20fps 접지 추적 실측. 좌우 식별 정정: 먼저 나가는 건 '오른발'이고, 왼발은 제자리에서
-  //   앞꿈치로 버티다(1.45~2.05) 마지막에 끌어온다. toe:true = 그 구간은 앞꿈치만 닿은 상태.
-  L: [{ t: 0.00, u: 0.172, d: 0 }, { t: 1.40, u: 0.172, d: 0 },
-      { t: 1.45, u: 0.172, d: 0, toe: 1 },   // 자리 그대로 — 뒤꿈치만 들린다(앞볼 접지)
-      { t: 1.70, u: 0.172, d: 0, toe: 1 },
-      { t: 2.05, u: -0.515, d: 40 }],
-
-
-  R: [{ t: 0.00, u: 0.542, d: 11 }, { t: 1.05, u: 0.517, d: 21 },
-      { t: 1.45, u: -0.187, d: 46 }, { t: 1.65, u: -0.650, d: 28 },
-      { t: 2.05, u: -0.679, d: 28 }],
-};
-const sbRaw = (arr, t, holdAirborne) => {   // 그 발의 원좌표(보간). 이징은 '떼고 → 빠르게 → 딱 멈춤'
-  let i = 0;
-  while (i < arr.length - 2 && arr[i + 1].t <= t) i++;
-  const a = arr[i], b = arr[i + 1];
-  const span = Math.max(0.01, b.t - a.t);
-  let f = Math.max(0, Math.min(1, (t - a.t) / span));
-  if (holdAirborne && f > 0 && f < 1) f = 0;   // 컷에서 아직 안 딛은 발 = 마지막으로 딛은 자리 유지
-  const ez = f < 0.5 ? 2 * f * f : 1 - Math.pow(-2 * f + 2, 2) / 2;
-  const dist = Math.abs(b.u - a.u);
-  return { u: a.u + (b.u - a.u) * ez, d: a.d + (b.d - a.d) * ez,
-    f, dist, tu: b.u, td: b.d, plantT: b.t, step: dist > 0.03,
-    toe: (f < 0.5 ? (a.toe || 0) : (b.toe || 0)) };
-};
+// ── 스텝백 1/4~4/4 — 단계별 누적 포즈 ────────────────────────────────────────
+// 규약(유저): 1/4의 상태를 유지한 채 2/4에서 그 다음 이동을 '더하고', 3/4·4/4도 같은 식으로 쌓는다.
+//   각 단계는 [이전 포즈 → 이 단계 포즈]만 움직이며, 안 움직이는 발은 자리를 지킨다.
+//   좌표는 마크 프레임 단위(u -1~1 가로, v -1~1 앞뒤. +v = 멀리/앞). 빔 창 안으로 자동 클램프.
+export const STEP_SEG = { BK_B2: 0.60, BK_B3: 1.44, BK_B4: 1.81, BK_B5: 3.10 };   // 각 단계가 보여주는 영상 구간 끝(초)
+const SB_POSE = [
+  { t: 0.00, L: [-0.75, 0.00], R: [0.75, 0.00] },                        // 시작 = 어깨너비보다 넓게 나란히
+  { t: 0.60, L: [-0.75, 0.00], R: [0.75, 0.00] },                        // 1/4 무릎 굽혀 페이크 — 발은 그대로
+  { t: 1.44, L: [-0.75, 0.00, 1], R: [0.90, 0.85] },                     // 2/4 오른발 전진(왼발은 앞볼 접지)
+  { t: 1.81, L: [-1.00, -0.60], R: [0.90, 0.85] },                       // 3/4 왼발 크게 빠지기(스텝백)
+  { t: 3.10, L: [-1.00, -0.60], R: [-0.20, -0.30] },                     // 4/4 오른발 모으고 슛
+];
 // 판정 마크 프레임 = 빔 창 안 고정 영역. 어떤 단계·어떤 프레임에서도 이 밖으로 안 나간다.
-const SB_BOX = { u: 0.88, v0: 0.16, v1: 0.46 };   // 창은 멀수록 넓다 — 스탠스 확보용으로 약간 뒤
-// 뒷모습 영상은 원근으로 좌우 간격이 눌린다 — 실제 농구 스탠스(어깨너비 이상)로 보이게
-// 페어 중심 기준으로만 벌린다(중심 이동=스텝은 실측 그대로).
-const SB_STANCE_K = 12.0;   // 준비 스탠스가 어깨너비 이상으로 보이는 값(실측 0.37 → 지면 0.4m대)
-// 이동(페어 중심의 좌우 여행)은 프레임을 다 먹는다 — 스탠스를 어깨너비 이상으로 확보하려면
-// 여행 폭을 줄여 그 자리를 스탠스에 준다. 방향·순서·타이밍은 그대로, 거리만 압축.
-const SB_TRAVEL_K = 0.45;
-const SB_C0 = { u: (SB_FOOT.L[0].u + SB_FOOT.R[0].u) / 2, d: (SB_FOOT.L[0].d + SB_FOOT.R[0].d) / 2 };
-const sbPair = (t, holdAirborne) => {   // 두 발 원좌표 + 스탠스 확대 + 여행 압축
-  const L = sbRaw(SB_FOOT.L, t, holdAirborne), R = sbRaw(SB_FOOT.R, t, holdAirborne);
-  let cu = (L.u + R.u) / 2, cd = (L.d + R.d) / 2;
-  const su0 = SB_C0.u + (cu - SB_C0.u) * SB_TRAVEL_K, sd0 = SB_C0.d + (cd - SB_C0.d) * SB_TRAVEL_K;
-  for (const p of [L, R]) { p.u += su0 - cu; p.d += sd0 - cd; p.tu += su0 - cu; p.td += sd0 - cd; }
-  cu = su0; cd = sd0;
-  // 둘 다 딛고 있으면 좌우를 같은 깊이로 정렬한다 — 원근으로 생긴 앞뒤 차이가 '삐딱하게' 보인다(유저).
-  //   스텝 중(한 발이 뜬 상태)에는 실측 깊이 그대로 둔다.
-  if (!L.step && !R.step) { L.d = cd; R.d = cd; L.td = cd; R.td = cd; }
-  const w = (p) => ({ ...p, u: cu + (p.u - cu) * SB_STANCE_K, d: cd + (p.d - cd) * SB_STANCE_K,
-    tu: cu + (p.tu - cu) * SB_STANCE_K, td: cd + (p.td - cd) * SB_STANCE_K });
-  return { L: w(L), R: w(R) };
+const SB_BOX = { u: 0.80, v0: 0.16, v1: 0.46 };
+const sbU = u => Math.max(-SB_BOX.u, Math.min(SB_BOX.u, u * SB_BOX.u));
+const sbV = v => {
+  const c = (SB_BOX.v0 + SB_BOX.v1) / 2, h = (SB_BOX.v1 - SB_BOX.v0) / 2;
+  return Math.max(SB_BOX.v0, Math.min(SB_BOX.v1, c + v * h));
 };
-// 타임라인을 샘플링해 프레임에 맞는 스케일·단계별 오프셋을 자동 산출(손튜닝 없음)
-const SB_T1 = Math.max(...SB_FOOT.L.map(k => k.t), ...SB_FOOT.R.map(k => k.t));
-const SB_SAMP = Array.from({ length: 81 }, (_, i) => {
-  const t = (i / 80) * SB_T1; const p = sbPair(t); return { t, us: [p.L.u, p.R.u], ds: [p.L.d, p.R.d] };
-});
-// 기준점 = 1/4의 준비 스탠스(t=0). 모든 단계가 이 자리에서 시작하도록 맞추고(같은 오프셋),
-// 스케일은 전 구간 최대 이탈이 프레임 안에 들어가게 잡는다 — 단계마다 자리가 달라지지 않는다(유저).
-const SB_FIT = (() => {
-  const s0 = SB_SAMP[0];
-  const cx = (s0.us[0] + s0.us[1]) / 2, cz = (s0.ds[0] + s0.ds[1]) / 2;
-  const us = SB_SAMP.flatMap(s => s.us), ds = SB_SAMP.flatMap(s => s.ds);
-  return { cx, cz,
-    su: SB_BOX.u / Math.max(...us.map(u => Math.abs(u - cx))),
-    sv: ((SB_BOX.v1 - SB_BOX.v0) / 2) / Math.max(...ds.map(d => Math.abs(d - cz))),
-    vc: (SB_BOX.v0 + SB_BOX.v1) / 2 };
-})();
-const sbU = (u) => Math.max(-SB_BOX.u, Math.min(SB_BOX.u, (u - SB_FIT.cx) * SB_FIT.su));
-const sbV = (d) => Math.max(SB_BOX.v0, Math.min(SB_BOX.v1, SB_FIT.vc + (d - SB_FIT.cz) * SB_FIT.sv));
-/** 영상 시각 vt의 두 발 상태(프레임 좌표) — 발마다 독립 타이밍 */
+/** 영상 시각 vt의 두 발 상태. holdAirborne = 컷에서 아직 다 옮기지 않은 발은 이전 자리 유지 */
 function sbPoseAt(vt, holdAirborne) {
-  const p = sbPair(vt, holdAirborne);
-  const conv = q => ({ u: sbU(q.u), v: sbV(q.d), tu: sbU(q.tu), tv: sbV(q.td), toe: q.toe,
-    f: q.f, dist: q.dist, step: q.step, plantT: q.plantT,
-    moving: q.step && q.f > 0.001 && q.f < 0.999 });
-  const L = conv(p.L), R = conv(p.R);
-  // 좌우가 교차하지 않게 최소 간격 유지 — 실제 클립은 오른발이 왼발을 넘어가는 크로스오버지만,
-  // 지면 마크에서 L·R이 대각선으로 뒤바뀌면 '어느 발인지'가 무너진다(유저). 앞으로 나가는
-  // 성분(깊이)은 실측 그대로 두고, 좌우만 겹치지 않게 민다.
-  const GAP = 0.42;   // 스탠스 폭 — 이보다 가까워지면 두 발이 겹쳐 보인다
-  //  실제 클립은 오른발이 왼발을 넘어가는 크로스오버다. 지면 마크에서 L·R이 뒤바뀌면 어느 발인지
-  //  무너지므로(유저) 좌우로는 못 넘어가게 막되, 막힌 거리만큼 '앞으로'(깊이) 밀어준다 —
-  //  그래야 오른발이 멀리 딛는 스텝감이 남는다.
-  const push = (a, b) => {
-    if (b.u >= a.u + GAP) return;
-    const blocked = (a.u + GAP) - b.u;
-    b.u = a.u + GAP;
-    b.v = Math.min(SB_BOX.v1, b.v + blocked * 0.55);
+  let i = 0;
+  while (i < SB_POSE.length - 2 && SB_POSE[i + 1].t <= vt) i++;
+  const a = SB_POSE[i], b = SB_POSE[i + 1];
+  let f = Math.max(0, Math.min(1, (vt - a.t) / Math.max(0.01, b.t - a.t)));
+  const one = (side) => {
+    const p0 = a[side], p1 = b[side];
+    const dist = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]);
+    const step = dist > 0.05;
+    let ff = f;
+    if (step) {
+      if (holdAirborne && ff > 0 && ff < 1) ff = 0;          // 아직 안 딛었으면 이전 자리
+      else ff = Math.max(0, Math.min(1, (ff - 0.35) / 0.65));   // 구간 후반 65%에 몰아서 '확' 나간다
+    }
+    const ez = ff < 0.5 ? 2 * ff * ff : 1 - Math.pow(-2 * ff + 2, 2) / 2;
+    return {
+      u: sbU(p0[0] + (p1[0] - p0[0]) * ez), v: sbV(p0[1] + (p1[1] - p0[1]) * ez),
+      tu: sbU(p1[0]), tv: sbV(p1[1]),
+      toe: (ez < 0.5 ? (p0[2] || 0) : (p1[2] || 0)),
+      f: ez, dist, step, plantT: b.t, moving: step && ez > 0.001 && ez < 0.999,
+    };
   };
-  if (R.moving && !L.moving) push(L, R);
-  else if (L.moving && !R.moving) { if (R.u < L.u + GAP) L.u = R.u - GAP; }
-  else if (R.u < L.u + GAP) { const mid = (L.u + R.u) / 2; L.u = mid - GAP / 2; R.u = mid + GAP / 2; }
-  if (R.tu < L.tu + GAP) { const bl = (L.tu + GAP) - R.tu; R.tu = L.tu + GAP; R.tv = Math.min(SB_BOX.v1, R.tv + bl * 0.55); }
-  return { L, R };
+  return { L: one('L'), R: one('R') };
 }
+const FOLLOW_S = 1.0;   // 따라하기 발자국 배율(농구 지면 UI 공통)
 
 const BK_STR = {
   BK_A1: { per: 2.4, reps: BK_REPS.BK_A1, side: true, noMark: true, fm: '옆구리 스트레치', say: '팔을 위로 뻗어 옆으로 쭉쭉. 왼쪽 오른쪽 번갈아 허리를 늘려요.' },
@@ -698,15 +640,25 @@ export class Session {
         const wp = new THREE.Vector3(); fm.group.getWorldPosition(wp);
         this.onBurst?.(wp, 0.22);
       }
-      const pop = Math.max(0, 1 - (this.t - (st['p' + side] || -9)) / 0.28);   // 착지 팝 0.28s
+      // ── 착지 물리 — '타닥' 두 박 ────────────────────────────────────────────
+      //   ① 앞꿈치 접지 = 큰 팝(0.18s, 빠른 감쇠)  ② 뒤꿈치가 따라 내려앉는 작은 팝(0.10s 뒤 0.16s)
+      //   여기에 착지 직전 6% 오버슈트 → 되돌아옴을 더해 체중이 실리는 느낌을 만든다. 전 단계 공통.
+      const age = this.t - (st['p' + side] || -9);
+      const pop1 = Math.max(0, 1 - age / 0.18), pop2 = Math.max(0, 1 - Math.abs(age - 0.10) / 0.16);
+      const pop = Math.max(pop1, pop2 * 0.5);
+      const landed = st[side] === q.plantT;   // 이 단계 목표에 이미 딛었나
       if (q.moving) {
         // 이동 중 = 들린 발. 궤적 중간에서 가장 크고 흐리다(유리판 미끄러짐 방지).
         const air = Math.sin(Math.PI * q.f);
+        const over = q.f > 0.85 ? (q.f - 0.85) / 0.15 * 0.06 : 0;   // 착지 직전 살짝 지나쳤다가
         fm.ghost(); fm.op(0.30 + 0.25 * (1 - air));
-        fm.at(p.x, p.z, FOLLOW_S * (1 + 0.16 * air));
+        const px = p.x + (q.tu - q.u) * over, pz = p.z + (q.tv - q.v) * over;
+        fm.at(px, pz, FOLLOW_S * (1 + 0.16 * air));
       } else if (pop > 0) {
-        fm.glow(1 - pop);   // 착지 = Success 표시(유저 지시)
-        fm.op(1); fm.at(p.x, p.z, FOLLOW_S * (1 + 0.12 * pop));
+        fm.glow(Math.max(0.35, 1 - pop));   // 착지 = Success 블룸(유저 지시)
+        fm.op(1); fm.at(p.x, p.z, FOLLOW_S * (1 + 0.10 * pop1 + 0.04 * pop2));
+      } else if (landed) {
+        fm.glow(0.35); fm.op(1); fm.at(p.x, p.z, FOLLOW_S);   // 딛은 뒤에도 Success 유지(그 단계 목표 달성)
       } else {
         fm.countdown(1); fm.op(0.95); fm.at(p.x, p.z, FOLLOW_S);
       }
