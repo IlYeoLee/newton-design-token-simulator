@@ -2283,7 +2283,10 @@ void main(){
     // 어떤 스테이지 코치를 켤지: 러닝 A1·농구 워밍업 전부 = 전 구간 상시, 러닝 A2/A3 = 시범(관찰) 중에만.
     const st = session.active && !session.isLive && (state.pack === 'running' || state.pack === 'basketball') ? session.stage : null;
     const COACH_IDS = ['A1', 'A2', 'A3', 'BK_A1', 'BK_A2', 'BK_A3', 'BK_B1', 'BK_B2', 'BK_B3', 'BK_B4', 'BK_B5'];
-    const activeId = COACH_IDS.find(id => id === st && !(/^(A2|A3|BK_A2|BK_A3|BK_B[12345])$/.test(id) && session._followLatch)) || null;
+    // 관찰이 끝나면(followLatch) 코치를 끄는 게 기존 규약이었다. 단 스텝백 4페이즈(BK_B2~B5)는
+    //   따라하기 화면에도 같은 실루엣이 축소되어 남아야 한다(피그마 143:444) — 예외로 계속 켠다.
+    const activeId = COACH_IDS.find(id => id === st
+      && !(/^(A2|A3|BK_A2|BK_A3|BK_B1)$/.test(id) && session._followLatch)) || null;
     for (const id of COACH_IDS) {
       const c = _coaches[id];
       if (id === activeId) {
@@ -2373,9 +2376,11 @@ void main(){
             //   따라하기 국면에서만 축소 후 창 상단(beamUV v 0.80)으로 올리고 아래를 발자국에 내준다.
             const following = !!session._followLatch;
             if (following) {
-              co.plane.scale.set(0.55, 0.55, 1);
-              const uv = session.beamUV?.(0, 0.80);
-              if (uv) co.plane.position.set(uv.x, 0.016, uv.z + (session.root?.position.z ?? 0));
+              // 따라하기 뷰의 영상 박스 자리에 프리뷰와 '같은' 실루엣 패널을 그대로 얹는다.
+              //   HTML <video>로는 크로마키+룩 LUT 결과를 재현할 수 없으므로 3D 패널을 옮겨 쓴다.
+              co.plane.scale.set(0.46, 0.46, 1);
+              co.plane.position.z -= 0.50;   // 타이틀 아래 — 더 작게, 더 위로(유저)
+              co.plane.position.y = 0.017;
             } else {
               co.plane.scale.set(1, 1, 1);   // 프리뷰 = 기존 배치 유지
             }

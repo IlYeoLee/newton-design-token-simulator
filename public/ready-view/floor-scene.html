@@ -54,8 +54,7 @@ html,body{background:transparent}
 @font-face{font-family:'OffBit';src:url('../fonts/OffBitTrial-DotBold.woff2') format('woff2');font-weight:700;font-display:block}
 /* Figma 122:270 프리뷰 행 = 콘텐츠 컬럼의 자식(타이틀 바로 아래 gap 40). [Preview 필 · 타이머 링] 가로. */
 #follow-view{display:flex;flex-direction:column;align-items:center;gap:56px;margin-top:26px;animation:sUpFlat .5s both}
-#fv-vid{width:1180px;height:640px;border-radius:10px;background:rgba(255,255,255,.10);
-  box-shadow:inset 0 0 0 3px rgba(255,255,255,.16)}
+#fv-vid{width:1180px;height:560px;background:transparent}   /* 프레임 박스 제거(유저) — 자리만 확보 */
 #fv-marks{display:flex;align-items:center;justify-content:center;gap:64px}
 #fv-marks .fv-foot{width:150px;height:290px;border-radius:76px 76px 60px 60px;background:#F4A9A3;
   display:flex;align-items:center;justify-content:center;position:relative}
@@ -240,6 +239,8 @@ html,body{background:transparent}
           </div>`;
         document.getElementById('content').insertBefore(fv, dots);
         dots.style.display = 'none';   // 레퍼런스(143:444)엔 도트바 없음 — 진행은 상단 n/4가 담당
+        // 영상 자리는 박스로만 잡는다 — 실제 그림은 3D 코치 패널(크로마키+룩 LUT)이 이 위에 얹힌다.
+        //   HTML <video>로는 프리뷰에서 보던 실루엣(셰이더 결과)을 재현할 수 없다.
       }
     }, 5100);
     const clip = document.querySelector('.dclip'); if (clip) clip.style.animationDelay = '5.15s';
