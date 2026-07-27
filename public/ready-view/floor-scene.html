@@ -55,15 +55,23 @@ html,body{background:transparent}
 /* Figma 122:270 프리뷰 행 = 콘텐츠 컬럼의 자식(타이틀 바로 아래 gap 40). [Preview 필 · 타이머 링] 가로. */
 #follow-view{display:flex;flex-direction:column;align-items:center;gap:56px;margin-top:26px;animation:sUpFlat .5s both}
 #fv-vid{width:1180px;height:560px;background:transparent}   /* 프레임 박스 제거(유저) — 자리만 확보 */
-#fv-marks{display:flex;align-items:center;justify-content:center;gap:64px;height:300px}
-#fv-marks .fv-gap{width:620px}   /* 판정 토큰(3D FootMark) 자리 */
-#fv-marks .fv-foot{width:150px;height:290px;border-radius:76px 76px 60px 60px;background:#F4A9A3;
-  display:flex;align-items:center;justify-content:center;position:relative}
-#fv-marks .fv-foot span{font-size:120px;font-weight:800;color:#171B24}
-#fv-marks .fv-foot::after{content:'';position:absolute;left:50%;bottom:-96px;transform:translateX(-50%);
-  width:110px;height:86px;border-radius:50%;background:#F4A9A3}
-#fv-marks .fv-ar{font-size:210px;line-height:.8;color:#fff;font-weight:300}
-#fv-marks .fv-sp{width:110px}
+/* 따라하기 1/4(BK_B2) 판정 마크 — 룩시스템 발자국(L·R) + 위아래 화살표.
+   슛을 던질까 말까 망설이는 순간 → 발은 들썩이고, 화살표는 아래/위로 번갈아 밀린다. */
+#fv-marks{display:flex;align-items:center;justify-content:center;gap:40px;height:380px}
+#fv-marks .fv-foot{width:140px;height:240px;border-radius:70px 70px 56px 56px;background:#F4A9A3;
+  display:flex;align-items:center;justify-content:center;position:relative;
+  animation:fvBob 1.6s ease-in-out infinite}
+#fv-marks .fv-foot.r{margin-left:110px;animation-delay:.18s}
+#fv-marks .fv-foot span{font-size:104px;font-weight:800;color:#171B24;line-height:1}
+#fv-marks .fv-foot::after{content:'';position:absolute;left:50%;bottom:-108px;transform:translateX(-50%);
+  width:140px;height:100px;border-radius:50%;background:#F4A9A3}
+#fv-marks .fv-ar{width:330px;height:330px;flex:0 0 auto;margin:0 -30px}
+/* 화살표는 회전한 좌표계라 translateX가 화면상 세로 이동이 된다(↓는 아래로, ↑는 위로). */
+#fv-marks .fv-ar.dn{animation:fvArDn 1.6s ease-in-out infinite}
+#fv-marks .fv-ar.up{animation:fvArUp 1.6s ease-in-out infinite}
+@keyframes fvBob{0%,100%{transform:translateY(0)}28%{transform:translateY(-26px)}50%{transform:translateY(0)}72%{transform:translateY(-13px)}}
+@keyframes fvArDn{0%,100%{transform:rotate(90deg) translateX(0);opacity:.45}28%{transform:rotate(90deg) translateX(34px);opacity:1}55%{transform:rotate(90deg) translateX(0);opacity:.45}}
+@keyframes fvArUp{0%,100%{transform:rotate(-90deg) translateX(0);opacity:.45}28%{transform:rotate(-90deg) translateX(34px);opacity:1}55%{transform:rotate(-90deg) translateX(0);opacity:.45}}
 #prev-row{display:flex;gap:120px;align-items:center;justify-content:center;
   opacity:0;animation:sUpFlat .5s .2s both, demoOutFlat .45s 5.05s both}
 #prev-pill{display:flex;align-items:center;gap:20px;background:rgba(255,255,255,.14);border-radius:999px;padding:20px 30px 20px 40px}
@@ -228,7 +236,14 @@ html,body{background:transparent}
       //    (스텝백 4페이즈 전용. 관찰이 끝나면 이 프레임이 그 자리를 이어받는다)
       if (/^BK_B[2345]$/.test(stage)) {
         const fv = document.createElement('div'); fv.id = 'follow-view';
-        fv.innerHTML = `<div id="fv-vid"></div>`;   // 발자국·화살표 제거(유저) — 코치 실루엣 자리만
+        // 1/4(BK_B2)만 영상 아래 L·R 발자국 + 위아래 화살표(던질까 말까 망설이는 스탠스).
+        fv.innerHTML = `<div id="fv-vid"></div>` + (stage === 'BK_B2' ? `
+          <div id="fv-marks">
+            <img class="fv-ar dn" src="assets/run/arrow.svg" alt="">
+            <div class="fv-foot"><span>L</span></div>
+            <div class="fv-foot r"><span>R</span></div>
+            <img class="fv-ar up" src="assets/run/arrow.svg" alt="">
+          </div>` : '');
         document.getElementById('content').insertBefore(fv, dots);
         dots.style.display = 'none';   // 레퍼런스(143:444)엔 도트바 없음 — 진행은 상단 n/4가 담당
         // 영상 자리는 박스로만 잡는다 — 실제 그림은 3D 코치 패널(크로마키+룩 LUT)이 이 위에 얹힌다.

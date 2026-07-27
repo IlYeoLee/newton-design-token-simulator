@@ -2320,11 +2320,12 @@ void main(){
           if (co._holdUntil) {
             // 마지막 프레임 1초 정지 후 처음으로 되감아 루프(유저)
             if (now >= co._holdUntil) { co._holdUntil = 0; try { co.video.currentTime = a; } catch (e) {} co.video.play().catch(() => {}); }
-            else { co.video.pause(); if (Math.abs(co.video.currentTime - b) > 0.05) { try { co.video.currentTime = b; } catch (e) {} } }
+            else co.video.pause();
           } else if (co.video.currentTime >= b - 0.033) {
-            // 30fps라 정확히 b에서 멈출 수 없다 — 한 프레임 앞서 잡고 b로 시킹해 '그 프레임'을 정지 화면으로.
+            // 30fps라 정확히 b에서 멈출 수 없다 — 한 프레임 앞서 잡고 정지. 시킹은 하지 않는다:
+            //   시킹 중엔 비디오 텍스처가 비어 균일색이 되고, 크로마 마스크를 통과 못 해
+            //   판 전체가 붉게 칠해졌다(유저 스샷). 현재 프레임 그대로 얼리는 게 안전하다.
             co._holdUntil = now + 1000; co.video.pause();
-            try { co.video.currentTime = b; } catch (e) {}
           } else {
             if (co.video.currentTime < a - 0.05) { try { co.video.currentTime = a; } catch (e) {} }
             if (co.video.paused) co.video.play().catch(() => {});
@@ -2334,7 +2335,7 @@ void main(){
         // 영상 실제 프레임이 들어오기 전엔 숨김 — 검은/균일 텍스처가 크로마키 통과 못 해
         // 빨간 방사형 사각형으로 0.x초 깜빡이던 것 방지(유저). readyState≥3(HAVE_FUTURE_DATA)+재생 시작 후.
         // 루프 순간 currentTime이 0으로 되감겨 매 루프 1~2프레임 숨김 → 깜빡임(유저). 첫 표시 후 래치.
-        const coLive = co.video.readyState >= 3 && co.video.currentTime > 0.03
+        const coLive = co.video.readyState >= 3 && !co.video.seeking && co.video.currentTime > 0.03
                     && (id !== 'BK_A1' || _coachSeekId === id);   // 시크 전 프레임은 보여주지 않는다
         if (coLive) co._live = true;
         co.plane.visible = !!co._live;
