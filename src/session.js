@@ -339,15 +339,28 @@ function primPanel(kind, sizeM, wall) {
   const c = document.createElement('canvas'); c.width = c.height = 256;
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
+  const isTraj = kind === 'trajectory';
   const m = new THREE.Mesh(new THREE.PlaneGeometry(sizeM, sizeM),
-    new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false }));
+    new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+      toneMapped: false, depthTest: !isTraj }));
   if (!wall) m.rotation.x = -Math.PI / 2;
-  m.renderOrder = kind === 'trajectory' ? 9 : 6;   // 궤적은 발자국(4) 위로 — 전 종목 공통(유저)
+  // 궤적은 항상 발자국 '위'. renderOrder만으로는 깊이 테스트에 걸려 뒤로 밀릴 수 있어
+  // depthTest까지 끈다(유저 3회 지적: 아직도 궤적이 뒤에 있다).
+  m.renderOrder = isTraj ? 14 : 6;
   m.userData.el = { type: kind, wall: !!wall };
-  const panel = { kind, c, tex, m, prog: null, pts: null, P: null };   // P = 인스턴스별 파라미터 오버라이드
+  const panel = { kind, c, tex, m, prog: null, pts: null, P: null, t0: 0 };   // P=인스턴스 파라미터 · t0=사이클 시작 시각(개별 트리거)
   m._prim = panel;
   PRIM_PANELS.push(panel);
   return m;
+}
+/** 궤적 사이클 트리거 — 그 발이 '올라가기 시작하는' 순간(임계 상향 교차) 사이클을 리셋한다.
+ *  좌우가 각자 자기 발 타이밍에 맞춰 뻗는다(전역 시계 공유 시 동시에 움직이던 문제). */
+function tjTrigger(H, side, p, prev) {
+  const TH = 0.10;
+  if (p > TH && prev <= TH) {
+    const tj = side === 'L' ? H.tjL : H.tjR;
+    if (tj?._prim) tj._prim.t0 = performance.now() / 1000;
+  }
 }
 let _primLastT = 0;
 function tickPrims(t) {
@@ -363,7 +376,7 @@ function tickPrims(t) {
     const P = p.P ? { ...base, ...p.P } : base;
     if (p.kind === 'stanceBox') drawStanceBox(g, 256, P, look, t, livePrimEnv());
     else if (p.kind === 'approachRing') drawApproachRing(g, 256, P, look, t, livePrimEnv(), p.prog);
-    else if (p.kind === 'trajectory') drawTrajectory(g, 256, P, look, t, livePrimEnv(), p.prog, p.pts);
+    else if (p.kind === 'trajectory') drawTrajectory(g, 256, P, look, t - (p.t0 || 0), livePrimEnv(), p.prog, p.pts);
     else if (p.kind === 'rotate') drawRotate(g, 256, P, look, t, livePrimEnv(), p.prog);
     else if (p.kind === 'curveArrow') drawCurveArrow(g, 256, 256, p.pts || [[0.5, 0.9], [0.5, 0.1]], t, livePrimEnv(), { prog: p.prog });
     else drawPunchLine(g, 256, P, look, t, livePrimEnv(), p.pts, p.prog);
@@ -1727,9 +1740,11 @@ export class Session {
       H.arL.visible = !useTraj; H.arR.visible = !useTraj;
       H.tjL.visible = useTraj; H.tjR.visible = useTraj;
       if (useTraj) {
-        // 인터랙션 = 룩 시스템 루프 그대로(유저 지시). prog=null이면 drawTrajectory가 자기 사이클을
-        //   돈다: 시작점에서 스윕 → 끝에서 소멸(꼬리가 헤드로 수렴) → 갭 → 시작점부터 다시.
+        // 룩 시스템 루프 그대로(prog=null) — 다만 두 궤적이 같은 전역 시계를 쓰면 좌우가 동시에
+        //   움직인다(유저). 각 궤적에 t0(사이클 시작 시각)를 주고, '그 발이 올라가기 시작하는'
+        //   순간 t0을 지금으로 찍어 사이클을 그 발 타이밍에 맞춰 다시 출발시킨다.
         H.tjL._prim.prog = null; H.tjR._prim.prog = null;
+        tjTrigger(H, 'L', H._pL, H._prevPL ?? 0); tjTrigger(H, 'R', H._pR, H._prevPR ?? 0);
       } else {
         const nowT = performance.now() / 1000;
         if (nowT - (this._a3cueT || 0) > 1 / 30) {
@@ -1874,8 +1889,9 @@ export class Session {
       const st3 = FXP.a3Arrow || 4, useTraj = st3 === 4;
       H.arL.visible = !useTraj; H.arR.visible = !useTraj;
       H.tjL.visible = useTraj; H.tjR.visible = useTraj;
-      if (useTraj) {   // 룩 시스템 루프 그대로 — 러닝 A3와 같은 규약
+      if (useTraj) {   // 룩 시스템 루프 그대로 + 발별 트리거 — 러닝 A3와 같은 규약
         H.tjL._prim.prog = null; H.tjR._prim.prog = null;
+        tjTrigger(H, 'L', H._pL, H._prevPL ?? 0); tjTrigger(H, 'R', H._pR, H._prevPR ?? 0);
       } else {
         const nowT = performance.now() / 1000;
         if (nowT - (this._a3cueT || 0) > 1 / 30) {
