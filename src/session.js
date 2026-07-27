@@ -2129,7 +2129,7 @@ export class Session {
       const TGT = [0.55, 0, -0.55][Math.min(H.beat, 2)];
       // 따라하기 화면(143:444) = 코치 영상 아래 L·R 마크 한 쌍 + 좌 ↓ / 우 ↑.
       //   비트 릴레이(존 3개)는 이 단계에선 안 쓴다 — 1/4은 '자리 잡고 망설이기'다.
-      const W = Math.PI * 2 / 1.6, V = 0.34;   // v=0.34 = 영상 아래 줄(더 앞은 창 코앞이라 마크가 거대해진다)
+      const W = Math.PI * 2 / 1.6, V = 0.40;   // 영상 아래 줄. 앞으로 뺄수록 카메라 코앞이라 거대해진다(유저: 살짝 뒤로)
       const bL = Math.sin(this.t * W), bR = Math.sin((this.t - 0.18) * W);
       const pL = this._beamLocal(-0.34, V, H.mL), pR = this._beamLocal(0.34, V, H.mL);
       H.sL2.countdown(1); H.sR2.countdown(1);
@@ -2141,7 +2141,8 @@ export class Session {
       H.mR.position.set(pR.x, H.mR.position.y, pR.z); H.mR.setOp?.(0);
       H.mC.setOp?.(0);
       H.cL.op(0); H.cR.op(0);
-      const aD = this._beamLocal(-0.92, V, H.mL), aU = this._beamLocal(0.92, V, H.mL);
+      // 화살표 = 발자국 페어(±0.34)와 같은 중심·같은 줄, 바로 바깥에 붙인다(유저: 가운데 정렬·더 가깝게)
+      const aD = this._beamLocal(-0.55, V, H.mL), aU = this._beamLocal(0.55, V, H.mL);
       H.aD.position.set(aD.x, 0.014, aD.z); H.aU.position.set(aU.x, 0.014, aU.z);
       H.aD._gain = 0.30 + 0.60 * Math.max(0, bL);
       H.aU._gain = 0.30 + 0.60 * Math.max(0, -bL);
