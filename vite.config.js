@@ -9,6 +9,11 @@ export default defineConfig({
   base: './',   // GitHub Pages 등 서브경로 배포 대응
   server: { host: '127.0.0.1', port: 5199 },
   plugins: [{
+    // Three.js 씬은 HMR 부분 교체를 못 견딘다 — 모듈만 갈리면 씬·렌더러가 반쯤 죽어
+    // 화면이 검게 변하고 판이 붉게 남는다(유저: 커밋할 때마다). 저장 시 항상 전체 새로고침.
+    name: 'always-full-reload',
+    handleHotUpdate({ server }) { server.ws.send({ type: 'full-reload' }); return []; },
+  }, {
     // 데브 전용: 브라우저에서 구운 에셋(마스크 아틀라스 등) 저장 — 베이크 파이프라인 출구
     name: 'dev-save-baked-asset',
     configureServer(server) {
