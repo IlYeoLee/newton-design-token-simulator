@@ -555,7 +555,9 @@ export class XBot {
     // 데모 중 공 관리 (playDemo는 여태 공을 안 건드려 이전 live 위치가 멀리 남아있었음 — 유저: '공이 저 멀리').
     // 드리블 클립일 때만 손에 붙여 튕기고, 그 외(idle·스탠스·사이드스텝·READY)엔 숨김.
     if (this.ball) {
-      if (this.mode === 'basketball' && (key === 'dribble' || key === 'cmu_dribble_low')) this._dribbleBall(this._demoT || 0, dt);
+      // 공 게이트 — 클립 이름 화이트리스트로는 B단계 클립(크로스오버·124_0x)에서 공이 안 보였다.
+      // _dribbleBall은 오른손목 Y의 하강→상승 전환을 실측 검출하므로 클립 종류를 안 가린다.
+      if (this.mode === 'basketball' && /dribble|crossover|cmu124_0[3-6]|cmu86_14/.test(key)) this._dribbleBall(this._demoT || 0, dt);
       else this.ball.visible = false;
     }
     // 런지 깊이 노브(lungeDeepen 0..1, main A2가 구동) — CMU 144_17이 얕아(무릎 h 47cm)

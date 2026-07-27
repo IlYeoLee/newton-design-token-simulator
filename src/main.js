@@ -3936,7 +3936,10 @@ void main(){
       BK_READY: 'idle', BK_A1: 'hj_sidebend', BK_A2: 'auto_cmu13_30', BK_A3: 'auto_cmu13_30',
       BK_T1: 'jogging', BK_T2: 'jogging',   // 전환 화면 = 제자리 조깅으로 자연스럽게 이어감(유저) — 드리블 폴백 금지
       // B1 시범 = 06_15 드리블→슛(온전한 무브 원테이크), B2 분해 = 06_14 크로스오버+슛 위상잠금
-      BK_B1: 'cmu_crossover_shot', BK_B2: 'cmu_crossover_shot', BK_B3: 'cmu_crossover_shot',
+      // B단계 = 공을 튄다 → 튀기며 움직인다 → 튀기다 멈추고 뒤로(BK-B-CURRICULUM.md)
+      BK_B1: 'auto_cmu124_04',        // 제자리 공 튀기기 (root:false → 제자리 고정 보장)
+      BK_B2: 'cmu_dribble_low',       // 로우 프리스타일 드리블 (06_13) — 크로스오버 데모
+      BK_B3: 'cmu_dribble_low',       // 다리 사이도 같은 핸들 클립 루프
     };
     if (DRILL[id] && xbot.actions[DRILL[id]]) return DRILL[id];
     if (sport === 'basketball') return 'dribble';           // 그 외 제자리 드리블
@@ -4059,11 +4062,11 @@ void main(){
         const SEG = { BK_A2: [7.5, 9.8], BK_A3: [12.0, 14.2] }[session.stage];
         _phase = SEG[0] + (session.t % (SEG[1] - SEG[0]));
       }
-      else if (session.stage === 'BK_B1') _phase = session.t;
-      else if (session.stage === 'BK_B2') _phase = Math.min((session.t * 0.5) % 3.2, 2.2);   // 플랜트까지 + 홀드(슛 제거)
-      else if (session.stage === 'BK_B3') _phase = 1.55 + ((session.t * 0.55) % 2.45);   // 플랜트→백스텝→착지→슛 구간 0.55배 반복
-      if (session.stage === 'BK_B3') xbot.stepbackDemo(h);   // 합성 시연(드리블→백스텝 분리→실측 점프샷)
-      else xbot.playDemo(_clip, h, session.stage === 'BX_READY', _phase);
+      else if (session.stage === 'BK_B1') _phase = 1.2 + (session.t % 2.5);   // 124_04 안정 구간 루프
+      else if (session.stage === 'BK_B2' || session.stage === 'BK_B3') _phase = session.t;   // 핸들 클립 자유 루프
+      // playDemo는 무조건 — stepbackDemo 분기 삭제 때 else가 체인에 붙어 위상 스테이지 전부에서
+      // 재생이 건너뛰어졌던 사고(클립이 idle로 남음).
+      xbot.playDemo(_clip, h, session.stage === 'BX_READY', _phase);
       rig.update(0, h);
       tokens.setShake(rig.shake.x, rig.shake.y);
       // 이 분기는 아래 followFloor 호출을 건너뛰어(early return) 무한 지면(그리드·바닥)이
@@ -4870,7 +4873,7 @@ void main(){
           // far 경계로 밀려 지면 UI 제목 줄 위에 겹친다(유저 신고). 봇 기준 원래 거리 복원:
           //   A2 = 0.70m 앞(-1.85+1.15) · A3 = 1.10m 앞(유저: 제목·도트 줄에서 더 떨어뜨려 안정 배치)
           //   A3 링은 헤일로가 커서 0.52m 이격으로는 도트 줄과 붙어 보였음 → 0.97m 이격
-          const FWD = { BK_A2: 0.80, BK_A3: 0.75, BK_B1: -1.1, BK_B2: -1.25 };   // A2는 1.15에서 당김 — 투사창 near 경계에서 잘렸음(유저)
+          const FWD = { BK_A2: 0.80, BK_A3: 0.75 };   // B단계 신설계는 BK_STAND(봇 발밑) 기준 저작 — 시프트 불필요
           stageG.position.set(0, 0, FWD[session.curStage?.id] || 0); stageG.quaternion.identity();
         } else {
           // 데모 단계: 발자국을 프레임과 '같은' 무릎 풋프린트 기준계에 실어 인물 흔들림에 함께 따라가게 함
