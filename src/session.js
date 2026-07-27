@@ -816,7 +816,7 @@ export class Session {
     // B2 · 크로스오버 — 좌우 바운스 존 교대 점등. '공이 우리 평면에 닿는 지점'이 곧 커서라
     //   가림이 판정 신호가 된다(광학 검수 결론). 존 위치는 커리 실측 바운스 거리(0.44~0.83m) 안.
     const mkZone = (x) => floorRing(x, BK_STAND - 0.55 - BDEEP, 0.15, 0.19, BRAND.coral, 0.2);
-    const z2L = mkZone(-0.22), z2R = mkZone(0.22);   // 원 2개만·간격 축소(유저) — 발자국 은퇴
+    const z2L = mkZone(-0.45), z2R = mkZone(0.45);   // 사이드 슬라이드 — 몸이 오가는 좌우 끝점
     const n2c = document.createElement('canvas'); n2c.width = n2c.height = 128;
     const n2 = new THREE.Mesh(new THREE.PlaneGeometry(0.20, 0.20),
       new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(n2c), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
@@ -2060,42 +2060,41 @@ export class Session {
       if (H._p2t >= P2SEC || this.t >= MAXSEC) { this.next(); return; }
     } else if (id === 'BK_B2') {
       // B2 · 크로스오버 — 좌우 존 교대 점등(반 템포 0.8s: 배우기 우선), 켜진 존에 공을 떨어뜨린다.
-      const H = this.bkB2x, TOTAL = 10, MAXSEC = 40;
-      if (this._bkStrId !== 'BK_B2') { H.count = 0; H._shown = -1; H._wasLow = false; H._popT = -9; H._tgtL = true; }
+      const H = this.bkB2x, TOTAL = 6, MAXSEC = 40;
+      if (this._bkStrId !== 'BK_B2') { H.count = 0; H._shown = -1; H._side = 0; H._popT = -9; }
       this._bkStrId = 'BK_B2';
       if (!this._followLatch) {   // 관찰 5초 — 코치 실루엣(크로스오버 영상)+Preview 필만, 가이드 숨김
         H.zL.setOp?.(0); H.zR.setOp?.(0); H.num.material.opacity = 0;
         this.demoActive = true;
-        FMU('먼저 보세요 — 크로스오버', CS.prism);
+        FMU('먼저 보세요 — 사이드 슬라이드', CS.prism);
         return;
       }
-      this._say('bkb2go', '커리', '이제 같이 — 켜진 존으로 공을 옮겨요.');
+      this._say('bkb2go', '커리', '이제 같이 — 오른손으로 공을 밀며 옆으로 미끄러져요.');
       H.num.material.opacity = 1;
-      // 점등 = 공이 향한 쪽 존(공 추종). 실측 검증: 교대 강제는 프리스타일 클립에서 1/8 적중,
-      //   공 추종은 7/8 — 시뮬은 봇(프로) 시연이 구동하므로 '프로가 어느 존에 떨어뜨리는지'를
-      //   보여주는 게 맞다. 실제 제품(유저 입력)에선 교대 강제로 되돌릴 것.
-      H._tgtL = (this.xbot?.ball?.position.x ?? 0) - (this.xbot?.group?.position.x ?? 0) < 0;
-      const onZ = H._tgtL ? H.zL : H.zR, offZ = H._tgtL ? H.zR : H.zL;
-      const pk2 = Math.max(0, 1 - (this.t - H._popT) / 0.2);
-      onZ.setOp?.(0.55 + 0.4 * pk2); offZ.setOp?.(0.12);
-      const ball2 = this.xbot?.ball;
-      const isLow2 = !!ball2?.visible && ball2.position.y < 0.20;
-      if (isLow2 && !H._wasLow) {
-        const wp = new THREE.Vector3(); onZ.getWorldPosition(wp);
-        const dx = ball2.position.x - wp.x, dz = ball2.position.z - wp.z;
-        // 판정 = 측방(크로스오버 축)만. 존은 빔 창 안의 '도식'이라(BDEEP) 실제 바운스 z와 다르다 —
-        //   z를 재면 도식 위치에 공을 맞추라는 무의미한 요구가 된다.
-        if (Math.abs(dx) < 0.30) { void dz; 
-          H.count += 1; H._popT = this.t;
-          this.onPress?.(wp, false);
-        }
+      // 판정 = 발이 골반 기준 좌우로 얼마나 뻗는가(상대 좌표). 몸에 달린 빔은 투사면이 유저와
+      //   함께 움직이므로 '절대 위치로 이동'은 원리적으로 가이드할 수 없다 — 스탠스 폭·발 위치 같은
+      //   몸 기준 정보만 가르칠 수 있다. 실측 확인: 루트 이동 클립에선 봇이 화면 밖으로 나갔다.
+      const pr = this.xbot?.getProbes?.();
+      let sideS = H._side || 0;
+      if (pr?.hips && pr.footL && pr.footR) {
+        // 체중 이동 = 골반이 두 발 중점 기준 어느 쪽으로 쏠렸는가. 실측 진폭 −0.21~+0.11이라
+        //   임계 ±0.06(진폭의 약 40%)에서 좌우가 확실히 갈린다. 발 벌림(dL/dR)은 자세라 진동이 없다.
+        const off = pr.hips.x - (pr.footL.x + pr.footR.x) / 2;
+        if (off < -0.06) sideS = -1; else if (off > 0.02) sideS = 1;
       }
-      H._wasLow = isLow2;
+      if (sideS !== 0 && sideS !== H._side) {   // 반대쪽으로 체중이 넘어간 순간 1회
+        H._side = sideS; H.count += 1; H._popT = this.t;
+        const wp = new THREE.Vector3(); (sideS < 0 ? H.zL : H.zR).getWorldPosition(wp);
+        this.onPress?.(wp, false);
+      }
+      const pk2 = Math.max(0, 1 - (this.t - H._popT) / 0.25);
+      H.zL.setOp?.(H._side < 0 ? 0.55 + 0.4 * pk2 : 0.14);
+      H.zR.setOp?.(H._side > 0 ? 0.55 + 0.4 * pk2 : 0.14);
       const left2 = Math.max(0, TOTAL - H.count);
       if (left2 !== H._shown) { redrawFootNum(H.num, left2); H._shown = left2; }
       this.repLeft = left2; this.repTotal = TOTAL;
       this.repFrac = Math.min(1, H.count / TOTAL);
-      FMU(`크로스오버 — ${H._tgtL ? '왼쪽' : '오른쪽'} 존 · 남은 ${left2}회`, CS.sand);
+      FMU(`사이드 슬라이드 — ${H._side < 0 ? '왼쪽' : '오른쪽'} 끝 · 남은 ${left2}회`, CS.sand);
       if (left2 === 0 || this.t >= MAXSEC) { this.next(); return; }
     } else if (id === 'BK_B3') {
       // B3 · 다리 사이 — 중앙 통과 라인을 지나 반대 존에 바운스해야 카운트.
