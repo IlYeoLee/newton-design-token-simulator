@@ -805,12 +805,9 @@ export class Session {
     // 셋업 막 발자국 — 어깨보다 넓게(0.56m, wikiHow 기본기). 4초간만 보였다 퇴장(상시 아님).
     const b1sL = new FootMark('left').at(-0.28, BK_STAND - 0.40 - BDEEP, 1.1);
     const b1sR = new FootMark('right').at(0.28, BK_STAND - 0.40 - BDEEP, 1.1);
-    // 셋업 지시 카드 — 타이틀+본문(유저: 지시서처럼 같이 보여주기)
-    const b1tt = floorText('STANCE', 0, BK_STAND - 0.78 - BDEEP, { size: 0.085, color: CS.ink, weight: 800 });
-    const b1bd = floorText('발은 어깨보다 넓게 · 무릎은 굽히고', 0, BK_STAND - 0.64 - BDEEP, { size: 0.055, color: CS.mute });
-    this.bkB1 = { zone: b1zone, num: b1num, sL: b1sL, sR: b1sR, tt: b1tt, bd: b1bd,
+    this.bkB1 = { zone: b1zone, num: b1num, sL: b1sL, sR: b1sR,
       count: 0, _shown: -1, _wasLow: false, _popT: -9, _p2t: 0, _setupDone: false };
-    g.add(b1zone, b1num, b1sL.group, b1sR.group, b1tt, b1bd);
+    g.add(b1zone, b1num, b1sL.group, b1sR.group);   // 지시문은 피그마 프레임 헤더가 담당(유저)
 
     g = this._mk('BK_B2');
     // B2 · 크로스오버 — 좌우 바운스 존 교대 점등. '공이 우리 평면에 닿는 지점'이 곧 커서라
@@ -1263,7 +1260,7 @@ export class Session {
     this.liveSpeed = st.boost ? 1.18 : 1;
     if (this.xbot) this.xbot.decelK = 0;   // C5 감속 잔재 제거 (다운시프트·FIN 진입 안전망)
     this._waitStart = 0;    // 음성 게이트 대기 타이머 리셋
-    this.bkB1EyesUp = false; // B1 2막 신호 리셋(스테이지 전환 시 메트로놈·고개 잔류 방지)
+    this.bkB1EyesUp = false; this.bkB1Setup = false; // B1 신호 리셋(전환 시 메트로놈·고개·셋업 잔류 방지)
     this._bkStrId = null;   // 워밍업 스트레칭 재진입 리셋 (스테이지 전환 시 홀드 카운트 0)
     this.repLeft = null; this.repTotal = null; this.repFrac = null;   // 반복 진행바 — 스테이지마다 초기화
     if (this._c3Skill != null && this.judge) { this.judge.skill = this._c3Skill; this._c3Skill = null; }   // C3 중 탭 스킵 시 skill 0.35 영구 잠김 방지
@@ -1952,10 +1949,9 @@ export class Session {
       this._bkB1t = this.t;
       // 막0 · 스탠스 셋업(4초): 넓은 발자국 2개만 보여주고 밟게 한다 — 이후 퇴장(페이드)
       const SETUP = 4.0, inSetup = this.t < SETUP;
+      this.bkB1Setup = inSetup;   // main: 봇 시연(공 제거·idle에서 다리 벌리기)
       const sK = Math.max(0, Math.min(1, (SETUP + 0.9 - this.t) / 0.9));   // Success 블룸 여운과 함께 퇴장
       H.sL.op(sK); H.sR.op(sK);
-      H.tt.userData.plane.material.opacity = 0.95 * sK;
-      H.bd.userData.plane.material.opacity = 0.75 * sK;
       if (inSetup) {
         // Active — 헤일로 수축 = '자리 잡는 시간' 카운트다운 (MARK 상태머신 그대로)
         H.sL.countdown(this.t / SETUP); H.sR.countdown(this.t / SETUP);

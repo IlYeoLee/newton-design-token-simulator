@@ -4082,10 +4082,17 @@ void main(){
         const SEG = { BK_A2: [7.5, 9.8], BK_A3: [12.0, 14.2] }[session.stage];
         _phase = SEG[0] + (session.t % (SEG[1] - SEG[0]));
       }
-      else if (session.stage === 'BK_B1') {   // 124_04 순수 드리블 구간(실측 1.3~3.2) 핑퐁 — 하드컷 대신 되감기(유저)
-        xbot.stanceWiden = 1;
-        const SPAN = 1.9, m = session.t % (SPAN * 2);
-        _phase = 1.3 + (m < SPAN ? m : SPAN * 2 - m);
+      else if (session.stage === 'BK_B1') {
+        if (session.bkB1Setup) {
+          // 셋업 시연(유저): 공 빼고(idle은 공 게이트 미통과 → 자동 숨김) 자연 서기에서
+          //   다리를 '실제로' 벌린다 — 절차적 램프(0.8s 대기 → 2.2s에 걸쳐 어깨너비+)
+          _clip = 'idle';
+          xbot.stanceWiden = Math.min(1.15, Math.max(0, (session.t - 0.8) / 2.2) * 1.15);
+        } else {   // 124_04 순수 드리블 구간(실측 1.3~3.2) 핑퐁 — 하드컷 대신 되감기(유저)
+          xbot.stanceWiden = 1;
+          const SPAN = 1.9, m = session.t % (SPAN * 2);
+          _phase = 1.3 + (m < SPAN ? m : SPAN * 2 - m);
+        }
       }
       // 06_13 프리스타일 전체 루프는 이동·컷 구간이 섞여 어색(유저) — 안정 핸들 구간만 창 반복.
       else if (session.stage === 'BK_B2') _phase = 2.0 + (session.t % 6.0);
@@ -4302,6 +4309,15 @@ void main(){
         // 반복형 스테이지(워밍업)의 도트 로딩바 = 시간이 아니라 '남은 횟수' 진행도.
         // 기존엔 --dur CSS 애니메이션이라 반복을 아무리 해도 안 차 보였음(유저: '프로그래스바가 안 찬다').
         if (session.repTotal) {
+          // B1 셋업: 피그마 프레임 헤더를 영문 지시로 스왑(유저) — 끝나면 원래 카피 복원
+          const sTitle = fdoc?.getElementById('s-title'), sCue = fdoc?.getElementById('s-cue');
+          if (sTitle && session.stages?.[session.stageIdx]?.id === 'BK_B1') {
+            const want = session.bkB1Setup ? 'Wide Stance' : 'Low Dribble';
+            const cue = session.bkB1Setup ? 'Feet wider than shoulders — knees bent'
+              : (session.bkB1EyesUp ? 'Eyes up — keep the beat' : "Stay low — Curry's beat");
+            if (sTitle.textContent !== want) sTitle.textContent = want;
+            if (sCue && sCue.textContent !== cue) sCue.textContent = cue;
+          }
           const clip = fdoc?.querySelector('.dclip');
           if (clip) {
             // repFrac = 회차 사이도 채우는 연속값(깊이·발높이). 정수 회차만 쓰면 뚝뚝 끊긴다(유저).
