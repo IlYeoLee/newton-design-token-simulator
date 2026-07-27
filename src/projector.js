@@ -7,7 +7,7 @@ import {
 
 // ─────────────────────────────────────────────────────────────
 // 투사 리그 — 기존 Stabilizer Simulator에서 이식
-//   러닝/농구: 오른 무릎 장착 모듈에서 바닥 투사
+//   러닝/농구: 왼 무릎 장착 모듈에서 바닥 투사 (오른손 드리블 공 그림자 회피 — 유저 확정)
 //     · 2차 스프링-댐퍼 안정화  K_s=22, K_d=9 (임계감쇠)
 //     · 서보 속도 제한 300°/s × 무릎높이 → 바닥 선속도 상한
 //     · 3m 초과 드리프트 시 스냅
@@ -17,7 +17,7 @@ import {
 const K_S = 22;
 const K_D = 9;
 const SRV_MAX_VEL_DEG = 300;
-const KNEE_OFFSET = new THREE.Vector3(0.03, -0.03, 0.03);   // 오른 무릎 모듈
+const KNEE_OFFSET = new THREE.Vector3(-0.03, -0.03, 0.03);   // 왼 무릎 모듈(바깥쪽 = -x)
 // 복싱 벽면 프로젝터: 인물 앞 바닥의 초단초점(UST) 스테이션
 const STATION_POS = new THREE.Vector3(0.55, 0.13, WALL_Z + 0.55);
 
@@ -314,7 +314,7 @@ export class ProjectorRig {
       this._smFwd.lerp(fwdInst, 1 - Math.exp(-dt / 0.6)).normalize();
     }
     const fwd0 = (this.mode === 'basketball' && this._smFwd) ? this._smFwd : fwdInst;
-    const rightV = new THREE.Vector3(-fwd0.z, 0, fwd0.x);   // 몸 오른쪽(오른 무릎 바깥) 방향
+    const rightV = new THREE.Vector3(fwd0.z, 0, -fwd0.x);   // 몸 왼쪽(왼 무릎 바깥) 방향
     const kneeModule = mount.clone()
       .addScaledVector(rightV, 0.055)                       // 바깥 옆면 — 부착감 (0.10은 떨어져 보임)
       .addScaledVector(fwd0, 0.02)

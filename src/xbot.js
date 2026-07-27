@@ -371,15 +371,19 @@ export class XBot {
   /** 프로젝터 모듈 기준 무릎 본 — 하드웨어는 항상 '월드 오른쪽 다리'에 고정(유저 확정).
       A2 비주얼 미러(scale.x<0) 시 월드-오른쪽에 있는 건 Left 본 → 스위칭. */
   getKneeWorld() {
-    const k = this.group.scale.x < 0 ? this._kneeL : this._kneeR;
+    // 장착 다리 = 왼다리(유저 확정, 기하 검증): 오른손 드리블은 공이 오른쪽에서 튀므로
+    // 광원을 왼다리 바깥에 둬야 광원-공 간격이 최대 → 그림자 쐐기가 필드 밖(우측)으로 밀린다.
+    // 실측: 중앙 바운스(x+0.13)에서 오른다리 장착은 그림자가 정중앙(x+0.12), 왼다리는 x+0.33 가장자리.
+    // 미러 시 반대 체인(오른다리) 사용 — 기존 규약 유지.
+    const k = this.group.scale.x < 0 ? this._kneeR : this._kneeL;
     if (!k) return null;
     return new THREE.Vector3().setFromMatrixPosition(k.matrixWorld);
   }
 
   /** 정강이 방향(무릎→발목, 정규화) — 프로젝터 사출 축. 미러 시 Left 체인 사용(위와 동일 사유) */
   getRightShinDir() {
-    const mir = this.group.scale.x < 0;
-    const k = mir ? this._kneeL : this._kneeR, f = mir ? this._footL : this._footR;
+    const mir = this.group.scale.x < 0;   // 장착 = 왼다리(getKneeWorld와 동일 사유) — 이름은 역사적 잔재
+    const k = mir ? this._kneeR : this._kneeL, f = mir ? this._footR : this._footL;
     if (!k || !f) return null;
     const knee = new THREE.Vector3().setFromMatrixPosition(k.matrixWorld);
     const ankle = new THREE.Vector3().setFromMatrixPosition(f.matrixWorld);
