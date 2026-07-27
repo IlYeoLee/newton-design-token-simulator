@@ -2267,7 +2267,12 @@ void main(){
     plane.position.set(0, 0.015, -1.35);
     plane.visible = false;
     scene.add(plane);
-    const co = _coaches[id] = { video, plane, _fwd: new THREE.Vector3(), fwd: cfg.fwd };
+    // 루프 되감기(시크) 동안 디코더가 프레임을 비우면 판이 검게 깜빡인다(유저).
+    //   시크 직전 프레임을 캔버스에 떠서 그걸 대신 물려두고, 새 프레임이 들어오면 되돌린다.
+    const fz = document.createElement('canvas'); fz.width = 2; fz.height = 2;
+    const fzTex = new THREE.CanvasTexture(fz); fzTex.colorSpace = THREE.SRGBColorSpace;
+    const co = _coaches[id] = { video, plane, _fwd: new THREE.Vector3(), fwd: cfg.fwd,
+      tex, mat, fz, fzTex, _frozen: false };
     // A1: 코치 영상 위에 회전 큐 2개(drawRotate 룩시스템) — 목(위·작게) + 어깨(아래·크게) 동시에 돌리기 지시.
     if (id === 'A1') {
       const mkCue = (size, x, y) => {
@@ -2288,6 +2293,17 @@ void main(){
     }
     return co;
   }
+  // 시크 직전 프레임 고정 / 새 프레임 도착 시 해제 — 루프 순간 검은 깜빡임 방지
+  function freezeCoach(co) {
+    const v = co.video;
+    if (!v.videoWidth || co._frozen) return;
+    if (co.fz.width !== v.videoWidth) { co.fz.width = v.videoWidth; co.fz.height = v.videoHeight; }
+    try { co.fz.getContext('2d').drawImage(v, 0, 0); } catch (e) { return; }
+    co.fzTex.needsUpdate = true;
+    co.mat.uniforms.map.value = co.fzTex;
+    co._frozen = true;
+  }
+  function unfreezeCoach(co) { if (!co._frozen) return; co.mat.uniforms.map.value = co.tex; co._frozen = false; }
   let _coachSeekId = null, _coachSeekT0 = null;   // BK_A1 진입 시 시크 래치(+타임아웃)
   // 스텝백 프리뷰 = '영상 N회 재생'. 벽시계로 재면 배속·시작 위상·버퍼링에 어긋난다 —
   //   실제 재생 위치에서 루프 수와 진행률을 뽑아 타이머(링·분수)와 관찰 종료를 같은 값으로 구동한다.
@@ -2339,8 +2355,7 @@ void main(){
           session._pvLoops = _stepLoops;   // 진단용 노출
           if (_stepId !== id) {   // 단계 진입 = 루프 카운터 리셋 + 구간 처음부터
             _stepId = id; _stepLoops = 0; _stepFrac = 0;
-            co._holdUntil = 0; try { co.video.currentTime = a; } catch (e) {}
-            co._blankUntil = now + 200;   // 진입 직후 디코딩 공백 가드
+            co._holdUntil = 0; freezeCoach(co); try { co.video.currentTime = a; } catch (e) {}
           }
           // 링은 '재생 + 끝프레임 정지'를 하나의 한 바퀴로 본다 — 100%에서 1초 멈췄다 뚝 되감기면
           //   회차 사이가 끊겨 보인다(유저). 정지 구간에도 남은 각도를 채워 다음 재생 시작과 정확히 맞물린다.
@@ -2357,20 +2372,23 @@ void main(){
             // 마지막 프레임 1초 정지 후 처음으로 되감아 루프(유저)
             if (now >= co._holdUntil) {
               co._holdUntil = 0; _stepLoops += 1;   // 되감기 시점 = 링이 한 바퀴를 다 돈 순간 = 1회 완료
+              freezeCoach(co);
               try { co.video.currentTime = a; } catch (e) {} co.video.play().catch(() => {});
-              co._blankUntil = now + 140;   // 디코딩 공백 = 붉은 판 버그 — 그 사이 숨김
             } else co.video.pause();
           } else if (co.video.currentTime >= b - 0.033) {
             // 30fps라 정확히 b에서 멈출 수 없다 — 한 프레임 앞서 잡고 정지. 시킹은 하지 않는다:
             //   시킹 중엔 비디오 텍스처가 비어 균일색이 되고, 크로마 마스크를 통과 못 해
             //   판 전체가 붉게 칠해졌다(유저 스샷). 현재 프레임 그대로 얼리는 게 안전하다.
             if (HOLD > 0) { co._holdUntil = now + HOLD * 1000; co.video.pause(); }
-            else { _stepLoops += 1; try { co.video.currentTime = a; } catch (e) {} co._blankUntil = now + 140; }   // 실전 = 정지 없이 바로 이어서
+            else { _stepLoops += 1; freezeCoach(co); try { co.video.currentTime = a; } catch (e) {} }   // 실전 = 정지 없이 바로 이어서
           } else {
-            if (co.video.currentTime < a - 0.05) { try { co.video.currentTime = a; } catch (e) {} co._blankUntil = performance.now() + 140; }
+            if (co.video.currentTime < a - 0.05) { freezeCoach(co); try { co.video.currentTime = a; } catch (e) {} }
             if (co.video.paused) co.video.play().catch(() => {});
           }
         }
+        // 새 프레임이 실제로 들어왔으면 고정 해제
+        if (co._frozen && !co.video.seeking && co.video.readyState >= 3
+            && co.video.currentTime > (PHW ? PHW[0] : 0) + 0.03) unfreezeCoach(co);
         if (!PHW && co.video.playbackRate !== 1) co.video.playbackRate = 1;   // 그 외 단계는 정속
         if (co.video.paused && !co._holdUntil) co.video.play().catch(() => {});
         // 영상 실제 프레임이 들어오기 전엔 숨김 — 검은/균일 텍스처가 크로마키 통과 못 해
@@ -2381,7 +2399,7 @@ void main(){
         if (coLive) co._live = true;
         // 실전은 영상도 화면에서 뺀다 — 타이밍 소스로만 돌린다(유저).
         //   시크·되감기 직후엔 텍스처가 비어 크로마키를 통과, 판 전체가 LUT 붉은색이 된다 → 그 사이 숨김.
-        co.plane.visible = !!co._live && id !== 'BK_C2' && performance.now() >= (co._blankUntil || 0);
+        co.plane.visible = !!co._live && id !== 'BK_C2';
         co.plane.material.uniforms.uTime.value = performance.now() / 1000;
         // 채도는 마크 LUT와 같은 소스(FXP.sat)에서 — 인물·발자국 룩 통일(슬라이더 하나가 둘 다 이동)
         co.plane.material.uniforms.uSat.value = 1.0 + (FXP.sat ?? 1) * 0.32;
