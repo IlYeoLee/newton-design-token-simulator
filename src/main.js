@@ -4031,6 +4031,8 @@ void main(){
       BK_B3: 'bkStance', BK_B4: 'bkStance', BK_B5: 'bkStance',   // 스텝백 4단계 — 폭·크라우치는 sbWidth
       BK_C2: 'bkStance',              // 실전 — 릴리즈는 판정으로
     };
+    // 실전(C)·리포트(FIN)는 전 팩 공통으로 기본 서있는 자세(유저) — 봇 동작 연출은 나중에.
+    if (/^(BK_)?C\d$/.test(id) || /^BX_C\d$/.test(id) || /FIN$/.test(id)) return 'idle';
     if (DRILL[id] && xbot.actions[DRILL[id]]) return DRILL[id];
     if (sport === 'basketball') return 'dribble';           // 그 외 제자리 드리블
     if (sport === 'boxing') return /B\d/.test(id) ? 'hook' : 'warmup';
