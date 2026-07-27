@@ -583,6 +583,16 @@ export class XBot {
       if (this.mode === 'basketball' && /dribble|crossover|cmu124_0[3-6]|cmu86_14/.test(key)) this._dribbleBall(this._demoT || 0, dt);
       else this.ball.visible = false;
     }
+    // vm_crossover 깊이 보정 — 모노큘러 포즈는 팔 깊이(z)가 몸쪽으로 압축돼 손이 몸통 뒤에 붙는다
+    // (유저 지적). 축 실측(현재 자세): Arm 로컬 z+(L)/z−(R) 25° → 손 전방 0.20m. 18°만 가산.
+    if (key === 'vm_crossover') {
+      const bl = this.model.getObjectByName('mixamorigLeftArm');
+      const br = this.model.getObjectByName('mixamorigRightArm');
+      const D2 = Math.PI / 180;
+      if (bl) bl.quaternion.multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), 18 * D2));
+      if (br) br.quaternion.multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), -18 * D2));
+      this.model.updateMatrixWorld(true);
+    }
     // 다리 고정 노브(legLock, main B2 구동) — 크로스오버 연습은 하체 고정·무릎 굽힘이 기본(유저).
     // 프리스타일 클립은 발이 따라 움직이므로, 진입 프레임의 다리 포즈를 스냅샷해 매 프레임 하체만
     // 덮어쓴다(상체·팔은 클립 그대로). stanceWiden·_clampFeet은 이 위에 그대로 얹힌다.
