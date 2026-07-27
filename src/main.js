@@ -4694,6 +4694,7 @@ void main(){
     renderDesignFrame();  // 벽 = 스테이지별 대지 프레임(CSS3D). 프레임 스테이지는 기존 벽 UI 숨김(사람+배경만)
     applyEditOverrides();  // 배치 편집(유저): 드래그로 옮긴 벽·인물 위치를 세션 덮어쓰기 후 재적용
     renderFrame(clock.elapsedTime);   // 블룸 + 그레인·비네트 컴포저 (scene.js FX)
+    updateFloorClipHole(_floorVisLatch);   // 봇 픽셀 복사 — 반드시 컴포저 뒤(그 전엔 present로 비워진 버퍼를 긁어 투명이었음)
   }
 
   // ── 벽 대지 프레임 시스템: 스테이지별 대지(2600×1600) 뷰를 벽 평면에 CSS3D로 얹음 ──
@@ -4936,7 +4937,10 @@ void main(){
     ['RightUpLeg', 'RightLeg', 0.4], ['RightLeg', 'RightFoot', 0.3], ['RightFoot', 'RightToeBase', 0.3],
   ];
   const _cpV = new THREE.Vector3();
-  function updateFloorClipHole() {
+  let _floorVisLatch = false;
+  function updateFloorClipHole(visNow) {
+    window.__ocl = window.__ocl || { call: 0, draw: 0, why: '' };
+    window.__ocl.call++;
     const cvr = renderer.domElement.getBoundingClientRect();
     if (botOverlay._w !== cvr.width || botOverlay._h !== cvr.height) {
       botOverlay.width = cvr.width; botOverlay.height = cvr.height;
@@ -4944,11 +4948,12 @@ void main(){
     }
     botOverlay.style.left = cvr.left + 'px'; botOverlay.style.top = cvr.top + 'px';
     botCtx.clearRect(0, 0, botOverlay.width, botOverlay.height);
-    if (!floorObj.visible || !xbot.model || !xbot.group.visible) return;
+    const W2 = window.__ocl.n = window.__ocl.n || { vis: 0, cam: 0, pts: 0, torso: 0, ok: 0 };
+    if (!visNow || !xbot.model || !xbot.group.visible) { W2.vis++; return; }
     const hips = xbot.model.getObjectByName('mixamorigHips');
     if (!hips) return;
     _cpV.setFromMatrixPosition(hips.matrixWorld);
-    if (camera.position.distanceTo(_cpV) < 0.7) return;   // 1인칭 — 불필요
+    if (camera.position.distanceTo(_cpV) < 0.7) { W2.cam++; return; }   // 1인칭 — 불필요
     const w = botOverlay.width, h = botOverlay.height;
     const pj = (name) => {
       const bn = xbot.model.getObjectByName('mixamorig' + name); if (!bn) return null;
@@ -4957,9 +4962,9 @@ void main(){
       return [(_cpV.x * 0.5 + 0.5) * w, (1 - (_cpV.y * 0.5 + 0.5)) * h];
     };
     const A = pj('Hips'), B = pj('Neck');
-    if (!A || !B) return;
+    if (!A || !B) { W2.pts++; return; }
     const torso = Math.hypot(B[0] - A[0], B[1] - A[1]);
-    if (torso < 8) return;
+    if (torso < 8) { W2.torso++; return; }
     // 실루엣 마스크(라운드 스트로크 유니온) → source-in으로 실제 봇 픽셀만 남김
     botCtx.save();
     botCtx.lineCap = 'round'; botCtx.lineJoin = 'round';
@@ -4972,6 +4977,7 @@ void main(){
     }
     botCtx.globalCompositeOperation = 'source-in';
     botCtx.drawImage(renderer.domElement, 0, 0, w, h);
+    window.__ocl.draw++; window.__ocl.why = 'ok'; W2.ok++;
     botCtx.restore();
     botCtx.globalCompositeOperation = 'source-over';
   }
@@ -5156,7 +5162,7 @@ void main(){
     if (session.active && (!session.isLive || session.stage === 'BK_C4')) tokens.floorRoot.visible = false;
     // 항상 렌더 — 표시/숨김 전환에도 CSS3D transform 항상 동기(재진입 시 위치 어긋남·잔류 방지)
     cssRenderer.render(frameCssScene, camera);
-    updateFloorClipHole();   // 지면 프레임이 봇 몸을 관통해 보이던 것 — 봇 화면 헐을 evenodd 구멍으로
+    _floorVisLatch = floorObj.visible;   // 오버레이는 컴포저 이후(백버퍼 유효 시점)에 그린다
     // ── 바닥 프레임 occlusion: x봇만 투명 오버레이로 프레임(z6) 위(z7)에 다시 그려 다리 뒤로 밟히게 ──
     renderFloorOcclusion(floorObj.visible);
   }
