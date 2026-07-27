@@ -36,7 +36,7 @@ window.FLOOR_SCENES = {
   BK_B3: { title: 'Between Legs',   phase: 1, sub: '3/3', cue: 'Cross the line, far zone' },          // 다리 사이
   // C · 실전 (GAME)
   BK_C1: { title: 'Trigger',            phase: 2, sub: '1/4', cue: '3 · 2 · 1 — cut' },           // 3·2·1 컷 트리거
-  BK_C2: { title: 'Drive the Cut',      phase: 2, sub: '2/4', cue: 'Drive into the defender' },   // 컷인 라이브
-  BK_C3: { title: 'Step Back',          phase: 2, sub: '3/4', cue: 'Step back, make space' },     // 스텝백 라이브
+  BK_C2: { title: 'Full-Tempo Handle',  phase: 2, sub: '2/4', cue: "Curry's beat — eyes up" },   // 실전 핸들 프레이즈
+  BK_C3: { title: 'Side Step',          phase: 2, sub: '3/4', cue: 'Cross the gate — make space' }, // 사이드스텝
   BK_C4: { title: 'Release',            phase: 2, sub: '4/4', cue: 'Balance, then release' },     // 릴리즈·정지
 };

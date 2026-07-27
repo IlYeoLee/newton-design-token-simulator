@@ -28,11 +28,14 @@ await ana.evaluate(() => {
   const cv = document.createElement('canvas');
   const cx = cv.getContext('2d', { willReadFrequently: true });
   // 셀 그리드: 셀 전체 샘플이 RGB<20이면 '검정 셀' → 최대 연결 성분 면적비 반환
-  window.analyze = b64 => new Promise(res => {
+  // crop = 페이지 CSS px 기준 캔버스 rect + 페이지 innerW — 우측 검정 UI 사이드바 오검출 배제
+  window.analyze = (b64, crop) => new Promise(res => {
     const img = new Image();
     img.onload = () => {
-      cv.width = img.width; cv.height = img.height;
-      cx.drawImage(img, 0, 0);
+      const k = img.width / crop.innerW;   // screencast px ↔ CSS px 스케일
+      const sx = crop.x * k, sy = crop.y * k, sw = crop.w * k, sh = crop.h * k;
+      cv.width = Math.max(1, sw | 0); cv.height = Math.max(1, sh | 0);
+      cx.drawImage(img, sx, sy, sw, sh, 0, 0, cv.width, cv.height);
       const d = cx.getImageData(0, 0, cv.width, cv.height).data;
       const GW = 48, GH = 30, cw = cv.width / GW, ch = cv.height / GH;
       const black = new Uint8Array(GW * GH);
@@ -66,7 +69,7 @@ await ana.evaluate(() => {
       for (let i = 0; i < GW * GH; i++) total += black[i];
       res({ frac: max / (GW * GH), blackFrac: total / (GW * GH) });
     };
-    img.src = 'data:image/png;base64,' + b64;
+    img.src = 'data:image/jpeg;base64,' + b64;
   });
 });
 
@@ -85,24 +88,33 @@ const advancer = (async () => {   // BK_A1 → … → BK_FIN 자연 진행
   }
 })();
 
+await page.bringToFront();   // screencast는 포그라운드 탭만 스트림 — ana 탭이 포커스 뺏은 것 복구
+const crop = await page.evaluate(() => {
+  const c = [...document.querySelectorAll('canvas')].find(el => el.getBoundingClientRect().width > 300);
+  const r = c.getBoundingClientRect();
+  return { x: r.x, y: r.y, w: r.width, h: r.height, innerW: innerWidth };
+});
 const cdp = await page.createCDPSession();
-const queue = []; let nFrames = 0, nHits = 0; const hits = [];
-cdp.on('Page.screencastFrame', ev => {
+const queue = []; let nFrames = 0, nHits = 0, maxFrac = 0, maxStage = ''; const hits = [];
+cdp.on('Page.screencastFrame', async ev => {
   nFrames++;
   queue.push({ b64: ev.data, t: Date.now(), stage: curStage });
+  // 백프레셔 — 분석이 밀리면 ack 지연으로 캡처 페이스 조절 (무한 큐 OOM 방지)
+  while (queue.length > 120) await new Promise(r => setTimeout(r, 20));
   cdp.send('Page.screencastFrameAck', { sessionId: ev.sessionId }).catch(() => {});
 });
-await cdp.send('Page.startScreencast', { format: 'png', everyNthFrame: 1 });
+await cdp.send('Page.startScreencast', { format: 'jpeg', quality: 70, everyNthFrame: 1 });
 
 const t0 = Date.now();
 const analyzer = (async () => {
   while (running || queue.length) {
     const f = queue.shift();
     if (!f) { await new Promise(r => setTimeout(r, 10)); continue; }
-    const r = await ana.evaluate(b => window.analyze(b), f.b64);
+    const r = await ana.evaluate((b, c) => window.analyze(b, c), f.b64, crop);
+    if (r.frac > maxFrac) { maxFrac = r.frac; maxStage = f.stage; }
     if (r.frac >= 0.15) {
       nHits++;
-      const name = `hit_${String(nHits).padStart(3, '0')}_${f.stage}_${f.t - t0}ms_${(r.frac * 100) | 0}pct.png`;
+      const name = `hit_${String(nHits).padStart(3, '0')}_${f.stage}_${f.t - t0}ms_${(r.frac * 100) | 0}pct.jpg`;
       fs.writeFileSync(`${OUT}/${name}`, Buffer.from(f.b64, 'base64'));
       hits.push({ name, stage: f.stage, tMs: f.t - t0, frac: +r.frac.toFixed(3) });
       console.log('HIT', name);
@@ -114,5 +126,5 @@ await new Promise(r => setTimeout(r, +DUR));
 await cdp.send('Page.stopScreencast').catch(() => {});
 running = false;
 await analyzer; await stagePoll; await advancer;
-console.log(JSON.stringify({ query: Q, dsf: +DSF, durMs: +DUR, frames: nFrames, hits: nHits, detail: hits.slice(0, 40) }, null, 1));
+console.log(JSON.stringify({ query: Q, dsf: +DSF, durMs: +DUR, frames: nFrames, hits: nHits, maxFrac: +maxFrac.toFixed(3), maxStage, detail: hits.slice(0, 40) }, null, 1));
 await browser.close();

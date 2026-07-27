@@ -507,8 +507,8 @@ export const STAGES = {
     { id:'BK_B3', label:'B · 핸들 스쿨 3/3 — 다리 사이', voice:['커리','마지막 — 다리 사이로 통과시켜 반대 존으로. 라인을 지나가면 성공이에요.'], foot:'두 번 탭 → 실전 준비' },
     { id:'BK_T2', label:'T-2 · 5초 뒤 실전 자동 진행 (두 번 탭 = 바로)', voice:['커리','5초 뒤 넘어가요. 준비됐으면 두 번 탭.'], dur:5, count:true, foot:'두 번 탭 = 즉시 · 무입력 = 자동' },
     { id:'BK_C1', dur:3, label:'C · 실전 1/4 — 트리거', voice:['시스템','3, 2, 1. 컷 들어가요.'], hap:'컷 시작 진동', foot:'두 번 탭 → 출발' },
-    { id:'BK_C2', dur:6, live:true, label:'C · 실전 2/4 — 컷인 라이브', voice:['커리','수비 앞으로 파고들어요.'], wear:'SAFE 컷 안정화' },
-    { id:'BK_C3', dur:6, live:true, boost:true, label:'C · 실전 3/4 — 스텝백 (라이브·가속)', voice:['커리','뒤로 확! 공간 만들어요.'], wear:'BOOST 스텝백 추진', cue:'구간 종료 Match Rate' },
+    { id:'BK_C2', dur:10, label:'C · 실전 2/4 — 핸들 프레이즈 (풀템포)', voice:['커리','이제 제 리듬 그대로 — 존 바꿔가며 여덟 번. 시선은 앞!'], wear:'SAFE 리듬 안정화' },
+    { id:'BK_C3', dur:12, boost:true, label:'C · 실전 3/4 — 사이드스텝 (공간 만들기)', voice:['커리','수비 옆으로 확 — 게이트 라인을 넘어요. 왼쪽, 다시 오른쪽!'], wear:'BOOST 사이드 추진', cue:'게이트 통과 ×4' },
     { id:'BK_C4', live:true, cooldown:true, label:'C · 실전 4/4 — 릴리즈·정지', voice:['시스템','밸런스 잡고 릴리즈. 좋아요.'], hap:'릴리즈 완료 진동' },
     { id:'BK_FIN', label:'B-F · 리포트', voice:['시스템','리포트를 앱으로 보냈어요.'], cue:'Ghost Review — 커리 궤적과 내 스텝 겹쳐 보기' },
   ],
@@ -849,8 +849,29 @@ export class Session {
     // 실전 라이브 — 무릎 빔프가 봇 컷을 따라 움직이며 팩 토큰 투사 (오버레이 최소)
     g = this._mk('BK_C1');
     g.add(floorRing(0.03, -2.4, 0.15, 0.17, BRAND.red, 0.5));
-    this._mk('BK_C2');       // 라이브 — 팩 토큰 흐름
-    this._mk('BK_C3');       // 라이브 스텝백 (가속)
+    g = this._mk('BK_C2');   // 핸들 프레이즈(풀템포) — B2와 같은 언어(존 2개), 커리 원템포 0.4s
+    const c2L = floorRing(-0.22, BK_STAND - 0.55 - BDEEP, 0.15, 0.19, BRAND.coral, 0.2);
+    const c2R = floorRing(0.22, BK_STAND - 0.55 - BDEEP, 0.15, 0.19, BRAND.coral, 0.2);
+    const c2c = document.createElement('canvas'); c2c.width = c2c.height = 128;
+    const c2n = new THREE.Mesh(new THREE.PlaneGeometry(0.20, 0.20),
+      new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c2c), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+    c2n.material.map.colorSpace = THREE.SRGBColorSpace;
+    c2n.userData.canvas = c2c; c2n.userData.tex = c2n.material.map;
+    c2n.rotation.x = -Math.PI / 2; c2n.position.set(0, 0.016, BK_STAND - 0.85 - BDEEP); c2n.renderOrder = 8;
+    this.bkC2 = { zL: c2L, zR: c2R, num: c2n, count: 0, _shown: -1, _wasLow: false, _popT: -9, _tgtL: true };
+    g.add(c2L, c2R, c2n);
+
+    g = this._mk('BK_C3');   // 사이드스텝 — 횡 게이트 라인(창 폭 전체를 가로지르는 선 = 시차에 강한 지면 언어)
+    const mkGate = (x) => { const st2 = floorStripe(x, BK_STAND - 0.75 - BDEEP, 0.9, BRAND.prism, 0.5); st2.rotation.z = 0; return st2; };
+    const g3L = mkGate(-0.55), g3R = mkGate(0.55);   // 좌/우 게이트 — 몸이 라인을 넘으면 통과
+    const c3c = document.createElement('canvas'); c3c.width = c3c.height = 128;
+    const c3n = new THREE.Mesh(new THREE.PlaneGeometry(0.20, 0.20),
+      new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c3c), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+    c3n.material.map.colorSpace = THREE.SRGBColorSpace;
+    c3n.userData.canvas = c3c; c3n.userData.tex = c3n.material.map;
+    c3n.rotation.x = -Math.PI / 2; c3n.position.set(0, 0.016, BK_STAND - 0.95 - BDEEP); c3n.renderOrder = 8;
+    this.bkC3 = { gL: g3L, gR: g3R, num: c3n, count: 0, _shown: -1, _side: -1, _popT: -9 };
+    g.add(g3L, g3R, c3n);
     g = this._mk('BK_C4');
     g.add(floorRing(0, -2.6, 0.20, 0.225, BRAND.dim, 0.9));
     g.add(floorText('SHOOT', 0, -2.6, { size: 0.09, color: CS.mute }));
@@ -2090,9 +2111,47 @@ export class Session {
     } else if (id === 'BK_C1') {
       const n = Math.max(1, 3 - Math.floor(this.t)); if (n !== this._lastCount) { this._setCount(n, CS.ink); this._lastCount = n; }
       if (this.t >= st.dur) { this.next(); return; }
-    } else if (id === 'BK_C2' || id === 'BK_C3') {
-      // 라이브 — 실제 컷 재생, 무릎 빔프가 봇 따라 움직임(팩 토큰이 주인공)
-      if (this.t >= st.dur) { this.next(); return; }
+    } else if (id === 'BK_C2') {
+      // 실전 핸들 프레이즈 — B2와 같은 판정(공 추종 존), 풀템포. 8히트 또는 dur 종료 시 진행.
+      const H = this.bkC2, TOTAL = 8;
+      if (this._bkStrId !== 'BK_C2') { H.count = 0; H._shown = -1; H._wasLow = false; H._popT = -9; }
+      this._bkStrId = 'BK_C2';
+      H._tgtL = (this.xbot?.ball?.position.x ?? 0) - (this.xbot?.group?.position.x ?? 0) < 0;
+      const onZ = H._tgtL ? H.zL : H.zR, offZ = H._tgtL ? H.zR : H.zL;
+      const pkc = Math.max(0, 1 - (this.t - H._popT) / 0.2);
+      onZ.setOp?.(0.55 + 0.4 * pkc); offZ.setOp?.(0.12);
+      const bc = this.xbot?.ball;
+      const lowC = !!bc?.visible && bc.position.y < 0.20;
+      if (lowC && !H._wasLow) {
+        const wp = new THREE.Vector3(); onZ.getWorldPosition(wp);
+        if (Math.abs(bc.position.x - wp.x) < 0.30) { H.count += 1; H._popT = this.t; this.onPress?.(wp, false); }
+      }
+      H._wasLow = lowC;
+      const leftC = Math.max(0, TOTAL - H.count);
+      if (leftC !== H._shown) { redrawFootNum(H.num, leftC); H._shown = leftC; }
+      this.repLeft = leftC; this.repTotal = TOTAL; this.repFrac = Math.min(1, H.count / TOTAL);
+      FMU(`풀템포 프레이즈 — 남은 ${leftC}회`, CS.sand);
+      if (leftC === 0 || this.t >= st.dur) { this.next(); return; }
+    } else if (id === 'BK_C3') {
+      // 사이드스텝 — 봇(사이드 드리블)이 좌우로 넘는 게이트 라인. 넘은 쪽 라인이 팡, 4회.
+      const H = this.bkC3, TOTAL = 4;
+      if (this._bkStrId !== 'BK_C3') { H.count = 0; H._shown = -1; H._side = 0; H._popT = -9; }
+      this._bkStrId = 'BK_C3';
+      const bx3 = this.xbot?.getAnchor?.()?.x ?? 0;
+      const side = bx3 < -0.4 ? -1 : bx3 > 0.4 ? 1 : 0;   // 게이트 라인(±0.55) 근접 판정(여유 0.15)
+      if (side !== 0 && side !== H._side) {
+        H._side = side; H.count += 1; H._popT = this.t;
+        const gate = side < 0 ? H.gL : H.gR;
+        const wp = new THREE.Vector3(); gate.getWorldPosition(wp); this.onPress?.(wp, false);
+      }
+      const pk3 = Math.max(0, 1 - (this.t - H._popT) / 0.3);
+      H.gL.material._gainK = 0.4 + (H._side < 0 ? 0.6 * pk3 : 0);
+      H.gR.material._gainK = 0.4 + (H._side > 0 ? 0.6 * pk3 : 0);
+      const left3 = Math.max(0, TOTAL - H.count);
+      if (left3 !== H._shown) { redrawFootNum(H.num, left3); H._shown = left3; }
+      this.repLeft = left3; this.repTotal = TOTAL; this.repFrac = Math.min(1, H.count / TOTAL);
+      FMU(`사이드스텝 — 게이트 ${left3}회 남음`, CS.prism);
+      if (left3 === 0 || this.t >= st.dur) { this.next(); return; }
     } else if (id === 'BK_C4') {
       this.liveSpeed = Math.max(0.12, 1 - this.t / 2.4);   // 릴리즈 감속
       if (this.liveSpeed <= 0.13 && this.t > 2.8) { this.liveSpeed = 1; this.stageIdx = this.stages.findIndex(s2 => s2.id === 'BK_FIN'); this.t = 0; this._enter(); return; }

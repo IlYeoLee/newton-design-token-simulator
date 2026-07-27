@@ -3937,6 +3937,8 @@ void main(){
       // 농구 A단계 v5: A1 옆구리 스트레치(hj_sidebend) + A2·A3 = cmu13_30 구간(무릎들기 5.5–9.8s·스쿼트 9.8–14.2s)
       BK_READY: 'idle', BK_A1: 'hj_sidebend', BK_A2: 'auto_cmu13_30', BK_A3: 'auto_cmu13_30',
       BK_T1: 'idle', BK_T2: 'jogging',   // T1('몸 풀렸어요') = 자연 서기(유저 확정) · T2 = 제자리 조깅 — 드리블 폴백 금지
+      BK_C2: 'vm_crossover',             // 실전 핸들 프레이즈 = B2와 같은 실사 클립(풀템포 느낌은 판정 템포가 담당)
+      BK_C3: 'cmu_dribble_side',         // 사이드스텝 = CMU 06_08 사이드 드리블(루트 이동)
       // B1 시범 = 06_15 드리블→슛(온전한 무브 원테이크), B2 분해 = 06_14 크로스오버+슛 위상잠금
       // B단계 = 공을 튄다 → 튀기며 움직인다 → 튀기다 멈추고 뒤로(BK-B-CURRICULUM.md)
       BK_B1: 'auto_cmu124_04',        // 제자리 공 튀기기 (root:false → 제자리 고정 보장)
@@ -4099,7 +4101,7 @@ void main(){
         }
       }
       // 06_13 프리스타일 전체 루프는 이동·컷 구간이 섞여 어색(유저) — 안정 핸들 구간만 창 반복.
-      else if (session.stage === 'BK_B2') _phase = 1.0 + (session.t % 4.4);   // 포즈 거리 전수 탐색: 1.0→5.4s 경계 불일치 0.017m(전체 루프 0.148m의 1/9) — 이음새 없는 구간
+      else if (session.stage === 'BK_B2' || session.stage === 'BK_C2') _phase = 1.0 + (session.t % 4.4);   // 포즈 거리 전수 탐색 최적 구간(경계 0.017m)
       else if (session.stage === 'BK_B3') {   // 프리스타일은 어느 구간도 안 맞물림(최적 0.183m) → 핑퐁 = 불연속 0
         const SP3 = 6.3, m3 = session.t % (SP3 * 2);
         _phase = 7.6 + (m3 < SP3 ? m3 : SP3 * 2 - m3);
