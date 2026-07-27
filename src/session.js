@@ -792,29 +792,19 @@ export class Session {
     // 정확히 밟고, 유저는 진짜 따라 밟을 수 있는 순서·위치·좌우발을 본다.
     // (모델 rotY π → world=(-x, BK_STAND-z), BK_STAND = 봇 후퇴 배치로 투사존 정합)
     g = this._mk('BK_B1');
-    // B1 · 로우 드리블 — 150 BPM 박자와 스탠스.
-    //   배치는 광학 계산에서 나온 3밴드: 그림자는 언제나 '공보다 먼 쪽'에 지므로
-    //     0.15~0.45m = 가이드 전용(공보다 가까움 → 영구 무가림)
-    //     0.45~0.70m = 바운스 존 (실측: 커리 바운스 시 공-몸 거리 0.44~0.83m)
-    //     0.70m~     = 앰비언트(그림자가 스치는 구간)
-    //   또 공이 무릎높이(0.32m) 위면 그림자 자체가 없다 = 로우 드리블 사이클의 68%.
-    const b1L = new FootMark('left').at(-0.15, BK_STAND - 0.28 - BDEEP, 1.05);
-    const b1R = new FootMark('right').at(0.15, BK_STAND - 0.28 - BDEEP, 1.05);
-    const b1zone = floorRing(0.34, BK_STAND - 0.55 - BDEEP, 0.15, 0.19, BRAND.coral, 0.4);   // 바운스 존
-    const b1bar = floorStripe(0, BK_STAND - 1.0 - BDEEP, 0.9, BRAND.sand, 0.7);              // 다가오는 비트 바
-    const b1lb = floorText('BOUNCE', 0.34, BK_STAND - 0.55 - BDEEP + 0.30, { size: 0.055, color: CS.mute });   // 존 의미 라벨(유저: 뭔지 모르겠음)
-    const b1c = document.createElement('canvas'); b1c.width = b1c.height = 128;      // 잔여 카운트
+    // B1 · 로우 드리블 — 유저 확정 프로세스: ①원형 마크 토큰에 맞춰 10회(바닥 보며) →
+    //   ②중앙 안내 '시선은 바깥으로' → ③이후엔 UI 없음, 공 닿는 지점에 파형 이펙트만.
+    //   발마크·비트바·라벨은 전부 은퇴(유저: 그래픽 후두둑·발모양 들락날락).
+    const b1zone = floorRing(0.30, BK_STAND - 0.55 - BDEEP, 0.16, 0.20, BRAND.coral, 0.5);   // 원형 마크(룩 웨이브 링)
+    const b1c = document.createElement('canvas'); b1c.width = b1c.height = 128;              // 잔여 카운트 = 링 중앙
     const b1num = new THREE.Mesh(new THREE.PlaneGeometry(0.20, 0.20),
       new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(b1c), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
     b1num.material.map.colorSpace = THREE.SRGBColorSpace;
     b1num.userData.canvas = b1c; b1num.userData.tex = b1num.material.map;
-    b1num.rotation.x = -Math.PI / 2; b1num.position.set(0.34, 0.016, BK_STAND - 0.55 - BDEEP); b1num.renderOrder = 8;   // 숫자 = 존 중앙(따로 떠 있으면 의미 불명)
-    this.bkB1 = { fmL: b1L, fmR: b1R, zone: b1zone, bar: b1bar, num: b1num, lb: b1lb,
-      count: 0, _shown: -1, _wasLow: false, _popT: -9, _lowT: 0 };
-    g.add(b1L.group, b1R.group, b1zone, b1bar, b1num, b1lb);
+    b1num.rotation.x = -Math.PI / 2; b1num.position.set(0.30, 0.016, BK_STAND - 0.55 - BDEEP); b1num.renderOrder = 8;
+    this.bkB1 = { zone: b1zone, num: b1num, count: 0, _shown: -1, _wasLow: false, _popT: -9, _p2t: 0 };
+    g.add(b1zone, b1num);
 
-    // B2 따라 밟기 + 플랜트·브레이크 — 같은 실측 마크·숫자에 플랜트(4번=마지막 딛기) 강조:
-    // 브레이크 바(정지선) + 밟는 순간 감속 스트라이프가 발 뒤로 퍼짐 = '여기서 확 멈춘다'가 보임
     g = this._mk('BK_B2');
     // B2 · 크로스오버 — 좌우 바운스 존 교대 점등. '공이 우리 평면에 닿는 지점'이 곧 커서라
     //   가림이 판정 신호가 된다(광학 검수 결론). 존 위치는 커리 실측 바운스 거리(0.44~0.83m) 안.
@@ -1266,6 +1256,7 @@ export class Session {
     this.liveSpeed = st.boost ? 1.18 : 1;
     if (this.xbot) this.xbot.decelK = 0;   // C5 감속 잔재 제거 (다운시프트·FIN 진입 안전망)
     this._waitStart = 0;    // 음성 게이트 대기 타이머 리셋
+    this.bkB1EyesUp = false; // B1 2막 신호 리셋(스테이지 전환 시 메트로놈·고개 잔류 방지)
     this._bkStrId = null;   // 워밍업 스트레칭 재진입 리셋 (스테이지 전환 시 홀드 카운트 0)
     this.repLeft = null; this.repTotal = null; this.repFrac = null;   // 반복 진행바 — 스테이지마다 초기화
     if (this._c3Skill != null && this.judge) { this.judge.skill = this._c3Skill; this._c3Skill = null; }   // C3 중 탭 스킵 시 skill 0.35 영구 잠김 방지
@@ -1946,45 +1937,37 @@ export class Session {
       FMU(`${cfg.fm} · ${sideTxt}남은 ${leftStr}회`, leftStr === 0 ? CS.prism : CS.sand);
       if (S.count >= cfg.reps) { this.next(); return; }
     } else if (id === 'BK_B1') {
-      // B1 · 로우 드리블 — 150 BPM(커리 실측) 박자 + 낮은 스탠스 + 8회.
-      const H = this.bkB1, TOTAL = BK_B1_REPS, MAXSEC = 30;
-      if (this._bkStrId !== 'BK_B1') { H.count = 0; H._shown = -1; H._wasLow = false; H._popT = -9; }
+      // ① 원형 마크에 10회(바닥 보며) → ② 중앙 안내 '시선 바깥' → ③ 접점 파형만.
+      const H = this.bkB1, TOTAL = 10, P2SEC = 8, MAXSEC = 45;
+      if (this._bkStrId !== 'BK_B1') { H.count = 0; H._shown = -1; H._wasLow = false; H._popT = -9; H._p2t = 0; H._eyeK = 0; }
       this._bkStrId = 'BK_B1';
-      // 2막 교수법(유저): 드리블은 바닥을 보면 안 되는 기술이다. 전반(절반)은 바닥 UI 보며 익히고,
-      //   후반은 UI를 걷어 음성·리듬만 남겨 고개를 들게 한다. eyesUp 페이드는 아래 가시성에 곱한다.
-      const eyesUp = H.count >= Math.ceil(TOTAL / 2);
-      const dtB = Math.max(0, Math.min(0.1, this.t - (this._bkB1t ?? this.t)));   // 이 분기엔 dt가 없다(ReferenceError 사고)
+      const dtB = Math.max(0, Math.min(0.1, this.t - (this._bkB1t ?? this.t)));
       this._bkB1t = this.t;
-      H._eyeK = Math.max(0, Math.min(1, (H._eyeK ?? 0) + (eyesUp ? dtB : -dtB) * 2));
+      const phase2 = H.count >= TOTAL;
+      H._eyeK = Math.max(0, Math.min(1, (H._eyeK ?? 0) + (phase2 ? dtB : -dtB) * 1.6));
       const vK = 1 - H._eyeK;
-      if (eyesUp) this._say('bkb1up', '커리', '좋아요 — 이제 고개 들고, 리듬만 느껴요. 공은 안 봐도 돼요.');
-      // 비트 바 — 먼 곳(1.30m)에서 발 라인으로 다가온다. 도착 = 튕기는 순간(발로 잡는 메트로놈).
-      const u = (this.t % BK_BEAT) / BK_BEAT;
-      H.bar.position.z = BK_STAND - (1.30 - 1.02 * u) - BDEEP;
-      H.bar.material._gainK = 0.25 + 0.75 * u;
-      // 스탠스 — 힙 낮게(BK_A3 스쿼트와 같은 축). 식으면 '더 앉으세요'.
-      const hy = this.xbot?.getProbes?.()?.hips?.y ?? 1.0;
-      const low = hy <= 1.00;   // 라이브 실측: 124_04 드리블 자세 힙 0.96~0.98(직립 1.03) — 0.95는 전부 차단했다
-      if (low) { H.fmL.glow(0.65); H.fmR.glow(0.65); H.fmL.op(vK); H.fmR.op(vK); }
-      else { H.fmL.ghost(); H.fmR.ghost(); H.fmL.op(0.45 * vK); H.fmR.op(0.45 * vK); }
-      H.bar.material._gainK *= vK;
-      H.lb.userData.plane.material.opacity = 0.55 * vK;
-      H.num.material.opacity = Math.max(0.25, vK);   // 숫자만 흐리게 남긴다 — 진행은 계속 읽히게
-      // 바운스 = 공 y 최저 통과(월드 좌표, xbot.ball은 scene 직속). 낮은 자세일 때만 인정.
+      this.bkB1EyesUp = phase2;   // main: 봇 고개 정면 + 메트로놈
+      if (phase2) {
+        H._p2t += dtB;
+        this._say('bkb1up', '커리', '좋아요 — 이제 시선은 앞으로. 공은 안 봐도 돼요, 리듬만.');
+      }
+      // 바운스 검출 — 공 y 최저 통과. ①에선 카운트+링 펄스, ②에선 접점 파형만.
       const ball = this.xbot?.ball;
       const isLow = !!ball?.visible && ball.position.y < 0.20;
-      if (isLow && !H._wasLow && low) {
-        H.count += 1; H._popT = this.t;
-        const wp = new THREE.Vector3(); H.zone.getWorldPosition(wp); this.onPress?.(wp, false);
+      if (isLow && !H._wasLow) {
+        const wp = new THREE.Vector3(ball.position.x, 0.02, ball.position.z);   // 파형 = 공이 닿은 실제 지점
+        this.onPress?.(wp, false);
+        if (!phase2) { H.count += 1; H._popT = this.t; }
       }
       H._wasLow = isLow;
-      H.zone.setOp?.((0.30 + 0.55 * Math.max(0, 1 - (this.t - H._popT) / 0.18)) * Math.max(0.15, vK));
+      H.zone.setOp?.((0.35 + 0.5 * Math.max(0, 1 - (this.t - H._popT) / 0.2)) * vK);
       const left1 = Math.max(0, TOTAL - H.count);
       if (left1 !== H._shown) { redrawFootNum(H.num, left1); H._shown = left1; }
+      H.num.material.opacity = vK;
       this.repLeft = left1; this.repTotal = TOTAL;
-      this.repFrac = Math.min(1, H.count / TOTAL);   // 비트 위상(u) 가산 금지 — 진행바가 매 박자 출렁여 무한 반복처럼 보임(유저)
-      FMU(eyesUp ? `고개 들고 — 남은 ${left1}회` : (low ? `로우 드리블 — 남은 ${left1}회` : '더 앉으세요 — 무릎을 굽혀요'), eyesUp ? CS.prism : (low ? CS.sand : CS.coral));
-      if (left1 === 0 || this.t >= MAXSEC) { this.next(); return; }
+      this.repFrac = phase2 ? Math.min(1, (TOTAL + H._p2t / P2SEC * 2) / (TOTAL + 2)) : Math.min(1, H.count / TOTAL);
+      FMU(phase2 ? '시선은 바깥으로 — 리듬만 유지' : `원형 마크에 맞춰 튕겨요 — 남은 ${left1}회`, phase2 ? CS.prism : CS.sand);
+      if (H._p2t >= P2SEC || this.t >= MAXSEC) { this.next(); return; }
     } else if (id === 'BK_B2') {
       // B2 · 크로스오버 — 좌우 존 교대 점등(반 템포 0.8s: 배우기 우선), 켜진 존에 공을 떨어뜨린다.
       const H = this.bkB2x, TOTAL = 10, MAXSEC = 40;

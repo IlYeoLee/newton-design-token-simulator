@@ -3998,8 +3998,24 @@ void main(){
       xbot.demoStandZ = session.stage === 'A2' ? -1.0 : (/^BK_B[123]$/.test(session.stage) ? -1.85 : 0);
     }
     // 지면 풀스크린 화면(세션 컴플리트·전환·카운트다운) = 3인칭 봇도 바닥의 화면을 응시(머리 숙임).
-    xbot.headPitch = (session.active && /^(T1|T2|C1|FIN|BK_T1|BK_T2|BK_C1|BK_FIN)$/.test(session.stage || ''))
+    // B1 2막(시선 바깥) = 봇도 고개를 정면으로 들어 시범(유저) — bkB1EyesUp이 최우선.
+    xbot.headPitch = session.bkB1EyesUp ? THREE.MathUtils.degToRad(-6)
+      : (session.active && /^(T1|T2|C1|FIN|BK_T1|BK_T2|BK_C1|BK_FIN)$/.test(session.stage || ''))
       ? THREE.MathUtils.degToRad(24) : 0;
+    // B1 2막 메트로놈 — 박자를 소리가 이끈다(공 소리 추종이 아니라 리드). WebAudio 클릭.
+    if (session.bkB1EyesUp) {
+      if (!window.__metCtx) window.__metCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const ctx = window.__metCtx, PER = 0.8;   // 커리 150BPM의 반템포 — 배우기 우선
+      if (window.__metNext == null || window.__metNext < ctx.currentTime - 1) window.__metNext = ctx.currentTime + 0.1;
+      while (window.__metNext < ctx.currentTime + 0.25) {
+        const o = ctx.createOscillator(), g2 = ctx.createGain();
+        o.frequency.value = 880; g2.gain.setValueAtTime(0.12, window.__metNext);
+        g2.gain.exponentialRampToValueAtTime(0.001, window.__metNext + 0.07);
+        o.connect(g2); g2.connect(ctx.destination);
+        o.start(window.__metNext); o.stop(window.__metNext + 0.08);
+        window.__metNext += PER;
+      }
+    } else window.__metNext = null;
     if (!session.active && sessionDroveGaze) {
       // 세션 종료 → 수동 시선각 복귀 (세션이 남긴 단계값이 디폴트처럼 굳는 것 방지)
       sessionDroveGaze = false;
