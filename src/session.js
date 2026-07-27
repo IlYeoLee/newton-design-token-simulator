@@ -466,7 +466,7 @@ const A_WATCH = 3.0;
 // 따라하기(스텝백 1/4·2/4) 지면 배치 — 한 곳에서만 고친다.
 //   V=빔 창 앞뒤(작을수록 화면 하단) · UX=발 페어 좌우 반간격(어깨너비 이상, 실제 농구 스탠스)
 //   S=발자국 배율(농구 지면 UI 공통 1.0)
-const FOLLOW_V = 0.16, FOLLOW_UX = 0.50, FOLLOW_S = 1.0;
+const FOLLOW_V = 0.16, FOLLOW_UX = 0.66, FOLLOW_S = 1.0;
 const BK_STR = {
   BK_A1: { per: 2.4, reps: BK_REPS.BK_A1, side: true, noMark: true, fm: '옆구리 스트레치', say: '팔을 위로 뻗어 옆으로 쭉쭉. 왼쪽 오른쪽 번갈아 허리를 늘려요.' },
   // BK_A2(니 드라이브)는 러닝 A3(하이니) 컴포넌트 전용 핸들러 — bkA2hk
