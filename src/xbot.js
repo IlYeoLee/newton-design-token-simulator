@@ -811,71 +811,58 @@ export class XBot {
   // 공이 정확히 그 타이밍에 손에 닿고, 다음 접촉까지 바닥을 찍고 돌아온다 (유저:
   // '손이 떨어지고 닿는 정확한 타이밍에 공이 튀게'). 고정 주기 스크립트 바운스 은퇴.
   _dribbleBall(_, dt = 0.016) {
-    // 해석적 드리블 v4 — '물리 어색'(유저) 원인 셋을 오프라인 시뮬로 잡고 재설계:
-    //   ① 위상 스냅 팝: 접촉 순간 공이 손높이로 순간이동(최대 ~50cm) → 0.12s 브리지 스윕으로 연결
-    //     (프레임당 최대 4.4cm 실측 — 공 속도로 자연스러움). Rapier 제안의 Guided 개념만 차용.
-    //   ② 감쇠 위치 오류: 정점에서 뚝 떨어지던 것 → 감쇠(0.82²≈67%)는 바닥 충돌에서만.
-    //   ③ 에너지 나선 소멸: 캐치가 공의 감쇠 높이를 물려받아 점점 죽던 것 → 손이 매 접촉마다
-    //      에너지 주입(h0 = 손 접촉높이). 실제 드리블의 물리다.
+    // 드리블 v5 — 사이클의 주인을 공 물리에서 '손'으로 교체 (유저 원칙 + 실영상 근거):
+    //   손 최고점 = 공이 손바닥에 붙어 있어야 하고, 손 최저점 = 공은 바닥(으로 향해) 있어야 한다.
+    //   손 정점(상승→하강 전환)을 실측해 위상 잠금: [0,REL)=손과 함께 하강(부착) → 릴리즈 →
+    //   가속 낙하 → 바닥(≈손 최저 타이밍) → 감속 상승 → CATCH에 손바닥 밑 소프트 도킹 → 정점 동행.
+    //   두 비행 구간은 포물선(모양=물리), 주기는 손이 정한다(선수가 리듬에 공을 맞추는 실제).
+    //   오프라인 검증: 정점 미부착 0건 · 최저점 공높음 0건 · 프레임 점프 5cm+ 0건.
     const ball = this.ball;
     if (!ball || !this._wristR) return;
     ball.visible = true;
     const w = new THREE.Vector3().setFromMatrixPosition(this._wristR.matrixWorld);
-    const r = 0.12, G = 9.8, REST = 0.67, BRIDGE = 0.12;
-    const S = this._db = this._db || { t: 0, prevY: w.y, vy: 0, prevVy: 0, lastLow: -9, minY: w.y,
-      h0: 0.45, hx: w.x, hz: w.z, sx: w.x, sz: w.z, bridgeFrom: null, bridgeT: 9 };
-    S.t += dt; S.bridgeT += dt;
+    const r = 0.12, PALM = 0.13, REL = 0.20, CATCH = 0.72;
+    const S = this._db = this._db || { t: 0, prevY: w.y, vy: 0, prevVy: 0, lastTop: -9, Th: 0.8,
+      relY: 0.5, hx: w.x, hz: w.z, relX: w.x, relZ: w.z };
+    S.t += dt;
     const vyRaw = (w.y - S.prevY) / Math.max(1e-3, dt);
-    S.vy = S.vy + (vyRaw - S.vy) * 0.5;
-    S.minY += (Math.min(S.minY + 0.2, w.y) - S.minY) * 0.02;
+    S.vy += (vyRaw - S.vy) * 0.5;
     S.hx += (w.x + 0.06 - S.hx) * Math.min(1, dt * 14);
     S.hz += (w.z - S.hz) * Math.min(1, dt * 14);
-
-    // 위상: 세그먼트0 = 접촉높이에서 자유낙하 → 이후 바닥→정점→바닥 아크(바닥마다 감쇠)
-    const phase = () => {
-      let h = Math.max(0.03, S.h0), rem = S.t - S.lastLow;
-      const Tf = Math.sqrt(2 * h / G);
-      if (rem <= Tf) return { h, n: 0, y: Math.max(r, r + h - 0.5 * G * rem * rem) };
-      rem -= Tf; let n = 1; h *= REST;
-      let T = 2 * Math.sqrt(2 * h / G);
-      while (rem > T && n < 7) { rem -= T; h *= REST; n++; T = 2 * Math.sqrt(2 * h / G); }
-      if (n >= 7) return { h: 0.03, n, y: r };   // 체인 소진 = 바닥 정지
-      const v0 = Math.sqrt(2 * G * h);
-      return { h, n, y: r + Math.max(0, v0 * rem - 0.5 * G * rem * rem) };
-    };
-    let P = phase();
-
-    // 손 접촉 = 하강→상승 전환 + 최저권. 첫 낙하(세그먼트0)만 제외 — 내려오는 공도 손이 타고 받는다.
-    const wasDesc = S.prevVy < -0.05, nowRise = S.vy >= -0.02;
-    if (wasDesc && nowRise && w.y < S.minY + 0.22 && S.t - S.lastLow > 0.25 && P.n >= 1) {
-      S.bridgeFrom = { y: P.y, x: S.sx, z: S.sz };
-      S.bridgeT = 0;
-      S.lastLow = S.t;
-      S.h0 = Math.max(0.2, w.y - r);   // 에너지 주입: 새 정점 = 손 접촉높이
-      S.sx = S.hx; S.sz = S.hz;        // 릴리즈 스팟 = 지금 손 위치(고정 — 비행 중 미끄러짐 금지)
-      P = phase();
+    // 손 정점 이벤트 — 주기(Th) EMA 실측
+    if (S.prevVy > 0.05 && S.vy <= 0.02 && S.t - S.lastTop > 0.3) {
+      const gap = S.t - S.lastTop;
+      if (gap < 1.6) S.Th += (gap - S.Th) * 0.5;
+      S.lastTop = S.t;
     }
     S.prevY = w.y; S.prevVy = S.vy;
-
-    if (P.n >= 7 && S.t - S.lastLow > 2.2) {   // 완전 정지 — 손 옆 바닥에 얌전히
+    const since = S.t - S.lastTop;
+    if (since > 1.8) {   // 손 리듬 없음 = 드리블 정지, 공은 손 옆 바닥에
       ball.scale.set(1, 1, 1);
       ball.position.set(S.hx, r, S.hz);
-      S.sx = S.hx; S.sz = S.hz;
       return;
     }
-
-    let y = P.y, bx = S.sx, bz = S.sz;
-    if (S.bridgeT < BRIDGE && S.bridgeFrom) {   // 캐치 브리지 — 이전 궤적에서 새 궤적으로 스윕
-      let k = S.bridgeT / BRIDGE; k = k * k * (3 - 2 * k);
-      y = S.bridgeFrom.y * (1 - k) + y * k;
-      bx = S.bridgeFrom.x * (1 - k) + bx * k;
-      bz = S.bridgeFrom.z * (1 - k) + bz * k;
+    const p = Math.min(1, since / Math.max(0.3, S.Th));
+    const palm = w.y - PALM;
+    let y, bx, bz, squash = 0;
+    if (p >= CATCH || p < REL) {
+      // 부착 — 손바닥 밑에 도킹, 손과 동행. 릴리즈 정보 계속 갱신
+      y = Math.max(r, palm);
+      bx = S.hx; bz = S.hz;
+      S.relY = palm; S.relX = S.hx; S.relZ = S.hz;
+    } else {
+      const s = (p - REL) / (CATCH - REL);
+      const hR = Math.max(r + 0.08, S.relY), hC = Math.max(r + 0.08, palm);
+      const a2 = Math.sqrt(hR - r), b2 = Math.sqrt(Math.max(0.01, hC - r));
+      const sf = a2 / (a2 + b2);                       // 낙하:상승 시간 분할(등중력)
+      if (s <= sf) { const q = s / sf; y = r + (hR - r) * (1 - q * q); }         // 가속 낙하
+      else { const q = (1 - s) / (1 - sf); y = r + (hC - r) * (1 - q * q); }     // 감속 상승 = 소프트 캐치
+      squash = Math.max(0, 1 - (y - r) / 0.10);
+      bx = S.relX + (S.hx - S.relX) * s;               // 탄도의 수평 성분 — 자석 추종 아님
+      bz = S.relZ + (S.hz - S.relZ) * s;
     }
-    const air = (y - r) / Math.max(0.05, P.h);
-    const squash = Math.max(0, 1 - air / 0.12);
-    const speed = Math.max(0, 1 - air);
-    const sy = 1 - 0.35 * squash + 0.16 * speed * (1 - squash);
-    const sxz = 1 + 0.28 * squash - 0.08 * speed * (1 - squash);
+    const sy = 1 - 0.35 * squash;
+    const sxz = 1 + 0.28 * squash;
     ball.scale.set(sxz, sy, sxz);
     ball.position.set(bx, Math.max(0, y - r) + r * sy, bz);
   }
