@@ -663,18 +663,29 @@ export function drawTrajectory(g, W, P, look, t, ENV, prog, ptsIn) {
   const tail = 0.36 * (P.tail != null ? P.tail : 1);
   const wid = P.width != null ? P.width : 1;
 
-  // 1) 경로 힌트 — 아주 옅은 넓은 글로우(어디로 갈지 암시만, 또렷한 선 아님)
-  g.globalAlpha = 0.045 * outA; g.strokeStyle = lut(0.46); g.lineWidth = 9 * base;
-  g.shadowColor = lut(0.6); g.shadowBlur = GB * 2.0;
-  g.beginPath(); path.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.stroke(); g.shadowBlur = 0;
+  // 1) 경로 힌트 — 아주 옅은 넓은 글로우(어디로 갈지 암시만). 예전엔 경로 전체에 '균일 알파'라
+  //    꼬리 끝에도 같은 농도의 뿌연 자국이 남았다(유저: 끝 연한 부분을 아예 알파 0으로).
+  //    양 끝이 0으로 스러지는 그라디언트로 바꿔 자국 없이 빠진다.
+  {
+    const hg = g.createLinearGradient(path[0][0], path[0][1], path[N][0], path[N][1]);
+    hg.addColorStop(0.00, rgba(0.46, 0));
+    hg.addColorStop(0.30, rgba(0.46, 0.030 * outA));
+    hg.addColorStop(0.80, rgba(0.46, 0.045 * outA));
+    hg.addColorStop(1.00, rgba(0.46, 0));
+    g.globalAlpha = 1; g.strokeStyle = hg; g.lineWidth = 9 * base;
+    g.shadowColor = lut(0.6); g.shadowBlur = GB * 2.0;
+    g.beginPath(); path.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.stroke(); g.shadowBlur = 0;
+  }
 
   // 2) 리본 — 헤드(앞)는 진하고 또렷, 꼬리로 갈수록만 연해지고 흐려져 소멸(끝만 흐릿).
   const M = 40, u0 = Math.max(0, headU - tail * (1 - catchUp)), win = [];
   for (let i = 0; i <= M; i++) win.push(at(u0 + (headU - u0) * (i / M)));
   const ribbon = () => { g.beginPath(); win.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.stroke(); };
   const grad = () => { const gr = g.createLinearGradient(win[0][0], win[0][1], win[M][0], win[M][1]);
-    gr.addColorStop(0, rgba(0.55, 0)); gr.addColorStop(0.45, rgba(0.58, 0.05));
-    gr.addColorStop(0.82, rgba(0.62, 0.18)); gr.addColorStop(1, rgba(0.68, 0.4)); return gr; };
+    // 꼬리 40%는 완전 투명 — 끝이 '연하게 남는' 게 아니라 없어진다(유저).
+    gr.addColorStop(0, rgba(0.55, 0)); gr.addColorStop(0.40, rgba(0.56, 0));
+    gr.addColorStop(0.68, rgba(0.60, 0.09)); gr.addColorStop(0.88, rgba(0.64, 0.24));
+    gr.addColorStop(1, rgba(0.68, 0.44)); return gr; };
   const spr = 1 + 0.5 * spd;
   // 소프트 글로우(꼬리 투명→헤드 진함) — 꼬리쪽만 흐릿한 잔상. 벽 투사용으로 두툼하게.
   g.globalAlpha = outA; g.strokeStyle = grad(); g.lineWidth = (20 + 10 * spd) * base * wid;
@@ -683,7 +694,7 @@ export function drawTrajectory(g, W, P, look, t, ENV, prog, ptsIn) {
   // 또렷한 코어 — 두툼·균일(smooth) → 꼬리로만 알파·폭 감소. 앞은 진한 선, 끝은 흐릿 소멸.
   for (let i = 1; i <= M; i++) {
     const f = i / M;
-    g.globalAlpha = Math.pow(f, 1.35) * 0.95 * outA; g.strokeStyle = lut(0.55 + 0.38 * f);
+    g.globalAlpha = Math.pow(f, 2.2) * 0.95 * outA; g.strokeStyle = lut(0.55 + 0.38 * f);   // 지수↑ = 꼬리가 더 빨리 0으로
     g.lineWidth = (1.6 + 6.5 * Math.pow(f, 0.7)) * base * wid * spr;
     g.beginPath(); g.moveTo(win[i - 1][0], win[i - 1][1]); g.lineTo(win[i][0], win[i][1]); g.stroke();
   }

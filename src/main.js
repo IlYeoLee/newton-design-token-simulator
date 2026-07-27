@@ -2282,8 +2282,10 @@ void main(){
         const co = ensureCoach(id);
         // 옆구리: 스테이지에 들어올 때마다 '왼쪽으로 기우는' 지점에서 시작(유저 필수 요구).
         //   영상 엘리먼트는 스테이지 사이에도 계속 돌아서, 안 잡으면 진입 시점이 매번 달랐다.
-        //   실측 스케줄상 원본 0~0.79s가 왼쪽 구간 → 중립 첫 프레임을 지난 0.30s로 시크.
-        if (id === 'BK_A1' && _coachSeekId !== id) { _coachSeekId = id; try { co.video.currentTime = 0.30; } catch (e) {} }
+        //   화면 기준 왼쪽 굽힘 구간 = 원본 1.63~3.5s → 그 한가운데(2.20s)에서 시작.
+        if (id === 'BK_A1' && _coachSeekId !== id) {   // 화면상 '왼쪽으로 굽는' 구간(원본 1.63~3.5s) 한가운데
+          _coachSeekId = id; try { co.video.currentTime = 2.20; } catch (e) {}
+        }
         if (id !== 'BK_A1') _coachSeekId = null;
         if (co.video.paused) co.video.play().catch(() => {});
         // 영상 실제 프레임이 들어오기 전엔 숨김 — 검은/균일 텍스처가 크로마키 통과 못 해
@@ -2304,11 +2306,13 @@ void main(){
           const LEAD = 0.28;
           let ot = ct <= FWD ? ct : Math.max(0, dur - ct);   // 역재생 구간 → 원본 시간
           ot = ct <= FWD ? Math.min(FWD, ot + LEAD) : Math.max(0, ot - LEAD);   // 되감기 중엔 시간이 거꾸로 흐름
-          let lean = -1;                                      // 실측: 0.00~0.79 왼쪽
-          if (ot >= 0.79 && ot < 1.15) lean = 1;              //       0.79~1.15 오른쪽
-          else if (ot >= 1.15 && ot < 1.63) lean = -1;        //       1.15~1.63 왼쪽
-          else if (ot >= 1.63) lean = 1;                      //       1.63~3.50 오른쪽(유지)
-          session.bkA1Lean = lean;
+          let lean = -1;
+          if (ot >= 0.79 && ot < 1.15) lean = 1;
+          else if (ot >= 1.15 && ot < 1.63) lean = -1;
+          else if (ot >= 1.63) lean = 1;
+          // 부호 반전: 마스크 실측표는 '무게중심이 쏠린 쪽'이라 화면에서 몸이 굽는 쪽과 반대였다.
+          // (유저 캡처 증거: 0.30s에서 몸은 화면 오른쪽으로 굽는데 화살표는 왼쪽을 가리킴)
+          session.bkA1Lean = -lean;
         }
         if (co.rotCues) {   // 회전 큐 = 영상 타이밍 동기(유저): 전반(목 돌리기)=목 큐만, 후반(어깨 롤)=어깨 큐 2개만
           const now = performance.now() / 1000;
