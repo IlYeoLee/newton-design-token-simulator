@@ -555,6 +555,19 @@ export class Session {
   /** 지면 토큰 소프트 페더 — 클리핑 평면은 백스톱으로 두고, 그 전에 알파가 0으로 스러지게 한다.
    *  (화살표만 페더였고 발마크·링·패널은 사각 프레임으로 뚝 잘렸음 — 유저 지적)
    *  핸들러가 매 프레임 새로 쓰는 값(_bb)과 우리가 쓴 값(_bw)을 구분해 곱이 누적되지 않게 한다. */
+  /** 투사창 정규좌표 → 세션 로컬 좌표. u(-1~1)=가로, v(0~1)=근거리→원거리.
+   *  창 밖으로 나가 토큰이 사라지던 사고를 끝내려고 만든 단일 규칙 — 모든 훈련 UI가 이걸 쓴다.
+   *  실측(rig): near 0.3 / far 1.9 / 반폭 0.55~0.85, 세션 루트→월드 z 오프셋 -1.25 */
+  beamUV(u, v) {
+    const r = this.rig, fp = r?._fp;
+    if (!fp) return { x: u * 0.5, z: -2.0 - v * 1.2 };
+    const M = 0.16;                                    // 가장자리 페더 여유(알파가 깎이는 구간)
+    const d = r.fpNear + M + (r.fpFar - r.fpNear - M * 2) * v;
+    const half = r._halfAt(d) - M;
+    const worldZ = fp.oz - d;                          // 전방 = -z
+    return { x: u * half, z: worldZ - (this.root?.position.z ?? 0) - this._beamZOff };
+  }
+
   _beamFade(rig) {
     if (!rig?._fp) return;
     const g = this.G[this.stage];
@@ -577,6 +590,8 @@ export class Session {
       o._bw = v;
     });
   }
+  get _beamZOff() { return 1.25; }   // 세션 로컬 z → 월드 z 실측 보정(로컬 -3.5 = 월드 -4.75)
+
   _mk(id) { const g = new THREE.Group(); g.visible = false; this.root.add(g); this.G[id] = g; return g; }
 
   _build() {
@@ -2226,11 +2241,13 @@ export class Session {
       //   1) 무릎 구부려 넣는 척: L·R 나란히 어깨너비   2) 오른발 딛고 드리블: R 앞·L 뒤, 공은 왼쪽
       //   3) 왼발 뻗으며 공 잡기: L 크게 왼쪽·R 제자리   4) 오른발 모으며 슛: L·R 모음
       if (POSE) {
-        // 2분할 하단 = 근거리(유저 쪽). 좌우 폭은 0.72배 축약 — 창 반폭이 0.66m라 실측 스탠스를
-        //   그대로 쓰면 왼발이 가장자리 페더에 먹힌다(실측 uFade 0.14). 비율은 유지된다.
-        const FZ = H.mL.position.z + 0.50, SX = 0.42;   // 하단 = 발자국 영역 · 폭 0.42배(창 반폭 0.66m 안에 L·R 모두 들어오게)
-        H.fRl.at(POSE.L[0] * SX, FZ + POSE.L[1], 0.78);
-        H.fRr.at(POSE.R[0] * SX, FZ + POSE.R[1], 0.78);
+        // 공통 배치 규칙(beamUV): 발자국은 창 하단(v 0.22) — 실측 스탠스 폭은 u로 정규화해 담는다.
+        //   u = 실측 x / 0.55 (최대 스탠스 반폭). 창을 벗어나 사라지던 문제를 좌표계로 끝낸다.
+        const V = 0.22, U = 0.55;
+        const L = this.beamUV(POSE.L[0] / U, V + POSE.L[1] * 0.10);
+        const R = this.beamUV(POSE.R[0] / U, V + POSE.R[1] * 0.10);
+        H.fRl.at(L.x, L.z, 0.78);
+        H.fRr.at(R.x, R.z, 0.78);
       }
       const BEATN = { BK_B2: ['① 무릎 구부리고', '② 낮은 자세 유지', '③ 들어가는 척!', '④ 그대로 준비'],
         BK_B3: ['① 준비', '② 오른발 딛고', '③ 공을 왼쪽으로!', '④ 시선 유지'],

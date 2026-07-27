@@ -2369,12 +2369,16 @@ void main(){
           // 스텝백 4페이즈 = 2분할(피그마 레퍼런스): 영상은 상단(원거리), 발자국은 하단(근거리).
           //   시선이 먼 영상 → 발밑 발자국으로 자연스럽게 내려오고, 둘을 동시에 볼 수 있다.
           if (/^BK_B[2345]$/.test(id)) {
-            // 관찰(프리뷰)은 크게 중앙, 따라하기로 넘어가면 작아지며 위로 — 아래가 발자국 자리(유저)
+            // 관찰(프리뷰)은 이전 버전 그대로 — 위치·크기 손대지 않는다(유저).
+            //   따라하기 국면에서만 축소 후 창 상단(beamUV v 0.80)으로 올리고 아래를 발자국에 내준다.
             const following = !!session._followLatch;
-            const k = following ? 0.58 : 1;
-            co.plane.scale.set(k, k, 1);
-            co.plane.position.z -= following ? 0.38 : 0;
-            co.plane.position.y = 0.016;
+            if (following) {
+              co.plane.scale.set(0.55, 0.55, 1);
+              const uv = session.beamUV?.(0, 0.80);
+              if (uv) co.plane.position.set(uv.x, 0.016, uv.z + (session.root?.position.z ?? 0));
+            } else {
+              co.plane.scale.set(1, 1, 1);   // 프리뷰 = 기존 배치 유지
+            }
           }
         }
       } else if (c) { c.plane.visible = false; if (!c.video.paused) c.video.pause(); }
