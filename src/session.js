@@ -685,9 +685,13 @@ export class Session {
       // 착지 후 2초가 지나면 다음 루프 예고로 다시 켠다(유저). 그 전에는 이동 중에만.
       const cue = q.step && (q.moving || (landed && settled > 2.0));
       if (!cue) { ar._gain = 0; return; }
-      // 위치 = 그 발의 목표 지점 '앞쪽'(같은 좌우 라인). 다른 발 옆에 붙으면 그 발 화살표로 읽힌다.
-      const pa = this._beamLocal(Math.max(-SB_BOX.u, Math.min(SB_BOX.u, q.tu)),
-                                Math.max(SB_BOX.v0, Math.min(SB_BOX.v1, q.tv + 0.14)), H.mL);
+      // 위치: 내딛는 스텝은 목표 지점 '앞쪽'(같은 좌우 라인).
+      //   슬라이드(뒤로 빠지기)는 두 발 사이에서 빠질 방향을 가리킨다 — 미리 알려주는 큐(유저 지시).
+      const other = side === 'L' ? P.R : P.L;
+      const au = q.slide ? (q.u + other.u) / 2 : q.tu;
+      const av = q.slide ? (q.v + other.v) / 2 : q.tv + 0.14;
+      const pa = this._beamLocal(Math.max(-SB_BOX.u, Math.min(SB_BOX.u, au)),
+                                Math.max(SB_BOX.v0, Math.min(SB_BOX.v1, av)), H.mL);
       ar.position.set(pa.x, 0.014, pa.z);
       ar.rotation.z = -Math.atan2(du, Math.max(0.001, dv));   // 이동 방향(주로 전진 = 0°)
       ar._gain = q.moving ? 0.30 + 0.60 * (1 - q.f) : 0.55;
