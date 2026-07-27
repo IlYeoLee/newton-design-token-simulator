@@ -469,6 +469,7 @@ const A_WATCH = 3.0;
 const FOLLOW_V = 0.16, FOLLOW_UX = 0.66, FOLLOW_S = 1.0;
 // 궤적 토큰 1회 사이클(초) — 스윕 0.68 : 소멸 0.32 비율이라 스윕 ≈ 0.5s가 되게 잡았다(스텝과 동기).
 const TJ_CYC = 0.74;
+const TJ_POP = 0.4;   // 궤적 시작 → 파형 터지는 시점(초)
 const BK_STR = {
   BK_A1: { per: 2.4, reps: BK_REPS.BK_A1, side: true, noMark: true, fm: '옆구리 스트레치', say: '팔을 위로 뻗어 옆으로 쭉쭉. 왼쪽 오른쪽 번갈아 허리를 늘려요.' },
   // BK_A2(니 드라이브)는 러닝 A3(하이니) 컴포넌트 전용 핸들러 — bkA2hk
@@ -2220,12 +2221,13 @@ export class Session {
         H.tj.position.set(pt.x, 0.017, pt.z);
         const pw = this._beamLocal(0, VV + 0.08, H.mL);          // 파형 = 중앙, 조금 위(유저)
         H.wvA.position.set(pw.x, 0.014, pw.z);
-        if ((H._wvCyc ?? 1) > cyc) {   // 사이클 시작 = 궤적 사이클 리셋 + 작은 파문(soft 0.32m) 1회
-          H.tj._prim.t0 = performance.now() / 1000;   // tickPrims와 같은 시계(tjTrigger 규약)
+        const el = cyc * CYC;                      // 사이클 내 경과(초)
+        if ((H._wvCyc ?? 9) > el) H.tj._prim.t0 = performance.now() / 1000;   // 사이클 시작 = 궤적 리셋(tickPrims 시계)
+        if ((H._wvCyc ?? 9) < TJ_POP && el >= TJ_POP) {   // 궤적 시작 0.4초 뒤에 파문이 터진다(유저)
           const wp = new THREE.Vector3(); H.wvA.getWorldPosition(wp);
-          this.onBurst?.(wp, 0.18);   // 작은 파문 — soft(0.32m)보다 더 작게(유저)
+          this.onBurst?.(wp, 0.18);
         }
-        H._wvCyc = cyc;
+        H._wvCyc = el;
         // 스윕(0.5s) → 소멸(꼬리가 헤드로 수렴하며 증발) 후에는 숨긴다. 다음 사이클에 다시 그린다.
         H.tj.visible = (cyc * CYC) < TJ_CYC;
       }
