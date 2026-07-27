@@ -681,7 +681,7 @@ export class Session {
     { const ring = floorRing(0, -1.85, 0.20, 0.225, BRAND.red, 0.45); g.add(ring);
       const arc = floorArc(0, -1.85, BRAND.sand); g.add(arc);
       // 옆구리 = 좌우 리치 방향 큐(LINE ① 화살표·유저 SVG 촉). 굽히는 쪽으로 촉이 흐름.
-      const arrow = floorArrow(0, -1.6, 90, BRAND.coral, 0.6); g.add(arrow);
+      const arrow = floorArrow(0, -1.55, 90, BRAND.coral, 0.34); g.add(arrow);   // 짧게 — 길면 코치 몸을 가로지른다(유저)
       this.bkStretch['BK_A1'] = { ring, arc, arrow }; }
     // A2 니 드라이브 = 러닝 A3(하이니) 컴포넌트 그대로 이식 — 발형2+숫자+리프트큐+궤적토큰. 트위스트=코멧 크로스바디.
     g = this._mk('BK_A2');
@@ -1852,7 +1852,11 @@ export class Session {
         // 방향 = 코치 영상 실측 타이밍(main.js가 프레임마다 bkA1Lean 주입: -1 왼쪽 · +1 오른쪽).
         // 영상이 아직 없으면(오디오 전용 등) 기존 반복 교대로 폴백.
         const lean = this.bkA1Lean != null ? this.bkA1Lean : (rep % 2 === 0 ? -1 : 1);
-        if (S.arrow) { S.arrow.visible = true; S.arrow.rotation.z = THREE.MathUtils.degToRad(lean < 0 ? 90 : -90); }
+        if (S.arrow) {
+          S.arrow.visible = true;
+          S.arrow.rotation.z = THREE.MathUtils.degToRad(lean < 0 ? 90 : -90);
+          S.arrow.position.x = lean < 0 ? -0.16 : 0.16;   // 몸 옆에서 바깥으로 — 다리 위를 가로지르지 않게
+        }
       } else {
         S.arc.visible = true;
         S.arc.setProg(Math.max(0.001, inRep));                    // 한 동작 진행도

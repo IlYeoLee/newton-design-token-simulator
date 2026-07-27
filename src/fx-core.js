@@ -351,7 +351,7 @@ export function drawStemArrow(g, W, H, t, ENV, opts = {}) {
   g.closePath(); g.fill();
   g.globalAlpha = A0;
   if (draw > 0.9 && !opts.noTip) {   // noTip = 촉 없는 자루(감속 바 등)
-    const tipS = 42 * s * (0.7 + 0.3 * AW);   // 촉 크기(유저 2회 축소 요청) — 스템:촉 비율 정본
+    const tipS = 34 * s * (0.7 + 0.3 * AW);   // 촉 크기(유저 3회 축소) — 스템:촉 비율 정본
     const go = { color: lut(0.95), glowColor: lut(0.85), glow: 12 * glowK };
     const ok = ENV.glyph && (ENV.glyph(g, 'LIFT_TIP', cx, y1 + 16 * s, tipS, go)
                           || ENV.glyph(g, 'TIP_TRI', cx, y1 + 14 * s, tipS * 0.93, go));
