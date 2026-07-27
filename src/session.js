@@ -2129,7 +2129,7 @@ export class Session {
       const TGT = [0.55, 0, -0.55][Math.min(H.beat, 2)];
       // 따라하기 화면(143:444) = 코치 영상 아래 L·R 마크 한 쌍 + 좌 ↓ / 우 ↑.
       //   비트 릴레이(존 3개)는 이 단계에선 안 쓴다 — 1/4은 '자리 잡고 망설이기'다.
-      const W = Math.PI * 2 / 1.6, V = 0.40;   // 영상 아래 줄. 앞으로 뺄수록 카메라 코앞이라 거대해진다(유저: 살짝 뒤로)
+      const W = Math.PI * 2 / 1.6, V = 0.24;   // 영상 아래 줄. v 작을수록 화면 하단(유저: 더 아래로)
       const bL = Math.sin(this.t * W), bR = Math.sin((this.t - 0.18) * W);
       const pL = this._beamLocal(-0.34, V, H.mL), pR = this._beamLocal(0.34, V, H.mL);
       H.sL2.countdown(1); H.sR2.countdown(1);
