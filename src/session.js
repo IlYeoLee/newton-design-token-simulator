@@ -351,7 +351,9 @@ function primPanel(kind, sizeM, wall) {
       // 궤적만 일반 블렌딩 — 가산은 '순서'가 결과에 영향을 안 준다(빛의 합). 발마크 빨강이 포화라
       // renderOrder/depthTest를 아무리 올려도 궤적이 묻혔던 근본(유저 4회 지적).
       blending: isTraj ? THREE.NormalBlending : THREE.AdditiveBlending,
-      toneMapped: false, depthTest: !isTraj }));
+      // depthTest는 켠 채로 둔다 — 끄면 지면 투사 토큰이 x봇 몸 위로 그려진다(유저 스샷).
+      //   투사광은 몸에 가려지는 게 물리적으로 맞다. 발자국과의 상하 관계는 y 오프셋(0.013 vs 0.017)이 잡는다.
+      toneMapped: false, depthTest: true }));
   if (!wall) m.rotation.x = -Math.PI / 2;
   // 궤적은 항상 발자국 '위'. renderOrder만으로는 깊이 테스트에 걸려 뒤로 밀릴 수 있어
   // depthTest까지 끈다(유저 3회 지적: 아직도 궤적이 뒤에 있다).
