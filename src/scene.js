@@ -424,6 +424,15 @@ export function createScene(container) {
   const composer = new EffectComposer(renderer);
   const renderPass = new RenderPass(scene, camera);
   composer.addPass(renderPass);
+  // NaN 스크럽 — 어떤 재질 셰이더가 NaN/Inf 픽셀을 내면 UnrealBloom 밉 블러가 그걸
+  // '계단형 검은 블록'으로 화면에 번지게 한다(유저 녹화의 검은 사각 모양과 일치).
+  // 발생원을 개별 사냥하는 대신 블룸 입력 길목에서 무해화: NaN→0, 밝기 상한 클램프.
+  composer.addPass(new ShaderPass({
+    uniforms: { tDiffuse: { value: null } },
+    vertexShader: 'varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
+    fragmentShader: 'uniform sampler2D tDiffuse;varying vec2 vUv;void main(){vec4 c=texture2D(tDiffuse,vUv);'
+      + 'if(c.r!=c.r||c.g!=c.g||c.b!=c.b||c.a!=c.a)c=vec4(0.0);gl_FragColor=clamp(c,0.0,60.0);}',
+  }));
   const bloomPass = new UnrealBloomPass(
     new THREE.Vector2(container.clientWidth / 2, container.clientHeight / 2),
     FX.bloomStrength, FX.bloomRadius, FX.bloomThreshold);

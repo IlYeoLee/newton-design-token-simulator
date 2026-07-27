@@ -4919,6 +4919,61 @@ void main(){
   let _wasLive = false;   // 라이브 진입 에지 감지 — loopShiftZ 드리프트 재정렬용
   let _fpSmooth = null;   // 프레임·발자국 앵커용 저역통과 풋프린트 — 빔 흔들림(투사오차 지터) 제거해 글자 삐걱임 방지
   const _rV = new THREE.Vector3(), _fV = new THREE.Vector3(), _uV = new THREE.Vector3(0, 1, 0), _mBasis = new THREE.Matrix4();
+  // 봇 오클루전 v3 — clip-path 컨벡스 헐은 팔·몸 사이까지 뭉텅 잘라 '프레임이 잘리듯' 보였다(유저).
+  // 2D 캔버스 오버레이(z7, WebGL 아님 — 검은 플리커의 원인이던 GL 스왑 경로와 무관)에
+  // 본 캡슐 실루엣(라운드 스트로크 = 자연 유니온)으로 마스킹한 '실제 렌더된 봇 픽셀'을 복사해
+  // 프레임 위에 얹는다. 몸 모양 그대로의 실루엣 → 인위적 잘림 없음.
+  const botOverlay = document.createElement('canvas');
+  Object.assign(botOverlay.style, { position: 'fixed', pointerEvents: 'none', zIndex: '7' });
+  document.body.appendChild(botOverlay);
+  const botCtx = botOverlay.getContext('2d');
+  const OCCL_SEG = [   // [본A, 본B, 폭(토르소길이 대비 비율)]
+    ['Hips', 'Neck', 0.78], ['Neck', 'Head', 0.5], ['Head', 'Head', 0.62],
+    ['LeftArm', 'LeftForeArm', 0.3], ['LeftForeArm', 'LeftHand', 0.26],
+    ['RightArm', 'RightForeArm', 0.3], ['RightForeArm', 'RightHand', 0.26],
+    ['LeftUpLeg', 'LeftLeg', 0.4], ['LeftLeg', 'LeftFoot', 0.3], ['LeftFoot', 'LeftToeBase', 0.3],
+    ['RightUpLeg', 'RightLeg', 0.4], ['RightLeg', 'RightFoot', 0.3], ['RightFoot', 'RightToeBase', 0.3],
+  ];
+  const _cpV = new THREE.Vector3();
+  function updateFloorClipHole() {
+    const cvr = renderer.domElement.getBoundingClientRect();
+    if (botOverlay._w !== cvr.width || botOverlay._h !== cvr.height) {
+      botOverlay.width = cvr.width; botOverlay.height = cvr.height;
+      botOverlay._w = cvr.width; botOverlay._h = cvr.height;
+    }
+    botOverlay.style.left = cvr.left + 'px'; botOverlay.style.top = cvr.top + 'px';
+    botCtx.clearRect(0, 0, botOverlay.width, botOverlay.height);
+    if (!floorObj.visible || !xbot.model || !xbot.group.visible) return;
+    const hips = xbot.model.getObjectByName('mixamorigHips');
+    if (!hips) return;
+    _cpV.setFromMatrixPosition(hips.matrixWorld);
+    if (camera.position.distanceTo(_cpV) < 0.7) return;   // 1인칭 — 불필요
+    const w = botOverlay.width, h = botOverlay.height;
+    const pj = (name) => {
+      const bn = xbot.model.getObjectByName('mixamorig' + name); if (!bn) return null;
+      _cpV.setFromMatrixPosition(bn.matrixWorld).project(camera);
+      if (_cpV.z > 1) return null;
+      return [(_cpV.x * 0.5 + 0.5) * w, (1 - (_cpV.y * 0.5 + 0.5)) * h];
+    };
+    const A = pj('Hips'), B = pj('Neck');
+    if (!A || !B) return;
+    const torso = Math.hypot(B[0] - A[0], B[1] - A[1]);
+    if (torso < 8) return;
+    // 실루엣 마스크(라운드 스트로크 유니온) → source-in으로 실제 봇 픽셀만 남김
+    botCtx.save();
+    botCtx.lineCap = 'round'; botCtx.lineJoin = 'round';
+    botCtx.fillStyle = botCtx.strokeStyle = '#fff';
+    for (const [n1, n2, wk] of OCCL_SEG) {
+      const p1 = pj(n1), p2 = pj(n2); if (!p1 || !p2) continue;
+      if (n1 === n2) { botCtx.beginPath(); botCtx.arc(p1[0], p1[1], torso * wk * 0.5, 0, Math.PI * 2); botCtx.fill(); continue; }
+      botCtx.lineWidth = torso * wk;
+      botCtx.beginPath(); botCtx.moveTo(p1[0], p1[1]); botCtx.lineTo(p2[0], p2[1]); botCtx.stroke();
+    }
+    botCtx.globalCompositeOperation = 'source-in';
+    botCtx.drawImage(renderer.domElement, 0, 0, w, h);
+    botCtx.restore();
+    botCtx.globalCompositeOperation = 'source-over';
+  }
   function renderDesignFrame() {
     // CSS3D 레이어 = WebGL 캔버스에 매 프레임 정확 정합 — 창≠캔버스(크기·aspect)여도 원근·스케일 일치
     //   (이게 안 맞으면 디자인이 벽보다 크게 부풀어 프레임영역 밖으로 넘침 — 유저 창 크기 의존 버그의 원인)
@@ -5100,6 +5155,7 @@ void main(){
     if (session.active && (!session.isLive || session.stage === 'BK_C4')) tokens.floorRoot.visible = false;
     // 항상 렌더 — 표시/숨김 전환에도 CSS3D transform 항상 동기(재진입 시 위치 어긋남·잔류 방지)
     cssRenderer.render(frameCssScene, camera);
+    updateFloorClipHole();   // 지면 프레임이 봇 몸을 관통해 보이던 것 — 봇 화면 헐을 evenodd 구멍으로
     // ── 바닥 프레임 occlusion: x봇만 투명 오버레이로 프레임(z6) 위(z7)에 다시 그려 다리 뒤로 밟히게 ──
     renderFloorOcclusion(floorObj.visible);
   }
