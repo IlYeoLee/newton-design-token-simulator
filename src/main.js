@@ -2314,10 +2314,19 @@ void main(){
         const PHW = { BK_B2: [0.00, 0.60], BK_B3: [0.60, 1.25], BK_B4: [1.25, 1.80], BK_B5: [1.80, 3.10] }[id];
         if (PHW && co.video.readyState >= 2) {
           const [a, b] = PHW;
-          if (co.video.currentTime < a - 0.05 || co.video.currentTime >= b) { try { co.video.currentTime = a; } catch (e) {} }
+          const now = performance.now();
+          if (co._holdUntil) {
+            // 마지막 프레임 1초 정지 후 처음으로 되감아 루프(유저)
+            if (now >= co._holdUntil) { co._holdUntil = 0; try { co.video.currentTime = a; } catch (e) {} co.video.play().catch(() => {}); }
+            else co.video.pause();
+          } else if (co.video.currentTime >= b - 0.02) {
+            co._holdUntil = now + 1000; co.video.pause();
+          } else {
+            if (co.video.currentTime < a - 0.05) { try { co.video.currentTime = a; } catch (e) {} }
+            if (co.video.paused) co.video.play().catch(() => {});
+          }
         }
-        if (/^BK_B[2345]$/.test(id)) co.video.playbackRate = 0.45;   // 천천히 보여주기(유저)
-        if (co.video.paused) co.video.play().catch(() => {});
+        if (co.video.paused && !co._holdUntil) co.video.play().catch(() => {});
         // 영상 실제 프레임이 들어오기 전엔 숨김 — 검은/균일 텍스처가 크로마키 통과 못 해
         // 빨간 방사형 사각형으로 0.x초 깜빡이던 것 방지(유저). readyState≥3(HAVE_FUTURE_DATA)+재생 시작 후.
         // 루프 순간 currentTime이 0으로 되감겨 매 루프 1~2프레임 숨김 → 깜빡임(유저). 첫 표시 후 래치.
