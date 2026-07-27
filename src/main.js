@@ -4342,6 +4342,7 @@ void main(){
     document.body.appendChild(bs);
   }
 
+  let _dotStage = '', _dotN = 0;   // 워밍업 도트바 — 스테이지별 채워진 칸 수(되감김 방지)
   function loop() {
     requestAnimationFrame(loop);
     const rawDt = Math.min(clock.getDelta(), 2.0);
@@ -4419,10 +4420,11 @@ void main(){
             }
           }
         }
-        if (session.repTotal && !/^BK_[AB]/.test(session.stages?.[session.stageIdx]?.id || '')) {
-          // 농구 워밍업·핸들 스쿨 전체 제외: 바운스/렙마다 폭을 쓰면 3D 변환 iframe이 재래스터되며
-          // 검은 플래시(유저: 드리블할 때마다). B1만 막았더니 B2·B3에서 그대로 재발 — 전면 차단.
-          // 진행은 WebGL 캔버스 숫자(링·존 카운트)가 전담한다.
+        const _sid = session.stages?.[session.stageIdx]?.id || '';
+        if (session.repTotal && !/^BK_B/.test(_sid)) {
+          // 핸들 스쿨(BK_B*)만 제외: 바운스/렙마다 폭을 쓰면 3D 변환 iframe이 재래스터되며
+          // 검은 플래시(유저: 드리블할 때마다). 워밍업(BK_A*)은 도트 1칸 단위로만 써서 복원 —
+          // 스테이지당 최대 10회 폭 쓰기라 재래스터가 플래시로 안 뭉친다.
           const clip = fdoc?.querySelector('.dclip');
           if (clip) {
             // repFrac = 회차 사이도 채우는 연속값(깊이·발높이). 정수 회차만 쓰면 뚝뚝 끊긴다(유저).
@@ -4430,7 +4432,13 @@ void main(){
               ? Math.max(0, Math.min(1, session.repFrac))
               : 1 - Math.max(0, Math.min(1, session.repLeft / session.repTotal));
             if (clip.style.animation !== 'none') clip.style.animation = 'none';
-            const wpx = (600 * done).toFixed(0) + 'px';   // 1px 양자화 — 매 프레임 폭 쓰기가 리컴포짓 플리커 유발
+            let px = 600 * done;
+            if (/^BK_A/.test(_sid)) {   // 도트 1칸(60px) 단위 + 되감김 금지(경계에서 왔다갔다 = 깜빡임)
+              if (_dotStage !== _sid) { _dotStage = _sid; _dotN = 0; }
+              _dotN = Math.max(_dotN, Math.round(done * 10));
+              px = _dotN * 60;
+            }
+            const wpx = px.toFixed(0) + 'px';   // 1px 양자화 — 매 프레임 폭 쓰기가 리컴포짓 플리커 유발
             if (clip.style.width !== wpx) clip.style.width = wpx;
           }
         }
