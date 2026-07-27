@@ -4725,25 +4725,23 @@ void main(){
     const A = _apertureWorld();
     if (!A) { _occRestore(); return; }
     const B = xbot.ball.position, R = 0.12;
-    const P = new THREE.Vector3(), d = new THREE.Vector3(), c = new THREE.Vector3();
     _occRestore();
-    _occMeasure(A, B, R);   // 계측만 — 검은 원반 그래픽은 폐기(유저). 표현은 UI 깜빡임뿐
+    _occMeasure(A, B, R);   // 계측 — 검은 원반 그래픽은 폐기(유저). 표현은 실제 UI 소등뿐
+    // 조리개 코앞(0.13m)의 공은 빔의 각도 사분면을 통째로 덮는다 → 일부 토큰만이 아니라
+    // 투사 UI '전체'가 함께 어두워지는 게 실제다(유저). 차단 비율만큼 전부 감광.
+    const k = _occStat.now <= 0 ? 1 : Math.max(0.06, 1 - _occStat.now);
+    if (k >= 0.999) return;
     g.traverse((o) => {
       const m = o.material;
-      if (!o.visible || !m || m.opacity === undefined || m.opacity <= 0.01) return;
-      o.getWorldPosition(P);
-      d.copy(P).sub(A);
-      const len = d.length(); if (len < 1e-4) return;
-      d.divideScalar(len);
-      const t = Math.max(0, Math.min(len, c.copy(B).sub(A).dot(d)));
-      c.copy(A).addScaledVector(d, t);
-      if (c.distanceTo(B) >= R) return;
-      // 링·마크는 ShaderMaterial(uGain이 밝기 담당) — opacity만 낮추면 화면상 변화가 없었다(유저: 안 깜빡임)
+      if (!o.visible || !m || m.opacity === undefined) return;
+      // 링·마크는 ShaderMaterial(uGain이 밝기 담당) — opacity만 낮추면 화면이 안 변한다(유저: 안 깜빡임)
       const U = m.uniforms && m.uniforms.uGain;
       _occTouched.push([m, m.opacity, U ? U.value : null]);
-      m.opacity *= 0.12;   // 완전 0이 아니라 잔광 — 실제 투사도 산란광이 조금 남는다
-      if (U) U.value *= 0.12;
+      m.opacity *= k;
+      if (U) U.value *= k;
     });
+    const fe = floorObj?.element;   // 지면 프레임(CSS3D)도 같은 광경로 — 함께 어두워져야 한다
+    if (fe) { _occCss = fe.style.opacity; fe.style.opacity = String(k); }
   }
 
   // ── 차폐 계측 + 실제 그림자 시각화 ──
@@ -4781,7 +4779,9 @@ void main(){
   if (import.meta.env.DEV) window.__occ = _occStat;
   function resetOccStat() { _occStat.sum = 0; _occStat.n = 0; _occStat.worst = 0; }
   const _occTouched = [];
+  let _occCss = null;
   function _occRestore() {
+    if (_occCss !== null && floorObj?.element) { floorObj.element.style.opacity = _occCss; _occCss = null; }
     for (const [m, op, g] of _occTouched) { m.opacity = op; if (g !== null && m.uniforms?.uGain) m.uniforms.uGain.value = g; }
     _occTouched.length = 0;
   }
