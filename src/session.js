@@ -121,6 +121,8 @@ class FootMark {
     this._U.uFade.value = 1;
     WAVE_MATS.push(mat);   // uTime·주간 잉크 규약 틱 동승
     const S = 0.46;        // 실루엣 시각 높이 ≈ 0.36m (기존 0.29m보다 약간 큼 — MARK 존 기준)
+    // ponytail: at(x,z,s)의 s는 씬마다 손으로 박은 매직넘버(페어 1.05 / 라인 0.62 / 커서 0.42).
+    //   규격은 이 S=0.46 하나뿐. 나중에 배율 상수 하나로 통일하기로 함(유저, 07-28).
     this.plane = new THREE.Mesh(new THREE.PlaneGeometry(S, S), mat);
     this.group.add(this.plane);
     this.group.rotation.x = -Math.PI / 2; this.group.position.y = 0.013; this.group.renderOrder = 6;
@@ -2134,8 +2136,9 @@ export class Session {
       H.sL2.at(pL.x, pL.z, 0.62 + 0.04 * bL); H.sL2.op(0.80 + 0.20 * bL);
       H.sR2.at(pR.x, pR.z, 0.62 + 0.04 * bR); H.sR2.op(0.80 + 0.20 * bR);
       for (const k of ['sL1', 'sR1']) H[k].op(0);
-      H.mL.position.set(pL.x, H.mL.position.y, pL.z); H.mL.setOp?.(0.35 + 0.25 * bL);
-      H.mR.position.set(pR.x, H.mR.position.y, pR.z); H.mR.setOp?.(0.35 + 0.25 * bR);
+      // 링은 위치만 따라간다(판정 좌표·아래 getWorldPosition이 쓴다). 표시는 발자국만 — 겹쳐 보여 뺐다(유저).
+      H.mL.position.set(pL.x, H.mL.position.y, pL.z); H.mL.setOp?.(0);
+      H.mR.position.set(pR.x, H.mR.position.y, pR.z); H.mR.setOp?.(0);
       H.mC.setOp?.(0);
       H.cL.op(0); H.cR.op(0);
       const aD = this._beamLocal(-0.92, V, H.mL), aU = this._beamLocal(0.92, V, H.mL);
