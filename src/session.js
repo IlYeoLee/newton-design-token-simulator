@@ -2246,23 +2246,12 @@ export class Session {
       //   1) 무릎 구부려 넣는 척: L·R 나란히 어깨너비   2) 오른발 딛고 드리블: R 앞·L 뒤, 공은 왼쪽
       //   3) 왼발 뻗으며 공 잡기: L 크게 왼쪽·R 제자리   4) 오른발 모으며 슛: L·R 모음
       if (POSE) {
-        // 룩 시스템 판정 토큰(FootMark) — 피그마 배치 '비율'만 가져오고 좌표는 투사창 안에서 만든다.
-        //   픽셀을 그대로 옮기면 창 밖(dist>far)으로 새어 사라졌다(실측 2.02) — 유저 지적대로 비율 방식.
-        const V = 0.26, DV = 0.22;
-        const L = this.beamUV(POSE.L[0], V + POSE.L[1] * DV);
-        const R = this.beamUV(POSE.R[0], V + POSE.R[1] * DV);
-        // 그룹마다 부모 변환이 달라 같은 로컬 z가 월드에서 달라진다(실측: B3 -3.0 / B5 -4.25).
-        //   부모 오프셋을 실측해 빼고 앉힌다 — 네 단계가 동일하게 투사창 안으로 들어온다.
-        const setW = (fm, wx, wz) => {
-          const g = fm.group, p0 = g.position.clone();
-          g.position.set(0, 0.013, 0); g.updateMatrixWorld(true);
-          const o = new THREE.Vector3(); g.getWorldPosition(o);   // 부모가 만든 오프셋
-          g.position.set(wx - o.x, 0.013, wz - o.z);
-          g.scale.setScalar(0.86);
-          void p0;
-        };
-        setW(H.fRl, L.x, L.z);
-        setW(H.fRr, R.x, R.z);
+        // 따라하기에서는 발자국·화살표를 전부 숨긴다(유저) — 타이틀 + 코치 실루엣만 남는다.
+        for (const k of ['fRl', 'fRr', 'fC', 'fLl', 'fLr']) H[k]?.op(0);
+        H.a1._gain = 0; H.a2._gain = 0;
+        H.gh.op(0);
+        for (const k of ['mL', 'mC', 'mR']) H[k].setOp?.(0);
+        H.rise.setOp?.(0);
       }
       const BEATN = { BK_B2: ['① 무릎 구부리고', '② 낮은 자세 유지', '③ 들어가는 척!', '④ 그대로 준비'],
         BK_B3: ['① 준비', '② 오른발 딛고', '③ 공을 왼쪽으로!', '④ 시선 유지'],

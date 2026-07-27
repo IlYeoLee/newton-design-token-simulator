@@ -227,16 +227,8 @@ html,body{background:transparent}
       //    영상 가이드 프레임은 작게 위, 그 아래 L·R 판정 마크 + 방향 화살표.
       //    (스텝백 4페이즈 전용. 관찰이 끝나면 이 프레임이 그 자리를 이어받는다)
       if (/^BK_B[2345]$/.test(stage)) {
-        const FOOT = { BK_B2: 'both', BK_B3: 'left', BK_B4: 'left', BK_B5: 'up' }[stage] || 'both';
         const fv = document.createElement('div'); fv.id = 'follow-view';
-        // L·R 마크는 룩 시스템 판정 토큰(FootMark)이 3D로 그린다 — 여기선 영상 자리와 화살표만.
-        fv.innerHTML = `
-          <div id="fv-vid"></div>
-          <div id="fv-marks">
-            ${FOOT === 'both' || FOOT === 'left' ? '<div class="fv-ar down">\u2193</div>' : '<div class="fv-sp"></div>'}
-            <div class="fv-gap"></div>
-            ${FOOT === 'both' || FOOT === 'up' ? '<div class="fv-ar up">\u2191</div>' : '<div class="fv-sp"></div>'}
-          </div>`;
+        fv.innerHTML = `<div id="fv-vid"></div>`;   // 발자국·화살표 제거(유저) — 코치 실루엣 자리만
         document.getElementById('content').insertBefore(fv, dots);
         dots.style.display = 'none';   // 레퍼런스(143:444)엔 도트바 없음 — 진행은 상단 n/4가 담당
         // 영상 자리는 박스로만 잡는다 — 실제 그림은 3D 코치 패널(크로마키+룩 LUT)이 이 위에 얹힌다.
