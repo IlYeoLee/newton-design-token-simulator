@@ -2204,6 +2204,7 @@ void main(){
     BK_B5: { src: 'stepback_fwd.mp4', cropOff: 0.0, cropScale: 1.0, w: 1.04, h: 0.87, fwd: 0.10 },
     BK_B4: { src: 'stepback_fwd.mp4', cropOff: 0.0, cropScale: 1.0, w: 1.04, h: 0.87, fwd: 0.10 },
     BK_B3: { src: 'stepback_fwd.mp4', cropOff: 0.0, cropScale: 1.0, w: 1.04, h: 0.87, fwd: 0.10 },   // 소스 720x1280 — 9:16 유지(정사각은 세로 눌림)
+    BK_C2: { src: 'stepback_fwd.mp4', cropOff: 0.0, cropScale: 1.0, w: 1.04, h: 0.87, fwd: 0.10 },   // 실전 = 같은 클립을 타이밍 소스로만(따라하기 시작하면 화면에선 숨김)
     BK_A3: { src: 'ready-view/assets/bk_squat.webm',    cropOff: 0.0, cropScale: 1.0, w: 0.9, h: 0.9, fwd: 0.10 },   // 스쿼트
   };
   const _coaches = {};   // stageId → { video, plane, _fwd }
@@ -2293,8 +2294,10 @@ void main(){
   let _stepId = null, _stepLoops = 0, _stepFrac = 0;
   function tickA1Coach() {
     // 어떤 스테이지 코치를 켤지: 러닝 A1·농구 워밍업 전부 = 전 구간 상시, 러닝 A2/A3 = 시범(관찰) 중에만.
-    const st = session.active && !session.isLive && (state.pack === 'running' || state.pack === 'basketball') ? session.stage : null;
-    const COACH_IDS = ['A1', 'A2', 'A3', 'BK_A1', 'BK_A2', 'BK_A3', 'BK_B1', 'BK_B2', 'BK_B3', 'BK_B4', 'BK_B5'];
+    // 실전(BK_C2)도 같은 클립을 타이밍 소스로 쓴다 — 라이브라고 끊으면 마크가 안 움직인다.
+    const st = session.active && (!session.isLive || session.stage === 'BK_C2')
+      && (state.pack === 'running' || state.pack === 'basketball') ? session.stage : null;
+    const COACH_IDS = ['A1', 'A2', 'A3', 'BK_A1', 'BK_A2', 'BK_A3', 'BK_B1', 'BK_B2', 'BK_B3', 'BK_B4', 'BK_B5', 'BK_C2'];
     // 관찰이 끝나면(followLatch) 코치를 끄는 게 기존 규약이었다. 단 스텝백 4페이즈(BK_B2~B5)는
     //   따라하기 화면에도 같은 실루엣이 축소되어 남아야 한다(피그마 143:444) — 예외로 계속 켠다.
     const activeId = COACH_IDS.find(id => id === st
@@ -2333,6 +2336,7 @@ void main(){
           const RATE = stepRate(id), HOLD = stepHold(id);
           if (co.video.playbackRate !== RATE) co.video.playbackRate = RATE;
           const now = performance.now();
+          session._pvLoops = _stepLoops;   // 진단용 노출
           if (_stepId !== id) {   // 단계 진입 = 루프 카운터 리셋 + 구간 처음부터
             _stepId = id; _stepLoops = 0; _stepFrac = 0;
             co._holdUntil = 0; try { co.video.currentTime = a; } catch (e) {}
@@ -4122,7 +4126,8 @@ void main(){
       if (lb) lb.textContent = `${manualGazeDeg}°`;
     }
     // 세션 비실전 단계: 팩 시간 정지, 봇은 단계별 동작을 제자리 시연(코치)
-    if (session.active && !session.isLive) {
+    // 실전(BK_C2)도 이 블록을 탄다 — 프리뷰 1회 → 따라하기 래치가 여기서 결정된다(유저 개편).
+    if (session.active && (!session.isLive || session.stage === 'BK_C2')) {
       session.update(h);
       updateSessionGaze(h);
       state.time = 0;

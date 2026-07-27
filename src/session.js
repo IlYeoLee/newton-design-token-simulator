@@ -522,6 +522,7 @@ function sbPoseAt(vt, holdAirborne) {
   return { L: one('L'), R: one('R') };
 }
 const FOLLOW_S = 1.0;   // 따라하기 발자국 배율(농구 지면 UI 공통)
+const SBZ = -1.95;      // 스텝백 마크 기준 z(빔 창 중앙). 빌드·업데이트 양쪽에서 쓴다
 
 const BK_STR = {
   BK_A1: { per: 2.4, reps: BK_REPS.BK_A1, side: true, noMark: true, fm: '옆구리 스트레치', say: '팔을 위로 뻗어 옆으로 쭉쭉. 왼쪽 오른쪽 번갈아 허리를 늘려요.' },
@@ -992,7 +993,6 @@ export class Session {
     // (측면 스텝백 Break Down — 레퍼런스 영상 콘 3개의 디지털 승격, 좌우 일렬)
     //   착지(좌 -0.55)·플랜트(중)·시작(우 +0.55) + 착지/시작 발자국 페어 + '내 발 커서'(근거리 행,
     //   발↔골반 상대 x 1:1 미러 — 빔은 발밑에 못 그리므로 커서로 '밟기'를 성립시킨다).
-    const SBZ = -1.95;   // 월드 환산 z≈-3.2 = 빔 dist 1.0(창 중앙). -3.50은 월드 -4.75로 far 1.9를 넘어 사라졌다(실측)
     const sbm = (x, r) => floorRing(x, SBZ, r, r + 0.028, BRAND.coral, 0.18);
     const mL = sbm(-0.55, 0.13), mC = sbm(0, 0.10), mR = sbm(0.55, 0.13);
     const fp = (x, dz, foot) => new FootMark(foot).at(x, SBZ + dz, 0.62);
