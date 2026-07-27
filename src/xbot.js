@@ -553,6 +553,19 @@ export class XBot {
     // 루트모션 데모 클립은 XZ 고정 해제, 접지 베이크 클립은 per-frame 클램프 해제(덜커덩 방지)
     if (this._rootClips?.has(key)) { this._lockFingers(); this.model.position.x = 0; this.model.position.z = 0; this.model.updateMatrixWorld(true); }
     else this._lockInPlace?.();
+    // 요 고정(lockYaw, 세션 데모 공통 원칙 — 유저): CMU 프리스타일 클립이 몸을 돌려도(B2 뒤돌기)
+    // 화면의 봇은 항상 정면(-z 응시)을 유지한다. 골반 로컬 +Z(몸 정면, getAnchor 규약)의 요를 재서
+    // 모델 루트를 역회전 — _lockInPlace가 힙 XZ를 원점에 고정하므로 원점 회전 = 제자리 회전.
+    if (this.lockYaw && this._hips && !this._rootClips?.has(key)) {
+      this.model.updateMatrixWorld(true);
+      const e = this._hips.matrixWorld.elements;
+      const yaw = Math.atan2(e[8], e[10]);          // 몸 정면의 월드 요 (0 = +z)
+      const want = Math.PI;                          // 데모 정면 = -z
+      let d = want - yaw; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI;
+      this.model.rotation.y += d;
+      this.model.updateMatrixWorld(true);
+      this._lockInPlace?.();                         // 회전 후 힙 재고정
+    }
     if (this._armNeutralClips?.has(key)) this._relaxArms();   // 팔만 중립 — 다리는 실측 유지 (유저: '손만 자연스럽게')
     if (this._groundedClips?.has(key)) { this.model.position.y = 0; this._yOff = undefined; this.model.updateMatrixWorld(true); }
     else this._clampFeet();   // 데모 클립 루트 높이 미보정 → 봇 공중부양(유저: 'x봇이 공중에 떠있는데') 방지
@@ -567,7 +580,7 @@ export class XBot {
     // 스탠스 벌림 노브(stanceWiden 0..1, main B1 구동) — 클립 스탠스가 어깨보다 좁아(실측 0.56m→)
     // 기본기 시범이 안 됨(유저·wikiHow 기본기: 발은 어깨보다 넓게). 힙 외전 ±7도.
     // 부호는 라이브 실측: z(-,+)는 좁힘(0.56→0.42), z(+,-)가 벌림.
-    if (this.stanceWiden > 0.001 && key) {
+    if (Math.abs(this.stanceWiden) > 0.001 && key) {   // 음수 = 다리 모음(셋업 시작 자세)
       const k = this.stanceWiden, D = Math.PI / 180;
       const B = n => this.model.getObjectByName(n);
       const rz = (b, deg) => b && b.quaternion.multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), deg * D));

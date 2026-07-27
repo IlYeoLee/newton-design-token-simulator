@@ -795,19 +795,22 @@ export class Session {
     // B1 · 로우 드리블 — 유저 확정 프로세스: ①원형 마크 토큰에 맞춰 10회(바닥 보며) →
     //   ②중앙 안내 '시선은 바깥으로' → ③이후엔 UI 없음, 공 닿는 지점에 파형 이펙트만.
     //   발마크·비트바·라벨은 전부 은퇴(유저: 그래픽 후두둑·발모양 들락날락).
-    const b1zone = floorRing(0.30, BK_STAND - 0.55 - BDEEP, 0.16, 0.20, BRAND.coral, 0.5);   // 원형 마크(룩 웨이브 링)
+    const b1zone = floorRing(0, BK_STAND - 0.55 - BDEEP, 0.16, 0.20, BRAND.coral, 0.5);   // 원형 마크 — 중앙 정렬(유저)
     const b1c = document.createElement('canvas'); b1c.width = b1c.height = 128;              // 잔여 카운트 = 링 중앙
     const b1num = new THREE.Mesh(new THREE.PlaneGeometry(0.20, 0.20),
       new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(b1c), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
     b1num.material.map.colorSpace = THREE.SRGBColorSpace;
     b1num.userData.canvas = b1c; b1num.userData.tex = b1num.material.map;
-    b1num.rotation.x = -Math.PI / 2; b1num.position.set(0.30, 0.016, BK_STAND - 0.55 - BDEEP); b1num.renderOrder = 8;
+    b1num.rotation.x = -Math.PI / 2; b1num.position.set(0, 0.016, BK_STAND - 0.55 - BDEEP); b1num.renderOrder = 8;
     // 셋업 막 발자국 — 어깨보다 넓게(0.56m, wikiHow 기본기). 4초간만 보였다 퇴장(상시 아님).
-    const b1sL = new FootMark('left').at(-0.28, BK_STAND - 0.40 - BDEEP, 1.1);
-    const b1sR = new FootMark('right').at(0.28, BK_STAND - 0.40 - BDEEP, 1.1);
-    this.bkB1 = { zone: b1zone, num: b1num, sL: b1sL, sR: b1sR,
+    const b1sL = new FootMark('left').at(-0.14, BK_STAND - 0.40 - BDEEP, 1.1);   // 모은 자세에서 시작 → 틱이 벌린다
+    const b1sR = new FootMark('right').at(0.14, BK_STAND - 0.40 - BDEEP, 1.1);
+    const b1aL = floorArrow(-0.50, BK_STAND - 0.40 - BDEEP, 90, BRAND.sand, 0.26);    // ← 바깥 화살표
+    const b1aR = floorArrow(0.50, BK_STAND - 0.40 - BDEEP, -90, BRAND.sand, 0.26);    // →
+    b1aL._gain = 0; b1aR._gain = 0;
+    this.bkB1 = { zone: b1zone, num: b1num, sL: b1sL, sR: b1sR, aL: b1aL, aR: b1aR,
       count: 0, _shown: -1, _wasLow: false, _popT: -9, _p2t: 0, _setupDone: false };
-    g.add(b1zone, b1num, b1sL.group, b1sR.group);   // 지시문은 피그마 프레임 헤더가 담당(유저)
+    g.add(b1zone, b1num, b1sL.group, b1sR.group, b1aL, b1aR);   // 지시문은 피그마 프레임 헤더가 담당(유저)
 
     g = this._mk('BK_B2');
     // B2 · 크로스오버 — 좌우 바운스 존 교대 점등. '공이 우리 평면에 닿는 지점'이 곧 커서라
@@ -1260,7 +1263,7 @@ export class Session {
     this.liveSpeed = st.boost ? 1.18 : 1;
     if (this.xbot) this.xbot.decelK = 0;   // C5 감속 잔재 제거 (다운시프트·FIN 진입 안전망)
     this._waitStart = 0;    // 음성 게이트 대기 타이머 리셋
-    this.bkB1EyesUp = false; this.bkB1Setup = false; // B1 신호 리셋(전환 시 메트로놈·고개·셋업 잔류 방지)
+    this.bkB1EyesUp = false; this.bkB1Setup = false; this.bkB1Succ = null; this.bkB1Widen = null; // B1 신호 리셋
     this._bkStrId = null;   // 워밍업 스트레칭 재진입 리셋 (스테이지 전환 시 홀드 카운트 0)
     this.repLeft = null; this.repTotal = null; this.repFrac = null;   // 반복 진행바 — 스테이지마다 초기화
     if (this._c3Skill != null && this.judge) { this.judge.skill = this._c3Skill; this._c3Skill = null; }   // C3 중 탭 스킵 시 skill 0.35 영구 잠김 방지
@@ -1948,26 +1951,43 @@ export class Session {
       const dtB = Math.max(0, Math.min(0.1, this.t - (this._bkB1t ?? this.t)));
       this._bkB1t = this.t;
       // 막0 · 스탠스 셋업(4초): 넓은 발자국 2개만 보여주고 밟게 한다 — 이후 퇴장(페이드)
-      const SETUP = 4.0, inSetup = this.t < SETUP;
-      this.bkB1Setup = inSetup;   // main: 봇 시연(공 제거·idle에서 다리 벌리기)
-      const sK = Math.max(0, Math.min(1, (SETUP + 0.9 - this.t) / 0.9));   // Success 블룸 여운과 함께 퇴장
+      // 셋업 타임라인(유저·피그마 130-2984): 0~0.8 모은 자세 → 0.8~3.0 ←→ 화살표와 함께 벌어짐
+      //   → 3.0 Success(마크 블룸+파형+피그마 배지) → 3~6 카운트다운 링 3·2·1 → 본 연습.
+      const W_END = 3.0, SETUP = 6.0, inSetup = this.t < SETUP;
+      this.bkB1Setup = inSetup;
+      const wk = this.t < 0.8 ? 0 : Math.min(1, (this.t - 0.8) / (W_END - 0.8));
+      const we = wk * wk * (3 - 2 * wk);
+      this.bkB1Widen = -0.25 + 1.40 * we;   // 봇: 모은 다리(-0.25) → 어깨너비+(1.15)
+      const sK = Math.max(0, Math.min(1, (W_END + 1.2 - this.t) / 0.9));   // Success 블룸 여운 후 퇴장
       H.sL.op(sK); H.sR.op(sK);
       if (inSetup) {
-        // Active — 헤일로 수축 = '자리 잡는 시간' 카운트다운 (MARK 상태머신 그대로)
-        H.sL.countdown(this.t / SETUP); H.sR.countdown(this.t / SETUP);
-        this._say('bkb1st', '커리', '발은 어깨보다 넓게 — 발자국 위에 서 볼까요. 무릎은 굽히고.');
+        const half = 0.14 + 0.14 * we;                    // 발자국도 실제로 벌어진다
+        H.sL.group.position.x = -half; H.sR.group.position.x = half;
+        const aOn = this.t > 0.7 && this.t < W_END ? 1 : 0;   // ← → 동시 등장
+        H.aL._gain = aOn; H.aR._gain = aOn;
+        H.aL.position.x = -(half + 0.30); H.aR.position.x = half + 0.30;
+        if (this.t < W_END) {
+          H.sL.countdown(this.t / W_END); H.sR.countdown(this.t / W_END);
+          this._say('bkb1st', '커리', '발은 어깨보다 넓게 — 발자국 위에 서 볼까요. 무릎은 굽히고.');
+          FMU('발은 어깨보다 넓게 — 발자국 위에', CS.sand);
+          this.bkB1Succ = null;
+        } else {
+          if (!H._setupDone) {   // Success 전이: 블룸 + 접지 파형 + 피그마 배지 등장
+            H._setupDone = true;
+            H.sL.glow(1); H.sR.glow(1);
+            const wp = new THREE.Vector3();
+            H.sL.group.getWorldPosition(wp); this.onPress?.(wp.clone(), false);
+            H.sR.group.getWorldPosition(wp); this.onPress?.(wp.clone(), false);
+          }
+          this.bkB1Succ = Math.max(1, Math.ceil(SETUP - this.t));   // 3·2·1 (프레임 링)
+          FMU('Success! — 곧 시작해요', CS.prism);
+        }
         this.repLeft = null; this.repTotal = null;
-        FMU('발은 어깨보다 넓게 — 발자국 위에', CS.sand);
         H.zone.setOp?.(0); H.num.material.opacity = 0;
         return;
       }
-      if (!H._setupDone) {   // Active → Success 전이 순간: 블룸 + 접지 파형(마크 위치) 1회
-        H._setupDone = true;
-        H.sL.glow(1); H.sR.glow(1);
-        const wp = new THREE.Vector3();
-        H.sL.group.getWorldPosition(wp); this.onPress?.(wp.clone(), false);
-        H.sR.group.getWorldPosition(wp); this.onPress?.(wp.clone(), false);
-      }
+      this.bkB1Succ = null;
+      H.aL._gain = 0; H.aR._gain = 0;
       const phase2 = H.count >= TOTAL;
       H._eyeK = Math.max(0, Math.min(1, (H._eyeK ?? 0) + (phase2 ? dtB : -dtB) * 1.6));
       const vK = 1 - H._eyeK;
@@ -1982,10 +2002,16 @@ export class Session {
       if (isLow && !H._wasLow) {
         const wp = new THREE.Vector3(ball.position.x, 0.02, ball.position.z);   // 파형 = 공이 닿은 실제 지점
         this.onPress?.(wp, false);
+        H._zHit = this.t;
         if (!phase2) { H.count += 1; H._popT = this.t; }
       }
       H._wasLow = isLow;
-      H.zone.setOp?.((0.35 + 0.5 * Math.max(0, 1 - (this.t - H._popT) / 0.2)) * vK);
+      // 원형 판정 토큰: 평소 Preview(숨쉬기) → 공이 탕 떨어지는 순간 Success 블룸으로 전이(유저)
+      const zU = H.zone.material.uniforms;
+      const zk = Math.max(0, 1 - (this.t - (H._zHit ?? -9)) / 0.45);
+      if (zk > 0) { zU.uPhase.value = 2; zU.uProg.value = Math.min(1, 1.2 - zk); }
+      else { zU.uPhase.value = 0; zU.uProg.value = 0; }
+      H.zone.setOp?.((0.45 + 0.4 * zk) * vK);
       const left1 = Math.max(0, TOTAL - H.count);
       if (left1 !== H._shown) { redrawFootNum(H.num, left1); H._shown = left1; }
       H.num.material.opacity = vK;

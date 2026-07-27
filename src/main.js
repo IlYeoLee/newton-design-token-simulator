@@ -4040,6 +4040,8 @@ void main(){
       // 러닝 준비운동(A) = 코치 드릴을 세션 스테이지 시간(session.t)에 위상 잠금 → 씬 링·카운트·음성과 동기(유저: '타이밍 하나하나 맞춰')
       if (session.stage !== 'A2' && xbot.group.scale.x !== 1) xbot.group.scale.x = 1;   // A2 미러 잔류 방지
       xbot.stanceWiden = session.stage === 'BK_B1' ? 1 : 0;
+      // 세션 데모(비실전) 공통: CMU 클립이 몸을 돌려도 봇은 정면 유지(유저 원칙)
+      xbot.lockYaw = session.active && !session.isLive && /^BK_[AB]/.test(session.stage || '');
       let _clip = demoClipFor(session.sport, session.stage);
       // A2/A3 = 2단계 흐름(유저): [0~5s 관찰] 봇은 가만히 서서(idle) 전문가 영상 보기 → [5s~ 따라하기].
       // 뉴턴 전환 문법(유저 확정): 시범(영상만·도트바) → 마크 Preview 워밍 등장+음성 → 따라하기.
@@ -4087,7 +4089,7 @@ void main(){
           // 셋업 시연(유저): 공 빼고(idle은 공 게이트 미통과 → 자동 숨김) 자연 서기에서
           //   다리를 '실제로' 벌린다 — 절차적 램프(0.8s 대기 → 2.2s에 걸쳐 어깨너비+)
           _clip = 'idle';
-          xbot.stanceWiden = Math.min(1.15, Math.max(0, (session.t - 0.8) / 2.2) * 1.15);
+          xbot.stanceWiden = session.bkB1Widen ?? 0;   // 세션이 계산한 모음(-0.25)→벌림(1.15) 램프
         } else {   // 124_04 순수 드리블 구간(실측 1.3~3.2) 핑퐁 — 하드컷 대신 되감기(유저)
           xbot.stanceWiden = 1;
           const SPAN = 1.9, m = session.t % (SPAN * 2);
@@ -4321,6 +4323,23 @@ void main(){
           }
           const dots = fdoc?.getElementById('s-dots');   // 셋업(Wide Stance)엔 진행 도트 무의미 — 숨김(유저)
           if (dots) dots.style.visibility = session.bkB1Setup ? 'hidden' : '';
+          // Success 컴포넌트(피그마 130-2984): 배지 + 3·2·1 카운트다운 링
+          const succ = fdoc?.getElementById('s-succ');
+          if (succ) {
+            const on = session.bkB1Succ != null;
+            succ.style.display = on ? 'flex' : 'none';
+            if (on) {
+              const nEl = fdoc.getElementById('succ-n');
+              if (nEl && nEl.textContent !== String(session.bkB1Succ)) nEl.textContent = String(session.bkB1Succ);
+              const frac = Math.max(0, Math.min(1, (session.t - 3.0) / 3.0));   // 셋업 3~6s
+              const arc = fdoc.getElementById('succ-arc');
+              if (arc) arc.style.strokeDashoffset = (615.7 * frac).toFixed(1);
+              const dot = fdoc.getElementById('succ-dot');
+              if (dot) { const a = -Math.PI / 2 + (1 - frac) * 2 * Math.PI;
+                dot.setAttribute('cx', (110 + 98 * Math.cos(a)).toFixed(1));
+                dot.setAttribute('cy', (110 + 98 * Math.sin(a)).toFixed(1)); }
+            }
+          }
         }
         if (session.repTotal) {
           const clip = fdoc?.querySelector('.dclip');

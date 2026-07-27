@@ -108,6 +108,23 @@ html,body{background:transparent}
         <div class="drow" id="drow-g"></div>
         <div class="dclip"><div class="drow" id="drow-r"></div></div>
       </div>
+      <!-- 피그마 130-2984 Success 컴포넌트: 🔥 배지 + 점선 카운트다운 링 (기본 숨김, 시뮬이 구동) -->
+      <div id="s-succ" style="display:none;flex-direction:column;align-items:center;gap:56px;margin-top:34px">
+        <div style="background:rgba(255,255,255,.92);border-radius:80px;padding:16px 40px;display:flex;align-items:center;gap:14px">
+          <span style="font-size:44px">🔥</span>
+          <span style="font-family:'OffBit','Supreme',sans-serif;font-size:52px;color:#525252;letter-spacing:-1.6px">Success!</span>
+        </div>
+        <div style="position:relative;width:220px;height:220px">
+          <svg viewBox="0 0 220 220" style="position:absolute;inset:0">
+            <circle cx="110" cy="110" r="98" fill="none" stroke="#8a8f98" stroke-width="3" stroke-dasharray="2 14" stroke-linecap="round"/>
+            <circle id="succ-arc" cx="110" cy="110" r="98" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round"
+              stroke-dasharray="615.7" stroke-dashoffset="0" transform="rotate(-90 110 110)"/>
+            <circle id="succ-dot" cx="110" cy="12" r="9" fill="#fa3030"/>
+          </svg>
+          <div id="succ-n" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+            font-family:'OffBit','Supreme',sans-serif;font-size:88px;color:#fff">3</div>
+        </div>
+      </div>
     </div>
   </div>
   <script src="floor-scenes.js"></script>
