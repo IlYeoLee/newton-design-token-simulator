@@ -4458,6 +4458,13 @@ void main(){
             const rot = 'rotate(' + (_stepFrac * 360).toFixed(0) + 'deg)';
             if (tip.style.transform !== rot) tip.style.transform = rot;
           }
+          // 마지막 회차가 끝나는 순간 프리뷰 행을 즉시 감춘다 — CSS 타임아웃에 맡기면 다음 장면
+          // 전환 프레임에 타이머가 미세하게 비쳐 거슬린다(유저).
+          const prow = fdoc.getElementById('prev-row');
+          if (prow) {
+            const d = (session._followLatch || _stepLoops >= STEP_LOOPS) ? 'none' : '';
+            if (prow.style.display !== d) prow.style.display = d;
+          }
         }
         const _sid = session.stages?.[session.stageIdx]?.id || '';
         if (session.repTotal) {
