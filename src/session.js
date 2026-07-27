@@ -574,7 +574,7 @@ export const STAGES = {
     { id:'BK_B5', label:'B · 스텝백 4/4 — 오른발 모으며 슛 준비', voice:['커리','오른발을 모으고 그대로 올라가요 — 슛!'], cue:'L·R 모음 · 수직 상승', foot:'두 번 탭 → 실전 준비' },
     { id:'BK_T2', label:'T-2 · 5초 뒤 실전 자동 진행 (두 번 탭 = 바로)', voice:['커리','5초 뒤 넘어가요. 준비됐으면 두 번 탭.'], dur:5, count:true, foot:'두 번 탭 = 즉시 · 무입력 = 자동' },
     { id:'BK_C1', dur:3, label:'C · 실전 1/2 — 트리거', voice:['시스템','3, 2, 1. 실전 갑니다.'], hap:'컷 시작 진동', foot:'두 번 탭 → 출발' },
-    { id:'BK_C2', dur:14, live:true, label:'C · 실전 — 배운 대로 한 번에', voice:['커리','이번엔 끊지 않고 한 번에 갑니다. 발 순서 그대로 — 딛고, 빠지고, 모아서 슛!'], wear:'BOOST 측면 추진', cue:'정속 · 연속 1회' },
+    { id:'BK_C2', dur:40, live:true, label:'C · 실전 — 스텝백 3점 3회', voice:['커리','이제 실전이에요. 배운 스텝 그대로 세 번 — 딛고, 빠지고, 모아서 슛!'], wear:'BOOST 측면 추진', cue:'정속 · 3회' },
     { id:'BK_FIN', label:'B-F · 리포트', voice:['시스템','리포트를 앱으로 보냈어요.'], cue:'Ghost Review — 커리 궤적과 내 스텝 겹쳐 보기' },
   ],
   boxing: [
@@ -2430,11 +2430,15 @@ export class Session {
         H.mL.setOp?.(0); H.mR.setOp?.(0); H.mC.setOp?.(0);
         H.rise.setOp?.(0); H.gh.op(0); H.cL?.op(0); H.cR?.op(0);
       }
-      // 실전 = 한 번에 쭉 → 마지막에 봇이 슛하고 끝(유저)
+      // 실전 = 배운 스텝으로 3점슛 3회. 한 사이클이 끝날 때마다 1회 카운트, 3회째에 슛하고 종료(유저).
       if (LIVE && this._followLatch) {
-        const done = (this.stepVidT ?? 0) >= (STEP_SEG.BK_C2 - 0.05);
-        if (done && !this.bkShotNow) { this.bkShotNow = true; this._shotT = this.t;
-          this._say('bkc2shot', '커리', '그거예요 — 슛!'); }
+        const NEED = 3, vt = this.stepVidT ?? 0;
+        if ((H._prevVt ?? 0) > vt + 0.3) H.count = (H.count || 0) + 1;   // 되감김 = 1회 완료
+        H._prevVt = vt;
+        this.repTotal = NEED; this.repLeft = Math.max(0, NEED - (H.count || 0));
+        this.repFrac = Math.min(1, ((H.count || 0) + vt / STEP_SEG.BK_C2) / NEED);
+        if (H.count >= NEED && !this.bkShotNow) { this.bkShotNow = true; this._shotT = this.t;
+          this._say('bkc2shot', '커리', '그거예요 — 슛! 오늘 완벽했어요.'); }
         if (this.bkShotNow && this.t - (this._shotT ?? 0) > 1.6) { this.bkShotNow = false; this.next(); return; }
       }
       const BEATN = { BK_B2: ['① 무릎 구부리고', '② 낮은 자세 유지', '③ 들어가는 척!', '④ 그대로 준비'],

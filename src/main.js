@@ -5267,8 +5267,7 @@ void main(){
     // ── 바닥 대지 프레임 정합 (러닝/농구) — WebGL 평면, 직사각형, x봇에 자동 가려짐 ──
     const isFloorSport = session.active && (session.sport === 'running' || session.sport === 'basketball');
     // 실전 라이브 러닝에서도 플로어 프레임(타이틀·큐·판정 헤더) 유지 — 껐더니 러닝 UI·판정토큰이 사라져 화면이 비었음(유저 되돌림).
-    // 실전(BK_C2)은 판정 토큰만 남긴다(유저) — 지면 프레임(타이틀·캡션·도트·프리뷰 타이머) 미표시.
-    const fView = (isFloorSport && session.curStage?.id !== 'BK_C2') ? FLOOR_FRAMES[session.curStage?.id] : null;
+    const fView = isFloorSport ? FLOOR_FRAMES[session.curStage?.id] : null;   // 실전도 기본 타이틀 구조는 유지(유저)
     const fp = rig._fp;   // 무릎 투사 풋프린트 (rig.update가 매 프레임 세팅)
     floorObj.visible = !!fView && !!fp;
     // 👁 커버리지 채움판(footFill, 원시 빔 추종)과 플로어 프레임(저역통과 앵커)이 같은 자리에
@@ -5282,6 +5281,11 @@ void main(){
     // 농구 실전(BK_C2)은 마크 판정 토큰만 쓴다 — 팩 판정 필드(레인·존)는 끈다(유저).
     if (isFloorSport) tokens.floorRoot.visible = !(floorObj.visible && isStartPage)
       && (!session.active || (session.isLive && session.stage !== 'BK_C4' && session.stage !== 'BK_C2'));
+    // 실전(BK_C2)은 지면 프레임 타이틀만 쓰고, 세션이 그리는 위/아래 큐 텍스트는 끈다(유저).
+    if (session.active && session.stage === 'BK_C2') {
+      [session.slotFS, session.slotFL, session.slotFM, session.dirSlot, session.countGroup, session.countRing]
+        .forEach(o => { if (o) o.visible = false; });
+    }
     if (floorObj.visible) {
       if (fView.src !== loadedFloorView) {
         floorWrap.style.width = fView.w + 'px';    // 래퍼가 CSS3D 변환·크기의 주체
