@@ -31,12 +31,11 @@ window.FLOOR_SCENES = {
   BK_A2: { title: 'Knee Drive',        phase: 0, sub: '2/3', cue: 'Knee up · opposite hand · twist' },// 니 드라이브(트위스트)
   BK_A3: { title: 'Squats',            phase: 0, sub: '3/3', cue: 'Slow down and up' },                // 스쿼트
   // B · 사전 익히기 (DRILL)
-  BK_B1: { title: 'Low Dribble',    phase: 1, sub: '1/3', cue: "Stay low — Curry's beat, 10 reps" },   // 로우 드리블
-  BK_B2: { title: 'Crossover',      phase: 1, sub: '2/3', cue: 'Bounce into the lit zone' },          // 크로스오버
-  BK_B3: { title: 'Between Legs',   phase: 1, sub: '3/3', cue: 'Cross the line, far zone' },          // 다리 사이
+  BK_B1: { title: 'Low Dribble',    phase: 1, sub: '1/4', cue: "Stay low — Curry's beat, 10 reps" },  // 로우 드리블
+  BK_B2: { title: 'Break Down',     phase: 1, sub: '2/4', cue: 'Beat by beat — plant, step back, shoot' },
+  BK_B3: { title: 'Half Speed',     phase: 1, sub: '3/4', cue: 'Follow the marks in order' },
+  BK_B4: { title: 'Full Speed',     phase: 1, sub: '4/4', cue: 'Eyes up — read it with side vision' },
   // C · 실전 (GAME)
-  BK_C1: { title: 'Trigger',            phase: 2, sub: '1/4', cue: '3 · 2 · 1 — cut' },           // 3·2·1 컷 트리거
-  BK_C2: { title: 'Full-Tempo Handle',  phase: 2, sub: '2/4', cue: "Curry's beat — eyes up" },   // 실전 핸들 프레이즈
-  BK_C3: { title: 'Side Step',          phase: 2, sub: '3/4', cue: 'Cross the gate — make space' }, // 사이드스텝
-  BK_C4: { title: 'Release',            phase: 2, sub: '4/4', cue: 'Balance, then release' },     // 릴리즈·정지
+  BK_C1: { title: 'Trigger',          phase: 2, sub: '1/2', cue: '3 · 2 · 1 — go' },
+  BK_C2: { title: 'Step-back Three',  phase: 2, sub: '2/2', cue: 'Land, then rise — shoot!' },
 };

@@ -186,7 +186,7 @@ html,body{background:transparent}
     el.innerHTML = `<b id="spm-me">--</b><span> / ${spm} SPM</span><div style="font-weight:500;font-size:44px;color:rgba(255,255,255,.62);margin-top:6px">내 발걸음 / 목표 — 소리에 맞춰</div>`; document.getElementById('board').appendChild(el); }
   // A2/A3 시범(3초) — 원본 실전직전 타이머 링(floor-timer.html) 소형 그대로 + DEMO 라벨.
   //   도트 로딩바는 시범 동안 숨김 → 3초 뒤 등장·채움 시작(따라하기 진행 전담).
-  if (/^(A2|A3|BK_A[23]|BK_B[123])$/.test(stage)) {
+  if (/^(A2|A3|BK_A[23]|BK_B[1234])$/.test(stage)) {
     // Figma 122:270 정확 이식 — 타이틀(#s-title) 아래 [Preview 필 + 타이머 링] 가로 행. 시범 5초 카운트다운.
     // (BK_A3 스쿼트 = 러닝 A2/A3와 동일 관찰5초→따라하기 UI)
     const row = document.createElement('div'); row.id = 'prev-row';
