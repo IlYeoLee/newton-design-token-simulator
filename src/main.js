@@ -2191,9 +2191,9 @@ void main(){
     BK_A2: { src: 'ready-view/assets/bk_highknee.webm', cropOff: 0.0, cropScale: 1.0, w: 0.9, h: 0.9, fwd: 0.10 },   // 무릎 들기
     // 훈련 관찰 공통 — 이게진짜.mp4(그린스크린 정면 로우 드리블) 핑퐁 베이크(_pp, ffmpeg reverse concat)
     BK_B1: { src: 'bhandle_pp.mp4', cropOff: 0.0, cropScale: 1.0, w: 0.42, h: 0.75, fwd: 0.10 },   // 소스 720x1280 — 9:16 유지(정사각은 세로 눌림)
-    BK_B2: { src: 'stepback_pp.mp4', cropOff: 0.0, cropScale: 1.0, w: 1.05, h: 0.61, fwd: 0.10 },   // 소스 720x1280 — 9:16 유지(정사각은 세로 눌림)
-    BK_B4: { src: 'stepback_pp.mp4', cropOff: 0.0, cropScale: 1.0, w: 1.05, h: 0.61, fwd: 0.10 },
-    BK_B3: { src: 'stepback_pp.mp4', cropOff: 0.0, cropScale: 1.0, w: 1.05, h: 0.61, fwd: 0.10 },   // 소스 720x1280 — 9:16 유지(정사각은 세로 눌림)
+    BK_B2: { src: 'stepback_pp.mp4', cropOff: 0.0, cropScale: 1.0, w: 1.04, h: 0.87, fwd: 0.10 },   // 소스 720x1280 — 9:16 유지(정사각은 세로 눌림)
+    BK_B4: { src: 'stepback_pp.mp4', cropOff: 0.0, cropScale: 1.0, w: 1.04, h: 0.87, fwd: 0.10 },
+    BK_B3: { src: 'stepback_pp.mp4', cropOff: 0.0, cropScale: 1.0, w: 1.04, h: 0.87, fwd: 0.10 },   // 소스 720x1280 — 9:16 유지(정사각은 세로 눌림)
     BK_A3: { src: 'ready-view/assets/bk_squat.webm',    cropOff: 0.0, cropScale: 1.0, w: 0.9, h: 0.9, fwd: 0.10 },   // 스쿼트
   };
   const _coaches = {};   // stageId → { video, plane, _fwd }
@@ -2247,7 +2247,7 @@ void main(){
           vec3 col = lut(T) * mEro * 1.12;
           float cl = dot(col, vec3(0.299, 0.587, 0.114));
           col = clamp(mix(vec3(cl), col, uSat), 0.0, 1.0);   // 채도 = 마크 LUT와 같은 FXP.sat 소스(인물만 따로 놀던 1.32 상수 은퇴)
-          float alpha = mEro * 0.95 * smoothstep(0.0, 0.22, uv.y);
+          float alpha = mEro * 0.95;   // 하단 페더 제거(유저) — 발끝까지 또렷하게
           gl_FragColor = vec4(col, alpha);
         }`,
     });
