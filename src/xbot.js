@@ -607,6 +607,15 @@ export class XBot {
       if (!this._legSnap || this._legSnap.key !== key) {
         this._legSnap = { key, q: {}, yaw: this.model.rotation.y };   // 요까지 스냅샷 — lockYaw가 프레임마다
         for (const n of LEGS) { const b = this.model.getObjectByName('mixamorig' + n); if (b) this._legSnap.q[n] = b.quaternion.clone(); }
+        // 크라우치 강화(유저: 스쿼트처럼 더 굽히고 넓게) — 스냅샷에 직접 굽힘·벌림을 굽는다.
+        //   축 규약: hip X+=굴곡·Z±=벌림(L+/R−) · Leg X−=무릎 · Foot X+=접지 보상 (전부 기존 실측)
+        const D3 = Math.PI / 180;
+        const mul = (n, ax, deg) => { const q = this._legSnap.q[n]; if (q) q.multiply(new THREE.Quaternion().setFromAxisAngle(ax, deg * D3)); };
+        const AX = new THREE.Vector3(1, 0, 0), AZ = new THREE.Vector3(0, 0, 1);
+        mul('LeftUpLeg', AZ, 9); mul('RightUpLeg', AZ, -9);
+        mul('LeftUpLeg', AX, 14); mul('RightUpLeg', AX, 14);
+        mul('LeftLeg', AX, -22); mul('RightLeg', AX, -22);
+        mul('LeftFoot', AX, 10); mul('RightFoot', AX, 10);
       }                                                               // 루트를 돌리면 얼린 다리가 호를 그림(실측 0.95m)
       for (const n of LEGS) { const b = this.model.getObjectByName('mixamorig' + n); const q = this._legSnap.q[n]; if (b && q) b.quaternion.copy(q); }
       this.model.rotation.y = this._legSnap.yaw;
