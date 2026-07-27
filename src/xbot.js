@@ -323,10 +323,11 @@ export class XBot {
 
   /** 팔 전체를 중립(늘어뜨림)으로 덮어쓰기 — 모캡 클립의 어색한 팔만 무력화(다리는 실측 유지).
       대상 클립: _armNeutralClips (예: cmu144_17 교대 런지 — 유저: '손만 자연스럽게') */
-  _relaxArms() {
+  _relaxArms(side) {   // side 'L'|'R' = 그쪽 팔만 (B1: 오른손 드리블 유지, 왼팔만 축 내림)
     if (!this._neutralPose) return;
     const t = this._breathT || 0;
     for (const n of ['mixamorigLeftShoulder', 'mixamorigRightShoulder', 'mixamorigLeftArm', 'mixamorigRightArm', 'mixamorigLeftForeArm', 'mixamorigRightForeArm']) {
+      if (side && !n.includes(side === 'L' ? 'Left' : 'Right')) continue;
       const b = this.model.getObjectByName(n), q = this._neutralPose[n];
       if (!b || !q) continue;
       b.quaternion.copy(q);
@@ -582,6 +583,7 @@ export class XBot {
       this._lockInPlace?.();
     }
     if (this._armNeutralClips?.has(key)) this._relaxArms();   // 팔만 중립 — 다리는 실측 유지 (유저: '손만 자연스럽게')
+    else if (this.relaxLeftArm) this._relaxArms('L');   // B1 로우 드리블 — 왼팔만 자연 축 내림 (유저: 오른손 드리블, 반대손 내리기)
     if (this._groundedClips?.has(key)) { this.model.position.y = 0; this._yOff = undefined; this.model.updateMatrixWorld(true); }
     else this._clampFeet();   // 데모 클립 루트 높이 미보정 → 봇 공중부양(유저: 'x봇이 공중에 떠있는데') 방지
     // 데모 중 공 관리 (playDemo는 여태 공을 안 건드려 이전 live 위치가 멀리 남아있었음 — 유저: '공이 저 멀리').
