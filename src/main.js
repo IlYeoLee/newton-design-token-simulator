@@ -2190,9 +2190,9 @@ void main(){
     BK_A1: { src: 'ready-view/assets/bk_sidebend_pp.webm', cropOff: 0.0, cropScale: 1.0, w: 0.9, h: 0.9, fwd: 0.10 },   // 옆구리 스트레치
     BK_A2: { src: 'ready-view/assets/bk_highknee.webm', cropOff: 0.0, cropScale: 1.0, w: 0.9, h: 0.9, fwd: 0.10 },   // 무릎 들기
     // 훈련 관찰 공통 — 이게진짜.mp4(그린스크린 정면 로우 드리블) 핑퐁 베이크(_pp, ffmpeg reverse concat)
-    BK_B1: { src: 'bhandle_pp.mp4', cropOff: 0.0, cropScale: 1.0, w: 0.9, h: 0.9, fwd: 0.10 },
-    BK_B2: { src: 'bhandle_pp.mp4', cropOff: 0.0, cropScale: 1.0, w: 0.9, h: 0.9, fwd: 0.10 },
-    BK_B3: { src: 'bhandle_pp.mp4', cropOff: 0.0, cropScale: 1.0, w: 0.9, h: 0.9, fwd: 0.10 },
+    BK_B1: { src: 'bhandle_pp.mp4', cropOff: 0.0, cropScale: 1.0, w: 0.55, h: 0.55, fwd: 0.10 },
+    BK_B2: { src: 'bhandle_pp.mp4', cropOff: 0.0, cropScale: 1.0, w: 0.55, h: 0.55, fwd: 0.10 },
+    BK_B3: { src: 'bhandle_pp.mp4', cropOff: 0.0, cropScale: 1.0, w: 0.55, h: 0.55, fwd: 0.10 },
     BK_A3: { src: 'ready-view/assets/bk_squat.webm',    cropOff: 0.0, cropScale: 1.0, w: 0.9, h: 0.9, fwd: 0.10 },   // 스쿼트
   };
   const _coaches = {};   // stageId → { video, plane, _fwd }
@@ -2306,8 +2306,11 @@ void main(){
         if (co.video.paused) co.video.play().catch(() => {});
         // 영상 실제 프레임이 들어오기 전엔 숨김 — 검은/균일 텍스처가 크로마키 통과 못 해
         // 빨간 방사형 사각형으로 0.x초 깜빡이던 것 방지(유저). readyState≥3(HAVE_FUTURE_DATA)+재생 시작 후.
-        co.plane.visible = co.video.readyState >= 3 && co.video.currentTime > 0.03
-                        && (id !== 'BK_A1' || _coachSeekId === id);   // 시크 전 프레임은 보여주지 않는다
+        // 루프 순간 currentTime이 0으로 되감겨 매 루프 1~2프레임 숨김 → 깜빡임(유저). 첫 표시 후 래치.
+        const coLive = co.video.readyState >= 3 && co.video.currentTime > 0.03
+                    && (id !== 'BK_A1' || _coachSeekId === id);   // 시크 전 프레임은 보여주지 않는다
+        if (coLive) co._live = true;
+        co.plane.visible = !!co._live;
         co.plane.material.uniforms.uTime.value = performance.now() / 1000;
         // 채도는 마크 LUT와 같은 소스(FXP.sat)에서 — 인물·발자국 룩 통일(슬라이더 하나가 둘 다 이동)
         co.plane.material.uniforms.uSat.value = 1.0 + (FXP.sat ?? 1) * 0.32;
