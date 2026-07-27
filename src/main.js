@@ -4090,7 +4090,11 @@ void main(){
         _phase = SEG[0] + (session.t % (SEG[1] - SEG[0]));
       }
       else if (session.stage === 'BK_B1') {
-        if (session.bkB1Setup) {
+        if (session.bkB1EyesUp && (session.bkB1P2t ?? 9) < 2.6) {
+          // 10회 완료 직후: 허리 펴고 정면 보며 잠깐 정지(음성 듣는 동안) — 공 자동 숨김(idle)
+          _clip = 'idle';
+          xbot.stanceWiden = 0;
+        } else if (session.bkB1Setup) {
           // 셋업 시연(유저): 공 빼고(idle은 공 게이트 미통과 → 자동 숨김) 자연 서기에서
           //   다리를 '실제로' 벌린다 — 절차적 램프(0.8s 대기 → 2.2s에 걸쳐 어깨너비+)
           _clip = 'idle';
