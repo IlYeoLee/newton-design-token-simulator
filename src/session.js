@@ -835,16 +835,19 @@ export class Session {
       const gg = this._mk(id);
       const K = big ? 1.25 : 1;   // 정속·실전은 굵고 크게 — 주변시 인지(시선 정면 유도)
       const m = (x, r) => floorRing(x, SBZ, r * K, (r + 0.028) * K, BRAND.coral, 0.18);   // 얇은 림(러닝 판정 마크 규격)
-      const H = { mL: m(-0.55, 0.13), mC: m(0, 0.10), mR: m(0.55, 0.13),
+      const H = { mL: m(0.03, 0.13), mC: m(0.36, 0.10), mR: m(0.02, 0.13),   // 링은 액센트(착지 중심·플랜트·시작 중심)
         rise: floorRing(-0.55, SBZ, 0.21 * K, 0.25 * K, BRAND.red, 0),
         gh: new FootMark('right').at(-0.55, SBZ, 0.62),   // 고스트 = 착지 오차 잔상
         beat: 0, _beatT: 0, _popT: -9, _prevHy: 0, count: 0, _side: -1, _ghT: -9 };
       H.gh.op(0);
-      // 착지·시작 발자국 페어(어깨너비) — 와이어프레임대로 마크 옆에 붙는다
-      const F = (x, foot) => new FootMark(foot).at(x, SBZ + 0.03, 0.58 * K);
-      H.fLl = F(-0.69, 'left'); H.fLr = F(-0.41, 'right');   // 착지 페어
-      H.fRl = F(0.41, 'left');  H.fRr = F(0.69, 'right');    // 시작 페어
-      H.fC = F(0, 'right');                                   // 플랜트 = 리드 발 하나
+      // 발자국 좌표 = 레퍼런스 영상 MediaPipe 실측(골반 기준 상대, 미터). 임의값 아님.
+      //   측정: 67프레임 / 스텝백 1사이클. 발 수평속도로 접지 구간을 골라 좌표를 읽었다.
+      //   시작 스탠스 L(-0.17) R(+0.22) 폭 0.39m → 착지 스탠스 L(-0.40) R(+0.46) 폭 0.86m
+      //   플랜트(리드 발 최대 전개) R(+0.36). 깊이는 MP z를 씬 z로 부호 반전해 반영.
+      const F = (x, dz, foot) => new FootMark(foot).at(x, SBZ + dz, 0.58 * K);
+      H.fLl = F(-0.40, 0.03, 'left'); H.fLr = F(0.46, -0.20, 'right');   // 착지 페어(폭 0.86m)
+      H.fRl = F(-0.17, 0.06, 'left'); H.fRr = F(0.22, -0.05, 'right');   // 시작 페어(폭 0.39m)
+      H.fC = F(0.36, -0.10, 'right');                                     // 플랜트 = 리드 발
       for (const k of ['fLl', 'fLr', 'fRl', 'fRr', 'fC']) { H[k].ghost(); H[k].op(0.16); }   // 대기 = Locked 고스트(crisp 실루엣)
       gg.add(H.mL, H.mC, H.mR, H.rise, H.gh.group,
         H.fLl.group, H.fLr.group, H.fRl.group, H.fRr.group, H.fC.group);
@@ -2164,8 +2167,9 @@ export class Session {
       } else { H.rise.setOp?.(0); H.rise.scale.setScalar(1); }
       // 판정 — 착지(측면 변위) + 릴리즈(골반 상승)
       const hy = pr?.hips?.y ?? 1;
-      if (H.beat >= 2 && !H._landed && Math.abs(ex - landX) < 0.26) {
-        H._landed = true; H._landT = this.t; H._landErr = ex - landX;
+      const spread = pr ? Math.abs(pr.footR.x - pr.footL.x) : 0;
+      if (H.beat >= 2 && !H._landed && spread > 0.60) {   // 실측 착지 폭 0.86m의 70%
+        H._landed = true; H._landT = this.t; H._landErr = spread - 0.86;
         const wp = new THREE.Vector3(); H.mL.getWorldPosition(wp); this.onPress?.(wp, false);
         H.gh.at(ex, H.mL.position.z, 0.62); H.gh.ghost(); H._ghT = this.t;   // 고스트 = 실제 착지 위치
       }
