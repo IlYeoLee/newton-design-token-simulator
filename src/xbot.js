@@ -581,6 +581,23 @@ export class XBot {
       if (this.mode === 'basketball' && /dribble|crossover|cmu124_0[3-6]|cmu86_14/.test(key)) this._dribbleBall(this._demoT || 0, dt);
       else this.ball.visible = false;
     }
+    // 다리 고정 노브(legLock, main B2 구동) — 크로스오버 연습은 하체 고정·무릎 굽힘이 기본(유저).
+    // 프리스타일 클립은 발이 따라 움직이므로, 진입 프레임의 다리 포즈를 스냅샷해 매 프레임 하체만
+    // 덮어쓴다(상체·팔은 클립 그대로). stanceWiden·_clampFeet은 이 위에 그대로 얹힌다.
+    if (!this.legLock) this._legSnap = null;
+    else if (key) {
+      // Hips 회전 포함 — 다리만 얼리면 힙 롤·피치가 얼린 다리를 통째로 흔든다(실측 발 표류 0.63m).
+      //   상체 스웨이는 척추 체인이 담당하므로 힙 회전 고정에도 살아 있다.
+      const LEGS = ['Hips', 'LeftUpLeg', 'LeftLeg', 'LeftFoot', 'LeftToeBase', 'RightUpLeg', 'RightLeg', 'RightFoot', 'RightToeBase'];
+      if (!this._legSnap || this._legSnap.key !== key) {
+        this._legSnap = { key, q: {}, yaw: this.model.rotation.y };   // 요까지 스냅샷 — lockYaw가 프레임마다
+        for (const n of LEGS) { const b = this.model.getObjectByName('mixamorig' + n); if (b) this._legSnap.q[n] = b.quaternion.clone(); }
+      }                                                               // 루트를 돌리면 얼린 다리가 호를 그림(실측 0.95m)
+      for (const n of LEGS) { const b = this.model.getObjectByName('mixamorig' + n); const q = this._legSnap.q[n]; if (b && q) b.quaternion.copy(q); }
+      this.model.rotation.y = this._legSnap.yaw;
+      this.model.updateMatrixWorld(true);
+      this._clampFeet?.();
+    }
     // 스탠스 벌림 노브(stanceWiden 0..1, main B1 구동) — 클립 스탠스가 어깨보다 좁아(실측 0.56m→)
     // 기본기 시범이 안 됨(유저·wikiHow 기본기: 발은 어깨보다 넓게). 힙 외전 ±7도.
     // 부호는 라이브 실측: z(-,+)는 좁힘(0.56→0.42), z(+,-)가 벌림.

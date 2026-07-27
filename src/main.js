@@ -4041,6 +4041,7 @@ void main(){
       if (session.stage !== 'A2' && xbot.group.scale.x !== 1) xbot.group.scale.x = 1;   // A2 미러 잔류 방지
       xbot.stanceWiden = /^BK_B[123]$/.test(session.stage || '') ? 1 : 0;   // 핸들 스쿨 전체 — 굽히고 넓힌 스탠스 유지(유저)
       xbot.crossGuard = session.stage === 'BK_B2' ? 1 : 0;   // 크로스오버 가드 팔(반대손 앞-아래 실드)
+      xbot.legLock = session.stage === 'BK_B2';   // 크로스오버 = 하체 고정(무릎 굽힌 채) — 발 셔플 제거(유저)
       // 세션 데모(비실전) 공통: CMU 클립이 몸을 돌려도 봇은 정면 유지(유저 원칙)
       xbot.lockYaw = session.active && !session.isLive && /^BK_[AB]/.test(session.stage || '');
       let _clip = demoClipFor(session.sport, session.stage);
