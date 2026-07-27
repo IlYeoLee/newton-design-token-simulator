@@ -2340,6 +2340,7 @@ void main(){
           if (_stepId !== id) {   // 단계 진입 = 루프 카운터 리셋 + 구간 처음부터
             _stepId = id; _stepLoops = 0; _stepFrac = 0;
             co._holdUntil = 0; try { co.video.currentTime = a; } catch (e) {}
+            co._blankUntil = now + 200;   // 진입 직후 디코딩 공백 가드
           }
           // 링은 '재생 + 끝프레임 정지'를 하나의 한 바퀴로 본다 — 100%에서 1초 멈췄다 뚝 되감기면
           //   회차 사이가 끊겨 보인다(유저). 정지 구간에도 남은 각도를 채워 다음 재생 시작과 정확히 맞물린다.
@@ -2357,15 +2358,16 @@ void main(){
             if (now >= co._holdUntil) {
               co._holdUntil = 0; _stepLoops += 1;   // 되감기 시점 = 링이 한 바퀴를 다 돈 순간 = 1회 완료
               try { co.video.currentTime = a; } catch (e) {} co.video.play().catch(() => {});
+              co._blankUntil = now + 140;   // 디코딩 공백 = 붉은 판 버그 — 그 사이 숨김
             } else co.video.pause();
           } else if (co.video.currentTime >= b - 0.033) {
             // 30fps라 정확히 b에서 멈출 수 없다 — 한 프레임 앞서 잡고 정지. 시킹은 하지 않는다:
             //   시킹 중엔 비디오 텍스처가 비어 균일색이 되고, 크로마 마스크를 통과 못 해
             //   판 전체가 붉게 칠해졌다(유저 스샷). 현재 프레임 그대로 얼리는 게 안전하다.
             if (HOLD > 0) { co._holdUntil = now + HOLD * 1000; co.video.pause(); }
-            else { _stepLoops += 1; try { co.video.currentTime = a; } catch (e) {} }   // 실전 = 정지 없이 바로 이어서
+            else { _stepLoops += 1; try { co.video.currentTime = a; } catch (e) {} co._blankUntil = now + 140; }   // 실전 = 정지 없이 바로 이어서
           } else {
-            if (co.video.currentTime < a - 0.05) { try { co.video.currentTime = a; } catch (e) {} }
+            if (co.video.currentTime < a - 0.05) { try { co.video.currentTime = a; } catch (e) {} co._blankUntil = performance.now() + 140; }
             if (co.video.paused) co.video.play().catch(() => {});
           }
         }
@@ -2377,7 +2379,9 @@ void main(){
         const coLive = co.video.readyState >= 3 && !co.video.seeking && co.video.currentTime > 0.03
                     && (id !== 'BK_A1' || _coachSeekId === id);   // 시크 전 프레임은 보여주지 않는다
         if (coLive) co._live = true;
-        co.plane.visible = !!co._live;
+        // 실전은 영상도 화면에서 뺀다 — 타이밍 소스로만 돌린다(유저).
+        //   시크·되감기 직후엔 텍스처가 비어 크로마키를 통과, 판 전체가 LUT 붉은색이 된다 → 그 사이 숨김.
+        co.plane.visible = !!co._live && id !== 'BK_C2' && performance.now() >= (co._blankUntil || 0);
         co.plane.material.uniforms.uTime.value = performance.now() / 1000;
         // 채도는 마크 LUT와 같은 소스(FXP.sat)에서 — 인물·발자국 룩 통일(슬라이더 하나가 둘 다 이동)
         co.plane.material.uniforms.uSat.value = 1.0 + (FXP.sat ?? 1) * 0.32;
@@ -5263,7 +5267,8 @@ void main(){
     // ── 바닥 대지 프레임 정합 (러닝/농구) — WebGL 평면, 직사각형, x봇에 자동 가려짐 ──
     const isFloorSport = session.active && (session.sport === 'running' || session.sport === 'basketball');
     // 실전 라이브 러닝에서도 플로어 프레임(타이틀·큐·판정 헤더) 유지 — 껐더니 러닝 UI·판정토큰이 사라져 화면이 비었음(유저 되돌림).
-    const fView = isFloorSport ? FLOOR_FRAMES[session.curStage?.id] : null;
+    // 실전(BK_C2)은 판정 토큰만 남긴다(유저) — 지면 프레임(타이틀·캡션·도트·프리뷰 타이머) 미표시.
+    const fView = (isFloorSport && session.curStage?.id !== 'BK_C2') ? FLOOR_FRAMES[session.curStage?.id] : null;
     const fp = rig._fp;   // 무릎 투사 풋프린트 (rig.update가 매 프레임 세팅)
     floorObj.visible = !!fView && !!fp;
     // 👁 커버리지 채움판(footFill, 원시 빔 추종)과 플로어 프레임(저역통과 앵커)이 같은 자리에
