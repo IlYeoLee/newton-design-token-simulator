@@ -852,6 +852,8 @@ export class Session {
     const fp = (x, dz, foot) => new FootMark(foot).at(x, SBZ + dz, 0.62);
     const sL1 = fp(-0.69, 0.02, 'left'), sR1 = fp(-0.41, 0.02, 'right');   // 착지 페어(어깨너비)
     const sL2 = fp(0.41, 0.02, 'left'), sR2 = fp(0.69, 0.02, 'right');     // 시작 페어
+    // 따라하기(1/4) 발자국 안 L·R 글리프 — 숫자 슬롯과 같은 규약(발이 기울면 같이 기운다)
+    const sn2L = attachMarkNum(sL2, 'L', false), sn2R = attachMarkNum(sR2, 'R', true);
     const rise = floorRing(-0.55, SBZ, 0.21, 0.25, BRAND.red, 0);           // 상승 링(비트④=슛)
     const cL = new FootMark('left').at(-0.1, SBZ + 0.52, 0.42), cR = new FootMark('right').at(0.1, SBZ + 0.52, 0.42);
     cL.ghost(); cR.ghost();   // 커서 = Locked 고스트 톤(목표와 구분)
@@ -860,7 +862,7 @@ export class Session {
     const b2aD = floorArrow(-0.60, SBZ + 0.45, 180, BRAND.sand, 0.30);
     const b2aU = floorArrow(0.60, SBZ + 0.45, 0, BRAND.sand, 0.30);
     b2aD._gain = 0; b2aU._gain = 0;
-    this.bkB2x = { mL, mC, mR, sL1, sR1, sL2, sR2, rise, cL, cR, aD: b2aD, aU: b2aU,
+    this.bkB2x = { mL, mC, mR, sL1, sR1, sL2, sR2, numL: sn2L, numR: sn2R, rise, cL, cR, aD: b2aD, aU: b2aU,
       beat: 0, _dwell: 0, _beatT: 0, _popT: -9, _prevHy: 0 };
     g.add(mL, mC, mR, sL1.group, sR1.group, sL2.group, sR2.group, rise, cL.group, cR.group, b2aD, b2aU);
 
@@ -2109,6 +2111,7 @@ export class Session {
       if (!this._followLatch) {   // 관찰 — 실루엣+Preview만, 가이드 숨김
         for (const k of ['mL', 'mC', 'mR']) H[k].setOp?.(0);
         for (const k of ['sL1', 'sR1', 'sL2', 'sR2']) H[k].op(0);
+        H.numL.visible = false; H.numR.visible = false;   // 글리프는 자체 재질 — op(0)로 안 꺼진다
         H.rise.setOp?.(0); H.cL.op(0); H.cR.op(0);
         this.demoActive = true;
         FMU('먼저 보세요 — 스텝백', CS.prism);
@@ -2135,6 +2138,8 @@ export class Session {
       H.sL2.countdown(1); H.sR2.countdown(1);
       H.sL2.at(pL.x, pL.z, 0.62 + 0.04 * bL); H.sL2.op(0.80 + 0.20 * bL);
       H.sR2.at(pR.x, pR.z, 0.62 + 0.04 * bR); H.sR2.op(0.80 + 0.20 * bR);
+      placeMarkNum(H.numL); placeMarkNum(H.numR);   // 앵커·스케일은 매 프레임 룩 값에서
+      H.numL.visible = true; H.numR.visible = true;
       for (const k of ['sL1', 'sR1']) H[k].op(0);
       // 링은 위치만 따라간다(판정 좌표·아래 getWorldPosition이 쓴다). 표시는 발자국만 — 겹쳐 보여 뺐다(유저).
       H.mL.position.set(pL.x, H.mL.position.y, pL.z); H.mL.setOp?.(0);
