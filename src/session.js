@@ -490,7 +490,7 @@ const sbV = v => {
 /** 영상 시각 vt의 두 발 상태. holdAirborne = 컷에서 아직 다 옮기지 않은 발은 이전 자리 유지 */
 function sbPoseAt(vt, holdAirborne) {
   let i = 0;
-  while (i < SB_POSE.length - 2 && SB_POSE[i + 1].t <= vt) i++;
+  while (i < SB_POSE.length - 2 && SB_POSE[i + 1].t <= vt - 1e-6) i++;   // 컷과 키가 같은 시각이면 '도착한' 구간을 유지 — 안 그러면 착지 이벤트를 건너뛴다
   const a = SB_POSE[i], b = SB_POSE[i + 1];
   let f = Math.max(0, Math.min(1, (vt - a.t) / Math.max(0.01, b.t - a.t)));
   const one = (side) => {
@@ -635,6 +635,8 @@ export class Session {
       fm.plane.rotation.z = 0;   // 스텝백 스탠스는 발이 평행(유저) — 기본 ±8° 벌림 해제
       const p = this._beamLocal(q.u, q.v, H.mL);
       // 착지 순간 래치 — 플랜트 시각을 지나면 1회 블룸 + 파문(따닥)
+      // 영상이 되감겨 그 발이 다시 출발점으로 가면 래치를 푼다 — 안 그러면 파문이 첫 루프에만 뜬다.
+      if (q.step && q.f < 0.2 && st[side] === q.plantT) { st[side] = -9; st['p' + side] = -9; }
       // Success = 그 발을 옮겨 지면에 닿은 순간(유저 정의). 그 자리에 작은 파문 1회.
       if (q.step && st[side] !== q.plantT && q.f >= 0.999) {
         st[side] = q.plantT; st['p' + side] = this.t;
