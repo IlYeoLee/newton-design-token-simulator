@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import bkStepContacts from '../assets/mocap/contacts-cmu_crossover_shot.json';   // 접지 자동 추출 산출물 (scripts/extract_contacts.mjs)
 import { WALL_Z } from './scene.js';
 import { lutColor, GLYPHS, drawGlyph, drawNumber, footSlot, footSDFTexture, FXP } from './fxlut.js';
-import { MARK_NUM, drawStanceBox, drawPunchLine, drawApproachRing, drawTrajectory, drawRotate, drawStemArrow } from './fx-core.js';
+import { MARK_NUM, drawStanceBox, drawPunchLine, drawApproachRing, drawTrajectory, drawRotate, drawStemArrow, drawCurveArrow } from './fx-core.js';
 import { makeMarkFXMaterial, makeLaneFXMaterial, makeFlowArrow, tickFlowArrows } from './tokens.js';
 
 // 피그마 CTA 임포트 — StageCard/베이스 컴포넌트의 cta 노드를 다운로드한 에셋(150×44 원 비율).
@@ -364,6 +364,7 @@ function tickPrims(t) {
     else if (p.kind === 'approachRing') drawApproachRing(g, 256, P, look, t, livePrimEnv(), p.prog);
     else if (p.kind === 'trajectory') drawTrajectory(g, 256, P, look, t, livePrimEnv(), p.prog, p.pts);
     else if (p.kind === 'rotate') drawRotate(g, 256, P, look, t, livePrimEnv(), p.prog);
+    else if (p.kind === 'curveArrow') drawCurveArrow(g, 256, 256, p.pts || [[0.5, 0.9], [0.5, 0.1]], t, livePrimEnv(), { prog: p.prog });
     else drawPunchLine(g, 256, P, look, t, livePrimEnv(), p.pts, p.prog);
     p.tex.needsUpdate = true;
   }
@@ -426,9 +427,12 @@ const BK_ZOOM = 2.2;
 // 농구 워밍업 = 동적 웜업 3동작(하나의 실제 루틴 cmu13_30을 구간별로 반복).
 // 봇은 각 구간 루프(main.js phase), 코치 영상은 COACH_CFG(BK_A*)가 바닥 투사, 지면은 반복 카운트.
 // seg = auto_cmu13_30 클립 시간구간(초), per = 1회 주기, reps = 목표 횟수.
-const BK_SQUAT_REPS = 6;   // A3 스쿼트 목표 — 지면 숫자는 남은 횟수로 카운트다운(6→0, 유저)
+// 워밍업 반복 규칙(정본, 유저): 동작마다 목표 횟수를 정하고 지면 숫자는 '남은 횟수'를 카운트다운,
+// 0이 되면 다음 스테이지로 자동 진행. A2는 양발 합계 기준(왼·오른 번갈아 총 N회).
+const BK_REPS = { BK_A1: 8, BK_A2: 10, BK_A3: 10 };
+const BK_SQUAT_REPS = BK_REPS.BK_A3;
 const BK_STR = {
-  BK_A1: { per: 2.4, reps: 4,  side: true, noMark: true, fm: '옆구리 스트레치', say: '팔을 위로 뻗어 옆으로 쭉쭉. 왼쪽 오른쪽 번갈아 허리를 늘려요.' },
+  BK_A1: { per: 2.4, reps: BK_REPS.BK_A1, side: true, noMark: true, fm: '옆구리 스트레치', say: '팔을 위로 뻗어 옆으로 쭉쭉. 왼쪽 오른쪽 번갈아 허리를 늘려요.' },
   // BK_A2(니 드라이브)는 러닝 A3(하이니) 컴포넌트 전용 핸들러 — bkA2hk
   // BK_A3(스쿼트)는 러닝 A2 방식(관찰5초→따라하기 홀드필+카운트) 별도 핸들러 — bkSquat
 };
@@ -696,19 +700,29 @@ export class Session {
       m._g = c.getContext('2d'); m._tex = tex; return m;
     };
     const ar2L = mkLift2(-0.46), ar2R = mkLift2(0.46);
-    const mkTraj2 = (x, mirror) => {
-      const m = primPanel('trajectory', 0.5, false);
-      m.position.set(x, 0.014, -2.18);
-      // 트위스트 니: 코멧이 바깥→안쪽으로 크로스바디 활강(반대손 터치 뉘앙스 = 비틀림)
-      m._prim.pts = [[mirror ? 0.34 : -0.34, -0.72], [mirror ? -0.16 : 0.16, 0.02], [0, 0.8]];
-      m._prim.P = { width: 1.5, tail: 1.2, taper: 1.6 };
+    // 궤적 = 유저 가이드 스케치: 반대편 지면의 작은 원에서 출발 → 곡선 → 들린 발마크로 촉이 들어간다.
+    //   패널(0.9m)은 출발 원과 마크를 모두 덮게 배치하고, 캔버스 좌표는 월드 대응으로 계산해 넣는다.
+    //   (예전 코멧 리본은 스케치와 딴판이었음 — 유저 지적)
+    const A2SIZE = 0.9, A2CZ = -2.05;
+    const mkTraj2 = (side) => {                       // side: -1 왼발(마크 x −0.17) · +1 오른발
+      const m = primPanel('curveArrow', A2SIZE, false);
+      m.position.set(0, 0.014, A2CZ);
+      const w2c = (wx, wz) => [0.5 + (wx - 0) / A2SIZE, 0.5 + (wz - A2CZ) / A2SIZE];   // 월드 → 0..1 캔버스
+      const dot = w2c(-side * 0.30, -1.95);           // 출발 원 = 반대편 지면
+      const mid = w2c(-side * 0.02, -2.26);           // 크로스바디로 휘는 중간점
+      const mark = w2c(side * -0.17 + side * 0.10, -2.30);   // 들린 발마크(정점 위치)
+      m._prim.pts = [dot, mid, mark];
       m._prim.prog = 0;
       return m;
     };
-    const tj2L = mkTraj2(-0.17, false), tj2R = mkTraj2(0.17, true);
+    const tj2L = mkTraj2(-1), tj2R = mkTraj2(1);
+    // 궤적 출발점 = 작은 원(유저 가이드 스케치의 시작 동그라미). 올라가는 발의 반대쪽 지면에서 출발해
+    // 몸을 가로질러 들린 발마크로 흘러간다(크로스바디). 활성 쪽만 켠다.
+    const dotL = floorRing(0.30, -1.95, 0.030, 0.042, BRAND.sand, 0.0);
+    const dotR = floorRing(-0.30, -1.95, 0.030, 0.042, BRAND.sand, 0.0);
     this.bkA2hk = { fmL: k2L, fmR: k2R, numL: k2nL, numR: k2nR, arL: ar2L, arR: ar2R, tjL: tj2L, tjR: tj2R,
-      sec: 0, cntL: 0, cntR: 0, _lastLeft: undefined, _pop: 0 };
-    g.add(k2L.group, k2R.group, ar2L, ar2R, tj2L, tj2R);
+      dotL, dotR, sec: 0, cntL: 0, cntR: 0, _lastLeft: undefined, _pop: 0 };
+    g.add(k2L.group, k2R.group, ar2L, ar2R, tj2L, tj2R, dotL, dotR);
     // A3 스쿼트(유저 2안) = 발자국 없이 중앙 링 + 깊이 채움 아크 + 남은 횟수 카운트다운.
     //   발이 제자리 고정이라 발마크는 정보 없음 → 깊이·횟수에 집중.
     //   크기는 룩 시스템 원형 토큰 표준(0.20/0.225) 그대로 — 확대·깊이 펄스는 유저가 반려(흰 테두리 펄스).
@@ -1219,6 +1233,7 @@ export class Session {
     this.liveSpeed = st.boost ? 1.18 : 1;
     if (this.xbot) this.xbot.decelK = 0;   // C5 감속 잔재 제거 (다운시프트·FIN 진입 안전망)
     this._bkStrId = null;   // 워밍업 스트레칭 재진입 리셋 (스테이지 전환 시 홀드 카운트 0)
+    this.repLeft = null; this.repTotal = null;   // 반복 진행바 — 스테이지마다 초기화
     if (this._c3Skill != null && this.judge) { this.judge.skill = this._c3Skill; this._c3Skill = null; }   // C3 중 탭 스킵 시 skill 0.35 영구 잠김 방지
     this.bobY = 0;
     for (const id in this.G) this.G[id].visible = false;
@@ -1769,13 +1784,14 @@ export class Session {
         if (left !== S._shown) { redrawFootNum(S.num, left); S._shown = left; S._popT = this.t; }
         const pk = Math.min(1, Math.max(0, (this.t - (S._popT ?? -9)) / 0.26));
         S.num.scale.setScalar(1 + 0.5 * (1 - pk) * (1 - pk));
+        this.repLeft = left; this.repTotal = BK_SQUAT_REPS;
         FMU(`스쿼트 남은 ${left}회`, left === 0 ? CS.prism : CS.sand);
         if (left === 0 || this.t >= 32) { this.next(); return; }   // 안전장치: 32초 캡
       }
     } else if (id === 'BK_A2') {
       // 니 드라이브 = 러닝 A3(하이니) 컴포넌트 이식: 발높이 프로브→궤적 코멧→정점 카운트, 좌우 교대.
       //   트위스트 = 코멧 크로스바디(빌드 pts) + 올라간 발이 중앙으로 쏠림(x이동).
-      const PER_FOOT = 8, MAXSEC = 36;
+      const TOTAL = BK_REPS.BK_A2, MAXSEC = 36;   // 양발 합계(유저) — 남은 횟수 차감식
       const H = this.bkA2hk;
       const dt = Math.max(0, this.t - (this._bkA2t ?? this.t));
       if ((this._bkA2t ?? 0) > this.t) { H.sec = 0; H.cntL = 0; H.cntR = 0; H._lastLeft = undefined; H._shownL = -1; H._shownR = -1; H._pL = 0; H._pR = 0; }
@@ -1800,7 +1816,7 @@ export class Session {
       H._pR = (H._pR ?? 0) + (Math.min(1, rY / 0.30) - (H._pR ?? 0)) * aUp;
       const apex = (isL2, p, prev, fm) => {
         if (p > 0.88 && prev <= 0.88) {
-          if (isL2) H.cntL = Math.min(PER_FOOT, H.cntL + 1); else H.cntR = Math.min(PER_FOOT, H.cntR + 1);
+          if (isL2) H.cntL += 1; else H.cntR += 1;   // 합계 카운트다운(TOTAL)이 종료 판정
           H._pop = 1; H._lastLeft = isL2;
           const wp = new THREE.Vector3(); fm.group.getWorldPosition(wp); this.onPress?.(wp, false);
         }
@@ -1819,6 +1835,8 @@ export class Session {
       const st3 = FXP.a3Arrow || 4, useTraj = st3 === 4;
       H.arL.visible = !useTraj; H.arR.visible = !useTraj;
       H.tjL.visible = useTraj; H.tjR.visible = useTraj;
+      // 출발 원 — 발이 올라가는 동안만 은은하게(가이드 스케치)
+      H.dotL.setOp?.(0.15 + 0.55 * H._pL); H.dotR.setOp?.(0.15 + 0.55 * H._pR);
       if (useTraj) { H.tjL._prim.prog = H._pL; H.tjR._prim.prog = H._pR; }
       else {
         const nowT = performance.now() / 1000;
@@ -1828,11 +1846,13 @@ export class Session {
           drawLiftCue(H.arR._g, st3, nowT + 0.4, leftNow ? 0.15 : H._pop); H.arR._tex.needsUpdate = true;
         }
       }
-      if (H.cntL !== H._shownL) { redrawFootNum(H.numL, H.cntL); H._shownL = H.cntL; }
-      if (H.cntR !== H._shownR) { redrawFootNum(H.numR, H.cntR); H._shownR = H.cntR; }
+      // 남은 횟수(양발 합계) 카운트다운 — 두 발 마크에 같은 숫자를 띄운다(지금 몇 번 남았는지 하나로 읽힘)
+      const leftA2 = Math.max(0, TOTAL - (H.cntL + H.cntR));
+      if (leftA2 !== H._shownL) { redrawFootNum(H.numL, leftA2); redrawFootNum(H.numR, leftA2); H._shownL = H._shownR = leftA2; }
       H.numL.visible = true; H.numR.visible = true;
-      FMU(`니 드라이브 — 왼 ${H.cntL} · 오른 ${H.cntR} / ${PER_FOOT}`, CS.sand);
-      if ((H.cntL >= PER_FOOT && H.cntR >= PER_FOOT) || H.sec >= MAXSEC) { this.next(); return; }
+      this.repLeft = leftA2; this.repTotal = TOTAL;   // 지면 UI 진행바 소비
+      FMU(`니 드라이브 — 남은 ${leftA2}회`, leftA2 === 0 ? CS.prism : CS.sand);
+      if (leftA2 === 0 || H.sec >= MAXSEC) { this.next(); return; }
     } else if (BK_STR[id]) {
       // 워밍업 동적 3동작(비틀기·하이니·스쿼트). 코치 영상 상시 투사(COACH_CFG) + 지면 반복 카운트.
       const cfg = BK_STR[id], S = this.bkStretch[id];
@@ -1869,7 +1889,9 @@ export class Session {
       // 좌우 표시도 영상 실측 방향과 같은 소스로 (텍스트·화살표·봇 미러가 따로 놀지 않게)
       if (cfg.side) this.bkStrSide = this.bkA1Lean != null ? this.bkA1Lean < 0 : rep % 2 === 0;
       const sideTxt = cfg.side ? (this.bkStrSide ? '왼쪽 · ' : '오른쪽 · ') : '';
-      FMU(`${cfg.fm} · ${sideTxt}${Math.min(cfg.reps, S.count)} / ${cfg.reps}`, S.count >= cfg.reps ? CS.prism : CS.sand);
+      const leftStr = Math.max(0, cfg.reps - S.count);
+      this.repLeft = leftStr; this.repTotal = cfg.reps;
+      FMU(`${cfg.fm} · ${sideTxt}남은 ${leftStr}회`, leftStr === 0 ? CS.prism : CS.sand);
       if (S.count >= cfg.reps) { this.next(); return; }
     } else if (id === 'BK_B1') {
       // 스텝 스쿨 1막 — 드라이브 리듬 스텝: 한 번에 두 걸음(①②)만, 절반 속도 4회 반복.

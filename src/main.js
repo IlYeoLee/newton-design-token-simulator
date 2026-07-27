@@ -2291,7 +2291,10 @@ void main(){
           const dur = co.video.duration || 6.917;
           const FWD = 3.5;                                    // 원본 구간 길이
           const ct = co.video.currentTime % dur;
-          const ot = ct <= FWD ? ct : Math.max(0, dur - ct);   // 역재생 구간 → 원본 시간
+          // 리드 0.28s — 큐는 '지금'이 아니라 '가는 쪽'을 가리켜야 한다(유저: 왼쪽으로 넘어가는 중인데 오른쪽 가리킴).
+          const LEAD = 0.28;
+          let ot = ct <= FWD ? ct : Math.max(0, dur - ct);   // 역재생 구간 → 원본 시간
+          ot = ct <= FWD ? Math.min(FWD, ot + LEAD) : Math.max(0, ot - LEAD);   // 되감기 중엔 시간이 거꾸로 흐름
           let lean = -1;                                      // 실측: 0.00~0.79 왼쪽
           if (ot >= 0.79 && ot < 1.15) lean = 1;              //       0.79~1.15 오른쪽
           else if (ot >= 1.15 && ot < 1.63) lean = -1;        //       1.15~1.63 왼쪽
@@ -3907,6 +3910,7 @@ void main(){
       // B3 컷·감속(드리블 컷 구간 창). 시작 화면(READY)은 러닝과 동일 calm idle(공 없음)
       // 농구 A단계 v5: A1 옆구리 스트레치(hj_sidebend) + A2·A3 = cmu13_30 구간(무릎들기 5.5–9.8s·스쿼트 9.8–14.2s)
       BK_READY: 'idle', BK_A1: 'hj_sidebend', BK_A2: 'auto_cmu13_30', BK_A3: 'auto_cmu13_30',
+      BK_T1: 'jogging', BK_T2: 'jogging',   // 전환 화면 = 제자리 조깅으로 자연스럽게 이어감(유저) — 드리블 폴백 금지
       // B1 시범 = 06_15 드리블→슛(온전한 무브 원테이크), B2 분해 = 06_14 크로스오버+슛 위상잠금
       BK_B1: 'cmu_crossover_shot', BK_B2: 'cmu_crossover_shot', BK_B3: 'cmu_crossover_shot',
     };
@@ -4242,6 +4246,16 @@ void main(){
       const tp = trainPhase();
       try {
         const fdoc = floorIframe.contentDocument;
+        // 반복형 스테이지(워밍업)의 도트 로딩바 = 시간이 아니라 '남은 횟수' 진행도.
+        // 기존엔 --dur CSS 애니메이션이라 반복을 아무리 해도 안 차 보였음(유저: '프로그래스바가 안 찬다').
+        if (session.repTotal) {
+          const clip = fdoc?.querySelector('.dclip');
+          if (clip) {
+            const done = 1 - Math.max(0, Math.min(1, session.repLeft / session.repTotal));
+            clip.style.animation = 'none';
+            clip.style.width = (600 * done).toFixed(1) + 'px';
+          }
+        }
         if (tp) {
           const col = tp.i > 0.7 ? '#ff8a5a' : tp.i > 0.45 ? '#ffcf9a' : '#fff';   // 강도 온도색
           // 타이틀 = 현재 구간명(리커버/스프린트 등). 보조텍스트 없음(유저).

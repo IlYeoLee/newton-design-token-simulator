@@ -327,8 +327,10 @@ export function drawStemArrow(g, W, H, t, ENV, opts = {}) {
   const s = H / 256;                                  // 기준 캔버스(128×256) 대비 스케일
   const cx = W / 2;
   const ph = (t * 0.9 * speed) % 1;
-  const draw = opts.prog != null ? Math.max(0, Math.min(1, opts.prog)) : Math.min(1, ph / 0.7);
-  const fade = opts.prog != null ? 1 : (ph > 0.85 ? (1 - ph) / 0.15 : 1);
+  // draw-on을 0.55에 끝내고 나머지는 '완성된 화살표'로 머문다. 예전엔 0.7까지 자라며 촉이 0.9 전까지
+  // 안 나와서, 자라는 동안 잘린 막대처럼 보였음(유저: '중간에 나오다가 잘리는 애들').
+  const draw = opts.prog != null ? Math.max(0, Math.min(1, opts.prog)) : Math.min(1, ph / 0.55);
+  const fade = opts.prog != null ? 1 : (ph > 0.88 ? (1 - ph) / 0.12 : 1);
   g.clearRect(0, 0, W, H);
   const A0 = fade * (0.45 + 0.55 * pulse);
   const y0 = H - 24 * s, y1 = 58 * s, yEnd = y0 + (y1 - y0) * draw;
@@ -336,7 +338,7 @@ export function drawStemArrow(g, W, H, t, ENV, opts = {}) {
   // 구슬처럼 뭉치고 뿌리도 덜 사라졌음(유저: 출발 끝을 더 투명하게). 폭 테이퍼는 폴리곤이,
   // 소멸은 알파 그라디언트가 담당 — 뿌리 알파 0에서 시작해 위로 갈수록 뜨거워진다.
   const rgba = (v, a) => lut(v).replace('rgb(', 'rgba(').replace(')', `,${a.toFixed(3)})`);
-  const w0 = 2.2 * s * AW, w1 = 13 * s * AW;          // 뿌리 폭 → 꼭짓점 폭
+  const w0 = 1.1 * s * AW, w1 = 13 * s * AW;          // 뿌리 폭(거의 0) → 꼭짓점 폭
   const grad = g.createLinearGradient(0, y0, 0, yEnd);
   grad.addColorStop(0.00, rgba(0.42, 0));
   grad.addColorStop(0.18, rgba(0.48, 0.10 * A0));
@@ -350,18 +352,71 @@ export function drawStemArrow(g, W, H, t, ENV, opts = {}) {
   g.lineTo(cx + w1 / 2, yEnd); g.lineTo(cx - w1 / 2, yEnd);
   g.closePath(); g.fill();
   g.globalAlpha = A0;
-  if (draw > 0.9 && !opts.noTip) {   // noTip = 촉 없는 자루(감속 바 등)
+  if (draw > 0.28 && !opts.noTip) {   // noTip = 촉 없는 자루(감속 바 등)
+    // 촉은 '자라는 머리'에 항상 붙는다(고정 위치 X) → 자라는 동안에도 화살표로 읽힌다.
     const tipS = 34 * s * (0.7 + 0.3 * AW);   // 촉 크기(유저 3회 축소) — 스템:촉 비율 정본
+    const tipA = Math.min(1, (draw - 0.28) / 0.22) * A0;
+    const ty = yEnd + tipS * 0.30;                     // 머리보다 살짝 뒤 = 촉 끝이 스템 끝과 맞음
+    g.globalAlpha = tipA;
     const go = { color: lut(0.95), glowColor: lut(0.85), glow: 12 * glowK };
-    const ok = ENV.glyph && (ENV.glyph(g, 'LIFT_TIP', cx, y1 + 16 * s, tipS, go)
-                          || ENV.glyph(g, 'TIP_TRI', cx, y1 + 14 * s, tipS * 0.93, go));
+    const ok = ENV.glyph && (ENV.glyph(g, 'LIFT_TIP', cx, ty, tipS, go)
+                          || ENV.glyph(g, 'TIP_TRI', cx, ty, tipS * 0.93, go));
     if (!ok) {                                        // 글리프 미로드 폴백 = 같은 비율 스트로크 촉
       g.strokeStyle = lut(0.95); g.lineWidth = 13 * s * AW; g.lineCap = 'round'; g.lineJoin = 'round';
       g.shadowColor = lut(0.9); g.shadowBlur = 18 * s * glowK;
-      g.beginPath(); g.moveTo(cx - 26 * s, y1 + 30 * s); g.lineTo(cx, y1); g.lineTo(cx + 26 * s, y1 + 30 * s); g.stroke();
+      g.beginPath(); g.moveTo(cx - 26 * s, ty + 14 * s); g.lineTo(cx, ty - 16 * s); g.lineTo(cx + 26 * s, ty + 14 * s); g.stroke();
     }
   }
   g.globalAlpha = 1; g.shadowBlur = 0;
+}
+
+/** 곡선 화살표 — LINE 정본(스템+촉)의 경로 버전. 유저 가이드 스케치의 '궤적 표시':
+ *  출발 원(반대편 지면)에서 시작해 곡선으로 흘러 들린 발마크로 들어가고, 머리에 같은 촉 글리프가 붙는다.
+ *  pts01 = [[x,y],...] 정규화 캔버스 좌표(0..1, y는 아래로). 2차/3차 무관 — 통과점을 카트멀롬 보간.
+ *  opts.prog = 진행도(0..1). 스템과 같은 언어: 뿌리 알파 0 → 머리 최대. */
+export function drawCurveArrow(g, W, H, pts01, t, ENV, opts = {}) {
+  const lut = ENV.lut, A = ENV.arrow || {};
+  const AW = A.w ?? 1, glowK = A.glow ?? 1;
+  const s = H / 256;
+  g.clearRect(0, 0, W, H);
+  const P = pts01.map(([x, y]) => [x * W, y * H]);
+  if (P.length < 2) return;
+  // 카트멀롬 샘플링(끝점 복제) — 통과점이 2개면 직선
+  const N = 48, path = [];
+  const at = (u) => {
+    if (P.length === 2) return [P[0][0] + (P[1][0] - P[0][0]) * u, P[0][1] + (P[1][1] - P[0][1]) * u];
+    const q = u * (P.length - 1), i = Math.min(P.length - 2, Math.floor(q)), f = q - i;
+    const p0 = P[Math.max(0, i - 1)], p1 = P[i], p2 = P[i + 1], p3 = P[Math.min(P.length - 1, i + 2)];
+    const cr = (a, b, c, d) => 0.5 * ((2 * b) + (-a + c) * f + (2 * a - 5 * b + 4 * c - d) * f * f + (-a + 3 * b - 3 * c + d) * f * f * f);
+    return [cr(p0[0], p1[0], p2[0], p3[0]), cr(p0[1], p1[1], p2[1], p3[1])];
+  };
+  for (let i = 0; i <= N; i++) path.push(at(i / N));
+  const prog = Math.max(0, Math.min(1, opts.prog != null ? opts.prog : ((t * 0.55) % 1)));
+  const head = Math.max(1, Math.round(N * prog));
+  // 선 — 뿌리 알파 0 → 머리 최대 (스템과 같은 페더 언어)
+  g.lineCap = 'round';
+  for (let i = 1; i <= head; i++) {
+    const k = i / head;
+    g.globalAlpha = Math.pow(k, 1.5);
+    g.strokeStyle = lut(0.45 + 0.5 * k);
+    g.lineWidth = (1.6 + 3.2 * k) * s * AW;
+    g.beginPath(); g.moveTo(path[i - 1][0], path[i - 1][1]); g.lineTo(path[i][0], path[i][1]); g.stroke();
+  }
+  // 촉 — 머리에서 접선 정렬(글리프 규약 ↑=전방)
+  if (prog > 0.25) {
+    const hx = path[head][0], hy = path[head][1];
+    const px = path[Math.max(0, head - 2)][0], py = path[Math.max(0, head - 2)][1];
+    const ang = Math.atan2(hy - py, hx - px) + Math.PI / 2;
+    const tipS = 30 * s * (0.7 + 0.3 * AW);
+    g.save(); g.translate(hx, hy); g.rotate(ang); g.globalAlpha = Math.min(1, (prog - 0.25) / 0.2);
+    const go = { color: lut(0.95), glowColor: lut(0.85), glow: 12 * glowK };
+    if (!(ENV.glyph && (ENV.glyph(g, 'LIFT_TIP', 0, 0, tipS, go) || ENV.glyph(g, 'TIP_TRI', 0, 0, tipS * 0.93, go)))) {
+      g.strokeStyle = lut(0.95); g.lineWidth = 9 * s * AW; g.lineJoin = 'round'; g.lineCap = 'round';
+      g.beginPath(); g.moveTo(-18 * s, 12 * s); g.lineTo(0, -14 * s); g.lineTo(18 * s, 12 * s); g.stroke();
+    }
+    g.restore();
+  }
+  g.globalAlpha = 1;
 }
 
 export function strokeFlowPath(g, pts, t, AW, opts, ENV) {
@@ -631,12 +686,24 @@ export function drawTrajectory(g, W, P, look, t, ENV, prog, ptsIn) {
     g.beginPath(); g.moveTo(win[i - 1][0], win[i - 1][1]); g.lineTo(win[i][0], win[i][1]); g.stroke();
   }
 
-  // 3) 헤드 — 진하고 또렷한 코어 + 헤일로(선 두께에 맞춰)
+  // 3) 헤드 — LINE 토큰과 같은 촉 글리프(접선 정렬). 글리프 없으면 코어+헤일로 원으로 폴백.
   const hx = win[M][0], hy = win[M][1];
-  g.globalAlpha = 0.8 * outA; g.fillStyle = lut(0.6); g.shadowColor = lut(0.8); g.shadowBlur = GB * 1.6;   // 소프트 헤일로
-  g.beginPath(); g.arc(hx, hy, (9 + 5 * spd) * base * wid, 0, Math.PI * 2); g.fill();
-  g.globalAlpha = outA; g.fillStyle = lut(0.93); g.shadowBlur = GB * 0.6;                                  // 진한 코어
-  g.beginPath(); g.arc(hx, hy, (3.4 + 1.8 * spd) * base * wid, 0, Math.PI * 2); g.fill();
+  const px = win[M - 1][0], py = win[M - 1][1];
+  const headA = Math.atan2(hy - py, hx - px) + Math.PI / 2;   // 글리프 규약 ↑=전방
+  const tipS = (30 + 10 * spd) * base * wid;
+  let ok = false;
+  if (ENV.glyph) {
+    g.save(); g.translate(hx, hy); g.rotate(headA); g.globalAlpha = outA;
+    const go = { color: lut(0.95), glowColor: lut(0.85), glow: GB * 1.2 };
+    ok = ENV.glyph(g, 'LIFT_TIP', 0, 0, tipS, go) || ENV.glyph(g, 'TIP_TRI', 0, 0, tipS * 0.93, go);
+    g.restore();
+  }
+  if (!ok) {
+    g.globalAlpha = 0.8 * outA; g.fillStyle = lut(0.6); g.shadowColor = lut(0.8); g.shadowBlur = GB * 1.6;
+    g.beginPath(); g.arc(hx, hy, (9 + 5 * spd) * base * wid, 0, Math.PI * 2); g.fill();
+    g.globalAlpha = outA; g.fillStyle = lut(0.93); g.shadowBlur = GB * 0.6;
+    g.beginPath(); g.arc(hx, hy, (3.4 + 1.8 * spd) * base * wid, 0, Math.PI * 2); g.fill();
+  }
   g.globalAlpha = 1; g.shadowBlur = 0;
 }
 /** 회전 — 관절 돌리기 토큰(파생). 관절(피벗) 둘레를 곡선 화살촉이 도는 회전 화살표 + 가이드 링.

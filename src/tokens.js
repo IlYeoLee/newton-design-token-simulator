@@ -567,13 +567,21 @@ export function tickFlowArrows(t, rig) {
     const fp = rig?._fp;
     const m = g._mesh.material;
     if (fp && !g._wall) {
-      const wp = new THREE.Vector3(); g.getWorldPosition(wp);
-      const rx = wp.x - fp.ox, rz = wp.z - fp.oz;
-      const d = rx * fp.fx + rz * fp.fz, h = rx * fp.rx + rz * fp.rz;
-      const k = Math.max(0, Math.min(1, (d - rig.fpNear) / Math.max(0.01, rig.fpFar - rig.fpNear)));
-      const half = rig._halfAt(rig.fpNear) + (rig._halfAt(rig.fpFar) - rig._halfAt(rig.fpNear)) * k;
+      // 투사창 페이드는 화살표의 '양 끝'(뿌리·촉)으로 계산해 더 약한 쪽을 쓴다.
+      // 원점만 보면 촉이 창 경계를 넘어도 알파가 1이라 GPU 클리핑 하드컷(사각 잘림)이 그대로 보였음(유저).
       const sm = (a, b, x) => { const u = Math.max(0, Math.min(1, (x - a) / (b - a))); return u * u * (3 - 2 * u); };
-      m.opacity = sm(rig.fpNear, rig.fpNear + 0.15, d) * sm(rig.fpFar, rig.fpFar - 0.15, d) * sm(half, half - 0.15, Math.abs(h)) * (g._gain ?? 1);
+      const FADE = 0.25;
+      const at = (wp) => {
+        const rx = wp.x - fp.ox, rz = wp.z - fp.oz;
+        const d = rx * fp.fx + rz * fp.fz, h = rx * fp.rx + rz * fp.rz;
+        const k = Math.max(0, Math.min(1, (d - rig.fpNear) / Math.max(0.01, rig.fpFar - rig.fpNear)));
+        const half = rig._halfAt(rig.fpNear) + (rig._halfAt(rig.fpFar) - rig._halfAt(rig.fpNear)) * k;
+        return sm(rig.fpNear, rig.fpNear + FADE, d) * sm(rig.fpFar, rig.fpFar - FADE, d) * sm(half, half - FADE, Math.abs(h));
+      };
+      const a0 = new THREE.Vector3(), a1 = new THREE.Vector3();
+      g.getWorldPosition(a0); g._mesh.getWorldPosition(a1);
+      a1.multiplyScalar(2).sub(a0);   // 촉 끝 ≈ 원점 + 2·(판 중심 − 원점)
+      m.opacity = Math.min(at(a0), at(a1)) * (g._gain ?? 1);
     } else m.opacity = (g._gain ?? 1);
     if (m._day !== day) { m._day = day; m.blending = day ? THREE.NormalBlending : THREE.AdditiveBlending; m.needsUpdate = true; }
   }
