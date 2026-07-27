@@ -2270,6 +2270,7 @@ void main(){
     }
     return co;
   }
+  let _coachSeekId = null;   // BK_A1 진입 시 1회 시크용 래치
   function tickA1Coach() {
     // 어떤 스테이지 코치를 켤지: 러닝 A1·농구 워밍업 전부 = 전 구간 상시, 러닝 A2/A3 = 시범(관찰) 중에만.
     const st = session.active && !session.isLive && (state.pack === 'running' || state.pack === 'basketball') ? session.stage : null;
@@ -2279,6 +2280,11 @@ void main(){
       const c = _coaches[id];
       if (id === activeId) {
         const co = ensureCoach(id);
+        // 옆구리: 스테이지에 들어올 때마다 '왼쪽으로 기우는' 지점에서 시작(유저 필수 요구).
+        //   영상 엘리먼트는 스테이지 사이에도 계속 돌아서, 안 잡으면 진입 시점이 매번 달랐다.
+        //   실측 스케줄상 원본 0~0.79s가 왼쪽 구간 → 중립 첫 프레임을 지난 0.30s로 시크.
+        if (id === 'BK_A1' && _coachSeekId !== id) { _coachSeekId = id; try { co.video.currentTime = 0.30; } catch (e) {} }
+        if (id !== 'BK_A1') _coachSeekId = null;
         if (co.video.paused) co.video.play().catch(() => {});
         // 영상 실제 프레임이 들어오기 전엔 숨김 — 검은/균일 텍스처가 크로마키 통과 못 해
         // 빨간 방사형 사각형으로 0.x초 깜빡이던 것 방지(유저). readyState≥3(HAVE_FUTURE_DATA)+재생 시작 후.
