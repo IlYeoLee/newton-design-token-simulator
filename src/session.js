@@ -891,6 +891,9 @@ export class Session {
       H.fC  = F(0.33, 0.06, 'right');                                      // ② 플랜트 리드 발
       H.fLl = F(-0.43, -0.09, 'left'); H.fLr = F(0.49, -0.32, 'right');   // ③ 착지 페어(폭 0.92)
       for (const k of ['fLl', 'fLr', 'fRl', 'fRr', 'fC']) { H[k].ghost(); H[k].op(0.10); }   // 대기 = Locked 고스트(crisp 실루엣)
+      // 따라하기 페어 안 L·R 글리프 — 1/4과 같은 슬롯(숫자 규약). 표시는 따라하기에서만.
+      H.numL = attachMarkNum(H.fRl, 'L', false); H.numR = attachMarkNum(H.fRr, 'R', true);
+      H.numL.visible = false; H.numR.visible = false;
       // 이동 경로 화살표 — 발자국만으로는 '무슨 동작인지' 안 읽힌다(유저). 순서와 방향을 선으로.
       //   a1: 준비 → 플랜트(오른쪽으로 밀고 들어감) · a2: 플랜트 → 착지(반대로 크게 빠짐)
       H.a1 = floorArrow(0.28, SBZ + 0.02, -90, BRAND.prism, 0.26);
@@ -2186,6 +2189,7 @@ export class Session {
       if (!this._followLatch && !LIVE) {   // 훈련만 관찰 국면
         for (const k of ['mL', 'mC', 'mR']) H[k].setOp?.(0);
         for (const k of ['fLl', 'fLr', 'fRl', 'fRr', 'fC']) H[k]?.op(0);
+        if (H.numL) { H.numL.visible = false; H.numR.visible = false; }   // 글리프는 op(0)로 안 꺼진다
         H.rise.setOp?.(0); H.gh.op(0); H.cL?.op(0); H.cR?.op(0);
         this.demoActive = true;
         FMU('먼저 보세요 — 스텝백', CS.prism);
@@ -2250,8 +2254,10 @@ export class Session {
       const spread = pr ? Math.abs(pr.footR.x - pr.footL.x) : 0;
       if (H.beat >= 2 && !H._landed && spread > 0.64) {   // 실측 착지 폭 0.92m의 70%
         H._landed = true; H._landT = this.t; H._landErr = spread - 0.92;
-        const wp = new THREE.Vector3(); H.mL.getWorldPosition(wp); this.onPress?.(wp, false);
-        H.gh.at(ex, H.mL.position.z, 0.62); H.gh.ghost(); H._ghT = this.t;   // 고스트 = 실제 착지 위치
+        if (id !== 'BK_B3') {   // 2/4는 1/4과 같이 버스트·고스트 없음(유저)
+          const wp = new THREE.Vector3(); H.mL.getWorldPosition(wp); this.onPress?.(wp, false);
+          H.gh.at(ex, H.mL.position.z, 0.62); H.gh.ghost(); H._ghT = this.t;   // 고스트 = 실제 착지 위치
+        }
       }
       if (H._landed && hy - (H._prevHy || hy) > 0.010 && this.t - H._landT < 0.6) {
         H.count += 1; H._landed = false;
@@ -2283,7 +2289,11 @@ export class Session {
       if (POSE) {
         // 따라하기 = 1/4(B2)과 같은 규약 — 코치 영상 아래 L·R 마크 한 쌍 + 방향 화살표.
         //   전부 룩시스템 토큰(FootMark / makeFlowArrow). 좌표는 피그마 POSE를 페어 중심 기준으로 폈다.
-        const W = Math.PI * 2 / 1.6, V = 0.34, K = 2.2;   // v=0.34 = 영상 아래 줄
+        // 2/4(B3) = 1/4 규약 그대로 이식(유저): 같은 줄(V 0.24)·같은 크기(1.1)·L·R 글리프,
+        //   링·화살표·고스트 없이 발자국만. 3/4·4/4는 기존(작은 마크+링+화살표) 유지.
+        const SOLO = id === 'BK_B3';
+        const W = Math.PI * 2 / 1.6, V = SOLO ? 0.24 : 0.34, K = 2.2;   // 영상 아래 줄
+        const S0 = SOLO ? 1.10 : 0.62, SB = SOLO ? 0.07 : 0.04;
         const cx = (POSE.L[0] + POSE.R[0]) / 2;
         const uL = Math.max(-0.92, Math.min(0.92, (POSE.L[0] - cx) * K));
         const uR = Math.max(-0.92, Math.min(0.92, (POSE.R[0] - cx) * K));
@@ -2291,21 +2301,24 @@ export class Session {
         const pL = this._beamLocal(uL, V + POSE.L[1] * 0.10, H.mL);
         const pR = this._beamLocal(uR, V + POSE.R[1] * 0.10, H.mL);
         H.fRl.countdown(1); H.fRr.countdown(1);   // 헤일로 완전 수축 = 번짐 없는 실루엣
-        H.fRl.at(pL.x, pL.z, 0.62 + 0.04 * bL); H.fRl.op(0.80 + 0.20 * bL);
-        H.fRr.at(pR.x, pR.z, 0.62 + 0.04 * bR); H.fRr.op(0.80 + 0.20 * bR);
+        H.fRl.at(pL.x, pL.z, S0 + SB * bL); H.fRl.op(0.80 + 0.20 * bL);
+        H.fRr.at(pR.x, pR.z, S0 + SB * bR); H.fRr.op(0.80 + 0.20 * bR);
         for (const k of ['fC', 'fLl', 'fLr']) H[k]?.op(0);
+        if (H.numL) { placeMarkNum(H.numL); placeMarkNum(H.numR);
+          H.numL.visible = H.numR.visible = SOLO; }   // 글리프는 자체 재질 — visible로 제어
         // 원형 판정 링 = 발자국 아래 그대로(다른 지면 UI와 같은 토큰). 들썩임에 맞춰 밝기만 뛴다.
-        H.mL.position.set(pL.x, H.mL.position.y, pL.z); H.mL.setOp?.(0.35 + 0.25 * bL);
-        H.mR.position.set(pR.x, H.mR.position.y, pR.z); H.mR.setOp?.(0.35 + 0.25 * bR);
+        H.mL.position.set(pL.x, H.mL.position.y, pL.z); H.mL.setOp?.(SOLO ? 0 : 0.35 + 0.25 * bL);
+        H.mR.position.set(pR.x, H.mR.position.y, pR.z); H.mR.setOp?.(SOLO ? 0 : 0.35 + 0.25 * bR);
         H.mC.setOp?.(0);
         H.rise.setOp?.(0); H.gh.op(0); H.cL?.op(0); H.cR?.op(0);
-        // 화살표 = 그 단계에서 '움직이는 발'이 가는 쪽 (B5는 슛 = 위로)
-        const AR = { BK_B3: [Math.min(0.98, uR + 0.5), -90], BK_B4: [Math.max(-0.98, uL - 0.5), 90],
+        // 화살표 = 그 단계에서 '움직이는 발'이 가는 쪽 (B5는 슛 = 위로). 2/4는 화살표 없음(유저).
+        const AR = SOLO ? null : { BK_B4: [Math.max(-0.98, uL - 0.5), 90],
           BK_B5: [(uL + uR) / 2, 0] }[id];
         if (AR) { const pa = this._beamLocal(AR[0], V, H.mL);
           H.a1.position.set(pa.x, 0.014, pa.z);
           H.a1.rotation.z = THREE.MathUtils.degToRad(AR[1]);
           H.a1._gain = 0.35 + 0.55 * Math.max(0, bL); }
+        else H.a1._gain = 0;
         H.a2._gain = 0;
       }
       const BEATN = { BK_B2: ['① 무릎 구부리고', '② 낮은 자세 유지', '③ 들어가는 척!', '④ 그대로 준비'],
