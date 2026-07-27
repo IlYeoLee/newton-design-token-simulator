@@ -272,17 +272,23 @@ async function boot() {
     const lab0 = designStore.globalGet('fx', 'lab', null);
     if (lab0?.stops) { FXP.stops = lab0.stops.map(x => [...x]); FXP.sat = lab0.sat ?? 1; }
     rebuildLUT();
+    // L·R 글리프 = 숫자 슬롯과 같은 규약(같은 크기·틴트·글로우). 지면 UI에서 floorNum('L'…)
+    // 또는 attachMarkNum(fm,'L'…)로 숫자 대신 쓸 수 있다. 랩에서 교체하면 그 값이 우선.
+    const LR_GLYPHS = { L: import.meta.env.BASE_URL + 'ready-view/assets/glyph_L.svg',
+                        R: import.meta.env.BASE_URL + 'ready-view/assets/glyph_R.svg' };
     if (lab0?.glyphs) {
       FXP.bg = lab0.bg;
       FXP.footCtx = lab0.footCtx || 'out';
       FXP.customGlyphs = lab0.glyphs;
-      GLYPHS.set(lab0.glyphs);
+      GLYPHS.set({ ...LR_GLYPHS, ...lab0.glyphs });
       GLYPHS.setFlips(lab0.glyphFlip || {});
       // dataURL 디코드 완료 대기 (수 ms — 발형 텍스처가 빌드 시점에 읽을 수 있게)
       await Promise.race([
         Promise.all([...GLYPHS.imgs.values()].map(img => img.complete ? null : new Promise(res => { img.addEventListener('load', res, { once: true }); img.addEventListener('error', res, { once: true }); }))),
         new Promise(res => setTimeout(res, 1500)),
       ]);
+    } else {
+      GLYPHS.set(LR_GLYPHS);   // 저장된 랩 룩이 없어도 L·R은 항상 있다
     }
   }
   // 전역 기본값 복원 — v4에서 레거시 드로어 해체와 함께 영속화된 값들
