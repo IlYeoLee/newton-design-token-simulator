@@ -811,52 +811,73 @@ export class XBot {
   // 공이 정확히 그 타이밍에 손에 닿고, 다음 접촉까지 바닥을 찍고 돌아온다 (유저:
   // '손이 떨어지고 닿는 정확한 타이밍에 공이 튀게'). 고정 주기 스크립트 바운스 은퇴.
   _dribbleBall(_, dt = 0.016) {
+    // 해석적 드리블 v4 — '물리 어색'(유저) 원인 셋을 오프라인 시뮬로 잡고 재설계:
+    //   ① 위상 스냅 팝: 접촉 순간 공이 손높이로 순간이동(최대 ~50cm) → 0.12s 브리지 스윕으로 연결
+    //     (프레임당 최대 4.4cm 실측 — 공 속도로 자연스러움). Rapier 제안의 Guided 개념만 차용.
+    //   ② 감쇠 위치 오류: 정점에서 뚝 떨어지던 것 → 감쇠(0.82²≈67%)는 바닥 충돌에서만.
+    //   ③ 에너지 나선 소멸: 캐치가 공의 감쇠 높이를 물려받아 점점 죽던 것 → 손이 매 접촉마다
+    //      에너지 주입(h0 = 손 접촉높이). 실제 드리블의 물리다.
     const ball = this.ball;
     if (!ball || !this._wristR) return;
     ball.visible = true;
     const w = new THREE.Vector3().setFromMatrixPosition(this._wristR.matrixWorld);
-    const r = 0.12;
-    const S = this._db = this._db || { t: 0, prevY: w.y, vy: 0, lastLow: -9, period: 0.55, minY: w.y, handLowY: w.y, hx: w.x, hz: w.z };
-    S.t += dt;
+    const r = 0.12, G = 9.8, REST = 0.67, BRIDGE = 0.12;
+    const S = this._db = this._db || { t: 0, prevY: w.y, vy: 0, prevVy: 0, lastLow: -9, minY: w.y,
+      h0: 0.45, hx: w.x, hz: w.z, sx: w.x, sz: w.z, bridgeFrom: null, bridgeT: 9 };
+    S.t += dt; S.bridgeT += dt;
     const vyRaw = (w.y - S.prevY) / Math.max(1e-3, dt);
     S.vy = S.vy + (vyRaw - S.vy) * 0.5;
-    // 손 최저권 추적(적응형): 하강→상승 전환 + 최저권 근처 = 접촉 이벤트
     S.minY += (Math.min(S.minY + 0.2, w.y) - S.minY) * 0.02;
-    const wasDesc = S.prevVy < -0.05, nowRise = S.vy >= -0.02;
-    if (wasDesc && nowRise && w.y < S.minY + 0.22 && S.t - S.lastLow > 0.25) {
-      const gap = S.t - S.lastLow;
-      if (gap < 1.4) S.period = S.period + (gap - S.period) * 0.5;   // 실측 주기 추정(EMA)
-      S.lastLow = S.t;
-      S.handLowY = w.y;
-    }
-    S.prevY = w.y; S.prevVy = S.vy;
-    // 손 XZ는 부드럽게 추종 (팔 스윙 지터 제거). 오프셋 0.06 = 손바닥 앞(손 안에 박히지 않게)
     S.hx += (w.x + 0.06 - S.hx) * Math.min(1, dt * 14);
     S.hz += (w.z - S.hz) * Math.min(1, dt * 14);
-    const since = S.t - S.lastLow;
-    if (since > 1.6) {
-      // 드리블 정지(손 진동 없음) — 공은 손 옆 바닥에 얌전히
+
+    // 위상: 세그먼트0 = 접촉높이에서 자유낙하 → 이후 바닥→정점→바닥 아크(바닥마다 감쇠)
+    const phase = () => {
+      let h = Math.max(0.03, S.h0), rem = S.t - S.lastLow;
+      const Tf = Math.sqrt(2 * h / G);
+      if (rem <= Tf) return { h, n: 0, y: Math.max(r, r + h - 0.5 * G * rem * rem) };
+      rem -= Tf; let n = 1; h *= REST;
+      let T = 2 * Math.sqrt(2 * h / G);
+      while (rem > T && n < 7) { rem -= T; h *= REST; n++; T = 2 * Math.sqrt(2 * h / G); }
+      if (n >= 7) return { h: 0.03, n, y: r };   // 체인 소진 = 바닥 정지
+      const v0 = Math.sqrt(2 * G * h);
+      return { h, n, y: r + Math.max(0, v0 * rem - 0.5 * G * rem * rem) };
+    };
+    let P = phase();
+
+    // 손 접촉 = 하강→상승 전환 + 최저권. 첫 낙하(세그먼트0)만 제외 — 내려오는 공도 손이 타고 받는다.
+    const wasDesc = S.prevVy < -0.05, nowRise = S.vy >= -0.02;
+    if (wasDesc && nowRise && w.y < S.minY + 0.22 && S.t - S.lastLow > 0.25 && P.n >= 1) {
+      S.bridgeFrom = { y: P.y, x: S.sx, z: S.sz };
+      S.bridgeT = 0;
+      S.lastLow = S.t;
+      S.h0 = Math.max(0.2, w.y - r);   // 에너지 주입: 새 정점 = 손 접촉높이
+      S.sx = S.hx; S.sz = S.hz;        // 릴리즈 스팟 = 지금 손 위치(고정 — 비행 중 미끄러짐 금지)
+      P = phase();
+    }
+    S.prevY = w.y; S.prevVy = S.vy;
+
+    if (P.n >= 7 && S.t - S.lastLow > 2.2) {   // 완전 정지 — 손 옆 바닥에 얌전히
       ball.scale.set(1, 1, 1);
       ball.position.set(S.hx, r, S.hz);
+      S.sx = S.hx; S.sz = S.hz;
       return;
     }
-    // 진짜 중력 포물선: 접촉높이(손)에서 자유낙하 → 바닥 → 같은 높이 복귀.
-    //   주기 T는 높이에서 물리로 나온다(T = 2√(2h/g)) — 손 리듬(S.period)으로 시간축을 늘렸더니
-    //   높이와 주기가 따로 놀아 '퉁퉁 치는' 느낌이 없었음(유저). 손 최저점 이벤트는 위상만 리셋(스냅),
-    //   그 사이엔 물리 주기로 계속 튄다(리듬이 느리면 여러 번 튀는 게 물리적으로 맞다).
-    const G = 9.8;
-    const hTop = Math.max(S.handLowY - r * 0.2, r + 0.05);
-    const T = 2 * Math.sqrt(2 * Math.max(0.02, hTop - r) / G);
-    const u = (since % T) / T;
-    const tt = (u - 0.5) * T;                    // 바닥 통과 = 사이클 중앙
-    const y = r + 0.5 * G * tt * tt;             // u=0/1 → 정확히 hTop(손 높이)에서 손과 만남
-    const air = (y - r) / Math.max(0.05, hTop - r);
+
+    let y = P.y, bx = S.sx, bz = S.sz;
+    if (S.bridgeT < BRIDGE && S.bridgeFrom) {   // 캐치 브리지 — 이전 궤적에서 새 궤적으로 스윕
+      let k = S.bridgeT / BRIDGE; k = k * k * (3 - 2 * k);
+      y = S.bridgeFrom.y * (1 - k) + y * k;
+      bx = S.bridgeFrom.x * (1 - k) + bx * k;
+      bz = S.bridgeFrom.z * (1 - k) + bz * k;
+    }
+    const air = (y - r) / Math.max(0.05, P.h);
     const squash = Math.max(0, 1 - air / 0.12);
-    const speed = Math.abs(1 - 2 * u);
+    const speed = Math.max(0, 1 - air);
     const sy = 1 - 0.35 * squash + 0.16 * speed * (1 - squash);
     const sxz = 1 + 0.28 * squash - 0.08 * speed * (1 - squash);
     ball.scale.set(sxz, sy, sxz);
-    ball.position.set(S.hx, Math.max(0, y - r) + r * sy, S.hz);
+    ball.position.set(bx, Math.max(0, y - r) + r * sy, bz);
   }
 
   _samplePath(t) {
