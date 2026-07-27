@@ -5274,8 +5274,9 @@ void main(){
     const isStartPage = session.curStage?.id === 'READY' || session.curStage?.id === 'BK_READY';
     // 팩 판정 토큰 필드 표시 정책(단일 소스): 세션 중엔 라이브에만, 릴리즈(C4)는 슛 집중 위해 제외.
     // 비실전(스트레칭·전환·리포트)에 무관한 마커가 떠 있던 근본(유저 전 화면 검수 지적).
+    // 농구 실전(BK_C2)은 마크 판정 토큰만 쓴다 — 팩 판정 필드(레인·존)는 끈다(유저).
     if (isFloorSport) tokens.floorRoot.visible = !(floorObj.visible && isStartPage)
-      && (!session.active || (session.isLive && session.stage !== 'BK_C4'));
+      && (!session.active || (session.isLive && session.stage !== 'BK_C4' && session.stage !== 'BK_C2'));
     if (floorObj.visible) {
       if (fView.src !== loadedFloorView) {
         floorWrap.style.width = fView.w + 'px';    // 래퍼가 CSS3D 변환·크기의 주체

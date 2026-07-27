@@ -2421,8 +2421,10 @@ export class Session {
       //   1) 무릎 구부려 넣는 척: L·R 나란히 어깨너비   2) 오른발 딛고 드리블: R 앞·L 뒤, 공은 왼쪽
       //   3) 왼발 뻗으며 공 잡기: L 크게 왼쪽·R 제자리   4) 오른발 모으며 슛: L·R 모음
       if (POSE) {
-        // 1/4~4/4 공통 — 좌표·박자 전부 영상 재생 위치에서 자동(_sbPlace). 손좌표 표 폐기(유저).
-        this._sbPlace(H, id, H.fRl, H.fRr, [H.a1, H.a2]);
+        // 1/4~4/4 + 실전 공통 — 좌표·박자 전부 영상 재생 위치에서 자동(_sbPlace).
+        //   실전은 '4/4의 마크 판정 토큰'만 남긴다 — 화살표·링·고스트·커서 전부 없음(유저).
+        this._sbPlace(H, id, H.fRl, H.fRr, LIVE ? [null, null] : [H.a1, H.a2]);
+        if (LIVE) { H.a1._gain = 0; H.a2._gain = 0; }
         for (const k of ['fC', 'fLl', 'fLr']) H[k]?.op(0);
         if (H.numL) { placeMarkNum(H.numL); placeMarkNum(H.numR); H.numL.visible = H.numR.visible = true; }
         H.mL.setOp?.(0); H.mR.setOp?.(0); H.mC.setOp?.(0);
