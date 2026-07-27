@@ -1213,7 +1213,15 @@ export class Session {
   }
   // 자동 전환은 준비된 음성이 다 끝난 뒤에만 넘어감(voiceBusy=main.js 주입). 유저 탭(force)은 즉시.
   next(force = false) {
-    if (!force && this.voiceBusy?.()) return;   // 음성 재생 중 = 이번 프레임 보류(완료 조건 유지 → 다음 프레임 재시도)
+    // 음성 재생 중 = 보류(완료 조건 유지 → 다음 프레임 재시도). 단 무한 대기는 금지:
+    // TTS가 'end'를 못 뱉으면(음소거·오디오 미허용·큐 적체) voiceBusy가 계속 true라 스테이지가
+    // 영영 안 넘어간다 — 스쿼트가 0인데 안 넘어가던 근본(유저 실측: voiceBusy=true, next(true)는 즉시 전환).
+    if (!force && this.voiceBusy?.()) {
+      const now = performance.now();
+      if (!this._waitStart) this._waitStart = now;
+      if (now - this._waitStart < 2500) return;
+    }
+    this._waitStart = 0;
     if (this.active && this.stageIdx < this.stages.length - 1) { this.stageIdx++; this.t = 0; this._enter(); }
   }
   prev() { if (this.active && this.stageIdx > 0) { this.stageIdx--; this.t = 0; this._enter(); } }
@@ -1225,8 +1233,9 @@ export class Session {
     this.tokens.root.visible = !!st.live;      // 라이브 = 실제 팩 토큰이 흐른다
     this.liveSpeed = st.boost ? 1.18 : 1;
     if (this.xbot) this.xbot.decelK = 0;   // C5 감속 잔재 제거 (다운시프트·FIN 진입 안전망)
+    this._waitStart = 0;    // 음성 게이트 대기 타이머 리셋
     this._bkStrId = null;   // 워밍업 스트레칭 재진입 리셋 (스테이지 전환 시 홀드 카운트 0)
-    this.repLeft = null; this.repTotal = null;   // 반복 진행바 — 스테이지마다 초기화
+    this.repLeft = null; this.repTotal = null; this.repFrac = null;   // 반복 진행바 — 스테이지마다 초기화
     if (this._c3Skill != null && this.judge) { this.judge.skill = this._c3Skill; this._c3Skill = null; }   // C3 중 탭 스킵 시 skill 0.35 영구 잠김 방지
     this.bobY = 0;
     for (const id in this.G) this.G[id].visible = false;
@@ -1769,15 +1778,21 @@ export class Session {
         S.arc.setProg(Math.max(0.001, depth));      // 깊이는 아크 채움만으로 — 링 밝기·크기 펄스는 유저 반려
         if (deep && !S._wasDeep) {   // 바닥 도달 순간 1회 카운트 + 보상 버스트
           S.count = (S.count || 0) + 1;
+          S._spinT = this.t;         // 이펙트 터지는 순간 = 아크 한 바퀴 팡(유저)
           const wp = new THREE.Vector3(); S.ring.getWorldPosition(wp); this.onPress?.(wp, false);
         }
         S._wasDeep = deep;
+        // 12시 시작은 토큰 셰이더가 이미 보장(fract(0.25 − ang/2π) = 12시 기준 시계방향).
+        // 카운트 순간에만 한 바퀴 — 뒤로 갈수록 느려지는 감속(ease-out)으로 '팡' 하고 멎는다.
+        const sp = Math.min(1, Math.max(0, (this.t - (S._spinT ?? -9)) / 0.42));
+        S.arc.rotation.z = sp < 1 ? -2 * Math.PI * (1 - Math.pow(1 - sp, 3)) : 0;
         // 남은 횟수 카운트다운(6→0, 유저) — 숫자는 룩 SVG 글리프(drawNumber), 갱신 순간만 팝.
         const left = Math.max(0, BK_SQUAT_REPS - (S.count || 0));
         if (left !== S._shown) { redrawFootNum(S.num, left); S._shown = left; S._popT = this.t; }
         const pk = Math.min(1, Math.max(0, (this.t - (S._popT ?? -9)) / 0.26));
         S.num.scale.setScalar(1 + 0.5 * (1 - pk) * (1 - pk));
         this.repLeft = left; this.repTotal = BK_SQUAT_REPS;
+        this.repFrac = Math.min(1, ((S.count || 0) + depth) / BK_SQUAT_REPS);   // 앉는 깊이만큼 연속으로 찬다
         FMU(`스쿼트 남은 ${left}회`, left === 0 ? CS.prism : CS.sand);
         if (left === 0 || this.t >= 32) { this.next(); return; }   // 안전장치: 32초 캡
       }
@@ -1818,7 +1833,8 @@ export class Session {
       H._prevPL = H._pL; H._prevPR = H._pR;
       // 유저 가이드: 들리는 발은 "꼬이며" 반대편 위로 교차한다. 정면(0°) → 진행 방향으로 25° 비틀림,
       //   x는 중앙을 넘어 반대편(∓0.10)까지, z는 위로. 디딘 발은 정면 그대로.
-      const CROSS = 0.24, LIFTZ = 0.16, TWIST = THREE.MathUtils.degToRad(25);   // 딛은 발과 겹칠 만큼만(가이드 이미지)
+      // 교차는 가이드 이미지대로 딛은 발 위로 겹치되, 올라간 티는 확실히 나야 한다(유저: 또 내려갔잖아).
+      const CROSS = 0.24, LIFTZ = 0.32, TWIST = THREE.MathUtils.degToRad(25);
       H.fmL.group.position.set(-0.17 + CROSS * H._pL, 0.013, -1.85 - LIFTZ * H._pL);
       H.fmR.group.position.set(0.17 - CROSS * H._pR, 0.013, -1.85 - LIFTZ * H._pR);
       H.fmL.plane.rotation.z = -TWIST * H._pL;   // 왼발은 오른쪽으로 교차 → 발끝이 +x로 눕는다
@@ -1838,8 +1854,10 @@ export class Session {
         dot.position.set(c.x + dx * 0.20 * s, 0.013, c.z + dz * 0.20 * s);
         st.position.set(c.x + dx * 0.155 * s, 0.0138, c.z + dz * 0.155 * s);
         st.rotation.z = rot; st.scale.y = 0.075 * s;
-        st.material.opacity = 0.30 + 0.5 * p;
-        dot.setOp?.(0.30 + 0.55 * p);
+        // 대기 상태에선 안 보인다 — 발이 뜨는 동안에만 따라 나온다(유저: 왜 대기에 있냐)
+        const k = Math.max(0, (p - 0.12) / 0.88);
+        st.material.opacity = 0.85 * k;
+        dot.setOp?.(0.9 * k);
       };
       tail(H.fmL, H.dotL, H.stL, H._pL); tail(H.fmR, H.dotR, H.stR, H._pR);
       if (!useTraj) {
@@ -1855,6 +1873,7 @@ export class Session {
       if (leftA2 !== H._shownL) { redrawFootNum(H.numL, leftA2); redrawFootNum(H.numR, leftA2); H._shownL = H._shownR = leftA2; }
       H.numL.visible = true; H.numR.visible = true;
       this.repLeft = leftA2; this.repTotal = TOTAL;   // 지면 UI 진행바 소비
+      this.repFrac = Math.min(1, (H.cntL + H.cntR + Math.max(H._pL, H._pR)) / TOTAL);   // 발 높이만큼 연속
       FMU(`니 드라이브 — 남은 ${leftA2}회`, leftA2 === 0 ? CS.prism : CS.sand);
       if (leftA2 === 0 || H.sec >= MAXSEC) { this.next(); return; }
     } else if (BK_STR[id]) {
@@ -1873,14 +1892,20 @@ export class Session {
       const per = cfg.per, inRep = (tt % per) / per, rep = Math.floor(tt / per);
       if (cfg.noMark) {   // 옆구리 = 판정 링/아크 대신 좌우 방향 화살표(LINE) — 굽히는 쪽으로 촉이 흐름
         S.ring.setOp(0); S.arc.visible = false;
-        // 방향 = 코치 영상 실측 타이밍(main.js가 프레임마다 bkA1Lean 주입: -1 왼쪽 · +1 오른쪽).
-        // 영상이 아직 없으면(오디오 전용 등) 기존 반복 교대로 폴백.
-        const lean = this.bkA1Lean != null ? this.bkA1Lean : (rep % 2 === 0 ? -1 : 1);
+        // 타이밍 = 유저 지정 스케줄: 왼쪽 2초(그려진 뒤 다 채워진 상태로 멈춤) → 오른쪽 4초 → 반복.
+        //   자유 루프(drawStemArrow 내부 ph)로 두면 좌우와 무관하게 계속 다시 그려져 '뚝뚝' 끊겨 보였다.
+        //   _prog로 외부 구동하면 draw-on이 끝난 뒤 그 상태로 정지한다.
+        const L_SEC = 2, R_SEC = 4, DRAW = 0.45;
+        const cyc = (tt % (L_SEC + R_SEC));
+        const isL = cyc < L_SEC;
+        const local = isL ? cyc : cyc - L_SEC;
         if (S.arrow) {
           S.arrow.visible = true;
-          S.arrow.rotation.z = THREE.MathUtils.degToRad(lean < 0 ? 90 : -90);
-          S.arrow.position.x = lean < 0 ? -0.16 : 0.16;   // 몸 옆에서 바깥으로 — 다리 위를 가로지르지 않게
+          S.arrow._prog = Math.min(1, local / DRAW);
+          S.arrow.rotation.z = THREE.MathUtils.degToRad(isL ? 90 : -90);
+          S.arrow.position.x = isL ? -0.16 : 0.16;   // 몸 옆에서 바깥으로 — 다리 위를 가로지르지 않게
         }
+        this.bkA1Side = isL;   // 텍스트·봇 미러가 화살표와 같은 소스를 쓰도록
       } else {
         S.arc.visible = true;
         S.arc.setProg(Math.max(0.001, inRep));                    // 한 동작 진행도
@@ -1891,10 +1916,11 @@ export class Session {
         if (rep > 0 && !cfg.noMark) { const wp = new THREE.Vector3(); S.ring.getWorldPosition(wp); this.onPress?.(wp, false); }
       }
       // 좌우 표시도 영상 실측 방향과 같은 소스로 (텍스트·화살표·봇 미러가 따로 놀지 않게)
-      if (cfg.side) this.bkStrSide = this.bkA1Lean != null ? this.bkA1Lean < 0 : rep % 2 === 0;
+      if (cfg.side) this.bkStrSide = this.bkA1Side != null ? this.bkA1Side : rep % 2 === 0;
       const sideTxt = cfg.side ? (this.bkStrSide ? '왼쪽 · ' : '오른쪽 · ') : '';
       const leftStr = Math.max(0, cfg.reps - S.count);
       this.repLeft = leftStr; this.repTotal = cfg.reps;
+      this.repFrac = Math.min(1, (S.count + inRep) / cfg.reps);   // 진행바는 연속값 — 정수 회차만 쓰면 뚝뚝 끊긴다(유저)
       FMU(`${cfg.fm} · ${sideTxt}남은 ${leftStr}회`, leftStr === 0 ? CS.prism : CS.sand);
       if (S.count >= cfg.reps) { this.next(); return; }
     } else if (id === 'BK_B1') {

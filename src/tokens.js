@@ -560,7 +560,8 @@ export function tickFlowArrows(t, rig) {
     if (!g.parent) { FLOW_ARROWS.splice(i, 1); continue; }
     if (t - g._paintT >= 1 / 24) {
       g._paintT = t;
-      drawStemArrow(g._canvas.getContext('2d'), 128, 256, t, ENV, { noTip: g._noTip });
+      // _prog 지정 = 자유 루프 대신 외부 구동(세션이 타이밍을 잡는 경우). 다 그려지면 그 상태로 멈춘다.
+      drawStemArrow(g._canvas.getContext('2d'), 128, 256, t, ENV, { noTip: g._noTip, prog: g._prog });
       g._tex.needsUpdate = true;
     }
     // 투사면 소프트 페이드 — 셰이더를 버렸으니 CPU에서 판 전체 알파로 (경계에서 사각으로 잘리지 않게)

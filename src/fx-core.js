@@ -340,11 +340,13 @@ export function drawStemArrow(g, W, H, t, ENV, opts = {}) {
   const rgba = (v, a) => lut(v).replace('rgb(', 'rgba(').replace(')', `,${a.toFixed(3)})`);
   const w0 = 1.1 * s * AW, w1 = 13 * s * AW;          // 뿌리 폭(거의 0) → 꼭짓점 폭
   const grad = g.createLinearGradient(0, y0, 0, yEnd);
-  grad.addColorStop(0.00, rgba(0.42, 0));
-  grad.addColorStop(0.18, rgba(0.48, 0.10 * A0));
-  grad.addColorStop(0.42, rgba(0.58, 0.38 * A0));
-  grad.addColorStop(0.72, rgba(0.75, 0.78 * A0));
-  grad.addColorStop(1.00, rgba(0.95, A0));
+  // 뿌리는 알파 0으로 사라지되(유저 확정) 몸통은 금방 진해진다 — 예전 램프(0.10/0.38)는 스템 대부분이
+  // 반투명이라 지면에 투사하면 통째로 흐려 보였음(유저: 화살표가 왜 이렇게 흐려졌어).
+  grad.addColorStop(0.00, rgba(0.52, 0));
+  grad.addColorStop(0.14, rgba(0.60, 0.30 * A0));
+  grad.addColorStop(0.40, rgba(0.72, 0.72 * A0));
+  grad.addColorStop(0.70, rgba(0.85, 0.93 * A0));
+  grad.addColorStop(1.00, rgba(0.97, A0));
   g.globalAlpha = 1;
   g.fillStyle = grad;
   g.beginPath();
@@ -686,24 +688,13 @@ export function drawTrajectory(g, W, P, look, t, ENV, prog, ptsIn) {
     g.beginPath(); g.moveTo(win[i - 1][0], win[i - 1][1]); g.lineTo(win[i][0], win[i][1]); g.stroke();
   }
 
-  // 3) 헤드 — LINE 토큰과 같은 촉 글리프(접선 정렬). 글리프 없으면 코어+헤일로 원으로 폴백.
+  // 3) 헤드 = 코멧 헤드(헤일로 + 흰 코어). 이 토큰의 정의가 'LINE 광류 + 코멧 헤드 + 스파크'다 —
+  //    한때 LINE 촉 글리프로 바꿨더니 글리프 미로드 시 글로우만 남아 뭉개진 공이 됐다(유저 지적).
   const hx = win[M][0], hy = win[M][1];
-  const px = win[M - 1][0], py = win[M - 1][1];
-  const headA = Math.atan2(hy - py, hx - px) + Math.PI / 2;   // 글리프 규약 ↑=전방
-  const tipS = (30 + 10 * spd) * base * wid;
-  let ok = false;
-  if (ENV.glyph) {
-    g.save(); g.translate(hx, hy); g.rotate(headA); g.globalAlpha = outA;
-    const go = { color: lut(0.95), glowColor: lut(0.85), glow: GB * 1.2 };
-    ok = ENV.glyph(g, 'LIFT_TIP', 0, 0, tipS, go) || ENV.glyph(g, 'TIP_TRI', 0, 0, tipS * 0.93, go);
-    g.restore();
-  }
-  if (!ok) {
-    g.globalAlpha = 0.8 * outA; g.fillStyle = lut(0.6); g.shadowColor = lut(0.8); g.shadowBlur = GB * 1.6;
-    g.beginPath(); g.arc(hx, hy, (9 + 5 * spd) * base * wid, 0, Math.PI * 2); g.fill();
-    g.globalAlpha = outA; g.fillStyle = lut(0.93); g.shadowBlur = GB * 0.6;
-    g.beginPath(); g.arc(hx, hy, (3.4 + 1.8 * spd) * base * wid, 0, Math.PI * 2); g.fill();
-  }
+  g.globalAlpha = 0.8 * outA; g.fillStyle = lut(0.6); g.shadowColor = lut(0.8); g.shadowBlur = GB * 1.6;
+  g.beginPath(); g.arc(hx, hy, (9 + 5 * spd) * base * wid, 0, Math.PI * 2); g.fill();
+  g.globalAlpha = outA; g.fillStyle = lut(0.93); g.shadowBlur = GB * 0.6;
+  g.beginPath(); g.arc(hx, hy, (3.4 + 1.8 * spd) * base * wid, 0, Math.PI * 2); g.fill();
   g.globalAlpha = 1; g.shadowBlur = 0;
 }
 /** 회전 — 관절 돌리기 토큰(파생). 관절(피벗) 둘레를 곡선 화살촉이 도는 회전 화살표 + 가이드 링.

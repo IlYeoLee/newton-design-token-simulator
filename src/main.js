@@ -4251,7 +4251,10 @@ void main(){
         if (session.repTotal) {
           const clip = fdoc?.querySelector('.dclip');
           if (clip) {
-            const done = 1 - Math.max(0, Math.min(1, session.repLeft / session.repTotal));
+            // repFrac = 회차 사이도 채우는 연속값(깊이·발높이). 정수 회차만 쓰면 뚝뚝 끊긴다(유저).
+            const done = session.repFrac != null
+              ? Math.max(0, Math.min(1, session.repFrac))
+              : 1 - Math.max(0, Math.min(1, session.repLeft / session.repTotal));
             clip.style.animation = 'none';
             clip.style.width = (600 * done).toFixed(1) + 'px';
           }
