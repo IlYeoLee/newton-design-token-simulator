@@ -2327,7 +2327,7 @@ void main(){
 
         if (PHW && co.video.readyState >= 2) {
           const [a, b] = PHW;
-          if (co.video.playbackRate !== 0.75) co.video.playbackRate = 0.75;   // 스텝백 4페이즈만 0.75배속(유저)
+          if (co.video.playbackRate !== 0.5) co.video.playbackRate = 0.5;   // 스텝백 4페이즈만 0.5배속(유저)
           const now = performance.now();
           if (co._holdUntil) {
             // 마지막 프레임 1초 정지 후 처음으로 되감아 루프(유저)
