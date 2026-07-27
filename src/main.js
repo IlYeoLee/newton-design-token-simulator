@@ -2311,16 +2311,20 @@ void main(){
         // 단계별 구간 루프 — 4페이즈로 쪼갰으면 각 단계는 '그 구간만' 반복해야 한다(유저).
         //   실측(3.33s 정방향): 준비 0~0.60 · 오른발 딛고 드리블 0.60~1.25 ·
         //   왼발 뻗어 공 잡기 1.25~1.80 · 오른발 모으며 슛 1.80~3.10
-        const PHW = { BK_B2: [0.00, 0.60], BK_B3: [0.60, 1.25], BK_B4: [1.25, 1.80], BK_B5: [1.80, 3.10] }[id];
+        // 2번째(오른발 딛고 드리블)는 유저 지정 1.47s에서 끊는다 — 그 프레임이 '딛는 순간'
+        const PHW = { BK_B2: [0.00, 0.60], BK_B3: [0.60, 1.47], BK_B4: [1.47, 1.81], BK_B5: [1.81, 3.10] }[id];
+
         if (PHW && co.video.readyState >= 2) {
           const [a, b] = PHW;
           const now = performance.now();
           if (co._holdUntil) {
             // 마지막 프레임 1초 정지 후 처음으로 되감아 루프(유저)
             if (now >= co._holdUntil) { co._holdUntil = 0; try { co.video.currentTime = a; } catch (e) {} co.video.play().catch(() => {}); }
-            else co.video.pause();
-          } else if (co.video.currentTime >= b - 0.02) {
+            else { co.video.pause(); if (Math.abs(co.video.currentTime - b) > 0.05) { try { co.video.currentTime = b; } catch (e) {} } }
+          } else if (co.video.currentTime >= b - 0.033) {
+            // 30fps라 정확히 b에서 멈출 수 없다 — 한 프레임 앞서 잡고 b로 시킹해 '그 프레임'을 정지 화면으로.
             co._holdUntil = now + 1000; co.video.pause();
+            try { co.video.currentTime = b; } catch (e) {}
           } else {
             if (co.video.currentTime < a - 0.05) { try { co.video.currentTime = a; } catch (e) {} }
             if (co.video.paused) co.video.play().catch(() => {});
