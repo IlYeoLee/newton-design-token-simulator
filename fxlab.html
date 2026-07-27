@@ -130,21 +130,20 @@
   </div>
 </div>
 
-<h2 id="lineStation">LINE 최소 토큰 — 선 엔진, 의미는 배치가 정한다 <span class="tag new">같은 선이 4가지 일을 한다</span></h2>
-<p class="note">선의 스타일(실선·대시·도트·테이퍼)과 두께는 <b>여기서 한 번</b> 정합니다 — 방향 화살표·회전 가이드·레인·감속 리듬이 전부 이 값의 파생.
-화살표는 독립 토큰이 아니라 <b>LINE + TIP 글리프</b>입니다 (TIP SVG는 ↑=전방, 엔진이 경로 접선 회전).</p>
+<h2 id="lineStation">LINE 토큰 — 선 엔진 3종 <span class="tag new">방향 · 흐름 · 회전</span></h2>
+<p class="note">선의 재료(스타일·두께·글로우·온도)와 <b>인터랙션 타이밍</b>(속도·간격·꼬리)을 <b>여기서 한 번</b> 정합니다 — 세 토큰이 전부 이 값의 파생.
+화살표는 독립 토큰이 아니라 <b>LINE + TIP 글리프</b>이고, 세 토큰 모두 같은 촉 SVG를 씁니다 (↑=전방, 엔진이 접선 회전).
+감속 리듬은 별도 토큰이 아니라 <b>흐름의 간격 파라미터</b>입니다.</p>
 <div class="live">
   <div class="cell"><canvas id="pathArrowC" width="360" height="240" style="width:270px;height:180px;background:#0A0C10"></canvas>
-    <div class="lab">① 방향 전환 — 경로 추종 화살표<br><span style="font-size:10px;color:var(--sand)">실전: 농구 컷 방향 지시·전환 가이드</span></div></div>
-  <div class="cell"><canvas id="lineRotC" width="360" height="240" style="width:270px;height:180px;background:#0A0C10"></canvas>
-    <div class="lab">② 회전 가이드 — 원호 + 촉<br><span style="font-size:10px;color:var(--sand)">실전: A1 발목 돌리기 "원에 발끝 올리고 여덟 번"</span></div></div>
+    <div class="lab">① 방향 — 테이퍼 스템 + 촉 draw-on<br><span style="font-size:10px;color:var(--sand)">실전: 농구 컷 지시 · 러닝 A3 리프트 큐 · 지면 방향 화살표 (시뮬과 같은 코드)</span></div></div>
   <div class="cell"><canvas id="lineLaneC" width="360" height="240" style="width:270px;height:180px;background:#0A0C10"></canvas>
     <div class="ctl" id="laneStyleChips"></div>
-    <div class="lab">③ 레인 — <b style="color:var(--text)">전용 스타일</b> (화살표와 분리, 재료는 공유)<br><span style="font-size:10px;color:var(--sand)">실전: 러닝 진행 레인 — 기본 대시 흐름 (대시 간격 = 속도 언어)</span></div></div>
-  <div class="cell"><canvas id="lineDecelC" width="360" height="240" style="width:270px;height:180px;background:#0A0C10"></canvas>
-    <div class="lab">④ 감속 리듬 — 간격이 벌어짐<br><span style="font-size:10px;color:var(--sand)">실전: C-구간 마무리 "속도 낮추기"</span></div></div>
+    <div class="lab">② 흐름 — 진행·속도 (전용 스타일)<br><span style="font-size:10px;color:var(--sand)">실전: 러닝 진행 레인 · C-구간 감속(간격이 벌어짐 = 속도 언어)</span></div></div>
+  <div class="cell"><canvas id="lineRotC" width="360" height="240" style="width:270px;height:180px;background:#0A0C10"></canvas>
+    <div class="lab">③ 회전 — 관절 돌리기 (가이드 링 + 같은 촉)<br><span style="font-size:10px;color:var(--sand)">실전: A1 발목·목·어깨 돌리기 "원에 발끝 올리고 여덟 번"</span></div></div>
   <div class="side">
-    <h3 style="margin:0 0 8px;font-size:12px;letter-spacing:.1em;color:var(--dim);text-transform:uppercase;font-weight:600">LINE 파라미터 — 4씬 동시 반영</h3>
+    <h3 style="margin:0 0 8px;font-size:12px;letter-spacing:.1em;color:var(--dim);text-transform:uppercase;font-weight:600">LINE 파라미터 — 3토큰 동시 반영</h3>
     <div class="ctl" style="justify-content:flex-start" id="arrowLineChips"></div>
     <div id="lineSliders" style="margin-top:8px"></div>
     <div style="margin-top:10px;font-size:11px;color:var(--dim)">촉(TIP) — <button class="btn" id="tipAttachBtn" style="padding:3px 9px;font-size:10.5px">SVG 교체</button> <span style="font-size:10px">글리프 서랍의 TIP_TRI 슬롯과 동일</span></div>
@@ -1376,7 +1375,6 @@ const PRIMS = [
   ['punchLine', '펀치 라인 — 콤보 연결·순서', 'LINE + MARK노드 + GLYPH'],
   ['approachRing', '어프로치 링 — 타이밍(수축)', 'MARK 소프트 링 수축 + 핑'],
   ['trajectory', '궤적 — 동작 경로 (스윙·스트라이크)', 'LINE 광류 + 코멧 헤드 + 스파크'],
-  ['rotate', '회전 — 관절 돌리기 (목·어깨·허리)', 'LINE 화살촉 + MARK 아크 + 피벗'],
 ];
 let galleryTempo = 1;   // 갤러리 공통 템포 (개별 셀 템포 은퇴)
 const primHost = document.getElementById('primLib');
@@ -1525,27 +1523,17 @@ function drawPathArrow() {
     g.restore();
   }
 }
-// ② 회전 가이드 — 원호 + 촉 (A1 발목 돌리기)
+// ③ 회전 토큰 — 관절 돌리기 (fx-core drawRotate 정본 = 시뮬 코치 회전 큐와 같은 코드).
+//   예전엔 랩만 자체 원호+촉을 그려서 파생 토큰 서랍의 회전과도 달랐음 → LINE 스테이션으로 이동·통일.
 function drawLineRot() {
   const cv = document.getElementById('lineRotC');
   const g = cv.getContext('2d');
-  const W = cv.width, H = cv.height, C = [W / 2, H / 2 + 8];
+  const W = cv.width, H = cv.height;
   g.clearRect(0, 0, W, H);
   const t = performance.now() / 1000;
-  const AW = state.arrow.w;
-  const R = 62;
-  const arc = [];
-  for (let a = -Math.PI * 0.2; a <= Math.PI * 1.1; a += 0.06) arc.push([C[0] + Math.cos(a) * R, C[1] + Math.sin(a) * R]);
-  strokeFlowPath(g, arc, t, AW, { color: lutCss(0.45) });
-  // 원호 위를 도는 촉
-  const a = -Math.PI * 0.2 + ((t * 0.35) % 1) * Math.PI * 1.3;
-  const x = C[0] + Math.cos(a) * R, y = C[1] + Math.sin(a) * R;
-  g.save(); g.translate(x, y); g.rotate(a + Math.PI);   // 접선 방향
-  if (!(state.glyphs.LIFT_TIP && drawCustomGlyphAt(g, state.glyphs.LIFT_TIP, 0, 0, 34, false, !!state.glyphFlip.LIFT_TIP))
-     && !(state.glyphs.TIP_TRI && drawCustomGlyphAt(g, state.glyphs.TIP_TRI, 0, 0, 32, false, !!state.glyphFlip.TIP_TRI))) {
-    g.fillStyle = lutCss(0.62); g.shadowColor = lutCss(0.75); g.shadowBlur = 9;
-    g.beginPath(); g.moveTo(-9, 8); g.lineTo(0, -11); g.lineTo(9, 8); g.closePath(); g.fill();
-  }
+  const P = state.prims.rotate || { r: 0.30, width: 1.1, dir: 1, sweep: 0.62, tempo: 0.42 };
+  g.save(); g.translate((W - H) / 2, 0);          // 정사각 캔버스 규약(drawRotate)에 맞춰 중앙 정렬
+  drawRotate(g, H, P, { halo: state.m.halo }, t, labStemEnv());
   g.restore();
 }
 // ③ 레인 광류 — 전진 대시 흐름
@@ -1622,7 +1610,6 @@ let _lastHoldCount = -1, _primTick = 0;
     if (VIS.pathArrowC) drawPathArrow();
     if (VIS.lineRotC) drawLineRot();
     if (VIS.lineLaneC) drawLineLane();
-    if (VIS.lineDecelC) drawLineDecel();
   }
   requestAnimationFrame(primAnimLoop);
 })();

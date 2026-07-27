@@ -339,7 +339,7 @@ export function drawStemArrow(g, W, H, t, ENV, opts = {}) {
     g.beginPath(); g.moveTo(cx, yy); g.lineTo(cx, y0 + (yEnd - y0) * Math.min(1, k + 0.06)); g.stroke();
   }
   if (draw > 0.9 && !opts.noTip) {   // noTip = 촉 없는 자루(감속 바 등)
-    const tipS = 58 * s * (0.7 + 0.3 * AW);
+    const tipS = 50 * s * (0.7 + 0.3 * AW);   // 촉은 조금 더 작게(유저) — 스템:촉 비율 정본
     const go = { color: lut(0.95), glowColor: lut(0.85), glow: 12 * glowK };
     const ok = ENV.glyph && (ENV.glyph(g, 'LIFT_TIP', cx, y1 + 16 * s, tipS, go)
                           || ENV.glyph(g, 'TIP_TRI', cx, y1 + 14 * s, tipS * 0.93, go));
@@ -654,12 +654,18 @@ export function drawRotate(g, W, P, look, t, ENV, prog) {
     g.beginPath(); g.arc(0, 0, R, Math.min(a, b), Math.max(a, b), false); g.stroke();
   }
   g.shadowBlur = 0;
-  // 선단 화살촉 — 접선 방향(회전 방향 지시)
+  // 선단 화살촉 — 접선 방향(회전 방향 지시). LINE 3토큰이 같은 촉 SVG를 쓴다(글리프 없으면 스트로크 폴백).
   const hx = Math.cos(head) * R, hy = Math.sin(head) * R, tang = head + dir * Math.PI / 2;
-  g.save(); g.translate(hx, hy); g.rotate(tang);
-  g.globalAlpha = 1; g.strokeStyle = lut(0.96); g.lineWidth = lw * 0.9; g.shadowColor = lut(0.9); g.shadowBlur = GB * 1.2;
   const ah = 8 * s * wid;
-  g.beginPath(); g.moveTo(-ah, -ah * 0.9); g.lineTo(ah * 0.5, 0); g.lineTo(-ah, ah * 0.9); g.stroke();
+  g.save(); g.translate(hx, hy); g.rotate(tang + Math.PI / 2);   // 글리프 규약 ↑=전방 → +90°
+  g.globalAlpha = 1;
+  const tipS = 3.4 * ah * (0.7 + 0.3 * AW);
+  const go = { color: lut(0.96), glowColor: lut(0.9), glow: GB * 1.2 };
+  if (!(ENV.glyph && (ENV.glyph(g, 'LIFT_TIP', 0, 0, tipS, go) || ENV.glyph(g, 'TIP_TRI', 0, 0, tipS * 0.93, go)))) {
+    g.rotate(-Math.PI / 2);   // 폴백 스트로크는 전방 +x 기준
+    g.strokeStyle = lut(0.96); g.lineWidth = lw * 0.9; g.shadowColor = lut(0.9); g.shadowBlur = GB * 1.2;
+    g.beginPath(); g.moveTo(-ah, -ah * 0.9); g.lineTo(ah * 0.5, 0); g.lineTo(-ah, ah * 0.9); g.stroke();
+  }
   g.restore();
   // 중심 피벗(관절)
   g.globalAlpha = 0.62; g.shadowColor = lut(0.75); g.shadowBlur = GB * 0.6; g.fillStyle = lut(0.6);
