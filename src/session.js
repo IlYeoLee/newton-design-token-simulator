@@ -480,7 +480,7 @@ const SB_POSE = [
   { t: 0.00, L: [-0.75, -0.50], R: [0.75, -0.50] },                      // 시작 = 어깨너비보다 넓게 나란히(앞줄)
   { t: 0.60, L: [-0.75, -0.50], R: [0.75, -0.50] },                      // 1/4 무릎 굽혀 페이크 — 발은 그대로
   { t: 1.44, L: [-0.75, -0.50, 1], R: [0.80, 1.00] },                    // 2/4 오른발을 앞으로 크게 내딛기(왼발은 앞볼 접지)
-  { t: 1.81, L: [-1.00, -0.90], R: [0.80, 1.00] },                       // 3/4 왼발이 왼쪽·뒤로 — 몸이 왼쪽으로 빠진다
+  { t: 1.81, L: [-1.00, -0.90, 0, 'slide'], R: [0.80, 1.00] },           // 3/4 왼발이 왼쪽·뒤로 '쓰윽' 미끄러진다(스텝백)
   { t: 3.10, L: [-1.00, -0.90], R: [-0.25, -0.60] },                     // 4/4 오른발 모으고 슛
 ];
 // 판정 마크 프레임 = 빔 창 안 고정 영역. 어떤 단계·어떤 프레임에서도 이 밖으로 안 나간다.
@@ -500,16 +500,19 @@ function sbPoseAt(vt, holdAirborne) {
     const p0 = a[side], p1 = b[side];
     const dist = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]);
     const step = dist > 0.05;
+    const slide = p1[3] === 'slide';   // 스텝백 = 바닥에 붙은 채 쓰윽 밀린다(들었다 놓는 스텝과 다름)
     let ff = f;
     if (step) {
       if (holdAirborne && ff > 0 && ff < 1) ff = 0;          // 아직 안 딛었으면 이전 자리
-      else ff = Math.max(0, Math.min(1, (ff - 0.35) / 0.65));   // 구간 후반 65%에 몰아서 '확' 나간다
+      else if (!slide) ff = Math.max(0, Math.min(1, (ff - 0.35) / 0.65));   // 구간 후반 65%에 몰아서 '확'
     }
-    const ez = ff < 0.5 ? 2 * ff * ff : 1 - Math.pow(-2 * ff + 2, 2) / 2;
+    // 스텝 = 뗐다 → 빠르게 → 딱 멈춤 / 슬라이드 = 초반에 확 밀고 길게 감속(쓰윽)
+    const ez = slide ? 1 - Math.pow(1 - ff, 2.6)
+                     : (ff < 0.5 ? 2 * ff * ff : 1 - Math.pow(-2 * ff + 2, 2) / 2);
     return {
       u: sbU(p0[0] + (p1[0] - p0[0]) * ez), v: sbV(p0[1] + (p1[1] - p0[1]) * ez),
       tu: sbU(p1[0]), tv: sbV(p1[1]),
-      toe: (ez < 0.5 ? (p0[2] || 0) : (p1[2] || 0)),
+      toe: (ez < 0.5 ? (p0[2] || 0) : (p1[2] || 0)), slide,
       f: ez, dist, step, plantT: b.t, moving: step && ez > 0.001 && ez < 0.999,
     };
   };
@@ -653,7 +656,13 @@ export class Session {
       const pop1 = Math.max(0, 1 - age / 0.18), pop2 = Math.max(0, 1 - Math.abs(age - 0.10) / 0.16);
       const pop = Math.max(pop1, pop2 * 0.5);
       const landed = st[side] === q.plantT;   // 이 단계 목표에 이미 딛었나
-      if (q.moving) {
+      if (q.moving && q.slide) {
+        // 슬라이드(스텝백) = 바닥에 붙은 채 밀린다 — 들리지 않으니 고스트로 바꾸지 않고,
+        //   밀리는 동안만 살짝 흐려져 '쓰윽' 하는 잔상감을 준다.
+        const spd = Math.max(0, 1 - q.f);
+        fm.countdown(1); fm.op(0.70 + 0.25 * (1 - spd));
+        fm.at(p.x, p.z, FOLLOW_S);
+      } else if (q.moving) {
         // 이동 중 = 들린 발. 궤적 중간에서 가장 크고 흐리다(유리판 미끄러짐 방지).
         const air = Math.sin(Math.PI * q.f);
         const over = q.f > 0.85 ? (q.f - 0.85) / 0.15 * 0.06 : 0;   // 착지 직전 살짝 지나쳤다가
