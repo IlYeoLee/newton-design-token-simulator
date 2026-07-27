@@ -463,6 +463,10 @@ const BDEEP = 0.75;
 const BK_SQUAT_REPS = BK_REPS.BK_A3;
 // 시범(관찰) 길이 — 프리뷰 타이머 링·장면 시간·main.js A2_WATCH·floor-scene.html이 전부 이 값(3초, 유저)
 const A_WATCH = 3.0;
+// 따라하기(스텝백 1/4·2/4) 지면 배치 — 한 곳에서만 고친다.
+//   V=빔 창 앞뒤(작을수록 화면 하단) · UX=발 페어 좌우 반간격(어깨너비 이상, 실제 농구 스탠스)
+//   S=발자국 배율(농구 지면 UI 공통 1.0)
+const FOLLOW_V = 0.16, FOLLOW_UX = 0.50, FOLLOW_S = 1.0;
 const BK_STR = {
   BK_A1: { per: 2.4, reps: BK_REPS.BK_A1, side: true, noMark: true, fm: '옆구리 스트레치', say: '팔을 위로 뻗어 옆으로 쭉쭉. 왼쪽 오른쪽 번갈아 허리를 늘려요.' },
   // BK_A2(니 드라이브)는 러닝 A3(하이니) 컴포넌트 전용 핸들러 — bkA2hk
@@ -775,7 +779,7 @@ export class Session {
       this.bkStretch['BK_A1'] = { ring, arc, arrow }; }
     // A2 니 드라이브 = 러닝 A3(하이니) 컴포넌트 그대로 이식 — 발형2+숫자+리프트큐+궤적토큰. 트위스트=코멧 크로스바디.
     g = this._mk('BK_A2');
-    const k2L = new FootMark('left').at(-0.17, -1.85, 1.05), k2R = new FootMark('right').at(0.17, -1.85, 1.05);   // 투사존(-1.2~-2.8) 안
+    const k2L = new FootMark('left').at(-0.17, -1.85, FOLLOW_S), k2R = new FootMark('right').at(0.17, -1.85, FOLLOW_S);   // 투사존(-1.2~-2.8) 안
     const k2nL = attachMarkNum(k2L, '0', false), k2nR = attachMarkNum(k2R, '0', true);
     const mkLift2 = (x) => {
       const c = document.createElement('canvas'); c.width = 128; c.height = 256;
@@ -834,8 +838,8 @@ export class Session {
     b1num.userData.canvas = b1c; b1num.userData.tex = b1num.material.map;
     b1num.rotation.x = -Math.PI / 2; b1num.position.set(0, 0.016, BK_STAND - 0.55 - BDEEP); b1num.renderOrder = 8;
     // 셋업 막 발자국 — 어깨보다 넓게(0.56m, wikiHow 기본기). 4초간만 보였다 퇴장(상시 아님).
-    const b1sL = new FootMark('left').at(-0.14, BK_STAND - 0.40 - BDEEP, 1.1);   // 모은 자세에서 시작 → 틱이 벌린다
-    const b1sR = new FootMark('right').at(0.14, BK_STAND - 0.40 - BDEEP, 1.1);
+    const b1sL = new FootMark('left').at(-0.14, BK_STAND - 0.40 - BDEEP, FOLLOW_S);   // 모은 자세에서 시작 → 틱이 벌린다
+    const b1sR = new FootMark('right').at(0.14, BK_STAND - 0.40 - BDEEP, FOLLOW_S);
     const b1aL = floorArrow(-0.20, BK_STAND - 0.40 - BDEEP, 90, BRAND.sand, 0.22);    // ← 룩 화살표(스템+SVG촉)
     const b1aR = floorArrow(0.20, BK_STAND - 0.40 - BDEEP, -90, BRAND.sand, 0.22);    // →
     b1aL._gain = 0; b1aR._gain = 0;
@@ -2114,7 +2118,18 @@ export class Session {
       const H = this.bkB2x, MAXSEC = 60;
       if (this._bkStrId !== 'BK_B2') { H.beat = 0; H._dwell = 0; H._beatT = this.t; H._popT = -9; }
       this._bkStrId = 'BK_B2';
-      if (!this._followLatch) {   // 관찰 — 실루엣+Preview만, 가이드 숨김
+      // 화살표는 관찰(프리뷰) 때도 뜬다 — 첫 진입에서만 안 보이던 원인이 여기(_gain이 따라하기
+      //   분기에서만 세팅돼 초기값 0. 재진입 때는 이전 값이 남아 '보였다'). 배치를 먼저 잡는다.
+      const W = Math.PI * 2 / 1.6, V = FOLLOW_V;
+      const bL = Math.sin(this.t * W), bR = Math.sin((this.t - 0.18) * W);
+      const pL = this._beamLocal(-FOLLOW_UX, V, H.mL), pR = this._beamLocal(FOLLOW_UX, V, H.mL);
+      // 화살표 줄은 발자국보다 살짝 뒤(+0.10) — 촉이 창 근거리 경계를 넘으면 빔 페더가 알파를
+      //   0.06까지 깎아 사실상 안 보인다(실측). 발자국 줄 그대로 두면 아래 화살표가 사라진다.
+      const aD = this._beamLocal(-(FOLLOW_UX + 0.21), V + 0.10, H.mL), aU = this._beamLocal(FOLLOW_UX + 0.21, V + 0.10, H.mL);
+      H.aD.position.set(aD.x, 0.014, aD.z); H.aU.position.set(aU.x, 0.014, aU.z);
+      H.aD._gain = 0.30 + 0.60 * Math.max(0, bL);
+      H.aU._gain = 0.30 + 0.60 * Math.max(0, -bL);
+      if (!this._followLatch) {   // 관찰 — 실루엣+Preview+화살표만, 마크 숨김
         for (const k of ['mL', 'mC', 'mR']) H[k].setOp?.(0);
         for (const k of ['sL1', 'sR1', 'sL2', 'sR2']) H[k].op(0);
         H.numL.visible = false; H.numR.visible = false;   // 글리프는 자체 재질 — op(0)로 안 꺼진다
@@ -2138,13 +2153,9 @@ export class Session {
       const TGT = [0.55, 0, -0.55][Math.min(H.beat, 2)];
       // 따라하기 화면(143:444) = 코치 영상 아래 L·R 마크 한 쌍 + 좌 ↓ / 우 ↑.
       //   비트 릴레이(존 3개)는 이 단계에선 안 쓴다 — 1/4은 '자리 잡고 망설이기'다.
-      const W = Math.PI * 2 / 1.6, V = 0.24;   // 영상 아래 줄. v 작을수록 화면 하단(유저: 더 아래로)
-      const bL = Math.sin(this.t * W), bR = Math.sin((this.t - 0.18) * W);
-      const pL = this._beamLocal(-0.34, V, H.mL), pR = this._beamLocal(0.34, V, H.mL);
       H.sL2.countdown(1); H.sR2.countdown(1);
-      // 크기 = 드리블(B1) 발자국과 동일 배율 1.1 (유저) — 발 위치를 보고 서는 화면이라 같은 규격
-      H.sL2.at(pL.x, pL.z, 1.10 + 0.07 * bL); H.sL2.op(0.80 + 0.20 * bL);
-      H.sR2.at(pR.x, pR.z, 1.10 + 0.07 * bR); H.sR2.op(0.80 + 0.20 * bR);
+      H.sL2.at(pL.x, pL.z, FOLLOW_S + 0.06 * bL); H.sL2.op(0.80 + 0.20 * bL);
+      H.sR2.at(pR.x, pR.z, FOLLOW_S + 0.06 * bR); H.sR2.op(0.80 + 0.20 * bR);
       placeMarkNum(H.numL); placeMarkNum(H.numR);   // 앵커·스케일은 매 프레임 룩 값에서
       H.numL.visible = true; H.numR.visible = true;
       for (const k of ['sL1', 'sR1']) H[k].op(0);
@@ -2153,11 +2164,6 @@ export class Session {
       H.mR.position.set(pR.x, H.mR.position.y, pR.z); H.mR.setOp?.(0);
       H.mC.setOp?.(0);
       H.cL.op(0); H.cR.op(0);
-      // 화살표 = 발자국 페어(±0.34)와 같은 중심·같은 줄, 바로 바깥에 붙인다(유저: 가운데 정렬·더 가깝게)
-      const aD = this._beamLocal(-0.55, V, H.mL), aU = this._beamLocal(0.55, V, H.mL);
-      H.aD.position.set(aD.x, 0.014, aD.z); H.aU.position.set(aU.x, 0.014, aU.z);
-      H.aD._gain = 0.30 + 0.60 * Math.max(0, bL);
-      H.aU._gain = 0.30 + 0.60 * Math.max(0, -bL);
       H.rise.setOp?.(0);   // 상승 링(파형) 제외 — 1/4은 자리 잡기라 링 없이 발자국+화살표만(유저)
       const dtB2 = Math.max(0, Math.min(0.1, this.t - (this._bkB2t ?? this.t))); this._bkB2t = this.t;
       if (H.beat <= 2) {
@@ -2294,12 +2300,12 @@ export class Session {
         // 2/4(B3) = 1/4 규약 그대로 이식(유저): 같은 줄(V 0.24)·같은 크기(1.1)·L·R 글리프,
         //   링·화살표·고스트 없이 발자국만. 3/4·4/4는 기존(작은 마크+링+화살표) 유지.
         const SOLO = id === 'BK_B3';
-        const W = Math.PI * 2 / 1.6, V = SOLO ? 0.24 : 0.34, K = 2.2;   // 영상 아래 줄
-        const S0 = SOLO ? 1.10 : 0.62, SB = SOLO ? 0.07 : 0.04;
+        const W = Math.PI * 2 / 1.6, V = SOLO ? FOLLOW_V : 0.34, K = 2.2;   // 영상 아래 줄
+        const S0 = SOLO ? FOLLOW_S : 0.62, SB = SOLO ? 0.06 : 0.04;
         const cx = (POSE.L[0] + POSE.R[0]) / 2;
         // 2/4는 1/4 컴포넌트를 '같은 자리에' 그대로 — u ±0.34 고정, 앞뒤 오프셋 없음(유저).
-        const uL = SOLO ? -0.34 : Math.max(-0.92, Math.min(0.92, (POSE.L[0] - cx) * K));
-        const uR = SOLO ?  0.34 : Math.max(-0.92, Math.min(0.92, (POSE.R[0] - cx) * K));
+        const uL = SOLO ? -FOLLOW_UX : Math.max(-0.92, Math.min(0.92, (POSE.L[0] - cx) * K));
+        const uR = SOLO ?  FOLLOW_UX : Math.max(-0.92, Math.min(0.92, (POSE.R[0] - cx) * K));
         const bL = Math.sin(this.t * W), bR = Math.sin((this.t - 0.18) * W);   // 들썩 — 오른발 한 박자 늦게
         const pL = this._beamLocal(uL, SOLO ? V : V + POSE.L[1] * 0.10, H.mL);
         const pR = this._beamLocal(uR, SOLO ? V : V + POSE.R[1] * 0.10, H.mL);
