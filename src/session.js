@@ -2134,7 +2134,9 @@ export class Session {
       H.sL2.at(pL.x, pL.z, 0.62 + 0.04 * bL); H.sL2.op(0.80 + 0.20 * bL);
       H.sR2.at(pR.x, pR.z, 0.62 + 0.04 * bR); H.sR2.op(0.80 + 0.20 * bR);
       for (const k of ['sL1', 'sR1']) H[k].op(0);
-      for (const k of ['mL', 'mC', 'mR']) H[k].setOp?.(0);
+      H.mL.position.set(pL.x, H.mL.position.y, pL.z); H.mL.setOp?.(0.35 + 0.25 * bL);
+      H.mR.position.set(pR.x, H.mR.position.y, pR.z); H.mR.setOp?.(0.35 + 0.25 * bR);
+      H.mC.setOp?.(0);
       H.cL.op(0); H.cR.op(0);
       const aD = this._beamLocal(-0.92, V, H.mL), aU = this._beamLocal(0.92, V, H.mL);
       H.aD.position.set(aD.x, 0.014, aD.z); H.aU.position.set(aU.x, 0.014, aU.z);
@@ -2283,7 +2285,10 @@ export class Session {
         H.fRl.at(pL.x, pL.z, 0.62 + 0.04 * bL); H.fRl.op(0.80 + 0.20 * bL);
         H.fRr.at(pR.x, pR.z, 0.62 + 0.04 * bR); H.fRr.op(0.80 + 0.20 * bR);
         for (const k of ['fC', 'fLl', 'fLr']) H[k]?.op(0);
-        for (const k of ['mL', 'mC', 'mR']) H[k].setOp?.(0);
+        // 원형 판정 링 = 발자국 아래 그대로(다른 지면 UI와 같은 토큰). 들썩임에 맞춰 밝기만 뛴다.
+        H.mL.position.set(pL.x, H.mL.position.y, pL.z); H.mL.setOp?.(0.35 + 0.25 * bL);
+        H.mR.position.set(pR.x, H.mR.position.y, pR.z); H.mR.setOp?.(0.35 + 0.25 * bR);
+        H.mC.setOp?.(0);
         H.rise.setOp?.(0); H.gh.op(0); H.cL?.op(0); H.cR?.op(0);
         // 화살표 = 그 단계에서 '움직이는 발'이 가는 쪽 (B5는 슛 = 위로)
         const AR = { BK_B3: [Math.min(0.98, uR + 0.5), -90], BK_B4: [Math.max(-0.98, uL - 0.5), 90],
