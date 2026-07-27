@@ -4733,7 +4733,7 @@ void main(){
   occlRenderer.setPixelRatio(window.devicePixelRatio || 1);
   occlRenderer.setClearColor(0x000000, 0);
   Object.assign(occlRenderer.domElement.style, { position: 'fixed', pointerEvents: 'none', zIndex: '7' });   // display 토글 금지 — 재표시 첫 프레임 검정 플래시
-  if (DIAG.get('occl') === '1') document.body.appendChild(occlRenderer.domElement);   // 기본: DOM 밖 — 컨텍스트가 컴포지터에 안 물림
+  if (new URLSearchParams(location.search).get('occl') === '1') document.body.appendChild(occlRenderer.domElement);   // 기본: DOM 밖 (DIAG는 아래 선언 — TDZ 부트 크래시 사고)
   const occlCam = camera.clone();
   // 오버레이 = 프레임 위 몸을 재렌더해 프레임을 몸에 가림(발밑 밟힘). 2번째 GL이라 메인 IBL(PMREM) 재사용
   // 불가 → 원본 재질은 검게 나옴. Lambert 대체재질 + 씬 조명을 오버레이 레이어에도 켜서 3D 음영 유지(2D 방지).
