@@ -2146,7 +2146,7 @@ export class Session {
       H.aD.position.set(aD.x, 0.014, aD.z); H.aU.position.set(aU.x, 0.014, aU.z);
       H.aD._gain = 0.30 + 0.60 * Math.max(0, bL);
       H.aU._gain = 0.30 + 0.60 * Math.max(0, -bL);
-      H.rise.setOp?.(H.beat === 3 ? 0.85 : 0);
+      H.rise.setOp?.(0);   // 상승 링(파형) 제외 — 1/4은 자리 잡기라 링 없이 발자국+화살표만(유저)
       const dtB2 = Math.max(0, Math.min(0.1, this.t - (this._bkB2t ?? this.t))); this._bkB2t = this.t;
       if (H.beat <= 2) {
         // 커서가 목표 마크 근방에 머물면(0.8s) 통과. 봇 시연이 늦으면 6s 후 자동 진행(데모 안전장치).
