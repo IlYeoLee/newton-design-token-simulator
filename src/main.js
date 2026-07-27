@@ -2190,9 +2190,9 @@ void main(){
     BK_A1: { src: 'ready-view/assets/bk_sidebend_pp.webm', cropOff: 0.0, cropScale: 1.0, w: 0.9, h: 0.9, fwd: 0.10 },   // 옆구리 스트레치
     BK_A2: { src: 'ready-view/assets/bk_highknee.webm', cropOff: 0.0, cropScale: 1.0, w: 0.9, h: 0.9, fwd: 0.10 },   // 무릎 들기
     // 훈련 관찰 공통 — 이게진짜.mp4(그린스크린 정면 로우 드리블) 핑퐁 베이크(_pp, ffmpeg reverse concat)
-    BK_B1: { src: 'bhandle_pp.mp4', cropOff: 0.0, cropScale: 1.0, w: 0.55, h: 0.55, fwd: 0.10 },
-    BK_B2: { src: 'bhandle_pp.mp4', cropOff: 0.0, cropScale: 1.0, w: 0.55, h: 0.55, fwd: 0.10 },
-    BK_B3: { src: 'bhandle_pp.mp4', cropOff: 0.0, cropScale: 1.0, w: 0.55, h: 0.55, fwd: 0.10 },
+    BK_B1: { src: 'bhandle_pp.mp4', cropOff: 0.0, cropScale: 1.0, w: 0.42, h: 0.75, fwd: 0.10 },   // 소스 720x1280 — 9:16 유지(정사각은 세로 눌림)
+    BK_B2: { src: 'bhandle_pp.mp4', cropOff: 0.0, cropScale: 1.0, w: 0.42, h: 0.75, fwd: 0.10 },   // 소스 720x1280 — 9:16 유지(정사각은 세로 눌림)
+    BK_B3: { src: 'bhandle_pp.mp4', cropOff: 0.0, cropScale: 1.0, w: 0.42, h: 0.75, fwd: 0.10 },   // 소스 720x1280 — 9:16 유지(정사각은 세로 눌림)
     BK_A3: { src: 'ready-view/assets/bk_squat.webm',    cropOff: 0.0, cropScale: 1.0, w: 0.9, h: 0.9, fwd: 0.10 },   // 스쿼트
   };
   const _coaches = {};   // stageId → { video, plane, _fwd }
@@ -3949,7 +3949,7 @@ void main(){
       BK_C3: 'cmu_dribble_side',         // 사이드스텝 = CMU 06_08 사이드 드리블(루트 이동)
       // B1 시범 = 06_15 드리블→슛(온전한 무브 원테이크), B2 분해 = 06_14 크로스오버+슛 위상잠금
       // B단계 = 공을 튄다 → 튀기며 움직인다 → 튀기다 멈추고 뒤로(BK-B-CURRICULUM.md)
-      BK_B1: 'auto_cmu124_04',        // 제자리 공 튀기기 (root:false → 제자리 고정 보장)
+      BK_B1: 'bp_dribble',            // 드리블 루프 2(Sketchfab 네이티브 1.6s) — 유저: 이걸로 교체
       BK_B2: 'vm_crossover',          // 실사 비디오모캡(크로스 잽 드리블, 유저 제공 소스) — 절차·CMU 모두 어색해 실사로 확정
       BK_B3: 'cmu_dribble_low',       // 다리 사이도 같은 핸들 클립 루프
     };
@@ -4054,6 +4054,7 @@ void main(){
       xbot.legLock = /^BK_(B2|C1|C2)$/.test(session.stage || '');   // 크로스오버 = 하체 완전 고정(굽힌 자세 스냅샷, 유저) — 실측 표류 0.06m 기법
       xbot.uDribble = /^BK_(B2|C1|C2)$/.test(session.stage || '');   // 공 = 박자 결정론 U자(좌우 손바닥 왕복, 유저 확정)
       xbot.relaxLeftArm = (session.stage || '') === 'BK_B1';   // 로우 드리블 — 오른손만 드리블, 왼팔 자연 축 내림
+      xbot.phaseDribble = (session.stage || '') === 'BK_B1';   // 공 = 오른손 높이 직결(최고=손, 최저=바닥)
       // 세션 데모(비실전) 공통: CMU 클립이 몸을 돌려도 봇은 정면 유지(유저 원칙)
       xbot.lockYaw = session.active && !session.isLive && /^BK_[AB]/.test(session.stage || '');
       let _clip = demoClipFor(session.sport, session.stage);
@@ -4108,10 +4109,8 @@ void main(){
           //   다리를 '실제로' 벌린다 — 절차적 램프(0.8s 대기 → 2.2s에 걸쳐 어깨너비+)
           _clip = 'idle';
           xbot.stanceWiden = session.bkB1Widen ?? 0;   // 세션이 계산한 모음(-0.25)→벌림(1.15) 램프
-        } else {   // 124_04 순수 드리블 구간(실측 1.3~3.2) 핑퐁 — 하드컷 대신 되감기(유저)
+        } else {   // bp_dribble 네이티브 루프 — 구간 창·핑퐁 불필요
           xbot.stanceWiden = 1;
-          const SPAN = 1.9, m = session.t % (SPAN * 2);
-          _phase = 1.3 + (m < SPAN ? m : SPAN * 2 - m);
         }
       }
       // 06_13 프리스타일 전체 루프는 이동·컷 구간이 섞여 어색(유저) — 안정 핸들 구간만 창 반복.

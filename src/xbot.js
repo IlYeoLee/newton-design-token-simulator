@@ -615,7 +615,7 @@ export class XBot {
       rq(Bn('mixamorigLeftArm'), new THREE.Vector3(1, 0, 0), xL);
       rq(Bn('mixamorigRightArm'), new THREE.Vector3(0, 0, 1), -zR);
       rq(Bn('mixamorigRightArm'), new THREE.Vector3(1, 0, 0), -xR);
-      rq(Bn('mixamorigSpine'), new THREE.Vector3(1, 0, 0), 10);       // 상체 살짝 숙임(유저)
+      rq(Bn('mixamorigSpine'), new THREE.Vector3(1, 0, 0), 18);       // 상체 숙임(유저: 더 허리 숙이고)
       rq(Bn('mixamorigLeftFoot'), new THREE.Vector3(1, 0, 0), -18);   // 까치발 해제 — 실측 뒤꿈치 0.09~0.11m 공중
       rq(Bn('mixamorigRightFoot'), new THREE.Vector3(1, 0, 0), -18);  //   (X+=발 펴기 규약이므로 X−=뒤꿈치 내림)
       this.model.updateMatrixWorld(true);
@@ -637,10 +637,10 @@ export class XBot {
         const D3 = Math.PI / 180;
         const mul = (n, ax, deg) => { const q = this._legSnap.q[n]; if (q) q.multiply(new THREE.Quaternion().setFromAxisAngle(ax, deg * D3)); };
         const AX = new THREE.Vector3(1, 0, 0), AZ = new THREE.Vector3(0, 0, 1);
-        mul('LeftUpLeg', AZ, 9); mul('RightUpLeg', AZ, -9);
-        mul('LeftUpLeg', AX, 14); mul('RightUpLeg', AX, 14);
-        mul('LeftLeg', AX, -22); mul('RightLeg', AX, -22);
-        mul('LeftFoot', AX, 10); mul('RightFoot', AX, 10);
+        mul('LeftUpLeg', AZ, 12); mul('RightUpLeg', AZ, -12);
+        mul('LeftUpLeg', AX, 20); mul('RightUpLeg', AX, 20);
+        mul('LeftLeg', AX, -32); mul('RightLeg', AX, -32);
+        mul('LeftFoot', AX, 14); mul('RightFoot', AX, 14);
       }                                                               // 루트를 돌리면 얼린 다리가 호를 그림(실측 0.95m)
       for (const n of LEGS) { const b = this.model.getObjectByName('mixamorig' + n); const q = this._legSnap.q[n]; if (b && q) b.quaternion.copy(q); }
       this.model.rotation.y = this._legSnap.yaw;
@@ -927,8 +927,10 @@ export class XBot {
     if (!ball || !this._wristR || !this._wristL) return;
     ball.visible = true;
     const r = 0.12, PALM = 0.13, G = 9.8, BOUNCE_H = 0.34, BLEND = 0.10;
-    const wR = new THREE.Vector3().setFromMatrixPosition(this._wristR.matrixWorld);
-    const wL = new THREE.Vector3().setFromMatrixPosition(this._wristL.matrixWorld);
+    // getWorldPosition = 조상 체인 강제 갱신 — bp_dribble 등에서 matrixWorld가 stale(y≈-0.02)해
+    // 공이 바닥에 붙었음(유저). setFromMatrixPosition은 갱신 없이 읽어 이 버그를 만든다.
+    const wR = new THREE.Vector3(); this._wristR.getWorldPosition(wR);
+    const wL = new THREE.Vector3(); this._wristL.getWorldPosition(wL);
     const S = this._db = this._db || { t: 0, mode: 'carry', hnd: 'R', vyR: 0, vyL: 0,
       pR: wR.y, pL: wL.y, bT: 0, bx: wR.x, by: wR.y, bz: wR.z, blend: 9, fx: 0, fz: 0, idleT: 0 };
     S.t += dt;
@@ -951,12 +953,42 @@ export class XBot {
     // ── U자 결정론 모드(uDribble, main B2/C2 구동 — 유저 확정): 공은 '무조건' 일정 박자로
     //    왼손바닥 ↔ 오른손바닥을 U자로 왕복한다. 끝단 12%는 손 밀착(드웰), 꼭짓점은 두 손 중앙 바닥.
     //    손 신호 검출(노이즈)에 의존하지 않아 박자·형태가 절대 안 깨진다. 손 위치는 라이브 추적.
+    if (this.phaseDribble) {
+      // B1 로우 드리블(유저): 손 y 최고점 = 공이 손에 붙음, 최저점 = 공이 바닥에 '퉁'.
+      // 오른손목 높이를 러닝 min/max 엔벨로프로 정규화해 공 높이에 직결 — 클립 박자와 어긋날 수 없다.
+      const wy = wR.y;
+      if (wy < 0.15) return;   // 퇴화 호출 가드 — 라이브 경로가 포즈 미적용 상태(y≈0)로 공을 바닥에 덮어씀
+      // 엔벨로프 적응 1.2/s — 전이 프레임의 극단값(T포즈 등)이 상한에 박혀 k≈0(공이 바닥에 붙음) 방지
+      S.pHi = Math.max(wy, (S.pHi ?? wy) - 1.2 * dt);
+      S.pLo = Math.min(wy, (S.pLo ?? wy) + 1.2 * dt);
+      const span = Math.max(0.06, S.pHi - S.pLo);
+      const k = Math.max(0, Math.min(1, (wy - S.pLo) / span));
+      const py = wy - PALM;
+      const bx = wR.x, bz = (this._hips ? this._hips.matrixWorld.elements[14] : wR.z) - 0.30;
+      const by = r + k * Math.max(0, py - r);
+      const sq = k < 0.10 ? 1 - k / 0.10 : 0;
+      const syP = 1 - 0.30 * sq, sxzP = 1 + 0.22 * sq;
+      ball.scale.set(sxzP, syP, sxzP);
+      ball.position.set(bx, Math.max(0, by - r) + r * syP, Math.min(bz, wR.z));
+      return;
+    }
     if (this.uDribble) {
       // 손과 완전 분리(유저 확정): 몸 기준 '고정' U자 — 좌우 ±0.45m·높이 0.72m 꼭짓점을
       // 0.8s 박자로 왕복, 꼭짓점 사이는 바닥 중앙 경유. 레퍼런스 주석 궤적 그대로.
       const PER = 0.9, DW = 0.12;   // 신규 클립 크로스오버 반주기 실측 0.92s — 공 박자 동기
       S.uT = (S.uT ?? 0) + dt;
-      const cyc = S.uT % (PER * 2);
+      // 위상 잠금(유저: 왼손 닿음→중앙 바닥→오른손 닿음 100%): 자유 타이머는 클립 루프(3.5s)와
+      // 표류(공 주기 1.8s×2≠3.5). 손높이차 부호 전환 = 공이 바닥 중앙을 지나는 순간으로 정의하고
+      // 그 순간 uT를 목표 위상으로 절반씩 끌어당긴다(팝 없이 수렴).
+      const dHands = wL.y - wR.y;
+      if (S.uSign !== undefined && Math.sign(dHands) !== S.uSign && Math.abs(dHands) > 0.015) {
+        const tgt = dHands < 0 ? PER * 0.5 : PER * 1.5;   // L이 내려감=오른쪽行 중간, 반대면 왼쪽行 중간
+        let err = tgt - (S.uT % (PER * 2));
+        if (err > PER) err -= PER * 2; if (err < -PER) err += PER * 2;
+        S.uT += err * 0.5;
+      }
+      if (Math.abs(dHands) > 0.015) S.uSign = Math.sign(dHands);
+      const cyc = ((S.uT % (PER * 2)) + PER * 2) % (PER * 2);
       const goingR = cyc < PER;
       const q = (goingR ? cyc : cyc - PER) / PER;
       const he0 = this._hips ? this._hips.matrixWorld.elements : null;
