@@ -2257,12 +2257,23 @@ export class Session {
       //   1) 무릎 구부려 넣는 척: L·R 나란히 어깨너비   2) 오른발 딛고 드리블: R 앞·L 뒤, 공은 왼쪽
       //   3) 왼발 뻗으며 공 잡기: L 크게 왼쪽·R 제자리   4) 오른발 모으며 슛: L·R 모음
       if (POSE) {
-        // 따라하기에서는 발자국·화살표를 전부 숨긴다(유저) — 타이틀 + 코치 실루엣만 남는다.
-        for (const k of ['fRl', 'fRr', 'fC', 'fLl', 'fLr']) H[k]?.op(0);
-        H.a1._gain = 0; H.a2._gain = 0;
-        H.gh.op(0);
+        // 따라하기 = 1/4(B2)과 같은 규약 — 코치 영상 아래 L·R 마크 한 쌍 + 방향 화살표.
+        //   전부 룩시스템 토큰(FootMark / makeFlowArrow). 좌표는 피그마 POSE를 페어 중심 기준으로 폈다.
+        const MZ = H.mL.position.z + 0.45, W = Math.PI * 2 / 1.6, K = 1.2;
+        const cx = (POSE.L[0] + POSE.R[0]) / 2;
+        const xL = (POSE.L[0] - cx) * K, xR = (POSE.R[0] - cx) * K;
+        const bL = Math.sin(this.t * W), bR = Math.sin((this.t - 0.18) * W);   // 들썩 — 오른발 한 박자 늦게
+        H.fRl.at(xL, MZ + POSE.L[1] * 0.45, 0.62 + 0.04 * bL); H.fRl.op(0.80 + 0.20 * bL);
+        H.fRr.at(xR, MZ + POSE.R[1] * 0.45, 0.62 + 0.04 * bR); H.fRr.op(0.80 + 0.20 * bR);
+        for (const k of ['fC', 'fLl', 'fLr']) H[k]?.op(0);
         for (const k of ['mL', 'mC', 'mR']) H[k].setOp?.(0);
-        H.rise.setOp?.(0);
+        H.rise.setOp?.(0); H.gh.op(0); H.cL?.op(0); H.cR?.op(0);
+        // 화살표 = 그 단계에서 '움직이는 발'이 가는 쪽 (B5는 슛 = 위로)
+        const AR = { BK_B3: [xR - 0.32, -90], BK_B4: [xL + 0.32, 90], BK_B5: [(xL + xR) / 2, 0] }[id];
+        if (AR) { H.a1.position.set(AR[0], 0.014, MZ);
+          H.a1.rotation.z = THREE.MathUtils.degToRad(AR[1]);
+          H.a1._gain = 0.35 + 0.55 * Math.max(0, bL); }
+        H.a2._gain = 0;
       }
       const BEATN = { BK_B2: ['① 무릎 구부리고', '② 낮은 자세 유지', '③ 들어가는 척!', '④ 그대로 준비'],
         BK_B3: ['① 준비', '② 오른발 딛고', '③ 공을 왼쪽으로!', '④ 시선 유지'],
