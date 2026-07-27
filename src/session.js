@@ -845,9 +845,14 @@ export class Session {
       //   시작 스탠스 L(-0.17) R(+0.22) 폭 0.39m → 착지 스탠스 L(-0.40) R(+0.46) 폭 0.86m
       //   플랜트(리드 발 최대 전개) R(+0.36). 깊이는 MP z를 씬 z로 부호 반전해 반영.
       const F = (x, dz, foot) => new FootMark(foot).at(x, SBZ + dz, 0.58 * K);
-      H.fLl = F(-0.40, 0.03, 'left'); H.fLr = F(0.46, -0.20, 'right');   // 착지 페어(폭 0.86m)
-      H.fRl = F(-0.17, 0.06, 'left'); H.fRr = F(0.22, -0.05, 'right');   // 시작 페어(폭 0.39m)
-      H.fC = F(0.36, -0.10, 'right');                                     // 플랜트 = 리드 발
+      // 4국면 대표 자세(영상 67프레임 실측, 골반 기준·미터. MP z는 씬 z로 부호 반전)
+      //   ① 준비  L(-0.17,-0.05) R(+0.22,+0.06) 폭 0.39
+      //   ② 플랜트 L(-0.09,-0.12) R(+0.33,-0.06) 폭 0.42   t=1.20s
+      //   ③ 착지  L(-0.43,+0.09) R(+0.49,+0.32) 폭 0.92   t=1.87s ← 무브의 핵심
+      //   ④ 리셋  L(-0.19,-0.12) R(+0.02,+0.18) 폭 0.21
+      H.fRl = F(-0.17, 0.05, 'left');  H.fRr = F(0.22, -0.06, 'right');   // ① 준비 페어
+      H.fC  = F(0.33, 0.06, 'right');                                      // ② 플랜트 리드 발
+      H.fLl = F(-0.43, -0.09, 'left'); H.fLr = F(0.49, -0.32, 'right');   // ③ 착지 페어(폭 0.92)
       for (const k of ['fLl', 'fLr', 'fRl', 'fRr', 'fC']) { H[k].ghost(); H[k].op(0.16); }   // 대기 = Locked 고스트(crisp 실루엣)
       gg.add(H.mL, H.mC, H.mR, H.rise, H.gh.group,
         H.fLl.group, H.fLr.group, H.fRl.group, H.fRr.group, H.fC.group);
@@ -2168,8 +2173,8 @@ export class Session {
       // 판정 — 착지(측면 변위) + 릴리즈(골반 상승)
       const hy = pr?.hips?.y ?? 1;
       const spread = pr ? Math.abs(pr.footR.x - pr.footL.x) : 0;
-      if (H.beat >= 2 && !H._landed && spread > 0.60) {   // 실측 착지 폭 0.86m의 70%
-        H._landed = true; H._landT = this.t; H._landErr = spread - 0.86;
+      if (H.beat >= 2 && !H._landed && spread > 0.64) {   // 실측 착지 폭 0.92m의 70%
+        H._landed = true; H._landT = this.t; H._landErr = spread - 0.92;
         const wp = new THREE.Vector3(); H.mL.getWorldPosition(wp); this.onPress?.(wp, false);
         H.gh.at(ex, H.mL.position.z, 0.62); H.gh.ghost(); H._ghT = this.t;   // 고스트 = 실제 착지 위치
       }
