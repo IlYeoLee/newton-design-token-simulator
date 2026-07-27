@@ -502,9 +502,10 @@ export const STAGES = {
     { id:'BK_A3', label:'A · 준비운동 2/3 — 스쿼트', voice:['커리','마지막! 천천히 앉았다 일어나요. 점프와 착지의 힘을 깨워요.'], wear:'낮은 강도 보조 시작' },
     { id:'BK_B1', label:'A · 준비운동 3/3 — 제자리 드리블', voice:['커리','공부터 손에 익혀요 — 무릎 굽히고 낮게, 열 번.'], cue:'낮은 자세 · 10회' },
     { id:'BK_T1', label:'T-1 · STAGE CLEAR → 사전 익히기', voice:['시스템','몸 풀렸어요. 탭 두 번이면 다음으로.'], foot:'두 번 탭 → 사전 익히기' },
-    { id:'BK_B2', label:'B · 스텝백 스쿨 1/3 — 분해 (Break Down)', voice:['커리','이제 발부터. 한 박자씩 끊어서 갑니다 — 시작 자리, 플랜트, 스텝백, 슛.'], cue:'비트별 정지 · 4비트' },
-    { id:'BK_B3', label:'B · 스텝백 스쿨 2/3 — 반 박자 (0.5×)', voice:['커리','이번엔 끊지 않고 천천히 이어서. 마크 순서대로 따라오세요.'], cue:'0.5배속 연속 ×3' },
-    { id:'BK_B4', label:'B · 스텝백 스쿨 3/3 — 정속 (1×)', voice:['커리','제 속도 그대로. 시선은 앞에 두고 곁눈으로만 보세요.'], cue:'정속 연속 ×5', foot:'두 번 탭 → 실전 준비' },
+    { id:'BK_B2', label:'B · 스텝백 1/4 — 무릎 구부려 공을 넣는 척', voice:['커리','무릎 구부리고 들어가는 척부터. 눈과 어깨로 레이업을 파세요.'], cue:'L·R 나란히 · 낮은 자세' },
+    { id:'BK_B3', label:'B · 스텝백 2/4 — 오른발 딛고 드리블', voice:['커리','오른발을 딛으면서 공을 왼쪽으로 밀어요. 공 위치를 보세요.'], cue:'R 앞 · L 뒤 · 공은 왼쪽' },
+    { id:'BK_B4', label:'B · 스텝백 3/4 — 왼발 뻗으며 공 잡기', voice:['커리','왼발을 크게 뻗으면서 두 손으로 공을 잡아요.'], cue:'L 크게 벌림 · 두 손 개더' },
+    { id:'BK_B5', label:'B · 스텝백 4/4 — 오른발 모으며 슛 준비', voice:['커리','오른발을 모으고 그대로 올라가요 — 슛!'], cue:'L·R 모음 · 수직 상승', foot:'두 번 탭 → 실전 준비' },
     { id:'BK_T2', label:'T-2 · 5초 뒤 실전 자동 진행 (두 번 탭 = 바로)', voice:['커리','5초 뒤 넘어가요. 준비됐으면 두 번 탭.'], dur:5, count:true, foot:'두 번 탭 = 즉시 · 무입력 = 자동' },
     { id:'BK_C1', dur:3, label:'C · 실전 1/2 — 트리거', voice:['시스템','3, 2, 1. 실전 갑니다.'], hap:'컷 시작 진동', foot:'두 번 탭 → 출발' },
     { id:'BK_C2', dur:26, live:true, label:'C · 실전 2/2 — 스텝백 3점', voice:['커리','어디로 빠질지는 그때 알려줄게요. 착지하고 바로 올라가요 — 슛!'], wear:'BOOST 측면 추진', cue:'무작위 방향 ×3' },
@@ -870,6 +871,7 @@ export class Session {
     };
     this.bkB3x = buildStepback('BK_B3', false);
     this.bkB4x = buildStepback('BK_B4', true);
+    this.bkB5x = buildStepback('BK_B5', false);
     this.bkC2x = buildStepback('BK_C2', true);
 
     g = this._mk('BK_T2');   // 카운트 공통(countGroup) 사용 — 별도 지오메트리 없음
@@ -2120,12 +2122,12 @@ export class Session {
       FMU(`Break Down · ${H.beat + 1}/4 — ${BEATN[H.beat]}`, CS.sand);
       this.repLeft = 4 - H.beat; this.repTotal = 4; this.repFrac = H.beat / 4;
       if (this.t >= MAXSEC) { this.next(); return; }
-    } else if (id === 'BK_B3' || id === 'BK_B4' || id === 'BK_C2') {
+    } else if (id === 'BK_B3' || id === 'BK_B4' || id === 'BK_B5' || id === 'BK_C2') {
       // 스텝백 연속 단계 — 같은 판정, 파라미터만 다르다.
       //   B3 0.5배속·3회 / B4 정속·5회 / C2 실전(무작위 방향·릴리즈 판정)·3회
       const LIVE = id === 'BK_C2';
-      const CFG = { BK_B3: { per: 1.6, need: 3 }, BK_B4: { per: 0.9, need: 5 }, BK_C2: { per: 0.9, need: 3 } }[id];
-      const H = { BK_B3: this.bkB3x, BK_B4: this.bkB4x, BK_C2: this.bkC2x }[id];
+      const CFG = { BK_B3: { per: 1.6, need: 3 }, BK_B4: { per: 1.4, need: 3 }, BK_B5: { per: 1.2, need: 3 }, BK_C2: { per: 0.9, need: 3 } }[id];
+      const H = { BK_B3: this.bkB3x, BK_B4: this.bkB4x, BK_B5: this.bkB5x, BK_C2: this.bkC2x }[id];
       if (this._bkStrId !== id) { H.beat = 0; H.count = 0; H._beatT = this.t; H._popT = -9; H._side = -1; H._ghT = -9; }
       this._bkStrId = id;
       if (!this._followLatch && !LIVE) {   // 훈련만 관찰 국면
@@ -2163,9 +2165,16 @@ export class Session {
       const fpOn = (k, on) => { const f = H[k]; if (!f) return;
         if (on) { f.countdown(Math.min(1, 0.35 + (this.t - H._popT) / 0.35)); f.op(0.95); }   // 헤일로 수축 시작점을 당겨 번짐 축소
         else { f.ghost(); f.op(LIVE ? 0 : 0.10); } };
-      fpOn('fRl', H.beat === 0); fpOn('fRr', H.beat === 0);
-      fpOn('fC', H.beat === 1);
-      fpOn('fLl', H.beat >= 2); fpOn('fLr', H.beat >= 2);
+      if (POSE) {
+        // 4단계 학습 화면(피그마 레퍼런스): 해당 단계의 L·R 발자국은 '항상' 보인다.
+        //   비트는 강조(Active 헤일로)만 담당 — 꺼버리면 어디에 서야 할지가 사라진다.
+        fpOn('fRl', true); fpOn('fRr', true);
+        for (const k of ['fC', 'fLl', 'fLr']) H[k]?.op(0);
+      } else {
+        fpOn('fRl', H.beat === 0); fpOn('fRr', H.beat === 0);
+        fpOn('fC', H.beat === 1);
+        fpOn('fLl', H.beat >= 2); fpOn('fLr', H.beat >= 2);
+      }
       if (LIVE) { const sgn = H._side < 0 ? -1 : 1;   // 실전 착지 페어는 무작위 방향으로 이동
         H.fLl.at(sgn * 0.55 - 0.14, SBZ + 0.03, 0.58 * 1.25); H.fLr.at(sgn * 0.55 + 0.14, SBZ + 0.03, 0.58 * 1.25); }
       // 비트④ = 착지 마크가 그 자리에서 상승 링으로 '변신', 수축이 곧 릴리즈 카운트다운(0.4s)
@@ -2206,7 +2215,24 @@ export class Session {
       // 비트④ = 슛: 짧은 수직 점프(0.35s)
       const jt = H.beat === 3 ? (this.t - H._popT) : -1;
       this.sbJump = jt >= 0 && jt < 0.35 ? Math.sin((jt / 0.35) * Math.PI) * 0.16 : 0;
-      const BEATN = ['① 오른발 딛고 준비', '② 오른발로 밀어 — 안으로', '③ 반대로 크게 빠지기!', '④ 그대로 올라가 — 슛!'];
+      // 단계별 발자국 배치 = 피그마 레퍼런스 4장 그대로 (L/R 상대 위치·간격)
+      //   1) 무릎 구부려 넣는 척: L·R 나란히 어깨너비   2) 오른발 딛고 드리블: R 앞·L 뒤, 공은 왼쪽
+      //   3) 왼발 뻗으며 공 잡기: L 크게 왼쪽·R 제자리   4) 오른발 모으며 슛: L·R 모음
+      const POSE = {
+        BK_B2: { L: [-0.20, 0.00], R: [0.20, 0.00] },
+        BK_B3: { L: [-0.10, 0.26], R: [0.30, -0.12] },
+        BK_B4: { L: [-0.48, 0.10], R: [0.22, -0.16] },
+        BK_B5: { L: [-0.13, 0.00], R: [0.13, 0.00] },
+      }[id];   // 실전(C2)은 제외 — 마크 릴레이 방식 유지
+      if (POSE) {
+        H.fRl.at(POSE.L[0], H.mL.position.z + POSE.L[1], 0.58);
+        H.fRr.at(POSE.R[0], H.mL.position.z + POSE.R[1], 0.58);
+      }
+      const BEATN = { BK_B2: ['① 무릎 구부리고', '② 낮은 자세 유지', '③ 들어가는 척!', '④ 그대로 준비'],
+        BK_B3: ['① 준비', '② 오른발 딛고', '③ 공을 왼쪽으로!', '④ 시선 유지'],
+        BK_B4: ['① 준비', '② 왼발 크게 뻗어', '③ 두 손으로 잡기!', '④ 밸런스'],
+        BK_B5: ['① 준비', '② 오른발 모으고', '③ 수직으로!', '④ 슛!'],
+        BK_C2: ['① 시작 자리', '② 플랜트 — 안으로', '③ 스텝백!', '④ 슛!'] }[id] || ['①', '②', '③', '④'];
       const left = Math.max(0, CFG.need - H.count);
       this.repLeft = left; this.repTotal = CFG.need; this.repFrac = Math.min(1, H.count / CFG.need);
       FMU(LIVE ? `스텝백 3점 — 남은 ${left}회` : `${BEATN[H.beat]} · 남은 ${left}회`, LIVE ? CS.red : CS.sand);

@@ -31,9 +31,10 @@ window.FLOOR_SCENES = {
   BK_A3: { title: 'Squats',            phase: 0, sub: '2/3', cue: 'Slow down and up' },                // 스쿼트
   // B · 사전 익히기 (DRILL)
   BK_B1: { title: 'Low Dribble',    phase: 0, sub: '3/3', cue: "Stay low — Curry's beat, 10 reps" },  // 로우 드리블
-  BK_B2: { title: 'Break Down',     phase: 1, sub: '1/3', cue: 'Beat by beat — plant, step back, shoot' },
-  BK_B3: { title: 'Half Speed',     phase: 1, sub: '2/3', cue: 'Follow the marks in order' },
-  BK_B4: { title: 'Full Speed',     phase: 1, sub: '3/3', cue: 'Eyes up — read it with side vision' },
+  BK_B2: { title: 'Fake the Drive',  phase: 1, sub: '1/4', cue: 'Knees bent — sell the layup' },
+  BK_B3: { title: 'Plant & Dribble', phase: 1, sub: '2/4', cue: 'Right foot down — push the ball' },
+  BK_B4: { title: 'Reach & Gather',  phase: 1, sub: '3/4', cue: 'Left foot out — scoop the ball' },
+  BK_B5: { title: 'Set for the Shot', phase: 1, sub: '4/4', cue: 'Right foot in — rise and shoot' },
   // C · 실전 (GAME)
   BK_C1: { title: 'Trigger',          phase: 2, sub: '1/2', cue: '3 · 2 · 1 — go' },
   BK_C2: { title: 'Step-back Three',  phase: 2, sub: '2/2', cue: 'Land, then rise — shoot!' },

@@ -2192,6 +2192,7 @@ void main(){
     // 훈련 관찰 공통 — 이게진짜.mp4(그린스크린 정면 로우 드리블) 핑퐁 베이크(_pp, ffmpeg reverse concat)
     BK_B1: { src: 'bhandle_pp.mp4', cropOff: 0.0, cropScale: 1.0, w: 0.42, h: 0.75, fwd: 0.10 },   // 소스 720x1280 — 9:16 유지(정사각은 세로 눌림)
     BK_B2: { src: 'stepback_pp.mp4', cropOff: 0.0, cropScale: 1.0, w: 1.04, h: 0.87, fwd: 0.10 },   // 소스 720x1280 — 9:16 유지(정사각은 세로 눌림)
+    BK_B5: { src: 'stepback_pp.mp4', cropOff: 0.0, cropScale: 1.0, w: 1.04, h: 0.87, fwd: 0.10 },
     BK_B4: { src: 'stepback_pp.mp4', cropOff: 0.0, cropScale: 1.0, w: 1.04, h: 0.87, fwd: 0.10 },
     BK_B3: { src: 'stepback_pp.mp4', cropOff: 0.0, cropScale: 1.0, w: 1.04, h: 0.87, fwd: 0.10 },   // 소스 720x1280 — 9:16 유지(정사각은 세로 눌림)
     BK_A3: { src: 'ready-view/assets/bk_squat.webm',    cropOff: 0.0, cropScale: 1.0, w: 0.9, h: 0.9, fwd: 0.10 },   // 스쿼트
@@ -2281,8 +2282,8 @@ void main(){
   function tickA1Coach() {
     // 어떤 스테이지 코치를 켤지: 러닝 A1·농구 워밍업 전부 = 전 구간 상시, 러닝 A2/A3 = 시범(관찰) 중에만.
     const st = session.active && !session.isLive && (state.pack === 'running' || state.pack === 'basketball') ? session.stage : null;
-    const COACH_IDS = ['A1', 'A2', 'A3', 'BK_A1', 'BK_A2', 'BK_A3', 'BK_B1', 'BK_B2', 'BK_B3', 'BK_B4'];
-    const activeId = COACH_IDS.find(id => id === st && !(/^(A2|A3|BK_A2|BK_A3|BK_B[1234])$/.test(id) && session._followLatch)) || null;
+    const COACH_IDS = ['A1', 'A2', 'A3', 'BK_A1', 'BK_A2', 'BK_A3', 'BK_B1', 'BK_B2', 'BK_B3', 'BK_B4', 'BK_B5'];
+    const activeId = COACH_IDS.find(id => id === st && !(/^(A2|A3|BK_A2|BK_A3|BK_B[12345])$/.test(id) && session._followLatch)) || null;
     for (const id of COACH_IDS) {
       const c = _coaches[id];
       if (id === activeId) {
@@ -3952,7 +3953,7 @@ void main(){
       // B단계 = 공을 튄다 → 튀기며 움직인다 → 튀기다 멈추고 뒤로(BK-B-CURRICULUM.md)
       BK_B1: 'bp_dribble',            // 드리블 루프 2(Sketchfab 네이티브 1.6s) — 유저: 이걸로 교체
       BK_B2: 'bkStance',              // 깨끗한 애슬레틱 스탠스 + sbWidth 실측 구동(모캡 지터 회피)
-      BK_B3: 'bkStance', BK_B4: 'bkStance',   // 스텝백 연속 단계 — 폭·크라우치는 sbWidth가 만든다
+      BK_B3: 'bkStance', BK_B4: 'bkStance', BK_B5: 'bkStance',   // 스텝백 4단계 — 폭·크라우치는 sbWidth
       BK_C2: 'bkStance',              // 실전 — 릴리즈는 판정으로
     };
     if (DRILL[id] && xbot.actions[DRILL[id]]) return DRILL[id];
@@ -4009,7 +4010,7 @@ void main(){
       // A2 런지: 봇을 뒤로 당겨 전방 착지가 프레스 원(-1.30) 위에 오게 (교대 런지 보폭 ≈0.7m 가정, 시각 검수로 보정)
       // 농구 워밍업(BK_A*)은 READY와 같은 자리(0) — 스테이지 진입마다 봇이 앞으로 1.15m 순간이동하던 것
       // (유저: '농구 시작위치는 여긴데 스트레칭하면 앞으로 이동해'). 한 운동 장면 = 제자리 수행.
-      xbot.demoStandZ = session.stage === 'A2' ? -1.0 : (/^BK_B[1234]$/.test(session.stage) ? -1.85 : 0);
+      xbot.demoStandZ = session.stage === 'A2' ? -1.0 : (/^BK_B[12345]$/.test(session.stage) ? -1.85 : 0);
     }
     // 지면 풀스크린 화면(세션 컴플리트·전환·카운트다운) = 3인칭 봇도 바닥의 화면을 응시(머리 숙임).
     // B1 2막(시선 바깥) = 봇도 고개를 정면으로 들어 시범(유저) — bkB1EyesUp이 최우선.
@@ -4055,7 +4056,7 @@ void main(){
       xbot.crossGuard = 0;   // 절차 드릴이 가드 팔까지 저작 — 덧대기 보정 은퇴
       xbot.legLock = /^BK_(C1|C2)$/.test(session.stage || '');   // 크로스오버 = 하체 완전 고정(굽힌 자세 스냅샷, 유저) — 실측 표류 0.06m 기법
       xbot.uDribble = /^BK_(C1|C2)$/.test(session.stage || '');   // 공 = 박자 결정론 U자(좌우 손바닥 왕복, 유저 확정)
-      const _sbOn = /^BK_(B2|B3|B4|C2)$/.test(session.stage || '');
+      const _sbOn = /^BK_(B2|B3|B4|B5|C2)$/.test(session.stage || '');
       xbot.sbWidth = _sbOn ? (session.sbWidth ?? 0) : 0;
       xbot.sbShift = _sbOn ? (session.sbShift ?? 0) : 0;   // 루트 측면 이동 — 실제로 스텝을 밟게
       xbot.sbJump = _sbOn ? (session.sbJump ?? 0) : 0;
@@ -4069,7 +4070,7 @@ void main(){
       //   3·2·1은 실전 트리거(C1) 전용 — 학습 내 전환엔 안 씀(복싱 문법과 통일).
       const A2_WATCH = 5.0;   // 시범 = 무조건 5초(유저: 3초는 너무 짧음) — 미니 타이머 링과 동기
       const BK_A1_RATE = 1.55;   // 옆구리 봇 배속(코치 영상 페이스 맞춤) — 시각 캘리브레이션 노브
-      const _watchWin = /^(A2|A3|BK_A[23]|BK_B[1234])$/.test(session.stage || '') && !session._followLatch;   // 훈련 단계만 관찰5초→따라하기
+      const _watchWin = /^(A2|A3|BK_A[23]|BK_B[12345])$/.test(session.stage || '') && !session._followLatch;   // 훈련 단계만 관찰5초→따라하기
       if (/^BK_C/.test(session.stage || '')) session._followLatch = true;   // 실전은 관찰 없음(바로 시작)
       const aWatching = _watchWin && session.t < A2_WATCH;
       if (_watchWin && !aWatching) { session._followLatch = true; session._aWatchEnd = session.t; }
@@ -4121,7 +4122,7 @@ void main(){
         }
       }
       // 06_13 프리스타일 전체 루프는 이동·컷 구간이 섞여 어색(유저) — 안정 핸들 구간만 창 반복.
-      else if (/^BK_(B2|B3|B4|C2)$/.test(session.stage || '')) {
+      else if (/^BK_(B2|B3|B4|B5|C2)$/.test(session.stage || '')) {
         const rate = session.clipRate ?? 1;   // B3=0.5배속(유저 학습 progression)
         _phase = (session.t * rate) % (xbot.actions.bkStance?.dur || 2.5);
       }   // 신규 소스(공 튀기며 손으로 옮기기) 최적 루프 4.4~7.9s — 경계 0.02m·손 전환 3회 실측
@@ -4895,7 +4896,7 @@ void main(){
   };
   // 운동중 A/B/C 지면 화면 — 세로 공통 프레임(floor-scene.html)에 stage 주입. 시작화면과 달리 중앙 발자국은 유지.
   for (const id of ['A1', 'A2', 'A3', 'P1', 'P2', 'P3', 'C2', 'C3', 'C4', 'C5',
-                    'BK_A1', 'BK_A2', 'BK_A3', 'BK_B1', 'BK_B2', 'BK_B3', 'BK_B4', 'BK_C2', 'BK_C3', 'BK_C4']) {
+                    'BK_A1', 'BK_A2', 'BK_A3', 'BK_B1', 'BK_B2', 'BK_B3', 'BK_B4', 'BK_B5', 'BK_C2', 'BK_C3', 'BK_C4']) {
     FLOOR_FRAMES[id] = { src: 'ready-view/floor-scene.html?stage=' + id, w: 1600, h: 2670 };
   }
   // 전환 화면 (스트레칭→학습·학습→실전) — Figma [러닝/농구] 세로 전환 템플릿 (복싱 transition.html 이식)
