@@ -539,7 +539,7 @@ export function makeFlowArrow(len, { tips = 1, wall = false } = {}) {
     new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
   mesh.position.y = len / 2;
   g.add(mesh);
-  g._len = len; g._canvas = c; g._tex = tex; g._mesh = mesh; g._paintT = -9; g._tips = [];
+  g._len = len; g._canvas = c; g._tex = tex; g._mesh = mesh; g._paintT = -9; g._noTip = tips === 0; g._tips = [];
   // 바닥 = 수평면(x=-90°, 살짝 띄움). 벽 = 수직면 유지(x=0) → 자루가 +Y로 서고 caller가 rotation.z로 방향 지정.
   if (wall) { g.rotation.x = 0; g.position.y = 0; } else { g.rotation.x = -Math.PI / 2; g.position.y = 0.014; }
   g.renderOrder = 6;
@@ -560,7 +560,7 @@ export function tickFlowArrows(t, rig) {
     if (!g.parent) { FLOW_ARROWS.splice(i, 1); continue; }
     if (t - g._paintT >= 1 / 24) {
       g._paintT = t;
-      drawStemArrow(g._canvas.getContext('2d'), 128, 256, t, ENV);
+      drawStemArrow(g._canvas.getContext('2d'), 128, 256, t, ENV, { noTip: g._noTip });
       g._tex.needsUpdate = true;
     }
     // 투사면 소프트 페이드 — 셰이더를 버렸으니 CPU에서 판 전체 알파로 (경계에서 사각으로 잘리지 않게)
@@ -573,8 +573,8 @@ export function tickFlowArrows(t, rig) {
       const k = Math.max(0, Math.min(1, (d - rig.fpNear) / Math.max(0.01, rig.fpFar - rig.fpNear)));
       const half = rig._halfAt(rig.fpNear) + (rig._halfAt(rig.fpFar) - rig._halfAt(rig.fpNear)) * k;
       const sm = (a, b, x) => { const u = Math.max(0, Math.min(1, (x - a) / (b - a))); return u * u * (3 - 2 * u); };
-      m.opacity = sm(rig.fpNear, rig.fpNear + 0.15, d) * sm(rig.fpFar, rig.fpFar - 0.15, d) * sm(half, half - 0.15, Math.abs(h));
-    } else m.opacity = 1;
+      m.opacity = sm(rig.fpNear, rig.fpNear + 0.15, d) * sm(rig.fpFar, rig.fpFar - 0.15, d) * sm(half, half - 0.15, Math.abs(h)) * (g._gain ?? 1);
+    } else m.opacity = (g._gain ?? 1);
     if (m._day !== day) { m._day = day; m.blending = day ? THREE.NormalBlending : THREE.AdditiveBlending; m.needsUpdate = true; }
   }
 }
@@ -778,7 +778,7 @@ export class TokenSystem {
               cp.z - dz * (0.4 + s * 0.24)
             );
             bar.renderOrder = 4;
-            bar._mat._gainK = 0.55 - s * 0.13;   // 페이드 = _gainK 규약 (셰이더 재질에 opacity 무효)
+            bar._gain = 0.55 - s * 0.13;   // 화살표 페이드 (tickFlowArrows가 최종 알파에 곱함)
             g.add(bar);
           }
           cur.stripes = g;
@@ -1060,8 +1060,7 @@ export class TokenSystem {
         if (vis) {
           const k = this.layoutPreview ? 1 : Math.min(1, (now - (a.t - lead)) / Math.max(lead, 0.001));
           const op = 0.35 + 0.55 * k;
-          a.obj._mat._gainK = op;   // 자루 페이드 = _gainK 규약 (주간 블렌딩은 tickFlowArrows 담당)
-          for (const tp of a.obj._tips) tp.material.opacity = op;
+          a.obj._gain = op;   // 화살표 페이드 — tickFlowArrows가 투사면 페이드와 곱해 최종 알파로 반영
           a.obj.scale.setScalar(size);
         }
       }

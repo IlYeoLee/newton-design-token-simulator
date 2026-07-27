@@ -4471,8 +4471,7 @@ void main(){
       const [ax, , az] = P(0.25);
       bkArrow.position.set(ax, 0.018, az);
       bkArrow.rotation.z = heading;
-      bkArrow._mat.clippingPlanes = cp;
-      for (const tp of bkArrow._tips) tp.material.clippingPlanes = cp;
+      bkArrow._mesh.material.clippingPlanes = cp;
       // 리듬 비트 3개 — 깊이 0.4/0.85/1.3m, 박자 = 팩 실측 스텝 간격. 글로우 = uFade(허용 매개변수)
       const MK = FXP.mark;
       const stepT = tokens._beatT || 0.625;

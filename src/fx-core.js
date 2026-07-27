@@ -338,7 +338,7 @@ export function drawStemArrow(g, W, H, t, ENV, opts = {}) {
     g.lineWidth = (3 + 10 * k) * s * AW;
     g.beginPath(); g.moveTo(cx, yy); g.lineTo(cx, y0 + (yEnd - y0) * Math.min(1, k + 0.06)); g.stroke();
   }
-  if (draw > 0.9) {
+  if (draw > 0.9 && !opts.noTip) {   // noTip = 촉 없는 자루(감속 바 등)
     const tipS = 58 * s * (0.7 + 0.3 * AW);
     const go = { color: lut(0.95), glowColor: lut(0.85), glow: 12 * glowK };
     const ok = ENV.glyph && (ENV.glyph(g, 'LIFT_TIP', cx, y1 + 16 * s, tipS, go)
