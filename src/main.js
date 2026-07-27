@@ -5205,7 +5205,8 @@ void main(){
     const hips = xbot.model.getObjectByName('mixamorigHips');
     if (!hips) return;
     _cpV.setFromMatrixPosition(hips.matrixWorld);
-    if (camera.position.distanceTo(_cpV) < 0.7) { W2.cam++; return; }   // 1인칭 — 불필요
+    if (fpMode) { W2.cam++; return; }   // 1인칭 = 봇이 카메라 자신 — 마스크가 화면을 뒤덮는다(유저)
+    if (camera.position.distanceTo(_cpV) < 0.7) { W2.cam++; return; }   // 근접 — 불필요
     const w = botOverlay.width, h = botOverlay.height;
     const pj = (name) => {
       const bn = xbot.model.getObjectByName('mixamorig' + name); if (!bn) return null;
@@ -5217,6 +5218,7 @@ void main(){
     if (!A || !B) { W2.pts++; return; }
     const torso = Math.hypot(B[0] - A[0], B[1] - A[1]);
     if (torso < 8) { W2.torso++; return; }
+    if (torso > h * 0.55) { W2.torso++; return; }   // 비정상 확대(전환·근접) — 기괴한 마스크 자국 방지
     // 실루엣 마스크(라운드 스트로크 유니온) → source-in으로 실제 봇 픽셀만 남김
     botCtx.save();
     botCtx.lineCap = 'round'; botCtx.lineJoin = 'round';
