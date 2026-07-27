@@ -4730,7 +4730,12 @@ void main(){
   // 불가 → 원본 재질은 검게 나옴. Lambert 대체재질 + 씬 조명을 오버레이 레이어에도 켜서 3D 음영 유지(2D 방지).
   const OCCL_MAT = new THREE.MeshLambertMaterial({ color: 0xb9bcc4 });
   let occlLightsReady = false;
+  // 검은 플래시 이분법 진단(유저 재현 전용): URL에 ?noccl=1 → 오클루전 오버레이 끔 · ?nocss=1 → 지면 프레임 끔.
+  //   어느 쪽을 껐을 때 플래시가 사라지는지로 범인 레이어를 30초 만에 특정한다.
+  const DIAG = new URLSearchParams(location.search);
+  const NO_OCCL = DIAG.get('noccl') === '1', NO_CSS = DIAG.get('nocss') === '1';
   function renderFloorOcclusion(active) {
+    if (NO_OCCL) active = false;
     occlRenderer.domElement.style.display = active ? 'block' : 'none';
     if (!active || !xbot.model) return;
     const cvr = renderer.domElement.getBoundingClientRect();
@@ -4797,6 +4802,7 @@ void main(){
   floorIframe.style.position = 'absolute';
   floorIframe.style.inset = '0';
   const floorObj = new CSS3DObject(floorWrap);
+  if (typeof NO_CSS !== 'undefined' && NO_CSS) floorWrap.style.display = 'none';
   floorObj.visible = false;
   frameCssScene.add(floorObj);
   let loadedFloorView = null;
