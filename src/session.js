@@ -840,7 +840,14 @@ export class Session {
         gh: new FootMark('right').at(-0.55, SBZ, 0.62),   // 고스트 = 착지 오차 잔상
         beat: 0, _beatT: 0, _popT: -9, _prevHy: 0, count: 0, _side: -1, _ghT: -9 };
       H.gh.op(0);
-      gg.add(H.mL, H.mC, H.mR, H.rise, H.gh.group);
+      // 착지·시작 발자국 페어(어깨너비) — 와이어프레임대로 마크 옆에 붙는다
+      const F = (x, foot) => new FootMark(foot).at(x, SBZ + 0.03, 0.58 * K);
+      H.fLl = F(-0.69, 'left'); H.fLr = F(-0.41, 'right');   // 착지 페어
+      H.fRl = F(0.41, 'left');  H.fRr = F(0.69, 'right');    // 시작 페어
+      H.fC = F(0, 'right');                                   // 플랜트 = 리드 발 하나
+      for (const k of ['fLl', 'fLr', 'fRl', 'fRr', 'fC']) { H[k].ghost(); H[k].op(0.16); }   // 대기 = Locked 고스트(crisp 실루엣)
+      gg.add(H.mL, H.mC, H.mR, H.rise, H.gh.group,
+        H.fLl.group, H.fLr.group, H.fRl.group, H.fRr.group, H.fC.group);
       if (!big) {   // 훈련 단계만 커서 표시 — 실전은 시선 부담 최소화(유저 확정)
         H.cL = new FootMark('left').at(-0.1, SBZ + 0.52, 0.42);
         H.cR = new FootMark('right').at(0.1, SBZ + 0.52, 0.42);
@@ -2111,6 +2118,7 @@ export class Session {
       this._bkStrId = id;
       if (!this._followLatch && !LIVE) {   // 훈련만 관찰 국면
         for (const k of ['mL', 'mC', 'mR']) H[k].setOp?.(0);
+        for (const k of ['fLl', 'fLr', 'fRl', 'fRr', 'fC']) H[k]?.op(0);
         H.rise.setOp?.(0); H.gh.op(0); H.cL?.op(0); H.cR?.op(0);
         this.demoActive = true;
         FMU('먼저 보세요 — 스텝백', CS.prism);
@@ -2136,9 +2144,18 @@ export class Session {
       H.rise.position.x = landX;
       // 점등 = 항상 '다음 목표 하나'. 실전은 시작→착지→상승 링 릴레이만 남긴다(유저 확정).
       const pk = Math.max(0, 1 - (this.t - H._popT) / 0.25);
-      H.mR.setOp?.(H.beat === 0 ? 1 : (LIVE ? 0 : 0.10));
-      H.mC.setOp?.(H.beat === 1 ? 1 : (LIVE ? 0 : 0.10));
-      H.mL.setOp?.(H.beat === 2 ? 1 : (LIVE ? 0 : 0.10));
+      H.mR.setOp?.(H.beat === 0 ? 0.5 : 0);
+      H.mC.setOp?.(H.beat === 1 ? 0.5 : 0);
+      H.mL.setOp?.(H.beat === 2 ? 0.5 : 0);
+      // 발자국 페어 — 시작(우)은 비트0, 착지(좌)는 비트2에 밝게. 실전은 착지 쪽만.
+      const fpOn = (k, on) => { const f = H[k]; if (!f) return;
+        if (on) { f.countdown(Math.min(1, (this.t - H._popT) / 0.5)); f.op(1); }
+        else { f.ghost(); f.op(LIVE ? 0 : 0.16); } };
+      fpOn('fRl', H.beat === 0); fpOn('fRr', H.beat === 0);
+      fpOn('fC', H.beat === 1);
+      fpOn('fLl', H.beat >= 2); fpOn('fLr', H.beat >= 2);
+      if (LIVE) { const sgn = H._side < 0 ? -1 : 1;   // 실전 착지 페어는 무작위 방향으로 이동
+        H.fLl.at(sgn * 0.55 - 0.14, SBZ + 0.03, 0.58 * 1.25); H.fLr.at(sgn * 0.55 + 0.14, SBZ + 0.03, 0.58 * 1.25); }
       // 비트④ = 착지 마크가 그 자리에서 상승 링으로 '변신', 수축이 곧 릴리즈 카운트다운(0.4s)
       if (H.beat === 3) {
         const rp = Math.min(1, (this.t - H._popT) / 0.4);

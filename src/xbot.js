@@ -555,7 +555,12 @@ export class XBot {
     this.group.position.set(0, 0, this.demoStandZ || 0);
     this.mixer.update(0);
     // 루트모션 데모 클립은 XZ 고정 해제, 접지 베이크 클립은 per-frame 클램프 해제(덜커덩 방지)
-    if (this._rootClips?.has(key)) { this._lockFingers(); this.model.position.x = 0; this.model.position.z = 0; this.model.updateMatrixWorld(true); }
+    if (this._rootClips?.has(key)) {
+      this._lockFingers(); this.model.position.x = 0; this.model.position.z = 0; this.model.updateMatrixWorld(true);
+      // 루트 클립도 접지는 해야 한다 — rk_stepback(스텝백)에서 봇이 공중에 떠 보였음(유저).
+      //   XZ만 고정하고 Y는 발바닥 기준으로 내린다.
+      this._clampFeet?.();
+    }
     else this._lockInPlace?.();
     // 요 잔류 방지: lockYaw/legLock이 얼려둔 rotation.y가 스테이지를 떠나도 남아
     // T-2 등에서 봇이 뒤돌아 보였다(유저). 비활성 + 비루트 클립이면 기본 정면(π) 복원.
