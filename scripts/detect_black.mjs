@@ -53,7 +53,8 @@ await ana.evaluate(() => {
           const x = Math.min(cv.width - 1, (gx + (sx + 0.5) / 3) * cw | 0);
           const y = Math.min(cv.height - 1, (gy + (sy + 0.5) / 3) * ch | 0);
           const i = (y * cv.width + x) * 4;
-          if (d[i] >= 20 || d[i + 1] >= 20 || d[i + 2] >= 20) { ok = 0; break; }
+          // 임계 14: 검은 사각(#000, JPEG 노이즈 ≤10)은 잡고, 어두운 코트 재질(≥20대)은 배제
+          if (d[i] >= 14 || d[i + 1] >= 14 || d[i + 2] >= 14) { ok = 0; break; }
         }
         black[gy * GW + gx] = ok;
       }
