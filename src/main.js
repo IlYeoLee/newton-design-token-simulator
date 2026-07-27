@@ -4308,16 +4308,21 @@ void main(){
         const fdoc = floorIframe.contentDocument;
         // 반복형 스테이지(워밍업)의 도트 로딩바 = 시간이 아니라 '남은 횟수' 진행도.
         // 기존엔 --dur CSS 애니메이션이라 반복을 아무리 해도 안 차 보였음(유저: '프로그래스바가 안 찬다').
-        if (session.repTotal) {
-          // B1 셋업: 피그마 프레임 헤더를 영문 지시로 스왑(유저) — 끝나면 원래 카피 복원
+        // B1 헤더 스왑 — repTotal 게이트 '밖'이어야 한다: 셋업 동안 틱이 repTotal=null로 두고
+        // 리턴하므로 게이트 안에 넣으면 정작 셋업에서 실행이 안 된다(유저: 안 되었는데).
+        if (session.active && session.stages?.[session.stageIdx]?.id === 'BK_B1') {
           const sTitle = fdoc?.getElementById('s-title'), sCue = fdoc?.getElementById('s-cue');
-          if (sTitle && session.stages?.[session.stageIdx]?.id === 'BK_B1') {
+          if (sTitle) {
             const want = session.bkB1Setup ? 'Wide Stance' : 'Low Dribble';
             const cue = session.bkB1Setup ? 'Feet wider than shoulders — knees bent'
               : (session.bkB1EyesUp ? 'Eyes up — keep the beat' : "Stay low — Curry's beat");
             if (sTitle.textContent !== want) sTitle.textContent = want;
             if (sCue && sCue.textContent !== cue) sCue.textContent = cue;
           }
+          const dots = fdoc?.getElementById('s-dots');   // 셋업(Wide Stance)엔 진행 도트 무의미 — 숨김(유저)
+          if (dots) dots.style.visibility = session.bkB1Setup ? 'hidden' : '';
+        }
+        if (session.repTotal) {
           const clip = fdoc?.querySelector('.dclip');
           if (clip) {
             // repFrac = 회차 사이도 채우는 연속값(깊이·발높이). 정수 회차만 쓰면 뚝뚝 끊긴다(유저).
