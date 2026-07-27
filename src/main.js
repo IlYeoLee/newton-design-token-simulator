@@ -431,6 +431,8 @@ async function boot() {
     // 벽 종목(복싱): 시선은 벽 정면 — 코치(y≈1.0~1.7)·타겟(y≈1.14)이 전부 시야에 안정적으로.
     // 눈높이 1.6m·벽앞 1.75m 기준 -8° ≈ 벽 중심 응시 (버그였음: 'BX_'의 B가 익히기 -38°로 매칭돼 바닥만 봄)
     if (session.curStage?.wall) return -8;
+    // B1 2막 '시선 바깥' = 1인칭 카메라도 정면(-5도) — 지면 UI를 의도적으로 시야 밖으로(유저).
+    if (session.bkB1EyesUp) return -5;
     const id = session.curStage?.id || '';
     // 전환·타이머·리포트(지면 풀스크린 화면) = x봇이 바닥의 화면을 보도록 게이즈 하향(세션 컴플리트·실전 직전).
     if (/^(T1|T2|C1|FIN|BK_T1|BK_T2|BK_C1|BK_FIN)$/.test(id)) return -44;
@@ -3999,7 +4001,8 @@ void main(){
     }
     // 지면 풀스크린 화면(세션 컴플리트·전환·카운트다운) = 3인칭 봇도 바닥의 화면을 응시(머리 숙임).
     // B1 2막(시선 바깥) = 봇도 고개를 정면으로 들어 시범(유저) — bkB1EyesUp이 최우선.
-    xbot.headPitch = session.bkB1EyesUp ? THREE.MathUtils.degToRad(-6)
+    xbot.headPitch = session.bkB1EyesUp ? THREE.MathUtils.degToRad(-14)
+      : (session.active && session.stage === 'BK_B1') ? THREE.MathUtils.degToRad(-10)   // 기본기 시범 = 스테이지 내내 시선 멀리(유저·wikiHow)
       : (session.active && /^(T1|T2|C1|FIN|BK_T1|BK_T2|BK_C1|BK_FIN)$/.test(session.stage || ''))
       ? THREE.MathUtils.degToRad(24) : 0;
     // B1 2막 메트로놈 — 박자를 소리가 이끈다(공 소리 추종이 아니라 리드). WebAudio 클릭.
@@ -4036,6 +4039,7 @@ void main(){
       // hold=포즈 고정(복싱 READY 가드 유지). 러닝 대기는 idle 재생(호흡)이라 hold 안 함.
       // 러닝 준비운동(A) = 코치 드릴을 세션 스테이지 시간(session.t)에 위상 잠금 → 씬 링·카운트·음성과 동기(유저: '타이밍 하나하나 맞춰')
       if (session.stage !== 'A2' && xbot.group.scale.x !== 1) xbot.group.scale.x = 1;   // A2 미러 잔류 방지
+      xbot.stanceWiden = session.stage === 'BK_B1' ? 1 : 0;
       let _clip = demoClipFor(session.sport, session.stage);
       // A2/A3 = 2단계 흐름(유저): [0~5s 관찰] 봇은 가만히 서서(idle) 전문가 영상 보기 → [5s~ 따라하기].
       // 뉴턴 전환 문법(유저 확정): 시범(영상만·도트바) → 마크 Preview 워밍 등장+음성 → 따라하기.
@@ -4079,6 +4083,7 @@ void main(){
         _phase = SEG[0] + (session.t % (SEG[1] - SEG[0]));
       }
       else if (session.stage === 'BK_B1') {   // 124_04 순수 드리블 구간(실측 1.3~3.2) 핑퐁 — 하드컷 대신 되감기(유저)
+        xbot.stanceWiden = 1;
         const SPAN = 1.9, m = session.t % (SPAN * 2);
         _phase = 1.3 + (m < SPAN ? m : SPAN * 2 - m);
       }

@@ -564,6 +564,18 @@ export class XBot {
       if (this.mode === 'basketball' && /dribble|crossover|cmu124_0[3-6]|cmu86_14/.test(key)) this._dribbleBall(this._demoT || 0, dt);
       else this.ball.visible = false;
     }
+    // 스탠스 벌림 노브(stanceWiden 0..1, main B1 구동) — 클립 스탠스가 어깨보다 좁아(실측 0.56m→)
+    // 기본기 시범이 안 됨(유저·wikiHow 기본기: 발은 어깨보다 넓게). 힙 외전 ±7도.
+    // 부호는 라이브 실측: z(-,+)는 좁힘(0.56→0.42), z(+,-)가 벌림.
+    if (this.stanceWiden > 0.001 && key) {
+      const k = this.stanceWiden, D = Math.PI / 180;
+      const B = n => this.model.getObjectByName(n);
+      const rz = (b, deg) => b && b.quaternion.multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), deg * D));
+      rz(B('mixamorigLeftUpLeg'), 7 * k);
+      rz(B('mixamorigRightUpLeg'), -7 * k);
+      this.model.updateMatrixWorld(true);
+      this._clampFeet?.();
+    }
     // 런지 깊이 노브(lungeDeepen 0..1, main A2가 구동) — CMU 144_17이 얕아(무릎 h 47cm)
     // 누름 구간에만 무릎·힙 굴곡을 가산해 '푹' 내려가게. 발은 아래 _clampFeet가 재접지.
     if (this.lungeDeepen > 0.001 && key && key.startsWith('auto_cmu144_1')) {

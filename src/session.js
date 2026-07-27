@@ -802,8 +802,12 @@ export class Session {
     b1num.material.map.colorSpace = THREE.SRGBColorSpace;
     b1num.userData.canvas = b1c; b1num.userData.tex = b1num.material.map;
     b1num.rotation.x = -Math.PI / 2; b1num.position.set(0.30, 0.016, BK_STAND - 0.55 - BDEEP); b1num.renderOrder = 8;
-    this.bkB1 = { zone: b1zone, num: b1num, count: 0, _shown: -1, _wasLow: false, _popT: -9, _p2t: 0 };
-    g.add(b1zone, b1num);
+    // 셋업 막 발자국 — 어깨보다 넓게(0.56m, wikiHow 기본기). 4초간만 보였다 퇴장(상시 아님).
+    const b1sL = new FootMark('left').at(-0.28, BK_STAND - 0.40 - BDEEP, 1.1);
+    const b1sR = new FootMark('right').at(0.28, BK_STAND - 0.40 - BDEEP, 1.1);
+    this.bkB1 = { zone: b1zone, num: b1num, sL: b1sL, sR: b1sR,
+      count: 0, _shown: -1, _wasLow: false, _popT: -9, _p2t: 0 };
+    g.add(b1zone, b1num, b1sL.group, b1sR.group);
 
     g = this._mk('BK_B2');
     // B2 · 크로스오버 — 좌우 바운스 존 교대 점등. '공이 우리 평면에 닿는 지점'이 곧 커서라
@@ -1943,6 +1947,18 @@ export class Session {
       this._bkStrId = 'BK_B1';
       const dtB = Math.max(0, Math.min(0.1, this.t - (this._bkB1t ?? this.t)));
       this._bkB1t = this.t;
+      // 막0 · 스탠스 셋업(4초): 넓은 발자국 2개만 보여주고 밟게 한다 — 이후 퇴장(페이드)
+      const SETUP = 4.0, inSetup = this.t < SETUP;
+      const sK = Math.max(0, Math.min(1, (SETUP + 0.8 - this.t) / 0.8));   // 4~4.8s 페이드아웃
+      H.sL.op(sK); H.sR.op(sK);
+      if (inSetup) {
+        H.sL.countdown(this.t / SETUP); H.sR.countdown(this.t / SETUP);
+        this._say('bkb1st', '커리', '발은 어깨보다 넓게 — 발자국 위에 서 볼까요. 무릎은 굽히고.');
+        this.repLeft = null; this.repTotal = null;
+        FMU('발은 어깨보다 넓게 — 발자국 위에', CS.sand);
+        H.zone.setOp?.(0); H.num.material.opacity = 0;
+        return;
+      }
       const phase2 = H.count >= TOTAL;
       H._eyeK = Math.max(0, Math.min(1, (H._eyeK ?? 0) + (phase2 ? dtB : -dtB) * 1.6));
       const vK = 1 - H._eyeK;
