@@ -805,9 +805,12 @@ export class Session {
     // 셋업 막 발자국 — 어깨보다 넓게(0.56m, wikiHow 기본기). 4초간만 보였다 퇴장(상시 아님).
     const b1sL = new FootMark('left').at(-0.28, BK_STAND - 0.40 - BDEEP, 1.1);
     const b1sR = new FootMark('right').at(0.28, BK_STAND - 0.40 - BDEEP, 1.1);
-    this.bkB1 = { zone: b1zone, num: b1num, sL: b1sL, sR: b1sR,
-      count: 0, _shown: -1, _wasLow: false, _popT: -9, _p2t: 0 };
-    g.add(b1zone, b1num, b1sL.group, b1sR.group);
+    // 셋업 지시 카드 — 타이틀+본문(유저: 지시서처럼 같이 보여주기)
+    const b1tt = floorText('STANCE', 0, BK_STAND - 0.78 - BDEEP, { size: 0.085, color: CS.ink, weight: 800 });
+    const b1bd = floorText('발은 어깨보다 넓게 · 무릎은 굽히고', 0, BK_STAND - 0.64 - BDEEP, { size: 0.055, color: CS.mute });
+    this.bkB1 = { zone: b1zone, num: b1num, sL: b1sL, sR: b1sR, tt: b1tt, bd: b1bd,
+      count: 0, _shown: -1, _wasLow: false, _popT: -9, _p2t: 0, _setupDone: false };
+    g.add(b1zone, b1num, b1sL.group, b1sR.group, b1tt, b1bd);
 
     g = this._mk('BK_B2');
     // B2 · 크로스오버 — 좌우 바운스 존 교대 점등. '공이 우리 평면에 닿는 지점'이 곧 커서라
@@ -1943,21 +1946,31 @@ export class Session {
     } else if (id === 'BK_B1') {
       // ① 원형 마크에 10회(바닥 보며) → ② 중앙 안내 '시선 바깥' → ③ 접점 파형만.
       const H = this.bkB1, TOTAL = 10, P2SEC = 8, MAXSEC = 45;
-      if (this._bkStrId !== 'BK_B1') { H.count = 0; H._shown = -1; H._wasLow = false; H._popT = -9; H._p2t = 0; H._eyeK = 0; }
+      if (this._bkStrId !== 'BK_B1') { H.count = 0; H._shown = -1; H._wasLow = false; H._popT = -9; H._p2t = 0; H._eyeK = 0; H._setupDone = false; }
       this._bkStrId = 'BK_B1';
       const dtB = Math.max(0, Math.min(0.1, this.t - (this._bkB1t ?? this.t)));
       this._bkB1t = this.t;
       // 막0 · 스탠스 셋업(4초): 넓은 발자국 2개만 보여주고 밟게 한다 — 이후 퇴장(페이드)
       const SETUP = 4.0, inSetup = this.t < SETUP;
-      const sK = Math.max(0, Math.min(1, (SETUP + 0.8 - this.t) / 0.8));   // 4~4.8s 페이드아웃
+      const sK = Math.max(0, Math.min(1, (SETUP + 0.9 - this.t) / 0.9));   // Success 블룸 여운과 함께 퇴장
       H.sL.op(sK); H.sR.op(sK);
+      H.tt.userData.plane.material.opacity = 0.95 * sK;
+      H.bd.userData.plane.material.opacity = 0.75 * sK;
       if (inSetup) {
+        // Active — 헤일로 수축 = '자리 잡는 시간' 카운트다운 (MARK 상태머신 그대로)
         H.sL.countdown(this.t / SETUP); H.sR.countdown(this.t / SETUP);
         this._say('bkb1st', '커리', '발은 어깨보다 넓게 — 발자국 위에 서 볼까요. 무릎은 굽히고.');
         this.repLeft = null; this.repTotal = null;
         FMU('발은 어깨보다 넓게 — 발자국 위에', CS.sand);
         H.zone.setOp?.(0); H.num.material.opacity = 0;
         return;
+      }
+      if (!H._setupDone) {   // Active → Success 전이 순간: 블룸 + 접지 파형(마크 위치) 1회
+        H._setupDone = true;
+        H.sL.glow(1); H.sR.glow(1);
+        const wp = new THREE.Vector3();
+        H.sL.group.getWorldPosition(wp); this.onPress?.(wp.clone(), false);
+        H.sR.group.getWorldPosition(wp); this.onPress?.(wp.clone(), false);
       }
       const phase2 = H.count >= TOTAL;
       H._eyeK = Math.max(0, Math.min(1, (H._eyeK ?? 0) + (phase2 ? dtB : -dtB) * 1.6));
