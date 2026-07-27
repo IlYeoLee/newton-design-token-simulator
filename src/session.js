@@ -475,7 +475,9 @@ const A_WATCH = 3.0;
 // 규약(유저): 1/4의 상태를 유지한 채 2/4에서 그 다음 이동을 '더하고', 3/4·4/4도 같은 식으로 쌓는다.
 //   각 단계는 [이전 포즈 → 이 단계 포즈]만 움직이며, 안 움직이는 발은 자리를 지킨다.
 //   좌표는 마크 프레임 단위(u -1~1 가로, v -1~1 앞뒤. +v = 멀리/앞). 빔 창 안으로 자동 클램프.
-export const STEP_SEG = { BK_B2: 0.60, BK_B3: 1.44, BK_B4: 1.81, BK_B5: 3.10 };   // 각 단계가 보여주는 영상 구간 끝(초)
+export const STEP_SEG = { BK_B2: 0.60, BK_B3: 1.44, BK_B4: 1.81, BK_B5: 3.10, BK_C2: 3.10 };   // 각 단계가 보여주는 영상 구간 끝(초)
+// 실전(C2) = 끊김 없이 처음부터 끝까지 한 번에, 정속. 학습 단계(B2~B5)는 저속 + 구간 끝 정지.
+export const STEP_LIVE = 'BK_C2';
 const SB_POSE = [
   { t: 0.00, L: [-0.75, -0.50], R: [0.75, -0.50] },                      // 시작 = 어깨너비보다 넓게 나란히(앞줄)
   { t: 0.60, L: [-0.75, -0.50], R: [0.75, -0.50] },                      // 1/4 무릎 굽혀 페이크 — 발은 그대로
@@ -571,7 +573,7 @@ export const STAGES = {
     { id:'BK_B5', label:'B · 스텝백 4/4 — 오른발 모으며 슛 준비', voice:['커리','오른발을 모으고 그대로 올라가요 — 슛!'], cue:'L·R 모음 · 수직 상승', foot:'두 번 탭 → 실전 준비' },
     { id:'BK_T2', label:'T-2 · 5초 뒤 실전 자동 진행 (두 번 탭 = 바로)', voice:['커리','5초 뒤 넘어가요. 준비됐으면 두 번 탭.'], dur:5, count:true, foot:'두 번 탭 = 즉시 · 무입력 = 자동' },
     { id:'BK_C1', dur:3, label:'C · 실전 1/2 — 트리거', voice:['시스템','3, 2, 1. 실전 갑니다.'], hap:'컷 시작 진동', foot:'두 번 탭 → 출발' },
-    { id:'BK_C2', dur:26, live:true, label:'C · 실전 2/2 — 스텝백 3점', voice:['커리','어디로 빠질지는 그때 알려줄게요. 착지하고 바로 올라가요 — 슛!'], wear:'BOOST 측면 추진', cue:'무작위 방향 ×3' },
+    { id:'BK_C2', dur:14, live:true, label:'C · 실전 — 배운 대로 한 번에', voice:['커리','이번엔 끊지 않고 한 번에 갑니다. 발 순서 그대로 — 딛고, 빠지고, 모아서 슛!'], wear:'BOOST 측면 추진', cue:'정속 · 연속 1회' },
     { id:'BK_FIN', label:'B-F · 리포트', voice:['시스템','리포트를 앱으로 보냈어요.'], cue:'Ghost Review — 커리 궤적과 내 스텝 겹쳐 보기' },
   ],
   boxing: [
@@ -1473,6 +1475,7 @@ export class Session {
     this.liveSpeed = st.boost ? 1.18 : 1;
     if (this.xbot) this.xbot.decelK = 0;   // C5 감속 잔재 제거 (다운시프트·FIN 진입 안전망)
     this._waitStart = 0;    // 음성 게이트 대기 타이머 리셋
+    this.bkShotNow = false;
     this.bkB1EyesUp = false; this.bkB1Setup = false; this.bkB1Succ = null; this.bkB1Widen = null; this.bkB1P2t = null; // B1 신호 리셋
     this._bkStrId = null;   // 워밍업 스트레칭 재진입 리셋 (스테이지 전환 시 홀드 카운트 0)
     this.repLeft = null; this.repTotal = null; this.repFrac = null;   // 반복 진행바 — 스테이지마다 초기화
@@ -2350,7 +2353,7 @@ export class Session {
       const pk = Math.max(0, 1 - (this.t - H._popT) / 0.25);
       // 피그마 훈련01~04(141:204/230/252/274)의 L·R 마크 좌표를 프레임 폭 1600 기준으로 정규화한 값.
       //   u = 가로(-1~1), dv = 앞뒤 오프셋. 임의 배치가 아니라 레퍼런스 실좌표다.
-      const POSE = !LIVE && !!STEP_SEG[id];   // 따라하기(1/4~4/4)만 자동 배치 — 실전(C2)은 마크 릴레이 유지
+      const POSE = !!STEP_SEG[id];   // 1/4~4/4 + 실전(C2) 전부 같은 발자국 시퀀스로 자동 배치
       H.mR.setOp?.(POSE ? 0 : (H.beat === 0 ? 0.5 : 0));
       H.mC.setOp?.(POSE ? 0 : (H.beat === 1 ? 0.5 : 0));
       H.mL.setOp?.(POSE ? 0 : (H.beat === 2 ? 0.5 : 0));
@@ -2424,6 +2427,13 @@ export class Session {
         if (H.numL) { placeMarkNum(H.numL); placeMarkNum(H.numR); H.numL.visible = H.numR.visible = true; }
         H.mL.setOp?.(0); H.mR.setOp?.(0); H.mC.setOp?.(0);
         H.rise.setOp?.(0); H.gh.op(0); H.cL?.op(0); H.cR?.op(0);
+      }
+      // 실전 = 한 번에 쭉 → 마지막에 봇이 슛하고 끝(유저)
+      if (LIVE && this._followLatch) {
+        const done = (this.stepVidT ?? 0) >= (STEP_SEG.BK_C2 - 0.05);
+        if (done && !this.bkShotNow) { this.bkShotNow = true; this._shotT = this.t;
+          this._say('bkc2shot', '커리', '그거예요 — 슛!'); }
+        if (this.bkShotNow && this.t - (this._shotT ?? 0) > 1.6) { this.bkShotNow = false; this.next(); return; }
       }
       const BEATN = { BK_B2: ['① 무릎 구부리고', '② 낮은 자세 유지', '③ 들어가는 척!', '④ 그대로 준비'],
         BK_B3: ['① 준비', '② 오른발 딛고', '③ 공을 왼쪽으로!', '④ 시선 유지'],

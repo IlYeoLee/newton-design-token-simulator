@@ -2330,7 +2330,8 @@ void main(){
 
         if (PHW && co.video.readyState >= 2) {
           const [a, b] = PHW;
-          if (co.video.playbackRate !== STEP_RATE) co.video.playbackRate = STEP_RATE;   // 스텝백 4페이즈만 저배속(유저)
+          const RATE = stepRate(id), HOLD = stepHold(id);
+          if (co.video.playbackRate !== RATE) co.video.playbackRate = RATE;
           const now = performance.now();
           if (_stepId !== id) {   // 단계 진입 = 루프 카운터 리셋 + 구간 처음부터
             _stepId = id; _stepLoops = 0; _stepFrac = 0;
@@ -2338,9 +2339,9 @@ void main(){
           }
           // 링은 '재생 + 끝프레임 정지'를 하나의 한 바퀴로 본다 — 100%에서 1초 멈췄다 뚝 되감기면
           //   회차 사이가 끊겨 보인다(유저). 정지 구간에도 남은 각도를 채워 다음 재생 시작과 정확히 맞물린다.
-          const _playWall = Math.max(0.05, (b - a) / STEP_RATE), _share = _playWall / (_playWall + STEP_HOLD);
+          const _playWall = Math.max(0.05, (b - a) / RATE), _share = _playWall / (_playWall + HOLD);
           if (co._holdUntil) {
-            const hp = Math.max(0, Math.min(1, 1 - (co._holdUntil - now) / (STEP_HOLD * 1000)));
+            const hp = Math.max(0, Math.min(1, 1 - (co._holdUntil - now) / (Math.max(0.001, HOLD) * 1000)));
             _stepFrac = _share + (1 - _share) * hp;
             session.stepVidT = b;   // 정지 구간 = 구간 끝 자세 유지
           } else {
@@ -2357,7 +2358,8 @@ void main(){
             // 30fps라 정확히 b에서 멈출 수 없다 — 한 프레임 앞서 잡고 정지. 시킹은 하지 않는다:
             //   시킹 중엔 비디오 텍스처가 비어 균일색이 되고, 크로마 마스크를 통과 못 해
             //   판 전체가 붉게 칠해졌다(유저 스샷). 현재 프레임 그대로 얼리는 게 안전하다.
-            co._holdUntil = now + STEP_HOLD * 1000; co.video.pause();
+            if (HOLD > 0) { co._holdUntil = now + HOLD * 1000; co.video.pause(); }
+            else { _stepLoops += 1; try { co.video.currentTime = a; } catch (e) {} }   // 실전 = 정지 없이 바로 이어서
           } else {
             if (co.video.currentTime < a - 0.05) { try { co.video.currentTime = a; } catch (e) {} }
             if (co.video.paused) co.video.play().catch(() => {});
@@ -4031,7 +4033,9 @@ void main(){
       BK_B3: 'bkStance', BK_B4: 'bkStance', BK_B5: 'bkStance',   // 스텝백 4단계 — 폭·크라우치는 sbWidth
       BK_C2: 'bkStance',              // 실전 — 릴리즈는 판정으로
     };
-    // 실전(C)·리포트(FIN)는 전 팩 공통으로 기본 서있는 자세(유저) — 봇 동작 연출은 나중에.
+    // 실전(C)·리포트(FIN)는 전 팩 공통으로 기본 서있는 자세(유저). 단 농구 실전 마지막은
+    //   봇이 실제로 슛을 넣으며 끝난다(유저) — session.bkShotNow가 그 순간을 알려준다.
+    if (id === 'BK_C2' && session.bkShotNow) return 'cmu_crossover_shot';
     if (/^(BK_)?C\d$/.test(id) || /^BX_C\d$/.test(id) || /FIN$/.test(id)) return 'idle';
     if (DRILL[id] && xbot.actions[DRILL[id]]) return DRILL[id];
     if (sport === 'basketball') return 'dribble';           // 그 외 제자리 드리블
@@ -4147,10 +4151,10 @@ void main(){
       //   3·2·1은 실전 트리거(C1) 전용 — 학습 내 전환엔 안 씀(복싱 문법과 통일).
       const A2_WATCH = stepPreviewSec(session.stage) || 3.0;   // 폴백(영상 미로드 시) — 실제 종료는 아래 루프 카운트
       const BK_A1_RATE = 1.55;   // 옆구리 봇 배속(코치 영상 페이스 맞춤) — 시각 캘리브레이션 노브
-      const _watchWin = /^(A2|A3|BK_A[23]|BK_B[12345])$/.test(session.stage || '') && !session._followLatch;   // 훈련 단계만 관찰5초→따라하기
-      if (/^BK_C/.test(session.stage || '')) session._followLatch = true;   // 실전은 관찰 없음(바로 시작)
+      const _watchWin = /^(A2|A3|BK_A[23]|BK_B[12345]|BK_C2)$/.test(session.stage || '') && !session._followLatch;   // 실전도 정속 프리뷰 1회 먼저(유저)
+      if (/^BK_C[135]$/.test(session.stage || '')) session._followLatch = true;   // C2만 프리뷰 있음
       const _stepPv = STEP_SEG[session.stage || ''] && _stepId === session.stage;   // 스텝백 = 재생 횟수로 판정
-      const aWatching = _watchWin && (_stepPv ? _stepLoops < STEP_LOOPS : session.t < A2_WATCH);
+      const aWatching = _watchWin && (_stepPv ? _stepLoops < stepLoops(session.stage) : session.t < A2_WATCH);
       if (_watchWin && !aWatching) { session._followLatch = true; session._aWatchEnd = session.t; }
       if (aWatching) { _clip = 'idle'; xbot.group.scale.x = 1; xbot.lungeDeepen = 0; xbot.headPitch = THREE.MathUtils.degToRad(-32); }
       // 위상잠금: 씬 링·카운트와 코치 동작을 같은 시간축에 — 절차 드릴 + A1 전신풀기·A2 점핑잭(주기=씬 BT).
@@ -4459,7 +4463,8 @@ void main(){
         if (STEP_SEG[session.stages?.[session.stageIdx]?.id || ''] && fdoc) {
           const num = fdoc.getElementById('prev-num');
           const arc = fdoc.querySelector('#prev-ring .arc'), tip = fdoc.querySelector('#prev-ring .tip');
-          const txt = Math.min(STEP_LOOPS, _stepLoops) + '/' + STEP_LOOPS;
+          const LOOPS = stepLoops(session.stages?.[session.stageIdx]?.id || '');
+          const txt = Math.min(LOOPS, _stepLoops) + '/' + LOOPS;
           if (num && num.textContent !== txt) num.textContent = txt;
           if (arc) {
             if (arc.style.animation !== 'none') arc.style.animation = 'none';
@@ -4475,7 +4480,7 @@ void main(){
           // 전환 프레임에 타이머가 미세하게 비쳐 거슬린다(유저).
           const prow = fdoc.getElementById('prev-row');
           if (prow) {
-            const d = (session._followLatch || _stepLoops >= STEP_LOOPS) ? 'none' : '';
+            const d = (session._followLatch || _stepLoops >= LOOPS) ? 'none' : '';
             if (prow.style.display !== d) prow.style.display = d;
           }
         }
@@ -5004,9 +5009,13 @@ void main(){
   };
   // 스텝백 4페이즈 누적 구간(초)은 session.js가 단일 소스(마크 배치가 같은 표를 쓴다).
   //   한 루프 = 구간/배속 + 끝프레임 정지 1초.  프리뷰 = STEP_LOOPS 루프.
+  //   학습(B2~B5) = 0.5배속 + 구간 끝 1초 정지 + 프리뷰 2회 / 실전(C2) = 정속·정지 없음·프리뷰 1회(유저)
+  const stepRate = id => (id === 'BK_C2' ? 1.0 : 0.5);
+  const stepHold = id => (id === 'BK_C2' ? 0.0 : 1.0);
+  const stepLoops = id => (id === 'BK_C2' ? 1 : 2);
   const STEP_RATE = 0.5, STEP_HOLD = 1.0, STEP_LOOPS = 2;
-  const stepLoopSec = id => (STEP_SEG[id] ? STEP_SEG[id] / STEP_RATE + STEP_HOLD : 0);
-  const stepPreviewSec = id => stepLoopSec(id) * STEP_LOOPS;
+  const stepLoopSec = id => (STEP_SEG[id] ? STEP_SEG[id] / stepRate(id) + stepHold(id) : 0);
+  const stepPreviewSec = id => stepLoopSec(id) * stepLoops(id);
   // 운동중 A/B/C 지면 화면 — 세로 공통 프레임(floor-scene.html)에 stage 주입. 시작화면과 달리 중앙 발자국은 유지.
   for (const id of ['A1', 'A2', 'A3', 'P1', 'P2', 'P3', 'C2', 'C3', 'C4', 'C5',
                     'BK_A1', 'BK_A2', 'BK_A3', 'BK_B1', 'BK_B2', 'BK_B3', 'BK_B4', 'BK_B5', 'BK_C2', 'BK_C3', 'BK_C4']) {
@@ -5270,7 +5279,7 @@ void main(){
         floorWrap.style.height = fView.h + 'px';
         const dur = STAGE_DUR[session.curStage?.id] ?? session.curStage?.dur ?? 8;
         const _sid2 = session.curStage?.id;
-        const pvSuffix = stepPreviewSec(_sid2) ? `&pv=${stepPreviewSec(_sid2).toFixed(2)}&pvn=${STEP_LOOPS}` : '';
+        const pvSuffix = stepPreviewSec(_sid2) ? `&pv=${stepPreviewSec(_sid2).toFixed(2)}&pvn=${stepLoops(_sid2)}` : '';
         const durSuffix = fView.src.includes('floor-scene.html') ? '&dur=' + dur + pvSuffix : '';
         // 더블 버퍼 교체 — 새 문서는 뒤 버퍼(shadow div)에 주입되고, 완성된 뒤에만 앞으로 나온다(검은 공백 0)
         const back = floorIframeBack;
