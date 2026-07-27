@@ -467,9 +467,6 @@ const A_WATCH = 3.0;
 //   V=빔 창 앞뒤(작을수록 화면 하단) · UX=발 페어 좌우 반간격(어깨너비 이상, 실제 농구 스탠스)
 //   S=발자국 배율(농구 지면 UI 공통 1.0)
 const FOLLOW_V = 0.16, FOLLOW_UX = 0.66, FOLLOW_S = 1.0;
-// 궤적 토큰 1회 사이클(초) — 스윕 0.68 : 소멸 0.32 비율이라 스윕 ≈ 0.5s가 되게 잡았다(스텝과 동기).
-const TJ_CYC = 0.74;
-const TJ_POP = 1.0;   // 궤적 시작 → 파형 터지는 시점(초)
 const BK_STR = {
   BK_A1: { per: 2.4, reps: BK_REPS.BK_A1, side: true, noMark: true, fm: '옆구리 스트레치', say: '팔을 위로 뻗어 옆으로 쭉쭉. 왼쪽 오른쪽 번갈아 허리를 늘려요.' },
   // BK_A2(니 드라이브)는 러닝 A3(하이니) 컴포넌트 전용 핸들러 — bkA2hk
@@ -910,19 +907,6 @@ export class Session {
       H.a1._gain = 0; H.a2._gain = 0;
       gg.add(H.mL, H.mC, H.mR, H.rise, H.gh.group, H.a1, H.a2,
         H.fLl.group, H.fLr.group, H.fRl.group, H.fRr.group, H.fC.group);
-      if (id === 'BK_B3') {
-        // 2/4 전용(레퍼런스): 오른발이 가는 '대각선 궤적' = 궤적 토큰 정본(LINE 광류 + 코멧 헤드 + 스파크,
-        //   drawTrajectory). 화살표로는 '휙 들어간다'가 안 읽힌다(유저) — 코멧이 경로를 훑어야 한다.
-        H.tj = primPanel('trajectory', 0.52, false);   // 훨씬 작게(유저)
-        // 훅 궤적(레퍼런스): 근거리 좌 → 오른쪽으로 크게 돌아 → 원거리 좌로 감아 들어온다.
-        H.tj._prim.pts = [[-0.92, 0.86], [0.28, 0.60], [0.88, 0.02], [0.34, -0.60], [-0.80, -0.82]];
-        // width 1.5는 너무 굵다(유저) → 0.7. tempo = 사이클(스윕 0.5s + 소멸) 기준.
-        H.tj._prim.P = { width: 0.7, tail: 1.15, taper: 1.7, tempo: 1 / TJ_CYC };
-        H.tj._prim.prog = null;   // prog를 주면 소멸 국면이 스킵된다 — 꼬리가 뒤에서부터 증발하도록 자체 사이클 사용
-        // '사이즈 작은 파형' = 링이 아니라 버스트 파문(effects.burst soft, 0.32m). 앵커만 두고 매 사이클 발사.
-        H.wvA = new THREE.Object3D();
-        gg.add(H.tj, H.wvA);
-      }
       if (!big) {   // 훈련 단계만 커서 표시 — 실전은 시선 부담 최소화(유저 확정)
         H.cL = new FootMark('left').at(-0.1, SBZ + 0.52, 0.42);
         H.cR = new FootMark('right').at(0.1, SBZ + 0.52, 0.42);
@@ -2210,27 +2194,6 @@ export class Session {
       const H = { BK_B3: this.bkB3x, BK_B4: this.bkB4x, BK_B5: this.bkB5x, BK_C2: this.bkC2x }[id];
       if (this._bkStrId !== id) { H.beat = 0; H.count = 0; H._beatT = this.t; H._popT = -9; H._side = -1; H._ghT = -9; }
       this._bkStrId = id;
-      // 2/4 = 프리뷰에도 파형·궤적이 뜬다(유저 레퍼런스). 배치는 관찰/따라하기 공통이라 먼저 잡는다.
-      if (H.tj) {
-        // 스텝은 팍 — 이동 0.5초(사이클 2.2초 중), 감속 이징으로 '힘차게 밟고 멈춘다'(유저)
-        const VV = FOLLOW_V, CYC = 2.2, MOVE = 0.5;
-        const cyc = (this.t % CYC) / CYC, mv = Math.min(1, (cyc * CYC) / MOVE);
-        const ez = 1 - Math.pow(1 - mv, 3);
-        H._rEz = ez;   // 오른발 모션이 궤적 코멧과 같은 위상을 쓴다
-        const pt = this._beamLocal(0.30, VV + 0.07, H.mL);      // 패널 중심 = 경로 중간
-        H.tj.position.set(pt.x, 0.017, pt.z);
-        const pw = this._beamLocal(0, VV + 0.08, H.mL);          // 파형 = 중앙, 조금 위(유저)
-        H.wvA.position.set(pw.x, 0.014, pw.z);
-        const el = cyc * CYC;                      // 사이클 내 경과(초)
-        if ((H._wvCyc ?? 9) > el) H.tj._prim.t0 = performance.now() / 1000;   // 사이클 시작 = 궤적 리셋(tickPrims 시계)
-        if ((H._wvCyc ?? 9) < TJ_POP && el >= TJ_POP) {   // 궤적 시작 1초 뒤에 파문이 터진다(유저)
-          const wp = new THREE.Vector3(); H.wvA.getWorldPosition(wp);
-          this.onBurst?.(wp, 0.18);
-        }
-        H._wvCyc = el;
-        // 스윕(0.5s) → 소멸(꼬리가 헤드로 수렴하며 증발) 후에는 숨긴다. 다음 사이클에 다시 그린다.
-        H.tj.visible = (cyc * CYC) < TJ_CYC;
-      }
       if (!this._followLatch && !LIVE) {   // 훈련만 관찰 국면
         for (const k of ['mL', 'mC', 'mR']) H[k].setOp?.(0);
         for (const k of ['fLl', 'fLr', 'fRl', 'fRr', 'fC']) H[k]?.op(0);
@@ -2345,15 +2308,10 @@ export class Session {
         const uR = SOLO ?  FOLLOW_UX : Math.max(-0.92, Math.min(0.92, (POSE.R[0] - cx) * K));
         const bL = Math.sin(this.t * W), bR = Math.sin((this.t - 0.18) * W);   // 들썩 — 오른발 한 박자 늦게
         const pL = this._beamLocal(uL, SOLO ? V : V + POSE.L[1] * 0.10, H.mL);
-        // 2/4 오른발 = 제자리에서 대각선으로 이동(레퍼런스 '우측 발자국 모션이동'). 궤적 화살표와 같은 위상.
-        const rz = SOLO ? (H._rEz ?? 0) : 0;
-        const pR = SOLO
-          ? this._beamLocal(-0.06 + (uR + 0.06) * rz, V + 0.14 * rz, H.mL)
-          : this._beamLocal(uR, V + POSE.R[1] * 0.10, H.mL);
+        const pR = this._beamLocal(uR, SOLO ? V : V + POSE.R[1] * 0.10, H.mL);
         H.fRl.countdown(1); H.fRr.countdown(1);   // 헤일로 완전 수축 = 번짐 없는 실루엣
-        // 2/4는 들썩임 없음(유저) — 왼발 고정, 오른발은 대각선 스텝만. 1/4만 호흡한다.
-        H.fRl.at(pL.x, pL.z, SOLO ? S0 : S0 + SB * bL); H.fRl.op(SOLO ? 0.95 : 0.80 + 0.20 * bL);
-        H.fRr.at(pR.x, pR.z, SOLO ? S0 : S0 + SB * bR); H.fRr.op(SOLO ? 0.95 : 0.80 + 0.20 * bR);
+        H.fRl.at(pL.x, pL.z, S0 + SB * bL); H.fRl.op(0.80 + 0.20 * bL);
+        H.fRr.at(pR.x, pR.z, S0 + SB * bR); H.fRr.op(0.80 + 0.20 * bR);
         for (const k of ['fC', 'fLl', 'fLr']) H[k]?.op(0);
         if (H.numL) { placeMarkNum(H.numL); placeMarkNum(H.numR);
           H.numL.visible = H.numR.visible = SOLO; }   // 글리프는 자체 재질 — visible로 제어
