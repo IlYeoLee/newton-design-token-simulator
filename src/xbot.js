@@ -948,7 +948,7 @@ export class XBot {
       const crossed = S._actR !== S.relActR;
       if (crossed && this._hips) {
         const he = this._hips.matrixWorld.elements;
-        const cx2 = he[12], cz2 = he[14] - 0.10;       // 몸 중심(살짝 앞) = V자 꼭짓점
+        const cx2 = he[12], cz2 = he[14] - 0.30;       // 몸 중심 '앞' = V자 꼭짓점 (0.10은 몸 밑이라 관통해 보임 — 유저)
         const a3 = Math.sqrt(Math.max(0.01, S.relY - r)), b3 = Math.sqrt(Math.max(0.01, (w.y - PALM) - r));
         const sf2 = a3 / (a3 + b3);
         if (s <= sf2) { const q2 = s / sf2; bx = S.relX + (cx2 - S.relX) * q2; bz = S.relZ + (cz2 - S.relZ) * q2; }
@@ -957,6 +957,12 @@ export class XBot {
         bx = S.relX + (S.hx - S.relX) * s;             // 같은 손 — 탄도의 수평 성분
         bz = S.relZ + (S.hz - S.relZ) * s;
       }
+    }
+    // 몸 관통 방지 클램프(유저: 엉덩이 뒤/몸통 통과) — 모노큘러 깊이 압축으로 손목 z가 힙까지
+    // 밀려도, 공은 항상 힙보다 0.26m 앞(-z)에 있도록 강제. 데모 정면=-z(요 고정) 전제.
+    if (this._hips) {
+      const hz2 = this._hips.matrixWorld.elements[14];
+      bz = Math.min(bz, hz2 - 0.26);
     }
     const sy = 1 - 0.35 * squash;
     const sxz = 1 + 0.28 * squash;
