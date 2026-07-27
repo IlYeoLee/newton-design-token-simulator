@@ -586,12 +586,15 @@ export class XBot {
     // vm_crossover 깊이 보정 — 모노큘러 포즈는 팔 깊이(z)가 몸쪽으로 압축돼 손이 몸통 뒤에 붙는다
     // (유저 지적). 축 실측(현재 자세): Arm 로컬 z+(L)/z−(R) 25° → 손 전방 0.20m. 18°만 가산.
     if (key === 'vm_crossover') {
-      const bl = this.model.getObjectByName('mixamorigLeftArm');
-      const br = this.model.getObjectByName('mixamorigRightArm');
-      const D2 = Math.PI / 180;
-      if (bl) bl.quaternion.multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), 18 * D2));
-      if (br) br.quaternion.multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), -18 * D2));
+      const D2 = Math.PI / 180, Bn = n => this.model.getObjectByName(n);
+      const rq = (b, ax, deg) => b && b.quaternion.multiply(new THREE.Quaternion().setFromAxisAngle(ax, deg * D2));
+      rq(Bn('mixamorigLeftArm'), new THREE.Vector3(0, 0, 1), 18);     // 손 전방(깊이 압축 보정)
+      rq(Bn('mixamorigRightArm'), new THREE.Vector3(0, 0, 1), -18);
+      rq(Bn('mixamorigSpine'), new THREE.Vector3(1, 0, 0), 10);       // 상체 살짝 숙임(유저)
+      rq(Bn('mixamorigLeftFoot'), new THREE.Vector3(1, 0, 0), -18);   // 까치발 해제 — 실측 뒤꿈치 0.09~0.11m 공중
+      rq(Bn('mixamorigRightFoot'), new THREE.Vector3(1, 0, 0), -18);  //   (X+=발 펴기 규약이므로 X−=뒤꿈치 내림)
       this.model.updateMatrixWorld(true);
+      this._clampFeet?.();
     }
     // 다리 고정 노브(legLock, main B2 구동) — 크로스오버 연습은 하체 고정·무릎 굽힘이 기본(유저).
     // 프리스타일 클립은 발이 따라 움직이므로, 진입 프레임의 다리 포즈를 스냅샷해 매 프레임 하체만
@@ -910,7 +913,7 @@ export class XBot {
     const vyRaw = (w.y - S.prevY) / Math.max(1e-3, dt);
     S.vy += (vyRaw - S.vy) * 0.5;
     S.hx += (w.x + HOFF - S.hx) * Math.min(1, dt * 14);
-    S.hz += (w.z - S.hz) * Math.min(1, dt * 14);
+    S.hz += (w.z - 0.07 - S.hz) * Math.min(1, dt * 14);   // 전방 0.07 — 공이 몸에 파묻히지 않게(유저, 데모 정면=-z 고정)
     // 손 정점 이벤트 — 주기(Th) EMA 실측
     if (S.prevVy > 0.05 && S.vy <= 0.02 && S.t - S.lastTop > 0.3) {
       const gap = S.t - S.lastTop;
