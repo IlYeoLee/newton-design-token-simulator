@@ -4062,7 +4062,7 @@ void main(){
         const SEG = { BK_A2: [7.5, 9.8], BK_A3: [12.0, 14.2] }[session.stage];
         _phase = SEG[0] + (session.t % (SEG[1] - SEG[0]));
       }
-      else if (session.stage === 'BK_B1') _phase = 1.2 + (session.t % 2.5);   // 124_04 안정 구간 루프
+      else if (session.stage === 'BK_B1') _phase = 1.25 + (session.t % 2.0);   // 124_04 순수 드리블 구간(실측: 1.25~3.25 힙 0.94 유지 · 3.5s부터 슛 리프트라 제외)
       // 06_13 프리스타일 전체 루프는 이동·컷 구간이 섞여 어색(유저) — 안정 핸들 구간만 창 반복.
       else if (session.stage === 'BK_B2') _phase = 2.0 + (session.t % 6.0);
       else if (session.stage === 'BK_B3') _phase = 9.0 + (session.t % 6.0);
