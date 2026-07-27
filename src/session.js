@@ -498,10 +498,10 @@ const sbRaw = (arr, t) => {   // 그 발의 원좌표(보간). 이징은 '떼고
     f, dist, tu: b.u, td: b.d, plantT: b.t, step: dist > 0.03 };
 };
 // 판정 마크 프레임 = 빔 창 안 고정 영역. 어떤 단계·어떤 프레임에서도 이 밖으로 안 나간다.
-const SB_BOX = { u: 0.80, v0: 0.16, v1: 0.46 };   // 창은 멀수록 넓다 — 스탠스 확보용으로 약간 뒤
+const SB_BOX = { u: 0.88, v0: 0.16, v1: 0.46 };   // 창은 멀수록 넓다 — 스탠스 확보용으로 약간 뒤
 // 뒷모습 영상은 원근으로 좌우 간격이 눌린다 — 실제 농구 스탠스(어깨너비 이상)로 보이게
 // 페어 중심 기준으로만 벌린다(중심 이동=스텝은 실측 그대로).
-const SB_STANCE_K = 3.0;
+const SB_STANCE_K = 7.0;   // 준비 스탠스가 어깨너비 이상으로 보이는 값(실측 0.37 → 지면 0.4m대)
 const sbPair = (t) => {   // 두 발 원좌표 + 스탠스 확대
   const L = sbRaw(SB_FOOT.L, t), R = sbRaw(SB_FOOT.R, t);
   const cu = (L.u + R.u) / 2, cd = (L.d + R.d) / 2;
@@ -517,31 +517,23 @@ const SB_T1 = Math.max(...SB_FOOT.L.map(k => k.t), ...SB_FOOT.R.map(k => k.t));
 const SB_SAMP = Array.from({ length: 81 }, (_, i) => {
   const t = (i / 80) * SB_T1; const p = sbPair(t); return { t, us: [p.L.u, p.R.u], ds: [p.L.d, p.R.d] };
 });
+// 기준점 = 1/4의 준비 스탠스(t=0). 모든 단계가 이 자리에서 시작하도록 맞추고(같은 오프셋),
+// 스케일은 전 구간 최대 이탈이 프레임 안에 들어가게 잡는다 — 단계마다 자리가 달라지지 않는다(유저).
 const SB_FIT = (() => {
+  const s0 = SB_SAMP[0];
+  const cx = (s0.us[0] + s0.us[1]) / 2, cz = (s0.ds[0] + s0.ds[1]) / 2;
   const us = SB_SAMP.flatMap(s => s.us), ds = SB_SAMP.flatMap(s => s.ds);
-  const cx = (Math.min(...us) + Math.max(...us)) / 2, cz = (Math.min(...ds) + Math.max(...ds)) / 2;
   return { cx, cz,
     su: SB_BOX.u / Math.max(...us.map(u => Math.abs(u - cx))),
     sv: ((SB_BOX.v1 - SB_BOX.v0) / 2) / Math.max(...ds.map(d => Math.abs(d - cz))),
     vc: (SB_BOX.v0 + SB_BOX.v1) / 2 };
 })();
-// 단계 오프셋 — 스케일(스텝 크기)은 전 단계 공통, 그 단계가 쓰는 구간만 프레임 중앙으로 민다.
-const SB_OFF = (() => {
-  const off = {};
-  for (const id in STEP_SEG) {
-    const used = SB_SAMP.filter(s => s.t <= STEP_SEG[id] + 1e-6);
-    const us = used.flatMap(s => s.us), ds = used.flatMap(s => s.ds);
-    off[id] = { du: ((Math.min(...us) + Math.max(...us)) / 2 - SB_FIT.cx) * SB_FIT.su,
-                dv: ((Math.min(...ds) + Math.max(...ds)) / 2 - SB_FIT.cz) * SB_FIT.sv };
-  }
-  return off;
-})();
-const sbU = (u, o) => Math.max(-SB_BOX.u, Math.min(SB_BOX.u, (u - SB_FIT.cx) * SB_FIT.su - (o?.du || 0)));
-const sbV = (d, o) => Math.max(SB_BOX.v0, Math.min(SB_BOX.v1, SB_FIT.vc + (d - SB_FIT.cz) * SB_FIT.sv - (o?.dv || 0)));
+const sbU = (u) => Math.max(-SB_BOX.u, Math.min(SB_BOX.u, (u - SB_FIT.cx) * SB_FIT.su));
+const sbV = (d) => Math.max(SB_BOX.v0, Math.min(SB_BOX.v1, SB_FIT.vc + (d - SB_FIT.cz) * SB_FIT.sv));
 /** 영상 시각 vt의 두 발 상태(프레임 좌표) — 발마다 독립 타이밍 */
-function sbPoseAt(vt, o) {
+function sbPoseAt(vt) {
   const p = sbPair(vt);
-  const conv = q => ({ u: sbU(q.u, o), v: sbV(q.d, o), tu: sbU(q.tu, o), tv: sbV(q.td, o),
+  const conv = q => ({ u: sbU(q.u), v: sbV(q.d), tu: sbU(q.tu), tv: sbV(q.td),
     f: q.f, dist: q.dist, step: q.step, plantT: q.plantT,
     moving: q.step && q.f > 0.001 && q.f < 0.999 });
   return { L: conv(p.L), R: conv(p.R) };
@@ -665,7 +657,7 @@ export class Session {
       const k = Math.min(1, (this.t - H._sbCapT) / 0.45);
       vt = seg + (done - seg) * (k * k * (3 - 2 * k));
     } else if (raw < seg - 1e-3) H._sbCapT = 0;
-    const P = sbPoseAt(vt, SB_OFF[id]);
+    const P = sbPoseAt(vt);
     const key = '_sbP' + id;
     const st = H[key] || (H[key] = { L: -9, R: -9, pL: 0, pR: 0 });
     const one = (side, fm, ar) => {
