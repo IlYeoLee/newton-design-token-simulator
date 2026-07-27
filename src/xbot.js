@@ -556,6 +556,12 @@ export class XBot {
     // 루트모션 데모 클립은 XZ 고정 해제, 접지 베이크 클립은 per-frame 클램프 해제(덜커덩 방지)
     if (this._rootClips?.has(key)) { this._lockFingers(); this.model.position.x = 0; this.model.position.z = 0; this.model.updateMatrixWorld(true); }
     else this._lockInPlace?.();
+    // 요 잔류 방지: lockYaw/legLock이 얼려둔 rotation.y가 스테이지를 떠나도 남아
+    // T-2 등에서 봇이 뒤돌아 보였다(유저). 비활성 + 비루트 클립이면 기본 정면(π) 복원.
+    if (!this.lockYaw && !this.legLock && !this._rootClips?.has(key) && Math.abs(this.model.rotation.y - Math.PI) > 0.01) {
+      this.model.rotation.y = Math.PI;
+      this.model.updateMatrixWorld(true);
+    }
     // 요 고정(lockYaw, 세션 데모 공통 원칙 — 유저): CMU 프리스타일 클립이 몸을 돌려도(B2 뒤돌기)
     // 화면의 봇은 항상 정면(-z 응시)을 유지한다. 골반 로컬 +Z(몸 정면, getAnchor 규약)의 요를 재서
     // 모델 루트를 역회전 — _lockInPlace가 힙 XZ를 원점에 고정하므로 원점 회전 = 제자리 회전.
