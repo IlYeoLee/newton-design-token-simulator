@@ -37,5 +37,5 @@ window.FLOOR_SCENES = {
   BK_B5: { title: 'Right Foot In, Set to Shoot', phase: 1, sub: '4/4', cue: 'Bring it back — rise straight up' },
   // C · 실전 (GAME)
   BK_C1: { title: 'Trigger',          phase: 2, sub: '1/2', cue: '3 · 2 · 1 — go' },
-  BK_C2: { title: 'Step-back Three',  phase: 2, sub: '2/2', cue: 'Land, then rise — shoot!' },
+  BK_C2: { title: 'Full Step-Back',   phase: 2, sub: '2/2', cue: 'One take — plant, slide, gather, shoot' },   // 실전 = 정속 연속 1회(유저 개편)
 };
