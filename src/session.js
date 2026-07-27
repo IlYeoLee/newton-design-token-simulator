@@ -663,16 +663,19 @@ export class Session {
         fm.countdown(1); fm.op(0.95); fm.at(p.x, p.z, FOLLOW_S);
       }
       fm.toe(q.toe || 0);   // 앞꿈치 접지 구간이면 뒤꿈치가 스러진다
-      // 화살표 = 그 발이 갈 방향. 딛고 있으면 끈다.
+      // 화살표 = '그 발이' 갈 방향. 안 움직이는 발엔 절대 안 붙는다(유저: 왼발에 화살표 뜸).
       if (!ar) return;
       const du = q.tu - q.u, dv = q.tv - q.v;
-      if (!q.step || Math.hypot(du, dv) < 0.03 || q.f >= 0.999) { ar._gain = 0; return; }
-      // 화살표는 '가는 쪽' = 목표 발자국의 좌측 대각선 위(유저). 방향도 그 대각선.
-      const pa = this._beamLocal(Math.max(-SB_BOX.u, Math.min(SB_BOX.u, q.tu - 0.30)),
-                                Math.max(SB_BOX.v0, Math.min(SB_BOX.v1, q.tv + 0.12)), H.mL);
+      const settled = age > 0 && age < 1e6 ? age : 0;
+      // 착지 후 2초가 지나면 다음 루프 예고로 다시 켠다(유저). 그 전에는 이동 중에만.
+      const cue = q.step && (q.moving || (landed && settled > 2.0));
+      if (!cue) { ar._gain = 0; return; }
+      // 위치 = 그 발의 목표 지점 '앞쪽'(같은 좌우 라인). 다른 발 옆에 붙으면 그 발 화살표로 읽힌다.
+      const pa = this._beamLocal(Math.max(-SB_BOX.u, Math.min(SB_BOX.u, q.tu)),
+                                Math.max(SB_BOX.v0, Math.min(SB_BOX.v1, q.tv + 0.14)), H.mL);
       ar.position.set(pa.x, 0.014, pa.z);
-      ar.rotation.z = Math.PI / 4;              // +45° = 좌측 위 대각선
-      ar._gain = 0.30 + 0.60 * (1 - q.f);
+      ar.rotation.z = -Math.atan2(du, Math.max(0.001, dv));   // 이동 방향(주로 전진 = 0°)
+      ar._gain = q.moving ? 0.30 + 0.60 * (1 - q.f) : 0.55;
     };
     one('L', fmL, arrows[0]);
     one('R', fmR, arrows[1]);
