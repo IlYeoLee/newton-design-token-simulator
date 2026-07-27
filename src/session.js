@@ -486,12 +486,13 @@ const SB_FOOT = {
       { t: 1.47, u: 0.051, d: 72 }, { t: 1.73, u: 0.004, d: 72 },
       { t: 2.07, u: -0.515, d: 40 }],
 };
-const sbRaw = (arr, t) => {   // 그 발의 원좌표(보간). 이징은 '떼고 → 빠르게 → 딱 멈춤'
+const sbRaw = (arr, t, holdAirborne) => {   // 그 발의 원좌표(보간). 이징은 '떼고 → 빠르게 → 딱 멈춤'
   let i = 0;
   while (i < arr.length - 2 && arr[i + 1].t <= t) i++;
   const a = arr[i], b = arr[i + 1];
   const span = Math.max(0.01, b.t - a.t);
-  const f = Math.max(0, Math.min(1, (t - a.t) / span));
+  let f = Math.max(0, Math.min(1, (t - a.t) / span));
+  if (holdAirborne && f > 0 && f < 1) f = 0;   // 컷에서 아직 안 딛은 발 = 마지막으로 딛은 자리 유지
   const ez = f < 0.5 ? 2 * f * f : 1 - Math.pow(-2 * f + 2, 2) / 2;
   const dist = Math.abs(b.u - a.u);
   return { u: a.u + (b.u - a.u) * ez, d: a.d + (b.d - a.d) * ez,
@@ -506,8 +507,8 @@ const SB_STANCE_K = 12.0;   // 준비 스탠스가 어깨너비 이상으로 보
 // 여행 폭을 줄여 그 자리를 스탠스에 준다. 방향·순서·타이밍은 그대로, 거리만 압축.
 const SB_TRAVEL_K = 0.45;
 const SB_C0 = { u: (SB_FOOT.L[0].u + SB_FOOT.R[0].u) / 2, d: (SB_FOOT.L[0].d + SB_FOOT.R[0].d) / 2 };
-const sbPair = (t) => {   // 두 발 원좌표 + 스탠스 확대 + 여행 압축
-  const L = sbRaw(SB_FOOT.L, t), R = sbRaw(SB_FOOT.R, t);
+const sbPair = (t, holdAirborne) => {   // 두 발 원좌표 + 스탠스 확대 + 여행 압축
+  const L = sbRaw(SB_FOOT.L, t, holdAirborne), R = sbRaw(SB_FOOT.R, t, holdAirborne);
   let cu = (L.u + R.u) / 2, cd = (L.d + R.d) / 2;
   const su0 = SB_C0.u + (cu - SB_C0.u) * SB_TRAVEL_K, sd0 = SB_C0.d + (cd - SB_C0.d) * SB_TRAVEL_K;
   for (const p of [L, R]) { p.u += su0 - cu; p.d += sd0 - cd; p.tu += su0 - cu; p.td += sd0 - cd; }
@@ -538,8 +539,8 @@ const SB_FIT = (() => {
 const sbU = (u) => Math.max(-SB_BOX.u, Math.min(SB_BOX.u, (u - SB_FIT.cx) * SB_FIT.su));
 const sbV = (d) => Math.max(SB_BOX.v0, Math.min(SB_BOX.v1, SB_FIT.vc + (d - SB_FIT.cz) * SB_FIT.sv));
 /** 영상 시각 vt의 두 발 상태(프레임 좌표) — 발마다 독립 타이밍 */
-function sbPoseAt(vt) {
-  const p = sbPair(vt);
+function sbPoseAt(vt, holdAirborne) {
+  const p = sbPair(vt, holdAirborne);
   const conv = q => ({ u: sbU(q.u), v: sbV(q.d), tu: sbU(q.tu), tv: sbV(q.td),
     f: q.f, dist: q.dist, step: q.step, plantT: q.plantT,
     moving: q.step && q.f > 0.001 && q.f < 0.999 });
@@ -655,16 +656,11 @@ export class Session {
   _sbPlace(H, id, fmL, fmR, arrows) {
     const seg = STEP_SEG[id] || 0;
     const raw = Math.max(0, this.stepVidT ?? 0);
-    let vt = Math.min(seg, raw);
-    // 단계 컷이 스텝 중간에서 끊기면(예: 2/4는 1.47s인데 왼발은 1.70s에 닿는다) 마크가 뜬 채로
-    // 얼어 고스트만 보인다(유저). 영상이 끝프레임에서 정지한 동안 마크는 그 발을 끝까지 밟게 한다.
-    const done = Math.max(sbRaw(SB_FOOT.L, seg).plantT, sbRaw(SB_FOOT.R, seg).plantT);
-    if (raw >= seg - 1e-3 && done > seg) {
-      if (!H._sbCapT) H._sbCapT = this.t;
-      const k = Math.min(1, (this.t - H._sbCapT) / 0.45);
-      vt = seg + (done - seg) * (k * k * (3 - 2 * k));
-    } else if (raw < seg - 1e-3) H._sbCapT = 0;
-    const P = sbPoseAt(vt);
+    const vt = Math.min(seg, raw);
+    // 단계 컷이 한 발의 체공 중간에서 끊긴다(2/4 컷 1.47s = 오른발이 딛는 순간, 왼발은 아직 공중).
+    //   그 발은 '아직 옮기지 않은 발'이므로 마지막으로 딛었던 자리에 그대로 둔다 —
+    //   공중에서 얼어붙은 고스트도, 다음 단계 자리로 미리 가버리는 것도 아니다(유저).
+    const P = sbPoseAt(vt, raw >= seg - 1e-3);
     const key = '_sbP' + id;
     const st = H[key] || (H[key] = { L: -9, R: -9, pL: 0, pR: 0 });
     const one = (side, fm, ar) => {
