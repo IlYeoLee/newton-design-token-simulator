@@ -959,9 +959,13 @@ export class XBot {
       const q = (goingR ? cyc : cyc - PER) / PER;
       const he0 = this._hips ? this._hips.matrixWorld.elements : null;
       const cx0 = he0 ? he0[12] : 0, cz0 = (he0 ? he0[14] : 0) - 0.34;
-      const SIDE = 0.45, TOP = 0.72;
-      const from = { x: cx0 + (goingR ? -SIDE : SIDE), y: TOP, z: cz0 };
-      const to = { x: cx0 + (goingR ? SIDE : -SIDE), y: TOP, z: cz0 };
+      const SIDE = 0.45;
+      // 세로 재결합(유저): 끝단 높이 = 그쪽 손바닥 실높이 — 손이 최고점일 때 공이 손에 붙고,
+      //   손이 내려간 U 중간엔 공이 바닥. 가로 경로는 고정 U 유지(손 좌우 노이즈 무시).
+      const yL2 = Math.max(0.45, Math.min(0.95, wL.y - PALM));
+      const yR2 = Math.max(0.45, Math.min(0.95, wR.y - PALM));
+      const from = { x: cx0 + (goingR ? -SIDE : SIDE), y: goingR ? yL2 : yR2, z: cz0 };
+      const to = { x: cx0 + (goingR ? SIDE : -SIDE), y: goingR ? yR2 : yL2, z: cz0 };
       const fy = from.y, ty2 = to.y;
       if (q < DW) { x = from.x; y = fy; z = from.z; }
       else if (q > 1 - DW) { x = to.x; y = ty2; z = to.z; }

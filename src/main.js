@@ -3937,6 +3937,7 @@ void main(){
       // 농구 A단계 v5: A1 옆구리 스트레치(hj_sidebend) + A2·A3 = cmu13_30 구간(무릎들기 5.5–9.8s·스쿼트 9.8–14.2s)
       BK_READY: 'idle', BK_A1: 'hj_sidebend', BK_A2: 'auto_cmu13_30', BK_A3: 'auto_cmu13_30',
       BK_T1: 'idle', BK_T2: 'idle',   // 전환 화면 둘 다 자연 서기 — T2 조깅이 뒤돌며 움직였음(유저: 그럴 필요 없다)
+      BK_C1: 'vm_crossover',             // 실전 트리거 = 드리블 루프2(유저: 이게 더 낫다)
       BK_C2: 'vm_crossover',             // 실전 핸들 프레이즈 = B2와 같은 실사 클립(풀템포 느낌은 판정 템포가 담당)
       BK_C3: 'cmu_dribble_side',         // 사이드스텝 = CMU 06_08 사이드 드리블(루트 이동)
       // B1 시범 = 06_15 드리블→슛(온전한 무브 원테이크), B2 분해 = 06_14 크로스오버+슛 위상잠금
@@ -4043,8 +4044,8 @@ void main(){
       if (session.stage !== 'A2' && xbot.group.scale.x !== 1) xbot.group.scale.x = 1;   // A2 미러 잔류 방지
       xbot.stanceWiden = /^BK_B[13]$/.test(session.stage || '') ? 1 : 0;   // B2는 절차 드릴이 스탠스 소유
       xbot.crossGuard = 0;   // 절차 드릴이 가드 팔까지 저작 — 덧대기 보정 은퇴
-      xbot.legLock = session.stage === 'BK_B2' || session.stage === 'BK_C2';   // 크로스오버 = 하체 완전 고정(굽힌 자세 스냅샷, 유저) — 실측 표류 0.06m 기법
-      xbot.uDribble = session.stage === 'BK_B2' || session.stage === 'BK_C2';   // 공 = 박자 결정론 U자(좌우 손바닥 왕복, 유저 확정)
+      xbot.legLock = /^BK_(B2|C1|C2)$/.test(session.stage || '');   // 크로스오버 = 하체 완전 고정(굽힌 자세 스냅샷, 유저) — 실측 표류 0.06m 기법
+      xbot.uDribble = /^BK_(B2|C1|C2)$/.test(session.stage || '');   // 공 = 박자 결정론 U자(좌우 손바닥 왕복, 유저 확정)
       // 세션 데모(비실전) 공통: CMU 클립이 몸을 돌려도 봇은 정면 유지(유저 원칙)
       xbot.lockYaw = session.active && !session.isLive && /^BK_[AB]/.test(session.stage || '');
       let _clip = demoClipFor(session.sport, session.stage);
@@ -4106,7 +4107,7 @@ void main(){
         }
       }
       // 06_13 프리스타일 전체 루프는 이동·컷 구간이 섞여 어색(유저) — 안정 핸들 구간만 창 반복.
-      else if (session.stage === 'BK_B2' || session.stage === 'BK_C2') _phase = 4.4 + (session.t % 3.5);   // 신규 소스(공 튀기며 손으로 옮기기) 최적 루프 4.4~7.9s — 경계 0.02m·손 전환 3회 실측
+      else if (/^BK_(B2|C1|C2)$/.test(session.stage || '')) _phase = 4.4 + (session.t % 3.5);   // 신규 소스(공 튀기며 손으로 옮기기) 최적 루프 4.4~7.9s — 경계 0.02m·손 전환 3회 실측
       else if (session.stage === 'BK_B3') {   // 프리스타일은 어느 구간도 안 맞물림(최적 0.183m) → 핑퐁 = 불연속 0
         const SP3 = 6.3, m3 = session.t % (SP3 * 2);
         _phase = 7.6 + (m3 < SP3 ? m3 : SP3 * 2 - m3);
