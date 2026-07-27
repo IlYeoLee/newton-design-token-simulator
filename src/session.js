@@ -474,7 +474,7 @@ const FOLLOW_S = 1.0;   // 따라하기 발자국 배율(농구 지면 UI 공통
 //   ① STEP_SEG = 각 단계가 보여주는 누적 구간 끝(초) — 1 / 1→2 / 1→2→3 / 1→2→3→4
 //   ② SB_KEY  = 레퍼런스 영상 실측 키프레임(흰 신발 클러스터 픽셀 계측, 컷 시각과 동일 t)
 // 마크는 영상 재생 위치(session.stepVidT)를 그대로 따라간다 = 타이밍·박자가 영상 그 자체.
-export const STEP_SEG = { BK_B2: 0.60, BK_B3: 1.47, BK_B4: 1.81, BK_B5: 3.10 };
+export const STEP_SEG = { BK_B2: 0.60, BK_B3: 1.44, BK_B4: 1.81, BK_B5: 3.10 };   // 2/4 = 1.44(유저 지정: 오른발 딛는 프레임)
 // 발마다 자기 타임라인 — 실측(15Hz 추적)에서 뽑은 리프트/플랜트 시각. 두 발을 한 이징으로
 // 묶으면 유리판 위를 미끄러진다(유저). 실측: 1.13~1.47 둘 다 이동(체공) → 왼발 1.67 착지 →
 // 오른발은 1.73까지 대기했다가 2.07에 착지. 즉 왼발이 먼저 닿고 오른발이 뒤따른다.
@@ -483,8 +483,10 @@ const SB_FOOT = {
   // 20fps 접지 추적 실측. 좌우 식별 정정: 먼저 나가는 건 '오른발'이고, 왼발은 제자리에서
   //   앞꿈치로 버티다(1.45~2.05) 마지막에 끌어온다. toe:true = 그 구간은 앞꿈치만 닿은 상태.
   L: [{ t: 0.00, u: 0.172, d: 0 }, { t: 1.40, u: 0.172, d: 0 },
-      { t: 1.50, u: 0.090, d: 26, toe: 1 }, { t: 1.70, u: 0.080, d: 28, toe: 1 },
+      { t: 1.45, u: 0.140, d: 18, toe: 1 },   // 뒤꿈치 들림 — 앞꿈치만 접지(제자리 버티기)
+      { t: 1.70, u: 0.130, d: 20, toe: 1 },
       { t: 2.05, u: -0.515, d: 40 }],
+
   R: [{ t: 0.00, u: 0.542, d: 11 }, { t: 1.05, u: 0.517, d: 21 },
       { t: 1.45, u: -0.187, d: 46 }, { t: 1.65, u: -0.650, d: 28 },
       { t: 2.05, u: -0.679, d: 28 }],
@@ -500,7 +502,7 @@ const sbRaw = (arr, t, holdAirborne) => {   // 그 발의 원좌표(보간). 이
   const dist = Math.abs(b.u - a.u);
   return { u: a.u + (b.u - a.u) * ez, d: a.d + (b.d - a.d) * ez,
     f, dist, tu: b.u, td: b.d, plantT: b.t, step: dist > 0.03,
-    toe: (f >= 1 ? (b.toe || 0) : (a.toe || 0)) };
+    toe: (f < 0.5 ? (a.toe || 0) : (b.toe || 0)) };
 };
 // 판정 마크 프레임 = 빔 창 안 고정 영역. 어떤 단계·어떤 프레임에서도 이 밖으로 안 나간다.
 const SB_BOX = { u: 0.88, v0: 0.16, v1: 0.46 };   // 창은 멀수록 넓다 — 스탠스 확보용으로 약간 뒤
@@ -548,7 +550,18 @@ function sbPoseAt(vt, holdAirborne) {
   const conv = q => ({ u: sbU(q.u), v: sbV(q.d), tu: sbU(q.tu), tv: sbV(q.td), toe: q.toe,
     f: q.f, dist: q.dist, step: q.step, plantT: q.plantT,
     moving: q.step && q.f > 0.001 && q.f < 0.999 });
-  return { L: conv(p.L), R: conv(p.R) };
+  const L = conv(p.L), R = conv(p.R);
+  // 좌우가 교차하지 않게 최소 간격 유지 — 실제 클립은 오른발이 왼발을 넘어가는 크로스오버지만,
+  // 지면 마크에서 L·R이 대각선으로 뒤바뀌면 '어느 발인지'가 무너진다(유저). 앞으로 나가는
+  // 성분(깊이)은 실측 그대로 두고, 좌우만 겹치지 않게 민다.
+  const GAP = 0.42;   // 스탠스 폭 — 이보다 가까워지면 두 발이 겹쳐 보인다
+  if (R.u < L.u + GAP) {
+    if (R.moving && !L.moving) R.u = L.u + GAP;        // 딛고 있는 발은 고정, 옮기는 발만 민다
+    else if (L.moving && !R.moving) L.u = R.u - GAP;
+    else { const mid = (L.u + R.u) / 2; L.u = mid - GAP / 2; R.u = mid + GAP / 2; }
+  }
+  if (R.tu < L.tu + GAP) R.tu = L.tu + GAP;
+  return { L, R };
 }
 
 const BK_STR = {
