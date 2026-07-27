@@ -2373,14 +2373,17 @@ export class Session {
       const spread = pr ? Math.abs(pr.footR.x - pr.footL.x) : 0;
       if (H.beat >= 2 && !H._landed && spread > 0.64) {   // 실측 착지 폭 0.92m의 70%
         H._landed = true; H._landT = this.t; H._landErr = spread - 0.92;
-        if (id !== 'BK_B3') {   // 2/4는 1/4과 같이 버스트·고스트 없음(유저)
+        // 따라하기(1/4~4/4)에서는 판정 버스트를 쓰지 않는다 — 발자국이 없는 링 자리에서
+        //   난데없이 터져 보였다(유저). 파문은 '발이 닿는 순간' 그 발자국 자리에서만.
+        if (!POSE) {
           const wp = new THREE.Vector3(); H.mL.getWorldPosition(wp); this.onPress?.(wp, false);
           H.gh.at(ex, H.mL.position.z, 0.62); H.gh.ghost(); H._ghT = this.t;   // 고스트 = 실제 착지 위치
         }
       }
       if (H._landed && hy - (H._prevHy || hy) > 0.010 && this.t - H._landT < 0.6) {
         H.count += 1; H._landed = false;
-        const wp = new THREE.Vector3(); H.rise.getWorldPosition(wp); this.onPress?.(wp, true);
+        const wp = new THREE.Vector3(); H.rise.getWorldPosition(wp);
+        if (!POSE) this.onPress?.(wp, true);
         this._say('sbshot' + H.count, '커리', '슛! 좋아요.');
         H._beatT = this.t; H.beat = 0;
       }
