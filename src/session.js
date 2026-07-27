@@ -844,9 +844,14 @@ export class Session {
     const rise = floorRing(-0.55, SBZ, 0.21, 0.25, BRAND.red, 0);           // 상승 링(비트④=슛)
     const cL = new FootMark('left').at(-0.1, SBZ + 0.52, 0.42), cR = new FootMark('right').at(0.1, SBZ + 0.52, 0.42);
     cL.ghost(); cR.ghost();   // 커서 = Locked 고스트 톤(목표와 구분)
-    this.bkB2x = { mL, mC, mR, sL1, sR1, sL2, sR2, rise, cL, cR,
+    // 따라하기(피그마 143:444) 전용 — 영상 아래 L·R 페어 양옆의 위아래 화살표.
+    //   던질까 말까 망설이는 순간 = 마크가 들썩이고 ↓/↑가 번갈아 밝아진다.
+    const b2aD = floorArrow(-0.60, SBZ + 0.45, 180, BRAND.sand, 0.30);
+    const b2aU = floorArrow(0.60, SBZ + 0.45, 0, BRAND.sand, 0.30);
+    b2aD._gain = 0; b2aU._gain = 0;
+    this.bkB2x = { mL, mC, mR, sL1, sR1, sL2, sR2, rise, cL, cR, aD: b2aD, aU: b2aU,
       beat: 0, _dwell: 0, _beatT: 0, _popT: -9, _prevHy: 0 };
-    g.add(mL, mC, mR, sL1.group, sR1.group, sL2.group, sR2.group, rise, cL.group, cR.group);
+    g.add(mL, mC, mR, sL1.group, sR1.group, sL2.group, sR2.group, rise, cL.group, cR.group, b2aD, b2aU);
 
     // B3·B4·C2 = B2와 같은 레이아웃(공유 팩토리). 단계 차이는 속도·판정·마크 크기뿐.
     const buildStepback = (id, big) => {
@@ -2109,13 +2114,19 @@ export class Session {
       }
       const CZ = (H.mL.position.z) + 0.52;
       H.cL.at(ex - 0.14, CZ, 0.42); H.cR.at(ex + 0.14, CZ, 0.42);
-      H.cL.op(0.75); H.cR.op(0.75);
       // 비트 목표: 0=시작(+0.55) 1=플랜트(0) 2=착지(-0.55) 3=슛(상승)
       const TGT = [0.55, 0, -0.55][Math.min(H.beat, 2)];
-      const lit = (m, on) => m.setOp?.(on ? 1 : 0.10);
-      lit(H.mR, H.beat === 0); lit(H.mC, H.beat === 1); lit(H.mL, H.beat === 2);
-      for (const k of ['sL2', 'sR2']) H[k].op(H.beat === 0 ? 0.8 : 0.15);
-      for (const k of ['sL1', 'sR1']) H[k].op(H.beat === 2 ? 0.8 : 0.15);
+      // 따라하기 화면(143:444) = 코치 영상 아래 L·R 마크 한 쌍 + 좌 ↓ / 우 ↑.
+      //   비트 릴레이(존 3개)는 이 단계에선 안 쓴다 — 1/4은 '자리 잡고 망설이기'다.
+      const MZ = H.mL.position.z + 0.45, W = Math.PI * 2 / 1.6;
+      const bL = Math.sin(this.t * W), bR = Math.sin((this.t - 0.18) * W);
+      H.sL2.at(-0.17, MZ, 0.62 + 0.04 * bL); H.sL2.op(0.80 + 0.20 * bL);
+      H.sR2.at(0.17, MZ, 0.62 + 0.04 * bR); H.sR2.op(0.80 + 0.20 * bR);
+      for (const k of ['sL1', 'sR1']) H[k].op(0);
+      for (const k of ['mL', 'mC', 'mR']) H[k].setOp?.(0);
+      H.cL.op(0); H.cR.op(0);
+      H.aD._gain = 0.30 + 0.60 * Math.max(0, bL);
+      H.aU._gain = 0.30 + 0.60 * Math.max(0, -bL);
       H.rise.setOp?.(H.beat === 3 ? 0.85 : 0);
       const dtB2 = Math.max(0, Math.min(0.1, this.t - (this._bkB2t ?? this.t))); this._bkB2t = this.t;
       if (H.beat <= 2) {
