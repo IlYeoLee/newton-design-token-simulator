@@ -3940,7 +3940,7 @@ void main(){
       // B1 시범 = 06_15 드리블→슛(온전한 무브 원테이크), B2 분해 = 06_14 크로스오버+슛 위상잠금
       // B단계 = 공을 튄다 → 튀기며 움직인다 → 튀기다 멈추고 뒤로(BK-B-CURRICULUM.md)
       BK_B1: 'auto_cmu124_04',        // 제자리 공 튀기기 (root:false → 제자리 고정 보장)
-      BK_B2: 'cmu_crossover_shot',    // 진짜 크로스오버 모캡 (CMU 06_14, 양손 전환) — 유저 요청
+      BK_B2: 'cmu_dribble_low',       // 크로스오버 = 06_13의 8~11s (본 스캔 실측: 손 전환 8연속). 06_14는 전환이 없었다(≤0.17, 오른손 고정)
       BK_B3: 'cmu_dribble_low',       // 다리 사이도 같은 핸들 클립 루프
     };
     if (DRILL[id] && xbot.actions[DRILL[id]]) return DRILL[id];
@@ -4098,9 +4098,9 @@ void main(){
         }
       }
       // 06_13 프리스타일 전체 루프는 이동·컷 구간이 섞여 어색(유저) — 안정 핸들 구간만 창 반복.
-      else if (session.stage === 'BK_B2') {   // 06_14 크로스오버 구간만 — 개더·슛(2.0s~) 완전 제외(유저)
-        const SP2 = 1.6, m2 = session.t % (SP2 * 2);
-        _phase = 0.3 + (m2 < SP2 ? m2 : SP2 * 2 - m2);
+      else if (session.stage === 'BK_B2') {   // 06_13 크로스오버 연타 구간(본 스캔: 8~11s 손 전환 8회) 핑퐁
+        const SP2 = 3.0, m2 = session.t % (SP2 * 2);
+        _phase = 8.0 + (m2 < SP2 ? m2 : SP2 * 2 - m2);
       }
       else if (session.stage === 'BK_B3') _phase = 9.0 + (session.t % 6.0);
       // playDemo는 무조건 — stepbackDemo 분기 삭제 때 else가 체인에 붙어 위상 스테이지 전부에서
