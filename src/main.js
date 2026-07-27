@@ -4342,6 +4342,7 @@ void main(){
     document.body.appendChild(bs);
   }
 
+  let _dotStage = '', _dotMax = 0;   // 도트 진행바 — 스테이지별 최대 진행(되감김 방지)
   function loop() {
     requestAnimationFrame(loop);
     const rawDt = Math.min(clock.getDelta(), 2.0);
@@ -4426,9 +4427,13 @@ void main(){
           const clip = fdoc?.querySelector('.dclip');
           if (clip) {
             // repFrac = 회차 사이도 채우는 연속값(깊이·발높이). 정수 회차만 쓰면 뚝뚝 끊긴다(유저).
-            const done = session.repFrac != null
+            let done = session.repFrac != null
               ? Math.max(0, Math.min(1, session.repFrac))
               : 1 - Math.max(0, Math.min(1, session.repLeft / session.repTotal));
+            // 진행바는 되감기지 않는다 — 깊이·발높이가 섞인 연속값은 일어설 때 줄어들어
+            // 스쿼트에서 찼다 빠졌다 했다(유저). 스테이지가 바뀔 때만 0으로 리셋.
+            if (_dotStage !== _sid) { _dotStage = _sid; _dotMax = 0; }
+            done = _dotMax = Math.max(_dotMax, done);
             if (clip.style.animation !== 'none') clip.style.animation = 'none';
             const wpx = (600 * done).toFixed(0) + 'px';   // 1px 양자화 — 매 프레임 폭 쓰기가 리컴포짓 플리커 유발
             if (clip.style.width !== wpx) clip.style.width = wpx;
