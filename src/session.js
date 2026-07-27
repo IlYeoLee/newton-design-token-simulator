@@ -907,6 +907,13 @@ export class Session {
       H.a1._gain = 0; H.a2._gain = 0;
       gg.add(H.mL, H.mC, H.mR, H.rise, H.gh.group, H.a1, H.a2,
         H.fLl.group, H.fLr.group, H.fRl.group, H.fRr.group, H.fC.group);
+      if (id === 'BK_B3') {
+        // 2/4 전용(레퍼런스 주석 그대로): 왼발 자리 위 '사이즈 작은 파형' + 오른발이 가는 '대각선 궤적'.
+        //   둘 다 룩시스템 토큰 원사이즈(작은 존 원 0.09 / LINE 화살표 0.34) — 프리뷰·따라하기 공통.
+        H.wv = floorRing(0, SBZ, 0.09, 0.115, BRAND.coral, 0);
+        H.tj = floorArrow(0, SBZ, -45, BRAND.prism, 0.34); H.tj._gain = 0;
+        gg.add(H.wv, H.tj);
+      }
       if (!big) {   // 훈련 단계만 커서 표시 — 실전은 시선 부담 최소화(유저 확정)
         H.cL = new FootMark('left').at(-0.1, SBZ + 0.52, 0.42);
         H.cR = new FootMark('right').at(0.1, SBZ + 0.52, 0.42);
@@ -2194,6 +2201,19 @@ export class Session {
       const H = { BK_B3: this.bkB3x, BK_B4: this.bkB4x, BK_B5: this.bkB5x, BK_C2: this.bkC2x }[id];
       if (this._bkStrId !== id) { H.beat = 0; H.count = 0; H._beatT = this.t; H._popT = -9; H._side = -1; H._ghT = -9; }
       this._bkStrId = id;
+      // 2/4 = 프리뷰에도 파형·궤적이 뜬다(유저 레퍼런스). 배치는 관찰/따라하기 공통이라 먼저 잡는다.
+      if (H.wv) {
+        const VV = FOLLOW_V, cyc = (this.t % 2.2) / 2.2, mv = Math.min(1, cyc / 0.55);
+        const ez = mv * mv * (3 - 2 * mv);
+        const pw = this._beamLocal(-FOLLOW_UX, VV + 0.16, H.mL);        // 왼발 자리 위 = 작은 파형
+        H.wv.position.set(pw.x, H.wv.position.y, pw.z);
+        H.wv.setOp?.(0.25 + 0.45 * Math.abs(Math.sin(Math.PI * cyc)));   // 파동 = 밝기 호흡
+        const pt = this._beamLocal(-0.02 + 0.34 * ez, VV + 0.04 + 0.10 * ez, H.mL);   // 궤적 = 대각선 진행
+        H.tj.position.set(pt.x, 0.014, pt.z);
+        H.tj.rotation.z = THREE.MathUtils.degToRad(-45);
+        H.tj._gain = 0.30 + 0.60 * ez;
+        H._rEz = ez;   // 오른발 모션이 같은 위상을 쓴다
+      }
       if (!this._followLatch && !LIVE) {   // 훈련만 관찰 국면
         for (const k of ['mL', 'mC', 'mR']) H[k].setOp?.(0);
         for (const k of ['fLl', 'fLr', 'fRl', 'fRr', 'fC']) H[k]?.op(0);
@@ -2308,7 +2328,11 @@ export class Session {
         const uR = SOLO ?  FOLLOW_UX : Math.max(-0.92, Math.min(0.92, (POSE.R[0] - cx) * K));
         const bL = Math.sin(this.t * W), bR = Math.sin((this.t - 0.18) * W);   // 들썩 — 오른발 한 박자 늦게
         const pL = this._beamLocal(uL, SOLO ? V : V + POSE.L[1] * 0.10, H.mL);
-        const pR = this._beamLocal(uR, SOLO ? V : V + POSE.R[1] * 0.10, H.mL);
+        // 2/4 오른발 = 제자리에서 대각선으로 이동(레퍼런스 '우측 발자국 모션이동'). 궤적 화살표와 같은 위상.
+        const rz = SOLO ? (H._rEz ?? 0) : 0;
+        const pR = SOLO
+          ? this._beamLocal(-0.06 + (uR + 0.06) * rz, V + 0.14 * rz, H.mL)
+          : this._beamLocal(uR, V + POSE.R[1] * 0.10, H.mL);
         H.fRl.countdown(1); H.fRr.countdown(1);   // 헤일로 완전 수축 = 번짐 없는 실루엣
         H.fRl.at(pL.x, pL.z, S0 + SB * bL); H.fRl.op(0.80 + 0.20 * bL);
         H.fRr.at(pR.x, pR.z, S0 + SB * bR); H.fRr.op(0.80 + 0.20 * bR);
