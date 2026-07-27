@@ -671,6 +671,10 @@ export class XBot {
       rx(B('mixamorigSpine'), 5 * kp);
       this.model.updateMatrixWorld(true);
       this._clampFeet?.();
+      // 루트 측면 이동 + 점프 — 폭만 바꾸면 '스텝을 밟는다'가 안 보인다(유저)
+      if (this.sbShift !== undefined) this.group.position.x = this.sbShift || 0;
+      if (this.sbJump) { this.model.position.y = (this.model.position.y || 0) + this.sbJump; this._yOff = undefined; }
+      this.model.updateMatrixWorld(true);
     }
     // 스탠스 벌림 노브(stanceWiden 0..1, main B1 구동) — 클립 스탠스가 어깨보다 좁아(실측 0.56m→)
     // 기본기 시범이 안 됨(유저·wikiHow 기본기: 발은 어깨보다 넓게). 힙 외전 ±7도.

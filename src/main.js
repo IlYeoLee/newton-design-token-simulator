@@ -4055,7 +4055,10 @@ void main(){
       xbot.crossGuard = 0;   // 절차 드릴이 가드 팔까지 저작 — 덧대기 보정 은퇴
       xbot.legLock = /^BK_(C1|C2)$/.test(session.stage || '');   // 크로스오버 = 하체 완전 고정(굽힌 자세 스냅샷, 유저) — 실측 표류 0.06m 기법
       xbot.uDribble = /^BK_(C1|C2)$/.test(session.stage || '');   // 공 = 박자 결정론 U자(좌우 손바닥 왕복, 유저 확정)
-      xbot.sbWidth = /^BK_(B2|B3|B4|C2)$/.test(session.stage || '') ? (session.sbWidth ?? 0) : 0;
+      const _sbOn = /^BK_(B2|B3|B4|C2)$/.test(session.stage || '');
+      xbot.sbWidth = _sbOn ? (session.sbWidth ?? 0) : 0;
+      xbot.sbShift = _sbOn ? (session.sbShift ?? 0) : 0;   // 루트 측면 이동 — 실제로 스텝을 밟게
+      xbot.sbJump = _sbOn ? (session.sbJump ?? 0) : 0;
       xbot.relaxLeftArm = (session.stage || '') === 'BK_B1';   // 로우 드리블 — 오른손만 드리블, 왼팔 자연 축 내림
       xbot.phaseDribble = (session.stage || '') === 'BK_B1';   // 공 = 오른손 높이 직결(최고=손, 최저=바닥)
       // 세션 데모(비실전) 공통: CMU 클립이 몸을 돌려도 봇은 정면 유지(유저 원칙)

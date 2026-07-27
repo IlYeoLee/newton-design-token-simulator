@@ -2195,11 +2195,18 @@ export class Session {
       // 화살표 = 한 박자 앞서 켜서 '다음에 어디로'를 알린다
       H.a1._gain = H.beat === 0 ? 0.9 : (H.beat === 1 ? 0.35 : 0);
       H.a2._gain = H.beat === 1 ? 0.95 : (H.beat === 2 ? 0.5 : 0);
-      // 봇 스탠스 = 실측 4국면 폭을 비트에 맞춰 보간(모캡 지터 회피, 발자국과 동일 좌표)
-      const WID = [0.39, 0.42, 0.92, 0.55];
+      // 봇 구동 = 실측 4국면. 폭(스탠스)만으론 '스텝백을 한다'가 안 보인다(유저) —
+      //   루트를 실제로 옆으로 옮기고(밀기 +0.22 → 빠지기 -0.34), 마지막에 점프까지 시킨다.
+      const WID = [0.39, 0.42, 0.92, 0.55];     // 스탠스 폭(m) — 영상 실측
+      const SHF = [0.00, 0.22, -0.34, -0.30];   // 루트 측면 이동(m) — 밀고 들어갔다 반대로 빠짐
       const bp = Math.max(0, Math.min(1, (this.t - H._popT) / (CFG.per * 0.55)));
-      const wPrev = WID[Math.max(0, H.beat - 1)], wNow = WID[H.beat];
-      this.sbWidth = wPrev + (wNow - wPrev) * (bp * bp * (3 - 2 * bp));
+      const ez = bp * bp * (3 - 2 * bp);
+      const pi = Math.max(0, H.beat - 1);
+      this.sbWidth = WID[pi] + (WID[H.beat] - WID[pi]) * ez;
+      this.sbShift = SHF[pi] + (SHF[H.beat] - SHF[pi]) * (H.beat === 2 ? Math.min(1, bp * 1.8) : ez);   // 스텝백은 빠르게
+      // 비트④ = 슛: 짧은 수직 점프(0.35s)
+      const jt = H.beat === 3 ? (this.t - H._popT) : -1;
+      this.sbJump = jt >= 0 && jt < 0.35 ? Math.sin((jt / 0.35) * Math.PI) * 0.16 : 0;
       const BEATN = ['① 오른발 딛고 준비', '② 오른발로 밀어 — 안으로', '③ 반대로 크게 빠지기!', '④ 그대로 올라가 — 슛!'];
       const left = Math.max(0, CFG.need - H.count);
       this.repLeft = left; this.repTotal = CFG.need; this.repFrac = Math.min(1, H.count / CFG.need);
