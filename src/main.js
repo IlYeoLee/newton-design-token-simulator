@@ -3940,7 +3940,7 @@ void main(){
       // B1 시범 = 06_15 드리블→슛(온전한 무브 원테이크), B2 분해 = 06_14 크로스오버+슛 위상잠금
       // B단계 = 공을 튄다 → 튀기며 움직인다 → 튀기다 멈추고 뒤로(BK-B-CURRICULUM.md)
       BK_B1: 'auto_cmu124_04',        // 제자리 공 튀기기 (root:false → 제자리 고정 보장)
-      BK_B2: 'bk_crossover',          // 절차 저작 크로스오버 드릴 — CMU엔 제자리 크로스오버가 없어 프랑켄 조합이 어색했음(유저 결정)
+      BK_B2: 'vm_crossover',          // 실사 비디오모캡(크로스 잽 드리블, 유저 제공 소스) — 절차·CMU 모두 어색해 실사로 확정
       BK_B3: 'cmu_dribble_low',       // 다리 사이도 같은 핸들 클립 루프
     };
     if (DRILL[id] && xbot.actions[DRILL[id]]) return DRILL[id];
@@ -4099,7 +4099,7 @@ void main(){
         }
       }
       // 06_13 프리스타일 전체 루프는 이동·컷 구간이 섞여 어색(유저) — 안정 핸들 구간만 창 반복.
-      else if (session.stage === 'BK_B2') _phase = session.t;   // 절차 드릴 = 위상 잠금(1.6s 사이클)
+      else if (session.stage === 'BK_B2') _phase = session.t % 5.85;   // 실사 클립 자연 루프
       else if (session.stage === 'BK_B3') _phase = 9.0 + (session.t % 6.0);
       // playDemo는 무조건 — stepbackDemo 분기 삭제 때 else가 체인에 붙어 위상 스테이지 전부에서
       // 재생이 건너뛰어졌던 사고(클립이 idle로 남음).
