@@ -28,10 +28,9 @@ window.FLOOR_SCENES = {
   // ── 농구 ──
   // A · 준비운동 (WARM UP)
   BK_A1: { title: 'Side Stretch',      phase: 0, sub: '1/3', cue: 'Reach up · stretch side to side' }, // 옆구리 스트레치
-  BK_A2: { title: 'Knee Drive',        phase: 0, sub: '2/3', cue: 'Knee up · opposite hand · twist' },// 니 드라이브(트위스트)
-  BK_A3: { title: 'Squats',            phase: 0, sub: '3/3', cue: 'Slow down and up' },                // 스쿼트
+  BK_A3: { title: 'Squats',            phase: 0, sub: '2/3', cue: 'Slow down and up' },                // 스쿼트
   // B · 사전 익히기 (DRILL)
-  BK_B1: { title: 'Low Dribble',    phase: 0, sub: '4/4', cue: "Stay low — Curry's beat, 10 reps" },  // 로우 드리블
+  BK_B1: { title: 'Low Dribble',    phase: 0, sub: '3/3', cue: "Stay low — Curry's beat, 10 reps" },  // 로우 드리블
   BK_B2: { title: 'Break Down',     phase: 1, sub: '1/3', cue: 'Beat by beat — plant, step back, shoot' },
   BK_B3: { title: 'Half Speed',     phase: 1, sub: '2/3', cue: 'Follow the marks in order' },
   BK_B4: { title: 'Full Speed',     phase: 1, sub: '3/3', cue: 'Eyes up — read it with side vision' },
