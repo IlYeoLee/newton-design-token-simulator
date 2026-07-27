@@ -4118,7 +4118,7 @@ void main(){
       // A2/A3 = 2단계 흐름(유저): [0~5s 관찰] 봇은 가만히 서서(idle) 전문가 영상 보기 → [5s~ 따라하기].
       // 뉴턴 전환 문법(유저 확정): 시범(영상만·도트바) → 마크 Preview 워밍 등장+음성 → 따라하기.
       //   3·2·1은 실전 트리거(C1) 전용 — 학습 내 전환엔 안 씀(복싱 문법과 통일).
-      const A2_WATCH = 5.0;   // 시범 = 무조건 5초(유저: 3초는 너무 짧음) — 미니 타이머 링과 동기
+      const A2_WATCH = 3.0;   // 시범 = 3초로 통일(유저) — 타이머 링·프레임 애니메이션(floor-scene.html)과 동기
       const BK_A1_RATE = 1.55;   // 옆구리 봇 배속(코치 영상 페이스 맞춤) — 시각 캘리브레이션 노브
       const _watchWin = /^(A2|A3|BK_A[23]|BK_B[12345])$/.test(session.stage || '') && !session._followLatch;   // 훈련 단계만 관찰5초→따라하기
       if (/^BK_C/.test(session.stage || '')) session._followLatch = true;   // 실전은 관찰 없음(바로 시작)

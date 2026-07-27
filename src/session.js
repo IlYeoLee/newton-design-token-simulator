@@ -461,6 +461,8 @@ const BK_BEAT = 0.40, BK_B1_REPS = 8;
 // 몸 바로 앞(0.3~0.55m)은 투사 불가 구간이라, 가이드는 '발 위치'가 아니라 '앞의 도식'으로 0.75m 깊이 배치.
 const BDEEP = 0.75;
 const BK_SQUAT_REPS = BK_REPS.BK_A3;
+// 시범(관찰) 길이 — 프리뷰 타이머 링·장면 시간·main.js A2_WATCH·floor-scene.html이 전부 이 값(3초, 유저)
+const A_WATCH = 3.0;
 const BK_STR = {
   BK_A1: { per: 2.4, reps: BK_REPS.BK_A1, side: true, noMark: true, fm: '옆구리 스트레치', say: '팔을 위로 뻗어 옆으로 쭉쭉. 왼쪽 오른쪽 번갈아 허리를 늘려요.' },
   // BK_A2(니 드라이브)는 러닝 A3(하이니) 컴포넌트 전용 핸들러 — bkA2hk
@@ -1865,7 +1867,7 @@ export class Session {
       const S = this.bkSquat;
       if ((this._bkStrT ?? 0) > this.t || this._bkStrId !== 'BK_A3') { S.count = 0; S._wasDeep = false; S._shown = -1; }   // 재진입 리셋
       this._bkStrT = this.t; this._bkStrId = 'BK_A3';
-      const watching = !this._followLatch && this.t < 5.0;   // main.js A2_WATCH=5s와 동기
+      const watching = !this._followLatch && this.t < A_WATCH;   // main.js A2_WATCH와 동기
       if (watching) {
         this.demoActive = true;                              // 코치 영상 시범 — 토큰 전부 숨김(코치+타이머만)
         S.ring.setOp(0); S.arc.visible = false; S.num.visible = false;
@@ -1969,12 +1971,12 @@ export class Session {
       if ((this._bkStrT ?? 0) > this.t || this._bkStrId !== id) { S.count = 0; S.latch = -1; }   // 재진입/전환 리셋
       this._bkStrT = this.t; this._bkStrId = id;
       this.demoActive = true;
-      if (cfg.watch && !this._followLatch && this.t < 5.0) {   // A2 = 관찰 5초(코치+Preview 타이머만, 마크 숨김) → 따라하기
+      if (cfg.watch && !this._followLatch && this.t < A_WATCH) {   // 관찰(코치+Preview 타이머만, 마크 숨김) → 따라하기
         S.ring.setOp(0); S.arc.visible = false;
         FMU('먼저 보세요 — ' + cfg.fm, CS.sand);
         return;
       }
-      const t0 = cfg.watch ? (this._aWatchEnd ?? 5.0) : 0;   // 관찰형은 시범 종료 후부터 카운트
+      const t0 = cfg.watch ? (this._aWatchEnd ?? A_WATCH) : 0;   // 관찰형은 시범 종료 후부터 카운트
       const tt = Math.max(0, this.t - t0);
       const per = cfg.per, inRep = (tt % per) / per, rep = Math.floor(tt / per);
       if (cfg.noMark) {   // 옆구리 = 판정 링/아크 대신 좌우 방향 화살표(LINE) — 굽히는 쪽으로 촉이 흐름
@@ -2026,7 +2028,7 @@ export class Session {
         this.repLeft = null; this.repTotal = null;
         return;
       }
-      const tB = this.t - (this._aWatchEnd ?? 5.0);   // 셋업 타임라인 = 관찰 종료 기준
+      const tB = this.t - (this._aWatchEnd ?? A_WATCH);   // 셋업 타임라인 = 관찰 종료 기준
       // 막0 · 스탠스 셋업(4초): 넓은 발자국 2개만 보여주고 밟게 한다 — 이후 퇴장(페이드)
       // 셋업 타임라인(유저·피그마 130-2984): 0~0.8 모은 자세 → 0.8~3.0 ←→ 화살표와 함께 벌어짐
       //   → 3.0 Success(마크 블룸+파형+피그마 배지) → 3~6 카운트다운 링 3·2·1 → 본 연습.
@@ -2295,11 +2297,12 @@ export class Session {
         const W = Math.PI * 2 / 1.6, V = SOLO ? 0.24 : 0.34, K = 2.2;   // 영상 아래 줄
         const S0 = SOLO ? 1.10 : 0.62, SB = SOLO ? 0.07 : 0.04;
         const cx = (POSE.L[0] + POSE.R[0]) / 2;
-        const uL = Math.max(-0.92, Math.min(0.92, (POSE.L[0] - cx) * K));
-        const uR = Math.max(-0.92, Math.min(0.92, (POSE.R[0] - cx) * K));
+        // 2/4는 1/4 컴포넌트를 '같은 자리에' 그대로 — u ±0.34 고정, 앞뒤 오프셋 없음(유저).
+        const uL = SOLO ? -0.34 : Math.max(-0.92, Math.min(0.92, (POSE.L[0] - cx) * K));
+        const uR = SOLO ?  0.34 : Math.max(-0.92, Math.min(0.92, (POSE.R[0] - cx) * K));
         const bL = Math.sin(this.t * W), bR = Math.sin((this.t - 0.18) * W);   // 들썩 — 오른발 한 박자 늦게
-        const pL = this._beamLocal(uL, V + POSE.L[1] * 0.10, H.mL);
-        const pR = this._beamLocal(uR, V + POSE.R[1] * 0.10, H.mL);
+        const pL = this._beamLocal(uL, SOLO ? V : V + POSE.L[1] * 0.10, H.mL);
+        const pR = this._beamLocal(uR, SOLO ? V : V + POSE.R[1] * 0.10, H.mL);
         H.fRl.countdown(1); H.fRr.countdown(1);   // 헤일로 완전 수축 = 번짐 없는 실루엣
         H.fRl.at(pL.x, pL.z, S0 + SB * bL); H.fRl.op(0.80 + 0.20 * bL);
         H.fRr.at(pR.x, pR.z, S0 + SB * bR); H.fRr.op(0.80 + 0.20 * bR);
