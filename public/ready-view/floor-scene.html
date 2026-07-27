@@ -14,6 +14,9 @@ html,body{background:transparent}
    타이틀·(큐)·프로그래스·프리뷰/훈련 행을 한 레이어에 세로로 쌓아 → 기울어진 보드 투사에서도 함께 정렬(안 밀림·안 겹침). */
 #content{position:absolute;top:176px;left:0;right:0;display:flex;flex-direction:column;align-items:center;gap:72px}   /* 타이틀·프로그래스·하단 간격 넉넉히(유저) */
 
+/* 타이틀 위 작은 캡션 — 4페이즈 진행 표기(1/4 …). 타이틀과의 간격은 마진으로만(컬럼 gap 유지) */
+.cap{font-weight:700;font-size:46px;letter-spacing:6px;color:rgba(255,255,255,.62);
+  margin-bottom:-38px;text-align:center;opacity:0;animation:sUpFlat .5s .18s both}
 /* 상단: 지시 타이틀(짧게) — 글자 하나하나 촤라락 슬라이드인 */
 .title{text-align:center;white-space:nowrap;
   font-weight:700;font-size:120px;line-height:1.05;letter-spacing:-4px}
@@ -104,6 +107,7 @@ html,body{background:transparent}
 </style></head><body>
   <div id="board">
     <div id="content">
+      <div class="cap" id="s-cap"></div>
       <div class="title" id="s-title">Title</div>
       <div class="cue" id="s-cue"></div>
       <div class="dots" id="s-dots">
@@ -136,6 +140,13 @@ html,body{background:transparent}
   const stage = params.get('stage') || 'A1';
   const S = window.FLOOR_SCENES[stage] || { title: stage, phase: 0, sub: '' };
   const isP = /^P\d$/.test(stage);
+  // 스텝백 4페이즈면 타이틀 위에 1/4 … 4/4 캡션(유저: 어느 단계인지 안 보인다)
+  {
+    const m = /^BK_B([2345])$/.exec(stage);
+    const cap = $('s-cap');
+    if (m && cap) cap.textContent = (+m[1] - 1) + ' / 4';
+    else if (cap) cap.style.display = 'none';
+  }
   // 타이틀 — 비훈련: 글자 분해 촤라락 슬라이드인. 훈련(P): 구간명을 main.js가 라이브 갱신하므로 캐스케이드 생략.
   if (!isP) (function(){
     const t = $('s-title'); t.textContent = ''; let vis = 0;
