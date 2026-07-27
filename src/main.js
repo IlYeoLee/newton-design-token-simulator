@@ -4346,9 +4346,10 @@ void main(){
             }
           }
         }
-        if (session.repTotal && session.stages?.[session.stageIdx]?.id !== 'BK_B1') {
-          // BK_B1 제외: 바운스마다 폭을 쓰면 3D iframe repaint 플래시(유저: 공 닿을 때마다 검은 깜빡).
-          // B1 진행은 링 중앙 숫자(WebGL 캔버스)가 전담한다.
+        if (session.repTotal && !/^BK_[AB]/.test(session.stages?.[session.stageIdx]?.id || '')) {
+          // 농구 워밍업·핸들 스쿨 전체 제외: 바운스/렙마다 폭을 쓰면 3D 변환 iframe이 재래스터되며
+          // 검은 플래시(유저: 드리블할 때마다). B1만 막았더니 B2·B3에서 그대로 재발 — 전면 차단.
+          // 진행은 WebGL 캔버스 숫자(링·존 카운트)가 전담한다.
           const clip = fdoc?.querySelector('.dclip');
           if (clip) {
             // repFrac = 회차 사이도 채우는 연속값(깊이·발높이). 정수 회차만 쓰면 뚝뚝 끊긴다(유저).
