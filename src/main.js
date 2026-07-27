@@ -4733,7 +4733,7 @@ void main(){
   occlRenderer.setPixelRatio(window.devicePixelRatio || 1);
   occlRenderer.setClearColor(0x000000, 0);
   Object.assign(occlRenderer.domElement.style, { position: 'fixed', pointerEvents: 'none', zIndex: '7' });   // display 토글 금지 — 재표시 첫 프레임 검정 플래시
-  document.body.appendChild(occlRenderer.domElement);
+  if (DIAG.get('occl') === '1') document.body.appendChild(occlRenderer.domElement);   // 기본: DOM 밖 — 컨텍스트가 컴포지터에 안 물림
   const occlCam = camera.clone();
   // 오버레이 = 프레임 위 몸을 재렌더해 프레임을 몸에 가림(발밑 밟힘). 2번째 GL이라 메인 IBL(PMREM) 재사용
   // 불가 → 원본 재질은 검게 나옴. Lambert 대체재질 + 씬 조명을 오버레이 레이어에도 켜서 3D 음영 유지(2D 방지).
@@ -4745,7 +4745,10 @@ void main(){
   // 오클루전 오버레이 기본 ON 복구 — 꺼두니 지면 프레임이 봇 몸을 관통(유저 스크린샷).
   //   검은 플리커의 실제 근본(무한 CSS 애니메이션·iframe 쓰기 폭주·전환 공백)은 별도 수정으로
   //   제거됨(20c829c·91fcc70·1cae990). 재발 시 격리: ?noccl=1
-  const NO_OCCL = DIAG.get('noccl') === '1';
+  // 완전 제거(유저 재보고: display 토글 수정으로도 재발) — 2번째 GL 컨텍스트의 존재 자체가
+  // 컴포지터 검정 프레임의 마지막 남은 자체 레이어. 기본 = 캔버스를 DOM에 아예 안 붙인다.
+  // 관통(프레임이 봇 위에 그려짐)은 알려진 트레이드오프 — KNOWN-ISSUES에 후속 설계 기록.
+  const NO_OCCL = DIAG.get('occl') !== '1';
   const NO_CSS = DIAG.get('nocss') === '1';
   function renderFloorOcclusion(active) {
     if (NO_OCCL) active = false;
