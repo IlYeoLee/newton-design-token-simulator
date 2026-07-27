@@ -3936,7 +3936,7 @@ void main(){
       // B3 컷·감속(드리블 컷 구간 창). 시작 화면(READY)은 러닝과 동일 calm idle(공 없음)
       // 농구 A단계 v5: A1 옆구리 스트레치(hj_sidebend) + A2·A3 = cmu13_30 구간(무릎들기 5.5–9.8s·스쿼트 9.8–14.2s)
       BK_READY: 'idle', BK_A1: 'hj_sidebend', BK_A2: 'auto_cmu13_30', BK_A3: 'auto_cmu13_30',
-      BK_T1: 'jogging', BK_T2: 'jogging',   // 전환 화면 = 제자리 조깅으로 자연스럽게 이어감(유저) — 드리블 폴백 금지
+      BK_T1: 'idle', BK_T2: 'jogging',   // T1('몸 풀렸어요') = 자연 서기(유저 확정) · T2 = 제자리 조깅 — 드리블 폴백 금지
       // B1 시범 = 06_15 드리블→슛(온전한 무브 원테이크), B2 분해 = 06_14 크로스오버+슛 위상잠금
       // B단계 = 공을 튄다 → 튀기며 움직인다 → 튀기다 멈추고 뒤로(BK-B-CURRICULUM.md)
       BK_B1: 'auto_cmu124_04',        // 제자리 공 튀기기 (root:false → 제자리 고정 보장)
