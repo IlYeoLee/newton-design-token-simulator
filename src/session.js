@@ -466,7 +466,45 @@ const A_WATCH = 3.0;
 // 따라하기(스텝백 1/4·2/4) 지면 배치 — 한 곳에서만 고친다.
 //   V=빔 창 앞뒤(작을수록 화면 하단) · UX=발 페어 좌우 반간격(어깨너비 이상, 실제 농구 스탠스)
 //   S=발자국 배율(농구 지면 UI 공통 1.0)
-const FOLLOW_V = 0.16, FOLLOW_UX = 0.66, FOLLOW_S = 1.0;
+const FOLLOW_S = 1.0;   // 따라하기 발자국 배율(농구 지면 UI 공통). 위치는 SB_BOX+SB_KEY가 자동 결정
+
+// ── 스텝백 1/4~4/4 자동 배치 ────────────────────────────────────────────────
+// 단계마다 좌표를 손으로 잡지 않는다(유저). 소스는 둘뿐:
+//   ① STEP_SEG = 각 단계가 보여주는 누적 구간 끝(초) — 1 / 1→2 / 1→2→3 / 1→2→3→4
+//   ② SB_KEY  = 레퍼런스 영상 실측 키프레임(MediaPipe, 골반 기준 m, 67프레임 1사이클)
+// 마크는 영상 재생 위치(session.stepVidT)를 그대로 따라간다 = 타이밍·박자가 영상 그 자체.
+export const STEP_SEG = { BK_B2: 0.60, BK_B3: 1.47, BK_B4: 1.81, BK_B5: 3.10 };
+const SB_KEY = [
+  { t: 0.00, L: [-0.17, -0.05], R: [0.22, 0.06] },   // ① 준비 (폭 0.39)
+  { t: 1.20, L: [-0.09, -0.12], R: [0.33, -0.06] },  // ② 플랜트 — 밀고 들어감 (0.42)
+  { t: 1.87, L: [-0.43, 0.09], R: [0.49, 0.32] },    // ③ 착지 — 반대로 크게 빠짐 (0.92)
+  { t: 3.10, L: [-0.19, -0.12], R: [0.02, 0.18] },   // ④ 리셋 — 모음 (0.21)
+];
+// 판정 마크 프레임 = 빔 창 안 고정 영역. 어떤 단계·어떤 프레임에서도 이 밖으로 안 나간다.
+const SB_BOX = { u: 0.66, v0: 0.12, v1: 0.38 };   // 발자국 반지름(≈0.28m) 여유까지 접은 값 — 투사면 밖 금지
+// 실측 좌표 전체를 프레임에 딱 맞게 정규화(중심 정렬 + 축별 스케일) — 자동. 값 조정은 SB_BOX만.
+const SB_FIT = (() => {
+  const xs = SB_KEY.flatMap(k => [k.L[0], k.R[0]]), zs = SB_KEY.flatMap(k => [k.L[1], k.R[1]]);
+  const cx = (Math.min(...xs) + Math.max(...xs)) / 2, cz = (Math.min(...zs) + Math.max(...zs)) / 2;
+  return { cx, cz,
+    su: SB_BOX.u / Math.max(...xs.map(x => Math.abs(x - cx))),
+    sv: ((SB_BOX.v1 - SB_BOX.v0) / 2) / Math.max(...zs.map(z => Math.abs(z - cz))),
+    vc: (SB_BOX.v0 + SB_BOX.v1) / 2 };
+})();
+const sbUV = p => [(p[0] - SB_FIT.cx) * SB_FIT.su, SB_FIT.vc + (p[1] - SB_FIT.cz) * SB_FIT.sv];
+/** 영상 시각 vt(초)의 발 위치 + 다음 목표점·이동량 — 4단계 공통 소스 */
+function sbPoseAt(vt) {
+  let i = 0;
+  while (i < SB_KEY.length - 2 && SB_KEY[i + 1].t <= vt) i++;
+  const a = SB_KEY[i], b = SB_KEY[i + 1];
+  const f = Math.max(0, Math.min(1, (vt - a.t) / Math.max(0.01, b.t - a.t)));
+  const ez = f * f * (3 - 2 * f);   // 밟고 멈추는 느낌 — 등속이면 미끄러진다
+  const mix = (p, q) => [p[0] + (q[0] - p[0]) * ez, p[1] + (q[1] - p[1]) * ez];
+  return { L: sbUV(mix(a.L, b.L)), R: sbUV(mix(a.R, b.R)), tL: sbUV(b.L), tR: sbUV(b.R),
+    moveL: Math.hypot(b.L[0] - a.L[0], b.L[1] - a.L[1]),
+    moveR: Math.hypot(b.R[0] - a.R[0], b.R[1] - a.R[1]), f };
+}
+
 const BK_STR = {
   BK_A1: { per: 2.4, reps: BK_REPS.BK_A1, side: true, noMark: true, fm: '옆구리 스트레치', say: '팔을 위로 뻗어 옆으로 쭉쭉. 왼쪽 오른쪽 번갈아 허리를 늘려요.' },
   // BK_A2(니 드라이브)는 러닝 A3(하이니) 컴포넌트 전용 핸들러 — bkA2hk
@@ -569,6 +607,32 @@ export class Session {
    *  실측(rig): near 0.3 / far 1.9 / 반폭 0.55~0.85, 세션 루트→월드 z 오프셋 -1.25 */
   // 빔 창 정규좌표(u -1~1, v 0=가까움~1=멂) → 주어진 참조 오브젝트와 같은 그룹의 로컬 좌표.
   //   그룹마다 부모 오프셋이 달라 로컬 z를 손으로 계산하면 창 밖으로 나간다(실측 fade 0.00).
+  /** 스텝백 따라하기 배치 — 영상 재생 위치 그대로. 4단계가 이 한 함수를 쓴다.
+   *  fmL/fmR = 발자국 페어, arrows = [왼발용, 오른발용] 룩 화살표. 좌표는 SB_BOX 안으로 클램프. */
+  _sbPlace(H, id, fmL, fmR, arrows) {
+    const seg = STEP_SEG[id] || 0;
+    const P = sbPoseAt(Math.max(0, Math.min(seg, this.stepVidT ?? 0)));   // 단계별 누적 구간까지만
+    const pL = this._beamLocal(P.L[0], P.L[1], H.mL), pR = this._beamLocal(P.R[0], P.R[1], H.mL);
+    fmL.countdown(1); fmR.countdown(1);   // 헤일로 완전 수축 = 번짐 없는 실루엣
+    fmL.at(pL.x, pL.z, FOLLOW_S); fmL.op(0.95);
+    fmR.at(pR.x, pR.z, FOLLOW_S); fmR.op(0.95);
+    // 화살표 = '지금 움직이는 발'이 갈 방향. 이동량이 작으면 끈다(정지 국면엔 화살표 없음).
+    const put = (ar, cur, tgt, mv) => {
+      if (!ar) return;
+      const du = tgt[0] - cur[0], dv = tgt[1] - cur[1];
+      if (mv < 0.07 || Math.hypot(du, dv) < 0.03) { ar._gain = 0; return; }
+      const mu = Math.max(-SB_BOX.u, Math.min(SB_BOX.u, (cur[0] + tgt[0]) / 2));
+      const mvv = Math.max(SB_BOX.v0, Math.min(SB_BOX.v1, (cur[1] + tgt[1]) / 2));
+      const pa = this._beamLocal(mu, mvv, H.mL);
+      ar.position.set(pa.x, 0.014, pa.z);
+      ar.rotation.z = -Math.atan2(du, dv);      // 0 = 원거리(+v), -90° = 오른쪽(+u)
+      ar._gain = 0.30 + 0.60 * (1 - P.f);       // 도착할수록 사그라든다
+    };
+    put(arrows[0], P.L, P.tL, P.moveL);
+    put(arrows[1], P.R, P.tR, P.moveR);
+    return P;
+  }
+
   _beamLocal(u, v, ref) {
     const w = this.beamUV(u, v), rz = this.root?.position?.z ?? 0;
     const wp = new THREE.Vector3(); ref.getWorldPosition(wp);
@@ -2120,15 +2184,8 @@ export class Session {
       this._bkStrId = 'BK_B2';
       // 화살표는 관찰(프리뷰) 때도 뜬다 — 첫 진입에서만 안 보이던 원인이 여기(_gain이 따라하기
       //   분기에서만 세팅돼 초기값 0. 재진입 때는 이전 값이 남아 '보였다'). 배치를 먼저 잡는다.
-      const W = Math.PI * 2 / 1.6, V = FOLLOW_V;
-      const bL = Math.sin(this.t * W), bR = Math.sin((this.t - 0.18) * W);
-      const pL = this._beamLocal(-FOLLOW_UX, V, H.mL), pR = this._beamLocal(FOLLOW_UX, V, H.mL);
-      // 화살표 줄은 발자국보다 살짝 뒤(+0.10) — 촉이 창 근거리 경계를 넘으면 빔 페더가 알파를
-      //   0.06까지 깎아 사실상 안 보인다(실측). 발자국 줄 그대로 두면 아래 화살표가 사라진다.
-      const aD = this._beamLocal(-(FOLLOW_UX + 0.21), V + 0.10, H.mL), aU = this._beamLocal(FOLLOW_UX + 0.21, V + 0.10, H.mL);
-      H.aD.position.set(aD.x, 0.014, aD.z); H.aU.position.set(aU.x, 0.014, aU.z);
-      H.aD._gain = 0.30 + 0.60 * Math.max(0, bL);
-      H.aU._gain = 0.30 + 0.60 * Math.max(0, -bL);
+      // 배치·박자 = 영상 재생 위치에서 자동(_sbPlace). 관찰 중에도 잡아 화살표가 처음부터 뜬다.
+      this._sbPlace(H, 'BK_B2', H.sL2, H.sR2, [H.aD, H.aU]);
       if (!this._followLatch) {   // 관찰 — 실루엣+Preview+화살표만, 마크 숨김
         for (const k of ['mL', 'mC', 'mR']) H[k].setOp?.(0);
         for (const k of ['sL1', 'sR1', 'sL2', 'sR2']) H[k].op(0);
@@ -2153,16 +2210,10 @@ export class Session {
       const TGT = [0.55, 0, -0.55][Math.min(H.beat, 2)];
       // 따라하기 화면(143:444) = 코치 영상 아래 L·R 마크 한 쌍 + 좌 ↓ / 우 ↑.
       //   비트 릴레이(존 3개)는 이 단계에선 안 쓴다 — 1/4은 '자리 잡고 망설이기'다.
-      H.sL2.countdown(1); H.sR2.countdown(1);
-      H.sL2.at(pL.x, pL.z, FOLLOW_S + 0.06 * bL); H.sL2.op(0.80 + 0.20 * bL);
-      H.sR2.at(pR.x, pR.z, FOLLOW_S + 0.06 * bR); H.sR2.op(0.80 + 0.20 * bR);
       placeMarkNum(H.numL); placeMarkNum(H.numR);   // 앵커·스케일은 매 프레임 룩 값에서
       H.numL.visible = true; H.numR.visible = true;
       for (const k of ['sL1', 'sR1']) H[k].op(0);
-      // 링은 위치만 따라간다(판정 좌표·아래 getWorldPosition이 쓴다). 표시는 발자국만 — 겹쳐 보여 뺐다(유저).
-      H.mL.position.set(pL.x, H.mL.position.y, pL.z); H.mL.setOp?.(0);
-      H.mR.position.set(pR.x, H.mR.position.y, pR.z); H.mR.setOp?.(0);
-      H.mC.setOp?.(0);
+      H.mL.setOp?.(0); H.mR.setOp?.(0); H.mC.setOp?.(0);   // 링은 표시 안 함(판정 좌표로만 쓴다)
       H.cL.op(0); H.cR.op(0);
       H.rise.setOp?.(0);   // 상승 링(파형) 제외 — 1/4은 자리 잡기라 링 없이 발자국+화살표만(유저)
       const dtB2 = Math.max(0, Math.min(0.1, this.t - (this._bkB2t ?? this.t))); this._bkB2t = this.t;
@@ -2225,12 +2276,7 @@ export class Session {
       const pk = Math.max(0, 1 - (this.t - H._popT) / 0.25);
       // 피그마 훈련01~04(141:204/230/252/274)의 L·R 마크 좌표를 프레임 폭 1600 기준으로 정규화한 값.
       //   u = 가로(-1~1), dv = 앞뒤 오프셋. 임의 배치가 아니라 레퍼런스 실좌표다.
-      const POSE = {
-        BK_B2: { L: [-0.193, 0.222], R: [0.090, 0.218] },   // 나란히, 살짝 앞
-        BK_B3: { L: [-0.530, 0.000], R: [0.200, -0.240] },  // R 앞·L 뒤(오른발 딛고 드리블)
-        BK_B4: { L: [-0.530, 0.000], R: [0.124, -0.240] },  // L 크게 벌림(왼발 뻗어 공 잡기)
-        BK_B5: { L: [-0.530, 0.000], R: [-0.325, -0.003] }, // 모음(슛 준비)
-      }[id];   // 실전(C2)은 제외 — 마크 릴레이 방식 유지
+      const POSE = !LIVE && !!STEP_SEG[id];   // 따라하기(1/4~4/4)만 자동 배치 — 실전(C2)은 마크 릴레이 유지
       H.mR.setOp?.(POSE ? 0 : (H.beat === 0 ? 0.5 : 0));
       H.mC.setOp?.(POSE ? 0 : (H.beat === 1 ? 0.5 : 0));
       H.mL.setOp?.(POSE ? 0 : (H.beat === 2 ? 0.5 : 0));
@@ -2295,41 +2341,12 @@ export class Session {
       //   1) 무릎 구부려 넣는 척: L·R 나란히 어깨너비   2) 오른발 딛고 드리블: R 앞·L 뒤, 공은 왼쪽
       //   3) 왼발 뻗으며 공 잡기: L 크게 왼쪽·R 제자리   4) 오른발 모으며 슛: L·R 모음
       if (POSE) {
-        // 따라하기 = 1/4(B2)과 같은 규약 — 코치 영상 아래 L·R 마크 한 쌍 + 방향 화살표.
-        //   전부 룩시스템 토큰(FootMark / makeFlowArrow). 좌표는 피그마 POSE를 페어 중심 기준으로 폈다.
-        // 2/4(B3) = 1/4 규약 그대로 이식(유저): 같은 줄(V 0.24)·같은 크기(1.1)·L·R 글리프,
-        //   링·화살표·고스트 없이 발자국만. 3/4·4/4는 기존(작은 마크+링+화살표) 유지.
-        const SOLO = id === 'BK_B3';
-        const W = Math.PI * 2 / 1.6, V = SOLO ? FOLLOW_V : 0.34, K = 2.2;   // 영상 아래 줄
-        const S0 = SOLO ? FOLLOW_S : 0.62, SB = SOLO ? 0.06 : 0.04;
-        const cx = (POSE.L[0] + POSE.R[0]) / 2;
-        // 2/4는 1/4 컴포넌트를 '같은 자리에' 그대로 — u ±0.34 고정, 앞뒤 오프셋 없음(유저).
-        const uL = SOLO ? -FOLLOW_UX : Math.max(-0.92, Math.min(0.92, (POSE.L[0] - cx) * K));
-        const uR = SOLO ?  FOLLOW_UX : Math.max(-0.92, Math.min(0.92, (POSE.R[0] - cx) * K));
-        const bL = Math.sin(this.t * W), bR = Math.sin((this.t - 0.18) * W);   // 들썩 — 오른발 한 박자 늦게
-        const pL = this._beamLocal(uL, SOLO ? V : V + POSE.L[1] * 0.10, H.mL);
-        const pR = this._beamLocal(uR, SOLO ? V : V + POSE.R[1] * 0.10, H.mL);
-        H.fRl.countdown(1); H.fRr.countdown(1);   // 헤일로 완전 수축 = 번짐 없는 실루엣
-        // 2/4는 숨쉬기(크기 진동) 없음 — 고정 크기·고정 밝기(유저). 3/4·4/4는 기존 들썩임 유지.
-        H.fRl.at(pL.x, pL.z, SOLO ? S0 : S0 + SB * bL); H.fRl.op(SOLO ? 0.95 : 0.80 + 0.20 * bL);
-        H.fRr.at(pR.x, pR.z, SOLO ? S0 : S0 + SB * bR); H.fRr.op(SOLO ? 0.95 : 0.80 + 0.20 * bR);
+        // 1/4~4/4 공통 — 좌표·박자 전부 영상 재생 위치에서 자동(_sbPlace). 손좌표 표 폐기(유저).
+        this._sbPlace(H, id, H.fRl, H.fRr, [H.a1, H.a2]);
         for (const k of ['fC', 'fLl', 'fLr']) H[k]?.op(0);
-        if (H.numL) { placeMarkNum(H.numL); placeMarkNum(H.numR);
-          H.numL.visible = H.numR.visible = SOLO; }   // 글리프는 자체 재질 — visible로 제어
-        // 원형 판정 링 = 발자국 아래 그대로(다른 지면 UI와 같은 토큰). 들썩임에 맞춰 밝기만 뛴다.
-        H.mL.position.set(pL.x, H.mL.position.y, pL.z); H.mL.setOp?.(SOLO ? 0 : 0.35 + 0.25 * bL);
-        H.mR.position.set(pR.x, H.mR.position.y, pR.z); H.mR.setOp?.(SOLO ? 0 : 0.35 + 0.25 * bR);
-        H.mC.setOp?.(0);
+        if (H.numL) { placeMarkNum(H.numL); placeMarkNum(H.numR); H.numL.visible = H.numR.visible = true; }
+        H.mL.setOp?.(0); H.mR.setOp?.(0); H.mC.setOp?.(0);
         H.rise.setOp?.(0); H.gh.op(0); H.cL?.op(0); H.cR?.op(0);
-        // 화살표 = 그 단계에서 '움직이는 발'이 가는 쪽 (B5는 슛 = 위로). 2/4는 화살표 없음(유저).
-        const AR = SOLO ? null : { BK_B4: [Math.max(-0.98, uL - 0.5), 90],
-          BK_B5: [(uL + uR) / 2, 0] }[id];
-        if (AR) { const pa = this._beamLocal(AR[0], V, H.mL);
-          H.a1.position.set(pa.x, 0.014, pa.z);
-          H.a1.rotation.z = THREE.MathUtils.degToRad(AR[1]);
-          H.a1._gain = 0.35 + 0.55 * Math.max(0, bL); }
-        else H.a1._gain = 0;
-        H.a2._gain = 0;
       }
       const BEATN = { BK_B2: ['① 무릎 구부리고', '② 낮은 자세 유지', '③ 들어가는 척!', '④ 그대로 준비'],
         BK_B3: ['① 준비', '② 오른발 딛고', '③ 공을 왼쪽으로!', '④ 시선 유지'],

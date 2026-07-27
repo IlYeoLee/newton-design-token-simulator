@@ -10,7 +10,7 @@ import { WallGhost } from './ghost.js';
 import { FilesetResolver, ImageSegmenter } from '@mediapipe/tasks-vision';
 import { extractPose, retargetToClip } from './posemocap.js';   // 무료 로컬 비디오 모캡
 import { Judge } from './judge.js';
-import { Session, SCFG, STAGES } from './session.js';
+import { Session, SCFG, STAGES, STEP_SEG } from './session.js';
 import { StudioDoc } from './studio/doc.js';
 import { StudioCanvas } from './studio/canvas.js';
 import { StudioProps } from './studio/props.js';
@@ -2342,8 +2342,10 @@ void main(){
           if (co._holdUntil) {
             const hp = Math.max(0, Math.min(1, 1 - (co._holdUntil - now) / (STEP_HOLD * 1000)));
             _stepFrac = _share + (1 - _share) * hp;
+            session.stepVidT = b;   // 정지 구간 = 구간 끝 자세 유지
           } else {
             _stepFrac = _share * Math.max(0, Math.min(1, (co.video.currentTime - a) / Math.max(0.05, b - a)));
+            session.stepVidT = co.video.currentTime;   // 마크 배치가 이 값을 그대로 따라간다
           }
           if (co._holdUntil) {
             // 마지막 프레임 1초 정지 후 처음으로 되감아 루프(유저)
@@ -4998,9 +5000,8 @@ void main(){
     READY: { src: 'ready-view/floor.html', w: 1600, h: 2670 },        // 러닝 시작 (세로) — 2m 안정투사 꽉 채움
     BK_READY: { src: 'ready-view/floor-bk.html', w: 1600, h: 2670 },  // 농구 시작 — 러닝 첫화면 이식(폭은 균일스케일 자동 조정)
   };
-  // 스텝백 4페이즈 = 코치 영상 누적 구간(초). 프리뷰 길이도 여기서 파생한다(초가 아니라 '영상 루프 N회').
+  // 스텝백 4페이즈 누적 구간(초)은 session.js가 단일 소스(마크 배치가 같은 표를 쓴다).
   //   한 루프 = 구간/배속 + 끝프레임 정지 1초.  프리뷰 = STEP_LOOPS 루프.
-  const STEP_SEG = { BK_B2: 0.60, BK_B3: 1.47, BK_B4: 1.81, BK_B5: 3.10 };
   const STEP_RATE = 0.5, STEP_HOLD = 1.0, STEP_LOOPS = 2;
   const stepLoopSec = id => (STEP_SEG[id] ? STEP_SEG[id] / STEP_RATE + STEP_HOLD : 0);
   const stepPreviewSec = id => stepLoopSec(id) * STEP_LOOPS;
