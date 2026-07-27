@@ -2004,10 +2004,14 @@ export class Session {
       const ball = this.xbot?.ball;
       const isLow = !!ball?.visible && ball.position.y < 0.20;
       if (isLow && !H._wasLow) {
-        const wp = new THREE.Vector3(ball.position.x, 0.02, ball.position.z);   // 파형 = 공이 닿은 실제 지점
-        this.onPress?.(wp, false);
+        // 광학 정직성(유저 지적): 실측 바운스(몸앞 0.44~0.83m)의 절반은 빔 시작선(0.65m) 안쪽 —
+        //   접점 파형은 투사 불가능한 거짓말이다. ① 파형은 '존 위치'(빔 안 1.3m, 시선도 거기)에서.
+        //   ③(시선 바깥)은 바닥 이펙트 전면 제거 — 주변시는 작은 파형을 못 보고, 피드백은 메트로놈이 전담.
         H._zHit = this.t;
-        if (!phase2) { H.count += 1; H._popT = this.t; }
+        if (!phase2) {
+          H.count += 1; H._popT = this.t;
+          const wp = new THREE.Vector3(); H.zone.getWorldPosition(wp); this.onPress?.(wp, false);
+        }
       }
       H._wasLow = isLow;
       // 원형 판정 토큰: 평소 Preview(숨쉬기) → 공이 탕 떨어지는 순간 Success 블룸으로 전이(유저)
