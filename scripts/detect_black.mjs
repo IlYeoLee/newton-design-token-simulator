@@ -12,9 +12,15 @@ fs.mkdirSync(OUT, { recursive: true });
 
 const STRESS = process.env.STRESS === '1';   // 빠른 탭 연타 + 1/3인칭 토글 + 창 리사이즈 + 세션 루프
 const HEADFUL = process.env.HEADFUL === '1'; // 실 GPU(Metal) 래스터 재현용 — headless SwiftShader에선 컴포지터 플래시가 안 나올 수 있음
-const browser = await puppeteer.launch({ headless: HEADFUL ? false : 'new', args: ['--window-size=1440,900', '--enable-gpu'] });
+// 헤드풀 = 실 윈도우 그대로(defaultViewport null) — setViewport 에뮬 뷰포트(1280)와 실제 창(1440)이
+// 어긋나며 우측에 검은 데드밴드가 생겨 전부 오검출됐음(크롭 기준 innerWidth vs 캡처 기준 창폭 불일치).
+const browser = await puppeteer.launch({
+  headless: HEADFUL ? false : 'new',
+  defaultViewport: HEADFUL ? null : undefined,
+  args: ['--window-size=1440,900', '--enable-gpu'],
+});
 const page = await browser.newPage();
-await page.setViewport({ width: 1280, height: 800, deviceScaleFactor: +DSF });
+if (!HEADFUL) await page.setViewport({ width: 1280, height: 800, deviceScaleFactor: +DSF });
 await page.goto('http://localhost:5199/' + Q, { waitUntil: 'networkidle2' });
 await page.waitForFunction('!!window.__dbg && !!window.__sess', { timeout: 60000 });
 await page.evaluate(() => document.querySelector('[data-pack=basketball]')?.click());
@@ -113,7 +119,7 @@ const advancer = (async () => {   // BK_A1 → … → BK_FIN 자연 진행 (+FI
           await page.evaluate(() => { const s = window.__sess; if (s?.active && !/FIN$/.test(s.stage)) s.tapAdvance(); });
         }
         if (n % 4 === 0) await page.evaluate(() => [...document.querySelectorAll('button')].find(b => b.textContent.includes('인칭'))?.click());
-        if (n % 6 === 0) await page.setViewport({ width: n % 12 === 0 ? 1280 : 1024, height: n % 12 === 0 ? 800 : 900, deviceScaleFactor: +DSF });
+        if (!HEADFUL && n % 6 === 0) await page.setViewport({ width: n % 12 === 0 ? 1280 : 1024, height: n % 12 === 0 ? 800 : 900, deviceScaleFactor: +DSF });
       }
     } catch {}
   }

@@ -4737,9 +4737,10 @@ void main(){
   // 검은 플래시 이분법 진단(유저 재현 전용): URL에 ?noccl=1 → 오클루전 오버레이 끔 · ?nocss=1 → 지면 프레임 끔.
   //   어느 쪽을 껐을 때 플래시가 사라지는지로 범인 레이어를 30초 만에 특정한다.
   const DIAG = new URLSearchParams(location.search);
-  // 오클루전 오버레이 기본 OFF(유저: 검은 사각 플리커 지속) — 2번째 GL 캔버스가 유력 용의자.
-  //   이 오버레이는 '프레임이 발밑에 밟히는' 장식 효과라 없어도 기능 손실 없음. 복구: ?occl=1
-  const NO_OCCL = DIAG.get('occl') !== '1';
+  // 오클루전 오버레이 기본 ON 복구 — 꺼두니 지면 프레임이 봇 몸을 관통(유저 스크린샷).
+  //   검은 플리커의 실제 근본(무한 CSS 애니메이션·iframe 쓰기 폭주·전환 공백)은 별도 수정으로
+  //   제거됨(20c829c·91fcc70·1cae990). 재발 시 격리: ?noccl=1
+  const NO_OCCL = DIAG.get('noccl') === '1';
   const NO_CSS = DIAG.get('nocss') === '1';
   function renderFloorOcclusion(active) {
     if (NO_OCCL) active = false;
