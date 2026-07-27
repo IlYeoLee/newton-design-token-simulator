@@ -3,7 +3,7 @@ import bkStepContacts from '../assets/mocap/contacts-cmu_crossover_shot.json';  
 import { WALL_Z } from './scene.js';
 import { lutColor, GLYPHS, drawGlyph, drawNumber, footSlot, footSDFTexture, FXP } from './fxlut.js';
 import { MARK_NUM, drawStanceBox, drawPunchLine, drawApproachRing, drawTrajectory, drawRotate, drawStemArrow, drawCurveArrow } from './fx-core.js';
-import { makeMarkFXMaterial, makeLaneFXMaterial, makeFlowArrow, tickFlowArrows } from './tokens.js';
+import { makeMarkFXMaterial, makeLaneFXMaterial, makeFlowArrow, tickFlowArrows, beamAlphaAt } from './tokens.js';
 
 // 피그마 CTA 임포트 — StageCard/베이스 컴포넌트의 cta 노드를 다운로드한 에셋(150×44 원 비율).
 // 절차: 피그마에서 download_assets → public/textures/<sport>_running.png → 여기서 텍스처로 소비.
@@ -525,6 +525,31 @@ export class Session {
     const planes = wall ? this.tokens.wallClip : this.tokens.floorClip;
     if (!planes) return;
     o.traverse(x => { if (x.material) x.material.clippingPlanes = planes; });
+  }
+  /** 지면 토큰 소프트 페더 — 클리핑 평면은 백스톱으로 두고, 그 전에 알파가 0으로 스러지게 한다.
+   *  (화살표만 페더였고 발마크·링·패널은 사각 프레임으로 뚝 잘렸음 — 유저 지적)
+   *  핸들러가 매 프레임 새로 쓰는 값(_bb)과 우리가 쓴 값(_bw)을 구분해 곱이 누적되지 않게 한다. */
+  _beamFade(rig) {
+    if (!rig?._fp) return;
+    const g = this.G[this.stage];
+    if (!g || !g.visible) return;
+    const wp = this._bfWp || (this._bfWp = new THREE.Vector3());
+    g.traverse(o => {
+      const m = o.material;
+      if (!o.isMesh || !m || Array.isArray(m)) return;
+      const uf = m.uniforms && m.uniforms.uFade;
+      if (!uf && !m.transparent) return;
+      if (o.geometry && !o.geometry.boundingSphere) o.geometry.computeBoundingSphere();
+      o.getWorldPosition(wp);
+      const sc = Math.max(Math.abs(o.matrixWorld.elements[0]), Math.abs(o.matrixWorld.elements[5]), Math.abs(o.matrixWorld.elements[10]));
+      const pad = Math.min(0.5, (o.geometry?.boundingSphere?.radius ?? 0) * sc);
+      const k = beamAlphaAt(rig, wp, pad);
+      const cur = uf ? uf.value : m.opacity;
+      if (o._bw == null || Math.abs(cur - o._bw) > 1e-4) o._bb = cur;   // 핸들러가 새로 쓴 값 = 기준
+      const v = (o._bb ?? cur) * k;
+      if (uf) uf.value = v; else m.opacity = v;
+      o._bw = v;
+    });
   }
   _mk(id) { const g = new THREE.Group(); g.visible = false; this.root.add(g); this.G[id] = g; return g; }
 
@@ -1431,6 +1456,7 @@ export class Session {
       }
     }
     tickFlowArrows(t, this.rig);   // 화살표(세션+팩) — 촉 이동 + 자루 LINE 유니폼 + 투사면 페이드 (단일 급이자)
+    this._beamFade(this.rig);      // 나머지 지면 토큰(발마크·링·아크·패널)도 같은 페더로 — 사각 하드컷 제거
     tickPrims(t);        // 파생 프리미티브 — fx-core 정본 캔버스 (30Hz)
   }
 
@@ -1833,8 +1859,9 @@ export class Session {
       H._prevPL = H._pL; H._prevPR = H._pR;
       // 유저 가이드: 들리는 발은 "꼬이며" 반대편 위로 교차한다. 정면(0°) → 진행 방향으로 25° 비틀림,
       //   x는 중앙을 넘어 반대편(∓0.10)까지, z는 위로. 디딘 발은 정면 그대로.
-      // 교차는 가이드 이미지대로 딛은 발 위로 겹치되, 올라간 티는 확실히 나야 한다(유저: 또 내려갔잖아).
-      const CROSS = 0.24, LIFTZ = 0.32, TWIST = THREE.MathUtils.degToRad(25);
+      // 겹치면 안 된다(유저): 일자 발에서 대각선 위로 슉 — 가로 이동은 최소, 위로 크게.
+      // 정점에서 두 마크 간격 0.5m 이상 확보돼 서로 안 겹친다.
+      const CROSS = 0.10, LIFTZ = 0.45, TWIST = THREE.MathUtils.degToRad(25);
       H.fmL.group.position.set(-0.17 + CROSS * H._pL, 0.013, -1.85 - LIFTZ * H._pL);
       H.fmR.group.position.set(0.17 - CROSS * H._pR, 0.013, -1.85 - LIFTZ * H._pR);
       H.fmL.plane.rotation.z = -TWIST * H._pL;   // 왼발은 오른쪽으로 교차 → 발끝이 +x로 눕는다
@@ -1903,7 +1930,7 @@ export class Session {
           S.arrow.visible = true;
           S.arrow._prog = Math.min(1, local / DRAW);
           S.arrow.rotation.z = THREE.MathUtils.degToRad(isL ? 90 : -90);
-          S.arrow.position.x = isL ? -0.16 : 0.16;   // 몸 옆에서 바깥으로 — 다리 위를 가로지르지 않게
+          S.arrow.position.x = isL ? -0.10 : 0.10;   // 코치 영상에 더 붙게 안쪽으로(유저) — 다리 위는 여전히 안 가림
         }
         this.bkA1Side = isL;   // 텍스트·봇 미러가 화살표와 같은 소스를 쓰도록
       } else {

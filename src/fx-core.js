@@ -342,10 +342,10 @@ export function drawStemArrow(g, W, H, t, ENV, opts = {}) {
   const grad = g.createLinearGradient(0, y0, 0, yEnd);
   // 뿌리는 알파 0으로 사라지되(유저 확정) 몸통은 금방 진해진다 — 예전 램프(0.10/0.38)는 스템 대부분이
   // 반투명이라 지면에 투사하면 통째로 흐려 보였음(유저: 화살표가 왜 이렇게 흐려졌어).
-  grad.addColorStop(0.00, rgba(0.52, 0));
-  grad.addColorStop(0.14, rgba(0.60, 0.30 * A0));
-  grad.addColorStop(0.40, rgba(0.72, 0.72 * A0));
-  grad.addColorStop(0.70, rgba(0.85, 0.93 * A0));
+  grad.addColorStop(0.00, rgba(0.55, 0));
+  grad.addColorStop(0.10, rgba(0.64, 0.45 * A0));
+  grad.addColorStop(0.32, rgba(0.76, 0.85 * A0));
+  grad.addColorStop(0.62, rgba(0.88, 0.98 * A0));
   grad.addColorStop(1.00, rgba(0.97, A0));
   g.globalAlpha = 1;
   g.fillStyle = grad;

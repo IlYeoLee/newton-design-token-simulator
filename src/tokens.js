@@ -549,6 +549,20 @@ export function makeFlowArrow(len, { tips = 1, wall = false } = {}) {
 }
 /** 매 프레임 — LINE 정본(drawStemArrow)으로 화살표 캔버스 리페인트. 부모 잃은 화살표는 자동 정리.
  *  24fps 스로틀: 촉 글리프 래스터가 매 프레임 갈리면 화살표 10여 개에서 비용이 붙는다(draw-on은 이 정도면 매끄럽다). */
+/** 투사창 소프트 페이드 계수 — 빔 사다리꼴 경계에서 알파가 0으로 스러진다(GPU 클리핑 하드컷 방지).
+ *  pad = 오브젝트 반경. 중심만 보면 큰 판은 가장자리가 경계를 넘어 사각으로 잘리므로 반경만큼 미리 접는다. */
+export function beamAlphaAt(rig, wp, pad = 0) {
+  const fp = rig?._fp;
+  if (!fp) return 1;
+  const sm = (a, b, x) => { const u = Math.max(0, Math.min(1, (x - a) / (b - a))); return u * u * (3 - 2 * u); };
+  const F = 0.25 + pad;
+  const rx = wp.x - fp.ox, rz = wp.z - fp.oz;
+  const d = rx * fp.fx + rz * fp.fz, h = rx * fp.rx + rz * fp.rz;
+  const k = Math.max(0, Math.min(1, (d - rig.fpNear) / Math.max(0.01, rig.fpFar - rig.fpNear)));
+  const half = rig._halfAt(rig.fpNear) + (rig._halfAt(rig.fpFar) - rig._halfAt(rig.fpNear)) * k;
+  return sm(rig.fpNear, rig.fpNear + F, d) * sm(rig.fpFar, rig.fpFar - F, d) * sm(half, half - F, Math.abs(h));
+}
+
 export function tickFlowArrows(t, rig) {
   // 촉 SVG persistent 재등록 — GLYPHS.set(lab)가 맵을 통째 교체해도 살아남게
   if (!GLYPHS.map.TIP_TRI) { GLYPHS.map.TIP_TRI = import.meta.env.BASE_URL + 'ready-view/assets/arrow_tip.svg'; GLYPHS.set(GLYPHS.map); }
@@ -570,15 +584,7 @@ export function tickFlowArrows(t, rig) {
     if (fp && !g._wall) {
       // 투사창 페이드는 화살표의 '양 끝'(뿌리·촉)으로 계산해 더 약한 쪽을 쓴다.
       // 원점만 보면 촉이 창 경계를 넘어도 알파가 1이라 GPU 클리핑 하드컷(사각 잘림)이 그대로 보였음(유저).
-      const sm = (a, b, x) => { const u = Math.max(0, Math.min(1, (x - a) / (b - a))); return u * u * (3 - 2 * u); };
-      const FADE = 0.25;
-      const at = (wp) => {
-        const rx = wp.x - fp.ox, rz = wp.z - fp.oz;
-        const d = rx * fp.fx + rz * fp.fz, h = rx * fp.rx + rz * fp.rz;
-        const k = Math.max(0, Math.min(1, (d - rig.fpNear) / Math.max(0.01, rig.fpFar - rig.fpNear)));
-        const half = rig._halfAt(rig.fpNear) + (rig._halfAt(rig.fpFar) - rig._halfAt(rig.fpNear)) * k;
-        return sm(rig.fpNear, rig.fpNear + FADE, d) * sm(rig.fpFar, rig.fpFar - FADE, d) * sm(half, half - FADE, Math.abs(h));
-      };
+      const at = (wp) => beamAlphaAt(rig, wp);
       const a0 = new THREE.Vector3(), a1 = new THREE.Vector3();
       g.getWorldPosition(a0); g._mesh.getWorldPosition(a1);
       a1.multiplyScalar(2).sub(a0);   // 촉 끝 ≈ 원점 + 2·(판 중심 − 원점)

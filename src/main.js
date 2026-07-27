@@ -435,7 +435,10 @@ async function boot() {
     // 전환·타이머·리포트(지면 풀스크린 화면) = x봇이 바닥의 화면을 보도록 게이즈 하향(세션 컴플리트·실전 직전).
     if (/^(T1|T2|C1|FIN|BK_T1|BK_T2|BK_C1|BK_FIN)$/.test(id)) return -44;
     if (id === 'A1') return -30;   // 전방 리치 홀드 — 투사각을 앞으로 눕혀 발 앞 가이드까지 보이게(미래 알고리즘 보정 가정)
-    return STAGE_GAZE_DEG[id[0]] ?? -30;   // READY/FIN 등 = 중간값
+    // 종목 접두사를 떼고 판정. 안 떼면 'BK_A2'의 B가 익히기(-38°)로 매칭돼 농구 워밍업이 얕게 봤다
+    // (복싱 'BX_'에서 같은 버그를 이미 잡아놨는데 농구는 남아 있었음 — 유저: 워밍업 시선 더 아래).
+    const key = id.replace(/^(BK|BX)_/, '');
+    return STAGE_GAZE_DEG[key[0]] ?? -30;   // READY/FIN 등 = 중간값
   }
   let manualGazeDeg = -18;   // 유저 수동 설정값 (세션 종료 시 복귀 기준)
   let sessionDroveGaze = false;
@@ -4846,7 +4849,7 @@ void main(){
           // far 경계로 밀려 지면 UI 제목 줄 위에 겹친다(유저 신고). 봇 기준 원래 거리 복원:
           //   A2 = 0.70m 앞(-1.85+1.15) · A3 = 1.10m 앞(유저: 제목·도트 줄에서 더 떨어뜨려 안정 배치)
           //   A3 링은 헤일로가 커서 0.52m 이격으로는 도트 줄과 붙어 보였음 → 0.97m 이격
-          const FWD = { BK_A2: 1.15, BK_A3: 0.75, BK_B1: -1.1, BK_B2: -1.25 };
+          const FWD = { BK_A2: 0.80, BK_A3: 0.75, BK_B1: -1.1, BK_B2: -1.25 };   // A2는 1.15에서 당김 — 투사창 near 경계에서 잘렸음(유저)
           stageG.position.set(0, 0, FWD[session.curStage?.id] || 0); stageG.quaternion.identity();
         } else {
           // 데모 단계: 발자국을 프레임과 '같은' 무릎 풋프린트 기준계에 실어 인물 흔들림에 함께 따라가게 함
