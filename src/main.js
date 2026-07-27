@@ -3951,9 +3951,9 @@ void main(){
       // B1 시범 = 06_15 드리블→슛(온전한 무브 원테이크), B2 분해 = 06_14 크로스오버+슛 위상잠금
       // B단계 = 공을 튄다 → 튀기며 움직인다 → 튀기다 멈추고 뒤로(BK-B-CURRICULUM.md)
       BK_B1: 'bp_dribble',            // 드리블 루프 2(Sketchfab 네이티브 1.6s) — 유저: 이걸로 교체
-      BK_B2: 'rk_stepback',           // 측면 스텝백 시연 — _rootClips라 제자리 고정 자동
-      BK_B3: 'rk_stepback', BK_B4: 'rk_stepback',   // 스텝백 연속 단계
-      BK_C2: 'rk_stepback',           // 실전 — 릴리즈는 판정으로, 클립은 스텝백 유지
+      BK_B2: 'vm_stepback',           // 레퍼런스 영상 모캡(실측 좌표와 동일 소스)
+      BK_B3: 'vm_stepback', BK_B4: 'vm_stepback',   // 스텝백 연속 단계
+      BK_C2: 'vm_stepback',           // 실전 — 릴리즈는 판정으로, 클립은 스텝백 유지
     };
     if (DRILL[id] && xbot.actions[DRILL[id]]) return DRILL[id];
     if (sport === 'basketball') return 'dribble';           // 그 외 제자리 드리블
@@ -4119,7 +4119,7 @@ void main(){
       // 06_13 프리스타일 전체 루프는 이동·컷 구간이 섞여 어색(유저) — 안정 핸들 구간만 창 반복.
       else if (/^BK_(B2|B3|B4|C2)$/.test(session.stage || '')) {
         const rate = session.clipRate ?? 1;   // B3=0.5배속(유저 학습 progression)
-        _phase = (session.t * rate) % (xbot.actions.rk_stepback?.dur || 12.7);
+        _phase = (session.t * rate) % (xbot.actions.vm_stepback?.dur || 2.21);
       }   // 신규 소스(공 튀기며 손으로 옮기기) 최적 루프 4.4~7.9s — 경계 0.02m·손 전환 3회 실측
       else if (session.stage === 'BK_B3') {   // 프리스타일은 어느 구간도 안 맞물림(최적 0.183m) → 핑퐁 = 불연속 0
         const SP3 = 6.3, m3 = session.t % (SP3 * 2);

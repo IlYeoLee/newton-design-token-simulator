@@ -30,7 +30,8 @@ import bkDashClipJson from '../assets/mocap/xclip-dash_normal.json?url';
 import bkKickClipJson from '../assets/mocap/xclip-kick_normal.json?url';
 // 실사 영상 비디오모캡 (scripts/bake_pose_clip.mjs — MediaPipe 리타겟)
 import quadStretchClipJson from '../assets/mocap/xclip-quad_stretch.json?url';
-import vmCrossoverClipJson from '../assets/mocap/xclip-vm_crossover.json?url';   // 크로스 잽 드리블 실사 비디오모캡(유저 제공 소스)
+import vmCrossoverClipJson from '../assets/mocap/xclip-vm_crossover.json?url';
+import vmStepbackClipJson from '../assets/mocap/xclip-vm_stepback.json?url';   // 커리 스텝백 레퍼런스 영상 모캡(후방 시점)   // 크로스 잽 드리블 실사 비디오모캡(유저 제공 소스)
 // CMU Graphics Lab 실측 모캡 (무료 라이선스, scripts/retarget_bvh.mjs)
 import cmuStretchClipJson from '../assets/mocap/xclip-cmu_stretch.json?url';           // 42_01 전신 풀기
 import cmuDribbleLowClipJson from '../assets/mocap/xclip-cmu_dribble_low.json?url';    // 06_13 로우 프리스타일 드리블
@@ -173,7 +174,8 @@ export class XBot {
     regJson('bkDash', bkDashClipJson);
     regJson('bkKick', bkKickClipJson);
     regJson('quadStretch', quadStretchClipJson);   // FIN 쿨다운 쿼드 스트레치 — quad_src.mp4 실사 비디오모캡
-    regJson('vm_crossover', vmCrossoverClipJson);   // BK_B2 크로스오버 — 정면·제자리·와이드 스탠스 실사 드릴
+    regJson('vm_crossover', vmCrossoverClipJson);
+    regJson('vm_stepback', vmStepbackClipJson);   // BK_B2~C2 측면 스텝백 — 실측 좌표와 같은 소스   // BK_B2 크로스오버 — 정면·제자리·와이드 스탠스 실사 드릴
     regJson('cmu_stretch', cmuStretchClipJson);            // A1 전신 풀기
     regJson('cmu_dribble_low', cmuDribbleLowClipJson);     // BK_A3·BK_B3 로우 드리블·컷
     regJson('cmu_crossover_shot', cmuCrossoverClipJson);   // BK_B1·B2 크로스오버+슛
@@ -222,7 +224,7 @@ export class XBot {
     reg('mf_sprint_start', mfSprintBlFbx);
     regJson('stomp_press', stompPressClipJson);   // 프레스 원 꾹 밟기 (Stomping L+R 합성)
     // 실측 모캡 클립 = 실사람 미세 움직임 포함 → playDemo 호흡 레이어 제외 대상(섞으면 포즈 희석)
-    this._vmClips = new Set(['quadStretch', 'vm_crossover', 'cmu_stretch', 'cmu_dribble_low', 'cmu_crossover_shot', 'jumpingJacks', 'mf_jump_shot', 'mf_marathon', 'mf_layup']);
+    this._vmClips = new Set(['quadStretch', 'vm_crossover', 'vm_stepback', 'cmu_stretch', 'cmu_dribble_low', 'cmu_crossover_shot', 'jumpingJacks', 'mf_jump_shot', 'mf_marathon', 'mf_layup']);
     // keepRootXZ 베이크 클립(몸이 실제 이동) — 재생 시 힙 XZ 고정(_lockInPlace) 제외 대상
     this._rootClips = new Set(['mf_boxing_footwork', 'sfu_jogging', 'cmu_crossover_turn', 'rk_stepback', 'mf_sprint_start', 'cmu_dribble_fwd', 'cmu_dribble_back', 'cmu_dribble_side']);
     for (const k of ['bl_crossover', 'mf_dribble', 'mf_block', 'mf_chest_pass', 'mf_sprint_start', 'bp_dribble', 'fab_crossover', 'lb_dribble', 'rk_stepback', 'sfu_jumprope', 'sfu_jogging', 'cmu_stretch2', 'cmu_stretch3', 'cmu_warmup_routine', 'cmu_crossover_turn', 'cmu_dribble_shot',

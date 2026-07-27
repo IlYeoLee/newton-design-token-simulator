@@ -854,7 +854,12 @@ export class Session {
       H.fC  = F(0.33, 0.06, 'right');                                      // ② 플랜트 리드 발
       H.fLl = F(-0.43, -0.09, 'left'); H.fLr = F(0.49, -0.32, 'right');   // ③ 착지 페어(폭 0.92)
       for (const k of ['fLl', 'fLr', 'fRl', 'fRr', 'fC']) { H[k].ghost(); H[k].op(0.16); }   // 대기 = Locked 고스트(crisp 실루엣)
-      gg.add(H.mL, H.mC, H.mR, H.rise, H.gh.group,
+      // 이동 경로 화살표 — 발자국만으로는 '무슨 동작인지' 안 읽힌다(유저). 순서와 방향을 선으로.
+      //   a1: 준비 → 플랜트(오른쪽으로 밀고 들어감) · a2: 플랜트 → 착지(반대로 크게 빠짐)
+      H.a1 = floorArrow(0.28, SBZ + 0.02, -90, BRAND.prism, 0.26);
+      H.a2 = floorArrow(-0.05, SBZ - 0.02, 90, BRAND.red, 0.62);
+      H.a1._gain = 0; H.a2._gain = 0;
+      gg.add(H.mL, H.mC, H.mR, H.rise, H.gh.group, H.a1, H.a2,
         H.fLl.group, H.fLr.group, H.fRl.group, H.fRr.group, H.fC.group);
       if (!big) {   // 훈련 단계만 커서 표시 — 실전은 시선 부담 최소화(유저 확정)
         H.cL = new FootMark('left').at(-0.1, SBZ + 0.52, 0.42);
@@ -2187,7 +2192,10 @@ export class Session {
       H._prevHy = hy;
       if (this.t - H._beatT > CFG.per * 4.6) { H._beatT = this.t; H.beat = 0; H._landed = false; }   // 놓치면 다음 사이클
       H.gh.op(Math.max(0, 1 - (this.t - H._ghT) / 0.6) * 0.65);   // 오차 잔상 0.6초
-      const BEATN = ['시작 자리', '플랜트 — 안으로', '스텝백!', '슛!'];
+      // 화살표 = 한 박자 앞서 켜서 '다음에 어디로'를 알린다
+      H.a1._gain = H.beat === 0 ? 0.9 : (H.beat === 1 ? 0.35 : 0);
+      H.a2._gain = H.beat === 1 ? 0.95 : (H.beat === 2 ? 0.5 : 0);
+      const BEATN = ['① 오른발 딛고 준비', '② 오른발로 밀어 — 안으로', '③ 반대로 크게 빠지기!', '④ 그대로 올라가 — 슛!'];
       const left = Math.max(0, CFG.need - H.count);
       this.repLeft = left; this.repTotal = CFG.need; this.repFrac = Math.min(1, H.count / CFG.need);
       FMU(LIVE ? `스텝백 3점 — 남은 ${left}회` : `${BEATN[H.beat]} · 남은 ${left}회`, LIVE ? CS.red : CS.sand);
