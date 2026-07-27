@@ -2327,6 +2327,7 @@ void main(){
 
         if (PHW && co.video.readyState >= 2) {
           const [a, b] = PHW;
+          if (co.video.playbackRate !== 0.75) co.video.playbackRate = 0.75;   // 스텝백 4페이즈만 0.75배속(유저)
           const now = performance.now();
           if (co._holdUntil) {
             // 마지막 프레임 1초 정지 후 처음으로 되감아 루프(유저)
@@ -2342,6 +2343,7 @@ void main(){
             if (co.video.paused) co.video.play().catch(() => {});
           }
         }
+        if (!PHW && co.video.playbackRate !== 1) co.video.playbackRate = 1;   // 그 외 단계는 정속
         if (co.video.paused && !co._holdUntil) co.video.play().catch(() => {});
         // 영상 실제 프레임이 들어오기 전엔 숨김 — 검은/균일 텍스처가 크로마키 통과 못 해
         // 빨간 방사형 사각형으로 0.x초 깜빡이던 것 방지(유저). readyState≥3(HAVE_FUTURE_DATA)+재생 시작 후.

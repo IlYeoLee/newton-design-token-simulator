@@ -2240,7 +2240,7 @@ export class Session {
         FMU('먼저 보세요 — 스텝백', CS.prism);
         return;
       }
-      this.clipRate = id === 'BK_B3' ? 0.5 : 1;   // 봇 시연 배속(main이 위상 진행에 사용)
+      this.clipRate = 1;   // 봇은 정속(유저) — 느리게 보여줄 건 코치 영상 playbackRate 쪽이다
       const pr = this.xbot?.getProbes?.();
       let ex = 0;
       if (pr?.hips && pr.footL && pr.footR) {
@@ -2351,8 +2351,9 @@ export class Session {
           ? this._beamLocal(-0.06 + (uR + 0.06) * rz, V + 0.14 * rz, H.mL)
           : this._beamLocal(uR, V + POSE.R[1] * 0.10, H.mL);
         H.fRl.countdown(1); H.fRr.countdown(1);   // 헤일로 완전 수축 = 번짐 없는 실루엣
-        H.fRl.at(pL.x, pL.z, S0 + SB * bL); H.fRl.op(0.80 + 0.20 * bL);
-        H.fRr.at(pR.x, pR.z, S0 + SB * bR); H.fRr.op(0.80 + 0.20 * bR);
+        // 2/4는 들썩임 없음(유저) — 왼발 고정, 오른발은 대각선 스텝만. 1/4만 호흡한다.
+        H.fRl.at(pL.x, pL.z, SOLO ? S0 : S0 + SB * bL); H.fRl.op(SOLO ? 0.95 : 0.80 + 0.20 * bL);
+        H.fRr.at(pR.x, pR.z, SOLO ? S0 : S0 + SB * bR); H.fRr.op(SOLO ? 0.95 : 0.80 + 0.20 * bR);
         for (const k of ['fC', 'fLl', 'fLr']) H[k]?.op(0);
         if (H.numL) { placeMarkNum(H.numL); placeMarkNum(H.numR);
           H.numL.visible = H.numR.visible = SOLO; }   // 글리프는 자체 재질 — visible로 제어
