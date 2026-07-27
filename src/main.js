@@ -2005,8 +2005,8 @@ void main(){
       ['cmu_stretch3', '스트레칭 3·장편 (CMU 83_22)'],
       ['cmu_warmup_routine', '워밍업 루틴 44s (CMU 14_06)'],
       ['cmu_dribble_low', '로우 드리블 (CMU)'],
-      ['cmu_crossover_shot', '크로스오버+슛 (CMU)'],
-      ['cmu_crossover_turn', '크로스오버+90°턴 드리블 (CMU·이동)'],
+      ['cmu_crossover_shot', '★★★ 06_14 크로스오버+슛 (CMU) — B2 검증 요청분'],
+      ['cmu_crossover_turn', '★★★ 06_12 전진드리블+90°턴+크로스오버 (CMU·이동) — 검증 요청분'],
       ['cmu_dribble_shot', '드리블→슛 (CMU)'],
       ['mf_jump_shot', '점프샷 (Motifect)'],
       ['mf_layup', '레이업 (Motifect)'],
@@ -4787,7 +4787,15 @@ void main(){
   // 배경 투명(html/body transparent)이라 별도 루마키 불필요. filter:url(#ui-lumakey)는 정의 없는 댕글링 참조라
   // Chrome이 iframe을 통째 안 그렸음(운동중 프레임 안 보이던 원인) → 제거.
   Object.assign(floorIframe.style, { border: '0', background: 'transparent' });
-  const floorObj = new CSS3DObject(floorIframe);
+  // 래퍼 div가 3D 변환을 받는다 — iframe에 직접 transform을 걸면 Chrome이 내용 repaint 때마다
+  // 재래스터하며 '검은 사각 플래시'(뒤 페이지 배경 노출)를 낸다(유저 녹화 실측). iframe은 래퍼 안에
+  // 무변환 배치 → 자체 레이어 유지 → repaint가 컴포지터 플래시를 만들지 않는다.
+  const floorWrap = document.createElement('div');
+  floorWrap.style.overflow = 'hidden';
+  floorWrap.appendChild(floorIframe);
+  floorIframe.style.position = 'absolute';
+  floorIframe.style.inset = '0';
+  const floorObj = new CSS3DObject(floorWrap);
   floorObj.visible = false;
   frameCssScene.add(floorObj);
   let loadedFloorView = null;
@@ -4869,6 +4877,8 @@ void main(){
       if (fView.src !== loadedFloorView) {
         floorIframe.style.width = fView.w + 'px';
         floorIframe.style.height = fView.h + 'px';
+        floorWrap.style.width = fView.w + 'px';    // 래퍼가 CSS3D 변환·크기의 주체
+        floorWrap.style.height = fView.h + 'px';
         // 운동중 프레임(floor-scene.html)엔 장면 지속시간 전달 — 도트 로딩바가 이 시간 동안 0→100% 차오름
         const dur = STAGE_DUR[session.curStage?.id] ?? session.curStage?.dur ?? 8;
         let durSuffix = fView.src.includes('floor-scene.html') ? '&dur=' + dur : '';
