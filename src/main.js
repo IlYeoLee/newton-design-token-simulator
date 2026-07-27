@@ -2191,10 +2191,10 @@ void main(){
     BK_A2: { src: 'ready-view/assets/bk_highknee.webm', cropOff: 0.0, cropScale: 1.0, w: 0.9, h: 0.9, fwd: 0.10 },   // 무릎 들기
     // 훈련 관찰 공통 — 이게진짜.mp4(그린스크린 정면 로우 드리블) 핑퐁 베이크(_pp, ffmpeg reverse concat)
     BK_B1: { src: 'bhandle_pp.mp4', cropOff: 0.0, cropScale: 1.0, w: 0.42, h: 0.75, fwd: 0.10 },   // 소스 720x1280 — 9:16 유지(정사각은 세로 눌림)
-    BK_B2: { src: 'stepback_pp.mp4', cropOff: 0.0, cropScale: 1.0, w: 1.04, h: 0.87, fwd: 0.10 },   // 소스 720x1280 — 9:16 유지(정사각은 세로 눌림)
-    BK_B5: { src: 'stepback_pp.mp4', cropOff: 0.0, cropScale: 1.0, w: 1.04, h: 0.87, fwd: 0.10 },
-    BK_B4: { src: 'stepback_pp.mp4', cropOff: 0.0, cropScale: 1.0, w: 1.04, h: 0.87, fwd: 0.10 },
-    BK_B3: { src: 'stepback_pp.mp4', cropOff: 0.0, cropScale: 1.0, w: 1.04, h: 0.87, fwd: 0.10 },   // 소스 720x1280 — 9:16 유지(정사각은 세로 눌림)
+    BK_B2: { src: 'stepback_fwd.mp4', cropOff: 0.0, cropScale: 1.0, w: 1.04, h: 0.87, fwd: 0.10 },   // 소스 720x1280 — 9:16 유지(정사각은 세로 눌림)
+    BK_B5: { src: 'stepback_fwd.mp4', cropOff: 0.0, cropScale: 1.0, w: 1.04, h: 0.87, fwd: 0.10 },
+    BK_B4: { src: 'stepback_fwd.mp4', cropOff: 0.0, cropScale: 1.0, w: 1.04, h: 0.87, fwd: 0.10 },
+    BK_B3: { src: 'stepback_fwd.mp4', cropOff: 0.0, cropScale: 1.0, w: 1.04, h: 0.87, fwd: 0.10 },   // 소스 720x1280 — 9:16 유지(정사각은 세로 눌림)
     BK_A3: { src: 'ready-view/assets/bk_squat.webm',    cropOff: 0.0, cropScale: 1.0, w: 0.9, h: 0.9, fwd: 0.10 },   // 스쿼트
   };
   const _coaches = {};   // stageId → { video, plane, _fwd }
@@ -2305,6 +2305,14 @@ void main(){
           if (performance.now() - _coachSeekT0 > 2500) _coachSeekId = id;   // 안전장치: 영상 없이도 화면은 나와야
         }
         if (id !== 'BK_A1') { _coachSeekId = null; _coachSeekT0 = null; }
+        // 단계별 구간 루프 — 4페이즈로 쪼갰으면 각 단계는 '그 구간만' 반복해야 한다(유저).
+        //   실측(3.33s 정방향): 준비 0~0.60 · 오른발 딛고 드리블 0.60~1.25 ·
+        //   왼발 뻗어 공 잡기 1.25~1.80 · 오른발 모으며 슛 1.80~3.10
+        const PHW = { BK_B2: [0.00, 0.60], BK_B3: [0.60, 1.25], BK_B4: [1.25, 1.80], BK_B5: [1.80, 3.10] }[id];
+        if (PHW && co.video.readyState >= 2) {
+          const [a, b] = PHW;
+          if (co.video.currentTime < a - 0.05 || co.video.currentTime >= b) { try { co.video.currentTime = a; } catch (e) {} }
+        }
         if (co.video.paused) co.video.play().catch(() => {});
         // 영상 실제 프레임이 들어오기 전엔 숨김 — 검은/균일 텍스처가 크로마키 통과 못 해
         // 빨간 방사형 사각형으로 0.x초 깜빡이던 것 방지(유저). readyState≥3(HAVE_FUTURE_DATA)+재생 시작 후.
