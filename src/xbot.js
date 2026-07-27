@@ -927,13 +927,19 @@ export class XBot {
     //    왼손바닥 ↔ 오른손바닥을 U자로 왕복한다. 끝단 12%는 손 밀착(드웰), 꼭짓점은 두 손 중앙 바닥.
     //    손 신호 검출(노이즈)에 의존하지 않아 박자·형태가 절대 안 깨진다. 손 위치는 라이브 추적.
     if (this.uDribble) {
+      // 손과 완전 분리(유저 확정): 몸 기준 '고정' U자 — 좌우 ±0.45m·높이 0.72m 꼭짓점을
+      // 0.8s 박자로 왕복, 꼭짓점 사이는 바닥 중앙 경유. 레퍼런스 주석 궤적 그대로.
       const PER = 0.8, DW = 0.12;
       S.uT = (S.uT ?? 0) + dt;
       const cyc = S.uT % (PER * 2);
       const goingR = cyc < PER;
       const q = (goingR ? cyc : cyc - PER) / PER;
-      const from = palm(goingR ? 'L' : 'R'), to = palm(goingR ? 'R' : 'L');
-      const fy = Math.max(r, from.y), ty2 = Math.max(r, to.y);
+      const he0 = this._hips ? this._hips.matrixWorld.elements : null;
+      const cx0 = he0 ? he0[12] : 0, cz0 = (he0 ? he0[14] : 0) - 0.34;
+      const SIDE = 0.45, TOP = 0.72;
+      const from = { x: cx0 + (goingR ? -SIDE : SIDE), y: TOP, z: cz0 };
+      const to = { x: cx0 + (goingR ? SIDE : -SIDE), y: TOP, z: cz0 };
+      const fy = from.y, ty2 = to.y;
       if (q < DW) { x = from.x; y = fy; z = from.z; }
       else if (q > 1 - DW) { x = to.x; y = ty2; z = to.z; }
       else {
