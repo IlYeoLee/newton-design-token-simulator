@@ -949,7 +949,7 @@ export class XBot {
     if (this.uDribble) {
       // 손과 완전 분리(유저 확정): 몸 기준 '고정' U자 — 좌우 ±0.45m·높이 0.72m 꼭짓점을
       // 0.8s 박자로 왕복, 꼭짓점 사이는 바닥 중앙 경유. 레퍼런스 주석 궤적 그대로.
-      const PER = 0.8, DW = 0.12;
+      const PER = 0.9, DW = 0.12;   // 신규 클립 크로스오버 반주기 실측 0.92s — 공 박자 동기
       S.uT = (S.uT ?? 0) + dt;
       const cyc = S.uT % (PER * 2);
       const goingR = cyc < PER;

@@ -4106,7 +4106,7 @@ void main(){
         }
       }
       // 06_13 프리스타일 전체 루프는 이동·컷 구간이 섞여 어색(유저) — 안정 핸들 구간만 창 반복.
-      else if (session.stage === 'BK_B2' || session.stage === 'BK_C2') _phase = 1.0 + (session.t % 4.4);   // 포즈 거리 전수 탐색 최적 구간(경계 0.017m)
+      else if (session.stage === 'BK_B2' || session.stage === 'BK_C2') _phase = 4.4 + (session.t % 3.5);   // 신규 소스(공 튀기며 손으로 옮기기) 최적 루프 4.4~7.9s — 경계 0.02m·손 전환 3회 실측
       else if (session.stage === 'BK_B3') {   // 프리스타일은 어느 구간도 안 맞물림(최적 0.183m) → 핑퐁 = 불연속 0
         const SP3 = 6.3, m3 = session.t % (SP3 * 2);
         _phase = 7.6 + (m3 < SP3 ? m3 : SP3 * 2 - m3);
