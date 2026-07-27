@@ -2220,12 +2220,12 @@ void main(){
     tex.colorSpace = THREE.SRGBColorSpace;
     const mat = new THREE.ShaderMaterial({
       transparent: true, depthWrite: false,
-      uniforms: { map: { value: tex }, uLUT: { value: getLUT() }, uTime: { value: 0 },
+      uniforms: { map: { value: tex }, uLUT: { value: getLUT() }, uTime: { value: 0 }, uReady: { value: 0 },
         uCropOff: { value: cfg.cropOff }, uCropScale: { value: cfg.cropScale },
         uSat: { value: 1.32 }, uPulse: { value: 0.05 } },
       vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
       fragmentShader: `
-        varying vec2 vUv; uniform sampler2D map; uniform sampler2D uLUT; uniform float uTime, uCropOff, uCropScale, uSat, uPulse;
+        varying vec2 vUv; uniform sampler2D map; uniform sampler2D uLUT; uniform float uTime, uCropOff, uCropScale, uSat, uPulse, uReady;
         vec3 lut(float v){ return texture2D(uLUT, vec2(clamp(v, 0.004, 0.996), 0.5)).rgb; }
         vec2 crop(vec2 uv){ return vec2(uv.x, uCropOff + uv.y * uCropScale); }
         float mask1(vec2 uv){ vec3 c = texture2D(map, crop(uv)).rgb; float k = c.g - max(c.r, c.b); return 1.0 - smoothstep(0.04, 0.14, k); }
@@ -2258,7 +2258,9 @@ void main(){
           vec3 col = lut(T) * mEro * 1.12;
           float cl = dot(col, vec3(0.299, 0.587, 0.114));
           col = clamp(mix(vec3(cl), col, uSat), 0.0, 1.0);   // 채도 = 마크 LUT와 같은 FXP.sat 소스(인물만 따로 놀던 1.32 상수 은퇴)
-          float alpha = mEro * 0.95;   // 하단 페더 제거(유저) — 발끝까지 또렷하게
+          // uReady=0 = 아직 실제 프레임이 없다. 이때 그리면 빈 텍스처가 크로마키를 통과해
+          //   판이 통째로 검은 사각형/붉은 판으로 보인다(유저 스샷). 아예 안 그린다.
+          float alpha = mEro * 0.95 * uReady;   // 하단 페더 제거(유저) — 발끝까지 또렷하게
           gl_FragColor = vec4(col, alpha);
         }`,
     });
@@ -2297,6 +2299,7 @@ void main(){
   function freezeCoach(co) {
     const v = co.video;
     if (!v.videoWidth || co._frozen) return;
+    co._fzT = performance.now();
     if (co.fz.width !== v.videoWidth) { co.fz.width = v.videoWidth; co.fz.height = v.videoHeight; }
     try { co.fz.getContext('2d').drawImage(v, 0, 0); } catch (e) { return; }
     co.fzTex.needsUpdate = true;
@@ -2387,13 +2390,15 @@ void main(){
           }
         }
         // 새 프레임이 실제로 들어왔으면 고정 해제
-        if (co._frozen && !co.video.seeking && co.video.readyState >= 3
-            && co.video.currentTime > (PHW ? PHW[0] : 0) + 0.03) unfreezeCoach(co);
+        if (co._frozen && ((!co.video.seeking && co.video.readyState >= 3
+            && co.video.currentTime > (PHW ? PHW[0] : 0) + 0.03) || performance.now() - (co._fzT || 0) > 350)) unfreezeCoach(co);
         if (!PHW && co.video.playbackRate !== 1) co.video.playbackRate = 1;   // 그 외 단계는 정속
         if (co.video.paused && !co._holdUntil) co.video.play().catch(() => {});
         // 영상 실제 프레임이 들어오기 전엔 숨김 — 검은/균일 텍스처가 크로마키 통과 못 해
         // 빨간 방사형 사각형으로 0.x초 깜빡이던 것 방지(유저). readyState≥3(HAVE_FUTURE_DATA)+재생 시작 후.
         // 루프 순간 currentTime이 0으로 되감겨 매 루프 1~2프레임 숨김 → 깜빡임(유저). 첫 표시 후 래치.
+        co.mat.uniforms.uReady.value = (co._frozen ? (co.fz.width > 2 ? 1 : 0)
+          : (co.video.readyState >= 2 && co.video.videoWidth > 0 && !co.video.seeking && co.video.currentTime > 0.03)) ? 1 : 0;
         const coLive = co.video.readyState >= 3 && !co.video.seeking && co.video.currentTime > 0.03
                     && (id !== 'BK_A1' || _coachSeekId === id);   // 시크 전 프레임은 보여주지 않는다
         if (coLive) co._live = true;
