@@ -342,20 +342,12 @@ function primPanel(kind, sizeM, wall) {
   const m = new THREE.Mesh(new THREE.PlaneGeometry(sizeM, sizeM),
     new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false }));
   if (!wall) m.rotation.x = -Math.PI / 2;
-  m.renderOrder = 6;
+  m.renderOrder = kind === 'trajectory' ? 9 : 6;   // 궤적은 발자국(4) 위로 — 전 종목 공통(유저)
   m.userData.el = { type: kind, wall: !!wall };
   const panel = { kind, c, tex, m, prog: null, pts: null, P: null };   // P = 인스턴스별 파라미터 오버라이드
   m._prim = panel;
   PRIM_PANELS.push(panel);
   return m;
-}
-/** 궤적 스윕 위상 — 발 높이(오르내림)를 '전진만 하는' 경로 진행도로 바꾼다.
- *  정점(0.95)을 찍고 발이 충분히 내려오면(0.30) 시작점으로 리셋 → 다음 렙이 처음부터 뻗는다. */
-function tjSweep(H, key, p) {
-  const prev = H[key] ?? 0;
-  let u = Math.max(prev, p);
-  if (prev >= 0.95 && p < 0.30) u = 0;
-  H[key] = u; return u;
 }
 let _primLastT = 0;
 function tickPrims(t) {
@@ -1735,11 +1727,9 @@ export class Session {
       H.arL.visible = !useTraj; H.arR.visible = !useTraj;
       H.tjL.visible = useTraj; H.tjR.visible = useTraj;
       if (useTraj) {
-        // 궤적은 '시작점에서 뻗어나가고, 한 바퀴 끝나면 시작점으로 돌아가 다시 출발'이 규약이다.
-        //   prog를 발 높이에 그대로 물리면 발이 내려올 때 코멧이 왔던 길을 되감는다(유저 지적).
-        //   → 전진만 하고, 정점 찍은 뒤 발이 충분히 내려오면 시작점(0)으로 리셋한다.
-        H.tjL._prim.prog = tjSweep(H, '_tjuL', H._pL);
-        H.tjR._prim.prog = tjSweep(H, '_tjuR', H._pR);
+        // 인터랙션 = 룩 시스템 루프 그대로(유저 지시). prog=null이면 drawTrajectory가 자기 사이클을
+        //   돈다: 시작점에서 스윕 → 끝에서 소멸(꼬리가 헤드로 수렴) → 갭 → 시작점부터 다시.
+        H.tjL._prim.prog = null; H.tjR._prim.prog = null;
       } else {
         const nowT = performance.now() / 1000;
         if (nowT - (this._a3cueT || 0) > 1 / 30) {
@@ -1884,9 +1874,8 @@ export class Session {
       const st3 = FXP.a3Arrow || 4, useTraj = st3 === 4;
       H.arL.visible = !useTraj; H.arR.visible = !useTraj;
       H.tjL.visible = useTraj; H.tjR.visible = useTraj;
-      if (useTraj) {   // 전진 스윕 + 루프마다 시작점 복귀 (러닝 A3와 같은 규약)
-        H.tjL._prim.prog = tjSweep(H, '_tjuL', H._pL);
-        H.tjR._prim.prog = tjSweep(H, '_tjuR', H._pR);
+      if (useTraj) {   // 룩 시스템 루프 그대로 — 러닝 A3와 같은 규약
+        H.tjL._prim.prog = null; H.tjR._prim.prog = null;
       } else {
         const nowT = performance.now() / 1000;
         if (nowT - (this._a3cueT || 0) > 1 / 30) {
