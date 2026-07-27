@@ -700,30 +700,22 @@ export class Session {
       m._g = c.getContext('2d'); m._tex = tex; return m;
     };
     const ar2L = mkLift2(-0.46), ar2R = mkLift2(0.46);
-    // 궤적 = 유저 가이드 스케치: 반대편 지면의 작은 원에서 출발 → 곡선 → 들린 발마크로 촉이 들어간다.
-    //   패널(0.9m)은 출발 원과 마크를 모두 덮게 배치하고, 캔버스 좌표는 월드 대응으로 계산해 넣는다.
-    //   (예전 코멧 리본은 스케치와 딴판이었음 — 유저 지적)
-    const A2SIZE = 0.9, A2CZ = -2.15;
-    const mkTraj2 = (side) => {                       // side: -1 왼발(마크 x −0.17) · +1 오른발
-      const m = primPanel('curveArrow', A2SIZE, false);
-      m.position.set(0, 0.014, A2CZ);
-      const w2c = (wx, wz) => [0.5 + (wx - 0) / A2SIZE, 0.5 + (wz - A2CZ) / A2SIZE];   // 월드 → 0..1 캔버스
-      // 끝점 = 마크의 "정점" 위치. tick에서 마크는 z −1.85→−2.35, x는 중앙으로 0.10 쏠린다.
-      const dot = w2c(-side * 0.30, -1.95);           // 출발 원 = 반대편 지면
-      const mid = w2c(-side * 0.06, -2.06);           // 몸을 가로지르며 휘는 배(크로스바디)
-      const mark = w2c(side * 0.07, -2.26);           // 들린 발마크 앞 가장자리 — 촉이 숫자를 덮지 않게
-      m._prim.pts = [dot, mid, mark];
-      m._prim.prog = 0;
-      return m;
+    // 유저 가이드 이미지: 긴 궤적 곡선이 아니다. 두 발은 처음엔 정면을 보고 있다가, 하나를 들면
+    //   그 발이 "꼬이며(회전)" 반대편 위로 교차해 올라가고, 원래 딛고 있던 지면 자리에는 작은 원이 남아
+    //   짧은 스템으로 들린 마크의 뒤꿈치와 이어진다. (예전 코멧/곡선 궤적 전부 은퇴 — 유저 지적 2회)
+    k2L.plane.rotation.z = 0; k2R.plane.rotation.z = 0;   // 대기 = 서로 정면
+    const A2X = 0.17, A2Z = -1.85;
+    const dotL = floorRing(-A2X, A2Z + 0.17, 0.026, 0.038, BRAND.sand, 0.0);   // 원래 딛던 자리(뒤꿈치 뒤)
+    const dotR = floorRing(A2X, A2Z + 0.17, 0.026, 0.038, BRAND.sand, 0.0);
+    const mkStem = () => {   // 작은 원 → 들린 마크 뒤꿈치를 잇는 짧은 바. 길이=scale.y, 방향=rotation.z
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(0.013, 1),
+        new THREE.MeshBasicMaterial({ color: BRAND.sand, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending }));
+      m.rotation.x = -Math.PI / 2; m.position.y = 0.0138; m.renderOrder = 6; return m;
     };
-    const tj2L = mkTraj2(-1), tj2R = mkTraj2(1);
-    // 궤적 출발점 = 작은 원(유저 가이드 스케치의 시작 동그라미). 올라가는 발의 반대쪽 지면에서 출발해
-    // 몸을 가로질러 들린 발마크로 흘러간다(크로스바디). 활성 쪽만 켠다.
-    const dotL = floorRing(0.30, -1.95, 0.030, 0.042, BRAND.sand, 0.0);
-    const dotR = floorRing(-0.30, -1.95, 0.030, 0.042, BRAND.sand, 0.0);
-    this.bkA2hk = { fmL: k2L, fmR: k2R, numL: k2nL, numR: k2nR, arL: ar2L, arR: ar2R, tjL: tj2L, tjR: tj2R,
-      dotL, dotR, sec: 0, cntL: 0, cntR: 0, _lastLeft: undefined, _pop: 0 };
-    g.add(k2L.group, k2R.group, ar2L, ar2R, tj2L, tj2R, dotL, dotR);
+    const stL = mkStem(), stR = mkStem();
+    this.bkA2hk = { fmL: k2L, fmR: k2R, numL: k2nL, numR: k2nR, arL: ar2L, arR: ar2R,
+      dotL, dotR, stL, stR, sec: 0, cntL: 0, cntR: 0, _lastLeft: undefined, _pop: 0 };
+    g.add(k2L.group, k2R.group, ar2L, ar2R, dotL, dotR, stL, stR);
     // A3 스쿼트(유저 2안) = 발자국 없이 중앙 링 + 깊이 채움 아크 + 남은 횟수 카운트다운.
     //   발이 제자리 고정이라 발마크는 정보 없음 → 깊이·횟수에 집중.
     //   크기는 룩 시스템 원형 토큰 표준(0.20/0.225) 그대로 — 확대·깊이 펄스는 유저가 반려(흰 테두리 펄스).
@@ -1797,7 +1789,7 @@ export class Session {
       const dt = Math.max(0, this.t - (this._bkA2t ?? this.t));
       if ((this._bkA2t ?? 0) > this.t) { H.sec = 0; H.cntL = 0; H.cntR = 0; H._lastLeft = undefined; H._shownL = -1; H._shownR = -1; H._pL = 0; H._pR = 0; }
       this._bkA2t = this.t;
-      const guide = [H.fmL.group, H.fmR.group, H.arL, H.arR, H.tjL, H.tjR];
+      const guide = [H.fmL.group, H.fmR.group, H.arL, H.arR, H.stL, H.stR];
       if (!this._followLatch) {   // 관찰 5초 = 코치 영상만(마크 숨김)
         for (const o of guide) o.visible = false;
         this.demoActive = true;
@@ -1824,9 +1816,13 @@ export class Session {
       };
       apex(true, H._pL, H._prevPL ?? 0, H.fmL); apex(false, H._pR, H._prevPR ?? 0, H.fmR);
       H._prevPL = H._pL; H._prevPR = H._pR;
-      // 발자국 상승 + 트위스트 x이동(크로스바디: 올라간 발이 중앙으로 쏠림)
-      H.fmL.group.position.z = -1.85 - 0.5 * H._pL; H.fmL.group.position.x = -0.17 + 0.10 * H._pL;
-      H.fmR.group.position.z = -1.85 - 0.5 * H._pR; H.fmR.group.position.x = 0.17 - 0.10 * H._pR;
+      // 유저 가이드: 들리는 발은 "꼬이며" 반대편 위로 교차한다. 정면(0°) → 진행 방향으로 25° 비틀림,
+      //   x는 중앙을 넘어 반대편(∓0.10)까지, z는 위로. 디딘 발은 정면 그대로.
+      const CROSS = 0.24, LIFTZ = 0.16, TWIST = THREE.MathUtils.degToRad(25);   // 딛은 발과 겹칠 만큼만(가이드 이미지)
+      H.fmL.group.position.set(-0.17 + CROSS * H._pL, 0.013, -1.85 - LIFTZ * H._pL);
+      H.fmR.group.position.set(0.17 - CROSS * H._pR, 0.013, -1.85 - LIFTZ * H._pR);
+      H.fmL.plane.rotation.z = -TWIST * H._pL;   // 왼발은 오른쪽으로 교차 → 발끝이 +x로 눕는다
+      H.fmR.plane.rotation.z = TWIST * H._pR;
       H.fmL.group.scale.setScalar(1.05 * (1 + 0.16 * H._pL));
       H.fmR.group.scale.setScalar(1.05 * (1 + 0.16 * H._pR));
       const leftNow = lUp ? true : (rUp ? false : (H._lastLeft ?? true));
@@ -1835,11 +1831,18 @@ export class Session {
       offFM.ghost(); offFM.op(0.45);
       const st3 = FXP.a3Arrow || 4, useTraj = st3 === 4;
       H.arL.visible = !useTraj; H.arR.visible = !useTraj;
-      H.tjL.visible = useTraj; H.tjR.visible = useTraj;
-      // 출발 원 — 발이 올라가는 동안만 은은하게(가이드 스케치)
-      H.dotL.setOp?.(0.15 + 0.55 * H._pL); H.dotR.setOp?.(0.15 + 0.55 * H._pR);
-      if (useTraj) { H.tjL._prim.prog = H._pL; H.tjR._prim.prog = H._pR; }
-      else {
+      // 마크 뒤꿈치에 달린 짧은 스템 + 작은 원(가이드 이미지). 마크의 트위스트를 그대로 따라 돈다.
+      const tail = (fm, dot, st, p) => {
+        const rot = fm.plane.rotation.z, c = fm.group.position, s = fm.group.scale.x;
+        const dx = Math.sin(rot), dz = Math.cos(rot);   // 뒤꿈치 방향(로컬 −y)
+        dot.position.set(c.x + dx * 0.20 * s, 0.013, c.z + dz * 0.20 * s);
+        st.position.set(c.x + dx * 0.155 * s, 0.0138, c.z + dz * 0.155 * s);
+        st.rotation.z = rot; st.scale.y = 0.075 * s;
+        st.material.opacity = 0.30 + 0.5 * p;
+        dot.setOp?.(0.30 + 0.55 * p);
+      };
+      tail(H.fmL, H.dotL, H.stL, H._pL); tail(H.fmR, H.dotR, H.stR, H._pR);
+      if (!useTraj) {
         const nowT = performance.now() / 1000;
         if (nowT - (this._a3cueT || 0) > 1 / 30) {
           this._a3cueT = nowT;

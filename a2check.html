@@ -1,46 +1,44 @@
-<!doctype html><meta charset="utf-8"><title>A2 궤적 검수</title>
-<style>body{margin:0;background:#0b0d10;color:#eee;font:13px system-ui}
-canvas{display:block;margin:12px auto;border:1px solid #222}</style>
-<canvas id="c" width="700" height="700"></canvas>
-<script type="module">
-import { drawCurveArrow } from '/src/fx-core.js';
-const lut = (v) => { const k = Math.max(0, Math.min(1, v));
-  const r = Math.round(255 * (0.55 + 0.45 * k)), g = Math.round(255 * (0.30 + 0.55 * k)), b = Math.round(255 * (0.20 + 0.35 * k));
-  return `rgb(${r},${g},${b})`; };
-const ENV = { lut, arrow: { w: 1, glow: 1 }, glyph: () => false };
-
-// ── 월드 → 화면(위에서 내려다봄). x −0.6..0.6, z −1.5..−2.7
+<!doctype html><meta charset="utf-8"><title>A2 니 드라이브 배치 검수</title>
+<style>body{margin:0;background:#0b0d10;color:#9aa2ac;font:12px system-ui;text-align:center}
+canvas{display:block;margin:8px auto;border:1px solid #1c2026}</style>
+<canvas id="c" width="1180" height="440"></canvas>
+<div>왼발 0 → 0.5 → 1.0, 마지막은 오른발 1.0 — 정면 대기 → 꼬이며 반대편 위로 교차, 작은 원은 딛던 자리에 남고 스템이 늘어난다</div>
+<script>
+// session.js 의 BK_A2 배치식을 그대로 옮겨 위에서 내려다본 그림으로 검증한다.
+const CROSS = 0.24, LIFTZ = 0.16, TWIST = 25 * Math.PI / 180, A2X = 0.17, A2Z = -1.85;
 const c = document.getElementById('c'), g = c.getContext('2d');
-const X0 = -0.6, X1 = 0.6, Z0 = -1.5, Z1 = -2.7;
-const px = (wx) => (wx - X0) / (X1 - X0) * c.width;
-const py = (wz) => (wz - Z1) / (Z0 - Z1) * c.height;   // z가 더 음수 = 화면 위쪽(시뮬 3인칭 시점과 동일)
+const CELL = 295, X0 = -0.42, X1 = 0.42, Z0 = -1.60, Z1 = -2.45;
 
-const A2SIZE = 0.9, A2CZ = -2.15;
-const w2c = (wx, wz) => [0.5 + wx / A2SIZE, 0.5 + (wz - A2CZ) / A2SIZE];
-const mkPts = (side) => [w2c(-side * 0.30, -1.95), w2c(-side * 0.06, -2.06), w2c(side * 0.07, -2.26)];
-
-const P = Number(new URLSearchParams(location.search).get('p') ?? 1);   // 리프트 진행도
+function foot(g, s, p, act) {          // s: -1 왼발 · +1 오른발
+  const mx = s * A2X - s * CROSS * p, mz = A2Z - LIFTZ * p, rot = -s * TWIST * p, sc = 1.05 * (1 + 0.16 * p);
+  const dx = Math.sin(rot), dz = Math.cos(rot);                  // 뒤꿈치 방향 — 마크와 함께 돈다
+  const dotx = mx + dx * 0.20 * sc, dotz = mz + dz * 0.20 * sc;
+  const hx = mx + dx * 0.12 * sc, hz = mz + dz * 0.12 * sc;
+  const px = (wx) => (wx - X0) / (X1 - X0) * CELL;
+  const py = (wz) => (wz - Z1) / (Z0 - Z1) * (c.height - 40);    // −z = 화면 위
+  // 스템
+  { g.strokeStyle = `rgba(226,196,140,${0.30 + 0.5 * p})`; g.lineWidth = 5;
+    g.beginPath(); g.moveTo(px(dotx), py(dotz)); g.lineTo(px(hx), py(hz)); g.stroke(); }
+  // 작은 원
+  g.strokeStyle = `rgba(226,196,140,${0.30 + 0.55 * p})`; g.lineWidth = 4;
+  g.beginPath(); g.arc(px(dotx), py(dotz), 9, 0, 6.284); g.stroke();
+  // 발마크 (발바닥 실루엣 근사)
+  g.save(); g.translate(px(mx), py(mz)); g.rotate(-rot); g.scale(sc, sc);   // 캔버스 y는 아래 → 회전 부호 반전
+  const W = 30, L = 88;
+  g.fillStyle = act ? 'rgba(250,48,48,0.92)' : 'rgba(190,196,206,0.30)';
+  g.beginPath(); g.ellipse(0, -L * 0.22, W * 0.62, L * 0.30, 0, 0, 6.284); g.fill();   // 앞볼
+  g.beginPath(); g.ellipse(0, L * 0.26, W * 0.44, L * 0.22, 0, 0, 6.284); g.fill();    // 뒤꿈치
+  g.fillRect(-W * 0.22, -L * 0.22, W * 0.44, L * 0.5);
+  g.restore();
+}
 
 g.fillStyle = '#0b0d10'; g.fillRect(0, 0, c.width, c.height);
-// 발마크(정지 → 정점으로 이동) : L x −0.17→−0.07, R x +0.17→+0.07, z −1.85→−2.35
-for (const s of [-1, 1]) {
-  const act = s === -1;                      // 왼발이 올라가는 중이라고 가정
-  const p = act ? P : 0;
-  const mx = s * 0.17 - s * 0.10 * p, mz = -1.85 - 0.5 * p;
-  g.save(); g.translate(px(mx), py(mz)); g.scale(1 + 0.16 * p, 1 + 0.16 * p);
-  g.strokeStyle = act ? '#ffb15e' : '#5a6068'; g.lineWidth = act ? 4 : 2.5;
-  g.beginPath(); g.ellipse(0, 0, 34, 62, 0, 0, 6.284); g.stroke(); g.restore();
-}
-// 출발 원 = 반대편 지면 (왼발용 → x +0.30)
-g.strokeStyle = '#d9c08a'; g.lineWidth = 3;
-g.beginPath(); g.arc(px(0.30), py(-1.95), 16, 0, 6.284); g.stroke();
-
-// 궤적 패널(0.9m) — 실제 시뮬과 동일하게 캔버스에 그려 월드 사각형에 매핑
-const pc = document.createElement('canvas'); pc.width = pc.height = 256;
-drawCurveArrow(pc.getContext('2d'), 256, 256, mkPts(-1), 0, ENV, { prog: P });
-// 캔버스 y=0 은 wz = CZ − SIZE/2 (가장 깊은 쪽) → 화면에서도 위쪽
-const PW = (A2SIZE / (X1 - X0)) * c.width, PH = (A2SIZE / (Z0 - Z1)) * c.height;
-g.drawImage(pc, px(-A2SIZE / 2), py(A2CZ - A2SIZE / 2), PW, PH);
-g.strokeStyle = '#2a3038'; g.strokeRect(px(-A2SIZE / 2), py(A2CZ - A2SIZE / 2), PW, PH);
-g.fillStyle = '#8a929c'; g.fillText(`prog=${P} · 패널 0.9m @ z ${A2CZ}`, 12, 18);
+[[-1, 0], [-1, 0.5], [-1, 1], [1, 1]].forEach(([lift, p], i) => {
+  g.save(); g.translate(i * CELL, 0);
+  g.strokeStyle = '#191d23'; g.strokeRect(0.5, 0.5, CELL - 1, c.height - 40);
+  foot(g, -lift, 0, false);          // 딛고 있는 발 = 정면 그대로
+  foot(g, lift, p, true);            // 올라가는 발
+  g.fillStyle = '#6d757f'; g.fillText((lift < 0 ? '왼발' : '오른발') + ' p=' + p, 10, 16);
+  g.restore();
+});
 </script>
