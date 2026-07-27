@@ -658,10 +658,10 @@ export class Session {
         const px = p.x + (q.tu - q.u) * over, pz = p.z + (q.tv - q.v) * over;
         fm.at(px, pz, FOLLOW_S * (1 + 0.16 * air));
       } else if (pop > 0) {
-        fm.glow(Math.max(0.35, 1 - pop));   // 착지 = Success 블룸(유저 지시)
+        fm.glow(1);   // 착지 = Success 블룸 (그 단계 목표라 흐려지지 않는다)
         fm.op(1); fm.at(p.x, p.z, FOLLOW_S * (1 + 0.10 * pop1 + 0.04 * pop2));
       } else if (landed) {
-        fm.glow(0.35); fm.op(1); fm.at(p.x, p.z, FOLLOW_S);   // 딛은 뒤에도 Success 유지(그 단계 목표 달성)
+        fm.glow(1); fm.op(1); fm.at(p.x, p.z, FOLLOW_S);   // 딛은 뒤 Success 유지 — 잔상처럼 흐려지지 않게 진행도 0 고정(유저)
       } else {
         fm.countdown(1); fm.op(0.95); fm.at(p.x, p.z, FOLLOW_S);
       }
