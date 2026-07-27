@@ -4837,8 +4837,11 @@ void main(){
     // 완료시켜 최종 상태로 고정 — fill(both)이 살아 있어 디자인된 최종 투명도·배치는 그대로.
     // 복원 진단: ?anim=1
     if (new URLSearchParams(location.search).get('anim') !== '1') {
+      // 전면 정지는 과잉(전환 연출·관찰 카운트다운까지 죽음 — 유저). 재래스터를 일으키는 건
+      // 페인트 속성 애니메이션(width 등)뿐 — transform/opacity는 컴포지터 전용이라 무해.
+      // 표적 정지: 도트 로딩바(width 애니메이션)만.
       const kill = srcDoc.createElement('style');
-      kill.textContent = '*{animation-duration:0.001s !important;animation-delay:0s !important;animation-iteration-count:1 !important;transition:none !important}';
+      kill.textContent = '.dclip{animation:none !important}';
       (srcDoc.body || srcDoc.documentElement).appendChild(kill);
     }
     // 런타임 상대경로 리베이스 — 주입 스크립트가 img.src='assets/…'를 넣으면 메인 문서 기준으로

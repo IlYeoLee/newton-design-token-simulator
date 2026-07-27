@@ -559,7 +559,10 @@ export class XBot {
     // 요 잔류 방지: lockYaw/legLock이 얼려둔 rotation.y가 스테이지를 떠나도 남아
     // T-2 등에서 봇이 뒤돌아 보였다(유저). 비활성 + 비루트 클립이면 기본 정면(π) 복원.
     if (!this.lockYaw && !this.legLock && !this._rootClips?.has(key) && Math.abs(this.model.rotation.y - Math.PI) > 0.01) {
-      this.model.rotation.y = Math.PI;
+      // 스냅 복원은 한 프레임에 확 돌아 '뚝' 끊겨 보였다(유저) — 부드럽게 최단 경로 보간(≈0.25s)
+      let d0 = Math.PI - this.model.rotation.y;
+      while (d0 > Math.PI) d0 -= Math.PI * 2; while (d0 < -Math.PI) d0 += Math.PI * 2;
+      this.model.rotation.y += d0 * Math.min(1, (this._dt || 0.016) * 8);
       this.model.updateMatrixWorld(true);
     }
     // 요 고정(lockYaw, 세션 데모 공통 원칙 — 유저): CMU 프리스타일 클립이 몸을 돌려도(B2 뒤돌기)
