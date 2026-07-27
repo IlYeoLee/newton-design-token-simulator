@@ -2323,11 +2323,11 @@ void main(){
         // 2번째(오른발 딛고 드리블)는 유저 지정 1.47s에서 끊는다 — 그 프레임이 '딛는 순간'
         // 누적식(유저) — 구간만 반복하면 앞 동작과 이어지지 않아 따라하기 어렵다.
         //   1단계 0~0.60 / 2단계 0~1.47 / 3단계 0~1.81 / 4단계 0~3.10 = 매 단계가 처음부터 다시.
-        const PHW = { BK_B2: [0.00, 0.60], BK_B3: [0.00, 1.47], BK_B4: [0.00, 1.81], BK_B5: [0.00, 3.10] }[id];
+        const PHW = STEP_SEG[id] ? [0, STEP_SEG[id]] : null;
 
         if (PHW && co.video.readyState >= 2) {
           const [a, b] = PHW;
-          if (co.video.playbackRate !== 0.5) co.video.playbackRate = 0.5;   // 스텝백 4페이즈만 0.5배속(유저)
+          if (co.video.playbackRate !== STEP_RATE) co.video.playbackRate = STEP_RATE;   // 스텝백 4페이즈만 저배속(유저)
           const now = performance.now();
           if (co._holdUntil) {
             // 마지막 프레임 1초 정지 후 처음으로 되감아 루프(유저)
@@ -2337,7 +2337,7 @@ void main(){
             // 30fps라 정확히 b에서 멈출 수 없다 — 한 프레임 앞서 잡고 정지. 시킹은 하지 않는다:
             //   시킹 중엔 비디오 텍스처가 비어 균일색이 되고, 크로마 마스크를 통과 못 해
             //   판 전체가 붉게 칠해졌다(유저 스샷). 현재 프레임 그대로 얼리는 게 안전하다.
-            co._holdUntil = now + 1000; co.video.pause();
+            co._holdUntil = now + STEP_HOLD * 1000; co.video.pause();
           } else {
             if (co.video.currentTime < a - 0.05) { try { co.video.currentTime = a; } catch (e) {} }
             if (co.video.paused) co.video.play().catch(() => {});
@@ -4123,7 +4123,7 @@ void main(){
       // A2/A3 = 2단계 흐름(유저): [0~5s 관찰] 봇은 가만히 서서(idle) 전문가 영상 보기 → [5s~ 따라하기].
       // 뉴턴 전환 문법(유저 확정): 시범(영상만·도트바) → 마크 Preview 워밍 등장+음성 → 따라하기.
       //   3·2·1은 실전 트리거(C1) 전용 — 학습 내 전환엔 안 씀(복싱 문법과 통일).
-      const A2_WATCH = /^BK_B[2345]$/.test(session.stage || '') ? 5.0 : 3.0;   // 시범 = 기본 3초, 스텝백 4페이즈만 5초(유저) — floor-scene.html PV와 동기
+      const A2_WATCH = stepPreviewSec(session.stage) || 3.0;   // 스텝백 = 영상 루프 STEP_LOOPS회, 그 외 3초 — floor-scene.html pv와 동기
       const BK_A1_RATE = 1.55;   // 옆구리 봇 배속(코치 영상 페이스 맞춤) — 시각 캘리브레이션 노브
       const _watchWin = /^(A2|A3|BK_A[23]|BK_B[12345])$/.test(session.stage || '') && !session._followLatch;   // 훈련 단계만 관찰5초→따라하기
       if (/^BK_C/.test(session.stage || '')) session._followLatch = true;   // 실전은 관찰 없음(바로 시작)
@@ -4954,6 +4954,12 @@ void main(){
     READY: { src: 'ready-view/floor.html', w: 1600, h: 2670 },        // 러닝 시작 (세로) — 2m 안정투사 꽉 채움
     BK_READY: { src: 'ready-view/floor-bk.html', w: 1600, h: 2670 },  // 농구 시작 — 러닝 첫화면 이식(폭은 균일스케일 자동 조정)
   };
+  // 스텝백 4페이즈 = 코치 영상 누적 구간(초). 프리뷰 길이도 여기서 파생한다(초가 아니라 '영상 루프 N회').
+  //   한 루프 = 구간/배속 + 끝프레임 정지 1초.  프리뷰 = STEP_LOOPS 루프.
+  const STEP_SEG = { BK_B2: 0.60, BK_B3: 1.47, BK_B4: 1.81, BK_B5: 3.10 };
+  const STEP_RATE = 0.5, STEP_HOLD = 1.0, STEP_LOOPS = 2;
+  const stepLoopSec = id => (STEP_SEG[id] ? STEP_SEG[id] / STEP_RATE + STEP_HOLD : 0);
+  const stepPreviewSec = id => stepLoopSec(id) * STEP_LOOPS;
   // 운동중 A/B/C 지면 화면 — 세로 공통 프레임(floor-scene.html)에 stage 주입. 시작화면과 달리 중앙 발자국은 유지.
   for (const id of ['A1', 'A2', 'A3', 'P1', 'P2', 'P3', 'C2', 'C3', 'C4', 'C5',
                     'BK_A1', 'BK_A2', 'BK_A3', 'BK_B1', 'BK_B2', 'BK_B3', 'BK_B4', 'BK_B5', 'BK_C2', 'BK_C3', 'BK_C4']) {
@@ -5216,7 +5222,9 @@ void main(){
         floorWrap.style.width = fView.w + 'px';    // 래퍼가 CSS3D 변환·크기의 주체
         floorWrap.style.height = fView.h + 'px';
         const dur = STAGE_DUR[session.curStage?.id] ?? session.curStage?.dur ?? 8;
-        const durSuffix = fView.src.includes('floor-scene.html') ? '&dur=' + dur : '';
+        const _sid2 = session.curStage?.id;
+        const pvSuffix = stepPreviewSec(_sid2) ? `&pv=${stepPreviewSec(_sid2).toFixed(2)}&pvn=${STEP_LOOPS}` : '';
+        const durSuffix = fView.src.includes('floor-scene.html') ? '&dur=' + dur + pvSuffix : '';
         // 더블 버퍼 교체 — 새 문서는 뒤 버퍼(shadow div)에 주입되고, 완성된 뒤에만 앞으로 나온다(검은 공백 0)
         const back = floorIframeBack;
         back.style.width = fView.w + 'px';
