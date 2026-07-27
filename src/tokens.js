@@ -558,7 +558,10 @@ export function makeFlowArrow(len, { tips = 1, wall = false } = {}) {   // 단�
   const g = new THREE.Group();
   const mat = makeLaneFXMaterial(len);
   mat._arrowStyle = true;   // 스타일 = FXP.arrow.line (레인과 분리 — 유저 확정)
-  const shaft = new THREE.Mesh(new THREE.PlaneGeometry(0.16, len), mat);
+  // 자루 폭은 길이 비례 — 고정 0.16m이면 짧은 화살표(0.6m)에서 폭이 길이의 27%라 '굵은 막대'로 보였다.
+  // 랩 프리뷰 비율(선 ≈ 경로의 2%, 촉 ≈ 13%)에 맞춤: 폭 = len·0.10 → 촉:선 ≈ 8:1 (랩 7:1과 같은 급).
+  const shaftW = Math.min(0.16, Math.max(0.045, len * 0.10));
+  const shaft = new THREE.Mesh(new THREE.PlaneGeometry(shaftW, len), mat);
   shaft.position.y = len / 2;
   g.add(shaft);
   g._mat = mat; g._len = len; g._tips = [];

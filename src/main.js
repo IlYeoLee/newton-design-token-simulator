@@ -1348,6 +1348,14 @@ void main(){
     const frame = document.getElementById('fxlab-frame');
     let lastJson = savedLab ? JSON.stringify(savedLab) : '';
     let saveTimer = null;
+    // 룩 저장 = rev 보존이 필수. 랩 스냅샷(labSnapshot)엔 rev가 없어서 저장할 때마다 rev가 사라지고,
+    // 다음 로드의 룩 리비전 검사(`lab.rev !== dlab.rev`)가 '구버전'으로 판정해 유저가 편집한 룩을
+    // design-default.json으로 통째 되돌렸음 (유저: '새로고침하면 룩 적용된 게 초기화돼').
+    const saveLab = (st) => {
+      const cur = designStore.globalGet('fx', 'lab', null);
+      const withRev = (st.rev == null && cur?.rev != null) ? { ...st, rev: cur.rev } : st;
+      designStore.globalSet('fx', 'lab', withRev); designStore.save();
+    };
     openFxLab = () => {
       if (!frame.src) frame.src = `${BASE}fxlab.html`;   // 최초 열 때 로드
       overlay.style.display = 'block';
@@ -1374,7 +1382,7 @@ void main(){
         applyLabState(d.state);
         updateSurfChips(d.state?.bg || 'none');
         clearTimeout(saveTimer);
-        saveTimer = setTimeout(() => { designStore.globalSet('fx', 'lab', d.state); designStore.save(); }, 400);
+        saveTimer = setTimeout(() => saveLab(d.state), 400);
       }
     });
     // 별도 탭에서 연 룩 시스템(standalone fxlab)은 postMessage 부모가 없어 자기 localStorage에만 저장 →
@@ -1388,7 +1396,7 @@ void main(){
       applyLabState(st);
       updateSurfChips(st?.bg || 'none');
       clearTimeout(saveTimer);
-      saveTimer = setTimeout(() => { designStore.globalSet('fx', 'lab', st); designStore.save(); }, 400);
+      saveTimer = setTimeout(() => saveLab(st), 400);
     });
   }
 
