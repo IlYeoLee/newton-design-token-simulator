@@ -50,21 +50,21 @@ html,body{background:transparent}
 @keyframes sUpFlat{from{opacity:0;transform:scale(.94)}to{opacity:1;transform:scale(1)}}
 
 /* A 미리보기(프리뷰) — Figma 122:270 정확 이식: 타이틀 + [Preview 필(둥근 배경+화살표) · 타이머 링] 가로 행.
-   링 = floor-timer(52-3084) 문법(점선 트랙+아크+회전 팁+중앙 숫자). 시범 3초, 끝나면 페이드아웃. */
+   링 = floor-timer(52-3084) 문법(점선 트랙+아크+회전 팁+중앙 숫자). 시범 = --pv초, 끝나면 페이드아웃. */
 @font-face{font-family:'OffBit';src:url('../fonts/OffBitTrial-DotBold.woff2') format('woff2');font-weight:700;font-display:block}
 /* Figma 122:270 프리뷰 행 = 콘텐츠 컬럼의 자식(타이틀 바로 아래 gap 40). [Preview 필 · 타이머 링] 가로. */
 #follow-view{display:flex;flex-direction:column;align-items:center;gap:56px;margin-top:26px;animation:sUpFlat .5s both}
 #fv-vid{width:1180px;height:560px;background:transparent}   /* 프레임 박스 제거(유저) — 자리만 확보 */
 #prev-row{display:flex;gap:120px;align-items:center;justify-content:center;
-  opacity:0;animation:sUpFlat .5s .2s both, demoOutFlat .45s 3.05s both}
+  opacity:0;animation:sUpFlat .5s .2s both, demoOutFlat .45s var(--pvOut,3.05s) both}
 #prev-pill{display:flex;align-items:center;gap:20px;background:rgba(255,255,255,.14);border-radius:999px;padding:20px 30px 20px 40px}
 #prev-pill .pv{font-family:'Supreme',sans-serif;font-weight:700;font-size:60px;color:#fff;white-space:nowrap;line-height:1}
 #prev-pill svg{width:60px;height:60px;flex:0 0 auto}
 #prev-ring{position:relative;width:200px;height:200px}   /* Figma 200×200 통일 */
 #prev-ring svg.rg{position:absolute;inset:0;width:100%;height:100%}
-#prev-ring .arc{stroke-dasharray:1727.9;stroke-dashoffset:1727.9;animation:arcFill 3s .15s linear both}
+#prev-ring .arc{stroke-dasharray:1727.9;stroke-dashoffset:1727.9;animation:arcFill var(--pv,3s) .15s linear both}
 @keyframes arcFill{from{stroke-dashoffset:1727.9}to{stroke-dashoffset:0}}
-#prev-ring .tip{position:absolute;inset:0;transform-origin:center;animation:tipSpin 3s .15s linear both}
+#prev-ring .tip{position:absolute;inset:0;transform-origin:center;animation:tipSpin var(--pv,3s) .15s linear both}
 #prev-ring .tip img{position:absolute;left:50%;top:-3px;width:28px;height:28px;transform:translateX(-50%);
   filter:drop-shadow(0 0 8px rgba(250,48,48,.6))}
 @keyframes tipSpin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
@@ -76,7 +76,7 @@ html,body{background:transparent}
 #spm-lbl span{font-weight:500;font-size:56px;color:rgba(255,255,255,.72);margin-left:14px}
 #next-lbl{position:absolute;top:104px;left:0;right:0;text-align:center;font-family:'Supreme',sans-serif;font-weight:700;font-size:54px;
   letter-spacing:8px;color:rgba(255,255,255,.8);opacity:0;
-  animation:sUpFlat .5s .1s both, demoOutFlat .45s 3.05s both}
+  animation:sUpFlat .5s .1s both, demoOutFlat .45s var(--pvOut,3.05s) both}
 @keyframes demoOutFlat{to{opacity:0}}
 
 /* 러닝 학습(P) — Figma 122-308 정확 이식(유저 배치): 타이틀=구간명 + 도트 프로그래스 + [내SPM/전문가SPM · 링] 가로 행.
@@ -191,6 +191,10 @@ html,body{background:transparent}
   if (/^(A2|A3|BK_A[23]|BK_B[12345])$/.test(stage)) {
     // Figma 122:270 정확 이식 — 타이틀(#s-title) 아래 [Preview 필 + 타이머 링] 가로 행. 시범 3초 카운트다운.
     // (BK_A3 스쿼트 = 러닝 A2/A3와 동일 관찰5초→따라하기 UI)
+    // 시범 길이 = 스텝백 4페이즈만 5초(동작이 길어 3초로는 못 따라함, 유저), 나머지는 3초.
+    const PV = /^BK_B[2345]$/.test(stage) ? 5 : 3;
+    document.documentElement.style.setProperty('--pv', PV + 's');
+    document.documentElement.style.setProperty('--pvOut', (PV + 0.05) + 's');
     const row = document.createElement('div'); row.id = 'prev-row';
     row.innerHTML = `
       <div id="prev-pill">
@@ -203,13 +207,13 @@ html,body{background:transparent}
           <circle class="arc" cx="302" cy="302" r="275" fill="none" stroke="#fff" stroke-width="11" stroke-linecap="round" transform="rotate(-90 302 302)"/>
         </svg>
         <div class="tip"><img src="assets/timer_tip.svg" alt=""></div>
-        <div id="prev-num">3</div>
+        <div id="prev-num">${PV}</div>
       </div>`;
-    // 컬럼: 타이틀 → 프리뷰 행(도트 슬롯 자리). 시범 동안 도트는 숨김(공간도 차지 X) → 3s 뒤 프리뷰 사라지고 도트가 그 자리로.
+    // 컬럼: 타이틀 → 프리뷰 행(도트 슬롯 자리). 시범 동안 도트는 숨김(공간도 차지 X) → PV초 뒤 프리뷰 사라지고 도트가 그 자리로.
     const dots = $('s-dots');
     document.getElementById('content').insertBefore(row, dots);
     dots.style.display = 'none';
-    let n = 3;
+    let n = PV;
     const iv = setInterval(() => { n--; if (n < 1) { clearInterval(iv); return; }
       document.getElementById('prev-num').textContent = n; }, 1000);
     setTimeout(() => {
@@ -225,8 +229,8 @@ html,body{background:transparent}
         // 영상 자리는 박스로만 잡는다 — 실제 그림은 3D 코치 패널(크로마키+룩 LUT)이 이 위에 얹힌다.
         //   HTML <video>로는 프리뷰에서 보던 실루엣(셰이더 결과)을 재현할 수 없다.
       }
-    }, 3100);
-    const clip = document.querySelector('.dclip'); if (clip) clip.style.animationDelay = '3.15s';
+    }, PV * 1000 + 100);
+    const clip = document.querySelector('.dclip'); if (clip) clip.style.animationDelay = (PV + 0.15) + 's';
   }
 
 
