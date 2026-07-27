@@ -4044,6 +4044,7 @@ void main(){
       xbot.stanceWiden = /^BK_B[13]$/.test(session.stage || '') ? 1 : 0;   // B2는 절차 드릴이 스탠스 소유
       xbot.crossGuard = 0;   // 절차 드릴이 가드 팔까지 저작 — 덧대기 보정 은퇴
       xbot.legLock = session.stage === 'BK_B2' || session.stage === 'BK_C2';   // 크로스오버 = 하체 완전 고정(굽힌 자세 스냅샷, 유저) — 실측 표류 0.06m 기법
+      xbot.uDribble = session.stage === 'BK_B2' || session.stage === 'BK_C2';   // 공 = 박자 결정론 U자(좌우 손바닥 왕복, 유저 확정)
       // 세션 데모(비실전) 공통: CMU 클립이 몸을 돌려도 봇은 정면 유지(유저 원칙)
       xbot.lockYaw = session.active && !session.isLive && /^BK_[AB]/.test(session.stage || '');
       let _clip = demoClipFor(session.sport, session.stage);
@@ -4822,6 +4823,21 @@ void main(){
     const sr = buf.shadowRoot;
     sr.innerHTML = '';
     const abs = rel => new URL(rel, new URL(url, location.href)).href;
+    // 런타임 상대경로 리베이스 — 주입 스크립트가 img.src='assets/…'를 넣으면 메인 문서 기준으로
+    // 풀려 404(전환 카드 일러스트 소실, 유저). 셰도루트 옵저버로 상대 src를 프레임 기준 절대화.
+    buf._srcObs?.disconnect();
+    const rebaseImg = (el) => {
+      if (el.tagName !== 'IMG') return;
+      const v = el.getAttribute('src');
+      if (v && !/^(https?:|data:|\/)/.test(v)) el.src = abs(v);
+    };
+    buf._srcObs = new MutationObserver(ms => {
+      for (const m of ms) {
+        if (m.type === 'attributes') rebaseImg(m.target);
+        for (const n of m.addedNodes || []) { if (n.nodeType === 1) { rebaseImg(n); n.querySelectorAll?.('img[src]').forEach(rebaseImg); } }
+      }
+    });
+    buf._srcObs.observe(sr, { subtree: true, childList: true, attributes: true, attributeFilter: ['src'] });
     for (const st of srcDoc.querySelectorAll('style')) {
       for (const face of st.textContent.match(/@font-face\s*{[^}]*}/g) || []) {
         const rebased = face.replace(/url\('([^']+)'\)/g, (m, u) => `url('${abs(u)}')`);

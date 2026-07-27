@@ -923,6 +923,31 @@ export class XBot {
     }
 
     let x, y, z, squash = 0;
+    // ── U자 결정론 모드(uDribble, main B2/C2 구동 — 유저 확정): 공은 '무조건' 일정 박자로
+    //    왼손바닥 ↔ 오른손바닥을 U자로 왕복한다. 끝단 12%는 손 밀착(드웰), 꼭짓점은 두 손 중앙 바닥.
+    //    손 신호 검출(노이즈)에 의존하지 않아 박자·형태가 절대 안 깨진다. 손 위치는 라이브 추적.
+    if (this.uDribble) {
+      const PER = 0.8, DW = 0.12;
+      S.uT = (S.uT ?? 0) + dt;
+      const cyc = S.uT % (PER * 2);
+      const goingR = cyc < PER;
+      const q = (goingR ? cyc : cyc - PER) / PER;
+      const from = palm(goingR ? 'L' : 'R'), to = palm(goingR ? 'R' : 'L');
+      const fy = Math.max(r, from.y), ty2 = Math.max(r, to.y);
+      if (q < DW) { x = from.x; y = fy; z = from.z; }
+      else if (q > 1 - DW) { x = to.x; y = ty2; z = to.z; }
+      else {
+        const u = (q - DW) / (1 - 2 * DW);
+        const vx2 = (from.x + to.x) / 2, vz2 = (from.z + to.z) / 2;
+        if (u < 0.5) { const k = u / 0.5; y = fy - (fy - r) * k * k; x = from.x + (vx2 - from.x) * k; z = from.z + (vz2 - from.z) * k; }
+        else { const k = (u - 0.5) / 0.5; y = r + (ty2 - r) * (1 - (1 - k) * (1 - k)); x = vx2 + (to.x - vx2) * k; z = vz2 + (to.z - vz2) * k; if (k < 0.2) squash = 1 - k / 0.2; }
+      }
+      if (this._hips) { const hz3 = this._hips.matrixWorld.elements[14]; z = Math.min(z, hz3 - 0.26); }
+      const sy2 = 1 - 0.32 * squash, sxz2 = 1 + 0.24 * squash;
+      ball.scale.set(sxz2, sy2, sxz2);
+      ball.position.set(x, Math.max(0, y - r) + r * sy2, z);
+      return;
+    }
     if (S.mode === 'carry') {
       const p = palm(S.hnd);
       x = p.x; y = Math.max(r, p.y); z = p.z;
