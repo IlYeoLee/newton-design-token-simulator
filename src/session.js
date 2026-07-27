@@ -561,11 +561,14 @@ export class Session {
   beamUV(u, v) {
     const r = this.rig, fp = r?._fp;
     if (!fp) return { x: u * 0.5, z: -2.0 - v * 1.2 };
-    const M = 0.16;                                    // 가장자리 페더 여유(알파가 깎이는 구간)
+    const M = 0.18;                                     // 가장자리 페더 여유
     const d = r.fpNear + M + (r.fpFar - r.fpNear - M * 2) * v;
     const half = r._halfAt(d) - M;
-    const worldZ = fp.oz - d;                          // 전방 = -z
-    return { x: u * half, z: worldZ - (this.root?.position.z ?? 0) - this._beamZOff };
+    // 월드 z를 세션 로컬로 되돌린다. 보정을 상수로 두면 창 밖으로 새므로(실측 dist 2.02)
+    //   루트 위치를 빼서 매번 계산 — 이러면 어떤 스테이지에서도 창 안이 보장된다.
+    const worldZ = fp.oz - d;
+    const rootZ = this.root?.position.z ?? 0;
+    return { x: fp.ox + u * half, z: worldZ - rootZ };
   }
 
   _beamFade(rig) {
@@ -2173,11 +2176,13 @@ export class Session {
       H.rise.position.x = landX;
       // 점등 = 항상 '다음 목표 하나'. 실전은 시작→착지→상승 링 릴레이만 남긴다(유저 확정).
       const pk = Math.max(0, 1 - (this.t - H._popT) / 0.25);
+      // 피그마 훈련01~04(141:204/230/252/274)의 L·R 마크 좌표를 프레임 폭 1600 기준으로 정규화한 값.
+      //   u = 가로(-1~1), dv = 앞뒤 오프셋. 임의 배치가 아니라 레퍼런스 실좌표다.
       const POSE = {
-        BK_B2: { L: [-0.20, 0.00], R: [0.20, 0.00] },
-        BK_B3: { L: [-0.10, 0.26], R: [0.30, -0.12] },
-        BK_B4: { L: [-0.48, 0.10], R: [0.22, -0.16] },
-        BK_B5: { L: [-0.13, 0.00], R: [0.13, 0.00] },
+        BK_B2: { L: [-0.193, 0.222], R: [0.090, 0.218] },   // 나란히, 살짝 앞
+        BK_B3: { L: [-0.530, 0.000], R: [0.200, -0.240] },  // R 앞·L 뒤(오른발 딛고 드리블)
+        BK_B4: { L: [-0.530, 0.000], R: [0.124, -0.240] },  // L 크게 벌림(왼발 뻗어 공 잡기)
+        BK_B5: { L: [-0.530, 0.000], R: [-0.325, -0.003] }, // 모음(슛 준비)
       }[id];   // 실전(C2)은 제외 — 마크 릴레이 방식 유지
       H.mR.setOp?.(POSE ? 0 : (H.beat === 0 ? 0.5 : 0));
       H.mC.setOp?.(POSE ? 0 : (H.beat === 1 ? 0.5 : 0));
@@ -2241,13 +2246,23 @@ export class Session {
       //   1) 무릎 구부려 넣는 척: L·R 나란히 어깨너비   2) 오른발 딛고 드리블: R 앞·L 뒤, 공은 왼쪽
       //   3) 왼발 뻗으며 공 잡기: L 크게 왼쪽·R 제자리   4) 오른발 모으며 슛: L·R 모음
       if (POSE) {
-        // 공통 배치 규칙(beamUV): 발자국은 창 하단(v 0.22) — 실측 스탠스 폭은 u로 정규화해 담는다.
-        //   u = 실측 x / 0.55 (최대 스탠스 반폭). 창을 벗어나 사라지던 문제를 좌표계로 끝낸다.
-        const V = 0.22, U = 0.55;
-        const L = this.beamUV(POSE.L[0] / U, V + POSE.L[1] * 0.10);
-        const R = this.beamUV(POSE.R[0] / U, V + POSE.R[1] * 0.10);
-        H.fRl.at(L.x, L.z, 0.78);
-        H.fRr.at(R.x, R.z, 0.78);
+        // 룩 시스템 판정 토큰(FootMark) — 피그마 배치 '비율'만 가져오고 좌표는 투사창 안에서 만든다.
+        //   픽셀을 그대로 옮기면 창 밖(dist>far)으로 새어 사라졌다(실측 2.02) — 유저 지적대로 비율 방식.
+        const V = 0.26, DV = 0.22;
+        const L = this.beamUV(POSE.L[0], V + POSE.L[1] * DV);
+        const R = this.beamUV(POSE.R[0], V + POSE.R[1] * DV);
+        // 그룹마다 부모 변환이 달라 같은 로컬 z가 월드에서 달라진다(실측: B3 -3.0 / B5 -4.25).
+        //   부모 오프셋을 실측해 빼고 앉힌다 — 네 단계가 동일하게 투사창 안으로 들어온다.
+        const setW = (fm, wx, wz) => {
+          const g = fm.group, p0 = g.position.clone();
+          g.position.set(0, 0.013, 0); g.updateMatrixWorld(true);
+          const o = new THREE.Vector3(); g.getWorldPosition(o);   // 부모가 만든 오프셋
+          g.position.set(wx - o.x, 0.013, wz - o.z);
+          g.scale.setScalar(0.86);
+          void p0;
+        };
+        setW(H.fRl, L.x, L.z);
+        setW(H.fRr, R.x, R.z);
       }
       const BEATN = { BK_B2: ['① 무릎 구부리고', '② 낮은 자세 유지', '③ 들어가는 척!', '④ 그대로 준비'],
         BK_B3: ['① 준비', '② 오른발 딛고', '③ 공을 왼쪽으로!', '④ 시선 유지'],
