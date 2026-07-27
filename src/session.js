@@ -558,6 +558,15 @@ export class Session {
   /** 투사창 정규좌표 → 세션 로컬 좌표. u(-1~1)=가로, v(0~1)=근거리→원거리.
    *  창 밖으로 나가 토큰이 사라지던 사고를 끝내려고 만든 단일 규칙 — 모든 훈련 UI가 이걸 쓴다.
    *  실측(rig): near 0.3 / far 1.9 / 반폭 0.55~0.85, 세션 루트→월드 z 오프셋 -1.25 */
+  // 빔 창 정규좌표(u -1~1, v 0=가까움~1=멂) → 주어진 참조 오브젝트와 같은 그룹의 로컬 좌표.
+  //   그룹마다 부모 오프셋이 달라 로컬 z를 손으로 계산하면 창 밖으로 나간다(실측 fade 0.00).
+  _beamLocal(u, v, ref) {
+    const w = this.beamUV(u, v), rz = this.root?.position?.z ?? 0;
+    const wp = new THREE.Vector3(); ref.getWorldPosition(wp);
+    const g = ref.position || ref.group.position;
+    return { x: w.x - (wp.x - g.x), z: (w.z + rz) - (wp.z - g.z) };
+  }
+
   beamUV(u, v) {
     const r = this.rig, fp = r?._fp;
     if (!fp) return { x: u * 0.5, z: -2.0 - v * 1.2 };
@@ -2118,13 +2127,17 @@ export class Session {
       const TGT = [0.55, 0, -0.55][Math.min(H.beat, 2)];
       // 따라하기 화면(143:444) = 코치 영상 아래 L·R 마크 한 쌍 + 좌 ↓ / 우 ↑.
       //   비트 릴레이(존 3개)는 이 단계에선 안 쓴다 — 1/4은 '자리 잡고 망설이기'다.
-      const MZ = H.mL.position.z + 0.45, W = Math.PI * 2 / 1.6;
+      const W = Math.PI * 2 / 1.6, V = 0.34;   // v=0.34 = 영상 아래 줄(더 앞은 창 코앞이라 마크가 거대해진다)
       const bL = Math.sin(this.t * W), bR = Math.sin((this.t - 0.18) * W);
-      H.sL2.at(-0.17, MZ, 0.62 + 0.04 * bL); H.sL2.op(0.80 + 0.20 * bL);
-      H.sR2.at(0.17, MZ, 0.62 + 0.04 * bR); H.sR2.op(0.80 + 0.20 * bR);
+      const pL = this._beamLocal(-0.34, V, H.mL), pR = this._beamLocal(0.34, V, H.mL);
+      H.sL2.countdown(1); H.sR2.countdown(1);
+      H.sL2.at(pL.x, pL.z, 0.62 + 0.04 * bL); H.sL2.op(0.80 + 0.20 * bL);
+      H.sR2.at(pR.x, pR.z, 0.62 + 0.04 * bR); H.sR2.op(0.80 + 0.20 * bR);
       for (const k of ['sL1', 'sR1']) H[k].op(0);
       for (const k of ['mL', 'mC', 'mR']) H[k].setOp?.(0);
       H.cL.op(0); H.cR.op(0);
+      const aD = this._beamLocal(-0.92, V, H.mL), aU = this._beamLocal(0.92, V, H.mL);
+      H.aD.position.set(aD.x, 0.014, aD.z); H.aU.position.set(aU.x, 0.014, aU.z);
       H.aD._gain = 0.30 + 0.60 * Math.max(0, bL);
       H.aU._gain = 0.30 + 0.60 * Math.max(0, -bL);
       H.rise.setOp?.(H.beat === 3 ? 0.85 : 0);
@@ -2259,18 +2272,24 @@ export class Session {
       if (POSE) {
         // 따라하기 = 1/4(B2)과 같은 규약 — 코치 영상 아래 L·R 마크 한 쌍 + 방향 화살표.
         //   전부 룩시스템 토큰(FootMark / makeFlowArrow). 좌표는 피그마 POSE를 페어 중심 기준으로 폈다.
-        const MZ = H.mL.position.z + 0.45, W = Math.PI * 2 / 1.6, K = 1.2;
+        const W = Math.PI * 2 / 1.6, V = 0.34, K = 2.2;   // v=0.34 = 영상 아래 줄
         const cx = (POSE.L[0] + POSE.R[0]) / 2;
-        const xL = (POSE.L[0] - cx) * K, xR = (POSE.R[0] - cx) * K;
+        const uL = Math.max(-0.92, Math.min(0.92, (POSE.L[0] - cx) * K));
+        const uR = Math.max(-0.92, Math.min(0.92, (POSE.R[0] - cx) * K));
         const bL = Math.sin(this.t * W), bR = Math.sin((this.t - 0.18) * W);   // 들썩 — 오른발 한 박자 늦게
-        H.fRl.at(xL, MZ + POSE.L[1] * 0.45, 0.62 + 0.04 * bL); H.fRl.op(0.80 + 0.20 * bL);
-        H.fRr.at(xR, MZ + POSE.R[1] * 0.45, 0.62 + 0.04 * bR); H.fRr.op(0.80 + 0.20 * bR);
+        const pL = this._beamLocal(uL, V + POSE.L[1] * 0.10, H.mL);
+        const pR = this._beamLocal(uR, V + POSE.R[1] * 0.10, H.mL);
+        H.fRl.countdown(1); H.fRr.countdown(1);   // 헤일로 완전 수축 = 번짐 없는 실루엣
+        H.fRl.at(pL.x, pL.z, 0.62 + 0.04 * bL); H.fRl.op(0.80 + 0.20 * bL);
+        H.fRr.at(pR.x, pR.z, 0.62 + 0.04 * bR); H.fRr.op(0.80 + 0.20 * bR);
         for (const k of ['fC', 'fLl', 'fLr']) H[k]?.op(0);
         for (const k of ['mL', 'mC', 'mR']) H[k].setOp?.(0);
         H.rise.setOp?.(0); H.gh.op(0); H.cL?.op(0); H.cR?.op(0);
         // 화살표 = 그 단계에서 '움직이는 발'이 가는 쪽 (B5는 슛 = 위로)
-        const AR = { BK_B3: [xR - 0.32, -90], BK_B4: [xL + 0.32, 90], BK_B5: [(xL + xR) / 2, 0] }[id];
-        if (AR) { H.a1.position.set(AR[0], 0.014, MZ);
+        const AR = { BK_B3: [Math.min(0.98, uR + 0.5), -90], BK_B4: [Math.max(-0.98, uL - 0.5), 90],
+          BK_B5: [(uL + uR) / 2, 0] }[id];
+        if (AR) { const pa = this._beamLocal(AR[0], V, H.mL);
+          H.a1.position.set(pa.x, 0.014, pa.z);
           H.a1.rotation.z = THREE.MathUtils.degToRad(AR[1]);
           H.a1._gain = 0.35 + 0.55 * Math.max(0, bL); }
         H.a2._gain = 0;
