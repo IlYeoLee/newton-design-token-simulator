@@ -912,7 +912,7 @@ export class Session {
       if (id === 'BK_B3') {
         // 2/4 전용(레퍼런스): 오른발이 가는 '대각선 궤적' = 궤적 토큰 정본(LINE 광류 + 코멧 헤드 + 스파크,
         //   drawTrajectory). 화살표로는 '휙 들어간다'가 안 읽힌다(유저) — 코멧이 경로를 훑어야 한다.
-        H.tj = primPanel('trajectory', 1.05, false);
+        H.tj = primPanel('trajectory', 0.52, false);   // 훨씬 작게(유저)
         // 훅 궤적(레퍼런스): 근거리 좌 → 오른쪽으로 크게 돌아 → 원거리 좌로 감아 들어온다.
         H.tj._prim.pts = [[-0.92, 0.86], [0.28, 0.60], [0.88, 0.02], [0.34, -0.60], [-0.80, -0.82]];
         // width 1.5는 너무 굵다(유저) → 0.7. tempo = 사이클(스윕 0.5s + 소멸) 기준.
@@ -2218,11 +2218,12 @@ export class Session {
         H._rEz = ez;   // 오른발 모션이 궤적 코멧과 같은 위상을 쓴다
         const pt = this._beamLocal(0.30, VV + 0.07, H.mL);      // 패널 중심 = 경로 중간
         H.tj.position.set(pt.x, 0.017, pt.z);
-        const pw = this._beamLocal(0, VV - 0.06, H.mL);          // 파형 = 중앙 앞쪽(유저)
+        const pw = this._beamLocal(0, VV + 0.08, H.mL);          // 파형 = 중앙, 조금 위(유저)
         H.wvA.position.set(pw.x, 0.014, pw.z);
         if ((H._wvCyc ?? 1) > cyc) {   // 사이클 시작 = 궤적 사이클 리셋 + 작은 파문(soft 0.32m) 1회
           H.tj._prim.t0 = performance.now() / 1000;   // tickPrims와 같은 시계(tjTrigger 규약)
-          const wp = new THREE.Vector3(); H.wvA.getWorldPosition(wp); this.onPress?.(wp, true);
+          const wp = new THREE.Vector3(); H.wvA.getWorldPosition(wp);
+          this.onBurst?.(wp, 0.18);   // 작은 파문 — soft(0.32m)보다 더 작게(유저)
         }
         H._wvCyc = cyc;
         // 스윕(0.5s) → 소멸(꼬리가 헤드로 수렴하며 증발) 후에는 숨긴다. 다음 사이클에 다시 그린다.

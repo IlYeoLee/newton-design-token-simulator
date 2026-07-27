@@ -1025,6 +1025,9 @@ void main(){
     else if (type === 'downshift') { showCaption('시스템', '폼이 흔들려요 — 익히기로 되돌립니다.'); wearPulse('#fec389', 1600); }
   };
   session.onPress = _pressBurst;   // 프레스 완료 버스트 연결
+  // 크기 지정 파문 — 세션이 반경(m)을 직접 정할 때(2/4 작은 파형 등)
+  session.onBurst = (wp, sizeM) => effects.burst(wp, 0xfec389, new THREE.Vector3(0, 1, 0),
+    { intensity: 0.22, sizeM: sizeM || 0.32 });
   // 실전 러닝 플로어 UI 5안 모듈 — C 라이브에서만 렌더 루프가 update
   const liveUI = new LiveUI(scene, tokens, rig);
   liveUI.onLand = wp => effects.burst(wp, 0xfec389, new THREE.Vector3(0, 1, 0), { intensity: 0.6, sizeM: 0.5 });   // 인트로 '꽂힘' 버스트
