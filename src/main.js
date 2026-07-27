@@ -4037,9 +4037,7 @@ void main(){
       BK_B3: 'bkStance', BK_B4: 'bkStance', BK_B5: 'bkStance',   // 스텝백 4단계 — 폭·크라우치는 sbWidth
       BK_C2: 'bkStance',              // 실전 — 릴리즈는 판정으로
     };
-    // 실전(C)·리포트(FIN)는 전 팩 공통으로 기본 서있는 자세(유저). 단 농구 실전 마지막은
-    //   봇이 실제로 슛을 넣으며 끝난다(유저) — session.bkShotNow가 그 순간을 알려준다.
-    if (id === 'BK_C2' && session.bkShotNow) return 'cmu_crossover_shot';
+    // 실전 대기(C1)부터 실전 종료·리포트까지 봇은 가만히 서 있는다(유저). 동작 연출 없음.
     if (/^(BK_)?C\d$/.test(id) || /^BX_C\d$/.test(id) || /FIN$/.test(id)) return 'idle';
     if (DRILL[id] && xbot.actions[DRILL[id]]) return DRILL[id];
     if (sport === 'basketball') return 'dribble';           // 그 외 제자리 드리블
@@ -4149,7 +4147,7 @@ void main(){
       xbot.relaxLeftArm = (session.stage || '') === 'BK_B1';   // 로우 드리블 — 오른손만 드리블, 왼팔 자연 축 내림
       xbot.phaseDribble = (session.stage || '') === 'BK_B1';   // 공 = 오른손 높이 직결(최고=손, 최저=바닥)
       // 세션 데모(비실전) 공통: CMU 클립이 몸을 돌려도 봇은 정면 유지(유저 원칙)
-      xbot.lockYaw = session.active && !session.isLive && /^BK_[AB]/.test(session.stage || '');
+      xbot.lockYaw = session.active && /^BK_([AB]|C)/.test(session.stage || '');   // 실전에서도 정면 유지(유저)
       let _clip = demoClipFor(session.sport, session.stage);
       // A2/A3 = 2단계 흐름(유저): [0~5s 관찰] 봇은 가만히 서서(idle) 전문가 영상 보기 → [5s~ 따라하기].
       // 뉴턴 전환 문법(유저 확정): 시범(영상만·도트바) → 마크 Preview 워밍 등장+음성 → 따라하기.
