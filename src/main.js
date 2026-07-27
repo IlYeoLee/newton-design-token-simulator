@@ -2288,6 +2288,9 @@ void main(){
     return co;
   }
   let _coachSeekId = null, _coachSeekT0 = null;   // BK_A1 진입 시 시크 래치(+타임아웃)
+  // 스텝백 프리뷰 = '영상 N회 재생'. 벽시계로 재면 배속·시작 위상·버퍼링에 어긋난다 —
+  //   실제 재생 위치에서 루프 수와 진행률을 뽑아 타이머(링·분수)와 관찰 종료를 같은 값으로 구동한다.
+  let _stepId = null, _stepLoops = 0, _stepFrac = 0;
   function tickA1Coach() {
     // 어떤 스테이지 코치를 켤지: 러닝 A1·농구 워밍업 전부 = 전 구간 상시, 러닝 A2/A3 = 시범(관찰) 중에만.
     const st = session.active && !session.isLive && (state.pack === 'running' || state.pack === 'basketball') ? session.stage : null;
@@ -2329,11 +2332,17 @@ void main(){
           const [a, b] = PHW;
           if (co.video.playbackRate !== STEP_RATE) co.video.playbackRate = STEP_RATE;   // 스텝백 4페이즈만 저배속(유저)
           const now = performance.now();
+          if (_stepId !== id) {   // 단계 진입 = 루프 카운터 리셋 + 구간 처음부터
+            _stepId = id; _stepLoops = 0; _stepFrac = 0;
+            co._holdUntil = 0; try { co.video.currentTime = a; } catch (e) {}
+          }
+          _stepFrac = co._holdUntil ? 1 : Math.max(0, Math.min(1, (co.video.currentTime - a) / Math.max(0.05, b - a)));
           if (co._holdUntil) {
             // 마지막 프레임 1초 정지 후 처음으로 되감아 루프(유저)
             if (now >= co._holdUntil) { co._holdUntil = 0; try { co.video.currentTime = a; } catch (e) {} co.video.play().catch(() => {}); }
             else co.video.pause();
           } else if (co.video.currentTime >= b - 0.033) {
+            _stepLoops += 1;   // 구간 끝 도달 = 1회 재생 완료
             // 30fps라 정확히 b에서 멈출 수 없다 — 한 프레임 앞서 잡고 정지. 시킹은 하지 않는다:
             //   시킹 중엔 비디오 텍스처가 비어 균일색이 되고, 크로마 마스크를 통과 못 해
             //   판 전체가 붉게 칠해졌다(유저 스샷). 현재 프레임 그대로 얼리는 게 안전하다.
@@ -4123,11 +4132,12 @@ void main(){
       // A2/A3 = 2단계 흐름(유저): [0~5s 관찰] 봇은 가만히 서서(idle) 전문가 영상 보기 → [5s~ 따라하기].
       // 뉴턴 전환 문법(유저 확정): 시범(영상만·도트바) → 마크 Preview 워밍 등장+음성 → 따라하기.
       //   3·2·1은 실전 트리거(C1) 전용 — 학습 내 전환엔 안 씀(복싱 문법과 통일).
-      const A2_WATCH = stepPreviewSec(session.stage) || 3.0;   // 스텝백 = 영상 루프 STEP_LOOPS회, 그 외 3초 — floor-scene.html pv와 동기
+      const A2_WATCH = stepPreviewSec(session.stage) || 3.0;   // 폴백(영상 미로드 시) — 실제 종료는 아래 루프 카운트
       const BK_A1_RATE = 1.55;   // 옆구리 봇 배속(코치 영상 페이스 맞춤) — 시각 캘리브레이션 노브
       const _watchWin = /^(A2|A3|BK_A[23]|BK_B[12345])$/.test(session.stage || '') && !session._followLatch;   // 훈련 단계만 관찰5초→따라하기
       if (/^BK_C/.test(session.stage || '')) session._followLatch = true;   // 실전은 관찰 없음(바로 시작)
-      const aWatching = _watchWin && session.t < A2_WATCH;
+      const _stepPv = STEP_SEG[session.stage || ''] && _stepId === session.stage;   // 스텝백 = 재생 횟수로 판정
+      const aWatching = _watchWin && (_stepPv ? _stepLoops < STEP_LOOPS : session.t < A2_WATCH);
       if (_watchWin && !aWatching) { session._followLatch = true; session._aWatchEnd = session.t; }
       if (aWatching) { _clip = 'idle'; xbot.group.scale.x = 1; xbot.lungeDeepen = 0; xbot.headPitch = THREE.MathUtils.degToRad(-32); }
       // 위상잠금: 씬 링·카운트와 코치 동작을 같은 시간축에 — 절차 드릴 + A1 전신풀기·A2 점핑잭(주기=씬 BT).
@@ -4429,6 +4439,24 @@ void main(){
                 dot.setAttribute('cx', (110 + 98 * Math.cos(a)).toFixed(1));
                 dot.setAttribute('cy', (110 + 98 * Math.sin(a)).toFixed(1)); }
             }
+          }
+        }
+        // 스텝백 프리뷰 타이머 = 실제 영상 재생 횟수(0/2 → 1/2 → 2/2). 링 한 바퀴 = 영상 1회.
+        //   HTML의 자체 CSS 애니메이션/인터벌은 배속·시작 위상과 어긋나므로 여기서 직접 구동한다.
+        if (STEP_SEG[session.stages?.[session.stageIdx]?.id || ''] && fdoc) {
+          const num = fdoc.getElementById('prev-num');
+          const arc = fdoc.querySelector('#prev-ring .arc'), tip = fdoc.querySelector('#prev-ring .tip');
+          const txt = Math.min(STEP_LOOPS, _stepLoops) + '/' + STEP_LOOPS;
+          if (num && num.textContent !== txt) num.textContent = txt;
+          if (arc) {
+            if (arc.style.animation !== 'none') arc.style.animation = 'none';
+            const off = (1727.9 * (1 - _stepFrac)).toFixed(0);
+            if (arc.style.strokeDashoffset !== off) arc.style.strokeDashoffset = off;
+          }
+          if (tip) {
+            if (tip.style.animation !== 'none') tip.style.animation = 'none';
+            const rot = 'rotate(' + (_stepFrac * 360).toFixed(0) + 'deg)';
+            if (tip.style.transform !== rot) tip.style.transform = rot;
           }
         }
         const _sid = session.stages?.[session.stageIdx]?.id || '';

@@ -217,14 +217,10 @@ html,body{background:transparent}
     const dots = $('s-dots');
     document.getElementById('content').insertBefore(row, dots);
     dots.style.display = 'none';
-    let n = PVN ? 0 : PV;
+    // PVN(스텝백) = 숫자·링을 main.js가 실제 재생 횟수로 구동한다. 여기선 카운트다운을 돌리지 않는다.
+    let n = PV;
     const numEl = () => document.getElementById('prev-num');
-    const iv = PVN
-      ? setInterval(() => {   // 영상 한 바퀴 = 타이머 한 바퀴 → 0/N → 1/N → 2/N(끝)
-          const el = numEl(); if (!el || !el.isConnected) { clearInterval(iv); return; }
-          n = Math.min(PVN, n + 1); el.textContent = n + '/' + PVN;
-          if (n >= PVN) clearInterval(iv);
-        }, (PV / PVN) * 1000)
+    const iv = PVN ? null
       : setInterval(() => { const el = numEl(); if (!el || !el.isConnected) { clearInterval(iv); return; }
           n--; if (n < 1) { clearInterval(iv); return; } el.textContent = n; }, 1000);
     setTimeout(() => {
@@ -242,7 +238,7 @@ html,body{background:transparent}
         // 영상 자리는 박스로만 잡는다 — 실제 그림은 3D 코치 패널(크로마키+룩 LUT)이 이 위에 얹힌다.
         //   HTML <video>로는 프리뷰에서 보던 실루엣(셰이더 결과)을 재현할 수 없다.
       }
-    }, PV * 1000 + 100);
+    }, PV * 1000 + (PVN ? 500 : 100));
     const clip = document.querySelector('.dclip'); if (clip) clip.style.animationDelay = (PV + 0.15) + 's';
   }
 
