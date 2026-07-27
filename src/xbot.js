@@ -588,8 +588,8 @@ export class XBot {
     if (key === 'vm_crossover') {
       const D2 = Math.PI / 180, Bn = n => this.model.getObjectByName(n);
       const rq = (b, ax, deg) => b && b.quaternion.multiply(new THREE.Quaternion().setFromAxisAngle(ax, deg * D2));
-      rq(Bn('mixamorigLeftArm'), new THREE.Vector3(0, 0, 1), 18);     // 손 전방(깊이 압축 보정)
-      rq(Bn('mixamorigRightArm'), new THREE.Vector3(0, 0, 1), -18);
+      rq(Bn('mixamorigLeftArm'), new THREE.Vector3(0, 0, 1), 26);     // 손 전방(깊이 압축 보정 — 18은 크로스 순간 몸통 관통, 유저)
+      rq(Bn('mixamorigRightArm'), new THREE.Vector3(0, 0, 1), -26);
       rq(Bn('mixamorigSpine'), new THREE.Vector3(1, 0, 0), 10);       // 상체 살짝 숙임(유저)
       rq(Bn('mixamorigLeftFoot'), new THREE.Vector3(1, 0, 0), -18);   // 까치발 해제 — 실측 뒤꿈치 0.09~0.11m 공중
       rq(Bn('mixamorigRightFoot'), new THREE.Vector3(1, 0, 0), -18);  //   (X+=발 펴기 규약이므로 X−=뒤꿈치 내림)
@@ -893,90 +893,89 @@ export class XBot {
   // 공이 정확히 그 타이밍에 손에 닿고, 다음 접촉까지 바닥을 찍고 돌아온다 (유저:
   // '손이 떨어지고 닿는 정확한 타이밍에 공이 튀게'). 고정 주기 스크립트 바운스 은퇴.
   _dribbleBall(_, dt = 0.016) {
-    // 드리블 v5 — 사이클의 주인을 공 물리에서 '손'으로 교체 (유저 원칙 + 실영상 근거):
-    //   손 최고점 = 공이 손바닥에 붙어 있어야 하고, 손 최저점 = 공은 바닥(으로 향해) 있어야 한다.
-    //   손 정점(상승→하강 전환)을 실측해 위상 잠금: [0,REL)=손과 함께 하강(부착) → 릴리즈 →
-    //   가속 낙하 → 바닥(≈손 최저 타이밍) → 감속 상승 → CATCH에 손바닥 밑 소프트 도킹 → 정점 동행.
-    //   두 비행 구간은 포물선(모양=물리), 주기는 손이 정한다(선수가 리듬에 공을 맞추는 실제).
-    //   오프라인 검증: 정점 미부착 0건 · 최저점 공높음 0건 · 프레임 점프 5cm+ 0건.
+    // 드리블 v6 — 유저 정밀 스펙: '내려가는 손'에 공이 끝까지 붙어 내려가고, 손이 완전히
+    // 내려가면 공은 바닥, 올라가는 (반대)손에 붙어 따라 올라간다. 비행 구간을 최소화하고
+    // 캐리(밀착)를 기본 상태로 — 크로스오버에서 공이 손을 정확히 따르는 게 핵심.
+    //   CARRY: 활성 손바닥에 밀착(손 하강·상승 동행) → 손바닥이 바닥권(BOUNCE_H)에서
+    //   하강을 마치면 RELEASE → 짧은 자유낙하 → 바닥 스쿼시 → 받는 손으로 0.1s 블렌드 캐치.
     const ball = this.ball;
-    if (!ball || !this._wristR) return;
+    if (!ball || !this._wristR || !this._wristL) return;
     ball.visible = true;
-    // 활성 손 = 더 낮은 손(드리블하는 손이 낮다) — 히스테리시스 0.07m·0.25s로 크로스오버 전환.
-    //   전환되면 부착 목표·릴리즈 스팟이 반대 손으로 넘어가 공이 몸 앞을 가로질러 이동(유저: 손 왔다갔다에 공 동기).
-    const S0 = this._db;
+    const r = 0.12, PALM = 0.13, G = 9.8, BOUNCE_H = 0.34, BLEND = 0.10;
     const wR = new THREE.Vector3().setFromMatrixPosition(this._wristR.matrixWorld);
-    const wL = this._wristL ? new THREE.Vector3().setFromMatrixPosition(this._wristL.matrixWorld) : null;
-    if (S0 && wL) {
-      const now = S0.t;
-      if (S0._actR !== false && wL.y < wR.y - 0.07 && now - (S0._swT ?? -9) > 0.25) { S0._actR = false; S0._swT = now; }
-      else if (S0._actR === false && wR.y < wL.y - 0.07 && now - (S0._swT ?? -9) > 0.25) { S0._actR = true; S0._swT = now; }
-    }
-    const actR = !S0 || S0._actR !== false;
-    const w = actR || !wL ? wR : wL;
-    const HOFF = actR ? 0.06 : -0.06;   // 손바닥 앞 오프셋 — 왼손이면 미러
-    const r = 0.12, PALM = 0.13, REL = 0.20, CATCH = 0.72;
-    const S = this._db = this._db || { t: 0, prevY: w.y, vy: 0, prevVy: 0, lastTop: -9, Th: 0.8,
-      relY: 0.5, hx: w.x, hz: w.z, relX: w.x, relZ: w.z };
+    const wL = new THREE.Vector3().setFromMatrixPosition(this._wristL.matrixWorld);
+    const S = this._db = this._db || { t: 0, mode: 'carry', hnd: 'R', vyR: 0, vyL: 0,
+      pR: wR.y, pL: wL.y, bT: 0, bx: wR.x, by: wR.y, bz: wR.z, blend: 9, fx: 0, fz: 0, idleT: 0 };
     S.t += dt;
-    const vyRaw = (w.y - S.prevY) / Math.max(1e-3, dt);
-    S.vy += (vyRaw - S.vy) * 0.5;
-    S.hx += (w.x + HOFF - S.hx) * Math.min(1, dt * 14);
-    S.hz += (w.z - 0.07 - S.hz) * Math.min(1, dt * 14);   // 전방 0.07 — 공이 몸에 파묻히지 않게(유저, 데모 정면=-z 고정)
-    // 손 정점 이벤트 — 주기(Th) EMA 실측
-    if (S.prevVy > 0.05 && S.vy <= 0.02 && S.t - S.lastTop > 0.3) {
-      const gap = S.t - S.lastTop;
-      if (gap < 1.6) S.Th += (gap - S.Th) * 0.5;
-      S.lastTop = S.t;
-    }
-    S.prevY = w.y; S.prevVy = S.vy;
-    const since = S.t - S.lastTop;
-    if (since > 1.8) {   // 손 리듬 없음 = 드리블 정지, 공은 손 옆 바닥에
-      ball.scale.set(1, 1, 1);
-      ball.position.set(S.hx, r, S.hz);
+    const vyRr = (wR.y - S.pR) / Math.max(1e-3, dt), vyLr = (wL.y - S.pL) / Math.max(1e-3, dt);
+    S.vyR += (vyRr - S.vyR) * 0.5; S.vyL += (vyLr - S.vyL) * 0.5;
+    S.pR = wR.y; S.pL = wL.y;
+    const palm = (h) => { const w = h === 'R' ? wR : wL; return { x: w.x + (h === 'R' ? 0.06 : -0.06), y: w.y - PALM, z: w.z - 0.07 }; };
+    const vy = (h) => (h === 'R' ? S.vyR : S.vyL);
+    const other = (h) => (h === 'R' ? 'L' : 'R');
+
+    // 손 정지 감지(양손 다 진동 없음 1.6s) — 공은 손 옆 바닥에
+    if (Math.abs(S.vyR) < 0.15 && Math.abs(S.vyL) < 0.15) S.idleT += dt; else S.idleT = 0;
+    if (S.idleT > 1.6) {
+      const p = palm(S.hnd);
+      ball.scale.set(1, 1, 1); ball.position.set(p.x, r, p.z);
       return;
     }
-    const p = Math.min(1, since / Math.max(0.3, S.Th));
-    const palm = w.y - PALM;
-    let y, bx, bz, squash = 0;
-    if (p >= CATCH || p < REL) {
-      // 부착 — 손바닥 밑에 도킹, 손과 동행. 릴리즈 정보 계속 갱신
-      y = Math.max(r, palm);
-      bx = S.hx; bz = S.hz;
-      S.relY = palm; S.relX = S.hx; S.relZ = S.hz; S.relActR = S._actR;   // 릴리즈 시점 손 기억(V자 판정)
-    } else {
-      const s = (p - REL) / (CATCH - REL);
-      const hR = Math.max(r + 0.08, S.relY), hC = Math.max(r + 0.08, palm);
-      const a2 = Math.sqrt(hR - r), b2 = Math.sqrt(Math.max(0.01, hC - r));
-      const sf = a2 / (a2 + b2);                       // 낙하:상승 시간 분할(등중력)
-      if (s <= sf) { const q = s / sf; y = r + (hR - r) * (1 - q * q); }         // 가속 낙하
-      else { const q = (1 - s) / (1 - sf); y = r + (hC - r) * (1 - q * q); }     // 감속 상승 = 소프트 캐치
-      squash = Math.max(0, 1 - (y - r) / 0.10);
-      // 크로스오버 V자 경로(유저 레퍼런스 주석): 릴리즈 손이 닿은 지점 → '인물 중심 아래' 바닥에
-      // 튕김 → 올라가며 반대 손에 닿음. 손이 안 바뀌었으면(같은 손 드리블) 기존 직선 낙하-상승.
-      const crossed = S._actR !== S.relActR;
-      if (crossed && this._hips) {
-        const he = this._hips.matrixWorld.elements;
-        const cx2 = he[12], cz2 = he[14] - 0.30;       // 몸 중심 '앞' = V자 꼭짓점 (0.10은 몸 밑이라 관통해 보임 — 유저)
-        const a3 = Math.sqrt(Math.max(0.01, S.relY - r)), b3 = Math.sqrt(Math.max(0.01, (w.y - PALM) - r));
-        const sf2 = a3 / (a3 + b3);
-        if (s <= sf2) { const q2 = s / sf2; bx = S.relX + (cx2 - S.relX) * q2; bz = S.relZ + (cz2 - S.relZ) * q2; }
-        else { const q2 = (s - sf2) / (1 - sf2); bx = cx2 + (S.hx - cx2) * q2; bz = cz2 + (S.hz - cz2) * q2; }
-      } else {
-        bx = S.relX + (S.hx - S.relX) * s;             // 같은 손 — 탄도의 수평 성분
-        bz = S.relZ + (S.hz - S.relZ) * s;
+
+    let x, y, z, squash = 0;
+    if (S.mode === 'carry') {
+      const p = palm(S.hnd);
+      x = p.x; y = Math.max(r, p.y); z = p.z;
+      // 캐치 직후 블렌드 — 바닥 지점에서 손바닥으로 부드럽게 흡착(순간이동 방지)
+      if (S.blend < BLEND) {
+        S.blend += dt; const k = Math.min(1, S.blend / BLEND), e = k * k * (3 - 2 * k);
+        x = S.fx + (x - S.fx) * e; y = r + (y - r) * e; z = S.fz + (z - S.fz) * e;
+      }
+      // 릴리즈 = '하강을 마치는 순간'(속도 부호 전환). armed = 하강 관측 후에만.
+      const vh = vy(S.hnd);
+      if (vh < -0.30) S.armed = true;
+      if (S.armed && vh >= -0.05 && p.y > r + 0.04) {
+        S.armed = false;
+        // U자 비행 시작(유저 레퍼런스): 릴리즈 손 → 중앙 바닥 꼭짓점 → 받는 손. 받는 손은
+        // 라이브 추적(도착 순간 정확히 그 손바닥) — 크로스오버는 반대 손, 아니면 같은 손.
+        const o = other(S.hnd);
+        S.cat = vy(o) > -0.25 ? o : S.hnd;
+        S.mode = 'fly'; S.fT = 0;
+        S.p0 = { x, y: Math.max(y, r + 0.06), z };
       }
     }
-    // 몸 관통 방지 클램프(유저: 엉덩이 뒤/몸통 통과) — 모노큘러 깊이 압축으로 손목 z가 힙까지
-    // 밀려도, 공은 항상 힙보다 0.26m 앞(-z)에 있도록 강제. 데모 정면=-z(요 고정) 전제.
-    if (this._hips) {
-      const hz2 = this._hips.matrixWorld.elements[14];
-      bz = Math.min(bz, hz2 - 0.26);
+    if (S.mode === 'fly') {
+      S.fT += dt;
+      const tp = palm(S.cat);
+      const ty = Math.max(r + 0.06, tp.y);
+      const tDown = Math.sqrt(2 * Math.max(0.02, S.p0.y - r) / G);
+      const tUp = Math.sqrt(2 * Math.max(0.02, ty - r) / G);
+      const vxm = (S.p0.x + tp.x) / 2, vzm = (S.p0.z + tp.z) / 2;   // U 꼭짓점 = 두 손의 중앙 바닥
+      if (S.fT <= tDown) {
+        const q = S.fT / tDown;
+        y = S.p0.y - (S.p0.y - r) * q * q;                            // 가속 낙하
+        x = S.p0.x + (vxm - S.p0.x) * q; z = S.p0.z + (vzm - S.p0.z) * q;
+      } else if (S.fT < tDown + tUp) {
+        const q = (S.fT - tDown) / tUp;
+        y = r + (ty - r) * (1 - (1 - q) * (1 - q));                   // 감속 상승 — 손바닥에 소프트 도착
+        x = vxm + (tp.x - vxm) * q; z = vzm + (tp.z - vzm) * q;
+        if (q < 0.15) squash = 1 - q / 0.15;
+      } else {
+        S.mode = 'carry'; S.hnd = S.cat; S.blend = 9; S.armed = false;
+        const p2 = palm(S.hnd); x = p2.x; y = Math.max(r, p2.y); z = p2.z;
+      }
+      if (S.fT <= tDown && S.p0.y - y < 0.02 && S.fT > 0) { /* no-op */ }
     }
-    const sy = 1 - 0.35 * squash;
-    const sxz = 1 + 0.28 * squash;
+    // 관통 방지 — 공은 항상 힙보다 앞(-z)
+    if (this._hips) {
+      const hz = this._hips.matrixWorld.elements[14];
+      z = Math.min(z, hz - 0.26);
+    }
+    const air = Math.max(0, Math.min(1, (y - r) / 0.15));
+    squash = Math.max(squash, 1 - air) * (y - r < 0.03 ? 1 : 0.4);
+    const sy = 1 - 0.32 * squash, sxz = 1 + 0.24 * squash;
     ball.scale.set(sxz, sy, sxz);
-    ball.position.set(bx, Math.max(0, y - r) + r * sy, bz);
+    ball.position.set(x, Math.max(0, y - r) + r * sy, z);
   }
 
   _samplePath(t) {

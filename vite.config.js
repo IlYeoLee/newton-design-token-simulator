@@ -3,7 +3,7 @@ import { resolve } from 'path';
 import { writeFileSync } from 'fs';
 
 // 빌드 스탬프 — 화면 좌하단에 노출 (유저가 보는 번들이 어느 빌드인지 즉시 식별: 캐시 혼선 종결)
-const BUILD_TAG = new Date().toISOString().slice(5, 16).replace('T', ' ');
+const BUILD_TAG = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(5, 16).replace('T', ' ') + ' KST';   // 로컬(한국) 시각 — UTC 태그가 '왜 아직 오전이냐' 혼란을 만들었음
 
 export default defineConfig({
   base: './',   // GitHub Pages 등 서브경로 배포 대응
