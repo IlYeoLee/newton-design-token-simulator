@@ -3,7 +3,7 @@ import bkStepContacts from '../assets/mocap/contacts-cmu_crossover_shot.json';  
 import { WALL_Z } from './scene.js';
 import { lutColor, GLYPHS, drawGlyph, drawNumber, footSlot, footSDFTexture, FXP } from './fxlut.js';
 import { MARK_NUM, drawStanceBox, drawPunchLine, drawApproachRing, drawTrajectory, drawRotate, drawStemArrow, drawCurveArrow } from './fx-core.js';
-import { makeMarkFXMaterial, makeLaneFXMaterial, makeFlowArrow, tickFlowArrows, beamAlphaAt } from './tokens.js';
+import { makeMarkFXMaterial, makeLaneFXMaterial, makeFlowArrow, tickFlowArrows, beamAlphaAt, COLORS } from './tokens.js';
 
 // 피그마 CTA 임포트 — StageCard/베이스 컴포넌트의 cta 노드를 다운로드한 에셋(150×44 원 비율).
 // 절차: 피그마에서 download_assets → public/textures/<sport>_running.png → 여기서 텍스처로 소비.
@@ -635,10 +635,11 @@ export class Session {
       fm.plane.rotation.z = 0;   // 스텝백 스탠스는 발이 평행(유저) — 기본 ±8° 벌림 해제
       const p = this._beamLocal(q.u, q.v, H.mL);
       // 착지 순간 래치 — 플랜트 시각을 지나면 1회 블룸 + 파문(따닥)
+      // Success = 그 발을 옮겨 지면에 닿은 순간(유저 정의). 그 자리에 작은 파문 1회.
       if (q.step && st[side] !== q.plantT && q.f >= 0.999) {
         st[side] = q.plantT; st['p' + side] = this.t;
         const wp = new THREE.Vector3(); fm.group.getWorldPosition(wp);
-        this.onBurst?.(wp, 0.22);
+        this.onBurst?.(wp, 0.26, COLORS.success);   // PRISM = 성공 잔상 색
       }
       // ── 착지 물리 — '타닥' 두 박 ────────────────────────────────────────────
       //   ① 앞꿈치 접지 = 큰 팝(0.18s, 빠른 감쇠)  ② 뒤꿈치가 따라 내려앉는 작은 팝(0.10s 뒤 0.16s)
