@@ -654,6 +654,7 @@ export class Session {
     const st = H[key] || (H[key] = { L: -9, R: -9, pL: 0, pR: 0 });
     const one = (side, fm, ar) => {
       const q = P[side];
+      fm.plane.rotation.z = 0;   // 스텝백 스탠스는 발이 평행(유저) — 기본 ±8° 벌림 해제
       const p = this._beamLocal(q.u, q.v, H.mL);
       // 착지 순간 래치 — 플랜트 시각을 지나면 1회 블룸 + 파문(따닥)
       if (q.step && st[side] !== q.plantT && q.f >= 0.999) {
