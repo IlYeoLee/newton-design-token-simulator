@@ -1849,7 +1849,10 @@ export class Session {
       const per = cfg.per, inRep = (tt % per) / per, rep = Math.floor(tt / per);
       if (cfg.noMark) {   // 옆구리 = 판정 링/아크 대신 좌우 방향 화살표(LINE) — 굽히는 쪽으로 촉이 흐름
         S.ring.setOp(0); S.arc.visible = false;
-        if (S.arrow) { S.arrow.visible = true; S.arrow.rotation.z = THREE.MathUtils.degToRad(rep % 2 === 0 ? 90 : -90); }
+        // 방향 = 코치 영상 실측 타이밍(main.js가 프레임마다 bkA1Lean 주입: -1 왼쪽 · +1 오른쪽).
+        // 영상이 아직 없으면(오디오 전용 등) 기존 반복 교대로 폴백.
+        const lean = this.bkA1Lean != null ? this.bkA1Lean : (rep % 2 === 0 ? -1 : 1);
+        if (S.arrow) { S.arrow.visible = true; S.arrow.rotation.z = THREE.MathUtils.degToRad(lean < 0 ? 90 : -90); }
       } else {
         S.arc.visible = true;
         S.arc.setProg(Math.max(0.001, inRep));                    // 한 동작 진행도
@@ -1859,7 +1862,8 @@ export class Session {
         S.latch = rep; S.count = rep;
         if (rep > 0 && !cfg.noMark) { const wp = new THREE.Vector3(); S.ring.getWorldPosition(wp); this.onPress?.(wp, false); }
       }
-      if (cfg.side) this.bkStrSide = rep % 2 === 0;   // 좌우 교대 표시 (봇 미러는 main.js 참조)
+      // 좌우 표시도 영상 실측 방향과 같은 소스로 (텍스트·화살표·봇 미러가 따로 놀지 않게)
+      if (cfg.side) this.bkStrSide = this.bkA1Lean != null ? this.bkA1Lean < 0 : rep % 2 === 0;
       const sideTxt = cfg.side ? (this.bkStrSide ? '왼쪽 · ' : '오른쪽 · ') : '';
       FMU(`${cfg.fm} · ${sideTxt}${Math.min(cfg.reps, S.count)} / ${cfg.reps}`, S.count >= cfg.reps ? CS.prism : CS.sand);
       if (S.count >= cfg.reps) { this.next(); return; }

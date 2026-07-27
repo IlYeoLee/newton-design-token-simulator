@@ -330,16 +330,19 @@ export function drawStemArrow(g, W, H, t, ENV, opts = {}) {
   const draw = opts.prog != null ? Math.max(0, Math.min(1, opts.prog)) : Math.min(1, ph / 0.7);
   const fade = opts.prog != null ? 1 : (ph > 0.85 ? (1 - ph) / 0.15 : 1);
   g.clearRect(0, 0, W, H);
-  g.globalAlpha = fade * (0.45 + 0.55 * pulse);
+  const A0 = fade * (0.45 + 0.55 * pulse);
   const y0 = H - 24 * s, y1 = 58 * s, yEnd = y0 + (y1 - y0) * draw;
-  for (let k = 0; k < 1; k += 0.06) {                 // 테이퍼: 뿌리 얇게 → 꼭짓점 두껍게
+  for (let k = 0; k < 1; k += 0.04) {                 // 테이퍼: 뿌리 얇게 → 꼭짓점 두껍게
     const yy = y0 + (yEnd - y0) * k;
+    // 뿌리 페더 — 끝(k=0)에서 알파 0으로 자연 소멸(유저: 연한 색 말고 투명도로). k^1.5 램프.
+    g.globalAlpha = A0 * Math.pow(k, 1.5);
     g.strokeStyle = lut(0.45 + 0.5 * k); g.lineCap = 'round';
     g.lineWidth = (3 + 10 * k) * s * AW;
-    g.beginPath(); g.moveTo(cx, yy); g.lineTo(cx, y0 + (yEnd - y0) * Math.min(1, k + 0.06)); g.stroke();
+    g.beginPath(); g.moveTo(cx, yy); g.lineTo(cx, y0 + (yEnd - y0) * Math.min(1, k + 0.04)); g.stroke();
   }
+  g.globalAlpha = A0;
   if (draw > 0.9 && !opts.noTip) {   // noTip = 촉 없는 자루(감속 바 등)
-    const tipS = 50 * s * (0.7 + 0.3 * AW);   // 촉은 조금 더 작게(유저) — 스템:촉 비율 정본
+    const tipS = 42 * s * (0.7 + 0.3 * AW);   // 촉 크기(유저 2회 축소 요청) — 스템:촉 비율 정본
     const go = { color: lut(0.95), glowColor: lut(0.85), glow: 12 * glowK };
     const ok = ENV.glyph && (ENV.glyph(g, 'LIFT_TIP', cx, y1 + 16 * s, tipS, go)
                           || ENV.glyph(g, 'TIP_TRI', cx, y1 + 14 * s, tipS * 0.93, go));

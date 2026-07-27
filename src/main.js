@@ -2283,6 +2283,21 @@ void main(){
         co.plane.material.uniforms.uTime.value = performance.now() / 1000;
         // 채도는 마크 LUT와 같은 소스(FXP.sat)에서 — 인물·발자국 룩 통일(슬라이더 하나가 둘 다 이동)
         co.plane.material.uniforms.uSat.value = 1.0 + (FXP.sat ?? 1) * 0.32;
+        // 옆구리(BK_A1) 방향 화살표 = 코치 영상 실제 타이밍에 동기.
+        //   bk_sidebend.webm 24fps 84프레임을 그린스크린 마스크로 프레임별 상체/하체 x중심을 재서
+        //   기우는 쪽을 실측(scripts 없이 ffmpeg+마스크 1회 측정). 아래 표는 원본 3.5s 클립 기준 전이 시각.
+        //   재생 자산은 핑퐁(정방향 3.5s + 역방향)이라 3.5s 이후는 되감기 시간으로 환산한다.
+        if (id === 'BK_A1' && session.active && co.video.readyState >= 3 && co.video.currentTime > 0.03) {
+          const dur = co.video.duration || 6.917;
+          const FWD = 3.5;                                    // 원본 구간 길이
+          const ct = co.video.currentTime % dur;
+          const ot = ct <= FWD ? ct : Math.max(0, dur - ct);   // 역재생 구간 → 원본 시간
+          let lean = -1;                                      // 실측: 0.00~0.79 왼쪽
+          if (ot >= 0.79 && ot < 1.15) lean = 1;              //       0.79~1.15 오른쪽
+          else if (ot >= 1.15 && ot < 1.63) lean = -1;        //       1.15~1.63 왼쪽
+          else if (ot >= 1.63) lean = 1;                      //       1.63~3.50 오른쪽(유지)
+          session.bkA1Lean = lean;
+        }
         if (co.rotCues) {   // 회전 큐 = 영상 타이밍 동기(유저): 전반(목 돌리기)=목 큐만, 후반(어깨 롤)=어깨 큐 2개만
           const now = performance.now() / 1000;
           const vd = co.video.duration || 10, ct = co.video.currentTime % vd;
