@@ -4099,8 +4099,11 @@ void main(){
         }
       }
       // 06_13 프리스타일 전체 루프는 이동·컷 구간이 섞여 어색(유저) — 안정 핸들 구간만 창 반복.
-      else if (session.stage === 'BK_B2') _phase = session.t % 5.85;   // 실사 클립 자연 루프
-      else if (session.stage === 'BK_B3') _phase = 9.0 + (session.t % 6.0);
+      else if (session.stage === 'BK_B2') _phase = 1.0 + (session.t % 4.4);   // 포즈 거리 전수 탐색: 1.0→5.4s 경계 불일치 0.017m(전체 루프 0.148m의 1/9) — 이음새 없는 구간
+      else if (session.stage === 'BK_B3') {   // 프리스타일은 어느 구간도 안 맞물림(최적 0.183m) → 핑퐁 = 불연속 0
+        const SP3 = 6.3, m3 = session.t % (SP3 * 2);
+        _phase = 7.6 + (m3 < SP3 ? m3 : SP3 * 2 - m3);
+      }
       // playDemo는 무조건 — stepbackDemo 분기 삭제 때 else가 체인에 붙어 위상 스테이지 전부에서
       // 재생이 건너뛰어졌던 사고(클립이 idle로 남음).
       xbot.playDemo(_clip, h, session.stage === 'BX_READY', _phase);

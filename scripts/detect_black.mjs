@@ -1,0 +1,118 @@
+// 검은 사각 플리커 자동 재현기 — CDP screencast로 프레임 단위 캡처, 근-검정 대형 블록 검출
+// 사용: node scripts/detect_black.mjs [urlQuery] [durMs] [dsf] [advMs]
+//   예: node scripts/detect_black.mjs "" 90000 2 7000
+//       node scripts/detect_black.mjs "?nocss=1" 90000 2
+// 검출 프레임 PNG + 로그 → $OUT_DIR (기본 scratchpad/blackdet)
+import puppeteer from 'puppeteer';
+import fs from 'fs';
+
+const [, , Q = '', DUR = '90000', DSF = '2', ADV = '7000'] = process.argv;
+const OUT = process.env.OUT_DIR || '/private/tmp/claude-501/-Users-iil-yeo/fed9f4e6-abcd-410e-abe6-29d8bcb75e36/scratchpad/blackdet';
+fs.mkdirSync(OUT, { recursive: true });
+
+const browser = await puppeteer.launch({ headless: 'new', args: ['--window-size=1440,900'] });
+const page = await browser.newPage();
+await page.setViewport({ width: 1280, height: 800, deviceScaleFactor: +DSF });
+await page.goto('http://localhost:5199/' + Q, { waitUntil: 'networkidle2' });
+await page.waitForFunction('!!window.__dbg && !!window.__sess', { timeout: 60000 });
+await page.evaluate(() => document.querySelector('[data-pack=basketball]')?.click());
+await page.waitForFunction('!!window.__dbg?.xbot?.actions?.cmu_crossover_shot', { timeout: 120000 });
+await new Promise(r => setTimeout(r, 1500));
+await page.evaluate(() => document.getElementById('btn-session').click());
+await new Promise(r => setTimeout(r, 1500));
+
+// 분석 전용 두 번째 페이지 — 메인 페이지 evaluate로 렌더 타이밍 오염 방지
+const ana = await browser.newPage();
+await ana.goto('about:blank');
+await ana.evaluate(() => {
+  const cv = document.createElement('canvas');
+  const cx = cv.getContext('2d', { willReadFrequently: true });
+  // 셀 그리드: 셀 전체 샘플이 RGB<20이면 '검정 셀' → 최대 연결 성분 면적비 반환
+  window.analyze = b64 => new Promise(res => {
+    const img = new Image();
+    img.onload = () => {
+      cv.width = img.width; cv.height = img.height;
+      cx.drawImage(img, 0, 0);
+      const d = cx.getImageData(0, 0, cv.width, cv.height).data;
+      const GW = 48, GH = 30, cw = cv.width / GW, ch = cv.height / GH;
+      const black = new Uint8Array(GW * GH);
+      for (let gy = 0; gy < GH; gy++) for (let gx = 0; gx < GW; gx++) {
+        let ok = 1;
+        for (let sy = 0; sy < 3 && ok; sy++) for (let sx = 0; sx < 3; sx++) {
+          const x = Math.min(cv.width - 1, (gx + (sx + 0.5) / 3) * cw | 0);
+          const y = Math.min(cv.height - 1, (gy + (sy + 0.5) / 3) * ch | 0);
+          const i = (y * cv.width + x) * 4;
+          if (d[i] >= 20 || d[i + 1] >= 20 || d[i + 2] >= 20) { ok = 0; break; }
+        }
+        black[gy * GW + gx] = ok;
+      }
+      // BFS 최대 연결 성분
+      const seen = new Uint8Array(GW * GH); let max = 0, total = 0;
+      for (let i = 0; i < GW * GH; i++) {
+        if (!black[i] || seen[i]) continue;
+        let n = 0; const st = [i]; seen[i] = 1;
+        while (st.length) {
+          const c = st.pop(); n++;
+          const cx2 = c % GW, cy2 = c / GW | 0;
+          for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+            const nx = cx2 + dx, ny = cy2 + dy;
+            if (nx < 0 || ny < 0 || nx >= GW || ny >= GH) continue;
+            const j = ny * GW + nx;
+            if (black[j] && !seen[j]) { seen[j] = 1; st.push(j); }
+          }
+        }
+        if (n > max) max = n;
+      }
+      for (let i = 0; i < GW * GH; i++) total += black[i];
+      res({ frac: max / (GW * GH), blackFrac: total / (GW * GH) });
+    };
+    img.src = 'data:image/png;base64,' + b64;
+  });
+});
+
+let curStage = '?', running = true;
+const stagePoll = (async () => {
+  while (running) {
+    try { curStage = await page.evaluate(() => window.__sess?.curStage?.id || '?'); } catch {}
+    await new Promise(r => setTimeout(r, 400));
+  }
+})();
+const advancer = (async () => {   // BK_A1 → … → BK_FIN 자연 진행
+  while (running) {
+    await new Promise(r => setTimeout(r, +ADV));
+    if (!running) break;
+    try { await page.evaluate(() => { const s = window.__sess; if (s.active && s.stageIdx < s.stages.length - 1) s.tapAdvance(); }); } catch {}
+  }
+})();
+
+const cdp = await page.createCDPSession();
+const queue = []; let nFrames = 0, nHits = 0; const hits = [];
+cdp.on('Page.screencastFrame', ev => {
+  nFrames++;
+  queue.push({ b64: ev.data, t: Date.now(), stage: curStage });
+  cdp.send('Page.screencastFrameAck', { sessionId: ev.sessionId }).catch(() => {});
+});
+await cdp.send('Page.startScreencast', { format: 'png', everyNthFrame: 1 });
+
+const t0 = Date.now();
+const analyzer = (async () => {
+  while (running || queue.length) {
+    const f = queue.shift();
+    if (!f) { await new Promise(r => setTimeout(r, 10)); continue; }
+    const r = await ana.evaluate(b => window.analyze(b), f.b64);
+    if (r.frac >= 0.15) {
+      nHits++;
+      const name = `hit_${String(nHits).padStart(3, '0')}_${f.stage}_${f.t - t0}ms_${(r.frac * 100) | 0}pct.png`;
+      fs.writeFileSync(`${OUT}/${name}`, Buffer.from(f.b64, 'base64'));
+      hits.push({ name, stage: f.stage, tMs: f.t - t0, frac: +r.frac.toFixed(3) });
+      console.log('HIT', name);
+    }
+  }
+})();
+
+await new Promise(r => setTimeout(r, +DUR));
+await cdp.send('Page.stopScreencast').catch(() => {});
+running = false;
+await analyzer; await stagePoll; await advancer;
+console.log(JSON.stringify({ query: Q, dsf: +DSF, durMs: +DUR, frames: nFrames, hits: nHits, detail: hits.slice(0, 40) }, null, 1));
+await browser.close();

@@ -816,18 +816,16 @@ export class Session {
     // B2 · 크로스오버 — 좌우 바운스 존 교대 점등. '공이 우리 평면에 닿는 지점'이 곧 커서라
     //   가림이 판정 신호가 된다(광학 검수 결론). 존 위치는 커리 실측 바운스 거리(0.44~0.83m) 안.
     const mkZone = (x) => floorRing(x, BK_STAND - 0.55 - BDEEP, 0.15, 0.19, BRAND.coral, 0.2);
-    const x2L = new FootMark('left').at(-0.15, BK_STAND - 0.28 - BDEEP, 1.05);
-    const x2R = new FootMark('right').at(0.15, BK_STAND - 0.28 - BDEEP, 1.05);
-    const z2L = mkZone(-0.34), z2R = mkZone(0.34);
+    const z2L = mkZone(-0.22), z2R = mkZone(0.22);   // 원 2개만·간격 축소(유저) — 발자국 은퇴
     const n2c = document.createElement('canvas'); n2c.width = n2c.height = 128;
     const n2 = new THREE.Mesh(new THREE.PlaneGeometry(0.20, 0.20),
       new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(n2c), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
     n2.material.map.colorSpace = THREE.SRGBColorSpace;
     n2.userData.canvas = n2c; n2.userData.tex = n2.material.map;
     n2.rotation.x = -Math.PI / 2; n2.position.set(0, 0.015, BK_STAND - 0.85 - BDEEP); n2.renderOrder = 7;
-    this.bkB2x = { fmL: x2L, fmR: x2R, zL: z2L, zR: z2R, num: n2,
+    this.bkB2x = { zL: z2L, zR: z2R, num: n2,
       count: 0, _shown: -1, _wasLow: false, _popT: -9 };
-    g.add(x2L.group, x2R.group, z2L, z2R, n2);
+    g.add(z2L, z2R, n2);
 
     g = this._mk('BK_B3');
     // B3 · 다리 사이 — 두 존 + 다리 밑 통과 라인. 발마크는 넓게(±0.22) = 통과 공간을 몸으로 만든다.
@@ -2039,7 +2037,6 @@ export class Session {
       const onZ = H._tgtL ? H.zL : H.zR, offZ = H._tgtL ? H.zR : H.zL;
       const pk2 = Math.max(0, 1 - (this.t - H._popT) / 0.2);
       onZ.setOp?.(0.55 + 0.4 * pk2); offZ.setOp?.(0.12);
-      H.fmL.op(0.9); H.fmR.op(0.9);
       const ball2 = this.xbot?.ball;
       const isLow2 = !!ball2?.visible && ball2.position.y < 0.20;
       if (isLow2 && !H._wasLow) {
