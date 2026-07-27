@@ -908,11 +908,15 @@ export class Session {
       gg.add(H.mL, H.mC, H.mR, H.rise, H.gh.group, H.a1, H.a2,
         H.fLl.group, H.fLr.group, H.fRl.group, H.fRr.group, H.fC.group);
       if (id === 'BK_B3') {
-        // 2/4 전용(레퍼런스 주석 그대로): 왼발 자리 위 '사이즈 작은 파형' + 오른발이 가는 '대각선 궤적'.
-        //   둘 다 룩시스템 토큰 원사이즈(작은 존 원 0.09 / LINE 화살표 0.34) — 프리뷰·따라하기 공통.
-        H.wv = floorRing(0, SBZ, 0.09, 0.115, BRAND.coral, 0);
-        H.tj = floorArrow(0, SBZ, -45, BRAND.prism, 0.34); H.tj._gain = 0;
-        gg.add(H.wv, H.tj);
+        // 2/4 전용(레퍼런스): 오른발이 가는 '대각선 궤적' = 궤적 토큰 정본(LINE 광류 + 코멧 헤드 + 스파크,
+        //   drawTrajectory). 화살표로는 '휙 들어간다'가 안 읽힌다(유저) — 코멧이 경로를 훑어야 한다.
+        H.tj = primPanel('trajectory', 0.9, false);
+        H.tj._prim.pts = [[-0.85, 0.72], [-0.05, 0.18], [0.85, -0.72]];   // 근거리 좌 → 원거리 우 대각선
+        H.tj._prim.P = { width: 1.5, tail: 1.2, taper: 1.6 };
+        H.tj._prim.prog = 0;
+        // '사이즈 작은 파형' = 링이 아니라 버스트 파문(effects.burst soft, 0.32m). 앵커만 두고 매 사이클 발사.
+        H.wvA = new THREE.Object3D();
+        gg.add(H.tj, H.wvA);
       }
       if (!big) {   // 훈련 단계만 커서 표시 — 실전은 시선 부담 최소화(유저 확정)
         H.cL = new FootMark('left').at(-0.1, SBZ + 0.52, 0.42);
@@ -2202,17 +2206,21 @@ export class Session {
       if (this._bkStrId !== id) { H.beat = 0; H.count = 0; H._beatT = this.t; H._popT = -9; H._side = -1; H._ghT = -9; }
       this._bkStrId = id;
       // 2/4 = 프리뷰에도 파형·궤적이 뜬다(유저 레퍼런스). 배치는 관찰/따라하기 공통이라 먼저 잡는다.
-      if (H.wv) {
-        const VV = FOLLOW_V, cyc = (this.t % 2.2) / 2.2, mv = Math.min(1, cyc / 0.55);
-        const ez = mv * mv * (3 - 2 * mv);
-        const pw = this._beamLocal(-FOLLOW_UX, VV + 0.16, H.mL);        // 왼발 자리 위 = 작은 파형
-        H.wv.position.set(pw.x, H.wv.position.y, pw.z);
-        H.wv.setOp?.(0.25 + 0.45 * Math.abs(Math.sin(Math.PI * cyc)));   // 파동 = 밝기 호흡
-        const pt = this._beamLocal(-0.02 + 0.34 * ez, VV + 0.04 + 0.10 * ez, H.mL);   // 궤적 = 대각선 진행
-        H.tj.position.set(pt.x, 0.014, pt.z);
-        H.tj.rotation.z = THREE.MathUtils.degToRad(-45);
-        H.tj._gain = 0.30 + 0.60 * ez;
-        H._rEz = ez;   // 오른발 모션이 같은 위상을 쓴다
+      if (H.tj) {
+        // 스텝은 팍 — 이동 0.5초(사이클 2.2초 중), 감속 이징으로 '힘차게 밟고 멈춘다'(유저)
+        const VV = FOLLOW_V, CYC = 2.2, MOVE = 0.5;
+        const cyc = (this.t % CYC) / CYC, mv = Math.min(1, (cyc * CYC) / MOVE);
+        const ez = 1 - Math.pow(1 - mv, 3);
+        H._rEz = ez;   // 오른발 모션이 궤적 코멧과 같은 위상을 쓴다
+        H.tj._prim.prog = ez;                                   // 코멧 헤드 = 발이 가는 만큼 훑는다
+        const pt = this._beamLocal(0.30, VV + 0.07, H.mL);      // 패널 중심 = 경로 중간
+        H.tj.position.set(pt.x, 0.017, pt.z);
+        const pw = this._beamLocal(-FOLLOW_UX, VV + 0.16, H.mL);   // 왼발 자리 위 = 작은 파형
+        H.wvA.position.set(pw.x, 0.014, pw.z);
+        if ((H._wvCyc ?? 1) > cyc) {   // 사이클 시작마다 1회 — 작은 파문(soft: 0.32m)
+          const wp = new THREE.Vector3(); H.wvA.getWorldPosition(wp); this.onPress?.(wp, true);
+        }
+        H._wvCyc = cyc;
       }
       if (!this._followLatch && !LIVE) {   // 훈련만 관찰 국면
         for (const k of ['mL', 'mC', 'mR']) H[k].setOp?.(0);
