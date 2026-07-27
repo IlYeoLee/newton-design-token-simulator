@@ -815,17 +815,21 @@ export class Session {
     g = this._mk('BK_B2');
     // B2 · 크로스오버 — 좌우 바운스 존 교대 점등. '공이 우리 평면에 닿는 지점'이 곧 커서라
     //   가림이 판정 신호가 된다(광학 검수 결론). 존 위치는 커리 실측 바운스 거리(0.44~0.83m) 안.
-    const mkZone = (x) => floorRing(x, BK_STAND - 0.55 - BDEEP, 0.15, 0.19, BRAND.coral, 0.2);
-    const z2L = mkZone(-0.45), z2R = mkZone(0.45);   // 사이드 슬라이드 — 몸이 오가는 좌우 끝점
-    const n2c = document.createElement('canvas'); n2c.width = n2c.height = 128;
-    const n2 = new THREE.Mesh(new THREE.PlaneGeometry(0.20, 0.20),
-      new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(n2c), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
-    n2.material.map.colorSpace = THREE.SRGBColorSpace;
-    n2.userData.canvas = n2c; n2.userData.tex = n2.material.map;
-    n2.rotation.x = -Math.PI / 2; n2.position.set(0, 0.015, BK_STAND - 0.85 - BDEEP); n2.renderOrder = 7;
-    this.bkB2x = { zL: z2L, zR: z2R, num: n2,
-      count: 0, _shown: -1, _wasLow: false, _popT: -9 };
-    g.add(z2L, z2R, n2);
+    // (측면 스텝백 Break Down — 레퍼런스 영상 콘 3개의 디지털 승격, 좌우 일렬)
+    //   착지(좌 -0.55)·플랜트(중)·시작(우 +0.55) + 착지/시작 발자국 페어 + '내 발 커서'(근거리 행,
+    //   발↔골반 상대 x 1:1 미러 — 빔은 발밑에 못 그리므로 커서로 '밟기'를 성립시킨다).
+    const SBZ = BK_STAND - 0.55 - BDEEP;
+    const sbm = (x, r) => floorRing(x, SBZ, r, r + 0.04, BRAND.coral, 0.2);
+    const mL = sbm(-0.55, 0.15), mC = sbm(0, 0.12), mR = sbm(0.55, 0.15);
+    const fp = (x, dz, foot) => new FootMark(foot).at(x, SBZ + dz, 0.62);
+    const sL1 = fp(-0.69, 0.02, 'left'), sR1 = fp(-0.41, 0.02, 'right');   // 착지 페어(어깨너비)
+    const sL2 = fp(0.41, 0.02, 'left'), sR2 = fp(0.69, 0.02, 'right');     // 시작 페어
+    const rise = floorRing(-0.55, SBZ, 0.21, 0.25, BRAND.red, 0);           // 상승 링(비트④=슛)
+    const cL = new FootMark('left').at(-0.1, SBZ + 0.55, 0.5), cR = new FootMark('right').at(0.1, SBZ + 0.55, 0.5);
+    cL.ghost(); cR.ghost();   // 커서 = Locked 고스트 톤(목표와 구분)
+    this.bkB2x = { mL, mC, mR, sL1, sR1, sL2, sR2, rise, cL, cR,
+      beat: 0, _dwell: 0, _beatT: 0, _popT: -9, _prevHy: 0 };
+    g.add(mL, mC, mR, sL1.group, sR1.group, sL2.group, sR2.group, rise, cL.group, cR.group);
 
     g = this._mk('BK_B3');
     // B3 · 다리 사이 — 두 존 + 다리 밑 통과 라인. 발마크는 넓게(±0.22) = 통과 공간을 몸으로 만든다.
@@ -2059,43 +2063,61 @@ export class Session {
       FMU(phase2 ? '시선은 바깥으로 — 리듬만 유지' : `원형 마크에 맞춰 튕겨요 — 남은 ${left1}회`, phase2 ? CS.prism : CS.sand);
       if (H._p2t >= P2SEC || this.t >= MAXSEC) { this.next(); return; }
     } else if (id === 'BK_B2') {
-      // B2 · 크로스오버 — 좌우 존 교대 점등(반 템포 0.8s: 배우기 우선), 켜진 존에 공을 떨어뜨린다.
-      const H = this.bkB2x, TOTAL = 6, MAXSEC = 40;
-      if (this._bkStrId !== 'BK_B2') { H.count = 0; H._shown = -1; H._side = 0; H._popT = -9; }
+      // B2 · 측면 스텝백 Break Down — 비트별 정지 학습. 커서(발 미러)가 마크에 머물면 다음 비트.
+      //   ①시작(우) ②플랜트(중) ③착지(좌, 어깨너비) ④슛(상승 링) = 1세트로 종료.
+      const H = this.bkB2x, MAXSEC = 60;
+      if (this._bkStrId !== 'BK_B2') { H.beat = 0; H._dwell = 0; H._beatT = this.t; H._popT = -9; }
       this._bkStrId = 'BK_B2';
-      if (!this._followLatch) {   // 관찰 5초 — 코치 실루엣(크로스오버 영상)+Preview 필만, 가이드 숨김
-        H.zL.setOp?.(0); H.zR.setOp?.(0); H.num.material.opacity = 0;
+      if (!this._followLatch) {   // 관찰 — 실루엣+Preview만, 가이드 숨김
+        for (const k of ['mL', 'mC', 'mR']) H[k].setOp?.(0);
+        for (const k of ['sL1', 'sR1', 'sL2', 'sR2']) H[k].op(0);
+        H.rise.setOp?.(0); H.cL.op(0); H.cR.op(0);
         this.demoActive = true;
-        FMU('먼저 보세요 — 사이드 슬라이드', CS.prism);
+        FMU('먼저 보세요 — 스텝백', CS.prism);
         return;
       }
-      this._say('bkb2go', '커리', '이제 같이 — 오른손으로 공을 밀며 옆으로 미끄러져요.');
-      H.num.material.opacity = 1;
-      // 판정 = 발이 골반 기준 좌우로 얼마나 뻗는가(상대 좌표). 몸에 달린 빔은 투사면이 유저와
-      //   함께 움직이므로 '절대 위치로 이동'은 원리적으로 가이드할 수 없다 — 스탠스 폭·발 위치 같은
-      //   몸 기준 정보만 가르칠 수 있다. 실측 확인: 루트 이동 클립에선 봇이 화면 밖으로 나갔다.
+      this._say('bkb2go', '커리', '이제 같이 — 발부터, 한 박자씩 갑니다.');
+      // 커서 = 발↔골반 상대 x 1:1 미러 (근거리 행). 깊이는 고정 — 측면 정보만 가르친다.
       const pr = this.xbot?.getProbes?.();
-      let sideS = H._side || 0;
+      let ex = 0, exL = 0, exR = 0;
       if (pr?.hips && pr.footL && pr.footR) {
-        // 체중 이동 = 골반이 두 발 중점 기준 어느 쪽으로 쏠렸는가. 실측 진폭 −0.21~+0.11이라
-        //   임계 ±0.06(진폭의 약 40%)에서 좌우가 확실히 갈린다. 발 벌림(dL/dR)은 자세라 진동이 없다.
-        const off = pr.hips.x - (pr.footL.x + pr.footR.x) / 2;
-        if (off < -0.06) sideS = -1; else if (off > 0.02) sideS = 1;
+        exL = pr.footL.x - pr.hips.x; exR = pr.footR.x - pr.hips.x;
+        ex = (exL + exR) / 2 + (pr.hips.x - (pr.footL.x + pr.footR.x) / 2) * 2;   // 체중 쏠림 증폭 반영
+        ex = Math.max(-0.75, Math.min(0.75, ex * 2.2));   // 클립 진폭(±0.2)을 마크 스케일(±0.55)로 증폭
       }
-      if (sideS !== 0 && sideS !== H._side) {   // 반대쪽으로 체중이 넘어간 순간 1회
-        H._side = sideS; H.count += 1; H._popT = this.t;
-        const wp = new THREE.Vector3(); (sideS < 0 ? H.zL : H.zR).getWorldPosition(wp);
-        this.onPress?.(wp, false);
+      const CZ = (H.mL.position.z) + 0.55;
+      H.cL.at(ex - 0.14, CZ, 0.5); H.cR.at(ex + 0.14, CZ, 0.5);
+      H.cL.op(0.75); H.cR.op(0.75);
+      // 비트 목표: 0=시작(+0.55) 1=플랜트(0) 2=착지(-0.55) 3=슛(상승)
+      const TGT = [0.55, 0, -0.55][Math.min(H.beat, 2)];
+      const lit = (m, on) => m.setOp?.(on ? 0.75 : 0.14);
+      lit(H.mR, H.beat === 0); lit(H.mC, H.beat === 1); lit(H.mL, H.beat === 2);
+      for (const k of ['sL2', 'sR2']) H[k].op(H.beat === 0 ? 0.8 : 0.15);
+      for (const k of ['sL1', 'sR1']) H[k].op(H.beat === 2 ? 0.8 : 0.15);
+      H.rise.setOp?.(H.beat === 3 ? 0.85 : 0);
+      const dtB2 = Math.max(0, Math.min(0.1, this.t - (this._bkB2t ?? this.t))); this._bkB2t = this.t;
+      if (H.beat <= 2) {
+        // 커서가 목표 마크 근방에 머물면(0.8s) 통과. 봇 시연이 늦으면 6s 후 자동 진행(데모 안전장치).
+        if (Math.abs(ex - TGT) < 0.22) H._dwell += dtB2; else H._dwell = Math.max(0, H._dwell - dtB2 * 2);
+        if (H._dwell > 0.8 || this.t - H._beatT > 6) {
+          H.beat += 1; H._dwell = 0; H._beatT = this.t; H._popT = this.t;
+          const m = [H.mR, H.mC, H.mL][H.beat - 1];
+          const wp = new THREE.Vector3(); m.getWorldPosition(wp); this.onPress?.(wp, false);
+        }
+      } else {
+        // 비트④ 슛 — 골반 상승 전환 감지(점프 릴리즈)
+        const hy = pr?.hips?.y ?? 1;
+        if (hy - (H._prevHy || hy) > 0.012 || this.t - H._beatT > 6) {
+          const wp = new THREE.Vector3(); H.rise.getWorldPosition(wp); this.onPress?.(wp, true);
+          this._say('bkb2shot', '커리', '슛! 그 리듬이에요.');
+          this.next(); return;
+        }
+        H._prevHy = hy;
       }
-      const pk2 = Math.max(0, 1 - (this.t - H._popT) / 0.25);
-      H.zL.setOp?.(H._side < 0 ? 0.55 + 0.4 * pk2 : 0.14);
-      H.zR.setOp?.(H._side > 0 ? 0.55 + 0.4 * pk2 : 0.14);
-      const left2 = Math.max(0, TOTAL - H.count);
-      if (left2 !== H._shown) { redrawFootNum(H.num, left2); H._shown = left2; }
-      this.repLeft = left2; this.repTotal = TOTAL;
-      this.repFrac = Math.min(1, H.count / TOTAL);
-      FMU(`사이드 슬라이드 — ${H._side < 0 ? '왼쪽' : '오른쪽'} 끝 · 남은 ${left2}회`, CS.sand);
-      if (left2 === 0 || this.t >= MAXSEC) { this.next(); return; }
+      const BEATN = ['시작 자리', '플랜트 — 안으로', '스텝백! — 빠지기', '슛!'];
+      FMU(`Break Down · ${H.beat + 1}/4 — ${BEATN[H.beat]}`, CS.sand);
+      this.repLeft = 4 - H.beat; this.repTotal = 4; this.repFrac = H.beat / 4;
+      if (this.t >= MAXSEC) { this.next(); return; }
     } else if (id === 'BK_B3') {
       // B3 · 다리 사이 — 중앙 통과 라인을 지나 반대 존에 바운스해야 카운트.
       const H = this.bkB3x, TOTAL = 8, MAXSEC = 40;

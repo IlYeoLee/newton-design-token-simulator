@@ -3950,7 +3950,7 @@ void main(){
       // B1 시범 = 06_15 드리블→슛(온전한 무브 원테이크), B2 분해 = 06_14 크로스오버+슛 위상잠금
       // B단계 = 공을 튄다 → 튀기며 움직인다 → 튀기다 멈추고 뒤로(BK-B-CURRICULUM.md)
       BK_B1: 'bp_dribble',            // 드리블 루프 2(Sketchfab 네이티브 1.6s) — 유저: 이걸로 교체
-      BK_B2: 'cmu_dribble_low',       // 제자리 로우 핸들(06_13) — 루트 이동 클립은 봇이 화면 밖으로 나갔다
+      BK_B2: 'rk_stepback',           // 측면 스텝백 시연 — _rootClips라 제자리 고정 자동
       BK_B3: 'cmu_dribble_low',       // 다리 사이도 같은 핸들 클립 루프
     };
     if (DRILL[id] && xbot.actions[DRILL[id]]) return DRILL[id];
