@@ -805,8 +805,8 @@ export class Session {
     // 셋업 막 발자국 — 어깨보다 넓게(0.56m, wikiHow 기본기). 4초간만 보였다 퇴장(상시 아님).
     const b1sL = new FootMark('left').at(-0.14, BK_STAND - 0.40 - BDEEP, 1.1);   // 모은 자세에서 시작 → 틱이 벌린다
     const b1sR = new FootMark('right').at(0.14, BK_STAND - 0.40 - BDEEP, 1.1);
-    const b1aL = floorArrow(-0.50, BK_STAND - 0.40 - BDEEP, 90, BRAND.sand, 0.26);    // ← 바깥 화살표
-    const b1aR = floorArrow(0.50, BK_STAND - 0.40 - BDEEP, -90, BRAND.sand, 0.26);    // →
+    const b1aL = floorArrow(-0.20, BK_STAND - 0.40 - BDEEP, 90, BRAND.sand, 0.22);    // ← 룩 화살표(스템+SVG촉)
+    const b1aR = floorArrow(0.20, BK_STAND - 0.40 - BDEEP, -90, BRAND.sand, 0.22);    // →
     b1aL._gain = 0; b1aR._gain = 0;
     this.bkB1 = { zone: b1zone, num: b1num, sL: b1sL, sR: b1sR, aL: b1aL, aR: b1aR,
       count: 0, _shown: -1, _wasLow: false, _popT: -9, _p2t: 0, _setupDone: false };
@@ -1963,9 +1963,13 @@ export class Session {
       if (inSetup) {
         const half = 0.14 + 0.14 * we;                    // 발자국도 실제로 벌어진다
         H.sL.group.position.x = -half; H.sR.group.position.x = half;
-        const aOn = this.t > 0.7 && this.t < W_END ? 1 : 0;   // ← → 동시 등장
+        // ← → 룩 화살표: draw-on 진행(_prog)을 '발자국이 실제 벌어지는 진행'에 직접 물린다(유저).
+        //   벌어짐과 동시에 촉이 바깥으로 자라고, 끝나면 완성 상태로 잠깐 머물다 소등.
+        const aOn = this.t > 0.7 && this.t < W_END + 0.5 ? 1 : 0;
         H.aL._gain = aOn; H.aR._gain = aOn;
-        H.aL.position.x = -(half + 0.30); H.aR.position.x = half + 0.30;
+        H.aL._prog = Math.max(0.15, we); H.aR._prog = Math.max(0.15, we);
+        // 촉 끝이 빔 측면 페더를 넘으면 알파 0(실측 사고) — 짧은 화살표를 마크 바로 옆에.
+        H.aL.position.x = -(half + 0.05); H.aR.position.x = half + 0.05;
         if (this.t < W_END) {
           H.sL.countdown(this.t / W_END); H.sR.countdown(this.t / W_END);
           this._say('bkb1st', '커리', '발은 어깨보다 넓게 — 발자국 위에 서 볼까요. 무릎은 굽히고.');

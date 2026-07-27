@@ -4322,18 +4322,21 @@ void main(){
             if (sCue && sCue.textContent !== cue) sCue.textContent = cue;
           }
           const dots = fdoc?.getElementById('s-dots');   // 셋업(Wide Stance)엔 진행 도트 무의미 — 숨김(유저)
-          if (dots) dots.style.visibility = session.bkB1Setup ? 'hidden' : '';
+          const dv = session.bkB1Setup ? 'hidden' : '';
+          if (dots && dots.style.visibility !== dv) dots.style.visibility = dv;
           // Success 컴포넌트(피그마 130-2984): 배지 + 3·2·1 카운트다운 링
           const succ = fdoc?.getElementById('s-succ');
           if (succ) {
             const on = session.bkB1Succ != null;
-            succ.style.display = on ? 'flex' : 'none';
+            const dsp = on ? 'flex' : 'none';
+            if (succ.style.display !== dsp) succ.style.display = dsp;   // 매 프레임 스타일 쓰기 금지 — CSS3D iframe 리컴포짓 플리커(검은 사각, 유저)
             if (on) {
               const nEl = fdoc.getElementById('succ-n');
               if (nEl && nEl.textContent !== String(session.bkB1Succ)) nEl.textContent = String(session.bkB1Succ);
               const frac = Math.max(0, Math.min(1, (session.t - 3.0) / 3.0));   // 셋업 3~6s
               const arc = fdoc.getElementById('succ-arc');
-              if (arc) arc.style.strokeDashoffset = (615.7 * frac).toFixed(1);
+              const off = (615.7 * frac).toFixed(0);
+              if (arc && arc.style.strokeDashoffset !== off) arc.style.strokeDashoffset = off;
               const dot = fdoc.getElementById('succ-dot');
               if (dot) { const a = -Math.PI / 2 + (1 - frac) * 2 * Math.PI;
                 dot.setAttribute('cx', (110 + 98 * Math.cos(a)).toFixed(1));
@@ -4348,8 +4351,9 @@ void main(){
             const done = session.repFrac != null
               ? Math.max(0, Math.min(1, session.repFrac))
               : 1 - Math.max(0, Math.min(1, session.repLeft / session.repTotal));
-            clip.style.animation = 'none';
-            clip.style.width = (600 * done).toFixed(1) + 'px';
+            if (clip.style.animation !== 'none') clip.style.animation = 'none';
+            const wpx = (600 * done).toFixed(0) + 'px';   // 1px 양자화 — 매 프레임 폭 쓰기가 리컴포짓 플리커 유발
+            if (clip.style.width !== wpx) clip.style.width = wpx;
           }
         }
         if (tp) {
