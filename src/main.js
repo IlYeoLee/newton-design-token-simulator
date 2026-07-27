@@ -4727,7 +4727,7 @@ void main(){
   const occlRenderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
   occlRenderer.setPixelRatio(window.devicePixelRatio || 1);
   occlRenderer.setClearColor(0x000000, 0);
-  Object.assign(occlRenderer.domElement.style, { position: 'fixed', pointerEvents: 'none', zIndex: '7', display: 'none' });
+  Object.assign(occlRenderer.domElement.style, { position: 'fixed', pointerEvents: 'none', zIndex: '7' });   // display 토글 금지 — 재표시 첫 프레임 검정 플래시
   document.body.appendChild(occlRenderer.domElement);
   const occlCam = camera.clone();
   // 오버레이 = 프레임 위 몸을 재렌더해 프레임을 몸에 가림(발밑 밟힘). 2번째 GL이라 메인 IBL(PMREM) 재사용
@@ -4744,8 +4744,14 @@ void main(){
   const NO_CSS = DIAG.get('nocss') === '1';
   function renderFloorOcclusion(active) {
     if (NO_OCCL) active = false;
-    occlRenderer.domElement.style.display = active ? 'block' : 'none';
-    if (!active || !xbot.model) return;
+    // display 토글 금지(유저 실측 이분법: 오버레이 재활성과 함께 검은 프레임 재발) —
+    // none→block 재표시 첫 프레임에 GL 버퍼가 붙기 전 불투명 검정이 노출된다.
+    // 항상 표시 상태로 두고, 비활성일 땐 투명 클리어만 한다(비용 0에 가깝고 플래시 없음).
+    if (!active || !xbot.model) {
+      if (occlRenderer._hadContent) { occlRenderer.clear(); occlRenderer._hadContent = false; }
+      return;
+    }
+    occlRenderer._hadContent = true;
     const cvr = renderer.domElement.getBoundingClientRect();
     if (occlRenderer._sw !== cvr.width || occlRenderer._sh !== cvr.height) {
       occlRenderer.setSize(cvr.width, cvr.height);
@@ -4793,26 +4799,73 @@ void main(){
   for (const id of ['FIN', 'BK_FIN']) {
     FLOOR_FRAMES[id] = { src: 'ready-view/floor-report.html?stage=' + id, w: 1600, h: 2670 };
   }
-  // 더블 버퍼(유저: 중간 장면장면 검은 깜빡): src 교체는 새 문서가 그려질 때까지 프레임 크기의
-  // 검은 공백을 노출한다. 뒤 iframe에 로드 → onload에 교체 — 전환 중에도 이전 화면 유지.
+  // ── iframe 제거(검은 사각 플리커 근본): 3D 변환 아래 iframe은 내용 repaint마다 자체 프로세스가
+  // 텍스처를 재래스터하고, 그 사이 컴포지터가 '불투명 검정' 폴백을 그린다(유저 녹화: 프레임 윤곽 그대로
+  // 검은 사각 + 흰 타이틀만 잔존 = iframe 레이어의 알파 소실). 스로틀·쓰기차단·더블버퍼로도 경로가 남는 한
+  // 재발했으므로, 문서를 fetch해 same-document Shadow DOM div에 주입 — iframe 래스터 경로 자체를 없앤다.
+  // 스타일은 shadow 스코프로 격리(더블 버퍼 두 문서의 셀렉터 충돌 방지), <script>는 파사드로 실행.
+  const _floorFontFaces = new Set();   // @font-face는 shadow 안에서 무시됨(Chrome) → 문서 head에 1회 승격
   const mkFloorFrame = () => {
-    const f = document.createElement('iframe');
-    f.setAttribute('scrolling', 'no');
+    const f = document.createElement('div');
     f.style.willChange = 'transform';
     f.style.backfaceVisibility = 'hidden';
-    f.style.border = '0';                      // iframe 기본 테두리 = 프레임 흰 줄(유저)
-    f.style.background = 'transparent';
+    f.attachShadow({ mode: 'open' });
+    f._doc = null;   // contentDocument 파사드 — 기존 소비처(옵셔널 체이닝) 그대로 호환
+    Object.defineProperty(f, 'contentDocument', { get() { return this._doc; } });
     return f;
   };
-  let floorIframe = mkFloorFrame();
+  async function loadFloorDoc(buf, url) {
+    const tok = buf._loadTok = (buf._loadTok || 0) + 1;
+    const html = await (await fetch(url)).text();
+    if (buf._loadTok !== tok) return false;   // 더 새 로드가 시작됨 — 폐기
+    const srcDoc = new DOMParser().parseFromString(html, 'text/html');
+    const sr = buf.shadowRoot;
+    sr.innerHTML = '';
+    const abs = rel => new URL(rel, new URL(url, location.href)).href;
+    for (const st of srcDoc.querySelectorAll('style')) {
+      for (const face of st.textContent.match(/@font-face\s*{[^}]*}/g) || []) {
+        const rebased = face.replace(/url\('([^']+)'\)/g, (m, u) => `url('${abs(u)}')`);
+        if (_floorFontFaces.has(rebased)) continue;
+        _floorFontFaces.add(rebased);
+        const fs = document.createElement('style'); fs.textContent = rebased; document.head.appendChild(fs);
+      }
+      const s2 = document.createElement('style'); s2.textContent = st.textContent; sr.appendChild(s2);
+    }
+    for (const n of [...srcDoc.body.children]) if (n.tagName !== 'SCRIPT') sr.appendChild(document.importNode(n, true));
+    for (const im of sr.querySelectorAll('img[src]')) {   // 상대 src → 문서(ready-view/) 기준 절대화
+      const s = im.getAttribute('src');
+      if (!/^([a-z]+:|\/)/i.test(s)) im.setAttribute('src', abs(s));
+    }
+    // <script> 실행 — document→shadowRoot·location→원 URL 파사드 (문서들은 same-origin 정적 HTML)
+    const fakeLoc = new URL(url, location.href);
+    const fakeDoc = {
+      getElementById: id => sr.getElementById(id),
+      querySelector: s => sr.querySelector(s),
+      querySelectorAll: s => sr.querySelectorAll(s),
+      createElement: t => document.createElement(t),
+      documentElement: buf,   // floor-timer: documentElement.style.setProperty('--dur') — CSS 변수는 shadow 안까지 상속
+      body: sr,
+    };
+    const loadCbs = [];
+    const fakeWin = {   // floor*.html이 쓰는 window 표면만: load 콜백 + FLOOR_SCENES(floor-scenes.js가 세팅)
+      addEventListener: (t, cb) => { if (t === 'load' && cb) loadCbs.push(cb); },
+      get FLOOR_SCENES() { return window.FLOOR_SCENES; },
+      set FLOOR_SCENES(v) { window.FLOOR_SCENES = v; },
+    };
+    for (const sc of srcDoc.querySelectorAll('script')) {
+      const code = sc.getAttribute('src') ? await (await fetch(abs(sc.getAttribute('src')))).text() : sc.textContent;
+      if (buf._loadTok !== tok) return false;
+      try { new Function('document', 'location', 'window', code)(fakeDoc, fakeLoc, fakeWin); }
+      catch (e) { console.warn('[floor-doc]', url, e); }
+    }
+    loadCbs.forEach(cb => { try { cb(); } catch (e) {} });
+    buf._doc = fakeDoc;
+    return buf._loadTok === tok;
+  }
+  let floorIframe = mkFloorFrame();      // 이름 유지(소비처 최소 diff) — 실체는 shadow div 버퍼
   let floorIframeBack = mkFloorFrame();
   floorIframeBack.style.visibility = 'hidden';
-  // 배경 투명(html/body transparent)이라 별도 루마키 불필요. filter:url(#ui-lumakey)는 정의 없는 댕글링 참조라
-  // Chrome이 iframe을 통째 안 그렸음(운동중 프레임 안 보이던 원인) → 제거.
-  Object.assign(floorIframe.style, { border: '0', background: 'transparent' });
-  // 래퍼 div가 3D 변환을 받는다 — iframe에 직접 transform을 걸면 Chrome이 내용 repaint 때마다
-  // 재래스터하며 '검은 사각 플래시'(뒤 페이지 배경 노출)를 낸다(유저 녹화 실측). iframe은 래퍼 안에
-  // 무변환 배치 → 자체 레이어 유지 → repaint가 컴포지터 플래시를 만들지 않는다.
+  // 래퍼 div가 3D 변환을 받는다 — 버퍼는 래퍼 안에 무변환 배치.
   const floorWrap = document.createElement('div');
   floorWrap.style.overflow = 'hidden';
   for (const f of [floorIframe, floorIframeBack]) {
@@ -4905,17 +4958,16 @@ void main(){
         floorWrap.style.height = fView.h + 'px';
         const dur = STAGE_DUR[session.curStage?.id] ?? session.curStage?.dur ?? 8;
         const durSuffix = fView.src.includes('floor-scene.html') ? '&dur=' + dur : '';
-        // 더블 버퍼 교체 — 새 문서는 뒤 버퍼에서 로드되고, 완성된 뒤에만 앞으로 나온다(검은 공백 0)
+        // 더블 버퍼 교체 — 새 문서는 뒤 버퍼(shadow div)에 주입되고, 완성된 뒤에만 앞으로 나온다(검은 공백 0)
         const back = floorIframeBack;
         back.style.width = fView.w + 'px';
         back.style.height = fView.h + 'px';
-        back.onload = () => {
-          back.onload = null;
+        loadFloorDoc(back, import.meta.env.BASE_URL + fView.src + durSuffix).then(ok => {
+          if (!ok || back !== floorIframeBack) return;   // 뒤늦은 스왑 방지(그 사이 다른 전환)
           back.style.visibility = '';
           floorIframe.style.visibility = 'hidden';
           const t = floorIframe; floorIframe = back; floorIframeBack = t;
-        };
-        back.src = import.meta.env.BASE_URL + fView.src + durSuffix;
+        });
         loadedFloorView = fView.src;
         _fpSmooth = null;   // 스테이지 전환 = 앵커 스냅(슬라이딩 방지)
       }
