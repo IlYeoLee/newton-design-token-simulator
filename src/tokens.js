@@ -249,8 +249,8 @@ export const TCFG = {
   previewEdge: 0.5,     // 프리뷰(NEXT) 윤곽 강도
   cdContractFrom: 1.9,  // 수축 링 시작 배율 (1.9 → 1.0)
   cdGain: 0.6,          // 수축 링 강도
-  lingerEdge: 0.9,      // 성공 잔상 윤곽 강도
-  linger: 0.35,         // 성공 잔상 지속(s)
+  lingerEdge: 0.9,      // 성공→다음 마크 전환 모션의 윤곽 강도
+  linger: 0.35,         // 전환 모션 지속(s) — Success 상태 자체의 수명이 아니다(유저 정의)
 };
 const LINGER = TCFG.linger;   // (초기 참조 — 루프에서는 TCFG.linger 직접 사용)
 
