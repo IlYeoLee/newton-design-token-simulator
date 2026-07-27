@@ -4587,7 +4587,16 @@ void main(){
       const gazeInfo = st.total > 0 ? ` · 시야 내 출현 ${st.inGaze}/${st.total}` : '';
       geomEl.textContent =
         `무릎 h ${(g.kneeH * 100).toFixed(0)}cm · 틸트 ${g.aFar.toFixed(0)}~${g.aNear.toFixed(0)}° · FOV ${g.fovNeed.toFixed(0)}°`
-        + ` · 시야 낙하 ${gazeRange.near.toFixed(1)}~${Math.min(gazeRange.far, 9.9).toFixed(1)}m${gazeInfo}`;
+        + ` · 시야 낙하 ${gazeRange.near.toFixed(1)}~${Math.min(gazeRange.far, 9.9).toFixed(1)}m${gazeInfo}`
+        + (state.pack === 'basketball' && _occStat.n > 0
+            ? ` · 빔 차폐 지금 ${(100 * _occStat.now).toFixed(0)}%(${_occStat.hand}) 평균 ${(100 * _occStat.sum / _occStat.n).toFixed(1)}% 최악 ${(100 * _occStat.worst).toFixed(0)}%`
+            : '');
+    } else if (geomEl && state.pack === 'basketball' && _occStat.n > 0) {
+      const avg = 100 * _occStat.sum / _occStat.n;
+      geomEl.textContent =
+        `빔 차폐 실측 · 지금 ${(100 * _occStat.now).toFixed(0)}% (${_occStat.hand})`
+        + ` · 누적 평균 ${avg.toFixed(1)}% · 최악 프레임 ${(100 * _occStat.worst).toFixed(0)}%`
+        + ` · 조리개 종아리 밴드(바깥 6cm) · 표본 ${_occStat.n}프레임`;
     } else if (geomEl && state.pack === 'boxing') {
       geomEl.textContent =
         `프로젝터 유닛(인물 앞): 벽앞 ${opt.dProj.toFixed(2)}m · 렌즈높이 ${(LENS_H*100).toFixed(0)}cm · 상향틸트 ${opt.tilt.toFixed(0)}° · 뒷면 카메라 FOV ${THREE.MathUtils.radToDeg(CAM_V).toFixed(0)}°×${THREE.MathUtils.radToDeg(CAM_H).toFixed(0)}° · 전신 인식 최적 거리 ${opt.dCam.toFixed(2)}m (링에 서기)`;
@@ -4712,12 +4721,13 @@ void main(){
   //   판정 = 조리개(무릎)→토큰 중심 선분과 공 구(반지름 0.12) 교차. 가려지면 그 토큰만 소등.
   function applyBallOcclusion() {
     const g = session?.G?.[session.stage];
-    if (!g || !g.visible || state.sport !== 'basketball' || !xbot?.ball?.visible) { _occRestore(); return; }
-    const A = xbot.getKneeWorld?.();
+    if (!g || !g.visible || state.pack !== 'basketball' || !xbot?.ball?.visible) { _occRestore(); return; }
+    const A = _apertureWorld();
     if (!A) { _occRestore(); return; }
     const B = xbot.ball.position, R = 0.12;
     const P = new THREE.Vector3(), d = new THREE.Vector3(), c = new THREE.Vector3();
     _occRestore();
+    _occMeasure(A, B, R);   // 계측만 — 검은 원반 그래픽은 폐기(유저). 표현은 UI 깜빡임뿐
     g.traverse((o) => {
       const m = o.material;
       if (!o.visible || !m || m.opacity === undefined || m.opacity <= 0.01) return;
@@ -4732,6 +4742,41 @@ void main(){
       m.opacity *= 0.12;   // 완전 0이 아니라 잔광 — 실제 투사도 산란광이 조금 남는다
     });
   }
+
+  // ── 차폐 계측 + 실제 그림자 시각화 ──
+  //   필드 격자 25점의 순간 차단율을 재고(평균·최악 누적), 조리개→공 연장선이 바닥에 만드는
+  //   그림자 원반을 실제 크기로 그린다. 수치가 어디서 나오는지 눈으로 확인 가능하게.
+
+  // 실제 조리개 위치 — 포드는 무릎 뼈가 아니라 종아리 바깥면에 붙는다(산업디자인 실측:
+  // 밴드 바깥으로 약 6cm, 무릎 아래 4cm). 이 6cm가 그림자 쐐기를 필드 밖으로 밀어내
+  // 차단률을 몇 배 낮춘다 — 뼈 중심으로 재면 하드웨어보다 나쁘게 나온다.
+  const _POD_OUT = 0.06, _POD_DOWN = 0.04;
+  function _apertureWorld() {
+    const K = xbot.getKneeWorld?.();
+    if (!K) return null;
+    const hipX = xbot._hips ? xbot._hips.matrixWorld.elements[12] : 0;
+    const side = K.x <= hipX ? -1 : 1;   // 장착 다리 바깥 방향
+    return new THREE.Vector3(K.x + side * _POD_OUT, K.y - _POD_DOWN, K.z);
+  }
+  const _occField = (() => { const a = []; for (const x of [-0.7, -0.35, 0, 0.35, 0.7]) for (const z of [-2.6, -3.0, -3.4, -3.8, -4.1]) a.push(new THREE.Vector3(x, 0, z)); return a; })();
+  const _occStat = { now: 0, sum: 0, n: 0, worst: 0, hand: '—' };
+  function _occMeasure(A, B, R) {
+    const d = new THREE.Vector3(), c = new THREE.Vector3();
+    let hit = 0;
+    for (const P of _occField) {
+      d.copy(P).sub(A); const len = d.length(); d.divideScalar(len);
+      const t = Math.max(0, Math.min(len, c.copy(B).sub(A).dot(d)));
+      c.copy(A).addScaledVector(d, t);
+      if (c.distanceTo(B) < R) hit++;
+    }
+    _occStat.now = hit / _occField.length;
+    _occStat.sum += _occStat.now; _occStat.n++;
+    _occStat.worst = Math.max(_occStat.worst, _occStat.now);
+    const hipX = xbot._hips ? xbot._hips.matrixWorld.elements[12] : 0;
+    _occStat.hand = B.x > hipX + 0.08 ? '오른손' : B.x < hipX - 0.08 ? '왼손' : '중앙 통과';
+  }
+  if (import.meta.env.DEV) window.__occ = _occStat;
+  function resetOccStat() { _occStat.sum = 0; _occStat.n = 0; _occStat.worst = 0; }
   const _occTouched = [];
   function _occRestore() { for (const [m, op] of _occTouched) m.opacity = op; _occTouched.length = 0; }
 
