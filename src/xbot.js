@@ -588,8 +588,22 @@ export class XBot {
     if (key === 'vm_crossover') {
       const D2 = Math.PI / 180, Bn = n => this.model.getObjectByName(n);
       const rq = (b, ax, deg) => b && b.quaternion.multiply(new THREE.Quaternion().setFromAxisAngle(ax, deg * D2));
-      rq(Bn('mixamorigLeftArm'), new THREE.Vector3(0, 0, 1), 26);     // 손 전방(깊이 압축 보정 — 18은 크로스 순간 몸통 관통, 유저)
-      rq(Bn('mixamorigRightArm'), new THREE.Vector3(0, 0, 1), -26);
+      // 팔 = 공 추종(유저: 공 속도/방향에 손이 따라오게). U자 공의 실제 위치에서 팔 각을 유도:
+      //   '내 쪽일수록(near) + 낮을수록(drop)' 아래로 뻗는 푸시 — 공이 빠르면 팔도 빨라진다.
+      let zL = 24, zR = 24, xL = 0, xR = 0;
+      if (this.uDribble && this.ball?.visible && this._hips) {
+        const bp = this.ball.position, he2 = this._hips.matrixWorld.elements;
+        const cx3 = he2[12], SIDE = 0.45, TOP = 0.72, rB = 0.12;
+        const drop = 1 - Math.max(0, Math.min(1, (bp.y - rB) / (TOP - rB)));
+        const nearL = Math.max(0, 1 - Math.abs(bp.x - (cx3 - SIDE)) / (SIDE * 1.2));
+        const nearR = Math.max(0, 1 - Math.abs(bp.x - (cx3 + SIDE)) / (SIDE * 1.2));
+        zL = 20 + nearL * (18 + 32 * drop); xL = nearL * drop * 15;
+        zR = 20 + nearR * (18 + 32 * drop); xR = nearR * drop * 15;
+      }
+      rq(Bn('mixamorigLeftArm'), new THREE.Vector3(0, 0, 1), zL);
+      rq(Bn('mixamorigLeftArm'), new THREE.Vector3(1, 0, 0), xL);
+      rq(Bn('mixamorigRightArm'), new THREE.Vector3(0, 0, 1), -zR);
+      rq(Bn('mixamorigRightArm'), new THREE.Vector3(1, 0, 0), -xR);
       rq(Bn('mixamorigSpine'), new THREE.Vector3(1, 0, 0), 10);       // 상체 살짝 숙임(유저)
       rq(Bn('mixamorigLeftFoot'), new THREE.Vector3(1, 0, 0), -18);   // 까치발 해제 — 실측 뒤꿈치 0.09~0.11m 공중
       rq(Bn('mixamorigRightFoot'), new THREE.Vector3(1, 0, 0), -18);  //   (X+=발 펴기 규약이므로 X−=뒤꿈치 내림)
