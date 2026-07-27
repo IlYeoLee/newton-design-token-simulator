@@ -487,26 +487,52 @@ const SB_KEY = [
   { t: 3.10, L: [-0.683, 30], R: [-0.511, 42] },     // ⑤ 4/4 끝 — 모으고 슛
 ];
 // 판정 마크 프레임 = 빔 창 안 고정 영역. 어떤 단계·어떤 프레임에서도 이 밖으로 안 나간다.
-const SB_BOX = { u: 0.66, v0: 0.12, v1: 0.38 };   // 발자국 반지름(≈0.28m) 여유까지 접은 값 — 투사면 밖 금지
-// 실측 좌표 전체를 프레임에 딱 맞게 정규화(중심 정렬 + 축별 스케일) — 자동. 값 조정은 SB_BOX만.
+const SB_BOX = { u: 0.80, v0: 0.16, v1: 0.46 };   // 창은 멀수록 넓다 — 스탠스를 어깨너비 이상으로 벌리려면 약간 뒤로
+// 뒷모습 영상은 원근으로 좌우 간격이 눌린다 — 실제 농구 스탠스(어깨너비 이상)로 보이게
+// 페어 중심 기준으로만 벌린다(중심 이동=스텝은 실측 그대로). K는 시작 스탠스가 프레임의
+// 어깨너비 이상으로 보이도록 잡은 값(실측 0.37 → 0.7 이상).
+const SB_STANCE_K = 3.0;
+const SB_WIDE = SB_KEY.map(k => {
+  const cu = (k.L[0] + k.R[0]) / 2, cd = (k.L[1] + k.R[1]) / 2;
+  const w = (p) => [cu + (p[0] - cu) * SB_STANCE_K, cd + (p[1] - cd) * SB_STANCE_K];
+  return { t: k.t, L: w(k.L), R: w(k.R) };
+});
+// 실측 좌표 전체를 프레임에 맞게 정규화(축별 스케일) — 자동. 값 조정은 SB_BOX/SB_STANCE_K만.
 const SB_FIT = (() => {
-  const xs = SB_KEY.flatMap(k => [k.L[0], k.R[0]]), zs = SB_KEY.flatMap(k => [k.L[1], k.R[1]]);
+  const xs = SB_WIDE.flatMap(k => [k.L[0], k.R[0]]), zs = SB_WIDE.flatMap(k => [k.L[1], k.R[1]]);
   const cx = (Math.min(...xs) + Math.max(...xs)) / 2, cz = (Math.min(...zs) + Math.max(...zs)) / 2;
   return { cx, cz,
     su: SB_BOX.u / Math.max(...xs.map(x => Math.abs(x - cx))),
     sv: ((SB_BOX.v1 - SB_BOX.v0) / 2) / Math.max(...zs.map(z => Math.abs(z - cz))),
     vc: (SB_BOX.v0 + SB_BOX.v1) / 2 };
 })();
-const sbUV = p => [(p[0] - SB_FIT.cx) * SB_FIT.su, SB_FIT.vc + (p[1] - SB_FIT.cz) * SB_FIT.sv];
+// 단계별 오프셋 — 스케일(=스텝 크기)은 전 단계 공통이되, 그 단계가 쓰는 구간만 프레임 중앙에
+// 오도록 민다. 1/4은 시작 스탠스만 쓰므로 화면 오른쪽 구석이 아니라 정중앙에 선다.
+const SB_OFF = (() => {
+  const off = {};
+  for (const id in STEP_SEG) {
+    const used = SB_WIDE.filter(k => k.t <= STEP_SEG[id] + 1e-6);
+    const xs = used.flatMap(k => [k.L[0], k.R[0]]), zs = used.flatMap(k => [k.L[1], k.R[1]]);
+    off[id] = {
+      du: ((Math.min(...xs) + Math.max(...xs)) / 2 - SB_FIT.cx) * SB_FIT.su,
+      dv: ((Math.min(...zs) + Math.max(...zs)) / 2 - SB_FIT.cz) * SB_FIT.sv,
+    };
+  }
+  return off;
+})();
+const sbUV = (p, o) => [
+  Math.max(-SB_BOX.u, Math.min(SB_BOX.u, (p[0] - SB_FIT.cx) * SB_FIT.su - (o?.du || 0))),
+  Math.max(SB_BOX.v0, Math.min(SB_BOX.v1, SB_FIT.vc + (p[1] - SB_FIT.cz) * SB_FIT.sv - (o?.dv || 0))),
+];
 /** 영상 시각 vt(초)의 발 위치 + 다음 목표점·이동량 — 4단계 공통 소스 */
-function sbPoseAt(vt) {
+function sbPoseAt(vt, o) {
   let i = 0;
-  while (i < SB_KEY.length - 2 && SB_KEY[i + 1].t <= vt) i++;
-  const a = SB_KEY[i], b = SB_KEY[i + 1];
+  while (i < SB_WIDE.length - 2 && SB_WIDE[i + 1].t <= vt) i++;
+  const a = SB_WIDE[i], b = SB_WIDE[i + 1];
   const f = Math.max(0, Math.min(1, (vt - a.t) / Math.max(0.01, b.t - a.t)));
   const ez = f * f * (3 - 2 * f);   // 밟고 멈추는 느낌 — 등속이면 미끄러진다
   const mix = (p, q) => [p[0] + (q[0] - p[0]) * ez, p[1] + (q[1] - p[1]) * ez];
-  return { L: sbUV(mix(a.L, b.L)), R: sbUV(mix(a.R, b.R)), tL: sbUV(b.L), tR: sbUV(b.R),
+  return { L: sbUV(mix(a.L, b.L), o), R: sbUV(mix(a.R, b.R), o), tL: sbUV(b.L, o), tR: sbUV(b.R, o),
     moveL: Math.hypot(b.L[0] - a.L[0], b.L[1] - a.L[1]),
     moveR: Math.hypot(b.R[0] - a.R[0], b.R[1] - a.R[1]), f };
 }
@@ -617,7 +643,7 @@ export class Session {
    *  fmL/fmR = 발자국 페어, arrows = [왼발용, 오른발용] 룩 화살표. 좌표는 SB_BOX 안으로 클램프. */
   _sbPlace(H, id, fmL, fmR, arrows) {
     const seg = STEP_SEG[id] || 0;
-    const P = sbPoseAt(Math.max(0, Math.min(seg, this.stepVidT ?? 0)));   // 단계별 누적 구간까지만
+    const P = sbPoseAt(Math.max(0, Math.min(seg, this.stepVidT ?? 0)), SB_OFF[id]);   // 단계별 누적 구간까지만
     const pL = this._beamLocal(P.L[0], P.L[1], H.mL), pR = this._beamLocal(P.R[0], P.R[1], H.mL);
     fmL.countdown(1); fmR.countdown(1);   // 헤일로 완전 수축 = 번짐 없는 실루엣
     fmL.at(pL.x, pL.z, FOLLOW_S); fmL.op(0.95);
