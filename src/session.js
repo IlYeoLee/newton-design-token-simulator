@@ -817,7 +817,7 @@ export class Session {
     // (측면 스텝백 Break Down — 레퍼런스 영상 콘 3개의 디지털 승격, 좌우 일렬)
     //   착지(좌 -0.55)·플랜트(중)·시작(우 +0.55) + 착지/시작 발자국 페어 + '내 발 커서'(근거리 행,
     //   발↔골반 상대 x 1:1 미러 — 빔은 발밑에 못 그리므로 커서로 '밟기'를 성립시킨다).
-    const SBZ = -3.50;   // 빔 창 중앙(원점 -2.44 기준 전방 1.06m) — 가장자리는 알파 0.25로 깎여 안 보였다(실측)
+    const SBZ = -1.95;   // 월드 환산 z≈-3.2 = 빔 dist 1.0(창 중앙). -3.50은 월드 -4.75로 far 1.9를 넘어 사라졌다(실측)
     const sbm = (x, r) => floorRing(x, SBZ, r, r + 0.028, BRAND.coral, 0.18);
     const mL = sbm(-0.55, 0.13), mC = sbm(0, 0.10), mR = sbm(0.55, 0.13);
     const fp = (x, dz, foot) => new FootMark(foot).at(x, SBZ + dz, 0.62);
@@ -2126,7 +2126,7 @@ export class Session {
       // 스텝백 연속 단계 — 같은 판정, 파라미터만 다르다.
       //   B3 0.5배속·3회 / B4 정속·5회 / C2 실전(무작위 방향·릴리즈 판정)·3회
       const LIVE = id === 'BK_C2';
-      const CFG = { BK_B3: { per: 1.6, need: 3 }, BK_B4: { per: 1.4, need: 3 }, BK_B5: { per: 1.2, need: 3 }, BK_C2: { per: 0.9, need: 3 } }[id];
+      const CFG = { BK_B3: { per: 2.2, need: 3 }, BK_B4: { per: 2.2, need: 3 }, BK_B5: { per: 2.0, need: 3 }, BK_C2: { per: 0.9, need: 3 } }[id];
       const H = { BK_B3: this.bkB3x, BK_B4: this.bkB4x, BK_B5: this.bkB5x, BK_C2: this.bkC2x }[id];
       if (this._bkStrId !== id) { H.beat = 0; H.count = 0; H._beatT = this.t; H._popT = -9; H._side = -1; H._ghT = -9; }
       this._bkStrId = id;
@@ -2158,9 +2158,15 @@ export class Session {
       H.rise.position.x = landX;
       // 점등 = 항상 '다음 목표 하나'. 실전은 시작→착지→상승 링 릴레이만 남긴다(유저 확정).
       const pk = Math.max(0, 1 - (this.t - H._popT) / 0.25);
-      H.mR.setOp?.(H.beat === 0 ? 0.5 : 0);
-      H.mC.setOp?.(H.beat === 1 ? 0.5 : 0);
-      H.mL.setOp?.(H.beat === 2 ? 0.5 : 0);
+      const POSE = {
+        BK_B2: { L: [-0.20, 0.00], R: [0.20, 0.00] },
+        BK_B3: { L: [-0.10, 0.26], R: [0.30, -0.12] },
+        BK_B4: { L: [-0.48, 0.10], R: [0.22, -0.16] },
+        BK_B5: { L: [-0.13, 0.00], R: [0.13, 0.00] },
+      }[id];   // 실전(C2)은 제외 — 마크 릴레이 방식 유지
+      H.mR.setOp?.(POSE ? 0 : (H.beat === 0 ? 0.5 : 0));
+      H.mC.setOp?.(POSE ? 0 : (H.beat === 1 ? 0.5 : 0));
+      H.mL.setOp?.(POSE ? 0 : (H.beat === 2 ? 0.5 : 0));
       // 발자국 페어 — 시작(우)은 비트0, 착지(좌)는 비트2에 밝게. 실전은 착지 쪽만.
       const fpOn = (k, on) => { const f = H[k]; if (!f) return;
         if (on) { f.countdown(Math.min(1, 0.35 + (this.t - H._popT) / 0.35)); f.op(0.95); }   // 헤일로 수축 시작점을 당겨 번짐 축소
@@ -2168,7 +2174,8 @@ export class Session {
       if (POSE) {
         // 4단계 학습 화면(피그마 레퍼런스): 해당 단계의 L·R 발자국은 '항상' 보인다.
         //   비트는 강조(Active 헤일로)만 담당 — 꺼버리면 어디에 서야 할지가 사라진다.
-        fpOn('fRl', true); fpOn('fRr', true);
+        for (const k of ['fRl', 'fRr']) { const f = H[k];
+          f.countdown(Math.min(1, 0.55 + (this.t - H._beatT) / 1.2)); f.op(1); }
         for (const k of ['fC', 'fLl', 'fLr']) H[k]?.op(0);
       } else {
         fpOn('fRl', H.beat === 0); fpOn('fRr', H.beat === 0);
@@ -2218,15 +2225,12 @@ export class Session {
       // 단계별 발자국 배치 = 피그마 레퍼런스 4장 그대로 (L/R 상대 위치·간격)
       //   1) 무릎 구부려 넣는 척: L·R 나란히 어깨너비   2) 오른발 딛고 드리블: R 앞·L 뒤, 공은 왼쪽
       //   3) 왼발 뻗으며 공 잡기: L 크게 왼쪽·R 제자리   4) 오른발 모으며 슛: L·R 모음
-      const POSE = {
-        BK_B2: { L: [-0.20, 0.00], R: [0.20, 0.00] },
-        BK_B3: { L: [-0.10, 0.26], R: [0.30, -0.12] },
-        BK_B4: { L: [-0.48, 0.10], R: [0.22, -0.16] },
-        BK_B5: { L: [-0.13, 0.00], R: [0.13, 0.00] },
-      }[id];   // 실전(C2)은 제외 — 마크 릴레이 방식 유지
       if (POSE) {
-        H.fRl.at(POSE.L[0], H.mL.position.z + POSE.L[1], 0.58);
-        H.fRr.at(POSE.R[0], H.mL.position.z + POSE.R[1], 0.58);
+        // 2분할 하단 = 근거리(유저 쪽). 좌우 폭은 0.72배 축약 — 창 반폭이 0.66m라 실측 스탠스를
+        //   그대로 쓰면 왼발이 가장자리 페더에 먹힌다(실측 uFade 0.14). 비율은 유지된다.
+        const FZ = H.mL.position.z + 0.26, SX = 0.72;
+        H.fRl.at(POSE.L[0] * SX, FZ + POSE.L[1], 0.62);
+        H.fRr.at(POSE.R[0] * SX, FZ + POSE.R[1], 0.62);
       }
       const BEATN = { BK_B2: ['① 무릎 구부리고', '② 낮은 자세 유지', '③ 들어가는 척!', '④ 그대로 준비'],
         BK_B3: ['① 준비', '② 오른발 딛고', '③ 공을 왼쪽으로!', '④ 시선 유지'],

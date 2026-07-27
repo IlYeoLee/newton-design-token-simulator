@@ -2313,6 +2313,7 @@ void main(){
           const [a, b] = PHW;
           if (co.video.currentTime < a - 0.05 || co.video.currentTime >= b) { try { co.video.currentTime = a; } catch (e) {} }
         }
+        if (/^BK_B[2345]$/.test(id)) co.video.playbackRate = 0.45;   // 천천히 보여주기(유저)
         if (co.video.paused) co.video.play().catch(() => {});
         // 영상 실제 프레임이 들어오기 전엔 숨김 — 검은/균일 텍스처가 크로마키 통과 못 해
         // 빨간 방사형 사각형으로 0.x초 깜빡이던 것 방지(유저). readyState≥3(HAVE_FUTURE_DATA)+재생 시작 후.
@@ -2365,6 +2366,9 @@ void main(){
           // 시범 = 코치 영상 중앙 크게(초점 하나) — 원래 관찰 배치
           co.plane.scale.setScalar(1);
           co.plane.position.set(floorObj.position.x + co._fwd.x * co.fwd, 0.015, floorObj.position.z + co._fwd.z * co.fwd);
+          // 스텝백 4페이즈 = 2분할(피그마 레퍼런스): 영상은 상단(원거리), 발자국은 하단(근거리).
+          //   시선이 먼 영상 → 발밑 발자국으로 자연스럽게 내려오고, 둘을 동시에 볼 수 있다.
+          if (/^BK_B[2345]$/.test(id)) { co.plane.position.z -= 0.30; co.plane.position.y = 0.016; }   // 2분할 상단(원거리)
         }
       } else if (c) { c.plane.visible = false; if (!c.video.paused) c.video.pause(); }
     }
@@ -4066,7 +4070,7 @@ void main(){
       xbot.uDribble = /^BK_(C1|C2)$/.test(session.stage || '');   // 공 = 박자 결정론 U자(좌우 손바닥 왕복, 유저 확정)
       const _sbOn = /^BK_(B2|B3|B4|B5|C2)$/.test(session.stage || '');
       xbot.sbWidth = _sbOn ? (session.sbWidth ?? 0) : 0;
-      xbot.sbShift = _sbOn ? (session.sbShift ?? 0) : 0;   // 루트 측면 이동 — 실제로 스텝을 밟게
+      xbot.sbShift = (session.stage === 'BK_C2') ? (session.sbShift ?? 0) : 0;   // 실전만 루트 이동 — 학습 4페이즈는 정지 자세(창이 따라 움직이면 발자국이 밖으로 밀린다)
       xbot.sbJump = _sbOn ? (session.sbJump ?? 0) : 0;
       xbot.relaxLeftArm = (session.stage || '') === 'BK_B1';   // 로우 드리블 — 오른손만 드리블, 왼팔 자연 축 내림
       xbot.phaseDribble = (session.stage || '') === 'BK_B1';   // 공 = 오른손 높이 직결(최고=손, 최저=바닥)
