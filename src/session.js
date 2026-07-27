@@ -645,10 +645,14 @@ export class Session {
     const arL = mkLift(-0.46), arR = mkLift(0.46);
     // 4안(기본): 궤적 토큰 — 룩시스템 trajectory(잽 경로와 동일 정본). 코멧 prog = 실제 발 높이 직결.
     const mkTraj = (x, mirror) => {
-      const m = primPanel('trajectory', 0.5, false);
-      m.position.set(x, 0.014, -1.38);   // 발형 마크 위쪽(전방) — 경로 끝이 마크로 내리꽂힘
-      // 위(멀리)에서 발형 마크 쪽으로 활강하는 경로 (prog 1 = 마크 도달 = 팡)
-      m._prim.pts = [[mirror ? 0.3 : -0.3, -0.72], [mirror ? 0.12 : -0.12, 0.05], [0, 0.8]];
+      // 경로 = 발이 실제로 지나갈 길. 정지 위치(z -1.05)에서 정점(z -1.55)까지, 발자국 위를 지난다.
+      //   예전엔 패널이 z -1.38이고 끝점이 '가까운 쪽'이라 prog=1에서 코멧이 마크와 반대편에 있었다
+      //   (마크는 들리면 멀어지는데 코멧은 다가옴 — 유저: 궤적 토큰이 제대로 안 쓰였다).
+      //   ctrl y = Δz / (0.42 × 패널크기) → 0.7m 패널에서 ±0.25m = ±0.85
+      const m = primPanel('trajectory', 0.7, false);
+      m.position.set(x, 0.017, -1.30);   // 정지(-1.05)와 정점(-1.55)의 중간
+      m.renderOrder = 9;                 // 발자국(6~7) 위에 얹힘(유저)
+      m._prim.pts = [[0, 0.85], [mirror ? 0.22 : -0.22, 0], [0, -0.85]];
       m._prim.P = { width: 1.5, tail: 1.2, taper: 1.6 };
       m._prim.prog = 0;
       return m;
@@ -728,9 +732,10 @@ export class Session {
     // 러닝 A3(하이니) 컴포넌트를 그대로 이식 — 발형2 + 각자 숫자 + 리프트 큐 + 궤적 토큰.
     //   자체 구현(트위스트·교차·출발원+스템)은 전량 폐기(유저 지시). z 기준만 농구 존(-1.85)으로.
     const mkTraj2 = (x, mirror) => {
-      const m = primPanel('trajectory', 0.5, false);
-      m.position.set(x, 0.014, -2.18);   // 발형 마크 위쪽(전방) — 경로 끝이 마크로 내리꽂힘
-      m._prim.pts = [[mirror ? 0.3 : -0.3, -0.72], [mirror ? 0.12 : -0.12, 0.05], [0, 0.8]];
+      const m = primPanel('trajectory', 0.7, false);
+      m.position.set(x, 0.017, -2.10);   // 정지(-1.85)와 정점(-2.35)의 중간 — 러닝 A3와 같은 규약
+      m.renderOrder = 9;                 // 발자국(6~7) 위에 얹힘(유저)
+      m._prim.pts = [[0, 0.85], [mirror ? 0.22 : -0.22, 0], [0, -0.85]];
       m._prim.P = { width: 1.5, tail: 1.2, taper: 1.6 };
       m._prim.prog = 0;
       return m;
