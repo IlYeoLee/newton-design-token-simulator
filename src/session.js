@@ -475,13 +475,16 @@ const FOLLOW_S = 1.0;   // 따라하기 발자국 배율(농구 지면 UI 공통
 // 마크는 영상 재생 위치(session.stepVidT)를 그대로 따라간다 = 타이밍·박자가 영상 그 자체.
 export const STEP_SEG = { BK_B2: 0.60, BK_B3: 1.47, BK_B4: 1.81, BK_B5: 3.10 };
 // 발마다 자기 타임라인 — 실측(15Hz 추적)에서 뽑은 리프트/플랜트 시각. 두 발을 한 이징으로
-// 묶으면 유리판 위를 미끄러진다(유저). 실제로는 왼발이 먼저 닿고(1.70s) 오른발이 뒤따른다(2.07s).
+// 묶으면 유리판 위를 미끄러진다(유저). 실측: 1.13~1.47 둘 다 이동(체공) → 왼발 1.67 착지 →
+// 오른발은 1.73까지 대기했다가 2.07에 착지. 즉 왼발이 먼저 닿고 오른발이 뒤따른다.
 //   u = 화면 가로 정규화(-1~1) · d = 화면 아래끝 기준 깊이(px, 클수록 멀다)
 const SB_FOOT = {
   L: [{ t: 0.00, u: 0.176, d: 0 }, { t: 1.13, u: 0.161, d: 10 },
-      { t: 1.70, u: -0.650, d: 28 }, { t: 2.07, u: -0.684, d: 28 }],
+      { t: 1.47, u: -0.199, d: 48 }, { t: 1.67, u: -0.650, d: 28 },
+      { t: 2.07, u: -0.684, d: 28 }],
   R: [{ t: 0.00, u: 0.542, d: 12 }, { t: 1.13, u: 0.516, d: 22 },
-      { t: 1.73, u: 0.004, d: 72 }, { t: 2.07, u: -0.515, d: 40 }],
+      { t: 1.47, u: 0.051, d: 72 }, { t: 1.73, u: 0.004, d: 72 },
+      { t: 2.07, u: -0.515, d: 40 }],
 };
 const sbRaw = (arr, t) => {   // 그 발의 원좌표(보간). 이징은 '떼고 → 빠르게 → 딱 멈춤'
   let i = 0;
@@ -502,6 +505,9 @@ const SB_STANCE_K = 3.0;
 const sbPair = (t) => {   // 두 발 원좌표 + 스탠스 확대
   const L = sbRaw(SB_FOOT.L, t), R = sbRaw(SB_FOOT.R, t);
   const cu = (L.u + R.u) / 2, cd = (L.d + R.d) / 2;
+  // 둘 다 딛고 있으면 좌우를 같은 깊이로 정렬한다 — 원근으로 생긴 앞뒤 차이가 '삐딱하게' 보인다(유저).
+  //   스텝 중(한 발이 뜬 상태)에는 실측 깊이 그대로 둔다.
+  if (!L.step && !R.step) { L.d = cd; R.d = cd; L.td = cd; R.td = cd; }
   const w = (p) => ({ ...p, u: cu + (p.u - cu) * SB_STANCE_K, d: cd + (p.d - cd) * SB_STANCE_K,
     tu: cu + (p.tu - cu) * SB_STANCE_K, td: cd + (p.td - cd) * SB_STANCE_K });
   return { L: w(L), R: w(R) };
@@ -649,7 +655,16 @@ export class Session {
    *  전부 '영상이 지금 어디냐'만 본다 = 시범. 유저 수행 판정(Success 블룸)은 별도다. */
   _sbPlace(H, id, fmL, fmR, arrows) {
     const seg = STEP_SEG[id] || 0;
-    const vt = Math.max(0, Math.min(seg, this.stepVidT ?? 0));
+    const raw = Math.max(0, this.stepVidT ?? 0);
+    let vt = Math.min(seg, raw);
+    // 단계 컷이 스텝 중간에서 끊기면(예: 2/4는 1.47s인데 왼발은 1.70s에 닿는다) 마크가 뜬 채로
+    // 얼어 고스트만 보인다(유저). 영상이 끝프레임에서 정지한 동안 마크는 그 발을 끝까지 밟게 한다.
+    const done = Math.max(sbRaw(SB_FOOT.L, seg).plantT, sbRaw(SB_FOOT.R, seg).plantT);
+    if (raw >= seg - 1e-3 && done > seg) {
+      if (!H._sbCapT) H._sbCapT = this.t;
+      const k = Math.min(1, (this.t - H._sbCapT) / 0.45);
+      vt = seg + (done - seg) * (k * k * (3 - 2 * k));
+    } else if (raw < seg - 1e-3) H._sbCapT = 0;
     const P = sbPoseAt(vt, SB_OFF[id]);
     const key = '_sbP' + id;
     const st = H[key] || (H[key] = { L: -9, R: -9, pL: 0, pR: 0 });
@@ -2242,7 +2257,8 @@ export class Session {
       // 화살표는 관찰(프리뷰) 때도 뜬다 — 첫 진입에서만 안 보이던 원인이 여기(_gain이 따라하기
       //   분기에서만 세팅돼 초기값 0. 재진입 때는 이전 값이 남아 '보였다'). 배치를 먼저 잡는다.
       // 배치·박자 = 영상 재생 위치에서 자동(_sbPlace). 관찰 중에도 잡아 화살표가 처음부터 뜬다.
-      this._sbPlace(H, 'BK_B2', H.sL2, H.sR2, [H.aD, H.aU]);
+      this._sbPlace(H, 'BK_B2', H.sL2, H.sR2, [null, null]);   // 1/4은 제자리 = 화살표 없음(유저)
+      H.aD._gain = 0; H.aU._gain = 0;
       if (!this._followLatch) {   // 관찰 — 실루엣+Preview+화살표만, 마크 숨김
         for (const k of ['mL', 'mC', 'mR']) H[k].setOp?.(0);
         for (const k of ['sL1', 'sR1', 'sL2', 'sR2']) H[k].op(0);
