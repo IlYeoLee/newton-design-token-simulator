@@ -556,12 +556,19 @@ function sbPoseAt(vt, holdAirborne) {
   // 지면 마크에서 L·R이 대각선으로 뒤바뀌면 '어느 발인지'가 무너진다(유저). 앞으로 나가는
   // 성분(깊이)은 실측 그대로 두고, 좌우만 겹치지 않게 민다.
   const GAP = 0.42;   // 스탠스 폭 — 이보다 가까워지면 두 발이 겹쳐 보인다
-  if (R.u < L.u + GAP) {
-    if (R.moving && !L.moving) R.u = L.u + GAP;        // 딛고 있는 발은 고정, 옮기는 발만 민다
-    else if (L.moving && !R.moving) L.u = R.u - GAP;
-    else { const mid = (L.u + R.u) / 2; L.u = mid - GAP / 2; R.u = mid + GAP / 2; }
-  }
-  if (R.tu < L.tu + GAP) R.tu = L.tu + GAP;
+  //  실제 클립은 오른발이 왼발을 넘어가는 크로스오버다. 지면 마크에서 L·R이 뒤바뀌면 어느 발인지
+  //  무너지므로(유저) 좌우로는 못 넘어가게 막되, 막힌 거리만큼 '앞으로'(깊이) 밀어준다 —
+  //  그래야 오른발이 멀리 딛는 스텝감이 남는다.
+  const push = (a, b) => {
+    if (b.u >= a.u + GAP) return;
+    const blocked = (a.u + GAP) - b.u;
+    b.u = a.u + GAP;
+    b.v = Math.min(SB_BOX.v1, b.v + blocked * 0.55);
+  };
+  if (R.moving && !L.moving) push(L, R);
+  else if (L.moving && !R.moving) { if (R.u < L.u + GAP) L.u = R.u - GAP; }
+  else if (R.u < L.u + GAP) { const mid = (L.u + R.u) / 2; L.u = mid - GAP / 2; R.u = mid + GAP / 2; }
+  if (R.tu < L.tu + GAP) { const bl = (L.tu + GAP) - R.tu; R.tu = L.tu + GAP; R.tv = Math.min(SB_BOX.v1, R.tv + bl * 0.55); }
   return { L, R };
 }
 
@@ -698,8 +705,8 @@ export class Session {
         fm.ghost(); fm.op(0.30 + 0.25 * (1 - air));
         fm.at(p.x, p.z, FOLLOW_S * (1 + 0.16 * air));
       } else if (pop > 0) {
-        // 시범(영상)은 '밟았다' 임팩트만 — Success 블룸은 유저 판정 전용이라 여기 쓰지 않는다.
-        fm.countdown(1); fm.op(1); fm.at(p.x, p.z, FOLLOW_S * (1 + 0.12 * pop));
+        fm.glow(1 - pop);   // 착지 = Success 표시(유저 지시)
+        fm.op(1); fm.at(p.x, p.z, FOLLOW_S * (1 + 0.12 * pop));
       } else {
         fm.countdown(1); fm.op(0.95); fm.at(p.x, p.z, FOLLOW_S);
       }
@@ -708,10 +715,11 @@ export class Session {
       if (!ar) return;
       const du = q.tu - q.u, dv = q.tv - q.v;
       if (!q.step || Math.hypot(du, dv) < 0.03 || q.f >= 0.999) { ar._gain = 0; return; }
-      const pa = this._beamLocal(Math.max(-SB_BOX.u, Math.min(SB_BOX.u, (q.u + q.tu) / 2)),
-                                Math.max(SB_BOX.v0, Math.min(SB_BOX.v1, (q.v + q.tv) / 2)), H.mL);
+      // 화살표는 '가는 쪽' = 목표 발자국의 좌측 대각선 위(유저). 방향도 그 대각선.
+      const pa = this._beamLocal(Math.max(-SB_BOX.u, Math.min(SB_BOX.u, q.tu - 0.30)),
+                                Math.max(SB_BOX.v0, Math.min(SB_BOX.v1, q.tv + 0.12)), H.mL);
       ar.position.set(pa.x, 0.014, pa.z);
-      ar.rotation.z = -Math.atan2(du, dv);      // 0 = 원거리(+v), -90° = 오른쪽(+u)
+      ar.rotation.z = Math.PI / 4;              // +45° = 좌측 위 대각선
       ar._gain = 0.30 + 0.60 * (1 - q.f);
     };
     one('L', fmL, arrows[0]);
