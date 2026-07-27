@@ -16,7 +16,7 @@ html,body{background:transparent}
   -webkit-mask:radial-gradient(58% 46% at 50% 43%, #000 22%, transparent 82%);
           mask:radial-gradient(58% 46% at 50% 43%, #000 22%, transparent 82%)}
 .bg-glow img{position:absolute;left:50%;top:1160px;width:2200px;transform:translate(-50%,-50%);
-  will-change:transform;animation:glowDrift 15s ease-in-out infinite}
+  will-change:transform;animation:glowDrift 15s ease-in-out 3}
 @keyframes glowDrift{
   0%{transform:translate(-50%,-50%) scale(1) rotate(0deg)}
   25%{transform:translate(-56%,-46%) scale(1.12) rotate(4deg)}
@@ -75,11 +75,11 @@ html,body{background:transparent}
 .ttl span{display:inline-block}
 .tgrp{animation:titleIn .85s .10s cubic-bezier(.22,1,.36,1) both}
 .card{opacity:0}
-.card.a1{animation:cardIn .8s .38s cubic-bezier(.22,1,.36,1) both, cardFloat 4s 1.5s ease-in-out infinite}
-.card.a2{animation:cardIn .8s .54s cubic-bezier(.22,1,.36,1) both, cardFloat 4.4s 1.85s ease-in-out infinite}
+.card.a1{animation:cardIn .8s .38s cubic-bezier(.22,1,.36,1) both, cardFloat 4s 1.5s ease-in-out 3}
+.card.a2{animation:cardIn .8s .54s cubic-bezier(.22,1,.36,1) both, cardFloat 4.4s 1.85s ease-in-out 3}
 .chk{animation:sPop .6s .95s cubic-bezier(.34,1.56,.64,1) both}
 .badge{animation:sPop .6s 1.0s cubic-bezier(.34,1.56,.64,1) both}
-.btn{opacity:0;animation:sUpC .8s .95s cubic-bezier(.22,1,.36,1) both, btnFloatC 3.6s 1.9s ease-in-out infinite, btnPulse 3s 1.9s ease-in-out infinite}
+.btn{opacity:0;animation:sUpC .8s .95s cubic-bezier(.22,1,.36,1) both, btnFloatC 3.6s 1.9s ease-in-out 3, btnPulse 3s 1.9s ease-in-out 3}
 </style></head><body>
   <div id="board">
     <div class="bg-glow"><img src="assets/bg_glow.svg" alt=""></div>
@@ -125,7 +125,7 @@ html,body{background:transparent}
   // 타이틀 글자별 span → 루프 웨이브(촤라락)
   (function(el, t){ el.textContent=''; [...t].forEach((ch,i)=>{ const s=document.createElement('span');
     s.textContent = ch===' ' ? String.fromCharCode(160) : ch;
-    s.style.animation = 'charWave 2.4s ' + (0.9 + i*0.05) + 's ease-in-out infinite'; el.appendChild(s); });
+    s.style.animation = 'charWave 2.4s ' + (0.9 + i*0.05) + 's ease-in-out 3'; el.appendChild(s); });
   })($('t-ttl'), T.title);
   $('d-img').src = T.done.img; $('d-lbl').textContent = T.done.lbl; $('d-time').textContent = T.done.time;
   $('n-img').src = T.next.img; $('n-lbl').textContent = T.next.lbl; $('n-time').textContent = T.next.time;

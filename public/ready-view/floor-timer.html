@@ -15,7 +15,7 @@ html,body{background:transparent}
   -webkit-mask:radial-gradient(58% 46% at 50% 43%, #000 22%, transparent 82%);
           mask:radial-gradient(58% 46% at 50% 43%, #000 22%, transparent 82%)}
 .bg-glow img{position:absolute;left:50%;top:1160px;width:2200px;transform:translate(-50%,-50%);
-  will-change:transform;animation:glowDrift 15s ease-in-out infinite}
+  will-change:transform;animation:glowDrift 15s ease-in-out 3}
 @keyframes glowDrift{
   0%{transform:translate(-50%,-50%) scale(1) rotate(0deg)}
   25%{transform:translate(-56%,-46%) scale(1.12) rotate(4deg)}
@@ -46,7 +46,7 @@ html,body{background:transparent}
 .ttl span{display:inline-block}
 @keyframes charWave{0%,58%,100%{transform:translateY(0)}29%{transform:translateY(-16px)}}
 .tgrp{animation:titleIn .8s .1s cubic-bezier(.22,1,.36,1) both}
-.ring{animation:ringPop .8s .35s cubic-bezier(.34,1.56,.64,1) both, ringBreath 3s 1.2s ease-in-out infinite}
+.ring{animation:ringPop .8s .35s cubic-bezier(.34,1.56,.64,1) both, ringBreath 3s 1.2s ease-in-out 3}
 .tnum{animation:numPulse .5s both}
 </style></head><body>
   <div id="board">
@@ -76,7 +76,7 @@ html,body{background:transparent}
   $('t-sub').textContent = M.sub;
   (function(el, t){ el.textContent=''; [...t].forEach((ch,i)=>{ const s=document.createElement('span');
     s.textContent = ch===' ' ? String.fromCharCode(160) : ch;
-    s.style.animation = 'charWave 2.4s ' + (0.9 + i*0.05) + 's ease-in-out infinite'; el.appendChild(s); });
+    s.style.animation = 'charWave 2.4s ' + (0.9 + i*0.05) + 's ease-in-out 3'; el.appendChild(s); });
   })($('t-ttl'), M.title);
   // 중앙 숫자 카운트다운(정수 초) → 0이면 GO
   const num = $('tnum'), t0 = performance.now(); let last = null;
