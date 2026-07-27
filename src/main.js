@@ -4043,7 +4043,7 @@ void main(){
       if (session.stage !== 'A2' && xbot.group.scale.x !== 1) xbot.group.scale.x = 1;   // A2 미러 잔류 방지
       xbot.stanceWiden = /^BK_B[13]$/.test(session.stage || '') ? 1 : 0;   // B2는 절차 드릴이 스탠스 소유
       xbot.crossGuard = 0;   // 절차 드릴이 가드 팔까지 저작 — 덧대기 보정 은퇴
-      xbot.legLock = false;   // 절차 드릴은 하체가 저작부터 고정 — 스냅샷 고정 불필요
+      xbot.legLock = session.stage === 'BK_B2' || session.stage === 'BK_C2';   // 크로스오버 = 하체 완전 고정(굽힌 자세 스냅샷, 유저) — 실측 표류 0.06m 기법
       // 세션 데모(비실전) 공통: CMU 클립이 몸을 돌려도 봇은 정면 유지(유저 원칙)
       xbot.lockYaw = session.active && !session.isLive && /^BK_[AB]/.test(session.stage || '');
       let _clip = demoClipFor(session.sport, session.stage);

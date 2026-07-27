@@ -11,7 +11,8 @@ const OUT = process.env.OUT_DIR || '/private/tmp/claude-501/-Users-iil-yeo/fed9f
 fs.mkdirSync(OUT, { recursive: true });
 
 const STRESS = process.env.STRESS === '1';   // 빠른 탭 연타 + 1/3인칭 토글 + 창 리사이즈 + 세션 루프
-const browser = await puppeteer.launch({ headless: 'new', args: ['--window-size=1440,900', '--enable-gpu'] });
+const HEADFUL = process.env.HEADFUL === '1'; // 실 GPU(Metal) 래스터 재현용 — headless SwiftShader에선 컴포지터 플래시가 안 나올 수 있음
+const browser = await puppeteer.launch({ headless: HEADFUL ? false : 'new', args: ['--window-size=1440,900', '--enable-gpu'] });
 const page = await browser.newPage();
 await page.setViewport({ width: 1280, height: 800, deviceScaleFactor: +DSF });
 await page.goto('http://localhost:5199/' + Q, { waitUntil: 'networkidle2' });
@@ -75,9 +76,11 @@ await ana.evaluate(() => {
 });
 
 let curStage = '?', running = true;
+page.on('framenavigated', f => { if (f === page.mainFrame()) console.log('NAV(리로드?)', Date.now()); });
 const stagePoll = (async () => {
   while (running) {
-    try { curStage = await page.evaluate(() => window.__sess?.curStage?.id || '?'); crop = await getCrop(); } catch {}
+    // 세션 비활성(리로드 직후 로딩 화면 등)은 IDLE — 로딩 검은 배경 오검출 배제
+    try { curStage = await page.evaluate(() => window.__sess?.active ? window.__sess.curStage?.id : 'IDLE'); crop = await getCrop(); } catch { curStage = '?'; }
     await new Promise(r => setTimeout(r, 400));
   }
 })();
@@ -88,12 +91,22 @@ const advancer = (async () => {   // BK_A1 → … → BK_FIN 자연 진행 (+FI
     if (!running) break;
     n++;
     try {
-      await page.evaluate(() => {
+      const alive = await page.evaluate(() => {
         const s = window.__sess;
-        if (!s?.active) return;
+        if (!s?.active) return false;
         if (/FIN$/.test(s.stage)) { s.stageIdx = 0; s.t = 0; s._enter(); }
         else s.tapAdvance();
+        return true;
       });
+      if (!alive) {   // 리로드 복구 — 농구 재선택 + 세션 재시작
+        try {
+          await page.waitForFunction('!!window.__dbg && !!window.__sess', { timeout: 30000 });
+          await page.evaluate(() => document.querySelector('[data-pack=basketball]')?.click());
+          await page.waitForFunction('!!window.__dbg?.xbot?.actions?.cmu_crossover_shot', { timeout: 60000 });
+          await new Promise(r => setTimeout(r, 1200));
+          await page.evaluate(() => document.getElementById('btn-session').click());
+        } catch {}
+      }
       if (STRESS) {
         if (n % 2 === 0) {   // 연타 — 전환 직후 재전환(더블버퍼 스왑 연쇄)
           await new Promise(r => setTimeout(r, 450));
@@ -130,6 +143,7 @@ const analyzer = (async () => {
     const f = queue.shift();
     if (!f) { await new Promise(r => setTimeout(r, 10)); continue; }
     const r = await ana.evaluate((b, c) => window.analyze(b, c), f.b64, f.crop);
+    if (f.stage === '?' || f.stage === 'IDLE') continue;   // 리로드/로딩 아티팩트 제외
     if (r.frac > maxFrac) { maxFrac = r.frac; maxStage = f.stage; }
     if (r.frac >= 0.15) {
       nHits++;
