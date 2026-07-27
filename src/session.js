@@ -501,10 +501,17 @@ const sbRaw = (arr, t) => {   // 그 발의 원좌표(보간). 이징은 '떼고
 const SB_BOX = { u: 0.88, v0: 0.16, v1: 0.46 };   // 창은 멀수록 넓다 — 스탠스 확보용으로 약간 뒤
 // 뒷모습 영상은 원근으로 좌우 간격이 눌린다 — 실제 농구 스탠스(어깨너비 이상)로 보이게
 // 페어 중심 기준으로만 벌린다(중심 이동=스텝은 실측 그대로).
-const SB_STANCE_K = 7.0;   // 준비 스탠스가 어깨너비 이상으로 보이는 값(실측 0.37 → 지면 0.4m대)
-const sbPair = (t) => {   // 두 발 원좌표 + 스탠스 확대
+const SB_STANCE_K = 12.0;   // 준비 스탠스가 어깨너비 이상으로 보이는 값(실측 0.37 → 지면 0.4m대)
+// 이동(페어 중심의 좌우 여행)은 프레임을 다 먹는다 — 스탠스를 어깨너비 이상으로 확보하려면
+// 여행 폭을 줄여 그 자리를 스탠스에 준다. 방향·순서·타이밍은 그대로, 거리만 압축.
+const SB_TRAVEL_K = 0.45;
+const SB_C0 = { u: (SB_FOOT.L[0].u + SB_FOOT.R[0].u) / 2, d: (SB_FOOT.L[0].d + SB_FOOT.R[0].d) / 2 };
+const sbPair = (t) => {   // 두 발 원좌표 + 스탠스 확대 + 여행 압축
   const L = sbRaw(SB_FOOT.L, t), R = sbRaw(SB_FOOT.R, t);
-  const cu = (L.u + R.u) / 2, cd = (L.d + R.d) / 2;
+  let cu = (L.u + R.u) / 2, cd = (L.d + R.d) / 2;
+  const su0 = SB_C0.u + (cu - SB_C0.u) * SB_TRAVEL_K, sd0 = SB_C0.d + (cd - SB_C0.d) * SB_TRAVEL_K;
+  for (const p of [L, R]) { p.u += su0 - cu; p.d += sd0 - cd; p.tu += su0 - cu; p.td += sd0 - cd; }
+  cu = su0; cd = sd0;
   // 둘 다 딛고 있으면 좌우를 같은 깊이로 정렬한다 — 원근으로 생긴 앞뒤 차이가 '삐딱하게' 보인다(유저).
   //   스텝 중(한 발이 뜬 상태)에는 실측 깊이 그대로 둔다.
   if (!L.step && !R.step) { L.d = cd; R.d = cd; L.td = cd; R.td = cd; }
