@@ -31,7 +31,7 @@ window.FLOOR_SCENES = {
   BK_A2: { title: 'Knee Drive',        phase: 0, sub: '2/3', cue: 'Knee up · opposite hand · twist' },// 니 드라이브(트위스트)
   BK_A3: { title: 'Squats',            phase: 0, sub: '3/3', cue: 'Slow down and up' },                // 스쿼트
   // B · 사전 익히기 (DRILL)
-  BK_B1: { title: 'Low Dribble',    phase: 1, sub: '1/3', cue: "Stay low — Curry's beat, 8 reps" },   // 로우 드리블
+  BK_B1: { title: 'Low Dribble',    phase: 1, sub: '1/3', cue: "Stay low — Curry's beat, 10 reps" },   // 로우 드리블
   BK_B2: { title: 'Crossover',      phase: 1, sub: '2/3', cue: 'Bounce into the lit zone' },          // 크로스오버
   BK_B3: { title: 'Between Legs',   phase: 1, sub: '3/3', cue: 'Cross the line, far zone' },          // 다리 사이
   // C · 실전 (GAME)
