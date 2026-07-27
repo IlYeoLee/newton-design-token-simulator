@@ -645,7 +645,8 @@ export class Session {
   //   그룹마다 부모 오프셋이 달라 로컬 z를 손으로 계산하면 창 밖으로 나간다(실측 fade 0.00).
   /** 스텝백 따라하기 배치 — 영상 재생 위치 그대로. 1/4~4/4가 이 한 함수를 쓴다.
    *  발마다 자기 리프트/플랜트 타이밍이라 왼발이 먼저 닿고 오른발이 뒤따른다(실측).
-   *  뜬 발 = Locked 고스트 + 살짝 커짐(들린 느낌) · 닿는 순간 = Success 블룸 + 작은 파문(따닥). */
+   *  뜬 발 = Locked 고스트 + 살짝 커짐(들린 느낌) · 닿는 순간 = 임팩트 팝 + 작은 파문(따닥).
+   *  전부 '영상이 지금 어디냐'만 본다 = 시범. 유저 수행 판정(Success 블룸)은 별도다. */
   _sbPlace(H, id, fmL, fmR, arrows) {
     const seg = STEP_SEG[id] || 0;
     const vt = Math.max(0, Math.min(seg, this.stepVidT ?? 0));
@@ -669,8 +670,8 @@ export class Session {
         fm.ghost(); fm.op(0.30 + 0.25 * (1 - air));
         fm.at(p.x, p.z, FOLLOW_S * (1 + 0.16 * air));
       } else if (pop > 0) {
-        fm.glow(1 - pop);                                   // Success 진홍 블룸 잔상
-        fm.op(1); fm.at(p.x, p.z, FOLLOW_S * (1 + 0.10 * pop));
+        // 시범(영상)은 '밟았다' 임팩트만 — Success 블룸은 유저 판정 전용이라 여기 쓰지 않는다.
+        fm.countdown(1); fm.op(1); fm.at(p.x, p.z, FOLLOW_S * (1 + 0.12 * pop));
       } else {
         fm.countdown(1); fm.op(0.95); fm.at(p.x, p.z, FOLLOW_S);
       }
