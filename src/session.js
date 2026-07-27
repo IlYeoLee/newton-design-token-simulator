@@ -2228,9 +2228,9 @@ export class Session {
       if (POSE) {
         // 2분할 하단 = 근거리(유저 쪽). 좌우 폭은 0.72배 축약 — 창 반폭이 0.66m라 실측 스탠스를
         //   그대로 쓰면 왼발이 가장자리 페더에 먹힌다(실측 uFade 0.14). 비율은 유지된다.
-        const FZ = H.mL.position.z + 0.26, SX = 0.72;
-        H.fRl.at(POSE.L[0] * SX, FZ + POSE.L[1], 0.62);
-        H.fRr.at(POSE.R[0] * SX, FZ + POSE.R[1], 0.62);
+        const FZ = H.mL.position.z + 0.50, SX = 0.42;   // 하단 = 발자국 영역 · 폭 0.42배(창 반폭 0.66m 안에 L·R 모두 들어오게)
+        H.fRl.at(POSE.L[0] * SX, FZ + POSE.L[1], 0.78);
+        H.fRr.at(POSE.R[0] * SX, FZ + POSE.R[1], 0.78);
       }
       const BEATN = { BK_B2: ['① 무릎 구부리고', '② 낮은 자세 유지', '③ 들어가는 척!', '④ 그대로 준비'],
         BK_B3: ['① 준비', '② 오른발 딛고', '③ 공을 왼쪽으로!', '④ 시선 유지'],

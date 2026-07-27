@@ -2368,7 +2368,14 @@ void main(){
           co.plane.position.set(floorObj.position.x + co._fwd.x * co.fwd, 0.015, floorObj.position.z + co._fwd.z * co.fwd);
           // 스텝백 4페이즈 = 2분할(피그마 레퍼런스): 영상은 상단(원거리), 발자국은 하단(근거리).
           //   시선이 먼 영상 → 발밑 발자국으로 자연스럽게 내려오고, 둘을 동시에 볼 수 있다.
-          if (/^BK_B[2345]$/.test(id)) { co.plane.position.z -= 0.30; co.plane.position.y = 0.016; }   // 2분할 상단(원거리)
+          if (/^BK_B[2345]$/.test(id)) {
+            // 관찰(프리뷰)은 크게 중앙, 따라하기로 넘어가면 작아지며 위로 — 아래가 발자국 자리(유저)
+            const following = !!session._followLatch;
+            const k = following ? 0.58 : 1;
+            co.plane.scale.set(k, k, 1);
+            co.plane.position.z -= following ? 0.38 : 0;
+            co.plane.position.y = 0.016;
+          }
         }
       } else if (c) { c.plane.visible = false; if (!c.video.paused) c.video.pause(); }
     }
