@@ -221,7 +221,7 @@ html,body{background:transparent}
         const fv = document.createElement('div'); fv.id = 'follow-view';
         fv.innerHTML = `<div id="fv-vid"></div>`;   // 마크는 3D 룩시스템 토큰(session.js)이 그린다
         document.getElementById('content').insertBefore(fv, dots);
-        dots.style.display = 'none';   // 레퍼런스(143:444)엔 도트바 없음 — 진행은 상단 n/4가 담당
+        // 레퍼런스(143:444)엔 도트바가 없지만, 진행바는 전 스테이지 같은 컴포넌트로 통일(유저)
         // 영상 자리는 박스로만 잡는다 — 실제 그림은 3D 코치 패널(크로마키+룩 LUT)이 이 위에 얹힌다.
         //   HTML <video>로는 프리뷰에서 보던 실루엣(셰이더 결과)을 재현할 수 없다.
       }

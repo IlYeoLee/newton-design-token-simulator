@@ -4420,9 +4420,9 @@ void main(){
           }
         }
         const _sid = session.stages?.[session.stageIdx]?.id || '';
-        if (session.repTotal && !/^BK_B/.test(_sid)) {
-          // 핸들 스쿨(BK_B*)만 제외: 바운스/렙마다 폭을 쓰면 3D 변환 iframe이 재래스터되며
-          // 검은 플래시(유저: 드리블할 때마다). 워밍업(BK_A*)은 러닝과 완전히 같은 연속 채움(유저).
+        if (session.repTotal) {
+          // 전 스테이지 동일 컴포넌트(유저) — 러닝과 같은 연속 채움. 과거 BK_B*를 막았던 건
+          // 폭 쓰기 재래스터로 인한 검은 플래시(드리블마다) 때문. 재발하면 여기부터 본다.
           const clip = fdoc?.querySelector('.dclip');
           if (clip) {
             // repFrac = 회차 사이도 채우는 연속값(깊이·발높이). 정수 회차만 쓰면 뚝뚝 끊긴다(유저).
