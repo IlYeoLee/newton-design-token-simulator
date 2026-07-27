@@ -703,14 +703,15 @@ export class Session {
     // 궤적 = 유저 가이드 스케치: 반대편 지면의 작은 원에서 출발 → 곡선 → 들린 발마크로 촉이 들어간다.
     //   패널(0.9m)은 출발 원과 마크를 모두 덮게 배치하고, 캔버스 좌표는 월드 대응으로 계산해 넣는다.
     //   (예전 코멧 리본은 스케치와 딴판이었음 — 유저 지적)
-    const A2SIZE = 0.9, A2CZ = -2.05;
+    const A2SIZE = 0.9, A2CZ = -2.15;
     const mkTraj2 = (side) => {                       // side: -1 왼발(마크 x −0.17) · +1 오른발
       const m = primPanel('curveArrow', A2SIZE, false);
       m.position.set(0, 0.014, A2CZ);
       const w2c = (wx, wz) => [0.5 + (wx - 0) / A2SIZE, 0.5 + (wz - A2CZ) / A2SIZE];   // 월드 → 0..1 캔버스
+      // 끝점 = 마크의 "정점" 위치. tick에서 마크는 z −1.85→−2.35, x는 중앙으로 0.10 쏠린다.
       const dot = w2c(-side * 0.30, -1.95);           // 출발 원 = 반대편 지면
-      const mid = w2c(-side * 0.02, -2.26);           // 크로스바디로 휘는 중간점
-      const mark = w2c(side * -0.17 + side * 0.10, -2.30);   // 들린 발마크(정점 위치)
+      const mid = w2c(-side * 0.06, -2.06);           // 몸을 가로지르며 휘는 배(크로스바디)
+      const mark = w2c(side * 0.07, -2.26);           // 들린 발마크 앞 가장자리 — 촉이 숫자를 덮지 않게
       m._prim.pts = [dot, mid, mark];
       m._prim.prog = 0;
       return m;
