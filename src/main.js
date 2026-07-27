@@ -4738,8 +4738,11 @@ void main(){
       const t = Math.max(0, Math.min(len, c.copy(B).sub(A).dot(d)));
       c.copy(A).addScaledVector(d, t);
       if (c.distanceTo(B) >= R) return;
-      _occTouched.push([m, m.opacity]);
+      // 링·마크는 ShaderMaterial(uGain이 밝기 담당) — opacity만 낮추면 화면상 변화가 없었다(유저: 안 깜빡임)
+      const U = m.uniforms && m.uniforms.uGain;
+      _occTouched.push([m, m.opacity, U ? U.value : null]);
       m.opacity *= 0.12;   // 완전 0이 아니라 잔광 — 실제 투사도 산란광이 조금 남는다
+      if (U) U.value *= 0.12;
     });
   }
 
@@ -4778,7 +4781,10 @@ void main(){
   if (import.meta.env.DEV) window.__occ = _occStat;
   function resetOccStat() { _occStat.sum = 0; _occStat.n = 0; _occStat.worst = 0; }
   const _occTouched = [];
-  function _occRestore() { for (const [m, op] of _occTouched) m.opacity = op; _occTouched.length = 0; }
+  function _occRestore() {
+    for (const [m, op, g] of _occTouched) { m.opacity = op; if (g !== null && m.uniforms?.uGain) m.uniforms.uGain.value = g; }
+    _occTouched.length = 0;
+  }
 
   // ── 벽 대지 프레임 시스템: 스테이지별 대지(2600×1600) 뷰를 벽 평면에 CSS3D로 얹음 ──
   //   프레임 스테이지 = 기존 벽/바닥 UI 전부 숨김(사람+배경만) → 다른 각도에서도 "벽에 프레임 하나 붙은 것"으로 인지.
