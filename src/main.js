@@ -4742,6 +4742,11 @@ void main(){
   // 검은 플래시 이분법 진단(유저 재현 전용): URL에 ?noccl=1 → 오클루전 오버레이 끔 · ?nocss=1 → 지면 프레임 끔.
   //   어느 쪽을 껐을 때 플래시가 사라지는지로 범인 레이어를 30초 만에 특정한다.
   const DIAG = new URLSearchParams(location.search);
+  // 판별 실험(유저 재보고 지속): 페이지 배경을 마젠타로 — 깜빡임이 '마젠타'로 보이면
+  // 레이어 스택이 한 프레임 비는 것(캔버스/CSS3D 컴포지트 미스), '검정' 그대로면 캔버스 안에서
+  // 검게 그려지는 것(블룸/컴포저 계열)으로 즉시 이분된다. 항상 켠다(정상시엔 안 보이는 색).
+  document.body.style.background = '#ff00ff';
+  document.documentElement.style.background = '#ff00ff';
   // 오클루전 오버레이 기본 ON 복구 — 꺼두니 지면 프레임이 봇 몸을 관통(유저 스크린샷).
   //   검은 플리커의 실제 근본(무한 CSS 애니메이션·iframe 쓰기 폭주·전환 공백)은 별도 수정으로
   //   제거됨(20c829c·91fcc70·1cae990). 재발 시 격리: ?noccl=1
