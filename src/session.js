@@ -500,12 +500,12 @@ export const STAGES = {
     { id:'BK_READY', label:'0 · READY — 준비', voice:['시스템','커리의 핸들 팩. 준비되면 발을 두 번 탭하세요.'], wear:'SAFE 대기', foot:'두 번 탭 → 시작' },
     { id:'BK_A1', label:'A · 워밍업 1/3 — 옆구리 스트레치', voice:['커리','팔을 위로 뻗어 옆으로 쭉쭉 늘려요. 왼쪽 오른쪽 번갈아 — 허리부터 풀어요.'], wear:'개입 없음 (자세 측정)' },
     { id:'BK_A2', label:'A · 워밍업 2/3 — 니 드라이브', voice:['커리','무릎을 올리며 반대손으로 터치, 상체를 비틀어요. 컷 준비 동작.'], hap:'리듬 진동 (약)' },
-    { id:'BK_A3', label:'A · 워밍업 3/3 — 스쿼트', voice:['커리','마지막! 천천히 앉았다 일어나요. 점프와 착지의 힘을 깨워요.'], wear:'낮은 강도 보조 시작' },
+    { id:'BK_A3', label:'A · 워밍업 3/4 — 스쿼트', voice:['커리','마지막! 천천히 앉았다 일어나요. 점프와 착지의 힘을 깨워요.'], wear:'낮은 강도 보조 시작' },
+    { id:'BK_B1', label:'A · 준비운동 4/4 — 제자리 드리블', voice:['커리','공부터 손에 익혀요 — 무릎 굽히고 낮게, 열 번.'], cue:'낮은 자세 · 10회' },
     { id:'BK_T1', label:'T-1 · STAGE CLEAR → 사전 익히기', voice:['시스템','몸 풀렸어요. 탭 두 번이면 다음으로.'], foot:'두 번 탭 → 사전 익히기' },
-    { id:'BK_B1', label:'B · 핸들 스쿨 1/3 — 로우 드리블', voice:['커리','무릎 굽히고 낮게 — 제 경기 리듬 그대로 튕겨 볼게요. 발은 마크 위에.'], cue:'낮은 자세 · 10회' },
-    { id:'BK_B2', label:'B · 스텝백 스쿨 2/4 — 분해 (Break Down)', voice:['커리','이제 발부터. 한 박자씩 끊어서 갑니다 — 시작 자리, 플랜트, 스텝백, 슛.'], cue:'비트별 정지 · 4비트' },
-    { id:'BK_B3', label:'B · 스텝백 스쿨 3/4 — 반 박자 (0.5×)', voice:['커리','이번엔 끊지 않고 천천히 이어서. 마크 순서대로 따라오세요.'], cue:'0.5배속 연속 ×3' },
-    { id:'BK_B4', label:'B · 스텝백 스쿨 4/4 — 정속 (1×)', voice:['커리','제 속도 그대로. 시선은 앞에 두고 곁눈으로만 보세요.'], cue:'정속 연속 ×5', foot:'두 번 탭 → 실전 준비' },
+    { id:'BK_B2', label:'B · 스텝백 스쿨 1/3 — 분해 (Break Down)', voice:['커리','이제 발부터. 한 박자씩 끊어서 갑니다 — 시작 자리, 플랜트, 스텝백, 슛.'], cue:'비트별 정지 · 4비트' },
+    { id:'BK_B3', label:'B · 스텝백 스쿨 2/3 — 반 박자 (0.5×)', voice:['커리','이번엔 끊지 않고 천천히 이어서. 마크 순서대로 따라오세요.'], cue:'0.5배속 연속 ×3' },
+    { id:'BK_B4', label:'B · 스텝백 스쿨 3/3 — 정속 (1×)', voice:['커리','제 속도 그대로. 시선은 앞에 두고 곁눈으로만 보세요.'], cue:'정속 연속 ×5', foot:'두 번 탭 → 실전 준비' },
     { id:'BK_T2', label:'T-2 · 5초 뒤 실전 자동 진행 (두 번 탭 = 바로)', voice:['커리','5초 뒤 넘어가요. 준비됐으면 두 번 탭.'], dur:5, count:true, foot:'두 번 탭 = 즉시 · 무입력 = 자동' },
     { id:'BK_C1', dur:3, label:'C · 실전 1/2 — 트리거', voice:['시스템','3, 2, 1. 실전 갑니다.'], hap:'컷 시작 진동', foot:'두 번 탭 → 출발' },
     { id:'BK_C2', dur:26, live:true, label:'C · 실전 2/2 — 스텝백 3점', voice:['커리','어디로 빠질지는 그때 알려줄게요. 착지하고 바로 올라가요 — 슛!'], wear:'BOOST 측면 추진', cue:'무작위 방향 ×3' },
@@ -853,7 +853,7 @@ export class Session {
       H.fRl = F(-0.17, 0.05, 'left');  H.fRr = F(0.22, -0.06, 'right');   // ① 준비 페어
       H.fC  = F(0.33, 0.06, 'right');                                      // ② 플랜트 리드 발
       H.fLl = F(-0.43, -0.09, 'left'); H.fLr = F(0.49, -0.32, 'right');   // ③ 착지 페어(폭 0.92)
-      for (const k of ['fLl', 'fLr', 'fRl', 'fRr', 'fC']) { H[k].ghost(); H[k].op(0.16); }   // 대기 = Locked 고스트(crisp 실루엣)
+      for (const k of ['fLl', 'fLr', 'fRl', 'fRr', 'fC']) { H[k].ghost(); H[k].op(0.10); }   // 대기 = Locked 고스트(crisp 실루엣)
       // 이동 경로 화살표 — 발자국만으로는 '무슨 동작인지' 안 읽힌다(유저). 순서와 방향을 선으로.
       //   a1: 준비 → 플랜트(오른쪽으로 밀고 들어감) · a2: 플랜트 → 착지(반대로 크게 빠짐)
       H.a1 = floorArrow(0.28, SBZ + 0.02, -90, BRAND.prism, 0.26);
@@ -2144,7 +2144,7 @@ export class Session {
         ex = (pr.footL.x + pr.footR.x) / 2 - pr.hips.x + (pr.hips.x - (pr.footL.x + pr.footR.x) / 2) * 3;
         ex = Math.max(-0.75, Math.min(0.75, ex * 2.2));
       }
-      if (H.cL) { const CZ = H.mL.position.z + 0.52; H.cL.at(ex - 0.14, CZ, 0.42); H.cR.at(ex + 0.14, CZ, 0.42); H.cL.op(0.7); H.cR.op(0.7); }
+      if (H.cL) { const CZ = H.mL.position.z + 0.52; H.cL.at(ex - 0.14, CZ, 0.42); H.cR.at(ex + 0.14, CZ, 0.42); H.cL.op(0.5); H.cR.op(0.5); }
       // 비트 진행: 시간 구동(연속 흐름). per = 비트 간격
       const cyc = (this.t - H._beatT) / CFG.per;
       const beat = Math.min(3, Math.floor(cyc));
@@ -2162,8 +2162,8 @@ export class Session {
       H.mL.setOp?.(H.beat === 2 ? 0.5 : 0);
       // 발자국 페어 — 시작(우)은 비트0, 착지(좌)는 비트2에 밝게. 실전은 착지 쪽만.
       const fpOn = (k, on) => { const f = H[k]; if (!f) return;
-        if (on) { f.countdown(Math.min(1, (this.t - H._popT) / 0.5)); f.op(1); }
-        else { f.ghost(); f.op(LIVE ? 0 : 0.16); } };
+        if (on) { f.countdown(Math.min(1, 0.35 + (this.t - H._popT) / 0.35)); f.op(0.95); }   // 헤일로 수축 시작점을 당겨 번짐 축소
+        else { f.ghost(); f.op(LIVE ? 0 : 0.10); } };
       fpOn('fRl', H.beat === 0); fpOn('fRr', H.beat === 0);
       fpOn('fC', H.beat === 1);
       fpOn('fLl', H.beat >= 2); fpOn('fLr', H.beat >= 2);
