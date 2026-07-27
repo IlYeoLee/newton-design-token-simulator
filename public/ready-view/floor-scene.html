@@ -53,6 +53,17 @@ html,body{background:transparent}
    링 = floor-timer(52-3084) 문법(점선 트랙+아크+회전 팁+중앙 숫자). 시범 5초, 끝나면 페이드아웃. */
 @font-face{font-family:'OffBit';src:url('../fonts/OffBitTrial-DotBold.woff2') format('woff2');font-weight:700;font-display:block}
 /* Figma 122:270 프리뷰 행 = 콘텐츠 컬럼의 자식(타이틀 바로 아래 gap 40). [Preview 필 · 타이머 링] 가로. */
+#follow-view{display:flex;flex-direction:column;align-items:center;gap:56px;margin-top:26px;animation:sUpFlat .5s both}
+#fv-vid{width:1180px;height:640px;border-radius:10px;background:rgba(255,255,255,.10);
+  box-shadow:inset 0 0 0 3px rgba(255,255,255,.16)}
+#fv-marks{display:flex;align-items:center;justify-content:center;gap:64px}
+#fv-marks .fv-foot{width:150px;height:290px;border-radius:76px 76px 60px 60px;background:#F4A9A3;
+  display:flex;align-items:center;justify-content:center;position:relative}
+#fv-marks .fv-foot span{font-size:120px;font-weight:800;color:#171B24}
+#fv-marks .fv-foot::after{content:'';position:absolute;left:50%;bottom:-96px;transform:translateX(-50%);
+  width:110px;height:86px;border-radius:50%;background:#F4A9A3}
+#fv-marks .fv-ar{font-size:210px;line-height:.8;color:#fff;font-weight:300}
+#fv-marks .fv-sp{width:110px}
 #prev-row{display:flex;gap:120px;align-items:center;justify-content:center;
   opacity:0;animation:sUpFlat .5s .2s both, demoOutFlat .45s 5.05s both}
 #prev-pill{display:flex;align-items:center;gap:20px;background:rgba(255,255,255,.14);border-radius:999px;padding:20px 30px 20px 40px}
@@ -210,7 +221,27 @@ html,body{background:transparent}
     let n = 5;
     const iv = setInterval(() => { n--; if (n < 1) { clearInterval(iv); return; }
       document.getElementById('prev-num').textContent = n; }, 1000);
-    setTimeout(() => { row.style.display = 'none'; dots.style.display = ''; dots.style.animation = 'sUpFlat .6s both'; }, 5100);
+    setTimeout(() => {
+      row.style.display = 'none'; dots.style.display = ''; dots.style.animation = 'sUpFlat .6s both';
+      // ── 따라하기 뷰 (피그마 143:444) — 프리뷰를 복제해 만든 두 번째 화면.
+      //    영상 가이드 프레임은 작게 위, 그 아래 L·R 판정 마크 + 방향 화살표.
+      //    (스텝백 4페이즈 전용. 관찰이 끝나면 이 프레임이 그 자리를 이어받는다)
+      if (/^BK_B[2345]$/.test(stage)) {
+        const FOOT = { BK_B2: { L: 0, R: 0, arrow: 'both' }, BK_B3: { L: 26, R: -18, arrow: 'left' },
+                       BK_B4: { L: 54, R: -10, arrow: 'left' }, BK_B5: { L: 8, R: -8, arrow: 'up' } }[stage] || { L: 0, R: 0 };
+        const fv = document.createElement('div'); fv.id = 'follow-view';
+        fv.innerHTML = `
+          <div id="fv-vid"></div>
+          <div id="fv-marks">
+            ${FOOT.arrow === 'both' || FOOT.arrow === 'left' ? '<div class="fv-ar down">\u2193</div>' : '<div class="fv-sp"></div>'}
+            <div class="fv-foot" style="transform:translateY(${FOOT.L}px)"><span>L</span></div>
+            <div class="fv-foot" style="transform:translateY(${FOOT.R}px)"><span>R</span></div>
+            ${FOOT.arrow === 'both' || FOOT.arrow === 'up' ? '<div class="fv-ar up">\u2191</div>' : '<div class="fv-sp"></div>'}
+          </div>`;
+        document.getElementById('content').insertBefore(fv, dots);
+        dots.style.display = 'none';   // 레퍼런스(143:444)엔 도트바 없음 — 진행은 상단 n/4가 담당
+      }
+    }, 5100);
     const clip = document.querySelector('.dclip'); if (clip) clip.style.animationDelay = '5.15s';
   }
 
