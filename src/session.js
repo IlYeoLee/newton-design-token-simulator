@@ -450,7 +450,7 @@ const BK_ZOOM = 2.2;
 // seg = auto_cmu13_30 클립 시간구간(초), per = 1회 주기, reps = 목표 횟수.
 // 워밍업 반복 규칙(정본, 유저): 동작마다 목표 횟수를 정하고 지면 숫자는 '남은 횟수'를 카운트다운,
 // 0이 되면 다음 스테이지로 자동 진행. A2는 양발 합계 기준(왼·오른 번갈아 총 N회).
-const BK_REPS = { BK_A1: 8, BK_A2: 10, BK_A3: 10 };
+const BK_REPS = { BK_A1: 8, BK_A2: 10, BK_A3: 6 };   // A3=6: 음성('여섯 번')과 일치 — 10은 워밍업 과다(유저 대조 지적)
 // B단계 리듬 = 커리 SportVU 실측(2015-10-31 GSW@NOP, 53득점 경기). 두 소유 구간의 바운스 간격이
 // 각각 0.400s·0.395s로 독립 수렴 → 150 BPM. data/curry_stepback_sportvu.json 에서 추출.
 const BK_BEAT = 0.40, BK_B1_REPS = 8;
@@ -502,7 +502,7 @@ export const STAGES = {
     { id:'BK_A2', label:'A · 워밍업 2/3 — 니 드라이브', voice:['커리','무릎을 올리며 반대손으로 터치, 상체를 비틀어요. 컷 준비 동작.'], hap:'리듬 진동 (약)' },
     { id:'BK_A3', label:'A · 워밍업 3/3 — 스쿼트', voice:['커리','마지막! 천천히 앉았다 일어나요. 점프와 착지의 힘을 깨워요.'], wear:'낮은 강도 보조 시작' },
     { id:'BK_T1', label:'T-1 · STAGE CLEAR → 사전 익히기', voice:['시스템','몸 풀렸어요. 탭 두 번이면 다음으로.'], foot:'두 번 탭 → 사전 익히기' },
-    { id:'BK_B1', label:'B · 핸들 스쿨 1/3 — 로우 드리블', voice:['커리','무릎 굽히고 낮게 — 제 경기 리듬 그대로 튕겨 볼게요. 발은 마크 위에.'], cue:'낮은 자세 · 8회' },
+    { id:'BK_B1', label:'B · 핸들 스쿨 1/3 — 로우 드리블', voice:['커리','무릎 굽히고 낮게 — 제 경기 리듬 그대로 튕겨 볼게요. 발은 마크 위에.'], cue:'낮은 자세 · 10회' },
     { id:'BK_B2', label:'B · 핸들 스쿨 2/3 — 크로스오버', voice:['커리','이제 좌우로 옮겨요. 불 들어온 존에 공을 떨어뜨려요 — 하나, 둘.'], cue:'점등 존에 바운스 ×10' },
     { id:'BK_B3', label:'B · 핸들 스쿨 3/3 — 다리 사이', voice:['커리','마지막 — 다리 사이로 통과시켜 반대 존으로. 라인을 지나가면 성공이에요.'], foot:'두 번 탭 → 실전 준비' },
     { id:'BK_T2', label:'T-2 · 5초 뒤 실전 자동 진행 (두 번 탭 = 바로)', voice:['커리','5초 뒤 넘어가요. 준비됐으면 두 번 탭.'], dur:5, count:true, foot:'두 번 탭 = 즉시 · 무입력 = 자동' },
@@ -1387,7 +1387,7 @@ export class Session {
       case 'BK_A2': FS('WARM-UP 2/3'); FL('니 드라이브 — 무릎↑ 반대손 터치'); FM('상체 비틀며', CS.sand); break;
       case 'BK_A3': FS('WARM-UP 3/3'); FL('스쿼트 — 천천히 앉았다 일어나기'); FM('무릎은 발끝 방향', CS.sand); break;
       case 'BK_T1': FS('T-1'); S(this.slotFL, 'STAGE CLEAR', { size: 0.12, color: CS.prism }); break;
-      case 'BK_B1': FS('HANDLE 1/3'); FL('로우 드리블 — 낮게, 커리 리듬'); FM('발은 마크 위 · 8회'); break;
+      case 'BK_B1': FS('HANDLE 1/3'); FL('로우 드리블 — 낮게, 커리 리듬'); FM('발은 마크 위 · 10회'); break;
       case 'BK_B2': FS('HANDLE 2/3'); FL('크로스오버 — 켜진 존에 바운스'); FM('좌 ↔ 우 · 10회'); break;
       case 'BK_B3': FS('HANDLE 3/3'); FL('다리 사이 — 라인 통과 후 반대 존'); FM('통과 → 바운스 · 8회'); break;
       case 'BK_T2': FS('T-2'); FM('두 번 탭 = 바로 · 가만히 있으면 자동'); break;

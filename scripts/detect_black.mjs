@@ -10,7 +10,8 @@ const [, , Q = '', DUR = '90000', DSF = '2', ADV = '7000'] = process.argv;
 const OUT = process.env.OUT_DIR || '/private/tmp/claude-501/-Users-iil-yeo/fed9f4e6-abcd-410e-abe6-29d8bcb75e36/scratchpad/blackdet';
 fs.mkdirSync(OUT, { recursive: true });
 
-const browser = await puppeteer.launch({ headless: 'new', args: ['--window-size=1440,900'] });
+const STRESS = process.env.STRESS === '1';   // 빠른 탭 연타 + 1/3인칭 토글 + 창 리사이즈 + 세션 루프
+const browser = await puppeteer.launch({ headless: 'new', args: ['--window-size=1440,900', '--enable-gpu'] });
 const page = await browser.newPage();
 await page.setViewport({ width: 1280, height: 800, deviceScaleFactor: +DSF });
 await page.goto('http://localhost:5199/' + Q, { waitUntil: 'networkidle2' });
@@ -76,29 +77,47 @@ await ana.evaluate(() => {
 let curStage = '?', running = true;
 const stagePoll = (async () => {
   while (running) {
-    try { curStage = await page.evaluate(() => window.__sess?.curStage?.id || '?'); } catch {}
+    try { curStage = await page.evaluate(() => window.__sess?.curStage?.id || '?'); crop = await getCrop(); } catch {}
     await new Promise(r => setTimeout(r, 400));
   }
 })();
-const advancer = (async () => {   // BK_A1 → … → BK_FIN 자연 진행
+const advancer = (async () => {   // BK_A1 → … → BK_FIN 자연 진행 (+FIN이면 처음으로 루프)
+  let n = 0;
   while (running) {
-    await new Promise(r => setTimeout(r, +ADV));
+    await new Promise(r => setTimeout(r, STRESS ? 2500 : +ADV));
     if (!running) break;
-    try { await page.evaluate(() => { const s = window.__sess; if (s.active && s.stageIdx < s.stages.length - 1) s.tapAdvance(); }); } catch {}
+    n++;
+    try {
+      await page.evaluate(() => {
+        const s = window.__sess;
+        if (!s?.active) return;
+        if (/FIN$/.test(s.stage)) { s.stageIdx = 0; s.t = 0; s._enter(); }
+        else s.tapAdvance();
+      });
+      if (STRESS) {
+        if (n % 2 === 0) {   // 연타 — 전환 직후 재전환(더블버퍼 스왑 연쇄)
+          await new Promise(r => setTimeout(r, 450));
+          await page.evaluate(() => { const s = window.__sess; if (s?.active && !/FIN$/.test(s.stage)) s.tapAdvance(); });
+        }
+        if (n % 4 === 0) await page.evaluate(() => [...document.querySelectorAll('button')].find(b => b.textContent.includes('인칭'))?.click());
+        if (n % 6 === 0) await page.setViewport({ width: n % 12 === 0 ? 1280 : 1024, height: n % 12 === 0 ? 800 : 900, deviceScaleFactor: +DSF });
+      }
+    } catch {}
   }
 })();
 
 await page.bringToFront();   // screencast는 포그라운드 탭만 스트림 — ana 탭이 포커스 뺏은 것 복구
-const crop = await page.evaluate(() => {
+const getCrop = () => page.evaluate(() => {
   const c = [...document.querySelectorAll('canvas')].find(el => el.getBoundingClientRect().width > 300);
   const r = c.getBoundingClientRect();
   return { x: r.x, y: r.y, w: r.width, h: r.height, innerW: innerWidth };
 });
+let crop = await getCrop();
 const cdp = await page.createCDPSession();
 const queue = []; let nFrames = 0, nHits = 0, maxFrac = 0, maxStage = ''; const hits = [];
 cdp.on('Page.screencastFrame', async ev => {
   nFrames++;
-  queue.push({ b64: ev.data, t: Date.now(), stage: curStage });
+  queue.push({ b64: ev.data, t: Date.now(), stage: curStage, crop });
   // 백프레셔 — 분석이 밀리면 ack 지연으로 캡처 페이스 조절 (무한 큐 OOM 방지)
   while (queue.length > 120) await new Promise(r => setTimeout(r, 20));
   cdp.send('Page.screencastFrameAck', { sessionId: ev.sessionId }).catch(() => {});
@@ -110,7 +129,7 @@ const analyzer = (async () => {
   while (running || queue.length) {
     const f = queue.shift();
     if (!f) { await new Promise(r => setTimeout(r, 10)); continue; }
-    const r = await ana.evaluate((b, c) => window.analyze(b, c), f.b64, crop);
+    const r = await ana.evaluate((b, c) => window.analyze(b, c), f.b64, f.crop);
     if (r.frac > maxFrac) { maxFrac = r.frac; maxStage = f.stage; }
     if (r.frac >= 0.15) {
       nHits++;
