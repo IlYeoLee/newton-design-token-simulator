@@ -349,6 +349,14 @@ function primPanel(kind, sizeM, wall) {
   PRIM_PANELS.push(panel);
   return m;
 }
+/** 궤적 스윕 위상 — 발 높이(오르내림)를 '전진만 하는' 경로 진행도로 바꾼다.
+ *  정점(0.95)을 찍고 발이 충분히 내려오면(0.30) 시작점으로 리셋 → 다음 렙이 처음부터 뻗는다. */
+function tjSweep(H, key, p) {
+  const prev = H[key] ?? 0;
+  let u = Math.max(prev, p);
+  if (prev >= 0.95 && p < 0.30) u = 0;
+  H[key] = u; return u;
+}
 let _primLastT = 0;
 function tickPrims(t) {
   if (t - _primLastT < 1 / 30) return;   // 캔버스 비용 — 30Hz면 충분
@@ -1727,8 +1735,11 @@ export class Session {
       H.arL.visible = !useTraj; H.arR.visible = !useTraj;
       H.tjL.visible = useTraj; H.tjR.visible = useTraj;
       if (useTraj) {
-        H.tjL._prim.prog = H._pL;   // 저역 활강 코멧('쉬잉') — 정점 트리거와 동기
-        H.tjR._prim.prog = H._pR;
+        // 궤적은 '시작점에서 뻗어나가고, 한 바퀴 끝나면 시작점으로 돌아가 다시 출발'이 규약이다.
+        //   prog를 발 높이에 그대로 물리면 발이 내려올 때 코멧이 왔던 길을 되감는다(유저 지적).
+        //   → 전진만 하고, 정점 찍은 뒤 발이 충분히 내려오면 시작점(0)으로 리셋한다.
+        H.tjL._prim.prog = tjSweep(H, '_tjuL', H._pL);
+        H.tjR._prim.prog = tjSweep(H, '_tjuR', H._pR);
       } else {
         const nowT = performance.now() / 1000;
         if (nowT - (this._a3cueT || 0) > 1 / 30) {
@@ -1873,8 +1884,10 @@ export class Session {
       const st3 = FXP.a3Arrow || 4, useTraj = st3 === 4;
       H.arL.visible = !useTraj; H.arR.visible = !useTraj;
       H.tjL.visible = useTraj; H.tjR.visible = useTraj;
-      if (useTraj) { H.tjL._prim.prog = H._pL; H.tjR._prim.prog = H._pR; }
-      else {
+      if (useTraj) {   // 전진 스윕 + 루프마다 시작점 복귀 (러닝 A3와 같은 규약)
+        H.tjL._prim.prog = tjSweep(H, '_tjuL', H._pL);
+        H.tjR._prim.prog = tjSweep(H, '_tjuR', H._pR);
+      } else {
         const nowT = performance.now() / 1000;
         if (nowT - (this._a3cueT || 0) > 1 / 30) {
           this._a3cueT = nowT;

@@ -2270,7 +2270,7 @@ void main(){
     }
     return co;
   }
-  let _coachSeekId = null;   // BK_A1 진입 시 1회 시크용 래치
+  let _coachSeekId = null, _coachSeekT0 = null;   // BK_A1 진입 시 시크 래치(+타임아웃)
   function tickA1Coach() {
     // 어떤 스테이지 코치를 켤지: 러닝 A1·농구 워밍업 전부 = 전 구간 상시, 러닝 A2/A3 = 시범(관찰) 중에만.
     const st = session.active && !session.isLive && (state.pack === 'running' || state.pack === 'basketball') ? session.stage : null;
@@ -2282,15 +2282,26 @@ void main(){
         const co = ensureCoach(id);
         // 옆구리: 스테이지에 들어올 때마다 '왼쪽으로 기우는' 지점에서 시작(유저 필수 요구).
         //   영상 엘리먼트는 스테이지 사이에도 계속 돌아서, 안 잡으면 진입 시점이 매번 달랐다.
-        //   화면 기준 왼쪽 굽힘 구간 = 원본 1.63~3.5s → 그 한가운데(2.20s)에서 시작.
-        if (id === 'BK_A1' && _coachSeekId !== id) {   // 화면상 '왼쪽으로 굽는' 구간(원본 1.63~3.5s) 한가운데
-          _coachSeekId = id; try { co.video.currentTime = 2.20; } catch (e) {}
+        //   왼쪽 굽힘 = 원본 0.00~0.25s → 0.10s에서 시작(0프레임은 가시성 체크 통과 못 함).
+        // 프레임 실측(24fps, 몽타주 육안 확인): 0.00~0.25s=왼쪽 굽힘 최고점 · 0.75s 직립 ·
+        //   1.7~3.5s=오른쪽 굽힘. 좌우 반전 없음(한때 반전이라 판단했으나, 그 근거로 삼은 캡처가
+        //   '시크가 안 먹은 상태의 임의 프레임'이었음 — 잘못된 추론이었다).
+        //   readyState<1이면 currentTime 대입이 조용히 무시된다 — 실제로 먹었을 때만 래치.
+        //   (안 그러면 한 번 시도하고 끝나서 매번 아무 데서나 시작했음 — 유저: 아직도 오른쪽부터)
+        if (id === 'BK_A1' && _coachSeekId !== id) {
+          if (_coachSeekT0 == null) _coachSeekT0 = performance.now();
+          if (co.video.readyState >= 1) {
+            try { co.video.currentTime = 0.10; } catch (e) {}
+            if (Math.abs(co.video.currentTime - 0.10) < 0.5) _coachSeekId = id;
+          }
+          if (performance.now() - _coachSeekT0 > 2500) _coachSeekId = id;   // 안전장치: 영상 없이도 화면은 나와야
         }
-        if (id !== 'BK_A1') _coachSeekId = null;
+        if (id !== 'BK_A1') { _coachSeekId = null; _coachSeekT0 = null; }
         if (co.video.paused) co.video.play().catch(() => {});
         // 영상 실제 프레임이 들어오기 전엔 숨김 — 검은/균일 텍스처가 크로마키 통과 못 해
         // 빨간 방사형 사각형으로 0.x초 깜빡이던 것 방지(유저). readyState≥3(HAVE_FUTURE_DATA)+재생 시작 후.
-        co.plane.visible = co.video.readyState >= 3 && co.video.currentTime > 0.03;
+        co.plane.visible = co.video.readyState >= 3 && co.video.currentTime > 0.03
+                        && (id !== 'BK_A1' || _coachSeekId === id);   // 시크 전 프레임은 보여주지 않는다
         co.plane.material.uniforms.uTime.value = performance.now() / 1000;
         // 채도는 마크 LUT와 같은 소스(FXP.sat)에서 — 인물·발자국 룩 통일(슬라이더 하나가 둘 다 이동)
         co.plane.material.uniforms.uSat.value = 1.0 + (FXP.sat ?? 1) * 0.32;
