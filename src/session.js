@@ -138,6 +138,7 @@ class FootMark {
     this._U.uPhase.value = 1; this._U.uProg.value = p;                                 // Active — 헤일로 수축 = 타이밍
   }
   glow(k) { this._U.uPhase.value = 2; this._U.uProg.value = Math.min(1, 1 - k); }      // Success 진홍 블룸 잔상
+  toe(k) { this._U.uToe.value = k; }   // 1 = 앞꿈치만 접지(뒤꿈치 투명·앞 강조)
   ghost() { this._U.uPhase.value = 3; this._U.uProg.value = 0; }                        // Locked 무채 고스트 — 션 발자국 시범·예고
 }
 
@@ -479,12 +480,14 @@ export const STEP_SEG = { BK_B2: 0.60, BK_B3: 1.47, BK_B4: 1.81, BK_B5: 3.10 };
 // 오른발은 1.73까지 대기했다가 2.07에 착지. 즉 왼발이 먼저 닿고 오른발이 뒤따른다.
 //   u = 화면 가로 정규화(-1~1) · d = 화면 아래끝 기준 깊이(px, 클수록 멀다)
 const SB_FOOT = {
-  L: [{ t: 0.00, u: 0.176, d: 0 }, { t: 1.13, u: 0.176, d: 0 },   // 1.13까지는 '완전 정지'(실측 0.015 드리프트는 추적 노이즈 — 스탠스 확대에 7배로 증폭돼 삐걱거렸다)
-      { t: 1.47, u: -0.199, d: 48 }, { t: 1.67, u: -0.650, d: 28 },
-      { t: 2.07, u: -0.684, d: 28 }],
-  R: [{ t: 0.00, u: 0.542, d: 12 }, { t: 1.13, u: 0.542, d: 12 },
-      { t: 1.47, u: 0.051, d: 72 }, { t: 1.73, u: 0.004, d: 72 },
-      { t: 2.07, u: -0.515, d: 40 }],
+  // 20fps 접지 추적 실측. 좌우 식별 정정: 먼저 나가는 건 '오른발'이고, 왼발은 제자리에서
+  //   앞꿈치로 버티다(1.45~2.05) 마지막에 끌어온다. toe:true = 그 구간은 앞꿈치만 닿은 상태.
+  L: [{ t: 0.00, u: 0.172, d: 0 }, { t: 1.40, u: 0.172, d: 0 },
+      { t: 1.50, u: 0.090, d: 26, toe: 1 }, { t: 1.70, u: 0.080, d: 28, toe: 1 },
+      { t: 2.05, u: -0.515, d: 40 }],
+  R: [{ t: 0.00, u: 0.542, d: 11 }, { t: 1.05, u: 0.517, d: 21 },
+      { t: 1.45, u: -0.187, d: 46 }, { t: 1.65, u: -0.650, d: 28 },
+      { t: 2.05, u: -0.679, d: 28 }],
 };
 const sbRaw = (arr, t, holdAirborne) => {   // 그 발의 원좌표(보간). 이징은 '떼고 → 빠르게 → 딱 멈춤'
   let i = 0;
@@ -496,7 +499,8 @@ const sbRaw = (arr, t, holdAirborne) => {   // 그 발의 원좌표(보간). 이
   const ez = f < 0.5 ? 2 * f * f : 1 - Math.pow(-2 * f + 2, 2) / 2;
   const dist = Math.abs(b.u - a.u);
   return { u: a.u + (b.u - a.u) * ez, d: a.d + (b.d - a.d) * ez,
-    f, dist, tu: b.u, td: b.d, plantT: b.t, step: dist > 0.03 };
+    f, dist, tu: b.u, td: b.d, plantT: b.t, step: dist > 0.03,
+    toe: (f >= 1 ? (b.toe || 0) : (a.toe || 0)) };
 };
 // 판정 마크 프레임 = 빔 창 안 고정 영역. 어떤 단계·어떤 프레임에서도 이 밖으로 안 나간다.
 const SB_BOX = { u: 0.88, v0: 0.16, v1: 0.46 };   // 창은 멀수록 넓다 — 스탠스 확보용으로 약간 뒤
@@ -541,7 +545,7 @@ const sbV = (d) => Math.max(SB_BOX.v0, Math.min(SB_BOX.v1, SB_FIT.vc + (d - SB_F
 /** 영상 시각 vt의 두 발 상태(프레임 좌표) — 발마다 독립 타이밍 */
 function sbPoseAt(vt, holdAirborne) {
   const p = sbPair(vt, holdAirborne);
-  const conv = q => ({ u: sbU(q.u), v: sbV(q.d), tu: sbU(q.tu), tv: sbV(q.td),
+  const conv = q => ({ u: sbU(q.u), v: sbV(q.d), tu: sbU(q.tu), tv: sbV(q.td), toe: q.toe,
     f: q.f, dist: q.dist, step: q.step, plantT: q.plantT,
     moving: q.step && q.f > 0.001 && q.f < 0.999 });
   return { L: conv(p.L), R: conv(p.R) };
@@ -685,6 +689,7 @@ export class Session {
       } else {
         fm.countdown(1); fm.op(0.95); fm.at(p.x, p.z, FOLLOW_S);
       }
+      fm.toe(q.toe || 0);   // 앞꿈치 접지 구간이면 뒤꿈치가 스러진다
       // 화살표 = 그 발이 갈 방향. 딛고 있으면 끈다.
       if (!ar) return;
       const du = q.tu - q.u, dv = q.tv - q.v;

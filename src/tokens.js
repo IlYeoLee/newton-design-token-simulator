@@ -22,7 +22,7 @@ const MARKFX_FRAG = `
 ` + FX_GLSL + `
 uniform float uW, uHalo, uNoise;
 ` + MARK_GLSL + `
-uniform float uPhase, uProg, uFade, uStrong, uTime, uGain, uDay, uOut;
+uniform float uPhase, uProg, uFade, uStrong, uTime, uGain, uDay, uOut, uToe;
 uniform vec3 uFPOrigin, uFPFwd, uFPRight;
 uniform float uFPNear, uFPFar, uFPHalfN, uFPHalfF, uFPFadeM;
 varying vec2 vUv;
@@ -60,6 +60,11 @@ void main() {
                * smoothstep(1.0, 0.84, max(abs(uv.x), abs(uv.y)))
                * footprintFade(vWorldPos);   // 투사면 밖으로 새는 글로우를 사각 하드컷 전에 페이드
   vec3 col = r.rgb * uFade * uGain * border;
+  // 앞꿈치 접지: 접지면(앞)만 남기고 뒤꿈치는 스러진다. 앞쪽은 조금 더 달궈 강조(유저).
+  if (uToe > 0.001) {
+    float toe = smoothstep(-0.80, 0.20, uv.y);
+    col *= mix(1.0, toe * (1.0 + 0.55 * toe), uToe);
+  }
   if (uDay > 0.5) {   // 주간 = 풀컬러 잉크 (색 보존 + 커버리지 알파)
     float mc = max(col.r, max(col.g, col.b));
     vec3 ink = col / max(mc, 1e-4);
@@ -193,6 +198,7 @@ export function makeMarkFXMaterial(footTex = null) {
       uSDF2: { value: footTex || getLUT() },
       uSDFWarn: { value: warnSDFTexture() || getLUT() },
       uPhase: { value: 0 }, uProg: { value: 0 }, uFade: { value: 1 },
+      uToe: { value: 0 },   // 앞꿈치 접지 강조 — 앞은 진하게, 뒤꿈치는 투명하게(스텝백 2/4 왼발)
       uStrong: { value: 0 }, uContract: { value: 0 },
       uTime: { value: 0 }, uSeed: { value: Math.random() * 6.2832 },
       uW: { value: 1 }, uHalo: { value: 0.9 }, uPool: { value: 0.55 }, uGain: { value: 1 },
