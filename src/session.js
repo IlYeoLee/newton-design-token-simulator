@@ -2310,8 +2310,9 @@ export class Session {
         const pL = this._beamLocal(uL, SOLO ? V : V + POSE.L[1] * 0.10, H.mL);
         const pR = this._beamLocal(uR, SOLO ? V : V + POSE.R[1] * 0.10, H.mL);
         H.fRl.countdown(1); H.fRr.countdown(1);   // 헤일로 완전 수축 = 번짐 없는 실루엣
-        H.fRl.at(pL.x, pL.z, S0 + SB * bL); H.fRl.op(0.80 + 0.20 * bL);
-        H.fRr.at(pR.x, pR.z, S0 + SB * bR); H.fRr.op(0.80 + 0.20 * bR);
+        // 2/4는 숨쉬기(크기 진동) 없음 — 고정 크기·고정 밝기(유저). 3/4·4/4는 기존 들썩임 유지.
+        H.fRl.at(pL.x, pL.z, SOLO ? S0 : S0 + SB * bL); H.fRl.op(SOLO ? 0.95 : 0.80 + 0.20 * bL);
+        H.fRr.at(pR.x, pR.z, SOLO ? S0 : S0 + SB * bR); H.fRr.op(SOLO ? 0.95 : 0.80 + 0.20 * bR);
         for (const k of ['fC', 'fLl', 'fLr']) H[k]?.op(0);
         if (H.numL) { placeMarkNum(H.numL); placeMarkNum(H.numR);
           H.numL.visible = H.numR.visible = SOLO; }   // 글리프는 자체 재질 — visible로 제어
