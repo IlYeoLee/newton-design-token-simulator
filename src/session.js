@@ -1953,7 +1953,9 @@ export class Session {
       // 2막 교수법(유저): 드리블은 바닥을 보면 안 되는 기술이다. 전반(절반)은 바닥 UI 보며 익히고,
       //   후반은 UI를 걷어 음성·리듬만 남겨 고개를 들게 한다. eyesUp 페이드는 아래 가시성에 곱한다.
       const eyesUp = H.count >= Math.ceil(TOTAL / 2);
-      H._eyeK = Math.max(0, Math.min(1, (H._eyeK ?? 0) + (eyesUp ? dt : -dt) * 2));
+      const dtB = Math.max(0, Math.min(0.1, this.t - (this._bkB1t ?? this.t)));   // 이 분기엔 dt가 없다(ReferenceError 사고)
+      this._bkB1t = this.t;
+      H._eyeK = Math.max(0, Math.min(1, (H._eyeK ?? 0) + (eyesUp ? dtB : -dtB) * 2));
       const vK = 1 - H._eyeK;
       if (eyesUp) this._say('bkb1up', '커리', '좋아요 — 이제 고개 들고, 리듬만 느껴요. 공은 안 봐도 돼요.');
       // 비트 바 — 먼 곳(1.30m)에서 발 라인으로 다가온다. 도착 = 튕기는 순간(발로 잡는 메트로놈).
@@ -1962,7 +1964,7 @@ export class Session {
       H.bar.material._gainK = 0.25 + 0.75 * u;
       // 스탠스 — 힙 낮게(BK_A3 스쿼트와 같은 축). 식으면 '더 앉으세요'.
       const hy = this.xbot?.getProbes?.()?.hips?.y ?? 1.0;
-      const low = hy <= 0.95;
+      const low = hy <= 1.00;   // 라이브 실측: 124_04 드리블 자세 힙 0.96~0.98(직립 1.03) — 0.95는 전부 차단했다
       if (low) { H.fmL.glow(0.65); H.fmR.glow(0.65); H.fmL.op(vK); H.fmR.op(vK); }
       else { H.fmL.ghost(); H.fmR.ghost(); H.fmL.op(0.45 * vK); H.fmR.op(0.45 * vK); }
       H.bar.material._gainK *= vK;
