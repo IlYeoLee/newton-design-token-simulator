@@ -2336,13 +2336,22 @@ void main(){
             _stepId = id; _stepLoops = 0; _stepFrac = 0;
             co._holdUntil = 0; try { co.video.currentTime = a; } catch (e) {}
           }
-          _stepFrac = co._holdUntil ? 1 : Math.max(0, Math.min(1, (co.video.currentTime - a) / Math.max(0.05, b - a)));
+          // 링은 '재생 + 끝프레임 정지'를 하나의 한 바퀴로 본다 — 100%에서 1초 멈췄다 뚝 되감기면
+          //   회차 사이가 끊겨 보인다(유저). 정지 구간에도 남은 각도를 채워 다음 재생 시작과 정확히 맞물린다.
+          const _playWall = Math.max(0.05, (b - a) / STEP_RATE), _share = _playWall / (_playWall + STEP_HOLD);
+          if (co._holdUntil) {
+            const hp = Math.max(0, Math.min(1, 1 - (co._holdUntil - now) / (STEP_HOLD * 1000)));
+            _stepFrac = _share + (1 - _share) * hp;
+          } else {
+            _stepFrac = _share * Math.max(0, Math.min(1, (co.video.currentTime - a) / Math.max(0.05, b - a)));
+          }
           if (co._holdUntil) {
             // 마지막 프레임 1초 정지 후 처음으로 되감아 루프(유저)
-            if (now >= co._holdUntil) { co._holdUntil = 0; try { co.video.currentTime = a; } catch (e) {} co.video.play().catch(() => {}); }
-            else co.video.pause();
+            if (now >= co._holdUntil) {
+              co._holdUntil = 0; _stepLoops += 1;   // 되감기 시점 = 링이 한 바퀴를 다 돈 순간 = 1회 완료
+              try { co.video.currentTime = a; } catch (e) {} co.video.play().catch(() => {});
+            } else co.video.pause();
           } else if (co.video.currentTime >= b - 0.033) {
-            _stepLoops += 1;   // 구간 끝 도달 = 1회 재생 완료
             // 30fps라 정확히 b에서 멈출 수 없다 — 한 프레임 앞서 잡고 정지. 시킹은 하지 않는다:
             //   시킹 중엔 비디오 텍스처가 비어 균일색이 되고, 크로마 마스크를 통과 못 해
             //   판 전체가 붉게 칠해졌다(유저 스샷). 현재 프레임 그대로 얼리는 게 안전하다.
