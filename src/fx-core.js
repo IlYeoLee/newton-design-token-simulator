@@ -332,14 +332,23 @@ export function drawStemArrow(g, W, H, t, ENV, opts = {}) {
   g.clearRect(0, 0, W, H);
   const A0 = fade * (0.45 + 0.55 * pulse);
   const y0 = H - 24 * s, y1 = 58 * s, yEnd = y0 + (y1 - y0) * draw;
-  for (let k = 0; k < 1; k += 0.04) {                 // 테이퍼: 뿌리 얇게 → 꼭짓점 두껍게
-    const yy = y0 + (yEnd - y0) * k;
-    // 뿌리 페더 — 끝(k=0)에서 알파 0으로 자연 소멸(유저: 연한 색 말고 투명도로). k^1.5 램프.
-    g.globalAlpha = A0 * Math.pow(k, 1.5);
-    g.strokeStyle = lut(0.45 + 0.5 * k); g.lineCap = 'round';
-    g.lineWidth = (3 + 10 * k) * s * AW;
-    g.beginPath(); g.moveTo(cx, yy); g.lineTo(cx, y0 + (yEnd - y0) * Math.min(1, k + 0.04)); g.stroke();
-  }
+  // 스템 = 폴리곤 + 세로 그라디언트 한 번. 예전의 '세그먼트 스트로크 반복'은 라운드캡이 겹쳐
+  // 구슬처럼 뭉치고 뿌리도 덜 사라졌음(유저: 출발 끝을 더 투명하게). 폭 테이퍼는 폴리곤이,
+  // 소멸은 알파 그라디언트가 담당 — 뿌리 알파 0에서 시작해 위로 갈수록 뜨거워진다.
+  const rgba = (v, a) => lut(v).replace('rgb(', 'rgba(').replace(')', `,${a.toFixed(3)})`);
+  const w0 = 2.2 * s * AW, w1 = 13 * s * AW;          // 뿌리 폭 → 꼭짓점 폭
+  const grad = g.createLinearGradient(0, y0, 0, yEnd);
+  grad.addColorStop(0.00, rgba(0.42, 0));
+  grad.addColorStop(0.18, rgba(0.48, 0.10 * A0));
+  grad.addColorStop(0.42, rgba(0.58, 0.38 * A0));
+  grad.addColorStop(0.72, rgba(0.75, 0.78 * A0));
+  grad.addColorStop(1.00, rgba(0.95, A0));
+  g.globalAlpha = 1;
+  g.fillStyle = grad;
+  g.beginPath();
+  g.moveTo(cx - w0 / 2, y0); g.lineTo(cx + w0 / 2, y0);
+  g.lineTo(cx + w1 / 2, yEnd); g.lineTo(cx - w1 / 2, yEnd);
+  g.closePath(); g.fill();
   g.globalAlpha = A0;
   if (draw > 0.9 && !opts.noTip) {   // noTip = 촉 없는 자루(감속 바 등)
     const tipS = 42 * s * (0.7 + 0.3 * AW);   // 촉 크기(유저 2회 축소 요청) — 스템:촉 비율 정본
