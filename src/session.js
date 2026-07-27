@@ -2137,8 +2137,9 @@ export class Session {
       const bL = Math.sin(this.t * W), bR = Math.sin((this.t - 0.18) * W);
       const pL = this._beamLocal(-0.34, V, H.mL), pR = this._beamLocal(0.34, V, H.mL);
       H.sL2.countdown(1); H.sR2.countdown(1);
-      H.sL2.at(pL.x, pL.z, 0.62 + 0.04 * bL); H.sL2.op(0.80 + 0.20 * bL);
-      H.sR2.at(pR.x, pR.z, 0.62 + 0.04 * bR); H.sR2.op(0.80 + 0.20 * bR);
+      // 크기 = 드리블(B1) 발자국과 동일 배율 1.1 (유저) — 발 위치를 보고 서는 화면이라 같은 규격
+      H.sL2.at(pL.x, pL.z, 1.10 + 0.07 * bL); H.sL2.op(0.80 + 0.20 * bL);
+      H.sR2.at(pR.x, pR.z, 1.10 + 0.07 * bR); H.sR2.op(0.80 + 0.20 * bR);
       placeMarkNum(H.numL); placeMarkNum(H.numR);   // 앵커·스케일은 매 프레임 룩 값에서
       H.numL.visible = true; H.numR.visible = true;
       for (const k of ['sL1', 'sR1']) H[k].op(0);
