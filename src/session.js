@@ -341,7 +341,10 @@ function primPanel(kind, sizeM, wall) {
   tex.colorSpace = THREE.SRGBColorSpace;
   const isTraj = kind === 'trajectory';
   const m = new THREE.Mesh(new THREE.PlaneGeometry(sizeM, sizeM),
-    new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+    new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false,
+      // 궤적만 일반 블렌딩 — 가산은 '순서'가 결과에 영향을 안 준다(빛의 합). 발마크 빨강이 포화라
+      // renderOrder/depthTest를 아무리 올려도 궤적이 묻혔던 근본(유저 4회 지적).
+      blending: isTraj ? THREE.NormalBlending : THREE.AdditiveBlending,
       toneMapped: false, depthTest: !isTraj }));
   if (!wall) m.rotation.x = -Math.PI / 2;
   // 궤적은 항상 발자국 '위'. renderOrder만으로는 깊이 테스트에 걸려 뒤로 밀릴 수 있어
@@ -355,12 +358,16 @@ function primPanel(kind, sizeM, wall) {
 }
 /** 궤적 사이클 트리거 — 그 발이 '올라가기 시작하는' 순간(임계 상향 교차) 사이클을 리셋한다.
  *  좌우가 각자 자기 발 타이밍에 맞춰 뻗는다(전역 시계 공유 시 동시에 움직이던 문제). */
-function tjTrigger(H, side, p, prev) {
-  const TH = 0.10;
-  if (p > TH && prev <= TH) {
+function tjTrigger(H, side, p) {
+  // 자체 래치 — 호출부에서 prev를 넘겨받는 방식은 바로 윗줄에서 _prevP*가 이미 갱신돼 있어
+  // 상향 교차가 영원히 성립하지 않았다(유저: 아직도 좌우가 동시에 움직인다).
+  const k = '_tjUp' + side;
+  const up = p > 0.10;
+  if (up && !H[k]) {
     const tj = side === 'L' ? H.tjL : H.tjR;
-    if (tj?._prim) tj._prim.t0 = performance.now() / 1000;
+    if (tj && tj._prim) tj._prim.t0 = performance.now() / 1000;
   }
+  H[k] = up;
 }
 let _primLastT = 0;
 function tickPrims(t) {
@@ -665,7 +672,6 @@ export class Session {
       //   ctrl y = Δz / (0.42 × 패널크기) → 0.7m 패널에서 ±0.25m = ±0.85
       const m = primPanel('trajectory', 0.7, false);
       m.position.set(x, 0.017, -1.30);   // 정지(-1.05)와 정점(-1.55)의 중간
-      m.renderOrder = 9;                 // 발자국(6~7) 위에 얹힘(유저)
       m._prim.pts = [[0, 0.85], [mirror ? 0.22 : -0.22, 0], [0, -0.85]];
       m._prim.P = { width: 1.5, tail: 1.2, taper: 1.6 };
       m._prim.prog = 0;
@@ -748,7 +754,6 @@ export class Session {
     const mkTraj2 = (x, mirror) => {
       const m = primPanel('trajectory', 0.7, false);
       m.position.set(x, 0.017, -2.10);   // 정지(-1.85)와 정점(-2.35)의 중간 — 러닝 A3와 같은 규약
-      m.renderOrder = 9;                 // 발자국(6~7) 위에 얹힘(유저)
       m._prim.pts = [[0, 0.85], [mirror ? 0.22 : -0.22, 0], [0, -0.85]];
       m._prim.P = { width: 1.5, tail: 1.2, taper: 1.6 };
       m._prim.prog = 0;
@@ -1744,7 +1749,7 @@ export class Session {
         //   움직인다(유저). 각 궤적에 t0(사이클 시작 시각)를 주고, '그 발이 올라가기 시작하는'
         //   순간 t0을 지금으로 찍어 사이클을 그 발 타이밍에 맞춰 다시 출발시킨다.
         H.tjL._prim.prog = null; H.tjR._prim.prog = null;
-        tjTrigger(H, 'L', H._pL, H._prevPL ?? 0); tjTrigger(H, 'R', H._pR, H._prevPR ?? 0);
+        tjTrigger(H, 'L', H._pL); tjTrigger(H, 'R', H._pR);
       } else {
         const nowT = performance.now() / 1000;
         if (nowT - (this._a3cueT || 0) > 1 / 30) {
@@ -1891,7 +1896,7 @@ export class Session {
       H.tjL.visible = useTraj; H.tjR.visible = useTraj;
       if (useTraj) {   // 룩 시스템 루프 그대로 + 발별 트리거 — 러닝 A3와 같은 규약
         H.tjL._prim.prog = null; H.tjR._prim.prog = null;
-        tjTrigger(H, 'L', H._pL, H._prevPL ?? 0); tjTrigger(H, 'R', H._pR, H._prevPR ?? 0);
+        tjTrigger(H, 'L', H._pL); tjTrigger(H, 'R', H._pR);
       } else {
         const nowT = performance.now() / 1000;
         if (nowT - (this._a3cueT || 0) > 1 / 30) {
