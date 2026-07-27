@@ -3940,7 +3940,7 @@ void main(){
       // B1 시범 = 06_15 드리블→슛(온전한 무브 원테이크), B2 분해 = 06_14 크로스오버+슛 위상잠금
       // B단계 = 공을 튄다 → 튀기며 움직인다 → 튀기다 멈추고 뒤로(BK-B-CURRICULUM.md)
       BK_B1: 'auto_cmu124_04',        // 제자리 공 튀기기 (root:false → 제자리 고정 보장)
-      BK_B2: 'cmu_dribble_low',       // 로우 프리스타일 드리블 (06_13) — 크로스오버 데모
+      BK_B2: 'cmu_crossover_shot',    // 진짜 크로스오버 모캡 (CMU 06_14, 양손 전환) — 유저 요청
       BK_B3: 'cmu_dribble_low',       // 다리 사이도 같은 핸들 클립 루프
     };
     if (DRILL[id] && xbot.actions[DRILL[id]]) return DRILL[id];
@@ -4039,7 +4039,7 @@ void main(){
       // hold=포즈 고정(복싱 READY 가드 유지). 러닝 대기는 idle 재생(호흡)이라 hold 안 함.
       // 러닝 준비운동(A) = 코치 드릴을 세션 스테이지 시간(session.t)에 위상 잠금 → 씬 링·카운트·음성과 동기(유저: '타이밍 하나하나 맞춰')
       if (session.stage !== 'A2' && xbot.group.scale.x !== 1) xbot.group.scale.x = 1;   // A2 미러 잔류 방지
-      xbot.stanceWiden = session.stage === 'BK_B1' ? 1 : 0;
+      xbot.stanceWiden = /^BK_B[123]$/.test(session.stage || '') ? 1 : 0;   // 핸들 스쿨 전체 — 굽히고 넓힌 스탠스 유지(유저)
       // 세션 데모(비실전) 공통: CMU 클립이 몸을 돌려도 봇은 정면 유지(유저 원칙)
       xbot.lockYaw = session.active && !session.isLive && /^BK_[AB]/.test(session.stage || '');
       let _clip = demoClipFor(session.sport, session.stage);
@@ -4097,7 +4097,10 @@ void main(){
         }
       }
       // 06_13 프리스타일 전체 루프는 이동·컷 구간이 섞여 어색(유저) — 안정 핸들 구간만 창 반복.
-      else if (session.stage === 'BK_B2') _phase = 2.0 + (session.t % 6.0);
+      else if (session.stage === 'BK_B2') {   // 06_14 크로스오버 구간(슛 이전 0.3~2.3) 핑퐁
+        const SP2 = 2.0, m2 = session.t % (SP2 * 2);
+        _phase = 0.3 + (m2 < SP2 ? m2 : SP2 * 2 - m2);
+      }
       else if (session.stage === 'BK_B3') _phase = 9.0 + (session.t % 6.0);
       // playDemo는 무조건 — stepbackDemo 분기 삭제 때 else가 체인에 붙어 위상 스테이지 전부에서
       // 재생이 건너뛰어졌던 사고(클립이 idle로 남음).
@@ -4344,7 +4347,9 @@ void main(){
             }
           }
         }
-        if (session.repTotal) {
+        if (session.repTotal && session.stages?.[session.stageIdx]?.id !== 'BK_B1') {
+          // BK_B1 제외: 바운스마다 폭을 쓰면 3D iframe repaint 플래시(유저: 공 닿을 때마다 검은 깜빡).
+          // B1 진행은 링 중앙 숫자(WebGL 캔버스)가 전담한다.
           const clip = fdoc?.querySelector('.dclip');
           if (clip) {
             // repFrac = 회차 사이도 채우는 연속값(깊이·발높이). 정수 회차만 쓰면 뚝뚝 끊긴다(유저).
@@ -4776,6 +4781,9 @@ void main(){
   }
   const floorIframe = document.createElement('iframe');
   floorIframe.setAttribute('scrolling', 'no');
+  // 3D 변환된 iframe은 내용 repaint 때 검은 플래시(컴포지터 재래스터) — 자체 레이어로 승격해 완화
+  floorIframe.style.willChange = 'transform';
+  floorIframe.style.backfaceVisibility = 'hidden';
   // 배경 투명(html/body transparent)이라 별도 루마키 불필요. filter:url(#ui-lumakey)는 정의 없는 댕글링 참조라
   // Chrome이 iframe을 통째 안 그렸음(운동중 프레임 안 보이던 원인) → 제거.
   Object.assign(floorIframe.style, { border: '0', background: 'transparent' });

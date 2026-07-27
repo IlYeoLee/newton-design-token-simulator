@@ -257,6 +257,7 @@ export class XBot {
     this._footL = xbot.getObjectByName('mixamorigLeftToeBase') || xbot.getObjectByName('mixamorigLeftFoot');
     this._footR = xbot.getObjectByName('mixamorigRightToeBase') || xbot.getObjectByName('mixamorigRightFoot');
     this._wristR = xbot.getObjectByName('mixamorigRightHand');
+    this._wristL = xbot.getObjectByName('mixamorigLeftHand');   // 크로스오버 — 공이 활성 손을 따라간다
     this._shoulderR = xbot.getObjectByName('mixamorigRightArm');
     this._elbowR = xbot.getObjectByName('mixamorigRightForeArm');
 
@@ -557,14 +558,17 @@ export class XBot {
     // 화면의 봇은 항상 정면(-z 응시)을 유지한다. 골반 로컬 +Z(몸 정면, getAnchor 규약)의 요를 재서
     // 모델 루트를 역회전 — _lockInPlace가 힙 XZ를 원점에 고정하므로 원점 회전 = 제자리 회전.
     if (this.lockYaw && this._hips && !this._rootClips?.has(key)) {
+      // 닫힌형 보정 — 누적(+=) 피드백은 폭주했다(실측: rotation.y -67rad, 위치 미터 요동
+      // = 검은 프레임의 한 원인). 같은 y축 회전이라 분해: yawClip = yawWorld − rotation.y.
       this.model.updateMatrixWorld(true);
       const e = this._hips.matrixWorld.elements;
-      const yaw = Math.atan2(e[8], e[10]);          // 몸 정면의 월드 요 (0 = +z)
-      const want = Math.PI;                          // 데모 정면 = -z
-      let d = want - yaw; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI;
-      this.model.rotation.y += d;
+      const yawWorld = Math.atan2(e[8], e[10]);
+      const yawClip = yawWorld - this.model.rotation.y;
+      let want = Math.PI - yawClip;
+      while (want > Math.PI * 2) want -= Math.PI * 2; while (want < 0) want += Math.PI * 2;
+      this.model.rotation.y = want;
       this.model.updateMatrixWorld(true);
-      this._lockInPlace?.();                         // 회전 후 힙 재고정
+      this._lockInPlace?.();
     }
     if (this._armNeutralClips?.has(key)) this._relaxArms();   // 팔만 중립 — 다리는 실측 유지 (유저: '손만 자연스럽게')
     if (this._groundedClips?.has(key)) { this.model.position.y = 0; this._yOff = undefined; this.model.updateMatrixWorld(true); }
@@ -845,14 +849,26 @@ export class XBot {
     const ball = this.ball;
     if (!ball || !this._wristR) return;
     ball.visible = true;
-    const w = new THREE.Vector3().setFromMatrixPosition(this._wristR.matrixWorld);
+    // 활성 손 = 더 낮은 손(드리블하는 손이 낮다) — 히스테리시스 0.07m·0.25s로 크로스오버 전환.
+    //   전환되면 부착 목표·릴리즈 스팟이 반대 손으로 넘어가 공이 몸 앞을 가로질러 이동(유저: 손 왔다갔다에 공 동기).
+    const S0 = this._db;
+    const wR = new THREE.Vector3().setFromMatrixPosition(this._wristR.matrixWorld);
+    const wL = this._wristL ? new THREE.Vector3().setFromMatrixPosition(this._wristL.matrixWorld) : null;
+    if (S0 && wL) {
+      const now = S0.t;
+      if (S0._actR !== false && wL.y < wR.y - 0.07 && now - (S0._swT ?? -9) > 0.25) { S0._actR = false; S0._swT = now; }
+      else if (S0._actR === false && wR.y < wL.y - 0.07 && now - (S0._swT ?? -9) > 0.25) { S0._actR = true; S0._swT = now; }
+    }
+    const actR = !S0 || S0._actR !== false;
+    const w = actR || !wL ? wR : wL;
+    const HOFF = actR ? 0.06 : -0.06;   // 손바닥 앞 오프셋 — 왼손이면 미러
     const r = 0.12, PALM = 0.13, REL = 0.20, CATCH = 0.72;
     const S = this._db = this._db || { t: 0, prevY: w.y, vy: 0, prevVy: 0, lastTop: -9, Th: 0.8,
       relY: 0.5, hx: w.x, hz: w.z, relX: w.x, relZ: w.z };
     S.t += dt;
     const vyRaw = (w.y - S.prevY) / Math.max(1e-3, dt);
     S.vy += (vyRaw - S.vy) * 0.5;
-    S.hx += (w.x + 0.06 - S.hx) * Math.min(1, dt * 14);
+    S.hx += (w.x + HOFF - S.hx) * Math.min(1, dt * 14);
     S.hz += (w.z - S.hz) * Math.min(1, dt * 14);
     // 손 정점 이벤트 — 주기(Th) EMA 실측
     if (S.prevVy > 0.05 && S.vy <= 0.02 && S.t - S.lastTop > 0.3) {
