@@ -4832,6 +4832,15 @@ void main(){
     const sr = buf.shadowRoot;
     sr.innerHTML = '';
     const abs = rel => new URL(rel, new URL(url, location.href)).href;
+    // 진행 중 애니메이션 = 3D 변환 레이어(1600×2670)의 지속 재래스터 → 검정 타일 플래시의 마지막
+    // 남은 발생원(유저 재보고, 진입 후 수 초 + 전환마다 타이밍 일치). 모든 애니메이션을 즉시
+    // 완료시켜 최종 상태로 고정 — fill(both)이 살아 있어 디자인된 최종 투명도·배치는 그대로.
+    // 복원 진단: ?anim=1
+    if (new URLSearchParams(location.search).get('anim') !== '1') {
+      const kill = srcDoc.createElement('style');
+      kill.textContent = '*{animation-duration:0.001s !important;animation-delay:0s !important;animation-iteration-count:1 !important;transition:none !important}';
+      (srcDoc.body || srcDoc.documentElement).appendChild(kill);
+    }
     // 런타임 상대경로 리베이스 — 주입 스크립트가 img.src='assets/…'를 넣으면 메인 문서 기준으로
     // 풀려 404(전환 카드 일러스트 소실, 유저). 셰도루트 옵저버로 상대 src를 프레임 기준 절대화.
     buf._srcObs?.disconnect();
