@@ -1969,27 +1969,37 @@ export class Session {
       this._bkStrId = 'BK_B1';
       const dtB = Math.max(0, Math.min(0.1, this.t - (this._bkB1t ?? this.t)));
       this._bkB1t = this.t;
+      if (!this._followLatch) {   // 관찰 5초 — 코치 실루엣+Preview 필만, 가이드 전부 숨김(유저: 훈련 전체)
+        H.sL.op(0); H.sR.op(0); H.aL._gain = 0; H.aR._gain = 0;
+        H.zone.setOp?.(0); H.num.material.opacity = 0;
+        this.bkB1Setup = false; this.bkB1Succ = null; this.bkB1Widen = null;
+        this.demoActive = true;
+        FMU('먼저 보세요 — 로우 드리블', CS.prism);
+        this.repLeft = null; this.repTotal = null;
+        return;
+      }
+      const tB = this.t - (this._aWatchEnd ?? 5.0);   // 셋업 타임라인 = 관찰 종료 기준
       // 막0 · 스탠스 셋업(4초): 넓은 발자국 2개만 보여주고 밟게 한다 — 이후 퇴장(페이드)
       // 셋업 타임라인(유저·피그마 130-2984): 0~0.8 모은 자세 → 0.8~3.0 ←→ 화살표와 함께 벌어짐
       //   → 3.0 Success(마크 블룸+파형+피그마 배지) → 3~6 카운트다운 링 3·2·1 → 본 연습.
-      const W_END = 3.0, SETUP = 6.0, inSetup = this.t < SETUP;
+      const W_END = 3.0, SETUP = 6.0, inSetup = tB < SETUP;
       this.bkB1Setup = inSetup;
-      const wk = this.t < 0.8 ? 0 : Math.min(1, (this.t - 0.8) / (W_END - 0.8));
+      const wk = tB < 0.8 ? 0 : Math.min(1, (tB - 0.8) / (W_END - 0.8));
       const we = wk * wk * (3 - 2 * wk);
       this.bkB1Widen = -0.25 + 1.40 * we;   // 봇: 모은 다리(-0.25) → 어깨너비+(1.15)
-      const sK = Math.max(0, Math.min(1, (W_END + 1.2 - this.t) / 0.9));   // Success 블룸 여운 후 퇴장
+      const sK = Math.max(0, Math.min(1, (W_END + 1.2 - tB) / 0.9));   // Success 블룸 여운 후 퇴장
       H.sL.op(sK); H.sR.op(sK);
       if (inSetup) {
         const half = 0.14 + 0.14 * we;                    // 발자국도 실제로 벌어진다
         H.sL.group.position.x = -half; H.sR.group.position.x = half;
         // ← → 룩 화살표: draw-on 진행(_prog)을 '발자국이 실제 벌어지는 진행'에 직접 물린다(유저).
         //   벌어짐과 동시에 촉이 바깥으로 자라고, 끝나면 완성 상태로 잠깐 머물다 소등.
-        const aOn = this.t > 0.7 && this.t < W_END + 0.5 ? 1 : 0;
+        const aOn = tB > 0.7 && tB < W_END + 0.5 ? 1 : 0;
         H.aL._gain = aOn; H.aR._gain = aOn;
         H.aL._prog = Math.max(0.15, we); H.aR._prog = Math.max(0.15, we);
         // 촉 끝이 빔 측면 페더를 넘으면 알파 0(실측 사고) — 짧은 화살표를 마크 바로 옆에.
         H.aL.position.x = -(half + 0.05); H.aR.position.x = half + 0.05;
-        if (this.t < W_END) {
+        if (tB < W_END) {
           H.sL.countdown(this.t / W_END); H.sR.countdown(this.t / W_END);
           this._say('bkb1st', '커리', '발은 어깨보다 넓게 — 발자국 위에 서 볼까요. 무릎은 굽히고.');
           FMU('발은 어깨보다 넓게 — 발자국 위에', CS.sand);
@@ -2002,7 +2012,8 @@ export class Session {
             H.sL.group.getWorldPosition(wp); this.onPress?.(wp.clone(), false);
             H.sR.group.getWorldPosition(wp); this.onPress?.(wp.clone(), false);
           }
-          this.bkB1Succ = Math.max(1, Math.ceil(SETUP - this.t));   // 3·2·1 (프레임 링)
+          this.bkB1Succ = Math.max(1, Math.ceil(SETUP - tB));   // 3·2·1 (프레임 링)
+          this.bkB1SuccFrac = Math.max(0, Math.min(1, (tB - W_END) / (SETUP - W_END)));
           FMU('Success! — 곧 시작해요', CS.prism);
         }
         this.repLeft = null; this.repTotal = null;
@@ -2091,6 +2102,13 @@ export class Session {
       const H = this.bkB3x, TOTAL = 8, MAXSEC = 40;
       if (this._bkStrId !== 'BK_B3') { H.count = 0; H._shown = -1; H._wasLow = false; H._crossed = false; H._lastX = 0; H._popT = -9; H._passT = -9; }
       this._bkStrId = 'BK_B3';
+      if (!this._followLatch) {   // 관찰 5초
+        H.zL.setOp?.(0); H.zR.setOp?.(0); H.pass.material._gainK = 0; H.num.material.opacity = 0;
+        this.demoActive = true;
+        FMU('먼저 보세요 — 다리 사이', CS.prism);
+        return;
+      }
+      H.num.material.opacity = 1;
       const ball3 = this.xbot?.ball;
       // 통과 검출 — 공이 낮은 높이(<0.5m)에서 x 부호를 바꾸면 다리 밑 통과로 본다
       if (ball3?.visible && ball3.position.y < 0.5) {
