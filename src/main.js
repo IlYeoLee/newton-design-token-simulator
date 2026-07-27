@@ -4699,10 +4699,41 @@ void main(){
     renderBxPerson();    // 복싱 벽면 인물 시범 (정본 포트)
     renderJointMarkers();   // 관절 추종 마커 (증명 데모)
     renderDesignFrame();  // 벽 = 스테이지별 대지 프레임(CSS3D). 프레임 스테이지는 기존 벽 UI 숨김(사람+배경만)
+    applyBallOcclusion();  // 공이 빔을 실제로 가리는 순간만 그 지점 UI를 꺼트림(광학 정직성)
     applyEditOverrides();  // 배치 편집(유저): 드래그로 옮긴 벽·인물 위치를 세션 덮어쓰기 후 재적용
     renderFrame(clock.elapsedTime);   // 블룸 + 그레인·비네트 컴포저 (scene.js FX)
     updateFloorClipHole(_floorVisLatch);   // 봇 픽셀 복사 — 반드시 컴포저 뒤(그 전엔 present로 비워진 버퍼를 긁어 투명이었음)
   }
+
+
+  // ── 빔 차폐(농구): 공이 렌즈–바닥 광경로를 가로막으면 그 지점 UI가 실제로 안 보인다 ──
+  //   유저 요구: 숨기지 말고 정직하게. 왼종아리 마운트 실측 — 오른손 드리블 0%,
+  //   왼손 드리블 평균 11%(최악 프레임 100%), 크로스오버 중앙 통과 15%.
+  //   판정 = 조리개(무릎)→토큰 중심 선분과 공 구(반지름 0.12) 교차. 가려지면 그 토큰만 소등.
+  function applyBallOcclusion() {
+    const g = session?.G?.[session.stage];
+    if (!g || !g.visible || state.sport !== 'basketball' || !xbot?.ball?.visible) { _occRestore(); return; }
+    const A = xbot.getKneeWorld?.();
+    if (!A) { _occRestore(); return; }
+    const B = xbot.ball.position, R = 0.12;
+    const P = new THREE.Vector3(), d = new THREE.Vector3(), c = new THREE.Vector3();
+    _occRestore();
+    g.traverse((o) => {
+      const m = o.material;
+      if (!o.visible || !m || m.opacity === undefined || m.opacity <= 0.01) return;
+      o.getWorldPosition(P);
+      d.copy(P).sub(A);
+      const len = d.length(); if (len < 1e-4) return;
+      d.divideScalar(len);
+      const t = Math.max(0, Math.min(len, c.copy(B).sub(A).dot(d)));
+      c.copy(A).addScaledVector(d, t);
+      if (c.distanceTo(B) >= R) return;
+      _occTouched.push([m, m.opacity]);
+      m.opacity *= 0.12;   // 완전 0이 아니라 잔광 — 실제 투사도 산란광이 조금 남는다
+    });
+  }
+  const _occTouched = [];
+  function _occRestore() { for (const [m, op] of _occTouched) m.opacity = op; _occTouched.length = 0; }
 
   // ── 벽 대지 프레임 시스템: 스테이지별 대지(2600×1600) 뷰를 벽 평면에 CSS3D로 얹음 ──
   //   프레임 스테이지 = 기존 벽/바닥 UI 전부 숨김(사람+배경만) → 다른 각도에서도 "벽에 프레임 하나 붙은 것"으로 인지.

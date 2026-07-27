@@ -957,11 +957,12 @@ export class XBot {
       // B1 로우 드리블(유저): 손 y 최고점 = 공이 손에 붙음, 최저점 = 공이 바닥에 '퉁'.
       // 오른손목 높이를 러닝 min/max 엔벨로프로 정규화해 공 높이에 직결 — 클립 박자와 어긋날 수 없다.
       const wy = wR.y;
-      if (wy < 0.15) return;   // 퇴화 호출 가드 — 라이브 경로가 포즈 미적용 상태(y≈0)로 공을 바닥에 덮어씀
-      // 엔벨로프 적응 1.2/s — 전이 프레임의 극단값(T포즈 등)이 상한에 박혀 k≈0(공이 바닥에 붙음) 방지
-      S.pHi = Math.max(wy, (S.pHi ?? wy) - 1.2 * dt);
-      S.pLo = Math.min(wy, (S.pLo ?? wy) + 1.2 * dt);
-      const span = Math.max(0.06, S.pHi - S.pLo);
+      if (wy < 0.15) return;   // 퇴화 호출 가드 — 포즈 미적용 프레임(y≈0)이 공을 바닥에 못 박음
+      // 엔벨로프 적응은 손 진동 주기(약 1.6s)보다 느려야 한다. 1.2/s로 뒀더니 하한이 손을 그대로
+      // 따라가 k가 항상 0 = 공이 바닥에 붙어 있었음(유저). 0.10/s면 한 주기 안에서 폭이 유지된다.
+      S.pHi = Math.max(wy, (S.pHi ?? wy) - 0.10 * dt);
+      S.pLo = Math.min(wy, (S.pLo ?? wy) + 0.10 * dt);
+      const span = Math.max(0.10, S.pHi - S.pLo);
       const k = Math.max(0, Math.min(1, (wy - S.pLo) / span));
       const py = wy - PALM;
       const bx = wR.x, bz = (this._hips ? this._hips.matrixWorld.elements[14] : wR.z) - 0.30;
@@ -975,7 +976,7 @@ export class XBot {
     if (this.uDribble) {
       // 손과 완전 분리(유저 확정): 몸 기준 '고정' U자 — 좌우 ±0.45m·높이 0.72m 꼭짓점을
       // 0.8s 박자로 왕복, 꼭짓점 사이는 바닥 중앙 경유. 레퍼런스 주석 궤적 그대로.
-      const PER = 0.9, DW = 0.12;   // 신규 클립 크로스오버 반주기 실측 0.92s — 공 박자 동기
+      const PER = 0.9, DW = 0.22;   // DW = 손 체류(유저: 손에 더 머물고) · 반주기 0.92s 동기
       S.uT = (S.uT ?? 0) + dt;
       // 위상 잠금(유저: 왼손 닿음→중앙 바닥→오른손 닿음 100%): 자유 타이머는 클립 루프(3.5s)와
       // 표류(공 주기 1.8s×2≠3.5). 손높이차 부호 전환 = 공이 바닥 중앙을 지나는 순간으로 정의하고
@@ -1006,8 +1007,20 @@ export class XBot {
       else {
         const u = (q - DW) / (1 - 2 * DW);
         const vx2 = (from.x + to.x) / 2, vz2 = (from.z + to.z) / 2;
-        if (u < 0.5) { const k = u / 0.5; y = fy - (fy - r) * k * k; x = from.x + (vx2 - from.x) * k; z = from.z + (vz2 - from.z) * k; }
-        else { const k = (u - 0.5) / 0.5; y = r + (ty2 - r) * (1 - (1 - k) * (1 - k)); x = vx2 + (to.x - vx2) * k; z = vz2 + (to.z - vz2) * k; if (k < 0.2) squash = 1 - k / 0.2; }
+        // 낙하는 빠르고(이즈인·중력 가속) 상승은 느리게(이즈아웃·감속) — 유저.
+        // 시간 배분도 비대칭: 내려가는 데 38%, 올라오는 데 62%. 가로 이동은 등속에 가깝게 유지해
+        //   손 사이 경로가 일그러지지 않게 별도 이즈(가로 k는 완만한 스무스스텝).
+        const DN = 0.30;   // 낙하 30% : 상승 70% — 내려갈 땐 빠르게 꽂히고 올라올 땐 느리게(유저)
+        if (u < DN) {
+          const k = u / DN, kx = k * k * (3 - 2 * k);
+          y = fy - (fy - r) * (k * k * k * k);        // 이즈인 쿼틱 = 바닥 직전 최고속(더 세게 꽂힘)
+          x = from.x + (vx2 - from.x) * kx; z = from.z + (vz2 - from.z) * kx;
+        } else {
+          const k = (u - DN) / (1 - DN), kx = k * k * (3 - 2 * k);
+          y = r + (ty2 - r) * (1 - Math.pow(1 - k, 2.2));   // 이즈아웃 = 손에 닿기 직전 거의 정지
+          x = vx2 + (to.x - vx2) * kx; z = vz2 + (to.z - vz2) * kx;
+          if (k < 0.22) squash = 1 - k / 0.22;   // 임팩트 스쿼시 확대
+        }
       }
       if (this._hips) { const hz3 = this._hips.matrixWorld.elements[14]; z = Math.min(z, hz3 - 0.26); }
       const sy2 = 1 - 0.32 * squash, sxz2 = 1 + 0.24 * squash;
