@@ -2195,6 +2195,11 @@ export class Session {
       // 화살표 = 한 박자 앞서 켜서 '다음에 어디로'를 알린다
       H.a1._gain = H.beat === 0 ? 0.9 : (H.beat === 1 ? 0.35 : 0);
       H.a2._gain = H.beat === 1 ? 0.95 : (H.beat === 2 ? 0.5 : 0);
+      // 봇 스탠스 = 실측 4국면 폭을 비트에 맞춰 보간(모캡 지터 회피, 발자국과 동일 좌표)
+      const WID = [0.39, 0.42, 0.92, 0.55];
+      const bp = Math.max(0, Math.min(1, (this.t - H._popT) / (CFG.per * 0.55)));
+      const wPrev = WID[Math.max(0, H.beat - 1)], wNow = WID[H.beat];
+      this.sbWidth = wPrev + (wNow - wPrev) * (bp * bp * (3 - 2 * bp));
       const BEATN = ['① 오른발 딛고 준비', '② 오른발로 밀어 — 안으로', '③ 반대로 크게 빠지기!', '④ 그대로 올라가 — 슛!'];
       const left = Math.max(0, CFG.need - H.count);
       this.repLeft = left; this.repTotal = CFG.need; this.repFrac = Math.min(1, H.count / CFG.need);

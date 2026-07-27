@@ -3951,9 +3951,9 @@ void main(){
       // B1 시범 = 06_15 드리블→슛(온전한 무브 원테이크), B2 분해 = 06_14 크로스오버+슛 위상잠금
       // B단계 = 공을 튄다 → 튀기며 움직인다 → 튀기다 멈추고 뒤로(BK-B-CURRICULUM.md)
       BK_B1: 'bp_dribble',            // 드리블 루프 2(Sketchfab 네이티브 1.6s) — 유저: 이걸로 교체
-      BK_B2: 'vm_stepback',           // 레퍼런스 영상 모캡(실측 좌표와 동일 소스)
-      BK_B3: 'vm_stepback', BK_B4: 'vm_stepback',   // 스텝백 연속 단계
-      BK_C2: 'vm_stepback',           // 실전 — 릴리즈는 판정으로, 클립은 스텝백 유지
+      BK_B2: 'bkStance',              // 깨끗한 애슬레틱 스탠스 + sbWidth 실측 구동(모캡 지터 회피)
+      BK_B3: 'bkStance', BK_B4: 'bkStance',   // 스텝백 연속 단계 — 폭·크라우치는 sbWidth가 만든다
+      BK_C2: 'bkStance',              // 실전 — 릴리즈는 판정으로
     };
     if (DRILL[id] && xbot.actions[DRILL[id]]) return DRILL[id];
     if (sport === 'basketball') return 'dribble';           // 그 외 제자리 드리블
@@ -4055,6 +4055,7 @@ void main(){
       xbot.crossGuard = 0;   // 절차 드릴이 가드 팔까지 저작 — 덧대기 보정 은퇴
       xbot.legLock = /^BK_(C1|C2)$/.test(session.stage || '');   // 크로스오버 = 하체 완전 고정(굽힌 자세 스냅샷, 유저) — 실측 표류 0.06m 기법
       xbot.uDribble = /^BK_(C1|C2)$/.test(session.stage || '');   // 공 = 박자 결정론 U자(좌우 손바닥 왕복, 유저 확정)
+      xbot.sbWidth = /^BK_(B2|B3|B4|C2)$/.test(session.stage || '') ? (session.sbWidth ?? 0) : 0;
       xbot.relaxLeftArm = (session.stage || '') === 'BK_B1';   // 로우 드리블 — 오른손만 드리블, 왼팔 자연 축 내림
       xbot.phaseDribble = (session.stage || '') === 'BK_B1';   // 공 = 오른손 높이 직결(최고=손, 최저=바닥)
       // 세션 데모(비실전) 공통: CMU 클립이 몸을 돌려도 봇은 정면 유지(유저 원칙)
@@ -4119,7 +4120,7 @@ void main(){
       // 06_13 프리스타일 전체 루프는 이동·컷 구간이 섞여 어색(유저) — 안정 핸들 구간만 창 반복.
       else if (/^BK_(B2|B3|B4|C2)$/.test(session.stage || '')) {
         const rate = session.clipRate ?? 1;   // B3=0.5배속(유저 학습 progression)
-        _phase = (session.t * rate) % (xbot.actions.vm_stepback?.dur || 2.21);
+        _phase = (session.t * rate) % (xbot.actions.bkStance?.dur || 2.5);
       }   // 신규 소스(공 튀기며 손으로 옮기기) 최적 루프 4.4~7.9s — 경계 0.02m·손 전환 3회 실측
       else if (session.stage === 'BK_B3') {   // 프리스타일은 어느 구간도 안 맞물림(최적 0.183m) → 핑퐁 = 불연속 0
         const SP3 = 6.3, m3 = session.t % (SP3 * 2);

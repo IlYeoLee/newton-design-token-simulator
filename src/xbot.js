@@ -654,6 +654,24 @@ export class XBot {
       this.model.updateMatrixWorld(true);
       this._clampFeet?.();
     }
+    // 스텝백 스탠스 구동(sbWidth, 미터) — 레퍼런스 영상 실측 4국면(0.39/0.42/0.92/0.21m)을
+    //   직접 재현한다. 모캡 지터 없이 지면 발자국과 같은 좌표로 서게 하는 게 목적(유저).
+    //   힙 외전으로 폭을 만들고, 넓어질수록 무릎을 굽혀 실제 스텝백 로딩 자세가 되게 한다.
+    if (this.sbWidth > 0 && key) {
+      const D = Math.PI / 180, B = n => this.model.getObjectByName(n);
+      const base = 0.76;   // bkStance 클립 실측 기본 폭(라이브 측정) — 여기서부터 좁히거나 넓힌다
+      const k = Math.max(-1.2, Math.min(1.9, (this.sbWidth - base) / 0.16));   // ±0.16m당 1.0 (착지 0.92m까지)
+      const rz = (b, deg) => b && b.quaternion.multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), deg * D));
+      const rx = (b, deg) => b && b.quaternion.multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), deg * D));
+      rz(B('mixamorigLeftUpLeg'), 7 * k); rz(B('mixamorigRightUpLeg'), -7 * k);   // 폭
+      const kp = Math.max(0, k);                                                   // 로딩은 넓어질 때만
+      rx(B('mixamorigLeftUpLeg'), 9 * kp); rx(B('mixamorigRightUpLeg'), 9 * kp);
+      rx(B('mixamorigLeftLeg'), -14 * kp); rx(B('mixamorigRightLeg'), -14 * kp);   // 무릎 로딩
+      rx(B('mixamorigLeftFoot'), 7 * kp);  rx(B('mixamorigRightFoot'), 7 * kp);
+      rx(B('mixamorigSpine'), 5 * kp);
+      this.model.updateMatrixWorld(true);
+      this._clampFeet?.();
+    }
     // 스탠스 벌림 노브(stanceWiden 0..1, main B1 구동) — 클립 스탠스가 어깨보다 좁아(실측 0.56m→)
     // 기본기 시범이 안 됨(유저·wikiHow 기본기: 발은 어깨보다 넓게). 힙 외전 ±7도.
     // 부호는 라이브 실측: z(-,+)는 좁힘(0.56→0.42), z(+,-)가 벌림.
