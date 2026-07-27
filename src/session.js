@@ -2160,14 +2160,12 @@ export class Session {
         if (Math.abs(ex - TGT) < 0.22) H._dwell += dtB2; else H._dwell = Math.max(0, H._dwell - dtB2 * 2);
         if (H._dwell > 0.8 || this.t - H._beatT > 6) {
           H.beat += 1; H._dwell = 0; H._beatT = this.t; H._popT = this.t;
-          const m = [H.mR, H.mC, H.mL][H.beat - 1];
-          const wp = new THREE.Vector3(); m.getWorldPosition(wp); this.onPress?.(wp, false);
+          // 접지 버스트(파형 이펙트) 없음 — 1/4은 발자국+화살표만(유저)
         }
       } else {
         // 비트④ 슛 — 골반 상승 전환 감지(점프 릴리즈)
         const hy = pr?.hips?.y ?? 1;
         if (hy - (H._prevHy || hy) > 0.012 || this.t - H._beatT > 6) {
-          const wp = new THREE.Vector3(); H.rise.getWorldPosition(wp); this.onPress?.(wp, true);
           this._say('bkb2shot', '커리', '슛! 그 리듬이에요.');
           this.next(); return;
         }
