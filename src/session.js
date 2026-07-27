@@ -689,13 +689,17 @@ export class Session {
       // 위치: 내딛는 스텝은 목표 지점 '앞쪽'(같은 좌우 라인).
       //   슬라이드(뒤로 빠지기)는 두 발 사이에서 빠질 방향을 가리킨다 — 미리 알려주는 큐(유저 지시).
       const other = side === 'L' ? P.R : P.L;
-      const au = q.slide ? (q.u + other.u) / 2 : q.tu;
-      const av = q.slide ? (q.v + other.v) / 2 : q.tv + 0.14;
+      // 슬라이드 큐는 고정이다 — 발을 따라 움직이면 화살표가 흔들려 읽기 어렵다(유저).
+      //   기준점·방향 모두 '멈춰 있는 발 ↔ 목표'로만 계산해 한 방향으로 흐르기만 한다.
+      const au = q.slide ? (other.u + q.tu) / 2 : q.tu;
+      const av = q.slide ? (other.v + q.tv) / 2 : q.tv + 0.14;
       const pa = this._beamLocal(Math.max(-SB_BOX.u, Math.min(SB_BOX.u, au)),
                                 Math.max(SB_BOX.v0, Math.min(SB_BOX.v1, av)), H.mL);
       ar.position.set(pa.x, 0.014, pa.z);
-      ar.rotation.z = -Math.atan2(du, Math.max(0.001, dv));   // 이동 방향(주로 전진 = 0°)
-      ar._gain = q.moving ? 0.30 + 0.60 * (1 - q.f) : 0.55;
+      ar.rotation.z = q.slide
+        ? -Math.atan2(q.tu - other.u, q.tv - other.v)          // 고정 방향(멈춘 발 → 목표)
+        : -Math.atan2(du, Math.max(0.001, dv));                // 이동 방향(주로 전진 = 0°)
+      ar._gain = q.slide ? 0.75 : (q.moving ? 0.30 + 0.60 * (1 - q.f) : 0.55);   // 슬라이드 큐는 일정한 밝기로 흐른다
     };
     one('L', fmL, arrows[0]);
     one('R', fmR, arrows[1]);
