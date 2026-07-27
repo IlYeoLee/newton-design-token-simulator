@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import bkStepContacts from '../assets/mocap/contacts-cmu_crossover_shot.json';   // 접지 자동 추출 산출물 (scripts/extract_contacts.mjs)
 import { WALL_Z } from './scene.js';
 import { lutColor, GLYPHS, drawGlyph, drawNumber, footSlot, footSDFTexture, FXP } from './fxlut.js';
-import { MARK_NUM, drawStanceBox, drawPunchLine, drawApproachRing, drawTrajectory, drawRotate } from './fx-core.js';
+import { MARK_NUM, drawStanceBox, drawPunchLine, drawApproachRing, drawTrajectory, drawRotate, drawStemArrow } from './fx-core.js';
 import { makeMarkFXMaterial, makeLaneFXMaterial, makeFlowArrow, tickFlowArrows } from './tokens.js';
 
 // 피그마 CTA 임포트 — StageCard/베이스 컴포넌트의 cta 노드를 다운로드한 에셋(150×44 원 비율).
@@ -157,26 +157,11 @@ function floorArc(x, z, color) {
 function drawLiftCue(g, style, t, pulse, W = 128, Hh = 256) {
   g.clearRect(0, 0, W, Hh);
   const cx = W / 2, col = v => lutColor(v);
-  if (style === 2) {          // 테이퍼 스템 + 촉 draw-on (미니멀 스틱 화살표)
-    const ph = (t * 0.9) % 1, draw = Math.min(1, ph / 0.7), fade = ph > 0.85 ? (1 - ph) / 0.15 : 1;
-    g.globalAlpha = fade * (0.45 + 0.55 * pulse);
-    const y0 = 232, y1 = 58, yEnd = y0 + (y1 - y0) * draw;   // y1 상향 = 촉 글로우 상단 잘림 방지
-    for (let s2 = 0; s2 < 1; s2 += 0.06) {
-      const yy = y0 + (yEnd - y0) * s2;
-      g.strokeStyle = col(0.45 + 0.5 * s2); g.lineCap = 'round'; g.lineWidth = 3 + 10 * s2;
-      g.beginPath(); g.moveTo(cx, yy); g.lineTo(cx, y0 + (yEnd - y0) * Math.min(1, s2 + 0.06)); g.stroke();
-    }
-    if (draw > 0.9) {
-      // 꼭짓점 = 유저 제공 SVG 촉(lift_tip.svg, 유기적 손그림 화살촉). lazy 등록 — applyLabState의
-      // GLYPHS.set이 맵을 통째로 교체해도 다음 프레임에 재등록됨. 미로드 시 TIP_TRI→스트로크 폴백.
-      if (!GLYPHS.map.LIFT_TIP) { GLYPHS.map.LIFT_TIP = import.meta.env.BASE_URL + 'ready-view/assets/lift_tip.svg'; GLYPHS.set(GLYPHS.map); }
-      if (!drawGlyph(g, 'LIFT_TIP', cx, y1 + 16, 58, { color: col(0.95), glowColor: col(0.85), glow: 12 })
-        && !drawGlyph(g, 'TIP_TRI', cx, y1 + 14, 54, { color: col(0.95), glowColor: col(0.85), glow: 12 })) {
-        g.strokeStyle = col(0.95); g.lineWidth = 13; g.lineCap = 'round'; g.lineJoin = 'round';
-        g.shadowColor = col(0.9); g.shadowBlur = 18;
-        g.beginPath(); g.moveTo(cx - 26, y1 + 30); g.lineTo(cx, y1); g.lineTo(cx + 26, y1 + 30); g.stroke();
-      }
-    }
+  if (style === 2) {
+    // 테이퍼 스템 + SVG 촉 draw-on = LINE 토큰 정본(fx-core drawStemArrow). 지면 화살표·랩 프리뷰와
+    // 같은 코드 한 벌 — 유저 확정 디자인이라 여기(리프트 큐 2안)가 그 정본의 원본이었다.
+    if (!GLYPHS.map.LIFT_TIP) { GLYPHS.map.LIFT_TIP = import.meta.env.BASE_URL + 'ready-view/assets/lift_tip.svg'; GLYPHS.set(GLYPHS.map); }
+    drawStemArrow(g, W, Hh, t, { lut: lutColor, glyph: drawGlyph, arrow: FXP.arrow || {} }, { pulse });
   } else if (style === 3) {   // 트리플 바 — 위로 갈수록 좁아지며 순차 점등
     for (let i = 0; i < 3; i++) {
       const w = [66, 46, 28][i], y = [206, 148, 92][i];

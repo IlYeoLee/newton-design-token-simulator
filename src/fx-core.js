@@ -314,6 +314,44 @@ export function applyLineStyle(g, AW, flowT, ENV) {
   else g.setLineDash([]);
   if (flowT != null && A2.line !== 'solid' && A2.line !== 'taper') g.lineDashOffset = -flowT * 40 * A2.speed;
 }
+/** LINE 정본 화살표 — 테이퍼 스템 + SVG 촉 draw-on.
+ *  유저 확정 디자인 = 러닝 A3 '리프트 큐 2안'. 랩 프리뷰·지면 화살표가 이 함수 하나를 공유한다
+ *  (예전엔 랩은 캔버스 스트로크, 시뮬은 LANEFX 셰이더로 따로 그려서 룩을 바꿔도 모양이 안 맞았음).
+ *  캔버스 좌표: 스템은 아래(H)에서 위(0)로 자라고 촉이 꼭짓점에 붙는다 → +Y가 전방.
+ *  ENV = { lut(v), glyph(ctx, slot, x, y, sizePx, opts)->bool, arrow{w,glow,speed,heat} }
+ *  opts.prog: 외부 구동(0..1). 없으면 자체 draw-on 루프. */
+export function drawStemArrow(g, W, H, t, ENV, opts = {}) {
+  const lut = ENV.lut, A = ENV.arrow || {};
+  const AW = A.w ?? 1, speed = A.speed ?? 1, glowK = A.glow ?? 1;
+  const pulse = opts.pulse ?? 1;
+  const s = H / 256;                                  // 기준 캔버스(128×256) 대비 스케일
+  const cx = W / 2;
+  const ph = (t * 0.9 * speed) % 1;
+  const draw = opts.prog != null ? Math.max(0, Math.min(1, opts.prog)) : Math.min(1, ph / 0.7);
+  const fade = opts.prog != null ? 1 : (ph > 0.85 ? (1 - ph) / 0.15 : 1);
+  g.clearRect(0, 0, W, H);
+  g.globalAlpha = fade * (0.45 + 0.55 * pulse);
+  const y0 = H - 24 * s, y1 = 58 * s, yEnd = y0 + (y1 - y0) * draw;
+  for (let k = 0; k < 1; k += 0.06) {                 // 테이퍼: 뿌리 얇게 → 꼭짓점 두껍게
+    const yy = y0 + (yEnd - y0) * k;
+    g.strokeStyle = lut(0.45 + 0.5 * k); g.lineCap = 'round';
+    g.lineWidth = (3 + 10 * k) * s * AW;
+    g.beginPath(); g.moveTo(cx, yy); g.lineTo(cx, y0 + (yEnd - y0) * Math.min(1, k + 0.06)); g.stroke();
+  }
+  if (draw > 0.9) {
+    const tipS = 58 * s * (0.7 + 0.3 * AW);
+    const go = { color: lut(0.95), glowColor: lut(0.85), glow: 12 * glowK };
+    const ok = ENV.glyph && (ENV.glyph(g, 'LIFT_TIP', cx, y1 + 16 * s, tipS, go)
+                          || ENV.glyph(g, 'TIP_TRI', cx, y1 + 14 * s, tipS * 0.93, go));
+    if (!ok) {                                        // 글리프 미로드 폴백 = 같은 비율 스트로크 촉
+      g.strokeStyle = lut(0.95); g.lineWidth = 13 * s * AW; g.lineCap = 'round'; g.lineJoin = 'round';
+      g.shadowColor = lut(0.9); g.shadowBlur = 18 * s * glowK;
+      g.beginPath(); g.moveTo(cx - 26 * s, y1 + 30 * s); g.lineTo(cx, y1); g.lineTo(cx + 26 * s, y1 + 30 * s); g.stroke();
+    }
+  }
+  g.globalAlpha = 1; g.shadowBlur = 0;
+}
+
 export function strokeFlowPath(g, pts, t, AW, opts, ENV) {
   opts = opts || {};
   const lut = ENV.lut;

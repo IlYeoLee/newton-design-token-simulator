@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { WALL_Z } from './scene.js';
-import { getLUT, FXP, FX_GLSL, GLYPHS, drawGlyph, footSDFTexture, warnSDFTexture } from './fxlut.js';
-import { MARK_NUM, MARK_GLSL } from './fx-core.js';
+import { getLUT, FXP, FX_GLSL, GLYPHS, drawGlyph, lutColor, footSDFTexture, warnSDFTexture } from './fxlut.js';
+import { MARK_NUM, MARK_GLSL, drawStemArrow } from './fx-core.js';
 
 // ── MARK 파동 셰이더 (FX Lab 이식) — 재료는 열 하나, 상태는 파동의 위상 ──
 const MARKFX_VERT = `
@@ -528,57 +528,18 @@ export class Marker {
 //    촉 크기 = 경로의 0.09 (랩 34px/380px 실측 비율 — 구성 고정, 스케일만 원칙).
 //    구 makeArrow(flatMat 정적 도형 통화살표)와 '촉 끝 주차'는 카탈로그에 없는 종 — 은퇴.
 export const FLOW_ARROWS = [];
-/** 촉 텍스처 굽기 — 룩 시스템 TIP_TRI(SVG) 우선, 미로드면 셰브런 폴백.
- *  이전엔 셰브런만 고정으로 구워 룩에서 화살촉을 바꿔도 시뮬은 그대로였음(유저: '화살표가 반영 안 돼').
- *  _tipKey = 현재 사용한 글리프 URL — tickFlowArrows가 매 프레임 비교해 바뀌면 다시 굽는다. */
-function paintFlowTip(g) {
-  const c = g._tipCanvas; if (!c) return;
-  const g2 = c.getContext('2d');
-  const url = GLYPHS.map.TIP_TRI || null;
-  g2.setTransform(1, 0, 0, 1, 0, 0);
-  g2.clearRect(0, 0, 256, 256);
-  // 룩 촉(SVG) — 랩 프리뷰와 같은 비율(34px/240px 캔버스 = 0.14) 기준으로 256 캔버스에 배치
-  if (url && drawGlyph(g2, 'TIP_TRI', 128, 128, 176,
-      { color: 'rgba(255,244,228,0.98)', glowColor: 'rgba(254,150,90,0.92)', glow: 46 })) {
-    g._tipKey = url; g._tipGlyph = true;
-    g._tipTex.needsUpdate = true;
-    return;
-  }
-  // 폴백 = 회전 토큰(drawRotate) 비율 셰브런. 전방(+Y=캔버스 위) 지향.
-  const ah = 36;
-  g2.translate(128, 118); g2.lineJoin = 'round'; g2.lineCap = 'round';
-  g2.shadowColor = 'rgba(254,150,90,0.92)'; g2.shadowBlur = ah * 1.6;
-  g2.strokeStyle = 'rgba(255,244,228,0.98)'; g2.lineWidth = ah * 0.47;
-  g2.beginPath(); g2.moveTo(-ah * 0.9, ah); g2.lineTo(0, -ah * 0.5); g2.lineTo(ah * 0.9, ah); g2.stroke();
-  g._tipKey = url; g._tipGlyph = false;   // 폴백 기록 — 글리프가 로드되면 GLYPHS.onLoad가 재굽기
-  g._tipTex.needsUpdate = true;
-}
-
-export function makeFlowArrow(len, { tips = 1, wall = false } = {}) {   // 단일 촉(회전처럼 부드럽게 — 유저) — 3개 트레인 폐기
+export function makeFlowArrow(len, { tips = 1, wall = false } = {}) {
+  // LINE 토큰 = 테이퍼 스템 + SVG 촉 draw-on (유저 확정: 러닝 A3 리프트 큐 2안).
+  // 랩 프리뷰와 같은 fx-core drawStemArrow 하나로 그린다 — 셰이더 자루/별도 촉 판 은퇴.
   const g = new THREE.Group();
-  const mat = makeLaneFXMaterial(len);
-  mat._arrowStyle = true;   // 스타일 = FXP.arrow.line (레인과 분리 — 유저 확정)
-  // 자루 폭은 길이 비례 — 고정 0.16m이면 짧은 화살표(0.6m)에서 폭이 길이의 27%라 '굵은 막대'로 보였다.
-  // 랩 프리뷰 비율(선 ≈ 경로의 2%, 촉 ≈ 13%)에 맞춤: 폭 = len·0.10 → 촉:선 ≈ 8:1 (랩 7:1과 같은 급).
-  const shaftW = Math.min(0.16, Math.max(0.045, len * 0.10));
-  const shaft = new THREE.Mesh(new THREE.PlaneGeometry(shaftW, len), mat);
-  shaft.position.y = len / 2;
-  g.add(shaft);
-  g._mat = mat; g._len = len; g._tips = [];
-  if (tips > 0) {
-    const c = document.createElement('canvas'); c.width = c.height = 256;   // 큰 캔버스 = 회전처럼 넉넉한 소프트 글로우 여유
-    const tex = new THREE.CanvasTexture(c);
-    tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
-    g._tipCanvas = c; g._tipTex = tex; g._tipKey = null;
-    paintFlowTip(g);
-    const tipS = Math.max(0.04, len * 0.09);   // 랩 34px/380px (촉 축소, 유저) · 0.04 하한 = 원거리 가독
-    for (let i = 0; i < tips; i++) {
-      const tip = new THREE.Mesh(new THREE.PlaneGeometry(tipS, tipS),
-        new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
-      tip.position.z = 0.001;
-      g.add(tip); g._tips.push(tip);
-    }
-  }
+  const c = document.createElement('canvas'); c.width = 128; c.height = 256;   // 리프트 큐 기준 캔버스
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
+  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(len * 0.5, len),
+    new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+  mesh.position.y = len / 2;
+  g.add(mesh);
+  g._len = len; g._canvas = c; g._tex = tex; g._mesh = mesh; g._paintT = -9; g._tips = [];
   // 바닥 = 수평면(x=-90°, 살짝 띄움). 벽 = 수직면 유지(x=0) → 자루가 +Y로 서고 caller가 rotation.z로 방향 지정.
   if (wall) { g.rotation.x = 0; g.position.y = 0; } else { g.rotation.x = -Math.PI / 2; g.position.y = 0.014; }
   g.renderOrder = 6;
@@ -586,52 +547,35 @@ export function makeFlowArrow(len, { tips = 1, wall = false } = {}) {   // 단�
   FLOW_ARROWS.push(g);
   return g;
 }
-/** 매 프레임 — 촉 이동(카탈로그 u-시계) + 자루 LINE 유니폼 급이. 부모 잃은 화살표는 자동 정리. */
+/** 매 프레임 — LINE 정본(drawStemArrow)으로 화살표 캔버스 리페인트. 부모 잃은 화살표는 자동 정리.
+ *  24fps 스로틀: 촉 글리프 래스터가 매 프레임 갈리면 화살표 10여 개에서 비용이 붙는다(draw-on은 이 정도면 매끄럽다). */
 export function tickFlowArrows(t, rig) {
-  // TIP_TRI(화살촉 SVG) persistent 재등록 — GLYPHS.set(lab)가 맵을 통째 교체해도 살아남게(LIFT_TIP과 동일 방어).
+  // 촉 SVG persistent 재등록 — GLYPHS.set(lab)가 맵을 통째 교체해도 살아남게
   if (!GLYPHS.map.TIP_TRI) { GLYPHS.map.TIP_TRI = import.meta.env.BASE_URL + 'ready-view/assets/arrow_tip.svg'; GLYPHS.set(GLYPHS.map); }
-  const A = FXP.arrow || {};
-  const styleIdx = LINE_STYLE_IDX[A.line || 'solid'] ?? 0;
+  if (!GLYPHS.map.LIFT_TIP) { GLYPHS.map.LIFT_TIP = import.meta.env.BASE_URL + 'ready-view/assets/lift_tip.svg'; GLYPHS.set(GLYPHS.map); }
   const day = FXP.day ? 1 : 0;
+  const ENV = { lut: lutColor, glyph: drawGlyph, arrow: FXP.arrow || {} };
   for (let i = FLOW_ARROWS.length - 1; i >= 0; i--) {
     const g = FLOW_ARROWS[i];
     if (!g.parent) { FLOW_ARROWS.splice(i, 1); continue; }
-    const n = g._tips.length;
-    // 룩 반영: 촉 글리프가 바뀌었으면 다시 굽고, 굵기 슬라이더(arrow.w)는 촉 크기에 라이브로 먹인다.
-    // 글리프 URL이 바뀌었거나(룩 교체), 아직 폴백인데 이미지가 이제 로드됐으면 다시 굽는다(자가 치유)
-    if (n && (g._tipKey !== (GLYPHS.map.TIP_TRI || null) || (!g._tipGlyph && GLYPHS.img('TIP_TRI')))) paintFlowTip(g);
-    const tipK = 0.7 + 0.3 * (A.w ?? 1);
-    for (let k = 0; k < n; k++) {
-      g._tips[k].position.y = ((t * 0.12 + k / n) % 1) * g._len;
-      g._tips[k].scale.setScalar(tipK);
+    if (t - g._paintT >= 1 / 24) {
+      g._paintT = t;
+      drawStemArrow(g._canvas.getContext('2d'), 128, 256, t, ENV);
+      g._tex.needsUpdate = true;
     }
-    const U = g._mat.uniforms;
-    U.uTime.value = t;
-    U.uLStyle.value = styleIdx;
-    U.uW.value = FXP.graphics.width * (A.w || 1);
-    U.uHalo.value = FXP.graphics.halo * (A.glow ?? 1);
-    U.uLSpeed.value = A.speed ?? 1;
-    U.uLGap.value = A.gap ?? 1;
-    U.uLHeat.value = A.heat ?? 0.5;
-    U.uLTail.value = A.tail ?? 0.55;
-    U.uGain.value = FXP.gainBoost * (g._mat._gainK ?? 1);
-    // 지면 화살표 자루에도 투사면 소프트 페이드 — 급이 누락으로 fade가 영구 무효(-1e6 기본값)라
-    // 농구 방향 화살표·감속바가 투사 경계에서 사각으로 잘리던 것 (스윕 확정 결함)
+    // 투사면 소프트 페이드 — 셰이더를 버렸으니 CPU에서 판 전체 알파로 (경계에서 사각으로 잘리지 않게)
     const fp = rig?._fp;
-    if (fp && U.uFPNear && !g._wall) {
-      U.uFPOrigin.value.set(fp.ox, 0, fp.oz);
-      U.uFPFwd.value.set(fp.fx, 0, fp.fz);
-      U.uFPRight.value.set(fp.rx, 0, fp.rz);
-      U.uFPNear.value = rig.fpNear;
-      U.uFPFar.value = rig.fpFar;
-      U.uFPHalfN.value = rig._halfAt(rig.fpNear);
-      U.uFPHalfF.value = rig._halfAt(rig.fpFar);
-    }
-    if (U.uDay.value !== day) {
-      U.uDay.value = day;
-      g._mat.blending = day ? THREE.NormalBlending : THREE.AdditiveBlending;
-      g._mat.needsUpdate = true;
-    }
+    const m = g._mesh.material;
+    if (fp && !g._wall) {
+      const wp = new THREE.Vector3(); g.getWorldPosition(wp);
+      const rx = wp.x - fp.ox, rz = wp.z - fp.oz;
+      const d = rx * fp.fx + rz * fp.fz, h = rx * fp.rx + rz * fp.rz;
+      const k = Math.max(0, Math.min(1, (d - rig.fpNear) / Math.max(0.01, rig.fpFar - rig.fpNear)));
+      const half = rig._halfAt(rig.fpNear) + (rig._halfAt(rig.fpFar) - rig._halfAt(rig.fpNear)) * k;
+      const sm = (a, b, x) => { const u = Math.max(0, Math.min(1, (x - a) / (b - a))); return u * u * (3 - 2 * u); };
+      m.opacity = sm(rig.fpNear, rig.fpNear + 0.15, d) * sm(rig.fpFar, rig.fpFar - 0.15, d) * sm(half, half - 0.15, Math.abs(h));
+    } else m.opacity = 1;
+    if (m._day !== day) { m._day = day; m.blending = day ? THREE.NormalBlending : THREE.AdditiveBlending; m.needsUpdate = true; }
   }
 }
 
