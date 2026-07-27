@@ -4040,6 +4040,7 @@ void main(){
       // 러닝 준비운동(A) = 코치 드릴을 세션 스테이지 시간(session.t)에 위상 잠금 → 씬 링·카운트·음성과 동기(유저: '타이밍 하나하나 맞춰')
       if (session.stage !== 'A2' && xbot.group.scale.x !== 1) xbot.group.scale.x = 1;   // A2 미러 잔류 방지
       xbot.stanceWiden = /^BK_B[123]$/.test(session.stage || '') ? 1 : 0;   // 핸들 스쿨 전체 — 굽히고 넓힌 스탠스 유지(유저)
+      xbot.crossGuard = session.stage === 'BK_B2' ? 1 : 0;   // 크로스오버 가드 팔(반대손 앞-아래 실드)
       // 세션 데모(비실전) 공통: CMU 클립이 몸을 돌려도 봇은 정면 유지(유저 원칙)
       xbot.lockYaw = session.active && !session.isLive && /^BK_[AB]/.test(session.stage || '');
       let _clip = demoClipFor(session.sport, session.stage);
@@ -4097,8 +4098,8 @@ void main(){
         }
       }
       // 06_13 프리스타일 전체 루프는 이동·컷 구간이 섞여 어색(유저) — 안정 핸들 구간만 창 반복.
-      else if (session.stage === 'BK_B2') {   // 06_14 크로스오버 구간(슛 이전 0.3~2.3) 핑퐁
-        const SP2 = 2.0, m2 = session.t % (SP2 * 2);
+      else if (session.stage === 'BK_B2') {   // 06_14 크로스오버 구간만 — 개더·슛(2.0s~) 완전 제외(유저)
+        const SP2 = 1.6, m2 = session.t % (SP2 * 2);
         _phase = 0.3 + (m2 < SP2 ? m2 : SP2 * 2 - m2);
       }
       else if (session.stage === 'BK_B3') _phase = 9.0 + (session.t % 6.0);

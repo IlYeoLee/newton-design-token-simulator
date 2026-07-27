@@ -593,6 +593,18 @@ export class XBot {
       this.model.updateMatrixWorld(true);
       this._clampFeet?.();
     }
+    // 크로스오버 가드 팔(crossGuard 0..1, main B2 구동) — 레퍼런스(wikiHow): 드리블 반대 팔을
+    // 앞-아래로 뻗어 실드. 축은 라이브 캘리브레이션: LeftArm 로컬 z+ 30° → 손목 (0,-0.16,-0.15) 하전방.
+    // 오른팔은 미러(z−). 드리블 손은 _db._actR(공 활성 손)에서 읽는다 — 손이 바뀌면 가드도 바뀐다.
+    if (this.crossGuard > 0.001 && key) {
+      const actR = !this._db || this._db._actR !== false;
+      const b = this.model.getObjectByName(actR ? 'mixamorigLeftArm' : 'mixamorigRightArm');
+      if (b) {
+        const ang = (actR ? 1 : -1) * 20 * (Math.PI / 180) * this.crossGuard;
+        b.quaternion.multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), ang));
+        this.model.updateMatrixWorld(true);
+      }
+    }
     // 런지 깊이 노브(lungeDeepen 0..1, main A2가 구동) — CMU 144_17이 얕아(무릎 h 47cm)
     // 누름 구간에만 무릎·힙 굴곡을 가산해 '푹' 내려가게. 발은 아래 _clampFeet가 재접지.
     if (this.lungeDeepen > 0.001 && key && key.startsWith('auto_cmu144_1')) {
