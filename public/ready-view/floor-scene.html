@@ -62,9 +62,9 @@ html,body{background:transparent}
 #prev-pill svg{width:60px;height:60px;flex:0 0 auto}
 #prev-ring{position:relative;width:200px;height:200px}   /* Figma 200×200 통일 */
 #prev-ring svg.rg{position:absolute;inset:0;width:100%;height:100%}
-#prev-ring .arc{stroke-dasharray:1727.9;stroke-dashoffset:1727.9;animation:arcFill var(--pv,3s) .15s linear both}
+#prev-ring .arc{stroke-dasharray:1727.9;stroke-dashoffset:1727.9;animation:arcFill var(--pv,3s) .15s linear var(--pvn,1) both}
 @keyframes arcFill{from{stroke-dashoffset:1727.9}to{stroke-dashoffset:0}}
-#prev-ring .tip{position:absolute;inset:0;transform-origin:center;animation:tipSpin var(--pv,3s) .15s linear both}
+#prev-ring .tip{position:absolute;inset:0;transform-origin:center;animation:tipSpin var(--pv,3s) .15s linear var(--pvn,1) both}
 #prev-ring .tip img{position:absolute;left:50%;top:-3px;width:28px;height:28px;transform:translateX(-50%);
   filter:drop-shadow(0 0 8px rgba(250,48,48,.6))}
 @keyframes tipSpin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
@@ -195,7 +195,9 @@ html,body{background:transparent}
     //   PVN이 있으면 타이머 숫자가 초가 아니라 1/N → 2/N … 루프 횟수를 센다(유저).
     const PVN = +(params.get('pvn') || 0);
     const PV = +(params.get('pv') || 0) || 3;
-    document.documentElement.style.setProperty('--pv', PV + 's');
+    // 링은 '영상 1회'마다 한 바퀴 — PVN회 반복. 숫자는 0/N에서 시작해 한 바퀴 돌 때마다 +1.
+    document.documentElement.style.setProperty('--pv', (PVN ? PV / PVN : PV) + 's');
+    document.documentElement.style.setProperty('--pvn', PVN || 1);
     document.documentElement.style.setProperty('--pvOut', (PV + 0.05) + 's');
     const row = document.createElement('div'); row.id = 'prev-row';
     row.innerHTML = `
@@ -209,23 +211,22 @@ html,body{background:transparent}
           <circle class="arc" cx="302" cy="302" r="275" fill="none" stroke="#fff" stroke-width="11" stroke-linecap="round" transform="rotate(-90 302 302)"/>
         </svg>
         <div class="tip"><img src="assets/timer_tip.svg" alt=""></div>
-        <div id="prev-num">${PVN ? '1/' + PVN : PV}</div>
+        <div id="prev-num"${PVN ? ' style="font-size:62px"' : ''}>${PVN ? '0/' + PVN : PV}</div>
       </div>`;
     // 컬럼: 타이틀 → 프리뷰 행(도트 슬롯 자리). 시범 동안 도트는 숨김(공간도 차지 X) → PV초 뒤 프리뷰 사라지고 도트가 그 자리로.
     const dots = $('s-dots');
     document.getElementById('content').insertBefore(row, dots);
     dots.style.display = 'none';
-    let n = PV;
+    let n = PVN ? 0 : PV;
     const numEl = () => document.getElementById('prev-num');
     const iv = PVN
-      ? setInterval(() => {   // 루프 카운터 — 영상이 한 바퀴 돌 때마다 1/N → 2/N
+      ? setInterval(() => {   // 영상 한 바퀴 = 타이머 한 바퀴 → 0/N → 1/N → 2/N(끝)
           const el = numEl(); if (!el || !el.isConnected) { clearInterval(iv); return; }
           n = Math.min(PVN, n + 1); el.textContent = n + '/' + PVN;
           if (n >= PVN) clearInterval(iv);
         }, (PV / PVN) * 1000)
       : setInterval(() => { const el = numEl(); if (!el || !el.isConnected) { clearInterval(iv); return; }
           n--; if (n < 1) { clearInterval(iv); return; } el.textContent = n; }, 1000);
-    if (PVN) n = 1;
     setTimeout(() => {
       // 같은 버퍼에 다른 스테이지 문서가 다시 주입되면 이 노드들은 떨어져 나간다(insertBefore 예외).
       if (!dots.isConnected) return;
