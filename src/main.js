@@ -731,13 +731,14 @@ void main(){
   // 기본 3인칭 프레이밍 — 대각선 위에서 내려다보는 고정 앵글(유저 지정 레퍼런스).
   //   봇과 그 앞 투사 UI가 한 화면에 크게 들어오는 거리·고도. 이후 궤도 조작은 자유.
   function frameThirdPerson() {
+    // 기준은 추종 로직과 같은 앵커(골반 본)여야 한다 — 그룹 좌표로 잡으면 러닝에서 기준이 어긋나
+    //   카메라가 봇에 붙어 인물이 잘리고 매 프레임 델타가 튀며 깜빡였다(유저 스샷).
     const a = xbot.getAnchor ? xbot.getAnchor() : { x: 0, z: 0 };
-    const bx = (xbot.group?.position.x ?? 0), bz = (xbot.group?.position.z ?? 0);
-    const tx = bx, tz = bz;
-    controls.target.set(tx, 0.95, tz);
-    camera.position.set(tx + 2.05, 2.70, tz + 2.35);   // ≈4.1m · 고도 40°(대각선 위)
+    controls.target.set(a.x, 0.95, a.z);
+    camera.position.set(a.x + 2.05, 2.70, a.z + 2.35);   // ≈4.1m · 고도 40°(대각선 위)
     camera.updateProjectionMatrix();
     controls.update?.();
+    lastBodyX = a.x; lastBodyZ = a.z;   // 추종 델타 기준도 같은 프레임에 리셋
   }
   function setFp(on) {
     fpMode = on;
@@ -4495,8 +4496,9 @@ void main(){
         $$('pp-stage').textContent = live ? (st?.label || '—') : '세션을 시작하면 코치가 안내합니다';
         $$('pp-meta').textContent = live ? [st?.cue, st?.foot].filter(Boolean).join(' · ') : '';
         $$('pp-idx').textContent = live ? `${(session.stageIdx || 0) + 1} / ${session.stages.length}` : '체험';
-        $$('pp-view').textContent = document.getElementById('btn-view')?.textContent || '3인칭 보기';
-        $$('pp-mute').textContent = document.getElementById('btn-tts')?.textContent || '🔊';
+        const vLb = $$('pp-view').querySelector('span');
+        if (vLb) vLb.textContent = /1인칭/.test(document.getElementById('btn-view')?.textContent || '') ? '1인칭' : '3인칭';
+        $$('pp-mute').style.opacity = /🔇|off/i.test(document.getElementById('btn-tts')?.textContent || '') ? '.45' : '1';
         $$('pp-cone').classList.toggle('on', !!coneOn);
         $$('pp-day').classList.toggle('on', !!FXP.day);
         $$('pp-beam').classList.toggle('on', rig.visualize !== false);   // 커버리지 표시 중이면 on

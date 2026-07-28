@@ -268,7 +268,9 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
 /* 버튼 — 보조는 면(Surface), 주는 레드 알약 */
 #play-panel .pp-row{gap:8px;margin-top:14px}
 #play-panel button.pp-btn{border:0;border-radius:999px;background:var(--d-surface);color:var(--d-body);
-  font:var(--t-capb);letter-spacing:-.2px;padding:13px 0}
+  font:var(--t-capb);letter-spacing:-.2px;padding:13px 0;display:flex;align-items:center;justify-content:center;gap:6px}
+#play-panel button.pp-btn.ico{flex:.62}
+#play-panel button.pp-btn svg{flex:0 0 auto}
 #play-panel button.pp-btn:hover{background:#2c2c2c;color:#fff}
 #play-panel button.pp-cta{background:var(--nb-red);color:#fff}
 #play-panel button.pp-cta:hover{background:#ff4646}
@@ -700,18 +702,18 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
       </div>
       <div id="pp-idle">
         <button class="pp-start" id="pp-start">세션 체험하기</button>
-        <div class="pp-hint">1인칭 시점으로 전환됩니다 · D키 = 개발자 모드</div>
+        <div class="pp-hint">1인칭으로 전환 · D키 개발자 모드</div>
       </div>
       <div id="pp-live" style="display:none">
         <div class="pp-row">
-          <button class="pp-btn" id="pp-prev">◀ 이전</button>
-          <button class="pp-btn pp-cta" id="pp-tap">👣 두 번 탭</button>
-          <button class="pp-btn" id="pp-next">다음 ▶</button>
+          <button class="pp-btn ico" id="pp-prev" title="이전 단계"><svg viewBox="0 -960 960 960" fill="currentColor" width="18" height="18"><path d="M220-240v-480h80v480h-80Zm520 0L380-480l360-240v480Z"/></svg></button>
+          <button class="pp-btn pp-cta" id="pp-tap"><svg viewBox="0 -960 960 960" fill="currentColor" width="18" height="18"><path d="M480-80q-83 0-141.5-58.5T280-280v-40h80v40q0 50 35 85t85 35q50 0 85-35t35-85v-320q0-17 11.5-28.5T640-640q17 0 28.5 11.5T680-600v320q0 83-58.5 141.5T480-80ZM280-400q-33 0-56.5-23.5T200-480v-200q0-33 23.5-56.5T280-760q33 0 56.5 23.5T360-680v200q0 33-23.5 56.5T280-400Z"/></svg><span>두 번 탭</span></button>
+          <button class="pp-btn ico" id="pp-next" title="다음 단계"><svg viewBox="0 -960 960 960" fill="currentColor" width="18" height="18"><path d="M660-240v-480h80v480h-80Zm-440 0v-480l360 240-360 240Z"/></svg></button>
         </div>
         <div class="pp-row">
-          <button class="pp-btn" id="pp-mute" style="flex:.55">🔊</button>
-          <button class="pp-btn" id="pp-view">3인칭 보기</button>
-          <button class="pp-btn" id="pp-stop">↺ 처음으로</button>
+          <button class="pp-btn ico" id="pp-mute" title="음소거"><svg viewBox="0 -960 960 960" fill="currentColor" width="18" height="18"><path d="M560-131v-82q90-26 145-100t55-168q0-94-55-168T560-749v-82q124 28 202 125.5T840-481q0 127-78 224.5T560-131ZM120-360v-240h160l200-200v640L280-360H120Zm440 40v-322q47 22 73.5 66t26.5 96q0 51-26.5 94.5T560-320Z"/></svg></button>
+          <button class="pp-btn" id="pp-view"><svg viewBox="0 -960 960 960" fill="currentColor" width="18" height="18"><path d="M480-320q75 0 127.5-52.5T660-500q0-75-52.5-127.5T480-680q-75 0-127.5 52.5T300-500q0 75 52.5 127.5T480-320Zm0-72q-45 0-76.5-31.5T372-500q0-45 31.5-76.5T480-608q45 0 76.5 31.5T588-500q0 45-31.5 76.5T480-392Zm0 192q-146 0-266-81.5T40-500q54-137 174-218.5T480-800q146 0 266 81.5T920-500q-54 137-174 218.5T480-200Z"/></svg><span>3인칭</span></button>
+          <button class="pp-btn ico" id="pp-stop" title="처음으로"><svg viewBox="0 -960 960 960" fill="currentColor" width="18" height="18"><path d="M440-122q-121-15-200.5-105.5T160-440q0-66 26-126.5T260-672l57 57q-38 34-57.5 79T240-440q0 88 56 155.5T440-202v80Zm80 0v-80q87-16 143.5-83T720-440q0-100-70-170t-170-70h-3l44 44-56 56-140-140 140-140 56 56-44 44h3q134 0 227 93t93 227q0 121-79.5 211.5T520-122Z"/></svg></button>
         </div>
       </div>
       </div>
