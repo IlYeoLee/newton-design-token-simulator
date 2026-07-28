@@ -160,7 +160,7 @@ export class ProjectorRig {
     // 체험 랩 스위치 — 각 보정 단계를 실제로 끈다(체감용). 전부 true = 현행 알고리즘.
     //   servoFF: 속도 피드포워드(서보가 미리 따라감) · omegaLP: 각속도 저역통과 ·
     //   gimbal: 마운트 병진의 짐벌 보정(끄면 잔차 15% → 100%)
-    this.stab = { servoFF: true, omegaLP: true, gimbal: true };
+    this.stab = { servoFF: true, omegaLP: true, gimbal: true, raw: false };   // raw = 보정 자체를 끔(원점이 무릎 유닛 실제 위치)
     // 빔을 특정 지면 타겟(앞발 위치)에 락 — 무게이동으로 빔다리 흔들려도 앞발 링이 그 자리 고정({x,z} 또는 null).
     this.beamTarget = null;
 
@@ -468,6 +468,13 @@ export class ProjectorRig {
       jx += (mvx + fwd.x * mvy * 1.2) * TRES;   // 수평 + 수직→전방 스윕(빔 각도)
       jz += (mvz + fwd.z * mvy * 1.2) * TRES;
       ox += jx; oz += jz;
+      // RAW(무보정) — 안정 앵커를 버리고 무릎 유닛이 실제로 있는 자리에서 그대로 쏜다.
+      //   보행 중 마운트가 위·앞으로 크게 스윕하므로 투사면이 통째로 흔들린다(비교 체험용).
+      if (this.stab.raw) {
+        const rawX = mount.x + fwd.x * 0.08, rawZ = mount.z + fwd.z * 0.08;
+        jx += rawX - ox; jz += rawZ - oz;
+        ox = rawX; oz = rawZ;
+      }
       this.shake.set(jx, jz);
       this.errorCm = Math.hypot(jx, jz) * 100;
     } else {

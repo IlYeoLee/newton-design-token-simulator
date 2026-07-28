@@ -4515,7 +4515,7 @@ void main(){
         const el = $(id);
         el.addEventListener('click', () => { rig.stab[key] = !rig.stab[key]; el.classList.toggle('on', rig.stab[key]); });
       };
-      sw('sw-lp', 'omegaLP'); sw('sw-ff', 'servoFF'); sw('sw-gb', 'gimbal');
+      sw('sw-raw', 'raw'); sw('sw-lp', 'omegaLP'); sw('sw-ff', 'servoFF'); sw('sw-gb', 'gimbal');
       $('lab-fold').addEventListener('click', () => {
         lab.classList.toggle('folded');
         localStorage.setItem('newton.labFold', lab.classList.contains('folded') ? '1' : '0');

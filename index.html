@@ -547,9 +547,9 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
       <div class="lab-kv"><span>투사창</span><b>발 앞 5cm ~ 2.0m · 폭 64→169cm</b></div>
 
       <h3>흔들림 보정 — 구성 요소 켜고 끄기</h3>
-      <div class="lab-note" style="margin:0 0 8px">아래 스위치는 실제 계산 경로를 끈다. 다만 <b>정상 주행 구간에선
-        세 항의 기여가 작다</b> — 실측 평균 0.25~0.28cm로 켜고 끈 차이가 오차 범위 안이다.
-        큰 오차는 급가속·전환 같은 <b>과도 구간</b>에서 나온다(실측 평균 1.5cm · 최대 6.1cm).</div>
+      <div class="lab-note" style="margin:0 0 8px">맨 위 <b>RAW</b>는 보정 자체를 끈다 — 무릎 유닛이 실제로 있는 자리에서 그대로 쏘니 투사면이 통째로 스윕한다. 아래 세 항은 그 위에 얹히는 세부 보정이라, 정상 주행에선 기여가 작다(실측 0.25~0.28cm). 큰 값은 과도 구간에서 나온다.</div>
+      <div class="lab-sw" id="sw-raw"><span class="dotsw"></span><span><span class="t">보정 전부 끄기 (RAW)</span>
+        <div class="d">안정 앵커를 버리고 무릎 유닛 실제 위치에서 그대로 쏜다 — 실제로 흔들린다</div></span></div>
       <div class="lab-sw on" id="sw-lp"><span class="dotsw"></span><span><span class="t">① 각속도 저역통과</span>
         <div class="d">정강이 ω를 20ms로 평활 — 접지 충격 스파이크를 신호에서 걸러낸다</div></span></div>
       <div class="lab-sw on" id="sw-ff"><span class="dotsw"></span><span><span class="t">② 서보 속도 피드포워드</span>
