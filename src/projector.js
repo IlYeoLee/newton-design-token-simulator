@@ -244,8 +244,9 @@ export class ProjectorRig {
     // 프로젝터를 좌우로 옮기면 투사 영역(빔+코치+마크)이 그 앞으로 따라감(유저: 어디 있어도 같은 벽에 투사는 말 안 됨).
     // _wallCenter를 매 프레임 base+projDX로 갱신 → 이걸 읽는 렌더 전반(코치·마크)도 함께 이동.
     const base = this._wallCenterBase ?? this._wallCenter ?? { cx: 0, cy: 1.4 };
-    const projDX = this.stationPos.x - STATION_POS.x;
-    this._wallCenter = { cx: base.cx + projDX, cy: base.cy };
+    // 투사 중심 = 프로젝터의 좌우 위치 그대로(정면 투사). 예전엔 토큰 평균 x에 STATION_POS 기준
+    //   오프셋을 더해서, 유닛이 인물 정면(x=0)에 있어도 화면이 55cm 옆으로 밀려 나갔다(유저 스샷).
+    this._wallCenter = { cx: this.stationPos.x, cy: base.cy };
     const { cx, cy } = this._wallCenter;
     const w = this.wallW, h = this.wallH;
     const corners = [
