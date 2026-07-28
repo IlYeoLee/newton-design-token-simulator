@@ -4457,6 +4457,10 @@ void main(){
       $$('pp-view').addEventListener('click', () => relay('btn-view'));
       $$('pp-stop').addEventListener('click', () => relay('btn-session-stop'));
       // 토글 3종 — 시야콘 · 낮/밤 · 빔 지면 커버리지. 상태는 기존 전역 플래그를 그대로 읽는다.
+      // 패널 접기/펼치기 — 상태 유지(브랜드 줄만 남는다)
+      const fold = (on) => { pp.classList.toggle('folded', on); localStorage.setItem('newton.panelFold', on ? '1' : '0'); };
+      $$('pp-fold').addEventListener('click', () => fold(!pp.classList.contains('folded')));
+      if (localStorage.getItem('newton.panelFold') === '1') fold(true);
       $$('pp-cone').addEventListener('click', () => relay('btn-cone'));
       $$('pp-day').addEventListener('click', () => relay('btn-day'));
       $$('pp-beam').addEventListener('click', () => relay('btn-real'));

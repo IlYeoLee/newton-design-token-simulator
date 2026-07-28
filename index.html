@@ -127,6 +127,13 @@ body:not(.dev) #play-panel{display:block}
 #play-panel .pp-dot{width:7px;height:7px;border-radius:50%;background:#fa3030;box-shadow:0 0 10px rgba(250,48,48,.8)}
 #play-panel .pp-title{font-size:12px;font-weight:800;letter-spacing:2.4px;color:rgba(255,255,255,.92)}
 #play-panel .pp-sub{margin-left:auto;font-size:11px;color:rgba(255,255,255,.42)}
+#play-panel .pp-fold{margin-left:8px;width:24px;height:24px;line-height:1;border:1px solid rgba(255,255,255,.12);
+  border-radius:8px;background:rgba(255,255,255,.05);color:rgba(255,255,255,.6);font-size:12px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;transition:transform .2s}
+#play-panel .pp-fold:hover{background:rgba(255,255,255,.1);color:#fff}
+#play-panel.folded{width:auto;padding:12px 14px}
+#play-panel.folded .pp-body{display:none}
+#play-panel.folded .pp-fold{transform:rotate(180deg)}
 #play-panel .pp-packs{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:14px}
 #play-panel .pp-pack{padding:10px 0;border:1px solid rgba(255,255,255,.12);border-radius:11px;
   background:rgba(255,255,255,.04);color:rgba(255,255,255,.66);font-size:12px;font-weight:700;cursor:pointer;
@@ -475,7 +482,9 @@ body:not(.dev) #session-hud{display:none !important}
     <!-- 제품 뷰 전용 체험 패널 — 팩 전환 + 세션 시작/조작을 이 하나로 (개발자 패널 없이) -->
     <div id="play-panel">
       <div class="pp-brand"><span class="pp-dot"></span><span class="pp-title">NEWTON</span>
-        <span class="pp-sub" id="pp-idx">체험</span></div>
+        <span class="pp-sub" id="pp-idx">체험</span>
+        <button class="pp-fold" id="pp-fold" title="패널 접기 / 펼치기">⌃</button></div>
+      <div class="pp-body">
       <div class="pp-packs">
         <button class="pp-pack" data-pp="boxing">복싱</button>
         <button class="pp-pack" data-pp="running">러닝</button>
@@ -502,6 +511,7 @@ body:not(.dev) #session-hud{display:none !important}
           <button class="pp-btn" id="pp-view">3인칭 보기</button>
           <button class="pp-btn" id="pp-stop">↺ 처음으로</button>
         </div>
+      </div>
       </div>
     </div>
   </main>
