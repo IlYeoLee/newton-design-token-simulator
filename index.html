@@ -111,10 +111,18 @@
       border-radius: 50%; animation: spin 0.9s linear infinite;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
-  </style>
+  
+/* ── 개발자 모드 게이트 ─────────────────────────────────────────
+   기본(제품 뷰) = 3D 씬 + 투사 UI + 최소 조작만. dev-only 요소는 body.dev 일 때만 보인다.
+   전환: URL ?dev=1 / ?dev=0 · 키보드 D · 설정은 localStorage에 유지. */
+body:not(.dev) .dev-only { display: none !important; }
+body:not(.dev) #stage { left: 0 !important; }
+#dev-pill{position:absolute;bottom:18px;left:18px;z-index:40;padding:7px 11px;border:1px solid var(--line);
+  border-radius:8px;background:rgba(16,19,24,.82);color:var(--dim);font-size:11px;cursor:pointer;font-weight:700}
+</style>
 </head>
 <body>
-  <aside id="panel">
+  <aside id="panel" class="dev-only">
     <header>
       <h1>NEWTON · Design Token Simulator</h1>
       <p>외부 데이터 → 디자인 토큰 → 빔 UI → 따라하기 검증</p>
@@ -301,9 +309,41 @@
     </div>
   </aside>
 
+  <script>
+  // 개발자 모드 판정(렌더 전에 결정 — 깜빡임 방지). ?dev=1/0 > localStorage > 기본값(로컬=on, 배포=off)
+  (function () {
+    const q = new URLSearchParams(location.search).get('dev');
+    const local = /^(localhost|127\.|192\.168\.)/.test(location.hostname);
+    let on = q != null ? q !== '0' : (localStorage.getItem('newton.dev') ?? (local ? '1' : '0')) === '1';
+    if (q != null) localStorage.setItem('newton.dev', on ? '1' : '0');
+    document.documentElement.classList.toggle('pre-dev', on);
+    addEventListener('DOMContentLoaded', () => {
+      document.body.classList.toggle('dev', on);
+      const pill = document.createElement('button');
+      pill.id = 'dev-pill';
+      pill.textContent = on ? '개발자 모드 ON (D)' : '개발자 모드 OFF (D)';
+      pill.onclick = () => toggle();
+      document.body.appendChild(pill);
+      function toggle() {
+        on = !on;
+        localStorage.setItem('newton.dev', on ? '1' : '0');
+        document.body.classList.toggle('dev', on);
+        pill.textContent = on ? '개발자 모드 ON (D)' : '개발자 모드 OFF (D)';
+        dispatchEvent(new Event('resize'));   // 캔버스 폭 변화 반영
+      }
+      addEventListener('keydown', e => {
+        if (e.key === 'd' || e.key === 'D') {
+          const t = e.target;
+          if (t && /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)) return;
+          toggle();
+        }
+      });
+    });
+  })();
+  </script>
   <main id="stage">
     <div id="loading"><div class="spin"></div><span>X Bot · 팩 데이터 로드 중…</span></div>
-    <div id="hud"></div>
+    <div id="hud" class="dev-only"></div>
     <div id="event-flash"></div>
     <div id="voice-caption" style="position:absolute;bottom:52px;left:50%;transform:translateX(-50%);
       max-width:70%;padding:10px 18px;border-radius:22px;background:rgba(12,14,18,.82);
@@ -311,13 +351,13 @@
       pointer-events:none;text-align:center;line-height:1.5;">
     </div>
 
-    <button id="btn-real" style="position:absolute;bottom:18px;right:60px;z-index:29;padding:9px 12px;border:1px solid var(--line);border-radius:8px;background:rgba(16,19,24,.9);color:var(--text);font-size:12px;font-weight:700;cursor:pointer;" title="실물 뷰 — 투사 커버리지(붉은 영역·빔) 숨김: 실제 러너 눈에는 투사된 UI만 보입니다">👁</button>
-    <button id="btn-day" style="position:absolute;bottom:18px;right:18px;z-index:29;padding:9px 12px;border:1px solid var(--line);border-radius:8px;background:rgba(16,19,24,.9);color:var(--text);font-size:12px;font-weight:700;cursor:pointer;" title="주간 모드 — 낮에도 보이는 투사(주광 가시 레이저)가 제품 스토리">☀️</button>
-    <a href="docs/newton-wireframe.html#tokens" target="_blank" rel="noopener" id="link-wireframe" style="position:absolute;bottom:18px;right:352px;z-index:29;padding:9px 14px;border:1px solid var(--line);border-radius:8px;background:rgba(16,19,24,.9);color:var(--text);font-size:12px;font-weight:700;cursor:pointer;text-decoration:none;">📐 설계 문서</a>
-    <a href="https://www.figma.com/design/92a2mffNpTZ5PltLln7cgq" target="_blank" rel="noopener" id="link-figma" title="장면 정보 카드(제목·CTA·카피)·룩 색 토큰 디자인 원본 — 여기서 편집" style="position:absolute;bottom:18px;right:228px;z-index:29;padding:9px 14px;border:1px solid var(--line);border-radius:8px;background:rgba(16,19,24,.9);color:var(--text);font-size:12px;font-weight:700;cursor:pointer;text-decoration:none;">🎨 피그마</a>
-    <button id="btn-lang" title="벽 투사 텍스트 한/영 전환" style="position:absolute;bottom:18px;right:206px;z-index:29;padding:9px 14px;border:1px solid var(--line);border-radius:8px;background:rgba(16,19,24,.9);color:var(--text);font-size:12px;font-weight:700;cursor:pointer;">EN</button>
-    <button id="insp-tab-look" title="룩 시스템(FX Lab) — 셰이더·모션·타이밍·색 팔레트 전체 페이지" style="position:absolute;bottom:18px;right:104px;z-index:29;padding:9px 14px;border:1px solid #fec389;border-radius:8px;background:rgba(254,195,137,.12);color:#fec389;font-size:12px;font-weight:700;cursor:pointer;">🔥 룩 시스템</button>
-    <button id="btn-specmap" title="전 세션 장면의 실제 구성 요소와 편집 위치 — 씬 그래프에서 자동 생성 (도식 아님)" style="position:absolute;bottom:18px;right:476px;z-index:29;padding:9px 14px;border:1px solid var(--line);border-radius:8px;background:rgba(16,19,24,.9);color:var(--text);font-size:12px;font-weight:700;cursor:pointer;">🗺 장면 명세</button>
+    <button id="btn-real" class="dev-only" style="position:absolute;bottom:18px;right:60px;z-index:29;padding:9px 12px;border:1px solid var(--line);border-radius:8px;background:rgba(16,19,24,.9);color:var(--text);font-size:12px;font-weight:700;cursor:pointer;" title="실물 뷰 — 투사 커버리지(붉은 영역·빔) 숨김: 실제 러너 눈에는 투사된 UI만 보입니다">👁</button>
+    <button id="btn-day" class="dev-only" style="position:absolute;bottom:18px;right:18px;z-index:29;padding:9px 12px;border:1px solid var(--line);border-radius:8px;background:rgba(16,19,24,.9);color:var(--text);font-size:12px;font-weight:700;cursor:pointer;" title="주간 모드 — 낮에도 보이는 투사(주광 가시 레이저)가 제품 스토리">☀️</button>
+    <a href="docs/newton-wireframe.html#tokens" target="_blank" rel="noopener" id="link-wireframe" class="dev-only" style="position:absolute;bottom:18px;right:352px;z-index:29;padding:9px 14px;border:1px solid var(--line);border-radius:8px;background:rgba(16,19,24,.9);color:var(--text);font-size:12px;font-weight:700;cursor:pointer;text-decoration:none;">📐 설계 문서</a>
+    <a href="https://www.figma.com/design/92a2mffNpTZ5PltLln7cgq" target="_blank" rel="noopener" id="link-figma" class="dev-only" title="장면 정보 카드(제목·CTA·카피)·룩 색 토큰 디자인 원본 — 여기서 편집" style="position:absolute;bottom:18px;right:228px;z-index:29;padding:9px 14px;border:1px solid var(--line);border-radius:8px;background:rgba(16,19,24,.9);color:var(--text);font-size:12px;font-weight:700;cursor:pointer;text-decoration:none;">🎨 피그마</a>
+    <button id="btn-lang" class="dev-only" title="벽 투사 텍스트 한/영 전환" style="position:absolute;bottom:18px;right:206px;z-index:29;padding:9px 14px;border:1px solid var(--line);border-radius:8px;background:rgba(16,19,24,.9);color:var(--text);font-size:12px;font-weight:700;cursor:pointer;">EN</button>
+    <button id="insp-tab-look" class="dev-only" title="룩 시스템(FX Lab) — 셰이더·모션·타이밍·색 팔레트 전체 페이지" style="position:absolute;bottom:18px;right:104px;z-index:29;padding:9px 14px;border:1px solid #fec389;border-radius:8px;background:rgba(254,195,137,.12);color:#fec389;font-size:12px;font-weight:700;cursor:pointer;">🔥 룩 시스템</button>
+    <button id="btn-specmap" class="dev-only" title="전 세션 장면의 실제 구성 요소와 편집 위치 — 씬 그래프에서 자동 생성 (도식 아님)" style="position:absolute;bottom:18px;right:476px;z-index:29;padding:9px 14px;border:1px solid var(--line);border-radius:8px;background:rgba(16,19,24,.9);color:var(--text);font-size:12px;font-weight:700;cursor:pointer;">🗺 장면 명세</button>
     <div id="studio" style="position:absolute;top:0;left:0;bottom:0;width:min(420px,31vw);background:rgba(12,14,18,.98);border-right:1px solid var(--line);z-index:28;display:none;flex-direction:column;">
       <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px 8px;border-bottom:1px solid var(--line);">
         <b style="font-size:13px;">✎ 편집 <span style="color:var(--dim);font-weight:400;font-size:11px;">· 러닝 지면</span></b>
