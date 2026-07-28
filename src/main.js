@@ -2732,6 +2732,7 @@ void main(){
   demoPanel.visible = false;
   scene.add(demoPanel);
   let demoLastT = 0;
+  const _demoProbe = { video: null };   // frameHasImage 용 래퍼 — 검은 프레임 판별
   let demoLiveHold = 0;   // uLive 유예 — 영상 루프 순간 readyState 1프레임 하락에도 인물 유지(깜빡임 방지)
   const demoCrop = { cx: 0.5, cy: 0.5, sx: 1, sy: 1 };
   // 실사 시범 모드: 'off' | 'floor'(러닝 A 시범 — 휴면) | 'wall'(복싱 벽 실사 시험).
@@ -2845,6 +2846,7 @@ void main(){
     if (on) { if (demoVideo.paused) demoVideo.play().catch(() => {}); }
     else { if (!demoVideo.paused) demoVideo.pause(); return; }
     const now = performance.now() / 1000;
+    _demoProbe.video = demoVideo;
     // 프레임 게이트 — 재생 가능한 살아있는 프레임일 때만 인물 기여 (블랙/정지 = 박스 방지)
     // uLive 게이트: ①올바른 클립일 때만 표시 → 전환 중 기본 클립(근육질 남자) 번쩍 방지
     //   ②올바른 클립이면 루프 순간 readyState 하락에 8프레임 유예 → 깜빡임 제거
@@ -2853,7 +2855,11 @@ void main(){
     if (!onCorrectClip) {
       demoLiveHold = 0;   // 전환 중/잘못된 클립 = 즉시 숨김(유예 없음)
     } else {
-      const demoLiveNow = (demoVideo.readyState >= 2 && !demoVideo.ended && !demoVideo.paused);
+      // readyState 만으론 부족하다 — 디코더가 '준비됨'이라 보고하면서 빈(검은) 프레임을 내주는
+      // 구간이 있고, 그게 크로마키를 통과해 판이 통째로 검은 사각형이 된다(유저: 드리블 중 검정 박스).
+      // A1 코치와 같은 8×8 휘도 샘플로 '진짜 그림인가'를 4Hz 로 확인한다.
+      const demoLiveNow = (demoVideo.readyState >= 2 && !demoVideo.ended && !demoVideo.paused
+        && frameHasImage(_demoProbe));
       demoLiveHold = demoLiveNow ? 8 : Math.max(0, demoLiveHold - 1);
     }
     demoPanel.material.uniforms.uLive.value = demoLiveHold > 0 ? 1 : 0;

@@ -13,11 +13,12 @@ import { T, R, sp, zone, NUM_S } from './ds.js';   // 조판 토큰
 import { clamp01, eOut, cycle, kf, intro, drawChars, drawBadge } from './floorgl.js';
 
 const W = 2600, H = 1600;   // 대지 px (벽 2.6×1.6m 실측 1:1)
-const K = 0.75;             // 캔버스 해상도 — 바닥과 같은 저울(화질 vs 업로드 비용)
+const K = 0.5;              // 미분리 상태라 장당 비용이 곧 프레임 예산 — 9.4MB → 4.2MB.
+                            // 벽 글자는 24~120px 로 커서 0.5 에서도 읽힌다(지면 텍스트와 다름).
 // UI 재도색 주기. 모션을 이식한 뒤로 정지 화면이 없어져 매 틱 9.4~9.6MB 텍스처가 올라간다
 // (24fps = 230MB/s). 씬 애니메이션이 '드드드득' 끊긴 원인 — UI 프레임을 씬보다 낮게 잡고
 // 남는 예산을 봇·영상에 돌려준다. ?uifps=N 으로 8~60 비교 가능.
-const UI_FPS = Math.max(4, Math.min(60, +(new URLSearchParams(location.search).get('uifps')) || 12));
+const UI_FPS = Math.max(4, Math.min(60, +(new URLSearchParams(location.search).get('uifps')) || 30));
 const CX = W / 2;
 const INF = Infinity;
 

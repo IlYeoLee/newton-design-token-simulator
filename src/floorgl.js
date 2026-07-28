@@ -18,10 +18,10 @@ const K = 0.75;
 // UI 재도색 주기. 모션을 이식한 뒤로 정지 화면이 없어져 매 틱 9.4~9.6MB 텍스처가 올라간다
 // (24fps = 230MB/s). 씬 애니메이션이 '드드드득' 끊긴 원인 — UI 프레임을 씬보다 낮게 잡고
 // 남는 예산을 봇·영상에 돌려준다. ?uifps=N 으로 8~60 비교 가능.
-const UI_FPS = Math.max(4, Math.min(60, +(new URLSearchParams(location.search).get('uifps')) || 60));
+const UI_FPS = Math.max(4, Math.min(60, +(new URLSearchParams(location.search).get('uifps')) || 40));
 // 동적 레이어 해상도 — 움직이는 것(도트바·링·숫자)은 큰 형상이라 낮은 해상도로 충분하다.
 // 0.34 → 544×908 = 2.0MB. 정적 레이어(9.6MB)는 값이 바뀔 때만 올라가므로 정지 화면은 0.
-const KL = 0.34;
+const KL = 0.26;   // 416×694 = 1.16MB
 
 const CX = W / 2;
 const RED = PAL.red;
@@ -310,7 +310,7 @@ export class FloorGL {
 
   // 정적 레이어 서명 — 시간 항을 뺐다. 시간을 넣으면 매 틱 9.6MB 를 올리게 된다(끊김의 원인).
   _sigOf() {
-    let s = this.kind + '|' + this.stage + '|' + Math.round(Math.min(this.t, 12) * 6);   // 인트로 12s 동안만 시간 반영
+    let s = this.kind + '|' + this.stage + '|' + Math.round(Math.min(this.t, 3.5) * 12);   // 글자 캐스케이드 구간만 시간 반영 → 그 뒤 업로드 0
     for (const n of this.map.values()) s += '|' + n.textContent + JSON.stringify(n.style) + JSON.stringify(n._attr || {});
     return s;
   }
