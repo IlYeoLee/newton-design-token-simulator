@@ -935,8 +935,12 @@ void main(){
     if (session?.active && /^C\d$/.test(session.stage || '')) return;
     captionEl.innerHTML = `<b>🔊 ${who}</b> · ${text}`;
     captionEl.style.opacity = '1';
+    captionEl.style.transform = 'translateX(-50%) translateY(0)';   // 상단에서 살짝 내려오며 등장
     clearTimeout(captionTimer);
-    captionTimer = setTimeout(() => { captionEl.style.opacity = '0'; }, 4500);
+    captionTimer = setTimeout(() => {
+      captionEl.style.opacity = '0';
+      captionEl.style.transform = 'translateX(-50%) translateY(-6px)';
+    }, 4500);
   }
   const sessionHud = document.getElementById('session-hud');
   const hudStageEl = document.getElementById('hud-stage');
@@ -1003,10 +1007,7 @@ void main(){
     // 3중 중복이었고 발자국·가이드를 덮는 두 번째 주범. 투사면 = 훈련 큐 전용 원칙.
     veil();  // 단계 전환 암전 (끊김 → 의도된 전환으로)
     // 전환/타이머/리포트(풀스크린 지면 화면)는 하단이 화면 콘텐츠(버튼)라 음성 캡션을 상단으로 이동(겹침 방지).
-    if (captionEl) {
-      const ff = /^(T1|T2|C1|FIN|BK_T1|BK_T2|BK_C1|BK_FIN)$/.test(st.id);
-      captionEl.style.top = ff ? '7%' : ''; captionEl.style.bottom = ff ? 'auto' : '';
-    }
+    // 자막은 항상 상단(우측 체험 패널과 같은 높이선) — 스테이지별 위치 분기 폐기.
     if (st.voice) { showCaption(st.voice[0], st.voice[1]); speak(st.voice[0], st.voice[1], st.id); }
     if (st.wear) {
       const w = st.wear;
