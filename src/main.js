@@ -894,18 +894,21 @@ void main(){
   let _metroCtx = null, _metroPh = -1;   // P 케이던스 메트로놈 (WebAudio 클릭)
   const _strikeTs = []; let _lcPrev = false, _rcPrev = false, _spmUpd = 0;   // 내 케이던스 실측(접지 간격)
   const voiceAudio = new Audio();
+  let _speakSeq = 0;   // 마지막 발화만 살린다 — 취소 뒤 60ms 지연 재생이 이전 대사를 되살려 겹쳤다(유저)
   function speak(who, text, stageId) {
     if (!ttsOn) return;
-    voiceAudio.pause();
+    const seq = ++_speakSeq;
+    voiceAudio.pause(); voiceAudio.currentTime = 0;
     if ('speechSynthesis' in window) speechSynthesis.cancel();
+    if (seq !== _speakSeq) return;
     if (stageId) {
       voiceAudio.src = `${BASE}voice/${stageId}.mp3`;
-      voiceAudio.play().catch(() => speakFallback(who, text));
+      voiceAudio.play().catch(() => speakFallback(who, text, seq));
       return;
     }
-    speakFallback(who, text);
+    speakFallback(who, text, seq);
   }
-  function speakFallback(who, text) {
+  function speakFallback(who, text, seq) {
     if (!('speechSynthesis' in window)) return;
     const clean = text.replace(/\(.*?\)/g, '').replace(/[—·"']/g, ' ');
     const u = new SpeechSynthesisUtterance(clean);
@@ -913,7 +916,7 @@ void main(){
     const ko = speechSynthesis.getVoices().find(v => v.lang.startsWith('ko'));
     if (ko) u.voice = ko;
     u.rate = 1.0;
-    setTimeout(() => speechSynthesis.speak(u), 60);   // cancel 직후 드롭 회피
+    setTimeout(() => { if (seq != null && seq !== _speakSeq) return; speechSynthesis.speak(u); }, 60);   // cancel 직후 드롭 회피 + 늦은 발화 차단
   }
   // ── 전환 베일: 단계 전환 시 부드러운 암전 ──
   function veil() {
@@ -4062,7 +4065,7 @@ void main(){
     U.uW.value = FXP.person?.blur ?? 1;
   }
 
-  switchPack('running');
+  switchPack(state.pack);   // 기본 진입 팩(복싱) — 순서 복싱 → 러닝 → 농구(유저)
   document.getElementById('loading').style.display = 'none';
 
   const clock = new THREE.Clock();
@@ -4511,8 +4514,10 @@ void main(){
       });
       if (localStorage.getItem('newton.labFold') === '1') lab.classList.add('folded');
       $('lab-run').addEventListener('click', () => {
+        ttsOn = false;                       // 중간(READY) 대사 억제 — 점프 중엔 말하지 않는다
         startSessionFor('running');
         const s = session, i = s.stages.findIndex(x => x.id === 'C2');
+        ttsOn = true;
         if (i >= 0) { s.stageIdx = i; s.t = 0; s._enter(); }
         fpUserSet = true; setFp(false);   // 3인칭 고정 프레이밍
       });
