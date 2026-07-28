@@ -15,8 +15,10 @@ const W = 1600, H = 2670;   // 대지 px (floor-scene.html과 동일)
 //   0.5 = 글자가 흐리다(유저) / 1.0 = 프레임당 17MB 업로드라 전체가 느려진다(유저).
 //   0.75(1200×2002, 9.6MB)가 두 불만을 모두 피하는 지점. 업로드는 값이 바뀐 프레임에만 일어난다.
 const K = 0.75;
-// ?uifps=N — UI 텍스처 재도색 주기(기본 24). 끊김·깜빡임이 업로드 때문인지 가르는 스위치.
-const UI_FPS = Math.max(4, Math.min(60, +(new URLSearchParams(location.search).get('uifps')) || 24));
+// UI 재도색 주기. 모션을 이식한 뒤로 정지 화면이 없어져 매 틱 9.4~9.6MB 텍스처가 올라간다
+// (24fps = 230MB/s). 씬 애니메이션이 '드드드득' 끊긴 원인 — UI 프레임을 씬보다 낮게 잡고
+// 남는 예산을 봇·영상에 돌려준다. ?uifps=N 으로 8~60 비교 가능.
+const UI_FPS = Math.max(4, Math.min(60, +(new URLSearchParams(location.search).get('uifps')) || 12));
 
 const CX = W / 2;
 const RED = PAL.red;

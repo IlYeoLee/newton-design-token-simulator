@@ -14,8 +14,10 @@ import { clamp01, eOut, cycle, kf, intro, drawChars } from './floorgl.js';
 
 const W = 2600, H = 1600;   // 대지 px (벽 2.6×1.6m 실측 1:1)
 const K = 0.75;             // 캔버스 해상도 — 바닥과 같은 저울(화질 vs 업로드 비용)
-// ?uifps=N — UI 텍스처 재도색 주기(기본 24). 끊김·깜빡임이 업로드 때문인지 가르는 스위치.
-const UI_FPS = Math.max(4, Math.min(60, +(new URLSearchParams(location.search).get('uifps')) || 24));
+// UI 재도색 주기. 모션을 이식한 뒤로 정지 화면이 없어져 매 틱 9.4~9.6MB 텍스처가 올라간다
+// (24fps = 230MB/s). 씬 애니메이션이 '드드드득' 끊긴 원인 — UI 프레임을 씬보다 낮게 잡고
+// 남는 예산을 봇·영상에 돌려준다. ?uifps=N 으로 8~60 비교 가능.
+const UI_FPS = Math.max(4, Math.min(60, +(new URLSearchParams(location.search).get('uifps')) || 12));
 const CX = W / 2;
 const INF = Infinity;
 
