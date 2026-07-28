@@ -9,9 +9,9 @@
 import * as THREE from 'three';
 
 const W = 1600, H = 2670;   // 대지 px (floor-scene.html과 동일)
-// ponytail: 캔버스는 대지의 절반 해상도(1px = 1.46mm 실물). 텍스트가 흐리면 K만 올린다.
-// 전체 해상도는 프레임당 17MB 업로드라 과하다.
-const K = 0.5;
+// 캔버스 해상도. 0.5는 화질이 눈에 띄게 떨어졌다(유저) → 1.0(대지 1:1).
+// 업로드는 '값이 바뀐 프레임'에만 일어나므로 정지 화면에선 비용 0이다.
+const K = 1.0;
 
 const CX = W / 2;
 const RED = '#fa3030';
@@ -193,7 +193,7 @@ export class FloorGL {
 
   // 변경 없으면 다시 안 그린다 — 1600×2670 텍스처 업로드가 프레임 예산을 먹는 걸 막는다.
   _sigOf() {
-    let s = String(Math.round(this.t * 20));
+    let s = String(Math.round(this.t * 60));
     for (const n of this.map.values()) s += '|' + n.textContent + JSON.stringify(n.style) + JSON.stringify(n._attr || {});
     return s;
   }
@@ -201,8 +201,9 @@ export class FloorGL {
   update(dt) {
     if (!this.stage) return;
     this.t += dt;
-    // 텍스처 업로드(≈4MB)는 프레임 예산을 먹는다 — 최대 22fps로 제한. 읽는 UI라 이 이상 필요 없다.
-    if (this.t - (this._lastPaint ?? -1) < 0.045) return;
+    // 22fps 제한은 도트바·링이 뚝뚝 끊겨 보였다(유저) → 60fps 허용.
+    // 값이 안 바뀌면 아래 서명 비교에서 걸러지므로 정지 화면은 여전히 업로드 0이다.
+    if (this.t - (this._lastPaint ?? -1) < 0.0155) return;
     const sig = this._sigOf();
     if (sig === this._sig) return;
     this._sig = sig; this._lastPaint = this.t;
