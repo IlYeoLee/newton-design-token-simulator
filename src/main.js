@@ -19,6 +19,7 @@ import { DesignStore } from './studio/store.js';
 import { loadSvg } from './studio/design.js';
 import { initBudgetPanel } from './budgetPanel.js';
 import { FloorGL } from './floorgl.js';   // 바닥 UI WebGL 이식(B안) — ?floorgl=1
+import { WallGL } from './wallgl.js';     // 복싱 벽 UI WebGL 이식(같은 B안) — ?wallgl=0 이면 옛 CSS3D
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { CSS3DRenderer, CSS3DObject } from 'three/examples/jsm/renderers/CSS3DRenderer.js';
 import { getLUT, FXP, rebuildLUT, lutColor, GLYPHS, FX_GLSL } from './fxlut.js';
@@ -4445,6 +4446,7 @@ void main(){
     renderer, demoVideo, renderDemoPanel, renderBxPerson,
     get floorObj() { return floorObj; },
     get floorGL() { return floorGL; },
+    get wallGL() { return wallGL; },
     get demoSeg() { return demoSeg; }, initDemoSeg,
     makeImageSegmenter: async () => {
       const fileset = await FilesetResolver.forVisionTasks(import.meta.env.BASE_URL + 'mediapipe-wasm');
@@ -5128,6 +5130,12 @@ void main(){
   frameObj.visible = false;
   frameCssScene.add(frameObj);
   let loadedView = null;
+  // 복싱 벽 UI의 WebGL 경로 — CSS3D는 DOM 레이어(z6)라 벽 앞의 x봇 위로 그대로 통과한다.
+  // 같은 씬의 평면이면 깊이 테스트가 가림을 담당하고 빔 페더·차폐 소등도 자동 상속한다.
+  const WALLGL = new URLSearchParams(location.search).get('wallgl') !== '0';
+  const wallGL = new WallGL();
+  scene.add(wallGL.mesh);
+  let wallGLOn = false;
 
   // ── 바닥 프레임 occlusion 오버레이 ──
   //   CSS3D(z6)는 DOM 레이어라 3D 깊이가 없어 x봇 다리 위로 둥둥 뜸. 해결: x봇만 투명 배경으로
@@ -5354,18 +5362,29 @@ void main(){
     cssRenderer.domElement.style.top = cvr.top + 'px';
     const view = (session.active && state.pack === 'boxing') ? DESIGN_FRAMES[session.curStage?.id] : null;
     const wc = view ? rig._wallCenter : null;
-    frameObj.visible = !!view && !!wc;   // 벽 좌표 준비 전엔 숨김 — 재진입 초기 _wallCenter undefined일 때 프레임이 (0,1.4) '중앙'으로 튀는 플래시 방지
-    if (frameObj.visible) {
+    const shown = !!view && !!wc;   // 벽 좌표 준비 전엔 숨김 — 재진입 초기 _wallCenter undefined일 때 프레임이 (0,1.4) '중앙'으로 튀는 플래시 방지
+    // WebGL 경로가 담당하는 뷰면 CSS3D는 끈다(둘 중 하나만 그린다 — 이중 표시 금지)
+    wallGLOn = shown && WALLGL && WallGL.handles(view);
+    frameObj.visible = shown && !wallGLOn;
+    wallGL.mesh.visible = wallGLOn;
+    if (shown) {
       if (view !== loadedView) {   // 다른 뷰만 로드(같은 뷰 재진입=그대로)
         const dur = STAGE_DUR[session.curStage?.id] ?? session.curStage?.dur ?? 8;
         const needsDur = view.includes('scene.html') || view.includes('timer.html');
-        frameIframe.src = import.meta.env.BASE_URL + view + (needsDur ? '&dur=' + dur : '');
+        if (wallGLOn) wallGL.load(session.curStage?.id, { dur, src: view });
+        else frameIframe.src = import.meta.env.BASE_URL + view + (needsDur ? '&dur=' + dur : '');
         loadedView = view;
       }
+      if (wallGLOn) wallGL.update(_uiDt);
       // 매 프레임 벽 정합 — 대지 2600×1600 → 벽(wallW×wallH), x/y 독립 스케일(aspect 무관, 이식 안전)
       frameObj.position.set(wc.cx, wc.cy, WALL_Z + 0.02);
       frameObj.rotation.set(0, 0, 0);
       frameObj.scale.set(rig.wallW / FRAME_W, rig.wallH / FRAME_H, 1);
+      // UI 평면은 demoPanel(주황 전문가, +0.035)·판정 토큰보다 앞 — CSS3D 시절의 쌓임 순서를 지킨다.
+      // x봇은 standZ(1.6m)에 서므로 여전히 UI를 가린다(이 이식의 목적).
+      wallGL.mesh.position.set(wc.cx, wc.cy, WALL_Z + 0.05);
+      wallGL.mesh.quaternion.copy(frameObj.quaternion);
+      wallGL.mesh.scale.copy(frameObj.scale);
       // 구 UI 선별 숨김 — 유지: demoPanel(주황 전문가)·격자 배경 / 숨김: 거울"나"·HUD·세션 큐
       mirrorPanel.visible = false;
       hudPanel.visible = ctaPanel.visible = false;

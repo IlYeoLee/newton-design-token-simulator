@@ -92,6 +92,33 @@ scale+fade로. 단 이미 바닥에 붙어 있는 요소의 '떠오름'(footBob�
 `eInOut`=ease-in-out). `btnPulse`/`ringBreath`의 box-shadow·drop-shadow는 캔버스 `shadowBlur`로 근사.
 `fadeUpCentered`/`sUp*`의 translateY 52px는 공통 원칙대로 제자리 scale(.94→1)+fade로 바꿨다.
 
+## 복싱 벽 UI를 WebGL로 — **완료** (`src/wallgl.js`)
+
+**문제**: 벽 UI(`ready-view/{index,scene,timer,transition,report}.html`)는 CSS3D 레이어(zIndex 6)라
+벽 앞에 선 x봇 위로 그대로 통과했다. 바닥과 같은 B안(canvas 2D → `CanvasTexture` 평면)으로 옮겼다.
+`?wallgl=0` 이면 옛 CSS3D 경로.
+
+- 대지 2600×1600, `K=0.75`(1950×1200). 재질 `opacity 0.95` = 원본 iframe의 '투사 UI 5% 균일 투명도'.
+- 평면 z = `WALL_Z + 0.05` (demoPanel +0.035 앞). 모션 도구(`cycle`/`kf`/`intro`/`drawChars`)는
+  `floorgl.js`에서 export해 공유 — 바닥과 벽이 같은 이징·키프레임 규약을 쓴다.
+- **벽은 서 있는 프레임이라 원본 translateY를 그대로 쓴다**(바닥의 '멀리서 날아옴' 문제 없음).
+- 이식한 모션: `glowDrift`·`titleIn`+`charWave`·`ringPop`/`ringBreath`/`numPulse`·`cardIn`+`cardFloat`·
+  `sPop`·`sUpC`+`btnFloatC`+`btnPulse`·`sUp`/`sLeft`/`sRight`·`phasePulse`·`comboIn`+`comboGlow`+`flameFlick`·
+  `cueSwap` 자막 순환·`countUp` 숫자·`graphReveal` 바 그래프·`popIn` 셀/디바이스·`charIn` 타이틀·
+  `dotFill` 도트·`footBob`/`floatY`/`glowPulse`.
+- 깎은 것: 회전 팁 SVG→같은 자리 빨간 점, inset 글로우→블러 스트로크, CSS mask+gradient(발·아이콘)→
+  오프스크린 `source-in` 틴트, 링크 없는 CSS 클래스(`.cta`/`.footzone`/`.glow`)는 DOM에 없어 생략.
+
+**★ renderOrder 20 — 깨면 안 되는 불변식**: 벽 이펙트(빔 그리드·판정 토큰)는 z −1.05~−1.43으로
+UI(−1.75)보다 **앞**이고 전부 `transparent`·`depthWrite:false`다. 투명 정렬은 뒤→앞이라 그냥 두면
+이펙트가 UI를 덮는다(유저 지적). 평면을 앞으로 당기면 벽 정합이 깨지므로 **그리기 순서만** 이펙트
+최대치(14) 위로 올렸다. `depthTest`는 켠 채라 x봇(z≈1.5, 불투명·깊이 기록)에는 그대로 가려진다.
+→ **UI = 벽 콘텐츠 중 맨 앞 · 봇 뒤**.
+
+검증: 14개 뷰 t 고정(0.3/1/2.5/6/20s) 전수 렌더·에러 0(`tmp_qa_wallgl.mjs`),
+가림은 기하로 증명 — 겹치는 광선 50/50에서 봇이 UI보다 3.14m 앞(`tmp_qa_walloccl.mjs`).
+(헤드리스는 소프트웨어 GL이라 1~2fps다 — 실시간 경과로 모션을 재려 하지 말고 `t`를 주입할 것.)
+
 ## 바닥 UI 성능 — 이 작업과 함께 (계획)
 
 지금은 대지 한 장을 통째로 다시 그려 `CanvasTexture`로 올린다(K=0.75 → 1200×2003 = **9.6MB/장**).
@@ -108,4 +135,5 @@ scale+fade로. 단 이미 바닥에 붙어 있는 요소의 '떠오름'(footBob�
 | 1 | ~~바닥 UI WebGL 이식~~ 완료. 이식하며 깎은 것: 0.7초 페이드→즉시, 링 회전 팁 SVG→빨간 점, 카드 inset 글로우→블러 스트로크 근사 |
 | 2 | 스텝백 방향: 영상은 사이드(실측 오른발 u 0.53→-0.19), 마크는 앞으로 전진. **C안(대각선 = 뒤+옆, L·R 교차 금지) 합의됨** — `SB_POSE`만 고치면 됨 |
 | 3 | `Quiet On`(복싱)·`Press On`(농구)은 카피에만 있고 구현 없음. 개입은 SAFE/BOOST/햅틱 셋뿐 |
+| 5 | 바닥 UI(`floorgl.js`)는 renderOrder 3 — 벽처럼 이펙트에 덮이는지 미확인. 유저 지적 없으면 그대로 |
 | 4 | 실전 C2 판정을 유저 발 위치로 연결(지금은 영상 재생 위치 기준 시범) |

@@ -25,13 +25,13 @@ const numOr = (v, d) => { const n = parseFloat(v); return Number.isFinite(n) ? n
 // ── 모션 ────────────────────────────────────────────────────────────────────
 // 원본 floor-*.html의 @keyframes를 캔버스로 옮기기 위한 최소 도구.
 // CSS는 타이밍 함수를 '키프레임 구간마다' 적용한다 — kf()도 그렇게 한다.
-const clamp01 = v => (v < 0 ? 0 : v > 1 ? 1 : v);
-const eOut = t => 1 - Math.pow(1 - t, 3);                                  // cubic-bezier(.22,1,.36,1) 근사
-const eInOut = t => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
-// `animation: X dur delay n` 의 진행도(0~1). 구간 밖이면 null(= 정적 스타일).
-const cycle = (t, delay, dur, n) => { const u = t - delay; return u < 0 || u >= dur * n ? null : (u % dur) / dur; };
+export const clamp01 = v => (v < 0 ? 0 : v > 1 ? 1 : v);
+export const eOut = t => 1 - Math.pow(1 - t, 3);                           // cubic-bezier(.22,1,.36,1) 근사
+export const eInOut = t => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+// `animation: X dur delay n` 의 진행도(0~1). 구간 밖이면 null(= 정적 스타일). n=Infinity면 무한 반복.
+export const cycle = (t, delay, dur, n) => { const u = t - delay; return u < 0 || u >= dur * n ? null : (u % dur) / dur; };
 // @keyframes 보간 — stops = [[0~1 위치, 값], …]
-const kf = (p, stops, ease = eInOut) => {
+export const kf = (p, stops, ease = eInOut) => {
   for (let i = 1; i < stops.length; i++) {
     const [a, va] = stops[i - 1], [b, vb] = stops[i];
     if (p <= b) return va + (vb - va) * ease(b === a ? 1 : (p - a) / (b - a));
@@ -39,14 +39,15 @@ const kf = (p, stops, ease = eInOut) => {
   return stops[stops.length - 1][1];
 };
 // `both` fill 등장 애니메이션의 선형 진행도
-const intro = (t, delay, dur) => clamp01((t - delay) / dur);
+export const intro = (t, delay, dur) => clamp01((t - delay) / dur);
 
 // 글자별 그리기 — fn(i) → {dy, alpha, scale}. charLoop·charWave·chIn 공통.
-function drawChars(ctx, txt, y, h, ls, fn) {
+// align: 'center'(cx=중앙) | 'right'(cx=오른쪽 끝) | 'left'
+export function drawChars(ctx, txt, cx, y, h, ls, fn, align = 'center') {
   ctx.letterSpacing = (ls || 0) + 'px';
   ctx.textAlign = 'left'; ctx.textBaseline = 'top';
   const total = ctx.measureText(txt).width;
-  let x = CX - total / 2, vis = 0;
+  let x = align === 'center' ? cx - total / 2 : align === 'right' ? cx - total : cx, vis = 0;
   for (const ch of txt) {
     const w = ctx.measureText(ch).width;
     if (ch !== ' ') {
@@ -113,7 +114,7 @@ function drawText(ctx, n, y, t) {
   const txt = n.textContent || '';
   // 타이틀만 글자 캐스케이드(원본 chIn: 좌→우로 하나씩 제자리 스케일+페이드)
   if (n.cascade && t != null && t < 2.2 && txt) {
-    drawChars(ctx, txt, y, n.size, n.ls || 0, i => {
+    drawChars(ctx, txt, CX, y, n.size, n.ls || 0, i => {
       const e = eOut(clamp01((t - (0.10 + i * 0.045)) / 0.6));
       return { dy: 0, alpha: e, scale: 0.82 + 0.18 * e };
     });
@@ -469,7 +470,7 @@ export class FloorGL {
     ctx.fillStyle = 'rgba(255,255,255,.8)'; ctx.fillText(sub, CX, y);
     ctx.font = F(700, 140); ctx.fillStyle = '#fff';
     // charWave 2.4s ×3, 글자마다 .05s 지연
-    drawChars(ctx, ttl, ty, 140, -5.6, i => {
+    drawChars(ctx, ttl, CX, ty, 140, -5.6, i => {
       const c = cycle(t, 0.9 + i * 0.05, 2.4, 3);
       return { dy: c == null ? 0 : kf(c, [[0, 0], [.29, -16], [.58, 0], [1, 0]]), alpha: 1, scale: 1 };
     });
@@ -524,7 +525,7 @@ export class FloorGL {
     }
     // 타이틀 글자 웨이브 — charLoop 3s ×3, 글자마다 .09s 지연
     ctx.fillStyle = '#fff'; ctx.font = F(700, 120);
-    drawChars(ctx, D.title, 176, 120, -4, i => {
+    drawChars(ctx, D.title, CX, 176, 120, -4, i => {
       const p = cycle(t, i * 0.09, 3, 3);
       return p == null ? { dy: 0, alpha: 1, scale: 1 } : {
         dy: kf(p, [[0, 0], [.12, -16], [.26, 0], [.58, 0], [1, 0]]),
