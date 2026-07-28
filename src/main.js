@@ -718,6 +718,17 @@ void main(){
     btn.style.color = on ? '#06202e' : 'var(--text)';
     btn.style.borderColor = on ? 'var(--accent)' : 'var(--line)';
   };
+  // 기본 3인칭 프레이밍 — 대각선 위에서 내려다보는 고정 앵글(유저 지정 레퍼런스).
+  //   봇과 그 앞 투사 UI가 한 화면에 크게 들어오는 거리·고도. 이후 궤도 조작은 자유.
+  function frameThirdPerson() {
+    const a = xbot.getAnchor ? xbot.getAnchor() : { x: 0, z: 0 };
+    const bx = (xbot.group?.position.x ?? 0), bz = (xbot.group?.position.z ?? 0);
+    const tx = bx, tz = bz;
+    controls.target.set(tx, 0.95, tz);
+    camera.position.set(tx + 2.05, 2.70, tz + 2.35);   // ≈4.1m · 고도 40°(대각선 위)
+    camera.updateProjectionMatrix();
+    controls.update?.();
+  }
   function setFp(on) {
     fpMode = on;
     setFPView(on);   // 1인칭 가독 보정 — 순번 감쇠 완화 + 마크·레인 게인 (시선 각도 눌림)
@@ -737,9 +748,8 @@ void main(){
       const data = state.packs[state.pack];
       setPackEnvironment(state.pack, data.hasWall);
       const a = xbot.getAnchor();   // 1인칭 → 3인칭 복귀: 몸 앵커만큼 카메라 재정렬(추종과 같은 기준)
-      camera.position.x += a.x; camera.position.z += a.z;
-      controls.target.x += a.x; controls.target.z += a.z;
       lastBodyX = a.x; lastBodyZ = a.z;
+      frameThirdPerson();           // 기본 3인칭 = 고정 프레이밍(대각선 위, 가깝게) — 유저 지정
     }
   }
   fpBtn.addEventListener('click', () => { fpUserSet = true; setFp(!fpMode); });
