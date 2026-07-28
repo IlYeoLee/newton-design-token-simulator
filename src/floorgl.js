@@ -62,13 +62,38 @@ function node(id, o) {
 // ── 개별 요소 그리기 ────────────────────────────────────────────────────────────
 // 각 타입은 { h(n) → 높이, draw(ctx, n, y) } — 폭은 항상 중앙(CX) 정렬.
 
-function drawText(ctx, n, y) {
+function drawText(ctx, n, y, t) {
   ctx.font = F(n.weight, n.size, n.fam || sans);
   ctx.fillStyle = n.style.color || n.color;
-  ctx.textAlign = 'center';
   ctx.textBaseline = 'top';
   ctx.letterSpacing = (n.ls || 0) + 'px';
-  ctx.fillText(n.textContent, CX, y);
+  const txt = n.textContent || '';
+  // 타이틀만 글자 캐스케이드(원본 chIn: 좌→우로 하나씩 제자리 스케일+페이드)
+  if (n.cascade && t != null && t < 2.2 && txt) {
+    const total = ctx.measureText(txt).width;
+    let x = CX - total / 2, vis = 0;
+    ctx.textAlign = 'left';
+    for (const ch of txt) {
+      const w = ctx.measureText(ch).width;
+      if (ch !== ' ') {
+        const f = Math.max(0, Math.min(1, (t - (0.10 + vis * 0.045)) / 0.6));
+        const e = 1 - Math.pow(1 - f, 3);
+        vis++;
+        if (e > 0.002) {
+          ctx.save();
+          ctx.globalAlpha *= e;
+          ctx.translate(x + w / 2, y + n.size * 0.5);
+          ctx.scale(0.82 + 0.18 * e, 0.82 + 0.18 * e);
+          ctx.fillText(ch, -w / 2, -n.size * 0.5);
+          ctx.restore();
+        }
+      }
+      x += w;
+    }
+  } else {
+    ctx.textAlign = 'center';
+    ctx.fillText(txt, CX, y);
+  }
   ctx.letterSpacing = '0px';
 }
 
@@ -113,7 +138,7 @@ function buildScene(stage, p) {
   const col = [];
   const m = /^BK_B([2345])$/.exec(stage);
   if (m) col.push(node('s-cap', { type: 'text', textContent: (+m[1] - 1) + ' / 4', size: 46, weight: 700, ls: 6, color: 'rgba(255,255,255,.62)', mb: -38 }));
-  if (!isC) col.push(node('s-title', { type: 'text', textContent: S.title, size: 120, weight: 700, ls: -4, color: '#fff' }));
+  if (!isC) col.push(node('s-title', { type: 'text', textContent: S.title, size: 120, weight: 700, ls: -4, color: '#fff', cascade: true }));
   col.push(node('s-cue', { type: 'text', textContent: S.cue || '', size: 52, weight: 500, color: 'rgba(255,255,255,.72)', style: { display: 'none' } }));
   if (isC) col.push(node('km', { type: 'km' }));
   if (hasPrev) col.push(node('prev-row', { type: 'prevRow', pv: p.pv || 3, pvn: p.pvn || 0 }));
@@ -227,8 +252,13 @@ export class FloorGL {
       const h = this._h(n);
       if (n.mt) y += n.mt;
       if (n.style.visibility !== 'hidden') {
+        const e = this._intro(n);
         ctx.save();
-        ctx.globalAlpha = numOr(n.style.opacity, 1) * this._intro(n);
+        ctx.globalAlpha = numOr(n.style.opacity, 1) * e;
+        if (e < 1 && !n.cascade) {   // 제자리 스케일 인(원본 sUpFlat) — 눕힌 프레임에서 translate는 '멀리서 날아옴'이 된다
+          const k = 0.94 + 0.06 * e;
+          ctx.translate(CX, y + h / 2); ctx.scale(k, k); ctx.translate(-CX, -(y + h / 2));
+        }
         if (ctx.globalAlpha > 0.004) this._draw(n, y);
         ctx.restore();
       }
@@ -258,7 +288,7 @@ export class FloorGL {
   _draw(n, y) {
     const ctx = this.ctx;
     switch (n.type) {
-      case 'text': return drawText(ctx, n, y);
+      case 'text': return drawText(ctx, n, y, this.t);
       case 'dots': return this._dots(n, y);
       case 'prevRow': return this._prevRow(n, y);
       case 'trainRow': return this._trainRow(n, y);

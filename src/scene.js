@@ -49,6 +49,8 @@ export const FLOOR_Y = 0.001;
 export function createScene(container) {
   const renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  // 비스듬히 보는 바닥은 이방성 필터링이 화질을 좌우한다 — 4는 너무 낮아 코트 라인이 뭉갰다(유저)
+  const MAXANISO = renderer.capabilities.getMaxAnisotropy();
   renderer.setSize(container.clientWidth, container.clientHeight);
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -175,7 +177,7 @@ export function createScene(container) {
       texLoader.load(`${BASE_URL}tex/${file}`, tex => {
         tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
         tex.repeat.set(repX, repY);
-        tex.anisotropy = 4;
+        tex.anisotropy = MAXANISO;
         tex.colorSpace = THREE.SRGBColorSpace;
         resolve(tex);
       });
@@ -206,7 +208,7 @@ export function createScene(container) {
       const tex = new THREE.CanvasTexture(c);
       tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
       tex.repeat.set(60, 60);
-      tex.anisotropy = 4;
+      tex.anisotropy = MAXANISO;
       tex.colorSpace = THREE.SRGBColorSpace;
       surfCache.track = tex;
     }
@@ -227,7 +229,7 @@ export function createScene(container) {
       const tex = new THREE.CanvasTexture(c);
       tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
       tex.repeat.set(24, 24);
-      tex.anisotropy = 4;
+      tex.anisotropy = MAXANISO;
       tex.colorSpace = THREE.SRGBColorSpace;
       surfCache.dirt = tex;
     }
@@ -255,7 +257,7 @@ export function createScene(container) {
       const tex = new THREE.CanvasTexture(c);
       tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
       tex.repeat.set(26, 26);
-      tex.anisotropy = 4;
+      tex.anisotropy = MAXANISO;
       tex.colorSpace = THREE.SRGBColorSpace;
       surfCache.indoorwood = tex;
     }
@@ -277,7 +279,7 @@ export function createScene(container) {
       const tex = new THREE.CanvasTexture(c);
       tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
       tex.repeat.set(9, 5);
-      tex.anisotropy = 4;
+      tex.anisotropy = MAXANISO;
       tex.colorSpace = THREE.SRGBColorSpace;
       surfCache.wallpaper = tex;
     }
@@ -319,10 +321,11 @@ export function createScene(container) {
     if (seq !== surfSeq) return;
     // 농구 코트(유저: 기본 배경): 마루 바닥 + 하프코트 라인 오버레이(런타임 베이크, 외부 에셋 0)
     if (!courtLines) {
-      const c = document.createElement('canvas'); c.width = c.height = 1024;
+      // 1024px/16m = 64px/m 라 가까이서 라인이 뭉개졌다(유저) → 2048(128px/m).
+      const c = document.createElement('canvas'); c.width = c.height = 2048;
       const g = c.getContext('2d');
-      const M = 1024 / 16;   // 16m 대지 → px/m
-      g.strokeStyle = 'rgba(250,250,245,0.85)'; g.lineWidth = 7; g.lineJoin = 'round';
+      const M = 2048 / 16;   // 16m 대지 → px/m
+      g.strokeStyle = 'rgba(250,250,245,0.85)'; g.lineWidth = 14; g.lineJoin = 'round';   // 대지 2배 → 선폭도 2배(실물 폭 유지)
       const rc = (x, z, w, h) => g.strokeRect((x + 8) * M, (z + 8) * M, w * M, h * M);
       const arc = (x, z, r, a0, a1) => { g.beginPath(); g.arc((x + 8) * M, (z + 8) * M, r * M, a0, a1); g.stroke(); };
       rc(-7.5, -7.5, 15, 15);                    // 외곽(하프코트 15×15 근사)
@@ -330,7 +333,7 @@ export function createScene(container) {
       arc(0, -1.7, 1.8, 0, Math.PI);             // 자유투 원(전방 반원)
       arc(0, -6.325, 6.75, 0.18, Math.PI - 0.18);// 3점 아크
       arc(0, 7.5, 1.8, Math.PI, Math.PI * 2);    // 센터서클(근측 절반)
-      const tex2 = new THREE.CanvasTexture(c); tex2.colorSpace = THREE.SRGBColorSpace; tex2.anisotropy = 4;
+      const tex2 = new THREE.CanvasTexture(c); tex2.colorSpace = THREE.SRGBColorSpace; tex2.anisotropy = MAXANISO;
       courtLines = new THREE.Mesh(new THREE.PlaneGeometry(16, 16),
         new THREE.MeshBasicMaterial({ map: tex2, transparent: true, depthWrite: false }));
       courtLines.rotation.x = -Math.PI / 2; courtLines.position.y = 0.006; courtLines.renderOrder = 1;
@@ -421,11 +424,9 @@ export function createScene(container) {
   }
 
   // ── 후처리: 블룸(마크·이펙트 발광) + 그레인·비네트 ─────
-  // 컴포저를 쓰면 렌더 타깃이 기본 비멀티샘플이라 renderer의 antialias가 통째로 무효가 된다
-  // (골대 프레임·코트 줄무늬가 계단으로 깨지던 원인, 유저). 멀티샘플 타깃을 직접 만들어 넘긴다.
-  // samples만 켠다 — HalfFloat까지 쓰면 대역폭이 배로 뛴다(전체 모션이 느려졌다는 신고).
-  const _msaa = new THREE.WebGLRenderTarget(1, 1, { samples: 4, colorSpace: THREE.SRGBColorSpace });
-  const composer = new EffectComposer(renderer, _msaa);
+  // (컴포저에 멀티샘플 타깃을 직접 넘겨 봤으나 첫 화면이 단색으로 렌더되는 회귀가 나서 되돌림.
+  //  계단현상은 SMAAPass 같은 후처리 AA로 따로 잡아야 한다 — HANDOFF 참조.)
+  const composer = new EffectComposer(renderer);
   const renderPass = new RenderPass(scene, camera);
   composer.addPass(renderPass);
   // NaN 스크럽 — 어떤 재질 셰이더가 NaN/Inf 픽셀을 내면 UnrealBloom 밉 블러가 그걸
