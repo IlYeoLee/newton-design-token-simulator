@@ -200,13 +200,11 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
 /* ── NEWTON 디자인 시스템 · 다크모드 컬러 시스템(Figma 222-37297 정본) ─────────
    시뮬레이터 '겉면'(패널·버튼·자막)에만 적용한다. 빔 투사 UI는 손대지 않는다. */
 @font-face{font-family:'Supreme';src:url('fonts/Supreme-Bold.woff2') format('woff2');font-weight:700;font-display:swap}
-@font-face{font-family:'Supreme';src:url('fonts/Supreme-Medium.woff2') format('woff2');font-weight:500;font-display:swap}
+@font-face{font-family:'Supreme';src:url('fonts/Supreme-Medium.woff2') format('woff2');font-weight:400;font-display:swap}
 /* 한글 = Freesentation(무료 배포본, freesentation.blog). Supreme을 앞에 두면 라틴·숫자는 Supreme,
    한글 글리프만 Freesentation으로 글리프 단위 폴백된다. Pretendard는 최후 폴백으로만 남긴다. */
 @font-face{font-family:'Freesentation';src:url('fonts/Freesentation-4Regular.woff2') format('woff2');font-weight:400;font-display:swap}
-@font-face{font-family:'Freesentation';src:url('fonts/Freesentation-5Medium.woff2') format('woff2');font-weight:500;font-display:swap}
 @font-face{font-family:'Freesentation';src:url('fonts/Freesentation-7Bold.woff2') format('woff2');font-weight:700;font-display:swap}
-@font-face{font-family:'Freesentation';src:url('fonts/Freesentation-8ExtraBold.woff2') format('woff2');font-weight:800;font-display:swap}
 @font-face{font-family:'Pretendard';src:local('Pretendard Variable'),local('Pretendard'),
   url('fonts/Pretendard-Bold.woff2') format('woff2');font-weight:400 700;font-display:swap}
 :root{
@@ -230,10 +228,10 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
   --t-bodyb:700 16px/1.5 var(--ds-font);--ls-body:-.5px;
   --t-bodyr:400 16px/1.5 var(--ds-font);
   --t-b15b:700 15px/1.4 var(--ds-font); --t-b15r:400 15px/1.4 var(--ds-font);
-  --t-b14m:500 14px/1.4 var(--ds-font);
+  --t-b14m:400 14px/1.4 var(--ds-font);
   --t-capb:700 13px/1.2 var(--ds-font); --ls-capb:-.2px;
   --t-capr:400 13px/1.2 var(--ds-font); --ls-capr:-.5px;
-  --t-labm:500 12px/1.2 var(--ds-font); --ls-lab:-.5px;
+  --t-labm:400 12px/1.2 var(--ds-font); --ls-lab:-.5px;
   --t-labr:400 12px/1.2 var(--ds-font);
   --t-labs:400 11px/1.2 var(--ds-font);
   --t-micro:400 10px/1.5 var(--ds-font);
@@ -250,13 +248,13 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
 #play-panel .pp-sub, #lab-panel .pp-sub{font-size:11px;color:var(--d-t3)}
 #play-panel .pp-brand .pp-dot{background:var(--nb-red)}
 #play-panel .pp-pack{border-radius:12px;border-color:var(--d-border);background:var(--d-bg-sub);color:var(--d-t2);
-  font-size:12px;font-weight:500;letter-spacing:-.5px}
+  font-size:12px;font-weight:400;letter-spacing:-.5px}
 #play-panel .pp-pack:hover{background:var(--d-surface);color:var(--d-white)}
 #play-panel .pp-pack.on{border-color:var(--nb-red);background:rgba(250,48,48,.16);color:var(--nb-red)}
 #play-panel .pp-stage{font:var(--t-t2);letter-spacing:var(--ls-t2);color:var(--d-title)}
 #play-panel .pp-meta{font:var(--t-capr);letter-spacing:var(--ls-capr);color:var(--d-t2)}
 #play-panel button.pp-btn, #play-panel .pp-tg{border-radius:12px;border-color:var(--d-border);background:var(--d-bg-sub);
-  color:var(--d-body);font-size:12px;font-weight:500;letter-spacing:-.5px}
+  color:var(--d-body);font-size:12px;font-weight:400;letter-spacing:-.5px}
 #play-panel button.pp-btn:hover, #play-panel .pp-tg:hover{background:var(--d-surface);color:var(--d-white)}
 #play-panel button.pp-cta{border-color:var(--nb-red);background:rgba(250,48,48,.18);color:var(--nb-red)}
 #play-panel .pp-tg.on{border-color:var(--nb-sand);background:rgba(254,195,137,.14);color:var(--nb-sand)}
@@ -285,7 +283,7 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
 #voice-caption{border-radius:99px;background:rgba(18,18,18,.92);border:1px solid var(--d-border);
   font:var(--t-b15r);letter-spacing:var(--ls-body);color:var(--d-title)}
 #dev-pill{border-radius:10px;border:1px solid var(--d-border);background:rgba(18,18,18,.9);color:var(--d-t3);
-  font-size:11px;font-weight:500}
+  font-size:11px;font-weight:400}
 </style>
 </head>
 <body>
