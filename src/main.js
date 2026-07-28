@@ -2745,7 +2745,7 @@ void main(){
     BX_B3:    ['bx_b3_jab.mp4',     '시범 — 잽 스윕'],
     BX_C2:    ['bx_c2_spar.mp4',    '상대 — 잽 대련'],
     BX_C3:    ['bx_c3_combo.mp4',   '상대 — 잽잽훅 콤비'],
-    BX_C4:    ['bx_c4_cooldown.mp4','상대 — 마무리 호흡'],
+    BX_C4:    ['bx_c4_cooldown.mp4','고수 — 마무리 호흡'],
   };
   let ghostClipCur = '', ghostClipWant = null;
   // 반입 검사: HEAD + content-type — 데브 서버는 없는 파일에 404 대신 index.html(SPA 폴백)을

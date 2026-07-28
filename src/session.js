@@ -589,7 +589,7 @@ export const STAGES = {
     { id:'BX_B2', wall:true, gate:true, label:'B2 · 익히기 2/3 — 회피 스텝', voice:['고수','머리를 좌우로 슬립. 존 밖으로 피해요.'], cue:'회피형 점선 존' },
     { id:'BX_B3', wall:true, gate:true, label:'B3 · 익히기 3/3 — 잽 스윕', voice:['고수','스윕 따라 주먹 뻗고 타겟에 정렬.'], foot:'두 번 탭 → 실전 준비' },
     { id:'BX_T2', wall:true, label:'T2 · 전환 — 5초 뒤 실전 시작', voice:['고수','5초 뒤 넘어가요. 준비됐으면 두 번 탭.'], dur:5, count:true, foot:'두 번 탭 = 즉시 · 무입력 = 자동' },
-    { id:'BX_C1', wall:true, dur:3, label:'C1 · 실전 1/4 — 시작 신호', voice:['시스템','3, 2, 1. 대련 시작.'], hap:'시작 진동', foot:'두 번 탭 → 시작' },
+    { id:'BX_C1', wall:true, dur:3, label:'C1 · 실전 1/4 — 시작 신호', voice:['고수','좋아요, 이제 나랑 붙어봐요. 셋, 둘, 하나!'], hap:'시작 진동', foot:'두 번 탭 → 시작' },
     { id:'BX_C2', wall:true, dur:6, live:true, label:'C2 · 실전 2/4 — 잽 대련', voice:['고수','타겟 뜨면 바로 잽.'], wear:'SAFE 가드 안정화' },
     { id:'BX_C3', wall:true, dur:6, live:true, boost:true, label:'C3 · 실전 3/4 — 콤비네이션', voice:['고수','잽-잽-훅! 리듬 놓치지 말고.'], wear:'BOOST 스텝 추진', cue:'구간 종료 Match Rate' },
     { id:'BX_C4', wall:true, live:true, cooldown:true, label:'C4 · 실전 4/4 — 마무리', voice:['시스템','가드 내리고 숨 고르기. 좋았어요.'], hap:'완료 진동' },
