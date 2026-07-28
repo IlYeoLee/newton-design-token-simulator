@@ -207,6 +207,8 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
 @font-face{font-family:'Freesentation';src:url('fonts/Freesentation-7Bold.woff2') format('woff2');font-weight:700;font-display:swap}
 @font-face{font-family:'Pretendard';src:local('Pretendard Variable'),local('Pretendard'),
   url('fonts/Pretendard-Bold.woff2') format('woff2');font-weight:400 700;font-display:swap}
+/* 바닥 UI 숫자(카운트다운·km) 전용 — WebGL 캔버스로 그리려면 메인 문서에 등록돼 있어야 한다(floorgl.js) */
+@font-face{font-family:'OffBit';src:url('fonts/OffBitTrial-DotBold.woff2') format('woff2');font-weight:700;font-display:swap}
 :root{
   /* Brand */
   --nb-red:#FA3030; --nb-coral:#FE6E3C; --nb-sand:#FEC389; --nb-prism:#D1FEFF;
@@ -727,6 +729,8 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
     <button id="fxlab-close" style="position:absolute;top:14px;right:20px;z-index:101;padding:8px 16px;border:1px solid #fec389;border-radius:8px;background:rgba(11,13,17,.92);color:#fec389;font-size:12px;font-weight:700;cursor:pointer;">✕ 시뮬로 돌아가기 (자동 저장됨)</button>
   </div>
 
+  <!-- 바닥 UI 장면 데이터(타이틀·큐) — WebGL 경로(floorgl.js)가 메인 문서에서 읽는다. CSS3D 경로도 같은 파일을 쓴다. -->
+  <script src="ready-view/floor-scenes.js"></script>
   <script type="module" src="/src/main.js"></script>
 </body>
 </html>

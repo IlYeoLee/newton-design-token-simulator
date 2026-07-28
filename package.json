@@ -16,6 +16,7 @@
     "vite": "^7.0.0"
   },
   "devDependencies": {
+    "pngjs": "^7.0.0",
     "puppeteer": "^25.3.0"
   }
 }

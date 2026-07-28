@@ -18,6 +18,7 @@ import { SceneScope } from './studio/scene-scope.js';
 import { DesignStore } from './studio/store.js';
 import { loadSvg } from './studio/design.js';
 import { initBudgetPanel } from './budgetPanel.js';
+import { FloorGL } from './floorgl.js';   // 바닥 UI WebGL 이식(B안) — ?floorgl=1
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { CSS3DRenderer, CSS3DObject } from 'three/examples/jsm/renderers/CSS3DRenderer.js';
 import { getLUT, FXP, rebuildLUT, lutColor, GLYPHS, FX_GLSL } from './fxlut.js';
@@ -2491,7 +2492,7 @@ void main(){
             }
           });
         }
-        if (floorObj.visible) {
+        if (floorObj.userData.shown) {   // CSS3D·WebGL 어느 경로든 프레임이 떠 있으면 코치 패널도 같은 기준계
           co.plane.quaternion.copy(floorObj.quaternion);
           co._fwd.set(0, 1, 0).applyQuaternion(floorObj.quaternion);
           // 시범 = 코치 영상 중앙 크게(초점 하나) — 원래 관찰 배치
@@ -4437,6 +4438,7 @@ void main(){
     rig, xbot, state, session, sceneScope, camera, controls, tokens, effects, scene, editor3d, sceneUI, FXP, designStore, TCFG, editCam, editControls, judge, THREE,
     renderer, demoVideo, renderDemoPanel, renderBxPerson,
     get floorObj() { return floorObj; },
+    get floorGL() { return floorGL; },
     get demoSeg() { return demoSeg; }, initDemoSeg,
     makeImageSegmenter: async () => {
       const fileset = await FilesetResolver.forVisionTasks(import.meta.env.BASE_URL + 'mediapipe-wasm');
@@ -4591,7 +4593,7 @@ void main(){
     {
       const tp = trainPhase();
       try {
-        const fdoc = floorIframe.contentDocument;
+        const fdoc = fdocNow();
         // 반복형 스테이지(워밍업)의 도트 로딩바 = 시간이 아니라 '남은 횟수' 진행도.
         // 기존엔 --dur CSS 애니메이션이라 반복을 아무리 해도 안 차 보였음(유저: '프로그래스바가 안 찬다').
         // B1 헤더 스왑 — repTotal 게이트 '밖'이어야 한다: 셋업 동안 틱이 repTotal=null로 두고
@@ -4709,7 +4711,7 @@ void main(){
         const TARGET_KM = 5, LIVE_SECS = 22;   // 목표 5km(유저 세팅), 라이브 구간 동안 0→5 채움(데모)
         session._liveKm = Math.min(TARGET_KM, (session._liveKm ?? 0) + (_uiDt / LIVE_SECS) * TARGET_KM);
         try {
-          const fdoc = floorIframe.contentDocument;
+          const fdoc = fdocNow();
           const kn = fdoc?.getElementById('km-n');
           if (kn) { const v = session._liveKm.toFixed(2); if (kn.textContent !== v) kn.textContent = v; }
           const tgtSpm = Math.round(60 / (tokens._beatT || 0.39));
@@ -4759,7 +4761,7 @@ void main(){
         window.__mySpm = my;   // 실전 플로어 UI(V5 스트립)가 소비
 
         try {
-          const me = floorIframe.contentDocument?.getElementById('spm-me');
+          const me = fdocNow()?.getElementById("spm-me");
           if (me && my) {
             me.textContent = my;
             const tgt2 = Math.round(60 / (tokens._beatT || 0.39));
@@ -5309,6 +5311,13 @@ void main(){
   floorObj.visible = false;
   frameCssScene.add(floorObj);
   let loadedFloorView = null;
+  // ── 바닥 UI WebGL 경로(B안, 플래그 병행) — CSS3D와 같은 변환을 받는 평면. 깊이 테스트로 x봇에 가려진다.
+  //   ?floorgl=1 일 때 floor-scene.html 스테이지만 이 경로를 타고, 나머지는 기존 CSS3D 그대로.
+  const FLOORGL = new URLSearchParams(location.search).get('floorgl') === '1';
+  const floorGL = new FloorGL();
+  scene.add(floorGL.mesh);
+  let floorGLOn = false;   // 이번 프레임에 WebGL 경로가 담당하는가
+  const fdocNow = () => (floorGLOn ? floorGL.doc : floorIframe.contentDocument);
   let _uiDt = 0.016;      // loop에서 매 프레임 실시간 dt 주입 (UI 앵커 저역통과용)
   let _wasLive = false;   // 라이브 진입 에지 감지 — loopShiftZ 드리프트 재정렬용
   let _fpSmooth = null;   // 프레임·발자국 앵커용 저역통과 풋프린트 — 빔 흔들림(투사오차 지터) 제거해 글자 삐걱임 방지
@@ -5434,30 +5443,39 @@ void main(){
     // 실전 라이브 러닝에서도 플로어 프레임(타이틀·큐·판정 헤더) 유지 — 껐더니 러닝 UI·판정토큰이 사라져 화면이 비었음(유저 되돌림).
     const fView = isFloorSport ? FLOOR_FRAMES[session.curStage?.id] : null;   // 실전도 기본 타이틀 구조는 유지(유저)
     const fp = rig._fp;   // 무릎 투사 풋프린트 (rig.update가 매 프레임 세팅)
-    floorObj.visible = !!fView && !!fp;
+    // WebGL 경로가 담당하는 스테이지면 CSS3D는 끈다(둘 중 하나만 그린다 — 이중 표시 금지).
+    floorGLOn = FLOORGL && !!fView && !!fp && FloorGL.handles(fView.src);
+    const floorShown = !!fView && !!fp;
+    floorObj.visible = floorShown && !floorGLOn;
+    floorObj.userData.shown = floorShown;   // 코치 패널 등 '프레임 기준계' 소비처용(경로 무관)
+    floorGL.mesh.visible = floorGLOn;
     // 👁 커버리지 채움판(footFill, 원시 빔 추종)과 플로어 프레임(저역통과 앵커)이 같은 자리에
     // 미세 오프셋 2겹으로 보임(유저) → 프레임 표시 중엔 채움판 숨김, 빔 라인(floorBeam)은 유지
     if (rig.footFill) rig.footFill.visible =
-      (state.pack === 'running' || state.pack === 'basketball') && rig.visualize !== false && !floorObj.visible;
+      (state.pack === 'running' || state.pack === 'basketball') && rig.visualize !== false && !floorShown;
     // 시작 페이지(READY/BK_READY)=발자국까지 전부 숨김(UI 전담). A/B/C 운동중=발자국은 콘텐츠라 유지, 프레임은 헤더만 대체.
     const isStartPage = session.curStage?.id === 'READY' || session.curStage?.id === 'BK_READY';
     // 팩 판정 토큰 필드 표시 정책(단일 소스): 세션 중엔 라이브에만, 릴리즈(C4)는 슛 집중 위해 제외.
     // 비실전(스트레칭·전환·리포트)에 무관한 마커가 떠 있던 근본(유저 전 화면 검수 지적).
     // 농구 실전(BK_C2)은 마크 판정 토큰만 쓴다 — 팩 판정 필드(레인·존)는 끈다(유저).
-    if (isFloorSport) tokens.floorRoot.visible = !(floorObj.visible && isStartPage)
+    if (isFloorSport) tokens.floorRoot.visible = !(floorShown && isStartPage)
       && (!session.active || (session.isLive && session.stage !== 'BK_C4' && session.stage !== 'BK_C2'));
     // 실전(BK_C2)은 지면 프레임 타이틀만 쓰고, 세션이 그리는 위/아래 큐 텍스트는 끈다(유저).
     if (session.active && session.stage === 'BK_C2') {
       [session.slotFS, session.slotFL, session.slotFM, session.dirSlot, session.countGroup, session.countRing]
         .forEach(o => { if (o) o.visible = false; });
     }
-    if (floorObj.visible) {
+    if (floorShown) {
       if (fView.src !== loadedFloorView) {
-        floorWrap.style.width = fView.w + 'px';    // 래퍼가 CSS3D 변환·크기의 주체
-        floorWrap.style.height = fView.h + 'px';
         const dur = STAGE_DUR[session.curStage?.id] ?? session.curStage?.dur ?? 8;
         const _sid2 = session.curStage?.id;
-        const pvSuffix = stepPreviewSec(_sid2) ? `&pv=${stepPreviewSec(_sid2).toFixed(2)}&pvn=${stepLoops(_sid2)}` : '';
+        const pv = stepPreviewSec(_sid2), pvn = pv ? stepLoops(_sid2) : 0;
+        if (floorGLOn) {
+          floorGL.load(_sid2, { dur, pv: pv || 3, pvn });
+        } else {
+        floorWrap.style.width = fView.w + 'px';    // 래퍼가 CSS3D 변환·크기의 주체
+        floorWrap.style.height = fView.h + 'px';
+        const pvSuffix = pv ? `&pv=${pv.toFixed(2)}&pvn=${pvn}` : '';
         const durSuffix = fView.src.includes('floor-scene.html') ? '&dur=' + dur + pvSuffix : '';
         // 더블 버퍼 교체 — 새 문서는 뒤 버퍼(shadow div)에 주입되고, 완성된 뒤에만 앞으로 나온다(검은 공백 0)
         const back = floorIframeBack;
@@ -5469,9 +5487,11 @@ void main(){
           floorIframe.style.visibility = 'hidden';
           const t = floorIframe; floorIframe = back; floorIframeBack = t;
         });
+        }
         loadedFloorView = fView.src;
         _fpSmooth = null;   // 스테이지 전환 = 앵커 스냅(슬라이딩 방지)
       }
+      if (floorGLOn) floorGL.update(_uiDt);
       // 읽는 UI(프레임·발자국)는 빔 흔들림(투사오차 지터, 무릎 각속도 비례 — 다리 스윙 때 최대)을 그대로
       // 따르면 글자가 삐걱임(유저). 앵커를 저역통과(≈90ms 시정수)해 인물 총체 이동만 남기고 지터 제거.
       // 빔·토큰은 원본 rig._fp 그대로라 '정직한 흔들림' 유지 — 읽기용 콘텐츠만 안정화.
@@ -5500,10 +5520,14 @@ void main(){
       floorObj.quaternion.setFromRotationMatrix(_mBasis);
       floorObj.position.set(cx, 0.012, cz);
       floorObj.scale.set(sUni, sUni, 1);
+      // WebGL 평면 = 같은 변환(CSS3D는 요소 +Y가 화면 아래 = 로컬 -Y라 평면 지오메트리와 축이 일치한다)
+      floorGL.mesh.quaternion.copy(floorObj.quaternion);
+      floorGL.mesh.position.copy(floorObj.position);
+      floorGL.mesh.scale.copy(floorObj.scale);
       session.frameSlots = null;   // 슬롯 카드 레이아웃 은퇴(유저: 시범→따라하기 순차 문법으로 확정)
       try {
         // 라이브(B 페이스·C 실전) = 최소 UI(유저): 진입 2.5s 후 타이틀·큐·도트 페이드 — 판정 큐만 남김.
-        const doc = floorIframe.contentDocument;
+        const doc = fdocNow();
         if (doc) {
           // 훈련(P1~P4)은 정보 학습 단계 → 페이드 제외(타이틀·설명·하단 라이브 정보 상시 유지).
           // B 페이스·C 실전만 진입 2.5s 후 최소 UI로 페이드.
