@@ -33,19 +33,29 @@ x봇 위로 통과한다. 지금은 봇 실루엣을 캔버스로 덮는 마스�
 (A안 = foreignObject SVG 래스터화는 폰트 인라인 3.2MB·CSS 애니메이션 재굽기 때문에 기각)
 
 **절대 깨뜨리지 않는 절차**
-1. 기존 CSS3D 경로는 **그대로 둔다**. 캔버스 버전을 `?floorgl=1` 플래그 뒤에 새로 만든다.
+1. ~~기존 CSS3D 경로는 **그대로 둔다**. 캔버스 버전을 `?floorgl=1` 플래그 뒤에 새로 만든다.~~ **완료(`333298f`)**
 2. 헤드리스로 두 경로 비교 검증 — 스테이지별 타이틀·도트·타이머 위치/크기 픽셀 비교 + **봇 뒤에서 UI가 실제로 가려지는지** 렌더 픽셀로 확인.
 3. 통과한 문서부터 기본값 전환: `floor-scene` → `floor-transition` → `floor-timer` → `floor-report` → `floor.html/floor-bk.html`.
 4. **전부 넘어간 뒤에** `updateFloorClipHole`(마스크 오버레이) 삭제.
 
-**이식 대상 내용**(대부분 기존 유틸로 커버): 타이틀·큐 텍스트(`makeTextMesh`), 도트 프로그래스(원 10개 + 클립),
-프리뷰/카운트다운 링(`waveRingMesh`+아크), 숫자(`drawNumber`), 리포트 3열 수치.
+**① 완료분** — `src/floorgl.js`. `floor-scene.html`(러닝·농구 운동중 18스테이지)을 canvas 2D →
+`CanvasTexture` 평면으로 이식. 노드가 **그리기 스펙 겸 DOM 스텁**이라 `main.js`의 구동 코드
+(`fdoc.getElementById(…).textContent/style`)는 한 줄도 안 고쳤다 — `fdocNow()`가 경로만 갈아끼운다.
+- 씬 소속 + `depthTest:true` 이므로 x봇 가림은 깊이 버퍼가 담당(마스크 불필요).
+- 캔버스는 대지의 절반 해상도(`K=0.5`), 다시 그리기는 값 변화 있을 때만·최대 22fps.
+- 장면 데이터(`floor-scenes.js`)와 OffBit 폰트를 `index.html`에 등록(캔버스가 읽어야 해서).
+- 검증: 18스테이지 전수 진입 에러 0·전부 렌더(`tmp_qa_floorwalk.mjs`), 기본 경로 회귀 에러 0.
+- 이식하며 뺀 것: 0.7초 페이드는 즉시 전환, 링 회전 팁 SVG는 같은 자리 빨간 점,
+  `follow-view`(빈 박스, 시각 요소 없음)는 생략.
+
+**남은 이식 대상**: `floor-transition` · `floor-timer` · `floor-report` · `floor.html/floor-bk.html`
+(전환 카드 일러스트·3·2·1 카운트다운·리포트 3열 수치).
 
 ## 남은 이슈
 
 | # | 내용 |
 |---|---|
-| 1 | 바닥 UI WebGL 이식(위 계획) — 착수 전 |
+| 1 | 바닥 UI WebGL 이식 — ①(floor-scene) 완료·플래그 뒤. ②검증 확대 → ③문서별 기본값 전환 → ④마스크 삭제 |
 | 2 | 스텝백 방향: 영상은 사이드(실측 오른발 u 0.53→-0.19), 마크는 앞으로 전진. **C안(대각선 = 뒤+옆, L·R 교차 금지) 합의됨** — `SB_POSE`만 고치면 됨 |
 | 3 | `Quiet On`(복싱)·`Press On`(농구)은 카피에만 있고 구현 없음. 개입은 SAFE/BOOST/햅틱 셋뿐 |
 | 4 | 실전 C2 판정을 유저 발 위치로 연결(지금은 영상 재생 위치 기준 시범) |
