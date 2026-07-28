@@ -2242,11 +2242,10 @@ void main(){
         varying vec2 vUv; uniform sampler2D map; uniform sampler2D uLUT; uniform float uTime, uCropOff, uCropScale, uSat, uPulse, uReady;
         vec3 lut(float v){ return texture2D(uLUT, vec2(clamp(v, 0.004, 0.996), 0.5)).rgb; }
         vec2 crop(vec2 uv){ return vec2(uv.x, uCropOff + uv.y * uCropScale); }
-        // 그린 제거 + '깜깜한 픽셀은 인물이 아니다' 가드 — 디코딩 공백/빈 프레임은 전부 검정이라
-        //   초록 판정만 쓰면 마스크가 1이 되어 판 전체가 검은 사각형/LUT 주황으로 칠해진다(유저 스샷).
+        // 그린 제거만. (빈 프레임 방지는 픽셀 휘도가 아니라 프레임 단위 uReady가 담당 —
+        //  픽셀로 자르면 그림자·모자·옷주름이 통째로 뚫린다: 실측 피사체 14% 소실)
         float mask1(vec2 uv){ vec3 c = texture2D(map, crop(uv)).rgb; float k = c.g - max(c.r, c.b);
-          float lum = dot(c, vec3(0.299, 0.587, 0.114));
-          return (1.0 - smoothstep(0.04, 0.14, k)) * smoothstep(0.015, 0.06, lum); }
+          return 1.0 - smoothstep(0.04, 0.14, k); }
         float ch(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7)))*43758.5453); }
         float vn(vec2 p){ vec2 i=floor(p),f=fract(p); f=f*f*(3.0-2.0*f);
           return mix(mix(ch(i),ch(i+vec2(1,0)),f.x),mix(ch(i+vec2(0,1)),ch(i+vec2(1,1)),f.x),f.y); }
@@ -2314,6 +2313,24 @@ void main(){
     return co;
   }
   // 시크 직전 프레임 고정 / 새 프레임 도착 시 해제 — 루프 순간 검은 깜빡임 방지
+  // 프레임이 실제로 '그림'인지 8×8 축소 샘플로 확인(4Hz) — 디코딩 공백/빈 프레임이면 평균 휘도 ≈ 0.
+  const _blankCv = document.createElement('canvas'); _blankCv.width = _blankCv.height = 8;
+  const _blankCtx = _blankCv.getContext('2d', { willReadFrequently: true });
+  function frameHasImage(co) {
+    const now = performance.now();
+    if (now - (co._blankT || 0) < 250) return co._frameOk !== false;
+    co._blankT = now;
+    const v = co.video;
+    if (!v.videoWidth) return (co._frameOk = false);
+    try {
+      _blankCtx.drawImage(v, 0, 0, 8, 8);
+      const px = _blankCtx.getImageData(0, 0, 8, 8).data;
+      let sum = 0;
+      for (let i = 0; i < px.length; i += 4) sum += (px[i] * 0.299 + px[i + 1] * 0.587 + px[i + 2] * 0.114) / 255;
+      co._frameOk = (sum / 64) > 0.02;
+    } catch (e) { co._frameOk = true; }   // 크로스오리진 등 판독 불가 시엔 통과
+    return co._frameOk;
+  }
   function freezeCoach(co) {
     const v = co.video;
     if (!v.videoWidth || co._frozen) return;
@@ -2416,7 +2433,8 @@ void main(){
         // 빨간 방사형 사각형으로 0.x초 깜빡이던 것 방지(유저). readyState≥3(HAVE_FUTURE_DATA)+재생 시작 후.
         // 루프 순간 currentTime이 0으로 되감겨 매 루프 1~2프레임 숨김 → 깜빡임(유저). 첫 표시 후 래치.
         co.mat.uniforms.uReady.value = (co._frozen ? (co.fz.width > 2 ? 1 : 0)
-          : (co.video.readyState >= 2 && co.video.videoWidth > 0 && !co.video.seeking && co.video.currentTime > 0.03)) ? 1 : 0;
+          : (co.video.readyState >= 2 && co.video.videoWidth > 0 && !co.video.seeking
+             && co.video.currentTime > 0.03 && frameHasImage(co))) ? 1 : 0;
         const coLive = co.video.readyState >= 3 && !co.video.seeking && co.video.currentTime > 0.03
                     && (id !== 'BK_A1' || _coachSeekId === id);   // 시크 전 프레임은 보여주지 않는다
         if (coLive) co._live = true;
