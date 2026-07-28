@@ -15,6 +15,8 @@ const W = 1600, H = 2670;   // 대지 px (floor-scene.html과 동일)
 //   0.5 = 글자가 흐리다(유저) / 1.0 = 프레임당 17MB 업로드라 전체가 느려진다(유저).
 //   0.75(1200×2002, 9.6MB)가 두 불만을 모두 피하는 지점. 업로드는 값이 바뀐 프레임에만 일어난다.
 const K = 0.75;
+// ?uifps=N — UI 텍스처 재도색 주기(기본 24). 끊김·깜빡임이 업로드 때문인지 가르는 스위치.
+const UI_FPS = Math.max(4, Math.min(60, +(new URLSearchParams(location.search).get('uifps')) || 24));
 
 const CX = W / 2;
 const RED = PAL.red;
@@ -263,7 +265,7 @@ export class FloorGL {
     // 값이 안 바뀌면 아래 서명 비교에서 또 걸러지므로 정지 화면은 업로드 0이다(실측 0.9회/초).
     // ponytail: 진짜 해법은 정적 텍스트와 움직이는 요소(도트·링)를 별도 평면으로 쪼개는 것 —
     //   그러면 매 프레임 올리는 텍스처가 수백 KB로 떨어진다. HANDOFF에 계획으로 남김.
-    if (this.t - (this._lastPaint ?? -1) < 0.041) return;
+    if (this.t - (this._lastPaint ?? -1) < 1 / UI_FPS) return;
     const sig = this._sigOf();
     if (sig === this._sig) return;
     this._sig = sig; this._lastPaint = this.t;

@@ -14,6 +14,8 @@ import { clamp01, eOut, cycle, kf, intro, drawChars } from './floorgl.js';
 
 const W = 2600, H = 1600;   // 대지 px (벽 2.6×1.6m 실측 1:1)
 const K = 0.75;             // 캔버스 해상도 — 바닥과 같은 저울(화질 vs 업로드 비용)
+// ?uifps=N — UI 텍스처 재도색 주기(기본 24). 끊김·깜빡임이 업로드 때문인지 가르는 스위치.
+const UI_FPS = Math.max(4, Math.min(60, +(new URLSearchParams(location.search).get('uifps')) || 24));
 const CX = W / 2;
 const INF = Infinity;
 
@@ -185,7 +187,7 @@ export class WallGL {
     this.t += dt;
     // 24fps — 벽 UI는 상시 모션(글로우 드리프트·웨이브)이라 서명 비교로 걸러질 게 없다.
     // ponytail: 정적/동적 평면 분리는 바닥과 같은 계획(HANDOFF). 지금은 한 장.
-    if (this.t - this._lastPaint < 0.041) return;
+    if (this.t - this._lastPaint < 1 / UI_FPS) return;
     this._lastPaint = this.t;
     this._paint();
     this.tex.needsUpdate = true;
