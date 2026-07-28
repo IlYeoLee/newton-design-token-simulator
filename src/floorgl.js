@@ -18,7 +18,10 @@ const K = 0.75;
 // UI 재도색 주기. 모션을 이식한 뒤로 정지 화면이 없어져 매 틱 9.4~9.6MB 텍스처가 올라간다
 // (24fps = 230MB/s). 씬 애니메이션이 '드드드득' 끊긴 원인 — UI 프레임을 씬보다 낮게 잡고
 // 남는 예산을 봇·영상에 돌려준다. ?uifps=N 으로 8~60 비교 가능.
-const UI_FPS = Math.max(4, Math.min(60, +(new URLSearchParams(location.search).get('uifps')) || 12));
+const UI_FPS = Math.max(4, Math.min(60, +(new URLSearchParams(location.search).get('uifps')) || 60));
+// 동적 레이어 해상도 — 움직이는 것(도트바·링·숫자)은 큰 형상이라 낮은 해상도로 충분하다.
+// 0.34 → 544×908 = 2.0MB. 정적 레이어(9.6MB)는 값이 바뀔 때만 올라가므로 정지 화면은 0.
+const KL = 0.34;
 
 const CX = W / 2;
 const RED = PAL.red;
@@ -227,6 +230,16 @@ export class FloorGL {
       // depthWrite:false — 반투명 UI. depthTest는 켠 채로 두는 게 이 이식의 전부다(x봇에 가려짐).
       new THREE.MeshBasicMaterial({ map: this.tex, transparent: true, depthWrite: false, toneMapped: false }),
     );
+    // ── 동적 레이어 — 도트바·링·숫자만. 작은 캔버스라 60fps 로 올려도 정적의 1/5 비용.
+    this.canvasL = document.createElement('canvas');
+    this.canvasL.width = Math.round(W * KL); this.canvasL.height = Math.round(H * KL);
+    this.ctxL = this.canvasL.getContext('2d');
+    this.texL = new THREE.CanvasTexture(this.canvasL);
+    this.texL.colorSpace = THREE.SRGBColorSpace; this.texL.minFilter = THREE.LinearFilter;
+    this.meshL = new THREE.Mesh(this.mesh.geometry,
+      new THREE.MeshBasicMaterial({ map: this.texL, transparent: true, depthWrite: false, toneMapped: false }));
+    this.meshL.renderOrder = 4;   // 부모(mesh)가 꺼지면 같이 꺼진다
+    this.mesh.add(this.meshL);   // 정적 평면의 자식 — 변환을 그대로 따라간다
     this.mesh.visible = false;
     this.mesh.renderOrder = 3;
     this.stage = null; this.map = new Map(); this.col = []; this.t = 0; this._sig = null;
@@ -292,9 +305,12 @@ export class FloorGL {
     this.map.set('prev-row', b.col.find(n => n.type === 'prevRow') || node('prev-row'));
   }
 
-  // 변경 없으면 다시 안 그린다 — 1600×2670 텍스처 업로드가 프레임 예산을 먹는 걸 막는다.
+  // 매 프레임 값이 바뀌는 것들 — 이것만 동적 레이어로 간다(정적 레이어는 값이 바뀔 때만 올라간다)
+  static LIVE = new Set(['dots', 'prevRow', 'trainRow', 'liveRow', 'km', 'succ']);
+
+  // 정적 레이어 서명 — 시간 항을 뺐다. 시간을 넣으면 매 틱 9.6MB 를 올리게 된다(끊김의 원인).
   _sigOf() {
-    let s = String(Math.round(this.t * 24));
+    let s = this.kind + '|' + this.stage + '|' + Math.round(Math.min(this.t, 12) * 6);   // 인트로 12s 동안만 시간 반영
     for (const n of this.map.values()) s += '|' + n.textContent + JSON.stringify(n.style) + JSON.stringify(n._attr || {});
     return s;
   }
@@ -307,24 +323,35 @@ export class FloorGL {
     // ponytail: 진짜 해법은 정적 텍스트와 움직이는 요소(도트·링)를 별도 평면으로 쪼개는 것 —
     //   그러면 매 프레임 올리는 텍스처가 수백 KB로 떨어진다. HANDOFF에 계획으로 남김.
     if (this.t - (this._lastPaint ?? -1) < 1 / UI_FPS) return;
+    this._lastPaint = this.t;
+    // ① 동적 레이어 — 매 틱(작다: 2.0MB)
+    this._paint('live');
+    this.texL.needsUpdate = true;
+    // ② 정적 레이어 — 값이 바뀔 때만(크다: 9.6MB). 정지 화면이면 업로드 0.
     const sig = this._sigOf();
-    if (sig === this._sig) return;
-    this._sig = sig; this._lastPaint = this.t;
-    FloorGL.uploads++;   // 계측용 — 실제 텍스처 업로드 횟수
-    this._paint();
-    this.tex.needsUpdate = true;
+    if (sig !== this._sig) {
+      this._sig = sig;
+      FloorGL.uploads++;   // 계측용 — 실제 텍스처 업로드 횟수
+      this._paint('static');
+      this.tex.needsUpdate = true;
+    }
   }
 
-  _paint() {
-    const ctx = this.ctx;
-    ctx.setTransform(K, 0, 0, K, 0, 0);
+  _paint(layer = 'static') {
+    const live = layer === 'live';
+    const ctx = this._lay = live ? this.ctxL : this.ctx;
+    const k = live ? KL : K;
+    ctx.setTransform(k, 0, 0, k, 0, 0);
     ctx.clearRect(0, 0, W, H);
-    if (this.kind && this.kind !== 'scene') return this['_paint_' + this.kind]();
+    // 씬이 아닌 화면(시작·전환·타이머·리포트)은 통째로 정적 레이어에 그린다 —
+    // 인트로가 끝나면 서명이 고정돼 업로드가 멈춘다.
+    if (this.kind && this.kind !== 'scene') { if (!live) this['_paint_' + this.kind](); return; }
     let y = zone('title', H);   // 존 — 타이틀 밴드 (구 176)
     for (const n of this.col) {
       if (n.style.display === 'none') continue;
       const h = this._h(n);
       if (n.mt) y += n.mt;
+      if (FloorGL.LIVE.has(n.type) !== live) { y += h + sp('s5', 'run') + (n.mb || 0); continue; }
       if (n.style.visibility !== 'hidden') {
         const e = this._intro(n);
         ctx.save();
@@ -365,7 +392,7 @@ export class FloorGL {
   }
 
   _draw(n, y) {
-    const ctx = this.ctx;
+    const ctx = this._lay || this.ctx;
     switch (n.type) {
       case 'text': return drawText(ctx, n, y, this.t);
       case 'dots': return this._dots(n, y);
@@ -379,7 +406,7 @@ export class FloorGL {
 
   // 도트 프로그래스 — 회색 10개 위 빨강 10개를 좌→우 클립(러닝·농구 동일 컴포넌트)
   _dots(n, y) {
-    const ctx = this.ctx, x0 = CX - 300;
+    const ctx = this._lay || this.ctx, x0 = CX - 300;
     // main.js가 width를 직접 쓰면(반복형 스테이지) 그 값이 우선, 아니면 --dur 시간 진행.
     const w = n.style.width != null ? numOr(n.style.width, 0)
       : 600 * Math.max(0, Math.min(1, (this.t - n.delay) / n.dur));
@@ -390,13 +417,13 @@ export class FloorGL {
   }
 
   _pill(x, y, w, h) {
-    const ctx = this.ctx, r = Math.min(w, h) / 2;
+    const ctx = this._lay || this.ctx, r = Math.min(w, h) / 2;
     ctx.beginPath(); ctx.roundRect(x, y, w, h, r); ctx.fill();
   }
 
   // Preview 필 + 카운트다운 링 (Figma 122:270)
   _prevRow(n, y) {
-    const ctx = this.ctx;
+    const ctx = this._lay || this.ctx;
     const arc = this.map.get('prev-arc'), tip = this.map.get('prev-tip'), num = this.map.get('prev-num');
     // main.js(스텝백)가 dashoffset을 직접 구동하면 그 값, 아니면 CSS arcFill 시간 진행.
     const prog = arc?.style.strokeDashoffset != null
@@ -422,7 +449,7 @@ export class FloorGL {
   }
 
   _ringAt(cx, y, size, prog, color) {
-    const ctx = this.ctx;
+    const ctx = this._lay || this.ctx;
     ctx.save(); ctx.translate(cx - CX, 0);
     drawRing(ctx, { size }, y, Math.max(0, Math.min(1, prog)), color);
     ctx.restore();
@@ -430,7 +457,7 @@ export class FloorGL {
 
   // 케이던스 컴포넌트 — "150 / 150" + 라벨
   _lstat(cx, y, me, tgt, label) {
-    const ctx = this.ctx;
+    const ctx = this._lay || this.ctx;
     ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'center';
     ctx.font = F(700, T.head);
     const a = me || '--', b = tgt || '--';
@@ -464,7 +491,7 @@ export class FloorGL {
   }
 
   _km(n, y) {
-    const ctx = this.ctx;
+    const ctx = this._lay || this.ctx;
     ctx.textBaseline = 'top'; ctx.textAlign = 'center'; ctx.fillStyle = '#fff';
     ctx.font = F(700, NUM_S.lg.run, dot9);
     const v = this.map.get('km-n')?.textContent || '0.00';
@@ -478,7 +505,7 @@ export class FloorGL {
   // ── 공통 조각 ───────────────────────────────────────────────────────────────
   // 빔 글로우 — 원본은 radial 마스크로 사각 모서리를 잘라낸다. 그린 뒤 같은 마스크를 destination-out으로.
   _bgGlow(topY, w = 2200) {
-    const ctx = this.ctx, im = this._img('bg_glow.svg');
+    const ctx = this._lay || this.ctx, im = this._img('bg_glow.svg');
     if (!im) return;
     const h = w * (im.naturalHeight / im.naturalWidth);
     ctx.save();
@@ -503,7 +530,7 @@ export class FloorGL {
 
   // 서브타이틀 + 큰 타이틀 (전환·타이머·리포트 공통 그룹). 반환 = 그룹 아래 y
   _titleGroup(y, sub, ttl) {
-    const ctx = this.ctx, t = this.t;
+    const ctx = this._lay || this.ctx, t = this.t;
     const ty = y + 64 * 1.2 + 8.8, gh = 64 * 1.2 + 8.8 + 140 * 1.05;
     const p = eOut(intro(t, 0.1, 0.8));   // titleIn .8s .1s — 제자리 scale+fade
     ctx.save();
@@ -526,7 +553,7 @@ export class FloorGL {
 
   // 흰 pill 버튼 (전환·리포트 공통). e=등장 진행도 · dy=떠오름 · glow=펄스 세기
   _button(y, text, e = 1, dy = 0, glow = 0) {
-    const ctx = this.ctx, w = 802, h = 80 * 1.2 + 42.614 * 2;
+    const ctx = this._lay || this.ctx, w = 802, h = 80 * 1.2 + 42.614 * 2;
     ctx.save();
     ctx.globalAlpha *= e;
     ctx.translate(0, dy);
@@ -544,7 +571,7 @@ export class FloorGL {
 
   // object-fit:cover 로 이미지를 사각형에 채운다
   _cover(im, x, y, w, h, oy = 0.08) {
-    const ctx = this.ctx, r = Math.max(w / im.naturalWidth, h / im.naturalHeight);
+    const ctx = this._lay || this.ctx, r = Math.max(w / im.naturalWidth, h / im.naturalHeight);
     const dw = im.naturalWidth * r, dh = im.naturalHeight * r;
     ctx.drawImage(im, x + (w - dw) / 2, y + (h - dh) * oy, dw, dh);
   }
@@ -553,7 +580,7 @@ export class FloorGL {
 
   // ── 시작화면 (floor.html / floor-bk.html) ──────────────────────────────────
   _paint_ready() {
-    const ctx = this.ctx, D = READY[/floor-bk/.test(this.params.src) ? 'floor-bk.html' : 'floor.html'], t = this.t;
+    const ctx = this._lay || this.ctx, D = READY[/floor-bk/.test(this.params.src) ? 'floor-bk.html' : 'floor.html'], t = this.t;
     // glowLive 7s ×3 — 숨쉬기 + 드리프트
     const gl = this._img('fig/big_glow.svg');
     if (gl) {
@@ -627,7 +654,7 @@ export class FloorGL {
 
   // 제자리 scale+fade 등장 — 호출자가 save()한 상태에서 부른다
   _fadeIn(y, h, e) {
-    const ctx = this.ctx;
+    const ctx = this._lay || this.ctx;
     ctx.globalAlpha *= e;
     const k = 0.94 + 0.06 * e;
     ctx.translate(CX, y + h / 2); ctx.scale(k, k); ctx.translate(-CX, -(y + h / 2));
@@ -635,7 +662,7 @@ export class FloorGL {
 
   // ── 전환 (floor-transition.html) ───────────────────────────────────────────
   _paint_transition() {
-    const ctx = this.ctx, TR_ = TR[this.stage] || TR.T1, t = this.t;
+    const ctx = this._lay || this.ctx, TR_ = TR[this.stage] || TR.T1, t = this.t;
     this._bgGlow(1160);
     this._titleGroup(zone('title', H), TR_.sub, TR_.title);
     const S = 654.902, GAP = sp('s3', 'run'), P = 52.392, y = zone('graphic', H);
@@ -661,7 +688,7 @@ export class FloorGL {
   }
 
   _card(x, y, S, R, P, D, done) {
-    const ctx = this.ctx;
+    const ctx = this._lay || this.ctx;
     ctx.save();
     this._roundRectPath(x, y, S, S, R); ctx.clip();
     if (done) {
@@ -715,7 +742,7 @@ export class FloorGL {
 
   // ── 실전 직전 카운트다운 (floor-timer.html) ────────────────────────────────
   _paint_timer() {
-    const ctx = this.ctx, M = TM[this.stage] || TM.C1, dur = this.params.dur || 3, t = this.t;
+    const ctx = this._lay || this.ctx, M = TM[this.stage] || TM.C1, dur = this.params.dur || 3, t = this.t;
     this._bgGlow(1160);
     this._titleGroup(zone('title', H), M.sub, M.title);
     const y = zone('graphic', H);
@@ -745,7 +772,7 @@ export class FloorGL {
 
   // ── 세션 리포트 (floor-report.html) ────────────────────────────────────────
   _paint_report() {
-    const ctx = this.ctx, RP_ = RP[this.stage] || RP.FIN, t = this.t;
+    const ctx = this._lay || this.ctx, RP_ = RP[this.stage] || RP.FIN, t = this.t;
     this._bgGlow(1080);
     this._titleGroup(zone('title', H), RP_.sub, RP_.title);
     let y = zone('graphic', H);
@@ -799,7 +826,7 @@ export class FloorGL {
 
   // Success 컴포넌트(Figma 130-2984) — 배지 + 점선 카운트다운 링
   _succ(n, y) {
-    const ctx = this.ctx;
+    const ctx = this._lay || this.ctx;
     // 성취 배지 = 복싱 콤보와 같은 컴포넌트(drawBadge). 구 흰 필 + 이모지는 은퇴.
     const S = 88 / 114.26;   // 지면 배지 높이 88 에 맞춘 스케일
     drawBadge(ctx, CX, y + 44, 'Success!', { scale: S, icon: this._img('flame.svg') });
