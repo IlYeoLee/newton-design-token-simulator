@@ -136,7 +136,7 @@ td.z{color:var(--t4)}
 .sw code{font-family:var(--num);font-size:12px;color:var(--t2);letter-spacing:.2px}
 .sw span{color:var(--t3);font-size:11.5px}
 code.inline{font-family:var(--num);font-size:12.5px;background:var(--bg);border:1px solid var(--divider);
-  padding:1px 6px;border-radius:5px;color:var(--t2)}
+  padding:1px 6px;border-radius:5px;color:var(--t2);overflow-wrap:anywhere}
 
 /* ── 제안 스케일 ── */
 .scale{display:flex;flex-direction:column;gap:2px;margin-top:16px}
@@ -145,6 +145,15 @@ code.inline{font-family:var(--num);font-size:12.5px;background:var(--bg);border:
 .scale .s{font-family:var(--num);font-size:11px;color:var(--t4);width:58px;flex:0 0 auto}
 .scale .d{color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .radii{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
+.zones{display:grid;grid-template-columns:auto auto 1fr;gap:22px;align-items:start;margin-top:16px;min-width:0}
+.zones>*{min-width:0}
+.zwrap{display:flex;flex-direction:column;gap:8px;align-items:center}
+.zwrap canvas{display:block;border-radius:8px;background:var(--surface);border:1px solid var(--divider);max-width:100%;height:auto}
+.zwrap span{font-size:11px;color:var(--t4);font-family:var(--num)}
+.zlegend{display:flex;flex-direction:column;gap:9px;font-size:12.5px;padding-top:4px}
+.zlegend div{display:flex;gap:9px;align-items:center}
+.zlegend i{width:16px;height:3px;border-radius:2px;flex:0 0 auto}
+@media(max-width:720px){.zones{grid-template-columns:1fr 1fr}.zlegend{grid-column:1/-1}}
 .radii div{background:var(--surface);border:1px solid var(--border);padding:16px 18px;text-align:center;min-width:76px}
 .radii span{display:block;font-family:var(--num);font-size:11px;color:var(--t3);margin-top:8px}
 
@@ -204,32 +213,49 @@ footer{padding:36px 0 60px;color:var(--t4);font-size:12.5px}
   <div class="delta" id="markDelta"></div>
 </section>
 
+
 <section>
-  <div class="sec-head"><span class="n">02</span><h2>LINE — 6스타일 <span class="srcbadge repro">재현 — 실제는 LANEFX 셰이더</span></h2></div>
-  <p class="note">아래 그림은 스타일 구분을 보기 위한 재현입니다 — 실제는 <code class="inline">tokens.LANEFX</code> 셰이더가 그립니다. 재료 파라미터(선폭·흐름·간격·글로우·온도)는 이미 룩시스템 안에 있어 레일에 즉시 반응합니다. 다만 라이브에서 실제로 쓰는 스타일은 <code class="inline">solid</code>·<code class="inline">dash</code> 둘뿐 — 나머지 넷은 카탈로그에만 있습니다.</p>
-  <div class="grid6" id="lines"></div>
+  <div class="sec-head"><span class="n">02</span><h2>MARK — 발형 <span class="srcbadge real">정본 셰이더 + 정본 SDF</span></h2></div>
+  <p class="note">같은 7상태 머신을 발 실루엣으로 그린 것(<code class="inline">uShape=1</code> · <code class="inline">uRadius=1.0</code>). 실루엣은 <code class="inline">fxlut.footSDFTexture</code>의 <b style="color:var(--t1)">내장 발 폴백</b>을 <code class="inline">fx-core.sdfFromAlpha</code>로 구운 것입니다 — 저장된 랩 룩에 발 SVG가 없으면 제품도 이걸 씁니다.</p>
+  <p class="note">안의 숫자는 장식이 아니라 <code class="inline">MARK_NUM</code> 규약입니다: 크기 = 쿼드 × <span class="num">0.2333</span>, 앵커 = SDF 실루엣 무게중심(<code class="inline">tex._cx/_cy</code>), 불투명도 = 상태별(<code class="inline">MARK_NUM.opacity</code> — Preview 0.5 · Success/Miss 0). 오른발은 앵커 x를 미러합니다.</p>
+  <div class="strip" id="markFoot"></div>
+  <div class="delta" id="footNote"><span class="head">SDF</span><span class="verdict">실루엣 = <code class="inline">768×768</code> 부호거리장, <code class="inline">edt2d</code> 2패스로 구움. 셰이더는 <code class="inline">texture2D(uSDF2,…).r × 1.9922 / uRadius</code>로 디코드합니다 — 존 원과 <b style="color:var(--t1)">완전히 같은 상태 머신</b>이고 거리함수만 바뀝니다.</span></div>
 </section>
 
 <section>
-  <div class="sec-head"><span class="n">03</span><h2>파생 프리미티브 — 7종 <span class="srcbadge repro">재현 — 실제는 fx-core 캔버스</span></h2></div>
-  <p class="note">아래 그림은 형태·구성을 알아보기 위한 재현입니다(선 굵기·흐름·색만 룩에 반응). 실제 토큰은 <code class="inline">fx-core.js</code>의 정본 캔버스 함수가 그립니다. 아래 배지는 어느 팩이 실제로 쓰는지를 표시합니다 — <b style="color:var(--t1)">5종 중 4종이 복싱 전용</b>이고, 러닝·농구는 궤적 하나만 씁니다.</p>
+  <div class="sec-head"><span class="n">03</span><h2>LINE — 6스타일 <span class="srcbadge real">정본 applyLineStyle</span></h2></div>
+  <p class="note">스타일은 <code class="inline">fx-core.applyLineStyle</code> 정본이 지정합니다(대시 패턴·흐름 오프셋 그대로). 메시 경로(레인)는 같은 값을 <code class="inline">tokens.LANEFX</code> 셰이더로 굽습니다. 재료 파라미터(선폭·흐름·간격·글로우·온도)는 이미 룩시스템 안에 있어 레일에 즉시 반응합니다. 다만 라이브에서 실제로 쓰는 스타일은 <code class="inline">solid</code>·<code class="inline">dash</code> 둘뿐 — 나머지 넷은 카탈로그에만 있습니다.</p>
+  <div class="grid6" id="lines"></div>
+</section>
+
+
+<section>
+  <div class="sec-head"><span class="n">04</span><h2>GLYPH — 슬롯 <span class="srcbadge real">정본 drawGlyph</span></h2></div>
+  <p class="note">숫자·발·촉을 SVG 슬롯으로 갈아끼우는 토큰. <code class="inline">fxlut.drawGlyph</code>는 SVG를 래스터해 <b style="color:var(--t1)">웜 크림 틴트 + 웜 글로우</b>로 칠합니다(마스크 방식이라 원본 SVG 색은 버려짐).</p>
+  <p class="note"><b style="color:var(--t1)">제품 기본 등록은 L·R 둘뿐</b>입니다(<code class="inline">main.js LR_GLYPHS</code>). 숫자 슬롯은 비어 있어 실제 화면에 나오는 건 아래 마지막 칸의 <b style="color:var(--t1)">폴백</b>입니다 — 시스템 폰트에 그림자를 얹은 것으로, 슬롯 글리프와 광학적으로 다릅니다.</p>
+  <div class="grid6" id="glyphs"></div>
+</section>
+
+<section>
+  <div class="sec-head"><span class="n">05</span><h2>파생 프리미티브 — 7종 <span class="srcbadge real">정본 fx-core 캔버스</span></h2></div>
+  <p class="note"><code class="inline">fx-core.js</code>의 정본 함수(<code class="inline">drawStanceBox</code>·<code class="inline">drawPunchLine</code>·<code class="inline">drawApproachRing</code>·<code class="inline">drawTrajectory</code>·<code class="inline">drawRotate</code>·<code class="inline">drawStemArrow</code>·<code class="inline">drawCurveArrow</code>)를 그대로 호출합니다. 파라미터 기본값은 <code class="inline">session.PRIM_DEFAULTS</code>. 아래 배지는 어느 팩이 실제로 쓰는지를 표시합니다 — <b style="color:var(--t1)">5종 중 4종이 복싱 전용</b>이고, 러닝·농구는 궤적 하나만 씁니다.</p>
   <div class="grid5" id="prims"></div>
 </section>
 
 <section>
-  <div class="sec-head"><span class="n">04</span><h2>팩별 사용</h2></div>
+  <div class="sec-head"><span class="n">06</span><h2>팩별 사용</h2></div>
   <p class="note">세션 빌더가 실제로 생성하는 인스턴스 수. 러닝은 발형+레인, 농구는 방향(화살표 7개)이 가장 무겁고, 복싱은 벽 존과 파생 프리미티브 전용입니다.</p>
   <div class="tblwrap"><table id="matrix"></table></div>
 </section>
 
 <section>
-  <div class="sec-head"><span class="n">05</span><h2>룩시스템 밖 — 감사 7건</h2></div>
+  <div class="sec-head"><span class="n">07</span><h2>룩시스템 밖 — 감사 7건</h2></div>
   <p class="note">"모든 것은 온도다"가 실제로는 어디까지만 지켜지는지. 심각도 순.</p>
   <div id="findings"></div>
 </section>
 
 <section>
-  <div class="sec-head"><span class="n">06</span><h2>없는 토큰 — 도입 제안</h2></div>
+  <div class="sec-head"><span class="n">08</span><h2>없는 토큰 — 도입 제안</h2></div>
   <p class="note">투사 UI(<code class="inline">floorgl.js</code>·<code class="inline">wallgl.js</code>)에는 타이포·반경·모션 토큰이 없어 화면마다 상수를 따로 듭니다. 앱 셸이 이미 쓰는 스케일을 대지 좌표(1600×2670 / 2600×1600)로 환산한 안입니다.</p>
 
   <h3 style="margin-top:26px">타이포 — 대지 px</h3>
@@ -238,12 +264,26 @@ footer{padding:36px 0 60px;color:var(--t4);font-size:12.5px}
   <h3 style="margin-top:26px">반경 — 지금 13종 → 5단</h3>
   <div class="radii" id="radii"></div>
 
+  <h3 style="margin-top:30px">간격 — px가 아니라 mm로</h3>
+  <p class="note" style="margin-top:6px">같은 px가 대지마다 다른 실물 크기입니다(<code class="inline">PROJECTION-SPEC</code>): 벽 <span class="num">1 px = 1.00 mm</span> · 지면 러닝 <span class="num">0.73 mm</span> · 지면 농구 <span class="num">0.88 mm</span>. 지금 두 파일이 쓰는 <span class="num">72 px</span>는 벽에서 72 mm, 지면에서 53 mm — 눈에는 다른 간격입니다. 그래서 간격 토큰은 mm로 정의하고 대지에서 환산해야 합니다.</p>
+  <div class="tblwrap"><table id="spacing"></table></div>
+
+  <h3 style="margin-top:30px">타이틀·그래픽존 위치</h3>
+  <p class="note" style="margin-top:6px">지금 타이틀 상단값은 <b style="color:var(--t1)">대지 안에서 8가지</b>입니다 — 화면이 바뀔 때마다 타이틀이 위아래로 튑니다. 아래는 대지 높이 비율로 잡은 밴드 제안(<span style="color:var(--fix-line)">청록</span>)과 현재 값(<span style="color:var(--nb-red)">빨강</span>)을 실제 비율로 겹쳐 그린 것입니다.</p>
+  <div class="zones">
+    <div class="zwrap"><canvas id="zoneFloor"></canvas><span>지면 1600×2670 · 러닝</span></div>
+    <div class="zwrap"><canvas id="zoneWall"></canvas><span>벽 2600×1600 · 복싱</span></div>
+    <div class="zlegend" id="zlegend"></div>
+  </div>
+  <div class="tblwrap" style="margin-top:14px"><table id="titletbl"></table></div>
+
+
   <h3 style="margin-top:26px">모션 — 이미 코드에 있는 것을 이름만 붙이면 됨</h3>
   <div class="scale" id="motion"></div>
 </section>
 
 <section style="border-bottom:none">
-  <div class="sec-head"><span class="n">07</span><h2>지금 값 내보내기</h2></div>
+  <div class="sec-head"><span class="n">09</span><h2>지금 값 내보내기</h2></div>
   <p class="note">레일에서 맞춘 값입니다. <code class="inline">src/fxlut.js</code>의 <code class="inline">FXP</code>에 그대로 붙이면 시뮬레이터에 반영됩니다.</p>
   <textarea id="out" readonly></textarea>
   <button class="btn" id="copy">복사</button>
@@ -284,6 +324,701 @@ const lut=v=>{const i=Math.max(0,Math.min(255,Math.round(v*255)))*4;
 const lutA=(v,a)=>{const i=Math.max(0,Math.min(255,Math.round(v*255)))*4;
   return `rgba(${LUT[i]},${LUT[i+1]},${LUT[i+2]},${a})`};
 
+/* ══ 정본 코드 이식부 ═══════════════════════════════════════════════════
+   아래 블록은 src/fx-core.js · src/fxlut.js 에서 그대로 옮긴 것입니다.
+   (SDF 베이커 · MARK_NUM 앵커 규약 · GLYPHS · drawGlyph/drawNumber ·
+    LINE 스타일 · 파생 프리미티브 7종) — 수정 없이 호출만 합니다.        */
+// ── 정밀 EDT (Felzenszwalb) — 부호 거리장의 정본 ──
+function edt1d(f, d, v, z, n) {
+  let k = 0; v[0] = 0; z[0] = -1e20; z[1] = 1e20;
+  for (let q = 1; q < n; q++) {
+    let s = ((f[q] + q * q) - (f[v[k]] + v[k] * v[k])) / (2 * q - 2 * v[k]);
+    while (s <= z[k]) { k--; s = ((f[q] + q * q) - (f[v[k]] + v[k] * v[k])) / (2 * q - 2 * v[k]); }
+    k++; v[k] = q; z[k] = s; z[k + 1] = 1e20;
+  }
+  k = 0;
+  for (let q = 0; q < n; q++) { while (z[k + 1] < q) k++; d[q] = (q - v[k]) * (q - v[k]) + f[v[k]]; }
+}
+
+function edt2d(f, N) {
+  const d = new Float32Array(N), v = new Int32Array(N), z = new Float32Array(N + 1), q = new Float32Array(N);
+  for (let x = 0; x < N; x++) {
+    for (let y = 0; y < N; y++) q[y] = f[y * N + x];
+    edt1d(q, d, v, z, N);
+    for (let y = 0; y < N; y++) f[y * N + x] = d[y];
+  }
+  for (let y = 0; y < N; y++) {
+    for (let x = 0; x < N; x++) q[x] = f[y * N + x];
+    edt1d(q, d, v, z, N);
+    for (let x = 0; x < N; x++) f[y * N + x] = d[x];
+  }
+}
+
+/** 알파 채널 → float SDF (d/N 무손실 — 8bit 양자화 폐기가 지글거림의 근본 해결이었음).
+ *  반환: { data: Float32Array(N*N), N, cx, cy(실루엣 무게중심 0..1) } */
+
+/** 알파 채널 → float SDF (d/N 무손실 — 8bit 양자화 폐기가 지글거림의 근본 해결이었음).
+ *  반환: { data: Float32Array(N*N), N, cx, cy(실루엣 무게중심 0..1) } */
+function sdfFromAlpha(imgData, N) {
+  const INF = 1e20;
+  const gO = new Float32Array(N * N), gI = new Float32Array(N * N);
+  let cx = 0, cy = 0, cn = 0;
+  for (let i = 0; i < N * N; i++) {
+    const a = imgData[i * 4 + 3] / 255;
+    gO[i] = a >= 1 ? 0 : a <= 0 ? INF : Math.pow(Math.max(0, 0.5 - a), 2);
+    gI[i] = a >= 1 ? INF : a <= 0 ? 0 : Math.pow(Math.max(0, a - 0.5), 2);
+    if (a > 0.5) { cx += i % N; cy += (i / N) | 0; cn++; }
+  }
+  edt2d(gO, N); edt2d(gI, N);
+  const out = new Float32Array(N * N);
+  for (let i = 0; i < N * N; i++) out[i] = (Math.sqrt(gO[i]) - Math.sqrt(gI[i])) / N;
+  return { data: out, N, cx: cn ? cx / cn / N : 0.5, cy: cn ? cy / cn / N : 0.5 };
+}
+
+/** SVG → 비트맵 래스터 + 실픽셀 타이트 바운딩 (9인자 drawImage의 SVG 버그 회피).
+ *  해상도별 이미지 캐시 — 저해상 캐시가 고해상 요청을 누르던 병목 방지. */
+
+/** SVG → 비트맵 래스터 + 실픽셀 타이트 바운딩 (9인자 drawImage의 SVG 버그 회피).
+ *  해상도별 이미지 캐시 — 저해상 캐시가 고해상 요청을 누르던 병목 방지. */
+function glyphRaster(img, S = 512) {
+  const key = '_raster' + S;
+  if (img[key]) return img[key];
+  const c = document.createElement('canvas'); c.width = c.height = S;
+  const g = c.getContext('2d');
+  const sc = Math.min(S / img.naturalWidth, S / img.naturalHeight);
+  g.drawImage(img, 0, 0, img.naturalWidth * sc, img.naturalHeight * sc);
+  const d = g.getImageData(0, 0, S, S).data;
+  let x0 = S, y0 = S, x1 = -1, y1 = -1;
+  for (let y = 0; y < S; y++) for (let x = 0; x < S; x++)
+    if (d[(y * S + x) * 4 + 3] > 8) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+  img[key] = x1 < 0 ? { canvas: c, x: 0, y: 0, w: S, h: S } :
+    { canvas: c, x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1 };
+  return img[key];
+}
+
+/** 글리프 이미지 → float SDF 굽기 (78% fit 중앙 배치 — FX Lab updateFootSDF와 동일 레시피). */
+
+/** 글리프 이미지 → float SDF 굽기 (78% fit 중앙 배치 — FX Lab updateFootSDF와 동일 레시피). */
+function bakeGlyphSDF(img, N, flip = false) {
+  const R = glyphRaster(img, N);
+  const c = document.createElement('canvas'); c.width = c.height = N;
+  const g = c.getContext('2d');
+  const sc = Math.min((N * 0.78) / R.w, (N * 0.78) / R.h);
+  const w = R.w * sc, h = R.h * sc;
+  if (flip) { g.translate(0, N); g.scale(1, -1); }
+  g.drawImage(R.canvas, R.x, R.y, R.w, R.h, (N - w) / 2, (N - h) / 2, w, h);
+  return sdfFromAlpha(g.getImageData(0, 0, N, N).data, N);
+}
+
+// ── 셰이더 디코드 계수 — raw d/N(텍스처 span 기준)을 uv([-1,1]) 기준으로.
+//    구 8bit 인코딩(range=N/4, 127/255)의 유효 배율 역산값. 이 계수가 빠지면
+//    발형 등고선 효과 전부가 2배 폭으로 퍼짐 (실제 사고 이력 있음 — (117)).
+
+// ── 마크 안 숫자(글리프 오버레이) 규약 — FX Lab drawMarkNumOn 정본 수치 ──
+const MARK_NUM = {
+  RATIO: 140 / 600,   // 글리프 크기 = 마크 쿼드의 0.2333배
+  /** 상태별 표시 불투명도: Locked·Active·Hold=1, Preview=0.5, Success·Miss=숨김 */
+  opacity(phase) {
+    if (phase === 0) return 0.5;                 // Preview
+    if (phase === 2 || phase === 4) return 0;    // Success · Miss
+    return 1;                                    // Active · Locked · Hold · Warning
+  },
+  /** numFoot 앵커(0..1 텍스처 좌표, 왼발 기준 저장) → 쿼드 로컬 오프셋. right=x 미러. */
+  anchor(a, right, quadSize) {
+    const ax = right ? 1 - a.x : a.x;
+    return { x: (ax - 0.5) * quadSize, y: (0.5 - a.y) * quadSize, s: a.s || 1 };
+  },
+};
+
+/* s2l·l2s = 위 LUT 엔진의 정의를 그대로 씀(중복 선언 제거) */
+
+// ═══ 파생 프리미티브 정본 (FX Lab drawPrims 승격 — 랩·라이브가 같은 코드로 그린다) ═══
+//   ENV = { arrow: {line,w,speed,gap,glow,heat,tail}, lut: v→cssColor,
+//           num?: (g,ch,x,y,size,fontPx)→void, foot?: (g,right,x,y,size)→void }
+//   look = { core, halo, wobble } (MARK 상속) — 파생은 스타일을 부모에게서 상속(위계 원칙).
+function applyLineStyle(g, AW, flowT, ENV) {
+  g.lineWidth = 4 * AW;
+  const A2 = ENV.arrow;
+  if (A2.line === 'dash') g.setLineDash([12 * AW * A2.gap, 10 * A2.gap]);
+  else if (A2.line === 'dot') { g.setLineDash([0.5, 12 * A2.gap]); g.lineCap = 'round'; g.lineWidth = 5 * AW; }
+  else g.setLineDash([]);
+  if (flowT != null && A2.line !== 'solid' && A2.line !== 'taper') g.lineDashOffset = -flowT * 40 * A2.speed;
+}
+/** LINE 정본 화살표 — 테이퍼 스템 + SVG 촉 draw-on.
+ *  유저 확정 디자인 = 러닝 A3 '리프트 큐 2안'. 랩 프리뷰·지면 화살표가 이 함수 하나를 공유한다
+ *  (예전엔 랩은 캔버스 스트로크, 시뮬은 LANEFX 셰이더로 따로 그려서 룩을 바꿔도 모양이 안 맞았음).
+ *  캔버스 좌표: 스템은 아래(H)에서 위(0)로 자라고 촉이 꼭짓점에 붙는다 → +Y가 전방.
+ *  ENV = { lut(v), glyph(ctx, slot, x, y, sizePx, opts)->bool, arrow{w,glow,speed,heat} }
+ *  opts.prog: 외부 구동(0..1). 없으면 자체 draw-on 루프. */
+
+/** LINE 정본 화살표 — 테이퍼 스템 + SVG 촉 draw-on.
+ *  유저 확정 디자인 = 러닝 A3 '리프트 큐 2안'. 랩 프리뷰·지면 화살표가 이 함수 하나를 공유한다
+ *  (예전엔 랩은 캔버스 스트로크, 시뮬은 LANEFX 셰이더로 따로 그려서 룩을 바꿔도 모양이 안 맞았음).
+ *  캔버스 좌표: 스템은 아래(H)에서 위(0)로 자라고 촉이 꼭짓점에 붙는다 → +Y가 전방.
+ *  ENV = { lut(v), glyph(ctx, slot, x, y, sizePx, opts)->bool, arrow{w,glow,speed,heat} }
+ *  opts.prog: 외부 구동(0..1). 없으면 자체 draw-on 루프. */
+function drawStemArrow(g, W, H, t, ENV, opts = {}) {
+  const lut = ENV.lut, A = ENV.arrow || {};
+  const AW = A.w ?? 1, speed = A.speed ?? 1, glowK = A.glow ?? 1;
+  const pulse = opts.pulse ?? 1;
+  const s = H / 256;                                  // 기준 캔버스(128×256) 대비 스케일
+  const cx = W / 2;
+  const ph = (t * 0.9 * speed) % 1;
+  // draw-on을 0.55에 끝내고 나머지는 '완성된 화살표'로 머문다. 예전엔 0.7까지 자라며 촉이 0.9 전까지
+  // 안 나와서, 자라는 동안 잘린 막대처럼 보였음(유저: '중간에 나오다가 잘리는 애들').
+  const draw = opts.prog != null ? Math.max(0, Math.min(1, opts.prog)) : Math.min(1, ph / 0.55);
+  const fade = opts.prog != null ? 1 : (ph > 0.88 ? (1 - ph) / 0.12 : 1);
+  g.clearRect(0, 0, W, H);
+  const A0 = fade * (0.45 + 0.55 * pulse);
+  const y0 = H - 24 * s, y1 = 58 * s, yEnd = y0 + (y1 - y0) * draw;
+  // 스템 = 폴리곤 + 세로 그라디언트 한 번. 예전의 '세그먼트 스트로크 반복'은 라운드캡이 겹쳐
+  // 구슬처럼 뭉치고 뿌리도 덜 사라졌음(유저: 출발 끝을 더 투명하게). 폭 테이퍼는 폴리곤이,
+  // 소멸은 알파 그라디언트가 담당 — 뿌리 알파 0에서 시작해 위로 갈수록 뜨거워진다.
+  const rgba = (v, a) => lut(v).replace('rgb(', 'rgba(').replace(')', `,${a.toFixed(3)})`);
+  const w0 = 1.1 * s * AW, w1 = 13 * s * AW;          // 뿌리 폭(거의 0) → 꼭짓점 폭
+  const grad = g.createLinearGradient(0, y0, 0, yEnd);
+  // 뿌리는 알파 0으로 사라지되(유저 확정) 몸통은 금방 진해진다 — 예전 램프(0.10/0.38)는 스템 대부분이
+  // 반투명이라 지면에 투사하면 통째로 흐려 보였음(유저: 화살표가 왜 이렇게 흐려졌어).
+  grad.addColorStop(0.00, rgba(0.55, 0));
+  grad.addColorStop(0.10, rgba(0.64, 0.45 * A0));
+  grad.addColorStop(0.32, rgba(0.76, 0.85 * A0));
+  grad.addColorStop(0.62, rgba(0.88, 0.98 * A0));
+  grad.addColorStop(1.00, rgba(0.97, A0));
+  g.globalAlpha = 1;
+  g.fillStyle = grad;
+  g.beginPath();
+  g.moveTo(cx - w0 / 2, y0); g.lineTo(cx + w0 / 2, y0);
+  g.lineTo(cx + w1 / 2, yEnd); g.lineTo(cx - w1 / 2, yEnd);
+  g.closePath(); g.fill();
+  g.globalAlpha = A0;
+  if (draw > 0.28 && !opts.noTip) {   // noTip = 촉 없는 자루(감속 바 등)
+    // 촉은 '자라는 머리'에 항상 붙는다(고정 위치 X) → 자라는 동안에도 화살표로 읽힌다.
+    const tipS = 34 * s * (0.7 + 0.3 * AW);   // 촉 크기(유저 3회 축소) — 스템:촉 비율 정본
+    const tipA = Math.min(1, (draw - 0.28) / 0.22) * A0;
+    const ty = yEnd + tipS * 0.30;                     // 머리보다 살짝 뒤 = 촉 끝이 스템 끝과 맞음
+    g.globalAlpha = tipA;
+    const go = { color: lut(0.95), glowColor: lut(0.85), glow: 12 * glowK };
+    const ok = ENV.glyph && (ENV.glyph(g, 'LIFT_TIP', cx, ty, tipS, go)
+                          || ENV.glyph(g, 'TIP_TRI', cx, ty, tipS * 0.93, go));
+    if (!ok) {                                        // 글리프 미로드 폴백 = 같은 비율 스트로크 촉
+      g.strokeStyle = lut(0.95); g.lineWidth = 13 * s * AW; g.lineCap = 'round'; g.lineJoin = 'round';
+      g.shadowColor = lut(0.9); g.shadowBlur = 18 * s * glowK;
+      g.beginPath(); g.moveTo(cx - 26 * s, ty + 14 * s); g.lineTo(cx, ty - 16 * s); g.lineTo(cx + 26 * s, ty + 14 * s); g.stroke();
+    }
+  }
+  g.globalAlpha = 1; g.shadowBlur = 0;
+}
+
+/** 곡선 화살표 — LINE 정본(스템+촉)의 경로 버전. 유저 가이드 스케치의 '궤적 표시':
+ *  출발 원(반대편 지면)에서 시작해 곡선으로 흘러 들린 발마크로 들어가고, 머리에 같은 촉 글리프가 붙는다.
+ *  pts01 = [[x,y],...] 정규화 캔버스 좌표(0..1, y는 아래로). 2차/3차 무관 — 통과점을 카트멀롬 보간.
+ *  opts.prog = 진행도(0..1). 스템과 같은 언어: 뿌리 알파 0 → 머리 최대. */
+
+/** 곡선 화살표 — LINE 정본(스템+촉)의 경로 버전. 유저 가이드 스케치의 '궤적 표시':
+ *  출발 원(반대편 지면)에서 시작해 곡선으로 흘러 들린 발마크로 들어가고, 머리에 같은 촉 글리프가 붙는다.
+ *  pts01 = [[x,y],...] 정규화 캔버스 좌표(0..1, y는 아래로). 2차/3차 무관 — 통과점을 카트멀롬 보간.
+ *  opts.prog = 진행도(0..1). 스템과 같은 언어: 뿌리 알파 0 → 머리 최대. */
+function drawCurveArrow(g, W, H, pts01, t, ENV, opts = {}) {
+  const lut = ENV.lut, A = ENV.arrow || {};
+  const AW = A.w ?? 1, glowK = A.glow ?? 1;
+  const s = H / 256;
+  g.clearRect(0, 0, W, H);
+  const P = pts01.map(([x, y]) => [x * W, y * H]);
+  if (P.length < 2) return;
+  // 카트멀롬 샘플링(끝점 복제) — 통과점이 2개면 직선
+  const N = 48, path = [];
+  const at = (u) => {
+    if (P.length === 2) return [P[0][0] + (P[1][0] - P[0][0]) * u, P[0][1] + (P[1][1] - P[0][1]) * u];
+    const q = u * (P.length - 1), i = Math.min(P.length - 2, Math.floor(q)), f = q - i;
+    const p0 = P[Math.max(0, i - 1)], p1 = P[i], p2 = P[i + 1], p3 = P[Math.min(P.length - 1, i + 2)];
+    const cr = (a, b, c, d) => 0.5 * ((2 * b) + (-a + c) * f + (2 * a - 5 * b + 4 * c - d) * f * f + (-a + 3 * b - 3 * c + d) * f * f * f);
+    return [cr(p0[0], p1[0], p2[0], p3[0]), cr(p0[1], p1[1], p2[1], p3[1])];
+  };
+  for (let i = 0; i <= N; i++) path.push(at(i / N));
+  const prog = Math.max(0, Math.min(1, opts.prog != null ? opts.prog : ((t * 0.55) % 1)));
+  const head = Math.max(1, Math.round(N * prog));
+  // 선 — 뿌리 알파 0 → 머리 최대 (스템과 같은 페더 언어)
+  g.lineCap = 'round';
+  for (let i = 1; i <= head; i++) {
+    const k = i / head;
+    g.globalAlpha = Math.pow(k, 1.5);
+    g.strokeStyle = lut(0.45 + 0.5 * k);
+    g.lineWidth = (1.6 + 3.2 * k) * s * AW;
+    g.beginPath(); g.moveTo(path[i - 1][0], path[i - 1][1]); g.lineTo(path[i][0], path[i][1]); g.stroke();
+  }
+  // 촉 — 머리에서 접선 정렬(글리프 규약 ↑=전방)
+  if (prog > 0.25) {
+    const hx = path[head][0], hy = path[head][1];
+    const px = path[Math.max(0, head - 2)][0], py = path[Math.max(0, head - 2)][1];
+    const ang = Math.atan2(hy - py, hx - px) + Math.PI / 2;
+    const tipS = 30 * s * (0.7 + 0.3 * AW);
+    g.save(); g.translate(hx, hy); g.rotate(ang); g.globalAlpha = Math.min(1, (prog - 0.25) / 0.2);
+    const go = { color: lut(0.95), glowColor: lut(0.85), glow: 12 * glowK };
+    if (!(ENV.glyph && (ENV.glyph(g, 'LIFT_TIP', 0, 0, tipS, go) || ENV.glyph(g, 'TIP_TRI', 0, 0, tipS * 0.93, go)))) {
+      g.strokeStyle = lut(0.95); g.lineWidth = 9 * s * AW; g.lineJoin = 'round'; g.lineCap = 'round';
+      g.beginPath(); g.moveTo(-18 * s, 12 * s); g.lineTo(0, -14 * s); g.lineTo(18 * s, 12 * s); g.stroke();
+    }
+    g.restore();
+  }
+  g.globalAlpha = 1;
+}
+
+function strokeFlowPath(g, pts, t, AW, opts, ENV) {
+  opts = opts || {};
+  const lut = ENV.lut;
+  const style = opts.style || ENV.arrow.line;
+  const closed = !!opts.closed;
+  const L = [0];
+  for (let i = 1; i < pts.length; i++) L.push(L[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
+  const total = L[L.length - 1] || 1;
+  const at = (d) => {
+    d = ((d % total) + total) % total;
+    let i = 1;
+    while (i < L.length - 1 && L[i] < d) i++;
+    const f = (d - L[i - 1]) / Math.max(1e-4, L[i] - L[i - 1]);
+    return [pts[i - 1][0] + (pts[i][0] - pts[i - 1][0]) * f,
+            pts[i - 1][1] + (pts[i][1] - pts[i - 1][1]) * f,
+            Math.atan2(pts[i][1] - pts[i - 1][1], pts[i][0] - pts[i - 1][0])];
+  };
+  const A = ENV.arrow;
+  if (style === 'chevron') {
+    const gap = (26 * AW + 8) * A.gap;
+    const n = Math.max(2, Math.floor(total / gap));
+    g.shadowColor = lut(Math.min(1, A.heat + 0.2)); g.shadowBlur = 8 * AW * A.glow;
+    for (let k = 0; k < n; k++) {
+      const d = k * gap + (t * 42 * A.speed) % gap;
+      if (!closed && d > total - 4) continue;
+      const [x, y, a] = at(d);
+      const w = 7.5 * AW, h = 8.5 * AW;
+      const glow = 0.45 + 0.4 * Math.sin((d / total) * 6.283 - t * 2.2 * A.speed);
+      g.strokeStyle = lut(A.heat - 0.05 + glow * 0.3);
+      g.lineWidth = 3.2 * AW; g.lineJoin = 'round'; g.lineCap = 'round';
+      g.save(); g.translate(x, y); g.rotate(a);
+      g.beginPath(); g.moveTo(-h * 0.5, -w); g.lineTo(h * 0.5, 0); g.lineTo(-h * 0.5, w); g.stroke();
+      g.restore();
+    }
+    return true;
+  }
+  if (style === 'comet') {
+    const head = (t * 0.35 * A.speed % 1) * total;
+    const tail = total * A.tail;
+    const seg = Math.max(24, pts.length * 2);
+    g.lineCap = 'round';
+    for (let k = 0; k < seg; k++) {
+      const d0 = head - (k / seg) * tail, d1 = head - ((k + 1) / seg) * tail;
+      if (!closed && d1 < 0) break;
+      const f = 1 - k / seg;
+      const [x0, y0] = at(d0), [x1, y1] = at(d1);
+      if (!closed && Math.hypot(x1 - x0, y1 - y0) > total * 0.4) continue;
+      g.globalAlpha = Math.pow(f, 1.6);
+      g.strokeStyle = lut(Math.max(0.05, A.heat - 0.2) + f * 0.55);
+      g.lineWidth = (1.5 + f * 4.5) * AW;
+      if (f > 0.72) { g.shadowColor = lut(Math.min(1, A.heat + 0.3)); g.shadowBlur = f * 12 * AW * A.glow; }
+      else g.shadowBlur = 0;
+      g.beginPath(); g.moveTo(x0, y0); g.lineTo(x1, y1); g.stroke();
+    }
+    g.globalAlpha = 1; g.lineCap = 'butt'; g.shadowBlur = 0;
+    const [hx, hy] = at(head);
+    g.fillStyle = 'rgba(255,243,220,0.95)';
+    g.shadowColor = lut(0.9); g.shadowBlur = 16 * AW;
+    g.beginPath(); g.arc(hx, hy, 2.6 * AW, 0, 7); g.fill();
+    g.shadowBlur = 0;
+    return true;
+  }
+  g.strokeStyle = opts.color || lut(A.heat);
+  g.shadowColor = lut(Math.min(1, A.heat + 0.15)); g.shadowBlur = (opts.glow ?? 8) * AW * A.glow;
+  if (style === 'taper') {
+    for (let i = 1; i < pts.length; i++) {
+      g.lineWidth = (0.5 + (i / pts.length) * 4.5) * AW;
+      g.beginPath(); g.moveTo(pts[i - 1][0], pts[i - 1][1]); g.lineTo(pts[i][0], pts[i][1]); g.stroke();
+    }
+  } else {
+    applyLineStyle(g, AW, t, ENV);
+    g.beginPath();
+    pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y));
+    if (closed) g.closePath();
+    g.stroke();
+  }
+  g.setLineDash([]); g.lineCap = 'butt'; g.lineDashOffset = 0; g.shadowBlur = 0;
+  return true;
+}
+/** 스탠스 박스 — 서는 영역 (LINE 상속 둘레 + FOOT 글리프) */
+
+/** 스탠스 박스 — 서는 영역 (LINE 상속 둘레 + FOOT 글리프) */
+function drawStanceBox(g, W, P, look, t, ENV) {
+  const GB = 13 * look.halo;
+  const lut = ENV.lut;
+  g.clearRect(0, 0, W, W); g.lineJoin = 'round';
+  const s = W / 220, C = W / 2;
+  const rr = 18 * P.round * s;
+  const bx0 = 40 * s, by0 = 48 * s, bw = W - 80 * s, bh = W - 96 * s;
+  const box = [];
+  const edge = (x0, y0, x1, y1) => { for (let f = 0; f <= 1; f += 0.12) box.push([x0 + (x1 - x0) * f, y0 + (y1 - y0) * f]); };
+  edge(bx0 + rr, by0, bx0 + bw - rr, by0); edge(bx0 + bw, by0 + rr, bx0 + bw, by0 + bh - rr);
+  edge(bx0 + bw - rr, by0 + bh, bx0 + rr, by0 + bh); edge(bx0, by0 + bh - rr, bx0, by0 + rr);
+  g.shadowColor = lut(0.6); g.shadowBlur = GB * 0.8;
+  const LNW = 4 * ENV.arrow.w * s;
+  if (ENV.arrow.line === 'solid') {
+    g.setLineDash([10 * P.dash * s, 8 * s]); g.lineDashOffset = -t * 22 * s;
+    g.strokeStyle = lut(0.45); g.lineWidth = LNW;
+    g.beginPath(); g.roundRect(bx0, by0, bw, bh, rr); g.stroke();
+    g.setLineDash([]); g.lineDashOffset = 0;
+  } else {
+    strokeFlowPath(g, box, t, ENV.arrow.w * s, { color: lut(0.45), closed: true }, ENV);
+  }
+  if (P.feet > 0.05 && ENV.foot) {
+    ENV.foot(g, false, C - 16 * P.feet * s, C + 6 * s, 26 * P.feet * s);
+    ENV.foot(g, true, C + 16 * P.feet * s, C + 6 * s, 26 * P.feet * s);
+  }
+  g.shadowBlur = 0;
+}
+/** 펀치 라인 — 콤보 연결·순서 (노드=MARK 상속 링, 선=LINE, 숫자=GLYPH). prog 0..1(콤보 진행) */
+
+/** 펀치 라인 — 콤보 연결·순서 (노드=MARK 상속 링, 선=LINE, 숫자=GLYPH). prog 0..1(콤보 진행) */
+function drawPunchLine(g, W, P, look, t, ENV, ptsIn, prog) {
+  const GB = 13 * look.halo;
+  const LNW = 4 * ENV.arrow.w * (W / 220);
+  const lut = ENV.lut;
+  g.clearRect(0, 0, W, W); g.lineJoin = 'round';
+  const s = W / 220;
+  const pts = ptsIn || [[45 * s, 130 * s], [110 * s, 60 * s], [175 * s, 110 * s]];
+  const cyc = prog != null ? prog : (t * 0.5) % 1;
+  const pr = Math.min(1, cyc * 1.25) * (pts.length - 1);
+  const cur = Math.min(pts.length - 1, Math.floor(pr + 0.35));
+  g.shadowColor = lut(0.7); g.shadowBlur = GB;
+  const passed = [[pts[0][0], pts[0][1]]];
+  for (let i = 1; i <= pts.length - 1; i++) {
+    const seg = Math.max(0, Math.min(1, pr - (i - 1)));
+    if (seg <= 0) break;
+    passed.push([pts[i - 1][0] + (pts[i][0] - pts[i - 1][0]) * seg,
+                 pts[i - 1][1] + (pts[i][1] - pts[i - 1][1]) * seg]);
+  }
+  if (passed.length > 1) strokeFlowPath(g, passed, t, ENV.arrow.w * s, { color: lut(0.62) }, ENV);
+  g.setLineDash([4 * s, 7 * s]); g.lineDashOffset = 0; g.globalAlpha = 0.3;
+  g.strokeStyle = lut(0.45); g.lineWidth = LNW;
+  g.beginPath(); pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.stroke();
+  g.globalAlpha = 1; g.setLineDash([]); g.lineCap = 'butt'; g.lineDashOffset = 0;
+  pts.forEach(([x, y], i) => {
+    const active = i === cur;
+    const pulse = active ? 1 + Math.sin(t * 6) * 0.14 : 1;
+    g.strokeStyle = lut(active ? 0.8 : 0.45);
+    g.lineWidth = LNW * (active ? 1.3 : 0.9);
+    g.shadowBlur = active ? GB * 1.6 : GB * 0.6;
+    g.beginPath(); g.arc(x, y, 12 * P.node * pulse * s, 0, Math.PI * 2); g.stroke();
+    if (ENV.num) {
+      g.globalAlpha = i <= cur ? 1 : 0.45;
+      ENV.num(g, String(i + 1), x, y, 16 * P.numS * pulse * s, Math.round(14 * P.numS * s));
+      g.globalAlpha = 1;
+    }
+  });
+  g.shadowBlur = 0;
+}
+/** 어프로치 링 — 타이밍 토큰(파생). 시스템 공통 언어(소프트 열 글로우·파문)로 통일 —
+ *  하드 지오메트리 없이, 부드러운 글로우 링이 바깥 R → 타겟 Rt로 '수축'(뒤에 파문 에코 잔상),
+ *  타겟과 맞물리는 순간 = 동작 타이밍 → 소프트 핑이 퍼진다. prog 0..1(비트). 색은 룩 LUT만. */
+
+/** 어프로치 링 — 타이밍 토큰(파생). 시스템 공통 언어(소프트 열 글로우·파문)로 통일 —
+ *  하드 지오메트리 없이, 부드러운 글로우 링이 바깥 R → 타겟 Rt로 '수축'(뒤에 파문 에코 잔상),
+ *  타겟과 맞물리는 순간 = 동작 타이밍 → 소프트 핑이 퍼진다. prog 0..1(비트). 색은 룩 LUT만. */
+function drawApproachRing(g, W, P, look, t, ENV, prog) {
+  const lut = ENV.lut, GB = 13 * look.halo, s = W / 220, C = W / 2;
+  const AW = (ENV.arrow && ENV.arrow.w) || 1;
+  const rgba = (v, a) => lut(v).replace('rgb(', 'rgba(').replace(')', `,${a})`);
+  g.clearRect(0, 0, W, W); g.lineJoin = 'round'; g.lineCap = 'round';
+  const R = (P.r != null ? P.r : 0.42) * W;                 // 접근 시작(최외곽) 반경
+  const Rt = R * (P.rt != null ? P.rt : 0.36);              // 타겟 반경(수축 도착점)
+  const lw = 3.4 * AW * s;
+  const p = prog != null ? Math.max(0, Math.min(1, prog)) : (t * (P.tempo || 0.6)) % 1;
+  const e = Math.pow(p, 1.6);                               // 가속 진입 = 기대감 상승
+  const lock = Math.max(0, (p - 0.9) / 0.1);               // 도착 순간 = 비트
+
+  g.save(); g.translate(C, C);
+  // 볼류메트릭 글로우 링 — radial gradient 밴드(부피감 있는 발광) + 크리스프 코어(정의).
+  //   shadowBlur 스트로크보다 부드럽고 프리미엄한 발광 폴오프. 형태는 순수 원(시스템 공통 언어).
+  const glowRing = (r, v, a, wMul = 1) => {
+    if (r <= 0.6) return;
+    const w = lw * 2.6 * wMul, inner = Math.max(0.1, r - w), outer = r + w;
+    const grad = g.createRadialGradient(0, 0, inner, 0, 0, outer);
+    grad.addColorStop(0, rgba(v - 0.05, 0));
+    grad.addColorStop(0.5, rgba(v, a * 0.85));
+    grad.addColorStop(1, rgba(v - 0.05, 0));
+    g.globalAlpha = 1; g.fillStyle = grad; g.shadowBlur = 0;
+    g.beginPath(); g.arc(0, 0, outer, 0, Math.PI * 2); g.fill();
+    g.globalAlpha = Math.min(1, a * 1.1); g.lineWidth = lw * 0.85;
+    g.strokeStyle = lut(Math.min(0.98, v + 0.12)); g.shadowColor = lut(0.88); g.shadowBlur = GB * 0.6;
+    g.beginPath(); g.arc(0, 0, r, 0, Math.PI * 2); g.stroke(); g.shadowBlur = 0;
+  };
+
+  // 타겟 존 — 내부 풀 글로우(soft radial fill, 잠금 때 차오름) + 링(은은한 호흡)
+  const pool = g.createRadialGradient(0, 0, 0, 0, 0, Rt * 1.08);
+  pool.addColorStop(0, rgba(0.6, 0.10 + 0.18 * lock));
+  pool.addColorStop(0.65, rgba(0.5, 0.05 + 0.08 * lock));
+  pool.addColorStop(1, rgba(0.5, 0));
+  g.globalAlpha = 1; g.fillStyle = pool; g.beginPath(); g.arc(0, 0, Rt * 1.08, 0, Math.PI * 2); g.fill();
+  const breath = 1 + 0.02 * Math.sin(t * 2.6);
+  glowRing(Rt * breath, 0.55 + 0.4 * lock, 0.5 + 0.45 * lock, 0.9);
+
+  // 수축 링(주역) — R→Rt. 실키 트레일(2겹 후행 잔상) + 히트업(접근할수록 밝고 하얗게)
+  for (let k = 2; k >= 0; k--) {
+    const pe = Math.pow(Math.max(0, p - k * 0.05), 1.6);   // k>0 = 살짝 이전(바깥) 위치 = 잔상
+    const rr = R - (R - Rt) * pe;
+    const a = k === 0 ? (0.6 + 0.4 * e) : (0.18 / k) * (1 - lock);
+    glowRing(rr, 0.55 + 0.4 * e, a * (1 - lock * 0.45), 1.15 - 0.35 * e);
+  }
+
+  // 잠금 — 팽창 블룸 핑(밖으로 퍼지며 소멸)
+  if (lock > 0.01) glowRing(Rt * (1 + 1.4 * lock), 0.9, (1 - lock) * 0.8, 1.1);
+
+  // 중심 핍 — 히트업
+  g.globalAlpha = 0.6 + 0.3 * lock; g.shadowColor = lut(0.85); g.shadowBlur = GB * (0.9 + lock);
+  g.fillStyle = lut(0.62 + 0.3 * lock);
+  g.beginPath(); g.arc(0, 0, lw * 0.85 + 3 * s * lock, 0, Math.PI * 2); g.fill();
+
+  g.restore();
+  g.globalAlpha = 1; g.shadowBlur = 0;
+}
+/** 궤적 — 동작 경로 토큰(파생). 동작이 지나갈 곡선 경로를 빛으로 '그리며' 코멧 헤드가 훑고,
+ *  꼬리는 테이퍼+페이드(라이트페인팅), 헤드엔 블룸+스파크. LINE 광류 언어의 대형 궤적 확장.
+ *  prog 0..1 = 헤드가 경로 시작→끝. ptsIn = 정규[-1,1] 제어점(팩 실동작 좌표로 대체 가능). */
+
+/** 궤적 — 동작 경로 토큰(파생). 동작이 지나갈 곡선 경로를 빛으로 '그리며' 코멧 헤드가 훑고,
+ *  꼬리는 테이퍼+페이드(라이트페인팅), 헤드엔 블룸+스파크. LINE 광류 언어의 대형 궤적 확장.
+ *  prog 0..1 = 헤드가 경로 시작→끝. ptsIn = 정규[-1,1] 제어점(팩 실동작 좌표로 대체 가능). */
+function drawTrajectory(g, W, P, look, t, ENV, prog, ptsIn) {
+  const lut = ENV.lut, GB = 13 * look.halo, s = W / 220, C = W / 2;
+  const AW = (ENV.arrow && ENV.arrow.w) || 1, base = AW * s;
+  const rgba = (v, a) => lut(v).replace('rgb(', 'rgba(').replace(')', ',' + a + ')');
+  g.clearRect(0, 0, W, W); g.lineJoin = 'round'; g.lineCap = 'round';
+  const sc = W * 0.42 * (P.spread != null ? P.spread : 1);
+  const ctrl = ptsIn || [[-0.95, 0.5], [-0.48, -0.42], [0, -0.8], [0.48, -0.42], [0.95, 0.5]];   // 매끈한 대칭 아크
+  const CP = ctrl.map(([x, y]) => [C + x * sc, C + y * sc]);
+  const N = 80, path = [];
+  for (let i = 0; i <= N; i++) {                         // Catmull-Rom 스플라인 샘플(부드러운 곡선)
+    const u = i / N * (CP.length - 1), k = Math.min(CP.length - 2, Math.floor(u)), f = u - k;
+    const a = CP[Math.max(0, k - 1)], b = CP[k], c = CP[k + 1], d = CP[Math.min(CP.length - 1, k + 2)];
+    const cr = (A, B, Cc, D) => 0.5 * (2 * B + (-A + Cc) * f + (2 * A - 5 * B + 4 * Cc - D) * f * f + (-A + 3 * B - 3 * Cc + D) * f * f * f);
+    path.push([cr(a[0], b[0], c[0], d[0]), cr(a[1], b[1], c[1], d[1])]);
+  }
+  const at = u => { const q = Math.max(0, Math.min(N, u * N)), i = Math.floor(q), f = q - i, a = path[i], b = path[Math.min(N, i + 1)]; return [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f]; };
+  // ── 사이클: 스윕(경로를 그림) → 소멸(끝 도착 후 꼬리가 헤드로 수렴하며 페이드=증발) → 빈 갭 → 반복.
+  //    prog 주어지면 스윕만(세션 비트 구동). null이면 데모 루프가 전체 사이클을 돈다.
+  const SW = 0.68;
+  let sweep, outA, catchUp;
+  if (prog != null) { sweep = Math.max(0, Math.min(1, prog)); outA = 1; catchUp = 0; }
+  else {
+    const c = (t * (P.tempo || 0.42)) % 1;
+    if (c < SW) { sweep = c / SW; outA = 1; catchUp = 0; }
+    else { const o = (c - SW) / (1 - SW); sweep = 1; outA = 1 - o * o; catchUp = o; }
+  }
+  if (outA <= 0.012) return;                                 // 완전 소멸 = 빈 프레임(자연 갭)
+  const headU = sweep * sweep * sweep * (sweep * (6 * sweep - 15) + 10);   // smootherstep 휘핑
+  const spd = Math.min(1, 16 * sweep * sweep * (1 - sweep) * (1 - sweep)); // 속도(중앙 최대, 끝=0)
+  const taper = P.taper != null ? P.taper : 1.6;
+  const tail = 0.36 * (P.tail != null ? P.tail : 1);
+  const wid = P.width != null ? P.width : 1;
+
+  // 1) 경로 힌트 — 아주 옅은 넓은 글로우(어디로 갈지 암시만). 예전엔 경로 전체에 '균일 알파'라
+  //    꼬리 끝에도 같은 농도의 뿌연 자국이 남았다(유저: 끝 연한 부분을 아예 알파 0으로).
+  //    양 끝이 0으로 스러지는 그라디언트로 바꿔 자국 없이 빠진다.
+  {
+    const hg = g.createLinearGradient(path[0][0], path[0][1], path[N][0], path[N][1]);
+    hg.addColorStop(0.00, rgba(0.46, 0));
+    hg.addColorStop(0.30, rgba(0.46, 0.030 * outA));
+    hg.addColorStop(0.80, rgba(0.46, 0.045 * outA));
+    hg.addColorStop(1.00, rgba(0.46, 0));
+    g.globalAlpha = 1; g.strokeStyle = hg; g.lineWidth = 9 * base;
+    g.shadowColor = lut(0.6); g.shadowBlur = GB * 2.0;
+    g.beginPath(); path.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.stroke(); g.shadowBlur = 0;
+  }
+
+  // 2) 리본 — 헤드(앞)는 진하고 또렷, 꼬리로 갈수록만 연해지고 흐려져 소멸(끝만 흐릿).
+  const M = 40, u0 = Math.max(0, headU - tail * (1 - catchUp)), win = [];
+  for (let i = 0; i <= M; i++) win.push(at(u0 + (headU - u0) * (i / M)));
+  const ribbon = () => { g.beginPath(); win.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.stroke(); };
+  const grad = () => { const gr = g.createLinearGradient(win[0][0], win[0][1], win[M][0], win[M][1]);
+    // 꼬리 40%는 완전 투명 — 끝이 '연하게 남는' 게 아니라 없어진다(유저).
+    gr.addColorStop(0, rgba(0.55, 0)); gr.addColorStop(0.40, rgba(0.56, 0));
+    gr.addColorStop(0.68, rgba(0.60, 0.09)); gr.addColorStop(0.88, rgba(0.64, 0.24));
+    gr.addColorStop(1, rgba(0.68, 0.44)); return gr; };
+  const spr = 1 + 0.5 * spd;
+  // 소프트 글로우(꼬리 투명→헤드 진함) — 꼬리쪽만 흐릿한 잔상. 벽 투사용으로 두툼하게.
+  g.globalAlpha = outA; g.strokeStyle = grad(); g.lineWidth = (20 + 10 * spd) * base * wid;
+  g.shadowColor = lut(0.72); g.shadowBlur = GB * 2.2; ribbon();
+  g.strokeStyle = grad(); g.lineWidth = (10 + 5 * spd) * base * wid; g.shadowBlur = GB * 1.0; ribbon(); g.shadowBlur = 0;
+  // 또렷한 코어 — 두툼·균일(smooth) → 꼬리로만 알파·폭 감소. 앞은 진한 선, 끝은 흐릿 소멸.
+  for (let i = 1; i <= M; i++) {
+    const f = i / M;
+    g.globalAlpha = Math.pow(f, 2.2) * 0.95 * outA; g.strokeStyle = lut(0.55 + 0.38 * f);   // 지수↑ = 꼬리가 더 빨리 0으로
+    g.lineWidth = (1.6 + 6.5 * Math.pow(f, 0.7)) * base * wid * spr;
+    g.beginPath(); g.moveTo(win[i - 1][0], win[i - 1][1]); g.lineTo(win[i][0], win[i][1]); g.stroke();
+  }
+
+  // 3) 헤드 = 코멧 헤드(헤일로 + 흰 코어). 이 토큰의 정의가 'LINE 광류 + 코멧 헤드 + 스파크'다 —
+  //    한때 LINE 촉 글리프로 바꿨더니 글리프 미로드 시 글로우만 남아 뭉개진 공이 됐다(유저 지적).
+  const hx = win[M][0], hy = win[M][1];
+  g.globalAlpha = 0.8 * outA; g.fillStyle = lut(0.6); g.shadowColor = lut(0.8); g.shadowBlur = GB * 1.6;
+  g.beginPath(); g.arc(hx, hy, (9 + 5 * spd) * base * wid, 0, Math.PI * 2); g.fill();
+  g.globalAlpha = outA; g.fillStyle = lut(0.93); g.shadowBlur = GB * 0.6;
+  g.beginPath(); g.arc(hx, hy, (3.4 + 1.8 * spd) * base * wid, 0, Math.PI * 2); g.fill();
+  g.globalAlpha = 1; g.shadowBlur = 0;
+}
+/** 회전 — 관절 돌리기 토큰(파생). 관절(피벗) 둘레를 곡선 화살촉이 도는 회전 화살표 + 가이드 링.
+ *  '목·어깨 돌리기'처럼 회전 동작을 명확히 지시. dir: 1=시계 · -1=반시계. prog/tempo로 회전. */
+
+/** 회전 — 관절 돌리기 토큰(파생). 관절(피벗) 둘레를 곡선 화살촉이 도는 회전 화살표 + 가이드 링.
+ *  '목·어깨 돌리기'처럼 회전 동작을 명확히 지시. dir: 1=시계 · -1=반시계. prog/tempo로 회전. */
+function drawRotate(g, W, P, look, t, ENV, prog) {
+  const lut = ENV.lut, GB = 13 * look.halo, s = W / 220, C = W / 2;
+  const AW = (ENV.arrow && ENV.arrow.w) || 1;
+  g.clearRect(0, 0, W, W); g.lineJoin = 'round'; g.lineCap = 'round';
+  const R = (P.r != null ? P.r : 0.3) * W;
+  const wid = (P.width != null ? P.width : 1), lw = 4.2 * AW * s * wid;
+  const dir = (P.dir != null ? P.dir : 1);
+  const arcLen = (P.sweep != null ? P.sweep : 0.66) * Math.PI * 2;   // 밝은 호(꼬리) 길이
+  const p = prog != null ? Math.max(0, Math.min(1, prog)) : (t * (P.tempo || 0.5)) % 1;
+  const head = -Math.PI / 2 + dir * p * Math.PI * 2;                // 12시에서 dir 방향으로 회전
+
+  g.save(); g.translate(C, C);
+  // 가이드 링(희미) — 회전 경로
+  g.globalAlpha = 0.16; g.lineWidth = lw * 0.7; g.strokeStyle = lut(0.44);
+  g.shadowColor = lut(0.6); g.shadowBlur = GB * 0.4;
+  g.beginPath(); g.arc(0, 0, R, 0, Math.PI * 2); g.stroke(); g.shadowBlur = 0;
+  // 회전 호 — 선단 밝음 → 꼬리 페이드(모션). dir 방향으로 도는 게 곧 '돌리기'.
+  const seg = 16;
+  for (let i = 0; i < seg; i++) {
+    const f = i / (seg - 1), a = head - dir * f * arcLen, b = head - dir * (f + 1.2 / seg) * arcLen;
+    g.globalAlpha = (1 - f) * 0.9; g.strokeStyle = lut(0.55 + 0.35 * (1 - f));
+    g.lineWidth = lw * (0.55 + 0.55 * (1 - f)); g.shadowColor = lut(0.8); g.shadowBlur = GB * (0.4 + 0.5 * (1 - f));
+    g.beginPath(); g.arc(0, 0, R, Math.min(a, b), Math.max(a, b), false); g.stroke();
+  }
+  g.shadowBlur = 0;
+  // 선단 화살촉 — 접선 방향(회전 방향 지시). LINE 3토큰이 같은 촉 SVG를 쓴다(글리프 없으면 스트로크 폴백).
+  const hx = Math.cos(head) * R, hy = Math.sin(head) * R, tang = head + dir * Math.PI / 2;
+  const ah = 8 * s * wid;
+  g.save(); g.translate(hx, hy); g.rotate(tang + Math.PI / 2);   // 글리프 규약 ↑=전방 → +90°
+  g.globalAlpha = 1;
+  const tipS = 3.4 * ah * (0.7 + 0.3 * AW);
+  const go = { color: lut(0.96), glowColor: lut(0.9), glow: GB * 1.2 };
+  if (!(ENV.glyph && (ENV.glyph(g, 'LIFT_TIP', 0, 0, tipS, go) || ENV.glyph(g, 'TIP_TRI', 0, 0, tipS * 0.93, go)))) {
+    g.rotate(-Math.PI / 2);   // 폴백 스트로크는 전방 +x 기준
+    g.strokeStyle = lut(0.96); g.lineWidth = lw * 0.9; g.shadowColor = lut(0.9); g.shadowBlur = GB * 1.2;
+    g.beginPath(); g.moveTo(-ah, -ah * 0.9); g.lineTo(ah * 0.5, 0); g.lineTo(-ah, ah * 0.9); g.stroke();
+  }
+  g.restore();
+  // 중심 피벗(관절)
+  g.globalAlpha = 0.62; g.shadowColor = lut(0.75); g.shadowBlur = GB * 0.6; g.fillStyle = lut(0.6);
+  g.beginPath(); g.arc(0, 0, lw * 0.6, 0, Math.PI * 2); g.fill();
+  g.restore(); g.globalAlpha = 1; g.shadowBlur = 0;
+}
+
+const GLYPHS = {
+  map: {},
+  flip: {},
+  imgs: new Map(),
+  _listeners: new Set(),
+  setFlips(flips) { this.flip = flips || {}; },
+  set(map) {
+    this.map = map || {};
+    for (const url of Object.values(this.map)) {
+      if (this.imgs.has(url)) continue;
+      const img = new Image();
+      img.src = url;
+      img.onload = () => { for (const cb of this._listeners) cb(); };
+      this.imgs.set(url, img);
+    }
+  },
+  onLoad(cb) { this._listeners.add(cb); return () => this._listeners.delete(cb); },
+  /** ch 슬롯의 로드 완료된 이미지 (없거나 미로드면 null) */
+  img(ch) {
+    const url = this.map[ch];
+    if (!url) return null;
+    const img = this.imgs.get(url);
+    return (img && img.complete && img.naturalWidth) ? img : null;
+  },
+};
+
+function drawGlyph(ctx, ch, x, y, sizePx, { color = 'rgba(255,240,220,0.95)', glowColor = 'rgba(254,150,90,0.75)', glow = 14 } = {}) {
+  const img = GLYPHS.img(ch);
+  if (!img) return false;
+  const off = document.createElement('canvas');
+  off.width = off.height = sizePx;
+  const og = off.getContext('2d');
+  const R = glyphRaster(img);
+  const sc = Math.min(sizePx / R.w, sizePx / R.h);
+  const w = R.w * sc, h = R.h * sc;
+  if (GLYPHS.flip[ch]) { og.save(); og.translate(0, sizePx); og.scale(1, -1); }
+  og.drawImage(R.canvas, R.x, R.y, R.w, R.h, (sizePx - w) / 2, (sizePx - h) / 2, w, h);
+  if (GLYPHS.flip[ch]) og.restore();
+  og.globalCompositeOperation = 'source-in';
+  og.fillStyle = color;
+  og.fillRect(0, 0, sizePx, sizePx);
+  ctx.shadowColor = glowColor; ctx.shadowBlur = glow;
+  ctx.drawImage(off, x - sizePx / 2, y - sizePx / 2);
+  ctx.shadowBlur = 0;
+  ctx.drawImage(off, x - sizePx / 2, y - sizePx / 2);
+  return true;
+}
+
+function drawNumber(ctx, num, cx, cy, sizePx, opts = {}) {
+  const s = String(num);
+  if (s.length <= 1) return drawGlyph(ctx, s, cx, cy, sizePx, opts);
+  const ds = sizePx * (s.length === 2 ? 0.66 : 0.48);   // 자리당 크기 축소(2자리는 급하지 않게 0.66)
+  const adv = ds * 0.66;                                 // 자간 = 넉넉히(너무 붙지 않게)
+  let x = cx - adv * (s.length - 1) / 2, ok = true;
+  for (let i = 0; i < s.length; i++) { ok = drawGlyph(ctx, s[i], x, cy, ds, opts) && ok; x += adv; }
+  return ok;
+}
+
+function footSlot(right) {
+  return (FXP.footCtx === 'in' ? 'FOOT_IN_' : 'FOOT_OUT_') + (right ? 'R' : 'L');
+}
+
+/* 제품이 부팅 시 항상 등록하는 슬롯 (main.js LR_GLYPHS) + 촉 슬롯(tokens.js) */
+const SVG_GLYPH_L='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjExIiBoZWlnaHQ9IjYxMSIgdmlld0JveD0iMCAwIDYxMSA2MTEiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxwYXRoIGQ9Ik0yOTAuMjMyIDkyLjI1NUMyOTIuNjE1IDkxLjkwMDcgMjk2LjA2MyA5MS45ODcxIDI5OC40NTggOTIuMDkxNkMzMjIuNzc2IDkzLjE1MjMgMzQwLjUwMyAxMDYuOTM4IDMzOS4yODcgMTMyLjU2NUMzMzcuNjA1IDE2OC4wOTUgMzEzLjgzNiAxOTQuMTcgMjk0LjY4NCAyMjEuNzExQzI4Ny40NSAyMzEuOTk1IDI4MC45NDIgMjQyLjc2NyAyNzUuMTk4IDI1My45NUMyNjAuNTU2IDI4Mi4zNjUgMjUzLjUyNyAzMTAuMjQzIDIzOC42NzUgMzM4LjUyOUMyMjguNjE5IDM1OC41OTIgMjA4LjE1MiAzNzYuNjkgMjA2LjI0MiAzOTkuODQ4QzIwNC4yNTUgNDIzLjk0OCAyMzMuOTM2IDQyNi4zNDggMjU0LjA4MiA0MzAuNUMyNzguNTIzIDQzNS41MzkgMzE5LjM5MyA0MzcuMDk0IDM0My41IDQzMC41QzM3Mi4xNzYgNDIyLjY1OCAzNzkuNjA4IDQyMC4xNDEgNDA5Ljg4NiA0MjIuMTM4QzQ0Mi41OTkgNDIzLjgwNyA0NzkuMTU3IDQzNS4wMiA1MDIuNDc2IDQ1OC45MTZDNTE1LjYxMSA0NzIuMzc0IDUxNy41MDQgNDk2LjU3NyA1MDIuMTIgNTA5LjA3QzQ4Ni42MDcgNTIxLjY1IDQ2My44OTYgNTIwLjU3NiA0NDUuMjI5IDUxOS4yMUMzNzguMTMgNTExLjkzNiAzMjIuNzk5IDQ4Mi4wNDcgMjU0LjA4MiA0OTEuNDA1QzI0Mi4zMjcgNDkyLjk4NyAyMzAuNzkzIDQ5NS45NDcgMjE5LjcyNyA1MDAuMjI2QzE5OS4zODIgNTA4LjE1OSAxODYuOTcyIDUxNi41NDggMTYzLjg1OCA1MTkuMjQ1QzEzNS4zMjIgNTIyLjU3MyAxMDMuMDgyIDUxMi42ODkgOTkuMzA3MyA0NzkuNzk5Qzk1LjYyMDUgNDQ3LjYxOCAxMjYuMTU1IDQyMy45MSAxMzQuODk2IDM5NC40NjVDMTM5LjE5IDM4MC4wMDMgMTQwLjYwNCAzNjguMTM2IDE0My4zNjIgMzUzLjI0NEMxNDUuNTE4IDM0MS4zODQgMTQ5LjA5NCAzMjkuODI2IDE1NC4wMTMgMzE4LjgxN0MxNjQuOTUxIDI5NC43MzIgMTg1LjM3MSAyNzYuMTMzIDE5Mi44MDkgMjUwLjM4MkMyMDUuNjI4IDIwNS45OTIgMTc2LjIzOSAxODEuMDM1IDIxNS4yNjMgMTMzLjQyOUMyMzMuNzk2IDExMC44MTMgMjYxLjAxMiA5NS4xMjY2IDI5MC4yMzIgOTIuMjU1WiIgZmlsbD0iYmxhY2siLz4KPC9zdmc+Cg==';
+const SVG_GLYPH_R='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjExIiBoZWlnaHQ9IjYxMSIgdmlld0JveD0iMCAwIDYxMSA2MTEiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxwYXRoIGQ9Ik00MTUuNjE5IDkyLjI3MTNDNDMyLjMxIDkwLjczNDggNDU0LjQ0MSA5NS41MDY4IDQ2My44NCAxMTIuMTk2QzQ4MS40NDcgMTQzLjQ2MSA0MTIuOTc5IDE0Ny42NzUgNDI3Ljc0IDE3My4yMTJDNDM2LjQyMyAxODguMjMzIDQ3OS4zNyAxODUuMDEzIDQ5NS4yMDkgMTg5Ljc2NkM1MDYuNjM3IDE5Mi40MTcgNTIyLjgyMyAyMDAuMTkxIDUyOC4yIDIxMS41NzRDNTUwLjA4OCAyNTcuOTA5IDQ5Mi4xMTcgMjk4LjQwMiA0NTUuMTUyIDMxMS44MzVDNDM1LjA3OCAzMTkuMTMgNDAxLjA2NyAzMjkuMDEyIDQwMS4wNjcgMzQ4LjE1M0M0MDEuMDY3IDM4NC41MjUgNDE5Ljk3NSAzOTkuMzI2IDQzOC4yNzkgNDE4LjMyMUM0NTQuMDM5IDQzMy44MTIgNDU2LjQyOCA0MzUuMDExIDQ3MS4yNjIgNDUxLjI5MUM0ODAuNTc4IDQ2MS41MTQgNTIzLjU2OCA0ODMuOTc5IDUxNy41OTMgNTAzLjI5M0M1MDUuNjY3IDUzMC41MTQgNDM1Ljc0NCA1MTcuNTQ0IDQxNy45ODEgNTEyLjE1OUMzODEuNTY3IDUwMS4yNjcgMzcwLjE0MSA1MDMuMDc1IDM2Ny43NzMgNDYwLjU5QzM2Ni41OCA0MzkuMTc4IDM0My4wNjUgMzk0LjE4NSAzMzIuNTIyIDM3My42OTJDMzIzLjAwMiAzNTIuOTEyIDI5OS44MDQgMzQwLjEyOCAyNzcuMTY4IDM0My4yOUMyMzMuNjg5IDM0OS4zNjggMjI1LjA1NCAzOTYuOTk4IDIxMS41NDMgNDMwLjkzNkMxOTUuODkyIDQ3MC4wNDkgMTY4LjE4NCA1MDkuNzU4IDEyMy4yNzIgNTE1Ljc3MUMxMDMuMjE4IDUxOC40NTQgODAuMDQxNCA1MTEuMDE5IDc4LjE0NTUgNDg3LjkxMUM3NS45NzIyIDQ2MS40MTEgOTguNjE3OSA0NDMuMDAyIDExNC44MyA0MjUuNjE4QzEyMS4zOTQgNDE4LjU3OCAxMjcuMzQ4IDQxMC4xNjEgMTMxLjcwMyA0MDEuNjEzQzE0NC40MzcgMzc2Ljk1NiAxNDMuMTY5IDM1NS40ODUgMTU5LjIxNiAzMzEuNTI4QzE3My45ODkgMzA5LjQ3MyAxOTYuMTA3IDI5OC40ODkgMjA3LjMyMiAyNzQuODkzQzIyNC40NTEgMjM4Ljg1NCAyMTUuNDU1IDIwOS44MzggMjQ0LjEzOCAxNzYuNjk5QzI2Ny41NTEgMTQ5LjY0OSAyODYuNDI4IDE0Ny40NjggMzE3LjUxMyAxMzIuODAxQzMyOC4zOTUgMTI3LjY2NiAzNDIuMjk3IDExOC4xNjcgMzUyLjkwOCAxMTEuODExQzM3Mi4zODIgMTAwLjE0OCAzOTMuMDU4IDk0LjIwNjIgNDE1LjYxOSA5Mi4yNzEzWk0zMTUuMDMzIDMwNy4yNzlDMzQ5LjkwMyAzMDIuOTYgMzg4LjE3NiAyOTguMzI0IDQxMi4xMDMgMjY5LjE5NUM0MjMuNzU3IDI1NS4wMDcgNDI3LjAyMyAyMzMuMjIzIDQxMC41MTYgMjIxLjIwM0M0MDAuMjY2IDIxMy43MzkgMzgwLjEwNyAyMTAuNjQzIDM2Ny43NzMgMjEzLjA3MkMzMzIuNTE3IDIxNi43MzEgMjk1LjE3MSAyMzguNjI4IDI3Mi4zMTcgMjY1LjY4NUMyNTMuOTQ0IDI4Ny40MzYgMjU0LjIzNSAzMDguNzU1IDI4Ny4zOTUgMzA4Ljk2NEMyOTYuNjk4IDMwOS4wMjMgMzA1LjY5MSAzMDguMzkxIDMxNS4wMzMgMzA3LjI3OVoiIGZpbGw9ImJsYWNrIi8+Cjwvc3ZnPgo=';
+const SVG_ARROW_TIP='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzEzIiBoZWlnaHQ9IjI1MiIgdmlld0JveD0iMCAwIDMxMyAyNTIiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxwYXRoIGQ9Ik0yMDAuNzAzIDQ5LjA1MDRDMTkzLjM0OSAyOC44MTE5IDE3My44NiAtMy43MjE2NyAxNDguMDMzIDAuMzQ4MzE4QzEzMS4xNjggMy43MDAwNyAxMTguOTY5IDE2LjY3MDUgMTA5LjgwNSAzMC40NjQ1QzEwMy4xMSA0MC41ODc4IDk3LjUxNCA1MS4zOTYyIDkzLjExMjIgNjIuNzA2N0M4Ni45ODYxIDc4LjgwMzUgODMuNjMxMiA5NC45NzM5IDczLjkyMTkgMTA5LjczM0M2My4yNDE1IDEyNi4wMyA1MS45ODQzIDE0Mi40MjcgMzkuNzY4OCAxNTcuNjA4QzIyLjg4NjMgMTc4LjU5IC01LjQwODg3IDE5OS42NDcgMC45MDE1MzkgMjMwLjE2OEMzLjU1MDM3IDI0Mi45NzggMTIuMjAxNiAyNTUuMDMzIDI3LjE3MTkgMjUwLjk4OEM0OS4wMjQ0IDI0NS4wODQgODIuOTYgMjI1LjgzMSAxMDQgMjE0LjVDMTI4IDIwMS41NzUgMTc3LjE0NCAyMDMuNzk2IDE5NCAyMDguNUMyMTUuNSAyMTQuNSAyNDQuODM4IDIzMC45NDMgMjU5LjI4MiAyMzUuMzI4QzI2Ny43NTEgMjM3Ljg5OSAyNzQuMjU5IDIzOS4zMTIgMjgzLjA4OSAyMzkuMzJDMzA2LjIyOCAyNDAuMzI4IDMxOC4yOSAyMjcuNjIyIDMwOC45MDQgMjA0LjgyNEMzMDAuMTkxIDE4My42NTYgMjg0LjgzNCAxNjguMzEzIDI3MC44MzcgMTUwLjcxQzI2My4wMDUgMTQwLjg2NSAyNTUuNTc4IDEzMC4yOSAyNDcuMTA0IDEyMC45OTRDMjMyLjc4MiAxMDUuMzM1IDIxNi44OTMgOTAuOTI1MyAyMDguMjg0IDcxLjA1M0MyMDUuMTE4IDYzLjc0MzMgMjAzLjQwNCA1Ni40NjkxIDIwMC43MDMgNDkuMDUwNFoiIGZpbGw9ImJsYWNrIi8+Cjwvc3ZnPgo=';
+const SVG_LIFT_TIP='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzEzIiBoZWlnaHQ9IjI1MiIgdmlld0JveD0iMCAwIDMxMyAyNTIiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxwYXRoIGQ9Ik0yMDAuNzAzIDQ5LjA1MDRDMTkzLjM0OSAyOC44MTE5IDE3My44NiAtMy43MjE2NyAxNDguMDMzIDAuMzQ4MzE4QzEzMS4xNjggMy43MDAwNyAxMTguOTY5IDE2LjY3MDUgMTA5LjgwNSAzMC40NjQ1QzEwMy4xMSA0MC41ODc4IDk3LjUxNCA1MS4zOTYyIDkzLjExMjIgNjIuNzA2N0M4Ni45ODYxIDc4LjgwMzUgODMuNjMxMiA5NC45NzM5IDczLjkyMTkgMTA5LjczM0M2My4yNDE1IDEyNi4wMyA1MS45ODQzIDE0Mi40MjcgMzkuNzY4OCAxNTcuNjA4QzIyLjg4NjMgMTc4LjU5IC01LjQwODg3IDE5OS42NDcgMC45MDE1MzkgMjMwLjE2OEMzLjU1MDM3IDI0Mi45NzggMTIuMjAxNiAyNTUuMDMzIDI3LjE3MTkgMjUwLjk4OEM0OS4wMjQ0IDI0NS4wODQgODIuOTYgMjI1LjgzMSAxMDQgMjE0LjVDMTI4IDIwMS41NzUgMTc3LjE0NCAyMDMuNzk2IDE5NCAyMDguNUMyMTUuNSAyMTQuNSAyNDQuODM4IDIzMC45NDMgMjU5LjI4MiAyMzUuMzI4QzI2Ny43NTEgMjM3Ljg5OSAyNzQuMjU5IDIzOS4zMTIgMjgzLjA4OSAyMzkuMzJDMzA2LjIyOCAyNDAuMzI4IDMxOC4yOSAyMjcuNjIyIDMwOC45MDQgMjA0LjgyNEMzMDAuMTkxIDE4My42NTYgMjg0LjgzNCAxNjguMzEzIDI3MC44MzcgMTUwLjcxQzI2My4wMDUgMTQwLjg2NSAyNTUuNTc4IDEzMC4yOSAyNDcuMTA0IDEyMC45OTRDMjMyLjc4MiAxMDUuMzM1IDIxNi44OTMgOTAuOTI1MyAyMDguMjg0IDcxLjA1M0MyMDUuMTE4IDYzLjc0MzMgMjAzLjQwNCA1Ni40NjkxIDIwMC43MDMgNDkuMDUwNFoiIGZpbGw9ImJsYWNrIi8+Cjwvc3ZnPgo=';
+
+const FXP={ footCtx:'out', mark:{halo:0.9,pool:0.55,radius:1}, arrow:{line:'solid',w:1,speed:1,gap:1,glow:1,heat:0.5,tail:0.55} };
+GLYPHS.set({ L:SVG_GLYPH_L, R:SVG_GLYPH_R, TIP_TRI:SVG_ARROW_TIP, LIFT_TIP:SVG_LIFT_TIP });
+
+/* 내장 발 폴백 — fxlut.footSDFTexture 의 else 분기 그대로 (랩에 발 SVG가 없을 때 제품이 쓰는 실루엣) */
+function builtinFootSDF(right,N=512){
+  const c=document.createElement('canvas');c.width=c.height=N;
+  const g=c.getContext('2d');
+  g.fillStyle='#fff';
+  g.save(); g.translate(N/2,N/2); g.scale(N/128,N/128); g.rotate(-0.09);
+  if(right) g.scale(-1,1);
+  g.beginPath(); g.ellipse(-1,-16,13,18,0.06,0,7); g.fill();
+  g.beginPath(); g.ellipse(3,24,9.5,12,-0.05,0,7); g.fill();
+  g.beginPath(); g.ellipse(1,4,8,14,0,0,7); g.fill();
+  for(let i=0;i<5;i++){const a=-1.0+i*0.44;
+    g.beginPath(); g.arc(Math.sin(a)*15-1,-37-Math.cos(a)*3.5+Math.abs(a)*6,4.4-Math.abs(i-1.4)*0.55,0,7); g.fill()}
+  g.restore();
+  return sdfFromAlpha(g.getImageData(0,0,N,N).data,N)}
+
+/* ENV — session.livePrimEnv 와 같은 구성(글리프 우선, 없으면 웜크림 텍스트 폴백) */
+function primEnv(){return{
+  arrow:FXP.arrow, lut,
+  glyph:(g,ch,x,y,size,opts)=>drawGlyph(g,ch,x,y,size,opts),
+  num:(g,ch,x,y,size,fontPx)=>{
+    if(drawGlyph(g,String(ch),x,y,size))return;
+    g.font=`300 ${fontPx}px -apple-system, system-ui, sans-serif`;
+    g.fillStyle='rgba(255,240,220,0.95)';
+    g.textAlign='center';g.textBaseline='middle';
+    g.shadowColor='rgba(254,150,90,0.75)';g.shadowBlur=14;
+    g.fillText(String(ch),x,y);g.shadowBlur=0},
+  foot:(g,right,x,y,size)=>{
+    if(drawGlyph(g,footSlot(right),x,y,size))return;
+    g.beginPath();g.ellipse(x,y,size*0.28,size*0.48,0,0,Math.PI*2);g.stroke()}}}
+/* session.PRIM_DEFAULTS 그대로 */
+const PRIM_DEFAULTS={
+  stanceBox:{w:1,glow:1,tempo:1,dash:1,round:0.2,feet:1},
+  punchLine:{w:1,glow:1,tempo:1,node:1,numS:1,dash:0},
+  approachRing:{w:1,glow:1,tempo:0.6,r:0.42,rt:0.36},
+  trajectory:{w:1,glow:1,tempo:0.5,spread:1,width:1.4,tail:1,taper:1.6,spark:0.6},
+  rotate:{w:1,glow:1,tempo:0.5,r:0.3,sweep:0.66,dir:1,width:1}};
+
 /* ── 상태 ───────────────────────────────────────────────────────────── */
 const PRESETS={
  'Vivid':[['#B7231F',0],['#FA3030',.3],['#FE6E3C',.56],['#FEA35F',.74],['#FEC389',.86],['#FFF3DC',1]],
@@ -298,8 +1033,8 @@ const FIXED={red:'#FA3030',coral:'#FE6E3C',sand:'#FEC389',cream:'#FEE2C6',
 
 const STATES=[
  {k:0,n:'Preview',d:'예고 · 소프트 필'},{k:1,n:'Active',d:'지금 밟을 곳 · 헤일로 수축'},
- {k:2,n:'Hold',d:'유지 · 코닉 진행 림'},{k:3,n:'Success',d:'성공 · 블룸'},
- {k:4,n:'Miss',d:'실패 · 탈색'},{k:5,n:'Warning',d:'경고 · 사구 맥동'},
+ {k:2,n:'Hold',d:'유지 · 코닉 진행 림'},{k:3,n:'Success',d:'성공 · 블룸 → 소멸'},
+ {k:4,n:'Miss',d:'실패 · 탈색 → 소멸'},{k:5,n:'Warning',d:'경고 · 사구 맥동'},
  {k:6,n:'Locked',d:'잠김 · 무채 고스트'}];
 
 /* ── 캔버스 유틸 ─────────────────────────────────────────────────────── */
@@ -506,21 +1241,39 @@ const GL=(()=>{
   const U={};['uLUT','uLutOn','uW','uHalo','uNoise','uRadius','uPool','uContract','uShape',
     'uSeed','uSDF2','uSDFWarn','uState','uProg','uStrong','uTime','uFade','uGain']
     .forEach(n=>U[n]=gl.getUniformLocation(pr,n));
-  gl.uniform1i(U.uLUT,0);gl.uniform1i(U.uSDF2,0);gl.uniform1i(U.uSDFWarn,0);
+  gl.uniform1i(U.uLUT,0);gl.uniform1i(U.uSDF2,1);gl.uniform1i(U.uSDFWarn,0);
+  // uSDFWarn = LUT 바인딩 — 제품 기본값과 동일(warnSDFTexture()가 null이면 tokens.js가 LUT를 넣는다)
+  const fl=gl.getExtension('OES_texture_float');
+  gl.getExtension('OES_texture_float_linear');
+  let sdfTex=null, sdfMeta=null;
+  if(fl){
+    const FS=builtinFootSDF(false,768);           // fxlut 내장 발 폴백 · fx-core sdfFromAlpha
+    sdfMeta={cx:FS.cx,cy:FS.cy};
+    sdfTex=gl.createTexture();
+    gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,sdfTex);
+    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+    gl.texImage2D(gl.TEXTURE_2D,0,gl.LUMINANCE,768,768,0,gl.LUMINANCE,gl.FLOAT,FS.data);
+    gl.activeTexture(gl.TEXTURE0);
+  }
   gl.enable(gl.BLEND);gl.blendFunc(gl.ONE,gl.ONE_MINUS_SRC_ALPHA);
   gl.viewport(0,0,240,240);
-  return {cv,gl,U,tex}})();
+  return {cv,gl,U,tex,sdfTex,sdfMeta}})();
 function uploadLUT(){if(!GL)return;
+  GL.gl.activeTexture(GL.gl.TEXTURE0);
   GL.gl.bindTexture(GL.gl.TEXTURE_2D,GL.tex);
   GL.gl.texImage2D(GL.gl.TEXTURE_2D,0,GL.gl.RGBA,256,1,0,GL.gl.RGBA,GL.gl.UNSIGNED_BYTE,LUT)}
 /** 정본 셰이더로 한 상태를 그려 2D 캔버스에 옮긴다. lutOn=1 이면 히트 4색을 LUT에서. */
-function drawMarkGL(g,W,state,lutOn,seed,t){
+function drawMarkGL(g,W,state,lutOn,seed,t,foot){
   g.clearRect(0,0,W,W);
   if(!GL){g.fillStyle='var(--t4)';g.font='11px sans-serif';g.fillText('WebGL 없음',8,20);return}
   const {gl,U}=GL;
   gl.uniform1f(U.uLutOn,lutOn);
-  gl.uniform1f(U.uShape,0);            // 존 원 — 발형 SDF 불필요
-  gl.uniform1f(U.uRadius,0.72/0.46);   // tokens.makeMarkFXMaterial 존 원 기본값
+  gl.uniform1f(U.uShape,foot?1:0);
+  // tokens.makeMarkFXMaterial 기본값: 존 원 0.72/0.46 · 발형 1.0
+  gl.uniform1f(U.uRadius,foot?1.0:0.72/0.46);
   gl.uniform1f(U.uW,1);gl.uniform1f(U.uHalo,FX.halo);gl.uniform1f(U.uPool,FX.pool);
   gl.uniform1f(U.uNoise,0.5);gl.uniform1f(U.uContract,0);gl.uniform1f(U.uSeed,seed);
   gl.uniform1f(U.uState,state);gl.uniform1f(U.uStrong,0);gl.uniform1f(U.uFade,1);gl.uniform1f(U.uGain,1);
@@ -530,41 +1283,18 @@ function drawMarkGL(g,W,state,lutOn,seed,t){
   gl.drawArrays(gl.TRIANGLES,0,3);
   g.drawImage(GL.cv,0,0,W,W)}
 
-/* ── LINE 6스타일 ────────────────────────────────────────────────────── */
+/* ── LINE 6스타일 = 정본 strokeFlowPath (fx-core) ────────────────────── */
 const LINES=[['solid','실선','레인 기본'],['dash','파선','라이브 레인'],['dot','점선','—'],
              ['chevron','셰브론','—'],['comet','코멧','—'],['taper','테이퍼','—']];
 function drawLine(g,W,H,style,t){
   g.clearRect(0,0,W,H);
-  const y=H/2,x0=W*0.09,x1=W*0.91,AW=FX.aw,flow=RM?0:t*FX.speed;
-  g.strokeStyle=lut(.5);g.lineWidth=4*AW;g.lineCap='butt';
-  g.shadowColor=lutA(.72,.9);g.shadowBlur=9*AW;
-  if(style==='dash'){g.setLineDash([12*AW,10]);g.lineDashOffset=-flow*40}
-  else if(style==='dot'){g.setLineDash([0.5,12]);g.lineCap='round';g.lineWidth=5*AW;g.lineDashOffset=-flow*40}
-  else if(style==='chevron'){
-    g.setLineDash([]);g.lineWidth=3*AW;g.lineJoin='round';g.lineCap='round';
-    for(let i=0;i<6;i++){const p=((i/6)+ (flow*0.22)%1)%1, x=x0+(x1-x0)*p;
-      g.globalAlpha=Math.sin(Math.PI*p)*0.9+0.1;
-      g.strokeStyle=lut(.42+0.4*p);
-      g.beginPath();g.moveTo(x-9,y-7);g.lineTo(x,y);g.lineTo(x-9,y+7);g.stroke()}
-    g.globalAlpha=1;g.shadowBlur=0;return}
-  else if(style==='comet'){
-    g.setLineDash([]);const p=(flow*0.3)%1,hx=x0+(x1-x0)*p;
-    const cg=g.createLinearGradient(hx-W*0.34,0,hx,0);
-    cg.addColorStop(0,lutA(.3,0));cg.addColorStop(1,lut(.95));
-    g.strokeStyle=cg;g.lineWidth=4.5*AW;g.lineCap='round';
-    g.beginPath();g.moveTo(Math.max(x0,hx-W*0.34),y);g.lineTo(hx,y);g.stroke();
-    g.shadowBlur=0;return}
-  else if(style==='taper'){
-    g.setLineDash([]);g.shadowBlur=0;
-    for(let i=0;i<40;i++){const p=i/39,x=x0+(x1-x0)*p;
-      g.globalAlpha=1;g.fillStyle=lut(.34+0.5*p);
-      const h=(1.2+4.6*p)*AW;g.fillRect(x,y-h/2,(x1-x0)/39+1,h)}
-    g.globalAlpha=1;return}
-  else g.setLineDash([]);
-  g.beginPath();g.moveTo(x0,y);g.lineTo(x1,y);g.stroke();
-  g.setLineDash([]);g.shadowBlur=0}
+  FXP.arrow.w=FX.aw; FXP.arrow.speed=FX.speed;
+  const y=H/2, pts=[[W*0.09,y],[W*0.91,y]];
+  strokeFlowPath(g,pts,RM?0.8:t,FX.aw,{style},primEnv());
+  g.setLineDash([]);g.shadowBlur=0;g.globalAlpha=1}
 
-/* ── 파생 프리미티브 ─────────────────────────────────────────────────── */
+/* ── 파생 프리미티브 = 정본 fx-core 캔버스 함수 ────────────────────────
+   session.js 가 primPanel 에서 하는 것과 같은 호출(256px 캔버스 · PRIM_DEFAULTS · livePrimEnv). */
 const PRIMS=[
  {k:'stanceBox',n:'stanceBox',u:['복싱'],d:'가드/스탠스 영역'},
  {k:'punchLine',n:'punchLine',u:['복싱'],d:'노드 연결선'},
@@ -573,68 +1303,25 @@ const PRIMS=[
  {k:'rotate',n:'rotate',u:['복싱'],d:'회전 스윕'},
  {k:'stemArrow',n:'stemArrow',u:['러닝'],d:'리프트 큐 스템'},
  {k:'curveArrow',n:'curveArrow',u:['농구'],d:'곡선 방향'}];
+const PC=document.createElement('canvas');PC.width=PC.height=256;
+const PG=PC.getContext('2d');
+const JAB=[[-0.15,0.82],[0,0.05],[0.12,-0.72]];
 function drawPrim(g,W,kind,t){
-  g.clearRect(0,0,W,W);const c=W/2,tt=RM?1.2:t;
-  g.lineCap='round';g.lineJoin='round';
-  g.shadowColor=lutA(.7,.8);g.shadowBlur=8*FX.aw;
-  g.strokeStyle=lut(.45);g.lineWidth=3*FX.aw;
-  if(kind==='stanceBox'){
-    const s=W*0.30;g.setLineDash([10,7]);g.lineDashOffset=-tt*18*FX.speed;
-    g.beginPath();g.roundRect(c-s,c-s*0.8,s*2,s*1.6,W*0.09);g.stroke();g.setLineDash([]);
-    g.fillStyle=lutA(.5,.10);g.fill();
-    g.strokeStyle=lut(.8);g.lineWidth=2.4*FX.aw;
-    for(const dx of[-0.4,0.4]){g.beginPath();
-      g.ellipse(c+s*dx,c+s*0.18,W*0.045,W*0.075,0,0,7);g.stroke()}}
-  else if(kind==='punchLine'){
-    const pts=[[0.2,0.76],[0.5,0.44],[0.82,0.22]];
-    g.beginPath();g.moveTo(pts[0][0]*W,pts[0][1]*W);
-    g.lineTo(pts[1][0]*W,pts[1][1]*W);g.lineTo(pts[2][0]*W,pts[2][1]*W);g.stroke();
-    pts.forEach(([x,y],i)=>{g.fillStyle=lut(.4+i*0.25);
-      g.beginPath();g.arc(x*W,y*W,W*0.052,0,7);g.fill()})}
-  else if(kind==='approachRing'){
-    const p=(tt*0.35)%1;
-    g.globalAlpha=.4;g.setLineDash([2,9]);
-    g.beginPath();g.arc(c,c,W*0.31,0,7);g.stroke();g.setLineDash([]);g.globalAlpha=1;
-    g.strokeStyle=lut(.62);g.lineWidth=5*FX.aw;
-    g.beginPath();g.arc(c,c,W*0.31,-Math.PI/2,-Math.PI/2+p*7);g.stroke();
-    g.fillStyle=lut(.95);g.font=`700 ${W*0.2}px OffBit,monospace`;
-    g.textAlign='center';g.textBaseline='middle';
-    g.shadowBlur=0;g.fillText(String(Math.ceil(3-p*3)||1),c,c)}
-  else if(kind==='trajectory'){
-    const p=(tt*0.4)%1;
-    for(let i=0;i<44;i++){const q=i/43;if(q>p)break;
-      const x=W*(0.2+0.6*q), y=W*(0.82-0.66*q+0.16*Math.sin(q*3.1));
-      g.fillStyle=lutA(.34+0.55*q,0.25+0.75*q);
-      const r=(0.8+3.4*q)*FX.aw;g.beginPath();g.arc(x,y,r,0,7);g.fill()}
-    const x=W*(0.2+0.6*p),y=W*(0.82-0.66*p+0.16*Math.sin(p*3.1));
-    g.fillStyle=lut(1);g.beginPath();g.arc(x,y,3.4*FX.aw,0,7);g.fill()}
-  else if(kind==='rotate'){
-    const a0=-2.4,sw=4.2*(0.55+0.45*Math.sin(tt*1.3));
-    g.lineWidth=4.4*FX.aw;
-    g.beginPath();g.arc(c,c,W*0.28,a0,a0+sw);g.stroke();
-    const ae=a0+sw,ax=c+Math.cos(ae)*W*0.28,ay=c+Math.sin(ae)*W*0.28;
-    g.fillStyle=lut(.9);g.save();g.translate(ax,ay);g.rotate(ae+Math.PI/2);
-    g.beginPath();g.moveTo(0,-W*0.05);g.lineTo(W*0.045,W*0.04);g.lineTo(-W*0.045,W*0.04);
-    g.closePath();g.fill();g.restore()}
-  else if(kind==='stemArrow'){
-    const p=RM?.9:((tt*0.5)%1);
-    const y1=W*0.82,y0=W*0.82-(W*0.56)*p;
-    for(let i=0;i<30;i++){const q=i/29;const y=y1+(y0-y1)*q;
-      g.fillStyle=lutA(.36+0.5*q,0.9);const w=(4.6-3.2*q)*FX.aw;
-      g.fillRect(c-w/2,y,w,W*0.02)}
-    g.fillStyle=lut(.98);g.beginPath();g.moveTo(c,y0-W*0.075);
-    g.lineTo(c+W*0.06,y0+W*0.01);g.lineTo(c-W*0.06,y0+W*0.01);g.closePath();g.fill()}
-  else{ // curveArrow
-    const p=RM?.9:((tt*0.45)%1);
-    g.lineWidth=3.6*FX.aw;g.beginPath();
-    const P=q=>[W*(0.2+0.6*q), W*(0.8-0.3*q-0.35*Math.sin(q*2.0))];
-    g.moveTo(...P(0));for(let i=1;i<=30*p;i++)g.lineTo(...P(i/30));g.stroke();
-    const [ex,ey]=P(p),[bx,by]=P(Math.max(0,p-0.05));
-    const an=Math.atan2(ey-by,ex-bx);
-    g.fillStyle=lut(.95);g.save();g.translate(ex,ey);g.rotate(an+Math.PI/2);
-    g.beginPath();g.moveTo(0,-W*0.055);g.lineTo(W*0.048,W*0.042);g.lineTo(-W*0.048,W*0.042);
-    g.closePath();g.fill();g.restore()}
-  g.shadowBlur=0}
+  g.clearRect(0,0,W,W);
+  FXP.mark.halo=FX.halo; FXP.arrow.w=FX.aw; FXP.arrow.speed=FX.speed;
+  PG.clearRect(0,0,256,256);
+  const P={...PRIM_DEFAULTS[kind]}, look={halo:FXP.mark.halo}, ENV=primEnv();
+  const tt=RM?1.2:t, prog=RM?0.62:(tt*0.4)%1;
+  try{
+    if(kind==='stanceBox') drawStanceBox(PG,256,P,look,tt,ENV);
+    else if(kind==='punchLine') drawPunchLine(PG,256,P,look,tt,ENV,null,prog);
+    else if(kind==='approachRing') drawApproachRing(PG,256,P,look,tt,ENV,prog);
+    else if(kind==='trajectory') drawTrajectory(PG,256,P,look,tt,ENV,prog,JAB);
+    else if(kind==='rotate') drawRotate(PG,256,P,look,tt,ENV,prog);
+    else if(kind==='stemArrow') drawStemArrow(PG,256,256,tt,ENV,{});
+    else drawCurveArrow(PG,256,256,[[0.2,0.85],[0.5,0.4],[0.82,0.18]],tt,ENV,{prog});
+  }catch(e){ PG.fillStyle='#f55';PG.font='11px sans-serif';PG.fillText(String(e).slice(0,28),8,20) }
+  g.drawImage(PC,0,0,W,W)}
 
 /* ── 매트릭스 데이터 ─────────────────────────────────────────────────── */
 const MATRIX=[
@@ -709,6 +1396,36 @@ PRIMS.forEach(p=>mkCell(document.getElementById('prims'),
    <span style="font-size:10px;color:${p.u.length>1?'var(--nb-prism)':'var(--nb-sand)'}">${p.u.join(' · ')}</span>`,
   128,128,(g,t)=>drawPrim(g,128,p.k,t)));
 
+
+/* ── 발형 MARK — 정본 SDF + MARK_NUM 앵커 규약 ─────────────────────── */
+STATES.forEach((st,i)=>{
+  const right=i%2===1;   // 좌우 번갈아 — 앵커 미러(MARK_NUM.anchor)가 보이게
+  mkCell(document.getElementById('markFoot'),
+    `<b style="color:var(--t1)">${st.n}</b><br><span style="color:var(--t4);font-size:10px">${right?'오른발':'왼발'} · 숫자 ${MARK_NUM.opacity(st.k)===0?'숨김':MARK_NUM.opacity(st.k).toFixed(1)}</span>`,
+    120,120,(g,t)=>{
+      drawMarkGL(g,120,st.k,1,st.k*1.7,t,true);
+      // session.attachMarkNum → placeMarkNum 과 같은 규약:
+      //   크기 = 쿼드 × MARK_NUM.RATIO · 앵커 = SDF 무게중심 · 불투명도 = 상태별
+      const op=MARK_NUM.opacity(st.k);
+      if(op<=0||!GL||!GL.sdfMeta)return;
+      const a={x:GL.sdfMeta.cx,y:GL.sdfMeta.cy,s:1};
+      const off=MARK_NUM.anchor(a,right,120);
+      g.save();g.globalAlpha=op;
+      primEnv().num(g,String(i+1),60+off.x,60-off.y,120*MARK_NUM.RATIO,120*MARK_NUM.RATIO*0.86);
+      g.restore()})});
+
+/* ── GLYPH 슬롯 — 정본 drawGlyph ───────────────────────────────────── */
+const GSLOTS=[['L','L 글리프','제품 기본 등록'],['R','R 글리프','제품 기본 등록'],
+  ['TIP_TRI','화살촉','tokens.js 재등록'],['LIFT_TIP','리프트 촉','session.js 재등록'],
+  ['FOOT_OUT_L','발형 슬롯','비어 있음 → 내장 폴백'],['5','숫자 5','비어 있음 → 텍스트 폴백']];
+GSLOTS.forEach(([slot,name,note])=>{
+  mkCell(document.getElementById('glyphs'),
+    `<b style="color:var(--t1)">${name}</b><br><span style="font-size:10px;color:${GLYPHS.map[slot]?'var(--fix-line)':'var(--nb-sand)'}">${note}</span>`,
+    120,120,(g,t)=>{
+      g.clearRect(0,0,120,120);
+      if(slot==='FOOT_OUT_L'){ drawMarkGL(g,120,6,1,0,t,true); return }   // Locked 발형 = 실루엣만
+      if(!drawGlyph(g,slot,60,60,78)) primEnv().num(g,slot,60,60,78,64)})});
+
 /* 매트릭스 */
 (()=>{const t=document.getElementById('matrix');
   const mx=Math.max(...MATRIX.map(r=>Math.max(r[1],r[2],r[3])));
@@ -742,6 +1459,75 @@ document.getElementById('radii').innerHTML=RADII.map(([k,v,d])=>
   `<div style="border-radius:${Math.min(28,+v/2.6)}px"><b style="color:var(--t1);font-size:13px">${k}</b><span>${v}px · ${d}</span></div>`).join('');
 document.getElementById('motion').innerHTML=MOTION.map(([k,s,d])=>
   `<div><span class="k">${k}</span><span class="s">${s}</span><span class="d">${d}</span></div>`).join('');
+
+
+/* ── 간격 스케일 · 존 밴드 ─────────────────────────────────────────────
+   실물 환산은 PROJECTION-SPEC 6절: 벽 1px=1.00mm · 지면 러닝 0.73 · 농구 0.88 */
+const MM={wall:1.00, run:0.73, bk:0.88};
+const px=(mm,k)=>Math.round(mm/MM[k]);
+/* 지금 코드에 실재하는 간격을 mm로 환산해 묶은 8단 (반올림은 대지별) */
+const SPACE=[
+ ['sp-1',8,'글자·아이콘 사이 — 벽 dev-txt 8'],
+ ['sp-2',16,'라벨↔값 — 벽 setup 셀 내부'],
+ ['sp-3',24,'카드 사이 — 벽 row gap 24 · 카드 gap 26'],
+ ['sp-4',40,'그룹 사이 — 벽 stats 섹션 32'],
+ ['sp-5',56,'열 사이 — 벽 phases 56'],
+ ['sp-6',80,'존 사이 · 안전 여백 — 벽 wrap 80 · 지면 열 72'],
+ ['sp-7',112,'타이틀↔본문 — 벽 timer 88'],
+ ['sp-8',160,'화면 상하 여백']];
+(()=>{const t=document.getElementById('spacing');
+  t.innerHTML=`<thead><tr><th>토큰</th><th>실물</th><th>지면 러닝</th><th>지면 농구</th><th>벽</th><th>지금 쓰는 값</th></tr></thead><tbody>`+
+   SPACE.map(([k,mm,use])=>`<tr><td><code class="inline">${k}</code></td>
+     <td class="v">${mm}mm</td><td class="v">${px(mm,'run')}</td><td class="v">${px(mm,'bk')}</td>
+     <td class="v">${px(mm,'wall')}</td><td style="color:var(--t3);font-size:12.5px">${use}</td></tr>`).join('')+`</tbody>`})();
+
+/* 현재 타이틀 상단값 — 두 파일에서 실측 */
+const TITLES=[
+ ['지면','floor / floor-bk',176,'run'],['지면','floor-scene',176,'run'],
+ ['지면','floor-transition',500,'run'],['지면','floor-timer',600,'run'],
+ ['지면','floor-report',640,'run'],
+ ['벽','scene',140,'wall'],['벽','report',200,'wall'],
+ ['벽','transition',221,'wall'],['벽','timer',341,'wall']];
+const BAND={title:0.07, graphic:0.26, action:0.78};   // 대지 높이 비율 제안
+(()=>{const t=document.getElementById('titletbl');
+  t.innerHTML=`<thead><tr><th>대지</th><th>화면</th><th>지금 타이틀 top</th><th>비율</th><th>제안(7%)</th><th>차이</th></tr></thead><tbody>`+
+   TITLES.map(([g,n,v,k])=>{const H=k==='wall'?1600:2670, want=Math.round(H*BAND.title), d=v-want;
+     return `<tr><td>${g}</td><td>${n}</td><td class="v">${v}</td>
+       <td class="v" style="color:var(--t3)">${(v/H*100).toFixed(1)}%</td><td class="v">${want}</td>
+       <td class="v" style="color:${Math.abs(d)<30?'var(--t4)':'var(--nb-red)'}">${d>0?'+':''}${d}</td></tr>`}).join('')+`</tbody>`})();
+
+function drawZones(){
+  const defs=[['zoneFloor',1600,2670,'run',[['타이틀',176],['스트립',452],['디바이스',654],['히어로',1057]]],
+              ['zoneWall',2600,1600,'wall',[['타이틀',140],['아바타',855],['숫자',1148],['자막',1370]]]];
+  for(const [id,W,H,k,cur] of defs){
+    const cv=document.getElementById(id);if(!cv)continue;
+    const maxH=250, sc=maxH/H, w=Math.round(W*sc), h=maxH;
+    const g=fit(cv,w,h);cv.style.width=w+'px';cv.style.height=h+'px';
+    g.clearRect(0,0,w,h);
+    // 제안 밴드
+    const bands=[['타이틀',BAND.title,BAND.graphic],['그래픽',BAND.graphic,BAND.action],['액션',BAND.action,1]];
+    bands.forEach(([n,a,b],i)=>{
+      g.fillStyle=`rgba(209,254,255,${0.05+i*0.03})`;
+      g.fillRect(0,h*a,w,h*(b-a));
+      g.strokeStyle='rgba(209,254,255,.45)';g.lineWidth=1;
+      g.beginPath();g.moveTo(0,Math.round(h*a)+.5);g.lineTo(w,Math.round(h*a)+.5);g.stroke()});
+    // 안전 여백 (sp-6 = 80mm)
+    const safe=px(80,k)*sc;
+    g.strokeStyle='rgba(143,143,143,.4)';g.setLineDash([3,3]);
+    g.strokeRect(safe,safe,w-safe*2,h-safe*2);g.setLineDash([]);
+    // 현재 값
+    g.font='9px OffBit,monospace';
+    cur.forEach(([n,v])=>{const y=Math.round(h*(v/H))+.5;
+      g.strokeStyle='#FA3030';g.lineWidth=1.4;
+      g.beginPath();g.moveTo(0,y);g.lineTo(w,y);g.stroke();
+      g.fillStyle='#FA3030';g.fillText(n,4,y-3)})}}
+(()=>{document.getElementById('zlegend').innerHTML=
+  `<div><i style="background:#FA3030"></i>지금 요소가 놓인 자리</div>
+   <div><i style="background:rgba(209,254,255,.7)"></i>제안 밴드 — 타이틀 7% · 그래픽 26% · 액션 78%</div>
+   <div><i style="background:#8F8F8F"></i>안전 여백 <code class="inline">sp-6</code> 80mm</div>
+   <div style="color:var(--t3);font-size:12px;line-height:1.6;margin-top:4px;display:block;max-width:44ch">지면의 타이틀 176px(6.6%)과 벽의 버튼 1226px(76.6%)은 이미 이 밴드에 거의 맞습니다 — 제안은 새 규칙이 아니라 <b style="color:var(--t1)">잘 맞는 두 값을 나머지에 퍼뜨린 것</b>입니다.</div>`;
+  drawZones()})();
+addEventListener('resize',drawZones);
 
 /* ── 레일 ────────────────────────────────────────────────────────────── */
 const presetHost=document.getElementById('presets');
