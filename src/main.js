@@ -4481,7 +4481,7 @@ void main(){
       // 패널 접기/펼치기 — 상태 유지(브랜드 줄만 남는다)
       const fold = (on) => { pp.classList.toggle('folded', on); localStorage.setItem('newton.panelFold', on ? '1' : '0');
         requestAnimationFrame(() => dispatchEvent(new Event('resize'))); };   // 씬 폭 실측 갱신
-      $$('pp-fold').addEventListener('click', () => fold(!pp.classList.contains('folded')));
+      // 접기 쉐브론 제거(유저) — 패널은 항상 펼쳐 둔다
       if (localStorage.getItem('newton.panelFold') === '1') fold(true);
       $$('pp-cone').addEventListener('click', () => relay('btn-cone'));
       $$('pp-day').addEventListener('click', () => relay('btn-day'));
@@ -4511,7 +4511,14 @@ void main(){
         pp.querySelectorAll('.pp-pack').forEach(b => b.classList.toggle('on', b.dataset.pp === state.pack));
         if (!document.body.classList.contains('dev') && session.active && session.sport !== state.pack) startSessionFor(state.pack);
         const st = session?.curStage;
-        $$('pp-stage').textContent = live ? (st?.label || '—') : '세션을 시작하면 코치가 안내합니다';
+        // 타이틀 규약 `<코드> · <구간> — <한 줄>`을 셋으로 쪼개 위계를 만든다(유저):
+        //   코드=배지 / 구간=배지 옆 작은 글씨 / 한 줄=큰 타이틀
+        const lbl = live ? (st?.label || '—') : '';
+        const [head, ...rest] = lbl.split(' — ');
+        const [code, ...seg] = head.split(' · ');
+        $$('pp-code').textContent = live ? code.trim() : '';
+        $$('pp-seg').textContent = live ? seg.join(' · ').trim() : '';
+        $$('pp-stage').textContent = live ? (rest.join(' — ').trim() || code.trim()) : '세션을 시작하면 코치가 안내합니다';
         $$('pp-meta').textContent = live ? [st?.cue, st?.foot].filter(Boolean).join(' · ') : '';
         $$('pp-idx').textContent = live ? `${(session.stageIdx || 0) + 1} / ${session.stages.length}` : '체험';
         const vLb = $$('pp-view').querySelector('span');
@@ -4519,6 +4526,7 @@ void main(){
         $$('pp-mute').style.opacity = /🔇|off/i.test(document.getElementById('btn-tts')?.textContent || '') ? '.45' : '1';
         $$('pp-cone').classList.toggle('on', !!coneOn);
         $$('pp-day').classList.toggle('on', !!FXP.day);
+        $$('pp-day').textContent = FXP.day ? '낮' : '밤';   // 라벨이 현재 모드를 말한다(유저)
         $$('pp-beam').classList.toggle('on', rig.visualize !== false);   // 커버리지 표시 중이면 on
         if (!document.body.classList.contains('dev') && !session.active) productStart();
       }, 250);
@@ -4534,12 +4542,6 @@ void main(){
         el.addEventListener('click', () => { rig.stab[key] = !rig.stab[key]; el.classList.toggle('on', rig.stab[key]); });
       };
       sw('sw-raw', 'raw'); sw('sw-lp', 'omegaLP'); sw('sw-ff', 'servoFF'); sw('sw-gb', 'gimbal');
-      $('lab-fold').addEventListener('click', () => {
-        lab.classList.toggle('folded');
-        localStorage.setItem('newton.labFold', lab.classList.contains('folded') ? '1' : '0');
-        requestAnimationFrame(() => dispatchEvent(new Event('resize')));
-      });
-      if (localStorage.getItem('newton.labFold') === '1') lab.classList.add('folded');
       $('lab-run').addEventListener('click', () => {
         ttsOn = false;                       // 중간(READY) 대사 억제 — 점프 중엔 말하지 않는다
         startSessionFor('running');

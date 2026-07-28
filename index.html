@@ -173,7 +173,7 @@ body:not(.dev) #stage{margin-left:326px}
 body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
 #lab-panel.folded{width:56px;padding:16px 12px}
 #lab-panel.folded .lab-body,#lab-panel.folded .pp-title,#lab-panel.folded .pp-sub{display:none}
-#lab-panel h3{margin:18px 0 8px;font-size:11px;letter-spacing:1.6px;color:#fec389;font-weight:800}
+#lab-panel h3{margin:18px 0 8px;font-size:11px;letter-spacing:1.6px;color:var(--d-title);font-weight:800}
 #lab-panel .lab-kv{display:flex;justify-content:space-between;gap:10px;padding:6px 0;
   border-bottom:1px solid rgba(255,255,255,.06);font-size:12px}
 #lab-panel .lab-kv span:first-child{color:rgba(255,255,255,.55)}
@@ -182,7 +182,7 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
 /* 접이식 섹션 — 긴 설명·근거는 기본 접힘. 화면에 남는 건 값과 스위치뿐(유저: 글씨가 과하다) */
 #lab-panel details{margin-top:8px;border-top:1px solid rgba(255,255,255,.07)}
 #lab-panel details>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:6px;
-  padding:11px 0 9px;font-size:11px;letter-spacing:1.5px;color:#fec389;font-weight:800}
+  padding:11px 0 9px;font-size:11px;letter-spacing:1.5px;color:var(--d-title);font-weight:800}
 #lab-panel details>summary::-webkit-details-marker{display:none}
 #lab-panel details>summary::after{content:'';margin-left:auto;width:5px;height:5px;flex:0 0 auto;
   border-right:1.5px solid rgba(255,255,255,.4);border-bottom:1.5px solid rgba(255,255,255,.4);
@@ -254,17 +254,17 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
   --t-h2:700 26px/1.2 var(--ds-font);   --ls-h2:-1.5px;
   --t-t1:700 22px/1.2 var(--ds-font);   --ls-t1:-1px;
   --t-t2:700 20px/1.2 var(--ds-font);   --ls-t2:-1px;
-  --t-sub:700 18px/1.2 var(--ds-font);  --ls-sub:-.3px;
-  --t-bodyb:700 16px/1.5 var(--ds-font);--ls-body:-.5px;
-  --t-bodyr:400 16px/1.5 var(--ds-font);
-  --t-b15b:700 15px/1.4 var(--ds-font); --t-b15r:400 15px/1.4 var(--ds-font);
-  --t-b14m:400 14px/1.4 var(--ds-font);
-  --t-capb:700 13px/1.2 var(--ds-font); --ls-capb:-.2px;
-  --t-capr:400 13px/1.2 var(--ds-font); --ls-capr:-.5px;
-  --t-labm:400 12px/1.2 var(--ds-font); --ls-lab:-.5px;
-  --t-labr:400 12px/1.2 var(--ds-font);
-  --t-labs:400 11px/1.2 var(--ds-font);
-  --t-micro:400 10px/1.5 var(--ds-font);
+  --t-sub:700 19px/1.25 var(--ds-font); --ls-sub:-.3px;
+  --t-bodyb:700 17px/1.5 var(--ds-font);--ls-body:-.5px;
+  --t-bodyr:400 17px/1.5 var(--ds-font);
+  --t-b15b:700 16px/1.45 var(--ds-font);--t-b15r:400 16px/1.45 var(--ds-font);
+  --t-b14m:400 15px/1.45 var(--ds-font);
+  --t-capb:700 14px/1.25 var(--ds-font); --ls-capb:-.2px;
+  --t-capr:400 14px/1.3 var(--ds-font);  --ls-capr:-.5px;
+  --t-labm:400 13px/1.3 var(--ds-font);  --ls-lab:-.5px;
+  --t-labr:400 13px/1.3 var(--ds-font);
+  --t-labs:400 12px/1.3 var(--ds-font);
+  --t-micro:400 11px/1.5 var(--ds-font);
   --ds-shadow:0 14px 54px rgba(0,0,0,.15); --ds-r:14px;
 }
 #play-panel, #lab-panel, #dev-pill, #voice-caption{font-family:var(--ds-font);-webkit-font-smoothing:antialiased}
@@ -293,6 +293,14 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
 
 /* 단계 제목 = 두 줄 큰 타이틀 + 작은 회색 설명 (GUI 헤드라인 문법) */
 #play-panel .pp-stage{font:var(--t-h2);letter-spacing:var(--ls-h2);color:var(--d-title);min-height:62px}
+#play-panel .pp-head{display:flex;align-items:center;gap:8px;margin-bottom:9px;min-height:20px}
+#play-panel .pp-badge{padding:4px 9px;border-radius:6px;background:var(--nb-red);color:#fff;
+  font:700 11px/1 var(--ds-font);letter-spacing:.9px}
+#play-panel .pp-badge:empty{display:none}
+#play-panel .pp-seg{font:var(--t-labr);color:var(--d-t2);letter-spacing:-.3px}
+#play-panel .pp-idx{margin-left:auto;font:700 12px/1 var(--ds-font);color:var(--d-t3);font-variant-numeric:tabular-nums}
+/* 한글 타이틀은 어절 단위로 끊고 두 줄 길이를 균형 있게 */
+#play-panel .pp-stage{word-break:keep-all;overflow-wrap:break-word;text-wrap:balance}
 #play-panel .pp-meta{margin-top:8px;font:var(--t-capr);letter-spacing:var(--ls-capr);color:var(--d-t3)}
 
 /* 버튼 — 보조는 면(Surface), 주는 레드 알약 */
@@ -304,6 +312,11 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
 #play-panel button.pp-btn:hover{background:#2c2c2c;color:#fff}
 #play-panel button.pp-cta{background:var(--nb-red);color:#fff}
 #play-panel button.pp-cta:hover{background:#ff4646}
+/* 보조 조작(이전·다음·음소거·3인칭·처음으로) = 회색 서피스. 빨강은 '두 번 탭' 하나만(유저). */
+#play-panel .pp-row button.pp-btn{background:var(--d-surface);color:var(--d-body)}
+#play-panel .pp-row button.pp-btn:hover{background:#2c2c2c;color:#fff}
+#play-panel .pp-row button.pp-cta{background:var(--nb-red);color:#fff}
+#play-panel .pp-row button.pp-cta:hover{background:#ff4646;color:#fff}
 #play-panel .pp-start{border:0;border-radius:999px;background:var(--nb-red);color:#fff;
   font:var(--t-bodyb);letter-spacing:var(--ls-body);padding:16px 0;box-shadow:none}
 #play-panel .pp-start:hover{background:#ff4646}
@@ -571,7 +584,7 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
     <img class="lab-logo" src="newton-logo.svg" alt="NEWTON">
     <div class="pp-brand"><span class="pp-dot"></span><span class="pp-title">HOW IT WORKS</span>
       <span class="pp-sub">체험 랩</span>
-      <button class="pp-fold" id="lab-fold" title="접기 / 펼치기">⌃</button></div>
+    </div>
     <div class="lab-body">
       <button class="lab-go" id="lab-run">▶ 러닝 실전 · 3인칭으로 보기</button>
       <div class="lab-note">달리는 동안 무릎 유닛이 어떻게 흔들림을 잡는지 그대로 볼 수 있다.</div>
@@ -746,15 +759,15 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
 
     <!-- 제품 뷰 전용 체험 패널 — 팩 전환 + 세션 시작/조작을 이 하나로 (개발자 패널 없이) -->
     <div id="play-panel">
-      <!-- 워드마크는 좌측 랩 패널 로고 하나로 충분 — 우측엔 진행 표시와 접기만(유저) -->
-      <div class="pp-brand"><span class="pp-sub" id="pp-idx">체험</span>
-        <button class="pp-fold" id="pp-fold" title="패널 접기 / 펼치기">⌃</button></div>
       <div class="pp-body">
       <div class="pp-packs">
         <button class="pp-pack" data-pp="boxing">복싱</button>
         <button class="pp-pack" data-pp="running">러닝</button>
         <button class="pp-pack" data-pp="basketball">농구</button>
       </div>
+      <!-- 위계: [상태 배지 · 구간]  [n / N] → 타이틀 (유저) -->
+      <div class="pp-head"><span class="pp-badge" id="pp-code"></span>
+        <span class="pp-seg" id="pp-seg"></span><span class="pp-idx" id="pp-idx">체험</span></div>
       <div class="pp-stage" id="pp-stage">세션을 시작하면 코치가 안내합니다</div>
       <div class="pp-meta" id="pp-meta"></div>
       <div class="pp-toggles">
