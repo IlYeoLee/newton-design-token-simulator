@@ -2789,7 +2789,9 @@ void main(){
     }
     demoPanel.visible = !!on;
     if (on) setGhostClip(session.curStage?.id);   // 스테이지별 클립 자동 전환 (404 → 기본)
-    ghostPrev.style.display = on ? 'block' : 'none';
+    // 클립 소스 미리보기 카드 = 개발용 진단(파일명·반입 여부). 제품 뷰에선 숨긴다(유저).
+    const devNow = document.body.classList.contains('dev');
+    ghostPrev.style.display = (on && devNow) ? 'block' : 'none';
     if (on && ghostClipWant) {
       ghostPrevLb.style.whiteSpace = 'pre-line';
       const fallback = ghostClipCur === GHOST_DEFAULT;
