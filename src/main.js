@@ -24,7 +24,7 @@ import { WallGL } from './wallgl.js';     // 복싱 벽 UI WebGL 이식(같은 B
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { CSS3DRenderer, CSS3DObject } from 'three/examples/jsm/renderers/CSS3DRenderer.js';
 import { getLUT, FXP, rebuildLUT, lutColor, GLYPHS, FX_GLSL } from './fxlut.js';
-import { drawRotate } from './fx-core.js';
+import { drawRotate, PERSON_GLSL } from './fx-core.js';
 import { createEditor3D } from './editor3d.js';
 import { LiveUI } from './liveui.js';
 import { SceneUI } from './sceneui.js';
@@ -2661,6 +2661,7 @@ void main(){
         varying vec2 vUv;
         uniform sampler2D uTrail, uLUT, uHeat; uniform float uTime, uNoise, uW, uDetail, uTrailGain, uGrain, uTone, uLive;
         vec3 lut(float v){ return texture2D(uLUT, vec2(clamp(v, 0.004, 0.996), 0.5)).rgb; }
+        ` + PERSON_GLSL + `
         ` + FX_GLSL.replace('uniform sampler2D uLUT;', '').replace('vec3 lut(float v){ return texture2D(uLUT, vec2(clamp(v, 0.004, 0.996), 0.5)).rgb; }', '') + `
         ` + MASK_GLSL + `
         vec3 thermo(float h){
@@ -2702,9 +2703,9 @@ void main(){
           float mEro = smoothstep(0.16, 0.52, m);   // 침식 완화 — 골대 림 등 얇은 구조 보존(유저)
           float shapeA = mEro * 0.92;   // 알파용 형태 = 실루엣만 (잔상 제외)
           float shape = max(shapeA, trail * 0.5 * smoothstep(0.06, 0.22, trail));
-          vec3 col = mix(thermo(T), lut(clamp(T * 0.96, 0.0, 1.0)), uTone) * shape;   // 뉴턴톤 기본 = 룩 팔레트
-          float cl = dot(col, vec3(0.299, 0.587, 0.114));
-          col = clamp(mix(vec3(cl), col, 1.32), 0.0, 1.0);   // 채도 부스트 — 룩시스템 '쟁한' 고채도 유지
+          // 색 = fx-core.personColor 공용 정의 (벽 인물과 같은 곡선·대역·채도).
+          // 구 mix(thermo…) 은 은퇴 — uTone=1 이라 실제로 안 쓰였고, 무지개 램프는 팔레트 밖이었다.
+          vec3 col = personColor(T) * shape;
           col += (fxhash(uv * 977.0 + uTime) - 0.5) * (2.0 / 255.0);
           col += (fxhash(uv * 1661.0 + uTime * 3.0) - 0.5) * uGrain;
           // 프레임 원천 제거(유저): 타원 페더 — 잔여 배경·워시가 직선 경계 없이 곡선으로 소멸
@@ -4011,6 +4012,7 @@ void main(){
         uniform sampler2D uAtlas, uLUT;
         uniform float uFrame, uDecay, uTime, uW, uNoise, uCols, uRows, uN, uDirect;
         vec3 lut(float v){ return texture2D(uLUT, vec2(clamp(v, 0.004, 0.996), 0.5)).rgb; }
+        ` + PERSON_GLSL + `
         float phash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
         float pvn(vec2 p){
           vec2 i = floor(p), f = fract(p); f = f*f*f*(f*(f*6.0-15.0)+10.0);
@@ -4053,8 +4055,10 @@ void main(){
           float vert = pow(1.0 - uv.y, 1.35) * 0.92 + 0.06;
           float heat = mix(vert, clamp(vert + (flow - 0.5) * 0.55 + (flow2 - 0.5) * 0.25, 0.0, 1.0), uNoise);
           heat += clamp(m - mSoft, 0.0, 1.0) * 0.10;
-          vec3 col = lut(clamp(heat, 0.0, 1.0)) * mSoft * 1.12;
-          col += lut(clamp(heat * 0.45, 0.0, 1.0)) * trail * 0.38;
+          // 색 = fx-core.personColor 공용 정의 (바닥 인물과 같은 곡선·대역·채도).
+          // 구 lut(heat) 직결은 대역이 달라 바닥은 주황, 벽은 빨강으로 갈렸다.
+          vec3 col = personColor(heat) * mSoft * 1.12;
+          col += personColor(heat * 0.45) * trail * 0.38;
           // 알파 = 실루엣 마스크 추종 — 알파 1.0 고정이 흰 벽에서 쿼드 사각 박스로 드러났음 (유저)
           gl_FragColor = vec4(col, clamp(max(mSoft * 1.15, trail * 0.5), 0.0, 1.0));
         }`,
@@ -5133,6 +5137,7 @@ void main(){
   frameObj.visible = false;
   frameCssScene.add(frameObj);
   let loadedView = null;
+  let _lastSport = null;   // 팩 전환 감지 — 재진입 시 UI 인트로를 처음처럼 재생
   // 복싱 벽 UI의 WebGL 경로 — CSS3D는 DOM 레이어(z6)라 벽 앞의 x봇 위로 그대로 통과한다.
   // 같은 씬의 평면이면 깊이 테스트가 가림을 담당하고 빔 페더·차폐 소등도 자동 상속한다.
   const WALLGL = new URLSearchParams(location.search).get('wallgl') !== '0';
@@ -5354,6 +5359,10 @@ void main(){
   // 봇 오클루전 마스크(botOverlay)는 제거됐다 — 바닥 UI가 WebGL 평면이 되면서
   // 가림은 깊이 버퍼가 담당한다. 실루엣 캡슐이 몸보다 커서 생기던 '기괴한 마스크 자국'(유저)도 함께 소멸.
   function renderDesignFrame() {
+    // 팩이 바뀌었거나 세션이 끊겼으면 로드 캐시를 비운다 → 재진입 시 t=0 부터 인트로 재생.
+    // (예전엔 러닝→복싱→러닝 왕복에서 같은 src 라 재로드가 안 돼 애니메이션이 이미 끝난 상태로 보였다)
+    const _sp = session.active ? session.sport : null;
+    if (_sp !== _lastSport) { _lastSport = _sp; loadedView = null; loadedFloorView = null; }
     // CSS3D 레이어 = WebGL 캔버스에 매 프레임 정확 정합 — 창≠캔버스(크기·aspect)여도 원근·스케일 일치
     //   (이게 안 맞으면 디자인이 벽보다 크게 부풀어 프레임영역 밖으로 넘침 — 유저 창 크기 의존 버그의 원인)
     const cvr = renderer.domElement.getBoundingClientRect();

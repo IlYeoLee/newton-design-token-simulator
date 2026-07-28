@@ -153,6 +153,27 @@ export function buildLUT(stops, sat = 1, out = new Uint8Array(256 * 4)) {
 //   전제: 호스트 공통부가 uW·uHalo·uNoise(float)를 선언. 여기가 uRadius·uPool·uContract·
 //   uShape·uSeed·uSDF2·uSDFWarn을 선언(호스트 헤더에서 중복 선언 금지).
 // ─────────────────────────────────────────────────────────────
+
+// ─────────────────────────────────────────────────────────────
+// 인물 색 — 바닥(demoPanel)·벽(bxPerson) 공용 단일 정의.
+//   예전엔 둘이 같은 LUT를 쓰면서도 온도 곡선·채도가 달라 바닥은 주황, 벽은 빨강으로 보였다
+//   (유저: "복싱 인물이랑 농구 러닝 바닥 인물 색이 너무 다르다").
+//   전제: 호스트가 vec3 lut(float) 를 이미 선언한다.
+// ─────────────────────────────────────────────────────────────
+export const PERSON_GLSL = `
+#define P_GAMMA 1.38    // 온도 곡선 — 어두운 부위를 더 깊게
+#define P_GAIN  0.96    // LUT 상단 여유(순백 방지)
+#define P_SAT   1.32    // 룩시스템 '쟁한' 고채도
+#define P_LO    0.22    // 인물이 앉는 온도 대역 — 이 밖으로 나가면 팩마다 색이 갈린다
+#define P_HI    0.86
+vec3 personColor(float T){
+  float t = P_LO + clamp(T, 0.0, 1.0) * (P_HI - P_LO);   // 공용 대역으로 정규화
+  t = pow(t, P_GAMMA) * P_GAIN;
+  vec3 c = lut(clamp(t, 0.0, 1.0));
+  float l = dot(c, vec3(0.299, 0.587, 0.114));
+  return clamp(mix(vec3(l), c, P_SAT), 0.0, 1.0);
+}`;
+
 export const MARK_GLSL = `
 uniform float uRadius, uPool, uContract, uShape, uSeed;
 uniform sampler2D uSDF2, uSDFWarn;
