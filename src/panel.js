@@ -1,3 +1,4 @@
+import { PAL, NEU } from './palette.js';
 // 좌측 패널: 팩 탭 / 원본 정보 / 타임라인 / 토큰 슬라이더 / 범례
 import { LAYOUT } from './tokens.js';
 
@@ -36,32 +37,34 @@ function packSignature(packData) {
   return parts.join(' · ');
 }
 
+// 토큰 범례 색 — 화면에 나가는 색이 아니라 '개발자 패널의 분류 칩'이지만,
+// 팔레트 밖 색(하늘·보라·분홍)을 쓰면 룩을 오해하게 만든다 → 팔레트로 정렬(규칙 ①).
 const TYPE_COLORS = {
-  stepMark: '#4fc3f7',
-  orderPulse: '#ffffff',
-  directionGuide: '#b388ff',
-  targetMark: '#ff5c8a',
-  pathLane: '#2a86b8',
+  stepMark: PAL.red,
+  orderPulse: NEU.ink,
+  directionGuide: PAL.coral,
+  targetMark: PAL.red,
+  pathLane: PAL.sand,
 };
 
 const LEGEND = {
   running: [
-    ['#4fc3f7', '왼발 착지 마크 + 카운트다운 링'],
-    ['#ffb74d', '오른발 착지 마크 + 카운트다운 링'],
+    [PAL.red, '왼발 착지 마크 + 카운트다운 링'],
+    [PAL.red, '오른발 착지 마크 + 카운트다운 링'],
     ['#ffffff', '순서 숫자 (orderPulse)'],
-    ['#2a86b8', '트레드밀 레인 (pathLane)'],
+    [PAL.sand, '트레드밀 레인 (pathLane)'],
   ],
   boxing: [
-    ['#ff5c8a', '벽면 펀치 타겟 (targetMark)'],
-    ['#4fc3f7', '스탠스 발판 — 왼발'],
-    ['#ffb74d', '스탠스 발판 — 오른발'],
-    ['#b388ff', '방향 가이드 화살표'],
+    [PAL.red, '벽면 펀치 타겟 (targetMark)'],
+    [PAL.red, '스탠스 발판 — 왼발'],
+    [PAL.red, '스탠스 발판 — 오른발'],
+    [PAL.coral, '방향 가이드 화살표'],
   ],
   basketball: [
-    ['#4fc3f7', '플랜트 풋 마크 — 왼발'],
-    ['#ffb74d', '플랜트 풋 마크 — 오른발'],
-    ['#b388ff', '컷인 방향 화살표'],
-    ['#2a86b8', '이동 경로 점선 (pathLane)'],
+    [PAL.red, '플랜트 풋 마크 — 왼발'],
+    [PAL.red, '플랜트 풋 마크 — 오른발'],
+    [PAL.coral, '컷인 방향 화살표'],
+    [PAL.sand, '이동 경로 점선 (pathLane)'],
   ],
 };
 
@@ -122,8 +125,8 @@ export class Panel {
       <b>${packData.packName ?? packData.sport}</b>
       ${s.name ?? ''}<br>
       ${s.dataType ?? ''}<br>
-      상태: <span style="color:#69f0ae">${packData.dataStatus}</span> · ${s.licenseNote ?? ''}
-      ${sig ? `<br>시그니처: <span style="color:#fec389">${sig}</span>` : ''}
+      상태: <span style="color:${PAL.prism}">${packData.dataStatus}</span> · ${s.licenseNote ?? ''}
+      ${sig ? `<br>시그니처: <span style="color:${PAL.red}">${sig}</span>` : ''}
     `;
 
     document.getElementById('token-legend').innerHTML =
@@ -134,7 +137,7 @@ export class Panel {
     this.hudEl.innerHTML = `
       <b>${packData.packName}</b><br>
       데이터: ${s.name ?? '—'}<br>
-      <span id="geom-info" style="color:#4fc3f7;font-variant-numeric:tabular-nums;"></span>
+      <span id="geom-info" style="color:${PAL.prism};font-variant-numeric:tabular-nums;"></span>
     `;
   }
 
@@ -159,9 +162,10 @@ export class Panel {
 
     // 판정 누적 점 (hit 초록 / near 앰버 / miss 레드) — 구간별 약점 시각화
     if (judgeMarks) {
-      const VC = { hit: '#69f0ae', near: '#ffc94d', miss: '#ff5c6c' };
+      // 판정 시각화 = 상태 부호. 히트=프리즘 · 근접=사구 · 미스=무채(규칙 ①②)
+  const VC = { hit: PAL.prism, near: PAL.sand, miss: NEU.lo };
       for (const m of judgeMarks) {
-        ctx.fillStyle = VC[m.verdict] || '#888';
+        ctx.fillStyle = VC[m.verdict] || NEU.t2;
         ctx.beginPath();
         ctx.arc((m.t / this.duration) * W, H - 6, 3, 0, Math.PI * 2);
         ctx.fill();
@@ -172,8 +176,8 @@ export class Panel {
     for (const ev of this.events) {
       const x = (ev.t / this.duration) * W;
       const color = ev.surface === 'wall' ? TYPE_COLORS.targetMark
-        : ev.foot === 'right' ? '#ffb74d'
-        : ev.foot === 'left' ? '#4fc3f7' : TYPE_COLORS.directionGuide;
+        : ev.foot === 'right' ? PAL.red
+        : ev.foot === 'left' ? PAL.red : TYPE_COLORS.directionGuide;
       ctx.fillStyle = color;
       const hit = now >= ev.t && now < ev.t + 0.35;
       ctx.globalAlpha = hit ? 1 : 0.65;
@@ -184,7 +188,7 @@ export class Panel {
 
     // 플레이헤드
     const px = (now / this.duration) * W;
-    ctx.fillStyle = '#e8eaf0';
+    ctx.fillStyle = NEU.hi;
     ctx.fillRect(px - 0.75, 4, 1.5, H - 8);
 
     this.clockEl.textContent = `${now.toFixed(2)} / ${this.duration.toFixed(2)}s`;

@@ -22,7 +22,10 @@ const UI_FPS = Math.max(4, Math.min(60, +(new URLSearchParams(location.search).g
 
 const CX = W / 2;
 const RED = PAL.red;
-const sans = "'Supreme','Freesentation','Pretendard',sans-serif";
+// 투사 UI 서체 규칙(유저 확정): Supreme 두 굵기만 — Bold 700 · Regular 400.
+// Freesentation·Pretendard 폴백은 은퇴(투사 UI는 영문 조판이고, 폴백이 끼면 자간이 달라진다).
+const sans = "'Supreme',sans-serif";
+// 수치 전용 페이스. 이걸 sans 로 바꾸면 문서 전체가 Supreme 2종만 남는다(유저가 원하면 한 줄).
 const dot9 = "'OffBit','Supreme',sans-serif";
 const F = (w, s, fam = sans) => `${w} ${s}px ${fam}`;
 
@@ -173,7 +176,7 @@ function buildScene(stage, p) {
   const m = /^BK_B([2345])$/.exec(stage);
   if (m) col.push(node('s-cap', { type: 'text', textContent: (+m[1] - 1) + ' / 4', size: 46, weight: 700, ls: 6, color: 'rgba(255,255,255,.62)', mb: -38 }));
   if (!isC) col.push(node('s-title', { type: 'text', textContent: S.title, size: 120, weight: 700, ls: -4, color: '#fff', cascade: true }));
-  col.push(node('s-cue', { type: 'text', textContent: S.cue || '', size: 52, weight: 500, color: 'rgba(255,255,255,.72)', style: { display: 'none' } }));
+  col.push(node('s-cue', { type: 'text', textContent: S.cue || '', size: 52, weight: 400, color: 'rgba(255,255,255,.72)', style: { display: 'none' } }));
   if (isC) col.push(node('km', { type: 'km' }));
   if (hasPrev) col.push(node('prev-row', { type: 'prevRow', pv: p.pv || 3, pvn: p.pvn || 0 }));
   col.push(node('s-dots', { type: 'dots', dur: p.dur || 8, delay: hasPrev ? (p.pv || 3) + 0.15 : 0 }));
@@ -201,8 +204,7 @@ export class FloorGL {
     this.mesh.renderOrder = 3;
     this.stage = null; this.map = new Map(); this.col = []; this.t = 0; this._sig = null;
     // 캔버스 fillText는 웹폰트 로드를 촉발하지 않는다 — 명시 로드 후 한 번 다시 그린다.
-    for (const f of ['700 100px Supreme', '500 100px Supreme', '400 100px Supreme',
-                     '700 100px OffBit', '700 100px Freesentation', '400 100px Freesentation'])
+    for (const f of ['700 100px Supreme', '400 100px Supreme', '700 100px OffBit'])
       document.fonts?.load(f).then(() => { this._sig = null; }).catch(() => {});
     this.doc = {
       getElementById: id => this.map.get(id) || null,
@@ -547,7 +549,7 @@ export class FloorGL {
     let x = x0;
     cols.forEach((c, i) => {
       if (i) { ctx.fillStyle = 'rgba(255,255,255,.22)'; ctx.fillRect(x, 452 + 21, 2, 100); x += 2; }
-      ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.font = F(500, T.body);
+      ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.font = F(400, T.body);
       ctx.fillText(c[0], x + w[i] / 2, 452 + 14);
       ctx.fillStyle = '#fff'; ctx.font = F(700, c[2] ? 52 : 64); ctx.letterSpacing = '-2px';
       ctx.fillText(c[1], x + w[i] / 2, 452 + 14 + 48 + 14);
@@ -657,7 +659,7 @@ export class FloorGL {
       ctx.strokeStyle = '#fff'; ctx.lineWidth = 7.5; ctx.lineCap = ctx.lineJoin = 'round';
       ctx.beginPath(); ctx.moveTo(c - 19, cy + 1); ctx.lineTo(c - 6, cy + 14); ctx.lineTo(c + 19, cy - 14); ctx.stroke();
     } else {
-      ctx.font = F(500, T.sub); const bw = ctx.measureText('Next').width + 52.4, bh = 52 * 1.2 + 26.2;
+      ctx.font = F(400, T.sub); const bw = ctx.measureText('Next').width + 52.4, bh = 52 * 1.2 + 26.2;
       const bx = x + S - P - bw / 2, by = y + P + bh / 2;
       ctx.translate(bx, by); ctx.scale(spk, spk); ctx.translate(-bx, -by);
       ctx.fillStyle = 'rgba(255,255,255,.9)'; this._pill(x + S - P - bw, y + P, bw, bh);
@@ -712,7 +714,7 @@ export class FloorGL {
     let y = zone('graphic', H);
     // 100% 링 (0.5s 뒤 1.4s 동안 채움)
     const p = clamp01((t - 0.5) / 1.4), e = eOut(p);
-    const cy = y + 250, r = 230 * (500 / 500);
+    const cy = y + 250, r = 230;
     // ringPop .8s .35s + ringBreath 3.4s 1.4s ×3
     const rp = eOut(intro(t, .35, .8)), br = cycle(t, 1.4, 3.4, 3);
     ctx.save();

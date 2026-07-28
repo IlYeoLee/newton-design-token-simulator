@@ -65,7 +65,8 @@ export class LiveUI {
           // 평면 경계 윈도우 — 헤일로 잔광이 지오메트리 모서리에 사각으로 잘리는 것 방지
           vec2 b = abs(vUv - 0.5) * 2.0;
           float win = smoothstep(1.0, 0.72, max(b.x, b.y));
-          vec3 col = (uColor * (core + halo) + vec3(1.0, 0.96, 0.88) * hot * 0.6) * win;
+          // 핫스팟 하이라이트 = 무채 잉크(규칙 ②) — 구 웜화이트 vec3(1.0,0.96,0.88) 은 팔레트 밖이었다
+          vec3 col = (uColor * (core + halo) + vec3(1.0) * hot * 0.6) * win;
           gl_FragColor = vec4(col * uOp, 1.0);
         }`,
     });
