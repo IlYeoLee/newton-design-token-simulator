@@ -9,7 +9,9 @@ import os from 'os';
 import path from 'path';
 
 const TTS = path.join(os.homedir(), 'Library/Python/3.9/bin/edge-tts');
-const VOICE = { '션': ['ko-KR-HyunsuMultilingualNeural', '+15%', '-6Hz'], '커리': ['ko-KR-HyunsuMultilingualNeural', '-8%'], '고수': ['ko-KR-HyunsuMultilingualNeural', '-8%'], '시스템': ['ko-KR-SunHiNeural', '-4%'] };   // 션=활기(빠르고 높게, 유저 요청)
+// 코치는 팩과 무관하게 같은 남성 보이스·같은 톤(유저: 농구도 러닝과 똑같이).
+const COACH = ['ko-KR-HyunsuMultilingualNeural', '+15%', '-6Hz'];
+const VOICE = { '션': COACH, '커리': COACH, '고수': COACH, '시스템': ['ko-KR-SunHiNeural', '-4%'] };
 const src = fs.readFileSync('src/session.js', 'utf8');
 const only = (() => { const i = process.argv.indexOf('--only'); return i < 0 ? null : new Set(process.argv[i + 1].split(',')); })();
 
