@@ -318,6 +318,11 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
 #play-panel .pp-fold, #lab-panel .pp-fold{border:0;border-radius:999px;background:var(--d-surface);color:var(--d-t2)}
 
 /* 체험 랩 — 섹션 라벨(작은 회색) + 값(강조) 2열, 카드는 면처리 */
+#lab-panel .lab-logo{display:block;width:104px;height:auto;margin:2px 0 18px;opacity:.95}
+#lab-panel.folded .lab-logo{display:none}
+/* 실전 진입 = 유일한 주 행동 → 레드 (나머지 버튼은 중립 서피스) */
+#lab-panel #lab-run{border-color:var(--nb-red);background:var(--nb-red);color:#fff}
+#lab-panel #lab-run:hover{background:#e02a2a;border-color:#e02a2a;color:#fff}
 #lab-panel h3{margin:26px 0 10px;font:var(--t-labr);letter-spacing:.4px;color:var(--d-t3);font-weight:400}
 #lab-panel .lab-kv{padding:9px 0;font:var(--t-capr);letter-spacing:var(--ls-capr);
   border-bottom:1px solid var(--d-divider)}
@@ -563,6 +568,7 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
   </script>
   <!-- 좌측 체험 랩 — 부품·보정 알고리즘·시야 원칙을 직접 켜고 끄며 확인 -->
   <div id="lab-panel">
+    <img class="lab-logo" src="newton-logo.svg" alt="NEWTON">
     <div class="pp-brand"><span class="pp-dot"></span><span class="pp-title">HOW IT WORKS</span>
       <span class="pp-sub">체험 랩</span>
       <button class="pp-fold" id="lab-fold" title="접기 / 펼치기">⌃</button></div>
@@ -740,8 +746,8 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
 
     <!-- 제품 뷰 전용 체험 패널 — 팩 전환 + 세션 시작/조작을 이 하나로 (개발자 패널 없이) -->
     <div id="play-panel">
-      <div class="pp-brand"><span class="pp-dot"></span><span class="pp-title">NEWTON</span>
-        <span class="pp-sub" id="pp-idx">체험</span>
+      <!-- 워드마크는 좌측 랩 패널 로고 하나로 충분 — 우측엔 진행 표시와 접기만(유저) -->
+      <div class="pp-brand"><span class="pp-sub" id="pp-idx">체험</span>
         <button class="pp-fold" id="pp-fold" title="패널 접기 / 펼치기">⌃</button></div>
       <div class="pp-body">
       <div class="pp-packs">
