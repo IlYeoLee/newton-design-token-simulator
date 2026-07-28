@@ -207,6 +207,15 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
 #lab-panel .lab-sw .d{font-size:10.5px;color:rgba(255,255,255,.45);line-height:1.45}
 #lab-panel .lab-live{margin-top:10px;padding:11px 12px;border-radius:11px;background:rgba(250,48,48,.10);
   border:1px solid rgba(250,48,48,.28)}
+/* 자막 = '들리는 것'으로 읽히게: 문장 아래 음파 바가 말하는 동안만 움직인다.
+   아이콘·화자 라벨은 쓰지 않는다(유저) — 소리라는 신호는 모션이 담당. */
+#vc-wave{display:flex;gap:3px;justify-content:center;align-items:center;height:9px;margin-top:9px}
+#vc-wave i{width:2px;height:100%;border-radius:2px;background:rgba(255,255,255,.32);
+  transform-origin:center;animation:vcWave 1s ease-in-out infinite}
+#vc-wave i:nth-child(1){animation-delay:0s}   #vc-wave i:nth-child(2){animation-delay:.12s}
+#vc-wave i:nth-child(3){animation-delay:.24s} #vc-wave i:nth-child(4){animation-delay:.36s}
+#vc-wave i:nth-child(5){animation-delay:.48s}
+@keyframes vcWave{0%,100%{transform:scaleY(.28)}50%{transform:scaleY(1)}}
 #lab-panel .lab-live b{font-size:20px;font-weight:800}
 /* ω·위상은 보조값 — 오차 수치(20px)와 같은 크기로 커지면 안 된다 */
 #lab-panel .lab-live .lab-note b{font-size:11.5px;font-weight:700;color:#fff}
@@ -327,7 +336,7 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
 #lab-panel .lab-go{border:0;border-radius:999px;background:var(--d-surface);color:var(--d-strong);
   font:var(--t-capb);letter-spacing:-.2px;padding:14px 0}
 #lab-panel .lab-go:hover{background:#2c2c2c;color:#fff}
-#voice-caption{border-radius:999px;background:var(--d-bg);border:1px solid var(--d-divider);backdrop-filter:none;
+#voice-caption{border-radius:16px;background:var(--d-bg);border:0;backdrop-filter:none;
   font:var(--t-bodyr);letter-spacing:var(--ls-body);color:var(--d-title);padding:13px 22px}
 #dev-pill{border:0;border-radius:999px;background:var(--d-surface);color:var(--d-t3);font:var(--t-labr)}
 </style>
@@ -637,10 +646,11 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
     <div id="hud" class="dev-only"></div>
     <div id="event-flash"></div>
     <!-- 코치 자막 = 상단에서 내려온다. 우측 체험 패널과 같은 높이선(top 20px)에 맞춰 정렬(유저) -->
-    <div id="voice-caption" style="position:absolute;top:20px;left:50%;transform:translateX(-50%) translateY(-6px);
-      max-width:46%;padding:13px 26px;border-radius:16px;background:rgba(12,14,18,.86);backdrop-filter:blur(10px);
-      font-size:14px;color:var(--text);opacity:0;
-      transition:opacity .3s,transform .3s;pointer-events:none;text-align:center;line-height:1.5;z-index:21;">
+    <div id="voice-caption" style="position:absolute;top:20px;left:50%;transform:translateX(-50%) translateY(10px);
+      max-width:46%;padding:14px 26px 12px;border-radius:16px;background:rgba(12,14,18,.86);backdrop-filter:blur(10px);
+      font-size:14px;font-weight:700;color:var(--text);opacity:0;
+      transition:opacity .28s cubic-bezier(.2,.8,.3,1),transform .28s cubic-bezier(.2,.8,.3,1);
+      pointer-events:none;text-align:center;line-height:1.5;z-index:21;"><span id="vc-text"></span><span id="vc-wave"><i></i><i></i><i></i><i></i><i></i></span>
     </div>
 
     <button id="btn-real" class="dev-only" style="position:absolute;bottom:18px;right:60px;z-index:29;padding:9px 12px;border:1px solid var(--line);border-radius:8px;background:rgba(16,19,24,.9);color:var(--text);font-size:12px;font-weight:700;cursor:pointer;" title="실물 뷰 — 투사 커버리지(붉은 영역·빔) 숨김: 실제 러너 눈에는 투사된 UI만 보입니다">👁</button>
@@ -748,7 +758,7 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
       </div>
       <div id="pp-idle">
         <button class="pp-start" id="pp-start">세션 체험하기</button>
-        <div class="pp-hint">1인칭으로 전환 · D키 개발자 모드</div>
+        <div class="pp-hint">1인칭으로 전환 · F키 전체화면 · D키 개발자 모드</div>
       </div>
       <div id="pp-live" style="display:none">
         <div class="pp-row">

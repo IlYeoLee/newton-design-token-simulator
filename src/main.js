@@ -950,13 +950,15 @@ void main(){
     if (!captionEl) return;
     // 실전(C1~C5) = 무자막(유저 확정): 음성만. 달리며 글 읽기 금지 — 빛 언어가 전달.
     if (session?.active && /^C\d$/.test(session.stage || '')) return;
-    captionEl.textContent = text;   // 화자 이름·스피커 아이콘 제거(유저) — 문장만 가운데 정렬
+    // 화자 이름·스피커 아이콘 없이 문장만(유저). '들리는 것'이라는 신호는 모션이 담당한다 —
+    // 아래에서 떠오르며 등장하고, 말하는 동안 문장 밑 음파 바가 움직인다.
+    (captionEl._t || (captionEl._t = document.getElementById('vc-text'))).textContent = text;
     captionEl.style.opacity = '1';
-    captionEl.style.transform = 'translateX(-50%) translateY(0)';   // 상단에서 살짝 내려오며 등장
+    captionEl.style.transform = 'translateX(-50%) translateY(0)';
     clearTimeout(captionTimer);
     captionTimer = setTimeout(() => {
       captionEl.style.opacity = '0';
-      captionEl.style.transform = 'translateX(-50%) translateY(-6px)';
+      captionEl.style.transform = 'translateX(-50%) translateY(10px)';   // 떠올랐다 다시 가라앉으며 사라짐
     }, 4500);
   }
   const sessionHud = document.getElementById('session-hud');
@@ -4484,6 +4486,16 @@ void main(){
       $$('pp-cone').addEventListener('click', () => relay('btn-cone'));
       $$('pp-day').addEventListener('click', () => relay('btn-day'));
       $$('pp-beam').addEventListener('click', () => relay('btn-real'));
+      // 전체화면 = F키만(버튼 없음, 유저). 웹페이지가 크롬 주소창을 직접 감출 방법은
+      // 전체화면 API뿐이라 이걸 쓰되, 패널에 토글을 두지 않고 단축키로만 자연스럽게.
+      window.addEventListener('keydown', e => {
+        if (e.key !== 'f' && e.key !== 'F') return;
+        if (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target?.tagName || '')) return;
+        if (document.fullscreenElement) document.exitFullscreen?.();
+        else document.documentElement.requestFullscreen?.().catch(() => {});
+      });
+      // 뷰포트가 바뀌면 캔버스·CSS3D 정합을 즉시 다시 맞춘다(안 하면 프레임이 어긋난 채 남는다)
+      document.addEventListener('fullscreenchange', () => resize());
       // 제품 뷰 = 어떤 팩을 골라도 '그 팩의 1인칭 체험 첫 화면'에서 시작한다(유저).
       //   개발자 뷰는 기존대로 자유 3D 프리뷰 유지.
       const productStart = () => {
