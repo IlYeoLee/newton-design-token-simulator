@@ -4429,22 +4429,39 @@ void main(){
       pp.querySelectorAll('.pp-pack').forEach(b => b.addEventListener('click', () => {
         document.querySelector(`[data-pack=${b.dataset.pp}]`)?.click();
       }));
-      $$('pp-start').addEventListener('click', () => relay('btn-session'));
+      $$('pp-start').addEventListener('click', () => (session.active ? relay('btn-tap') : startSessionFor(state.pack)));
       $$('pp-prev').addEventListener('click', () => session.prev());
       $$('pp-tap').addEventListener('click', () => relay('btn-tap'));
       $$('pp-next').addEventListener('click', () => session.next(true));   // 체험 조작은 음성 대기 없이 즉시
       $$('pp-view').addEventListener('click', () => relay('btn-view'));
       $$('pp-stop').addEventListener('click', () => relay('btn-session-stop'));
+      // 토글 3종 — 시야콘 · 낮/밤 · 빔 지면 커버리지. 상태는 기존 전역 플래그를 그대로 읽는다.
+      $$('pp-cone').addEventListener('click', () => relay('btn-cone'));
+      $$('pp-day').addEventListener('click', () => relay('btn-day'));
+      $$('pp-beam').addEventListener('click', () => relay('btn-real'));
+      // 제품 뷰 = 어떤 팩을 골라도 '그 팩의 1인칭 체험 첫 화면'에서 시작한다(유저).
+      //   개발자 뷰는 기존대로 자유 3D 프리뷰 유지.
+      const productStart = () => {
+        if (document.body.classList.contains('dev')) return;
+        if (!session.active) startSessionFor(state.pack);
+      };
+      pp.querySelectorAll('.pp-pack').forEach(b => b.addEventListener('click', () => setTimeout(productStart, 400)));
+      setTimeout(productStart, 900);   // 최초 진입
       setInterval(() => {
         const live = !!session?.active;
         $$('pp-idle').style.display = live ? 'none' : '';
         $$('pp-live').style.display = live ? '' : 'none';
         pp.querySelectorAll('.pp-pack').forEach(b => b.classList.toggle('on', b.dataset.pp === state.pack));
+        if (!document.body.classList.contains('dev') && session.active && session.sport !== state.pack) startSessionFor(state.pack);
         const st = session?.curStage;
         $$('pp-stage').textContent = live ? (st?.label || '—') : '세션을 시작하면 코치가 안내합니다';
         $$('pp-meta').textContent = live ? [st?.cue, st?.foot].filter(Boolean).join(' · ') : '';
         $$('pp-idx').textContent = live ? `${(session.stageIdx || 0) + 1} / ${session.stages.length}` : '체험';
         $$('pp-view').textContent = document.getElementById('btn-view')?.textContent || '3인칭 보기';
+        $$('pp-cone').classList.toggle('on', !!coneOn);
+        $$('pp-day').classList.toggle('on', !!FXP.day);
+        $$('pp-beam').classList.toggle('on', rig.visualize !== false);   // 커버리지 표시 중이면 on
+        if (!document.body.classList.contains('dev') && !session.active) productStart();
       }, 250);
     }
   }

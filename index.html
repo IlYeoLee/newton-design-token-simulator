@@ -145,6 +145,11 @@ body:not(.dev) #play-panel{display:block}
   background:linear-gradient(180deg,rgba(250,48,48,.26),rgba(250,48,48,.14));color:#fff;
   font-size:14px;font-weight:800;letter-spacing:-.2px;cursor:pointer}
 #play-panel .pp-start:hover{background:linear-gradient(180deg,rgba(250,48,48,.4),rgba(250,48,48,.22))}
+#play-panel .pp-toggles{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:12px 0 4px}
+#play-panel .pp-tg{padding:9px 0;border:1px solid rgba(255,255,255,.12);border-radius:10px;
+  background:rgba(255,255,255,.04);color:rgba(255,255,255,.55);font-size:11px;font-weight:700;cursor:pointer}
+#play-panel .pp-tg:hover{background:rgba(255,255,255,.09);color:#fff}
+#play-panel .pp-tg.on{border-color:#d1feff;background:rgba(209,254,255,.14);color:#d1feff}
 #play-panel .pp-hint{margin-top:9px;font-size:11px;color:rgba(255,255,255,.38);text-align:center}
 body:not(.dev) #session-hud{display:none !important}
 #dev-pill{position:absolute;bottom:18px;left:18px;z-index:40;padding:7px 11px;border:1px solid var(--line);
@@ -477,6 +482,11 @@ body:not(.dev) #session-hud{display:none !important}
       </div>
       <div class="pp-stage" id="pp-stage">세션을 시작하면 코치가 안내합니다</div>
       <div class="pp-meta" id="pp-meta"></div>
+      <div class="pp-toggles">
+        <button class="pp-tg" id="pp-cone">시야콘</button>
+        <button class="pp-tg" id="pp-day">낮 / 밤</button>
+        <button class="pp-tg" id="pp-beam">빔 커버리지</button>
+      </div>
       <div id="pp-idle">
         <button class="pp-start" id="pp-start">세션 체험하기</button>
         <div class="pp-hint">1인칭 시점으로 전환됩니다 · D키 = 개발자 모드</div>
@@ -489,7 +499,7 @@ body:not(.dev) #session-hud{display:none !important}
         </div>
         <div class="pp-row">
           <button class="pp-btn" id="pp-view">3인칭 보기</button>
-          <button class="pp-btn" id="pp-stop">■ 세션 종료</button>
+          <button class="pp-btn" id="pp-stop">↺ 처음으로</button>
         </div>
       </div>
     </div>
