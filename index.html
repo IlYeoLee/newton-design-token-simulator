@@ -196,6 +196,66 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
 #lab-panel .lab-go:hover{background:rgba(209,254,255,.2)}
 #dev-pill{position:absolute;bottom:18px;left:18px;z-index:40;padding:7px 11px;border:1px solid var(--line);
   border-radius:8px;background:rgba(16,19,24,.82);color:var(--dim);font-size:11px;cursor:pointer;font-weight:700}
+
+/* ── NEWTON 디자인 시스템 · 다크모드 컬러 시스템(Figma 222-37297 정본) ─────────
+   시뮬레이터 '겉면'(패널·버튼·자막)에만 적용한다. 빔 투사 UI는 손대지 않는다. */
+@font-face{font-family:'Supreme';src:url('fonts/Supreme-Bold.woff2') format('woff2');font-weight:700;font-display:swap}
+@font-face{font-family:'Supreme';src:url('fonts/Supreme-Medium.woff2') format('woff2');font-weight:500;font-display:swap}
+:root{
+  /* Brand */
+  --nb-red:#FA3030; --nb-coral:#FE6E3C; --nb-sand:#FEC389; --nb-prism:#D1FEFF;
+  --nb-void:#091212; --nb-oxblood:#511815; --nb-crimson:#920F0F;
+  --nb-grad-bright:linear-gradient(90deg,#FA3030,#FE6E3C,#FEC389,#D1FEFF);
+  --nb-grad-dark:linear-gradient(90deg,#091212,#511815,#920F0F,#FA3030);
+  /* Neutral (Dark) */
+  --d-bg:#121212; --d-bg-sub:#1A1A1A; --d-surface:#232323; --d-divider:#2E2E2E;
+  --d-border:#3D3D3D; --d-disabled:#6B6B6B; --d-t3:#8F8F8F; --d-t2:#ADADAD;
+  --d-body:#C9C9C9; --d-strong:#E2E2E2; --d-title:#F5F5F5; --d-white:#FFF;
+  --ds-font:'Supreme','Pretendard',-apple-system,system-ui,sans-serif;
+  --ds-shadow:0 14px 54px rgba(0,0,0,.15); --ds-r:14px;
+}
+#play-panel, #lab-panel, #dev-pill, #voice-caption{font-family:var(--ds-font)}
+#play-panel, #lab-panel{background:var(--d-bg);border-color:var(--d-border);box-shadow:var(--ds-shadow)}
+#play-panel .pp-title, #lab-panel .pp-title{font-size:13px;font-weight:700;letter-spacing:-.2px;color:var(--d-title)}
+#play-panel .pp-sub, #lab-panel .pp-sub{font-size:11px;color:var(--d-t3)}
+#play-panel .pp-brand .pp-dot{background:var(--nb-red)}
+#play-panel .pp-pack{border-radius:12px;border-color:var(--d-border);background:var(--d-bg-sub);color:var(--d-t2);
+  font-size:12px;font-weight:500;letter-spacing:-.5px}
+#play-panel .pp-pack:hover{background:var(--d-surface);color:var(--d-white)}
+#play-panel .pp-pack.on{border-color:var(--nb-red);background:rgba(250,48,48,.16);color:var(--nb-red)}
+#play-panel .pp-stage{font-size:20px;font-weight:700;letter-spacing:-1px;line-height:1.2;color:var(--d-title)}
+#play-panel .pp-meta{font-size:13px;font-weight:400;letter-spacing:-.5px;color:var(--d-t2);line-height:1.3}
+#play-panel button.pp-btn, #play-panel .pp-tg{border-radius:12px;border-color:var(--d-border);background:var(--d-bg-sub);
+  color:var(--d-body);font-size:12px;font-weight:500;letter-spacing:-.5px}
+#play-panel button.pp-btn:hover, #play-panel .pp-tg:hover{background:var(--d-surface);color:var(--d-white)}
+#play-panel button.pp-cta{border-color:var(--nb-red);background:rgba(250,48,48,.18);color:var(--nb-red)}
+#play-panel .pp-tg.on{border-color:var(--nb-sand);background:rgba(254,195,137,.14);color:var(--nb-sand)}
+#play-panel .pp-start{border-radius:var(--ds-r);border:0;background:var(--nb-grad-dark);color:var(--d-white);
+  font-size:15px;font-weight:700;letter-spacing:-.5px;box-shadow:var(--ds-shadow)}
+#play-panel .pp-start:hover{background:var(--nb-red)}
+#play-panel .pp-hint, #lab-panel .lab-note{font-size:11px;font-weight:400;color:var(--d-t3);line-height:1.55}
+#play-panel .pp-fold, #lab-panel .pp-fold{border-radius:9px;border-color:var(--d-border);background:var(--d-bg-sub);color:var(--d-t2)}
+#lab-panel h3{color:var(--nb-sand);font-size:11px;font-weight:700;letter-spacing:.4px}
+#lab-panel .lab-kv{font-size:13px;letter-spacing:-.5px;border-bottom:1px solid var(--d-divider)}
+#lab-panel .lab-kv span:first-child{color:var(--d-t3)}
+#lab-panel .lab-kv b{color:var(--d-strong);font-weight:700}
+#lab-panel .lab-sw{border-radius:12px;border-color:var(--d-border);background:var(--d-bg-sub)}
+#lab-panel .lab-sw.on{border-color:var(--nb-prism)}
+#lab-panel .lab-sw .t{font-size:12px;font-weight:700;letter-spacing:-.5px;color:var(--d-title)}
+#lab-panel .lab-sw .d{font-size:11px;color:var(--d-t3)}
+#lab-panel .lab-sw .dotsw{background:var(--d-divider)}
+#lab-panel .lab-sw .dotsw::after{background:var(--d-disabled)}
+#lab-panel .lab-sw.on .dotsw{background:rgba(209,254,255,.28)}
+#lab-panel .lab-sw.on .dotsw::after{background:var(--nb-prism)}
+#lab-panel .lab-live{border-radius:var(--ds-r);background:var(--d-surface);border:1px solid var(--d-border)}
+#lab-panel .lab-live b{color:var(--nb-red);font-size:26px;letter-spacing:-1.5px}
+#lab-panel .lab-go{border-radius:12px;border-color:var(--nb-prism);background:rgba(209,254,255,.10);
+  color:var(--nb-prism);font-size:13px;font-weight:700;letter-spacing:-.2px}
+#lab-panel .lab-go:hover{background:rgba(209,254,255,.18)}
+#voice-caption{border-radius:99px;background:rgba(18,18,18,.92);border:1px solid var(--d-border);
+  font-size:15px;font-weight:500;letter-spacing:-.5px;color:var(--d-title)}
+#dev-pill{border-radius:10px;border:1px solid var(--d-border);background:rgba(18,18,18,.9);color:var(--d-t3);
+  font-size:11px;font-weight:500}
 </style>
 </head>
 <body>
