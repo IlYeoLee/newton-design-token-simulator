@@ -33,7 +33,12 @@ export default defineConfig({
   assetsInclude: ['**/*.fbx'],
   define: { __BUILD_TAG__: JSON.stringify(BUILD_TAG) },
   build: {
+    chunkSizeWarningLimit: 1200,   // three.js 한 덩어리는 원래 크다 — 경고 기준만 현실화
     rollupOptions: {
+      output: {
+        // 벤더 분리: three(약 700kB)는 거의 안 바뀌므로 앱 코드와 캐시 수명을 분리한다
+        manualChunks: { three: ['three'], mediapipe: ['@mediapipe/tasks-vision'] },
+      },
       // MPA: fxlab(룩 시스템)을 빌드에 편입 — 시뮬과 셰이더·SDF·규약 모듈을 공유하기 위한 전제
       // (public/ 단독 파일이던 시절엔 import 자체가 불가해 손복사 2벌 드리프트가 구조적으로 반복됐음)
       input: { main: resolve(__dirname, 'index.html'), fxlab: resolve(__dirname, 'fxlab.html'), parity: resolve(__dirname, 'parity.html') },
