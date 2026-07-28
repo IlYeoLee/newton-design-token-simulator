@@ -423,9 +423,8 @@ export function createScene(container) {
   // ── 후처리: 블룸(마크·이펙트 발광) + 그레인·비네트 ─────
   // 컴포저를 쓰면 렌더 타깃이 기본 비멀티샘플이라 renderer의 antialias가 통째로 무효가 된다
   // (골대 프레임·코트 줄무늬가 계단으로 깨지던 원인, 유저). 멀티샘플 타깃을 직접 만들어 넘긴다.
-  const _msaa = new THREE.WebGLRenderTarget(1, 1, {
-    samples: 4, type: THREE.HalfFloatType, colorSpace: THREE.SRGBColorSpace,
-  });
+  // samples만 켠다 — HalfFloat까지 쓰면 대역폭이 배로 뛴다(전체 모션이 느려졌다는 신고).
+  const _msaa = new THREE.WebGLRenderTarget(1, 1, { samples: 4, colorSpace: THREE.SRGBColorSpace });
   const composer = new EffectComposer(renderer, _msaa);
   const renderPass = new RenderPass(scene, camera);
   composer.addPass(renderPass);

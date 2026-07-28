@@ -9,9 +9,10 @@
 import * as THREE from 'three';
 
 const W = 1600, H = 2670;   // 대지 px (floor-scene.html과 동일)
-// 캔버스 해상도. 0.5는 화질이 눈에 띄게 떨어졌다(유저) → 1.0(대지 1:1).
-// 업로드는 '값이 바뀐 프레임'에만 일어나므로 정지 화면에선 비용 0이다.
-const K = 1.0;
+// 캔버스 해상도 — 화질과 업로드 비용의 저울.
+//   0.5 = 글자가 흐리다(유저) / 1.0 = 프레임당 17MB 업로드라 전체가 느려진다(유저).
+//   0.75(1200×2002, 9.6MB)가 두 불만을 모두 피하는 지점. 업로드는 값이 바뀐 프레임에만 일어난다.
+const K = 0.75;
 
 const CX = W / 2;
 const RED = '#fa3030';
@@ -124,6 +125,7 @@ function buildScene(stage, p) {
 }
 
 export class FloorGL {
+  static uploads = 0;
   constructor() {
     this.canvas = document.createElement('canvas');
     this.canvas.width = Math.round(W * K); this.canvas.height = Math.round(H * K);
@@ -193,7 +195,7 @@ export class FloorGL {
 
   // 변경 없으면 다시 안 그린다 — 1600×2670 텍스처 업로드가 프레임 예산을 먹는 걸 막는다.
   _sigOf() {
-    let s = String(Math.round(this.t * 60));
+    let s = String(Math.round(this.t * 24));
     for (const n of this.map.values()) s += '|' + n.textContent + JSON.stringify(n.style) + JSON.stringify(n._attr || {});
     return s;
   }
@@ -201,12 +203,15 @@ export class FloorGL {
   update(dt) {
     if (!this.stage) return;
     this.t += dt;
-    // 22fps 제한은 도트바·링이 뚝뚝 끊겨 보였다(유저) → 60fps 허용.
-    // 값이 안 바뀌면 아래 서명 비교에서 걸러지므로 정지 화면은 여전히 업로드 0이다.
-    if (this.t - (this._lastPaint ?? -1) < 0.0155) return;
+    // 24fps — 22fps는 끊겨 보였고 60fps는 업로드(9.6MB/장)가 프레임 예산을 먹었다(유저 양쪽 신고).
+    // 값이 안 바뀌면 아래 서명 비교에서 또 걸러지므로 정지 화면은 업로드 0이다(실측 0.9회/초).
+    // ponytail: 진짜 해법은 정적 텍스트와 움직이는 요소(도트·링)를 별도 평면으로 쪼개는 것 —
+    //   그러면 매 프레임 올리는 텍스처가 수백 KB로 떨어진다. HANDOFF에 계획으로 남김.
+    if (this.t - (this._lastPaint ?? -1) < 0.041) return;
     const sig = this._sigOf();
     if (sig === this._sig) return;
     this._sig = sig; this._lastPaint = this.t;
+    FloorGL.uploads++;   // 계측용 — 실제 텍스처 업로드 횟수
     this._paint();
     this.tex.needsUpdate = true;
   }
