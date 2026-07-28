@@ -554,9 +554,10 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
     const local = /^(localhost|127\.|192\.168\.)/.test(location.hostname);
     let on = q != null ? q !== '0' : (localStorage.getItem('newton.dev') ?? (local ? '1' : '0')) === '1';
     if (q != null) localStorage.setItem('newton.dev', on ? '1' : '0');
-    document.documentElement.classList.toggle('pre-dev', on);
+    // 렌더 전에(= deferred 모듈이 #stage 폭을 재기 전에) 즉시 적용해야 한다.
+    // DOMContentLoaded로 미루면 캔버스가 제품 뷰 폭(좌우 패널 뺀 954px)으로 굳는다.
+    document.body.classList.toggle('dev', on);
     addEventListener('DOMContentLoaded', () => {
-      document.body.classList.toggle('dev', on);
       const pill = document.createElement('button');
       pill.id = 'dev-pill';
       pill.textContent = on ? '개발자 모드 ON (D)' : '개발자 모드 OFF (D)';
