@@ -201,8 +201,12 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
    시뮬레이터 '겉면'(패널·버튼·자막)에만 적용한다. 빔 투사 UI는 손대지 않는다. */
 @font-face{font-family:'Supreme';src:url('fonts/Supreme-Bold.woff2') format('woff2');font-weight:700;font-display:swap}
 @font-face{font-family:'Supreme';src:url('fonts/Supreme-Medium.woff2') format('woff2');font-weight:500;font-display:swap}
-/* 한글 = Pretendard. Supreme을 앞에 두면 라틴·숫자는 Supreme, 한글 글리프만 Pretendard로 자동 폴백된다.
-   로컬 설치본을 먼저 쓰고(가변 웨이트), 없으면 번들 woff2(700)로 떨어진다. */
+/* 한글 = Freesentation(무료 배포본, freesentation.blog). Supreme을 앞에 두면 라틴·숫자는 Supreme,
+   한글 글리프만 Freesentation으로 글리프 단위 폴백된다. Pretendard는 최후 폴백으로만 남긴다. */
+@font-face{font-family:'Freesentation';src:url('fonts/Freesentation-4Regular.woff2') format('woff2');font-weight:400;font-display:swap}
+@font-face{font-family:'Freesentation';src:url('fonts/Freesentation-5Medium.woff2') format('woff2');font-weight:500;font-display:swap}
+@font-face{font-family:'Freesentation';src:url('fonts/Freesentation-7Bold.woff2') format('woff2');font-weight:700;font-display:swap}
+@font-face{font-family:'Freesentation';src:url('fonts/Freesentation-8ExtraBold.woff2') format('woff2');font-weight:800;font-display:swap}
 @font-face{font-family:'Pretendard';src:local('Pretendard Variable'),local('Pretendard'),
   url('fonts/Pretendard-Bold.woff2') format('woff2');font-weight:400 700;font-display:swap}
 :root{
@@ -215,7 +219,7 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
   --d-bg:#121212; --d-bg-sub:#1A1A1A; --d-surface:#232323; --d-divider:#2E2E2E;
   --d-border:#3D3D3D; --d-disabled:#6B6B6B; --d-t3:#8F8F8F; --d-t2:#ADADAD;
   --d-body:#C9C9C9; --d-strong:#E2E2E2; --d-title:#F5F5F5; --d-white:#FFF;
-  --ds-font:'Supreme','Pretendard',-apple-system,system-ui,sans-serif;
+  --ds-font:'Supreme','Freesentation','Pretendard',-apple-system,system-ui,sans-serif;
   /* 타이포 스케일 — Figma 텍스트 스타일 정본(크기/굵기/자간) */
   --t-d1:700 32px/1.2 var(--ds-font);   --ls-d1:-1.5px;
   --t-h1:700 28px/1.2 var(--ds-font);   --ls-h1:-1.5px;
