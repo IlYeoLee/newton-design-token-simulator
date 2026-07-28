@@ -240,49 +240,74 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
 #play-panel, #lab-panel, #dev-pill, #voice-caption{font-family:var(--ds-font);-webkit-font-smoothing:antialiased}
 .ds-d1{font:var(--t-d1);letter-spacing:var(--ls-d1)} .ds-h1{font:var(--t-h1);letter-spacing:var(--ls-h1)}
 .ds-t1{font:var(--t-t1);letter-spacing:var(--ls-t1)} .ds-t2{font:var(--t-t2);letter-spacing:var(--ls-t2)}
-.ds-body{font:var(--t-bodyr);letter-spacing:var(--ls-body)} .ds-body-b{font:var(--t-bodyb);letter-spacing:var(--ls-body)}
-.ds-cap{font:var(--t-capr);letter-spacing:var(--ls-capr)} .ds-cap-b{font:var(--t-capb);letter-spacing:var(--ls-capb)}
+.ds-body{font:var(--t-bodyr);letter-spacing:var(--ls-body)} .ds-cap{font:var(--t-capr);letter-spacing:var(--ls-capr)}
 .ds-label{font:var(--t-labm);letter-spacing:var(--ls-lab)} .ds-micro{font:var(--t-micro)}
-#play-panel, #lab-panel{background:var(--d-bg);border-color:var(--d-border);box-shadow:var(--ds-shadow)}
-#play-panel .pp-title, #lab-panel .pp-title{font-size:13px;font-weight:700;letter-spacing:-.2px;color:var(--d-title)}
-#play-panel .pp-sub, #lab-panel .pp-sub{font-size:11px;color:var(--d-t3)}
-#play-panel .pp-brand .pp-dot{background:var(--nb-red)}
-#play-panel .pp-pack{border-radius:12px;border-color:var(--d-border);background:var(--d-bg-sub);color:var(--d-t2);
-  font-size:12px;font-weight:400;letter-spacing:-.5px}
-#play-panel .pp-pack:hover{background:var(--d-surface);color:var(--d-white)}
-#play-panel .pp-pack.on{border-color:var(--nb-red);background:rgba(250,48,48,.16);color:var(--nb-red)}
-#play-panel .pp-stage{font:var(--t-t2);letter-spacing:var(--ls-t2);color:var(--d-title)}
-#play-panel .pp-meta{font:var(--t-capr);letter-spacing:var(--ls-capr);color:var(--d-t2)}
-#play-panel button.pp-btn, #play-panel .pp-tg{border-radius:12px;border-color:var(--d-border);background:var(--d-bg-sub);
-  color:var(--d-body);font-size:12px;font-weight:400;letter-spacing:-.5px}
-#play-panel button.pp-btn:hover, #play-panel .pp-tg:hover{background:var(--d-surface);color:var(--d-white)}
-#play-panel button.pp-cta{border-color:var(--nb-red);background:rgba(250,48,48,.18);color:var(--nb-red)}
-#play-panel .pp-tg.on{border-color:var(--nb-sand);background:rgba(254,195,137,.14);color:var(--nb-sand)}
-#play-panel .pp-start{border-radius:var(--ds-r);border:0;background:var(--nb-grad-dark);color:var(--d-white);
-  font:var(--t-b15b);letter-spacing:var(--ls-body);box-shadow:var(--ds-shadow)}
-#play-panel .pp-start:hover{background:var(--nb-red)}
-#play-panel .pp-hint, #lab-panel .lab-note{font:var(--t-labs);color:var(--d-t3);line-height:1.55}
-#play-panel .pp-fold, #lab-panel .pp-fold{border-radius:9px;border-color:var(--d-border);background:var(--d-bg-sub);color:var(--d-t2)}
-#lab-panel h3{color:var(--nb-sand);font-size:11px;font-weight:700;letter-spacing:.4px}
-#lab-panel .lab-kv{font:var(--t-capr);letter-spacing:var(--ls-capr);border-bottom:1px solid var(--d-divider)}
+
+/* ── 겉면 = GUI와 같은 문법: 면처리(플랫), 한정 팔레트(그레이 + 레드 하나), 큰 타이포, 알약 CTA ──
+   유리(blur)·그라디언트·보조 액센트(샌드/프리즘) 폐기 — GUI 어디에도 없다. */
+#play-panel, #lab-panel{background:var(--d-bg);border-color:var(--d-divider);box-shadow:none;backdrop-filter:none}
+#play-panel{padding:26px 22px}
+#lab-panel{padding:26px 22px 44px}
+#play-panel .pp-brand, #lab-panel .pp-brand{margin-bottom:22px}
+#play-panel .pp-title, #lab-panel .pp-title{font:var(--t-capb);letter-spacing:.6px;color:var(--d-t2)}
+#play-panel .pp-sub, #lab-panel .pp-sub{font:var(--t-labr);color:var(--d-t3)}
+#play-panel .pp-dot{background:var(--nb-red)}
+
+/* 팩 전환 = 세그먼티드 컨트롤(트랙 하나 + 선택 알약) */
+#play-panel .pp-packs{grid-template-columns:repeat(3,1fr);gap:4px;padding:4px;border-radius:999px;
+  background:var(--d-bg-sub);margin-bottom:20px}
+#play-panel .pp-pack{border:0;border-radius:999px;background:transparent;color:var(--d-t3);
+  font:var(--t-capb);letter-spacing:-.2px;padding:11px 0}
+#play-panel .pp-pack:hover{background:transparent;color:var(--d-body)}
+#play-panel .pp-pack.on{background:var(--nb-red);color:#fff}
+
+/* 단계 제목 = 두 줄 큰 타이틀 + 작은 회색 설명 (GUI 헤드라인 문법) */
+#play-panel .pp-stage{font:var(--t-h2);letter-spacing:var(--ls-h2);color:var(--d-title);min-height:62px}
+#play-panel .pp-meta{margin-top:8px;font:var(--t-capr);letter-spacing:var(--ls-capr);color:var(--d-t3)}
+
+/* 버튼 — 보조는 면(Surface), 주는 레드 알약 */
+#play-panel .pp-row{gap:8px;margin-top:14px}
+#play-panel button.pp-btn{border:0;border-radius:999px;background:var(--d-surface);color:var(--d-body);
+  font:var(--t-capb);letter-spacing:-.2px;padding:13px 0}
+#play-panel button.pp-btn:hover{background:#2c2c2c;color:#fff}
+#play-panel button.pp-cta{background:var(--nb-red);color:#fff}
+#play-panel button.pp-cta:hover{background:#ff4646}
+#play-panel .pp-start{border:0;border-radius:999px;background:var(--nb-red);color:#fff;
+  font:var(--t-bodyb);letter-spacing:var(--ls-body);padding:16px 0;box-shadow:none}
+#play-panel .pp-start:hover{background:#ff4646}
+#play-panel .pp-hint{margin-top:12px;font:var(--t-labr);color:var(--d-t3);letter-spacing:-.5px}
+
+/* 토글 = 같은 면 + 선택 시 레드 (샌드/프리즘 사용 안 함) */
+#play-panel .pp-toggles{gap:4px;padding:4px;border-radius:999px;background:var(--d-bg-sub);margin:18px 0 4px}
+#play-panel .pp-tg{border:0;border-radius:999px;background:transparent;color:var(--d-t3);
+  font:var(--t-labm);letter-spacing:var(--ls-lab);padding:10px 0}
+#play-panel .pp-tg:hover{background:transparent;color:var(--d-body)}
+#play-panel .pp-tg.on{background:var(--nb-red);color:#fff}
+#play-panel .pp-fold, #lab-panel .pp-fold{border:0;border-radius:999px;background:var(--d-surface);color:var(--d-t2)}
+
+/* 체험 랩 — 섹션 라벨(작은 회색) + 값(강조) 2열, 카드는 면처리 */
+#lab-panel h3{margin:26px 0 10px;font:var(--t-labr);letter-spacing:.4px;color:var(--d-t3);font-weight:400}
+#lab-panel .lab-kv{padding:9px 0;font:var(--t-capr);letter-spacing:var(--ls-capr);
+  border-bottom:1px solid var(--d-divider)}
 #lab-panel .lab-kv span:first-child{color:var(--d-t3)}
 #lab-panel .lab-kv b{color:var(--d-strong);font-weight:700}
-#lab-panel .lab-sw{border-radius:12px;border-color:var(--d-border);background:var(--d-bg-sub)}
-#lab-panel .lab-sw.on{border-color:var(--nb-prism)}
-#lab-panel .lab-sw .t{font-size:12px;font-weight:700;letter-spacing:-.5px;color:var(--d-title)}
-#lab-panel .lab-sw .d{font-size:11px;color:var(--d-t3)}
-#lab-panel .lab-sw .dotsw{background:var(--d-divider)}
+#lab-panel .lab-note{font:var(--t-labr);color:var(--d-t3);letter-spacing:-.5px;line-height:1.6}
+#lab-panel .lab-sw{border:0;border-radius:var(--ds-r);background:var(--d-bg-sub);padding:13px 14px;margin-top:8px}
+#lab-panel .lab-sw .t{font:var(--t-capb);letter-spacing:-.2px;color:var(--d-strong)}
+#lab-panel .lab-sw .d{margin-top:3px;font:var(--t-labr);color:var(--d-t3);letter-spacing:-.5px}
+#lab-panel .lab-sw .dotsw{background:var(--d-border)}
 #lab-panel .lab-sw .dotsw::after{background:var(--d-disabled)}
-#lab-panel .lab-sw.on .dotsw{background:rgba(209,254,255,.28)}
-#lab-panel .lab-sw.on .dotsw::after{background:var(--nb-prism)}
-#lab-panel .lab-live{border-radius:var(--ds-r);background:var(--d-surface);border:1px solid var(--d-border)}
-#lab-panel .lab-live b{color:var(--nb-red);font:var(--t-h2);letter-spacing:var(--ls-h2)}
-#lab-panel .lab-go{border-radius:12px;border-color:var(--nb-prism);background:rgba(209,254,255,.10);
-  color:var(--nb-prism);font-size:13px;font-weight:700;letter-spacing:-.2px}
-#lab-panel .lab-go:hover{background:rgba(209,254,255,.18)}
-#voice-caption{border-radius:99px;background:rgba(18,18,18,.92);border:1px solid var(--d-border);
-  font:var(--t-b15r);letter-spacing:var(--ls-body);color:var(--d-title)}
-#dev-pill{border-radius:10px;border:1px solid var(--d-border);background:rgba(18,18,18,.9);color:var(--d-t3);
+#lab-panel .lab-sw.on .dotsw{background:var(--nb-red)}
+#lab-panel .lab-sw.on .dotsw::after{background:#fff}
+#lab-panel .lab-live{margin-top:14px;padding:16px;border:0;border-radius:var(--ds-r);background:var(--d-bg-sub)}
+#lab-panel .lab-live b{color:var(--d-title);font:var(--t-d1);letter-spacing:var(--ls-d1)}
+#lab-panel .lab-go{border:0;border-radius:999px;background:var(--d-surface);color:var(--d-strong);
+  font:var(--t-capb);letter-spacing:-.2px;padding:14px 0}
+#lab-panel .lab-go:hover{background:#2c2c2c;color:#fff}
+#voice-caption{border-radius:999px;background:var(--d-bg);border:1px solid var(--d-divider);backdrop-filter:none;
+  font:var(--t-bodyr);letter-spacing:var(--ls-body);color:var(--d-title);padding:13px 22px}
+#dev-pill{border:0;border-radius:999px;background:var(--d-surface);color:var(--d-t3);font:var(--t-labr)}
+
   font-size:11px;font-weight:400}
 </style>
 </head>
