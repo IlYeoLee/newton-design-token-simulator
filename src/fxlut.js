@@ -7,13 +7,14 @@
 // ─────────────────────────────────────────────────────────────
 import * as THREE from 'three';
 import { sdfFromAlpha, glyphRaster, bakeGlyphSDF, buildLUT } from './fx-core.js';
+import { STOPS, SAT, PAL, NEU, rgba } from './palette.js';
 // OKLab 변환·LUT 빌더는 fx-core(정본)에서 — 중복 2벌 폐기.
 
 // ── 라이브 파라미터 (프로 편집 모드가 조절, 프레임마다 읽힘) ──
 export const FXP = {
-  // 팔레트: NEWTON Vivid — 브랜드 풀채도 (유저 확정 레퍼런스)
-  stops: [['#B7231F', 0], ['#FA3030', .3], ['#FE6E3C', .56], ['#FEA35F', .74], ['#FEC389', .86], ['#FFF3DC', 1]],
-  sat: 1.0,
+  // 팔레트 = src/palette.js 단일 소스 (유채 4색 · 채도 고정)
+  stops: STOPS.map(s => [...s]),
+  sat: SAT,
   graphics: { width: 1.0, halo: 0.9, noise: 0.5, ember: 0.3, duration: 1.05, size: 1.5 },
   mark: { radius: 1.0, core: 1.0, halo: 0.9, pool: 0.55, sweep: 1.0, wobble: 0.5 },
   person: { blur: 1.0, glow: 0, flow: 0.4, decay: 0.04, detail: 0.6, grain: 0.07, tone: 1 },   // 유저 확정 룩 = 공장 기본 (2026-07-18)
@@ -94,7 +95,7 @@ export const GLYPHS = {
 };
 // SVG 래스터·SDF 베이커는 fx-core(정본, FX Lab 구현 승격)에서 — 중복 2벌 폐기.
 /** 캔버스에 커스텀 글리프를 웜 크림 틴트+글로우로 (x,y) 중심 렌더. 성공 시 true. */
-export function drawGlyph(ctx, ch, x, y, sizePx, { color = 'rgba(255,240,220,0.95)', glowColor = 'rgba(254,150,90,0.75)', glow = 14 } = {}) {
+export function drawGlyph(ctx, ch, x, y, sizePx, { color = rgba(NEU.ink, 0.95), glowColor = rgba(PAL.coral, 0.75), glow = 14 } = {}) {
   const img = GLYPHS.img(ch);
   if (!img) return false;
   const off = document.createElement('canvas');

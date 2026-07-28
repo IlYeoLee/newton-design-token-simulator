@@ -1,3 +1,4 @@
+import { PAL, NEU, rgba } from './palette.js';
 // ─────────────────────────────────────────────────────────────
 // 장면 UI 시스템 — 투사면 위 타이포그래피의 "고정 슬롯" 규정 (에디터 v3 Phase D)
 //
@@ -16,7 +17,7 @@ import * as THREE from 'three';
 
 export const SCENE_UI = {
   font: "'Pretendard Variable', Pretendard, -apple-system, 'Apple SD Gothic Neo', sans-serif",
-  ink: '#FFF3DC',
+  ink: NEU.ink,
   weights: { display: 300, strong: 700 },
   type: {                                   // 캡높이(m) — 면·역할별 고정 스케일
     'F-XL': 0.42, 'F-L': 0.26, 'F-M': 0.15, 'F-CUE': 0.11,
@@ -38,7 +39,7 @@ function makeTextTexture(text, capM, { weight = 300 } = {}) {
   const cx = cv.getContext('2d');
   cx.font = `${weight} ${capPx}px ${SCENE_UI.font}`;
   cx.textAlign = 'center'; cx.textBaseline = 'middle';
-  cx.shadowColor = 'rgba(254,163,95,.9)'; cx.shadowBlur = capPx * 0.30;   // 웜 글로우
+  cx.shadowColor = rgba(PAL.coral, .9); cx.shadowBlur = capPx * 0.30;   // 웜 글로우
   cx.fillStyle = SCENE_UI.ink;
   cx.fillText(text, cv.width / 2, cv.height / 2);
   cx.shadowBlur = 0;

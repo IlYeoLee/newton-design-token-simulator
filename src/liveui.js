@@ -6,6 +6,7 @@
 //   1 페이스 라인 · 2 비트 펄스 링 · 3 셰브론 플로우 · 4 스트라이드 도트 · 5 데이터 스트립
 // ─────────────────────────────────────────────────────────────
 import * as THREE from 'three';
+import { PAL, NEU, rgba } from './palette.js';
 import { makeLaneFXMaterial } from './tokens.js';
 import { lutColor, getLUT, FX_GLSL } from './fxlut.js';
 
@@ -346,13 +347,13 @@ export class LiveUI {
     g.globalAlpha = 1;
     // 센터 노치: 하드 렉트 → 글로우 라인
     g.shadowBlur = 10; g.shadowColor = '#fff';
-    g.fillStyle = 'rgba(255,250,240,0.95)';
+    g.fillStyle = rgba(NEU.ink, 0.95);
     g.beginPath(); g.roundRect(W / 2 - 1.5, cy - 16, 3, 32, 1.5); g.fill();
     // 페이스 마커: 화이트-핫 코어 → LUT 바디 → 투명 라디얼 (션 z 오프셋 기준 -1.0, ±0.5m. 앞섬 = 오른쪽)
     const off = THREE.MathUtils.clamp(-(ctx.seanZ + 1.0) / 0.5, -1, 1);
     const mx = W / 2 + off * (W / 2 - 40);
     const mg = g.createRadialGradient(mx, cy, 0, mx, cy, 17);
-    mg.addColorStop(0, '#fff8ec'); mg.addColorStop(0.35, lutColor(0.85)); mg.addColorStop(1, 'rgba(0,0,0,0)');
+    mg.addColorStop(0, NEU.ink); mg.addColorStop(0.35, lutColor(0.85)); mg.addColorStop(1, 'rgba(0,0,0,0)');
     g.shadowBlur = 0;
     g.fillStyle = mg;
     g.beginPath(); g.arc(mx, cy, 17, 0, Math.PI * 2); g.fill();

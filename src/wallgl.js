@@ -8,6 +8,7 @@
 // 모션은 각 원본 HTML의 @keyframes를 그대로 옮겼다. 바닥과 달리 벽은 '서 있는' 프레임이라
 // 세로 translate가 원근상 왜곡되지 않는다 → 원본 translateY를 그대로 쓴다.
 import * as THREE from 'three';
+import { PAL, NEU, rgba } from './palette.js';
 import { clamp01, eOut, cycle, kf, intro, drawChars } from './floorgl.js';
 
 const W = 2600, H = 1600;   // 대지 px (벽 2.6×1.6m 실측 1:1)
@@ -18,7 +19,7 @@ const INF = Infinity;
 const sans = "'Supreme','Freesentation','Pretendard',sans-serif";
 const dot9 = "'OffBit','Supreme',sans-serif";
 const F = (w, s, fam = sans) => `${w} ${s}px ${fam}`;
-const RED = '#fa3030';
+const RED = PAL.red;
 
 // 텍스트 한 줄 — CSS의 (font-size, weight, color, letter-spacing, align)을 한 줄로
 function txt(ctx, s, x, y, size, weight, color, o = {}) {
@@ -38,7 +39,6 @@ function gradV(ctx, y0, y1, stops) {
   for (const [p, c] of stops) g.addColorStop(clamp01(p), c);
   return g;
 }
-const HEAT_V = y0 => [[0.48, '#fa3030'], [0.776, '#fe6e3c'], [1, '#fec389']];
 // 카운트다운·진행 링
 function ring(ctx, cx, cy, r, prog, o = {}) {
   ctx.save();
@@ -54,7 +54,7 @@ function ring(ctx, cx, cy, r, prog, o = {}) {
   }
   if (o.tip) {   // ponytail: 회전 팁 SVG 대신 같은 자리 빨간 점 — 이 크기에선 실루엣이 같다
     const a = -Math.PI / 2 + prog * Math.PI * 2;
-    ctx.fillStyle = RED; ctx.shadowColor = 'rgba(250,48,48,.6)'; ctx.shadowBlur = 18;
+    ctx.fillStyle = RED; ctx.shadowColor = rgba(PAL.red, .6); ctx.shadowBlur = 18;
     ctx.beginPath(); ctx.arc(cx + r * Math.cos(a), cy + r * Math.sin(a), o.tip, 0, Math.PI * 2); ctx.fill();
   }
   ctx.restore();
@@ -256,7 +256,7 @@ export class WallGL {
     if (glow > 0.002) { ctx.shadowColor = `rgba(255,255,255,${0.35 * glow})`; ctx.shadowBlur = 60 * glow; }
     rrFill(ctx, CX - w / 2, y, w, h, 999, '#fff');
     ctx.shadowBlur = 0;
-    txt(ctx, text, CX, y + h / 2, 72, 700, '#050a0a', { ls: -1.33, align: 'center', base: 'middle' });
+    txt(ctx, text, CX, y + h / 2, 72, 700, NEU.inkDark, { ls: -1.33, align: 'center', base: 'middle' });
     ctx.restore();
     return y + h;
   }
@@ -284,8 +284,8 @@ export class WallGL {
     for (const im of [ca, cb]) if (im) ctx.drawImage(im, px - 28.09, py - 74.05, 275.305, 511.608);
     ctx.restore();
     const tx = px + ph + 40.857;
-    txt(ctx, 'Boxing Basic Jab Combo', tx, py + 24, 52, 700, '#050a0a', { ls: -2.55 });
-    txt(ctx, 'Skilled User Pack · Boxing ·Quite On', tx, py + 24 + 52 * 1.2 + 20.429, 32, 500, '#757575', { ls: -.96 });
+    txt(ctx, 'Boxing Basic Jab Combo', tx, py + 24, 52, 700, NEU.inkDark, { ls: -2.55 });
+    txt(ctx, 'Skilled User Pack · Boxing ·Quite On', tx, py + 24 + 52 * 1.2 + 20.429, 32, 500, NEU.t2, { ls: -.96 });
     ctx.restore();
 
     // 스탯 카드 — slideInLeft .85s .35s
@@ -293,11 +293,11 @@ export class WallGL {
     ctx.save();
     const se = eOut(intro(t, .35, .85));
     ctx.globalAlpha *= se; ctx.translate(-90 * (1 - se), 0);
-    rrFill(ctx, LX, stY, LW, stH, 76, '#f2f2f2');
+    rrFill(ctx, LX, stY, LW, stH, 76, NEU.surface);
     const ix = LX + 20, iw = 1000;
     let y = stY + 32;
     // ── Total
-    txt(ctx, 'Total', ix + iw / 2, y + 8, 32, 500, '#3b3b3b', { ls: -1, align: 'center' });
+    txt(ctx, 'Total', ix + iw / 2, y + 8, 32, 500, NEU.t1, { ls: -1, align: 'center' });
     y += 48 + 8;
     const totH = 378.393;
     rrFill(ctx, ix, y, iw, totH, 64, '#fff');
@@ -310,7 +310,7 @@ export class WallGL {
       ctx.save();
       ctx.beginPath(); ctx.rect(gR - bw * rev, by, bw * rev, barH); ctx.clip();
       const g = ctx.createLinearGradient(gR - bw, 0, gR + bw * 0.08, 0);
-      g.addColorStop(.63, '#fa3030'); g.addColorStop(.9, '#fe6e3c'); g.addColorStop(1, '#fec389');
+      g.addColorStop(.63, PAL.red); g.addColorStop(.9, PAL.coral); g.addColorStop(1, PAL.sand);
       rrFill(ctx, gR - bw, by, bw, barH, 40, solid || g);
       txt(ctx, label, gR - bw + 24.256, by + barH / 2, 36, 500, '#fff', { ls: -1.21, base: 'middle' });
       ctx.restore();
@@ -319,19 +319,19 @@ export class WallGL {
     bar(1, 388.095, '10min', 1.15);
     // run 행 = 회색 트랙 + Fight! + 우측 learn-abs
     const ry = gY + 2 * (barH + 4.851);
-    rrFill(ctx, gR - (iw - 20), ry, iw - 20, barH, 40, '#f2f2f2');
+    rrFill(ctx, gR - (iw - 20), ry, iw - 20, barH, 40, NEU.surface);
     ctx.save(); ctx.globalAlpha *= 0.7;
-    txt(ctx, 'Fight!', gR - (iw - 20) + 24.256, ry + barH / 2, 32, 700, '#050a0a', { ls: -1.21, base: 'middle' });
+    txt(ctx, 'Fight!', gR - (iw - 20) + 24.256, ry + barH / 2, 32, 700, NEU.inkDark, { ls: -1.21, base: 'middle' });
     ctx.restore();
     bar(2, 582.143, '15min', 1.3);
     // 좌측 큰 숫자 오버레이
-    txt(ctx, '30', ix + 24.256, y + 24.256, 145.536, 700, '#050a0a', { fam: dot9 });
+    txt(ctx, '30', ix + 24.256, y + 24.256, 145.536, 700, NEU.inkDark, { fam: dot9 });
     ctx.save(); ctx.globalAlpha *= 0.6;
-    txt(ctx, 'min', ix + 24.256, y + 24.256 + 145.536, 32, 700, '#050a0a', { ls: -1.21 });
+    txt(ctx, 'min', ix + 24.256, y + 24.256 + 145.536, 32, 700, NEU.inkDark, { ls: -1.21 });
     ctx.restore();
     y += totH + 32;
     // ── Setup
-    txt(ctx, 'Setup', ix + iw / 2, y + 8, 32, 500, '#3b3b3b', { ls: -.5, align: 'center' });
+    txt(ctx, 'Setup', ix + iw / 2, y + 8, 32, 500, NEU.t1, { ls: -.5, align: 'center' });
     y += 48 + 8;
     const setH = 235;
     rrFill(ctx, ix, y, iw, setH, 64, '#fff');
@@ -346,14 +346,14 @@ export class WallGL {
       ctx.translate(0, 26 * (1 - e));
       const k = 0.95 + 0.05 * e;
       ctx.translate(cx0 + cw / 2, cy0 + ch / 2); ctx.scale(k, k); ctx.translate(-(cx0 + cw / 2), -(cy0 + ch / 2));
-      rrFill(ctx, cx0, cy0, cw, ch, 48, '#f2f2f2');
-      txt(ctx, lab, cx0 + 20, cy0 + 20, 24, 500, '#757575', { ls: -.5 });
+      rrFill(ctx, cx0, cy0, cw, ch, 48, NEU.surface);
+      txt(ctx, lab, cx0 + 20, cy0 + 20, 24, 500, NEU.t2, { ls: -.5 });
       txt(ctx, val, cx0 + 20, cy0 + 20 + 24 * 1.1 + 8, 36, 700, '#000', { ls: -1.08 });
       ctx.restore();
     });
     y += setH + 32;
     // ── Connected
-    txt(ctx, 'Connected', ix + iw / 2, y + 8, 32, 500, '#3b3b3b', { ls: -.5, align: 'center' });
+    txt(ctx, 'Connected', ix + iw / 2, y + 8, 32, 500, NEU.t1, { ls: -.5, align: 'center' });
     y += 48 + 8;
     const devH = 203.607, dw = (iw - 16) / 3;
     const devs = [['icon_wearable.png', 'Wearable', 'Battery 99%'],
@@ -366,10 +366,10 @@ export class WallGL {
       ctx.globalAlpha *= e; ctx.translate(0, 26 * (1 - e));
       rrFill(ctx, dx, y, dw, devH, 64, '#fff');
       // 아이콘 — 웨어러블만 원본 컬러, 나머지는 열화상 그라디언트 마스크
-      const tim = i === 0 ? this._img(ic) : this._tinted(ic, 88, 88, [[0, '#fa3030'], [.6, '#fe6e3c'], [.85, '#fec389'], [1, '#d1feff']]);
+      const tim = i === 0 ? this._img(ic) : this._tinted(ic, 88, 88, [[0, PAL.red], [.6, PAL.coral], [.85, PAL.sand], [1, PAL.prism]]);
       if (tim) ctx.drawImage(tim, dx + 20, y + 20, 88, 88);
-      txt(ctx, n, dx + 20, y + 20 + 88 + 8, 36, 700, '#050a0a', { ls: -1 });
-      txt(ctx, s, dx + 20, y + 20 + 88 + 8 + 36 * 1.2, 24, 500, '#757575', { ls: -.72 });
+      txt(ctx, n, dx + 20, y + 20 + 88 + 8, 36, 700, NEU.inkDark, { ls: -1 });
+      txt(ctx, s, dx + 20, y + 20 + 88 + 8 + 36 * 1.2, 24, 500, NEU.t2, { ls: -.72 });
       const chk = this._img('check.svg');
       if (chk) ctx.drawImage(chk, dx + dw - 60, y + 20, 40, 40);
       ctx.restore();
@@ -392,7 +392,7 @@ export class WallGL {
     ctx.globalAlpha *= clamp01((t - 1.55) / .5);
     for (let i = 0; i < 10; i++) {
       const f = clamp01((t - (2 + i * .22)) / .5);
-      ctx.fillStyle = f > .5 ? RED : '#d0d0d0';
+      ctx.fillStyle = f > .5 ? RED : NEU.lo;
       ctx.beginPath(); ctx.arc(dX + i * dS + dS / 2, dY + dS / 2, dS / 2, 0, Math.PI * 2); ctx.fill();
     }
     ctx.restore();
@@ -415,7 +415,7 @@ export class WallGL {
     // 발 — footBob 5.5s 2.2s ∞
     const fb = cycle(t, 2.2, 5.5, INF);
     const fdy = fb == null ? 0 : kf(fb, [[0, 0], [.10, 34], [.20, 6], [.32, 31], [.44, 0], [.70, 0], [1, 0]]);
-    const foot = this._tinted('foot_shape.png', 300, 400, [[0, 'rgba(254,195,137,0)'], [.37, 'rgba(254,195,137,.35)'], [.94, RED], [1, RED]]);
+    const foot = this._tinted('foot_shape.png', 300, 400, [[0, rgba(PAL.sand, 0)], [.37, rgba(PAL.sand, .35)], [.94, RED], [1, RED]]);
     if (foot) { ctx.save(); ctx.globalAlpha *= .9; ctx.drawImage(foot, FX + 380 - 150, FY + 275 + fdy, 300, 400); ctx.restore(); }
     // 원반 — floatY 5s 2.2s ∞
     const disc = this._img('footprint_shadow.svg'), fy2 = cycle(t, 2.2, 5, INF);
@@ -457,7 +457,7 @@ export class WallGL {
     ctx.save();
     ctx.globalAlpha *= de; ctx.translate(0, 48 * (1 - de));
     for (let i = 0; i < 10; i++) {
-      ctx.fillStyle = '#d0d0d0';
+      ctx.fillStyle = NEU.lo;
       ctx.beginPath(); ctx.arc(100 + i * dS + dS / 2, dY + dS / 2, dS / 2, 0, Math.PI * 2); ctx.fill();
     }
     ctx.save();
@@ -511,7 +511,7 @@ export class WallGL {
     const bw = ctx.measureText('You').width + 63.04, bh = 47.28 * 1.2 + 31.52;
     ctx.translate(2319 + bw / 2, 1043 + bh / 2); ctx.scale(bk, bk); ctx.translate(-(2319 + bw / 2), -(1043 + bh / 2));
     rrFill(ctx, 2319, 1043, bw, bh, 80, 'rgba(255,255,255,.9)');
-    txt(ctx, 'You', 2319 + bw / 2, 1043 + bh / 2, 47.28, 500, '#525252', { ls: -.5, align: 'center', base: 'middle' });
+    txt(ctx, 'You', 2319 + bw / 2, 1043 + bh / 2, 47.28, 500, NEU.t3, { ls: -.5, align: 'center', base: 'middle' });
     ctx.restore();
 
     // 큰 숫자 — sPop .7s .48s + 카운트업 / 단위 — sUp .6s .58s
@@ -570,7 +570,7 @@ export class WallGL {
       ctx.shadowColor = `rgba(254,110,60,${gl == null ? .55 : kf(gl, [[0, .55], [.5, .9], [1, .55]])})`;
       ctx.shadowBlur = gl == null ? 44 : kf(gl, [[0, 44], [.5, 78], [1, 44]]);
       const g = ctx.createLinearGradient(-cwid / 2, -chh / 2, cwid / 2, chh / 2);
-      g.addColorStop(0, 'rgba(250,48,48,.4)'); g.addColorStop(1, 'rgba(254,110,60,.28)');
+      g.addColorStop(0, rgba(PAL.red, .4)); g.addColorStop(1, rgba(PAL.coral, .28));
       rrFill(ctx, -cwid / 2, -chh / 2, cwid, chh, 47.28, g);
       ctx.shadowBlur = 0;
       ctx.strokeStyle = 'rgba(255,255,255,.4)'; ctx.lineWidth = 2;
@@ -583,7 +583,7 @@ export class WallGL {
         ctx.save(); ctx.translate(-cwid / 2 + 36 + 23.64, fdy); ctx.scale(fs, fs);
         ctx.drawImage(fl, -23.64, -26, 47.28, 52); ctx.restore();
       }
-      ctx.shadowColor = 'rgba(255,222,165,.75)'; ctx.shadowBlur = 22;
+      ctx.shadowColor = rgba(PAL.sand, 0.75); ctx.shadowBlur = 22;
       txt(ctx, c, -cwid / 2 + 36 + 47.28 + 15.76, 0, 59.1, 700, '#fff', { fam: dot9, ls: -1.97, base: 'middle' });
       ctx.restore();
     });
@@ -648,7 +648,7 @@ export class WallGL {
     const ctx = this.ctx, R = 65.49, P = 52.392;
     ctx.save();
     rrPath(ctx, x, y, S, S, R); ctx.clip();
-    ctx.fillStyle = done ? gradV(ctx, y, y + S, [[.48, '#fa3030'], [.776, '#fe6e3c'], [1, '#fec389']]) : '#fff';
+    ctx.fillStyle = done ? gradV(ctx, y, y + S, [[.48, PAL.red], [.776, PAL.coral], [1, PAL.sand]]) : '#fff';
     ctx.fillRect(x, y, S, S);
     const im = this._img(D.img);
     // plus-lighter는 완료 카드(빨강 배경)만 — 다음 카드는 흰 배경이라 lighter면 인물이 통째로 날아간다
@@ -660,7 +660,7 @@ export class WallGL {
     }
     if (!done) {   // 인물 위 빨강→주황 틴트
       ctx.save(); ctx.globalCompositeOperation = 'lighter';
-      ctx.fillStyle = gradV(ctx, y, y + S, [[0, '#fa3030'], [1, '#fe6e3c']]);
+      ctx.fillStyle = gradV(ctx, y, y + S, [[0, PAL.red], [1, PAL.coral]]);
       ctx.fillRect(x, y, S, S); ctx.restore();
     } else {       // 흰 내부 글로우(원본 inset box-shadow 근사)
       ctx.save(); ctx.lineWidth = 40; ctx.strokeStyle = 'rgba(255,255,255,.6)';
@@ -685,12 +685,12 @@ export class WallGL {
       const bx = x + S - P - bw / 2, by = y + P + bh / 2;
       ctx.translate(bx, by); ctx.scale(spk, spk); ctx.translate(-bx, -by);
       rrFill(ctx, x + S - P - bw, y + P, bw, bh, 80, 'rgba(255,255,255,.9)');
-      txt(ctx, D.badge || 'Next', bx, by, 52, 500, '#525252', { ls: -1.6, align: 'center', base: 'middle' });
+      txt(ctx, D.badge || 'Next', bx, by, 52, 500, NEU.t3, { ls: -1.6, align: 'center', base: 'middle' });
     }
     ctx.restore();
     // 좌하단 메타
-    txt(ctx, D.time, x + P, y + S - P, 36, 400, done ? '#fafafa' : '#757575', { ls: -1.64, base: 'bottom' });
-    txt(ctx, D.lbl.toUpperCase(), x + P, y + S - P - 36 * 1.2 - 13.098, 64, 700, done ? '#fff' : '#050a0a', { ls: -3.27, base: 'bottom' });
+    txt(ctx, D.time, x + P, y + S - P, 36, 400, done ? NEU.paper : NEU.t2, { ls: -1.64, base: 'bottom' });
+    txt(ctx, D.lbl.toUpperCase(), x + P, y + S - P - 36 * 1.2 - 13.098, 64, 700, done ? '#fff' : NEU.inkDark, { ls: -3.27, base: 'bottom' });
   }
 
   // ── 리포트 (report.html) ──────────────────────────────────────────────────

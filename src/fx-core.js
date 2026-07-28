@@ -1,3 +1,4 @@
+import { PAL, NEU, vec3 } from './palette.js';
 // ─────────────────────────────────────────────────────────────
 // fx-core — 룩 시스템(FX Lab)과 시뮬레이터가 공유하는 단일 정본.
 //
@@ -155,17 +156,21 @@ export function buildLUT(stops, sat = 1, out = new Uint8Array(256 * 4)) {
 export const MARK_GLSL = `
 uniform float uRadius, uPool, uContract, uShape, uSeed;
 uniform sampler2D uSDF2, uSDFWarn;
-#define C_RED   vec3(0.980, 0.188, 0.188)
-#define C_CORAL vec3(0.996, 0.431, 0.235)
-#define C_SAND  vec3(0.996, 0.765, 0.537)
-#define C_CREAM vec3(0.996, 0.886, 0.776)
-#define C_ICE   vec3(0.820, 0.996, 1.000)
-#define C_GRAYF vec3(0.925, 0.925, 0.925)
-#define C_GRAYL vec3(0.816, 0.816, 0.816)
-#define C_RIMG  vec3(0.816, 0.804, 0.800)
-#define C_WINE  vec3(0.318, 0.094, 0.082)
-#define C_BRICK vec3(0.718, 0.212, 0.184)
-#define C_EXCL  vec3(0.933, 0.157, 0.153)
+// 색 = src/palette.js 단일 소스. 유채는 4색뿐(규칙 ①), 무채는 상태 부호(규칙 ②).
+//   은퇴: C_CREAM(#FEE2C6 — 팔레트에 없던 9번째 색) → SAND
+//         C_WINE·C_BRICK(암적) → SAND·CORAL  (유저: 워닝에 어두운색 금지)
+//         C_EXCL(#EE2827) → RED · C_RIMG(미세 웜그레이) → 무채 lo 로 통합
+#define C_RED   ${vec3(PAL.red)}
+#define C_CORAL ${vec3(PAL.coral)}
+#define C_SAND  ${vec3(PAL.sand)}
+#define C_ICE   ${vec3(PAL.prism)}
+#define C_CREAM C_SAND
+#define C_GRAYF ${vec3(NEU.hi)}
+#define C_GRAYL ${vec3(NEU.lo)}
+#define C_RIMG  C_GRAYL
+#define C_WINE  C_SAND
+#define C_BRICK C_CORAL
+#define C_EXCL  C_RED
 float mkUndul(float ang, float t){
   return sin(ang*2.0 + t*1.1)*0.45 + sin(ang*3.0 - t*0.73 + 1.7)*0.33 + sin(ang*5.0 + t*0.41 + 4.2)*0.22;
 }
@@ -286,7 +291,7 @@ vec4 markState(vec2 uv, float state, float prog, float strong, float t){
     float q = length(uv - gcBall) / ext;
     lay(A, mix(fillPreview(q), C_GRAYF, cool), inside * mix(0.55, 0.24, cool) * gone * fillGain);
     lay(A, mix(C_SAND, C_GRAYL, cool), exp(-pow(sd / (0.014 * uW), 2.0)) * 0.85 * gone);
-  } else if (state < 5.5) {     // ── Warning: 암적 리니어 + 느낌표(유저 SVG) 점멸
+  } else if (state < 5.5) {     // ── Warning: 사구→코랄 리니어 + 느낌표 점멸 (유저: 어두운색 금지 → 암적 폐기)
     float ly = clamp(0.5 - uv.y / (2.2 * ext), 0.0, 1.0);
     lay(A, mix(C_WINE, C_BRICK, ly), inside * min(fillGain * 1.05, 1.0));
     float wScale = 0.44 * ext;
@@ -477,7 +482,7 @@ export function strokeFlowPath(g, pts, t, AW, opts, ENV) {
     }
     g.globalAlpha = 1; g.lineCap = 'butt'; g.shadowBlur = 0;
     const [hx, hy] = at(head);
-    g.fillStyle = 'rgba(255,243,220,0.95)';
+    g.fillStyle = rgba(NEU.ink, 0.95);
     g.shadowColor = lut(0.9); g.shadowBlur = 16 * AW;
     g.beginPath(); g.arc(hx, hy, 2.6 * AW, 0, 7); g.fill();
     g.shadowBlur = 0;

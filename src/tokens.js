@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { NUM, PAL, NEU, rgba } from './palette.js';
 import { WALL_Z } from './scene.js';
 import { getLUT, FXP, FX_GLSL, GLYPHS, drawGlyph, lutColor, footSDFTexture, warnSDFTexture } from './fxlut.js';
 import { MARK_NUM, MARK_GLSL, drawStemArrow } from './fx-core.js';
@@ -226,13 +227,13 @@ export function makeMarkFXMaterial(footTex = null) {
 
 // NEWTON 브랜드: 색 = 상태 전용 (좌/우 구분에 색 쓰지 않음 — 와이어프레임 v2 원칙)
 export const COLORS = {
-  left:  0xfa3030,   // NEWTON RED — Active
-  right: 0xfa3030,
-  target: 0xfa3030,  // 벽면 타겟 — 히트형도 RED
-  guide: 0xfe6e3c,   // CORAL — 전환 화살표
-  lane:  0xfa3030,
-  success: 0xd1feff, // PRISM — 성공 잔상
-  user: 0xd1feff,    // PRISM — 유저 액션·내 것 (TAP·내 자세 미러·CTA) — 팔레트 칩 강제(시안 0x21ccdb 기각)
+  left:  NUM.red,     // NEWTON RED — Active
+  right: NUM.red,
+  target: NUM.red,    // 벽면 타겟 — 히트형도 RED
+  guide: NUM.coral,   // CORAL — 전환 화살표
+  lane:  NUM.red,
+  success: NUM.prism, // PRISM — 성공 잔상
+  user: NUM.prism,    // PRISM — 유저 액션·내 것 (TAP·내 자세 미러·CTA)
 };
 
 const FADE_STEPS = [1.0, 0.75, 0.55, 0.38];   // 뒤 순번 파스텔 워시 완화 — 랩 대비 '뿌연 컬러' 주범 1
@@ -300,12 +301,12 @@ function makeFootGlyphTexture(right) {
     og.drawImage(_pfImg, (128 - w) / 2, (128 - h) / 2, w, h);
     og.restore();
     og.globalCompositeOperation = 'source-in';
-    og.fillStyle = 'rgba(255,240,220,0.95)'; og.fillRect(0, 0, 128, 128);
-    ctx.shadowColor = 'rgba(254,150,90,0.75)'; ctx.shadowBlur = 12;
+    og.fillStyle = rgba(NEU.ink, 0.95); og.fillRect(0, 0, 128, 128);
+    ctx.shadowColor = rgba(PAL.coral, 0.75); ctx.shadowBlur = 12;
     ctx.drawImage(off, 0, 0); ctx.shadowBlur = 0; ctx.drawImage(off, 0, 0);
   } else {
-    ctx.strokeStyle = 'rgba(255,240,220,0.95)'; ctx.lineWidth = 5;
-    ctx.shadowColor = 'rgba(254,150,90,0.75)'; ctx.shadowBlur = 12;
+    ctx.strokeStyle = rgba(NEU.ink, 0.95); ctx.lineWidth = 5;
+    ctx.shadowColor = rgba(PAL.coral, 0.75); ctx.shadowBlur = 12;
     ctx.beginPath(); ctx.ellipse(64, 64, 20, 34, right ? 0.12 : -0.12, 0, Math.PI * 2); ctx.stroke();
   }
   const tex = new THREE.CanvasTexture(c);
@@ -319,11 +320,11 @@ function makeNumberTexture(n) {
   const ctx = c.getContext('2d');
   // 커스텀 글리프(FX Lab 슬롯 SVG) 우선 — 없으면 웜 크림 타이포 (동일 온도 언어)
   if (!drawGlyph(ctx, String(n), 64, 64, 96)) {
-    ctx.fillStyle = 'rgba(255,240,220,0.95)';
+    ctx.fillStyle = rgba(NEU.ink, 0.95);
     ctx.font = '300 86px -apple-system, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.shadowColor = 'rgba(254,150,90,0.75)';
+    ctx.shadowColor = rgba(PAL.coral, 0.75);
     ctx.shadowBlur = 14;
     ctx.fillText(String(n), 64, 70);
   }
@@ -344,8 +345,8 @@ function makeSmallLabel(text) {
   ctx = c.getContext('2d');
   ctx.font = `400 ${capPx}px -apple-system, 'Apple SD Gothic Neo', sans-serif`;
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.shadowColor = 'rgba(254,163,95,.7)'; ctx.shadowBlur = capPx * 0.25;
-  ctx.fillStyle = '#FFF3DC';
+  ctx.shadowColor = rgba(PAL.coral, 0.7); ctx.shadowBlur = capPx * 0.25;
+  ctx.fillStyle = NEU.ink;
   ctx.fillText(text, c.width / 2, c.height / 2);
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;

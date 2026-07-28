@@ -7,6 +7,7 @@
 // 인터페이스는 기존과 동일하게 유지한다 — `doc.getElementById(id).textContent/style.…`를
 // main.js 구동 코드가 그대로 쓴다(노드 = 그리기 스펙 겸 DOM 스텁). 이식 비용을 여기 한 파일에 가둔다.
 import * as THREE from 'three';
+import { PAL, NEU, rgba } from './palette.js';
 
 const W = 1600, H = 2670;   // 대지 px (floor-scene.html과 동일)
 // 캔버스 해상도 — 화질과 업로드 비용의 저울.
@@ -15,7 +16,7 @@ const W = 1600, H = 2670;   // 대지 px (floor-scene.html과 동일)
 const K = 0.75;
 
 const CX = W / 2;
-const RED = '#fa3030';
+const RED = PAL.red;
 const sans = "'Supreme','Freesentation','Pretendard',sans-serif";
 const dot9 = "'OffBit','Supreme',sans-serif";
 const F = (w, s, fam = sans) => `${w} ${s}px ${fam}`;
@@ -338,7 +339,7 @@ export class FloorGL {
     // main.js가 width를 직접 쓰면(반복형 스테이지) 그 값이 우선, 아니면 --dur 시간 진행.
     const w = n.style.width != null ? numOr(n.style.width, 0)
       : 600 * Math.max(0, Math.min(1, (this.t - n.delay) / n.dur));
-    for (let i = 0; i < 10; i++) { ctx.fillStyle = '#d0d0d0'; this._pill(x0 + i * 60, y, 60, 60); }
+    for (let i = 0; i < 10; i++) { ctx.fillStyle = NEU.lo; this._pill(x0 + i * 60, y, 60, 60); }
     ctx.save(); ctx.beginPath(); ctx.rect(x0, y, w, 60); ctx.clip();
     for (let i = 0; i < 10; i++) { ctx.fillStyle = RED; this._pill(x0 + i * 60, y, 60, 60); }
     ctx.restore();
@@ -490,7 +491,7 @@ export class FloorGL {
     ctx.fillStyle = '#fff'; this._pill(CX - w / 2, y, w, h);
     ctx.shadowBlur = 0;
     ctx.font = F(700, 80); ctx.letterSpacing = '-1.33px';
-    ctx.fillStyle = '#050a0a'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = NEU.inkDark; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillText(text, CX, y + h / 2);
     ctx.letterSpacing = '0px';
     ctx.restore();
@@ -621,7 +622,7 @@ export class FloorGL {
     this._roundRectPath(x, y, S, S, R); ctx.clip();
     if (done) {
       const g = ctx.createLinearGradient(0, y, 0, y + S);
-      g.addColorStop(0.48, '#fa3030'); g.addColorStop(0.776, '#fe6e3c'); g.addColorStop(1, '#fec389');
+      g.addColorStop(0.48, PAL.red); g.addColorStop(0.776, PAL.coral); g.addColorStop(1, PAL.sand);
       ctx.fillStyle = g;
     } else ctx.fillStyle = '#fff';
     ctx.fillRect(x, y, S, S);
@@ -631,7 +632,7 @@ export class FloorGL {
     if (!done) {   // 다음 카드 = 인물 위에 빨강→주황 틴트
       ctx.save(); ctx.globalCompositeOperation = 'lighter';
       const g2 = ctx.createLinearGradient(0, y, 0, y + S);
-      g2.addColorStop(0, '#fa3030'); g2.addColorStop(1, '#fe6e3c');
+      g2.addColorStop(0, PAL.red); g2.addColorStop(1, PAL.coral);
       ctx.fillStyle = g2; ctx.fillRect(x, y, S, S); ctx.restore();
     } else {       // 완료 카드 = 흰 내부 글로우(원본 inset box-shadow 근사)
       ctx.save(); ctx.lineWidth = 40; ctx.strokeStyle = 'rgba(255,255,255,.45)';
@@ -655,15 +656,15 @@ export class FloorGL {
       const bx = x + S - P - bw / 2, by = y + P + bh / 2;
       ctx.translate(bx, by); ctx.scale(spk, spk); ctx.translate(-bx, -by);
       ctx.fillStyle = 'rgba(255,255,255,.9)'; this._pill(x + S - P - bw, y + P, bw, bh);
-      ctx.fillStyle = '#525252'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillStyle = NEU.t3; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.fillText('Next', bx, by);
     }
     ctx.restore();
     // 좌하단 메타
     ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
-    ctx.fillStyle = done ? '#fafafa' : '#757575'; ctx.font = F(400, 36); ctx.letterSpacing = '-1.64px';
+    ctx.fillStyle = done ? NEU.paper : NEU.t2; ctx.font = F(400, 36); ctx.letterSpacing = '-1.64px';
     ctx.fillText(D.time, x + P, y + S - P);
-    ctx.fillStyle = done ? '#fff' : '#050a0a'; ctx.font = F(700, 64); ctx.letterSpacing = '-3.27px';
+    ctx.fillStyle = done ? '#fff' : NEU.inkDark; ctx.font = F(700, 64); ctx.letterSpacing = '-3.27px';
     ctx.fillText(D.lbl.toUpperCase(), x + P, y + S - P - 36 * 1.2 - 13.1);
     ctx.letterSpacing = '0px';
   }
@@ -756,7 +757,7 @@ export class FloorGL {
     ctx.font = F(700, 52, dot9);
     const t = 'Success!', tw = ctx.measureText(t).width + 44 + 40 + 80;
     ctx.fillStyle = 'rgba(255,255,255,.92)'; this._pill(CX - tw / 2, y, tw, 88);
-    ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#525252';
+    ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillStyle = NEU.t3;
     ctx.font = '44px sans-serif'; ctx.fillText('🔥', CX - tw / 2 + 40, y + 44);
     ctx.font = F(700, 52, dot9); ctx.fillText(t, CX - tw / 2 + 40 + 44 + 14, y + 44);
     const arc = this.map.get('succ-arc');

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { PAL, NEU, NUM, rgba } from './palette.js';
 import bkStepContacts from '../assets/mocap/contacts-cmu_crossover_shot.json';   // 접지 자동 추출 산출물 (scripts/extract_contacts.mjs)
 import { WALL_Z } from './scene.js';
 import { lutColor, GLYPHS, drawGlyph, drawNumber, footSlot, footSDFTexture, FXP } from './fxlut.js';
@@ -38,12 +39,12 @@ export const SCFG = { a1Rep: 2.0, a2Hold: 10, a3Swing: 1.55, a4Beat: 0.6, b1Beat
 // 타이틀·발형이 물리적으로 겹치는 장면(빔 원경계 ~2.85m 안에 실측 운동 요소가 타이틀 깊이까지 뻗음) — 이 셋뿐
 const DENSE_STAGES = new Set(['B3', 'B4', 'C5']);
 
-const BRAND = { red: 0xfa3030, coral: 0xfe6e3c, sand: 0xfec389, prism: 0xd1feff, ink: 0xffffff, dim: 0x9b9b9b };
+const BRAND = { red: NUM.red, coral: NUM.coral, sand: NUM.sand, prism: NUM.prism, ink: NUM.ink, dim: NUM.lo };
 export { BRAND };
 // 히트 계열(red·coral·sand)은 룩 LUT의 정준 위치에서 파생 — 기본 Vivid 룩에선 기존 값과 동일,
 // 룩 팔레트를 바꾸면 세션 45컷이 함께 따라온다 (부트 시 파생 — 룩 저장 후 새 세션/새로고침 반영).
 // prism(판정·성공)·ink(잉크)는 상태 부호화 전용이라 고정 (색=상태 원칙).
-const CS = { red:'#fa3030', coral:'#fe6e3c', sand:'#fec389', prism:'#d1feff', ink:'#ffffff', dim:'#c9c9c9', mute:'#9b9b9b' };
+const CS = { red: PAL.red, coral: PAL.coral, sand: PAL.sand, prism: PAL.prism, ink: NEU.ink, dim: NEU.hi, mute: NEU.lo };
 export function deriveSessionPalette() {
   const toHex = css => { const m = css.match(/rgb\((\d+),(\d+),(\d+)\)/); return m ? (+m[1] << 16) | (+m[2] << 8) | +m[3] : 0xfa3030; };
   CS.red = lutColor(0.30);
@@ -69,14 +70,14 @@ export const FONT_FAMILIES = [
   ['Georgia, "Times New Roman", serif', '세리프 (라틴)'],
   ['Menlo, "SF Mono", monospace', '모노'],
 ];
-function drawTextTex(text, { size = 0.10, color = '#FFF3DC', weight = 700, family = FONT_FAMILIES[0][0] } = {}) {
+function drawTextTex(text, { size = 0.10, color = NEU.ink, weight = 700, family = FONT_FAMILIES[0][0] } = {}) {
   // 장면 UI 잉크 규정과 동일 언어 (sceneui.makeTextTexture): 웜 크림 + 웜 글로우 — 세션만 따로 놀던 사제 잉크 은퇴
   const c = document.createElement('canvas'), ctx = c.getContext('2d');
   const font = `${weight} 64px ${family}`;
   ctx.font = font;
   c.width = Math.max(8, Math.ceil(ctx.measureText(text).width) + 44); c.height = 96;
   const x = c.getContext('2d'); x.font = font; x.textBaseline = 'middle';
-  x.shadowColor = 'rgba(254,163,95,.9)'; x.shadowBlur = 19;
+  x.shadowColor = rgba(PAL.coral, 0.9); x.shadowBlur = 19;
   x.fillStyle = color;
   x.fillText(text, 22, 50);
   x.shadowBlur = 0;
@@ -85,7 +86,7 @@ function drawTextTex(text, { size = 0.10, color = '#FFF3DC', weight = 700, famil
   return { tex, aspect: c.width / c.height };
 }
 function makeTextMesh(text, opts = {}) {
-  const o = { size: 0.10, color: '#FFF3DC', weight: 700, family: FONT_FAMILIES[0][0], ...opts };
+  const o = { size: 0.10, color: NEU.ink, weight: 700, family: FONT_FAMILIES[0][0], ...opts };
   const { tex, aspect } = drawTextTex(text, o);
   const plane = new THREE.Mesh(new THREE.PlaneGeometry(o.size * aspect, o.size),
     new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, side: THREE.DoubleSide }));
@@ -213,10 +214,10 @@ function floorNum(text, x, z, size, color) {
   const c = document.createElement('canvas'); c.width = c.height = 128;
   const g2 = c.getContext('2d');
   if (!drawNumber(g2, String(text), 64, 64, 96)) {
-    g2.fillStyle = 'rgba(255,240,220,0.95)';
+    g2.fillStyle = rgba(NEU.ink, 0.95);
     g2.font = `300 ${String(text).length > 1 ? 60 : 86}px -apple-system, sans-serif`;
     g2.textAlign = 'center'; g2.textBaseline = 'middle';
-    g2.shadowColor = 'rgba(254,150,90,0.75)'; g2.shadowBlur = 14;
+    g2.shadowColor = rgba(PAL.coral, 0.75); g2.shadowBlur = 14;
     g2.fillText(String(text), 64, 70);
   }
   const tex = new THREE.CanvasTexture(c);
@@ -234,9 +235,9 @@ function redrawFootNum(p, n) {
   const c = p.userData.canvas, g2 = c.getContext('2d');
   g2.clearRect(0, 0, 128, 128);
   if (!drawNumber(g2, String(n), 64, 64, 96)) {
-    g2.fillStyle = 'rgba(255,240,220,0.95)'; g2.font = `300 ${String(n).length > 1 ? 60 : 86}px -apple-system, sans-serif`;
+    g2.fillStyle = rgba(NEU.ink, 0.95); g2.font = `300 ${String(n).length > 1 ? 60 : 86}px -apple-system, sans-serif`;
     g2.textAlign = 'center'; g2.textBaseline = 'middle';
-    g2.shadowColor = 'rgba(254,150,90,0.75)'; g2.shadowBlur = 14; g2.fillText(String(n), 64, 70);
+    g2.shadowColor = rgba(PAL.coral, 0.75); g2.shadowBlur = 14; g2.fillText(String(n), 64, 70);
   }
   p.userData.tex.needsUpdate = true;
 }
@@ -330,7 +331,7 @@ function livePrimEnv() {
     num: (g, ch, x, y, size, fontPx) => {
       if (drawGlyph(g, String(ch), x, y, size)) return;
       g.font = `300 ${fontPx}px -apple-system, sans-serif`;
-      g.fillStyle = 'rgba(255,240,220,0.95)';
+      g.fillStyle = rgba(NEU.ink, 0.95);
       g.textAlign = 'center'; g.textBaseline = 'middle';
       g.fillText(String(ch), x, y);
     },

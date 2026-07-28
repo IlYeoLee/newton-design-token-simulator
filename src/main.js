@@ -18,6 +18,7 @@ import { SceneScope } from './studio/scene-scope.js';
 import { DesignStore } from './studio/store.js';
 import { loadSvg } from './studio/design.js';
 import { initBudgetPanel } from './budgetPanel.js';
+import { enforcePalette } from './palette.js';   // 색 규칙 강제 — 저장된 룩이 팔레트를 무너뜨리지 못하게
 import { FloorGL } from './floorgl.js';   // 바닥 UI WebGL 이식(B안) — ?floorgl=1
 import { WallGL } from './wallgl.js';     // 복싱 벽 UI WebGL 이식(같은 B안) — ?wallgl=0 이면 옛 CSS3D
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
@@ -277,6 +278,7 @@ async function boot() {
   // 저장된 룩의 LUT·글리프를 먼저 시드 — 세션 45컷(팔레트 파생 + 발형 텍스처)이 빌드 시 사용
   {
     const lab0 = designStore.globalGet('fx', 'lab', null);
+    enforcePalette(lab0);
     if (lab0?.stops) { FXP.stops = lab0.stops.map(x => [...x]); FXP.sat = lab0.sat ?? 1; }
     rebuildLUT();
     // L·R 글리프 = 숫자 슬롯과 같은 규약(같은 크기·틴트·글로우). 지면 UI에서 floorNum('L'…)
@@ -1186,6 +1188,7 @@ void main(){
   let updateSurfChipsOut = () => {};   // 패널 투사면 칩 동기 (룩 패널 공용)
   function applyLabState(st) {
     if (!st) return;
+    enforcePalette(st);   // 규칙 ①·③ — 팔레트 밖 색·채도 변경은 여기서 걸러진다
     // 룩 반영 카운터 — 프로덕션 빌드에서도 "룩 편집이 시뮬에 도달했는가"를 콘솔로 확인 가능(진단용 1줄)
     window.__lookRev = (window.__lookRev || 0) + 1;
     if (st.stops) FXP.stops = st.stops.map(s => [...s]);
