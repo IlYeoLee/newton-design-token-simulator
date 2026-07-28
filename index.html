@@ -206,10 +206,10 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
     </header>
 
     <nav class="tabs" id="pack-tabs">
-      <button data-pack="running" class="active">러닝</button>
+      <button data-pack="running">러닝</button>
       <button id="run-expert" title="Bandai 실측 러너(run_normal.bvh)에서 자동 추출된 전문가 팩 — 손 배치 0. 봇도 그 러너의 원본 모션을 그대로 재생" style="display:none;border-color:#fec389;color:#fec389;">⭐ 러너</button>
       <button id="run-video" title="영상 → MediaPipe 포즈 → 발 접지 자동 추출 팩 (video_pose_extract.py). 현재는 폐루프 검증 샘플(시뮬 봇 측면 캡처, Δt +9~32ms) — 외부 영상으로 교체 가능" style="display:none;border-color:#d1feff;color:#d1feff;">🎥 영상</button>
-      <button data-pack="boxing">복싱</button>
+      <button data-pack="boxing" class="active">복싱</button>
       <button id="bx-video" title="실사 섀도복싱 영상(Pexels 7187515, 측면)에서 펀치 33건 자동 추출 — 손 배치 0. 리듬·타겟 높이가 그 복서의 것" style="display:none;border-color:#d1feff;color:#d1feff;">🎥 복서</button>
       <button data-pack="basketball">농구</button>
       <button id="bk-curry" title="NBA SportVU 실경기(2015-10-31, 53득점)에서 자동 추출된 커리 스텝백 — 손 배치 0" style="display:none;border-color:#fec389;color:#fec389;">⭐ 커리</button>
@@ -450,13 +450,25 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
         <button class="lab-go" id="lab-burst" style="margin-top:8px;border-color:#fa3030;background:rgba(250,48,48,.14);color:#ff7a7a">과도 구간 재현(전환 순간)</button>
       </div>
 
-      <h3>고개 각도 원칙</h3>
-      <div class="lab-kv"><span>시선 낙하 지점</span><b>1.3 ~ 9.9m</b></div>
-      <div class="lab-kv"><span>중심시야</span><b>47°</b></div>
-      <div class="lab-kv"><span>투사 밴드</span><b>시야 안쪽 2/3 구간</b></div>
-      <div class="lab-note">달릴 때 사람 시선은 3~5m 앞 지면에 떨어진다. 그래서 UI를 발밑이 아니라
-        그 낙하점 근처에 놓고, 가까운 쪽은 큰 글자·먼 쪽은 방향 지시만 둔다.</div>
-
+      <h3>고개 각도 설계 — 장면별</h3>
+      <div class="lab-note" style="margin:0 0 8px">눈높이 1.6m 기준. 각도는 임의값이 아니라
+        <b>그 장면에서 봐야 할 것이 시야 중앙에 오는 각</b>으로 역산했다(낙하점 = 1.6 / tanθ).</div>
+      <div class="lab-kv"><span>READY(시작 화면)</span><b>-46° · 1.55m</b></div>
+      <div class="lab-kv"><span>스트레칭 A</span><b>-42° · 1.78m</b></div>
+      <div class="lab-kv"><span>익히기 B</span><b>-38° · 2.05m</b></div>
+      <div class="lab-kv"><span>전환·타이머·리포트</span><b>-44° · 1.66m</b></div>
+      <div class="lab-kv"><span>전환 T · 리치 홀드</span><b>-30° · 2.77m</b></div>
+      <div class="lab-kv"><span>실전 C(달리기)</span><b>-18° · 4.92m</b></div>
+      <div class="lab-kv"><span>복싱(벽 종목)</span><b>-8° · 벽 정면 응시</b></div>
+      <div class="lab-kv"><span>드리블 2막(시선 바깥)</span><b>-5° · 사실상 정면</b></div>
+      <div class="lab-note">근거 셋. ① <b>Matthis·Yates·Hayhoe 2018</b> — 보행자는 약 2보 앞(~1.5초 시간창)을
+        응시한다. 평지+가이드에선 더 멀리 보므로 실전은 -18°(낙하점 ≈5m).
+        ② <b>시각 인간공학(ISO 9241 계열)</b> — 지속 주시 편안 범위는 수평 아래 0~35°, 지속 목 굴곡은
+        20° 이내 권장. 그래서 <b>깊은 각(-38~-46°)은 학습·전환처럼 10초 단위 장면에만</b> 쓰고,
+        계속 달리는 실전은 얕게 둔다. ③ <b>초심자는 발 근처를 본다</b>(novice 근거리 주시) —
+        익히기·스트레칭은 발 앞 1.8~2.1m에 마크를 놓아 시선을 억지로 들지 않게 했다.</div>
+      <div class="lab-note">전환은 τ=0.9초로 부드럽게 — 각도가 튀면 사람이 실제로 고개를 홱 드는 것처럼 보인다.
+        유효 수직 시야는 60°로 잡고(시야콘 토글로 확인), 투사 밴드는 그 안쪽에만 배치한다.</div>
       <h3>가시성 규칙</h3>
       <div class="lab-kv"><span>창 경계</span><b>페더 18cm — 하드컷 금지</b></div>
       <div class="lab-kv"><span>공에 가려질 때</span><b>그 토큰만 소등(평균 1.4%)</b></div>

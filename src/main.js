@@ -44,7 +44,7 @@ const PACK_FILES = {
 };
 
 const state = {
-  pack: 'running',
+  pack: 'boxing',   // 기본 진입 팩 = 복싱 (순서: 복싱 → 러닝 → 농구, 유저)
   packs: {},
   time: 0,
   speed: 1,
