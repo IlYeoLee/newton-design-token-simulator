@@ -4419,6 +4419,35 @@ void main(){
   };
 
 
+  // ── 제품 뷰 체험 패널 — 개발자 패널 없이 팩 전환·세션 조작을 한 곳에서 ──
+  //    실제 동작은 전부 기존 컨트롤에 위임한다(로직 이중화 금지). 표시 상태만 여기서 동기화.
+  {
+    const $$ = id => document.getElementById(id);
+    const pp = $$('play-panel');
+    if (pp) {
+      const relay = (id) => document.getElementById(id)?.click();
+      pp.querySelectorAll('.pp-pack').forEach(b => b.addEventListener('click', () => {
+        document.querySelector(`[data-pack=${b.dataset.pp}]`)?.click();
+      }));
+      $$('pp-start').addEventListener('click', () => relay('btn-session'));
+      $$('pp-prev').addEventListener('click', () => session.prev());
+      $$('pp-tap').addEventListener('click', () => relay('btn-tap'));
+      $$('pp-next').addEventListener('click', () => session.next(true));   // 체험 조작은 음성 대기 없이 즉시
+      $$('pp-view').addEventListener('click', () => relay('btn-view'));
+      $$('pp-stop').addEventListener('click', () => relay('btn-session-stop'));
+      setInterval(() => {
+        const live = !!session?.active;
+        $$('pp-idle').style.display = live ? 'none' : '';
+        $$('pp-live').style.display = live ? '' : 'none';
+        pp.querySelectorAll('.pp-pack').forEach(b => b.classList.toggle('on', b.dataset.pp === state.pack));
+        const st = session?.curStage;
+        $$('pp-stage').textContent = live ? (st?.label || '—') : '세션을 시작하면 코치가 안내합니다';
+        $$('pp-meta').textContent = live ? [st?.cue, st?.foot].filter(Boolean).join(' · ') : '';
+        $$('pp-idx').textContent = live ? `${(session.stageIdx || 0) + 1} / ${session.stages.length}` : '체험';
+        $$('pp-view').textContent = document.getElementById('btn-view')?.textContent || '3인칭 보기';
+      }, 250);
+    }
+  }
   // 빌드 스탬프 — 캐시된 구버전 확인용 (좌하단 미세 표기)
   {
     const bs = document.createElement('div');
