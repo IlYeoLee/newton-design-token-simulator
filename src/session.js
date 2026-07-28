@@ -141,7 +141,14 @@ class FootMark {
   // Success = '색이 진해진 상태' 그 자체다(유저 정의). 저절로 흐려지지 않는다 —
   //   러닝에서 성공 후 사라지는 건 토큰의 성질이 아니라 다음 마크로 넘어가는 '전환 모션'이다.
   //   k=1 이면 진행도 0 = 가장 진한 상태로 고정. 흐리게 하고 싶은 호출부만 k를 낮춘다.
-  glow(k = 1) { this._U.uPhase.value = 2; this._U.uProg.value = Math.min(1, 1 - k); }
+  glow(k = 1) {
+    this._U.uPhase.value = 2; this._U.uProg.value = Math.min(1, 1 - k);
+    // Success 진입 = 파문 1회. 팩마다 따로 붙이던 것을 '상태 → 이펙트' 규칙 한 곳으로 통일한다
+    //   (실측: 러닝 실전 25회 / 복싱 4회인데 농구는 0회였다 — 같은 Success 인데 팩마다 달랐다).
+    //   래치는 k 가 충분히 내려가야 풀린다 → 한 번의 성공에 한 번만.
+    if (k >= 0.99) { if (!this._succLatch) { this._succLatch = true; FootMark.onSuccess?.(this); } }
+    else if (k < 0.6) this._succLatch = false;
+  }
   toe(k) { this._U.uToe.value = k; }   // 1 = 앞꿈치만 접지(뒤꿈치 투명·앞 강조)
   ghost() { this._U.uPhase.value = 3; this._U.uProg.value = 0; }                        // Locked 무채 고스트 — 션 발자국 시범·예고
 }
@@ -609,6 +616,11 @@ export class Session {
     this.G = {}; this._lastCount = null;
     this.liveSpeed = 1;   // 실전 라이브 속도 배율 (BOOST/감속)
     this.bobY = 0;        // 박자 시점 바운스 (스트레칭·익히기)
+    // Success 파문 = 공통 규칙 (FootMark.glow 진입 래치가 호출)
+    FootMark.onSuccess = (fm) => {
+      const wp = new THREE.Vector3(); fm.group.getWorldPosition(wp);
+      this.onBurst?.(wp, 0.26, COLORS.success);
+    };
     this._build();
   }
   get stage() { return this.stages[this.stageIdx].id; }

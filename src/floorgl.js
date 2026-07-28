@@ -50,6 +50,33 @@ export const kf = (p, stops, ease = eInOut) => {
 // `both` fill 등장 애니메이션의 선형 진행도
 export const intro = (t, delay, dur) => clamp01((t - delay) / dur);
 
+
+/** 성취 배지 — 지면 Success 와 복싱 콤보가 같은 물건이라 한 정의로 통일(유저 지적).
+ *  전엔 지면은 흰 필 + 🔥 이모지, 벽은 히트 그라디언트 필 + SVG 불꽃이라 딴판이었다.
+ *  정본 = 벽 콤보 쪽(더 설계된 형태). 등장·회전 같은 모션은 호출자가 변환으로 감싼다. */
+export function drawBadge(ctx, cx, cy, text, o = {}) {
+  const S = o.scale || 1, H = 114.26 * S, R = 47.28 * S;
+  const fs = 59.1 * S, pad = 36 * S, icon = 47.28 * S, gap = 15.76 * S;
+  ctx.font = `700 ${fs}px 'OffBit','Supreme',sans-serif`;
+  const w = ctx.measureText(text).width + icon + gap + pad * 2;
+  const glow = o.glow ?? 0.55;
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.shadowColor = rgba(PAL.coral, glow); ctx.shadowBlur = 44 * S * (0.5 + glow);
+  const g = ctx.createLinearGradient(-w / 2, -H / 2, w / 2, H / 2);
+  g.addColorStop(0, rgba(PAL.red, .4)); g.addColorStop(1, rgba(PAL.coral, .28));
+  ctx.fillStyle = g; ctx.beginPath(); ctx.roundRect(-w / 2, -H / 2, w, H, R); ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.strokeStyle = 'rgba(255,255,255,.4)'; ctx.lineWidth = 2 * S;
+  ctx.beginPath(); ctx.roundRect(-w / 2, -H / 2, w, H, R); ctx.stroke();
+  if (o.icon) ctx.drawImage(o.icon, -w / 2 + pad, -icon * 0.55, icon, icon * 1.1);
+  ctx.shadowColor = rgba(PAL.sand, .75); ctx.shadowBlur = 22 * S;
+  ctx.fillStyle = NEU.ink; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  ctx.fillText(text, -w / 2 + pad + icon + gap, 0);
+  ctx.restore();
+  return w;
+}
+
 // 글자별 그리기 — fn(i) → {dy, alpha, scale}. charLoop·charWave·chIn 공통.
 // align: 'center'(cx=중앙) | 'right'(cx=오른쪽 끝) | 'left'
 export function drawChars(ctx, txt, cx, y, h, ls, fn, align = 'center') {
@@ -218,7 +245,7 @@ export class FloorGL {
   /** 이 UI가 쓰는 이미지 전부 — 진입 전에 미리 굽는다.
    *  예전엔 첫 _paint 가 로드를 촉발해서 진입 직후 몇 프레임이 이미지 없이 그려지고 툭 나타났다
    *  (유저: 첫 화면 인터랙션 딜레이 — 화면 녹화에선 그대로 찍힌다). */
-  static ASSETS = ['bg_glow.svg', 'fig/big_glow.svg', 'run/arrow.svg', 'run/foot.svg',
+  static ASSETS = ['bg_glow.svg', 'fig/big_glow.svg', 'run/arrow.svg', 'run/foot.svg', 'flame.svg',
     // 데이터에서 오는 것들(_img 리터럴이 아니라 TR/READY 테이블) — 빠뜨리면 카드가 늦게 뜬다
     'run/ic_glasses.png', 'run/ic_watch.png', 'run/ic_earbuds.png',
     'run/run_stretch.png', 'run/run_learn.png', 'run/run_run.png',
@@ -773,16 +800,14 @@ export class FloorGL {
   // Success 컴포넌트(Figma 130-2984) — 배지 + 점선 카운트다운 링
   _succ(n, y) {
     const ctx = this.ctx;
-    ctx.font = F(700, 52, dot9);
-    const t = 'Success!', tw = ctx.measureText(t).width + 44 + 40 + 80;
-    ctx.fillStyle = 'rgba(255,255,255,.92)'; this._pill(CX - tw / 2, y, tw, 88);
-    ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillStyle = NEU.t3;
-    ctx.font = '44px sans-serif'; ctx.fillText('🔥', CX - tw / 2 + 40, y + 44);
-    ctx.font = F(700, 52, dot9); ctx.fillText(t, CX - tw / 2 + 40 + 44 + 14, y + 44);
+    // 성취 배지 = 복싱 콤보와 같은 컴포넌트(drawBadge). 구 흰 필 + 이모지는 은퇴.
+    const S = 88 / 114.26;   // 지면 배지 높이 88 에 맞춘 스케일
+    drawBadge(ctx, CX, y + 44, 'Success!', { scale: S, icon: this._img('flame.svg') });
     const arc = this.map.get('succ-arc');
     const frac = numOr(arc?.style.strokeDashoffset, 0) / 615.7;   // 원본은 offset이 곧 남은 비율
     const ry = y + 88 + 56;
     this._ringAt(CX, ry, 220, frac, '#fff');
     drawCenteredNum(ctx, this.map.get('succ-n')?.textContent || '', CX, ry + 110, 88);
   }
+
 }

@@ -10,7 +10,7 @@
 import * as THREE from 'three';
 import { PAL, NEU, rgba } from './palette.js';
 import { T, R, sp, zone, NUM_S } from './ds.js';   // 조판 토큰
-import { clamp01, eOut, cycle, kf, intro, drawChars } from './floorgl.js';
+import { clamp01, eOut, cycle, kf, intro, drawChars, drawBadge } from './floorgl.js';
 
 const W = 2600, H = 1600;   // 대지 px (벽 2.6×1.6m 실측 1:1)
 const K = 0.75;             // 캔버스 해상도 — 바닥과 같은 저울(화질 vs 업로드 비용)
@@ -586,32 +586,15 @@ export class WallGL {
       if (e <= 0) return;
       const gl = cycle(t, d + 0.6, 1.6, INF);
       ctx.save();
-      ctx.font = F(700, 59.1, dot9);
-      const cwid = ctx.measureText(c).width + 47.28 + 15.76 + 72, chh = 114.26;
+      const gy = 0;
       ctx.globalAlpha *= kf(e, [[0, 0], [.5, 1], [1, 1]]);
       const sc = kf(e, [[0, .3], [.5, 1.22], [.72, .94], [1, 1]]);
       const rot = kf(e, [[0, -8], [.5, 3], [.72, -1.5], [1, 0]]) * Math.PI / 180;
-      const gy = gl == null ? 0 : kf(gl, [[0, 0], [.5, -7], [1, 0]]);
-      ctx.translate(CX, y0 + chh / 2 + 34 * (1 - e) + gy);
+      const gl2 = gl == null ? 0 : kf(gl, [[0, 0], [.5, 1], [1, 0]]);
+      ctx.translate(CX, y0 + 114.26 / 2 + 34 * (1 - e) + (gl == null ? 0 : kf(gl, [[0, 0], [.5, -7], [1, 0]])));
       ctx.rotate(rot); ctx.scale(sc, sc);
-      ctx.shadowColor = `rgba(254,110,60,${gl == null ? .55 : kf(gl, [[0, .55], [.5, .9], [1, .55]])})`;
-      ctx.shadowBlur = gl == null ? 44 : kf(gl, [[0, 44], [.5, 78], [1, 44]]);
-      const g = ctx.createLinearGradient(-cwid / 2, -chh / 2, cwid / 2, chh / 2);
-      g.addColorStop(0, rgba(PAL.red, .4)); g.addColorStop(1, rgba(PAL.coral, .28));
-      rrFill(ctx, -cwid / 2, -chh / 2, cwid, chh, 47.28, g);
-      ctx.shadowBlur = 0;
-      ctx.strokeStyle = 'rgba(255,255,255,.4)'; ctx.lineWidth = 2;
-      rrPath(ctx, -cwid / 2, -chh / 2, cwid, chh, 47.28); ctx.stroke();
-      const fl = this._img('flame.svg');
-      const ff = cycle(t, 0, 1.05, INF);
-      if (fl) {
-        const fs = ff == null ? 1 : kf(ff, [[0, 1], [.5, 1.14], [1, 1]]);
-        const fdy = ff == null ? 0 : kf(ff, [[0, 0], [.5, -3], [1, 0]]);
-        ctx.save(); ctx.translate(-cwid / 2 + 36 + 23.64, fdy); ctx.scale(fs, fs);
-        ctx.drawImage(fl, -23.64, -26, 47.28, 52); ctx.restore();
-      }
-      ctx.shadowColor = rgba(PAL.sand, 0.75); ctx.shadowBlur = 22;
-      txt(ctx, c, -cwid / 2 + 36 + 47.28 + 15.76, 0, 59.1, 700, '#fff', { fam: dot9, ls: -1.97, base: 'middle' });
+      // 성취 배지 = 지면 Success 와 같은 컴포넌트(floorgl.drawBadge)
+      drawBadge(ctx, 0, 0, c, { scale: 1, icon: this._img('flame.svg'), glow: .55 + .35 * gl2 });
       ctx.restore();
     });
   }

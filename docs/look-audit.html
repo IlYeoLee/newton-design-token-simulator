@@ -1523,22 +1523,22 @@ GSLOTS.forEach(([slot,name])=>{
 
 /* ── 공통 컴포넌트 — 정본 코드로 그린다 ────────────────────────────── */
 const COMPS=[
- {k:'card',   n:'전환 카드', src:'floorgl._card / wallgl._card', use:'전환 4화면 (양 대지)',
+ {k:'card',   n:'전환 카드', src:'floorgl._card · wallgl._card', use:'러닝 · 농구 · 복싱 (전환 6화면)',
   d:'히트 그라디언트 + 인물 plus-lighter + 내부 글로우'},
- {k:'dots',   n:'프로그래스 도트바', src:'floorgl._dots', use:'러닝·농구 운동중 · 복싱 씬',
+ {k:'dots',   n:'프로그래스 도트바', src:'floorgl._dots · wallgl 도트행', use:'러닝 · 농구 · 복싱',
   d:'회색 10개 위 빨강 10개를 좌→우 클립'},
- {k:'ring',   n:'카운트다운 링', src:'floorgl.drawRing', use:'타이머 3화면 · 프리뷰 · Success',
+ {k:'ring',   n:'카운트다운 링', src:'floorgl.drawRing · wallgl.ring', use:'러닝 · 농구 · 복싱 (타이머·프리뷰·Success)',
   d:'점선 트랙 + 채워지는 아크 + 회전 팁'},
- {k:'pct',    n:'퍼센트 링', src:'floorgl._paint_report', use:'리포트 2화면',
+ {k:'pct',    n:'퍼센트 링', src:'floorgl._paint_report · wallgl', use:'러닝 · 농구 · 복싱 (리포트 3화면)',
   d:'실선 트랙 + 아크 + 숫자 카운트업'},
- {k:'succ',   n:'Success 배지', src:'floorgl._succ', use:'지면 판정',
-  d:'필 배지 + 점선 카운트다운 링 (Figma 130-2984)'},
- {k:'glow',   n:'배경 그라디언트', src:'bg_glow.svg + glowDrift', use:'전환·타이머·리포트 (양 대지)',
+ {k:'succ',   n:'성취 배지', src:'floorgl.drawBadge', use:'러닝 · 농구 (Success) · 복싱 (콤보)',
+  d:'히트 그라디언트 필 + 불꽃 + OffBit — 지면 Success 와 복싱 콤보가 같은 컴포넌트'},
+ {k:'glow',   n:'배경 그라디언트', src:'bg_glow.svg + glowDrift', use:'러닝 · 농구 · 복싱 (전환·타이머·리포트)',
   d:'라디얼 마스크로 사각 모서리 차단 · 15s 드리프트'},
- {k:'tap',    n:'Foot 두 번 탭', src:'floorgl._paint_ready / wallgl', use:'시작화면 3종',
+ {k:'tap',    n:'Foot 두 번 탭', src:'floorgl._paint_ready · wallgl', use:'러닝 · 농구 · 복싱 (시작화면)',
   d:'발 실루엣 + 화살표 + 카피 · footBob 5.5s'},
- {k:'person', n:'인물 보정', src:'floorgl._card · FXP.person', use:'카드·코치 영상',
-  d:'어두운 컷아웃 사진 + 히트 그라디언트 가산'}];
+ {k:'person', n:'인물 보정', src:'fx-core.personColor', use:'러닝 · 농구 · 복싱 (바닥·벽 공용)',
+  d:'어두운 컷아웃 + 히트 가산 · 온도 곡선/대역/채도 단일 정의'}];
 
 function drawComp(g,W,kind,t){
   g.clearRect(0,0,W,W);
@@ -1573,11 +1573,19 @@ function drawComp(g,W,kind,t){
     g.fillStyle='#fff'; g.font=`700 ${W*0.24}px OffBit,monospace`;
     g.textAlign='center'; g.textBaseline='middle'; g.fillText(Math.round(p*100)+'%',c,c);
   } else if(kind==='succ'){
-    const bw=W*0.62, bh=W*0.19, by=W*0.16;
-    g.fillStyle='rgba(255,255,255,.92)';
-    g.beginPath(); g.roundRect(c-bw/2,by,bw,bh,bh/2); g.fill();
-    g.fillStyle='#525252'; g.font=`700 ${W*0.10}px OffBit,monospace`;
-    g.textAlign='center'; g.textBaseline='middle'; g.fillText('Success!',c,by+bh/2);
+    // floorgl.drawBadge 와 같은 구성 — 히트 그라디언트 필 + 불꽃 + OffBit
+    const bw=W*0.74, bh=W*0.21, by=W*0.14;
+    const bg=g.createLinearGradient(c-bw/2,by,c+bw/2,by+bh);
+    bg.addColorStop(0,lutA(.30,.4)); bg.addColorStop(1,lutA(.56,.28));
+    g.shadowColor=lutA(.56,.55); g.shadowBlur=W*0.10;
+    g.fillStyle=bg; g.beginPath(); g.roundRect(c-bw/2,by,bw,bh,bh/2); g.fill(); g.shadowBlur=0;
+    g.strokeStyle='rgba(255,255,255,.4)'; g.lineWidth=1.6;
+    g.beginPath(); g.roundRect(c-bw/2,by,bw,bh,bh/2); g.stroke();
+    g.shadowColor=lutA(.86,.75); g.shadowBlur=W*0.06;
+    g.fillStyle='#fff'; g.font=`700 ${W*0.10}px OffBit,monospace`;
+    g.textAlign='center'; g.textBaseline='middle'; g.fillText('Success!',c+W*0.03,by+bh/2);
+    g.shadowBlur=0; g.font=`${W*0.10}px sans-serif`; g.textAlign='center';
+    g.fillText('▲',c-bw/2+W*0.10,by+bh/2);
     const r=W*0.20, cy=W*0.66, p=1-((tt*0.3)%1);
     g.strokeStyle='rgba(255,255,255,.28)'; g.lineWidth=W*0.02;
     g.setLineDash([W*0.004,W*0.07]); g.beginPath(); g.arc(c,cy,r,0,7); g.stroke(); g.setLineDash([]);
