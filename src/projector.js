@@ -319,12 +319,20 @@ export class ProjectorRig {
       this._smFwd.lerp(fwdInst, 1 - Math.exp(-dt / 0.6)).normalize();
     }
     let fwd0 = (this.mode === 'basketball' && this._smFwd) ? this._smFwd : fwdInst;
-    // RAW(무보정) = 짐벌이 없다고 가정 — 빔이 정강이가 향한 쪽 그대로 나간다.
-    //   현행 모델은 방향을 '몸 정면'에 고정해 두기 때문에(=방향 보정이 항상 완벽) 오차 항만 꺼서는
-    //   그림이 안 흔들린다. 진짜 무보정은 이 방향 고정을 푸는 것이다.
+    // RAW(무보정) = 서보·짐벌이 방향을 잡아주지 않는 상태. 다만 유닛은 정강이에 '앞을 향해'
+    //   물리적으로 고정돼 있으므로 빔이 뒤로 넘어가지는 않는다(유저 지적: 스윙에서 후방 투사는 엉터리).
+    //   무보정에서 실제로 보이는 건 방향 반전이 아니라 흔들림 — 정강이 요(yaw) 편차를 그대로 싣되
+    //   기구적 가동범위(±YAW_MAX)로 제한한다.
     if (this.stab?.raw && shinDir) {
       const h = new THREE.Vector3(shinDir.x, 0, shinDir.z);
-      if (h.lengthSq() > 1e-4) fwd0 = h.normalize();
+      if (h.lengthSq() > 1e-4) {
+        h.normalize();
+        const YAW_MAX = 22 * Math.PI / 180;   // 마운트 기구 가동범위 — 이 밖은 몸체가 막는다
+        let d = Math.atan2(h.x, h.z) - Math.atan2(fwd0.x, fwd0.z);
+        d = Math.atan2(Math.sin(d), Math.cos(d));   // −π..π 로 정규화(뒤로 넘어가는 분기 제거)
+        const a = Math.atan2(fwd0.x, fwd0.z) + Math.max(-YAW_MAX, Math.min(YAW_MAX, d));
+        fwd0 = new THREE.Vector3(Math.sin(a), 0, Math.cos(a));
+      }
     }
     const rightV = new THREE.Vector3(fwd0.z, 0, -fwd0.x);   // 몸 왼쪽(왼 무릎 바깥) 방향
     const kneeModule = mount.clone()
