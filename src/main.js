@@ -56,6 +56,7 @@ async function boot() {
   const { renderer, scene, camera, controls, setPackEnvironment, resize, renderFrame, setSurfaces, setDaylight, followFloor, wall, wallGroup, hoop, setRenderCamera } = createScene(stage);
 
   let sessionSkillSink = null;   // 슬라이더가 session 생성 전 초기 apply 시 TDZ 회피
+  let sessionReady = false;      // session(const) 생성 완료 플래그 — 초기 팩 전환이 stopSession을 먼저 부르면 TDZ
   let refreshEditorStages = null; // switchPack → 에디터 스테이지 편집기 갱신 훅
   // ── 직교 편집 카메라 — 편집은 정면(평면도/정면도)에서: 회전 없음, 팬/줌만 (피그마 모델) ──
   const editCam = new THREE.OrthographicCamera(-5, 5, 5, -5, 0.1, 200);
@@ -1034,6 +1035,7 @@ void main(){
     if (type === 'fail') { showCaption('시스템', '아직 폼이 덜 익었어요 — 익히기 한 번 더.'); wearPulse('#fec389', 1600); }
     else if (type === 'downshift') { showCaption('시스템', '폼이 흔들려요 — 익히기로 되돌립니다.'); wearPulse('#fec389', 1600); }
   };
+  sessionReady = true;             // 이 아래부터는 session 접근 안전
   session.onPress = _pressBurst;   // 프레스 완료 버스트 연결
   // 크기 지정 파문 — 세션이 반경(m)을 직접 정할 때(2/4 작은 파형 등)
   session.onBurst = (wp, sizeM, col) => effects.burst(wp, col || 0xfec389, new THREE.Vector3(0, 1, 0),
@@ -1087,7 +1089,7 @@ void main(){
     setFp(true);
   }
   function stopSession() {
-    if (!session.active) return;
+    if (!sessionReady || !session.active) return;   // 부트 중 팩 전환 → session 생성 전 호출(배포본 TDZ 실측)
     session.stop();
     voiceAudio.pause();
     if ('speechSynthesis' in window) speechSynthesis.cancel();
