@@ -27,15 +27,15 @@ window.FLOOR_SCENES = {
 
   // ── 농구 ──
   // A · 준비운동 (WARM UP)
-  BK_A1: { title: 'Side Stretch',      phase: 0, sub: '1/3', cue: 'Reach up · stretch side to side' }, // 옆구리 스트레치
-  BK_A3: { title: 'Squats',            phase: 0, sub: '2/3', cue: 'Slow down and up' },                // 스쿼트
+  BK_A1: { title: 'Side Stretch',      phase: 0, sub: '1/3', cue: 'I always start here — open up your sides' }, // 옆구리 스트레치
+  BK_A3: { title: 'Squats',            phase: 0, sub: '2/3', cue: 'Slow down, drive up — wake the legs I shoot with' },                // 스쿼트
   // B · 사전 익히기 (DRILL)
-  BK_B1: { title: 'Low Dribble',    phase: 0, sub: '3/3', cue: "Stay low — Curry's beat, 10 reps" },  // 로우 드리블
-  BK_B2: { title: 'Bend Knees, Fake the Layup', phase: 1, sub: '1/4', cue: 'Sell the drive with eyes and shoulders' },
-  BK_B3: { title: 'Right Foot Down, Dribble', phase: 1, sub: '2/4', cue: 'Plant it — push the ball across' },
-  BK_B4: { title: 'Left Foot Out, Catch the Ball', phase: 1, sub: '3/4', cue: 'Reach and gather with both hands' },
-  BK_B5: { title: 'Right Foot In, Set to Shoot', phase: 1, sub: '4/4', cue: 'Bring it back — rise straight up' },
+  BK_B1: { title: 'Low Dribble',    phase: 0, sub: '3/3', cue: "Stay low — ride my beat, 10 reps" },  // 로우 드리블
+  BK_B2: { title: 'Bend Knees, Fake the Layup', phase: 1, sub: '1/4', cue: 'Sell it with your eyes and shoulders — like I do' },
+  BK_B3: { title: 'Right Foot Down, Dribble', phase: 1, sub: '2/4', cue: 'Plant it out front — push the ball across, left foot holds' },
+  BK_B4: { title: 'Left Foot Out, Catch the Ball', phase: 1, sub: '3/4', cue: 'Push off and slide back — gather with both hands' },
+  BK_B5: { title: 'Right Foot In, Set to Shoot', phase: 1, sub: '4/4', cue: 'Snap it in and rise straight up — my step-back' },
   // C · 실전 (GAME)
-  BK_C1: { title: 'Trigger',          phase: 2, sub: '1/2', cue: '3 · 2 · 1 — go' },
-  BK_C2: { title: 'Full Step-Back',   phase: 2, sub: '2/2', cue: 'One take — plant, slide, gather, shoot' },   // 실전 = 정속 연속 1회(유저 개편)
+  BK_C1: { title: 'Trigger',          phase: 2, sub: '1/2', cue: '3 · 2 · 1 — let\'s go' },
+  BK_C2: { title: 'Full Step-Back',   phase: 2, sub: '2/2', cue: 'Run it with me ×3 — plant, slide, gather, shoot' },   // 실전 = 정속 연속 1회(유저 개편)
 };

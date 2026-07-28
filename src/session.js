@@ -565,19 +565,19 @@ export const STAGES = {
     { id:'FIN', label:'오늘의 리포트 · 쿨다운', voice:['션','오늘 기록은 앱으로 보내 뒀어요. 리포트 보는 동안 허벅지 앞을 잡고 천천히 풀어 주세요. 오늘 함께해서 즐거웠어요 — 다음에 또 같이 달려요!'], cue:'션 발자국 위에 내 착지 겹쳐 보기 · 쿼드 쿨다운' },
   ],
   basketball: [
-    { id:'BK_READY', label:'0 · READY — 준비', voice:['시스템','커리의 핸들 팩. 준비되면 발을 두 번 탭하세요.'], wear:'SAFE 대기', foot:'두 번 탭 → 시작' },
-    { id:'BK_A1', label:'A · 준비운동 1/3 — 몸풀기(옆구리)', voice:['커리','팔을 위로 뻗어 옆으로 쭉쭉 늘려요. 왼쪽 오른쪽 번갈아 — 허리부터 풀어요.'], wear:'개입 없음 (자세 측정)' },
-    { id:'BK_A3', label:'A · 준비운동 2/3 — 스쿼트', voice:['커리','마지막! 천천히 앉았다 일어나요. 점프와 착지의 힘을 깨워요.'], wear:'낮은 강도 보조 시작' },
-    { id:'BK_B1', label:'A · 준비운동 3/3 — 제자리 드리블', voice:['커리','공부터 손에 익혀요 — 무릎 굽히고 낮게, 열 번.'], cue:'낮은 자세 · 10회' },
-    { id:'BK_T1', label:'T-1 · STAGE CLEAR → 사전 익히기', voice:['시스템','몸 풀렸어요. 탭 두 번이면 다음으로.'], foot:'두 번 탭 → 사전 익히기' },
-    { id:'BK_B2', label:'B · 스텝백 1/4 — 무릎 구부려 공을 넣는 척', voice:['커리','무릎 구부리고 들어가는 척부터. 눈과 어깨로 레이업을 파세요.'], cue:'L·R 나란히 · 낮은 자세' },
-    { id:'BK_B3', label:'B · 스텝백 2/4 — 오른발 딛고 드리블', voice:['커리','오른발을 딛으면서 공을 왼쪽으로 밀어요. 공 위치를 보세요.'], cue:'R 앞 · L 뒤 · 공은 왼쪽' },
-    { id:'BK_B4', label:'B · 스텝백 3/4 — 왼발 뻗으며 공 잡기', voice:['커리','왼발을 크게 뻗으면서 두 손으로 공을 잡아요.'], cue:'L 크게 벌림 · 두 손 개더' },
-    { id:'BK_B5', label:'B · 스텝백 4/4 — 오른발 모으며 슛 준비', voice:['커리','오른발을 모으고 그대로 올라가요 — 슛!'], cue:'L·R 모음 · 수직 상승', foot:'두 번 탭 → 실전 준비' },
-    { id:'BK_T2', label:'T-2 · 5초 뒤 실전 자동 진행 (두 번 탭 = 바로)', voice:['커리','5초 뒤 넘어가요. 준비됐으면 두 번 탭.'], dur:5, count:true, foot:'두 번 탭 = 즉시 · 무입력 = 자동' },
-    { id:'BK_C1', dur:3, label:'C · 실전 1/2 — 트리거', voice:['시스템','3, 2, 1. 실전 갑니다.'], hap:'컷 시작 진동', foot:'두 번 탭 → 출발' },
-    { id:'BK_C2', dur:40, live:true, label:'C · 실전 — 스텝백 3점 3회', voice:['커리','이제 실전이에요. 배운 스텝 그대로 세 번 — 딛고, 빠지고, 모아서 슛!'], wear:'BOOST 측면 추진', cue:'정속 · 3회' },
-    { id:'BK_FIN', label:'B-F · 리포트', voice:['시스템','리포트를 앱으로 보냈어요.'], cue:'Ghost Review — 커리 궤적과 내 스텝 겹쳐 보기' },
+    { id:'BK_READY', label:'0 · READY — 준비', voice:['커리','안녕, 스테판 커리예요. 오늘은 내 스텝백을 같이 만들어 볼게요. 준비되면 발을 두 번 탭해요.'], wear:'SAFE 대기', foot:'두 번 탭 → 시작' },
+    { id:'BK_A1', label:'A · 준비운동 1/3 — 몸풀기(옆구리)', voice:['커리','나도 경기 전엔 옆구리부터 풀어요. 팔 위로 뻗고 좌우로 쭉쭉, 허리를 열어 줘요.'], wear:'개입 없음 (자세 측정)' },
+    { id:'BK_A3', label:'A · 준비운동 2/3 — 스쿼트', voice:['커리','이번엔 스쿼트. 천천히 앉았다 일어나요 — 슛할 때 쓰는 다리 힘을 깨우는 거예요.'], wear:'낮은 강도 보조 시작' },
+    { id:'BK_B1', label:'A · 준비운동 3/3 — 제자리 드리블', voice:['커리','이제 공을 손에 붙여 볼게요. 무릎 굽히고 낮게 열 번 — 내 리듬을 따라와요.'], cue:'낮은 자세 · 10회' },
+    { id:'BK_T1', label:'T-1 · STAGE CLEAR → 사전 익히기', voice:['커리','몸 좋아졌네요. 이제 내 시그니처 무브를 네 조각으로 나눠서 알려줄게요. 두 번 탭해요.'], foot:'두 번 탭 → 사전 익히기' },
+    { id:'BK_B2', label:'B · 스텝백 1/4 — 무릎 구부려 공을 넣는 척', voice:['커리','첫 조각. 무릎을 낮추고 들어가는 척해요 — 눈과 어깨로 수비를 속이는 게 시작이에요.'], cue:'L·R 나란히 · 낮은 자세' },
+    { id:'BK_B3', label:'B · 스텝백 2/4 — 오른발 딛고 드리블', voice:['커리','둘째. 오른발을 앞으로 크게 딛으면서 공을 왼쪽으로 밀어요. 왼발은 그대로 버텨요.'], cue:'R 앞 · L 뒤 · 공은 왼쪽' },
+    { id:'BK_B4', label:'B · 스텝백 3/4 — 왼발 뻗으며 공 잡기', voice:['커리','셋째. 왼발로 바닥을 밀면서 몸을 뒤로 쓱 빼요 — 그 순간 두 손으로 공을 잡아요.'], cue:'L 크게 벌림 · 두 손 개더' },
+    { id:'BK_B5', label:'B · 스텝백 4/4 — 오른발 모으며 슛 준비', voice:['커리','마지막. 오른발을 재빨리 모으고 그대로 올라가요 — 이게 내 스텝백 슛이에요.'], cue:'L·R 모음 · 수직 상승', foot:'두 번 탭 → 실전 준비' },
+    { id:'BK_T2', label:'T-2 · 5초 뒤 실전 자동 진행 (두 번 탭 = 바로)', voice:['커리','네 조각을 다 배웠어요. 이제 이어서 해 볼게요 — 준비됐으면 두 번 탭.'], dur:5, count:true, foot:'두 번 탭 = 즉시 · 무입력 = 자동' },
+    { id:'BK_C1', dur:3, label:'C · 실전 1/2 — 트리거', voice:['커리','셋, 둘, 하나 — 가요!'], hap:'컷 시작 진동', foot:'두 번 탭 → 출발' },
+    { id:'BK_C2', dur:40, live:true, label:'C · 실전 — 스텝백 3점 3회', voice:['커리','이번엔 진짜예요. 배운 그대로 세 번 — 딛고, 빠지고, 모아서 슛!'], wear:'BOOST 측면 추진', cue:'정속 · 3회' },
+    { id:'BK_FIN', label:'B-F · 리포트', voice:['커리','오늘 정말 잘했어요. 기록은 앱으로 보내 뒀어요 — 다음엔 더 빠른 스텝백을 만들어 봐요.'], cue:'Ghost Review — 커리 궤적과 내 스텝 겹쳐 보기' },
   ],
   boxing: [
     { id:'BX_READY', wall:true, label:'0 · READY — 가드·거리', voice:['시스템','섀도복싱 잽 팩. 가드 올리고 발을 두 번 탭하세요.'], wear:'SAFE 대기', foot:'두 번 탭 → 시작' },
@@ -2019,7 +2019,7 @@ export class Session {
         S.ring.setOp(0); S.arc.visible = false; S.num.visible = false;
         FMU('먼저 보세요 — 스쿼트', CS.sand);
       } else {
-        this._say('bksqgo', '커리', '이제 같이 — 천천히 앉았다 일어나요. 여섯 번.');
+        this._say('bksqgo', '커리', '자, 같이 해요 — 천천히 앉았다 일어나기 여섯 번.');
         S.arc.visible = true; S.num.visible = true;
         const hy = this.xbot?.getProbes?.()?.hips?.y ?? 1.0;
         const depth = Math.max(0, Math.min(1, (0.98 - hy) / (0.98 - 0.82)));   // 서기 0.98 ~ 바닥 0.82
@@ -2060,7 +2060,7 @@ export class Session {
         FMU('먼저 보세요 — 니 드라이브', CS.prism);
         return;
       }
-      this._say('bka2go', '커리', '이제 같이 — 무릎 올리며 반대손으로 터치, 상체를 비틀어요.');
+      this._say('bka2go', '커리', '같이 가요 — 무릎 올리고 반대손으로 터치, 상체를 비틀어요.');
       for (const o of guide) o.visible = true;
       placeMarkNum(H.numL); placeMarkNum(H.numR);
       H.sec = Math.min(MAXSEC, H.sec + dt);
@@ -2197,7 +2197,7 @@ export class Session {
         H.aL.position.x = -(half + 0.05); H.aR.position.x = half + 0.05;
         if (tB < W_END) {
           H.sL.countdown(this.t / W_END); H.sR.countdown(this.t / W_END);
-          this._say('bkb1st', '커리', '발은 어깨보다 넓게 — 발자국 위에 서 볼까요. 무릎은 굽히고.');
+          this._say('bkb1st', '커리', '발은 어깨보다 넓게, 발자국 위에 딱 서 봐요. 무릎은 굽히고요.');
           FMU('발은 어깨보다 넓게 — 발자국 위에', CS.sand);
           this.bkB1Succ = null;
         } else {
@@ -2225,7 +2225,7 @@ export class Session {
       this.bkB1P2t = phase2 ? H._p2t : null;   // main: 봇 연출(정지→재개) 타이밍 소스
       if (phase2) {
         H._p2t += dtB;
-        this._say('bkb1up', '커리', '좋아요 — 이제 시선은 앞으로. 공은 안 봐도 돼요, 리듬만.');
+        this._say('bkb1up', '커리', '좋아요 — 이제 시선은 앞으로. 공은 안 봐도 돼요, 손이 기억하니까.');
       }
       // 바운스 검출 — 공 y 최저 통과. ①에선 카운트+링 펄스, ②에선 접점 파형만.
       const ball = this.xbot?.ball;
@@ -2274,7 +2274,7 @@ export class Session {
         FMU('먼저 보세요 — 스텝백', CS.prism);
         return;
       }
-      this._say('bkb2go', '커리', '이제 같이 — 발부터, 한 박자씩 갑니다.');
+      this._say('bkb2go', '커리', '이제 같이 해봐요 — 발부터, 한 박자씩.');
       // 커서 = 발↔골반 상대 x 1:1 미러 (근거리 행). 깊이는 고정 — 측면 정보만 가르친다.
       const pr = this.xbot?.getProbes?.();
       let ex = 0, exL = 0, exR = 0;
@@ -2307,7 +2307,7 @@ export class Session {
         // 비트④ 슛 — 골반 상승 전환 감지(점프 릴리즈)
         const hy = pr?.hips?.y ?? 1;
         if (hy - (H._prevHy || hy) > 0.012 || this.t - H._beatT > 6) {
-          this._say('bkb2shot', '커리', '슛! 그 리듬이에요.');
+          this._say('bkb2shot', '커리', '바로 그거예요 — 그 리듬!');
           this.next(); return;
         }
         H._prevHy = hy;
@@ -2440,7 +2440,7 @@ export class Session {
         this.repTotal = NEED; this.repLeft = Math.max(0, NEED - (H.count || 0));
         this.repFrac = Math.min(1, ((H.count || 0) + vt / STEP_SEG.BK_C2) / NEED);
         if (H.count >= NEED && !this.bkShotNow) { this.bkShotNow = true; this._shotT = this.t;
-          this._say('bkc2shot', '커리', '그거예요 — 슛! 오늘 완벽했어요.'); }
+          this._say('bkc2shot', '커리', '그거예요 — 슛! 오늘 내 무브, 완전히 가져갔네요.'); }
         if (this.bkShotNow && this.t - (this._shotT ?? 0) > 1.6) { this.bkShotNow = false; this.next(); return; }
       }
       const BEATN = { BK_B2: ['① 무릎 구부리고', '② 낮은 자세 유지', '③ 들어가는 척!', '④ 그대로 준비'],
