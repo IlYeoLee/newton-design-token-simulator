@@ -97,6 +97,10 @@ section{padding:52px 0;border-bottom:1px solid var(--divider)}
 .dchip b{font-family:var(--num);font-variant-numeric:tabular-nums;font-weight:700}
 .dchip.same b{color:var(--t4)} .dchip.diff b{color:var(--nb-red)}
 .verdict{font-size:12.5px;color:var(--t3);max-width:40ch}
+.srcbadge{display:inline-flex;align-items:center;gap:6px;font-size:10.5px;font-weight:700;
+  letter-spacing:.6px;padding:4px 9px;border-radius:6px;margin-left:12px;vertical-align:middle;text-transform:uppercase}
+.srcbadge.real{background:rgba(209,254,255,.10);color:var(--fix-line);border:1px solid var(--fix-line)}
+.srcbadge.repro{background:transparent;color:var(--t4);border:1px solid var(--border)}
 .grid5{display:grid;grid-template-columns:repeat(auto-fit,minmax(168px,1fr));gap:12px;margin-top:18px}
 .grid6{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-top:18px}
 
@@ -188,8 +192,9 @@ footer{padding:36px 0 60px;color:var(--t4);font-size:12.5px}
 <main class="wrap">
 
 <section>
-  <div class="sec-head"><span class="n">01</span><h2>MARK — 7상태</h2></div>
-  <p class="note">화면에서 가장 큰 요소. 아래 두 줄은 같은 형태를 다른 색 출처로 그린 것입니다. 위 줄은 셰이더에 <code class="inline">#define</code>으로 박힌 고정색, 아래 줄은 팔레트 LUT에서 뽑은 색. <b style="color:var(--t1)">레일에서 프리셋을 바꿔 보세요 — 아래 줄만 움직입니다.</b></p>
+  <div class="sec-head"><span class="n">01</span><h2>MARK — 7상태 <span class="srcbadge real">정본 셰이더 실행</span></h2></div>
+  <p class="note"><b style="color:var(--t1)">실물입니다.</b> 시뮬레이터가 쓰는 <code class="inline">fx-core.MARK_GLSL</code>을 그대로 컴파일해 WebGL로 돌립니다 — 도식이 아니라 판정 토큰 자체입니다. 형태는 존 원(<code class="inline">uShape=0</code> · <code class="inline">uRadius=0.72/0.46</code>), 합성은 룩 카탈로그와 같은 배경 위 over. 레일의 헤일로·풀·채도가 셰이더 유니폼으로 직결됩니다.</p>
+  <p class="note">두 줄의 차이는 <b style="color:var(--t1)">색 출처 하나뿐</b>입니다. 위는 셰이더에 <code class="inline">#define</code>으로 박힌 고정색, 아래는 같은 셰이더에서 히트 4색만 LUT 좌표로 바꾼 것. <b style="color:var(--t1)">프리셋을 바꾸면 아래 줄만 움직입니다.</b></p>
 
   <span class="rowtag gap">● 지금 — fx-core.MARK_GLSL 고정색 8종 (LUT 미연동)</span>
   <div class="strip" id="markFixed"></div>
@@ -200,14 +205,14 @@ footer{padding:36px 0 60px;color:var(--t4);font-size:12.5px}
 </section>
 
 <section>
-  <div class="sec-head"><span class="n">02</span><h2>LINE — 6스타일</h2></div>
-  <p class="note">레인·화살표·리듬바가 공유하는 선 토큰. 재료 파라미터(선폭·흐름·간격·글로우·온도)는 이미 룩시스템 안에 있어 레일에 즉시 반응합니다. 다만 라이브에서 실제로 쓰는 스타일은 <code class="inline">solid</code>·<code class="inline">dash</code> 둘뿐 — 나머지 넷은 카탈로그에만 있습니다.</p>
+  <div class="sec-head"><span class="n">02</span><h2>LINE — 6스타일 <span class="srcbadge repro">재현 — 실제는 LANEFX 셰이더</span></h2></div>
+  <p class="note">아래 그림은 스타일 구분을 보기 위한 재현입니다 — 실제는 <code class="inline">tokens.LANEFX</code> 셰이더가 그립니다. 재료 파라미터(선폭·흐름·간격·글로우·온도)는 이미 룩시스템 안에 있어 레일에 즉시 반응합니다. 다만 라이브에서 실제로 쓰는 스타일은 <code class="inline">solid</code>·<code class="inline">dash</code> 둘뿐 — 나머지 넷은 카탈로그에만 있습니다.</p>
   <div class="grid6" id="lines"></div>
 </section>
 
 <section>
-  <div class="sec-head"><span class="n">03</span><h2>파생 프리미티브 — 7종</h2></div>
-  <p class="note">fx-core 정본 캔버스에서 파생되는 조합 토큰. 아래 배지는 어느 팩이 실제로 쓰는지를 표시합니다 — <b style="color:var(--t1)">5종 중 4종이 복싱 전용</b>이고, 러닝·농구는 궤적 하나만 씁니다.</p>
+  <div class="sec-head"><span class="n">03</span><h2>파생 프리미티브 — 7종 <span class="srcbadge repro">재현 — 실제는 fx-core 캔버스</span></h2></div>
+  <p class="note">아래 그림은 형태·구성을 알아보기 위한 재현입니다(선 굵기·흐름·색만 룩에 반응). 실제 토큰은 <code class="inline">fx-core.js</code>의 정본 캔버스 함수가 그립니다. 아래 배지는 어느 팩이 실제로 쓰는지를 표시합니다 — <b style="color:var(--t1)">5종 중 4종이 복싱 전용</b>이고, 러닝·농구는 궤적 하나만 씁니다.</p>
   <div class="grid5" id="prims"></div>
 </section>
 
@@ -290,8 +295,6 @@ const FX={stops:PRESETS.Vivid.map(s=>[...s]),sat:1,halo:.9,pool:.55,aw:1,speed:1
 /* MARK_GLSL 고정 #define 8종 — vec3를 8비트로 환산한 값 */
 const FIXED={red:'#FA3030',coral:'#FE6E3C',sand:'#FEC389',cream:'#FEE2C6',
              ice:'#D1FEFF',grayF:'#ECECEC',grayL:'#D0D0D0',rimG:'#D0CDCC'};
-const heat=k=>({red:lut(.30),coral:lut(.56),sand:lut(.86),cream:lut(1),
-                ice:'#D1FEFF',grayF:'#ECECEC',grayL:'#D0D0D0',rimG:'#D0CDCC'});
 
 const STATES=[
  {k:0,n:'Preview',d:'예고 · 소프트 필'},{k:1,n:'Active',d:'지금 밟을 곳 · 헤일로 수축'},
@@ -304,60 +307,228 @@ function fit(cv,w,h){const d=Math.min(2,devicePixelRatio||1);
   cv.width=w*d;cv.height=h*d;const g=cv.getContext('2d');g.setTransform(d,0,0,d,0,0);return g}
 const RM=matchMedia('(prefers-reduced-motion:reduce)').matches;
 
-/* ── MARK 7상태 (도식 — 형태는 셰이더 규약, 색만 두 출처 비교) ───────── */
-function drawMark(g,W,C,st,t){
-  const cx=W/2,cy=W/2,R=W*0.31;
+/* ── MARK 7상태 = 정본 셰이더 ─────────────────────────────────────────
+   src/fx-core.js 의 MARK_GLSL 을 그대로 컴파일한다(도식 아님).
+   호스트는 tokens.js MARKFX_FRAG 에서 three.js 의존부(clipping·footprintFade)만 걷어낸 것.
+   합성 = 룩 카탈로그와 같은 '배경 위 over'(premultiplied).                        */
+const MARK_SRC=`
+uniform float uRadius, uPool, uContract, uShape, uSeed;
+uniform sampler2D uSDF2, uSDFWarn;
+#define C_RED   lutAt(0.30, vec3(0.980, 0.188, 0.188))
+#define C_CORAL lutAt(0.56, vec3(0.996, 0.431, 0.235))
+#define C_SAND  lutAt(0.86, vec3(0.996, 0.765, 0.537))
+#define C_CREAM lutAt(1.00, vec3(0.996, 0.886, 0.776))
+#define C_ICE   vec3(0.820, 0.996, 1.000)
+#define C_GRAYF vec3(0.925, 0.925, 0.925)
+#define C_GRAYL vec3(0.816, 0.816, 0.816)
+#define C_RIMG  vec3(0.816, 0.804, 0.800)
+#define C_WINE  vec3(0.318, 0.094, 0.082)
+#define C_BRICK vec3(0.718, 0.212, 0.184)
+#define C_EXCL  vec3(0.933, 0.157, 0.153)
+float mkUndul(float ang, float t){
+  return sin(ang*2.0 + t*1.1)*0.45 + sin(ang*3.0 - t*0.73 + 1.7)*0.33 + sin(ang*5.0 + t*0.41 + 4.2)*0.22;
+}
+// 일반화 부호 거리 — 존 원 / 발형이 같은 상태 머신을 공유 (1.9922 = float SDF 디코드 정본 계수)
+float mkSD(vec2 p, float u1){
+  if (uShape < 0.5) return length(p) * (1.0 + u1 * uNoise * 0.04) - 0.46 * uRadius;
+  vec2 suv = p * 0.5 + 0.5;
+  return texture2D(uSDF2, vec2(suv.x, 1.0 - suv.y)).r * 1.9922 / max(uRadius, 0.3) + u1 * uNoise * 0.02;
+}
+// OKLab 지각 보간 — RGB mix는 중간톤이 회색으로 죽어 '종이 자르듯 턱턱'(유저). OKLab은 채도 유지하며 부드럽게.
+// (buildLUT의 rgb2ok/ok2rgb와 동일 규약: 입력을 그대로 OKLab으로 — LUT와 색 일관)
+vec3 _l2ok(vec3 c){
+  float l=0.4122214708*c.r+0.5363325363*c.g+0.0514459929*c.b;
+  float m=0.2119034982*c.r+0.6806995451*c.g+0.1073969566*c.b;
+  float s=0.0883024619*c.r+0.2817188376*c.g+0.6299787005*c.b;
+  l=pow(max(l,0.0),0.33333333); m=pow(max(m,0.0),0.33333333); s=pow(max(s,0.0),0.33333333);
+  return vec3(0.2104542553*l+0.7936177850*m-0.0040720468*s,
+              1.9779984951*l-2.4285922050*m+0.4505937099*s,
+              0.0259040371*l+0.7827717662*m-0.8086757660*s);
+}
+vec3 _ok2l(vec3 lab){
+  float l=lab.x+0.3963377774*lab.y+0.2158037573*lab.z;
+  float m=lab.x-0.1055613458*lab.y-0.0638541728*lab.z;
+  float s=lab.x-0.0894841775*lab.y-1.2914855480*lab.z;
+  l=l*l*l; m=m*m*m; s=s*s*s;
+  return vec3(4.0767416621*l-3.3077115913*m+0.2309699292*s,
+             -1.2684380046*l+2.6097574011*m-0.3413193965*s,
+             -0.0041960863*l-0.7034186147*m+1.7076147010*s);
+}
+vec3 okmix(vec3 a, vec3 b, float t){ return _ok2l(mix(_l2ok(a), _l2ok(b), t)); }
+vec3 fillPreview(float q){ return okmix(C_CORAL, C_SAND, smoothstep(0.0, 0.733, q)); }
+vec3 fillHot(float q){
+  vec3 c = okmix(C_RED, C_CORAL, smoothstep(0.0, 0.45, q));
+  return okmix(c, C_SAND, smoothstep(0.45, 1.0, q));
+}
+vec3 fillActive(float q){
+  vec3 c = okmix(C_RED, C_CORAL, smoothstep(0.0, 0.479, q));
+  c = okmix(c, C_SAND, smoothstep(0.479, 0.607, q));
+  return okmix(c, C_ICE, smoothstep(0.607, 0.750, q));
+}
+vec3 fillHold(float q){
+  vec3 c = okmix(C_RED, C_CORAL, smoothstep(0.0, 0.23, q));
+  return okmix(c, C_SAND, smoothstep(0.23, 1.0, q));
+}
+vec3 fillSuccess(float q){
+  vec3 c = okmix(C_RED, C_CORAL, smoothstep(0.47, 0.70, q));
+  c = okmix(c, C_SAND, smoothstep(0.70, 0.843, q));
+  return okmix(c, C_ICE, smoothstep(0.843, 0.931, q));
+}
+// over 연산 누적 (premultiplied) — 원본 mix(col, X, k) 체인의 기계적 등가 변환
+void lay(inout vec4 A, vec3 X, float k){ A.rgb = A.rgb * (1.0 - k) + X * k; A.a = A.a * (1.0 - k) + k; }
+vec4 markState(vec2 uv, float state, float prog, float strong, float t){
+  float ang = atan(uv.y, uv.x);
+  float a01 = fract(0.25 - ang / 6.2832);      // 12시 기준 시계방향
+  float u1 = mkUndul(ang + uSeed, t * 1.6);
+  float sd = mkSD(uv, u1);
+  float aa = max(fwidth(sd), 0.004) * 1.4;     // 화면공간 AA
+  float inside = smoothstep(aa, -aa, sd);
+  float outPos = max(sd, 0.0);
+  // 점선 = 회피 계약 (일렁임과 분리한 저주기 — '털 뜯김' 방지 확정판)
+  float dashM = (uContract > 0.5 && uContract < 1.5)
+              ? smoothstep(0.30, 0.60, 0.5 + 0.5 * sin(ang * 10.0)) : 1.0;
+  float ext = uShape < 0.5 ? 0.46 * uRadius : 0.72;
+  vec2 gcBall = uShape < 0.5 ? vec2(0.0) : vec2(0.0, 0.20);
+  vec2 gcHeel = uShape < 0.5 ? vec2(0.0, -0.5 * ext) : vec2(0.0, -0.32);
+  vec4 A = vec4(0.0);
+  float fillGain = clamp(uPool * 1.6, 0.0, 1.35);
+
+  if (state < 0.5) {            // ── Preview: 아웃라인 → 소프트 필 차오름 (strong=라이브 '다음' 적열 강조)
+    float f = prog;
+    float breath = 1.0 + 0.05 * sin(t * 2.0) * (0.4 + uNoise);
+    // 중심 핫스팟 완화(유저 재지적: 가운데 원 또렷) — 하한↑ + 폴오프 넓혀 부드러운 전이(하드 원 제거)
+    float q = 0.36 + 0.64 * length(uv - gcBall) / (ext * 1.18 * breath);
+    vec3 fillCol = mix(C_CREAM, mix(fillPreview(q), fillHot(q), strong), f);
+    float fillA = mix(0.42, 0.82, f) * fillGain;
+    lay(A, fillCol, fillA * inside);
+    float ow = 0.016 * uW;
+    float stroke = exp(-pow(sd / ow, 2.0)) * dashM;
+    lay(A, C_SAND, stroke * (0.95 - 0.62 * f));
+  } else if (state < 1.5) {     // ── Active: 적열 필 + 얼음빛 헤일로 수축 (수축 완료 = 타이밍)
+    float gradR = uShape < 0.5 ? ext * 1.75 : 2.15;   // 폴오프 넓힘 = 중앙 적열 원 완화(유저)
+    float q = 0.34 + 0.66 * length(uv - gcBall) / gradR;   // 중심 하한↑ — 적열이 은은하게 퍼짐
+    q *= 1.0 + 0.025 * sin(t * 3.1 + q * 5.0) * uNoise;
+    lay(A, fillActive(q), inside * min(fillGain * 1.15, 1.0));
+    float hw = max((0.115 - 0.075 * prog) * uW, 0.018);
+    float h = exp(-pow(outPos / hw, 1.3)) * (1.0 - inside);
+    vec3 hCol = mix(C_SAND, C_ICE, smoothstep(0.15, 0.9, outPos / hw));
+    lay(A, hCol, h * uHalo * (0.50 + 0.14 * sin(t * 5.0)) * dashM);
+  } else if (state < 2.5) {     // ── Hold: 코닉 진행 림 + 열이 뒤꿈치로 고임
+    float pr = prog;
+    vec2 gc = mix(gcBall, gcHeel, pr);
+    float q = length(uv - gc) / (ext * 1.02);
+    float qh = max(q - 0.24 * pr, 0.0);
+    lay(A, fillHold(qh), inside * min(fillGain, 1.0) * 0.95);
+    float distToRim = abs(sd - 0.012);
+    float fw = max(fwidth(sd), 1e-5);
+    // 림 폭: 카탈로그 20px(고정 캔버스) ≡ 실루엣 비례 sd 0.03 — 화면 크기가 가변인
+    // 라이브에서도 같은 비율. 원거리 앨리어싱만 fwidth 하한.
+    float rimW = max(0.03 * uW, 1.5 * fw);
+    float rim = (1.0 - smoothstep(0.0, rimW, distToRim)) * dashM;
+    float angDist = a01 - pr; angDist -= floor(angDist + 0.5);   // 랩어라운드 제거
+    float pgo = smoothstep(0.09, -0.09, angDist);
+    vec3 arcCol = mix(C_RED, C_CORAL, clamp(a01 / max(pr, 0.001), 0.0, 1.0));
+    lay(A, mix(C_RIMG, arcCol, pgo), rim * mix(0.42, 0.92, pgo));
+    // 진행 선단 = 밝은 '시계 바늘' — 12시서 시계방향으로 도는 게 명확히 읽히게(유저: 타이머처럼 싹)
+    float head = smoothstep(0.05, 0.0, abs(angDist)) * step(0.01, pr) * step(pr, 0.995);
+    lay(A, C_CREAM, rim * head * 0.95);
+  } else if (state < 3.5) {     // ── Success: 진홍 블룸 → 잔상 소멸
+    float e = 1.0 - pow(1.0 - prog, 2.6);
+    float q = length(uv - gcBall) / (uShape < 0.5 ? ext * 1.3 : 1.75);
+    float fillA = (prog < 0.4 ? 1.0 : pow(1.0 - (prog - 0.4) / 0.6, 1.4)) * max(min(fillGain * 1.2, 1.0), 0.85);
+    lay(A, fillSuccess(q / (0.55 + 0.55 * e)), inside * fillA);
+    float flash = exp(-prog * 9.0);
+    lay(A, C_ICE, exp(-pow(abs(sd) / (0.02 * uW), 2.0)) * flash * 0.8);
+  } else if (state < 4.5) {     // ── Miss: 온기가 식어 회색 고스트 → 무음 소멸
+    float cool = smoothstep(0.0, 0.4, prog);
+    float gone = pow(1.0 - max(prog - 0.45, 0.0) / 0.55, 1.6);
+    float q = length(uv - gcBall) / ext;
+    lay(A, mix(fillPreview(q), C_GRAYF, cool), inside * mix(0.55, 0.24, cool) * gone * fillGain);
+    lay(A, mix(C_SAND, C_GRAYL, cool), exp(-pow(sd / (0.014 * uW), 2.0)) * 0.85 * gone);
+  } else if (state < 5.5) {     // ── Warning: 암적 리니어 + 느낌표(유저 SVG) 점멸
+    float ly = clamp(0.5 - uv.y / (2.2 * ext), 0.0, 1.0);
+    lay(A, mix(C_WINE, C_BRICK, ly), inside * min(fillGain * 1.05, 1.0));
+    float wScale = 0.44 * ext;
+    vec2 wuv = uv / wScale * 0.5 + 0.5;
+    float wSD = texture2D(uSDFWarn, vec2(wuv.x, 1.0 - wuv.y)).r * (2.0 * wScale);
+    float aaW = max(fwidth(wSD), 0.0015);
+    float exM = smoothstep(aaW, -aaW, wSD) * inside;
+    lay(A, C_EXCL * 1.25, exM * (0.85 + 0.15 * sin(t * 5.5)));
+  } else {                       // ── Locked: 회색 아웃라인 + (숫자는 호스트 오버레이)
+    lay(A, C_GRAYF, inside * 0.30 * fillGain);
+    lay(A, C_GRAYL, exp(-pow(sd / (0.015 * uW), 2.0)) * 0.8 * dashM);
+  }
+  return A;
+}`;
+const VS=`attribute vec2 p;varying vec2 vUv;
+void main(){vUv=p*0.5+0.5;gl_Position=vec4(p,0.0,1.0);}`;
+const FS=`#extension GL_OES_standard_derivatives : enable
+precision highp float;
+uniform sampler2D uLUT; uniform float uLutOn;
+vec3 lutAt(float v, vec3 fixedC){
+  return mix(fixedC, texture2D(uLUT, vec2(clamp(v,0.004,0.996),0.5)).rgb, uLutOn);
+}
+uniform float uW, uHalo, uNoise;
+`+MARK_SRC+`
+uniform float uState, uProg, uStrong, uTime, uFade, uGain;
+varying vec2 vUv;
+void main(){
+  vec2 uv=(vUv-0.5)*2.0;
+  float breath=smoothstep(0.10,0.88,fract(uTime*0.45));
+  float prog=uState<0.5?max(breath,max(uStrong,uProg)):clamp(uProg,0.0,1.0);
+  vec4 r=markState(uv,uState,prog,uStrong,uTime);
+  float border=smoothstep(1.0,0.82,length(uv))*smoothstep(1.0,0.84,max(abs(uv.x),abs(uv.y)));
+  gl_FragColor=vec4(r.rgb*uFade*uGain*border, clamp(r.a*border,0.0,1.0));
+}`;
+const GL=(()=>{
+  const cv=document.createElement('canvas');cv.width=cv.height=240;
+  const gl=cv.getContext('webgl',{alpha:true,premultipliedAlpha:true,antialias:false});
+  if(!gl) return null;
+  gl.getExtension('OES_standard_derivatives');
+  const sh=(t,s)=>{const o=gl.createShader(t);gl.shaderSource(o,s);gl.compileShader(o);
+    if(!gl.getShaderParameter(o,gl.COMPILE_STATUS))throw new Error(gl.getShaderInfoLog(o));return o};
+  const pr=gl.createProgram();
+  gl.attachShader(pr,sh(gl.VERTEX_SHADER,VS));gl.attachShader(pr,sh(gl.FRAGMENT_SHADER,FS));
+  gl.linkProgram(pr);
+  if(!gl.getProgramParameter(pr,gl.LINK_STATUS))throw new Error(gl.getProgramInfoLog(pr));
+  gl.useProgram(pr);
+  const buf=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,buf);
+  gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,3,-1,-1,3]),gl.STATIC_DRAW);
+  const loc=gl.getAttribLocation(pr,'p');gl.enableVertexAttribArray(loc);
+  gl.vertexAttribPointer(loc,2,gl.FLOAT,false,0,0);
+  const tex=gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D,tex);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+  gl.activeTexture(gl.TEXTURE0);
+  const U={};['uLUT','uLutOn','uW','uHalo','uNoise','uRadius','uPool','uContract','uShape',
+    'uSeed','uSDF2','uSDFWarn','uState','uProg','uStrong','uTime','uFade','uGain']
+    .forEach(n=>U[n]=gl.getUniformLocation(pr,n));
+  gl.uniform1i(U.uLUT,0);gl.uniform1i(U.uSDF2,0);gl.uniform1i(U.uSDFWarn,0);
+  gl.enable(gl.BLEND);gl.blendFunc(gl.ONE,gl.ONE_MINUS_SRC_ALPHA);
+  gl.viewport(0,0,240,240);
+  return {cv,gl,U,tex}})();
+function uploadLUT(){if(!GL)return;
+  GL.gl.bindTexture(GL.gl.TEXTURE_2D,GL.tex);
+  GL.gl.texImage2D(GL.gl.TEXTURE_2D,0,GL.gl.RGBA,256,1,0,GL.gl.RGBA,GL.gl.UNSIGNED_BYTE,LUT)}
+/** 정본 셰이더로 한 상태를 그려 2D 캔버스에 옮긴다. lutOn=1 이면 히트 4색을 LUT에서. */
+function drawMarkGL(g,W,state,lutOn,seed,t){
   g.clearRect(0,0,W,W);
-  g.save();
-  if(st===6){ // Locked — 무채 고스트
-    g.strokeStyle=C.rimG;g.globalAlpha=.5;g.lineWidth=W*0.022;
-    g.beginPath();g.arc(cx,cy,R,0,7);g.stroke();
-    g.globalAlpha=.13;g.fillStyle=C.grayL;g.beginPath();g.arc(cx,cy,R,0,7);g.fill();
-    g.restore();return}
-  if(st===4){ // Miss — 탈색 + 사선
-    g.globalAlpha=.32;g.strokeStyle=C.grayF;g.lineWidth=W*0.02;
-    g.beginPath();g.arc(cx,cy,R,0,7);g.stroke();
-    g.lineWidth=W*0.026;g.lineCap='round';g.beginPath();
-    g.moveTo(cx-R*.42,cy-R*.42);g.lineTo(cx+R*.42,cy+R*.42);g.stroke();
-    g.restore();return}
-  const pulse=RM?.5:(Math.sin(t*2.2)*.5+.5);
-  // 풀(내부 채움)
-  const gr=g.createRadialGradient(cx,cy,0,cx,cy,R);
-  if(st===0){gr.addColorStop(0,hexA(C.coral,.30*FX.pool*2));gr.addColorStop(1,hexA(C.sand,0))}
-  else if(st===3){gr.addColorStop(0,hexA(C.cream,.85));gr.addColorStop(.5,hexA(C.ice,.4));gr.addColorStop(1,hexA(C.ice,0))}
-  else if(st===5){gr.addColorStop(0,hexA(C.sand,.34*FX.pool*2));gr.addColorStop(1,hexA(C.sand,0))}
-  else{gr.addColorStop(0,hexA(C.red,.42*FX.pool*2));gr.addColorStop(1,hexA(C.coral,0))}
-  g.fillStyle=gr;g.beginPath();g.arc(cx,cy,R*1.02,0,7);g.fill();
-  // 헤일로
-  g.shadowBlur=W*0.11*FX.halo;
-  g.shadowColor=st===3?C.ice:st===5?C.sand:st===0?C.coral:C.red;
-  // 림
-  g.lineWidth=W*(st===0?0.016:0.026);
-  g.strokeStyle=st===0?C.sand:st===3?C.cream:st===5?C.sand:C.red;
-  g.globalAlpha=st===0?.72:1;
-  g.beginPath();g.arc(cx,cy,R,0,7);g.stroke();
-  g.globalAlpha=1;g.shadowBlur=0;
-  if(st===1){ // Active — 수축 헤일로
-    const k=RM?.55:((t*.9)%1);
-    g.strokeStyle=hexA(C.coral,.85*(1-k));g.lineWidth=W*0.018;
-    g.beginPath();g.arc(cx,cy,R*(1.9-0.9*k),0,7);g.stroke()}
-  if(st===2){ // Hold — 코닉 진행 림
-    const p=RM?.62:((t*.42)%1);
-    g.strokeStyle=C.sand;g.lineWidth=W*0.045;g.lineCap='round';
-    g.shadowBlur=W*0.08*FX.halo;g.shadowColor=C.sand;
-    g.beginPath();g.arc(cx,cy,R*1.13,-Math.PI/2,-Math.PI/2+p*Math.PI*2);g.stroke();g.shadowBlur=0}
-  if(st===3){ // Success — 확산 링
-    const k=RM?.4:((t*.8)%1);
-    g.strokeStyle=hexA(C.ice,.9*(1-k));g.lineWidth=W*0.02;
-    g.beginPath();g.arc(cx,cy,R*(1+1.1*k),0,7);g.stroke()}
-  if(st===5){ // Warning — 맥동 + 느낌표
-    g.globalAlpha=.35+.5*pulse;g.strokeStyle=C.sand;g.lineWidth=W*0.014;
-    g.beginPath();g.arc(cx,cy,R*1.22,0,7);g.stroke();g.globalAlpha=1;
-    g.fillStyle=C.cream;g.font=`700 ${W*0.2}px OffBit,monospace`;
-    g.textAlign='center';g.textBaseline='middle';g.fillText('!',cx,cy+W*0.01)}
-  g.restore()}
-function hexA(h,a){const [r,g,b]=h[0]==='#'?hex2rgb(h):h.match(/\d+/g).map(Number);
-  return `rgba(${r},${g},${b},${Math.min(1,a)})`}
+  if(!GL){g.fillStyle='var(--t4)';g.font='11px sans-serif';g.fillText('WebGL 없음',8,20);return}
+  const {gl,U}=GL;
+  gl.uniform1f(U.uLutOn,lutOn);
+  gl.uniform1f(U.uShape,0);            // 존 원 — 발형 SDF 불필요
+  gl.uniform1f(U.uRadius,0.72/0.46);   // tokens.makeMarkFXMaterial 존 원 기본값
+  gl.uniform1f(U.uW,1);gl.uniform1f(U.uHalo,FX.halo);gl.uniform1f(U.uPool,FX.pool);
+  gl.uniform1f(U.uNoise,0.5);gl.uniform1f(U.uContract,0);gl.uniform1f(U.uSeed,seed);
+  gl.uniform1f(U.uState,state);gl.uniform1f(U.uStrong,0);gl.uniform1f(U.uFade,1);gl.uniform1f(U.uGain,1);
+  gl.uniform1f(U.uProg,RM?0.62:(t*0.42)%1);
+  gl.uniform1f(U.uTime,RM?1.2:t);
+  gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT);
+  gl.drawArrays(gl.TRIANGLES,0,3);
+  g.drawImage(GL.cv,0,0,W,W)}
 
 /* ── LINE 6스타일 ────────────────────────────────────────────────────── */
 const LINES=[['solid','실선','레인 기본'],['dash','파선','라이브 레인'],['dot','점선','—'],
@@ -526,10 +697,10 @@ function mkCell(host,label,W,H,draw){
   const g=fit(cv,W,H);cvs.push({g,W,H,draw,cv});return cv}
 
 STATES.forEach(s=>mkCell(document.getElementById('markFixed'),
-  `<b style="color:var(--t1)">${s.n}</b>`,120,120,(g,t)=>drawMark(g,120,FIXED,s.k,t)));
+  `<b style="color:var(--t1)">${s.n}</b>`,120,120,(g,t)=>drawMarkGL(g,120,s.k,0,s.k*1.7,t)));
 STATES.forEach(s=>mkCell(document.getElementById('markLut'),
   `<b style="color:var(--t1)">${s.n}</b><br><span style="color:var(--t4);font-size:10px">${s.d}</span>`,
-  120,120,(g,t)=>drawMark(g,120,heat(),s.k,t)));
+  120,120,(g,t)=>drawMarkGL(g,120,s.k,1,s.k*1.7,t)));
 LINES.forEach(([k,n,u])=>mkCell(document.getElementById('lines'),
   `<b style="color:var(--t1)">${n}</b><br><span style="color:${u==='—'?'var(--t4)':'var(--nb-sand)'};font-size:10px">${u==='—'?'라이브 미사용':u}</span>`,
   200,64,(g,t)=>drawLine(g,200,64,k,t)));
@@ -620,6 +791,7 @@ function drawDelta(){
 
 function apply(){
   buildLUT(FX.stops,FX.sat);
+  uploadLUT();
   drawRamp();drawDelta();
   document.querySelectorAll('.sw i[data-lut]').forEach(el=>{
     const v=el.getAttribute('data-lut');if(v!=='')el.style.background=lut(+v)});
