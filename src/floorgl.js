@@ -9,19 +9,15 @@
 import * as THREE from 'three';
 import { PAL, NEU, rgba } from './palette.js';
 import { T, R, sp, zone, NUM_S } from './ds.js';   // 조판 토큰 — 타이포·반경·간격·존
+import { Board } from './uilayer.js';   // 요소별 평면 — 모션은 변환이라 업로드 0 (60fps)
 
 const W = 1600, H = 2670;   // 대지 px (floor-scene.html과 동일)
 // 캔버스 해상도 — 화질과 업로드 비용의 저울.
 //   0.5 = 글자가 흐리다(유저) / 1.0 = 프레임당 17MB 업로드라 전체가 느려진다(유저).
 //   0.75(1200×2002, 9.6MB)가 두 불만을 모두 피하는 지점. 업로드는 값이 바뀐 프레임에만 일어난다.
 const K = 0.75;
-// UI 재도색 주기. 모션을 이식한 뒤로 정지 화면이 없어져 매 틱 9.4~9.6MB 텍스처가 올라간다
-// (24fps = 230MB/s). 씬 애니메이션이 '드드드득' 끊긴 원인 — UI 프레임을 씬보다 낮게 잡고
-// 남는 예산을 봇·영상에 돌려준다. ?uifps=N 으로 8~60 비교 가능.
-const UI_FPS = Math.max(4, Math.min(60, +(new URLSearchParams(location.search).get('uifps')) || 40));
 // 동적 레이어 해상도 — 움직이는 것(도트바·링·숫자)은 큰 형상이라 낮은 해상도로 충분하다.
 // 0.34 → 544×908 = 2.0MB. 정적 레이어(9.6MB)는 값이 바뀔 때만 올라가므로 정지 화면은 0.
-const KL = 0.26;   // 416×694 = 1.16MB
 
 const CX = W / 2;
 const RED = PAL.red;
@@ -219,29 +215,13 @@ function buildScene(stage, p) {
 export class FloorGL {
   static uploads = 0;
   constructor() {
-    this.canvas = document.createElement('canvas');
-    this.canvas.width = Math.round(W * K); this.canvas.height = Math.round(H * K);
-    this.ctx = this.canvas.getContext('2d');
-    this.tex = new THREE.CanvasTexture(this.canvas);
-    this.tex.colorSpace = THREE.SRGBColorSpace;
-    this.tex.minFilter = THREE.LinearFilter;
-    this.mesh = new THREE.Mesh(
-      new THREE.PlaneGeometry(W, H),
-      // depthWrite:false — 반투명 UI. depthTest는 켠 채로 두는 게 이 이식의 전부다(x봇에 가려짐).
-      new THREE.MeshBasicMaterial({ map: this.tex, transparent: true, depthWrite: false, toneMapped: false }),
-    );
-    // ── 동적 레이어 — 도트바·링·숫자만. 작은 캔버스라 60fps 로 올려도 정적의 1/5 비용.
-    this.canvasL = document.createElement('canvas');
-    this.canvasL.width = Math.round(W * KL); this.canvasL.height = Math.round(H * KL);
-    this.ctxL = this.canvasL.getContext('2d');
-    this.texL = new THREE.CanvasTexture(this.canvasL);
-    this.texL.colorSpace = THREE.SRGBColorSpace; this.texL.minFilter = THREE.LinearFilter;
-    this.meshL = new THREE.Mesh(this.mesh.geometry,
-      new THREE.MeshBasicMaterial({ map: this.texL, transparent: true, depthWrite: false, toneMapped: false }));
-    this.meshL.renderOrder = 4;   // 부모(mesh)가 꺼지면 같이 꺼진다
-    this.mesh.add(this.meshL);   // 정적 평면의 자식 — 변환을 그대로 따라간다
+    // 요소별 평면 — 대지 한 장을 통째로 올리던 구조 은퇴.
+    // 모션(등장·떠오름·펄스·드리프트)은 전부 변환이라 업로드가 0이고, 내용이 바뀌는
+    // 밴드(도트바·링·숫자)만 자기 작은 캔버스를 다시 그린다 → 60fps 가 공짜.
+    this.board = new Board(W, H);
+    this.mesh = this.board.root;        // main.js 는 visible/position/quaternion/scale 만 쓴다
     this.mesh.visible = false;
-    this.mesh.renderOrder = 3;
+    this.ctx = null;   // 대지 한 장 캔버스는 은퇴 — 그리기는 레이어 컨텍스트(this._lay)로만
     this.stage = null; this.map = new Map(); this.col = []; this.t = 0; this._sig = null;
     // 캔버스 fillText는 웹폰트 로드를 촉발하지 않는다 — 명시 로드 후 한 번 다시 그린다.
     for (const f of ['700 100px Supreme', '400 100px Supreme', '700 100px OffBit'])
@@ -285,6 +265,7 @@ export class FloorGL {
       : /floor(-bk)?\.html/.test(params.src) ? 'ready' : 'scene';
     this.params = params;
     this._numLast = null; this._numT = 0;   // numPulse(카운트다운 숫자) 상태
+    this.board.clear();   // 화면 전환 = 레이어 재구성(쌓임 방지)
     if (this.kind !== 'scene') {
       this.stage = stage; this.col = []; this.map.clear();
       this.t = 0; this._sig = null; this._lastPaint = -1;
@@ -305,66 +286,338 @@ export class FloorGL {
     this.map.set('prev-row', b.col.find(n => n.type === 'prevRow') || node('prev-row'));
   }
 
-  // 매 프레임 값이 바뀌는 것들 — 이것만 동적 레이어로 간다(정적 레이어는 값이 바뀔 때만 올라간다)
+  // 내용이 매 프레임 바뀌는 노드 — 서명에 시간을 넣어 자기 밴드만 다시 굽는다(밴드가 작아 싸다)
   static LIVE = new Set(['dots', 'prevRow', 'trainRow', 'liveRow', 'km', 'succ']);
 
-  // 정적 레이어 서명 — 시간 항을 뺐다. 시간을 넣으면 매 틱 9.6MB 를 올리게 된다(끊김의 원인).
-  _sigOf() {
-    let s = this.kind + '|' + this.stage + '|' + Math.round(Math.min(this.t, 3.5) * 12);   // 글자 캐스케이드 구간만 시간 반영 → 그 뒤 업로드 0
-    for (const n of this.map.values()) s += '|' + n.textContent + JSON.stringify(n.style) + JSON.stringify(n._attr || {});
-    return s;
-  }
-
+  /** 블록 = 전폭 밴드 하나. 전폭이라 기존 그리기 코드(CX 기준·절대 y)를 그대로 쓴다.
+   *  { name, y, h, pad, sig, draw(ctx), motion(t) } — sig 가 같으면 다시 안 그린다. */
   update(dt) {
     if (!this.stage) return;
     this.t += dt;
-    // 24fps — 22fps는 끊겨 보였고 60fps는 업로드(9.6MB/장)가 프레임 예산을 먹었다(유저 양쪽 신고).
-    // 값이 안 바뀌면 아래 서명 비교에서 또 걸러지므로 정지 화면은 업로드 0이다(실측 0.9회/초).
-    // ponytail: 진짜 해법은 정적 텍스트와 움직이는 요소(도트·링)를 별도 평면으로 쪼개는 것 —
-    //   그러면 매 프레임 올리는 텍스처가 수백 KB로 떨어진다. HANDOFF에 계획으로 남김.
-    if (this.t - (this._lastPaint ?? -1) < 1 / UI_FPS) return;
-    this._lastPaint = this.t;
-    // ① 동적 레이어 — 매 틱(작다: 2.0MB)
-    this._paint('live');
-    this.texL.needsUpdate = true;
-    // ② 정적 레이어 — 값이 바뀔 때만(크다: 9.6MB). 정지 화면이면 업로드 0.
-    const sig = this._sigOf();
-    if (sig !== this._sig) {
-      this._sig = sig;
-      FloorGL.uploads++;   // 계측용 — 실제 텍스처 업로드 횟수
-      this._paint('static');
-      this.tex.needsUpdate = true;
+    const B = this.board, t = this.t;
+    B.begin();
+    for (const bl of this._blocks(t)) {
+      const pad = bl.pad || 0, h = bl.h + pad * 2;
+      const bx = (bl.x ?? 0) - pad, bw = (bl.w ?? W) + pad * 2;
+      const L = B.layer(bl.name, bw, h, { k: K, renderOrder: bl.order ?? 4 });
+      B.use(bl.name);
+      L.at(bx, bl.y - pad, W, H);
+      if (L.paint(bl.sig, (g) => {
+        g.save(); g.translate(-bx, pad - bl.y);   // 절대 보드 좌표 → 밴드 로컬
+        this._lay = g; bl.draw(g); this._lay = null;
+        g.restore();
+      })) FloorGL.uploads++;
+      L.motion(bl.motion || {});
     }
+    B.end();
   }
 
-  _paint(layer = 'static') {
-    const live = layer === 'live';
-    const ctx = this._lay = live ? this.ctxL : this.ctx;
-    const k = live ? KL : K;
-    ctx.setTransform(k, 0, 0, k, 0, 0);
-    ctx.clearRect(0, 0, W, H);
-    // 씬이 아닌 화면(시작·전환·타이머·리포트)은 통째로 정적 레이어에 그린다 —
-    // 인트로가 끝나면 서명이 고정돼 업로드가 멈춘다.
-    if (this.kind && this.kind !== 'scene') { if (!live) this['_paint_' + this.kind](); return; }
-    let y = zone('title', H);   // 존 — 타이틀 밴드 (구 176)
+
+
+  /** 글자별 레이어 — 웨이브·캐스케이드는 글자 하나하나의 변환이라, 글자마다 평면을 주면
+   *  매 프레임 굽지 않아도 된다(타이틀 밴드를 통째로 다시 굽던 비용이 0이 된다). */
+  _charBlocks(key, text, cx, y, size, ls, weight, fam, fn, order = 4) {
+    const ck = key + '|' + text + '|' + size + '|' + ls;
+    if (!this._chCache || this._chCache.k !== ck) {
+      // 폭 측정 1회 — 측정용 캔버스는 작게 유지
+      const m = (this._measCv = this._measCv || document.createElement('canvas')).getContext('2d');
+      m.font = F(weight, size, fam); m.letterSpacing = ls + 'px';
+      const total = m.measureText(text).width;
+      const items = []; let x = cx - total / 2, vis = 0;
+      for (const ch of text) {
+        const w = m.measureText(ch).width;
+        if (ch !== ' ') items.push({ ch, x, w, i: vis++ });
+        x += w;
+      }
+      m.letterSpacing = '0px';
+      this._chCache = { k: ck, items };
+    }
+    const pad = Math.round(size * 0.35);
+    return this._chCache.items.map(it => ({
+      name: key + '#' + it.i, x: it.x, w: it.w + 2, y, h: size * 1.25, pad, order,
+      sig: 'ch' + it.ch,
+      draw: (g) => { g.font = F(weight, size, fam); g.fillStyle = NEU.ink;
+        g.textAlign = 'left'; g.textBaseline = 'top'; g.letterSpacing = ls + 'px';
+        g.fillText(it.ch, it.x, y); g.letterSpacing = '0px'; },
+      motion: fn(it.i),
+    }));
+  }
+
+  // ── 화면 → 밴드 목록 ───────────────────────────────────────────────
+  _blocks(t) {
+    if (this.kind && this.kind !== 'scene') return this['_bl_' + this.kind](t);
+    // 운동중(scene) = 노드 열. 노드 하나가 밴드 하나 — 등장·퇴장은 변환이라 공짜.
+    const out = [];
+    let y = zone('title', H);
     for (const n of this.col) {
       if (n.style.display === 'none') continue;
       const h = this._h(n);
       if (n.mt) y += n.mt;
-      if (FloorGL.LIVE.has(n.type) !== live) { y += h + sp('s5', 'run') + (n.mb || 0); continue; }
-      if (n.style.visibility !== 'hidden') {
-        const e = this._intro(n);
-        ctx.save();
-        ctx.globalAlpha = numOr(n.style.opacity, 1) * e * this._outro(n);
-        if (e < 1 && !n.cascade) {   // 제자리 스케일 인(원본 sUpFlat) — 눕힌 프레임에서 translate는 '멀리서 날아옴'이 된다
-          const k = 0.94 + 0.06 * e;
-          ctx.translate(CX, y + h / 2); ctx.scale(k, k); ctx.translate(-CX, -(y + h / 2));
-        }
-        if (ctx.globalAlpha > 0.004) this._draw(n, y);
-        ctx.restore();
+      const e = this._intro(n), eo = this._outro(n);
+      const alpha = numOr(n.style.opacity, 1) * e * eo;
+      // 글자 캐스케이드는 내용이 프레임마다 바뀐다(글자별 진행) → 그 구간만 서명에 시간 반영
+      const live = FloorGL.LIVE.has(n.type);
+      if (n.cascade && n.textContent) {   // 타이틀 = 글자별 레이어 → 캐스케이드가 변환으로만
+        const e0 = this._intro(n);
+        out.push(...this._charBlocks('sc', n.textContent, CX, y, n.size, n.ls || 0, n.weight, sans, i => {
+          const e = eOut(clamp01((t - (0.10 + i * 0.045)) / 0.6));
+          return { alpha: (t < 2.2 ? e : 1) * numOr(n.style.opacity, 1) * e0,
+                   scale: t < 2.2 ? 0.82 + 0.18 * e : 1 };
+        }));
+        y += h + sp('s5', 'run') + (n.mb || 0);
+        continue;
       }
+      const sig = n.id + '|' + n.textContent + JSON.stringify(n.style) + JSON.stringify(n._attr || {})
+        + (live ? '|l' + Math.round(t * 30) : '');
+      // 매 프레임 굽는 노드(도트·링·숫자)는 전폭이면 비싸다 → 실제 상자만
+      const box = live ? ({ dots: [CX - 340, 680], prevRow: [CX - 380, 760], km: [CX - 320, 640],
+        trainRow: [CX - 400, 800], liveRow: [CX - 420, 840], succ: [CX - 340, 680] }[n.type]) : null;
+      out.push({
+        name: n.id, x: box ? box[0] : 0, w: box ? box[1] : W, y, h, pad: live ? 50 : 120, sig,
+        draw: (g) => { if (n.style.visibility !== 'hidden') this._draw(n, y); },
+        // 제자리 스케일 인(원본 sUpFlat) — 이제 변환이라 60fps
+        motion: { alpha, scale: (e < 1 && !n.cascade) ? 0.94 + 0.06 * e : 1 },
+      });
       y += h + sp('s5', 'run') + (n.mb || 0);
     }
+    return out;
+  }
+
+  /** 배경 글로우 밴드 — 내용은 한 번만 굽고 드리프트는 변환으로 */
+  _blGlow(topY, w, drift) {
+    return { name: 'glow', y: 0, h: H, pad: 0, order: 2, sig: 'glow' + topY,
+      draw: (g) => this._bgGlow(topY, w), motion: drift || {} };
+  }
+
+  _bl_ready(t) {
+    const D = READY[/floor-bk/.test(this.params.src) ? 'floor-bk.html' : 'floor.html'];
+    const ttl = zone('title', H);
+    const g7 = cycle(t, 0, 7, 3);   // glowLive
+    const bob = cycle(t, 1.5, 3, 3);
+    const bl = [];
+    bl.push({ name: 'rglow', y: 935, h: 930, pad: 0, order: 2, sig: 'rg',
+      draw: (g) => { const im = this._img('fig/big_glow.svg'); if (im) g.drawImage(im, CX - 510, 935, 1020, 930); },
+      motion: g7 == null ? { alpha: .85 } : {
+        alpha: kf(g7, [[0, .85], [.5, 1], [1, .85]]),
+        scale: kf(g7, [[0, 1], [.5, 1.06], [1, 1]]),
+        dx: kf(g7, [[0, 0], [.5, -16], [1, 0]]), dy: -kf(g7, [[0, 0], [.5, 10], [1, 0]]) } });
+    // 타이틀 charLoop — 글자마다 레이어라 웨이브가 변환으로만 돈다(업로드 0)
+    bl.push(...this._charBlocks('rt', D.title, CX, ttl, T.display, -4, 700, sans, i => {
+      const p = cycle(t, i * 0.09, 3, 3);
+      return p == null ? {} : {
+        dy: -kf(p, [[0, 0], [.12, -16], [.26, 0], [.58, 0], [1, 0]]),
+        alpha: kf(p, [[0, .5], [.12, 1], [.26, 1], [.58, .5], [1, .5]]) };
+    }));
+    bl.push({ name: 'rstrip', y: 452, h: 130, pad: 20, sig: 'rs',
+      draw: (g) => this._readyStrip(g, D), motion: { alpha: eOut(intro(t, .35, .8)), scale: 0.94 + 0.06 * eOut(intro(t, .35, .8)) } });
+    bl.push({ name: 'rdevs', y: 654, h: 200, pad: 30, sig: 'rd' + Math.round(Math.min(t, 3) * 12),
+      draw: (g) => this._readyDevs(g, t), motion: { alpha: eOut(intro(t, .5, .8)), scale: 0.94 + 0.06 * eOut(intro(t, .5, .8)) } });
+    const he = eOut(intro(t, .7, .9));
+    bl.push({ name: 'rhero', y: 1040, h: 700, pad: 30, sig: 'rh',
+      draw: (g) => this._readyHero(g), motion: { alpha: he, scale: 0.94 + 0.06 * he } });
+    // 발·화살표 탭 — 각자 밴드라 bob 이 변환으로만 돈다
+    const fdy = bob == null ? 0 : kf(bob, [[0, 0], [.12, 46], [.25, 6], [.4, 44], [.52, 0], [.58, 0], [1, 0]]);
+    const ady = bob == null ? 0 : kf(bob, [[0, 0], [.12, 14], [.25, 0], [.4, 13], [.52, 0], [.58, 0], [1, 0]]);
+    bl.push({ name: 'rfoot', y: 1140, h: 539, pad: 20, sig: 'rf',
+      draw: (g) => { const im = this._img('run/foot.svg'); if (im) g.drawImage(im, 606, 1140, 400, 539); },
+      motion: { alpha: he, dy: -fdy } });
+    bl.push({ name: 'rarrow', y: 1057, h: 86, pad: 10, sig: 'ra',
+      draw: (g) => { const im = this._img('run/arrow.svg'); if (im) g.drawImage(im, CX - 43, 1057, 86, 86); },
+      motion: { alpha: he, dy: -ady } });
+    return bl;
+  }
+
+  _bl_transition(t) {
+    const TR_ = TR[this.stage] || TR.T1;
+    const S = 654.902, GAP = sp('s3', 'run'), cy = zone('graphic', H), x0 = CX - (S * 2 + GAP) / 2;
+    const bl = [this._blGlow(1160, 2200, this._driftMotion(t))];
+    bl.push(...this._blTitle(t, TR_.sub, TR_.title));
+    [[0, x0, .38, 1.5, 4, TR_.done, true], [1, x0 + S + GAP, .54, 1.85, 4.4, TR_.next, false]]
+      .forEach(([i, x, d, fd, fdur, D, done]) => {
+        const e = eOut(intro(t, d, 0.8)), c = cycle(t, fd, fdur, 3);
+        bl.push({ name: 'card' + i, y: cy, h: S, pad: 60, sig: 'c' + i + D.lbl,
+          draw: (g) => this._card(x, cy, S, R.lg, 52.392, D, done),
+          motion: { alpha: e, scale: 0.9 + 0.1 * e, dy: c == null ? 0 : -kf(c, [[0, 0], [.5, -13], [1, 0]]) } });
+      });
+    bl.push(this._blButton(t, BTN, .95, 1.9));
+    return bl;
+  }
+
+  _bl_timer(t) {
+    const M = TM[this.stage] || TM.C1, dur = this.params.dur || 3;
+    const y = zone('graphic', H), cy = y + 302;
+    const rem = dur - t, val = rem > 0.05 ? String(Math.ceil(rem)) : 'GO';
+    if (val !== this._numLast) { this._numLast = val; this._numT = t; }
+    const e = eOut(intro(t, .35, .8)), br = cycle(t, 1.2, 3, 3);
+    const q = clamp01((t - this._numT) / 0.5);
+    return [
+      this._blGlow(1160, 2200, this._driftMotion(t)),
+      ...this._blTitle(t, M.sub, M.title),
+      { name: 'ring', x: CX - 362, w: 724, y, h: 604, pad: 60, sig: 'rg' + Math.round(t * 30),
+        draw: (g) => {
+          if (br != null) { const gg = kf(br, [[0, 0], [.5, 1], [1, 0]]);
+            g.shadowColor = rgba(NEU.ink, .35 * gg); g.shadowBlur = 26 * gg; }
+          drawRing(g, { size: 604 }, y, clamp01(t / dur), NEU.ink); g.shadowBlur = 0; },
+        motion: { alpha: kf(e, [[0, 0], [.7, 1], [1, 1]]), scale: kf(e, [[0, .6], [.7, 1.05], [1, 1]]) } },
+      { name: 'num', x: CX - 210, w: 420, y: cy - 130, h: 260, pad: 20, sig: 'n' + val,
+        draw: (g) => drawCenteredNum(g, val, CX, cy, 220),
+        motion: { alpha: kf(q, [[0, 0], [.35, 1], [1, 1]]) * kf(e, [[0, 0], [.7, 1], [1, 1]]),
+                  scale: kf(q, [[0, 1.5], [1, 1]], eOut) } },
+    ];
+  }
+
+  _bl_report(t) {
+    const RP_ = RP[this.stage] || RP.FIN;
+    const y = zone('graphic', H), cy = y + 250;
+    const p = eOut(clamp01((t - .5) / 1.4));
+    const e = eOut(intro(t, .35, .8)), br = cycle(t, 1.4, 3.4, 3);
+    const sy = cy + 250 + 80;
+    const se = eOut(intro(t, 1.15, .7));
+    return [
+      this._blGlow(1080, 2200, this._driftMotion(t)),
+      ...this._blTitle(t, RP_.sub, RP_.title),
+      { name: 'pring', x: CX - 310, w: 620, y: y, h: 500, pad: 60, sig: 'p' + Math.round(p * 100),
+        draw: (g) => {
+          if (br != null) { const gg = kf(br, [[0, 0], [.5, 1], [1, 0]]);
+            g.shadowColor = rgba(NEU.ink, .35 * gg); g.shadowBlur = 26 * gg; }
+          this._reportRing(g, cy, p); g.shadowBlur = 0; },
+        motion: { alpha: kf(e, [[0, 0], [.7, 1], [1, 1]]), scale: kf(e, [[0, .6], [.7, 1.05], [1, 1]]) } },
+      { name: 'stats', y: sy, h: 140, pad: 20, sig: 'st' + this.stage,
+        draw: (g) => this._reportStats(g, sy, RP_), motion: { alpha: se, scale: 0.94 + 0.06 * se } },
+      this._blButton(t, BTN, 1.35, 2.3, sy + 141.8 + 70),
+    ];
+  }
+
+  /** 배경 글로우 드리프트 — 변환만 */
+  _driftMotion(t) {
+    const p = cycle(t, 0, 15, 3);
+    if (p == null) return {};
+    return { dx: kf(p, [[0, 0], [.25, -.06], [.5, .06], [.75, -.03], [1, 0]]) * 2200,
+             dy: -kf(p, [[0, 0], [.25, .04], [.5, -.05], [.75, .04], [1, 0]]) * 1200,
+             scale: kf(p, [[0, 1], [.25, 1.12], [.5, 1.05], [.75, 1.13], [1, 1]]),
+             rot: kf(p, [[0, 0], [.25, 4], [.5, -3], [.75, 3], [1, 0]]) * Math.PI / 180 };
+  }
+
+  /** 타이틀 그룹 밴드 — charWave 는 내용이라 다시 굽지만 밴드가 작다 */
+  _blTitle(t, sub, ttl) {
+    const y = zone('title', H), subH = 64 * 1.2;
+    const p = eOut(intro(t, 0.1, 0.8));
+    const grp = { alpha: kf(p, [[0, 0], [.7, 1], [1, 1]]), scale: kf(p, [[0, .9], [.7, 1.02], [1, 1]]) };
+    const out = [{ name: 'tsub', y, h: subH, pad: 20, sig: 'ts' + sub,
+      draw: (g) => { g.textAlign = 'center'; g.textBaseline = 'top';
+        g.font = F(400, T.head); g.letterSpacing = '-4.6px';
+        g.fillStyle = 'rgba(255,255,255,.8)'; g.fillText(sub, CX, y); g.letterSpacing = '0px'; },
+      motion: grp }];
+    // charWave — 글자별 변환이라 업로드 0
+    out.push(...this._charBlocks('ti', ttl, CX, y + subH + 8.8, T.display, -5.6, 700, sans, i => {
+      const c = cycle(t, 0.9 + i * 0.05, 2.4, 3);
+      return { alpha: grp.alpha, scale: grp.scale,
+        dy: c == null ? 0 : -kf(c, [[0, 0], [.29, -16], [.58, 0], [1, 0]]) };
+    }));
+    return out;
+  }
+
+  _blButton(t, text, delay, floatDelay, yy) {
+    const y = yy ?? zone('action', H), h = 80 * 1.2 + 42.614 * 2;
+    const e = eOut(intro(t, delay, .8)), bf = cycle(t, floatDelay, 3.6, 3), bp = cycle(t, floatDelay, 3, 3);
+    const glow = bp == null ? 0 : kf(bp, [[0, 0], [.5, 1], [1, 0]]);
+    return { name: 'btn', y, h, pad: 70, sig: 'b' + text + Math.round(glow * 20),
+      draw: (g) => this._buttonPlain(g, y, text, glow),
+      motion: { alpha: e, scale: 0.92 + 0.08 * e, dy: bf == null ? 0 : -kf(bf, [[0, 0], [.5, -18], [1, 0]]) } };
+  }
+
+
+  // ── 밴드 그리기 조각 (모션 없음 — 모션은 레이어 변환이 담당) ──────────
+  _readyStrip(ctx, D) {
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    const cols = [['Time', '30min', false], ['Connection', 'Good', false], ['Mode', D.mode, D.modeSm]];
+    const w = [400, 360, 400], x0 = CX - (w[0] + w[1] + w[2] + 4) / 2;
+    let x = x0;
+    cols.forEach((c, i) => {
+      if (i) { ctx.fillStyle = 'rgba(255,255,255,.22)'; ctx.fillRect(x, 452 + 21, 2, 100); x += 2; }
+      ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.font = F(400, T.body);
+      ctx.fillText(c[0], x + w[i] / 2, 452 + 14);
+      ctx.fillStyle = NEU.ink; ctx.font = F(700, c[2] ? T.sub : T.head); ctx.letterSpacing = '-2px';
+      ctx.fillText(c[1], x + w[i] / 2, 452 + 14 + 48 + 14);
+      ctx.letterSpacing = '0px';
+      x += w[i];
+    });
+  }
+
+  _readyDevs(ctx, t) {
+    const devs = [[0.9, 'run/ic_glasses.png', 96], [0.3, 'run/ic_watch.png', 56], [0.6, 'run/ic_earbuds.png', 82]];
+    const dx0 = CX - (200 * 3 + 28 * 2) / 2;
+    devs.forEach(([pct, ic, iw], i) => {
+      const cx = dx0 + i * 228 + 100, cy = 654 + 100, r = 76 * (200 / 170), lw = 13 * (200 / 170);
+      ctx.lineWidth = lw; ctx.strokeStyle = 'rgba(255,255,255,.16)';
+      ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
+      const f = clamp01((t - (0.9 + i * 0.16)) / 1.5) * pct;
+      if (f > 0.002) { ctx.strokeStyle = NEU.ink; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.arc(cx, cy, r, -Math.PI / 2, -Math.PI / 2 + f * Math.PI * 2); ctx.stroke(); }
+      const im = this._img(ic);
+      if (im) { const ih = iw * (im.naturalHeight / im.naturalWidth); ctx.drawImage(im, cx - iw / 2, cy - ih / 2, iw, ih); }
+    });
+  }
+
+  _readyHero(ctx) {
+    ctx.fillStyle = NEU.ink; ctx.font = F(700, T.title); ctx.letterSpacing = '-5px';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    ctx.fillText('Tap your foot Twice', CX, 1057 + 86 + 30);
+    ctx.letterSpacing = '0px';
+  }
+
+  _titleGroupPlain(ctx, y, sub, ttl, t) {
+    const subH = 64 * 1.2;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    ctx.font = F(400, T.head); ctx.letterSpacing = '-4.6px';
+    ctx.fillStyle = 'rgba(255,255,255,.8)'; ctx.fillText(sub, CX, y);
+    ctx.font = F(700, T.display); ctx.fillStyle = NEU.ink;
+    drawChars(ctx, ttl, CX, y + subH + 8.8, T.display, -5.6, i => {
+      const c = cycle(t, 0.9 + i * 0.05, 2.4, 3);
+      return { dy: c == null ? 0 : kf(c, [[0, 0], [.29, -16], [.58, 0], [1, 0]]), alpha: 1, scale: 1 };
+    });
+    ctx.letterSpacing = '0px';
+  }
+
+  _buttonPlain(ctx, y, text, glow) {
+    const w = 802, h = 80 * 1.2 + 42.614 * 2;
+    if (glow > 0.002) { ctx.shadowColor = rgba(NEU.ink, 0.35 * glow); ctx.shadowBlur = 60 * glow; }
+    ctx.fillStyle = NEU.ink; this._pill(CX - w / 2, y, w, h);
+    ctx.shadowBlur = 0;
+    ctx.font = F(700, T.title); ctx.letterSpacing = '-1.33px';
+    ctx.fillStyle = NEU.inkDark; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(text, CX, y + h / 2);
+    ctx.letterSpacing = '0px';
+  }
+
+  _reportRing(ctx, cy, e) {
+    const r = 230;
+    ctx.lineWidth = 14; ctx.strokeStyle = 'rgba(255,255,255,.16)';
+    ctx.beginPath(); ctx.arc(CX, cy, r, 0, Math.PI * 2); ctx.stroke();
+    if (e > 0.002) { ctx.strokeStyle = NEU.ink; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.arc(CX, cy, r, -Math.PI / 2, -Math.PI / 2 + e * Math.PI * 2); ctx.stroke(); }
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = NEU.ink;
+    ctx.font = F(700, NUM_S.md, dot9); const n = String(Math.round(100 * e));
+    const nw = ctx.measureText(n).width;
+    ctx.font = F(700, NUM_S.sm, dot9); const sw = ctx.measureText('%').width;
+    ctx.textAlign = 'left';
+    ctx.font = F(700, NUM_S.md, dot9); ctx.fillText(n, CX - (nw + sw + 8) / 2, cy);
+    ctx.font = F(700, NUM_S.sm, dot9); ctx.fillText('%', CX - (nw + sw + 8) / 2 + nw + 8, cy + 14);
+  }
+
+  _reportStats(ctx, y, RP_) {
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    const total = 920, cw = (total - 24) / 3;
+    let x = CX - total / 2;
+    RP_.stats.forEach((st, i) => {
+      if (i) { ctx.fillStyle = 'rgba(255,255,255,.25)'; ctx.fillRect(x + 5, y, 2, 100); x += 12; }
+      ctx.fillStyle = 'rgba(255,255,255,.7)'; ctx.font = F(400, T.label); ctx.letterSpacing = '-1.5px';
+      ctx.fillText(st[0], x + cw / 2, y);
+      ctx.fillStyle = NEU.ink; ctx.font = F(700, st[2] === 'sm' ? T.body : T.head);
+      ctx.fillText(st[1], x + cw / 2, y + T.label * 1.2 + 18);
+      ctx.letterSpacing = '0px';
+      x += cw;
+    });
   }
 
   // 등장 = 제자리 페이드(원본 sUpFlat/chIn의 요지). 눕힌 프레임에서 translate는 '멀리서 날아옴'이 된다.
@@ -481,7 +734,7 @@ export class FloorGL {
     const arc = this.map.get('tp-arc');
     const prog = 1 - numOr(arc?.style.strokeDashoffset, 1727.9) / 1727.9;
     this._ringAt(x0 + statW + gap + 100, y, 200, prog, arc?.getAttribute('stroke') || '#fff');
-    drawCenteredNum(this.ctx, this.map.get('tp-num')?.textContent || '—', x0 + statW + gap + 100, y + 100, 96);
+    drawCenteredNum(this._lay || this.ctx, this.map.get('tp-num')?.textContent || '—', x0 + statW + gap + 100, y + 100, 96);
   }
 
   _liveRow(n, y) {
@@ -576,7 +829,7 @@ export class FloorGL {
     ctx.drawImage(im, x + (w - dw) / 2, y + (h - dh) * oy, dw, dh);
   }
 
-  _roundRectPath(x, y, w, h, r) { const c = this.ctx; c.beginPath(); c.roundRect(x, y, w, h, r); }
+  _roundRectPath(x, y, w, h, r) { const c = this._lay || this.ctx; c.beginPath(); c.roundRect(x, y, w, h, r); }
 
   // ── 시작화면 (floor.html / floor-bk.html) ──────────────────────────────────
   _paint_ready() {
