@@ -201,6 +201,10 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
    시뮬레이터 '겉면'(패널·버튼·자막)에만 적용한다. 빔 투사 UI는 손대지 않는다. */
 @font-face{font-family:'Supreme';src:url('fonts/Supreme-Bold.woff2') format('woff2');font-weight:700;font-display:swap}
 @font-face{font-family:'Supreme';src:url('fonts/Supreme-Medium.woff2') format('woff2');font-weight:500;font-display:swap}
+/* 한글 = Pretendard. Supreme을 앞에 두면 라틴·숫자는 Supreme, 한글 글리프만 Pretendard로 자동 폴백된다.
+   로컬 설치본을 먼저 쓰고(가변 웨이트), 없으면 번들 woff2(700)로 떨어진다. */
+@font-face{font-family:'Pretendard';src:local('Pretendard Variable'),local('Pretendard'),
+  url('fonts/Pretendard-Bold.woff2') format('woff2');font-weight:400 700;font-display:swap}
 :root{
   /* Brand */
   --nb-red:#FA3030; --nb-coral:#FE6E3C; --nb-sand:#FEC389; --nb-prism:#D1FEFF;
@@ -212,9 +216,31 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
   --d-border:#3D3D3D; --d-disabled:#6B6B6B; --d-t3:#8F8F8F; --d-t2:#ADADAD;
   --d-body:#C9C9C9; --d-strong:#E2E2E2; --d-title:#F5F5F5; --d-white:#FFF;
   --ds-font:'Supreme','Pretendard',-apple-system,system-ui,sans-serif;
+  /* 타이포 스케일 — Figma 텍스트 스타일 정본(크기/굵기/자간) */
+  --t-d1:700 32px/1.2 var(--ds-font);   --ls-d1:-1.5px;
+  --t-h1:700 28px/1.2 var(--ds-font);   --ls-h1:-1.5px;
+  --t-h2:700 26px/1.2 var(--ds-font);   --ls-h2:-1.5px;
+  --t-t1:700 22px/1.2 var(--ds-font);   --ls-t1:-1px;
+  --t-t2:700 20px/1.2 var(--ds-font);   --ls-t2:-1px;
+  --t-sub:700 18px/1.2 var(--ds-font);  --ls-sub:-.3px;
+  --t-bodyb:700 16px/1.5 var(--ds-font);--ls-body:-.5px;
+  --t-bodyr:400 16px/1.5 var(--ds-font);
+  --t-b15b:700 15px/1.4 var(--ds-font); --t-b15r:400 15px/1.4 var(--ds-font);
+  --t-b14m:500 14px/1.4 var(--ds-font);
+  --t-capb:700 13px/1.2 var(--ds-font); --ls-capb:-.2px;
+  --t-capr:400 13px/1.2 var(--ds-font); --ls-capr:-.5px;
+  --t-labm:500 12px/1.2 var(--ds-font); --ls-lab:-.5px;
+  --t-labr:400 12px/1.2 var(--ds-font);
+  --t-labs:400 11px/1.2 var(--ds-font);
+  --t-micro:400 10px/1.5 var(--ds-font);
   --ds-shadow:0 14px 54px rgba(0,0,0,.15); --ds-r:14px;
 }
-#play-panel, #lab-panel, #dev-pill, #voice-caption{font-family:var(--ds-font)}
+#play-panel, #lab-panel, #dev-pill, #voice-caption{font-family:var(--ds-font);-webkit-font-smoothing:antialiased}
+.ds-d1{font:var(--t-d1);letter-spacing:var(--ls-d1)} .ds-h1{font:var(--t-h1);letter-spacing:var(--ls-h1)}
+.ds-t1{font:var(--t-t1);letter-spacing:var(--ls-t1)} .ds-t2{font:var(--t-t2);letter-spacing:var(--ls-t2)}
+.ds-body{font:var(--t-bodyr);letter-spacing:var(--ls-body)} .ds-body-b{font:var(--t-bodyb);letter-spacing:var(--ls-body)}
+.ds-cap{font:var(--t-capr);letter-spacing:var(--ls-capr)} .ds-cap-b{font:var(--t-capb);letter-spacing:var(--ls-capb)}
+.ds-label{font:var(--t-labm);letter-spacing:var(--ls-lab)} .ds-micro{font:var(--t-micro)}
 #play-panel, #lab-panel{background:var(--d-bg);border-color:var(--d-border);box-shadow:var(--ds-shadow)}
 #play-panel .pp-title, #lab-panel .pp-title{font-size:13px;font-weight:700;letter-spacing:-.2px;color:var(--d-title)}
 #play-panel .pp-sub, #lab-panel .pp-sub{font-size:11px;color:var(--d-t3)}
@@ -223,20 +249,20 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
   font-size:12px;font-weight:500;letter-spacing:-.5px}
 #play-panel .pp-pack:hover{background:var(--d-surface);color:var(--d-white)}
 #play-panel .pp-pack.on{border-color:var(--nb-red);background:rgba(250,48,48,.16);color:var(--nb-red)}
-#play-panel .pp-stage{font-size:20px;font-weight:700;letter-spacing:-1px;line-height:1.2;color:var(--d-title)}
-#play-panel .pp-meta{font-size:13px;font-weight:400;letter-spacing:-.5px;color:var(--d-t2);line-height:1.3}
+#play-panel .pp-stage{font:var(--t-t2);letter-spacing:var(--ls-t2);color:var(--d-title)}
+#play-panel .pp-meta{font:var(--t-capr);letter-spacing:var(--ls-capr);color:var(--d-t2)}
 #play-panel button.pp-btn, #play-panel .pp-tg{border-radius:12px;border-color:var(--d-border);background:var(--d-bg-sub);
   color:var(--d-body);font-size:12px;font-weight:500;letter-spacing:-.5px}
 #play-panel button.pp-btn:hover, #play-panel .pp-tg:hover{background:var(--d-surface);color:var(--d-white)}
 #play-panel button.pp-cta{border-color:var(--nb-red);background:rgba(250,48,48,.18);color:var(--nb-red)}
 #play-panel .pp-tg.on{border-color:var(--nb-sand);background:rgba(254,195,137,.14);color:var(--nb-sand)}
 #play-panel .pp-start{border-radius:var(--ds-r);border:0;background:var(--nb-grad-dark);color:var(--d-white);
-  font-size:15px;font-weight:700;letter-spacing:-.5px;box-shadow:var(--ds-shadow)}
+  font:var(--t-b15b);letter-spacing:var(--ls-body);box-shadow:var(--ds-shadow)}
 #play-panel .pp-start:hover{background:var(--nb-red)}
-#play-panel .pp-hint, #lab-panel .lab-note{font-size:11px;font-weight:400;color:var(--d-t3);line-height:1.55}
+#play-panel .pp-hint, #lab-panel .lab-note{font:var(--t-labs);color:var(--d-t3);line-height:1.55}
 #play-panel .pp-fold, #lab-panel .pp-fold{border-radius:9px;border-color:var(--d-border);background:var(--d-bg-sub);color:var(--d-t2)}
 #lab-panel h3{color:var(--nb-sand);font-size:11px;font-weight:700;letter-spacing:.4px}
-#lab-panel .lab-kv{font-size:13px;letter-spacing:-.5px;border-bottom:1px solid var(--d-divider)}
+#lab-panel .lab-kv{font:var(--t-capr);letter-spacing:var(--ls-capr);border-bottom:1px solid var(--d-divider)}
 #lab-panel .lab-kv span:first-child{color:var(--d-t3)}
 #lab-panel .lab-kv b{color:var(--d-strong);font-weight:700}
 #lab-panel .lab-sw{border-radius:12px;border-color:var(--d-border);background:var(--d-bg-sub)}
@@ -248,12 +274,12 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
 #lab-panel .lab-sw.on .dotsw{background:rgba(209,254,255,.28)}
 #lab-panel .lab-sw.on .dotsw::after{background:var(--nb-prism)}
 #lab-panel .lab-live{border-radius:var(--ds-r);background:var(--d-surface);border:1px solid var(--d-border)}
-#lab-panel .lab-live b{color:var(--nb-red);font-size:26px;letter-spacing:-1.5px}
+#lab-panel .lab-live b{color:var(--nb-red);font:var(--t-h2);letter-spacing:var(--ls-h2)}
 #lab-panel .lab-go{border-radius:12px;border-color:var(--nb-prism);background:rgba(209,254,255,.10);
   color:var(--nb-prism);font-size:13px;font-weight:700;letter-spacing:-.2px}
 #lab-panel .lab-go:hover{background:rgba(209,254,255,.18)}
 #voice-caption{border-radius:99px;background:rgba(18,18,18,.92);border:1px solid var(--d-border);
-  font-size:15px;font-weight:500;letter-spacing:-.5px;color:var(--d-title)}
+  font:var(--t-b15r);letter-spacing:var(--ls-body);color:var(--d-title)}
 #dev-pill{border-radius:10px;border:1px solid var(--d-border);background:rgba(18,18,18,.9);color:var(--d-t3);
   font-size:11px;font-weight:500}
 </style>
