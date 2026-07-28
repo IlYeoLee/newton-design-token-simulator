@@ -363,6 +363,7 @@ async function boot() {
     state.loop = 0;
     tokens.loopShiftZ = 0;
     const data = state.packs[p];
+    if (!data) return;   // 팩 JSON 로드 전 호출 — 배포본에서 실제로 발생(느린 네트워크). 로드 후 다시 온다.
     tokens.setPack(data);
     xbot.setPack(data, tokens.events);
     rig.setPack(data.sport, tokens.events);
