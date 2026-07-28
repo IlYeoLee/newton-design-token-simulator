@@ -1,4 +1,4 @@
-// 바닥 UI를 WebGL로 (B안) — floor-scene.html을 canvas 2D → CanvasTexture 평면으로 다시 그린다.
+// 바닥 UI를 WebGL로 (B안) — floor-*.html 전부를 canvas 2D → CanvasTexture 평면으로 다시 그린다.
 //
 // 왜: CSS3DRenderer가 그리는 바닥 UI는 별도 DOM 레이어라 WebGL 깊이 버퍼를 공유하지 못해
 // x봇 위로 통과한다(마스크 오버레이는 원리적 임시방편). 같은 씬의 평면이면 깊이 테스트가
@@ -20,6 +20,35 @@ const dot9 = "'OffBit','Supreme',sans-serif";
 const F = (w, s, fam = sans) => `${w} ${s}px ${fam}`;
 
 const numOr = (v, d) => { const n = parseFloat(v); return Number.isFinite(n) ? n : d; };
+
+// ── 나머지 문서(시작화면·전환·카운트다운·리포트) 데이터 — 각 HTML의 상수를 그대로 옮긴 것 ──
+const READY = {
+  'floor.html':    { title: "Sean's Final 1km Pace", mode: 'Pace & Boost On', modeSm: true },
+  'floor-bk.html': { title: "Curry's Handle Pack",   mode: 'Press On' },
+};
+const TR = {
+  T1: { sub: 'Sean’s Final 1km Pace', title: 'Warm-Up Done!',
+    done: { lbl: 'Stretch', time: '5min', img: 'run/run_stretch.png' },
+    next: { lbl: 'Learn', time: '10min', img: 'run/run_learn.png' } },
+  T2: { sub: 'Sean’s Final 1km Pace', title: 'Learning Complete!',
+    done: { lbl: 'Learn', time: '10min', img: 'run/run_learn.png' },
+    next: { lbl: 'Run!', time: '10min', img: 'run/run_run.png' } },
+  BK_T1: { sub: 'Curry’s Signature Move', title: 'Warm-Up Done!',
+    done: { lbl: 'Stretch', time: '5min', img: 'bk/bk_stretch.png' },
+    next: { lbl: 'Learn', time: '10min', img: 'bk/bk_learn.png' } },
+  BK_T2: { sub: 'Curry’s Signature Move', title: 'Learning Complete!',
+    done: { lbl: 'Learn', time: '10min', img: 'bk/bk_learn.png' },
+    next: { lbl: 'Play!', time: '10min', img: 'bk/bk_play.png' } },
+};
+const TM = { C1: { sub: 'Sean’s Final 1km Pace', title: 'Session Complete' },
+             BK_C1: { sub: 'Curry’s Signature Move', title: 'Session Complete' } };
+const RP = {
+  FIN: { sub: 'Sean’s Final 1km Pace', title: 'Session Complete',
+    stats: [['Distance', '1.00 km'], ['Avg Pace', '5’42”'], ['Cadence', '174 spm']] },
+  BK_FIN: { sub: 'Curry Step-Back Pack', title: 'Step-Back Locked In',
+    stats: [['Step-Back 3PT', '2 / 3'], ['Step Accuracy', '86 %'], ['Release', '0.42 s', 'sm']] },
+};
+const BTN = 'Tap X2 For Retry!';
 
 function node(id, o) {
   return Object.assign({
@@ -120,10 +149,33 @@ export class FloorGL {
     };
   }
 
-  // floor-scene.html에서 다루는 스테이지인가 (그 외는 기존 CSS3D 경로 유지)
-  static handles(src) { return src.includes('floor-scene.html'); }
+  // 모든 바닥 문서를 이 경로가 담당한다(CSS3D 바닥 프레임은 남은 게 없다)
+  static handles(src) { return /floor(-scene|-transition|-timer|-report|-bk)?\.html/.test(src); }
+
+  // 이미지(글로우·아이콘·인물 카드) — 로드되면 한 번 다시 그린다
+  _img(rel) {
+    this._imgs = this._imgs || new Map();
+    let im = this._imgs.get(rel);
+    if (!im) {
+      im = new Image();
+      im.onload = () => { this._sig = null; };
+      im.src = (import.meta.env?.BASE_URL || '/') + 'ready-view/assets/' + rel;
+      this._imgs.set(rel, im);
+    }
+    return im.complete && im.naturalWidth ? im : null;
+  }
 
   load(stage, params) {
+    this.kind = /floor-transition/.test(params.src) ? 'transition'
+      : /floor-timer/.test(params.src) ? 'timer'
+      : /floor-report/.test(params.src) ? 'report'
+      : /floor(-bk)?\.html/.test(params.src) ? 'ready' : 'scene';
+    this.params = params;
+    if (this.kind !== 'scene') {
+      this.stage = stage; this.col = []; this.map.clear();
+      this.t = 0; this._sig = null; this._lastPaint = -1;
+      return;
+    }
     const b = buildScene(stage, params);
     this.stage = stage; this.col = b.col; this.b = b; this.t = 0; this._sig = null; this._lastPaint = -1;
     this.map.clear();
@@ -162,6 +214,7 @@ export class FloorGL {
     const ctx = this.ctx;
     ctx.setTransform(K, 0, 0, K, 0, 0);
     ctx.clearRect(0, 0, W, H);
+    if (this.kind && this.kind !== 'scene') return this['_paint_' + this.kind]();
     let y = 176;
     for (const n of this.col) {
       if (n.style.display === 'none') continue;
@@ -305,6 +358,201 @@ export class FloorGL {
     const x0 = CX - (wv + wu) / 2;
     ctx.textAlign = 'left'; ctx.font = F(700, 180, dot9); ctx.fillText(v, x0, y);
     ctx.font = F(400, 180, dot9); ctx.fillText('km', x0 + wv, y);
+  }
+
+  // ── 공통 조각 ───────────────────────────────────────────────────────────────
+  // 빔 글로우 — 원본은 radial 마스크로 사각 모서리를 잘라낸다. 그린 뒤 같은 마스크를 destination-out으로.
+  _bgGlow(topY, w = 2200) {
+    const ctx = this.ctx, im = this._img('bg_glow.svg');
+    if (!im) return;
+    const h = w * (im.naturalHeight / im.naturalWidth);
+    ctx.save();
+    ctx.drawImage(im, CX - w / 2, topY - h / 2, w, h);
+    const g = ctx.createRadialGradient(CX, H * 0.43, 0, CX, H * 0.43, W * 0.58);
+    g.addColorStop(0.22, 'rgba(0,0,0,0)'); g.addColorStop(0.82, 'rgba(0,0,0,1)');
+    ctx.globalCompositeOperation = 'destination-out';
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+    ctx.restore();
+  }
+
+  // 서브타이틀 + 큰 타이틀 (전환·타이머·리포트 공통 그룹). 반환 = 그룹 아래 y
+  _titleGroup(y, sub, ttl) {
+    const ctx = this.ctx;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    ctx.font = F(400, 64); ctx.letterSpacing = '-4.6px';
+    ctx.fillStyle = 'rgba(255,255,255,.8)'; ctx.fillText(sub, CX, y);
+    ctx.font = F(700, 140); ctx.letterSpacing = '-5.6px';
+    ctx.fillStyle = '#fff'; ctx.fillText(ttl, CX, y + 64 * 1.2 + 8.8);
+    ctx.letterSpacing = '0px';
+    return y + 64 * 1.2 + 8.8 + 140 * 1.05;
+  }
+
+  // 흰 pill 버튼 (전환·리포트 공통)
+  _button(y, text) {
+    const ctx = this.ctx, w = 802, h = 80 * 1.2 + 42.614 * 2;
+    ctx.fillStyle = '#fff'; this._pill(CX - w / 2, y, w, h);
+    ctx.font = F(700, 80); ctx.letterSpacing = '-1.33px';
+    ctx.fillStyle = '#050a0a'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(text, CX, y + h / 2);
+    ctx.letterSpacing = '0px';
+    return y + h;
+  }
+
+  // object-fit:cover 로 이미지를 사각형에 채운다
+  _cover(im, x, y, w, h, oy = 0.08) {
+    const ctx = this.ctx, r = Math.max(w / im.naturalWidth, h / im.naturalHeight);
+    const dw = im.naturalWidth * r, dh = im.naturalHeight * r;
+    ctx.drawImage(im, x + (w - dw) / 2, y + (h - dh) * oy, dw, dh);
+  }
+
+  _roundRectPath(x, y, w, h, r) { const c = this.ctx; c.beginPath(); c.roundRect(x, y, w, h, r); }
+
+  // ── 시작화면 (floor.html / floor-bk.html) ──────────────────────────────────
+  _paint_ready() {
+    const ctx = this.ctx, D = READY[/floor-bk/.test(this.params.src) ? 'floor-bk.html' : 'floor.html'];
+    const gl = this._img('fig/big_glow.svg');
+    if (gl) { ctx.save(); ctx.globalAlpha = 0.85; ctx.drawImage(gl, CX - 510, 1400 - 465, 1020, 930); ctx.restore(); }
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top'; ctx.fillStyle = '#fff';
+    ctx.font = F(700, 120); ctx.letterSpacing = '-4px';
+    ctx.fillText(D.title, CX, 176);
+    ctx.letterSpacing = '0px';
+    // 3칸 정보 스트립 — ponytail: 원본 flex 폭을 고정폭으로 근사(좌우 400 · 가운데 360)
+    const cols = [['Time', '30min', false], ['Connection', 'Good', false], ['Mode', D.mode, D.modeSm]];
+    const w = [400, 360, 400], x0 = CX - (w[0] + w[1] + w[2] + 4) / 2;
+    let x = x0;
+    cols.forEach((c, i) => {
+      if (i) { ctx.fillStyle = 'rgba(255,255,255,.22)'; ctx.fillRect(x, 452 + 21, 2, 100); x += 2; }
+      ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.font = F(500, 40);
+      ctx.fillText(c[0], x + w[i] / 2, 452 + 14);
+      ctx.fillStyle = '#fff'; ctx.font = F(700, c[2] ? 52 : 64); ctx.letterSpacing = '-2px';
+      ctx.fillText(c[1], x + w[i] / 2, 452 + 14 + 48 + 14);
+      ctx.letterSpacing = '0px';
+      x += w[i];
+    });
+    // 디바이스 배터리 링 3개 (200×200, gap 28)
+    const devs = [[0.9, 'run/ic_glasses.png', 96], [0.3, 'run/ic_watch.png', 56], [0.6, 'run/ic_earbuds.png', 82]];
+    const dx0 = CX - (200 * 3 + 28 * 2) / 2;
+    devs.forEach(([pct, ic, iw], i) => {
+      const cx = dx0 + i * 228 + 100, cy = 654 + 100, r = 76 * (200 / 170), lw = 13 * (200 / 170);
+      ctx.lineWidth = lw; ctx.strokeStyle = 'rgba(255,255,255,.16)';
+      ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
+      const f = Math.max(0, Math.min(1, (this.t - (0.9 + i * 0.16)) / 1.5)) * pct;
+      if (f > 0.002) { ctx.strokeStyle = '#fff'; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.arc(cx, cy, r, -Math.PI / 2, -Math.PI / 2 + f * Math.PI * 2); ctx.stroke(); }
+      const im = this._img(ic);
+      if (im) { const ih = iw * (im.naturalHeight / im.naturalWidth); ctx.drawImage(im, cx - iw / 2, cy - ih / 2, iw, ih); }
+    });
+    const foot = this._img('run/foot.svg');
+    if (foot) ctx.drawImage(foot, 606, 1140, 400, 539);
+    const ar = this._img('run/arrow.svg');
+    if (ar) ctx.drawImage(ar, CX - 43, 1057, 86, 86);
+    ctx.fillStyle = '#fff'; ctx.font = F(700, 88); ctx.letterSpacing = '-5px';
+    ctx.fillText('Tap your foot Twice', CX, 1057 + 86 + 30);
+    ctx.letterSpacing = '0px';
+  }
+
+  // ── 전환 (floor-transition.html) ───────────────────────────────────────────
+  _paint_transition() {
+    const ctx = this.ctx, T = TR[this.stage] || TR.T1;
+    this._bgGlow(1160);
+    this._titleGroup(500, T.sub, T.title);
+    const S = 654.902, GAP = 26.196, R = 65.49, P = 52.392, y = 850;
+    const x0 = CX - (S * 2 + GAP) / 2;
+    this._card(x0, y, S, R, P, T.done, true);
+    this._card(x0 + S + GAP, y, S, R, P, T.next, false);
+    this._button(1636, BTN);
+  }
+
+  _card(x, y, S, R, P, D, done) {
+    const ctx = this.ctx;
+    ctx.save();
+    this._roundRectPath(x, y, S, S, R); ctx.clip();
+    if (done) {
+      const g = ctx.createLinearGradient(0, y, 0, y + S);
+      g.addColorStop(0.48, '#fa3030'); g.addColorStop(0.776, '#fe6e3c'); g.addColorStop(1, '#fec389');
+      ctx.fillStyle = g;
+    } else ctx.fillStyle = '#fff';
+    ctx.fillRect(x, y, S, S);
+    const im = this._img(D.img);
+    // plus-lighter는 완료 카드(빨강 배경 위)만 — 다음 카드는 흰 배경이라 lighter면 인물이 통째로 날아간다.
+    if (im) { ctx.save(); if (done) ctx.globalCompositeOperation = 'lighter'; this._cover(im, x, y, S, S); ctx.restore(); }
+    if (!done) {   // 다음 카드 = 인물 위에 빨강→주황 틴트
+      ctx.save(); ctx.globalCompositeOperation = 'lighter';
+      const g2 = ctx.createLinearGradient(0, y, 0, y + S);
+      g2.addColorStop(0, '#fa3030'); g2.addColorStop(1, '#fe6e3c');
+      ctx.fillStyle = g2; ctx.fillRect(x, y, S, S); ctx.restore();
+    } else {       // 완료 카드 = 흰 내부 글로우(원본 inset box-shadow 근사)
+      ctx.save(); ctx.lineWidth = 40; ctx.strokeStyle = 'rgba(255,255,255,.45)';
+      ctx.filter = 'blur(26px)'; this._roundRectPath(x, y, S, S, R); ctx.stroke(); ctx.restore();
+    }
+    ctx.restore();
+    // 우상단 배지
+    if (done) {
+      const c = x + S - P - 45.8, cy = y + P + 45.8;
+      ctx.fillStyle = 'rgba(255,255,255,.28)';
+      ctx.beginPath(); ctx.arc(c, cy, 45.8, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = 7.5; ctx.lineCap = ctx.lineJoin = 'round';
+      ctx.beginPath(); ctx.moveTo(c - 19, cy + 1); ctx.lineTo(c - 6, cy + 14); ctx.lineTo(c + 19, cy - 14); ctx.stroke();
+    } else {
+      ctx.font = F(500, 52); const bw = ctx.measureText('Next').width + 52.4, bh = 52 * 1.2 + 26.2;
+      ctx.fillStyle = 'rgba(255,255,255,.9)'; this._pill(x + S - P - bw, y + P, bw, bh);
+      ctx.fillStyle = '#525252'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText('Next', x + S - P - bw / 2, y + P + bh / 2);
+    }
+    // 좌하단 메타
+    ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
+    ctx.fillStyle = done ? '#fafafa' : '#757575'; ctx.font = F(400, 36); ctx.letterSpacing = '-1.64px';
+    ctx.fillText(D.time, x + P, y + S - P);
+    ctx.fillStyle = done ? '#fff' : '#050a0a'; ctx.font = F(700, 64); ctx.letterSpacing = '-3.27px';
+    ctx.fillText(D.lbl.toUpperCase(), x + P, y + S - P - 36 * 1.2 - 13.1);
+    ctx.letterSpacing = '0px';
+  }
+
+  // ── 실전 직전 카운트다운 (floor-timer.html) ────────────────────────────────
+  _paint_timer() {
+    const ctx = this.ctx, M = TM[this.stage] || TM.C1, dur = this.params.dur || 3;
+    this._bgGlow(1160);
+    const y = this._titleGroup(600, M.sub, M.title) + 88;
+    const prog = Math.max(0, Math.min(1, this.t / dur));
+    drawRing(ctx, { size: 604 }, y, prog, '#fff');
+    const rem = dur - this.t;
+    drawCenteredNum(ctx, rem > 0.05 ? String(Math.ceil(rem)) : 'GO', CX, y + 302, 220);
+  }
+
+  // ── 세션 리포트 (floor-report.html) ────────────────────────────────────────
+  _paint_report() {
+    const ctx = this.ctx, R = RP[this.stage] || RP.FIN;
+    this._bgGlow(1080);
+    let y = this._titleGroup(640, R.sub, R.title) + 80;
+    // 100% 링 (0.5s 뒤 1.4s 동안 채움)
+    const p = Math.max(0, Math.min(1, (this.t - 0.5) / 1.4)), e = 1 - Math.pow(1 - p, 3);
+    const cy = y + 250, r = 230 * (500 / 500);
+    ctx.lineWidth = 14; ctx.strokeStyle = 'rgba(255,255,255,.16)';
+    ctx.beginPath(); ctx.arc(CX, cy, r, 0, Math.PI * 2); ctx.stroke();
+    if (e > 0.002) { ctx.strokeStyle = '#fff'; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.arc(CX, cy, r, -Math.PI / 2, -Math.PI / 2 + e * Math.PI * 2); ctx.stroke(); }
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#fff';
+    ctx.font = F(700, 128.5); const nTxt = String(Math.round(100 * e));
+    const nw = ctx.measureText(nTxt).width;
+    ctx.font = F(700, 90.3); const sw = ctx.measureText('%').width;
+    ctx.textAlign = 'left';
+    ctx.font = F(700, 128.5); ctx.fillText(nTxt, CX - (nw + sw + 8) / 2, cy);
+    ctx.font = F(700, 90.3); ctx.fillText('%', CX - (nw + sw + 8) / 2 + nw + 8, cy + 14);
+    y = cy + 250 + 80;
+    // 통계 3열 (등폭 + 구분선)
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    const total = 920, cw = (total - 24) / 3;
+    let x = CX - total / 2;
+    R.stats.forEach((st, i) => {
+      if (i) { ctx.fillStyle = 'rgba(255,255,255,.25)'; ctx.fillRect(x + 5, y, 2, 100); x += 12; }
+      ctx.fillStyle = 'rgba(255,255,255,.7)'; ctx.font = F(400, 39); ctx.letterSpacing = '-1.5px';
+      ctx.fillText(st[0], x + cw / 2, y);
+      ctx.fillStyle = '#fff'; ctx.font = F(700, st[2] === 'sm' ? 42 : 64);
+      ctx.fillText(st[1], x + cw / 2, y + 39 * 1.2 + 18);
+      ctx.letterSpacing = '0px';
+      x += cw;
+    });
+    this._button(y + 39 * 1.2 + 18 + 64 * 1.2 + 16, BTN);
   }
 
   // Success 컴포넌트(Figma 130-2984) — 배지 + 점선 카운트다운 링

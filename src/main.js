@@ -88,7 +88,9 @@ async function boot() {
   let _fistPrevZ = 0, _impactT = 0;
   function renderJointMarkers() {
     const on = jointDemo && !fpMode && session.active && state.pack === 'boxing' && xbot.model;   // 3인칭 전용
-    fistRing.visible = armLine.visible = !!on;
+    // impactRing은 depthTest:false(빌보드 임팩트 연출) — 씬에 켜둔 채 두면 러닝·농구에서
+    // x봇 몸 위로 링이 그려진다(유저 스샷). 복싱 3인칭 데모가 아닐 땐 visible 자체를 끈다.
+    fistRing.visible = armLine.visible = impactRing.visible = !!on;
     if (!on) { impactRing.material.opacity = 0; return; }
     const arm = xbot.getRightArm();
     if (!arm.wrist) return;
@@ -5007,7 +5009,6 @@ void main(){
     applyBallOcclusion();  // 공이 빔을 실제로 가리는 순간만 그 지점 UI를 꺼트림(광학 정직성)
     applyEditOverrides();  // 배치 편집(유저): 드래그로 옮긴 벽·인물 위치를 세션 덮어쓰기 후 재적용
     renderFrame(clock.elapsedTime);   // 블룸 + 그레인·비네트 컴포저 (scene.js FX)
-    updateFloorClipHole(_floorVisLatch);   // 봇 픽셀 복사 — 반드시 컴포저 뒤(그 전엔 present로 비워진 버퍼를 긁어 투명이었음)
   }
 
 
@@ -5313,7 +5314,8 @@ void main(){
   let loadedFloorView = null;
   // ── 바닥 UI WebGL 경로(B안, 플래그 병행) — CSS3D와 같은 변환을 받는 평면. 깊이 테스트로 x봇에 가려진다.
   //   ?floorgl=1 일 때 floor-scene.html 스테이지만 이 경로를 타고, 나머지는 기존 CSS3D 그대로.
-  const FLOORGL = new URLSearchParams(location.search).get('floorgl') === '1';
+  //   기본값 = WebGL. 되돌리려면 ?floorgl=0 (CSS3D 문서 경로가 그대로 남아 있다).
+  const FLOORGL = new URLSearchParams(location.search).get('floorgl') !== '0';
   const floorGL = new FloorGL();
   scene.add(floorGL.mesh);
   let floorGLOn = false;   // 이번 프레임에 WebGL 경로가 담당하는가
@@ -5322,68 +5324,8 @@ void main(){
   let _wasLive = false;   // 라이브 진입 에지 감지 — loopShiftZ 드리프트 재정렬용
   let _fpSmooth = null;   // 프레임·발자국 앵커용 저역통과 풋프린트 — 빔 흔들림(투사오차 지터) 제거해 글자 삐걱임 방지
   const _rV = new THREE.Vector3(), _fV = new THREE.Vector3(), _uV = new THREE.Vector3(0, 1, 0), _mBasis = new THREE.Matrix4();
-  // 봇 오클루전 v3 — clip-path 컨벡스 헐은 팔·몸 사이까지 뭉텅 잘라 '프레임이 잘리듯' 보였다(유저).
-  // 2D 캔버스 오버레이(z7, WebGL 아님 — 검은 플리커의 원인이던 GL 스왑 경로와 무관)에
-  // 본 캡슐 실루엣(라운드 스트로크 = 자연 유니온)으로 마스킹한 '실제 렌더된 봇 픽셀'을 복사해
-  // 프레임 위에 얹는다. 몸 모양 그대로의 실루엣 → 인위적 잘림 없음.
-  const botOverlay = document.createElement('canvas');
-  Object.assign(botOverlay.style, { position: 'fixed', pointerEvents: 'none', zIndex: '7' });
-  document.body.appendChild(botOverlay);
-  const botCtx = botOverlay.getContext('2d');
-  const OCCL_SEG = [   // [본A, 본B, 폭(토르소길이 대비 비율)]
-    ['Hips', 'Neck', 0.78], ['Neck', 'Head', 0.5], ['Head', 'Head', 0.62],
-    ['LeftArm', 'LeftForeArm', 0.3], ['LeftForeArm', 'LeftHand', 0.26],
-    ['RightArm', 'RightForeArm', 0.3], ['RightForeArm', 'RightHand', 0.26],
-    ['LeftUpLeg', 'LeftLeg', 0.4], ['LeftLeg', 'LeftFoot', 0.3], ['LeftFoot', 'LeftToeBase', 0.3],
-    ['RightUpLeg', 'RightLeg', 0.4], ['RightLeg', 'RightFoot', 0.3], ['RightFoot', 'RightToeBase', 0.3],
-  ];
-  const _cpV = new THREE.Vector3();
-  let _floorVisLatch = false;
-  function updateFloorClipHole(visNow) {
-    window.__ocl = window.__ocl || { call: 0, draw: 0, why: '' };
-    window.__ocl.call++;
-    const cvr = renderer.domElement.getBoundingClientRect();
-    if (botOverlay._w !== cvr.width || botOverlay._h !== cvr.height) {
-      botOverlay.width = cvr.width; botOverlay.height = cvr.height;
-      botOverlay._w = cvr.width; botOverlay._h = cvr.height;
-    }
-    botOverlay.style.left = cvr.left + 'px'; botOverlay.style.top = cvr.top + 'px';
-    botCtx.clearRect(0, 0, botOverlay.width, botOverlay.height);
-    const W2 = window.__ocl.n = window.__ocl.n || { vis: 0, cam: 0, pts: 0, torso: 0, ok: 0 };
-    if (!visNow || !xbot.model || !xbot.group.visible) { W2.vis++; return; }
-    const hips = xbot.model.getObjectByName('mixamorigHips');
-    if (!hips) return;
-    _cpV.setFromMatrixPosition(hips.matrixWorld);
-    if (fpMode) { W2.cam++; return; }   // 1인칭 = 봇이 카메라 자신 — 마스크가 화면을 뒤덮는다(유저)
-    if (camera.position.distanceTo(_cpV) < 0.7) { W2.cam++; return; }   // 근접 — 불필요
-    const w = botOverlay.width, h = botOverlay.height;
-    const pj = (name) => {
-      const bn = xbot.model.getObjectByName('mixamorig' + name); if (!bn) return null;
-      _cpV.setFromMatrixPosition(bn.matrixWorld).project(camera);
-      if (_cpV.z > 1) return null;
-      return [(_cpV.x * 0.5 + 0.5) * w, (1 - (_cpV.y * 0.5 + 0.5)) * h];
-    };
-    const A = pj('Hips'), B = pj('Neck');
-    if (!A || !B) { W2.pts++; return; }
-    const torso = Math.hypot(B[0] - A[0], B[1] - A[1]);
-    if (torso < 8) { W2.torso++; return; }
-    if (torso > h * 0.55) { W2.torso++; return; }   // 비정상 확대(전환·근접) — 기괴한 마스크 자국 방지
-    // 실루엣 마스크(라운드 스트로크 유니온) → source-in으로 실제 봇 픽셀만 남김
-    botCtx.save();
-    botCtx.lineCap = 'round'; botCtx.lineJoin = 'round';
-    botCtx.fillStyle = botCtx.strokeStyle = '#fff';
-    for (const [n1, n2, wk] of OCCL_SEG) {
-      const p1 = pj(n1), p2 = pj(n2); if (!p1 || !p2) continue;
-      if (n1 === n2) { botCtx.beginPath(); botCtx.arc(p1[0], p1[1], torso * wk * 0.5, 0, Math.PI * 2); botCtx.fill(); continue; }
-      botCtx.lineWidth = torso * wk;
-      botCtx.beginPath(); botCtx.moveTo(p1[0], p1[1]); botCtx.lineTo(p2[0], p2[1]); botCtx.stroke();
-    }
-    botCtx.globalCompositeOperation = 'source-in';
-    botCtx.drawImage(renderer.domElement, 0, 0, w, h);
-    window.__ocl.draw++; window.__ocl.why = 'ok'; W2.ok++;
-    botCtx.restore();
-    botCtx.globalCompositeOperation = 'source-over';
-  }
+  // 봇 오클루전 마스크(botOverlay)는 제거됐다 — 바닥 UI가 WebGL 평면이 되면서
+  // 가림은 깊이 버퍼가 담당한다. 실루엣 캡슐이 몸보다 커서 생기던 '기괴한 마스크 자국'(유저)도 함께 소멸.
   function renderDesignFrame() {
     // CSS3D 레이어 = WebGL 캔버스에 매 프레임 정확 정합 — 창≠캔버스(크기·aspect)여도 원근·스케일 일치
     //   (이게 안 맞으면 디자인이 벽보다 크게 부풀어 프레임영역 밖으로 넘침 — 유저 창 크기 의존 버그의 원인)
@@ -5471,7 +5413,7 @@ void main(){
         const _sid2 = session.curStage?.id;
         const pv = stepPreviewSec(_sid2), pvn = pv ? stepLoops(_sid2) : 0;
         if (floorGLOn) {
-          floorGL.load(_sid2, { dur, pv: pv || 3, pvn });
+          floorGL.load(_sid2, { dur, pv: pv || 3, pvn, src: fView.src });
         } else {
         floorWrap.style.width = fView.w + 'px';    // 래퍼가 CSS3D 변환·크기의 주체
         floorWrap.style.height = fView.h + 'px';
@@ -5588,7 +5530,6 @@ void main(){
     if (session.active && (!session.isLive || session.stage === 'BK_C4')) tokens.floorRoot.visible = false;
     // 항상 렌더 — 표시/숨김 전환에도 CSS3D transform 항상 동기(재진입 시 위치 어긋남·잔류 방지)
     cssRenderer.render(frameCssScene, camera);
-    _floorVisLatch = floorObj.visible;   // 오버레이는 컴포저 이후(백버퍼 유효 시점)에 그린다
     // ── 바닥 프레임 occlusion: x봇만 투명 오버레이로 프레임(z6) 위(z7)에 다시 그려 다리 뒤로 밟히게 ──
     renderFloorOcclusion(floorObj.visible);
   }
