@@ -450,25 +450,21 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
         <button class="lab-go" id="lab-burst" style="margin-top:8px;border-color:#fa3030;background:rgba(250,48,48,.14);color:#ff7a7a">과도 구간 재현(전환 순간)</button>
       </div>
 
-      <h3>고개 각도 설계 — 장면별</h3>
-      <div class="lab-note" style="margin:0 0 8px">눈높이 1.6m 기준. 각도는 임의값이 아니라
-        <b>그 장면에서 봐야 할 것이 시야 중앙에 오는 각</b>으로 역산했다(낙하점 = 1.6 / tanθ).</div>
-      <div class="lab-kv"><span>READY(시작 화면)</span><b>-46° · 1.55m</b></div>
-      <div class="lab-kv"><span>스트레칭 A</span><b>-42° · 1.78m</b></div>
-      <div class="lab-kv"><span>익히기 B</span><b>-38° · 2.05m</b></div>
-      <div class="lab-kv"><span>전환·타이머·리포트</span><b>-44° · 1.66m</b></div>
-      <div class="lab-kv"><span>전환 T · 리치 홀드</span><b>-30° · 2.77m</b></div>
-      <div class="lab-kv"><span>실전 C(달리기)</span><b>-18° · 4.92m</b></div>
-      <div class="lab-kv"><span>복싱(벽 종목)</span><b>-8° · 벽 정면 응시</b></div>
-      <div class="lab-kv"><span>드리블 2막(시선 바깥)</span><b>-5° · 사실상 정면</b></div>
-      <div class="lab-note">근거 셋. ① <b>Matthis·Yates·Hayhoe 2018</b> — 보행자는 약 2보 앞(~1.5초 시간창)을
-        응시한다. 평지+가이드에선 더 멀리 보므로 실전은 -18°(낙하점 ≈5m).
-        ② <b>시각 인간공학(ISO 9241 계열)</b> — 지속 주시 편안 범위는 수평 아래 0~35°, 지속 목 굴곡은
-        20° 이내 권장. 그래서 <b>깊은 각(-38~-46°)은 학습·전환처럼 10초 단위 장면에만</b> 쓰고,
-        계속 달리는 실전은 얕게 둔다. ③ <b>초심자는 발 근처를 본다</b>(novice 근거리 주시) —
-        익히기·스트레칭은 발 앞 1.8~2.1m에 마크를 놓아 시선을 억지로 들지 않게 했다.</div>
-      <div class="lab-note">전환은 τ=0.9초로 부드럽게 — 각도가 튀면 사람이 실제로 고개를 홱 드는 것처럼 보인다.
-        유효 수직 시야는 60°로 잡고(시야콘 토글로 확인), 투사 밴드는 그 안쪽에만 배치한다.</div>
+      <h3>고개 각도 — 4단 사다리</h3>
+      <div class="lab-note" style="margin:0 0 8px">장면마다 값을 새로 고르지 않는다. <b>10° 단위 네 단</b>만 쓰고
+        각 장면을 그중 하나에 배정한다. 눈높이 1.6m · 낙하점 = 1.6/tanθ.</div>
+      <div class="lab-kv"><span><b>정면</b> −8°</span><b>11.4m · 벽·원경</b></div>
+      <div class="lab-kv"><span><b>원경</b> −20°</span><b>4.4m · 이동 중</b></div>
+      <div class="lab-kv"><span><b>중경</b> −30°</span><b>2.8m · 전환·대기</b></div>
+      <div class="lab-kv"><span><b>근경</b> −40°</span><b>1.9m · 정밀 조작</b></div>
+      <div class="lab-note" style="margin-top:8px"><b>배정</b> — 복싱 전 구간·드리블 2막(시선 바깥) = 정면 /
+        실전 달리기 = 원경 / 전환·리치 홀드 = 중경 / READY·스트레칭·익히기·타이머·리포트 = 근경</div>
+      <div class="lab-note"><b>규칙 셋</b> ① 그 장면에서 봐야 할 대상이 시야 중앙에 오는 단을 고른다
+        ② 오래 지속되는 장면일수록 얕게 — 지속 목 굴곡 20° 이내 권장(ISO 9241 계열)이라
+        계속 달리는 실전은 원경, 10초 단위 학습만 근경 ③ 발 위치를 맞추는 정밀 조작일수록 깊게.</div>
+      <div class="lab-note">근거: <b>Matthis·Yates·Hayhoe 2018</b> — 보행자는 약 2보 앞(~1.5초 시간창)을 응시.
+        평지+가이드에선 더 멀리 보므로 실전이 원경(−20°, 4.4m)에 앉는다. 초심자는 발 근처를 보므로
+        학습 단계는 근경(−40°, 1.9m). 전환은 τ=0.9초로 부드럽게 — 각도가 튀면 고개를 홱 드는 것처럼 보인다.</div>
       <h3>가시성 규칙</h3>
       <div class="lab-kv"><span>창 경계</span><b>페더 18cm — 하드컷 금지</b></div>
       <div class="lab-kv"><span>공에 가려질 때</span><b>그 토큰만 소등(평균 1.4%)</b></div>
@@ -602,6 +598,7 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
           <button class="pp-btn" id="pp-next">다음 ▶</button>
         </div>
         <div class="pp-row">
+          <button class="pp-btn" id="pp-mute" style="flex:.55">🔊</button>
           <button class="pp-btn" id="pp-view">3인칭 보기</button>
           <button class="pp-btn" id="pp-stop">↺ 처음으로</button>
         </div>

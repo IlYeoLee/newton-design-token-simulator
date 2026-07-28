@@ -437,21 +437,26 @@ async function boot() {
   //   ~20° 이내 권장, 단시간 깊은 굴곡은 허용 → 학습 단계만 깊게, 실전은 얕게.
   // ③학습자는 발 근처를 봄(novice 근거리 주시): 익히기 B = -38°(낙하점 ≈2.1m, 마크 시인),
   //   스트레칭 A = -42°(발 앞 ~1.8m 마크, 동작 10초 단위라 지속 굴곡 아님), 전환 T = -30°.
-  const STAGE_GAZE_DEG = { R: -46, A: -42, B: -38, T: -30, C: -18 };   // R=READY: 발앞 UI 화면 채우게 더 내려봄
+  // 시선 사다리 — 4단, 10° 단위. 장면마다 값을 새로 고르지 않는다(유저: 공통 규칙).
+  //   규칙 ① 그 장면에서 봐야 할 대상이 시야 중앙에 오는 단을 고른다
+  //        ② 오래 지속되는 장면일수록 얕게(목 굴곡 20° 권장 — ISO 9241 계열)
+  //        ③ 정밀 조작(발 위치 맞추기)일수록 깊게
+  const GAZE = { FRONT: -8, FAR: -20, MID: -30, NEAR: -40 };   // 낙하점 11.4m / 4.4m / 2.8m / 1.9m
+  const STAGE_GAZE_DEG = { R: GAZE.NEAR, A: GAZE.NEAR, B: GAZE.NEAR, T: GAZE.MID, C: GAZE.FAR };
   function sessionGazeTarget() {
     // 벽 종목(복싱): 시선은 벽 정면 — 코치(y≈1.0~1.7)·타겟(y≈1.14)이 전부 시야에 안정적으로.
     // 눈높이 1.6m·벽앞 1.75m 기준 -8° ≈ 벽 중심 응시 (버그였음: 'BX_'의 B가 익히기 -38°로 매칭돼 바닥만 봄)
-    if (session.curStage?.wall) return -8;
+    if (session.curStage?.wall) return GAZE.FRONT;
     // B1 2막 '시선 바깥' = 1인칭 카메라도 정면(-5도) — 지면 UI를 의도적으로 시야 밖으로(유저).
-    if (session.bkB1EyesUp) return -5;
+    if (session.bkB1EyesUp) return GAZE.FRONT;
     const id = session.curStage?.id || '';
     // 전환·타이머·리포트(지면 풀스크린 화면) = x봇이 바닥의 화면을 보도록 게이즈 하향(세션 컴플리트·실전 직전).
-    if (/^(T1|T2|C1|FIN|BK_T1|BK_T2|BK_C1|BK_FIN)$/.test(id)) return -44;
-    if (id === 'A1') return -30;   // 전방 리치 홀드 — 투사각을 앞으로 눕혀 발 앞 가이드까지 보이게(미래 알고리즘 보정 가정)
+    if (/^(T1|T2|C1|FIN|BK_T1|BK_T2|BK_C1|BK_FIN)$/.test(id)) return GAZE.NEAR;
+    if (id === 'A1') return GAZE.MID;   // 전방 리치 홀드 — 투사각을 앞으로 눕혀 발 앞 가이드까지 보이게(미래 알고리즘 보정 가정)
     // 종목 접두사를 떼고 판정. 안 떼면 'BK_A2'의 B가 익히기(-38°)로 매칭돼 농구 워밍업이 얕게 봤다
     // (복싱 'BX_'에서 같은 버그를 이미 잡아놨는데 농구는 남아 있었음 — 유저: 워밍업 시선 더 아래).
     const key = id.replace(/^(BK|BX)_/, '');
-    return STAGE_GAZE_DEG[key[0]] ?? -30;   // READY/FIN 등 = 중간값
+    return STAGE_GAZE_DEG[key[0]] ?? GAZE.MID;   // READY/FIN 등 = 중간값
   }
   let manualGazeDeg = -18;   // 유저 수동 설정값 (세션 종료 시 복귀 기준)
   let sessionDroveGaze = false;
@@ -4460,6 +4465,7 @@ void main(){
       $$('pp-prev').addEventListener('click', () => session.prev());
       $$('pp-tap').addEventListener('click', () => relay('btn-tap'));
       $$('pp-next').addEventListener('click', () => session.next(true));   // 체험 조작은 음성 대기 없이 즉시
+      $$('pp-mute').addEventListener('click', () => relay('btn-tts'));   // 음소거 = 기존 TTS 토글에 위임
       $$('pp-view').addEventListener('click', () => relay('btn-view'));
       $$('pp-stop').addEventListener('click', () => relay('btn-session-stop'));
       // 토글 3종 — 시야콘 · 낮/밤 · 빔 지면 커버리지. 상태는 기존 전역 플래그를 그대로 읽는다.
@@ -4490,6 +4496,7 @@ void main(){
         $$('pp-meta').textContent = live ? [st?.cue, st?.foot].filter(Boolean).join(' · ') : '';
         $$('pp-idx').textContent = live ? `${(session.stageIdx || 0) + 1} / ${session.stages.length}` : '체험';
         $$('pp-view').textContent = document.getElementById('btn-view')?.textContent || '3인칭 보기';
+        $$('pp-mute').textContent = document.getElementById('btn-tts')?.textContent || '🔊';
         $$('pp-cone').classList.toggle('on', !!coneOn);
         $$('pp-day').classList.toggle('on', !!FXP.day);
         $$('pp-beam').classList.toggle('on', rig.visualize !== false);   // 커버리지 표시 중이면 on
