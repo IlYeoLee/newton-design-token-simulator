@@ -111,7 +111,9 @@ async function boot() {
     impactRing.material.opacity = Math.max(0, 1 - age / 0.5) * 0.9;
     impactRing.scale.setScalar(1 + age * 3);
   }
-  let jointDemo = true;   // 관절 추종 마커 데모 토글
+  // 관절 추종 마커(주먹 링·팔 라인·임팩트 링) = 초기 증명용 데모. 기본 꺼둠 —
+  // 복싱 장면에서 몸통에 붉은 링·선이 떠 투사 UI가 아닌 게 섞여 보였다(유저).
+  let jointDemo = false;
   const judge = new Judge();
   // 장면 UI 시스템 — 타이틀·지시문·상태의 고정 슬롯 (풋프린트-상대 + 클리핑)
   const sceneUI = new SceneUI(scene, WALL_Z);
