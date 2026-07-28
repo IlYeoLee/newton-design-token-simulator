@@ -116,13 +116,19 @@
    기본(제품 뷰) = 3D 씬 + 투사 UI + 최소 조작만. dev-only 요소는 body.dev 일 때만 보인다.
    전환: URL ?dev=1 / ?dev=0 · 키보드 D · 설정은 localStorage에 유지. */
 body:not(.dev) .dev-only { display: none !important; }
-body:not(.dev) #stage { left: 0 !important; }
 /* ── 제품 뷰 패널(체험) ─────────────────────────────────────── */
-#play-panel{position:absolute;top:20px;right:20px;width:312px;z-index:22;display:none;
-  background:rgba(12,14,18,.86);backdrop-filter:blur(14px);border:1px solid rgba(255,255,255,.10);
-  border-radius:18px;padding:18px 18px 16px;box-shadow:0 18px 48px rgba(0,0,0,.45);
+/* 제품 뷰 = 좌측 도킹 조작 패널 + 우측 씬(유저). 떠 있는 카드가 씬을 가리지 않는다. */
+#play-panel{position:fixed;right:0;top:0;bottom:0;width:320px;z-index:22;display:none;overflow-y:auto;
+  background:rgba(10,12,16,.94);backdrop-filter:blur(14px);border-left:1px solid rgba(255,255,255,.09);
+  padding:22px 20px;box-shadow:-12px 0 40px rgba(0,0,0,.35);
   font-family:'Pretendard',system-ui,sans-serif;color:#fff}
 body:not(.dev) #play-panel{display:block}
+/* 씬은 남은 좌측 영역을 통째로 쓰고, 그 안에서 가운데 정렬된다(렌더러가 이 폭을 실측) */
+body:not(.dev) #stage{margin-right:320px}
+body:not(.dev) #voice-caption{max-width:52%}
+#play-panel.folded{width:56px;padding:16px 12px}
+#play-panel.folded .pp-title,#play-panel.folded .pp-sub{display:none}
+body:not(.dev):has(#play-panel.folded) #stage{margin-right:56px}
 #play-panel .pp-brand{display:flex;align-items:center;gap:8px;margin-bottom:14px}
 #play-panel .pp-dot{width:7px;height:7px;border-radius:50%;background:#fa3030;box-shadow:0 0 10px rgba(250,48,48,.8)}
 #play-panel .pp-title{font-size:12px;font-weight:800;letter-spacing:2.4px;color:rgba(255,255,255,.92)}
@@ -131,7 +137,6 @@ body:not(.dev) #play-panel{display:block}
   border-radius:8px;background:rgba(255,255,255,.05);color:rgba(255,255,255,.6);font-size:12px;cursor:pointer;
   display:flex;align-items:center;justify-content:center;transition:transform .2s}
 #play-panel .pp-fold:hover{background:rgba(255,255,255,.1);color:#fff}
-#play-panel.folded{width:auto;padding:12px 14px}
 #play-panel.folded .pp-body{display:none}
 #play-panel.folded .pp-fold{transform:rotate(180deg)}
 #play-panel .pp-packs{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:14px}

@@ -370,6 +370,9 @@ async function boot() {
     const isKneePack = data.sport === 'running' || data.sport === 'basketball';
     window.__updateSurfAvail?.();   // 실내 테마 = 복싱 전용 게이트
     window.__applySurfDefault?.(p);   // 팩별 기본 투사면 자동 적용
+    // 저장된 랩 배경(bg)이 늦게 적용되며 기본값을 덮어써 농구에서 회색 코트가 튀던 문제 —
+    //   팩 전환 직후 한 프레임 뒤 한 번 더 못박는다(로드 순서 레이스 차단).
+    setTimeout(() => window.__applySurfDefault?.(state.pack), 60);
     tokens.footprintTest = isKneePack ? (x, z, inset) => rig.contains(x, z, inset) : null;
     effects.clip = isKneePack ? (x, z) => rig.contains(x, z) : null;
 
@@ -1299,7 +1302,7 @@ void main(){
     };
     window.__updateSurfAvail();
     // 팩별 기본 투사면 — 매번 수동 선택 제거 (유저): 러닝=잔디 · 복싱=실내 · 농구=트랙
-    const SURF_DEFAULT = { running: 'track', boxing: 'indoor', basketball: 'court_gray' };   // 러닝=트랙·농구=회색코트 기본(유저)
+    const SURF_DEFAULT = { running: 'track', boxing: 'indoor', basketball: 'court_black' };   // 농구 = 진한 검정 코트(유저: 회색이 뜨면 오류)
     window.__applySurfDefault = (pack) => {
       const key = SURF_DEFAULT[pack];
       if (!key) return;
@@ -4458,7 +4461,8 @@ void main(){
       $$('pp-stop').addEventListener('click', () => relay('btn-session-stop'));
       // 토글 3종 — 시야콘 · 낮/밤 · 빔 지면 커버리지. 상태는 기존 전역 플래그를 그대로 읽는다.
       // 패널 접기/펼치기 — 상태 유지(브랜드 줄만 남는다)
-      const fold = (on) => { pp.classList.toggle('folded', on); localStorage.setItem('newton.panelFold', on ? '1' : '0'); };
+      const fold = (on) => { pp.classList.toggle('folded', on); localStorage.setItem('newton.panelFold', on ? '1' : '0');
+        requestAnimationFrame(() => dispatchEvent(new Event('resize'))); };   // 씬 폭 실측 갱신
       $$('pp-fold').addEventListener('click', () => fold(!pp.classList.contains('folded')));
       if (localStorage.getItem('newton.panelFold') === '1') fold(true);
       $$('pp-cone').addEventListener('click', () => relay('btn-cone'));
