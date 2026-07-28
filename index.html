@@ -116,13 +116,251 @@
    기본(제품 뷰) = 3D 씬 + 투사 UI + 최소 조작만. dev-only 요소는 body.dev 일 때만 보인다.
    전환: URL ?dev=1 / ?dev=0 · 키보드 D · 설정은 localStorage에 유지. */
 body:not(.dev) .dev-only { display: none !important; }
-body:not(.dev) #stage { left: 0 !important; }
+/* ── 제품 뷰 패널(체험) ─────────────────────────────────────── */
+/* 제품 뷰 = 좌측 도킹 조작 패널 + 우측 씬(유저). 떠 있는 카드가 씬을 가리지 않는다. */
+#play-panel{position:fixed;right:0;top:0;bottom:0;width:320px;z-index:22;display:none;overflow-y:auto;
+  background:rgba(10,12,16,.94);backdrop-filter:blur(14px);border-left:1px solid rgba(255,255,255,.09);
+  padding:22px 20px;box-shadow:-12px 0 40px rgba(0,0,0,.35);
+  font-family:'Pretendard',system-ui,sans-serif;color:#fff}
+body:not(.dev) #play-panel{display:block}
+/* 씬은 남은 좌측 영역을 통째로 쓰고, 그 안에서 가운데 정렬된다(렌더러가 이 폭을 실측) */
+body:not(.dev) #stage{margin-right:320px}
+body:not(.dev) #voice-caption{max-width:52%}
+#play-panel.folded{width:56px;padding:16px 12px}
+#play-panel.folded .pp-title,#play-panel.folded .pp-sub{display:none}
+body:not(.dev):has(#play-panel.folded) #stage{margin-right:56px}
+#play-panel .pp-brand{display:flex;align-items:center;gap:8px;margin-bottom:14px}
+#play-panel .pp-dot{width:7px;height:7px;border-radius:50%;background:#fa3030;box-shadow:0 0 10px rgba(250,48,48,.8)}
+#play-panel .pp-title{font-size:12px;font-weight:800;letter-spacing:2.4px;color:rgba(255,255,255,.92)}
+#play-panel .pp-sub{margin-left:auto;font-size:11px;color:rgba(255,255,255,.42)}
+#play-panel .pp-fold{margin-left:8px;width:24px;height:24px;line-height:1;border:1px solid rgba(255,255,255,.12);
+  border-radius:8px;background:rgba(255,255,255,.05);color:rgba(255,255,255,.6);font-size:12px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;transition:transform .2s}
+#play-panel .pp-fold:hover{background:rgba(255,255,255,.1);color:#fff}
+#play-panel.folded .pp-body{display:none}
+#play-panel.folded .pp-fold{transform:rotate(180deg)}
+#play-panel .pp-packs{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:14px}
+#play-panel .pp-pack{padding:10px 0;border:1px solid rgba(255,255,255,.12);border-radius:11px;
+  background:rgba(255,255,255,.04);color:rgba(255,255,255,.66);font-size:12px;font-weight:700;cursor:pointer;
+  transition:background .18s,border-color .18s,color .18s}
+#play-panel .pp-pack:hover{background:rgba(255,255,255,.09);color:#fff}
+#play-panel .pp-pack.on{border-color:#fa3030;background:rgba(250,48,48,.16);color:#ff6b6b}
+#play-panel .pp-stage{font-size:15px;font-weight:800;line-height:1.45;letter-spacing:-.2px;min-height:44px}
+#play-panel .pp-meta{margin-top:4px;font-size:11.5px;color:rgba(255,255,255,.5);line-height:1.5}
+#play-panel .pp-row{display:flex;gap:6px;margin-top:12px}
+#play-panel button.pp-btn{flex:1;padding:11px 0;border:1px solid rgba(255,255,255,.13);border-radius:11px;
+  background:rgba(255,255,255,.05);color:rgba(255,255,255,.8);font-size:12px;font-weight:700;cursor:pointer}
+#play-panel button.pp-btn:hover{background:rgba(255,255,255,.1);color:#fff}
+#play-panel button.pp-cta{flex:1.5;border-color:#fa3030;background:rgba(250,48,48,.18);color:#ff7a7a}
+#play-panel button.pp-cta:hover{background:rgba(250,48,48,.28);color:#fff}
+#play-panel .pp-start{width:100%;padding:14px 0;border:1px solid #fa3030;border-radius:13px;
+  background:linear-gradient(180deg,rgba(250,48,48,.26),rgba(250,48,48,.14));color:#fff;
+  font-size:14px;font-weight:800;letter-spacing:-.2px;cursor:pointer}
+#play-panel .pp-start:hover{background:linear-gradient(180deg,rgba(250,48,48,.4),rgba(250,48,48,.22))}
+#play-panel .pp-toggles{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:12px 0 4px}
+#play-panel .pp-tg{padding:9px 0;border:1px solid rgba(255,255,255,.12);border-radius:10px;
+  background:rgba(255,255,255,.04);color:rgba(255,255,255,.55);font-size:11px;font-weight:700;cursor:pointer}
+#play-panel .pp-tg:hover{background:rgba(255,255,255,.09);color:#fff}
+#play-panel .pp-tg.on{border-color:#d1feff;background:rgba(209,254,255,.14);color:#d1feff}
+#play-panel .pp-hint{margin-top:9px;font-size:11px;color:rgba(255,255,255,.38);text-align:center}
+body:not(.dev) #session-hud{display:none !important}
+/* ── 좌측 체험 랩 패널(제품 뷰) — 알고리즘·부품·보정 원리 체험 ───────────── */
+#lab-panel{position:fixed;left:0;top:0;bottom:0;width:326px;z-index:22;display:none;overflow-y:auto;
+  background:rgba(10,12,16,.94);backdrop-filter:blur(14px);border-right:1px solid rgba(255,255,255,.09);
+  padding:22px 20px 40px;font-family:'Pretendard',system-ui,sans-serif;color:#fff}
+body:not(.dev) #lab-panel{display:block}
+body:not(.dev) #stage{margin-left:326px}
+body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
+#lab-panel.folded{width:56px;padding:16px 12px}
+#lab-panel.folded .lab-body,#lab-panel.folded .pp-title,#lab-panel.folded .pp-sub{display:none}
+#lab-panel h3{margin:18px 0 8px;font-size:11px;letter-spacing:1.6px;color:var(--d-title);font-weight:800}
+#lab-panel .lab-kv{display:flex;justify-content:space-between;gap:10px;padding:6px 0;
+  border-bottom:1px solid rgba(255,255,255,.06);font-size:12px}
+#lab-panel .lab-kv span:first-child{color:rgba(255,255,255,.55)}
+#lab-panel .lab-kv b{font-weight:700;color:#fff}
+#lab-panel .lab-note{font-size:11px;color:rgba(255,255,255,.42);line-height:1.6;margin-top:6px}
+/* 접이식 섹션 — 긴 설명·근거는 기본 접힘. 화면에 남는 건 값과 스위치뿐(유저: 글씨가 과하다) */
+#lab-panel details{margin-top:8px;border-top:1px solid rgba(255,255,255,.07)}
+#lab-panel details>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:6px;
+  padding:11px 0 9px;font-size:11px;letter-spacing:1.5px;color:var(--d-title);font-weight:800}
+#lab-panel details>summary::-webkit-details-marker{display:none}
+#lab-panel details>summary::after{content:'';margin-left:auto;width:5px;height:5px;flex:0 0 auto;
+  border-right:1.5px solid rgba(255,255,255,.4);border-bottom:1.5px solid rgba(255,255,255,.4);
+  transform:rotate(45deg) translateY(-2px);transition:transform .18s}
+#lab-panel details[open]>summary::after{transform:rotate(-135deg) translateY(-1px)}
+#lab-panel details>summary .cnt{margin-left:auto;font-size:10px;font-weight:600;letter-spacing:0;
+  color:rgba(255,255,255,.32)}
+#lab-panel details>summary .cnt+::after{margin-left:8px}
+/* 근거 = 한 단 더 안쪽. 색을 죽여 값과 구분한다 */
+#lab-panel details details{border-top:0;margin-top:4px;background:rgba(255,255,255,.03);border-radius:9px;padding:0 10px}
+#lab-panel details details>summary{color:rgba(255,255,255,.5);font-size:10.5px;letter-spacing:.6px;padding:9px 0}
+#lab-panel details details .lab-note{margin-bottom:9px}
+#lab-panel .lab-body>details:first-of-type{border-top:0}
+#lab-panel .lab-sw{display:flex;align-items:center;gap:9px;padding:9px 10px;margin-top:6px;
+  border:1px solid rgba(255,255,255,.10);border-radius:10px;background:rgba(255,255,255,.04);cursor:pointer}
+#lab-panel .lab-sw .dotsw{width:26px;height:15px;border-radius:99px;background:#333a45;position:relative;flex:0 0 auto}
+#lab-panel .lab-sw .dotsw::after{content:'';position:absolute;top:2px;left:2px;width:11px;height:11px;border-radius:50%;
+  background:#8b93a1;transition:transform .18s,background .18s}
+#lab-panel .lab-sw.on .dotsw{background:rgba(209,254,255,.3)}
+#lab-panel .lab-sw.on .dotsw::after{transform:translateX(11px);background:#d1feff}
+#lab-panel .lab-sw .t{font-size:12px;font-weight:700}
+#lab-panel .lab-sw .d{font-size:10.5px;color:rgba(255,255,255,.45);line-height:1.45}
+#lab-panel .lab-live{margin-top:10px;padding:11px 12px;border-radius:11px;background:rgba(250,48,48,.10);
+  border:1px solid rgba(250,48,48,.28)}
+/* 자막 = '들리는 것'으로 읽히게: 문장 아래 음파 바가 말하는 동안만 움직인다.
+   아이콘·화자 라벨은 쓰지 않는다(유저) — 소리라는 신호는 모션이 담당. */
+#vc-wave{display:flex;gap:3px;justify-content:center;align-items:center;height:9px;margin-top:9px}
+#vc-wave i{width:2px;height:100%;border-radius:2px;background:rgba(255,255,255,.32);
+  transform-origin:center;animation:vcWave 1s ease-in-out infinite}
+#vc-wave i:nth-child(1){animation-delay:0s}   #vc-wave i:nth-child(2){animation-delay:.12s}
+#vc-wave i:nth-child(3){animation-delay:.24s} #vc-wave i:nth-child(4){animation-delay:.36s}
+#vc-wave i:nth-child(5){animation-delay:.48s}
+@keyframes vcWave{0%,100%{transform:scaleY(.28)}50%{transform:scaleY(1)}}
+#lab-panel .lab-live b{font-size:20px;font-weight:800}
+/* ω·위상은 보조값 — 오차 수치(20px)와 같은 크기로 커지면 안 된다 */
+#lab-panel .lab-live .lab-note b{font-size:11.5px;font-weight:700;color:#fff}
+#lab-panel .lab-go{width:100%;margin-top:12px;padding:12px 0;border:1px solid #d1feff;border-radius:11px;
+  background:rgba(209,254,255,.12);color:#d1feff;font-size:12.5px;font-weight:800;cursor:pointer}
+#lab-panel .lab-go:hover{background:rgba(209,254,255,.2)}
 #dev-pill{position:absolute;bottom:18px;left:18px;z-index:40;padding:7px 11px;border:1px solid var(--line);
   border-radius:8px;background:rgba(16,19,24,.82);color:var(--dim);font-size:11px;cursor:pointer;font-weight:700}
+
+/* ── NEWTON 디자인 시스템 · 다크모드 컬러 시스템(Figma 222-37297 정본) ─────────
+   시뮬레이터 '겉면'(패널·버튼·자막)에만 적용한다. 빔 투사 UI는 손대지 않는다. */
+@font-face{font-family:'Supreme';src:url('fonts/Supreme-Bold.woff2') format('woff2');font-weight:700;font-display:swap}
+@font-face{font-family:'Supreme';src:url('fonts/Supreme-Medium.woff2') format('woff2');font-weight:400;font-display:swap}
+/* 한글 = Freesentation(무료 배포본, freesentation.blog). Supreme을 앞에 두면 라틴·숫자는 Supreme,
+   한글 글리프만 Freesentation으로 글리프 단위 폴백된다. Pretendard는 최후 폴백으로만 남긴다. */
+@font-face{font-family:'Freesentation';src:url('fonts/Freesentation-4Regular.woff2') format('woff2');font-weight:400;font-display:swap}
+@font-face{font-family:'Freesentation';src:url('fonts/Freesentation-7Bold.woff2') format('woff2');font-weight:700;font-display:swap}
+@font-face{font-family:'Pretendard';src:local('Pretendard Variable'),local('Pretendard'),
+  url('fonts/Pretendard-Bold.woff2') format('woff2');font-weight:400 700;font-display:swap}
+/* 바닥 UI 숫자(카운트다운·km) 전용 — WebGL 캔버스로 그리려면 메인 문서에 등록돼 있어야 한다(floorgl.js) */
+@font-face{font-family:'OffBit';src:url('fonts/OffBitTrial-DotBold.woff2') format('woff2');font-weight:700;font-display:swap}
+:root{
+  /* Brand */
+  --nb-red:#FA3030; --nb-coral:#FE6E3C; --nb-sand:#FEC389; --nb-prism:#D1FEFF;
+  --nb-void:#091212; --nb-oxblood:#511815; --nb-crimson:#920F0F;
+  --nb-grad-bright:linear-gradient(90deg,#FA3030,#FE6E3C,#FEC389,#D1FEFF);
+  --nb-grad-dark:linear-gradient(90deg,#091212,#511815,#920F0F,#FA3030);
+  /* Neutral (Dark) */
+  --d-bg:#121212; --d-bg-sub:#1A1A1A; --d-surface:#232323; --d-divider:#2E2E2E;
+  --d-border:#3D3D3D; --d-disabled:#6B6B6B; --d-t3:#8F8F8F; --d-t2:#ADADAD;
+  --d-body:#C9C9C9; --d-strong:#E2E2E2; --d-title:#F5F5F5; --d-white:#FFF;
+  --ds-font:'Supreme','Freesentation','Pretendard',-apple-system,system-ui,sans-serif;
+  /* 타이포 스케일 — Figma 텍스트 스타일 정본(크기/굵기/자간) */
+  --t-d1:700 32px/1.2 var(--ds-font);   --ls-d1:-1.5px;
+  --t-h1:700 28px/1.2 var(--ds-font);   --ls-h1:-1.5px;
+  --t-h2:700 26px/1.2 var(--ds-font);   --ls-h2:-1.5px;
+  --t-t1:700 22px/1.2 var(--ds-font);   --ls-t1:-1px;
+  --t-t2:700 20px/1.2 var(--ds-font);   --ls-t2:-1px;
+  --t-sub:700 19px/1.25 var(--ds-font); --ls-sub:-.3px;
+  --t-bodyb:700 17px/1.5 var(--ds-font);--ls-body:-.5px;
+  --t-bodyr:400 17px/1.5 var(--ds-font);
+  --t-b15b:700 16px/1.45 var(--ds-font);--t-b15r:400 16px/1.45 var(--ds-font);
+  --t-b14m:400 15px/1.45 var(--ds-font);
+  --t-capb:700 14px/1.25 var(--ds-font); --ls-capb:-.2px;
+  --t-capr:400 14px/1.3 var(--ds-font);  --ls-capr:-.5px;
+  --t-labm:400 13px/1.3 var(--ds-font);  --ls-lab:-.5px;
+  --t-labr:400 13px/1.3 var(--ds-font);
+  --t-labs:400 12px/1.3 var(--ds-font);
+  --t-micro:400 11px/1.5 var(--ds-font);
+  --ds-shadow:0 14px 54px rgba(0,0,0,.15); --ds-r:14px;
+}
+#play-panel, #lab-panel, #dev-pill, #voice-caption{font-family:var(--ds-font);-webkit-font-smoothing:antialiased}
+.ds-d1{font:var(--t-d1);letter-spacing:var(--ls-d1)} .ds-h1{font:var(--t-h1);letter-spacing:var(--ls-h1)}
+.ds-t1{font:var(--t-t1);letter-spacing:var(--ls-t1)} .ds-t2{font:var(--t-t2);letter-spacing:var(--ls-t2)}
+.ds-body{font:var(--t-bodyr);letter-spacing:var(--ls-body)} .ds-cap{font:var(--t-capr);letter-spacing:var(--ls-capr)}
+.ds-label{font:var(--t-labm);letter-spacing:var(--ls-lab)} .ds-micro{font:var(--t-micro)}
+
+/* ── 겉면 = GUI와 같은 문법: 면처리(플랫), 한정 팔레트(그레이 + 레드 하나), 큰 타이포, 알약 CTA ──
+   유리(blur)·그라디언트·보조 액센트(샌드/프리즘) 폐기 — GUI 어디에도 없다. */
+#play-panel, #lab-panel{background:var(--d-bg);border-color:var(--d-divider);box-shadow:none;backdrop-filter:none}
+#play-panel{padding:26px 22px}
+#lab-panel{padding:26px 22px 44px}
+#play-panel .pp-brand, #lab-panel .pp-brand{margin-bottom:22px}
+#play-panel .pp-title, #lab-panel .pp-title{font:var(--t-capb);letter-spacing:.6px;color:var(--d-t2)}
+#play-panel .pp-sub, #lab-panel .pp-sub{font:var(--t-labr);color:var(--d-t3)}
+#play-panel .pp-dot{background:var(--nb-red)}
+
+/* 팩 전환 = 세그먼티드 컨트롤(트랙 하나 + 선택 알약) */
+#play-panel .pp-packs{grid-template-columns:repeat(3,1fr);gap:4px;padding:4px;border-radius:999px;
+  background:var(--d-bg-sub);margin-bottom:20px}
+#play-panel .pp-pack{border:0;border-radius:999px;background:transparent;color:var(--d-t3);
+  font:var(--t-capb);letter-spacing:-.2px;padding:11px 0}
+#play-panel .pp-pack:hover{background:transparent;color:var(--d-body)}
+#play-panel .pp-pack.on{background:var(--nb-red);color:#fff}
+
+/* 단계 제목 = 두 줄 큰 타이틀 + 작은 회색 설명 (GUI 헤드라인 문법) */
+#play-panel .pp-stage{font:var(--t-h2);letter-spacing:var(--ls-h2);color:var(--d-title);min-height:62px}
+#play-panel .pp-head{display:flex;align-items:center;gap:8px;margin-bottom:9px;min-height:20px}
+#play-panel .pp-badge{padding:4px 9px;border-radius:6px;background:var(--nb-red);color:#fff;
+  font:700 11px/1 var(--ds-font);letter-spacing:.9px}
+#play-panel .pp-badge:empty{display:none}
+#play-panel .pp-seg{font:var(--t-labr);color:var(--d-t2);letter-spacing:-.3px}
+#play-panel .pp-idx{margin-left:auto;font:700 12px/1 var(--ds-font);color:var(--d-t3);font-variant-numeric:tabular-nums}
+/* 한글 타이틀은 어절 단위로 끊고 두 줄 길이를 균형 있게 */
+#play-panel .pp-stage{word-break:keep-all;overflow-wrap:break-word;text-wrap:balance}
+#play-panel .pp-meta{margin-top:8px;font:var(--t-capr);letter-spacing:var(--ls-capr);color:var(--d-t3)}
+
+/* 버튼 — 보조는 면(Surface), 주는 레드 알약 */
+#play-panel .pp-row{gap:8px;margin-top:14px}
+#play-panel button.pp-btn{border:0;border-radius:999px;background:var(--d-surface);color:var(--d-body);
+  font:var(--t-capb);letter-spacing:-.2px;padding:13px 0;display:flex;align-items:center;justify-content:center;gap:6px}
+#play-panel button.pp-btn.ico{flex:.62}
+#play-panel button.pp-btn svg{flex:0 0 auto}
+#play-panel button.pp-btn:hover{background:#2c2c2c;color:#fff}
+#play-panel button.pp-cta{background:var(--nb-red);color:#fff}
+#play-panel button.pp-cta:hover{background:#ff4646}
+/* 보조 조작(이전·다음·음소거·3인칭·처음으로) = 회색 서피스. 빨강은 '두 번 탭' 하나만(유저). */
+#play-panel .pp-row button.pp-btn{background:var(--d-surface);color:var(--d-body)}
+#play-panel .pp-row button.pp-btn:hover{background:#2c2c2c;color:#fff}
+#play-panel .pp-row button.pp-cta{background:var(--nb-red);color:#fff}
+#play-panel .pp-row button.pp-cta:hover{background:#ff4646;color:#fff}
+#play-panel .pp-start{border:0;border-radius:999px;background:var(--nb-red);color:#fff;
+  font:var(--t-bodyb);letter-spacing:var(--ls-body);padding:16px 0;box-shadow:none}
+#play-panel .pp-start:hover{background:#ff4646}
+#play-panel .pp-hint{margin-top:12px;font:var(--t-labr);color:var(--d-t3);letter-spacing:-.5px}
+
+/* 토글 = 같은 면 + 선택 시 레드 (샌드/프리즘 사용 안 함) */
+#play-panel .pp-toggles{gap:4px;padding:4px;border-radius:999px;background:var(--d-bg-sub);margin:18px 0 4px}
+#play-panel .pp-tg{border:0;border-radius:999px;background:transparent;color:var(--d-t3);
+  font:var(--t-labm);letter-spacing:var(--ls-lab);padding:10px 0}
+#play-panel .pp-tg:hover{background:transparent;color:var(--d-body)}
+#play-panel .pp-tg.on{background:var(--nb-red);color:#fff}
+#play-panel .pp-fold, #lab-panel .pp-fold{border:0;border-radius:999px;background:var(--d-surface);color:var(--d-t2)}
+
+/* 체험 랩 — 섹션 라벨(작은 회색) + 값(강조) 2열, 카드는 면처리 */
+#lab-panel .lab-logo{display:block;width:104px;height:auto;margin:2px 0 18px;opacity:.95}
+#lab-panel.folded .lab-logo{display:none}
+/* 실전 진입 = 유일한 주 행동 → 레드 (나머지 버튼은 중립 서피스) */
+#lab-panel #lab-run{border-color:var(--nb-red);background:var(--nb-red);color:#fff}
+#lab-panel #lab-run:hover{background:#e02a2a;border-color:#e02a2a;color:#fff}
+#lab-panel h3{margin:26px 0 10px;font:var(--t-labr);letter-spacing:.4px;color:var(--d-t3);font-weight:400}
+#lab-panel .lab-kv{padding:9px 0;font:var(--t-capr);letter-spacing:var(--ls-capr);
+  border-bottom:1px solid var(--d-divider)}
+#lab-panel .lab-kv span:first-child{color:var(--d-t3)}
+#lab-panel .lab-kv b{color:var(--d-strong);font-weight:700}
+#lab-panel .lab-note{font:var(--t-labr);color:var(--d-t3);letter-spacing:-.5px;line-height:1.6}
+#lab-panel .lab-sw{border:0;border-radius:var(--ds-r);background:var(--d-bg-sub);padding:13px 14px;margin-top:8px}
+#lab-panel .lab-sw .t{font:var(--t-capb);letter-spacing:-.2px;color:var(--d-strong)}
+#lab-panel .lab-sw .d{margin-top:3px;font:var(--t-labr);color:var(--d-t3);letter-spacing:-.5px}
+#lab-panel .lab-sw .dotsw{background:var(--d-border)}
+#lab-panel .lab-sw .dotsw::after{background:var(--d-disabled)}
+#lab-panel .lab-sw.on .dotsw{background:var(--nb-red)}
+#lab-panel .lab-sw.on .dotsw::after{background:#fff}
+#lab-panel .lab-live{margin-top:14px;padding:16px;border:0;border-radius:var(--ds-r);background:var(--d-bg-sub)}
+#lab-panel .lab-live b{color:var(--d-title);font:var(--t-d1);letter-spacing:var(--ls-d1)}
+#lab-panel .lab-go{border:0;border-radius:999px;background:var(--d-surface);color:var(--d-strong);
+  font:var(--t-capb);letter-spacing:-.2px;padding:14px 0}
+#lab-panel .lab-go:hover{background:#2c2c2c;color:#fff}
+#voice-caption{border-radius:16px;background:var(--d-bg);border:0;backdrop-filter:none;
+  font:var(--t-bodyr);letter-spacing:var(--ls-body);color:var(--d-title);padding:13px 22px}
+#dev-pill{border:0;border-radius:999px;background:var(--d-surface);color:var(--d-t3);font:var(--t-labr)}
 </style>
-  <script type="module" crossorigin src="./assets/main-CC0jCMKb.js"></script>
+  <script type="module" crossorigin src="./assets/main-6HsCchod.js"></script>
   <link rel="modulepreload" crossorigin href="./assets/fx-core-BzgiOU64.js">
-  <link rel="modulepreload" crossorigin href="./assets/tokens-NhWxlt-K.js">
+  <link rel="modulepreload" crossorigin href="./assets/tokens-CPMeE4mX.js">
 </head>
 <body>
   <aside id="panel" class="dev-only">
@@ -132,11 +370,11 @@ body:not(.dev) #stage { left: 0 !important; }
     </header>
 
     <nav class="tabs" id="pack-tabs">
-      <button data-pack="running" class="active">러닝</button>
+      <button data-pack="boxing" class="active">복싱</button>
+      <button id="bx-video" title="실사 섀도복싱 영상(Pexels 7187515, 측면)에서 펀치 33건 자동 추출 — 손 배치 0. 리듬·타겟 높이가 그 복서의 것" style="display:none;border-color:#d1feff;color:#d1feff;">🎥 복서</button>
+      <button data-pack="running">러닝</button>
       <button id="run-expert" title="Bandai 실측 러너(run_normal.bvh)에서 자동 추출된 전문가 팩 — 손 배치 0. 봇도 그 러너의 원본 모션을 그대로 재생" style="display:none;border-color:#fec389;color:#fec389;">⭐ 러너</button>
       <button id="run-video" title="영상 → MediaPipe 포즈 → 발 접지 자동 추출 팩 (video_pose_extract.py). 현재는 폐루프 검증 샘플(시뮬 봇 측면 캡처, Δt +9~32ms) — 외부 영상으로 교체 가능" style="display:none;border-color:#d1feff;color:#d1feff;">🎥 영상</button>
-      <button data-pack="boxing">복싱</button>
-      <button id="bx-video" title="실사 섀도복싱 영상(Pexels 7187515, 측면)에서 펀치 33건 자동 추출 — 손 배치 0. 리듬·타겟 높이가 그 복서의 것" style="display:none;border-color:#d1feff;color:#d1feff;">🎥 복서</button>
       <button data-pack="basketball">농구</button>
       <button id="bk-curry" title="NBA SportVU 실경기(2015-10-31, 53득점)에서 자동 추출된 커리 스텝백 — 손 배치 0" style="display:none;border-color:#fec389;color:#fec389;">⭐ 커리</button>
     </nav>
@@ -319,9 +557,10 @@ body:not(.dev) #stage { left: 0 !important; }
     const local = /^(localhost|127\.|192\.168\.)/.test(location.hostname);
     let on = q != null ? q !== '0' : (localStorage.getItem('newton.dev') ?? (local ? '1' : '0')) === '1';
     if (q != null) localStorage.setItem('newton.dev', on ? '1' : '0');
-    document.documentElement.classList.toggle('pre-dev', on);
+    // 렌더 전에(= deferred 모듈이 #stage 폭을 재기 전에) 즉시 적용해야 한다.
+    // DOMContentLoaded로 미루면 캔버스가 제품 뷰 폭(좌우 패널 뺀 954px)으로 굳는다.
+    document.body.classList.toggle('dev', on);
     addEventListener('DOMContentLoaded', () => {
-      document.body.classList.toggle('dev', on);
       const pill = document.createElement('button');
       pill.id = 'dev-pill';
       pill.textContent = on ? '개발자 모드 ON (D)' : '개발자 모드 OFF (D)';
@@ -344,14 +583,97 @@ body:not(.dev) #stage { left: 0 !important; }
     });
   })();
   </script>
+  <!-- 좌측 체험 랩 — 부품·보정 알고리즘·시야 원칙을 직접 켜고 끄며 확인 -->
+  <div id="lab-panel">
+    <img class="lab-logo" src="newton-logo.svg" alt="NEWTON">
+    <div class="pp-brand"><span class="pp-dot"></span><span class="pp-title">HOW IT WORKS</span>
+      <span class="pp-sub">체험 랩</span>
+    </div>
+    <div class="lab-body">
+      <button class="lab-go" id="lab-run">▶ 러닝 실전 · 3인칭으로 보기</button>
+      <div class="lab-note">달리는 동안 무릎 유닛이 어떻게 흔들림을 잡는지 그대로 볼 수 있다.</div>
+
+      <!-- 기본 펼침 = 만질 수 있는 것(보정 스위치)뿐. 값·근거는 접어 둔다. -->
+      <details open>
+        <summary>흔들림 보정</summary>
+        <div class="lab-sw" id="sw-raw"><span class="dotsw"></span><span><span class="t">보정 전부 끄기 (RAW)</span>
+          <div class="d">서보·짐벌 없이 정강이가 흔들리는 대로 쏜다</div></span></div>
+        <div class="lab-sw on" id="sw-lp"><span class="dotsw"></span><span><span class="t">① 각속도 저역통과</span>
+          <div class="d">ω를 20ms로 평활 — 접지 충격 스파이크 제거</div></span></div>
+        <div class="lab-sw on" id="sw-ff"><span class="dotsw"></span><span><span class="t">② 서보 피드포워드</span>
+          <div class="d">지연을 앞질러 조향 — 남는 건 잔차뿐</div></span></div>
+        <div class="lab-sw on" id="sw-gb"><span class="dotsw"></span><span><span class="t">③ 병진 짐벌 보정</span>
+          <div class="d">무릎이 올라갈 때의 '이동' 성분 상쇄(잔차 15%)</div></span></div>
+        <div class="lab-live">
+          <div style="font-size:10.5px;color:rgba(255,255,255,.6);letter-spacing:1px">지금 투사 오차</div>
+          <b id="lab-err">—</b> <span style="font-size:12px">cm</span>
+          <div class="lab-note" style="margin-top:4px">ω <b id="lab-omega">—</b>°/s · <b id="lab-phase">—</b></div>
+          <button class="lab-go" id="lab-burst" style="margin-top:8px;border-color:#fa3030;background:rgba(250,48,48,.14);color:#ff7a7a">과도 구간 재현</button>
+        </div>
+        <details>
+          <summary>왜 세 항은 티가 안 나나</summary>
+          <div class="lab-note">RAW가 전부를 끄는 스위치고, 아래 셋은 그 위에 얹히는 세부 보정이다.
+            정상 주행에선 기여가 작다(실측 0.25~0.28cm). 큰 값은 과도 구간에서 나온다.</div>
+        </details>
+      </details>
+
+      <details>
+        <summary>부품 · 마운트</summary>
+        <div class="lab-kv"><span>유닛 위치</span><b>무릎 아래 11cm 바깥면</b></div>
+        <div class="lab-kv"><span>렌즈 높이</span><b>≈51cm</b></div>
+        <div class="lab-kv"><span>짐벌 서보</span><b>최대 300°/s</b></div>
+        <div class="lab-kv"><span>투사창</span><b>5cm ~ 2.0m</b></div>
+        <div class="lab-kv"><span>투사 폭</span><b>64 → 169cm</b></div>
+      </details>
+
+      <details>
+        <summary>고개 각도 <span class="cnt">4단</span></summary>
+        <div class="lab-kv"><span><b>정면</b> −8°</span><b>11.4m</b></div>
+        <div class="lab-kv"><span><b>원경</b> −20°</span><b>4.4m</b></div>
+        <div class="lab-kv"><span><b>중경</b> −30°</span><b>2.8m</b></div>
+        <div class="lab-kv"><span><b>근경</b> −40°</span><b>1.9m</b></div>
+        <details>
+          <summary>장면 배정</summary>
+          <div class="lab-note">정면 = 복싱 전 구간·드리블 2막 · 원경 = 실전 달리기 ·
+            중경 = 전환·리치 홀드 · 근경 = READY·스트레칭·익히기·타이머·리포트</div>
+        </details>
+        <details>
+          <summary>고르는 규칙</summary>
+          <div class="lab-note">① 봐야 할 대상이 시야 중앙에 오는 단을 고른다
+            ② 오래 지속되는 장면일수록 얕게 — 지속 목 굴곡 20° 이내 권장(ISO 9241 계열)
+            ③ 발 위치를 맞추는 정밀 조작일수록 깊게. 장면마다 값을 새로 고르지 않는다.</div>
+        </details>
+        <details>
+          <summary>근거 · Matthis 2018</summary>
+          <div class="lab-note">보행자는 약 2보 앞(~1.5초 시간창)을 응시한다. 평지+가이드에선 더 멀리 보므로
+            실전이 원경(−20°)에, 발 근처를 보는 초심자 학습은 근경(−40°)에 앉는다.
+            눈높이 1.6m · 낙하점 = 1.6/tanθ · 전환 τ=0.9초.</div>
+        </details>
+      </details>
+
+      <details>
+        <summary>가시성 규칙</summary>
+        <div class="lab-kv"><span>창 경계</span><b>페더 18cm</b></div>
+        <div class="lab-kv"><span>공에 가릴 때</span><b>그 토큰만 소등</b></div>
+        <div class="lab-kv"><span>주간 모드</span><b>풀컬러 + 커버리지 α</b></div>
+        <details>
+          <summary>왜 끄는가</summary>
+          <div class="lab-note">투사광은 몸·공에 가려지는 게 물리적으로 맞다. 가려진 구간을 그리는 대신
+            정직하게 끄고(평균 1.4%), 페더로 경계가 사각형으로 드러나지 않게 한다.</div>
+        </details>
+      </details>
+    </div>
+  </div>
   <main id="stage">
     <div id="loading"><div class="spin"></div><span>X Bot · 팩 데이터 로드 중…</span></div>
     <div id="hud" class="dev-only"></div>
     <div id="event-flash"></div>
-    <div id="voice-caption" style="position:absolute;bottom:52px;left:50%;transform:translateX(-50%);
-      max-width:70%;padding:10px 18px;border-radius:22px;background:rgba(12,14,18,.82);
-      border:1px solid var(--line);font-size:14px;color:var(--text);opacity:0;transition:opacity .3s;
-      pointer-events:none;text-align:center;line-height:1.5;">
+    <!-- 코치 자막 = 상단에서 내려온다. 우측 체험 패널과 같은 높이선(top 20px)에 맞춰 정렬(유저) -->
+    <div id="voice-caption" style="position:absolute;top:20px;left:50%;transform:translateX(-50%) translateY(10px);
+      max-width:46%;padding:14px 26px 12px;border-radius:16px;background:rgba(12,14,18,.86);backdrop-filter:blur(10px);
+      font-size:14px;font-weight:700;color:var(--text);opacity:0;
+      transition:opacity .28s cubic-bezier(.2,.8,.3,1),transform .28s cubic-bezier(.2,.8,.3,1);
+      pointer-events:none;text-align:center;line-height:1.5;z-index:21;"><span id="vc-text"></span><span id="vc-wave"><i></i><i></i><i></i><i></i><i></i></span>
     </div>
 
     <button id="btn-real" class="dev-only" style="position:absolute;bottom:18px;right:60px;z-index:29;padding:9px 12px;border:1px solid var(--line);border-radius:8px;background:rgba(16,19,24,.9);color:var(--text);font-size:12px;font-weight:700;cursor:pointer;" title="실물 뷰 — 투사 커버리지(붉은 영역·빔) 숨김: 실제 러너 눈에는 투사된 UI만 보입니다">👁</button>
@@ -438,6 +760,43 @@ body:not(.dev) #stage { left: 0 !important; }
         <button id="btn-session-stop" style="flex:1;padding:7px 0;border:1px solid var(--line);border-radius:7px;background:var(--panel2);color:var(--dim);font-size:11px;cursor:pointer;">■ 세션 중단</button>
       </div>
     </div>
+
+    <!-- 제품 뷰 전용 체험 패널 — 팩 전환 + 세션 시작/조작을 이 하나로 (개발자 패널 없이) -->
+    <div id="play-panel">
+      <div class="pp-body">
+      <div class="pp-packs">
+        <button class="pp-pack" data-pp="boxing">복싱</button>
+        <button class="pp-pack" data-pp="running">러닝</button>
+        <button class="pp-pack" data-pp="basketball">농구</button>
+      </div>
+      <!-- 위계: [상태 배지 · 구간]  [n / N] → 타이틀 (유저) -->
+      <div class="pp-head"><span class="pp-badge" id="pp-code"></span>
+        <span class="pp-seg" id="pp-seg"></span><span class="pp-idx" id="pp-idx">체험</span></div>
+      <div class="pp-stage" id="pp-stage">세션을 시작하면 코치가 안내합니다</div>
+      <div class="pp-meta" id="pp-meta"></div>
+      <div class="pp-toggles">
+        <button class="pp-tg" id="pp-cone">시야콘</button>
+        <button class="pp-tg" id="pp-day">낮 / 밤</button>
+        <button class="pp-tg" id="pp-beam">빔 커버리지</button>
+      </div>
+      <div id="pp-idle">
+        <button class="pp-start" id="pp-start">세션 체험하기</button>
+        <div class="pp-hint">1인칭으로 전환 · F키 전체화면 · D키 개발자 모드</div>
+      </div>
+      <div id="pp-live" style="display:none">
+        <div class="pp-row">
+          <button class="pp-btn ico" id="pp-prev" title="이전 단계"><svg viewBox="0 -960 960 960" fill="currentColor" width="18" height="18"><path d="M220-240v-480h80v480h-80Zm520 0L380-480l360-240v480Z"/></svg></button>
+          <button class="pp-btn pp-cta" id="pp-tap"><svg viewBox="0 -960 960 960" fill="currentColor" width="18" height="18"><path d="M480-80q-83 0-141.5-58.5T280-280v-40h80v40q0 50 35 85t85 35q50 0 85-35t35-85v-320q0-17 11.5-28.5T640-640q17 0 28.5 11.5T680-600v320q0 83-58.5 141.5T480-80ZM280-400q-33 0-56.5-23.5T200-480v-200q0-33 23.5-56.5T280-760q33 0 56.5 23.5T360-680v200q0 33-23.5 56.5T280-400Z"/></svg><span>두 번 탭</span></button>
+          <button class="pp-btn ico" id="pp-next" title="다음 단계"><svg viewBox="0 -960 960 960" fill="currentColor" width="18" height="18"><path d="M660-240v-480h80v480h-80Zm-440 0v-480l360 240-360 240Z"/></svg></button>
+        </div>
+        <div class="pp-row">
+          <button class="pp-btn ico" id="pp-mute" title="음소거"><svg viewBox="0 -960 960 960" fill="currentColor" width="18" height="18"><path d="M560-131v-82q90-26 145-100t55-168q0-94-55-168T560-749v-82q124 28 202 125.5T840-481q0 127-78 224.5T560-131ZM120-360v-240h160l200-200v640L280-360H120Zm440 40v-322q47 22 73.5 66t26.5 96q0 51-26.5 94.5T560-320Z"/></svg></button>
+          <button class="pp-btn" id="pp-view"><svg viewBox="0 -960 960 960" fill="currentColor" width="18" height="18"><path d="M480-320q75 0 127.5-52.5T660-500q0-75-52.5-127.5T480-680q-75 0-127.5 52.5T300-500q0 75 52.5 127.5T480-320Zm0-72q-45 0-76.5-31.5T372-500q0-45 31.5-76.5T480-608q45 0 76.5 31.5T588-500q0 45-31.5 76.5T480-392Zm0 192q-146 0-266-81.5T40-500q54-137 174-218.5T480-800q146 0 266 81.5T920-500q-54 137-174 218.5T480-200Z"/></svg><span>3인칭</span></button>
+          <button class="pp-btn ico" id="pp-stop" title="처음으로"><svg viewBox="0 -960 960 960" fill="currentColor" width="18" height="18"><path d="M440-122q-121-15-200.5-105.5T160-440q0-66 26-126.5T260-672l57 57q-38 34-57.5 79T240-440q0 88 56 155.5T440-202v80Zm80 0v-80q87-16 143.5-83T720-440q0-100-70-170t-170-70h-3l44 44-56 56-140-140 140-140 56 56-44 44h3q134 0 227 93t93 227q0 121-79.5 211.5T520-122Z"/></svg></button>
+        </div>
+      </div>
+      </div>
+    </div>
   </main>
 
   <!-- 🔥 룩 시스템 — FX Lab. 우측 도킹 사이드패널(전체화면 아님) → 편집하는 동안 좌측에 씬이 보여
@@ -447,5 +806,7 @@ body:not(.dev) #stage { left: 0 !important; }
     <button id="fxlab-close" style="position:absolute;top:14px;right:20px;z-index:101;padding:8px 16px;border:1px solid #fec389;border-radius:8px;background:rgba(11,13,17,.92);color:#fec389;font-size:12px;font-weight:700;cursor:pointer;">✕ 시뮬로 돌아가기 (자동 저장됨)</button>
   </div>
 
+  <!-- 바닥 UI 장면 데이터(타이틀·큐) — WebGL 경로(floorgl.js)가 메인 문서에서 읽는다. CSS3D 경로도 같은 파일을 쓴다. -->
+  <script src="ready-view/floor-scenes.js"></script>
 </body>
 </html>
