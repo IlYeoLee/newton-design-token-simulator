@@ -948,7 +948,7 @@ void main(){
     if (!captionEl) return;
     // 실전(C1~C5) = 무자막(유저 확정): 음성만. 달리며 글 읽기 금지 — 빛 언어가 전달.
     if (session?.active && /^C\d$/.test(session.stage || '')) return;
-    captionEl.innerHTML = `<b>🔊 ${who}</b> · ${text}`;
+    captionEl.textContent = text;   // 화자 이름·스피커 아이콘 제거(유저) — 문장만 가운데 정렬
     captionEl.style.opacity = '1';
     captionEl.style.transform = 'translateX(-50%) translateY(0)';   // 상단에서 살짝 내려오며 등장
     clearTimeout(captionTimer);
