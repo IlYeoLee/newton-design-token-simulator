@@ -2720,7 +2720,12 @@ void main(){
           col = mix(col / 12.92, pow((col + 0.055) / 1.055, vec3(2.4)), step(0.04045, col));
           // 잔상 = 순수 가산광 (알파 0 = 절대 어둡게 못 함) — 잔상 구름이 잉크 알파를 갖고
           // 벽을 어둑한 사각으로 덮던 문제('터질 때 박스') 종결. 실루엣만 잉크 불투명.
-          gl_FragColor = vec4(col * live, clamp(shapeA * 1.2, 0.0, 1.0) * field * live * 0.985);
+          // 빛이 없으면 그리지 않는다 — 투사 UI 는 가산광이라 '검정'은 곧 '없음'이다.
+          //   shape(색용)와 shapeA(알파용)가 따로 계산돼서, 마스크가 흔들리면 색은 0인데
+          //   알파만 1이 되어 판이 통째로 검은 사각형으로 찍혔다(유저 스샷: 드리블 중 검정 박스).
+          float lum = max(col.r, max(col.g, col.b));
+          float inkGate = smoothstep(0.0, 0.02, lum);
+          gl_FragColor = vec4(col * live, clamp(shapeA * 1.2, 0.0, 1.0) * field * live * 0.985 * inkGate);
         }`,
       transparent: true, depthWrite: false,
       // out = col + dst·(1−a) — 랩의 base·(1−a·0.88)+col 과 동일 (프리멀티 커스텀 블렌딩)
@@ -4066,7 +4071,9 @@ void main(){
           vec3 col = personColor(heat) * mSoft * 1.12;
           col += personColor(heat * 0.45) * trail * 0.38;
           // 알파 = 실루엣 마스크 추종 — 알파 1.0 고정이 흰 벽에서 쿼드 사각 박스로 드러났음 (유저)
-          gl_FragColor = vec4(col, clamp(max(mSoft * 1.15, trail * 0.5), 0.0, 1.0));
+          // 같은 원리 — 빛이 없는 픽셀은 알파도 0 (검은 판 방지)
+          float lum2 = max(col.r, max(col.g, col.b));
+          gl_FragColor = vec4(col, clamp(max(mSoft * 1.15, trail * 0.5), 0.0, 1.0) * smoothstep(0.0, 0.02, lum2));
         }`,
       transparent: true, depthWrite: false, blending: THREE.NormalBlending,
     }));

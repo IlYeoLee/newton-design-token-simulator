@@ -165,7 +165,7 @@ function ringGeom(size) {   // SVG viewBox 604 · r275 규약 → 캔버스 px
   return { r: 275 * s, wTrack: 6 * s, wArc: 11 * s, dash: [0.5 * s, 20.5 * s] };
 }
 
-function drawRing(ctx, n, y, prog, color) {
+function drawRing(ctx, n, y, prog, color, noTip) {
   const { r, wTrack, wArc, dash } = ringGeom(n.size);
   const cx = CX, cy = y + n.size / 2;
   ctx.save();
@@ -178,7 +178,8 @@ function drawRing(ctx, n, y, prog, color) {
     ctx.strokeStyle = color || '#fff'; ctx.lineWidth = wArc;
     ctx.beginPath(); ctx.arc(cx, cy, r, -Math.PI / 2, -Math.PI / 2 + prog * Math.PI * 2); ctx.stroke();
   }
-  // ponytail: 회전 팁 = timer_tip.svg 대신 같은 자리 빨간 점. 이 크기(28px)에선 실루엣이 같다.
+  // 회전 팁 = timer_tip.svg 대신 같은 자리 빨간 점. noTip 이면 호출자가 별도 레이어로 그린다(60fps).
+  if (noTip) { ctx.restore(); return; }
   const a = -Math.PI / 2 + prog * Math.PI * 2;
   ctx.fillStyle = RED;
   ctx.beginPath(); ctx.arc(cx + r * Math.cos(a), cy + r * Math.sin(a), n.size * 0.07, 0, Math.PI * 2); ctx.fill();
@@ -368,7 +369,7 @@ export class FloorGL {
         continue;
       }
       const sig = n.id + '|' + n.textContent + JSON.stringify(n.style) + JSON.stringify(n._attr || {})
-        + (live ? '|l' + Math.round(t * 30) : '');
+        + (live ? '|l' + Math.round(t * 60) : '');
       // 매 프레임 굽는 노드(도트·링·숫자)는 전폭이면 비싸다 → 실제 상자만
       const box = live ? ({ dots: [CX - 340, 680], prevRow: [CX - 380, 760], km: [CX - 320, 640],
         trainRow: [CX - 400, 800], liveRow: [CX - 420, 840], succ: [CX - 340, 680] }[n.type]) : null;
@@ -453,12 +454,24 @@ export class FloorGL {
     return [
       this._blGlow(1160, 2200, this._driftMotion(t)),
       ...this._blTitle(t, M.sub, M.title),
-      { name: 'ring', x: CX - 362, w: 724, y, h: 604, pad: 60, sig: 'rg' + Math.round(t * 30),
+      // 링 몸통 — 아크가 자라는 건 내용이라 다시 굽지만 24fps 면 눈에 안 띈다(팁이 시선을 끈다)
+      { name: 'ring', x: CX - 362, w: 724, y, h: 604, pad: 60, sig: 'rg' + Math.round(t * 24),
         draw: (g) => {
           if (br != null) { const gg = kf(br, [[0, 0], [.5, 1], [1, 0]]);
             g.shadowColor = rgba(NEU.ink, .35 * gg); g.shadowBlur = 26 * gg; }
-          drawRing(g, { size: 604 }, y, clamp01(t / dur), NEU.ink); g.shadowBlur = 0; },
+          drawRing(g, { size: 604 }, y, clamp01(t / dur), NEU.ink, true); g.shadowBlur = 0; },
         motion: { alpha: kf(e, [[0, 0], [.7, 1], [1, 1]]), scale: kf(e, [[0, .6], [.7, 1.05], [1, 1]]) } },
+      // 회전 팁 — 작은 레이어를 변환으로만 돌린다 → 60fps 매끄러움 (몸통은 24fps 라도 티가 안 난다)
+      (() => {
+        const R = 275 * (604 / 604), tr = 604 * 0.07;   // drawRing 규약: viewBox 604 · r275
+        const pr = clamp01(t / dur), a = -Math.PI / 2 + pr * Math.PI * 2;
+        const bx = CX - tr * 2, by = cy - tr * 2;        // 기준 상자(중앙) — 변환으로 궤도에 올린다
+        return { name: 'tip', x: bx, w: tr * 4, y: by, h: tr * 4, pad: 8, sig: 'tip',
+          draw: (g) => { g.fillStyle = PAL.red; g.shadowColor = rgba(PAL.red, .6); g.shadowBlur = 18;
+            g.beginPath(); g.arc(bx + tr * 2, by + tr * 2, tr, 0, Math.PI * 2); g.fill(); g.shadowBlur = 0; },
+          motion: { alpha: kf(e, [[0, 0], [.7, 1], [1, 1]]),
+                    dx: Math.cos(a) * R, dy: -Math.sin(a) * R } };
+      })(),
       { name: 'num', x: CX - 210, w: 420, y: cy - 130, h: 260, pad: 20, sig: 'n' + val,
         draw: (g) => drawCenteredNum(g, val, CX, cy, 220),
         motion: { alpha: kf(q, [[0, 0], [.35, 1], [1, 1]]) * kf(e, [[0, 0], [.7, 1], [1, 1]]),
