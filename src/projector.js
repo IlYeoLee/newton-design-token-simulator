@@ -157,6 +157,10 @@ export class ProjectorRig {
     this.initialized = false;
     // 스트레치(준비운동) 빔 지면 고정 — 빔다리(오른)를 접어도 빔이 몸 앞 지면에 유지되게(미래 짐벌 보정 가정).
     this.beamGroundLock = false;
+    // 체험 랩 스위치 — 각 보정 단계를 실제로 끈다(체감용). 전부 true = 현행 알고리즘.
+    //   servoFF: 속도 피드포워드(서보가 미리 따라감) · omegaLP: 각속도 저역통과 ·
+    //   gimbal: 마운트 병진의 짐벌 보정(끄면 잔차 15% → 100%)
+    this.stab = { servoFF: true, omegaLP: true, gimbal: true };
     // 빔을 특정 지면 타겟(앞발 위치)에 락 — 무게이동으로 빔다리 흔들려도 앞발 링이 그 자리 고정({x,z} 또는 null).
     this.beamTarget = null;
 
@@ -337,7 +341,7 @@ export class ProjectorRig {
         // 사람이 낼 수 없는 순간 변화 = 클립 랩/전환에 의한 포즈 불연속.
         // 운동이 아니므로 신호로 받지 않고 직전 ω를 유지한다(가짜 스파이크 차단).
         if (inst <= omegaMaxDps()) {
-          this.omegaDps += (inst - this.omegaDps) * (1 - Math.exp(-dt / OMEGA_TAU));
+          this.omegaDps += this.stab.omegaLP ? (inst - this.omegaDps) * (1 - Math.exp(-dt / OMEGA_TAU)) : (inst - this.omegaDps);
         }
       }
       this._shinPrev = shinDir.clone();
@@ -378,7 +382,7 @@ export class ProjectorRig {
 
       // ── 잔여 오차 = 오차모델이 유도한 3항의 합 (매직상수 없음) ──
       // ① 서보 랙: 속도 피드포워드가 지우지 못한 나머지(1 − ffCancel, 실측 0.67)
-      const lag = this.qStab.clone().sub(stableLocal).multiplyScalar(residualFrac());
+      const lag = this.qStab.clone().sub(stableLocal).multiplyScalar(this.stab.servoFF ? residualFrac() : 1);
       // ② 지연 잔차: 크기는 ω 의존 지연항(모델), 방향은 실제 무릎 편차
       const dev = new THREE.Vector3(rawLocal.x - stableLocal.x, 0, rawLocal.z - stableLocal.z);
       if (dev.lengthSq() > 1e-8) dev.normalize();
@@ -460,7 +464,7 @@ export class ProjectorRig {
       if (!this._mountRest) this._mountRest = mount.clone();
       this._mountRest.lerp(mount, 1 - Math.exp(-dt / 2.5));
       const mvx = mount.x - this._mountRest.x, mvy = mount.y - this._mountRest.y, mvz = mount.z - this._mountRest.z;
-      const TRES = 0.15;   // 병진 짐벌 미보정률(5년뒤 양산 소비자)
+      const TRES = this.stab.gimbal ? 0.15 : 1.0;   // 병진 짐벌 미보정률(끄면 보정 없음 = 100% 잔차)
       jx += (mvx + fwd.x * mvy * 1.2) * TRES;   // 수평 + 수직→전방 스윕(빔 각도)
       jz += (mvz + fwd.z * mvy * 1.2) * TRES;
       ox += jx; oz += jz;

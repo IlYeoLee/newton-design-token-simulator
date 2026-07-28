@@ -4494,6 +4494,40 @@ void main(){
       }, 250);
     }
   }
+  // ── 좌측 체험 랩 — 보정 스위치는 실제 계산 경로를 끈다(장식 아님) ──
+  {
+    const $ = id => document.getElementById(id);
+    const lab = $('lab-panel');
+    if (lab) {
+      const sw = (id, key) => {
+        const el = $(id);
+        el.addEventListener('click', () => { rig.stab[key] = !rig.stab[key]; el.classList.toggle('on', rig.stab[key]); });
+      };
+      sw('sw-lp', 'omegaLP'); sw('sw-ff', 'servoFF'); sw('sw-gb', 'gimbal');
+      $('lab-fold').addEventListener('click', () => {
+        lab.classList.toggle('folded');
+        localStorage.setItem('newton.labFold', lab.classList.contains('folded') ? '1' : '0');
+        requestAnimationFrame(() => dispatchEvent(new Event('resize')));
+      });
+      if (localStorage.getItem('newton.labFold') === '1') lab.classList.add('folded');
+      $('lab-run').addEventListener('click', () => {
+        startSessionFor('running');
+        const s = session, i = s.stages.findIndex(x => x.id === 'C2');
+        if (i >= 0) { s.stageIdx = i; s.t = 0; s._enter(); }
+        fpUserSet = true; setFp(false);   // 3인칭 고정 프레이밍
+      });
+      $('lab-burst')?.addEventListener('click', () => {   // 스테이지 재진입 = 실제 과도 구간
+        const st = session.curStage; if (!st) return;
+        session.t = 0; session._enter(); rig.resetOmega?.();
+      });
+      setInterval(() => {
+        if (lab.classList.contains('folded')) return;
+        $('lab-err').textContent = (rig.errorCm ?? 0).toFixed(1);
+        $('lab-omega').textContent = (rig.omegaDps ?? 0).toFixed(0);
+        $('lab-phase').textContent = rig.budget?.phase === 'swing' ? '스윙' : '스탠스';
+      }, 200);
+    }
+  }
   // 빌드 스탬프 — 캐시된 구버전 확인용 (좌하단 미세 표기)
   {
     const bs = document.createElement('div');

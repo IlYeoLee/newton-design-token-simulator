@@ -164,6 +164,36 @@ body:not(.dev):has(#play-panel.folded) #stage{margin-right:56px}
 #play-panel .pp-tg.on{border-color:#d1feff;background:rgba(209,254,255,.14);color:#d1feff}
 #play-panel .pp-hint{margin-top:9px;font-size:11px;color:rgba(255,255,255,.38);text-align:center}
 body:not(.dev) #session-hud{display:none !important}
+/* ── 좌측 체험 랩 패널(제품 뷰) — 알고리즘·부품·보정 원리 체험 ───────────── */
+#lab-panel{position:fixed;left:0;top:0;bottom:0;width:326px;z-index:22;display:none;overflow-y:auto;
+  background:rgba(10,12,16,.94);backdrop-filter:blur(14px);border-right:1px solid rgba(255,255,255,.09);
+  padding:22px 20px 40px;font-family:'Pretendard',system-ui,sans-serif;color:#fff}
+body:not(.dev) #lab-panel{display:block}
+body:not(.dev) #stage{margin-left:326px}
+body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
+#lab-panel.folded{width:56px;padding:16px 12px}
+#lab-panel.folded .lab-body,#lab-panel.folded .pp-title,#lab-panel.folded .pp-sub{display:none}
+#lab-panel h3{margin:18px 0 8px;font-size:11px;letter-spacing:1.6px;color:#fec389;font-weight:800}
+#lab-panel .lab-kv{display:flex;justify-content:space-between;gap:10px;padding:6px 0;
+  border-bottom:1px solid rgba(255,255,255,.06);font-size:12px}
+#lab-panel .lab-kv span:first-child{color:rgba(255,255,255,.55)}
+#lab-panel .lab-kv b{font-weight:700;color:#fff}
+#lab-panel .lab-note{font-size:11px;color:rgba(255,255,255,.42);line-height:1.6;margin-top:6px}
+#lab-panel .lab-sw{display:flex;align-items:center;gap:9px;padding:9px 10px;margin-top:6px;
+  border:1px solid rgba(255,255,255,.10);border-radius:10px;background:rgba(255,255,255,.04);cursor:pointer}
+#lab-panel .lab-sw .dotsw{width:26px;height:15px;border-radius:99px;background:#333a45;position:relative;flex:0 0 auto}
+#lab-panel .lab-sw .dotsw::after{content:'';position:absolute;top:2px;left:2px;width:11px;height:11px;border-radius:50%;
+  background:#8b93a1;transition:transform .18s,background .18s}
+#lab-panel .lab-sw.on .dotsw{background:rgba(209,254,255,.3)}
+#lab-panel .lab-sw.on .dotsw::after{transform:translateX(11px);background:#d1feff}
+#lab-panel .lab-sw .t{font-size:12px;font-weight:700}
+#lab-panel .lab-sw .d{font-size:10.5px;color:rgba(255,255,255,.45);line-height:1.45}
+#lab-panel .lab-live{margin-top:10px;padding:11px 12px;border-radius:11px;background:rgba(250,48,48,.10);
+  border:1px solid rgba(250,48,48,.28)}
+#lab-panel .lab-live b{font-size:20px;font-weight:800}
+#lab-panel .lab-go{width:100%;margin-top:12px;padding:12px 0;border:1px solid #d1feff;border-radius:11px;
+  background:rgba(209,254,255,.12);color:#d1feff;font-size:12.5px;font-weight:800;cursor:pointer}
+#lab-panel .lab-go:hover{background:rgba(209,254,255,.2)}
 #dev-pill{position:absolute;bottom:18px;left:18px;z-index:40;padding:7px 11px;border:1px solid var(--line);
   border-radius:8px;background:rgba(16,19,24,.82);color:var(--dim);font-size:11px;cursor:pointer;font-weight:700}
 </style>
@@ -388,6 +418,53 @@ body:not(.dev) #session-hud{display:none !important}
     });
   })();
   </script>
+  <!-- 좌측 체험 랩 — 부품·보정 알고리즘·시야 원칙을 직접 켜고 끄며 확인 -->
+  <div id="lab-panel">
+    <div class="pp-brand"><span class="pp-dot"></span><span class="pp-title">HOW IT WORKS</span>
+      <span class="pp-sub">체험 랩</span>
+      <button class="pp-fold" id="lab-fold" title="접기 / 펼치기">⌃</button></div>
+    <div class="lab-body">
+      <button class="lab-go" id="lab-run">▶ 러닝 실전 · 3인칭으로 보기</button>
+      <div class="lab-note">달리는 동안 무릎 유닛이 어떻게 흔들림을 잡는지 그대로 볼 수 있다.</div>
+
+      <h3>부품 · 마운트</h3>
+      <div class="lab-kv"><span>유닛 위치</span><b>무릎 아래 11cm(윗종아리) 바깥면</b></div>
+      <div class="lab-kv"><span>렌즈 높이</span><b>≈51cm (무릎 h 실측)</b></div>
+      <div class="lab-kv"><span>짐벌 서보</span><b>최대 300°/s</b></div>
+      <div class="lab-kv"><span>투사창</span><b>발 앞 5cm ~ 2.0m · 폭 64→169cm</b></div>
+
+      <h3>흔들림 보정 — 구성 요소 켜고 끄기</h3>
+      <div class="lab-note" style="margin:0 0 8px">아래 스위치는 실제 계산 경로를 끈다. 다만 <b>정상 주행 구간에선
+        세 항의 기여가 작다</b> — 실측 평균 0.25~0.28cm로 켜고 끈 차이가 오차 범위 안이다.
+        큰 오차는 급가속·전환 같은 <b>과도 구간</b>에서 나온다(실측 평균 1.5cm · 최대 6.1cm).</div>
+      <div class="lab-sw on" id="sw-lp"><span class="dotsw"></span><span><span class="t">① 각속도 저역통과</span>
+        <div class="d">정강이 ω를 20ms로 평활 — 접지 충격 스파이크를 신호에서 걸러낸다</div></span></div>
+      <div class="lab-sw on" id="sw-ff"><span class="dotsw"></span><span><span class="t">② 서보 속도 피드포워드</span>
+        <div class="d">지연을 미리 앞질러 조향 — 남는 건 잔차뿐</div></span></div>
+      <div class="lab-sw on" id="sw-gb"><span class="dotsw"></span><span><span class="t">③ 마운트 병진 짐벌 보정</span>
+        <div class="d">무릎이 올라갈 때 유닛이 '이동'하는 성분까지 상쇄(잔차 15%)</div></span></div>
+      <div class="lab-live">
+        <div style="font-size:10.5px;color:rgba(255,255,255,.6);letter-spacing:1px">지금 투사 오차</div>
+        <b id="lab-err">—</b> <span style="font-size:12px">cm</span>
+        <div class="lab-note" style="margin-top:4px">정강이 ω <b id="lab-omega">—</b>°/s · 위상 <b id="lab-phase">—</b></div>
+        <button class="lab-go" id="lab-burst" style="margin-top:8px;border-color:#fa3030;background:rgba(250,48,48,.14);color:#ff7a7a">과도 구간 재현(전환 순간)</button>
+      </div>
+
+      <h3>고개 각도 원칙</h3>
+      <div class="lab-kv"><span>시선 낙하 지점</span><b>1.3 ~ 9.9m</b></div>
+      <div class="lab-kv"><span>중심시야</span><b>47°</b></div>
+      <div class="lab-kv"><span>투사 밴드</span><b>시야 안쪽 2/3 구간</b></div>
+      <div class="lab-note">달릴 때 사람 시선은 3~5m 앞 지면에 떨어진다. 그래서 UI를 발밑이 아니라
+        그 낙하점 근처에 놓고, 가까운 쪽은 큰 글자·먼 쪽은 방향 지시만 둔다.</div>
+
+      <h3>가시성 규칙</h3>
+      <div class="lab-kv"><span>창 경계</span><b>페더 18cm — 하드컷 금지</b></div>
+      <div class="lab-kv"><span>공에 가려질 때</span><b>그 토큰만 소등(평균 1.4%)</b></div>
+      <div class="lab-kv"><span>주간 모드</span><b>풀컬러 잉크 + 커버리지 알파</b></div>
+      <div class="lab-note">투사광은 몸·공에 가려지는 게 물리적으로 맞다. 가려진 구간을 그리는 대신
+        정직하게 끄고, 대신 페더로 경계가 사각형으로 드러나지 않게 한다.</div>
+    </div>
+  </div>
   <main id="stage">
     <div id="loading"><div class="spin"></div><span>X Bot · 팩 데이터 로드 중…</span></div>
     <div id="hud" class="dev-only"></div>
