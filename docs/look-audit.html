@@ -246,20 +246,28 @@ footer{padding:36px 0 60px;color:var(--t4);font-size:12.5px}
   <div class="grid5" id="prims"></div>
 </section>
 
+
 <section>
-  <div class="sec-head"><span class="n">06</span><h2>팩별 사용</h2></div>
+  <div class="sec-head"><span class="n">06</span><h2>공통 컴포넌트 — 등록 <span class="srcbadge real">정본 코드</span></h2></div>
+  <p class="note">토큰(MARK·LINE·GLYPH)보다 한 단계 위, 화면보다 한 단계 아래에 있는 것들. 두 대지·세 팩에 걸쳐 <b style="color:var(--t1)">같은 물건이 여러 번 나오는데 이름이 없어서</b> 파일마다 조금씩 다르게 그려지고 있었습니다. 아래가 등록 대상입니다 — 그림은 정본 코드로 그렸습니다.</p>
+  <div class="strip" id="comps"></div>
+  <div class="tblwrap" style="margin-top:16px"><table id="comptbl"></table></div>
+</section>
+
+<section>
+  <div class="sec-head"><span class="n">07</span><h2>팩별 사용</h2></div>
   <p class="note">세션 빌더가 실제로 생성하는 인스턴스 수. 러닝은 발형+레인, 농구는 방향(화살표 7개)이 가장 무겁고, 복싱은 벽 존과 파생 프리미티브 전용입니다.</p>
   <div class="tblwrap"><table id="matrix"></table></div>
 </section>
 
 <section>
-  <div class="sec-head"><span class="n">07</span><h2>룩시스템 밖 — 감사 7건</h2></div>
+  <div class="sec-head"><span class="n">08</span><h2>룩시스템 밖 — 감사 7건</h2></div>
   <p class="note">"모든 것은 온도다"가 실제로는 어디까지만 지켜지는지. 심각도 순.</p>
   <div id="findings"></div>
 </section>
 
 <section>
-  <div class="sec-head"><span class="n">08</span><h2>없는 토큰 — 도입 제안</h2></div>
+  <div class="sec-head"><span class="n">09</span><h2>없는 토큰 — 도입 제안</h2></div>
   <p class="note">투사 UI(<code class="inline">floorgl.js</code>·<code class="inline">wallgl.js</code>)에는 타이포·반경·모션 토큰이 없어 화면마다 상수를 따로 듭니다. 앱 셸이 이미 쓰는 스케일을 대지 좌표(1600×2670 / 2600×1600)로 환산한 안입니다.</p>
 
   <h3 style="margin-top:26px">타이포 — 대지 px</h3>
@@ -288,7 +296,7 @@ footer{padding:36px 0 60px;color:var(--t4);font-size:12.5px}
 </section>
 
 <section style="border-bottom:none">
-  <div class="sec-head"><span class="n">09</span><h2>지금 값 내보내기</h2></div>
+  <div class="sec-head"><span class="n">10</span><h2>지금 값 내보내기</h2></div>
   <p class="note">레일에서 맞춘 값입니다. <code class="inline">src/fxlut.js</code>의 <code class="inline">FXP</code>에 그대로 붙이면 시뮬레이터에 반영됩니다.</p>
   <textarea id="out" readonly></textarea>
   <button class="btn" id="copy">복사</button>
@@ -1507,6 +1515,120 @@ GSLOTS.forEach(([slot,name])=>{
   mkCell(document.getElementById('glyphs'),
     `<b style="color:var(--t1)">${name}</b><br><span style="font-size:10px;color:var(--t4)">drawNumber('${v}')</span>`,
     104,104,(g,t)=>{ g.clearRect(0,0,104,104); drawNumber(g,v,52,52,72) })});
+
+
+/* ── 공통 컴포넌트 — 정본 코드로 그린다 ────────────────────────────── */
+const COMPS=[
+ {k:'dots',   n:'프로그래스 도트바', src:'floorgl._dots', use:'러닝·농구 운동중 · 복싱 씬',
+  d:'회색 10개 위 빨강 10개를 좌→우 클립'},
+ {k:'ring',   n:'카운트다운 링', src:'floorgl.drawRing', use:'타이머 3화면 · 프리뷰 · Success',
+  d:'점선 트랙 + 채워지는 아크 + 회전 팁'},
+ {k:'pct',    n:'퍼센트 링', src:'floorgl._paint_report', use:'리포트 2화면',
+  d:'실선 트랙 + 아크 + 숫자 카운트업'},
+ {k:'succ',   n:'Success 배지', src:'floorgl._succ', use:'지면 판정',
+  d:'필 배지 + 점선 카운트다운 링 (Figma 130-2984)'},
+ {k:'glow',   n:'배경 그라디언트', src:'bg_glow.svg + glowDrift', use:'전환·타이머·리포트 (양 대지)',
+  d:'라디얼 마스크로 사각 모서리 차단 · 15s 드리프트'},
+ {k:'tap',    n:'Foot 두 번 탭', src:'floorgl._paint_ready / wallgl', use:'시작화면 3종',
+  d:'발 실루엣 + 화살표 + 카피 · footBob 5.5s'},
+ {k:'person', n:'인물 보정(열화상)', src:'FXP.person', use:'코치 영상 전체',
+  d:'blur·glow·flow·decay·detail·grain·tone 7파라미터'}];
+
+function drawComp(g,W,kind,t){
+  g.clearRect(0,0,W,W);
+  const tt=RM?1.2:t, c=W/2;
+  g.lineCap='round'; g.lineJoin='round';
+  if(kind==='dots'){
+    const n=10, s=W*0.072, x0=c-s*n/2, y=c-s/2, p=(tt*0.25)%1;
+    for(let i=0;i<n;i++){ g.fillStyle=NEU_LO; g.beginPath();
+      g.arc(x0+i*s+s/2,y+s/2,s/2,0,7); g.fill() }
+    g.save(); g.beginPath(); g.rect(x0,y,s*n*p,s); g.clip();
+    for(let i=0;i<n;i++){ g.fillStyle=lut(.30); g.beginPath();
+      g.arc(x0+i*s+s/2,y+s/2,s/2,0,7); g.fill() }
+    g.restore();
+  } else if(kind==='ring'){
+    const r=W*0.30, p=(tt*0.3)%1;
+    g.strokeStyle='rgba(255,255,255,.28)'; g.lineWidth=W*0.022;
+    g.setLineDash([W*0.004,W*0.075]);
+    g.beginPath(); g.arc(c,c,r,0,7); g.stroke(); g.setLineDash([]);
+    g.strokeStyle='#fff'; g.lineWidth=W*0.036;
+    g.beginPath(); g.arc(c,c,r,-Math.PI/2,-Math.PI/2+p*7); g.stroke();
+    const a=-Math.PI/2+p*7; g.fillStyle=lut(.30);
+    g.shadowColor=lutA(.30,.6); g.shadowBlur=W*0.08;
+    g.beginPath(); g.arc(c+r*Math.cos(a),c+r*Math.sin(a),W*0.05,0,7); g.fill(); g.shadowBlur=0;
+    g.fillStyle='#fff'; g.font=`700 ${W*0.26}px OffBit,monospace`;
+    g.textAlign='center'; g.textBaseline='middle'; g.fillText(String(Math.ceil(3-p*3)||1),c,c);
+  } else if(kind==='pct'){
+    const r=W*0.30, p=eOut(clamp01(((tt*0.35)%1.4)/1.0));
+    g.strokeStyle='rgba(255,255,255,.22)'; g.lineWidth=W*0.05;
+    g.beginPath(); g.arc(c,c,r,0,7); g.stroke();
+    g.strokeStyle='#fff';
+    g.beginPath(); g.arc(c,c,r,-Math.PI/2,-Math.PI/2+p*7); g.stroke();
+    g.fillStyle='#fff'; g.font=`700 ${W*0.24}px OffBit,monospace`;
+    g.textAlign='center'; g.textBaseline='middle'; g.fillText(Math.round(p*100)+'%',c,c);
+  } else if(kind==='succ'){
+    const bw=W*0.62, bh=W*0.19, by=W*0.16;
+    g.fillStyle='rgba(255,255,255,.92)';
+    g.beginPath(); g.roundRect(c-bw/2,by,bw,bh,bh/2); g.fill();
+    g.fillStyle='#525252'; g.font=`700 ${W*0.10}px OffBit,monospace`;
+    g.textAlign='center'; g.textBaseline='middle'; g.fillText('Success!',c,by+bh/2);
+    const r=W*0.20, cy=W*0.66, p=1-((tt*0.3)%1);
+    g.strokeStyle='rgba(255,255,255,.28)'; g.lineWidth=W*0.02;
+    g.setLineDash([W*0.004,W*0.07]); g.beginPath(); g.arc(c,cy,r,0,7); g.stroke(); g.setLineDash([]);
+    g.strokeStyle='#fff'; g.lineWidth=W*0.03;
+    g.beginPath(); g.arc(c,cy,r,-Math.PI/2,-Math.PI/2+p*7); g.stroke();
+    g.fillStyle='#fff'; g.font=`700 ${W*0.16}px OffBit,monospace`;
+    g.fillText(String(Math.ceil(p*3)||1),c,cy);
+  } else if(kind==='glow'){
+    const dr=(tt/15)%1, dx=kf(dr,[[0,0],[.25,-.06],[.5,.06],[.75,-.03],[1,0]])*W;
+    const dy=kf(dr,[[0,0],[.25,.04],[.5,-.05],[.75,.04],[1,0]])*W;
+    const gg=g.createRadialGradient(c+dx,c+dy,0,c+dx,c+dy,W*0.52);
+    gg.addColorStop(0,lutA(.30,.85)); gg.addColorStop(.45,lutA(.56,.35));
+    gg.addColorStop(.8,lutA(.86,.10)); gg.addColorStop(1,'rgba(0,0,0,0)');
+    g.fillStyle=gg; g.fillRect(0,0,W,W);
+  } else if(kind==='tap'){
+    const fb=(tt-2.2)/5.5, ph=fb<0?0:fb%1;
+    const dyF=kf(ph,[[0,0],[.10,W*0.09],[.20,W*0.016],[.32,W*0.08],[.44,0],[.70,0],[1,0]]);
+    const gg=g.createRadialGradient(c,c+W*0.16,0,c,c+W*0.16,W*0.40);
+    gg.addColorStop(0,lutA(.30,.55)); gg.addColorStop(1,'rgba(0,0,0,0)');
+    g.fillStyle=gg; g.fillRect(0,0,W,W);
+    g.strokeStyle='#fff'; g.lineWidth=W*0.02;
+    g.beginPath(); g.moveTo(c,W*0.16); g.lineTo(c,W*0.26); g.moveTo(c-W*0.04,W*0.22);
+    g.lineTo(c,W*0.26); g.lineTo(c+W*0.04,W*0.22); g.stroke();
+    g.fillStyle='#fff'; g.font=`700 ${W*0.085}px Supreme,sans-serif`;
+    g.textAlign='center'; g.textBaseline='middle'; g.fillText('Tap ×2',c,W*0.37);
+    primEnv().foot(g,false,c,W*0.68+dyF,W*0.30);
+  } else {   // person — 열화상 인물 보정
+    const gg=g.createLinearGradient(0,W*0.2,0,W*0.9);
+    gg.addColorStop(0,lut(.86)); gg.addColorStop(.5,lut(.56)); gg.addColorStop(1,lut(.30));
+    g.fillStyle=gg;
+    g.beginPath(); g.ellipse(c,W*0.3,W*0.10,W*0.11,0,0,7); g.fill();
+    g.beginPath(); g.roundRect(c-W*0.15,W*0.40,W*0.30,W*0.34,W*0.07); g.fill();
+    g.beginPath(); g.roundRect(c-W*0.11,W*0.72,W*0.09,W*0.22,W*0.04); g.fill();
+    g.beginPath(); g.roundRect(c+W*0.02,W*0.72,W*0.09,W*0.22,W*0.04); g.fill();
+    g.globalCompositeOperation='destination-out';
+    for(let i=0;i<220;i++){ const x=Math.abs(Math.sin(i*12.9898+tt*0.2))*W,
+      y=Math.abs(Math.sin(i*78.233+tt*0.13))*W;
+      g.globalAlpha=0.05; g.fillRect(x,y,2,2) }
+    g.globalAlpha=1; g.globalCompositeOperation='source-over';
+  }
+}
+const NEU_LO='#D0D0D0';
+const eOut=t=>1-Math.pow(1-t,3);                       // cubic-bezier(.22,1,.36,1) 근사
+const clamp01=v=>(v<0?0:v>1?1:v);
+const kf=(p,stops)=>{                                   // @keyframes 보간(구간마다 ease-in-out)
+  const ei=t=>(t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2);
+  for(let i=1;i<stops.length;i++){const [a,va]=stops[i-1],[b,vb]=stops[i];
+    if(p<=b) return va+(vb-va)*ei(b===a?1:(p-a)/(b-a))}
+  return stops[stops.length-1][1]};
+COMPS.forEach(cp=>mkCell(document.getElementById('comps'),
+  `<b style="color:var(--t1)">${cp.n}</b><br><span style="font-size:10px;color:var(--t4)">${cp.d}</span>`,
+  120,120,(g,t)=>drawComp(g,120,cp.k,t)));
+(()=>{const t=document.getElementById('comptbl');
+  t.innerHTML=`<thead><tr><th>컴포넌트</th><th>정본</th><th>쓰이는 곳</th></tr></thead><tbody>`+
+   COMPS.map(c=>`<tr><td><b style="color:var(--t1)">${c.n}</b></td>
+     <td><code class="inline">${c.src}</code></td>
+     <td style="color:var(--t3);font-size:12.5px">${c.use}</td></tr>`).join('')+`</tbody>`})();
 
 /* ── 간격 스케일 · 존 밴드 ─────────────────────────────────────────────
    실물 환산은 PROJECTION-SPEC 6절: 벽 1px=1.00mm · 지면 러닝 0.73 · 농구 0.88 */
