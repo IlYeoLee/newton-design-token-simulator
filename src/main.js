@@ -2228,7 +2228,11 @@ void main(){
         varying vec2 vUv; uniform sampler2D map; uniform sampler2D uLUT; uniform float uTime, uCropOff, uCropScale, uSat, uPulse, uReady;
         vec3 lut(float v){ return texture2D(uLUT, vec2(clamp(v, 0.004, 0.996), 0.5)).rgb; }
         vec2 crop(vec2 uv){ return vec2(uv.x, uCropOff + uv.y * uCropScale); }
-        float mask1(vec2 uv){ vec3 c = texture2D(map, crop(uv)).rgb; float k = c.g - max(c.r, c.b); return 1.0 - smoothstep(0.04, 0.14, k); }
+        // 그린 제거 + '깜깜한 픽셀은 인물이 아니다' 가드 — 디코딩 공백/빈 프레임은 전부 검정이라
+        //   초록 판정만 쓰면 마스크가 1이 되어 판 전체가 검은 사각형/LUT 주황으로 칠해진다(유저 스샷).
+        float mask1(vec2 uv){ vec3 c = texture2D(map, crop(uv)).rgb; float k = c.g - max(c.r, c.b);
+          float lum = dot(c, vec3(0.299, 0.587, 0.114));
+          return (1.0 - smoothstep(0.04, 0.14, k)) * smoothstep(0.015, 0.06, lum); }
         float ch(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7)))*43758.5453); }
         float vn(vec2 p){ vec2 i=floor(p),f=fract(p); f=f*f*(3.0-2.0*f);
           return mix(mix(ch(i),ch(i+vec2(1,0)),f.x),mix(ch(i+vec2(0,1)),ch(i+vec2(1,1)),f.x),f.y); }
