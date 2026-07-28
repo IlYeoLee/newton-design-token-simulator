@@ -52,38 +52,45 @@ x봇 위로 통과한다. 지금은 봇 실루엣을 캔버스로 덮는 마스�
 곁가지로 잡은 것: `impactRing`(복싱 주먹 임팩트, `depthTest:false`)이 러닝·농구 씬에 남아
 x봇 위로 그려지던 버그. **지금 씬에 depthTest를 끈 메시는 0개다** — 새 토큰을 만들 때 이 불변식을 깨지 말 것.
 
-## ★ 다음 작업 — 바닥 UI 모션 전부 이식 (유저 확정)
+## 바닥 UI 모션 전수 이식 — **완료**
 
-WebGL 이식은 **레이아웃만** 옮겼고 CSS 애니메이션을 거의 안 옮겼다. 유저 판정: "모든 지면 UI의
-모션·인터랙션이 싹 다 사라졌다". WebGL 경로는 유지하고(되돌리지 않는다) 아래를 `src/floorgl.js`에
-캔버스 변환으로 옮긴다. 모든 값은 각 원본 HTML의 `@keyframes`에서 그대로 가져온 것.
+WebGL 이식이 레이아웃만 옮겨서 모션이 전부 사라졌던 문제. 아래 표의 항목을 전부
+`src/floorgl.js`에 캔버스 변환으로 옮겼다. 모든 값은 각 원본 HTML의 `@keyframes` 그대로.
+
+**도구(파일 상단)**: `cycle(t,delay,dur,n)`(반복 애니메이션 진행도, 구간 밖이면 null=정적 스타일) ·
+`kf(p,stops,ease)`(CSS처럼 **키프레임 구간마다** 이징) · `intro(t,delay,dur)` · `drawChars()`(글자별
+transform — charLoop·charWave·chIn 공통). 새 모션은 이 넷으로 붙이면 된다.
+
+검증: 17개 화면 전수 진입 에러 0, 시점별(0.3/0.9/1.8/3.2s) 잉크량 측정으로 빈 화면 없음
+(`tmp_qa_floormotion.mjs`).
 
 **공통 원칙**: 눕힌 프레임에서 세로 translate는 원근상 '멀리서 날아옴'이 된다 → 등장은 제자리
 scale+fade로. 단 이미 바닥에 붙어 있는 요소의 '떠오름'(footBob·cardFloat)은 원본대로 translate.
 
 | 문서 | 모션 | 파라미터 |
 |---|---|---|
-| floor / floor-bk | `charLoop` 타이틀 글자 웨이브 | 3s ease-in-out ×3, delay `i*0.09` · opacity .5→1 · translateY −16px @12% |
-| | `fadeUpCentered` strip·devs·hero | .8~.9s cubic-bezier(.2,.75,.2,1), delay .35 / .5 / .7 |
-| | `footBob` 발 탭 | 3s cubic-bezier(.4,0,.3,1) ×3, delay 1.5s · Y 0→46→6→44→0 |
-| | `arrowBob` 화살표 | 3s ×3 delay 1.5s · Y 0→14→0→13→0 |
-| | `glowLive` 하단 글로우 | 7s ×3 · translate(−16,10) scale 1.06 · opacity .85→1 |
+| floor / floor-bk | ✅ `charLoop` 타이틀 글자 웨이브 | 3s ease-in-out ×3, delay `i*0.09` · opacity .5→1 · translateY −16px @12% |
+| | ✅ `fadeUpCentered` strip·devs·hero | .8~.9s cubic-bezier(.2,.75,.2,1), delay .35 / .5 / .7 |
+| | ✅ `footBob` 발 탭 | 3s cubic-bezier(.4,0,.3,1) ×3, delay 1.5s · Y 0→46→6→44→0 |
+| | ✅ `arrowBob` 화살표 | 3s ×3 delay 1.5s · Y 0→14→0→13→0 |
+| | ✅ `glowLive` 하단 글로우 | 7s ×3 · translate(−16,10) scale 1.06 · opacity .85→1 |
 | | 배터리 링 채움 | ✅ 이식됨 (delay 900+i*160ms, 1.5s) |
 | floor-scene | `chIn` 타이틀 캐스케이드 / `sUpFlat` | ✅ 이식됨 |
-| | `demoOutFlat` 프리뷰 행 퇴장 | .45s @ `--pvOut` |
-| transition | `glowDrift` 배경 글로우 | 15s ×3 · translate/scale 1.05~1.13 / rotate ±4° |
-| | `titleIn` / `charWave` | .85s .10s · 2.4s delay `.9+i*.05` ×3, Y −16px @29% |
-| | `cardIn` + `cardFloat` | .8s delay .38/.54 · 4s·4.4s ×3, Y −13px |
-| | `sPop` 체크·배지 | .6s cubic-bezier(.34,1.56,.64,1), delay .95 / 1.0 · scale .5→1.12→1 |
-| | `sUpC` + `btnFloatC` + `btnPulse` | .8s .95s · 3.6s Y −18px · 3s 글로우 |
-| timer | `ringPop` + `ringBreath` | .8s .35s scale .6→1.05→1 · 3s drop-shadow |
-| | `numPulse` 숫자 바뀔 때마다 | .45s scale 1.5→1 opacity 0→1 |
-| report | `ringPop`·`ringBreath`·`charWave`·`titleIn` | 위와 동일 |
+| | ✅ `demoOutFlat` 프리뷰 행 퇴장 | .45s @ `--pvOut` |
+| transition | ✅ `glowDrift` 배경 글로우(전환·타이머·리포트 공통) | 15s ×3 · translate/scale 1.05~1.13 / rotate ±4° |
+| | ✅ `titleIn` / `charWave` | .85s .10s · 2.4s delay `.9+i*.05` ×3, Y −16px @29% |
+| | ✅ `cardIn` + `cardFloat` | .8s delay .38/.54 · 4s·4.4s ×3, Y −13px |
+| | ✅ `sPop` 체크·배지 | .6s cubic-bezier(.34,1.56,.64,1), delay .95 / 1.0 · scale .5→1.12→1 |
+| | ✅ `sUpC` + `btnFloatC` + `btnPulse` | .8s .95s · 3.6s Y −18px · 3s 글로우 |
+| timer | ✅ `ringPop` + `ringBreath` | .8s .35s scale .6→1.05→1 · 3s drop-shadow |
+| | ✅ `numPulse` 숫자 바뀔 때마다 | .45s scale 1.5→1 opacity 0→1 |
+| report | ✅ `ringPop`·`ringBreath`·`charWave`·`titleIn` | 위와 동일 |
 | | `progFill` + 퍼센트 카운트업 | ✅ 이식됨 (1.4s delay .5s) |
-| | stats `sUp` / btn `sUp`+`btnPulse` | .7s delay 1.15 / 1.35 |
+| | ✅ stats `sUp` / btn `sUp`+`btnPulse` | .7s delay 1.15 / 1.35 |
 
-**구현 메모**: `_paint_*()`에서 `this.t` 기반으로 각 요소의 진행도를 구해 `ctx.translate/scale/globalAlpha`로
-적용하면 된다. 반복 횟수(×3)는 `t < 주기*3` 조건으로. 이징은 `cubic-bezier`를 근사 함수로 대체해도 무방.
+**깎은 것**: `cubic-bezier`는 근사 함수 둘로 대체(`eOut`=(.22,1,.36,1)·(.34,1.56,.64,1)·(.2,.75,.2,1),
+`eInOut`=ease-in-out). `btnPulse`/`ringBreath`의 box-shadow·drop-shadow는 캔버스 `shadowBlur`로 근사.
+`fadeUpCentered`/`sUp*`의 translateY 52px는 공통 원칙대로 제자리 scale(.94→1)+fade로 바꿨다.
 
 ## 바닥 UI 성능 — 이 작업과 함께 (계획)
 

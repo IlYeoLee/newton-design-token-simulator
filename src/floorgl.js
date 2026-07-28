@@ -22,6 +22,49 @@ const F = (w, s, fam = sans) => `${w} ${s}px ${fam}`;
 
 const numOr = (v, d) => { const n = parseFloat(v); return Number.isFinite(n) ? n : d; };
 
+// ── 모션 ────────────────────────────────────────────────────────────────────
+// 원본 floor-*.html의 @keyframes를 캔버스로 옮기기 위한 최소 도구.
+// CSS는 타이밍 함수를 '키프레임 구간마다' 적용한다 — kf()도 그렇게 한다.
+const clamp01 = v => (v < 0 ? 0 : v > 1 ? 1 : v);
+const eOut = t => 1 - Math.pow(1 - t, 3);                                  // cubic-bezier(.22,1,.36,1) 근사
+const eInOut = t => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+// `animation: X dur delay n` 의 진행도(0~1). 구간 밖이면 null(= 정적 스타일).
+const cycle = (t, delay, dur, n) => { const u = t - delay; return u < 0 || u >= dur * n ? null : (u % dur) / dur; };
+// @keyframes 보간 — stops = [[0~1 위치, 값], …]
+const kf = (p, stops, ease = eInOut) => {
+  for (let i = 1; i < stops.length; i++) {
+    const [a, va] = stops[i - 1], [b, vb] = stops[i];
+    if (p <= b) return va + (vb - va) * ease(b === a ? 1 : (p - a) / (b - a));
+  }
+  return stops[stops.length - 1][1];
+};
+// `both` fill 등장 애니메이션의 선형 진행도
+const intro = (t, delay, dur) => clamp01((t - delay) / dur);
+
+// 글자별 그리기 — fn(i) → {dy, alpha, scale}. charLoop·charWave·chIn 공통.
+function drawChars(ctx, txt, y, h, ls, fn) {
+  ctx.letterSpacing = (ls || 0) + 'px';
+  ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  const total = ctx.measureText(txt).width;
+  let x = CX - total / 2, vis = 0;
+  for (const ch of txt) {
+    const w = ctx.measureText(ch).width;
+    if (ch !== ' ') {
+      const a = fn(vis++);
+      if (a.alpha > 0.004) {
+        ctx.save();
+        ctx.globalAlpha *= a.alpha;
+        ctx.translate(x + w / 2, y + h / 2 + (a.dy || 0));
+        if (a.scale !== 1) ctx.scale(a.scale, a.scale);
+        ctx.fillText(ch, -w / 2, -h / 2);
+        ctx.restore();
+      }
+    }
+    x += w;
+  }
+  ctx.letterSpacing = '0px';
+}
+
 // ── 나머지 문서(시작화면·전환·카운트다운·리포트) 데이터 — 각 HTML의 상수를 그대로 옮긴 것 ──
 const READY = {
   'floor.html':    { title: "Sean's Final 1km Pace", mode: 'Pace & Boost On', modeSm: true },
@@ -70,26 +113,10 @@ function drawText(ctx, n, y, t) {
   const txt = n.textContent || '';
   // 타이틀만 글자 캐스케이드(원본 chIn: 좌→우로 하나씩 제자리 스케일+페이드)
   if (n.cascade && t != null && t < 2.2 && txt) {
-    const total = ctx.measureText(txt).width;
-    let x = CX - total / 2, vis = 0;
-    ctx.textAlign = 'left';
-    for (const ch of txt) {
-      const w = ctx.measureText(ch).width;
-      if (ch !== ' ') {
-        const f = Math.max(0, Math.min(1, (t - (0.10 + vis * 0.045)) / 0.6));
-        const e = 1 - Math.pow(1 - f, 3);
-        vis++;
-        if (e > 0.002) {
-          ctx.save();
-          ctx.globalAlpha *= e;
-          ctx.translate(x + w / 2, y + n.size * 0.5);
-          ctx.scale(0.82 + 0.18 * e, 0.82 + 0.18 * e);
-          ctx.fillText(ch, -w / 2, -n.size * 0.5);
-          ctx.restore();
-        }
-      }
-      x += w;
-    }
+    drawChars(ctx, txt, y, n.size, n.ls || 0, i => {
+      const e = eOut(clamp01((t - (0.10 + i * 0.045)) / 0.6));
+      return { dy: 0, alpha: e, scale: 0.82 + 0.18 * e };
+    });
   } else {
     ctx.textAlign = 'center';
     ctx.fillText(txt, CX, y);
@@ -198,6 +225,7 @@ export class FloorGL {
       : /floor-report/.test(params.src) ? 'report'
       : /floor(-bk)?\.html/.test(params.src) ? 'ready' : 'scene';
     this.params = params;
+    this._numLast = null; this._numT = 0;   // numPulse(카운트다운 숫자) 상태
     if (this.kind !== 'scene') {
       this.stage = stage; this.col = []; this.map.clear();
       this.t = 0; this._sig = null; this._lastPaint = -1;
@@ -254,7 +282,7 @@ export class FloorGL {
       if (n.style.visibility !== 'hidden') {
         const e = this._intro(n);
         ctx.save();
-        ctx.globalAlpha = numOr(n.style.opacity, 1) * e;
+        ctx.globalAlpha = numOr(n.style.opacity, 1) * e * this._outro(n);
         if (e < 1 && !n.cascade) {   // 제자리 스케일 인(원본 sUpFlat) — 눕힌 프레임에서 translate는 '멀리서 날아옴'이 된다
           const k = 0.94 + 0.06 * e;
           ctx.translate(CX, y + h / 2); ctx.scale(k, k); ctx.translate(-CX, -(y + h / 2));
@@ -270,6 +298,11 @@ export class FloorGL {
   _intro(n) {
     const d = { 's-cap': 0.18, 's-title': 0.1, 's-cue': 0.28, 's-dots': 0.42 }[n.id] ?? 0.2;
     return Math.max(0, Math.min(1, (this.t - d) / 0.55));
+  }
+
+  // 프리뷰 행은 시범이 끝나면 사라진다(원본 demoOutFlat .45s @ --pvOut = pv + 0.05)
+  _outro(n) {
+    return n.type === 'prevRow' ? 1 - clamp01((this.t - (n.pv + 0.05)) / 0.45) : 1;
   }
 
   _h(n) {
@@ -403,7 +436,18 @@ export class FloorGL {
     if (!im) return;
     const h = w * (im.naturalHeight / im.naturalWidth);
     ctx.save();
+    // glowDrift 15s ×3 — 원본 translate는 자기 크기의 %라 그대로 환산
+    const p = cycle(this.t, 0, 15, 3);
+    if (p != null) {
+      const dx = kf(p, [[0, 0], [.25, -.06], [.5, .06], [.75, -.03], [1, 0]]) * w;
+      const dy = kf(p, [[0, 0], [.25, .04], [.5, -.05], [.75, .04], [1, 0]]) * h;
+      const s = kf(p, [[0, 1], [.25, 1.12], [.5, 1.05], [.75, 1.13], [1, 1]]);
+      const r = kf(p, [[0, 0], [.25, 4], [.5, -3], [.75, 3], [1, 0]]) * Math.PI / 180;
+      ctx.translate(CX + dx, topY + dy); ctx.rotate(r); ctx.scale(s, s); ctx.translate(-CX, -topY);
+    }
     ctx.drawImage(im, CX - w / 2, topY - h / 2, w, h);
+    ctx.restore();
+    ctx.save();
     const g = ctx.createRadialGradient(CX, H * 0.43, 0, CX, H * 0.43, W * 0.58);
     g.addColorStop(0.22, 'rgba(0,0,0,0)'); g.addColorStop(0.82, 'rgba(0,0,0,1)');
     ctx.globalCompositeOperation = 'destination-out';
@@ -413,24 +457,42 @@ export class FloorGL {
 
   // 서브타이틀 + 큰 타이틀 (전환·타이머·리포트 공통 그룹). 반환 = 그룹 아래 y
   _titleGroup(y, sub, ttl) {
-    const ctx = this.ctx;
+    const ctx = this.ctx, t = this.t;
+    const ty = y + 64 * 1.2 + 8.8, gh = 64 * 1.2 + 8.8 + 140 * 1.05;
+    const p = eOut(intro(t, 0.1, 0.8));   // titleIn .8s .1s — 제자리 scale+fade
+    ctx.save();
+    ctx.globalAlpha *= kf(p, [[0, 0], [.7, 1], [1, 1]]);
+    const k = kf(p, [[0, .9], [.7, 1.02], [1, 1]]);
+    ctx.translate(CX, y + gh / 2); ctx.scale(k, k); ctx.translate(-CX, -(y + gh / 2));
     ctx.textAlign = 'center'; ctx.textBaseline = 'top';
     ctx.font = F(400, 64); ctx.letterSpacing = '-4.6px';
     ctx.fillStyle = 'rgba(255,255,255,.8)'; ctx.fillText(sub, CX, y);
-    ctx.font = F(700, 140); ctx.letterSpacing = '-5.6px';
-    ctx.fillStyle = '#fff'; ctx.fillText(ttl, CX, y + 64 * 1.2 + 8.8);
+    ctx.font = F(700, 140); ctx.fillStyle = '#fff';
+    // charWave 2.4s ×3, 글자마다 .05s 지연
+    drawChars(ctx, ttl, ty, 140, -5.6, i => {
+      const c = cycle(t, 0.9 + i * 0.05, 2.4, 3);
+      return { dy: c == null ? 0 : kf(c, [[0, 0], [.29, -16], [.58, 0], [1, 0]]), alpha: 1, scale: 1 };
+    });
     ctx.letterSpacing = '0px';
-    return y + 64 * 1.2 + 8.8 + 140 * 1.05;
+    ctx.restore();
+    return ty + 140 * 1.05;
   }
 
-  // 흰 pill 버튼 (전환·리포트 공통)
-  _button(y, text) {
+  // 흰 pill 버튼 (전환·리포트 공통). e=등장 진행도 · dy=떠오름 · glow=펄스 세기
+  _button(y, text, e = 1, dy = 0, glow = 0) {
     const ctx = this.ctx, w = 802, h = 80 * 1.2 + 42.614 * 2;
+    ctx.save();
+    ctx.globalAlpha *= e;
+    ctx.translate(0, dy);
+    if (e < 1) { const k = 0.92 + 0.08 * e; ctx.translate(CX, y + h / 2); ctx.scale(k, k); ctx.translate(-CX, -(y + h / 2)); }
+    if (glow > 0.002) { ctx.shadowColor = `rgba(255,255,255,${0.35 * glow})`; ctx.shadowBlur = 60 * glow; }
     ctx.fillStyle = '#fff'; this._pill(CX - w / 2, y, w, h);
+    ctx.shadowBlur = 0;
     ctx.font = F(700, 80); ctx.letterSpacing = '-1.33px';
     ctx.fillStyle = '#050a0a'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillText(text, CX, y + h / 2);
     ctx.letterSpacing = '0px';
+    ctx.restore();
     return y + h;
   }
 
@@ -445,14 +507,34 @@ export class FloorGL {
 
   // ── 시작화면 (floor.html / floor-bk.html) ──────────────────────────────────
   _paint_ready() {
-    const ctx = this.ctx, D = READY[/floor-bk/.test(this.params.src) ? 'floor-bk.html' : 'floor.html'];
+    const ctx = this.ctx, D = READY[/floor-bk/.test(this.params.src) ? 'floor-bk.html' : 'floor.html'], t = this.t;
+    // glowLive 7s ×3 — 숨쉬기 + 드리프트
     const gl = this._img('fig/big_glow.svg');
-    if (gl) { ctx.save(); ctx.globalAlpha = 0.85; ctx.drawImage(gl, CX - 510, 1400 - 465, 1020, 930); ctx.restore(); }
-    ctx.textAlign = 'center'; ctx.textBaseline = 'top'; ctx.fillStyle = '#fff';
-    ctx.font = F(700, 120); ctx.letterSpacing = '-4px';
-    ctx.fillText(D.title, CX, 176);
-    ctx.letterSpacing = '0px';
-    // 3칸 정보 스트립 — ponytail: 원본 flex 폭을 고정폭으로 근사(좌우 400 · 가운데 360)
+    if (gl) {
+      const g = cycle(t, 0, 7, 3);
+      ctx.save();
+      ctx.globalAlpha = g == null ? 0.85 : kf(g, [[0, .85], [.5, 1], [1, .85]]);
+      if (g != null) {
+        const s = kf(g, [[0, 1], [.5, 1.06], [1, 1]]);
+        ctx.translate(CX + kf(g, [[0, 0], [.5, -16], [1, 0]]), 1400 + kf(g, [[0, 0], [.5, 10], [1, 0]]));
+        ctx.scale(s, s); ctx.translate(-CX, -1400);
+      }
+      ctx.drawImage(gl, CX - 510, 1400 - 465, 1020, 930);
+      ctx.restore();
+    }
+    // 타이틀 글자 웨이브 — charLoop 3s ×3, 글자마다 .09s 지연
+    ctx.fillStyle = '#fff'; ctx.font = F(700, 120);
+    drawChars(ctx, D.title, 176, 120, -4, i => {
+      const p = cycle(t, i * 0.09, 3, 3);
+      return p == null ? { dy: 0, alpha: 1, scale: 1 } : {
+        dy: kf(p, [[0, 0], [.12, -16], [.26, 0], [.58, 0], [1, 0]]),
+        alpha: kf(p, [[0, .5], [.12, 1], [.26, 1], [.58, .5], [1, .5]]), scale: 1,
+      };
+    });
+    // 3칸 정보 스트립 — fadeUpCentered .8s .35s (눕힌 프레임이라 translateY 대신 제자리 scale)
+    ctx.save(); this._fadeIn(452, 130, eOut(intro(t, .35, .8)));
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    // ponytail: 원본 flex 폭을 고정폭으로 근사(좌우 400 · 가운데 360)
     const cols = [['Time', '30min', false], ['Connection', 'Good', false], ['Mode', D.mode, D.modeSm]];
     const w = [400, 360, 400], x0 = CX - (w[0] + w[1] + w[2] + 4) / 2;
     let x = x0;
@@ -465,38 +547,71 @@ export class FloorGL {
       ctx.letterSpacing = '0px';
       x += w[i];
     });
-    // 디바이스 배터리 링 3개 (200×200, gap 28)
+    ctx.restore();
+    // 디바이스 배터리 링 3개 (200×200, gap 28) — fadeUpCentered .8s .5s
+    ctx.save(); this._fadeIn(654, 200, eOut(intro(t, .5, .8)));
     const devs = [[0.9, 'run/ic_glasses.png', 96], [0.3, 'run/ic_watch.png', 56], [0.6, 'run/ic_earbuds.png', 82]];
     const dx0 = CX - (200 * 3 + 28 * 2) / 2;
     devs.forEach(([pct, ic, iw], i) => {
       const cx = dx0 + i * 228 + 100, cy = 654 + 100, r = 76 * (200 / 170), lw = 13 * (200 / 170);
       ctx.lineWidth = lw; ctx.strokeStyle = 'rgba(255,255,255,.16)';
       ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
-      const f = Math.max(0, Math.min(1, (this.t - (0.9 + i * 0.16)) / 1.5)) * pct;
+      const f = Math.max(0, Math.min(1, (t - (0.9 + i * 0.16)) / 1.5)) * pct;
       if (f > 0.002) { ctx.strokeStyle = '#fff'; ctx.lineCap = 'round';
         ctx.beginPath(); ctx.arc(cx, cy, r, -Math.PI / 2, -Math.PI / 2 + f * Math.PI * 2); ctx.stroke(); }
       const im = this._img(ic);
       if (im) { const ih = iw * (im.naturalHeight / im.naturalWidth); ctx.drawImage(im, cx - iw / 2, cy - ih / 2, iw, ih); }
     });
+    ctx.restore();
+    // hero — fadeUpCentered .9s .7s. 발·화살표는 이미 바닥에 붙은 요소라 탭은 원본대로 translate.
+    ctx.save(); this._fadeIn(1057, 622, eOut(intro(t, .7, .9)));
+    const bob = cycle(t, 1.5, 3, 3);
     const foot = this._img('run/foot.svg');
-    if (foot) ctx.drawImage(foot, 606, 1140, 400, 539);
+    const fdy = bob == null ? 0 : kf(bob, [[0, 0], [.12, 46], [.25, 6], [.4, 44], [.52, 0], [.58, 0], [1, 0]]);
+    if (foot) ctx.drawImage(foot, 606, 1140 + fdy, 400, 539);
     const ar = this._img('run/arrow.svg');
-    if (ar) ctx.drawImage(ar, CX - 43, 1057, 86, 86);
+    const ady = bob == null ? 0 : kf(bob, [[0, 0], [.12, 14], [.25, 0], [.4, 13], [.52, 0], [.58, 0], [1, 0]]);
+    if (ar) ctx.drawImage(ar, CX - 43, 1057 + ady, 86, 86);
     ctx.fillStyle = '#fff'; ctx.font = F(700, 88); ctx.letterSpacing = '-5px';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
     ctx.fillText('Tap your foot Twice', CX, 1057 + 86 + 30);
     ctx.letterSpacing = '0px';
+    ctx.restore();
+  }
+
+  // 제자리 scale+fade 등장 — 호출자가 save()한 상태에서 부른다
+  _fadeIn(y, h, e) {
+    const ctx = this.ctx;
+    ctx.globalAlpha *= e;
+    const k = 0.94 + 0.06 * e;
+    ctx.translate(CX, y + h / 2); ctx.scale(k, k); ctx.translate(-CX, -(y + h / 2));
   }
 
   // ── 전환 (floor-transition.html) ───────────────────────────────────────────
   _paint_transition() {
-    const ctx = this.ctx, T = TR[this.stage] || TR.T1;
+    const ctx = this.ctx, T = TR[this.stage] || TR.T1, t = this.t;
     this._bgGlow(1160);
     this._titleGroup(500, T.sub, T.title);
     const S = 654.902, GAP = 26.196, R = 65.49, P = 52.392, y = 850;
     const x0 = CX - (S * 2 + GAP) / 2;
-    this._card(x0, y, S, R, P, T.done, true);
-    this._card(x0 + S + GAP, y, S, R, P, T.next, false);
-    this._button(1636, BTN);
+    // cardIn .8s (.38/.54) + cardFloat 4s/4.4s ×3 — 카드는 이미 바닥에 붙어 있어 '떠오름'은 원본대로 translate
+    const card = (x, d, fd, fdur, D, done) => {
+      const e = eOut(intro(t, d, 0.8)), c = cycle(t, fd, fdur, 3);
+      ctx.save();
+      ctx.globalAlpha *= e;
+      ctx.translate(0, c == null ? 0 : kf(c, [[0, 0], [.5, -13], [1, 0]]));
+      const k = 0.9 + 0.1 * e;
+      ctx.translate(x + S / 2, y + S / 2); ctx.scale(k, k); ctx.translate(-(x + S / 2), -(y + S / 2));
+      this._card(x, y, S, R, P, D, done);
+      ctx.restore();
+    };
+    card(x0, 0.38, 1.5, 4, T.done, true);
+    card(x0 + S + GAP, 0.54, 1.85, 4.4, T.next, false);
+    // sUpC .8s .95s + btnFloatC 3.6s 1.9s ×3 + btnPulse 3s 1.9s ×3
+    const bf = cycle(t, 1.9, 3.6, 3), bp = cycle(t, 1.9, 3, 3);
+    this._button(1636, BTN, eOut(intro(t, .95, .8)),
+      bf == null ? 0 : kf(bf, [[0, 0], [.5, -18], [1, 0]]),
+      bp == null ? 0 : kf(bp, [[0, 0], [.5, 1], [1, 0]]));
   }
 
   _card(x, y, S, R, P, D, done) {
@@ -522,19 +637,27 @@ export class FloorGL {
       ctx.filter = 'blur(26px)'; this._roundRectPath(x, y, S, S, R); ctx.stroke(); ctx.restore();
     }
     ctx.restore();
-    // 우상단 배지
+    // 우상단 배지 — sPop .6s (.95/1.0) 로 튀어나온다
+    const sp = eOut(intro(this.t, done ? 0.95 : 1.0, 0.6));
+    ctx.save();
+    ctx.globalAlpha *= kf(sp, [[0, 0], [.6, 1], [1, 1]]);
+    const spk = kf(sp, [[0, .5], [.6, 1.12], [1, 1]]);
     if (done) {
       const c = x + S - P - 45.8, cy = y + P + 45.8;
+      ctx.translate(c, cy); ctx.scale(spk, spk); ctx.translate(-c, -cy);
       ctx.fillStyle = 'rgba(255,255,255,.28)';
       ctx.beginPath(); ctx.arc(c, cy, 45.8, 0, Math.PI * 2); ctx.fill();
       ctx.strokeStyle = '#fff'; ctx.lineWidth = 7.5; ctx.lineCap = ctx.lineJoin = 'round';
       ctx.beginPath(); ctx.moveTo(c - 19, cy + 1); ctx.lineTo(c - 6, cy + 14); ctx.lineTo(c + 19, cy - 14); ctx.stroke();
     } else {
       ctx.font = F(500, 52); const bw = ctx.measureText('Next').width + 52.4, bh = 52 * 1.2 + 26.2;
+      const bx = x + S - P - bw / 2, by = y + P + bh / 2;
+      ctx.translate(bx, by); ctx.scale(spk, spk); ctx.translate(-bx, -by);
       ctx.fillStyle = 'rgba(255,255,255,.9)'; this._pill(x + S - P - bw, y + P, bw, bh);
       ctx.fillStyle = '#525252'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillText('Next', x + S - P - bw / 2, y + P + bh / 2);
+      ctx.fillText('Next', bx, by);
     }
+    ctx.restore();
     // 좌하단 메타
     ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
     ctx.fillStyle = done ? '#fafafa' : '#757575'; ctx.font = F(400, 36); ctx.letterSpacing = '-1.64px';
@@ -546,23 +669,51 @@ export class FloorGL {
 
   // ── 실전 직전 카운트다운 (floor-timer.html) ────────────────────────────────
   _paint_timer() {
-    const ctx = this.ctx, M = TM[this.stage] || TM.C1, dur = this.params.dur || 3;
+    const ctx = this.ctx, M = TM[this.stage] || TM.C1, dur = this.params.dur || 3, t = this.t;
     this._bgGlow(1160);
     const y = this._titleGroup(600, M.sub, M.title) + 88;
-    const prog = Math.max(0, Math.min(1, this.t / dur));
-    drawRing(ctx, { size: 604 }, y, prog, '#fff');
-    const rem = dur - this.t;
-    drawCenteredNum(ctx, rem > 0.05 ? String(Math.ceil(rem)) : 'GO', CX, y + 302, 220);
+    const cy = y + 302, rem = dur - t, txt = rem > 0.05 ? String(Math.ceil(rem)) : 'GO';
+    // ringPop .8s .35s + ringBreath 3s 1.2s ×3
+    const e = eOut(intro(t, .35, .8)), br = cycle(t, 1.2, 3, 3);
+    ctx.save();
+    ctx.globalAlpha *= kf(e, [[0, 0], [.7, 1], [1, 1]]);
+    const k = kf(e, [[0, .6], [.7, 1.05], [1, 1]]);
+    ctx.translate(CX, cy); ctx.scale(k, k); ctx.translate(-CX, -cy);
+    if (br != null) {
+      const g = kf(br, [[0, 0], [.5, 1], [1, 0]]);
+      ctx.shadowColor = `rgba(255,255,255,${.35 * g})`; ctx.shadowBlur = 26 * g;
+    }
+    drawRing(ctx, { size: 604 }, y, clamp01(t / dur), '#fff');
+    ctx.shadowBlur = 0;
+    // numPulse — 숫자가 바뀔 때마다 .5s
+    if (txt !== this._numLast) { this._numLast = txt; this._numT = t; }
+    const q = clamp01((t - this._numT) / 0.5), nk = kf(q, [[0, 1.5], [1, 1]], eOut);
+    ctx.save();
+    ctx.globalAlpha *= kf(q, [[0, 0], [.35, 1], [1, 1]]);
+    ctx.translate(CX, cy); ctx.scale(nk, nk); ctx.translate(-CX, -cy);
+    drawCenteredNum(ctx, txt, CX, cy, 220);
+    ctx.restore();
+    ctx.restore();
   }
 
   // ── 세션 리포트 (floor-report.html) ────────────────────────────────────────
   _paint_report() {
-    const ctx = this.ctx, R = RP[this.stage] || RP.FIN;
+    const ctx = this.ctx, R = RP[this.stage] || RP.FIN, t = this.t;
     this._bgGlow(1080);
     let y = this._titleGroup(640, R.sub, R.title) + 80;
     // 100% 링 (0.5s 뒤 1.4s 동안 채움)
-    const p = Math.max(0, Math.min(1, (this.t - 0.5) / 1.4)), e = 1 - Math.pow(1 - p, 3);
+    const p = clamp01((t - 0.5) / 1.4), e = eOut(p);
     const cy = y + 250, r = 230 * (500 / 500);
+    // ringPop .8s .35s + ringBreath 3.4s 1.4s ×3
+    const rp = eOut(intro(t, .35, .8)), br = cycle(t, 1.4, 3.4, 3);
+    ctx.save();
+    ctx.globalAlpha *= kf(rp, [[0, 0], [.7, 1], [1, 1]]);
+    const rk = kf(rp, [[0, .6], [.7, 1.05], [1, 1]]);
+    ctx.translate(CX, cy); ctx.scale(rk, rk); ctx.translate(-CX, -cy);
+    if (br != null) {
+      const g = kf(br, [[0, 0], [.5, 1], [1, 0]]);
+      ctx.shadowColor = `rgba(255,255,255,${.45 * g})`; ctx.shadowBlur = 26 * g;
+    }
     ctx.lineWidth = 14; ctx.strokeStyle = 'rgba(255,255,255,.16)';
     ctx.beginPath(); ctx.arc(CX, cy, r, 0, Math.PI * 2); ctx.stroke();
     if (e > 0.002) { ctx.strokeStyle = '#fff'; ctx.lineCap = 'round';
@@ -574,8 +725,11 @@ export class FloorGL {
     ctx.textAlign = 'left';
     ctx.font = F(700, 128.5); ctx.fillText(nTxt, CX - (nw + sw + 8) / 2, cy);
     ctx.font = F(700, 90.3); ctx.fillText('%', CX - (nw + sw + 8) / 2 + nw + 8, cy + 14);
+    ctx.shadowBlur = 0;
+    ctx.restore();
     y = cy + 250 + 80;
-    // 통계 3열 (등폭 + 구분선)
+    // 통계 3열 (등폭 + 구분선) — sUp .7s 1.15s
+    ctx.save(); this._fadeIn(y, 100, eOut(intro(t, 1.15, .7)));
     ctx.textAlign = 'center'; ctx.textBaseline = 'top';
     const total = 920, cw = (total - 24) / 3;
     let x = CX - total / 2;
@@ -588,7 +742,11 @@ export class FloorGL {
       ctx.letterSpacing = '0px';
       x += cw;
     });
-    this._button(y + 39 * 1.2 + 18 + 64 * 1.2 + 16, BTN);
+    ctx.restore();
+    // sUp .7s 1.35s + btnPulse 3s 2s ×3
+    const bp = cycle(t, 2, 3, 3);
+    this._button(y + 39 * 1.2 + 18 + 64 * 1.2 + 16, BTN, eOut(intro(t, 1.35, .7)), 0,
+      bp == null ? 0 : kf(bp, [[0, 0], [.5, 1], [1, 0]]));
   }
 
   // Success 컴포넌트(Figma 130-2984) — 배지 + 점선 카운트다운 링
