@@ -5143,6 +5143,7 @@ void main(){
   const WALLGL = new URLSearchParams(location.search).get('wallgl') !== '0';
   const wallGL = new WallGL();
   scene.add(wallGL.mesh);
+  wallGL.preload();   // 진입 전에 이미지 굽기 — 첫 화면 팝 방지(녹화 대비)
   let wallGLOn = false;
 
   // ── 바닥 프레임 occlusion 오버레이 ──
@@ -5350,6 +5351,7 @@ void main(){
   const FLOORGL = new URLSearchParams(location.search).get('floorgl') !== '0';
   const floorGL = new FloorGL();
   scene.add(floorGL.mesh);
+  floorGL.preload();   // 진입 전에 이미지 굽기 — 첫 화면 팝 방지(녹화 대비)
   let floorGLOn = false;   // 이번 프레임에 WebGL 경로가 담당하는가
   const fdocNow = () => (floorGLOn ? floorGL.doc : floorIframe.contentDocument);
   let _uiDt = 0.016;      // loop에서 매 프레임 실시간 dt 주입 (UI 앵커 저역통과용)

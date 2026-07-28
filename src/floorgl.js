@@ -215,6 +215,16 @@ export class FloorGL {
   // 모든 바닥 문서를 이 경로가 담당한다(CSS3D 바닥 프레임은 남은 게 없다)
   static handles(src) { return /floor(-scene|-transition|-timer|-report|-bk)?\.html/.test(src); }
 
+  /** 이 UI가 쓰는 이미지 전부 — 진입 전에 미리 굽는다.
+   *  예전엔 첫 _paint 가 로드를 촉발해서 진입 직후 몇 프레임이 이미지 없이 그려지고 툭 나타났다
+   *  (유저: 첫 화면 인터랙션 딜레이 — 화면 녹화에선 그대로 찍힌다). */
+  static ASSETS = ['bg_glow.svg', 'fig/big_glow.svg', 'run/arrow.svg', 'run/foot.svg',
+    // 데이터에서 오는 것들(_img 리터럴이 아니라 TR/READY 테이블) — 빠뜨리면 카드가 늦게 뜬다
+    'run/ic_glasses.png', 'run/ic_watch.png', 'run/ic_earbuds.png',
+    'run/run_stretch.png', 'run/run_learn.png', 'run/run_run.png',
+    'bk/bk_stretch.png', 'bk/bk_learn.png', 'bk/bk_play.png'];
+  preload() { for (const a of FloorGL.ASSETS) this._img(a); }
+
   // 이미지(글로우·아이콘·인물 카드) — 로드되면 한 번 다시 그린다
   _img(rel) {
     this._imgs = this._imgs || new Map();

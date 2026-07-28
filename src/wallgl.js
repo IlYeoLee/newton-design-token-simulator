@@ -143,6 +143,25 @@ export class WallGL {
   // 이 경로가 담당하는 벽 뷰인가 (DESIGN_FRAMES의 src)
   static handles(src) { return /ready-view\/(index|scene|timer|transition|report)\.html/.test(src); }
 
+  /** 이 UI가 쓰는 이미지 전부 — 진입 전에 미리 굽는다.
+   *  첫 _paint 가 로드를 촉발하면 진입 직후 몇 프레임이 이미지 없이 그려지고 툭 나타난다
+   *  (유저: 첫 화면 인터랙션 딜레이 — 화면 녹화에 그대로 찍힌다). */
+  static ASSETS = [
+    'arrow-right.svg',
+    'bg_glow.svg',
+    'boxer_fight.png',
+    'boxer_learn.png',
+    'boxer_stretch.png',
+    'check.svg',
+    'coach_a.png',
+    'coach_b.png',
+    'flame.svg',
+    'foot_shape.png',
+    'footprint_shadow.svg',
+    'glow.svg',
+    'you_avatar.png'];
+  preload() { for (const a of WallGL.ASSETS) this._img(a); }
+
   _img(rel) {
     this._imgs = this._imgs || new Map();
     let im = this._imgs.get(rel);
