@@ -318,7 +318,14 @@ export class ProjectorRig {
       if (!this._smFwd) this._smFwd = fwdInst.clone();
       this._smFwd.lerp(fwdInst, 1 - Math.exp(-dt / 0.6)).normalize();
     }
-    const fwd0 = (this.mode === 'basketball' && this._smFwd) ? this._smFwd : fwdInst;
+    let fwd0 = (this.mode === 'basketball' && this._smFwd) ? this._smFwd : fwdInst;
+    // RAW(무보정) = 짐벌이 없다고 가정 — 빔이 정강이가 향한 쪽 그대로 나간다.
+    //   현행 모델은 방향을 '몸 정면'에 고정해 두기 때문에(=방향 보정이 항상 완벽) 오차 항만 꺼서는
+    //   그림이 안 흔들린다. 진짜 무보정은 이 방향 고정을 푸는 것이다.
+    if (this.stab?.raw && shinDir) {
+      const h = new THREE.Vector3(shinDir.x, 0, shinDir.z);
+      if (h.lengthSq() > 1e-4) fwd0 = h.normalize();
+    }
     const rightV = new THREE.Vector3(fwd0.z, 0, -fwd0.x);   // 몸 왼쪽(왼 무릎 바깥) 방향
     const kneeModule = mount.clone()
       .addScaledVector(rightV, 0.055)                       // 바깥 옆면 — 부착감 (0.10은 떨어져 보임)
