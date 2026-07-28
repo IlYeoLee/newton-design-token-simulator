@@ -14,6 +14,9 @@ html,body{background:transparent}
    타이틀·(큐)·프로그래스·프리뷰/훈련 행을 한 레이어에 세로로 쌓아 → 기울어진 보드 투사에서도 함께 정렬(안 밀림·안 겹침). */
 #content{position:absolute;top:176px;left:0;right:0;display:flex;flex-direction:column;align-items:center;gap:72px}   /* 타이틀·프로그래스·하단 간격 넉넉히(유저) */
 
+/* 타이틀 위 작은 캡션 — 4페이즈 진행 표기(1/4 …). 타이틀과의 간격은 마진으로만(컬럼 gap 유지) */
+.cap{font-weight:700;font-size:46px;letter-spacing:6px;color:rgba(255,255,255,.62);
+  margin-bottom:-38px;text-align:center;opacity:0;animation:sUpFlat .5s .18s both}
 /* 상단: 지시 타이틀(짧게) — 글자 하나하나 촤라락 슬라이드인 */
 .title{text-align:center;white-space:nowrap;
   font-weight:700;font-size:120px;line-height:1.05;letter-spacing:-4px}
@@ -38,7 +41,7 @@ html,body{background:transparent}
   opacity:0;animation:sUp .7s .5s both}
 .phase{font-weight:500;font-size:46px;color:rgba(255,255,255,.4);letter-spacing:-1px;white-space:nowrap}
 .phase.active{font-weight:700;font-size:58px;color:#fff;text-shadow:0 0 28px rgba(255,255,255,.4);
-  animation:phasePulse 2.4s 1.4s ease-in-out infinite}
+  animation:phasePulse 2.4s 1.4s ease-in-out 3}
 
 /* 지면에 눕힌 프레임 = 세로 translate가 원근상 '깊이 이동'(멀리서 날아옴)으로 보임 →
    등장은 제자리 스케일+페이드로(그 자리에서 자연스럽게 나타남). */
@@ -50,19 +53,21 @@ html,body{background:transparent}
 @keyframes sUpFlat{from{opacity:0;transform:scale(.94)}to{opacity:1;transform:scale(1)}}
 
 /* A 미리보기(프리뷰) — Figma 122:270 정확 이식: 타이틀 + [Preview 필(둥근 배경+화살표) · 타이머 링] 가로 행.
-   링 = floor-timer(52-3084) 문법(점선 트랙+아크+회전 팁+중앙 숫자). 시범 5초, 끝나면 페이드아웃. */
+   링 = floor-timer(52-3084) 문법(점선 트랙+아크+회전 팁+중앙 숫자). 시범 = --pv초, 끝나면 페이드아웃. */
 @font-face{font-family:'OffBit';src:url('../fonts/OffBitTrial-DotBold.woff2') format('woff2');font-weight:700;font-display:block}
 /* Figma 122:270 프리뷰 행 = 콘텐츠 컬럼의 자식(타이틀 바로 아래 gap 40). [Preview 필 · 타이머 링] 가로. */
+#follow-view{display:flex;flex-direction:column;align-items:center;gap:56px;margin-top:26px;animation:sUpFlat .5s both}
+#fv-vid{width:1180px;height:560px;background:transparent}   /* 프레임 박스 제거(유저) — 자리만 확보 */
 #prev-row{display:flex;gap:120px;align-items:center;justify-content:center;
-  opacity:0;animation:sUpFlat .5s .2s both, demoOutFlat .45s 5.05s both}
+  opacity:0;animation:sUpFlat .5s .2s both, demoOutFlat .45s var(--pvOut,3.05s) both}
 #prev-pill{display:flex;align-items:center;gap:20px;background:rgba(255,255,255,.14);border-radius:999px;padding:20px 30px 20px 40px}
 #prev-pill .pv{font-family:'Supreme',sans-serif;font-weight:700;font-size:60px;color:#fff;white-space:nowrap;line-height:1}
 #prev-pill svg{width:60px;height:60px;flex:0 0 auto}
 #prev-ring{position:relative;width:200px;height:200px}   /* Figma 200×200 통일 */
 #prev-ring svg.rg{position:absolute;inset:0;width:100%;height:100%}
-#prev-ring .arc{stroke-dasharray:1727.9;stroke-dashoffset:1727.9;animation:arcFill 5s .15s linear both}
+#prev-ring .arc{stroke-dasharray:1727.9;stroke-dashoffset:1727.9;animation:arcFill var(--pv,3s) .15s linear var(--pvn,1) both}
 @keyframes arcFill{from{stroke-dashoffset:1727.9}to{stroke-dashoffset:0}}
-#prev-ring .tip{position:absolute;inset:0;transform-origin:center;animation:tipSpin 5s .15s linear both}
+#prev-ring .tip{position:absolute;inset:0;transform-origin:center;animation:tipSpin var(--pv,3s) .15s linear var(--pvn,1) both}
 #prev-ring .tip img{position:absolute;left:50%;top:-3px;width:28px;height:28px;transform:translateX(-50%);
   filter:drop-shadow(0 0 8px rgba(250,48,48,.6))}
 @keyframes tipSpin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
@@ -74,7 +79,7 @@ html,body{background:transparent}
 #spm-lbl span{font-weight:500;font-size:56px;color:rgba(255,255,255,.72);margin-left:14px}
 #next-lbl{position:absolute;top:104px;left:0;right:0;text-align:center;font-family:'Supreme',sans-serif;font-weight:700;font-size:54px;
   letter-spacing:8px;color:rgba(255,255,255,.8);opacity:0;
-  animation:sUpFlat .5s .1s both, demoOutFlat .45s 5.05s both}
+  animation:sUpFlat .5s .1s both, demoOutFlat .45s var(--pvOut,3.05s) both}
 @keyframes demoOutFlat{to{opacity:0}}
 
 /* 러닝 학습(P) — Figma 122-308 정확 이식(유저 배치): 타이틀=구간명 + 도트 프로그래스 + [내SPM/전문가SPM · 링] 가로 행.
@@ -102,11 +107,29 @@ html,body{background:transparent}
 </style></head><body>
   <div id="board">
     <div id="content">
+      <div class="cap" id="s-cap"></div>
       <div class="title" id="s-title">Title</div>
       <div class="cue" id="s-cue"></div>
       <div class="dots" id="s-dots">
         <div class="drow" id="drow-g"></div>
         <div class="dclip"><div class="drow" id="drow-r"></div></div>
+      </div>
+      <!-- 피그마 130-2984 Success 컴포넌트: 🔥 배지 + 점선 카운트다운 링 (기본 숨김, 시뮬이 구동) -->
+      <div id="s-succ" style="display:none;flex-direction:column;align-items:center;gap:56px;margin-top:34px">
+        <div style="background:rgba(255,255,255,.92);border-radius:80px;padding:16px 40px;display:flex;align-items:center;gap:14px">
+          <span style="font-size:44px">🔥</span>
+          <span style="font-family:'OffBit','Supreme',sans-serif;font-size:52px;color:#525252;letter-spacing:-1.6px">Success!</span>
+        </div>
+        <div style="position:relative;width:220px;height:220px">
+          <svg viewBox="0 0 220 220" style="position:absolute;inset:0">
+            <circle cx="110" cy="110" r="98" fill="none" stroke="#8a8f98" stroke-width="3" stroke-dasharray="2 14" stroke-linecap="round"/>
+            <circle id="succ-arc" cx="110" cy="110" r="98" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round"
+              stroke-dasharray="615.7" stroke-dashoffset="0" transform="rotate(-90 110 110)"/>
+            <circle id="succ-dot" cx="110" cy="12" r="9" fill="#fa3030"/>
+          </svg>
+          <div id="succ-n" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+            font-family:'OffBit','Supreme',sans-serif;font-size:88px;color:#fff">3</div>
+        </div>
       </div>
     </div>
   </div>
@@ -117,6 +140,13 @@ html,body{background:transparent}
   const stage = params.get('stage') || 'A1';
   const S = window.FLOOR_SCENES[stage] || { title: stage, phase: 0, sub: '' };
   const isP = /^P\d$/.test(stage);
+  // 스텝백 4페이즈면 타이틀 위에 1/4 … 4/4 캡션(유저: 어느 단계인지 안 보인다)
+  {
+    const m = /^BK_B([2345])$/.exec(stage);
+    const cap = $('s-cap');
+    if (m && cap) cap.textContent = (+m[1] - 1) + ' / 4';
+    else if (cap) cap.style.display = 'none';
+  }
   // 타이틀 — 비훈련: 글자 분해 촤라락 슬라이드인. 훈련(P): 구간명을 main.js가 라이브 갱신하므로 캐스케이드 생략.
   if (!isP) (function(){
     const t = $('s-title'); t.textContent = ''; let vis = 0;
@@ -169,8 +199,17 @@ html,body{background:transparent}
     el.innerHTML = `<b id="spm-me">--</b><span> / ${spm} SPM</span><div style="font-weight:500;font-size:44px;color:rgba(255,255,255,.62);margin-top:6px">내 발걸음 / 목표 — 소리에 맞춰</div>`; document.getElementById('board').appendChild(el); }
   // A2/A3 시범(3초) — 원본 실전직전 타이머 링(floor-timer.html) 소형 그대로 + DEMO 라벨.
   //   도트 로딩바는 시범 동안 숨김 → 3초 뒤 등장·채움 시작(따라하기 진행 전담).
-  if (/^(A2|A3)$/.test(stage)) {
-    // Figma 122:270 정확 이식 — 타이틀(#s-title) 아래 [Preview 필 + 타이머 링] 가로 행. 시범 5초 카운트다운.
+  if (/^(A2|A3|BK_A[23]|BK_B[12345])$/.test(stage)) {
+    // Figma 122:270 정확 이식 — 타이틀(#s-title) 아래 [Preview 필 + 타이머 링] 가로 행. 시범 3초 카운트다운.
+    // (BK_A3 스쿼트 = 러닝 A2/A3와 동일 관찰5초→따라하기 UI)
+    // 시범 길이 = 스텝백은 '영상 루프 N회'(main.js가 pv/pvn으로 넘김), 나머지는 3초.
+    //   PVN이 있으면 타이머 숫자가 초가 아니라 1/N → 2/N … 루프 횟수를 센다(유저).
+    const PVN = +(params.get('pvn') || 0);
+    const PV = +(params.get('pv') || 0) || 3;
+    // 링은 '영상 1회'마다 한 바퀴 — PVN회 반복. 숫자는 0/N에서 시작해 한 바퀴 돌 때마다 +1.
+    document.documentElement.style.setProperty('--pv', (PVN ? PV / PVN : PV) + 's');
+    document.documentElement.style.setProperty('--pvn', PVN || 1);
+    document.documentElement.style.setProperty('--pvOut', (PV + 0.05) + 's');
     const row = document.createElement('div'); row.id = 'prev-row';
     row.innerHTML = `
       <div id="prev-pill">
@@ -183,17 +222,35 @@ html,body{background:transparent}
           <circle class="arc" cx="302" cy="302" r="275" fill="none" stroke="#fff" stroke-width="11" stroke-linecap="round" transform="rotate(-90 302 302)"/>
         </svg>
         <div class="tip"><img src="assets/timer_tip.svg" alt=""></div>
-        <div id="prev-num">5</div>
+        <div id="prev-num"${PVN ? ' style="font-size:62px"' : ''}>${PVN ? '0/' + PVN : PV}</div>
       </div>`;
-    // 컬럼: 타이틀 → 프리뷰 행(도트 슬롯 자리). 시범 동안 도트는 숨김(공간도 차지 X) → 5s 뒤 프리뷰 사라지고 도트가 그 자리로.
+    // 컬럼: 타이틀 → 프리뷰 행(도트 슬롯 자리). 시범 동안 도트는 숨김(공간도 차지 X) → PV초 뒤 프리뷰 사라지고 도트가 그 자리로.
     const dots = $('s-dots');
     document.getElementById('content').insertBefore(row, dots);
     dots.style.display = 'none';
-    let n = 5;
-    const iv = setInterval(() => { n--; if (n < 1) { clearInterval(iv); return; }
-      document.getElementById('prev-num').textContent = n; }, 1000);
-    setTimeout(() => { row.style.display = 'none'; dots.style.display = ''; dots.style.animation = 'sUpFlat .6s both'; }, 5100);
-    const clip = document.querySelector('.dclip'); if (clip) clip.style.animationDelay = '5.15s';
+    // PVN(스텝백) = 숫자·링을 main.js가 실제 재생 횟수로 구동한다. 여기선 카운트다운을 돌리지 않는다.
+    let n = PV;
+    const numEl = () => document.getElementById('prev-num');
+    const iv = PVN ? null
+      : setInterval(() => { const el = numEl(); if (!el || !el.isConnected) { clearInterval(iv); return; }
+          n--; if (n < 1) { clearInterval(iv); return; } el.textContent = n; }, 1000);
+    setTimeout(() => {
+      // 같은 버퍼에 다른 스테이지 문서가 다시 주입되면 이 노드들은 떨어져 나간다(insertBefore 예외).
+      if (!dots.isConnected) return;
+      row.style.display = 'none'; dots.style.display = ''; dots.style.animation = 'sUpFlat .6s both';
+      // ── 따라하기 뷰 (피그마 143:444) — 프리뷰를 복제해 만든 두 번째 화면.
+      //    영상 가이드 프레임은 작게 위, 그 아래 L·R 판정 마크 + 방향 화살표.
+      //    (스텝백 4페이즈 전용. 관찰이 끝나면 이 프레임이 그 자리를 이어받는다)
+      if (/^BK_B[2345]$/.test(stage)) {
+        const fv = document.createElement('div'); fv.id = 'follow-view';
+        fv.innerHTML = `<div id="fv-vid"></div>`;   // 마크는 3D 룩시스템 토큰(session.js)이 그린다
+        document.getElementById('content').insertBefore(fv, dots);
+        dots.style.display = 'none';   // 스텝백 따라하기(143:444)엔 도트바 없음 — 진행은 상단 n/4가 담당(유저)
+        // 영상 자리는 박스로만 잡는다 — 실제 그림은 3D 코치 패널(크로마키+룩 LUT)이 이 위에 얹힌다.
+        //   HTML <video>로는 프리뷰에서 보던 실루엣(셰이더 결과)을 재현할 수 없다.
+      }
+    }, PV * 1000 + (PVN ? 500 : 100));
+    const clip = document.querySelector('.dclip'); if (clip) clip.style.animationDelay = (PV + 0.15) + 's';
   }
 
 

@@ -1,5 +1,5 @@
-<!doctype html><html lang=ko><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1">  <script type="module" crossorigin src="./assets/fxlab-PKBuVUan.js"></script>
-  <link rel="modulepreload" crossorigin href="./assets/fx-core-xuHeILQq.js">
+<!doctype html><html lang=ko><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1">  <script type="module" crossorigin src="./assets/fxlab-Cwb7b9sF.js"></script>
+  <link rel="modulepreload" crossorigin href="./assets/fx-core-BzgiOU64.js">
 </head><body><title>NEWTON FX Lab — 히트 그라디언트 체험·조정</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔥</text></svg>">
 <style>
@@ -132,21 +132,20 @@
   </div>
 </div>
 
-<h2 id="lineStation">LINE 최소 토큰 — 선 엔진, 의미는 배치가 정한다 <span class="tag new">같은 선이 4가지 일을 한다</span></h2>
-<p class="note">선의 스타일(실선·대시·도트·테이퍼)과 두께는 <b>여기서 한 번</b> 정합니다 — 방향 화살표·회전 가이드·레인·감속 리듬이 전부 이 값의 파생.
-화살표는 독립 토큰이 아니라 <b>LINE + TIP 글리프</b>입니다 (TIP SVG는 ↑=전방, 엔진이 경로 접선 회전).</p>
+<h2 id="lineStation">LINE 토큰 — 선 엔진 3종 <span class="tag new">방향 · 흐름 · 회전</span></h2>
+<p class="note">선의 재료(스타일·두께·글로우·온도)와 <b>인터랙션 타이밍</b>(속도·간격·꼬리)을 <b>여기서 한 번</b> 정합니다 — 세 토큰이 전부 이 값의 파생.
+화살표는 독립 토큰이 아니라 <b>LINE + TIP 글리프</b>이고, 세 토큰 모두 같은 촉 SVG를 씁니다 (↑=전방, 엔진이 접선 회전).
+감속 리듬은 별도 토큰이 아니라 <b>흐름의 간격 파라미터</b>입니다.</p>
 <div class="live">
   <div class="cell"><canvas id="pathArrowC" width="360" height="240" style="width:270px;height:180px;background:#0A0C10"></canvas>
-    <div class="lab">① 방향 전환 — 경로 추종 화살표<br><span style="font-size:10px;color:var(--sand)">실전: 농구 컷 방향 지시·전환 가이드</span></div></div>
-  <div class="cell"><canvas id="lineRotC" width="360" height="240" style="width:270px;height:180px;background:#0A0C10"></canvas>
-    <div class="lab">② 회전 가이드 — 원호 + 촉<br><span style="font-size:10px;color:var(--sand)">실전: A1 발목 돌리기 "원에 발끝 올리고 여덟 번"</span></div></div>
+    <div class="lab">① 방향 — 테이퍼 스템 + 촉 draw-on<br><span style="font-size:10px;color:var(--sand)">실전: 농구 컷 지시 · 러닝 A3 리프트 큐 · 지면 방향 화살표 (시뮬과 같은 코드)</span></div></div>
   <div class="cell"><canvas id="lineLaneC" width="360" height="240" style="width:270px;height:180px;background:#0A0C10"></canvas>
     <div class="ctl" id="laneStyleChips"></div>
-    <div class="lab">③ 레인 — <b style="color:var(--text)">전용 스타일</b> (화살표와 분리, 재료는 공유)<br><span style="font-size:10px;color:var(--sand)">실전: 러닝 진행 레인 — 기본 대시 흐름 (대시 간격 = 속도 언어)</span></div></div>
-  <div class="cell"><canvas id="lineDecelC" width="360" height="240" style="width:270px;height:180px;background:#0A0C10"></canvas>
-    <div class="lab">④ 감속 리듬 — 간격이 벌어짐<br><span style="font-size:10px;color:var(--sand)">실전: C-구간 마무리 "속도 낮추기"</span></div></div>
+    <div class="lab">② 흐름 — 진행·속도 (전용 스타일)<br><span style="font-size:10px;color:var(--sand)">실전: 러닝 진행 레인 · C-구간 감속(간격이 벌어짐 = 속도 언어)</span></div></div>
+  <div class="cell"><canvas id="lineRotC" width="360" height="240" style="width:270px;height:180px;background:#0A0C10"></canvas>
+    <div class="lab">③ 회전 — 관절 돌리기 (가이드 링 + 같은 촉)<br><span style="font-size:10px;color:var(--sand)">실전: A1 발목·목·어깨 돌리기 "원에 발끝 올리고 여덟 번"</span></div></div>
   <div class="side">
-    <h3 style="margin:0 0 8px;font-size:12px;letter-spacing:.1em;color:var(--dim);text-transform:uppercase;font-weight:600">LINE 파라미터 — 4씬 동시 반영</h3>
+    <h3 style="margin:0 0 8px;font-size:12px;letter-spacing:.1em;color:var(--dim);text-transform:uppercase;font-weight:600">LINE 파라미터 — 3토큰 동시 반영</h3>
     <div class="ctl" style="justify-content:flex-start" id="arrowLineChips"></div>
     <div id="lineSliders" style="margin-top:8px"></div>
     <div style="margin-top:10px;font-size:11px;color:var(--dim)">촉(TIP) — <button class="btn" id="tipAttachBtn" style="padding:3px 9px;font-size:10.5px">SVG 교체</button> <span style="font-size:10px">글리프 서랍의 TIP_TRI 슬롯과 동일</span></div>

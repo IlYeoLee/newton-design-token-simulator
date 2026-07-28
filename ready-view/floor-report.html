@@ -1,6 +1,7 @@
 <!doctype html>
 <!-- 러닝·농구 세션 종료 리포트 (세로 1600×2670) — Figma [종료] 이식.
-     "Session Complete" + 100% 원형 프로그레스(0→100% 채움) + 통계 3열 + 버튼. ?stage=FIN|BK_FIN -->
+     타이틀 + 100% 원형 프로그레스(0→100% 채움) + 통계 3열 + 버튼. ?stage=FIN|BK_FIN
+     지표는 팩 성격에 맞춘다: 러닝=거리·페이스·케이던스 / 농구=스텝백 성공·스텝 정확도·릴리즈 -->
 <html lang="en"><head><meta charset="utf-8"><title>Newton — 리포트(지면)</title><style>
 @font-face{font-family:'Supreme';src:url('../fonts/Supreme-Bold.woff2') format('woff2');font-weight:700;font-display:block}
 @font-face{font-family:'Supreme';src:url('../fonts/Supreme-Medium.woff2') format('woff2');font-weight:400;font-display:block}
@@ -14,7 +15,7 @@ html,body{background:transparent}
   -webkit-mask:radial-gradient(58% 46% at 50% 43%, #000 22%, transparent 82%);
           mask:radial-gradient(58% 46% at 50% 43%, #000 22%, transparent 82%)}
 .bg-glow img{position:absolute;left:50%;top:1080px;width:2200px;transform:translate(-50%,-50%);
-  will-change:transform;animation:glowDrift 15s ease-in-out infinite}
+  will-change:transform;animation:glowDrift 15s ease-in-out 3}
 @keyframes glowDrift{
   0%{transform:translate(-50%,-50%) scale(1) rotate(0deg)}
   25%{transform:translate(-56%,-46%) scale(1.12) rotate(4deg)}
@@ -56,9 +57,9 @@ html,body{background:transparent}
 .ttl span{display:inline-block}
 @keyframes charWave{0%,58%,100%{transform:translateY(0)}29%{transform:translateY(-16px)}}
 .tgrp{animation:titleIn .8s .1s cubic-bezier(.22,1,.36,1) both}
-.ring{animation:ringPop .8s .35s cubic-bezier(.34,1.56,.64,1) both, ringBreath 3.4s 1.4s ease-in-out infinite}
+.ring{animation:ringPop .8s .35s cubic-bezier(.34,1.56,.64,1) both, ringBreath 3.4s 1.4s ease-in-out 3}
 .stats{opacity:0;animation:sUp .7s 1.15s both}
-.btn{opacity:0;animation:sUp .7s 1.35s both, btnPulse 3s 2s ease-in-out infinite}
+.btn{opacity:0;animation:sUp .7s 1.35s both, btnPulse 3s 2s ease-in-out 3}
 </style></head><body>
   <div id="board">
     <div class="bg-glow"><img src="assets/bg_glow.svg" alt=""></div>
@@ -80,8 +81,9 @@ html,body{background:transparent}
     // 실제 러닝 기록 지표(유저: 러닝 앱 요약처럼). GPS 경로맵은 시뮬에 없어 제외.
     FIN:    { sub:'Sean’s Final 1km Pace',  title:'Session Complete',
       stats:[['Distance','1.00 km'],['Avg Pace','5’42”'],['Cadence','174 spm']] },
-    BK_FIN: { sub:'Curry’s Signature Move', title:'Session Complete',
-      stats:[['Makes','8 / 10'],['Best Move','Step-Back','sm'],['Reps','24']] },
+    // 농구 = 커리 스텝백 팩. 이 세션에서 실제로 가르친 것(스텝백 4페이즈 → 실전 3회)에 맞춘 지표.
+    BK_FIN: { sub:'Curry Step-Back Pack', title:'Step-Back Locked In',
+      stats:[['Step-Back 3PT','2 / 3'],['Step Accuracy','86 %'],['Release','0.42 s','sm']] },
   };
   const $ = id => document.getElementById(id);
   const stage = new URLSearchParams(location.search).get('stage') || 'FIN';
@@ -89,7 +91,7 @@ html,body{background:transparent}
   $('t-sub').textContent = R.sub;
   (function(el, t){ el.textContent=''; [...t].forEach((ch,i)=>{ const s=document.createElement('span');
     s.textContent = ch===' ' ? String.fromCharCode(160) : ch;
-    s.style.animation = 'charWave 2.4s ' + (0.9 + i*0.05) + 's ease-in-out infinite'; el.appendChild(s); });
+    s.style.animation = 'charWave 2.4s ' + (0.9 + i*0.05) + 's ease-in-out 3'; el.appendChild(s); });
   })($('t-ttl'), R.title);
   // 통계 3열 (구분선 포함)
   const sw = $('r-stats');

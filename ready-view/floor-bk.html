@@ -12,12 +12,12 @@ html,body{background:transparent}
 
 /* 하단 큰 글로우 */
 .bigglow{position:absolute;left:50%;top:1400px;transform:translate(-50%,-50%);width:1020px;height:930px;opacity:.85}
-.bigglow img{width:100%;height:100%;display:block;transform-origin:50% 46%;animation:glowLive 7s ease-in-out infinite}
+.bigglow img{width:100%;height:100%;display:block;transform-origin:50% 46%;animation:glowLive 7s ease-in-out 3}
 
 /* 타이틀 — 글자 하나하나 루핑 웨이브 */
 .title{position:absolute;top:176px;left:0;right:0;text-align:center;white-space:nowrap;
   font-weight:700;font-size:120px;line-height:1.1;letter-spacing:-4px}
-.title .ch{display:inline-block;will-change:transform,opacity;animation:charLoop 3s ease-in-out infinite}
+.title .ch{display:inline-block;will-change:transform,opacity;animation:charLoop 3s ease-in-out 3}
 .title .sp{display:inline-block;width:.26em}
 
 /* 3칸 정보 스트립 */
@@ -45,12 +45,12 @@ html,body{background:transparent}
 /* 중앙 하단 Tap-foot 히어로 */
 .hero{position:absolute;left:50%;top:1057px;transform:translateX(-50%);width:1000px;text-align:center;
   opacity:0;animation:fadeUpCentered .9s cubic-bezier(.2,.75,.2,1) .7s both}
-.hero .arrow{width:86px;height:86px;display:block;margin:0 auto 30px;animation:arrowBob 3s ease-in-out infinite 1.5s}
+.hero .arrow{width:86px;height:86px;display:block;margin:0 auto 30px;animation:arrowBob 3s ease-in-out 3 1.5s}
 .hero .a{font-weight:700;font-size:88px;line-height:1.05;letter-spacing:-5px}
 .foot{position:absolute;left:606px;top:1140px;width:400px;height:539px;
   opacity:0;animation:slideInUp .9s cubic-bezier(.2,.75,.2,1) .7s both}
 .foot img{width:100%;height:100%;display:block;transform-origin:50% 100%;
-  animation:footBob 3s cubic-bezier(.4,0,.3,1) infinite 1.5s}
+  animation:footBob 3s cubic-bezier(.4,0,.3,1) 3 1.5s}
 
 /* ═══ 애니메이션 ═══ */
 @keyframes slideInUp{from{opacity:0;transform:translateY(52px)}to{opacity:1;transform:translateY(0)}}
@@ -64,7 +64,7 @@ html,body{background:transparent}
   <div id="board">
     <div class="bigglow"><img src="assets/fig/big_glow.svg" alt=""></div>
 
-    <div class="title" id="title">Curry's Step-Back Pack</div>
+    <div class="title" id="title">Curry's Handle Pack</div>
 
     <div class="strip">
       <div class="col side"><div class="k">Time</div><div class="v">30min</div></div>
