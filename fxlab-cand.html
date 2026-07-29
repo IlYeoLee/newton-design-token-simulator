@@ -610,8 +610,11 @@ vec4 dotFormQ(vec2 grid, vec2 uv, float sd, float ext, float w, float pitch, flo
   //   0.30 이면 fillActive 의 RED→CORAL 구간(0~0.479)을 거의 건너뛰어 뉴턴 레드가 안 보인다
   //   (유저: Active 그라디언트에도 메인 레드를 넣어달라). 정본이 0.3x 로 띄운 건 '중심 핫스팟이
   //   또렷하다'는 지적 때문인데, 점으로 그리면 하프톤이 그 원을 이미 부수므로 띄울 이유가 없다.
-  float q    = qOvr >= 0.0 ? qOvr
-             : clamp(uQ0 + (1.0 - uQ0) * length(uv) / max(ext * 1.55, 1e-3), 0.0, 1.0);
+  // ★ q 가 반지름에 '선형'이면 면적의 대부분이 램프 뒤쪽(사구·크림)에 몰려 색이 옅어진다
+  //   — 원은 넓이가 r² 로 커지기 때문이다(유저: 뉴턴 색도 아니고 촌스럽다).
+  //   거듭제곱으로 눌러 중심부가 오래 뉴턴 레드로 남게 한다.
+  float rN   = clamp(length(uv) / max(ext * 1.55, 1e-3), 0.0, 1.0);
+  float q    = qOvr >= 0.0 ? qOvr : clamp(uQ0 + (1.0 - uQ0) * pow(rN, 1.75), 0.0, 1.0);
   // 경계 세밀화 — 마크 끝은 이미 부호거리로 자연히 잦아들므로 기본 0(유저 지적).
   //   필요할 때만 켜서 비교하라고 슬라이더로만 남긴다. 정작 필요한 곳은 글리프 쪽이었고
   //   거기는 stripGlyph 의 2단 격자가 담당한다.
@@ -672,7 +675,9 @@ const CANDIDATES = [
     float ang   = atan(uv.y, uv.x);
     float scan  = fract(t * 0.16 * sp) * 6.28319;
     float since = fract((scan - ang) / 6.28319);        // 0 = 방금 훑었다
-    float trail = pow(1.0 - since, 2.2);                // 꼬리는 길고 부드럽게
+    //   since 가 1 에서 0 으로 감기는 자리가 스윕 선단인데, 거기서 값이 계단처럼 튀어
+    //   대각선 이음매로 보였다(유저 스샷). 선단 직전 구간을 눌러 매끈히 넘어가게 한다.
+    float trail = pow(1.0 - since, 2.2) * smoothstep(1.0, 0.90, since);
     float br    = 0.5 + 0.5 * sin(t * 0.7 * sp);
     holdQ = mix(0.92, 0.30, trail);                     // 색으로 꼬리를 말한다(밝기 차 최소)
     w = 0.66 + 0.16 * trail + 0.10 * br + 0.06 * (1.0 - r);
@@ -1547,7 +1552,7 @@ function stripGlyph(ctx, cat, W) {
 
 
 let candSel = 'newtonSet', candShape = 1;
-const candP = { pitch: 0.055, gain: 1.15, speed: 1.0, inner: 0.55, prog: -0.01, harm: 0.55, q0: 0.04, satR: 1.2, hue: 0.75, beam: 1.5, fine: 0 };
+const candP = { pitch: 0.055, gain: 1.15, speed: 1.0, inner: 0.55, prog: -0.01, harm: 0.55, q0: 0.04, satR: 1.5, hue: 0.8, beam: 1.15, fine: 0 };
 const candT = { mono: 0, flat: 0, noGlow: 0, noInner: 0, bg: 0, holdRim: 0, innerMode: 0, actMode: 0, comp: 2 };
 {
   const host = document.getElementById('candToggles');
