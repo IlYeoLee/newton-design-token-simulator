@@ -375,6 +375,10 @@ async function boot() {
     tokens.setPack(data);
     xbot.setPack(data, tokens.events);
     rig.setPack(data.sport, tokens.events);
+    // 농구 3인칭 = 항상 기본 프레이밍으로 못박는다(유저 지정 뷰). 팩을 갈아도 이전 종목에서
+    // 돌려놓은 궤도 각·거리가 그대로 남아 3인칭이 매번 딴 각도로 뜨던 것 — 3인칭일 때만.
+    // (1인칭↔3인칭 토글·세션 중지 경로는 setFp 가 이미 같은 프레이밍을 부른다)
+    if (data.sport === 'basketball' && !fpMode) frameThirdPerson();
     const isKneePack = data.sport === 'running' || data.sport === 'basketball';
     window.__updateSurfAvail?.();   // 실내 테마 = 복싱 전용 게이트
     window.__applySurfDefault?.(p);   // 팩별 기본 투사면 자동 적용
