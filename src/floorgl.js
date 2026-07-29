@@ -199,6 +199,8 @@ export function arcGauge(ctx, x0, y, w, p, o = {}) {
  *  림 2겹: 컨닉 헤어라인(135°·315° 가 밝다) + 그 안쪽 넓고 옅은 헤일로. */
 export function glassDot(ctx, hx, hy, R) {
   const s = R / (ARC.dot / 2);
+  ctx.save();
+  ctx.shadowBlur = 0;   // 호출자가 링 브레스 글로우를 켜둔 채 부를 수 있다 — 마커엔 안 먹인다
   if (_gsCv) {
     const m = ctx.getTransform(), k = m.a, pad = 6 * s;
     const sx = (hx - R - pad) * k + m.e, sy = (hy - R - pad) * k + m.f, sz = (R + pad) * 2 * k;
@@ -215,7 +217,6 @@ export function glassDot(ctx, hx, hy, R) {
       ctx.restore();
     }
   }
-  ctx.save();
   ctx.fillStyle = 'rgba(255,255,255,.18)';                       // background
   ctx.beginPath(); ctx.arc(hx, hy, R, 0, Math.PI * 2); ctx.fill();
   // 림 ① 컨닉 헤어라인 — 0deg 가 위이므로 캔버스 각도에서 −90°
@@ -979,7 +980,7 @@ export class FloorGL {
     ctx.save();
     ctx.globalAlpha *= kf(q, [[0, 0], [.35, 1], [1, 1]]);
     ctx.translate(CX, cy); ctx.scale(nk, nk); ctx.translate(-CX, -cy);
-    drawCenteredNum(ctx, txt, CX, cy, 220);
+    drawCenteredNum(ctx, txt, CX, cy, 202);
     ctx.restore();
     ctx.restore();
   }
