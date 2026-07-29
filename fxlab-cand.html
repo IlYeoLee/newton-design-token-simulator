@@ -578,10 +578,11 @@ vec3 stateFill(float st, float q, float pg){
 }
 // 아웃라인 없는 닷 폼 본체(⑩) — w 는 그 픽셀의 '켜짐 정도'. Hold 후보들이 w 만 바꿔 쓴다.
 vec4 dotFormQ(vec2 grid, vec2 uv, float sd, float ext, float w, float pitch, float st, float pg, float qOvr){
-  // ★ 경계 폭. 넓으면 점이 넓은 띠에 걸쳐 줄어들어 전체가 뿌예진다(유저: 주변부가 과하게 뿌얘).
-  //   좁게 잡아 '진짜 가장자리'만 부분 크기가 되게 한다 — 안쪽은 온전한 크기를 유지해야
-  //   글리프 구멍도 또렷이 읽힌다. 계수 0.16 → 0.06 (이너 폭 슬라이더로 여전히 조절 가능).
-  float band = 0.06 * max(uInner, 0.05);
+  // 경계 폭. 이 값 하나로 두 가지가 동시에 정해져 있었던 게 문제였다 —
+  //   넓게 잡으면(0.16) 점 크기 변화는 예쁘지만 안쪽까지 작아져 뿌옇고,
+  //   좁게 잡으면(0.06) 또렷하지만 모든 점이 최대 크기가 되어 균일한 덩어리가 된다.
+  //   → 경계는 적당히(0.11) 잡고, 점 크기 변화는 '열'이 따로 맡게 분리한다(아래 heat).
+  float band = 0.11 * max(uInner, 0.05);
   float amt  = smoothstep(band, -band, sd) * clamp(w, 0.0, 2.0);
   // ★ 아웃라인이 없어도 이너 음영은 된다 — 선이 아니라 '점 크기'가 음영을 지면 되기 때문.
   //   가장자리 쪽 점을 키우면 글로우, 줄이면 섀도우. 윤곽선은 여전히 0 이다.
@@ -599,6 +600,12 @@ vec4 dotFormQ(vec2 grid, vec2 uv, float sd, float ext, float w, float pitch, flo
   // 경계 세밀화 — 마크 끝은 이미 부호거리로 자연히 잦아들므로 기본 0(유저 지적).
   //   필요할 때만 켜서 비교하라고 슬라이더로만 남긴다. 정작 필요한 곳은 글리프 쪽이었고
   //   거기는 stripGlyph 의 2단 격자가 담당한다.
+  // ★ 점 크기의 주인은 '열'이다 — 레퍼런스의 발바닥 밀도가 그것이다.
+  //   형태 커버리지(amt)만으로 크기를 정하면 안쪽이 전부 같은 크기가 되어 결이 사라진다.
+  //   q 는 아래에서 색좌표로 쓰는 값(0=뜨겁다) — 같은 값으로 크기도 정하면 색과 결이 일치한다.
+  float qh   = qOvr >= 0.0 ? qOvr
+             : clamp(uQ0 + (1.0 - uQ0) * length(uv) / max(ext * 1.55, 1e-3), 0.0, 1.0);
+  amt *= mix(1.0, 0.42, smoothstep(0.15, 1.0, qh));
   float fineW = smoothstep(0.88, 0.30, amt) * uFine;
   float mC    = halftone(grid, pitch, amt * uDotGain, pitch * 0.16);
   float mF    = halftone(grid, pitch * 0.5, amt * uDotGain, pitch * 0.09);
@@ -1244,19 +1251,27 @@ function candSDF(FS) {
     if (first) ch = first;
   }
   const sizeN = MARK_NUM.RATIO * (state.m.radius || 1) * ((av && av.s) || 1);
+  const circle = candShape < 0.5;
   return bakeFootWithGlyphHole(candFootImg, Math.min(768, candFootN), candFootFlip, ch,
-                               av ? av.x : 0.5, av ? av.y : 0.34, sizeN);
+                               circle ? 0.5 : (av ? av.x : 0.5),
+                               circle ? 0.5 : (av ? av.y : 0.34), sizeN,
+                               circle ? 'circle' : 'foot');
 }
 const _sdfHoleCache = new Map();
-function bakeFootWithGlyphHole(img, N, flip, ch, axN, ayN, sizeN) {
-  const key = [ (img && img.src || 'builtin').slice(-40), N, flip ? 1 : 0, ch,
+function bakeFootWithGlyphHole(img, N, flip, ch, axN, ayN, sizeN, base) {
+  const key = [ base || 'foot', (img && img.src || 'builtin').slice(-40), N, flip ? 1 : 0, ch,
                 axN.toFixed(3), ayN.toFixed(3), sizeN.toFixed(3) ].join('|');
   const hit = _sdfHoleCache.get(key);
   if (hit) return hit;
   if (_sdfHoleCache.size > 12) _sdfHoleCache.clear();
   const c = document.createElement('canvas'); c.width = c.height = N;
   const g = c.getContext('2d');
-  if (img) {                                   // 발 실루엣 — bakeGlyphSDF 와 같은 배치 규약
+  if (base === 'circle') {
+    // 존 원은 셰이더에서 수식으로 그려 파낼 알파가 없다(유저: 왜 존 원엔 글리프가 안 되냐).
+    //   같은 규약(N의 78%)으로 원을 굽고 거기에 구멍을 낸다 → 발형과 같은 SDF 경로를 탄다.
+    g.fillStyle = '#fff';
+    g.beginPath(); g.arc(N / 2, N / 2, N * 0.39, 0, 6.2832); g.fill();
+  } else if (img) {                            // 발 실루엣 — bakeGlyphSDF 와 같은 배치 규약
     const R = glyphRaster(img, N);
     const sc = Math.min((N * 0.78) / R.w, (N * 0.78) / R.h);
     const w = R.w * sc, h = R.h * sc;
@@ -1322,15 +1337,11 @@ let candGStyle = 0;   // 0 솔리드 · 1 하프톤 · 2 음각
     candGStyle = (candGStyle + 1) % 5; b.textContent = LB[candGStyle];
     b.classList.toggle('on', !!candGStyle);
     // 실루엣 뚫기는 두 조건이 안 맞으면 조용히 아무 일도 안 한다 —
-    //   ① 글리프가 꺼져 있으면 뚫을 글자가 없다  ② 존 원은 SDF 를 안 쓴다(발형 전용).
+    //   글리프가 꺼져 있으면 뚫을 글자가 없다 — 켤 때 같이 켜 준다(존 원도 이제 된다).
     //   조용한 무동작은 '구현 안 된 것'으로 보인다(유저). 그래서 켤 때 조건을 맞춰준다.
     if (candGStyle === 4) {
       if (!candNums) { candNums = 1; const nb = document.getElementById('candNumBtn');
         nb.textContent = '글리프: 숫자'; nb.classList.add('on'); }
-      if (candShape < 0.5) { candShape = 1;
-        const host = document.getElementById('candShapeChips');
-        [...host.children].forEach(x => x.classList.remove('on'));
-        [...host.children].find(x => /발형/.test(x.textContent))?.classList.add('on'); }
     }
     updateFootSDF();
   };
@@ -1562,7 +1573,7 @@ document.getElementById('candCopyBtn').onclick = () => {
   [['존 원', 0], ['발형', 1]].forEach(([lb, v]) => {
     const b = document.createElement('button');
     b.className = 'btn'; b.textContent = lb;
-    b.onclick = () => { candShape = v; [...host.children].forEach(x => x.classList.remove('on')); b.classList.add('on'); };
+    b.onclick = () => { candShape = v; [...host.children].forEach(x => x.classList.remove('on')); b.classList.add('on'); updateFootSDF(); };
     if (v === candShape) b.classList.add('on');
     host.appendChild(b);
   });
@@ -2273,7 +2284,7 @@ function frame(ts) {
       g2.uniform1f(P.u('uRadius'), m.radius * surfR);
       g2.uniform1f(P.u('uPool'), m.pool);
       g2.uniform1f(P.u('uSweepA'), m.sweep);
-      g2.uniform1f(P.u('uShape'), candShape);
+      g2.uniform1f(P.u('uShape'), (candGStyle === 4 && candNums) ? 1 : candShape);   // 실루엣 뚫기는 원도 SDF 로 탄다
       g2.uniform1f(P.u('uForm'), state.markForm);
       g2.uniform1f(P.u('uDotPitch'), candP.pitch);
       g2.uniform1f(P.u('uDotGain'), candP.gain);
@@ -2312,7 +2323,7 @@ function frame(ts) {
       g3.uniform1f(P.u('uRadius'), m.radius * surfR);
       g3.uniform1f(P.u('uPool'), m.pool);
       g3.uniform1f(P.u('uSweepA'), m.sweep);
-      g3.uniform1f(P.u('uShape'), candShape);
+      g3.uniform1f(P.u('uShape'), (candGStyle === 4 && candNums) ? 1 : candShape);   // 실루엣 뚫기는 원도 SDF 로 탄다
       g3.uniform1f(P.u('uForm'), state.markForm);
       g3.uniform1f(P.u('uDotPitch'), candP.pitch);
       g3.uniform1f(P.u('uDotGain'), candP.gain);
