@@ -544,7 +544,7 @@ float markShapeSD(vec2 p, float base);
 // 공용 프렐류드 — 모든 후보가 쓰는 하프톤·필드 도구. 21st.dev 닷 컬렉션의 로직을 GLSL로 옮긴 것.
 //   닷 격자는 마크 로컬(uv) 좌표 — 마크가 커지면 닷도 함께 커진다(스크린 하프톤이 아니라 '이 토큰의 결').
 const CAND_PRELUDE = `
-uniform float uDotPitch, uDotGain, uDotSpeed, uInner, uDotGlow;
+uniform float uDotPitch, uDotGain, uDotSpeed, uInner, uDotGlow, uWave;
 uniform float uMono, uFlat, uNoInner, uBg, uProgOvr;
 uniform float uInnerMode, uActMode, uComp, uHarm, uQ0, uSatR, uHueKeep, uBeam, uFine;
 uniform sampler2D uMask; uniform float uMaskOn, uRefTone;
@@ -605,6 +605,25 @@ float normQ(vec2 uv, float ext){
   //   (유저가 반복해서 지적한 그 링의 실제 원인)
   float r = clamp(length(uv) / max(ext * 1.55, 1e-3), 0.0, 1.0);
   return clamp(uQ0 + (0.60 - uQ0) * pow(r, 1.75), 0.0, 1.0);
+}
+// ★ 아웃라인이 안 사라진 진짜 이유 — 정본 A 의 알파가 경계에서 2px 안에 1→0 으로 끊긴다.
+//   점을 아무리 작게 만들어도 경계에 걸친 점은 A 가 '잘라' 버린다. 점을 고칠 문제가 아니라
+//   알파를 A 에서 가져오지 말아야 하는 문제였다.
+//   색만 A 에서 빌리고(언프리멀티), 알파는 넓은 페이드 × 점 마스크로 새로 만든다.
+vec4 perforate(vec4 A, float sd, float m, float w2){
+  float aOld = max(A.a, 1e-4);
+  vec3  c0   = A.rgb / aOld;                                  // 정본 색(언프리멀티)
+  float soft = smoothstep(0.13 * max(uInner, 0.20), -0.05, sd);  // 경계를 넓게 녹인다
+  float aNew = clamp(soft * m * w2, 0.0, 1.0);
+  // 이너 음영 — dotFormQ 안에만 있어서 마스크 계열(그라디언트 마스크·7상태 세트)엔
+  //   토글이 안 먹었다(유저). 여기서도 같은 규칙으로 건다: 끝에서 최대, 안으로 급감.
+  if (uInnerMode > 0.5) {
+    float dep = clamp(-sd / max(0.55 * uInner, 1e-4), 0.0, 1.0);
+    float e   = pow(1.0 - dep, 2.4);
+    aNew *= (uInnerMode > 1.5) ? mix(1.0, 0.28, e) : mix(1.0, 1.80, e);
+    aNew = clamp(aNew, 0.0, 1.0);
+  }
+  return vec4(c0 * aNew, aNew);
 }
 vec4 dotFormQ(vec2 grid, vec2 uv, float sd, float ext, float w, float pitch, float st, float pg, float qOvr){
   float t2 = uT2;
@@ -723,12 +742,17 @@ const CANDIDATES = [
     glsl: `${CAND_SIG} {
   // ★ 균일 마스크를 그냥 곱하면 A 의 하드 경계에서 점이 '잘려' 아웃라인이 생긴다(유저 지적).
   //   ⑪ 흩날림이 아웃라인 없는 이유는 경계 전에 점이 작아져 사라지기 때문 — 같은 원리를 쓴다.
-  float edge = smoothstep(0.16 * max(uInner, 0.05), -0.02, sd);   // 경계 안쪽에서 서서히 1
-  float m = halftoneG(uv, uDotPitch, clamp(0.60 * uDotGain, 0.0, 1.0) * edge, uDotPitch * 0.11, uDotGlow);
-  float k = mix(0.04, 1.0, m);
-  // 색은 정본 A 그대로 — 갈아끼웠더니 쨍함이 죽었다(유저). 정본 램프가 이미 아름답다.
-  A.rgb *= k; A.a *= k;
-  return A;
+  // 색·결·경계 처리는 그대로 두고 '파형'만 얹는다(유저: 이 디자인 100% 유지 + 파형만).
+  //   굴절 파문 = 좁은 파면이 격자를 바깥으로 밀고 그 자리만 굵어진다.
+  //   위상 배열처럼 읽히되 나머지 점은 제자리에 있어 꿈틀거리지 않는다. 파형 0 이면 지금 그대로.
+  float rr    = length(uv);
+  float front = fract(t * 0.40 * uDotSpeed) * (ext * 2.30);
+  float band  = exp(-pow((rr - front) / max(ext * 0.30, 1e-3), 2.0)) * (1.0 - front * 0.20) * uWave;
+  vec2  dirW  = rr > 1e-4 ? uv / rr : vec2(0.0);
+  float edge  = smoothstep(0.20 * max(uInner, 0.20), -0.04, sd);
+  float m = halftoneG(uv + dirW * band * uDotPitch * 0.50, uDotPitch,
+                      clamp((0.62 + 0.30 * band) * uDotGain, 0.0, 1.0) * edge, uDotPitch * 0.11, uDotGlow);
+  return perforate(A, sd, m, 1.0 + 0.35 * band);   // 색은 정본, 알파는 새로 — 아웃라인 0
 }` },
 
   // ══ NEWTON 7상태 세트 — 상태마다 성격에 맞는 파형 ══════════════════════════
@@ -838,16 +862,13 @@ const CANDIDATES = [
   // ★ 상태 파형을 '점 크기'가 아니라 '정본 그라디언트의 밝기'에 싣는다.
   //   점 크기로 상태를 표현하면 크기가 제각각이 되어 촌스럽다(유저 지적, 특히 존 원).
   //   색·그라디언트는 정본 A 그대로, 결은 균일한 하프톤 마스크, 움직임은 밝기와 격자 이동.
-  float edge = smoothstep(0.16 * max(uInner, 0.05), -0.02, sd);   // 경계 전에 점이 작아져 사라진다(아웃라인 0)
-  float m = halftoneG(uv + disp, uDotPitch, clamp(0.60 * uDotGain, 0.0, 1.0) * edge, uDotPitch * 0.11, uDotGlow);
-  float k = mix(0.04, 1.0, m);
+  float edge = smoothstep(0.20 * max(uInner, 0.20), -0.04, sd);
+  float m = halftoneG(uv + disp, uDotPitch, clamp(0.62 * uDotGain, 0.0, 1.0) * edge, uDotPitch * 0.11, uDotGlow);
   if (holdQ >= 0.0) {   // Hold·Preview 만 자기 색좌표를 쓴다. 나머지는 정본 색감 그대로(쨍함 유지).
     float lum0 = max(A.r, max(A.g, A.b));
     A.rgb = stateFill(state, holdQ, prog) * lum0;
   }
-  A.rgb *= k * clamp(w, 0.0, 2.0);
-  A.a   *= k * clamp(w, 0.0, 1.0);
-  return A;
+  return perforate(A, sd, m, clamp(w, 0.0, 1.4));   // 색은 정본, 알파는 새로 — 아웃라인 0
 }` },
 
   { id: 'base', name: '정본', why: '지금 시뮬레이터가 쓰는 것 — 비교 기준',
@@ -1677,7 +1698,7 @@ function stripGlyph(ctx, cat, W) {
 
 
 let candSel = 'themeHalftone', candShape = 0;
-const candP = { pitch: 0.055, gain: 1.15, speed: 1.0, inner: 0.55, prog: -0.01, harm: 0.22, q0: 0.04, satR: 1.0, hue: 1.0, beam: 1.05, fine: 0, dglow: 0 };
+const candP = { pitch: 0.055, gain: 1.15, speed: 1.0, inner: 0.55, prog: -0.01, harm: 0.22, q0: 0.04, satR: 1.0, hue: 1.0, beam: 1.05, fine: 0, dglow: 0, wave: 0.6 };
 const candT = { mono: 0, flat: 0, noGlow: 0, noInner: 0, bg: 0, holdRim: 0, innerMode: 0, actMode: 0, comp: 0, refTone: 0 };
 {
   const host = document.getElementById('candToggles');
@@ -1736,11 +1757,11 @@ const candT = { mono: 0, flat: 0, noGlow: 0, noInner: 0, bg: 0, holdRim: 0, inne
   //   5열 × 2줄로 나누고, 한 칸을 [라벨 | 슬라이더 | 값] 3단 그리드로 고정해 세로줄을 맞춘다.
   //   위줄 = 형태·모션 / 아래줄 = 색·합성 — 성격이 다른 축을 섞지 않는다.
   const host = document.getElementById('candSliders');
-  host.style.cssText = 'display:grid;grid-template-columns:repeat(6,1fr);gap:9px 18px;margin:0 0 14px';
+  host.style.cssText = 'display:grid;grid-template-columns:repeat(6,1fr);gap:9px 16px;margin:0 0 14px';
   const defs = [
     ['pitch', '닷 피치', 0.03, 0.30, 0.005], ['gain', '닷 굵기', 0.2, 2.0, 0.05],
     ['speed', '모션 속도', 0, 3, 0.05], ['inner', '이너 폭', 0.05, 1.5, 0.05],
-    ['fine', '마크끝 세밀', 0, 1, 0.05], ['dglow', '닷 글로우', 0, 1, 0.05],
+    ['fine', '마크끝 세밀', 0, 1, 0.05], ['dglow', '닷 글로우', 0, 1, 0.05], ['wave', '파형', 0, 1.5, 0.05],
     ['q0', '열 시작점', 0, 0.5, 0.01], ['harm', '배경 조화', 0, 1, 0.05],
     ['satR', '채도 복원', 1, 2.2, 0.05], ['hue', '색상 보존', 0, 1, 0.05],
     ['beam', '투사 출력', 0.6, 3, 0.1],
@@ -2513,6 +2534,7 @@ function frame(ts) {
       g2.uniform1f(P.u('uBeam'), candP.beam);
       g2.uniform1f(P.u('uFine'), candP.fine);
       g2.uniform1f(P.u('uDotGlow'), candP.dglow);
+      g2.uniform1f(P.u('uWave'), candP.wave);
       if (candGStyle === 4 && candNums) { const mk = candHoleMask(candCharFor(state.markState)); if (mk) candGL.uploadMask(mk); }
       g2.uniform1f(P.u('uRefTone'), candT.refTone);
       g2.uniform1f(P.u('uT2'), REDUCED ? 1.4 : ts / 1000);
@@ -2557,6 +2579,7 @@ function frame(ts) {
       g3.uniform1f(P.u('uBeam'), candP.beam);
       g3.uniform1f(P.u('uFine'), candP.fine);
       g3.uniform1f(P.u('uDotGlow'), candP.dglow);
+      g3.uniform1f(P.u('uWave'), candP.wave);
       g3.uniform1f(P.u('uRefTone'), candT.refTone);
       g3.uniform1f(P.u('uT2'), REDUCED ? 1.4 : ts / 1000);
       g3.uniform1f(P.u('uMaskOn'), (candGStyle === 4 && candNums) ? 1 : 0);
