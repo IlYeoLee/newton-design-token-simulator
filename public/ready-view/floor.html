@@ -35,8 +35,8 @@ html,body{background:transparent}
 .strip{position:absolute;top:400px;left:50%;transform:translateX(-50%);display:flex;align-items:center;
   justify-content:center;gap:18px;
   opacity:0;animation:fadeUpCentered .8s cubic-bezier(.2,.75,.2,1) .35s both}
-.col{flex:1;text-align:center;color:#fff;padding:0 18px}
-.col.side{width:400px}
+.col{flex:none;text-align:center;color:#fff;padding:0 30px}   /* 내용 크기 — flex:1+nowrap 이면 값이 옆 칸을 파고든다 */
+
 .col .k{font-family:'Supreme',sans-serif;font-weight:400;font-size:58px;opacity:.7;
   letter-spacing:-2.2px;margin-bottom:27px}
 .col .v{font-weight:700;font-size:80px;letter-spacing:-2.4px;white-space:nowrap}
@@ -46,17 +46,16 @@ html,body{background:transparent}
 /* 디바이스 칩 — 모바일 setup.css 의 .chip-sel / .chip-row 정본을 그대로 이식.
    360px 뷰포트 → 1600px 대지 = ×4.44 스케일 (font 14→62 · padding 6/12→27/53 · gap 4→18).
    구 배터리 링 3개는 폐기(유저: 거슬림) — 원형이 투사면에서 타원으로 눌려 형태가 무너졌다. */
-.chips{position:absolute;top:640px;left:50%;transform:translateX(-50%);display:flex;gap:18px;
-  opacity:0;animation:fadeUpCentered .8s cubic-bezier(.2,.75,.2,1) .5s both}
-.chip-sel{display:inline-flex;align-items:center;gap:18px;box-sizing:border-box;
-  background:#fff;border:none;border-radius:355px;padding:27px 53px;
-  font-family:'Supreme',sans-serif;font-weight:400;font-size:62px;line-height:1.4;
-  letter-spacing:-1.9px;color:#525252;box-shadow:0 0 9px rgba(0,0,0,.12)}
+.chips{display:flex;gap:10px;justify-content:center}
+.chip-sel{display:inline-flex;align-items:center;gap:10px;box-sizing:border-box;
+  background:#fff;border:none;border-radius:355px;padding:15px 29px;
+  font-family:'Supreme',sans-serif;font-weight:400;font-size:44px;line-height:1.4;
+  letter-spacing:-1.3px;color:#525252;box-shadow:0 0 9px rgba(0,0,0,.12)}
 /* 선택 상태 = 뉴턴 그라디언트(setup.css 정본과 동일 스톱) */
 .chip-sel.sel{color:#fff;
   background:linear-gradient(180deg,#FA3030 48%,#FE6E3C 77.6%,#FEC389 100.5%,#D1FEFF 107.5%);
   box-shadow:0 15px 58px 10px rgba(0,0,0,.05),inset 0 0 26px 9px rgba(255,255,255,.6)}
-.chip-sel img{height:46px;width:auto;display:block;filter:brightness(0)}
+.chip-sel img{height:32px;width:auto;display:block;filter:brightness(0)}
 .chip-sel.sel img{filter:brightness(0) invert(1)}   /* 아이콘 원본이 흰색 — 흰 칩에선 검게, 그라디언트 칩에선 그대로 */
 
 /* CTA = 모바일 .rts-prompt 컴포넌트(ready.css, ready-to-start.html) 2줄 스택 이식(캡션 'To start' 는 제외 — 복싱 벽과 같은 2줄, 실측 wallgl:497).
@@ -101,15 +100,15 @@ html,body{background:transparent}
     <div class="strip">
       <div class="col side"><div class="k">Time</div><div class="v">30min</div></div>
       <div class="divider"></div>
-      <div class="col side"><div class="k">Connection</div><div class="v">Good</div></div>
-      <div class="divider"></div>
       <div class="col side"><div class="k">Mode</div><div class="v sm">Pace &amp; Boost On</div></div>
-    </div>
-    <!-- 디바이스 = 모바일 칩 컴포넌트(.chip-sel) — 연결된 기기는 sel(뉴턴 그라디언트) -->
-    <div class="chips">
+      <div class="divider"></div>
+      <div class="col dev"><div class="k">Devices</div>
+        <div class="chips">
       <div class="chip-sel sel"><img src="assets/run/ic_glasses.png">90%</div>
       <div class="chip-sel"><img src="assets/run/ic_watch.png">30%</div>
       <div class="chip-sel"><img src="assets/run/ic_earbuds.png">60%</div>
+        </div>
+      </div>
     </div>
 
     <div class="hero">

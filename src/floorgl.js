@@ -791,7 +791,7 @@ export class FloorGL {
 
   // ── 시작화면 (floor.html / floor-bk.html) ──────────────────────────────────
   _paint_ready() {
-    const SY = 400, RY = 640;   // 스트립 y · 칩 y (메타 줄 폐기 — 정보량 축소, 유저)
+    const SY = 400;   // 상태 한 줄 y (메타 줄·Connection 칸 폐기 — 정보량 축소, 유저)
     const ctx = this.ctx, D = READY[/floor-bk/.test(this.params.src) ? 'floor-bk.html' : 'floor.html'], t = this.t;
     // glowLive 7s ×3 — 숨쉬기 + 드리프트
     const gl = this._img('fig/big_glow.svg');
@@ -831,54 +831,59 @@ export class FloorGL {
         alpha: kf(p, [[0, .5], [.12, 1], [.26, 1], [.58, .5], [1, .5]]), scale: 1,
       };
     });
-    // 상태 블록 = 3열 스트립 + 디바이스 칩. 같은 정보(세션 준비 상태)라 바짝 붙인다.
+    // 상태 한 줄 — Time · Mode · Devices(칩). Connection 칸은 폐기: 배터리가 뜨는 기기는
+    //   이미 연결된 기기라 칩과 같은 말이었다(유저: 정보량 과다). 칩을 셋째 칸으로 흡수해 한 줄.
+    //   칸 폭 = 내용 크기(구 flex:1 + nowrap 은 값이 옆 칸을 파고들었다).
     ctx.save(); this._fadeIn(SY, 212, eOut(intro(t, .35, .8)));
     ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-    // 3열 = 모바일 공통 .stats-row (creator.css) 이식: label 13→58 · value 18→80 · divider 1x33→4x147
-    const cols = [['Time', D.time, false], ['Connection', 'Good', false], ['Mode', D.mode, D.modeSm]];
-    const w = [400, 400, 400], x0 = CX - (w[0] + w[1] + w[2] + 8 + 36) / 2;
-    let x = x0;
-    cols.forEach((c, i) => {
-      if (i) { ctx.fillStyle = 'rgba(255,255,255,.3)'; ctx.fillRect(x + 16, SY + 32, 4, 147); x += 36; }
+    const CHIP = [['run/ic_glasses.png', 32, '90%', true], ['run/ic_watch.png', 24, '30%', false],
+                  ['run/ic_earbuds.png', 28, '60%', false]];
+    const CPAD = 29, CICG = 10, CGAP = 10, CH2 = 92;
+    ctx.font = F(400, 44); ctx.letterSpacing = '-1.3px';
+    const chipW = CHIP.map(([, iw, tx]) => CPAD * 2 + iw + CICG + ctx.measureText(tx).width);
+    const devW = chipW.reduce((a, b) => a + b, 0) + CGAP * 2;
+    const cellW = (lbl, val, sm) => {
+      ctx.font = F(400, 58); const a = ctx.measureText(lbl).width;
+      ctx.font = F(700, sm ? 66 : 80); return Math.max(a, ctx.measureText(val).width) + 60;
+    };
+    const cells = [['Time', D.time, false, 0], ['Mode', D.mode, D.modeSm, 0], ['Devices', null, false, devW + 60]];
+    const cw2 = cells.map(([l, v, sm, fixed]) => fixed || cellW(l, v, sm));
+    let sx = CX - (cw2.reduce((a, b) => a + b, 0) + 76) / 2;   // 구분선 2개 × (4 + 여백 34)
+    cells.forEach(([lbl, val, sm], i2) => {
+      if (i2) { ctx.fillStyle = 'rgba(255,255,255,.3)'; ctx.fillRect(sx + 17, SY + 32, 4, 147); sx += 38; }
+      const w2 = cw2[i2];
       ctx.fillStyle = 'rgba(255,255,255,.7)'; ctx.font = F(400, 58); ctx.letterSpacing = '-2.2px';
-      ctx.fillText(c[0], x + w[i] / 2, SY + 14);
-      ctx.fillStyle = '#fff'; ctx.font = F(700, c[2] ? 66 : 80); ctx.letterSpacing = '-2.4px';
-      ctx.fillText(c[1], x + w[i] / 2, SY + 14 + 70 + 27);
-      ctx.letterSpacing = '0px';
-      x += w[i];
-    });
-    ctx.restore();
-    // 디바이스 칩 — 모바일 setup.css .chip-sel 정본 이식(×4.44). 구 배터리 링은 폐기(유저).
-    ctx.save(); this._fadeIn(RY, 141, eOut(intro(t, .5, .8)));
-    const chips = [[0.9, 'run/ic_glasses.png', 46, '90%', true],
-                   [0.3, 'run/ic_watch.png', 34, '30%', false],
-                   [0.6, 'run/ic_earbuds.png', 40, '60%', false]];
-    ctx.font = F(400, 62); ctx.letterSpacing = '-1.9px'; ctx.textBaseline = 'middle';
-    const CG = 18, PADX = 53, ICG = 18;
-    const cw = chips.map(([, ic, iw, tx]) => iw + ICG + ctx.measureText(tx).width + PADX * 2);
-    let cx0 = CX - (cw.reduce((a, b) => a + b, 0) + CG * 2) / 2;
-    chips.forEach(([, ic, iw, tx, sel], i2) => {
-      const w2 = cw[i2], y2 = RY, h2 = 141;
-      if (sel) {   // 선택 = 뉴턴 그라디언트(setup.css 정본 스톱)
-        const g2 = ctx.createLinearGradient(0, y2, 0, y2 + h2);
-        g2.addColorStop(0.48, '#FA3030'); g2.addColorStop(0.776, '#FE6E3C');
-        g2.addColorStop(1, '#FEC389');
-        ctx.fillStyle = g2;
-      } else ctx.fillStyle = '#fff';
-      this._roundRectPath(cx0, y2, w2, h2, h2 / 2); ctx.fill();
-      const im = this._img(ic);
-      if (im) {
-        const ih = iw * (im.naturalHeight / im.naturalWidth);
-        ctx.save(); ctx.filter = sel ? 'brightness(0) invert(1)' : 'brightness(0)';   // 흰 칩=검게 · 그라디언트 칩=희게(setup.css 규약)
-        ctx.drawImage(im, cx0 + PADX, y2 + h2 / 2 - ih / 2, iw, ih);
-        ctx.restore();
+      ctx.fillText(lbl, sx + w2 / 2, SY + 14);
+      if (val != null) {
+        ctx.fillStyle = '#fff'; ctx.font = F(700, sm ? 66 : 80); ctx.letterSpacing = '-2.4px';
+        ctx.fillText(val, sx + w2 / 2, SY + 14 + 70 + 27);
+      } else {   // Devices = 칩 3개 (setup.css .chip-sel · 셀 안이라 0.55 스케일)
+        let bx = sx + (w2 - devW) / 2, by = SY + 113;
+        ctx.font = F(400, 44); ctx.letterSpacing = '-1.3px';
+        CHIP.forEach(([ic, iw, tx, sel], k) => {
+          const w3 = chipW[k];
+          if (sel) {
+            const g3 = ctx.createLinearGradient(0, by, 0, by + CH2);
+            g3.addColorStop(0.48, '#FA3030'); g3.addColorStop(0.776, '#FE6E3C'); g3.addColorStop(1, '#FEC389');
+            ctx.fillStyle = g3;
+          } else ctx.fillStyle = '#fff';
+          this._roundRectPath(bx, by, w3, CH2, CH2 / 2); ctx.fill();
+          const im = this._img(ic);
+          if (im) {
+            const ih = iw * (im.naturalHeight / im.naturalWidth);
+            ctx.save(); ctx.filter = sel ? 'brightness(0) invert(1)' : 'brightness(0)';
+            ctx.drawImage(im, bx + CPAD, by + CH2 / 2 - ih / 2, iw, ih);
+            ctx.restore();
+          }
+          ctx.fillStyle = sel ? '#fff' : '#525252'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+          ctx.fillText(tx, bx + CPAD + iw + CICG, by + CH2 / 2 + 1);
+          ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+          bx += w3 + CGAP;
+        });
       }
-      ctx.fillStyle = sel ? '#fff' : '#525252';
-      ctx.textAlign = 'left';
-      ctx.fillText(tx, cx0 + PADX + iw + ICG, y2 + h2 / 2 + 2);
-      cx0 += w2 + CG;
+      sx += w2;
     });
-    ctx.letterSpacing = '0px'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    ctx.letterSpacing = '0px';
     ctx.restore();
     // CTA = 모바일 .rts-prompt 컴포넌트(ready.css) 2줄 스택 이식 — 지시(m) / 캡션(s). 복싱 벽(wallgl:497)과 같은 2줄.
     //   제목과 같은 흰 볼드 한 줄이라 구분이 안 됐다(유저). 비율은 모바일 그대로(s/m=0.5),

@@ -1171,6 +1171,20 @@ export class Session {
     this.bxCombo = primPanel('punchLine', 0.9, true);
     this.bxCombo.position.set(0, 1.52, WZ + 0.002);
     g.add(this.bxCombo);
+    // 잽·잽·훅 = 타격 셋. 하나마다 타겟 존 + 수축 링 한 쌍(B3 잽과 같은 규약).
+    //   잽 둘은 정면 얼굴 라인에 거의 겹쳐 꽂히고(빠르게 둘), 훅은 옆으로 벌어져 낮게 들어간다.
+    //   빠른 둘 → 느린 하나 = 실제 콤비 리듬. 링 크기도 훅이 크다(체중이 실린 타격).
+    this.bxC3hits = [
+      { x: -0.05, y: 1.70, r: 0.115, at: 0.52, lead: 0.46, lbl: '잽' },
+      { x:  0.03, y: 1.73, r: 0.115, at: 0.90, lead: 0.34, lbl: '잽' },
+      { x:  0.30, y: 1.58, r: 0.150, at: 1.58, lead: 0.62, lbl: '훅' },
+    ].map(h => {
+      const zone = wallRing(h.x, h.y, h.r * 0.86, h.r, BRAND.red, 0.2);        // 타겟 존
+      const cd = wallRing(h.x, h.y, h.r * 0.86, h.r, BRAND.prism, 0);          // 수축 링
+      cd.material.uniforms.uContract.value = 1;
+      g.add(zone); g.add(cd);
+      return { ...h, zone, cd };
+    });
 
     g = this._mk('BX_C4');
     // '숨 고르기' 3D 텍스트 은퇴 — HUD 코너 아이덴티티가 전담 (EN 미번역 잔재 제거)
