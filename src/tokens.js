@@ -18,7 +18,7 @@ void main() {
   #include <clipping_planes_vertex>
 }`;
 const MARKFX_FRAG = `
-uniform float uHT, uHTPitch, uHTGain, uHTSoft;   // 하프톤 스킨 — 후보랩 확정본
+uniform float uHT, uHTPitch, uHTGain, uHTSoft, uHTWave, uHTGlow, uHTInner;   // 하프톤 스킨 — 후보랩 확정본
 #include <common>
 #include <clipping_planes_pars_fragment>
 ` + FX_GLSL + `
@@ -67,12 +67,31 @@ void main() {
     vec2  c2   = fract(uv / pit) - 0.5;
     float dd   = length(c2) * pit;
     float edge = smoothstep(0.20 * max(uHTSoft, 0.20), -0.04, sdh);
-    float rad  = pit * 0.5 * clamp(0.62 * uHTGain * edge, 0.0, 1.0);
+    // 파형 — 좁은 파면이 바깥으로 달리며 그 자리 점만 굵어진다(랩 '파형' 슬라이더).
+    //   나머지 점은 제자리라 꿈틀거리지 않는다. uHTWave 0 이면 완전히 정지.
+    float rr2  = length(uv);
+    float ext2 = uShape < 0.5 ? 0.46 * uRadius : 0.72;
+    float fr   = fract(uTime * 0.40) * (ext2 * 2.30);
+    float band = exp(-pow((rr2 - fr) / max(ext2 * 0.30, 1e-3), 2.0)) * (1.0 - fr * 0.20) * uHTWave;
+    float rad  = pit * 0.5 * clamp((0.62 + 0.30 * band) * uHTGain * edge, 0.0, 1.0);
     float m    = smoothstep(rad + pit * 0.11, rad - pit * 0.11, dd);
+    // 닷 글로우 — 굵고 흐릿한 점을 아래에 깔아 더한다(랩 '닷 글로우'). 0 이면 완전히 꺼진다.
+    if (uHTGlow > 0.001) {
+      float rg = pit * 0.5 * clamp((0.62 + 0.30 * band) * uHTGain * 1.5 * edge, 0.0, 1.0);
+      float hg = smoothstep(rg + pit * 0.36, rg - pit * 0.36, dd);
+      m = clamp(m + hg * uHTGlow * 0.6, 0.0, 1.0);
+    }
     float soft = smoothstep(0.13 * max(uHTSoft, 0.20), -0.05, sdh);
     float aOld = max(r.a, 1e-4);
     vec3  c0   = r.rgb / aOld;                 // 정본 색(언프리멀티)
     float aNew = clamp(soft * m, 0.0, 1.0);
+    // 이너 음영 — 끝에서 최대, 안으로 급감(랩 '이너 음영'). +글로우 / −섀도우.
+    if (abs(uHTInner) > 0.001) {
+      float dep = clamp(-sdh / max(0.55 * uHTSoft, 1e-4), 0.0, 1.0);
+      float ee  = pow(1.0 - dep, 2.4);
+      aNew = clamp(aNew * (uHTInner > 0.0 ? mix(1.0, 1.0 + 0.80 * uHTInner, ee)
+                                          : mix(1.0, 1.0 + 0.72 * uHTInner, ee)), 0.0, 1.0);
+    }
     r = vec4(c0 * aNew, aNew);
   }
   // 쿼드 보더 페이드 — 원형 + 사각 경계(체비셰프) 이중: 어떤 경로에서도 평면 모서리가
@@ -226,7 +245,7 @@ export function makeMarkFXMaterial(footTex = null) {
       uW: { value: 1 }, uHalo: { value: 0.9 }, uPool: { value: 0.55 }, uGain: { value: 1 },
       uSweepA: { value: 1 }, uNoise: { value: 0.5 }, uDay: { value: 0 }, uOut: { value: 1 },
       // 하프톤 스킨 — 기본 꺼짐. 랩에서 확정한 값이 기본값이다.
-      uHT: { value: 0 }, uHTPitch: { value: 0.11 }, uHTGain: { value: 1.15 }, uHTSoft: { value: 0.55 },
+      uHT: { value: 0 }, uHTPitch: { value: 0.055 }, uHTGain: { value: 1.15 }, uHTSoft: { value: 0.55 }, uHTWave: { value: 0.6 }, uHTGlow: { value: 0 }, uHTInner: { value: 0 },
       // 투사면(풋프린트) 소프트 페이드 — 레인과 동일. 기본 1e6 = 무효(벽 마크·미주입 시 페이드 없음).
       uFPOrigin: { value: new THREE.Vector3() }, uFPFwd: { value: new THREE.Vector3(0, 0, -1) }, uFPRight: { value: new THREE.Vector3(1, 0, 0) },
       uFPNear: { value: -1e6 }, uFPFar: { value: 1e6 }, uFPHalfN: { value: 1e6 }, uFPHalfF: { value: 1e6 }, uFPFadeM: { value: 0.28 },

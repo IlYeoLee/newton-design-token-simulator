@@ -4480,17 +4480,30 @@ void main(){
   //   마크 재질 전부에 같은 유니폼을 밀어 넣는다(팩 마커 + 세션 웨이브).
   {
     let htOn = false;
+    // FX Lab(다른 탭)에서 슬라이더를 움직이면 여기에 즉시 반영된다 — localStorage + storage 이벤트.
+    //   랩과 시뮬을 오가며 눈으로 맞추는 게 이 작업의 전부라, 실시간이 아니면 쓸모가 없다.
+    const HT_KEY = 'newton-ht';
+    let htP = { pitch: 0.055, gain: 1.15, soft: 0.55, wave: 0.6, glow: 0, inner: 0 };
+    try { Object.assign(htP, JSON.parse(localStorage.getItem(HT_KEY) || '{}')); } catch (e) { /* 저장본 없음 */ }
     const btn = document.getElementById('btn-ht');
     const apply = () => {
-      const push = m => { if (m?.uniforms?.uHT) m.uniforms.uHT.value = htOn ? 1 : 0; };
+      const push = m => { const u = m?.uniforms; if (!u?.uHT) return;
+        u.uHT.value = htOn ? 1 : 0;
+        u.uHTPitch.value = htP.pitch; u.uHTGain.value = htP.gain;
+        u.uHTSoft.value = htP.soft;   u.uHTWave.value = htP.wave;
+        u.uHTGlow.value = htP.glow;   u.uHTInner.value = htP.inner; };
       tokens.scene?.traverse?.(o => push(o.material));
       scene.traverse(o => push(o.material));
       if (btn) { btn.style.borderColor = htOn ? 'var(--accent)' : 'var(--line)';
         btn.style.color = htOn ? 'var(--accent)' : 'var(--text)'; }
     };
     btn?.addEventListener('click', () => { htOn = !htOn; apply(); });
-    // 재질은 스테이지마다 새로 만들어지므로 매초 한 번 다시 밀어준다(토글 상태 유지)
-    setInterval(() => { if (htOn) apply(); }, 1000);
+    window.addEventListener('storage', ev => {
+      if (ev.key !== HT_KEY || !ev.newValue) return;
+      try { Object.assign(htP, JSON.parse(ev.newValue)); apply(); } catch (e) { /* 무시 */ }
+    });
+    // 재질은 스테이지마다 새로 만들어지므로 주기적으로 다시 밀어준다(토글·값 유지)
+    setInterval(() => { if (htOn) apply(); }, 700);
   }
 
   if (import.meta.env.DEV) window.__dbg = {
