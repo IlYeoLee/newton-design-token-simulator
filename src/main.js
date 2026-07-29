@@ -2266,7 +2266,7 @@ void main(){
       depthTest: false, depthWrite: false,
     });
     const blur = new THREE.ShaderMaterial({
-      uniforms: { tex: { value: null }, uDir: { value: new THREE.Vector2(1, 0) }, uStep: { value: 5 } },
+      uniforms: { tex: { value: null }, uDir: { value: new THREE.Vector2(1, 0) }, uStep: { value: 2 } },   // 탭 간격 — 5는 320x480 에서 6.9/16 텍셀로 벌어져 엣지 에코(가로 결)를 만든다
       vertexShader: vs,
       fragmentShader: `varying vec2 vUv; uniform sampler2D tex; uniform vec2 uDir; uniform float uStep;
         void main(){
@@ -2302,9 +2302,12 @@ void main(){
       renderer.setRenderTarget(dstRT); renderer.clear(); renderer.render(f.sc, f.cam);
     };
     const [A, B, N, W] = f.rts;
-    pass(A, B, [1, 0]); pass(B, N, [0, 1]);          // 1회 → N(좁음)
+    // uStep 2 로 좁힌 만큼 반복을 늘려 폭을 유지한다 — 넓은 탭 간격은 블러가 아니라 에코다.
+    pass(A, B, [1, 0]); pass(B, N, [0, 1]);          // 1회 → N(좁음, 이목구비 소거용)
     pass(N, B, [1, 0]); pass(B, A, [0, 1]);          // 2회
-    pass(A, B, [1, 0]); pass(B, W, [0, 1]);          // 3회 → W(넓음)
+    pass(A, B, [1, 0]); pass(B, A, [0, 1]);          // 3회
+    pass(A, B, [1, 0]); pass(B, A, [0, 1]);          // 4회
+    pass(A, B, [1, 0]); pass(B, W, [0, 1]);          // 5회 → W(넓음, 두께장·노출)
     renderer.setRenderTarget(prev);
     co.mat.uniforms.uField.value = W.texture;
     co.mat.uniforms.uFieldN.value = N.texture;

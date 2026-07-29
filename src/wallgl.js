@@ -652,13 +652,26 @@ export class WallGL {
     const ctx = this.ctx, P = 52.392;
     ctx.save();
     rrPath(ctx, x, y, S, S, 65.49); ctx.clip();
-    ctx.fillStyle = done ? gradV(ctx, y, y + S, [[.48, PAL.red], [.776, PAL.coral], [1, PAL.sand]]) : '#fff';
+    // 선택 카드 = 온보딩 셀렉 컴포넌트(onboarding.css `.ob-card.sel`) 실값.
+    // linear-gradient(180deg, #FA3030 48%, #FE6E3C 77.6%, #FEC389 100.5%, #D1FEFF 107.5%)
+    // — 마지막 두 스톱이 박스 밖(100% 초과)이라 바닥이 sand 에 '닿기 직전'에서 끝난다.
+    // 캔버스 스톱은 0~1 이므로 그라디언트 길이를 1.075배로 잡아 그대로 재현한다.
+    if (done) {
+      const g = ctx.createLinearGradient(0, y, 0, y + S * 1.075);
+      g.addColorStop(0, PAL.red); g.addColorStop(.48 / 1.075, PAL.red);
+      g.addColorStop(.776 / 1.075, PAL.coral); g.addColorStop(1.005 / 1.075, PAL.sand);
+      g.addColorStop(1, PAL.prism);
+      ctx.fillStyle = g;
+    } else ctx.fillStyle = '#fff';
     ctx.fillRect(x, y, S, S);
     const im = this._img(D.img);
-    // plus-lighter는 완료 카드(빨강 배경)만 — 다음 카드는 흰 배경이라 lighter면 인물이 통째로 날아간다
+    // ★ 인물 블렌드 = multiply. 전엔 완료 카드에 'lighter'(가산)를 썼는데 그러면 빨강 위에
+    //   흰빛이 더해져 카드가 통째로 연분홍으로 바랬다(유저: "왜 이렇게 연하고 흐려?").
+    //   앱의 셀렉 카드는 `.ob-card .img { mix-blend-mode: multiply }` 를 선택 상태에서도
+    //   그대로 쓴다 — 그래서 빨강이 살고 인물은 짙은 실루엣으로 앉는다.
     if (im) {
       const w = 687, h = w * (im.naturalHeight / im.naturalWidth);
-      ctx.save(); if (done) ctx.globalCompositeOperation = 'lighter';
+      ctx.save(); if (done) ctx.globalCompositeOperation = 'multiply';
       ctx.drawImage(im, x + S / 2 - w / 2, y - 55, w, h);
       ctx.restore();
     }
