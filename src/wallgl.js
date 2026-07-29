@@ -9,7 +9,7 @@
 // 세로 translate가 원근상 왜곡되지 않는다 → 원본 translateY를 그대로 쓴다.
 import * as THREE from 'three';
 import { PAL, NEU, rgba } from './palette.js';
-import { clamp01, eOut, cycle, kf, intro, drawChars, drawBadge, insetGlow, checkBadge, growBar } from './floorgl.js';
+import { clamp01, eOut, cycle, kf, intro, drawChars, drawBadge, insetGlow, checkBadge, growBar, arcGauge } from './floorgl.js';
 
 const W = 2600, H = 1600;   // 대지 px (벽 2.6×1.6m 실측 1:1)
 // 캔버스 해상도 — 대지 대비 배율. 화질 vs 업로드 비용의 저울.
@@ -334,16 +334,15 @@ export class WallGL {
     // 그래프 3단 (우측 정렬, 위에서부터 stretch/learn/run)
     const gY = y + 10, gH = totH - 20, gR = ix + iw - 10;
     const barH = (gH - 4.851 * 2) / 3;
+    // graphReveal — 오른쪽 끝에 붙은 채 왼쪽으로 자란다.
+    // 전엔 ctx.rect().clip() 리빌이라 자라는 동안 40px 라운드가 직각으로 썰렸다(유저 지적).
+    // 앱은 폭 자체를 애니메이션한다(creator.css `@keyframes bar-grow`) → 라운드가 끝을 달고 간다.
     const bar = (i, bw, label, delay, solid) => {
       const by = gY + i * (barH + 4.851);
-      const rev = eOut(intro(t, delay, .7));   // graphReveal — 오른쪽에서 좌로 열림
-      ctx.save();
-      ctx.beginPath(); ctx.rect(gR - bw * rev, by, bw * rev, barH); ctx.clip();
-      const g = ctx.createLinearGradient(gR - bw, 0, gR + bw * 0.08, 0);
-      g.addColorStop(.63, PAL.red); g.addColorStop(.9, PAL.coral); g.addColorStop(1, PAL.sand);
-      rrFill(ctx, gR - bw, by, bw, barH, 40, solid || g);
-      txt(ctx, label, gR - bw + 24.256, by + barH / 2, 36, 400, '#fff', { ls: -1.21, base: 'middle' });
-      ctx.restore();
+      growBar(ctx, gR - bw, by, bw, barH, eOut(intro(t, delay, .7)), {
+        anchor: 'right', track: null, r: 40, pad: 24.256, fs: 36, ls: -1.21, num: label,
+        stops: [[.63, PAL.red], [.9, PAL.coral], [1, PAL.sand]], fill: solid,
+      });
     };
     bar(0, 194.048, '5min', 1.0);
     bar(1, 388.095, '10min', 1.15);
@@ -418,10 +417,12 @@ export class WallGL {
     }, 'right');
     // 도트 프로그래스 — fadeIn .5s 1.55s. 도트별 회색→빨강 계단(2s + i*.22)이었는데
     // 공통 컴포넌트(dotProgress)의 '머리가 달린다'로 통일 — 같은 구간(2s~4.2s)을 훑는다.
-    const dY = ROW_Y + 40 + 96 + 27, dS = 45.734, dX = RRight - dS * 10;
+    const dY = ROW_Y + 40 + 96 + 27, gW = 800;
     ctx.save();
     ctx.globalAlpha *= clamp01((t - 1.55) / .5);
-    growBar(ctx, dX, dY, dS * 10, 62, (t - 2) / (.22 * 10), { label: 'READY' });
+    // 폭은 도트 10개(457px)가 아니라 우측 컬럼 기준 — 앱 게이지는 카드 폭을 채우는 물건이라
+    // 457px 로 옮기니 2600 대지에서 실낱처럼 읽혔다.
+    arcGauge(ctx, RX + (RW - gW) / 2, dY, gW, (t - 2) / (.22 * 10), { ends: false });
     ctx.restore();
     // 발 블록 — slideInUp .9s .6s
     const FX = RX + RW / 2 - 140, FY = ROW_Y + 570;
@@ -483,7 +484,7 @@ export class WallGL {
     const de = eOut(intro(t, .20, .6));
     ctx.save();
     ctx.globalAlpha *= de; ctx.translate(0, 48 * (1 - de));
-    growBar(ctx, 100, dY, 457.34, 62, t / dur, { num: Math.round(clamp01(t / dur) * 100) + '%' });
+    arcGauge(ctx, 100, dY, 900, t / dur, { value: Math.round(clamp01(t / dur) * 100) });
     ctx.restore();
 
     // 페이즈 열 (우측 정렬) — 진입이면 sRight .6s (.15 + i*.07)

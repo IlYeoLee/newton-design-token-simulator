@@ -88,34 +88,38 @@ export const intro = (t, delay, dur) => clamp01((t - delay) / dur);
  *  (앱 label-in delay .66s = 성장 .62s 직후) · 최소 폭(--start)은 수치가 읽힐 만큼.
  *  치수는 전부 앱 막대(h 53 · r 12 · pad 14 · 수치 15 · 라벨 13)의 h 대비 비율. */
 export function growBar(ctx, x, y, w, h, p, o = {}) {
-  const P = clamp01(p), r = h * 0.226, pad = h * 0.264;
-  const numF = F(400, h * 0.283), labF = F(700, h * 0.245);
-  // --start: 수치가 들어갈 만큼은 항상 열려 있다
-  ctx.font = numF;
+  const P = clamp01(p), r = o.r ?? h * 0.226, pad = o.pad ?? h * 0.264;
+  const fs = o.fs ?? h * 0.283, ls = o.ls ?? -fs * 0.0333;   // 앱 −0.5px/15px = −3.33%
+  const right = o.anchor === 'right';
+  // --start: 수치가 들어갈 만큼은 항상 열려 있다. 여기서 0 부터 자라면 라운드가 접혀
+  //          납작한 알약이 잠깐 보인다(앱도 스텁 26~47%를 두는 이유).
+  ctx.font = F(o.numWeight ?? 400, fs);
   const stub = o.num != null ? Math.min(w, pad * 2 + ctx.measureText(String(o.num)).width) : r * 2;
   const bw = stub + (w - stub) * P;
-  // 트랙 — 앱은 카드 배경이 트랙 역할을 한다(투사면은 어두우니 옅은 면으로)
-  ctx.fillStyle = o.track || 'rgba(255,255,255,.10)';
-  ctx.beginPath(); ctx.roundRect(x, y, w, h, r); ctx.fill();
-  // 막대 — 클립 없음. roundRect(bw) 자체가 자란다.
-  const g = ctx.createLinearGradient(x, 0, x + bw, 0);
-  g.addColorStop(0, PAL.red); g.addColorStop(.583, PAL.red);
-  g.addColorStop(.83, PAL.coral); g.addColorStop(.935, PAL.sand); g.addColorStop(1, PAL.prism);
-  ctx.fillStyle = g;
-  ctx.beginPath(); ctx.roundRect(x, y, bw, h, r); ctx.fill();
+  const bx = right ? x + w - bw : x;
+  if (o.track !== null) {   // 앱은 카드 배경이 트랙이다 — 투사면은 어두우니 옅은 면으로
+    ctx.fillStyle = o.track || 'rgba(255,255,255,.10)';
+    ctx.beginPath(); ctx.roundRect(x, y, w, h, r); ctx.fill();
+  }
+  // 막대 — 클립 없음. roundRect(bw) 자체가 자란다 → r 이 끝을 달고 같이 간다.
+  const g = ctx.createLinearGradient(bx, 0, bx + bw, 0);
+  for (const [s, c] of (o.stops || [[0, PAL.red], [.583, PAL.red], [.83, PAL.coral], [.935, PAL.sand], [1, PAL.prism]]))
+    g.addColorStop(s, c);
+  ctx.fillStyle = o.fill || g;
+  ctx.beginPath(); ctx.roundRect(bx, y, bw, h, r); ctx.fill();
   ctx.save();
   ctx.textBaseline = 'middle';
-  ctx.letterSpacing = (-h * 0.283 * 0.0333).toFixed(2) + 'px';   // 앱 −0.5px/15px = −3.33%
+  ctx.letterSpacing = ls.toFixed(2) + 'px';
   if (o.num != null) {
-    ctx.font = numF; ctx.fillStyle = '#fff'; ctx.textAlign = 'left';
-    ctx.fillText(String(o.num), x + pad, y + h / 2);
+    ctx.font = F(o.numWeight ?? 400, fs); ctx.fillStyle = o.numColor || '#fff'; ctx.textAlign = 'left';
+    ctx.fillText(String(o.num), bx + pad, y + h / 2);
   }
-  if (o.label) {   // 다 자란 뒤에야 내려앉는다 — 앱의 label-in
+  if (o.label) {   // 다 자란 뒤에야 내려앉는다 — 앱의 label-in(성장 .62s 직후 .66s)
     const la = clamp01((P - 0.88) / 0.12);
     ctx.globalAlpha *= la;
-    ctx.font = labF; ctx.fillStyle = 'rgba(255,255,255,.75)'; ctx.textAlign = 'right';
-    ctx.letterSpacing = (-h * 0.245 * 0.0333).toFixed(2) + 'px';
-    ctx.fillText(o.label, x + bw - pad + h * 0.19 * (1 - la), y + h / 2);
+    ctx.font = F(700, o.labFs ?? h * 0.245); ctx.fillStyle = 'rgba(255,255,255,.75)'; ctx.textAlign = 'right';
+    ctx.letterSpacing = (-(o.labFs ?? h * 0.245) * 0.0333).toFixed(2) + 'px';
+    ctx.fillText(o.label, bx + bw - pad + h * 0.19 * (1 - la), y + h / 2);
   }
   ctx.restore();
   ctx.letterSpacing = '0px';
@@ -532,7 +536,7 @@ export class FloorGL {
   _h(n) {
     switch (n.type) {
       case 'text': return n.size * 1.06;
-      case 'dots': return 92;
+      case 'dots': return gaugeH(1000);
       case 'prevRow': return 200;
       case 'trainRow': return n.ring ? 200 : 112;
       case 'liveRow': return 112;
@@ -557,11 +561,11 @@ export class FloorGL {
 
   // 도트 프로그래스 — 공통 컴포넌트(dotProgress). 지면·벽이 같은 물건이다.
   _dots(n, y) {
-    const x0 = CX - 300;
+    const x0 = CX - 500;   // 폭 1000 — 앱 게이지는 카드 폭을 채운다(구 도트바 600은 좁았다)
     // main.js가 width를 직접 쓰면(반복형 스테이지) 그 값이 우선, 아니면 --dur 시간 진행.
     const w = n.style.width != null ? numOr(n.style.width, 0)
       : 600 * clamp01((this.t - n.delay) / n.dur);
-    growBar(this.ctx, x0, y, 600, 92, w / 600, { num: Math.round(w / 6) + '%', label: n.label });
+    arcGauge(this.ctx, x0, y, 1000, w / 600, { value: Math.round(w / 6) });
   }
 
   _pill(x, y, w, h) {
