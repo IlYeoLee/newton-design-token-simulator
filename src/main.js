@@ -4607,6 +4607,50 @@ void main(){
     document.body.appendChild(bs);
   }
 
+  // ── 검은 판 탐지기 (?blackprobe=1) ─────────────────────────────────────────
+  //   '드리블 중 검정 사각형'을 코드로 추측하다 세 번 틀렸다. 추측을 그만두고 화면에 묻는다.
+  //   합성이 끝난 프레임을 직접 읽어 가장 큰 순수-검정 덩어리를 찾고, 그 중심으로 레이를 쏴서
+  //   거기 있는 메시를 이름·재질·블렌딩까지 콘솔에 찍는다. 헤드리스로는 못 하는 일 —
+  //   preserveDrawingBuffer:false 라 앱 자신의 rAF 안에서 읽어야만 실제 픽셀이 나온다.
+  const BLACK_PROBE = new URLSearchParams(location.search).get('blackprobe') === '1';
+  let _bpN = 0, _bpBuf = null, _bpLast = '';
+  const _bpRay = new THREE.Raycaster();
+  function blackProbe() {
+    if (!BLACK_PROBE || (_bpN++ % 20)) return;
+    const gl = renderer.getContext(), c = renderer.domElement;
+    const W = c.width, H = c.height;
+    if (!_bpBuf || _bpBuf.length !== W * H * 4) _bpBuf = new Uint8Array(W * H * 4);
+    try { gl.readPixels(0, 0, W, H, gl.RGBA, gl.UNSIGNED_BYTE, _bpBuf); } catch (e) { return; }
+    // 8px 격자에서 가장 긴 순수-검정 가로줄 (그 줄의 세로 두께도 함께 잰다)
+    const S = 8; let best = 0, bx = 0, by = 0;
+    const dark = (x, y) => { const i = ((H - 1 - y) * W + x) * 4;
+      return _bpBuf[i] < 10 && _bpBuf[i + 1] < 10 && _bpBuf[i + 2] < 10; };
+    for (let y = 0; y < H; y += S) { let run = 0, st = 0;
+      for (let x = 0; x < W; x += S) {
+        if (dark(x, y)) { if (!run) st = x; run += S; if (run > best) { best = run; bx = st + run / 2; by = y; } }
+        else run = 0;
+      } }
+    if (best < 140) { _bpLast = ''; return; }   // 얇은 줄·자막 그림자는 무시
+    let th = 0; for (let y = by; y < H && dark(bx, y); y += S) th += S;
+    const key = `${Math.round(bx / 40)},${Math.round(by / 40)},${Math.round(best / 40)}`;
+    if (key === _bpLast) return;   // 같은 덩어리는 한 번만
+    _bpLast = key;
+    // 화면 좌표 → NDC → 레이캐스트 (보이는 것 전부, 앞에서부터)
+    _bpRay.setFromCamera(new THREE.Vector2((bx / W) * 2 - 1, -((by / H) * 2 - 1)), camera);
+    const hits = _bpRay.intersectObjects(scene.children, true)
+      .filter(h => h.object.visible && h.object.material)
+      .slice(0, 6)
+      .map(h => { const m = h.object.material;
+        return { name: h.object.name || '(무명)', type: h.object.type,
+          dist: +h.distance.toFixed(2), order: h.object.renderOrder,
+          mat: m.type, blending: m.blending, transparent: m.transparent,
+          opacity: m.opacity, uuid: h.object.uuid.slice(0, 8) }; });
+    console.log('[BLACKPROBE] 검은 판 발견 —',
+      `stage=${session.stage} t=${(session.t || 0).toFixed(1)} 폭=${best}px 두께=${th}px 중심=(${bx},${by})`);
+    console.table(hits);
+    (window.__blackHits ||= []).push({ stage: session.stage, t: +(session.t || 0).toFixed(1), w: best, h: th, hits });
+  }
+
   let _dotStage = '', _dotMax = 0;   // 도트 진행바 — 스테이지별 최대 진행(되감김 방지)
   function loop() {
     requestAnimationFrame(loop);
@@ -5062,6 +5106,7 @@ void main(){
     applyBallOcclusion();  // 공이 빔을 실제로 가리는 순간만 그 지점 UI를 꺼트림(광학 정직성)
     applyEditOverrides();  // 배치 편집(유저): 드래그로 옮긴 벽·인물 위치를 세션 덮어쓰기 후 재적용
     renderFrame(clock.elapsedTime);   // 블룸 + 그레인·비네트 컴포저 (scene.js FX)
+    blackProbe();   // ?blackprobe=1 — 검은 판이 어느 메시인지 콘솔에 찍는다(기본 꺼짐)
   }
 
 
