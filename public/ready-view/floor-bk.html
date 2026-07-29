@@ -23,19 +23,15 @@ html,body{background:transparent}
 .pack img{width:100%;height:100%;object-fit:cover;display:block}
 
 /* 타이틀 — 글자 하나하나 루핑 웨이브 */
-.title{position:absolute;top:216px;left:0;right:0;text-align:center;white-space:nowrap;
+.title{position:absolute;top:196px;left:0;right:0;text-align:center;white-space:nowrap;
   font-weight:700;font-size:120px;line-height:1.1;letter-spacing:-4px}
 .title .ch{display:inline-block;will-change:transform,opacity;animation:charLoop 3s ease-in-out 3}
 .title .sp{display:inline-block;width:.26em}
 
-/* 메타 한 줄 — 모바일 홈 카드의 '팩 · 시간' 조판(home.html 원본)을 지면에도 통일 */
-.meta{position:absolute;top:358px;left:0;right:0;text-align:center;white-space:nowrap;
-  font-weight:400;font-size:46px;letter-spacing:1px;color:rgba(255,255,255,.55);
-  opacity:0;animation:fadeUpCentered .8s cubic-bezier(.2,.75,.2,1) .25s both}
 
 /* 3열 스트립 = 모바일 공통 컴포넌트 .stats-row (creator.css — pyeongso 등에서 공유) 이식.
    360px→1600px = ×4.44 (label 13→58 · value 18→80 · divider 1x33→4x147 · gap 4→18). */
-.strip{position:absolute;top:472px;left:50%;transform:translateX(-50%);display:flex;align-items:center;
+.strip{position:absolute;top:400px;left:50%;transform:translateX(-50%);display:flex;align-items:center;
   justify-content:center;gap:18px;
   opacity:0;animation:fadeUpCentered .8s cubic-bezier(.2,.75,.2,1) .35s both}
 .col{flex:1;text-align:center;color:#fff;padding:0 18px}
@@ -49,7 +45,7 @@ html,body{background:transparent}
 /* 디바이스 칩 — 모바일 setup.css 의 .chip-sel / .chip-row 정본을 그대로 이식.
    360px 뷰포트 → 1600px 대지 = ×4.44 스케일 (font 14→62 · padding 6/12→27/53 · gap 4→18).
    구 배터리 링 3개는 폐기(유저: 거슬림) — 원형이 투사면에서 타원으로 눌려 형태가 무너졌다. */
-.chips{position:absolute;top:668px;left:50%;transform:translateX(-50%);display:flex;gap:18px;
+.chips{position:absolute;top:640px;left:50%;transform:translateX(-50%);display:flex;gap:18px;
   opacity:0;animation:fadeUpCentered .8s cubic-bezier(.2,.75,.2,1) .5s both}
 .chip-sel{display:inline-flex;align-items:center;gap:18px;box-sizing:border-box;
   background:#fff;border:none;border-radius:355px;padding:27px 53px;
@@ -62,11 +58,18 @@ html,body{background:transparent}
 .chip-sel img{height:46px;width:auto;display:block;filter:brightness(0)}
 .chip-sel.sel img{filter:brightness(0) invert(1)}   /* 아이콘 원본이 흰색 — 흰 칩에선 검게, 그라디언트 칩에선 그대로 */
 
-/* 중앙 하단 Tap-foot 히어로 */
+/* CTA = 모바일 .rts-prompt 컴포넌트(ready.css, ready-to-start.html) 3줄 스택 이식.
+   제목과 같은 크기·굵기의 흰 볼드 한 줄이라 구분이 안 됐다(유저) → 정본대로 위아래 캡션을
+   달아 '지시문 덩어리'로 읽히게 한다. 비율은 모바일 그대로(s/m = 14/28 = 0.5, gap 8/28),
+   절대 크기는 지면 타입스케일 유지(m 88) — 지면은 판이 물리적으로 커서 ×4.44 가 아니다.
+   글로우+발 조합은 이 화면의 시그니처라 그대로 둔다(유저). */
 .hero{position:absolute;left:50%;top:1057px;transform:translateX(-50%);width:1000px;text-align:center;
+  display:flex;flex-direction:column;gap:25px;
   opacity:0;animation:fadeUpCentered .9s cubic-bezier(.2,.75,.2,1) .7s both}
-.hero .arrow{width:86px;height:86px;display:block;margin:0 auto 30px;animation:arrowBob 3s ease-in-out 3 1.5s}
-.hero .a{font-weight:700;font-size:88px;line-height:1.05;letter-spacing:-5px}
+.hero .arrow{width:86px;height:86px;display:block;margin:0 auto 5px;animation:arrowBob 3s ease-in-out 3 1.5s}
+.hero .s{font-family:'Supreme',sans-serif;font-weight:400;font-size:44px;line-height:1.4;
+  letter-spacing:-1.3px;color:rgba(255,255,255,.8)}
+.hero .m{font-weight:700;font-size:88px;line-height:1.2;letter-spacing:-4.7px;color:#fff}
 .foot{position:absolute;left:606px;top:1140px;width:400px;height:539px;
   opacity:0;animation:slideInUp .9s cubic-bezier(.2,.75,.2,1) .7s both}
 .foot img{width:100%;height:100%;display:block;transform-origin:50% 100%;
@@ -88,8 +91,6 @@ html,body{background:transparent}
 
     <div class="title" id="title">Curry's Handle Pack</div>
 
-    <div class="meta">Pro Pack · 23 min</div>
-
     <div class="strip">
       <div class="col side"><div class="k">Time</div><div class="v">23min</div></div>
       <div class="divider"></div>
@@ -106,7 +107,9 @@ html,body{background:transparent}
 
     <div class="hero">
       <img class="arrow" src="assets/run/arrow.svg" alt="">
-      <div class="a">Tap your foot Twice</div>
+      <span class="s">To start</span>
+      <span class="m">Tap your foot Twice</span>
+      <span class="s">with the Wearable on</span>
     </div>
     <div class="foot"><img src="assets/run/foot.svg" alt=""></div>
   </div>

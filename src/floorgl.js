@@ -791,7 +791,7 @@ export class FloorGL {
 
   // ── 시작화면 (floor.html / floor-bk.html) ──────────────────────────────────
   _paint_ready() {
-    const SY = 472, RY = 668;   // 스트립 y · 칩 y
+    const SY = 400, RY = 640;   // 스트립 y · 칩 y (메타 줄 폐기 — 정보량 축소, 유저)
     const ctx = this.ctx, D = READY[/floor-bk/.test(this.params.src) ? 'floor-bk.html' : 'floor.html'], t = this.t;
     // glowLive 7s ×3 — 숨쉬기 + 드리프트
     const gl = this._img('fig/big_glow.svg');
@@ -824,21 +824,14 @@ export class FloorGL {
     }
     // 타이틀 글자 웨이브 — charLoop 3s ×3, 글자마다 .09s 지연
     ctx.fillStyle = '#fff'; ctx.font = F(700, 120);
-    drawChars(ctx, D.title, CX, 216, 120, -4, i => {
+    drawChars(ctx, D.title, CX, 196, 120, -4, i => {
       const p = cycle(t, i * 0.09, 3, 3);
       return p == null ? { dy: 0, alpha: 1, scale: 1 } : {
         dy: kf(p, [[0, 0], [.12, -16], [.26, 0], [.58, 0], [1, 0]]),
         alpha: kf(p, [[0, .5], [.12, 1], [.26, 1], [.58, .5], [1, .5]]), scale: 1,
       };
     });
-    // 메타 한 줄 — 모바일 홈 카드와 같은 '팩 · 시간'. 타이틀 바로 아래 붙여 한 덩어리로 읽히게.
-    ctx.save(); this._fadeIn(358, 56, eOut(intro(t, .25, .8)));
-    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-    ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.font = F(400, 46); ctx.letterSpacing = '1px';
-    ctx.fillText(D.meta, CX, 358); ctx.letterSpacing = '0px';
-    ctx.restore();
-    // 상태 블록 = 2칸 스트립 + 디바이스 링. 둘은 같은 정보(세션 준비 상태)라 바짝 붙인다.
-    //   구 3칸(Time·Connection·Mode)은 Time 이 메타 줄과 중복 — 빼고 두 칸으로 넓게(유저: 위계 정리).
+    // 상태 블록 = 3열 스트립 + 디바이스 칩. 같은 정보(세션 준비 상태)라 바짝 붙인다.
     ctx.save(); this._fadeIn(SY, 212, eOut(intro(t, .35, .8)));
     ctx.textAlign = 'center'; ctx.textBaseline = 'top';
     // 3열 = 모바일 공통 .stats-row (creator.css) 이식: label 13→58 · value 18→80 · divider 1x33→4x147
@@ -887,19 +880,29 @@ export class FloorGL {
     });
     ctx.letterSpacing = '0px'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
     ctx.restore();
-    // hero — fadeUpCentered .9s .7s. 발·화살표는 이미 바닥에 붙은 요소라 탭은 원본대로 translate.
-    ctx.save(); this._fadeIn(1057, 622, eOut(intro(t, .7, .9)));
+    // CTA = 모바일 .rts-prompt 컴포넌트(ready.css) 3줄 스택 이식 — 캡션(s) / 지시(m) / 캡션(s).
+    //   제목과 같은 흰 볼드 한 줄이라 구분이 안 됐다(유저). 비율은 모바일 그대로(s/m=0.5),
+    //   절대 크기는 지면 타입스케일 유지(m 88). 글로우+발은 이 화면의 시그니처라 존치.
+    ctx.save(); this._fadeIn(1057, 395, eOut(intro(t, .7, .9)));
     const bob = cycle(t, 1.5, 3, 3);
+    const ady = bob == null ? 0 : kf(bob, [[0, 0], [.12, 14], [.25, 0], [.4, 13], [.52, 0], [.58, 0], [1, 0]]);
+    const ar = this._img('run/arrow.svg');
+    if (ar) ctx.drawImage(ar, CX - 43, 1057 + ady, 86, 86);
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    let hy = 1057 + 86 + 30;
+    ctx.fillStyle = 'rgba(255,255,255,.8)'; ctx.font = F(400, 44); ctx.letterSpacing = '-1.3px';
+    ctx.fillText('To start', CX, hy); hy += 44 * 1.4 + 25;
+    ctx.fillStyle = '#fff'; ctx.font = F(700, 88); ctx.letterSpacing = '-4.7px';
+    ctx.fillText('Tap your foot Twice', CX, hy); hy += 88 * 1.2 + 25;
+    ctx.fillStyle = 'rgba(255,255,255,.8)'; ctx.font = F(400, 44); ctx.letterSpacing = '-1.3px';
+    ctx.fillText('with the Wearable on', CX, hy);
+    ctx.letterSpacing = '0px';
+    ctx.restore();
+    // 발 — 탭 모션(footBob)
+    ctx.save(); this._fadeIn(1140, 539, eOut(intro(t, .7, .9)));
     const foot = this._img('run/foot.svg');
     const fdy = bob == null ? 0 : kf(bob, [[0, 0], [.12, 46], [.25, 6], [.4, 44], [.52, 0], [.58, 0], [1, 0]]);
     if (foot) ctx.drawImage(foot, 606, 1140 + fdy, 400, 539);
-    const ar = this._img('run/arrow.svg');
-    const ady = bob == null ? 0 : kf(bob, [[0, 0], [.12, 14], [.25, 0], [.4, 13], [.52, 0], [.58, 0], [1, 0]]);
-    if (ar) ctx.drawImage(ar, CX - 43, 1057 + ady, 86, 86);
-    ctx.fillStyle = '#fff'; ctx.font = F(700, 88); ctx.letterSpacing = '-5px';
-    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-    ctx.fillText('Tap your foot Twice', CX, 1057 + 86 + 30);
-    ctx.letterSpacing = '0px';
     ctx.restore();
   }
 
