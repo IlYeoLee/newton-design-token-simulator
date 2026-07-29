@@ -75,6 +75,52 @@ export const intro = (t, delay, dur) => clamp01((t - delay) / dur);
  *    값 구동 게이지가 생기면 GAUGE 로 같은 곡선을 쓸 것.
  *
  *  x0,y = 게이지 박스 좌상단 · w = 폭 · p = 0~1. 박스 높이는 gaugeH(w). */
+/** 진행 바 — 지면·벽 도트바(회색 10개 위 빨강 10개를 rect 로 클립)의 대체.
+ *  정본 = 앱 팩 상세의 process-graph 막대(figma-prototype styles/creator.css:139~176).
+ *
+ *  ★ 유저가 짚은 핵심: 저 그래프는 '채워지는' 게 아니라 **폭 자체가 자란다**.
+ *    `@keyframes bar-grow { from { width: var(--start) } }` — 그래서 12px 라운드가
+ *    끝을 달고 같이 이동하고 어디서도 잘리지 않는다. 구 도트바는 ctx.rect() 클립이라
+ *    자란 끝이 직각으로 썰렸다. 여기선 클립을 안 쓴다 — roundRect 의 폭을 직접 준다.
+ *
+ *  같이 옮긴 것: 팔레트 램프(FA3030 58.3% → FE6E3C 83% → FEC389 93.5% → D1FEFF 100%,
+ *  머리 끝만 prism 으로 밝아진다) · 좌측 수치/우측 라벨 인셋 조판 · 라벨은 다 자란 뒤 등장
+ *  (앱 label-in delay .66s = 성장 .62s 직후) · 최소 폭(--start)은 수치가 읽힐 만큼.
+ *  치수는 전부 앱 막대(h 53 · r 12 · pad 14 · 수치 15 · 라벨 13)의 h 대비 비율. */
+export function growBar(ctx, x, y, w, h, p, o = {}) {
+  const P = clamp01(p), r = h * 0.226, pad = h * 0.264;
+  const numF = F(400, h * 0.283), labF = F(700, h * 0.245);
+  // --start: 수치가 들어갈 만큼은 항상 열려 있다
+  ctx.font = numF;
+  const stub = o.num != null ? Math.min(w, pad * 2 + ctx.measureText(String(o.num)).width) : r * 2;
+  const bw = stub + (w - stub) * P;
+  // 트랙 — 앱은 카드 배경이 트랙 역할을 한다(투사면은 어두우니 옅은 면으로)
+  ctx.fillStyle = o.track || 'rgba(255,255,255,.10)';
+  ctx.beginPath(); ctx.roundRect(x, y, w, h, r); ctx.fill();
+  // 막대 — 클립 없음. roundRect(bw) 자체가 자란다.
+  const g = ctx.createLinearGradient(x, 0, x + bw, 0);
+  g.addColorStop(0, PAL.red); g.addColorStop(.583, PAL.red);
+  g.addColorStop(.83, PAL.coral); g.addColorStop(.935, PAL.sand); g.addColorStop(1, PAL.prism);
+  ctx.fillStyle = g;
+  ctx.beginPath(); ctx.roundRect(x, y, bw, h, r); ctx.fill();
+  ctx.save();
+  ctx.textBaseline = 'middle';
+  ctx.letterSpacing = (-h * 0.283 * 0.0333).toFixed(2) + 'px';   // 앱 −0.5px/15px = −3.33%
+  if (o.num != null) {
+    ctx.font = numF; ctx.fillStyle = '#fff'; ctx.textAlign = 'left';
+    ctx.fillText(String(o.num), x + pad, y + h / 2);
+  }
+  if (o.label) {   // 다 자란 뒤에야 내려앉는다 — 앱의 label-in
+    const la = clamp01((P - 0.88) / 0.12);
+    ctx.globalAlpha *= la;
+    ctx.font = labF; ctx.fillStyle = 'rgba(255,255,255,.75)'; ctx.textAlign = 'right';
+    ctx.letterSpacing = (-h * 0.245 * 0.0333).toFixed(2) + 'px';
+    ctx.fillText(o.label, x + bw - pad + h * 0.19 * (1 - la), y + h / 2);
+  }
+  ctx.restore();
+  ctx.letterSpacing = '0px';
+}
+
 export const GAUGE = { travel: 0.78, lead: 0.15, tail: 0.54 };   // 초 · 초 · 지나온 길이 대비 꼬리
 const ARC = { x0: 19, x1: 341, cx: 180, rx: 261, ry: 188.5, top: 24 };
 const arcY = ax => ARC.top + ARC.ry * (1 - Math.sqrt(Math.max(0, 1 - ((ax - ARC.cx) / ARC.rx) ** 2)));
@@ -486,7 +532,7 @@ export class FloorGL {
   _h(n) {
     switch (n.type) {
       case 'text': return n.size * 1.06;
-      case 'dots': return gaugeH(600);
+      case 'dots': return 92;
       case 'prevRow': return 200;
       case 'trainRow': return n.ring ? 200 : 112;
       case 'liveRow': return 112;
@@ -515,7 +561,7 @@ export class FloorGL {
     // main.js가 width를 직접 쓰면(반복형 스테이지) 그 값이 우선, 아니면 --dur 시간 진행.
     const w = n.style.width != null ? numOr(n.style.width, 0)
       : 600 * clamp01((this.t - n.delay) / n.dur);
-    arcGauge(this.ctx, x0, y, 600, w / 600, { value: Math.round(w / 6) });
+    growBar(this.ctx, x0, y, 600, 92, w / 600, { num: Math.round(w / 6) + '%', label: n.label });
   }
 
   _pill(x, y, w, h) {

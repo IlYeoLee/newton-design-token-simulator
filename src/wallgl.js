@@ -9,7 +9,7 @@
 // 세로 translate가 원근상 왜곡되지 않는다 → 원본 translateY를 그대로 쓴다.
 import * as THREE from 'three';
 import { PAL, NEU, rgba } from './palette.js';
-import { clamp01, eOut, cycle, kf, intro, drawChars, drawBadge, insetGlow, checkBadge, arcGauge } from './floorgl.js';
+import { clamp01, eOut, cycle, kf, intro, drawChars, drawBadge, insetGlow, checkBadge, growBar } from './floorgl.js';
 
 const W = 2600, H = 1600;   // 대지 px (벽 2.6×1.6m 실측 1:1)
 // 캔버스 해상도 — 대지 대비 배율. 화질 vs 업로드 비용의 저울.
@@ -421,7 +421,7 @@ export class WallGL {
     const dY = ROW_Y + 40 + 96 + 27, dS = 45.734, dX = RRight - dS * 10;
     ctx.save();
     ctx.globalAlpha *= clamp01((t - 1.55) / .5);
-    arcGauge(ctx, dX, dY, dS * 10, (t - 2) / (.22 * 10), { ends: false });
+    growBar(ctx, dX, dY, dS * 10, 62, (t - 2) / (.22 * 10), { label: 'READY' });
     ctx.restore();
     // 발 블록 — slideInUp .9s .6s
     const FX = RX + RW / 2 - 140, FY = ROW_Y + 570;
@@ -483,7 +483,7 @@ export class WallGL {
     const de = eOut(intro(t, .20, .6));
     ctx.save();
     ctx.globalAlpha *= de; ctx.translate(0, 48 * (1 - de));
-    arcGauge(ctx, 100, dY, 457.34, t / dur, { value: Math.round(clamp01(t / dur) * 100) });
+    growBar(ctx, 100, dY, 457.34, 62, t / dur, { num: Math.round(clamp01(t / dur) * 100) + '%' });
     ctx.restore();
 
     // 페이즈 열 (우측 정렬) — 진입이면 sRight .6s (.15 + i*.07)
