@@ -316,10 +316,14 @@ export class WallGL {
     // 전엔 30/min 은 ix+24.26, Fight! 는 ix+34.26(트랙이 ix+10 에서 시작 + 24.26),
     // Setup 라벨 ix+30, Connected 라벨 ix+20 으로 넷이 갈려 있었다.
     const PADL = 24.256;
+    // 컨테이너 사이 간격 — Figma 폰 값(10·8px)을 1:1 로 옮겨 놨더니 2600 대지에선
+    // 실물 10mm·8mm 라 셀들이 붙어 보였다(유저: "패딩이 너무 작은 거 아냐?"). 24 로 통일.
+    // 셀 안 텍스트 패딩은 PADL − CPAD 로 줘서 바깥 축(ix + PADL)은 그대로 유지된다.
+    const CPAD = 14, CIN = PADL - CPAD, CGAP = 24;
     let y = stY + 32;
     // ── Total
     txt(ctx, 'Total', ix + PADL, y + 6, 34, 400, NEU.t1, { ls: -1.13 });
-    y += 48 + 8;
+    y += 48 + 20;
     const totH = 378.393;
     rrFill(ctx, ix, y, iw, totH, 64, '#fff');
     // 그래프 3단 (우측 정렬, 위에서부터 stretch/learn/run)
@@ -339,7 +343,7 @@ export class WallGL {
     bar(1, 388.095, '10min', 1.15);
     // run 행 = 회색 트랙 + Fight! + 우측 learn-abs
     const ry = gY + 2 * (barH + 4.851);
-    rrFill(ctx, gR - (iw - 20), ry, iw - 20, barH, 40, NEU.surface);
+    rrFill(ctx, gR - (iw - 20), ry, iw - 20, barH, 40, NEU.surface);   // r 40 = 막대와 동일(유저: r 값 안 맞음)
     ctx.save(); ctx.globalAlpha *= 0.7;
     txt(ctx, 'Fight!', ix + PADL, ry + barH / 2, 32, 700, NEU.inkDark, { ls: -1.21, base: 'middle' });
     ctx.restore();
@@ -349,23 +353,22 @@ export class WallGL {
     ctx.save(); ctx.globalAlpha *= 0.6;
     txt(ctx, 'min', ix + PADL, y + 24.256 + 145.536, 32, 700, NEU.inkDark, { ls: -1.21 });
     ctx.restore();
-    y += totH + 32;
+    y += totH + 44;
     // ── Setup
     txt(ctx, 'Setup', ix + PADL, y + 6, 34, 400, NEU.t1, { ls: -1.13 });
-    y += 48 + 8;
-    const setH = 235;
+    y += 48 + 20;
+    const setH = CPAD * 2 + 103 + CGAP + 102;   // 셀 2행 + 안쪽 여백
     rrFill(ctx, ix, y, iw, setH, 64, '#fff');
     // 흰 박스 안쪽 여백 — 셀이 모서리에 딱 붙어 있었다(유저: "양옆 마진 0").
     // 셀 안 텍스트 패딩은 PADL - CPAD 로 줘서 바깥 축(ix + PADL)은 그대로 유지된다.
-    const CPAD = 14, CIN = PADL - CPAD;
-    const cw = (iw - CPAD * 2 - 10) / 2;
+    const cw = (iw - CPAD * 2 - CGAP) / 2;
     // ★ 한 줄 압축 — 라벨+값 두 줄이던 걸 자기설명적 한 줄로 줄이고 그만큼 키웠다(유저:
     // "글씨 크기를 키우란 게 아니라 글자 수를 줄이면서 내용은 유지"). 투사면은 읽는 화면이
     // 아니라 훑는 화면이라 라벨은 값 안에 녹인다. 'Quite On' → 'Quiet On' 오타도 함께 정정.
     const cells = [['Indoor · Standard', 103], ['Condition · Usual', 103],
                    ['Quiet On', 102], ['Main 15m', 102]];
     cells.forEach(([val, ch], i) => {
-      const cx0 = ix + CPAD + (i % 2) * (cw + 10), cy0 = y + 12 + (i < 2 ? 0 : 111);
+      const cx0 = ix + CPAD + (i % 2) * (cw + CGAP), cy0 = y + CPAD + (i < 2 ? 0 : 103 + CGAP);
       const e = eOut(intro(t, .95 + i * .10, .55));
       ctx.save();
       ctx.globalAlpha *= e;
@@ -376,11 +379,11 @@ export class WallGL {
       txt(ctx, val, cx0 + CIN, cy0 + ch / 2, 38, 700, '#000', { ls: -1.27, base: 'middle' });
       ctx.restore();
     });
-    y += setH + 32;
+    y += setH + 44;
     // ── Connected
     txt(ctx, 'Connected', ix + PADL, y + 6, 34, 400, NEU.t1, { ls: -1.13 });
-    y += 48 + 8;
-    const devH = 203.607, dw = (iw - CPAD * 2 - 16) / 3;
+    y += 48 + 20;
+    const devH = 203.607, dw = (iw - CPAD * 2 - CGAP * 2) / 3;
     // 아이콘 88 + 간격 14 + 글자 38 = 147.6 을 카드(203.607) 안에서 위아래 대칭으로 앉힌다
     // (전엔 위 16 / 아래 47 로 어긋나 있었다 — 유저 지적).
     const DTOP = (devH - (88 + 14 + 38 * 1.2)) / 2;
@@ -389,7 +392,7 @@ export class WallGL {
                   ['icon_station.png', 'Station Ready'],
                   ['icon_device.png', 'Watch Ready']];
     devs.forEach(([ic, n], i) => {
-      const dx = ix + CPAD + i * (dw + 8);
+      const dx = ix + CPAD + i * (dw + CGAP);
       const e = eOut(intro(t, 1.3 + i * .13, .55));
       ctx.save();
       ctx.globalAlpha *= e; ctx.translate(0, 26 * (1 - e));

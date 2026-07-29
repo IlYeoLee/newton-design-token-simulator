@@ -342,8 +342,8 @@ export function drawChars(ctx, txt, cx, y, h, ls, fn, align = 'center') {
 // ── 나머지 문서(시작화면·전환·카운트다운·리포트) 데이터 — 각 HTML의 상수를 그대로 옮긴 것 ──
 const READY = {
   // meta = 모바일 홈 카드의 '팩 · 시간' 표기(home.html 원본) — 지면도 같은 조판 규칙을 쓴다
-  'floor.html':    { title: "Sean's Final 1km Pace", meta: 'Creator Pack · 30 min', mode: 'Pace & Boost On', modeSm: true },
-  'floor-bk.html': { title: "Curry's Handle Pack",   meta: 'Pro Pack · 23 min',     mode: 'Press On' },
+  'floor.html':    { title: "Sean's Final 1km Pace", meta: 'Creator Pack · 30 min', time: '30min', mode: 'Pace & Boost On', modeSm: true },
+  'floor-bk.html': { title: "Curry's Handle Pack",   meta: 'Pro Pack · 23 min',     time: '23min',     mode: 'Press On' },
 };
 const TR = {
   T1: { sub: 'Sean’s Final 1km Pace', title: 'Warm-Up Done!',
@@ -787,7 +787,7 @@ export class FloorGL {
 
   // ── 시작화면 (floor.html / floor-bk.html) ──────────────────────────────────
   _paint_ready() {
-    const SY = 418, RY = 572;   // 상태 블록: 스트립 y · 링 y (내부 간격 24 = 한 덩어리)
+    const SY = 472, RY = 668;   // 스트립 y · 칩 y
     const ctx = this.ctx, D = READY[/floor-bk/.test(this.params.src) ? 'floor-bk.html' : 'floor.html'], t = this.t;
     // glowLive 7s ×3 — 숨쉬기 + 드리프트
     const gl = this._img('fig/big_glow.svg');
@@ -803,9 +803,24 @@ export class FloorGL {
       ctx.drawImage(gl, CX - 510, 1400 - 465, 1020, 930);
       ctx.restore();
     }
+    // 팩 대표 이미지 — 모바일 카드의 크리에이터 프로필 원형 크롭(지름 168 = 모바일 38 ×4.44)
+    {
+      const pk = this._img(/floor-bk/.test(this.params.src) ? 'photos/cardbg-curry.png' : 'photos/creator-profile-sean.png');
+      const R = 84, py = 12;
+      ctx.save();
+      ctx.beginPath(); ctx.arc(CX, py + R, R, 0, Math.PI * 2); ctx.clip();
+      if (pk) {
+        const sc = Math.max(2 * R / pk.naturalWidth, 2 * R / pk.naturalHeight);
+        ctx.drawImage(pk, CX - pk.naturalWidth * sc / 2, py + R - pk.naturalHeight * sc / 2,
+                      pk.naturalWidth * sc, pk.naturalHeight * sc);
+      } else { ctx.fillStyle = 'rgba(255,255,255,.14)'; ctx.fillRect(CX - R, py, 2 * R, 2 * R); }
+      ctx.restore();
+      ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.lineWidth = 10;
+      ctx.beginPath(); ctx.arc(CX, py + R, R, 0, Math.PI * 2); ctx.stroke();
+    }
     // 타이틀 글자 웨이브 — charLoop 3s ×3, 글자마다 .09s 지연
     ctx.fillStyle = '#fff'; ctx.font = F(700, 120);
-    drawChars(ctx, D.title, CX, 176, 120, -4, i => {
+    drawChars(ctx, D.title, CX, 216, 120, -4, i => {
       const p = cycle(t, i * 0.09, 3, 3);
       return p == null ? { dy: 0, alpha: 1, scale: 1 } : {
         dy: kf(p, [[0, 0], [.12, -16], [.26, 0], [.58, 0], [1, 0]]),
@@ -813,24 +828,25 @@ export class FloorGL {
       };
     });
     // 메타 한 줄 — 모바일 홈 카드와 같은 '팩 · 시간'. 타이틀 바로 아래 붙여 한 덩어리로 읽히게.
-    ctx.save(); this._fadeIn(318, 56, eOut(intro(t, .25, .8)));
+    ctx.save(); this._fadeIn(358, 56, eOut(intro(t, .25, .8)));
     ctx.textAlign = 'center'; ctx.textBaseline = 'top';
     ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.font = F(400, 46); ctx.letterSpacing = '1px';
-    ctx.fillText(D.meta, CX, 318); ctx.letterSpacing = '0px';
+    ctx.fillText(D.meta, CX, 358); ctx.letterSpacing = '0px';
     ctx.restore();
     // 상태 블록 = 2칸 스트립 + 디바이스 링. 둘은 같은 정보(세션 준비 상태)라 바짝 붙인다.
     //   구 3칸(Time·Connection·Mode)은 Time 이 메타 줄과 중복 — 빼고 두 칸으로 넓게(유저: 위계 정리).
-    ctx.save(); this._fadeIn(SY, 130, eOut(intro(t, .35, .8)));
+    ctx.save(); this._fadeIn(SY, 212, eOut(intro(t, .35, .8)));
     ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-    const cols = [['Connection', 'Good', false], ['Mode', D.mode, D.modeSm]];
-    const w = [420, 420], x0 = CX - (w[0] + w[1] + 2) / 2;
+    // 3열 = 모바일 공통 .stats-row (creator.css) 이식: label 13→58 · value 18→80 · divider 1x33→4x147
+    const cols = [['Time', D.time, false], ['Connection', 'Good', false], ['Mode', D.mode, D.modeSm]];
+    const w = [400, 400, 400], x0 = CX - (w[0] + w[1] + w[2] + 8 + 36) / 2;
     let x = x0;
     cols.forEach((c, i) => {
-      if (i) { ctx.fillStyle = 'rgba(255,255,255,.22)'; ctx.fillRect(x, SY + 21, 2, 100); x += 2; }
-      ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.font = F(400, 40);
+      if (i) { ctx.fillStyle = 'rgba(255,255,255,.3)'; ctx.fillRect(x + 16, SY + 32, 4, 147); x += 36; }
+      ctx.fillStyle = 'rgba(255,255,255,.7)'; ctx.font = F(400, 58); ctx.letterSpacing = '-2.2px';
       ctx.fillText(c[0], x + w[i] / 2, SY + 14);
-      ctx.fillStyle = '#fff'; ctx.font = F(700, c[2] ? 52 : 64); ctx.letterSpacing = '-2px';
-      ctx.fillText(c[1], x + w[i] / 2, SY + 14 + 48 + 14);
+      ctx.fillStyle = '#fff'; ctx.font = F(700, c[2] ? 66 : 80); ctx.letterSpacing = '-2.4px';
+      ctx.fillText(c[1], x + w[i] / 2, SY + 14 + 70 + 27);
       ctx.letterSpacing = '0px';
       x += w[i];
     });

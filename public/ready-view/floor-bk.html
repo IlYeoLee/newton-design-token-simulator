@@ -14,31 +14,42 @@ html,body{background:transparent}
 .bigglow{position:absolute;left:50%;top:1400px;transform:translate(-50%,-50%);width:1020px;height:930px;opacity:.85}
 .bigglow img{width:100%;height:100%;display:block;transform-origin:50% 46%;animation:glowLive 7s ease-in-out 3}
 
+/* 팩 대표 이미지 — 모바일 카드의 크리에이터 프로필(home/pyeongso 공통 자산) 원형 크롭.
+   제목 위에 놓아 '누구의 팩인가'를 첫 줄에서 읽히게 한다(유저). 지름 168 = 모바일 38 × 4.44. */
+.pack{position:absolute;top:12px;left:50%;transform:translateX(-50%);width:168px;height:168px;
+  border-radius:50%;overflow:hidden;background:rgba(255,255,255,.14);
+  box-shadow:0 0 0 5px rgba(255,255,255,.35);
+  opacity:0;animation:fadeUpCentered .8s cubic-bezier(.2,.75,.2,1) .12s both}
+.pack img{width:100%;height:100%;object-fit:cover;display:block}
+
 /* 타이틀 — 글자 하나하나 루핑 웨이브 */
-.title{position:absolute;top:176px;left:0;right:0;text-align:center;white-space:nowrap;
+.title{position:absolute;top:216px;left:0;right:0;text-align:center;white-space:nowrap;
   font-weight:700;font-size:120px;line-height:1.1;letter-spacing:-4px}
 .title .ch{display:inline-block;will-change:transform,opacity;animation:charLoop 3s ease-in-out 3}
 .title .sp{display:inline-block;width:.26em}
 
 /* 메타 한 줄 — 모바일 홈 카드의 '팩 · 시간' 조판(home.html 원본)을 지면에도 통일 */
-.meta{position:absolute;top:318px;left:0;right:0;text-align:center;white-space:nowrap;
+.meta{position:absolute;top:358px;left:0;right:0;text-align:center;white-space:nowrap;
   font-weight:400;font-size:46px;letter-spacing:1px;color:rgba(255,255,255,.55);
   opacity:0;animation:fadeUpCentered .8s cubic-bezier(.2,.75,.2,1) .25s both}
 
-/* 상태 스트립(2칸) */
-.strip{position:absolute;top:418px;left:50%;transform:translateX(-50%);height:142px;display:flex;align-items:center;
+/* 3열 스트립 = 모바일 공통 컴포넌트 .stats-row (creator.css — pyeongso 등에서 공유) 이식.
+   360px→1600px = ×4.44 (label 13→58 · value 18→80 · divider 1x33→4x147 · gap 4→18). */
+.strip{position:absolute;top:472px;left:50%;transform:translateX(-50%);display:flex;align-items:center;
+  justify-content:center;gap:18px;
   opacity:0;animation:fadeUpCentered .8s cubic-bezier(.2,.75,.2,1) .35s both}
-.col{display:flex;flex-direction:column;justify-content:center;align-items:center;padding:0 40px;text-align:center}
-.col.side{width:420px}
-.col .k{font-weight:500;font-size:40px;color:rgba(255,255,255,.55);letter-spacing:-.5px;margin-bottom:14px}
-.col .v{font-weight:700;font-size:64px;letter-spacing:-2px;white-space:nowrap}
-.col .v.sm{font-size:52px}
-.divider{width:2px;height:100px;background:rgba(255,255,255,.22);flex:none}
+.col{flex:1;text-align:center;color:#fff;padding:0 18px}
+.col.side{width:400px}
+.col .k{font-family:'Supreme',sans-serif;font-weight:400;font-size:58px;opacity:.7;
+  letter-spacing:-2.2px;margin-bottom:27px}
+.col .v{font-weight:700;font-size:80px;letter-spacing:-2.4px;white-space:nowrap}
+.col .v.sm{font-size:66px}
+.divider{width:4px;height:147px;background:rgba(255,255,255,.3);flex:none}
 
 /* 디바이스 칩 — 모바일 setup.css 의 .chip-sel / .chip-row 정본을 그대로 이식.
    360px 뷰포트 → 1600px 대지 = ×4.44 스케일 (font 14→62 · padding 6/12→27/53 · gap 4→18).
    구 배터리 링 3개는 폐기(유저: 거슬림) — 원형이 투사면에서 타원으로 눌려 형태가 무너졌다. */
-.chips{position:absolute;top:572px;left:50%;transform:translateX(-50%);display:flex;gap:18px;
+.chips{position:absolute;top:668px;left:50%;transform:translateX(-50%);display:flex;gap:18px;
   opacity:0;animation:fadeUpCentered .8s cubic-bezier(.2,.75,.2,1) .5s both}
 .chip-sel{display:inline-flex;align-items:center;gap:18px;box-sizing:border-box;
   background:#fff;border:none;border-radius:355px;padding:27px 53px;
@@ -73,11 +84,15 @@ html,body{background:transparent}
   <div id="board">
     <div class="bigglow"><img src="assets/fig/big_glow.svg" alt=""></div>
 
+    <div class="pack"><img src="assets/photos/cardbg-curry.png" alt=""></div>
+
     <div class="title" id="title">Curry's Handle Pack</div>
 
     <div class="meta">Pro Pack · 23 min</div>
 
     <div class="strip">
+      <div class="col side"><div class="k">Time</div><div class="v">23min</div></div>
+      <div class="divider"></div>
       <div class="col side"><div class="k">Connection</div><div class="v">Good</div></div>
       <div class="divider"></div>
       <div class="col side"><div class="k">Mode</div><div class="v">Press On</div></div>
