@@ -815,6 +815,15 @@ export class Session {
 
     for (const id in this.G) this._clip(this.G[id], id.startsWith('BX_'));
     this._clip(this.countGroup);
+
+    // ★ 복싱 벽 = 한 겹. 벽면에 투사되는 것(UI 평면·인물·판정 토큰·HUD 텍스트)을 전부 같은
+    //   renderOrder 20 에 올리고, 앞뒤는 z 가 정하게 둔다(three 는 같은 밴드의 투명체를 뒤→앞 정렬).
+    //   전엔 인물 5 · 토큰 9 · HUD 7 · UI 평면 20 이라 벽면의 UI 가 3cm 앞의 인물 위에 덮이는 등
+    //   깊이와 그리는 순서가 서로 어긋났다(유저: '레이어 자체가 다 다르다').
+    //   z 규약: 벽면 UI < 인물(WALL_Z+0.02) < 토큰·HUD(WZ = WALL_Z+0.03 이상).
+    for (const g of [this.wSlotFS, this.wSlotFL, this.wSlotFM, this.wCount])
+      g.traverse(o => { o.renderOrder = 20; });
+    this._wallBand = [this.wSlotFS, this.wSlotFL, this.wSlotFM, this.wCount];
   }
 
   _buildRunning() {
@@ -1193,10 +1202,11 @@ export class Session {
 
     g = this._mk('BX_FIN');   // 결과 화면 = 벽 HUD 세로 리포트 전담 (구 벽 텍스트 제거 — 중복)
 
-    // 판정 토큰은 인물(demoPanel renderOrder 7) '앞'에 그려 부위 지시가 인물에 가리지 않게.
-    // (인물 셰이더 depthWrite=false → 가림은 draw order = renderOrder로 결정)
+    // 복싱 벽은 한 겹 — 판정 토큰도 벽 UI·인물과 같은 밴드(20)에 둔다. 앞뒤는 z 가 정한다:
+    // 벽면 UI < 인물(WALL_Z+0.02) < 토큰(WZ = WALL_Z+0.03). 부위 지시가 인물에 안 가리는 원래 의도는
+    // renderOrder 가 아니라 z 로 유지된다(유저: 'UI·인물·마크 토큰 레이어가 다 다르다').
     for (const id of ['BX_A1','BX_A2','BX_A3','BX_B1','BX_B2','BX_B3','BX_C1','BX_C3']) {
-      this.G[id]?.traverse(o => { if (o.isMesh) o.renderOrder = 9; });
+      this.G[id]?.traverse(o => { if (o.isMesh) o.renderOrder = 20; });
     }
   }
 
@@ -1225,6 +1235,9 @@ export class Session {
   _slot(slot, text, opts) {
     while (slot.children.length) { const c = slot.children.pop(); c.traverse?.(o => { o.geometry?.dispose(); o.material?.map?.dispose(); o.material?.dispose(); }); }
     if (!text) return; const m = makeTextMesh(text, opts); this._clip(m); slot.add(m);
+    // 벽 슬롯은 복싱 '한 겹' 밴드(20)에 속한다 — 텍스트는 여기서 매번 새로 만들어지므로
+    // 빌드 때 한 번 걸어둔 renderOrder 가 안 물린다(빈 그룹이었다). 붙일 때 같이 찍는다.
+    if (this._wallBand?.includes(slot)) m.traverse(o => { o.renderOrder = 20; });
   }
 
   start(sport = 'running') {

@@ -23,8 +23,16 @@ html,body{background:transparent}
   opacity:0;animation:fadeUpCentered .8s cubic-bezier(.2,.75,.2,1) .12s both}
 .pack img{width:100%;height:100%;object-fit:cover;display:block}
 
+/* 팩 칩 = pyeongso 의 .tag-pill (creator.css) — 제목 대비 비율 그대로(15/26 = 0.577).
+   지면 타입스케일 ×4.6: font 15→69 · padding 4/8→18/37 · radius 12→55. */
+.tag{position:absolute;top:204px;left:0;right:0;text-align:center;
+  opacity:0;animation:slideInUp .8s cubic-bezier(.2,.75,.2,1) .18s both}
+.tag span{display:inline-block;padding:18px 37px;border-radius:55px;
+  background:rgba(255,255,255,.2);color:#fff;
+  font-family:'Supreme',sans-serif;font-weight:700;font-size:69px;letter-spacing:-2.3px}
+
 /* 타이틀 — 글자 하나하나 루핑 웨이브 */
-.title{position:absolute;top:196px;left:0;right:0;text-align:center;white-space:nowrap;
+.title{position:absolute;top:348px;left:0;right:0;text-align:center;white-space:nowrap;
   font-weight:700;font-size:120px;line-height:1.1;letter-spacing:-4px}
 .title .ch{display:inline-block;will-change:transform,opacity;animation:charLoop 3s ease-in-out 3}
 .title .sp{display:inline-block;width:.26em}
@@ -32,7 +40,7 @@ html,body{background:transparent}
 
 /* 3열 스트립 = 모바일 공통 컴포넌트 .stats-row (creator.css — pyeongso 등에서 공유) 이식.
    360px→1600px = ×4.44 (label 13→58 · value 18→80 · divider 1x33→4x147 · gap 4→18). */
-.strip{position:absolute;top:400px;left:50%;transform:translateX(-50%);display:flex;align-items:center;
+.strip{position:absolute;top:520px;left:50%;transform:translateX(-50%);display:flex;align-items:center;
   justify-content:center;gap:18px;
   opacity:0;animation:fadeUpCentered .8s cubic-bezier(.2,.75,.2,1) .35s both}
 .col{flex:none;text-align:center;color:#fff;padding:0 30px}   /* 내용 크기 — flex:1+nowrap 이면 값이 옆 칸을 파고든다 */
@@ -80,6 +88,8 @@ html,body{background:transparent}
     <div class="bigglow"><img src="assets/fig/big_glow.svg" alt=""></div>
 
     <div class="pack"><img src="assets/photos/creator-profile-sean.png" alt=""></div>
+
+    <div class="tag"><span>Creator Pack</span></div>
 
     <div class="title" id="title">Sean's Final 1km Pace</div>
 

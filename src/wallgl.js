@@ -628,7 +628,11 @@ export class WallGL {
     //   · 순간 사건은 크고 짧게, 누적 상태는 작고 계속.
     const isLive = /^BX_C[234]$/.test(this.stage);
     const seq = (S.cues && S.cues.length) ? [S.say, ...S.cues] : [S.say];
-    const every = Math.max(1.1, dur / (seq.length + 0.5));
+    // 자막 체류 시간. 전엔 하한이 1.1초라 큐를 stage dur 안에 전부 욱여넣었고,
+    // 실측 A2(dur 4.6 · 큐 5개) 기준 1.1초/개 — 등장 페이드 0.5초를 빼면 읽을 시간이
+    // 0.6초뿐이었다(유저: "타이밍이 너무 빨라"). 다 못 보여줘도 읽히는 쪽이 낫다.
+    //   학습(읽는 자막) 2.6초 · 실전(박자 신호) 1.6초.
+    const every = Math.max(isLive ? 1.6 : 2.6, dur / (seq.length + 0.5));
     const swapT = seq.length > 1 ? t - Math.floor(t / every) * every : t;
     const say = seq[seq.length > 1 ? Math.floor(t / every) % seq.length : 0];
     const ce = eOut(intro(t, .68, .8));

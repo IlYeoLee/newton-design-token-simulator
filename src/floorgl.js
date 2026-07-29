@@ -791,7 +791,7 @@ export class FloorGL {
 
   // ── 시작화면 (floor.html / floor-bk.html) ──────────────────────────────────
   _paint_ready() {
-    const SY = 400;   // 상태 한 줄 y (메타 줄·Connection 칸 폐기 — 정보량 축소, 유저)
+    const SY = 520;   // 상태 한 줄 y (메타 줄·Connection 칸 폐기 — 정보량 축소, 유저)
     const ctx = this.ctx, D = READY[/floor-bk/.test(this.params.src) ? 'floor-bk.html' : 'floor.html'], t = this.t;
     // glowLive 7s ×3 — 숨쉬기 + 드리프트
     const gl = this._img('fig/big_glow.svg');
@@ -822,9 +822,22 @@ export class FloorGL {
       ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.lineWidth = 10;
       ctx.beginPath(); ctx.arc(CX, py + R, R, 0, Math.PI * 2); ctx.stroke();
     }
+    // 팩 칩 = pyeongso .tag-pill (creator.css) — 제목 대비 비율 그대로(15/26). ×4.6 스케일.
+    {
+      const LB = /floor-bk/.test(this.params.src) ? 'Pro Pack' : 'Creator Pack';
+      ctx.save(); this._fadeIn(204, 129, eOut(intro(t, .18, .8)));
+      ctx.font = F(700, 69); ctx.letterSpacing = '-2.3px';
+      const tw = ctx.measureText(LB).width, pw = tw + 74, ph = 129;
+      this._roundRectPath(CX - pw / 2, 204, pw, ph, 55);
+      ctx.fillStyle = 'rgba(255,255,255,.2)'; ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(LB, CX, 204 + ph / 2 + 2);
+      ctx.letterSpacing = '0px'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+      ctx.restore();
+    }
     // 타이틀 글자 웨이브 — charLoop 3s ×3, 글자마다 .09s 지연
     ctx.fillStyle = '#fff'; ctx.font = F(700, 120);
-    drawChars(ctx, D.title, CX, 196, 120, -4, i => {
+    drawChars(ctx, D.title, CX, 348, 120, -4, i => {
       const p = cycle(t, i * 0.09, 3, 3);
       return p == null ? { dy: 0, alpha: 1, scale: 1 } : {
         dy: kf(p, [[0, 0], [.12, -16], [.26, 0], [.58, 0], [1, 0]]),

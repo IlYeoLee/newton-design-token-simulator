@@ -3295,8 +3295,12 @@ void main(){
   const BXP_FOOT = 0.05;
   bxPerson.scale.set(BXP_K, BXP_K, 1);
   bxPerson.material.clipping = true;
-  bxPerson.position.set(0.42, 1.7 * BXP_K / 2 + BXP_FOOT, WALL_Z + 0.03);   // 투사 영역 안 (클리핑이 최종 보증)
-  bxPerson.renderOrder = 5;
+  bxPerson.position.set(0.42, 1.7 * BXP_K / 2 + BXP_FOOT, WALL_Z + 0.02);   // 투사 영역 안 (클리핑이 최종 보증)
+  // ★ 복싱 벽은 한 겹이다 — 벽 UI(20)·인물·판정 토큰이 전부 같은 renderOrder 를 쓰고
+  //   순서는 '깊이'가 정한다(three 는 같은 renderOrder 의 투명체를 뒤→앞으로 정렬).
+  //   전엔 인물 5 · 토큰 9 · UI 20 이라 벽면(z −1.8)의 UI 가 3cm 앞의 인물 위에 덮여 그려졌다
+  //   — 유저가 본 '레이어가 다 따로 논다'의 정체. z 를 −0.01 물려 UI < 인물 < 토큰(WZ +0.03) 순서를 못박는다.
+  bxPerson.renderOrder = 20;
   bxPerson.visible = false;
   scene.add(bxPerson);
   function renderBxPerson() {
@@ -3306,7 +3310,7 @@ void main(){
     if (!on) return;
     if (rig.wallClip && bxPerson.material.clippingPlanes !== rig.wallClip) bxPerson.material.clippingPlanes = rig.wallClip;
     const wc = rig._wallCenter;
-    bxPerson.position.set(wc ? wc.cx : 0, 1.7 * BXP_K / 2 + BXP_FOOT, WALL_Z + 0.03);   // 유저 정면 = 벽 중심 추종
+    bxPerson.position.set(wc ? wc.cx : 0, 1.7 * BXP_K / 2 + BXP_FOOT, WALL_Z + 0.02);   // 유저 정면 = 벽 중심 추종
     const U = bxPerson.material.uniforms;
     const ms = performance.now();
     U.uFrame.value = (ms / 1000 * COACH.fps) % COACH.n;
