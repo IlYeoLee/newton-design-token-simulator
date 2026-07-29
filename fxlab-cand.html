@@ -554,6 +554,16 @@ float halftoneSq(vec2 p, float pitch, float amount, float soft){
   float r = pitch * 0.5 * clamp(amount, 0.0, 1.0);
   return smoothstep(r + soft, r - soft, d);
 }
+// 아웃라인 없는 닷 폼 본체(⑩) — w 는 그 픽셀의 '켜짐 정도'. Hold 후보들이 w 만 바꿔 쓴다.
+vec4 dotForm(vec2 uv, float sd, float ext, float w, float pitch){
+  float band = 0.16 * max(uInner, 0.05);
+  float amt  = smoothstep(band, -band, sd) * clamp(w, 0.0, 2.0);
+  float q    = clamp(0.30 + 0.70 * length(uv) / max(ext * 1.6, 1e-3), 0.0, 1.0);
+  float m    = halftone(uv, pitch, amt * uDotGain, pitch * 0.16);
+  vec4 B = vec4(0.0);
+  lay(B, fillHot(q), m * clamp(amt * 1.25, 0.0, 1.0));
+  return B;
+}
 // 실루엣 안쪽 깊이(0=가장자리, 1=속). 이너 글로우/섀도우의 공통 재료.
 float innerDepth(float sd, float w){ return smoothstep(0.0, max(w, 1e-4), -sd); }
 `;
@@ -707,6 +717,56 @@ const CANDIDATES = [
   vec4 B = vec4(0.0);
   lay(B, fillHot(q), m * clamp(amt * 1.15 + 0.10, 0.0, 1.0));
   return B;
+}` },
+
+  // ── Hold 전용 계열 ────────────────────────────────────────────────────────
+  //   유저: "홀드가 어색하다 — 도트에 그냥 선 테두리 찍 둘러쌓은 느낌."
+  //   맞는 지적이고, 설계 문장도 원래 그게 아니었다:
+  //     "유지 = 열이 수위처럼 차오르고 표면이 찰랑임" (카탈로그 원칙)
+  //   지금의 코닉 진행 림은 그 문장에서 벗어난 구현이다. 진행을 선이 아니라
+  //   점 자체가 세게 한다 — 그러면 Hold 도 나머지와 같은 언어를 쓴다.
+  //   (Hold 가 아닌 상태에선 ⑩ 닷 폼으로 떨어져 일관성을 눈으로 확인할 수 있다)
+  { id: 'holdLevel', name: '⓵ Hold · 수위', why: '아래에서 위로 차오르고 수면이 찰랑인다. 설계 문장 그대로 — 선이 아니라 열이 쌓인다.',
+    glsl: `${CAND_SIG} {
+  if (state < 1.5 || state > 2.5) return dotForm(uv, sd, ext, 1.0, uDotPitch);
+  float lvl = -1.0 + 2.0 * prog;
+  float rip = sin(uv.x * 7.0 + t * 2.2) * 0.035 + sin(uv.x * 11.0 - t * 1.6) * 0.020;
+  float d   = (lvl + rip) - uv.y;                          // >0 = 잠김
+  float w   = smoothstep(-0.10, 0.06, d);                  // 수면에서 부드럽게
+  w *= 1.0 + 0.55 * exp(-pow(d / 0.07, 2.0));              // 수면 근처가 가장 굵다
+  return dotForm(uv, sd, ext, w, uDotPitch);
+}` },
+
+  { id: 'holdSweep', name: '⓶ Hold · 각도 카운터', why: '12시부터 시계방향으로 점이 하나씩 켜진다. 진행을 선이 아니라 점이 센다 — 테두리가 사라진다.',
+    glsl: `${CAND_SIG} {
+  if (state < 1.5 || state > 2.5) return dotForm(uv, sd, ext, 1.0, uDotPitch);
+  float a01 = fract(0.25 - atan(uv.y, uv.x) / 6.2832);
+  float w   = smoothstep(prog + 0.02, prog - 0.04, a01);   // 지나간 각도만 켜짐
+  w = max(w, 0.20);                                        // 남은 구간도 흐릿하게 — 형태는 유지
+  w *= 1.0 + 0.70 * exp(-pow((a01 - prog) / 0.05, 2.0));   // 선단이 가장 굵다
+  return dotForm(uv, sd, ext, w, uDotPitch);
+}` },
+
+  { id: 'holdCollapse', name: '⓷ Hold · 조여듦', why: '바깥에서 안으로 파면이 조여든다. 시간이 줄어드는 것이 형태로 보인다 — Active 의 수축과 한 계보.',
+    glsl: `${CAND_SIG} {
+  if (state < 1.5 || state > 2.5) return dotForm(uv, sd, ext, 1.0, uDotPitch);
+  float r     = length(uv) / max(ext, 1e-3);
+  float front = 1.0 - prog;
+  float band  = exp(-pow((r - front) / 0.15, 2.0));
+  float w     = smoothstep(front + 0.14, front - 0.04, r) * 0.80 + band * 0.95;
+  w = max(w, 0.16);
+  return dotForm(uv, sd, ext, w, uDotPitch);
+}` },
+
+  { id: 'holdPulse', name: '⓸ Hold · 동기 맥동', why: '모든 점이 한 박자로 숨쉬고, 완료에 가까울수록 빨라진다. 버티는 시간이 심박으로 읽힌다.',
+    glsl: `${CAND_SIG} {
+  if (state < 1.5 || state > 2.5) return dotForm(uv, sd, ext, 1.0, uDotPitch);
+  float bpm  = 1.6 + 4.4 * prog;                           // 끝으로 갈수록 빨라진다
+  float beat = 0.5 + 0.5 * sin(t * bpm * uDotSpeed * 3.14159);
+  float r    = length(uv) / max(ext, 1e-3);
+  float w    = (0.55 + 0.75 * beat) * (1.0 - 0.35 * r);    // 중심이 더 세게 뛴다
+  w *= 0.75 + 0.55 * prog;                                 // 차오를수록 전체가 밝아진다
+  return dotForm(uv, sd, ext, w, uDotPitch);
 }` },
 ];
 
