@@ -1252,14 +1252,22 @@ function candSDF(FS) {
   }
   const sizeN = MARK_NUM.RATIO * (state.m.radius || 1) * ((av && av.s) || 1);
   const circle = candShape < 0.5;
-  return bakeFootWithGlyphHole(candFootImg, Math.min(768, candFootN), candFootFlip, ch,
+  const N = Math.min(768, candFootN);
+  // 팽창량 = 셰이더 경계 폭(uv) 을 SDF 텍스처 픽셀로 환산.
+  //   mkSD: sd_uv = raw · 1.9922 / uRadius.
+  //   ★ raw 의 정규화 기준은 N 이 아니라 N/4 다(SDF_DECODE 주석: '구 8bit 인코딩 range=N/4').
+  //     N 으로 잡았다가 팽창이 4배가 되어 구멍이 발을 반쯤 먹었다.
+  //     px = band · uRadius · (N/4) / 1.9922
+  const bandUV = 0.11 * Math.max(candP.inner, 0.05);
+  const dilPx = bandUV * (state.m.radius || 1) * (N / 4) / 1.9922;
+  return bakeFootWithGlyphHole(candFootImg, N, candFootFlip, ch,
                                circle ? 0.5 : (av ? av.x : 0.5),
                                circle ? 0.5 : (av ? av.y : 0.34), sizeN,
-                               circle ? 'circle' : 'foot');
+                               circle ? 'circle' : 'foot', dilPx);
 }
 const _sdfHoleCache = new Map();
-function bakeFootWithGlyphHole(img, N, flip, ch, axN, ayN, sizeN, base) {
-  const key = [ base || 'foot', (img && img.src || 'builtin').slice(-40), N, flip ? 1 : 0, ch,
+function bakeFootWithGlyphHole(img, N, flip, ch, axN, ayN, sizeN, base, dilPx) {
+  const key = [ base || 'foot', Math.round(dilPx || 0), (img && img.src || 'builtin').slice(-40), N, flip ? 1 : 0, ch,
                 axN.toFixed(3), ayN.toFixed(3), sizeN.toFixed(3) ].join('|');
   const hit = _sdfHoleCache.get(key);
   if (hit) return hit;
@@ -1292,10 +1300,22 @@ function bakeFootWithGlyphHole(img, N, flip, ch, axN, ayN, sizeN, base) {
   g.globalCompositeOperation = 'destination-out';
   const size = sizeN * N, ax = axN * N, ay = ayN * N;
   const cg = state.glyphs && state.glyphs[ch];
-  if (!(cg && drawCustomGlyphAt(g, cg, ax, ay, size, false, !!state.glyphFlip[ch]))) {
+  // ★ 미리 크게 판다(팽창). 셰이더의 소프트 경계 smoothstep(band,-band,sd) 때문에
+  //   '완전히 빈' 영역은 sd ≥ band 인 곳뿐이다 — 즉 구멍이 band 만큼 잡아먹혀
+  //   실제 글리프보다 작아 보이고, 먹힌 자리가 그늘로 남는다(유저가 본 그림자 영역).
+  //   그러니 굽는 단계에서 band 만큼 미리 넓혀 두면 최종 결과의 구멍이 제 크기가 된다.
+  //   이미지 글리프는 stroke 를 못 쓰므로 원형 오프셋 16방향으로 겹쳐 찍어 팽창시킨다.
+  const D = Math.max(0, dilPx || 0), STEP = 16;
+  const stamp = (dx, dy) => {
+    if (cg && drawCustomGlyphAt(g, cg, ax + dx, ay + dy, size, false, !!state.glyphFlip[ch])) return;
     g.font = `700 ${Math.round(size * 0.62)}px 'OffBit', system-ui, sans-serif`;
     g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#000';
-    g.fillText(ch, ax, ay);
+    g.fillText(ch, ax + dx, ay + dy);
+  };
+  stamp(0, 0);
+  if (D > 0.5) for (let i = 0; i < STEP; i++) {
+    const a2 = (i / STEP) * 6.2832;
+    stamp(Math.cos(a2) * D, Math.sin(a2) * D);
   }
   g.restore();
   const FS = sdfFromAlpha(g.getImageData(0, 0, N, N).data, N);
@@ -1547,7 +1567,8 @@ const candT = { mono: 0, flat: 0, noGlow: 0, noInner: 0, bg: 0, holdRim: 0, inne
       + '<input type="range" min="' + mn + '" max="' + mx + '" step="' + st + '" value="' + candP[k] + '" style="width:100%;margin:0">'
       + '<output style="text-align:right;color:var(--ink);font-variant-numeric:tabular-nums">' + candP[k] + '</output>';
     const inp = w.querySelector('input'), out = w.querySelector('output');
-    inp.oninput = () => { candP[k] = +inp.value; out.textContent = inp.value; };
+    inp.oninput = () => { candP[k] = +inp.value; out.textContent = inp.value;
+      if (k === 'inner' && candGStyle === 4) updateFootSDF(); };   // 경계 폭이 바뀌면 팽창량도 바뀐다
     host.appendChild(w);
   }
 }
