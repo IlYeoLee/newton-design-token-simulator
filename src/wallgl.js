@@ -749,7 +749,7 @@ export class WallGL {
       ctx.save();
       ctx.globalAlpha *= e2; ctx.translate(0, 48 * (1 - e2));
       txt(ctx, kk, x + sW / 2, sy, 39.2, 400, 'rgba(255,255,255,.7)', { ls: -1.5, align: 'center' });
-      txt(ctx, v, x + sW / 2, sy + 39.2 * 1.2 + 18, 64, 700, '#fff', { ls: -1.5, align: 'center' });
+      txt(ctx, v, x + sW / 2, sy + 39.2 * 1.2 + 18, 64, 700, '#fff', { ls: -1.5, align: 'center', fam: dot9 });   // 수치 = 도트폰트(유저 규칙)
       ctx.restore();
       x += sW;
     });

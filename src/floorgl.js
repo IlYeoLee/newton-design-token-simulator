@@ -807,12 +807,12 @@ export class FloorGL {
     if (e > 0.002) { ctx.strokeStyle = '#fff'; ctx.lineCap = 'round';
       ctx.beginPath(); ctx.arc(CX, cy, r, -Math.PI / 2, -Math.PI / 2 + e * Math.PI * 2); ctx.stroke(); }
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#fff';
-    ctx.font = F(700, 128.5); const nTxt = String(Math.round(100 * e));
+    ctx.font = F(700, 128.5, dot9); const nTxt = String(Math.round(100 * e));
     const nw = ctx.measureText(nTxt).width;
-    ctx.font = F(700, 90.3); const sw = ctx.measureText('%').width;
+    ctx.font = F(700, 90.3, dot9); const sw = ctx.measureText('%').width;
     ctx.textAlign = 'left';
-    ctx.font = F(700, 128.5); ctx.fillText(nTxt, CX - (nw + sw + 8) / 2, cy);
-    ctx.font = F(700, 90.3); ctx.fillText('%', CX - (nw + sw + 8) / 2 + nw + 8, cy + 14);
+    ctx.font = F(700, 128.5, dot9); ctx.fillText(nTxt, CX - (nw + sw + 8) / 2, cy);
+    ctx.font = F(700, 90.3, dot9); ctx.fillText('%', CX - (nw + sw + 8) / 2 + nw + 8, cy + 14);
     ctx.shadowBlur = 0;
     ctx.restore();
     y = cy + 250 + 80;
@@ -825,7 +825,7 @@ export class FloorGL {
       if (i) { ctx.fillStyle = 'rgba(255,255,255,.25)'; ctx.fillRect(x + 5, y, 2, 100); x += 12; }
       ctx.fillStyle = 'rgba(255,255,255,.7)'; ctx.font = F(400, 39); ctx.letterSpacing = '-1.5px';
       ctx.fillText(st[0], x + cw / 2, y);
-      ctx.fillStyle = '#fff'; ctx.font = F(700, st[2] === 'sm' ? 42 : 64);
+      ctx.fillStyle = '#fff'; ctx.font = F(700, st[2] === 'sm' ? 42 : 64, dot9);   // 수치 = 도트폰트(유저 규칙)
       ctx.fillText(st[1], x + cw / 2, y + 39 * 1.2 + 18);
       ctx.letterSpacing = '0px';
       x += cw;
