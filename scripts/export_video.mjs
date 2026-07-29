@@ -68,26 +68,37 @@ await page.evaluate(({ sport, beam, ht, session }) => {
     document.querySelectorAll(sel).forEach(el => el.style.setProperty('display', 'none', 'important'));
   }
   document.body.style.background = '#000';
-  d.state.pack = sport;
+  // 종목 전환은 좌측 버튼을 눌러야 한다 — state.pack 대입만으로는 씬이 안 바뀐다.
+  const packBtn = { running: '러닝', boxing: '복싱', basketball: '농구' }[sport];
+  [...document.querySelectorAll('button')].find(b => b.textContent.trim() === packBtn)?.click();
   if (ht) document.getElementById('btn-ht')?.click();
   if (session) d.session.start(sport);
   if (beam) {
-    // 투사광만 — 실사 합성용. 바닥·벽·봇·프레임을 끄면 남는 건 우리가 쏘는 빛뿐이다.
+    // ── 투사광만 ─────────────────────────────────────────────────────────────
+    //   실사 합성용. 우리가 '쏘는 빛'만 남기고 무대(바닥·벽·봇·골대·그리드)를 전부 끈다.
+    //   판별 기준은 재질이다 — 투사광은 ShaderMaterial(MARKFX·LANEFX·인물) 이거나
+    //   맵을 가진 MeshBasicMaterial(투사 UI 평면)이다. PBR 재질은 전부 무대다.
     d.scene.background = null;
     d.renderer.setClearColor(0x000000, 1);
-    d.scene.traverse(o => {
-      const n = (o.name || '') + (o.type || '');
-      if (o.isMesh && (o === d.xbot?.root || o.userData?.stage)) return;
-      if (/Grid|Helper/.test(o.type)) o.visible = false;
-    });
     if (d.xbot?.root) d.xbot.root.visible = false;
-    d.scene.children.forEach(o => {
-      if (o.isMesh && o.geometry?.type === 'PlaneGeometry'
-          && o.material?.type === 'MeshStandardMaterial') o.visible = false;   // 바닥·벽
+    d.scene.traverse(o => {
+      if (o.isLight) { o.intensity = 0; return; }
+      if (/Grid|Axes|Box3/.test(o.type)) { o.visible = false; return; }
+      const m = Array.isArray(o.material) ? o.material[0] : o.material;
+      if (!m) return;
+      const keep = m.type === 'ShaderMaterial'
+                || (m.type === 'MeshBasicMaterial' && !!m.map)
+                || o.type === 'Line' || o.type === 'LineSegments';
+      if (!keep) o.visible = false;
     });
-    d.scene.traverse(o => { if (o.isLight) o.intensity = 0; });
   }
 }, { sport: SPORT, beam: BEAM, ht: HT, session: SESSION });
+await page.evaluate(() => {
+  // 좌패널을 숨겨도 캔버스는 예전 폭으로 굳어 있다 — 리사이즈를 강제해 뷰포트를 꽉 채운다(검은 띠 제거).
+  const st = document.getElementById('stage');
+  if (st) { st.style.position = 'fixed'; st.style.inset = '0'; st.style.width = '100%'; st.style.height = '100%'; }
+  window.dispatchEvent(new Event('resize'));
+});
 await new Promise(r => setTimeout(r, 2500));
 
 const t0 = Date.now();
