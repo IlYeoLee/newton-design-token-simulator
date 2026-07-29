@@ -29,7 +29,10 @@ const CX = W / 2;
 const sans = "'Supreme',sans-serif";
 // 수치 전용 페이스. 이걸 sans 로 바꾸면 문서 전체가 Supreme 2종만 남는다(유저가 원하면 한 줄).
 const dot9 = "'OffBit','Supreme',sans-serif";
-const F = (w, s, fam = sans) => `${w} ${s}px ${fam}`;
+// 투사 UI 공통 타이포 스케일 — 대지 실값이 화면에선 조금 컸다(유저). 조판 좌표는 그대로 두고
+// 글자만 줄인다. ?type=1 로 원래 크기.
+export const TS = new URLSearchParams(typeof location !== 'undefined' ? location.search : '').get('type') === '1' ? 1 : 0.92;
+const F = (w, s, fam = sans) => `${w} ${(s * TS).toFixed(2)}px ${fam}`;
 
 const numOr = (v, d) => { const n = parseFloat(v); return Number.isFinite(n) ? n : d; };
 
@@ -270,7 +273,7 @@ export function ringGauge(ctx, cx, cy, r, prog, o = {}) {
 export function drawBadge(ctx, cx, cy, text, o = {}) {
   const S = o.scale || 1, H = 114.26 * S, R = 47.28 * S;
   const fs = 59.1 * S, pad = 36 * S, icon = 47.28 * S, gap = 15.76 * S;
-  ctx.font = `700 ${fs}px 'OffBit','Supreme',sans-serif`;
+  ctx.font = `700 ${(fs * TS).toFixed(2)}px 'OffBit','Supreme',sans-serif`;
   const w = ctx.measureText(text).width + icon + gap + pad * 2;
   const glow = o.glow ?? 0.55;
   ctx.save();
@@ -995,7 +998,7 @@ export class FloorGL {
     ctx.save();
     ctx.globalAlpha *= kf(q, [[0, 0], [.35, 1], [1, 1]]);
     ctx.translate(CX, cy); ctx.scale(nk, nk); ctx.translate(-CX, -cy);
-    drawCenteredNum(ctx, txt, CX, cy, 202);
+    drawCenteredNum(ctx, txt, CX, cy, 220);
     ctx.restore();
     ctx.restore();
   }

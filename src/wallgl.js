@@ -29,7 +29,10 @@ const INF = Infinity;
 const sans = "'Supreme',sans-serif";
 // 수치 전용 페이스. 이걸 sans 로 바꾸면 문서 전체가 Supreme 2종만 남는다(유저가 원하면 한 줄).
 const dot9 = "'OffBit','Supreme',sans-serif";
-const F = (w, s, fam = sans) => `${w} ${s}px ${fam}`;
+// 투사 UI 공통 타이포 스케일 — 대지 실값이 화면에선 조금 컸다(유저). 조판 좌표는 그대로 두고
+// 글자만 줄인다. ?type=1 로 원래 크기.
+const TS = new URLSearchParams(typeof location !== 'undefined' ? location.search : '').get('type') === '1' ? 1 : 0.92;
+const F = (w, s, fam = sans) => `${w} ${(s * TS).toFixed(2)}px ${fam}`;
 const RED = PAL.red;
 
 // 텍스트 한 줄 — CSS의 (font-size, weight, color, letter-spacing, align)을 한 줄로
@@ -315,7 +318,7 @@ export class WallGL {
     const PADL = 24.256;
     let y = stY + 32;
     // ── Total
-    txt(ctx, 'Total', ix + iw / 2, y + 6, 38, 400, NEU.t1, { ls: -1.27, align: 'center' });
+    txt(ctx, 'Total', ix + PADL, y + 6, 34, 400, NEU.t1, { ls: -1.13 });
     y += 48 + 8;
     const totH = 378.393;
     rrFill(ctx, ix, y, iw, totH, 64, '#fff');
@@ -348,18 +351,21 @@ export class WallGL {
     ctx.restore();
     y += totH + 32;
     // ── Setup
-    txt(ctx, 'Setup', ix + iw / 2, y + 6, 38, 400, NEU.t1, { ls: -1.27, align: 'center' });
+    txt(ctx, 'Setup', ix + PADL, y + 6, 34, 400, NEU.t1, { ls: -1.13 });
     y += 48 + 8;
     const setH = 235;
     rrFill(ctx, ix, y, iw, setH, 64, '#fff');
-    const cw = (iw - 10) / 2;
+    // 흰 박스 안쪽 여백 — 셀이 모서리에 딱 붙어 있었다(유저: "양옆 마진 0").
+    // 셀 안 텍스트 패딩은 PADL - CPAD 로 줘서 바깥 축(ix + PADL)은 그대로 유지된다.
+    const CPAD = 14, CIN = PADL - CPAD;
+    const cw = (iw - CPAD * 2 - 10) / 2;
     // ★ 한 줄 압축 — 라벨+값 두 줄이던 걸 자기설명적 한 줄로 줄이고 그만큼 키웠다(유저:
     // "글씨 크기를 키우란 게 아니라 글자 수를 줄이면서 내용은 유지"). 투사면은 읽는 화면이
     // 아니라 훑는 화면이라 라벨은 값 안에 녹인다. 'Quite On' → 'Quiet On' 오타도 함께 정정.
     const cells = [['Indoor · Standard', 103], ['Condition · Usual', 103],
                    ['Quiet On', 102], ['Main 15m', 102]];
     cells.forEach(([val, ch], i) => {
-      const cx0 = ix + (i % 2) * (cw + 10), cy0 = y + 10 + (i < 2 ? 0 : 113);
+      const cx0 = ix + CPAD + (i % 2) * (cw + 10), cy0 = y + 12 + (i < 2 ? 0 : 111);
       const e = eOut(intro(t, .95 + i * .10, .55));
       ctx.save();
       ctx.globalAlpha *= e;
@@ -367,30 +373,33 @@ export class WallGL {
       const k = 0.95 + 0.05 * e;
       ctx.translate(cx0 + cw / 2, cy0 + ch / 2); ctx.scale(k, k); ctx.translate(-(cx0 + cw / 2), -(cy0 + ch / 2));
       rrFill(ctx, cx0, cy0, cw, ch, 48, NEU.surface);
-      txt(ctx, val, cx0 + PADL, cy0 + ch / 2, 46, 700, '#000', { ls: -1.53, base: 'middle' });
+      txt(ctx, val, cx0 + CIN, cy0 + ch / 2, 38, 700, '#000', { ls: -1.27, base: 'middle' });
       ctx.restore();
     });
     y += setH + 32;
     // ── Connected
-    txt(ctx, 'Connected', ix + iw / 2, y + 6, 38, 400, NEU.t1, { ls: -1.27, align: 'center' });
+    txt(ctx, 'Connected', ix + PADL, y + 6, 34, 400, NEU.t1, { ls: -1.13 });
     y += 48 + 8;
-    const devH = 203.607, dw = (iw - 16) / 3;
+    const devH = 203.607, dw = (iw - CPAD * 2 - 16) / 3;
+    // 아이콘 88 + 간격 14 + 글자 38 = 147.6 을 카드(203.607) 안에서 위아래 대칭으로 앉힌다
+    // (전엔 위 16 / 아래 47 로 어긋나 있었다 — 유저 지적).
+    const DTOP = (devH - (88 + 14 + 38 * 1.2)) / 2;
     // 같은 규칙 — 이름+상태 두 줄을 한 줄로. 상태가 곧 이름을 설명한다.
     const devs = [['icon_wearable.png', 'Wearable 99%'],
                   ['icon_station.png', 'Station Ready'],
                   ['icon_device.png', 'Watch Ready']];
     devs.forEach(([ic, n], i) => {
-      const dx = ix + i * (dw + 8);
+      const dx = ix + CPAD + i * (dw + 8);
       const e = eOut(intro(t, 1.3 + i * .13, .55));
       ctx.save();
       ctx.globalAlpha *= e; ctx.translate(0, 26 * (1 - e));
       rrFill(ctx, dx, y, dw, devH, 64, '#fff');
       // 아이콘 — 웨어러블만 원본 컬러, 나머지는 열화상 그라디언트 마스크
       const tim = i === 0 ? this._img(ic) : this._tinted(ic, 88, 88, [[0, PAL.red], [.6, PAL.coral], [.85, PAL.sand], [1, PAL.prism]]);
-      if (tim) ctx.drawImage(tim, dx + PADL, y + 16, 88, 88);
-      txt(ctx, n, dx + PADL, y + 16 + 88 + 14, 46, 700, NEU.inkDark, { ls: -1.53 });
+      if (tim) ctx.drawImage(tim, dx + CIN, y + DTOP, 88, 88);
+      txt(ctx, n, dx + CIN, y + DTOP + 88 + 14, 38, 700, NEU.inkDark, { ls: -1.27 });
       const chk = this._img('check.svg');
-      if (chk) ctx.drawImage(chk, dx + dw - 76, y + 18, 58, 58);   // 40 → 58 (투사 거리에서 안 보였다)
+      if (chk) ctx.drawImage(chk, dx + dw - CIN - 58, y + DTOP, 58, 58);   // 40 → 58 (투사 거리에서 안 보였다)
       ctx.restore();
     });
     ctx.restore();   // /stats
@@ -633,7 +642,7 @@ export class WallGL {
     ctx.save();
     ctx.globalAlpha *= kf(q, [[0, 0], [.35, 1], [1, 1]]);
     ctx.translate(CX, cy); ctx.scale(nk, nk); ctx.translate(-CX, -cy);
-    txt(ctx, val, CX, cy, 184, 700, '#fff', { fam: dot9, align: 'center', base: 'middle' });
+    txt(ctx, val, CX, cy, 200, 700, '#fff', { fam: dot9, align: 'center', base: 'middle' });
     ctx.restore();
     ctx.restore();
   }
@@ -680,13 +689,13 @@ export class WallGL {
     } else ctx.fillStyle = '#fff';
     ctx.fillRect(x, y, S, S);
     const im = this._img(D.img);
-    // ★ 인물 블렌드 = multiply. 전엔 완료 카드에 'lighter'(가산)를 썼는데 그러면 빨강 위에
-    //   흰빛이 더해져 카드가 통째로 연분홍으로 바랬다(유저: "왜 이렇게 연하고 흐려?").
-    //   앱의 셀렉 카드는 `.ob-card .img { mix-blend-mode: multiply }` 를 선택 상태에서도
-    //   그대로 쓴다 — 그래서 빨강이 살고 인물은 짙은 실루엣으로 앉는다.
+    // ★ 인물 블렌드 = plus-lighter(캔버스 'lighter'). 정본은 투사 대지 Figma 와 이식 원본 CSS
+    //   (`.card.done .person{mix-blend-mode:plus-lighter}`) — 검은 옷이 빨강을 그대로 통과시켜
+    //   인물이 붉게 물든다. 한때 온보딩 셀렉 카드(multiply)를 참조해 바꿨었는데, 그러면 옷이
+    //   검게 앉아 카드가 죽는다(유저 Figma 대조). 지면 카드도 같은 'lighter' 다.
     if (im) {
       const w = 687, h = w * (im.naturalHeight / im.naturalWidth);
-      ctx.save(); if (done) ctx.globalCompositeOperation = 'multiply';
+      ctx.save(); if (done) ctx.globalCompositeOperation = 'lighter';
       ctx.drawImage(im, x + S / 2 - w / 2, y - 55, w, h);
       ctx.restore();
     }
