@@ -143,6 +143,7 @@
       <button class="btn" id="candCopyBtn" style="border-color:var(--sand);color:var(--sand)">선택 후보 GLSL 복사</button>
       <span id="candPick" style="font-size:10.5px;color:var(--dim)"></span>
     </div>
+    <div class="sliders" id="candSliders" style="grid-template-columns:repeat(4,minmax(150px,1fr));margin:0 0 14px"></div>
     <div id="candHost" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px"></div>
     <pre id="candSrc" style="margin:14px 0 0;padding:12px 14px;background:#0A0C10;border:1px solid #1c222c;border-radius:10px;
       font-size:11px;line-height:1.55;color:#cfd6e0;overflow:auto;max-height:260px;white-space:pre"></pre>
@@ -522,65 +523,138 @@ const CAND_HOOK = `
 // 후크: markState 결과를 형태 정보와 함께 받아 마지막 손질만 한다.
 vec4 markCandidate(vec4 A, vec2 uv, float sd, float inside, float ext, float state, float prog, float t);
 `;
+// 공용 프렐류드 — 모든 후보가 쓰는 하프톤·필드 도구. 21st.dev 닷 컬렉션의 로직을 GLSL로 옮긴 것.
+//   닷 격자는 마크 로컬(uv) 좌표 — 마크가 커지면 닷도 함께 커진다(스크린 하프톤이 아니라 '이 토큰의 결').
+const CAND_PRELUDE = `
+uniform float uDotPitch, uDotGain, uDotSpeed, uInner;
+// 하프톤 한 셀: 반지름을 amount(0~1)가 정한다 → 밝을수록 굵은 점 (레퍼런스의 발바닥 밀도)
+float halftone(vec2 p, float pitch, float amount, float soft){
+  vec2 c = fract(p / pitch) - 0.5;
+  float d = length(c) * pitch;
+  float r = pitch * 0.5 * clamp(amount, 0.0, 1.0);
+  return smoothstep(r + soft, r - soft, d);
+}
+// 사각 하프톤 — 같은 규약, 체비셰프 거리. LED 격자·코트의 직교 문맥용.
+float halftoneSq(vec2 p, float pitch, float amount, float soft){
+  vec2 c = abs(fract(p / pitch) - 0.5) * pitch;
+  float d = max(c.x, c.y);
+  float r = pitch * 0.5 * clamp(amount, 0.0, 1.0);
+  return smoothstep(r + soft, r - soft, d);
+}
+// 실루엣 안쪽 깊이(0=가장자리, 1=속). 이너 글로우/섀도우의 공통 재료.
+float innerDepth(float sd, float w){ return smoothstep(0.0, max(w, 1e-4), -sd); }
+`;
 const CAND_SIG = 'vec4 markCandidate(vec4 A, vec2 uv, float sd, float inside, float ext, float state, float prog, float t)';
 const CANDIDATES = [
   { id: 'base', name: '정본', why: '지금 시뮬레이터가 쓰는 것 — 비교 기준',
     glsl: `${CAND_SIG} { return A; }` },
 
-  { id: 'rim', name: '① 이중 림', why: '바깥에 얇고 선명한 계약선. 투사면에서 "여기가 경계"가 또렷해진다.',
+  { id: 'dot', name: '① 하프톤 필', why: '밝은 곳일수록 굵은 점. 레퍼런스 발바닥 밀도 그대로 — 그라디언트가 점의 크기로 번역된다.',
     glsl: `${CAND_SIG} {
-  float w = 0.010 * uW;
-  float ring = exp(-pow(abs(sd) / max(w, 1e-4), 2.0));
-  lay(A, C_ICE, ring * 0.55 * clamp(uHalo, 0.0, 1.5));
+  float lum = max(A.r, max(A.g, A.b));
+  float m = halftone(uv, uDotPitch, lum * uDotGain, uDotPitch * 0.14);
+  float k = mix(0.18, 1.0, m);          // 바닥값 0.18 — 점 사이가 완전히 비면 실루엣이 끊긴다
+  A.rgb *= mix(1.0, k, inside); A.a *= mix(1.0, k, inside);
   return A;
 }` },
 
-  { id: 'donut', name: '② 중심 비움', why: '필을 도넛으로 — 발이 놓일 자리를 빛이 안 가린다. 중심 핫스팟 지적의 정면 해법.',
+  { id: 'dotwave', name: '② 닷 펄스 웨이브', why: '중심에서 퍼지는 숨. 점 크기가 파동을 타고 오간다 — 정지 화면에서도 살아 있게.',
     glsl: `${CAND_SIG} {
+  float lum = max(A.r, max(A.g, A.b));
   float r = length(uv) / max(ext, 1e-3);
-  // 빼는 게 아니라 옮긴다 — 곱하기로 깎으면 중심이 '검게 파인 구멍'이 된다(첫 시안의 실패).
-  float w = smoothstep(0.0, 0.78, r);                    // 0 중심 → 1 가장자리
-  A.rgb *= mix(0.74, 1.20, mix(1.0, w, inside));         // 열이 테두리로 몰린다
-  A.a   *= mix(1.0, mix(0.82, 1.0, w), inside);
+  float wave = 0.5 + 0.5 * sin(t * 2.0 * uDotSpeed - r * 5.2);
+  float m = halftone(uv, uDotPitch, lum * uDotGain * (0.55 + 0.75 * wave), uDotPitch * 0.14);
+  float k = mix(0.18, 1.0, m);
+  A.rgb *= mix(1.0, k, inside); A.a *= mix(1.0, k, inside);
   return A;
 }` },
 
-  { id: 'grain', name: '③ 방사 결', why: '각도 방향 미세 결. 회전·진행이 읽히고 저해상 투사에서 밝기 밴딩이 결 뒤로 숨는다.',
+  { id: 'shock', name: '③ 닷 쇼크웨이브', why: '고리 하나가 바깥으로 달린다. 지나가는 자리만 점이 굵어져 — 판정이 "지금"이라고 말한다.',
     glsl: `${CAND_SIG} {
-  float ang = atan(uv.y, uv.x);
-  float g = 0.5 + 0.5 * sin(ang * 34.0 + t * 0.7);
-  float k = mix(1.0, 0.84 + 0.16 * g, inside * 0.9);
-  A.rgb *= k; A.a *= mix(1.0, k, 0.6);
+  float lum = max(A.r, max(A.g, A.b));
+  float r = length(uv);
+  float front = fract(t * 0.42 * uDotSpeed) * (ext * 2.2);
+  float band = exp(-pow((r - front) / (ext * 0.34), 2.0));
+  float m = halftone(uv, uDotPitch, lum * uDotGain * (0.45 + 1.35 * band), uDotPitch * 0.14);
+  float k = mix(0.16, 1.0, m);
+  A.rgb *= mix(1.0, k, inside) * (1.0 + 0.5 * band * inside);
+  A.a *= mix(1.0, k, inside);
   return A;
 }` },
 
-  { id: 'press', name: '④ 접지 히트맵', why: '앞꿈치·뒤꿈치 두 중심에서 온도가 난다. 발형에서 "어디에 체중을 싣는가"가 형태로 보인다.',
+  { id: 'spiral', name: '④ 닷 스파이럴', why: '반경마다 위상이 어긋나 소용돌이가 돈다. 회전 계약(스텝백·크로스오버)에 어울린다.',
     glsl: `${CAND_SIG} {
-  if (uShape < 0.5) return A;            // 발형 전용 — 존 원엔 접지 개념이 없다
-  vec2 ball = vec2(0.0, 0.22), heel = vec2(0.0, -0.34);
-  float d = min(length(uv - ball), length(uv - heel) * 1.18);
-  float hot = 1.0 - smoothstep(0.0, 0.60, d);
-  A.rgb = mix(A.rgb, A.rgb * (0.70 + 0.90 * hot), inside);
-  A.a  *= mix(1.0, 0.52 + 0.70 * hot, inside * 0.9);
+  float lum = max(A.r, max(A.g, A.b));
+  float r = length(uv), ang = atan(uv.y, uv.x);
+  float ph = ang + r * 7.0 - t * 1.5 * uDotSpeed;
+  float sw = 0.5 + 0.5 * sin(ph);
+  float m = halftone(uv, uDotPitch, lum * uDotGain * (0.5 + 0.9 * sw), uDotPitch * 0.14);
+  float k = mix(0.18, 1.0, m);
+  A.rgb *= mix(1.0, k, inside); A.a *= mix(1.0, k, inside);
   return A;
 }` },
 
-  { id: 'edge', name: '⑤ 외곽 잔광', why: '실루엣 바깥 얇은 빛. 투사면 위에서 마크가 바닥에 눌리지 않고 떠 보인다.',
+  { id: 'dotinner', name: '⑤ 하프톤 + 이너 글로우', why: '점은 속을 채우고 가장자리엔 빛이 고인다. 레퍼런스 카드(Landing Balance)의 인상 그대로.',
     glsl: `${CAND_SIG} {
-  float w = 0.045 * uW;
-  float e = exp(-pow(max(sd, 0.0) / max(w, 1e-4), 1.5)) * (1.0 - inside);
-  lay(A, C_ICE, e * 0.42 * clamp(uHalo, 0.0, 1.5));
+  float lum = max(A.r, max(A.g, A.b));
+  float m = halftone(uv, uDotPitch, lum * uDotGain, uDotPitch * 0.14);
+  float k = mix(0.18, 1.0, m);
+  float dep = innerDepth(sd, 0.18 * max(uInner, 0.05));
+  float rim = (1.0 - dep) * inside;                 // 가장자리 1 → 속 0
+  A.rgb *= mix(1.0, k, inside * dep);               // 속만 점무늬, 테두리는 매끈
+  A.a   *= mix(1.0, k, inside * dep);
+  lay(A, C_ICE, rim * 0.42 * clamp(uHalo, 0.0, 1.5));
   return A;
 }` },
 
-  { id: 'contour', name: '⑥ 내부 등고선', why: 'SDF 등거리 밴드. 저해상 투사에서도 발 모양이 윤곽선으로 읽힌다.',
+  { id: 'dotshadow', name: '⑥ 하프톤 + 이너 섀도우', why: '반대로 가장자리를 눌러 안쪽이 솟아 보이게. 투사에선 "빛을 덜 준다"가 곧 그림자다.',
     glsl: `${CAND_SIG} {
-  float band = abs(fract(sd * 24.0) - 0.5) * 2.0;
-  float line = smoothstep(0.52, 1.0, band) * inside;
-  lay(A, C_SAND, line * 0.30);
+  float lum = max(A.r, max(A.g, A.b));
+  float m = halftone(uv, uDotPitch, lum * uDotGain, uDotPitch * 0.14);
+  float k = mix(0.18, 1.0, m);
+  float dep = innerDepth(sd, 0.22 * max(uInner, 0.05));
+  A.rgb *= mix(1.0, k, inside) * mix(0.42, 1.0, dep);
+  A.a   *= mix(1.0, k, inside) * mix(0.62, 1.0, dep);
+  return A;
+}` },
+
+  { id: 'grid', name: '⑦ 브리딩 그리드', why: '정사각 격자 위를 파면이 훑는다. 코트·트랙의 직교 문맥과 붙었을 때 가장 정연하다.',
+    glsl: `${CAND_SIG} {
+  float lum = max(A.r, max(A.g, A.b));
+  float d = length(uv);
+  float front = fract(t * 0.34 * uDotSpeed) * (ext * 2.6);
+  float band = exp(-pow((d - front) / (ext * 0.42), 2.0));
+  float m = halftoneSq(uv, uDotPitch, lum * uDotGain * (0.55 + 1.15 * band), uDotPitch * 0.12);
+  float k = mix(0.16, 1.0, m);
+  A.rgb *= mix(1.0, k, inside) * (1.0 + 0.42 * band * inside);
+  A.a *= mix(1.0, k, inside);
+  return A;
+}` },
+
+  { id: 'scan', name: '⑧ 라디에이팅 스캔', why: '중심에서 뻗은 선 위를 밝은 구간이 달린다. 방향 지시(LINE 토큰)와 한 몸으로 읽힌다.',
+    glsl: `${CAND_SIG} {
+  // 깎지 않고 더한다 — 첫 시안은 선 사이를 어둡게 깎아 실루엣이 쐐기로 무너졌다.
+  float ang = atan(uv.y, uv.x), r = length(uv);
+  float a01 = fract(ang / 6.2832 * 18.0);
+  float line = 1.0 - smoothstep(0.04, 0.13, abs(a01 - 0.5));
+  float scan = fract(t * 0.5 * uDotSpeed) * (ext * 2.2);
+  float seg = exp(-pow((r - scan) / max(ext * 0.26, 1e-3), 2.0));
+  lay(A, C_ICE, line * seg * inside * 0.55 * clamp(uHalo, 0.0, 1.5));
+  return A;
+}` },
+
+  { id: 'dotgrad', name: '⑨ 하프톤 + 열 재배치', why: '점무늬는 유지하되 열을 테두리로 옮긴다 — 발 놓을 자리를 빛이 안 가리면서 결은 남는다.',
+    glsl: `${CAND_SIG} {
+  float lum = max(A.r, max(A.g, A.b));
+  float m = halftone(uv, uDotPitch, lum * uDotGain, uDotPitch * 0.14);
+  float k = mix(0.18, 1.0, m);
+  float w = smoothstep(0.0, 0.78, length(uv) / max(ext, 1e-3));
+  A.rgb *= mix(1.0, k, inside) * mix(0.74, 1.20, mix(1.0, w, inside));
+  A.a   *= mix(1.0, k, inside) * mix(1.0, mix(0.82, 1.0, w), inside);
   return A;
 }` },
 ];
+
 // 정본 MARK_GLSL 에 후크를 끼운 소스 (return A; 는 NaN 스크럽 뒤 마지막 한 번뿐)
 const MARK_HOOKED = MARK_GLSL
   .replace('vec4 markState(', CAND_HOOK + '\nvec4 markState(')
@@ -596,7 +670,7 @@ const candProgs = [];
       <div style="font-size:10.5px;line-height:1.5;color:var(--dim);margin-top:3px">${c.why}</div>`;
     host.appendChild(box);
     const cv = box.querySelector('canvas');
-    const frag = GLSL_COMMON + MARK_HOOKED + '\n' + c.glsl + '\n' + `
+    const frag = GLSL_COMMON + MARK_HOOKED + '\n' + CAND_PRELUDE + '\n' + c.glsl + '\n' + `
 uniform float uTime, uState, uForm;
 void main(){
   vec2 uv = (gl_FragCoord.xy - uRes*0.5) / (uRes.y*0.5);
@@ -613,7 +687,20 @@ void main(){
     box.onclick = () => { candSel = c.id; syncCandUI(); };
   }
 }
-let candSel = 'rim', candShape = 0;
+let candSel = 'dot', candShape = 1;
+const candP = { pitch: 0.11, gain: 1.15, speed: 1.0, inner: 0.55 };
+{
+  const host = document.getElementById('candSliders');
+  const defs = [['pitch', '닷 피치', 0.03, 0.30, 0.005], ['gain', '닷 굵기', 0.2, 2.0, 0.05],
+                ['speed', '모션 속도', 0, 3, 0.05], ['inner', '이너 폭', 0.05, 1.5, 0.05]];
+  for (const [k, lb, mn, mx, st] of defs) {
+    const w = document.createElement('label');
+    w.innerHTML = `<span>${lb}</span><input type="range" min="${mn}" max="${mx}" step="${st}" value="${candP[k]}"><output>${candP[k]}</output>`;
+    const inp = w.querySelector('input'), out = w.querySelector('output');
+    inp.oninput = () => { candP[k] = +inp.value; out.textContent = inp.value; };
+    host.appendChild(w);
+  }
+}
 function syncCandUI() {
   const c = CANDIDATES.find(x => x.id === candSel) || CANDIDATES[0];
   document.getElementById('candSrc').textContent = c.glsl;
@@ -1342,6 +1429,10 @@ function frame(ts) {
       g2.uniform1f(P.u('uSweepA'), m.sweep);
       g2.uniform1f(P.u('uShape'), candShape);
       g2.uniform1f(P.u('uForm'), state.markForm);
+      g2.uniform1f(P.u('uDotPitch'), candP.pitch);
+      g2.uniform1f(P.u('uDotGain'), candP.gain);
+      g2.uniform1f(P.u('uDotSpeed'), candP.speed);
+      g2.uniform1f(P.u('uInner'), candP.inner);
       g2.drawArrays(g2.TRIANGLES, 0, 3);
     } }
   if (personReady && VIS.personC) {
