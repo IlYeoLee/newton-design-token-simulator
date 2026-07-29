@@ -54,59 +54,90 @@ export const kf = (p, stops, ease = eInOut) => {
 export const intro = (t, delay, dur) => clamp01((t - delay) / dur);
 
 
-/** 도트 프로그래스 — 지면(러닝·농구)과 벽(복싱)이 같은 물건이라 한 정의로 통일.
- *  조판·인터랙션 정본 = 모바일 앱 기록 화면의 스코어 게이지(figma-prototype assets/gauge.js).
- *  그쪽 규약 세 가지를 그대로 가져왔다:
- *    ① 머리 = 반투명 글래스 노브 + 흰 코어. 채운 끝에 '올라타' 달린다.
- *    ② 꼬리 = 머리에서 100%, 채운 길이의 54% 뒤에서 0. 끌려오는 자국이지 별개 물건이 아니다.
- *    ③ 수치는 머리 밑에 붙어 같이 이동한다 — 머무는 숫자가 없다.
- *  ★ 채움 자체는 이징하지 않는다. 이 바들은 스테이지 시간(dur)에 묶인 '시계'라
- *    eOut 을 먹이면 남은 시간을 속인다. 앱의 eOut/LEAD 는 값이 '바뀔 때'의 규약이고,
- *    여기선 등장(intro)에만 쓴다. 값 구동 게이지가 생기면 GAUGE 로 같은 곡선을 쓸 것.
- *  p = 0~1 진행도 · round='pill' 이면 지면처럼 맞닿은 필, 아니면 벽처럼 떨어진 원. */
-export const GAUGE = { travel: 0.78, lead: 0.15, tail: 0.54 };   // 초 · 초 · 채운 길이 대비 꼬리
-export function dotProgress(ctx, x0, y, size, n, p, o = {}) {
-  const P = clamp01(p), W = size * n, headX = x0 + W * P, r = size / 2, cy = y + r;
-  const paint = (fill) => {
-    ctx.fillStyle = fill;
-    for (let i = 0; i < n; i++) {
-      const x = x0 + i * size;
-      ctx.beginPath();
-      if (o.round === 'pill') ctx.roundRect(x, y, size, size, r);
-      else ctx.arc(x + r, cy, r, 0, Math.PI * 2);
-      ctx.fill();
-    }
+/** 진행 게이지 — 지면(러닝·농구)과 벽(복싱)의 도트바를 이걸로 갈아끼웠다.
+ *  정본 = 모바일 앱 기록 화면의 스코어 게이지(figma-prototype assets/gauge.js + report.css).
+ *  도트 10개를 유지한 채 노브만 얹는 시안은 기각 — 도트는 '칸이 찼다'를 말하고 앱 게이지는
+ *  '지금 여기까지 왔다'를 말한다. 형태를 바꿔야 규약이 같아진다(유저).
+ *
+ *  옮긴 공통 요소 다섯:
+ *    ① 얕게 휜 호 — 앱의 타원(cx 180 · rx 261 · ry 188.5 · top 24, x 19~341) 그대로.
+ *       322 단위를 폭 w 로 스케일하므로 휨 비율이 대지와 무관하게 같다.
+ *    ② 꼬리 — 지나온 선이 머리에서 100%, 길이의 54% 뒤에서 0. 채운 트랙이 남지 않는다.
+ *       (앱 tailFade: x1=머리, x2=호 시작. '끌려오는 자국'이지 별개 물건이 아니다.)
+ *    ③ 글래스 노브 — 지름 39 안에 흰 코어 19(비율 0.487) 그대로.
+ *    ④ 수치는 노브 밑(+40)에 붙어 같이 이동 — 머무는 숫자가 없다. OffBit.
+ *    ⑤ 0 / max 끝 라벨.
+ *  ★ 따뜻한 그라디언트 필드는 '칠'이 아니라 '빛'으로 옮겼다 — 어두운 투사면에 붉은 판을
+ *    깔면 그 아래 무대가 죽는다. 머리 주변 팔레트 블룸이 앱 필드의 등가물이다.
+ *
+ *  ★ 진행도는 이징하지 않는다. 이 게이지들은 스테이지 시간(dur)에 묶인 '시계'라
+ *    eOut 을 먹이면 남은 시간을 속인다. 앱의 eOut/LEAD 는 값이 '바뀔 때'의 규약 —
+ *    값 구동 게이지가 생기면 GAUGE 로 같은 곡선을 쓸 것.
+ *
+ *  x0,y = 게이지 박스 좌상단 · w = 폭 · p = 0~1. 박스 높이는 gaugeH(w). */
+export const GAUGE = { travel: 0.78, lead: 0.15, tail: 0.54 };   // 초 · 초 · 지나온 길이 대비 꼬리
+const ARC = { x0: 19, x1: 341, cx: 180, rx: 261, ry: 188.5, top: 24 };
+const arcY = ax => ARC.top + ARC.ry * (1 - Math.sqrt(Math.max(0, 1 - ((ax - ARC.cx) / ARC.rx) ** 2)));
+/** 폭 w 게이지가 차지하는 높이 — 호 낙차 + 노브 + 수치 + 끝 라벨 */
+export const gaugeH = w => Math.round(w / (ARC.x1 - ARC.x0) * 118);
+
+export function arcGauge(ctx, x0, y, w, p, o = {}) {
+  const P = clamp01(p), s = w / (ARC.x1 - ARC.x0);
+  const X = ax => x0 + (ax - ARC.x0) * s, Y = ax => y + (arcY(ax) - ARC.top) * s;
+  const headA = ARC.x0 + (ARC.x1 - ARC.x0) * P, hx = X(headA), hy = Y(headA);
+  const path = (a0, a1) => {
+    ctx.beginPath();
+    const n = Math.max(2, Math.round(Math.abs(a1 - a0) / 4));
+    for (let i = 0; i <= n; i++) { const a = a0 + (a1 - a0) * i / n; i ? ctx.lineTo(X(a), Y(a)) : ctx.moveTo(X(a), Y(a)); }
   };
-  paint(o.rest || NEU.lo);
-  if (P <= 0.001) return;
   ctx.save();
-  ctx.beginPath(); ctx.rect(x0, y, W * P, size); ctx.clip();
-  paint(o.fill || RED);
-  // ② 꼬리 — 머리 뒤로 흘리는 열. 흰색을 덮으면 채운 빨강이 분홍으로 바래
-  //    '아직 안 찬 칸'처럼 읽혔다(첫 시안 기각) → 가산광 + 팔레트 sand 로 밝기만 올린다.
-  const tail = Math.max(1, W * P * (o.tail ?? GAUGE.tail));
-  const gr = ctx.createLinearGradient(headX, 0, headX - tail, 0);
-  gr.addColorStop(0, rgba(PAL.sand, .5)); gr.addColorStop(1, rgba(PAL.sand, 0));
-  ctx.globalCompositeOperation = 'lighter';
-  paint(gr);
-  ctx.restore();
-  // ① 머리 — 글래스 링 + 흰 코어 (비율은 앱 마커 39px 안의 흰 점 19px 그대로)
-  ctx.save();
-  ctx.shadowColor = 'rgba(255,255,255,.5)'; ctx.shadowBlur = size * 0.5;
-  ctx.fillStyle = 'rgba(255,255,255,.28)';
-  ctx.beginPath(); ctx.arc(headX, cy, size * 0.75, 0, Math.PI * 2); ctx.fill();
+  ctx.lineCap = 'round';
+  // ⑤ 팔레트 블룸 = 앱의 따뜻한 필드. 머리를 중심으로 한 빛이라 무대를 덮지 않는다.
+  if (P > 0.001) {
+    // 반경·세기는 낮게 — 처음 시안은 대지를 붉게 물들여 무대가 죽었다(투사면 규약).
+    const R = w * 0.2;
+    const bl = ctx.createRadialGradient(hx, hy, 0, hx, hy, R);
+    bl.addColorStop(0, rgba(PAL.red, .16)); bl.addColorStop(.4, rgba(PAL.coral, .07));
+    bl.addColorStop(1, rgba(PAL.sand, 0));
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.fillStyle = bl; ctx.fillRect(hx - R, hy - R, R * 2, R * 2);
+    ctx.globalCompositeOperation = 'source-over';
+  }
+  // ① 바탕 호 — 남은 구간
+  ctx.strokeStyle = 'rgba(255,255,255,.16)'; ctx.lineWidth = Math.max(1, 3.2 * s);
+  path(ARC.x0, ARC.x1); ctx.stroke();
+  // ② 지나온 호 + 꼬리
+  if (P > 0.004) {
+    const tail = Math.max(1, (hx - X(ARC.x0)) * (o.tail ?? GAUGE.tail));
+    const gr = ctx.createLinearGradient(hx, 0, hx - tail, 0);
+    gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(.45, rgba(PAL.sand, .55)); gr.addColorStop(1, rgba(PAL.sand, 0));
+    ctx.strokeStyle = gr; ctx.lineWidth = Math.max(1, 4.4 * s);
+    path(ARC.x0, headA); ctx.stroke();
+  }
+  // ③ 글래스 노브
+  ctx.shadowColor = rgba(PAL.sand, .55); ctx.shadowBlur = 26 * s;
+  ctx.fillStyle = 'rgba(255,255,255,.26)';
+  ctx.beginPath(); ctx.arc(hx, hy, 19.5 * s, 0, Math.PI * 2); ctx.fill();
   ctx.shadowBlur = 0;
-  ctx.strokeStyle = 'rgba(255,255,255,.6)'; ctx.lineWidth = Math.max(1, size * 0.035);
-  ctx.beginPath(); ctx.arc(headX, cy, size * 0.75, 0, Math.PI * 2); ctx.stroke();
+  ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = Math.max(1, 1.4 * s);
+  ctx.beginPath(); ctx.arc(hx, hy, 19.5 * s, 0, Math.PI * 2); ctx.stroke();
   ctx.fillStyle = '#fff';
-  ctx.beginPath(); ctx.arc(headX, cy, size * 0.365, 0, Math.PI * 2); ctx.fill();
-  // ③ 수치 — 머리 밑, 같이 이동
+  ctx.beginPath(); ctx.arc(hx, hy, 9.5 * s, 0, Math.PI * 2); ctx.fill();
+  // ④ 수치 — 노브 밑 +40, 같이 이동
   if (o.value != null) {
-    ctx.font = F(700, size * 0.62, dot9);
-    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-    ctx.letterSpacing = (-size * 0.62 * 0.038).toFixed(2) + 'px';
-    ctx.fillText(String(o.value), headX, cy + size * 0.95);
+    const fs = 28 * s;
+    ctx.font = F(700, fs, dot9);
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.letterSpacing = (-fs * 0.02).toFixed(2) + 'px';   // 앱 .sc-n 과 같은 −2%
+    ctx.fillStyle = '#fff'; ctx.fillText(String(o.value), hx, hy + 40 * s);
     ctx.letterSpacing = '0px';
+  }
+  // ⑤ 끝 라벨
+  if (o.ends !== false) {
+    ctx.font = F(400, 20 * s); ctx.fillStyle = 'rgba(255,255,255,.45)';
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'left'; ctx.fillText(String(o.min ?? 0), X(ARC.x0), Y(ARC.x0) + 46 * s);
+    ctx.textAlign = 'right'; ctx.fillText(String(o.max ?? 100), X(ARC.x1), Y(ARC.x1) + 46 * s);
   }
   ctx.restore();
 }
@@ -455,7 +486,7 @@ export class FloorGL {
   _h(n) {
     switch (n.type) {
       case 'text': return n.size * 1.06;
-      case 'dots': return 60;
+      case 'dots': return gaugeH(600);
       case 'prevRow': return 200;
       case 'trainRow': return n.ring ? 200 : 112;
       case 'liveRow': return 112;
@@ -484,7 +515,7 @@ export class FloorGL {
     // main.js가 width를 직접 쓰면(반복형 스테이지) 그 값이 우선, 아니면 --dur 시간 진행.
     const w = n.style.width != null ? numOr(n.style.width, 0)
       : 600 * clamp01((this.t - n.delay) / n.dur);
-    dotProgress(this.ctx, x0, y, 60, 10, w / 600, { round: 'pill', value: Math.round(w / 6) });
+    arcGauge(this.ctx, x0, y, 600, w / 600, { value: Math.round(w / 6) });
   }
 
   _pill(x, y, w, h) {

@@ -2252,7 +2252,7 @@ void main(){
   let _cf = null;
   function coachField() {
     if (_cf) return _cf;
-    const RW = 128, RH = 192;
+    const RW = 320, RH = 480;   // 코치 판 실화면 크기 기준 — 미세 결이 평균에 먹히지 않게
     const vs = 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }';
     const src = new THREE.ShaderMaterial({
       uniforms: { map: { value: null }, uCropOff: { value: 0 }, uCropScale: { value: 1 } },
@@ -2266,7 +2266,7 @@ void main(){
       depthTest: false, depthWrite: false,
     });
     const blur = new THREE.ShaderMaterial({
-      uniforms: { tex: { value: null }, uDir: { value: new THREE.Vector2(1, 0) }, uStep: { value: 3 } },
+      uniforms: { tex: { value: null }, uDir: { value: new THREE.Vector2(1, 0) }, uStep: { value: 5 } },
       vertexShader: vs,
       fragmentShader: `varying vec2 vUv; uniform sampler2D tex; uniform vec2 uDir; uniform float uStep;
         void main(){
@@ -2281,10 +2281,9 @@ void main(){
     const sc = new THREE.Scene();
     const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), src);
     sc.add(quad);
-    _cf = {
-      rts: [new THREE.WebGLRenderTarget(RW, RH), new THREE.WebGLRenderTarget(RW, RH)],
-      cam: new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1), src, blur, sc, quad,
-    };
+    const mk = () => new THREE.WebGLRenderTarget(RW, RH);
+    // A/B = 핑퐁, N = 1회 블러(좁음 — 이목구비·모공만 지운 '결'), W = 3회 블러(넓음 — 두께장·노출)
+    _cf = { rts: [mk(), mk(), mk(), mk()], cam: new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1), src, blur, sc, quad };
     return _cf;
   }
   function renderCoachField(co) {
@@ -2296,14 +2295,19 @@ void main(){
     f.quad.material = f.src;
     renderer.setRenderTarget(f.rts[0]); renderer.clear(); renderer.render(f.sc, f.cam);
     f.quad.material = f.blur;
-    for (let i = 0; i < 3; i++) {   // 분리형 가우시안 3회 반복 — 탭 클럼프 없는 넓은 확산
-      f.blur.uniforms.tex.value = f.rts[0].texture; f.blur.uniforms.uDir.value.set(1, 0);
-      renderer.setRenderTarget(f.rts[1]); renderer.clear(); renderer.render(f.sc, f.cam);
-      f.blur.uniforms.tex.value = f.rts[1].texture; f.blur.uniforms.uDir.value.set(0, 1);
-      renderer.setRenderTarget(f.rts[0]); renderer.clear(); renderer.render(f.sc, f.cam);
-    }
+    // 분리형 가우시안 — 1회차 결과(N)는 '결', 3회차 결과(W)는 '두께장·노출'로 따로 쓴다.
+    //   원본 영상을 직접 샘플링하면 모공·이목구비까지 색에 실려 '주황 필터 씌운 사진'이 된다(유저).
+    const pass = (srcRT, dstRT, dir) => {
+      f.blur.uniforms.tex.value = srcRT.texture; f.blur.uniforms.uDir.value.set(dir[0], dir[1]);
+      renderer.setRenderTarget(dstRT); renderer.clear(); renderer.render(f.sc, f.cam);
+    };
+    const [A, B, N, W] = f.rts;
+    pass(A, B, [1, 0]); pass(B, N, [0, 1]);          // 1회 → N(좁음)
+    pass(N, B, [1, 0]); pass(B, A, [0, 1]);          // 2회
+    pass(A, B, [1, 0]); pass(B, W, [0, 1]);          // 3회 → W(넓음)
     renderer.setRenderTarget(prev);
-    co.mat.uniforms.uField.value = f.rts[0].texture;
+    co.mat.uniforms.uField.value = W.texture;
+    co.mat.uniforms.uFieldN.value = N.texture;
   }
   function ensureCoach(id) {
     if (_coaches[id]) return _coaches[id];
@@ -2318,12 +2322,12 @@ void main(){
     const mat = new THREE.ShaderMaterial({
       transparent: true, depthWrite: false,
       uniforms: { map: { value: tex }, uLUT: { value: getLUT() }, uTime: { value: 0 }, uReady: { value: 0 },
-        uField: { value: coachField().rts[0].texture },
+        uField: { value: coachField().rts[3].texture }, uFieldN: { value: coachField().rts[2].texture },
         uCropOff: { value: cfg.cropOff }, uCropScale: { value: cfg.cropScale },
         uSat: { value: 1.32 }, uPulse: { value: 0.05 } },
       vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
       fragmentShader: `
-        varying vec2 vUv; uniform sampler2D map, uLUT, uField; uniform float uTime, uCropOff, uCropScale, uSat, uPulse, uReady;
+        varying vec2 vUv; uniform sampler2D map, uLUT, uField, uFieldN; uniform float uTime, uCropOff, uCropScale, uSat, uPulse, uReady;
         vec3 lut(float v){ return texture2D(uLUT, vec2(clamp(v, 0.004, 0.996), 0.5)).rgb; }
         ` + PERSON_GLSL + `
         vec2 crop(vec2 uv){ return vec2(uv.x, uCropOff + uv.y * uCropScale); }
@@ -2331,7 +2335,6 @@ void main(){
         //  픽셀로 자르면 그림자·모자·옷주름이 통째로 뚫린다: 실측 피사체 14% 소실)
         float mask1(vec2 uv){ vec3 c = texture2D(map, crop(uv)).rgb; float k = c.g - max(c.r, c.b);
           return 1.0 - smoothstep(0.04, 0.14, k); }
-        float lumAt(vec2 uv){ return dot(texture2D(map, crop(uv)).rgb, vec3(0.299, 0.587, 0.114)); }
         // 크로마키 안티에일리어싱 — 소스가 전부 yuv420p(크로마 절반 해상도)라 단일 탭 키는
         //   확대 시 2px 블록 계단으로 드러난다(유저 스샷). 대칭 5탭 평균이라 엣지 위치는 안 움직인다.
         float maskAA(vec2 uv){
@@ -2354,12 +2357,13 @@ void main(){
           float mEro = smoothstep(0.16, 0.52, m);   // 침식 완화 — 골대 림 등 얇은 구조 보존(유저)
           if (mEro < 0.02) discard;
           // 두께장·블러휘도 = 저해상 RT 가우시안 필드(복싱 판 uHeat와 같은 파이프라인)
-          vec2 fld = texture2D(uField, uv).rg;
+          vec2 fld = texture2D(uField, uv).rg;    // 넓은 블러 = 두께장·노출
+          vec2 fldN = texture2D(uFieldN, uv).rg;  // 좁은 블러 = 이목구비 지워진 결
           float H = clamp(fld.r * 1.25, 0.0, 1.0);
           float flow = vn(vec2(uv.x*3.2 + sin(uTime*0.4)*0.3, uv.y*2.4 - uTime*0.5));
           H *= 1.0 + (flow - 0.5) * 0.11;   // 대류 얼룩 최소 — 매끄러운 질감(유저 레퍼런스)
-          float lumS = lumAt(uv);                        // 선명 = 몸의 결
-          float lumB = fld.g / max(fld.r, 0.02);         // 블러 = 얼굴 소거용(마스크 프리멀티 복원)
+          float lumS = fldN.g / max(fldN.r, 0.02);       // 결 (마스크 프리멀티 복원)
+          float lumB = fld.g / max(fld.r, 0.02);         // 국소 평균 = 노출
           float dlum = mix(lumS, lumB, 0.5);            // 펄스 위상용 대표 휘도
           float mIn = smoothstep(0.55, 0.95, m);
           float faceW = smoothstep(0.80, 0.92, uv.y) * (1.0 - smoothstep(0.97, 1.0, uv.y));
