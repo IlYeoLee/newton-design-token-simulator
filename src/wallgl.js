@@ -120,8 +120,8 @@ const SCENES = {
     say: '3, 2, 1 — spar!', cues: [], combos: [] },
   BX_C2: { title: 'JAB SPAR', phase: 3, sub: '1/3', coach: { num: '8', unit: 'Thrown' }, you: { num: '5', unit: 'Landed' },
     say: 'Jab when the target shows', cues: ['Target up!', 'Jab!', 'Nice', 'Reset', 'Again!'], combos: ['Jab!'] },
-  BX_C3: { title: 'COMBINATION', phase: 3, sub: '2/3', coach: { num: '4', unit: 'Openings' }, you: { num: '2', unit: 'Combo' },
-    say: 'Keep the rhythm — jab, jab, hook', cues: ['Jab, jab…', 'Hook!', 'Rhythm!', 'Don’t stop'], combos: ['2x Combo!'] },
+  BX_C3: { title: 'COMBINATION', phase: 3, sub: '2/3', coach: { num: '3', unit: 'Openings' }, you: { num: '3', unit: 'Combo' },
+    say: 'Keep the rhythm — jab, jab, hook', cues: ['Jab, jab…', 'Hook!', 'Rhythm!', 'Don’t stop'], combos: ['Jab · Jab · Hook!'] },
   BX_C4: { title: 'COOL DOWN', phase: 3, sub: '3/3', coach: { num: '', unit: '' }, you: { num: '', unit: '' },
     say: 'Breathe, drop your guard. Well done', cues: ['Breathe…', 'Guard down', 'Well done', 'Good work'], combos: [] },
 };

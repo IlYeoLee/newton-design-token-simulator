@@ -596,7 +596,7 @@ export const STAGES = {
     { id:'BX_A3', wall:true, label:'A3 · 준비운동 3/3 — 잽 폼', voice:['고수','어깨에서 뻗고 바로 회수. 가볍게 여섯 번.'], wear:'낮은 강도 보조 시작' },
     { id:'BX_T1', wall:true, label:'T1 · 전환 — 잽 익히기 시작', voice:['시스템','몸 풀렸어요. 탭 두 번이면 다음으로.'], foot:'두 번 탭 → 사전 익히기' },
     { id:'BX_B1', wall:true, gate:true, label:'B1 · 익히기 1/3 — 가드 유지', voice:['고수','가드 박스 안에 주먹 유지. 링이 찰 때까지.'], cue:'Hold Ring — 가드 존' },
-    { id:'BX_B2', wall:true, gate:true, label:'B2 · 익히기 2/3 — 회피 스텝', voice:['고수','머리를 좌우로 슬립. 존 밖으로 피해요.'], cue:'회피형 점선 존' },
+    { id:'BX_B2', wall:true, gate:true, label:'B2 · 익히기 2/3 — 회피 스텝', voice:['고수','오는 쪽 반대로 머리를 흘려요. 링이 조여들면 슬립.'], cue:'수축 위협 존 — 반대로 슬립' },
     { id:'BX_B3', wall:true, gate:true, label:'B3 · 익히기 3/3 — 잽 스윕', voice:['고수','스윕 따라 주먹 뻗고 타겟에 정렬.'], foot:'두 번 탭 → 실전 준비' },
     { id:'BX_T2', wall:true, label:'T2 · 전환 — 5초 뒤 실전 시작', voice:['고수','5초 뒤 넘어가요. 준비됐으면 두 번 탭.'], dur:5, count:true, foot:'두 번 탭 = 즉시 · 무입력 = 자동' },
     { id:'BX_C1', wall:true, dur:3, label:'C1 · 실전 1/4 — 시작 신호', voice:['고수','좋아요, 이제 나랑 붙어봐요. 셋, 둘, 하나!'], hap:'시작 진동', foot:'두 번 탭 → 시작' },
@@ -1635,17 +1635,17 @@ export class Session {
   _enterBoxing(st, { S, FS, FL, FM }) {
     switch (st.id) {
       case 'BX_READY': FS('SHADOW · JAB'); FL('가드 올리고 READY'); FM('발 두 번 탭 → 시작'); break;
-      case 'BX_A1': FS('WARM 1/3'); FL('목·어깨 돌리기'); FM('천천히 크게', CS.sand); break;
+      case 'BX_A1': FS('WARM 1/3'); FL('목·어깨 돌리기'); FM('천천히 크게 8회', CS.sand); break;
       case 'BX_A2': FS('WARM 2/3'); FL('스텝 인·아웃'); FM('앞뒤 6회', CS.sand); break;
       case 'BX_A3': FS('WARM 3/3'); FL('잽 폼 가볍게'); FM('뻗고 회수 6회'); break;
       case 'BX_T1': FS('T-1'); S(this.wSlotFL, 'STAGE CLEAR', { size: 0.11, color: CS.prism }); FM('탭 두 번 → 사전 익히기'); break;
       case 'BX_B1': FS('LEARN 1/3'); FL('가드 유지'); FM('가드 존 · 3초 유지'); break;
-      case 'BX_B2': FS('LEARN 2/3'); FL('회피 슬립'); FM('점선 존 밖으로'); break;
-      case 'BX_B3': FS('LEARN 3/3'); FL('잽 스윕'); FM('맞춘 잽 0 / 6'); break;
+      case 'BX_B2': FS('LEARN 2/3'); FL('회피 슬립'); FM('조여오는 쪽 반대로 · 6회'); break;
+      case 'BX_B3': FS('LEARN 3/3'); FL('잽 스윕'); FM('스윕 따라 잽 0 / 6'); break;
       case 'BX_T2': FS('T-2'); FM('두 번 탭 = 바로 · 가만히 있으면 자동'); break;
-      case 'BX_C1': FS('SPAR 00:00'); break;
+      case 'BX_C1': FS('SPAR'); FL('시작 신호'); FM('셋 · 둘 · 하나'); break;
       case 'BX_C2': FS('SPAR · SAFE'); FM('타겟 뜨면 잽'); break;
-      case 'BX_C3': S(this.wSlotFS, 'COMBO · BOOST', { size: 0.05, color: CS.prism }); break;
+      case 'BX_C3': S(this.wSlotFS, 'COMBO · BOOST', { size: 0.05, color: CS.prism }); FL('콤비네이션'); FM('잽 · 잽 · 훅'); break;
       case 'BX_C4': FS('COOL DOWN'); break;
       case 'BX_FIN': FS('REPORT'); break;
     }
@@ -2578,7 +2578,7 @@ export class Session {
       // 회피 슬립 — 한쪽에서 위협 링이 조여오고(수축), 머리는 반대쪽으로 흘러 빠진다.
       //   비트 = 위협 도착 순간. 그 순간 위협은 팽창하며 소멸하고 안전 존이 점등한다 = "피했다".
       const per = 1.1, rep = Math.floor(this.t / per), ph = (this.t % per) / per;
-      const fromR = rep % 2 === 0;                      // 위협이 오는 쪽 (오른→왼 슬립)
+      const fromR = rep % 2 === 1;                      // 위협이 오는 쪽. 첫 비트=왼쪽 → 벽 큐 'Slip right!' 와 일치
       const e = Math.pow(ph, 1.6);                      // 가속 진입 = 기대감(어프로치 링과 같은 곡선)
       const lock = Math.max(0, (ph - 0.82) / 0.18);     // 도착 = 비트
       const threat = fromR ? this.bxDodgeR : this.bxDodgeL;
@@ -2605,7 +2605,7 @@ export class Session {
       this.bxB3jab._prim.prog = ph;   // 잽 궤적 스윕
       this.bxB3cd.setOp(0.4 + 0.55 * ph); this.bxB3cd.scale.setScalar(1.9 - 0.9 * ph);   // setOp 규약 (구 .opacity는 셰이더에 무효 — 링이 안 보였음)
       const hits = Math.min(6, Math.floor(this.t / BT));
-      FMU(`맞춘 잽 ${hits} / 6`, hits >= 6 ? CS.prism : CS.dim);
+      FMU(`스윕 따라 잽 ${hits} / 6`, hits >= 6 ? CS.prism : CS.dim);
       if (this.t >= 6 * BT + 0.4) { this._gateAdvance(); return; }
     } else if (id === 'BX_C1') {
       const n = Math.max(1, 3 - Math.floor(this.t)); if (n !== this._lastCount) { this._setCountWall(n, CS.ink); this._lastCount = n; }
