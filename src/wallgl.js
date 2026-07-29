@@ -657,13 +657,28 @@ export class WallGL {
       const p = clamp01(swapT / every);
       const a = clamp01(p / .10) * (1 - clamp01((p - .26) / .14));
       if (a > .01) {
+        // 맨 글자만 두니 컴포넌트로 안 읽혔다(유저). 룩 토큰을 입힌다 —
+        // 글자는 흰색(투사면 가독 우선)이고, 그 아래 팔레트 램프 악센트 룰이 글자 폭만큼
+        // 좌→우로 그어진다. 램프는 막대(growBar)·배지와 같은 red→coral→sand→prism.
+        const rise = clamp01(p / .10);
         ctx.save();
         ctx.globalAlpha *= ce * a;
-        const k = 1.0 + .22 * (1 - clamp01(p / .10));
+        const k = 1.0 + .22 * (1 - rise);
         ctx.translate(CX, 1300); ctx.scale(k, k); ctx.translate(-CX, -1300);
+        const word = say.replace(/[…]+$/, '').toUpperCase();
+        ctx.font = F(700, 132); ctx.letterSpacing = '-5.3px';
+        const wwid = ctx.measureText(word).width; ctx.letterSpacing = '0px';
         ctx.shadowColor = rgba(PAL.sand, .55); ctx.shadowBlur = 48;
-        txt(ctx, say.replace(/[…]+$/, '').toUpperCase(), CX, 1300, 132, 700, '#fff',
-            { ls: -5.3, align: 'center', base: 'middle' });
+        txt(ctx, word, CX, 1300, 132, 700, '#fff', { ls: -5.3, align: 'center', base: 'middle' });
+        ctx.shadowBlur = 0;
+        const rw = wwid * eOut(rise), ry2 = 1300 + 132 * 0.52;
+        if (rw > 2) {
+          const rg = ctx.createLinearGradient(CX - wwid / 2, 0, CX + wwid / 2, 0);
+          rg.addColorStop(0, PAL.red); rg.addColorStop(.55, PAL.coral);
+          rg.addColorStop(.85, PAL.sand); rg.addColorStop(1, PAL.prism);
+          ctx.fillStyle = rg;
+          ctx.beginPath(); ctx.roundRect(CX - wwid / 2, ry2, rw, 8, 4); ctx.fill();
+        }
         ctx.restore();
       }
       // 콤보 = 배지 → '나' 카운터에 붙는 지속 상태. 하단 중앙을 비우고 내 기록 옆에 세운다.

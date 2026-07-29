@@ -791,7 +791,7 @@ export class FloorGL {
 
   // ── 시작화면 (floor.html / floor-bk.html) ──────────────────────────────────
   _paint_ready() {
-    const SY = 520;   // 상태 한 줄 y (메타 줄·Connection 칸 폐기 — 정보량 축소, 유저)
+    const SY = 632;   // 상태 한 줄 y (제목과 170 벌려 별개 덩어리로) (메타 줄·Connection 칸 폐기 — 정보량 축소, 유저)
     const ctx = this.ctx, D = READY[/floor-bk/.test(this.params.src) ? 'floor-bk.html' : 'floor.html'], t = this.t;
     // glowLive 7s ×3 — 숨쉬기 + 드리프트
     const gl = this._img('fig/big_glow.svg');
@@ -825,19 +825,19 @@ export class FloorGL {
     // 팩 칩 = pyeongso .tag-pill (creator.css) — 제목 대비 비율 그대로(15/26). ×4.6 스케일.
     {
       const LB = /floor-bk/.test(this.params.src) ? 'Pro Pack' : 'Creator Pack';
-      ctx.save(); this._fadeIn(204, 129, eOut(intro(t, .18, .8)));
-      ctx.font = F(700, 69); ctx.letterSpacing = '-2.3px';
-      const tw = ctx.measureText(LB).width, pw = tw + 74, ph = 129;
-      this._roundRectPath(CX - pw / 2, 204, pw, ph, 55);
+      ctx.save(); this._fadeIn(210, 104, eOut(intro(t, .18, .8)));
+      ctx.font = F(700, 56); ctx.letterSpacing = '-1.9px';
+      const tw = ctx.measureText(LB).width, pw = tw + 60, ph = 104;
+      this._roundRectPath(CX - pw / 2, 210, pw, ph, 44);
       ctx.fillStyle = 'rgba(255,255,255,.2)'; ctx.fill();
       ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillText(LB, CX, 204 + ph / 2 + 2);
+      ctx.fillText(LB, CX, 210 + ph / 2 + 2);
       ctx.letterSpacing = '0px'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
       ctx.restore();
     }
     // 타이틀 글자 웨이브 — charLoop 3s ×3, 글자마다 .09s 지연
     ctx.fillStyle = '#fff'; ctx.font = F(700, 120);
-    drawChars(ctx, D.title, CX, 348, 120, -4, i => {
+    drawChars(ctx, D.title, CX, 330, 120, -4, i => {
       const p = cycle(t, i * 0.09, 3, 3);
       return p == null ? { dy: 0, alpha: 1, scale: 1 } : {
         dy: kf(p, [[0, 0], [.12, -16], [.26, 0], [.58, 0], [1, 0]]),
@@ -849,25 +849,57 @@ export class FloorGL {
     //   둘을 섞으면 두 컴포넌트 계약을 다 깬다(유저). 디바이스 배터리는 폐기 —
     //   모바일 ready-to-start.html 에도 없고, 'Connection · Good' 과 같은 말이었다.
     //   칸 폭 = 내용 크기(구 flex:1 + nowrap 은 값이 옆 칸을 파고들었다 — 실측).
-    ctx.save(); this._fadeIn(SY, 212, eOut(intro(t, .35, .8)));
+    ctx.save(); this._fadeIn(SY, 160, eOut(intro(t, .35, .8)));
     ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-    const cells = [['Time', D.time, false], ['Connection', 'Good', false], ['Mode', D.mode, D.modeSm]];
+    const cells = [['Time', D.time, false], ['Condition', 'Good', false], ['Mode', D.mode, D.modeSm]];   // Condition = 내 컨디션(기기 연결 아님 — 유저)
     const cellW = (lbl, val, sm) => {
-      ctx.font = F(400, 58); const a = ctx.measureText(lbl).width;
-      ctx.font = F(700, sm ? 66 : 80); return Math.max(a, ctx.measureText(val).width) + 60;
+      ctx.font = F(400, 44); const a = ctx.measureText(lbl).width;
+      ctx.font = F(700, sm ? 52 : 60); return Math.max(a, ctx.measureText(val).width) + 60;
     };
     const cw2 = cells.map(([l, v, sm]) => cellW(l, v, sm));
     let sx = CX - (cw2.reduce((a, b) => a + b, 0) + 76) / 2;   // 구분선 2개 × (4 + 여백 34)
     cells.forEach(([lbl, val, sm], i2) => {
-      if (i2) { ctx.fillStyle = 'rgba(255,255,255,.3)'; ctx.fillRect(sx + 17, SY + 32, 4, 147); sx += 38; }
+      if (i2) { ctx.fillStyle = 'rgba(255,255,255,.18)'; ctx.fillRect(sx + 17, SY + 25, 3, 110); sx += 38; }
       const w2 = cw2[i2];
-      ctx.fillStyle = 'rgba(255,255,255,.7)'; ctx.font = F(400, 58); ctx.letterSpacing = '-2.2px';
+      ctx.fillStyle = 'rgba(255,255,255,.45)'; ctx.font = F(400, 44); ctx.letterSpacing = '-1.3px';
       ctx.fillText(lbl, sx + w2 / 2, SY + 14);
-      ctx.fillStyle = '#fff'; ctx.font = F(700, sm ? 66 : 80); ctx.letterSpacing = '-2.4px';
-      ctx.fillText(val, sx + w2 / 2, SY + 14 + 70 + 27);
+      ctx.fillStyle = 'rgba(255,255,255,.75)'; ctx.font = F(700, sm ? 52 : 60); ctx.letterSpacing = '-1.8px';
+      ctx.fillText(val, sx + w2 / 2, SY + 14 + 54 + 20);
       sx += w2;
     });
     ctx.letterSpacing = '0px';
+    ctx.restore();
+    // 기기 연결 = 운동 전 필수 체크(유저) — 컨디션과 다른 정보라 상태 줄에 섞지 않고 CTA 바로 위.
+    ctx.save(); this._fadeIn(940, 92, eOut(intro(t, .6, .8)));
+    {
+      const CHIP = [['run/ic_glasses.png', 32, '90%', true], ['run/ic_watch.png', 24, '30%', false],
+                    ['run/ic_earbuds.png', 28, '60%', false]];
+      const CPAD = 29, CICG = 10, CGAP = 10, CH2 = 92;
+      ctx.font = F(400, 44); ctx.letterSpacing = '-1.3px';
+      const chipW = CHIP.map(([, iw, tx]) => CPAD * 2 + iw + CICG + ctx.measureText(tx).width);
+      let bx = CX - (chipW.reduce((a, b) => a + b, 0) + CGAP * 2) / 2;
+      CHIP.forEach(([ic, iw, tx, sel], k) => {
+        const w3 = chipW[k];
+        if (sel) {
+          const g3 = ctx.createLinearGradient(0, 940, 0, 940 + CH2);
+          g3.addColorStop(0.48, '#FA3030'); g3.addColorStop(0.776, '#FE6E3C'); g3.addColorStop(1, '#FEC389');
+          ctx.fillStyle = g3;
+        } else ctx.fillStyle = '#fff';
+        this._roundRectPath(bx, 940, w3, CH2, CH2 / 2); ctx.fill();
+        const im = this._img(ic);
+        if (im) {
+          const ih = iw * (im.naturalHeight / im.naturalWidth);
+          ctx.save(); ctx.filter = sel ? 'brightness(0) invert(1)' : 'brightness(0)';
+          ctx.drawImage(im, bx + CPAD, 940 + CH2 / 2 - ih / 2, iw, ih);
+          ctx.restore();
+        }
+        ctx.fillStyle = sel ? '#fff' : '#525252'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+        ctx.fillText(tx, bx + CPAD + iw + CICG, 940 + CH2 / 2 + 1);
+        ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+        bx += w3 + CGAP;
+      });
+      ctx.letterSpacing = '0px';
+    }
     ctx.restore();
     // CTA = 모바일 .rts-prompt 컴포넌트(ready.css) 2줄 스택 이식 — 지시(m) / 캡션(s). 복싱 벽(wallgl:497)과 같은 2줄.
     //   제목과 같은 흰 볼드 한 줄이라 구분이 안 됐다(유저). 비율은 모바일 그대로(s/m=0.5),
