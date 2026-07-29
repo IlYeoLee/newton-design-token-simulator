@@ -596,16 +596,7 @@ vec4 dotFormQ(vec2 grid, vec2 uv, float sd, float ext, float w, float pitch, flo
   //   → 점 크기 변화를 '열'이 맡게 분리한 뒤로는 경계를 좁혀도 결이 사라지지 않는다.
   //     좁게 잡아야 글리프 구멍이 제 크기로 읽힌다(넓으면 구멍이 먹혀 그늘만 남는다).
   float band = 0.055 * max(uInner, 0.05);
-  // ★ 마스크 경로 — '구멍 뚫은 도형' 텍스처를 그대로 커버리지로 쓴다(유저 제안).
-  //   거리장(SDF)을 거치면 얇은 획이 뭉개진다. 도형을 직접 읽으면 글리프가 그대로 남는다.
-  float amt;
-  if (uMaskOn > 0.5) {
-    vec2 muv = uv * 0.5 + 0.5;
-    float cov = texture2D(uMask, vec2(muv.x, 1.0 - muv.y)).r;
-    amt = smoothstep(0.06, 0.72, cov) * clamp(w, 0.0, 2.0);   // 완만하게 — 점이 잘리지 않고 작아진다
-  } else {
-    amt = smoothstep(band, -band, sd) * clamp(w, 0.0, 2.0);
-  }
+  float amt = smoothstep(band, -band, sd) * clamp(w, 0.0, 2.0);
   // ★ 아웃라인이 없어도 이너 음영은 된다 — 선이 아니라 '점 크기'가 음영을 지면 되기 때문.
   //   가장자리 쪽 점을 키우면 글로우, 줄이면 섀도우. 윤곽선은 여전히 0 이다.
   if (uInnerMode > 0.5 && uRefTone < 0.5) {
@@ -789,7 +780,18 @@ const CANDIDATES = [
     pitch = uDotPitch * 1.35;
     w = 0.66;
   }
-  return dotFormQ(uv + disp, uv, sd, ext, w, pitch, state, prog, holdQ);
+  // ★ 상태 파형을 '점 크기'가 아니라 '정본 그라디언트의 밝기'에 싣는다.
+  //   점 크기로 상태를 표현하면 크기가 제각각이 되어 촌스럽다(유저 지적, 특히 존 원).
+  //   색·그라디언트는 정본 A 그대로, 결은 균일한 하프톤 마스크, 움직임은 밝기와 격자 이동.
+  float m = halftone(uv + disp, uDotPitch, clamp(0.60 * uDotGain, 0.0, 1.0), uDotPitch * 0.11);
+  float k = mix(0.05, 1.0, m);
+  if (holdQ >= 0.0) {                      // Hold·Preview 는 색좌표를 따로 쓴다 → 그 색으로 갈아끼운다
+    float lum0 = max(A.r, max(A.g, A.b));
+    A.rgb = stateFill(state, holdQ, prog) * lum0;
+  }
+  A.rgb *= k * clamp(w, 0.0, 2.0);
+  A.a   *= k * clamp(w, 0.0, 1.0);
+  return A;
 }` },
 
   { id: 'base', name: '정본', why: '지금 시뮬레이터가 쓰는 것 — 비교 기준',
@@ -1252,6 +1254,12 @@ void main(){
   float prog = uState < 0.5 ? smoothstep(0.10, 0.88, tc) : tc;
   if (uProgOvr >= 0.0) prog = uProgOvr;   // 슬라이더로 잡으면 7상태가 같은 진행에서 비교된다
   vec4 r = markState(uv, uState, prog, 0.0, uTime);
+  // ★ 글리프 구멍은 여기서 한 번만 적용한다 — 후보가 정본 A 를 쓰든 점을 새로 칠하든
+  //   상관없이 모든 후보에 똑같이 뚫린다(유저: 전부 글리프 얹어진 걸로 비교하고 싶다).
+  if (uMaskOn > 0.5) {
+    vec2 muv = uv * 0.5 + 0.5;
+    r *= smoothstep(0.10, 0.70, texture2D(uMask, vec2(muv.x, 1.0 - muv.y)).r);
+  }
   if (uMono > 0.5) { float L = max(r.r, max(r.g, r.b)); r.rgb = vec3(L); }
   if (uFlat > 0.5) r.rgb = vec3(r.a);
   // 투사면 비교 — 실제 대지 위에서 어떻게 읽히는지가 최종 판정 기준이다
