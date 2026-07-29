@@ -150,7 +150,7 @@
       <b style="font-size:12px;letter-spacing:.06em;color:var(--ink)">선택 후보 — 7상태 한눈에</b>
       <span id="candStripName" style="font-size:11px;color:var(--sand)"></span>
       <button class="btn" id="candNumBtn">숫자 얹기</button>
-      <span style="font-size:10.5px;color:var(--dim)">숫자 규약: 크기 = 쿼드×0.2333 · Preview 0.5 · Success/Miss 숨김 (fx-core MARK_NUM)</span>
+      <span style="font-size:10.5px;color:var(--dim)">글리프 = 서랍(state.glyphs)의 실제 SVG · 크기 = 쿼드×0.2333 · Preview 0.5 · Success/Miss 숨김 (fx-core MARK_NUM)</span>
     </div>
     <div id="candStrip" style="display:grid;grid-template-columns:repeat(7,1fr);gap:8px"></div>
     <pre id="candSrc" style="margin:14px 0 0;padding:12px 14px;background:#0A0C10;border:1px solid #1c222c;border-radius:10px;
@@ -973,31 +973,47 @@ const stripCells = (() => {
     return { cv, ctx: cv.getContext('2d'), state: i, name: nm };
   });
 })();
-let candNums = 0;
+let candNums = 0;   // 0 끄기 · 1 숫자 글리프 · 2 L/R 글리프
 document.getElementById('candNumBtn').onclick = e => {
-  candNums = candNums ? 0 : 1; e.target.classList.toggle('on', !!candNums);
+  candNums = (candNums + 1) % 3;
+  e.target.textContent = ['글리프 얹기: 끔', '글리프: 숫자', '글리프: L/R'][candNums];
+  e.target.classList.toggle('on', !!candNums);
 };
+document.getElementById('candNumBtn').textContent = '글리프 얹기: 끔';
 // 숫자 오버레이 — fx-core MARK_NUM 규약 그대로(도식 아님)
 // 카탈로그 상태 번호(0 Preview·1 Active·2 Hold·3 Success·4 Miss·5 Warning·6 Locked)를
 //   라이브 phase 번호(0 Preview·1 Active·2 Success·3 Locked·4 Miss·5 Hold·6 Warning)로.
 //   MARK_NUM.opacity 는 라이브 phase 를 받는다 — 이 변환을 빠뜨리면 Hold·Success 가 뒤바뀐다.
 const CAT2PHASE = [0, 1, 5, 2, 4, 6, 3];
-function stripNum(ctx, cat, W) {
+// 스트립에 얹을 글자 — 숫자는 상태별 카운트, L/R 은 발형일 때 좌우 표식.
+//   ★ 글리프 서랍(state.glyphs)의 실제 SVG 를 쓴다. drawCustomGlyphAt 은 정본 경로 —
+//     시스템 폰트로 그리면 룩 시스템 밖의 글자가 되어 '확인'이 안 된다(유저 지적).
+function stripGlyph(ctx, cat, W) {
   const phase = CAT2PHASE[cat] ?? cat;
   const op = MARK_NUM.opacity(phase);
-  if (op <= 0) return;
-  const size = MARK_NUM.RATIO * W * (state.m.radius || 1);
+  if (op <= 0 || !candNums) return;
+  const locked = cat === 6;
   let ch = '2';
   if (cat === 2) ch = String(1 + Math.floor(performance.now() / 1000 * 0.45) % 8);   // Hold = 반복 카운트
+  if (candNums === 2) ch = state.markFootSide === 'R' ? 'R' : 'L';                   // L/R 모드
+  // 서랍에 그 글자가 없으면 있는 숫자 중 첫 번째로 (정본 drawMarkNumOn 과 같은 폴백)
+  if (candNums === 1 && !(state.glyphs && state.glyphs[ch])) {
+    const first = '0123456789'.split('').find(c => state.glyphs && state.glyphs[c]);
+    if (first) ch = first;
+  }
+  const size = MARK_NUM.RATIO * W * (state.m.radius || 1);
+  const ax = W / 2, ay = candShape > 0.5 ? footCentroid.y * W : W / 2;
   ctx.save();
   ctx.globalAlpha = op;
+  const custom = state.glyphs && state.glyphs[ch];
+  if (custom && drawCustomGlyphAt(ctx, custom, ax, ay, size, locked, !!state.glyphFlip[ch])) {
+    ctx.restore(); return;
+  }
+  // 폴백 — 서랍이 비었을 때만. OffBit(수치 전용 페이스)로 그린다.
   ctx.font = `700 ${Math.round(size * 0.62)}px 'OffBit', system-ui, sans-serif`;
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  const locked = cat === 6;
-  ctx.fillStyle = locked ? 'rgba(208,208,208,.85)' : 'rgba(255,255,255,.95)';
-  if (!locked) { ctx.shadowColor = 'rgba(250,48,48,.55)'; ctx.shadowBlur = size * 0.22; }
-  // 발형은 무게중심, 존 원은 기하 중심
-  const ax = W / 2, ay = candShape > 0.5 ? footCentroid.y * W : W / 2;
+  ctx.fillStyle = locked ? 'rgba(208,208,208,.85)' : 'rgba(255,240,220,.95)';
+  if (!locked) { ctx.shadowColor = 'rgba(254,150,90,.75)'; ctx.shadowBlur = size * 0.20; }
   ctx.fillText(ch, ax, ay);
   ctx.restore();
 }
@@ -1803,7 +1819,7 @@ function frame(ts) {
         g3.uniform1f(P.u('uState'), cell.state);
         g3.drawArrays(g3.TRIANGLES, 0, 3);
         cell.ctx.drawImage(candGL.cv, 0, 0);
-        if (candNums) stripNum(cell.ctx, cell.state, candGL.W);
+        stripGlyph(cell.ctx, cell.state, candGL.W);
       }
     } }
   if (personReady && VIS.personC) {
