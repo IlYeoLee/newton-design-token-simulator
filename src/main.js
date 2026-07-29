@@ -2365,7 +2365,7 @@ void main(){
           // 두께장·블러휘도 = 저해상 RT 가우시안 필드(복싱 판 uHeat와 같은 파이프라인)
           vec2 fld = texture2D(uField, uv).rg;    // 넓은 블러 = 두께장·노출
           vec2 fldN = texture2D(uFieldN, uv).rg;  // 좁은 블러 = 이목구비 지워진 결
-          float H = clamp(fld.r * 1.25, 0.0, 1.0);
+          float H = clamp(fld.r * 1.60, 0.0, 1.0);   // 코치 필드는 블러가 좁아 1.25 로는 코어가 덜 포화 → 옅게 떴다(유저)
           float flow = vn(vec2(uv.x*3.2 + sin(uTime*0.4)*0.3, uv.y*2.4 - uTime*0.5));
           H *= 1.0 + (flow - 0.5) * 0.11;   // 대류 얼룩 최소 — 매끄러운 질감(유저 레퍼런스)
           float lumB = fld.g / max(fld.r, 0.02);          // 국소 평균 = 노출
@@ -2381,7 +2381,7 @@ void main(){
           // 색 = fx-core.personLook 공용 정의 — 복싱 인물과 같은 대역·채도·명암 규칙.
           //   구 인라인 lut(pow(baseT,1.5))는 LUT 하단(샌드~코랄)에만 앉아, 상단(레드)에 앉는
           //   복싱 인물과 톤이 갈렸다(유저: "왜 복싱만 과하게 빨갛지").
-          vec3 col = personLook(clamp(H + pulse + dth, 0.0, 1.0), lumS, lumB, mIn, faceW) * mEro * 1.12;
+          vec3 col = personLook(clamp(H + pulse + dth, 0.0, 1.0), lumS, lumB, mIn, faceW) * mEro * 0.92;
           // uReady=0 = 아직 실제 프레임이 없다. 이때 그리면 빈 텍스처가 크로마키를 통과해
           //   판이 통째로 검은 사각형/붉은 판으로 보인다(유저 스샷). 아예 안 그린다.
           float alpha = mEro * 0.95 * uReady;   // 하단 페더 제거(유저) — 발끝까지 또렷하게
