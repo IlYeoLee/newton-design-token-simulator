@@ -4613,7 +4613,7 @@ void main(){
   //   거기 있는 메시를 이름·재질·블렌딩까지 콘솔에 찍는다. 헤드리스로는 못 하는 일 —
   //   preserveDrawingBuffer:false 라 앱 자신의 rAF 안에서 읽어야만 실제 픽셀이 나온다.
   //   결과는 콘솔이 아니라 '화면 위'에 띄운다 — 스크린샷 한 장이면 범인이 보인다.
-  const BLACK_PROBE = new URLSearchParams(location.search).get('blackprobe') !== '0';
+  const BLACK_PROBE = new URLSearchParams(location.search).get('blackprobe') === '1';
   let _bpN = 0, _bpBuf = null, _bpLast = '', _bpEl = null;
   const _bpRay = new THREE.Raycaster();
   function blackProbe() {

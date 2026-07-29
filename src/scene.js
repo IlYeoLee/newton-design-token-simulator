@@ -343,20 +343,30 @@ export function createScene(container) {
     floor.material.map = isCourtColor ? null : fTex;
     wall.material.map = wTex;
     if (isCourtColor) {
-      // 회색/검정 코트 = 솔리드 바닥(무광) + 흰 라인. 벽은 실내 스타일.
+      // 회색/검정 코트 = 솔리드 바닥 + 흰 라인. 벽은 실내 스타일.
       // 푸른 톤 블렌드(유저): 중립 회색/검정 대신 쿨 블루그레이 — 코트에 살짝 파란 기운.
-      floor.material.color.setHex(key === 'court_black' ? 0x0f1420 : 0x2b3240);
+      //
+      // ★ 검정 코트가 '검은 구멍'으로 보이던 근본 (유저 5회 신고 '드리블 중 검정 박스'):
+      //   0x0f1420(rgb 15,20,32)을 무광(roughness .92)으로 깔면 야간 앰비언트에서 화면에
+      //   rgb(2,2,2)로 찍힌다 — 실측값이다. 그건 바닥이 아니라 공백이라, 코트 가장자리나
+      //   밝은 요소 사이로 그 면이 드러날 때마다 '검은 판'이 생긴 것처럼 보인다.
+      //   실제 검은 스포츠 바닥은 광택이 있어 빛을 되쏜다. 광택을 주면 면이 면으로 읽힌다.
+      floor.material.color.setHex(key === 'court_black' ? 0x263041 : 0x2b3240);
+      floor.material.roughness = key === 'court_black' ? 0.42 : 0.6;
+      floor.material.metalness = key === 'court_black' ? 0.22 : 0.12;
       wall.material.map = await getSurf('wallpaper');
       wall.material.color.setHex(0xFFFFFF);
       wall.material.emissive?.setHex(dayMode ? 0x6E6A63 : 0x57534B);
     } else if (key === 'indoor' || key === 'court') {
       // 실내: 마루 + 형광등 아래 '진짜 흰' 벽 — 조명 감쇠를 이기도록 자발광 가산
+      floor.material.roughness = 0.92; floor.material.metalness = 0.05;   // 코트 광택 원복
       floor.material.color.setHex(dayMode ? 0xF6F1E8 : 0xD8D0C2);
       wall.material.map = await getSurf('wallpaper');   // 세로 결 벽지 (민무늬 기각)
       wall.material.color.setHex(0xFFFFFF);
       wall.material.emissive?.setHex(dayMode ? 0x6E6A63 : 0x57534B);
     } else {
       wall.material.emissive?.setHex(0x000000);
+      floor.material.roughness = 0.92; floor.material.metalness = 0.05;   // 코트 광택 원복
       floor.material.color.setHex(dayMode ? 0xDBDBDB : 0x8a8a8a);   // 주간=약감쇠(v12.4 통일), 야간=톤 다운
       wall.material.color.setHex(dayMode ? 0xE2E2E2 : 0x9a9a9a);
     }
