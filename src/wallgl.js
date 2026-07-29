@@ -10,7 +10,7 @@
 import * as THREE from 'three';
 import { PAL, NEU, rgba } from './palette.js';
 import { T, R, sp, zone, NUM_S } from './ds.js';   // 조판 토큰
-import { clamp01, eOut, cycle, kf, intro, drawChars, drawBadge } from './floorgl.js';
+import { clamp01, eOut, cycle, kf, intro, drawChars, drawBadge, insetGlow } from './floorgl.js';
 import { Board } from './uilayer.js';   // 요소별 평면 — 모션은 변환이라 업로드 0 (60fps)
 
 const W = 2600, H = 1600;   // 대지 px (벽 2.6×1.6m 실측 1:1)
@@ -193,7 +193,8 @@ export class WallGL {
       : /report\.html/.test(params.src) ? 'report'
       : /scene\.html/.test(params.src) ? 'scene' : 'ready';
     this.t = 0; this._lastPaint = -1; this._numLast = null; this._numT = 0;
-    this.board.clear();   // 화면 전환 = 레이어 재구성
+    // board.clear() 는 하지 않는다 — 전환마다 캔버스·텍스처를 통째로 재생성하면 프레임이 튄다.
+    // 레이어는 이름으로 재사용되고 크기가 달라질 때만 개별 교체된다.
   }
 
   update(dt) {
@@ -1097,14 +1098,10 @@ export class WallGL {
       ctx.fillStyle = gradV(ctx, y, y + S, [[0, PAL.red], [1, PAL.coral]]);
       ctx.fillRect(x, y, S, S); ctx.restore();
     } else {       // 흰 내부 글로우(원본 inset box-shadow 근사)
-      // 내부 글로우 = Figma inset 0 0 52.392px 19.647px rgba(255,255,255,.6) 실값.
-      // 클립 안에서 같은 경로를 굵게 스트로크하면 절반이 안쪽에 남아 inset 이 된다
-      // (구 blur(26px) 근사는 값도 다르고 레이어 전환에서 사라졌다 — 유저 지적).
+      // 내부 글로우 = Figma inset 0 0 52.392px 19.647px rgba(255,255,255,.6) 실값
       ctx.save();
       rrPath(ctx, x, y, S, S, R.lg); ctx.clip();
-      ctx.shadowColor = rgba(NEU.ink, 0.6); ctx.shadowBlur = 52.392;
-      ctx.strokeStyle = rgba(NEU.ink, 0.6); ctx.lineWidth = 19.647 * 2;
-      rrPath(ctx, x, y, S, S, R.lg); ctx.stroke();
+      insetGlow(ctx, x, y, S, S, R.lg, rgba(NEU.ink, 0.6), 52.392, 19.647);
       ctx.restore();
     }
     ctx.restore();

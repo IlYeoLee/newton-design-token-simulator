@@ -76,6 +76,27 @@ export function drawBadge(ctx, cx, cy, text, o = {}) {
   return w;
 }
 
+
+/** 카드 내부 글로우 — 캔버스엔 inset 그림자가 없어서 오프스크린으로 만든다.
+ *  ① 오프스크린을 글로우 색으로 채우고 ② 안쪽(spread 만큼 줄인 모양)을 블러로 지워내면
+ *  가장자리에만 부드러운 빛이 남는다 = CSS inset box-shadow.
+ *  CSS blur 는 지름 규약이라 캔버스 filter(시그마)에는 절반을 준다. */
+const _isCv = typeof document !== 'undefined' ? document.createElement('canvas') : null;
+export function insetGlow(ctx, x, y, w, h, r, color, blur, spread) {
+  if (!_isCv) return;
+  const m = Math.ceil(blur) + 8;
+  _isCv.width = Math.ceil(w) + m * 2; _isCv.height = Math.ceil(h) + m * 2;
+  const g = _isCv.getContext('2d');
+  g.clearRect(0, 0, _isCv.width, _isCv.height);
+  g.fillStyle = color;
+  g.beginPath(); g.roundRect(m, m, w, h, r); g.fill();
+  g.globalCompositeOperation = 'destination-out';
+  g.filter = `blur(${(blur / 2).toFixed(1)}px)`;
+  g.beginPath(); g.roundRect(m + spread, m + spread, w - spread * 2, h - spread * 2, Math.max(0, r - spread)); g.fill();
+  g.filter = 'none'; g.globalCompositeOperation = 'source-over';
+  ctx.drawImage(_isCv, x - m, y - m);
+}
+
 // 글자별 그리기 — fn(i) → {dy, alpha, scale}. charLoop·charWave·chIn 공통.
 // align: 'center'(cx=중앙) | 'right'(cx=오른쪽 끝) | 'left'
 export function drawChars(ctx, txt, cx, y, h, ls, fn, align = 'center') {
@@ -266,7 +287,9 @@ export class FloorGL {
       : /floor(-bk)?\.html/.test(params.src) ? 'ready' : 'scene';
     this.params = params;
     this._numLast = null; this._numT = 0;   // numPulse(카운트다운 숫자) 상태
-    this.board.clear();   // 화면 전환 = 레이어 재구성(쌓임 방지)
+    // board.clear() 는 하지 않는다 — 화면이 바뀔 때마다 캔버스·텍스처 20~30장을 한꺼번에
+    // 버리고 새로 만들면 그 프레임이 통째로 튄다(프로파일러: 33ms 초과 프레임의 정체).
+    // 레이어는 이름으로 재사용되고, 크기가 달라질 때만 개별 교체된다. 안 쓰는 건 begin/end 가 숨긴다.
     if (this.kind !== 'scene') {
       this.stage = stage; this.col = []; this.map.clear();
       this.t = 0; this._sig = null; this._lastPaint = -1;
@@ -297,6 +320,8 @@ export class FloorGL {
     this.t += dt;
     const B = this.board, t = this.t;
     B.begin();
+    // 블록 목록은 매 프레임 새로 만든다(모션 값이 t 에 의존). 배열 자체는 짧아서 비용이 작지만,
+    // 레이어(캔버스·텍스처)는 재사용되므로 큰 할당은 여기서 일어나지 않는다.
     for (const bl of this._blocks(t)) {
       const pad = bl.pad || 0, h = bl.h + pad * 2;
       const bx = (bl.x ?? 0) - pad, bw = (bl.w ?? W) + pad * 2;
@@ -354,13 +379,17 @@ export class FloorGL {
       if (n.style.display === 'none') continue;
       const h = this._h(n);
       if (n.mt) y += n.mt;
+      // ★ 이 반복의 y 를 값으로 고정한다. 클로저가 루프 변수 y 를 그대로 붙잡으면
+      //   그리는 시점엔 y 가 이미 다음 요소로 이동해 있어 밴드 밖에 그려진다
+      //   (프로그래스·프리뷰·km·Success 가 통째로 사라졌던 원인).
+      const by = y;
       const e = this._intro(n), eo = this._outro(n);
       const alpha = numOr(n.style.opacity, 1) * e * eo;
       // 글자 캐스케이드는 내용이 프레임마다 바뀐다(글자별 진행) → 그 구간만 서명에 시간 반영
       const live = FloorGL.LIVE.has(n.type);
       if (n.cascade && n.textContent) {   // 타이틀 = 글자별 레이어 → 캐스케이드가 변환으로만
         const e0 = this._intro(n);
-        out.push(...this._charBlocks('sc', n.textContent, CX, y, n.size, n.ls || 0, n.weight, sans, i => {
+        out.push(...this._charBlocks('sc', n.textContent, CX, by, n.size, n.ls || 0, n.weight, sans, i => {
           const e = eOut(clamp01((t - (0.10 + i * 0.045)) / 0.6));
           return { alpha: (t < 2.2 ? e : 1) * numOr(n.style.opacity, 1) * e0,
                    scale: t < 2.2 ? 0.82 + 0.18 * e : 1 };
@@ -375,11 +404,11 @@ export class FloorGL {
           : clamp01((t - n.delay) / n.dur);
         const bx = CX - 300, bw = 600;
         const mo = { alpha: numOr(n.style.opacity, 1) * this._intro(n) };
-        out.push({ name: n.id + 'bg', x: bx, w: bw, y, h, pad: 10, sig: 'dg',
-          draw: (g) => { for (let i = 0; i < 10; i++) { g.fillStyle = NEU.lo; this._pill(bx + i * 60, y, 60, 60); } },
+        out.push({ name: n.id + 'bg', x: bx, w: bw, y: by, h, pad: 10, sig: 'dg',
+          draw: (g) => { for (let i = 0; i < 10; i++) { g.fillStyle = NEU.lo; this._pill(bx + i * 60, by, 60, 60); } },
           motion: mo });
-        out.push({ name: n.id + 'fg', x: bx, w: bw, y, h, pad: 10, sig: 'dr', order: 5,
-          draw: (g) => { for (let i = 0; i < 10; i++) { g.fillStyle = PAL.red; this._pill(bx + i * 60, y, 60, 60); } },
+        out.push({ name: n.id + 'fg', x: bx, w: bw, y: by, h, pad: 10, sig: 'dr', order: 5,
+          draw: (g) => { for (let i = 0; i < 10; i++) { g.fillStyle = PAL.red; this._pill(bx + i * 60, by, 60, 60); } },
           motion: { ...mo, cropX: prog } });
         y += h + sp('s5', 'run') + (n.mb || 0);
         continue;
@@ -388,8 +417,8 @@ export class FloorGL {
       const box = live ? ({ prevRow: [CX - 380, 760], km: [CX - 320, 640],
         trainRow: [CX - 400, 800], liveRow: [CX - 420, 840], succ: [CX - 340, 680] }[n.type]) : null;
       out.push({
-        name: n.id, x: box ? box[0] : 0, w: box ? box[1] : W, y, h, pad: live ? 50 : 120, sig,
-        draw: (g) => { if (n.style.visibility !== 'hidden') this._draw(n, y); },
+        name: n.id, x: box ? box[0] : 0, w: box ? box[1] : W, y: by, h, pad: live ? 50 : 120, sig,
+        draw: (g) => { if (n.style.visibility !== 'hidden') this._draw(n, by); },
         // 제자리 스케일 인(원본 sUpFlat) — 이제 변환이라 60fps
         motion: { alpha, scale: (e < 1 && !n.cascade) ? 0.94 + 0.06 * e : 1 },
       });
@@ -988,14 +1017,10 @@ export class FloorGL {
       g2.addColorStop(0, PAL.red); g2.addColorStop(1, PAL.coral);
       ctx.fillStyle = g2; ctx.fillRect(x, y, S, S); ctx.restore();
     } else {
-      // 내부 글로우 = Figma inset 0 0 52.392px 19.647px rgba(255,255,255,.6) 실값.
-      // 클립 안에서 같은 경로를 굵게 스트로크하면 절반이 안쪽에 남아 inset 이 된다
-      // (구 blur(26px)·투명도 .45 근사는 값도 다르고 흐릿해 사라져 보였다 — 유저 지적).
+      // 내부 글로우 = Figma inset 0 0 52.392px 19.647px rgba(255,255,255,.6) 실값
       ctx.save();
       this._roundRectPath(x, y, S, S, R); ctx.clip();
-      ctx.shadowColor = rgba(NEU.ink, 0.6); ctx.shadowBlur = 52.392;
-      ctx.strokeStyle = rgba(NEU.ink, 0.6); ctx.lineWidth = 19.647 * 2;
-      this._roundRectPath(x, y, S, S, R); ctx.stroke();
+      insetGlow(ctx, x, y, S, S, R, rgba(NEU.ink, 0.6), 52.392, 19.647);
       ctx.restore();
     }
     ctx.restore();

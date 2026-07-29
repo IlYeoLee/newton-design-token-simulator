@@ -2301,6 +2301,9 @@ void main(){
           // uReady=0 = 아직 실제 프레임이 없다. 이때 그리면 빈 텍스처가 크로마키를 통과해
           //   판이 통째로 검은 사각형/붉은 판으로 보인다(유저 스샷). 아예 안 그린다.
           float alpha = mEro * 0.95 * uReady;   // 하단 페더 제거(유저) — 발끝까지 또렷하게
+          // 빛이 없으면 알파도 0 — 프리멀티(One / OneMinusSrcAlpha)에서 col=0·alpha=1 은 순수 검정이다.
+          //   크로마가 흔들리는 프레임에서 판이 통째로 검은 사각형으로 찍히던 근본(유저 3회 신고).
+          alpha *= smoothstep(0.0, 0.02, max(col.r, max(col.g, col.b)));
           gl_FragColor = vec4(col, alpha);
         }`,
     });
@@ -3070,6 +3073,8 @@ void main(){
   if (lum < 0.004) discard;   // ponytail 최적화: 빈 픽셀(캔버스 대부분) 블렌딩 탈락
   float aInk = smoothstep(0.20, 0.65, lum) * 0.68;   // 벽 HUD = 빛 투과 잉크 (풀 불투명은 '합성한 느낌' 기각)
   col = mix(col / 12.92, pow((col + 0.055) / 1.055, vec3(2.4)), step(0.04045, col));
+  // 빛이 없으면 알파도 0 (프리멀티에서 검정 판 방지)
+  aInk *= smoothstep(0.0, 0.02, max(col.r, max(col.g, col.b)));
   gl_FragColor = vec4(col, aInk);
 }`,
       transparent: true, depthWrite: false,
@@ -3189,6 +3194,8 @@ void main(){
   float lumG = max(col.r, max(col.g, col.b));
   float aInk = smoothstep(0.16, 0.60, lumG) * 0.72;   // 배경 그리드 투과 완화 (유저: 너무 투명)
   // 감마 변환 제거 — 리니어화가 주황 칩(FE6E3C·FEC389)의 G/B를 죽여 레드로 표류시킴
+  // 빛이 없으면 알파도 0 (프리멀티에서 검정 판 방지)
+  aInk *= smoothstep(0.0, 0.02, max(col.r, max(col.g, col.b)));
   gl_FragColor = vec4(col, aInk);
 }`,
       transparent: true, depthWrite: false,
