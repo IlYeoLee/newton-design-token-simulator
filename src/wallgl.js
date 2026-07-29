@@ -616,6 +616,11 @@ export class WallGL {
     const ue = eOut(intro(t, .58, .6));
     ctx.save();
     ctx.globalAlpha *= ue; ctx.translate(0, 48 * (1 - ue));
+    // 좌우가 같은 단위('Jabs / Jabs')뿐이라 어느 쪽이 목표고 어느 쪽이 내 기록인지 안 읽혔다(유저:
+    //   "왼쪽은 권장 횟수 또는 상대방이 한 00인데 그게 암시가 안 돼"). 수치 위에 주체를 박는다.
+    //   오른쪽 아바타엔 'You' 배지가 이미 있으니 왼쪽만 새로 다는 게 아니라 짝을 맞춰 둘 다 단다.
+    txt(ctx, 'COACH · 목표', 100, 1078, 44, 700, 'rgba(255,255,255,.72)', { ls: 2 });
+    txt(ctx, 'YOU · 내 기록', 2500, 1078, 44, 700, 'rgba(255,255,255,.72)', { ls: 2, align: 'right' });
     txt(ctx, S.coach.unit, 100, 1368, 64, 400, '#fff', { ls: -2.56 });
     txt(ctx, S.you.unit, 2500, 1368, 64, 400, '#fff', { ls: -2.56, align: 'right' });
     ctx.restore();
@@ -631,14 +636,15 @@ export class WallGL {
     // 자막 체류 시간. 전엔 하한이 1.1초라 큐를 stage dur 안에 전부 욱여넣었고,
     // 실측 A2(dur 4.6 · 큐 5개) 기준 1.1초/개 — 등장 페이드 0.5초를 빼면 읽을 시간이
     // 0.6초뿐이었다(유저: "타이밍이 너무 빨라"). 다 못 보여줘도 읽히는 쪽이 낫다.
-    //   학습(읽는 자막) 2.6초 · 실전(박자 신호) 1.6초.
-    const every = Math.max(isLive ? 1.6 : 2.6, dur / (seq.length + 0.5));
+    //   실전이라고 빨리 지나가야 할 이유가 없다 — 전 구간 2.6초.
+    const every = Math.max(2.6, dur / (seq.length + 0.5));
     const swapT = seq.length > 1 ? t - Math.floor(t / every) * every : t;
     const say = seq[seq.length > 1 ? Math.floor(t / every) % seq.length : 0];
     const ce = eOut(intro(t, .68, .8));
 
-    if (!isLive) {
-      // 학습(A·B)은 그대로 — 여긴 읽을 시간이 있고 자막이 설명을 한다.
+    // 자막은 학습·실전 한 컴포넌트로 통일 — 실전만 큰 글자로 빼는 '순간 큐'는 폐기(유저:
+    // "별도 컴포넌트 자체를 쓰지 말고 이전 자막 UI로 해결"). 위치도 대지 하단 고정.
+    {
       const cs = eOut(clamp01(swapT / .5));
       ctx.save();
       ctx.globalAlpha *= ce * kf(cs, [[0, 0], [.6, 1], [1, 1]]);
@@ -646,41 +652,13 @@ export class WallGL {
       ctx.font = F(400, 56);
       const sw = Math.min(1600, ctx.measureText(say).width + 64), sh = 56 * 1.2 + 48;
       const sk = kf(cs, [[0, .9], [.6, 1.06], [1, 1]]);
-      const cueY = H - sh - 40;
+      const cueY = H - sh - 40;   // 고정 — 글자 길이가 바뀌어도 중심·높이는 그대로
       ctx.translate(CX, cueY + sh / 2); ctx.scale(sk, sk); ctx.translate(-CX, -(cueY + sh / 2));
       rrFill(ctx, CX - sw / 2, cueY, sw, sh, 9999, '#fff');
       txt(ctx, say, CX, cueY + sh / 2, 56, 400, '#000', { ls: -2.24, align: 'center', base: 'middle' });
       ctx.restore();
-    } else {
-      // 실전: 알약 자막 폐기 → '순간 큐'. 한 단어를 크게, 주기의 앞 40%만 번쩍이고 사라진다.
-      // 읽으라는 게 아니라 박자를 때리는 신호다. 나머지 60%는 비어 코치가 온전히 보인다.
-      const p = clamp01(swapT / every);
-      const a = clamp01(p / .10) * (1 - clamp01((p - .26) / .14));
-      if (a > .01) {
-        // 맨 글자만 두니 컴포넌트로 안 읽혔다(유저). 룩 토큰을 입힌다 —
-        // 글자는 흰색(투사면 가독 우선)이고, 그 아래 팔레트 램프 악센트 룰이 글자 폭만큼
-        // 좌→우로 그어진다. 램프는 막대(growBar)·배지와 같은 red→coral→sand→prism.
-        const rise = clamp01(p / .10);
-        ctx.save();
-        ctx.globalAlpha *= ce * a;
-        const k = 1.0 + .22 * (1 - rise);
-        ctx.translate(CX, 1300); ctx.scale(k, k); ctx.translate(-CX, -1300);
-        const word = say.replace(/[…]+$/, '').toUpperCase();
-        ctx.font = F(700, 132); ctx.letterSpacing = '-5.3px';
-        const wwid = ctx.measureText(word).width; ctx.letterSpacing = '0px';
-        ctx.shadowColor = rgba(PAL.sand, .55); ctx.shadowBlur = 48;
-        txt(ctx, word, CX, 1300, 132, 700, '#fff', { ls: -5.3, align: 'center', base: 'middle' });
-        ctx.shadowBlur = 0;
-        const rw = wwid * eOut(rise), ry2 = 1300 + 132 * 0.52;
-        if (rw > 2) {
-          const rg = ctx.createLinearGradient(CX - wwid / 2, 0, CX + wwid / 2, 0);
-          rg.addColorStop(0, PAL.red); rg.addColorStop(.55, PAL.coral);
-          rg.addColorStop(.85, PAL.sand); rg.addColorStop(1, PAL.prism);
-          ctx.fillStyle = rg;
-          ctx.beginPath(); ctx.roundRect(CX - wwid / 2, ry2, rw, 8, 4); ctx.fill();
-        }
-        ctx.restore();
-      }
+    }
+    if (isLive) {
       // 콤보 = 배지 → '나' 카운터에 붙는 지속 상태. 하단 중앙을 비우고 내 기록 옆에 세운다.
       // 배수가 오를수록 팔레트 램프로 뜨거워진다(2 red · 3 coral · 4+ sand) — 색이 곧 수치다.
       const cm = /(\d+)/.exec((S.combos || [])[0] || '');

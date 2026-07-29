@@ -610,6 +610,19 @@ export function drawStanceBox(g, W, P, look, t, ENV) {
   } else {
     strokeFlowPath(g, box, t, ENV.arrow.w * s, { color: lut(0.45), closed: true }, ENV);
   }
+  // 유지 진행 = 테두리 자체가 차오른다(P.prog 0..1). 박스 안에 원형 게이지를 따로 놓으면
+  //   형태 언어가 어긋난다(유저: "가드 박스인데 안에 동그란 원이 있으니 어색"). LINE 이 채워지는 게 정본.
+  //   roundRect 는 (x+r, y)에서 시계방향으로 시작 → 상단 중앙부터 차오르게 오프셋을 준다.
+  if (P.prog != null && P.prog > 0.001) {
+    const per = 2 * (bw + bh) - 8 * rr + 2 * Math.PI * rr;
+    g.save();
+    g.setLineDash([per * Math.min(1, P.prog), per]);
+    g.lineDashOffset = -(bw / 2 - rr);
+    g.strokeStyle = lut(0.88); g.lineWidth = LNW * 1.35;
+    g.shadowColor = lut(0.92); g.shadowBlur = GB * 1.3;
+    g.beginPath(); g.roundRect(bx0, by0, bw, bh, rr); g.stroke();
+    g.restore();
+  }
   if (P.feet > 0.05 && ENV.foot) {
     ENV.foot(g, false, C - 16 * P.feet * s, C + 6 * s, 26 * P.feet * s);
     ENV.foot(g, true, C + 16 * P.feet * s, C + 6 * s, 26 * P.feet * s);

@@ -1141,9 +1141,11 @@ export class Session {
     this.bxTap1 = wallTap();   // 미부착 — HUD CTA 전담
 
     // B1 가드 유지 — 얼굴+주먹 가드 박스 + 홀드 링(채움)
+    // B1 가드 유지 — 가드 '박스' 안에 동그란 링이 따로 돌던 건 형태가 어긋난다(유저).
+    //   유지 진행은 박스 테두리 자체가 시계방향으로 차오르는 것으로 읽힌다(LINE 이 채워지는 언어).
     g = this._mk('BX_B1');
-    g.add(guardBox(0, 1.62, 0.42, 0.36, BRAND.red, 0.8));
-    this.bxHold = wallArc(0, 1.62, 0.17, 0.20, BRAND.sand, Math.PI/2, 0.001, 0); g.add(this.bxHold);
+    this.bxGuard = guardBox(0, 1.62, 0.42, 0.36, BRAND.red, 1);
+    g.add(this.bxGuard);
 
     // B2 회피 슬립 — '위협이 한쪽에서 조여오고 반대쪽이 안전해진다'는 리듬으로 배운다(유저).
     //   좌우 존을 번갈아 점멸만 시키면 회피가 아니라 그냥 깜빡임이라 배울 게 없었다.
@@ -1169,9 +1171,11 @@ export class Session {
     this.bxB3jab._prim.P = { width: 2.0 };   // 벽 투사용으로 진하게
     this.bxB3jab._prim.pts = [[-0.55, 0.5], [0, -0.18], [0.55, 0.5]];   // 잽 스윕 아크
     g.add(this.bxB3jab);
-    this.bxB3ring = wallRing(TX, TY, 0.14, 0.16, BRAND.red, 0.8); g.add(this.bxB3ring);
-    this.bxB3cd = wallRing(TX, TY, 0.14, 0.16, BRAND.prism, 0); g.add(this.bxB3cd);
-    this.bxB3cd.material.uniforms.uContract.value = 1;   // 수축 링 규약 — B2 슬립·C3 콤보와 같은 물건
+    // 타겟 = 수축 링 정본 하나(fx-core drawApproachRing). 타겟 존·수축·잠금 핑이 이 토큰 안에
+    //   다 들어 있다 — 링을 두 개 겹쳐 흉내 내던 걸 걷어냈다(유저: "우리 수축링 하나 아냐?").
+    this.bxB3ap = primPanel('approachRing', 0.62, true);
+    this.bxB3ap.position.set(TX, TY, WZ + 0.002);
+    g.add(this.bxB3ap);
 
     this._mk('BX_T2');
 
@@ -1182,28 +1186,21 @@ export class Session {
     //   벽 다섯 곳에 타겟을 세워 두고 비트마다 한 곳만 살린다. 언어는 B3·C3 와 같은 수축 링.
     g = this._mk('BX_C2');
     this.bxC2 = [[-0.44, 1.74], [0.00, 1.82], [0.42, 1.72], [-0.30, 1.46], [0.32, 1.44]].map(([x, y]) => {
-      const zone = wallRing(x, y, 0.105, 0.125, BRAND.red, 0);
-      const cd = wallRing(x, y, 0.105, 0.125, BRAND.prism, 0);
-      cd.material.uniforms.uContract.value = 1;
-      g.add(zone); g.add(cd);
-      return { zone, cd };
+      const ap = primPanel('approachRing', 0.52, true);   // 수축 링 정본 — B3·A3 와 같은 토큰
+      ap.position.set(x, y, WZ + 0.002);
+      ap.material.opacity = 0;
+      g.add(ap);
+      return { ap };
     });
-    g = this._mk('BX_C3');   // 라이브 콤비 — 잽·잽·훅 3연타 링 셋이 곧 컴포넌트다(유저:
-    //   "3개 연달아 있는 컴포넌트만 있으면 되지 않아?"). 펀치 라인 패널은 같은 정보의 중복이라 철회.
-    // 잽·잽·훅 = 타격 셋. 하나마다 타겟 존 + 수축 링 한 쌍(B3 잽과 같은 규약).
-    //   잽 둘은 정면 얼굴 라인에 거의 겹쳐 꽂히고(빠르게 둘), 훅은 옆으로 벌어져 낮게 들어간다.
-    //   빠른 둘 → 느린 하나 = 실제 콤비 리듬. 링 크기도 훅이 크다(체중이 실린 타격).
-    this.bxC3hits = [
-      { x: -0.05, y: 1.70, r: 0.115, at: 0.52, lead: 0.46, lbl: '잽' },
-      { x:  0.03, y: 1.73, r: 0.115, at: 0.90, lead: 0.34, lbl: '잽' },
-      { x:  0.30, y: 1.58, r: 0.150, at: 1.58, lead: 0.62, lbl: '훅' },
-    ].map(h => {
-      const zone = wallRing(h.x, h.y, h.r * 0.86, h.r, BRAND.red, 0.2);        // 타겟 존
-      const cd = wallRing(h.x, h.y, h.r * 0.86, h.r, BRAND.prism, 0);          // 수축 링
-      cd.material.uniforms.uContract.value = 1;
-      g.add(zone); g.add(cd);
-      return { ...h, zone, cd };
-    });
+    // C3 콤비네이션 = 펀치 라인 정본(fx-core drawPunchLine — 노드 MARK 링 + LINE 연결 + 순서 숫자).
+    //   유저 지시: 잽·잽·훅은 '연달아 있는 컴포넌트' 하나로 표현한다. 링을 따로 세우면
+    //   같은 정보가 두 벌이 되고, 우리 수축 링 디자인은 하나여야 한다.
+    //   노드 좌표(캔버스 256 기준) = 잽 둘은 얼굴 라인에 겹치듯, 훅은 옆·아래로 벌어지게.
+    g = this._mk('BX_C3');
+    this.bxCombo = primPanel('punchLine', 1.05, true);
+    this.bxCombo.position.set(0, 1.60, WZ + 0.002);
+    this.bxCombo._prim.pts = [[92, 104], [126, 92], [186, 140]];   // 잽 · 잽 · 훅
+    g.add(this.bxCombo);
 
     g = this._mk('BX_C4');
     // '숨 고르기' 3D 텍스트 은퇴 — HUD 코너 아이덴티티가 전담 (EN 미번역 잔재 제거)
@@ -2589,8 +2586,7 @@ export class Session {
       // 가드 유지 — 홀드 링 3초 채움 × 게이트(3회)
       const HOLD = 3, rep = Math.floor(this.t / (HOLD + 0.5));
       const lt = this.t - rep * (HOLD + 0.5), p = Math.min(1, lt / HOLD);
-      this.bxHold.setProg(p);   // MARK Hold 코닉 림 = 가드 유지 진행 (지오메트리 재조립 은퇴)
-      this.bxHold.setOp(0.95);
+      this.bxGuard._prim.P = { feet: 0, round: 0.5, prog: p };   // 테두리가 차오른다 = 유지 진행
       const done = Math.min(3, rep + (p >= 1 ? 1 : 0));
       FMU(`가드 유지 ${done} / 3 ✓`, done >= 3 ? CS.prism : CS.sand);
       this._gate = done;
@@ -2626,12 +2622,7 @@ export class Session {
       this.bxB3jab._prim.prog = Math.min(1, ph / 0.78);   // 잽 궤적 스윕 — 타격 시점에 도착
       // 타겟 = 수축 링 규약(B2 슬립·C3 콤보와 동일): 바깥에서 조여들다 도착(0.78) 순간
       //   팽창하며 터진다 = "빡". 전엔 1.9→1.0 으로 줄기만 하고 임팩트가 없어 그냥 페이드였다(유저).
-      const LAND = 0.78, e3 = Math.pow(clamp01(ph / LAND), 1.6), k3 = clamp01((ph - LAND) / (1 - LAND));
-      this.bxB3cd.scale.setScalar(k3 > 0 ? 1 + 1.9 * k3 : 2.3 - 1.3 * e3);
-      this.bxB3cd.setOp(k3 > 0 ? (1 - k3) * 0.95 : 0.22 + 0.72 * e3);
-      const hit3 = k3 > 0 && k3 < 1 ? 1 - k3 : 0;
-      this.bxB3ring.scale.setScalar(1 + 0.22 * hit3);
-      this.bxB3ring.setOp(0.14 + 0.34 * e3 + 0.5 * hit3);
+      this.bxB3ap._prim.prog = clamp01(ph / 0.78);   // 수축 정본이 prog 하나로 접근·잠금·핑을 다 한다
       const hits = Math.min(6, Math.floor(this.t / BT));
       FMU(`스윕 따라 잽 ${hits} / 6`, hits >= 6 ? CS.prism : CS.dim);
       if (this.t >= 6 * BT + 0.4) { this._gateAdvance(); return; }
@@ -2651,38 +2642,25 @@ export class Session {
           this._c2rep = rep;
         }
         const on = this._c2on ?? 0;
-        const LAND = 0.72, e = Math.pow(clamp01(ph / LAND), 1.6), k = clamp01((ph - LAND) / (1 - LAND));
+        const LAND = 0.72, k = clamp01((ph - LAND) / (1 - LAND));
         for (let i = 0; i < N; i++) {
           const T = this.bxC2[i];
-          if (i !== on) { T.cd.setOp(0); T.zone.setOp(0.06); continue; }   // 쉬는 타겟도 자리는 희미하게 남긴다
-          T.cd.scale.setScalar(k > 0 ? 1 + 1.9 * k : 2.3 - 1.3 * e);
-          T.cd.setOp(k > 0 ? (1 - k) * 0.95 : 0.22 + 0.72 * e);
-          const hit = k > 0 && k < 1 ? 1 - k : 0;
-          T.zone.scale.setScalar(1 + 0.22 * hit);
-          T.zone.setOp(0.16 + 0.34 * e + 0.5 * hit);
+          T.ap.material.opacity = i === on ? 1 : 0.10;    // 쉬는 자리도 희미하게 — '어디서 뜰 수 있는지'
+          T.ap._prim.prog = i === on ? clamp01(ph / LAND) : 0;
         }
         FMU(`잽 ${Math.min(9, rep + 1)} — 뜨는 곳으로`, k > 0.2 ? CS.prism : CS.coral);
       }
-      if (id === 'BX_C3' && this.bxC3hits) {
-        // 콤보 = 잽·잽·훅. 각 타격마다 수축 링이 타겟으로 조여들고, 도착(at) 순간 팽창하며
-        // 터진다 = "빡". 빠른 둘(0.52·0.90) → 벌어진 하나(1.58) 라 리듬이 귀로 들리듯 보인다.
-        const CY = 2.4, tc = this.t % CY;
-        let live = 0;
-        for (let i = 0; i < this.bxC3hits.length; i++) {
-          const h = this.bxC3hits[i];
-          const p = clamp01((tc - (h.at - h.lead)) / h.lead), e = Math.pow(p, 1.6);
-          const k = clamp01((tc - h.at) / 0.26);            // 임팩트 잔상(0.26s)
-          if (p > 0 && k <= 0) live = i + 1;
-          // 수축 링 — 바깥에서 타겟까지. 도착하면 그 자리에서 팽창·소멸(핑).
-          h.cd.scale.setScalar(k > 0 ? 1 + 1.9 * k : 2.3 - 1.3 * e);
-          h.cd.setOp(k > 0 ? (1 - k) * 0.95 : 0.22 + 0.72 * e);
-          // 타겟 존 — 접근할수록 차오르고, 맞는 순간 한 번 부풀었다 가라앉는다.
-          const hit = k > 0 && k < 1 ? 1 - k : 0;
-          h.zone.scale.setScalar(1 + 0.22 * hit);
-          h.zone.setOp(0.14 + 0.34 * e + 0.5 * hit);
-        }
-        FMU(live ? `${this.bxC3hits[live - 1].lbl} ${live} / 3` : '잽 · 잽 · 훅',
-          live === 3 ? CS.prism : CS.coral);
+      if (id === 'BX_C3' && this.bxCombo) {
+        // 콤보 = 잽·잽·훅. 펀치 라인이 노드를 순서대로 이어 그리고, 마지막 노드에서 한 박 쉰다.
+        //   빠른 둘 → 벌어진 하나 리듬은 prog 곡선으로 만든다(0.52·0.90·1.58s / 사이클 2.4s).
+        const CY = 2.4, tc = this.t % CY, AT = [0.52, 0.90, 1.58];
+        let seg = 0;                                   // 지나온 노드 수(0..2) + 구간 진행
+        for (let i = 0; i < AT.length; i++) if (tc >= AT[i]) seg = i + 1;
+        const prev = seg === 0 ? 0 : AT[seg - 1], next = AT[Math.min(seg, AT.length - 1)];
+        const f = seg >= AT.length ? 1 : clamp01((tc - prev) / Math.max(0.01, next - prev));
+        this.bxCombo._prim.prog = clamp01(((seg === 0 ? 0 : seg - 1) + (seg >= AT.length ? 1 : f)) / (AT.length - 1) / 1.25);
+        const LBL = ['잽', '잽', '훅'];
+        FMU(seg ? `${LBL[seg - 1]} ${seg} / 3` : '잽 · 잽 · 훅', seg === 3 ? CS.prism : CS.coral);
       }
       if (this.t >= st.dur) { this.next(); return; }
     } else if (id === 'BX_C4') {
