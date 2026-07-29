@@ -144,7 +144,7 @@
       <span id="candPick" style="font-size:10.5px;color:var(--dim)"></span>
     </div>
     <div class="ctl" id="candToggles" style="justify-content:flex-start;margin:0 0 10px;flex-wrap:wrap;gap:6px"></div>
-    <div class="sliders" id="candSliders" style="grid-template-columns:repeat(6,minmax(120px,1fr));margin:0 0 14px"></div>
+    <div class="sliders" id="candSliders" style="grid-template-columns:repeat(7,minmax(110px,1fr));margin:0 0 14px"></div>
     <div style="margin:0 0 10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
       <b style="font-size:13px;letter-spacing:.06em;color:var(--ink)">선택 후보 — 7상태 한눈에</b>
       <span id="candStripName" style="font-size:12px;color:var(--sand);font-weight:700"></span>
@@ -544,7 +544,7 @@ float markShapeSD(vec2 p, float base);
 const CAND_PRELUDE = `
 uniform float uDotPitch, uDotGain, uDotSpeed, uInner;
 uniform float uMono, uFlat, uNoInner, uBg, uProgOvr;
-uniform float uInnerMode, uActMode, uComp, uHarm, uQ0;
+uniform float uInnerMode, uActMode, uComp, uHarm, uQ0, uSatR;
 float chash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 // 하프톤 한 셀: 반지름을 amount(0~1)가 정한다 → 밝을수록 굵은 점 (레퍼런스의 발바닥 밀도)
 float halftone(vec2 p, float pitch, float amount, float soft){
@@ -575,7 +575,7 @@ vec3 stateFill(float st, float q, float pg){
   return mix(C_GRAYF, C_GRAYL, q);                                       // Locked — 식은 재
 }
 // 아웃라인 없는 닷 폼 본체(⑩) — w 는 그 픽셀의 '켜짐 정도'. Hold 후보들이 w 만 바꿔 쓴다.
-vec4 dotFormAt(vec2 grid, vec2 uv, float sd, float ext, float w, float pitch, float st, float pg){
+vec4 dotFormQ(vec2 grid, vec2 uv, float sd, float ext, float w, float pitch, float st, float pg, float qOvr){
   float band = 0.16 * max(uInner, 0.05);
   float amt  = smoothstep(band, -band, sd) * clamp(w, 0.0, 2.0);
   // ★ 아웃라인이 없어도 이너 음영은 된다 — 선이 아니라 '점 크기'가 음영을 지면 되기 때문.
@@ -589,13 +589,19 @@ vec4 dotFormAt(vec2 grid, vec2 uv, float sd, float ext, float w, float pitch, fl
   //   0.30 이면 fillActive 의 RED→CORAL 구간(0~0.479)을 거의 건너뛰어 뉴턴 레드가 안 보인다
   //   (유저: Active 그라디언트에도 메인 레드를 넣어달라). 정본이 0.3x 로 띄운 건 '중심 핫스팟이
   //   또렷하다'는 지적 때문인데, 점으로 그리면 하프톤이 그 원을 이미 부수므로 띄울 이유가 없다.
-  float q    = clamp(uQ0 + (1.0 - uQ0) * length(uv) / max(ext * 1.55, 1e-3), 0.0, 1.0);
+  float q    = qOvr >= 0.0 ? qOvr
+             : clamp(uQ0 + (1.0 - uQ0) * length(uv) / max(ext * 1.55, 1e-3), 0.0, 1.0);
   float m    = halftone(grid, pitch, amt * uDotGain, pitch * 0.16);
   vec4 B = vec4(0.0);
   lay(B, stateFill(st, q, pg), m * clamp(amt * 1.25, 0.0, 1.0));
   return B;
 }
-vec4 dotForm(vec2 uv, float sd, float ext, float w, float pitch, float st, float pg){ return dotFormAt(uv, uv, sd, ext, w, pitch, st, pg); }
+vec4 dotFormAt(vec2 grid, vec2 uv, float sd, float ext, float w, float pitch, float st, float pg){
+  return dotFormQ(grid, uv, sd, ext, w, pitch, st, pg, -1.0);
+}
+vec4 dotForm(vec2 uv, float sd, float ext, float w, float pitch, float st, float pg){
+  return dotFormQ(uv, uv, sd, ext, w, pitch, st, pg, -1.0);
+}
 `;
 const CAND_SHAPE_DEFAULT = 'float markShapeSD(vec2 p, float base){ return base; }';
 const CAND_SIG = 'vec4 markCandidate(vec4 A, vec2 uv, float sd, float inside, float ext, float state, float prog, float t)';
@@ -623,70 +629,69 @@ const CANDIDATES = [
   float w     = 1.0;
   vec2  disp  = vec2(0.0);
   float sp    = uDotSpeed;
+  float holdQ = -1.0;                                   // 색좌표 오버라이드(Hold 전용)
   vec2  dir   = length(uv) > 1e-4 ? uv / length(uv) : vec2(0.0);
 
   if (state < 0.5) {
     // ── Preview · 얕고 느린 호흡. 전체가 함께 부풀었다 꺼진다. 재촉하지 않는다.
-    float br = 0.5 + 0.5 * sin(t * 0.8 * sp);
-    w = 0.62 + 0.22 * br + 0.10 * (1.0 - r);
-  } else if (state < 1.5) {
-    // ── Active · 중심에서 바깥으로 번지는 맥동. '밟으라고 부르는' 신호라 발산이다.
-    //   수렴은 압박·카운트다운의 문법이라 Hold 의 몫 — 여기 쓰면 두 상태가 겹친다(유저 지적).
-    //   타이밍은 방향이 아니라 '주기'가 말한다: 때가 다가올수록 맥동이 빨라진다.
-    //   ★ 점을 밀지 않는다. 변위를 주면 점이 격자에서 벗어나 '꿈틀거린다'(유저 지적) —
-    //     Active 는 확신에 찬 상태라 흔들리면 안 된다. 자리는 고정, 밝기만 숨 쉰다.
-    // ★ 주파수를 prog 로 바꾸면 안 된다. fract(t · rate) 에서 rate 가 변하면 위상이
-    //   통째로 다시 계산돼 순간마다 튄다 — 유저가 본 '몇 초 간격으로 꿈틀거림'이 이것이다.
-    //   (프래그먼트 셰이더는 위상을 누적할 수 없어 주파수 변조는 항상 이 사고를 낸다)
-    //   주기는 고정하고, 다가옴은 '세기'로 말한다.
-    //   화려함은 '점을 흔드는 것'이 아니라 '겹을 쌓는 것'으로 낸다(유저: 더 지속되는 화려함).
-    //   같은 파문을 위상만 어긋나게 3겹 — 굵고 느린 하나 위에 얇고 빠른 둘이 스친다.
-    float b1 = fract(t * 0.62 * sp);
-    float b2 = fract(t * 0.62 * sp + 0.34);
-    float b3 = fract(t * 0.62 * sp + 0.67);
-    float ring = exp(-pow((r - b1 * 1.25) / 0.30, 2.0)) * (1.0 - b1 * 0.60)
-               + exp(-pow((r - b2 * 1.25) / 0.19, 2.0)) * (1.0 - b2 * 0.60) * 0.55
-               + exp(-pow((r - b3 * 1.25) / 0.13, 2.0)) * (1.0 - b3 * 0.60) * 0.34;
+    //   평범한 전체 호흡은 '예고'라기보다 그냥 켜져 있는 상태였다(유저: 평범하고 안 예쁨).
+    //   느리게 도는 소나 — 훑고 지나간 자리에 온기가 남았다 식는다. 기다리며 살펴보는 상태.
     float ang   = atan(uv.y, uv.x);
-    float sweep = 0.5 + 0.5 * sin(ang - t * 1.05 * sp);   // 느리게 도는 밝은 부채
-    float br    = 0.5 + 0.5 * sin(t * 2.1 * sp + seed);   // 점마다 얕은 숨(자리는 그대로)
-    ring *= 0.72 + 0.55 * prog;                       // 때가 다가올수록 파문이 진해진다
-    if (uActMode > 0.5) {
-      // 굴절 파문 모드 — 좁은 파면만 점을 민다. 전체 지터(꿈틀거림)와 다른 이유:
-      //   미는 구간이 띠 하나로 한정돼 '무언가 지나간다'로 읽히고, 나머지 점은 제자리에 있다.
-      disp = dir * ring * pitch * 0.80;
-      w = 0.78 + 0.34 * ring + 0.09 * sweep + 0.07 * br + 0.10 * prog;
-    } else {
-      w = 0.74 + 0.40 * ring + 0.10 * sweep + 0.08 * br + 0.12 * prog;   // 겹으로 화려하되 자리는 고정
-    }
+    float scan  = fract(t * 0.16 * sp) * 6.28319;
+    float since = fract((scan - ang) / 6.28319);        // 0 = 방금 훑었다
+    float trail = pow(1.0 - since, 2.2);                // 꼬리는 길고 부드럽게
+    float br    = 0.5 + 0.5 * sin(t * 0.7 * sp);
+    holdQ = mix(0.92, 0.30, trail);                     // 색으로 꼬리를 말한다(밝기 차 최소)
+    w = 0.66 + 0.16 * trail + 0.10 * br + 0.06 * (1.0 - r);
+  } else if (state < 1.5) {
+    // ── Active · 닷 쇼크웨이브(무아웃라인). 고리 하나가 중심에서 바깥으로 달린다(유저 확정).
+    //   실루엣을 마스킹하지 않으므로 테두리가 잘리지 않고, 미는 구간이 띠 하나라
+    //   전체 지터(꿈틀거림)와 달리 '무언가 지나간다'로 읽힌다.
+    //   ★ 주기에 prog 를 곱하지 않는다. fract(t · rate) 에서 rate 가 변하면 위상이 튄다 —
+    //     ⑬ 이 부드러운 이유가 정확히 이것(상수 주기)이고, 여기 prog 를 넣었다가 같은 사고를
+    //     두 번째로 냈다(유저: 1초마다 팍팍 바뀐다). 다가옴은 '세기'로만 말한다.
+    float front = fract(t * 0.42 * sp) * 2.30;
+    float band  = exp(-pow((r - front) / 0.32, 2.0)) * (1.0 - front * 0.22);
+    disp = dir * band * pitch * 0.55;
+    w = 0.70 + (0.85 + 0.35 * prog) * band;
   } else if (state < 2.5) {
     // ── Hold · 진행은 면적(수위), 긴장은 제자리 정상파. 떨림은 아주 얕게만(구 0.13 → 0.05).
+    //   ★ 진행을 '밝기'로 말하면 아직 안 찬 쪽이 사라진다(유저: 사라지는 부분이 있으면 안 된다).
+    //     밝기는 거의 균일하게 두고 '색 온도'로 말한다 — 잠긴 쪽은 뜨겁고 위쪽은 식어 있다.
+    //     점은 전부 그 자리에 남아 있으므로 형태가 한순간도 무너지지 않는다.
     float lvl  = -1.05 + 2.10 * prog;
     float calm = smoothstep(1.0, 0.88, prog);
     float node = sin(uv.x * 8.0) * sin(t * 2.6 * sp) * 0.030 * calm;
     float d    = (lvl + node) - uv.y;
-    float sub  = smoothstep(-0.05, 0.05, d);
-    float skin = exp(-pow(d / 0.055, 2.0));
-    float load = smoothstep(0.35, 1.0, prog) * sub;
-    disp = vec2(sin(t * 14.0 * sp + seed), cos(t * 12.0 * sp + seed)) * pitch * 0.05 * load;
-    w = 0.30 + sub * (0.52 + 0.34 * prog) + skin * 0.85;
+    float hot  = smoothstep(-0.12, 0.10, d);            // 아래 1(뜨겁다) → 위 0(식었다)
+    float skin = exp(-pow(d / 0.055, 2.0));             // 표면 장력 — 경계는 밝기로만 살짝
+    float load = smoothstep(0.35, 1.0, prog) * hot;
+    disp = vec2(sin(t * 14.0 * sp + seed), cos(t * 12.0 * sp + seed)) * pitch * 0.045 * load;
+    holdQ = mix(0.88, 0.04, hot);                       // 색이 진행을 말한다
+    w = 0.80 + 0.14 * hot + skin * 0.42;                // 밝기 차는 최소 = 사라지는 점 없음
   } else if (state < 3.5) {
-    // ── Success · 한 번의 조용한 방출. 흩뿌리지 않는다 — 고르게 번지며 사라진다.
-    //   난수 산란은 '터짐'이라 성취보다 사고처럼 읽혔다(유저: 성공이 특히 과하다).
-    float e = 1.0 - pow(1.0 - prog, 2.0);
-    disp = dir * e * pitch * 1.15;
-    float front = exp(-pow((r - 0.35 - e * 0.95) / 0.24, 2.0));
-    w = (1.0 - e * 0.9) * 0.95 + front * 0.75;
+    // ── Success · 실제 보행의 하중 이동. 뒤꿈치가 닿고 → 중족 → 앞꿈치로 빠진다(유저 제안).
+    //   밟아서 성립한 판정이니 '밟는 동작' 자체가 피드백이 되는 게 가장 정직하다.
+    //   하중이 실린 자리가 가장 뜨겁고, 지나간 뒤는 온기가 남았다 식는다.
+    float e    = 1.0 - pow(1.0 - prog, 1.7);
+    float roll = mix(-0.78, 0.88, e);                    // 하중 중심의 y — 뒤꿈치→앞꿈치
+    float d    = uv.y - roll;
+    float atF  = exp(-pow(d / 0.30, 2.0));               // 지금 하중이 실린 띠
+    float past = smoothstep(0.10, -0.14, d);             // 이미 지나간(뒤) 쪽
+    float fade = 1.0 - smoothstep(0.72, 1.0, prog);      // 다 빠지면 사라진다
+    disp = vec2(0.0, -1.0) * atF * pitch * 0.18;         // 밟힌 자리가 살짝 눌린다
+    holdQ = mix(0.92, 0.03, clamp(atF * 1.15 + past * 0.30, 0.0, 1.0));
+    w = (0.46 + 0.85 * atF + 0.34 * past * (1.0 - e * 0.7)) * fade;
   } else if (state < 4.5) {
     // ── Miss · 위상 붕괴. 격자가 흐트러지며 식어 멈춘다. 흐트러짐은 절제한다(구 1.35 → 0.55).
     //   ★ 피치를 픽셀마다 바꾸면 격자가 깨져 '사각형으로 쪼개지며' 사라진다(유저 지적).
     //     피치는 고정하고, 점마다 사라지는 시각을 달리해 디졸브시킨다 — 흩어져 식는 것처럼 보인다.
     float cool  = smoothstep(0.0, 0.45, prog);
     float th    = chash(cell + 9.1);                       // 점마다 다른 소멸 임계
-    float alive = smoothstep(prog * 1.30, prog * 1.30 - 0.30, th);
+    float alive = smoothstep(prog * 1.05 + 0.18, prog * 1.05 - 0.16, th);
     float drift = smoothstep(0.0, 1.0, prog);
     disp = (dir * 0.6 + (vec2(chash(cell + 1.1), chash(cell + 5.9)) - 0.5) * 0.8) * pitch * 0.30 * drift;
-    w = (0.84 - 0.34 * cool) * alive;
+    w = (0.92 - 0.26 * cool) * max(alive, 0.10);   // 완전히 0 이 되진 않는다 — 식은 재는 남는다
   } else if (state < 5.5) {
     // ── Warning · 빠른 맥동. 계단 명멸(step)은 눈이 아프고 투사에선 깜빡임 결함으로 읽힌다
     //   — 부드러운 고주파 맥동 + 미세 지터로 '불안'만 남긴다.
@@ -698,7 +703,7 @@ const CANDIDATES = [
     pitch = uDotPitch * 1.35;
     w = 0.66;
   }
-  return dotFormAt(uv + disp, uv, sd, ext, w, pitch, state, prog);
+  return dotFormQ(uv + disp, uv, sd, ext, w, pitch, state, prog, holdQ);
 }` },
 
   { id: 'base', name: '정본', why: '지금 시뮬레이터가 쓰는 것 — 비교 기준',
@@ -1170,6 +1175,12 @@ void main(){
   if (uComp < 0.5)      col = bg * (1.0 - r.a) + r.rgb;                        // 잉크(over) — 주간 규약
   else if (uComp < 1.5) col = bg + r.rgb;                                       // 가산 — 야간 규약
   else                  col = bg + r.rgb * mix(vec3(1.0), tint, uHarm);         // 가산 + 표면 반사
+  // ★ 가산은 배경 휘도가 더해져 채도가 떨어진다 — 뉴턴 레드의 쨍함이 죽는다(유저).
+  //   합성 뒤 채도를 되살린다. 실물에서도 풀컬러 빔은 밝은 환경에서 채도를 올려 쏜다.
+  if (uComp > 0.5 && uSatR > 1.001) {
+    float L = dot(col, vec3(0.2126, 0.7152, 0.0722));
+    col = clamp(mix(vec3(L), col, uSatR), 0.0, 1.0);
+  }
   gl_FragColor = vec4(grade(col, gl_FragCoord.xy, uTime), 1.0);
 }`;
     let P = null;
@@ -1205,9 +1216,9 @@ document.getElementById('candNumBtn').textContent = '글리프 얹기: 끔';
 let candGStyle = 0;   // 0 솔리드 · 1 하프톤 · 2 음각
 {
   const b = document.createElement('button'); b.className = 'btn';
-  const LB = ['글리프 방식: 솔리드', '글리프 방식: 하프톤', '글리프 방식: 음각'];
+  const LB = ['글리프 방식: 솔리드', '글리프 방식: 하프톤', '글리프 방식: 음각', '글리프 방식: 음각(하프톤)'];
   b.textContent = LB[0];
-  b.onclick = () => { candGStyle = (candGStyle + 1) % 3; b.textContent = LB[candGStyle];
+  b.onclick = () => { candGStyle = (candGStyle + 1) % 4; b.textContent = LB[candGStyle];
     b.classList.toggle('on', !!candGStyle); };
   document.getElementById('candNumBtn').after(b);
 }
@@ -1243,6 +1254,17 @@ function glyphMask(W, ch, size, ax, ay, locked) {
   }
   return _gOff;
 }
+// 마스크에 점 격자를 곱해(destination-in) 점만 남긴다 — 글리프를 마크와 같은 결로.
+function halftoneMask(mask, W) {
+  const g = mask.getContext('2d');
+  const pitch = Math.max(6, candP.pitch * W * 0.52);
+  g.save(); g.globalCompositeOperation = 'destination-in'; g.fillStyle = '#fff';
+  for (let y = pitch / 2; y < W; y += pitch)
+    for (let x = pitch / 2; x < W; x += pitch) {
+      g.beginPath(); g.arc(x, y, pitch * 0.30, 0, 6.2832); g.fill();
+    }
+  g.restore();
+}
 function stripGlyph(ctx, cat, W) {
   const phase = CAT2PHASE[cat] ?? cat;
   const op = MARK_NUM.opacity(phase);
@@ -1255,29 +1277,24 @@ function stripGlyph(ctx, cat, W) {
     const first = '0123456789'.split('').find(c => state.glyphs && state.glyphs[c]);
     if (first) ch = first;
   }
-  const size = MARK_NUM.RATIO * W * (state.m.radius || 1) * (candGStyle === 2 ? 1.25 : 1);
-  const ax = W / 2, ay = candShape > 0.5 ? footCentroid.y * W : W / 2;
-  const mask = glyphMask(W, ch, size, ax, ay, locked);
+  const size = MARK_NUM.RATIO * W * (state.m.radius || 1) * (candGStyle >= 2 ? 1.25 : 1);
+  // 위치 — 정본 drawMarkNums 와 같은 경로: 유저가 MARK 스테이션에서 잡은 앵커가 최우선.
+  //   없으면 레퍼런스 위치(발은 위쪽 1/3 = 볼 부근, 존 원은 중심).
+  const av = (typeof numFootView === 'function') ? numFootView() : null;
+  const ax = candShape > 0.5 ? (av ? av.x * W : W / 2) : W / 2;
+  const ay = candShape > 0.5 ? (av ? av.y * W : W * 0.34) : W / 2;
+  const mask = glyphMask(W, ch, size * (av && av.s || 1), ax, ay, locked);
 
-  if (candGStyle === 2) {
-    // 음각 — 글리프 모양대로 빛을 뺀다
+  if (candGStyle >= 2) {
+    // 음각 — 글리프 모양대로 빛을 뺀다. 3번은 '빼는 것'까지 점으로(하프톤 음각) —
+    //   파낸 자리가 매끈한 실루엣이 아니라 점의 부재라서, 결이 끝까지 유지된다(유저 요청).
+    if (candGStyle === 3) halftoneMask(mask, W);
     ctx.save(); ctx.globalAlpha = 0.55 + 0.40 * op;
     ctx.globalCompositeOperation = 'destination-out';
     ctx.drawImage(mask, 0, 0);
     ctx.restore(); return;
   }
-  if (candGStyle === 1) {
-    // 하프톤 — 글리프를 점으로. 마스크에 점 격자를 곱해(destination-in) 점만 남긴다.
-    const g = mask.getContext('2d');
-    const pitch = Math.max(6, candP.pitch * W * 0.52);
-    g.save(); g.globalCompositeOperation = 'destination-in';
-    g.fillStyle = '#fff';
-    for (let y = pitch / 2; y < W; y += pitch)
-      for (let x = pitch / 2; x < W; x += pitch) {
-        g.beginPath(); g.arc(x, y, pitch * 0.30, 0, 6.2832); g.fill();
-      }
-    g.restore();
-  }
+  if (candGStyle === 1) halftoneMask(mask, W);
   ctx.save();
   ctx.globalAlpha = op;
   if (!locked) { ctx.shadowColor = 'rgba(254,150,90,.75)'; ctx.shadowBlur = size * 0.18; }
@@ -1287,7 +1304,7 @@ function stripGlyph(ctx, cat, W) {
 
 
 let candSel = 'newtonSet', candShape = 1;
-const candP = { pitch: 0.11, gain: 1.15, speed: 1.0, inner: 0.55, prog: -0.01, harm: 0.6, q0: 0.04 };
+const candP = { pitch: 0.11, gain: 1.15, speed: 1.0, inner: 0.55, prog: -0.01, harm: 0.6, q0: 0.04, satR: 1.45 };
 const candT = { mono: 0, flat: 0, noGlow: 0, noInner: 0, bg: 0, holdRim: 0, innerMode: 0, actMode: 0, comp: 2 };
 {
   const host = document.getElementById('candToggles');
@@ -1335,7 +1352,7 @@ const candT = { mono: 0, flat: 0, noGlow: 0, noInner: 0, bg: 0, holdRim: 0, inne
 {
   const host = document.getElementById('candSliders');
   const defs = [['pitch', '닷 피치', 0.03, 0.30, 0.005], ['gain', '닷 굵기', 0.2, 2.0, 0.05],
-                ['speed', '모션 속도', 0, 3, 0.05], ['inner', '이너 폭', 0.05, 1.5, 0.05], ['harm', '배경 조화', 0, 1, 0.05], ['q0', '열 시작점', 0, 0.5, 0.01]];
+                ['speed', '모션 속도', 0, 3, 0.05], ['inner', '이너 폭', 0.05, 1.5, 0.05], ['harm', '배경 조화', 0, 1, 0.05], ['q0', '열 시작점', 0, 0.5, 0.01], ['satR', '채도 복원', 1, 2.2, 0.05]];
   for (const [k, lb, mn, mx, st] of defs) {
     const w = document.createElement('label');
     w.innerHTML = `<span>${lb}</span><input type="range" min="${mn}" max="${mx}" step="${st}" value="${candP[k]}"><output>${candP[k]}</output>`;
@@ -2088,6 +2105,7 @@ function frame(ts) {
       g2.uniform1f(P.u('uComp'), candT.comp);
       g2.uniform1f(P.u('uHarm'), candP.harm);
       g2.uniform1f(P.u('uQ0'), candP.q0);
+      g2.uniform1f(P.u('uSatR'), candP.satR);
       g2.drawArrays(g2.TRIANGLES, 0, 3);
       ctx2d.drawImage(candGL.cv, 0, 0);   // 공유 컨텍스트 → 이 셀로 복사
     }
@@ -2123,6 +2141,7 @@ function frame(ts) {
       g3.uniform1f(P.u('uComp'), candT.comp);
       g3.uniform1f(P.u('uHarm'), candP.harm);
       g3.uniform1f(P.u('uQ0'), candP.q0);
+      g3.uniform1f(P.u('uSatR'), candP.satR);
       for (const cell of stripCells) {
         g3.uniform1f(P.u('uState'), cell.state);
         g3.drawArrays(g3.TRIANGLES, 0, 3);
