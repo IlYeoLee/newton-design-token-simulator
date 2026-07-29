@@ -670,8 +670,11 @@ const CANDIDATES = [
   //   점 크기는 균일하다(레퍼런스도 그렇다). 크기로 형태를 만들지 않으므로 흔들리지 않는다.
   { id: 'gradMask', name: '★ 그라디언트 + 하프톤 마스크', why: '정본의 OKLab 그라디언트를 그대로 두고 균일한 점으로 뚫는다. 색감은 정본, 결은 하프톤 — 재현이 아니라 이식이다.',
     glsl: `${CAND_SIG} {
-  float m = halftone(uv, uDotPitch, clamp(0.60 * uDotGain, 0.0, 1.0), uDotPitch * 0.11);
-  float k = mix(0.05, 1.0, m);          // 점 사이는 거의 비운다(0 이면 경계가 딱딱해진다)
+  // ★ 균일 마스크를 그냥 곱하면 A 의 하드 경계에서 점이 '잘려' 아웃라인이 생긴다(유저 지적).
+  //   ⑪ 흩날림이 아웃라인 없는 이유는 경계 전에 점이 작아져 사라지기 때문 — 같은 원리를 쓴다.
+  float edge = smoothstep(0.16 * max(uInner, 0.05), -0.02, sd);   // 경계 안쪽에서 서서히 1
+  float m = halftone(uv, uDotPitch, clamp(0.60 * uDotGain, 0.0, 1.0) * edge, uDotPitch * 0.11);
+  float k = mix(0.04, 1.0, m);
   A.rgb *= k; A.a *= k;
   return A;
 }` },
@@ -783,8 +786,9 @@ const CANDIDATES = [
   // ★ 상태 파형을 '점 크기'가 아니라 '정본 그라디언트의 밝기'에 싣는다.
   //   점 크기로 상태를 표현하면 크기가 제각각이 되어 촌스럽다(유저 지적, 특히 존 원).
   //   색·그라디언트는 정본 A 그대로, 결은 균일한 하프톤 마스크, 움직임은 밝기와 격자 이동.
-  float m = halftone(uv + disp, uDotPitch, clamp(0.60 * uDotGain, 0.0, 1.0), uDotPitch * 0.11);
-  float k = mix(0.05, 1.0, m);
+  float edge = smoothstep(0.16 * max(uInner, 0.05), -0.02, sd);   // 경계 전에 점이 작아져 사라진다(아웃라인 0)
+  float m = halftone(uv + disp, uDotPitch, clamp(0.60 * uDotGain, 0.0, 1.0) * edge, uDotPitch * 0.11);
+  float k = mix(0.04, 1.0, m);
   if (holdQ >= 0.0) {                      // Hold·Preview 는 색좌표를 따로 쓴다 → 그 색으로 갈아끼운다
     float lum0 = max(A.r, max(A.g, A.b));
     A.rgb = stateFill(state, holdQ, prog) * lum0;
