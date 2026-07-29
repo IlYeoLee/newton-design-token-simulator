@@ -53,6 +53,45 @@ function gradV(ctx, y0, y1, stops) {
   for (const [p, c] of stops) g.addColorStop(clamp01(p), c);
   return g;
 }
+/** 오도미터 롤 — 숫자가 툭 바뀌는 대신 자릿수 휠이 굴러 올라간다(유저: "촤라락 넘어가게").
+ *  자리마다 휠 위치 = cur/10^i 라, 1의 자리는 계속 돌고 10의 자리는 자리올림 순간에만 돈다
+ *  — 실제 계수기와 같은 움직임이다. 소수점은 고정 글리프로 끼운다.
+ *  숫자가 아니면(— 같은 기호) 그대로 그린다. */
+function rollNum(ctx, target, t, delay, cd, x, y, size, o = {}) {
+  const m = String(target).match(/^(\d+(?:\.\d+)?)$/);
+  if (!m) { txt(ctx, String(target), x, y, size, 700, '#fff', o); return; }
+  const dec = (m[1].split('.')[1] || '').length, P = Math.pow(10, dec);
+  const cur = parseFloat(m[1]) * P * eOut(clamp01((t - delay) / cd));
+  const cols = String(Math.round(parseFloat(m[1]) * P)).length;
+  ctx.save();
+  ctx.font = F(700, size, o.fam || dot9);
+  ctx.textBaseline = 'top';
+  ctx.fillStyle = '#fff';
+  ctx.letterSpacing = (o.ls || 0) + 'px';
+  const gs = [];
+  for (let i = 0; i < cols; i++) {
+    if (dec && i === dec) gs.push({ ch: '.' });
+    gs.push({ w: cur / Math.pow(10, i) });
+  }
+  gs.reverse();
+  const ws = gs.map(g => ctx.measureText(g.ch ?? '0').width + (o.ls || 0));
+  const total = ws.reduce((a, b) => a + b, 0);
+  let px = o.align === 'right' ? x - total : o.align === 'center' ? x - total / 2 : x;
+  const H = size * 1.06;   // 휠 한 칸 = 글자 한 줄
+  for (let i = 0; i < gs.length; i++) {
+    const g = gs[i];
+    if (g.ch != null) { ctx.fillText(g.ch, px, y); px += ws[i]; continue; }
+    const d = Math.floor(g.w), f = g.w - d;
+    ctx.save();
+    ctx.beginPath(); ctx.rect(px - 4, y - size * 0.12, ws[i] + 8, H * 1.1); ctx.clip();
+    ctx.fillText(String(d % 10), px, y - f * H);               // 나가는 자리 = 위로
+    ctx.fillText(String((d + 1) % 10), px, y + (1 - f) * H);   // 들어오는 자리 = 아래에서
+    ctx.restore();
+    px += ws[i];
+  }
+  ctx.letterSpacing = '0px';
+  ctx.restore();
+}
 // 0 → target 카운트업 (원본 countUp: 지연 뒤 cd초 동안 ease-out). 숫자가 아니면 그대로.
 function countUp(target, t, delay, cd) {
   const m = String(target).match(/^(\d+(?:\.\d+)?)$/);
@@ -311,7 +350,9 @@ export class WallGL {
     // ★ 투사 거리 가독 하한 — 벽 대지는 1.00 mm/px(PROJECTION-SPEC 6절)라 24px = 실물 24mm.
     // 2~4m 에서 24mm 캡션은 안 읽힌다(유저: "너무 작아서 안 보임"). 캡션류를 32 이상으로,
     // 체크 배지는 40 → 58 로 올렸다. 폰 레이아웃을 1:1 로 벽에 옮긴 값이라 원래 작았던 것.
-    const ix = LX + 20, iw = 1000;
+    // 바깥 회색 카드 ↔ 안쪽 흰 박스 사이 띠. 20 → 40 (유저: 이 간격이 넓어야 한다).
+    // 안쪽 좌표는 전부 ix 상대라 이 값만 바꾸면 정렬·축이 통째로 같이 밀린다.
+    const ix = LX + 40, iw = LW - 80;
     // 카드 안 왼쪽 텍스트 기준선 — 하나로 통일(유저: "왼쪽정렬 안 됨").
     // 전엔 30/min 은 ix+24.26, Fight! 는 ix+34.26(트랙이 ix+10 에서 시작 + 24.26),
     // Setup 라벨 ix+30, Connected 라벨 ix+20 으로 넷이 갈려 있었다.
@@ -567,7 +608,7 @@ export class WallGL {
       ctx.globalAlpha *= kf(ne, [[0, 0], [.6, 1], [1, 1]]);
       const nk = kf(ne, [[0, .5], [.6, 1.12], [1, 1]]);
       ctx.translate(x, 1148 + 100); ctx.scale(nk, nk); ctx.translate(-x, -(1148 + 100));
-      txt(ctx, countUp(val, t, delay, cd), x, 1148, 200, 700, '#fff', { fam: dot9, ls: -8, align });
+      rollNum(ctx, val, t, delay, cd, x, 1148, 200, { fam: dot9, ls: -8, align });
       ctx.restore();
     };
     num(100, 'left', S.coach.num, .62, 1.0);
