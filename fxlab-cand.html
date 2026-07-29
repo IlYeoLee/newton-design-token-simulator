@@ -2343,7 +2343,7 @@ function frame(ts) {
       g2.uniform1f(P.u('uRadius'), m.radius * surfR);
       g2.uniform1f(P.u('uPool'), m.pool);
       g2.uniform1f(P.u('uSweepA'), m.sweep);
-      g2.uniform1f(P.u('uShape'), (candGStyle === 4 && candNums) ? 1 : candShape);   // 실루엣 뚫기는 원도 SDF 로 탄다
+      g2.uniform1f(P.u('uShape'), candShape);   // 형태는 마스크가 담당한다 — uShape 를 발형으로 강제하면 존 원에 발자국이 뜬다
       g2.uniform1f(P.u('uForm'), state.markForm);
       g2.uniform1f(P.u('uDotPitch'), candP.pitch);
       g2.uniform1f(P.u('uDotGain'), candP.gain);
@@ -2384,7 +2384,7 @@ function frame(ts) {
       g3.uniform1f(P.u('uRadius'), m.radius * surfR);
       g3.uniform1f(P.u('uPool'), m.pool);
       g3.uniform1f(P.u('uSweepA'), m.sweep);
-      g3.uniform1f(P.u('uShape'), (candGStyle === 4 && candNums) ? 1 : candShape);   // 실루엣 뚫기는 원도 SDF 로 탄다
+      g3.uniform1f(P.u('uShape'), candShape);   // 형태는 마스크가 담당한다 — uShape 를 발형으로 강제하면 존 원에 발자국이 뜬다
       g3.uniform1f(P.u('uForm'), state.markForm);
       g3.uniform1f(P.u('uDotPitch'), candP.pitch);
       g3.uniform1f(P.u('uDotGain'), candP.gain);
