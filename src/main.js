@@ -3562,6 +3562,12 @@ void main(){
       session.update(h);
       updateSessionGaze(h);
     }
+    // 잽·잽·훅 구간엔 바닥 스텝 마크가 필요 없다(유저: "잽잽훅에 이게 필요해?").
+    //   콤보는 전부 상체·벽에서 일어나는데, 팩 타임라인이 시간축으로 스텝/오더 마크를 계속 깔아
+    //   발밑에 큰 원반이 떠 화면을 잡아먹었다. 이 스테이지에서만 바닥 토큰 층을 내린다.
+    //   (스텝이 실제로 의미 있는 A2·B2·C2 는 그대로 둔다)
+    const _noFloorTok = session.active && session.curStage?.id === 'BX_C3';
+    if (_noFloorTok !== _tokHidden) { tokens.root.visible = !_noFloorTok; _tokHidden = _noFloorTok; }
     state.time += h;
     if (state.time >= data.duration) {
       state.time %= data.duration;
@@ -4712,6 +4718,7 @@ void main(){
   const fdocNow = () => (floorGLOn ? floorGL.doc : floorIframe.contentDocument);
   let _uiDt = 0.016;      // loop에서 매 프레임 실시간 dt 주입 (UI 앵커 저역통과용)
   let _wasLive = false;   // 라이브 진입 에지 감지 — loopShiftZ 드리프트 재정렬용
+  let _tokHidden = false;   // 바닥 토큰 층을 이 프레임에 내려놨는가(BX_C3 전용 — 에지에서만 토글)
   let _fpSmooth = null;   // 프레임·발자국 앵커용 저역통과 풋프린트 — 빔 흔들림(투사오차 지터) 제거해 글자 삐걱임 방지
   const _rV = new THREE.Vector3(), _fV = new THREE.Vector3(), _uV = new THREE.Vector3(0, 1, 0), _mBasis = new THREE.Matrix4();
   // 봇 오클루전 마스크(botOverlay)는 제거됐다 — 바닥 UI가 WebGL 평면이 되면서
