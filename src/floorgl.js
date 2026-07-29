@@ -126,72 +126,102 @@ export function growBar(ctx, x, y, w, h, p, o = {}) {
 }
 
 export const GAUGE = { travel: 0.78, lead: 0.15, tail: 0.54 };   // 초 · 초 · 지나온 길이 대비 꼬리
-const ARC = { x0: 19, x1: 341, cx: 180, rx: 261, ry: 188.5, top: 24 };
+// 앱 SVG viewBox 360×130 그대로. 호 = M 19 64 A 261 188.5 0 0 1 341 64.
+const ARC = {
+  vw: 360, vh: 130, x0: 19, x1: 341, cx: 180, rx: 261, ry: 188.5, top: 24,
+  stroke: 6, dot: 39, core: 15.17,         // report.css .arc-dot / .arc-dot span
+  clampL: 64, clampR: 316,                 // gauge.js — 마커는 페이드 구간 밖으로 안 나간다
+  trackA: 0.85, trackR: 324.79 * 0.4264,   // trackFade 라디얼: 크라운 .85 → 양끝 0
+  valFs: 12, endFs: 11, endY: 90, endL: 48, endR: 306,
+};
 const arcY = ax => ARC.top + ARC.ry * (1 - Math.sqrt(Math.max(0, 1 - ((ax - ARC.cx) / ARC.rx) ** 2)));
-/** 폭 w 게이지가 차지하는 높이 — 호 낙차 + 노브 + 수치 + 끝 라벨 */
-export const gaugeH = (w, k = 1) => Math.round(w / (ARC.x1 - ARC.x0) * (78 + 40 * k));
+/** 폭 w(= viewBox 360 에 대응) 게이지의 높이 */
+export const gaugeH = w => Math.round(w / ARC.vw * ARC.vh);
 
+const _gsCv = typeof document !== 'undefined' ? document.createElement('canvas') : null;
+
+/** 기록 화면 스코어 게이지 — progress.html + report.css + gauge.js 1:1 이식.
+ *  근사로 옮겼던 것들을 실값으로 되돌렸다(유저: "컴포넌트 그대로 이식한 거지?").
+ *    · 트랙은 스트로크 6, 색이 trackFade 라디얼이라 **양 끝에서 스스로 사라진다**.
+ *      전엔 균일 알파라 끝이 뚝 끊겨 보였다.
+ *    · 지나온 선 = tailFade(마커에서 흰색 → 54% 뒤 투명). 팔레트 착색은 앱에 없다 — 뺐다.
+ *    · 마커는 **글라스**다. backdrop-filter: blur(2.6px) — 캔버스엔 그게 없어서
+ *      디스크 아래를 떠서 블러해 되돌린다(트랙이 디스크를 통과해 비쳐야 한다는 게 요지).
+ *      림 2겹: 컨닉 헤어라인(135°·315° 가 밝다) + 그 안쪽 넓고 옅은 헤일로.
+ *    · 마커 x 는 64~316 으로 클램프 — 페이드로 사라진 구간엔 안 올라간다.
+ *    · 수치·끝라벨은 Supreme 12 / 11(#757575). OffBit 아니다.
+ *  o.ease 면 gauge.js 의 이동 곡선(1-(1-p)^3)을 진행도에 먹인다. */
 export function arcGauge(ctx, x0, y, w, p, o = {}) {
-  const P = clamp01(p), sg = w / (ARC.x1 - ARC.x0);
-  // 기하(휨·좌표)는 폭에 묶고, 장식(선 굵기·노브·글자)은 k 로 따로 키운다.
-  // 처음엔 둘을 같이 묶었더니 폭을 줄이는 순간 선이 실낱이 됐다 — 앱 게이지의 굵기는
-  // '호 폭 대비'가 아니라 '화면 대비'(3px/390 = 0.77%)라 대지가 커지면 같이 커져야 한다.
-  const s = sg * (o.k ?? 1);
-  const X = ax => x0 + (ax - ARC.x0) * sg, Y = ax => y + (arcY(ax) - ARC.top) * sg;
-  const headA = ARC.x0 + (ARC.x1 - ARC.x0) * P, hx = X(headA), hy = Y(headA);
+  const P = clamp01(p), s = w / ARC.vw;
+  const e = o.ease ? eOut(P) : P;
+  const X = ax => x0 + ax * s, Y = vy => y + vy * s;
+  // 마커 위치 = 앱과 같은 클램프 (gauge.js place())
+  const mx = ARC.clampL + (ARC.clampR - ARC.clampL) * e;
+  const hx = X(mx), hy = Y(arcY(mx));
   const path = (a0, a1) => {
     ctx.beginPath();
-    const n = Math.max(2, Math.round(Math.abs(a1 - a0) / 4));
-    for (let i = 0; i <= n; i++) { const a = a0 + (a1 - a0) * i / n; i ? ctx.lineTo(X(a), Y(a)) : ctx.moveTo(X(a), Y(a)); }
+    const n = Math.max(2, Math.round(Math.abs(a1 - a0) / 3));
+    for (let i = 0; i <= n; i++) { const a = a0 + (a1 - a0) * i / n; i ? ctx.lineTo(X(a), Y(arcY(a))) : ctx.moveTo(X(a), Y(arcY(a))); }
   };
   ctx.save();
   ctx.lineCap = 'round';
-  // ⑤ 팔레트 블룸 = 앱의 따뜻한 필드. 머리를 중심으로 한 빛이라 무대를 덮지 않는다.
-  if (P > 0.001) {
-    // 반경·세기는 낮게 — 처음 시안은 대지를 붉게 물들여 무대가 죽었다(투사면 규약).
-    const R = w * 0.14;
-    const bl = ctx.createRadialGradient(hx, hy, 0, hx, hy, R);
-    bl.addColorStop(0, rgba(PAL.red, .13)); bl.addColorStop(.4, rgba(PAL.coral, .05));
-    bl.addColorStop(1, rgba(PAL.sand, 0));
-    ctx.globalCompositeOperation = 'lighter';
-    ctx.fillStyle = bl; ctx.fillRect(hx - R, hy - R, R * 2, R * 2);
-    ctx.globalCompositeOperation = 'source-over';
+  ctx.lineWidth = ARC.stroke * s;
+  // ① 트랙 — trackFade: 크라운(180,12)에서 밝고 양 끝으로 가며 사라진다
+  const tf = ctx.createRadialGradient(X(ARC.cx), Y(12), 0, X(ARC.cx), Y(12), ARC.trackR * s);
+  tf.addColorStop(0, `rgba(255,255,255,${ARC.trackA})`); tf.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.strokeStyle = tf; path(ARC.x0, ARC.x1); ctx.stroke();
+  // ② 지나온 선 — tailFade: 마커에서 흰색, 54% 뒤 투명
+  if (e > 0.002) {
+    const tg = ctx.createLinearGradient(hx, 0, X(ARC.x0), 0);
+    tg.addColorStop(0, '#fff'); tg.addColorStop(o.tail ?? GAUGE.tail, 'rgba(255,255,255,0)');
+    ctx.strokeStyle = tg; path(ARC.x0, mx); ctx.stroke();
   }
-  // ① 바탕 호 — 남은 구간
-  ctx.strokeStyle = 'rgba(255,255,255,.16)'; ctx.lineWidth = Math.max(1, 3.2 * s);
-  path(ARC.x0, ARC.x1); ctx.stroke();
-  // ② 지나온 호 + 꼬리
-  if (P > 0.004) {
-    const tail = Math.max(1, (hx - X(ARC.x0)) * (o.tail ?? GAUGE.tail));
-    const gr = ctx.createLinearGradient(hx, 0, hx - tail, 0);
-    gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(.45, rgba(PAL.sand, .55)); gr.addColorStop(1, rgba(PAL.sand, 0));
-    ctx.strokeStyle = gr; ctx.lineWidth = Math.max(1, 4.4 * s);
-    path(ARC.x0, headA); ctx.stroke();
+  // ③ 마커 = 글라스. 캔버스엔 backdrop-filter 가 없으니 아래를 떠서 블러해 되돌린다.
+  const R = ARC.dot / 2 * s;
+  if (_gsCv) {
+    const m = ctx.getTransform(), k = m.a, pad = 6 * s;
+    const sx = (hx - R - pad) * k + m.e, sy = (hy - R - pad) * k + m.f, sz = (R + pad) * 2 * k;
+    if (sz > 2 && sx > -sz && sy > -sz) {
+      _gsCv.width = _gsCv.height = Math.ceil(sz);
+      const g = _gsCv.getContext('2d');
+      g.clearRect(0, 0, _gsCv.width, _gsCv.height);
+      g.filter = `blur(${(2.6 * s * k).toFixed(2)}px)`;
+      g.drawImage(ctx.canvas, sx, sy, sz, sz, 0, 0, sz, sz);
+      g.filter = 'none';
+      ctx.save();
+      ctx.beginPath(); ctx.arc(hx, hy, R, 0, Math.PI * 2); ctx.clip();
+      ctx.drawImage(_gsCv, hx - R - pad, hy - R - pad, (R + pad) * 2, (R + pad) * 2);
+      ctx.restore();
+    }
   }
-  // ③ 글래스 노브
-  ctx.shadowColor = rgba(PAL.sand, .55); ctx.shadowBlur = 26 * s;
-  ctx.fillStyle = 'rgba(255,255,255,.26)';
-  ctx.beginPath(); ctx.arc(hx, hy, 19.5 * s, 0, Math.PI * 2); ctx.fill();
-  ctx.shadowBlur = 0;
-  ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = Math.max(1, 1.4 * s);
-  ctx.beginPath(); ctx.arc(hx, hy, 19.5 * s, 0, Math.PI * 2); ctx.stroke();
+  ctx.fillStyle = 'rgba(255,255,255,.18)';                       // background
+  ctx.beginPath(); ctx.arc(hx, hy, R, 0, Math.PI * 2); ctx.fill();
+  // 림 ① 컨닉 헤어라인 — 0deg 가 위이므로 캔버스 각도에서 −90°
+  if (ctx.createConicGradient) {
+    const cg = ctx.createConicGradient(-Math.PI / 2, hx, hy);
+    for (const [d, a] of [[0, .30], [45, .06], [90, .34], [135, .96], [180, .34], [225, .06], [270, .34], [315, .98], [360, .30]])
+      cg.addColorStop(d / 360, `rgba(255,255,255,${a})`);
+    ctx.strokeStyle = cg; ctx.lineWidth = Math.max(0.6, 1.4 * s);
+    ctx.beginPath(); ctx.arc(hx, hy, R - 0.7 * s, 0, Math.PI * 2); ctx.stroke();
+  }
+  // 림 ② 안쪽 넓고 옅은 헤일로 (::after)
+  ctx.strokeStyle = 'rgba(255,255,255,.16)'; ctx.lineWidth = Math.max(0.6, 3 * s);
+  ctx.beginPath(); ctx.arc(hx, hy, R - 2.4 * s, 0, Math.PI * 2); ctx.stroke();
+  // 코어
   ctx.fillStyle = '#fff';
-  ctx.beginPath(); ctx.arc(hx, hy, 9.5 * s, 0, Math.PI * 2); ctx.fill();
-  // ④ 수치 — 노브 밑 +40, 같이 이동
+  ctx.beginPath(); ctx.arc(hx, hy, ARC.core / 2 * s, 0, Math.PI * 2); ctx.fill();
+  // ④ 수치 — 마커 밑 +40 (gauge.js), Supreme 12
+  ctx.textBaseline = 'middle';
   if (o.value != null) {
-    const fs = 28 * s;
-    ctx.font = F(700, fs, dot9);
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.letterSpacing = (-fs * 0.02).toFixed(2) + 'px';   // 앱 .sc-n 과 같은 −2%
-    ctx.fillStyle = '#fff'; ctx.fillText(String(o.value), hx, hy + 40 * s);
-    ctx.letterSpacing = '0px';
+    ctx.font = F(400, ARC.valFs * s); ctx.textAlign = 'center';
+    ctx.fillStyle = 'rgba(255,255,255,.92)';
+    ctx.fillText(String(o.value), hx, hy + 40 * s);
   }
   // ⑤ 끝 라벨
   if (o.ends !== false) {
-    ctx.font = F(400, 20 * s); ctx.fillStyle = 'rgba(255,255,255,.45)';
-    ctx.textBaseline = 'middle';
-    ctx.textAlign = 'left'; ctx.fillText(String(o.min ?? 0), X(ARC.x0), Y(ARC.x0) + 46 * s);
-    ctx.textAlign = 'right'; ctx.fillText(String(o.max ?? 100), X(ARC.x1), Y(ARC.x1) + 46 * s);
+    ctx.font = F(400, ARC.endFs * s); ctx.fillStyle = NEU.t2; ctx.textAlign = 'center';
+    ctx.fillText(String(o.min ?? 0), X(ARC.endL), Y(ARC.endY));
+    ctx.fillText(String(o.max ?? 100), X(ARC.endR), Y(ARC.endY));
   }
   ctx.restore();
 }
@@ -540,7 +570,7 @@ export class FloorGL {
   _h(n) {
     switch (n.type) {
       case 'text': return n.size * 1.06;
-      case 'dots': return gaugeH(680, 1.7);
+      case 'dots': return gaugeH(760);
       case 'prevRow': return 200;
       case 'trainRow': return n.ring ? 200 : 112;
       case 'liveRow': return 112;
@@ -565,11 +595,11 @@ export class FloorGL {
 
   // 도트 프로그래스 — 공통 컴포넌트(dotProgress). 지면·벽이 같은 물건이다.
   _dots(n, y) {
-    const x0 = CX - 340;   // 폭 680 — 구 도트바(600)와 비슷한 자리. 굵기는 k 로 키운다
+    const x0 = CX - 380;   // 폭 760(= viewBox 360 대응). 구 도트바 600 자리와 비슷
     // main.js가 width를 직접 쓰면(반복형 스테이지) 그 값이 우선, 아니면 --dur 시간 진행.
     const w = n.style.width != null ? numOr(n.style.width, 0)
       : 600 * clamp01((this.t - n.delay) / n.dur);
-    arcGauge(this.ctx, x0, y, 680, w / 600, { value: Math.round(w / 6), k: 1.7 });
+    arcGauge(this.ctx, x0, y, 760, w / 600, { value: Math.round(w / 6) });
   }
 
   _pill(x, y, w, h) {

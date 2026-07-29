@@ -425,7 +425,7 @@ export class WallGL {
     const dY = ROW_Y + 40 + 96 + 20;
     ctx.save();
     ctx.globalAlpha *= clamp01((t - 1.55) / .5);
-    arcGauge(ctx, RRight - gW, dY, gW, (t - 2) / (.22 * 10), { ends: false, k: 1.9 });
+    arcGauge(ctx, RRight - gW, dY, gW, (t - 2) / (.22 * 10), { ends: false, ease: true });
     ctx.restore();
     // 발 블록 — slideInUp .9s .6s
     const FX = RX + RW / 2 - 140, FY = ROW_Y + 570;
@@ -487,7 +487,7 @@ export class WallGL {
     const de = eOut(intro(t, .20, .6));
     ctx.save();
     ctx.globalAlpha *= de; ctx.translate(0, 48 * (1 - de));
-    arcGauge(ctx, 100, dY, 620, t / dur, { value: Math.round(clamp01(t / dur) * 100), k: 1.7 });
+    arcGauge(ctx, 100, dY, 720, t / dur, { value: Math.round(clamp01(t / dur) * 100) });
     ctx.restore();
 
     // 페이즈 열 (우측 정렬) — 진입이면 sRight .6s (.15 + i*.07)
