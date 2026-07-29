@@ -24,7 +24,6 @@ const K = Math.min(3, Math.max(0.4,
 const UI_FPS = Math.max(4, Math.min(60, +(new URLSearchParams(location.search).get('uifps')) || 12));
 
 const CX = W / 2;
-const RED = PAL.red;
 // 투사 UI 서체 규칙(유저 확정): Supreme 두 굵기만 — Bold 700 · Regular 400.
 // Freesentation·Pretendard 폴백은 은퇴(투사 UI는 영문 조판이고, 폴백이 끼면 자간이 달라진다).
 const sans = "'Supreme',sans-serif";
@@ -176,8 +175,30 @@ export function arcGauge(ctx, x0, y, w, p, o = {}) {
     tg.addColorStop(0, '#fff'); tg.addColorStop(o.tail ?? GAUGE.tail, 'rgba(255,255,255,0)');
     ctx.strokeStyle = tg; path(ARC.x0, mx); ctx.stroke();
   }
-  // ③ 마커 = 글라스. 캔버스엔 backdrop-filter 가 없으니 아래를 떠서 블러해 되돌린다.
-  const R = ARC.dot / 2 * s;
+  // ③ 마커 = 글라스
+  glassDot(ctx, hx, hy, ARC.dot / 2 * s);
+  // ④ 수치 — 마커 밑 +40 (gauge.js), Supreme 12
+  ctx.textBaseline = 'middle';
+  if (o.value != null) {
+    ctx.font = F(400, ARC.valFs * s); ctx.textAlign = 'center';
+    ctx.fillStyle = 'rgba(255,255,255,.92)';
+    ctx.fillText(String(o.value), hx, hy + 40 * s);
+  }
+  // ⑤ 끝 라벨
+  if (o.ends !== false) {
+    ctx.font = F(400, ARC.endFs * s); ctx.fillStyle = NEU.t2; ctx.textAlign = 'center';
+    ctx.fillText(String(o.min ?? 0), X(ARC.endL), Y(ARC.endY));
+    ctx.fillText(String(o.max ?? 100), X(ARC.endR), Y(ARC.endY));
+  }
+  ctx.restore();
+}
+
+/** 진행 마커 = 글라스 디스크 (report.css .arc-dot).
+ *  캔버스엔 backdrop-filter 가 없으니 디스크 아래를 떠서 블러해 되돌린다
+ *  (트랙이 디스크를 통과해 비쳐야 한다는 게 요지).
+ *  림 2겹: 컨닉 헤어라인(135°·315° 가 밝다) + 그 안쪽 넓고 옅은 헤일로. */
+export function glassDot(ctx, hx, hy, R) {
+  const s = R / (ARC.dot / 2);
   if (_gsCv) {
     const m = ctx.getTransform(), k = m.a, pad = 6 * s;
     const sx = (hx - R - pad) * k + m.e, sy = (hy - R - pad) * k + m.f, sz = (R + pad) * 2 * k;
@@ -194,6 +215,7 @@ export function arcGauge(ctx, x0, y, w, p, o = {}) {
       ctx.restore();
     }
   }
+  ctx.save();
   ctx.fillStyle = 'rgba(255,255,255,.18)';                       // background
   ctx.beginPath(); ctx.arc(hx, hy, R, 0, Math.PI * 2); ctx.fill();
   // 림 ① 컨닉 헤어라인 — 0deg 가 위이므로 캔버스 각도에서 −90°
@@ -210,19 +232,43 @@ export function arcGauge(ctx, x0, y, w, p, o = {}) {
   // 코어
   ctx.fillStyle = '#fff';
   ctx.beginPath(); ctx.arc(hx, hy, ARC.core / 2 * s, 0, Math.PI * 2); ctx.fill();
-  // ④ 수치 — 마커 밑 +40 (gauge.js), Supreme 12
-  ctx.textBaseline = 'middle';
-  if (o.value != null) {
-    ctx.font = F(400, ARC.valFs * s); ctx.textAlign = 'center';
-    ctx.fillStyle = 'rgba(255,255,255,.92)';
-    ctx.fillText(String(o.value), hx, hy + 40 * s);
+  ctx.restore();
+}
+
+/** 원형 진행 게이지 — 기록 게이지(arcGauge)의 원형판. 타이머가 벽·지면·바닥에서 공통으로 쓴다.
+ *  · 트랙: 12시 이음매에서 양 끝이 스스로 사라진다(예전 점선 대신). arcGauge 의 trackFade 와 같은 뜻.
+ *  · 지나온 선: 마커에서 흰색 → tail 만큼 뒤에서 투명(tailFade).
+ *  · 머리: 글라스 마커(빨간 점 아님).
+ *  치수 기본값은 SVG viewBox 604 · r275 규약 — r 만 주면 스트로크·마커가 같이 스케일한다. */
+export function ringGauge(ctx, cx, cy, r, prog, o = {}) {
+  const p = clamp01(prog), A0 = -Math.PI / 2, s = r / 275, TAU = Math.PI * 2;
+  const ta = o.trackA ?? 0.28, fade = o.fade ?? 0.07;
+  ctx.save();
+  ctx.lineCap = 'round';
+  ctx.lineWidth = o.trackW ?? 6 * s;
+  if (ctx.createConicGradient) {
+    const tg = ctx.createConicGradient(A0, cx, cy);
+    tg.addColorStop(0, 'rgba(255,255,255,0)');
+    tg.addColorStop(fade, `rgba(255,255,255,${ta})`);
+    tg.addColorStop(1 - fade, `rgba(255,255,255,${ta})`);
+    tg.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.strokeStyle = tg;
+  } else ctx.strokeStyle = `rgba(255,255,255,${ta})`;
+  ctx.beginPath(); ctx.arc(cx, cy, r, 0, TAU); ctx.stroke();
+  if (p > 0.002) {
+    ctx.lineWidth = o.arcW ?? 11 * s;
+    if (ctx.createConicGradient) {
+      const g = ctx.createConicGradient(A0, cx, cy), t0 = p * (1 - (o.tail ?? GAUGE.tail));
+      g.addColorStop(0, 'rgba(255,255,255,0)');
+      g.addColorStop(t0, 'rgba(255,255,255,0)');
+      g.addColorStop(Math.min(1, p), o.color || '#fff');
+      if (p < 0.999) g.addColorStop(Math.min(1, p + 0.001), 'rgba(255,255,255,0)');
+      ctx.strokeStyle = g;
+    } else ctx.strokeStyle = o.color || '#fff';
+    ctx.beginPath(); ctx.arc(cx, cy, r, A0, A0 + p * TAU); ctx.stroke();
   }
-  // ⑤ 끝 라벨
-  if (o.ends !== false) {
-    ctx.font = F(400, ARC.endFs * s); ctx.fillStyle = NEU.t2; ctx.textAlign = 'center';
-    ctx.fillText(String(o.min ?? 0), X(ARC.endL), Y(ARC.endY));
-    ctx.fillText(String(o.max ?? 100), X(ARC.endR), Y(ARC.endY));
-  }
+  const a = A0 + p * TAU;
+  glassDot(ctx, cx + r * Math.cos(a), cy + r * Math.sin(a), o.dot ?? 26 * s);
   ctx.restore();
 }
 
@@ -373,29 +419,9 @@ export function checkBadge(ctx, cx, cy, r) {
   ctx.stroke();
 }
 
-function ringGeom(size) {   // SVG viewBox 604 · r275 규약 → 캔버스 px
-  const s = size / 604;
-  return { r: 275 * s, wTrack: 6 * s, wArc: 11 * s, dash: [0.5 * s, 20.5 * s] };
-}
-
+// SVG viewBox 604 · r275 규약 → 캔버스 px. 그림 자체는 공통 ringGauge 가 그린다.
 function drawRing(ctx, n, y, prog, color) {
-  const { r, wTrack, wArc, dash } = ringGeom(n.size);
-  const cx = CX, cy = y + n.size / 2;
-  ctx.save();
-  ctx.lineCap = 'round';
-  ctx.strokeStyle = 'rgba(255,255,255,.28)'; ctx.lineWidth = wTrack;
-  ctx.setLineDash(dash);
-  ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
-  ctx.setLineDash([]);
-  if (prog > 0.001) {
-    ctx.strokeStyle = color || '#fff'; ctx.lineWidth = wArc;
-    ctx.beginPath(); ctx.arc(cx, cy, r, -Math.PI / 2, -Math.PI / 2 + prog * Math.PI * 2); ctx.stroke();
-  }
-  // ponytail: 회전 팁 = timer_tip.svg 대신 같은 자리 빨간 점. 이 크기(28px)에선 실루엣이 같다.
-  const a = -Math.PI / 2 + prog * Math.PI * 2;
-  ctx.fillStyle = RED;
-  ctx.beginPath(); ctx.arc(cx + r * Math.cos(a), cy + r * Math.sin(a), n.size * 0.07, 0, Math.PI * 2); ctx.fill();
-  ctx.restore();
+  ringGauge(ctx, CX, y + n.size / 2, 275 * n.size / 604, prog, { color });
 }
 
 function drawCenteredNum(ctx, text, cx, cy, size) {

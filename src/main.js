@@ -2269,11 +2269,12 @@ void main(){
       depthTest: false, depthWrite: false,
     });
     const blur = new THREE.ShaderMaterial({
-      uniforms: { tex: { value: null }, uDir: { value: new THREE.Vector2(1, 0) }, uStep: { value: 2 } },   // 탭 간격 — 5는 320x480 에서 6.9/16 텍셀로 벌어져 엣지 에코(가로 결)를 만든다
+      uniforms: { tex: { value: null }, uDir: { value: new THREE.Vector2(1, 0) }, uStep: { value: 2 },
+        uTexel: { value: new THREE.Vector2(1 / RW, 1 / RH) } },   // 탭 간격 — 크면 블러가 아니라 엣지 에코가 된다
       vertexShader: vs,
-      fragmentShader: `varying vec2 vUv; uniform sampler2D tex; uniform vec2 uDir; uniform float uStep;
+      fragmentShader: `varying vec2 vUv; uniform sampler2D tex; uniform vec2 uDir, uTexel; uniform float uStep;
         void main(){
-          vec2 px = uDir * uStep / vec2(${RW}.0, ${RH}.0);
+          vec2 px = uDir * uStep * uTexel;
           vec2 s = texture2D(tex, vUv).rg * 0.227;
           s += (texture2D(tex, vUv + px * 1.385).rg + texture2D(tex, vUv - px * 1.385).rg) * 0.3165;
           s += (texture2D(tex, vUv + px * 3.23).rg + texture2D(tex, vUv - px * 3.23).rg) * 0.070;
@@ -2284,9 +2285,11 @@ void main(){
     const sc = new THREE.Scene();
     const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), src);
     sc.add(quad);
-    const mk = () => new THREE.WebGLRenderTarget(RW, RH);
+    const mk = (w = RW, h = RH) => new THREE.WebGLRenderTarget(w, h);
+    const LW = RW >> 2, LH = RH >> 2;   // 넓은 평균 전용 저해상 그리드(80x120)
     // A/B = 핑퐁, N = 1회 블러(좁음 — 이목구비·모공만 지운 '결'), W = 3회 블러(넓음 — 두께장·노출)
-    _cf = { rts: [mk(), mk(), mk(), mk()], cam: new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1), src, blur, sc, quad };
+    _cf = { rts: [mk(), mk(), mk(), mk()], lo: [mk(LW, LH), mk(LW, LH)], texel: [1 / RW, 1 / RH, 1 / LW, 1 / LH],
+            cam: new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1), src, blur, sc, quad };
     return _cf;
   }
   function renderCoachField(co) {
@@ -2300,19 +2303,21 @@ void main(){
     f.quad.material = f.blur;
     // 분리형 가우시안 — 1회차 결과(N)는 '결', 3회차 결과(W)는 '두께장·노출'로 따로 쓴다.
     //   원본 영상을 직접 샘플링하면 모공·이목구비까지 색에 실려 '주황 필터 씌운 사진'이 된다(유저).
-    const pass = (srcRT, dstRT, dir) => {
+    const [A, B, N] = f.rts, [L0, L1] = f.lo;
+    const pass = (srcRT, dstRT, dir, lo) => {
       f.blur.uniforms.tex.value = srcRT.texture; f.blur.uniforms.uDir.value.set(dir[0], dir[1]);
+      f.blur.uniforms.uTexel.value.set(lo ? f.texel[2] : f.texel[0], lo ? f.texel[3] : f.texel[1]);
       renderer.setRenderTarget(dstRT); renderer.clear(); renderer.render(f.sc, f.cam);
     };
-    const [A, B, N, W] = f.rts;
-    // uStep 2 로 좁힌 만큼 반복을 늘려 폭을 유지한다 — 넓은 탭 간격은 블러가 아니라 에코다.
-    pass(A, B, [1, 0]); pass(B, N, [0, 1]);          // 1회 → N(좁음, 이목구비 소거용)
-    pass(N, B, [1, 0]); pass(B, A, [0, 1]);          // 2회
-    pass(A, B, [1, 0]); pass(B, A, [0, 1]);          // 3회
-    pass(A, B, [1, 0]); pass(B, A, [0, 1]);          // 4회
-    pass(A, B, [1, 0]); pass(B, W, [0, 1]);          // 5회 → W(넓음, 두께장·노출)
+    // N(좁음) = 고해상 1회. detail = N - W 인데 두 σ가 가까우면 DoG(밴드패스)가 되어
+    //   옷 주름이 아니라 중간주파 압축 노이즈를 골라 증폭한다 — 얼룩덜룩의 정체(유저).
+    //   그래서 W 는 1/4 해상도 그리드에서 굽는다: σ가 4배로 벌어져 진짜 '국소 평균'이 된다.
+    pass(A, B, [1, 0]); pass(B, N, [0, 1]);                    // 좁음 → N
+    pass(N, L0, [1, 0], true); pass(L0, L1, [0, 1], true);     // 1/4 그리드로 낮추며 블러
+    pass(L1, L0, [1, 0], true); pass(L0, L1, [0, 1], true);
+    pass(L1, L0, [1, 0], true); pass(L0, L1, [0, 1], true);    // → L1 = 넓은 평균
     renderer.setRenderTarget(prev);
-    co.mat.uniforms.uField.value = W.texture;
+    co.mat.uniforms.uField.value = L1.texture;
     co.mat.uniforms.uFieldN.value = N.texture;
   }
   function ensureCoach(id) {
@@ -2328,7 +2333,7 @@ void main(){
     const mat = new THREE.ShaderMaterial({
       transparent: true, depthWrite: false,
       uniforms: { map: { value: tex }, uLUT: { value: getLUT() }, uTime: { value: 0 }, uReady: { value: 0 },
-        uField: { value: coachField().rts[3].texture }, uFieldN: { value: coachField().rts[2].texture },
+        uField: { value: coachField().lo[1].texture }, uFieldN: { value: coachField().rts[2].texture },
         uCropOff: { value: cfg.cropOff }, uCropScale: { value: cfg.cropScale }, uDetail: { value: 0.25 },
         uSat: { value: 1.32 }, uPulse: { value: 0.05 } },
       vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',

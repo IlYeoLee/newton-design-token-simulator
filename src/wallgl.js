@@ -50,23 +50,16 @@ function gradV(ctx, y0, y1, stops) {
   for (const [p, c] of stops) g.addColorStop(clamp01(p), c);
   return g;
 }
-// 카운트다운·진행 링
+// 진행 링 (리포트 100% 링). 카운트다운은 공통 ringGauge 를 쓴다.
 function ring(ctx, cx, cy, r, prog, o = {}) {
   ctx.save();
   ctx.lineCap = o.cap || 'round';
   ctx.strokeStyle = o.track || 'rgba(255,255,255,.28)';
   ctx.lineWidth = o.trackW ?? 6;
-  if (o.dash) ctx.setLineDash(o.dash);
   ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
-  ctx.setLineDash([]);
   if (prog > 0.001) {
     ctx.strokeStyle = o.color || '#fff'; ctx.lineWidth = o.arcW ?? 10;
     ctx.beginPath(); ctx.arc(cx, cy, r, -Math.PI / 2, -Math.PI / 2 + prog * Math.PI * 2); ctx.stroke();
-  }
-  if (o.tip) {   // ponytail: 회전 팁 SVG 대신 같은 자리 빨간 점 — 이 크기에선 실루엣이 같다
-    const a = -Math.PI / 2 + prog * Math.PI * 2;
-    ctx.fillStyle = RED; ctx.shadowColor = rgba(PAL.red, .6); ctx.shadowBlur = 18;
-    ctx.beginPath(); ctx.arc(cx + r * Math.cos(a), cy + r * Math.sin(a), o.tip, 0, Math.PI * 2); ctx.fill();
   }
   ctx.restore();
 }
@@ -623,7 +616,7 @@ export class WallGL {
       const g = kf(br, [[0, 0], [.5, 1], [1, 0]]);
       ctx.shadowColor = `rgba(255,255,255,${.35 * g})`; ctx.shadowBlur = 26 * g;
     }
-    ring(ctx, CX, cy, r, clamp01(t / dur), { trackW: 6, arcW: 10, dash: [0.5, 20.5], tip: 20 });
+    ringGauge(ctx, CX, cy, r, clamp01(t / dur));
     ctx.shadowBlur = 0;
     // numPulse — 숫자가 바뀔 때마다 .45s
     if (val !== this._numLast) { this._numLast = val; this._numT = t; }
