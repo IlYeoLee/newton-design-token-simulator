@@ -555,15 +555,16 @@ float halftoneSq(vec2 p, float pitch, float amount, float soft){
   return smoothstep(r + soft, r - soft, d);
 }
 // 아웃라인 없는 닷 폼 본체(⑩) — w 는 그 픽셀의 '켜짐 정도'. Hold 후보들이 w 만 바꿔 쓴다.
-vec4 dotForm(vec2 uv, float sd, float ext, float w, float pitch){
+vec4 dotFormAt(vec2 grid, vec2 uv, float sd, float ext, float w, float pitch){
   float band = 0.16 * max(uInner, 0.05);
   float amt  = smoothstep(band, -band, sd) * clamp(w, 0.0, 2.0);
   float q    = clamp(0.30 + 0.70 * length(uv) / max(ext * 1.6, 1e-3), 0.0, 1.0);
-  float m    = halftone(uv, pitch, amt * uDotGain, pitch * 0.16);
+  float m    = halftone(grid, pitch, amt * uDotGain, pitch * 0.16);
   vec4 B = vec4(0.0);
   lay(B, fillHot(q), m * clamp(amt * 1.25, 0.0, 1.0));
   return B;
 }
+vec4 dotForm(vec2 uv, float sd, float ext, float w, float pitch){ return dotFormAt(uv, uv, sd, ext, w, pitch); }
 // 실루엣 안쪽 깊이(0=가장자리, 1=속). 이너 글로우/섀도우의 공통 재료.
 float innerDepth(float sd, float w){ return smoothstep(0.0, max(w, 1e-4), -sd); }
 `;
@@ -767,6 +768,62 @@ const CANDIDATES = [
   float w    = (0.55 + 0.75 * beat) * (1.0 - 0.35 * r);    // 중심이 더 세게 뛴다
   w *= 0.75 + 0.55 * prog;                                 // 차오를수록 전체가 밝아진다
   return dotForm(uv, sd, ext, w, uDotPitch);
+}` },
+
+  // ── 닷 매트릭스 계열 (레퍼런스 set-of-animations-4 를 GLSL로) ──────────────
+  //   캔버스 2D의 '점 하나씩 그리기'를 프래그먼트로 옮길 때의 번역 규칙:
+  //     점을 움직인다 → 격자 샘플 좌표를 반대로 민다 (dotFormAt 의 grid 인자)
+  //     점 크기·밝기  → 그 픽셀의 w
+  //   그래서 원본과 같은 운동이 나오면서도 SDF 실루엣·열 램프를 그대로 탄다.
+  { id: 'sonar', name: '⓹ 소나 스윕', why: '회전 스캔이 지나간 점만 밝고 시계방향으로 서서히 식는다. 탐색·예고(Preview)의 문법.',
+    glsl: `${CAND_SIG} {
+  float ang  = atan(uv.y, uv.x);
+  float scan = fract(t * 0.22 * uDotSpeed) * 6.28319;
+  float since = fract((scan - ang) / 6.28319);          // 0 = 방금 지나감
+  float glow = pow(1.0 - since, 2.6);                   // 잔광 꼬리
+  vec4 B = dotForm(uv, sd, ext, 0.20 + 1.20 * glow, uDotPitch);
+  float beam = smoothstep(0.045, 0.0, since) * smoothstep(ext * 1.9, 0.0, length(uv));
+  lay(B, C_ICE, beam * 0.55 * clamp(uHalo, 0.0, 1.5));
+  return B;
+}` },
+
+  { id: 'refract', name: '⓺ 굴절 파문', why: '확장하는 파면이 점을 바깥으로 밀어낸다. 점이 실제로 움직여 — 성공(Success)의 방출을 형태가 말한다.',
+    glsl: `${CAND_SIG} {
+  float r     = length(uv);
+  float front = fract(t * 0.38 * uDotSpeed) * (ext * 2.4);
+  float dw    = (r - front) / max(ext * 0.30, 1e-3);
+  float band  = exp(-dw * dw);
+  vec2  dir   = r > 1e-4 ? uv / r : vec2(0.0);
+  vec2  grid  = uv - dir * band * uDotPitch * 0.95;     // 격자를 밀어낸다 = 점이 밀린다
+  return dotFormAt(grid, uv, sd, ext, 0.55 + 1.10 * band, uDotPitch);
+}` },
+
+  { id: 'phased', name: '⓻ 위상 배열', why: '파면이 지나가면 점이 솟았다 가라앉는다. 바닥 투사에서 "면이 살아 있다"는 인상 — 가장 3D 같다.',
+    glsl: `${CAND_SIG} {
+  float r     = length(uv);
+  float front = fract(t * 0.30 * uDotSpeed) * (ext * 2.2);
+  float dw    = (r - front) / max(ext * 0.26, 1e-3);
+  float lift  = exp(-dw * dw);
+  vec2  grid  = uv + vec2(0.0, lift * uDotPitch * 0.55);   // 솟은 만큼 화면 위로
+  vec4 B = dotFormAt(grid, uv, sd, ext, 0.48 + 1.35 * lift, uDotPitch);
+  // 솟은 점 아래 차가운 접지점 — 높이가 읽히게(투사엔 그림자가 없으니 색 온도로 대신한다)
+  vec4 C = dotFormAt(uv - vec2(0.0, uDotPitch * 0.12), uv, sd, ext, lift * 0.42, uDotPitch);
+  lay(B, C_ICE, C.a * 0.30);
+  return B;
+}` },
+
+  { id: 'mesh', name: '⓼ 연결망', why: '점 사이를 격자선이 잇는다. MARK 와 LINE 토큰이 한 언어가 되는 지점 — 레인·화살표까지 같은 결로 묶인다.',
+    glsl: `${CAND_SIG} {
+  vec4 B = dotForm(uv, sd, ext, 1.0, uDotPitch);
+  float band = 0.16 * max(uInner, 0.05);
+  float amt  = smoothstep(band, -band, sd);
+  vec2  c    = abs(fract(uv / uDotPitch) - 0.5) * uDotPitch;
+  float axis = min(c.x, c.y);
+  float link = 1.0 - smoothstep(uDotPitch * 0.02, uDotPitch * 0.07, axis);
+  float pulse = 0.45 + 0.55 * sin(t * 1.6 * uDotSpeed - length(uv) * 5.0);
+  float q = clamp(0.30 + 0.70 * length(uv) / max(ext * 1.6, 1e-3), 0.0, 1.0);
+  lay(B, fillHot(q), link * amt * pulse * 0.30);
+  return B;
 }` },
 ];
 
