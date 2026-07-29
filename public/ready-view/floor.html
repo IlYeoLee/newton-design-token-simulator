@@ -59,13 +59,13 @@ html,body{background:transparent}
 .chip-sel img{height:46px;width:auto;display:block;filter:brightness(0)}
 .chip-sel.sel img{filter:brightness(0) invert(1)}   /* 아이콘 원본이 흰색 — 흰 칩에선 검게, 그라디언트 칩에선 그대로 */
 
-/* CTA = 모바일 .rts-prompt 컴포넌트(ready.css, ready-to-start.html) 3줄 스택 이식.
+/* CTA = 모바일 .rts-prompt 컴포넌트(ready.css, ready-to-start.html) 2줄 스택 이식(캡션 'To start' 는 제외 — 복싱 벽과 같은 2줄, 실측 wallgl:497).
    제목과 같은 크기·굵기의 흰 볼드 한 줄이라 구분이 안 됐다(유저) → 정본대로 위아래 캡션을
    달아 '지시문 덩어리'로 읽히게 한다. 비율은 모바일 그대로(s/m = 14/28 = 0.5, gap 8/28),
    절대 크기는 지면 타입스케일 유지(m 88) — 지면은 판이 물리적으로 커서 ×4.44 가 아니다.
    글로우+발 조합은 이 화면의 시그니처라 그대로 둔다(유저). */
 .hero{position:absolute;left:50%;top:1057px;transform:translateX(-50%);width:1000px;text-align:center;
-  display:flex;flex-direction:column;gap:25px;
+  display:flex;flex-direction:column;gap:19px;
   opacity:0;animation:fadeUpCentered .9s cubic-bezier(.2,.75,.2,1) .7s both}
 .hero .arrow{width:86px;height:86px;display:block;margin:0 auto 5px;animation:arrowBob 3s ease-in-out 3 1.5s}
 .hero .s{font-family:'Supreme',sans-serif;font-weight:400;font-size:44px;line-height:1.4;
@@ -114,7 +114,6 @@ html,body{background:transparent}
 
     <div class="hero">
       <img class="arrow" src="assets/run/arrow.svg" alt="">
-      <span class="s">To start</span>
       <span class="m">Tap your foot Twice</span>
       <span class="s">with the Wearable on</span>
     </div>

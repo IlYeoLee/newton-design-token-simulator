@@ -880,20 +880,18 @@ export class FloorGL {
     });
     ctx.letterSpacing = '0px'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
     ctx.restore();
-    // CTA = 모바일 .rts-prompt 컴포넌트(ready.css) 3줄 스택 이식 — 캡션(s) / 지시(m) / 캡션(s).
+    // CTA = 모바일 .rts-prompt 컴포넌트(ready.css) 2줄 스택 이식 — 지시(m) / 캡션(s). 복싱 벽(wallgl:497)과 같은 2줄.
     //   제목과 같은 흰 볼드 한 줄이라 구분이 안 됐다(유저). 비율은 모바일 그대로(s/m=0.5),
     //   절대 크기는 지면 타입스케일 유지(m 88). 글로우+발은 이 화면의 시그니처라 존치.
-    ctx.save(); this._fadeIn(1057, 395, eOut(intro(t, .7, .9)));
+    ctx.save(); this._fadeIn(1057, 300, eOut(intro(t, .7, .9)));
     const bob = cycle(t, 1.5, 3, 3);
     const ady = bob == null ? 0 : kf(bob, [[0, 0], [.12, 14], [.25, 0], [.4, 13], [.52, 0], [.58, 0], [1, 0]]);
     const ar = this._img('run/arrow.svg');
     if (ar) ctx.drawImage(ar, CX - 43, 1057 + ady, 86, 86);
     ctx.textAlign = 'center'; ctx.textBaseline = 'top';
     let hy = 1057 + 86 + 30;
-    ctx.fillStyle = 'rgba(255,255,255,.8)'; ctx.font = F(400, 44); ctx.letterSpacing = '-1.3px';
-    ctx.fillText('To start', CX, hy); hy += 44 * 1.4 + 25;
     ctx.fillStyle = '#fff'; ctx.font = F(700, 88); ctx.letterSpacing = '-4.7px';
-    ctx.fillText('Tap your foot Twice', CX, hy); hy += 88 * 1.2 + 25;
+    ctx.fillText('Tap your foot Twice', CX, hy); hy += 88 * 1.2 + 19;
     ctx.fillStyle = 'rgba(255,255,255,.8)'; ctx.font = F(400, 44); ctx.letterSpacing = '-1.3px';
     ctx.fillText('with the Wearable on', CX, hy);
     ctx.letterSpacing = '0px';

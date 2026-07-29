@@ -620,45 +620,72 @@ export class WallGL {
     txt(ctx, S.you.unit, 2500, 1368, 64, 400, '#fff', { ls: -2.56, align: 'right' });
     ctx.restore();
 
-    // 코치 자막 — sUpC .8s .68s 등장 + 교체마다 cueSwap .5s
+    // ── 실전 피드백 재설계 (유저 요청) ───────────────────────────────────────────
+    // 문제 셋: ① 콤보 배지가 잠깐 떴다 지는 장식이라 역할이 미미 ② 자막이 6초에 5개씩
+    // 스쳐 읽을 수가 없다(지시는 이미 음성이 한다) ③ 둘이 하단 중앙 같은 자리를 다툰다.
+    // 원칙: 운동 중엔 눈이 코치·타겟에 있다 → 화면은 '읽는 것'이 아니라 '주변시에 걸리는 것'.
+    //   · 지시(음성)와 확인(화면)을 분리 — 화면은 결과만 말한다.
+    //   · 순간 사건은 크고 짧게, 누적 상태는 작고 계속.
+    const isLive = /^BX_C[234]$/.test(this.stage);
     const seq = (S.cues && S.cues.length) ? [S.say, ...S.cues] : [S.say];
     const every = Math.max(1.1, dur / (seq.length + 0.5));
-    const idx = seq.length > 1 ? Math.floor(t / every) % seq.length : 0;
     const swapT = seq.length > 1 ? t - Math.floor(t / every) * every : t;
-    const say = seq[idx];
+    const say = seq[seq.length > 1 ? Math.floor(t / every) % seq.length : 0];
     const ce = eOut(intro(t, .68, .8));
-    const cs = eOut(clamp01(swapT / .5));
-    ctx.save();
-    ctx.globalAlpha *= ce * kf(cs, [[0, 0], [.6, 1], [1, 1]]);
-    ctx.translate(0, 48 * (1 - ce));
-    ctx.font = F(400, 56);
-    const sw = Math.min(1600, ctx.measureText(say).width + 64), sh = 56 * 1.2 + 48;
-    const sk = kf(cs, [[0, .9], [.6, 1.06], [1, 1]]);
-    // 자막을 투사 영역 맨 아래로 (1370 → 대지 하단에서 40px 띄움). 가운데 여백을 비운다(유저).
-    const cueY = H - sh - 40;
-    ctx.translate(CX, cueY + sh / 2); ctx.scale(sk, sk); ctx.translate(-CX, -(cueY + sh / 2));
-    rrFill(ctx, CX - sw / 2, cueY, sw, sh, 9999, '#fff');
-    txt(ctx, say, CX, cueY + sh / 2, 56, 400, '#000', { ls: -2.24, align: 'center', base: 'middle' });
-    ctx.restore();
 
-    // 콤보 팝업 — comboIn .6s (1.0 + i*.5) + comboGlow 1.6s ∞
-    (S.combos || []).forEach((c, i) => {
-      const y0 = 1202 + i * (114.26 + 16), d = 1.0 + i * 0.5;
-      const e = eOut(intro(t, d, .6));
-      if (e <= 0) return;
-      const gl = cycle(t, d + 0.6, 1.6, INF);
+    if (!isLive) {
+      // 학습(A·B)은 그대로 — 여긴 읽을 시간이 있고 자막이 설명을 한다.
+      const cs = eOut(clamp01(swapT / .5));
       ctx.save();
-      const gy = 0;
-      ctx.globalAlpha *= kf(e, [[0, 0], [.5, 1], [1, 1]]);
-      const sc = kf(e, [[0, .3], [.5, 1.22], [.72, .94], [1, 1]]);
-      const rot = kf(e, [[0, -8], [.5, 3], [.72, -1.5], [1, 0]]) * Math.PI / 180;
-      const gl2 = gl == null ? 0 : kf(gl, [[0, 0], [.5, 1], [1, 0]]);
-      ctx.translate(CX, y0 + 114.26 / 2 + 34 * (1 - e) + (gl == null ? 0 : kf(gl, [[0, 0], [.5, -7], [1, 0]])));
-      ctx.rotate(rot); ctx.scale(sc, sc);
-      // 성취 배지 = 지면 Success 와 같은 컴포넌트(floorgl.drawBadge)
-      drawBadge(ctx, 0, 0, c, { scale: 1, icon: this._img('flame.svg'), glow: .55 + .35 * gl2 });
+      ctx.globalAlpha *= ce * kf(cs, [[0, 0], [.6, 1], [1, 1]]);
+      ctx.translate(0, 48 * (1 - ce));
+      ctx.font = F(400, 56);
+      const sw = Math.min(1600, ctx.measureText(say).width + 64), sh = 56 * 1.2 + 48;
+      const sk = kf(cs, [[0, .9], [.6, 1.06], [1, 1]]);
+      const cueY = H - sh - 40;
+      ctx.translate(CX, cueY + sh / 2); ctx.scale(sk, sk); ctx.translate(-CX, -(cueY + sh / 2));
+      rrFill(ctx, CX - sw / 2, cueY, sw, sh, 9999, '#fff');
+      txt(ctx, say, CX, cueY + sh / 2, 56, 400, '#000', { ls: -2.24, align: 'center', base: 'middle' });
       ctx.restore();
-    });
+    } else {
+      // 실전: 알약 자막 폐기 → '순간 큐'. 한 단어를 크게, 주기의 앞 40%만 번쩍이고 사라진다.
+      // 읽으라는 게 아니라 박자를 때리는 신호다. 나머지 60%는 비어 코치가 온전히 보인다.
+      const p = clamp01(swapT / every);
+      const a = clamp01(p / .10) * (1 - clamp01((p - .26) / .14));
+      if (a > .01) {
+        ctx.save();
+        ctx.globalAlpha *= ce * a;
+        const k = 1.0 + .22 * (1 - clamp01(p / .10));
+        ctx.translate(CX, 1300); ctx.scale(k, k); ctx.translate(-CX, -1300);
+        ctx.shadowColor = rgba(PAL.sand, .55); ctx.shadowBlur = 48;
+        txt(ctx, say.replace(/[…]+$/, '').toUpperCase(), CX, 1300, 132, 700, '#fff',
+            { ls: -5.3, align: 'center', base: 'middle' });
+        ctx.restore();
+      }
+      // 콤보 = 배지 → '나' 카운터에 붙는 지속 상태. 하단 중앙을 비우고 내 기록 옆에 세운다.
+      // 배수가 오를수록 팔레트 램프로 뜨거워진다(2 red · 3 coral · 4+ sand) — 색이 곧 수치다.
+      const cm = /(\d+)/.exec((S.combos || [])[0] || '');
+      if (cm) {
+        const mult = +cm[1];
+        const col = mult >= 4 ? PAL.sand : mult >= 3 ? PAL.coral : PAL.red;
+        const ke = eOut(intro(t, 1.0, .5)), br = cycle(t, 1.5, 1.6, INF);
+        const pulse = br == null ? 0 : kf(br, [[0, 0], [.5, 1], [1, 0]]);
+        ctx.save();
+        ctx.globalAlpha *= kf(ke, [[0, 0], [.5, 1], [1, 1]]);
+        ctx.font = F(700, 52);
+        const label = '×' + mult + '  COMBO';
+        const cwid = ctx.measureText(label).width + 72, chh = 52 * 1.2 + 34;
+        const cx2 = 2500 - cwid, cy2 = 1368 + 64 * 1.2 + 34;
+        const bs = kf(ke, [[0, .5], [.5, 1.15], [1, 1]]);
+        ctx.translate(2500, cy2 + chh / 2); ctx.scale(bs, bs); ctx.translate(-2500, -(cy2 + chh / 2));
+        ctx.shadowColor = rgba(col, .5 + .3 * pulse); ctx.shadowBlur = 40;
+        rrFill(ctx, cx2, cy2, cwid, chh, 9999, rgba(col, .92));
+        ctx.shadowBlur = 0;
+        txt(ctx, label, cx2 + cwid / 2, cy2 + chh / 2, 52, 700, '#fff',
+            { ls: -1.73, align: 'center', base: 'middle' });
+        ctx.restore();
+      }
+    }
   }
 
   // ── 카운트다운 (timer.html) ────────────────────────────────────────────────

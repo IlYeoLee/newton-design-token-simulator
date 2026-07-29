@@ -1134,14 +1134,22 @@ export class Session {
     g.add(guardBox(0, 1.62, 0.42, 0.36, BRAND.red, 0.8));
     this.bxHold = wallArc(0, 1.62, 0.17, 0.20, BRAND.sand, Math.PI/2, 0.001, 0); g.add(this.bxHold);
 
-    // B2 회피 슬립 — 머리 좌우 회피 존(점선 계약) + 좌/우 슬립 화살표
+    // B2 회피 슬립 — '위협이 한쪽에서 조여오고 반대쪽이 안전해진다'는 리듬으로 배운다(유저).
+    //   좌우 존을 번갈아 점멸만 시키면 회피가 아니라 그냥 깜빡임이라 배울 게 없었다.
+    //   토큰 구성: 수축 링(위협) + 슬립 궤적(머리가 흐르는 길) + 안전 존 점등 + 방향 화살표.
     g = this._mk('BX_B2');
-    this.bxDodgeL = wallRing(-0.26, 1.72, 0.12, 0.14, BRAND.coral, 0.95); g.add(this.bxDodgeL);
-    this.bxDodgeR = wallRing( 0.26, 1.72, 0.12, 0.14, BRAND.coral, 0.95); g.add(this.bxDodgeR);
+    this.bxDodgeL = wallRing(-0.26, 1.72, 0.12, 0.14, BRAND.red, 0.95); g.add(this.bxDodgeL);
+    this.bxDodgeR = wallRing( 0.26, 1.72, 0.12, 0.14, BRAND.red, 0.95); g.add(this.bxDodgeR);
     this.bxDodgeL.material.uniforms.uContract.value = 1;
     this.bxDodgeR.material.uniforms.uContract.value = 1;
-    g.add(wallArrow(-0.08, 1.72, 0.17, 90));    // 왼쪽 슬립
-    g.add(wallArrow( 0.08, 1.72, 0.17, -90));   // 오른쪽 슬립
+    // 슬립 궤적 = 머리가 위협에서 반대편으로 '가라앉으며' 빠지는 U 아크(궤적 토큰 재사용)
+    this.bxB2path = primPanel('trajectory', 1.15, true);
+    this.bxB2path.position.set(0, 1.70, WZ + 0.004);
+    this.bxB2path._prim.P = { width: 1.8 };
+    g.add(this.bxB2path);
+    this.bxB2aL = wallArrow(-0.08, 1.72, 0.17, 90);    // 왼쪽으로 슬립
+    this.bxB2aR = wallArrow( 0.08, 1.72, 0.17, -90);   // 오른쪽으로 슬립
+    g.add(this.bxB2aL); g.add(this.bxB2aR);
 
     // B3 잽 스윕 — 잽 궤적 토큰(스윕 아크) + 타겟 수축 링
     g = this._mk('BX_B3');
@@ -2551,11 +2559,28 @@ export class Session {
       this._gate = done;
       if (done >= 3) { this.next(); return; }
     } else if (id === 'BX_B2') {
-      // 회피 슬립 — 좌우 점선 존 교대 위협
-      const per = 1.0, left = Math.floor(this.t / per) % 2 === 0;
-      this.bxDodgeL.setOp(left ? 0.95 : 0.3);
-      this.bxDodgeR.setOp(left ? 0.3 : 0.95);
-      FMU(`슬립 ${Math.min(6, Math.floor(this.t / per) + 1)} / 6`, CS.coral);
+      // 회피 슬립 — 한쪽에서 위협 링이 조여오고(수축), 머리는 반대쪽으로 흘러 빠진다.
+      //   비트 = 위협 도착 순간. 그 순간 위협은 팽창하며 소멸하고 안전 존이 점등한다 = "피했다".
+      const per = 1.1, rep = Math.floor(this.t / per), ph = (this.t % per) / per;
+      const fromR = rep % 2 === 0;                      // 위협이 오는 쪽 (오른→왼 슬립)
+      const e = Math.pow(ph, 1.6);                      // 가속 진입 = 기대감(어프로치 링과 같은 곡선)
+      const lock = Math.max(0, (ph - 0.82) / 0.18);     // 도착 = 비트
+      const threat = fromR ? this.bxDodgeR : this.bxDodgeL;
+      const safe = fromR ? this.bxDodgeL : this.bxDodgeR;
+      threat.scale.setScalar((1.85 - 0.85 * e) * (1 + 1.3 * lock));   // 바깥→타겟 수축, 잠금에 팽창 소멸
+      threat.setOp((0.30 + 0.65 * e) * (1 - lock));
+      safe.scale.setScalar(1 + 0.03 * Math.sin(this.t * 3) + 0.30 * lock);
+      safe.setOp(0.20 + 0.72 * lock);                   // 평소 희미 → 빠져나간 순간 점등
+      if (this.bxB2path) {                              // 머리가 흐르는 길 — 위협 쪽에서 안전 쪽으로 가라앉는 U
+        this.bxB2path._prim.pts = fromR
+          ? [[0.88, -0.10], [0.34, 0.42], [-0.34, 0.42], [-0.88, -0.10]]
+          : [[-0.88, -0.10], [-0.34, 0.42], [0.34, 0.42], [0.88, -0.10]];
+        this.bxB2path._prim.prog = Math.min(1, ph / 0.92);
+      }
+      const aOn = fromR ? this.bxB2aL : this.bxB2aR, aOff = fromR ? this.bxB2aR : this.bxB2aL;
+      if (aOn) aOn._mesh.material.opacity = 0.35 + 0.6 * e;   // 피할 방향만 밝힌다
+      if (aOff) aOff._mesh.material.opacity = 0.08;
+      FMU(`슬립 ${Math.min(6, rep + 1)} / 6`, lock > 0.3 ? CS.prism : CS.coral);
       if (this.t >= 6 * per + 0.3) { this.next(); return; }
     } else if (id === 'BX_B3') {
       // 잽 스윕 — 스윕 밴드 밝기 + 타겟 수축 링, 맞춘 잽 카운트
