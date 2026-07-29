@@ -10,7 +10,7 @@
 import * as THREE from 'three';
 import { PAL, NEU, rgba } from './palette.js';
 import { T, R, sp, zone, NUM_S } from './ds.js';   // 조판 토큰
-import { clamp01, eOut, cycle, kf, intro, drawChars, drawBadge } from './floorgl.js';
+import { clamp01, eOut, cycle, kf, intro, drawChars, drawBadge, insetGlow } from './floorgl.js';
 
 const W = 2600, H = 1600;   // 대지 px (벽 2.6×1.6m 실측 1:1)
 const K = 0.75;             // 캔버스 해상도 — 바닥과 같은 저울(화질 vs 업로드 비용)
@@ -673,9 +673,12 @@ export class WallGL {
       ctx.save(); ctx.globalCompositeOperation = 'lighter';
       ctx.fillStyle = gradV(ctx, y, y + S, [[0, PAL.red], [1, PAL.coral]]);
       ctx.fillRect(x, y, S, S); ctx.restore();
-    } else {       // 흰 내부 글로우(원본 inset box-shadow 근사)
-      ctx.save(); ctx.lineWidth = 40; ctx.strokeStyle = 'rgba(255,255,255,.6)';
-      ctx.filter = 'blur(26px)'; rrPath(ctx, x, y, S, S, R.lg); ctx.stroke(); ctx.restore();
+    } else {
+      // 내부 글로우 = 원본 CSS 실값 inset 0 0 52.392px 19.647px rgba(255,255,255,.6)
+      ctx.save();
+      rrPath(ctx, x, y, S, S, R.lg); ctx.clip();
+      insetGlow(ctx, x, y, S, S, R.lg, rgba(NEU.ink, 0.6), 52.392, 19.647);
+      ctx.restore();
     }
     ctx.restore();
     // 우상단 배지 — sPop .6s (.95 / 1.0)

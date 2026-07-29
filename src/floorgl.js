@@ -77,6 +77,27 @@ export function drawBadge(ctx, cx, cy, text, o = {}) {
   return w;
 }
 
+
+/** 카드 내부 글로우 — 캔버스엔 CSS 의 inset box-shadow 가 없다.
+ *  오프스크린을 글로우 색으로 채우고, 안쪽(spread 만큼 줄인 모양)을 블러로 지워내면
+ *  가장자리에만 부드러운 빛이 남는다 = inset. (스트로크+blur 근사는 테두리가 딱딱하고 얼룩진다)
+ *  CSS blur 는 지름 규약이라 캔버스 filter(시그마)에는 절반을 준다. */
+const _isCv = typeof document !== 'undefined' ? document.createElement('canvas') : null;
+export function insetGlow(ctx, x, y, w, h, r, color, blur, spread) {
+  if (!_isCv) return;
+  const m = Math.ceil(blur) + 8;
+  _isCv.width = Math.ceil(w) + m * 2; _isCv.height = Math.ceil(h) + m * 2;
+  const g = _isCv.getContext('2d');
+  g.clearRect(0, 0, _isCv.width, _isCv.height);
+  g.fillStyle = color;
+  g.beginPath(); g.roundRect(m, m, w, h, r); g.fill();
+  g.globalCompositeOperation = 'destination-out';
+  g.filter = `blur(${(blur / 2).toFixed(1)}px)`;
+  g.beginPath(); g.roundRect(m + spread, m + spread, w - spread * 2, h - spread * 2, Math.max(0, r - spread)); g.fill();
+  g.filter = 'none'; g.globalCompositeOperation = 'source-over';
+  ctx.drawImage(_isCv, x - m, y - m);
+}
+
 // 글자별 그리기 — fn(i) → {dy, alpha, scale}. charLoop·charWave·chIn 공통.
 // align: 'center'(cx=중앙) | 'right'(cx=오른쪽 끝) | 'left'
 export function drawChars(ctx, txt, cx, y, h, ls, fn, align = 'center') {
@@ -678,9 +699,12 @@ export class FloorGL {
       const g2 = ctx.createLinearGradient(0, y, 0, y + S);
       g2.addColorStop(0, PAL.red); g2.addColorStop(1, PAL.coral);
       ctx.fillStyle = g2; ctx.fillRect(x, y, S, S); ctx.restore();
-    } else {       // 완료 카드 = 흰 내부 글로우(원본 inset box-shadow 근사)
-      ctx.save(); ctx.lineWidth = 40; ctx.strokeStyle = 'rgba(255,255,255,.45)';
-      ctx.filter = 'blur(26px)'; this._roundRectPath(x, y, S, S, R); ctx.stroke(); ctx.restore();
+    } else {
+      // 완료 카드 내부 글로우 = 원본 CSS 실값 inset 0 0 52.392px 19.647px rgba(255,255,255,.6)
+      ctx.save();
+      this._roundRectPath(x, y, S, S, R); ctx.clip();
+      insetGlow(ctx, x, y, S, S, R, rgba(NEU.ink, 0.6), 52.392, 19.647);
+      ctx.restore();
     }
     ctx.restore();
     // 우상단 배지 — sPop .6s (.95/1.0) 로 튀어나온다
