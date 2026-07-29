@@ -2303,7 +2303,11 @@ void main(){
           float alpha = mEro * 0.95 * uReady;   // 하단 페더 제거(유저) — 발끝까지 또렷하게
           // 빛이 없으면 알파도 0 — 프리멀티(One / OneMinusSrcAlpha)에서 col=0·alpha=1 은 순수 검정이다.
           //   크로마가 흔들리는 프레임에서 판이 통째로 검은 사각형으로 찍히던 근본(유저 3회 신고).
-          alpha *= smoothstep(0.0, 0.02, max(col.r, max(col.g, col.b)));
+          // 투사광 불변식: 알파는 빛보다 클 수 없다. 프리멀티(One/OneMinusSrcAlpha)에서 알파는
+          //   '뒤를 지우는 양'이라, 어두운 픽셀이 큰 알파를 가지면 그만큼 판이 검게 뚫린다.
+          //   문턱값 게이트(lum<0.02)로는 lum=0.05 같은 '거의 검정'이 통과해 검은 사각형이 남았다.
+          //   빛에 비례해 가림을 묶는다 — 빛이 없으면 가림도 없다.
+          alpha = min(alpha, max(col.r, max(col.g, col.b)) * 1.6);
           gl_FragColor = vec4(col, alpha);
         }`,
     });
@@ -2727,8 +2731,12 @@ void main(){
           //   shape(색용)와 shapeA(알파용)가 따로 계산돼서, 마스크가 흔들리면 색은 0인데
           //   알파만 1이 되어 판이 통째로 검은 사각형으로 찍혔다(유저 스샷: 드리블 중 검정 박스).
           float lum = max(col.r, max(col.g, col.b));
-          float inkGate = smoothstep(0.0, 0.02, lum);
-          gl_FragColor = vec4(col * live, clamp(shapeA * 1.2, 0.0, 1.0) * field * live * 0.985 * inkGate);
+          // 투사광 불변식: 알파는 빛보다 클 수 없다. 프리멀티(One/OneMinusSrcAlpha)에서 알파는
+          //   '뒤를 지우는 양'이라, 어두운 픽셀이 큰 알파를 가지면 그만큼 판이 검게 뚫린다.
+          //   문턱값 게이트(lum<0.02)로는 lum=0.05 같은 '거의 검정'이 통과해 검은 사각형이 남았다.
+          //   빛에 비례해 가림을 묶는다 — 빛이 없으면 가림도 없다.
+          float aOut = clamp(shapeA * 1.2, 0.0, 1.0) * field * live * 0.985;
+          gl_FragColor = vec4(col * live, min(aOut, lum * 1.6));
         }`,
       transparent: true, depthWrite: false,
       // out = col + dst·(1−a) — 랩의 base·(1−a·0.88)+col 과 동일 (프리멀티 커스텀 블렌딩)
@@ -3074,7 +3082,7 @@ void main(){
   float aInk = smoothstep(0.20, 0.65, lum) * 0.68;   // 벽 HUD = 빛 투과 잉크 (풀 불투명은 '합성한 느낌' 기각)
   col = mix(col / 12.92, pow((col + 0.055) / 1.055, vec3(2.4)), step(0.04045, col));
   // 빛이 없으면 알파도 0 (프리멀티에서 검정 판 방지)
-  aInk *= smoothstep(0.0, 0.02, max(col.r, max(col.g, col.b)));
+  aInk = min(aInk, max(col.r, max(col.g, col.b)) * 1.6);   // 투사광 불변식 — 알파는 빛보다 클 수 없다
   gl_FragColor = vec4(col, aInk);
 }`,
       transparent: true, depthWrite: false,
@@ -3195,7 +3203,7 @@ void main(){
   float aInk = smoothstep(0.16, 0.60, lumG) * 0.72;   // 배경 그리드 투과 완화 (유저: 너무 투명)
   // 감마 변환 제거 — 리니어화가 주황 칩(FE6E3C·FEC389)의 G/B를 죽여 레드로 표류시킴
   // 빛이 없으면 알파도 0 (프리멀티에서 검정 판 방지)
-  aInk *= smoothstep(0.0, 0.02, max(col.r, max(col.g, col.b)));
+  aInk = min(aInk, max(col.r, max(col.g, col.b)) * 1.6);   // 투사광 불변식 — 알파는 빛보다 클 수 없다
   gl_FragColor = vec4(col, aInk);
 }`,
       transparent: true, depthWrite: false,
@@ -4080,7 +4088,7 @@ void main(){
           // 알파 = 실루엣 마스크 추종 — 알파 1.0 고정이 흰 벽에서 쿼드 사각 박스로 드러났음 (유저)
           // 같은 원리 — 빛이 없는 픽셀은 알파도 0 (검은 판 방지)
           float lum2 = max(col.r, max(col.g, col.b));
-          gl_FragColor = vec4(col, clamp(max(mSoft * 1.15, trail * 0.5), 0.0, 1.0) * smoothstep(0.0, 0.02, lum2));
+          gl_FragColor = vec4(col, min(clamp(max(mSoft * 1.15, trail * 0.5), 0.0, 1.0), lum2 * 1.6));   // 투사광 불변식
         }`,
       transparent: true, depthWrite: false, blending: THREE.NormalBlending,
     }));
