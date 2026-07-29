@@ -544,6 +544,7 @@ float markShapeSD(vec2 p, float base);
 const CAND_PRELUDE = `
 uniform float uDotPitch, uDotGain, uDotSpeed, uInner;
 uniform float uMono, uFlat, uNoInner, uBg, uProgOvr;
+uniform float uInnerMode, uActMode;
 float chash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 // 하프톤 한 셀: 반지름을 amount(0~1)가 정한다 → 밝을수록 굵은 점 (레퍼런스의 발바닥 밀도)
 float halftone(vec2 p, float pitch, float amount, float soft){
@@ -559,6 +560,8 @@ float halftoneSq(vec2 p, float pitch, float amount, float soft){
   float r = pitch * 0.5 * clamp(amount, 0.0, 1.0);
   return smoothstep(r + soft, r - soft, d);
 }
+// 실루엣 안쪽 깊이(0=가장자리, 1=속). 이너 글로우/섀도우의 공통 재료.
+float innerDepth(float sd, float w){ return smoothstep(0.0, max(w, 1e-4), -sd); }
 // 상태별 색 — 정본 markState 각 분기가 쓰는 램프를 그대로 모아둔 디스패처.
 //   ★ 닷 폼 계열이 fillHot 하나만 쓰면 7상태가 전부 같은 주황이 된다(유저 지적).
 //     점으로 다시 칠하더라도 '어느 상태인가'는 색이 말해야 한다 — 색은 상태 부호다.
@@ -575,6 +578,13 @@ vec3 stateFill(float st, float q, float pg){
 vec4 dotFormAt(vec2 grid, vec2 uv, float sd, float ext, float w, float pitch, float st, float pg){
   float band = 0.16 * max(uInner, 0.05);
   float amt  = smoothstep(band, -band, sd) * clamp(w, 0.0, 2.0);
+  // ★ 아웃라인이 없어도 이너 음영은 된다 — 선이 아니라 '점 크기'가 음영을 지면 되기 때문.
+  //   가장자리 쪽 점을 키우면 글로우, 줄이면 섀도우. 윤곽선은 여전히 0 이다.
+  if (uInnerMode > 0.5) {
+    float dep = innerDepth(sd, 0.22 * max(uInner, 0.05));   // 0 가장자리 → 1 속
+    amt *= (uInnerMode > 1.5) ? mix(0.42, 1.0, dep)         // 섀도우: 테두리를 눌러 안쪽이 솟는다
+                              : mix(1.45, 1.0, dep);        // 글로우: 테두리가 빛난다
+  }
   float q    = clamp(0.30 + 0.70 * length(uv) / max(ext * 1.6, 1e-3), 0.0, 1.0);
   float m    = halftone(grid, pitch, amt * uDotGain, pitch * 0.16);
   vec4 B = vec4(0.0);
@@ -582,8 +592,6 @@ vec4 dotFormAt(vec2 grid, vec2 uv, float sd, float ext, float w, float pitch, fl
   return B;
 }
 vec4 dotForm(vec2 uv, float sd, float ext, float w, float pitch, float st, float pg){ return dotFormAt(uv, uv, sd, ext, w, pitch, st, pg); }
-// 실루엣 안쪽 깊이(0=가장자리, 1=속). 이너 글로우/섀도우의 공통 재료.
-float innerDepth(float sd, float w){ return smoothstep(0.0, max(w, 1e-4), -sd); }
 `;
 const CAND_SHAPE_DEFAULT = 'float markShapeSD(vec2 p, float base){ return base; }';
 const CAND_SIG = 'vec4 markCandidate(vec4 A, vec2 uv, float sd, float inside, float ext, float state, float prog, float t)';
@@ -621,11 +629,19 @@ const CANDIDATES = [
     // ── Active · 중심에서 바깥으로 번지는 맥동. '밟으라고 부르는' 신호라 발산이다.
     //   수렴은 압박·카운트다운의 문법이라 Hold 의 몫 — 여기 쓰면 두 상태가 겹친다(유저 지적).
     //   타이밍은 방향이 아니라 '주기'가 말한다: 때가 다가올수록 맥동이 빨라진다.
-    float rate = 0.75 + 0.85 * prog;
+    //   ★ 점을 밀지 않는다. 변위를 주면 점이 격자에서 벗어나 '꿈틀거린다'(유저 지적) —
+    //     Active 는 확신에 찬 상태라 흔들리면 안 된다. 자리는 고정, 밝기만 숨 쉰다.
+    float rate = 0.55 + 0.50 * prog;                  // 때가 다가올수록 조금씩 빨라진다
     float ph   = fract(t * rate * sp);
-    float ring = exp(-pow((r - ph * 1.20) / 0.30, 2.0)) * (1.0 - ph * 0.55);
-    disp = dir * ring * pitch * 0.16;                 // 파문이 점을 아주 살짝 밀어낸다
-    w = 0.66 + 0.52 * ring + 0.16 * prog;
+    float ring = exp(-pow((r - ph * 1.25) / 0.34, 2.0)) * (1.0 - ph * 0.6);
+    if (uActMode > 0.5) {
+      // 굴절 파문 모드 — 좁은 파면만 점을 민다. 전체 지터(꿈틀거림)와 다른 이유:
+      //   미는 구간이 띠 하나로 한정돼 '무언가 지나간다'로 읽히고, 나머지 점은 제자리에 있다.
+      disp = dir * ring * pitch * 0.85;
+      w = 0.82 + 0.40 * ring + 0.12 * prog;
+    } else {
+      w = 0.86 + 0.22 * ring + 0.14 * prog;           // 바닥이 높다 = 이미 뜨겁다. 파문은 위에 얹히는 숨.
+    }
   } else if (state < 2.5) {
     // ── Hold · 진행은 면적(수위), 긴장은 제자리 정상파. 떨림은 아주 얕게만(구 0.13 → 0.05).
     float lvl  = -1.05 + 2.10 * prog;
@@ -773,6 +789,16 @@ const CANDIDATES = [
   return A;
 }` },
 
+  { id: 'shockClean', name: '⑬ 닷 쇼크웨이브 — 아웃라인 없음', why: '③ 과 같은 파문인데 정본 A 를 안 쓴다. 실루엣 윤곽선이 사라지고 고리만 점 위를 달린다 — 유저: ③ 은 좋은데 아웃라인이 걸린다.',
+    glsl: `${CAND_SIG} {
+  float r     = length(uv);
+  float front = fract(t * 0.42 * uDotSpeed) * (ext * 2.3);
+  float band  = exp(-pow((r - front) / max(ext * 0.32, 1e-3), 2.0));
+  float w     = 0.62 + 1.05 * band;
+  vec2  dir   = r > 1e-4 ? uv / r : vec2(0.0);
+  return dotFormAt(uv + dir * band * uDotPitch * 0.55, uv, sd, ext, w, uDotPitch, state, prog);
+}` },
+
   // ── 경계를 자르지 않는 계열 ───────────────────────────────────────────────
   //   위 후보들은 정본 A 를 inside 로 마스킹해서, 경계에 걸친 점이 반토막 난다("잘린 듯" — 유저).
   //   아래는 A 를 쓰지 않고 부호거리(sd)로 점 크기를 직접 정해 새로 칠한다.
@@ -821,7 +847,7 @@ const CANDIDATES = [
   //   지금의 코닉 진행 림은 그 문장에서 벗어난 구현이다. 진행을 선이 아니라
   //   점 자체가 세게 한다 — 그러면 Hold 도 나머지와 같은 언어를 쓴다.
   //   (Hold 가 아닌 상태에선 ⑩ 닷 폼으로 떨어져 일관성을 눈으로 확인할 수 있다)
-  { id: 'holdLevel', name: '⓵ Hold · 수위', why: '아래에서 위로 차오르고 수면이 찰랑인다. 설계 문장 그대로 — 선이 아니라 열이 쌓인다.',
+  { id: 'holdLevel', forceState: 2, name: '⓵ Hold · 수위', why: '아래에서 위로 차오르고 수면이 찰랑인다. 설계 문장 그대로 — 선이 아니라 열이 쌓인다.',
     glsl: `${CAND_SIG} {
   if (state < 1.5 || state > 2.5) return dotForm(uv, sd, ext, 1.0, uDotPitch, state, prog);
   float lvl = -1.0 + 2.0 * prog;
@@ -832,7 +858,7 @@ const CANDIDATES = [
   return dotForm(uv, sd, ext, w, uDotPitch, state, prog);
 }` },
 
-  { id: 'holdSweep', name: '⓶ Hold · 각도 카운터', why: '12시부터 시계방향으로 점이 하나씩 켜진다. 진행을 선이 아니라 점이 센다 — 테두리가 사라진다.',
+  { id: 'holdSweep', forceState: 2, name: '⓶ Hold · 각도 카운터', why: '12시부터 시계방향으로 점이 하나씩 켜진다. 진행을 선이 아니라 점이 센다 — 테두리가 사라진다.',
     glsl: `${CAND_SIG} {
   if (state < 1.5 || state > 2.5) return dotForm(uv, sd, ext, 1.0, uDotPitch, state, prog);
   float a01 = fract(0.25 - atan(uv.y, uv.x) / 6.2832);
@@ -842,7 +868,7 @@ const CANDIDATES = [
   return dotForm(uv, sd, ext, w, uDotPitch, state, prog);
 }` },
 
-  { id: 'holdCollapse', name: '⓷ Hold · 조여듦', why: '바깥에서 안으로 파면이 조여든다. 시간이 줄어드는 것이 형태로 보인다 — Active 의 수축과 한 계보.',
+  { id: 'holdCollapse', forceState: 2, name: '⓷ Hold · 조여듦', why: '바깥에서 안으로 파면이 조여든다. 시간이 줄어드는 것이 형태로 보인다 — Active 의 수축과 한 계보.',
     glsl: `${CAND_SIG} {
   if (state < 1.5 || state > 2.5) return dotForm(uv, sd, ext, 1.0, uDotPitch, state, prog);
   float r     = length(uv) / max(ext, 1e-3);
@@ -853,7 +879,7 @@ const CANDIDATES = [
   return dotForm(uv, sd, ext, w, uDotPitch, state, prog);
 }` },
 
-  { id: 'holdPulse', name: '⓸ Hold · 동기 맥동', why: '모든 점이 한 박자로 숨쉬고, 완료에 가까울수록 빨라진다. 버티는 시간이 심박으로 읽힌다.',
+  { id: 'holdPulse', forceState: 2, name: '⓸ Hold · 동기 맥동', why: '모든 점이 한 박자로 숨쉬고, 완료에 가까울수록 빨라진다. 버티는 시간이 심박으로 읽힌다.',
     glsl: `${CAND_SIG} {
   if (state < 1.5 || state > 2.5) return dotForm(uv, sd, ext, 1.0, uDotPitch, state, prog);
   float bpm  = 1.6 + 4.4 * prog;                           // 끝으로 갈수록 빨라진다
@@ -920,7 +946,7 @@ const CANDIDATES = [
   return B;
 }` },
 
-  { id: 'holdTension', name: '⓹ Hold · 수면 장력 (제안)', why: '진행은 둘레가 아니라 면적이 센다. 수면 바로 아래 점이 가장 굵어 "지금 경계가 여기"를 선 없이 말하고, 완료 직전 10%에서 찰랑임이 잠잠해져 Success 를 예고한다.',
+  { id: 'holdTension', forceState: 2, name: '⓹ Hold · 수면 장력 (제안)', why: '진행은 둘레가 아니라 면적이 센다. 수면 바로 아래 점이 가장 굵어 "지금 경계가 여기"를 선 없이 말하고, 완료 직전 10%에서 찰랑임이 잠잠해져 Success 를 예고한다.',
     glsl: `${CAND_SIG} {
   if (state < 1.5 || state > 2.5) return dotForm(uv, sd, ext, 1.0, uDotPitch, state, prog);
   // ① 진행 = 면적. 둘레(각도)를 쓰면 발형에서 각도↔호길이가 어긋나 시계바늘이 튄다.
@@ -944,7 +970,7 @@ const CANDIDATES = [
   //     ① 남은 시간 (진행)  — 단조로워야 한다. 헷갈리면 안 되니까.
   //     ② 버티는 중이라는 긴장 — 주기적이어야 한다. 살아 있으니까.
   //   아래는 ②를 어떤 파장으로 줄 것인가의 변주다. ①은 전부 면적(수위·차오름)이 맡는다.
-  { id: 'holdStand', name: '⓺ Hold · 정상파', why: '수면이 마디를 가진 정상파로 떤다. 흐르지 않고 제자리에서 떠는 파장 — "버틴다"는 감각에 가장 가깝다.',
+  { id: 'holdStand', forceState: 2, name: '⓺ Hold · 정상파', why: '수면이 마디를 가진 정상파로 떤다. 흐르지 않고 제자리에서 떠는 파장 — "버틴다"는 감각에 가장 가깝다.',
     glsl: `${CAND_SIG} {
   if (state < 1.5 || state > 2.5) return dotForm(uv, sd, ext, 1.0, uDotPitch, state, prog);
   float lvl  = -1.05 + 2.10 * prog;
@@ -957,7 +983,7 @@ const CANDIDATES = [
   return dotForm(uv, sd, ext, sub * (0.55 + 0.45 * prog) + skin * 1.20, uDotPitch, state, prog);
 }` },
 
-  { id: 'holdBreath', name: '⓻ Hold · 호흡 파문', why: '수면에서 파문이 위아래로 번져 나간다. 숨을 참는 리듬 — 들이쉬고 멈추고 다시.',
+  { id: 'holdBreath', forceState: 2, name: '⓻ Hold · 호흡 파문', why: '수면에서 파문이 위아래로 번져 나간다. 숨을 참는 리듬 — 들이쉬고 멈추고 다시.',
     glsl: `${CAND_SIG} {
   if (state < 1.5 || state > 2.5) return dotForm(uv, sd, ext, 1.0, uDotPitch, state, prog);
   float lvl = -1.05 + 2.10 * prog;
@@ -970,7 +996,7 @@ const CANDIDATES = [
   return dotForm(uv, sd, ext, sub * 0.60 + skin * 0.95 + ring * 1.05, uDotPitch, state, prog);
 }` },
 
-  { id: 'holdTremor', name: '⓼ Hold · 버팀 떨림', why: '한계에 가까울수록 점이 미세하게 떤다. 근육이 버틸 때 실제로 일어나는 일 — 진행이 아니라 부하를 보여준다.',
+  { id: 'holdTremor', forceState: 2, name: '⓼ Hold · 버팀 떨림', why: '한계에 가까울수록 점이 미세하게 떤다. 근육이 버틸 때 실제로 일어나는 일 — 진행이 아니라 부하를 보여준다.',
     glsl: `${CAND_SIG} {
   if (state < 1.5 || state > 2.5) return dotForm(uv, sd, ext, 1.0, uDotPitch, state, prog);
   float lvl  = -1.05 + 2.10 * prog;
@@ -985,7 +1011,7 @@ const CANDIDATES = [
   return dotFormAt(uv + tr, uv, sd, ext, sub * 0.62 + skin * 1.05, uDotPitch, state, prog);
 }` },
 
-  { id: 'holdBar', name: '⓽ Hold · 압력 막대', why: '점 열마다 아래에서 위로 막대가 찬다. 수위가 하나가 아니라 열 개 — 발바닥 압력 분포처럼 읽힌다.',
+  { id: 'holdBar', forceState: 2, name: '⓽ Hold · 압력 막대', why: '점 열마다 아래에서 위로 막대가 찬다. 수위가 하나가 아니라 열 개 — 발바닥 압력 분포처럼 읽힌다.',
     glsl: `${CAND_SIG} {
   if (state < 1.5 || state > 2.5) return dotForm(uv, sd, ext, 1.0, uDotPitch, state, prog);
   float col  = floor(uv.x / uDotPitch);
@@ -999,7 +1025,7 @@ const CANDIDATES = [
   return dotForm(uv, sd, ext, sub * 0.58 + skin * 1.15, uDotPitch, state, prog);
 }` },
 
-  { id: 'holdOrbit', name: '⓾ Hold · 궤도 순환', why: '점이 제자리에서 작은 원을 그린다. 수위 없이도 "시간이 흐르는 중"이 읽히고, 완료에 가까울수록 궤도가 조여든다.',
+  { id: 'holdOrbit', forceState: 2, name: '⓾ Hold · 궤도 순환', why: '점이 제자리에서 작은 원을 그린다. 수위 없이도 "시간이 흐르는 중"이 읽히고, 완료에 가까울수록 궤도가 조여든다.',
     glsl: `${CAND_SIG} {
   if (state < 1.5 || state > 2.5) return dotForm(uv, sd, ext, 1.0, uDotPitch, state, prog);
   vec2  cell = floor(uv / uDotPitch);
@@ -1092,7 +1118,7 @@ const candProgs = [];
   for (const c of CANDIDATES) {
     const box = document.createElement('div');
     box.innerHTML = `<canvas class="candCv" style="width:100%;aspect-ratio:1;display:block;border-radius:12px;background:#0A0C10"></canvas>
-      <div class="lab" style="margin-top:7px"><b style="color:var(--ink)">${c.name}</b></div>
+      <div class="lab" style="margin-top:7px"><b style="color:var(--ink)">${c.name}</b>${c.forceState != null ? ' <span style="color:var(--sand);font-size:9.5px">Hold 고정</span>' : ''}</div>
       <div style="font-size:10.5px;line-height:1.5;color:var(--dim);margin-top:3px">${c.why}</div>`;
     host.appendChild(box);
     const cv = box.querySelector('canvas');
@@ -1190,7 +1216,7 @@ function stripGlyph(ctx, cat, W) {
 
 let candSel = 'newtonSet', candShape = 1;
 const candP = { pitch: 0.11, gain: 1.15, speed: 1.0, inner: 0.55, prog: -0.01 };
-const candT = { mono: 0, flat: 0, noGlow: 0, noInner: 0, bg: 0, holdRim: 0 };
+const candT = { mono: 0, flat: 0, noGlow: 0, noInner: 0, bg: 0, holdRim: 0, innerMode: 0, actMode: 0 };
 {
   const host = document.getElementById('candToggles');
   for (const [k, lb] of [['mono', '무채 (색 빼고 명암만)'], ['flat', '플랫 (그라디언트까지)'],
@@ -1198,6 +1224,22 @@ const candT = { mono: 0, flat: 0, noGlow: 0, noInner: 0, bg: 0, holdRim: 0 };
     const b = document.createElement('button');
     b.className = 'btn'; b.textContent = lb;
     b.onclick = () => { candT[k] = candT[k] ? 0 : 1; b.classList.toggle('on', !!candT[k]); };
+    host.appendChild(b);
+  }
+  {
+    const b = document.createElement('button'); b.className = 'btn';
+    const LB = ['이너 음영: 끔', '이너 음영: 글로우', '이너 음영: 섀도우'];
+    b.textContent = LB[0];
+    b.onclick = () => { candT.innerMode = (candT.innerMode + 1) % 3; b.textContent = LB[candT.innerMode];
+      b.classList.toggle('on', !!candT.innerMode); };
+    host.appendChild(b);
+  }
+  {
+    const b = document.createElement('button'); b.className = 'btn';
+    const LB = ['Active: 맥동', 'Active: 굴절 파문'];
+    b.textContent = LB[0];
+    b.onclick = () => { candT.actMode = candT.actMode ? 0 : 1; b.textContent = LB[candT.actMode];
+      b.classList.toggle('on', !!candT.actMode); };
     host.appendChild(b);
   }
   const sep = document.createElement('span'); sep.style.cssText = 'width:12px'; host.appendChild(sep);
@@ -1939,12 +1981,12 @@ function frame(ts) {
   // 후보 랩 — 정본과 완전히 같은 유니폼·같은 시각. 다른 건 markCandidate 후크 하나뿐.
   if (VIS.candHost) { const m = state.m;
     const surfR = state.markSurface === 'wall' ? 1.22 : 1;
-    for (const { P, ctx2d } of candProgs) {
+    for (const { P, ctx2d, c } of candProgs) {
       if (!P || !ctx2d) continue;
       P.setCommon(m.core, candT.noGlow ? 0 : m.halo, m.wobble, 0, 0);
       const g2 = P.gl; g2.useProgram(P.pr);
       g2.uniform1f(P.u('uTime'), REDUCED ? 1.4 : ts / 1000);
-      g2.uniform1f(P.u('uState'), state.markState);
+      g2.uniform1f(P.u('uState'), c.forceState ?? state.markState);   // Hold 전용 후보는 그리드에서 자기 상태로 (안 그러면 정지 화면)
       g2.uniform1f(P.u('uContract'), state.markContract);
       g2.uniform1f(P.u('uRadius'), m.radius * surfR);
       g2.uniform1f(P.u('uPool'), m.pool);
@@ -1961,6 +2003,8 @@ function frame(ts) {
       g2.uniform1f(P.u('uBg'), candT.bg);
       g2.uniform1f(P.u('uHoldRim'), candT.holdRim ? 0 : 1);
       g2.uniform1f(P.u('uProgOvr'), candP.prog);
+      g2.uniform1f(P.u('uInnerMode'), candT.innerMode);
+      g2.uniform1f(P.u('uActMode'), candT.actMode);
       g2.drawArrays(g2.TRIANGLES, 0, 3);
       ctx2d.drawImage(candGL.cv, 0, 0);   // 공유 컨텍스트 → 이 셀로 복사
     }
@@ -1991,6 +2035,8 @@ function frame(ts) {
       g3.uniform1f(P.u('uBg'), candT.bg);
       g3.uniform1f(P.u('uHoldRim'), candT.holdRim ? 0 : 1);
       g3.uniform1f(P.u('uProgOvr'), candP.prog);
+      g3.uniform1f(P.u('uInnerMode'), candT.innerMode);
+      g3.uniform1f(P.u('uActMode'), candT.actMode);
       for (const cell of stripCells) {
         g3.uniform1f(P.u('uState'), cell.state);
         g3.drawArrays(g3.TRIANGLES, 0, 3);
