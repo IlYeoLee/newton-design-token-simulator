@@ -467,39 +467,51 @@ export class WallGL {
     // 페이즈 열은 우측 그대로 — 축 하나 + 우측 상태열이 좌우 대칭을 깨지 않는다.
     // 80 → 56: 단계 타이틀은 화면의 주인공이 아니라 머리말이다(유저). 게이지가 바로 밑에
     // 붙으려면 타이틀이 그만큼 물러나야 위→아래 [머리말 · 진행] 한 덩어리로 읽힌다.
-    ctx.translate(CX, 64 + 34); ctx.scale(tk, tk); ctx.translate(-CX, -(64 + 34));
-    txt(ctx, S.title, CX, 64, 56, 700, NEU.ink, { align: 'center', ls: -1.9 });
+    ctx.translate(CX, 96 + 34); ctx.scale(tk, tk); ctx.translate(-CX, -(96 + 34));
+    txt(ctx, S.title, CX, 96, 56, 700, NEU.ink, { align: 'center', ls: -1.9 });
     ctx.restore();
 
     // 진행 게이지 — 대지 중앙. 상단이 [타이틀(좌) · 게이지(중) · 페이즈(우)] 3단이 된다.
     // 타이틀 밑 좌측에 붙였더니 좌측만 무겁고 중앙이 비어 보였다(유저).
     // 타이틀(중앙, 56px) 바로 아래.
     // 수치·끝라벨은 뺀다 — 아래가 코치 머리라 숫자가 겹치고, 여긴 시간 진행이라 눈금이 불필요.
-    // 폭 480 · y0 132 — 타이틀(64~120) 바로 아래. 잉크 하단 ≈243 으로 코치 머리(≈263)를 비껴간다
-    const gW = 480, dY = 132;
+    // 폭 480 · y0 164 — 브레드크럼(30) → 타이틀(96~152) → 게이지. 잉크 하단 ≈275
+    const gW = 480, dY = 164;
     const de = eOut(intro(t, .20, .6));
     ctx.save();
     ctx.globalAlpha *= de; ctx.translate(0, 48 * (1 - de));
     arcGauge(ctx, CX - gW / 2, dY, gW, t / dur);
     ctx.restore();
 
-    // 페이즈 열 (우측 정렬) — 진입이면 sRight .6s (.15 + i*.07)
-    PHASES.forEach((label, i) => {
-      const active = i === S.phase, far = i > S.phase + 1;
-      const py = 100 + i * (41.087 + 56);
-      const e = (isEntry && !mid) ? eOut(intro(t, .15 + i * .07, .6)) : 1;
-      ctx.save();
-      ctx.globalAlpha *= e; ctx.translate(70 * (1 - e), 0);
-      if (active) {
-        const pu = cycle(t, 1.2, 2.4, INF);
-        if (pu != null) ctx.globalAlpha *= kf(pu, [[0, 1], [.5, .6], [1, 1]]);
-        ctx.shadowColor = 'rgba(255,255,255,.45)'; ctx.shadowBlur = 28;
-        txt(ctx, label + (S.sub ? ' ' + S.sub : ''), 2500, py, 40, 700, '#fff', { align: 'right' });
-      } else {
-        txt(ctx, label, 2500, py, 32, 400, far ? 'rgba(255,255,255,.5)' : 'rgba(255,255,255,.7)', { align: 'right' });
-      }
-      ctx.restore();
-    });
+    // 페이즈 — 상단 중앙 가로 브레드크럼. 전엔 우측 세로 열이었는데 타이틀·게이지가
+    // 중앙으로 오면서 오른쪽에만 덩그러니 남아 어색했다(유저).
+    // 앱의 단계 표시(setup-condition 하단 바)도 가로 3단이다 — 세로가 아니라 가로가 정본.
+    // 타이틀 위에 놓아 [단계 → 제목 → 진행] 위에서 아래로 읽히는 머리말 묶음이 된다.
+    {
+      const items = PHASES.map((label, i) => {
+        const active = i === S.phase;
+        const str = active ? label + (S.sub ? ' ' + S.sub : '') : label;
+        ctx.font = F(active ? 700 : 400, active ? 40 : 32);
+        return { str, active, far: i > S.phase + 1, w: ctx.measureText(str).width };
+      });
+      const GAP = 56, total = items.reduce((a, b) => a + b.w, 0) + GAP * (items.length - 1);
+      let px = CX - total / 2;
+      items.forEach((it, i) => {
+        const e = (isEntry && !mid) ? eOut(intro(t, .15 + i * .07, .6)) : 1;
+        ctx.save();
+        ctx.globalAlpha *= e; ctx.translate(0, 20 * (1 - e));   // 가로 열이라 등장도 아래→위
+        if (it.active) {
+          const pu = cycle(t, 1.2, 2.4, INF);
+          if (pu != null) ctx.globalAlpha *= kf(pu, [[0, 1], [.5, .6], [1, 1]]);
+          ctx.shadowColor = 'rgba(255,255,255,.45)'; ctx.shadowBlur = 28;
+          txt(ctx, it.str, px, 30, 40, 700, '#fff');
+        } else {
+          txt(ctx, it.str, px, 36, 32, 400, it.far ? 'rgba(255,255,255,.5)' : 'rgba(255,255,255,.7)');
+        }
+        ctx.restore();
+        px += it.w + GAP;
+      });
+    }
 
     // 아바타 — sLeft/sRight .8s .28s (후속 단계는 고정)
     const av = (x, img, dir) => {
