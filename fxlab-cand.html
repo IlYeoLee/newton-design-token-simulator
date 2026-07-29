@@ -548,6 +548,15 @@ uniform float uDotPitch, uDotGain, uDotSpeed, uInner;
 uniform float uMono, uFlat, uNoInner, uBg, uProgOvr;
 uniform float uInnerMode, uActMode, uComp, uHarm, uQ0, uSatR, uHueKeep, uBeam, uFine;
 uniform sampler2D uMask; uniform float uMaskOn, uRefTone;
+// ★ 채도를 mix(L, c, k) 로 올리면 최대 채널이 1 에서 잘리고 나머지가 깎여 '색상'이 옮겨간다.
+//   실측: coral(254,110,60) 에 k=1.45 를 걸면 (255,98,25) — 파랑이 반으로 줄어 주황이 된다.
+//   (유저: 우리 메인 컬러가 이렇게 노랬나) 클리핑 대신 전체를 스케일하면 색상이 유지된다.
+vec3 satKeep(vec3 c, float k){
+  float L = dot(c, vec3(0.2126, 0.7152, 0.0722));
+  vec3 o = max(vec3(L) + (c - vec3(L)) * k, vec3(0.0));
+  float mx = max(o.r, max(o.g, o.b));
+  return mx > 1.0 ? o / mx : o;
+}
 float chash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 // 하프톤 한 셀: 반지름을 amount(0~1)가 정한다 → 밝을수록 굵은 점 (레퍼런스의 발바닥 밀도)
 float halftone(vec2 p, float pitch, float amount, float soft){
@@ -662,6 +671,20 @@ vec4 dotForm(vec2 uv, float sd, float ext, float w, float pitch, float st, float
 const CAND_SHAPE_DEFAULT = 'float markShapeSD(vec2 p, float base){ return base; }';
 const CAND_SIG = 'vec4 markCandidate(vec4 A, vec2 uv, float sd, float inside, float ext, float state, float prog, float t)';
 const CANDIDATES = [
+  // ══ 그라디언트 + 하프톤 마스크 ═════════════════════════════════════════════
+  //   유저: '정본 그라디언트 위에 마스크를 씌워. 이전에 예뻤던 컬러감을 이식하는 건 어때.'
+  //   맞다. 나는 계속 '점으로 다시 칠하는' 쪽을 팠는데, 정본 A 는 이미 아름다운
+  //   OKLab 그라디언트(레드→코랄→사구)를 갖고 있다. 그걸 재현할 이유가 없다 —
+  //   그대로 두고 균일한 점으로 뚫기만 하면 색감은 정본, 결은 하프톤이 된다.
+  //   점 크기는 균일하다(레퍼런스도 그렇다). 크기로 형태를 만들지 않으므로 흔들리지 않는다.
+  { id: 'gradMask', name: '★ 그라디언트 + 하프톤 마스크', why: '정본의 OKLab 그라디언트를 그대로 두고 균일한 점으로 뚫는다. 색감은 정본, 결은 하프톤 — 재현이 아니라 이식이다.',
+    glsl: `${CAND_SIG} {
+  float m = halftone(uv, uDotPitch, clamp(0.60 * uDotGain, 0.0, 1.0), uDotPitch * 0.11);
+  float k = mix(0.05, 1.0, m);          // 점 사이는 거의 비운다(0 이면 경계가 딱딱해진다)
+  A.rgb *= k; A.a *= k;
+  return A;
+}` },
+
   // ══ NEWTON 7상태 세트 — 상태마다 성격에 맞는 파형 ══════════════════════════
   //   원칙(카탈로그): "재료는 열 하나, 상태는 파동의 위상."
   //   그러니 재료(점)와 열(LUT)은 고정하고 파형만 바꾼다. 상태별 성격은 이렇게 읽었다:
@@ -1249,13 +1272,10 @@ void main(){
     //   가산은 산술적으로 불가능하다: 초록 위에 빨강을 더하면 R 은 1 에서 포화되고
     //   G·B 엔 바닥값이 남아 노랗게 뜬다. 채도를 올려도 이미 옮겨간 '색상'은 안 돌아온다(유저).
     //   대신 '가산 느낌'만 아주 조금 남긴다 — 표면을 완전히 덮지 않고 살짝 비치게(0.12).
-    vec3 ink = r.rgb * uBeam;
-    float La2 = dot(ink, vec3(0.2126, 0.7152, 0.0722));
-    ink = clamp(mix(vec3(La2), ink, uSatR), 0.0, 1.0);
+    vec3 ink = satKeep(r.rgb * uBeam, uSatR);
     col = bg * (1.0 - r.a) + ink + bg * r.a * 0.12 * uHarm;
   }
-  else if (uComp < 1.5) { vec3 a = r.rgb * uBeam; float La = dot(a, vec3(0.2126,0.7152,0.0722));
-                          col = bg + clamp(mix(vec3(La), a, uSatR), 0.0, 1.0); }                                       // 가산 — 야간 규약
+  else if (uComp < 1.5) col = bg + satKeep(r.rgb * uBeam, uSatR);                                       // 가산 — 야간 규약
   else {
     // 가산 + 표면 반사. 다만 물리 그대로(표면 색조를 곱하기)면 초록 위에서 빨강의 R 이 깎여
     // 노리끼리해진다 — 채도를 복원해도 이미 '색상'이 옮겨간 뒤라 노란 게 더 노래질 뿐이다(유저).
@@ -1263,9 +1283,7 @@ void main(){
     //   uHueKeep 1 = 표면은 빛을 어둡게 할 뿐 색을 바꾸지 않는다 · 0 = 완전 물리.
     // ★ 채도 복원은 '투사광'에만 건다. 합성 뒤에 걸면 배경까지 물든다(유저 지적) —
     //   실물에서도 채도를 올리는 주체는 프로젝터지 바닥이 아니다.
-    vec3  src = r.rgb * uBeam;                          // 투사 출력 — 배경 기여를 상대적으로 눌러 노란 끼를 뺀다
-    float Ls  = dot(src, vec3(0.2126, 0.7152, 0.0722));
-    src = clamp(mix(vec3(Ls), src, uSatR), 0.0, 1.0);
+    vec3  src = satKeep(r.rgb * uBeam, uSatR);          // 투사 출력 + 색상 보존 채도
     vec3  lit = src * mix(vec3(1.0), tint, uHarm);
     float Ll  = dot(lit, vec3(0.2126, 0.7152, 0.0722));
     float Lo  = dot(src, vec3(0.2126, 0.7152, 0.0722));
@@ -1580,8 +1598,8 @@ function stripGlyph(ctx, cat, W) {
 }
 
 
-let candSel = 'newtonSet', candShape = 1;
-const candP = { pitch: 0.055, gain: 1.15, speed: 1.0, inner: 0.55, prog: -0.01, harm: 0.22, q0: 0.04, satR: 1.45, hue: 1.0, beam: 1.05, fine: 0 };
+let candSel = 'gradMask', candShape = 1;
+const candP = { pitch: 0.055, gain: 1.15, speed: 1.0, inner: 0.55, prog: -0.01, harm: 0.22, q0: 0.04, satR: 1.0, hue: 1.0, beam: 1.05, fine: 0 };
 const candT = { mono: 0, flat: 0, noGlow: 0, noInner: 0, bg: 0, holdRim: 0, innerMode: 0, actMode: 0, comp: 0, refTone: 0 };
 {
   const host = document.getElementById('candToggles');
