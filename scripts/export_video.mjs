@@ -42,11 +42,12 @@ const OUT = arg('out', 'out');
 const URLBASE = arg('url', 'http://127.0.0.1:5199/');
 // UI 캔버스 배율 — 실시간 기본 0.75. 4K 내보내기엔 2 이상이어야 확대 흐림이 없다.
 const UISCALE = +arg('uiscale', W >= 3000 ? 2 : 1.25);
+const ALPHA = !!arg('alpha', false);   // 배경 투명 PNG/ProRes 4444
 
 const TMP = fs.mkdtempSync('/tmp/newton_export_');
 fs.mkdirSync(OUT, { recursive: true });
 const N = Math.round(DUR * FPS);
-const tag = `${SPORT}${SESSION ? '_session' : ''}${BEAM ? '_beam' : ''}${HT ? '_ht' : ''}_${W}p${FPS}`;
+const tag = `${SPORT}${SESSION ? '_session' : ''}${BEAM ? '_beam' : ''}${HT ? '_ht' : ''}${ALPHA ? '_alpha' : ''}_${W}p${FPS}`;
 console.log(`▶ ${tag} — ${N}프레임 (${W}×${H} · ${FPS}fps · ${DUR}s · UI 배율 ${UISCALE})`);
 
 // GPU 우선(맥은 metal). 실패하면 소프트웨어로 떨어진다 — 느리지만 결과는 같다.
@@ -72,7 +73,7 @@ await page.evaluateOnNewDocument(() => {
 await page.setViewport({ width: W, height: H, deviceScaleFactor: 1 });
 const errs = [];
 page.on('pageerror', e => errs.push(e.message.slice(0, 160)));
-await page.goto(`${URLBASE}?dev=1&uiscale=${UISCALE}`, { waitUntil: 'networkidle2', timeout: 180000 });
+await page.goto(`${URLBASE}?dev=1&uiscale=${UISCALE}${ALPHA ? '&alpha=1' : ''}`, { waitUntil: 'networkidle2', timeout: 180000 });
 await page.waitForFunction('!!window.__dbg?.session', { timeout: 120000 });
 // 부팅 동안에도 가상 시계를 밀어 준다 — 안 그러면 초기화가 시간 0 에 얼어붙는다.
 const warm = async (ms, step = 16.7) => {
@@ -84,13 +85,21 @@ const warm = async (ms, step = 16.7) => {
 await new Promise(r => setTimeout(r, 9000));   // 에셋 로드(실시간 대기)
 await warm(1200);                              // 가상 시계로 초기 애니메이션 워밍업
 
+await page.evaluate(a => { window.__wantAlpha = a; }, ALPHA);
 await page.evaluate(({ sport, beam, ht, session }) => {
   const d = window.__dbg;
-  // 화면 정리 — 3D 만 남긴다
-  for (const sel of ['#panel', '#insp', '.dev-only', '#hud', '#toast']) {
-    document.querySelectorAll(sel).forEach(el => el.style.setProperty('display', 'none', 'important'));
-  }
-  document.body.style.background = '#000';
+  // 화면 정리 — 캔버스 말고는 전부 숨긴다.
+  //   개별 선택자로 지우면 자막·클립 미리보기·빌드 스탬프처럼 빠뜨린 게 반드시 새어 나온다(실측).
+  //   반대로 간다: 캔버스를 품은 조상만 남기고 나머지 DOM 을 통째로 숨긴다.
+  const cvs = d.renderer.domElement;
+  const keep = new Set();
+  for (let el = cvs; el && el !== document.documentElement; el = el.parentElement) keep.add(el);
+  document.querySelectorAll('body *').forEach(el => {
+    if (!keep.has(el) && !el.contains(cvs)) el.style.setProperty('display', 'none', 'important');
+  });
+  keep.forEach(el => { el.style.setProperty('background', 'transparent', 'important'); });
+  document.body.style.background = window.__wantAlpha ? 'transparent' : '#000';
+  if (window.__wantAlpha) { const st = document.getElementById('stage'); if (st) st.style.background = 'transparent'; }
   // 종목 전환은 좌측 버튼을 눌러야 한다 — state.pack 대입만으로는 씬이 안 바뀐다.
   const packBtn = { running: '러닝', boxing: '복싱', basketball: '농구' }[sport];
   [...document.querySelectorAll('button')].find(b => b.textContent.trim() === packBtn)?.click();
@@ -105,7 +114,18 @@ await page.evaluate(({ sport, beam, ht, session }) => {
     //   (실측: 페이지 에러 2건). 검은 Color 로 둔다 — 결과는 같고 에러가 없다.
     if (d.scene.background?.setHex) d.scene.background.setHex(0x000000);
     if (d.scene.fog?.color?.setHex) d.scene.fog.color.setHex(0x000000);
-    d.renderer.setClearColor(0x000000, 1);
+    if (window.__wantAlpha) {
+      // ★ 컴포저(EffectComposer)가 프레임 전체를 알파 1 로 덮는다 — 이게 '투명이 안 되던' 이유다.
+      //   RenderPass.clearAlpha 를 0 으로 두면 배경이 비어 있는 채로 블룸·그레이드를 탄다.
+      d.scene.background = null;
+      d.renderer.setClearColor(0x000000, 0);
+      const rp = d.composer?.passes?.[0];
+      if (rp) rp.clearAlpha = 0;
+      d.FXP && (d.FXP.__x = 1);
+      // 알파는 그레이드 패스가 휘도에서 뽑는다(scene.js FX.alphaOut)
+      import('/src/scene.js').then(m => { m.FX.alphaOut = true; }).catch(() => {});
+    }
+    else d.renderer.setClearColor(0x000000, 1);
     if (d.xbot?.root) d.xbot.root.visible = false;
     d.scene.traverse(o => {
       if (o.isLight) { o.intensity = 0; return; }
@@ -138,7 +158,7 @@ for (let i = 0; i < N; i++) {
     if (d.session?.active) d.session.t = tt;
     requestAnimationFrame(() => requestAnimationFrame(res));
   }), t);
-  await page.screenshot({ path: path.join(TMP, `f${String(i).padStart(5, '0')}.png`), type: 'png' });
+  await page.screenshot({ path: path.join(TMP, `f${String(i).padStart(5, '0')}.png`), type: 'png', omitBackground: ALPHA });
   if (i % 10 === 0 || i === N - 1) {
     const el = (Date.now() - t0) / 1000;
     process.stdout.write(`\r  ${i + 1}/${N}  ${el.toFixed(0)}s  (${(el / (i + 1)).toFixed(2)}s/프레임)   `);
@@ -149,13 +169,19 @@ process.stdout.write('\n');
 // ProRes 4444 — 에펙에 그대로 임포트. 알파는 안 쓴다(가산 합성이라 검은 배경이면 충분).
 const mov = path.join(OUT, `${tag}.mov`);
 execFileSync('ffmpeg', ['-y', '-framerate', String(FPS), '-i', path.join(TMP, 'f%05d.png'),
-  '-c:v', 'prores_ks', '-profile:v', '4444', '-pix_fmt', 'yuva444p10le', mov], { stdio: 'inherit' });
+  '-c:v', 'prores_ks', '-profile:v', '4444',
+  '-pix_fmt', ALPHA ? 'yuva444p10le' : 'yuv444p10le', mov], { stdio: ['ignore','ignore','inherit'] });
 // 미리보기용 H.264
 const mp4 = path.join(OUT, `${tag}_preview.mp4`);
 execFileSync('ffmpeg', ['-y', '-framerate', String(FPS), '-i', path.join(TMP, 'f%05d.png'),
   '-c:v', 'libx264', '-crf', '16', '-pix_fmt', 'yuv420p', mp4], { stdio: 'inherit' });
 
-fs.rmSync(TMP, { recursive: true, force: true });
+if (ALPHA) {   // 알파는 PNG 시퀀스가 가장 확실하다 — 에펙에서 그대로 임포트
+  const seq = path.join(OUT, `${tag}_png`);
+  fs.rmSync(seq, { recursive: true, force: true });
+  fs.renameSync(TMP, seq);
+  console.log(`   ${seq}/  (PNG 시퀀스 · 알파 보존)`);
+} else fs.rmSync(TMP, { recursive: true, force: true });
 console.log(`\n✅ ${mov}\n   ${mp4}`);
 if (errs.length) console.log(`⚠ 페이지 에러 ${errs.length}건:`, errs.slice(0, 3));
 await browser.close();

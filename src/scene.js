@@ -14,6 +14,7 @@ export const FX = {
   grain: 0,
   vignette: 0.12,
   exposure: 1.0,
+  alphaOut: false,   // 영상 내보내기 — 알파를 휘도에서 뽑는다
 };
 
 // FilmPass 대체 — 가벼운 그레인+비네트+노출 (톤 왜곡 없음), 디더로 밴딩 제거
@@ -24,11 +25,12 @@ const GrainVignetteShader = {
     uVignette: { value: FX.vignette },
     uExposure: { value: FX.exposure },
     uTime: { value: 0 },
+    uAlphaOut: { value: 0 },   // 1 = 알파를 '빛의 세기'에서 뽑는다(영상 내보내기용)
   },
   vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
   fragmentShader: `
     uniform sampler2D tDiffuse;
-    uniform float uGrain, uVignette, uExposure, uTime;
+    uniform float uGrain, uVignette, uExposure, uTime, uAlphaOut;
     varying vec2 vUv;
     float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
     void main(){
@@ -38,7 +40,13 @@ const GrainVignetteShader = {
       c.rgb *= 1.0 - smoothstep(0.45, 0.95, d) * uVignette;
       c.rgb += (hash(vUv * 913.7 + fract(uTime) * 7.0) - 0.5) * uGrain;   // 필름 그레인
       c.rgb += (hash(vUv * 517.3) - 0.5) * (2.0 / 255.0);                  // 디더 (밴딩 제거)
-      gl_FragColor = c;
+      // ★ 투사는 가산광이다 — '빛이 있는 만큼'이 곧 불투명도다.
+      //   블룸 패스가 알파를 1 로 채워 투명 내보내기가 안 되던 것의 해법이기도 하다:
+      //   알파를 따로 보존하려 애쓰는 대신 휘도에서 뽑으면 물리적으로도 맞고 매트도 깨끗하다.
+      if (uAlphaOut > 0.5) {
+        float L = max(c.r, max(c.g, c.b));
+        gl_FragColor = vec4(c.rgb, clamp(L * 1.8, 0.0, 1.0));
+      } else gl_FragColor = c;
     }`,
 };
 
@@ -47,7 +55,11 @@ export const WALL_Z = -1.8;   // 벽을 인물 가까이 (복싱 훈련 거리)
 export const FLOOR_Y = 0.001;
 
 export function createScene(container) {
-  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  // ?alpha=1 — 배경 투명 렌더러(영상 내보내기용). 실시간엔 불필요하고 합성 비용만 든다.
+  //   alpha:false 로 만들면 캔버스에 알파 채널 자체가 없어 어떤 방법으로도 투명이 안 나온다.
+  const WANT_ALPHA = new URLSearchParams(location.search).get('alpha') === '1';
+  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: WANT_ALPHA, premultipliedAlpha: false });
+  if (WANT_ALPHA) renderer.setClearColor(0x000000, 0);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   // 비스듬히 보는 바닥은 이방성 필터링이 화질을 좌우한다 — 4는 너무 낮아 코트 라인이 뭉갰다(유저)
   const MAXANISO = renderer.capabilities.getMaxAnisotropy();
@@ -464,6 +476,7 @@ export function createScene(container) {
     gradePass.uniforms.uVignette.value = FX.vignette;
     gradePass.uniforms.uExposure.value = FX.exposure;
     gradePass.uniforms.uTime.value = timeSec;
+    gradePass.uniforms.uAlphaOut.value = FX.alphaOut ? 1 : 0;
     composer.render();
   }
 

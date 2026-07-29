@@ -56,7 +56,7 @@ const state = {
 
 async function boot() {
   const stage = document.getElementById('stage');
-  const { renderer, scene, camera, controls, setPackEnvironment, resize, renderFrame, setSurfaces, setDaylight, followFloor, wall, wallGroup, hoop, setRenderCamera } = createScene(stage);
+  const { renderer, scene, camera, controls, setPackEnvironment, resize, renderFrame, composer, setSurfaces, setDaylight, followFloor, wall, wallGroup, hoop, setRenderCamera } = createScene(stage);
 
   let sessionSkillSink = null;   // 슬라이더가 session 생성 전 초기 apply 시 TDZ 회피
   let sessionReady = false;      // session(const) 생성 완료 플래그 — 초기 팩 전환이 stopSession을 먼저 부르면 TDZ
@@ -4509,7 +4509,7 @@ void main(){
   if (import.meta.env.DEV) window.__dbg = {
     extractPose, retargetToClip,   // 비디오 모캡 (dev)
     rig, xbot, state, session, sceneScope, camera, controls, tokens, effects, scene, editor3d, sceneUI, FXP, designStore, TCFG, editCam, editControls, judge, THREE,
-    renderer, demoVideo, renderDemoPanel, renderBxPerson,
+    renderer, composer, demoVideo, renderDemoPanel, renderBxPerson,
     get floorObj() { return floorObj; },
     get floorGL() { return floorGL; },
     get wallGL() { return wallGL; },
