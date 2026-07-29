@@ -108,8 +108,9 @@ export class WallGL {
     this.mesh = new THREE.Mesh(
       new THREE.PlaneGeometry(W, H),
       // depthTest는 켠 채로 — 이 이식의 전부다(벽 앞의 x봇에 가려진다). depthWrite는 반투명 UI라 끈다.
-      // opacity 0.95 = 원본 iframe의 '투사 UI 5% 균일 투명도'
-      new THREE.MeshBasicMaterial({ map: this.tex, transparent: true, opacity: 0.95, depthWrite: false, toneMapped: false }),
+      // opacity 1 — 구 0.95('투사 UI 5% 균일 투명도')는 밝은 실내 벽에선 카드·판이 통째로
+      // 벽 색과 섞여 뿌예지는 값이었다(유저: 알파합성 취소). 텍셀 알파는 그대로 살아 있다.
+      new THREE.MeshBasicMaterial({ map: this.tex, transparent: true, opacity: 1, depthWrite: false, toneMapped: false }),
     );
     this.mesh.visible = false;
     // 벽 이펙트(빔 그리드·판정 토큰)는 z −1.05~−1.43에 있고 전부 transparent·depthWrite:false 라
@@ -142,7 +143,7 @@ export class WallGL {
     'foot_shape.png',
     'footprint_shadow.svg',
     'glow.svg',
-    'you_avatar.png'];
+    'you_avatar.png', 'newton-logo.svg'];
   preload() { for (const a of WallGL.ASSETS) this._img(a); }
 
   _img(rel) {
@@ -393,24 +394,17 @@ export class WallGL {
     // ══ 우측 ══
     ctx.save(); ctx.translate(0, rDy);
     const RX = LX + LW + 24, RW = W - LX - RX, RRight = RX + RW;
-    // 타이틀 (우측 정렬) — 글자별 charIn .6s, delay .55 + i*.05
-    ctx.font = F(700, 80); ctx.fillStyle = '#fff';
-    drawChars(ctx, READY_TITLE, RRight, ROW_Y + 40, 80, -3, i => {
-      const e = eOut(intro(t, .55 + i * .05, .6));
-      return { dy: 64 * (1 - e), alpha: e, scale: 1 };
-    }, 'right');
-    // 도트 프로그래스 — fadeIn .5s 1.55s. 도트별 회색→빨강 계단(2s + i*.22)이었는데
-    // 공통 컴포넌트(dotProgress)의 '머리가 달린다'로 통일 — 같은 구간(2s~4.2s)을 훑는다.
-    // 게이지 = 타이틀과 한 덩어리(락업). 폭은 타이틀 실측 폭, 오른쪽 끝을 맞춘다.
-    // 컬럼 중앙에 800px 로 띄웠던 시안은 코치 위에 떠서 '어정쩡'했다(유저).
-    ctx.font = F(700, 80); ctx.letterSpacing = '-3px';
-    const gW = Math.round(ctx.measureText(READY_TITLE).width);
-    ctx.letterSpacing = '0px';
-    const dY = ROW_Y + 40 + 96 + 20;
-    ctx.save();
-    ctx.globalAlpha *= clamp01((t - 1.55) / .5);
-    arcGauge(ctx, RRight - gW, dY, gW, (t - 2) / (.22 * 10), { ease: true });
-    ctx.restore();
+    // 로고만 — 우측 정렬. 여기 있던 진행 게이지는 READY 에 아직 진행할 게 없어 의미가
+    // 없었고(유저), "Guard Up & Ready" 타이틀도 뺐다(유저: "그냥 로고만 우측정렬 깔끔하게").
+    // 이 화면의 안내는 아래 발 블록("Tap your foot Twice")이 이미 하고 있다 — 중복이었다.
+    const lg = this._img('newton-logo.svg');
+    if (lg) {
+      const lw = 300, lh = lw * (1353 / 4635), le = eOut(intro(t, .35, .7));
+      ctx.save();
+      ctx.globalAlpha *= le; ctx.translate(0, 26 * (1 - le));
+      ctx.drawImage(lg, RRight - lw, ROW_Y + 40, lw, lh);
+      ctx.restore();
+    }
     // 발 블록 — slideInUp .9s .6s
     const FX = RX + RW / 2 - 140, FY = ROW_Y + 570;
     ctx.save();
@@ -580,9 +574,11 @@ export class WallGL {
     ctx.font = F(400, 56);
     const sw = Math.min(1600, ctx.measureText(say).width + 64), sh = 56 * 1.2 + 48;
     const sk = kf(cs, [[0, .9], [.6, 1.06], [1, 1]]);
-    ctx.translate(CX, 1370 + sh / 2); ctx.scale(sk, sk); ctx.translate(-CX, -(1370 + sh / 2));
-    rrFill(ctx, CX - sw / 2, 1370, sw, sh, 9999, '#fff');
-    txt(ctx, say, CX, 1370 + sh / 2, 56, 400, '#000', { ls: -2.24, align: 'center', base: 'middle' });
+    // 자막을 투사 영역 맨 아래로 (1370 → 대지 하단에서 40px 띄움). 가운데 여백을 비운다(유저).
+    const cueY = H - sh - 40;
+    ctx.translate(CX, cueY + sh / 2); ctx.scale(sk, sk); ctx.translate(-CX, -(cueY + sh / 2));
+    rrFill(ctx, CX - sw / 2, cueY, sw, sh, 9999, '#fff');
+    txt(ctx, say, CX, cueY + sh / 2, 56, 400, '#000', { ls: -2.24, align: 'center', base: 'middle' });
     ctx.restore();
 
     // 콤보 팝업 — comboIn .6s (1.0 + i*.5) + comboGlow 1.6s ∞
