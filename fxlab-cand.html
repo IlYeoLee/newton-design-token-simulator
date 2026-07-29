@@ -143,6 +143,7 @@
       <button class="btn" id="candCopyBtn" style="border-color:var(--sand);color:var(--sand)">선택 후보 GLSL 복사</button>
       <span id="candPick" style="font-size:10.5px;color:var(--dim)"></span>
     </div>
+    <div class="ctl" id="candToggles" style="justify-content:flex-start;margin:0 0 10px;flex-wrap:wrap;gap:6px"></div>
     <div class="sliders" id="candSliders" style="grid-template-columns:repeat(4,minmax(150px,1fr));margin:0 0 14px"></div>
     <div id="candHost" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px"></div>
     <pre id="candSrc" style="margin:14px 0 0;padding:12px 14px;background:#0A0C10;border:1px solid #1c222c;border-radius:10px;
@@ -511,7 +512,14 @@ void main(){
   // 데모 시계 → 상태 진행 매핑 (카탈로그 전용 — 라이브는 판정 uProg가 담당)
   float prog = uState < 0.5 ? smoothstep(0.10, 0.88, tc) : tc;
   vec4 r = markState(uv, uState, prog, 0.0, uTime);
-  vec3 col = baseBG(gl_FragCoord.xy / uRes) * (1.0 - r.a) + r.rgb;
+  if (uMono > 0.5) { float L = max(r.r, max(r.g, r.b)); r.rgb = vec3(L); }
+  if (uFlat > 0.5) r.rgb = vec3(r.a);
+  // 투사면 비교 — 실제 대지 위에서 어떻게 읽히는지가 최종 판정 기준이다
+  vec3 bg = baseBG(gl_FragCoord.xy / uRes);
+  if      (uBg > 0.5 && uBg < 1.5) bg = vec3(0.184, 0.290, 0.227);   // 러닝 트랙(초록)
+  else if (uBg > 1.5 && uBg < 2.5) bg = vec3(0.545, 0.369, 0.235);   // 농구 코트(우드)
+  else if (uBg > 2.5)              bg = vec3(0.149, 0.188, 0.255);   // 농구 코트(검정)
+  vec3 col = bg * (1.0 - r.a) + r.rgb;
   gl_FragColor = vec4(grade(col, gl_FragCoord.xy, uTime), 1.0);
 }`;
 
@@ -520,13 +528,18 @@ void main(){
 //   후보는 그 후크(markCandidate)만 정의한다. 예쁘면 그 함수를 fx-core 로 옮기면 끝 —
 //   '랩에서 보던 것과 시뮬이 다르다' 계열 드리프트가 원천적으로 안 생긴다.
 const CAND_HOOK = `
-// 후크: markState 결과를 형태 정보와 함께 받아 마지막 손질만 한다.
+// 후크 ①: markState 결과를 형태 정보와 함께 받아 마지막 손질만 한다.
 vec4 markCandidate(vec4 A, vec2 uv, float sd, float inside, float ext, float state, float prog, float t);
+// 후크 ②: 실루엣 자체를 갈아끼운다. 존 원이 '원에 갇혀' 있지 않게 하는 자리 —
+//   base 는 정본의 원형 부호거리. 그대로 돌려주면 정본, 다른 걸 돌려주면 다른 형태가 된다.
+float markShapeSD(vec2 p, float base);
 `;
 // 공용 프렐류드 — 모든 후보가 쓰는 하프톤·필드 도구. 21st.dev 닷 컬렉션의 로직을 GLSL로 옮긴 것.
 //   닷 격자는 마크 로컬(uv) 좌표 — 마크가 커지면 닷도 함께 커진다(스크린 하프톤이 아니라 '이 토큰의 결').
 const CAND_PRELUDE = `
 uniform float uDotPitch, uDotGain, uDotSpeed, uInner;
+uniform float uMono, uFlat, uNoInner, uBg;
+float chash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 // 하프톤 한 셀: 반지름을 amount(0~1)가 정한다 → 밝을수록 굵은 점 (레퍼런스의 발바닥 밀도)
 float halftone(vec2 p, float pitch, float amount, float soft){
   vec2 c = fract(p / pitch) - 0.5;
@@ -544,6 +557,7 @@ float halftoneSq(vec2 p, float pitch, float amount, float soft){
 // 실루엣 안쪽 깊이(0=가장자리, 1=속). 이너 글로우/섀도우의 공통 재료.
 float innerDepth(float sd, float w){ return smoothstep(0.0, max(w, 1e-4), -sd); }
 `;
+const CAND_SHAPE_DEFAULT = 'float markShapeSD(vec2 p, float base){ return base; }';
 const CAND_SIG = 'vec4 markCandidate(vec4 A, vec2 uv, float sd, float inside, float ext, float state, float prog, float t)';
 const CANDIDATES = [
   { id: 'base', name: '정본', why: '지금 시뮬레이터가 쓰는 것 — 비교 기준',
@@ -603,7 +617,7 @@ const CANDIDATES = [
   float rim = (1.0 - dep) * inside;                 // 가장자리 1 → 속 0
   A.rgb *= mix(1.0, k, inside * dep);               // 속만 점무늬, 테두리는 매끈
   A.a   *= mix(1.0, k, inside * dep);
-  lay(A, C_ICE, rim * 0.42 * clamp(uHalo, 0.0, 1.5));
+  lay(A, C_ICE, rim * 0.42 * clamp(uHalo, 0.0, 1.5) * (1.0 - uNoInner));
   return A;
 }` },
 
@@ -613,8 +627,8 @@ const CANDIDATES = [
   float m = halftone(uv, uDotPitch, lum * uDotGain, uDotPitch * 0.14);
   float k = mix(0.18, 1.0, m);
   float dep = innerDepth(sd, 0.22 * max(uInner, 0.05));
-  A.rgb *= mix(1.0, k, inside) * mix(0.42, 1.0, dep);
-  A.a   *= mix(1.0, k, inside) * mix(0.62, 1.0, dep);
+  A.rgb *= mix(1.0, k, inside) * mix(mix(0.42, 1.0, uNoInner), 1.0, dep);
+  A.a   *= mix(1.0, k, inside) * mix(mix(0.62, 1.0, uNoInner), 1.0, dep);
   return A;
 }` },
 
@@ -653,12 +667,56 @@ const CANDIDATES = [
   A.a   *= mix(1.0, k, inside) * mix(1.0, mix(0.82, 1.0, w), inside);
   return A;
 }` },
+
+  // ── 경계를 자르지 않는 계열 ───────────────────────────────────────────────
+  //   위 후보들은 정본 A 를 inside 로 마스킹해서, 경계에 걸친 점이 반토막 난다("잘린 듯" — 유저).
+  //   아래는 A 를 쓰지 않고 부호거리(sd)로 점 크기를 직접 정해 새로 칠한다.
+  //   경계에서 점이 작아지다 사라지므로 아웃라인이 없고, 형태는 점 밀도로만 읽힌다.
+  { id: 'form', name: '⑩ 닷 폼 — 아웃라인 없음', why: '점이 경계에서 잘리지 않고 작아지며 사라진다. 윤곽선 0 — 형태를 점 밀도가 만든다.',
+    glsl: `${CAND_SIG} {
+  float band = 0.16 * max(uInner, 0.05);
+  float amt  = smoothstep(band, -band, sd);
+  float q    = clamp(0.30 + 0.70 * length(uv) / max(ext * 1.6, 1e-3), 0.0, 1.0);
+  float m    = halftone(uv, uDotPitch, amt * uDotGain, uDotPitch * 0.16);
+  vec4 B = vec4(0.0);
+  lay(B, fillHot(q), m * clamp(amt * 1.25, 0.0, 1.0));
+  return B;
+}` },
+
+  { id: 'scatter', name: '⑪ 닷 폼 + 흩날림', why: '가장자리로 갈수록 점이 격자를 벗어나 흩어진다. 경계가 "녹는" 인상 — 기계적인 컷이 완전히 사라진다.',
+    glsl: `${CAND_SIG} {
+  float band = 0.20 * max(uInner, 0.05);
+  float amt  = smoothstep(band, -band, sd);
+  vec2 cell  = floor(uv / uDotPitch);
+  float j    = 1.0 - amt;
+  vec2 jit   = (vec2(chash(cell), chash(cell + 7.7)) - 0.5) * uDotPitch * 1.5 * j * j;
+  float q    = clamp(0.30 + 0.70 * length(uv) / max(ext * 1.6, 1e-3), 0.0, 1.0);
+  float m    = halftone(uv + jit, uDotPitch, amt * uDotGain, uDotPitch * 0.18);
+  vec4 B = vec4(0.0);
+  lay(B, fillHot(q), m * clamp(amt * 1.3, 0.0, 1.0));
+  return B;
+}` },
+
+  { id: 'density', name: '⑫ 닷 폼 + 밀도 구배', why: '안쪽은 촘촘하고 바깥은 성글다. 크기가 아니라 간격이 형태를 말한다 — 인쇄 하프톤의 문법.',
+    glsl: `${CAND_SIG} {
+  float band  = 0.18 * max(uInner, 0.05);
+  float amt   = smoothstep(band, -band, sd);
+  float pitch = uDotPitch * (1.0 + 1.15 * (1.0 - amt));
+  float q     = clamp(0.30 + 0.70 * length(uv) / max(ext * 1.6, 1e-3), 0.0, 1.0);
+  float m     = halftone(uv, pitch, (0.35 + 0.85 * amt) * uDotGain, pitch * 0.16);
+  vec4 B = vec4(0.0);
+  lay(B, fillHot(q), m * clamp(amt * 1.15 + 0.10, 0.0, 1.0));
+  return B;
+}` },
 ];
 
 // 정본 MARK_GLSL 에 후크를 끼운 소스 (return A; 는 NaN 스크럽 뒤 마지막 한 번뿐)
 const MARK_HOOKED = MARK_GLSL
-  .replace('vec4 markState(', CAND_HOOK + '\nvec4 markState(')
+  .replace('float mkUndul(', CAND_HOOK + '\nfloat mkUndul(')
+  .replace('  if (uShape < 0.5) return length(p) * (1.0 + u1 * uNoise * 0.04) - 0.46 * uRadius;',
+           '  if (uShape < 0.5) return markShapeSD(p, length(p) * (1.0 + u1 * uNoise * 0.04) - 0.46 * uRadius);')
   .replace('  return A;', '  return markCandidate(A, uv, sd, inside, ext, state, prog, t);');
+if (!/markShapeSD\(p, length/.test(MARK_HOOKED)) console.error('[후보랩] 형태 후크 주입 실패');
 if (!/markCandidate\(A, uv/.test(MARK_HOOKED)) console.error('[후보랩] 후크 주입 실패 — MARK_GLSL 의 return A; 를 못 찾았다');
 const candProgs = [];
 {
@@ -670,14 +728,22 @@ const candProgs = [];
       <div style="font-size:10.5px;line-height:1.5;color:var(--dim);margin-top:3px">${c.why}</div>`;
     host.appendChild(box);
     const cv = box.querySelector('canvas');
-    const frag = GLSL_COMMON + MARK_HOOKED + '\n' + CAND_PRELUDE + '\n' + c.glsl + '\n' + `
+    const frag = GLSL_COMMON + MARK_HOOKED + '\n' + CAND_PRELUDE + '\n'
+      + (c.shape || CAND_SHAPE_DEFAULT) + '\n' + (c.glsl || `${CAND_SIG} { return A; }`) + '\n' + `
 uniform float uTime, uState, uForm;
 void main(){
   vec2 uv = (gl_FragCoord.xy - uRes*0.5) / (uRes.y*0.5);
   float tc = fract(uTime * 0.45);
   float prog = uState < 0.5 ? smoothstep(0.10, 0.88, tc) : tc;
   vec4 r = markState(uv, uState, prog, 0.0, uTime);
-  vec3 col = baseBG(gl_FragCoord.xy / uRes) * (1.0 - r.a) + r.rgb;
+  if (uMono > 0.5) { float L = max(r.r, max(r.g, r.b)); r.rgb = vec3(L); }
+  if (uFlat > 0.5) r.rgb = vec3(r.a);
+  // 투사면 비교 — 실제 대지 위에서 어떻게 읽히는지가 최종 판정 기준이다
+  vec3 bg = baseBG(gl_FragCoord.xy / uRes);
+  if      (uBg > 0.5 && uBg < 1.5) bg = vec3(0.184, 0.290, 0.227);   // 러닝 트랙(초록)
+  else if (uBg > 1.5 && uBg < 2.5) bg = vec3(0.545, 0.369, 0.235);   // 농구 코트(우드)
+  else if (uBg > 2.5)              bg = vec3(0.149, 0.188, 0.255);   // 농구 코트(검정)
+  vec3 col = bg * (1.0 - r.a) + r.rgb;
   gl_FragColor = vec4(grade(col, gl_FragCoord.xy, uTime), 1.0);
 }`;
     let P = null;
@@ -689,6 +755,26 @@ void main(){
 }
 let candSel = 'dot', candShape = 1;
 const candP = { pitch: 0.11, gain: 1.15, speed: 1.0, inner: 0.55 };
+const candT = { mono: 0, flat: 0, noGlow: 0, noInner: 0, bg: 0 };
+{
+  const host = document.getElementById('candToggles');
+  for (const [k, lb] of [['mono', '무채 (색 빼고 명암만)'], ['flat', '플랫 (그라디언트까지)'],
+                         ['noGlow', '글로우 끄기'], ['noInner', '이너 끄기']]) {
+    const b = document.createElement('button');
+    b.className = 'btn'; b.textContent = lb;
+    b.onclick = () => { candT[k] = candT[k] ? 0 : 1; b.classList.toggle('on', !!candT[k]); };
+    host.appendChild(b);
+  }
+  const sep = document.createElement('span'); sep.style.cssText = 'width:12px'; host.appendChild(sep);
+  const bgHost = document.createElement('span');
+  [['다크', 0], ['러닝 초록', 1], ['농구 우드', 2], ['농구 검정', 3]].forEach(([lb, v]) => {
+    const b = document.createElement('button');
+    b.className = 'btn' + (v === 0 ? ' on' : ''); b.textContent = lb;
+    b.onclick = () => { candT.bg = v; [...bgHost.children].forEach(x => x.classList.remove('on')); b.classList.add('on'); };
+    bgHost.appendChild(b);
+  });
+  host.appendChild(bgHost);
+}
 {
   const host = document.getElementById('candSliders');
   const defs = [['pitch', '닷 피치', 0.03, 0.30, 0.005], ['gain', '닷 굵기', 0.2, 2.0, 0.05],
@@ -1419,7 +1505,7 @@ function frame(ts) {
     const surfR = state.markSurface === 'wall' ? 1.22 : 1;
     for (const { P } of candProgs) {
       if (!P) continue;
-      P.setCommon(m.core, m.halo, m.wobble, 0, 0);
+      P.setCommon(m.core, candT.noGlow ? 0 : m.halo, m.wobble, 0, 0);
       const g2 = P.gl; g2.useProgram(P.pr);
       g2.uniform1f(P.u('uTime'), REDUCED ? 1.4 : ts / 1000);
       g2.uniform1f(P.u('uState'), state.markState);
@@ -1433,6 +1519,10 @@ function frame(ts) {
       g2.uniform1f(P.u('uDotGain'), candP.gain);
       g2.uniform1f(P.u('uDotSpeed'), candP.speed);
       g2.uniform1f(P.u('uInner'), candP.inner);
+      g2.uniform1f(P.u('uMono'), candT.mono);
+      g2.uniform1f(P.u('uFlat'), candT.flat);
+      g2.uniform1f(P.u('uNoInner'), candT.noInner);
+      g2.uniform1f(P.u('uBg'), candT.bg);
       g2.drawArrays(g2.TRIANGLES, 0, 3);
     } }
   if (personReady && VIS.personC) {
