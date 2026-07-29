@@ -1324,38 +1324,33 @@ function glyphSprite(ch, sizeN, style, pitchN, locked, axN, ayN) {
       }
     g.restore();
   } else if (style === 3) {
-    // 음각(하프톤) — 마크의 '실제 하프톤 입자'에 구멍을 뚫는다(유저 확정).
-    //   ★ 관건은 격자 정렬이다. 셰이더는 halftone(uv, pitch) 로 uv∈[-1,1] 위에 격자를 깐다.
-    //     캔버스 픽셀로 환산하면 간격 = pitch·(N/2), 중심은 N/2 에서 ±(n+0.5)·간격.
-    //     앞선 시안은 0 에서 간격/2 부터 찍어 위상이 어긋났고, 그래서 지운 자리가
-    //     입자와 안 맞아 '통으로 올려진' 것처럼 보였다.
+    // 음각(하프톤) — 마크의 하프톤 입자를 '숫자 모양대로' 빼되, 한 칸을 통째로 빼거나 말거나가
+    //   아니라 그 칸이 글자에 얼마나 덮였는지(커버리지)로 구멍 크기를 정한다.
+    //   → 완전히 덮인 칸은 큰 구멍, 걸친 칸은 중간·작은 구멍. 경계에 계조가 생겨 획이 읽힌다.
+    //   (앞선 시안은 큰 구멍/없음 둘뿐이라 과하게 뚫려 글자가 뭉갰다 — 유저 지적)
+    //   격자는 셰이더와 정렬: 간격 = pitch·(N/2), 중심은 N/2 에서 ±(n+0.5)·간격.
     const N = GSPR;
-    const step = Math.max(6, pitchN * N * 0.5);      // pitchN 은 이미 uv 기준 피치
+    const step = Math.max(6, pitchN * N * 0.5);
     const A = g.getImageData(0, 0, N, N).data;
     g.clearRect(0, 0, N, N);
     g.fillStyle = '#fff';
-    const half = N / 2, n0 = Math.ceil(half / step) + 1;
     const at = (x, y) => (x < 0 || y < 0 || x >= N || y >= N) ? 0 : A[(Math.floor(y) * N + Math.floor(x)) * 4 + 3];
-    // 2단 격자 — 셀이 글자 안에 '완전히' 들어가면 큰 구멍, 경계에 걸치면 3×3 으로 잘게 뚫는다.
-    //   큰 점 하나로 획을 표현하면 숫자가 덩어리로 뭉쳐 안 읽힌다(유저 스샷). 레퍼런스도
-    //   본체는 큰 점, 테두리는 작은 점으로 형태를 해상한다.
-    const SUB = 3;
+    const half = N / 2, n0 = Math.ceil(half / step) + 1, SS = 4;
     for (let iy = -n0; iy <= n0; iy++)
       for (let ix = -n0; ix <= n0; ix++) {
         const cx = half + (ix + 0.5) * step, cy = half + (iy + 0.5) * step;
         if (cx < -step || cy < -step || cx >= N + step || cy >= N + step) continue;
-        const h = step * 0.42;
-        const corners = [at(cx - h, cy - h), at(cx + h, cy - h), at(cx - h, cy + h), at(cx + h, cy + h), at(cx, cy)];
-        const inAll = corners.every(v => v > 100), inAny = corners.some(v => v > 100);
-        if (inAll) { g.beginPath(); g.arc(cx, cy, step * 0.52, 0, 6.2832); g.fill(); }
-        else if (inAny) {
-          const ss = step / SUB;
-          for (let sy = 0; sy < SUB; sy++)
-            for (let sx = 0; sx < SUB; sx++) {
-              const px = cx - step / 2 + (sx + 0.5) * ss, py = cy - step / 2 + (sy + 0.5) * ss;
-              if (at(px, py) > 100) { g.beginPath(); g.arc(px, py, ss * 0.50, 0, 6.2832); g.fill(); }
-            }
-        }
+        // 커버리지 — 칸 안 4×4 표본 중 글자에 든 비율
+        let hit = 0;
+        for (let sy = 0; sy < SS; sy++)
+          for (let sx = 0; sx < SS; sx++)
+            if (at(cx - step / 2 + (sx + 0.5) * step / SS,
+                   cy - step / 2 + (sy + 0.5) * step / SS) > 100) hit++;
+        const cov = hit / (SS * SS);
+        if (cov < 0.16) continue;                       // 거의 안 걸친 칸은 그대로 둔다
+        // 큰(0.52) ↔ 작은(0.20) — 커버리지가 반지름을 정한다. 중간 크기가 자연히 생긴다.
+        const rad = step * (0.20 + 0.32 * Math.min(1, (cov - 0.16) / 0.84));
+        g.beginPath(); g.arc(cx, cy, rad, 0, 6.2832); g.fill();
       }
   }
   return _gSpr;
@@ -1374,7 +1369,7 @@ function stripGlyph(ctx, cat, W) {
   }
   // 위치·크기는 '비율'로 다룬다 — 스프라이트 해상도(512)와 셀 해상도가 달라도 같은 그림이 나온다.
   const av = (typeof numFootView === 'function') ? numFootView() : null;
-  const sizeN = MARK_NUM.RATIO * (state.m.radius || 1) * (candGStyle >= 2 ? 1.25 : 1) * ((av && av.s) || 1);
+  const sizeN = MARK_NUM.RATIO * (state.m.radius || 1) * (candGStyle === 3 ? 1.55 : candGStyle === 2 ? 1.25 : 1) * ((av && av.s) || 1);
   const axN = candShape > 0.5 ? (av ? av.x : 0.5) : 0.5;
   const ayN = candShape > 0.5 ? (av ? av.y : 0.34) : 0.5;
   const spr = glyphSprite(ch, sizeN, candGStyle, candP.pitch, locked, axN, ayN);
