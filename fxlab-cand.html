@@ -597,6 +597,11 @@ vec3 stateFill(float st, float q, float pg){
 }
 // 아웃라인 없는 닷 폼 본체(⑩) — w 는 그 픽셀의 '켜짐 정도'. Hold 후보들이 w 만 바꿔 쓴다.
 uniform float uT2;   // 앰비언트 그라디언트 흐름용 시간
+// ★ 색좌표를 '형태 크기'로 정규화한다. 정본은 존 원 ext=0.46·발형 ext=0.72 로 달라
+//   두 형태가 램프의 다른 구간을 훑었고, 같은 상태인데 색감이 달랐다(유저 지적).
+float normQ(vec2 uv, float ext){
+  return clamp(uQ0 + (1.0 - uQ0) * pow(clamp(length(uv) / max(ext * 1.55, 1e-3), 0.0, 1.0), 1.75), 0.0, 1.0);
+}
 vec4 dotFormQ(vec2 grid, vec2 uv, float sd, float ext, float w, float pitch, float st, float pg, float qOvr){
   float t2 = uT2;
   // 경계 폭. 이 값 하나로 두 가지가 동시에 정해져 있었던 게 문제였다 —
@@ -624,8 +629,7 @@ vec4 dotFormQ(vec2 grid, vec2 uv, float sd, float ext, float w, float pitch, flo
   // ★ q 가 반지름에 '선형'이면 면적의 대부분이 램프 뒤쪽(사구·크림)에 몰려 색이 옅어진다
   //   — 원은 넓이가 r² 로 커지기 때문이다(유저: 뉴턴 색도 아니고 촌스럽다).
   //   거듭제곱으로 눌러 중심부가 오래 뉴턴 레드로 남게 한다.
-  float rN   = clamp(length(uv) / max(ext * 1.55, 1e-3), 0.0, 1.0);
-  float q    = qOvr >= 0.0 ? qOvr : clamp(uQ0 + (1.0 - uQ0) * pow(rN, 1.75), 0.0, 1.0);
+  float q    = qOvr >= 0.0 ? qOvr : normQ(uv, ext);
   // ★ 레퍼런스 톤(Figma 160:2714) — 색을 '마크가 스스로 내는 방사 램프'가 아니라
   //   '뒤에 깔린 은은한 그라디언트가 비쳐 나오는 것'으로 바꾼다. 점 결·모션은 그대로 둔다.
   if (uRefTone > 0.5) {
@@ -684,6 +688,7 @@ const CANDIDATES = [
   float edge = smoothstep(0.16 * max(uInner, 0.05), -0.02, sd);   // 경계 안쪽에서 서서히 1
   float m = halftoneG(uv, uDotPitch, clamp(0.60 * uDotGain, 0.0, 1.0) * edge, uDotPitch * 0.11, uDotGlow);
   float k = mix(0.04, 1.0, m);
+  // 색은 정본 A 그대로 — 갈아끼웠더니 쨍함이 죽었다(유저). 정본 램프가 이미 아름답다.
   A.rgb *= k; A.a *= k;
   return A;
 }` },
@@ -798,7 +803,7 @@ const CANDIDATES = [
   float edge = smoothstep(0.16 * max(uInner, 0.05), -0.02, sd);   // 경계 전에 점이 작아져 사라진다(아웃라인 0)
   float m = halftoneG(uv + disp, uDotPitch, clamp(0.60 * uDotGain, 0.0, 1.0) * edge, uDotPitch * 0.11, uDotGlow);
   float k = mix(0.04, 1.0, m);
-  if (holdQ >= 0.0) {                      // Hold·Preview 는 색좌표를 따로 쓴다 → 그 색으로 갈아끼운다
+  if (holdQ >= 0.0) {   // Hold·Preview 만 자기 색좌표를 쓴다. 나머지는 정본 색감 그대로(쨍함 유지).
     float lum0 = max(A.r, max(A.g, A.b));
     A.rgb = stateFill(state, holdQ, prog) * lum0;
   }
