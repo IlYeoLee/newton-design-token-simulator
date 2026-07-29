@@ -1171,6 +1171,7 @@ export class Session {
     g.add(this.bxB3jab);
     this.bxB3ring = wallRing(TX, TY, 0.14, 0.16, BRAND.red, 0.8); g.add(this.bxB3ring);
     this.bxB3cd = wallRing(TX, TY, 0.14, 0.16, BRAND.prism, 0); g.add(this.bxB3cd);
+    this.bxB3cd.material.uniforms.uContract.value = 1;   // 수축 링 규약 — B2 슬립·C3 콤보와 같은 물건
 
     this._mk('BX_T2');
 
@@ -2615,8 +2616,15 @@ export class Session {
       // 잽 스윕 — 스윕 밴드 밝기 + 타겟 수축 링, 맞춘 잽 카운트
       const BT = 0.9, rep = Math.floor(this.t / BT), ph = (this.t % BT) / BT;
       if (rep !== this._jabRep) { this._jabRep = rep; this.bxB3jab._prim.pts = SWEEP_PATHS[rep % SWEEP_PATHS.length]; }   // 좌우 번갈아 스윕
-      this.bxB3jab._prim.prog = ph;   // 잽 궤적 스윕
-      this.bxB3cd.setOp(0.4 + 0.55 * ph); this.bxB3cd.scale.setScalar(1.9 - 0.9 * ph);   // setOp 규약 (구 .opacity는 셰이더에 무효 — 링이 안 보였음)
+      this.bxB3jab._prim.prog = Math.min(1, ph / 0.78);   // 잽 궤적 스윕 — 타격 시점에 도착
+      // 타겟 = 수축 링 규약(B2 슬립·C3 콤보와 동일): 바깥에서 조여들다 도착(0.78) 순간
+      //   팽창하며 터진다 = "빡". 전엔 1.9→1.0 으로 줄기만 하고 임팩트가 없어 그냥 페이드였다(유저).
+      const LAND = 0.78, e3 = Math.pow(clamp01(ph / LAND), 1.6), k3 = clamp01((ph - LAND) / (1 - LAND));
+      this.bxB3cd.scale.setScalar(k3 > 0 ? 1 + 1.9 * k3 : 2.3 - 1.3 * e3);
+      this.bxB3cd.setOp(k3 > 0 ? (1 - k3) * 0.95 : 0.22 + 0.72 * e3);
+      const hit3 = k3 > 0 && k3 < 1 ? 1 - k3 : 0;
+      this.bxB3ring.scale.setScalar(1 + 0.22 * hit3);
+      this.bxB3ring.setOp(0.14 + 0.34 * e3 + 0.5 * hit3);
       const hits = Math.min(6, Math.floor(this.t / BT));
       FMU(`스윕 따라 잽 ${hits} / 6`, hits >= 6 ? CS.prism : CS.dim);
       if (this.t >= 6 * BT + 0.4) { this._gateAdvance(); return; }
