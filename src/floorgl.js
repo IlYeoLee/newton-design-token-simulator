@@ -24,9 +24,6 @@ const K = Math.min(3, Math.max(0.4,
 const UI_FPS = Math.max(4, Math.min(60, +(new URLSearchParams(location.search).get('uifps')) || 12));
 
 const CX = W / 2;
-// 투사 대지 바탕 — Figma 아트보드가 검정이다. 투명 대지면 밝은 실내 바닥이 그대로 비쳐
-// 올라와 색이 전부 뿌예진다(유저). 가장자리는 _bgGlow 의 라디얼 페더 + 투사면 클리핑이 깎는다.
-export const PLATE = new URLSearchParams(typeof location !== 'undefined' ? location.search : '').get('plate') === '0' ? null : '#000';
 // 투사 UI 서체 규칙(유저 확정): Supreme 두 굵기만 — Bold 700 · Regular 400.
 // Freesentation·Pretendard 폴백은 은퇴(투사 UI는 영문 조판이고, 폴백이 끼면 자간이 달라진다).
 const sans = "'Supreme',sans-serif";
@@ -555,11 +552,7 @@ export class FloorGL {
     const ctx = this.ctx;
     ctx.setTransform(K, 0, 0, K, 0, 0);
     ctx.clearRect(0, 0, W, H);
-    const full = this.kind && this.kind !== 'scene';
-    // 대지 판은 풀스크린 문서(카운트다운·전환·리포트)에만. 지면 씬 컬럼은 발마크 위 스파스
-    // 오버레이라 판을 깔면 트랙/코트를 검정으로 덮는다 — 투사면 밖 그래픽 금지 원칙과도 충돌.
-    if (full && PLATE) { ctx.fillStyle = PLATE; ctx.fillRect(0, 0, W, H); }
-    if (full) return this['_paint_' + this.kind]();
+    if (this.kind && this.kind !== 'scene') return this['_paint_' + this.kind]();
     let y = 176;   // Figma 대지 실좌표
     for (const n of this.col) {
       if (n.style.display === 'none') continue;
@@ -839,20 +832,37 @@ export class FloorGL {
       x += w[i];
     });
     ctx.restore();
-    // 디바이스 배터리 링 3개 — fadeUpCentered .8s .5s. 스트립 바로 아래(간격 24)로 붙여 한 블록.
-    ctx.save(); this._fadeIn(RY, 200, eOut(intro(t, .5, .8)));
-    const devs = [[0.9, 'run/ic_glasses.png', 96], [0.3, 'run/ic_watch.png', 56], [0.6, 'run/ic_earbuds.png', 82]];
-    const dx0 = CX - (200 * 3 + 28 * 2) / 2;
-    devs.forEach(([pct, ic, iw], i) => {
-      const cx = dx0 + i * 228 + 100, cy = RY + 100, r = 76 * (200 / 170), lw = 13 * (200 / 170);
-      ctx.lineWidth = lw; ctx.strokeStyle = 'rgba(255,255,255,.16)';
-      ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
-      const f = Math.max(0, Math.min(1, (t - (0.9 + i * 0.16)) / 1.5)) * pct;
-      if (f > 0.002) { ctx.strokeStyle = '#fff'; ctx.lineCap = 'round';
-        ctx.beginPath(); ctx.arc(cx, cy, r, -Math.PI / 2, -Math.PI / 2 + f * Math.PI * 2); ctx.stroke(); }
+    // 디바이스 칩 — 모바일 setup.css .chip-sel 정본 이식(×4.44). 구 배터리 링은 폐기(유저).
+    ctx.save(); this._fadeIn(RY, 141, eOut(intro(t, .5, .8)));
+    const chips = [[0.9, 'run/ic_glasses.png', 46, '90%', true],
+                   [0.3, 'run/ic_watch.png', 34, '30%', false],
+                   [0.6, 'run/ic_earbuds.png', 40, '60%', false]];
+    ctx.font = F(400, 62); ctx.letterSpacing = '-1.9px'; ctx.textBaseline = 'middle';
+    const CG = 18, PADX = 53, ICG = 18;
+    const cw = chips.map(([, ic, iw, tx]) => iw + ICG + ctx.measureText(tx).width + PADX * 2);
+    let cx0 = CX - (cw.reduce((a, b) => a + b, 0) + CG * 2) / 2;
+    chips.forEach(([, ic, iw, tx, sel], i2) => {
+      const w2 = cw[i2], y2 = RY, h2 = 141;
+      if (sel) {   // 선택 = 뉴턴 그라디언트(setup.css 정본 스톱)
+        const g2 = ctx.createLinearGradient(0, y2, 0, y2 + h2);
+        g2.addColorStop(0.48, '#FA3030'); g2.addColorStop(0.776, '#FE6E3C');
+        g2.addColorStop(1, '#FEC389');
+        ctx.fillStyle = g2;
+      } else ctx.fillStyle = '#fff';
+      this._roundRectPath(cx0, y2, w2, h2, h2 / 2); ctx.fill();
       const im = this._img(ic);
-      if (im) { const ih = iw * (im.naturalHeight / im.naturalWidth); ctx.drawImage(im, cx - iw / 2, cy - ih / 2, iw, ih); }
+      if (im) {
+        const ih = iw * (im.naturalHeight / im.naturalWidth);
+        if (!sel) { ctx.save(); ctx.filter = 'brightness(0)'; }   // 흰 칩 위에선 아이콘을 검게
+        ctx.drawImage(im, cx0 + PADX, y2 + h2 / 2 - ih / 2, iw, ih);
+        if (!sel) ctx.restore();
+      }
+      ctx.fillStyle = sel ? '#fff' : '#525252';
+      ctx.textAlign = 'left';
+      ctx.fillText(tx, cx0 + PADX + iw + ICG, y2 + h2 / 2 + 2);
+      cx0 += w2 + CG;
     });
+    ctx.letterSpacing = '0px'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
     ctx.restore();
     // hero — fadeUpCentered .9s .7s. 발·화살표는 이미 바닥에 붙은 요소라 탭은 원본대로 translate.
     ctx.save(); this._fadeIn(1057, 622, eOut(intro(t, .7, .9)));

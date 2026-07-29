@@ -23,10 +23,6 @@ const K = Math.min(3, Math.max(0.4,
 const UI_FPS = Math.max(4, Math.min(60, +(new URLSearchParams(location.search).get('uifps')) || 12));
 const CX = W / 2;
 const INF = Infinity;
-// 투사 대지 바탕 — Figma 아트보드가 검정이다. 투명 대지로 깔면 밝은 실내 벽/바닥이 그대로
-// 비쳐 올라와 카드·타이포가 통째로 뿌예진다(유저: "알파 같은 거 아예 없이 쨍하게").
-// 가장자리는 기존 라디얼 페더(_bgGlow)와 투사면 클리핑이 그대로 깎으므로 판이 사각으로 서지 않는다.
-export const PLATE = new URLSearchParams(typeof location !== 'undefined' ? location.search : '').get('plate') === '0' ? null : '#000';
 
 // 투사 UI 서체 규칙(유저 확정): Supreme 두 굵기만 — Bold 700 · Regular 400.
 // Freesentation·Pretendard 폴백은 은퇴(투사 UI는 영문 조판이고, 폴백이 끼면 자간이 달라진다).
@@ -209,7 +205,6 @@ export class WallGL {
     const ctx = this.ctx;
     ctx.setTransform(K, 0, 0, K, 0, 0);
     ctx.clearRect(0, 0, W, H);
-    if (PLATE) { ctx.fillStyle = PLATE; ctx.fillRect(0, 0, W, H); }   // 대지 = Figma 아트보드(검정). ?plate=0 로 끔
     ctx.lineJoin = 'round';
     this['_paint_' + this.kind]();
   }
@@ -358,9 +353,12 @@ export class WallGL {
     const setH = 235;
     rrFill(ctx, ix, y, iw, setH, 64, '#fff');
     const cw = (iw - 10) / 2;
-    const cells = [['Location & Goal', 'Inoor ·Standard', 103], ['Condition', 'About the same as usual', 103],
-                   ['Level & Mode', 'Quite On', 102], ['Main Workout', '15m', 102]];
-    cells.forEach(([lab, val, ch], i) => {
+    // ★ 한 줄 압축 — 라벨+값 두 줄이던 걸 자기설명적 한 줄로 줄이고 그만큼 키웠다(유저:
+    // "글씨 크기를 키우란 게 아니라 글자 수를 줄이면서 내용은 유지"). 투사면은 읽는 화면이
+    // 아니라 훑는 화면이라 라벨은 값 안에 녹인다. 'Quite On' → 'Quiet On' 오타도 함께 정정.
+    const cells = [['Indoor · Standard', 103], ['Condition · Usual', 103],
+                   ['Quiet On', 102], ['Main 15m', 102]];
+    cells.forEach(([val, ch], i) => {
       const cx0 = ix + (i % 2) * (cw + 10), cy0 = y + 10 + (i < 2 ? 0 : 113);
       const e = eOut(intro(t, .95 + i * .10, .55));
       ctx.save();
@@ -369,8 +367,7 @@ export class WallGL {
       const k = 0.95 + 0.05 * e;
       ctx.translate(cx0 + cw / 2, cy0 + ch / 2); ctx.scale(k, k); ctx.translate(-(cx0 + cw / 2), -(cy0 + ch / 2));
       rrFill(ctx, cx0, cy0, cw, ch, 48, NEU.surface);
-      txt(ctx, lab, cx0 + PADL, cy0 + 18, 32, 400, NEU.t2, { ls: -.67 });
-      txt(ctx, val, cx0 + PADL, cy0 + 18 + 32 * 1.1 + 4, 38, 700, '#000', { ls: -1.14 });
+      txt(ctx, val, cx0 + PADL, cy0 + ch / 2, 46, 700, '#000', { ls: -1.53, base: 'middle' });
       ctx.restore();
     });
     y += setH + 32;
@@ -378,10 +375,11 @@ export class WallGL {
     txt(ctx, 'Connected', ix + iw / 2, y + 6, 38, 400, NEU.t1, { ls: -1.27, align: 'center' });
     y += 48 + 8;
     const devH = 203.607, dw = (iw - 16) / 3;
-    const devs = [['icon_wearable.png', 'Wearable', 'Battery 99%'],
-                  ['icon_station.png', 'Station', 'Projection ready'],
-                  ['icon_device.png', 'External Device', 'Galaxy Watch Ready']];
-    devs.forEach(([ic, n, s], i) => {
+    // 같은 규칙 — 이름+상태 두 줄을 한 줄로. 상태가 곧 이름을 설명한다.
+    const devs = [['icon_wearable.png', 'Wearable 99%'],
+                  ['icon_station.png', 'Station Ready'],
+                  ['icon_device.png', 'Watch Ready']];
+    devs.forEach(([ic, n], i) => {
       const dx = ix + i * (dw + 8);
       const e = eOut(intro(t, 1.3 + i * .13, .55));
       ctx.save();
@@ -390,8 +388,7 @@ export class WallGL {
       // 아이콘 — 웨어러블만 원본 컬러, 나머지는 열화상 그라디언트 마스크
       const tim = i === 0 ? this._img(ic) : this._tinted(ic, 88, 88, [[0, PAL.red], [.6, PAL.coral], [.85, PAL.sand], [1, PAL.prism]]);
       if (tim) ctx.drawImage(tim, dx + PADL, y + 16, 88, 88);
-      txt(ctx, n, dx + PADL, y + 16 + 88 + 6, 38, 700, NEU.inkDark, { ls: -1.06 });
-      txt(ctx, s, dx + PADL, y + 16 + 88 + 6 + 38 * 1.2, 32, 400, NEU.t2, { ls: -.96 });
+      txt(ctx, n, dx + PADL, y + 16 + 88 + 14, 46, 700, NEU.inkDark, { ls: -1.53 });
       const chk = this._img('check.svg');
       if (chk) ctx.drawImage(chk, dx + dw - 76, y + 18, 58, 58);   // 40 → 58 (투사 거리에서 안 보였다)
       ctx.restore();
