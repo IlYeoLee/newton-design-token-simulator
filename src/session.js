@@ -6,6 +6,8 @@ import { lutColor, GLYPHS, drawGlyph, drawNumber, footSlot, footSDFTexture, FXP 
 import { MARK_NUM, drawStanceBox, drawPunchLine, drawApproachRing, drawTrajectory, drawRotate, drawStemArrow, drawCurveArrow } from './fx-core.js';
 import { makeMarkFXMaterial, makeLaneFXMaterial, makeFlowArrow, tickFlowArrows, beamAlphaAt, COLORS } from './tokens.js';
 
+const clamp01 = v => v < 0 ? 0 : v > 1 ? 1 : v;
+
 // 피그마 CTA 임포트 — StageCard/베이스 컴포넌트의 cta 노드를 다운로드한 에셋(150×44 원 비율).
 // 절차: 피그마에서 download_assets → public/textures/<sport>_running.png → 여기서 텍스처로 소비.
 // 새 디자인으로 갈아끼울 땐 같은 파일명으로 재수출 후 배포하면 끝(코드 변경 없음).
@@ -2609,7 +2611,28 @@ export class Session {
       const n = Math.max(1, 3 - Math.floor(this.t)); if (n !== this._lastCount) { this._setCountWall(n, CS.ink); this._lastCount = n; }
       if (this.t >= st.dur) { this.next(); return; }
     } else if (id === 'BX_C2' || id === 'BX_C3') {
-      if (id === 'BX_C3' && this.bxCombo) this.bxCombo._prim.prog = (this.t % 2.4) / 2.4;   // 콤보 사이클
+      if (id === 'BX_C3' && this.bxCombo) {
+        // 콤보 = 잽·잽·훅. 각 타격마다 수축 링이 타겟으로 조여들고, 도착(at) 순간 팽창하며
+        // 터진다 = "빡". 빠른 둘(0.52·0.90) → 벌어진 하나(1.58) 라 리듬이 귀로 들리듯 보인다.
+        const CY = 2.4, tc = this.t % CY;
+        this.bxCombo._prim.prog = Math.min(1, tc / 1.75);   // 펀치 라인은 세 타격을 잇는 순서선
+        let live = 0;
+        for (let i = 0; i < this.bxC3hits.length; i++) {
+          const h = this.bxC3hits[i];
+          const p = clamp01((tc - (h.at - h.lead)) / h.lead), e = Math.pow(p, 1.6);
+          const k = clamp01((tc - h.at) / 0.26);            // 임팩트 잔상(0.26s)
+          if (p > 0 && k <= 0) live = i + 1;
+          // 수축 링 — 바깥에서 타겟까지. 도착하면 그 자리에서 팽창·소멸(핑).
+          h.cd.scale.setScalar(k > 0 ? 1 + 1.9 * k : 2.3 - 1.3 * e);
+          h.cd.setOp(k > 0 ? (1 - k) * 0.95 : 0.22 + 0.72 * e);
+          // 타겟 존 — 접근할수록 차오르고, 맞는 순간 한 번 부풀었다 가라앉는다.
+          const hit = k > 0 && k < 1 ? 1 - k : 0;
+          h.zone.scale.setScalar(1 + 0.22 * hit);
+          h.zone.setOp(0.14 + 0.34 * e + 0.5 * hit);
+        }
+        FMU(live ? `${this.bxC3hits[live - 1].lbl} ${live} / 3` : '잽 · 잽 · 훅',
+          live === 3 ? CS.prism : CS.coral);
+      }
       if (this.t >= st.dur) { this.next(); return; }
     } else if (id === 'BX_C4') {
       this.liveSpeed = Math.max(0.12, 1 - this.t / 2.4);
