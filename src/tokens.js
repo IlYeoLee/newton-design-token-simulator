@@ -18,7 +18,8 @@ void main() {
   #include <clipping_planes_vertex>
 }`;
 const MARKFX_FRAG = `
-uniform float uHT, uHTPitch, uHTGain, uHTSoft, uHTWave, uHTGlow, uHTInner;   // 하프톤 스킨 — 후보랩 확정본
+uniform float uHT, uHTPitch, uHTGain, uHTSoft, uHTWave, uHTGlow, uHTInner;
+uniform sampler2D uNumTex; uniform float uNumOn, uNumScale; uniform vec2 uNumOff;   // 하프톤 스킨 — 후보랩 확정본
 #include <common>
 #include <clipping_planes_pars_fragment>
 ` + FX_GLSL + `
@@ -74,6 +75,18 @@ void main() {
     float fr   = fract(uTime * 0.40) * (ext2 * 2.30);
     float band = exp(-pow((rr2 - fr) / max(ext2 * 0.30, 1e-3), 2.0)) * (1.0 - fr * 0.20) * uHTWave;
     float rad  = pit * 0.5 * clamp((0.62 + 0.30 * band) * uHTGain * edge, 0.0, 1.0);
+    // ── 글리프 구멍(임시) — 숫자 텍스처를 읽어 '그 점을 통째로' 뺀다 ────────────────
+    //   ★ 격자는 셰이더가 깔았으니 셀 중심에서 읽어야 위상이 안 어긋난다.
+    //     (마스크 쪽에서 뚫었다가 격자가 어긋나 역상이 나던 것의 교훈)
+    //   숫자 평면은 쿼드의 MARK_NUM.RATIO/0.75 배 = 0.311 배를 차지한다(setNumber 규약).
+    if (uNumOn > 0.5) {
+      vec2 cc = (floor(uv / pit) + 0.5) * pit;                 // 이 점의 중심(uv)
+      vec2 nq = (cc - uNumOff) / max(uNumScale, 1e-3) * 0.5 + 0.5;
+      float inN = 0.0;
+      if (nq.x > 0.0 && nq.x < 1.0 && nq.y > 0.0 && nq.y < 1.0)
+        inN = texture2D(uNumTex, vec2(nq.x, 1.0 - nq.y)).a;
+      rad *= 1.0 - smoothstep(0.25, 0.75, inN);                 // 글자 안이면 점이 사라진다
+    }
     float m    = smoothstep(rad + pit * 0.11, rad - pit * 0.11, dd);
     // 닷 글로우 — 굵고 흐릿한 점을 아래에 깔아 더한다(랩 '닷 글로우'). 0 이면 완전히 꺼진다.
     if (uHTGlow > 0.001) {
@@ -246,6 +259,7 @@ export function makeMarkFXMaterial(footTex = null) {
       uSweepA: { value: 1 }, uNoise: { value: 0.5 }, uDay: { value: 0 }, uOut: { value: 1 },
       // 하프톤 스킨 — 기본 꺼짐. 랩에서 확정한 값이 기본값이다.
       uHT: { value: 0 }, uHTPitch: { value: 0.055 }, uHTGain: { value: 1.15 }, uHTSoft: { value: 0.55 }, uHTWave: { value: 0.6 }, uHTGlow: { value: 0 }, uHTInner: { value: 0 },
+      uNumTex: { value: null }, uNumOn: { value: 0 }, uNumScale: { value: 0.311 }, uNumOff: { value: new THREE.Vector2() },
       // 투사면(풋프린트) 소프트 페이드 — 레인과 동일. 기본 1e6 = 무효(벽 마크·미주입 시 페이드 없음).
       uFPOrigin: { value: new THREE.Vector3() }, uFPFwd: { value: new THREE.Vector3(0, 0, -1) }, uFPRight: { value: new THREE.Vector3(1, 0, 0) },
       uFPNear: { value: -1e6 }, uFPFar: { value: 1e6 }, uFPHalfN: { value: 1e6 }, uFPHalfF: { value: 1e6 }, uFPFadeM: { value: 0.28 },
@@ -487,6 +501,9 @@ export class Marker {
     const numS = this.radius * 2.78 * MARK_NUM.RATIO / 0.75;
     this.num = new THREE.Mesh(new THREE.PlaneGeometry(numS, numS), m);
     this.num.position.z = 0.004;
+    // 하프톤 스킨이 켜지면 이 텍스처로 점을 빼 '구멍'을 만든다(오버레이 대신).
+    const fu = this.fx?.material?.uniforms;
+    if (fu?.uNumTex) { fu.uNumTex.value = m.map; fu.uNumScale.value = numS / (this.radius * 2.78); }
     // 바닥 눕힘(rx=-90°)만으로 글자 위쪽이 -Z(전방) = 유저가 읽는 방향 (rz 추가 회전 없음)
     this.group.add(this.num);
   }
@@ -560,6 +577,16 @@ export class Marker {
         : phase === 'miss' ? 0.3 * (1 - progress) : 1.0;
     }
     // 발형 숫자 앵커 — FX Lab 지정(컨텍스트별 1개, 왼발 기준 저장). 오른발 = x 미러. 없으면 중심 유지.
+    // 하프톤 스킨이면 숫자는 '구멍'으로 표현되므로 오버레이 평면은 숨긴다.
+    if (this.num && this.fx?.material?.uniforms?.uHT) {
+      const fu = this.fx.material.uniforms;
+      const htOn = fu.uHT.value > 0.5;
+      fu.uNumOn.value = (htOn && this.num.material.opacity > 0.01) ? 1 : 0;
+      fu.uNumOff.value.set(this.num.position.x / (this.radius * 1.39),
+                           this.num.position.y / (this.radius * 1.39));
+      if (htOn) this.num.visible = false;
+      else if (!this.num.visible) this.num.visible = true;
+    }
     if (this.num && this._isFoot && FXP.numFoot) {
       const NF = FXP.numFoot;
       const a = NF[FXP.footCtx === 'in' ? 'in' : 'out']
