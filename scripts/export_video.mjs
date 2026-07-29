@@ -40,12 +40,14 @@ const HT = !!arg('ht', false);
 const SESSION = !!arg('session', false);
 const OUT = arg('out', 'out');
 const URLBASE = arg('url', 'http://127.0.0.1:5199/');
+// UI 캔버스 배율 — 실시간 기본 0.75. 4K 내보내기엔 2 이상이어야 확대 흐림이 없다.
+const UISCALE = +arg('uiscale', W >= 3000 ? 2 : 1.25);
 
 const TMP = fs.mkdtempSync('/tmp/newton_export_');
 fs.mkdirSync(OUT, { recursive: true });
 const N = Math.round(DUR * FPS);
 const tag = `${SPORT}${SESSION ? '_session' : ''}${BEAM ? '_beam' : ''}${HT ? '_ht' : ''}_${W}p${FPS}`;
-console.log(`▶ ${tag} — ${N}프레임 (${W}×${H} · ${FPS}fps · ${DUR}s)`);
+console.log(`▶ ${tag} — ${N}프레임 (${W}×${H} · ${FPS}fps · ${DUR}s · UI 배율 ${UISCALE})`);
 
 // GPU 우선(맥은 metal). 실패하면 소프트웨어로 떨어진다 — 느리지만 결과는 같다.
 const browser = await puppeteer.launch({
@@ -70,7 +72,7 @@ await page.evaluateOnNewDocument(() => {
 await page.setViewport({ width: W, height: H, deviceScaleFactor: 1 });
 const errs = [];
 page.on('pageerror', e => errs.push(e.message.slice(0, 160)));
-await page.goto(URLBASE + '?dev=1', { waitUntil: 'networkidle2', timeout: 180000 });
+await page.goto(`${URLBASE}?dev=1&uiscale=${UISCALE}`, { waitUntil: 'networkidle2', timeout: 180000 });
 await page.waitForFunction('!!window.__dbg?.session', { timeout: 120000 });
 // 부팅 동안에도 가상 시계를 밀어 준다 — 안 그러면 초기화가 시간 0 에 얼어붙는다.
 const warm = async (ms, step = 16.7) => {
