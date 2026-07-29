@@ -241,7 +241,10 @@ function buildScene(stage, p) {
   col.push(node('s-cue', { type: 'text', textContent: S.cue || '', size: 52, weight: 400, color: 'rgba(255,255,255,.72)', style: { display: 'none' } }));
   if (isC) col.push(node('km', { type: 'km' }));
   if (hasPrev) col.push(node('prev-row', { type: 'prevRow', pv: p.pv || 3, pvn: p.pvn || 0 }));
-  col.push(node('s-dots', { type: 'dots', dur: p.dur || 8, delay: hasPrev ? (p.pv || 3) + 0.15 : 0 }));
+  // 도트 진행바 — 원본 HTML의 노출 규칙 두 가지를 그대로 따른다.
+  //  ① 시범(Preview) 동안은 감춘다. 공간도 차지하지 않는다 — 프리뷰가 그 자리를 쓰기 때문.
+  //  ② 스텝백 따라하기(BK_B2~B5)엔 아예 없다. 진행은 상단 n/4 가 담당(유저 확정).
+  if (!isStep) col.push(node('s-dots', { type: 'dots', dur: p.dur || 8, hideUntil: hasPrev ? (p.pv || 3) : 0, delay: hasPrev ? (p.pv || 3) + 0.15 : 0 }));
   if (isP) col.push(node('train-row', { type: 'trainRow', ring: /^P[23]$/.test(stage) }));
   if (isC) col.push(node('live-row', { type: 'liveRow' }));
   col.push(node('s-succ', { type: 'succ', style: { display: 'none' } }));
@@ -358,6 +361,7 @@ export class FloorGL {
     let y = 176;   // Figma 대지 실좌표
     for (const n of this.col) {
       if (n.style.display === 'none') continue;
+      if (n.hideUntil && this.t < n.hideUntil) continue;   // 시범 중 도트바 — 자리도 비운다
       const h = this._h(n);
       if (n.mt) y += n.mt;
       if (n.style.visibility !== 'hidden') {

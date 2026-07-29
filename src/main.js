@@ -5603,6 +5603,12 @@ void main(){
     renderFloorOcclusion(floorObj.visible);
   }
 
+  // 셰이더 선컴파일 — 첫 화면이 유독 버벅이던 진짜 이유.
+  //   마크·인물·발자국·풋마크 셰이더는 '처음 그려지는 프레임'에 컴파일된다. 세션에 들어가는
+  //   순간 수십 개가 한꺼번에 컴파일되면서 프레임이 통째로 멈춘다(GPU 드라이버 동기 작업이라
+  //   rAF가 그 자리에서 막힌다). 에셋만 미리 구워봐야 이건 안 없어진다.
+  //   compile()은 traverse(=숨긴 것 포함)라 아직 안 보이는 UI·토큰 재질까지 함께 굽는다.
+  try { await renderer.compileAsync(scene, camera); } catch (e) { console.warn('[Newton] precompile:', e); }
   loop();
 }
 
