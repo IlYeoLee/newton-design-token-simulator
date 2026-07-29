@@ -4637,15 +4637,39 @@ void main(){
     if (key === _bpLast) return;   // 같은 덩어리는 한 번만
     _bpLast = key;
     // 화면 좌표 → NDC → 레이캐스트 (보이는 것 전부, 앞에서부터)
+    // ★ Line 판정 반경 기본값은 1 world unit = 1m 다. 그대로 두면 화면 어디를 찍어도
+    //   근처 대시선 수십 개가 먼저 잡혀 진짜 판(메시)을 덮는다(첫 실측이 이 함정에 빠졌다).
+    _bpRay.params.Line.threshold = 0.004;
+    _bpRay.params.Points.threshold = 0.004;
     _bpRay.setFromCamera(new THREE.Vector2((bx / W) * 2 - 1, -((by / H) * 2 - 1)), camera);
     const hits = _bpRay.intersectObjects(scene.children, true)
-      .filter(h => h.object.visible && h.object.material)
+      .filter(h => h.object.visible && h.object.material && h.object.isMesh)
       .slice(0, 6)
       .map(h => { const m = h.object.material;
         return { name: h.object.name || '(무명)', type: h.object.type,
           dist: +h.distance.toFixed(2), order: h.object.renderOrder,
           mat: m.type, blending: m.blending, transparent: m.transparent,
           opacity: m.opacity, uuid: h.object.uuid.slice(0, 8) }; });
+    // 레이가 못 맞히는 판(뒷면·스프라이트·frustumCulled 등)을 위한 보조: 그 화면점을 덮는 메시를 투영으로 찾는다
+    if (!hits.length) {
+      const ndc = new THREE.Vector2((bx / W) * 2 - 1, -((by / H) * 2 - 1));
+      const _c = new THREE.Vector3();
+      scene.traverseVisible(o => {
+        if (!o.isMesh || !o.geometry || hits.length >= 6) return;
+        if (!o.geometry.boundingSphere) o.geometry.computeBoundingSphere();
+        const bs = o.geometry.boundingSphere; if (!bs) return;
+        _c.copy(bs.center).applyMatrix4(o.matrixWorld);
+        const d = _c.distanceTo(camera.position);
+        _c.project(camera);
+        const rNdc = (bs.radius * Math.max(...o.scale.toArray())) / (d * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)));
+        if (Math.abs(_c.x - ndc.x) < rNdc * camera.aspect && Math.abs(_c.y - ndc.y) < rNdc) {
+          const m = o.material;
+          hits.push({ name: (o.name || '(무명)') + '≈투영', type: o.type, dist: +d.toFixed(2), order: o.renderOrder,
+            mat: m.type, blending: m.blending, transparent: m.transparent, opacity: m.opacity, uuid: o.uuid.slice(0, 8) });
+        }
+      });
+      hits.sort((a, b) => a.dist - b.dist);
+    }
     const head = `검정 판 ${best}×${th}px · ${session.stage} t=${(session.t || 0).toFixed(1)}`;
     console.log('[BLACKPROBE]', head); console.table(hits);
     (window.__blackHits ||= []).push({ stage: session.stage, t: +(session.t || 0).toFixed(1), w: best, h: th, hits });
