@@ -519,14 +519,7 @@ void main(){
   // 데모 시계 → 상태 진행 매핑 (카탈로그 전용 — 라이브는 판정 uProg가 담당)
   float prog = uState < 0.5 ? smoothstep(0.10, 0.88, tc) : tc;
   vec4 r = markState(uv, uState, prog, 0.0, uTime);
-  if (uMono > 0.5) { float L = max(r.r, max(r.g, r.b)); r.rgb = vec3(L); }
-  if (uFlat > 0.5) r.rgb = vec3(r.a);
-  // 투사면 비교 — 실제 대지 위에서 어떻게 읽히는지가 최종 판정 기준이다
-  vec3 bg = baseBG(gl_FragCoord.xy / uRes);
-  if      (uBg > 0.5 && uBg < 1.5) bg = vec3(0.184, 0.290, 0.227);   // 러닝 트랙(초록)
-  else if (uBg > 1.5 && uBg < 2.5) bg = vec3(0.545, 0.369, 0.235);   // 농구 코트(우드)
-  else if (uBg > 2.5)              bg = vec3(0.149, 0.188, 0.255);   // 농구 코트(검정)
-  vec3 col = bg * (1.0 - r.a) + r.rgb;
+  vec3 col = baseBG(gl_FragCoord.xy / uRes) * (1.0 - r.a) + r.rgb;
   gl_FragColor = vec4(grade(col, gl_FragCoord.xy, uTime), 1.0);
 }`;
 
@@ -535,6 +528,7 @@ void main(){
 //   후보는 그 후크(markCandidate)만 정의한다. 예쁘면 그 함수를 fx-core 로 옮기면 끝 —
 //   '랩에서 보던 것과 시뮬이 다르다' 계열 드리프트가 원천적으로 안 생긴다.
 const CAND_HOOK = `
+uniform float uHoldRim;   // Hold 코닉 림 온/오프 — markState 안에서 쓰이므로 여기서 선언해야 한다
 // 후크 ①: markState 결과를 형태 정보와 함께 받아 마지막 손질만 한다.
 vec4 markCandidate(vec4 A, vec2 uv, float sd, float inside, float ext, float state, float prog, float t);
 // 후크 ②: 실루엣 자체를 갈아끼운다. 존 원이 '원에 갇혀' 있지 않게 하는 자리 —
@@ -832,6 +826,24 @@ const CANDIDATES = [
   lay(B, fillHot(q), link * amt * pulse * 0.30);
   return B;
 }` },
+
+  { id: 'holdTension', name: '⓹ Hold · 수면 장력 (제안)', why: '진행은 둘레가 아니라 면적이 센다. 수면 바로 아래 점이 가장 굵어 "지금 경계가 여기"를 선 없이 말하고, 완료 직전 10%에서 찰랑임이 잠잠해져 Success 를 예고한다.',
+    glsl: `${CAND_SIG} {
+  if (state < 1.5 || state > 2.5) return dotForm(uv, sd, ext, 1.0, uDotPitch);
+  // ① 진행 = 면적. 둘레(각도)를 쓰면 발형에서 각도↔호길이가 어긋나 시계바늘이 튄다.
+  float lvl  = -1.05 + 2.10 * prog;
+  // ② 버팀의 긴장 = 찰랑임. 완료 직전 10% 에서 잠잠해진다(긴장이 풀린다 = Success 예고).
+  float calm = smoothstep(1.0, 0.90, prog);
+  float rip  = (sin(uv.x * 6.5 + t * 2.4) * 0.030 + sin(uv.x * 10.5 - t * 1.7) * 0.016) * calm;
+  float d    = (lvl + rip) - uv.y;
+  // ③ 표면 장력 = 수면 바로 아래가 가장 굵고 밝다. 선 없이 경계를 말하는 유일한 재료.
+  float sub  = smoothstep(-0.06, 0.05, d);
+  float skin = exp(-pow(d / 0.055, 2.0));
+  float w    = sub * (0.55 + 0.45 * prog) + skin * 1.25;
+  vec4 B = dotForm(uv, sd, ext, w, uDotPitch);
+  lay(B, C_ICE, skin * smoothstep(0.02, -0.02, sd) * 0.30 * calm * clamp(uHalo, 0.0, 1.5));
+  return B;
+}` },
 ];
 
 // 정본 MARK_GLSL 에 후크를 끼운 소스 (return A; 는 NaN 스크럽 뒤 마지막 한 번뿐)
@@ -839,6 +851,12 @@ const MARK_HOOKED = MARK_GLSL
   .replace('float mkUndul(', CAND_HOOK + '\nfloat mkUndul(')
   .replace('  if (uShape < 0.5) return length(p) * (1.0 + u1 * uNoise * 0.04) - 0.46 * uRadius;',
            '  if (uShape < 0.5) return markShapeSD(p, length(p) * (1.0 + u1 * uNoise * 0.04) - 0.46 * uRadius);')
+  // Hold 의 코닉 림·시계바늘을 uHoldRim 으로 죽일 수 있게 — 켜고 끄며 바로 비교하기 위함.
+  //   0 이면 Hold 는 '열이 고이는 면'만 남는다(아웃라인 0). 채택되면 fx-core 에서 이 두 줄을 지우면 끝.
+  .replace('lay(A, mix(C_RIMG, arcCol, pgo), rim * mix(0.42, 0.92, pgo));',
+           'lay(A, mix(C_RIMG, arcCol, pgo), rim * mix(0.42, 0.92, pgo) * uHoldRim);')
+  .replace('lay(A, C_CREAM, rim * head * 0.95);',
+           'lay(A, C_CREAM, rim * head * 0.95 * uHoldRim);')
   .replace('  return A;', '  return markCandidate(A, uv, sd, inside, ext, state, prog, t);');
 if (!/markShapeSD\(p, length/.test(MARK_HOOKED)) console.error('[후보랩] 형태 후크 주입 실패');
 if (!/markCandidate\(A, uv/.test(MARK_HOOKED)) console.error('[후보랩] 후크 주입 실패 — MARK_GLSL 의 return A; 를 못 찾았다');
@@ -986,11 +1004,11 @@ function stripNum(ctx, cat, W) {
 
 let candSel = 'dot', candShape = 1;
 const candP = { pitch: 0.11, gain: 1.15, speed: 1.0, inner: 0.55 };
-const candT = { mono: 0, flat: 0, noGlow: 0, noInner: 0, bg: 0 };
+const candT = { mono: 0, flat: 0, noGlow: 0, noInner: 0, bg: 0, holdRim: 0 };
 {
   const host = document.getElementById('candToggles');
   for (const [k, lb] of [['mono', '무채 (색 빼고 명암만)'], ['flat', '플랫 (그라디언트까지)'],
-                         ['noGlow', '글로우 끄기'], ['noInner', '이너 끄기']]) {
+                         ['noGlow', '글로우 끄기'], ['noInner', '이너 끄기'], ['holdRim', 'Hold 코닉 림 제거']]) {
     const b = document.createElement('button');
     b.className = 'btn'; b.textContent = lb;
     b.onclick = () => { candT[k] = candT[k] ? 0 : 1; b.classList.toggle('on', !!candT[k]); };
@@ -1755,6 +1773,7 @@ function frame(ts) {
       g2.uniform1f(P.u('uFlat'), candT.flat);
       g2.uniform1f(P.u('uNoInner'), candT.noInner);
       g2.uniform1f(P.u('uBg'), candT.bg);
+      g2.uniform1f(P.u('uHoldRim'), candT.holdRim ? 0 : 1);
       g2.drawArrays(g2.TRIANGLES, 0, 3);
       ctx2d.drawImage(candGL.cv, 0, 0);   // 공유 컨텍스트 → 이 셀로 복사
     }
@@ -1779,6 +1798,7 @@ function frame(ts) {
       g3.uniform1f(P.u('uFlat'), candT.flat);
       g3.uniform1f(P.u('uNoInner'), candT.noInner);
       g3.uniform1f(P.u('uBg'), candT.bg);
+      g3.uniform1f(P.u('uHoldRim'), candT.holdRim ? 0 : 1);
       for (const cell of stripCells) {
         g3.uniform1f(P.u('uState'), cell.state);
         g3.drawArrays(g3.TRIANGLES, 0, 3);
