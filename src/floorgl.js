@@ -1003,10 +1003,8 @@ export class FloorGL {
       const g = kf(br, [[0, 0], [.5, 1], [1, 0]]);
       ctx.shadowColor = `rgba(255,255,255,${.45 * g})`; ctx.shadowBlur = 26 * g;
     }
-    ctx.lineWidth = 14; ctx.strokeStyle = 'rgba(255,255,255,.16)';
-    ctx.beginPath(); ctx.arc(CX, cy, r, 0, Math.PI * 2); ctx.stroke();
-    if (e > 0.002) { ctx.strokeStyle = '#fff'; ctx.lineCap = 'round';
-      ctx.beginPath(); ctx.arc(CX, cy, r, -Math.PI / 2, -Math.PI / 2 + e * Math.PI * 2); ctx.stroke(); }
+    ringGauge(ctx, CX, cy, r, e, { trackW: 14, arcW: 14, trackA: .16 });
+    ctx.shadowBlur = 0;
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#fff';
     ctx.font = F(700, 128.5, dot9); const nTxt = String(Math.round(100 * e));
     const nw = ctx.measureText(nTxt).width;

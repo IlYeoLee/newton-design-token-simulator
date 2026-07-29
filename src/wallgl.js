@@ -50,19 +50,6 @@ function gradV(ctx, y0, y1, stops) {
   for (const [p, c] of stops) g.addColorStop(clamp01(p), c);
   return g;
 }
-// 진행 링 (리포트 100% 링). 카운트다운은 공통 ringGauge 를 쓴다.
-function ring(ctx, cx, cy, r, prog, o = {}) {
-  ctx.save();
-  ctx.lineCap = o.cap || 'round';
-  ctx.strokeStyle = o.track || 'rgba(255,255,255,.28)';
-  ctx.lineWidth = o.trackW ?? 6;
-  ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
-  if (prog > 0.001) {
-    ctx.strokeStyle = o.color || '#fff'; ctx.lineWidth = o.arcW ?? 10;
-    ctx.beginPath(); ctx.arc(cx, cy, r, -Math.PI / 2, -Math.PI / 2 + prog * Math.PI * 2); ctx.stroke();
-  }
-  ctx.restore();
-}
 // 0 → target 카운트업 (원본 countUp: 지연 뒤 cd초 동안 ease-out). 숫자가 아니면 그대로.
 function countUp(target, t, delay, cd) {
   const m = String(target).match(/^(\d+(?:\.\d+)?)$/);
@@ -519,10 +506,16 @@ export class WallGL {
       const e = mid ? 1 : eOut(intro(t, .28, .8));
       ctx.save();
       ctx.globalAlpha *= e; ctx.translate(dir * 70 * (1 - e), 0);
-      rrFill(ctx, x, 855, 237, 237, 999, '#fff');
+      // 흰 링(반경 118.5 원판 위에 사진 108.5 = 테두리 10px) 제거 — 앱 프로필은 테두리가 없다
+      // (my.css `.my-profile .avatar { border-radius:999px; object-fit:cover }`, border 선언 없음).
+      // 사진이 원판 전체를 채우도록 링 두께만큼(118.5/108.5 = 1.0922) 중심 기준 확대.
+      const R = 118.5, K2 = R / 108.5, cx0 = x + R, cy0 = 855 + R;
       ctx.save();
-      ctx.beginPath(); ctx.arc(x + 118.5, 855 + 118.5, 108.5, 0, Math.PI * 2); ctx.clip();
-      for (const rel of img) { const im = this._img(rel); if (im) ctx.drawImage(im, x + 10 - 28.09, 855 + 10 - 74.05, 275.305, 511.608); }
+      ctx.beginPath(); ctx.arc(cx0, cy0, R, 0, Math.PI * 2); ctx.clip();
+      for (const rel of img) {
+        const im = this._img(rel);
+        if (im) ctx.drawImage(im, cx0 + (10 - 28.09 - R) * K2, cy0 + (10 - 74.05 - R) * K2, 275.305 * K2, 511.608 * K2);
+      }
       ctx.restore();
       ctx.restore();
     };
@@ -736,7 +729,7 @@ export class WallGL {
       const g = kf(br, [[0, 0], [.5, 1], [1, 0]]);
       ctx.shadowColor = `rgba(255,255,255,${.35 * g})`; ctx.shadowBlur = 26 * g;
     }
-    ring(ctx, CX, cy, r, p, { track: 'rgba(255,255,255,.22)', trackW: 16, arcW: 16, cap: 'round' });
+    ringGauge(ctx, CX, cy, r, p, { trackW: 16, arcW: 16, trackA: .22 });
     ctx.shadowBlur = 0;
     // % 카운트업
     const n = String(Math.round(RP_.pct * eOut(clamp01((t - .5) / 1.3))));
