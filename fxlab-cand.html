@@ -144,7 +144,7 @@
       <span id="candPick" style="font-size:10.5px;color:var(--dim)"></span>
     </div>
     <div class="ctl" id="candToggles" style="justify-content:flex-start;margin:0 0 10px;flex-wrap:wrap;gap:6px"></div>
-    <div class="sliders" id="candSliders" style="grid-template-columns:repeat(4,minmax(150px,1fr));margin:0 0 14px"></div>
+    <div class="sliders" id="candSliders" style="grid-template-columns:repeat(5,minmax(130px,1fr));margin:0 0 14px"></div>
     <div style="margin:0 0 10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
       <b style="font-size:13px;letter-spacing:.06em;color:var(--ink)">선택 후보 — 7상태 한눈에</b>
       <span id="candStripName" style="font-size:12px;color:var(--sand);font-weight:700"></span>
@@ -544,7 +544,7 @@ float markShapeSD(vec2 p, float base);
 const CAND_PRELUDE = `
 uniform float uDotPitch, uDotGain, uDotSpeed, uInner;
 uniform float uMono, uFlat, uNoInner, uBg, uProgOvr;
-uniform float uInnerMode, uActMode;
+uniform float uInnerMode, uActMode, uComp, uHarm;
 float chash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 // 하프톤 한 셀: 반지름을 amount(0~1)가 정한다 → 밝을수록 굵은 점 (레퍼런스의 발바닥 밀도)
 float halftone(vec2 p, float pitch, float amount, float soft){
@@ -631,14 +631,18 @@ const CANDIDATES = [
     //   타이밍은 방향이 아니라 '주기'가 말한다: 때가 다가올수록 맥동이 빨라진다.
     //   ★ 점을 밀지 않는다. 변위를 주면 점이 격자에서 벗어나 '꿈틀거린다'(유저 지적) —
     //     Active 는 확신에 찬 상태라 흔들리면 안 된다. 자리는 고정, 밝기만 숨 쉰다.
-    float rate = 0.55 + 0.50 * prog;                  // 때가 다가올수록 조금씩 빨라진다
-    float ph   = fract(t * rate * sp);
+    // ★ 주파수를 prog 로 바꾸면 안 된다. fract(t · rate) 에서 rate 가 변하면 위상이
+    //   통째로 다시 계산돼 순간마다 튄다 — 유저가 본 '몇 초 간격으로 꿈틀거림'이 이것이다.
+    //   (프래그먼트 셰이더는 위상을 누적할 수 없어 주파수 변조는 항상 이 사고를 낸다)
+    //   주기는 고정하고, 다가옴은 '세기'로 말한다.
+    float ph   = fract(t * 0.62 * sp);
     float ring = exp(-pow((r - ph * 1.25) / 0.34, 2.0)) * (1.0 - ph * 0.6);
+    ring *= 0.72 + 0.55 * prog;                       // 때가 다가올수록 파문이 진해진다
     if (uActMode > 0.5) {
       // 굴절 파문 모드 — 좁은 파면만 점을 민다. 전체 지터(꿈틀거림)와 다른 이유:
       //   미는 구간이 띠 하나로 한정돼 '무언가 지나간다'로 읽히고, 나머지 점은 제자리에 있다.
-      disp = dir * ring * pitch * 0.85;
-      w = 0.82 + 0.40 * ring + 0.12 * prog;
+      disp = dir * ring * pitch * 0.80;
+      w = 0.82 + 0.38 * ring + 0.12 * prog;
     } else {
       w = 0.86 + 0.22 * ring + 0.14 * prog;           // 바닥이 높다 = 이미 뜨겁다. 파문은 위에 얹히는 숨.
     }
@@ -1139,7 +1143,17 @@ void main(){
   if      (uBg > 0.5 && uBg < 1.5) bg = vec3(0.184, 0.290, 0.227);   // 러닝 트랙(초록)
   else if (uBg > 1.5 && uBg < 2.5) bg = vec3(0.545, 0.369, 0.235);   // 농구 코트(우드)
   else if (uBg > 2.5)              bg = vec3(0.149, 0.188, 0.255);   // 농구 코트(검정)
-  vec3 col = bg * (1.0 - r.a) + r.rgb;
+  // ── 합성 ─────────────────────────────────────────────────────────────────
+  //   투사는 '가산광'이다 — 프로젝터는 바닥 위에 빛을 더한다. over(잉크) 합성은
+  //   불투명 물감을 붙인 것이라 색 있는 바닥에서 '오려붙인' 느낌이 난다(유저: 초록에서 안 예쁨).
+  //   표면 반사: 실제로는 투사광이 바닥 반사율을 탄다. 초록 트랙에 주황을 쏘면 R 이 흡수되고
+  //   G 가 살아나 황록으로 기운다 — 그래서 저절로 그 자리의 빛처럼 어우러진다.
+  //   tint = 배경을 최대채널 1 로 정규화한 색(=표면 알베도의 색조).
+  vec3 tint = bg / max(max(bg.r, max(bg.g, bg.b)), 1e-4);
+  vec3 col;
+  if (uComp < 0.5)      col = bg * (1.0 - r.a) + r.rgb;                        // 잉크(over) — 주간 규약
+  else if (uComp < 1.5) col = bg + r.rgb;                                       // 가산 — 야간 규약
+  else                  col = bg + r.rgb * mix(vec3(1.0), tint, uHarm);         // 가산 + 표면 반사
   gl_FragColor = vec4(grade(col, gl_FragCoord.xy, uTime), 1.0);
 }`;
     let P = null;
@@ -1215,8 +1229,8 @@ function stripGlyph(ctx, cat, W) {
 }
 
 let candSel = 'newtonSet', candShape = 1;
-const candP = { pitch: 0.11, gain: 1.15, speed: 1.0, inner: 0.55, prog: -0.01 };
-const candT = { mono: 0, flat: 0, noGlow: 0, noInner: 0, bg: 0, holdRim: 0, innerMode: 0, actMode: 0 };
+const candP = { pitch: 0.11, gain: 1.15, speed: 1.0, inner: 0.55, prog: -0.01, harm: 0.6 };
+const candT = { mono: 0, flat: 0, noGlow: 0, noInner: 0, bg: 0, holdRim: 0, innerMode: 0, actMode: 0, comp: 2 };
 {
   const host = document.getElementById('candToggles');
   for (const [k, lb] of [['mono', '무채 (색 빼고 명암만)'], ['flat', '플랫 (그라디언트까지)'],
@@ -1232,6 +1246,14 @@ const candT = { mono: 0, flat: 0, noGlow: 0, noInner: 0, bg: 0, holdRim: 0, inne
     b.textContent = LB[0];
     b.onclick = () => { candT.innerMode = (candT.innerMode + 1) % 3; b.textContent = LB[candT.innerMode];
       b.classList.toggle('on', !!candT.innerMode); };
+    host.appendChild(b);
+  }
+  {
+    const b = document.createElement('button'); b.className = 'btn on';
+    const LB = ['합성: 잉크(over)', '합성: 가산', '합성: 가산+표면반사'];
+    b.textContent = LB[candT.comp];
+    b.onclick = () => { candT.comp = (candT.comp + 1) % 3; b.textContent = LB[candT.comp];
+      b.classList.toggle('on', candT.comp > 0); };
     host.appendChild(b);
   }
   {
@@ -1255,7 +1277,7 @@ const candT = { mono: 0, flat: 0, noGlow: 0, noInner: 0, bg: 0, holdRim: 0, inne
 {
   const host = document.getElementById('candSliders');
   const defs = [['pitch', '닷 피치', 0.03, 0.30, 0.005], ['gain', '닷 굵기', 0.2, 2.0, 0.05],
-                ['speed', '모션 속도', 0, 3, 0.05], ['inner', '이너 폭', 0.05, 1.5, 0.05]];
+                ['speed', '모션 속도', 0, 3, 0.05], ['inner', '이너 폭', 0.05, 1.5, 0.05], ['harm', '배경 조화', 0, 1, 0.05]];
   for (const [k, lb, mn, mx, st] of defs) {
     const w = document.createElement('label');
     w.innerHTML = `<span>${lb}</span><input type="range" min="${mn}" max="${mx}" step="${st}" value="${candP[k]}"><output>${candP[k]}</output>`;
@@ -2005,6 +2027,8 @@ function frame(ts) {
       g2.uniform1f(P.u('uProgOvr'), candP.prog);
       g2.uniform1f(P.u('uInnerMode'), candT.innerMode);
       g2.uniform1f(P.u('uActMode'), candT.actMode);
+      g2.uniform1f(P.u('uComp'), candT.comp);
+      g2.uniform1f(P.u('uHarm'), candP.harm);
       g2.drawArrays(g2.TRIANGLES, 0, 3);
       ctx2d.drawImage(candGL.cv, 0, 0);   // 공유 컨텍스트 → 이 셀로 복사
     }
@@ -2037,6 +2061,8 @@ function frame(ts) {
       g3.uniform1f(P.u('uProgOvr'), candP.prog);
       g3.uniform1f(P.u('uInnerMode'), candT.innerMode);
       g3.uniform1f(P.u('uActMode'), candT.actMode);
+      g3.uniform1f(P.u('uComp'), candT.comp);
+      g3.uniform1f(P.u('uHarm'), candP.harm);
       for (const cell of stripCells) {
         g3.uniform1f(P.u('uState'), cell.state);
         g3.drawArrays(g3.TRIANGLES, 0, 3);
