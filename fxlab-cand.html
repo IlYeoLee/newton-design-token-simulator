@@ -1270,6 +1270,8 @@ const GSPR = 512;
 // 한 프레임 안에서도 글자가 갈린다(Hold 는 카운트라 다른 숫자) — 슬롯 하나면 매 프레임
 // 두 번 다시 굽는 캐시 스래싱이 난다. 맵으로 두고 오래된 것만 버린다.
 const _gCache = new Map();
+const _gScr = [];
+function _scratch(i) { return _gScr[i] ||= Object.assign(document.createElement('canvas'), { width: GSPR, height: GSPR }); }
 function glyphSprite(ch, sizeN, style, pitchN, locked, axN, ayN) {
   const key = [ch, sizeN.toFixed(3), style, pitchN.toFixed(3), locked ? 1 : 0, axN.toFixed(3), ayN.toFixed(3)].join('|');
   const hit = _gCache.get(key);
@@ -1282,23 +1284,46 @@ function glyphSprite(ch, sizeN, style, pitchN, locked, axN, ayN) {
   g.clearRect(0, 0, GSPR, GSPR);
   const size = sizeN * GSPR, ax = axN * GSPR, ay = ayN * GSPR;
   const custom = state.glyphs && state.glyphs[ch];
-  if (!(custom && drawCustomGlyphAt(g, custom, ax, ay, size, locked, !!state.glyphFlip[ch]))) {
-    g.font = `700 ${Math.round(size * 0.62)}px 'OffBit', system-ui, sans-serif`;
-    g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#fff';
-    g.fillText(ch, ax, ay);
-  }
-  if (style === 1 || style === 3) {          // 하프톤 · 음각(하프톤) — 점 격자를 곱한다
-    // 마크의 점과 '같은 피치'로 파면 차이가 안 보인다(유저: 안 먹는다).
-    //   음각은 1.55배 성글게 + 큰 점으로 — 파낸 자국이 둥근 한 입씩인 게 또렷이 읽힌다.
-    const k = style === 3 ? 1.55 : 1.0;
-    const pitch = Math.max(5, pitchN * GSPR * k);
-    const rad = pitch * (style === 3 ? 0.42 : 0.30);
+  const paint = (ctx2, sz) => {
+    if (custom && drawCustomGlyphAt(ctx2, custom, ax, ay, sz, locked, !!state.glyphFlip[ch])) return;
+    ctx2.font = `700 ${Math.round(sz * 0.62)}px 'OffBit', system-ui, sans-serif`;
+    ctx2.textAlign = 'center'; ctx2.textBaseline = 'middle'; ctx2.fillStyle = '#fff';
+    ctx2.fillText(ch, ax, ay);
+  };
+  paint(g, size);
+  if (style === 1) {
+    // 하프톤 — 글리프를 점으로. 글자 ∩ 점격자.
+    const pitch = Math.max(5, pitchN * GSPR);
     g.save(); g.globalCompositeOperation = 'destination-in'; g.fillStyle = '#fff';
     for (let y = pitch / 2; y < GSPR; y += pitch)
       for (let x = pitch / 2; x < GSPR; x += pitch) {
-        g.beginPath(); g.arc(x, y, rad, 0, 6.2832); g.fill();
+        g.beginPath(); g.arc(x, y, pitch * 0.30, 0, 6.2832); g.fill();
       }
     g.restore();
+  } else if (style === 3) {
+    // 음각(하프톤) — 유저가 원한 것: 솔리드로 판 다음 '끝 테두리만' 점 처리.
+    //   글자 전체를 점으로 바꾸면 식별이 안 된다(직전 시안의 실패).
+    //   코어(축소본)는 그대로 파고, 코어와 원본 사이의 테두리 띠만 점격자와 교집합 →
+    //   파낸 자국의 가장자리가 톱니처럼 점으로 씹힌다.
+    const core = _scratch(0), edge = _scratch(1);
+    const cg = core.getContext('2d'), eg = edge.getContext('2d');
+    cg.setTransform(1,0,0,1,0,0); cg.clearRect(0, 0, GSPR, GSPR);
+    paint(cg, size * 0.86);                                   // 코어 = 안쪽으로 줄인 글자
+    eg.setTransform(1,0,0,1,0,0); eg.clearRect(0, 0, GSPR, GSPR);
+    eg.drawImage(_gSpr, 0, 0);                                 // 원본
+    eg.globalCompositeOperation = 'destination-out';
+    eg.drawImage(core, 0, 0);                                  // 테두리 띠 = 원본 − 코어
+    eg.globalCompositeOperation = 'destination-in';            // 띠 ∩ 점격자
+    eg.fillStyle = '#fff';
+    const pitch = Math.max(6, pitchN * GSPR * 0.85);
+    for (let y = pitch / 2; y < GSPR; y += pitch)
+      for (let x = pitch / 2; x < GSPR; x += pitch) {
+        eg.beginPath(); eg.arc(x, y, pitch * 0.42, 0, 6.2832); eg.fill();
+      }
+    eg.globalCompositeOperation = 'source-over';
+    g.clearRect(0, 0, GSPR, GSPR);
+    g.drawImage(core, 0, 0);                                   // 코어는 통째로
+    g.drawImage(edge, 0, 0);                                   // 테두리는 점으로
   }
   return _gSpr;
 }
