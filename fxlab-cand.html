@@ -1173,24 +1173,23 @@ void main(){
   vec3 tint = bg / max(max(bg.r, max(bg.g, bg.b)), 1e-4);
   vec3 col;
   if (uComp < 0.5)      col = bg * (1.0 - r.a) + r.rgb;                        // 잉크(over) — 주간 규약
-  else if (uComp < 1.5) col = bg + r.rgb * uBeam;                                       // 가산 — 야간 규약
+  else if (uComp < 1.5) { vec3 a = r.rgb * uBeam; float La = dot(a, vec3(0.2126,0.7152,0.0722));
+                          col = bg + clamp(mix(vec3(La), a, uSatR), 0.0, 1.0); }                                       // 가산 — 야간 규약
   else {
     // 가산 + 표면 반사. 다만 물리 그대로(표면 색조를 곱하기)면 초록 위에서 빨강의 R 이 깎여
     // 노리끼리해진다 — 채도를 복원해도 이미 '색상'이 옮겨간 뒤라 노란 게 더 노래질 뿐이다(유저).
     //   해법: 표면 흡수를 '밝기'로만 받고 '색상'은 뉴턴 램프를 지킨다.
     //   uHueKeep 1 = 표면은 빛을 어둡게 할 뿐 색을 바꾸지 않는다 · 0 = 완전 물리.
+    // ★ 채도 복원은 '투사광'에만 건다. 합성 뒤에 걸면 배경까지 물든다(유저 지적) —
+    //   실물에서도 채도를 올리는 주체는 프로젝터지 바닥이 아니다.
     vec3  src = r.rgb * uBeam;                          // 투사 출력 — 배경 기여를 상대적으로 눌러 노란 끼를 뺀다
+    float Ls  = dot(src, vec3(0.2126, 0.7152, 0.0722));
+    src = clamp(mix(vec3(Ls), src, uSatR), 0.0, 1.0);
     vec3  lit = src * mix(vec3(1.0), tint, uHarm);
     float Ll  = dot(lit, vec3(0.2126, 0.7152, 0.0722));
     float Lo  = dot(src, vec3(0.2126, 0.7152, 0.0722));
     vec3  keep = src * (Ll / max(Lo, 1e-4));          // 같은 밝기, 원래 색상
     col = bg + mix(lit, keep, uHueKeep);
-  }
-  // ★ 가산은 배경 휘도가 더해져 채도가 떨어진다 — 뉴턴 레드의 쨍함이 죽는다(유저).
-  //   합성 뒤 채도를 되살린다. 실물에서도 풀컬러 빔은 밝은 환경에서 채도를 올려 쏜다.
-  if (uComp > 0.5 && uSatR > 1.001) {
-    float L = dot(col, vec3(0.2126, 0.7152, 0.0722));
-    col = clamp(mix(vec3(L), col, uSatR), 0.0, 1.0);
   }
   gl_FragColor = vec4(grade(col, gl_FragCoord.xy, uTime), 1.0);
 }`;
