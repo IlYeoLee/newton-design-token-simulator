@@ -144,7 +144,7 @@
       <span id="candPick" style="font-size:10.5px;color:var(--dim)"></span>
     </div>
     <div class="ctl" id="candToggles" style="justify-content:flex-start;margin:0 0 10px;flex-wrap:wrap;gap:6px"></div>
-    <div class="sliders" id="candSliders" style="grid-template-columns:repeat(7,minmax(110px,1fr));margin:0 0 14px"></div>
+    <div class="sliders" id="candSliders" style="grid-template-columns:repeat(9,minmax(96px,1fr));margin:0 0 14px"></div>
     <div style="margin:0 0 10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
       <b style="font-size:13px;letter-spacing:.06em;color:var(--ink)">선택 후보 — 7상태 한눈에</b>
       <span id="candStripName" style="font-size:12px;color:var(--sand);font-weight:700"></span>
@@ -544,7 +544,7 @@ float markShapeSD(vec2 p, float base);
 const CAND_PRELUDE = `
 uniform float uDotPitch, uDotGain, uDotSpeed, uInner;
 uniform float uMono, uFlat, uNoInner, uBg, uProgOvr;
-uniform float uInnerMode, uActMode, uComp, uHarm, uQ0, uSatR;
+uniform float uInnerMode, uActMode, uComp, uHarm, uQ0, uSatR, uHueKeep, uBeam;
 float chash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 // 하프톤 한 셀: 반지름을 amount(0~1)가 정한다 → 밝을수록 굵은 점 (레퍼런스의 발바닥 밀도)
 float halftone(vec2 p, float pitch, float amount, float soft){
@@ -1173,8 +1173,19 @@ void main(){
   vec3 tint = bg / max(max(bg.r, max(bg.g, bg.b)), 1e-4);
   vec3 col;
   if (uComp < 0.5)      col = bg * (1.0 - r.a) + r.rgb;                        // 잉크(over) — 주간 규약
-  else if (uComp < 1.5) col = bg + r.rgb;                                       // 가산 — 야간 규약
-  else                  col = bg + r.rgb * mix(vec3(1.0), tint, uHarm);         // 가산 + 표면 반사
+  else if (uComp < 1.5) col = bg + r.rgb * uBeam;                                       // 가산 — 야간 규약
+  else {
+    // 가산 + 표면 반사. 다만 물리 그대로(표면 색조를 곱하기)면 초록 위에서 빨강의 R 이 깎여
+    // 노리끼리해진다 — 채도를 복원해도 이미 '색상'이 옮겨간 뒤라 노란 게 더 노래질 뿐이다(유저).
+    //   해법: 표면 흡수를 '밝기'로만 받고 '색상'은 뉴턴 램프를 지킨다.
+    //   uHueKeep 1 = 표면은 빛을 어둡게 할 뿐 색을 바꾸지 않는다 · 0 = 완전 물리.
+    vec3  src = r.rgb * uBeam;                          // 투사 출력 — 배경 기여를 상대적으로 눌러 노란 끼를 뺀다
+    vec3  lit = src * mix(vec3(1.0), tint, uHarm);
+    float Ll  = dot(lit, vec3(0.2126, 0.7152, 0.0722));
+    float Lo  = dot(src, vec3(0.2126, 0.7152, 0.0722));
+    vec3  keep = src * (Ll / max(Lo, 1e-4));          // 같은 밝기, 원래 색상
+    col = bg + mix(lit, keep, uHueKeep);
+  }
   // ★ 가산은 배경 휘도가 더해져 채도가 떨어진다 — 뉴턴 레드의 쨍함이 죽는다(유저).
   //   합성 뒤 채도를 되살린다. 실물에서도 풀컬러 빔은 밝은 환경에서 채도를 올려 쏜다.
   if (uComp > 0.5 && uSatR > 1.001) {
@@ -1254,16 +1265,43 @@ function glyphMask(W, ch, size, ax, ay, locked) {
   }
   return _gOff;
 }
-// 마스크에 점 격자를 곱해(destination-in) 점만 남긴다 — 글리프를 마크와 같은 결로.
-function halftoneMask(mask, W) {
-  const g = mask.getContext('2d');
-  const pitch = Math.max(6, candP.pitch * W * 0.52);
-  g.save(); g.globalCompositeOperation = 'destination-in'; g.fillStyle = '#fff';
-  for (let y = pitch / 2; y < W; y += pitch)
-    for (let x = pitch / 2; x < W; x += pitch) {
-      g.beginPath(); g.arc(x, y, pitch * 0.30, 0, 6.2832); g.fill();
-    }
-  g.restore();
+// 글리프 스프라이트 — 매 프레임 7셀 × 큰 캔버스 재생성은 즉시 멈춘다(유저: 버튼 누르면 웹이 멈춤).
+//   (글자·크기·방식·피치·잠김)이 같으면 다시 굽지 않는다. 굽는 해상도도 셀 해상도와 분리(512).
+const GSPR = 512;
+// 한 프레임 안에서도 글자가 갈린다(Hold 는 카운트라 다른 숫자) — 슬롯 하나면 매 프레임
+// 두 번 다시 굽는 캐시 스래싱이 난다. 맵으로 두고 오래된 것만 버린다.
+const _gCache = new Map();
+function glyphSprite(ch, sizeN, style, pitchN, locked, axN, ayN) {
+  const key = [ch, sizeN.toFixed(3), style, pitchN.toFixed(3), locked ? 1 : 0, axN.toFixed(3), ayN.toFixed(3)].join('|');
+  const hit = _gCache.get(key);
+  if (hit) return hit;
+  if (_gCache.size > 24) _gCache.clear();
+  const _gSpr = document.createElement('canvas'); _gSpr.width = _gSpr.height = GSPR;
+  _gCache.set(key, _gSpr);
+  const g = _gSpr.getContext('2d');
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  g.clearRect(0, 0, GSPR, GSPR);
+  const size = sizeN * GSPR, ax = axN * GSPR, ay = ayN * GSPR;
+  const custom = state.glyphs && state.glyphs[ch];
+  if (!(custom && drawCustomGlyphAt(g, custom, ax, ay, size, locked, !!state.glyphFlip[ch]))) {
+    g.font = `700 ${Math.round(size * 0.62)}px 'OffBit', system-ui, sans-serif`;
+    g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#fff';
+    g.fillText(ch, ax, ay);
+  }
+  if (style === 1 || style === 3) {          // 하프톤 · 음각(하프톤) — 점 격자를 곱한다
+    // 마크의 점과 '같은 피치'로 파면 차이가 안 보인다(유저: 안 먹는다).
+    //   음각은 1.55배 성글게 + 큰 점으로 — 파낸 자국이 둥근 한 입씩인 게 또렷이 읽힌다.
+    const k = style === 3 ? 1.55 : 1.0;
+    const pitch = Math.max(5, pitchN * GSPR * k);
+    const rad = pitch * (style === 3 ? 0.42 : 0.30);
+    g.save(); g.globalCompositeOperation = 'destination-in'; g.fillStyle = '#fff';
+    for (let y = pitch / 2; y < GSPR; y += pitch)
+      for (let x = pitch / 2; x < GSPR; x += pitch) {
+        g.beginPath(); g.arc(x, y, rad, 0, 6.2832); g.fill();
+      }
+    g.restore();
+  }
+  return _gSpr;
 }
 function stripGlyph(ctx, cat, W) {
   const phase = CAT2PHASE[cat] ?? cat;
@@ -1277,34 +1315,27 @@ function stripGlyph(ctx, cat, W) {
     const first = '0123456789'.split('').find(c => state.glyphs && state.glyphs[c]);
     if (first) ch = first;
   }
-  const size = MARK_NUM.RATIO * W * (state.m.radius || 1) * (candGStyle >= 2 ? 1.25 : 1);
-  // 위치 — 정본 drawMarkNums 와 같은 경로: 유저가 MARK 스테이션에서 잡은 앵커가 최우선.
-  //   없으면 레퍼런스 위치(발은 위쪽 1/3 = 볼 부근, 존 원은 중심).
+  // 위치·크기는 '비율'로 다룬다 — 스프라이트 해상도(512)와 셀 해상도가 달라도 같은 그림이 나온다.
   const av = (typeof numFootView === 'function') ? numFootView() : null;
-  const ax = candShape > 0.5 ? (av ? av.x * W : W / 2) : W / 2;
-  const ay = candShape > 0.5 ? (av ? av.y * W : W * 0.34) : W / 2;
-  const mask = glyphMask(W, ch, size * (av && av.s || 1), ax, ay, locked);
-
-  if (candGStyle >= 2) {
-    // 음각 — 글리프 모양대로 빛을 뺀다. 3번은 '빼는 것'까지 점으로(하프톤 음각) —
-    //   파낸 자리가 매끈한 실루엣이 아니라 점의 부재라서, 결이 끝까지 유지된다(유저 요청).
-    if (candGStyle === 3) halftoneMask(mask, W);
-    ctx.save(); ctx.globalAlpha = 0.55 + 0.40 * op;
-    ctx.globalCompositeOperation = 'destination-out';
-    ctx.drawImage(mask, 0, 0);
-    ctx.restore(); return;
-  }
-  if (candGStyle === 1) halftoneMask(mask, W);
+  const sizeN = MARK_NUM.RATIO * (state.m.radius || 1) * (candGStyle >= 2 ? 1.25 : 1) * ((av && av.s) || 1);
+  const axN = candShape > 0.5 ? (av ? av.x : 0.5) : 0.5;
+  const ayN = candShape > 0.5 ? (av ? av.y : 0.34) : 0.5;
+  const spr = glyphSprite(ch, sizeN, candGStyle, candP.pitch * 0.52, locked, axN, ayN);
   ctx.save();
-  ctx.globalAlpha = op;
-  if (!locked) { ctx.shadowColor = 'rgba(254,150,90,.75)'; ctx.shadowBlur = size * 0.18; }
-  ctx.drawImage(mask, 0, 0);
+  if (candGStyle >= 2) {
+    ctx.globalAlpha = 0.55 + 0.40 * op;
+    ctx.globalCompositeOperation = 'destination-out';
+  } else {
+    ctx.globalAlpha = op;
+    if (!locked) { ctx.shadowColor = 'rgba(254,150,90,.75)'; ctx.shadowBlur = sizeN * W * 0.18; }
+  }
+  ctx.drawImage(spr, 0, 0, W, W);
   ctx.restore();
 }
 
 
 let candSel = 'newtonSet', candShape = 1;
-const candP = { pitch: 0.11, gain: 1.15, speed: 1.0, inner: 0.55, prog: -0.01, harm: 0.6, q0: 0.04, satR: 1.45 };
+const candP = { pitch: 0.11, gain: 1.15, speed: 1.0, inner: 0.55, prog: -0.01, harm: 0.55, q0: 0.04, satR: 1.2, hue: 0.75, beam: 1.5 };
 const candT = { mono: 0, flat: 0, noGlow: 0, noInner: 0, bg: 0, holdRim: 0, innerMode: 0, actMode: 0, comp: 2 };
 {
   const host = document.getElementById('candToggles');
@@ -1352,7 +1383,7 @@ const candT = { mono: 0, flat: 0, noGlow: 0, noInner: 0, bg: 0, holdRim: 0, inne
 {
   const host = document.getElementById('candSliders');
   const defs = [['pitch', '닷 피치', 0.03, 0.30, 0.005], ['gain', '닷 굵기', 0.2, 2.0, 0.05],
-                ['speed', '모션 속도', 0, 3, 0.05], ['inner', '이너 폭', 0.05, 1.5, 0.05], ['harm', '배경 조화', 0, 1, 0.05], ['q0', '열 시작점', 0, 0.5, 0.01], ['satR', '채도 복원', 1, 2.2, 0.05]];
+                ['speed', '모션 속도', 0, 3, 0.05], ['inner', '이너 폭', 0.05, 1.5, 0.05], ['harm', '배경 조화', 0, 1, 0.05], ['q0', '열 시작점', 0, 0.5, 0.01], ['satR', '채도 복원', 1, 2.2, 0.05], ['hue', '색상 보존', 0, 1, 0.05], ['beam', '투사 출력', 0.6, 3, 0.1]];
   for (const [k, lb, mn, mx, st] of defs) {
     const w = document.createElement('label');
     w.innerHTML = `<span>${lb}</span><input type="range" min="${mn}" max="${mx}" step="${st}" value="${candP[k]}"><output>${candP[k]}</output>`;
@@ -2106,6 +2137,8 @@ function frame(ts) {
       g2.uniform1f(P.u('uHarm'), candP.harm);
       g2.uniform1f(P.u('uQ0'), candP.q0);
       g2.uniform1f(P.u('uSatR'), candP.satR);
+      g2.uniform1f(P.u('uHueKeep'), candP.hue);
+      g2.uniform1f(P.u('uBeam'), candP.beam);
       g2.drawArrays(g2.TRIANGLES, 0, 3);
       ctx2d.drawImage(candGL.cv, 0, 0);   // 공유 컨텍스트 → 이 셀로 복사
     }
@@ -2142,6 +2175,8 @@ function frame(ts) {
       g3.uniform1f(P.u('uHarm'), candP.harm);
       g3.uniform1f(P.u('uQ0'), candP.q0);
       g3.uniform1f(P.u('uSatR'), candP.satR);
+      g3.uniform1f(P.u('uHueKeep'), candP.hue);
+      g3.uniform1f(P.u('uBeam'), candP.beam);
       for (const cell of stripCells) {
         g3.uniform1f(P.u('uState'), cell.state);
         g3.drawArrays(g3.TRIANGLES, 0, 3);
