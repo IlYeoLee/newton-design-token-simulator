@@ -54,6 +54,64 @@ export const kf = (p, stops, ease = eInOut) => {
 export const intro = (t, delay, dur) => clamp01((t - delay) / dur);
 
 
+/** 도트 프로그래스 — 지면(러닝·농구)과 벽(복싱)이 같은 물건이라 한 정의로 통일.
+ *  조판·인터랙션 정본 = 모바일 앱 기록 화면의 스코어 게이지(figma-prototype assets/gauge.js).
+ *  그쪽 규약 세 가지를 그대로 가져왔다:
+ *    ① 머리 = 반투명 글래스 노브 + 흰 코어. 채운 끝에 '올라타' 달린다.
+ *    ② 꼬리 = 머리에서 100%, 채운 길이의 54% 뒤에서 0. 끌려오는 자국이지 별개 물건이 아니다.
+ *    ③ 수치는 머리 밑에 붙어 같이 이동한다 — 머무는 숫자가 없다.
+ *  ★ 채움 자체는 이징하지 않는다. 이 바들은 스테이지 시간(dur)에 묶인 '시계'라
+ *    eOut 을 먹이면 남은 시간을 속인다. 앱의 eOut/LEAD 는 값이 '바뀔 때'의 규약이고,
+ *    여기선 등장(intro)에만 쓴다. 값 구동 게이지가 생기면 GAUGE 로 같은 곡선을 쓸 것.
+ *  p = 0~1 진행도 · round='pill' 이면 지면처럼 맞닿은 필, 아니면 벽처럼 떨어진 원. */
+export const GAUGE = { travel: 0.78, lead: 0.15, tail: 0.54 };   // 초 · 초 · 채운 길이 대비 꼬리
+export function dotProgress(ctx, x0, y, size, n, p, o = {}) {
+  const P = clamp01(p), W = size * n, headX = x0 + W * P, r = size / 2, cy = y + r;
+  const paint = (fill) => {
+    ctx.fillStyle = fill;
+    for (let i = 0; i < n; i++) {
+      const x = x0 + i * size;
+      ctx.beginPath();
+      if (o.round === 'pill') ctx.roundRect(x, y, size, size, r);
+      else ctx.arc(x + r, cy, r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  };
+  paint(o.rest || NEU.lo);
+  if (P <= 0.001) return;
+  ctx.save();
+  ctx.beginPath(); ctx.rect(x0, y, W * P, size); ctx.clip();
+  paint(o.fill || RED);
+  // ② 꼬리 — 머리 뒤로 흘리는 열. 흰색을 덮으면 채운 빨강이 분홍으로 바래
+  //    '아직 안 찬 칸'처럼 읽혔다(첫 시안 기각) → 가산광 + 팔레트 sand 로 밝기만 올린다.
+  const tail = Math.max(1, W * P * (o.tail ?? GAUGE.tail));
+  const gr = ctx.createLinearGradient(headX, 0, headX - tail, 0);
+  gr.addColorStop(0, rgba(PAL.sand, .5)); gr.addColorStop(1, rgba(PAL.sand, 0));
+  ctx.globalCompositeOperation = 'lighter';
+  paint(gr);
+  ctx.restore();
+  // ① 머리 — 글래스 링 + 흰 코어 (비율은 앱 마커 39px 안의 흰 점 19px 그대로)
+  ctx.save();
+  ctx.shadowColor = 'rgba(255,255,255,.5)'; ctx.shadowBlur = size * 0.5;
+  ctx.fillStyle = 'rgba(255,255,255,.28)';
+  ctx.beginPath(); ctx.arc(headX, cy, size * 0.75, 0, Math.PI * 2); ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.strokeStyle = 'rgba(255,255,255,.6)'; ctx.lineWidth = Math.max(1, size * 0.035);
+  ctx.beginPath(); ctx.arc(headX, cy, size * 0.75, 0, Math.PI * 2); ctx.stroke();
+  ctx.fillStyle = '#fff';
+  ctx.beginPath(); ctx.arc(headX, cy, size * 0.365, 0, Math.PI * 2); ctx.fill();
+  // ③ 수치 — 머리 밑, 같이 이동
+  if (o.value != null) {
+    ctx.font = F(700, size * 0.62, dot9);
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    ctx.letterSpacing = (-size * 0.62 * 0.038).toFixed(2) + 'px';
+    ctx.fillText(String(o.value), headX, cy + size * 0.95);
+    ctx.letterSpacing = '0px';
+  }
+  ctx.restore();
+}
+
+
 /** 성취 배지 — 지면 Success 와 복싱 콤보가 같은 물건이라 한 정의로 통일(유저 지적).
  *  전엔 지면은 흰 필 + 🔥 이모지, 벽은 히트 그라디언트 필 + SVG 불꽃이라 딴판이었다.
  *  정본 = 벽 콤보 쪽(더 설계된 형태). 등장·회전 같은 모션은 호출자가 변환으로 감싼다. */
@@ -420,16 +478,13 @@ export class FloorGL {
     }
   }
 
-  // 도트 프로그래스 — 회색 10개 위 빨강 10개를 좌→우 클립(러닝·농구 동일 컴포넌트)
+  // 도트 프로그래스 — 공통 컴포넌트(dotProgress). 지면·벽이 같은 물건이다.
   _dots(n, y) {
-    const ctx = this.ctx, x0 = CX - 300;
+    const x0 = CX - 300;
     // main.js가 width를 직접 쓰면(반복형 스테이지) 그 값이 우선, 아니면 --dur 시간 진행.
     const w = n.style.width != null ? numOr(n.style.width, 0)
-      : 600 * Math.max(0, Math.min(1, (this.t - n.delay) / n.dur));
-    for (let i = 0; i < 10; i++) { ctx.fillStyle = NEU.lo; this._pill(x0 + i * 60, y, 60, 60); }
-    ctx.save(); ctx.beginPath(); ctx.rect(x0, y, w, 60); ctx.clip();
-    for (let i = 0; i < 10; i++) { ctx.fillStyle = RED; this._pill(x0 + i * 60, y, 60, 60); }
-    ctx.restore();
+      : 600 * clamp01((this.t - n.delay) / n.dur);
+    dotProgress(this.ctx, x0, y, 60, 10, w / 600, { round: 'pill', value: Math.round(w / 6) });
   }
 
   _pill(x, y, w, h) {

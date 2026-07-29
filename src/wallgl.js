@@ -9,7 +9,7 @@
 // 세로 translate가 원근상 왜곡되지 않는다 → 원본 translateY를 그대로 쓴다.
 import * as THREE from 'three';
 import { PAL, NEU, rgba } from './palette.js';
-import { clamp01, eOut, cycle, kf, intro, drawChars, drawBadge, insetGlow, checkBadge } from './floorgl.js';
+import { clamp01, eOut, cycle, kf, intro, drawChars, drawBadge, insetGlow, checkBadge, dotProgress } from './floorgl.js';
 
 const W = 2600, H = 1600;   // 대지 px (벽 2.6×1.6m 실측 1:1)
 // 캔버스 해상도 — 대지 대비 배율. 화질 vs 업로드 비용의 저울.
@@ -416,15 +416,12 @@ export class WallGL {
       const e = eOut(intro(t, .55 + i * .05, .6));
       return { dy: 64 * (1 - e), alpha: e, scale: 1 };
     }, 'right');
-    // 도트 프로그래스 — fadeIn .5s 1.55s, 각 도트 2s + i*.22 에 회색→빨강
+    // 도트 프로그래스 — fadeIn .5s 1.55s. 도트별 회색→빨강 계단(2s + i*.22)이었는데
+    // 공통 컴포넌트(dotProgress)의 '머리가 달린다'로 통일 — 같은 구간(2s~4.2s)을 훑는다.
     const dY = ROW_Y + 40 + 96 + 27, dS = 45.734, dX = RRight - dS * 10;
     ctx.save();
     ctx.globalAlpha *= clamp01((t - 1.55) / .5);
-    for (let i = 0; i < 10; i++) {
-      const f = clamp01((t - (2 + i * .22)) / .5);
-      ctx.fillStyle = f > .5 ? RED : NEU.lo;
-      ctx.beginPath(); ctx.arc(dX + i * dS + dS / 2, dY + dS / 2, dS / 2, 0, Math.PI * 2); ctx.fill();
-    }
+    dotProgress(ctx, dX, dY, dS, 10, (t - 2) / (.22 * 10));
     ctx.restore();
     // 발 블록 — slideInUp .9s .6s
     const FX = RX + RW / 2 - 140, FY = ROW_Y + 570;
@@ -486,17 +483,7 @@ export class WallGL {
     const de = eOut(intro(t, .20, .6));
     ctx.save();
     ctx.globalAlpha *= de; ctx.translate(0, 48 * (1 - de));
-    for (let i = 0; i < 10; i++) {
-      ctx.fillStyle = NEU.lo;
-      ctx.beginPath(); ctx.arc(100 + i * dS + dS / 2, dY + dS / 2, dS / 2, 0, Math.PI * 2); ctx.fill();
-    }
-    ctx.save();
-    ctx.beginPath(); ctx.rect(100, dY, 457.34 * clamp01(t / dur), dS); ctx.clip();
-    for (let i = 0; i < 10; i++) {
-      ctx.fillStyle = RED;
-      ctx.beginPath(); ctx.arc(100 + i * dS + dS / 2, dY + dS / 2, dS / 2, 0, Math.PI * 2); ctx.fill();
-    }
-    ctx.restore();
+    dotProgress(ctx, 100, dY, dS, 10, t / dur, { value: Math.round(clamp01(t / dur) * 100) });
     ctx.restore();
 
     // 페이즈 열 (우측 정렬) — 진입이면 sRight .6s (.15 + i*.07)
