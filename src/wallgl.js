@@ -506,10 +506,11 @@ export class WallGL {
       const e = mid ? 1 : eOut(intro(t, .28, .8));
       ctx.save();
       ctx.globalAlpha *= e; ctx.translate(dir * 70 * (1 - e), 0);
-      // 흰 링(반경 118.5 원판 위에 사진 108.5 = 테두리 10px) 제거 — 앱 프로필은 테두리가 없다
-      // (my.css `.my-profile .avatar { border-radius:999px; object-fit:cover }`, border 선언 없음).
-      // 사진이 원판 전체를 채우도록 링 두께만큼(118.5/108.5 = 1.0922) 중심 기준 확대.
-      const R = 118.5, K2 = R / 108.5, cx0 = x + R, cy0 = 855 + R;
+      // 흰 링 10px → 5px (유저). 앱 프로필(my.css .avatar)엔 테두리가 아예 없지만
+      // 밝은 벽에 사진만 얹으면 경계가 사라져 얇은 선은 남긴다.
+      // 사진은 링이 얇아진 만큼(113.5/108.5) 중심 기준으로 키워 원판을 채운다.
+      const RING = 5, R = 118.5 - RING, K2 = R / 108.5, cx0 = x + 118.5, cy0 = 855 + 118.5;
+      rrFill(ctx, x, 855, 237, 237, 999, '#fff');
       ctx.save();
       ctx.beginPath(); ctx.arc(cx0, cy0, R, 0, Math.PI * 2); ctx.clip();
       for (const rel of img) {
