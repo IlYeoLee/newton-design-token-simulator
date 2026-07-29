@@ -406,7 +406,7 @@ export class WallGL {
       ctx.restore();
     }
     // 발 블록 — slideInUp .9s .6s
-    const FX = RX + RW / 2 - 140, FY = ROW_Y + 570;
+    const FX = RX + RW / 2 - 40, FY = ROW_Y + 570;   // 로고 우측정렬에 맞춰 100px 오른쪽으로(유저)
     ctx.save();
     const fe = eOut(intro(t, .6, .9));
     ctx.globalAlpha *= fe; ctx.translate(0, 52 * (1 - fe));

@@ -3271,8 +3271,16 @@ void main(){
         }`,
       transparent: true, depthWrite: false, blending: THREE.NormalBlending,
     }));
+  // 인물 축소 배수 — 상단 UI(단계·제목·게이지) 세로 여백 확보용 조절 손잡이.
+  // 발은 바닥(0.12m)에 붙인 채 키만 줄인다 → 머리 위로만 여백이 생긴다.
+  // 1.0 이면 실신장 1.7m. 0.92 = 1.564m, 머리 top 1.82 → 1.684m (대지 기준 ≈136px 확보).
+  const BXP_K = 0.92;
+  // 발 높이(m). 0.12 → 0.05 로 낮춰 인물을 조금 더 내린다 — 상단 여백을 더 벌기 위해(유저).
+  // 축소(0.92)와 합쳐 머리 top 1.82 → 1.61m.
+  const BXP_FOOT = 0.05;
+  bxPerson.scale.set(BXP_K, BXP_K, 1);
   bxPerson.material.clipping = true;
-  bxPerson.position.set(0.42, 1.7 / 2 + 0.12, WALL_Z + 0.03);   // 투사 영역 안 (클리핑이 최종 보증)
+  bxPerson.position.set(0.42, 1.7 * BXP_K / 2 + BXP_FOOT, WALL_Z + 0.03);   // 투사 영역 안 (클리핑이 최종 보증)
   bxPerson.renderOrder = 5;
   bxPerson.visible = false;
   scene.add(bxPerson);
@@ -3283,7 +3291,7 @@ void main(){
     if (!on) return;
     if (rig.wallClip && bxPerson.material.clippingPlanes !== rig.wallClip) bxPerson.material.clippingPlanes = rig.wallClip;
     const wc = rig._wallCenter;
-    bxPerson.position.set(wc ? wc.cx : 0, 1.7 / 2 + 0.12, WALL_Z + 0.03);   // 유저 정면 = 벽 중심 추종
+    bxPerson.position.set(wc ? wc.cx : 0, 1.7 * BXP_K / 2 + BXP_FOOT, WALL_Z + 0.03);   // 유저 정면 = 벽 중심 추종
     const U = bxPerson.material.uniforms;
     const ms = performance.now();
     U.uFrame.value = (ms / 1000 * COACH.fps) % COACH.n;
