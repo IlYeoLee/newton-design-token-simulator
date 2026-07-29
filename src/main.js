@@ -4637,38 +4637,48 @@ void main(){
     if (key === _bpLast) return;   // 같은 덩어리는 한 번만
     _bpLast = key;
     // 화면 좌표 → NDC → 레이캐스트 (보이는 것 전부, 앞에서부터)
-    // ★ Line 판정 반경 기본값은 1 world unit = 1m 다. 그대로 두면 화면 어디를 찍어도
-    //   근처 대시선 수십 개가 먼저 잡혀 진짜 판(메시)을 덮는다(첫 실측이 이 함정에 빠졌다).
-    _bpRay.params.Line.threshold = 0.004;
-    _bpRay.params.Points.threshold = 0.004;
-    _bpRay.setFromCamera(new THREE.Vector2((bx / W) * 2 - 1, -((by / H) * 2 - 1)), camera);
-    const hits = _bpRay.intersectObjects(scene.children, true)
-      .filter(h => h.object.visible && h.object.material && h.object.isMesh)
-      .slice(0, 6)
-      .map(h => { const m = h.object.material;
-        return { name: h.object.name || '(무명)', type: h.object.type,
-          dist: +h.distance.toFixed(2), order: h.object.renderOrder,
-          mat: m.type, blending: m.blending, transparent: m.transparent,
-          opacity: m.opacity, uuid: h.object.uuid.slice(0, 8) }; });
-    // 레이가 못 맞히는 판(뒷면·스프라이트·frustumCulled 등)을 위한 보조: 그 화면점을 덮는 메시를 투영으로 찾는다
-    if (!hits.length) {
-      const ndc = new THREE.Vector2((bx / W) * 2 - 1, -((by / H) * 2 - 1));
-      const _c = new THREE.Vector3();
-      scene.traverseVisible(o => {
-        if (!o.isMesh || !o.geometry || hits.length >= 6) return;
-        if (!o.geometry.boundingSphere) o.geometry.computeBoundingSphere();
-        const bs = o.geometry.boundingSphere; if (!bs) return;
-        _c.copy(bs.center).applyMatrix4(o.matrixWorld);
-        const d = _c.distanceTo(camera.position);
-        _c.project(camera);
-        const rNdc = (bs.radius * Math.max(...o.scale.toArray())) / (d * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)));
-        if (Math.abs(_c.x - ndc.x) < rNdc * camera.aspect && Math.abs(_c.y - ndc.y) < rNdc) {
-          const m = o.material;
-          hits.push({ name: (o.name || '(무명)') + '≈투영', type: o.type, dist: +d.toFixed(2), order: o.renderOrder,
-            mat: m.type, blending: m.blending, transparent: m.transparent, opacity: m.opacity, uuid: o.uuid.slice(0, 8) });
-        }
-      });
-      hits.sort((a, b) => a.dist - b.dist);
+    // ── 이분 탐색: 레이캐스트 대신 '가려보고 사라지는가'로 범인을 특정한다 ─────────
+    //   레이캐스트는 두 번 헛짚었다(선 반경 함정 → 그 다음엔 검정을 만들 수 없는 가산 재질만 나왔다).
+    //   화면에 실제로 검정을 칠하는 주체는 '그것을 끄면 검정이 사라지는 것'이다. 그것만이 증거다.
+    //   검출된 순간에만 도는 진단이라 몇 프레임 끊기는 건 감수한다.
+    const x0 = Math.max(0, bx - best / 2), y0 = by;
+    const rw = Math.min(W - x0, best), rh = Math.min(H - y0, Math.max(8, th));
+    const _rb = new Uint8Array(rw * rh * 4);
+    const stillBlack = () => {
+      renderFrame(clock.elapsedTime);
+      try { gl.readPixels(x0, H - y0 - rh, rw, rh, gl.RGBA, gl.UNSIGNED_BYTE, _rb); } catch (e) { return true; }
+      let d = 0; for (let i = 0; i < _rb.length; i += 4)
+        if (_rb[i] < 10 && _rb[i + 1] < 10 && _rb[i + 2] < 10) d++;
+      return d / (rw * rh) > 0.5;
+    };
+    const label = o => {
+      const m = o.material;
+      return { name: o.name || '(무명)', type: o.type, order: o.renderOrder,
+        mat: m ? (Array.isArray(m) ? m[0]?.type : m.type) : '-',
+        blending: m && !Array.isArray(m) ? m.blending : '-',
+        opacity: m && !Array.isArray(m) ? m.opacity : '-',
+        uDay: m?.uniforms?.uDay ? m.uniforms.uDay.value : '-',
+        uLive: m?.uniforms?.uLive ? m.uniforms.uLive.value : '-' };
+    };
+    // 한 층에서 '끄면 검정이 사라지는' 자식을 찾고, 찾으면 그 안으로 들어간다
+    const findCulprit = (node, depth) => {
+      const kids = node.children.filter(o => o.visible);
+      for (const k of kids) {
+        k.visible = false;
+        const gone = !stillBlack();
+        k.visible = true;
+        if (gone) return depth < 6 && k.children.length ? (findCulprit(k, depth + 1) || k) : k;
+      }
+      return null;
+    };
+    let culprit = null;
+    try { culprit = findCulprit(scene, 0); } catch (e) { console.warn('[BLACKPROBE] 이분 탐색 실패', e); }
+    renderFrame(clock.elapsedTime);   // 화면 원복
+    const hits = [];
+    if (culprit) {
+      hits.push(label(culprit));
+      for (let p = culprit.parent, i = 0; p && p !== scene && i < 3; p = p.parent, i++)
+        hits.push({ ...label(p), name: '↑부모: ' + (p.name || '(무명)') });
     }
     const head = `검정 판 ${best}×${th}px · ${session.stage} t=${(session.t || 0).toFixed(1)}`;
     console.log('[BLACKPROBE]', head); console.table(hits);
@@ -4682,7 +4692,9 @@ void main(){
       document.body.appendChild(_bpEl);
     }
     _bpEl.textContent = '⬛ ' + head + '\n'
-      + hits.map((h, i) => `${i + 1}. ${h.name} · ${h.mat} · order ${h.order} · blend ${h.blending} · op ${h.opacity} · ${h.dist}m`).join('\n');
+      + (hits.length
+        ? hits.map((h, i) => `${i + 1}. ${h.name} · ${h.mat} · order ${h.order} · blend ${h.blending} · op ${h.opacity} · uDay ${h.uDay} · uLive ${h.uLive}`).join('\n')
+        : '범인 없음 — 씬의 어떤 개체를 꺼도 검정이 안 사라진다.\n  → 후처리(컴포저 grade/bloom) 또는 배경 자체다.');
   }
 
   let _dotStage = '', _dotMax = 0;   // 도트 진행바 — 스테이지별 최대 진행(되감김 방지)
