@@ -5,3 +5,6 @@ dist/
 assets/models/*.task
 tmp_*.jpg
 tmp_*.mjs
+
+# 내보낸 영상 — 용량이 커서 저장소에 넣지 않는다
+out/
