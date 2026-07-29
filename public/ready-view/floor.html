@@ -23,34 +23,21 @@ html,body{background:transparent}
   opacity:0;animation:fadeUpCentered .8s cubic-bezier(.2,.75,.2,1) .12s both}
 .pack img{width:100%;height:100%;object-fit:cover;display:block}
 
-/* 팩 칩 = pyeongso 의 .tag-pill (creator.css) — 제목 대비 비율 그대로(15/26 = 0.577).
-   지면 타입스케일 ×4.6: font 15→69 · padding 4/8→18/37 · radius 12→55. */
-.tag{position:absolute;top:210px;left:0;right:0;text-align:center;
-  opacity:0;animation:slideInUp .8s cubic-bezier(.2,.75,.2,1) .18s both}
-.tag span{display:inline-block;padding:14px 30px;border-radius:44px;
-  background:rgba(255,255,255,.2);color:#fff;
-  font-family:'Supreme',sans-serif;font-weight:700;font-size:56px;letter-spacing:-1.9px}
-
 /* 타이틀 — 글자 하나하나 루핑 웨이브 */
-.title{position:absolute;top:330px;left:0;right:0;text-align:center;white-space:nowrap;
+.title{position:absolute;top:236px;left:0;right:0;text-align:center;white-space:nowrap;
   font-weight:700;font-size:120px;line-height:1.1;letter-spacing:-4px}
 .title .ch{display:inline-block;will-change:transform,opacity;animation:charLoop 3s ease-in-out 3}
 .title .sp{display:inline-block;width:.26em}
 
 
-/* 3열 스트립 = 모바일 공통 컴포넌트 .stats-row (creator.css — pyeongso 등에서 공유) 이식.
-   360px→1600px = ×4.44 (label 13→58 · value 18→80 · divider 1x33→4x147 · gap 4→18). */
-.strip{position:absolute;top:632px;left:50%;transform:translateX(-50%);display:flex;align-items:center;
-  justify-content:center;gap:18px;
-  opacity:0;animation:fadeUpCentered .8s cubic-bezier(.2,.75,.2,1) .35s both}
-.col{flex:none;text-align:center;color:#fff;padding:0 30px}   /* 내용 크기 — flex:1+nowrap 이면 값이 옆 칸을 파고든다 */
+/* 메타 한 줄 — 3칸 그리드(.stats-row)를 접었다. 라벨 3 + 값 3 + 구분선 2 = 8요소가
+   '시작 전 확인'이라는 한 가지 일을 하고 있었다(유저: 정보량 과다). 모바일 홈 카드의
+   '팩 · 시간' 메타 조판과 같은 한 줄로 통합. 값 자체는 하나도 안 버린다. */
+.meta{position:absolute;top:500px;left:0;right:0;text-align:center;white-space:nowrap;
+  font-family:'Supreme',sans-serif;font-weight:400;font-size:48px;letter-spacing:-1.4px;
+  color:rgba(255,255,255,.5);
+  opacity:0;animation:slideInUp .8s cubic-bezier(.2,.75,.2,1) .35s both}
 
-.col .k{font-family:'Supreme',sans-serif;font-weight:400;font-size:44px;
-  color:rgba(255,255,255,.45);letter-spacing:-1.3px;margin-bottom:20px}
-.col .v{font-weight:700;font-size:60px;letter-spacing:-1.8px;white-space:nowrap;
-  color:rgba(255,255,255,.75)}
-.col .v.sm{font-size:52px}
-.divider{width:3px;height:110px;background:rgba(255,255,255,.18);flex:none}
 
 
 /* 기기 연결 = 운동 전 필수 체크(유저) — .chip-row / .chip-sel (setup.css) 정본을 자기 줄로.
@@ -104,17 +91,9 @@ html,body{background:transparent}
 
     <div class="pack"><img src="assets/photos/creator-profile-sean.png" alt=""></div>
 
-    <div class="tag"><span>Creator Pack</span></div>
-
     <div class="title" id="title">Sean's Final 1km Pace</div>
 
-    <div class="strip">
-      <div class="col"><div class="k">Time</div><div class="v">30min</div></div>
-      <div class="divider"></div>
-      <div class="col"><div class="k">Condition</div><div class="v">Good</div></div>
-      <div class="divider"></div>
-      <div class="col"><div class="k">Mode</div><div class="v sm">Pace &amp; Boost On</div></div>
-    </div>
+    <div class="meta">30min · Condition Good · Pace &amp; Boost On</div>
 
     <!-- 기기 연결 체크 — 연결·충전된 기기는 sel(뉴턴 그라디언트) -->
     <div class="chips">

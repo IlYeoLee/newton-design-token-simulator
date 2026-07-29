@@ -346,8 +346,8 @@ export function drawChars(ctx, txt, cx, y, h, ls, fn, align = 'center') {
 // ── 나머지 문서(시작화면·전환·카운트다운·리포트) 데이터 — 각 HTML의 상수를 그대로 옮긴 것 ──
 const READY = {
   // meta = 모바일 홈 카드의 '팩 · 시간' 표기(home.html 원본) — 지면도 같은 조판 규칙을 쓴다
-  'floor.html':    { title: "Sean's Final 1km Pace", meta: 'Creator Pack · 30 min', time: '30min', mode: 'Pace & Boost On', modeSm: true },
-  'floor-bk.html': { title: "Curry's Handle Pack",   meta: 'Pro Pack · 23 min',     time: '23min',     mode: 'Press On' },
+  'floor.html':    { title: "Sean's Final 1km Pace", meta2: '30min · Condition Good · Pace & Boost On', time: '30min', mode: 'Pace & Boost On', modeSm: true },
+  'floor-bk.html': { title: "Curry's Handle Pack",   meta2: '23min · Condition Good · Press On',        time: '23min',     mode: 'Press On' },
 };
 const TR = {
   T1: { sub: 'Sean’s Final 1km Pace', title: 'Warm-Up Done!',
@@ -791,7 +791,7 @@ export class FloorGL {
 
   // ── 시작화면 (floor.html / floor-bk.html) ──────────────────────────────────
   _paint_ready() {
-    const SY = 632;   // 상태 한 줄 y (제목과 170 벌려 별개 덩어리로) (메타 줄·Connection 칸 폐기 — 정보량 축소, 유저)
+    const SY = 500;   // 메타 한 줄 y (메타 줄·Connection 칸 폐기 — 정보량 축소, 유저)
     const ctx = this.ctx, D = READY[/floor-bk/.test(this.params.src) ? 'floor-bk.html' : 'floor.html'], t = this.t;
     // glowLive 7s ×3 — 숨쉬기 + 드리프트
     const gl = this._img('fig/big_glow.svg');
@@ -822,51 +822,21 @@ export class FloorGL {
       ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.lineWidth = 10;
       ctx.beginPath(); ctx.arc(CX, py + R, R, 0, Math.PI * 2); ctx.stroke();
     }
-    // 팩 칩 = pyeongso .tag-pill (creator.css) — 제목 대비 비율 그대로(15/26). ×4.6 스케일.
-    {
-      const LB = /floor-bk/.test(this.params.src) ? 'Pro Pack' : 'Creator Pack';
-      ctx.save(); this._fadeIn(210, 104, eOut(intro(t, .18, .8)));
-      ctx.font = F(700, 56); ctx.letterSpacing = '-1.9px';
-      const tw = ctx.measureText(LB).width, pw = tw + 60, ph = 104;
-      this._roundRectPath(CX - pw / 2, 210, pw, ph, 44);
-      ctx.fillStyle = 'rgba(255,255,255,.2)'; ctx.fill();
-      ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillText(LB, CX, 210 + ph / 2 + 2);
-      ctx.letterSpacing = '0px'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-      ctx.restore();
-    }
     // 타이틀 글자 웨이브 — charLoop 3s ×3, 글자마다 .09s 지연
     ctx.fillStyle = '#fff'; ctx.font = F(700, 120);
-    drawChars(ctx, D.title, CX, 330, 120, -4, i => {
+    drawChars(ctx, D.title, CX, 236, 120, -4, i => {
       const p = cycle(t, i * 0.09, 3, 3);
       return p == null ? { dy: 0, alpha: 1, scale: 1 } : {
         dy: kf(p, [[0, 0], [.12, -16], [.26, 0], [.58, 0], [1, 0]]),
         alpha: kf(p, [[0, .5], [.12, 1], [.26, 1], [.58, .5], [1, .5]]), scale: 1,
       };
     });
-    // 상태 한 줄 = 모바일 공통 .stats-row (creator.css) — label + value 텍스트 3칸.
-    //   칩을 셀 안에 넣었던 판은 철회: .stats-row .stat 은 텍스트 전용이고 칩은 .chip-row 소속,
-    //   둘을 섞으면 두 컴포넌트 계약을 다 깬다(유저). 디바이스 배터리는 폐기 —
-    //   모바일 ready-to-start.html 에도 없고, 'Connection · Good' 과 같은 말이었다.
-    //   칸 폭 = 내용 크기(구 flex:1 + nowrap 은 값이 옆 칸을 파고들었다 — 실측).
-    ctx.save(); this._fadeIn(SY, 160, eOut(intro(t, .35, .8)));
+    // 메타 한 줄 — 3칸 그리드(.stats-row)를 접었다. 라벨 3 + 값 3 + 구분선 2 = 8요소가
+    //   '시작 전 확인' 한 가지 일을 하고 있었다(유저: 정보량 과다). 값은 하나도 안 버린다.
+    ctx.save(); this._fadeIn(SY, 64, eOut(intro(t, .35, .8)));
     ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-    const cells = [['Time', D.time, false], ['Condition', 'Good', false], ['Mode', D.mode, D.modeSm]];   // Condition = 내 컨디션(기기 연결 아님 — 유저)
-    const cellW = (lbl, val, sm) => {
-      ctx.font = F(400, 44); const a = ctx.measureText(lbl).width;
-      ctx.font = F(700, sm ? 52 : 60); return Math.max(a, ctx.measureText(val).width) + 60;
-    };
-    const cw2 = cells.map(([l, v, sm]) => cellW(l, v, sm));
-    let sx = CX - (cw2.reduce((a, b) => a + b, 0) + 76) / 2;   // 구분선 2개 × (4 + 여백 34)
-    cells.forEach(([lbl, val, sm], i2) => {
-      if (i2) { ctx.fillStyle = 'rgba(255,255,255,.18)'; ctx.fillRect(sx + 17, SY + 25, 3, 110); sx += 38; }
-      const w2 = cw2[i2];
-      ctx.fillStyle = 'rgba(255,255,255,.45)'; ctx.font = F(400, 44); ctx.letterSpacing = '-1.3px';
-      ctx.fillText(lbl, sx + w2 / 2, SY + 14);
-      ctx.fillStyle = 'rgba(255,255,255,.75)'; ctx.font = F(700, sm ? 52 : 60); ctx.letterSpacing = '-1.8px';
-      ctx.fillText(val, sx + w2 / 2, SY + 14 + 54 + 20);
-      sx += w2;
-    });
+    ctx.fillStyle = 'rgba(255,255,255,.5)'; ctx.font = F(400, 48); ctx.letterSpacing = '-1.4px';
+    ctx.fillText(D.meta2, CX, SY);
     ctx.letterSpacing = '0px';
     ctx.restore();
     // 기기 연결 = 운동 전 필수 체크(유저) — 컨디션과 다른 정보라 상태 줄에 섞지 않고 CTA 바로 위.
