@@ -43,20 +43,6 @@ html,body{background:transparent}
 .col .v.sm{font-size:66px}
 .divider{width:4px;height:147px;background:rgba(255,255,255,.3);flex:none}
 
-/* 디바이스 칩 — 모바일 setup.css 의 .chip-sel / .chip-row 정본을 그대로 이식.
-   360px 뷰포트 → 1600px 대지 = ×4.44 스케일 (font 14→62 · padding 6/12→27/53 · gap 4→18).
-   구 배터리 링 3개는 폐기(유저: 거슬림) — 원형이 투사면에서 타원으로 눌려 형태가 무너졌다. */
-.chips{display:flex;gap:10px;justify-content:center}
-.chip-sel{display:inline-flex;align-items:center;gap:10px;box-sizing:border-box;
-  background:#fff;border:none;border-radius:355px;padding:15px 29px;
-  font-family:'Supreme',sans-serif;font-weight:400;font-size:44px;line-height:1.4;
-  letter-spacing:-1.3px;color:#525252;box-shadow:0 0 9px rgba(0,0,0,.12)}
-/* 선택 상태 = 뉴턴 그라디언트(setup.css 정본과 동일 스톱) */
-.chip-sel.sel{color:#fff;
-  background:linear-gradient(180deg,#FA3030 48%,#FE6E3C 77.6%,#FEC389 100.5%,#D1FEFF 107.5%);
-  box-shadow:0 15px 58px 10px rgba(0,0,0,.05),inset 0 0 26px 9px rgba(255,255,255,.6)}
-.chip-sel img{height:32px;width:auto;display:block;filter:brightness(0)}
-.chip-sel.sel img{filter:brightness(0) invert(1)}   /* 아이콘 원본이 흰색 — 흰 칩에선 검게, 그라디언트 칩에선 그대로 */
 
 /* CTA = 모바일 .rts-prompt 컴포넌트(ready.css, ready-to-start.html) 2줄 스택 이식(캡션 'To start' 는 제외 — 복싱 벽과 같은 2줄, 실측 wallgl:497).
    제목과 같은 크기·굵기의 흰 볼드 한 줄이라 구분이 안 됐다(유저) → 정본대로 위아래 캡션을
@@ -98,17 +84,11 @@ html,body{background:transparent}
     <div class="title" id="title">Sean's Final 1km Pace</div>
 
     <div class="strip">
-      <div class="col side"><div class="k">Time</div><div class="v">30min</div></div>
+      <div class="col"><div class="k">Time</div><div class="v">30min</div></div>
       <div class="divider"></div>
-      <div class="col side"><div class="k">Mode</div><div class="v sm">Pace &amp; Boost On</div></div>
+      <div class="col"><div class="k">Connection</div><div class="v">Good</div></div>
       <div class="divider"></div>
-      <div class="col dev"><div class="k">Devices</div>
-        <div class="chips">
-      <div class="chip-sel sel"><img src="assets/run/ic_glasses.png">90%</div>
-      <div class="chip-sel"><img src="assets/run/ic_watch.png">30%</div>
-      <div class="chip-sel"><img src="assets/run/ic_earbuds.png">60%</div>
-        </div>
-      </div>
+      <div class="col"><div class="k">Mode</div><div class="v sm">Pace &amp; Boost On</div></div>
     </div>
 
     <div class="hero">

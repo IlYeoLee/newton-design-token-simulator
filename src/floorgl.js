@@ -831,56 +831,27 @@ export class FloorGL {
         alpha: kf(p, [[0, .5], [.12, 1], [.26, 1], [.58, .5], [1, .5]]), scale: 1,
       };
     });
-    // 상태 한 줄 — Time · Mode · Devices(칩). Connection 칸은 폐기: 배터리가 뜨는 기기는
-    //   이미 연결된 기기라 칩과 같은 말이었다(유저: 정보량 과다). 칩을 셋째 칸으로 흡수해 한 줄.
-    //   칸 폭 = 내용 크기(구 flex:1 + nowrap 은 값이 옆 칸을 파고들었다).
+    // 상태 한 줄 = 모바일 공통 .stats-row (creator.css) — label + value 텍스트 3칸.
+    //   칩을 셀 안에 넣었던 판은 철회: .stats-row .stat 은 텍스트 전용이고 칩은 .chip-row 소속,
+    //   둘을 섞으면 두 컴포넌트 계약을 다 깬다(유저). 디바이스 배터리는 폐기 —
+    //   모바일 ready-to-start.html 에도 없고, 'Connection · Good' 과 같은 말이었다.
+    //   칸 폭 = 내용 크기(구 flex:1 + nowrap 은 값이 옆 칸을 파고들었다 — 실측).
     ctx.save(); this._fadeIn(SY, 212, eOut(intro(t, .35, .8)));
     ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-    const CHIP = [['run/ic_glasses.png', 32, '90%', true], ['run/ic_watch.png', 24, '30%', false],
-                  ['run/ic_earbuds.png', 28, '60%', false]];
-    const CPAD = 29, CICG = 10, CGAP = 10, CH2 = 92;
-    ctx.font = F(400, 44); ctx.letterSpacing = '-1.3px';
-    const chipW = CHIP.map(([, iw, tx]) => CPAD * 2 + iw + CICG + ctx.measureText(tx).width);
-    const devW = chipW.reduce((a, b) => a + b, 0) + CGAP * 2;
+    const cells = [['Time', D.time, false], ['Connection', 'Good', false], ['Mode', D.mode, D.modeSm]];
     const cellW = (lbl, val, sm) => {
       ctx.font = F(400, 58); const a = ctx.measureText(lbl).width;
       ctx.font = F(700, sm ? 66 : 80); return Math.max(a, ctx.measureText(val).width) + 60;
     };
-    const cells = [['Time', D.time, false, 0], ['Mode', D.mode, D.modeSm, 0], ['Devices', null, false, devW + 60]];
-    const cw2 = cells.map(([l, v, sm, fixed]) => fixed || cellW(l, v, sm));
+    const cw2 = cells.map(([l, v, sm]) => cellW(l, v, sm));
     let sx = CX - (cw2.reduce((a, b) => a + b, 0) + 76) / 2;   // 구분선 2개 × (4 + 여백 34)
     cells.forEach(([lbl, val, sm], i2) => {
       if (i2) { ctx.fillStyle = 'rgba(255,255,255,.3)'; ctx.fillRect(sx + 17, SY + 32, 4, 147); sx += 38; }
       const w2 = cw2[i2];
       ctx.fillStyle = 'rgba(255,255,255,.7)'; ctx.font = F(400, 58); ctx.letterSpacing = '-2.2px';
       ctx.fillText(lbl, sx + w2 / 2, SY + 14);
-      if (val != null) {
-        ctx.fillStyle = '#fff'; ctx.font = F(700, sm ? 66 : 80); ctx.letterSpacing = '-2.4px';
-        ctx.fillText(val, sx + w2 / 2, SY + 14 + 70 + 27);
-      } else {   // Devices = 칩 3개 (setup.css .chip-sel · 셀 안이라 0.55 스케일)
-        let bx = sx + (w2 - devW) / 2, by = SY + 113;
-        ctx.font = F(400, 44); ctx.letterSpacing = '-1.3px';
-        CHIP.forEach(([ic, iw, tx, sel], k) => {
-          const w3 = chipW[k];
-          if (sel) {
-            const g3 = ctx.createLinearGradient(0, by, 0, by + CH2);
-            g3.addColorStop(0.48, '#FA3030'); g3.addColorStop(0.776, '#FE6E3C'); g3.addColorStop(1, '#FEC389');
-            ctx.fillStyle = g3;
-          } else ctx.fillStyle = '#fff';
-          this._roundRectPath(bx, by, w3, CH2, CH2 / 2); ctx.fill();
-          const im = this._img(ic);
-          if (im) {
-            const ih = iw * (im.naturalHeight / im.naturalWidth);
-            ctx.save(); ctx.filter = sel ? 'brightness(0) invert(1)' : 'brightness(0)';
-            ctx.drawImage(im, bx + CPAD, by + CH2 / 2 - ih / 2, iw, ih);
-            ctx.restore();
-          }
-          ctx.fillStyle = sel ? '#fff' : '#525252'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-          ctx.fillText(tx, bx + CPAD + iw + CICG, by + CH2 / 2 + 1);
-          ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-          bx += w3 + CGAP;
-        });
-      }
+      ctx.fillStyle = '#fff'; ctx.font = F(700, sm ? 66 : 80); ctx.letterSpacing = '-2.4px';
+      ctx.fillText(val, sx + w2 / 2, SY + 14 + 70 + 27);
       sx += w2;
     });
     ctx.letterSpacing = '0px';
