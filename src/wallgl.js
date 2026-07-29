@@ -478,16 +478,23 @@ export class WallGL {
     ctx.globalAlpha *= kf(tp, [[0, 0], [.7, 1], [1, 1]]);
     ctx.translate(0, kf(tp, [[0, 40], [.7, 0], [1, 0]]));
     const tk = kf(tp, [[0, .94], [.7, 1.02], [1, 1]]);
-    ctx.translate(100, 140 + 48); ctx.scale(tk, tk); ctx.translate(-100, -(140 + 48));
-    txt(ctx, S.title, 100, 140, 80, 700, NEU.ink);
+    // 중앙 정렬 — 게이지를 중앙에 놓자 좌측 타이틀 끝과 맞붙었다(실측: 타이틀 우단 ≈1060,
+    // 게이지 좌단 1000). 타이틀까지 중앙으로 올려 [타이틀 → 게이지 → 코치 → 큐] 세로 축을 세운다.
+    // 페이즈 열은 우측 그대로 — 축 하나 + 우측 상태열이 좌우 대칭을 깨지 않는다.
+    ctx.translate(CX, 60 + 48); ctx.scale(tk, tk); ctx.translate(-CX, -(60 + 48));
+    txt(ctx, S.title, CX, 60, 80, 700, NEU.ink, { align: 'center' });
     ctx.restore();
 
-    // 도트 로딩바 — sUp .6s .20s, 클립이 dur 동안 0→457.34
-    const dY = 140 + 96 + 27, dS = 45.734;
+    // 진행 게이지 — 대지 중앙. 상단이 [타이틀(좌) · 게이지(중) · 페이즈(우)] 3단이 된다.
+    // 타이틀 밑 좌측에 붙였더니 좌측만 무겁고 중앙이 비어 보였다(유저).
+    // 타이틀(중앙, y 60~140) 바로 아래 y0=150.
+    // 수치·끝라벨은 뺀다 — 아래가 코치 머리라 숫자가 겹치고, 여긴 시간 진행이라 눈금이 불필요.
+    // 폭 480: 잉크 하단(노브 밑)이 y≈261 로 코치 머리(≈263)를 아슬하게 비껴간다
+    const gW = 480, dY = 150;
     const de = eOut(intro(t, .20, .6));
     ctx.save();
     ctx.globalAlpha *= de; ctx.translate(0, 48 * (1 - de));
-    arcGauge(ctx, 100, dY, 720, t / dur, { value: Math.round(clamp01(t / dur) * 100) });
+    arcGauge(ctx, CX - gW / 2, dY, gW, t / dur, { ends: false });
     ctx.restore();
 
     // 페이즈 열 (우측 정렬) — 진입이면 sRight .6s (.15 + i*.07)

@@ -1205,7 +1205,10 @@ void main(){
       Object.assign(FXP.mark, { core: st.m.core, halo: st.m.halo, pool: st.m.pool, sweep: st.m.sweep, wobble: st.m.wobble });
       if (st.m.radius) TCFG.markScale = st.m.radius;   // 존 반경 → 마크 크기 배율
     }
-    if (st.p) Object.assign(FXP.person, { blur: st.p.blur, glow: st.p.glow, flow: st.p.flow, decay: st.p.decay });
+    // 인물 파라미터는 저장 룩에서 복원하지 않는다(유저 07-30) — 예전에 저장된 값
+    //   (엣지블러 0.8 · 글로우 0.8 · 흐름 0.35 · 잔상 0.4)이 새 인물 파이프라인에서
+    //   얼룩·에코로 드러났다. 랩 슬라이더는 런타임에 FXP.person 을 직접 쓰므로 여전히 살아있다.
+    // if (st.p) Object.assign(FXP.person, { blur: st.p.blur, glow: st.p.glow, flow: st.p.flow, decay: st.p.decay });
     // 화면 룩(블룸·노출·그레인) 은퇴 — 저장값(st.s) 무시, 엔진 고정 룩만.
     // (은퇴 전 저장된 그레인 등이 좀비처럼 남는 것 방지 — 포스트프로세싱은 토큰이 아님)
     Object.assign(FX, { bloomStrength: 0.14, bloomThreshold: 0.85, bloomRadius: 0.4, exposure: 0.95, grain: 0, vignette: 0.08 });   // 블룸 축소 — 소형 고휘도 코어가 문대지며 '과한 블러'로 보이던 것 (랩=블룸 거의 없음)
@@ -2326,11 +2329,11 @@ void main(){
       transparent: true, depthWrite: false,
       uniforms: { map: { value: tex }, uLUT: { value: getLUT() }, uTime: { value: 0 }, uReady: { value: 0 },
         uField: { value: coachField().rts[3].texture }, uFieldN: { value: coachField().rts[2].texture },
-        uCropOff: { value: cfg.cropOff }, uCropScale: { value: cfg.cropScale },
+        uCropOff: { value: cfg.cropOff }, uCropScale: { value: cfg.cropScale }, uDetail: { value: 0.25 },
         uSat: { value: 1.32 }, uPulse: { value: 0.05 } },
       vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
       fragmentShader: `
-        varying vec2 vUv; uniform sampler2D map, uLUT, uField, uFieldN; uniform float uTime, uCropOff, uCropScale, uSat, uPulse, uReady;
+        varying vec2 vUv; uniform sampler2D map, uLUT, uField, uFieldN; uniform float uTime, uCropOff, uCropScale, uSat, uPulse, uReady, uDetail;
         vec3 lut(float v){ return texture2D(uLUT, vec2(clamp(v, 0.004, 0.996), 0.5)).rgb; }
         ` + PERSON_GLSL + `
         vec2 crop(vec2 uv){ return vec2(uv.x, uCropOff + uv.y * uCropScale); }
@@ -2365,8 +2368,9 @@ void main(){
           float H = clamp(fld.r * 1.25, 0.0, 1.0);
           float flow = vn(vec2(uv.x*3.2 + sin(uTime*0.4)*0.3, uv.y*2.4 - uTime*0.5));
           H *= 1.0 + (flow - 0.5) * 0.11;   // 대류 얼룩 최소 — 매끄러운 질감(유저 레퍼런스)
-          float lumS = fldN.g / max(fldN.r, 0.02);       // 결 (마스크 프리멀티 복원)
-          float lumB = fld.g / max(fld.r, 0.02);         // 국소 평균 = 노출
+          float lumB = fld.g / max(fld.r, 0.02);          // 국소 평균 = 노출
+          // 결 = 좁은 블러. 룩 슬라이더 '음영'(uDetail)이 결의 세기 — 0 이면 완전 평면.
+          float lumS = mix(lumB, fldN.g / max(fldN.r, 0.02), clamp(uDetail * 2.4, 0.0, 1.0));
           float dlum = mix(lumS, lumB, 0.5);            // 펄스 위상용 대표 휘도
           float mIn = smoothstep(0.55, 0.95, m);
           float faceW = smoothstep(0.80, 0.92, uv.y) * (1.0 - smoothstep(0.97, 1.0, uv.y));
@@ -2554,6 +2558,7 @@ void main(){
         //   시크·되감기 직후엔 텍스처가 비어 크로마키를 통과, 판 전체가 LUT 붉은색이 된다 → 그 사이 숨김.
         co.plane.visible = !!co._live && id !== 'BK_C2';
         co.plane.material.uniforms.uTime.value = performance.now() / 1000;
+        co.plane.material.uniforms.uDetail.value = FXP.person?.detail ?? 0.25;   // 룩 '음영' 슬라이더
         // 채도는 마크 LUT와 같은 소스(FXP.sat)에서 — 인물·발자국 룩 통일(슬라이더 하나가 둘 다 이동)
         co.plane.material.uniforms.uSat.value = 1.0 + (FXP.sat ?? 1) * 0.32;
         // 옆구리(BK_A1) 방향 화살표 = 코치 영상 실제 타이밍에 동기.
