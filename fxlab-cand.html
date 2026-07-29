@@ -581,8 +581,9 @@ vec4 dotFormQ(vec2 grid, vec2 uv, float sd, float ext, float w, float pitch, flo
   // 경계 폭. 이 값 하나로 두 가지가 동시에 정해져 있었던 게 문제였다 —
   //   넓게 잡으면(0.16) 점 크기 변화는 예쁘지만 안쪽까지 작아져 뿌옇고,
   //   좁게 잡으면(0.06) 또렷하지만 모든 점이 최대 크기가 되어 균일한 덩어리가 된다.
-  //   → 경계는 적당히(0.11) 잡고, 점 크기 변화는 '열'이 따로 맡게 분리한다(아래 heat).
-  float band = 0.11 * max(uInner, 0.05);
+  //   → 점 크기 변화를 '열'이 맡게 분리한 뒤로는 경계를 좁혀도 결이 사라지지 않는다.
+  //     좁게 잡아야 글리프 구멍이 제 크기로 읽힌다(넓으면 구멍이 먹혀 그늘만 남는다).
+  float band = 0.055 * max(uInner, 0.05);
   float amt  = smoothstep(band, -band, sd) * clamp(w, 0.0, 2.0);
   // ★ 아웃라인이 없어도 이너 음영은 된다 — 선이 아니라 '점 크기'가 음영을 지면 되기 때문.
   //   가장자리 쪽 점을 키우면 글로우, 줄이면 섀도우. 윤곽선은 여전히 0 이다.
@@ -1258,8 +1259,11 @@ function candSDF(FS) {
   //   ★ raw 의 정규화 기준은 N 이 아니라 N/4 다(SDF_DECODE 주석: '구 8bit 인코딩 range=N/4').
   //     N 으로 잡았다가 팽창이 4배가 되어 구멍이 발을 반쯤 먹었다.
   //     px = band · uRadius · (N/4) / 1.9922
-  const bandUV = 0.11 * Math.max(candP.inner, 0.05);
-  const dilPx = bandUV * (state.m.radius || 1) * (N / 4) / 1.9922;
+  //   ★ 팽창은 폐기했다. 얇은 획을 가진 글자('2' 의 곡선, 속 빈 부분)는 조금만 부풀려도
+  //     획끼리 붙어 덩어리가 된다(유저 스샷). 구멍을 키워 보정할 문제가 아니었다.
+  //     진짜 원인은 경계 폭이고, 이제 점 크기 변화는 '열'이 맡으므로 경계를 좁혀도
+  //     결이 사라지지 않는다 — 그래서 경계를 좁히는 쪽이 옳다(아래 band 0.055).
+  const dilPx = 0;
   return bakeFootWithGlyphHole(candFootImg, N, candFootFlip, ch,
                                circle ? 0.5 : (av ? av.x : 0.5),
                                circle ? 0.5 : (av ? av.y : 0.34), sizeN,
