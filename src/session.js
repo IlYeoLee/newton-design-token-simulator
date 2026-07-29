@@ -600,7 +600,7 @@ export const STAGES = {
     { id:'BX_B3', wall:true, gate:true, label:'B3 · 익히기 3/3 — 잽 스윕', voice:['고수','스윕 따라 주먹 뻗고 타겟에 정렬.'], foot:'두 번 탭 → 실전 준비' },
     { id:'BX_T2', wall:true, label:'T2 · 전환 — 5초 뒤 실전 시작', voice:['고수','5초 뒤 넘어가요. 준비됐으면 두 번 탭.'], dur:5, count:true, foot:'두 번 탭 = 즉시 · 무입력 = 자동' },
     { id:'BX_C1', wall:true, dur:3, label:'C1 · 실전 1/4 — 시작 신호', voice:['고수','좋아요, 이제 나랑 붙어봐요. 셋, 둘, 하나!'], hap:'시작 진동', foot:'두 번 탭 → 시작' },
-    { id:'BX_C2', wall:true, dur:6, live:true, label:'C2 · 실전 2/4 — 잽 대련', voice:['고수','타겟 뜨면 바로 잽.'], wear:'SAFE 가드 안정화' },
+    { id:'BX_C2', wall:true, dur:11, live:true, label:'C2 · 실전 2/4 — 잽 대련', voice:['고수','타겟 뜨면 바로 잽.'], wear:'SAFE 가드 안정화' },
     { id:'BX_C3', wall:true, dur:6, live:true, boost:true, label:'C3 · 실전 3/4 — 콤비네이션', voice:['고수','잽-잽-훅! 리듬 놓치지 말고.'], wear:'BOOST 스텝 추진', cue:'구간 종료 Match Rate' },
     { id:'BX_C4', wall:true, live:true, cooldown:true, label:'C4 · 실전 4/4 — 마무리', voice:['시스템','가드 내리고 숨 고르기. 좋았어요.'], hap:'완료 진동' },
     { id:'BX_FIN', wall:true, label:'B-F · 리포트', voice:['시스템','리포트를 앱으로 보냈어요.'], cue:'Ghost Review — 고수 잽과 내 폼 겹쳐 보기' },
@@ -1201,6 +1201,14 @@ export class Session {
     this.bxCombo.position.set(0, 1.60, WZ + 0.002);
     this.bxCombo._prim.pts = [[92, 104], [126, 92], [186, 140]];   // 잽 · 잽 · 훅
     g.add(this.bxCombo);
+    // 판정은 노드 '안'에서 일어나야 한다(유저) — 펀치 라인이 순서를 그리고, 그 자리의 원 안에서
+    //   수축 링 정본이 조여들었다 터진다. 링은 하나를 옮겨 쓴다(우리 수축 링 디자인은 하나다).
+    //   캔버스 256 · 패널 1.05m 기준 노드 좌표 → 월드: x=(px−128)/256·1.05, y=1.60−(py−128)/256·1.05
+    const NPX = [[92, 104], [126, 92], [186, 140]];
+    this.bxC3nodes = NPX.map(([px, py]) => [(px - 128) / 256 * 1.05, 1.60 - (py - 128) / 256 * 1.05]);
+    this.bxC3ap = primPanel('approachRing', 0.34, true);
+    this.bxC3ap.position.set(this.bxC3nodes[0][0], this.bxC3nodes[0][1], WZ + 0.004);
+    g.add(this.bxC3ap);
 
     g = this._mk('BX_C4');
     // '숨 고르기' 3D 텍스트 은퇴 — HUD 코너 아이덴티티가 전담 (EN 미번역 잔재 제거)
@@ -2632,7 +2640,7 @@ export class Session {
     } else if (id === 'BX_C2' || id === 'BX_C3') {
       if (id === 'BX_C2' && this.bxC2) {
         // 비트마다 한 곳만. 순서는 해시로 뽑되 직전과 겹치지 않게 — 같은 자리 연타는 반응 훈련이 아니다.
-        const BT = 0.85, rep = Math.floor(this.t / BT), ph = (this.t % BT) / BT;
+        const BT = 1.9, rep = Math.floor(this.t / BT), ph = (this.t % BT) / BT;   // 2초 간격 — 하나 뜨면 보고 때릴 틈(유저)
         const N = this.bxC2.length;
         // 비트가 바뀔 때만 새로 뽑는다. 해시를 직전 '원본 해시'와 비교하면 보정된 값과 어긋나
         // 연속 중복이 남는다(실측 40비트 중 4회) — 실제로 내보낸 값을 기억해 그걸 피한다.
@@ -2648,7 +2656,7 @@ export class Session {
           T.ap.material.opacity = i === on ? 1 : 0.10;    // 쉬는 자리도 희미하게 — '어디서 뜰 수 있는지'
           T.ap._prim.prog = i === on ? clamp01(ph / LAND) : 0;
         }
-        FMU(`잽 ${Math.min(9, rep + 1)} — 뜨는 곳으로`, k > 0.2 ? CS.prism : CS.coral);
+        FMU(`잽 ${rep + (k > 0 ? 1 : 0)} / ${Math.max(1, Math.round((st.dur || 6) / BT))} — 뜨는 곳으로`, k > 0.2 ? CS.prism : CS.coral);
       }
       if (id === 'BX_C3' && this.bxCombo) {
         // 콤보 = 잽·잽·훅. 펀치 라인이 노드를 순서대로 이어 그리고, 마지막 노드에서 한 박 쉰다.
@@ -2659,6 +2667,11 @@ export class Session {
         const prev = seg === 0 ? 0 : AT[seg - 1], next = AT[Math.min(seg, AT.length - 1)];
         const f = seg >= AT.length ? 1 : clamp01((tc - prev) / Math.max(0.01, next - prev));
         this.bxCombo._prim.prog = clamp01(((seg === 0 ? 0 : seg - 1) + (seg >= AT.length ? 1 : f)) / (AT.length - 1) / 1.25);
+        // 판정 링 = 지금 노려야 할 노드로 옮겨 가서 그 원 안에서 수축 → 타격 순간 터진다.
+        const ni = Math.min(seg, this.bxC3nodes.length - 1);
+        this.bxC3ap.position.x = this.bxC3nodes[ni][0];
+        this.bxC3ap.position.y = this.bxC3nodes[ni][1];
+        this.bxC3ap._prim.prog = seg >= AT.length ? 1 : f;
         const LBL = ['잽', '잽', '훅'];
         FMU(seg ? `${LBL[seg - 1]} ${seg} / 3` : '잽 · 잽 · 훅', seg === 3 ? CS.prism : CS.coral);
       }
