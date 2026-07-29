@@ -154,6 +154,7 @@
       <label style="display:flex;align-items:center;gap:7px;font-size:11px;color:var(--dim)">진행
         <input type="range" id="candProg" min="-0.01" max="1" step="0.01" value="-0.01" style="width:150px">
         <output id="candProgV" style="min-width:34px">자동</output></label>
+      <span id="candMode" style="font-size:10.5px;color:var(--sand);font-weight:700"></span>
       <span style="font-size:10.5px;color:var(--dim)">글리프 = 서랍의 실제 SVG · MARK_NUM 규약(Preview 0.5 · Success/Miss 숨김)</span>
     </div>
     <div id="candStrip" style="display:grid;grid-template-columns:repeat(7,1fr);gap:10px;margin-bottom:22px"></div>
@@ -577,7 +578,10 @@ vec3 stateFill(float st, float q, float pg){
 }
 // 아웃라인 없는 닷 폼 본체(⑩) — w 는 그 픽셀의 '켜짐 정도'. Hold 후보들이 w 만 바꿔 쓴다.
 vec4 dotFormQ(vec2 grid, vec2 uv, float sd, float ext, float w, float pitch, float st, float pg, float qOvr){
-  float band = 0.16 * max(uInner, 0.05);
+  // ★ 경계 폭. 넓으면 점이 넓은 띠에 걸쳐 줄어들어 전체가 뿌예진다(유저: 주변부가 과하게 뿌얘).
+  //   좁게 잡아 '진짜 가장자리'만 부분 크기가 되게 한다 — 안쪽은 온전한 크기를 유지해야
+  //   글리프 구멍도 또렷이 읽힌다. 계수 0.16 → 0.06 (이너 폭 슬라이더로 여전히 조절 가능).
+  float band = 0.06 * max(uInner, 0.05);
   float amt  = smoothstep(band, -band, sd) * clamp(w, 0.0, 2.0);
   // ★ 아웃라인이 없어도 이너 음영은 된다 — 선이 아니라 '점 크기'가 음영을 지면 되기 때문.
   //   가장자리 쪽 점을 키우면 글로우, 줄이면 섀도우. 윤곽선은 여전히 0 이다.
@@ -1314,8 +1318,22 @@ let candGStyle = 0;   // 0 솔리드 · 1 하프톤 · 2 음각
   const LB = ['글리프 방식: 솔리드', '글리프 방식: 하프톤', '글리프 방식: 음각',
               '글리프 방식: 음각(하프톤)', '글리프 방식: 실루엣 뚫기(SDF)'];
   b.textContent = LB[0];
-  b.onclick = () => { candGStyle = (candGStyle + 1) % 5; b.textContent = LB[candGStyle];
-    b.classList.toggle('on', !!candGStyle); updateFootSDF(); };
+  b.onclick = () => {
+    candGStyle = (candGStyle + 1) % 5; b.textContent = LB[candGStyle];
+    b.classList.toggle('on', !!candGStyle);
+    // 실루엣 뚫기는 두 조건이 안 맞으면 조용히 아무 일도 안 한다 —
+    //   ① 글리프가 꺼져 있으면 뚫을 글자가 없다  ② 존 원은 SDF 를 안 쓴다(발형 전용).
+    //   조용한 무동작은 '구현 안 된 것'으로 보인다(유저). 그래서 켤 때 조건을 맞춰준다.
+    if (candGStyle === 4) {
+      if (!candNums) { candNums = 1; const nb = document.getElementById('candNumBtn');
+        nb.textContent = '글리프: 숫자'; nb.classList.add('on'); }
+      if (candShape < 0.5) { candShape = 1;
+        const host = document.getElementById('candShapeChips');
+        [...host.children].forEach(x => x.classList.remove('on'));
+        [...host.children].find(x => /발형/.test(x.textContent))?.classList.add('on'); }
+    }
+    updateFootSDF();
+  };
   document.getElementById('candNumBtn').after(b);
 }
 {
@@ -1527,6 +1545,10 @@ function syncCandUI() {
   document.getElementById('candSrc').textContent = c.glsl;
   document.getElementById('candPick').textContent = '선택: ' + c.name;
   document.getElementById('candStripName').textContent = c.name;
+  const st = document.getElementById('candMode');
+  if (st) st.textContent = candGStyle === 4
+    ? '실루엣 뚫기 ON — 발형 SDF 에 글리프 구멍을 굽는다(오버레이 없음)'
+    : (candNums ? '글리프 오버레이 모드 — 완성된 그림 위에 얹는다' : '');
   for (const { c: cc, box } of candProgs)
     box.style.outline = cc.id === candSel ? '2px solid var(--sand)' : 'none';
 }
