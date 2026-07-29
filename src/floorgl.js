@@ -308,6 +308,10 @@ export function insetGlow(ctx, x, y, w, h, r, color, blur, spread) {
   g.fillStyle = color;
   g.beginPath(); g.roundRect(m, m, w, h, r); g.fill();
   g.globalCompositeOperation = 'destination-out';
+  // ★ 지우개는 반드시 알파 1 이어야 한다. 위에서 쓴 fillStyle(글로우색 알파 .6)을 그대로 두면
+  //   destination-out 이 dst 알파를 (1−.6)=40% 만 남기고 끝나 카드 **전체**에 흰 24% 가 깔린다
+  //   (실측: #FA3030 중앙이 rgb(251,98,98)). 림만 남아야 할 inset 글로우가 통짜 베일이 됐던 원인.
+  g.fillStyle = '#000';
   g.filter = `blur(${(blur / 2).toFixed(1)}px)`;
   g.beginPath(); g.roundRect(m + spread, m + spread, w - spread * 2, h - spread * 2, Math.max(0, r - spread)); g.fill();
   g.filter = 'none'; g.globalCompositeOperation = 'source-over';
