@@ -171,10 +171,10 @@ export function buildLUT(stops, sat = 1, out = new Uint8Array(256 * 4)) {
 //   전제: 호스트가 vec3 lut(float) 를 이미 선언한다.
 // ─────────────────────────────────────────────────────────────
 export const PERSON_GLSL = `
-#define P_GAMMA 1.38    // 온도 곡선 — 어두운 부위를 더 깊게
+#define P_GAMMA 1.15    // 온도 곡선 (1.38은 대역을 LUT 평지로 밀어넣었다)
 #define P_GAIN  0.96    // LUT 상단 여유(순백 방지)
 #define P_SAT   1.32    // 룩시스템 '쟁한' 고채도
-#define P_LO    0.22    // 인물이 앉는 온도 대역 — 이 밖으로 나가면 팩마다 색이 갈린다
+#define P_LO    0.40    // LUT t=0~0.3 은 RED 단색 평지 — 대역 하한이 그 위여야 계조가 산다
 #define P_HI    0.86
 vec3 personColor(float T){
   float t = P_LO + clamp(T, 0.0, 1.0) * (P_HI - P_LO);   // 공용 대역으로 정규화
@@ -191,23 +191,24 @@ vec3 personColor(float T){
 //   lumS  = 원본 휘도(선명 — 몸의 결)      lumB = 블러 휘도(얼굴용)
 //   mIn   = 내부 침식 마스크               face = 얼굴 대역 가중
 #define P_MILK  0.42    // 하이라이트·얼굴이 우유빛으로 빠지는 양(전신 희석 금지)
-#define P_DEPTH 0.42    // 그늘이 '진해지는' 양 — 밝기가 아니라 온도로만
+#define P_DEPTH 0.88    // 그늘이 '진해지는' 양 — 밝기가 아니라 온도로만
 //   ⚠ 밝기를 깎아 그늘을 만들면 안 된다. 알파가 min(aOut, lum*1.6)로 밝기에 묶여 있어
 //     어두운 옷 픽셀만 알파 0.85로 떨어지고 뒤 벽·그리드가 비친다(실측: 0.985→0.847, 유저 신고).
 //     투사광에선 '어둡게' = '투명하게'다. 그래서 그늘은 LUT 상단(딥레드)으로, 하이라이트는
 //     하단(샌드)으로 — 양끝 다 R≈1이라 알파는 어디서도 안 떨어진다.
-#define P_TEX   1.8     // 국소 대비(옷 결·주름)를 온도로 옮기는 배율
+#define P_TEX   3.0     // 국소 대비(옷 결·주름)를 온도로 옮기는 배율
 #define P_ABS   0.18    // 절대 밝기를 반영하는 비율 — 낮을수록 클립 노출차에 둔감
 vec3 personLook(float thick, float lumS, float lumB, float mIn, float face){
   // 절대 휘도를 그대로 읽으면 클립 노출차가 곧 색차가 된다 — 밝게 찍은 러닝·농구 코치가
   //   통째로 LUT 밝은 쪽(SAND)으로 밀려 하얘졌다(유저: "왜 러닝 농구는 더 하얘?").
   //   피부색이 아니라 노출이다. 그래서 국소 평균(lumB)은 노출로 보고 대부분 상쇄하고,
   //   국소 대비(lumS - lumB)만 결로 읽는다 — 옷 주름·미묘한 톤차가 여기 다 들어있다.
-  float d = (lumS - lumB) * (1.0 - face);               // 얼굴은 결 제거(이목구비 은닉)
-  // 소프트 압축 — 옷 주름 같은 작은 대비(±0.03)는 들어올리고, 큰 경계는 안 터지게
-  float detail = sign(d) * pow(abs(d), 0.68);
+  float d = (lumS - lumB) * (1.0 - face) * P_TEX;       // 얼굴은 결 제거(이목구비 은닉)
+  // 소프트 새추레이션 — clamp 로 자르면 큰 대비 영역이 통째로 양 끝에 붙어 종이장처럼
+  //   포스터화된다(유저 스샷). x/(1+|x|)는 작은 결은 그대로, 큰 대비만 압축한다.
+  float detail = d / (1.0 + abs(d) * 1.6);
   float base = mix(0.5, lumB, P_ABS);                   // 절대 밝기는 34%만
-  float shade = clamp(smoothstep(0.08, 0.80, base) + detail * P_TEX, 0.0, 1.0);
+  float shade = clamp(smoothstep(0.08, 0.80, base) + detail, 0.0, 1.0);
   float lum = mix(mix(lumS, lumB, 0.50), lumB, face);   // 우유빛 하이라이트 판정용
   // LUT 실측 방향: T=0 → RED(#FA3030) · T≈0.86 → SAND(#FEC389) · T=1 → ICE.
   //   즉 T가 낮을수록 진하다. 두꺼운 코어·그늘 = 낮은 T(진한 코랄레드),
@@ -218,7 +219,7 @@ vec3 personLook(float thick, float lumS, float lumB, float mIn, float face){
   vec3 c = personColor(T);
   // 얇은 곳(손·머리카락)과 얼굴, 그리고 하이라이트만 우유빛 — 2.2제곱이라 몸통은 거의 안 뜬다.
   float milk = clamp(pow(1.0 - clamp(thick, 0.0, 1.0), 2.2) * 0.9
-                     + face * 0.9 + smoothstep(0.58, 1.00, shade) * mIn * 1.0, 0.0, 1.0);
+                     + face * 0.9 + smoothstep(0.66, 1.00, shade) * mIn * 0.75, 0.0, 1.0);
   return clamp(mix(c, vec3(1.0, 0.95, 0.90), milk * P_MILK), 0.0, 1.0);
 }`;
 
