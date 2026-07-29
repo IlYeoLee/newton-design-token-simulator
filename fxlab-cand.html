@@ -1262,33 +1262,31 @@ const stripCells = (() => {
 //   재료가 하나로 유지되고, 크기·위치는 유저가 잡은 앵커 그대로다.
 let candFootImg = null, candFootFlip = false, candFootN = 768;
 // 현재 모드에 맞는 SDF 를 고른다 — '실루엣 뚫기'가 아니면 정본 그대로.
-function candSDF(FS) {
-  if (candGStyle !== 4 || !candNums) return FS;
+// 글자별 구멍 마스크 — 스트립은 상태마다 글자가 다르므로(Hold 는 카운트) 그때그때 고른다.
+//   SDF(unit3)엔 '구멍 없는 원본'을 올리고, 구멍은 마스크(unit4)로만 전달한다.
+//   그래야 숫자가 숨겨지는 상태(Success·Miss)에서 uMaskOn=0 만으로 구멍이 사라진다.
+function candHoleMask(ch) {
+  if (candGStyle !== 4 || !candNums) return null;
   const av = (typeof numFootView === 'function') ? numFootView() : null;
-  let ch = candNums === 2 ? (state.markFootSide === 'R' ? 'R' : 'L') : '2';
-  if (candNums === 1 && !(state.glyphs && state.glyphs[ch])) {
-    const first = '0123456789'.split('').find(c => state.glyphs && state.glyphs[c]);
-    if (first) ch = first;
-  }
-  const sizeN = MARK_NUM.RATIO * (state.m.radius || 1) * ((av && av.s) || 1);
   const circle = candShape < 0.5;
-  const N = Math.min(768, candFootN);
-  // 팽창량 = 셰이더 경계 폭(uv) 을 SDF 텍스처 픽셀로 환산.
-  //   mkSD: sd_uv = raw · 1.9922 / uRadius.
-  //   ★ raw 의 정규화 기준은 N 이 아니라 N/4 다(SDF_DECODE 주석: '구 8bit 인코딩 range=N/4').
-  //     N 으로 잡았다가 팽창이 4배가 되어 구멍이 발을 반쯤 먹었다.
-  //     px = band · uRadius · (N/4) / 1.9922
-  //   ★ 팽창은 폐기했다. 얇은 획을 가진 글자('2' 의 곡선, 속 빈 부분)는 조금만 부풀려도
-  //     획끼리 붙어 덩어리가 된다(유저 스샷). 구멍을 키워 보정할 문제가 아니었다.
-  //     진짜 원인은 경계 폭이고, 이제 점 크기 변화는 '열'이 맡으므로 경계를 좁혀도
-  //     결이 사라지지 않는다 — 그래서 경계를 좁히는 쪽이 옳다(아래 band 0.055).
-  const dilPx = 0;
+  const N = 384;                       // 마스크 전용 해상도 — 매 셀 업로드라 가볍게
+  const sizeN = MARK_NUM.RATIO * (state.m.radius || 1) * ((av && av.s) || 1);
   const r = bakeFootWithGlyphHole(candFootImg, N, candFootFlip, ch,
                                   circle ? 0.5 : (av ? av.x : 0.5),
                                   circle ? 0.5 : (av ? av.y : 0.34), sizeN,
-                                  circle ? 'circle' : 'foot', dilPx);
-  candGL.uploadMask(r.mask);      // 도형 자체를 마스크로 — 셰이더는 이걸 커버리지로 읽는다
-  return r.FS;
+                                  circle ? 'circle' : 'foot', 0);
+  return r.mask;
+}
+// 상태별 글자 — Hold 는 채움 주기와 같은 시계로 세는 카운트(유저 요청).
+function candCharFor(cat) {
+  if (candNums === 2) return state.markFootSide === 'R' ? 'R' : 'L';
+  if (cat === 2) return String(1 + Math.floor(performance.now() / 1000 * 0.45) % 8);
+  let ch = '2';
+  if (!(state.glyphs && state.glyphs[ch])) {
+    const first = '0123456789'.split('').find(c => state.glyphs && state.glyphs[c]);
+    if (first) ch = first;
+  }
+  return ch;
 }
 const _sdfHoleCache = new Map();
 function bakeFootWithGlyphHole(img, N, flip, ch, axN, ayN, sizeN, base, dilPx) {
@@ -1362,14 +1360,15 @@ function bakeFootWithGlyphHole(img, N, flip, ch, axN, ayN, sizeN, base, dilPx) {
   return out;
 }
 
-let candNums = 0;   // 0 끄기 · 1 숫자 글리프 · 2 L/R 글리프
+let candNums = 1;   // 0 끄기 · 1 숫자 글리프 · 2 L/R 글리프 — 열자마자 보이게 기본 ON
 document.getElementById('candNumBtn').onclick = e => {
   candNums = (candNums + 1) % 3;
   e.target.textContent = ['글리프 얹기: 끔', '글리프: 숫자', '글리프: L/R'][candNums];
   e.target.classList.toggle('on', !!candNums);
   updateFootSDF();
 };
-document.getElementById('candNumBtn').textContent = '글리프 얹기: 끔';
+document.getElementById('candNumBtn').textContent = '글리프: 숫자';
+document.getElementById('candNumBtn').classList.add('on');
 {
   // 미리보기 크기 3단 — 점 하나하나·음각 테두리를 보려면 셀이 커야 한다(유저).
   const strip = document.getElementById('candStrip');
@@ -1386,12 +1385,12 @@ document.getElementById('candNumBtn').textContent = '글리프 얹기: 끔';
   };
   void b;
 }
-let candGStyle = 0;   // 0 솔리드 · 1 하프톤 · 2 음각
+let candGStyle = 4;   // 기본 = 실루엣 뚫기(열자마자 보이게)   // 0 솔리드 · 1 하프톤 · 2 음각
 {
   const b = document.createElement('button'); b.className = 'btn';
   const LB = ['글리프 방식: 솔리드', '글리프 방식: 하프톤', '글리프 방식: 음각',
               '글리프 방식: 음각(하프톤)', '글리프 방식: 실루엣 뚫기(SDF)'];
-  b.textContent = LB[0];
+  b.textContent = LB[candGStyle]; b.classList.toggle('on', !!candGStyle);
   b.onclick = () => {
     candGStyle = (candGStyle + 1) % 5; b.textContent = LB[candGStyle];
     b.classList.toggle('on', !!candGStyle);
@@ -1539,7 +1538,7 @@ function stripGlyph(ctx, cat, W) {
 
 
 let candSel = 'newtonSet', candShape = 1;
-const candP = { pitch: 0.11, gain: 1.15, speed: 1.0, inner: 0.55, prog: -0.01, harm: 0.55, q0: 0.04, satR: 1.2, hue: 0.75, beam: 1.5, fine: 0 };
+const candP = { pitch: 0.055, gain: 1.15, speed: 1.0, inner: 0.55, prog: -0.01, harm: 0.55, q0: 0.04, satR: 1.2, hue: 0.75, beam: 1.5, fine: 0 };
 const candT = { mono: 0, flat: 0, noGlow: 0, noInner: 0, bg: 0, holdRim: 0, innerMode: 0, actMode: 0, comp: 2 };
 {
   const host = document.getElementById('candToggles');
@@ -1907,7 +1906,7 @@ function updateFootSDF() {
     }
     uploadSDF(markP2, FS);
     candFootImg = glyphImgCache.get(url) || null; candFootFlip = flip; candFootN = liveN;
-    candGL.uploadSDF(candSDF(FS));   // 후보 랩 — '실루엣 뚫기'면 구멍 낸 SDF
+    candGL.uploadSDF(FS);   // 후보 랩 — SDF 는 언제나 '구멍 없는 원본'(구멍은 마스크가 담당)
     footCentroid = { x: FS.cx, y: FS.cy };
     if (lab) lab.innerHTML = `발형 — <b style="color:var(--sand)">${slot} 슬롯 SVG</b> (글리프 서랍에서 교체) · 숫자: 드래그 이동 · 휠 크기 · 더블클릭 자동`;
   } else {
@@ -1915,7 +1914,7 @@ function updateFootSDF() {
     if (FS.cx == null) { const t = sdfFromAlpha(footAlphaData(), FS.N); FS.cx = t.cx; FS.cy = t.cy; }
     uploadSDF(markP2, FS);
     candFootImg = null; candFootFlip = false; candFootN = FS.N;
-    candGL.uploadSDF(candSDF(FS));   // 후보 랩 — '실루엣 뚫기'면 구멍 낸 SDF
+    candGL.uploadSDF(FS);   // 후보 랩 — SDF 는 언제나 '구멍 없는 원본'(구멍은 마스크가 담당)
     footCentroid = { x: FS.cx, y: FS.cy };
     if (lab) lab.innerHTML = `발형 — 내장 발 <span style="color:var(--sand)">(FOOT 슬롯에 SVG를 넣으면 교체)</span> · 숫자: 드래그 이동 · 휠 크기 · 더블클릭 자동`;
   }
@@ -2365,6 +2364,7 @@ function frame(ts) {
       g2.uniform1f(P.u('uHueKeep'), candP.hue);
       g2.uniform1f(P.u('uBeam'), candP.beam);
       g2.uniform1f(P.u('uFine'), candP.fine);
+      if (candGStyle === 4 && candNums) { const mk = candHoleMask(candCharFor(state.markState)); if (mk) candGL.uploadMask(mk); }
       g2.uniform1f(P.u('uMaskOn'), (candGStyle === 4 && candNums) ? 1 : 0);
       g2.drawArrays(g2.TRIANGLES, 0, 3);
       ctx2d.drawImage(candGL.cv, 0, 0);   // 공유 컨텍스트 → 이 셀로 복사
@@ -2407,6 +2407,15 @@ function frame(ts) {
       g3.uniform1f(P.u('uFine'), candP.fine);
       g3.uniform1f(P.u('uMaskOn'), (candGStyle === 4 && candNums) ? 1 : 0);
       for (const cell of stripCells) {
+        // 상태마다 글자가 다르다(Hold = 카운트) → 그 셀의 마스크를 올리고 그린다.
+        //   숫자가 숨는 상태(Success·Miss)는 MARK_NUM 규약대로 마스크를 끈다 = 구멍 없음.
+        let on = 0;
+        if (candGStyle === 4 && candNums) {
+          const op = MARK_NUM.opacity(CAT2PHASE[cell.state] ?? cell.state);
+          if (op > 0) { const mk = candHoleMask(candCharFor(cell.state));
+            if (mk) { candGL.uploadMask(mk); on = 1; } }
+        }
+        g3.uniform1f(P.u('uMaskOn'), on);
         g3.uniform1f(P.u('uState'), cell.state);
         g3.drawArrays(g3.TRIANGLES, 0, 3);
         cell.ctx.drawImage(candGL.cv, 0, 0);
