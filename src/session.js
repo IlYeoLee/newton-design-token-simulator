@@ -1178,11 +1178,18 @@ export class Session {
     g = this._mk('BX_C1');
     g.add(guardBox(0, 1.62, 0.42, 0.36, BRAND.red, 0.5));
 
-    this._mk('BX_C2');   // 라이브 — 벽 타겟은 TokenSystem 팩 흐름이 전담 (어프로치 링은 라이브 타겟과 중복이라 제외)
-    g = this._mk('BX_C3');   // 라이브 콤비 (가속) + 파생 ③ 펀치 라인 (콤보 연결·순서), 주먹 높이
-    this.bxCombo = primPanel('punchLine', 0.9, true);
-    this.bxCombo.position.set(0, 1.52, WZ + 0.002);
-    g.add(this.bxCombo);
+    // C2 실전 잽 — 타겟이 한 자리에서만 뜨면 '반응해서 때린다'는 맛이 안 산다(유저).
+    //   벽 다섯 곳에 타겟을 세워 두고 비트마다 한 곳만 살린다. 언어는 B3·C3 와 같은 수축 링.
+    g = this._mk('BX_C2');
+    this.bxC2 = [[-0.44, 1.74], [0.00, 1.82], [0.42, 1.72], [-0.30, 1.46], [0.32, 1.44]].map(([x, y]) => {
+      const zone = wallRing(x, y, 0.105, 0.125, BRAND.red, 0);
+      const cd = wallRing(x, y, 0.105, 0.125, BRAND.prism, 0);
+      cd.material.uniforms.uContract.value = 1;
+      g.add(zone); g.add(cd);
+      return { zone, cd };
+    });
+    g = this._mk('BX_C3');   // 라이브 콤비 — 잽·잽·훅 3연타 링 셋이 곧 컴포넌트다(유저:
+    //   "3개 연달아 있는 컴포넌트만 있으면 되지 않아?"). 펀치 라인 패널은 같은 정보의 중복이라 철회.
     // 잽·잽·훅 = 타격 셋. 하나마다 타겟 존 + 수축 링 한 쌍(B3 잽과 같은 규약).
     //   잽 둘은 정면 얼굴 라인에 거의 겹쳐 꽂히고(빠르게 둘), 훅은 옆으로 벌어져 낮게 들어간다.
     //   빠른 둘 → 느린 하나 = 실제 콤비 리듬. 링 크기도 훅이 크다(체중이 실린 타격).
@@ -2632,11 +2639,34 @@ export class Session {
       const n = Math.max(1, 3 - Math.floor(this.t)); if (n !== this._lastCount) { this._setCountWall(n, CS.ink); this._lastCount = n; }
       if (this.t >= st.dur) { this.next(); return; }
     } else if (id === 'BX_C2' || id === 'BX_C3') {
-      if (id === 'BX_C3' && this.bxCombo) {
+      if (id === 'BX_C2' && this.bxC2) {
+        // 비트마다 한 곳만. 순서는 해시로 뽑되 직전과 겹치지 않게 — 같은 자리 연타는 반응 훈련이 아니다.
+        const BT = 0.85, rep = Math.floor(this.t / BT), ph = (this.t % BT) / BT;
+        const N = this.bxC2.length;
+        // 비트가 바뀔 때만 새로 뽑는다. 해시를 직전 '원본 해시'와 비교하면 보정된 값과 어긋나
+        // 연속 중복이 남는다(실측 40비트 중 4회) — 실제로 내보낸 값을 기억해 그걸 피한다.
+        if (rep !== this._c2rep) {
+          const a = (rep * 2654435761 >>> 0) % N;
+          this._c2on = a === this._c2on ? (a + 1 + (rep % (N - 1))) % N : a;
+          this._c2rep = rep;
+        }
+        const on = this._c2on ?? 0;
+        const LAND = 0.72, e = Math.pow(clamp01(ph / LAND), 1.6), k = clamp01((ph - LAND) / (1 - LAND));
+        for (let i = 0; i < N; i++) {
+          const T = this.bxC2[i];
+          if (i !== on) { T.cd.setOp(0); T.zone.setOp(0.06); continue; }   // 쉬는 타겟도 자리는 희미하게 남긴다
+          T.cd.scale.setScalar(k > 0 ? 1 + 1.9 * k : 2.3 - 1.3 * e);
+          T.cd.setOp(k > 0 ? (1 - k) * 0.95 : 0.22 + 0.72 * e);
+          const hit = k > 0 && k < 1 ? 1 - k : 0;
+          T.zone.scale.setScalar(1 + 0.22 * hit);
+          T.zone.setOp(0.16 + 0.34 * e + 0.5 * hit);
+        }
+        FMU(`잽 ${Math.min(9, rep + 1)} — 뜨는 곳으로`, k > 0.2 ? CS.prism : CS.coral);
+      }
+      if (id === 'BX_C3' && this.bxC3hits) {
         // 콤보 = 잽·잽·훅. 각 타격마다 수축 링이 타겟으로 조여들고, 도착(at) 순간 팽창하며
         // 터진다 = "빡". 빠른 둘(0.52·0.90) → 벌어진 하나(1.58) 라 리듬이 귀로 들리듯 보인다.
         const CY = 2.4, tc = this.t % CY;
-        this.bxCombo._prim.prog = Math.min(1, tc / 1.75);   // 펀치 라인은 세 타격을 잇는 순서선
         let live = 0;
         for (let i = 0; i < this.bxC3hits.length; i++) {
           const h = this.bxC3hits[i];
