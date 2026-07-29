@@ -62,7 +62,7 @@ export class Layer {
   /** 매 프레임 모션 — 변환만 건드린다. 업로드 없음 = 60fps 공짜.
    *  cropX: 0~1 — 왼쪽 고정 가로 클립. UV(repeat/offset)로 잘라내므로 다시 굽지 않는다.
    *  (프로그래스 바처럼 '정적 그림 + 움직이는 클립'이 이 경우다 — 매 프레임 재도색이 사라진다) */
-  motion({ dx = 0, dy = 0, scale = 1, alpha = 1, rot = 0, ox = 0.5, oy = 0.5, cropX = null } = {}) {
+  motion({ dx = 0, dy = 0, scale = 1, alpha = 1, rot = 0, ox = 0.5, oy = 0.5, cropX = null, cropFrom = 'left' } = {}) {
     const m = this.mesh;
     m.visible = alpha > 0.004;
     if (!m.visible) return;
@@ -74,10 +74,12 @@ export class Layer {
     m.scale.set(scale, scale, 1);
     if (cropX != null) {
       const f = Math.max(0.0001, Math.min(1, cropX));
-      if (this.tex.repeat.x !== f) { this.tex.repeat.x = f; this.tex.offset.x = 0; }
+      const off = cropFrom === 'right' ? 1 - f : 0;
+      if (this.tex.repeat.x !== f || this.tex.offset.x !== off) { this.tex.repeat.x = f; this.tex.offset.x = off; }
       m.scale.x = scale * f;
-      m.position.x -= (1 - f) * this.w * 0.5 * scale;   // 왼쪽 모서리 고정
-    } else if (this.tex.repeat.x !== 1) { this.tex.repeat.x = 1; }
+      // 자라나는 방향의 반대쪽 모서리를 고정한다
+      m.position.x += (cropFrom === 'right' ? 1 : -1) * (1 - f) * this.w * 0.5 * scale;
+    } else if (this.tex.repeat.x !== 1) { this.tex.repeat.x = 1; this.tex.offset.x = 0; }
     m.rotation.z = rot;
   }
 
@@ -86,8 +88,9 @@ export class Layer {
 
 /** 레이어 묶음 = 한 화면. 보드 좌표계(대지 px)를 갖고 레이어를 자식으로 단다. */
 export class Board {
-  constructor(W, H) {
-    this.W = W; this.H = H;
+  /** @param baseOrder 자식 레이어의 renderOrder 기준 — Group 의 renderOrder 는 전파되지 않는다 */
+  constructor(W, H, baseOrder = 0) {
+    this.W = W; this.H = H; this.baseOrder = baseOrder;
     this.root = new THREE.Group();
     this.layers = new Map();
   }
@@ -97,7 +100,7 @@ export class Board {
     const cur = this.layers.get(name);
     if (cur && cur.w === w && cur.h === h) return cur;
     if (cur) { this.root.remove(cur.mesh); cur.dispose(); }
-    const L = new Layer(w, h, opts);
+    const L = new Layer(w, h, { ...opts, renderOrder: this.baseOrder + (opts?.renderOrder ?? 4) });
     L._bw = this.W; L._bh = this.H;
     this.root.add(L.mesh);
     this.layers.set(name, L);

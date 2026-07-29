@@ -454,7 +454,9 @@ export class FloorGL {
           draw: (g) => this._card(x, cy, S, R.lg, 52.392, D, done),
           motion: { alpha: e, scale: 0.9 + 0.1 * e, dy: c == null ? 0 : -kf(c, [[0, 0], [.5, -13], [1, 0]]) } });
       });
-    bl.push(this._blButton(t, BTN, .95, 1.9));
+    // 버튼은 카드 아래 고정 간격 — 존(78%)을 하한으로만 쓴다.
+    // 하드 존만 쓰면 카드와 버튼 사이가 과하게 벌어진다(유저 지적).
+    bl.push(this._blButton(t, BTN, .95, 1.9, Math.max(cy + S + sp('s7', 'run'), zone('action', H) - 260)));
     return bl;
   }
 
@@ -985,9 +987,16 @@ export class FloorGL {
       const g2 = ctx.createLinearGradient(0, y, 0, y + S);
       g2.addColorStop(0, PAL.red); g2.addColorStop(1, PAL.coral);
       ctx.fillStyle = g2; ctx.fillRect(x, y, S, S); ctx.restore();
-    } else {       // 완료 카드 = 흰 내부 글로우(원본 inset box-shadow 근사)
-      ctx.save(); ctx.lineWidth = 40; ctx.strokeStyle = 'rgba(255,255,255,.45)';
-      ctx.filter = 'blur(26px)'; this._roundRectPath(x, y, S, S, R); ctx.stroke(); ctx.restore();
+    } else {
+      // 내부 글로우 = Figma inset 0 0 52.392px 19.647px rgba(255,255,255,.6) 실값.
+      // 클립 안에서 같은 경로를 굵게 스트로크하면 절반이 안쪽에 남아 inset 이 된다
+      // (구 blur(26px)·투명도 .45 근사는 값도 다르고 흐릿해 사라져 보였다 — 유저 지적).
+      ctx.save();
+      this._roundRectPath(x, y, S, S, R); ctx.clip();
+      ctx.shadowColor = rgba(NEU.ink, 0.6); ctx.shadowBlur = 52.392;
+      ctx.strokeStyle = rgba(NEU.ink, 0.6); ctx.lineWidth = 19.647 * 2;
+      this._roundRectPath(x, y, S, S, R); ctx.stroke();
+      ctx.restore();
     }
     ctx.restore();
     // 우상단 배지 — sPop .6s (.95/1.0) 로 튀어나온다

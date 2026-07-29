@@ -11,6 +11,7 @@ import * as THREE from 'three';
 import { PAL, NEU, rgba } from './palette.js';
 import { T, R, sp, zone, NUM_S } from './ds.js';   // 조판 토큰
 import { clamp01, eOut, cycle, kf, intro, drawChars, drawBadge } from './floorgl.js';
+import { Board } from './uilayer.js';   // 요소별 평면 — 모션은 변환이라 업로드 0 (60fps)
 
 const W = 2600, H = 1600;   // 대지 px (벽 2.6×1.6m 실측 1:1)
 const K = 0.5;              // 미분리 상태라 장당 비용이 곧 프레임 예산 — 9.4MB → 4.2MB.
@@ -117,24 +118,11 @@ const READY_TITLE = 'Guard Up & Ready';
 
 export class WallGL {
   constructor() {
-    this.canvas = document.createElement('canvas');
-    this.canvas.width = Math.round(W * K); this.canvas.height = Math.round(H * K);
-    this.ctx = this.canvas.getContext('2d');
-    this.tex = new THREE.CanvasTexture(this.canvas);
-    this.tex.colorSpace = THREE.SRGBColorSpace;
-    this.tex.minFilter = THREE.LinearFilter;
-    this.mesh = new THREE.Mesh(
-      new THREE.PlaneGeometry(W, H),
-      // depthTest는 켠 채로 — 이 이식의 전부다(벽 앞의 x봇에 가려진다). depthWrite는 반투명 UI라 끈다.
-      // opacity 0.95 = 원본 iframe의 '투사 UI 5% 균일 투명도'
-      new THREE.MeshBasicMaterial({ map: this.tex, transparent: true, opacity: 0.95, depthWrite: false, toneMapped: false }),
-    );
+    // 요소별 평면 — 대지 한 장(9.4MB)을 통째로 올리던 구조 은퇴(지면과 같은 방식).
+    this.board = new Board(W, H, 20);   // 벽 이펙트(최대 14) 위 — 깨면 안 되는 불변식
+    this.mesh = this.board.root;
     this.mesh.visible = false;
-    // 벽 이펙트(빔 그리드·판정 토큰)는 z −1.05~−1.43에 있고 전부 transparent·depthWrite:false 라
-    // 투명 정렬(뒤→앞)에서 벽면(−1.75)의 UI보다 나중에 그려진다 → UI 위를 덮는다.
-    // 평면을 앞으로 당기면 벽 정합이 깨지므로 '그리기 순서'만 이펙트(최대 14) 위로 올린다.
-    // 깊이 테스트는 켠 채라 x봇(z≈1.5, 불투명·깊이 기록)에는 그대로 가려진다 — 이 이식의 목적은 유지.
-    this.mesh.renderOrder = 20;
+    this.ctx = null;
     this.stage = null; this.kind = null; this.t = 0; this._lastPaint = -1;
     // 캔버스 fillText는 웹폰트 로드를 촉발하지 않는다 — 명시 로드 후 다시 그린다.
     for (const f of ['700 100px Supreme', '400 100px Supreme', '700 100px OffBit'])
@@ -205,31 +193,451 @@ export class WallGL {
       : /report\.html/.test(params.src) ? 'report'
       : /scene\.html/.test(params.src) ? 'scene' : 'ready';
     this.t = 0; this._lastPaint = -1; this._numLast = null; this._numT = 0;
+    this.board.clear();   // 화면 전환 = 레이어 재구성
   }
 
   update(dt) {
     if (!this.stage) return;
     this.t += dt;
-    // 24fps — 벽 UI는 상시 모션(글로우 드리프트·웨이브)이라 서명 비교로 걸러질 게 없다.
-    // ponytail: 정적/동적 평면 분리는 바닥과 같은 계획(HANDOFF). 지금은 한 장.
-    if (this.t - this._lastPaint < 1 / UI_FPS) return;
-    this._lastPaint = this.t;
-    this._paint();
-    this.tex.needsUpdate = true;
+    const B = this.board, t = this.t;
+    B.begin();
+    for (const bl of this._blocks(t)) {
+      const pad = bl.pad || 0, h = bl.h + pad * 2;
+      const bx = (bl.x ?? 0) - pad, bw = (bl.w ?? W) + pad * 2;
+      const L = B.layer(bl.name, bw, h, { k: K, renderOrder: bl.order ?? 4 });
+      B.use(bl.name);
+      L.at(bx, bl.y - pad, W, H);
+      L.paint(bl.sig, (g) => {
+        g.save(); g.translate(-bx, pad - bl.y);
+        this._lay = g; bl.draw(g); this._lay = null;
+        g.restore();
+      });
+      L.motion(bl.motion || {});
+    }
+    B.end();
   }
 
-  _paint() {
-    const ctx = this.ctx;
-    ctx.setTransform(K, 0, 0, K, 0, 0);
-    ctx.clearRect(0, 0, W, H);
-    ctx.lineJoin = 'round';
-    this['_paint_' + this.kind]();
+
+  // ── 화면 → 밴드 목록 (지면과 같은 규약) ────────────────────────────
+  _blocks(t) { return this['_bl_' + this.kind](t); }
+
+  /** 글자별 레이어 — 웨이브·캐스케이드가 변환으로만 돈다 */
+  _charBlocks(key, text, cx, y, size, ls, weight, fn, align = 'center', order = 4) {
+    const ck = key + '|' + text + '|' + size + '|' + ls + '|' + align;
+    if (!this._chC || this._chC.k !== ck) {
+      const m = (this._measCv = this._measCv || document.createElement('canvas')).getContext('2d');
+      m.font = F(weight, size); m.letterSpacing = ls + 'px';
+      const total = m.measureText(text).width;
+      let x = align === 'right' ? cx - total : align === 'left' ? cx : cx - total / 2;
+      const items = []; let vis = 0;
+      for (const ch of text) { const w = m.measureText(ch).width;
+        if (ch !== ' ') items.push({ ch, x, w, i: vis++ }); x += w; }
+      m.letterSpacing = '0px';
+      this._chC = { k: ck, items };
+    }
+    const pad = Math.round(size * 0.4);
+    return this._chC.items.map(it => ({
+      name: key + '#' + it.i, x: it.x, w: it.w + 2, y, h: size * 1.3, pad, order,
+      sig: 'c' + it.ch,
+      draw: (g) => { g.font = F(weight, size); g.fillStyle = NEU.ink;
+        g.textAlign = 'left'; g.textBaseline = 'top'; g.letterSpacing = ls + 'px';
+        g.fillText(it.ch, it.x, y); g.letterSpacing = '0px'; },
+      motion: fn(it.i),
+    }));
+  }
+
+  _blGlow(t) {
+    const p = cycle(t, 0, 15, INF);
+    const mo = p == null ? {} : {
+      dx: kf(p, [[0, 0], [.25, -.09], [.5, .08], [.75, -.05], [1, 0]]) * 2050,
+      dy: -kf(p, [[0, 0], [.25, .06], [.5, -.08], [.75, .05], [1, 0]]) * 1200,
+      scale: kf(p, [[0, 1], [.25, 1.14], [.5, 1.05], [.75, 1.16], [1, 1]]),
+      rot: kf(p, [[0, 0], [.25, 5], [.5, -4], [.75, 3], [1, 0]]) * Math.PI / 180 };
+    return { name: 'glow', y: 0, h: H, pad: 0, order: 2, sig: 'g', draw: (g) => this._bgGlowStatic(g), motion: mo };
+  }
+
+  _blTitle(t, sub, ttl, dly = 0.1, dur = 0.8, ty0 = 40) {
+    const y = zone('title', H), subH = 48 * 1.2;
+    const p = eOut(intro(t, dly, dur));
+    const grp = { alpha: kf(p, [[0, 0], [.7, 1], [1, 1]]), scale: kf(p, [[0, .94], [.7, 1.02], [1, 1]]),
+                  dy: -kf(p, [[0, ty0], [.7, 0], [1, 0]]) };
+    const out = [{ name: 'tsub', y, h: subH, pad: 16, sig: 's' + sub,
+      draw: (g) => txt(g, sub, CX, y, 48, 400, 'rgba(255,255,255,.8)', { ls: -4.2, align: 'center' }),
+      motion: grp }];
+    out.push(...this._charBlocks('ti', ttl, CX, y + subH + 8, T.display, -4.8, 700, i => {
+      const c = cycle(t, 0.9 + i * 0.05, 2.4, INF);
+      return { alpha: grp.alpha, scale: grp.scale,
+        dy: grp.dy - (c == null ? 0 : kf(c, [[0, 0], [.29, -16], [.58, 0], [1, 0]])) };
+    }));
+    return out;
+  }
+
+  _blButton(t, text, delay, floatDelay, yy) {
+    const y = yy ?? zone('action', H), h = 72 * 1.2 + 42.614 * 2;
+    const e = eOut(intro(t, delay, .8)), bf = cycle(t, floatDelay, 3.6, INF), bp = cycle(t, floatDelay, 3, INF);
+    const glow = bp == null ? 0 : kf(bp, [[0, 0], [.5, 1], [1, 0]]);
+    return { name: 'btn', y, h, pad: 70, sig: 'b' + text + Math.round(glow * 12),
+      draw: (g) => this._buttonPlain(g, y, text, glow),
+      motion: { alpha: e, dy: -54 * (1 - e) + (bf == null ? 0 : -kf(bf, [[0, 0], [.5, -18], [1, 0]])) } };
+  }
+
+
+
+  _bl_ready(t) {
+    const ROW_Y = 103, LX = 100, LW = 1040;
+    const fl = cycle(t, 1.8, 6.5, INF), fr = cycle(t, 1.8, 7.5, INF);
+    const lDy = fl == null ? 0 : kf(fl, [[0, -7], [.5, 9], [1, -7]]);
+    const rDy = fr == null ? 0 : kf(fr, [[0, -10], [.5, 8], [1, -10]]);
+    const bl = [];
+    // 좌측 — 헤더 카드 / 스탯 카드 (slideInLeft, 그룹 둥둥은 dy 합산)
+    const he = eOut(intro(t, .15, .85)), se = eOut(intro(t, .35, .85));
+    bl.push({ name: 'hdr', x: LX, w: LW, y: ROW_Y, h: 257.054, pad: 20, sig: 'hdr',
+      draw: (g) => this._wrHdr(g, LX, ROW_Y, LW), motion: { alpha: he, dx: -90 * (1 - he), dy: -lDy } });
+    const stY = ROW_Y + 257.054 + sp('s3', 'wall');
+    bl.push({ name: 'stats', x: LX, w: LW, y: stY, h: 1113, pad: 20, sig: 'stats' + Math.round(Math.min(t, 2.2) * 12),
+      draw: (g) => this._wrStats(g, LX, stY, LW, t), motion: { alpha: se, dx: -90 * (1 - se), dy: -lDy } });
+    // 우측 — 타이틀 글자별(charIn) · 도트 · 발 블록
+    const RX = LX + LW + sp('s3', 'wall'), RW = W - LX - RX, RRight = RX + RW;
+    bl.push(...this._charBlocks('rt', READY_TITLE, RRight, ROW_Y + 40, T.title, -3, 700, i => {
+      const e = eOut(intro(t, .55 + i * .05, .6));
+      return { alpha: e, dy: 64 * (1 - e) - rDy, rot: (1 - e) * 6 * Math.PI / 180 };
+    }, 'right'));
+    const dY = ROW_Y + 40 + 96 + sp('s3', 'wall'), dS = 45.734, dX = RRight - dS * 10;
+    const dAlpha = clamp01((t - 1.55) / .5);
+    bl.push({ name: 'rdots', x: dX, w: dS * 10, y: dY, h: dS, pad: 6, sig: 'rd' + Math.round(Math.min(t, 5) * 8),
+      draw: (g) => { for (let i = 0; i < 10; i++) { const f = clamp01((t - (2 + i * .22)) / .5);
+        g.fillStyle = f > .5 ? PAL.red : NEU.lo;
+        g.beginPath(); g.arc(dX + i * dS + dS / 2, dY + dS / 2, dS / 2, 0, 7); g.fill(); } },
+      motion: { alpha: dAlpha, dy: -rDy } });
+    const FX_ = RX + RW / 2 - 140, FY = ROW_Y + 570;
+    const fe = eOut(intro(t, .6, .9));
+    const gp = cycle(t, 0, 4.6, INF), fb = cycle(t, 2.2, 5.5, INF), fy2 = cycle(t, 2.2, 5, INF);
+    bl.push({ name: 'fglow', x: FX_ - 70, w: 900, y: FY - 70, h: 910, pad: 0, order: 3, sig: 'fg',
+      draw: (g) => { const im = this._img('glow.svg'); if (im) g.drawImage(im, FX_ - 70, FY - 70, 900, 910); },
+      motion: { alpha: (gp == null ? .86 : kf(gp, [[0, .86], [.5, 1], [1, .86]])) * fe,
+                scale: gp == null ? 1 : kf(gp, [[0, 1], [.5, 1.055], [1, 1]]), dy: -rDy - 52 * (1 - fe) } });
+    bl.push({ name: 'ffoot', x: FX_ + 380 - 150, w: 300, y: FY + 275, h: 400, pad: 12, sig: 'ff',
+      draw: (g) => { const im = this._tinted('foot_shape.png', 300, 400,
+          [[0, rgba(PAL.sand, 0)], [.37, rgba(PAL.sand, .35)], [.94, PAL.red], [1, PAL.red]]);
+        if (im) { g.save(); g.globalAlpha *= .9; g.drawImage(im, FX_ + 380 - 150, FY + 275, 300, 400); g.restore(); } },
+      motion: { alpha: fe, dy: -rDy - 52 * (1 - fe)
+        + (fb == null ? 0 : kf(fb, [[0, 0], [.10, -34], [.20, -6], [.32, -31], [.44, 0], [.70, 0], [1, 0]])) } });
+    bl.push({ name: 'fdisc', x: FX_ + 380 - 185, w: 370, y: FY + 678, h: 200, pad: 10, sig: 'fd',
+      draw: (g) => { const im = this._img('footprint_shadow.svg');
+        if (im) { const dh = 370 * (im.naturalHeight / im.naturalWidth); g.drawImage(im, FX_ + 380 - 185, FY + 678, 370, dh); } },
+      motion: { alpha: fe, dy: -rDy - 52 * (1 - fe) + (fy2 == null ? 0 : -kf(fy2, [[0, -7], [.5, 9], [1, -7]])) } });
+    bl.push({ name: 'fcta', x: FX_, w: 760, y: FY + 100, h: 260, pad: 16, sig: 'fc',
+      draw: (g) => this._wrCta(g, FX_ + 380, FY + 100), motion: { alpha: fe, dy: -rDy - 52 * (1 - fe) } });
+    return bl;
+  }
+
+  _bl_scene(t) {
+    const S = SCENES[this.stage] || SCENES.BX_A1;
+    const dur = this.params.dur || 8;
+    const isEntry = (S.sub === '' || /^1\//.test(S.sub));
+    const mid = !isEntry;
+    const bl = [];
+    // 타이틀 — titleIn 은 그룹 변환, 글자는 각자 레이어
+    const tp = eOut(intro(t, .1, .8));
+    const tm = { alpha: kf(tp, [[0, 0], [.7, 1], [1, 1]]), scale: kf(tp, [[0, .94], [.7, 1.02], [1, 1]]),
+                 dy: -kf(tp, [[0, 40], [.7, 0], [1, 0]]) };
+    bl.push(...this._charBlocks('st', S.title, 100, zone('title', H), T.title, 0, 700, () => tm, 'left'));
+    // 도트바 — 정적 두 장 + UV 크롭
+    const dY = zone('title', H) + 96 + sp('s3', 'wall'), dS = 45.734, dW = dS * 10;
+    const de = eOut(intro(t, .20, .6));
+    const dm = { alpha: de, dy: -48 * (1 - de) };
+    bl.push({ name: 'dbg', x: 100, w: dW, y: dY, h: dS, pad: 6, sig: 'dg',
+      draw: (g) => { for (let i = 0; i < 10; i++) { g.fillStyle = NEU.lo;
+        g.beginPath(); g.arc(100 + i * dS + dS / 2, dY + dS / 2, dS / 2, 0, 7); g.fill(); } }, motion: dm });
+    bl.push({ name: 'dfg', x: 100, w: dW, y: dY, h: dS, pad: 6, sig: 'dr', order: 5,
+      draw: (g) => { for (let i = 0; i < 10; i++) { g.fillStyle = PAL.red;
+        g.beginPath(); g.arc(100 + i * dS + dS / 2, dY + dS / 2, dS / 2, 0, 7); g.fill(); } },
+      motion: { ...dm, cropX: clamp01(t / dur) } });
+    // 페이즈 열 — 각자 레이어(sRight + 활성 맥동)
+    PHASES.forEach((label, i) => {
+      const active = i === S.phase, far = i > S.phase + 1;
+      const py = 100 + i * (41.087 + sp('s5', 'wall'));
+      const e = (isEntry && !mid) ? eOut(intro(t, .15 + i * .07, .6)) : 1;
+      const pu = active ? cycle(t, 1.2, 2.4, INF) : null;
+      bl.push({ name: 'ph' + i, x: 2500 - 300, w: 300, y: py, h: 52, pad: 20, sig: 'p' + label + active + S.sub,
+        draw: (g) => { if (active) { g.shadowColor = 'rgba(255,255,255,.45)'; g.shadowBlur = 28;
+            txt(g, label + (S.sub ? ' ' + S.sub : ''), 2500, py, 40, 700, NEU.ink, { align: 'right' }); g.shadowBlur = 0; }
+          else txt(g, label, 2500, py, 32, 400, far ? 'rgba(255,255,255,.5)' : 'rgba(255,255,255,.7)', { align: 'right' }); },
+        motion: { alpha: e * (pu == null ? 1 : kf(pu, [[0, 1], [.5, .6], [1, 1]])), dx: 70 * (1 - e) } });
+    });
+    // 아바타 — sLeft / sRight
+    [[100, ['coach_a.png', 'coach_b.png'], -1, 'avL'], [2263, ['you_avatar.png'], 1, 'avR']]
+      .forEach(([x, imgs, dir, nm]) => {
+        const e = mid ? 1 : eOut(intro(t, .28, .8));
+        bl.push({ name: nm, x, w: 237, y: 855, h: 237, pad: 14, sig: nm,
+          draw: (g) => this._avatar(g, x, imgs), motion: { alpha: e, dx: dir * 70 * (1 - e) } });
+      });
+    // You 배지
+    const be = mid ? 1 : eOut(intro(t, .62, .6));
+    bl.push({ name: 'ybadge', x: 2319, w: 260, y: 1043, h: 90, pad: 14, sig: 'yb',
+      draw: (g) => this._youBadge(g), motion: { alpha: kf(be, [[0, 0], [.6, 1], [1, 1]]), scale: kf(be, [[0, .5], [.6, 1.12], [1, 1]]) } });
+    // 큰 숫자·단위
+    const ne = eOut(intro(t, .48, .7)), ue = eOut(intro(t, .58, .6));
+    [['numL', 100, 'left', S.coach, .62, 1.0], ['numR', 2500 - 364, 'right', S.you, .76, Math.max(1.5, dur * 0.8)]]
+      .forEach(([nm, x, align, o, dl, cd]) => {
+        const v = countUp(o.num, t, dl, cd);
+        bl.push({ name: nm, x, w: 364, y: 1148, h: 230, pad: 16, sig: nm + v,
+          draw: (g) => txt(g, v, align === 'left' ? x : x + 364, 1148, NUM_S.lg.wall, 700, NEU.ink, { fam: dot9, ls: -8, align }),
+          motion: { alpha: kf(ne, [[0, 0], [.6, 1], [1, 1]]), scale: kf(ne, [[0, .5], [.6, 1.12], [1, 1]]) } });
+        bl.push({ name: nm + 'u', x, w: 364, y: 1368, h: 80, pad: 10, sig: nm + 'u' + o.unit,
+          draw: (g) => txt(g, o.unit, align === 'left' ? x : x + 364, 1368, T.head, 400, NEU.ink, { ls: -2.56, align }),
+          motion: { alpha: ue, dy: -48 * (1 - ue) } });
+      });
+    // 코치 자막 — 교체마다 팝(내용 바뀔 때만 재도색)
+    const seq = (S.cues && S.cues.length) ? [S.say, ...S.cues] : [S.say];
+    const every = Math.max(1.1, dur / (seq.length + 0.5));
+    const idx = seq.length > 1 ? Math.floor(t / every) % seq.length : 0;
+    const swapT = seq.length > 1 ? t - Math.floor(t / every) * every : t;
+    const ce = eOut(intro(t, .68, .8)), cs = eOut(clamp01(swapT / .5));
+    bl.push({ name: 'say', y: 1370, h: 116, pad: 20, sig: 'say' + idx,
+      draw: (g) => this._coachSay(g, seq[idx]),
+      motion: { alpha: ce * kf(cs, [[0, 0], [.6, 1], [1, 1]]),
+                dy: -48 * (1 - ce), scale: kf(cs, [[0, .9], [.6, 1.06], [1, 1]]) } });
+    // 콤보 배지
+    (S.combos || []).forEach((c, i) => {
+      const y0 = 1202 + i * (114.26 + 16), d = 1.0 + i * 0.5;
+      const e = eOut(intro(t, d, .6));
+      const gl = cycle(t, d + 0.6, 1.6, INF);
+      const gy = gl == null ? 0 : kf(gl, [[0, 0], [.5, -7], [1, 0]]);
+      bl.push({ name: 'combo' + i, y: y0, h: 115, pad: 60, sig: 'cb' + c,
+        draw: (g) => drawBadge(g, CX, y0 + 57, c, { scale: 1, icon: this._img('flame.svg') }),
+        motion: { alpha: kf(e, [[0, 0], [.5, 1], [1, 1]]),
+                  scale: kf(e, [[0, .3], [.5, 1.22], [.72, .94], [1, 1]]),
+                  rot: kf(e, [[0, -8], [.5, 3], [.72, -1.5], [1, 0]]) * Math.PI / 180,
+                  dy: -34 * (1 - e) - gy } });
+    });
+    return bl;
+  }
+
+  _bl_timer(t) {
+    const M = TM[this.stage] || TM.BX_C1, dur = this.params.dur || 3;
+    const y = zone('graphic', H), cy = y + 274.319, r = 250 * (548.638 / 549);
+    const rem = dur - t, val = rem > 0.05 ? String(Math.ceil(rem)) : 'GO';
+    if (val !== this._numLast) { this._numLast = val; this._numT = t; }
+    const e = eOut(intro(t, .35, .8)), br = cycle(t, 1.2, 3, INF);
+    const q = clamp01((t - this._numT) / .45);
+    const pr = clamp01(t / dur), a = -Math.PI / 2 + pr * Math.PI * 2;
+    return [
+      this._blGlow(t), ...this._blTitle(t, M.sub, M.title),
+      { name: 'ring', x: CX - 300, w: 600, y, h: 549, pad: 40, sig: 'r' + Math.round(t * 24),
+        draw: (g) => {
+          if (br != null) { const gg = kf(br, [[0, 0], [.5, 1], [1, 0]]);
+            g.shadowColor = rgba(NEU.ink, .35 * gg); g.shadowBlur = 26 * gg; }
+          ring(g, CX, cy, r, pr, { trackW: 6, arcW: 10, dash: [0.5, 20.5] }); g.shadowBlur = 0; },
+        motion: { alpha: kf(e, [[0, 0], [.7, 1], [1, 1]]), scale: kf(e, [[0, .6], [.7, 1.05], [1, 1]]) } },
+      { name: 'tip', x: CX - 40, w: 80, y: cy - 40, h: 80, pad: 8, sig: 'tip',
+        draw: (g) => { g.fillStyle = PAL.red; g.shadowColor = rgba(PAL.red, .6); g.shadowBlur = 18;
+          g.beginPath(); g.arc(CX, cy, 20, 0, Math.PI * 2); g.fill(); g.shadowBlur = 0; },
+        motion: { alpha: kf(e, [[0, 0], [.7, 1], [1, 1]]), dx: Math.cos(a) * r, dy: -Math.sin(a) * r } },
+      { name: 'num', x: CX - 180, w: 360, y: cy - 130, h: 260, pad: 16, sig: 'n' + val,
+        draw: (g) => txt(g, val, CX, cy, 200, 700, NEU.ink, { fam: dot9, align: 'center', base: 'middle' }),
+        motion: { alpha: kf(q, [[0, 0], [.35, 1], [1, 1]]) * kf(e, [[0, 0], [.7, 1], [1, 1]]),
+                  scale: kf(q, [[0, 1.5], [1, 1]], eOut) } },
+    ];
+  }
+
+  _bl_transition(t) {
+    const TR_ = TR[this.stage] || TR.BX_T1;
+    const S = 654.902, GAP = sp('s3', 'wall'), y = zone('graphic', H), x0 = CX - (S * 2 + GAP) / 2;
+    const bl = [this._blGlow(t), ...this._blTitle(t, TR_.sub, TR_.title, .1, .85, 44)];
+    [[0, x0, .38, 1.5, 4, TR_.done, true], [1, x0 + S + GAP, .54, 1.85, 4.4, TR_.next, false]]
+      .forEach(([i, x, d, fd, fdur, D, done]) => {
+        const e = eOut(intro(t, d, .8)), c = cycle(t, fd, fdur, INF);
+        bl.push({ name: 'card' + i, x, w: S, y, h: S, pad: 50, sig: 'c' + i + D.lbl,
+          draw: (g) => this._card(x, y, S, D, done),
+          motion: { alpha: e, scale: 0.92 + 0.08 * e,
+                    dy: -70 * (1 - e) + (c == null ? 0 : -kf(c, [[0, 0], [.5, -13], [1, 0]])) } });
+      });
+    // 버튼은 카드 아래 고정 간격 — 존은 하한으로만(하드 존만 쓰면 간격이 과하게 벌어진다)
+    bl.push(this._blButton(t, BTN, .95, 1.9, Math.max(y + S + sp('s6', 'wall'), zone('action', H) - 120)));
+    return bl;
+  }
+
+  _bl_report(t) {
+    const RP_ = RP[this.stage] || RP.BX_FIN;
+    const y = zone('graphic', H), cy = y + 250;
+    const p = eOut(clamp01((t - .5) / 1.3)) * (RP_.pct / 100);
+    const e = eOut(intro(t, .35, .8)), br = cycle(t, 1.3, 3, INF);
+    const sy = cy + 250 + 70;
+    const bl = [this._blGlow(t), ...this._blTitle(t, RP_.sub, RP_.title)];
+    bl.push({ name: 'pring', x: CX - 280, w: 560, y, h: 500, pad: 40, sig: 'p' + Math.round(p * 120),
+      draw: (g) => {
+        if (br != null) { const gg = kf(br, [[0, 0], [.5, 1], [1, 0]]);
+          g.shadowColor = rgba(NEU.ink, .35 * gg); g.shadowBlur = 26 * gg; }
+        ring(g, CX, cy, 230, p, { track: 'rgba(255,255,255,.22)', trackW: 16, arcW: 16 });
+        g.shadowBlur = 0; this._pctText(g, cy, RP_.pct, t); },
+      motion: { alpha: kf(e, [[0, 0], [.7, 1], [1, 1]]), scale: kf(e, [[0, .6], [.7, 1.05], [1, 1]]) } });
+    const sW = 281, gap = 12, total = sW * 3 + gap * 4 + 2;
+    RP_.stats.forEach(([kk, v], i) => {
+      const se = eOut(intro(t, 1.0 + i * .15, .7));
+      const x = CX - total / 2 + i * (sW + gap * 2 + 1);
+      bl.push({ name: 'stat' + i, x, w: sW, y: sy, h: 142, pad: 16, sig: 's' + kk + v,
+        draw: (g) => { txt(g, kk, x + sW / 2, sy, 39.2, 400, 'rgba(255,255,255,.7)', { ls: -1.5, align: 'center' });
+          txt(g, v, x + sW / 2, sy + 39.2 * 1.2 + 18, 64, 700, NEU.ink, { ls: -1.5, align: 'center' }); },
+        motion: { alpha: se, dy: -48 * (1 - se) } });
+    });
+    bl.push(this._blButton(t, BTN, 1.4, 2.3, sy + 142 + 70));
+    return bl;
+  }
+
+
+
+  _wrHdr(ctx, LX, ROW_Y, LW) {
+    const hdrH = 257.054;
+    rrFill(ctx, LX, ROW_Y, LW, hdrH, R.lg, '#fff');
+    const ph = 217.054, px = LX + 20, py = ROW_Y + 20;
+    ctx.save(); rrPath(ctx, px, py, ph, ph, 54); ctx.clip();
+    const ca = this._img('coach_a.png'), cb = this._img('coach_b.png');
+    for (const im of [ca, cb]) if (im) ctx.drawImage(im, px - 28.09, py - 74.05, 275.305, 511.608);
+    const tx = px + ph + 40.857;
+    txt(ctx, 'Boxing Basic Jab Combo', tx, py + 24, T.sub, 700, NEU.inkDark, { ls: -2.55 });
+    txt(ctx, 'Skilled User Pack · Boxing ·Quite On', tx, py + 24 + 52 * 1.2 + 20.429, T.label, 400, NEU.t2, { ls: -.96 });
+
+
+  }
+
+  _wrStats(ctx, LX, stY, LW, t) {
+    const stH = 1113;
+    rrFill(ctx, LX, stY, LW, stH, R.xl, NEU.surface);
+    const ix = LX + 20, iw = 1000;
+    let y = stY + 32;
+    // ── Total
+    txt(ctx, 'Total', ix + iw / 2, y + 8, T.label, 400, NEU.t1, { ls: -1, align: 'center' });
+    y += 48 + 8;
+    const totH = 378.393;
+    rrFill(ctx, ix, y, iw, totH, R.lg, '#fff');
+    // 그래프 3단 (우측 정렬, 위에서부터 stretch/learn/run)
+    const gY = y + 10, gH = totH - 20, gR = ix + iw - 10;
+    const barH = (gH - 4.851 * 2) / 3;
+    const bar = (i, bw, label, delay, solid) => {
+      const by = gY + i * (barH + 4.851);
+      const rev = eOut(intro(t, delay, .7));   // graphReveal — 오른쪽에서 좌로 열림
+      ctx.beginPath(); ctx.rect(gR - bw * rev, by, bw * rev, barH); ctx.clip();
+      const g = ctx.createLinearGradient(gR - bw, 0, gR + bw * 0.08, 0);
+      g.addColorStop(.63, PAL.red); g.addColorStop(.9, PAL.coral); g.addColorStop(1, PAL.sand);
+      rrFill(ctx, gR - bw, by, bw, barH, 40, solid || g);
+      txt(ctx, label, gR - bw + 24.256, by + barH / 2, T.label, 400, '#fff', { ls: -1.21, base: 'middle' });
+    };
+    bar(0, 194.048, '5min', 1.0);
+    bar(1, 388.095, '10min', 1.15);
+    // run 행 = 회색 트랙 + Fight! + 우측 learn-abs
+    const ry = gY + 2 * (barH + 4.851);
+    rrFill(ctx, gR - (iw - 20), ry, iw - 20, barH, 40, NEU.surface);
+    ctx.save(); ctx.globalAlpha *= 0.7;
+    txt(ctx, 'Fight!', gR - (iw - 20) + 24.256, ry + barH / 2, T.label, 700, NEU.inkDark, { ls: -1.21, base: 'middle' });
+    bar(2, 582.143, '15min', 1.3);
+    // 좌측 큰 숫자 오버레이
+    txt(ctx, '30', ix + 24.256, y + 24.256, NUM_S.md, 700, NEU.inkDark, { fam: dot9 });
+    ctx.save(); ctx.globalAlpha *= 0.6;
+    txt(ctx, 'min', ix + 24.256, y + 24.256 + 145.536, T.label, 700, NEU.inkDark, { ls: -1.21 });
+    y += totH + 32;
+    // ── Setup
+    txt(ctx, 'Setup', ix + iw / 2, y + 8, T.label, 400, NEU.t1, { ls: -.5, align: 'center' });
+    y += 48 + 8;
+    const setH = 235;
+    rrFill(ctx, ix, y, iw, setH, R.lg, '#fff');
+    const cw = (iw - 20 - 10) / 2;
+    const cells = [['Location & Goal', 'Inoor ·Standard', 103], ['Condition', 'About the same as usual', 103],
+                   ['Level & Mode', 'Quite On', 102], ['Main Workout', '15m', 102]];
+    cells.forEach(([lab, val, ch], i) => {
+      const cx0 = ix + 10 + (i % 2) * (cw + 10), cy0 = y + 10 + (i < 2 ? 0 : 113);
+      rrFill(ctx, cx0, cy0, cw, ch, R.md, NEU.surface);
+      txt(ctx, lab, cx0 + 20, cy0 + 20, T.micro, 400, NEU.t2, { ls: -.5 });
+      txt(ctx, val, cx0 + 20, cy0 + 20 + 24 * 1.1 + 8, T.label, 700, '#000', { ls: -1.08 });
+    });
+    y += setH + 32;
+    // ── Connected
+    txt(ctx, 'Connected', ix + iw / 2, y + 8, T.label, 400, NEU.t1, { ls: -.5, align: 'center' });
+    y += 48 + 8;
+    const devH = 203.607, dw = (iw - 16) / 3;
+    const devs = [['icon_wearable.png', 'Wearable', 'Battery 99%'],
+                  ['icon_station.png', 'Station', 'Projection ready'],
+                  ['icon_device.png', 'External Device', 'Galaxy Watch Ready']];
+    devs.forEach(([ic, n, s], i) => {
+      const dx = ix + i * (dw + 8);
+      rrFill(ctx, dx, y, dw, devH, R.lg, '#fff');
+      // 아이콘 — 웨어러블만 원본 컬러, 나머지는 열화상 그라디언트 마스크
+      const tim = i === 0 ? this._img(ic) : this._tinted(ic, 88, 88, [[0, PAL.red], [.6, PAL.coral], [.85, PAL.sand], [1, PAL.prism]]);
+      if (tim) ctx.drawImage(tim, dx + 20, y + 20, 88, 88);
+      txt(ctx, n, dx + 20, y + 20 + 88 + 8, T.label, 700, NEU.inkDark, { ls: -1 });
+      txt(ctx, s, dx + 20, y + 20 + 88 + 8 + 36 * 1.2, T.micro, 400, NEU.t2, { ls: -.72 });
+      const chk = this._img('check.svg');
+      if (chk) ctx.drawImage(chk, dx + dw - 60, y + 20, 40, 40);
+    });
+
+  }
+
+  // ── 밴드 그리기 조각 (모션은 레이어 변환이 담당) ────────────────────
+  _bgGlowStatic(ctx) {
+    const im = this._img('bg_glow.svg');
+    if (!im) return;
+    const w = 2050, h = w * (im.naturalHeight / im.naturalWidth);
+    ctx.drawImage(im, CX - w / 2, H / 2 - h / 2, w, h);
+    ctx.save();
+    ctx.globalCompositeOperation = 'destination-out';
+    ctx.translate(CX, H * 0.44); ctx.scale(1, (0.62 * H) / (0.66 * W));
+    const rMax = 0.66 * W;
+    const g = ctx.createRadialGradient(0, 0, 0, 0, 0, rMax);
+    g.addColorStop(0.2, 'rgba(0,0,0,0)'); g.addColorStop(0.9, 'rgba(0,0,0,1)');
+    ctx.fillStyle = g; ctx.fillRect(-W, -H, W * 2, H * 2);
+    ctx.restore();
+  }
+
+  _buttonPlain(ctx, y, text, glow) {
+    const w = 802, h = 72 * 1.2 + 42.614 * 2;
+    if (glow > 0.002) { ctx.shadowColor = rgba(NEU.ink, 0.35 * glow); ctx.shadowBlur = 60 * glow; }
+    rrFill(ctx, CX - w / 2, y, w, h, R.pill, NEU.ink);
+    ctx.shadowBlur = 0;
+    txt(ctx, text, CX, y + h / 2, T.title, 700, NEU.inkDark, { ls: -1.33, align: 'center', base: 'middle' });
+  }
+
+  _avatar(ctx, x, imgs) {
+    rrFill(ctx, x, 855, 237, 237, R.pill, NEU.ink);
+    ctx.save();
+    ctx.beginPath(); ctx.arc(x + 118.5, 855 + 118.5, 108.5, 0, Math.PI * 2); ctx.clip();
+    for (const rel of imgs) { const im = this._img(rel);
+      if (im) ctx.drawImage(im, x + 10 - 28.09, 855 + 10 - 74.05, 275.305, 511.608); }
+    ctx.restore();
+  }
+
+  _youBadge(ctx) {
+    ctx.font = F(400, 47.28);
+    const bw = ctx.measureText('You').width + 63.04, bh = 47.28 * 1.2 + 31.52;
+    rrFill(ctx, 2319, 1043, bw, bh, R.xl, 'rgba(255,255,255,.9)');
+    txt(ctx, 'You', 2319 + bw / 2, 1043 + bh / 2, 47.28, 400, NEU.t3, { ls: -.5, align: 'center', base: 'middle' });
+  }
+
+  _coachSay(ctx, say) {
+    ctx.font = F(400, 56);
+    const sw = Math.min(1600, ctx.measureText(say).width + 64), sh = 56 * 1.2 + 48;
+    rrFill(ctx, CX - sw / 2, 1370, sw, sh, R.pill, NEU.ink);
+    txt(ctx, say, CX, 1370 + sh / 2, 56, 400, '#000', { ls: -2.24, align: 'center', base: 'middle' });
+  }
+
+  _pctText(ctx, cy, pct, t) {
+    const n = String(Math.round(pct * eOut(clamp01((t - .5) / 1.3))));
+    ctx.font = F(700, 128.5, dot9); const nw = ctx.measureText(n).width;
+    ctx.font = F(700, 90.3, dot9); const sw = ctx.measureText('%').width;
+    txt(ctx, n, CX - (nw + sw + 8) / 2, cy, 128.5, 700, NEU.ink, { fam: dot9, ls: -3.57, base: 'middle' });
+    txt(ctx, '%', CX - (nw + sw + 8) / 2 + nw + 8, cy + 12, 90.3, 700, NEU.ink, { fam: dot9, ls: -2.5, base: 'middle' });
+  }
+
+  _wrCta(ctx, cx, y) {
+    const ar = this._img('arrow-right.svg');
+    if (ar) ctx.drawImage(ar, cx - 31, y, 62, 62);
+    txt(ctx, 'Tap your foot Twice', cx, y + 62 + sp('s3', 'wall'), T.head, 700, NEU.ink, { ls: -4.57, align: 'center' });
+    txt(ctx, 'with the Wearable on', cx, y + 62 + sp('s3', 'wall') + T.head * 1.1 + 14, T.label, 400, 'rgba(255,255,255,.8)', { align: 'center' });
   }
 
   // ── 공통 조각 ───────────────────────────────────────────────────────────────
   // 배경 글로우 + glowDrift 15s ∞. 원본은 컨테이너 라디얼 마스크로 사각 모서리를 잘라낸다.
   _bgGlow() {
-    const ctx = this.ctx, im = this._img('bg_glow.svg');
+    const ctx = this._lay || this.ctx, im = this._img('bg_glow.svg');
     if (!im) return;
     const w = 2050, h = w * (im.naturalHeight / im.naturalWidth);
     ctx.save();
@@ -257,7 +665,7 @@ export class WallGL {
   // 서브타이틀 + 큰 타이틀 + charWave. titleIn(.8s .1s, translateY 40→0 + scale)
   // 반환 = 그룹 아래 y
   _titleGroup(y, sub, ttl, dly = 0.1, dur = 0.8, ty0 = 40) {
-    const ctx = this.ctx, t = this.t;
+    const ctx = this._lay || this.ctx, t = this.t;
     const subH = 48 * 1.2, gap = 8, ttlH = 120 * 1.05, gh = subH + gap + ttlH;
     const p = eOut(intro(t, dly, dur));
     ctx.save();
@@ -277,7 +685,7 @@ export class WallGL {
 
   // 흰 pill 버튼 (전환·리포트 공통). e=등장 · dy=떠오름 · glow=펄스
   _button(y, text, e = 1, dy = 0, glow = 0) {
-    const ctx = this.ctx, w = 802, h = 72 * 1.2 + 42.614 * 2;
+    const ctx = this._lay || this.ctx, w = 802, h = 72 * 1.2 + 42.614 * 2;
     ctx.save();
     ctx.globalAlpha *= e;
     ctx.translate(0, dy);
@@ -291,7 +699,7 @@ export class WallGL {
 
   // ── BX_READY (index.html) ──────────────────────────────────────────────────
   _paint_ready() {
-    const ctx = this.ctx, t = this.t;
+    const ctx = this._lay || this.ctx, t = this.t;
     const ROW_Y = 103, LX = 100, LW = 1040;
     // 좌/우 그룹 상시 둥둥 (floatY 6.5s / floatY2 7.5s, delay 1.8s)
     const fl = cycle(t, 1.8, 6.5, INF), fr = cycle(t, 1.8, 7.5, INF);
@@ -463,7 +871,7 @@ export class WallGL {
 
   // ── 운동중 (scene.html) ────────────────────────────────────────────────────
   _paint_scene() {
-    const ctx = this.ctx, t = this.t;
+    const ctx = this._lay || this.ctx, t = this.t;
     const S = SCENES[this.stage] || SCENES.BX_A1;
     const dur = this.params.dur || 8;
     const isEntry = (S.sub === '' || /^1\//.test(S.sub));
@@ -602,7 +1010,7 @@ export class WallGL {
 
   // ── 카운트다운 (timer.html) ────────────────────────────────────────────────
   _paint_timer() {
-    const ctx = this.ctx, t = this.t, M = TM[this.stage] || TM.BX_C1, dur = this.params.dur || 3;
+    const ctx = this._lay || this.ctx, t = this.t, M = TM[this.stage] || TM.BX_C1, dur = this.params.dur || 3;
     this._bgGlow();
     this._titleGroup(zone('title', H), M.sub, M.title);
     const y = zone('graphic', H);
@@ -633,7 +1041,7 @@ export class WallGL {
 
   // ── 전환 (transition.html) ────────────────────────────────────────────────
   _paint_transition() {
-    const ctx = this.ctx, t = this.t, TR_ = TR[this.stage] || TR.BX_T1;
+    const ctx = this._lay || this.ctx, t = this.t, TR_ = TR[this.stage] || TR.BX_T1;
     this._bgGlow();
     this._titleGroup(zone('title', H), TR_.sub, TR_.title, .1, .85, 44);
     const S = 654.902, GAP = sp('s3', 'wall'), y = zone('graphic', H), x0 = CX - (S * 2 + GAP) / 2;
@@ -657,7 +1065,7 @@ export class WallGL {
   }
 
   _card(x, y, S, D, done) {
-    const ctx = this.ctx, P = 52.392;
+    const ctx = this._lay || this.ctx, P = 52.392;
     ctx.save();
     rrPath(ctx, x, y, S, S, R.lg); ctx.clip();
     ctx.fillStyle = done ? gradV(ctx, y, y + S, [[.48, PAL.red], [.776, PAL.coral], [1, PAL.sand]]) : '#fff';
@@ -675,8 +1083,15 @@ export class WallGL {
       ctx.fillStyle = gradV(ctx, y, y + S, [[0, PAL.red], [1, PAL.coral]]);
       ctx.fillRect(x, y, S, S); ctx.restore();
     } else {       // 흰 내부 글로우(원본 inset box-shadow 근사)
-      ctx.save(); ctx.lineWidth = 40; ctx.strokeStyle = 'rgba(255,255,255,.6)';
-      ctx.filter = 'blur(26px)'; rrPath(ctx, x, y, S, S, R.lg); ctx.stroke(); ctx.restore();
+      // 내부 글로우 = Figma inset 0 0 52.392px 19.647px rgba(255,255,255,.6) 실값.
+      // 클립 안에서 같은 경로를 굵게 스트로크하면 절반이 안쪽에 남아 inset 이 된다
+      // (구 blur(26px) 근사는 값도 다르고 레이어 전환에서 사라졌다 — 유저 지적).
+      ctx.save();
+      rrPath(ctx, x, y, S, S, R.lg); ctx.clip();
+      ctx.shadowColor = rgba(NEU.ink, 0.6); ctx.shadowBlur = 52.392;
+      ctx.strokeStyle = rgba(NEU.ink, 0.6); ctx.lineWidth = 19.647 * 2;
+      rrPath(ctx, x, y, S, S, R.lg); ctx.stroke();
+      ctx.restore();
     }
     ctx.restore();
     // 우상단 배지 — sPop .6s (.95 / 1.0)
@@ -707,7 +1122,7 @@ export class WallGL {
 
   // ── 리포트 (report.html) ──────────────────────────────────────────────────
   _paint_report() {
-    const ctx = this.ctx, t = this.t, RP_ = RP[this.stage] || RP.BX_FIN;
+    const ctx = this._lay || this.ctx, t = this.t, RP_ = RP[this.stage] || RP.BX_FIN;
     this._bgGlow();
     this._titleGroup(zone('title', H), RP_.sub, RP_.title);
     const y = zone('graphic', H);
