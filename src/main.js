@@ -2264,11 +2264,33 @@ void main(){
       fragmentShader: `
         varying vec2 vUv; uniform sampler2D map; uniform sampler2D uLUT; uniform float uTime, uCropOff, uCropScale, uSat, uPulse, uReady;
         vec3 lut(float v){ return texture2D(uLUT, vec2(clamp(v, 0.004, 0.996), 0.5)).rgb; }
+        ` + PERSON_GLSL + `
         vec2 crop(vec2 uv){ return vec2(uv.x, uCropOff + uv.y * uCropScale); }
         // 그린 제거만. (빈 프레임 방지는 픽셀 휘도가 아니라 프레임 단위 uReady가 담당 —
         //  픽셀로 자르면 그림자·모자·옷주름이 통째로 뚫린다: 실측 피사체 14% 소실)
         float mask1(vec2 uv){ vec3 c = texture2D(map, crop(uv)).rgb; float k = c.g - max(c.r, c.b);
           return 1.0 - smoothstep(0.04, 0.14, k); }
+        // 이목구비·옷주름은 뭉갠다 — 확산 유리 너머 실루엣(유저 레퍼런스). 9탭 원형 블러.
+        float lumAt(vec2 uv){ return dot(texture2D(map, crop(uv)).rgb, vec3(0.299, 0.587, 0.114)); }
+        float blurLum(vec2 uv){
+          float s = lumAt(uv) * 0.30;
+          for (int k = 0; k < 4; k++) { float a = 1.5708 * float(k) + 0.7;
+            s += lumAt(uv + vec2(cos(a), sin(a)) * 0.014) * 0.125;
+            s += lumAt(uv + vec2(cos(a + 0.785), sin(a + 0.785)) * 0.026) * 0.05; }
+          return s;
+        }
+        // 두께장 — 복싱 판의 가우시안 RT 체인과 같은 역할을 프래그먼트 17탭으로 근사.
+        //   구 H = 1.18 - length(uv-중심) 은 '화면 중심' 방사라 그라디언트가 몸을 안 따라갔다
+        //   (유저: "복싱만 예쁘고 러닝·농구는 납작한 색종이"). 두께장은 몸을 따라가야 한다.
+        float thickField(vec2 uv){
+          float s = mask1(uv) * 0.20;
+          for (int k = 0; k < 8; k++) {
+            vec2 d = vec2(cos(0.7854 * float(k)), sin(0.7854 * float(k)));
+            s += mask1(uv + d * 0.020) * 0.065;
+            s += mask1(uv + d * 0.045) * 0.035;
+          }
+          return s;
+        }
         float ch(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7)))*43758.5453); }
         float vn(vec2 p){ vec2 i=floor(p),f=fract(p); f=f*f*(3.0-2.0*f);
           return mix(mix(ch(i),ch(i+vec2(1,0)),f.x),mix(ch(i+vec2(0,1)),ch(i+vec2(1,1)),f.x),f.y); }
@@ -2280,24 +2302,24 @@ void main(){
           float m = mask1(uv);
           float mEro = smoothstep(0.16, 0.52, m);   // 침식 완화 — 골대 림 등 얇은 구조 보존(유저)
           if (mEro < 0.02) discard;
-          // 복싱 벽(138) 딥레드 톤: 방사형 두께 코어 + S커브 대비 + 채도. 맨살 흰색 튐 억제(휘도 0.22·캡·pow1.5)
-          float H = clamp(1.18 - length(vec2((uv.x-0.5)*1.35, (uv.y-0.5)*1.02)), 0.0, 1.0);
+          // 두께장 = 몸을 따라가는 블러 마스크(복싱 판의 uHeat 가우시안 체인과 등가 역할)
+          float H = clamp(thickField(uv), 0.0, 1.0);
           float flow = vn(vec2(uv.x*3.2 + sin(uTime*0.4)*0.3, uv.y*2.4 - uTime*0.5));
-          H *= 1.0 + (flow - 0.5) * 0.28;
-          float dlum = dot(c, vec3(0.299, 0.587, 0.114));
-          dlum = smoothstep(0.28, 0.72, dlum);   // 완만한 대비(구 0.34~0.62는 미드톤이 눌려 색이 턱턱 끊김)
+          H *= 1.0 + (flow - 0.5) * 0.11;   // 대류 얼룩 최소 — 매끄러운 질감(유저 레퍼런스)
+          float lumS = lumAt(uv), lumB = blurLum(uv);   // 선명 = 몸의 결 / 블러 = 얼굴 소거용
+          float dlum = mix(lumS, lumB, 0.5);            // 펄스 위상용 대표 휘도
           float mIn = smoothstep(0.55, 0.95, m);
           float faceW = smoothstep(0.80, 0.92, uv.y) * (1.0 - smoothstep(0.97, 1.0, uv.y));
-          float baseT = clamp(H * 0.74 + (dlum - 0.5) * 0.22 * mIn * (1.0 - faceW), 0.04, 0.90);
-          baseT = pow(baseT, 1.5);
           // LUMA PULSE — 휘도를 따라 흐르는 그라디언트 펄스(effect.app 느낌, 뉴턴 LUT 안에서만 이동)
           float pulse = uPulse * sin(uTime * 2.0 - dlum * 7.0);
           // 디더 — 8bit 영상 양자화가 LUT 위에서 밴딩으로 드러나는 것을 픽셀 노이즈로 분해(색 사이 이음)
           float dth = (ch(gl_FragCoord.xy + vec2(uTime, uTime * 1.3)) - 0.5) / 255.0;
-          float T = clamp(baseT + pulse + dth, 0.0, 1.0);
-          vec3 col = lut(T) * mEro * 1.12;
-          float cl = dot(col, vec3(0.299, 0.587, 0.114));
-          col = clamp(mix(vec3(cl), col, uSat), 0.0, 1.0);   // 채도 = 마크 LUT와 같은 FXP.sat 소스(인물만 따로 놀던 1.32 상수 은퇴)
+          // 색 = fx-core.personLook 공용 정의 — 복싱 인물과 같은 대역·채도·명암 규칙.
+          //   구 인라인 lut(pow(baseT,1.5))는 LUT 하단(샌드~코랄)에만 앉아, 상단(레드)에 앉는
+          //   복싱 인물과 톤이 갈렸다(유저: "왜 복싱만 과하게 빨갛지").
+          vec3 col = personLook(clamp(H + pulse + dth, 0.0, 1.0), lumS, lumB, mIn, faceW) * mEro * 1.12;
+          // 필름 결 — 복싱 판(소스 영상 자체 그레인)과 질감 맞춤. AI 생성 코치 클립은 너무 깨끗하다.
+          col += (ch(uv * 977.0 + uTime) - 0.5) * 0.030 * mEro;
           // uReady=0 = 아직 실제 프레임이 없다. 이때 그리면 빈 텍스처가 크로마키를 통과해
           //   판이 통째로 검은 사각형/붉은 판으로 보인다(유저 스샷). 아예 안 그린다.
           float alpha = mEro * 0.95 * uReady;   // 하단 페더 제거(유저) — 발끝까지 또렷하게
@@ -2604,6 +2626,18 @@ void main(){
       float m = 1.0 - smoothstep(0.05, 0.16, k);         // 임계값 = 랩 mask1 정본
       m *= smoothstep(0.0, 0.03, uv.y) * smoothstep(1.0, 0.97, uv.y);
       return m;
+    }
+    // 블러 휘도 — 이목구비·옷주름을 뭉개 명암 덩어리만 남긴다(유저 레퍼런스: 확산 유리 실루엣)
+    float plum(vec2 uv){
+      vec2 vuv = clamp(uCropC + (uv - 0.5) * uCropS, 0.0, 1.0);
+      return dot(texture2D(tex, vuv).rgb, vec3(0.299, 0.587, 0.114));
+    }
+    float pblur(vec2 uv){
+      float s = plum(uv) * 0.30;
+      for (int k = 0; k < 4; k++) { float a = 1.5708 * float(k) + 0.7;
+        s += plum(uv + vec2(cos(a), sin(a)) * 0.014) * 0.125;
+        s += plum(uv + vec2(cos(a + 0.785), sin(a + 0.785)) * 0.026) * 0.05; }
+      return s;
     }`;
   const trailRTs = [new THREE.WebGLRenderTarget(DPW, DPH), new THREE.WebGLRenderTarget(DPW, DPH)];
   let trailFlip = 0;
@@ -2690,19 +2724,17 @@ void main(){
           // 열화상 v4: 형태(실루엣)와 온도(확산 필드) 분리 — 몸 테두리 크리스프, 얼굴만 은닉
           float H = texture2D(uHeat, uv).r;
           float flow = fxfbm(vec2(uv.x * 3.2 + sin(uTime * 0.4) * 0.3, uv.y * 2.4 - uTime * 0.5));
-          H *= 1.0 + (flow - 0.5) * uNoise * 0.5;
+          H *= 1.0 + (flow - 0.5) * uNoise * 0.16;   // 대류 얼룩 최소 — 밝아진 톤에서 노이즈가 얼룩으로 드러남(유저)
           float T = clamp(H * 1.25, 0.0, 1.0);   // 온도 = 두께 필드
-          vec2 dvuv = uCropC + (uv - 0.5) * uCropS;
-          float dlum = dot(texture2D(tex, clamp(dvuv, 0.0, 1.0)).rgb, vec3(0.299, 0.587, 0.114));
-          // 원본 밝기 대비 선보정 = 극대화 (급경사 S-커브: 밝음/어두움을 거의 이진 분리)
-          dlum = smoothstep(0.36, 0.60, dlum);
+          // 선명 = 옷주름·결(몸) / 블러 = 얼굴 소거용. 룩 슬라이더 person.detail = 결의 세기.
+          float dLumB = pblur(uv);
+          float dLumS = mix(dLumB, plum(uv), clamp(uDetail * 1.6, 0.0, 1.0));
+          float dlum = mix(dLumS, dLumB, 0.5);
           // 얼굴 대역(상단) = 이목구비 의도적 은닉 — 실사 결 제거 + 강한 확산
           float faceW = smoothstep(0.70, 0.84, uv.y) * (1.0 - smoothstep(0.965, 1.0, uv.y));
           // 실사 결 = 주 텍스처 — 내부 침식 마스크(mIn)로만: 엣지 반투명 픽셀이 그린 배경
           // 밝기를 온도로 읽어 실루엣 둘레에 밝은 테두리가 생기던 것 차단
           float mIn = smoothstep(0.55, 0.95, m);
-          T = clamp(T * 0.72 + (dlum - 0.42) * uDetail * 1.5 * mIn * (1.0 - faceW), 0.0, 1.0);
-          T = pow(T, 1.38);   // 밀도 대비 — 어두운 부위를 더 깊게 (레퍼런스: 그늘진 팔이 암색으로 잠김)
           T = max(T, trail * 0.6);
           // 형태: 전신 크리스프 실루엣만 — 헤일로·확산 완전 제거 (유저 확정: 그림자 금지)
           // 마스크 침식: 크로마키가 불완전한 클립(비순수 그린 배경)에서 마스크 바닥값(~0.2)이
@@ -2712,7 +2744,7 @@ void main(){
           float shape = max(shapeA, trail * 0.5 * smoothstep(0.06, 0.22, trail));
           // 색 = fx-core.personColor 공용 정의 (벽 인물과 같은 곡선·대역·채도).
           // 구 mix(thermo…) 은 은퇴 — uTone=1 이라 실제로 안 쓰였고, 무지개 램프는 팔레트 밖이었다.
-          vec3 col = personColor(T) * shape;
+          vec3 col = personLook(T, dLumS, dLumB, mIn, faceW) * shape;
           col += (fxhash(uv * 977.0 + uTime) - 0.5) * (2.0 / 255.0);
           col += (fxhash(uv * 1661.0 + uTime * 3.0) - 0.5) * uGrain;
           // 프레임 원천 제거(유저): 타원 페더 — 잔여 배경·워시가 직선 경계 없이 곡선으로 소멸

@@ -182,6 +182,34 @@ vec3 personColor(float T){
   vec3 c = lut(clamp(t, 0.0, 1.0));
   float l = dot(c, vec3(0.299, 0.587, 0.114));
   return clamp(mix(vec3(l), c, P_SAT), 0.0, 1.0);
+}
+// 인물 룩 — 복싱·러닝·농구가 공유하는 단 하나의 톤 결정자(유저 레퍼런스: setup-injury 프로토).
+//   규칙: ① 얼굴만 완전 블러(이목구비 소거) ② 몸은 옷주름·결이 살아있되 매끄럽게
+//        ③ 말단·가장자리는 뽀얀 우유빛으로 빠지고 코어만 채도 높게(그라디언트)
+//        ④ 어두운 덩어리 금지 — 고키. 투사광이라 검정은 곧 '빛 없음'이다.
+//   thick = 두께장(블러 마스크·방사 필드, 가장자리 0 → 코어 1)
+//   lumS  = 원본 휘도(선명 — 몸의 결)      lumB = 블러 휘도(얼굴용)
+//   mIn   = 내부 침식 마스크               face = 얼굴 대역 가중
+#define P_MILK  0.34    // 하이라이트·얼굴이 우유빛으로 빠지는 양(전신 희석 금지)
+#define P_DEPTH 0.34    // 그늘이 '진해지는' 양 — 밝기가 아니라 온도로만
+//   ⚠ 밝기를 깎아 그늘을 만들면 안 된다. 알파가 min(aOut, lum*1.6)로 밝기에 묶여 있어
+//     어두운 옷 픽셀만 알파 0.85로 떨어지고 뒤 벽·그리드가 비친다(실측: 0.985→0.847, 유저 신고).
+//     투사광에선 '어둡게' = '투명하게'다. 그래서 그늘은 LUT 상단(딥레드)으로, 하이라이트는
+//     하단(샌드)으로 — 양끝 다 R≈1이라 알파는 어디서도 안 떨어진다.
+vec3 personLook(float thick, float lumS, float lumB, float mIn, float face){
+  float lum = mix(mix(lumS, lumB, 0.35), lumB, face);   // 몸=35%만 블러(매끈), 얼굴=100% 블러
+  float shade = smoothstep(0.18, 0.62, lum);            // 완만한 명암 — 결은 남고 이진 분리는 안 됨
+  // LUT 실측 방향: T=0 → RED(#FA3030) · T≈0.86 → SAND(#FEC389) · T=1 → ICE.
+  //   즉 T가 낮을수록 진하다. 두꺼운 코어·그늘 = 낮은 T(진한 코랄레드),
+  //   얇은 말단·하이라이트·얼굴 = 높은 T(뽀얀 살구).
+  float th = smoothstep(0.25, 0.95, thick);   // 두께장 정규화 — H의 실사용 범위가 좁다
+  float T = clamp(1.0 - th * 0.60 + (shade - 0.5) * P_DEPTH * mIn * (1.0 - face * 0.7)
+                  + face * 0.26, 0.0, 1.0);
+  vec3 c = personColor(T);
+  // 얇은 곳(손·머리카락)과 얼굴, 그리고 하이라이트만 우유빛 — 2.2제곱이라 몸통은 거의 안 뜬다.
+  float milk = clamp(pow(1.0 - clamp(thick, 0.0, 1.0), 2.2) * 0.9
+                     + face * 0.9 + smoothstep(0.72, 0.98, lum) * mIn * 0.8, 0.0, 1.0);
+  return clamp(mix(c, vec3(1.0, 0.95, 0.90), milk * P_MILK), 0.0, 1.0);
 }`;
 
 export const MARK_GLSL = `
