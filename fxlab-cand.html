@@ -145,14 +145,18 @@
     </div>
     <div class="ctl" id="candToggles" style="justify-content:flex-start;margin:0 0 10px;flex-wrap:wrap;gap:6px"></div>
     <div class="sliders" id="candSliders" style="grid-template-columns:repeat(4,minmax(150px,1fr));margin:0 0 14px"></div>
-    <div id="candHost" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px"></div>
-    <div style="margin:18px 0 8px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-      <b style="font-size:12px;letter-spacing:.06em;color:var(--ink)">선택 후보 — 7상태 한눈에</b>
-      <span id="candStripName" style="font-size:11px;color:var(--sand)"></span>
-      <button class="btn" id="candNumBtn">숫자 얹기</button>
-      <span style="font-size:10.5px;color:var(--dim)">글리프 = 서랍(state.glyphs)의 실제 SVG · 크기 = 쿼드×0.2333 · Preview 0.5 · Success/Miss 숨김 (fx-core MARK_NUM)</span>
+    <div style="margin:0 0 10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <b style="font-size:13px;letter-spacing:.06em;color:var(--ink)">선택 후보 — 7상태 한눈에</b>
+      <span id="candStripName" style="font-size:12px;color:var(--sand);font-weight:700"></span>
+      <button class="btn" id="candNumBtn">글리프 얹기: 끔</button>
+      <span style="width:10px"></span>
+      <label style="display:flex;align-items:center;gap:7px;font-size:11px;color:var(--dim)">진행
+        <input type="range" id="candProg" min="-0.01" max="1" step="0.01" value="-0.01" style="width:150px">
+        <output id="candProgV" style="min-width:34px">자동</output></label>
+      <span style="font-size:10.5px;color:var(--dim)">글리프 = 서랍의 실제 SVG · MARK_NUM 규약(Preview 0.5 · Success/Miss 숨김)</span>
     </div>
-    <div id="candStrip" style="display:grid;grid-template-columns:repeat(7,1fr);gap:8px"></div>
+    <div id="candStrip" style="display:grid;grid-template-columns:repeat(7,1fr);gap:10px;margin-bottom:22px"></div>
+    <div id="candHost" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px"></div>
     <pre id="candSrc" style="margin:14px 0 0;padding:12px 14px;background:#0A0C10;border:1px solid #1c222c;border-radius:10px;
       font-size:11px;line-height:1.55;color:#cfd6e0;overflow:auto;max-height:260px;white-space:pre"></pre>
   </div>
@@ -539,7 +543,7 @@ float markShapeSD(vec2 p, float base);
 //   닷 격자는 마크 로컬(uv) 좌표 — 마크가 커지면 닷도 함께 커진다(스크린 하프톤이 아니라 '이 토큰의 결').
 const CAND_PRELUDE = `
 uniform float uDotPitch, uDotGain, uDotSpeed, uInner;
-uniform float uMono, uFlat, uNoInner, uBg;
+uniform float uMono, uFlat, uNoInner, uBg, uProgOvr;
 float chash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 // 하프톤 한 셀: 반지름을 amount(0~1)가 정한다 → 밝을수록 굵은 점 (레퍼런스의 발바닥 밀도)
 float halftone(vec2 p, float pitch, float amount, float soft){
@@ -1099,6 +1103,7 @@ void main(){
   vec2 uv = (gl_FragCoord.xy - uRes*0.5) / (uRes.y*0.5);
   float tc = fract(uTime * 0.45);
   float prog = uState < 0.5 ? smoothstep(0.10, 0.88, tc) : tc;
+  if (uProgOvr >= 0.0) prog = uProgOvr;   // 슬라이더로 잡으면 7상태가 같은 진행에서 비교된다
   vec4 r = markState(uv, uState, prog, 0.0, uTime);
   if (uMono > 0.5) { float L = max(r.r, max(r.g, r.b)); r.rgb = vec3(L); }
   if (uFlat > 0.5) r.rgb = vec3(r.a);
@@ -1140,6 +1145,10 @@ document.getElementById('candNumBtn').onclick = e => {
   e.target.classList.toggle('on', !!candNums);
 };
 document.getElementById('candNumBtn').textContent = '글리프 얹기: 끔';
+{
+  const sl = document.getElementById('candProg'), out = document.getElementById('candProgV');
+  sl.oninput = () => { candP.prog = +sl.value; out.textContent = candP.prog < 0 ? '자동' : candP.prog.toFixed(2); };
+}
 // 숫자 오버레이 — fx-core MARK_NUM 규약 그대로(도식 아님)
 // 카탈로그 상태 번호(0 Preview·1 Active·2 Hold·3 Success·4 Miss·5 Warning·6 Locked)를
 //   라이브 phase 번호(0 Preview·1 Active·2 Success·3 Locked·4 Miss·5 Hold·6 Warning)로.
@@ -1178,8 +1187,8 @@ function stripGlyph(ctx, cat, W) {
   ctx.restore();
 }
 
-let candSel = 'dot', candShape = 1;
-const candP = { pitch: 0.11, gain: 1.15, speed: 1.0, inner: 0.55 };
+let candSel = 'newtonSet', candShape = 1;
+const candP = { pitch: 0.11, gain: 1.15, speed: 1.0, inner: 0.55, prog: -0.01 };
 const candT = { mono: 0, flat: 0, noGlow: 0, noInner: 0, bg: 0, holdRim: 0 };
 {
   const host = document.getElementById('candToggles');
@@ -1950,6 +1959,7 @@ function frame(ts) {
       g2.uniform1f(P.u('uNoInner'), candT.noInner);
       g2.uniform1f(P.u('uBg'), candT.bg);
       g2.uniform1f(P.u('uHoldRim'), candT.holdRim ? 0 : 1);
+      g2.uniform1f(P.u('uProgOvr'), candP.prog);
       g2.drawArrays(g2.TRIANGLES, 0, 3);
       ctx2d.drawImage(candGL.cv, 0, 0);   // 공유 컨텍스트 → 이 셀로 복사
     }
@@ -1975,6 +1985,7 @@ function frame(ts) {
       g3.uniform1f(P.u('uNoInner'), candT.noInner);
       g3.uniform1f(P.u('uBg'), candT.bg);
       g3.uniform1f(P.u('uHoldRim'), candT.holdRim ? 0 : 1);
+      g3.uniform1f(P.u('uProgOvr'), candP.prog);
       for (const cell of stripCells) {
         g3.uniform1f(P.u('uState'), cell.state);
         g3.drawArrays(g3.TRIANGLES, 0, 3);
