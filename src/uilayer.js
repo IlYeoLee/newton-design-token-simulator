@@ -59,8 +59,10 @@ export class Layer {
     return true;
   }
 
-  /** 매 프레임 모션 — 변환만 건드린다. 업로드 없음 = 60fps 공짜. */
-  motion({ dx = 0, dy = 0, scale = 1, alpha = 1, rot = 0, ox = 0.5, oy = 0.5 } = {}) {
+  /** 매 프레임 모션 — 변환만 건드린다. 업로드 없음 = 60fps 공짜.
+   *  cropX: 0~1 — 왼쪽 고정 가로 클립. UV(repeat/offset)로 잘라내므로 다시 굽지 않는다.
+   *  (프로그래스 바처럼 '정적 그림 + 움직이는 클립'이 이 경우다 — 매 프레임 재도색이 사라진다) */
+  motion({ dx = 0, dy = 0, scale = 1, alpha = 1, rot = 0, ox = 0.5, oy = 0.5, cropX = null } = {}) {
     const m = this.mesh;
     m.visible = alpha > 0.004;
     if (!m.visible) return;
@@ -70,6 +72,12 @@ export class Layer {
     m.position.x = this._x + this.w / 2 - this._bw / 2 + dx + px * (1 - scale);
     m.position.y = this._bh / 2 - (this._y + this.h / 2) + dy + py * (1 - scale);
     m.scale.set(scale, scale, 1);
+    if (cropX != null) {
+      const f = Math.max(0.0001, Math.min(1, cropX));
+      if (this.tex.repeat.x !== f) { this.tex.repeat.x = f; this.tex.offset.x = 0; }
+      m.scale.x = scale * f;
+      m.position.x -= (1 - f) * this.w * 0.5 * scale;   // 왼쪽 모서리 고정
+    } else if (this.tex.repeat.x !== 1) { this.tex.repeat.x = 1; }
     m.rotation.z = rot;
   }
 

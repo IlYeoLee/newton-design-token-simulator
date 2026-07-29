@@ -370,8 +370,22 @@ export class FloorGL {
       }
       const sig = n.id + '|' + n.textContent + JSON.stringify(n.style) + JSON.stringify(n._attr || {})
         + (live ? '|l' + Math.round(t * 60) : '');
-      // 매 프레임 굽는 노드(도트·링·숫자)는 전폭이면 비싸다 → 실제 상자만
-      const box = live ? ({ dots: [CX - 340, 680], prevRow: [CX - 380, 760], km: [CX - 320, 640],
+      if (n.type === 'dots') {   // 프로그래스 = 정적 그림 + UV 크롭 → 재도색 0
+        const prog = n.style.width != null ? numOr(n.style.width, 0) / 600
+          : clamp01((t - n.delay) / n.dur);
+        const bx = CX - 300, bw = 600;
+        const mo = { alpha: numOr(n.style.opacity, 1) * this._intro(n) };
+        out.push({ name: n.id + 'bg', x: bx, w: bw, y, h, pad: 10, sig: 'dg',
+          draw: (g) => { for (let i = 0; i < 10; i++) { g.fillStyle = NEU.lo; this._pill(bx + i * 60, y, 60, 60); } },
+          motion: mo });
+        out.push({ name: n.id + 'fg', x: bx, w: bw, y, h, pad: 10, sig: 'dr', order: 5,
+          draw: (g) => { for (let i = 0; i < 10; i++) { g.fillStyle = PAL.red; this._pill(bx + i * 60, y, 60, 60); } },
+          motion: { ...mo, cropX: prog } });
+        y += h + sp('s5', 'run') + (n.mb || 0);
+        continue;
+      }
+      // 매 프레임 굽는 노드(링·숫자)는 전폭이면 비싸다 → 실제 상자만
+      const box = live ? ({ prevRow: [CX - 380, 760], km: [CX - 320, 640],
         trainRow: [CX - 400, 800], liveRow: [CX - 420, 840], succ: [CX - 340, 680] }[n.type]) : null;
       out.push({
         name: n.id, x: box ? box[0] : 0, w: box ? box[1] : W, y, h, pad: live ? 50 : 120, sig,
