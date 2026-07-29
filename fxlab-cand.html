@@ -144,7 +144,7 @@
       <span id="candPick" style="font-size:10.5px;color:var(--dim)"></span>
     </div>
     <div class="ctl" id="candToggles" style="justify-content:flex-start;margin:0 0 10px;flex-wrap:wrap;gap:6px"></div>
-    <div class="sliders" id="candSliders" style="grid-template-columns:repeat(9,minmax(96px,1fr));margin:0 0 14px"></div>
+    <div class="sliders" id="candSliders" style="grid-template-columns:repeat(10,minmax(90px,1fr));margin:0 0 14px"></div>
     <div style="margin:0 0 10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
       <b style="font-size:13px;letter-spacing:.06em;color:var(--ink)">선택 후보 — 7상태 한눈에</b>
       <span id="candStripName" style="font-size:12px;color:var(--sand);font-weight:700"></span>
@@ -545,7 +545,7 @@ float markShapeSD(vec2 p, float base);
 const CAND_PRELUDE = `
 uniform float uDotPitch, uDotGain, uDotSpeed, uInner;
 uniform float uMono, uFlat, uNoInner, uBg, uProgOvr;
-uniform float uInnerMode, uActMode, uComp, uHarm, uQ0, uSatR, uHueKeep, uBeam;
+uniform float uInnerMode, uActMode, uComp, uHarm, uQ0, uSatR, uHueKeep, uBeam, uFine;
 float chash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 // 하프톤 한 셀: 반지름을 amount(0~1)가 정한다 → 밝을수록 굵은 점 (레퍼런스의 발바닥 밀도)
 float halftone(vec2 p, float pitch, float amount, float soft){
@@ -592,7 +592,13 @@ vec4 dotFormQ(vec2 grid, vec2 uv, float sd, float ext, float w, float pitch, flo
   //   또렷하다'는 지적 때문인데, 점으로 그리면 하프톤이 그 원을 이미 부수므로 띄울 이유가 없다.
   float q    = qOvr >= 0.0 ? qOvr
              : clamp(uQ0 + (1.0 - uQ0) * length(uv) / max(ext * 1.55, 1e-3), 0.0, 1.0);
-  float m    = halftone(grid, pitch, amt * uDotGain, pitch * 0.16);
+  // 경계 세밀화 — 마크 끝은 이미 부호거리로 자연히 잦아들므로 기본 0(유저 지적).
+  //   필요할 때만 켜서 비교하라고 슬라이더로만 남긴다. 정작 필요한 곳은 글리프 쪽이었고
+  //   거기는 stripGlyph 의 2단 격자가 담당한다.
+  float fineW = smoothstep(0.88, 0.30, amt) * uFine;
+  float mC    = halftone(grid, pitch, amt * uDotGain, pitch * 0.16);
+  float mF    = halftone(grid, pitch * 0.5, amt * uDotGain, pitch * 0.09);
+  float m     = mix(mC, mF, fineW);
   vec4 B = vec4(0.0);
   lay(B, stateFill(st, q, pg), m * clamp(amt * 1.25, 0.0, 1.0));
   return B;
@@ -1329,12 +1335,27 @@ function glyphSprite(ch, sizeN, style, pitchN, locked, axN, ayN) {
     g.clearRect(0, 0, N, N);
     g.fillStyle = '#fff';
     const half = N / 2, n0 = Math.ceil(half / step) + 1;
+    const at = (x, y) => (x < 0 || y < 0 || x >= N || y >= N) ? 0 : A[(Math.floor(y) * N + Math.floor(x)) * 4 + 3];
+    // 2단 격자 — 셀이 글자 안에 '완전히' 들어가면 큰 구멍, 경계에 걸치면 3×3 으로 잘게 뚫는다.
+    //   큰 점 하나로 획을 표현하면 숫자가 덩어리로 뭉쳐 안 읽힌다(유저 스샷). 레퍼런스도
+    //   본체는 큰 점, 테두리는 작은 점으로 형태를 해상한다.
+    const SUB = 3;
     for (let iy = -n0; iy <= n0; iy++)
       for (let ix = -n0; ix <= n0; ix++) {
         const cx = half + (ix + 0.5) * step, cy = half + (iy + 0.5) * step;
-        if (cx < 0 || cy < 0 || cx >= N || cy >= N) continue;
-        const i = (Math.floor(cy) * N + Math.floor(cx)) * 4 + 3;
-        if (A[i] > 100) { g.beginPath(); g.arc(cx, cy, step * 0.52, 0, 6.2832); g.fill(); }
+        if (cx < -step || cy < -step || cx >= N + step || cy >= N + step) continue;
+        const h = step * 0.42;
+        const corners = [at(cx - h, cy - h), at(cx + h, cy - h), at(cx - h, cy + h), at(cx + h, cy + h), at(cx, cy)];
+        const inAll = corners.every(v => v > 100), inAny = corners.some(v => v > 100);
+        if (inAll) { g.beginPath(); g.arc(cx, cy, step * 0.52, 0, 6.2832); g.fill(); }
+        else if (inAny) {
+          const ss = step / SUB;
+          for (let sy = 0; sy < SUB; sy++)
+            for (let sx = 0; sx < SUB; sx++) {
+              const px = cx - step / 2 + (sx + 0.5) * ss, py = cy - step / 2 + (sy + 0.5) * ss;
+              if (at(px, py) > 100) { g.beginPath(); g.arc(px, py, ss * 0.50, 0, 6.2832); g.fill(); }
+            }
+        }
       }
   }
   return _gSpr;
@@ -1371,7 +1392,7 @@ function stripGlyph(ctx, cat, W) {
 
 
 let candSel = 'newtonSet', candShape = 1;
-const candP = { pitch: 0.11, gain: 1.15, speed: 1.0, inner: 0.55, prog: -0.01, harm: 0.55, q0: 0.04, satR: 1.2, hue: 0.75, beam: 1.5 };
+const candP = { pitch: 0.11, gain: 1.15, speed: 1.0, inner: 0.55, prog: -0.01, harm: 0.55, q0: 0.04, satR: 1.2, hue: 0.75, beam: 1.5, fine: 0 };
 const candT = { mono: 0, flat: 0, noGlow: 0, noInner: 0, bg: 0, holdRim: 0, innerMode: 0, actMode: 0, comp: 2 };
 {
   const host = document.getElementById('candToggles');
@@ -1419,7 +1440,7 @@ const candT = { mono: 0, flat: 0, noGlow: 0, noInner: 0, bg: 0, holdRim: 0, inne
 {
   const host = document.getElementById('candSliders');
   const defs = [['pitch', '닷 피치', 0.03, 0.30, 0.005], ['gain', '닷 굵기', 0.2, 2.0, 0.05],
-                ['speed', '모션 속도', 0, 3, 0.05], ['inner', '이너 폭', 0.05, 1.5, 0.05], ['harm', '배경 조화', 0, 1, 0.05], ['q0', '열 시작점', 0, 0.5, 0.01], ['satR', '채도 복원', 1, 2.2, 0.05], ['hue', '색상 보존', 0, 1, 0.05], ['beam', '투사 출력', 0.6, 3, 0.1]];
+                ['speed', '모션 속도', 0, 3, 0.05], ['inner', '이너 폭', 0.05, 1.5, 0.05], ['harm', '배경 조화', 0, 1, 0.05], ['q0', '열 시작점', 0, 0.5, 0.01], ['satR', '채도 복원', 1, 2.2, 0.05], ['hue', '색상 보존', 0, 1, 0.05], ['beam', '투사 출력', 0.6, 3, 0.1], ['fine', '마크끝 세밀(옵션)', 0, 1, 0.05]];
   for (const [k, lb, mn, mx, st] of defs) {
     const w = document.createElement('label');
     w.innerHTML = `<span>${lb}</span><input type="range" min="${mn}" max="${mx}" step="${st}" value="${candP[k]}"><output>${candP[k]}</output>`;
@@ -2175,6 +2196,7 @@ function frame(ts) {
       g2.uniform1f(P.u('uSatR'), candP.satR);
       g2.uniform1f(P.u('uHueKeep'), candP.hue);
       g2.uniform1f(P.u('uBeam'), candP.beam);
+      g2.uniform1f(P.u('uFine'), candP.fine);
       g2.drawArrays(g2.TRIANGLES, 0, 3);
       ctx2d.drawImage(candGL.cv, 0, 0);   // 공유 컨텍스트 → 이 셀로 복사
     }
@@ -2213,6 +2235,7 @@ function frame(ts) {
       g3.uniform1f(P.u('uSatR'), candP.satR);
       g3.uniform1f(P.u('uHueKeep'), candP.hue);
       g3.uniform1f(P.u('uBeam'), candP.beam);
+      g3.uniform1f(P.u('uFine'), candP.fine);
       for (const cell of stripCells) {
         g3.uniform1f(P.u('uState'), cell.state);
         g3.drawArrays(g3.TRIANGLES, 0, 3);
