@@ -917,7 +917,7 @@ export class FloorGL {
     const ctx = this.ctx, TR_ = TR[this.stage] || TR.T1, t = this.t;
     this._bgGlow(1160);
     this._titleGroup(500, TR_.sub, TR_.title);
-    const S = 654.902, GAP = 26.196, P = 52.392, y = 850;
+    const S = 589.4, GAP = 23.6, P = 52.392, y = 850;   // 벽과 같은 10% 축소(유저) — 러닝·농구 전환도 이 경로
     const x0 = CX - (S * 2 + GAP) / 2;
     // cardIn .8s (.38/.54) + cardFloat 4s/4.4s ×3 — 카드는 이미 바닥에 붙어 있어 '떠오름'은 원본대로 translate
     const card = (x, d, fd, fdur, D, done) => {

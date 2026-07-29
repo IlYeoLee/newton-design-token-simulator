@@ -723,7 +723,9 @@ export class WallGL {
     const ctx = this.ctx, t = this.t, TR_ = TR[this.stage] || TR.BX_T1;
     this._bgGlow();
     this._titleGroup(221, TR_.sub, TR_.title, .1, .85, 44);
-    const S = 654.902, GAP = 26.196, y = 532, x0 = CX - (S * 2 + GAP) / 2;
+    // 카드는 대지 실값(654.902)에서 10% 줄였다 — 실크기로는 아래 버튼과 39px 밖에 안 떠서
+    // 붙어 보였다(유저). 줄인 만큼 간격이 100px 대로 벌어지고 카드도 덜 답답하다.
+    const S = 589.4, GAP = 23.6, y = 556, x0 = CX - (S * 2 + GAP) / 2;
     const card = (x, d, fd, fdur, D, done) => {
       const e = eOut(intro(t, d, .8)), c = cycle(t, fd, fdur, INF);
       ctx.save();
@@ -738,7 +740,7 @@ export class WallGL {
     card(x0 + S + GAP, .54, 1.85, 4.4, TR_.next, false);
     // sUpC .8s .95s + btnFloatC 3.6s 1.9s ∞ + btnPulse 3s 1.9s ∞
     const be = eOut(intro(t, .95, .8)), bf = cycle(t, 1.9, 3.6, INF), bp = cycle(t, 1.9, 3, INF);
-    this._button(1226, BTN, be,
+    this._button(1258, BTN, be,
       54 * (1 - be) + (bf == null ? 0 : kf(bf, [[0, 0], [.5, -18], [1, 0]])),
       bp == null ? 0 : kf(bp, [[0, 0], [.5, 1], [1, 0]]));
   }
@@ -765,7 +767,7 @@ export class WallGL {
     //   인물이 붉게 물든다. 한때 온보딩 셀렉 카드(multiply)를 참조해 바꿨었는데, 그러면 옷이
     //   검게 앉아 카드가 죽는다(유저 Figma 대조). 지면 카드도 같은 'lighter' 다.
     if (im) {
-      const w = 687, h = w * (im.naturalHeight / im.naturalWidth);
+      const w = S * 1.0491, h = w * (im.naturalHeight / im.naturalWidth);   // 인물 폭은 카드에 비례(구 고정 687)
       ctx.save(); if (done) ctx.globalCompositeOperation = 'lighter';
       ctx.drawImage(im, x + S / 2 - w / 2, y - 55, w, h);
       ctx.restore();
