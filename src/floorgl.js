@@ -126,16 +126,19 @@ export function growBar(ctx, x, y, w, h, p, o = {}) {
 
 export const GAUGE = { travel: 0.78, lead: 0.15, tail: 0.54 };   // 초 · 초 · 지나온 길이 대비 꼬리
 // 앱 SVG viewBox 360×130 그대로. 호 = M 19 64 A 261 188.5 0 0 1 341 64.
+// 다만 박스는 **잉크에 딱 맞춘다**(inkTop~inkBot): 원본 viewBox 는 위로 크라운 여백 21,
+// 아래로 눈금 라벨 자리 59 를 들고 있었는데 라벨을 뺐다 → 그 빈 띠가 타이틀·게이지 사이
+// 간격으로 보였다(유저: "간격이 과하게 넓어"). 호 자체 좌표는 그대로다.
 const ARC = {
-  vw: 360, vh: 130, x0: 19, x1: 341, cx: 180, rx: 261, ry: 188.5, top: 24,
+  vw: 360, x0: 19, x1: 341, cx: 180, rx: 261, ry: 188.5, top: 24,
   stroke: 6, dot: 39, core: 15.17,         // report.css .arc-dot / .arc-dot span
   clampL: 64, clampR: 316,                 // gauge.js — 마커는 페이드 구간 밖으로 안 나간다
   trackA: 0.85, trackR: 324.79 * 0.4264,   // trackFade 라디얼: 크라운 .85 → 양끝 0
-  valFs: 12, endFs: 11, endY: 90, endL: 48, endR: 306,
+  inkTop: 4, inkBot: 72,                   // 크라운의 마커 위끝 ~ 우측 끝 마커 아래끝
 };
 const arcY = ax => ARC.top + ARC.ry * (1 - Math.sqrt(Math.max(0, 1 - ((ax - ARC.cx) / ARC.rx) ** 2)));
 /** 폭 w(= viewBox 360 에 대응) 게이지의 높이 */
-export const gaugeH = w => Math.round(w / ARC.vw * ARC.vh);
+export const gaugeH = w => Math.round(w / ARC.vw * (ARC.inkBot - ARC.inkTop));
 
 const _gsCv = typeof document !== 'undefined' ? document.createElement('canvas') : null;
 
@@ -153,7 +156,7 @@ const _gsCv = typeof document !== 'undefined' ? document.createElement('canvas')
 export function arcGauge(ctx, x0, y, w, p, o = {}) {
   const P = clamp01(p), s = w / ARC.vw;
   const e = o.ease ? eOut(P) : P;
-  const X = ax => x0 + ax * s, Y = vy => y + vy * s;
+  const X = ax => x0 + ax * s, Y = vy => y + (vy - ARC.inkTop) * s;
   // 마커 위치 = 앱과 같은 클램프 (gauge.js place())
   const mx = ARC.clampL + (ARC.clampR - ARC.clampL) * e;
   const hx = X(mx), hy = Y(arcY(mx));
@@ -177,19 +180,6 @@ export function arcGauge(ctx, x0, y, w, p, o = {}) {
   }
   // ③ 마커 = 글라스
   glassDot(ctx, hx, hy, ARC.dot / 2 * s);
-  // ④ 수치 — 마커 밑 +40 (gauge.js), Supreme 12
-  ctx.textBaseline = 'middle';
-  if (o.value != null) {
-    ctx.font = F(400, ARC.valFs * s); ctx.textAlign = 'center';
-    ctx.fillStyle = 'rgba(255,255,255,.92)';
-    ctx.fillText(String(o.value), hx, hy + 40 * s);
-  }
-  // ⑤ 끝 라벨
-  if (o.ends !== false) {
-    ctx.font = F(400, ARC.endFs * s); ctx.fillStyle = NEU.t2; ctx.textAlign = 'center';
-    ctx.fillText(String(o.min ?? 0), X(ARC.endL), Y(ARC.endY));
-    ctx.fillText(String(o.max ?? 100), X(ARC.endR), Y(ARC.endY));
-  }
   ctx.restore();
 }
 
@@ -626,7 +616,7 @@ export class FloorGL {
     // main.js가 width를 직접 쓰면(반복형 스테이지) 그 값이 우선, 아니면 --dur 시간 진행.
     const w = n.style.width != null ? numOr(n.style.width, 0)
       : 600 * clamp01((this.t - n.delay) / n.dur);
-    arcGauge(this.ctx, x0, y, 760, w / 600, { value: Math.round(w / 6) });
+    arcGauge(this.ctx, x0, y, 760, w / 600);
   }
 
   _pill(x, y, w, h) {
