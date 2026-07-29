@@ -584,6 +584,82 @@ float innerDepth(float sd, float w){ return smoothstep(0.0, max(w, 1e-4), -sd); 
 const CAND_SHAPE_DEFAULT = 'float markShapeSD(vec2 p, float base){ return base; }';
 const CAND_SIG = 'vec4 markCandidate(vec4 A, vec2 uv, float sd, float inside, float ext, float state, float prog, float t)';
 const CANDIDATES = [
+  // ══ NEWTON 7상태 세트 — 상태마다 성격에 맞는 파형 ══════════════════════════
+  //   원칙(카탈로그): "재료는 열 하나, 상태는 파동의 위상."
+  //   그러니 재료(점)와 열(LUT)은 고정하고 파형만 바꾼다. 상태별 성격은 이렇게 읽었다:
+  //
+  //     Preview 예고  "여기가 다음"    얕고 느린 호흡 — 진폭 작고 주기 길다. 재촉하지 않는다.
+  //     Active  지금  "지금 밟아라"    바깥→안 조여드는 진행파. 도착이 곧 타이밍.
+  //     Hold    유지  "머물러라"       제자리 정상파(마디 고정) + 차오를수록 커지는 부하 떨림.
+  //     Success 성공  "됐다"           한 번의 방출. 되돌아오지 않는다 — 점이 튀며 흩어져 사라진다.
+  //     Miss    실패  "놓쳤다"         위상 붕괴. 주기성이 깨지고 격자가 흐트러지며 식는다.
+  //     Warning 경고  "위험"           빠른 명멸. 두 상태를 오간다(중간이 없다 = 경보의 문법).
+  //     Locked  잠김  "아직 아니다"     움직임 0. 성글고 균일 — 살아 있지 않다는 것이 정보다.
+  //
+  //   흐르는 파장과 제자리 파장을 구분한 것이 이 세트의 핵심이다.
+  //   흐름(Active·Success)은 '이동/방출'을, 제자리(Preview·Hold)는 '머묾'을 뜻한다.
+  { id: 'newtonSet', name: '★ NEWTON 7상태 세트 (제안)', why: '상태마다 다른 파형 — 예고=얕은 호흡 · 지금=조여드는 진행파 · 유지=정상파+부하 떨림 · 성공=한 번의 방출 · 실패=위상 붕괴 · 경고=명멸 · 잠김=정지. 재료와 색은 하나로 묶고 파형만 갈랐다.',
+    glsl: `${CAND_SIG} {
+  vec2  cell  = floor(uv / uDotPitch);
+  float seed  = chash(cell) * 6.2832;
+  float r     = length(uv) / max(ext, 1e-3);
+  float pitch = uDotPitch;
+  float w     = 1.0;
+  vec2  disp  = vec2(0.0);
+  float sp    = uDotSpeed;
+
+  if (state < 0.5) {
+    // ── Preview · 얕고 느린 호흡. 전체가 함께 부풀었다 꺼진다(개별 점은 놀지 않는다).
+    float br = 0.5 + 0.5 * sin(t * 0.85 * sp);
+    w = 0.42 + 0.30 * br + 0.12 * (1.0 - r);          // 중심이 아주 조금 더 두껍다
+  } else if (state < 1.5) {
+    // ── Active · 바깥에서 안으로 조여드는 진행파. 도착이 곧 타이밍.
+    float front = 1.0 - prog;
+    float band  = exp(-pow((r - front) / 0.20, 2.0));
+    float passed = smoothstep(front + 0.10, front - 0.06, r);
+    w = 0.34 + 0.80 * passed + 1.25 * band;
+    disp = (r > 1e-4 ? uv / max(length(uv), 1e-4) : vec2(0.0)) * band * pitch * 0.30;  // 파면이 점을 살짝 안으로 당긴다
+  } else if (state < 2.5) {
+    // ── Hold · 진행은 면적(수위), 긴장은 제자리 정상파, 부하는 떨림.
+    float lvl  = -1.05 + 2.10 * prog;
+    float calm = smoothstep(1.0, 0.88, prog);          // 완료 직전 잠잠해진다 = Success 예고
+    float node = sin(uv.x * 8.5) * sin(t * 3.2 * sp) * 0.042 * calm;
+    float d    = (lvl + node) - uv.y;
+    float sub  = smoothstep(-0.05, 0.05, d);
+    float skin = exp(-pow(d / 0.05, 2.0));             // 표면 장력 = 선 없이 경계를 말한다
+    float load = smoothstep(0.20, 0.95, prog) * sub;   // 부하 = 차오를수록 크게 떤다
+    disp = vec2(sin(t * 20.0 * sp + seed), cos(t * 17.0 * sp + seed)) * pitch * 0.13 * load;
+    // 바닥값 0.26 — 진행 0 에서도 마크는 거기 있어야 한다. 수위는 '차오르는 것'이지
+    // '없다가 생기는 것'이 아니다. 이게 없으면 Hold 시작 순간 마크가 통째로 사라진다.
+    w = 0.26 + sub * (0.52 + 0.42 * prog) + skin * 1.15;
+  } else if (state < 3.5) {
+    // ── Success · 한 번의 방출. 되돌아오지 않는다 — 튀며 흩어져 사라진다.
+    float e = 1.0 - pow(1.0 - prog, 2.2);
+    vec2 dir = length(uv) > 1e-4 ? uv / length(uv) : vec2(0.0);
+    vec2 scat = (vec2(chash(cell), chash(cell + 3.3)) - 0.5) * 2.0;
+    disp = -(dir * 0.75 + scat * 0.55) * e * pitch * 3.2;
+    w = (1.0 - e) * 1.55 + exp(-pow((r - e * 1.3) / 0.22, 2.0)) * 0.9;   // 파문 선단은 끝까지 밝다
+  } else if (state < 4.5) {
+    // ── Miss · 위상 붕괴. 주기성이 깨지고 격자가 흐트러지며 식어 멈춘다.
+    float cool = smoothstep(0.0, 0.45, prog);
+    float chaos = smoothstep(0.0, 0.6, prog);
+    disp = (vec2(chash(cell + 1.1), chash(cell + 5.9)) - 0.5) * pitch * 1.35 * chaos;
+    pitch = uDotPitch * (1.0 + 0.35 * chaos);          // 성글어진다 = 밀도가 빠져나간다
+    w = (0.85 - 0.55 * cool) * (1.0 - smoothstep(0.55, 1.0, prog));
+  } else if (state < 5.5) {
+    // ── Warning · 빠른 명멸. 두 상태를 오간다 — 중간이 없는 것이 경보의 문법이다.
+    float blink = step(0.42, fract(t * 2.7 * sp));
+    float micro = sin(t * 26.0 * sp + seed) * 0.5 + 0.5;
+    disp = vec2(sin(t * 31.0 * sp + seed), 0.0) * pitch * 0.09;
+    w = mix(0.30, 1.35, blink) + micro * 0.12;
+  } else {
+    // ── Locked · 정지. 성글고 균일 — 살아 있지 않다는 것 자체가 정보다.
+    pitch = uDotPitch * 1.45;
+    w = 0.62;
+  }
+  return dotFormAt(uv + disp, uv, sd, ext, w, pitch, state, prog);
+}` },
+
   { id: 'base', name: '정본', why: '지금 시뮬레이터가 쓰는 것 — 비교 기준',
     glsl: `${CAND_SIG} { return A; }` },
 
