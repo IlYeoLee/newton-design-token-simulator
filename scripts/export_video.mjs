@@ -54,12 +54,33 @@ const browser = await puppeteer.launch({
     '--enable-unsafe-swiftshader', `--window-size=${W},${H}`],
 });
 const page = await browser.newPage();
+// ★ 가상 시계 — 페이지의 모든 시간을 우리가 민다.
+//   이게 없으면 셰이더 uTime·three.Clock 이 '실시간'으로 돈다. 프레임 하나 렌더에 1~2초가
+//   걸리므로 애니메이션이 그만큼 앞질러 가고, 결과 영상이 미친 듯이 빨라진다(유저: 너무 빠름).
+//   performance.now·Date.now·rAF 타임스탬프를 전부 __vt 로 묶으면 시간은 우리 것이 된다.
+await page.evaluateOnNewDocument(() => {
+  window.__vt = 0;
+  const P = performance;
+  P.now = () => window.__vt;
+  const raf = window.requestAnimationFrame.bind(window);
+  window.requestAnimationFrame = cb => raf(() => cb(window.__vt));
+  const D0 = 1735689600000;
+  Date.now = () => D0 + window.__vt;
+});
 await page.setViewport({ width: W, height: H, deviceScaleFactor: 1 });
 const errs = [];
 page.on('pageerror', e => errs.push(e.message.slice(0, 160)));
 await page.goto(URLBASE + '?dev=1', { waitUntil: 'networkidle2', timeout: 180000 });
 await page.waitForFunction('!!window.__dbg?.session', { timeout: 120000 });
-await new Promise(r => setTimeout(r, 9000));   // 에셋·셰이더 준비
+// 부팅 동안에도 가상 시계를 밀어 준다 — 안 그러면 초기화가 시간 0 에 얼어붙는다.
+const warm = async (ms, step = 16.7) => {
+  for (let v = 0; v < ms; v += step) {
+    await page.evaluate(vv => { window.__vt = vv; }, v);
+    await page.evaluate(() => new Promise(r => requestAnimationFrame(() => r())));
+  }
+};
+await new Promise(r => setTimeout(r, 9000));   // 에셋 로드(실시간 대기)
+await warm(1200);                              // 가상 시계로 초기 애니메이션 워밍업
 
 await page.evaluate(({ sport, beam, ht, session }) => {
   const d = window.__dbg;
@@ -78,7 +99,10 @@ await page.evaluate(({ sport, beam, ht, session }) => {
     //   실사 합성용. 우리가 '쏘는 빛'만 남기고 무대(바닥·벽·봇·골대·그리드)를 전부 끈다.
     //   판별 기준은 재질이다 — 투사광은 ShaderMaterial(MARKFX·LANEFX·인물) 이거나
     //   맵을 가진 MeshBasicMaterial(투사 UI 평면)이다. PBR 재질은 전부 무대다.
-    d.scene.background = null;
+    // background 를 null 로 두면 setSurfaces/applyDayAmbience 가 .setHex 를 부르다 죽는다
+    //   (실측: 페이지 에러 2건). 검은 Color 로 둔다 — 결과는 같고 에러가 없다.
+    if (d.scene.background?.setHex) d.scene.background.setHex(0x000000);
+    if (d.scene.fog?.color?.setHex) d.scene.fog.color.setHex(0x000000);
     d.renderer.setClearColor(0x000000, 1);
     if (d.xbot?.root) d.xbot.root.visible = false;
     d.scene.traverse(o => {
@@ -106,6 +130,7 @@ for (let i = 0; i < N; i++) {
   const t = i / FPS;
   await page.evaluate(tt => new Promise(res => {
     const d = window.__dbg;
+    window.__vt = 1200 + tt * 1000;          // 가상 시계 — 셰이더·클록이 전부 이걸 본다
     d.state.playing = false;
     d.state.time = tt;
     if (d.session?.active) d.session.t = tt;
