@@ -1,0 +1,307 @@
+<!doctype html><html lang=ko><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1">
+<title>Chromatic metal — Figma 셰이더 GLSL 이식</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🪞</text></svg>">
+<style>
+  :root{--bg:#0A0C10;--line:#1D222C;--text:#E9EAEE;--dim:#98A1AD;--sand:#FEC389}
+  body{margin:0;background:var(--bg);color:var(--text);font:13px/1.6 -apple-system,system-ui,sans-serif}
+  .wrap{max-width:1200px;margin:0 auto;padding:22px 20px 60px}
+  h1{font-size:16px;margin:0 0 4px}
+  .sub{color:var(--dim);font-size:12px;margin:0 0 16px}
+  .stage{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:18px}
+  .cell{background:#000;border-radius:12px;overflow:hidden;position:relative}
+  .cell canvas,.cell img{width:100%;display:block}
+  .cap{position:absolute;left:8px;top:6px;font-size:10.5px;color:var(--sand);
+    text-shadow:0 1px 3px #000;letter-spacing:.04em}
+  .sliders{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:5px 26px}
+  .sld{display:flex;gap:10px;align-items:center;font-size:12px;color:var(--dim)}
+  .sld label{width:88px;flex:none}
+  .sld input{flex:1;accent-color:#FA3030}
+  .sld i{width:44px;text-align:right;font-style:normal;font-variant-numeric:tabular-nums;color:var(--text)}
+  .note{margin-top:16px;font-size:11.5px;color:var(--dim);line-height:1.7}
+  .note b{color:var(--text)}
+  code{color:var(--sand);font-size:11px}
+</style>
+</head><body><div class="wrap">
+<h1>Chromatic metal — Figma 셰이더 GLSL 이식</h1>
+<p class="sub">Figma 라이브러리 소스(WGSL 3패스)를 그대로 옮겼습니다. H 가우시안 → V 가우시안 → 메탈 본체.
+숨은 내부 상수까지 동일: <code>aaSamples 4 · aaSpread 1 · alphaThresh 0.5 · alphaSoft 0.05 · roughFreq 1000 · chromaSepB = chromaSepR</code></p>
+
+<div class="stage">
+  <div class="cell"><span class="cap">① 입력 알파 (Figma 패스)</span><canvas id="src"></canvas></div>
+  <div class="cell"><span class="cap">② edgeMask (2패스 블러)</span><canvas id="mask"></canvas></div>
+  <div class="cell"><span class="cap">③ Chromatic metal</span><canvas id="out"></canvas></div>
+</div>
+
+<div class="sliders" id="sliders"></div>
+<p class="note" id="note"></p>
+</div>
+
+<script type="module">
+// ── Figma 노드의 실제 파라미터값 (유저 파일 188:3134 계열) ──────────────────
+const P = {
+  blurStrength: 7.5,   // Rounding
+  heightIntensity: 200, // Depth %
+  roughness: 0,         // %
+  chromaSepR: 10,       // RGB split %
+  noiseScale: 79,       // Scale %
+  stretch: 201,         // %
+  noiseAngle: 30,
+  gradientRepeats: 6,
+  gradientOffset: 26,   // %
+  phase: 100,           // %
+  evolution: -73,       // %
+};
+// 셰이더 소스의 DEFAULT_GRADIENT — 하드 스톱(0.43·0.55·0.70) 포함
+const STOPS = [
+  [0.18, 1, 1, 1], [0.43, .278, .302, .329], [0.43, 1, 1, 1], [0.55, 1, 1, 1],
+  [0.55, .247, .247, .251], [0.70, .247, .247, .251], [0.70, 1, 1, 1],
+];
+
+const foot = await fetch('/marks/foot-right.json').then(r => r.json());
+const [, , VW, VH] = foot.viewBox;
+const SS = 3;                                     // 슈퍼샘플
+const W = Math.round(VW * SS), H = Math.round(VH * SS);
+
+// ── ① 입력 알파 — Figma 패스를 2D 캔버스에 (형태는 좌표 그대로) ──────────────
+const srcCv = document.getElementById('src');
+srcCv.width = W; srcCv.height = H;
+{
+  const c = srcCv.getContext('2d');
+  c.scale(SS, SS); c.fillStyle = '#fff';
+  for (const p of foot.paths) c.fill(new Path2D(p.d));
+}
+
+// ── 그라디언트 램프를 1024 LUT 로 굽는다 (하드 스톱 보존) ────────────────────
+const rampLUT = (() => {
+  const N = 1024, a = new Uint8Array(N * 4);
+  for (let i = 0; i < N; i++) {
+    const t = i / (N - 1);
+    let c = STOPS[0];
+    if (t >= STOPS[STOPS.length - 1][0]) c = STOPS[STOPS.length - 1];
+    else for (let s = 0; s < STOPS.length - 1; s++) {
+      const p1 = STOPS[s + 1][0];
+      if (t <= p1) { const p0 = STOPS[s][0], k = (t - p0) / Math.max(p1 - p0, 1e-5);
+        c = [0, 1, 2, 3].map(j => STOPS[s][j] + (STOPS[s + 1][j] - STOPS[s][j]) * k); break; }
+    }
+    a[i * 4] = c[1] * 255; a[i * 4 + 1] = c[2] * 255; a[i * 4 + 2] = c[3] * 255; a[i * 4 + 3] = 255;
+  }
+  return a;
+})();
+
+// ── WebGL ────────────────────────────────────────────────────────────────────
+const outCv = document.getElementById('out'), maskCv = document.getElementById('mask');
+outCv.width = maskCv.width = W; outCv.height = maskCv.height = H;
+const gl = outCv.getContext('webgl', { alpha: true, antialias: false, premultipliedAlpha: true });
+gl.getExtension('OES_standard_derivatives');
+const mctx = maskCv.getContext('2d');
+
+const VS = 'attribute vec2 a;varying vec2 v;void main(){v=a*0.5+0.5;gl_Position=vec4(a,0.,1.);}';
+const HEAD = '#extension GL_OES_standard_derivatives : enable\nprecision highp float;\nvarying vec2 v;\n';
+
+// 가우시안 1패스 — WGSL 원본과 동일(반경 ceil(3σ), 32 상한, 경계 밖은 0)
+const blurFS = axis => HEAD + `
+uniform sampler2D uTex; uniform vec2 uTexel; uniform float uSigma;
+void main(){
+  float sig = max(uSigma, 0.001);
+  float r = min(ceil(sig * 3.0), 32.0);
+  float wSum = 0.0, acc = 0.0;
+  for (int i = -32; i <= 32; i++) {          // ES 1.0: 상한 고정 + 조건 continue
+    float fi = float(i);
+    if (abs(fi) > r) continue;
+    vec2 p = v + ${axis === 'h' ? 'vec2(fi * uTexel.x, 0.0)' : 'vec2(0.0, fi * uTexel.y)'};
+    vec2 inB = step(vec2(0.0), p) * step(p, vec2(1.0));
+    float a = texture2D(uTex, clamp(p, 0.0, 1.0)).${axis === 'h' ? 'a' : 'r'} * (inB.x * inB.y);
+    float w = exp(-0.5 * (fi / sig) * (fi / sig));
+    acc += a * w; wSum += w;
+  }
+  float o = acc / wSum;
+  gl_FragColor = vec4(o, o, o, o);
+}`;
+
+const mainFS = HEAD + `
+uniform sampler2D uTex, uBlur, uRamp;
+uniform float uDepth, uSplit, uScale, uStretch, uAngle, uOffset, uPhase, uEvo, uRepeats, uRough;
+#define TILE 8.0
+#define AA_SAMPLES 4
+#define AA_SPREAD 1.0
+#define A_THRESH 0.5
+#define A_SOFT 0.05
+
+float hash3(vec3 p){
+  vec3 q = fract(p * vec3(0.1031, 0.1030, 0.0973));
+  q += dot(q, q.yxz + 33.33);
+  return fract((q.x + q.y) * q.z);
+}
+float noise3T(vec3 p, float tp){
+  vec3 i = floor(p), f = fract(p), s = f * f * (3.0 - 2.0 * f);
+  float wx0 = i.x - floor(i.x / tp) * tp, x1w = (i.x + 1.0) - floor((i.x + 1.0) / tp) * tp;
+  float wz0 = i.z - floor(i.z / tp) * tp, z1w = (i.z + 1.0) - floor((i.z + 1.0) / tp) * tp;
+  float y0 = i.y, y1 = i.y + 1.0;
+  float v000 = hash3(vec3(wx0,y0,wz0)), v100 = hash3(vec3(x1w,y0,wz0));
+  float v010 = hash3(vec3(wx0,y1,wz0)), v110 = hash3(vec3(x1w,y1,wz0));
+  float v001 = hash3(vec3(wx0,y0,z1w)), v101 = hash3(vec3(x1w,y0,z1w));
+  float v011 = hash3(vec3(wx0,y1,z1w)), v111 = hash3(vec3(x1w,y1,z1w));
+  return mix(mix(mix(v000,v100,s.x), mix(v010,v110,s.x), s.y),
+             mix(mix(v001,v101,s.x), mix(v011,v111,s.x), s.y), s.z);
+}
+// ★ 원본 OCTAVES = 1 이라 fbm 이 노이즈 한 번과 같다(amp 0.5 / totalAmp 0.5 상쇄)
+float fbm3(vec3 p){ return noise3T(p, TILE); }
+
+float heightAt(vec3 np, float hi, float em, float eps){
+  float nv  = fbm3(np);
+  float dnx = fbm3(np + vec3(eps, 0.0, 0.0)) - fbm3(np - vec3(eps, 0.0, 0.0));
+  float dny = fbm3(np + vec3(0.0, eps, 0.0)) - fbm3(np - vec3(0.0, eps, 0.0));
+  return mix(0.5, nv * em, hi) + (dnx + dny) * 0.5 * hi * 0.3;
+}
+vec3 ramp(float t){ return texture2D(uRamp, vec2(clamp(t, 0.0, 1.0), 0.5)).rgb; }
+vec3 aaRamp(float rawH, float offset){
+  float tS = rawH + offset;
+  float tW = fract(tS);
+  float fw = max(fwidth(tS), 1e-5);
+  float d  = min(tW, 1.0 - tW);
+  float bl = clamp(d / (fw * 1.5), 0.0, 1.0);
+  float tO = tW > 0.5 ? tW - 1.0 : tW + 1.0;
+  return mix(ramp(tO), ramp(tW), bl);
+}
+
+void main(){
+  float hi     = uDepth / 100.0;
+  float sepR   = uSplit / 1000.0;
+  float sepB   = uSplit / 1000.0;          // ★ 원본이 chromaSepR 을 B 에도 그대로 넣는다
+  float nScale = max(0.01, uScale / 100.0);
+  float strY   = max(0.01, uStretch / 100.0);
+  float gOff   = uOffset / 100.0;
+  float phX    = (uPhase / 100.0) * TILE;
+  float evZ    = (uEvo / 100.0) * TILE;
+
+  float ang = uAngle * 0.017453293;
+  float ca = cos(ang), sa = sin(ang);
+  vec2 cUv = v - 0.5;
+  vec2 rUv = vec2(cUv.x * ca - cUv.y * sa, cUv.x * sa + cUv.y * ca) + 0.5;
+
+  vec4  inputColor = texture2D(uTex, v);
+  float edgeMask   = texture2D(uBlur, v).r;
+
+  vec3 nb = vec3(rUv.x / nScale + phX, rUv.y / nScale / strY, 0.37 + evZ);
+  float eps = 0.005 / nScale;
+  float nx = fbm3(nb + vec3(eps, 0.0, 0.0)) - fbm3(nb - vec3(eps, 0.0, 0.0));
+  float ny = fbm3(nb + vec3(0.0, eps, 0.0)) - fbm3(nb - vec3(0.0, eps, 0.0));
+  float hC = heightAt(nb, hi, edgeMask, eps);
+
+  vec2 nDir = normalize(vec2(nx, ny) + vec2(1e-6));
+  vec2 shR = nDir * sepR, shB = nDir * sepB;
+
+  float roughAmt = max(0.0, uRough / 100.0);
+  float rf = 1000.0;
+  float rn = noise3T(vec3(rUv.x * rf, rUv.y * rf, 0.37 * rf), TILE * rf);
+  float rd = (rn * 2.0 - 1.0) * roughAmt * 0.05 * edgeMask;
+
+  float hR = clamp(heightAt(nb + vec3(shR, 0.0), hi, edgeMask, eps) + rd, 0.0, 1.0);
+  float hG = clamp(hC + rd, 0.0, 1.0);
+  float hB = clamp(heightAt(nb - vec3(shB, 0.0), hi, edgeMask, eps) + rd, 0.0, 1.0);
+
+  float rep = max(1.0, floor(uRepeats + 0.5));
+  float dR = fwidth(hR) * AA_SPREAD * rep;
+  float dG = fwidth(hG) * AA_SPREAD * rep;
+  float dB = fwidth(hB) * AA_SPREAD * rep;
+  vec3 aR = vec3(0.0), aG = vec3(0.0), aB = vec3(0.0);
+  for (int s = 0; s < AA_SAMPLES; s++) {
+    float j = (float(s) + 0.5) / float(AA_SAMPLES) - 0.5;
+    aR += aaRamp(hR * rep + j * dR, gOff);
+    aG += aaRamp(hG * rep + j * dG, gOff);
+    aB += aaRamp(hB * rep + j * dB, gOff);
+  }
+  float invN = 1.0 / float(AA_SAMPLES);
+  vec3 chrome = vec3((aR * invN).r, (aG * invN).g, (aB * invN).b);
+
+  float a = smoothstep(A_THRESH - A_SOFT, A_THRESH + A_SOFT, edgeMask);
+  gl_FragColor = vec4(chrome * a, a);        // premultiplied — 원본과 동일
+}`;
+
+const mk = (fs) => {
+  const sh = (t, s) => { const o = gl.createShader(t); gl.shaderSource(o, s); gl.compileShader(o);
+    if (!gl.getShaderParameter(o, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(o)); return o; };
+  const p = gl.createProgram();
+  gl.attachShader(p, sh(gl.VERTEX_SHADER, VS)); gl.attachShader(p, sh(gl.FRAGMENT_SHADER, fs));
+  gl.linkProgram(p);
+  if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
+  const U = {};
+  return { p, u: n => (U[n] ??= gl.getUniformLocation(p, n)) };
+};
+const PH = mk(blurFS('h')), PV = mk(blurFS('v')), PM = mk(mainFS);
+
+gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
+gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 3,-1, -1,3]), gl.STATIC_DRAW);
+for (const { p } of [PH, PV, PM]) { const a = gl.getAttribLocation(p, 'a');
+  gl.enableVertexAttribArray(a); gl.vertexAttribPointer(a, 2, gl.FLOAT, false, 0, 0); }
+
+const tex = (unit, src, w, h) => {
+  const t = gl.createTexture();
+  gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, t);
+  if (src instanceof Uint8Array) gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, src);
+  else if (src) { gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+                  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, src); }
+  else gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+  for (const [k, val] of [[gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR],
+                          [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]])
+    gl.texParameteri(gl.TEXTURE_2D, k, val);
+  return t;
+};
+const srcTex  = tex(0, srcCv);
+const rampTex = tex(3, rampLUT, 1024, 1);
+const t1 = tex(1, null, W, H), t2 = tex(2, null, W, H);
+const fbo = (t) => { const f = gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER, f);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, t, 0); return f; };
+const f1 = fbo(t1), f2 = fbo(t2);
+
+function render() {
+  gl.viewport(0, 0, W, H);
+  // 패스 ①: H
+  gl.bindFramebuffer(gl.FRAMEBUFFER, f1); gl.useProgram(PH.p);
+  gl.uniform1i(PH.u('uTex'), 0); gl.uniform2f(PH.u('uTexel'), 1 / W, 1 / H);
+  gl.uniform1f(PH.u('uSigma'), P.blurStrength * SS);   // σ 는 픽셀 단위 → 슈퍼샘플 배율 반영
+  gl.drawArrays(gl.TRIANGLES, 0, 3);
+  // 패스 ②: V
+  gl.bindFramebuffer(gl.FRAMEBUFFER, f2); gl.useProgram(PV.p);
+  gl.uniform1i(PV.u('uTex'), 1); gl.uniform2f(PV.u('uTexel'), 1 / W, 1 / H);
+  gl.uniform1f(PV.u('uSigma'), P.blurStrength * SS);
+  gl.drawArrays(gl.TRIANGLES, 0, 3);
+  // 패스 ③: 메탈 → 화면
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.useProgram(PM.p);
+  gl.uniform1i(PM.u('uTex'), 0); gl.uniform1i(PM.u('uBlur'), 2); gl.uniform1i(PM.u('uRamp'), 3);
+  for (const [k, n] of [['uDepth','heightIntensity'], ['uSplit','chromaSepR'], ['uScale','noiseScale'],
+    ['uStretch','stretch'], ['uAngle','noiseAngle'], ['uOffset','gradientOffset'],
+    ['uPhase','phase'], ['uEvo','evolution'], ['uRepeats','gradientRepeats'], ['uRough','roughness']])
+    gl.uniform1f(PM.u(k), P[n]);
+  gl.drawArrays(gl.TRIANGLES, 0, 3);
+  // edgeMask 미리보기(패스 ② 결과를 읽어 2D 로)
+  gl.bindFramebuffer(gl.FRAMEBUFFER, f2);
+  const px = new Uint8Array(W * H * 4); gl.readPixels(0, 0, W, H, gl.RGBA, gl.UNSIGNED_BYTE, px);
+  const img = mctx.createImageData(W, H);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {      // readPixels 는 상하 반전
+    const s = ((H - 1 - y) * W + x) * 4, d = (y * W + x) * 4;
+    img.data[d] = img.data[d+1] = img.data[d+2] = px[s]; img.data[d+3] = 255;
+  }
+  mctx.putImageData(img, 0, 0);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+}
+
+const SL = [['blurStrength','Rounding',0,10,.5], ['heightIntensity','Depth %',0,200,1],
+  ['roughness','Roughness %',0,100,1], ['chromaSepR','RGB split %',0,100,1],
+  ['noiseScale','Scale %',2,200,1], ['stretch','Stretch %',0,500,1],
+  ['noiseAngle','Angle',-180,180,1], ['gradientRepeats','Repeats',1,10,1],
+  ['gradientOffset','Offset %',-100,100,1], ['phase','Phase %',-100,100,1],
+  ['evolution','Evolution %',-100,100,1]];
+const host = document.getElementById('sliders');
+for (const [k, label, lo, hi, st] of SL) {
+  const d = document.createElement('div'); d.className = 'sld';
+  d.innerHTML = `<label>${label}</label><input type=range min=${lo} max=${hi} step=${st} value=${P[k]}><i>${P[k]}</i>`;
+  d.querySelector('input').oninput = e => { P[k] = +e.target.value;
+    e.target.nextElementSibling.textContent = P[k]; render(); };
+  host.appendChild(d);
+}
+render();
+document.getElementById('note').innerHTML =
+  `입력 <b>${VW.toFixed(1)}×${VH.toFixed(1)}</b> (Figma 패스 5개) · 렌더 <b>${W}×${H}</b> (SS ${SS}×) · 램프 LUT 1024 · 스톱 ${STOPS.length}개(하드 스톱 3개 포함).<br>
+   <b>Phase</b>·<b>Evolution</b> 이 모션 채널입니다 — 노이즈 좌표의 X·Z 를 밀어 메탈 결이 흐릅니다. 구웠으면 죽었을 축.`;
+</script></body></html>
