@@ -494,11 +494,11 @@ export class WallGL {
     ctx.save(); rrPath(ctx, px, py, ph, ph, 54); ctx.clip();
     const ca = this._img('coach_a.png'), cb = this._img('coach_b.png');
     for (const im of [ca, cb]) if (im) ctx.drawImage(im, px - 28.09, py - 74.05, 275.305, 511.608);
+    ctx.restore();
     const tx = px + ph + 40.857;
     txt(ctx, 'Boxing Basic Jab Combo', tx, py + 24, T.sub, 700, NEU.inkDark, { ls: -2.55 });
     txt(ctx, 'Skilled User Pack · Boxing ·Quite On', tx, py + 24 + 52 * 1.2 + 20.429, T.label, 400, NEU.t2, { ls: -.96 });
-
-
+    ctx.restore();
   }
 
   _wrStats(ctx, LX, stY, LW, t) {
@@ -517,11 +517,13 @@ export class WallGL {
     const bar = (i, bw, label, delay, solid) => {
       const by = gY + i * (barH + 4.851);
       const rev = eOut(intro(t, delay, .7));   // graphReveal — 오른쪽에서 좌로 열림
+      ctx.save();
       ctx.beginPath(); ctx.rect(gR - bw * rev, by, bw * rev, barH); ctx.clip();
       const g = ctx.createLinearGradient(gR - bw, 0, gR + bw * 0.08, 0);
       g.addColorStop(.63, PAL.red); g.addColorStop(.9, PAL.coral); g.addColorStop(1, PAL.sand);
       rrFill(ctx, gR - bw, by, bw, barH, 40, solid || g);
       txt(ctx, label, gR - bw + 24.256, by + barH / 2, T.label, 400, '#fff', { ls: -1.21, base: 'middle' });
+      ctx.restore();
     };
     bar(0, 194.048, '5min', 1.0);
     bar(1, 388.095, '10min', 1.15);
@@ -530,11 +532,13 @@ export class WallGL {
     rrFill(ctx, gR - (iw - 20), ry, iw - 20, barH, 40, NEU.surface);
     ctx.save(); ctx.globalAlpha *= 0.7;
     txt(ctx, 'Fight!', gR - (iw - 20) + 24.256, ry + barH / 2, T.label, 700, NEU.inkDark, { ls: -1.21, base: 'middle' });
+    ctx.restore();
     bar(2, 582.143, '15min', 1.3);
     // 좌측 큰 숫자 오버레이
     txt(ctx, '30', ix + 24.256, y + 24.256, NUM_S.md, 700, NEU.inkDark, { fam: dot9 });
     ctx.save(); ctx.globalAlpha *= 0.6;
     txt(ctx, 'min', ix + 24.256, y + 24.256 + 145.536, T.label, 700, NEU.inkDark, { ls: -1.21 });
+    ctx.restore();
     y += totH + 32;
     // ── Setup
     txt(ctx, 'Setup', ix + iw / 2, y + 8, T.label, 400, NEU.t1, { ls: -.5, align: 'center' });
@@ -546,9 +550,16 @@ export class WallGL {
                    ['Level & Mode', 'Quite On', 102], ['Main Workout', '15m', 102]];
     cells.forEach(([lab, val, ch], i) => {
       const cx0 = ix + 10 + (i % 2) * (cw + 10), cy0 = y + 10 + (i < 2 ? 0 : 113);
+      const e = eOut(intro(t, .95 + i * .10, .55));
+      ctx.save();
+      ctx.globalAlpha *= e;
+      ctx.translate(0, 26 * (1 - e));
+      const k = 0.95 + 0.05 * e;
+      ctx.translate(cx0 + cw / 2, cy0 + ch / 2); ctx.scale(k, k); ctx.translate(-(cx0 + cw / 2), -(cy0 + ch / 2));
       rrFill(ctx, cx0, cy0, cw, ch, R.md, NEU.surface);
       txt(ctx, lab, cx0 + 20, cy0 + 20, T.micro, 400, NEU.t2, { ls: -.5 });
       txt(ctx, val, cx0 + 20, cy0 + 20 + 24 * 1.1 + 8, T.label, 700, '#000', { ls: -1.08 });
+      ctx.restore();
     });
     y += setH + 32;
     // ── Connected
@@ -560,6 +571,9 @@ export class WallGL {
                   ['icon_device.png', 'External Device', 'Galaxy Watch Ready']];
     devs.forEach(([ic, n, s], i) => {
       const dx = ix + i * (dw + 8);
+      const e = eOut(intro(t, 1.3 + i * .13, .55));
+      ctx.save();
+      ctx.globalAlpha *= e; ctx.translate(0, 26 * (1 - e));
       rrFill(ctx, dx, y, dw, devH, R.lg, '#fff');
       // 아이콘 — 웨어러블만 원본 컬러, 나머지는 열화상 그라디언트 마스크
       const tim = i === 0 ? this._img(ic) : this._tinted(ic, 88, 88, [[0, PAL.red], [.6, PAL.coral], [.85, PAL.sand], [1, PAL.prism]]);
@@ -568,8 +582,8 @@ export class WallGL {
       txt(ctx, s, dx + 20, y + 20 + 88 + 8 + 36 * 1.2, T.micro, 400, NEU.t2, { ls: -.72 });
       const chk = this._img('check.svg');
       if (chk) ctx.drawImage(chk, dx + dw - 60, y + 20, 40, 40);
+      ctx.restore();
     });
-
   }
 
   // ── 밴드 그리기 조각 (모션은 레이어 변환이 담당) ────────────────────
