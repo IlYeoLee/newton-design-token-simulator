@@ -547,7 +547,7 @@ const CAND_PRELUDE = `
 uniform float uDotPitch, uDotGain, uDotSpeed, uInner;
 uniform float uMono, uFlat, uNoInner, uBg, uProgOvr;
 uniform float uInnerMode, uActMode, uComp, uHarm, uQ0, uSatR, uHueKeep, uBeam, uFine;
-uniform sampler2D uMask; uniform float uMaskOn;
+uniform sampler2D uMask; uniform float uMaskOn, uRefTone;
 float chash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 // 하프톤 한 셀: 반지름을 amount(0~1)가 정한다 → 밝을수록 굵은 점 (레퍼런스의 발바닥 밀도)
 float halftone(vec2 p, float pitch, float amount, float soft){
@@ -578,7 +578,9 @@ vec3 stateFill(float st, float q, float pg){
   return mix(C_GRAYF, C_GRAYL, q);                                       // Locked — 식은 재
 }
 // 아웃라인 없는 닷 폼 본체(⑩) — w 는 그 픽셀의 '켜짐 정도'. Hold 후보들이 w 만 바꿔 쓴다.
+uniform float uT2;   // 앰비언트 그라디언트 흐름용 시간
 vec4 dotFormQ(vec2 grid, vec2 uv, float sd, float ext, float w, float pitch, float st, float pg, float qOvr){
+  float t2 = uT2;
   // 경계 폭. 이 값 하나로 두 가지가 동시에 정해져 있었던 게 문제였다 —
   //   넓게 잡으면(0.16) 점 크기 변화는 예쁘지만 안쪽까지 작아져 뿌옇고,
   //   좁게 잡으면(0.06) 또렷하지만 모든 점이 최대 크기가 되어 균일한 덩어리가 된다.
@@ -597,7 +599,7 @@ vec4 dotFormQ(vec2 grid, vec2 uv, float sd, float ext, float w, float pitch, flo
   }
   // ★ 아웃라인이 없어도 이너 음영은 된다 — 선이 아니라 '점 크기'가 음영을 지면 되기 때문.
   //   가장자리 쪽 점을 키우면 글로우, 줄이면 섀도우. 윤곽선은 여전히 0 이다.
-  if (uInnerMode > 0.5) {
+  if (uInnerMode > 0.5 && uRefTone < 0.5) {
     // ★ 이너 음영은 '끝에서 가장 강하고 안으로 갈수록 급히 사라져야' 한다(유저: 경계가 뚜렷하고 안 예쁨).
     //   전엔 좁은 띠에 smoothstep 을 걸어 고원이 생겼고 — 그게 링처럼 보였다.
     //   깊이를 넓게 잡고(0.55·uInner) 거듭제곱으로 떨어뜨리면 가장자리에서 최대, 안쪽은 0 이 된다.
@@ -615,6 +617,14 @@ vec4 dotFormQ(vec2 grid, vec2 uv, float sd, float ext, float w, float pitch, flo
   //   거듭제곱으로 눌러 중심부가 오래 뉴턴 레드로 남게 한다.
   float rN   = clamp(length(uv) / max(ext * 1.55, 1e-3), 0.0, 1.0);
   float q    = qOvr >= 0.0 ? qOvr : clamp(uQ0 + (1.0 - uQ0) * pow(rN, 1.75), 0.0, 1.0);
+  // ★ 레퍼런스 톤(Figma 160:2714) — 색을 '마크가 스스로 내는 방사 램프'가 아니라
+  //   '뒤에 깔린 은은한 그라디언트가 비쳐 나오는 것'으로 바꾼다. 점 결·모션은 그대로 둔다.
+  if (uRefTone > 0.5) {
+    float gy = uv.y * 0.5 + 0.5, gx = uv.x * 0.5 + 0.5;
+    // 구간을 레드~코랄로 압축한다. 사구·크림까지 가면 '뉴턴 색이 아닌' 살구빛이 된다(유저).
+    float gg = clamp(0.60 * (1.0 - gy) + 0.24 * gx + 0.06 * sin(t2 * 0.25), 0.0, 1.0);
+    q = mix(0.02, 0.52, gg);
+  }
   // 경계 세밀화 — 마크 끝은 이미 부호거리로 자연히 잦아들므로 기본 0(유저 지적).
   //   필요할 때만 켜서 비교하라고 슬라이더로만 남긴다. 정작 필요한 곳은 글리프 쪽이었고
   //   거기는 stripGlyph 의 2단 격자가 담당한다.
@@ -623,13 +633,23 @@ vec4 dotFormQ(vec2 grid, vec2 uv, float sd, float ext, float w, float pitch, flo
   //   q 는 아래에서 색좌표로 쓰는 값(0=뜨겁다) — 같은 값으로 크기도 정하면 색과 결이 일치한다.
   float qh   = qOvr >= 0.0 ? qOvr
              : clamp(uQ0 + (1.0 - uQ0) * length(uv) / max(ext * 1.55, 1e-3), 0.0, 1.0);
-  amt *= mix(1.0, 0.42, smoothstep(0.15, 1.0, qh));
+  // ★ 레퍼런스는 점 크기가 '균일'하다. 크기를 열·이너·형태가 동시에 흔들면 제각각으로 보이고
+  //   가장자리 마무리도 지저분해진다(유저). 레퍼런스 톤에선 크기 변조를 끄고 결만 남긴다.
+  if (uRefTone < 0.5) amt *= mix(1.0, 0.42, smoothstep(0.15, 1.0, qh));
   float fineW = smoothstep(0.88, 0.30, amt) * uFine;
   float mC    = halftone(grid, pitch, amt * uDotGain, pitch * 0.16);
   float mF    = halftone(grid, pitch * 0.5, amt * uDotGain, pitch * 0.09);
   float m     = mix(mC, mF, fineW);
+  // 그라디언트가 '뚝뚝' 끊겨 보이던 것 — 점 커버리지가 계단으로 양자화돼서다. 미세 디더로 부순다.
+  m = clamp(m + (chash(floor(grid / max(pitch, 1e-4))) - 0.5) * 0.05, 0.0, 1.0);
   vec4 B = vec4(0.0);
   lay(B, stateFill(st, q, pg), m * clamp(amt * 1.25, 0.0, 1.0));
+  // 흰 이너 글로우 — Figma inset 0 0 14px white. 어두운 그림자가 아니라 '가장자리가 빛나는' 것.
+  if (uRefTone > 0.5) {
+    float cov = smoothstep(0.03, -0.03, sd);
+    float dep = clamp(-sd / max(0.26 * max(uInner, 0.15), 1e-4), 0.0, 1.0);
+    lay(B, vec3(1.0), cov * pow(1.0 - dep, 2.0) * 0.42 * clamp(uHalo, 0.0, 1.5));
+  }
   return B;
 }
 vec4 dotFormAt(vec2 grid, vec2 uv, float sd, float ext, float w, float pitch, float st, float pg){
@@ -1224,7 +1244,16 @@ void main(){
   //   tint = 배경을 최대채널 1 로 정규화한 색(=표면 알베도의 색조).
   vec3 tint = bg / max(max(bg.r, max(bg.g, bg.b)), 1e-4);
   vec3 col;
-  if (uComp < 0.5)      col = bg * (1.0 - r.a) + r.rgb;                        // 잉크(over) — 주간 규약
+  if (uComp < 0.5) {
+    // 잉크(over) — 색 있는 바닥에서 뉴턴 색을 지키는 유일한 합성이다.
+    //   가산은 산술적으로 불가능하다: 초록 위에 빨강을 더하면 R 은 1 에서 포화되고
+    //   G·B 엔 바닥값이 남아 노랗게 뜬다. 채도를 올려도 이미 옮겨간 '색상'은 안 돌아온다(유저).
+    //   대신 '가산 느낌'만 아주 조금 남긴다 — 표면을 완전히 덮지 않고 살짝 비치게(0.12).
+    vec3 ink = r.rgb * uBeam;
+    float La2 = dot(ink, vec3(0.2126, 0.7152, 0.0722));
+    ink = clamp(mix(vec3(La2), ink, uSatR), 0.0, 1.0);
+    col = bg * (1.0 - r.a) + ink + bg * r.a * 0.12 * uHarm;
+  }
   else if (uComp < 1.5) { vec3 a = r.rgb * uBeam; float La = dot(a, vec3(0.2126,0.7152,0.0722));
                           col = bg + clamp(mix(vec3(La), a, uSatR), 0.0, 1.0); }                                       // 가산 — 야간 규약
   else {
@@ -1552,8 +1581,8 @@ function stripGlyph(ctx, cat, W) {
 
 
 let candSel = 'newtonSet', candShape = 1;
-const candP = { pitch: 0.055, gain: 1.15, speed: 1.0, inner: 0.55, prog: -0.01, harm: 0.55, q0: 0.04, satR: 1.5, hue: 0.8, beam: 1.15, fine: 0 };
-const candT = { mono: 0, flat: 0, noGlow: 0, noInner: 0, bg: 0, holdRim: 0, innerMode: 0, actMode: 0, comp: 2 };
+const candP = { pitch: 0.055, gain: 1.15, speed: 1.0, inner: 0.55, prog: -0.01, harm: 0.22, q0: 0.04, satR: 1.45, hue: 1.0, beam: 1.05, fine: 0 };
+const candT = { mono: 0, flat: 0, noGlow: 0, noInner: 0, bg: 0, holdRim: 0, innerMode: 0, actMode: 0, comp: 0, refTone: 0 };
 {
   const host = document.getElementById('candToggles');
   for (const [k, lb] of [['mono', '무채 (색 빼고 명암만)'], ['flat', '플랫 (그라디언트까지)'],
@@ -1573,6 +1602,15 @@ const candT = { mono: 0, flat: 0, noGlow: 0, noInner: 0, bg: 0, holdRim: 0, inne
   }
   {
     const b = document.createElement('button'); b.className = 'btn on';
+    b.className = 'btn';
+    b.textContent = '레퍼런스 톤 OFF';
+    b.onclick = () => { candT.refTone = candT.refTone ? 0 : 1;
+      b.textContent = candT.refTone ? '레퍼런스 톤 ON' : '레퍼런스 톤 OFF';
+      b.classList.toggle('on', !!candT.refTone); };
+    host.appendChild(b);
+  }
+  {
+    const b = document.createElement('button'); b.className = 'btn';
     const LB = ['합성: 잉크(over)', '합성: 가산', '합성: 가산+표면반사'];
     b.textContent = LB[candT.comp];
     b.onclick = () => { candT.comp = (candT.comp + 1) % 3; b.textContent = LB[candT.comp];
@@ -2379,6 +2417,8 @@ function frame(ts) {
       g2.uniform1f(P.u('uBeam'), candP.beam);
       g2.uniform1f(P.u('uFine'), candP.fine);
       if (candGStyle === 4 && candNums) { const mk = candHoleMask(candCharFor(state.markState)); if (mk) candGL.uploadMask(mk); }
+      g2.uniform1f(P.u('uRefTone'), candT.refTone);
+      g2.uniform1f(P.u('uT2'), REDUCED ? 1.4 : ts / 1000);
       g2.uniform1f(P.u('uMaskOn'), (candGStyle === 4 && candNums) ? 1 : 0);
       g2.drawArrays(g2.TRIANGLES, 0, 3);
       ctx2d.drawImage(candGL.cv, 0, 0);   // 공유 컨텍스트 → 이 셀로 복사
@@ -2419,6 +2459,8 @@ function frame(ts) {
       g3.uniform1f(P.u('uHueKeep'), candP.hue);
       g3.uniform1f(P.u('uBeam'), candP.beam);
       g3.uniform1f(P.u('uFine'), candP.fine);
+      g3.uniform1f(P.u('uRefTone'), candT.refTone);
+      g3.uniform1f(P.u('uT2'), REDUCED ? 1.4 : ts / 1000);
       g3.uniform1f(P.u('uMaskOn'), (candGStyle === 4 && candNums) ? 1 : 0);
       for (const cell of stripCells) {
         // 상태마다 글자가 다르다(Hold = 카운트) → 그 셀의 마스크를 올리고 그린다.
@@ -2429,7 +2471,9 @@ function frame(ts) {
           if (op > 0) { const mk = candHoleMask(candCharFor(cell.state));
             if (mk) { candGL.uploadMask(mk); on = 1; } }
         }
-        g3.uniform1f(P.u('uMaskOn'), on);
+        g3.uniform1f(P.u('uRefTone'), candT.refTone);
+      g3.uniform1f(P.u('uT2'), REDUCED ? 1.4 : ts / 1000);
+      g3.uniform1f(P.u('uMaskOn'), on);
         g3.uniform1f(P.u('uState'), cell.state);
         g3.drawArrays(g3.TRIANGLES, 0, 3);
         cell.ctx.drawImage(candGL.cv, 0, 0);
