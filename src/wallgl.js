@@ -23,6 +23,10 @@ const K = Math.min(3, Math.max(0.4,
 const UI_FPS = Math.max(4, Math.min(60, +(new URLSearchParams(location.search).get('uifps')) || 12));
 const CX = W / 2;
 const INF = Infinity;
+// 투사 대지 바탕 — Figma 아트보드가 검정이다. 투명 대지로 깔면 밝은 실내 벽/바닥이 그대로
+// 비쳐 올라와 카드·타이포가 통째로 뿌예진다(유저: "알파 같은 거 아예 없이 쨍하게").
+// 가장자리는 기존 라디얼 페더(_bgGlow)와 투사면 클리핑이 그대로 깎으므로 판이 사각으로 서지 않는다.
+export const PLATE = new URLSearchParams(typeof location !== 'undefined' ? location.search : '').get('plate') === '0' ? null : '#000';
 
 // 투사 UI 서체 규칙(유저 확정): Supreme 두 굵기만 — Bold 700 · Regular 400.
 // Freesentation·Pretendard 폴백은 은퇴(투사 UI는 영문 조판이고, 폴백이 끼면 자간이 달라진다).
@@ -76,11 +80,11 @@ const SCENES = {
     say: 'Follow the sweep, hit the target', cues: ['Follow it', 'Jab!', 'On target', 'Again!'], combos: [] },
   BX_C1: { title: 'START SIGNAL', phase: 3, sub: '', coach: { num: '3', unit: 'Go' }, you: { num: '', unit: '' },
     say: '3, 2, 1 — spar!', cues: [], combos: [] },
-  BX_C2: { title: 'JAB SPAR', phase: 3, sub: '1/3', coach: { num: '—', unit: 'Hits' }, you: { num: '5', unit: 'Hits' },
+  BX_C2: { title: 'JAB SPAR', phase: 3, sub: '1/3', coach: { num: '8', unit: 'Thrown' }, you: { num: '5', unit: 'Landed' },
     say: 'Jab when the target shows', cues: ['Target up!', 'Jab!', 'Nice', 'Reset', 'Again!'], combos: ['Jab!'] },
-  BX_C3: { title: 'COMBINATION', phase: 3, sub: '2/3', coach: { num: '—', unit: 'Combo' }, you: { num: '2', unit: 'Combo' },
+  BX_C3: { title: 'COMBINATION', phase: 3, sub: '2/3', coach: { num: '4', unit: 'Openings' }, you: { num: '2', unit: 'Combo' },
     say: 'Keep the rhythm — jab, jab, hook', cues: ['Jab, jab…', 'Hook!', 'Rhythm!', 'Don’t stop'], combos: ['2x Combo!'] },
-  BX_C4: { title: 'COOL DOWN', phase: 3, sub: '3/3', coach: { num: '—', unit: '' }, you: { num: '—', unit: '' },
+  BX_C4: { title: 'COOL DOWN', phase: 3, sub: '3/3', coach: { num: '', unit: '' }, you: { num: '', unit: '' },
     say: 'Breathe, drop your guard. Well done', cues: ['Breathe…', 'Guard down', 'Well done', 'Good work'], combos: [] },
 };
 const TR = {
@@ -205,6 +209,7 @@ export class WallGL {
     const ctx = this.ctx;
     ctx.setTransform(K, 0, 0, K, 0, 0);
     ctx.clearRect(0, 0, W, H);
+    if (PLATE) { ctx.fillStyle = PLATE; ctx.fillRect(0, 0, W, H); }   // 대지 = Figma 아트보드(검정). ?plate=0 로 끔
     ctx.lineJoin = 'round';
     this['_paint_' + this.kind]();
   }
@@ -305,6 +310,9 @@ export class WallGL {
     const se = eOut(intro(t, .35, .85));
     ctx.globalAlpha *= se; ctx.translate(-90 * (1 - se), 0);
     rrFill(ctx, LX, stY, LW, stH, 76, NEU.surface);
+    // ★ 투사 거리 가독 하한 — 벽 대지는 1.00 mm/px(PROJECTION-SPEC 6절)라 24px = 실물 24mm.
+    // 2~4m 에서 24mm 캡션은 안 읽힌다(유저: "너무 작아서 안 보임"). 캡션류를 32 이상으로,
+    // 체크 배지는 40 → 58 로 올렸다. 폰 레이아웃을 1:1 로 벽에 옮긴 값이라 원래 작았던 것.
     const ix = LX + 20, iw = 1000;
     // 카드 안 왼쪽 텍스트 기준선 — 하나로 통일(유저: "왼쪽정렬 안 됨").
     // 전엔 30/min 은 ix+24.26, Fight! 는 ix+34.26(트랙이 ix+10 에서 시작 + 24.26),
@@ -312,7 +320,7 @@ export class WallGL {
     const PADL = 24.256;
     let y = stY + 32;
     // ── Total
-    txt(ctx, 'Total', ix + iw / 2, y + 8, 32, 400, NEU.t1, { ls: -1, align: 'center' });
+    txt(ctx, 'Total', ix + iw / 2, y + 6, 38, 400, NEU.t1, { ls: -1.27, align: 'center' });
     y += 48 + 8;
     const totH = 378.393;
     rrFill(ctx, ix, y, iw, totH, 64, '#fff');
@@ -345,7 +353,7 @@ export class WallGL {
     ctx.restore();
     y += totH + 32;
     // ── Setup
-    txt(ctx, 'Setup', ix + iw / 2, y + 8, 32, 400, NEU.t1, { ls: -.5, align: 'center' });
+    txt(ctx, 'Setup', ix + iw / 2, y + 6, 38, 400, NEU.t1, { ls: -1.27, align: 'center' });
     y += 48 + 8;
     const setH = 235;
     rrFill(ctx, ix, y, iw, setH, 64, '#fff');
@@ -361,13 +369,13 @@ export class WallGL {
       const k = 0.95 + 0.05 * e;
       ctx.translate(cx0 + cw / 2, cy0 + ch / 2); ctx.scale(k, k); ctx.translate(-(cx0 + cw / 2), -(cy0 + ch / 2));
       rrFill(ctx, cx0, cy0, cw, ch, 48, NEU.surface);
-      txt(ctx, lab, cx0 + PADL, cy0 + 20, 24, 400, NEU.t2, { ls: -.5 });
-      txt(ctx, val, cx0 + PADL, cy0 + 20 + 24 * 1.1 + 8, 36, 700, '#000', { ls: -1.08 });
+      txt(ctx, lab, cx0 + PADL, cy0 + 18, 32, 400, NEU.t2, { ls: -.67 });
+      txt(ctx, val, cx0 + PADL, cy0 + 18 + 32 * 1.1 + 4, 38, 700, '#000', { ls: -1.14 });
       ctx.restore();
     });
     y += setH + 32;
     // ── Connected
-    txt(ctx, 'Connected', ix + iw / 2, y + 8, 32, 400, NEU.t1, { ls: -.5, align: 'center' });
+    txt(ctx, 'Connected', ix + iw / 2, y + 6, 38, 400, NEU.t1, { ls: -1.27, align: 'center' });
     y += 48 + 8;
     const devH = 203.607, dw = (iw - 16) / 3;
     const devs = [['icon_wearable.png', 'Wearable', 'Battery 99%'],
@@ -381,11 +389,11 @@ export class WallGL {
       rrFill(ctx, dx, y, dw, devH, 64, '#fff');
       // 아이콘 — 웨어러블만 원본 컬러, 나머지는 열화상 그라디언트 마스크
       const tim = i === 0 ? this._img(ic) : this._tinted(ic, 88, 88, [[0, PAL.red], [.6, PAL.coral], [.85, PAL.sand], [1, PAL.prism]]);
-      if (tim) ctx.drawImage(tim, dx + PADL, y + 20, 88, 88);
-      txt(ctx, n, dx + PADL, y + 20 + 88 + 8, 36, 700, NEU.inkDark, { ls: -1 });
-      txt(ctx, s, dx + PADL, y + 20 + 88 + 8 + 36 * 1.2, 24, 400, NEU.t2, { ls: -.72 });
+      if (tim) ctx.drawImage(tim, dx + PADL, y + 16, 88, 88);
+      txt(ctx, n, dx + PADL, y + 16 + 88 + 6, 38, 700, NEU.inkDark, { ls: -1.06 });
+      txt(ctx, s, dx + PADL, y + 16 + 88 + 6 + 38 * 1.2, 32, 400, NEU.t2, { ls: -.96 });
       const chk = this._img('check.svg');
-      if (chk) ctx.drawImage(chk, dx + dw - 60, y + 20, 40, 40);
+      if (chk) ctx.drawImage(chk, dx + dw - 76, y + 18, 58, 58);   // 40 → 58 (투사 거리에서 안 보였다)
       ctx.restore();
     });
     ctx.restore();   // /stats
@@ -459,10 +467,10 @@ export class WallGL {
     // 중앙 정렬 — 게이지를 중앙에 놓자 좌측 타이틀 끝과 맞붙었다(실측: 타이틀 우단 ≈1060,
     // 게이지 좌단 1000). 타이틀까지 중앙으로 올려 [타이틀 → 게이지 → 코치 → 큐] 세로 축을 세운다.
     // 페이즈 열은 우측 그대로 — 축 하나 + 우측 상태열이 좌우 대칭을 깨지 않는다.
-    // 80 → 56: 단계 타이틀은 화면의 주인공이 아니라 머리말이다(유저). 게이지가 바로 밑에
-    // 붙으려면 타이틀이 그만큼 물러나야 위→아래 [머리말 · 진행] 한 덩어리로 읽힌다.
-    ctx.translate(CX, 96 + 34); ctx.scale(tk, tk); ctx.translate(-CX, -(96 + 34));
-    txt(ctx, S.title, CX, 96, 56, 700, NEU.ink, { align: 'center', ls: -1.9 });
+    // 위계: 단계(24/28) ≪ 제목(80) — 제목이 이 화면의 주인공이고 단계는 머리말이다(유저).
+    // 한때 56 까지 줄였는데 단계(32/40)와 차이가 안 나 둘 다 어중간했다. 배수 ≈2.9 로 벌린다.
+    ctx.translate(CX, 72 + 48); ctx.scale(tk, tk); ctx.translate(-CX, -(72 + 48));
+    txt(ctx, S.title, CX, 72, 80, 700, NEU.ink, { align: 'center', ls: -2.7 });
     ctx.restore();
 
     // 진행 게이지 — 대지 중앙. 상단이 [타이틀(좌) · 게이지(중) · 페이즈(우)] 3단이 된다.
@@ -470,7 +478,7 @@ export class WallGL {
     // 타이틀(중앙, 56px) 바로 아래.
     // 수치·끝라벨은 뺀다 — 아래가 코치 머리라 숫자가 겹치고, 여긴 시간 진행이라 눈금이 불필요.
     // 폭 480 · y0 164 — 브레드크럼(30) → 타이틀(96~152) → 게이지. 잉크 하단 ≈275
-    const gW = 480, dY = 164;
+    const gW = 480, dY = 176;
     const de = eOut(intro(t, .20, .6));
     ctx.save();
     ctx.globalAlpha *= de; ctx.translate(0, 48 * (1 - de));
@@ -485,10 +493,10 @@ export class WallGL {
       const items = PHASES.map((label, i) => {
         const active = i === S.phase;
         const str = active ? label + (S.sub ? ' ' + S.sub : '') : label;
-        ctx.font = F(active ? 700 : 400, active ? 40 : 32);
+        ctx.font = F(active ? 700 : 400, active ? 28 : 24);
         return { str, active, far: i > S.phase + 1, w: ctx.measureText(str).width };
       });
-      const GAP = 56, total = items.reduce((a, b) => a + b.w, 0) + GAP * (items.length - 1);
+      const GAP = 40, total = items.reduce((a, b) => a + b.w, 0) + GAP * (items.length - 1);
       let px = CX - total / 2;
       items.forEach((it, i) => {
         const e = (isEntry && !mid) ? eOut(intro(t, .15 + i * .07, .6)) : 1;
@@ -498,9 +506,9 @@ export class WallGL {
           const pu = cycle(t, 1.2, 2.4, INF);
           if (pu != null) ctx.globalAlpha *= kf(pu, [[0, 1], [.5, .6], [1, 1]]);
           ctx.shadowColor = 'rgba(255,255,255,.45)'; ctx.shadowBlur = 28;
-          txt(ctx, it.str, px, 30, 40, 700, '#fff');
+          txt(ctx, it.str, px, 34, 28, 700, '#fff');
         } else {
-          txt(ctx, it.str, px, 36, 32, 400, it.far ? 'rgba(255,255,255,.5)' : 'rgba(255,255,255,.7)');
+          txt(ctx, it.str, px, 36, 24, 400, it.far ? 'rgba(255,255,255,.5)' : 'rgba(255,255,255,.7)');
         }
         ctx.restore();
         px += it.w + GAP;
@@ -543,7 +551,9 @@ export class WallGL {
 
     // 큰 숫자 — sPop .7s .48s + 카운트업 / 단위 — sUp .6s .58s
     const ne = eOut(intro(t, .48, .7));
+    // 값이 없는 구간(쿨다운)은 '—' 를 띄우지 않고 자리를 비운다 — 멈춘 숫자는 고장으로 읽힌다.
     const num = (x, align, val, delay, cd) => {
+      if (val === '' || val == null) return;
       ctx.save();
       ctx.globalAlpha *= kf(ne, [[0, 0], [.6, 1], [1, 1]]);
       const nk = kf(ne, [[0, .5], [.6, 1.12], [1, 1]]);

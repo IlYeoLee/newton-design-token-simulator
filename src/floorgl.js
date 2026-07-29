@@ -24,6 +24,9 @@ const K = Math.min(3, Math.max(0.4,
 const UI_FPS = Math.max(4, Math.min(60, +(new URLSearchParams(location.search).get('uifps')) || 12));
 
 const CX = W / 2;
+// 투사 대지 바탕 — Figma 아트보드가 검정이다. 투명 대지면 밝은 실내 바닥이 그대로 비쳐
+// 올라와 색이 전부 뿌예진다(유저). 가장자리는 _bgGlow 의 라디얼 페더 + 투사면 클리핑이 깎는다.
+export const PLATE = new URLSearchParams(typeof location !== 'undefined' ? location.search : '').get('plate') === '0' ? null : '#000';
 // 투사 UI 서체 규칙(유저 확정): Supreme 두 굵기만 — Bold 700 · Regular 400.
 // Freesentation·Pretendard 폴백은 은퇴(투사 UI는 영문 조판이고, 폴백이 끼면 자간이 달라진다).
 const sans = "'Supreme',sans-serif";
@@ -338,8 +341,9 @@ export function drawChars(ctx, txt, cx, y, h, ls, fn, align = 'center') {
 
 // ── 나머지 문서(시작화면·전환·카운트다운·리포트) 데이터 — 각 HTML의 상수를 그대로 옮긴 것 ──
 const READY = {
-  'floor.html':    { title: "Sean's Final 1km Pace", mode: 'Pace & Boost On', modeSm: true },
-  'floor-bk.html': { title: "Curry's Handle Pack",   mode: 'Press On' },
+  // meta = 모바일 홈 카드의 '팩 · 시간' 표기(home.html 원본) — 지면도 같은 조판 규칙을 쓴다
+  'floor.html':    { title: "Sean's Final 1km Pace", meta: 'Creator Pack · 30 min', mode: 'Pace & Boost On', modeSm: true },
+  'floor-bk.html': { title: "Curry's Handle Pack",   meta: 'Pro Pack · 23 min',     mode: 'Press On' },
 };
 const TR = {
   T1: { sub: 'Sean’s Final 1km Pace', title: 'Warm-Up Done!',
@@ -438,7 +442,7 @@ function buildScene(stage, p) {
   // 도트 진행바 — 원본 HTML의 노출 규칙 두 가지를 그대로 따른다.
   //  ① 시범(Preview) 동안은 감춘다. 공간도 차지하지 않는다 — 프리뷰가 그 자리를 쓰기 때문.
   //  ② 스텝백 따라하기(BK_B2~B5)엔 아예 없다. 진행은 상단 n/4 가 담당(유저 확정).
-  if (!isStep) col.push(node('s-dots', { type: 'dots', dur: p.dur || 8, hideUntil: hasPrev ? (p.pv || 3) : 0, delay: hasPrev ? (p.pv || 3) + 0.15 : 0 }));
+  if (!isStep) col.push(node('s-dots', { type: 'dots', mt: -38, dur: p.dur || 8, hideUntil: hasPrev ? (p.pv || 3) : 0, delay: hasPrev ? (p.pv || 3) + 0.15 : 0 }));
   if (isP) col.push(node('train-row', { type: 'trainRow', ring: /^P[23]$/.test(stage) }));
   if (isC) col.push(node('live-row', { type: 'liveRow' }));
   col.push(node('s-succ', { type: 'succ', style: { display: 'none' } }));
@@ -551,7 +555,11 @@ export class FloorGL {
     const ctx = this.ctx;
     ctx.setTransform(K, 0, 0, K, 0, 0);
     ctx.clearRect(0, 0, W, H);
-    if (this.kind && this.kind !== 'scene') return this['_paint_' + this.kind]();
+    const full = this.kind && this.kind !== 'scene';
+    // 대지 판은 풀스크린 문서(카운트다운·전환·리포트)에만. 지면 씬 컬럼은 발마크 위 스파스
+    // 오버레이라 판을 깔면 트랙/코트를 검정으로 덮는다 — 투사면 밖 그래픽 금지 원칙과도 충돌.
+    if (full && PLATE) { ctx.fillStyle = PLATE; ctx.fillRect(0, 0, W, H); }
+    if (full) return this['_paint_' + this.kind]();
     let y = 176;   // Figma 대지 실좌표
     for (const n of this.col) {
       if (n.style.display === 'none') continue;
@@ -783,6 +791,7 @@ export class FloorGL {
 
   // ── 시작화면 (floor.html / floor-bk.html) ──────────────────────────────────
   _paint_ready() {
+    const SY = 418, RY = 572;   // 상태 블록: 스트립 y · 링 y (내부 간격 24 = 한 덩어리)
     const ctx = this.ctx, D = READY[/floor-bk/.test(this.params.src) ? 'floor-bk.html' : 'floor.html'], t = this.t;
     // glowLive 7s ×3 — 숨쉬기 + 드리프트
     const gl = this._img('fig/big_glow.svg');
@@ -807,29 +816,35 @@ export class FloorGL {
         alpha: kf(p, [[0, .5], [.12, 1], [.26, 1], [.58, .5], [1, .5]]), scale: 1,
       };
     });
-    // 3칸 정보 스트립 — fadeUpCentered .8s .35s (눕힌 프레임이라 translateY 대신 제자리 scale)
-    ctx.save(); this._fadeIn(452, 130, eOut(intro(t, .35, .8)));
+    // 메타 한 줄 — 모바일 홈 카드와 같은 '팩 · 시간'. 타이틀 바로 아래 붙여 한 덩어리로 읽히게.
+    ctx.save(); this._fadeIn(318, 56, eOut(intro(t, .25, .8)));
     ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-    // ponytail: 원본 flex 폭을 고정폭으로 근사(좌우 400 · 가운데 360)
-    const cols = [['Time', '30min', false], ['Connection', 'Good', false], ['Mode', D.mode, D.modeSm]];
-    const w = [400, 360, 400], x0 = CX - (w[0] + w[1] + w[2] + 4) / 2;
+    ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.font = F(400, 46); ctx.letterSpacing = '1px';
+    ctx.fillText(D.meta, CX, 318); ctx.letterSpacing = '0px';
+    ctx.restore();
+    // 상태 블록 = 2칸 스트립 + 디바이스 링. 둘은 같은 정보(세션 준비 상태)라 바짝 붙인다.
+    //   구 3칸(Time·Connection·Mode)은 Time 이 메타 줄과 중복 — 빼고 두 칸으로 넓게(유저: 위계 정리).
+    ctx.save(); this._fadeIn(SY, 130, eOut(intro(t, .35, .8)));
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    const cols = [['Connection', 'Good', false], ['Mode', D.mode, D.modeSm]];
+    const w = [420, 420], x0 = CX - (w[0] + w[1] + 2) / 2;
     let x = x0;
     cols.forEach((c, i) => {
-      if (i) { ctx.fillStyle = 'rgba(255,255,255,.22)'; ctx.fillRect(x, 452 + 21, 2, 100); x += 2; }
+      if (i) { ctx.fillStyle = 'rgba(255,255,255,.22)'; ctx.fillRect(x, SY + 21, 2, 100); x += 2; }
       ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.font = F(400, 40);
-      ctx.fillText(c[0], x + w[i] / 2, 452 + 14);
+      ctx.fillText(c[0], x + w[i] / 2, SY + 14);
       ctx.fillStyle = '#fff'; ctx.font = F(700, c[2] ? 52 : 64); ctx.letterSpacing = '-2px';
-      ctx.fillText(c[1], x + w[i] / 2, 452 + 14 + 48 + 14);
+      ctx.fillText(c[1], x + w[i] / 2, SY + 14 + 48 + 14);
       ctx.letterSpacing = '0px';
       x += w[i];
     });
     ctx.restore();
-    // 디바이스 배터리 링 3개 (200×200, gap 28) — fadeUpCentered .8s .5s
-    ctx.save(); this._fadeIn(654, 200, eOut(intro(t, .5, .8)));
+    // 디바이스 배터리 링 3개 — fadeUpCentered .8s .5s. 스트립 바로 아래(간격 24)로 붙여 한 블록.
+    ctx.save(); this._fadeIn(RY, 200, eOut(intro(t, .5, .8)));
     const devs = [[0.9, 'run/ic_glasses.png', 96], [0.3, 'run/ic_watch.png', 56], [0.6, 'run/ic_earbuds.png', 82]];
     const dx0 = CX - (200 * 3 + 28 * 2) / 2;
     devs.forEach(([pct, ic, iw], i) => {
-      const cx = dx0 + i * 228 + 100, cy = 654 + 100, r = 76 * (200 / 170), lw = 13 * (200 / 170);
+      const cx = dx0 + i * 228 + 100, cy = RY + 100, r = 76 * (200 / 170), lw = 13 * (200 / 170);
       ctx.lineWidth = lw; ctx.strokeStyle = 'rgba(255,255,255,.16)';
       ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
       const f = Math.max(0, Math.min(1, (t - (0.9 + i * 0.16)) / 1.5)) * pct;
