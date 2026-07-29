@@ -325,6 +325,10 @@ export class WallGL {
     ctx.globalAlpha *= se; ctx.translate(-90 * (1 - se), 0);
     rrFill(ctx, LX, stY, LW, stH, 76, NEU.surface);
     const ix = LX + 20, iw = 1000;
+    // 카드 안 왼쪽 텍스트 기준선 — 하나로 통일(유저: "왼쪽정렬 안 됨").
+    // 전엔 30/min 은 ix+24.26, Fight! 는 ix+34.26(트랙이 ix+10 에서 시작 + 24.26),
+    // Setup 라벨 ix+30, Connected 라벨 ix+20 으로 넷이 갈려 있었다.
+    const PADL = 24.256;
     let y = stY + 32;
     // ── Total
     txt(ctx, 'Total', ix + iw / 2, y + 8, 32, 400, NEU.t1, { ls: -1, align: 'center' });
@@ -350,13 +354,13 @@ export class WallGL {
     const ry = gY + 2 * (barH + 4.851);
     rrFill(ctx, gR - (iw - 20), ry, iw - 20, barH, 40, NEU.surface);
     ctx.save(); ctx.globalAlpha *= 0.7;
-    txt(ctx, 'Fight!', gR - (iw - 20) + 24.256, ry + barH / 2, 32, 700, NEU.inkDark, { ls: -1.21, base: 'middle' });
+    txt(ctx, 'Fight!', ix + PADL, ry + barH / 2, 32, 700, NEU.inkDark, { ls: -1.21, base: 'middle' });
     ctx.restore();
     bar(2, 582.143, '15min', 1.3);
     // 좌측 큰 숫자 오버레이
-    txt(ctx, '30', ix + 24.256, y + 24.256, 145.536, 700, NEU.inkDark, { fam: dot9 });
+    txt(ctx, '30', ix + PADL, y + 24.256, 145.536, 700, NEU.inkDark, { fam: dot9 });
     ctx.save(); ctx.globalAlpha *= 0.6;
-    txt(ctx, 'min', ix + 24.256, y + 24.256 + 145.536, 32, 700, NEU.inkDark, { ls: -1.21 });
+    txt(ctx, 'min', ix + PADL, y + 24.256 + 145.536, 32, 700, NEU.inkDark, { ls: -1.21 });
     ctx.restore();
     y += totH + 32;
     // ── Setup
@@ -364,11 +368,11 @@ export class WallGL {
     y += 48 + 8;
     const setH = 235;
     rrFill(ctx, ix, y, iw, setH, 64, '#fff');
-    const cw = (iw - 20 - 10) / 2;
+    const cw = (iw - 10) / 2;
     const cells = [['Location & Goal', 'Inoor ·Standard', 103], ['Condition', 'About the same as usual', 103],
                    ['Level & Mode', 'Quite On', 102], ['Main Workout', '15m', 102]];
     cells.forEach(([lab, val, ch], i) => {
-      const cx0 = ix + 10 + (i % 2) * (cw + 10), cy0 = y + 10 + (i < 2 ? 0 : 113);
+      const cx0 = ix + (i % 2) * (cw + 10), cy0 = y + 10 + (i < 2 ? 0 : 113);
       const e = eOut(intro(t, .95 + i * .10, .55));
       ctx.save();
       ctx.globalAlpha *= e;
@@ -376,8 +380,8 @@ export class WallGL {
       const k = 0.95 + 0.05 * e;
       ctx.translate(cx0 + cw / 2, cy0 + ch / 2); ctx.scale(k, k); ctx.translate(-(cx0 + cw / 2), -(cy0 + ch / 2));
       rrFill(ctx, cx0, cy0, cw, ch, 48, NEU.surface);
-      txt(ctx, lab, cx0 + 20, cy0 + 20, 24, 400, NEU.t2, { ls: -.5 });
-      txt(ctx, val, cx0 + 20, cy0 + 20 + 24 * 1.1 + 8, 36, 700, '#000', { ls: -1.08 });
+      txt(ctx, lab, cx0 + PADL, cy0 + 20, 24, 400, NEU.t2, { ls: -.5 });
+      txt(ctx, val, cx0 + PADL, cy0 + 20 + 24 * 1.1 + 8, 36, 700, '#000', { ls: -1.08 });
       ctx.restore();
     });
     y += setH + 32;
@@ -396,9 +400,9 @@ export class WallGL {
       rrFill(ctx, dx, y, dw, devH, 64, '#fff');
       // 아이콘 — 웨어러블만 원본 컬러, 나머지는 열화상 그라디언트 마스크
       const tim = i === 0 ? this._img(ic) : this._tinted(ic, 88, 88, [[0, PAL.red], [.6, PAL.coral], [.85, PAL.sand], [1, PAL.prism]]);
-      if (tim) ctx.drawImage(tim, dx + 20, y + 20, 88, 88);
-      txt(ctx, n, dx + 20, y + 20 + 88 + 8, 36, 700, NEU.inkDark, { ls: -1 });
-      txt(ctx, s, dx + 20, y + 20 + 88 + 8 + 36 * 1.2, 24, 400, NEU.t2, { ls: -.72 });
+      if (tim) ctx.drawImage(tim, dx + PADL, y + 20, 88, 88);
+      txt(ctx, n, dx + PADL, y + 20 + 88 + 8, 36, 700, NEU.inkDark, { ls: -1 });
+      txt(ctx, s, dx + PADL, y + 20 + 88 + 8 + 36 * 1.2, 24, 400, NEU.t2, { ls: -.72 });
       const chk = this._img('check.svg');
       if (chk) ctx.drawImage(chk, dx + dw - 60, y + 20, 40, 40);
       ctx.restore();
