@@ -1438,12 +1438,26 @@ const candT = { mono: 0, flat: 0, noGlow: 0, noInner: 0, bg: 0, holdRim: 0, inne
   host.appendChild(bgHost);
 }
 {
+  // 슬라이더 10개를 한 줄에 욱여넣으니 라벨이 줄바꿈되고 값이 아래로 떨어졌다(유저).
+  //   5열 × 2줄로 나누고, 한 칸을 [라벨 | 슬라이더 | 값] 3단 그리드로 고정해 세로줄을 맞춘다.
+  //   위줄 = 형태·모션 / 아래줄 = 색·합성 — 성격이 다른 축을 섞지 않는다.
   const host = document.getElementById('candSliders');
-  const defs = [['pitch', '닷 피치', 0.03, 0.30, 0.005], ['gain', '닷 굵기', 0.2, 2.0, 0.05],
-                ['speed', '모션 속도', 0, 3, 0.05], ['inner', '이너 폭', 0.05, 1.5, 0.05], ['harm', '배경 조화', 0, 1, 0.05], ['q0', '열 시작점', 0, 0.5, 0.01], ['satR', '채도 복원', 1, 2.2, 0.05], ['hue', '색상 보존', 0, 1, 0.05], ['beam', '투사 출력', 0.6, 3, 0.1], ['fine', '마크끝 세밀(옵션)', 0, 1, 0.05]];
+  host.style.cssText = 'display:grid;grid-template-columns:repeat(5,1fr);gap:9px 20px;margin:0 0 14px';
+  const defs = [
+    ['pitch', '닷 피치', 0.03, 0.30, 0.005], ['gain', '닷 굵기', 0.2, 2.0, 0.05],
+    ['speed', '모션 속도', 0, 3, 0.05], ['inner', '이너 폭', 0.05, 1.5, 0.05],
+    ['fine', '마크끝 세밀', 0, 1, 0.05],
+    ['q0', '열 시작점', 0, 0.5, 0.01], ['harm', '배경 조화', 0, 1, 0.05],
+    ['satR', '채도 복원', 1, 2.2, 0.05], ['hue', '색상 보존', 0, 1, 0.05],
+    ['beam', '투사 출력', 0.6, 3, 0.1],
+  ];
   for (const [k, lb, mn, mx, st] of defs) {
     const w = document.createElement('label');
-    w.innerHTML = `<span>${lb}</span><input type="range" min="${mn}" max="${mx}" step="${st}" value="${candP[k]}"><output>${candP[k]}</output>`;
+    w.style.cssText = 'display:grid;grid-template-columns:62px 1fr 32px;align-items:center;gap:8px;'
+      + 'font-size:10.5px;color:var(--dim);white-space:nowrap;margin:0';
+    w.innerHTML = '<span>' + lb + '</span>'
+      + '<input type="range" min="' + mn + '" max="' + mx + '" step="' + st + '" value="' + candP[k] + '" style="width:100%;margin:0">'
+      + '<output style="text-align:right;color:var(--ink);font-variant-numeric:tabular-nums">' + candP[k] + '</output>';
     const inp = w.querySelector('input'), out = w.querySelector('output');
     inp.oninput = () => { candP[k] = +inp.value; out.textContent = inp.value; };
     host.appendChild(w);
