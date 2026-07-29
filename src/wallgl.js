@@ -417,12 +417,15 @@ export class WallGL {
     }, 'right');
     // 도트 프로그래스 — fadeIn .5s 1.55s. 도트별 회색→빨강 계단(2s + i*.22)이었는데
     // 공통 컴포넌트(dotProgress)의 '머리가 달린다'로 통일 — 같은 구간(2s~4.2s)을 훑는다.
-    const dY = ROW_Y + 40 + 96 + 27, gW = 800;
+    // 게이지 = 타이틀과 한 덩어리(락업). 폭은 타이틀 실측 폭, 오른쪽 끝을 맞춘다.
+    // 컬럼 중앙에 800px 로 띄웠던 시안은 코치 위에 떠서 '어정쩡'했다(유저).
+    ctx.font = F(700, 80); ctx.letterSpacing = '-3px';
+    const gW = Math.round(ctx.measureText(READY_TITLE).width);
+    ctx.letterSpacing = '0px';
+    const dY = ROW_Y + 40 + 96 + 20;
     ctx.save();
     ctx.globalAlpha *= clamp01((t - 1.55) / .5);
-    // 폭은 도트 10개(457px)가 아니라 우측 컬럼 기준 — 앱 게이지는 카드 폭을 채우는 물건이라
-    // 457px 로 옮기니 2600 대지에서 실낱처럼 읽혔다.
-    arcGauge(ctx, RX + (RW - gW) / 2, dY, gW, (t - 2) / (.22 * 10), { ends: false });
+    arcGauge(ctx, RRight - gW, dY, gW, (t - 2) / (.22 * 10), { ends: false, k: 1.9 });
     ctx.restore();
     // 발 블록 — slideInUp .9s .6s
     const FX = RX + RW / 2 - 140, FY = ROW_Y + 570;
@@ -484,7 +487,7 @@ export class WallGL {
     const de = eOut(intro(t, .20, .6));
     ctx.save();
     ctx.globalAlpha *= de; ctx.translate(0, 48 * (1 - de));
-    arcGauge(ctx, 100, dY, 900, t / dur, { value: Math.round(clamp01(t / dur) * 100) });
+    arcGauge(ctx, 100, dY, 620, t / dur, { value: Math.round(clamp01(t / dur) * 100), k: 1.7 });
     ctx.restore();
 
     // 페이즈 열 (우측 정렬) — 진입이면 sRight .6s (.15 + i*.07)

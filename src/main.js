@@ -2691,6 +2691,14 @@ void main(){
       vec2 vuv = clamp(uCropC + (uv - 0.5) * uCropS, 0.0, 1.0);
       return dot(texture2D(tex, vuv).rgb, vec3(0.299, 0.587, 0.114));
     }
+    // 좁은 블러 — 센서·압축 노이즈만 지우고 옷 주름은 남긴다(국소 대비 게인이 올라가면서
+    //   원본 직접 샘플링(plum)의 픽셀 노이즈가 색 얼룩으로 증폭됐다 — 유저 신고)
+    float pblurN(vec2 uv){
+      float s = plum(uv) * 0.36;
+      for (int k = 0; k < 4; k++) { float a = 1.5708 * float(k) + 0.7;
+        s += plum(uv + vec2(cos(a), sin(a)) * 0.005) * 0.16; }
+      return s;
+    }
     float pblur(vec2 uv){
       float s = plum(uv) * 0.30;
       for (int k = 0; k < 4; k++) { float a = 1.5708 * float(k) + 0.7;
@@ -2787,7 +2795,7 @@ void main(){
           float T = clamp(H * 1.25, 0.0, 1.0);   // 온도 = 두께 필드
           // 선명 = 옷주름·결(몸) / 블러 = 얼굴 소거용. 룩 슬라이더 person.detail = 결의 세기.
           float dLumB = pblur(uv);
-          float dLumS = mix(dLumB, plum(uv), clamp(uDetail * 1.6, 0.0, 1.0));
+          float dLumS = mix(dLumB, pblurN(uv), clamp(uDetail * 1.6, 0.0, 1.0));
           float dlum = mix(dLumS, dLumB, 0.5);
           // 얼굴 대역(상단) = 이목구비 의도적 은닉 — 실사 결 제거 + 강한 확산
           float faceW = smoothstep(0.70, 0.84, uv.y) * (1.0 - smoothstep(0.965, 1.0, uv.y));

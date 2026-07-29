@@ -129,11 +129,15 @@ export const GAUGE = { travel: 0.78, lead: 0.15, tail: 0.54 };   // 초 · 초 �
 const ARC = { x0: 19, x1: 341, cx: 180, rx: 261, ry: 188.5, top: 24 };
 const arcY = ax => ARC.top + ARC.ry * (1 - Math.sqrt(Math.max(0, 1 - ((ax - ARC.cx) / ARC.rx) ** 2)));
 /** 폭 w 게이지가 차지하는 높이 — 호 낙차 + 노브 + 수치 + 끝 라벨 */
-export const gaugeH = w => Math.round(w / (ARC.x1 - ARC.x0) * 118);
+export const gaugeH = (w, k = 1) => Math.round(w / (ARC.x1 - ARC.x0) * (78 + 40 * k));
 
 export function arcGauge(ctx, x0, y, w, p, o = {}) {
-  const P = clamp01(p), s = w / (ARC.x1 - ARC.x0);
-  const X = ax => x0 + (ax - ARC.x0) * s, Y = ax => y + (arcY(ax) - ARC.top) * s;
+  const P = clamp01(p), sg = w / (ARC.x1 - ARC.x0);
+  // 기하(휨·좌표)는 폭에 묶고, 장식(선 굵기·노브·글자)은 k 로 따로 키운다.
+  // 처음엔 둘을 같이 묶었더니 폭을 줄이는 순간 선이 실낱이 됐다 — 앱 게이지의 굵기는
+  // '호 폭 대비'가 아니라 '화면 대비'(3px/390 = 0.77%)라 대지가 커지면 같이 커져야 한다.
+  const s = sg * (o.k ?? 1);
+  const X = ax => x0 + (ax - ARC.x0) * sg, Y = ax => y + (arcY(ax) - ARC.top) * sg;
   const headA = ARC.x0 + (ARC.x1 - ARC.x0) * P, hx = X(headA), hy = Y(headA);
   const path = (a0, a1) => {
     ctx.beginPath();
@@ -145,9 +149,9 @@ export function arcGauge(ctx, x0, y, w, p, o = {}) {
   // ⑤ 팔레트 블룸 = 앱의 따뜻한 필드. 머리를 중심으로 한 빛이라 무대를 덮지 않는다.
   if (P > 0.001) {
     // 반경·세기는 낮게 — 처음 시안은 대지를 붉게 물들여 무대가 죽었다(투사면 규약).
-    const R = w * 0.2;
+    const R = w * 0.14;
     const bl = ctx.createRadialGradient(hx, hy, 0, hx, hy, R);
-    bl.addColorStop(0, rgba(PAL.red, .16)); bl.addColorStop(.4, rgba(PAL.coral, .07));
+    bl.addColorStop(0, rgba(PAL.red, .13)); bl.addColorStop(.4, rgba(PAL.coral, .05));
     bl.addColorStop(1, rgba(PAL.sand, 0));
     ctx.globalCompositeOperation = 'lighter';
     ctx.fillStyle = bl; ctx.fillRect(hx - R, hy - R, R * 2, R * 2);
@@ -536,7 +540,7 @@ export class FloorGL {
   _h(n) {
     switch (n.type) {
       case 'text': return n.size * 1.06;
-      case 'dots': return gaugeH(1000);
+      case 'dots': return gaugeH(680, 1.7);
       case 'prevRow': return 200;
       case 'trainRow': return n.ring ? 200 : 112;
       case 'liveRow': return 112;
@@ -561,11 +565,11 @@ export class FloorGL {
 
   // 도트 프로그래스 — 공통 컴포넌트(dotProgress). 지면·벽이 같은 물건이다.
   _dots(n, y) {
-    const x0 = CX - 500;   // 폭 1000 — 앱 게이지는 카드 폭을 채운다(구 도트바 600은 좁았다)
+    const x0 = CX - 340;   // 폭 680 — 구 도트바(600)와 비슷한 자리. 굵기는 k 로 키운다
     // main.js가 width를 직접 쓰면(반복형 스테이지) 그 값이 우선, 아니면 --dur 시간 진행.
     const w = n.style.width != null ? numOr(n.style.width, 0)
       : 600 * clamp01((this.t - n.delay) / n.dur);
-    arcGauge(this.ctx, x0, y, 1000, w / 600, { value: Math.round(w / 6) });
+    arcGauge(this.ctx, x0, y, 680, w / 600, { value: Math.round(w / 6), k: 1.7 });
   }
 
   _pill(x, y, w, h) {

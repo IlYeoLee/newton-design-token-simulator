@@ -190,7 +190,7 @@ vec3 personColor(float T){
 //   thick = 두께장(블러 마스크·방사 필드, 가장자리 0 → 코어 1)
 //   lumS  = 원본 휘도(선명 — 몸의 결)      lumB = 블러 휘도(얼굴용)
 //   mIn   = 내부 침식 마스크               face = 얼굴 대역 가중
-#define P_MILK  0.42    // 하이라이트·얼굴이 우유빛으로 빠지는 양(전신 희석 금지)
+#define P_MILK  0.28    // 하이라이트·얼굴이 우유빛으로 빠지는 양(전신 희석 금지)
 #define P_DEPTH 0.88    // 그늘이 '진해지는' 양 — 밝기가 아니라 온도로만
 //   ⚠ 밝기를 깎아 그늘을 만들면 안 된다. 알파가 min(aOut, lum*1.6)로 밝기에 묶여 있어
 //     어두운 옷 픽셀만 알파 0.85로 떨어지고 뒤 벽·그리드가 비친다(실측: 0.985→0.847, 유저 신고).
@@ -214,12 +214,14 @@ vec3 personLook(float thick, float lumS, float lumB, float mIn, float face){
   //   즉 T가 낮을수록 진하다. 두꺼운 코어·그늘 = 낮은 T(진한 코랄레드),
   //   얇은 말단·하이라이트·얼굴 = 높은 T(뽀얀 살구).
   float th = smoothstep(0.25, 0.95, thick);   // 두께장 정규화 — H의 실사용 범위가 좁다
-  float T = clamp(1.0 - th * 0.60 + (shade - 0.5) * P_DEPTH * mIn * (1.0 - face * 0.7)
+  // 코어(th=1)는 딥코랄 t≈0.42, 사지(th≈0.4)는 코랄 t≈0.60, 말단·얼굴은 뽀얀 살구.
+  //   구 1.0 - th*0.60 은 두께장이 1에 못 닿는 실제 값에서 전신을 살구빛으로 띄웠다(유저).
+  float T = clamp(0.95 - th * 0.80 + (shade - 0.5) * P_DEPTH * mIn * (1.0 - face * 0.7)
                   + face * 0.26, 0.0, 1.0);
   vec3 c = personColor(T);
   // 얇은 곳(손·머리카락)과 얼굴, 그리고 하이라이트만 우유빛 — 2.2제곱이라 몸통은 거의 안 뜬다.
   float milk = clamp(pow(1.0 - clamp(thick, 0.0, 1.0), 2.2) * 0.9
-                     + face * 0.9 + smoothstep(0.66, 1.00, shade) * mIn * 0.75, 0.0, 1.0);
+                     + face * 0.9 + smoothstep(0.72, 1.00, shade) * mIn * 0.6, 0.0, 1.0);
   return clamp(mix(c, vec3(1.0, 0.95, 0.90), milk * P_MILK), 0.0, 1.0);
 }`;
 
