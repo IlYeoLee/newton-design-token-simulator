@@ -8,7 +8,6 @@
 // main.js 구동 코드가 그대로 쓴다(노드 = 그리기 스펙 겸 DOM 스텁). 이식 비용을 여기 한 파일에 가둔다.
 import * as THREE from 'three';
 import { PAL, NEU, rgba } from './palette.js';
-import { T, R, sp, zone, NUM_S } from './ds.js';   // 조판 토큰 — 타이포·반경·간격·존
 
 const W = 1600, H = 2670;   // 대지 px (floor-scene.html과 동일)
 // 캔버스 해상도 — 화질과 업로드 비용의 저울.
@@ -182,6 +181,21 @@ function drawText(ctx, n, y, t) {
   ctx.letterSpacing = '0px';
 }
 
+// 완료 체크 배지 — Figma 52:3178 정본: 흰 원(글로우) + 뉴턴 레드 체크.
+// 원본 HTML은 반투명 흰 원 + 흰 체크였는데 그게 Figma와 달랐다(유저 지적).
+export function checkBadge(ctx, cx, cy, r) {
+  ctx.save();
+  ctx.shadowColor = rgba(NEU.ink, 0.55); ctx.shadowBlur = r * 0.86;
+  ctx.fillStyle = NEU.ink;
+  ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+  const k = r / 45.8;
+  ctx.strokeStyle = PAL.red; ctx.lineWidth = 8.2 * k; ctx.lineCap = ctx.lineJoin = 'round';
+  ctx.beginPath();
+  ctx.moveTo(cx - 19 * k, cy + 1 * k); ctx.lineTo(cx - 6 * k, cy + 14 * k); ctx.lineTo(cx + 19 * k, cy - 14 * k);
+  ctx.stroke();
+}
+
 function ringGeom(size) {   // SVG viewBox 604 · r275 규약 → 캔버스 px
   const s = size / 604;
   return { r: 275 * s, wTrack: 6 * s, wArc: 11 * s, dash: [0.5 * s, 20.5 * s] };
@@ -341,7 +355,7 @@ export class FloorGL {
     ctx.setTransform(K, 0, 0, K, 0, 0);
     ctx.clearRect(0, 0, W, H);
     if (this.kind && this.kind !== 'scene') return this['_paint_' + this.kind]();
-    let y = zone('title', H);   // 존 — 타이틀 밴드 (구 176)
+    let y = 176;   // Figma 대지 실좌표
     for (const n of this.col) {
       if (n.style.display === 'none') continue;
       const h = this._h(n);
@@ -357,7 +371,7 @@ export class FloorGL {
         if (ctx.globalAlpha > 0.004) this._draw(n, y);
         ctx.restore();
       }
-      y += h + sp('s5', 'run') + (n.mb || 0);
+      y += h + 72 + (n.mb || 0);
     }
   }
 
@@ -424,7 +438,7 @@ export class FloorGL {
       ? 1 - numOr(arc.style.strokeDashoffset, 0) / 1727.9
       : ((this.t - 0.15) / (n.pvn ? n.pv / n.pvn : n.pv)) % 1;
     const gap = 120, ringW = 200;
-    ctx.font = F(700, T.head); const tw = ctx.measureText('Preview').width;
+    ctx.font = F(700, 60); const tw = ctx.measureText('Preview').width;
     const pillW = 40 + tw + 20 + 60 + 30, pillH = 100;
     const total = pillW + gap + ringW, x0 = CX - total / 2;
     const py = y + (ringW - pillH) / 2;
@@ -453,17 +467,17 @@ export class FloorGL {
   _lstat(cx, y, me, tgt, label) {
     const ctx = this.ctx;
     ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'center';
-    ctx.font = F(700, T.head);
+    ctx.font = F(700, 60);
     const a = me || '--', b = tgt || '--';
     const wa = ctx.measureText(a).width, wSlash = ctx.measureText(' / ').width;
     const wb = ctx.measureText(b).width, tot = wa + wSlash + 36 + wb;
     let x = cx - tot / 2;
     ctx.textAlign = 'left'; ctx.fillStyle = this.map.get('spm-me')?.style.color || '#fff';
     ctx.fillText(a, x, y + 60); x += wa + 18;
-    ctx.fillStyle = 'rgba(255,255,255,.6)'; ctx.font = F(400, T.head);
+    ctx.fillStyle = 'rgba(255,255,255,.6)'; ctx.font = F(400, 60);
     ctx.fillText('/', x, y + 60); x += wSlash + 18;
     ctx.fillText(b, x, y + 60);
-    ctx.font = F(400, T.body); ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(255,255,255,.6)';
+    ctx.font = F(400, 40); ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(255,255,255,.6)';
     ctx.fillText(label, cx, y + 112);
   }
 
@@ -487,13 +501,13 @@ export class FloorGL {
   _km(n, y) {
     const ctx = this.ctx;
     ctx.textBaseline = 'top'; ctx.textAlign = 'center'; ctx.fillStyle = '#fff';
-    ctx.font = F(700, NUM_S.lg.run, dot9);
+    ctx.font = F(700, 180, dot9);
     const v = this.map.get('km-n')?.textContent || '0.00';
     const wv = ctx.measureText(v).width;
-    ctx.font = F(400, NUM_S.lg.run, dot9); const wu = ctx.measureText('km').width;
+    ctx.font = F(400, 180, dot9); const wu = ctx.measureText('km').width;
     const x0 = CX - (wv + wu) / 2;
-    ctx.textAlign = 'left'; ctx.font = F(700, NUM_S.lg.run, dot9); ctx.fillText(v, x0, y);
-    ctx.font = F(400, NUM_S.lg.run, dot9); ctx.fillText('km', x0 + wv, y);
+    ctx.textAlign = 'left'; ctx.font = F(700, 180, dot9); ctx.fillText(v, x0, y);
+    ctx.font = F(400, 180, dot9); ctx.fillText('km', x0 + wv, y);
   }
 
   // ── 공통 조각 ───────────────────────────────────────────────────────────────
@@ -532,9 +546,9 @@ export class FloorGL {
     const k = kf(p, [[0, .9], [.7, 1.02], [1, 1]]);
     ctx.translate(CX, y + gh / 2); ctx.scale(k, k); ctx.translate(-CX, -(y + gh / 2));
     ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-    ctx.font = F(400, T.head); ctx.letterSpacing = '-4.6px';
+    ctx.font = F(400, 64); ctx.letterSpacing = '-4.6px';
     ctx.fillStyle = 'rgba(255,255,255,.8)'; ctx.fillText(sub, CX, y);
-    ctx.font = F(700, T.display); ctx.fillStyle = '#fff';
+    ctx.font = F(700, 140); ctx.fillStyle = '#fff';
     // charWave 2.4s ×3, 글자마다 .05s 지연
     drawChars(ctx, ttl, CX, ty, 140, -5.6, i => {
       const c = cycle(t, 0.9 + i * 0.05, 2.4, 3);
@@ -555,7 +569,7 @@ export class FloorGL {
     if (glow > 0.002) { ctx.shadowColor = `rgba(255,255,255,${0.35 * glow})`; ctx.shadowBlur = 60 * glow; }
     ctx.fillStyle = '#fff'; this._pill(CX - w / 2, y, w, h);
     ctx.shadowBlur = 0;
-    ctx.font = F(700, T.title); ctx.letterSpacing = '-1.33px';
+    ctx.font = F(700, 80); ctx.letterSpacing = '-1.33px';
     ctx.fillStyle = NEU.inkDark; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillText(text, CX, y + h / 2);
     ctx.letterSpacing = '0px';
@@ -590,8 +604,8 @@ export class FloorGL {
       ctx.restore();
     }
     // 타이틀 글자 웨이브 — charLoop 3s ×3, 글자마다 .09s 지연
-    ctx.fillStyle = '#fff'; ctx.font = F(700, T.display);
-    drawChars(ctx, D.title, CX, zone('title', H), T.display, -4, i => {
+    ctx.fillStyle = '#fff'; ctx.font = F(700, 120);
+    drawChars(ctx, D.title, CX, 176, 120, -4, i => {
       const p = cycle(t, i * 0.09, 3, 3);
       return p == null ? { dy: 0, alpha: 1, scale: 1 } : {
         dy: kf(p, [[0, 0], [.12, -16], [.26, 0], [.58, 0], [1, 0]]),
@@ -607,7 +621,7 @@ export class FloorGL {
     let x = x0;
     cols.forEach((c, i) => {
       if (i) { ctx.fillStyle = 'rgba(255,255,255,.22)'; ctx.fillRect(x, 452 + 21, 2, 100); x += 2; }
-      ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.font = F(400, T.body);
+      ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.font = F(400, 40);
       ctx.fillText(c[0], x + w[i] / 2, 452 + 14);
       ctx.fillStyle = '#fff'; ctx.font = F(700, c[2] ? 52 : 64); ctx.letterSpacing = '-2px';
       ctx.fillText(c[1], x + w[i] / 2, 452 + 14 + 48 + 14);
@@ -639,7 +653,7 @@ export class FloorGL {
     const ar = this._img('run/arrow.svg');
     const ady = bob == null ? 0 : kf(bob, [[0, 0], [.12, 14], [.25, 0], [.4, 13], [.52, 0], [.58, 0], [1, 0]]);
     if (ar) ctx.drawImage(ar, CX - 43, 1057 + ady, 86, 86);
-    ctx.fillStyle = '#fff'; ctx.font = F(700, T.title); ctx.letterSpacing = '-5px';
+    ctx.fillStyle = '#fff'; ctx.font = F(700, 88); ctx.letterSpacing = '-5px';
     ctx.textAlign = 'center'; ctx.textBaseline = 'top';
     ctx.fillText('Tap your foot Twice', CX, 1057 + 86 + 30);
     ctx.letterSpacing = '0px';
@@ -658,8 +672,8 @@ export class FloorGL {
   _paint_transition() {
     const ctx = this.ctx, TR_ = TR[this.stage] || TR.T1, t = this.t;
     this._bgGlow(1160);
-    this._titleGroup(zone('title', H), TR_.sub, TR_.title);
-    const S = 654.902, GAP = sp('s3', 'run'), P = 52.392, y = zone('graphic', H);
+    this._titleGroup(500, TR_.sub, TR_.title);
+    const S = 654.902, GAP = 26.196, P = 52.392, y = 850;
     const x0 = CX - (S * 2 + GAP) / 2;
     // cardIn .8s (.38/.54) + cardFloat 4s/4.4s ×3 — 카드는 이미 바닥에 붙어 있어 '떠오름'은 원본대로 translate
     const card = (x, d, fd, fdur, D, done) => {
@@ -669,14 +683,14 @@ export class FloorGL {
       ctx.translate(0, c == null ? 0 : kf(c, [[0, 0], [.5, -13], [1, 0]]));
       const k = 0.9 + 0.1 * e;
       ctx.translate(x + S / 2, y + S / 2); ctx.scale(k, k); ctx.translate(-(x + S / 2), -(y + S / 2));
-      this._card(x, y, S, R.lg, P, D, done);
+      this._card(x, y, S, 65.49, P, D, done);
       ctx.restore();
     };
     card(x0, 0.38, 1.5, 4, TR_.done, true);
     card(x0 + S + GAP, 0.54, 1.85, 4.4, TR_.next, false);
     // sUpC .8s .95s + btnFloatC 3.6s 1.9s ×3 + btnPulse 3s 1.9s ×3
     const bf = cycle(t, 1.9, 3.6, 3), bp = cycle(t, 1.9, 3, 3);
-    this._button(zone('action', H), BTN, eOut(intro(t, .95, .8)),
+    this._button(1636, BTN, eOut(intro(t, .95, .8)),
       bf == null ? 0 : kf(bf, [[0, 0], [.5, -18], [1, 0]]),
       bp == null ? 0 : kf(bp, [[0, 0], [.5, 1], [1, 0]]));
   }
@@ -715,24 +729,24 @@ export class FloorGL {
     if (done) {
       const c = x + S - P - 45.8, cy = y + P + 45.8;
       ctx.translate(c, cy); ctx.scale(spk, spk); ctx.translate(-c, -cy);
-      ctx.fillStyle = 'rgba(255,255,255,.28)';
-      ctx.beginPath(); ctx.arc(c, cy, 45.8, 0, Math.PI * 2); ctx.fill();
-      ctx.strokeStyle = '#fff'; ctx.lineWidth = 7.5; ctx.lineCap = ctx.lineJoin = 'round';
-      ctx.beginPath(); ctx.moveTo(c - 19, cy + 1); ctx.lineTo(c - 6, cy + 14); ctx.lineTo(c + 19, cy - 14); ctx.stroke();
+      checkBadge(ctx, c, cy, 45.8);
     } else {
-      ctx.font = F(400, T.sub); const bw = ctx.measureText('Next').width + 52.4, bh = 52 * 1.2 + 26.2;
+      ctx.font = F(400, 52); const bw = ctx.measureText('Next').width + 52.4, bh = 52 * 1.2 + 26.2;
       const bx = x + S - P - bw / 2, by = y + P + bh / 2;
       ctx.translate(bx, by); ctx.scale(spk, spk); ctx.translate(-bx, -by);
+      ctx.save();   // Figma 뱃지 그림자 0 0 39.294px rgba(0,0,0,.12)
+      ctx.shadowColor = 'rgba(0,0,0,.12)'; ctx.shadowBlur = 39.294;
       ctx.fillStyle = 'rgba(255,255,255,.9)'; this._pill(x + S - P - bw, y + P, bw, bh);
+      ctx.restore();
       ctx.fillStyle = NEU.t3; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.fillText('Next', bx, by);
     }
     ctx.restore();
     // 좌하단 메타
     ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
-    ctx.fillStyle = done ? NEU.paper : NEU.t2; ctx.font = F(400, T.label); ctx.letterSpacing = '-1.64px';
+    ctx.fillStyle = done ? NEU.paper : NEU.t2; ctx.font = F(400, 36); ctx.letterSpacing = '-1.64px';
     ctx.fillText(D.time, x + P, y + S - P);
-    ctx.fillStyle = done ? '#fff' : NEU.inkDark; ctx.font = F(700, T.head); ctx.letterSpacing = '-3.27px';
+    ctx.fillStyle = done ? '#fff' : NEU.inkDark; ctx.font = F(700, 64); ctx.letterSpacing = '-3.27px';
     ctx.fillText(D.lbl.toUpperCase(), x + P, y + S - P - 36 * 1.2 - 13.1);
     ctx.letterSpacing = '0px';
   }
@@ -741,8 +755,7 @@ export class FloorGL {
   _paint_timer() {
     const ctx = this.ctx, M = TM[this.stage] || TM.C1, dur = this.params.dur || 3, t = this.t;
     this._bgGlow(1160);
-    this._titleGroup(zone('title', H), M.sub, M.title);
-    const y = zone('graphic', H);
+    const y = this._titleGroup(600, M.sub, M.title) + 88;
     const cy = y + 302, rem = dur - t, txt = rem > 0.05 ? String(Math.ceil(rem)) : 'GO';
     // ringPop .8s .35s + ringBreath 3s 1.2s ×3
     const e = eOut(intro(t, .35, .8)), br = cycle(t, 1.2, 3, 3);
@@ -771,8 +784,7 @@ export class FloorGL {
   _paint_report() {
     const ctx = this.ctx, RP_ = RP[this.stage] || RP.FIN, t = this.t;
     this._bgGlow(1080);
-    this._titleGroup(zone('title', H), RP_.sub, RP_.title);
-    let y = zone('graphic', H);
+    let y = this._titleGroup(640, RP_.sub, RP_.title) + 80;
     // 100% 링 (0.5s 뒤 1.4s 동안 채움)
     const p = clamp01((t - 0.5) / 1.4), e = eOut(p);
     const cy = y + 250, r = 230;
@@ -791,12 +803,12 @@ export class FloorGL {
     if (e > 0.002) { ctx.strokeStyle = '#fff'; ctx.lineCap = 'round';
       ctx.beginPath(); ctx.arc(CX, cy, r, -Math.PI / 2, -Math.PI / 2 + e * Math.PI * 2); ctx.stroke(); }
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#fff';
-    ctx.font = F(700, NUM_S.md); const nTxt = String(Math.round(100 * e));
+    ctx.font = F(700, 128.5); const nTxt = String(Math.round(100 * e));
     const nw = ctx.measureText(nTxt).width;
-    ctx.font = F(700, NUM_S.sm); const sw = ctx.measureText('%').width;
+    ctx.font = F(700, 90.3); const sw = ctx.measureText('%').width;
     ctx.textAlign = 'left';
-    ctx.font = F(700, NUM_S.md); ctx.fillText(nTxt, CX - (nw + sw + 8) / 2, cy);
-    ctx.font = F(700, NUM_S.sm); ctx.fillText('%', CX - (nw + sw + 8) / 2 + nw + 8, cy + 14);
+    ctx.font = F(700, 128.5); ctx.fillText(nTxt, CX - (nw + sw + 8) / 2, cy);
+    ctx.font = F(700, 90.3); ctx.fillText('%', CX - (nw + sw + 8) / 2 + nw + 8, cy + 14);
     ctx.shadowBlur = 0;
     ctx.restore();
     y = cy + 250 + 80;
@@ -807,7 +819,7 @@ export class FloorGL {
     let x = CX - total / 2;
     RP_.stats.forEach((st, i) => {
       if (i) { ctx.fillStyle = 'rgba(255,255,255,.25)'; ctx.fillRect(x + 5, y, 2, 100); x += 12; }
-      ctx.fillStyle = 'rgba(255,255,255,.7)'; ctx.font = F(400, T.label); ctx.letterSpacing = '-1.5px';
+      ctx.fillStyle = 'rgba(255,255,255,.7)'; ctx.font = F(400, 39); ctx.letterSpacing = '-1.5px';
       ctx.fillText(st[0], x + cw / 2, y);
       ctx.fillStyle = '#fff'; ctx.font = F(700, st[2] === 'sm' ? 42 : 64);
       ctx.fillText(st[1], x + cw / 2, y + 39 * 1.2 + 18);

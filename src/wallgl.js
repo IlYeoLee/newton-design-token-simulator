@@ -9,8 +9,7 @@
 // 세로 translate가 원근상 왜곡되지 않는다 → 원본 translateY를 그대로 쓴다.
 import * as THREE from 'three';
 import { PAL, NEU, rgba } from './palette.js';
-import { T, R, sp, zone, NUM_S } from './ds.js';   // 조판 토큰
-import { clamp01, eOut, cycle, kf, intro, drawChars, drawBadge, insetGlow } from './floorgl.js';
+import { clamp01, eOut, cycle, kf, intro, drawChars, drawBadge, insetGlow, checkBadge } from './floorgl.js';
 
 const W = 2600, H = 1600;   // 대지 px (벽 2.6×1.6m 실측 1:1)
 const K = 0.75;             // 캔버스 해상도 — 바닥과 같은 저울(화질 vs 업로드 비용)
@@ -264,7 +263,7 @@ export class WallGL {
     const k = kf(p, [[0, .94], [.7, 1.02], [1, 1]]);
     ctx.translate(0, kf(p, [[0, ty0], [.7, 0], [1, 0]]));
     ctx.translate(CX, y + gh / 2); ctx.scale(k, k); ctx.translate(-CX, -(y + gh / 2));
-    txt(ctx, sub, CX, y, T.sub, 400, 'rgba(255,255,255,.8)', { ls: -4.2, align: 'center' });
+    txt(ctx, sub, CX, y, 48, 400, 'rgba(255,255,255,.8)', { ls: -4.2, align: 'center' });
     ctx.font = F(700, 120); ctx.fillStyle = '#fff';
     drawChars(ctx, ttl, CX, y + subH + gap, 120, -4.8, i => {
       const c = cycle(t, 0.9 + i * 0.05, 2.4, INF);
@@ -281,9 +280,9 @@ export class WallGL {
     ctx.globalAlpha *= e;
     ctx.translate(0, dy);
     if (glow > 0.002) { ctx.shadowColor = `rgba(255,255,255,${0.35 * glow})`; ctx.shadowBlur = 60 * glow; }
-    rrFill(ctx, CX - w / 2, y, w, h, R.pill, '#fff');
+    rrFill(ctx, CX - w / 2, y, w, h, 999, '#fff');
     ctx.shadowBlur = 0;
-    txt(ctx, text, CX, y + h / 2, T.title, 700, NEU.inkDark, { ls: -1.33, align: 'center', base: 'middle' });
+    txt(ctx, text, CX, y + h / 2, 72, 700, NEU.inkDark, { ls: -1.33, align: 'center', base: 'middle' });
     ctx.restore();
     return y + h;
   }
@@ -304,15 +303,15 @@ export class WallGL {
     ctx.save();
     const he = eOut(intro(t, .15, .85));
     ctx.globalAlpha *= he; ctx.translate(-90 * (1 - he), 0);
-    rrFill(ctx, LX, ROW_Y, LW, hdrH, R.lg, '#fff');
+    rrFill(ctx, LX, ROW_Y, LW, hdrH, 64, '#fff');
     const ph = 217.054, px = LX + 20, py = ROW_Y + 20;
     ctx.save(); rrPath(ctx, px, py, ph, ph, 54); ctx.clip();
     const ca = this._img('coach_a.png'), cb = this._img('coach_b.png');
     for (const im of [ca, cb]) if (im) ctx.drawImage(im, px - 28.09, py - 74.05, 275.305, 511.608);
     ctx.restore();
     const tx = px + ph + 40.857;
-    txt(ctx, 'Boxing Basic Jab Combo', tx, py + 24, T.sub, 700, NEU.inkDark, { ls: -2.55 });
-    txt(ctx, 'Skilled User Pack · Boxing ·Quite On', tx, py + 24 + 52 * 1.2 + 20.429, T.label, 400, NEU.t2, { ls: -.96 });
+    txt(ctx, 'Boxing Basic Jab Combo', tx, py + 24, 52, 700, NEU.inkDark, { ls: -2.55 });
+    txt(ctx, 'Skilled User Pack · Boxing ·Quite On', tx, py + 24 + 52 * 1.2 + 20.429, 32, 400, NEU.t2, { ls: -.96 });
     ctx.restore();
 
     // 스탯 카드 — slideInLeft .85s .35s
@@ -320,14 +319,14 @@ export class WallGL {
     ctx.save();
     const se = eOut(intro(t, .35, .85));
     ctx.globalAlpha *= se; ctx.translate(-90 * (1 - se), 0);
-    rrFill(ctx, LX, stY, LW, stH, R.xl, NEU.surface);
+    rrFill(ctx, LX, stY, LW, stH, 76, NEU.surface);
     const ix = LX + 20, iw = 1000;
     let y = stY + 32;
     // ── Total
-    txt(ctx, 'Total', ix + iw / 2, y + 8, T.label, 400, NEU.t1, { ls: -1, align: 'center' });
+    txt(ctx, 'Total', ix + iw / 2, y + 8, 32, 400, NEU.t1, { ls: -1, align: 'center' });
     y += 48 + 8;
     const totH = 378.393;
-    rrFill(ctx, ix, y, iw, totH, R.lg, '#fff');
+    rrFill(ctx, ix, y, iw, totH, 64, '#fff');
     // 그래프 3단 (우측 정렬, 위에서부터 stretch/learn/run)
     const gY = y + 10, gH = totH - 20, gR = ix + iw - 10;
     const barH = (gH - 4.851 * 2) / 3;
@@ -339,7 +338,7 @@ export class WallGL {
       const g = ctx.createLinearGradient(gR - bw, 0, gR + bw * 0.08, 0);
       g.addColorStop(.63, PAL.red); g.addColorStop(.9, PAL.coral); g.addColorStop(1, PAL.sand);
       rrFill(ctx, gR - bw, by, bw, barH, 40, solid || g);
-      txt(ctx, label, gR - bw + 24.256, by + barH / 2, T.label, 400, '#fff', { ls: -1.21, base: 'middle' });
+      txt(ctx, label, gR - bw + 24.256, by + barH / 2, 36, 400, '#fff', { ls: -1.21, base: 'middle' });
       ctx.restore();
     };
     bar(0, 194.048, '5min', 1.0);
@@ -348,20 +347,20 @@ export class WallGL {
     const ry = gY + 2 * (barH + 4.851);
     rrFill(ctx, gR - (iw - 20), ry, iw - 20, barH, 40, NEU.surface);
     ctx.save(); ctx.globalAlpha *= 0.7;
-    txt(ctx, 'Fight!', gR - (iw - 20) + 24.256, ry + barH / 2, T.label, 700, NEU.inkDark, { ls: -1.21, base: 'middle' });
+    txt(ctx, 'Fight!', gR - (iw - 20) + 24.256, ry + barH / 2, 32, 700, NEU.inkDark, { ls: -1.21, base: 'middle' });
     ctx.restore();
     bar(2, 582.143, '15min', 1.3);
     // 좌측 큰 숫자 오버레이
-    txt(ctx, '30', ix + 24.256, y + 24.256, NUM_S.md, 700, NEU.inkDark, { fam: dot9 });
+    txt(ctx, '30', ix + 24.256, y + 24.256, 145.536, 700, NEU.inkDark, { fam: dot9 });
     ctx.save(); ctx.globalAlpha *= 0.6;
-    txt(ctx, 'min', ix + 24.256, y + 24.256 + 145.536, T.label, 700, NEU.inkDark, { ls: -1.21 });
+    txt(ctx, 'min', ix + 24.256, y + 24.256 + 145.536, 32, 700, NEU.inkDark, { ls: -1.21 });
     ctx.restore();
     y += totH + 32;
     // ── Setup
-    txt(ctx, 'Setup', ix + iw / 2, y + 8, T.label, 400, NEU.t1, { ls: -.5, align: 'center' });
+    txt(ctx, 'Setup', ix + iw / 2, y + 8, 32, 400, NEU.t1, { ls: -.5, align: 'center' });
     y += 48 + 8;
     const setH = 235;
-    rrFill(ctx, ix, y, iw, setH, R.lg, '#fff');
+    rrFill(ctx, ix, y, iw, setH, 64, '#fff');
     const cw = (iw - 20 - 10) / 2;
     const cells = [['Location & Goal', 'Inoor ·Standard', 103], ['Condition', 'About the same as usual', 103],
                    ['Level & Mode', 'Quite On', 102], ['Main Workout', '15m', 102]];
@@ -373,14 +372,14 @@ export class WallGL {
       ctx.translate(0, 26 * (1 - e));
       const k = 0.95 + 0.05 * e;
       ctx.translate(cx0 + cw / 2, cy0 + ch / 2); ctx.scale(k, k); ctx.translate(-(cx0 + cw / 2), -(cy0 + ch / 2));
-      rrFill(ctx, cx0, cy0, cw, ch, R.md, NEU.surface);
-      txt(ctx, lab, cx0 + 20, cy0 + 20, T.micro, 400, NEU.t2, { ls: -.5 });
-      txt(ctx, val, cx0 + 20, cy0 + 20 + 24 * 1.1 + 8, T.label, 700, '#000', { ls: -1.08 });
+      rrFill(ctx, cx0, cy0, cw, ch, 48, NEU.surface);
+      txt(ctx, lab, cx0 + 20, cy0 + 20, 24, 400, NEU.t2, { ls: -.5 });
+      txt(ctx, val, cx0 + 20, cy0 + 20 + 24 * 1.1 + 8, 36, 700, '#000', { ls: -1.08 });
       ctx.restore();
     });
     y += setH + 32;
     // ── Connected
-    txt(ctx, 'Connected', ix + iw / 2, y + 8, T.label, 400, NEU.t1, { ls: -.5, align: 'center' });
+    txt(ctx, 'Connected', ix + iw / 2, y + 8, 32, 400, NEU.t1, { ls: -.5, align: 'center' });
     y += 48 + 8;
     const devH = 203.607, dw = (iw - 16) / 3;
     const devs = [['icon_wearable.png', 'Wearable', 'Battery 99%'],
@@ -391,12 +390,12 @@ export class WallGL {
       const e = eOut(intro(t, 1.3 + i * .13, .55));
       ctx.save();
       ctx.globalAlpha *= e; ctx.translate(0, 26 * (1 - e));
-      rrFill(ctx, dx, y, dw, devH, R.lg, '#fff');
+      rrFill(ctx, dx, y, dw, devH, 64, '#fff');
       // 아이콘 — 웨어러블만 원본 컬러, 나머지는 열화상 그라디언트 마스크
       const tim = i === 0 ? this._img(ic) : this._tinted(ic, 88, 88, [[0, PAL.red], [.6, PAL.coral], [.85, PAL.sand], [1, PAL.prism]]);
       if (tim) ctx.drawImage(tim, dx + 20, y + 20, 88, 88);
-      txt(ctx, n, dx + 20, y + 20 + 88 + 8, T.label, 700, NEU.inkDark, { ls: -1 });
-      txt(ctx, s, dx + 20, y + 20 + 88 + 8 + 36 * 1.2, T.micro, 400, NEU.t2, { ls: -.72 });
+      txt(ctx, n, dx + 20, y + 20 + 88 + 8, 36, 700, NEU.inkDark, { ls: -1 });
+      txt(ctx, s, dx + 20, y + 20 + 88 + 8 + 36 * 1.2, 24, 400, NEU.t2, { ls: -.72 });
       const chk = this._img('check.svg');
       if (chk) ctx.drawImage(chk, dx + dw - 60, y + 20, 40, 40);
       ctx.restore();
@@ -454,8 +453,8 @@ export class WallGL {
     // CTA
     const ar = this._img('arrow-right.svg');
     if (ar) ctx.drawImage(ar, FX + 380 - 31, FY + 100, 62, 62);
-    txt(ctx, 'Tap your foot Twice', FX + 380, FY + 100 + 62 + 26, T.head, 700, '#fff', { ls: -4.57, align: 'center' });
-    txt(ctx, 'with the Wearable on', FX + 380, FY + 100 + 62 + 26 + 64 * 1.1 + 14, T.label, 400, 'rgba(255,255,255,.8)', { align: 'center' });
+    txt(ctx, 'Tap your foot Twice', FX + 380, FY + 100 + 62 + 26, 64, 700, '#fff', { ls: -4.57, align: 'center' });
+    txt(ctx, 'with the Wearable on', FX + 380, FY + 100 + 62 + 26 + 64 * 1.1 + 14, 32, 400, 'rgba(255,255,255,.8)', { align: 'center' });
     ctx.restore();
     ctx.restore();   // /rightcol float
   }
@@ -474,12 +473,12 @@ export class WallGL {
     ctx.globalAlpha *= kf(tp, [[0, 0], [.7, 1], [1, 1]]);
     ctx.translate(0, kf(tp, [[0, 40], [.7, 0], [1, 0]]));
     const tk = kf(tp, [[0, .94], [.7, 1.02], [1, 1]]);
-    ctx.translate(100, zone('title', H) + 48); ctx.scale(tk, tk); ctx.translate(-100, -(140 + 48));
-    txt(ctx, S.title, 100, zone('title', H), T.title, 700, NEU.ink);
+    ctx.translate(100, 140 + 48); ctx.scale(tk, tk); ctx.translate(-100, -(140 + 48));
+    txt(ctx, S.title, 100, 140, 80, 700, NEU.ink);
     ctx.restore();
 
     // 도트 로딩바 — sUp .6s .20s, 클립이 dur 동안 0→457.34
-    const dY = zone('title', H) + 96 + sp('s3', 'wall'), dS = 45.734;
+    const dY = 140 + 96 + 27, dS = 45.734;
     const de = eOut(intro(t, .20, .6));
     ctx.save();
     ctx.globalAlpha *= de; ctx.translate(0, 48 * (1 - de));
@@ -509,7 +508,7 @@ export class WallGL {
         ctx.shadowColor = 'rgba(255,255,255,.45)'; ctx.shadowBlur = 28;
         txt(ctx, label + (S.sub ? ' ' + S.sub : ''), 2500, py, 40, 700, '#fff', { align: 'right' });
       } else {
-        txt(ctx, label, 2500, py, T.label, 400, far ? 'rgba(255,255,255,.5)' : 'rgba(255,255,255,.7)', { align: 'right' });
+        txt(ctx, label, 2500, py, 32, 400, far ? 'rgba(255,255,255,.5)' : 'rgba(255,255,255,.7)', { align: 'right' });
       }
       ctx.restore();
     });
@@ -519,7 +518,7 @@ export class WallGL {
       const e = mid ? 1 : eOut(intro(t, .28, .8));
       ctx.save();
       ctx.globalAlpha *= e; ctx.translate(dir * 70 * (1 - e), 0);
-      rrFill(ctx, x, 855, 237, 237, R.pill, '#fff');
+      rrFill(ctx, x, 855, 237, 237, 999, '#fff');
       ctx.save();
       ctx.beginPath(); ctx.arc(x + 118.5, 855 + 118.5, 108.5, 0, Math.PI * 2); ctx.clip();
       for (const rel of img) { const im = this._img(rel); if (im) ctx.drawImage(im, x + 10 - 28.09, 855 + 10 - 74.05, 275.305, 511.608); }
@@ -537,7 +536,7 @@ export class WallGL {
     ctx.font = F(400, 47.28);
     const bw = ctx.measureText('You').width + 63.04, bh = 47.28 * 1.2 + 31.52;
     ctx.translate(2319 + bw / 2, 1043 + bh / 2); ctx.scale(bk, bk); ctx.translate(-(2319 + bw / 2), -(1043 + bh / 2));
-    rrFill(ctx, 2319, 1043, bw, bh, R.xl, 'rgba(255,255,255,.9)');
+    rrFill(ctx, 2319, 1043, bw, bh, 80, 'rgba(255,255,255,.9)');
     txt(ctx, 'You', 2319 + bw / 2, 1043 + bh / 2, 47.28, 400, NEU.t3, { ls: -.5, align: 'center', base: 'middle' });
     ctx.restore();
 
@@ -548,7 +547,7 @@ export class WallGL {
       ctx.globalAlpha *= kf(ne, [[0, 0], [.6, 1], [1, 1]]);
       const nk = kf(ne, [[0, .5], [.6, 1.12], [1, 1]]);
       ctx.translate(x, 1148 + 100); ctx.scale(nk, nk); ctx.translate(-x, -(1148 + 100));
-      txt(ctx, countUp(val, t, delay, cd), x, 1148, NUM_S.lg.wall, 700, '#fff', { fam: dot9, ls: -8, align });
+      txt(ctx, countUp(val, t, delay, cd), x, 1148, 200, 700, '#fff', { fam: dot9, ls: -8, align });
       ctx.restore();
     };
     num(100, 'left', S.coach.num, .62, 1.0);
@@ -575,8 +574,8 @@ export class WallGL {
     const sw = Math.min(1600, ctx.measureText(say).width + 64), sh = 56 * 1.2 + 48;
     const sk = kf(cs, [[0, .9], [.6, 1.06], [1, 1]]);
     ctx.translate(CX, 1370 + sh / 2); ctx.scale(sk, sk); ctx.translate(-CX, -(1370 + sh / 2));
-    rrFill(ctx, CX - sw / 2, 1370, sw, sh, R.pill, '#fff');
-    txt(ctx, say, CX, 1370 + sh / 2, T.sub, 400, '#000', { ls: -2.24, align: 'center', base: 'middle' });
+    rrFill(ctx, CX - sw / 2, 1370, sw, sh, 9999, '#fff');
+    txt(ctx, say, CX, 1370 + sh / 2, 56, 400, '#000', { ls: -2.24, align: 'center', base: 'middle' });
     ctx.restore();
 
     // 콤보 팝업 — comboIn .6s (1.0 + i*.5) + comboGlow 1.6s ∞
@@ -603,8 +602,7 @@ export class WallGL {
   _paint_timer() {
     const ctx = this.ctx, t = this.t, M = TM[this.stage] || TM.BX_C1, dur = this.params.dur || 3;
     this._bgGlow();
-    this._titleGroup(zone('title', H), M.sub, M.title);
-    const y = zone('graphic', H);
+    const y = this._titleGroup(341, M.sub, M.title) + 80;
     const cy = y + 274.319, r = 250 * (548.638 / 549);
     const rem = dur - t, val = rem > 0.05 ? String(Math.ceil(rem)) : 'GO';
     // ringPop .8s .35s + ringBreath 3s 1.2s ∞
@@ -625,7 +623,7 @@ export class WallGL {
     ctx.save();
     ctx.globalAlpha *= kf(q, [[0, 0], [.35, 1], [1, 1]]);
     ctx.translate(CX, cy); ctx.scale(nk, nk); ctx.translate(-CX, -cy);
-    txt(ctx, val, CX, cy, NUM_S.lg.wall, 700, '#fff', { fam: dot9, align: 'center', base: 'middle' });
+    txt(ctx, val, CX, cy, 200, 700, '#fff', { fam: dot9, align: 'center', base: 'middle' });
     ctx.restore();
     ctx.restore();
   }
@@ -634,8 +632,8 @@ export class WallGL {
   _paint_transition() {
     const ctx = this.ctx, t = this.t, TR_ = TR[this.stage] || TR.BX_T1;
     this._bgGlow();
-    this._titleGroup(zone('title', H), TR_.sub, TR_.title, .1, .85, 44);
-    const S = 654.902, GAP = sp('s3', 'wall'), y = zone('graphic', H), x0 = CX - (S * 2 + GAP) / 2;
+    this._titleGroup(221, TR_.sub, TR_.title, .1, .85, 44);
+    const S = 654.902, GAP = 26.196, y = 532, x0 = CX - (S * 2 + GAP) / 2;
     const card = (x, d, fd, fdur, D, done) => {
       const e = eOut(intro(t, d, .8)), c = cycle(t, fd, fdur, INF);
       ctx.save();
@@ -650,7 +648,7 @@ export class WallGL {
     card(x0 + S + GAP, .54, 1.85, 4.4, TR_.next, false);
     // sUpC .8s .95s + btnFloatC 3.6s 1.9s ∞ + btnPulse 3s 1.9s ∞
     const be = eOut(intro(t, .95, .8)), bf = cycle(t, 1.9, 3.6, INF), bp = cycle(t, 1.9, 3, INF);
-    this._button(zone('action', H), BTN, be,
+    this._button(1226, BTN, be,
       54 * (1 - be) + (bf == null ? 0 : kf(bf, [[0, 0], [.5, -18], [1, 0]])),
       bp == null ? 0 : kf(bp, [[0, 0], [.5, 1], [1, 0]]));
   }
@@ -658,7 +656,7 @@ export class WallGL {
   _card(x, y, S, D, done) {
     const ctx = this.ctx, P = 52.392;
     ctx.save();
-    rrPath(ctx, x, y, S, S, R.lg); ctx.clip();
+    rrPath(ctx, x, y, S, S, 65.49); ctx.clip();
     ctx.fillStyle = done ? gradV(ctx, y, y + S, [[.48, PAL.red], [.776, PAL.coral], [1, PAL.sand]]) : '#fff';
     ctx.fillRect(x, y, S, S);
     const im = this._img(D.img);
@@ -676,8 +674,8 @@ export class WallGL {
     } else {
       // 내부 글로우 = 원본 CSS 실값 inset 0 0 52.392px 19.647px rgba(255,255,255,.6)
       ctx.save();
-      rrPath(ctx, x, y, S, S, R.lg); ctx.clip();
-      insetGlow(ctx, x, y, S, S, R.lg, rgba(NEU.ink, 0.6), 52.392, 19.647);
+      rrPath(ctx, x, y, S, S, 65.49); ctx.clip();
+      insetGlow(ctx, x, y, S, S, 65.49, rgba(NEU.ink, 0.6), 52.392, 19.647);
       ctx.restore();
     }
     ctx.restore();
@@ -689,30 +687,29 @@ export class WallGL {
     if (done) {
       const c = x + S - P - 45.8, cy = y + P + 45.8;
       ctx.translate(c, cy); ctx.scale(spk, spk); ctx.translate(-c, -cy);
-      ctx.fillStyle = 'rgba(255,255,255,.28)';
-      ctx.beginPath(); ctx.arc(c, cy, 45.8, 0, Math.PI * 2); ctx.fill();
-      ctx.strokeStyle = '#fff'; ctx.lineWidth = 7.5; ctx.lineCap = 'round';
-      ctx.beginPath(); ctx.moveTo(c - 19, cy + 1); ctx.lineTo(c - 6, cy + 14); ctx.lineTo(c + 19, cy - 14); ctx.stroke();
+      checkBadge(ctx, c, cy, 45.8);
     } else {
       ctx.font = F(400, 52);
       const bw = ctx.measureText(D.badge || 'Next').width + 52.392, bh = 52 * 1.2 + 26.196;
       const bx = x + S - P - bw / 2, by = y + P + bh / 2;
       ctx.translate(bx, by); ctx.scale(spk, spk); ctx.translate(-bx, -by);
-      rrFill(ctx, x + S - P - bw, y + P, bw, bh, R.xl, 'rgba(255,255,255,.9)');
-      txt(ctx, D.badge || 'Next', bx, by, T.sub, 400, NEU.t3, { ls: -1.6, align: 'center', base: 'middle' });
+      ctx.save();   // Figma 뱃지 그림자 0 0 39.294px rgba(0,0,0,.12)
+      ctx.shadowColor = 'rgba(0,0,0,.12)'; ctx.shadowBlur = 39.294;
+      rrFill(ctx, x + S - P - bw, y + P, bw, bh, 80, 'rgba(255,255,255,.9)');
+      ctx.restore();
+      txt(ctx, D.badge || 'Next', bx, by, 52, 400, NEU.t3, { ls: -1.6, align: 'center', base: 'middle' });
     }
     ctx.restore();
     // 좌하단 메타
-    txt(ctx, D.time, x + P, y + S - P, T.label, 400, done ? NEU.paper : NEU.t2, { ls: -1.64, base: 'bottom' });
-    txt(ctx, D.lbl.toUpperCase(), x + P, y + S - P - 36 * 1.2 - 13.098, T.head, 700, done ? '#fff' : NEU.inkDark, { ls: -3.27, base: 'bottom' });
+    txt(ctx, D.time, x + P, y + S - P, 36, 400, done ? NEU.paper : NEU.t2, { ls: -1.64, base: 'bottom' });
+    txt(ctx, D.lbl.toUpperCase(), x + P, y + S - P - 36 * 1.2 - 13.098, 64, 700, done ? '#fff' : NEU.inkDark, { ls: -3.27, base: 'bottom' });
   }
 
   // ── 리포트 (report.html) ──────────────────────────────────────────────────
   _paint_report() {
     const ctx = this.ctx, t = this.t, RP_ = RP[this.stage] || RP.BX_FIN;
     this._bgGlow();
-    this._titleGroup(zone('title', H), RP_.sub, RP_.title);
-    const y = zone('graphic', H);
+    const y = this._titleGroup(200, RP_.sub, RP_.title) + 70;
     const cy = y + 250, r = 230;
     // ringPop .8s .35s + ringBreath 3s 1.3s ∞ / arcFill 1.3s .5s
     const e = eOut(intro(t, .35, .8)), br = cycle(t, 1.3, 3, INF);
@@ -729,10 +726,10 @@ export class WallGL {
     ctx.shadowBlur = 0;
     // % 카운트업
     const n = String(Math.round(RP_.pct * eOut(clamp01((t - .5) / 1.3))));
-    ctx.font = F(700, NUM_S.md, dot9); const nw = ctx.measureText(n).width;
-    ctx.font = F(700, NUM_S.sm, dot9); const sw = ctx.measureText('%').width;
-    txt(ctx, n, CX - (nw + sw + 8) / 2, cy, NUM_S.md, 700, '#fff', { fam: dot9, ls: -3.57, base: 'middle' });
-    txt(ctx, '%', CX - (nw + sw + 8) / 2 + nw + 8, cy + 12, NUM_S.sm, 700, '#fff', { fam: dot9, ls: -2.5, base: 'middle' });
+    ctx.font = F(700, 128.5, dot9); const nw = ctx.measureText(n).width;
+    ctx.font = F(700, 90.3, dot9); const sw = ctx.measureText('%').width;
+    txt(ctx, n, CX - (nw + sw + 8) / 2, cy, 128.5, 700, '#fff', { fam: dot9, ls: -3.57, base: 'middle' });
+    txt(ctx, '%', CX - (nw + sw + 8) / 2 + nw + 8, cy + 12, 90.3, 700, '#fff', { fam: dot9, ls: -2.5, base: 'middle' });
     ctx.restore();
     // 통계 3열 — stat sUp .7s (1.0/1.15/1.3), sep sepGrow .6s 1.1s
     const sy = cy + 250 + 70, sW = 281, gap = 12;
@@ -752,7 +749,7 @@ export class WallGL {
       ctx.save();
       ctx.globalAlpha *= e2; ctx.translate(0, 48 * (1 - e2));
       txt(ctx, kk, x + sW / 2, sy, 39.2, 400, 'rgba(255,255,255,.7)', { ls: -1.5, align: 'center' });
-      txt(ctx, v, x + sW / 2, sy + 39.2 * 1.2 + 18, T.head, 700, '#fff', { ls: -1.5, align: 'center' });
+      txt(ctx, v, x + sW / 2, sy + 39.2 * 1.2 + 18, 64, 700, '#fff', { ls: -1.5, align: 'center' });
       ctx.restore();
       x += sW;
     });
