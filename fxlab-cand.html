@@ -547,6 +547,7 @@ const CAND_PRELUDE = `
 uniform float uDotPitch, uDotGain, uDotSpeed, uInner;
 uniform float uMono, uFlat, uNoInner, uBg, uProgOvr;
 uniform float uInnerMode, uActMode, uComp, uHarm, uQ0, uSatR, uHueKeep, uBeam, uFine;
+uniform sampler2D uMask; uniform float uMaskOn;
 float chash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 // 하프톤 한 셀: 반지름을 amount(0~1)가 정한다 → 밝을수록 굵은 점 (레퍼런스의 발바닥 밀도)
 float halftone(vec2 p, float pitch, float amount, float soft){
@@ -584,7 +585,16 @@ vec4 dotFormQ(vec2 grid, vec2 uv, float sd, float ext, float w, float pitch, flo
   //   → 점 크기 변화를 '열'이 맡게 분리한 뒤로는 경계를 좁혀도 결이 사라지지 않는다.
   //     좁게 잡아야 글리프 구멍이 제 크기로 읽힌다(넓으면 구멍이 먹혀 그늘만 남는다).
   float band = 0.055 * max(uInner, 0.05);
-  float amt  = smoothstep(band, -band, sd) * clamp(w, 0.0, 2.0);
+  // ★ 마스크 경로 — '구멍 뚫은 도형' 텍스처를 그대로 커버리지로 쓴다(유저 제안).
+  //   거리장(SDF)을 거치면 얇은 획이 뭉개진다. 도형을 직접 읽으면 글리프가 그대로 남는다.
+  float amt;
+  if (uMaskOn > 0.5) {
+    vec2 muv = uv * 0.5 + 0.5;
+    float cov = texture2D(uMask, vec2(muv.x, 1.0 - muv.y)).r;
+    amt = smoothstep(0.06, 0.72, cov) * clamp(w, 0.0, 2.0);   // 완만하게 — 점이 잘리지 않고 작아진다
+  } else {
+    amt = smoothstep(band, -band, sd) * clamp(w, 0.0, 2.0);
+  }
   // ★ 아웃라인이 없어도 이너 음영은 된다 — 선이 아니라 '점 크기'가 음영을 지면 되기 때문.
   //   가장자리 쪽 점을 키우면 글로우, 줄이면 섀도우. 윤곽선은 여전히 0 이다.
   if (uInnerMode > 0.5) {
@@ -1119,6 +1129,8 @@ const candGL = (() => {
   texSetup(2, bgTex, gl.REPEAT);
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, 1, 1, 0, gl.RGB, gl.UNSIGNED_BYTE, new Uint8Array([12,14,19]));
   const sdfTex = gl.createTexture(); texSetup(3, sdfTex, gl.CLAMP_TO_EDGE);
+  const maskTex = gl.createTexture(); texSetup(4, maskTex, gl.CLAMP_TO_EDGE);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE, 1, 1, 0, gl.LUMINANCE, gl.UNSIGNED_BYTE, new Uint8Array([255]));
   gl.viewport(0, 0, W, H);
   const progs = [];
   const API = {
@@ -1142,11 +1154,18 @@ const candGL = (() => {
           gl.uniform1f(P.u('uGrain'), grain); } };
       gl.uniform2f(P.u('uRes'), W, H);
       gl.uniform1i(P.u('uLUT'), 0); gl.uniform1i(P.u('uBG'), 2); gl.uniform1i(P.u('uSDF2'), 3);
+      gl.uniform1i(P.u('uMask'), 4);
       progs.push(P);
       return P;
     },
     syncLUT() { gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, lutTex);
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 256, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, lutData); },
+    // 구멍 뚫은 '도형 자체'를 마스크로 올린다 — 거리장을 거치지 않으므로 얇은 획도 안 뭉갠다.
+    uploadMask(cv2) { gl.activeTexture(gl.TEXTURE0 + 4); gl.bindTexture(gl.TEXTURE_2D, maskTex);
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE, gl.LUMINANCE, gl.UNSIGNED_BYTE, cv2);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR); },
     uploadSDF(FS) { gl.activeTexture(gl.TEXTURE0 + 3); gl.bindTexture(gl.TEXTURE_2D, sdfTex);
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE, FS.N, FS.N, 0, gl.LUMINANCE, gl.FLOAT, FS.data);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
@@ -1264,10 +1283,12 @@ function candSDF(FS) {
   //     진짜 원인은 경계 폭이고, 이제 점 크기 변화는 '열'이 맡으므로 경계를 좁혀도
   //     결이 사라지지 않는다 — 그래서 경계를 좁히는 쪽이 옳다(아래 band 0.055).
   const dilPx = 0;
-  return bakeFootWithGlyphHole(candFootImg, N, candFootFlip, ch,
-                               circle ? 0.5 : (av ? av.x : 0.5),
-                               circle ? 0.5 : (av ? av.y : 0.34), sizeN,
-                               circle ? 'circle' : 'foot', dilPx);
+  const r = bakeFootWithGlyphHole(candFootImg, N, candFootFlip, ch,
+                                  circle ? 0.5 : (av ? av.x : 0.5),
+                                  circle ? 0.5 : (av ? av.y : 0.34), sizeN,
+                                  circle ? 'circle' : 'foot', dilPx);
+  candGL.uploadMask(r.mask);      // 도형 자체를 마스크로 — 셰이더는 이걸 커버리지로 읽는다
+  return r.FS;
 }
 const _sdfHoleCache = new Map();
 function bakeFootWithGlyphHole(img, N, flip, ch, axN, ayN, sizeN, base, dilPx) {
@@ -1322,9 +1343,23 @@ function bakeFootWithGlyphHole(img, N, flip, ch, axN, ayN, sizeN, base, dilPx) {
     stamp(Math.cos(a2) * D, Math.sin(a2) * D);
   }
   g.restore();
+  // ★ 경계를 부드럽게 구워 올린다. 하드 컷 마스크를 쓰면 점이 경계에서 '잘려' 테두리처럼 보인다
+  //   (유저: 원형 마크·발자국에 테두리 만들지 말랬지). 살짝 번지게 하면 커버리지가 완만히
+  //   떨어져 점이 잘리는 대신 작아지며 사라진다 — 아웃라인 0 이 유지된다.
+  const soft = document.createElement('canvas'); soft.width = soft.height = N;
+  const sg = soft.getContext('2d');
+  sg.filter = `blur(${Math.max(2, Math.round(N * 0.012))}px)`;
+  sg.drawImage(c, 0, 0);
+  sg.filter = 'none';
+  // 알파를 밝기로 옮긴다 — LUMINANCE 텍스처로 올리기 위해
+  const idata = sg.getImageData(0, 0, N, N);
+  for (let i = 0; i < N * N; i++) { const a2 = idata.data[i * 4 + 3];
+    idata.data[i * 4] = idata.data[i * 4 + 1] = idata.data[i * 4 + 2] = a2; idata.data[i * 4 + 3] = 255; }
+  sg.putImageData(idata, 0, 0);
   const FS = sdfFromAlpha(g.getImageData(0, 0, N, N).data, N);
-  _sdfHoleCache.set(key, FS);
-  return FS;
+  const out = { FS, mask: soft };
+  _sdfHoleCache.set(key, out);
+  return out;
 }
 
 let candNums = 0;   // 0 끄기 · 1 숫자 글리프 · 2 L/R 글리프
@@ -2330,6 +2365,7 @@ function frame(ts) {
       g2.uniform1f(P.u('uHueKeep'), candP.hue);
       g2.uniform1f(P.u('uBeam'), candP.beam);
       g2.uniform1f(P.u('uFine'), candP.fine);
+      g2.uniform1f(P.u('uMaskOn'), (candGStyle === 4 && candNums) ? 1 : 0);
       g2.drawArrays(g2.TRIANGLES, 0, 3);
       ctx2d.drawImage(candGL.cv, 0, 0);   // 공유 컨텍스트 → 이 셀로 복사
     }
@@ -2369,6 +2405,7 @@ function frame(ts) {
       g3.uniform1f(P.u('uHueKeep'), candP.hue);
       g3.uniform1f(P.u('uBeam'), candP.beam);
       g3.uniform1f(P.u('uFine'), candP.fine);
+      g3.uniform1f(P.u('uMaskOn'), (candGStyle === 4 && candNums) ? 1 : 0);
       for (const cell of stripCells) {
         g3.uniform1f(P.u('uState'), cell.state);
         g3.drawArrays(g3.TRIANGLES, 0, 3);
