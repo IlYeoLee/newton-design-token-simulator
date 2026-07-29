@@ -600,7 +600,11 @@ uniform float uT2;   // 앰비언트 그라디언트 흐름용 시간
 // ★ 색좌표를 '형태 크기'로 정규화한다. 정본은 존 원 ext=0.46·발형 ext=0.72 로 달라
 //   두 형태가 램프의 다른 구간을 훑었고, 같은 상태인데 색감이 달랐다(유저 지적).
 float normQ(vec2 uv, float ext){
-  return clamp(uQ0 + (1.0 - uQ0) * pow(clamp(length(uv) / max(ext * 1.55, 1e-3), 0.0, 1.0), 1.75), 0.0, 1.0);
+  // ★ 램프 상한을 0.60 으로 막는다. 열어 두면 가장자리 점이 사구·크림·프리즘까지 가서
+  //   '밝은 테두리 링'이 생긴다 — 기하학적 아웃라인이 아니라 색 때문에 생기는 아웃라인이다.
+  //   (유저가 반복해서 지적한 그 링의 실제 원인)
+  float r = clamp(length(uv) / max(ext * 1.55, 1e-3), 0.0, 1.0);
+  return clamp(uQ0 + (0.60 - uQ0) * pow(r, 1.75), 0.0, 1.0);
 }
 vec4 dotFormQ(vec2 grid, vec2 uv, float sd, float ext, float w, float pitch, float st, float pg, float qOvr){
   float t2 = uT2;
@@ -675,6 +679,40 @@ vec4 dotForm(vec2 uv, float sd, float ext, float w, float pitch, float st, float
 const CAND_SHAPE_DEFAULT = 'float markShapeSD(vec2 p, float base){ return base; }';
 const CAND_SIG = 'vec4 markCandidate(vec4 A, vec2 uv, float sd, float inside, float ext, float state, float prog, float t)';
 const CANDIDATES = [
+  // ══ MARK 하프톤 테마 (자동) ════════════════════════════════════════════════
+  //   카탈로그 원칙 그대로다: 상호작용 지점은 MARK 하나(존 원 + 링 모디파이어 + 7상태).
+  //   그러니 색·상태·모션·계약은 정본 markState 를 '하나도 건드리지 않는다'.
+  //   여기서 하는 일은 표면 처리 하나뿐 — 하프톤 스타일 이식.
+  //
+  //   세 가지를 자동으로 맞춘다(슬라이더로 손볼 필요가 없다):
+  //     ① 점 간격 = 마크 크기에서 결정 → 존 원(ext 0.46)·발형(ext 0.72)·반경이 달라도 밀도가 같다.
+  //     ② 아웃라인 0 = 경계 '전에' 점이 잦아든다. 실루엣에서 점이 잘리지 않는다.
+  //     ③ 색 보존 = 하프톤은 면적을 깎으므로 그냥 곱하면 어두워지고 색이 탁해진다.
+  //        깎인 평균 면적(π·(amt/2)²)만큼 되돌려 정본과 같은 밝기·같은 색이 되게 한다.
+  { id: 'themeHalftone', name: '★ MARK 하프톤 테마 (자동)', why: '흰 도트가 형태·판정을 맡고, 색은 마크 주위의 은은한 그라디언트 글로우가 대신한다(Figma Landing Balance 구조). 그래서 초록·검정·밝은 카드 어디에서도 읽히고 어우러진다. 밀도·경계·세기는 마크 크기에서 자동.',
+    glsl: `${CAND_SIG} {
+  // ── 역할 분리가 이 테마의 전부다 ─────────────────────────────────────────
+  //   흰 도트 = 형태·판정·글리프 구멍.  배경이 초록이든 검정이든 흰빛은 언제나 읽힌다.
+  //   컬러 글로우 = 상태·진행.  넓고 은은해서 '빛'으로 얹히고, 색 왜곡이 눈에 안 띈다.
+  //   레퍼런스(Figma 160:2708)가 정확히 이 구조다 — 발자국은 흰 점, 색은 뒤 그라디언트.
+  float pitch = max(ext * 0.150, 0.012);                        // 밀도 자동(형태·반경 불문 동일)
+  float edge  = smoothstep(pitch * 1.7, -pitch * 0.25, sd);     // 경계 전에 잦아든다 = 아웃라인 0
+  float m     = halftoneG(uv, pitch, 0.66 * edge, pitch * 0.10, uDotGlow);
+  float lum0  = max(A.r, max(A.g, A.b));                        // 정본 밝기 = 상태·진행 신호
+
+  // ① 컬러 글로우 — 마크 안은 은은히 차고 바깥으로 부드럽게 번진다.
+  float gd   = -sd / max(ext * 1.9, 1e-3);
+  float core = smoothstep(-0.10, 0.85, gd);
+  float halo = exp(-pow(max(-gd, 0.0) * 2.4, 2.0)) * (1.0 - core);
+  float gq   = normQ(uv, ext);
+  vec4 B = vec4(0.0);
+  lay(B, stateFill(state, gq, prog), clamp((core * 0.52 + halo * 0.50) * lum0 * 1.15, 0.0, 1.0));
+
+  // ② 흰 도트 — 형태. 상태가 셀수록 또렷해진다.
+  lay(B, vec3(1.0), clamp(m * (0.50 + 0.45 * lum0), 0.0, 1.0));
+  return B;
+}` },
+
   // ══ 그라디언트 + 하프톤 마스크 ═════════════════════════════════════════════
   //   유저: '정본 그라디언트 위에 마스크를 씌워. 이전에 예뻤던 컬러감을 이식하는 건 어때.'
   //   맞다. 나는 계속 '점으로 다시 칠하는' 쪽을 팠는데, 정본 A 는 이미 아름다운
@@ -1284,7 +1322,18 @@ void main(){
   vec3 bg = baseBG(gl_FragCoord.xy / uRes);
   if      (uBg > 0.5 && uBg < 1.5) bg = vec3(0.184, 0.290, 0.227);   // 러닝 트랙(초록)
   else if (uBg > 1.5 && uBg < 2.5) bg = vec3(0.545, 0.369, 0.235);   // 농구 코트(우드)
-  else if (uBg > 2.5)              bg = vec3(0.149, 0.188, 0.255);   // 농구 코트(검정)
+  else if (uBg > 2.5 && uBg < 3.5) bg = vec3(0.149, 0.188, 0.255);   // 농구 코트(검정)
+  else if (uBg > 3.5) {
+    // 레퍼런스 카드(Figma 160:2708 Landing Balance) — 밝은 바탕 + 앰비언트 그라디언트.
+    //   왼쪽 민트 · 가운데 오른쪽 뉴턴 레드 블롭. 발자국은 이 색이 '비쳐' 보이는 밝은 베일이다.
+    //   우리 랩은 배경이 전부 어두워 이 디자인을 맞출 수가 없었다(유저).
+    vec2 c2 = gl_FragCoord.xy / uRes;
+    vec3 paper = vec3(0.972, 0.961, 0.953);
+    float dR = length((c2 - vec2(0.62, 0.50)) * vec2(1.25, 1.0));
+    float dM = length((c2 - vec2(0.12, 0.62)) * vec2(1.10, 1.0));
+    vec3 warm = mix(paper, vec3(0.980, 0.188, 0.188), smoothstep(0.52, 0.06, dR) * 0.85);
+    bg = mix(warm, vec3(0.820, 0.996, 0.984), smoothstep(0.46, 0.04, dM) * 0.70);
+  }
   // ── 합성 ─────────────────────────────────────────────────────────────────
   //   투사는 '가산광'이다 — 프로젝터는 바닥 위에 빛을 더한다. over(잉크) 합성은
   //   불투명 물감을 붙인 것이라 색 있는 바닥에서 '오려붙인' 느낌이 난다(유저: 초록에서 안 예쁨).
@@ -1293,6 +1342,9 @@ void main(){
   //   tint = 배경을 최대채널 1 로 정규화한 색(=표면 알베도의 색조).
   vec3 tint = bg / max(max(bg.r, max(bg.g, bg.b)), 1e-4);
   vec3 col;
+  // 레퍼런스 카드에선 마크가 '흰 베일'이다 — 색은 뒤 그라디언트가 낸다(Figma 160:2708).
+  //   밝은 바탕에 붉은 잉크를 얹으면 레퍼런스와 정반대가 된다. 배경과 잉크는 한 쌍이다.
+  if (uBg > 3.5) { float a0 = r.a; r.rgb = vec3(1.0) * a0 * 0.92; }
   if (uComp < 0.5) {
     // 잉크(over) — 색 있는 바닥에서 뉴턴 색을 지키는 유일한 합성이다.
     //   가산은 산술적으로 불가능하다: 초록 위에 빨강을 더하면 R 은 1 에서 포화되고
@@ -1624,7 +1676,7 @@ function stripGlyph(ctx, cat, W) {
 }
 
 
-let candSel = 'gradMask', candShape = 1;
+let candSel = 'themeHalftone', candShape = 0;
 const candP = { pitch: 0.055, gain: 1.15, speed: 1.0, inner: 0.55, prog: -0.01, harm: 0.22, q0: 0.04, satR: 1.0, hue: 1.0, beam: 1.05, fine: 0, dglow: 0 };
 const candT = { mono: 0, flat: 0, noGlow: 0, noInner: 0, bg: 0, holdRim: 0, innerMode: 0, actMode: 0, comp: 0, refTone: 0 };
 {
@@ -1671,7 +1723,7 @@ const candT = { mono: 0, flat: 0, noGlow: 0, noInner: 0, bg: 0, holdRim: 0, inne
   }
   const sep = document.createElement('span'); sep.style.cssText = 'width:12px'; host.appendChild(sep);
   const bgHost = document.createElement('span');
-  [['다크', 0], ['러닝 초록', 1], ['농구 우드', 2], ['농구 검정', 3]].forEach(([lb, v]) => {
+  [['다크', 0], ['러닝 초록', 1], ['농구 우드', 2], ['농구 검정', 3], ['레퍼런스 카드', 4]].forEach(([lb, v]) => {
     const b = document.createElement('button');
     b.className = 'btn' + (v === 0 ? ' on' : ''); b.textContent = lb;
     b.onclick = () => { candT.bg = v; [...bgHost.children].forEach(x => x.classList.remove('on')); b.classList.add('on'); };
