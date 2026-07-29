@@ -197,8 +197,9 @@ vec3 personColor(float T){
 //     투사광에선 '어둡게' = '투명하게'다. 그래서 그늘은 LUT 상단(딥레드)으로, 하이라이트는
 //     하단(샌드)으로 — 양끝 다 R≈1이라 알파는 어디서도 안 떨어진다.
 vec3 personLook(float thick, float lumS, float lumB, float mIn, float face){
-  float lum = mix(mix(lumS, lumB, 0.35), lumB, face);   // 몸=35%만 블러(매끈), 얼굴=100% 블러
-  float shade = smoothstep(0.18, 0.62, lum);            // 완만한 명암 — 결은 남고 이진 분리는 안 됨
+  float lum = mix(mix(lumS, lumB, 0.50), lumB, face);   // 몸=50% 블러(매끈), 얼굴=100% 블러
+  // 명암 커브는 넓게 — 0.18~0.62 는 가팔라서 선명한 소스에선 근육·주름이 색 띠로 쪼개졌다(유저)
+  float shade = smoothstep(0.08, 0.80, lum);
   // LUT 실측 방향: T=0 → RED(#FA3030) · T≈0.86 → SAND(#FEC389) · T=1 → ICE.
   //   즉 T가 낮을수록 진하다. 두꺼운 코어·그늘 = 낮은 T(진한 코랄레드),
   //   얇은 말단·하이라이트·얼굴 = 높은 T(뽀얀 살구).
