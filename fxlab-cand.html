@@ -544,7 +544,7 @@ float markShapeSD(vec2 p, float base);
 // 공용 프렐류드 — 모든 후보가 쓰는 하프톤·필드 도구. 21st.dev 닷 컬렉션의 로직을 GLSL로 옮긴 것.
 //   닷 격자는 마크 로컬(uv) 좌표 — 마크가 커지면 닷도 함께 커진다(스크린 하프톤이 아니라 '이 토큰의 결').
 const CAND_PRELUDE = `
-uniform float uDotPitch, uDotGain, uDotSpeed, uInner;
+uniform float uDotPitch, uDotGain, uDotSpeed, uInner, uDotGlow;
 uniform float uMono, uFlat, uNoInner, uBg, uProgOvr;
 uniform float uInnerMode, uActMode, uComp, uHarm, uQ0, uSatR, uHueKeep, uBeam, uFine;
 uniform sampler2D uMask; uniform float uMaskOn, uRefTone;
@@ -564,6 +564,15 @@ float halftone(vec2 p, float pitch, float amount, float soft){
   float d = length(c) * pitch;
   float r = pitch * 0.5 * clamp(amount, 0.0, 1.0);
   return smoothstep(r + soft, r - soft, d);
+}
+// 점마다 부드러운 후광 — 굵고 흐릿한 점을 아래에 깔아 더한다. 0 이면 완전히 꺼진다.
+float halftoneG(vec2 p, float pitch, float amount, float soft, float glow){
+  float m = halftone(p, pitch, amount, soft);
+  if (glow > 0.001) {
+    float h = halftone(p, pitch, clamp(amount * 1.5, 0.0, 1.0), pitch * 0.36);
+    m = clamp(m + h * glow * 0.6, 0.0, 1.0);
+  }
+  return m;
 }
 // 사각 하프톤 — 같은 규약, 체비셰프 거리. LED 격자·코트의 직교 문맥용.
 float halftoneSq(vec2 p, float pitch, float amount, float soft){
@@ -637,8 +646,8 @@ vec4 dotFormQ(vec2 grid, vec2 uv, float sd, float ext, float w, float pitch, flo
   //   가장자리 마무리도 지저분해진다(유저). 레퍼런스 톤에선 크기 변조를 끄고 결만 남긴다.
   if (uRefTone < 0.5) amt *= mix(1.0, 0.42, smoothstep(0.15, 1.0, qh));
   float fineW = smoothstep(0.88, 0.30, amt) * uFine;
-  float mC    = halftone(grid, pitch, amt * uDotGain, pitch * 0.16);
-  float mF    = halftone(grid, pitch * 0.5, amt * uDotGain, pitch * 0.09);
+  float mC    = halftoneG(grid, pitch, amt * uDotGain, pitch * 0.16, uDotGlow);
+  float mF    = halftoneG(grid, pitch * 0.5, amt * uDotGain, pitch * 0.09, uDotGlow);
   float m     = mix(mC, mF, fineW);
   // 그라디언트가 '뚝뚝' 끊겨 보이던 것 — 점 커버리지가 계단으로 양자화돼서다. 미세 디더로 부순다.
   m = clamp(m + (chash(floor(grid / max(pitch, 1e-4))) - 0.5) * 0.05, 0.0, 1.0);
@@ -673,7 +682,7 @@ const CANDIDATES = [
   // ★ 균일 마스크를 그냥 곱하면 A 의 하드 경계에서 점이 '잘려' 아웃라인이 생긴다(유저 지적).
   //   ⑪ 흩날림이 아웃라인 없는 이유는 경계 전에 점이 작아져 사라지기 때문 — 같은 원리를 쓴다.
   float edge = smoothstep(0.16 * max(uInner, 0.05), -0.02, sd);   // 경계 안쪽에서 서서히 1
-  float m = halftone(uv, uDotPitch, clamp(0.60 * uDotGain, 0.0, 1.0) * edge, uDotPitch * 0.11);
+  float m = halftoneG(uv, uDotPitch, clamp(0.60 * uDotGain, 0.0, 1.0) * edge, uDotPitch * 0.11, uDotGlow);
   float k = mix(0.04, 1.0, m);
   A.rgb *= k; A.a *= k;
   return A;
@@ -787,7 +796,7 @@ const CANDIDATES = [
   //   점 크기로 상태를 표현하면 크기가 제각각이 되어 촌스럽다(유저 지적, 특히 존 원).
   //   색·그라디언트는 정본 A 그대로, 결은 균일한 하프톤 마스크, 움직임은 밝기와 격자 이동.
   float edge = smoothstep(0.16 * max(uInner, 0.05), -0.02, sd);   // 경계 전에 점이 작아져 사라진다(아웃라인 0)
-  float m = halftone(uv + disp, uDotPitch, clamp(0.60 * uDotGain, 0.0, 1.0) * edge, uDotPitch * 0.11);
+  float m = halftoneG(uv + disp, uDotPitch, clamp(0.60 * uDotGain, 0.0, 1.0) * edge, uDotPitch * 0.11, uDotGlow);
   float k = mix(0.04, 1.0, m);
   if (holdQ >= 0.0) {                      // Hold·Preview 는 색좌표를 따로 쓴다 → 그 색으로 갈아끼운다
     float lum0 = max(A.r, max(A.g, A.b));
@@ -1611,7 +1620,7 @@ function stripGlyph(ctx, cat, W) {
 
 
 let candSel = 'gradMask', candShape = 1;
-const candP = { pitch: 0.055, gain: 1.15, speed: 1.0, inner: 0.55, prog: -0.01, harm: 0.22, q0: 0.04, satR: 1.0, hue: 1.0, beam: 1.05, fine: 0 };
+const candP = { pitch: 0.055, gain: 1.15, speed: 1.0, inner: 0.55, prog: -0.01, harm: 0.22, q0: 0.04, satR: 1.0, hue: 1.0, beam: 1.05, fine: 0, dglow: 0 };
 const candT = { mono: 0, flat: 0, noGlow: 0, noInner: 0, bg: 0, holdRim: 0, innerMode: 0, actMode: 0, comp: 0, refTone: 0 };
 {
   const host = document.getElementById('candToggles');
@@ -1670,11 +1679,11 @@ const candT = { mono: 0, flat: 0, noGlow: 0, noInner: 0, bg: 0, holdRim: 0, inne
   //   5열 × 2줄로 나누고, 한 칸을 [라벨 | 슬라이더 | 값] 3단 그리드로 고정해 세로줄을 맞춘다.
   //   위줄 = 형태·모션 / 아래줄 = 색·합성 — 성격이 다른 축을 섞지 않는다.
   const host = document.getElementById('candSliders');
-  host.style.cssText = 'display:grid;grid-template-columns:repeat(5,1fr);gap:9px 20px;margin:0 0 14px';
+  host.style.cssText = 'display:grid;grid-template-columns:repeat(6,1fr);gap:9px 18px;margin:0 0 14px';
   const defs = [
     ['pitch', '닷 피치', 0.03, 0.30, 0.005], ['gain', '닷 굵기', 0.2, 2.0, 0.05],
     ['speed', '모션 속도', 0, 3, 0.05], ['inner', '이너 폭', 0.05, 1.5, 0.05],
-    ['fine', '마크끝 세밀', 0, 1, 0.05],
+    ['fine', '마크끝 세밀', 0, 1, 0.05], ['dglow', '닷 글로우', 0, 1, 0.05],
     ['q0', '열 시작점', 0, 0.5, 0.01], ['harm', '배경 조화', 0, 1, 0.05],
     ['satR', '채도 복원', 1, 2.2, 0.05], ['hue', '색상 보존', 0, 1, 0.05],
     ['beam', '투사 출력', 0.6, 3, 0.1],
@@ -2446,6 +2455,7 @@ function frame(ts) {
       g2.uniform1f(P.u('uHueKeep'), candP.hue);
       g2.uniform1f(P.u('uBeam'), candP.beam);
       g2.uniform1f(P.u('uFine'), candP.fine);
+      g2.uniform1f(P.u('uDotGlow'), candP.dglow);
       if (candGStyle === 4 && candNums) { const mk = candHoleMask(candCharFor(state.markState)); if (mk) candGL.uploadMask(mk); }
       g2.uniform1f(P.u('uRefTone'), candT.refTone);
       g2.uniform1f(P.u('uT2'), REDUCED ? 1.4 : ts / 1000);
@@ -2489,6 +2499,7 @@ function frame(ts) {
       g3.uniform1f(P.u('uHueKeep'), candP.hue);
       g3.uniform1f(P.u('uBeam'), candP.beam);
       g3.uniform1f(P.u('uFine'), candP.fine);
+      g3.uniform1f(P.u('uDotGlow'), candP.dglow);
       g3.uniform1f(P.u('uRefTone'), candT.refTone);
       g3.uniform1f(P.u('uT2'), REDUCED ? 1.4 : ts / 1000);
       g3.uniform1f(P.u('uMaskOn'), (candGStyle === 4 && candNums) ? 1 : 0);
