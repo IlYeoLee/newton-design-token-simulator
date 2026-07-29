@@ -746,8 +746,15 @@ void main(){
     // 기준은 추종 로직과 같은 앵커(골반 본)여야 한다 — 그룹 좌표로 잡으면 러닝에서 기준이 어긋나
     //   카메라가 봇에 붙어 인물이 잘리고 매 프레임 델타가 튀며 깜빡였다(유저 스샷).
     const a = xbot.getAnchor ? xbot.getAnchor() : { x: 0, z: 0 };
-    controls.target.set(a.x, 0.95, a.z);
-    camera.position.set(a.x + 2.05, 2.70, a.z + 2.35);   // ≈4.1m · 고도 40°(대각선 위)
+    // 복싱은 '등 뒤 약간 위'(유저 지정) — 대각선 옆에서 보면 봇이 벽 UI를 정면으로 가린다.
+    //   봇은 -Z(벽)를 보므로 뒤 = +Z. 타깃을 벽 쪽으로 조금 밀어 벽 UI가 봇 머리 위로 들어온다.
+    if (state.pack === 'boxing') {
+      controls.target.set(a.x, 1.25, a.z - 1.0);
+      camera.position.set(a.x, 2.00, a.z + 2.20);
+    } else {
+      controls.target.set(a.x, 0.95, a.z);
+      camera.position.set(a.x + 2.05, 2.70, a.z + 2.35);   // ≈4.1m · 고도 40°(대각선 위)
+    }
     camera.updateProjectionMatrix();
     controls.update?.();
     lastBodyX = a.x; lastBodyZ = a.z;   // 추종 델타 기준도 같은 프레임에 리셋
