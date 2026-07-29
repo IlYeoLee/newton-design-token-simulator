@@ -378,7 +378,9 @@ async function boot() {
     // 3인칭 = 항상 기본 프레이밍으로 못박는다(유저 지정 뷰 — 복싱·농구 모두).
     // 팩을 갈아도 이전 종목에서 돌려놓은 궤도 각·거리가 그대로 남아 3인칭이 매번 딴 각도로 떴다.
     // (1인칭↔3인칭 토글·세션 중지 경로는 setFp 가 이미 같은 프레이밍을 부른다)
-    if (!fpMode) frameThirdPerson();
+    // 부팅 첫 호출(모델 로드 전)엔 앵커가 없다 — 여기서 던지면 switchPack 나머지(투사면·풋프린트)가
+    // 통째로 중단돼 UI가 안 뜬다. 프레이밍은 없어도 되는 부가 동작이라 감싼다.
+    if (!fpMode && xbot.model) { try { frameThirdPerson(); } catch { /* 앵커 미준비 — 다음 setFp 에서 잡힌다 */ } }
     const isKneePack = data.sport === 'running' || data.sport === 'basketball';
     window.__updateSurfAvail?.();   // 실내 테마 = 복싱 전용 게이트
     window.__applySurfDefault?.(p);   // 팩별 기본 투사면 자동 적용
