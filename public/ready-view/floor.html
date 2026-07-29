@@ -21,28 +21,36 @@ html,body{background:transparent}
 .title .ch{display:inline-block;will-change:transform,opacity;animation:charLoop 3s ease-in-out 3}
 .title .sp{display:inline-block;width:.26em}
 
-/* 3칸 정보 스트립 — 슬라이드인 */
-.strip{position:absolute;top:452px;left:50%;transform:translateX(-50%);height:142px;display:flex;align-items:center;
+/* 메타 한 줄 — 모바일 홈 카드의 '팩 · 시간' 조판(home.html 원본)을 지면에도 통일 */
+.meta{position:absolute;top:318px;left:0;right:0;text-align:center;white-space:nowrap;
+  font-weight:400;font-size:46px;letter-spacing:1px;color:rgba(255,255,255,.55);
+  opacity:0;animation:fadeUpCentered .8s cubic-bezier(.2,.75,.2,1) .25s both}
+
+/* 상태 스트립(2칸) — 슬라이드인. 구 3칸의 Time 은 메타 줄과 중복이라 폐기(유저: 위계 정리) */
+.strip{position:absolute;top:418px;left:50%;transform:translateX(-50%);height:142px;display:flex;align-items:center;
   opacity:0;animation:slideInUp .8s cubic-bezier(.2,.75,.2,1) .35s both}
 .col{display:flex;flex-direction:column;justify-content:center;align-items:center;padding:0 40px;text-align:center}
-.col.side{width:400px}
+.col.side{width:420px}
 .col .k{font-weight:500;font-size:40px;color:rgba(255,255,255,.55);letter-spacing:-.5px;margin-bottom:14px}
 .col .v{font-weight:700;font-size:64px;letter-spacing:-2px;white-space:nowrap}
 .col .v.sm{font-size:52px}
 .divider{width:2px;height:100px;background:rgba(255,255,255,.22);flex:none}
 
-/* 디바이스 프로그래스 링 — 슬라이드인 + 차오름 */
-.devs{position:absolute;top:654px;left:50%;transform:translateX(-50%);display:flex;gap:28px;
-  opacity:0;animation:slideInUp .8s cubic-bezier(.2,.75,.2,1) .5s both}
-.dev{position:relative;width:200px;height:200px}   /* Figma 200×200 통일(타이머·프로그래스 링) */
-.dev svg{position:absolute;inset:0;width:100%;height:100%}
-.dev .track{fill:none;stroke:rgba(255,255,255,.16);stroke-width:13}
-.dev .prog{fill:none;stroke:#fff;stroke-width:13;stroke-linecap:round;
-  transform:rotate(-90deg);transform-origin:50% 50%;
-  stroke-dasharray:477;stroke-dashoffset:477;   /* 초기=빈 링, JS가 목표치로 transition */
-  transition:stroke-dashoffset 1.5s cubic-bezier(.3,.85,.3,1)}
-.dev .ic{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:block}
-.ic-glasses{width:96px}.ic-watch{width:56px}.ic-earbuds{width:82px}
+/* 디바이스 칩 — 모바일 setup.css 의 .chip-sel / .chip-row 정본을 그대로 이식.
+   360px 뷰포트 → 1600px 대지 = ×4.44 스케일 (font 14→62 · padding 6/12→27/53 · gap 4→18).
+   구 배터리 링 3개는 폐기(유저: 거슬림) — 원형이 투사면에서 타원으로 눌려 형태가 무너졌다. */
+.chips{position:absolute;top:572px;left:50%;transform:translateX(-50%);display:flex;gap:18px;
+  opacity:0;animation:fadeUpCentered .8s cubic-bezier(.2,.75,.2,1) .5s both}
+.chip-sel{display:inline-flex;align-items:center;gap:18px;box-sizing:border-box;
+  background:#fff;border:none;border-radius:355px;padding:27px 53px;
+  font-family:'Supreme',sans-serif;font-weight:400;font-size:62px;line-height:1.4;
+  letter-spacing:-1.9px;color:#525252;box-shadow:0 0 9px rgba(0,0,0,.12)}
+/* 선택 상태 = 뉴턴 그라디언트(setup.css 정본과 동일 스톱) */
+.chip-sel.sel{color:#fff;
+  background:linear-gradient(180deg,#FA3030 48%,#FE6E3C 77.6%,#FEC389 100.5%,#D1FEFF 107.5%);
+  box-shadow:0 15px 58px 10px rgba(0,0,0,.05),inset 0 0 26px 9px rgba(255,255,255,.6)}
+.chip-sel img{height:46px;width:auto;display:block;filter:brightness(0)}
+.chip-sel.sel img{filter:brightness(0) invert(1)}   /* 아이콘 원본이 흰색 — 흰 칩에선 검게, 그라디언트 칩에선 그대로 */
 
 /* 중앙 하단 Tap-foot 히어로 — 슬라이드인, 발은 탭 모션(footBob) */
 .hero{position:absolute;left:50%;top:1057px;transform:translateX(-50%);width:1000px;text-align:center;
@@ -57,7 +65,7 @@ html,body{background:transparent}
 /* ═══ 애니메이션 ═══ */
 @keyframes slideInUp{from{opacity:0;transform:translateY(52px)}to{opacity:1;transform:translateY(0)}}
 /* 스트립·디바이스는 자체 translateX(-50%) 중앙정렬이 있어 slideInUp의 translateY와 충돌 → 래퍼 없이 opacity+Y만 쓰되 중앙정렬 유지 */
-.strip{animation-name:fadeUpCentered}.devs{animation-name:fadeUpCentered}.hero{animation-name:fadeUpCentered}
+.strip{animation-name:fadeUpCentered}.hero{animation-name:fadeUpCentered}
 @keyframes fadeUpCentered{from{opacity:0;transform:translateX(-50%) translateY(52px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
 /* 타이틀 글자 웨이브(좌→우 루핑) */
 @keyframes charLoop{0%,58%,100%{opacity:.5;transform:translateY(0)}12%{opacity:1;transform:translateY(-16px)}26%{opacity:1;transform:translateY(0)}}
@@ -74,28 +82,18 @@ html,body{background:transparent}
 
     <div class="title" id="title">Sean's Final 1km Pace</div>
 
+    <div class="meta">Creator Pack · 30 min</div>
+
     <div class="strip">
-      <div class="col side"><div class="k">Time</div><div class="v">30min</div></div>
-      <div class="divider"></div>
-      <div class="col mid"><div class="k">Connection</div><div class="v">Good</div></div>
+      <div class="col side"><div class="k">Connection</div><div class="v">Good</div></div>
       <div class="divider"></div>
       <div class="col side"><div class="k">Mode</div><div class="v sm">Pace &amp; Boost On</div></div>
     </div>
-
-    <!-- 디바이스 프로그래스 링 3개 (배터리 충전 — 차오름) -->
-    <div class="devs">
-      <div class="dev">
-        <svg viewBox="0 0 170 170"><circle class="track" cx="85" cy="85" r="76"/><circle class="prog" cx="85" cy="85" r="76" data-pct=".9"/></svg>
-        <img class="ic ic-glasses" src="assets/run/ic_glasses.png">
-      </div>
-      <div class="dev">
-        <svg viewBox="0 0 170 170"><circle class="track" cx="85" cy="85" r="76"/><circle class="prog" cx="85" cy="85" r="76" data-pct=".3"/></svg>
-        <img class="ic ic-watch" src="assets/run/ic_watch.png">
-      </div>
-      <div class="dev">
-        <svg viewBox="0 0 170 170"><circle class="track" cx="85" cy="85" r="76"/><circle class="prog" cx="85" cy="85" r="76" data-pct=".6"/></svg>
-        <img class="ic ic-earbuds" src="assets/run/ic_earbuds.png">
-      </div>
+    <!-- 디바이스 = 모바일 칩 컴포넌트(.chip-sel) — 연결된 기기는 sel(뉴턴 그라디언트) -->
+    <div class="chips">
+      <div class="chip-sel sel"><img src="assets/run/ic_glasses.png">90%</div>
+      <div class="chip-sel"><img src="assets/run/ic_watch.png">30%</div>
+      <div class="chip-sel"><img src="assets/run/ic_earbuds.png">60%</div>
     </div>
 
     <div class="hero">
@@ -114,10 +112,6 @@ html,body{background:transparent}
   })();
   // 프로그래스 링 차오름 — 초기 빈 링에서 목표 %로 transition (순차)
   window.addEventListener('load', ()=>{
-    document.querySelectorAll('.dev .prog').forEach((p,i)=>{
-      const pct=parseFloat(p.getAttribute('data-pct'))||0;
-      setTimeout(()=>{ p.style.strokeDashoffset = 477*(1-pct); }, 900 + i*160);
-    });
   });
   </script>
 </body></html>

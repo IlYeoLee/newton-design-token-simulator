@@ -856,9 +856,9 @@ export class FloorGL {
       const im = this._img(ic);
       if (im) {
         const ih = iw * (im.naturalHeight / im.naturalWidth);
-        if (!sel) { ctx.save(); ctx.filter = 'brightness(0)'; }   // 흰 칩 위에선 아이콘을 검게
+        ctx.save(); ctx.filter = sel ? 'brightness(0) invert(1)' : 'brightness(0)';   // 흰 칩=검게 · 그라디언트 칩=희게(setup.css 규약)
         ctx.drawImage(im, cx0 + PADX, y2 + h2 / 2 - ih / 2, iw, ih);
-        if (!sel) ctx.restore();
+        ctx.restore();
       }
       ctx.fillStyle = sel ? '#fff' : '#525252';
       ctx.textAlign = 'left';
