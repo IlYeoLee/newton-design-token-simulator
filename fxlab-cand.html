@@ -144,7 +144,7 @@
       <span id="candPick" style="font-size:10.5px;color:var(--dim)"></span>
     </div>
     <div class="ctl" id="candToggles" style="justify-content:flex-start;margin:0 0 10px;flex-wrap:wrap;gap:6px"></div>
-    <div class="sliders" id="candSliders" style="grid-template-columns:repeat(5,minmax(130px,1fr));margin:0 0 14px"></div>
+    <div class="sliders" id="candSliders" style="grid-template-columns:repeat(6,minmax(120px,1fr));margin:0 0 14px"></div>
     <div style="margin:0 0 10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
       <b style="font-size:13px;letter-spacing:.06em;color:var(--ink)">선택 후보 — 7상태 한눈에</b>
       <span id="candStripName" style="font-size:12px;color:var(--sand);font-weight:700"></span>
@@ -544,7 +544,7 @@ float markShapeSD(vec2 p, float base);
 const CAND_PRELUDE = `
 uniform float uDotPitch, uDotGain, uDotSpeed, uInner;
 uniform float uMono, uFlat, uNoInner, uBg, uProgOvr;
-uniform float uInnerMode, uActMode, uComp, uHarm;
+uniform float uInnerMode, uActMode, uComp, uHarm, uQ0;
 float chash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 // 하프톤 한 셀: 반지름을 amount(0~1)가 정한다 → 밝을수록 굵은 점 (레퍼런스의 발바닥 밀도)
 float halftone(vec2 p, float pitch, float amount, float soft){
@@ -585,7 +585,11 @@ vec4 dotFormAt(vec2 grid, vec2 uv, float sd, float ext, float w, float pitch, fl
     amt *= (uInnerMode > 1.5) ? mix(0.42, 1.0, dep)         // 섀도우: 테두리를 눌러 안쪽이 솟는다
                               : mix(1.45, 1.0, dep);        // 글로우: 테두리가 빛난다
   }
-  float q    = clamp(0.30 + 0.70 * length(uv) / max(ext * 1.6, 1e-3), 0.0, 1.0);
+  // ★ 열 시작점(uQ0) — 이 값이 램프의 어디서부터 쓰이는지 정한다.
+  //   0.30 이면 fillActive 의 RED→CORAL 구간(0~0.479)을 거의 건너뛰어 뉴턴 레드가 안 보인다
+  //   (유저: Active 그라디언트에도 메인 레드를 넣어달라). 정본이 0.3x 로 띄운 건 '중심 핫스팟이
+  //   또렷하다'는 지적 때문인데, 점으로 그리면 하프톤이 그 원을 이미 부수므로 띄울 이유가 없다.
+  float q    = clamp(uQ0 + (1.0 - uQ0) * length(uv) / max(ext * 1.55, 1e-3), 0.0, 1.0);
   float m    = halftone(grid, pitch, amt * uDotGain, pitch * 0.16);
   vec4 B = vec4(0.0);
   lay(B, stateFill(st, q, pg), m * clamp(amt * 1.25, 0.0, 1.0));
@@ -635,16 +639,25 @@ const CANDIDATES = [
     //   통째로 다시 계산돼 순간마다 튄다 — 유저가 본 '몇 초 간격으로 꿈틀거림'이 이것이다.
     //   (프래그먼트 셰이더는 위상을 누적할 수 없어 주파수 변조는 항상 이 사고를 낸다)
     //   주기는 고정하고, 다가옴은 '세기'로 말한다.
-    float ph   = fract(t * 0.62 * sp);
-    float ring = exp(-pow((r - ph * 1.25) / 0.34, 2.0)) * (1.0 - ph * 0.6);
+    //   화려함은 '점을 흔드는 것'이 아니라 '겹을 쌓는 것'으로 낸다(유저: 더 지속되는 화려함).
+    //   같은 파문을 위상만 어긋나게 3겹 — 굵고 느린 하나 위에 얇고 빠른 둘이 스친다.
+    float b1 = fract(t * 0.62 * sp);
+    float b2 = fract(t * 0.62 * sp + 0.34);
+    float b3 = fract(t * 0.62 * sp + 0.67);
+    float ring = exp(-pow((r - b1 * 1.25) / 0.30, 2.0)) * (1.0 - b1 * 0.60)
+               + exp(-pow((r - b2 * 1.25) / 0.19, 2.0)) * (1.0 - b2 * 0.60) * 0.55
+               + exp(-pow((r - b3 * 1.25) / 0.13, 2.0)) * (1.0 - b3 * 0.60) * 0.34;
+    float ang   = atan(uv.y, uv.x);
+    float sweep = 0.5 + 0.5 * sin(ang - t * 1.05 * sp);   // 느리게 도는 밝은 부채
+    float br    = 0.5 + 0.5 * sin(t * 2.1 * sp + seed);   // 점마다 얕은 숨(자리는 그대로)
     ring *= 0.72 + 0.55 * prog;                       // 때가 다가올수록 파문이 진해진다
     if (uActMode > 0.5) {
       // 굴절 파문 모드 — 좁은 파면만 점을 민다. 전체 지터(꿈틀거림)와 다른 이유:
       //   미는 구간이 띠 하나로 한정돼 '무언가 지나간다'로 읽히고, 나머지 점은 제자리에 있다.
       disp = dir * ring * pitch * 0.80;
-      w = 0.82 + 0.38 * ring + 0.12 * prog;
+      w = 0.78 + 0.34 * ring + 0.09 * sweep + 0.07 * br + 0.10 * prog;
     } else {
-      w = 0.86 + 0.22 * ring + 0.14 * prog;           // 바닥이 높다 = 이미 뜨겁다. 파문은 위에 얹히는 숨.
+      w = 0.74 + 0.40 * ring + 0.10 * sweep + 0.08 * br + 0.12 * prog;   // 겹으로 화려하되 자리는 고정
     }
   } else if (state < 2.5) {
     // ── Hold · 진행은 면적(수위), 긴장은 제자리 정상파. 떨림은 아주 얕게만(구 0.13 → 0.05).
@@ -666,11 +679,14 @@ const CANDIDATES = [
     w = (1.0 - e * 0.9) * 0.95 + front * 0.75;
   } else if (state < 4.5) {
     // ── Miss · 위상 붕괴. 격자가 흐트러지며 식어 멈춘다. 흐트러짐은 절제한다(구 1.35 → 0.55).
+    //   ★ 피치를 픽셀마다 바꾸면 격자가 깨져 '사각형으로 쪼개지며' 사라진다(유저 지적).
+    //     피치는 고정하고, 점마다 사라지는 시각을 달리해 디졸브시킨다 — 흩어져 식는 것처럼 보인다.
     float cool  = smoothstep(0.0, 0.45, prog);
-    float chaos = smoothstep(0.0, 0.7, prog);
-    disp  = (vec2(chash(cell + 1.1), chash(cell + 5.9)) - 0.5) * pitch * 0.55 * chaos;
-    pitch = uDotPitch * (1.0 + 0.18 * chaos);
-    w = (0.82 - 0.42 * cool) * (1.0 - smoothstep(0.60, 1.0, prog));
+    float th    = chash(cell + 9.1);                       // 점마다 다른 소멸 임계
+    float alive = smoothstep(prog * 1.30, prog * 1.30 - 0.30, th);
+    float drift = smoothstep(0.0, 1.0, prog);
+    disp = (dir * 0.6 + (vec2(chash(cell + 1.1), chash(cell + 5.9)) - 0.5) * 0.8) * pitch * 0.30 * drift;
+    w = (0.84 - 0.34 * cool) * alive;
   } else if (state < 5.5) {
     // ── Warning · 빠른 맥동. 계단 명멸(step)은 눈이 아프고 투사에선 깜빡임 결함으로 읽힌다
     //   — 부드러운 고주파 맥동 + 미세 지터로 '불안'만 남긴다.
@@ -1186,6 +1202,15 @@ document.getElementById('candNumBtn').onclick = e => {
   e.target.classList.toggle('on', !!candNums);
 };
 document.getElementById('candNumBtn').textContent = '글리프 얹기: 끔';
+let candGStyle = 0;   // 0 솔리드 · 1 하프톤 · 2 음각
+{
+  const b = document.createElement('button'); b.className = 'btn';
+  const LB = ['글리프 방식: 솔리드', '글리프 방식: 하프톤', '글리프 방식: 음각'];
+  b.textContent = LB[0];
+  b.onclick = () => { candGStyle = (candGStyle + 1) % 3; b.textContent = LB[candGStyle];
+    b.classList.toggle('on', !!candGStyle); };
+  document.getElementById('candNumBtn').after(b);
+}
 {
   const sl = document.getElementById('candProg'), out = document.getElementById('candProgV');
   sl.oninput = () => { candP.prog = +sl.value; out.textContent = candP.prog < 0 ? '자동' : candP.prog.toFixed(2); };
@@ -1198,6 +1223,26 @@ const CAT2PHASE = [0, 1, 5, 2, 4, 6, 3];
 // 스트립에 얹을 글자 — 숫자는 상태별 카운트, L/R 은 발형일 때 좌우 표식.
 //   ★ 글리프 서랍(state.glyphs)의 실제 SVG 를 쓴다. drawCustomGlyphAt 은 정본 경로 —
 //     시스템 폰트로 그리면 룩 시스템 밖의 글자가 되어 '확인'이 안 된다(유저 지적).
+// 글리프를 얹는 세 가지 방식 — 어느 것이 점 언어와 한 몸이 되는가.
+//   솔리드  : 지금 방식. 점 위에 솔리드 도형이 얹혀 재료가 둘이 된다.
+//   하프톤  : 글리프도 점으로 찍는다. 재료가 하나 — 대신 작은 글자는 읽기 어려워질 수 있다.
+//   음각    : 글리프 자리의 빛을 뺀다. 투사에서 '빛을 빼는' 것이 곧 그림자 —
+//             글자가 마크의 일부가 되고, 획이 굵을수록 잘 읽힌다.
+const _gOff = document.createElement('canvas');
+function glyphMask(W, ch, size, ax, ay, locked) {
+  if (_gOff.width !== W) { _gOff.width = _gOff.height = W; }
+  const g = _gOff.getContext('2d');
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  g.clearRect(0, 0, W, W);
+  const custom = state.glyphs && state.glyphs[ch];
+  if (!(custom && drawCustomGlyphAt(g, custom, ax, ay, size, locked, !!state.glyphFlip[ch]))) {
+    g.font = `700 ${Math.round(size * 0.62)}px 'OffBit', system-ui, sans-serif`;
+    g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillStyle = '#fff';
+    g.fillText(ch, ax, ay);
+  }
+  return _gOff;
+}
 function stripGlyph(ctx, cat, W) {
   const phase = CAT2PHASE[cat] ?? cat;
   const op = MARK_NUM.opacity(phase);
@@ -1205,31 +1250,44 @@ function stripGlyph(ctx, cat, W) {
   const locked = cat === 6;
   let ch = '2';
   if (cat === 2) ch = String(1 + Math.floor(performance.now() / 1000 * 0.45) % 8);   // Hold = 반복 카운트
-  if (candNums === 2) ch = state.markFootSide === 'R' ? 'R' : 'L';                   // L/R 모드
-  // 서랍에 그 글자가 없으면 있는 숫자 중 첫 번째로 (정본 drawMarkNumOn 과 같은 폴백)
+  if (candNums === 2) ch = state.markFootSide === 'R' ? 'R' : 'L';
   if (candNums === 1 && !(state.glyphs && state.glyphs[ch])) {
     const first = '0123456789'.split('').find(c => state.glyphs && state.glyphs[c]);
     if (first) ch = first;
   }
-  const size = MARK_NUM.RATIO * W * (state.m.radius || 1);
+  const size = MARK_NUM.RATIO * W * (state.m.radius || 1) * (candGStyle === 2 ? 1.25 : 1);
   const ax = W / 2, ay = candShape > 0.5 ? footCentroid.y * W : W / 2;
-  ctx.save();
-  ctx.globalAlpha = op;
-  const custom = state.glyphs && state.glyphs[ch];
-  if (custom && drawCustomGlyphAt(ctx, custom, ax, ay, size, locked, !!state.glyphFlip[ch])) {
+  const mask = glyphMask(W, ch, size, ax, ay, locked);
+
+  if (candGStyle === 2) {
+    // 음각 — 글리프 모양대로 빛을 뺀다
+    ctx.save(); ctx.globalAlpha = 0.55 + 0.40 * op;
+    ctx.globalCompositeOperation = 'destination-out';
+    ctx.drawImage(mask, 0, 0);
     ctx.restore(); return;
   }
-  // 폴백 — 서랍이 비었을 때만. OffBit(수치 전용 페이스)로 그린다.
-  ctx.font = `700 ${Math.round(size * 0.62)}px 'OffBit', system-ui, sans-serif`;
-  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillStyle = locked ? 'rgba(208,208,208,.85)' : 'rgba(255,240,220,.95)';
-  if (!locked) { ctx.shadowColor = 'rgba(254,150,90,.75)'; ctx.shadowBlur = size * 0.20; }
-  ctx.fillText(ch, ax, ay);
+  if (candGStyle === 1) {
+    // 하프톤 — 글리프를 점으로. 마스크에 점 격자를 곱해(destination-in) 점만 남긴다.
+    const g = mask.getContext('2d');
+    const pitch = Math.max(6, candP.pitch * W * 0.52);
+    g.save(); g.globalCompositeOperation = 'destination-in';
+    g.fillStyle = '#fff';
+    for (let y = pitch / 2; y < W; y += pitch)
+      for (let x = pitch / 2; x < W; x += pitch) {
+        g.beginPath(); g.arc(x, y, pitch * 0.30, 0, 6.2832); g.fill();
+      }
+    g.restore();
+  }
+  ctx.save();
+  ctx.globalAlpha = op;
+  if (!locked) { ctx.shadowColor = 'rgba(254,150,90,.75)'; ctx.shadowBlur = size * 0.18; }
+  ctx.drawImage(mask, 0, 0);
   ctx.restore();
 }
 
+
 let candSel = 'newtonSet', candShape = 1;
-const candP = { pitch: 0.11, gain: 1.15, speed: 1.0, inner: 0.55, prog: -0.01, harm: 0.6 };
+const candP = { pitch: 0.11, gain: 1.15, speed: 1.0, inner: 0.55, prog: -0.01, harm: 0.6, q0: 0.04 };
 const candT = { mono: 0, flat: 0, noGlow: 0, noInner: 0, bg: 0, holdRim: 0, innerMode: 0, actMode: 0, comp: 2 };
 {
   const host = document.getElementById('candToggles');
@@ -1277,7 +1335,7 @@ const candT = { mono: 0, flat: 0, noGlow: 0, noInner: 0, bg: 0, holdRim: 0, inne
 {
   const host = document.getElementById('candSliders');
   const defs = [['pitch', '닷 피치', 0.03, 0.30, 0.005], ['gain', '닷 굵기', 0.2, 2.0, 0.05],
-                ['speed', '모션 속도', 0, 3, 0.05], ['inner', '이너 폭', 0.05, 1.5, 0.05], ['harm', '배경 조화', 0, 1, 0.05]];
+                ['speed', '모션 속도', 0, 3, 0.05], ['inner', '이너 폭', 0.05, 1.5, 0.05], ['harm', '배경 조화', 0, 1, 0.05], ['q0', '열 시작점', 0, 0.5, 0.01]];
   for (const [k, lb, mn, mx, st] of defs) {
     const w = document.createElement('label');
     w.innerHTML = `<span>${lb}</span><input type="range" min="${mn}" max="${mx}" step="${st}" value="${candP[k]}"><output>${candP[k]}</output>`;
@@ -2029,6 +2087,7 @@ function frame(ts) {
       g2.uniform1f(P.u('uActMode'), candT.actMode);
       g2.uniform1f(P.u('uComp'), candT.comp);
       g2.uniform1f(P.u('uHarm'), candP.harm);
+      g2.uniform1f(P.u('uQ0'), candP.q0);
       g2.drawArrays(g2.TRIANGLES, 0, 3);
       ctx2d.drawImage(candGL.cv, 0, 0);   // 공유 컨텍스트 → 이 셀로 복사
     }
@@ -2063,6 +2122,7 @@ function frame(ts) {
       g3.uniform1f(P.u('uActMode'), candT.actMode);
       g3.uniform1f(P.u('uComp'), candT.comp);
       g3.uniform1f(P.u('uHarm'), candP.harm);
+      g3.uniform1f(P.u('uQ0'), candP.q0);
       for (const cell of stripCells) {
         g3.uniform1f(P.u('uState'), cell.state);
         g3.drawArrays(g3.TRIANGLES, 0, 3);
