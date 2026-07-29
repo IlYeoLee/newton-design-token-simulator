@@ -244,6 +244,13 @@ vec3 fillSuccess(float q){
 // over 연산 누적 (premultiplied) — 원본 mix(col, X, k) 체인의 기계적 등가 변환
 void lay(inout vec4 A, vec3 X, float k){ A.rgb = A.rgb * (1.0 - k) + X * k; A.a = A.a * (1.0 - k) + k; }
 vec4 markState(vec2 uv, float state, float prog, float strong, float t){
+  // ★ GLSL pow(x,y) 는 x<0 에서 정의되지 않는다(대개 NaN). 아래 Success·Miss 분기는
+  //   pow(1.0 - prog, ...) · pow(1.0 - (prog-0.4)/0.6, ...) 처럼 prog 로 밑을 만든다.
+  //   구동자가 prog 를 1 을 아주 살짝 넘겨 주면(1.0000002) 밑이 음수 → NaN 이 나오고,
+  //   NaN 은 색·알파를 타고 흘러 판 전체를 rgba(0,0,0,255) 로 만든다.
+  //   야간(가산)에선 0 이 더해져 안 보이지만, 주간 잉크(NormalBlending)에선 알파가 채워져
+  //   그 자리를 통째로 검게 지운다 — 유저가 다섯 번 신고한 '드리블 중 검정 판'의 실체.
+  prog = clamp(prog, 0.0, 1.0);
   float ang = atan(uv.y, uv.x);
   float a01 = fract(0.25 - ang / 6.2832);      // 12시 기준 시계방향
   float u1 = mkUndul(ang + uSeed, t * 1.6);
@@ -269,7 +276,7 @@ vec4 markState(vec2 uv, float state, float prog, float strong, float t){
     float fillA = mix(0.42, 0.82, f) * fillGain;
     lay(A, fillCol, fillA * inside);
     float ow = 0.016 * uW;
-    float stroke = exp(-pow(sd / ow, 2.0)) * dashM;
+    float stroke = exp(-pow(abs(sd) / max(ow, 1e-4), 2.0)) * dashM;
     lay(A, C_SAND, stroke * (0.95 - 0.62 * f));
   } else if (state < 1.5) {     // ── Active: 적열 필 + 얼음빛 헤일로 수축 (수축 완료 = 타이밍)
     float gradR = uShape < 0.5 ? ext * 1.75 : 2.15;   // 폴오프 넓힘 = 중앙 적열 원 완화(유저)
@@ -277,7 +284,7 @@ vec4 markState(vec2 uv, float state, float prog, float strong, float t){
     q *= 1.0 + 0.025 * sin(t * 3.1 + q * 5.0) * uNoise;
     lay(A, fillActive(q), inside * min(fillGain * 1.15, 1.0));
     float hw = max((0.115 - 0.075 * prog) * uW, 0.018);
-    float h = exp(-pow(outPos / hw, 1.3)) * (1.0 - inside);
+    float h = exp(-pow(outPos / max(hw, 1e-4), 1.3)) * (1.0 - inside);
     vec3 hCol = mix(C_SAND, C_ICE, smoothstep(0.15, 0.9, outPos / hw));
     lay(A, hCol, h * uHalo * (0.50 + 0.14 * sin(t * 5.0)) * dashM);
   } else if (state < 2.5) {     // ── Hold: 코닉 진행 림 + 열이 뒤꿈치로 고임
@@ -305,13 +312,13 @@ vec4 markState(vec2 uv, float state, float prog, float strong, float t){
     float fillA = (prog < 0.4 ? 1.0 : pow(1.0 - (prog - 0.4) / 0.6, 1.4)) * max(min(fillGain * 1.2, 1.0), 0.85);
     lay(A, fillSuccess(q / (0.55 + 0.55 * e)), inside * fillA);
     float flash = exp(-prog * 9.0);
-    lay(A, C_ICE, exp(-pow(abs(sd) / (0.02 * uW), 2.0)) * flash * 0.8);
+    lay(A, C_ICE, exp(-pow(abs(sd) / max(0.02 * uW, 1e-4), 2.0)) * flash * 0.8);
   } else if (state < 4.5) {     // ── Miss: 온기가 식어 회색 고스트 → 무음 소멸
     float cool = smoothstep(0.0, 0.4, prog);
     float gone = pow(1.0 - max(prog - 0.45, 0.0) / 0.55, 1.6);
     float q = length(uv - gcBall) / ext;
     lay(A, mix(fillPreview(q), C_GRAYF, cool), inside * mix(0.55, 0.24, cool) * gone * fillGain);
-    lay(A, mix(C_SAND, C_GRAYL, cool), exp(-pow(sd / (0.014 * uW), 2.0)) * 0.85 * gone);
+    lay(A, mix(C_SAND, C_GRAYL, cool), exp(-pow(abs(sd) / max(0.014 * uW, 1e-4), 2.0)) * 0.85 * gone);
   } else if (state < 5.5) {     // ── Warning: 사구→코랄 리니어 + 느낌표 점멸 (유저: 어두운색 금지 → 암적 폐기)
     float ly = clamp(0.5 - uv.y / (2.2 * ext), 0.0, 1.0);
     lay(A, mix(C_WINE, C_BRICK, ly), inside * min(fillGain * 1.05, 1.0));
@@ -323,8 +330,12 @@ vec4 markState(vec2 uv, float state, float prog, float strong, float t){
     lay(A, C_EXCL * 1.25, exM * (0.85 + 0.15 * sin(t * 5.5)));
   } else {                       // ── Locked: 회색 아웃라인 + (숫자는 호스트 오버레이)
     lay(A, C_GRAYF, inside * 0.30 * fillGain);
-    lay(A, C_GRAYL, exp(-pow(sd / (0.015 * uW), 2.0)) * 0.8 * dashM);
+    lay(A, C_GRAYL, exp(-pow(abs(sd) / max(0.015 * uW, 1e-4), 2.0)) * 0.8 * dashM);
   }
+  // NaN 스크럽 — 위 분기 어디서든 비정상 값이 새면 '보이지 않음'으로 떨어뜨린다.
+  //   NaN 과의 비교는 항상 false 이므로 step() 이 0 을 골라 준다(GLSL ES 1.0 에서 신뢰 가능한 유일한 방법).
+  //   투사 UI 는 가산광이라 '없음'이 안전한 기본값이다 — 검은 판보다 백 배 낫다.
+  A *= step(vec4(-1.0), A) * step(A, vec4(1e6));
   return A;
 }`;
 
