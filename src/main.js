@@ -2245,6 +2245,66 @@ void main(){
     BK_A3: { src: 'ready-view/assets/bk_squat.webm',    cropOff: 0.0, cropScale: 1.0, w: 0.9, h: 0.9, fwd: 0.10 },   // 스쿼트
   };
   const _coaches = {};   // stageId → { video, plane, _fwd }
+  // ── 코치 두께·휘도 필드 = 저해상 RT + 분리형 가우시안 (복싱 판 uHeat와 같은 방식) ──
+  //   프래그먼트 링 탭(8방향)으로 대신했더니 반경을 키우자마자 팔각형 면이 드러났다
+  //   ("필름지 붙인 것 같다" — 유저). 링 샘플링으로는 넓은 블러를 못 만든다.
+  //   rt.r = 마스크(두께장) · rt.g = 마스크로 프리멀티한 휘도 → 셰이더에서 g/r 로 복원.
+  let _cf = null;
+  function coachField() {
+    if (_cf) return _cf;
+    const RW = 128, RH = 192;
+    const vs = 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }';
+    const src = new THREE.ShaderMaterial({
+      uniforms: { map: { value: null }, uCropOff: { value: 0 }, uCropScale: { value: 1 } },
+      vertexShader: vs,
+      fragmentShader: `varying vec2 vUv; uniform sampler2D map; uniform float uCropOff, uCropScale;
+        void main(){
+          vec3 c = texture2D(map, vec2(vUv.x, uCropOff + vUv.y * uCropScale)).rgb;
+          float m = 1.0 - smoothstep(0.04, 0.14, c.g - max(c.r, c.b));
+          gl_FragColor = vec4(m, dot(c, vec3(0.299, 0.587, 0.114)) * m, 0.0, 1.0);
+        }`,
+      depthTest: false, depthWrite: false,
+    });
+    const blur = new THREE.ShaderMaterial({
+      uniforms: { tex: { value: null }, uDir: { value: new THREE.Vector2(1, 0) }, uStep: { value: 3 } },
+      vertexShader: vs,
+      fragmentShader: `varying vec2 vUv; uniform sampler2D tex; uniform vec2 uDir; uniform float uStep;
+        void main(){
+          vec2 px = uDir * uStep / vec2(${RW}.0, ${RH}.0);
+          vec2 s = texture2D(tex, vUv).rg * 0.227;
+          s += (texture2D(tex, vUv + px * 1.385).rg + texture2D(tex, vUv - px * 1.385).rg) * 0.3165;
+          s += (texture2D(tex, vUv + px * 3.23).rg + texture2D(tex, vUv - px * 3.23).rg) * 0.070;
+          gl_FragColor = vec4(s, 0.0, 1.0);
+        }`,
+      depthTest: false, depthWrite: false,
+    });
+    const sc = new THREE.Scene();
+    const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), src);
+    sc.add(quad);
+    _cf = {
+      rts: [new THREE.WebGLRenderTarget(RW, RH), new THREE.WebGLRenderTarget(RW, RH)],
+      cam: new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1), src, blur, sc, quad,
+    };
+    return _cf;
+  }
+  function renderCoachField(co) {
+    const f = coachField();
+    const prev = renderer.getRenderTarget();
+    f.src.uniforms.map.value = co.mat.uniforms.map.value;
+    f.src.uniforms.uCropOff.value = co.mat.uniforms.uCropOff.value;
+    f.src.uniforms.uCropScale.value = co.mat.uniforms.uCropScale.value;
+    f.quad.material = f.src;
+    renderer.setRenderTarget(f.rts[0]); renderer.clear(); renderer.render(f.sc, f.cam);
+    f.quad.material = f.blur;
+    for (let i = 0; i < 3; i++) {   // 분리형 가우시안 3회 반복 — 탭 클럼프 없는 넓은 확산
+      f.blur.uniforms.tex.value = f.rts[0].texture; f.blur.uniforms.uDir.value.set(1, 0);
+      renderer.setRenderTarget(f.rts[1]); renderer.clear(); renderer.render(f.sc, f.cam);
+      f.blur.uniforms.tex.value = f.rts[1].texture; f.blur.uniforms.uDir.value.set(0, 1);
+      renderer.setRenderTarget(f.rts[0]); renderer.clear(); renderer.render(f.sc, f.cam);
+    }
+    renderer.setRenderTarget(prev);
+    co.mat.uniforms.uField.value = f.rts[0].texture;
+  }
   function ensureCoach(id) {
     if (_coaches[id]) return _coaches[id];
     const cfg = COACH_CFG[id];
@@ -2258,11 +2318,12 @@ void main(){
     const mat = new THREE.ShaderMaterial({
       transparent: true, depthWrite: false,
       uniforms: { map: { value: tex }, uLUT: { value: getLUT() }, uTime: { value: 0 }, uReady: { value: 0 },
+        uField: { value: coachField().rts[0].texture },
         uCropOff: { value: cfg.cropOff }, uCropScale: { value: cfg.cropScale },
         uSat: { value: 1.32 }, uPulse: { value: 0.05 } },
       vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
       fragmentShader: `
-        varying vec2 vUv; uniform sampler2D map; uniform sampler2D uLUT; uniform float uTime, uCropOff, uCropScale, uSat, uPulse, uReady;
+        varying vec2 vUv; uniform sampler2D map, uLUT, uField; uniform float uTime, uCropOff, uCropScale, uSat, uPulse, uReady;
         vec3 lut(float v){ return texture2D(uLUT, vec2(clamp(v, 0.004, 0.996), 0.5)).rgb; }
         ` + PERSON_GLSL + `
         vec2 crop(vec2 uv){ return vec2(uv.x, uCropOff + uv.y * uCropScale); }
@@ -2270,18 +2331,7 @@ void main(){
         //  픽셀로 자르면 그림자·모자·옷주름이 통째로 뚫린다: 실측 피사체 14% 소실)
         float mask1(vec2 uv){ vec3 c = texture2D(map, crop(uv)).rgb; float k = c.g - max(c.r, c.b);
           return 1.0 - smoothstep(0.04, 0.14, k); }
-        // 이목구비·옷주름은 뭉갠다 — 확산 유리 너머 실루엣(유저 레퍼런스). 9탭 원형 블러.
         float lumAt(vec2 uv){ return dot(texture2D(map, crop(uv)).rgb, vec3(0.299, 0.587, 0.114)); }
-        float blurLum(vec2 uv){
-          float s = lumAt(uv) * 0.30;
-          for (int k = 0; k < 4; k++) { float a = 1.5708 * float(k) + 0.7;
-            s += lumAt(uv + vec2(cos(a), sin(a)) * 0.026) * 0.125;
-            s += lumAt(uv + vec2(cos(a + 0.785), sin(a + 0.785)) * 0.052) * 0.05; }
-          return s;
-        }
-        // 두께장 — 복싱 판의 가우시안 RT 체인과 같은 역할을 프래그먼트 17탭으로 근사.
-        //   구 H = 1.18 - length(uv-중심) 은 '화면 중심' 방사라 그라디언트가 몸을 안 따라갔다
-        //   (유저: "복싱만 예쁘고 러닝·농구는 납작한 색종이"). 두께장은 몸을 따라가야 한다.
         // 크로마키 안티에일리어싱 — 소스가 전부 yuv420p(크로마 절반 해상도)라 단일 탭 키는
         //   확대 시 2px 블록 계단으로 드러난다(유저 스샷). 대칭 5탭 평균이라 엣지 위치는 안 움직인다.
         float maskAA(vec2 uv){
@@ -2289,15 +2339,6 @@ void main(){
           for (int k = 0; k < 4; k++) {
             vec2 d = vec2(cos(1.5708 * float(k) + 0.785), sin(1.5708 * float(k) + 0.785));
             s += mask1(uv + d * 0.0018) * 0.16;
-          }
-          return s;
-        }
-        float thickField(vec2 uv){
-          float s = mask1(uv) * 0.20;
-          for (int k = 0; k < 8; k++) {
-            vec2 d = vec2(cos(0.7854 * float(k)), sin(0.7854 * float(k)));
-            s += mask1(uv + d * 0.048) * 0.065;
-            s += mask1(uv + d * 0.105) * 0.035;
           }
           return s;
         }
@@ -2312,11 +2353,13 @@ void main(){
           float m = maskAA(uv);
           float mEro = smoothstep(0.16, 0.52, m);   // 침식 완화 — 골대 림 등 얇은 구조 보존(유저)
           if (mEro < 0.02) discard;
-          // 두께장 = 몸을 따라가는 블러 마스크(복싱 판의 uHeat 가우시안 체인과 등가 역할)
-          float H = clamp(thickField(uv), 0.0, 1.0);
+          // 두께장·블러휘도 = 저해상 RT 가우시안 필드(복싱 판 uHeat와 같은 파이프라인)
+          vec2 fld = texture2D(uField, uv).rg;
+          float H = clamp(fld.r * 1.25, 0.0, 1.0);
           float flow = vn(vec2(uv.x*3.2 + sin(uTime*0.4)*0.3, uv.y*2.4 - uTime*0.5));
           H *= 1.0 + (flow - 0.5) * 0.11;   // 대류 얼룩 최소 — 매끄러운 질감(유저 레퍼런스)
-          float lumS = lumAt(uv), lumB = blurLum(uv);   // 선명 = 몸의 결 / 블러 = 얼굴 소거용
+          float lumS = lumAt(uv);                        // 선명 = 몸의 결
+          float lumB = fld.g / max(fld.r, 0.02);         // 블러 = 얼굴 소거용(마스크 프리멀티 복원)
           float dlum = mix(lumS, lumB, 0.5);            // 펄스 위상용 대표 휘도
           float mIn = smoothstep(0.55, 0.95, m);
           float faceW = smoothstep(0.80, 0.92, uv.y) * (1.0 - smoothstep(0.97, 1.0, uv.y));
@@ -2422,6 +2465,8 @@ void main(){
       const c = _coaches[id];
       if (id === activeId) {
         const co = ensureCoach(id);
+        // 두께·휘도 필드 갱신 — 활성 코치 1개뿐이라 RT 한 쌍을 공유한다(프레임당 7패스, 128×192)
+        if (co.video.readyState >= 2) renderCoachField(co);
         // 옆구리: 스테이지에 들어올 때마다 '왼쪽으로 기우는' 지점에서 시작(유저 필수 요구).
         //   영상 엘리먼트는 스테이지 사이에도 계속 돌아서, 안 잡으면 진입 시점이 매번 달랐다.
         //   왼쪽 굽힘 = 원본 0.00~0.25s → 0.10s에서 시작(0프레임은 가시성 체크 통과 못 함).
