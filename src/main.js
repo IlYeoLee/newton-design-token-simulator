@@ -4475,6 +4475,24 @@ void main(){
     document.getElementById('btn-specmap')?.addEventListener('click', openSpecMap);
   }
 
+  // ── 하프톤 스킨 토글 (⣿) — FX Lab 후보랩에서 확정한 '그라디언트 + 하프톤 마스크' ─────
+  //   정본 markState 는 그대로 두고 표면만 점으로 뚫는다. 색·7상태·모션·계약은 손대지 않는다.
+  //   마크 재질 전부에 같은 유니폼을 밀어 넣는다(팩 마커 + 세션 웨이브).
+  {
+    let htOn = false;
+    const btn = document.getElementById('btn-ht');
+    const apply = () => {
+      const push = m => { if (m?.uniforms?.uHT) m.uniforms.uHT.value = htOn ? 1 : 0; };
+      tokens.scene?.traverse?.(o => push(o.material));
+      scene.traverse(o => push(o.material));
+      if (btn) { btn.style.borderColor = htOn ? 'var(--accent)' : 'var(--line)';
+        btn.style.color = htOn ? 'var(--accent)' : 'var(--text)'; }
+    };
+    btn?.addEventListener('click', () => { htOn = !htOn; apply(); });
+    // 재질은 스테이지마다 새로 만들어지므로 매초 한 번 다시 밀어준다(토글 상태 유지)
+    setInterval(() => { if (htOn) apply(); }, 1000);
+  }
+
   if (import.meta.env.DEV) window.__dbg = {
     extractPose, retargetToClip,   // 비디오 모캡 (dev)
     rig, xbot, state, session, sceneScope, camera, controls, tokens, effects, scene, editor3d, sceneUI, FXP, designStore, TCFG, editCam, editControls, judge, THREE,

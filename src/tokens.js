@@ -18,6 +18,7 @@ void main() {
   #include <clipping_planes_vertex>
 }`;
 const MARKFX_FRAG = `
+uniform float uHT, uHTPitch, uHTGain, uHTSoft;   // 하프톤 스킨 — 후보랩 확정본
 #include <common>
 #include <clipping_planes_pars_fragment>
 ` + FX_GLSL + `
@@ -55,6 +56,25 @@ void main() {
   float breath = smoothstep(0.10, 0.88, fract(uTime * 0.45));
   float prog = uPhase < 0.5 ? max(breath, max(uStrong, uProg)) : clamp(uProg, 0.0, 1.0);
   vec4 r = markState(uv, st, prog, uStrong, uTime);
+  // ── 하프톤 스킨 (uHT) — FX Lab 후보랩에서 확정한 '그라디언트 + 하프톤 마스크' ─────────
+  //   정본 색(OKLab 램프)은 그대로 두고 균일한 점으로 뚫는다. 재현이 아니라 이식이다.
+  //   ★ 알파를 r 에서 받지 않는다. r 의 알파는 경계에서 급히 끊겨, 그걸 곱하면 경계에 걸친
+  //     점이 '잘려' 아웃라인이 생긴다. 색만 빌리고 알파는 넓은 페이드 × 점 마스크로 새로 만든다.
+  if (uHT > 0.5) {
+    float u1h  = mkUndul(atan(uv.y, uv.x) + uSeed, uTime * 1.6);
+    float sdh  = mkSD(uv, u1h);
+    float pit  = max(uHTPitch, 0.02);
+    vec2  c2   = fract(uv / pit) - 0.5;
+    float dd   = length(c2) * pit;
+    float edge = smoothstep(0.20 * max(uHTSoft, 0.20), -0.04, sdh);
+    float rad  = pit * 0.5 * clamp(0.62 * uHTGain * edge, 0.0, 1.0);
+    float m    = smoothstep(rad + pit * 0.11, rad - pit * 0.11, dd);
+    float soft = smoothstep(0.13 * max(uHTSoft, 0.20), -0.05, sdh);
+    float aOld = max(r.a, 1e-4);
+    vec3  c0   = r.rgb / aOld;                 // 정본 색(언프리멀티)
+    float aNew = clamp(soft * m, 0.0, 1.0);
+    r = vec4(c0 * aNew, aNew);
+  }
   // 쿼드 보더 페이드 — 원형 + 사각 경계(체비셰프) 이중: 어떤 경로에서도 평면 모서리가
   // 사각 박스로 드러나지 않게 (주간 잉크의 색 정규화가 원형 페이드를 상쇄하던 구멍 봉인)
   float border = smoothstep(1.0, 0.82, length(uv))
@@ -205,6 +225,8 @@ export function makeMarkFXMaterial(footTex = null) {
       uTime: { value: 0 }, uSeed: { value: Math.random() * 6.2832 },
       uW: { value: 1 }, uHalo: { value: 0.9 }, uPool: { value: 0.55 }, uGain: { value: 1 },
       uSweepA: { value: 1 }, uNoise: { value: 0.5 }, uDay: { value: 0 }, uOut: { value: 1 },
+      // 하프톤 스킨 — 기본 꺼짐. 랩에서 확정한 값이 기본값이다.
+      uHT: { value: 0 }, uHTPitch: { value: 0.11 }, uHTGain: { value: 1.15 }, uHTSoft: { value: 0.55 },
       // 투사면(풋프린트) 소프트 페이드 — 레인과 동일. 기본 1e6 = 무효(벽 마크·미주입 시 페이드 없음).
       uFPOrigin: { value: new THREE.Vector3() }, uFPFwd: { value: new THREE.Vector3(0, 0, -1) }, uFPRight: { value: new THREE.Vector3(1, 0, 0) },
       uFPNear: { value: -1e6 }, uFPFar: { value: 1e6 }, uFPHalfN: { value: 1e6 }, uFPHalfF: { value: 1e6 }, uFPFadeM: { value: 0.28 },
