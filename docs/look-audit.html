@@ -274,6 +274,18 @@ footer{padding:36px 0 60px;color:var(--t4);font-size:12.5px}
   <div class="sec-head"><span class="n">09</span><h2>없는 토큰 — 도입 제안</h2></div>
   <p class="note">투사 UI(<code class="inline">floorgl.js</code>·<code class="inline">wallgl.js</code>)에는 타이포·반경·모션 토큰이 없어 화면마다 상수를 따로 듭니다. 앱 셸이 이미 쓰는 스케일을 대지 좌표(1600×2670 / 2600×1600)로 환산한 안입니다.</p>
 
+  <div class="delta" style="margin-top:16px"><span class="head">적용 결과</span><span class="verdict">
+    <b style="color:var(--nb-red)">이 절의 존·간격·타이포 제안은 코드에서 되돌렸습니다(2026-07-29).</b>
+    적용해 보니 <b style="color:var(--t1)">투사 UI의 좌표는 Figma 대지 실값이 정본</b>이었습니다. 화면마다 타이틀 상단값이
+    8가지였던 건 불일치가 아니라 화면마다 다른 레이아웃이고, 밴드를 씌우자 전환 화면이
+    타이틀 <span class="num">500→187</span> · 카드 <span class="num">850→694</span> · 버튼 <span class="num">1636→2083</span>으로 밀려
+    카드–버튼 간격이 <span class="num">131 px</span>에서 <span class="num">578 px</span>가 됐습니다. 타이포 계단도 큰 타이틀을
+    <span class="num">140→120</span>으로 깎았습니다. 아래 표와 밴드 그림은 <b>기록으로만</b> 남깁니다 — 코드는 대지 실값입니다.
+    <br><br>같은 감사에서 <b style="color:var(--t1)">살아남은 규칙</b>: 유채 4색·채도 고정·무채 상태부호(<code class="inline">palette.js</code>),
+    Supreme 2종(700/400), 인물 램프 통일(<code class="inline">PERSON_GLSL</code>), 파문·배지 공통화.
+    이것들은 <b>보이는 것의 성질</b>을 정하는 규칙이라 화면을 가리지 않고, 존·간격은 <b>배치</b>라 화면마다 다릅니다 — 그 차이가 이번 교훈입니다.
+  </span></div>
+
   <h3 style="margin-top:26px">타이포 — 대지 px</h3>
   <div class="scale" id="typescale"></div>
 
@@ -284,8 +296,8 @@ footer{padding:36px 0 60px;color:var(--t4);font-size:12.5px}
   <p class="note" style="margin-top:6px">같은 px가 대지마다 다른 실물 크기입니다(<code class="inline">PROJECTION-SPEC</code>): 벽 <span class="num">1 px = 1.00 mm</span> · 지면 러닝 <span class="num">0.73 mm</span> · 지면 농구 <span class="num">0.88 mm</span>. 지금 두 파일이 쓰는 <span class="num">72 px</span>는 벽에서 72 mm, 지면에서 53 mm — 눈에는 다른 간격입니다. 그래서 간격 토큰은 mm로 정의하고 대지에서 환산해야 합니다.</p>
   <div class="tblwrap"><table id="spacing"></table></div>
 
-  <h3 style="margin-top:30px">타이틀·그래픽존 위치</h3>
-  <p class="note" style="margin-top:6px">지금 타이틀 상단값은 <b style="color:var(--t1)">대지 안에서 8가지</b>입니다 — 화면이 바뀔 때마다 타이틀이 위아래로 튑니다. 아래는 대지 높이 비율로 잡은 밴드 제안(<span style="color:var(--fix-line)">청록</span>)과 현재 값(<span style="color:var(--nb-red)">빨강</span>)을 실제 비율로 겹쳐 그린 것입니다.</p>
+  <h3 style="margin-top:30px">타이틀·그래픽존 위치 <span style="color:var(--nb-red);font-size:.62em;letter-spacing:.04em">— 폐기된 제안(기록)</span></h3>
+  <p class="note" style="margin-top:6px">타이틀 상단값이 <b style="color:var(--t1)">대지 안에서 8가지</b>인 것은 사실입니다. 다만 그것은 고칠 불일치가 아니라 <b>화면마다 다른 Figma 레이아웃</b>이었습니다. 아래 밴드 제안(<span style="color:var(--fix-line)">청록</span>)은 실제로 적용했다가 되돌렸고, 코드는 현재 값(<span style="color:var(--nb-red)">빨강</span>)을 씁니다.</p>
   <div class="zones">
     <div class="zwrap"><canvas id="zoneFloor"></canvas><span>지면 · 러닝<br>1 px = 0.73 mm</span></div>
     <div class="zwrap"><canvas id="zoneBk"></canvas><span>지면 · 농구<br>1 px = 0.88 mm</span></div>
@@ -1524,9 +1536,9 @@ GSLOTS.forEach(([slot,name])=>{
 /* ── 공통 컴포넌트 — 정본 코드로 그린다 ────────────────────────────── */
 const COMPS=[
  {k:'card',   n:'전환 카드', src:'floorgl._card · wallgl._card', use:'러닝 · 농구 · 복싱 (전환 6화면)',
-  d:'히트 그라디언트 + 인물 plus-lighter + 내부 글로우'},
- {k:'dots',   n:'프로그래스 도트바', src:'floorgl._dots · wallgl 도트행', use:'러닝 · 농구 · 복싱',
-  d:'회색 10개 위 빨강 10개를 좌→우 클립'},
+  d:'히트 그라디언트 + 인물 plus-lighter + 내부 글로우 inset 0 0 52.392 19.647 rgba(255,255,255,.6). 배지 2종은 Figma 52:3178·52:3184 실값 — 완료=흰 원+뉴턴 레드 체크, Next=흰 필+그림자 0 0 39.294 rgba(0,0,0,.12)'},
+ {k:'dots',   n:'프로그래스 도트바', src:'floorgl._dots · wallgl 도트행', use:'러닝 · 농구 · 복싱 — 단 예시영상 화면엔 없음',
+  d:'회색 10개 위 빨강 10개를 좌→우 클립. 노출 규칙 ① 시범(Preview) 동안은 감춘다(자리도 비운다 — 프리뷰 행이 그 슬롯을 쓴다) ② 스텝백 따라하기(BK_B2~B5)엔 아예 없다(진행은 상단 n/4)'},
  {k:'ring',   n:'카운트다운 링', src:'floorgl.drawRing · wallgl.ring', use:'러닝 · 농구 · 복싱 (타이머·프리뷰·Success)',
   d:'점선 트랙 + 채워지는 아크 + 회전 팁'},
  {k:'pct',    n:'퍼센트 링', src:'floorgl._paint_report · wallgl', use:'러닝 · 농구 · 복싱 (리포트 3화면)',
