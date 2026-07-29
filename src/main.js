@@ -4641,6 +4641,7 @@ void main(){
     //   레이캐스트는 두 번 헛짚었다(선 반경 함정 → 그 다음엔 검정을 만들 수 없는 가산 재질만 나왔다).
     //   화면에 실제로 검정을 칠하는 주체는 '그것을 끄면 검정이 사라지는 것'이다. 그것만이 증거다.
     //   검출된 순간에만 도는 진단이라 몇 프레임 끊기는 건 감수한다.
+    const _pi = ((H - 1 - by) * W + bx) * 4;   // 원본 프레임의 검정점 (탐색 중 덮어쓰기 전에 잡아둔다)
     const x0 = Math.max(0, bx - best / 2), y0 = by;
     const rw = Math.min(W - x0, best), rh = Math.min(H - y0, Math.max(8, th));
     const _rb = new Uint8Array(rw * rh * 4);
@@ -4652,13 +4653,12 @@ void main(){
       return d / (rw * rh) > 0.5;
     };
     const label = o => {
-      const m = o.material;
-      return { name: o.name || '(무명)', type: o.type, order: o.renderOrder,
-        mat: m ? (Array.isArray(m) ? m[0]?.type : m.type) : '-',
-        blending: m && !Array.isArray(m) ? m.blending : '-',
-        opacity: m && !Array.isArray(m) ? m.opacity : '-',
-        uDay: m?.uniforms?.uDay ? m.uniforms.uDay.value : '-',
-        uLive: m?.uniforms?.uLive ? m.uniforms.uLive.value : '-' };
+      const m = Array.isArray(o.material) ? o.material[0] : o.material;
+      const U = m?.uniforms || {};
+      const u = k => (U[k] ? (typeof U[k].value === 'number' ? +U[k].value.toFixed(3) : '·') : '-');
+      return { name: o.name || m?._src || '(무명)', type: o.type, order: o.renderOrder,
+        mat: m ? m.type : '-', blending: m ? m.blending : '-', opacity: m ? m.opacity : '-',
+        u: `uDay ${u('uDay')} uPhase ${u('uPhase')} uProg ${u('uProg')} uFade ${u('uFade')} uGain ${u('uGain')} uShape ${u('uShape')}` };
     };
     // 한 층에서 '끄면 검정이 사라지는' 자식을 찾고, 찾으면 그 안으로 들어간다
     const findCulprit = (node, depth) => {
@@ -4693,7 +4693,8 @@ void main(){
     }
     _bpEl.textContent = '⬛ ' + head + '\n'
       + (hits.length
-        ? hits.map((h, i) => `${i + 1}. ${h.name} · ${h.mat} · order ${h.order} · blend ${h.blending} · op ${h.opacity} · uDay ${h.uDay} · uLive ${h.uLive}`).join('\n')
+        ? hits.map((h, i) => `${i + 1}. ${h.name} · ${h.mat} · order ${h.order} · blend ${h.blending} · op ${h.opacity}\n     ${h.u}`).join('\n')
+          + `\n검정점 픽셀 = rgba(${_bpBuf[_pi]},${_bpBuf[_pi + 1]},${_bpBuf[_pi + 2]},${_bpBuf[_pi + 3]})`
         : '범인 없음 — 씬의 어떤 개체를 꺼도 검정이 안 사라진다.\n  → 후처리(컴포저 grade/bloom) 또는 배경 자체다.');
   }
 

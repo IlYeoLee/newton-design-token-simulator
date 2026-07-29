@@ -184,6 +184,7 @@ export function makeLaneFXMaterial(lenM) {
     side: THREE.DoubleSide,
   });
   mat.clipping = true;
+  mat._src = 'LANEFX';   // 진단용 출처 태그 (blackprobe 배지)
   return mat;
 }
 
@@ -214,6 +215,7 @@ export function makeMarkFXMaterial(footTex = null) {
     side: THREE.DoubleSide,
   });
   mat.clipping = true;
+  mat._src = footTex ? 'MARKFX(발형)' : 'MARKFX(존원)';   // 진단용 출처 태그
   return mat;
 }
 
