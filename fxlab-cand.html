@@ -555,17 +555,29 @@ float halftoneSq(vec2 p, float pitch, float amount, float soft){
   float r = pitch * 0.5 * clamp(amount, 0.0, 1.0);
   return smoothstep(r + soft, r - soft, d);
 }
+// 상태별 색 — 정본 markState 각 분기가 쓰는 램프를 그대로 모아둔 디스패처.
+//   ★ 닷 폼 계열이 fillHot 하나만 쓰면 7상태가 전부 같은 주황이 된다(유저 지적).
+//     점으로 다시 칠하더라도 '어느 상태인가'는 색이 말해야 한다 — 색은 상태 부호다.
+vec3 stateFill(float st, float q, float pg){
+  if (st < 0.5)  return fillPreview(q);                                  // Preview
+  if (st < 1.5)  return fillActive(q);                                   // Active
+  if (st < 2.5)  return fillHold(q);                                     // Hold
+  if (st < 3.5)  return fillSuccess(q);                                  // Success
+  if (st < 4.5)  return mix(fillPreview(q), C_GRAYF, smoothstep(0.0, 0.4, pg));   // Miss — 식어 회색으로
+  if (st < 5.5)  return mix(C_WINE, C_BRICK, clamp(0.5 - q * 0.9, 0.0, 1.0));     // Warning — 사구→코랄
+  return mix(C_GRAYF, C_GRAYL, q);                                       // Locked — 식은 재
+}
 // 아웃라인 없는 닷 폼 본체(⑩) — w 는 그 픽셀의 '켜짐 정도'. Hold 후보들이 w 만 바꿔 쓴다.
-vec4 dotFormAt(vec2 grid, vec2 uv, float sd, float ext, float w, float pitch){
+vec4 dotFormAt(vec2 grid, vec2 uv, float sd, float ext, float w, float pitch, float st, float pg){
   float band = 0.16 * max(uInner, 0.05);
   float amt  = smoothstep(band, -band, sd) * clamp(w, 0.0, 2.0);
   float q    = clamp(0.30 + 0.70 * length(uv) / max(ext * 1.6, 1e-3), 0.0, 1.0);
   float m    = halftone(grid, pitch, amt * uDotGain, pitch * 0.16);
   vec4 B = vec4(0.0);
-  lay(B, fillHot(q), m * clamp(amt * 1.25, 0.0, 1.0));
+  lay(B, stateFill(st, q, pg), m * clamp(amt * 1.25, 0.0, 1.0));
   return B;
 }
-vec4 dotForm(vec2 uv, float sd, float ext, float w, float pitch){ return dotFormAt(uv, uv, sd, ext, w, pitch); }
+vec4 dotForm(vec2 uv, float sd, float ext, float w, float pitch, float st, float pg){ return dotFormAt(uv, uv, sd, ext, w, pitch, st, pg); }
 // 실루엣 안쪽 깊이(0=가장자리, 1=속). 이너 글로우/섀도우의 공통 재료.
 float innerDepth(float sd, float w){ return smoothstep(0.0, max(w, 1e-4), -sd); }
 `;
@@ -691,7 +703,7 @@ const CANDIDATES = [
   float q    = clamp(0.30 + 0.70 * length(uv) / max(ext * 1.6, 1e-3), 0.0, 1.0);
   float m    = halftone(uv, uDotPitch, amt * uDotGain, uDotPitch * 0.16);
   vec4 B = vec4(0.0);
-  lay(B, fillHot(q), m * clamp(amt * 1.25, 0.0, 1.0));
+  lay(B, stateFill(state, q, prog), m * clamp(amt * 1.25, 0.0, 1.0));
   return B;
 }` },
 
@@ -705,7 +717,7 @@ const CANDIDATES = [
   float q    = clamp(0.30 + 0.70 * length(uv) / max(ext * 1.6, 1e-3), 0.0, 1.0);
   float m    = halftone(uv + jit, uDotPitch, amt * uDotGain, uDotPitch * 0.18);
   vec4 B = vec4(0.0);
-  lay(B, fillHot(q), m * clamp(amt * 1.3, 0.0, 1.0));
+  lay(B, stateFill(state, q, prog), m * clamp(amt * 1.3, 0.0, 1.0));
   return B;
 }` },
 
@@ -717,7 +729,7 @@ const CANDIDATES = [
   float q     = clamp(0.30 + 0.70 * length(uv) / max(ext * 1.6, 1e-3), 0.0, 1.0);
   float m     = halftone(uv, pitch, (0.35 + 0.85 * amt) * uDotGain, pitch * 0.16);
   vec4 B = vec4(0.0);
-  lay(B, fillHot(q), m * clamp(amt * 1.15 + 0.10, 0.0, 1.0));
+  lay(B, stateFill(state, q, prog), m * clamp(amt * 1.15 + 0.10, 0.0, 1.0));
   return B;
 }` },
 
@@ -730,45 +742,45 @@ const CANDIDATES = [
   //   (Hold 가 아닌 상태에선 ⑩ 닷 폼으로 떨어져 일관성을 눈으로 확인할 수 있다)
   { id: 'holdLevel', name: '⓵ Hold · 수위', why: '아래에서 위로 차오르고 수면이 찰랑인다. 설계 문장 그대로 — 선이 아니라 열이 쌓인다.',
     glsl: `${CAND_SIG} {
-  if (state < 1.5 || state > 2.5) return dotForm(uv, sd, ext, 1.0, uDotPitch);
+  if (state < 1.5 || state > 2.5) return dotForm(uv, sd, ext, 1.0, uDotPitch, state, prog);
   float lvl = -1.0 + 2.0 * prog;
   float rip = sin(uv.x * 7.0 + t * 2.2) * 0.035 + sin(uv.x * 11.0 - t * 1.6) * 0.020;
   float d   = (lvl + rip) - uv.y;                          // >0 = 잠김
   float w   = smoothstep(-0.10, 0.06, d);                  // 수면에서 부드럽게
   w *= 1.0 + 0.55 * exp(-pow(d / 0.07, 2.0));              // 수면 근처가 가장 굵다
-  return dotForm(uv, sd, ext, w, uDotPitch);
+  return dotForm(uv, sd, ext, w, uDotPitch, state, prog);
 }` },
 
   { id: 'holdSweep', name: '⓶ Hold · 각도 카운터', why: '12시부터 시계방향으로 점이 하나씩 켜진다. 진행을 선이 아니라 점이 센다 — 테두리가 사라진다.',
     glsl: `${CAND_SIG} {
-  if (state < 1.5 || state > 2.5) return dotForm(uv, sd, ext, 1.0, uDotPitch);
+  if (state < 1.5 || state > 2.5) return dotForm(uv, sd, ext, 1.0, uDotPitch, state, prog);
   float a01 = fract(0.25 - atan(uv.y, uv.x) / 6.2832);
   float w   = smoothstep(prog + 0.02, prog - 0.04, a01);   // 지나간 각도만 켜짐
   w = max(w, 0.20);                                        // 남은 구간도 흐릿하게 — 형태는 유지
   w *= 1.0 + 0.70 * exp(-pow((a01 - prog) / 0.05, 2.0));   // 선단이 가장 굵다
-  return dotForm(uv, sd, ext, w, uDotPitch);
+  return dotForm(uv, sd, ext, w, uDotPitch, state, prog);
 }` },
 
   { id: 'holdCollapse', name: '⓷ Hold · 조여듦', why: '바깥에서 안으로 파면이 조여든다. 시간이 줄어드는 것이 형태로 보인다 — Active 의 수축과 한 계보.',
     glsl: `${CAND_SIG} {
-  if (state < 1.5 || state > 2.5) return dotForm(uv, sd, ext, 1.0, uDotPitch);
+  if (state < 1.5 || state > 2.5) return dotForm(uv, sd, ext, 1.0, uDotPitch, state, prog);
   float r     = length(uv) / max(ext, 1e-3);
   float front = 1.0 - prog;
   float band  = exp(-pow((r - front) / 0.15, 2.0));
   float w     = smoothstep(front + 0.14, front - 0.04, r) * 0.80 + band * 0.95;
   w = max(w, 0.16);
-  return dotForm(uv, sd, ext, w, uDotPitch);
+  return dotForm(uv, sd, ext, w, uDotPitch, state, prog);
 }` },
 
   { id: 'holdPulse', name: '⓸ Hold · 동기 맥동', why: '모든 점이 한 박자로 숨쉬고, 완료에 가까울수록 빨라진다. 버티는 시간이 심박으로 읽힌다.',
     glsl: `${CAND_SIG} {
-  if (state < 1.5 || state > 2.5) return dotForm(uv, sd, ext, 1.0, uDotPitch);
+  if (state < 1.5 || state > 2.5) return dotForm(uv, sd, ext, 1.0, uDotPitch, state, prog);
   float bpm  = 1.6 + 4.4 * prog;                           // 끝으로 갈수록 빨라진다
   float beat = 0.5 + 0.5 * sin(t * bpm * uDotSpeed * 3.14159);
   float r    = length(uv) / max(ext, 1e-3);
   float w    = (0.55 + 0.75 * beat) * (1.0 - 0.35 * r);    // 중심이 더 세게 뛴다
   w *= 0.75 + 0.55 * prog;                                 // 차오를수록 전체가 밝아진다
-  return dotForm(uv, sd, ext, w, uDotPitch);
+  return dotForm(uv, sd, ext, w, uDotPitch, state, prog);
 }` },
 
   // ── 닷 매트릭스 계열 (레퍼런스 set-of-animations-4 를 GLSL로) ──────────────
@@ -782,7 +794,7 @@ const CANDIDATES = [
   float scan = fract(t * 0.22 * uDotSpeed) * 6.28319;
   float since = fract((scan - ang) / 6.28319);          // 0 = 방금 지나감
   float glow = pow(1.0 - since, 2.6);                   // 잔광 꼬리
-  vec4 B = dotForm(uv, sd, ext, 0.20 + 1.20 * glow, uDotPitch);
+  vec4 B = dotForm(uv, sd, ext, 0.20 + 1.20 * glow, uDotPitch, state, prog);
   float beam = smoothstep(0.045, 0.0, since) * smoothstep(ext * 1.9, 0.0, length(uv));
   lay(B, C_ICE, beam * 0.55 * clamp(uHalo, 0.0, 1.5));
   return B;
@@ -796,7 +808,7 @@ const CANDIDATES = [
   float band  = exp(-dw * dw);
   vec2  dir   = r > 1e-4 ? uv / r : vec2(0.0);
   vec2  grid  = uv - dir * band * uDotPitch * 0.95;     // 격자를 밀어낸다 = 점이 밀린다
-  return dotFormAt(grid, uv, sd, ext, 0.55 + 1.10 * band, uDotPitch);
+  return dotFormAt(grid, uv, sd, ext, 0.55 + 1.10 * band, uDotPitch, state, prog);
 }` },
 
   { id: 'phased', name: '⓻ 위상 배열', why: '파면이 지나가면 점이 솟았다 가라앉는다. 바닥 투사에서 "면이 살아 있다"는 인상 — 가장 3D 같다.',
@@ -806,16 +818,16 @@ const CANDIDATES = [
   float dw    = (r - front) / max(ext * 0.26, 1e-3);
   float lift  = exp(-dw * dw);
   vec2  grid  = uv + vec2(0.0, lift * uDotPitch * 0.55);   // 솟은 만큼 화면 위로
-  vec4 B = dotFormAt(grid, uv, sd, ext, 0.48 + 1.35 * lift, uDotPitch);
+  vec4 B = dotFormAt(grid, uv, sd, ext, 0.48 + 1.35 * lift, uDotPitch, state, prog);
   // 솟은 점 아래 차가운 접지점 — 높이가 읽히게(투사엔 그림자가 없으니 색 온도로 대신한다)
-  vec4 C = dotFormAt(uv - vec2(0.0, uDotPitch * 0.12), uv, sd, ext, lift * 0.42, uDotPitch);
+  vec4 C = dotFormAt(uv - vec2(0.0, uDotPitch * 0.12), uv, sd, ext, lift * 0.42, uDotPitch, state, prog);
   lay(B, C_ICE, C.a * 0.30);
   return B;
 }` },
 
   { id: 'mesh', name: '⓼ 연결망', why: '점 사이를 격자선이 잇는다. MARK 와 LINE 토큰이 한 언어가 되는 지점 — 레인·화살표까지 같은 결로 묶인다.',
     glsl: `${CAND_SIG} {
-  vec4 B = dotForm(uv, sd, ext, 1.0, uDotPitch);
+  vec4 B = dotForm(uv, sd, ext, 1.0, uDotPitch, state, prog);
   float band = 0.16 * max(uInner, 0.05);
   float amt  = smoothstep(band, -band, sd);
   vec2  c    = abs(fract(uv / uDotPitch) - 0.5) * uDotPitch;
@@ -823,13 +835,13 @@ const CANDIDATES = [
   float link = 1.0 - smoothstep(uDotPitch * 0.02, uDotPitch * 0.07, axis);
   float pulse = 0.45 + 0.55 * sin(t * 1.6 * uDotSpeed - length(uv) * 5.0);
   float q = clamp(0.30 + 0.70 * length(uv) / max(ext * 1.6, 1e-3), 0.0, 1.0);
-  lay(B, fillHot(q), link * amt * pulse * 0.30);
+  lay(B, stateFill(state, q, prog), link * amt * pulse * 0.30);
   return B;
 }` },
 
   { id: 'holdTension', name: '⓹ Hold · 수면 장력 (제안)', why: '진행은 둘레가 아니라 면적이 센다. 수면 바로 아래 점이 가장 굵어 "지금 경계가 여기"를 선 없이 말하고, 완료 직전 10%에서 찰랑임이 잠잠해져 Success 를 예고한다.',
     glsl: `${CAND_SIG} {
-  if (state < 1.5 || state > 2.5) return dotForm(uv, sd, ext, 1.0, uDotPitch);
+  if (state < 1.5 || state > 2.5) return dotForm(uv, sd, ext, 1.0, uDotPitch, state, prog);
   // ① 진행 = 면적. 둘레(각도)를 쓰면 발형에서 각도↔호길이가 어긋나 시계바늘이 튄다.
   float lvl  = -1.05 + 2.10 * prog;
   // ② 버팀의 긴장 = 찰랑임. 완료 직전 10% 에서 잠잠해진다(긴장이 풀린다 = Success 예고).
@@ -840,7 +852,7 @@ const CANDIDATES = [
   float sub  = smoothstep(-0.06, 0.05, d);
   float skin = exp(-pow(d / 0.055, 2.0));
   float w    = sub * (0.55 + 0.45 * prog) + skin * 1.25;
-  vec4 B = dotForm(uv, sd, ext, w, uDotPitch);
+  vec4 B = dotForm(uv, sd, ext, w, uDotPitch, state, prog);
   lay(B, C_ICE, skin * smoothstep(0.02, -0.02, sd) * 0.30 * calm * clamp(uHalo, 0.0, 1.5));
   return B;
 }` },
