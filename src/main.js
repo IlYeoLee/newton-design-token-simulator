@@ -4612,8 +4612,9 @@ void main(){
   //   합성이 끝난 프레임을 직접 읽어 가장 큰 순수-검정 덩어리를 찾고, 그 중심으로 레이를 쏴서
   //   거기 있는 메시를 이름·재질·블렌딩까지 콘솔에 찍는다. 헤드리스로는 못 하는 일 —
   //   preserveDrawingBuffer:false 라 앱 자신의 rAF 안에서 읽어야만 실제 픽셀이 나온다.
-  const BLACK_PROBE = new URLSearchParams(location.search).get('blackprobe') === '1';
-  let _bpN = 0, _bpBuf = null, _bpLast = '';
+  //   결과는 콘솔이 아니라 '화면 위'에 띄운다 — 스크린샷 한 장이면 범인이 보인다.
+  const BLACK_PROBE = new URLSearchParams(location.search).get('blackprobe') !== '0';
+  let _bpN = 0, _bpBuf = null, _bpLast = '', _bpEl = null;
   const _bpRay = new THREE.Raycaster();
   function blackProbe() {
     if (!BLACK_PROBE || (_bpN++ % 20)) return;
@@ -4645,10 +4646,19 @@ void main(){
           dist: +h.distance.toFixed(2), order: h.object.renderOrder,
           mat: m.type, blending: m.blending, transparent: m.transparent,
           opacity: m.opacity, uuid: h.object.uuid.slice(0, 8) }; });
-    console.log('[BLACKPROBE] 검은 판 발견 —',
-      `stage=${session.stage} t=${(session.t || 0).toFixed(1)} 폭=${best}px 두께=${th}px 중심=(${bx},${by})`);
-    console.table(hits);
+    const head = `검정 판 ${best}×${th}px · ${session.stage} t=${(session.t || 0).toFixed(1)}`;
+    console.log('[BLACKPROBE]', head); console.table(hits);
     (window.__blackHits ||= []).push({ stage: session.stage, t: +(session.t || 0).toFixed(1), w: best, h: th, hits });
+    // 화면 배지 — 유저가 콘솔을 열 필요 없이 스크린샷만 주면 되게
+    if (!_bpEl) {
+      _bpEl = document.createElement('div');
+      _bpEl.style.cssText = 'position:fixed;left:12px;bottom:12px;z-index:9999;max-width:620px;'
+        + 'background:rgba(250,48,48,.94);color:#fff;padding:10px 13px;border-radius:10px;pointer-events:none;'
+        + 'font:600 12.5px/1.5 ui-monospace,Menlo,monospace;white-space:pre-wrap;box-shadow:0 6px 28px rgba(0,0,0,.5)';
+      document.body.appendChild(_bpEl);
+    }
+    _bpEl.textContent = '⬛ ' + head + '\n'
+      + hits.map((h, i) => `${i + 1}. ${h.name} · ${h.mat} · order ${h.order} · blend ${h.blending} · op ${h.opacity} · ${h.dist}m`).join('\n');
   }
 
   let _dotStage = '', _dotMax = 0;   // 도트 진행바 — 스테이지별 최대 진행(되감김 방지)
