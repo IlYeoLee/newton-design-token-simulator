@@ -77,15 +77,16 @@ function rollNum(ctx, target, t, delay, cd, x, y, size, o = {}) {
   const ws = gs.map(g => ctx.measureText(g.ch ?? '0').width + (o.ls || 0));
   const total = ws.reduce((a, b) => a + b, 0);
   let px = o.align === 'right' ? x - total : o.align === 'center' ? x - total / 2 : x;
-  const H = size * 1.06;   // 휠 한 칸 = 글자 한 줄
+  const H = size * 0.84;   // 휠 한 칸 = 글리프 잉크 높이(글자 상자가 아니라) — 두 자리가 겹쳐 보이지 않게
   for (let i = 0; i < gs.length; i++) {
     const g = gs[i];
     if (g.ch != null) { ctx.fillText(g.ch, px, y); px += ws[i]; continue; }
     const d = Math.floor(g.w), f = g.w - d;
     ctx.save();
-    ctx.beginPath(); ctx.rect(px - 4, y - size * 0.12, ws[i] + 8, H * 1.1); ctx.clip();
+    ctx.beginPath(); ctx.rect(px - 4, y, ws[i] + 8, size * 0.92); ctx.clip();   // 창 = 딱 한 자리(정착 시 잘리지 않게 잉크보다 살짝 크게)
     ctx.fillText(String(d % 10), px, y - f * H);               // 나가는 자리 = 위로
-    ctx.fillText(String((d + 1) % 10), px, y + (1 - f) * H);   // 들어오는 자리 = 아래에서
+    if (f > 0.03) ctx.fillText(String((d + 1) % 10), px, y + (1 - f) * H);   // 들어오는 자리 = 아래에서
+    // f≈0(정착)에선 다음 자리를 아예 안 그린다 — 창이 잉크보다 커서 다음 숫자 윗변이 점선처럼 삐져나왔다
     ctx.restore();
     px += ws[i];
   }
@@ -587,17 +588,24 @@ export class WallGL {
     av(100, ['coach_a.png', 'coach_b.png'], -1);
     av(2263, ['you_avatar.png'], 1);
 
-    // You 배지 — sPop .6s .62s
+    // 주체 배지 — sPop .6s .62s. 'You' 는 원본에 있던 것이고, 코치 쪽은 그 컴포넌트를 복제해 짝을 맞춘다.
+    //   전엔 오른쪽만 배지가 있고 단위 줄에 'YOU · Slips' 를 덧붙여서 'You' 가 두 번 나왔다(유저 지적).
+    //   배지가 주체를 말하니 단위 줄은 단위만 말한다.
     const be = mid ? 1 : eOut(intro(t, .62, .6));
-    ctx.save();
-    ctx.globalAlpha *= kf(be, [[0, 0], [.6, 1], [1, 1]]);
-    const bk = kf(be, [[0, .5], [.6, 1.12], [1, 1]]);
-    ctx.font = F(400, 47.28);
-    const bw = ctx.measureText('You').width + 63.04, bh = 47.28 * 1.2 + 31.52;
-    ctx.translate(2319 + bw / 2, 1043 + bh / 2); ctx.scale(bk, bk); ctx.translate(-(2319 + bw / 2), -(1043 + bh / 2));
-    rrFill(ctx, 2319, 1043, bw, bh, 80, 'rgba(255,255,255,.9)');
-    txt(ctx, 'You', 2319 + bw / 2, 1043 + bh / 2, 47.28, 400, NEU.t3, { ls: -.5, align: 'center', base: 'middle' });
-    ctx.restore();
+    const badge = (label, bx) => {
+      ctx.save();
+      ctx.globalAlpha *= kf(be, [[0, 0], [.6, 1], [1, 1]]);
+      const bk = kf(be, [[0, .5], [.6, 1.12], [1, 1]]);
+      ctx.font = F(400, 47.28);
+      const bw = ctx.measureText(label).width + 63.04, bh = 47.28 * 1.2 + 31.52;
+      const cxb = bx + bw / 2, cyb = 1043 + bh / 2;
+      ctx.translate(cxb, cyb); ctx.scale(bk, bk); ctx.translate(-cxb, -cyb);
+      rrFill(ctx, bx, 1043, bw, bh, 80, 'rgba(255,255,255,.9)');
+      txt(ctx, label, cxb, cyb, 47.28, 400, NEU.t3, { ls: -.5, align: 'center', base: 'middle' });
+      ctx.restore();
+    };
+    badge('Coach', 156);    // 좌 아바타(100~337) 하단 — You 배지와 같은 y·같은 컴포넌트
+    badge('You', 2319);
 
     // 큰 숫자 — sPop .7s .48s + 카운트업 / 단위 — sUp .6s .58s
     const ne = eOut(intro(t, .48, .7));
@@ -611,18 +619,17 @@ export class WallGL {
       rollNum(ctx, val, t, delay, cd, x, 1148, 200, { fam: dot9, ls: -8, align });
       ctx.restore();
     };
-    num(100, 'left', S.coach.num, .62, 1.0);
-    num(2500, 'right', S.you.num, .76, Math.max(1.5, dur * 0.8));
+    num(100, 'left', S.coach.num, .62, 1.2);
+    num(2500, 'right', S.you.num, .76, 1.5);   // 구 dur*0.8(=6.4s)는 내내 구르는 중이라 깨져 보였다
     const ue = eOut(intro(t, .58, .6));
     ctx.save();
     ctx.globalAlpha *= ue; ctx.translate(0, 48 * (1 - ue));
     // 좌우가 같은 단위('Jabs / Jabs')뿐이라 어느 쪽이 목표고 어느 쪽이 내 기록인지 안 읽혔다(유저:
     //   "왼쪽은 권장 횟수 또는 상대방이 한 00인데 그게 암시가 안 돼").
-    //   ★ 주체는 별도 줄이 아니라 **단위 줄에 얹는다**. 처음엔 수치 위 y1078 에 한 줄을 새로 깔았는데
-    //     아바타가 856~1088 을 쓰고 있어 'You' 배지와 그대로 겹쳤다(대지 렌더로 확인).
-    //     단위 줄(1368)은 비어 있고 수치 바로 밑이라 라벨이 붙을 자리로도 맞다.
-    txt(ctx, 'COACH · ' + S.coach.unit, 100, 1368, 64, 400, '#fff', { ls: -2.56 });
-    txt(ctx, 'YOU · ' + S.you.unit, 2500, 1368, 64, 400, '#fff', { ls: -2.56, align: 'right' });
+    //   ★ 결론: 주체는 **아바타 배지**가 말한다(위 badge()). 단위 줄에까지 'YOU ·' 를 붙였더니
+    //     오른쪽은 'You' 가 배지·텍스트로 두 번 나왔다(유저). 여기선 단위만 쓴다.
+    txt(ctx, S.coach.unit, 100, 1368, 64, 400, '#fff', { ls: -2.56 });
+    txt(ctx, S.you.unit, 2500, 1368, 64, 400, '#fff', { ls: -2.56, align: 'right' });
     ctx.restore();
 
     // ── 실전 피드백 재설계 (유저 요청) ───────────────────────────────────────────
