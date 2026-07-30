@@ -339,11 +339,11 @@ export class WallGL {
     ctx.restore();
     const tx = px + ph + 40.857;
     txt(ctx, 'Boxing Basic Jab Combo', tx, py + 24, 52, 700, NEU.inkDark, { ls: -2.55 });
-    txt(ctx, 'Skilled User Pack · Boxing ·Quite On', tx, py + 24 + 52 * 1.2 + 20.429, 32, 400, NEU.t2, { ls: -.96 });
+    txt(ctx, 'Skilled User Pack · Boxing', tx, py + 24 + 52 * 1.2 + 20.429, 32, 400, NEU.t2, { ls: -.96 });
     ctx.restore();
 
     // 스탯 카드 — slideInLeft .85s .35s
-    const stY = ROW_Y + hdrH + 24, stH = 1113;
+    const stY = ROW_Y + hdrH + 24, stH = 1105;   // = CM*2 + 콘텐츠 1049 (하단 여백도 CM 로 딱 맞음)
     ctx.save();
     const se = eOut(intro(t, .35, .85));
     ctx.globalAlpha *= se; ctx.translate(-90 * (1 - se), 0);
@@ -353,7 +353,8 @@ export class WallGL {
     // 체크 배지는 40 → 58 로 올렸다. 폰 레이아웃을 1:1 로 벽에 옮긴 값이라 원래 작았던 것.
     // 바깥 회색 카드 ↔ 안쪽 흰 박스 사이 띠. 20 → 40 (유저: 이 간격이 넓어야 한다).
     // 안쪽 좌표는 전부 ix 상대라 이 값만 바꾸면 정렬·축이 통째로 같이 밀린다.
-    const ix = LX + 40, iw = LW - 80;
+    const CM = 28;                       // 카드 안쪽 여백 — 상하좌우 100% 통일(구 상 32 / 좌우 40)
+    const ix = LX + CM, iw = LW - CM * 2;
     // 카드 안 왼쪽 텍스트 기준선 — 하나로 통일(유저: "왼쪽정렬 안 됨").
     // 전엔 30/min 은 ix+24.26, Fight! 는 ix+34.26(트랙이 ix+10 에서 시작 + 24.26),
     // Setup 라벨 ix+30, Connected 라벨 ix+20 으로 넷이 갈려 있었다.
@@ -362,7 +363,7 @@ export class WallGL {
     // 셀 사이 간격은 Figma 실값(10·8) 유지 — 24 로 넓혀 봤더니 카드가 아래로 넘쳤다(유저 기각).
     // 셀 안 텍스트 패딩은 PADL − CPAD 로 줘서 바깥 축(ix + PADL)은 그대로 유지된다.
     const CPAD = 14, CIN = PADL - CPAD, CGAP = 10, DGAP = 8;
-    let y = stY + 32;
+    let y = stY + CM;
     // ── Total
     txt(ctx, 'Total', ix + PADL, y + 6, 34, 400, NEU.t1, { ls: -1.13 });
     y += 48 + 8;
@@ -407,8 +408,11 @@ export class WallGL {
     // ★ 한 줄 압축 — 라벨+값 두 줄이던 걸 자기설명적 한 줄로 줄이고 그만큼 키웠다(유저:
     // "글씨 크기를 키우란 게 아니라 글자 수를 줄이면서 내용은 유지"). 투사면은 읽는 화면이
     // 아니라 훑는 화면이라 라벨은 값 안에 녹인다. 'Quite On' → 'Quiet On' 오타도 함께 정정.
+    // 'Main 15m' 은 Total 바 3번째(15min)와 같은 값인데 표기까지 달라(15min vs 15m) 다른 값처럼
+    //   읽혔다(유저). 자리는 셋업 5화면 중 유일하게 화면 어디에도 없던 '부상'이 가져간다 —
+    //   안전에 직결되는 값이라 시작 전에 확인되는 게 맞다.
     const cells = [['Indoor · Standard', 103], ['Condition · Usual', 103],
-                   ['Quiet On', 102], ['Main 15m', 102]];
+                   ['Quiet On', 102], ['Injury · None', 102]];
     cells.forEach(([val, ch], i) => {
       const cx0 = ix + CPAD + (i % 2) * (cw + CGAP), cy0 = y + 12 + (i < 2 ? 0 : 111);
       const e = eOut(intro(t, .95 + i * .10, .55));
