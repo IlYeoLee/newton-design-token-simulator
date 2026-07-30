@@ -200,20 +200,6 @@ export class XBot {
     reg('lb_dribble', lbDribbleFbx);   // mixamorig 네이티브(Sketchfab) — 리타겟 0, 원본 품질
     reg('bp_dribble', bpDribbleFbx);   // 네이티브 드리블 2호(1.6s 루프)
     reg('bl_crossover', blCrossoverFbx);   // Blender 리타겟 검증 1호 — 성공 시 Fab UE 애니 전체 개방
-    // ── 외부 이식 클립 자동 등록: assets/imported/*.fbx — 코드 수정 없이 인제스트만으로 장착 ──
-    {
-      const urls = import.meta.glob('../assets/imported/*.fbx', { eager: true, query: '?url', import: 'default' });
-      for (const [pth, url] of Object.entries(urls)) {
-        const nm = 'imp_' + pth.split('/').pop().replace(/\.fbx$/i, '');
-        try {
-          const fbx = await loader.loadAsync(url);
-          reg(nm, fbx);
-          this._vmClips.add(nm);
-          const meta = importedManifest[nm.slice(4)];
-          if (meta?.grounded) this._groundedClips.add(nm);
-        } catch (e) { console.warn('이식 클립 로드 실패', nm, e); }
-      }
-    }
     regJson('fab_crossover', fabCrossoverClipJson);   // 유저 확보 Fab 크로스오버
     reg('mf_dribble', mfDribbleBlFbx);
     regJson('mf_block', mfBlockClipJson);
@@ -234,6 +220,23 @@ export class XBot {
     this._groundedClips = new Set(['cmu_stretch', 'cmu_stretch2', 'cmu_stretch3', 'cmu_warmup_routine',
       'cmu_dribble_low', 'cmu_crossover_shot', 'cmu_crossover_turn', 'cmu_dribble_shot',
       'mf_jump_shot', 'mf_layup', 'mf_marathon', 'mf_boxing_footwork', 'mf_dribble', 'mf_block', 'mf_chest_pass', 'mf_sprint_start', 'sfu_jumprope', 'sfu_jogging', 'rk_stepback', 'cmu_dribble_fwd', 'cmu_dribble_back', 'cmu_dribble_side']);
+
+    // ── 외부 이식 클립 자동 등록: assets/imported/*.fbx — 코드 수정 없이 인제스트만으로 장착 ──
+    // 아래 auto 블록과 같은 이유로 Set 리터럴 초기화 '뒤'에 있어야 한다. 앞에 뒀더니
+    // this._vmClips 가 아직 undefined 라 add 에서 전부 TypeError 로 죽었다(이식 클립 5개 전멸).
+    {
+      const urls = import.meta.glob('../assets/imported/*.fbx', { eager: true, query: '?url', import: 'default' });
+      for (const [pth, url] of Object.entries(urls)) {
+        const nm = 'imp_' + pth.split('/').pop().replace(/\.fbx$/i, '');
+        try {
+          const fbx = await loader.loadAsync(url);
+          reg(nm, fbx);
+          this._vmClips.add(nm);
+          const meta = importedManifest[nm.slice(4)];
+          if (meta?.grounded) this._groundedClips.add(nm);
+        } catch (e) { console.warn('이식 클립 로드 실패', nm, e); }
+      }
+    }
 
     // ── 대량 리타겟 클립 자동 등록: assets/mocap/auto/*.json (--auto 산출) ──
     // 반드시 _vmClips/_rootClips/_groundedClips의 Set 리터럴 초기화 뒤에 — 앞에 두면 재할당이 auto 플래그를 전부 지움(루트클립 힙 고정→발 미끄러짐).
