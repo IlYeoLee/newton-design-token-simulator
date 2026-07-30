@@ -186,7 +186,7 @@ FXP.numSrc = 'offbit';   // 랩 기본 글리프 = 도트 폰트(유저 확정)
 
 // 기본값 = tokens.js makeMarkFXMaterial 과 같은 값으로 맞춘다(랩과 시뮬이 어긋나면 그게 곧 사고다).
 // scale·off 는 '자동 맞춤' 계측값 — 좌·우발 모두 삐져나옴 0.00%.
-const DEF = { imp: 1.0, scale: 0.84, offx: -0.06, offy: -0.01, irot: 0, pitch: 0.027, dot: 0.25,
+const DEF = { imp: 1.0, scale: 0.835, offx: -0.04, offy: -0.007, irot: 0, pitch: 0.027, dot: 0.25,
               glow: 0.0, shade: 0.55, sharp: 0.22, edge: 0.058, gx: 0, gy: 0, grot: 0, gsh: 0.75,
               w: 1.0, halo: 0.9, pool: 0.55, noise: 0.5, prog: 0.55, tilt: 8,
               bloom: 0.08, blur: 0.8, gsize: 1.0,
@@ -269,6 +269,7 @@ $('copy').onclick = () => { $('snip').select(); navigator.clipboard?.writeText($
 //   돌아갔다(유저: 폰트가 다 초기화됨). 랩은 작업을 이어가는 도구지 매번 처음부터가 아니다.
 const SEG_KEY = 'footlab.segs';
 const segState = (() => { try { return JSON.parse(localStorage.getItem(SEG_KEY) || '{}'); } catch { return {}; } })();
+const pendingSegRestore = [];   // 초기화 완료 후에 실행할 복원들(TDZ 회피)
 const segSave = () => { try { localStorage.setItem(SEG_KEY, JSON.stringify(segState)); } catch { /* 사생활 모드 */ } };
 function seg(id, cb) {
   const pick = (v, fire) => {
@@ -283,8 +284,10 @@ function seg(id, cb) {
     const b = e.target.closest('button'); if (!b) return;
     pick(b.dataset.v, true);
   });
-  // 저장본이 있으면 그 선택으로 복원(콜백까지 실행해 상태를 실제로 맞춘다)
-  if (segState[id] != null) pick(segState[id], true);
+  // ★ 저장본 복원은 **뒤로 미룬다.** 여기서 바로 pick(…, true) 하면 콜백이 rebuild() 를 부르는데,
+  //   rebuild 가 쓰는 units 는 아래에서 선언되므로 TDZ(Cannot access 'units' before initialization)로
+  //   페이지가 통째로 죽는다. 저장본이 있는 브라우저에서만 터져서 더 위험했다(유저: 페이지가 안 뜬다).
+  if (segState[id] != null) pendingSegRestore.push(() => pick(segState[id], true));
 }
 seg('segSide', v => { side = v; rebuild(); });
 seg('segCtx',  v => { ctx = v; FXP.footCtx = v; rebuild(); });
@@ -529,7 +532,10 @@ function feed(u, ph, prog, t, mode) {
     u.plane.rotation.z = (side === 'left' ? P.tilt : -P.tilt) * Math.PI / 180;
   }
   // 글리프 표시 규약도 공통 — 상태가 정한다(Preview 반투명 · Success/Miss 숨김)
-  if (u.num) u.num.material.opacity = MARK_NUM.opacity(ph === 2 ? 3 : ph === 5 ? 2 : ph === 3 ? 6 : ph);
+  // ★ MARK_NUM.opacity 는 **라이브 uPhase** 번호를 받는다(0 Preview·1 Active·2 Success·3 Locked·
+  //   4 Miss·5 Hold·6 Warning). 카탈로그 번호로 바꿔 넘기면 카탈로그 2(Hold)가 라이브 2(Success)의
+  //   '숨김' 규칙에 걸려 **Hold 에서 숫자가 사라진다**(유저 신고). STATES 가 이미 라이브 번호다.
+  if (u.num) u.num.material.opacity = MARK_NUM.opacity(ph);
 }
 
 // ── 겹침 실측 — SDF 두 채널을 2D 로 직접 그린다(셰이더를 안 거치므로 겹침 자체가 보인다) ──
@@ -837,6 +843,8 @@ try {
   const saved = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null');
   if (saved) for (const k of KEYS) if (typeof saved[k] === 'number') P[k] = saved[k];
 } catch { /* 저장본 손상 — 기본값으로 간다 */ }
+// 이제 units·rebuild 가 모두 정의됐으니 저장된 세그먼트 선택을 복원한다
+for (const fn of pendingSegRestore) { try { fn(); } catch (e) { console.warn('세그 복원 실패', e); } }
 updateHistUI();
 syncUI();
 rebuild();

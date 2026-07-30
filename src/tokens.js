@@ -28,6 +28,8 @@ uniform float uW, uHalo, uNoise;
 uniform float uPhase, uProg, uFade, uStrong, uTime, uGain, uDay, uOut, uToe;
 uniform vec3 uFPOrigin, uFPFwd, uFPRight;
 uniform float uFPNear, uFPFar, uFPHalfN, uFPHalfF, uFPFadeM;
+uniform vec3 uUIOrigin, uUIFwd, uUIRight;
+uniform float uUIHalfL, uUIHalfW, uUIFeather, uUIAmt;
 varying vec2 vUv;
 varying vec3 vWorldPos;
 // 투사면 경계 소프트 페이드(레인과 동일) — 클리핑 하드컷이 사각형으로 드러나기 전에 알파를 죽임.
@@ -39,6 +41,20 @@ float footprintFade(vec3 wp) {
   float fadeLen = smoothstep(uFPNear, uFPNear + uFPFadeM, d) * smoothstep(uFPFar, uFPFar - uFPFadeM, d);
   float fadeW = smoothstep(half_, half_ - uFPFadeM, abs(h));
   return fadeLen * fadeW;
+}
+// 지면 UI 텍스트 마스크 — 제목·SPM·페이스가 앉은 구간에선 토큰 광을 깎는다.
+//   토큰이 글자 위를 지나 가독성을 무너뜨리던 것(유저)의 해법. 흰 판을 덧대 뒤를 가리는 게
+//   아니라 '그 자리엔 애초에 안 쏜다' — 빔은 빛을 더할 뿐이라 이쪽이 물리적으로도 맞다.
+//   경계는 smoothstep 페더로 뭉갠다(= 블러 마스크). uUIAmt 0 이면 완전 무효.
+float uiMaskFade(vec3 wp) {
+  if (uUIAmt < 0.004) return 1.0;
+  vec2 rel = wp.xz - uUIOrigin.xz;
+  float d = rel.x * uUIFwd.x + rel.y * uUIFwd.z;      // 프레임 세로축
+  float h = rel.x * uUIRight.x + rel.y * uUIRight.z;  // 프레임 가로축
+  float f = max(uUIFeather, 0.001);
+  float mL = 1.0 - smoothstep(uUIHalfL - f, uUIHalfL + f, abs(d));
+  float mW = 1.0 - smoothstep(uUIHalfW - f, uUIHalfW + f, abs(h));
+  return 1.0 - mL * mW * uUIAmt;
 }
 // 컴포저 OutputPass가 전 화면에 linear→sRGB 인코딩을 얹음(장면 PBR엔 옳지만 토큰 광은
 // 카탈로그(raw)보다 미드톤이 ~30% 들떠 보임 — 패리티 하니스로 실측). 장면 파이프라인은
@@ -113,7 +129,8 @@ void main() {
   // 사각 박스로 드러나지 않게 (주간 잉크의 색 정규화가 원형 페이드를 상쇄하던 구멍 봉인)
   float border = smoothstep(1.0, 0.82, length(uv))
                * smoothstep(1.0, 0.84, max(abs(uv.x), abs(uv.y)))
-               * footprintFade(vWorldPos);   // 투사면 밖으로 새는 글로우를 사각 하드컷 전에 페이드
+               * footprintFade(vWorldPos)    // 투사면 밖으로 새는 글로우를 사각 하드컷 전에 페이드
+               * uiMaskFade(vWorldPos);      // 지면 UI 텍스트 구간 = 토큰 광을 블러 마스크로 깎음
   vec3 col = r.rgb * uFade * uGain * border;
   // 앞꿈치 접지: 접지면(앞)만 남기고 뒤꿈치는 스러진다. 앞쪽은 조금 더 달궈 강조(유저).
   if (uToe > 0.001) {
@@ -215,6 +232,10 @@ void main() {
   }
 }`;
 const LINE_STYLE_IDX = { solid: 0, dash: 1, dot: 2, chevron: 3, comet: 4, taper: 5 };
+// 지면 UI 텍스트 마스크 공용 상태 — main 이 매 프레임 채우고, 마크 유니폼 루프(session)가 읽어 간다.
+//   amt 0 = 무효. 마스크가 필요 없는 화면(복싱 벽·시작화면 등)에선 0 이라 셰이더가 즉시 빠져나온다.
+export const UI_MASK = { ox: 0, oz: 0, fx: 0, fz: -1, rx: 1, rz: 0, halfL: 0, halfW: 0, feather: 0.3, amt: 0 };
+
 export function makeLaneFXMaterial(lenM) {
   const mat = new THREE.ShaderMaterial({
     vertexShader: MARKFX_VERT,
@@ -249,6 +270,9 @@ export function makeMarkFXMaterial(footTex = null) {
     fragmentShader: MARKFX_FRAG,
     uniforms: {
       uLUT: { value: getLUT() },
+      // 지면 UI 텍스트 마스크 — main 이 매 프레임 UI_MASK 를 통해 넣는다. amt 0 = 무효(기본).
+      uUIOrigin: { value: new THREE.Vector3() }, uUIFwd: { value: new THREE.Vector3(0, 0, -1) }, uUIRight: { value: new THREE.Vector3(1, 0, 0) },
+      uUIHalfL: { value: 0 }, uUIHalfW: { value: 0 }, uUIFeather: { value: 0.3 }, uUIAmt: { value: 0 },
       uShape: { value: footTex ? 1 : 0 },
       // uRadius: 존 원은 실루엣 0.72(구 Rz)가 나오도록 0.72/0.46, 발형은 카탈로그 기준 1
       uRadius: { value: footTex ? 1.0 : 0.72 / 0.46 },
@@ -269,13 +293,14 @@ export function makeMarkFXMaterial(footTex = null) {
       // 경계는 이너 섀도우가 만든다(유저 확정) — 윤곽 글로우는 기본 0, 필요할 때만 켠다.
       uImpGlow: { value: 0.0 }, uImpShade: { value: 0.55 }, uImpSharp: { value: 0.22 },
       uImpShadeCol: { value: 0 },   // 0 흰 — 프로토타입 foot-*-dots.svg 의 white inner shadow 규약
-      uImpEdge: { value: 0.058 * SF }, uImpScale: { value: 0.840 },
+      uImpEdge: { value: 0.058 * SF }, uImpScale: { value: 0.835 },
       uImpRot: { value: 0 },   // 각인 기울기(rad) — 오른발은 미러라 부호가 뒤집힌다
       uImpCtr: { value: new THREE.Vector2(
         footTex ? (footTex._inCx ?? 0.5) * 2 - 1 : 0,
         footTex ? 1 - (footTex._inCy ?? 0.5) * 2 : 0) },
       // 미세 이동 — x 는 좌우 미러라 오른발에서 부호가 뒤집힌다(실루엣이 미러이므로 오프셋도 미러).
-      uImpOff: { value: new THREE.Vector2((footTex?._right ? 0.060 : -0.060) * SF, -0.010 * SF) },
+      // 축척(SIL_FIT)을 바꾸면 자동 맞춤도 다시 재야 한다 — 새 기준 실측: 축소 0.880 · 이동 (0,0).
+      uImpOff: { value: new THREE.Vector2((footTex?._right ? 0.040 : -0.040) * SF, -0.007 * SF) },
       // 파동 — 실루엣 등거리선을 따라 바깥으로. 기본값은 '은은하게' 쪽으로 잡았다:
       //   reach 0.34(쿼드 반폭의 1/3만 나간다) · width 0.09(한 겹) · speed 0.45(느리게).
       //   예전 원형 파장이 과하게 크고 쨍하다는 지적의 실체는 '너무 멀리 · 너무 세게'였다.
@@ -630,6 +655,14 @@ export class Marker {
       U.uPool.value = FXP.mark.pool;
       U.uSweepA.value = FXP.mark.sweep;
       U.uNoise.value = FXP.mark.wobble;
+      if (U.uUIAmt) {   // 지면 UI 텍스트 구간 = 토큰 광을 블러 마스크로 깎는다(벽 마크는 제외)
+        U.uUIOrigin.value.set(UI_MASK.ox, 0, UI_MASK.oz);
+        U.uUIFwd.value.set(UI_MASK.fx, 0, UI_MASK.fz);
+        U.uUIRight.value.set(UI_MASK.rx, 0, UI_MASK.rz);
+        U.uUIHalfL.value = UI_MASK.halfL; U.uUIHalfW.value = UI_MASK.halfW;
+        U.uUIFeather.value = UI_MASK.feather;
+        U.uUIAmt.value = this.surface === 'wall' ? 0 : UI_MASK.amt;
+      }
       // 밟는 순간(linger=Success 블룸) 게인 킥 — 룩시스템 글로우가 확 터지게(유저: 팡 부족)
       const hitKick = phase === 'linger' ? 1 + 0.9 * Math.max(0, 1 - progress * 2.2) : 1;
       U.uGain.value = this._baseGain * FXP.gainBoost * (FP_VIEW ? 1.35 : 1) * hitKick;   // 주간 부스트 · 1인칭 = 시선 각도 눌림 보정

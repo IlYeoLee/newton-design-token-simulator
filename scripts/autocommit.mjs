@@ -9,7 +9,7 @@
 //
 //   설정: .claude/settings.local.json 의 PostToolUse 훅. 끄려면 /hooks 에서 지우면 된다.
 import { execFileSync } from 'child_process';
-import { existsSync } from 'fs';
+import { existsSync, readFileSync, writeFileSync } from 'fs';
 import path from 'path';
 
 const REPO_NAME = 'newton-design-token-simulator';
@@ -44,6 +44,31 @@ try {
   try { git(root, ['diff', '--cached', '--quiet', '--', rel]); process.exit(0); } catch { /* 변화 있음 → 계속 */ }
   // --only: 지정한 경로만 커밋. 다른 세션이 올려둔 스테이징은 인덱스에 그대로 남는다.
   git(root, ['commit', '--only', '--no-verify', '-q', '-m', `auto: ${rel}`, '--', rel]);
+
+  // ── 자동 푸시 ──────────────────────────────────────────────────────────
+  //   편집마다 밀면 네트워크가 과하다 — 마지막 푸시로부터 PUSH_EVERY_MS 지났을 때만.
+  //   **강제 푸시는 절대 하지 않는다.** 다른 세션이 먼저 올렸으면 non-fast-forward 로 실패하는데,
+  //   그건 정상이고 다음 차례에 자동으로 따라잡는다(아래 pull --rebase 시도).
+  const PUSH_EVERY_MS = 90_000;
+  const stamp = path.join(root, '.git', 'autopush.stamp');
+  const now = Date.now();
+  let last = 0;
+  try { last = Number(readFileSync(stamp, 'utf8')) || 0; } catch { /* 첫 실행 */ }
+  if (now - last >= PUSH_EVERY_MS) {
+    try { writeFileSync(stamp, String(now)); } catch { /* 무시 */ }
+    try {
+      git(root, ['push', '--quiet']);
+    } catch {
+      // 뒤처져 있으면 리베이스로 따라잡고 한 번만 재시도. 충돌하면 되돌리고 조용히 포기한다 —
+      // 훅이 작업 트리를 충돌 상태로 남기면 그게 더 큰 사고다.
+      try {
+        git(root, ['pull', '--rebase', '--quiet']);
+        git(root, ['push', '--quiet']);
+      } catch {
+        try { git(root, ['rebase', '--abort']); } catch { /* 리베이스 중이 아니었음 */ }
+      }
+    }
+  }
 } catch {
   // 훅은 절대 작업을 막지 않는다 — 실패하면 조용히 넘어간다
 }

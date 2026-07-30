@@ -589,45 +589,41 @@ vec4 markState(vec2 uv, float state, float prog, float strong, float t){
     //   세기도 0.50 → 0.34 로. 밝기로 존재감을 내면 형태가 먹힌다.
     vec3 hCol = lut(clamp(mix(T_ACT_HI, 0.90, smoothstep(0.0, 1.6, hk)), 0.0, 1.0));
     lay(A, hCol, h * uHalo * (0.34 + 0.10 * sin(t * 5.0)) * dashM);
-  } else if (state < 2.5) {     // ── Hold: 코닉 진행 림 + 열이 뒤꿈치로 고임
+  } else if (state < 2.5) {     // ── Hold: 실루엣 아웃라인을 따라 그려지는 진행 스트로크
     float pr = prog;
     vec2 gc = mix(gcBall, gcHeel, pr);
     float q = mkR(uv, gc, ext * 1.02, sd);
     float qh = max(q - 0.24 * pr, 0.0);
     lay(A, fillHold(qh), inFill * min(fillGain, 1.0) * 0.95);
-    // 림을 실루엣 **안쪽**으로 — 예전엔 sd-0.012 라 원 밖으로 삐져나와 초승달이 얹힌 것처럼 보였다.
-    float distToRim = abs(sd + 0.010);
+    // ── Hold 전용 아웃라인 (유저 확정 방향) ────────────────────────────────
+    //   예전 구조는 '중심에서 각도로 훑는 레이저 감지' 였다: 미완주 구간까지 무채 트랙(C_RIMG)을
+    //   깔았고, 그 회색이 밝은 이너 섀도우 **위에** 얹혀 12시 자리에 홈이 파였다(유저 확대 스샷).
+    //   이제 트랙을 아예 그리지 않는다 — **지나온 구간만** 실루엣 등거리선 위에 스트로크로 그린다.
+    //   ① 스트로크는 실루엣을 따라간다(sd 기준이라 발이면 발 모양, 원이면 원)
+    //   ② 길이를 따라 색이 흐른다(진한 빨강 → 선단 민트)
+    //   ③ 양끝은 가우시안으로 흐려진다 — 폭과 알파를 **함께** 줄여야 잘린 끝이 안 생긴다
     float fw = max(fwidth(sd), 1e-5);
-    // 림 폭: 카탈로그 20px(고정 캔버스) ≡ 실루엣 비례 sd 0.03 — 화면 크기가 가변인
-    // 라이브에서도 같은 비율. 원거리 앨리어싱만 fwidth 하한.
-    float rimW = max(0.03 * uW, 1.5 * fw);
-    // 림 단면을 선형 컷 → 가우시안으로. 예전엔 폭 끝에서 값이 뚝 끊겨 '칼로 자른 모서리'로 보였다.
-    float angDist = a01 - pr; angDist -= floor(angDist + 0.5);   // 랩어라운드 제거
-    // 선단 앞은 빠르게 꺼지고 뒤(지나온 쪽)는 길게 남는다 — 대칭 페이드는 양끝이 똑같이 잘린다.
-    // 선단은 부드럽게 꺼지고, **시작점(a01=0)** 도 페이드한다 — 예전엔 시작에 페이드가 아예 없어
-    //   12시 자리에서 대각으로 뚝 잘렸다(유저 확대 스샷). 진행 끝(pr 근처)도 같이 테이퍼.
-    // 양끝 페이드를 길게 — 27도(0.075)면 민트에서 빨강으로 급히 갈아타 칼금으로 보인다(유저).
-    //   시작 72도(0.20) · 선단 120도(0.34)에 걸쳐 풀면 어디서 시작하고 끝나는지가 안 보인다.
-    float pgo = smoothstep(0.34, 0.04, angDist) * smoothstep(0.0, 0.20, a01) * smoothstep(0.0, 0.03, pr);
-    // ★ 끝을 뾰족하게 만드는 진짜 방법은 알파가 아니라 **폭**이다 — 폭이 일정한 띠는 알파를 아무리
-    //   부드럽게 줄여도 '가늘어지지 않고 흐려지기만' 해서 잘린 끝으로 읽힌다(유저 반복 지적).
-    //   양끝에서 림을 가늘게 좁히면 혜성 꼬리처럼 자연히 사라진다.
-    float rn  = distToRim / max(rimW * mix(0.18, 1.0, pgo), 1e-5);
-    float rim = exp(-rn * rn * 1.6) * dashM;
-    // 아크 색도 LUT — 지나온 쪽이 식고 선단이 뜨겁다(필과 같은 온도 언어)
-    // 진행은 **밝기**로 읽힌다 — 붉은 필 위에 붉은 아크를 얹으면 대비가 안 난다.
-    //   지나온 쪽이 LUT 상단(민트)이고 아직인 쪽은 무채 트랙이다.
-    // 지나온 쪽이 **진한 빨강**(LUT 저역)이고 선단으로 갈수록 민트로 달아오른다.
-    //   0.86~1.0 로 잡았다가 빨강이 통째로 사라졌다(유저 지적) — 저역부터 열어야 한다.
-    vec3 arcCol = lut(clamp(mix(0.02, 1.0, clamp(a01 / max(pr, 0.001), 0.0, 1.0)), 0.0, 1.0));
-    holdC = mix(C_RIMG, arcCol, pgo);
-    holdA = rim * mix(0.22, 0.82, pgo);   // 최대 알파도 낮춰 아래 섀도우와 섞이게
-    // 진행 선단 = 밝은 '시계 바늘' — 12시서 시계방향으로 도는 게 명확히 읽히게(유저: 타이머처럼 싹)
-    //   선단도 가우시안으로 — smoothstep 은 폭 끝에서 각이 진다.
-    float hd = abs(angDist) / 0.11;
-    float head = exp(-hd * hd) * step(0.01, pr) * step(pr, 0.995);
-    holdC = mix(holdC, lut(1.0), clamp(head, 0.0, 1.0));
-    holdA = max(holdA, rim * head * 0.95);
+    float strokeW = max(0.026 * uW, 1.6 * fw);
+    float dRim = abs(sd + 0.008);              // 실루엣 살짝 안쪽에 얹는다
+    // 진행 좌표: 0(시작) → pr(선단). 양끝 블러 폭은 각도 단위.
+    float BLUR = 0.16;                          // ≈58° — 이보다 짧으면 끝이 눈에 띈다
+    float head = clamp(pr, 0.0, 1.0);
+    float aIn  = smoothstep(0.0, BLUR, a01);                    // 시작 쪽 블러
+    float aOut = smoothstep(head + BLUR * 0.10, head - BLUR, a01);  // 선단 쪽 블러
+    float body = aIn * aOut * smoothstep(0.0, 0.04, pr);
+    // 폭도 같이 좁아진다 — 알파만 줄이면 '가늘어지지 않고 흐려지기만' 해서 잘린 끝으로 읽힌다.
+    float wk = mix(0.16, 1.0, body);
+    float rn = dRim / max(strokeW * wk, 1e-5);
+    float stroke = exp(-rn * rn * 1.5) * dashM;
+    // 길이 방향 그라디언트 — 지나온 쪽은 LUT 저역(진한 빨강), 선단으로 갈수록 상단(민트)
+    vec3 strokeCol = lut(clamp(mix(0.02, 1.0, clamp(a01 / max(head, 0.001), 0.0, 1.0)), 0.0, 1.0));
+    holdC = strokeCol;
+    holdA = stroke * body * 0.95;
+    // 선단 광점 — 지금 어디까지 왔는지 한 점으로 읽히게. 가우시안이라 각이 안 진다.
+    float hd = (a01 - head) / 0.09;
+    float tip = exp(-hd * hd) * step(0.02, pr) * step(pr, 0.995);
+    holdC = mix(holdC, lut(1.0), clamp(tip, 0.0, 1.0));
+    holdA = max(holdA, stroke * tip * 0.95);
   } else if (state < 3.5) {     // ── Success: 진홍 블룸 → 잔상 소멸
     float e = 1.0 - pow(1.0 - prog, 2.6);
     float q = mkR(uv, gcBall, uShape < 0.5 ? ext * 1.3 : 1.75, sd);
