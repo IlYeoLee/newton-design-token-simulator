@@ -264,6 +264,13 @@ export function makeLaneFXMaterial(lenM) {
 }
 
 const SF = SIL_FIT / SIL_FIT_REF;   // uv 단위 거리 스케일 — 실루엣 채움비를 따라간다
+
+/** ── MARK(발형·존원) 룩 정본 — 출처는 **footlab.html 하나뿐**이다 (유저 확정) ──────────
+ *  예전엔 룩시스템 디자인 스토어(FXP.mark)가 매 프레임 uW·uHalo·uPool·uNoise 를 덮어써서,
+ *  랩에서 잡은 디자인이 시뮬에서 헤일로 0.25(랩 0.9) 로 나왔다 — "랩에서 본 것보다 흐리다".
+ *  이제 마크는 이 상수만 본다. 값을 바꾸려면 footlab 에서 잡고 여기로 옮긴다.
+ *  (레인·이펙트·인물은 여전히 스토어를 쓴다 — 마크만 떼어낸 것이다.) */
+export const MARK_LOOK = { core: 1.0, halo: 0.9, pool: 0.55, sweep: 0.4, wobble: 0.5 };
 export function makeMarkFXMaterial(footTex = null) {
   const mat = new THREE.ShaderMaterial({
     vertexShader: MARKFX_VERT,

@@ -63,13 +63,13 @@
     <fieldset><legend>각인 (안 = 맨발 자국)</legend>
       <div class=row><label>세기 uImp</label><input type=range id=imp min=0 max=1.6 step=.02><span class=v id=vimp></span></div>
       <div class=row><label>자국 축소</label><input type=range id=scale min=.7 max=1.06 step=.005><span class=v id=vscale></span></div>
-      <div class=row><label>이동 X</label><input type=range id=offx min=-.16 max=.16 step=.002><span class=v id=voffx></span></div>
-      <div class=row><label>이동 Y</label><input type=range id=offy min=-.16 max=.16 step=.002><span class=v id=voffy></span></div>
+      <div class=row><label>이동 X</label><input type=range id=offx min=-.16 max=.16 step=.001><span class=v id=voffx></span></div>
+      <div class=row><label>이동 Y</label><input type=range id=offy min=-.16 max=.16 step=.001><span class=v id=voffy></span></div>
       <div class=row><label>자국 기울기°</label><input type=range id=irot min=-30 max=30 step=.5><span class=v id=virot></span></div>
       <div class=acts><button id=fit>자동 맞춤 — 신발 안으로</button></div>
       <div class=row><label>도트 간격</label><input type=range id=pitch min=.008 max=.08 step=.001><span class=v id=vpitch></span></div>
       <div class=row><label>점 크기</label><input type=range id=dot min=.05 max=.5 step=.005><span class=v id=vdot></span></div>
-      <div class=row><label>이너 섀도우</label><input type=range id=shade min=0 max=1.4 step=.02><span class=v id=vshade></span></div>
+      <div class=row><label>이너 섀도우</label><input type=range id=shade min=0 max=1.4 step=.01><span class=v id=vshade></span></div>
       <div class=seg id=segShadeCol style="margin:2px 0 6px"><button data-v=0 class=on>흰</button><button data-v=1>샌드</button><button data-v=2>코랄</button><button data-v=3>레드</button></div>
       <div class=row><label>아웃라인 선명</label><input type=range id=sharp min=0 max=1 step=.02><span class=v id=vsharp></span></div>
       <div class=row><label>섀도우 폭</label><input type=range id=edge min=.004 max=.09 step=.002><span class=v id=vedge></span></div>
@@ -79,10 +79,10 @@
     <fieldset><legend>압력장 · 등고선 (색을 정하는 입력)</legend>
       <div class=row><label>압력장</label><input type=range id=plantar min=0 max=1 step=.02><span class=v id=vplantar></span></div>
       <div class=row><label>등고선 단계</label><input type=range id=bands min=0 max=24 step=1><span class=v id=vbands></span></div>
-      <div class=row><label>밴드 무름</label><input type=range id=bandSoft min=.02 max=1 step=.02><span class=v id=vbandSoft></span></div>
-      <div class=row><label>이너 섀도우</label><input type=range id=edgeShade min=0 max=1.4 step=.02><span class=v id=vedgeShade></span></div>
+      <div class=row><label>밴드 무름</label><input type=range id=bandSoft min=0 max=1 step=.01><span class=v id=vbandSoft></span></div>
+      <div class=row><label>이너 섀도우</label><input type=range id=edgeShade min=0 max=1.4 step=.01><span class=v id=vedgeShade></span></div>
       <div class=row><label>엣지 폭</label><input type=range id=edgeW min=.01 max=.3 step=.005><span class=v id=vedgeW></span></div>
-      <div class=row><label>필 소프트</label><input type=range id=edgeSoft min=0 max=1 step=.02><span class=v id=vedgeSoft></span></div>
+      <div class=row><label>필 소프트</label><input type=range id=edgeSoft min=0 max=1 step=.01><span class=v id=vedgeSoft></span></div>
       <div class=row><label>디더(밴딩)</label><input type=range id=dither min=0 max=.05 step=.001><span class=v id=vdither></span></div>
       <p class=sub style="margin:6px 0 0">0 = 옛 방사 그라디언트(중심거리) · 1 = 족저 압력장(앞꿈치·뒤꿈치 핫스팟)</p>
     </fieldset>
@@ -90,7 +90,7 @@
     <fieldset><legend>토큰 공통 (룩 시스템)</legend>
       <div class=row><label>윤곽 두께 uW</label><input type=range id=w min=.3 max=2.2 step=.05><span class=v id=vw></span></div>
       <div class=row><label>헤일로 uHalo</label><input type=range id=halo min=0 max=1.6 step=.02><span class=v id=vhalo></span></div>
-      <div class=row><label>필 uPool</label><input type=range id=pool min=0 max=1 step=.02><span class=v id=vpool></span></div>
+      <div class=row><label>필 uPool</label><input type=range id=pool min=0 max=1 step=.01><span class=v id=vpool></span></div>
       <div class=row><label>일렁임 uNoise</label><input type=range id=noise min=0 max=1.2 step=.02><span class=v id=vnoise></span></div>
     </fieldset>
 
@@ -102,7 +102,7 @@
     </fieldset>
 
     <fieldset><legend>파동 (발형·원형 공통 — 실루엣을 따라 퍼진다)</legend>
-      <div class=row><label>세기 uRip</label><input type=range id=rip min=0 max=1.6 step=.02><span class=v id=vrip></span></div>
+      <div class=row><label>세기 uRip</label><input type=range id=rip min=0 max=1.6 step=.01><span class=v id=vrip></span></div>
       <div class=row><label>도달 거리</label><input type=range id=ripReach min=.05 max=1.2 step=.01><span class=v id=vripReach></span></div>
       <div class=row><label>파면 폭</label><input type=range id=ripWidth min=.01 max=.4 step=.005><span class=v id=vripWidth></span></div>
       <div class=row><label>속도</label><input type=range id=ripSpeed min=.05 max=2 step=.05><span class=v id=vripSpeed></span></div>
@@ -176,13 +176,17 @@
 import * as THREE from 'three';
 import { makeMarkFXMaterial, QUAD_K, ZONE_GLYPH_K, SIL_FIT, SIL_FIT_REF } from './src/tokens.js';
 import { FXP, GLYPHS, DEFAULT_GLYPHS, footSlot, footSDFTexture, drawNumber, getLUT, ensureOffBit } from './src/fxlut.js';
-import { MARK_NUM, SDF_DECODE } from './src/fx-core.js';
+import { MARK_NUM, SDF_DECODE, drawMarkGlyph, invertGlyphCanvas } from './src/fx-core.js';
 
 // 정본 글리프를 항상 싣는다 — 저장본만 믿으면 랩이 낡은 dataURL 을 보는 사고가 반복된다(07-30).
 GLYPHS.set({ ...DEFAULT_GLYPHS });
 FXP.markShape = 1;
 ensureOffBit();   // 도트 폰트를 캔버스에서 쓰려면 미리 로드해야 한다(첫 그리기가 폴백으로 새는 것 방지)
 FXP.numSrc = 'offbit';   // 랩 기본 글리프 = 도트 폰트(유저 확정)
+
+// 랩은 디자인 스토어를 읽지 않는다 — footlab 이 MARK 룩의 **유일한 출처**다(유저 확정).
+//   스토어를 읽으면 랩이 소비자가 되어, 스토어에 박힌 옛 저작값이 랩 화면을 다시 지배한다.
+
 
 // 기본값 = tokens.js makeMarkFXMaterial 과 같은 값으로 맞춘다(랩과 시뮬이 어긋나면 그게 곧 사고다).
 // scale·off 는 '자동 맞춤' 계측값 — 좌·우발 모두 삐져나옴 0.00%.
@@ -418,47 +422,17 @@ function applyBg() { paintFloor(); }
 /** 글리프 텍스처. 그림자 변주(글로우 / 드롭 / 없음)와 '파냄' 합성용 반전본까지 여기서 만든다.
  *  밀도는 형태가 아니라 **대비**가 만든다 — 같은 글리프도 그림자·합성만 바꾸면 완전히 달라진다. */
 function glyphTexture(label, invert) {
+  // ★ 그리는 코드는 fx-core.drawMarkGlyph **한 벌**이다 — 랩과 시뮬이 각자 그리면 그림자·합성
+  //   변주가 한쪽에만 생긴다(실제로 그랬다: 랩에만 있고 시뮬엔 없었다).
   const N = 256, c = document.createElement('canvas'); c.width = c.height = N;
   const g = c.getContext('2d');
-  const S = Math.round(N * 0.75);
-  const sh = gShadow === 'none' ? 0 : P.gsh;
-  const draw = (opts) => {
-    if (drawNumber(g, label, N / 2, N / 2, S, opts)) return;
-    g.save();                                  // 슬롯이 비었을 때 폴백 — 랩이 빈 화면을 보이지 않게
-    g.fillStyle = opts?.color || 'rgba(255,239,224,.95)';
-    g.font = `300 ${Math.round(S * 0.9)}px -apple-system, sans-serif`;
-    g.textAlign = 'center'; g.textBaseline = 'middle';
-    if (opts?.glow) { g.shadowColor = opts.glowColor; g.shadowBlur = opts.glow; }
-    g.fillText(label, N / 2, N / 2 + S * 0.04);
-    g.restore();
-  };
-  if (gShadow === 'drop' && sh > 0.001) {
-    // 드롭 = 아래로 밀린 어두운 사본 위에 본체. 각인이 '떠 있는' 느낌을 준다.
-    g.save(); g.globalAlpha = Math.min(1, sh * 0.7); g.translate(N * 0.018, N * 0.024);
-    draw({ color: 'rgba(120,18,18,.95)', glow: 0, glowColor: 'rgba(0,0,0,0)' });
-    g.restore();
-    draw({ glow: 0, glowColor: 'rgba(0,0,0,0)' });
-  } else {
-    draw(gShadow === 'glow' ? { glow: 26 * sh, glowColor: 'rgba(255,140,90,.85)' }
-                            : { glow: 0, glowColor: 'rgba(0,0,0,0)' });
-  }
-  if (invert) {
-    // 파냄 = 곱하기 합성용. 글자 자리를 검게, 나머지를 희게 → 토큰이 그 자리에서 꺼진다(= 구멍).
-    const src = g.getImageData(0, 0, N, N);
-    const out = g.createImageData(N, N);
-    for (let i = 0; i < N * N; i++) {
-      const a = src.data[i * 4 + 3] / 255;
-      const v = Math.round(255 * (1 - a));
-      out.data[i * 4] = out.data[i * 4 + 1] = out.data[i * 4 + 2] = v;
-      out.data[i * 4 + 3] = 255;
-    }
-    g.putImageData(out, 0, 0);
-  }
+  const look = { size: P.gsize, gx: P.gx, gy: P.gy, rot: P.grot, shadow: gShadow, shadowK: P.gsh, blend: gBlend };
+  const knock = drawMarkGlyph(g, label, N, drawNumber, look);
+  if (knock || invert) invertGlyphCanvas(g, N);
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8;
   return t;
 }
-
 // ── 토큰 단위 — 발형과 원형(존)이 **같은 구조**로 만들어진다 ─────────────────
 //   유저 원칙: 룩 시스템 토큰은 하나다. 그래서 랩도 둘을 따로 만들지 않는다 —
 //   같은 makeMarkFXMaterial · 같은 상태 머신 · 같은 글리프 규약. 다른 것은 SDF(겉 모양)뿐이다.
@@ -479,6 +453,9 @@ function makeUnit(kind) {   // 'foot' | 'zone'
     // 존 원은 ZONE_GLYPH_K 만큼 더 크다(정본 규약과 같은 상수)
     const S = 2 * MARK_NUM.RATIO / 0.75 * P.gsize * SF * (kind === 'zone' ? ZONE_GLYPH_K : 1);
     const label = kind === 'foot' && side === 'right' ? ($('gR').value || '2') : ($('gL').value || '1');
+    // ★ 앵커 해석 순서를 **시뮬과 똑같이** 한다: 저작값(FXP.numFoot) 우선 → 없으면 자국 무게중심.
+    //   랩이 numFoot 을 무시하고 무게중심만 쓰는 바람에, 저작 앵커가 있는 시뮬과 글자 자리가
+    //   전혀 달랐다(유저: 100% 이식이 안 됐다). 여기서 보는 자리가 곧 시뮬 자리여야 한다.
     const off = kind === 'foot'
       ? MARK_NUM.anchor({ x: tx._inCx ?? 0.5, y: tx._inCy ?? 0.42, s: 1 }, side === 'right', 2)
       : { x: 0, y: 0 };

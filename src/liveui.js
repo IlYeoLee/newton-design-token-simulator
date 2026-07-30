@@ -339,12 +339,27 @@ export class LiveUI {
     const g = this._c2d, W = 512, H = 96, cy = 62;
     g.clearRect(0, 0, W, H);
     // 트랙 바: 중앙이 따뜻하게 밝아지는 그라디언트 필 + 글로우 윤곽 (민짜 스트로크 교체)
+    //   ★ 좌우 끝을 **알파 0** 으로 뺀다. 색만 그라디언트고 알파가 균일하면, 둥근 캡이 그대로
+    //     드러나 '어딘가에서 뚝 끊긴 막대'로 읽힌다 — 실제로 그렇게 보였다(유저).
+    //     알파를 그라디언트 스톱에 직접 굽는다(globalAlpha 로는 부분 투명을 못 만든다).
+    //     그림자도 그려진 알파를 따르므로 양끝에서 같이 사라진다.
+    const lutA = (v, a) => lutColor(v).replace('rgb(', 'rgba(').replace(')', `,${a})`);
     const bar = g.createLinearGradient(0, 0, W, 0);
-    bar.addColorStop(0, lutColor(0.18)); bar.addColorStop(0.5, lutColor(0.5)); bar.addColorStop(1, lutColor(0.18));
+    bar.addColorStop(0.00, lutA(0.18, 0));
+    bar.addColorStop(0.16, lutA(0.18, 0.30));
+    bar.addColorStop(0.50, lutA(0.50, 0.30));
+    bar.addColorStop(0.84, lutA(0.18, 0.30));
+    bar.addColorStop(1.00, lutA(0.18, 0));
     g.shadowColor = lutColor(0.55); g.shadowBlur = 14;
-    g.fillStyle = bar; g.globalAlpha = 0.30;
+    g.fillStyle = bar;
     g.beginPath(); g.roundRect(4, cy - 11, W - 8, 22, 11); g.fill();
-    g.globalAlpha = 0.8; g.strokeStyle = lutColor(0.62); g.lineWidth = 1.5; g.stroke();
+    // 윤곽도 같은 알파 램프 — 필만 빼고 스트로크가 남으면 그 선이 끝을 다시 그어버린다.
+    const edge = g.createLinearGradient(0, 0, W, 0);
+    edge.addColorStop(0.00, lutA(0.62, 0));
+    edge.addColorStop(0.18, lutA(0.62, 0.8));
+    edge.addColorStop(0.82, lutA(0.62, 0.8));
+    edge.addColorStop(1.00, lutA(0.62, 0));
+    g.strokeStyle = edge; g.lineWidth = 1.5; g.stroke();
     g.globalAlpha = 1;
     // 센터 노치: 하드 렉트 → 글로우 라인
     g.shadowBlur = 10; g.shadowColor = '#fff';

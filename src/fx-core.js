@@ -141,6 +141,52 @@ export const QUAD_K = SIL_FIT_REF / SIL_FIT;
  *  발형보다 작아 보인다. 몇 % 키우는 것이 기본 원칙(유저 확정). */
 export const ZONE_GLYPH_K = 1.18;
 
+/** ── 마크 글리프 룩 정본 — 출처는 footlab.html 하나뿐 (유저 확정) ──────────────
+ *  크기는 유니폼이 아니라 **호스트가 캔버스로 그리는** 값이라 별도 이식이 필요했다.
+ *  값을 바꾸려면 footlab 에서 잡고 여기로 옮긴다. */
+export const GLYPH_LOOK = {
+  size: 1.0,        // MARK_NUM.RATIO 에 곱하는 배율
+  gx: 0, gy: 0,     // 앵커 기준 미세 이동(쿼드 비율). 오른발은 x 부호가 뒤집힌다
+  rot: 0,           // 회전(도). 오른발은 부호가 뒤집힌다
+  shadow: 'glow',   // 'glow' 코랄 번짐 · 'drop' 아래로 밀린 어두운 사본 · 'none'
+  shadowK: 0.75,    // 그림자 세기
+  blend: 'normal',  // 'normal' · 'add' 가산 · 'knock' 파냄(곱하기 구멍)
+};
+
+/** 마크 글리프를 캔버스에 그린다 — **랩과 시뮬이 같은 이 함수를 쓴다.**
+ *  예전엔 랩(glyphTexture)과 시뮬(floorNum)이 각자 그려서 그림자·합성이 랩에만 있었다.
+ *  @param draw  (ctx, ch, x, y, sizePx, opts) => bool   — drawNumber 또는 drawGlyph
+ *  @returns true = 'knock' 이라 호출부가 반전본으로 써야 함 */
+export function drawMarkGlyph(ctx, label, N, draw, look = GLYPH_LOOK) {
+  const S = Math.round(N * 0.75);
+  const sh = look.shadow === 'none' ? 0 : (look.shadowK ?? 0.75);
+  const put = (opts) => draw(ctx, String(label), N / 2, N / 2, S, opts);
+  if (look.shadow === 'drop' && sh > 0.001) {
+    // 드롭 = 아래로 밀린 어두운 사본 위에 본체. 각인이 '떠 있는' 느낌을 준다.
+    ctx.save(); ctx.globalAlpha = Math.min(1, sh * 0.7); ctx.translate(N * 0.018, N * 0.024);
+    put({ color: 'rgba(120,18,18,.95)', glow: 0, glowColor: 'rgba(0,0,0,0)' });
+    ctx.restore();
+    put({ glow: 0, glowColor: 'rgba(0,0,0,0)' });
+  } else {
+    put(look.shadow === 'glow' ? { glow: 26 * sh, glowColor: 'rgba(255,140,90,.85)' }
+                               : { glow: 0, glowColor: 'rgba(0,0,0,0)' });
+  }
+  return look.blend === 'knock';
+}
+
+/** 파냄 합성용 반전 — 글자 자리를 검게, 나머지를 희게. 곱하기 블렌딩으로 구멍이 된다. */
+export function invertGlyphCanvas(ctx, N) {
+  const src = ctx.getImageData(0, 0, N, N);
+  const out = ctx.createImageData(N, N);
+  for (let i = 0; i < N * N; i++) {
+    const a = src.data[i * 4 + 3] / 255;
+    const v = Math.round(255 * (1 - a));
+    out.data[i * 4] = out.data[i * 4 + 1] = out.data[i * 4 + 2] = v;
+    out.data[i * 4 + 3] = 255;
+  }
+  ctx.putImageData(out, 0, 0);
+}
+
 // ── 마크 안 숫자(글리프 오버레이) 규약 — FX Lab drawMarkNumOn 정본 수치 ──
 export const MARK_NUM = {
   RATIO: 140 / 600,   // 글리프 크기 = 마크 쿼드의 0.2333배
@@ -246,7 +292,10 @@ export const PERSON_GLSL = `
 #define P_GAMMA 1.15    // 온도 곡선 (1.38은 대역을 LUT 평지로 밀어넣었다)
 #define P_GAIN  0.96    // LUT 상단 여유(순백 방지)
 #define P_LO    0.40    // LUT t=0~0.3 은 RED 단색 평지 — 대역 하한이 그 위여야 계조가 산다
-#define P_HI    0.86
+//   uPHi = 대역 상단. **면마다 다르다** — 0.86 은 LUT 의 SAND(#FEC389, 채도 0.46)에 닿아 물빠진
+//          살구가 되고, 낮출수록 레드~오렌지(채도 0.73~0.79)에만 머물러 쨍해진다.
+//          벽 인물 0.86(유저: '복싱 너무 쨍해, 이전이 나아') / 바닥 코치판 0.64.
+//          게인·알파로는 못 바꾼다 — 명도가 이미 0.92 라 곱해봐야 클리핑될 뿐이다(실측).
 // 런타임 유니폼 — 이 GLSL 을 include 하는 호스트 3곳(바닥 코치판·데모판·벽 인물)이 전부
 //   uniforms 에 선언하고 매 프레임 주입한다. 하나라도 빠지면 그 인물만 0(=무채·대역없음)이 된다.
 //   uPSat   = 룩 채도. 구 '#define P_SAT 1.32' 고정값이 기본이다.
@@ -254,15 +303,19 @@ export const PERSON_GLSL = `
 //             (바닥 코치판엔 uSat 유니폼이 있었는데 셰이더 본문에서 한 번도 안 읽혔다 — 죽은 손잡이.
 //              "채도 슬라이더 하나가 인물·마크 둘 다 움직인다"는 주석이 실제로는 마크만 움직였다.)
 //   uPSweep = 세로 열 그라디언트 폭. **0 이면 도입 전과 픽셀 동일** — 안전한 롤백 지점.
-uniform float uPSat, uPSweep;
+uniform float uPSat, uPSweep, uPHi;
 vec3 personColor(float T){
-  float t = P_LO + clamp(T, 0.0, 1.0) * (P_HI - P_LO);   // 공용 대역으로 정규화
+  float t = P_LO + clamp(T, 0.0, 1.0) * (uPHi - P_LO);   // 공용 대역으로 정규화
   t = pow(t, P_GAMMA) * P_GAIN;
   vec3 c = lut(clamp(t, 0.0, 1.0));
   float l = dot(c, vec3(0.299, 0.587, 0.114));
   return clamp(mix(vec3(l), c, uPSat), 0.0, 1.0);
 }
-// 인물 룩 — 복싱·러닝·농구가 공유하는 단 하나의 톤 결정자(유저 레퍼런스: setup-injury 프로토).
+// 인물 룩 — 바닥 코치판·데모판이 쓰는 톤 결정자.
+//   ⚠ '복싱·러닝·농구가 공유하는 단 하나의 톤 결정자'라고 적혀 있었지만 **사실이 아니었다**.
+//     벽 인물(main.js bxPerson)은 이 함수를 호출하지 않고 personColor(세로 램프)를 직접 쓴다.
+//     그래서 같은 사람인데 바닥은 두께로, 벽은 높이로 색이 정해졌고 팔다리 색이 갈렸다(유저 지적).
+//     지금은 아래 vHeat 로 같은 세로 램프를 쓴다 — 매핑은 사실상 통일됐지만, '한 함수'는 아직 아니다.
 //   규칙: ① 얼굴만 완전 블러(이목구비 소거) ② 몸은 옷주름·결이 살아있되 매끄럽게
 //        ③ 말단·가장자리는 뽀얀 우유빛으로 빠지고 코어만 채도 높게(그라디언트)
 //        ④ 어두운 덩어리 금지 — 고키. 투사광이라 검정은 곧 '빛 없음'이다.
@@ -270,15 +323,19 @@ vec3 personColor(float T){
 //   lumS  = 원본 휘도(선명 — 몸의 결)      lumB = 블러 휘도(얼굴용)
 //   mIn   = 내부 침식 마스크               face = 얼굴 대역 가중
 #define P_MILK  0.28    // 하이라이트·얼굴이 우유빛으로 빠지는 양(전신 희석 금지)
-#define P_DEPTH 0.88    // 그늘이 '진해지는' 양 — 밝기가 아니라 온도로만
+#define P_DEPTH 0.34    // 그늘이 '진해지는' 양 — 밝기가 아니라 온도로만.
+                        //   0.88 은 밝은 맨살(팔·다리)을 뽀얀 쪽으로 크게 밀어 하얗게 만들었다.
+                        //   벽 인물엔 이 항이 아예 없다 — 결은 남기되 T 를 지배하진 않게 낮춘다.
 //   ⚠ 밝기를 깎아 그늘을 만들면 안 된다. 알파가 min(aOut, lum*1.6)로 밝기에 묶여 있어
 //     어두운 옷 픽셀만 알파 0.85로 떨어지고 뒤 벽·그리드가 비친다(실측: 0.985→0.847, 유저 신고).
 //     투사광에선 '어둡게' = '투명하게'다. 그래서 그늘은 LUT 상단(딥레드)으로, 하이라이트는
 //     하단(샌드)으로 — 양끝 다 R≈1이라 알파는 어디서도 안 떨어진다.
 #define P_TEX   3.0     // 국소 대비(옷 결·주름)를 온도로 옮기는 배율
 #define P_ABS   0.18    // 절대 밝기를 반영하는 비율 — 낮을수록 클립 노출차에 둔감
+#define P_VERTMIX 1.0   // T 결정에서 '세로 램프'가 차지하는 비중. 1 = 벽 인물과 완전 동일 매핑(유저 확정:
+                         //   '벽면이 좋아 벽면스타일대로 바닥을 고쳐줘'). 0 으로 내리면 옛 두께 기반으로 돌아간다.
 #define P_PIVOT 0.34    // 대역 확장 피벗 — 코어 실사용 T(≈0.15)보다 위. 이 값 기준으로 T 가 벌어진다.
-vec3 personLook(float thick, float lumS, float lumB, float mIn, float face){
+vec3 personLook(float thick, float lumS, float lumB, float mIn, float face, float vTop){
   // 절대 휘도를 그대로 읽으면 클립 노출차가 곧 색차가 된다 — 밝게 찍은 러닝·농구 코치가
   //   통째로 LUT 밝은 쪽(SAND)으로 밀려 하얘졌다(유저: "왜 러닝 농구는 더 하얘?").
   //   피부색이 아니라 노출이다. 그래서 국소 평균(lumB)은 노출로 보고 대부분 상쇄하고,
@@ -296,7 +353,14 @@ vec3 personLook(float thick, float lumS, float lumB, float mIn, float face){
   float th = smoothstep(0.25, 0.95, thick);   // 두께장 정규화 — H의 실사용 범위가 좁다
   // 코어(th=1)는 딥코랄 t≈0.42, 사지(th≈0.4)는 코랄 t≈0.60, 말단·얼굴은 뽀얀 살구.
   //   구 1.0 - th*0.60 은 두께장이 1에 못 닿는 실제 값에서 전신을 살구빛으로 띄웠다(유저).
-  float T0 = 0.95 - th * 0.80 + (shade - 0.5) * P_DEPTH * mIn * (1.0 - face * 0.7) + face * 0.26;
+    // ★ 두께장 단독으로 T 를 정하면 안 된다(07-31 유저 지적). 벽 인물은 T 를 '높이'로 정하는데
+  //   바닥만 '두께'로 정하고 있었다 — 같은 사람인데 팔다리 색이 완전히 갈렸다:
+  //     몸통 t≈0.47(코랄레드) / 팔·다리 t≈0.82(샌드). 얇은 부위가 두 번 벌받는 구조였다.
+  //   벽과 같은 세로 램프(머리 0.06 → 발 0.98)를 주 결정자로 두고, 두께는 보조로만 남긴다.
+  //   P_VERTMIX 0 이면 옛 동작(두께 단독), 1 이면 벽과 완전 동일. 0.85 = 거의 벽 매핑.
+  float vHeat = pow(clamp(1.0 - vTop, 0.0, 1.0), 1.35) * 0.92 + 0.06;
+  float T0 = mix(0.95 - th * 0.80, vHeat, P_VERTMIX)
+           + (shade - 0.5) * P_DEPTH * mIn * (1.0 - face * 0.7) + face * 0.26;
   // 대역 확장(uPSweep) — 왜 필요한가:
   //   두께장은 블러된 실루엣이라 몸통 '안쪽'이 전부 1.0 에 포화한다. 그래서 T 가 좁은 구간
   //   (코어 ≈0.15 ~ 말단 ≈0.63)에만 앉고, 그 대부분이 LUT 중·상단(살구~샌드)이라 면적으로 보면
@@ -315,9 +379,12 @@ vec3 personLook(float thick, float lumS, float lumB, float mIn, float face){
   //   sweep = 0 이면 gain 1.0 → 도입 전과 픽셀 동일(현재 기본값).
   float T = clamp(P_PIVOT + (T0 - P_PIVOT) * (1.0 + uPSweep * 1.6), 0.0, 1.0);
   vec3 c = personColor(T);
-  // 얇은 곳(손·머리카락)과 얼굴, 그리고 하이라이트만 우유빛 — 2.2제곱이라 몸통은 거의 안 뜬다.
-  float milk = clamp(pow(1.0 - clamp(thick, 0.0, 1.0), 2.2) * 0.9
-                     + face * 0.9 + smoothstep(0.72, 1.00, shade) * mIn * 0.6, 0.0, 1.0);
+  // 우유빛에서 **두께 항을 뺐다**(계수 0). 벽 인물엔 이 항이 아예 없고, 이게 팔다리를 크림색으로
+  //   띄운 나머지 절반이었다(두께 0.35 인 팔이 흰색 9.6%). 얼굴 항은 남긴다 — 이목구비 은닉은
+  //   제품 요구사항이고 벽과의 차이가 아니라 바닥 코치판의 역할이다.
+  float milk = clamp(pow(1.0 - clamp(thick, 0.0, 1.0), 4.5) * 0.0
+                     + face * 0.9 + smoothstep(0.72, 1.00, shade) * mIn * 0.0, 0.0, 1.0);   // 하이라이트 항도 0 —
+  //   밝은 맨살(팔·다리)이 이 항으로 크림색이 됐다. 벽 인물엔 우유빛 자체가 없다. 얼굴만 남긴다.
   return clamp(mix(c, vec3(1.0, 0.95, 0.90), milk * P_MILK), 0.0, 1.0);
 }`;
 

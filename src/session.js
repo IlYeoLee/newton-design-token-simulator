@@ -3,8 +3,8 @@ import { PAL, NEU, NUM, rgba } from './palette.js';
 import bkStepContacts from '../assets/mocap/contacts-cmu_crossover_shot.json';   // 접지 자동 추출 산출물 (scripts/extract_contacts.mjs)
 import { WALL_Z } from './scene.js';
 import { lutColor, GLYPHS, drawGlyph, drawNumber, footSlot, footSDFTexture, FXP } from './fxlut.js';
-import { MARK_NUM, drawStanceBox, drawPunchLine, drawApproachRing, drawTrajectory, drawRotate, drawStemArrow, drawCurveArrow } from './fx-core.js';
-import { makeMarkFXMaterial, makeLaneFXMaterial, makeFlowArrow, tickFlowArrows, beamAlphaAt, COLORS, FOOT_PLANE_M, QUAD_K, UI_MASK } from './tokens.js';
+import { MARK_NUM, GLYPH_LOOK, drawMarkGlyph, invertGlyphCanvas, drawStanceBox, drawPunchLine, drawApproachRing, drawTrajectory, drawRotate, drawStemArrow, drawCurveArrow } from './fx-core.js';
+import { makeMarkFXMaterial, makeLaneFXMaterial, makeFlowArrow, tickFlowArrows, beamAlphaAt, COLORS, FOOT_PLANE_M, QUAD_K, UI_MASK, MARK_LOOK } from './tokens.js';
 
 const clamp01 = v => v < 0 ? 0 : v > 1 ? 1 : v;
 
@@ -225,17 +225,17 @@ function floorNum(text, x, z, size, color) {
   // 숫자 = 글리프 슬롯 소비 (시뮬 마크 숫자와 동일 언어 — 커스텀 SVG 우선, 웜 크림 폴백)
   const c = document.createElement('canvas'); c.width = c.height = 128;
   const g2 = c.getContext('2d');
-  if (!drawNumber(g2, String(text), 64, 64, 96)) {
-    g2.fillStyle = rgba(NEU.ink, 0.95);
-    g2.font = `300 ${String(text).length > 1 ? 60 : 86}px -apple-system, sans-serif`;
-    g2.textAlign = 'center'; g2.textBaseline = 'middle';
-    g2.shadowColor = rgba(PAL.coral, 0.75); g2.shadowBlur = 14;
-    g2.fillText(String(text), 64, 70);
-  }
+  // 그림자·합성은 **랩과 같은 정본 함수**(fx-core.drawMarkGlyph)가 그린다 —
+  //   예전엔 랩과 시뮬이 각자 그려서 그림자 변주가 랩에만 있었다(유저: 이식이 안 됐다).
+  const knock = drawMarkGlyph(g2, text, 128, drawNumber, GLYPH_LOOK);
+  if (knock) invertGlyphCanvas(g2, 128);
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
+  // 합성 모드도 랩 정본 — 파냄(knock)은 곱하기라 불투명 텍스처를 쓴다(구멍이 된다).
+  const kn = GLYPH_LOOK.blend === 'knock';
   const p = new THREE.Mesh(new THREE.PlaneGeometry(size * 1.5, size * 1.5),
-    new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, side: THREE.DoubleSide }));
+    new THREE.MeshBasicMaterial({ map: tex, transparent: !kn, depthWrite: false, side: THREE.DoubleSide,
+      blending: kn ? THREE.MultiplyBlending : GLYPH_LOOK.blend === 'add' ? THREE.AdditiveBlending : THREE.NormalBlending }));
   const g = new THREE.Group();
   g.add(p); g.rotation.x = -Math.PI / 2; g.position.set(x, 0.013, z); g.renderOrder = 7; g.userData.plane = p;
   g.userData.el = { type: 'text', content: String(text) };
@@ -246,11 +246,8 @@ function floorNum(text, x, z, size, color) {
 function redrawFootNum(p, n) {
   const c = p.userData.canvas, g2 = c.getContext('2d');
   g2.clearRect(0, 0, 128, 128);
-  if (!drawNumber(g2, String(n), 64, 64, 96)) {
-    g2.fillStyle = rgba(NEU.ink, 0.95); g2.font = `300 ${String(n).length > 1 ? 60 : 86}px -apple-system, sans-serif`;
-    g2.textAlign = 'center'; g2.textBaseline = 'middle';
-    g2.shadowColor = rgba(PAL.coral, 0.75); g2.shadowBlur = 14; g2.fillText(String(n), 64, 70);
-  }
+  const knock = drawMarkGlyph(g2, n, 128, drawNumber, GLYPH_LOOK);
+  if (knock) invertGlyphCanvas(g2, 128);
   p.userData.tex.needsUpdate = true;
 }
 // 발 안 순서 숫자 — 카탈로그 조합 그대로 '기울어진 발 플레인'의 자식으로 부착:
@@ -272,11 +269,19 @@ function attachMarkNum(fm, label, right) {
 // (numFoot·mark.radius 주입)는 그 뒤라, 빌드 시 1회 읽기는 항상 폴백에 박제됐음.
 function placeMarkNum(p) {
   const tex = p._numFm._U.uSDF2.value;
-  const a = (FXP.numFoot && FXP.numFoot[FXP.footCtx === 'in' ? 'in' : 'out'])
-         || { x: tex?._cx ?? 0.5, y: tex?._cy ?? 0.42, s: 1 };
+  // ★ 폴백 앵커는 **맨발 자국(안)** 무게중심이다 — 깔창 각인에서 글자가 앉는 자리가 거기다.
+  //   겉(신발) 무게중심(_cx/_cy)을 쓰면 사실상 정중앙(0, 0.004)에 붙어, 랩(footlab makeUnit)이
+  //   쓰는 자리와 전혀 다른 그림이 된다(유저: 100% 이식이 안 됐다).
+  // ★ 스토어의 저작 앵커(FXP.numFoot)를 더 이상 쓰지 않는다 — MARK 는 footlab 이 유일한 출처다.
+  //   저작값이 우선하던 동안 시뮬 글자가 사실상 정중앙(0, 0.004)에 붙어 랩과 자리가 달랐다.
+  const a = { x: tex?._inCx ?? tex?._cx ?? 0.5, y: tex?._inCy ?? tex?._cy ?? 0.42, s: 1 };
   // 앵커는 **쿼드 전체** 기준이다 — 평면을 QUAD_K 배로 키웠으므로 여기도 같은 배수여야 자리가 맞는다.
   const off = MARK_NUM.anchor(a, p._numRight, FOOT_PLANE_M * QUAD_K);
-  p.position.set(off.x, off.y, 0.002);
+  // 글리프 미세 이동·회전도 랩 정본(GLYPH_LOOK)에서 — 오른발은 미러라 x·회전 부호가 뒤집힌다.
+  //   gx/gy 는 쿼드 비율이므로 쿼드 실치수를 곱해 월드로 바꾼다.
+  const QW = FOOT_PLANE_M * QUAD_K, mir = p._numRight ? -1 : 1;
+  p.position.set(off.x + GLYPH_LOOK.gx * mir * QW * 0.5, off.y + GLYPH_LOOK.gy * QW * 0.5, 0.002);
+  p.rotation.z = GLYPH_LOOK.rot * mir * Math.PI / 180;
   p.scale.setScalar((off.s || 1) * (FXP.mark.radius || 1));
 }
 // 파동 링 재질 틱 목록 (프리뷰·세션 공통 — main 루프가 tickWaves 호출)
@@ -1702,8 +1707,13 @@ export class Session {
   /** 파동 링 시계 — 프리뷰(에디터)·세션 공통, main 루프가 매 프레임 호출 */
   tickWaves() {
     const t = performance.now() / 1000;
+    // ⚠ 여기를 0(항상 가산)으로 박지 말 것 — 실제로 해봤고 **더 투명해졌다**.
+    //   무대가 주간(밝은 바닥)인데 가산광을 쏘면 밝은 면 위에서 씻겨 아무것도 안 보인다.
+    //   잉크 규약이 존재하는 이유가 그것이다. 흐림은 블렌딩이 아니라 게인으로 푼다.
     const day = FXP.day ? 1 : 0;
-    const MK = FXP.mark;   // 룩 시스템 MARK 슬라이더 — 팩 마커(tokens.js)와 동일하게 세션 재질도 라이브 소비
+    // ★ MARK 룩의 출처는 footlab 하나다(유저 확정) — 룩시스템 스토어(FXP.mark)를 더 이상 안 본다.
+    //   스토어가 매 프레임 덮어써서 랩에서 잡은 디자인이 시뮬에선 헤일로 0.25(랩 0.9)로 나왔다.
+    const MK = MARK_LOOK;
     const fp = this.rig?._fp;   // 투사면 프레임 — 마크 글로우를 경계 전에 소프트 페이드(레인과 동일)
     for (const m of WAVE_MATS) {
       const U = m.uniforms;
