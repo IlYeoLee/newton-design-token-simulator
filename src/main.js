@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { createScene, WALL_Z, FX } from './scene.js';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { TokenSystem, COLORS, TCFG, setFPView, makeMarkFXMaterial, makeLaneFXMaterial, makeFlowArrow } from './tokens.js';
+import { TokenSystem, COLORS, TCFG, setFPView, makeMarkFXMaterial, makeLaneFXMaterial, makeFlowArrow, UI_MASK } from './tokens.js';
 import { Effects } from './effects.js';
 import { XBot } from './xbot.js';
 import { Panel } from './panel.js';
@@ -252,6 +252,15 @@ async function boot() {
           if (dlab.p && lab.p && (lab.pRev || 0) < 3) {
             lab.p = { ...lab.p, ...dlab.p };
             lab.pRev = 3; changed = true;
+          }
+          // 마크 룩(lab.m)도 같은 방식으로 좁게 1회 이행. 저장본에 halo 0.25 · wobble 0.05 가
+          //   박혀 있어서, 발자국 랩(footlab)에서 잡은 디자인이 시뮬에선 헤일로가 3.6배 낮게
+          //   나왔다(유저: 랩에서 본 것보다 흐리고 연하다). uW·uHalo·uPool·uNoise 는 재질
+          //   기본값이 아니라 이 저장본에서 **매 프레임 주입**되므로, 여기를 안 올리면 이식이 안 된다.
+          //   mRev 로 멱등 — 이행 후 유저가 다시 내려도 덮지 않는다.
+          if (dlab.m && lab.m && (lab.mRev || 0) < (dlab.mRev || 0)) {
+            lab.m = { ...lab.m, ...dlab.m };
+            lab.mRev = dlab.mRev; changed = true;
           }
           if (changed) localStorage.setItem('newton_design_v1', JSON.stringify(cur));
         } else if (dlab && cur?.global?.fx && !lab) {
@@ -4988,6 +4997,11 @@ void main(){
       floorGL.mesh.quaternion.copy(floorObj.quaternion);
       floorGL.mesh.position.copy(floorObj.position);
       floorGL.mesh.scale.copy(floorObj.scale);
+      // 지면 UI 텍스트 구간엔 마크 토큰 광을 쏘지 않는다 — 토큰이 글자 위를 지나며 가독성을
+      //   무너뜨리던 것(유저). 레이어 순서로 앞뒤는 이미 갈렸고, 이건 그 뒤로 지나가는 토큰을
+      //   블러 마스크로 깎아 '은은하게' 만드는 쪽. 텍스트가 없는 프레임이면 amt 0 = 무효.
+      UI_MASK.amt = 0;
+      if (floorGLOn) floorGL.uiMask(UI_MASK);
       session.frameSlots = null;   // 슬롯 카드 레이아웃 은퇴(유저: 시범→따라하기 순차 문법으로 확정)
       try {
         // 라이브(B 페이스·C 실전) = 최소 UI(유저): 진입 2.5s 후 타이틀·큐·도트 페이드 — 판정 큐만 남김.
