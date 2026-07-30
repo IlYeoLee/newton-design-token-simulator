@@ -1,8 +1,11 @@
-<!doctype html><html lang=ko><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1">  <script type="module" crossorigin src="./assets/fxlab-DyjCVmok.js"></script>
+<!doctype html><html lang=ko><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1">  <script type="module" crossorigin src="./assets/fxlab-CNMJWsVE.js"></script>
   <link rel="modulepreload" crossorigin href="./assets/fx-core-B3OKkA4J.js">
 </head><body><title>NEWTON FX Lab — 히트 그라디언트 체험·조정</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔥</text></svg>">
 <style>
+  /* 마크 숫자 OffBit 미리보기용 — 시뮬(index.html)·플로어 UI 와 같은 파일.
+     랩엔 이 선언이 없어서 도트 폰트를 못 그렸다. */
+  @font-face{font-family:'OffBit';src:url('fonts/OffBitTrial-DotBold.woff2') format('woff2');font-weight:700;font-display:block}
   /* 투사면(어두운 바닥) 위 광 패턴 랩 — 의도적 다크 단일 테마 */
   :root{
     --bg:#0A0C10; --panel:#10131A; --line:#1D222C;
@@ -123,6 +126,7 @@
     <div class="ctl" style="justify-content:flex-start"><span style="font-size:11px;color:var(--dim);width:52px">발</span><span id="footCtxChips"></span><span style="width:8px"></span><span id="footSideChips"></span><span style="font-size:10px;color:var(--dim);margin-left:6px">발형·스탠스·시뮬 발자국이 함께 따라감</span></div>
     <div class="ctl" style="justify-content:flex-start"><span style="font-size:11px;color:var(--dim);width:52px">스타일</span><span id="formChips"></span></div>
     <div class="ctl" style="justify-content:flex-start"><span style="font-size:11px;color:var(--dim);width:52px">계약</span><span id="contractChips"></span></div>
+    <div class="ctl" style="justify-content:flex-start"><span style="font-size:11px;color:var(--dim);width:52px">숫자</span><span id="numSrcChips"></span><span style="font-size:10px;color:var(--dim);margin-left:6px">마크 안 숫자 활자 — 시뮬에도 그대로 이식됨</span></div>
     <div class="sliders" id="slidersM" style="grid-template-columns:repeat(2,minmax(180px,1fr));margin-top:12px"></div>
     <div style="font-size:11px;color:var(--dim);margin-top:12px;font-weight:600">지오메트리·상태 (전역)</div>
     <div id="tcfgHost" style="display:grid;grid-template-columns:repeat(2,minmax(180px,1fr));gap:2px 14px"></div>
