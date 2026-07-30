@@ -1191,14 +1191,23 @@ export class Session {
     g = this._mk('BX_C2');
     // 스파링 타겟 = 몸 주변에 작은 것 여러 개(유저). 하나씩 때려 채우고, 채워지면 사라진다.
     //   구 방식(0.52 하나만 켜고 자리가 매 비트 이동)은 '반응 훈련'이었지 '공략'이 아니었다.
-    this.bxC2 = [[-0.42, 1.78], [0.00, 1.87], [0.40, 1.76], [-0.50, 1.50], [0.48, 1.48], [0.00, 1.33]].map(([x, y]) => {
-      // 0.30 은 과했다 — 벽 투사 거리에서 링 실루엣이 안 잡혀 '토큰이 안 나타난다'로 보였다(유저 실측:
-      //   메시·opacity·prog·캔버스 픽셀 전부 정상인데 화면에서만 안 읽힘). 구 0.52 보다는 작게 0.42.
-      const ap = primPanel('approachRing', 0.42, true);   // 수축 링 정본 — B3·A3 와 같은 토큰
+    this.bxC2 = [[-0.42, 1.78], [0.00, 1.87], [0.40, 1.76], [-0.50, 1.50], [0.48, 1.48], [0.00, 1.33]].map(([x, y], i) => {
+      // 판정은 '존 원'(룩 카탈로그 stepMark — 채워진 원 + 숫자)이 한다. Preview → Active → Success.
+      //   수축 링만 남겼더니 이 토큰이 통째로 사라졌다(유저: "이게 사라졌다고" — 카탈로그 존 원 스샷).
+      //   수축 링은 '언제 때리나'(타이밍), 존 원은 '맞았나'(판정) — 둘은 역할이 다르다.
+      const zone = waveRingMesh(0.105, 0.125, BRAND.red, 0.5, true, 0);
+      zone.position.set(x, y, WZ + 0.001);
+      g.add(zone);
+      const num = floorNum(String(i + 1), 0, 0, 0.13, CS.ink).userData.plane;
+      num.position.set(0, 0, 0.001);
+      num.renderOrder = 7;
+      zone.add(num);
+      // 수축 링 — 0.30 은 벽 투사 거리에서 실루엣이 안 잡혔다(실측). 구 0.52 보다는 작게 0.42.
+      const ap = primPanel('approachRing', 0.42, true);
       ap.position.set(x, y, WZ + 0.002);
       ap.material.opacity = 0;
       g.add(ap);
-      return { ap };
+      return { ap, zone, num };
     });
     // C3 콤비네이션 = 펀치 라인 정본(fx-core drawPunchLine — 노드 MARK 링 + LINE 연결 + 순서 숫자).
     //   유저 지시: 잽·잽·훅은 '연달아 있는 컴포넌트' 하나로 표현한다. 링을 따로 세우면
@@ -2681,6 +2690,15 @@ export class Session {
           const done = i < cleared;
           T.ap.material.opacity = done ? 0 : (i === cur ? 1 : 0.45);   // 남은 건 은은히 — 0.30 은 투사면에서 사라진다
           T.ap._prim.prog = done ? 0 : (i === cur ? prog : 0);
+          // 존 원 = 판정 토큰. 대기 Preview(0) · 노리는 중 Active(1)+진행 · 착탄 후 0.22s Success(2).
+          const hot = T._pop != null && this.t - T._pop < 0.22;
+          T.zone.visible = !done;
+          T.num.visible = !done;
+          if (!done) {
+            T.zone.setPhase(hot ? 2 : (i === cur ? 1 : 0));
+            T.zone.setProg(hot ? 1 : (i === cur ? prog : 0));
+            T.zone.setOp(i === cur ? 0.95 : 0.42);
+          }
           const e = T._pop == null ? 2 : (this.t - T._pop) / 0.28;     // 맞은 순간 반동 팝
           T.ap.scale.setScalar(e < 1 ? 1 + 0.34 * (1 - e) * (1 - e) : 1);
         }
