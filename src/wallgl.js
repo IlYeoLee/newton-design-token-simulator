@@ -338,8 +338,11 @@ export class WallGL {
     for (const im of [ca, cb]) if (im) ctx.drawImage(im, px - 28.09, py - 74.05, 275.305, 511.608);
     ctx.restore();
     const tx = px + ph + 40.857;
-    txt(ctx, 'Boxing Basic Jab Combo', tx, py + 24, 52, 700, NEU.inkDark, { ls: -2.55 });
-    txt(ctx, 'Skilled User Pack · Boxing', tx, py + 24 + 52 * 1.2 + 20.429, 32, 400, NEU.t2, { ls: -.96 });
+    // 제목+메타 두 줄을 썸네일(=카드) 세로 중심에 맞춘다 — py+24 고정이라 위로 24 치우쳐 있었다(유저).
+    const TGAP = 20.429, TBH = 52 * 1.2 + TGAP + 32 * 1.2;   // 텍스트 블록 실높이
+    const ty = py + ph / 2 - TBH / 2;
+    txt(ctx, 'Boxing Basic Jab Combo', tx, ty, 52, 700, NEU.inkDark, { ls: -2.55 });
+    txt(ctx, 'Skilled User Pack · Boxing', tx, ty + 52 * 1.2 + TGAP, 32, 400, NEU.t2, { ls: -.96 });
     ctx.restore();
 
     // 스탯 카드 — slideInLeft .85s .35s
@@ -358,11 +361,13 @@ export class WallGL {
     // 카드 안 왼쪽 텍스트 기준선 — 하나로 통일(유저: "왼쪽정렬 안 됨").
     // 전엔 30/min 은 ix+24.26, Fight! 는 ix+34.26(트랙이 ix+10 에서 시작 + 24.26),
     // Setup 라벨 ix+30, Connected 라벨 ix+20 으로 넷이 갈려 있었다.
-    const PADL = 24.256;
-    // 흰 박스 안쪽 여백 — 셀이 모서리에 딱 붙어 있던 것(유저: "양옆 마진 0")만 해결한다.
-    // 셀 사이 간격은 Figma 실값(10·8) 유지 — 24 로 넓혀 봤더니 카드가 아래로 넘쳤다(유저 기각).
-    // 셀 안 텍스트 패딩은 PADL − CPAD 로 줘서 바깥 축(ix + PADL)은 그대로 유지된다.
-    const CPAD = 14, CIN = PADL - CPAD, CGAP = 10, DGAP = 8;
+    // 하나의 규칙: 모든 컨테이너 내부 좌우 패딩 = CM(28) · 모든 텍스트 축 = ix + CM.
+    //   섹션 라벨 · Total 박스 안 텍스트 · Setup 셀 텍스트 · Connected 카드 내용이 전부 한 축에 선다.
+    const PADL = CM;
+    // 셀·기기카드는 Total 흰 박스와 같이 안쪽 폭(iw)을 꽉 채운다 — 여백은 회색 카드의 CM 이 준다.
+    //   구 CPAD=14 는 셀만 안으로 한 번 더 들여 텍스트 축을 어긋나게 했다.
+    //   셀 사이 간격은 Figma 실값(10·8) 유지 — 24 로 넓히면 카드가 아래로 넘친다(유저 기각).
+    const CPAD = 0, CIN = CM, CGAP = 10, DGAP = 8;
     let y = stY + CM;
     // ── Total
     txt(ctx, 'Total', ix + PADL, y + 6, 34, 400, NEU.t1, { ls: -1.13 });
@@ -405,15 +410,15 @@ export class WallGL {
     // 흰 박스 안쪽 여백 — 셀이 모서리에 딱 붙어 있었다(유저: "양옆 마진 0").
     // 셀 안 텍스트 패딩은 PADL - CPAD 로 줘서 바깥 축(ix + PADL)은 그대로 유지된다.
     const cw = (iw - CPAD * 2 - CGAP) / 2;
-    // ★ 한 줄 압축 — 라벨+값 두 줄이던 걸 자기설명적 한 줄로 줄이고 그만큼 키웠다(유저:
-    // "글씨 크기를 키우란 게 아니라 글자 수를 줄이면서 내용은 유지"). 투사면은 읽는 화면이
-    // 아니라 훑는 화면이라 라벨은 값 안에 녹인다. 'Quite On' → 'Quiet On' 오타도 함께 정정.
+    // 라벨·값을 가운데 점으로 잇던 압축('Indoor · Standard')은 폐기 — 서로 다른 셋업 항목
+    //   (장소/목표)을 점으로 붙여 무슨 관계인지 안 읽혔다(유저: "구리고 AI 티 난다").
+    //   모바일 .sc-row 정본과 같은 규칙으로: 라벨은 왼쪽 연하게, 값은 오른쪽 굵게, 양끝 정렬.
     // 'Main 15m' 은 Total 바 3번째(15min)와 같은 값인데 표기까지 달라(15min vs 15m) 다른 값처럼
     //   읽혔다(유저). 자리는 셋업 5화면 중 유일하게 화면 어디에도 없던 '부상'이 가져간다 —
     //   안전에 직결되는 값이라 시작 전에 확인되는 게 맞다.
-    const cells = [['Indoor · Standard', 103], ['Condition · Usual', 103],
-                   ['Quiet On', 102], ['Injury · None', 102]];
-    cells.forEach(([val, ch], i) => {
+    const cells = [['Location', 'Indoor', 103], ['Goal', 'Standard', 103],
+                   ['Sound', 'Quiet On', 102], ['Injury', 'None', 102]];
+    cells.forEach(([lbl, val, ch], i) => {
       const cx0 = ix + CPAD + (i % 2) * (cw + CGAP), cy0 = y + 12 + (i < 2 ? 0 : 111);
       const e = eOut(intro(t, .95 + i * .10, .55));
       ctx.save();
@@ -422,7 +427,8 @@ export class WallGL {
       const k = 0.95 + 0.05 * e;
       ctx.translate(cx0 + cw / 2, cy0 + ch / 2); ctx.scale(k, k); ctx.translate(-(cx0 + cw / 2), -(cy0 + ch / 2));
       rrFill(ctx, cx0, cy0, cw, ch, 48, NEU.surface);
-      txt(ctx, val, cx0 + CIN, cy0 + ch / 2, 38, 700, '#000', { ls: -1.27, base: 'middle' });
+      txt(ctx, lbl, cx0 + CIN, cy0 + ch / 2, 34, 400, NEU.t2, { ls: -1.13, base: 'middle' });
+      txt(ctx, val, cx0 + cw - CIN, cy0 + ch / 2, 38, 700, '#000', { ls: -1.27, base: 'middle', align: 'right' });
       ctx.restore();
     });
     y += setH + 32;
