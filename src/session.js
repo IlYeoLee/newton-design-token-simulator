@@ -2658,7 +2658,11 @@ export class Session {
         const beat = Math.floor(this.t / BT), ph = (this.t % BT) / BT;
         const cleared = Math.min(N, Math.floor(beat / HITS));
         const cur = cleared;                       // 지금 노리는 타겟
-        const fill = ((beat % HITS) + clamp01(ph / LAND)) / HITS;   // 0→1 누적 채움
+        // 펀치마다 0→1 로 조여들다 LAND 에서 터진다 = Active→Success 판정. 이걸 '타겟당 누적 채움'
+        //   (fill = (beat%HITS + ph/LAND)/HITS)으로 바꿨더니 2방 중 마지막 방에서만 1에 도달해
+        //   첫 방의 판정 마크가 통째로 사라졌다(유저: "펀치마다 마크가 사라졌어").
+        //   누적은 prog 가 아니라 '몇 방 남았나(cleared/HITS)'와 소멸이 표현한다.
+        const prog = clamp01(ph / LAND);
         // 타격은 **수축 링 안에서** 일어난다 — 판정 자리가 아래 고정 마크 하나면 '때리는 곳'이
         //   거기로 읽힌다(유저). 링이 조여들다 착탄 순간 그 자리에서 터지고 반동으로 튄다.
         //   (C3 콤보와 같은 규칙: 판정은 노드 '안'에서.)
@@ -2674,7 +2678,7 @@ export class Session {
           const T = this.bxC2[i];
           const done = i < cleared;
           T.ap.material.opacity = done ? 0 : (i === cur ? 1 : 0.30);   // 남은 건 은은히 — 공략 순서가 보인다
-          T.ap._prim.prog = done ? 0 : (i === cur ? fill : 0);
+          T.ap._prim.prog = done ? 0 : (i === cur ? prog : 0);
           const e = T._pop == null ? 2 : (this.t - T._pop) / 0.28;     // 맞은 순간 반동 팝
           T.ap.scale.setScalar(e < 1 ? 1 + 0.34 * (1 - e) * (1 - e) : 1);
         }
