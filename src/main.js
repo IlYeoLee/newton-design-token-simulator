@@ -23,7 +23,7 @@ import { FloorGL } from './floorgl.js';   // 바닥 UI WebGL 이식(B안) — ?f
 import { WallGL } from './wallgl.js';     // 복싱 벽 UI WebGL 이식(같은 B안) — ?wallgl=0 이면 옛 CSS3D
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { CSS3DRenderer, CSS3DObject } from 'three/examples/jsm/renderers/CSS3DRenderer.js';
-import { getLUT, FXP, rebuildLUT, lutColor, GLYPHS, FX_GLSL, DEFAULT_GLYPHS } from './fxlut.js';
+import { getLUT, FXP, rebuildLUT, lutColor, GLYPHS, FX_GLSL, DEFAULT_GLYPHS, ensureOffBit } from './fxlut.js';
 import { drawRotate, PERSON_GLSL, CUT_FEATHER_GLSL } from './fx-core.js';
 import { createEditor3D } from './editor3d.js';
 import { LiveUI } from './liveui.js';
@@ -243,6 +243,14 @@ async function boot() {
           if (dlab.glyphs) {
             lab.glyphs = lab.glyphs || {};
             for (const gk in dlab.glyphs) if (!lab.glyphs[gk]) { lab.glyphs[gk] = dlab.glyphs[gk]; changed = true; }
+          }
+          // 인물 룩(lab.p)만 좁게 1회 이행 — rev 통째 교체는 로컬 룩 편집을 다 날리므로 못 쓴다.
+          //   저장본의 detail 0.15 는 blur·decay 가 켜져 있던 옛 파이프라인에서 authored 된 값이다.
+          //   그 둘을 은퇴시킨 지금은 결이 36%만 남아 인물이 흐리멍텅해진다(유저 신고) → 정본으로 올린다.
+          //   pRev 마커로 멱등 — 이행 후 유저가 다시 내려도 덮지 않는다.
+          if (dlab.p && lab.p && (lab.pRev || 0) < 2) {
+            lab.p = { ...lab.p, ...dlab.p };
+            lab.pRev = 2; changed = true;
           }
           if (changed) localStorage.setItem('newton_design_v1', JSON.stringify(cur));
         } else if (dlab && cur?.global?.fx && !lab) {
@@ -1238,7 +1246,7 @@ void main(){
     //     blur .8 · glow .8 · flow .35 · decay .4 · grain .07 → 인물 영상에 잔상(핑퐁 RT 누적)과
     //     필름 그레인이 계속 걸려 있었다. 07-30 결정("인물 = 뉴턴톤만, 나머지 0")대로 걸러 받는다.
     //     저장본이 무엇이든 런타임은 항상 이 규칙 — 좀비 값이 다시 살아날 경로를 없앤다.
-    const PERSON_KEEP = ['detail', 'tone'];   // 음영·톤만 = 룩 토큰 / blur·glow·flow·decay·grain = 아티팩트(은퇴)
+    const PERSON_KEEP = ['detail', 'tone', 'sweep'];   // 음영·톤·세로대역 = 룩 토큰 / blur·glow·flow·decay·grain = 아티팩트(은퇴)
     const stPerson = st.person || st.p;
     if (stPerson) {
       for (const k of PERSON_KEEP) if (stPerson[k] != null) FXP.person[k] = stPerson[k];
@@ -1251,6 +1259,13 @@ void main(){
       const changed = JSON.stringify(st.arrow) !== JSON.stringify(FXP.arrow);
       Object.assign(FXP.arrow, st.arrow);
       if (changed) refreshGlyphConsumers();   // 화살표 자루 리빌드
+    }
+    // 마크 숫자 활자 — 랩 토글이 그대로 건너온다('glyph' 슬롯 SVG / 'offbit' 도트 폰트).
+    // glyphs 블록 밖에 둔다: 글리프를 한 번도 안 만진 랩 상태에서도 이 값은 와야 한다.
+    if (st.numSrc && st.numSrc !== FXP.numSrc) {
+      FXP.numSrc = st.numSrc;
+      if (FXP.numSrc === 'offbit') ensureOffBit();
+      refreshGlyphConsumers();   // 이미 구워진 숫자 텍스처를 새 활자로 다시 굽는다
     }
     if (st.glyphs && typeof st.glyphs === 'object') {
       const changed = JSON.stringify(st.glyphs) !== JSON.stringify(GLYPHS.map);
@@ -2281,6 +2296,17 @@ void main(){
   //   프래그먼트 링 탭(8방향)으로 대신했더니 반경을 키우자마자 팔각형 면이 드러났다
   //   ("필름지 붙인 것 같다" — 유저). 링 샘플링으로는 넓은 블러를 못 만든다.
   //   rt.r = 마스크(두께장) · rt.g = 마스크로 프리멀티한 휘도 → 셰이더에서 g/r 로 복원.
+  // ── PERSON_GLSL 공용 유니폼 주입 (단일 소스) ───────────────────────────────
+  //   이 GLSL 을 include 하는 셰이더는 셋이다: 바닥 코치판 · 데모판 · 벽 인물.
+  //   uPSat/uPSweep 을 세 군데서 각자 세팅하면 반드시 한 곳이 빠지고, 빠진 인물만 무채가 된다.
+  //   그래서 주입은 이 함수 하나로 못박는다 — 새 인물 셰이더를 붙일 때도 여기만 부르면 된다.
+  //     uPSat   = 채도. 마크 LUT와 같은 소스(FXP.sat)에서 — 슬라이더 하나가 인물·발자국 둘 다 이동.
+  //     uPSweep = 세로 열 그라디언트 폭(0 = 도입 전과 픽셀 동일).
+  const setPersonUniforms = (U) => {
+    if (!U) return;
+    if (U.uPSat) U.uPSat.value = 1.0 + (FXP.sat ?? 1) * 0.32;
+    if (U.uPSweep) U.uPSweep.value = FXP.person?.sweep ?? 0;
+  };
   let _cf = null;
   function coachField() {
     if (_cf) return _cf;
@@ -2364,10 +2390,10 @@ void main(){
       uniforms: { map: { value: tex }, uLUT: { value: getLUT() }, uTime: { value: 0 }, uReady: { value: 0 },
         uField: { value: coachField().lo[1].texture }, uFieldN: { value: coachField().rts[2].texture },
         uCropOff: { value: cfg.cropOff }, uCropScale: { value: cfg.cropScale }, uDetail: { value: 0.25 },
-        uSat: { value: 1.32 }, uPulse: { value: 0.05 } },
+        uPSat: { value: 1.32 }, uPSweep: { value: 0 }, uPulse: { value: 0.05 } },   // uPSat·uPSweep = PERSON_GLSL 공용(구 uSat 은 죽은 유니폼이라 폐기)
       vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
       fragmentShader: `
-        varying vec2 vUv; uniform sampler2D map, uLUT, uField, uFieldN; uniform float uTime, uCropOff, uCropScale, uSat, uPulse, uReady, uDetail;
+        varying vec2 vUv; uniform sampler2D map, uLUT, uField, uFieldN; uniform float uTime, uCropOff, uCropScale, uPulse, uReady, uDetail;
         vec3 lut(float v){ return texture2D(uLUT, vec2(clamp(v, 0.004, 0.996), 0.5)).rgb; }
         ` + PERSON_GLSL + CUT_FEATHER_GLSL + `
         vec2 crop(vec2 uv){ return vec2(uv.x, uCropOff + uv.y * uCropScale); }
@@ -2426,7 +2452,7 @@ void main(){
           // 색 = fx-core.personLook 공용 정의 — 복싱 인물과 같은 대역·채도·명암 규칙.
           //   구 인라인 lut(pow(baseT,1.5))는 LUT 하단(샌드~코랄)에만 앉아, 상단(레드)에 앉는
           //   복싱 인물과 톤이 갈렸다(유저: "왜 복싱만 과하게 빨갛지").
-          vec3 col = personLook(clamp(H + pulse + dth, 0.0, 1.0), lumS, lumB, mIn, faceW) * mEro * 0.92;
+          vec3 col = personLook(clamp(H + pulse + dth, 0.0, 1.0), lumS, lumB, mIn, faceW, uv.y) * mEro * 0.92;
           // uReady=0 = 아직 실제 프레임이 없다. 이때 그리면 빈 텍스처가 크로마키를 통과해
           //   판이 통째로 검은 사각형/붉은 판으로 보인다(유저 스샷). 아예 안 그린다.
           float alpha = mEro * 0.95 * uReady;   // 하단 페더 제거(유저) — 발끝까지 또렷하게
@@ -2608,8 +2634,9 @@ void main(){
         co.plane.visible = !!co._live && id !== 'BK_C2';
         co.plane.material.uniforms.uTime.value = performance.now() / 1000;
         co.plane.material.uniforms.uDetail.value = FXP.person?.detail ?? 0.25;   // 룩 '음영' 슬라이더
-        // 채도는 마크 LUT와 같은 소스(FXP.sat)에서 — 인물·발자국 룩 통일(슬라이더 하나가 둘 다 이동)
-        co.plane.material.uniforms.uSat.value = 1.0 + (FXP.sat ?? 1) * 0.32;
+        // 채도는 마크 LUT와 같은 소스(FXP.sat)에서 — 인물·발자국 룩 통일(슬라이더 하나가 둘 다 이동).
+        //   이제 진짜로 이동한다: 구 uSat 은 선언만 되고 셰이더가 안 읽어 슬라이더가 죽어 있었다.
+        setPersonUniforms(co.plane.material.uniforms);
         // 옆구리(BK_A1) 방향 화살표 = 코치 영상 실제 타이밍에 동기.
         //   bk_sidebend.webm 24fps 84프레임을 그린스크린 마스크로 프레임별 상체/하체 x중심을 재서
         //   기우는 쪽을 실측(scripts 없이 ffmpeg+마스크 1회 측정). 아래 표는 원본 3.5s 클립 기준 전이 시각.
@@ -2811,6 +2838,7 @@ void main(){
       uniforms: {
         tex: { value: demoTex }, uTrail: { value: trailRTs[0].texture }, uHeat: { value: heatRTs[0].texture }, uLUT: { value: getLUT() },
         uTime: { value: 0 }, uNoise: { value: 0.55 }, uW: { value: 1 }, uDetail: { value: 0.62 }, uTrailGain: { value: 1 }, uGrain: { value: 0 }, uTone: { value: 0 }, uLive: { value: 0 },
+        uPSat: { value: 1.32 }, uPSweep: { value: 0 },   // PERSON_GLSL 공용 — setPersonUniforms 가 주입
         uCropC: { value: new THREE.Vector2(0.5, 0.5) }, uCropS: { value: new THREE.Vector2(1, 1) },
       },
       vertexShader: `#include <common>
@@ -2875,7 +2903,7 @@ void main(){
           float shape = max(shapeA, trail * 0.5 * smoothstep(0.06, 0.22, trail));
           // 색 = fx-core.personColor 공용 정의 (벽 인물과 같은 곡선·대역·채도).
           // 구 mix(thermo…) 은 은퇴 — uTone=1 이라 실제로 안 쓰였고, 무지개 램프는 팔레트 밖이었다.
-          vec3 col = personLook(T, dLumS, dLumB, mIn, faceW) * shape;
+          vec3 col = personLook(T, dLumS, dLumB, mIn, faceW, uv.y) * shape;
           col += (fxhash(uv * 977.0 + uTime) - 0.5) * (2.0 / 255.0);
           col += (fxhash(uv * 1661.0 + uTime * 3.0) - 0.5) * uGrain;
           // 프레임 원천 제거(유저): 타원 페더 — 잔여 배경·워시가 직선 경계 없이 곡선으로 소멸
@@ -3079,6 +3107,7 @@ void main(){
     PU.uW.value = FXP.person?.blur ?? 1;   // 엣지 블러 — 랩 person 슬라이더 (누락돼 기본 1.0으로 돌던 버그)
     PU.uGrain.value = FXP.person?.grain ?? 0;
     PU.uTone.value = FXP.person?.tone ?? 0;
+    setPersonUniforms(PU);   // 채도·세로대역 = 세 인물 셰이더 공용
     trailFlip = 1 - trailFlip;
   }
 
@@ -3250,6 +3279,7 @@ void main(){
         uFrame: { value: 0 }, uDecay: { value: 0.6 }, uTime: { value: 0 },
         uCols: { value: COACH.cols }, uRows: { value: COACH.rows }, uN: { value: COACH.n }, uDirect: { value: COACH.direct },
         uW: { value: 1 }, uNoise: { value: 0.55 },
+        uPSat: { value: 1.32 }, uPSweep: { value: 0 },   // PERSON_GLSL 공용 — 벽은 personColor 만 쓰지만 선언은 필수(안 하면 무채)
       },
       vertexShader: `#include <common>
 #include <clipping_planes_pars_vertex>
@@ -3365,6 +3395,7 @@ void main(){
     U.uDecay.value = FXP.person?.decay ?? 0.6;
     U.uNoise.value = FXP.person?.flow ?? 0.55;
     U.uW.value = FXP.person?.blur ?? 1;
+    setPersonUniforms(U);   // 채도·세로대역 = 세 인물 셰이더 공용
   }
 
   switchPack(state.pack);   // 기본 진입 팩(복싱) — 순서 복싱 → 러닝 → 농구(유저)

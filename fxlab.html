@@ -1,6 +1,9 @@
 <!doctype html><html lang=ko><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"></head><body><title>NEWTON FX Lab — 히트 그라디언트 체험·조정</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔥</text></svg>">
 <style>
+  /* 마크 숫자 OffBit 미리보기용 — 시뮬(index.html)·플로어 UI 와 같은 파일.
+     랩엔 이 선언이 없어서 도트 폰트를 못 그렸다. */
+  @font-face{font-family:'OffBit';src:url('fonts/OffBitTrial-DotBold.woff2') format('woff2');font-weight:700;font-display:block}
   /* 투사면(어두운 바닥) 위 광 패턴 랩 — 의도적 다크 단일 테마 */
   :root{
     --bg:#0A0C10; --panel:#10131A; --line:#1D222C;
@@ -121,6 +124,7 @@
     <div class="ctl" style="justify-content:flex-start"><span style="font-size:11px;color:var(--dim);width:52px">발</span><span id="footCtxChips"></span><span style="width:8px"></span><span id="footSideChips"></span><span style="font-size:10px;color:var(--dim);margin-left:6px">발형·스탠스·시뮬 발자국이 함께 따라감</span></div>
     <div class="ctl" style="justify-content:flex-start"><span style="font-size:11px;color:var(--dim);width:52px">스타일</span><span id="formChips"></span></div>
     <div class="ctl" style="justify-content:flex-start"><span style="font-size:11px;color:var(--dim);width:52px">계약</span><span id="contractChips"></span></div>
+    <div class="ctl" style="justify-content:flex-start"><span style="font-size:11px;color:var(--dim);width:52px">숫자</span><span id="numSrcChips"></span><span style="font-size:10px;color:var(--dim);margin-left:6px">마크 안 숫자 활자 — 시뮬에도 그대로 이식됨</span></div>
     <div class="sliders" id="slidersM" style="grid-template-columns:repeat(2,minmax(180px,1fr));margin-top:12px"></div>
     <div style="font-size:11px;color:var(--dim);margin-top:12px;font-weight:600">지오메트리·상태 (전역)</div>
     <div id="tcfgHost" style="display:grid;grid-template-columns:repeat(2,minmax(180px,1fr));gap:2px 14px"></div>
@@ -251,6 +255,7 @@ const state = {
   s: { bloomStrength: 0.55, bloomThreshold: 0.55, bloomRadius: 0.6, exposure: 1.0, grain: 0, vignette: 0.12 },
   p: { blur: 1.0, glow: 0, flow: 0.4, decay: 0.04, grain: 0.07, detail: 0.6, tone: 1 },   // 유저 확정 룩 = 공장 기본 (2026-07-18)
   footShape: 1, personMode: 0, burstStyle: 0, laneStyle: 0,
+  numSrc: 'glyph',   // 마크 안 숫자 활자 — 'glyph'=슬롯 SVG(정본) · 'offbit'=OffBit 도트 폰트
   // 슬롯별 커스텀 SVG — 저장·브리지 왕복 (규칙: ↑=전방, 발가락 위·뒤꿈치 아래)
   // 숫자·발형은 저장소 정본(ready-view/assets/glyphs/)을 기본값으로 싣는다. 예전엔 랩에
   // 업로드한 dataURL 만 있어서, 랩과 시뮬이 서로 다른 글리프를 보는 일이 생겼다.
@@ -575,6 +580,15 @@ function drawMarkNumOn(canvasEl, ax, ay, scale = 1) {
     if (firstCustom) numCh = firstCustom;
   }
   const size = 140 * (state.m.radius || 1) * scale;
+  // 숫자 소스 = OffBit 도트 폰트 (플로어 UI 수치가 쓰는 그 활자). 시뮬 fxlut.drawNumber 와 같은 규약.
+  if (state.numSrc === 'offbit') {
+    g.font = `700 ${Math.round(size)}px 'OffBit','Supreme',sans-serif`;
+    if (s === 6) { g.fillStyle = 'rgba(152,158,166,0.85)'; g.shadowBlur = 0; }
+    else { g.fillStyle = 'rgba(255,240,220,0.95)'; g.shadowColor = 'rgba(254,150,90,0.75)'; g.shadowBlur = 26; }
+    fillCenteredText(g, numCh, ax, ay);
+    g.globalAlpha = 1; g.shadowBlur = 0;
+    return;
+  }
   const custom = state.glyphs && state.glyphs[numCh];
   if (custom && typeof drawCustomGlyphAt === 'function') {
     if (drawCustomGlyphAt(g, custom, ax, ay, size, s === 6, !!state.glyphFlip[numCh])) { g.globalAlpha = 1; return; }
@@ -698,6 +712,18 @@ scenarioBtn.onclick = () => {
     drawPrims();
   };
   footCtxChips.appendChild(b);
+});
+// 숫자 활자 — 슬롯 SVG(정본) / OffBit 도트 폰트. 시뮬은 FXP.numSrc 로 같은 값을 받는다.
+[['glyph', 'SVG 글리프'], ['offbit', 'OffBit 도트']].forEach(([key, name], i) => {
+  const b = document.createElement('button');
+  b.className = 'btn' + (i === 0 ? ' on' : ''); b.textContent = name;
+  b.style.padding = '4px 9px'; b.style.fontSize = '11px';
+  b.onclick = () => {
+    state.numSrc = key;
+    numSrcChips.querySelectorAll('.btn').forEach((x, j) => x.classList.toggle('on', i === j));
+    drawPrims();
+  };
+  numSrcChips.appendChild(b);
 });
 // 발 좌/우 — FOOT 슬롯 선택
 [['L', '왼발'], ['R', '오른발']].forEach(([key, name], i) => {
@@ -1731,6 +1757,7 @@ function labSnapshot() {
   return { stops: state.stops, sat: state.sat, bg: state.bg,
     burstStyle: state.burstStyle, laneStyle: state.laneStyle,
     markShape: state.markShape, markForm: state.markForm, markContract: state.markContract,
+    numSrc: state.numSrc,   // 마크 숫자 활자 — 시뮬 FXP.numSrc 로 건너간다
     glyphs: { ...state.glyphs },
     glyphFlip: { ...state.glyphFlip },
     footCtx: state.footCtx,
@@ -1761,7 +1788,7 @@ function applyExternalState(st) {
     for (const k of ['g', 'm', 'p']) Object.assign(state[k], st[k] || {});
     // 화면 룩 은퇴 — 저장본의 s(그레인 등)를 무시하고 고정 룩으로 (좀비 설정 방지)
     state.s = { bloomStrength: 0.18, bloomThreshold: 0.7, bloomRadius: 0.45, exposure: 0.95, grain: 0, vignette: 0.08 };
-    for (const k of ['burstStyle', 'laneStyle', 'markShape', 'markForm', 'markContract'])
+    for (const k of ['burstStyle', 'laneStyle', 'markShape', 'markForm', 'markContract', 'numSrc'])
       if (st[k] != null) state[k] = st[k];
     if (st.glyphs && !Array.isArray(st.glyphs)) {
       // 정본이 저장본을 이긴다 — 통째 교체였다. 그러면 랩만 낡은 dataURL 을 계속 보고

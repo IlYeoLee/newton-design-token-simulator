@@ -19,14 +19,30 @@ export const FXP = {
   mark: { radius: 1.0, core: 1.0, halo: 0.9, pool: 0.55, sweep: 1.0, wobble: 0.5 },
   // 인물 = 뉴턴톤만 살리고 나머지 0 (유저 07-30). 얼룩·잔상·그레인은 전부 아티팩트 원천이었고,
   //   부드러움은 슬라이더가 아니라 필드 RT 가우시안(코드)이 만든다. 음영만 남긴다.
-  person: { blur: 0, glow: 0, flow: 0, decay: 0, detail: 0.25, grain: 0, tone: 1 },
+  //   detail = 결(옷주름·톤차)의 세기. 셰이더에서 clamp(detail*2.4) 로 좁은블러 쪽 혼합비가 되므로
+  //     0.25 = 60% · 0.417 이상 = 100%. 0.15(=36%)로 돌던 게 '흐리멍텅'의 절반이었다.
+  //   sweep = 세로 열 그라디언트 폭(머리 진한 쪽 → 발 뽀얀 쪽). 0 이면 도입 전과 픽셀 동일.
+  //     두께장이 몸통 안쪽에서 1.0 에 포화해 T가 한 점에 고정되던 것을 푸는 손잡이 — 나머지 절반.
+  person: { blur: 0, glow: 0, flow: 0, decay: 0, detail: 0.25, sweep: 0.55, grain: 0, tone: 1 },
   gainBoost: 1.0,   // 주간 모드 투사 게인 (주광 가시 = 제품 스토리)
   a3Arrow: 4,       // 하이니 리프트 큐 (1 셰브론 · 2 스템+SVG촉 · 3 바 · 4 궤적 토큰=기본)
   liveUI: 3,   // 실전 UI 기본 = 3안 셰브론 플로우(리서치 확정: 상대속도 흐름·락온)        // 실전 러닝 플로어 UI 5안 (1 페이스라인 · 2 펄스링 · 3 셰브론 · 4 도트 · 5 스트립)
   arrow: { line: 'solid', w: 1, speed: 1, gap: 1, glow: 1, heat: 0.5, tail: 0.55 },   // LINE 최소 토큰 (FX Lab)
   lane: { style: 'dash' },   // 레인 전용 스타일 — 화살표와 분리 (재료 파라미터는 arrow 공유)
   card: { titleZ: 2.68, eyebrow: 0.30, footerZ: 1.28, titleCap: 0.13, eyeCap: 0.07, footCap: 0.065, cta: 1.0 },   // 스테이지 카드 조판 — 피그마 StageCard/베이스 실측 임포트(v15 파이프라인)
+  // 마크 안 숫자를 무엇으로 그리나 — 'glyph'=슬롯 SVG(정본, 기본) · 'offbit'=OffBit 도트 폰트.
+  // 도트 폰트는 이미 플로어 UI 수치(카운트다운·km)가 쓰는 것이라, 마크까지 같은 활자로
+  // 통일해볼 수 있게 열어둔 스위치다. 랩 토글 → 브리지 → 시뮬 동일 경로.
+  numSrc: 'glyph',
 };
+
+/** OffBit 도트 폰트가 캔버스에서 쓸 수 있게 미리 로드 — floorgl/wallgl 과 같은 규약 */
+export function ensureOffBit() {
+  if (typeof document === 'undefined' || !document.fonts) return;
+  for (const f of ["700 100px 'OffBit'", "700 100px OffBit"]) {
+    try { document.fonts.load(f); } catch { /* 폰트 미선언 페이지 — 폴백으로 간다 */ }
+  }
+}
 
 // ── LUT 256×1 DataTexture (전 셰이더 공유) ─────
 const lutData = new Uint8Array(256 * 4);
@@ -114,8 +130,32 @@ export const DEFAULT_GLYPHS = {
 };
 
 // SVG 래스터·SDF 베이커는 fx-core(정본, FX Lab 구현 승격)에서 — 중복 2벌 폐기.
+/** OffBit 도트 폰트로 (x,y) 중심 렌더 — 글리프 SVG와 같은 틴트·글로우 규약을 그대로 쓴다.
+ *  글리프 경로가 sizePx 를 '그려질 최대 크기'로 쓰므로 여기서도 같은 뜻으로 맞춘다:
+ *  폰트 크기를 sizePx 로 두고 실측 폭이 넘치면 줄인다(두 자리 이상 대응). */
+function drawOffBit(ctx, text, x, y, sizePx, { color = rgba(NEU.ink, 0.95), glowColor = rgba(PAL.coral, 0.75), glow = 14 } = {}) {
+  const s = String(text);
+  ctx.save();
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  let fs = sizePx;
+  ctx.font = `700 ${fs}px 'OffBit','Supreme',sans-serif`;
+  const w = ctx.measureText(s).width;
+  if (w > sizePx) { fs = sizePx * (sizePx / w); ctx.font = `700 ${fs}px 'OffBit','Supreme',sans-serif`; }
+  ctx.fillStyle = color;
+  ctx.shadowColor = glowColor; ctx.shadowBlur = glow;
+  ctx.fillText(s, x, y);
+  ctx.shadowBlur = 0;
+  ctx.fillText(s, x, y);   // 글리프 경로와 동일하게 2패스(글로우 위에 본체)
+  ctx.restore();
+  return true;
+}
+
 /** 캔버스에 커스텀 글리프를 웜 크림 틴트+글로우로 (x,y) 중심 렌더. 성공 시 true. */
 export function drawGlyph(ctx, ch, x, y, sizePx, { color = rgba(NEU.ink, 0.95), glowColor = rgba(PAL.coral, 0.75), glow = 14 } = {}) {
+  // 숫자 소스가 OffBit 이면 0~9 는 도트 폰트로. 문자 슬롯(L·R·연산·촉)은 늘 SVG 글리프다.
+  if (FXP.numSrc === 'offbit' && /^[0-9]$/.test(String(ch))) {
+    return drawOffBit(ctx, ch, x, y, sizePx, { color, glowColor, glow });
+  }
   const img = GLYPHS.img(ch);
   if (!img) return false;
   const off = document.createElement('canvas');
@@ -142,6 +182,8 @@ export function drawGlyph(ctx, ch, x, y, sizePx, { color = rgba(NEU.ink, 0.95), 
  *  들도록 축소 + 미세 커닝('1'처럼 좁은 글리프는 자연 폭이라 자동으로 붙음). */
 export function drawNumber(ctx, num, cx, cy, sizePx, opts = {}) {
   const s = String(num);
+  // OffBit 은 진짜 활자라 커닝이 폰트에 들어 있다 — 자리별로 쪼개지 말고 한 번에 그린다.
+  if (FXP.numSrc === 'offbit') return drawOffBit(ctx, s, cx, cy, sizePx, opts);
   if (s.length <= 1) return drawGlyph(ctx, s, cx, cy, sizePx, opts);
   const ds = sizePx * (s.length === 2 ? 0.66 : 0.48);   // 자리당 크기 축소(2자리는 급하지 않게 0.66)
   const adv = ds * 0.66;                                 // 자간 = 넉넉히(너무 붙지 않게)
