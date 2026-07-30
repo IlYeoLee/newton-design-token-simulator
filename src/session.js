@@ -274,7 +274,8 @@ function placeMarkNum(p) {
   const tex = p._numFm._U.uSDF2.value;
   const a = (FXP.numFoot && FXP.numFoot[FXP.footCtx === 'in' ? 'in' : 'out'])
          || { x: tex?._cx ?? 0.5, y: tex?._cy ?? 0.42, s: 1 };
-  const off = MARK_NUM.anchor(a, p._numRight, FOOT_PLANE_M);   // 앵커도 발 평면 기준 — 0.46 박혀 있었다
+  // 앵커는 **쿼드 전체** 기준이다 — 평면을 QUAD_K 배로 키웠으므로 여기도 같은 배수여야 자리가 맞는다.
+  const off = MARK_NUM.anchor(a, p._numRight, FOOT_PLANE_M * QUAD_K);
   p.position.set(off.x, off.y, 0.002);
   p.scale.setScalar((off.s || 1) * (FXP.mark.radius || 1));
 }

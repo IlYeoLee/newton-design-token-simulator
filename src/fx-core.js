@@ -134,8 +134,12 @@ export const SDF_DECODE = 1.9922;
 //   (유저 신고: 파동이 위아래로 잘려 좌우만 보인다 — 발이 세로로 길어 여유가 0.10 뿐이었다.)
 //   호스트가 평면을 QUAD_K 배로 키워 상쇄하므로 **실제 크기는 그대로**다.
 export const SIL_FIT_REF = 0.78;
-export const SIL_FIT = 0.78;   // 기준치와 동일 = 지금까지와 픽셀 동일(안전 기본값)
+export const SIL_FIT = 0.52;   // 실루엣이 쿼드의 2/3 만 쓴다 — 나머지가 파동·헤일로의 여유
 export const QUAD_K = SIL_FIT_REF / SIL_FIT;
+
+/** 존 원의 글리프는 발형보다 조금 크다 — 원은 실루엣이 글자를 안 받쳐 줘서 같은 비율이면
+ *  발형보다 작아 보인다. 몇 % 키우는 것이 기본 원칙(유저 확정). */
+export const ZONE_GLYPH_K = 1.18;
 
 // ── 마크 안 숫자(글리프 오버레이) 규약 — FX Lab drawMarkNumOn 정본 수치 ──
 export const MARK_NUM = {
@@ -364,14 +368,15 @@ float plantar(vec2 pQ, float sdIn, float sd){
   vec2 p = pQ / max(uSilFit, 0.05);
   float blob;
   if (uShape < 0.5) {                       // 존 원 — 해부학이 없다. 중심 압력 + 약한 비대칭.
-    float r = length(p) / max(0.46 * uRadius, 1e-3);
+    float r = length(p) / max(0.46 * uRadius, 1e-3);   // p 는 이미 uSilFit 로 되돌려 읽은 좌표
     return clamp(1.0 - r * r * 0.92, 0.0, 1.0);
   }
   // 압력장은 **신발 전체**에 깔린다. 자국 깊이만 쓰면 자국 바깥(신발 안)이 전부 압력 0 =
   //   최저 대역으로 깔려서 그라디언트가 실루엣의 일부만 덮는다(유저 지적).
   //   겉(신발) 깊이가 바탕이고, 자국 안쪽이 실제 접지라 그 위에서 압력이 올라간다.
-  float dShoe = clamp(-sd / 0.30, 0.0, 1.0);
-  float dFoot = clamp(-sdIn / 0.13, 0.0, 1.0);
+  float sfd = max(uSilFit, 0.05);   // 깊이 램프도 실루엣 축척을 따라간다
+  float dShoe = clamp(-sd / (0.30 * sfd), 0.0, 1.0);
+  float dFoot = clamp(-sdIn / (0.13 * sfd), 0.0, 1.0);
   float depth = dShoe * (0.42 + 0.58 * dFoot);
   // 해부학 핫스팟: 앞꿈치 볼(최대) · 뒤꿈치(중간) · 엄지(부분). 레퍼런스의 적/황 자리.
   vec2 b = (p - vec2(0.02, 0.30)) / vec2(0.34, 0.20);  float ball = exp(-dot(b, b));
@@ -433,7 +438,9 @@ float mkUndul(float ang, float t){
 }
 // 일반화 부호 거리 — 존 원 / 발형이 같은 상태 머신을 공유 (1.9922 = float SDF 디코드 정본 계수)
 float mkSD(vec2 p, float u1){
-  if (uShape < 0.5) return length(p) * (1.0 + u1 * uNoise * 0.04) - 0.46 * uRadius;
+  // ★ 존 원은 SDF 가 아니라 **해석적 원**이라 채움비를 자동으로 안 따라간다. uSilFit 을 안 곱하면
+  //   평면만 QUAD_K 배로 커지고 원은 그대로여서 원이 1.5배로 부푼다(유저: 원형이 과하게 커졌다).
+  if (uShape < 0.5) return length(p) * (1.0 + u1 * uNoise * 0.04) - 0.46 * uRadius * max(uSilFit, 0.05);
   vec2 suv = p * 0.5 + 0.5;
   return texture2D(uSDF2, vec2(suv.x, 1.0 - suv.y)).r * 1.9922 / max(uRadius, 0.3) + u1 * uNoise * 0.02;
 }
@@ -542,7 +549,7 @@ vec4 markState(vec2 uv, float state, float prog, float strong, float t){
   float dashM = (uContract > 0.5 && uContract < 1.5)
               ? smoothstep(0.30, 0.60, 0.5 + 0.5 * sin(ang * 10.0)) : 1.0;
   float sf = max(uSilFit, 0.05);
-  float ext = uShape < 0.5 ? 0.46 * uRadius : 0.72 * sf;
+  float ext = (uShape < 0.5 ? 0.46 * uRadius : 0.72) * sf;
   vec2 gcBall = uShape < 0.5 ? vec2(0.0) : vec2(0.0, 0.20) * sf;
   vec2 gcHeel = uShape < 0.5 ? vec2(0.0, -0.5 * ext) : vec2(0.0, -0.32) * sf;
   vec4 A = vec4(0.0);
@@ -595,8 +602,6 @@ vec4 markState(vec2 uv, float state, float prog, float strong, float t){
     // 라이브에서도 같은 비율. 원거리 앨리어싱만 fwidth 하한.
     float rimW = max(0.03 * uW, 1.5 * fw);
     // 림 단면을 선형 컷 → 가우시안으로. 예전엔 폭 끝에서 값이 뚝 끊겨 '칼로 자른 모서리'로 보였다.
-    float rn  = distToRim / max(rimW, 1e-5);
-    float rim = exp(-rn * rn * 1.6) * dashM;
     float angDist = a01 - pr; angDist -= floor(angDist + 0.5);   // 랩어라운드 제거
     // 선단 앞은 빠르게 꺼지고 뒤(지나온 쪽)는 길게 남는다 — 대칭 페이드는 양끝이 똑같이 잘린다.
     // 선단은 부드럽게 꺼지고, **시작점(a01=0)** 도 페이드한다 — 예전엔 시작에 페이드가 아예 없어
@@ -604,6 +609,11 @@ vec4 markState(vec2 uv, float state, float prog, float strong, float t){
     // 양끝 페이드를 길게 — 27도(0.075)면 민트에서 빨강으로 급히 갈아타 칼금으로 보인다(유저).
     //   시작 72도(0.20) · 선단 120도(0.34)에 걸쳐 풀면 어디서 시작하고 끝나는지가 안 보인다.
     float pgo = smoothstep(0.34, 0.04, angDist) * smoothstep(0.0, 0.20, a01) * smoothstep(0.0, 0.03, pr);
+    // ★ 끝을 뾰족하게 만드는 진짜 방법은 알파가 아니라 **폭**이다 — 폭이 일정한 띠는 알파를 아무리
+    //   부드럽게 줄여도 '가늘어지지 않고 흐려지기만' 해서 잘린 끝으로 읽힌다(유저 반복 지적).
+    //   양끝에서 림을 가늘게 좁히면 혜성 꼬리처럼 자연히 사라진다.
+    float rn  = distToRim / max(rimW * mix(0.18, 1.0, pgo), 1e-5);
+    float rim = exp(-rn * rn * 1.6) * dashM;
     // 아크 색도 LUT — 지나온 쪽이 식고 선단이 뜨겁다(필과 같은 온도 언어)
     // 진행은 **밝기**로 읽힌다 — 붉은 필 위에 붉은 아크를 얹으면 대비가 안 난다.
     //   지나온 쪽이 LUT 상단(민트)이고 아직인 쪽은 무채 트랙이다.
@@ -673,8 +683,9 @@ vec4 markState(vec2 uv, float state, float prog, float strong, float t){
     // 아웃라인 선명도 — uImpSharp 1 이면 AA 를 화면 최소폭까지 조여 '깔끔하게 잘린' 경계가 된다.
     // 무름 범위를 크게 넓힌다 — 예전엔 sharp 0.75 에서 계수가 1 이라 사실상 1픽셀 칼금이었다(유저).
     //   경계를 sd 단위로도 풀어야 확대해도 부드럽다: 화면 AA 만으로는 항상 1px 경계다.
+    float sfi = max(uSilFit, 0.05);
     float aaI  = max(max(fwidth(sdIn) * mix(3.4, 0.9, clamp(uImpSharp, 0.0, 1.0)),
-                         mix(0.055, 0.004, clamp(uImpSharp, 0.0, 1.0))), 0.0015);
+                         mix(0.055, 0.004, clamp(uImpSharp, 0.0, 1.0)) * sfi), 0.0015);
     float inIn = smoothstep(aaI, -aaI, sdIn) * inside;   // 신발 안 ∩ 맨발 안
     float pit  = max(uImpPitch, 0.008);
     // 도트 격자 — 프로토타입 foot-*-dots.svg 규약: 정사각 격자, 점 지름 = 피치의 50%
@@ -688,7 +699,7 @@ vec4 markState(vec2 uv, float state, float prog, float strong, float t){
     // 자국 안쪽 깊이 — 가장자리는 옅고 안으로 갈수록 또렷(프린트 잉크가 고인 느낌).
     //   전면 균일하게 찍으면 도트가 실루엣을 무시하고 격자만 보인다.
     //   선명하게 갈수록 램프도 같이 좁아져야 한다 — 안 그러면 경계만 또렷하고 안쪽이 무르다.
-    float depR = mix(0.185, 0.018, clamp(uImpSharp, 0.0, 1.0));
+    float depR = mix(0.185, 0.018, clamp(uImpSharp, 0.0, 1.0)) * sfi;
     float dep = smoothstep(0.0, depR, -sdIn);
     // 가장자리에서 0.34 로 남으면 도트 영역이 그 밝기로 뚝 끊긴다 — 0 까지 내려 배경과 어우러지게.
     lay(A, C_CREAM, inIn * dotM * uImp * (0.06 + 0.94 * dep));

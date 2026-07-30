@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { NUM, PAL, NEU, rgba } from './palette.js';
 import { WALL_Z } from './scene.js';
 import { getLUT, FXP, FX_GLSL, GLYPHS, drawGlyph, lutColor, footSDFTexture, warnSDFTexture } from './fxlut.js';
-import { MARK_NUM, MARK_GLSL, drawStemArrow, SIL_FIT, SIL_FIT_REF, QUAD_K } from './fx-core.js';
+import { MARK_NUM, MARK_GLSL, drawStemArrow, SIL_FIT, SIL_FIT_REF, QUAD_K, ZONE_GLYPH_K } from './fx-core.js';
 
 // ── MARK 파동 셰이더 (FX Lab 이식) — 재료는 열 하나, 상태는 파동의 위상 ──
 const MARKFX_VERT = `
@@ -242,6 +242,7 @@ export function makeLaneFXMaterial(lenM) {
   return mat;
 }
 
+const SF = SIL_FIT / SIL_FIT_REF;   // uv 단위 거리 스케일 — 실루엣 채움비를 따라간다
 export function makeMarkFXMaterial(footTex = null) {
   const mat = new THREE.ShaderMaterial({
     vertexShader: MARKFX_VERT,
@@ -262,24 +263,26 @@ export function makeMarkFXMaterial(footTex = null) {
       //   uImpScale·uImpOff: footlab.html '자동 맞춤'이 계측한 값. 0.840 / (−0.060, −0.010) 에서
       //   좌·우발 모두 자국이 신발 밖으로 나간 면적 **0.00%** (그 위로는 엄지발가락이 삐져나온다 —
       //   신발 발가락 박스가 맨발 엄지보다 좁다). 눈으로 더듬지 말고 랩에서 다시 재서 옮길 것.
-      uImp: { value: footTex ? 1.0 : 0.0 }, uImpPitch: { value: 0.027 }, uImpDot: { value: 0.25 },
+      // ★ uv 단위 거리값은 전부 SF 배 — 실루엣이 쿼드에서 작아진 만큼 같이 좁아져야 비율이 유지된다.
+      //   (안 맞추면 도트가 굵어지고 핫스팟이 퍼져 다른 그림이 된다.)
+      uImp: { value: footTex ? 1.0 : 0.0 }, uImpPitch: { value: 0.027 * SF }, uImpDot: { value: 0.25 },
       // 경계는 이너 섀도우가 만든다(유저 확정) — 윤곽 글로우는 기본 0, 필요할 때만 켠다.
       uImpGlow: { value: 0.0 }, uImpShade: { value: 0.55 }, uImpSharp: { value: 0.22 },
       uImpShadeCol: { value: 0 },   // 0 흰 — 프로토타입 foot-*-dots.svg 의 white inner shadow 규약
-      uImpEdge: { value: 0.058 }, uImpScale: { value: 0.840 },
+      uImpEdge: { value: 0.058 * SF }, uImpScale: { value: 0.840 },
       uImpRot: { value: 0 },   // 각인 기울기(rad) — 오른발은 미러라 부호가 뒤집힌다
       uImpCtr: { value: new THREE.Vector2(
         footTex ? (footTex._inCx ?? 0.5) * 2 - 1 : 0,
         footTex ? 1 - (footTex._inCy ?? 0.5) * 2 : 0) },
       // 미세 이동 — x 는 좌우 미러라 오른발에서 부호가 뒤집힌다(실루엣이 미러이므로 오프셋도 미러).
-      uImpOff: { value: new THREE.Vector2(footTex?._right ? 0.060 : -0.060, -0.010) },
+      uImpOff: { value: new THREE.Vector2((footTex?._right ? 0.060 : -0.060) * SF, -0.010 * SF) },
       // 파동 — 실루엣 등거리선을 따라 바깥으로. 기본값은 '은은하게' 쪽으로 잡았다:
       //   reach 0.34(쿼드 반폭의 1/3만 나간다) · width 0.09(한 겹) · speed 0.45(느리게).
       //   예전 원형 파장이 과하게 크고 쨍하다는 지적의 실체는 '너무 멀리 · 너무 세게'였다.
-      uRip: { value: 0.55 }, uRipSpeed: { value: 0.45 }, uRipWidth: { value: 0.09 }, uRipReach: { value: 0.34 },
+      uRip: { value: 0.55 }, uRipSpeed: { value: 0.45 }, uRipWidth: { value: 0.09 * SF }, uRipReach: { value: 0.34 * SF },
       // 족저 압력장·등고선 — 색을 정하는 입력을 '중심거리'에서 '압력'으로 바꾼다(유저 레퍼런스: 압력맵)
       // 압력 램프(데이터 계열) · 아웃라인 폐기 후 형태를 잡는 이너 섀도우 · 필 소프트 엣지
-      uEdgeShade: { value: 0.55 }, uEdgeW: { value: 0.085 }, uEdgeSoft: { value: 0.75 },
+      uEdgeShade: { value: 0.55 }, uEdgeW: { value: 0.085 * SF }, uEdgeSoft: { value: 0.75 },
       uDither: { value: 0.010 },   // LUT 8비트 밴딩 제거 — 조회 좌표를 1단계 미만 흔든다
       // uSilFit: SDF 베이크 채움비 / 기준치(0.78). 1 = 지금 그대로. 낮추면 실루엣이 쿼드에서
       //   작아져 파동·헤일로가 쓸 여유가 생긴다(호스트가 평면을 같은 배수로 키워 실제 크기 유지).
@@ -349,7 +352,7 @@ export function setFPView(on) { FP_VIEW = !!on; }
 //   이걸 낮추면 실루엣이 쿼드 안에서 작아지고 **남는 자리가 파동·헤일로의 여유**가 된다.
 //   유저 신고: 파동이 위아래로 잘려 좌우만 보인다 — 발이 세로로 길어 쿼드 여유가 0.10 뿐이었다.
 //   실제 크기는 그대로다: 평면을 SIL_FIT_REF/SIL_FIT 배로 키워 상쇄한다.
-export { SIL_FIT, SIL_FIT_REF, QUAD_K } from './fx-core.js';
+export { SIL_FIT, SIL_FIT_REF, QUAD_K, ZONE_GLYPH_K } from './fx-core.js';
 
 export const FOOT_LEN_M = 0.26;
 /** 실루엣이 평면에서 차지하는 세로 비율 — 정본 SVG 4종 실측(신발 0.7266 · 맨발 0.7285) */
@@ -571,7 +574,8 @@ export class Marker {
       map: makeNumberTexture(n), transparent: true, depthWrite: false,
     });
     // 크기 = FX Lab 규약: 글리프 = 쿼드(radius*2.78)의 MARK_NUM.RATIO배, 텍스처 채움률 0.75 보정
-    const numS = this.radius * 2.78 * MARK_NUM.RATIO / 0.75;
+    // 존 원은 실루엣이 글자를 안 받쳐 줘서 같은 비율이면 발형보다 작아 보인다 — ZONE_GLYPH_K 로 보정.
+    const numS = this.radius * 2.78 * MARK_NUM.RATIO / 0.75 * (this._isFoot ? 1 : ZONE_GLYPH_K);
     this.num = new THREE.Mesh(new THREE.PlaneGeometry(numS, numS), m);
     this.num.position.z = 0.004;
     // 하프톤 스킨이 켜지면 이 텍스처로 점을 빼 '구멍'을 만든다(오버레이 대신).

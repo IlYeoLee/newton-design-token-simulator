@@ -174,7 +174,7 @@
 <script type="module">
 'use strict';
 import * as THREE from 'three';
-import { makeMarkFXMaterial, QUAD_K } from './src/tokens.js';
+import { makeMarkFXMaterial, QUAD_K, ZONE_GLYPH_K, SIL_FIT, SIL_FIT_REF } from './src/tokens.js';
 import { FXP, GLYPHS, DEFAULT_GLYPHS, footSlot, footSDFTexture, drawNumber, getLUT, ensureOffBit } from './src/fxlut.js';
 import { MARK_NUM, SDF_DECODE } from './src/fx-core.js';
 
@@ -196,6 +196,7 @@ const DEF = { imp: 1.0, scale: 0.84, offx: -0.06, offy: -0.01, irot: 0, pitch: 0
 const P = { ...DEF };
 let side = 'left', ctx = 'out', bg = 'day', showNum = 1, showOv = 0, floorKind = 'track';
 
+const SF = SIL_FIT / SIL_FIT_REF;   // uv 단위 거리 스케일(정본과 동일)
 const $ = id => document.getElementById(id);
 const KEYS = ['imp','scale','offx','offy','irot','pitch','dot','glow','shade','sharp','edge',
               'w','halo','pool','noise','prog','tilt','bloom','blur',
@@ -330,7 +331,9 @@ const heroOff = OFF($('hero')), stripOff = OFF($('strip'));
 const HERO = mk(heroOff), STRIP = mk(stripOff);
 const rHero = HERO.r, rStrip = STRIP.r;
 // 글로우 여백 — 프러스텀을 쿼드(±1)보다 넉넉히 잡아야 헤일로가 타일 경계에서 안 잘린다.
-const VIEW = 1.28;
+// 프러스텀도 채움비를 따라간다 — 실루엣이 쿼드에서 작아진 만큼 줌인해야 **화면 크기가 유지**된다.
+//   이걸 안 맞춰서 채움비를 낮췄을 때 발만 작아 보였다(유저: 갑자기 개 작아졌어).
+const VIEW = 1.28 * (SIL_FIT / SIL_FIT_REF);
 const cam = new THREE.OrthographicCamera(-VIEW, VIEW, VIEW, -VIEW, 0.1, 10); cam.position.z = 2;
 /** 셀 종횡비에 맞춰 프러스텀 — 안 맞추면 발이 늘어난다(세로 셀에서 특히) */
 function aim(aspect) {
@@ -470,7 +473,8 @@ function makeUnit(kind) {   // 'foot' | 'zone'
   if (showNum) {
     // 글리프 = MARK_NUM 규약 그대로: 크기 = 쿼드 × RATIO/0.75, 앵커는 표현형이 정한다.
     //   발형 = 맨발 자국 무게중심(깔창 프린트의 글자 자리) · 원형 = 정중앙.
-    const S = 2 * MARK_NUM.RATIO / 0.75 * P.gsize;
+    // 존 원은 ZONE_GLYPH_K 만큼 더 크다(정본 규약과 같은 상수)
+    const S = 2 * MARK_NUM.RATIO / 0.75 * P.gsize * SF * (kind === 'zone' ? ZONE_GLYPH_K : 1);
     const label = kind === 'foot' && side === 'right' ? ($('gR').value || '2') : ($('gL').value || '1');
     const off = kind === 'foot'
       ? MARK_NUM.anchor({ x: tx._inCx ?? 0.5, y: tx._inCy ?? 0.42, s: 1 }, side === 'right', 2)
@@ -484,7 +488,7 @@ function makeUnit(kind) {   // 'foot' | 'zone'
     //   발형은 오른발이 미러라 x·회전 부호가 뒤집힌다(슬라이더는 해부학 기준).
     const isFoot = kind === 'foot';
     const mir = isFoot && side === 'right' ? -1 : 1;
-    num.position.set(off.x + (isFoot ? P.gx * mir : 0), off.y + (isFoot ? P.gy : 0), 0.01);
+    num.position.set(off.x + (isFoot ? P.gx * mir * SF : 0), off.y + (isFoot ? P.gy * SF : 0), 0.01);
     num.rotation.z = (isFoot ? P.grot * mir : 0) * Math.PI / 180;
     pl.add(num);
   }
@@ -507,20 +511,20 @@ function feed(u, ph, prog, t, mode) {
   U.uPhase.value = ph; U.uProg.value = prog; U.uTime.value = t;
   U.uW.value = P.w; U.uHalo.value = P.halo; U.uPool.value = P.pool; U.uNoise.value = P.noise;
   // 파동은 표현형과 무관하게 같은 값 — 이게 '한 디자인 시스템'의 실체다
-  U.uRip.value = P.rip; U.uRipReach.value = P.ripReach;
-  U.uRipWidth.value = P.ripWidth; U.uRipSpeed.value = P.ripSpeed;
+  U.uRip.value = P.rip; U.uRipReach.value = P.ripReach * SF;
+  U.uRipWidth.value = P.ripWidth * SF; U.uRipSpeed.value = P.ripSpeed;
   U.uRipCol.value = ripCol; U.uRipGrad.value = P.ripGrad;
   U.uPlantar.value = P.plantar; U.uBands.value = P.bands; U.uBandSoft.value = P.bandSoft;
   U.uEdgeShade.value = P.edgeShade;
-  U.uEdgeW.value = P.edgeW; U.uEdgeSoft.value = P.edgeSoft; U.uDither.value = P.dither;
+  U.uEdgeW.value = P.edgeW * SF; U.uEdgeSoft.value = P.edgeSoft; U.uDither.value = P.dither;
   matMode(u.mat, mode);
   if (u.kind === 'foot') {
-    U.uImp.value = P.imp; U.uImpPitch.value = P.pitch; U.uImpDot.value = P.dot;
-    U.uImpGlow.value = P.glow; U.uImpEdge.value = P.edge; U.uImpScale.value = P.scale;
+    U.uImp.value = P.imp; U.uImpPitch.value = P.pitch * SF; U.uImpDot.value = P.dot;
+    U.uImpGlow.value = P.glow; U.uImpEdge.value = P.edge * SF; U.uImpScale.value = P.scale;
     U.uImpShade.value = P.shade; U.uImpSharp.value = P.sharp; U.uImpShadeCol.value = shadeCol;
     // 오른발은 실루엣이 미러라 오프셋 x 도 미러 — 슬라이더가 '해부학적으로' 같은 방향을 뜻하게
     // 오른발은 실루엣이 미러라 이동 x·기울기 부호도 미러 — 슬라이더가 '해부학적으로' 같은 뜻이게
-    U.uImpOff.value.set(side === 'right' ? -P.offx : P.offx, P.offy);
+    U.uImpOff.value.set((side === 'right' ? -P.offx : P.offx) * SF, P.offy * SF);
     U.uImpRot.value = (side === 'right' ? -P.irot : P.irot) * Math.PI / 180;
     u.plane.rotation.z = (side === 'left' ? P.tilt : -P.tilt) * Math.PI / 180;
   }
@@ -732,18 +736,18 @@ function composite() {
       const U = wm.m.uniforms;
       U.uPhase.value = seq[i].ph; U.uProg.value = progFor(seq[i].ph, t); U.uTime.value = t;
       matMode(wm.m, mode);
-      U.uImp.value = P.imp; U.uImpPitch.value = P.pitch; U.uImpDot.value = P.dot;
-      U.uImpGlow.value = P.glow; U.uImpEdge.value = P.edge; U.uImpScale.value = P.scale;
+      U.uImp.value = P.imp; U.uImpPitch.value = P.pitch * SF; U.uImpDot.value = P.dot;
+      U.uImpGlow.value = P.glow; U.uImpEdge.value = P.edge * SF; U.uImpScale.value = P.scale;
     U.uImpShade.value = P.shade; U.uImpSharp.value = P.sharp; U.uImpShadeCol.value = shadeCol;
-      U.uImpOff.value.set(wm.side === 'right' ? -P.offx : P.offx, P.offy);
+      U.uImpOff.value.set((wm.side === 'right' ? -P.offx : P.offx) * SF, P.offy * SF);
       U.uImpRot.value = (wm.side === 'right' ? -P.irot : P.irot) * Math.PI / 180;
       U.uW.value = P.w; U.uHalo.value = P.halo; U.uPool.value = P.pool; U.uNoise.value = P.noise;
-      U.uRip.value = P.rip; U.uRipReach.value = P.ripReach;
-      U.uRipWidth.value = P.ripWidth; U.uRipSpeed.value = P.ripSpeed;
+      U.uRip.value = P.rip; U.uRipReach.value = P.ripReach * SF;
+      U.uRipWidth.value = P.ripWidth * SF; U.uRipSpeed.value = P.ripSpeed;
   U.uRipCol.value = ripCol; U.uRipGrad.value = P.ripGrad;
   U.uPlantar.value = P.plantar; U.uBands.value = P.bands; U.uBandSoft.value = P.bandSoft;
   U.uEdgeShade.value = P.edgeShade;
-  U.uEdgeW.value = P.edgeW; U.uEdgeSoft.value = P.edgeSoft; U.uDither.value = P.dither;
+  U.uEdgeW.value = P.edgeW * SF; U.uEdgeSoft.value = P.edgeSoft; U.uDither.value = P.dither;
       if (!wm.zone) wm.mesh.rotation.z = (wm.side === 'left' ? P.tilt : -P.tilt) * Math.PI / 180;
     });
     rComp.render(walkScene, compCam);
