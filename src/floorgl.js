@@ -878,64 +878,51 @@ export class FloorGL {
     // 크리에이터 얼굴 = pyeongso .creator-profile 의 아바타만(×3.0, 303px + 흰 테두리 6).
     //   캡션('Running Creator · 240K')·이름 칩은 폐기 — 시작 직전에 필요한 건 '누구 팩인가'
     //   하나뿐이고 그건 얼굴이 말한다. 이름은 제목이 "Sean's …"로 이미 말하고 있었다(유저: 정보 과다).
-    // ── 팩 헤더 = 아바타 | 제목·요약 가로 2단 ────────────────────────────────
-    // 전엔 여덟 덩어리가 전부 중앙 1단으로 세로로 쌓였다. 대지는 1600 폭인데 콘텐츠는
-    // 가운데 800 만 쓰고 세로로만 길어져, 정보량에 비해 복잡해 보였다(유저: 그리드가 다 1단).
-    // 복싱 벽(wallgl)의 좌상단 팩 카드가 이미 이 가로 형태다 — 같은 시스템인데 지면만
-    // 1단에 갇혀 있었다. '누구의 무슨 팩'을 한 덩어리로 묶으면 세로 400px 가 줄고,
-    // 아래 CTA 블록(중앙 1단)과 형태가 갈려 '확인하는 곳 / 행동하는 곳'이 구분된다.
+    // ── 팩 헤더 = 아바타 / 제목 / 요약 (중앙 1단) ─────────────────────────────
+    // 가로 2단을 시도했다가 되돌렸다(유저). 세로 400px 은 줄었지만 그게 나아진 게
+    // 아니었다 — 문제는 '길다'가 아니라 '요소가 많다'였는데 배치만 바꿨다.
+    // 게다가 아바타를 303 → 200 으로 줄이니 얼굴이 크지도 작지도 않게 애매해졌고,
+    // 왼쪽 정렬 덩어리를 중앙 정렬로 띄워 어느 축에도 안 맞았다(아래 칩·CTA는 정중앙).
+    // 실제로 효과가 있었던 건 배치가 아니라 'with the Wearable on' 을 뺀 쪽이었다.
     {
       const bk = /floor-bk/.test(this.params.src);
       const pk = this._img(bk ? 'photos/cardbg-curry.png' : 'photos/creator-profile-sean.png');
-      const AVD = 200, R = AVD / 2, GAPX = 36, ROWY = 330;   // 아바타 303 → 200: 68 제목과 무게를 맞춘다
-      // 글자 폭을 먼저 재서 (아바타 + 간격 + 글자) 덩어리를 통째로 중앙 정렬한다
-      ctx.font = F(700, 68); ctx.letterSpacing = '-2.3px';
-      const tw = ctx.measureText(D.title).width;
-      ctx.font = F(400, 46); ctx.letterSpacing = '-1.4px';
-      const sw = ctx.measureText(D.today).width;
-      ctx.letterSpacing = '0px';
-      const textW = Math.max(tw, sw), rowW = AVD + GAPX + textW;
-      const gx = CX - rowW / 2, avCx = gx + R, tx = gx + AVD + GAPX;
-      const blockH = 68 * 1.2 + 8 + 46 * 1.2;
-      const tTop = ROWY + (AVD - blockH) / 2;
-
-      ctx.save(); this._fadeIn(ROWY, AVD, eOut(intro(t, .12, .8)));
-      ctx.beginPath(); ctx.arc(avCx, ROWY + R, R - 3, 0, Math.PI * 2); ctx.clip();
+      const R = 151, py = 250;   // 아바타 303px — 원래 크기
+      ctx.save(); this._fadeIn(py, 303, eOut(intro(t, .12, .8)));
+      ctx.beginPath(); ctx.arc(CX, py + R, R - 3, 0, Math.PI * 2); ctx.clip();
       if (pk) {
         const sc = Math.max(2 * (R - 3) / pk.naturalWidth, 2 * (R - 3) / pk.naturalHeight);
-        ctx.drawImage(pk, avCx - pk.naturalWidth * sc / 2, ROWY + R - pk.naturalHeight * sc / 2,
+        ctx.drawImage(pk, CX - pk.naturalWidth * sc / 2, py + R - pk.naturalHeight * sc / 2,
                       pk.naturalWidth * sc, pk.naturalHeight * sc);
-      } else { ctx.fillStyle = 'rgba(255,255,255,.14)'; ctx.fillRect(avCx - R, ROWY, AVD, AVD); }
+      } else { ctx.fillStyle = 'rgba(255,255,255,.14)'; ctx.fillRect(CX - R, py, 2 * R, 2 * R); }
       ctx.restore();
-      ctx.save(); this._fadeIn(ROWY, AVD, eOut(intro(t, .12, .8)));
+      ctx.save(); this._fadeIn(py, 303, eOut(intro(t, .12, .8)));
       ctx.strokeStyle = '#fff'; ctx.lineWidth = 6;
-      ctx.beginPath(); ctx.arc(avCx, ROWY + R, R - 3, 0, Math.PI * 2); ctx.stroke();
-      ctx.restore();
-
-      // 제목 — 2순위. 120·흰100% 이던 것을 68·흰70% 로 내렸다. 아래 CTA(88·흰100%)와
-      //   1.36배 차이뿐인데 CTA 쪽엔 화살표·발까지 붙어 1순위가 2순위처럼 읽혔다.
-      //   글자 웨이브 charLoop 3s ×3, 글자마다 .09s 지연은 유지.
-      ctx.fillStyle = 'rgba(255,255,255,.7)'; ctx.font = F(700, 68);
-      drawChars(ctx, D.title, tx, tTop, 68, -2.3, i => {
-        const p = cycle(t, i * 0.09, 3, 3);
-        return p == null ? { dy: 0, alpha: 1, scale: 1 } : {
-          dy: kf(p, [[0, 0], [.12, -16], [.26, 0], [.58, 0], [1, 0]]),
-          alpha: kf(p, [[0, .85], [.12, 1], [.26, 1], [.58, .85], [1, .85]]), scale: 1,
-        };
-      }, 'left');
-      // 오늘 뭘 하나 = 셋업 5화면의 결과 한 줄 요약. 시작 화면은 '설정'이 아니라 '확인'이라,
-      //   방금 정하고 온 걸 다시 다 보여주면 설정 화면 반복이다.
-      ctx.save(); this._fadeIn(tTop, blockH, eOut(intro(t, .4, .8)));
-      ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-      ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.font = F(400, 46); ctx.letterSpacing = '-1.4px';
-      ctx.fillText(D.today, tx, tTop + 68 * 1.2 + 8);
-      ctx.letterSpacing = '0px';
+      ctx.beginPath(); ctx.arc(CX, py + R, R - 3, 0, Math.PI * 2); ctx.stroke();
       ctx.restore();
     }
+    // 제목 — 2순위. 120·흰100% 이던 것을 68·흰70% 로 내렸다. 아래 CTA(88·흰100%)와
+    //   1.36배 차이뿐인데 CTA 쪽엔 화살표·발까지 붙어 1순위가 2순위처럼 읽혔다.
+    //   '무슨 팩인가'는 이 화면에 반드시 보여야 한다(유저) — 크기만 낮추고 존치한다.
+    ctx.fillStyle = 'rgba(255,255,255,.7)'; ctx.font = F(700, 68);
+    drawChars(ctx, D.title, CX, 620, 68, -2.3, i => {
+      const p = cycle(t, i * 0.09, 3, 3);
+      return p == null ? { dy: 0, alpha: 1, scale: 1 } : {
+        dy: kf(p, [[0, 0], [.12, -16], [.26, 0], [.58, 0], [1, 0]]),
+        alpha: kf(p, [[0, .85], [.12, 1], [.26, 1], [.58, .85], [1, .85]]), scale: 1,
+      };
+    });
+    // 오늘 뭘 하나 = 셋업 5화면의 결과 한 줄 요약.
+    ctx.save(); this._fadeIn(730, 62, eOut(intro(t, .4, .8)));
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.font = F(400, 46); ctx.letterSpacing = '-1.4px';
+    ctx.fillText(D.today, CX, 730);
+    ctx.letterSpacing = '0px';
+    ctx.restore();
     // 기기 연결 = 운동 전 필수 체크(유저) — 컨디션과 다른 정보라 상태 줄에 섞지 않고 CTA 바로 위.
-    // 헤더가 가로 2단이 되며 위쪽이 짧아졌다. 칩을 900 → 600 으로 올려 정보 블록을 한 덩어리로
-    //   붙인다. 900 에 두면 아래 글로우(중심 1400) 윗부분과 겹쳐 붙어 보였다.
-    const CY = 600;
+    // 세로 배치로 되돌리며 칩도 제자리로(구 900). 가로 2단일 때 600 으로 올렸던 값을 그대로
+    //   두면 제목(620)·요약(730)과 겹친다.
+    const CY = 830;
     ctx.save(); this._fadeIn(CY, 92, eOut(intro(t, .6, .8)));
     {
       // 아이콘 크기를 '높이' 기준으로 통일한다. 전엔 폭을 32/24/28 로 제각각 박아 종횡비가
