@@ -16,7 +16,7 @@ html,body{background:transparent}
   animation:glowLive 7s ease-in-out 3}
 
 /* 타이틀 — 글자 하나하나 루핑 웨이브 */
-.title{position:absolute;top:340px;left:0;right:0;text-align:center;white-space:nowrap;
+.title{position:absolute;top:620px;left:0;right:0;text-align:center;white-space:nowrap;
   font-weight:700;font-size:120px;line-height:1.1;letter-spacing:-4px}
 .title .ch{display:inline-block;will-change:transform,opacity;animation:charLoop 3s ease-in-out 3}
 .title .sp{display:inline-block;width:.26em}
@@ -26,7 +26,7 @@ html,body{background:transparent}
 
 /* 기기 연결 = 운동 전 필수 체크(유저) — .chip-row / .chip-sel (setup.css) 정본을 자기 줄로.
    '컨디션'과는 다른 정보라 상태 줄에 섞지 않고, 발 구르기 직전에 확인하는 조건이므로 CTA 바로 위. */
-.chips{position:absolute;top:940px;left:50%;transform:translateX(-50%);display:flex;gap:10px;
+.chips{position:absolute;top:800px;left:50%;transform:translateX(-50%);display:flex;gap:10px;
   opacity:0;animation:fadeUpCentered .8s cubic-bezier(.2,.75,.2,1) .6s both}
 .chip-sel{display:inline-flex;align-items:center;gap:10px;box-sizing:border-box;
   background:#fff;border:none;border-radius:355px;padding:15px 29px;
@@ -61,7 +61,7 @@ html,body{background:transparent}
 .strip{animation-name:fadeUpCentered}.hero{animation-name:fadeUpCentered}
 @keyframes fadeUpCentered{from{opacity:0;transform:translateX(-50%) translateY(52px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
 /* 타이틀 글자 웨이브(좌→우 루핑) */
-@keyframes charLoop{0%,58%,100%{opacity:.5;transform:translateY(0)}12%{opacity:1;transform:translateY(-16px)}26%{opacity:1;transform:translateY(0)}}
+@keyframes charLoop{0%,58%,100%{opacity:.85;transform:translateY(0)}12%{opacity:1;transform:translateY(-16px)}26%{opacity:1;transform:translateY(0)}}
 /* 프로그래스 차오름 */
 @keyframes fillRing{from{--p:0}to{--p:var(--pct)}}
 /* 발 탭(두 번, 또렷하게) — 3s 주기·큰 진폭 */

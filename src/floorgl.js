@@ -811,15 +811,15 @@ export class FloorGL {
     }
     // 타이틀 글자 웨이브 — charLoop 3s ×3, 글자마다 .09s 지연
     ctx.fillStyle = '#fff'; ctx.font = F(700, 120);
-    drawChars(ctx, D.title, CX, 340, 120, -4, i => {
+    drawChars(ctx, D.title, CX, 620, 120, -4, i => {
       const p = cycle(t, i * 0.09, 3, 3);
       return p == null ? { dy: 0, alpha: 1, scale: 1 } : {
         dy: kf(p, [[0, 0], [.12, -16], [.26, 0], [.58, 0], [1, 0]]),
-        alpha: kf(p, [[0, .5], [.12, 1], [.26, 1], [.58, .5], [1, .5]]), scale: 1,
+        alpha: kf(p, [[0, .85], [.12, 1], [.26, 1], [.58, .85], [1, .85]]), scale: 1,   // 최저 .5 → .85: 1순위인 제목이 회색으로 죽었다(유저)
       };
     });
     // 기기 연결 = 운동 전 필수 체크(유저) — 컨디션과 다른 정보라 상태 줄에 섞지 않고 CTA 바로 위.
-    ctx.save(); this._fadeIn(940, 92, eOut(intro(t, .6, .8)));
+    ctx.save(); this._fadeIn(800, 92, eOut(intro(t, .6, .8)));
     {
       const CHIP = [['run/ic_glasses.png', 32, '90%', true], ['run/ic_watch.png', 24, '30%', false],
                     ['run/ic_earbuds.png', 28, '60%', false]];
@@ -830,20 +830,20 @@ export class FloorGL {
       CHIP.forEach(([ic, iw, tx, sel], k) => {
         const w3 = chipW[k];
         if (sel) {
-          const g3 = ctx.createLinearGradient(0, 940, 0, 940 + CH2);
+          const g3 = ctx.createLinearGradient(0, 800, 0, 800 + CH2);
           g3.addColorStop(0.48, '#FA3030'); g3.addColorStop(0.776, '#FE6E3C'); g3.addColorStop(1, '#FEC389');
           ctx.fillStyle = g3;
         } else ctx.fillStyle = '#fff';
-        this._roundRectPath(bx, 940, w3, CH2, CH2 / 2); ctx.fill();
+        this._roundRectPath(bx, 800, w3, CH2, CH2 / 2); ctx.fill();
         const im = this._img(ic);
         if (im) {
           const ih = iw * (im.naturalHeight / im.naturalWidth);
           ctx.save(); ctx.filter = sel ? 'brightness(0) invert(1)' : 'brightness(0)';
-          ctx.drawImage(im, bx + CPAD, 940 + CH2 / 2 - ih / 2, iw, ih);
+          ctx.drawImage(im, bx + CPAD, 800 + CH2 / 2 - ih / 2, iw, ih);
           ctx.restore();
         }
         ctx.fillStyle = sel ? '#fff' : '#525252'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-        ctx.fillText(tx, bx + CPAD + iw + CICG, 940 + CH2 / 2 + 1);
+        ctx.fillText(tx, bx + CPAD + iw + CICG, 800 + CH2 / 2 + 1);
         ctx.textAlign = 'center'; ctx.textBaseline = 'top';
         bx += w3 + CGAP;
       });
