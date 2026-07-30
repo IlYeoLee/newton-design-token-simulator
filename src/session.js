@@ -256,7 +256,9 @@ function redrawFootNum(p, n) {
 // 발이 기울면 숫자도 통째로 기울고(구성 고정), 크기 = 랩 공식 140·radius·s/600,
 // 앵커 폴백 = 랩과 동일(실루엣 무게중심). (유저 원칙: 이식은 구성 고정 + 스케일만)
 function attachMarkNum(fm, label, right) {
-  const S = 0.46;   // FootMark 쿼드
+  const S = FOOT_PLANE_M;   // FootMark 쿼드 — 발 평면과 같은 출처여야 한다.
+  // 0.46 이 박혀 있었다. 발 평면이 FOOT_LEN_M 을 따라 줄어도 숫자만 옛 크기로 남아
+  // 발 밖으로 삐져나왔다(유저: '발 아래 안 뜨고 삐져나와 너무 크다').
   const p = floorNum(String(label), 0, 0, S * MARK_NUM.RATIO / 0.75 / 1.5, CS.ink).userData.plane;
   p._numRight = right;
   p._numFm = fm;
@@ -271,7 +273,7 @@ function placeMarkNum(p) {
   const tex = p._numFm._U.uSDF2.value;
   const a = (FXP.numFoot && FXP.numFoot[FXP.footCtx === 'in' ? 'in' : 'out'])
          || { x: tex?._cx ?? 0.5, y: tex?._cy ?? 0.42, s: 1 };
-  const off = MARK_NUM.anchor(a, p._numRight, 0.46);
+  const off = MARK_NUM.anchor(a, p._numRight, FOOT_PLANE_M);   // 앵커도 발 평면 기준 — 0.46 박혀 있었다
   p.position.set(off.x, off.y, 0.002);
   p.scale.setScalar((off.s || 1) * (FXP.mark.radius || 1));
 }

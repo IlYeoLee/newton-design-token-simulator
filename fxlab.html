@@ -231,6 +231,17 @@ const PRESETS = {
 // 워닝 느낌표 — 유저 제공 SVG(느낌표.svg) 내장 기본값. 전 유저 배포 고정값이라
 // 파일 업로드 없이도 항상 존재하도록 state.glyphs 기본값에 직접 심는다.
 const WARN_EXCL_SVG = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjExIiBoZWlnaHQ9IjYxMSIgdmlld0JveD0iMCAwIDYxMSA2MTEiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxwYXRoIGQ9Ik0yODcuMjg5IDYyLjcxOTNDMzAwLjk3NiA2MC4xMDI2IDMyMS4xNDEgNzEuNDE5MyAzMzMuMjA3IDc2LjkxNjRDMzQxLjM3NSA4MC42MzkzIDM1My44MyA4NC44ODQ3IDM2MC4xMTkgOTAuOTk1QzM2OS41NCAxMDAuMjY1IDM2My40NDcgMTE1LjkzMiAzNTkuMTY3IDEyNi4wODVDMzUxLjQ5NyAxNDQuMjYyIDM0OC4wNjQgMTYyLjMxIDM0OS4wMDggMTgxLjk1NkMzNDkuNDU5IDE5MS4zODUgMzUwLjA0IDIwMS42MDUgMzQ4LjUgMjEwLjk5MkMzNDcuMTYyIDIxOS4xMjQgMzQzLjU1NSAyMjYuODU1IDM0MC4wOTYgMjM0LjMyOUMzMzMuMTA5IDI0OS4wNDEgMzMwLjA2NCAyNjEuNzA4IDMzMC40MDkgMjc3Ljk3OEMzMzAuODg5IDMwMC42MzggMzQzLjkyOSAzMTYuMzk0IDM0My4yOTcgMzM5LjI0NkMzNDIuOTExIDM1My4xODMgMzM5LjI1NiAzNjMuODgxIDMzNi45NDYgMzc3LjM4OEMzMzQuODY0IDM4OS41NTYgMzM0Ljg5NiA0MDIuNDUzIDMzMS4xOTQgNDE0LjI2NUMzMjkuNTcgNDE5LjQ0MyAzMjYuNzU0IDQyMy43NzMgMzIyLjc0MyA0MjcuNTExQzMwNS40MjMgNDM5LjExOSAyOTMuNTM4IDQyNS41NjYgMjg3LjIxMiA0MTAuMzMzQzI3NS4zMTIgMzgxLjY3NSAyOTIuNjQzIDM1My40NCAyODUuNjI1IDMyNi4yNDdDMjgwLjE5NiAzMDUuMjA3IDI1OC41ODQgMjg5LjcyMSAyNTYuMjU5IDI2NS41NDlDMjU0LjAzNiAyNDIuNDMgMjY2LjA1MSAyMjYuOTQ1IDI2Ni4yNzMgMjA0LjM2MUMyNjYuNDgxIDE3OS45MyAyNTQuNDY3IDE1Ny44OTcgMjUwLjE5MiAxMzQuMjQzQzI0Ny42OTcgMTIwLjQzNiAyNTAuOTc4IDExMS41OCAyNTUuNDQ1IDk4LjkyMjFDMjYxLjQ2OSA4MS44NTU0IDI2Ni40MTUgNjUuNzk3MiAyODcuMjg5IDYyLjcxOTNaIiBmaWxsPSJibGFjayIvPgo8cGF0aCBkPSJNMzEwLjAwNSA0NjMuMDg1QzMyMS43OTMgNDYyLjQ5NyAzMzAuNTg2IDQ2Ny45MTEgMzM2Ljc4MSA0NzcuODE3QzM0NC43MzMgNDkwLjUyOCAzNDkuNTY2IDUwNy4zOTUgMzQ2LjE5MiA1MjIuMjk2QzM0NC4yNzQgNTMwLjc1OSAzMzkuNjE5IDUzOS4yMjkgMzMyLjA0MiA1NDMuODkxQzMyMi43MSA1NDkuNTkgMzEzLjM1NSA1NDcuNjc0IDMwMy40NjcgNTQ1LjM4N0MyODcuMjA0IDU0MC4yMDkgMjY0LjE4NSA1NDAuNDA0IDI2Mi43MzYgNTE3Ljc0OUMyNjIuNTI1IDUxNC40NzMgMjYzLjAwNyA1MTEuMTg4IDI2NC4xNTIgNTA4LjEwN0MyNjYuMDY0IDUwMi44MjYgMjY5LjgzOSA0OTcuNzk4IDI3Mi41MDMgNDkyLjg0N0MyNzUuNTkzIDQ4Ny4wOTYgMjc3LjQ1MyA0ODAuNTMyIDI4MS44MTkgNDc1LjU1N0MyODguMjkgNDY4LjE4NiAzMDAuMzg3IDQ2My43MzIgMzEwLjAwNSA0NjMuMDg1WiIgZmlsbD0iYmxhY2siLz4KPC9zdmc+Cg==';
+// 글리프 이미지 캐시 — 정본 글리프가 기본값이 되면서 발형 SDF 초기화가 이 선언보다
+// 먼저 돌게 됐다(구 위치는 1289행, TDZ 로 랩이 통째로 죽었다). 사용처보다 앞에 둔다.
+const glyphImgCache = new Map();
+// 정본 글리프 — 시뮬(src/fxlut.js DEFAULT_GLYPHS)과 같은 파일을 본다. 랩은 상대경로.
+const DEFAULT_GLYPHS = (() => {
+  const g = 'ready-view/assets/glyphs/', m = {};
+  for (let i = 0; i <= 9; i++) m[String(i)] = `${g}num-${i}.svg`;
+  m.FOOT_IN_L = g + 'foot-in-l.svg';  m.FOOT_IN_R = g + 'foot-in-r.svg';
+  m.FOOT_OUT_L = g + 'foot-out-l.svg'; m.FOOT_OUT_R = g + 'foot-out-r.svg';
+  return m;
+})();
 const state = {
   stops: PRESETS['NEWTON Vivid'].stops.map(s => [...s]),
   sat: 1.0,          // 채도 — 0이면 완전 회색조 (OKLab a·b 스케일)
@@ -240,7 +251,10 @@ const state = {
   s: { bloomStrength: 0.55, bloomThreshold: 0.55, bloomRadius: 0.6, exposure: 1.0, grain: 0, vignette: 0.12 },
   p: { blur: 1.0, glow: 0, flow: 0.4, decay: 0.04, grain: 0.07, detail: 0.6, tone: 1 },   // 유저 확정 룩 = 공장 기본 (2026-07-18)
   footShape: 1, personMode: 0, burstStyle: 0, laneStyle: 0,
-  glyphs: { WARN_EXCL: WARN_EXCL_SVG },   // 슬롯별 커스텀 SVG — 저장·브리지 왕복 (규칙: ↑=전방, 발가락 위·뒤꿈치 아래)
+  // 슬롯별 커스텀 SVG — 저장·브리지 왕복 (규칙: ↑=전방, 발가락 위·뒤꿈치 아래)
+  // 숫자·발형은 저장소 정본(ready-view/assets/glyphs/)을 기본값으로 싣는다. 예전엔 랩에
+  // 업로드한 dataURL 만 있어서, 랩과 시뮬이 서로 다른 글리프를 보는 일이 생겼다.
+  glyphs: { WARN_EXCL: WARN_EXCL_SVG, ...DEFAULT_GLYPHS },
   glyphFlip: {},   // 슬롯별 상하 반전 (⌥+클릭)
   arrow: { line: 'solid', w: 1, speed: 1, gap: 1, glow: 1, heat: 0.5, tail: 0.55 },   // LINE 엔진 — 스타일·두께·흐름 속도·간격·글로우·온도·꼬리
   lane: { style: 'dash' },   // 레인 전용 스타일 (기본=대시 흐름 — 화살표와 분리)
@@ -1275,7 +1289,7 @@ let drawGlyphLib = function() {
   }
 };
 // ── 슬롯 교체형 SVG: 셀 클릭 = 그 글리프 자리에 SVG 첨부 / Shift+클릭 = 기본 복원 ──
-const glyphImgCache = new Map();
+// (선언은 DEFAULT_GLYPHS 위로 옮겼다 — 발형 SDF 초기화가 여기보다 먼저 돌아 TDZ 였다)
 let pendingSlot = null;
 for (const cv of glyphCells) {
   cv.style.cursor = 'pointer';
@@ -1750,7 +1764,9 @@ function applyExternalState(st) {
     for (const k of ['burstStyle', 'laneStyle', 'markShape', 'markForm', 'markContract'])
       if (st[k] != null) state[k] = st[k];
     if (st.glyphs && !Array.isArray(st.glyphs)) {
-      state.glyphs = { ...st.glyphs };
+      // 정본이 저장본을 이긴다 — 통째 교체였다. 그러면 랩만 낡은 dataURL 을 계속 보고
+      // 시뮬과 다른 글리프·비율을 보여준다(유저: '룩시스템에서는 바뀐 게 없다').
+      state.glyphs = { ...st.glyphs, ...DEFAULT_GLYPHS };
       if (state.glyphs.FOOT_L && !state.glyphs.FOOT_IN_L) state.glyphs.FOOT_IN_L = state.glyphs.FOOT_L;
       if (state.glyphs.FOOT_R && !state.glyphs.FOOT_IN_R) state.glyphs.FOOT_IN_R = state.glyphs.FOOT_R;
       if (!state.glyphs.TIP_TRI) { const alt = state.glyphs.TIP_CHEV || state.glyphs.TIP_DIA || state.glyphs.TIP_BAR; if (alt) state.glyphs.TIP_TRI = alt; }
