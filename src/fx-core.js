@@ -293,8 +293,9 @@ vec3 personLook(float thick, float lumS, float lumB, float mIn, float face){
   //   원래부터 양쪽이 같았다 — 차이는 '대역을 얼마나 쓰는가'였다.
   //   ⚠ 시도 1(기각) — 벽처럼 세로 그라디언트를 더했다. T 를 뽀얀 쪽으로만 밀어 더 창백해졌다:
   //     평균채도 0.592 → 0.568 (실측, sweep 0 → 0.8).
-  //   ⚠ 시도 2(아래 구현, 기본 0 으로 봉인) — 피벗 기준 양방향 대비 확장. 코어는 진해지고 말단은
-  //     뽀얘져 눈으로는 '더 쟁해 보이지만', 정량으로는 평균채도 0.593 → 0.584 로 역시 내려간다.
+  //   ⚠ 시도 2(아래 구현, 기본 0) — 피벗 기준 양방향 대비 확장. 평균채도는 0.593 → 0.584 로 내려가지만
+  //     국소 Δ색상은 0.581 → 0.748 (+29%) 로 올라간다. 즉 '평균 채도'가 아니라 '대비'를 벌리는 손잡이다.
+  //     처음에 이걸 뭉뚱그려 기각이라고 적었는데 부정확했다 — 용도가 다른 것이었다.
   //     이유: LUT 램프(RED #FA3030 → SAND #FEC389 → ICE)는 구간마다 채도가 비슷하다. T 를 어디로
   //     옮겨도 '색상'만 바뀌고 '채도'는 안 오른다 — 대역 확장은 채도 문제의 해법이 아니었다.
   //     실제로 채도를 올리는 손잡이는 uPSat 하나뿐이다(sat 1→2 에서 0.594 → 0.636 실측).
@@ -313,7 +314,27 @@ uniform float uRadius, uPool, uContract, uShape, uSeed;
 uniform sampler2D uSDF2, uSDFWarn;
 // 깔창 각인 — 겉(신발) 안에 찍히는 맨발 자국. uSDF2.g 가 그 실루엣의 SDF.
 //   uImp 0 = 완전 비활성(각인 도입 전과 픽셀 동일 — 안전한 롤백 지점)
-uniform float uImp, uImpPitch, uImpDot, uImpGlow, uImpEdge;
+//   uImpScale/uImpCtr: 자국을 무게중심 기준으로 축소해 깔창 여백을 만든다.
+//     실측(같은 550 프레임): 신발 184×373 / 맨발 157×374 — **세로 여백이 0**(맨발이 1px 더 길다).
+//     그래서 1:1 로 겹치면 발가락·뒤꿈치가 외곽선에 붙어 삐져나온 것으로 읽힌다.
+//     균일 침식(sd + inset)으로 줄이면 안 된다 — 발가락 같은 작은 덩이가 먼저 소멸한다.
+//     축소는 비율을 지키므로 발가락이 남는다.
+//   uImpOff: 미세 이동. 축소만으로는 안 되는 국소 불일치가 있다 — 실측: 신발 발가락 박스가
+//     맨발 엄지발가락보다 좁아서, 축소 0.93 에서도 **엄지 하나만** 외곽 밖으로 나갔다(8.5% 면적).
+//     좌우 미러는 x 부호를 뒤집어야 하므로 호스트가 오른발에서 x 를 반전해 주입한다.
+//   uImpRot: 각인 기울기(rad). 신발 실루엣과 맨발 자국은 원본에서 축이 미세하게 다르다 —
+//     크기·위치만으로는 안 맞는 자리가 남아서 회전이 따로 필요하다. 좌우 미러는 부호가 뒤집힌다.
+//   uImpShade: 자국 이너 섀도우 세기. 경계 **안쪽**에서 최대, 안으로 갈수록 사라진다.
+//     **빛을 빼서** 만들지 않는다 — 잉크 모드에서는 알파가 줄면 바닥이 비쳐 '밝은 선'이 되고,
+//     가산 모드에서는 애초에 뺄 수가 없다. 색을 얹어서 만든다(기본 흰색 = 프로토타입 규약).
+//   uImpSharp: 자국 아웃라인 선명도(0 무름 ~ 1 또렷). AA 폭과 도트 가장자리 페이드를 같이 조인다.
+//   uImpShadeCol · uRipCol: 팔레트 색 선택(0 흰 · 1 샌드 · 2 코랄 · 3 레드) — 새 색은 안 만든다.
+uniform float uImp, uImpPitch, uImpDot, uImpGlow, uImpEdge, uImpScale, uImpRot, uImpShade, uImpSharp, uImpShadeCol;
+uniform vec2 uImpCtr, uImpOff;
+// 파동(리플) — 실루엣 **등거리선**을 따라 퍼진다. uRip 0 = 도입 전과 픽셀 동일.
+//   유저 지적: 지금 파동이 단순 원형 파장이라 발자국 위에서 따로 놀고, 퍼짐이 과하거나 쨍하다.
+//   부호거리로 몰면 파면이 형태를 따라간다 — 발형은 발 모양, 원형은 원. 토큰이 늘어도 파동은 하나다.
+uniform float uRip, uRipSpeed, uRipWidth, uRipReach, uRipCol;
 // 색 = src/palette.js 단일 소스. 유채는 4색뿐(규칙 ①), 무채는 상태 부호(규칙 ②).
 //   은퇴: C_CREAM(#FEE2C6 — 팔레트에 없던 9번째 색) → SAND
 //         C_WINE·C_BRICK(암적) → SAND·CORAL  (유저: 워닝에 어두운색 금지)
@@ -329,6 +350,12 @@ uniform float uImp, uImpPitch, uImpDot, uImpGlow, uImpEdge;
 #define C_WINE  C_SAND
 #define C_BRICK C_CORAL
 #define C_EXCL  C_RED
+/** 팔레트 색 선택 — 유채는 4색뿐이라는 규칙(palette.js ①)을 셰이더에서도 그대로 강제한다.
+ *  0 흰(PRISM) · 1 샌드 · 2 코랄 · 3 레드. 인덱스 밖은 흰색으로 떨어진다.
+ *  ★ 반드시 위 #define C_* 뒤에 와야 한다 — 앞에 두면 색 상수가 아직 없어 셰이더가 통째로 죽는다. */
+vec3 palPick(float i){
+  return i < 0.5 ? C_ICE : i < 1.5 ? C_SAND : i < 2.5 ? C_CORAL : C_RED;
+}
 float mkUndul(float ang, float t){
   return sin(ang*2.0 + t*1.1)*0.45 + sin(ang*3.0 - t*0.73 + 1.7)*0.33 + sin(ang*5.0 + t*0.41 + 4.2)*0.22;
 }
@@ -341,8 +368,15 @@ float mkSD(vec2 p, float u1){
 // 안쪽(맨발 자국) 부호거리 — 겉과 **같은 프레임**에서 구운 G 채널이라 좌표 변환이 필요 없다.
 //   일렁임(u1)은 안 얹는다: 각인은 프린트라 겉 윤곽처럼 숨쉬면 '두 장이 따로 논다'로 읽힌다.
 float mkSDIn(vec2 p){
-  vec2 suv = p * 0.5 + 0.5;
-  return texture2D(uSDF2, vec2(suv.x, 1.0 - suv.y)).g * 1.9922 / max(uRadius, 0.3);
+  float s = max(uImpScale, 0.05);
+  // 샘플 좌표라 변환은 전부 **역방향**이다 — 자국을 +θ 로 돌려 보이려면 좌표를 −θ 로 돌린다.
+  vec2 d = p - uImpOff - uImpCtr;
+  float ca = cos(uImpRot), sa = sin(uImpRot);
+  d = vec2(d.x * ca + d.y * sa, -d.x * sa + d.y * ca);
+  vec2 q = d / s + uImpCtr;                         // s<1 → 더 바깥을 읽으므로 자국이 작아진다
+  vec2 suv = q * 0.5 + 0.5;
+  // 거리에 s 를 되곱해야 p 공간의 참 거리가 된다 — 안 곱하면 축소할수록 AA·글로우 폭이 함께 부푼다
+  return texture2D(uSDF2, vec2(suv.x, 1.0 - suv.y)).g * 1.9922 / max(uRadius, 0.3) * s;
 }
 /** 필 램프 좌표 0..1 — 존 원은 중심거리, **발형은 실루엣 안쪽 깊이(sd)**.
  *  발 위에 원형 그라디언트를 씌우면 발가락·아치·뒤꿈치가 램프를 가로질러 잘려서
@@ -500,7 +534,8 @@ vec4 markState(vec2 uv, float state, float prog, float strong, float t){
   //     세기만 상태 알파(A.a)를 따라간다. 상태마다 다른 각인을 주면 토큰이 두 종류가 된다.
   if (uShape > 0.5 && uImp > 0.001) {
     float sdIn = mkSDIn(uv);
-    float aaI  = max(fwidth(sdIn), 0.004) * 1.4;
+    // 아웃라인 선명도 — uImpSharp 1 이면 AA 를 화면 최소폭까지 조여 '깔끔하게 잘린' 경계가 된다.
+    float aaI  = max(fwidth(sdIn), 0.0015) * mix(1.7, 0.75, clamp(uImpSharp, 0.0, 1.0));
     float inIn = smoothstep(aaI, -aaI, sdIn) * inside;   // 신발 안 ∩ 맨발 안
     float pit  = max(uImpPitch, 0.008);
     // 도트 격자 — 프로토타입 foot-*-dots.svg 규약: 정사각 격자, 점 지름 = 피치의 50%
@@ -511,12 +546,32 @@ vec4 markState(vec2 uv, float state, float prog, float strong, float t){
     float dotM = smoothstep(rad + pit * 0.11, rad - pit * 0.11, dd);
     // 자국 안쪽 깊이 — 가장자리는 옅고 안으로 갈수록 또렷(프린트 잉크가 고인 느낌).
     //   전면 균일하게 찍으면 도트가 실루엣을 무시하고 격자만 보인다.
-    float dep = smoothstep(0.0, 0.085, -sdIn);
+    //   선명하게 갈수록 램프도 같이 좁아져야 한다 — 안 그러면 경계만 또렷하고 안쪽이 무르다.
+    float depR = mix(0.085, 0.014, clamp(uImpSharp, 0.0, 1.0));
+    float dep = smoothstep(0.0, depR, -sdIn);
     lay(A, C_CREAM, inIn * dotM * uImp * (0.34 + 0.66 * dep));
-    // 자국 윤곽 이너 글로우 — 프로토타입의 inner shadow(흰색 blur 7) 등가물.
-    //   이게 있어야 발가락·아치 경계가 '찍힌 자리'로 읽힌다(없으면 도트 얼룩).
-    float rimIn = exp(-pow(abs(sdIn) / max(uImpEdge, 1e-4), 1.6)) * inside;
-    lay(A, C_ICE, rimIn * uImpGlow * uImp);
+    // 이너 섀도우 — 경계 **안쪽**에서 최대, 안으로 갈수록 사라진다. 자국이 '눌려 들어간' 자리로 읽힌다.
+    //   빛을 빼지 않는다(위 uImpShade 주석): LUT 저역(RED)을 얹어 어느 바닥에서도 그림자로 읽히게.
+    if (uImpShade > 0.001) {
+      float ins = exp(-pow(max(-sdIn, 0.0) / max(uImpEdge, 1e-4), 1.15)) * inIn;
+      lay(A, palPick(uImpShadeCol), ins * uImpShade * uImp);
+    }
+    // 윤곽 글로우는 이제 선택 사항(기본 0) — 이너 섀도우가 경계를 만드는 쪽이 정본이다.
+    if (uImpGlow > 0.001) {
+      float rimIn = exp(-pow(abs(sdIn) / max(uImpEdge, 1e-4), 1.6)) * inside;
+      lay(A, C_ICE, rimIn * uImpGlow * uImp);
+    }
+  }
+  // ── 파동(리플) — 윤곽에서 바깥으로 나아가는 한 겹의 파면 ────────────────────
+  //   outPos = max(sd,0) 이라 파면은 실루엣 **바깥**으로만 간다(안쪽 필을 안 건드린다).
+  //   fade 로 퍼질수록 옅어져야 '은은하게'가 된다 — 등속·등세기면 그게 곧 '쨍함'이다.
+  if (uRip > 0.001) {
+    // ★ 시각은 인자 t 로 받는다 — 호스트(tokens.js)가 uTime 을 MARK_GLSL **뒤에** 선언하므로
+    //   여기서 uTime 을 직접 쓰면 'undeclared identifier' 로 프래그먼트 셰이더가 통째로 죽는다.
+    float cyc = fract(t * max(uRipSpeed, 0.01) + uSeed * 0.159);
+    float front = cyc * uRipReach;
+    float band = exp(-pow((outPos - front) / max(uRipWidth, 1e-3), 2.0));
+    lay(A, palPick(uRipCol), band * pow(1.0 - cyc, 1.6) * uRip * 0.5 * dashM);
   }
   // NaN 스크럽 — 위 분기 어디서든 비정상 값이 새면 '보이지 않음'으로 떨어뜨린다.
   //   NaN 과의 비교는 항상 false 이므로 step() 이 0 을 골라 준다(GLSL ES 1.0 에서 신뢰 가능한 유일한 방법).

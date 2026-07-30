@@ -39,7 +39,7 @@ export default defineConfig({
       //   'Cannot access b before initialization'(TDZ)이 실제로 발생했다(라이브 검수).
       // MPA: fxlab(룩 시스템)을 빌드에 편입 — 시뮬과 셰이더·SDF·규약 모듈을 공유하기 위한 전제
       // (public/ 단독 파일이던 시절엔 import 자체가 불가해 손복사 2벌 드리프트가 구조적으로 반복됐음)
-      input: { main: resolve(__dirname, 'index.html'), fxlab: resolve(__dirname, 'fxlab.html'), parity: resolve(__dirname, 'parity.html') },
+      input: { main: resolve(__dirname, 'index.html'), fxlab: resolve(__dirname, 'fxlab.html'), footlab: resolve(__dirname, 'footlab.html'), parity: resolve(__dirname, 'parity.html') },
     },
   },
 });

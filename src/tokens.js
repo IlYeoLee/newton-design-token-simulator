@@ -70,8 +70,10 @@ void main() {
     float edge = smoothstep(0.20 * max(uHTSoft, 0.20), -0.04, sdh);
     // 파형 — 좁은 파면이 바깥으로 달리며 그 자리 점만 굵어진다(랩 '파형' 슬라이더).
     //   나머지 점은 제자리라 꿈틀거리지 않는다. uHTWave 0 이면 완전히 정지.
-    float rr2  = length(uv);
     float ext2 = uShape < 0.5 ? 0.46 * uRadius : 0.72;
+    // 하프톤 파형도 실루엣 등거리선을 따른다 — 예전엔 length(uv) 라 **발 위에 원형 파장**이
+    // 얹혀 형태와 따로 놀았다(유저 지적). sdh 는 윤곽에서 0 이므로 ext2 를 더하면 같은 대역이 된다.
+    float rr2  = sdh + ext2;
     float fr   = fract(uTime * 0.40) * (ext2 * 2.30);
     float band = exp(-pow((rr2 - fr) / max(ext2 * 0.30, 1e-3), 2.0)) * (1.0 - fr * 0.20) * uHTWave;
     float rad  = pit * 0.5 * clamp((0.62 + 0.30 * band) * uHTGain * edge, 0.0, 1.0);
@@ -251,6 +253,31 @@ export function makeMarkFXMaterial(footTex = null) {
       uRadius: { value: footTex ? 1.0 : 0.72 / 0.46 },
       uSDF2: { value: footTex || getLUT() },
       uSDFWarn: { value: warnSDFTexture() || getLUT() },
+      // 깔창 각인 — 겉(신발) 안의 맨발 자국 도트 무늬. 발형에서만 의미가 있어 존 원은 0.
+      //   uImpPitch: 도트 간격(uv 단위, 쿼드 폭 = 2). 프로토타입 실측비(피치/발폭 = 3.75%)를
+      //   발 실루엣 폭 0.36×쿼드 에 대입 → 0.36*2*0.0375 ≈ 0.027.
+      //   uImpDot: 반지름/피치. 프로토타입은 지름이 피치의 50% → 0.25.
+      //   uImpCtr: 자국 무게중심(uv) — 축소 기준점. 텍스처 v 플립 규약과 같은 변환:
+      //   x = 2·cx − 1, y = 1 − 2·cy (MARK_NUM.anchor 와 동일한 부호).
+      //   uImpScale·uImpOff: footlab.html '자동 맞춤'이 계측한 값. 0.840 / (−0.060, −0.010) 에서
+      //   좌·우발 모두 자국이 신발 밖으로 나간 면적 **0.00%** (그 위로는 엄지발가락이 삐져나온다 —
+      //   신발 발가락 박스가 맨발 엄지보다 좁다). 눈으로 더듬지 말고 랩에서 다시 재서 옮길 것.
+      uImp: { value: footTex ? 1.0 : 0.0 }, uImpPitch: { value: 0.027 }, uImpDot: { value: 0.25 },
+      // 경계는 이너 섀도우가 만든다(유저 확정) — 윤곽 글로우는 기본 0, 필요할 때만 켠다.
+      uImpGlow: { value: 0.0 }, uImpShade: { value: 0.55 }, uImpSharp: { value: 0.75 },
+      uImpShadeCol: { value: 0 },   // 0 흰 — 프로토타입 foot-*-dots.svg 의 white inner shadow 규약
+      uImpEdge: { value: 0.030 }, uImpScale: { value: 0.840 },
+      uImpRot: { value: 0 },   // 각인 기울기(rad) — 오른발은 미러라 부호가 뒤집힌다
+      uImpCtr: { value: new THREE.Vector2(
+        footTex ? (footTex._inCx ?? 0.5) * 2 - 1 : 0,
+        footTex ? 1 - (footTex._inCy ?? 0.5) * 2 : 0) },
+      // 미세 이동 — x 는 좌우 미러라 오른발에서 부호가 뒤집힌다(실루엣이 미러이므로 오프셋도 미러).
+      uImpOff: { value: new THREE.Vector2(footTex?._right ? 0.060 : -0.060, -0.010) },
+      // 파동 — 실루엣 등거리선을 따라 바깥으로. 기본값은 '은은하게' 쪽으로 잡았다:
+      //   reach 0.34(쿼드 반폭의 1/3만 나간다) · width 0.09(한 겹) · speed 0.45(느리게).
+      //   예전 원형 파장이 과하게 크고 쨍하다는 지적의 실체는 '너무 멀리 · 너무 세게'였다.
+      uRip: { value: 0.55 }, uRipSpeed: { value: 0.45 }, uRipWidth: { value: 0.09 }, uRipReach: { value: 0.34 },
+      uRipCol: { value: 1 },   // 1 = 샌드(따뜻한 잔광). 0 흰 · 2 코랄 · 3 레드
       uPhase: { value: 0 }, uProg: { value: 0 }, uFade: { value: 1 },
       uToe: { value: 0 },   // 앞꿈치 접지 강조 — 앞은 진하게, 뒤꿈치는 투명하게(스텝백 2/4 왼발)
       uStrong: { value: 0 }, uContract: { value: 0 },

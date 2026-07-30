@@ -1,0 +1,745 @@
+<!doctype html><html lang=ko><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1">
+<title>NEWTON 발자국 랩 — 깔창 각인 실시간 조정</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>👣</text></svg>">
+<style>
+  /* 마크 숫자 도트 폰트 — 시뮬·랩과 같은 파일 (없으면 숫자가 산세리프로 떨어진다) */
+  /* vite 는 public/ 내용을 루트로 서빙한다 — 'public/fonts/…' 로 쓰면 404 다(도트 폰트가 조용히 죽는다) */
+  @font-face{font-family:'OffBit';src:url('fonts/OffBitTrial-DotBold.woff2') format('woff2');font-weight:700;font-display:block}
+  :root{--bg:#0A0C10;--panel:#10131A;--line:#1D222C;--text:#E9EAEE;--dim:#98A1AD;--red:#FA3030;--sand:#FEC389}
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--text);
+    font:13px/1.5 -apple-system,'Malgun Gothic',sans-serif}
+  .wrap{display:flex;gap:18px;padding:18px;align-items:flex-start;flex-wrap:wrap}
+  .panel{width:330px;flex:0 0 330px;background:var(--panel);border:1px solid var(--line);
+    border-radius:14px;padding:16px;position:sticky;top:18px}
+  h1{font-size:15px;margin:0 0 4px}
+  .sub{color:var(--dim);font-size:11.5px;margin:0 0 14px}
+  fieldset{border:1px solid var(--line);border-radius:10px;margin:0 0 12px;padding:10px 12px 12px}
+  legend{color:var(--dim);font-size:11px;padding:0 5px}
+  .row{display:flex;align-items:center;gap:8px;margin:7px 0}
+  .row label{flex:0 0 96px;color:var(--dim);font-size:11.5px}
+  .row input[type=range]{flex:1;min-width:0;accent-color:var(--red)}
+  .row .v{flex:0 0 46px;text-align:right;font-variant-numeric:tabular-nums;font-size:11.5px}
+  .seg{display:flex;gap:4px;flex-wrap:wrap}
+  .seg button{flex:1;min-width:60px;background:#161A22;color:var(--dim);border:1px solid var(--line);
+    border-radius:8px;padding:6px 4px;font-size:11.5px;cursor:pointer}
+  .seg button.on{background:var(--red);border-color:var(--red);color:#fff}
+  .acts{display:flex;gap:6px;margin-top:4px}
+  .acts button{flex:1;background:#161A22;color:var(--text);border:1px solid var(--line);
+    border-radius:8px;padding:8px;font-size:11.5px;cursor:pointer}
+  .stage{flex:1 1 620px;min-width:520px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:14px}
+  .card h2{font-size:12px;color:var(--dim);margin:0 0 10px;font-weight:600}
+  canvas{display:block;border-radius:10px;max-width:100%}
+  /* 표시 크기는 여기서만 정한다 — 렌더 버퍼(canvas width/height)와 분리.
+     예전엔 스크립트가 width:100% 를 걸어서 560px 버퍼가 카드 폭까지 늘어나 화면을 다 먹었다. */
+  /* 미리보기 크기는 유저가 슬라이더로 정한다(--hero). 내가 숫자를 맞히는 게 아니다. */
+  #hero{width:var(--hero,460px);height:var(--hero,460px)}
+  /* ★ aspect-ratio 는 캔버스 버퍼(1120×460)와 반드시 같아야 한다 — 230 으로 두면 세로가 2배
+     압축돼 발도 원도 납작해진다(유저: 찌부시키지 마). 캔버스 크기를 바꾸면 여기도 같이 바꿀 것. */
+  #strip{width:calc(var(--hero,460px) * 2.1);max-width:100%;height:auto;aspect-ratio:1120 / 460}
+  #comp{width:calc(var(--hero,460px) * 2.1);max-width:100%;height:auto;aspect-ratio:1120 / 380}
+  #align{width:calc(var(--hero,460px) * 1.5);max-width:100%;height:auto;aspect-ratio:840 / 280}
+  .stage{flex:1 1 560px;min-width:420px}
+  #snip{width:100%;height:118px;background:#0B0E13;color:var(--sand);border:1px solid var(--line);
+    border-radius:8px;padding:8px;font:11px/1.5 ui-monospace,Consolas,monospace;resize:vertical}
+  .note{color:var(--dim);font-size:11px;margin:8px 0 0}
+  .warn{color:var(--red);font-size:11.5px;margin:8px 0 0;display:none}
+</style></head><body>
+<div class=wrap>
+  <div class=panel>
+    <h1>발자국 랩 — 깔창 각인</h1>
+    <p class=sub>겉 = 신발 실루엣 · 안 = 맨발 자국(도트).<br>정본 셰이더(MARK_GLSL)를 그대로 돌린다.</p>
+
+    <fieldset><legend>발</legend>
+      <div class=seg id=segSide><button data-v=left class=on>왼발</button><button data-v=right>오른발</button></div>
+      <div class=seg id=segCtx style="margin-top:6px"><button data-v=out class=on>야외(신발)</button><button data-v=in>실내(맨발)</button></div>
+    </fieldset>
+
+    <fieldset><legend>각인 (안 = 맨발 자국)</legend>
+      <div class=row><label>세기 uImp</label><input type=range id=imp min=0 max=1.6 step=.02><span class=v id=vimp></span></div>
+      <div class=row><label>자국 축소</label><input type=range id=scale min=.7 max=1.06 step=.005><span class=v id=vscale></span></div>
+      <div class=row><label>이동 X</label><input type=range id=offx min=-.16 max=.16 step=.002><span class=v id=voffx></span></div>
+      <div class=row><label>이동 Y</label><input type=range id=offy min=-.16 max=.16 step=.002><span class=v id=voffy></span></div>
+      <div class=row><label>자국 기울기°</label><input type=range id=irot min=-30 max=30 step=.5><span class=v id=virot></span></div>
+      <div class=acts><button id=fit>자동 맞춤 — 신발 안으로</button></div>
+      <div class=row><label>도트 간격</label><input type=range id=pitch min=.008 max=.08 step=.001><span class=v id=vpitch></span></div>
+      <div class=row><label>점 크기</label><input type=range id=dot min=.05 max=.5 step=.005><span class=v id=vdot></span></div>
+      <div class=row><label>이너 섀도우</label><input type=range id=shade min=0 max=1.4 step=.02><span class=v id=vshade></span></div>
+      <div class=seg id=segShadeCol style="margin:2px 0 6px"><button data-v=0 class=on>흰</button><button data-v=1>샌드</button><button data-v=2>코랄</button><button data-v=3>레드</button></div>
+      <div class=row><label>아웃라인 선명</label><input type=range id=sharp min=0 max=1 step=.02><span class=v id=vsharp></span></div>
+      <div class=row><label>섀도우 폭</label><input type=range id=edge min=.004 max=.09 step=.002><span class=v id=vedge></span></div>
+      <div class=row><label>윤곽 글로우</label><input type=range id=glow min=0 max=1.4 step=.02><span class=v id=vglow></span></div>
+    </fieldset>
+
+    <fieldset><legend>토큰 공통 (룩 시스템)</legend>
+      <div class=row><label>윤곽 두께 uW</label><input type=range id=w min=.3 max=2.2 step=.05><span class=v id=vw></span></div>
+      <div class=row><label>헤일로 uHalo</label><input type=range id=halo min=0 max=1.6 step=.02><span class=v id=vhalo></span></div>
+      <div class=row><label>필 uPool</label><input type=range id=pool min=0 max=1 step=.02><span class=v id=vpool></span></div>
+      <div class=row><label>일렁임 uNoise</label><input type=range id=noise min=0 max=1.2 step=.02><span class=v id=vnoise></span></div>
+    </fieldset>
+
+    <fieldset><legend>보기</legend>
+      <div class=seg id=segBg><button data-v=day class=on>주간(잉크)</button><button data-v=laser>레이저(잉크+블룸)</button><button data-v=night>야간(가산)</button></div>
+      <!-- 블룸은 0.00~0.40 을 0.005 로 — 예전 0~1/0.02 는 최저 눈금이 이미 너무 셌다(유저: 흰색이 쨍하다) -->
+      <div class=row><label>블룸 세기</label><input type=range id=bloom min=0 max=.4 step=.005><span class=v id=vbloom></span></div>
+      <div class=row><label>블룸 번짐</label><input type=range id=blur min=0 max=2 step=.05><span class=v id=vblur></span></div>
+    </fieldset>
+
+    <fieldset><legend>파동 (발형·원형 공통 — 실루엣을 따라 퍼진다)</legend>
+      <div class=row><label>세기 uRip</label><input type=range id=rip min=0 max=1.6 step=.02><span class=v id=vrip></span></div>
+      <div class=row><label>도달 거리</label><input type=range id=ripReach min=.05 max=1.2 step=.01><span class=v id=vripReach></span></div>
+      <div class=row><label>파면 폭</label><input type=range id=ripWidth min=.01 max=.4 step=.005><span class=v id=vripWidth></span></div>
+      <div class=row><label>속도</label><input type=range id=ripSpeed min=.05 max=2 step=.05><span class=v id=vripSpeed></span></div>
+      <div class=seg id=segRipCol><button data-v=0>흰</button><button data-v=1 class=on>샌드</button><button data-v=2>코랄</button><button data-v=3>레드</button></div>
+    </fieldset>
+
+    <fieldset><legend>글리프 (발형·원형 공통)</legend>
+      <div class=seg id=segNum><button data-v=1 class=on>글리프 표시</button><button data-v=0>없음</button></div>
+      <div class=seg id=segSrc style="margin-top:6px"><button data-v=glyph class=on>내 SVG 글리프</button><button data-v=offbit>OffBit 도트폰트</button></div>
+      <div class=row style="margin-top:6px"><label>왼발/원 문자</label><input id=gL value="1" style="flex:1;min-width:0;background:#161A22;color:var(--text);border:1px solid var(--line);border-radius:6px;padding:4px 6px"></div>
+      <div class=row><label>오른발 문자</label><input id=gR value="2" style="flex:1;min-width:0;background:#161A22;color:var(--text);border:1px solid var(--line);border-radius:6px;padding:4px 6px"></div>
+      <div class=row><label>글리프 크기</label><input type=range id=gsize min=.4 max=2.2 step=.05><span class=v id=vgsize></span></div>
+      <div class=row><label>위치 X</label><input type=range id=gx min=-.5 max=.5 step=.005><span class=v id=vgx></span></div>
+      <div class=row><label>위치 Y</label><input type=range id=gy min=-.5 max=.5 step=.005><span class=v id=vgy></span></div>
+      <div class=row><label>회전°</label><input type=range id=grot min=-45 max=45 step=1><span class=v id=vgrot></span></div>
+      <p class=sub style="margin:8px 0 4px">그림자 — 밀도를 만드는 건 결국 이 대비다</p>
+      <div class=seg id=segGShadow><button data-v=glow class=on>글로우</button><button data-v=drop>드롭</button><button data-v=none>없음</button></div>
+      <div class=row><label>그림자 세기</label><input type=range id=gsh min=0 max=1.5 step=.02><span class=v id=vgsh></span></div>
+      <p class=sub style="margin:8px 0 4px">합성 — 같은 글리프도 이걸로 완전히 달라진다</p>
+      <div class=seg id=segGBlend><button data-v=normal class=on>보통</button><button data-v=add>가산</button><button data-v=knock>파냄(각인)</button></div>
+    </fieldset>
+
+    <fieldset><legend>보기 (계속)</legend>
+      <div class=seg id=segOv style="margin-top:6px"><button data-v=0 class=on>겹침 오버레이 끔</button><button data-v=1>켬</button></div>
+      <div class=row style="margin-top:8px"><label>미리보기 크기</label><input type=range id=heroSize min=260 max=900 step=10><span class=v id=vheroSize></span></div>
+      <div class=row><label>진행 prog</label><input type=range id=prog min=0 max=1 step=.01><span class=v id=vprog></span></div>
+      <div class=row><label>기울기°</label><input type=range id=tilt min=-20 max=20 step=1><span class=v id=vtilt></span></div>
+    </fieldset>
+
+    <div class=acts><button id=undo>되돌리기 ⌘Z</button><button id=redo>다시 ⇧⌘Z</button></div>
+    <div class=acts><button id=reset>기본값</button><button id=copy>현재값 복사</button></div>
+    <p class=warn id=warn></p>
+    <p class=note>각인 세기 0 = 도입 전과 픽셀 동일(롤백 지점).</p>
+  </div>
+
+  <div class=stage>
+    <div class=card>
+      <h2>확대 — 진행 슬라이더로 상태 안을 훑는다</h2>
+      <canvas id=hero width=640 height=640></canvas>
+    </div>
+    <div class=card>
+      <h2>7상태 × 두 표현형 — 윗줄 발형 · 아랫줄 원형(존). 셀을 클릭하면 위 확대로</h2>
+      <canvas id=strip width=1120 height=460></canvas>
+    </div>
+    <div class=card>
+      <h2>바닥 합성 — 투사광은 가산이라 실제 바닥 위에서 색감이 결정된다</h2>
+      <div class=seg id=segFloor style="margin-bottom:10px">
+        <button data-v=track class=on>트랙(민트)</button><button data-v=tile>인터로킹(회백)</button>
+        <button data-v=dark>어두운 실내</button><button data-v=white>흰 바닥</button>
+      </div>
+      <canvas id=comp width=1120 height=380></canvas>
+      <p class=note>실제 사진을 쓰려면 <code>public/floors/track.jpg</code> · <code>tile.jpg</code> 로 넣으면 자동으로 그걸 씁니다. 지금은 근사색으로 그립니다.</p>
+    </div>
+    <div class=card>
+      <h2>겹침 실측 — 겉(빨강) · 안(크림) · 겹침(시안 = 신발 밖으로 삐져나온 곳)</h2>
+      <canvas id=align width=840 height=280></canvas>
+      <p class=note id=alignNote></p>
+    </div>
+    <div class=card>
+      <h2>현재값 — src/tokens.js makeMarkFXMaterial 기본치로 옮길 스니펫</h2>
+      <textarea id=snip readonly></textarea>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+'use strict';
+import * as THREE from 'three';
+import { makeMarkFXMaterial } from './src/tokens.js';
+import { FXP, GLYPHS, DEFAULT_GLYPHS, footSlot, footSDFTexture, drawNumber, getLUT, ensureOffBit } from './src/fxlut.js';
+import { MARK_NUM, SDF_DECODE } from './src/fx-core.js';
+
+// 정본 글리프를 항상 싣는다 — 저장본만 믿으면 랩이 낡은 dataURL 을 보는 사고가 반복된다(07-30).
+GLYPHS.set({ ...DEFAULT_GLYPHS });
+FXP.markShape = 1;
+ensureOffBit();   // 도트 폰트를 캔버스에서 쓰려면 미리 로드해야 한다(첫 그리기가 폴백으로 새는 것 방지)
+
+// 기본값 = tokens.js makeMarkFXMaterial 과 같은 값으로 맞춘다(랩과 시뮬이 어긋나면 그게 곧 사고다).
+// scale·off 는 '자동 맞춤' 계측값 — 좌·우발 모두 삐져나옴 0.00%.
+const DEF = { imp: 1.0, scale: 0.84, offx: -0.06, offy: -0.01, irot: 0, pitch: 0.027, dot: 0.25,
+              glow: 0.0, shade: 0.55, sharp: 0.75, edge: 0.030, gx: 0, gy: 0, grot: 0, gsh: 0.75,
+              w: 1.0, halo: 0.9, pool: 0.55, noise: 0.5, prog: 0.55, tilt: 8,
+              bloom: 0.08, blur: 0.8, gsize: 1.0,
+              rip: 0.55, ripReach: 0.34, ripWidth: 0.09, ripSpeed: 0.45 };
+const P = { ...DEF };
+let side = 'left', ctx = 'out', bg = 'day', showNum = 1, showOv = 0, floorKind = 'track';
+
+const $ = id => document.getElementById(id);
+const KEYS = ['imp','scale','offx','offy','irot','pitch','dot','glow','shade','sharp','edge',
+              'w','halo','pool','noise','prog','tilt','bloom','blur',
+              'gsize','gx','gy','grot','gsh','rip','ripReach','ripWidth','ripSpeed'];
+const DIGITS = { tilt: 0, irot: 1, grot: 0, pitch: 3, edge: 3, scale: 3, offx: 3, offy: 3,
+                 gx: 3, gy: 3, ripWidth: 3, bloom: 3 };
+let shadeCol = 0, ripCol = 1, gShadow = 'glow', gBlend = 'normal';
+
+function syncUI() {
+  for (const k of KEYS) { $(k).value = P[k]; $('v' + k).textContent = P[k].toFixed(DIGITS[k] ?? 2); }
+  $('snip').value = snippet();
+}
+function snippet() {
+  return `uImp: { value: footTex ? ${P.imp.toFixed(2)} : 0.0 }, uImpPitch: { value: ${P.pitch.toFixed(3)} }, uImpDot: { value: ${P.dot.toFixed(3)} },
+uImpGlow: { value: ${P.glow.toFixed(2)} }, uImpEdge: { value: ${P.edge.toFixed(3)} }, uImpScale: { value: ${P.scale.toFixed(3)} },
+uImpShade: { value: ${P.shade.toFixed(2)} }, uImpSharp: { value: ${P.sharp.toFixed(2)} }, uImpShadeCol: { value: ${shadeCol} },
+uImpRot: { value: ${P.irot.toFixed(1)} * Math.PI / 180 * (footRight ? -1 : 1) },
+uRipCol: { value: ${ripCol} },
+// 글리프(호스트가 그린다): 크기 ${P.gsize.toFixed(2)} · 위치 (${P.gx.toFixed(3)}, ${P.gy.toFixed(3)}) · 회전 ${P.grot.toFixed(0)}° · 그림자 ${gShadow} ${P.gsh.toFixed(2)} · 합성 ${gBlend}
+uImpOff: { value: new THREE.Vector2(${P.offx.toFixed(3)} * (footRight ? -1 : 1), ${P.offy.toFixed(3)}) },
+uRip: { value: ${P.rip.toFixed(2)} }, uRipSpeed: { value: ${P.ripSpeed.toFixed(2)} }, uRipWidth: { value: ${P.ripWidth.toFixed(3)} }, uRipReach: { value: ${P.ripReach.toFixed(2)} },
+// 토큰 공통(FXP.mark / graphics 로 주입되는 값): uW ${P.w.toFixed(2)} · uHalo ${P.halo.toFixed(2)} · uPool ${P.pool.toFixed(2)} · uNoise ${P.noise.toFixed(2)}
+// 발 기울기 ${P.tilt.toFixed(0)}° (session.js FootMark plane.rotation.z)`;
+}
+// ── 되돌리기 · 자동 저장 ────────────────────────────────────────────────
+//   슬라이더를 만지다 보면 '아까 그 값'으로 못 돌아가는 게 제일 답답하다.
+//   커밋 단위는 '한 번의 드래그'다 — input 마다 쌓으면 한 번 끌 때 수십 개가 쌓여 되돌리기가 무의미해진다.
+//   그래서 350ms 잠잠해지면 그때 한 칸 쌓는다(타이핑 에디터의 undo 병합과 같은 규약).
+const SAVE_KEY = 'footlab.params';
+let hist = [], future = [], histT = null;
+function persist() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(P)); } catch { /* 사생활 모드 */ } }
+function commitHist(prev) {
+  clearTimeout(histT);
+  histT = setTimeout(() => {
+    if (JSON.stringify(prev) === JSON.stringify(P)) return;
+    hist.push(prev); if (hist.length > 80) hist.shift();
+    future.length = 0; persist(); updateHistUI();
+  }, 350);
+}
+function updateHistUI() { $('undo').disabled = !hist.length; $('redo').disabled = !future.length; }
+function applySnapshot(s) { Object.assign(P, s); syncUI(); rebuild(); drawAlign(); persist(); updateHistUI(); }
+$('undo').onclick = () => { if (!hist.length) return; future.push({ ...P }); applySnapshot(hist.pop()); };
+$('redo').onclick = () => { if (!future.length) return; hist.push({ ...P }); applySnapshot(future.pop()); };
+addEventListener('keydown', e => {
+  if (!(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== 'z') return;
+  if (/^(INPUT|TEXTAREA)$/.test(e.target.tagName) && e.target.type === 'text') return;   // 글리프 문자 입력은 브라우저 undo
+  e.preventDefault();
+  (e.shiftKey ? $('redo') : $('undo')).click();
+});
+
+for (const k of KEYS) $(k).addEventListener('input', e => {
+  const prev = { ...P };
+  P[k] = +e.target.value; syncUI(); commitHist(prev);
+});
+
+// 미리보기 크기 — CSS 변수 하나로 확대·스트립·합성·겹침이 같이 따라간다. 값은 브라우저에 남는다.
+const HERO_KEY = 'footlab.heroSize';
+function applyHeroSize(px) {
+  document.documentElement.style.setProperty('--hero', px + 'px');
+  $('heroSize').value = px; $('vheroSize').textContent = px;
+  try { localStorage.setItem(HERO_KEY, px); } catch { /* 사생활 모드 — 저장만 못 한다 */ }
+}
+$('heroSize').addEventListener('input', e => applyHeroSize(+e.target.value));
+applyHeroSize(+(localStorage.getItem(HERO_KEY) || 460));
+$('reset').onclick = () => { hist.push({ ...P }); future.length = 0; applySnapshot({ ...DEF }); };
+$('copy').onclick = () => { $('snip').select(); navigator.clipboard?.writeText($('snip').value); };
+
+function seg(id, cb) {
+  $(id).addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    [...$(id).children].forEach(c => c.classList.toggle('on', c === b));
+    cb(b.dataset.v);
+  });
+}
+seg('segSide', v => { side = v; rebuild(); });
+seg('segCtx',  v => { ctx = v; FXP.footCtx = v; rebuild(); });
+seg('segBg',   v => { bg = v; applyBg(); });
+seg('segNum',  v => { showNum = +v; rebuild(); });
+seg('segOv',   v => { showOv = +v; });
+seg('segFloor', v => { floorKind = v; paintFloor(); });
+// 글리프 소스 = FXP.numSrc 정본 스위치. 'glyph'=유저 SVG 슬롯 · 'offbit'=도트 폰트.
+// 시뮬(drawNumber)이 읽는 바로 그 값이라, 여기서 고른 게 곧 시뮬에서 보일 활자다.
+seg('segSrc', v => { FXP.numSrc = v; rebuild(); });
+seg('segShadeCol', v => { shadeCol = +v; });
+seg('segRipCol', v => { ripCol = +v; });
+seg('segGShadow', v => { gShadow = v; rebuild(); });
+seg('segGBlend', v => { gBlend = v; rebuild(); });
+for (const id of ['gL', 'gR']) $(id).addEventListener('input', rebuild);
+// 글리프 평면은 생성 시 크기·위치·회전·텍스처를 굽는다 — 이 값들은 바뀌면 다시 만든다
+for (const id of ['gsize', 'gx', 'gy', 'grot', 'gsh']) $(id).addEventListener('input', rebuild);
+
+// ── 렌더러 둘: 확대 하나 + 상태 스트립 하나 ──────────────────────────────
+//   ★ alpha:false 로 둔다. 야간 가산 경로는 `gl_FragColor = vec4(col, 1.0)` 이라 알파가 1 이고,
+//     투명 캔버스에 가산하면 알파가 누적돼 **쿼드 전체가 검은 사각**으로 남는다(실제로 그랬다).
+//     불투명 캔버스 + 투사면 색 클리어 = 실제 프로젝터 상황과 같고 사각도 사라진다.
+const FLOOR_NIGHT = 0x07090c, FLOOR_DAY = 0xf4f5f7;
+// ★ setPixelRatio 만 걸고 setSize 를 안 부르면 three 는 캔버스 attribute 크기를 **논리 크기**로
+//   보고 뷰포트에 픽셀비를 한 번 더 곱한다 → 2배 확대 = 상하좌우 잘림(실제로 그랬다).
+//   setSize(논리, 논리) 로 버퍼를 직접 잡게 해야 setViewport 가 논리 좌표로 맞는다.
+const mk = (canvas) => {
+  const w = canvas.width, h = canvas.height;
+  const r = new THREE.WebGLRenderer({ canvas, antialias: true });
+  r.setPixelRatio(Math.min(2, devicePixelRatio || 1));
+  r.setSize(w, h, false);       // false = CSS 크기는 스타일시트가 정한다(아래 #hero/#strip/#comp 규칙)
+  r.setClearColor(FLOOR_NIGHT, 1);
+  r.autoClear = false;
+  return { r, w, h };
+};
+// 표시 캔버스는 전부 2D 다 — 바닥 위에 토큰을 얹어야 하고, 한 캔버스에 WebGL 과 2D 를 같이 못 쓴다.
+// 그래서 모든 뷰가 [오프스크린 WebGL 렌더 → 2D 합성] 한 경로를 공유한다(랩 안에서 규약이 갈리지 않게).
+const OFF = (cv) => { const c = document.createElement('canvas'); c.width = cv.width; c.height = cv.height; return c; };
+const heroOff = OFF($('hero')), stripOff = OFF($('strip'));
+const HERO = mk(heroOff), STRIP = mk(stripOff);
+const rHero = HERO.r, rStrip = STRIP.r;
+// 글로우 여백 — 프러스텀을 쿼드(±1)보다 넉넉히 잡아야 헤일로가 타일 경계에서 안 잘린다.
+const VIEW = 1.28;
+const cam = new THREE.OrthographicCamera(-VIEW, VIEW, VIEW, -VIEW, 0.1, 10); cam.position.z = 2;
+/** 셀 종횡비에 맞춰 프러스텀 — 안 맞추면 발이 늘어난다(세로 셀에서 특히) */
+function aim(aspect) {
+  cam.left = -VIEW * aspect; cam.right = VIEW * aspect;
+  cam.top = VIEW; cam.bottom = -VIEW;
+  cam.updateProjectionMatrix();
+}
+
+// FootMark 와 같은 상태 번호 규약 (uPhase): 0 Preview·1 Active·5 Hold·2 Success·4 Miss·6 Warning·3 Locked
+const STATES = [
+  { n: 'Preview', ph: 0 }, { n: 'Active', ph: 1 }, { n: 'Hold', ph: 5 }, { n: 'Success', ph: 2 },
+  { n: 'Miss', ph: 4 }, { n: 'Warning', ph: 6 }, { n: 'Locked', ph: 3 },
+];
+let heroPhase = 1, heroKind = 'foot';   // 스트립 셀 클릭이 이 둘을 같이 정한다(윗줄 발형·아랫줄 원형)
+const KINDS = ['foot', 'zone'];
+
+// ── 합성 규약 (3화면 공통) ──────────────────────────────────────────────
+//   'add'  = 가산광 패스. 셰이더가 알파 1 을 쓰므로 근사 검정으로 불투명 클리어하고 'lighter' 로 얹는다.
+//   'ink'  = 잉크 패스. 셰이더가 알파 = 커버리지라 **투명** 클리어 + 'source-over'.
+//   레이저 모드 = ink 위에 add 를 블룸 세기만큼 = "빔이 그 자리 색을 지배하고, 그 위로 빛이 번진다".
+//   (유저 전제: 낮에도 밝게 쏘는 레이저 빔프로젝터. 다만 출력을 올려도 가산은 바닥을 어둡게 못 만든다 —
+//    밝은 바닥에서 세게 쏠수록 흰색으로 포화한다. 그래서 '세기'가 아니라 '잉크로 모델링'이 답이다.)
+function passSetup(R, mode) {
+  R.setClearColor(mode === 'add' ? FLOOR_NIGHT : 0x000000, mode === 'add' ? 1 : 0);
+  R.clear();
+}
+function matMode(m, mode) {
+  m.uniforms.uDay.value = mode === 'add' ? 0 : 1;
+  m.blending = mode === 'add' ? THREE.AdditiveBlending : THREE.NormalBlending;   // 상태값 — needsUpdate 불필요
+}
+/** 오프스크린 결과를 바닥 위에 얹는다. renderPass(mode) 가 오프스크린을 다시 굽는다. */
+function blit(displayCv, off, renderPass) {
+  const W = displayCv.width, H = displayCv.height;
+  const g = displayCv.getContext('2d');
+  g.globalCompositeOperation = 'source-over';
+  g.globalAlpha = 1;
+  g.clearRect(0, 0, W, H);                       // 가산 합성은 반드시 백지에서 시작(누적 순백 사고)
+  if (floorCv.width !== compW || floorCv.height !== compH) paintFloor();
+  g.drawImage(floorCv, 0, 0, W, H);
+  if (bg !== 'night') { renderPass('ink'); g.drawImage(off, 0, 0, W, H); }
+  if (bg !== 'day') {
+    renderPass('add');
+    g.globalCompositeOperation = 'lighter';
+    g.globalAlpha = bg === 'laser' ? P.bloom : 1;
+    // ★ 레이저 블룸은 **흐려야** 한다. 선명한 복사본을 그대로 더하면 형태 위에 같은 그림이
+    //   두 겹으로 얹혀 쨍하기만 하고 실루엣 인식을 먹는다(유저: 인식이 잘 안 된다).
+    //   실제 블룸은 빛이 번지는 현상이라, 번진 것만 더해야 '광량은 세고 형태는 남는' 그림이 된다.
+    if (bg === 'laser' && P.blur > 0.01) g.filter = `blur(${(W * P.blur * 0.02).toFixed(2)}px)`;
+    g.drawImage(off, 0, 0, W, H);
+    g.filter = 'none';
+    g.globalAlpha = 1; g.globalCompositeOperation = 'source-over';
+  }
+}
+function applyBg() { paintFloor(); }
+
+/** 글리프 텍스처 — drawNumber 정본을 그대로 쓴다. FXP.numSrc 가 'offbit' 이면 도트 폰트,
+ *  아니면 유저 SVG 글리프 슬롯. 즉 이 랩과 시뮬이 **같은 글리프**를 본다. */
+/** 글리프 텍스처. 그림자 변주(글로우 / 드롭 / 없음)와 '파냄' 합성용 반전본까지 여기서 만든다.
+ *  밀도는 형태가 아니라 **대비**가 만든다 — 같은 글리프도 그림자·합성만 바꾸면 완전히 달라진다. */
+function glyphTexture(label, invert) {
+  const N = 256, c = document.createElement('canvas'); c.width = c.height = N;
+  const g = c.getContext('2d');
+  const S = Math.round(N * 0.75);
+  const sh = gShadow === 'none' ? 0 : P.gsh;
+  const draw = (opts) => {
+    if (drawNumber(g, label, N / 2, N / 2, S, opts)) return;
+    g.save();                                  // 슬롯이 비었을 때 폴백 — 랩이 빈 화면을 보이지 않게
+    g.fillStyle = opts?.color || 'rgba(255,239,224,.95)';
+    g.font = `300 ${Math.round(S * 0.9)}px -apple-system, sans-serif`;
+    g.textAlign = 'center'; g.textBaseline = 'middle';
+    if (opts?.glow) { g.shadowColor = opts.glowColor; g.shadowBlur = opts.glow; }
+    g.fillText(label, N / 2, N / 2 + S * 0.04);
+    g.restore();
+  };
+  if (gShadow === 'drop' && sh > 0.001) {
+    // 드롭 = 아래로 밀린 어두운 사본 위에 본체. 각인이 '떠 있는' 느낌을 준다.
+    g.save(); g.globalAlpha = Math.min(1, sh * 0.7); g.translate(N * 0.018, N * 0.024);
+    draw({ color: 'rgba(120,18,18,.95)', glow: 0, glowColor: 'rgba(0,0,0,0)' });
+    g.restore();
+    draw({ glow: 0, glowColor: 'rgba(0,0,0,0)' });
+  } else {
+    draw(gShadow === 'glow' ? { glow: 26 * sh, glowColor: 'rgba(255,140,90,.85)' }
+                            : { glow: 0, glowColor: 'rgba(0,0,0,0)' });
+  }
+  if (invert) {
+    // 파냄 = 곱하기 합성용. 글자 자리를 검게, 나머지를 희게 → 토큰이 그 자리에서 꺼진다(= 구멍).
+    const src = g.getImageData(0, 0, N, N);
+    const out = g.createImageData(N, N);
+    for (let i = 0; i < N * N; i++) {
+      const a = src.data[i * 4 + 3] / 255;
+      const v = Math.round(255 * (1 - a));
+      out.data[i * 4] = out.data[i * 4 + 1] = out.data[i * 4 + 2] = v;
+      out.data[i * 4 + 3] = 255;
+    }
+    g.putImageData(out, 0, 0);
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8;
+  return t;
+}
+
+// ── 토큰 단위 — 발형과 원형(존)이 **같은 구조**로 만들어진다 ─────────────────
+//   유저 원칙: 룩 시스템 토큰은 하나다. 그래서 랩도 둘을 따로 만들지 않는다 —
+//   같은 makeMarkFXMaterial · 같은 상태 머신 · 같은 글리프 규약. 다른 것은 SDF(겉 모양)뿐이다.
+//   그래야 한쪽만 예뻐지고 다른 쪽이 뒤처지는 일이 구조적으로 안 생긴다.
+const units = {};
+function makeUnit(kind) {   // 'foot' | 'zone'
+  const tx = kind === 'foot' ? footSDFTexture(side === 'right') : null;
+  if (kind === 'foot' && !tx) return null;
+  const m = makeMarkFXMaterial(tx);
+  m.uniforms.uOut.value = 0;   // 컴포저 없이 직접 렌더 = raw 컨텍스트(패리티와 동일 규약)
+  const sc = new THREE.Scene();
+  const pl = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), m);
+  sc.add(pl);
+  let num = null;
+  if (showNum) {
+    // 글리프 = MARK_NUM 규약 그대로: 크기 = 쿼드 × RATIO/0.75, 앵커는 표현형이 정한다.
+    //   발형 = 맨발 자국 무게중심(깔창 프린트의 글자 자리) · 원형 = 정중앙.
+    const S = 2 * MARK_NUM.RATIO / 0.75 * P.gsize;
+    const label = kind === 'foot' && side === 'right' ? ($('gR').value || '2') : ($('gL').value || '1');
+    const off = kind === 'foot'
+      ? MARK_NUM.anchor({ x: tx._inCx ?? 0.5, y: tx._inCy ?? 0.42, s: 1 }, side === 'right', 2)
+      : { x: 0, y: 0 };
+    const knock = gBlend === 'knock';
+    num = new THREE.Mesh(new THREE.PlaneGeometry(S, S), new THREE.MeshBasicMaterial({
+      map: glyphTexture(String(label), knock), transparent: !knock, depthWrite: false, side: THREE.DoubleSide,
+      blending: knock ? THREE.MultiplyBlending : gBlend === 'add' ? THREE.AdditiveBlending : THREE.NormalBlending }));
+    // 위치는 앵커 + 유저 오프셋. 오른발은 미러라 x 부호가 뒤집힌다(슬라이더는 해부학 기준).
+    num.position.set(off.x + (side === 'right' && kind === 'foot' ? -P.gx : P.gx), off.y + P.gy, 0.01);
+    num.rotation.z = (side === 'right' && kind === 'foot' ? -P.grot : P.grot) * Math.PI / 180;
+    pl.add(num);
+  }
+  return { kind, scene: sc, mat: m, plane: pl, num, tex: tx };
+}
+function rebuild() {
+  units.foot = makeUnit('foot');
+  units.zone = makeUnit('zone');
+  const ok = !!units.foot;
+  $('warn').style.display = ok ? 'none' : 'block';
+  $('warn').textContent = ok ? '' : '발형 SDF 를 못 구웠다 — 글리프 SVG 로드 대기 중.';
+  applyBg();
+  drawAlign();
+}
+
+/** 한 단위에 현재 파라미터를 주입 — 발형·원형이 **같은 함수**를 통과한다(통일감의 실체). */
+function feed(u, ph, prog, t, mode) {
+  if (!u) return;
+  const U = u.mat.uniforms;
+  U.uPhase.value = ph; U.uProg.value = prog; U.uTime.value = t;
+  U.uW.value = P.w; U.uHalo.value = P.halo; U.uPool.value = P.pool; U.uNoise.value = P.noise;
+  // 파동은 표현형과 무관하게 같은 값 — 이게 '한 디자인 시스템'의 실체다
+  U.uRip.value = P.rip; U.uRipReach.value = P.ripReach;
+  U.uRipWidth.value = P.ripWidth; U.uRipSpeed.value = P.ripSpeed;
+  U.uRipCol.value = ripCol;
+  matMode(u.mat, mode);
+  if (u.kind === 'foot') {
+    U.uImp.value = P.imp; U.uImpPitch.value = P.pitch; U.uImpDot.value = P.dot;
+    U.uImpGlow.value = P.glow; U.uImpEdge.value = P.edge; U.uImpScale.value = P.scale;
+    U.uImpShade.value = P.shade; U.uImpSharp.value = P.sharp; U.uImpShadeCol.value = shadeCol;
+    // 오른발은 실루엣이 미러라 오프셋 x 도 미러 — 슬라이더가 '해부학적으로' 같은 방향을 뜻하게
+    // 오른발은 실루엣이 미러라 이동 x·기울기 부호도 미러 — 슬라이더가 '해부학적으로' 같은 뜻이게
+    U.uImpOff.value.set(side === 'right' ? -P.offx : P.offx, P.offy);
+    U.uImpRot.value = (side === 'right' ? -P.irot : P.irot) * Math.PI / 180;
+    u.plane.rotation.z = (side === 'left' ? P.tilt : -P.tilt) * Math.PI / 180;
+  }
+  // 글리프 표시 규약도 공통 — 상태가 정한다(Preview 반투명 · Success/Miss 숨김)
+  if (u.num) u.num.material.opacity = MARK_NUM.opacity(ph === 2 ? 3 : ph === 5 ? 2 : ph === 3 ? 6 : ph);
+}
+
+// ── 겹침 실측 — SDF 두 채널을 2D 로 직접 그린다(셰이더를 안 거치므로 겹침 자체가 보인다) ──
+function drawAlign() {
+  const cv = $('align'), g = cv.getContext('2d');
+  g.clearRect(0, 0, cv.width, cv.height);
+  const tex = units.foot?.tex;
+  if (!tex) return;
+  const N = tex.image.width, data = tex.image.data;
+  const S = Math.floor(cv.width / 3), pair = data.length === N * N * 2;
+  const modes = [0, 1, 2];   // 겉만 · 안만 · 겹침
+  let over = 0, inArea = 0;
+  for (const m of modes) {
+    const id = g.createImageData(S, S);
+    for (let py = 0; py < S; py++) for (let px = 0; px < S; px++) {
+      const sx = (px / S * N) | 0, sy = (py / S * N) | 0;
+      const i = pair ? (sy * N + sx) * 2 : (sy * N + sx);
+      const sOut = data[i] * SDF_DECODE;
+      // 안쪽은 축소를 적용해서 읽는다 — 셰이더 mkSDIn 과 같은 변환이어야 실측이 의미가 있다
+      const s = Math.max(P.scale, 0.05);
+      const ox = side === 'right' ? -P.offx : P.offx, oy = P.offy;
+      const ux = (px / S) * 2 - 1, uy = 1 - (py / S) * 2;
+      const cx = (tex._inCx ?? .5) * 2 - 1, cy = 1 - (tex._inCy ?? .5) * 2;
+      const qx = (ux - ox - cx) / s + cx, qy = (uy - oy - cy) / s + cy;
+      const tx = ((qx * 0.5 + 0.5) * N) | 0, ty = ((1 - (qy * 0.5 + 0.5)) * N) | 0;
+      let sIn = 1;
+      if (pair && tx >= 0 && tx < N && ty >= 0 && ty < N) sIn = data[(ty * N + tx) * 2 + 1] * SDF_DECODE * s;
+      const inO = sOut < 0, inI = sIn < 0;
+      if (m === 2) { if (inI) { inArea++; if (!inO) over++; } }
+      const o = (py * S + px) * 4;
+      let r = 13, gg = 16, bb = 20;
+      if (m !== 1 && inO) { r = 250; gg = 48; bb = 48; }
+      if (m !== 0 && inI) { r = 255; gg = 240; bb = 225; }
+      if (m === 2 && inI && !inO) { r = 60; gg = 220; bb = 255; }   // 삐져나온 곳 = 시안 경고
+      id.data[o] = r; id.data[o + 1] = gg; id.data[o + 2] = bb; id.data[o + 3] = 255;
+    }
+    g.putImageData(id, m * S, 0);
+  }
+  const pct = inArea ? (over / inArea * 100) : 0;
+  $('alignNote').textContent = pair
+    ? `자국이 신발 밖으로 나간 면적 ${pct.toFixed(2)}% ${pct < 0.05 ? '— 완전히 안에 들어갔다' : '(시안색 = 삐져나온 곳)'}`
+    : '안(맨발) 채널이 없다 — 실내(맨발) 컨텍스트에선 각인이 비활성이다.';
+}
+for (const k of ['scale', 'offx', 'offy']) $(k).addEventListener('input', drawAlign);
+
+// ── 자동 맞춤 — 자국이 신발 안에 완전히 들어가는 **가장 큰** 크기·위치를 찾는다 ──────
+//   눈으로 슬라이더를 더듬는 대신 계측으로 정한다(§3 규칙). 성긴 격자로 훑고 안전 여유를 남긴다.
+//   ★ ox 는 **해부학 좌표**로 받는다(슬라이더와 같은 뜻). 미러 변환을 여기서 해야
+//     drawAlign·feed 와 같은 그림을 재게 된다 — 예전엔 원시 좌표로 탐색해 놓고 해부학 값으로
+//     저장해서, 오른발에서 부호가 뒤집혀 13.82% 삐져나온 값을 '맞춤 완료'로 내놨다.
+function overflowAt(s, oxAnat, oy, G = 168) {
+  const tex = units.foot?.tex;
+  if (!tex) return { over: 1, area: 0 };
+  const N = tex.image.width, data = tex.image.data;
+  if (data.length !== N * N * 2) return { over: 1, area: 0 };
+  const ox = side === 'right' ? -oxAnat : oxAnat;
+  const cx = (tex._inCx ?? .5) * 2 - 1, cy = 1 - (tex._inCy ?? .5) * 2;
+  let over = 0, area = 0;
+  for (let gy = 0; gy < G; gy++) for (let gx = 0; gx < G; gx++) {
+    const ux = (gx / G) * 2 - 1, uy = 1 - (gy / G) * 2;
+    const qx = (ux - ox - cx) / s + cx, qy = (uy - oy - cy) / s + cy;
+    const tx = ((qx * 0.5 + 0.5) * N) | 0, ty = ((1 - (qy * 0.5 + 0.5)) * N) | 0;
+    if (tx < 0 || tx >= N || ty < 0 || ty >= N) continue;
+    if (data[(ty * N + tx) * 2 + 1] * SDF_DECODE * s >= 0) continue;   // 자국 밖
+    area++;
+    const sx = ((ux * 0.5 + 0.5) * N) | 0, sy = ((1 - (uy * 0.5 + 0.5)) * N) | 0;
+    if (data[(sy * N + sx) * 2] * SDF_DECODE >= -0.004) over++;        // 신발 밖(경계 여유 포함)
+  }
+  return { over, area };
+}
+$('fit').onclick = () => {
+  if (!units.foot?.tex) return;
+  let best = null;
+  for (let s = 1.02; s >= 0.80; s -= 0.005) {
+    for (let oy = 0.08; oy >= -0.08; oy -= 0.005) {
+      for (let ox = -0.11; ox <= 0.11; ox += 0.005) {
+        const { over, area } = overflowAt(s, ox, oy);
+        if (!area || over / area > 0.0005) continue;
+        const cost = Math.abs(ox) + Math.abs(oy);       // 같은 크기면 덜 움직인 쪽
+        if (!best || s > best.s + 1e-9 || (Math.abs(s - best.s) < 1e-9 && cost < best.cost))
+          best = { s, ox, oy, cost };
+      }
+      // (자동 맞춤 결과도 되돌릴 수 있어야 한다 — 아래에서 히스토리에 쌓는다)
+    }
+    if (best) break;   // 큰 쪽부터 훑으므로 처음 성공한 크기가 최대다
+  }
+  if (!best) { $('alignNote').textContent = '완전히 들어가는 조합을 못 찾았다 — 실루엣 자체를 고쳐야 한다.'; return; }
+  hist.push({ ...P }); future.length = 0;
+  P.scale = +best.s.toFixed(3); P.offx = +best.ox.toFixed(3); P.offy = +best.oy.toFixed(3);
+  syncUI(); drawAlign(); persist(); updateHistUI();
+};
+
+// ── 바닥 합성 ───────────────────────────────────────────────────────────
+//   프로젝터는 바닥에 **빛을 더한다**. 그래서 합성도 가산('lighter')이어야 색감이 맞다.
+//   토큰 캔버스는 근사 검정(0x07090c)으로 클리어돼 있어 가산 시 바닥에 7/255 만 얹힌다 — 무시 가능.
+//   유저 레퍼런스 두 장의 실측 근사색: 트랙 = 햇빛 아래 세이지 민트, 인터로킹 = 회색/백색 2단.
+const FLOORS = {
+  track: { photo: 'public/floors/track.jpg', base: '#A6BCA4', speck: '#8FA98D', line: '#EDF1EC', kind: 'lanes' },
+  tile:  { photo: 'public/floors/tile.jpg',  base: '#CDD1D5', speck: '#B7BCC2', line: '#E9EBEE', kind: 'tiles' },
+  dark:  { base: '#0B0E13', speck: '#12161D', line: '#1A1F27', kind: 'plain' },
+  white: { base: '#F2F3F5', speck: '#E4E6E9', line: '#FFFFFF', kind: 'plain' },
+};
+const floorCv = document.createElement('canvas');
+const _photos = {};
+// 바닥은 한 번만 그려두고 각 화면 크기에 맞춰 늘려 쓴다(화면마다 다시 그릴 이유가 없다).
+const compW = $('comp').width, compH = $('comp').height;
+function paintFloor() {
+  const F = FLOORS[floorKind], W = compW, H = compH;
+  floorCv.width = W; floorCv.height = H;
+  const g = floorCv.getContext('2d');
+  // 실제 사진이 있으면 그걸 쓴다 — 근사색은 어디까지나 대역만 맞춘 임시다
+  if (F.photo) {
+    if (_photos[floorKind] === undefined) {
+      _photos[floorKind] = null;
+      const im = new Image();
+      im.onload = () => { _photos[floorKind] = im; paintFloor(); };
+      im.onerror = () => { _photos[floorKind] = false; };
+      im.src = F.photo;
+    }
+    if (_photos[floorKind]) {
+      const im = _photos[floorKind], s = Math.max(W / im.width, H / im.height);
+      g.drawImage(im, (W - im.width * s) / 2, (H - im.height * s) / 2, im.width * s, im.height * s);
+      return;
+    }
+  }
+  g.fillStyle = F.base; g.fillRect(0, 0, W, H);
+  // 결(스페클) — 균일 단색이면 실제 바닥보다 훨씬 매끈해 보여 글로우 판단이 낙관적으로 나온다
+  g.fillStyle = F.speck;
+  for (let i = 0; i < 9000; i++) {
+    const x = (i * 7919 % W), y = ((i * 104729) % H);
+    g.globalAlpha = 0.10 + (i % 7) * 0.02;
+    g.fillRect(x, y, 2, 1);
+  }
+  g.globalAlpha = 1;
+  if (F.kind === 'lanes') {                       // 레인 라인 — 레퍼런스처럼 진행 방향으로
+    g.fillStyle = F.line;
+    for (let x = W * 0.12; x < W; x += W * 0.26) { g.globalAlpha = 0.9; g.fillRect(x, 0, 7, H); }
+  } else if (F.kind === 'tiles') {                // 인터로킹 — 회색/백색 2단 + 미세 격자
+    g.fillStyle = F.speck; g.globalAlpha = 0.55; g.fillRect(0, 0, W, H * 0.42);
+    g.globalAlpha = 0.5; g.strokeStyle = F.line; g.lineWidth = 1;
+    for (let x = 0; x <= W; x += 34) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x, H); g.stroke(); }
+    for (let y = 0; y <= H; y += 34) { g.beginPath(); g.moveTo(0, y); g.lineTo(W, y); g.stroke(); }
+  }
+  g.globalAlpha = 1;
+}
+
+// 발자국 여러 개 = 실제 배치(좌·우 교대로 흘러온다). 상대 크기·간격이 보여야 판단이 된다.
+// 발 3개 + 존 원 1개 — 발형과 원형이 **한 화면**에 같이 있어야 통일감이 판단된다(유저).
+const WALK = [{ s: 'left', x: -1.25, y: 0.30 }, { s: 'right', x: -0.48, y: -0.22 },
+              { s: 'left', x: 0.29, y: 0.30 }];
+const ZONE_AT = { x: 1.15, y: -0.18 };
+let walkScene = null, walkMats = [], rComp = null, COMP = null;
+// ★ 한 캔버스에 WebGL 과 2D 컨텍스트를 같이 못 쓴다. 토큰은 **오프스크린 WebGL** 에 굽고
+//   화면의 #comp 는 2D 합성 전용으로 둔다(바닥 → 가산으로 토큰 광).
+const tokenCv = document.createElement('canvas');
+function buildWalk() {
+  if (!COMP) {
+    tokenCv.width = $('comp').width; tokenCv.height = $('comp').height;
+    COMP = mk(tokenCv);
+  }
+  rComp = COMP.r;
+  // ★ 성공했을 때만 전역에 심는다. 예전엔 씬을 먼저 만들고 중간에 return false 했는데,
+  //   글리프 로드 전 첫 호출이 그 경로를 타면 **빈 씬이 전역에 남고** 다음 프레임부터
+  //   `if (!walkScene …)` 가 참이 안 돼서 영원히 빈 바닥만 그렸다(유저 화면: 합성 카드가 비어 있음).
+  const sc = new THREE.Scene(), mats = [];
+  for (const f of WALK) {
+    const tx = footSDFTexture(f.s === 'right');
+    if (!tx) return false;
+    const m = makeMarkFXMaterial(tx);
+    m.uniforms.uOut.value = 0;
+    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(0.86, 0.86), m);
+    mesh.position.set(f.x, f.y, 0);
+    mesh.rotation.z = (f.s === 'left' ? 8 : -8) * Math.PI / 180;
+    sc.add(mesh);
+    mats.push({ m, side: f.s, mesh });
+  }
+  // 원형(존) 토큰도 같은 바닥에 하나 — 발형과 원형이 한 화면에 있어야 통일감이 판단된다(유저).
+  const zm = makeMarkFXMaterial(null);
+  zm.uniforms.uOut.value = 0;
+  const zmesh = new THREE.Mesh(new THREE.PlaneGeometry(0.86, 0.86), zm);
+  zmesh.position.set(ZONE_AT.x, ZONE_AT.y, 0);
+  sc.add(zmesh);
+  mats.push({ m: zm, side: 'zone', mesh: zmesh, zone: true });
+  walkScene = sc; walkMats = mats;
+  return true;
+}
+const compCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 10); compCam.position.z = 2;
+function composite() {
+  if (!walkScene && !buildWalk()) return;
+  const W = COMP.w, H = COMP.h, t = (performance.now() - T0) / 1000;
+  const half = 1.75;                                  // 가로 반폭(월드) — 발 4개가 들어오는 폭
+  compCam.left = -half; compCam.right = half;
+  compCam.top = half * H / W; compCam.bottom = -half * H / W;
+  compCam.updateProjectionMatrix();
+  // 상태는 흘러오는 순서대로: 앞은 Preview, 지금 밟을 곳이 Active, 지난 것은 Success
+  // 흘러오는 순서: 지난 것 Success → 지금 밟을 곳 Active → 앞은 Preview. 마지막이 존 원.
+  const seq = [{ ph: 2, pr: 0.25 }, { ph: 1, pr: 0.75 }, { ph: 0, pr: 0.55 }, { ph: 1, pr: 0.45 }];
+  blit($('comp'), tokenCv, (mode) => {
+    passSetup(rComp, mode);
+    walkMats.forEach((wm, i) => {
+      const U = wm.m.uniforms;
+      U.uPhase.value = seq[i].ph; U.uProg.value = seq[i].pr; U.uTime.value = t;
+      matMode(wm.m, mode);
+      U.uImp.value = P.imp; U.uImpPitch.value = P.pitch; U.uImpDot.value = P.dot;
+      U.uImpGlow.value = P.glow; U.uImpEdge.value = P.edge; U.uImpScale.value = P.scale;
+    U.uImpShade.value = P.shade; U.uImpSharp.value = P.sharp; U.uImpShadeCol.value = shadeCol;
+      U.uImpOff.value.set(wm.side === 'right' ? -P.offx : P.offx, P.offy);
+      U.uImpRot.value = (wm.side === 'right' ? -P.irot : P.irot) * Math.PI / 180;
+      U.uW.value = P.w; U.uHalo.value = P.halo; U.uPool.value = P.pool; U.uNoise.value = P.noise;
+      U.uRip.value = P.rip; U.uRipReach.value = P.ripReach;
+      U.uRipWidth.value = P.ripWidth; U.uRipSpeed.value = P.ripSpeed;
+  U.uRipCol.value = ripCol;
+      if (!wm.zone) wm.mesh.rotation.z = (wm.side === 'left' ? P.tilt : -P.tilt) * Math.PI / 180;
+    });
+    rComp.render(walkScene, compCam);
+  });
+}
+
+// ── 프레임 루프 ─────────────────────────────────────────────────────────
+const T0 = performance.now();
+function frame() {
+  const t = (performance.now() - T0) / 1000;
+  if (units.foot || units.zone) {
+    // 확대 — 스트립에서 고른 표현형·상태
+    blit($('hero'), heroOff, (mode) => {
+      passSetup(rHero, mode);
+      aim(HERO.w / HERO.h);
+      const u = units[heroKind];
+      if (!u) return;
+      feed(u, heroPhase, P.prog, t, mode);
+      rHero.render(u.scene, cam);
+    });
+    // 상태 스트립 — 7상태 × 두 표현형. 윗줄 발형·아랫줄 원형이 **같은 파라미터**로 나란히 간다.
+    blit($('strip'), stripOff, (mode) => {
+      passSetup(rStrip, mode);
+      const cw = STRIP.w / STATES.length, ch = STRIP.h / KINDS.length;
+      aim(cw / ch);
+      rStrip.setScissorTest(true);
+      KINDS.forEach((kind, row) => {
+        const u = units[kind];
+        if (!u) return;
+        // 뷰포트 y 는 아래가 0 — 윗줄(발형)이 화면 위로 가려면 마지막 행부터 채운다
+        const vy = (KINDS.length - 1 - row) * ch;
+        STATES.forEach((s, i) => {
+          // Success·Miss 는 prog=0 이 가장 진한 순간 (FootMark.glow 규약)
+          const pr = (s.ph === 2 || s.ph === 4) ? Math.max(0, P.prog - 0.5) * 2 : P.prog;
+          feed(u, s.ph, pr, t, mode);
+          rStrip.setViewport(i * cw, vy, cw, ch);
+          rStrip.setScissor(i * cw, vy, cw, ch);
+          rStrip.render(u.scene, cam);
+        });
+      });
+      rStrip.setScissorTest(false);
+      rStrip.setViewport(0, 0, STRIP.w, STRIP.h);
+    });
+    composite();
+  }
+  requestAnimationFrame(frame);
+}
+
+// 확대 뷰의 상태 선택 — 스트립을 클릭하면 그 상태가 확대로 온다
+$('strip').addEventListener('click', e => {
+  const r = $('strip').getBoundingClientRect();
+  const col = Math.min(STATES.length - 1, Math.floor((e.clientX - r.left) / r.width * STATES.length));
+  const row = Math.min(KINDS.length - 1, Math.floor((e.clientY - r.top) / r.height * KINDS.length));
+  heroPhase = STATES[col].ph; heroKind = KINDS[row];
+});
+
+// 글리프 SVG 로드 대기 → 첫 베이크. GLYPHS.onLoad 는 이미지가 들어올 때마다 부른다.
+// 계측 훅 — 합성이 이상할 때 바닥/토큰 캔버스를 따로 재기 위해(추측 금지 §3)
+window.__flab = { get floorCv() { return floorCv; }, get tokenCv() { return tokenCv; },
+                  get P() { return P; }, get walkMats() { return walkMats; } };
+GLYPHS.onLoad(() => { if (!units.foot) rebuild(); else drawAlign(); });
+// 지난 세션 값 복원 — 랩을 닫았다 열었다고 작업이 날아가면 안 된다.
+//   저장본에 없는 키(내가 나중에 추가한 슬라이더)는 DEF 가 채운다.
+try {
+  const saved = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null');
+  if (saved) for (const k of KEYS) if (typeof saved[k] === 'number') P[k] = saved[k];
+} catch { /* 저장본 손상 — 기본값으로 간다 */ }
+updateHistUI();
+syncUI();
+rebuild();
+frame();
+</script>
+</body></html>
