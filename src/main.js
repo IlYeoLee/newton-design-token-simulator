@@ -2389,20 +2389,23 @@ void main(){
           //   허리가 칼로 자른 듯 보인다(유저 스샷). 위쪽 12%만 부드럽게 소멸.
           //   하단은 건드리지 않는다 — 발 접지는 또렷해야 한다(유저 확정).
           mEro *= 1.0 - smoothstep(0.88, 1.0, uv.y);
-          // 하단 잘림 페더(fx-core cutFeather) — 이 열의 하단 경계가 잘렸을 때만.
-          float botF = cutFeather(uv.x, uv.y, smoothstep(0.16, 0.52, mask1(vec2(uv.x, 0.006))), uTime);
-          mEro *= botF;
-          if (mEro < 0.02) discard;
           // 두께장·블러휘도 = 저해상 RT 가우시안 필드(복싱 판 uHeat와 같은 파이프라인)
           vec2 fld = texture2D(uField, uv).rg;    // 넓은 블러 = 두께장·노출
           vec2 fldN = texture2D(uFieldN, uv).rg;  // 좁은 블러 = 이목구비 지워진 결
+          // 하단 잘림 — 초점이 서서히 나가며 배경에 녹는다(fx-core cutFade).
+          //   '이 프레임이 잘렸나'는 하단 경계를 폭 전체 8탭으로 평균 내 판정한다(열별 판정 금지).
+          float botC = 0.0;
+          for (int i = 0; i < 8; i++) botC += smoothstep(0.16, 0.52, mask1(vec2((float(i) + 0.5) / 8.0, 0.006)));
+          vec2 cf = cutFade(uv.x, uv.y, botC * 0.125, uTime);
+          mEro = mix(mEro, smoothstep(0.06, 0.55, fld.r), cf.y) * cf.x;   // 날카로운 실루엣 → 넓은 가우시안
+          if (mEro < 0.02) discard;
           float H = clamp(fld.r * 1.60, 0.0, 1.0);   // 코치 필드는 블러가 좁아 1.25 로는 코어가 덜 포화 → 옅게 떴다(유저)
           float flow = vn(vec2(uv.x*3.2 + sin(uTime*0.4)*0.3, uv.y*2.4 - uTime*0.5));
           H *= 1.0 + (flow - 0.5) * 0.11;   // 대류 얼룩 최소 — 매끄러운 질감(유저 레퍼런스)
           float lumB = fld.g / max(fld.r, 0.02);          // 국소 평균 = 노출
           // 결 = 좁은 블러. 룩 슬라이더 '음영'(uDetail)이 결의 세기 — 0 이면 완전 평면.
           float lumS = mix(lumB, fldN.g / max(fldN.r, 0.02), clamp(uDetail * 2.4, 0.0, 1.0));
-          lumS = mix(lumB, lumS, botF);   // 스러지는 구간은 결이 넓은 블러로 녹는다 = '흐려지며 사라짐'
+          lumS = mix(lumB, lumS, 1.0 - cf.y);   // 초점 나간 구간은 결도 넓은 블러로 녹는다
           float dlum = mix(lumS, lumB, 0.5);            // 펄스 위상용 대표 휘도
           float mIn = smoothstep(0.55, 0.95, m);
           float faceW = smoothstep(0.80, 0.92, uv.y) * (1.0 - smoothstep(0.97, 1.0, uv.y));
@@ -2719,7 +2722,6 @@ void main(){
   const MASK_GLSL = CUT_FEATHER_GLSL + `
     uniform sampler2D tex;   // 비디오 (그린스크린 소스)
     uniform vec2 uCropC, uCropS;
-    uniform float uCutT;     // 하단 잘림 페더 시계
     float praw(vec2 uv){
       vec2 vuv = uCropC + (uv - 0.5) * uCropS;
       if (vuv.x < 0.0 || vuv.x > 1.0 || vuv.y < 0.0 || vuv.y > 1.0) return 0.0;
@@ -2727,10 +2729,10 @@ void main(){
       float k = c.g - max(c.r, c.b);                     // 그린 우세도 — 결정론적 크로마 키
       return 1.0 - smoothstep(0.05, 0.16, k);            // 임계값 = 랩 mask1 정본
     }
+    // 마스크 빌더는 깨끗하게 둔다 — 하단 잘림 처리는 최종 인물 셰이더가 담당한다.
+    //   여기서 미리 지우면 이 마스크로 굽는 블러 필드까지 같이 죽어, 디포커스가 녹일 대상이 없어진다.
     float pmask(vec2 uv){
-      float m = praw(uv) * smoothstep(1.0, 0.88, uv.y) * smoothstep(0.0, 0.015, uv.y);   // 상단 페더 12%
-      // 하단은 3% 고정 페더 폐기 — 잘린 열만 cutFeather 가 흩어 없앤다(발 접지는 그대로 또렷).
-      return m * cutFeather(uv.x, uv.y, praw(vec2(uv.x, 0.006)), uCutT);
+      return praw(uv) * smoothstep(0.0, 0.03, uv.y) * smoothstep(1.0, 0.88, uv.y);   // 상단 페더 12%
     }
     // 블러 휘도 — 이목구비·옷주름을 뭉개 명암 덩어리만 남긴다(유저 레퍼런스: 확산 유리 실루엣)
     float plum(vec2 uv){
@@ -2756,7 +2758,7 @@ void main(){
   let trailFlip = 0;
   const trailMat = new THREE.ShaderMaterial({
     uniforms: {
-      tex: { value: demoTex }, prev: { value: trailRTs[1].texture }, uDecay: { value: 0.9 }, uCutT: { value: 0 },
+      tex: { value: demoTex }, prev: { value: trailRTs[1].texture }, uDecay: { value: 0.9 },
       uCropC: { value: new THREE.Vector2(0.5, 0.5) }, uCropS: { value: new THREE.Vector2(1, 1) },
     },
     vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }',
@@ -2775,7 +2777,7 @@ void main(){
   // 열 필드 = 마스크의 진짜 가우시안 확산 (저해상 128×192, 분리형 3회 반복 — 탭 클럼프 근절)
   const heatRTs = [0, 1].map(() => new THREE.WebGLRenderTarget(128, 192));
   const heatMaskMat = new THREE.ShaderMaterial({
-    uniforms: { tex: { value: demoTex }, uCutT: { value: 0 }, uCropC: { value: new THREE.Vector2(0.5, 0.5) }, uCropS: { value: new THREE.Vector2(1, 1) } },
+    uniforms: { tex: { value: demoTex }, uCropC: { value: new THREE.Vector2(0.5, 0.5) }, uCropS: { value: new THREE.Vector2(1, 1) } },
     vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }',
     fragmentShader: 'varying vec2 vUv;\n' + MASK_GLSL + '\nvoid main(){ gl_FragColor = vec4(pmask(vUv), 0.0, 0.0, 1.0); }',
     depthTest: false, depthWrite: false,
@@ -2798,7 +2800,7 @@ void main(){
     new THREE.ShaderMaterial({
       uniforms: {
         tex: { value: demoTex }, uTrail: { value: trailRTs[0].texture }, uHeat: { value: heatRTs[0].texture }, uLUT: { value: getLUT() },
-        uTime: { value: 0 }, uCutT: { value: 0 }, uNoise: { value: 0.55 }, uW: { value: 1 }, uDetail: { value: 0.62 }, uTrailGain: { value: 1 }, uGrain: { value: 0 }, uTone: { value: 0 }, uLive: { value: 0 },
+        uTime: { value: 0 }, uNoise: { value: 0.55 }, uW: { value: 1 }, uDetail: { value: 0.62 }, uTrailGain: { value: 1 }, uGrain: { value: 0 }, uTone: { value: 0 }, uLive: { value: 0 },
         uCropC: { value: new THREE.Vector2(0.5, 0.5) }, uCropS: { value: new THREE.Vector2(1, 1) },
       },
       vertexShader: `#include <common>
@@ -2853,6 +2855,12 @@ void main(){
           // 마스크 침식: 크로마키가 불완전한 클립(비순수 그린 배경)에서 마스크 바닥값(~0.2)이
           // 쿼드 전체를 반투명 워시 박스로 칠하던 근본 원인 — 저신뢰 마스크는 0으로
           float mEro = smoothstep(0.16, 0.52, m);   // 침식 완화 — 골대 림 등 얇은 구조 보존(유저)
+          // 하단 잘림 — 코치 판과 같은 처리(fx-core cutFade): 아래로 갈수록 초점이 나가 열 필드로 녹는다.
+          float botC = 0.0;
+          for (int i = 0; i < 8; i++) botC += praw(vec2((float(i) + 0.5) / 8.0, 0.006));
+          vec2 cf = cutFade(uv.x, uv.y, botC * 0.125, uTime);
+          mEro = mix(mEro, smoothstep(0.06, 0.55, texture2D(uHeat, uv).r), cf.y) * cf.x;
+          dLumS = mix(dLumB, dLumS, 1.0 - cf.y);
           float shapeA = mEro * 0.92;   // 알파용 형태 = 실루엣만 (잔상 제외)
           float shape = max(shapeA, trail * 0.5 * smoothstep(0.06, 0.22, trail));
           // 색 = fx-core.personColor 공용 정의 (벽 인물과 같은 곡선·대역·채도).
@@ -3056,7 +3064,6 @@ void main(){
     const PU = demoPanel.material.uniforms;
     PU.uTrail.value = trailRTs[trailFlip].texture;
     PU.uTime.value = now;
-    PU.uCutT.value = trailMat.uniforms.uCutT.value = heatMaskMat.uniforms.uCutT.value = now;
     PU.uNoise.value = FXP.person?.flow ?? 0.55;
     PU.uDetail.value = FXP.person?.detail ?? 0.62;
     PU.uW.value = FXP.person?.blur ?? 1;   // 엣지 블러 — 랩 person 슬라이더 (누락돼 기본 1.0으로 돌던 버그)
@@ -3266,10 +3273,8 @@ void main(){
           float lum = dot(rgb, vec3(0.299, 0.587, 0.114));
           return uDirect > 0.5 ? smoothstep(0.30, 0.55, lum) : smoothstep(0.52, 0.34, lum);
         }
-        float mask1(vec2 uv, float f){
-          float m = mraw(uv, f) * smoothstep(1.0, 0.88, uv.y) * smoothstep(0.0, 0.015, uv.y);   // 상단 페더 12%
-          // 하단은 잘린 열만 흩어 없앤다(fx-core cutFeather) — 발이 프레임 안이면 그대로 또렷.
-          return m * cutFeather(uv.x, uv.y, mraw(vec2(uv.x, 0.006), f), uTime);
+        float mask1(vec2 uv, float f){   // 하단 잘림 처리는 main 이 담당(빌더는 깨끗하게)
+          return mraw(uv, f) * smoothstep(0.0, 0.03, uv.y) * smoothstep(1.0, 0.88, uv.y);   // 상단 페더 12%
         }
         float maskF(vec2 uv, float fk){
           float f0 = floor(fk);
@@ -3279,6 +3284,18 @@ void main(){
           #include <clipping_planes_fragment>
           vec2 uv = vUv;
           float m = maskF(uv, uFrame);
+          // 하단 잘림 — 코치·데모 판과 같은 언어(fx-core cutFade). 여긴 가우시안 필드가 없으므로
+          //   반경이 아래로 갈수록 커지는 다탭 블러로 초점을 뺀다.
+          float botC = 0.0;
+          for (int i = 0; i < 8; i++) botC += mraw(vec2((float(i) + 0.5) / 8.0, 0.006), uFrame);
+          vec2 cf = cutFade(uv.x, uv.y, botC * 0.125, uTime);
+          if (cf.y > 0.01) {
+            float sBlur = 0.0;
+            for (int k = 0; k < 6; k++) { float a = 1.0472 * float(k);
+              sBlur += maskF(uv + vec2(cos(a), sin(a)) * 0.06 * cf.y, uFrame); }
+            m = mix(m, sBlur / 6.0, cf.y);
+          }
+          m *= cf.x;
           float trail = 0.0;
           for (int j = 1; j <= 3; j++) {
             float w = pow(uDecay, float(j));

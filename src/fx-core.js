@@ -174,14 +174,23 @@ export function buildLUT(stops, sat = 1, out = new Uint8Array(256 * 4)) {
 //   호출자는 페더값을 알파뿐 아니라 '결→넓은 블러' 크로스페이드에도 먹여야 한다 —
 //   그래야 흐려지며 사라지는 블러로 읽히고, 그냥 투명해지는 페이드로 안 보인다.
 export const CUT_FEATHER_GLSL = `
-#define CUT_BAND 0.185   // 페더 기본 두께(프레임 높이 비)
-float cutFeather(float x, float y, float botM, float t){
-  if (botM < 0.02) return 1.0;
-  float wob = sin(x * 13.0 + t * 0.45) * sin(x * 5.7 - t * 0.29);
-  float band = CUT_BAND * (0.80 + 0.30 * wob);
-  // 이중 램프: 넓은 소멸 + 그 안쪽 옅은 2차 램프 = 경계가 한 줄로 안 읽힌다
-  float f = smoothstep(0.0, band, y) * (0.55 + 0.45 * smoothstep(0.0, band * 2.1, y));
-  return mix(1.0, clamp(f, 0.0, 1.0), botM);
+#define CUT_BAND 0.13
+// 하단 잘림 처리 — 알파로 지우는 게 아니라 **아래로 갈수록 초점이 나가며 배경에 녹는다**
+//   (유저 레퍼런스: 확산 유리 실루엣). 호출자는 .y(디포커스)로 날카로운 마스크를 넓은 블러
+//   쪽으로 크로스페이드하고, .x(알파)를 마지막에 곱한다. 디포커스가 알파보다 훨씬 위에서
+//   시작해야 '흐려지다 녹는다'로 읽힌다 — 같이 시작하면 그냥 페이드아웃이다.
+// ★ botM 은 반드시 **폭 전체 평균**이어야 한다. 열마다 판정하면 프레임 안에서 끝나는 열
+//   (팔·손)만 또렷이 남아 세로로 찢어진 조각처럼 보인다 — 실제 사고(유저 스샷).
+//   잘림은 프레임의 성질이지 열의 성질이 아니다.
+vec2 cutFade(float x, float y, float botM, float t){
+  float cut = smoothstep(0.04, 0.26, botM);   // 이 프레임이 몸을 가로질렀나
+  if (cut < 0.01) return vec2(1.0, 0.0);
+  // 저주파만 — x 고주파를 넣으면 그게 곧 세로 줄무늬다. 은은한 숨쉬기가 목적.
+  float wob = 0.5 * sin(x * 1.7 + t * 0.45) + 0.5 * sin(t * 0.31);
+  float band = CUT_BAND * (0.88 + 0.14 * wob);
+  float a = smoothstep(0.0, band * 0.85, y) * (0.55 + 0.45 * smoothstep(0.0, band * 2.6, y));
+  float d = smoothstep(band * 3.0, 0.0, y);
+  return vec2(mix(1.0, clamp(a, 0.0, 1.0), cut), d * cut);
 }`;
 
 // 인물 색 — 바닥(demoPanel)·벽(bxPerson) 공용 단일 정의.
