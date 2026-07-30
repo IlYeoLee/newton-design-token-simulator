@@ -346,7 +346,7 @@ export class WallGL {
     ctx.restore();
 
     // 스탯 카드 — slideInLeft .85s .35s
-    const stY = ROW_Y + hdrH + 24, stH = 1131;   // = CM*2 + 콘텐츠 1049 (하단 여백도 CM 로 딱 맞음)
+    const stY = ROW_Y + hdrH + 24, stH = 1083;   // = CM*2 + 콘텐츠 1049 (하단 여백도 CM 로 딱 맞음)
     ctx.save();
     const se = eOut(intro(t, .35, .85));
     ctx.globalAlpha *= se; ctx.translate(-90 * (1 - se), 0);
@@ -405,11 +405,15 @@ export class WallGL {
     // ── Setup
     txt(ctx, 'Setup', ix + PADL, y + 6, 34, 400, NEU.t1, { ls: -1.13 });
     y += 48 + 8;
-    const setH = CPAD * 2 + 103 + 8 + 102;   // 상하 CPAD + 2행(103·102) + 행간 8
-    rrFill(ctx, ix, y, iw, setH, 64, '#fff');
+    // 흰 래퍼 폐기 — 회색 카드 → 흰 박스 → 셀 로 컨테이너가 3중이었다(유저: "박스 안의 박스").
+    //   가운데 박스는 정보를 안 늘리고 묶기만 하는데 그 일은 'Setup' 라벨이 이미 한다.
+    //   모바일 .sc-list 도 흰 래퍼를 쓰지만 1열 리스트 + padding 4(지면 ≈18)라 '리스트'로 읽힌다.
+    //   여기는 2x2 격자라 같은 구조가 '격자 안 격자'가 된다(1열은 4행 → 카드 1758px, 벽 1600 초과).
+    //   래퍼를 빼면 셀이 Connected 카드 3개와 같은 층위 = 규칙이 하나가 된다.
+    const setH = 103 + 8 + 102;
     // 흰 박스 안쪽 여백 — 셀이 모서리에 딱 붙어 있었다(유저: "양옆 마진 0").
     // 셀 안 텍스트 패딩은 PADL - CPAD 로 줘서 바깥 축(ix + PADL)은 그대로 유지된다.
-    const cw = (iw - CPAD * 2 - CGAP) / 2;
+    const cw = (iw - CGAP) / 2;
     // 라벨·값을 가운데 점으로 잇던 압축('Indoor · Standard')은 폐기 — 서로 다른 셋업 항목
     //   (장소/목표)을 점으로 붙여 무슨 관계인지 안 읽혔다(유저: "구리고 AI 티 난다").
     //   모바일 .sc-row 정본과 같은 규칙으로: 라벨은 왼쪽 연하게, 값은 오른쪽 굵게, 양끝 정렬.
@@ -419,14 +423,14 @@ export class WallGL {
     const cells = [['Location', 'Indoor', 103], ['Goal', 'Standard', 103],
                    ['Sound', 'Quiet On', 102], ['Injury', 'None', 102]];
     cells.forEach(([lbl, val, ch], i) => {
-      const cx0 = ix + CPAD + (i % 2) * (cw + CGAP), cy0 = y + CPAD + (i < 2 ? 0 : 111);
+      const cx0 = ix + (i % 2) * (cw + CGAP), cy0 = y + (i < 2 ? 0 : 111);
       const e = eOut(intro(t, .95 + i * .10, .55));
       ctx.save();
       ctx.globalAlpha *= e;
       ctx.translate(0, 26 * (1 - e));
       const k = 0.95 + 0.05 * e;
       ctx.translate(cx0 + cw / 2, cy0 + ch / 2); ctx.scale(k, k); ctx.translate(-(cx0 + cw / 2), -(cy0 + ch / 2));
-      rrFill(ctx, cx0, cy0, cw, ch, 48, NEU.surface);
+      rrFill(ctx, cx0, cy0, cw, ch, 48, '#fff');   // 래퍼가 없으니 카드 자신이 흰색 — Connected 카드와 동일
       txt(ctx, lbl, cx0 + CIN, cy0 + ch / 2, 34, 400, NEU.t2, { ls: -1.13, base: 'middle' });
       txt(ctx, val, cx0 + cw - CIN, cy0 + ch / 2, 38, 700, '#000', { ls: -1.27, base: 'middle', align: 'right' });
       ctx.restore();
@@ -444,7 +448,7 @@ export class WallGL {
                   ['icon_station.png', 'Station Ready'],
                   ['icon_device.png', 'Watch Ready']];
     devs.forEach(([ic, n], i) => {
-      const dx = ix + CPAD + i * (dw + DGAP);
+      const dx = ix + i * (dw + DGAP);
       const e = eOut(intro(t, 1.3 + i * .13, .55));
       ctx.save();
       ctx.globalAlpha *= e; ctx.translate(0, 26 * (1 - e));
