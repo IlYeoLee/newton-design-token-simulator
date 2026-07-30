@@ -611,16 +611,44 @@ export function drawStanceBox(g, W, P, look, t, ENV) {
     strokeFlowPath(g, box, t, ENV.arrow.w * s, { color: lut(0.45), closed: true }, ENV);
   }
   // 유지 진행 = 테두리 자체가 차오른다(P.prog 0..1). 박스 안에 원형 게이지를 따로 놓으면
-  //   형태 언어가 어긋난다(유저: "가드 박스인데 안에 동그란 원이 있으니 어색"). LINE 이 채워지는 게 정본.
-  //   roundRect 는 (x+r, y)에서 시계방향으로 시작 → 상단 중앙부터 차오르게 오프셋을 준다.
+  //   형태 언어가 어긋난다(유저: "가드 박스인데 안에 동그란 원이 있으니 어색").
+  //   ★ 차오르는 것도 **도트를 유지한 채** 차야 한다(유저) — 실선으로 채우면 테두리가 딴 물건이 된다.
+  //     그래서 '긴 대시 하나'가 아니라, 상단 중앙에서 시계방향으로 진행 길이만큼 잘라낸 **부분 경로**를
+  //     원래 도트 패턴으로 긋는다. 점 개수가 늘어나며 한 바퀴를 채운다.
   if (P.prog != null && P.prog > 0.001) {
-    const per = 2 * (bw + bh) - 8 * rr + 2 * Math.PI * rr;
+    const pts = [];
+    const line = (x0, y0, x1, y1, n) => { for (let i = 1; i <= n; i++) pts.push([x0 + (x1 - x0) * i / n, y0 + (y1 - y0) * i / n]); };
+    const arc = (cx0, cy0, a0, a1, n) => { for (let i = 1; i <= n; i++) { const a = a0 + (a1 - a0) * i / n; pts.push([cx0 + rr * Math.cos(a), cy0 + rr * Math.sin(a)]); } };
+    const HP = Math.PI / 2, xR = bx0 + bw, yB = by0 + bh, cxm = bx0 + bw / 2;
+    pts.push([cxm, by0]);
+    line(cxm, by0, xR - rr, by0, 8);
+    arc(xR - rr, by0 + rr, -HP, 0, 6);
+    line(xR, by0 + rr, xR, yB - rr, 10);
+    arc(xR - rr, yB - rr, 0, HP, 6);
+    line(xR - rr, yB, bx0 + rr, yB, 14);
+    arc(bx0 + rr, yB - rr, HP, Math.PI, 6);
+    line(bx0, yB - rr, bx0, by0 + rr, 10);
+    arc(bx0 + rr, by0 + rr, Math.PI, Math.PI + HP, 6);
+    line(bx0 + rr, by0, cxm, by0, 8);
+    let total = 0;
+    for (let i = 1; i < pts.length; i++) total += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
+    const want = total * Math.min(1, P.prog);
     g.save();
-    g.setLineDash([per * Math.min(1, P.prog), per]);
-    g.lineDashOffset = -(bw / 2 - rr);
-    g.strokeStyle = lut(0.88); g.lineWidth = LNW * 1.35;
+    g.setLineDash([10 * P.dash * s, 8 * s]);   // 바탕 테두리와 같은 도트 리듬
+    // 위상 맞춤 — 바탕은 roundRect(좌상단 시작)에 -t*22*s 로 흐르고, 이 경로는 상단 중앙에서 시작한다.
+    //   시작점 차이(bw/2 − rr)를 빼 주지 않으면 밝은 점이 바탕 점 사이에 앉아 두 겹으로 보인다.
+    g.lineDashOffset = -(bw / 2 - rr) - t * 22 * s;
+    g.strokeStyle = lut(0.9); g.lineWidth = LNW * 1.3; g.lineCap = 'round';
     g.shadowColor = lut(0.92); g.shadowBlur = GB * 1.3;
-    g.beginPath(); g.roundRect(bx0, by0, bw, bh, rr); g.stroke();
+    g.beginPath(); g.moveTo(pts[0][0], pts[0][1]);
+    let acc = 0;
+    for (let i = 1; i < pts.length && acc < want; i++) {
+      const d = Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
+      if (acc + d <= want) { g.lineTo(pts[i][0], pts[i][1]); acc += d; }
+      else { const f = (want - acc) / d; g.lineTo(pts[i - 1][0] + (pts[i][0] - pts[i - 1][0]) * f, pts[i - 1][1] + (pts[i][1] - pts[i - 1][1]) * f); acc = want; }
+    }
+    g.stroke();
+    g.setLineDash([]);
     g.restore();
   }
   if (P.feet > 0.05 && ENV.foot) {
