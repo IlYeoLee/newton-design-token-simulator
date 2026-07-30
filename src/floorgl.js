@@ -300,6 +300,74 @@ export function drawBadge(ctx, cx, cy, text, o = {}) {
  *  가장자리에만 부드러운 빛이 남는다 = inset. (스트로크+blur 근사는 테두리가 딱딱하고 얼룩진다)
  *  CSS blur 는 지름 규약이라 캔버스 filter(시그마)에는 절반을 준다. */
 const _isCv = typeof document !== 'undefined' ? document.createElement('canvas') : null;
+// ── 도트 숫자 카운트업 (정본) ────────────────────────────────────────────────
+// 규칙(유저): 도트 폰트 + 숫자면 전부 이걸로 그린다. 값을 그냥 갈아끼우면 숫자가 툭 튀어
+//   '계기'가 아니라 '텍스트'로 읽힌다. 원래 wallgl 리포트에서만 쓰던 것을 정본으로 올렸다.
+// 동작 — 진입 후 delay 초 뒤 cd 초 동안 0 → target 으로 이징(reactbits CountUp 규약).
+//   cd 가 지나면 cur === target 이므로, 살아 움직이는 값(km·SPM)도 그대로 따라가며
+//   자릿수만 굴러간다. 정적 숫자와 실시간 값 양쪽에 같은 함수가 쓰인다.
+export function rollNum(ctx, target, t, delay, cd, x, y, size, o = {}) {
+  const m = String(target).match(/^(\d+(?:\.\d+)?)$/);
+  if (!m) {   // 숫자가 아니면(예: '--') 그대로 — 카운트업 대상이 아니다
+    ctx.save();
+    ctx.font = F(o.weight || 700, size, o.fam || dot9);
+    ctx.textBaseline = o.base || 'top';
+    ctx.textAlign = o.align || 'left';
+    ctx.fillText(String(target), x, y);
+    ctx.restore();
+    return;
+  }
+  const dec = (m[1].split('.')[1] || '').length, P = Math.pow(10, dec);
+  const cur = parseFloat(m[1]) * P * eOut(clamp01((t - delay) / cd));
+  const cols = String(Math.round(parseFloat(m[1]) * P)).length;
+  ctx.save();
+  ctx.font = F(o.weight || 700, size, o.fam || dot9);
+  ctx.textBaseline = 'top';
+  if (o.fill) ctx.fillStyle = o.fill;
+  ctx.letterSpacing = (o.ls || 0) + 'px';
+  const gs = [];
+  for (let i = 0; i < cols; i++) {
+    if (dec && i === dec) gs.push({ ch: '.' });
+    gs.push({ w: cur / Math.pow(10, i) });
+  }
+  gs.reverse();
+  // 자리 폭 = '최종 문자열을 통째로 그렸을 때의 실제 진행 폭'에서 뽑는다.
+  //   한 자씩 measureText 하면 커닝이 사라져 자간이 벌어지고(유저: 억지로 늘어남),
+  //   ctx.letterSpacing 이 이미 걸려 있으므로 o.ls 를 또 더하면 이중 적용이었다.
+  const disp = m[1];   // 예: '30' · '1.00' — gs 와 글리프 순서가 같다
+  const ws = [];
+  let prev = 0;
+  for (let i = 0; i < disp.length; i++) {
+    const cum = ctx.measureText(disp.slice(0, i + 1)).width;
+    ws.push(cum - prev); prev = cum;
+  }
+  const total = prev;
+  let px = o.align === 'right' ? x - total : o.align === 'center' ? x - total / 2 : x;
+  const H = size * 0.84;   // 휠 한 칸 = 글리프 잉크 높이(글자 상자가 아니라) — 두 자리가 겹쳐 보이지 않게
+  for (let i = 0; i < gs.length; i++) {
+    const g = gs[i];
+    if (g.ch != null) { ctx.fillText(g.ch, px, y); px += ws[i]; continue; }
+    const d = Math.floor(g.w), f = g.w - d;
+    ctx.save();
+    ctx.beginPath(); ctx.rect(px - 4, y, ws[i] + 8, size * 0.92); ctx.clip();   // 창 = 딱 한 자리
+    ctx.fillText(String(d % 10), px, y - f * H);                                // 나가는 자리 = 위로
+    if (f > 0.03) ctx.fillText(String((d + 1) % 10), px, y + (1 - f) * H);      // 들어오는 자리 = 아래에서
+    ctx.restore();
+    px += ws[i];
+  }
+  ctx.letterSpacing = '0px';
+  ctx.restore();
+  return total;
+}
+/** 값만 필요한 곳(문자열 반환) — 그리기는 호출부가 한다. 숫자가 아니면 그대로 돌려준다. */
+export function countUp(target, t, delay, cd) {
+  const m = String(target).match(/^(\d+(?:\.\d+)?)$/);
+  if (!m) return String(target);
+  const end = parseFloat(m[1]), dec = (m[1].split('.')[1] || '').length;
+  const e = eOut(clamp01((t - delay) / cd));
+  return dec ? (end * e).toFixed(dec) : String(Math.round(end * e));
+}
+
 export function insetGlow(ctx, x, y, w, h, r, color, blur, spread) {
   if (!_isCv) return;
   const m = Math.ceil(blur) + 8;
@@ -726,9 +794,10 @@ export class FloorGL {
     const off = Math.min(1, Math.abs(dev) / 0.12);    // ±12% 를 만점으로 본다
     const col = !ok ? NEU.paper : off < 0.35 ? PAL.sand : off < 0.72 ? PAL.coral : PAL.red;
     ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
-    ctx.font = F(700, 132, dot9);          // ① 값 — 도트 숫자
-    ctx.fillStyle = col;
-    ctx.fillText(me || '--', cx, y + 118);
+    // ① 값 — 도트 숫자 = 카운트업(유저 규칙). 진입 후 0.6s 동안 세어 오르고, 그 뒤엔 실시간 값을
+    //   그대로 따라가며 자릿수만 굴러간다. '--'(미측정)는 숫자가 아니라 그대로 그려진다.
+    rollNum(ctx, me || '--', this.t, 0, 0.6, cx, y + 118 - 132 * 0.78, 132,
+            { fam: dot9, align: 'center', fill: col });
     // ② 편차 바 — 가운데 눈금이 목표, 점이 현재. 관계를 '위치'로 읽는다.
     const BW = 232, BY = y + 154;
     ctx.lineCap = 'round';
@@ -774,7 +843,9 @@ export class FloorGL {
     ctx.font = F(500, 78); const wu = ctx.measureText(' km').width;
     const x0 = CX - (wv + wu) / 2;
     ctx.textAlign = 'left';
-    ctx.font = F(700, 180, dot9); ctx.fillText(v, x0, y);
+    // 도트 숫자 = 카운트업(유저 규칙). km 은 라이브 중 계속 오르므로, 0.7s 진입 이징 뒤
+    //   실제 값을 따라가며 소수 자리가 계속 굴러간다 — 오도미터와 같은 움직임.
+    rollNum(ctx, v, this.t, 0, 0.7, x0, y, 180, { fam: dot9, fill: '#fff' });
     ctx.font = F(500, 78); ctx.fillStyle = rgba(NEU.paper, 0.7);
     ctx.fillText(' km', x0 + wv, y + 92);
   }
@@ -1139,11 +1210,12 @@ export class FloorGL {
     ringGauge(ctx, CX, cy, r, e, { trackW: 14, arcW: 14, trackA: .16 });
     ctx.shadowBlur = 0;
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#fff';
-    ctx.font = F(700, 128.5, dot9); const nTxt = String(Math.round(100 * e));
+    // % — 링 게이지와 같은 진행(e)을 쓰던 것을 정본 카운트업으로. 값 보간만 있고 자릿수 롤이 없었다.
+    ctx.font = F(700, 128.5, dot9); const nTxt = '100';
     const nw = ctx.measureText(nTxt).width;
     ctx.font = F(500, 76); const sw = ctx.measureText('%').width;   // 단위 = 본문 영문(유저 규약)
     ctx.textAlign = 'left';
-    ctx.font = F(700, 128.5, dot9); ctx.fillText(nTxt, CX - (nw + sw + 8) / 2, cy);
+    rollNum(ctx, nTxt, this.t, 0.4, 1.3, CX - (nw + sw + 8) / 2, cy - 128.5 * 0.5, 128.5, { fam: dot9, fill: '#fff' });
     ctx.font = F(500, 76); ctx.fillText('%', CX - (nw + sw + 8) / 2 + nw + 8, cy + 18);
     ctx.shadowBlur = 0;
     ctx.restore();
@@ -1157,8 +1229,11 @@ export class FloorGL {
       if (i) { ctx.fillStyle = 'rgba(255,255,255,.25)'; ctx.fillRect(x + 5, y, 2, 100); x += 12; }
       ctx.fillStyle = 'rgba(255,255,255,.7)'; ctx.font = F(400, 39); ctx.letterSpacing = '-1.5px';
       ctx.fillText(st[0], x + cw / 2, y);
-      ctx.fillStyle = '#fff'; ctx.font = F(700, st[2] === 'sm' ? 42 : 64, dot9);   // 수치 = 도트폰트(유저 규칙)
-      ctx.fillText(st[1], x + cw / 2, y + 39 * 1.2 + 18);
+      // 수치 = 도트폰트(유저 규칙) → 카운트업. 항목마다 조금씩 늦게 세어 오른다.
+      //   "5’42”"·"1.00 km" 처럼 단위·기호가 붙은 값은 숫자가 아니라 rollNum 이 그대로 그린다.
+      const sz = st[2] === 'sm' ? 42 : 64;
+      rollNum(ctx, st[1], this.t, 0.5 + i * 0.12, 0.9, x + cw / 2, y + 39 * 1.2 + 18, sz,
+              { fam: dot9, align: 'center', fill: '#fff' });
       ctx.letterSpacing = '0px';
       x += cw;
     });

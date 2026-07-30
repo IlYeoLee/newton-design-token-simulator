@@ -9,7 +9,7 @@
 // 세로 translate가 원근상 왜곡되지 않는다 → 원본 translateY를 그대로 쓴다.
 import * as THREE from 'three';
 import { PAL, NEU, rgba } from './palette.js';
-import { clamp01, eOut, cycle, kf, intro, drawChars, drawBadge, insetGlow, checkBadge, growBar, arcGauge, ringGauge } from './floorgl.js';
+import { clamp01, eOut, cycle, kf, intro, drawChars, drawBadge, insetGlow, checkBadge, growBar, arcGauge, ringGauge, rollNum, countUp } from './floorgl.js';
 
 const W = 2600, H = 1600;   // 대지 px (벽 2.6×1.6m 실측 1:1)
 // 캔버스 해상도 — 대지 대비 배율. 화질 vs 업로드 비용의 저울.
@@ -53,54 +53,7 @@ function gradV(ctx, y0, y1, stops) {
   for (const [p, c] of stops) g.addColorStop(clamp01(p), c);
   return g;
 }
-/** 오도미터 롤 — 숫자가 툭 바뀌는 대신 자릿수 휠이 굴러 올라간다(유저: "촤라락 넘어가게").
- *  자리마다 휠 위치 = cur/10^i 라, 1의 자리는 계속 돌고 10의 자리는 자리올림 순간에만 돈다
- *  — 실제 계수기와 같은 움직임이다. 소수점은 고정 글리프로 끼운다.
- *  숫자가 아니면(— 같은 기호) 그대로 그린다. */
-function rollNum(ctx, target, t, delay, cd, x, y, size, o = {}) {
-  const m = String(target).match(/^(\d+(?:\.\d+)?)$/);
-  if (!m) { txt(ctx, String(target), x, y, size, 700, '#fff', o); return; }
-  const dec = (m[1].split('.')[1] || '').length, P = Math.pow(10, dec);
-  const cur = parseFloat(m[1]) * P * eOut(clamp01((t - delay) / cd));
-  const cols = String(Math.round(parseFloat(m[1]) * P)).length;
-  ctx.save();
-  ctx.font = F(700, size, o.fam || dot9);
-  ctx.textBaseline = 'top';
-  ctx.fillStyle = '#fff';
-  ctx.letterSpacing = (o.ls || 0) + 'px';
-  const gs = [];
-  for (let i = 0; i < cols; i++) {
-    if (dec && i === dec) gs.push({ ch: '.' });
-    gs.push({ w: cur / Math.pow(10, i) });
-  }
-  gs.reverse();
-  const ws = gs.map(g => ctx.measureText(g.ch ?? '0').width + (o.ls || 0));
-  const total = ws.reduce((a, b) => a + b, 0);
-  let px = o.align === 'right' ? x - total : o.align === 'center' ? x - total / 2 : x;
-  const H = size * 0.84;   // 휠 한 칸 = 글리프 잉크 높이(글자 상자가 아니라) — 두 자리가 겹쳐 보이지 않게
-  for (let i = 0; i < gs.length; i++) {
-    const g = gs[i];
-    if (g.ch != null) { ctx.fillText(g.ch, px, y); px += ws[i]; continue; }
-    const d = Math.floor(g.w), f = g.w - d;
-    ctx.save();
-    ctx.beginPath(); ctx.rect(px - 4, y, ws[i] + 8, size * 0.92); ctx.clip();   // 창 = 딱 한 자리(정착 시 잘리지 않게 잉크보다 살짝 크게)
-    ctx.fillText(String(d % 10), px, y - f * H);               // 나가는 자리 = 위로
-    if (f > 0.03) ctx.fillText(String((d + 1) % 10), px, y + (1 - f) * H);   // 들어오는 자리 = 아래에서
-    // f≈0(정착)에선 다음 자리를 아예 안 그린다 — 창이 잉크보다 커서 다음 숫자 윗변이 점선처럼 삐져나왔다
-    ctx.restore();
-    px += ws[i];
-  }
-  ctx.letterSpacing = '0px';
-  ctx.restore();
-}
-// 0 → target 카운트업 (원본 countUp: 지연 뒤 cd초 동안 ease-out). 숫자가 아니면 그대로.
-function countUp(target, t, delay, cd) {
-  const m = String(target).match(/^(\d+(?:\.\d+)?)$/);
-  if (!m) return String(target);
-  const end = parseFloat(m[1]), dec = (m[1].split('.')[1] || '').length;
-  const e = eOut(clamp01((t - delay) / cd));
-  return dec ? (end * e).toFixed(dec) : String(Math.round(end * e));
-}
+// 오도미터 롤·카운트업은 floorgl 정본(rollNum/countUp)으로 승격했다 — 도트 숫자 공통 규칙.
 
 // ── 원본 <script>의 데이터 상수 ─────────────────────────────────────────────────
 const PHASES = ['START', 'WARM UP', 'DRILL', 'FIGHT'];
@@ -397,7 +350,8 @@ export class WallGL {
     ctx.restore();
     bar(2, 582.143, '15min', 1.3);
     // 좌측 큰 숫자 오버레이
-    txt(ctx, '30', ix + PADL, y + 24.256, 145.536, 700, NEU.inkDark, { fam: dot9 });
+    // 도트 숫자 = 카운트업(유저 규칙). 막대 3개가 자라는 리듬(1.0/1.15/1.3)에 맞춰 같이 세어 오른다.
+    rollNum(ctx, '30', t, 1.0, 0.9, ix + PADL, y + 24.256, 145.536, { fam: dot9, fill: NEU.inkDark });
     ctx.save(); ctx.globalAlpha *= 0.6;
     txt(ctx, 'min', ix + PADL, y + 24.256 + 145.536, 32, 700, NEU.inkDark, { ls: -1.21 });
     ctx.restore();
@@ -855,11 +809,11 @@ export class WallGL {
     }
     ringGauge(ctx, CX, cy, r, p, { trackW: 16, arcW: 16, trackA: .22 });
     ctx.shadowBlur = 0;
-    // % 카운트업
-    const n = String(Math.round(RP_.pct * eOut(clamp01((t - .5) / 1.3))));
+    // % 카운트업 — 값 보간만 있고 자릿수 롤이 없었다. 정본(rollNum)으로 통일한다.
+    const n = String(RP_.pct);
     ctx.font = F(700, 128.5, dot9); const nw = ctx.measureText(n).width;
     ctx.font = F(700, 90.3, dot9); const sw = ctx.measureText('%').width;
-    txt(ctx, n, CX - (nw + sw + 8) / 2, cy, 128.5, 700, '#fff', { fam: dot9, ls: -3.57, base: 'middle' });
+    rollNum(ctx, n, t, .5, 1.3, CX - (nw + sw + 8) / 2, cy - 128.5 * 0.5, 128.5, { fam: dot9, ls: -3.57, fill: '#fff' });
     txt(ctx, '%', CX - (nw + sw + 8) / 2 + nw + 8, cy + 12, 90.3, 700, '#fff', { fam: dot9, ls: -2.5, base: 'middle' });
     ctx.restore();
     // 통계 3열 — stat sUp .7s (1.0/1.15/1.3), sep sepGrow .6s 1.1s
@@ -880,7 +834,9 @@ export class WallGL {
       ctx.save();
       ctx.globalAlpha *= e2; ctx.translate(0, 48 * (1 - e2));
       txt(ctx, kk, x + sW / 2, sy, 39.2, 400, 'rgba(255,255,255,.7)', { ls: -1.5, align: 'center' });
-      txt(ctx, v, x + sW / 2, sy + 39.2 * 1.2 + 18, 64, 700, '#fff', { ls: -1.5, align: 'center', fam: dot9 });   // 수치 = 도트폰트(유저 규칙)
+      // 수치 = 도트폰트(유저 규칙) → 카운트업. 항목마다 등장 리듬(1.0 + i*.15)에 맞춰 세어 오른다.
+      //   '1.00 km' 처럼 단위가 붙은 값은 숫자가 아니라 rollNum 이 그대로 그린다.
+      rollNum(ctx, v, t, 1.0 + i * .15, .9, x + sW / 2, sy + 39.2 * 1.2 + 18, 64, { ls: -1.5, align: 'center', fam: dot9, fill: '#fff' });
       ctx.restore();
       x += sW;
     });
