@@ -8,6 +8,7 @@
 // main.js 구동 코드가 그대로 쓴다(노드 = 그리기 스펙 겸 DOM 스텁). 이식 비용을 여기 한 파일에 가둔다.
 import * as THREE from 'three';
 import { PAL, NEU, rgba } from './palette.js';
+import { FXP } from './fxlut.js';   // 글로우 손잡이(FXP.glow) — 랩에서 돌려 찾는다
 
 const W = 1600, H = 2670;   // 대지 px (floor-scene.html과 동일)
 // 캔버스 해상도 — 화질과 업로드 비용의 저울.
@@ -299,6 +300,42 @@ export function drawBadge(ctx, cx, cy, text, o = {}) {
  *  가장자리에만 부드러운 빛이 남는다 = inset. (스트로크+blur 근사는 테두리가 딱딱하고 얼룩진다)
  *  CSS blur 는 지름 규약이라 캔버스 filter(시그마)에는 절반을 준다. */
 const _isCv = typeof document !== 'undefined' ? document.createElement('canvas') : null;
+// ── 빔 글로우 (정본) ─────────────────────────────────────────────────────────
+// SVG 에셋(big_glow·bg_glow·glow.svg)을 늘려 그리던 것을 캔버스 라디얼 그라디언트로 대체.
+// 왜 에셋을 버렸나 — 실측 알파 프로파일이 '빛'이 아니라 '원반'이었다. 중심부터 평평하게
+//   불투명하다가 짧게 끊긴다(평평한 코어: big_glow 27% · bg_glow 38% · glow.svg 51%).
+//   게다가 big_glow·glow.svg 는 뷰박스 300×150 을 1478×1305 로 늘려 그려, 가우시안이
+//   래스터로 구워진 뒤 확대되며 가장자리에 계단·색 띠가 생겼다.
+// 모양은 FXP.glow 손잡이로 정한다 — 코드에 박힌 값이 아니라 랩에서 돌려 찾는다.
+const GLOW_OUTER = { sand: () => PAL.sand, coral: () => PAL.coral, prism: () => PAL.prism };
+/** (cx,cy) 중심 반경 rx(×ry) 타원 글로우. gain 으로 전체 세기를 곱한다. */
+export function paintGlow(ctx, cx, cy, rx, ry = rx, gain = 1) {
+  const P = FXP.glow || {};
+  const scale = P.scale ?? 1, core = P.core ?? 1, fo = Math.max(0.2, P.falloff ?? 2.2), hot = P.hot ?? 0;
+  const outer = (GLOW_OUTER[P.outer] || GLOW_OUTER.sand)();
+  const RX = rx * scale, RY = ry * scale;
+  if (!(RX > 0)) return;
+  ctx.save();
+  ctx.translate(cx, cy);
+  if (RY !== RX) ctx.scale(1, RY / RX);
+  const g = ctx.createRadialGradient(0, 0, 0, 0, 0, RX);
+  // 색은 안쪽부터 red → coral → outer 로 가되, hot 이 있으면 중심을 흰-프리즘으로 태운다.
+  const N = 12;
+  for (let i = 0; i <= N; i++) {
+    const x = i / N;
+    const a = core * Math.pow(1 - x, fo);                 // 감쇠 곡선 — falloff 가 모양을 정한다
+    let col;
+    if (hot > 0 && x < hot) col = x < hot * 0.45 ? NEU.ink : PAL.prism;
+    else if (x < 0.34) col = PAL.red;
+    else if (x < 0.66) col = PAL.coral;
+    else col = outer;
+    g.addColorStop(x, rgba(col, Math.max(0, a * gain)));
+  }
+  ctx.fillStyle = g;
+  ctx.beginPath(); ctx.arc(0, 0, RX, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+}
+
 export function insetGlow(ctx, x, y, w, h, r, color, blur, spread) {
   if (!_isCv) return;
   const m = Math.ceil(blur) + 8;
@@ -725,9 +762,8 @@ export class FloorGL {
   // ── 공통 조각 ───────────────────────────────────────────────────────────────
   // 빔 글로우 — 원본은 radial 마스크로 사각 모서리를 잘라낸다. 그린 뒤 같은 마스크를 destination-out으로.
   _bgGlow(topY, w = 2200) {
-    const ctx = this.ctx, im = this._img('bg_glow.svg');
-    if (!im) return;
-    const h = w * (im.naturalHeight / im.naturalWidth);
+    const ctx = this.ctx;
+    const h = w * (2140 / 2366);   // 구 bg_glow.svg 뷰박스 비율 — 에셋 없이도 같은 타원
     ctx.save();
     // glowDrift 15s ×3 — 원본 translate는 자기 크기의 %라 그대로 환산
     const p = cycle(this.t, 0, 15, 3);
@@ -738,7 +774,7 @@ export class FloorGL {
       const r = kf(p, [[0, 0], [.25, 4], [.5, -3], [.75, 3], [1, 0]]) * Math.PI / 180;
       ctx.translate(CX + dx, topY + dy); ctx.rotate(r); ctx.scale(s, s); ctx.translate(-CX, -topY);
     }
-    ctx.drawImage(im, CX - w / 2, topY - h / 2, w, h);
+    paintGlow(ctx, CX, topY, w / 2, h / 2);   // 구 drawImage(bg_glow.svg)
     ctx.restore();
     ctx.save();
     const g = ctx.createRadialGradient(CX, H * 0.43, 0, CX, H * 0.43, W * 0.58);
@@ -815,7 +851,7 @@ export class FloorGL {
       // 필터 영역을 블러 반경(3σ=280)만큼 넓힌 에셋 — 예전엔 filter 영역이 viewBox와 같아
       //   가우시안이 좌우·아래에서 잘려 글로우가 사각으로 뚝 끊겼다(유저: 투사영역 따라 일자로 잘림).
       //   대지가 1.4495×1.4030 커졌으므로 그리는 사각형도 같은 배율 — 글로우 크기는 그대로다.
-      ctx.drawImage(gl, CX - 739, 1400 - 652, 1478, 1305);
+      paintGlow(ctx, CX, 1400, 739, 652);   // 구 drawImage(big_glow.svg)
       ctx.restore();
     }
     // 크리에이터 얼굴 = pyeongso .creator-profile 의 아바타만(×3.0, 303px + 흰 테두리 6).
@@ -881,14 +917,24 @@ export class FloorGL {
     const CY = 600;
     ctx.save(); this._fadeIn(CY, 92, eOut(intro(t, .6, .8)));
     {
+      // 아이콘 크기를 '높이' 기준으로 통일한다. 전엔 폭을 32/24/28 로 제각각 박아 종횡비가
+      //   다른 세 아이콘의 높이가 다 달라졌고(안경 납작 · 시계 길쭉), 크기도 글자(44)보다
+      //   작아 식별이 안 됐다(유저). 복싱 벽 카드는 아이콘 88 / 글자 38 로 정반대였다 —
+      //   같은 시스템에서 아이콘이 글자보다 작을 이유가 없다.
+      const IH = 52;
       const CHIP =[['run/ic_glasses.png', 32, '90%', true], ['run/ic_watch.png', 24, '30%', false],
                     ['run/ic_earbuds.png', 28, '60%', false]];
-      const CPAD = 29, CICG = 10, CGAP = 10, CH2 = 92;
+      const CPAD = 29, CICG = 12, CGAP = 10, CH2 = 92;
       ctx.font = F(400, 44); ctx.letterSpacing = '-1.3px';
-      const chipW = CHIP.map(([, iw, tx]) => CPAD * 2 + iw + CICG + ctx.measureText(tx).width);
+      // 실제 종횡비로 폭을 낸다(미로드면 표의 값 폴백) — 레이아웃과 그리기가 같은 값을 쓴다
+      const iconW = CHIP.map(([ic, fw]) => {
+        const im = this._img(ic);
+        return im && im.naturalHeight ? IH * (im.naturalWidth / im.naturalHeight) : fw;
+      });
+      const chipW = CHIP.map(([, , tx], k) => CPAD * 2 + iconW[k] + CICG + ctx.measureText(tx).width);
       let bx = CX - (chipW.reduce((a, b) => a + b, 0) + CGAP * 2) / 2;
-      CHIP.forEach(([ic, iw, tx, sel], k) => {
-        const w3 = chipW[k];
+      CHIP.forEach(([ic, , tx, sel], k) => {
+        const w3 = chipW[k], iw = iconW[k];
         if (sel) {
           const g3 = ctx.createLinearGradient(0, CY, 0, CY + CH2);
           g3.addColorStop(0.48, '#FA3030'); g3.addColorStop(0.776, '#FE6E3C'); g3.addColorStop(1, '#FEC389');
@@ -897,7 +943,7 @@ export class FloorGL {
         this._roundRectPath(bx, CY, w3, CH2, CH2 / 2); ctx.fill();
         const im = this._img(ic);
         if (im) {
-          const ih = iw * (im.naturalHeight / im.naturalWidth);
+          const ih = im.naturalHeight ? IH : iw * (im.naturalHeight / im.naturalWidth);   // 세 아이콘 높이를 같게
           ctx.save(); ctx.filter = sel ? 'brightness(0) invert(1)' : 'brightness(0)';
           ctx.drawImage(im, bx + CPAD, CY + CH2 / 2 - ih / 2, iw, ih);
           ctx.restore();

@@ -1261,6 +1261,8 @@ void main(){
       Object.assign(FXP.arrow, st.arrow);
       if (changed) refreshGlyphConsumers();   // 화살표 자루 리빌드
     }
+    // 빔 글로우 손잡이 — 랩 슬라이더가 그대로 건너온다(크기·중심 진하기·감쇠·백열·바깥 색).
+    if (st.glow) Object.assign(FXP.glow, st.glow);
     // 마크 숫자 활자 — 랩 토글이 그대로 건너온다('glyph' 슬롯 SVG / 'offbit' 도트 폰트).
     // glyphs 블록 밖에 둔다: 글리프를 한 번도 안 만진 랩 상태에서도 이 값은 와야 한다.
     if (st.numSrc && st.numSrc !== FXP.numSrc) {

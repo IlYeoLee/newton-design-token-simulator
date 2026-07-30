@@ -277,6 +277,11 @@ export function makeMarkFXMaterial(footTex = null) {
       //   reach 0.34(쿼드 반폭의 1/3만 나간다) · width 0.09(한 겹) · speed 0.45(느리게).
       //   예전 원형 파장이 과하게 크고 쨍하다는 지적의 실체는 '너무 멀리 · 너무 세게'였다.
       uRip: { value: 0.55 }, uRipSpeed: { value: 0.45 }, uRipWidth: { value: 0.09 }, uRipReach: { value: 0.34 },
+      // 족저 압력장·등고선 — 색을 정하는 입력을 '중심거리'에서 '압력'으로 바꾼다(유저 레퍼런스: 압력맵)
+      // 압력 램프(데이터 계열) · 아웃라인 폐기 후 형태를 잡는 이너 섀도우 · 필 소프트 엣지
+      uEdgeShade: { value: 0.55 }, uEdgeW: { value: 0.085 }, uEdgeSoft: { value: 0.75 },
+      uDither: { value: 0.010 },   // LUT 8비트 밴딩 제거 — 조회 좌표를 1단계 미만 흔든다
+      uPlantar: { value: 1.0 }, uBands: { value: 0 }, uBandSoft: { value: 0.45 },
       uRipGrad: { value: 1 },   // 1 = 뉴턴 LUT 그라디언트(기본) · 0 = 단색
       uRipCol: { value: 1 },   // 1 = 샌드(따뜻한 잔광). 0 흰 · 2 코랄 · 3 레드
       uPhase: { value: 0 }, uProg: { value: 0 }, uFade: { value: 1 },
@@ -648,7 +653,10 @@ export class Marker {
       const a = NF[FXP.footCtx === 'in' ? 'in' : 'out']
         || NF.L || (NF.R ? { x: 1 - NF.R.x, y: NF.R.y, s: NF.R.s } : null);   // 레거시 {L,R} 폴백
       if (a) {
-        const off = MARK_NUM.anchor(a, this._footRight, this.radius * 2.78);   // fx-core 규약
+        // 앵커 기준은 '발 평면'이다. radius*2.78 을 쓰면 발형 평면을 FOOT_PLANE_M 고정으로
+        //   떼어낸 뒤로는 어긋난다 — 판정 반경이 큰 구간에서 숫자가 발 밖으로 나간다.
+        //   (session.js attachMarkNum/placeMarkNum 에 남아 있던 0.46 과 같은 종류의 어긋남)
+        const off = MARK_NUM.anchor(a, this._footRight, FOOT_PLANE_M);   // fx-core 규약
         this.num.position.set(off.x, off.y, 0.004);
         this.num.scale.setScalar(off.s);
       }

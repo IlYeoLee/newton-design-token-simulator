@@ -9,7 +9,7 @@
 // 세로 translate가 원근상 왜곡되지 않는다 → 원본 translateY를 그대로 쓴다.
 import * as THREE from 'three';
 import { PAL, NEU, rgba } from './palette.js';
-import { clamp01, eOut, cycle, kf, intro, drawChars, drawBadge, insetGlow, checkBadge, growBar, arcGauge, ringGauge } from './floorgl.js';
+import { clamp01, eOut, cycle, kf, intro, drawChars, drawBadge, insetGlow, checkBadge, growBar, arcGauge, ringGauge, paintGlow } from './floorgl.js';
 
 const W = 2600, H = 1600;   // 대지 px (벽 2.6×1.6m 실측 1:1)
 // 캔버스 해상도 — 대지 대비 배율. 화질 vs 업로드 비용의 저울.
@@ -255,9 +255,8 @@ export class WallGL {
   // ── 공통 조각 ───────────────────────────────────────────────────────────────
   // 배경 글로우 + glowDrift 15s ∞. 원본은 컨테이너 라디얼 마스크로 사각 모서리를 잘라낸다.
   _bgGlow() {
-    const ctx = this.ctx, im = this._img('bg_glow.svg');
-    if (!im) return;
-    const w = 2050, h = w * (im.naturalHeight / im.naturalWidth);
+    const ctx = this.ctx;
+    const w = 2050, h = w * (2140 / 2366);   // 구 bg_glow.svg 뷰박스 비율
     ctx.save();
     const p = cycle(this.t, 0, 15, INF);
     if (p != null) {
@@ -267,7 +266,7 @@ export class WallGL {
       const r = kf(p, [[0, 0], [.25, 5], [.5, -4], [.75, 3], [1, 0]]) * Math.PI / 180;
       ctx.translate(CX + dx, H / 2 + dy); ctx.rotate(r); ctx.scale(s, s); ctx.translate(-CX, -H / 2);
     }
-    ctx.drawImage(im, CX - w / 2, H / 2 - h / 2, w, h);
+    paintGlow(ctx, CX, H / 2, w / 2, h / 2);   // 구 drawImage(bg_glow.svg)
     ctx.restore();
     // 라디얼 마스크: 66%×62% at (50%, 44%), #000 20% → transparent 90%
     ctx.save();
@@ -487,14 +486,14 @@ export class WallGL {
     const fe = eOut(intro(t, .6, .9));
     ctx.globalAlpha *= fe; ctx.translate(0, 52 * (1 - fe));
     // 글로우 — glowPulse 4.6s ∞
-    const gl = this._img('glow.svg'), gp = cycle(t, 0, 4.6, INF);
-    if (gl) {
+    const gp = cycle(t, 0, 4.6, INF);
+    {
       ctx.save();
       ctx.globalAlpha *= gp == null ? .86 : kf(gp, [[0, .86], [.5, 1], [1, .86]]);
       const gs = gp == null ? 1 : kf(gp, [[0, 1], [.5, 1.055], [1, 1]]);
       const gcx = FX - 70 + 450, gcy = FY - 70 + 455;
       ctx.translate(gcx, gcy); ctx.scale(gs, gs); ctx.translate(-gcx, -gcy);
-      ctx.drawImage(gl, FX - 70, FY - 70, 900, 910);
+      paintGlow(ctx, gcx, gcy, 450, 455);   // 구 drawImage(glow.svg) — 평평한 코어 51% 로 셋 중 최악이었다
       ctx.restore();
     }
     // 발 — footBob 5.5s 2.2s ∞
