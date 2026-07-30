@@ -1185,8 +1185,10 @@ export class Session {
     // C2 실전 잽 — 타겟이 한 자리에서만 뜨면 '반응해서 때린다'는 맛이 안 산다(유저).
     //   벽 다섯 곳에 타겟을 세워 두고 비트마다 한 곳만 살린다. 언어는 B3·C3 와 같은 수축 링.
     g = this._mk('BX_C2');
-    this.bxC2 = [[-0.44, 1.74], [0.00, 1.82], [0.42, 1.72], [-0.30, 1.46], [0.32, 1.44]].map(([x, y]) => {
-      const ap = primPanel('approachRing', 0.52, true);   // 수축 링 정본 — B3·A3 와 같은 토큰
+    // 스파링 타겟 = 몸 주변에 작은 것 여러 개(유저). 하나씩 때려 채우고, 채워지면 사라진다.
+    //   구 방식(0.52 하나만 켜고 자리가 매 비트 이동)은 '반응 훈련'이었지 '공략'이 아니었다.
+    this.bxC2 = [[-0.42, 1.78], [0.00, 1.87], [0.40, 1.76], [-0.50, 1.50], [0.48, 1.48], [0.00, 1.33]].map(([x, y]) => {
+      const ap = primPanel('approachRing', 0.30, true);   // 수축 링 정본 — B3·A3 와 같은 토큰
       ap.position.set(x, y, WZ + 0.002);
       ap.material.opacity = 0;
       g.add(ap);
@@ -2639,24 +2641,24 @@ export class Session {
       if (this.t >= st.dur) { this.next(); return; }
     } else if (id === 'BX_C2' || id === 'BX_C3') {
       if (id === 'BX_C2' && this.bxC2) {
-        // 비트마다 한 곳만. 순서는 해시로 뽑되 직전과 겹치지 않게 — 같은 자리 연타는 반응 훈련이 아니다.
-        const BT = 1.9, rep = Math.floor(this.t / BT), ph = (this.t % BT) / BT;   // 2초 간격 — 하나 뜨면 보고 때릴 틈(유저)
+        // 순차 공략 — 타겟 하나를 HITS 번 때려 채우고, 채워지면 사라진다. 다음 타겟으로.
+        //   남은 타겟은 계속 서 있어 '몇 개 남았는지'가 화면에 그대로 보인다.
+        const BT = 0.75, HITS = 2, LAND = 0.72;   // 잽 간격 0.75s · 타겟당 2방
         const N = this.bxC2.length;
-        // 비트가 바뀔 때만 새로 뽑는다. 해시를 직전 '원본 해시'와 비교하면 보정된 값과 어긋나
-        // 연속 중복이 남는다(실측 40비트 중 4회) — 실제로 내보낸 값을 기억해 그걸 피한다.
-        if (rep !== this._c2rep) {
-          const a = (rep * 2654435761 >>> 0) % N;
-          this._c2on = a === this._c2on ? (a + 1 + (rep % (N - 1))) % N : a;
-          this._c2rep = rep;
-        }
-        const on = this._c2on ?? 0;
-        const LAND = 0.72, k = clamp01((ph - LAND) / (1 - LAND));
+        const beat = Math.floor(this.t / BT), ph = (this.t % BT) / BT;
+        const cleared = Math.min(N, Math.floor(beat / HITS));
+        const cur = cleared;                       // 지금 노리는 타겟
+        const fill = ((beat % HITS) + clamp01(ph / LAND)) / HITS;   // 0→1 누적 채움
         for (let i = 0; i < N; i++) {
           const T = this.bxC2[i];
-          T.ap.material.opacity = i === on ? 1 : 0.10;    // 쉬는 자리도 희미하게 — '어디서 뜰 수 있는지'
-          T.ap._prim.prog = i === on ? clamp01(ph / LAND) : 0;
+          const done = i < cleared;
+          T.ap.material.opacity = done ? 0 : (i === cur ? 1 : 0.30);   // 남은 건 은은히 — 공략 순서가 보인다
+          T.ap._prim.prog = done ? 0 : (i === cur ? fill : 0);
         }
-        FMU(`잽 ${rep + (k > 0 ? 1 : 0)} / ${Math.max(1, Math.round((st.dur || 6) / BT))} — 뜨는 곳으로`, k > 0.2 ? CS.prism : CS.coral);
+        const landed = Math.min(N * HITS, beat + (ph >= LAND ? 1 : 0));
+        FMU(`잽 ${landed} / ${N * HITS} — 타겟 ${Math.max(0, N - cleared)}개 남음`,
+            cleared >= N ? CS.prism : CS.coral);
+        if (cleared >= N) { this._gateAdvance ? this._gateAdvance() : this.next(); return; }
       }
       if (id === 'BX_C3' && this.bxCombo) {
         // 콤보 = 잽·잽·훅. 펀치 라인이 노드를 순서대로 이어 그리고, 마지막 노드에서 한 박 쉰다.
