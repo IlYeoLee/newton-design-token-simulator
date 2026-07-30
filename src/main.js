@@ -2481,10 +2481,12 @@ void main(){
           // 색 = fx-core.personLook 공용 정의 — 복싱 인물과 같은 대역·채도·명암 규칙.
           //   구 인라인 lut(pow(baseT,1.5))는 LUT 하단(샌드~코랄)에만 앉아, 상단(레드)에 앉는
           //   복싱 인물과 톤이 갈렸다(유저: "왜 복싱만 과하게 빨갛지").
-          vec3 col = personLook(clamp(H + pulse + dth, 0.0, 1.0), lumS, lumB, mIn, faceW) * mEro * 0.92;
+          vec3 col = personLook(clamp(H + pulse + dth, 0.0, 1.0), lumS, lumB, mIn, faceW, uv.y) * mEro * 1.12;   // 게인 = 벽 인물과 동일(구 0.92)
           // uReady=0 = 아직 실제 프레임이 없다. 이때 그리면 빈 텍스처가 크로마키를 통과해
           //   판이 통째로 검은 사각형/붉은 판으로 보인다(유저 스샷). 아예 안 그린다.
-          float alpha = mEro * 0.95 * uReady;   // 하단 페더 제거(유저) — 발끝까지 또렷하게
+            // 알파도 벽과 동일(구 0.95). 0.95 는 코어에서도 배경을 5% 비치게 해, 밝은 타일 코트 위에서
+          //   그대로 물빠짐이 됐다(유저: '왜 이렇게 안 쨍해'). 벽은 mSoft*1.15 라 코어가 완전 불투명이다.
+          float alpha = clamp(mEro * 1.15, 0.0, 1.0) * uReady;   // 하단 페더 제거(유저) — 발끝까지 또렷하게
           // 빛이 없으면 알파도 0 — 프리멀티(One / OneMinusSrcAlpha)에서 col=0·alpha=1 은 순수 검정이다.
           //   크로마가 흔들리는 프레임에서 판이 통째로 검은 사각형으로 찍히던 근본(유저 3회 신고).
           // 투사광 불변식: 알파는 빛보다 클 수 없다. 프리멀티(One/OneMinusSrcAlpha)에서 알파는
@@ -2932,7 +2934,7 @@ void main(){
           float shape = max(shapeA, trail * 0.5 * smoothstep(0.06, 0.22, trail));
           // 색 = fx-core.personColor 공용 정의 (벽 인물과 같은 곡선·대역·채도).
           // 구 mix(thermo…) 은 은퇴 — uTone=1 이라 실제로 안 쓰였고, 무지개 램프는 팔레트 밖이었다.
-          vec3 col = personLook(T, dLumS, dLumB, mIn, faceW) * shape;
+          vec3 col = personLook(T, dLumS, dLumB, mIn, faceW, uv.y) * shape;
           col += (fxhash(uv * 977.0 + uTime) - 0.5) * (2.0 / 255.0);
           col += (fxhash(uv * 1661.0 + uTime * 3.0) - 0.5) * uGrain;
           // 프레임 원천 제거(유저): 타원 페더 — 잔여 배경·워시가 직선 경계 없이 곡선으로 소멸
@@ -3514,7 +3516,15 @@ void main(){
         // near 0.25 = 착지점(발밑) 커버(유저: 밟는 순간 글로우가 잘리면 안 됨) — 정강이 후방 스윙
         // 순간 하향각 + 알고리즘 보정 가정. far 2.6 = 시선 앞 선행 마크(3.2는 너무 길다 유저 → 2.6로).
         rig.fpNear = 0.25; rig.fpFar = 2.6;
-      } else rig.fpNear = 0.05;
+      } else {
+        // fpNear 만 되돌리고 fpFar 를 안 건드리던 자리 — 러닝 라이브(2.6)를 한 번 지나오면
+        //   그 값이 종목을 바꿔도 그대로 남았다. 실측: 농구 READY 의 fpFar 가 코드값 1.6 이
+        //   아니라 2.4. 1인칭에서 농구 UI 만 멀리 밀려 보이던 원인이다(유저 신고).
+        //   3인칭에선 위에서 내려다봐 0.4m 가 원근으로 눌려 안 보였다.
+        //   종목 기본값으로 함께 복원한다 — 농구는 발 앞 근접 존(1.6), 나머지는 리그 기본(2.0).
+        rig.fpNear = 0.05;
+        rig.fpFar = state.pack === 'basketball' ? 1.6 : 2.0;
+      }
     }
     // BK_C4 릴리즈 = 실측 점프샷 원샷 (xbot 농구 라이브 경로에서 크로스페이드)
     xbot.bkShot = session.active && session.stage === 'BK_C4';
