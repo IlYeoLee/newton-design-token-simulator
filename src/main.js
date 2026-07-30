@@ -2329,6 +2329,7 @@ void main(){
     if (U.uPSat) U.uPSat.value = 1.0 + (FXP.sat ?? 1) * 0.32;
     if (U.uPSweep) U.uPSweep.value = FXP.person?.sweep ?? 0;
     if (U.uPHi) U.uPHi.value = hi;
+    if (U.uPDepth) U.uPDepth.value = FXP.person?.depth ?? 0.34;
   };
   let _cf = null;
   function coachField() {
@@ -2420,7 +2421,9 @@ void main(){
       uniforms: { map: { value: tex }, uLUT: { value: getLUT() }, uTime: { value: 0 }, uReady: { value: 0 },
         uField: { value: coachField().lo[1].texture }, uFieldN: { value: coachField().rts[2].texture },
         uCropOff: { value: cfg.cropOff }, uCropScale: { value: cfg.cropScale }, uDetail: { value: 0.25 },
-        uPSat: { value: 1.32 }, uPSweep: { value: 0 }, uPHi: { value: 0.86 }, uPulse: { value: 0.05 } },   // uPSat·uPSweep = PERSON_GLSL 공용(구 uSat 은 죽은 유니폼이라 폐기)
+        // uPulse 0 — 복싱 인물엔 루마 펄스가 없다(톤을 흔드는 원인이라 끈다).
+        // uPSat·uPSweep = PERSON_GLSL 공용(구 uSat 은 죽은 유니폼이라 폐기).
+        uPSat: { value: 1.32 }, uPSweep: { value: 0 }, uPHi: { value: 0.86 }, uPDepth: { value: 0.34 }, uPulse: { value: 0.0 } },
       vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
       fragmentShader: `
         varying vec2 vUv; uniform sampler2D map, uLUT, uField, uFieldN; uniform float uTime, uCropOff, uCropScale, uPulse, uReady, uDetail;
@@ -2465,12 +2468,12 @@ void main(){
           vec2 cf = cutFade(uv.x, uv.y, botC * 0.125, uTime);
           mEro = mix(mEro, smoothstep(0.06, 0.55, fld.r), cf.y) * cf.x;   // 날카로운 실루엣 → 넓은 가우시안
           if (mEro < 0.02) discard;
-          float H = clamp(fld.r * 1.60, 0.0, 1.0);   // 코치 필드는 블러가 좁아 1.25 로는 코어가 덜 포화 → 옅게 떴다(유저)
+          float H = clamp(fld.r * 1.25, 0.0, 1.0);   // 복싱(demoPanel)과 동일 — 1.60 은 코어를 과포화시켜 톤이 갈렸다
           float flow = vn(vec2(uv.x*3.2 + sin(uTime*0.4)*0.3, uv.y*2.4 - uTime*0.5));
           H *= 1.0 + (flow - 0.5) * 0.11;   // 대류 얼룩 최소 — 매끄러운 질감(유저 레퍼런스)
           float lumB = fld.g / max(fld.r, 0.02);          // 국소 평균 = 노출
           // 결 = 좁은 블러. 룩 슬라이더 '음영'(uDetail)이 결의 세기 — 0 이면 완전 평면.
-          float lumS = mix(lumB, fldN.g / max(fldN.r, 0.02), clamp(uDetail * 2.4, 0.0, 1.0));
+          float lumS = mix(lumB, fldN.g / max(fldN.r, 0.02), clamp(uDetail * 1.6, 0.0, 1.0)   /* 복싱과 동일 */);
           lumS = mix(lumB, lumS, 1.0 - cf.y);   // 초점 나간 구간은 결도 넓은 블러로 녹는다
           float dlum = mix(lumS, lumB, 0.5);            // 펄스 위상용 대표 휘도
           float mIn = smoothstep(0.55, 0.95, m);
@@ -2482,20 +2485,14 @@ void main(){
           // 색 = fx-core.personLook 공용 정의 — 복싱 인물과 같은 대역·채도·명암 규칙.
           //   구 인라인 lut(pow(baseT,1.5))는 LUT 하단(샌드~코랄)에만 앉아, 상단(레드)에 앉는
           //   복싱 인물과 톤이 갈렸다(유저: "왜 복싱만 과하게 빨갛지").
-          vec3 col = personLook(clamp(H + pulse + dth, 0.0, 1.0), lumS, lumB, mIn, faceW, uv.y) * mEro * 1.12;
-          // ★ 명도 상한 — 이 팔레트는 LUT 스톱 여섯 중 다섯이 V>=0.98 이라 명도 여유가 없다.
-          //   거기에 게인을 곱하면 R 이 먼저 255 에 박히고 G·B 만 계속 올라가 **채도가 깎인다**.
-          //   실측(컬러픽): 바닥 #FF9062 = V1.00/S0.62 · 벽 #E74921 = V0.91/S0.86. 같은 색인데
-          //   바닥만 천장을 쳐서 채도를 0.24 잃고 있었다. 벽이 쨍한 건 마스크(mSoft≈0.9)가
-          //   우연히 색을 눌러 클리핑을 피했기 때문 — 설계가 아니라 부수효과였다.
-          //   그래서 '밝게 = 쨍하게'가 이 팔레트에선 반대로 작동한다. V 를 눌러 헤드룸을 만든다.
-          float vmx = max(col.r, max(col.g, col.b));
-          if (vmx > 0.90) col *= 0.90 / vmx;
+          // 복싱 인물과 **같은 식**으로 맞춘다: personLook(...) * (실루엣 마스크). 게인·명도상한 없음.
+          //   1.12 게인과 V 상한 0.90 은 복싱엔 없는 것이라 톤이 갈렸다(유저: '시뮬레이터 보면 존나 다르다').
+          vec3 col = personLook(clamp(H + pulse + dth, 0.0, 1.0), lumS, lumB, mIn, faceW, uv.y) * mEro;
           // uReady=0 = 아직 실제 프레임이 없다. 이때 그리면 빈 텍스처가 크로마키를 통과해
           //   판이 통째로 검은 사각형/붉은 판으로 보인다(유저 스샷). 아예 안 그린다.
             // 알파도 벽과 동일(구 0.95). 0.95 는 코어에서도 배경을 5% 비치게 해, 밝은 타일 코트 위에서
           //   그대로 물빠짐이 됐다(유저: '왜 이렇게 안 쨍해'). 벽은 mSoft*1.15 라 코어가 완전 불투명이다.
-          float alpha = clamp(mEro * 1.15, 0.0, 1.0) * uReady;   // 하단 페더 제거(유저) — 발끝까지 또렷하게
+          float alpha = clamp(mEro * 1.15, 0.0, 1.0) * uReady;   // (복싱: max(mSoft*1.15, ...))   // 하단 페더 제거(유저) — 발끝까지 또렷하게
           // 빛이 없으면 알파도 0 — 프리멀티(One / OneMinusSrcAlpha)에서 col=0·alpha=1 은 순수 검정이다.
           //   크로마가 흔들리는 프레임에서 판이 통째로 검은 사각형으로 찍히던 근본(유저 3회 신고).
           // 투사광 불변식: 알파는 빛보다 클 수 없다. 프리멀티(One/OneMinusSrcAlpha)에서 알파는
@@ -2676,7 +2673,7 @@ void main(){
         co.plane.material.uniforms.uDetail.value = FXP.person?.detail ?? 0.25;   // 룩 '음영' 슬라이더
         // 채도는 마크 LUT와 같은 소스(FXP.sat)에서 — 인물·발자국 룩 통일(슬라이더 하나가 둘 다 이동).
         //   이제 진짜로 이동한다: 구 uSat 은 선언만 되고 셰이더가 안 읽어 슬라이더가 죽어 있었다.
-        setPersonUniforms(co.plane.material.uniforms, 0.64);   // 바닥 = 쨍하게(레드~오렌지 구간만)
+        setPersonUniforms(co.plane.material.uniforms, 0.86);   // 복싱 인물과 동일 대역
         // 옆구리(BK_A1) 방향 화살표 = 코치 영상 실제 타이밍에 동기.
         //   bk_sidebend.webm 24fps 84프레임을 그린스크린 마스크로 프레임별 상체/하체 x중심을 재서
         //   기우는 쪽을 실측(scripts 없이 ffmpeg+마스크 1회 측정). 아래 표는 원본 3.5s 클립 기준 전이 시각.
@@ -2878,7 +2875,7 @@ void main(){
       uniforms: {
         tex: { value: demoTex }, uTrail: { value: trailRTs[0].texture }, uHeat: { value: heatRTs[0].texture }, uLUT: { value: getLUT() },
         uTime: { value: 0 }, uNoise: { value: 0.55 }, uW: { value: 1 }, uDetail: { value: 0.62 }, uTrailGain: { value: 1 }, uGrain: { value: 0 }, uTone: { value: 0 }, uLive: { value: 0 },
-        uPSat: { value: 1.32 }, uPSweep: { value: 0 }, uPHi: { value: 0.86 },   // PERSON_GLSL 공용 — setPersonUniforms 가 주입
+        uPSat: { value: 1.32 }, uPSweep: { value: 0 }, uPHi: { value: 0.86 }, uPDepth: { value: 0.34 },   // PERSON_GLSL 공용 — setPersonUniforms 가 주입
         uCropC: { value: new THREE.Vector2(0.5, 0.5) }, uCropS: { value: new THREE.Vector2(1, 1) },
       },
       vertexShader: `#include <common>
@@ -3319,7 +3316,7 @@ void main(){
         uFrame: { value: 0 }, uDecay: { value: 0.6 }, uTime: { value: 0 },
         uCols: { value: COACH.cols }, uRows: { value: COACH.rows }, uN: { value: COACH.n }, uDirect: { value: COACH.direct },
         uW: { value: 1 }, uNoise: { value: 0.55 },
-        uPSat: { value: 1.32 }, uPSweep: { value: 0 }, uPHi: { value: 0.86 },   // PERSON_GLSL 공용 — 벽은 personColor 만 쓰지만 선언은 필수(안 하면 무채)
+        uPSat: { value: 1.32 }, uPSweep: { value: 0 }, uPHi: { value: 0.86 }, uPDepth: { value: 0.34 },   // PERSON_GLSL 공용 — 벽은 personColor 만 쓰지만 선언은 필수(안 하면 무채)
       },
       vertexShader: `#include <common>
 #include <clipping_planes_pars_vertex>

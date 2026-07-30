@@ -313,6 +313,7 @@ export function rollNum(ctx, target, t, delay, cd, x, y, size, o = {}) {
     ctx.font = F(o.weight || 700, size, o.fam || dot9);
     ctx.textBaseline = o.base || 'top';
     ctx.textAlign = o.align || 'left';
+    ctx.fillStyle = o.fill || '#fff';
     ctx.fillText(String(target), x, y);
     ctx.restore();
     return;
@@ -323,7 +324,9 @@ export function rollNum(ctx, target, t, delay, cd, x, y, size, o = {}) {
   ctx.save();
   ctx.font = F(o.weight || 700, size, o.fam || dot9);
   ctx.textBaseline = 'top';
-  if (o.fill) ctx.fillStyle = o.fill;
+  // 기본 흰색 — 승격 전 rollNum 은 내부에서 '#fff' 를 강제했다. o.fill 있을 때만 칠하게 바꿨더니
+  //   색을 안 넘긴 호출부가 캔버스 기본색(검정)으로 떨어졌다(유저: 흰 폰트여야 하는 게 검정).
+  ctx.fillStyle = o.fill || '#fff';
   ctx.letterSpacing = (o.ls || 0) + 'px';
   const gs = [];
   for (let i = 0; i < cols; i++) {
