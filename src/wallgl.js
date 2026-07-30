@@ -518,8 +518,7 @@ export class WallGL {
     txt(ctx, 'To start', FX + 380, wy, 32, 400, 'rgba(255,255,255,.55)', { align: 'center' });
     wy += 32 * 1.2 + 8;
     txt(ctx, 'Tap your foot Twice', FX + 380, wy, 64, 700, '#fff', { ls: -4.57, align: 'center' });
-    wy += 64 * 1.1 + 14;
-    txt(ctx, 'with the Wearable on', FX + 380, wy, 32, 400, 'rgba(255,255,255,.8)', { align: 'center' });
+    // 'with the Wearable on' 폐기 — 지면(floorgl)과 같은 이유. 빔이 떠 있으면 이미 착용 상태다.
     ctx.restore();
     ctx.restore();   // /rightcol float
   }

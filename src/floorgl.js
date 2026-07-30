@@ -611,8 +611,8 @@ export class FloorGL {
       case 'text': return n.size * 1.06;
       case 'dots': return gaugeH(760);
       case 'prevRow': return 200;
-      case 'trainRow': return n.ring ? 200 : 112;
-      case 'liveRow': return 112;
+      case 'trainRow': return n.ring ? 236 : 228;   // 새 스탯 컴포넌트(값 132 + 편차바 + 라벨) 실높이
+      case 'liveRow': return 228;
       case 'km': return 180;
       case 'succ': return 400;
       default: return 0;
@@ -711,29 +711,48 @@ export class FloorGL {
     ctx.restore();
   }
 
-  // 케이던스 컴포넌트 — "150 / 150" + 라벨
+  // 케이던스·페이스 컴포넌트 — 큰 도트 숫자 하나 + 편차 바 + 작은 라벨.
+  //   구 "224 / 214  SPM"은 같은 크기의 숫자 둘과 슬래시가 나란한 '텍스트 나열'이라 달리는 중엔
+  //   초점을 맞춰야 읽혔다(유저: '운동중에 방해만 되는 느낌'). 러닝 워치가 공통으로 쓰는 규칙을 따른다 —
+  //     ① 값 하나가 압도적으로 크다(한눈에 = 초점 이동 없음)
+  //     ② 목표와의 '관계'는 숫자로 또 쓰지 않고 그래픽(위치·색)으로 읽힌다
+  //     ③ 라벨은 작고 조용하게, 값의 주인공 자리를 뺏지 않는다
+  //   활자 규약(유저 확정): **숫자만 도트(OffBit), 라벨·단위는 본문 영문(Supreme).**
   _lstat(cx, y, me, tgt, label) {
     const ctx = this.ctx;
-    ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'center';
-    ctx.font = F(700, 60);
-    const a = me || '--', b = tgt || '--';
-    const wa = ctx.measureText(a).width, wSlash = ctx.measureText(' / ').width;
-    const wb = ctx.measureText(b).width, tot = wa + wSlash + 36 + wb;
-    let x = cx - tot / 2;
-    ctx.textAlign = 'left'; ctx.fillStyle = this.map.get('spm-me')?.style.color || '#fff';
-    ctx.fillText(a, x, y + 60); x += wa + 18;
-    ctx.fillStyle = 'rgba(255,255,255,.6)'; ctx.font = F(400, 60);
-    ctx.fillText('/', x, y + 60); x += wSlash + 18;
-    ctx.fillText(b, x, y + 60);
-    ctx.font = F(400, 40); ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(255,255,255,.6)';
-    ctx.fillText(label, cx, y + 112);
+    const mv = parseFloat(me), tv = parseFloat(tgt);
+    const ok = Number.isFinite(mv) && Number.isFinite(tv) && tv > 0;
+    const dev = ok ? (mv - tv) / tv : 0;              // 목표 대비 상대 편차
+    const off = Math.min(1, Math.abs(dev) / 0.12);    // ±12% 를 만점으로 본다
+    const col = !ok ? NEU.paper : off < 0.35 ? PAL.sand : off < 0.72 ? PAL.coral : PAL.red;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+    ctx.font = F(700, 132, dot9);          // ① 값 — 도트 숫자
+    ctx.fillStyle = col;
+    ctx.fillText(me || '--', cx, y + 118);
+    // ② 편차 바 — 가운데 눈금이 목표, 점이 현재. 관계를 '위치'로 읽는다.
+    const BW = 232, BY = y + 154;
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = rgba(NEU.paper, 0.26); ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.moveTo(cx - BW / 2, BY); ctx.lineTo(cx + BW / 2, BY); ctx.stroke();
+    ctx.strokeStyle = rgba(NEU.paper, 0.55);
+    ctx.beginPath(); ctx.moveTo(cx, BY - 10); ctx.lineTo(cx, BY + 10); ctx.stroke();
+    if (ok) {
+      const px = cx + Math.max(-1, Math.min(1, dev / 0.12)) * (BW / 2);
+      ctx.fillStyle = col;
+      ctx.beginPath(); ctx.arc(px, BY, 9, 0, Math.PI * 2); ctx.fill();
+    }
+    // ③ 라벨 — 본문 영문. 숫자가 아니므로 도트 금지(유저 규약).
+    ctx.font = F(500, 34); ctx.letterSpacing = '7px';
+    ctx.fillStyle = rgba(NEU.paper, 0.6);
+    ctx.fillText(String(label).toUpperCase(), cx + 3.5, BY + 60);
+    ctx.letterSpacing = '0px';
   }
 
   _trainRow(n, y) {
     const me = this.map.get('spm-me')?.textContent, tgt = this.map.get('spm-tgt')?.textContent;
     if (!n.ring) return this._lstat(CX, y, me, tgt, 'SPM');
-    const gap = 110, statW = 300, total = statW + gap + 200, x0 = CX - total / 2;
-    this._lstat(x0 + statW / 2, y + 44, me, tgt, 'SPM');
+    const gap = 96, statW = 300, total = statW + gap + 200, x0 = CX - total / 2;
+    this._lstat(x0 + statW / 2, y, me, tgt, 'SPM');
     const arc = this.map.get('tp-arc');
     const prog = 1 - numOr(arc?.style.strokeDashoffset, 1727.9) / 1727.9;
     this._ringAt(x0 + statW + gap + 100, y, 200, prog, arc?.getAttribute('stroke') || '#fff');
@@ -749,13 +768,15 @@ export class FloorGL {
   _km(n, y) {
     const ctx = this.ctx;
     ctx.textBaseline = 'top'; ctx.textAlign = 'center'; ctx.fillStyle = '#fff';
-    ctx.font = F(700, 180, dot9);
+    // 활자 규약(유저 확정): 숫자만 도트, 단위 'km' 은 본문 영문. 크기도 낮춰 값이 주인공이 되게.
     const v = this.map.get('km-n')?.textContent || '0.00';
-    const wv = ctx.measureText(v).width;
-    ctx.font = F(400, 180, dot9); const wu = ctx.measureText('km').width;
+    ctx.font = F(700, 180, dot9); const wv = ctx.measureText(v).width;
+    ctx.font = F(500, 78); const wu = ctx.measureText(' km').width;
     const x0 = CX - (wv + wu) / 2;
-    ctx.textAlign = 'left'; ctx.font = F(700, 180, dot9); ctx.fillText(v, x0, y);
-    ctx.font = F(400, 180, dot9); ctx.fillText('km', x0 + wv, y);
+    ctx.textAlign = 'left';
+    ctx.font = F(700, 180, dot9); ctx.fillText(v, x0, y);
+    ctx.font = F(500, 78); ctx.fillStyle = rgba(NEU.paper, 0.7);
+    ctx.fillText(' km', x0 + wv, y + 92);
   }
 
   // ── 공통 조각 ───────────────────────────────────────────────────────────────
@@ -971,9 +992,11 @@ export class FloorGL {
     ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.font = F(400, 46); ctx.letterSpacing = '-1.4px';
     ctx.fillText('To start', CX, hy); hy += 46 * 1.2 + 10;
     ctx.fillStyle = '#fff'; ctx.font = F(700, 88); ctx.letterSpacing = '-4.7px';
-    ctx.fillText('Tap your foot Twice', CX, hy); hy += 88 * 1.2 + 19;
-    ctx.fillStyle = 'rgba(255,255,255,.8)'; ctx.font = F(400, 44); ctx.letterSpacing = '-1.3px';
-    ctx.fillText('with the Wearable on', CX, hy);
+    ctx.fillText('Tap your foot Twice', CX, hy);
+    // 'with the Wearable on' 폐기(유저) — 빔이 바닥에 떠 있다는 건 이미 착용·전원이 켜졌다는 뜻이다.
+    //   이미 일어난 일을 조건처럼 말하고 있었다. 게다가 바로 위 기기 칩(👓⌚🎧)이 연결 상태를
+    //   이미 보여준다 — 같은 정보를 두 번, 한 번은 틀리게. 모바일 ready-to-start 에서는 맞는
+    //   문구지만(폰을 보는 사람은 아직 안 찼을 수 있다) 지면 투사로 옮기며 맥락이 어긋났다.
     ctx.letterSpacing = '0px';
     ctx.restore();
     // 발 — 탭 모션(footBob)
@@ -1131,10 +1154,10 @@ export class FloorGL {
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#fff';
     ctx.font = F(700, 128.5, dot9); const nTxt = String(Math.round(100 * e));
     const nw = ctx.measureText(nTxt).width;
-    ctx.font = F(700, 90.3, dot9); const sw = ctx.measureText('%').width;
+    ctx.font = F(500, 76); const sw = ctx.measureText('%').width;   // 단위 = 본문 영문(유저 규약)
     ctx.textAlign = 'left';
     ctx.font = F(700, 128.5, dot9); ctx.fillText(nTxt, CX - (nw + sw + 8) / 2, cy);
-    ctx.font = F(700, 90.3, dot9); ctx.fillText('%', CX - (nw + sw + 8) / 2 + nw + 8, cy + 14);
+    ctx.font = F(500, 76); ctx.fillText('%', CX - (nw + sw + 8) / 2 + nw + 8, cy + 18);
     ctx.shadowBlur = 0;
     ctx.restore();
     y = cy + 250 + 80;
