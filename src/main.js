@@ -2324,10 +2324,11 @@ void main(){
   //   그래서 주입은 이 함수 하나로 못박는다 — 새 인물 셰이더를 붙일 때도 여기만 부르면 된다.
   //     uPSat   = 채도. 마크 LUT와 같은 소스(FXP.sat)에서 — 슬라이더 하나가 인물·발자국 둘 다 이동.
   //     uPSweep = 세로 열 그라디언트 폭(0 = 도입 전과 픽셀 동일).
-  const setPersonUniforms = (U) => {
+  const setPersonUniforms = (U, hi = 0.86) => {   // hi = 대역 상단(면별). 기본 0.86 = 벽 인물 종전값
     if (!U) return;
     if (U.uPSat) U.uPSat.value = 1.0 + (FXP.sat ?? 1) * 0.32;
     if (U.uPSweep) U.uPSweep.value = FXP.person?.sweep ?? 0;
+    if (U.uPHi) U.uPHi.value = hi;
   };
   let _cf = null;
   function coachField() {
@@ -2419,7 +2420,7 @@ void main(){
       uniforms: { map: { value: tex }, uLUT: { value: getLUT() }, uTime: { value: 0 }, uReady: { value: 0 },
         uField: { value: coachField().lo[1].texture }, uFieldN: { value: coachField().rts[2].texture },
         uCropOff: { value: cfg.cropOff }, uCropScale: { value: cfg.cropScale }, uDetail: { value: 0.25 },
-        uPSat: { value: 1.32 }, uPSweep: { value: 0 }, uPulse: { value: 0.05 } },   // uPSat·uPSweep = PERSON_GLSL 공용(구 uSat 은 죽은 유니폼이라 폐기)
+        uPSat: { value: 1.32 }, uPSweep: { value: 0 }, uPHi: { value: 0.86 }, uPulse: { value: 0.05 } },   // uPSat·uPSweep = PERSON_GLSL 공용(구 uSat 은 죽은 유니폼이라 폐기)
       vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
       fragmentShader: `
         varying vec2 vUv; uniform sampler2D map, uLUT, uField, uFieldN; uniform float uTime, uCropOff, uCropScale, uPulse, uReady, uDetail;
@@ -2481,7 +2482,15 @@ void main(){
           // 색 = fx-core.personLook 공용 정의 — 복싱 인물과 같은 대역·채도·명암 규칙.
           //   구 인라인 lut(pow(baseT,1.5))는 LUT 하단(샌드~코랄)에만 앉아, 상단(레드)에 앉는
           //   복싱 인물과 톤이 갈렸다(유저: "왜 복싱만 과하게 빨갛지").
-          vec3 col = personLook(clamp(H + pulse + dth, 0.0, 1.0), lumS, lumB, mIn, faceW, uv.y) * mEro * 1.12;   // 게인 = 벽 인물과 동일(구 0.92)
+          vec3 col = personLook(clamp(H + pulse + dth, 0.0, 1.0), lumS, lumB, mIn, faceW, uv.y) * mEro * 1.12;
+          // ★ 명도 상한 — 이 팔레트는 LUT 스톱 여섯 중 다섯이 V>=0.98 이라 명도 여유가 없다.
+          //   거기에 게인을 곱하면 R 이 먼저 255 에 박히고 G·B 만 계속 올라가 **채도가 깎인다**.
+          //   실측(컬러픽): 바닥 #FF9062 = V1.00/S0.62 · 벽 #E74921 = V0.91/S0.86. 같은 색인데
+          //   바닥만 천장을 쳐서 채도를 0.24 잃고 있었다. 벽이 쨍한 건 마스크(mSoft≈0.9)가
+          //   우연히 색을 눌러 클리핑을 피했기 때문 — 설계가 아니라 부수효과였다.
+          //   그래서 '밝게 = 쨍하게'가 이 팔레트에선 반대로 작동한다. V 를 눌러 헤드룸을 만든다.
+          float vmx = max(col.r, max(col.g, col.b));
+          if (vmx > 0.90) col *= 0.90 / vmx;
           // uReady=0 = 아직 실제 프레임이 없다. 이때 그리면 빈 텍스처가 크로마키를 통과해
           //   판이 통째로 검은 사각형/붉은 판으로 보인다(유저 스샷). 아예 안 그린다.
             // 알파도 벽과 동일(구 0.95). 0.95 는 코어에서도 배경을 5% 비치게 해, 밝은 타일 코트 위에서
@@ -2667,7 +2676,7 @@ void main(){
         co.plane.material.uniforms.uDetail.value = FXP.person?.detail ?? 0.25;   // 룩 '음영' 슬라이더
         // 채도는 마크 LUT와 같은 소스(FXP.sat)에서 — 인물·발자국 룩 통일(슬라이더 하나가 둘 다 이동).
         //   이제 진짜로 이동한다: 구 uSat 은 선언만 되고 셰이더가 안 읽어 슬라이더가 죽어 있었다.
-        setPersonUniforms(co.plane.material.uniforms);
+        setPersonUniforms(co.plane.material.uniforms, 0.64);   // 바닥 = 쨍하게(레드~오렌지 구간만)
         // 옆구리(BK_A1) 방향 화살표 = 코치 영상 실제 타이밍에 동기.
         //   bk_sidebend.webm 24fps 84프레임을 그린스크린 마스크로 프레임별 상체/하체 x중심을 재서
         //   기우는 쪽을 실측(scripts 없이 ffmpeg+마스크 1회 측정). 아래 표는 원본 3.5s 클립 기준 전이 시각.
@@ -2869,7 +2878,7 @@ void main(){
       uniforms: {
         tex: { value: demoTex }, uTrail: { value: trailRTs[0].texture }, uHeat: { value: heatRTs[0].texture }, uLUT: { value: getLUT() },
         uTime: { value: 0 }, uNoise: { value: 0.55 }, uW: { value: 1 }, uDetail: { value: 0.62 }, uTrailGain: { value: 1 }, uGrain: { value: 0 }, uTone: { value: 0 }, uLive: { value: 0 },
-        uPSat: { value: 1.32 }, uPSweep: { value: 0 },   // PERSON_GLSL 공용 — setPersonUniforms 가 주입
+        uPSat: { value: 1.32 }, uPSweep: { value: 0 }, uPHi: { value: 0.86 },   // PERSON_GLSL 공용 — setPersonUniforms 가 주입
         uCropC: { value: new THREE.Vector2(0.5, 0.5) }, uCropS: { value: new THREE.Vector2(1, 1) },
       },
       vertexShader: `#include <common>
@@ -3310,7 +3319,7 @@ void main(){
         uFrame: { value: 0 }, uDecay: { value: 0.6 }, uTime: { value: 0 },
         uCols: { value: COACH.cols }, uRows: { value: COACH.rows }, uN: { value: COACH.n }, uDirect: { value: COACH.direct },
         uW: { value: 1 }, uNoise: { value: 0.55 },
-        uPSat: { value: 1.32 }, uPSweep: { value: 0 },   // PERSON_GLSL 공용 — 벽은 personColor 만 쓰지만 선언은 필수(안 하면 무채)
+        uPSat: { value: 1.32 }, uPSweep: { value: 0 }, uPHi: { value: 0.86 },   // PERSON_GLSL 공용 — 벽은 personColor 만 쓰지만 선언은 필수(안 하면 무채)
       },
       vertexShader: `#include <common>
 #include <clipping_planes_pars_vertex>
@@ -3522,10 +3531,13 @@ void main(){
         //   아니라 2.4. 1인칭에서 농구 UI 만 멀리 밀려 보이던 원인이다(유저 신고).
         //   3인칭에선 위에서 내려다봐 0.4m 가 원근으로 눌려 안 보였다.
         //   종목 기본값으로 함께 복원한다 — 농구는 발 앞 근접 존(1.6), 나머지는 리그 기본(2.0).
-        // 농구 near 0.30 — 밟을 게 없는 종목이라 발밑을 커버할 이유가 없다(유저). 무릎 유닛이
-        //   바로 아래를 못 비추는 실제 제약과도 맞고(위 3508 의 '정직한 투사각'과 같은 근거),
-        //   시작을 앞으로 밀면 near 쪽 극단 사다리꼴 왜곡 구간을 안 쓴다. 끝은 1.6 그대로.
-        rig.fpNear = state.pack === 'basketball' ? 0.30 : 0.05;
+        // near 0.30 — 비라이브 구간(READY·스트레칭·전환)은 밟을 게 없으니 발밑을 커버할
+        //   이유가 없다(유저). 0.05 는 발밑을 거의 수직으로 비추는 값이라, 그걸 보려면 고개를
+        //   깊이 숙여야 한다 — 실제로 세션 시선각이 -36° 까지 내려간다(권장 목 굴곡 20° 안팎).
+        //   무릎 유닛이 바로 아래를 못 비추는 실제 제약과도 맞고(위 '정직한 투사각'과 같은 근거),
+        //   시작을 앞으로 밀면 near 쪽 극단 사다리꼴 왜곡 구간도 안 쓴다.
+        //   착지 마크가 있는 러닝 라이브(P/C)만 위 분기에서 0.25 로 따로 당긴다.
+        rig.fpNear = 0.30;
         rig.fpFar = state.pack === 'basketball' ? 1.6 : 2.0;
       }
     }
