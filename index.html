@@ -246,6 +246,10 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
   url('fonts/Pretendard-ExtraBold.woff2') format('woff2');font-weight:800;font-display:swap}
 /* 바닥 UI 숫자(카운트다운·km) 전용 — WebGL 캔버스로 그리려면 메인 문서에 등록돼 있어야 한다(floorgl.js) */
 @font-face{font-family:'OffBit';src:url('fonts/OffBitTrial-DotBold.woff2') format('woff2');font-weight:700;font-display:swap}
+/* 윈도우·리눅스는 스크롤바가 늘 떠 있고 레이아웃 폭까지 먹는다. 맥은 오버레이라 안 보이므로
+   같은 화면이 안 된다. 막대만 숨긴다 — 스크롤·휠 동작은 그대로다. */
+*{scrollbar-width:none;-ms-overflow-style:none}
+*::-webkit-scrollbar{width:0;height:0}
 :root{
   /* Brand */
   --nb-red:#FA3030; --nb-coral:#FE6E3C; --nb-sand:#FEC389; --nb-prism:#D1FEFF;
@@ -700,7 +704,7 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
         <button class="stsp" data-sport="basketball" style="padding:5px 9px;border:1px solid var(--line);border-radius:5px;background:var(--panel2);color:var(--text);font-size:10.5px;cursor:pointer;">농구</button>
         <button id="studio-bgpreview" style="margin-left:auto;padding:5px 9px;border:1px solid var(--line);border-radius:5px;background:var(--panel2);color:var(--dim);font-size:10.5px;cursor:pointer;" title="편집은 다크 스테이지 위에서 — 실물(주간/바닥 테마) 배경을 잠깐 켜서 확인">☀️ 실물 확인</button>
       </div>
-      <div id="cut-board" style="display:flex;gap:6px;padding:8px 12px;border-bottom:1px solid var(--line);overflow-x:auto;scrollbar-width:thin;"></div>
+      <div id="cut-board" style="display:flex;gap:6px;padding:8px 12px;border-bottom:1px solid var(--line);overflow-x:auto;"></div>
       <select id="studio-stage" style="display:none;"></select>
       <div id="studio-palette" style="display:flex;gap:6px;padding:10px 14px;border-bottom:1px solid var(--line);flex-wrap:wrap;align-items:center;">
         <button class="stpal active" data-tool="select" style="padding:6px 12px;border:1px solid var(--accent);border-radius:6px;background:rgba(250,48,48,.16);color:var(--accent);font-size:11px;cursor:pointer;">↖ 고르기</button>
