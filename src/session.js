@@ -1192,7 +1192,9 @@ export class Session {
     // 스파링 타겟 = 몸 주변에 작은 것 여러 개(유저). 하나씩 때려 채우고, 채워지면 사라진다.
     //   구 방식(0.52 하나만 켜고 자리가 매 비트 이동)은 '반응 훈련'이었지 '공략'이 아니었다.
     this.bxC2 = [[-0.42, 1.78], [0.00, 1.87], [0.40, 1.76], [-0.50, 1.50], [0.48, 1.48], [0.00, 1.33]].map(([x, y]) => {
-      const ap = primPanel('approachRing', 0.30, true);   // 수축 링 정본 — B3·A3 와 같은 토큰
+      // 0.30 은 과했다 — 벽 투사 거리에서 링 실루엣이 안 잡혀 '토큰이 안 나타난다'로 보였다(유저 실측:
+      //   메시·opacity·prog·캔버스 픽셀 전부 정상인데 화면에서만 안 읽힘). 구 0.52 보다는 작게 0.42.
+      const ap = primPanel('approachRing', 0.42, true);   // 수축 링 정본 — B3·A3 와 같은 토큰
       ap.position.set(x, y, WZ + 0.002);
       ap.material.opacity = 0;
       g.add(ap);
@@ -2677,7 +2679,7 @@ export class Session {
         for (let i = 0; i < N; i++) {
           const T = this.bxC2[i];
           const done = i < cleared;
-          T.ap.material.opacity = done ? 0 : (i === cur ? 1 : 0.30);   // 남은 건 은은히 — 공략 순서가 보인다
+          T.ap.material.opacity = done ? 0 : (i === cur ? 1 : 0.45);   // 남은 건 은은히 — 0.30 은 투사면에서 사라진다
           T.ap._prim.prog = done ? 0 : (i === cur ? prog : 0);
           const e = T._pop == null ? 2 : (this.t - T._pop) / 0.28;     // 맞은 순간 반동 팝
           T.ap.scale.setScalar(e < 1 ? 1 + 0.34 * (1 - e) * (1 - e) : 1);
