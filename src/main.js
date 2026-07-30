@@ -24,7 +24,7 @@ import { WallGL } from './wallgl.js';     // 복싱 벽 UI WebGL 이식(같은 B
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { CSS3DRenderer, CSS3DObject } from 'three/examples/jsm/renderers/CSS3DRenderer.js';
 import { getLUT, FXP, rebuildLUT, lutColor, GLYPHS, FX_GLSL } from './fxlut.js';
-import { drawRotate, PERSON_GLSL } from './fx-core.js';
+import { drawRotate, PERSON_GLSL, CUT_FEATHER_GLSL } from './fx-core.js';
 import { createEditor3D } from './editor3d.js';
 import { LiveUI } from './liveui.js';
 import { SceneUI } from './sceneui.js';
@@ -2359,7 +2359,7 @@ void main(){
       fragmentShader: `
         varying vec2 vUv; uniform sampler2D map, uLUT, uField, uFieldN; uniform float uTime, uCropOff, uCropScale, uSat, uPulse, uReady, uDetail;
         vec3 lut(float v){ return texture2D(uLUT, vec2(clamp(v, 0.004, 0.996), 0.5)).rgb; }
-        ` + PERSON_GLSL + `
+        ` + PERSON_GLSL + CUT_FEATHER_GLSL + `
         vec2 crop(vec2 uv){ return vec2(uv.x, uCropOff + uv.y * uCropScale); }
         // 그린 제거만. (빈 프레임 방지는 픽셀 휘도가 아니라 프레임 단위 uReady가 담당 —
         //  픽셀로 자르면 그림자·모자·옷주름이 통째로 뚫린다: 실측 피사체 14% 소실)
@@ -2389,6 +2389,9 @@ void main(){
           //   허리가 칼로 자른 듯 보인다(유저 스샷). 위쪽 12%만 부드럽게 소멸.
           //   하단은 건드리지 않는다 — 발 접지는 또렷해야 한다(유저 확정).
           mEro *= 1.0 - smoothstep(0.88, 1.0, uv.y);
+          // 하단 잘림 페더(fx-core cutFeather) — 이 열의 하단 경계가 잘렸을 때만.
+          float botF = cutFeather(uv.x, uv.y, smoothstep(0.16, 0.52, mask1(vec2(uv.x, 0.006))), uTime);
+          mEro *= botF;
           if (mEro < 0.02) discard;
           // 두께장·블러휘도 = 저해상 RT 가우시안 필드(복싱 판 uHeat와 같은 파이프라인)
           vec2 fld = texture2D(uField, uv).rg;    // 넓은 블러 = 두께장·노출
@@ -2399,6 +2402,7 @@ void main(){
           float lumB = fld.g / max(fld.r, 0.02);          // 국소 평균 = 노출
           // 결 = 좁은 블러. 룩 슬라이더 '음영'(uDetail)이 결의 세기 — 0 이면 완전 평면.
           float lumS = mix(lumB, fldN.g / max(fldN.r, 0.02), clamp(uDetail * 2.4, 0.0, 1.0));
+          lumS = mix(lumB, lumS, botF);   // 스러지는 구간은 결이 넓은 블러로 녹는다 = '흐려지며 사라짐'
           float dlum = mix(lumS, lumB, 0.5);            // 펄스 위상용 대표 휘도
           float mIn = smoothstep(0.55, 0.95, m);
           float faceW = smoothstep(0.80, 0.92, uv.y) * (1.0 - smoothstep(0.97, 1.0, uv.y));
@@ -2712,17 +2716,21 @@ void main(){
     }
   }
   setTimeout(initDemoSeg, 1200);   // 부트 선초기화 — 세션 시작 즉시 코치 등장
-  const MASK_GLSL = `
+  const MASK_GLSL = CUT_FEATHER_GLSL + `
     uniform sampler2D tex;   // 비디오 (그린스크린 소스)
     uniform vec2 uCropC, uCropS;
-    float pmask(vec2 uv){
+    uniform float uCutT;     // 하단 잘림 페더 시계
+    float praw(vec2 uv){
       vec2 vuv = uCropC + (uv - 0.5) * uCropS;
       if (vuv.x < 0.0 || vuv.x > 1.0 || vuv.y < 0.0 || vuv.y > 1.0) return 0.0;
       vec3 c = texture2D(tex, vuv).rgb;
       float k = c.g - max(c.r, c.b);                     // 그린 우세도 — 결정론적 크로마 키
-      float m = 1.0 - smoothstep(0.05, 0.16, k);         // 임계값 = 랩 mask1 정본
-      m *= smoothstep(0.0, 0.03, uv.y) * smoothstep(1.0, 0.88, uv.y);   // 상단 페더 3%→12%: 잘린 몸통이 칼자국으로 보였다(유저)
-      return m;
+      return 1.0 - smoothstep(0.05, 0.16, k);            // 임계값 = 랩 mask1 정본
+    }
+    float pmask(vec2 uv){
+      float m = praw(uv) * smoothstep(1.0, 0.88, uv.y) * smoothstep(0.0, 0.015, uv.y);   // 상단 페더 12%
+      // 하단은 3% 고정 페더 폐기 — 잘린 열만 cutFeather 가 흩어 없앤다(발 접지는 그대로 또렷).
+      return m * cutFeather(uv.x, uv.y, praw(vec2(uv.x, 0.006)), uCutT);
     }
     // 블러 휘도 — 이목구비·옷주름을 뭉개 명암 덩어리만 남긴다(유저 레퍼런스: 확산 유리 실루엣)
     float plum(vec2 uv){
@@ -2748,7 +2756,7 @@ void main(){
   let trailFlip = 0;
   const trailMat = new THREE.ShaderMaterial({
     uniforms: {
-      tex: { value: demoTex }, prev: { value: trailRTs[1].texture }, uDecay: { value: 0.9 },
+      tex: { value: demoTex }, prev: { value: trailRTs[1].texture }, uDecay: { value: 0.9 }, uCutT: { value: 0 },
       uCropC: { value: new THREE.Vector2(0.5, 0.5) }, uCropS: { value: new THREE.Vector2(1, 1) },
     },
     vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }',
@@ -2767,7 +2775,7 @@ void main(){
   // 열 필드 = 마스크의 진짜 가우시안 확산 (저해상 128×192, 분리형 3회 반복 — 탭 클럼프 근절)
   const heatRTs = [0, 1].map(() => new THREE.WebGLRenderTarget(128, 192));
   const heatMaskMat = new THREE.ShaderMaterial({
-    uniforms: { tex: { value: demoTex }, uCropC: { value: new THREE.Vector2(0.5, 0.5) }, uCropS: { value: new THREE.Vector2(1, 1) } },
+    uniforms: { tex: { value: demoTex }, uCutT: { value: 0 }, uCropC: { value: new THREE.Vector2(0.5, 0.5) }, uCropS: { value: new THREE.Vector2(1, 1) } },
     vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }',
     fragmentShader: 'varying vec2 vUv;\n' + MASK_GLSL + '\nvoid main(){ gl_FragColor = vec4(pmask(vUv), 0.0, 0.0, 1.0); }',
     depthTest: false, depthWrite: false,
@@ -2790,7 +2798,7 @@ void main(){
     new THREE.ShaderMaterial({
       uniforms: {
         tex: { value: demoTex }, uTrail: { value: trailRTs[0].texture }, uHeat: { value: heatRTs[0].texture }, uLUT: { value: getLUT() },
-        uTime: { value: 0 }, uNoise: { value: 0.55 }, uW: { value: 1 }, uDetail: { value: 0.62 }, uTrailGain: { value: 1 }, uGrain: { value: 0 }, uTone: { value: 0 }, uLive: { value: 0 },
+        uTime: { value: 0 }, uCutT: { value: 0 }, uNoise: { value: 0.55 }, uW: { value: 1 }, uDetail: { value: 0.62 }, uTrailGain: { value: 1 }, uGrain: { value: 0 }, uTone: { value: 0 }, uLive: { value: 0 },
         uCropC: { value: new THREE.Vector2(0.5, 0.5) }, uCropS: { value: new THREE.Vector2(1, 1) },
       },
       vertexShader: `#include <common>
@@ -3048,6 +3056,7 @@ void main(){
     const PU = demoPanel.material.uniforms;
     PU.uTrail.value = trailRTs[trailFlip].texture;
     PU.uTime.value = now;
+    PU.uCutT.value = trailMat.uniforms.uCutT.value = heatMaskMat.uniforms.uCutT.value = now;
     PU.uNoise.value = FXP.person?.flow ?? 0.55;
     PU.uDetail.value = FXP.person?.detail ?? 0.62;
     PU.uW.value = FXP.person?.blur ?? 1;   // 엣지 블러 — 랩 person 슬라이더 (누락돼 기본 1.0으로 돌던 버그)
@@ -3240,7 +3249,7 @@ void main(){
         uniform sampler2D uAtlas, uLUT;
         uniform float uFrame, uDecay, uTime, uW, uNoise, uCols, uRows, uN, uDirect;
         vec3 lut(float v){ return texture2D(uLUT, vec2(clamp(v, 0.004, 0.996), 0.5)).rgb; }
-        ` + PERSON_GLSL + `
+        ` + PERSON_GLSL + CUT_FEATHER_GLSL + `
         float phash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
         float pvn(vec2 p){
           vec2 i = floor(p), f = fract(p); f = f*f*f*(f*(f*6.0-15.0)+10.0);
@@ -3252,12 +3261,15 @@ void main(){
           float cx = mod(ff, uCols), cy = floor(ff / uCols);
           return (vec2(uv.x, 1.0 - uv.y) + vec2(cx, cy)) / vec2(uCols, uRows);
         }
-        float mask1(vec2 uv, float f){
+        float mraw(vec2 uv, float f){
           vec3 rgb = texture2D(uAtlas, tileUV(uv, f)).rgb;
           float lum = dot(rgb, vec3(0.299, 0.587, 0.114));
-          float m = uDirect > 0.5 ? smoothstep(0.30, 0.55, lum) : smoothstep(0.52, 0.34, lum);
-          m *= smoothstep(0.0, 0.03, uv.y) * smoothstep(1.0, 0.88, uv.y);   // 상단 페더 3%→12%: 잘린 몸통이 칼자국으로 보였다(유저)
-          return m;
+          return uDirect > 0.5 ? smoothstep(0.30, 0.55, lum) : smoothstep(0.52, 0.34, lum);
+        }
+        float mask1(vec2 uv, float f){
+          float m = mraw(uv, f) * smoothstep(1.0, 0.88, uv.y) * smoothstep(0.0, 0.015, uv.y);   // 상단 페더 12%
+          // 하단은 잘린 열만 흩어 없앤다(fx-core cutFeather) — 발이 프레임 안이면 그대로 또렷.
+          return m * cutFeather(uv.x, uv.y, mraw(vec2(uv.x, 0.006), f), uTime);
         }
         float maskF(vec2 uv, float fk){
           float f0 = floor(fk);
