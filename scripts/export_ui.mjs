@@ -74,12 +74,16 @@ const BASE_W = SURF === 'wall' ? 2600 : 1600;
 const BASE_H = SURF === 'wall' ? 1600 : 2670;
 const W = +arg('w', BASE_W);
 const H = Math.round(W * BASE_H / BASE_W);
+// ★ 대지 캔버스는 실시간 예산 때문에 기본 K=0.75 로 그려진다(대지 대비 축소).
+//   그대로 뽑으면 2600 출력에 1950 원본을 늘리는 꼴이라 흐리다(실측: 유저 지적).
+//   출력보다 크게 그린 뒤 줄인다 — 수퍼샘플링이라 가장자리가 오히려 깨끗해진다.
+const UISCALE = Math.min(3, +arg('uiscale', Math.min(3, (W / BASE_W) * 2)));
 
 const TMP = fs.mkdtempSync('/tmp/newton_ui_');
 fs.mkdirSync(OUT, { recursive: true });
 const N = Math.round(DUR * FPS);
 const tag = `ui_${STAGE}_${W}x${H}p${FPS}`;
-console.log(`▶ ${tag} — ${N}프레임 (${W}×${H} · ${FPS}fps · ${DUR}s · 대지 ${BASE_W}×${BASE_H})`);
+console.log(`▶ ${tag} — ${N}프레임 (${W}×${H} · ${FPS}fps · ${DUR}s · 대지 ${BASE_W}×${BASE_H} · 캔버스 배율 ${UISCALE} = ${Math.round(BASE_W * UISCALE)}px)`);
 
 const browser = await puppeteer.launch({
   headless: 'new',
@@ -89,7 +93,7 @@ const page = await browser.newPage();
 await page.setViewport({ width: 1280, height: 800, deviceScaleFactor: 1 });
 const errs = [];
 page.on('pageerror', e => errs.push(e.message.slice(0, 160)));
-await page.goto(URLBASE + '?dev=1', { waitUntil: 'networkidle2', timeout: 180000 });
+await page.goto(`${URLBASE}?dev=1&uiscale=${UISCALE}`, { waitUntil: 'networkidle2', timeout: 180000 });
 await page.waitForFunction('!!window.__dbg?.floorGL', { timeout: 120000 });
 await new Promise(r => setTimeout(r, 9000));   // 폰트·이미지 준비
 
