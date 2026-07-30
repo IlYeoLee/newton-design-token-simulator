@@ -92,6 +92,38 @@ export function bakeGlyphSDF(img, N, flip = false) {
   return sdfFromAlpha(g.getImageData(0, 0, N, N).data, N);
 }
 
+/** 발자국 = 겉(신발 실루엣) + 안(맨발 자국) 두 장을 **한 프레임에서** 구워 RG 로 묶는다.
+ *  유저 레퍼런스: '디자인이 이쁜 깔창을 밟는다' — 깔창 외곽 안에 맨발 압력 자국이 도트로 찍힌 구성.
+ *
+ *  ★ 함정: bakeGlyphSDF 를 두 번 부르면 안 된다. glyphRaster 가 **이미지별 타이트 바운딩**을
+ *    잡고 각자 78% 로 맞추므로, 맨발이 신발과 같은 크기로 정규화돼 겹침이 통째로 깨진다.
+ *    두 SVG 는 같은 550 viewBox 라서 glyphRaster 캔버스가 좌표계를 공유한다 —
+ *    그래서 크롭 창을 **겉(신발) bbox 하나로 고정**하면 상대 위치·크기가 원본 그대로 남는다.
+ *
+ *  반환: { data: Float32Array(N*N*2) [R=겉, G=안], N, cx, cy(겉 무게중심), inCx, inCy(안 무게중심) } */
+export function bakeFootPairSDF(imgOuter, imgInner, N, flip = false) {
+  const RO = glyphRaster(imgOuter, N);
+  const RI = imgInner ? glyphRaster(imgInner, N) : null;
+  const sc = Math.min((N * 0.78) / RO.w, (N * 0.78) / RO.h);
+  const w = RO.w * sc, h = RO.h * sc;
+  const dx = (N - w) / 2, dy = (N - h) / 2;
+  const bake = (R) => {
+    const c = document.createElement('canvas'); c.width = c.height = N;
+    const g = c.getContext('2d');
+    if (flip) { g.translate(0, N); g.scale(1, -1); }
+    g.drawImage(R.canvas, RO.x, RO.y, RO.w, RO.h, dx, dy, w, h);   // 크롭 창은 항상 겉 bbox
+    return sdfFromAlpha(g.getImageData(0, 0, N, N).data, N);
+  };
+  const A = bake(RO);
+  const B = RI ? bake(RI) : null;
+  const data = new Float32Array(N * N * 2);
+  for (let i = 0; i < N * N; i++) {
+    data[i * 2] = A.data[i];
+    data[i * 2 + 1] = B ? B.data[i] : 1;   // 안이 없으면 '어디도 안쪽 아님'(각인 자동 비활성)
+  }
+  return { data, N, cx: A.cx, cy: A.cy, inCx: B ? B.cx : A.cx, inCy: B ? B.cy : A.cy, hasInner: !!B };
+}
+
 // ── 셰이더 디코드 계수 — raw d/N(텍스처 span 기준)을 uv([-1,1]) 기준으로.
 //    구 8bit 인코딩(range=N/4, 127/255)의 유효 배율 역산값. 이 계수가 빠지면
 //    발형 등고선 효과 전부가 2배 폭으로 퍼짐 (실제 사고 이력 있음 — (117)).
@@ -201,15 +233,22 @@ vec2 cutFade(float x, float y, float botM, float t){
 export const PERSON_GLSL = `
 #define P_GAMMA 1.15    // 온도 곡선 (1.38은 대역을 LUT 평지로 밀어넣었다)
 #define P_GAIN  0.96    // LUT 상단 여유(순백 방지)
-#define P_SAT   1.32    // 룩시스템 '쟁한' 고채도
 #define P_LO    0.40    // LUT t=0~0.3 은 RED 단색 평지 — 대역 하한이 그 위여야 계조가 산다
 #define P_HI    0.86
+// 런타임 유니폼 — 이 GLSL 을 include 하는 호스트 3곳(바닥 코치판·데모판·벽 인물)이 전부
+//   uniforms 에 선언하고 매 프레임 주입한다. 하나라도 빠지면 그 인물만 0(=무채·대역없음)이 된다.
+//   uPSat   = 룩 채도. 구 '#define P_SAT 1.32' 고정값이 기본이다.
+//             (여기에 백틱을 쓰면 이 GLSL 템플릿 리터럴이 끊겨 앱이 통째로 죽는다 — 실제 사고.)
+//             (바닥 코치판엔 uSat 유니폼이 있었는데 셰이더 본문에서 한 번도 안 읽혔다 — 죽은 손잡이.
+//              "채도 슬라이더 하나가 인물·마크 둘 다 움직인다"는 주석이 실제로는 마크만 움직였다.)
+//   uPSweep = 세로 열 그라디언트 폭. **0 이면 도입 전과 픽셀 동일** — 안전한 롤백 지점.
+uniform float uPSat, uPSweep;
 vec3 personColor(float T){
   float t = P_LO + clamp(T, 0.0, 1.0) * (P_HI - P_LO);   // 공용 대역으로 정규화
   t = pow(t, P_GAMMA) * P_GAIN;
   vec3 c = lut(clamp(t, 0.0, 1.0));
   float l = dot(c, vec3(0.299, 0.587, 0.114));
-  return clamp(mix(vec3(l), c, P_SAT), 0.0, 1.0);
+  return clamp(mix(vec3(l), c, uPSat), 0.0, 1.0);
 }
 // 인물 룩 — 복싱·러닝·농구가 공유하는 단 하나의 톤 결정자(유저 레퍼런스: setup-injury 프로토).
 //   규칙: ① 얼굴만 완전 블러(이목구비 소거) ② 몸은 옷주름·결이 살아있되 매끄럽게
@@ -226,6 +265,7 @@ vec3 personColor(float T){
 //     하단(샌드)으로 — 양끝 다 R≈1이라 알파는 어디서도 안 떨어진다.
 #define P_TEX   3.0     // 국소 대비(옷 결·주름)를 온도로 옮기는 배율
 #define P_ABS   0.18    // 절대 밝기를 반영하는 비율 — 낮을수록 클립 노출차에 둔감
+#define P_PIVOT 0.34    // 대역 확장 피벗 — 코어 실사용 T(≈0.15)보다 위. 이 값 기준으로 T 가 벌어진다.
 vec3 personLook(float thick, float lumS, float lumB, float mIn, float face){
   // 절대 휘도를 그대로 읽으면 클립 노출차가 곧 색차가 된다 — 밝게 찍은 러닝·농구 코치가
   //   통째로 LUT 밝은 쪽(SAND)으로 밀려 하얘졌다(유저: "왜 러닝 농구는 더 하얘?").
@@ -244,8 +284,23 @@ vec3 personLook(float thick, float lumS, float lumB, float mIn, float face){
   float th = smoothstep(0.25, 0.95, thick);   // 두께장 정규화 — H의 실사용 범위가 좁다
   // 코어(th=1)는 딥코랄 t≈0.42, 사지(th≈0.4)는 코랄 t≈0.60, 말단·얼굴은 뽀얀 살구.
   //   구 1.0 - th*0.60 은 두께장이 1에 못 닿는 실제 값에서 전신을 살구빛으로 띄웠다(유저).
-  float T = clamp(0.95 - th * 0.80 + (shade - 0.5) * P_DEPTH * mIn * (1.0 - face * 0.7)
-                  + face * 0.26, 0.0, 1.0);
+  float T0 = 0.95 - th * 0.80 + (shade - 0.5) * P_DEPTH * mIn * (1.0 - face * 0.7) + face * 0.26;
+  // 대역 확장(uPSweep) — 왜 필요한가:
+  //   두께장은 블러된 실루엣이라 몸통 '안쪽'이 전부 1.0 에 포화한다. 그래서 T 가 좁은 구간
+  //   (코어 ≈0.15 ~ 말단 ≈0.63)에만 앉고, 그 대부분이 LUT 중·상단(살구~샌드)이라 면적으로 보면
+  //   뽀얀 색이 지배한다 — 유저가 본 "바닥 인물은 채도가 낮고 흐리멍텅".
+  //   벽 인물은 T 를 세로로 0.06~0.98 훑어서 진한 레드가 큰 면적을 차지한다. 채도 배수(uPSat)는
+  //   원래부터 양쪽이 같았다 — 차이는 '대역을 얼마나 쓰는가'였다.
+  //   ⚠ 시도 1(기각) — 벽처럼 세로 그라디언트를 더했다. T 를 뽀얀 쪽으로만 밀어 더 창백해졌다:
+  //     평균채도 0.592 → 0.568 (실측, sweep 0 → 0.8).
+  //   ⚠ 시도 2(아래 구현, 기본 0 으로 봉인) — 피벗 기준 양방향 대비 확장. 코어는 진해지고 말단은
+  //     뽀얘져 눈으로는 '더 쟁해 보이지만', 정량으로는 평균채도 0.593 → 0.584 로 역시 내려간다.
+  //     이유: LUT 램프(RED #FA3030 → SAND #FEC389 → ICE)는 구간마다 채도가 비슷하다. T 를 어디로
+  //     옮겨도 '색상'만 바뀌고 '채도'는 안 오른다 — 대역 확장은 채도 문제의 해법이 아니었다.
+  //     실제로 채도를 올리는 손잡이는 uPSat 하나뿐이다(sat 1→2 에서 0.594 → 0.636 실측).
+  //   그래도 손잡이는 남긴다: 색상·명암 대비를 벌리는 용도로는 유효하고, 같은 시도의 반복을 막는다.
+  //   sweep = 0 이면 gain 1.0 → 도입 전과 픽셀 동일(현재 기본값).
+  float T = clamp(P_PIVOT + (T0 - P_PIVOT) * (1.0 + uPSweep * 1.6), 0.0, 1.0);
   vec3 c = personColor(T);
   // 얇은 곳(손·머리카락)과 얼굴, 그리고 하이라이트만 우유빛 — 2.2제곱이라 몸통은 거의 안 뜬다.
   float milk = clamp(pow(1.0 - clamp(thick, 0.0, 1.0), 2.2) * 0.9
@@ -256,6 +311,9 @@ vec3 personLook(float thick, float lumS, float lumB, float mIn, float face){
 export const MARK_GLSL = `
 uniform float uRadius, uPool, uContract, uShape, uSeed;
 uniform sampler2D uSDF2, uSDFWarn;
+// 깔창 각인 — 겉(신발) 안에 찍히는 맨발 자국. uSDF2.g 가 그 실루엣의 SDF.
+//   uImp 0 = 완전 비활성(각인 도입 전과 픽셀 동일 — 안전한 롤백 지점)
+uniform float uImp, uImpPitch, uImpDot, uImpGlow, uImpEdge;
 // 색 = src/palette.js 단일 소스. 유채는 4색뿐(규칙 ①), 무채는 상태 부호(규칙 ②).
 //   은퇴: C_CREAM(#FEE2C6 — 팔레트에 없던 9번째 색) → SAND
 //         C_WINE·C_BRICK(암적) → SAND·CORAL  (유저: 워닝에 어두운색 금지)
@@ -279,6 +337,12 @@ float mkSD(vec2 p, float u1){
   if (uShape < 0.5) return length(p) * (1.0 + u1 * uNoise * 0.04) - 0.46 * uRadius;
   vec2 suv = p * 0.5 + 0.5;
   return texture2D(uSDF2, vec2(suv.x, 1.0 - suv.y)).r * 1.9922 / max(uRadius, 0.3) + u1 * uNoise * 0.02;
+}
+// 안쪽(맨발 자국) 부호거리 — 겉과 **같은 프레임**에서 구운 G 채널이라 좌표 변환이 필요 없다.
+//   일렁임(u1)은 안 얹는다: 각인은 프린트라 겉 윤곽처럼 숨쉬면 '두 장이 따로 논다'로 읽힌다.
+float mkSDIn(vec2 p){
+  vec2 suv = p * 0.5 + 0.5;
+  return texture2D(uSDF2, vec2(suv.x, 1.0 - suv.y)).g * 1.9922 / max(uRadius, 0.3);
 }
 /** 필 램프 좌표 0..1 — 존 원은 중심거리, **발형은 실루엣 안쪽 깊이(sd)**.
  *  발 위에 원형 그라디언트를 씌우면 발가락·아치·뒤꿈치가 램프를 가로질러 잘려서
@@ -427,6 +491,32 @@ vec4 markState(vec2 uv, float state, float prog, float strong, float t){
   if (uShape > 0.5 && state < 2.5) {
     float edgeIn = exp(-pow(max(-sd, 0.0) / max(0.05 * uW, 1e-4), 1.5)) * inside;
     lay(A, C_SAND, edgeIn * 0.34);
+  }
+  // ── 깔창 각인 (발형 전용) ────────────────────────────────────────────────
+  //   유저 레퍼런스: 나이키 깔창 — 매끈한 깔창 외곽 **안**에 맨발 압력 자국이 도트로 프린트.
+  //   구성: 겉(R 채널)이 토큰 본체·상태를 그리고, 안(G 채널)이 그 위에 무늬로 얹힌다.
+  //   ★ 새 색을 만들지 않는다 — 정본 팔레트(CREAM·ICE)만 밝기로 얹는다(유채 4색 규칙).
+  //   ★ 상태를 침범하지 않는다 — 각인은 '무늬'라서 Preview~Locked 어디서든 같은 그림이고,
+  //     세기만 상태 알파(A.a)를 따라간다. 상태마다 다른 각인을 주면 토큰이 두 종류가 된다.
+  if (uShape > 0.5 && uImp > 0.001) {
+    float sdIn = mkSDIn(uv);
+    float aaI  = max(fwidth(sdIn), 0.004) * 1.4;
+    float inIn = smoothstep(aaI, -aaI, sdIn) * inside;   // 신발 안 ∩ 맨발 안
+    float pit  = max(uImpPitch, 0.008);
+    // 도트 격자 — 프로토타입 foot-*-dots.svg 규약: 정사각 격자, 점 지름 = 피치의 50%
+    //   (실측: 간격 1.8px · 지름 0.9px on 48px 폭). 그래서 uImpDot 기본 0.25(=반지름/피치).
+    vec2  cc  = fract(uv / pit) - 0.5;
+    float dd  = length(cc) * pit;
+    float rad = pit * clamp(uImpDot, 0.03, 0.5);
+    float dotM = smoothstep(rad + pit * 0.11, rad - pit * 0.11, dd);
+    // 자국 안쪽 깊이 — 가장자리는 옅고 안으로 갈수록 또렷(프린트 잉크가 고인 느낌).
+    //   전면 균일하게 찍으면 도트가 실루엣을 무시하고 격자만 보인다.
+    float dep = smoothstep(0.0, 0.085, -sdIn);
+    lay(A, C_CREAM, inIn * dotM * uImp * (0.34 + 0.66 * dep));
+    // 자국 윤곽 이너 글로우 — 프로토타입의 inner shadow(흰색 blur 7) 등가물.
+    //   이게 있어야 발가락·아치 경계가 '찍힌 자리'로 읽힌다(없으면 도트 얼룩).
+    float rimIn = exp(-pow(abs(sdIn) / max(uImpEdge, 1e-4), 1.6)) * inside;
+    lay(A, C_ICE, rimIn * uImpGlow * uImp);
   }
   // NaN 스크럽 — 위 분기 어디서든 비정상 값이 새면 '보이지 않음'으로 떨어뜨린다.
   //   NaN 과의 비교는 항상 false 이므로 step() 이 0 을 골라 준다(GLSL ES 1.0 에서 신뢰 가능한 유일한 방법).

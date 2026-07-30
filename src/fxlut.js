@@ -6,7 +6,7 @@
 //   OKLab 보간(RGB 직선 보간의 탁한 갈색 구간 제거) + 채도 스케일(회색조 혼합).
 // ─────────────────────────────────────────────────────────────
 import * as THREE from 'three';
-import { sdfFromAlpha, glyphRaster, bakeGlyphSDF, buildLUT } from './fx-core.js';
+import { sdfFromAlpha, glyphRaster, bakeGlyphSDF, bakeFootPairSDF, buildLUT } from './fx-core.js';
 import { STOPS, SAT, PAL, NEU, rgba } from './palette.js';
 // OKLab 변환·LUT 빌더는 fx-core(정본)에서 — 중복 2벌 폐기.
 
@@ -19,11 +19,16 @@ export const FXP = {
   mark: { radius: 1.0, core: 1.0, halo: 0.9, pool: 0.55, sweep: 1.0, wobble: 0.5 },
   // 인물 = 뉴턴톤만 살리고 나머지 0 (유저 07-30). 얼룩·잔상·그레인은 전부 아티팩트 원천이었고,
   //   부드러움은 슬라이더가 아니라 필드 RT 가우시안(코드)이 만든다. 음영만 남긴다.
-  //   detail = 결(옷주름·톤차)의 세기. 셰이더에서 clamp(detail*2.4) 로 좁은블러 쪽 혼합비가 되므로
-  //     0.25 = 60% · 0.417 이상 = 100%. 0.15(=36%)로 돌던 게 '흐리멍텅'의 절반이었다.
-  //   sweep = 세로 열 그라디언트 폭(머리 진한 쪽 → 발 뽀얀 쪽). 0 이면 도입 전과 픽셀 동일.
-  //     두께장이 몸통 안쪽에서 1.0 에 포화해 T가 한 점에 고정되던 것을 푸는 손잡이 — 나머지 절반.
-  person: { blur: 0, glow: 0, flow: 0, decay: 0, detail: 0.25, sweep: 0.55, grain: 0, tone: 1 },
+  //   detail = 결(옷주름·톤차)의 세기. 셰이더에서 clamp(detail*2.4) 가 좁은블러 쪽 혼합비다
+  //     (0.25 = 60% · 0.417 이상 = 100%). 저장본 0.15(=36%)에서 올렸지만 실측 결과 화면에선
+  //     차이가 안 나온다 — 국소대비 0.0471 → 0.0472. 넓은 평균장을 80×120 에서 굽기 때문에
+  //     애초에 벌어질 결 자체가 거의 없다. 코드 기본값과 저장본을 맞추는 의미만 있다.
+  //   sweep = personLook 의 T 대역 확장 폭(피벗 기준 대비 확장). **기본 0 = 도입 전과 픽셀 동일.**
+  //     '바닥 인물 채도가 낮다'의 해결책으로 넣었으나 실측에서 기각: 평균채도 0.593 → 0.584 로
+  //     오히려 내려간다. LUT 램프(RED→SAND→ICE)는 구간마다 채도가 비슷해서, T 를 어디로 옮겨도
+  //     색상만 바뀌고 채도는 안 오른다. 실제로 듣는 손잡이는 sat(→uPSat)뿐이었다.
+  //     손잡이는 남겨 둔다 — 색상·명암 대비를 벌리고 싶을 때 쓰는 용도이고, 같은 시도를 또 하는 것을 막는다.
+  person: { blur: 0, glow: 0, flow: 0, decay: 0, detail: 0.25, sweep: 0, grain: 0, tone: 1 },
   gainBoost: 1.0,   // 주간 모드 투사 게인 (주광 가시 = 제품 스토리)
   a3Arrow: 4,       // 하이니 리프트 큐 (1 셰브론 · 2 스템+SVG촉 · 3 바 · 4 궤적 토큰=기본)
   liveUI: 3,   // 실전 UI 기본 = 3안 셰브론 플로우(리서치 확정: 상대속도 흐름·락온)        // 실전 러닝 플로어 UI 5안 (1 페이스라인 · 2 펄스링 · 3 셰브론 · 4 도트 · 5 스트립)
@@ -129,6 +134,13 @@ export const DEFAULT_GLYPHS = {
   FOOT_OUT_L: _G + 'foot-out-l.svg', FOOT_OUT_R: _G + 'foot-out-r.svg',
 };
 
+// 정본을 모듈 로드 시점에 즉시 깔아둔다. 예전엔 디자인 스토어를 읽고 병합한 뒤에야
+// GLYPHS.set 이 불려서, 부팅 후 ~2초간 숫자 슬롯이 비어 있었다(실측: 0.5s·1.5s 는 빈
+// 슬롯 → drawGlyph 실패 → 호출부가 시스템 폰트로 폴백, 3s 에 글리프 등록되며 리베이크).
+// 그래서 숫자가 떴다가 순식간에 다른 활자로 바뀌었다(유저 신고). 나중에 오는 저장본은
+// 이 위에 병합되므로 최종 결과는 그대로다.
+GLYPHS.set({ ...DEFAULT_GLYPHS });
+
 // SVG 래스터·SDF 베이커는 fx-core(정본, FX Lab 구현 승격)에서 — 중복 2벌 폐기.
 /** OffBit 도트 폰트로 (x,y) 중심 렌더 — 글리프 SVG와 같은 틴트·글로우 규약을 그대로 쓴다.
  *  글리프 경로가 sizePx 를 '그려질 최대 크기'로 쓰므로 여기서도 같은 뜻으로 맞춘다:
@@ -197,28 +209,41 @@ export function footSlot(right) {
   return (FXP.footCtx === 'in' ? 'FOOT_IN_' : 'FOOT_OUT_') + (right ? 'R' : 'L');
 }
 
-/** float SDF → three.js 텍스처 (무손실 d/N — 8bit 양자화 폐기가 지글거림의 근본 해결) */
+/** float SDF → three.js 텍스처 (무손실 d/N — 8bit 양자화 폐기가 지글거림의 근본 해결).
+ *  채널: R = 겉(신발 실루엣) · G = 안(맨발 자국). 한 채널만 있으면 G 에 R 을 복사해
+ *  셰이더가 어떤 경로에서도 .g 를 안전하게 읽게 한다(각인은 uImp 로 따로 끈다). */
 function sdfTexture(FS) {
-  const tex = new THREE.DataTexture(FS.data, FS.N, FS.N, THREE.RedFormat, THREE.FloatType);
+  const pair = FS.data.length === FS.N * FS.N * 2;
+  const tex = pair
+    ? new THREE.DataTexture(FS.data, FS.N, FS.N, THREE.RGFormat, THREE.FloatType)
+    : new THREE.DataTexture(FS.data, FS.N, FS.N, THREE.RedFormat, THREE.FloatType);
   tex.minFilter = tex.magFilter = THREE.LinearFilter;
   tex.needsUpdate = true;
   tex._cx = FS.cx; tex._cy = FS.cy;   // 실루엣 무게중심 — 마크 숫자 폴백 앵커(랩과 동일 규약)
+  tex._inCx = FS.inCx ?? FS.cx; tex._inCy = FS.inCy ?? FS.cy;   // 맨발 자국 무게중심
+  tex._hasInner = !!FS.hasInner;
   return tex;
 }
 const _sdfCache = new Map();
-/** 발형 SDF 텍스처 — fx-core 베이커(FX Lab과 같은 코드) 소비. */
+/** 발형 SDF 텍스처 — fx-core 베이커(FX Lab과 같은 코드) 소비.
+ *  겉은 footCtx 가 고른 슬롯(야외=신발/실내=맨발), 안은 **항상 맨발** — 깔창 각인의 그림이 맨발이다.
+ *  실내(겉=맨발)면 겉과 안이 같은 그림이라 각인이 무의미하므로 안 채널을 비운다. */
 export function footSDFTexture(right) {
   const slot = footSlot(right);
   const url = GLYPHS.map[slot];
   const flip = !!GLYPHS.flip[slot];
-  const key = (url ? url.length : 'builtin') + '|' + slot + '|' + flip;
+  const inSlot = 'FOOT_IN_' + (right ? 'R' : 'L');
+  const inUrl = slot === inSlot ? null : GLYPHS.map[inSlot];
+  const key = (url ? url.length : 'builtin') + '|' + slot + '|' + flip + '|' + (inUrl ? inUrl.length : 0);
   if (_sdfCache.has(key)) return _sdfCache.get(key);
   const img = url ? GLYPHS.img(slot) : null;
   if (url && !img) return null;   // 로드 전 — onLoad 리베이크가 재시도
+  const inImg = inUrl ? GLYPHS.img(inSlot) : null;
+  if (inUrl && !inImg) return null;   // 안쪽도 같이 기다린다 — 반쪽만 구우면 캐시가 그걸 박제한다
   const N = 768;
   let FS;
   if (img) {
-    FS = bakeGlyphSDF(img, N, flip);
+    FS = bakeFootPairSDF(img, inImg, N, flip);
   } else {
     // 내장 발 폴백 (fxlab footSDF 드로잉과 동일)
     const c = document.createElement('canvas'); c.width = c.height = N;

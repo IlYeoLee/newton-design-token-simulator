@@ -924,7 +924,10 @@ export class FloorGL {
     const ctx = this.ctx, TR_ = TR[this.stage] || TR.T1, t = this.t;
     this._bgGlow(1160);
     this._titleGroup(500, TR_.sub, TR_.title);
-    const S = 589.4, GAP = 23.6, P = 52.392, y = 850;   // 벽과 같은 10% 축소(유저) — 러닝·농구 전환도 이 경로
+    // 카드 크기 — 벽(2600 가로)에서 쓰던 589.4를 그대로 들고 왔던 게 문제였다. 지면 대지는 1600 폭이라
+    //   같은 값이 폭의 75%를 먹어 카드가 화면을 채워 버린다(유저). 폭의 ~63%로 줄이고, 줄어든 만큼
+    //   블록을 원래 밴드(850~1439) 안에서 세로 중앙에 다시 앉힌다 — 타이틀·버튼은 건드리지 않는다.
+    const S = 496, GAP = 22, P = 52.392 * (S / 654.902), y = 897;
     const x0 = CX - (S * 2 + GAP) / 2;
     // cardIn .8s (.38/.54) + cardFloat 4s/4.4s ×3 — 카드는 이미 바닥에 붙어 있어 '떠오름'은 원본대로 translate
     const card = (x, d, fd, fdur, D, done) => {
@@ -934,7 +937,7 @@ export class FloorGL {
       ctx.translate(0, c == null ? 0 : kf(c, [[0, 0], [.5, -13], [1, 0]]));
       const k = 0.9 + 0.1 * e;
       ctx.translate(x + S / 2, y + S / 2); ctx.scale(k, k); ctx.translate(-(x + S / 2), -(y + S / 2));
-      this._card(x, y, S, 65.49, P, D, done);
+      this._card(x, y, S, 65.49 * (S / 654.902), P, D, done);
       ctx.restore();
     };
     card(x0, 0.38, 1.5, 4, TR_.done, true);
@@ -948,6 +951,7 @@ export class FloorGL {
 
   _card(x, y, S, R, P, D, done) {
     const ctx = this.ctx;
+    const k = S / 654.902;   // 대지 실값(Figma 654.902) 대비 배율 — 조판·배지·글자도 카드와 같이 줄어든다
     ctx.save();
     this._roundRectPath(x, y, S, S, R); ctx.clip();
     if (done) {
@@ -968,7 +972,7 @@ export class FloorGL {
       // 완료 카드 내부 글로우 = 원본 CSS 실값 inset 0 0 52.392px 19.647px rgba(255,255,255,.6)
       ctx.save();
       this._roundRectPath(x, y, S, S, R); ctx.clip();
-      insetGlow(ctx, x, y, S, S, R, rgba(NEU.ink, 0.6), 52.392, 19.647);
+      insetGlow(ctx, x, y, S, S, R, rgba(NEU.ink, 0.6), 52.392 * k, 19.647 * k);
       ctx.restore();
     }
     ctx.restore();
@@ -978,15 +982,15 @@ export class FloorGL {
     ctx.globalAlpha *= kf(sp, [[0, 0], [.6, 1], [1, 1]]);
     const spk = kf(sp, [[0, .5], [.6, 1.12], [1, 1]]);
     if (done) {
-      const c = x + S - P - 45.8, cy = y + P + 45.8;
+      const r = 45.8 * k, c = x + S - P - r, cy = y + P + r;
       ctx.translate(c, cy); ctx.scale(spk, spk); ctx.translate(-c, -cy);
-      checkBadge(ctx, c, cy, 45.8);
+      checkBadge(ctx, c, cy, r);
     } else {
-      ctx.font = F(400, 52); const bw = ctx.measureText('Next').width + 52.4, bh = 52 * 1.2 + 26.2;
+      ctx.font = F(400, 52 * k); const bw = ctx.measureText('Next').width + 52.4 * k, bh = (52 * 1.2 + 26.2) * k;
       const bx = x + S - P - bw / 2, by = y + P + bh / 2;
       ctx.translate(bx, by); ctx.scale(spk, spk); ctx.translate(-bx, -by);
       ctx.save();   // Figma 뱃지 그림자 0 0 39.294px rgba(0,0,0,.12)
-      ctx.shadowColor = 'rgba(0,0,0,.12)'; ctx.shadowBlur = 39.294;
+      ctx.shadowColor = 'rgba(0,0,0,.12)'; ctx.shadowBlur = 39.294 * k;
       ctx.fillStyle = 'rgba(255,255,255,.9)'; this._pill(x + S - P - bw, y + P, bw, bh);
       ctx.restore();
       ctx.fillStyle = NEU.t3; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
@@ -995,10 +999,10 @@ export class FloorGL {
     ctx.restore();
     // 좌하단 메타
     ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
-    ctx.fillStyle = done ? NEU.paper : NEU.t2; ctx.font = F(400, 36); ctx.letterSpacing = '-1.64px';
+    ctx.fillStyle = done ? NEU.paper : NEU.t2; ctx.font = F(400, 36 * k); ctx.letterSpacing = (-1.64 * k).toFixed(2) + 'px';
     ctx.fillText(D.time, x + P, y + S - P);
-    ctx.fillStyle = done ? '#fff' : NEU.inkDark; ctx.font = F(700, 64); ctx.letterSpacing = '-3.27px';
-    ctx.fillText(D.lbl.toUpperCase(), x + P, y + S - P - 36 * 1.2 - 13.1);
+    ctx.fillStyle = done ? '#fff' : NEU.inkDark; ctx.font = F(700, 64 * k); ctx.letterSpacing = (-3.27 * k).toFixed(2) + 'px';
+    ctx.fillText(D.lbl.toUpperCase(), x + P, y + S - P - 36 * k * 1.2 - 13.1 * k);
     ctx.letterSpacing = '0px';
   }
 

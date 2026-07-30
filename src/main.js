@@ -2452,7 +2452,7 @@ void main(){
           // 색 = fx-core.personLook 공용 정의 — 복싱 인물과 같은 대역·채도·명암 규칙.
           //   구 인라인 lut(pow(baseT,1.5))는 LUT 하단(샌드~코랄)에만 앉아, 상단(레드)에 앉는
           //   복싱 인물과 톤이 갈렸다(유저: "왜 복싱만 과하게 빨갛지").
-          vec3 col = personLook(clamp(H + pulse + dth, 0.0, 1.0), lumS, lumB, mIn, faceW, uv.y) * mEro * 0.92;
+          vec3 col = personLook(clamp(H + pulse + dth, 0.0, 1.0), lumS, lumB, mIn, faceW) * mEro * 0.92;
           // uReady=0 = 아직 실제 프레임이 없다. 이때 그리면 빈 텍스처가 크로마키를 통과해
           //   판이 통째로 검은 사각형/붉은 판으로 보인다(유저 스샷). 아예 안 그린다.
           float alpha = mEro * 0.95 * uReady;   // 하단 페더 제거(유저) — 발끝까지 또렷하게
@@ -2903,7 +2903,7 @@ void main(){
           float shape = max(shapeA, trail * 0.5 * smoothstep(0.06, 0.22, trail));
           // 색 = fx-core.personColor 공용 정의 (벽 인물과 같은 곡선·대역·채도).
           // 구 mix(thermo…) 은 은퇴 — uTone=1 이라 실제로 안 쓰였고, 무지개 램프는 팔레트 밖이었다.
-          vec3 col = personLook(T, dLumS, dLumB, mIn, faceW, uv.y) * shape;
+          vec3 col = personLook(T, dLumS, dLumB, mIn, faceW) * shape;
           col += (fxhash(uv * 977.0 + uTime) - 0.5) * (2.0 / 255.0);
           col += (fxhash(uv * 1661.0 + uTime * 3.0) - 0.5) * uGrain;
           // 프레임 원천 제거(유저): 타원 페더 — 잔여 배경·워시가 직선 경계 없이 곡선으로 소멸
