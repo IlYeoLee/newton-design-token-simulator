@@ -2440,8 +2440,12 @@ void main(){
         const cv = document.createElement('canvas'); cv.width = cv.height = 256;
         const g = cv.getContext('2d');
         const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace;
+        // depthTest 는 켜둔다. 껐더니 깊이를 무시하고 3D 러너의 몸까지 뚫고 그려져,
+        // 러너가 카메라와 토큰 사이에 설 때 토큰이 목·어깨 위에 겹쳐 '공중에 뜬' 것처럼 보였다(유저 신고).
+        // '코치 영상보다 앞'이라는 원래 의도는 실제 높이(패널 y=0.015 < 큐 y=0.035)와
+        // renderOrder 30 이 이미 보장한다 — depthTest 를 끌 이유가 없었다.
         const mesh = new THREE.Mesh(new THREE.PlaneGeometry(size, size),
-          new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, depthTest: false, blending: THREE.AdditiveBlending }));
+          new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, depthTest: true, blending: THREE.AdditiveBlending }));
         mesh.position.set(x, y, 0.02);   // 부모 로컬: x=좌우, +y=머리쪽, +z=바닥 위로 띄움
         mesh.renderOrder = 30;           // 코치 영상 레이어보다 앞(유저: 판정 토큰이 인물 앞에)
         plane.add(mesh);
