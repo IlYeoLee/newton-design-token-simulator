@@ -839,8 +839,12 @@ export class FloorGL {
       ctx.restore();
     }
     // 타이틀 글자 웨이브 — charLoop 3s ×3, 글자마다 .09s 지연
-    ctx.fillStyle = '#fff'; ctx.font = F(700, 120);
-    drawChars(ctx, D.title, CX, 620, 120, -4, i => {
+    // 제목은 2순위로 내린다. 예전엔 120·흰 100% 라 아래 CTA(88·흰 100%)와 1.36배 차이뿐이었고,
+    //   CTA 쪽엔 화살표·발 그래픽까지 붙어 오히려 CTA 가 더 세 보였다 — 1순위가 2순위처럼 읽혔다.
+    //   이 화면의 주인공은 '어떻게 시작하나'(Tap your foot Twice) 하나다. 팩 이름은 확인용이라
+    //   68·흰 70% 로 낮춘다. 레퍼런스(ready-to-start)도 시작 화면엔 제목을 두지 않는다.
+    ctx.fillStyle = 'rgba(255,255,255,.7)'; ctx.font = F(700, 68);
+    drawChars(ctx, D.title, CX, 690, 68, -2.3, i => {   // 620 → 690: 작아진 만큼 요약·칩과 한 덩어리로 붙인다
       const p = cycle(t, i * 0.09, 3, 3);
       return p == null ? { dy: 0, alpha: 1, scale: 1 } : {
         dy: kf(p, [[0, 0], [.12, -16], [.26, 0], [.58, 0], [1, 0]]),
@@ -896,7 +900,11 @@ export class FloorGL {
     const ar = this._img('run/arrow.svg');
     if (ar) ctx.drawImage(ar, CX - 43, 1057 + ady, 86, 86);
     ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-    let hy = 1057 + 86 + 30;
+    let hy = 1057 + 86 + 12;
+    // 'To start' 눈금 — 레퍼런스(ready-to-start)의 3단 구성: 눈금 / 지시 / 조건.
+    //   지시 한 줄만 크고 위아래 작은 글자가 그것을 감싼다.
+    ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.font = F(400, 46); ctx.letterSpacing = '-1.4px';
+    ctx.fillText('To start', CX, hy); hy += 46 * 1.2 + 10;
     ctx.fillStyle = '#fff'; ctx.font = F(700, 88); ctx.letterSpacing = '-4.7px';
     ctx.fillText('Tap your foot Twice', CX, hy); hy += 88 * 1.2 + 19;
     ctx.fillStyle = 'rgba(255,255,255,.8)'; ctx.font = F(400, 44); ctx.letterSpacing = '-1.3px';

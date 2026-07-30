@@ -439,7 +439,10 @@ export class WallGL {
     // ── Connected
     txt(ctx, 'Connected', ix + PADL, y + 6, 34, 400, NEU.t1, { ls: -1.13 });
     y += 48 + 8;
-    const devH = 203.607, dw = (iw - CPAD * 2 - DGAP * 2) / 3;
+    // 폭에서 CPAD*2 를 빼면서 시작 x 에는 안 더해, 3장이 왼쪽으로 붙고 오른쪽에 48px 이 남았다
+    // (유저: 좌우 FILL). 위 Setup 2열은 (iw - CGAP)/2 로 iw 를 꽉 채우므로 오른쪽 끝도 안 맞았다.
+    // 같은 기준으로 통일 — 두 블록의 좌우 끝이 정렬된다.
+    const devH = 203.607, dw = (iw - DGAP * 2) / 3;
     // 아이콘 88 + 간격 14 + 글자 38 = 147.6 을 카드(203.607) 안에서 위아래 대칭으로 앉힌다
     // (전엔 위 16 / 아래 47 로 어긋나 있었다 — 유저 지적).
     const DTOP = (devH - (88 + 14 + 38 * 1.2)) / 2;
@@ -509,8 +512,14 @@ export class WallGL {
     // CTA
     const ar = this._img('arrow-right.svg');
     if (ar) ctx.drawImage(ar, FX + 380 - 31, FY + 100, 62, 62);
-    txt(ctx, 'Tap your foot Twice', FX + 380, FY + 100 + 62 + 26, 64, 700, '#fff', { ls: -4.57, align: 'center' });
-    txt(ctx, 'with the Wearable on', FX + 380, FY + 100 + 62 + 26 + 64 * 1.1 + 14, 32, 400, 'rgba(255,255,255,.8)', { align: 'center' });
+    // 지면(floorgl)과 같은 3단 구성 — 눈금 / 지시 / 조건. 지시 한 줄만 크고 위아래가 감싼다.
+    //   레퍼런스(ready-to-start)의 위계이고, 두 투사면이 같은 규칙을 쓴다.
+    let wy = FY + 100 + 62 + 10;
+    txt(ctx, 'To start', FX + 380, wy, 32, 400, 'rgba(255,255,255,.55)', { align: 'center' });
+    wy += 32 * 1.2 + 8;
+    txt(ctx, 'Tap your foot Twice', FX + 380, wy, 64, 700, '#fff', { ls: -4.57, align: 'center' });
+    wy += 64 * 1.1 + 14;
+    txt(ctx, 'with the Wearable on', FX + 380, wy, 32, 400, 'rgba(255,255,255,.8)', { align: 'center' });
     ctx.restore();
     ctx.restore();   // /rightcol float
   }
