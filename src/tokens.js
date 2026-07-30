@@ -300,6 +300,29 @@ const FADE_STEPS_FP = [1.0, 0.78, 0.58, 0.42];
 let FP_VIEW = false;
 export function setFPView(on) { FP_VIEW = !!on; }
 
+// ── 발형 실치수 (단일 출처) ────────────────────────────────────────────
+// 지면 UI의 발자국은 '여기를 밟아라'는 지시다. 실제 발보다 크면 어디를 밟으라는
+// 건지 흐려지므로 성인 240mm(발 길이 0.24m)에 고정한다. 씬별 배율은 두지 않는다.
+//   이전: session.js S=0.46(시각 0.36m) × 씬별 매직넘버(1.05/0.62/0.58/0.42)
+//         → 실제 발자국이 0.15m~0.38m 로 2.5배 편차. 07-28 유저 메모의 '배율 상수
+//         하나로 통일' 숙제가 이것이다.
+export const FOOT_LEN_M = 0.24;
+/** 실루엣이 평면에서 차지하는 세로 비율 — 정본 SVG 4종 실측(신발 0.7266 · 맨발 0.7285) */
+const FOOT_FILL = 0.727;
+/** 발형 토큰 평면 한 변(m). 발 길이가 0.24m 로 나오도록 역산 ≈ 0.330 */
+export const FOOT_PLANE_M = FOOT_LEN_M / FOOT_FILL;
+
+// ── 판정 존 반경 3단계 (발 기준 배수) ──────────────────────────────────
+// 원은 '얼마나 정확히 밟아야 하는가'다. 발과 무관한 숫자를 손으로 박으면 화면에서
+// 아무 의미도 안 전해진다(실제로 저작 데이터의 radiusCm 은 18곳 전부 17 이었고,
+// 코드 폴백만 0.16/0.17/0.20 세 개로 흩어져 있었다 — 1cm 차이는 구분도 안 된다).
+// 발 길이의 배수로 묶으면 발자국과 원이 한 화면에 있을 때 관계가 읽힌다.
+export const ZONE = {
+  tight: FOOT_LEN_M * 0.50,   // 0.12m 반경 = 지름이 발 하나 — 정확히 밟아야 하는 곳
+  base:  FOOT_LEN_M * 0.75,   // 0.18m
+  loose: FOOT_LEN_M * 1.00,   // 0.24m — 존에 들어오기만 하면 되는 곳
+};
+
 // 에디터 v2에서 실시간 조절되는 토큰 지오메트리·상태 파라미터 (라이브 반영)
 export const TCFG = {
   markScale: 1.0,       // 마크 전체 크기 배율
@@ -462,7 +485,10 @@ export class Marker {
       try { footTex = footSDFTexture(this._footRight === true); } catch (e) { footTex = null; }
     }
     this._isFoot = !!footTex;
-    this.fx = new THREE.Mesh(new THREE.PlaneGeometry(radius * 2.78, radius * 2.78), makeMarkFXMaterial(footTex));
+    // 발형이면 판정 반경과 무관하게 실치수(240mm)로 고정한다. 예전엔 radius×2.78 이라
+    // 판정이 널널한 구간에서 발이 같이 커졌다 — 발은 발 크기고, 허용 반경은 원이 말한다.
+    const planeSide = this._isFoot ? FOOT_PLANE_M : radius * 2.78;
+    this.fx = new THREE.Mesh(new THREE.PlaneGeometry(planeSide, planeSide), makeMarkFXMaterial(footTex));
     this.fx.position.z = 0.002;
     // 벽면은 열화상 고스트 위 가산이라 과노출 방지 게인
     this._baseGain = surface === 'wall' ? 0.6 : 1.0;
@@ -798,7 +824,7 @@ export class TokenSystem {
           const isWall = tk.type === 'targetMark' && this.pack.hasWall;
           const color = tk.type === 'targetMark' ? COLORS.target : COLORS[tk.foot] ?? COLORS.left;
           // 반경 = 판정 허용창 (저작값 radiusCm 우선)
-          const radius = tk.radiusCm ? tk.radiusCm / 100 : (tk.type === 'targetMark' ? 0.20 : 0.17);
+          const radius = tk.radiusCm ? tk.radiusCm / 100 : (tk.type === 'targetMark' ? ZONE.loose : ZONE.base);
           const mk = new Marker(radius, color, isWall ? 'wall' : 'floor', tk.foot === 'right');
           // MARK 계약 변조 (도달/회피/유지) — 벽 불즈아이는 도달 전용
           if (!isWall && (tk.contract && tk.contract !== 'reach' || tk.holdRing)) mk.setContract(tk.contract);
@@ -885,7 +911,7 @@ export class TokenSystem {
       if (tk.type === 'pathLane') this._buildLane(packData);
       if (tk.type === 'stepMark' && !isBoxing) {
         // 복싱 스탠스 발판 (상시)
-        const mk = new Marker(0.16, COLORS[tk.foot] ?? COLORS.left, 'floor');
+        const mk = new Marker(ZONE.base, COLORS[tk.foot] ?? COLORS.left, 'floor');   // 구 0.16 — base 와 1cm 차이라 구분 불가였다
         mk.role = tk.foot ?? 'left';
         const p = this._mapFloor(tk);
         mk.group.position.x = p.x; mk.group.position.z = p.z;

@@ -23,7 +23,7 @@ import { FloorGL } from './floorgl.js';   // 바닥 UI WebGL 이식(B안) — ?f
 import { WallGL } from './wallgl.js';     // 복싱 벽 UI WebGL 이식(같은 B안) — ?wallgl=0 이면 옛 CSS3D
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { CSS3DRenderer, CSS3DObject } from 'three/examples/jsm/renderers/CSS3DRenderer.js';
-import { getLUT, FXP, rebuildLUT, lutColor, GLYPHS, FX_GLSL } from './fxlut.js';
+import { getLUT, FXP, rebuildLUT, lutColor, GLYPHS, FX_GLSL, DEFAULT_GLYPHS } from './fxlut.js';
 import { drawRotate, PERSON_GLSL, CUT_FEATHER_GLSL } from './fx-core.js';
 import { createEditor3D } from './editor3d.js';
 import { LiveUI } from './liveui.js';
@@ -283,13 +283,12 @@ async function boot() {
     rebuildLUT();
     // L·R 글리프 = 숫자 슬롯과 같은 규약(같은 크기·틴트·글로우). 지면 UI에서 floorNum('L'…)
     // 또는 attachMarkNum(fm,'L'…)로 숫자 대신 쓸 수 있다. 랩에서 교체하면 그 값이 우선.
-    const LR_GLYPHS = { L: import.meta.env.BASE_URL + 'ready-view/assets/glyph_L.svg',
-                        R: import.meta.env.BASE_URL + 'ready-view/assets/glyph_R.svg' };
     if (lab0?.glyphs) {
       FXP.bg = lab0.bg;
       FXP.footCtx = lab0.footCtx || 'out';
       FXP.customGlyphs = lab0.glyphs;
-      GLYPHS.set({ ...LR_GLYPHS, ...lab0.glyphs });
+      // 정본(DEFAULT_GLYPHS)이 저장본을 이긴다 — fxlut.js 의 규칙 주석 참고.
+      GLYPHS.set({ ...lab0.glyphs, ...DEFAULT_GLYPHS });
       GLYPHS.setFlips(lab0.glyphFlip || {});
       // dataURL 디코드 완료 대기 (수 ms — 발형 텍스처가 빌드 시점에 읽을 수 있게)
       await Promise.race([
@@ -297,7 +296,7 @@ async function boot() {
         new Promise(res => setTimeout(res, 1500)),
       ]);
     } else {
-      GLYPHS.set(LR_GLYPHS);   // 저장된 랩 룩이 없어도 L·R은 항상 있다
+      GLYPHS.set(DEFAULT_GLYPHS);   // 저장된 랩 룩이 없어도 정본 글리프는 항상 있다
     }
   }
   // 전역 기본값 복원 — v4에서 레거시 드로어 해체와 함께 영속화된 값들
@@ -1080,9 +1079,9 @@ void main(){
   };
   sessionReady = true;             // 이 아래부터는 session 접근 안전
   session.onPress = _pressBurst;   // 프레스 완료 버스트 연결
-  // 크기 지정 파문 — 세션이 반경(m)을 직접 정할 때(2/4 작은 파형 등)
-  session.onBurst = (wp, sizeM, col) => effects.burst(wp, col || 0xfec389, new THREE.Vector3(0, 1, 0),
-    { intensity: 0.22, sizeM: sizeM || 0.32 });
+  // 크기 지정 파문 — 세션이 반경(m)을 직접 정할 때(2/4 작은 파형 등). opts로 세기·감쇠속도까지 지정 가능.
+  session.onBurst = (wp, sizeM, col, opts) => effects.burst(wp, col || 0xfec389, new THREE.Vector3(0, 1, 0),
+    { intensity: 0.22, sizeM: sizeM || 0.32, ...(opts || {}) });
   // 실전 러닝 플로어 UI 5안 모듈 — C 라이브에서만 렌더 루프가 update
   const liveUI = new LiveUI(scene, tokens, rig);
   liveUI.onLand = wp => effects.burst(wp, 0xfec389, new THREE.Vector3(0, 1, 0), { intensity: 0.6, sizeM: 0.5 });   // 인트로 '꽂힘' 버스트
@@ -1233,8 +1232,18 @@ void main(){
     Object.assign(FX, { bloomStrength: 0.14, bloomThreshold: 0.85, bloomRadius: 0.4, exposure: 0.95, grain: 0, vignette: 0.08 });   // 블룸 축소 — 소형 고휘도 코어가 문대지며 '과한 블러'로 보이던 것 (랩=블룸 거의 없음)
     if (st.bg !== undefined) { FXP.bg = st.bg; setSurfaces(st.bg === 'none' ? null : st.bg); }   // 투사면 칩 → 실물 바닥/벽 (+발형 컨텍스트)
     if (st.prims) FXP.prims = st.prims;   // 프리미티브 파라미터 → 세션 스테이지 빌드 소비 (리로드 반영)
-    const stPerson = st.person || st.p;   // 라이브 스냅샷은 'p', 내보내기는 'person'
-    if (stPerson) Object.assign(FXP.person, stPerson);   // 인물(코치) 룩 — 음영·잔상·흐름 동기
+    // 인물(코치) 룩 — 라이브 스냅샷은 'p', 내보내기는 'person'.
+    //   ★ 위(1230)에서 st.p 복원을 막아 놨는데 여기서 `|| st.p` 로 도로 들여오고 있었다 —
+    //     은퇴시킨 아티팩트 파라미터가 그대로 부활하던 경로. 실측(design-default.json lab.p):
+    //     blur .8 · glow .8 · flow .35 · decay .4 · grain .07 → 인물 영상에 잔상(핑퐁 RT 누적)과
+    //     필름 그레인이 계속 걸려 있었다. 07-30 결정("인물 = 뉴턴톤만, 나머지 0")대로 걸러 받는다.
+    //     저장본이 무엇이든 런타임은 항상 이 규칙 — 좀비 값이 다시 살아날 경로를 없앤다.
+    const PERSON_KEEP = ['detail', 'tone'];   // 음영·톤만 = 룩 토큰 / blur·glow·flow·decay·grain = 아티팩트(은퇴)
+    const stPerson = st.person || st.p;
+    if (stPerson) {
+      for (const k of PERSON_KEEP) if (stPerson[k] != null) FXP.person[k] = stPerson[k];
+      Object.assign(FXP.person, { blur: 0, glow: 0, flow: 0, decay: 0, grain: 0 });
+    }
     if (st.lane) FXP.lane = st.lane;      // 레인 전용 스타일 (화살표 LINE과 분리 — 유저 확정)
     // markShape(랩 표현형 토글)는 미리보기용 — 시뮬 루프 마크는 설계대로 존 원 고정
     // (발형 SDF 인프라는 세션 티칭 컨텍스트용으로 보존: fxlut.footSDFTexture)
@@ -1246,7 +1255,8 @@ void main(){
     if (st.glyphs && typeof st.glyphs === 'object') {
       const changed = JSON.stringify(st.glyphs) !== JSON.stringify(GLYPHS.map);
       FXP.customGlyphs = st.glyphs;
-      GLYPHS.set(st.glyphs);
+      // 통째 교체였다 — 그러면 정본은 물론 L·R 까지 사라진다(실측: 두 슬롯이 '없음'이었다).
+      GLYPHS.set({ ...st.glyphs, ...DEFAULT_GLYPHS });
       GLYPHS.setFlips(st.glyphFlip || {});
       FXP.footCtx = st.footCtx || 'out';
       FXP.numFoot = st.numFoot || null;   // 발형 숫자 앵커 (FX Lab 드래그 지정)

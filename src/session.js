@@ -4,7 +4,7 @@ import bkStepContacts from '../assets/mocap/contacts-cmu_crossover_shot.json';  
 import { WALL_Z } from './scene.js';
 import { lutColor, GLYPHS, drawGlyph, drawNumber, footSlot, footSDFTexture, FXP } from './fxlut.js';
 import { MARK_NUM, drawStanceBox, drawPunchLine, drawApproachRing, drawTrajectory, drawRotate, drawStemArrow, drawCurveArrow } from './fx-core.js';
-import { makeMarkFXMaterial, makeLaneFXMaterial, makeFlowArrow, tickFlowArrows, beamAlphaAt, COLORS } from './tokens.js';
+import { makeMarkFXMaterial, makeLaneFXMaterial, makeFlowArrow, tickFlowArrows, beamAlphaAt, COLORS, FOOT_PLANE_M } from './tokens.js';
 
 const clamp01 = v => v < 0 ? 0 : v > 1 ? 1 : v;
 
@@ -123,9 +123,11 @@ class FootMark {
     this._U.uPhase.value = 0;
     this._U.uFade.value = 1;
     WAVE_MATS.push(mat);   // uTime·주간 잉크 규약 틱 동승
-    const S = 0.46;        // 실루엣 시각 높이 ≈ 0.36m (기존 0.29m보다 약간 큼 — MARK 존 기준)
-    // ponytail: at(x,z,s)의 s는 씬마다 손으로 박은 매직넘버(페어 1.05 / 라인 0.62 / 커서 0.42).
-    //   규격은 이 S=0.46 하나뿐. 나중에 배율 상수 하나로 통일하기로 함(유저, 07-28).
+    // 07-28 숙제 종결 — 배율 상수 하나로 통일. 모든 지면 UI의 발자국은 성인 240mm 다.
+    //   구: S=0.46(시각 0.36m) × 씬별 매직넘버(1.05/0.62/0.58/0.42) → 실제 0.15~0.38m
+    //   신: FOOT_PLANE_M 하나 (tokens.js FOOT_LEN_M=0.24 에서 실측 채움비로 역산)
+    //   at()의 s는 이제 '크기 선택'이 아니라 순간 연출(체공 +8% 같은)에만 쓴다.
+    const S = FOOT_PLANE_M;
     this.plane = new THREE.Mesh(new THREE.PlaneGeometry(S, S), mat);
     this.group.add(this.plane);
     this.group.rotation.x = -Math.PI / 2; this.group.position.y = 0.013; this.group.renderOrder = 6;
@@ -846,7 +848,7 @@ export class Session {
     // 좌·우 발형(FootMark = 룩시스템 발형 SDF, A3와 동일 방식·사이즈) 나란히 지면 고정.
     // 상태 = countdown/setHold/glow/ghost로 Preview/Active/Hold/Success/Locked. 숫자는 발형 자식.
     // 전방 투사존 — 타이틀·도트(상단, 먼 z) 아래 열린 콘텐츠 존에 나란히 (겹침 방지)
-    const fmL = new FootMark('left').at(-0.16, -1.15, 1.05), fmR = new FootMark('right').at(0.16, -1.15, 1.05);
+    const fmL = new FootMark('left').at(-0.16, -1.15), fmR = new FootMark('right').at(0.16, -1.15);
     // 숫자 = 룩시스템 attachMarkNum(발 plane 자식·MARK_NUM 크기·numFoot 앵커) — 삐짐 없는 정본 이식
     const numL = attachMarkNum(fmL, '5', false), numR = attachMarkNum(fmR, '5', true);
     numL.visible = false; numR.visible = false;
@@ -859,7 +861,7 @@ export class Session {
     //   앞: 좌·우 발형(A2와 동일 언어)이 번갈아 켜짐 = "좌우 무릎 번갈아 올려"(템포·순서).
     //   뒤: 큰 중앙 숫자 = 누적 횟수(카운트업) + 감싸는 얇은 링이 30초 시계방향 진행.
     // 하이니 재설계(유저): 원형 은퇴 — 발형 2개(안에 각자 카운트) + LINE 리프트 화살표 + 양발 각 10회.
-    const a3L = new FootMark('left').at(-0.17, -1.05, 1.05), a3R = new FootMark('right').at(0.17, -1.05, 1.05);
+    const a3L = new FootMark('left').at(-0.17, -1.05), a3R = new FootMark('right').at(0.17, -1.05);
     const a3nL = attachMarkNum(a3L, '0', false), a3nR = attachMarkNum(a3R, '0', true);
     // 리프트 큐 = 발 '옆'에 캔버스 플레인(drawLiftCue 3안, FXP.a3Arrow 토글)
     const mkLift = (x) => {
@@ -1021,13 +1023,13 @@ export class Session {
     //   발↔골반 상대 x 1:1 미러 — 빔은 발밑에 못 그리므로 커서로 '밟기'를 성립시킨다).
     const sbm = (x, r) => floorRing(x, SBZ, r, r + 0.028, BRAND.coral, 0.18);
     const mL = sbm(-0.55, 0.13), mC = sbm(0, 0.10), mR = sbm(0.55, 0.13);
-    const fp = (x, dz, foot) => new FootMark(foot).at(x, SBZ + dz, 0.62);
+    const fp = (x, dz, foot) => new FootMark(foot).at(x, SBZ + dz);
     const sL1 = fp(-0.69, 0.02, 'left'), sR1 = fp(-0.41, 0.02, 'right');   // 착지 페어(어깨너비)
     const sL2 = fp(0.41, 0.02, 'left'), sR2 = fp(0.69, 0.02, 'right');     // 시작 페어
     // 따라하기(1/4) 발자국 안 L·R 글리프 — 숫자 슬롯과 같은 규약(발이 기울면 같이 기운다)
     const sn2L = attachMarkNum(sL2, 'L', false), sn2R = attachMarkNum(sR2, 'R', true);
     const rise = floorRing(-0.55, SBZ, 0.21, 0.25, BRAND.red, 0);           // 상승 링(비트④=슛)
-    const cL = new FootMark('left').at(-0.1, SBZ + 0.52, 0.42), cR = new FootMark('right').at(0.1, SBZ + 0.52, 0.42);
+    const cL = new FootMark('left').at(-0.1, SBZ + 0.52), cR = new FootMark('right').at(0.1, SBZ + 0.52);
     cL.ghost(); cR.ghost();   // 커서 = Locked 고스트 톤(목표와 구분)
     // 따라하기(피그마 143:444) 전용 — 영상 아래 L·R 페어 양옆의 위아래 화살표.
     //   던질까 말까 망설이는 순간 = 마크가 들썩이고 ↓/↑가 번갈아 밝아진다.
@@ -1045,14 +1047,14 @@ export class Session {
       const m = (x, r) => floorRing(x, SBZ, r * K, (r + 0.028) * K, BRAND.coral, 0.18);   // 얇은 림(러닝 판정 마크 규격)
       const H = { mL: m(0.03, 0.13), mC: m(0.36, 0.10), mR: m(0.02, 0.13),   // 링은 액센트(착지 중심·플랜트·시작 중심)
         rise: floorRing(-0.55, SBZ, 0.21 * K, 0.25 * K, BRAND.red, 0),
-        gh: new FootMark('right').at(-0.55, SBZ, 0.62),   // 고스트 = 착지 오차 잔상
+        gh: new FootMark('right').at(-0.55, SBZ),   // 고스트 = 착지 오차 잔상
         beat: 0, _beatT: 0, _popT: -9, _prevHy: 0, count: 0, _side: -1, _ghT: -9 };
       H.gh.op(0);
       // 발자국 좌표 = 레퍼런스 영상 MediaPipe 실측(골반 기준 상대, 미터). 임의값 아님.
       //   측정: 67프레임 / 스텝백 1사이클. 발 수평속도로 접지 구간을 골라 좌표를 읽었다.
       //   시작 스탠스 L(-0.17) R(+0.22) 폭 0.39m → 착지 스탠스 L(-0.40) R(+0.46) 폭 0.86m
       //   플랜트(리드 발 최대 전개) R(+0.36). 깊이는 MP z를 씬 z로 부호 반전해 반영.
-      const F = (x, dz, foot) => new FootMark(foot).at(x, SBZ + dz, 0.58 * K);
+      const F = (x, dz, foot) => new FootMark(foot).at(x, SBZ + dz);
       // 4국면 대표 자세(영상 67프레임 실측, 골반 기준·미터. MP z는 씬 z로 부호 반전)
       //   ① 준비  L(-0.17,-0.05) R(+0.22,+0.06) 폭 0.39
       //   ② 플랜트 L(-0.09,-0.12) R(+0.33,-0.06) 폭 0.42   t=1.20s
@@ -1073,8 +1075,8 @@ export class Session {
       gg.add(H.mL, H.mC, H.mR, H.rise, H.gh.group, H.a1, H.a2,
         H.fLl.group, H.fLr.group, H.fRl.group, H.fRr.group, H.fC.group);
       if (!big) {   // 훈련 단계만 커서 표시 — 실전은 시선 부담 최소화(유저 확정)
-        H.cL = new FootMark('left').at(-0.1, SBZ + 0.52, 0.42);
-        H.cR = new FootMark('right').at(0.1, SBZ + 0.52, 0.42);
+        H.cL = new FootMark('left').at(-0.1, SBZ + 0.52);
+        H.cR = new FootMark('right').at(0.1, SBZ + 0.52);
         H.cL.ghost(); H.cR.ghost();
         gg.add(H.cL.group, H.cR.group);
       }
@@ -2304,7 +2306,11 @@ export class Session {
         H._zHit = this.t;
         if (!phase2) {
           H.count += 1; H._popT = this.t;
-          const wp = new THREE.Vector3(); H.zone.getWorldPosition(wp); this.onPress?.(wp, false);
+          // 파문은 '작고 빠른 틱'이다 — 프레스 버스트(0.52m·세기 .72·1.05s)를 그대로 쓰면 0.4s 비트마다
+          //   1m짜리 파문이 3겹씩 쌓여 발밑을 덮는다(유저: 파파파팍). 1인칭이라 발밑 1m = 화면 절반.
+          //   존 마크(반경 급)에 얹히는 크기로 줄이고 비트보다 짧게 꺼뜨려 겹침 자체를 없앤다.
+          const wp = new THREE.Vector3(); H.zone.getWorldPosition(wp);
+          this.onBurst?.(wp, 0.22, null, { intensity: 0.30, speed: 2.6 });
         }
       }
       H._wasLow = isLow;
@@ -2351,7 +2357,7 @@ export class Session {
         ex = Math.max(-0.75, Math.min(0.75, ex * 2.2));   // 클립 진폭(±0.2)을 마크 스케일(±0.55)로 증폭
       }
       const CZ = (H.mL.position.z) + 0.52;
-      H.cL.at(ex - 0.14, CZ, 0.42); H.cR.at(ex + 0.14, CZ, 0.42);
+      H.cL.at(ex - 0.14, CZ); H.cR.at(ex + 0.14, CZ);
       // 비트 목표: 0=시작(+0.55) 1=플랜트(0) 2=착지(-0.55) 3=슛(상승)
       const TGT = [0.55, 0, -0.55][Math.min(H.beat, 2)];
       // 따라하기 화면(143:444) = 코치 영상 아래 L·R 마크 한 쌍 + 좌 ↓ / 우 ↑.
@@ -2407,7 +2413,7 @@ export class Session {
         ex = (pr.footL.x + pr.footR.x) / 2 - pr.hips.x + (pr.hips.x - (pr.footL.x + pr.footR.x) / 2) * 3;
         ex = Math.max(-0.75, Math.min(0.75, ex * 2.2));
       }
-      if (H.cL) { const CZ = H.mL.position.z + 0.52; H.cL.at(ex - 0.14, CZ, 0.42); H.cR.at(ex + 0.14, CZ, 0.42); H.cL.op(0.5); H.cR.op(0.5); }
+      if (H.cL) { const CZ = H.mL.position.z + 0.52; H.cL.at(ex - 0.14, CZ); H.cR.at(ex + 0.14, CZ); H.cL.op(0.5); H.cR.op(0.5); }
       // 비트 진행: 시간 구동(연속 흐름). per = 비트 간격
       const cyc = (this.t - H._beatT) / CFG.per;
       const beat = Math.min(3, Math.floor(cyc));
@@ -2442,7 +2448,7 @@ export class Session {
         fpOn('fLl', H.beat >= 2); fpOn('fLr', H.beat >= 2);
       }
       if (LIVE) { const sgn = H._side < 0 ? -1 : 1;   // 실전 착지 페어는 무작위 방향으로 이동
-        H.fLl.at(sgn * 0.55 - 0.14, SBZ + 0.03, 0.58 * 1.25); H.fLr.at(sgn * 0.55 + 0.14, SBZ + 0.03, 0.58 * 1.25); }
+        H.fLl.at(sgn * 0.55 - 0.14, SBZ + 0.03); H.fLr.at(sgn * 0.55 + 0.14, SBZ + 0.03); }
       // 비트④ = 착지 마크가 그 자리에서 상승 링으로 '변신', 수축이 곧 릴리즈 카운트다운(0.4s)
       if (H.beat === 3) {
         const rp = Math.min(1, (this.t - H._popT) / 0.4);
@@ -2458,7 +2464,7 @@ export class Session {
         //   난데없이 터져 보였다(유저). 파문은 '발이 닿는 순간' 그 발자국 자리에서만.
         if (!POSE) {
           const wp = new THREE.Vector3(); H.mL.getWorldPosition(wp); this.onPress?.(wp, false);
-          H.gh.at(ex, H.mL.position.z, 0.62); H.gh.ghost(); H._ghT = this.t;   // 고스트 = 실제 착지 위치
+          H.gh.at(ex, H.mL.position.z); H.gh.ghost(); H._ghT = this.t;   // 고스트 = 실제 착지 위치
         }
       }
       if (H._landed && hy - (H._prevHy || hy) > 0.010 && this.t - H._landT < 0.6) {

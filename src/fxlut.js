@@ -95,6 +95,24 @@ export const GLYPHS = {
     return (img && img.complete && img.naturalWidth) ? img : null;
   },
 };
+// ── 정본 글리프 (다듬은 SVG, 저장소 동봉) ──────────────────────────────
+// 규칙: 이 맵은 디자인 스토어 저장본보다 **우선한다**. 예전엔 저장본이 뒤에 와서
+// 덮었고(심지어 GLYPHS.set(st.glyphs) 는 맵을 통째 교체했다), 그 바람에 랩에서
+// 한 번이라도 글리프를 올린 브라우저는 다듬은 정본이 영영 안 보였다.
+// 정본에 없는 슬롯(연산 기호 + − × %, TIP_*, WARN_EXCL 등)은 저장본이 채운다.
+const _G = import.meta.env.BASE_URL + 'ready-view/assets/glyphs/';
+export const DEFAULT_GLYPHS = {
+  L: import.meta.env.BASE_URL + 'ready-view/assets/glyph_L.svg',
+  R: import.meta.env.BASE_URL + 'ready-view/assets/glyph_R.svg',
+  '0': _G + 'num-0.svg', '1': _G + 'num-1.svg', '2': _G + 'num-2.svg',
+  '3': _G + 'num-3.svg', '4': _G + 'num-4.svg', '5': _G + 'num-5.svg',
+  '6': _G + 'num-6.svg', '7': _G + 'num-7.svg', '8': _G + 'num-8.svg',
+  '9': _G + 'num-9.svg',
+  // 실내=맨발(FOOT_IN) · 야외=신발(FOOT_OUT) — footSlot() 규약
+  FOOT_IN_L:  _G + 'foot-in-l.svg',  FOOT_IN_R:  _G + 'foot-in-r.svg',
+  FOOT_OUT_L: _G + 'foot-out-l.svg', FOOT_OUT_R: _G + 'foot-out-r.svg',
+};
+
 // SVG 래스터·SDF 베이커는 fx-core(정본, FX Lab 구현 승격)에서 — 중복 2벌 폐기.
 /** 캔버스에 커스텀 글리프를 웜 크림 틴트+글로우로 (x,y) 중심 렌더. 성공 시 true. */
 export function drawGlyph(ctx, ch, x, y, sizePx, { color = rgba(NEU.ink, 0.95), glowColor = rgba(PAL.coral, 0.75), glow = 14 } = {}) {
