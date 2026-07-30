@@ -812,7 +812,10 @@ export class FloorGL {
         ctx.translate(CX + kf(g, [[0, 0], [.5, -16], [1, 0]]), 1400 + kf(g, [[0, 0], [.5, 10], [1, 0]]));
         ctx.scale(s, s); ctx.translate(-CX, -1400);
       }
-      ctx.drawImage(gl, CX - 510, 1400 - 465, 1020, 930);
+      // 필터 영역을 블러 반경(3σ=280)만큼 넓힌 에셋 — 예전엔 filter 영역이 viewBox와 같아
+      //   가우시안이 좌우·아래에서 잘려 글로우가 사각으로 뚝 끊겼다(유저: 투사영역 따라 일자로 잘림).
+      //   대지가 1.4495×1.4030 커졌으므로 그리는 사각형도 같은 배율 — 글로우 크기는 그대로다.
+      ctx.drawImage(gl, CX - 739, 1400 - 652, 1478, 1305);
       ctx.restore();
     }
     // 크리에이터 얼굴 = pyeongso .creator-profile 의 아바타만(×3.0, 303px + 흰 테두리 6).
