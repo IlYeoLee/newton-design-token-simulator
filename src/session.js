@@ -4,7 +4,7 @@ import bkStepContacts from '../assets/mocap/contacts-cmu_crossover_shot.json';  
 import { WALL_Z } from './scene.js';
 import { lutColor, GLYPHS, drawGlyph, drawNumber, footSlot, footSDFTexture, FXP } from './fxlut.js';
 import { MARK_NUM, drawStanceBox, drawPunchLine, drawApproachRing, drawTrajectory, drawRotate, drawStemArrow, drawCurveArrow } from './fx-core.js';
-import { makeMarkFXMaterial, makeLaneFXMaterial, makeFlowArrow, tickFlowArrows, beamAlphaAt, COLORS, FOOT_PLANE_M } from './tokens.js';
+import { makeMarkFXMaterial, makeLaneFXMaterial, makeFlowArrow, tickFlowArrows, beamAlphaAt, COLORS, FOOT_PLANE_M, QUAD_K } from './tokens.js';
 
 const clamp01 = v => v < 0 ? 0 : v > 1 ? 1 : v;
 
@@ -127,7 +127,8 @@ class FootMark {
     //   구: S=0.46(시각 0.36m) × 씬별 매직넘버(1.05/0.62/0.58/0.42) → 실제 0.15~0.38m
     //   신: FOOT_PLANE_M 하나 (tokens.js FOOT_LEN_M=0.24 에서 실측 채움비로 역산)
     //   at()의 s는 이제 '크기 선택'이 아니라 순간 연출(체공 +8% 같은)에만 쓴다.
-    const S = FOOT_PLANE_M;
+    // 평면은 QUAD_K 배 — 채움비를 낮춘 만큼 상쇄(월드 크기 동일) + 파동이 퍼질 여백 확보
+    const S = FOOT_PLANE_M * QUAD_K;
     this.plane = new THREE.Mesh(new THREE.PlaneGeometry(S, S), mat);
     this.group.add(this.plane);
     this.group.rotation.x = -Math.PI / 2; this.group.position.y = 0.013; this.group.renderOrder = 6;
@@ -623,10 +624,11 @@ export class Session {
     this.liveSpeed = 1;   // 실전 라이브 속도 배율 (BOOST/감속)
     this.bobY = 0;        // 박자 시점 바운스 (스트레칭·익히기)
     // Success 파문 = 공통 규칙 (FootMark.glow 진입 래치가 호출)
-    FootMark.onSuccess = (fm) => {
-      const wp = new THREE.Vector3(); fm.group.getWorldPosition(wp);
-      this.onBurst?.(wp, 0.26, COLORS.success);
-    };
+    // Success 파문은 **토큰 안**으로 들어갔다 — MARK 파동(uRip)이 실루엣 등거리선을 따라 터진다.
+    //   effects.burst 는 토큰 모양과 무관한 별도 원형 쿼드라, 발자국 위에 원형 파문이 겹쳐
+    //   같은 뜻의 그림이 두 벌이었다(유저 지적: 새 파형을 만들면 기존 리퀴드는 빠져야 한다).
+    //   래치 자체는 남긴다 — 다른 소리·햅틱을 붙일 자리이고, 한 번만 울리는 보장이 여기 있다.
+    FootMark.onSuccess = null;
     this._build();
   }
   get stage() { return this.stages[this.stageIdx].id; }
@@ -671,8 +673,8 @@ export class Session {
       // Success = 그 발을 옮겨 지면에 닿은 순간(유저 정의). 그 자리에 작은 파문 1회.
       if (q.step && st[side] !== q.plantT && q.f >= 0.999) {
         st[side] = q.plantT; st['p' + side] = this.t;
-        const wp = new THREE.Vector3(); fm.group.getWorldPosition(wp);
-        this.onBurst?.(wp, 0.26, COLORS.success);   // PRISM = 성공 잔상 색
+        // 파문은 토큰이 스스로 낸다 — MARK 파동(uRip)이 Success 상태에서 실루엣을 따라 단발로
+        //   터진다. 여기서 effects.burst 를 또 띄우면 발자국 위에 **원형** 파문이 겹쳐 두 벌이 된다.
       }
       // ── 착지 물리 — '타닥' 두 박 ────────────────────────────────────────────
       //   ① 앞꿈치 접지 = 큰 팝(0.18s, 빠른 감쇠)  ② 뒤꿈치가 따라 내려앉는 작은 팝(0.10s 뒤 0.16s)

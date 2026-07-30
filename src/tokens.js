@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { NUM, PAL, NEU, rgba } from './palette.js';
 import { WALL_Z } from './scene.js';
 import { getLUT, FXP, FX_GLSL, GLYPHS, drawGlyph, lutColor, footSDFTexture, warnSDFTexture } from './fxlut.js';
-import { MARK_NUM, MARK_GLSL, drawStemArrow } from './fx-core.js';
+import { MARK_NUM, MARK_GLSL, drawStemArrow, SIL_FIT, SIL_FIT_REF, QUAD_K } from './fx-core.js';
 
 // ── MARK 파동 셰이더 (FX Lab 이식) — 재료는 열 하나, 상태는 파동의 위상 ──
 const MARKFX_VERT = `
@@ -264,9 +264,9 @@ export function makeMarkFXMaterial(footTex = null) {
       //   신발 발가락 박스가 맨발 엄지보다 좁다). 눈으로 더듬지 말고 랩에서 다시 재서 옮길 것.
       uImp: { value: footTex ? 1.0 : 0.0 }, uImpPitch: { value: 0.027 }, uImpDot: { value: 0.25 },
       // 경계는 이너 섀도우가 만든다(유저 확정) — 윤곽 글로우는 기본 0, 필요할 때만 켠다.
-      uImpGlow: { value: 0.0 }, uImpShade: { value: 0.55 }, uImpSharp: { value: 0.75 },
+      uImpGlow: { value: 0.0 }, uImpShade: { value: 0.55 }, uImpSharp: { value: 0.22 },
       uImpShadeCol: { value: 0 },   // 0 흰 — 프로토타입 foot-*-dots.svg 의 white inner shadow 규약
-      uImpEdge: { value: 0.030 }, uImpScale: { value: 0.840 },
+      uImpEdge: { value: 0.058 }, uImpScale: { value: 0.840 },
       uImpRot: { value: 0 },   // 각인 기울기(rad) — 오른발은 미러라 부호가 뒤집힌다
       uImpCtr: { value: new THREE.Vector2(
         footTex ? (footTex._inCx ?? 0.5) * 2 - 1 : 0,
@@ -281,6 +281,9 @@ export function makeMarkFXMaterial(footTex = null) {
       // 압력 램프(데이터 계열) · 아웃라인 폐기 후 형태를 잡는 이너 섀도우 · 필 소프트 엣지
       uEdgeShade: { value: 0.55 }, uEdgeW: { value: 0.085 }, uEdgeSoft: { value: 0.75 },
       uDither: { value: 0.010 },   // LUT 8비트 밴딩 제거 — 조회 좌표를 1단계 미만 흔든다
+      // uSilFit: SDF 베이크 채움비 / 기준치(0.78). 1 = 지금 그대로. 낮추면 실루엣이 쿼드에서
+      //   작아져 파동·헤일로가 쓸 여유가 생긴다(호스트가 평면을 같은 배수로 키워 실제 크기 유지).
+      uSilFit: { value: SIL_FIT / SIL_FIT_REF },
       uPlantar: { value: 1.0 }, uBands: { value: 0 }, uBandSoft: { value: 0.45 },
       uRipGrad: { value: 1 },   // 1 = 뉴턴 LUT 그라디언트(기본) · 0 = 단색
       uRipCol: { value: 1 },   // 1 = 샌드(따뜻한 잔광). 0 흰 · 2 코랄 · 3 레드
@@ -341,6 +344,13 @@ export function setFPView(on) { FP_VIEW = !!on; }
 //   이전: session.js S=0.46(시각 0.36m) × 씬별 매직넘버(1.05/0.62/0.58/0.42)
 //         → 실제 발자국이 0.15m~0.38m 로 2.5배 편차. 07-28 유저 메모의 '배율 상수
 //         하나로 통일' 숙제가 이것이다. 크기 변경은 이제 이 한 줄이다.
+// ── 실루엣이 쿼드에서 차지하는 비율 ─────────────────────────────────────────
+//   SDF 를 구울 때 실루엣을 텍스처의 몇 %에 맞추느냐. 기준치는 0.78(옛 고정값)이다.
+//   이걸 낮추면 실루엣이 쿼드 안에서 작아지고 **남는 자리가 파동·헤일로의 여유**가 된다.
+//   유저 신고: 파동이 위아래로 잘려 좌우만 보인다 — 발이 세로로 길어 쿼드 여유가 0.10 뿐이었다.
+//   실제 크기는 그대로다: 평면을 SIL_FIT_REF/SIL_FIT 배로 키워 상쇄한다.
+export { SIL_FIT, SIL_FIT_REF, QUAD_K } from './fx-core.js';
+
 export const FOOT_LEN_M = 0.26;
 /** 실루엣이 평면에서 차지하는 세로 비율 — 정본 SVG 4종 실측(신발 0.7266 · 맨발 0.7285) */
 const FOOT_FILL = 0.727;
@@ -522,7 +532,9 @@ export class Marker {
     this._isFoot = !!footTex;
     // 발형이면 판정 반경과 무관하게 실치수(240mm)로 고정한다. 예전엔 radius×2.78 이라
     // 판정이 널널한 구간에서 발이 같이 커졌다 — 발은 발 크기고, 허용 반경은 원이 말한다.
-    const planeSide = this._isFoot ? FOOT_PLANE_M : radius * 2.78;
+    // 평면은 QUAD_K 배로 키운다 — 실루엣 채움비를 낮춘 만큼 상쇄해 **월드 크기는 그대로**,
+    //   늘어난 여백이 파동·헤일로가 잘리지 않고 퍼질 자리가 된다.
+    const planeSide = (this._isFoot ? FOOT_PLANE_M : radius * 2.78) * QUAD_K;
     this.fx = new THREE.Mesh(new THREE.PlaneGeometry(planeSide, planeSide), makeMarkFXMaterial(footTex));
     this.fx.position.z = 0.002;
     // 벽면은 열화상 고스트 위 가산이라 과노출 방지 게인

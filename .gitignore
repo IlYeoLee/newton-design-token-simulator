@@ -9,3 +9,6 @@ tmp_*.png
 
 # 내보낸 영상 — 용량이 커서 저장소에 넣지 않는다
 out/
+
+# Claude Code 개인 설정(자동 커밋 훅) — 공유하지 않는다
+.claude/settings.local.json

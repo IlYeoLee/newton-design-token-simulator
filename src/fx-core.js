@@ -85,7 +85,7 @@ export function bakeGlyphSDF(img, N, flip = false) {
   const R = glyphRaster(img, N);
   const c = document.createElement('canvas'); c.width = c.height = N;
   const g = c.getContext('2d');
-  const sc = Math.min((N * 0.78) / R.w, (N * 0.78) / R.h);
+  const sc = Math.min((N * SIL_FIT) / R.w, (N * SIL_FIT) / R.h);
   const w = R.w * sc, h = R.h * sc;
   if (flip) { g.translate(0, N); g.scale(1, -1); }
   g.drawImage(R.canvas, R.x, R.y, R.w, R.h, (N - w) / 2, (N - h) / 2, w, h);
@@ -104,7 +104,7 @@ export function bakeGlyphSDF(img, N, flip = false) {
 export function bakeFootPairSDF(imgOuter, imgInner, N, flip = false) {
   const RO = glyphRaster(imgOuter, N);
   const RI = imgInner ? glyphRaster(imgInner, N) : null;
-  const sc = Math.min((N * 0.78) / RO.w, (N * 0.78) / RO.h);
+  const sc = Math.min((N * SIL_FIT) / RO.w, (N * SIL_FIT) / RO.h);
   const w = RO.w * sc, h = RO.h * sc;
   const dx = (N - w) / 2, dy = (N - h) / 2;
   const bake = (R) => {
@@ -128,6 +128,14 @@ export function bakeFootPairSDF(imgOuter, imgInner, N, flip = false) {
 //    구 8bit 인코딩(range=N/4, 127/255)의 유효 배율 역산값. 이 계수가 빠지면
 //    발형 등고선 효과 전부가 2배 폭으로 퍼짐 (실제 사고 이력 있음 — (117)).
 export const SDF_DECODE = 1.9922;
+
+// ── 실루엣이 SDF 텍스처에서 차지하는 비율 ─────────────────────────────────
+//   기준 0.78 은 옛 고정값. 낮추면 실루엣이 쿼드에서 작아지고 남는 자리가 파동·헤일로 여유가 된다.
+//   (유저 신고: 파동이 위아래로 잘려 좌우만 보인다 — 발이 세로로 길어 여유가 0.10 뿐이었다.)
+//   호스트가 평면을 QUAD_K 배로 키워 상쇄하므로 **실제 크기는 그대로**다.
+export const SIL_FIT_REF = 0.78;
+export const SIL_FIT = 0.78;   // 기준치와 동일 = 지금까지와 픽셀 동일(안전 기본값)
+export const QUAD_K = SIL_FIT_REF / SIL_FIT;
 
 // ── 마크 안 숫자(글리프 오버레이) 규약 — FX Lab drawMarkNumOn 정본 수치 ──
 export const MARK_NUM = {
@@ -338,6 +346,64 @@ uniform vec2 uImpCtr, uImpOff;
 //     갓 나온 파면이 상단(백열)이고 퍼질수록 하단(적)으로 식는다 — "모든 것은 온도다" 규약을
 //     파동에도 그대로 적용한 것. 색을 새로 만드는 게 아니라 있는 LUT 를 훑는다.
 uniform float uRip, uRipSpeed, uRipWidth, uRipReach, uRipCol, uRipGrad;
+// ── 족저 압력장 · 등고선 ────────────────────────────────────────────────────
+//   유저 레퍼런스: Nike Free 압력맵 / 인솔 프레셔 맵. 핵심은 색이 아니라 **색을 정하는 입력**이다.
+//   지금까지는 '중심에서의 거리'였다 — 그래서 아무리 색을 풍부하게 해도 압력 분포가 아니라
+//   그라디언트 칠한 원반으로 읽혔다(유저: 너무 도형 같다 · 섬세한 미학이 없다).
+//   uPlantar: 압력장 혼합(0 = 옛 방사 · 1 = 압력장). 발형은 해부학 핫스팟, 원형은 중심 압력.
+//   uBands:   등고선 단계 수(0 = 연속). 레퍼런스의 계단 밴드가 '데이터'로 읽히게 하는 장치.
+//   uBandSoft: 밴드 경계 무름(0 = 칼금 · 1 = 뭉근).
+uniform float uPlantar, uBands, uBandSoft;
+// uSilFit: 실루엣이 쿼드에서 차지하는 비율(기준 0.78 대비). 1 = 옛 그대로.
+//   ext·해부학 좌표는 '0.78 로 구웠을 때' 기준의 uv 값이라, 채움비가 바뀌면 같이 줄어야 한다.
+uniform float uEdgeShade, uEdgeW, uEdgeSoft, uDither, uSilFit;
+/** 압력 0~1 (1 = 최고압). 발형은 자국 깊이 × 해부학 가중, 원형은 중심이 최고압.
+ *  좌표는 uv[-1,1]. 오른발은 실루엣 SDF 자체가 미러라 별도 분기가 필요 없다. */
+float plantar(vec2 pQ, float sdIn, float sd){
+  // 해부학 좌표는 채움비 0.78 기준으로 잡은 값이라, 쿼드가 넓어지면 되돌려 읽어야 자리가 맞는다.
+  vec2 p = pQ / max(uSilFit, 0.05);
+  float blob;
+  if (uShape < 0.5) {                       // 존 원 — 해부학이 없다. 중심 압력 + 약한 비대칭.
+    float r = length(p) / max(0.46 * uRadius, 1e-3);
+    return clamp(1.0 - r * r * 0.92, 0.0, 1.0);
+  }
+  // 압력장은 **신발 전체**에 깔린다. 자국 깊이만 쓰면 자국 바깥(신발 안)이 전부 압력 0 =
+  //   최저 대역으로 깔려서 그라디언트가 실루엣의 일부만 덮는다(유저 지적).
+  //   겉(신발) 깊이가 바탕이고, 자국 안쪽이 실제 접지라 그 위에서 압력이 올라간다.
+  float dShoe = clamp(-sd / 0.30, 0.0, 1.0);
+  float dFoot = clamp(-sdIn / 0.13, 0.0, 1.0);
+  float depth = dShoe * (0.42 + 0.58 * dFoot);
+  // 해부학 핫스팟: 앞꿈치 볼(최대) · 뒤꿈치(중간) · 엄지(부분). 레퍼런스의 적/황 자리.
+  vec2 b = (p - vec2(0.02, 0.30)) / vec2(0.34, 0.20);  float ball = exp(-dot(b, b));
+  vec2 h = (p - vec2(0.00, -0.44)) / vec2(0.26, 0.22); float heel = exp(-dot(h, h));
+  vec2 g = (p - vec2(0.17, 0.56)) / vec2(0.15, 0.13);  float toe  = exp(-dot(g, g));
+  vec2 a = (p - vec2(-0.13, -0.02)) / vec2(0.22, 0.26); float arch = exp(-dot(a, a));
+  blob = 0.30 + 1.00 * ball + 0.62 * heel + 0.50 * toe - 0.34 * arch;
+  return clamp(depth * blob, 0.0, 1.0);
+}
+/** 윤곽선 — **두 겹**이다: 얇고 또렷한 코어 라인 + 그 밖으로 넓게 풀리는 소프트.
+ *  한 겹 가우시안(exp(-(sd/w)^2))은 굵기만 있고 위계가 없어 투박하다(유저: 촌스러운 아웃라인).
+ *  코어 폭에 fwidth 하한을 둬 어느 배율에서도 1~2px 로 유지되고, 소프트가 그 밖을 받아
+ *  '칼로 자른 띠'가 아니라 그려진 선으로 읽힌다. */
+float edgeLine(float sd, float w){
+  float fw = max(fwidth(sd), 1e-5);
+  float cw = max(w * 0.42, 1.4 * fw);
+  float sw = max(w * 2.30, 3.2 * fw);
+  float c = exp(-pow(abs(sd) / cw, 2.0));
+  float s = exp(-pow(abs(sd) / sw, 1.5));
+  return clamp(c + s * 0.30, 0.0, 1.0);
+}
+/** 등고선 — 연속 온도를 N단으로 계단화하되 경계는 무르게. 0이면 그대로 통과. */
+float contour(float t){
+  if (uBands < 0.5) return t;
+  float n = floor(uBands + 0.5);
+  float s = t * n;
+  float f = fract(s);
+  // ★ 화면공간 하한 — 고정 uv 무름만 두면 확대할수록 밴드 경계가 계단으로 드러난다(유저: 면으로 드드득).
+  float aa = max(fwidth(s), 1e-5) * 1.25;
+  float soft = max(clamp(uBandSoft, 0.02, 1.0) * 0.5, aa);
+  return (floor(s) + smoothstep(0.5 - soft, 0.5 + soft, f)) / n;
+}
 // 색 = src/palette.js 단일 소스. 유채는 4색뿐(규칙 ①), 무채는 상태 부호(규칙 ②).
 //   은퇴: C_CREAM(#FEE2C6 — 팔레트에 없던 9번째 색) → SAND
 //         C_WINE·C_BRICK(암적) → SAND·CORAL  (유저: 워닝에 어두운색 금지)
@@ -359,6 +425,9 @@ uniform float uRip, uRipSpeed, uRipWidth, uRipReach, uRipCol, uRipGrad;
 vec3 palPick(float i){
   return i < 0.5 ? C_ICE : i < 1.5 ? C_SAND : i < 2.5 ? C_CORAL : C_RED;
 }
+/** 디더용 자립 해시 — 호스트의 fxhash 에 기대면 fxlab·parity 처럼 자체 공통부를 쓰는 곳에서
+ *  셰이더가 통째로 죽는다(실제로 죽였다). MARK_GLSL 은 lut 외에는 자립해야 한다. */
+float mkHash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 float mkUndul(float ang, float t){
   return sin(ang*2.0 + t*1.1)*0.45 + sin(ang*3.0 - t*0.73 + 1.7)*0.33 + sin(ang*5.0 + t*0.41 + 4.2)*0.22;
 }
@@ -387,9 +456,12 @@ float mkSDIn(vec2 p){
  *  깊이 기반이면 빛이 실루엣을 따라 고여서 발 모양 자체가 읽힌다. */
 float mkR(vec2 uv, vec2 gc, float scale, float sd){
   float r = length(uv - gc) / max(scale, 1e-4);
-  if (uShape < 0.5) return r;
   // 깊이가 주(主), 중심 거리는 종(從) — 무게중심 이동(Hold 뒤꿈치 고임·Success 블룸)은 남긴다.
-  return clamp(mix(clamp(1.0 + sd / 0.40, 0.0, 1.0), r, 0.28), 0.0, 1.4);
+  float base = uShape < 0.5 ? r : clamp(mix(clamp(1.0 + sd / 0.40, 0.0, 1.0), r, 0.28), 0.0, 1.4);
+  if (uPlantar < 0.001) return base;
+  // 압력장으로 갈아탄다 — q 는 '차가운 정도'라 1-압력이다. 그 위에 등고선을 씌운다.
+  float pr = plantar(uv, mkSDIn(uv), sd);
+  return contour(clamp(mix(base, 1.0 - pr, clamp(uPlantar, 0.0, 1.0)), 0.0, 1.4));
 }
 // OKLab 지각 보간 — RGB mix는 중간톤이 회색으로 죽어 '종이 자르듯 턱턱'(유저). OKLab은 채도 유지하며 부드럽게.
 // (buildLUT의 rgb2ok/ok2rgb와 동일 규약: 입력을 그대로 OKLab으로 — LUT와 색 일관)
@@ -412,25 +484,39 @@ vec3 _ok2l(vec3 lab){
              -0.0041960863*l-0.7034186147*m+1.7076147010*s);
 }
 vec3 okmix(vec3 a, vec3 b, float t){ return _ok2l(mix(_l2ok(a), _l2ok(b), t)); }
-vec3 fillPreview(float q){ return okmix(C_CORAL, C_SAND, smoothstep(0.0, 0.733, q)); }
-vec3 fillHot(float q){
-  vec3 c = okmix(C_RED, C_CORAL, smoothstep(0.0, 0.45, q));
-  return okmix(c, C_SAND, smoothstep(0.45, 1.0, q));
+// ── 필 램프 = 뉴턴 LUT 한 벌 ────────────────────────────────────────────────
+//   예전엔 상태마다 손으로 짠 2~3스톱 okmix 였다(Preview 는 CORAL→SAND 딱 2스톱).
+//   그래서 ① 스톱 사이 smoothstep 이음매가 띠로 보이고 ② 쓰는 색이 2개뿐이라 단색처럼 읽혔다
+//   (유저: "부드럽지 않은 그라디언트 + 색이 풍부하지 않다"). 정작 이 프로젝트 원칙은
+//   "모든 것은 온도다 — 하나의 LUT를 공유"인데 MARK 필만 그 밖에 있었다.
+//   LUT 는 OKLab 으로 256스텝 보간해 구운 것이라 이음매가 원천적으로 없고 4색을 다 지난다.
+//   상태의 정체성은 이제 색 조합이 아니라 **온도 창(lo~hi)** 이 정한다.
+#define T_PREV_LO 0.30
+#define T_PREV_HI 0.99
+#define T_HOT_LO  0.10
+#define T_HOT_HI  1.00
+#define T_ACT_LO  0.06
+#define T_ACT_HI  1.00
+#define T_HOLD_LO 0.04
+#define T_HOLD_HI 0.97
+// 온도 → 색. **뉴턴 LUT 한 벌만** 쓴다.
+vec3 fillT(float q, float lo, float hi){
+  float x = clamp(mix(lo, hi, clamp(q, 0.0, 1.0)), 0.0, 1.0);
+  // ★ 밴딩(유저: 드드득)의 정체는 등고선이 아니라 **LUT 가 8비트 256단계**라는 것이다.
+  //   원처럼 넓고 완만한 그라디언트에서는 인접 단계 사이가 눈에 보이는 띠가 된다.
+  //   화면공간 해시로 조회 좌표를 1단계 미만 흔들면 띠가 잡티로 흩어져 사라진다(디더링 정석).
+  x = clamp(x + (mkHash(gl_FragCoord.xy) - 0.5) * uDither, 0.0, 1.0);
+  // 뉴턴 LUT 만 쓴다 — 유채는 RED·CORAL·SAND·PRISM 4색뿐이라는 규칙 ①(palette.js).
+  //   압력맵용 별도 계열 램프를 넣었다가 유저 지적으로 되돌렸다. 다시 만들지 말 것.
+  return lut(x);
 }
-vec3 fillActive(float q){
-  vec3 c = okmix(C_RED, C_CORAL, smoothstep(0.0, 0.479, q));
-  c = okmix(c, C_SAND, smoothstep(0.479, 0.607, q));
-  return okmix(c, C_ICE, smoothstep(0.607, 0.750, q));
-}
-vec3 fillHold(float q){
-  vec3 c = okmix(C_RED, C_CORAL, smoothstep(0.0, 0.23, q));
-  return okmix(c, C_SAND, smoothstep(0.23, 1.0, q));
-}
-vec3 fillSuccess(float q){
-  vec3 c = okmix(C_RED, C_CORAL, smoothstep(0.47, 0.70, q));
-  c = okmix(c, C_SAND, smoothstep(0.70, 0.843, q));
-  return okmix(c, C_ICE, smoothstep(0.843, 0.931, q));
-}
+vec3 fillPreview(float q){ return fillT(q, T_PREV_LO, T_PREV_HI); }
+vec3 fillHot(float q){     return fillT(q, T_HOT_LO,  T_HOT_HI);  }
+vec3 fillActive(float q){  return fillT(q, T_ACT_LO,  T_ACT_HI);  }
+vec3 fillHold(float q){    return fillT(q, T_HOLD_LO, T_HOLD_HI); }
+// Success 는 코어가 가장 뜨겁고(하한이 낮다) 바깥이 백열로 열린다 — 승리의 온도.
+// 상한을 1.0(순백) 이 아니라 0.92 로 — 순백까지 열면 코어와 분리된 흰 링이 생긴다(유저: 아이스 과함).
+vec3 fillSuccess(float q){ return fillT(q, 0.03, 1.00); }
 // over 연산 누적 (premultiplied) — 원본 mix(col, X, k) 체인의 기계적 등가 변환
 void lay(inout vec4 A, vec3 X, float k){ A.rgb = A.rgb * (1.0 - k) + X * k; A.a = A.a * (1.0 - k) + k; }
 vec4 markState(vec2 uv, float state, float prog, float strong, float t){
@@ -447,72 +533,112 @@ vec4 markState(vec2 uv, float state, float prog, float strong, float t){
   float sd = mkSD(uv, u1);
   float aa = max(fwidth(sd), 0.004) * 1.4;     // 화면공간 AA
   float inside = smoothstep(aa, -aa, sd);
+  // 필 전용 소프트 엣지 — 우리 UI 의 강점은 그라디언트의 부드러움인데, 하드 마스크가 경계에
+  //   선을 그어 원반처럼 보이게 했다(유저). 안쪽으로 uEdgeW 만큼 페더링해 형태가 색으로 읽히게.
+  float feath = smoothstep(0.0, max(uEdgeW, 1e-4), -sd);
+  float inFill = mix(inside, inside * feath, clamp(uEdgeSoft, 0.0, 1.0));
   float outPos = max(sd, 0.0);
   // 점선 = 회피 계약 (일렁임과 분리한 저주기 — '털 뜯김' 방지 확정판)
   float dashM = (uContract > 0.5 && uContract < 1.5)
               ? smoothstep(0.30, 0.60, 0.5 + 0.5 * sin(ang * 10.0)) : 1.0;
-  float ext = uShape < 0.5 ? 0.46 * uRadius : 0.72;
-  vec2 gcBall = uShape < 0.5 ? vec2(0.0) : vec2(0.0, 0.20);
-  vec2 gcHeel = uShape < 0.5 ? vec2(0.0, -0.5 * ext) : vec2(0.0, -0.32);
+  float sf = max(uSilFit, 0.05);
+  float ext = uShape < 0.5 ? 0.46 * uRadius : 0.72 * sf;
+  vec2 gcBall = uShape < 0.5 ? vec2(0.0) : vec2(0.0, 0.20) * sf;
+  vec2 gcHeel = uShape < 0.5 ? vec2(0.0, -0.5 * ext) : vec2(0.0, -0.32) * sf;
   vec4 A = vec4(0.0);
+  // Hold 진행 아크는 **이너 섀도우 뒤에** 얹어야 한다 — 섀도우가 훨씬 넓고 밝아서 얇은 림을
+  //   덮어버리고, 삐져나온 조각만 남아 '떠 있는 초승달' 로 읽혔다(유저 확대 스샷).
+  float holdA = 0.0; vec3 holdC = vec3(0.0);
   float fillGain = clamp(uPool * 1.6, 0.0, 1.35);
 
   if (state < 0.5) {            // ── Preview: 아웃라인 → 소프트 필 차오름 (strong=라이브 '다음' 적열 강조)
     float f = prog;
     float breath = 1.0 + 0.05 * sin(t * 2.0) * (0.4 + uNoise);
     // 중심 핫스팟 완화(유저 재지적: 가운데 원 또렷) — 하한↑ + 폴오프 넓혀 부드러운 전이(하드 원 제거)
-    float q = 0.36 + 0.64 * mkR(uv, gcBall, ext * 1.18 * breath, sd);
+    // 하한(0.36)은 옛 방사 그라디언트의 중앙 핫스팟을 눌러 두려던 것이다. 압력장에선 중앙이
+    //   이미 부드러우므로 그 하한이 램프 상단(고압)을 통째로 잘라 먹는다 — 켜지면 걷어낸다.
+    float q = mix(0.36, 0.02, clamp(uPlantar, 0.0, 1.0)) + (1.0 - mix(0.36, 0.02, clamp(uPlantar, 0.0, 1.0))) * mkR(uv, gcBall, ext * 1.18 * breath, sd);
     vec3 fillCol = mix(C_CREAM, mix(fillPreview(q), fillHot(q), strong), f);
     float fillA = mix(0.42, 0.82, f) * fillGain;
-    lay(A, fillCol, fillA * inside);
-    float ow = 0.016 * uW;
-    float stroke = exp(-pow(abs(sd) / max(ow, 1e-4), 2.0)) * dashM;
-    lay(A, C_SAND, stroke * (0.95 - 0.62 * f));
+    lay(A, fillCol, fillA * inFill);
+    // 아웃라인 폐기(유저 지시) — 형태는 아래 이너 섀도우가 잡는다. Hold 진행 림만 예외.
+
   } else if (state < 1.5) {     // ── Active: 적열 필 + 얼음빛 헤일로 수축 (수축 완료 = 타이밍)
     float gradR = uShape < 0.5 ? ext * 1.75 : 2.15;   // 폴오프 넓힘 = 중앙 적열 원 완화(유저)
-    float q = 0.34 + 0.66 * mkR(uv, gcBall, gradR, sd);    // 중심 하한↑ — 적열이 은은하게 퍼짐
+    float qf = mix(0.34, 0.02, clamp(uPlantar, 0.0, 1.0));
+    float q = qf + (1.0 - qf) * mkR(uv, gcBall, gradR, sd);    // 중심 하한↑ — 적열이 은은하게 퍼짐
     q *= 1.0 + 0.025 * sin(t * 3.1 + q * 5.0) * uNoise;
-    lay(A, fillActive(q), inside * min(fillGain * 1.15, 1.0));
+    lay(A, fillActive(q), inFill * min(fillGain * 1.15, 1.0));
     // 헤일로 폭: 발형은 실루엣이 얇아 존 원과 같은 폭이면 윤곽을 통째로 삼킨다(유저: 튄다)
     float hw = max((uShape < 0.5 ? 0.115 - 0.075 * prog : 0.062 - 0.040 * prog) * uW, 0.014);
-    float h = exp(-pow(outPos / max(hw, 1e-4), 1.3)) * (1.0 - inside);
-    vec3 hCol = mix(C_SAND, C_ICE, smoothstep(0.15, 0.9, outPos / hw));
-    lay(A, hCol, h * uHalo * (0.50 + 0.14 * sin(t * 5.0)) * dashM);
+    // 헤일로는 필의 **연장**이다 — 예전엔 SAND→ICE 별도 로브를 위에 얹어서 실루엣 경계에
+    //   색이 튀는 띠(유저: "아이스링 경계가 너무 세서 하나로 자연스럽게 안 이어진다")가 생겼다.
+    //   같은 LUT 를 필의 상한(T_ACT_HI)에서 이어받아 1.0 까지 올리면 경계에서 색이 연속이다.
+    //   감쇠도 지수 1.3(어깨가 각짐) → 2.0 가우시안으로 바꿔 꼬리가 부드럽게 풀린다.
+    float hk = clamp(outPos / max(hw, 1e-4), 0.0, 3.0);
+    float h = exp(-hk * hk * 0.9) * (1.0 - inside);
+    // ★ 헤일로 꼭대기를 LUT 1.0(순백)까지 올리지 않는다 — 그게 '과한 아이스'의 실체였다.
+    //   0.90 에서 멈추면 흰 링이 아니라 뜨거운 모래빛 잔광이 되고, 필과 계속 한 몸으로 읽힌다.
+    //   세기도 0.50 → 0.34 로. 밝기로 존재감을 내면 형태가 먹힌다.
+    vec3 hCol = lut(clamp(mix(T_ACT_HI, 0.90, smoothstep(0.0, 1.6, hk)), 0.0, 1.0));
+    lay(A, hCol, h * uHalo * (0.34 + 0.10 * sin(t * 5.0)) * dashM);
   } else if (state < 2.5) {     // ── Hold: 코닉 진행 림 + 열이 뒤꿈치로 고임
     float pr = prog;
     vec2 gc = mix(gcBall, gcHeel, pr);
     float q = mkR(uv, gc, ext * 1.02, sd);
     float qh = max(q - 0.24 * pr, 0.0);
-    lay(A, fillHold(qh), inside * min(fillGain, 1.0) * 0.95);
-    float distToRim = abs(sd - 0.012);
+    lay(A, fillHold(qh), inFill * min(fillGain, 1.0) * 0.95);
+    // 림을 실루엣 **안쪽**으로 — 예전엔 sd-0.012 라 원 밖으로 삐져나와 초승달이 얹힌 것처럼 보였다.
+    float distToRim = abs(sd + 0.010);
     float fw = max(fwidth(sd), 1e-5);
     // 림 폭: 카탈로그 20px(고정 캔버스) ≡ 실루엣 비례 sd 0.03 — 화면 크기가 가변인
     // 라이브에서도 같은 비율. 원거리 앨리어싱만 fwidth 하한.
     float rimW = max(0.03 * uW, 1.5 * fw);
-    float rim = (1.0 - smoothstep(0.0, rimW, distToRim)) * dashM;
+    // 림 단면을 선형 컷 → 가우시안으로. 예전엔 폭 끝에서 값이 뚝 끊겨 '칼로 자른 모서리'로 보였다.
+    float rn  = distToRim / max(rimW, 1e-5);
+    float rim = exp(-rn * rn * 1.6) * dashM;
     float angDist = a01 - pr; angDist -= floor(angDist + 0.5);   // 랩어라운드 제거
-    float pgo = smoothstep(0.09, -0.09, angDist);
-    vec3 arcCol = mix(C_RED, C_CORAL, clamp(a01 / max(pr, 0.001), 0.0, 1.0));
-    lay(A, mix(C_RIMG, arcCol, pgo), rim * mix(0.42, 0.92, pgo));
+    // 선단 앞은 빠르게 꺼지고 뒤(지나온 쪽)는 길게 남는다 — 대칭 페이드는 양끝이 똑같이 잘린다.
+    // 선단은 부드럽게 꺼지고, **시작점(a01=0)** 도 페이드한다 — 예전엔 시작에 페이드가 아예 없어
+    //   12시 자리에서 대각으로 뚝 잘렸다(유저 확대 스샷). 진행 끝(pr 근처)도 같이 테이퍼.
+    // 양끝 페이드를 길게 — 27도(0.075)면 민트에서 빨강으로 급히 갈아타 칼금으로 보인다(유저).
+    //   시작 72도(0.20) · 선단 120도(0.34)에 걸쳐 풀면 어디서 시작하고 끝나는지가 안 보인다.
+    float pgo = smoothstep(0.34, 0.04, angDist) * smoothstep(0.0, 0.20, a01) * smoothstep(0.0, 0.03, pr);
+    // 아크 색도 LUT — 지나온 쪽이 식고 선단이 뜨겁다(필과 같은 온도 언어)
+    // 진행은 **밝기**로 읽힌다 — 붉은 필 위에 붉은 아크를 얹으면 대비가 안 난다.
+    //   지나온 쪽이 LUT 상단(민트)이고 아직인 쪽은 무채 트랙이다.
+    // 지나온 쪽이 **진한 빨강**(LUT 저역)이고 선단으로 갈수록 민트로 달아오른다.
+    //   0.86~1.0 로 잡았다가 빨강이 통째로 사라졌다(유저 지적) — 저역부터 열어야 한다.
+    vec3 arcCol = lut(clamp(mix(0.02, 1.0, clamp(a01 / max(pr, 0.001), 0.0, 1.0)), 0.0, 1.0));
+    holdC = mix(C_RIMG, arcCol, pgo);
+    holdA = rim * mix(0.22, 0.82, pgo);   // 최대 알파도 낮춰 아래 섀도우와 섞이게
     // 진행 선단 = 밝은 '시계 바늘' — 12시서 시계방향으로 도는 게 명확히 읽히게(유저: 타이머처럼 싹)
-    float head = smoothstep(0.05, 0.0, abs(angDist)) * step(0.01, pr) * step(pr, 0.995);
-    lay(A, C_CREAM, rim * head * 0.95);
+    //   선단도 가우시안으로 — smoothstep 은 폭 끝에서 각이 진다.
+    float hd = abs(angDist) / 0.11;
+    float head = exp(-hd * hd) * step(0.01, pr) * step(pr, 0.995);
+    holdC = mix(holdC, lut(1.0), clamp(head, 0.0, 1.0));
+    holdA = max(holdA, rim * head * 0.95);
   } else if (state < 3.5) {     // ── Success: 진홍 블룸 → 잔상 소멸
     float e = 1.0 - pow(1.0 - prog, 2.6);
     float q = mkR(uv, gcBall, uShape < 0.5 ? ext * 1.3 : 1.75, sd);
     float fillA = (prog < 0.4 ? 1.0 : pow(1.0 - (prog - 0.4) / 0.6, 1.4)) * max(min(fillGain * 1.2, 1.0), 0.85);
-    lay(A, fillSuccess(q / (0.55 + 0.55 * e)), inside * fillA);
+    lay(A, fillSuccess(q / (0.55 + 0.55 * e)), inFill * fillA);
     float flash = exp(-prog * 9.0);
-    lay(A, C_ICE, exp(-pow(abs(sd) / max(0.02 * uW, 1e-4), 2.0)) * flash * 0.8);
+    // 성공 섬광 — 예전엔 순 ICE 0.8 이라 흰 띠가 코어와 분리돼 보였다(유저: 아이스가 과하다).
+    //   LUT 상단(0.88)으로 낮추고 세기도 절반 — 필의 온도 연장이라 경계가 안 생긴다.
+    // 섬광 아웃라인 폐기 — 이너 섀도우가 대신한다
+
   } else if (state < 4.5) {     // ── Miss: 온기가 식어 회색 고스트 → 무음 소멸
     float cool = smoothstep(0.0, 0.4, prog);
     float gone = pow(1.0 - max(prog - 0.45, 0.0) / 0.55, 1.6);
     float q = mkR(uv, gcBall, ext, sd);
-    lay(A, mix(fillPreview(q), C_GRAYF, cool), inside * mix(0.55, 0.24, cool) * gone * fillGain);
-    lay(A, mix(C_SAND, C_GRAYL, cool), exp(-pow(abs(sd) / max(0.014 * uW, 1e-4), 2.0)) * 0.85 * gone);
+    lay(A, mix(fillPreview(q), C_GRAYF, cool), inFill * mix(0.55, 0.24, cool) * gone * fillGain);
+
+
   } else if (state < 5.5) {     // ── Warning: 사구→코랄 리니어 + 느낌표 점멸 (유저: 어두운색 금지 → 암적 폐기)
     float ly = clamp(0.5 - uv.y / (2.2 * ext), 0.0, 1.0);
-    lay(A, mix(C_WINE, C_BRICK, ly), inside * min(fillGain * 1.05, 1.0));
+    // 워닝도 같은 램프를 쓴다 — 예전엔 SAND→CORAL 세로 선형이라 혼자 다른 그림이었다(유저: 촌스러움).
+    lay(A, fillT(mix(ly, mkR(uv, gcBall, ext * 1.1, sd), 0.55), 0.10, 0.72), inFill * min(fillGain * 1.05, 1.0));
     float wScale = 0.44 * ext;
     vec2 wuv = uv / wScale * 0.5 + 0.5;
     float wSD = texture2D(uSDFWarn, vec2(wuv.x, 1.0 - wuv.y)).r * (2.0 * wScale);
@@ -520,15 +646,22 @@ vec4 markState(vec2 uv, float state, float prog, float strong, float t){
     float exM = smoothstep(aaW, -aaW, wSD) * inside;
     lay(A, C_EXCL * 1.25, exM * (0.85 + 0.15 * sin(t * 5.5)));
   } else {                       // ── Locked: 회색 아웃라인 + (숫자는 호스트 오버레이)
-    lay(A, C_GRAYF, inside * 0.30 * fillGain);
-    lay(A, C_GRAYL, exp(-pow(abs(sd) / max(0.015 * uW, 1e-4), 2.0)) * 0.8 * dashM);
+    lay(A, C_GRAYF, inFill * 0.30 * fillGain);
+
+
   }
-  // 실루엣 이너 엣지(발형 전용) — 윤곽이 빛으로 그려져야 '발자국'으로 읽힌다.
-  //   필 + 바깥 글로우만 있으면 어떤 실루엣이든 둥근 얼룩으로 뭉개진다(유저: 발자국 퀄리티).
-  if (uShape > 0.5 && state < 2.5) {
-    float edgeIn = exp(-pow(max(-sd, 0.0) / max(0.05 * uW, 1e-4), 1.5)) * inside;
-    lay(A, C_SAND, edgeIn * 0.34);
+  // ── 실루엣 이너 섀도우 (아웃라인 대체) ──────────────────────────────────
+  //   유저 지시: 아웃라인은 전부 빼고(Hold 진행 림만 남김) 이너 섀도우로 세련되게.
+  //   선을 긋지 않고 **경계 안쪽을 눌러** 형태를 만든다. 그리는 선이 없으니 '촌스러운 아웃라인'이
+  //   원천적으로 생기지 않고, 부드러운 그라디언트라는 이 UI 의 강점과 같은 언어가 된다.
+  //   색은 압력 램프의 **저역**(가장 어두운 쪽)이라 색과 형태가 한 몸이다 — 따로 노는 회색 선이 아니다.
+  if (uEdgeShade > 0.001) {
+    float ins = exp(-pow(max(-sd, 0.0) / max(uEdgeW * 0.9, 1e-4), 1.1)) * inside;
+    // 섀도우 색 = LUT 상단(PRISM · 하얀 민트). 빛으로 그리는 매체에서 어두운 색을 얹으면
+    //   그건 그림자가 아니라 때다 — 이미 밝고 화사한 팔레트라 밝은 쪽으로 눌러야 형태가 산다(유저).
+    lay(A, lut(1.0), ins * uEdgeShade);
   }
+  if (holdA > 0.001) lay(A, holdC, holdA);   // 진행 아크를 섀도우 위로 — 덮이지 않게
   // ── 깔창 각인 (발형 전용) ────────────────────────────────────────────────
   //   유저 레퍼런스: 나이키 깔창 — 매끈한 깔창 외곽 **안**에 맨발 압력 자국이 도트로 프린트.
   //   구성: 겉(R 채널)이 토큰 본체·상태를 그리고, 안(G 채널)이 그 위에 무늬로 얹힌다.
@@ -538,7 +671,10 @@ vec4 markState(vec2 uv, float state, float prog, float strong, float t){
   if (uShape > 0.5 && uImp > 0.001) {
     float sdIn = mkSDIn(uv);
     // 아웃라인 선명도 — uImpSharp 1 이면 AA 를 화면 최소폭까지 조여 '깔끔하게 잘린' 경계가 된다.
-    float aaI  = max(fwidth(sdIn), 0.0015) * mix(1.7, 0.75, clamp(uImpSharp, 0.0, 1.0));
+    // 무름 범위를 크게 넓힌다 — 예전엔 sharp 0.75 에서 계수가 1 이라 사실상 1픽셀 칼금이었다(유저).
+    //   경계를 sd 단위로도 풀어야 확대해도 부드럽다: 화면 AA 만으로는 항상 1px 경계다.
+    float aaI  = max(max(fwidth(sdIn) * mix(3.4, 0.9, clamp(uImpSharp, 0.0, 1.0)),
+                         mix(0.055, 0.004, clamp(uImpSharp, 0.0, 1.0))), 0.0015);
     float inIn = smoothstep(aaI, -aaI, sdIn) * inside;   // 신발 안 ∩ 맨발 안
     float pit  = max(uImpPitch, 0.008);
     // 도트 격자 — 프로토타입 foot-*-dots.svg 규약: 정사각 격자, 점 지름 = 피치의 50%
@@ -546,13 +682,16 @@ vec4 markState(vec2 uv, float state, float prog, float strong, float t){
     vec2  cc  = fract(uv / pit) - 0.5;
     float dd  = length(cc) * pit;
     float rad = pit * clamp(uImpDot, 0.03, 0.5);
-    float dotM = smoothstep(rad + pit * 0.11, rad - pit * 0.11, dd);
+    float dAA = max(fwidth(dd), 1e-5) * 1.2;
+    float dSoft = max(pit * mix(0.34, 0.12, clamp(uImpSharp, 0.0, 1.0)), dAA);
+    float dotM = smoothstep(rad + dSoft, rad - dSoft, dd);
     // 자국 안쪽 깊이 — 가장자리는 옅고 안으로 갈수록 또렷(프린트 잉크가 고인 느낌).
     //   전면 균일하게 찍으면 도트가 실루엣을 무시하고 격자만 보인다.
     //   선명하게 갈수록 램프도 같이 좁아져야 한다 — 안 그러면 경계만 또렷하고 안쪽이 무르다.
-    float depR = mix(0.085, 0.014, clamp(uImpSharp, 0.0, 1.0));
+    float depR = mix(0.185, 0.018, clamp(uImpSharp, 0.0, 1.0));
     float dep = smoothstep(0.0, depR, -sdIn);
-    lay(A, C_CREAM, inIn * dotM * uImp * (0.34 + 0.66 * dep));
+    // 가장자리에서 0.34 로 남으면 도트 영역이 그 밝기로 뚝 끊긴다 — 0 까지 내려 배경과 어우러지게.
+    lay(A, C_CREAM, inIn * dotM * uImp * (0.06 + 0.94 * dep));
     // 이너 섀도우 — 경계 **안쪽**에서 최대, 안으로 갈수록 사라진다. 자국이 '눌려 들어간' 자리로 읽힌다.
     //   빛을 빼지 않는다(위 uImpShade 주석): LUT 저역(RED)을 얹어 어느 바닥에서도 그림자로 읽히게.
     if (uImpShade > 0.001) {
@@ -568,16 +707,29 @@ vec4 markState(vec2 uv, float state, float prog, float strong, float t){
   // ── 파동(리플) — 윤곽에서 바깥으로 나아가는 한 겹의 파면 ────────────────────
   //   outPos = max(sd,0) 이라 파면은 실루엣 **바깥**으로만 간다(안쪽 필을 안 건드린다).
   //   fade 로 퍼질수록 옅어져야 '은은하게'가 된다 — 등속·등세기면 그게 곧 '쨍함'이다.
-  if (uRip > 0.001) {
-    // ★ 시각은 인자 t 로 받는다 — 호스트(tokens.js)가 uTime 을 MARK_GLSL **뒤에** 선언하므로
-    //   여기서 uTime 을 직접 쓰면 'undeclared identifier' 로 프래그먼트 셰이더가 통째로 죽는다.
-    float cyc = fract(t * max(uRipSpeed, 0.01) + uSeed * 0.159);
-    float front = cyc * uRipReach;
+  // ── 파동은 **상태가 정한다** ──────────────────────────────────────────────
+  //   전 상태에 같은 파동을 얹으면 아무 뜻도 안 된다(유저 지적). 상태마다 말하는 게 다르다:
+  //     Hold    = 진행에 따라 서서히 차오르는 연속 파면 (유지가 쌓인다)
+  //     Success = 한 번 터지고 끝나는 단발 (진행이 곧 파면 위치 — 반복하지 않는다)
+  //     나머지  = 없음. Active 의 타이밍은 헤일로 수축이 이미 말하고 있다.
+  float ripAmt = 0.0, ripCyc = 0.0, ripK = 1.0;
+  if (state > 1.5 && state < 2.5) {          // Hold — 차오름
+    ripAmt = uRip * (0.20 + 0.80 * prog);
+    ripCyc = fract(t * max(uRipSpeed, 0.01) + uSeed * 0.159);
+  } else if (state > 2.5 && state < 3.5) {   // Success — 단발
+    ripAmt = uRip * 1.6;
+    ripCyc = clamp(prog / 0.80, 0.0, 1.0);
+    ripK   = 1.9;                            // 더 멀리 나간다 ('팡')
+  }
+  if (ripAmt > 0.001) {
+    // 시각은 인자 t 로 받는다 — 호스트가 uTime 을 MARK_GLSL 뒤에 선언하므로 여기선 못 쓴다.
+    float cyc = ripCyc;
+    float front = cyc * uRipReach * ripK;
     float band = exp(-pow((outPos - front) / max(uRipWidth, 1e-3), 2.0));
     // 온도: 갓 나온 파면이 뜨겁고(상단) 퍼질수록 식는다(하단). band 로 파면 중심을 한 겹 더 달군다.
     float lt  = clamp(0.34 + (1.0 - cyc) * 0.52 + band * 0.22, 0.0, 1.0);
     vec3  rc  = mix(palPick(uRipCol), lut(lt), clamp(uRipGrad, 0.0, 1.0));
-    lay(A, rc, band * pow(1.0 - cyc, 1.6) * uRip * 0.5 * dashM);
+    lay(A, rc, band * pow(1.0 - cyc, 1.6) * ripAmt * 0.5 * dashM);
   }
   // NaN 스크럽 — 위 분기 어디서든 비정상 값이 새면 '보이지 않음'으로 떨어뜨린다.
   //   NaN 과의 비교는 항상 false 이므로 step() 이 0 을 골라 준다(GLSL ES 1.0 에서 신뢰 가능한 유일한 방법).

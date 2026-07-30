@@ -10,8 +10,12 @@
   html,body{margin:0;background:var(--bg);color:var(--text);
     font:13px/1.5 -apple-system,'Malgun Gothic',sans-serif}
   .wrap{display:flex;gap:18px;padding:18px;align-items:flex-start;flex-wrap:wrap}
+  /* 패널이 세로로 길어 미리보기를 보면서 조절할 수가 없었다(유저) — 패널만 따로 스크롤한다. */
   .panel{width:330px;flex:0 0 330px;background:var(--panel);border:1px solid var(--line);
-    border-radius:14px;padding:16px;position:sticky;top:18px}
+    border-radius:14px;padding:16px;position:sticky;top:18px;
+    max-height:calc(100vh - 36px);overflow-y:auto;overscroll-behavior:contain}
+  .panel::-webkit-scrollbar{width:8px}
+  .panel::-webkit-scrollbar-thumb{background:#2A3140;border-radius:4px}
   h1{font-size:15px;margin:0 0 4px}
   .sub{color:var(--dim);font-size:11.5px;margin:0 0 14px}
   fieldset{border:1px solid var(--line);border-radius:10px;margin:0 0 12px;padding:10px 12px 12px}
@@ -72,6 +76,17 @@
       <div class=row><label>윤곽 글로우</label><input type=range id=glow min=0 max=1.4 step=.02><span class=v id=vglow></span></div>
     </fieldset>
 
+    <fieldset><legend>압력장 · 등고선 (색을 정하는 입력)</legend>
+      <div class=row><label>압력장</label><input type=range id=plantar min=0 max=1 step=.02><span class=v id=vplantar></span></div>
+      <div class=row><label>등고선 단계</label><input type=range id=bands min=0 max=24 step=1><span class=v id=vbands></span></div>
+      <div class=row><label>밴드 무름</label><input type=range id=bandSoft min=.02 max=1 step=.02><span class=v id=vbandSoft></span></div>
+      <div class=row><label>이너 섀도우</label><input type=range id=edgeShade min=0 max=1.4 step=.02><span class=v id=vedgeShade></span></div>
+      <div class=row><label>엣지 폭</label><input type=range id=edgeW min=.01 max=.3 step=.005><span class=v id=vedgeW></span></div>
+      <div class=row><label>필 소프트</label><input type=range id=edgeSoft min=0 max=1 step=.02><span class=v id=vedgeSoft></span></div>
+      <div class=row><label>디더(밴딩)</label><input type=range id=dither min=0 max=.05 step=.001><span class=v id=vdither></span></div>
+      <p class=sub style="margin:6px 0 0">0 = 옛 방사 그라디언트(중심거리) · 1 = 족저 압력장(앞꿈치·뒤꿈치 핫스팟)</p>
+    </fieldset>
+
     <fieldset><legend>토큰 공통 (룩 시스템)</legend>
       <div class=row><label>윤곽 두께 uW</label><input type=range id=w min=.3 max=2.2 step=.05><span class=v id=vw></span></div>
       <div class=row><label>헤일로 uHalo</label><input type=range id=halo min=0 max=1.6 step=.02><span class=v id=vhalo></span></div>
@@ -98,7 +113,7 @@
 
     <fieldset><legend>글리프 (발형·원형 공통)</legend>
       <div class=seg id=segNum><button data-v=1 class=on>글리프 표시</button><button data-v=0>없음</button></div>
-      <div class=seg id=segSrc style="margin-top:6px"><button data-v=glyph class=on>내 SVG 글리프</button><button data-v=offbit>OffBit 도트폰트</button></div>
+      <div class=seg id=segSrc style="margin-top:6px"><button data-v=offbit class=on>OffBit 도트폰트</button><button data-v=glyph>내 SVG 글리프</button></div>
       <div class=row style="margin-top:6px"><label>왼발/원 문자</label><input id=gL value="1" style="flex:1;min-width:0;background:#161A22;color:var(--text);border:1px solid var(--line);border-radius:6px;padding:4px 6px"></div>
       <div class=row><label>오른발 문자</label><input id=gR value="2" style="flex:1;min-width:0;background:#161A22;color:var(--text);border:1px solid var(--line);border-radius:6px;padding:4px 6px"></div>
       <div class=row><label>글리프 크기</label><input type=range id=gsize min=.4 max=2.2 step=.05><span class=v id=vgsize></span></div>
@@ -114,6 +129,7 @@
 
     <fieldset><legend>보기 (계속)</legend>
       <div class=seg id=segOv style="margin-top:6px"><button data-v=0 class=on>겹침 오버레이 끔</button><button data-v=1>켬</button></div>
+      <div class=seg id=segPlay style="margin-bottom:6px"><button data-v=1 class=on>재생 — 상태별 인터랙션</button><button data-v=0>정지(슬라이더)</button></div>
       <div class=row style="margin-top:8px"><label>미리보기 크기</label><input type=range id=heroSize min=260 max=900 step=10><span class=v id=vheroSize></span></div>
       <div class=row><label>진행 prog</label><input type=range id=prog min=0 max=1 step=.01><span class=v id=vprog></span></div>
       <div class=row><label>기울기°</label><input type=range id=tilt min=-20 max=20 step=1><span class=v id=vtilt></span></div>
@@ -158,7 +174,7 @@
 <script type="module">
 'use strict';
 import * as THREE from 'three';
-import { makeMarkFXMaterial } from './src/tokens.js';
+import { makeMarkFXMaterial, QUAD_K } from './src/tokens.js';
 import { FXP, GLYPHS, DEFAULT_GLYPHS, footSlot, footSDFTexture, drawNumber, getLUT, ensureOffBit } from './src/fxlut.js';
 import { MARK_NUM, SDF_DECODE } from './src/fx-core.js';
 
@@ -166,23 +182,26 @@ import { MARK_NUM, SDF_DECODE } from './src/fx-core.js';
 GLYPHS.set({ ...DEFAULT_GLYPHS });
 FXP.markShape = 1;
 ensureOffBit();   // 도트 폰트를 캔버스에서 쓰려면 미리 로드해야 한다(첫 그리기가 폴백으로 새는 것 방지)
+FXP.numSrc = 'offbit';   // 랩 기본 글리프 = 도트 폰트(유저 확정)
 
 // 기본값 = tokens.js makeMarkFXMaterial 과 같은 값으로 맞춘다(랩과 시뮬이 어긋나면 그게 곧 사고다).
 // scale·off 는 '자동 맞춤' 계측값 — 좌·우발 모두 삐져나옴 0.00%.
 const DEF = { imp: 1.0, scale: 0.84, offx: -0.06, offy: -0.01, irot: 0, pitch: 0.027, dot: 0.25,
-              glow: 0.0, shade: 0.55, sharp: 0.75, edge: 0.030, gx: 0, gy: 0, grot: 0, gsh: 0.75,
+              glow: 0.0, shade: 0.55, sharp: 0.22, edge: 0.058, gx: 0, gy: 0, grot: 0, gsh: 0.75,
               w: 1.0, halo: 0.9, pool: 0.55, noise: 0.5, prog: 0.55, tilt: 8,
               bloom: 0.08, blur: 0.8, gsize: 1.0,
-              rip: 0.55, ripReach: 0.34, ripWidth: 0.09, ripSpeed: 0.45, ripGrad: 1 };
+              rip: 0.55, ripReach: 0.34, ripWidth: 0.09, ripSpeed: 0.45, ripGrad: 1,
+              plantar: 1.0, bands: 0, bandSoft: 0.45,
+              edgeShade: 0.55, edgeW: 0.085, edgeSoft: 0.75, dither: 0.010 };
 const P = { ...DEF };
 let side = 'left', ctx = 'out', bg = 'day', showNum = 1, showOv = 0, floorKind = 'track';
 
 const $ = id => document.getElementById(id);
 const KEYS = ['imp','scale','offx','offy','irot','pitch','dot','glow','shade','sharp','edge',
               'w','halo','pool','noise','prog','tilt','bloom','blur',
-              'gsize','gx','gy','grot','gsh','rip','ripReach','ripWidth','ripSpeed','ripGrad'];
+              'gsize','gx','gy','grot','gsh','rip','ripReach','ripWidth','ripSpeed','ripGrad','plantar','bands','bandSoft','edgeShade','edgeW','edgeSoft','dither'];
 const DIGITS = { tilt: 0, irot: 1, grot: 0, pitch: 3, edge: 3, scale: 3, offx: 3, offy: 3,
-                 gx: 3, gy: 3, ripWidth: 3, bloom: 3 };
+                 gx: 3, gy: 3, ripWidth: 3, bloom: 3, bands: 0, dither: 3 };
 let shadeCol = 0, ripCol = 1, gShadow = 'glow', gBlend = 'normal';
 
 function syncUI() {
@@ -244,12 +263,27 @@ applyHeroSize(+(localStorage.getItem(HERO_KEY) || 460));
 $('reset').onclick = () => { hist.push({ ...P }); future.length = 0; applySnapshot({ ...DEF }); };
 $('copy').onclick = () => { $('snip').select(); navigator.clipboard?.writeText($('snip').value); };
 
+// ── 세그먼트(버튼) 선택도 저장한다 ────────────────────────────────────────
+//   숫자 슬라이더만 저장하고 있어서, 새로고침하면 글리프 소스·바닥·모드가 전부 초기값으로
+//   돌아갔다(유저: 폰트가 다 초기화됨). 랩은 작업을 이어가는 도구지 매번 처음부터가 아니다.
+const SEG_KEY = 'footlab.segs';
+const segState = (() => { try { return JSON.parse(localStorage.getItem(SEG_KEY) || '{}'); } catch { return {}; } })();
+const segSave = () => { try { localStorage.setItem(SEG_KEY, JSON.stringify(segState)); } catch { /* 사생활 모드 */ } };
 function seg(id, cb) {
+  const pick = (v, fire) => {
+    const btns = [...$(id).children];
+    const b = btns.find(c => c.dataset.v === String(v)) || btns[0];
+    btns.forEach(c => c.classList.toggle('on', c === b));
+    segState[id] = b.dataset.v; segSave();
+    if (fire) cb(b.dataset.v);
+    return b.dataset.v;
+  };
   $(id).addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b) return;
-    [...$(id).children].forEach(c => c.classList.toggle('on', c === b));
-    cb(b.dataset.v);
+    pick(b.dataset.v, true);
   });
+  // 저장본이 있으면 그 선택으로 복원(콜백까지 실행해 상태를 실제로 맞춘다)
+  if (segState[id] != null) pick(segState[id], true);
 }
 seg('segSide', v => { side = v; rebuild(); });
 seg('segCtx',  v => { ctx = v; FXP.footCtx = v; rebuild(); });
@@ -257,6 +291,7 @@ seg('segBg',   v => { bg = v; applyBg(); });
 seg('segNum',  v => { showNum = +v; rebuild(); });
 seg('segOv',   v => { showOv = +v; });
 seg('segFloor', v => { floorKind = v; paintFloor(); });
+seg('segPlay', v => { playing = +v; });
 // 글리프 소스 = FXP.numSrc 정본 스위치. 'glyph'=유저 SVG 슬롯 · 'offbit'=도트 폰트.
 // 시뮬(drawNumber)이 읽는 바로 그 값이라, 여기서 고른 게 곧 시뮬에서 보일 활자다.
 seg('segSrc', v => { FXP.numSrc = v; rebuild(); });
@@ -264,7 +299,10 @@ seg('segShadeCol', v => { shadeCol = +v; });
 seg('segRipCol', v => { ripCol = +v; });
 seg('segGShadow', v => { gShadow = v; rebuild(); });
 seg('segGBlend', v => { gBlend = v; rebuild(); });
-for (const id of ['gL', 'gR']) $(id).addEventListener('input', rebuild);
+for (const id of ['gL', 'gR']) {
+  if (segState[id] != null) $(id).value = segState[id];
+  $(id).addEventListener('input', e => { segState[id] = e.target.value; segSave(); rebuild(); });
+}
 // 글리프 평면은 생성 시 크기·위치·회전·텍스처를 굽는다 — 이 값들은 바뀌면 다시 만든다
 for (const id of ['gsize', 'gx', 'gy', 'grot', 'gsh']) $(id).addEventListener('input', rebuild);
 
@@ -306,15 +344,29 @@ const STATES = [
   { n: 'Preview', ph: 0 }, { n: 'Active', ph: 1 }, { n: 'Hold', ph: 5 }, { n: 'Success', ph: 2 },
   { n: 'Miss', ph: 4 }, { n: 'Warning', ph: 6 }, { n: 'Locked', ph: 3 },
 ];
+let playing = true;
 let heroPhase = 1, heroKind = 'foot';   // 스트립 셀 클릭이 이 둘을 같이 정한다(윗줄 발형·아랫줄 원형)
 const KINDS = ['foot', 'zone'];
 /** 상태별 진행 매핑 — Success·Miss 는 **prog 0 이 가장 진한 순간**이다(FootMark.glow 규약).
  *  나머지 상태와 반대라, 슬라이더 값을 그대로 주면 Success 의 얼음 링(flash = exp(-prog*9))이
  *  0.55 에서 이미 0.007 로 사라진다. 스트립만 이 매핑을 하고 확대는 안 해서 같은 셀인데
  *  링이 있다 없다 했다(유저 신고) — 이제 두 화면이 이 함수 하나를 같이 쓴다. */
-function progFor(ph) {
+function progFor(ph, t) {
+  // 재생 중이면 **상태마다 고유한 데모 시계**로 돈다 — 룩 시스템(fxlab)이 그렇듯 각 상태는
+  //   자기 인터랙션이 있다. 정지 슬라이더 하나로만 보면 Hold 의 차오름도 Success 의 단발도
+  //   얼어붙어 파동이 멈춘 것처럼 보인다(유저 신고).
+  if (playing && t != null) {
+    if (ph === 1) return fract(t * 0.50);          // Active — 수축 반복
+    if (ph === 5) return fract(t * 0.34);          // Hold — 차오름
+    if (ph === 2) return fract(t * 0.62);          // Success — 터지고 리셋
+    if (ph === 4) return fract(t * 0.55);          // Miss — 식어 사라짐
+    if (ph === 6) return fract(t * 0.45);          // Warning — 점멸
+    if (ph === 0) return 0;                        // Preview — 셰이더 안 숨쉬기가 구동한다
+    return 0;                                      // Locked — 정적
+  }
   return (ph === 2 || ph === 4) ? Math.max(0, P.prog - 0.5) * 2 : P.prog;
 }
+const fract = x => x - Math.floor(x);
 
 // ── 합성 규약 (3화면 공통) ──────────────────────────────────────────────
 //   'add'  = 가산광 패스. 셰이더가 알파 1 을 쓰므로 근사 검정으로 불투명 클리어하고 'lighter' 로 얹는다.
@@ -427,9 +479,13 @@ function makeUnit(kind) {   // 'foot' | 'zone'
     num = new THREE.Mesh(new THREE.PlaneGeometry(S, S), new THREE.MeshBasicMaterial({
       map: glyphTexture(String(label), knock), transparent: !knock, depthWrite: false, side: THREE.DoubleSide,
       blending: knock ? THREE.MultiplyBlending : gBlend === 'add' ? THREE.AdditiveBlending : THREE.NormalBlending }));
-    // 위치는 앵커 + 유저 오프셋. 오른발은 미러라 x 부호가 뒤집힌다(슬라이더는 해부학 기준).
-    num.position.set(off.x + (side === 'right' && kind === 'foot' ? -P.gx : P.gx), off.y + P.gy, 0.01);
-    num.rotation.z = (side === 'right' && kind === 'foot' ? -P.grot : P.grot) * Math.PI / 180;
+    // ★ 원형은 **언제나 정중앙**이다(유저 확정) — 존 원은 '여기'라는 한 점이라 글리프가 중심에서
+    //   벗어나면 그 자체가 오독이 된다. 위치·회전 조절은 발형에만 연다.
+    //   발형은 오른발이 미러라 x·회전 부호가 뒤집힌다(슬라이더는 해부학 기준).
+    const isFoot = kind === 'foot';
+    const mir = isFoot && side === 'right' ? -1 : 1;
+    num.position.set(off.x + (isFoot ? P.gx * mir : 0), off.y + (isFoot ? P.gy : 0), 0.01);
+    num.rotation.z = (isFoot ? P.grot * mir : 0) * Math.PI / 180;
     pl.add(num);
   }
   return { kind, scene: sc, mat: m, plane: pl, num, tex: tx };
@@ -454,6 +510,9 @@ function feed(u, ph, prog, t, mode) {
   U.uRip.value = P.rip; U.uRipReach.value = P.ripReach;
   U.uRipWidth.value = P.ripWidth; U.uRipSpeed.value = P.ripSpeed;
   U.uRipCol.value = ripCol; U.uRipGrad.value = P.ripGrad;
+  U.uPlantar.value = P.plantar; U.uBands.value = P.bands; U.uBandSoft.value = P.bandSoft;
+  U.uEdgeShade.value = P.edgeShade;
+  U.uEdgeW.value = P.edgeW; U.uEdgeSoft.value = P.edgeSoft; U.uDither.value = P.dither;
   matMode(u.mat, mode);
   if (u.kind === 'foot') {
     U.uImp.value = P.imp; U.uImpPitch.value = P.pitch; U.uImpDot.value = P.dot;
@@ -637,7 +696,7 @@ function buildWalk() {
     if (!tx) return false;
     const m = makeMarkFXMaterial(tx);
     m.uniforms.uOut.value = 0;
-    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(0.86, 0.86), m);
+    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(0.86 * QUAD_K, 0.86 * QUAD_K), m);
     mesh.position.set(f.x, f.y, 0);
     mesh.rotation.z = (f.s === 'left' ? 8 : -8) * Math.PI / 180;
     sc.add(mesh);
@@ -646,7 +705,7 @@ function buildWalk() {
   // 원형(존) 토큰도 같은 바닥에 하나 — 발형과 원형이 한 화면에 있어야 통일감이 판단된다(유저).
   const zm = makeMarkFXMaterial(null);
   zm.uniforms.uOut.value = 0;
-  const zmesh = new THREE.Mesh(new THREE.PlaneGeometry(0.86, 0.86), zm);
+  const zmesh = new THREE.Mesh(new THREE.PlaneGeometry(0.86 * QUAD_K, 0.86 * QUAD_K), zm);
   zmesh.position.set(ZONE_AT.x, ZONE_AT.y, 0);
   sc.add(zmesh);
   mats.push({ m: zm, side: 'zone', mesh: zmesh, zone: true });
@@ -663,12 +722,15 @@ function composite() {
   compCam.updateProjectionMatrix();
   // 상태는 흘러오는 순서대로: 앞은 Preview, 지금 밟을 곳이 Active, 지난 것은 Success
   // 흘러오는 순서: 지난 것 Success → 지금 밟을 곳 Active → 앞은 Preview. 마지막이 존 원.
-  const seq = [{ ph: 2, pr: 0.25 }, { ph: 1, pr: 0.75 }, { ph: 0, pr: 0.55 }, { ph: 1, pr: 0.45 }];
+  //   ★ 진행값은 스트립과 **같은 progFor(ph)** 를 쓴다. 예전엔 여기만 prog 를 박아 써서
+  //     (Success 0.25 vs 스트립 0.10) 같은 상태인데 그림이 달랐고, 그래서 합성의 어느 발도
+  //     스트립의 어느 셀과 일치하지 않았다(유저: 동일한 게 아무것도 없다). 매핑이 두 벌이면 대응이 깨진다.
+  const seq = [{ ph: 2 }, { ph: 1 }, { ph: 0 }, { ph: 1 }];
   blit($('comp'), tokenCv, (mode) => {
     passSetup(rComp, mode);
     walkMats.forEach((wm, i) => {
       const U = wm.m.uniforms;
-      U.uPhase.value = seq[i].ph; U.uProg.value = seq[i].pr; U.uTime.value = t;
+      U.uPhase.value = seq[i].ph; U.uProg.value = progFor(seq[i].ph, t); U.uTime.value = t;
       matMode(wm.m, mode);
       U.uImp.value = P.imp; U.uImpPitch.value = P.pitch; U.uImpDot.value = P.dot;
       U.uImpGlow.value = P.glow; U.uImpEdge.value = P.edge; U.uImpScale.value = P.scale;
@@ -679,9 +741,24 @@ function composite() {
       U.uRip.value = P.rip; U.uRipReach.value = P.ripReach;
       U.uRipWidth.value = P.ripWidth; U.uRipSpeed.value = P.ripSpeed;
   U.uRipCol.value = ripCol; U.uRipGrad.value = P.ripGrad;
+  U.uPlantar.value = P.plantar; U.uBands.value = P.bands; U.uBandSoft.value = P.bandSoft;
+  U.uEdgeShade.value = P.edgeShade;
+  U.uEdgeW.value = P.edgeW; U.uEdgeSoft.value = P.edgeSoft; U.uDither.value = P.dither;
       if (!wm.zone) wm.mesh.rotation.z = (wm.side === 'left' ? P.tilt : -P.tilt) * Math.PI / 180;
     });
     rComp.render(walkScene, compCam);
+  });
+  // 상태 라벨 — 어느 발이 스트립의 몇 번째 셀인지 안 보이면 대응을 확인할 수가 없다(유저 지적).
+  const g = $('comp').getContext('2d');
+  g.font = "600 13px -apple-system,'Malgun Gothic',sans-serif";
+  g.textAlign = 'center'; g.textBaseline = 'top';
+  const NAME = s => (STATES.find(x => x.ph === s.ph) || { n: '?' }).n;
+  walkMats.forEach((wm, i) => {
+    const sx = (wm.mesh.position.x / half * 0.5 + 0.5) * W;
+    const sy = (0.5 - wm.mesh.position.y / (half * H / W) * 0.5) * H + 0.30 * W * 0.86 / half * 0.5;
+    const label = `${NAME(seq[i])}${wm.zone ? ' · 존 원' : ''}`;
+    g.fillStyle = 'rgba(0,0,0,.45)'; g.fillText(label, sx + 1, sy + 1);
+    g.fillStyle = '#fff'; g.fillText(label, sx, sy);
   });
 }
 
@@ -696,7 +773,7 @@ function frame() {
       aim(HERO.w / HERO.h);
       const u = units[heroKind];
       if (!u) return;
-      feed(u, heroPhase, progFor(heroPhase), t, mode);
+      feed(u, heroPhase, progFor(heroPhase, t), t, mode);
       rHero.render(u.scene, cam);
     });
     // 상태 스트립 — 7상태 × 두 표현형. 윗줄 발형·아랫줄 원형이 **같은 파라미터**로 나란히 간다.
@@ -711,7 +788,7 @@ function frame() {
         // 뷰포트 y 는 아래가 0 — 윗줄(발형)이 화면 위로 가려면 마지막 행부터 채운다
         const vy = (KINDS.length - 1 - row) * ch;
         STATES.forEach((s, i) => {
-          feed(u, s.ph, progFor(s.ph), t, mode);
+          feed(u, s.ph, progFor(s.ph, t), t, mode);
           rStrip.setViewport(i * cw, vy, cw, ch);
           rStrip.setScissor(i * cw, vy, cw, ch);
           rStrip.render(u.scene, cam);
@@ -720,6 +797,18 @@ function frame() {
       rStrip.setScissorTest(false);
       rStrip.setViewport(0, 0, STRIP.w, STRIP.h);
     });
+    // 상태 이름 — 어느 칸이 무슨 상태인지 안 보이면 비교 자체가 안 된다(유저 요청)
+    {
+      const g = $('strip').getContext('2d');
+      const cw = $('strip').width / STATES.length;
+      g.font = "600 15px -apple-system,'Malgun Gothic',sans-serif";
+      g.textAlign = 'center'; g.textBaseline = 'bottom';
+      STATES.forEach((s, i) => {
+        const x = i * cw + cw / 2, y = $('strip').height - 8;
+        g.fillStyle = 'rgba(0,0,0,.45)'; g.fillText(`${i + 1} ${s.n}`, x + 1, y + 1);
+        g.fillStyle = '#fff'; g.fillText(`${i + 1} ${s.n}`, x, y);
+      });
+    }
     composite();
   }
   requestAnimationFrame(frame);

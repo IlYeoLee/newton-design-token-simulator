@@ -535,7 +535,7 @@ const markP2 = glProg(markC2, MARK_FRAG, 300, 300);
 //    각인 축소·이동은 footlab.html '자동 맞춤'이 계측한 값(좌·우발 삐져나옴 0.00%).
 const MARK_EXTRA = { imp: 1.0, pitch: 0.027, dot: 0.25, glow: 0.0, shade: 0.55, sharp: 0.22,
                      shadeCol: 0, edge: 0.058, scale: 0.840, offx: -0.060, offy: -0.010, rot: 0,
-                     rip: 0.55, ripSpeed: 0.45, ripWidth: 0.09, ripReach: 0.34, ripCol: 1, ripGrad: 1, plantar: 1.0, bands: 0, bandSoft: 0.45, edgeShade: 0.55, edgeW: 0.085, edgeSoft: 0.75, dither: 0.010, silFit: 0.52 / 0.78 };
+                     rip: 0.55, ripSpeed: 0.45, ripWidth: 0.09, ripReach: 0.34, ripCol: 1, ripGrad: 1, plantar: 1.0, bands: 0, bandSoft: 0.45, edgeShade: 0.55, edgeW: 0.085, edgeSoft: 0.75, dither: 0.010, silFit: 1.0 };
 let footInCentroid = { x: 0.5, y: 0.42 };
 function setMarkExtra(P, shape) {
   const gl = P.gl, E = MARK_EXTRA, right = state.markFootSide === 'R';
