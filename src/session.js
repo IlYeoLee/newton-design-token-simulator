@@ -4,7 +4,7 @@ import bkStepContacts from '../assets/mocap/contacts-cmu_crossover_shot.json';  
 import { WALL_Z } from './scene.js';
 import { lutColor, GLYPHS, drawGlyph, drawNumber, footSlot, footSDFTexture, FXP } from './fxlut.js';
 import { MARK_NUM, drawStanceBox, drawPunchLine, drawApproachRing, drawTrajectory, drawRotate, drawStemArrow, drawCurveArrow } from './fx-core.js';
-import { makeMarkFXMaterial, makeLaneFXMaterial, makeFlowArrow, tickFlowArrows, beamAlphaAt, COLORS, FOOT_PLANE_M, QUAD_K } from './tokens.js';
+import { makeMarkFXMaterial, makeLaneFXMaterial, makeFlowArrow, tickFlowArrows, beamAlphaAt, COLORS, FOOT_PLANE_M, QUAD_K, UI_MASK } from './tokens.js';
 
 const clamp01 = v => v < 0 ? 0 : v > 1 ? 1 : v;
 
@@ -1721,6 +1721,14 @@ export class Session {
         U.uFPFar.value = this.rig.fpFar;
         U.uFPHalfN.value = this.rig._halfAt(this.rig.fpNear);
         U.uFPHalfF.value = this.rig._halfAt(this.rig.fpFar);
+      }
+      if (U.uUIAmt) {   // 지면 UI 텍스트 구간 마스크 (마크 재질만 보유)
+        const K = UI_MASK;
+        U.uUIOrigin.value.set(K.ox, 0, K.oz);
+        U.uUIFwd.value.set(K.fx, 0, K.fz);
+        U.uUIRight.value.set(K.rx, 0, K.rz);
+        U.uUIHalfL.value = K.halfL; U.uUIHalfW.value = K.halfW;
+        U.uUIFeather.value = K.feather; U.uUIAmt.value = m._wall ? 0 : K.amt;
       }
       if (m._auto) U.uProg.value = (t * 0.3) % 1;   // 구동자 없는 Hold = 시연 루프
       if (U.uDay.value !== day) {   // 주간 풀컬러 잉크 규약 (마커와 동일)
