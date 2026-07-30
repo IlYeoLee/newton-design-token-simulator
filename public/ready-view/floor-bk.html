@@ -14,6 +14,22 @@ html,body{background:transparent}
 .bigglow{position:absolute;left:50%;top:1400px;transform:translate(-50%,-50%);width:1020px;height:930px;opacity:.85}
 .bigglow img{width:100%;height:100%;display:block;transform-origin:50% 46%;animation:glowLive 7s ease-in-out 3}
 
+/* 크리에이터 헤더 = pyeongso .creator-profile (creator.css) 정본 이식 — ×3.0
+   (아바타 101→303 · 테두리 2→6 · 캡션 14→42 · 칩 15→45/패딩 4·8→12·24/radius 12→36 · gap 10→30).
+   유저: 시작 전 화면 스타일을 모바일 팩 상세와 맞춘다 — 얼굴 + 캡션 + 이름 칩. */
+.pack{position:absolute;top:60px;left:50%;transform:translateX(-50%);width:303px;height:303px;
+  border-radius:50%;overflow:hidden;border:6px solid #fff;box-sizing:border-box;
+  opacity:0;animation:fadeUpCentered .8s cubic-bezier(.2,.75,.2,1) .12s both}
+.pack img{width:100%;height:100%;object-fit:cover;display:block}
+.sub{position:absolute;top:393px;left:0;right:0;text-align:center;white-space:nowrap;
+  font-family:'Supreme',sans-serif;font-weight:400;font-size:42px;letter-spacing:-1.3px;color:#fff;
+  opacity:0;animation:slideInUp .8s cubic-bezier(.2,.75,.2,1) .2s both}
+.tag{position:absolute;top:482px;left:0;right:0;text-align:center;
+  opacity:0;animation:slideInUp .8s cubic-bezier(.2,.75,.2,1) .26s both}
+.tag span{display:inline-block;padding:12px 24px;border-radius:36px;
+  background:rgba(255,255,255,.2);color:#fff;
+  font-family:'Supreme',sans-serif;font-weight:700;font-size:45px;letter-spacing:-1.5px}
+
 /* 타이틀 — 글자 하나하나 루핑 웨이브 */
 .title{position:absolute;top:620px;left:0;right:0;text-align:center;white-space:nowrap;
   font-weight:700;font-size:120px;line-height:1.1;letter-spacing:-4px}
@@ -65,6 +81,10 @@ html,body{background:transparent}
 </style></head><body>
   <div id="board">
     <div class="bigglow"><img src="assets/fig/big_glow.svg" alt=""></div>
+
+    <div class="pack"><img src="assets/photos/cardbg-curry.png" alt=""></div>
+    <p class="sub">Basketball Creator · 1.2M subscribers</p>
+    <div class="tag"><span>Curry</span></div>
 
     <div class="title" id="title">Curry's Handle Pack</div>
 

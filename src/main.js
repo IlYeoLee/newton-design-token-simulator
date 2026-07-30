@@ -2385,6 +2385,10 @@ void main(){
           // 구멍을 뚫으므로 제거(유저). 크로마키만: 초록 초과분으로 배경만 판정.
           float m = maskAA(uv);
           float mEro = smoothstep(0.16, 0.52, m);   // 침식 완화 — 골대 림 등 얇은 구조 보존(유저)
+          // 상단 잘림 페더 — 크롭 창이 몸통을 가로지르면 마스크가 프레임 경계에서 딱 끊겨
+          //   허리가 칼로 자른 듯 보인다(유저 스샷). 위쪽 12%만 부드럽게 소멸.
+          //   하단은 건드리지 않는다 — 발 접지는 또렷해야 한다(유저 확정).
+          mEro *= 1.0 - smoothstep(0.88, 1.0, uv.y);
           if (mEro < 0.02) discard;
           // 두께장·블러휘도 = 저해상 RT 가우시안 필드(복싱 판 uHeat와 같은 파이프라인)
           vec2 fld = texture2D(uField, uv).rg;    // 넓은 블러 = 두께장·노출
@@ -2713,7 +2717,7 @@ void main(){
       vec3 c = texture2D(tex, vuv).rgb;
       float k = c.g - max(c.r, c.b);                     // 그린 우세도 — 결정론적 크로마 키
       float m = 1.0 - smoothstep(0.05, 0.16, k);         // 임계값 = 랩 mask1 정본
-      m *= smoothstep(0.0, 0.03, uv.y) * smoothstep(1.0, 0.97, uv.y);
+      m *= smoothstep(0.0, 0.03, uv.y) * smoothstep(1.0, 0.88, uv.y);   // 상단 페더 3%→12%: 잘린 몸통이 칼자국으로 보였다(유저)
       return m;
     }
     // 블러 휘도 — 이목구비·옷주름을 뭉개 명암 덩어리만 남긴다(유저 레퍼런스: 확산 유리 실루엣)
@@ -3248,7 +3252,7 @@ void main(){
           vec3 rgb = texture2D(uAtlas, tileUV(uv, f)).rgb;
           float lum = dot(rgb, vec3(0.299, 0.587, 0.114));
           float m = uDirect > 0.5 ? smoothstep(0.30, 0.55, lum) : smoothstep(0.52, 0.34, lum);
-          m *= smoothstep(0.0, 0.03, uv.y) * smoothstep(1.0, 0.97, uv.y);
+          m *= smoothstep(0.0, 0.03, uv.y) * smoothstep(1.0, 0.88, uv.y);   // 상단 페더 3%→12%: 잘린 몸통이 칼자국으로 보였다(유저)
           return m;
         }
         float maskF(vec2 uv, float fk){

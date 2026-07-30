@@ -809,6 +809,41 @@ export class FloorGL {
       ctx.drawImage(gl, CX - 510, 1400 - 465, 1020, 930);
       ctx.restore();
     }
+    // 크리에이터 헤더 = pyeongso .creator-profile (creator.css) ×3.0 — 얼굴 · 캡션 · 이름 칩.
+    {
+      const bk = /floor-bk/.test(this.params.src);
+      const pk = this._img(bk ? 'photos/cardbg-curry.png' : 'photos/creator-profile-sean.png');
+      const R = 151, py = 60;
+      ctx.save(); this._fadeIn(py, 303, eOut(intro(t, .12, .8)));
+      ctx.beginPath(); ctx.arc(CX, py + R, R - 3, 0, Math.PI * 2); ctx.clip();
+      if (pk) {
+        const sc = Math.max(2 * (R - 3) / pk.naturalWidth, 2 * (R - 3) / pk.naturalHeight);
+        ctx.drawImage(pk, CX - pk.naturalWidth * sc / 2, py + R - pk.naturalHeight * sc / 2,
+                      pk.naturalWidth * sc, pk.naturalHeight * sc);
+      } else { ctx.fillStyle = 'rgba(255,255,255,.14)'; ctx.fillRect(CX - R, py, 2 * R, 2 * R); }
+      ctx.restore();
+      ctx.save(); this._fadeIn(py, 303, eOut(intro(t, .12, .8)));
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = 6;
+      ctx.beginPath(); ctx.arc(CX, py + R, R - 3, 0, Math.PI * 2); ctx.stroke();
+      ctx.restore();
+      // 캡션
+      ctx.save(); this._fadeIn(393, 57, eOut(intro(t, .2, .8)));
+      ctx.fillStyle = '#fff'; ctx.font = F(400, 42); ctx.letterSpacing = '-1.3px';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+      ctx.fillText(bk ? 'Basketball Creator · 1.2M subscribers' : 'Running Creator · 240K subscribers', CX, 393);
+      ctx.restore();
+      // 이름 칩 (.tag-pill)
+      ctx.save(); this._fadeIn(482, 85, eOut(intro(t, .26, .8)));
+      ctx.font = F(700, 45); ctx.letterSpacing = '-1.5px';
+      const NM = bk ? 'Curry' : 'Sean';
+      const nw = ctx.measureText(NM).width + 48, nh = 85;
+      this._roundRectPath(CX - nw / 2, 482, nw, nh, 36);
+      ctx.fillStyle = 'rgba(255,255,255,.2)'; ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.textBaseline = 'middle';
+      ctx.fillText(NM, CX, 482 + nh / 2 + 2);
+      ctx.letterSpacing = '0px'; ctx.textBaseline = 'top';
+      ctx.restore();
+    }
     // 타이틀 글자 웨이브 — charLoop 3s ×3, 글자마다 .09s 지연
     ctx.fillStyle = '#fff'; ctx.font = F(700, 120);
     drawChars(ctx, D.title, CX, 620, 120, -4, i => {
