@@ -252,6 +252,16 @@ float mkSD(vec2 p, float u1){
   vec2 suv = p * 0.5 + 0.5;
   return texture2D(uSDF2, vec2(suv.x, 1.0 - suv.y)).r * 1.9922 / max(uRadius, 0.3) + u1 * uNoise * 0.02;
 }
+/** 필 램프 좌표 0..1 — 존 원은 중심거리, **발형은 실루엣 안쪽 깊이(sd)**.
+ *  발 위에 원형 그라디언트를 씌우면 발가락·아치·뒤꿈치가 램프를 가로질러 잘려서
+ *  '빨간 원에 발 마스크를 덮은 얼룩'으로 읽힌다(유저: 발자국 퀄리티·튄다).
+ *  깊이 기반이면 빛이 실루엣을 따라 고여서 발 모양 자체가 읽힌다. */
+float mkR(vec2 uv, vec2 gc, float scale, float sd){
+  float r = length(uv - gc) / max(scale, 1e-4);
+  if (uShape < 0.5) return r;
+  // 깊이가 주(主), 중심 거리는 종(從) — 무게중심 이동(Hold 뒤꿈치 고임·Success 블룸)은 남긴다.
+  return clamp(mix(clamp(1.0 + sd / 0.40, 0.0, 1.0), r, 0.28), 0.0, 1.4);
+}
 // OKLab 지각 보간 — RGB mix는 중간톤이 회색으로 죽어 '종이 자르듯 턱턱'(유저). OKLab은 채도 유지하며 부드럽게.
 // (buildLUT의 rgb2ok/ok2rgb와 동일 규약: 입력을 그대로 OKLab으로 — LUT와 색 일관)
 vec3 _l2ok(vec3 c){
@@ -322,7 +332,7 @@ vec4 markState(vec2 uv, float state, float prog, float strong, float t){
     float f = prog;
     float breath = 1.0 + 0.05 * sin(t * 2.0) * (0.4 + uNoise);
     // 중심 핫스팟 완화(유저 재지적: 가운데 원 또렷) — 하한↑ + 폴오프 넓혀 부드러운 전이(하드 원 제거)
-    float q = 0.36 + 0.64 * length(uv - gcBall) / (ext * 1.18 * breath);
+    float q = 0.36 + 0.64 * mkR(uv, gcBall, ext * 1.18 * breath, sd);
     vec3 fillCol = mix(C_CREAM, mix(fillPreview(q), fillHot(q), strong), f);
     float fillA = mix(0.42, 0.82, f) * fillGain;
     lay(A, fillCol, fillA * inside);
@@ -331,17 +341,18 @@ vec4 markState(vec2 uv, float state, float prog, float strong, float t){
     lay(A, C_SAND, stroke * (0.95 - 0.62 * f));
   } else if (state < 1.5) {     // ── Active: 적열 필 + 얼음빛 헤일로 수축 (수축 완료 = 타이밍)
     float gradR = uShape < 0.5 ? ext * 1.75 : 2.15;   // 폴오프 넓힘 = 중앙 적열 원 완화(유저)
-    float q = 0.34 + 0.66 * length(uv - gcBall) / gradR;   // 중심 하한↑ — 적열이 은은하게 퍼짐
+    float q = 0.34 + 0.66 * mkR(uv, gcBall, gradR, sd);    // 중심 하한↑ — 적열이 은은하게 퍼짐
     q *= 1.0 + 0.025 * sin(t * 3.1 + q * 5.0) * uNoise;
     lay(A, fillActive(q), inside * min(fillGain * 1.15, 1.0));
-    float hw = max((0.115 - 0.075 * prog) * uW, 0.018);
+    // 헤일로 폭: 발형은 실루엣이 얇아 존 원과 같은 폭이면 윤곽을 통째로 삼킨다(유저: 튄다)
+    float hw = max((uShape < 0.5 ? 0.115 - 0.075 * prog : 0.062 - 0.040 * prog) * uW, 0.014);
     float h = exp(-pow(outPos / max(hw, 1e-4), 1.3)) * (1.0 - inside);
     vec3 hCol = mix(C_SAND, C_ICE, smoothstep(0.15, 0.9, outPos / hw));
     lay(A, hCol, h * uHalo * (0.50 + 0.14 * sin(t * 5.0)) * dashM);
   } else if (state < 2.5) {     // ── Hold: 코닉 진행 림 + 열이 뒤꿈치로 고임
     float pr = prog;
     vec2 gc = mix(gcBall, gcHeel, pr);
-    float q = length(uv - gc) / (ext * 1.02);
+    float q = mkR(uv, gc, ext * 1.02, sd);
     float qh = max(q - 0.24 * pr, 0.0);
     lay(A, fillHold(qh), inside * min(fillGain, 1.0) * 0.95);
     float distToRim = abs(sd - 0.012);
@@ -359,7 +370,7 @@ vec4 markState(vec2 uv, float state, float prog, float strong, float t){
     lay(A, C_CREAM, rim * head * 0.95);
   } else if (state < 3.5) {     // ── Success: 진홍 블룸 → 잔상 소멸
     float e = 1.0 - pow(1.0 - prog, 2.6);
-    float q = length(uv - gcBall) / (uShape < 0.5 ? ext * 1.3 : 1.75);
+    float q = mkR(uv, gcBall, uShape < 0.5 ? ext * 1.3 : 1.75, sd);
     float fillA = (prog < 0.4 ? 1.0 : pow(1.0 - (prog - 0.4) / 0.6, 1.4)) * max(min(fillGain * 1.2, 1.0), 0.85);
     lay(A, fillSuccess(q / (0.55 + 0.55 * e)), inside * fillA);
     float flash = exp(-prog * 9.0);
@@ -367,7 +378,7 @@ vec4 markState(vec2 uv, float state, float prog, float strong, float t){
   } else if (state < 4.5) {     // ── Miss: 온기가 식어 회색 고스트 → 무음 소멸
     float cool = smoothstep(0.0, 0.4, prog);
     float gone = pow(1.0 - max(prog - 0.45, 0.0) / 0.55, 1.6);
-    float q = length(uv - gcBall) / ext;
+    float q = mkR(uv, gcBall, ext, sd);
     lay(A, mix(fillPreview(q), C_GRAYF, cool), inside * mix(0.55, 0.24, cool) * gone * fillGain);
     lay(A, mix(C_SAND, C_GRAYL, cool), exp(-pow(abs(sd) / max(0.014 * uW, 1e-4), 2.0)) * 0.85 * gone);
   } else if (state < 5.5) {     // ── Warning: 사구→코랄 리니어 + 느낌표 점멸 (유저: 어두운색 금지 → 암적 폐기)
@@ -382,6 +393,12 @@ vec4 markState(vec2 uv, float state, float prog, float strong, float t){
   } else {                       // ── Locked: 회색 아웃라인 + (숫자는 호스트 오버레이)
     lay(A, C_GRAYF, inside * 0.30 * fillGain);
     lay(A, C_GRAYL, exp(-pow(abs(sd) / max(0.015 * uW, 1e-4), 2.0)) * 0.8 * dashM);
+  }
+  // 실루엣 이너 엣지(발형 전용) — 윤곽이 빛으로 그려져야 '발자국'으로 읽힌다.
+  //   필 + 바깥 글로우만 있으면 어떤 실루엣이든 둥근 얼룩으로 뭉개진다(유저: 발자국 퀄리티).
+  if (uShape > 0.5 && state < 2.5) {
+    float edgeIn = exp(-pow(max(-sd, 0.0) / max(0.05 * uW, 1e-4), 1.5)) * inside;
+    lay(A, C_SAND, edgeIn * 0.34);
   }
   // NaN 스크럽 — 위 분기 어디서든 비정상 값이 새면 '보이지 않음'으로 떨어뜨린다.
   //   NaN 과의 비교는 항상 false 이므로 step() 이 0 을 골라 준다(GLSL ES 1.0 에서 신뢰 가능한 유일한 방법).

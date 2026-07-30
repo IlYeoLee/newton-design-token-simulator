@@ -28,12 +28,19 @@ html,body{background:transparent}
 .title .ch{display:inline-block;will-change:transform,opacity;animation:charLoop 3s ease-in-out 3}
 .title .sp{display:inline-block;width:.26em}
 
-
-
+/* 오늘 뭘 하나 = 셋업 5화면(location·condition·injury·level·main)의 결과 한 줄 요약.
+   시작 화면은 '설정'이 아니라 '확인'이다 — 방금 정하고 온 걸 다시 다 보여주면 설정 화면 반복이다.
+   남기는 기준: ① 틀리면 다치는 것(부상·컨디션) ② 지금 바뀔 수 있는 것(기기) ③ 행동.
+   뺀 것: Location(지금 그 장소에 서 있다) · Level/Mode(첫 동작에서 체감) · Total 시간 구성.
+   ※ 부상·컨디션 줄(.warn)은 조건부 — None·Usual 이면 줄 자체가 없다. 평소 4덩어리, 주의 시 5. */
+.today{position:absolute;top:790px;left:0;right:0;text-align:center;white-space:nowrap;
+  font-family:'Supreme',sans-serif;font-weight:400;font-size:46px;letter-spacing:-1.4px;
+  color:rgba(255,255,255,.55);
+  opacity:0;animation:slideInUp .8s cubic-bezier(.2,.75,.2,1) .4s both}
 
 /* 기기 연결 = 운동 전 필수 체크(유저) — .chip-row / .chip-sel (setup.css) 정본을 자기 줄로.
    '컨디션'과는 다른 정보라 상태 줄에 섞지 않고, 발 구르기 직전에 확인하는 조건이므로 CTA 바로 위. */
-.chips{position:absolute;top:800px;left:50%;transform:translateX(-50%);display:flex;gap:10px;
+.chips{position:absolute;top:900px;left:50%;transform:translateX(-50%);display:flex;gap:10px;
   opacity:0;animation:fadeUpCentered .8s cubic-bezier(.2,.75,.2,1) .6s both}
 .chip-sel{display:inline-flex;align-items:center;gap:10px;box-sizing:border-box;
   background:#fff;border:none;border-radius:355px;padding:15px 29px;
@@ -77,6 +84,10 @@ html,body{background:transparent}
     <div class="pack"><img src="assets/photos/cardbg-curry.png" alt=""></div>
 
     <div class="title" id="title">Curry's Handle Pack</div>
+
+    </div>
+
+    <p class="today">Today · 15min · Standard</p>
 
     <!-- 기기 연결 체크 — 연결·충전된 기기는 sel(뉴턴 그라디언트) -->
     <div class="chips">

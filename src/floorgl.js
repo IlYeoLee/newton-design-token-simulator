@@ -346,8 +346,8 @@ export function drawChars(ctx, txt, cx, y, h, ls, fn, align = 'center') {
 // ── 나머지 문서(시작화면·전환·카운트다운·리포트) 데이터 — 각 HTML의 상수를 그대로 옮긴 것 ──
 const READY = {
   // meta = 모바일 홈 카드의 '팩 · 시간' 표기(home.html 원본) — 지면도 같은 조판 규칙을 쓴다
-  'floor.html':    { title: "Sean's Final 1km Pace", meta2: '30min · Condition Good · Pace & Boost On', time: '30min', mode: 'Pace & Boost On', modeSm: true },
-  'floor-bk.html': { title: "Curry's Handle Pack",   meta2: '23min · Condition Good · Press On',        time: '23min',     mode: 'Press On' },
+  'floor.html':    { title: "Sean's Final 1km Pace", today: 'Today · 5.0km · Standard', time: '30min', mode: 'Pace & Boost On', modeSm: true },
+  'floor-bk.html': { title: "Curry's Handle Pack",   today: 'Today · 15min · Standard',  time: '23min',     mode: 'Press On' },
 };
 const TR = {
   T1: { sub: 'Sean’s Final 1km Pace', title: 'Warm-Up Done!',
@@ -446,7 +446,8 @@ function buildScene(stage, p) {
   // 도트 진행바 — 원본 HTML의 노출 규칙 두 가지를 그대로 따른다.
   //  ① 시범(Preview) 동안은 감춘다. 공간도 차지하지 않는다 — 프리뷰가 그 자리를 쓰기 때문.
   //  ② 스텝백 따라하기(BK_B2~B5)엔 아예 없다. 진행은 상단 n/4 가 담당(유저 확정).
-  if (!isStep) col.push(node('s-dots', { type: 'dots', mt: -38, dur: p.dur || 8, hideUntil: hasPrev ? (p.pv || 3) : 0, delay: hasPrev ? (p.pv || 3) + 0.15 : 0 }));
+  //  ③ 자리를 이어받는 노드는 앞 노드가 다 비운 뒤(아웃로 0.05+0.45) 나타난다 — 안 그러면 슬라이드로 보인다.
+  if (!isStep) col.push(node('s-dots', { type: 'dots', mt: -38, dur: p.dur || 8, hideUntil: hasPrev ? (p.pv || 3) + 0.5 : 0, delay: hasPrev ? (p.pv || 3) + 0.15 : 0 }));
   if (isP) col.push(node('train-row', { type: 'trainRow', ring: /^P[23]$/.test(stage) }));
   if (isC) col.push(node('live-row', { type: 'liveRow' }));
   col.push(node('s-succ', { type: 'succ', style: { display: 'none' } }));
@@ -564,7 +565,12 @@ export class FloorGL {
     for (const n of this.col) {
       if (n.style.display === 'none') continue;
       if (n.hideUntil && this.t < n.hideUntil) continue;   // 시범 중 도트바 — 자리도 비운다
-      const h = this._h(n);
+      // 조판 규칙: **안 보이는 노드는 자리도 안 차지한다.** display:none·hideUntil 이 이미
+      // 그렇고, 사라지는 중(아웃로)도 같다 — 자리를 폭만큼 같이 줄인다. 안 그러면 시범이 끝난
+      // 뒤 프리뷰 행 200 + 간격 72 가 빈 채로 남아 제목과 진행바가 300px 넘게 벌어졌다(유저).
+      const o = this._outro(n);
+      if (o < 0.004) continue;
+      const h = this._h(n) * o;
       if (n.mt) y += n.mt;
       // Success 는 흐름에서 빼고 대지 비율로 못박는다 — 앞 노드가 숨으면 같이 튀었다(유저).
       const yFlow = y;
@@ -572,7 +578,7 @@ export class FloorGL {
       if (n.style.visibility !== 'hidden') {
         const e = this._intro(n);
         ctx.save();
-        ctx.globalAlpha = numOr(n.style.opacity, 1) * e * this._outro(n);
+        ctx.globalAlpha = numOr(n.style.opacity, 1) * e * o;
         if (e < 1 && !n.cascade) {   // 제자리 스케일 인(원본 sUpFlat) — 눕힌 프레임에서 translate는 '멀리서 날아옴'이 된다
           const k = 0.94 + 0.06 * e;
           ctx.translate(CX, y + h / 2); ctx.scale(k, k); ctx.translate(-CX, -(y + h / 2));
@@ -580,7 +586,7 @@ export class FloorGL {
         if (ctx.globalAlpha > 0.004) this._draw(n, y);
         ctx.restore();
       }
-      y = (n.type === 'succ' ? yFlow : y + h + 72 + (n.mb || 0));
+      y = (n.type === 'succ' ? yFlow : y + h + (72 + (n.mb || 0)) * o);
     }
   }
 
@@ -838,8 +844,16 @@ export class FloorGL {
         alpha: kf(p, [[0, .85], [.12, 1], [.26, 1], [.58, .85], [1, .85]]), scale: 1,   // 최저 .5 → .85: 1순위인 제목이 회색으로 죽었다(유저)
       };
     });
+    // 오늘 뭘 하나 = 셋업 5화면의 결과 한 줄 요약. 시작 화면은 '설정'이 아니라 '확인'이라,
+    //   방금 정하고 온 걸 다시 다 보여주면 설정 화면 반복이다. Location·Level/Mode·Total 구성은 뺐다.
+    ctx.save(); this._fadeIn(790, 62, eOut(intro(t, .4, .8)));
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.font = F(400, 46); ctx.letterSpacing = '-1.4px';
+    ctx.fillText(D.today, CX, 790);
+    ctx.letterSpacing = '0px';
+    ctx.restore();
     // 기기 연결 = 운동 전 필수 체크(유저) — 컨디션과 다른 정보라 상태 줄에 섞지 않고 CTA 바로 위.
-    ctx.save(); this._fadeIn(800, 92, eOut(intro(t, .6, .8)));
+    ctx.save(); this._fadeIn(900, 92, eOut(intro(t, .6, .8)));
     {
       const CHIP = [['run/ic_glasses.png', 32, '90%', true], ['run/ic_watch.png', 24, '30%', false],
                     ['run/ic_earbuds.png', 28, '60%', false]];
@@ -850,20 +864,20 @@ export class FloorGL {
       CHIP.forEach(([ic, iw, tx, sel], k) => {
         const w3 = chipW[k];
         if (sel) {
-          const g3 = ctx.createLinearGradient(0, 800, 0, 800 + CH2);
+          const g3 = ctx.createLinearGradient(0, 900, 0, 900 + CH2);
           g3.addColorStop(0.48, '#FA3030'); g3.addColorStop(0.776, '#FE6E3C'); g3.addColorStop(1, '#FEC389');
           ctx.fillStyle = g3;
         } else ctx.fillStyle = '#fff';
-        this._roundRectPath(bx, 800, w3, CH2, CH2 / 2); ctx.fill();
+        this._roundRectPath(bx, 900, w3, CH2, CH2 / 2); ctx.fill();
         const im = this._img(ic);
         if (im) {
           const ih = iw * (im.naturalHeight / im.naturalWidth);
           ctx.save(); ctx.filter = sel ? 'brightness(0) invert(1)' : 'brightness(0)';
-          ctx.drawImage(im, bx + CPAD, 800 + CH2 / 2 - ih / 2, iw, ih);
+          ctx.drawImage(im, bx + CPAD, 900 + CH2 / 2 - ih / 2, iw, ih);
           ctx.restore();
         }
         ctx.fillStyle = sel ? '#fff' : '#525252'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-        ctx.fillText(tx, bx + CPAD + iw + CICG, 800 + CH2 / 2 + 1);
+        ctx.fillText(tx, bx + CPAD + iw + CICG, 900 + CH2 / 2 + 1);
         ctx.textAlign = 'center'; ctx.textBaseline = 'top';
         bx += w3 + CGAP;
       });
