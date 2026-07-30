@@ -14,28 +14,12 @@ html,body{background:transparent}
 .bigglow{position:absolute;left:50%;top:1400px;transform:translate(-50%,-50%);width:1020px;height:930px;opacity:.85}
 .bigglow img{width:100%;height:100%;display:block;transform-origin:50% 46%;animation:glowLive 7s ease-in-out 3}
 
-/* 팩 대표 이미지 — 모바일 카드의 크리에이터 프로필(home/pyeongso 공통 자산) 원형 크롭.
-   제목 위에 놓아 '누구의 팩인가'를 첫 줄에서 읽히게 한다(유저). 지름 168 = 모바일 38 × 4.44. */
-.pack{position:absolute;top:12px;left:50%;transform:translateX(-50%);width:168px;height:168px;
-  border-radius:50%;overflow:hidden;background:rgba(255,255,255,.14);
-  box-shadow:0 0 0 5px rgba(255,255,255,.35);
-  opacity:0;animation:fadeUpCentered .8s cubic-bezier(.2,.75,.2,1) .12s both}
-.pack img{width:100%;height:100%;object-fit:cover;display:block}
-
 /* 타이틀 — 글자 하나하나 루핑 웨이브 */
-.title{position:absolute;top:236px;left:0;right:0;text-align:center;white-space:nowrap;
+.title{position:absolute;top:340px;left:0;right:0;text-align:center;white-space:nowrap;
   font-weight:700;font-size:120px;line-height:1.1;letter-spacing:-4px}
 .title .ch{display:inline-block;will-change:transform,opacity;animation:charLoop 3s ease-in-out 3}
 .title .sp{display:inline-block;width:.26em}
 
-
-/* 메타 한 줄 — 3칸 그리드(.stats-row)를 접었다. 라벨 3 + 값 3 + 구분선 2 = 8요소가
-   '시작 전 확인'이라는 한 가지 일을 하고 있었다(유저: 정보량 과다). 모바일 홈 카드의
-   '팩 · 시간' 메타 조판과 같은 한 줄로 통합. 값 자체는 하나도 안 버린다. */
-.meta{position:absolute;top:500px;left:0;right:0;text-align:center;white-space:nowrap;
-  font-family:'Supreme',sans-serif;font-weight:400;font-size:48px;letter-spacing:-1.4px;
-  color:rgba(255,255,255,.5);
-  opacity:0;animation:slideInUp .8s cubic-bezier(.2,.75,.2,1) .35s both}
 
 
 
@@ -82,11 +66,7 @@ html,body{background:transparent}
   <div id="board">
     <div class="bigglow"><img src="assets/fig/big_glow.svg" alt=""></div>
 
-    <div class="pack"><img src="assets/photos/cardbg-curry.png" alt=""></div>
-
     <div class="title" id="title">Curry's Handle Pack</div>
-
-    <div class="meta">23min · Condition Good · Press On</div>
 
     <!-- 기기 연결 체크 — 연결·충전된 기기는 sel(뉴턴 그라디언트) -->
     <div class="chips">

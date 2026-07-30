@@ -566,6 +566,9 @@ export class FloorGL {
       if (n.hideUntil && this.t < n.hideUntil) continue;   // 시범 중 도트바 — 자리도 비운다
       const h = this._h(n);
       if (n.mt) y += n.mt;
+      // Success 는 흐름에서 빼고 대지 비율로 못박는다 — 앞 노드가 숨으면 같이 튀었다(유저).
+      const yFlow = y;
+      if (n.type === 'succ') y = Math.round(H * 0.42);
       if (n.style.visibility !== 'hidden') {
         const e = this._intro(n);
         ctx.save();
@@ -577,7 +580,7 @@ export class FloorGL {
         if (ctx.globalAlpha > 0.004) this._draw(n, y);
         ctx.restore();
       }
-      y += h + 72 + (n.mb || 0);
+      y = (n.type === 'succ' ? yFlow : y + h + 72 + (n.mb || 0));
     }
   }
 
@@ -791,7 +794,6 @@ export class FloorGL {
 
   // ── 시작화면 (floor.html / floor-bk.html) ──────────────────────────────────
   _paint_ready() {
-    const SY = 500;   // 메타 한 줄 y (메타 줄·Connection 칸 폐기 — 정보량 축소, 유저)
     const ctx = this.ctx, D = READY[/floor-bk/.test(this.params.src) ? 'floor-bk.html' : 'floor.html'], t = this.t;
     // glowLive 7s ×3 — 숨쉬기 + 드리프트
     const gl = this._img('fig/big_glow.svg');
@@ -807,38 +809,15 @@ export class FloorGL {
       ctx.drawImage(gl, CX - 510, 1400 - 465, 1020, 930);
       ctx.restore();
     }
-    // 팩 대표 이미지 — 모바일 카드의 크리에이터 프로필 원형 크롭(지름 168 = 모바일 38 ×4.44)
-    {
-      const pk = this._img(/floor-bk/.test(this.params.src) ? 'photos/cardbg-curry.png' : 'photos/creator-profile-sean.png');
-      const R = 84, py = 12;
-      ctx.save();
-      ctx.beginPath(); ctx.arc(CX, py + R, R, 0, Math.PI * 2); ctx.clip();
-      if (pk) {
-        const sc = Math.max(2 * R / pk.naturalWidth, 2 * R / pk.naturalHeight);
-        ctx.drawImage(pk, CX - pk.naturalWidth * sc / 2, py + R - pk.naturalHeight * sc / 2,
-                      pk.naturalWidth * sc, pk.naturalHeight * sc);
-      } else { ctx.fillStyle = 'rgba(255,255,255,.14)'; ctx.fillRect(CX - R, py, 2 * R, 2 * R); }
-      ctx.restore();
-      ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.lineWidth = 10;
-      ctx.beginPath(); ctx.arc(CX, py + R, R, 0, Math.PI * 2); ctx.stroke();
-    }
     // 타이틀 글자 웨이브 — charLoop 3s ×3, 글자마다 .09s 지연
     ctx.fillStyle = '#fff'; ctx.font = F(700, 120);
-    drawChars(ctx, D.title, CX, 236, 120, -4, i => {
+    drawChars(ctx, D.title, CX, 340, 120, -4, i => {
       const p = cycle(t, i * 0.09, 3, 3);
       return p == null ? { dy: 0, alpha: 1, scale: 1 } : {
         dy: kf(p, [[0, 0], [.12, -16], [.26, 0], [.58, 0], [1, 0]]),
         alpha: kf(p, [[0, .5], [.12, 1], [.26, 1], [.58, .5], [1, .5]]), scale: 1,
       };
     });
-    // 메타 한 줄 — 3칸 그리드(.stats-row)를 접었다. 라벨 3 + 값 3 + 구분선 2 = 8요소가
-    //   '시작 전 확인' 한 가지 일을 하고 있었다(유저: 정보량 과다). 값은 하나도 안 버린다.
-    ctx.save(); this._fadeIn(SY, 64, eOut(intro(t, .35, .8)));
-    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-    ctx.fillStyle = 'rgba(255,255,255,.5)'; ctx.font = F(400, 48); ctx.letterSpacing = '-1.4px';
-    ctx.fillText(D.meta2, CX, SY);
-    ctx.letterSpacing = '0px';
-    ctx.restore();
     // 기기 연결 = 운동 전 필수 체크(유저) — 컨디션과 다른 정보라 상태 줄에 섞지 않고 CTA 바로 위.
     ctx.save(); this._fadeIn(940, 92, eOut(intro(t, .6, .8)));
     {
@@ -1066,14 +1045,21 @@ export class FloorGL {
       bp == null ? 0 : kf(bp, [[0, 0], [.5, 1], [1, 0]]));
   }
 
-  // Success 컴포넌트(Figma 130-2984) — 배지 + 점선 카운트다운 링
+  // Success 컴포넌트(Figma 130-2984) — 카운트다운 링 + 배지
+  // ★ 두 가지를 고쳤다(유저: "위치도 애매하고 인터랙션도 애매하다").
+  //   ① 인터랙션: 3·2·1 이 도는 동안 배지가 'Success!' 라고 먼저 말해버려, 성공을 알리는지
+  //      더 버티라는지 알 수 없었다. 카운트 중엔 'HOLD'(유지하라는 상태),
+  //      다 채운 뒤에만 'Success!'(일어난 사건). 복싱과 같은 규약 — 상태는 계속, 사건은 순간.
+  //   ② 위치: 열 마지막 노드라 앞 노드(도트바 등)가 숨으면 같이 올라와 스테이지마다 튀었다.
+  //      대지 비율 고정(_succY)으로 못박는다.
   _succ(n, y) {
     const ctx = this.ctx;
-    // 성취 배지 = 복싱 콤보와 같은 컴포넌트(drawBadge). 구 흰 필 + 이모지는 은퇴.
-    const S = 88 / 114.26;   // 지면 배지 높이 88 에 맞춘 스케일
-    drawBadge(ctx, CX, y + 44, 'Success!', { scale: S, icon: this._img('flame.svg') });
     const arc = this.map.get('succ-arc');
     const frac = numOr(arc?.style.strokeDashoffset, 0) / 615.7;   // 원본은 offset이 곧 남은 비율
+    const done = frac <= 0.001;
+    const S = 88 / 114.26;   // 지면 배지 높이 88 에 맞춘 스케일
+    drawBadge(ctx, CX, y + 44, done ? 'Success!' : 'HOLD',
+      { scale: S, icon: done ? this._img('flame.svg') : null, glow: done ? .55 : .3 });
     const ry = y + 88 + 56;
     this._ringAt(CX, ry, 220, frac, '#fff');
     drawCenteredNum(ctx, this.map.get('succ-n')?.textContent || '', CX, ry + 110, 88);
