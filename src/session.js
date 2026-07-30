@@ -1545,6 +1545,8 @@ export class Session {
     this.bkShotNow = false;
     this.bkB1EyesUp = false; this.bkB1Setup = false; this.bkB1Succ = null; this.bkB1Widen = null; this.bkB1P2t = null; // B1 신호 리셋
     this._bkStrId = null;   // 워밍업 스트레칭 재진입 리셋 (스테이지 전환 시 홀드 카운트 0)
+    this._c2hit = null;     // 잽 대련 착탄 래치 — 재진입 시 첫 타가 안 터지던 것 방지
+    if (this.bxC2) for (const T of this.bxC2) { T._pop = null; T.ap.scale.setScalar(1); }
     this.repLeft = null; this.repTotal = null; this.repFrac = null;   // 반복 진행바 — 스테이지마다 초기화
     if (this._c3Skill != null && this.judge) { this.judge.skill = this._c3Skill; this._c3Skill = null; }   // C3 중 탭 스킵 시 skill 0.35 영구 잠김 방지
     this.bobY = 0;
@@ -2649,11 +2651,24 @@ export class Session {
         const cleared = Math.min(N, Math.floor(beat / HITS));
         const cur = cleared;                       // 지금 노리는 타겟
         const fill = ((beat % HITS) + clamp01(ph / LAND)) / HITS;   // 0→1 누적 채움
+        // 타격은 **수축 링 안에서** 일어난다 — 판정 자리가 아래 고정 마크 하나면 '때리는 곳'이
+        //   거기로 읽힌다(유저). 링이 조여들다 착탄 순간 그 자리에서 터지고 반동으로 튄다.
+        //   (C3 콤보와 같은 규칙: 판정은 노드 '안'에서.)
+        const hitId = beat * 2 + (ph >= LAND ? 1 : 0);
+        if (ph >= LAND && hitId !== this._c2hit) {
+          this._c2hit = hitId;
+          const T = this.bxC2[Math.min(cur, N - 1)];
+          const wp = new THREE.Vector3(); T.ap.getWorldPosition(wp);
+          this.onBurst?.(wp, 0.22, CS.prism);
+          T._pop = this.t;
+        }
         for (let i = 0; i < N; i++) {
           const T = this.bxC2[i];
           const done = i < cleared;
           T.ap.material.opacity = done ? 0 : (i === cur ? 1 : 0.30);   // 남은 건 은은히 — 공략 순서가 보인다
           T.ap._prim.prog = done ? 0 : (i === cur ? fill : 0);
+          const e = T._pop == null ? 2 : (this.t - T._pop) / 0.28;     // 맞은 순간 반동 팝
+          T.ap.scale.setScalar(e < 1 ? 1 + 0.34 * (1 - e) * (1 - e) : 1);
         }
         const landed = Math.min(N * HITS, beat + (ph >= LAND ? 1 : 0));
         FMU(`잽 ${landed} / ${N * HITS} — 타겟 ${Math.max(0, N - cleared)}개 남음`,

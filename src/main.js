@@ -3450,7 +3450,11 @@ void main(){
     xbot.bkShot = session.active && session.stage === 'BK_C4';
     // 팩 판정 토큰 필드 정책(검증된 경로): 세션 비실전 전면 숨김 + 라이브 중 릴리즈(C4)도 숨김.
     // 비실전 복귀(라이브 진입) 시에만 다시 켬 — 스트레칭·학습·전환 화면의 무관 마커 원천 차단.
-    if (session.active) tokens.floorRoot.visible = session.isLive && session.stage !== 'BK_C4';
+    // BX_C2(잽 대련)도 제외 — 판정은 벽의 수축 링이 전담한다. 팩 마크가 같이 떠 있으면
+    //   바닥 고정 마크 하나가 '실질적으로 때리는 곳'으로 읽힌다(유저 스샷).
+    if (session.active) tokens.floorRoot.visible = session.isLive && session.stage !== 'BK_C4' && session.stage !== 'BX_C2';
+    if (session.active && session.stage === 'BX_C2') tokens.wallRoot.visible = false;
+    else if (session.active) tokens.wallRoot.visible = true;
     // 스톰프 프레스 스테이지: 봇을 뒤로 당겨 착지(전방 0.38m)가 프레스 원 위에 정확히 떨어지게
     if (session.active && !session.isLive && data.sport !== 'boxing') {
       // A2 런지: 봇을 뒤로 당겨 전방 착지가 프레스 원(-1.30) 위에 오게 (교대 런지 보폭 ≈0.7m 가정, 시각 검수로 보정)
@@ -4975,7 +4979,7 @@ void main(){
     }
     // 세션 비실전(+릴리즈 C4) = 팩 판정 토큰 필드 최종 강제 숨김 — 프레임별 어떤 경로가
     // 다시 켜도 여기서 정리(무관 토큰이 스트레칭·학습 화면에 떠 있던 재발 방지, 최종 승자).
-    if (session.active && (!session.isLive || session.stage === 'BK_C4')) tokens.floorRoot.visible = false;
+    if (session.active && (!session.isLive || session.stage === 'BK_C4' || session.stage === 'BX_C2')) tokens.floorRoot.visible = false;
     // 항상 렌더 — 표시/숨김 전환에도 CSS3D transform 항상 동기(재진입 시 위치 어긋남·잔류 방지)
     cssRenderer.render(frameCssScene, camera);
     // ── 바닥 프레임 occlusion: x봇만 투명 오버레이로 프레임(z6) 위(z7)에 다시 그려 다리 뒤로 밟히게 ──
