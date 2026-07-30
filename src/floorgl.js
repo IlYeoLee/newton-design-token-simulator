@@ -8,9 +8,9 @@
 // main.js 구동 코드가 그대로 쓴다(노드 = 그리기 스펙 겸 DOM 스텁). 이식 비용을 여기 한 파일에 가둔다.
 import * as THREE from 'three';
 import { PAL, NEU, rgba } from './palette.js';
-import { FXP } from './fxlut.js';   // 글로우 손잡이(FXP.glow) — 랩에서 돌려 찾는다
 
-const W = 1600, H = 2670;   // 대지 px (floor-scene.html과 동일)
+const W = 1600, H = 2670;
+const _mp = new THREE.Vector3(), _mf = new THREE.Vector3(), _mr = new THREE.Vector3();   // uiMask 임시   // 대지 px (floor-scene.html과 동일)
 // 캔버스 해상도 — 화질과 업로드 비용의 저울.
 //   0.5 = 글자가 흐리다(유저) / 1.0 = 프레임당 17MB 업로드라 전체가 느려진다(유저).
 //   0.75(1200×2002, 9.6MB)가 두 불만을 모두 피하는 지점. 업로드는 값이 바뀐 프레임에만 일어난다.
@@ -300,64 +300,6 @@ export function drawBadge(ctx, cx, cy, text, o = {}) {
  *  가장자리에만 부드러운 빛이 남는다 = inset. (스트로크+blur 근사는 테두리가 딱딱하고 얼룩진다)
  *  CSS blur 는 지름 규약이라 캔버스 filter(시그마)에는 절반을 준다. */
 const _isCv = typeof document !== 'undefined' ? document.createElement('canvas') : null;
-// ── 빔 글로우 (정본) ─────────────────────────────────────────────────────────
-// SVG 에셋(big_glow·bg_glow·glow.svg)을 늘려 그리던 것을 캔버스 라디얼 그라디언트로 대체.
-// 왜 에셋을 버렸나 — 실측 알파 프로파일이 '빛'이 아니라 '원반'이었다. 중심부터 평평하게
-//   불투명하다가 짧게 끊긴다(평평한 코어: big_glow 27% · bg_glow 38% · glow.svg 51%).
-//   게다가 big_glow·glow.svg 는 뷰박스 300×150 을 1478×1305 로 늘려 그려, 가우시안이
-//   래스터로 구워진 뒤 확대되며 가장자리에 계단·색 띠가 생겼다.
-// 모양은 FXP.glow 손잡이로 정한다 — 코드에 박힌 값이 아니라 랩에서 돌려 찾는다.
-const GLOW_OUTER = { sand: () => PAL.sand, coral: () => PAL.coral, prism: () => PAL.prism };
-/** (cx,cy) 중심 반경 rx(×ry) 타원 글로우. gain 으로 전체 세기를 곱한다. */
-export function paintGlow(ctx, cx, cy, rx, ry = rx, gain = 1) {
-  const P = FXP.glow || {};
-  const scale = P.scale ?? 1, core = P.core ?? 1, fo = Math.max(0.2, P.falloff ?? 2.2), hot = P.hot ?? 0;
-  const outer = (GLOW_OUTER[P.outer] || GLOW_OUTER.sand)();
-  const RX = rx * scale, RY = ry * scale;
-  if (!(RX > 0)) return;
-  ctx.save();
-  ctx.translate(cx, cy);
-  if (RY !== RX) ctx.scale(1, RY / RX);
-  const g = ctx.createRadialGradient(0, 0, 0, 0, 0, RX);
-  // 색은 안쪽부터 red → coral → outer 로 가되, hot 이 있으면 중심을 흰-프리즘으로 태운다.
-  const N = 12;
-  for (let i = 0; i <= N; i++) {
-    const x = i / N;
-    const a = core * Math.pow(1 - x, fo);                 // 감쇠 곡선 — falloff 가 모양을 정한다
-    let col;
-    if (hot > 0 && x < hot) col = x < hot * 0.45 ? NEU.ink : PAL.prism;
-    else if (x < 0.34) col = PAL.red;
-    else if (x < 0.66) col = PAL.coral;
-    else col = outer;
-    g.addColorStop(x, rgba(col, Math.max(0, a * gain)));
-  }
-  ctx.fillStyle = g;
-  ctx.beginPath(); ctx.arc(0, 0, RX, 0, Math.PI * 2); ctx.fill();
-  ctx.restore();
-}
-
-/** 글로우에 구멍 파기 — 글자 자리만 빛을 빼서 대비를 만든다.
- *  투사는 가산광이라 흰 글자를 배경보다 밝게 만들 수 없다(실측: 글자 뒤가 R=255 로 포화,
- *  흰 글자와 빨강 채널 차이 0 → 흐릿하게 뜬 글자). 글자를 밝히는 게 불가능하니 뒤를 어둡게 한다.
- *  가장자리는 넉넉히 흐리게 — 딱딱한 구멍은 '검은 판'으로 보인다. */
-export function carveGlow(ctx, cx, cy, rx, ry, strength = 1) {
-  const s = Math.max(0, Math.min(1, strength * (FXP.glow?.carve ?? 1)));
-  if (s <= 0 || !(rx > 0)) return;
-  ctx.save();
-  ctx.globalCompositeOperation = 'destination-out';
-  ctx.translate(cx, cy);
-  if (ry !== rx) ctx.scale(1, ry / rx);
-  const g = ctx.createRadialGradient(0, 0, 0, 0, 0, rx);
-  g.addColorStop(0.00, `rgba(0,0,0,${s})`);
-  g.addColorStop(0.45, `rgba(0,0,0,${s * 0.92})`);
-  g.addColorStop(0.72, `rgba(0,0,0,${s * 0.55})`);
-  g.addColorStop(0.88, `rgba(0,0,0,${s * 0.20})`);
-  g.addColorStop(1.00, 'rgba(0,0,0,0)');
-  ctx.fillStyle = g;
-  ctx.beginPath(); ctx.arc(0, 0, rx, 0, Math.PI * 2); ctx.fill();
-  ctx.restore();
-}
-
 export function insetGlow(ctx, x, y, w, h, r, color, blur, spread) {
   if (!_isCv) return;
   const m = Math.ceil(blur) + 8;
@@ -489,6 +431,8 @@ function drawCenteredNum(ctx, text, cx, cy, size) {
 }
 
 // ── 스테이지 → 노드 열 구성 (floor-scene.html의 <script> 분기와 1:1) ──────────────
+const SCRIM_TYPES = new Set(['text', 'trainRow', 'liveRow', 'km', 'dots']);
+
 function buildScene(stage, p) {
   const S = (window.FLOOR_SCENES || {})[stage] || { title: stage, cue: '' };
   const isP = /^P\d$/.test(stage);
@@ -525,17 +469,12 @@ export class FloorGL {
     this.mesh = new THREE.Mesh(
       new THREE.PlaneGeometry(W, H),
       // depthWrite:false — 반투명 UI. depthTest는 켠 채로 두는 게 이 이식의 전부다(x봇에 가려짐).
-      // blending — 투사는 빛이다. 알파 합성(기본 NormalBlending)은 바닥을 '가리고 덮으므로'
-      //   알파 0.5 면 잔디 반 + UI 반이 뿌옇게 섞인다. 캔버스에서 아무리 선명하게 그려도
-      //   여기서 막혔다(유저: 룩시스템 마크는 쨍한데 여기선 흐리멍텅하다 — 그 차이가 이것이다).
-      //   마크 토큰(tokens.js)은 이미 야간=가산 / 주간=알파 규칙을 쓴다. 플로어 UI 평면만
-      //   그 규칙 밖에 있었다. 같은 규칙으로 맞춘다 — setDay() 가 매 프레임 갱신한다.
-      new THREE.MeshBasicMaterial({ map: this.tex, transparent: true, depthWrite: false, toneMapped: false,
-                                    blending: FXP.day ? THREE.NormalBlending : THREE.AdditiveBlending }),
+      new THREE.MeshBasicMaterial({ map: this.tex, transparent: true, depthWrite: false, toneMapped: false }),
     );
     this.mesh.visible = false;
     this.mesh.renderOrder = 3;
     this.stage = null; this.map = new Map(); this.col = []; this.t = 0; this._sig = null;
+    this._textBand = { y0: 1e9, y1: -1e9 };   // 이번 프레임 텍스트가 차지한 세로 구간(대지 px)
     // 캔버스 fillText는 웹폰트 로드를 촉발하지 않는다 — 명시 로드 후 한 번 다시 그린다.
     for (const f of ['700 100px Supreme', '400 100px Supreme', '700 100px OffBit'])
       document.fonts?.load(f).then(() => { this._sig = null; }).catch(() => {});
@@ -607,10 +546,6 @@ export class FloorGL {
 
   update(dt) {
     if (!this.stage) return;
-    // 합성 모드는 주/야를 따라간다 — 마크 토큰(tokens.js)과 같은 규칙.
-    //   야간=가산(빛처럼 더해져 쨍하다) · 주간=알파(가산이면 과노출된다).
-    const m = this.mesh.material, day = !!FXP.day;
-    if (m._day !== day) { m._day = day; m.blending = day ? THREE.NormalBlending : THREE.AdditiveBlending; m.needsUpdate = true; }
     this.t += dt;
     // 24fps — 22fps는 끊겨 보였고 60fps는 업로드(9.6MB/장)가 프레임 예산을 먹었다(유저 양쪽 신고).
     // 값이 안 바뀌면 아래 서명 비교에서 또 걸러지므로 정지 화면은 업로드 0이다(실측 0.9회/초).
@@ -629,6 +564,7 @@ export class FloorGL {
     const ctx = this.ctx;
     ctx.setTransform(K, 0, 0, K, 0, 0);
     ctx.clearRect(0, 0, W, H);
+    this._textBand.y0 = 1e9; this._textBand.y1 = -1e9;   // 매 프레임 재수집
     if (this.kind && this.kind !== 'scene') return this['_paint_' + this.kind]();
     let y = 176;   // Figma 대지 실좌표
     for (const n of this.col) {
@@ -652,7 +588,7 @@ export class FloorGL {
           const k = 0.94 + 0.06 * e;
           ctx.translate(CX, y + h / 2); ctx.scale(k, k); ctx.translate(-CX, -(y + h / 2));
         }
-        if (ctx.globalAlpha > 0.004) this._draw(n, y);
+        if (ctx.globalAlpha > 0.004) { this._band(n, y, h); this._draw(n, y); }
         ctx.restore();
       }
       y = (n.type === 'succ' ? yFlow : y + h + (72 + (n.mb || 0)) * o);
@@ -681,6 +617,37 @@ export class FloorGL {
       case 'succ': return 400;
       default: return 0;
     }
+  }
+
+  // 텍스트가 차지한 세로 구간을 대지 px 로 적어 둔다 — 마크 토큰이 이 구간을 지날 때
+  //   토큰 쪽에서 알파를 블러 마스크로 깎기 위한 입력(main 이 월드로 변환해 셰이더에 넣는다).
+  //   ★ 옅은 흰 플레이트를 얹어 뒤를 뭉개는 방식은 기각 — 빔은 빛을 '더할' 뿐이라 그 방식은
+  //     화면에 없던 광량을 만들어 낸다(유저: '빛을 더하고 그런 개념이 아니라 마스킹을 블러로').
+  //     가릴 게 아니라 '그 자리엔 토큰을 안 쏜다'가 물리적으로도 맞다.
+  _band(n, y, h) {
+    if (!SCRIM_TYPES.has(n.type)) return;
+    const b = this._textBand;
+    if (b.y0 > b.y1) { b.y0 = y; b.y1 = y + h; } else { b.y0 = Math.min(b.y0, y); b.y1 = Math.max(b.y1, y + h); }
+  }
+
+  /** 텍스트 구간 → 월드 공간 마스크 파라미터. main 이 UI_MASK 에 복사해 마크 셰이더로 보낸다.
+   *  프레임은 바닥에 눕혀 floorObj 에 글루돼 있으므로 로컬 +y 가 월드 수평 진행축이 된다. */
+  uiMask(out) {
+    const b = this._textBand;
+    if (!this.mesh.visible || b.y0 > b.y1) return null;
+    const m = this.mesh;
+    m.updateMatrixWorld();
+    _mp.set(0, H / 2 - (b.y0 + b.y1) * 0.5, 0).applyMatrix4(m.matrixWorld);
+    _mf.set(0, 1, 0).transformDirection(m.matrixWorld); _mf.y = 0; _mf.normalize();
+    _mr.set(1, 0, 0).transformDirection(m.matrixWorld); _mr.y = 0; _mr.normalize();
+    out.ox = _mp.x; out.oz = _mp.z;
+    out.fx = _mf.x; out.fz = _mf.z;
+    out.rx = _mr.x; out.rz = _mr.z;
+    out.halfL = (b.y1 - b.y0) * 0.5 * Math.abs(m.scale.y) + 0.06;   // 글자 높이 + 여유
+    out.halfW = 560 * Math.abs(m.scale.x);                          // 열 최대폭(SPM 행) 기준
+    out.feather = 0.18;   // 경계 페더(m) — 이게 '블러 마스크'의 번짐 폭이다
+    out.amt = 0.85;       // 완전 0 까지는 안 깎는다 — 토큰이 뒤에 있다는 건 보여야 한다
+    return out;
   }
 
   _draw(n, y) {
@@ -794,8 +761,9 @@ export class FloorGL {
   // ── 공통 조각 ───────────────────────────────────────────────────────────────
   // 빔 글로우 — 원본은 radial 마스크로 사각 모서리를 잘라낸다. 그린 뒤 같은 마스크를 destination-out으로.
   _bgGlow(topY, w = 2200) {
-    const ctx = this.ctx;
-    const h = w * (2140 / 2366);   // 구 bg_glow.svg 뷰박스 비율 — 에셋 없이도 같은 타원
+    const ctx = this.ctx, im = this._img('bg_glow.svg');
+    if (!im) return;
+    const h = w * (im.naturalHeight / im.naturalWidth);
     ctx.save();
     // glowDrift 15s ×3 — 원본 translate는 자기 크기의 %라 그대로 환산
     const p = cycle(this.t, 0, 15, 3);
@@ -806,7 +774,7 @@ export class FloorGL {
       const r = kf(p, [[0, 0], [.25, 4], [.5, -3], [.75, 3], [1, 0]]) * Math.PI / 180;
       ctx.translate(CX + dx, topY + dy); ctx.rotate(r); ctx.scale(s, s); ctx.translate(-CX, -topY);
     }
-    paintGlow(ctx, CX, topY, w / 2, h / 2);   // 구 drawImage(bg_glow.svg)
+    ctx.drawImage(im, CX - w / 2, topY - h / 2, w, h);
     ctx.restore();
     ctx.save();
     const g = ctx.createRadialGradient(CX, H * 0.43, 0, CX, H * 0.43, W * 0.58);
@@ -883,9 +851,7 @@ export class FloorGL {
       // 필터 영역을 블러 반경(3σ=280)만큼 넓힌 에셋 — 예전엔 filter 영역이 viewBox와 같아
       //   가우시안이 좌우·아래에서 잘려 글로우가 사각으로 뚝 끊겼다(유저: 투사영역 따라 일자로 잘림).
       //   대지가 1.4495×1.4030 커졌으므로 그리는 사각형도 같은 배율 — 글로우 크기는 그대로다.
-      paintGlow(ctx, CX, 1400, 739, 652);   // 구 drawImage(big_glow.svg)
-      // CTA 텍스트 블록(y 1057~1330) 자리만 빛을 뺀다 — 글자는 그대로 두고 빛이 주위를 감싼다.
-      carveGlow(ctx, CX, 1215, 520, 245);
+      ctx.drawImage(gl, CX - 739, 1400 - 652, 1478, 1305);
       ctx.restore();
     }
     // 크리에이터 얼굴 = pyeongso .creator-profile 의 아바타만(×3.0, 303px + 흰 테두리 6).

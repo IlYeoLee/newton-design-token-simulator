@@ -1268,8 +1268,6 @@ void main(){
       Object.assign(FXP.arrow, st.arrow);
       if (changed) refreshGlyphConsumers();   // 화살표 자루 리빌드
     }
-    // 빔 글로우 손잡이 — 랩 슬라이더가 그대로 건너온다(크기·중심 진하기·감쇠·백열·바깥 색).
-    if (st.glow) Object.assign(FXP.glow, st.glow);
     // 마크 숫자 활자 — 랩 토글이 그대로 건너온다('glyph' 슬롯 SVG / 'offbit' 도트 폰트).
     // glyphs 블록 밖에 둔다: 글리프를 한 번도 안 만진 랩 상태에서도 이 값은 와야 한다.
     if (st.numSrc && st.numSrc !== FXP.numSrc) {
@@ -4816,7 +4814,16 @@ void main(){
   //   기본값 = WebGL. 되돌리려면 ?floorgl=0 (CSS3D 문서 경로가 그대로 남아 있다).
   const FLOORGL = new URLSearchParams(location.search).get('floorgl') !== '0';
   const floorGL = new FloorGL();
-  scene.add(floorGL.mesh);
+  // 지면 UI(제목·SPM·페이스)는 마크 판정 토큰 '앞'에 온다 — 토큰이 글자를 덮어 안 읽히던 것(유저).
+  //   ★ 메시의 renderOrder 를 올려도 소용없다. three 는 (groupOrder, renderOrder, depth) 순으로
+  //     정렬하고 groupOrder 는 '내려오다 만난 Group 의 renderOrder'다. 토큰은 group.renderOrder=5
+  //     인 Group 아래에 있고(tokens.js) floorGL.mesh 는 scene 직속이라 groupOrder 0 —
+  //     즉 자기 renderOrder 가 몇이든 토큰보다 항상 먼저 그려졌다. 그래서 Group 으로 감싼다.
+  //   9 = 마크(≤6)·글리프(7)·파문(8) 위, 궤적 토큰(14) 아래.
+  const floorUILayer = new THREE.Group();
+  floorUILayer.renderOrder = 9;
+  floorUILayer.add(floorGL.mesh);
+  scene.add(floorUILayer);
   floorGL.preload();   // 진입 전에 이미지 굽기 — 첫 화면 팝 방지(녹화 대비)
   let floorGLOn = false;   // 이번 프레임에 WebGL 경로가 담당하는가
   const fdocNow = () => (floorGLOn ? floorGL.doc : floorIframe.contentDocument);

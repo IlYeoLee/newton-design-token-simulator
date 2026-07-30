@@ -87,9 +87,6 @@
   <div class="sliders" id="slidersS" style="display:none"></div>
   <h3 style="margin-top:16px">그래픽 — 터짐·발자국</h3>
   <div class="sliders" id="slidersG"></div>
-  <h3 style="margin-top:16px">빔 글로우 — 시작 화면·타이머 배경</h3>
-  <div class="ctl" style="justify-content:flex-start"><span style="font-size:11px;color:var(--dim);width:52px">바깥</span><span id="glowOuterChips"></span><span style="font-size:10px;color:var(--dim);margin-left:6px">덩어리 가장자리를 무슨 색으로 끝낼지</span></div>
-  <div class="sliders" id="slidersGlow"></div>
   <h3 style="margin-top:16px">인물</h3>
   <div class="sliders" id="slidersP"></div>
   <div class="foot">
@@ -260,7 +257,6 @@ const state = {
   p: { blur: 1.0, glow: 0, flow: 0.4, decay: 0.04, grain: 0.07, detail: 0.6, tone: 1 },   // 유저 확정 룩 = 공장 기본 (2026-07-18)
   footShape: 1, personMode: 0, burstStyle: 0, laneStyle: 0,
   numSrc: 'glyph',   // 마크 안 숫자 활자 — 'glyph'=슬롯 SVG(정본) · 'offbit'=OffBit 도트 폰트
-  glow: { scale: 1.0, core: 1.0, body: 0.62, falloff: 2.2, hot: 0, carve: 0.85, outer: 'sand' },   // 빔 글로우 손잡이 → FXP.glow
   glyphRev: GLYPH_REV,   // 저장본 이행 세대 — 정본 청소를 한 번만 하기 위한 표식
   // 슬롯별 커스텀 SVG — 저장·브리지 왕복 (규칙: ↑=전방, 발가락 위·뒤꿈치 아래)
   // 숫자·발형은 저장소 정본(ready-view/assets/glyphs/)을 기본값으로 싣는다. 예전엔 랩에
@@ -282,16 +278,6 @@ const state = {
 };
 const FACTORY = JSON.parse(JSON.stringify(state));   // 권장 기본값 (로드 시 원본)
 const SLIDER_DEFS = {
-  // 빔 글로우 — 값을 코드에 박고 렌더해 확인하는 방식으로는 못 맞춘다(다섯 번 시도, 다섯 번
-  //   다 한 문제를 다른 문제로 바꿈). 반경·알파·감쇠·색이 얽혀 있어 손으로 돌려야 찾아진다.
-  glow: [
-    ['scale',   '크기',      0.4, 1.8, 0.02],
-    ['core',    '중심 진하기', 0.3, 1,   0.02],
-    ['falloff', '감쇠(빛↔원반)', 0.6, 6,   0.1],
-    ['hot',     '중심 백열',   0,   0.4, 0.01],
-    ['body',    '몸통(쨍함)',  0,   0.9, 0.02],
-    ['carve',   '글자 자리 구멍', 0,   1,   0.05],
-  ],
   g: [
     ['speed',  '속도',   0.4, 1.8, 0.05],
     ['width',  '블러(폭)',0.4, 2.2, 0.05],
@@ -1157,18 +1143,7 @@ Object.keys(PRESETS).forEach((name, idx) => {
   };
   presets.appendChild(b);
 });
-// 바깥 색 칩 — 슬라이더로는 못 고르는 값
-[['sand', 'Sand'], ['coral', 'Coral'], ['prism', 'Prism']].forEach(([key, name], i) => {
-  const b = document.createElement('button');
-  b.className = 'btn' + (i === 0 ? ' on' : ''); b.textContent = name;
-  b.style.padding = '4px 9px'; b.style.fontSize = '11px';
-  b.onclick = () => {
-    state.glow.outer = key;
-    glowOuterChips.querySelectorAll('.btn').forEach((x, j) => x.classList.toggle('on', i === j));
-  };
-  glowOuterChips.appendChild(b);
-});
-for (const [scope, host] of [['s', slidersS], ['g', slidersG], ['glow', slidersGlow], ['m', slidersM], ['p', slidersP]]) {
+for (const [scope, host] of [['s', slidersS], ['g', slidersG], ['m', slidersM], ['p', slidersP]]) {
   for (const [key, label, mn, mx, st] of SLIDER_DEFS[scope]) {
     const d = document.createElement('div'); d.className = 'sld';
     d.innerHTML = `<label>${label}</label><input type="range" min="${mn}" max="${mx}" step="${st}" value="${state[scope][key]}"><output>${state[scope][key]}</output>`;
@@ -1836,7 +1811,6 @@ function labSnapshot() {
     burstStyle: state.burstStyle, laneStyle: state.laneStyle,
     markShape: state.markShape, markForm: state.markForm, markContract: state.markContract,
     numSrc: state.numSrc,   // 마크 숫자 활자 — 시뮬 FXP.numSrc 로 건너간다
-    glow: { ...state.glow },   // 빔 글로우 손잡이 — 시뮬 FXP.glow
     glyphRev: state.glyphRev,   // 시뮬이 정본 청소 여부를 판단하는 표식
     glyphs: { ...state.glyphs },
     glyphFlip: { ...state.glyphFlip },
@@ -1866,7 +1840,6 @@ function applyExternalState(st) {
     if (st.stops) state.stops = st.stops.map(x => [...x]);
     if (st.sat != null) { state.sat = st.sat; satSl.value = st.sat; satV.textContent = st.sat; }
     for (const k of ['g', 'm', 'p']) Object.assign(state[k], st[k] || {});
-    if (st.glow) Object.assign(state.glow, st.glow);
     // 화면 룩 은퇴 — 저장본의 s(그레인 등)를 무시하고 고정 룩으로 (좀비 설정 방지)
     state.s = { bloomStrength: 0.18, bloomThreshold: 0.7, bloomRadius: 0.45, exposure: 0.95, grain: 0, vignette: 0.08 };
     for (const k of ['burstStyle', 'laneStyle', 'markShape', 'markForm', 'markContract', 'numSrc'])

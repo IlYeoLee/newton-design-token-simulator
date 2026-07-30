@@ -9,8 +9,7 @@
 // 세로 translate가 원근상 왜곡되지 않는다 → 원본 translateY를 그대로 쓴다.
 import * as THREE from 'three';
 import { PAL, NEU, rgba } from './palette.js';
-import { FXP } from './fxlut.js';   // 주/야 합성 전환 — 마크 토큰과 같은 규칙
-import { clamp01, eOut, cycle, kf, intro, drawChars, drawBadge, insetGlow, checkBadge, growBar, arcGauge, ringGauge, paintGlow } from './floorgl.js';
+import { clamp01, eOut, cycle, kf, intro, drawChars, drawBadge, insetGlow, checkBadge, growBar, arcGauge, ringGauge } from './floorgl.js';
 
 const W = 2600, H = 1600;   // 대지 px (벽 2.6×1.6m 실측 1:1)
 // 캔버스 해상도 — 대지 대비 배율. 화질 vs 업로드 비용의 저울.
@@ -154,11 +153,7 @@ export class WallGL {
       // depthTest는 켠 채로 — 이 이식의 전부다(벽 앞의 x봇에 가려진다). depthWrite는 반투명 UI라 끈다.
       // opacity 1 — 구 0.95('투사 UI 5% 균일 투명도')는 밝은 실내 벽에선 카드·판이 통째로
       // 벽 색과 섞여 뿌예지는 값이었다(유저: 알파합성 취소). 텍셀 알파는 그대로 살아 있다.
-      // blending — 투사는 빛이다. 알파 합성은 벽을 '가리고 덮으므로' 반투명 부분이 벽 색과
-      //   섞여 뿌예진다. 위 opacity 0.95→1 은 그 증상을 완화한 것이고 근본은 합성 모드였다.
-      //   마크 토큰과 같은 규칙으로 — 야간=가산 / 주간=알파. update()가 매 프레임 갱신한다.
-      new THREE.MeshBasicMaterial({ map: this.tex, transparent: true, opacity: 1, depthWrite: false, toneMapped: false,
-                                    blending: FXP.day ? THREE.NormalBlending : THREE.AdditiveBlending }),
+      new THREE.MeshBasicMaterial({ map: this.tex, transparent: true, opacity: 1, depthWrite: false, toneMapped: false }),
     );
     this.mesh.visible = false;
     // 벽 이펙트(빔 그리드·판정 토큰)는 z −1.05~−1.43에 있고 전부 transparent·depthWrite:false 라
@@ -240,9 +235,6 @@ export class WallGL {
 
   update(dt) {
     if (!this.stage) return;
-    // 합성 모드는 주/야를 따라간다 — 야간=가산(빛) · 주간=알파(가산이면 과노출).
-    { const m = this.mesh.material, day = !!FXP.day;
-      if (m._day !== day) { m._day = day; m.blending = day ? THREE.NormalBlending : THREE.AdditiveBlending; m.needsUpdate = true; } }
     this.t += dt;
     // 24fps — 벽 UI는 상시 모션(글로우 드리프트·웨이브)이라 서명 비교로 걸러질 게 없다.
     // ponytail: 정적/동적 평면 분리는 바닥과 같은 계획(HANDOFF). 지금은 한 장.
@@ -263,8 +255,9 @@ export class WallGL {
   // ── 공통 조각 ───────────────────────────────────────────────────────────────
   // 배경 글로우 + glowDrift 15s ∞. 원본은 컨테이너 라디얼 마스크로 사각 모서리를 잘라낸다.
   _bgGlow() {
-    const ctx = this.ctx;
-    const w = 2050, h = w * (2140 / 2366);   // 구 bg_glow.svg 뷰박스 비율
+    const ctx = this.ctx, im = this._img('bg_glow.svg');
+    if (!im) return;
+    const w = 2050, h = w * (im.naturalHeight / im.naturalWidth);
     ctx.save();
     const p = cycle(this.t, 0, 15, INF);
     if (p != null) {
@@ -274,7 +267,7 @@ export class WallGL {
       const r = kf(p, [[0, 0], [.25, 5], [.5, -4], [.75, 3], [1, 0]]) * Math.PI / 180;
       ctx.translate(CX + dx, H / 2 + dy); ctx.rotate(r); ctx.scale(s, s); ctx.translate(-CX, -H / 2);
     }
-    paintGlow(ctx, CX, H / 2, w / 2, h / 2);   // 구 drawImage(bg_glow.svg)
+    ctx.drawImage(im, CX - w / 2, H / 2 - h / 2, w, h);
     ctx.restore();
     // 라디얼 마스크: 66%×62% at (50%, 44%), #000 20% → transparent 90%
     ctx.save();
@@ -494,14 +487,14 @@ export class WallGL {
     const fe = eOut(intro(t, .6, .9));
     ctx.globalAlpha *= fe; ctx.translate(0, 52 * (1 - fe));
     // 글로우 — glowPulse 4.6s ∞
-    const gp = cycle(t, 0, 4.6, INF);
-    {
+    const gl = this._img('glow.svg'), gp = cycle(t, 0, 4.6, INF);
+    if (gl) {
       ctx.save();
       ctx.globalAlpha *= gp == null ? .86 : kf(gp, [[0, .86], [.5, 1], [1, .86]]);
       const gs = gp == null ? 1 : kf(gp, [[0, 1], [.5, 1.055], [1, 1]]);
       const gcx = FX - 70 + 450, gcy = FY - 70 + 455;
       ctx.translate(gcx, gcy); ctx.scale(gs, gs); ctx.translate(-gcx, -gcy);
-      paintGlow(ctx, gcx, gcy, 450, 455);   // 구 drawImage(glow.svg) — 평평한 코어 51% 로 셋 중 최악이었다
+      ctx.drawImage(gl, FX - 70, FY - 70, 900, 910);
       ctx.restore();
     }
     // 발 — footBob 5.5s 2.2s ∞
