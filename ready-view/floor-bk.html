@@ -15,38 +15,40 @@ html,body{background:transparent}
 .bigglow img{width:100%;height:100%;display:block;transform-origin:50% 46%;animation:glowLive 7s ease-in-out 3}
 
 /* 타이틀 — 글자 하나하나 루핑 웨이브 */
-.title{position:absolute;top:176px;left:0;right:0;text-align:center;white-space:nowrap;
+.title{position:absolute;top:620px;left:0;right:0;text-align:center;white-space:nowrap;
   font-weight:700;font-size:120px;line-height:1.1;letter-spacing:-4px}
 .title .ch{display:inline-block;will-change:transform,opacity;animation:charLoop 3s ease-in-out 3}
 .title .sp{display:inline-block;width:.26em}
 
-/* 3칸 정보 스트립 */
-.strip{position:absolute;top:452px;left:50%;transform:translateX(-50%);height:142px;display:flex;align-items:center;
-  opacity:0;animation:fadeUpCentered .8s cubic-bezier(.2,.75,.2,1) .35s both}
-.col{display:flex;flex-direction:column;justify-content:center;align-items:center;padding:0 40px;text-align:center}
-.col.side{width:400px}
-.col .k{font-weight:500;font-size:40px;color:rgba(255,255,255,.55);letter-spacing:-.5px;margin-bottom:14px}
-.col .v{font-weight:700;font-size:64px;letter-spacing:-2px;white-space:nowrap}
-.col .v.sm{font-size:52px}
-.divider{width:2px;height:100px;background:rgba(255,255,255,.22);flex:none}
 
-/* 디바이스 프로그래스 링 */
-.devs{position:absolute;top:654px;left:50%;transform:translateX(-50%);display:flex;gap:28px;
-  opacity:0;animation:fadeUpCentered .8s cubic-bezier(.2,.75,.2,1) .5s both}
-.dev{position:relative;width:170px;height:170px}
-.dev svg{position:absolute;inset:0;width:100%;height:100%}
-.dev .track{fill:none;stroke:rgba(255,255,255,.16);stroke-width:13}
-.dev .prog{fill:none;stroke:#fff;stroke-width:13;stroke-linecap:round;
-  transform:rotate(-90deg);transform-origin:50% 50%;
-  stroke-dasharray:477;stroke-dashoffset:477;transition:stroke-dashoffset 1.5s cubic-bezier(.3,.85,.3,1)}
-.dev .ic{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:block}
-.ic-glasses{width:96px}.ic-watch{width:56px}.ic-earbuds{width:82px}
 
-/* 중앙 하단 Tap-foot 히어로 */
+
+/* 기기 연결 = 운동 전 필수 체크(유저) — .chip-row / .chip-sel (setup.css) 정본을 자기 줄로.
+   '컨디션'과는 다른 정보라 상태 줄에 섞지 않고, 발 구르기 직전에 확인하는 조건이므로 CTA 바로 위. */
+.chips{position:absolute;top:800px;left:50%;transform:translateX(-50%);display:flex;gap:10px;
+  opacity:0;animation:fadeUpCentered .8s cubic-bezier(.2,.75,.2,1) .6s both}
+.chip-sel{display:inline-flex;align-items:center;gap:10px;box-sizing:border-box;
+  background:#fff;border:none;border-radius:355px;padding:15px 29px;
+  font-family:'Supreme',sans-serif;font-weight:400;font-size:44px;line-height:1.4;
+  letter-spacing:-1.3px;color:#525252;box-shadow:0 0 9px rgba(0,0,0,.12)}
+.chip-sel.sel{color:#fff;
+  background:linear-gradient(180deg,#FA3030 48%,#FE6E3C 77.6%,#FEC389 100.5%,#D1FEFF 107.5%);
+  box-shadow:0 15px 58px 10px rgba(0,0,0,.05),inset 0 0 26px 9px rgba(255,255,255,.6)}
+.chip-sel img{height:32px;width:auto;display:block;filter:brightness(0)}
+.chip-sel.sel img{filter:brightness(0) invert(1)}
+
+/* CTA = 모바일 .rts-prompt 컴포넌트(ready.css, ready-to-start.html) 2줄 스택 이식(캡션 'To start' 는 제외 — 복싱 벽과 같은 2줄, 실측 wallgl:497).
+   제목과 같은 크기·굵기의 흰 볼드 한 줄이라 구분이 안 됐다(유저) → 정본대로 위아래 캡션을
+   달아 '지시문 덩어리'로 읽히게 한다. 비율은 모바일 그대로(s/m = 14/28 = 0.5, gap 8/28),
+   절대 크기는 지면 타입스케일 유지(m 88) — 지면은 판이 물리적으로 커서 ×4.44 가 아니다.
+   글로우+발 조합은 이 화면의 시그니처라 그대로 둔다(유저). */
 .hero{position:absolute;left:50%;top:1057px;transform:translateX(-50%);width:1000px;text-align:center;
+  display:flex;flex-direction:column;gap:19px;
   opacity:0;animation:fadeUpCentered .9s cubic-bezier(.2,.75,.2,1) .7s both}
-.hero .arrow{width:86px;height:86px;display:block;margin:0 auto 30px;animation:arrowBob 3s ease-in-out 3 1.5s}
-.hero .a{font-weight:700;font-size:88px;line-height:1.05;letter-spacing:-5px}
+.hero .arrow{width:86px;height:86px;display:block;margin:0 auto 5px;animation:arrowBob 3s ease-in-out 3 1.5s}
+.hero .s{font-family:'Supreme',sans-serif;font-weight:400;font-size:44px;line-height:1.4;
+  letter-spacing:-1.3px;color:rgba(255,255,255,.8)}
+.hero .m{font-weight:700;font-size:88px;line-height:1.2;letter-spacing:-4.7px;color:#fff}
 .foot{position:absolute;left:606px;top:1140px;width:400px;height:539px;
   opacity:0;animation:slideInUp .9s cubic-bezier(.2,.75,.2,1) .7s both}
 .foot img{width:100%;height:100%;display:block;transform-origin:50% 100%;
@@ -55,7 +57,7 @@ html,body{background:transparent}
 /* ═══ 애니메이션 ═══ */
 @keyframes slideInUp{from{opacity:0;transform:translateY(52px)}to{opacity:1;transform:translateY(0)}}
 @keyframes fadeUpCentered{from{opacity:0;transform:translateX(-50%) translateY(52px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
-@keyframes charLoop{0%,58%,100%{opacity:.5;transform:translateY(0)}12%{opacity:1;transform:translateY(-16px)}26%{opacity:1;transform:translateY(0)}}
+@keyframes charLoop{0%,58%,100%{opacity:.85;transform:translateY(0)}12%{opacity:1;transform:translateY(-16px)}26%{opacity:1;transform:translateY(0)}}
 @keyframes fillRing{from{--p:0}to{--p:var(--pct)}}
 @keyframes footBob{0%,58%,100%{transform:translateY(0)}12%{transform:translateY(46px)}25%{transform:translateY(6px)}40%{transform:translateY(44px)}52%{transform:translateY(0)}}
 @keyframes arrowBob{0%,58%,100%{transform:translateY(0)}12%{transform:translateY(14px)}25%{transform:translateY(0)}40%{transform:translateY(13px)}52%{transform:translateY(0)}}
@@ -66,33 +68,17 @@ html,body{background:transparent}
 
     <div class="title" id="title">Curry's Handle Pack</div>
 
-    <div class="strip">
-      <div class="col side"><div class="k">Time</div><div class="v">30min</div></div>
-      <div class="divider"></div>
-      <div class="col mid"><div class="k">Connection</div><div class="v">Good</div></div>
-      <div class="divider"></div>
-      <div class="col side"><div class="k">Mode</div><div class="v">Press On</div></div>
-    </div>
-
-    <!-- 디바이스 프로그래스 링 3개 -->
-    <div class="devs">
-      <div class="dev">
-        <svg viewBox="0 0 170 170"><circle class="track" cx="85" cy="85" r="76"/><circle class="prog" cx="85" cy="85" r="76" data-pct=".9"/></svg>
-        <img class="ic ic-glasses" src="assets/run/ic_glasses.png">
-      </div>
-      <div class="dev">
-        <svg viewBox="0 0 170 170"><circle class="track" cx="85" cy="85" r="76"/><circle class="prog" cx="85" cy="85" r="76" data-pct=".3"/></svg>
-        <img class="ic ic-watch" src="assets/run/ic_watch.png">
-      </div>
-      <div class="dev">
-        <svg viewBox="0 0 170 170"><circle class="track" cx="85" cy="85" r="76"/><circle class="prog" cx="85" cy="85" r="76" data-pct=".6"/></svg>
-        <img class="ic ic-earbuds" src="assets/run/ic_earbuds.png">
-      </div>
+    <!-- 기기 연결 체크 — 연결·충전된 기기는 sel(뉴턴 그라디언트) -->
+    <div class="chips">
+      <div class="chip-sel sel"><img src="assets/run/ic_glasses.png">90%</div>
+      <div class="chip-sel"><img src="assets/run/ic_watch.png">30%</div>
+      <div class="chip-sel"><img src="assets/run/ic_earbuds.png">60%</div>
     </div>
 
     <div class="hero">
       <img class="arrow" src="assets/run/arrow.svg" alt="">
-      <div class="a">Tap your foot Twice</div>
+      <span class="m">Tap your foot Twice</span>
+      <span class="s">with the Wearable on</span>
     </div>
     <div class="foot"><img src="assets/run/foot.svg" alt=""></div>
   </div>
@@ -104,10 +90,6 @@ html,body{background:transparent}
       t.appendChild(s); });
   })();
   window.addEventListener('load', ()=>{
-    document.querySelectorAll('.dev .prog').forEach((p,i)=>{
-      const pct=parseFloat(p.getAttribute('data-pct'))||0;
-      setTimeout(()=>{ p.style.strokeDashoffset = 477*(1-pct); }, 900 + i*160);
-    });
   });
   </script>
 </body></html>
