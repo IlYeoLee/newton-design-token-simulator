@@ -48,7 +48,8 @@ export const FXP = {
   //   falloff  감쇠 지수. 1=선형(원반에 가까움) · 클수록 중심에 몰려 빛처럼 보인다
   //   hot      중심을 흰-프리즘(뜨거움)으로 얼마나 태울지. 0 이면 순수 브랜드 레드 중심
   //   outer    바깥을 무엇으로 끝낼지 — sand | coral | prism
-  glow: { scale: 1.0, core: 1.0, falloff: 2.2, hot: 0, outer: 'sand' },
+  //   carve    글자 자리에 파는 구멍의 세기(0=안 팜). 가산광이라 글자를 밝힐 수 없으니 뒤를 어둡게 한다
+  glow: { scale: 1.0, core: 1.0, falloff: 2.2, hot: 0, carve: 0.85, outer: 'sand' },
 };
 
 /** OffBit 도트 폰트가 캔버스에서 쓸 수 있게 미리 로드 — floorgl/wallgl 과 같은 규약 */
@@ -131,6 +132,16 @@ export const GLYPHS = {
 // 덮었고(심지어 GLYPHS.set(st.glyphs) 는 맵을 통째 교체했다), 그 바람에 랩에서
 // 한 번이라도 글리프를 올린 브라우저는 다듬은 정본이 영영 안 보였다.
 // 정본에 없는 슬롯(연산 기호 + − × %, TIP_*, WARN_EXCL 등)은 저장본이 채운다.
+/** 정본 세대. 정본 SVG 를 갈아끼울 때 올린다 — 저장본의 낡은 dataURL 을 '한 번만' 청소하는 기준. */
+export const GLYPH_REV = 2;
+/** 저장본 + 정본 병합. 세대가 낮으면 정본과 겹치는 저장본 항목을 버리고(1회 이행) 정본을 심는다.
+ *  이행이 끝난 뒤에는 **저장본이 이긴다** — 그래야 랩에서 올린 SVG 가 반영된다.
+ *  (정본을 항상 뒤에 두면 유저가 새 글리프를 올려도 화면이 안 바뀐다 — 실제로 그 버그를 만들었다.) */
+export function mergeGlyphs(saved, savedRev) {
+  const s = { ...(saved || {}) };
+  if ((savedRev | 0) < GLYPH_REV) for (const k of Object.keys(DEFAULT_GLYPHS)) delete s[k];
+  return { ...DEFAULT_GLYPHS, ...s };
+}
 const _G = import.meta.env.BASE_URL + 'ready-view/assets/glyphs/';
 export const DEFAULT_GLYPHS = {
   L: import.meta.env.BASE_URL + 'ready-view/assets/glyph_L.svg',

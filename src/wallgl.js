@@ -9,6 +9,7 @@
 // 세로 translate가 원근상 왜곡되지 않는다 → 원본 translateY를 그대로 쓴다.
 import * as THREE from 'three';
 import { PAL, NEU, rgba } from './palette.js';
+import { FXP } from './fxlut.js';   // 주/야 합성 전환 — 마크 토큰과 같은 규칙
 import { clamp01, eOut, cycle, kf, intro, drawChars, drawBadge, insetGlow, checkBadge, growBar, arcGauge, ringGauge, paintGlow } from './floorgl.js';
 
 const W = 2600, H = 1600;   // 대지 px (벽 2.6×1.6m 실측 1:1)
@@ -153,7 +154,11 @@ export class WallGL {
       // depthTest는 켠 채로 — 이 이식의 전부다(벽 앞의 x봇에 가려진다). depthWrite는 반투명 UI라 끈다.
       // opacity 1 — 구 0.95('투사 UI 5% 균일 투명도')는 밝은 실내 벽에선 카드·판이 통째로
       // 벽 색과 섞여 뿌예지는 값이었다(유저: 알파합성 취소). 텍셀 알파는 그대로 살아 있다.
-      new THREE.MeshBasicMaterial({ map: this.tex, transparent: true, opacity: 1, depthWrite: false, toneMapped: false }),
+      // blending — 투사는 빛이다. 알파 합성은 벽을 '가리고 덮으므로' 반투명 부분이 벽 색과
+      //   섞여 뿌예진다. 위 opacity 0.95→1 은 그 증상을 완화한 것이고 근본은 합성 모드였다.
+      //   마크 토큰과 같은 규칙으로 — 야간=가산 / 주간=알파. update()가 매 프레임 갱신한다.
+      new THREE.MeshBasicMaterial({ map: this.tex, transparent: true, opacity: 1, depthWrite: false, toneMapped: false,
+                                    blending: FXP.day ? THREE.NormalBlending : THREE.AdditiveBlending }),
     );
     this.mesh.visible = false;
     // 벽 이펙트(빔 그리드·판정 토큰)는 z −1.05~−1.43에 있고 전부 transparent·depthWrite:false 라
@@ -235,6 +240,9 @@ export class WallGL {
 
   update(dt) {
     if (!this.stage) return;
+    // 합성 모드는 주/야를 따라간다 — 야간=가산(빛) · 주간=알파(가산이면 과노출).
+    { const m = this.mesh.material, day = !!FXP.day;
+      if (m._day !== day) { m._day = day; m.blending = day ? THREE.NormalBlending : THREE.AdditiveBlending; m.needsUpdate = true; } }
     this.t += dt;
     // 24fps — 벽 UI는 상시 모션(글로우 드리프트·웨이브)이라 서명 비교로 걸러질 게 없다.
     // ponytail: 정적/동적 평면 분리는 바닥과 같은 계획(HANDOFF). 지금은 한 장.

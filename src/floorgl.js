@@ -336,6 +336,28 @@ export function paintGlow(ctx, cx, cy, rx, ry = rx, gain = 1) {
   ctx.restore();
 }
 
+/** 글로우에 구멍 파기 — 글자 자리만 빛을 빼서 대비를 만든다.
+ *  투사는 가산광이라 흰 글자를 배경보다 밝게 만들 수 없다(실측: 글자 뒤가 R=255 로 포화,
+ *  흰 글자와 빨강 채널 차이 0 → 흐릿하게 뜬 글자). 글자를 밝히는 게 불가능하니 뒤를 어둡게 한다.
+ *  가장자리는 넉넉히 흐리게 — 딱딱한 구멍은 '검은 판'으로 보인다. */
+export function carveGlow(ctx, cx, cy, rx, ry, strength = 1) {
+  const s = Math.max(0, Math.min(1, strength * (FXP.glow?.carve ?? 1)));
+  if (s <= 0 || !(rx > 0)) return;
+  ctx.save();
+  ctx.globalCompositeOperation = 'destination-out';
+  ctx.translate(cx, cy);
+  if (ry !== rx) ctx.scale(1, ry / rx);
+  const g = ctx.createRadialGradient(0, 0, 0, 0, 0, rx);
+  g.addColorStop(0.00, `rgba(0,0,0,${s})`);
+  g.addColorStop(0.45, `rgba(0,0,0,${s * 0.92})`);
+  g.addColorStop(0.72, `rgba(0,0,0,${s * 0.55})`);
+  g.addColorStop(0.88, `rgba(0,0,0,${s * 0.20})`);
+  g.addColorStop(1.00, 'rgba(0,0,0,0)');
+  ctx.fillStyle = g;
+  ctx.beginPath(); ctx.arc(0, 0, rx, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+}
+
 export function insetGlow(ctx, x, y, w, h, r, color, blur, spread) {
   if (!_isCv) return;
   const m = Math.ceil(blur) + 8;
@@ -503,7 +525,13 @@ export class FloorGL {
     this.mesh = new THREE.Mesh(
       new THREE.PlaneGeometry(W, H),
       // depthWrite:false — 반투명 UI. depthTest는 켠 채로 두는 게 이 이식의 전부다(x봇에 가려짐).
-      new THREE.MeshBasicMaterial({ map: this.tex, transparent: true, depthWrite: false, toneMapped: false }),
+      // blending — 투사는 빛이다. 알파 합성(기본 NormalBlending)은 바닥을 '가리고 덮으므로'
+      //   알파 0.5 면 잔디 반 + UI 반이 뿌옇게 섞인다. 캔버스에서 아무리 선명하게 그려도
+      //   여기서 막혔다(유저: 룩시스템 마크는 쨍한데 여기선 흐리멍텅하다 — 그 차이가 이것이다).
+      //   마크 토큰(tokens.js)은 이미 야간=가산 / 주간=알파 규칙을 쓴다. 플로어 UI 평면만
+      //   그 규칙 밖에 있었다. 같은 규칙으로 맞춘다 — setDay() 가 매 프레임 갱신한다.
+      new THREE.MeshBasicMaterial({ map: this.tex, transparent: true, depthWrite: false, toneMapped: false,
+                                    blending: FXP.day ? THREE.NormalBlending : THREE.AdditiveBlending }),
     );
     this.mesh.visible = false;
     this.mesh.renderOrder = 3;
@@ -579,6 +607,10 @@ export class FloorGL {
 
   update(dt) {
     if (!this.stage) return;
+    // 합성 모드는 주/야를 따라간다 — 마크 토큰(tokens.js)과 같은 규칙.
+    //   야간=가산(빛처럼 더해져 쨍하다) · 주간=알파(가산이면 과노출된다).
+    const m = this.mesh.material, day = !!FXP.day;
+    if (m._day !== day) { m._day = day; m.blending = day ? THREE.NormalBlending : THREE.AdditiveBlending; m.needsUpdate = true; }
     this.t += dt;
     // 24fps — 22fps는 끊겨 보였고 60fps는 업로드(9.6MB/장)가 프레임 예산을 먹었다(유저 양쪽 신고).
     // 값이 안 바뀌면 아래 서명 비교에서 또 걸러지므로 정지 화면은 업로드 0이다(실측 0.9회/초).
@@ -852,6 +884,8 @@ export class FloorGL {
       //   가우시안이 좌우·아래에서 잘려 글로우가 사각으로 뚝 끊겼다(유저: 투사영역 따라 일자로 잘림).
       //   대지가 1.4495×1.4030 커졌으므로 그리는 사각형도 같은 배율 — 글로우 크기는 그대로다.
       paintGlow(ctx, CX, 1400, 739, 652);   // 구 drawImage(big_glow.svg)
+      // CTA 텍스트 블록(y 1057~1330) 자리만 빛을 뺀다 — 글자는 그대로 두고 빛이 주위를 감싼다.
+      carveGlow(ctx, CX, 1215, 520, 245);
       ctx.restore();
     }
     // 크리에이터 얼굴 = pyeongso .creator-profile 의 아바타만(×3.0, 303px + 흰 테두리 6).

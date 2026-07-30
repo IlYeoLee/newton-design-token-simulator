@@ -23,7 +23,7 @@ import { FloorGL } from './floorgl.js';   // 바닥 UI WebGL 이식(B안) — ?f
 import { WallGL } from './wallgl.js';     // 복싱 벽 UI WebGL 이식(같은 B안) — ?wallgl=0 이면 옛 CSS3D
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { CSS3DRenderer, CSS3DObject } from 'three/examples/jsm/renderers/CSS3DRenderer.js';
-import { getLUT, FXP, rebuildLUT, lutColor, GLYPHS, FX_GLSL, DEFAULT_GLYPHS, ensureOffBit } from './fxlut.js';
+import { getLUT, FXP, rebuildLUT, lutColor, GLYPHS, FX_GLSL, DEFAULT_GLYPHS, GLYPH_REV, mergeGlyphs, ensureOffBit } from './fxlut.js';
 import { drawRotate, PERSON_GLSL, CUT_FEATHER_GLSL } from './fx-core.js';
 import { createEditor3D } from './editor3d.js';
 import { LiveUI } from './liveui.js';
@@ -296,8 +296,15 @@ async function boot() {
       FXP.bg = lab0.bg;
       FXP.footCtx = lab0.footCtx || 'out';
       FXP.customGlyphs = lab0.glyphs;
-      // 정본(DEFAULT_GLYPHS)이 저장본을 이긴다 — fxlut.js 의 규칙 주석 참고.
-      GLYPHS.set({ ...lab0.glyphs, ...DEFAULT_GLYPHS });
+      // 정본을 '항상' 뒤에 두면 랩에서 새 SVG 를 올려도 새로고침마다 덮여 반영이 안 된다(유저 신고).
+      //   세대(GLYPH_REV)로 한 번만 청소하고, 그 뒤로는 저장본이 이긴다 — pRev 이행과 같은 방식.
+      if ((lab0.glyphRev | 0) < GLYPH_REV) {
+        lab0.glyphs = mergeGlyphs(lab0.glyphs, lab0.glyphRev);
+        lab0.glyphRev = GLYPH_REV;
+        FXP.customGlyphs = lab0.glyphs;
+        try { designStore.globalSet('fx', 'lab', lab0); designStore.save(); } catch (e) { /* 저장 실패해도 화면은 정상 */ }
+      }
+      GLYPHS.set(mergeGlyphs(lab0.glyphs, GLYPH_REV));
       GLYPHS.setFlips(lab0.glyphFlip || {});
       // dataURL 디코드 완료 대기 (수 ms — 발형 텍스처가 빌드 시점에 읽을 수 있게)
       await Promise.race([
@@ -1274,7 +1281,8 @@ void main(){
       const changed = JSON.stringify(st.glyphs) !== JSON.stringify(GLYPHS.map);
       FXP.customGlyphs = st.glyphs;
       // 통째 교체였다 — 그러면 정본은 물론 L·R 까지 사라진다(실측: 두 슬롯이 '없음'이었다).
-      GLYPHS.set({ ...st.glyphs, ...DEFAULT_GLYPHS });
+      // 랩에서 실시간으로 오는 상태 — 세대가 같으면 저장본(=랩에서 방금 올린 것)이 이긴다.
+      GLYPHS.set(mergeGlyphs(st.glyphs, st.glyphRev));
       GLYPHS.setFlips(st.glyphFlip || {});
       FXP.footCtx = st.footCtx || 'out';
       FXP.numFoot = st.numFoot || null;   // 발형 숫자 앵커 (FX Lab 드래그 지정)
