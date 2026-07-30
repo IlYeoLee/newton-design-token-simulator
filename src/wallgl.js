@@ -346,7 +346,7 @@ export class WallGL {
     ctx.restore();
 
     // 스탯 카드 — slideInLeft .85s .35s
-    const stY = ROW_Y + hdrH + 24, stH = 1105;   // = CM*2 + 콘텐츠 1049 (하단 여백도 CM 로 딱 맞음)
+    const stY = ROW_Y + hdrH + 24, stH = 1131;   // = CM*2 + 콘텐츠 1049 (하단 여백도 CM 로 딱 맞음)
     ctx.save();
     const se = eOut(intro(t, .35, .85));
     ctx.globalAlpha *= se; ctx.translate(-90 * (1 - se), 0);
@@ -364,10 +364,10 @@ export class WallGL {
     // 하나의 규칙: 모든 컨테이너 내부 좌우 패딩 = CM(28) · 모든 텍스트 축 = ix + CM.
     //   섹션 라벨 · Total 박스 안 텍스트 · Setup 셀 텍스트 · Connected 카드 내용이 전부 한 축에 선다.
     const PADL = CM;
-    // 셀·기기카드는 Total 흰 박스와 같이 안쪽 폭(iw)을 꽉 채운다 — 여백은 회색 카드의 CM 이 준다.
-    //   구 CPAD=14 는 셀만 안으로 한 번 더 들여 텍스트 축을 어긋나게 했다.
+    // CPAD = Setup 흰 박스와 그 안 4개 셀 사이의 여백. 0 으로 두면 셀이 박스 모서리에 딱 붙는다
+    //   (유저: "흰 컨테이너와 그 안 4개 컨테이너 사이 패딩이 0"). 상하좌우 같은 값으로 준다.
     //   셀 사이 간격은 Figma 실값(10·8) 유지 — 24 로 넓히면 카드가 아래로 넘친다(유저 기각).
-    const CPAD = 0, CIN = CM, CGAP = 10, DGAP = 8;
+    const CPAD = 24, CIN = CM, CGAP = 10, DGAP = 8;
     let y = stY + CM;
     // ── Total
     txt(ctx, 'Total', ix + PADL, y + 6, 34, 400, NEU.t1, { ls: -1.13 });
@@ -405,7 +405,7 @@ export class WallGL {
     // ── Setup
     txt(ctx, 'Setup', ix + PADL, y + 6, 34, 400, NEU.t1, { ls: -1.13 });
     y += 48 + 8;
-    const setH = 235;
+    const setH = CPAD * 2 + 103 + 8 + 102;   // 상하 CPAD + 2행(103·102) + 행간 8
     rrFill(ctx, ix, y, iw, setH, 64, '#fff');
     // 흰 박스 안쪽 여백 — 셀이 모서리에 딱 붙어 있었다(유저: "양옆 마진 0").
     // 셀 안 텍스트 패딩은 PADL - CPAD 로 줘서 바깥 축(ix + PADL)은 그대로 유지된다.
@@ -419,7 +419,7 @@ export class WallGL {
     const cells = [['Location', 'Indoor', 103], ['Goal', 'Standard', 103],
                    ['Sound', 'Quiet On', 102], ['Injury', 'None', 102]];
     cells.forEach(([lbl, val, ch], i) => {
-      const cx0 = ix + CPAD + (i % 2) * (cw + CGAP), cy0 = y + 12 + (i < 2 ? 0 : 111);
+      const cx0 = ix + CPAD + (i % 2) * (cw + CGAP), cy0 = y + CPAD + (i < 2 ? 0 : 111);
       const e = eOut(intro(t, .95 + i * .10, .55));
       ctx.save();
       ctx.globalAlpha *= e;
