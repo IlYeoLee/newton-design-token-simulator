@@ -277,6 +277,7 @@ export function makeMarkFXMaterial(footTex = null) {
       //   reach 0.34(쿼드 반폭의 1/3만 나간다) · width 0.09(한 겹) · speed 0.45(느리게).
       //   예전 원형 파장이 과하게 크고 쨍하다는 지적의 실체는 '너무 멀리 · 너무 세게'였다.
       uRip: { value: 0.55 }, uRipSpeed: { value: 0.45 }, uRipWidth: { value: 0.09 }, uRipReach: { value: 0.34 },
+      uRipGrad: { value: 1 },   // 1 = 뉴턴 LUT 그라디언트(기본) · 0 = 단색
       uRipCol: { value: 1 },   // 1 = 샌드(따뜻한 잔광). 0 흰 · 2 코랄 · 3 레드
       uPhase: { value: 0 }, uProg: { value: 0 }, uFade: { value: 1 },
       uToe: { value: 0 },   // 앞꿈치 접지 강조 — 앞은 진하게, 뒤꿈치는 투명하게(스텝백 2/4 왼발)

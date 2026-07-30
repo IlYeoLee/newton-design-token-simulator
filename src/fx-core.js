@@ -334,7 +334,10 @@ uniform vec2 uImpCtr, uImpOff;
 // 파동(리플) — 실루엣 **등거리선**을 따라 퍼진다. uRip 0 = 도입 전과 픽셀 동일.
 //   유저 지적: 지금 파동이 단순 원형 파장이라 발자국 위에서 따로 놀고, 퍼짐이 과하거나 쨍하다.
 //   부호거리로 몰면 파면이 형태를 따라간다 — 발형은 발 모양, 원형은 원. 토큰이 늘어도 파동은 하나다.
-uniform float uRip, uRipSpeed, uRipWidth, uRipReach, uRipCol;
+//   uRipGrad: 파동을 단색 대신 **뉴턴 LUT 그라디언트**로. 0 = 단색(uRipCol) · 1 = 완전 LUT.
+//     갓 나온 파면이 상단(백열)이고 퍼질수록 하단(적)으로 식는다 — "모든 것은 온도다" 규약을
+//     파동에도 그대로 적용한 것. 색을 새로 만드는 게 아니라 있는 LUT 를 훑는다.
+uniform float uRip, uRipSpeed, uRipWidth, uRipReach, uRipCol, uRipGrad;
 // 색 = src/palette.js 단일 소스. 유채는 4색뿐(규칙 ①), 무채는 상태 부호(규칙 ②).
 //   은퇴: C_CREAM(#FEE2C6 — 팔레트에 없던 9번째 색) → SAND
 //         C_WINE·C_BRICK(암적) → SAND·CORAL  (유저: 워닝에 어두운색 금지)
@@ -571,7 +574,10 @@ vec4 markState(vec2 uv, float state, float prog, float strong, float t){
     float cyc = fract(t * max(uRipSpeed, 0.01) + uSeed * 0.159);
     float front = cyc * uRipReach;
     float band = exp(-pow((outPos - front) / max(uRipWidth, 1e-3), 2.0));
-    lay(A, palPick(uRipCol), band * pow(1.0 - cyc, 1.6) * uRip * 0.5 * dashM);
+    // 온도: 갓 나온 파면이 뜨겁고(상단) 퍼질수록 식는다(하단). band 로 파면 중심을 한 겹 더 달군다.
+    float lt  = clamp(0.34 + (1.0 - cyc) * 0.52 + band * 0.22, 0.0, 1.0);
+    vec3  rc  = mix(palPick(uRipCol), lut(lt), clamp(uRipGrad, 0.0, 1.0));
+    lay(A, rc, band * pow(1.0 - cyc, 1.6) * uRip * 0.5 * dashM);
   }
   // NaN 스크럽 — 위 분기 어디서든 비정상 값이 새면 '보이지 않음'으로 떨어뜨린다.
   //   NaN 과의 비교는 항상 false 이므로 step() 이 0 을 골라 준다(GLSL ES 1.0 에서 신뢰 가능한 유일한 방법).

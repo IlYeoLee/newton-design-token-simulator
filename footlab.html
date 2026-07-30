@@ -91,6 +91,8 @@
       <div class=row><label>도달 거리</label><input type=range id=ripReach min=.05 max=1.2 step=.01><span class=v id=vripReach></span></div>
       <div class=row><label>파면 폭</label><input type=range id=ripWidth min=.01 max=.4 step=.005><span class=v id=vripWidth></span></div>
       <div class=row><label>속도</label><input type=range id=ripSpeed min=.05 max=2 step=.05><span class=v id=vripSpeed></span></div>
+      <div class=row><label>뉴턴 그라디언트</label><input type=range id=ripGrad min=0 max=1 step=.02><span class=v id=vripGrad></span></div>
+      <p class=sub style="margin:2px 0 4px">1 = LUT 를 훑는다(퍼질수록 식음) · 0 = 아래 단색</p>
       <div class=seg id=segRipCol><button data-v=0>흰</button><button data-v=1 class=on>샌드</button><button data-v=2>코랄</button><button data-v=3>레드</button></div>
     </fieldset>
 
@@ -171,14 +173,14 @@ const DEF = { imp: 1.0, scale: 0.84, offx: -0.06, offy: -0.01, irot: 0, pitch: 0
               glow: 0.0, shade: 0.55, sharp: 0.75, edge: 0.030, gx: 0, gy: 0, grot: 0, gsh: 0.75,
               w: 1.0, halo: 0.9, pool: 0.55, noise: 0.5, prog: 0.55, tilt: 8,
               bloom: 0.08, blur: 0.8, gsize: 1.0,
-              rip: 0.55, ripReach: 0.34, ripWidth: 0.09, ripSpeed: 0.45 };
+              rip: 0.55, ripReach: 0.34, ripWidth: 0.09, ripSpeed: 0.45, ripGrad: 1 };
 const P = { ...DEF };
 let side = 'left', ctx = 'out', bg = 'day', showNum = 1, showOv = 0, floorKind = 'track';
 
 const $ = id => document.getElementById(id);
 const KEYS = ['imp','scale','offx','offy','irot','pitch','dot','glow','shade','sharp','edge',
               'w','halo','pool','noise','prog','tilt','bloom','blur',
-              'gsize','gx','gy','grot','gsh','rip','ripReach','ripWidth','ripSpeed'];
+              'gsize','gx','gy','grot','gsh','rip','ripReach','ripWidth','ripSpeed','ripGrad'];
 const DIGITS = { tilt: 0, irot: 1, grot: 0, pitch: 3, edge: 3, scale: 3, offx: 3, offy: 3,
                  gx: 3, gy: 3, ripWidth: 3, bloom: 3 };
 let shadeCol = 0, ripCol = 1, gShadow = 'glow', gBlend = 'normal';
@@ -306,6 +308,13 @@ const STATES = [
 ];
 let heroPhase = 1, heroKind = 'foot';   // 스트립 셀 클릭이 이 둘을 같이 정한다(윗줄 발형·아랫줄 원형)
 const KINDS = ['foot', 'zone'];
+/** 상태별 진행 매핑 — Success·Miss 는 **prog 0 이 가장 진한 순간**이다(FootMark.glow 규약).
+ *  나머지 상태와 반대라, 슬라이더 값을 그대로 주면 Success 의 얼음 링(flash = exp(-prog*9))이
+ *  0.55 에서 이미 0.007 로 사라진다. 스트립만 이 매핑을 하고 확대는 안 해서 같은 셀인데
+ *  링이 있다 없다 했다(유저 신고) — 이제 두 화면이 이 함수 하나를 같이 쓴다. */
+function progFor(ph) {
+  return (ph === 2 || ph === 4) ? Math.max(0, P.prog - 0.5) * 2 : P.prog;
+}
 
 // ── 합성 규약 (3화면 공통) ──────────────────────────────────────────────
 //   'add'  = 가산광 패스. 셰이더가 알파 1 을 쓰므로 근사 검정으로 불투명 클리어하고 'lighter' 로 얹는다.
@@ -444,7 +453,7 @@ function feed(u, ph, prog, t, mode) {
   // 파동은 표현형과 무관하게 같은 값 — 이게 '한 디자인 시스템'의 실체다
   U.uRip.value = P.rip; U.uRipReach.value = P.ripReach;
   U.uRipWidth.value = P.ripWidth; U.uRipSpeed.value = P.ripSpeed;
-  U.uRipCol.value = ripCol;
+  U.uRipCol.value = ripCol; U.uRipGrad.value = P.ripGrad;
   matMode(u.mat, mode);
   if (u.kind === 'foot') {
     U.uImp.value = P.imp; U.uImpPitch.value = P.pitch; U.uImpDot.value = P.dot;
@@ -669,7 +678,7 @@ function composite() {
       U.uW.value = P.w; U.uHalo.value = P.halo; U.uPool.value = P.pool; U.uNoise.value = P.noise;
       U.uRip.value = P.rip; U.uRipReach.value = P.ripReach;
       U.uRipWidth.value = P.ripWidth; U.uRipSpeed.value = P.ripSpeed;
-  U.uRipCol.value = ripCol;
+  U.uRipCol.value = ripCol; U.uRipGrad.value = P.ripGrad;
       if (!wm.zone) wm.mesh.rotation.z = (wm.side === 'left' ? P.tilt : -P.tilt) * Math.PI / 180;
     });
     rComp.render(walkScene, compCam);
@@ -687,7 +696,7 @@ function frame() {
       aim(HERO.w / HERO.h);
       const u = units[heroKind];
       if (!u) return;
-      feed(u, heroPhase, P.prog, t, mode);
+      feed(u, heroPhase, progFor(heroPhase), t, mode);
       rHero.render(u.scene, cam);
     });
     // 상태 스트립 — 7상태 × 두 표현형. 윗줄 발형·아랫줄 원형이 **같은 파라미터**로 나란히 간다.
@@ -702,9 +711,7 @@ function frame() {
         // 뷰포트 y 는 아래가 0 — 윗줄(발형)이 화면 위로 가려면 마지막 행부터 채운다
         const vy = (KINDS.length - 1 - row) * ch;
         STATES.forEach((s, i) => {
-          // Success·Miss 는 prog=0 이 가장 진한 순간 (FootMark.glow 규약)
-          const pr = (s.ph === 2 || s.ph === 4) ? Math.max(0, P.prog - 0.5) * 2 : P.prog;
-          feed(u, s.ph, pr, t, mode);
+          feed(u, s.ph, progFor(s.ph), t, mode);
           rStrip.setViewport(i * cw, vy, cw, ch);
           rStrip.setScissor(i * cw, vy, cw, ch);
           rStrip.render(u.scene, cam);
