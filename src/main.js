@@ -248,9 +248,10 @@ async function boot() {
           //   저장본의 detail 0.15 는 blur·decay 가 켜져 있던 옛 파이프라인에서 authored 된 값이다.
           //   그 둘을 은퇴시킨 지금은 결이 36%만 남아 인물이 흐리멍텅해진다(유저 신고) → 정본으로 올린다.
           //   pRev 마커로 멱등 — 이행 후 유저가 다시 내려도 덮지 않는다.
-          if (dlab.p && lab.p && (lab.pRev || 0) < 2) {
+          //   기본 p 를 다시 바꿀 때마다 이 숫자를 올린다(3 = detail 0.42 = 결 100%).
+          if (dlab.p && lab.p && (lab.pRev || 0) < 3) {
             lab.p = { ...lab.p, ...dlab.p };
-            lab.pRev = 2; changed = true;
+            lab.pRev = 3; changed = true;
           }
           if (changed) localStorage.setItem('newton_design_v1', JSON.stringify(cur));
         } else if (dlab && cur?.global?.fx && !lab) {
@@ -1325,7 +1326,8 @@ void main(){
       designStore.save();
     });
     // 투사면 퀵 칩 — 룩 스튜디오 안 열고도 바닥/벽 테마 전환
-    const SURF_DEFS = [['none', '다크'], ['indoor', '실내'], ['grass', '잔디'], ['track', '트랙'], ['court_gray', '코트(회색)'], ['court_black', '코트(검정)'], ['court', '코트(우드)'], ['paving', '보도블럭'], ['dirt', '흙길']];
+    // 촬영지 톤 3종(실내·타일코트·트랙)을 앞에 둔다 — 실제 촬영 장소와 톤앤매너를 맞춘 프리셋(유저 레퍼런스 사진).
+    const SURF_DEFS = [['none', '다크'], ['indoor', '실내'], ['court_tile', '코트(타일)'], ['track', '트랙'], ['grass', '잔디'], ['court_gray', '코트(회색)'], ['court_black', '코트(검정)'], ['court', '코트(우드)'], ['paving', '보도블럭'], ['dirt', '흙길']];
     const surfWrap = document.getElementById('surf-chips');
     function updateSurfChips(key) {
       surfWrap?.querySelectorAll('button').forEach(b => {
@@ -1369,7 +1371,10 @@ void main(){
     };
     window.__updateSurfAvail();
     // 팩별 기본 투사면 — 매번 수동 선택 제거 (유저): 러닝=잔디 · 복싱=실내 · 농구=트랙
-    const SURF_DEFAULT = { running: 'track', boxing: 'indoor', basketball: 'court_black' };   // 농구 = 진한 검정 코트(유저: 회색이 뜨면 오류)
+    // 종목별 기본 투사면 = 실제 촬영 장소와 같은 공간(유저 레퍼런스 사진).
+    //   농구는 court_black(네이비)이 기본이었는데 촬영지는 밝은 조립식 타일 코트다 — 톤이 정반대라 교체.
+    //   구 프리셋(검정·회색·우드)은 칩에 그대로 남아 있다.
+    const SURF_DEFAULT = { running: 'track', boxing: 'indoor', basketball: 'court_tile' };
     window.__applySurfDefault = (pack) => {
       const key = SURF_DEFAULT[pack];
       if (!key) return;
@@ -2341,7 +2346,14 @@ void main(){
     const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), src);
     sc.add(quad);
     const mk = (w = RW, h = RH) => new THREE.WebGLRenderTarget(w, h);
-    const LW = RW >> 2, LH = RH >> 2;   // 넓은 평균 전용 저해상 그리드(80x120)
+    // 넓은 평균 전용 저해상 그리드(80x120).
+    //   ⚠ 해상도를 올려봐야 소용없다(실측). >>1(160x240) + 블러 스텝 2배로 σ 를 보존하면
+    //     결과가 기준과 픽셀 수준으로 같다: 채도μ 0.587→0.586 · 국소Δ색상 0.581→0.586.
+    //     당연한 결과다 — W 는 정의상 '국소 평균'이라 어느 격자에서 굽든 같은 값에 수렴한다.
+    //     σ 를 안 보존하고 해상도만 올리면 값은 변하지만(채도μ 0.633) 그게 바로 아래 주석이
+    //     말하는 DoG 얼룩이다. '인물이 흐리멍텅하다'의 해법은 이쪽이 아니라 uDetail 이었다
+    //     (0.25→0.42 에서 국소Δ색상 0.581→0.701). 같은 시도를 또 하지 않도록 남긴다.
+    const LW = RW >> 2, LH = RH >> 2;
     // A/B = 핑퐁, N = 1회 블러(좁음 — 이목구비·모공만 지운 '결'), W = 3회 블러(넓음 — 두께장·노출)
     _cf = { rts: [mk(), mk(), mk(), mk()], lo: [mk(LW, LH), mk(LW, LH)], texel: [1 / RW, 1 / RH, 1 / LW, 1 / LH],
             cam: new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1), src, blur, sc, quad };

@@ -174,7 +174,9 @@ export function createScene(container) {
   })();
   let curPack = null;
   function updateHoopVisible() {
-    hoop.visible = curPack === 'basketball' && ['court', 'court_gray', 'court_black'].includes(curSurfKey);
+    // 코트 계열 표면에서만 골대를 세운다. court_tile(촬영지 조립식 타일, 농구 새 기본)을 빠뜨려
+    //   기본 표면을 바꾼 순간 골대가 사라졌다(유저) — 코트 키를 추가할 땐 이 목록도 같이 본다.
+    hoop.visible = curPack === 'basketball' && ['court', 'court_tile', 'court_gray', 'court_black'].includes(curSurfKey);
   }
 
   // 빔 투사는 projector.js(무릎 모듈 / 후방 스테이션)가 전담
@@ -200,6 +202,71 @@ export function createScene(container) {
     if (key === 'grass') surfCache.grass = await loadSurf('grass.jpg', 60, 60);
     else if (key === 'paving') surfCache.paving = await loadSurf('paving.jpg', 50, 50);
     else if (key === 'plaster') surfCache.plaster = await loadSurf('plaster.jpg', 2.5, 1.6);
+    else if (key === 'court_tile') {
+      // 조립식 타일 코트 — 실제 촬영지(유저 레퍼런스 사진). 밝은 쿨그레이 + 25cm 타일 + 타공 패턴.
+      //   512px = 1m (타일 4×4) 로 굽고 바닥 120m 에 repeat 120 → 512px/m.
+      //   구 court_black/gray(0x263041 네이비)는 촬영지와 정반대 톤이라 이걸 기본으로 쓴다.
+      const c = document.createElement('canvas'); c.width = c.height = 512;
+      const g = c.getContext('2d');
+      const T = 128;   // 25cm 타일
+      g.fillStyle = '#DCDEDF'; g.fillRect(0, 0, 512, 512);
+      for (let ty = 0; ty < 4; ty++) for (let tx = 0; tx < 4; tx++) {
+        const x = tx * T, y = ty * T;
+        const n = ((tx * 7 + ty * 13) % 5) / 5;   // 결정론적 미세 톤차 — 타일마다 살짝 다른 사출 색
+        g.fillStyle = `rgb(${(214 + n * 10) | 0},${(217 + n * 10) | 0},${(219 + n * 10) | 0})`;
+        g.fillRect(x, y, T, T);
+        g.strokeStyle = 'rgba(150,156,161,0.5)'; g.lineWidth = 2;   // 타일 이음선
+        g.strokeRect(x + 1, y + 1, T - 2, T - 2);
+        // 타공(배수 구멍) — 레퍼런스는 작은 라운드 사각이 '둘씩 짝지어' 촘촘히 깔린다.
+        //   구 3×3(23px)은 너무 성겨서 확대하면 격자무늬처럼 보였다 → 4×4 셀 × 셀당 2개 = 32개/타일.
+        g.strokeStyle = 'rgba(156,163,169,0.62)'; g.lineWidth = 1.1;
+        const CELL = T / 4;                       // 32px = 6.25cm 셀
+        for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) {
+          const cx = x + i * CELL, cy = y + j * CELL;
+          for (let h = 0; h < 2; h++) {           // 좌우 한 쌍
+            g.beginPath(); g.roundRect(cx + 4 + h * 13, cy + 5, 11, CELL - 10, 3.5); g.stroke();
+          }
+        }
+      }
+      const tex = new THREE.CanvasTexture(c);
+      tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+      tex.repeat.set(120, 120);   // 바닥 120m → 1m 당 한 장
+      tex.anisotropy = MAXANISO;
+      tex.colorSpace = THREE.SRGBColorSpace;
+      surfCache.court_tile = tex;
+    }
+    else if (key === 'ivorywood') {
+      // 밝은 아이보리 마루 — 복싱 기본 표면. 유저 확정 방향:
+      //   ① indoorwood(rgb 168,126,84)는 진한 오크라 탠에 가깝고 ② 중성 라미네이트로 빼봤더니
+      //   "채도가 너무 없어" ③ 정답은 '밝고 깨끗하되 따뜻한 아이보리'.
+      //   그래서 명도는 라미네이트만큼 올리고 웜(R−B ≈ 26)은 남긴다.
+      const c = document.createElement('canvas'); c.width = c.height = 512;
+      const g = c.getContext('2d');
+      const rnd = (() => { let s = 11; return () => (s = (s * 16807) % 2147483647) / 2147483647; })();
+      const PH = 74;   // 널 폭 ≈ 14.5cm
+      for (let row = 0; row * PH < 512 + PH; row++) {
+        const off = (row % 2) * 190;
+        for (let px = -1; px < 3; px++) {
+          const x = px * 380 + off, y = row * PH;
+          const tone = 0.962 + rnd() * 0.072;
+          g.fillStyle = `rgb(${Math.min(255, 238 * tone) | 0}, ${Math.min(255, 226 * tone) | 0}, ${Math.min(255, 212 * tone) | 0})`;
+          g.fillRect(x, y, 380, PH);
+          g.strokeStyle = 'rgba(196,178,152,0.34)'; g.lineWidth = 1.4;   // 널 이음선 — 웜 그레이
+          g.strokeRect(x + 0.7, y + 0.7, 380 - 1.4, PH - 1.4);
+          g.strokeStyle = 'rgba(204,187,162,0.20)'; g.lineWidth = 1;     // 결
+          for (let k = 0; k < 3; k++) {
+            const gy = y + 12 + rnd() * (PH - 24);
+            g.beginPath(); g.moveTo(x + 8, gy); g.lineTo(x + 372, gy + (rnd() - 0.5) * 5); g.stroke();
+          }
+        }
+      }
+      const tex = new THREE.CanvasTexture(c);
+      tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+      tex.repeat.set(46, 46);
+      tex.anisotropy = MAXANISO;
+      tex.colorSpace = THREE.SRGBColorSpace;
+      surfCache.ivorywood = tex;
+    }
     else if (key === 'track') {
       // 러닝 트랙 = 민트/연두 우레탄 (유저: 초록/연두빛 트랙 — 한국 공원 트랙) + 그레인 + 레인 라인
       const asphalt = await new Promise(res => {
@@ -209,7 +276,8 @@ export function createScene(container) {
       });
       const c = document.createElement('canvas'); c.width = c.height = 512;
       const g = c.getContext('2d');
-      g.fillStyle = '#6FA88C'; g.fillRect(0, 0, 512, 512);            // 민트-세이지 그린 베이스
+      // 촬영지 트랙(유저 레퍼런스)은 훨씬 옅고 노란기 있는 세이지다 — 구 #6FA88C 는 채도가 두 배쯤 높았다.
+      g.fillStyle = '#B7C6AA'; g.fillRect(0, 0, 512, 512);            // 페일 세이지 우레탄
       g.globalAlpha = 0.34; g.globalCompositeOperation = 'overlay';   // 아스팔트 = 그레인 질감만(어둡게 안 함)
       g.drawImage(asphalt, 0, 0, 512, 512);
       g.globalAlpha = 0.12; g.globalCompositeOperation = 'saturation'; // 채도 살짝 낮춰 무광 실사감
@@ -308,7 +376,7 @@ export function createScene(container) {
     scene.background.setHex(sky);
     scene.fog.color.setHex(sky);
   }
-  let courtLines = null;
+  let courtLines = null, courtZones = null;
   async function setSurfaces(key) {
     const seq = ++surfSeq;   // 연타 시 마지막 선택만 반영
     curSurfKey = (!key || key === 'none') ? null : key;
@@ -323,35 +391,99 @@ export function createScene(container) {
       grid.visible = true;
       wallGrid.visible = true;
       if (courtLines) courtLines.visible = false;
+      if (courtZones) courtZones.visible = false;
       updateHoopVisible();
       applyDayAmbience();
       return;
     }
     const isCourtColor = key === 'court_gray' || key === 'court_black';   // 회색/검정 코트 = 솔리드 바닥 + 라인
-    const floorKey = (key === 'indoor' || key === 'court') ? 'indoorwood' : key;
+    //   ⚠ 실내를 촬영지 톤(중성 라미네이트)으로 갈아봤으나 되돌렸다 — 복싱이 이 표면을 기본으로 쓰는데
+    //     채도가 빠져 통째로 밋밋해졌다(유저: '복싱도 이전버전이 더 나아 채도가 너무 없어').
+    //     레퍼런스 사진과의 색온도 차이보다 복싱 화면의 톤이 우선이다.
+    //   실내(복싱 기본) = 밝은 아이보리 마루 / 우드 코트 = 진한 체육관 파켓. 분리한다.
+    const floorKey = key === 'indoor' ? 'ivorywood' : key === 'court' ? 'indoorwood' : key;
     const [fTex, wTex] = await Promise.all([isCourtColor ? null : getSurf(floorKey), getSurf('plaster')]);
     if (seq !== surfSeq) return;
     // 농구 코트(유저: 기본 배경): 마루 바닥 + 하프코트 라인 오버레이(런타임 베이크, 외부 에셋 0)
     if (!courtLines) {
-      // 1024px/16m = 64px/m 라 가까이서 라인이 뭉개졌다(유저) → 2048(128px/m).
-      const c = document.createElement('canvas'); c.width = c.height = 2048;
-      const g = c.getContext('2d');
-      const M = 2048 / 16;   // 16m 대지 → px/m
-      g.strokeStyle = 'rgba(250,250,245,0.85)'; g.lineWidth = 14; g.lineJoin = 'round';   // 대지 2배 → 선폭도 2배(실물 폭 유지)
-      const rc = (x, z, w, h) => g.strokeRect((x + 8) * M, (z + 8) * M, w * M, h * M);
-      const arc = (x, z, r, a0, a1) => { g.beginPath(); g.arc((x + 8) * M, (z + 8) * M, r * M, a0, a1); g.stroke(); };
-      rc(-7.5, -7.5, 15, 15);                    // 외곽(하프코트 15×15 근사)
-      rc(-2.45, -7.5, 4.9, 5.8);                 // 페인트존(키) — 골대는 -z 끝
-      arc(0, -1.7, 1.8, 0, Math.PI);             // 자유투 원(전방 반원)
-      arc(0, -6.325, 6.75, 0.18, Math.PI - 0.18);// 3점 아크
-      arc(0, 7.5, 1.8, Math.PI, Math.PI * 2);    // 센터서클(근측 절반)
-      const tex2 = new THREE.CanvasTexture(c); tex2.colorSpace = THREE.SRGBColorSpace; tex2.anisotropy = MAXANISO;
-      courtLines = new THREE.Mesh(new THREE.PlaneGeometry(16, 16),
-        new THREE.MeshBasicMaterial({ map: tex2, transparent: true, depthWrite: false }));
+      // 코트 라인 = SDF 셰이더. 캔버스 텍스처를 폐기한 이유:
+      //   2048px/16m = 128px/m 라, 무릎 높이까지 다가가면 1m 가 화면 수백 px 을 먹어 라인이
+      //   그대로 확대돼 뭉갠다(유저: '농구장 바닥 확대하면 너무 깨져서'). 해상도를 또 올리는 건
+      //   4096² RGBA = 67MB 를 쓰고도 배율만 2배 미루는 미봉책이다.
+      //   거리장으로 그리면 배율과 무관하게 항상 1px 경계 — fwidth 로 화면공간 AA 까지 정확하다.
+      //   (얇은 지오메트리는 스치는 각도에서 심하게 어른거려 기각. 투사 시점은 늘 스치는 각도다.)
+      //   uv → 월드(x,z) 매핑은 옛 캔버스 좌표계와 동일: x = 16u-8 · z = 8-16v.
+      const LINE_HALF = 0.025;   // 실물 라인폭 5cm (구 캔버스는 14px/128px·m ≈ 11cm 로 굵었다)
+      const mat = new THREE.ShaderMaterial({
+        uniforms: { uColor: { value: new THREE.Color(0xfafaf5) }, uOpacity: { value: 0.85 }, uHalf: { value: LINE_HALF } },
+        vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+        fragmentShader: `
+          varying vec2 vUv; uniform vec3 uColor; uniform float uOpacity, uHalf;
+          const float FAR = 1e3;
+          float dRect(vec2 p, vec2 c, vec2 h){          // 사각 외곽선까지의 거리
+            vec2 d = abs(p - c) - h;
+            return abs(min(max(d.x, d.y), 0.0) + length(max(d, 0.0)));
+          }
+          float dArc(vec2 p, vec2 c, float r, float zMin){   // 원호 — z 하한으로 반원·부분호를 자른다
+            return p.y < zMin ? FAR : abs(length(p - c) - r);
+          }
+          float dArcMax(vec2 p, vec2 c, float r, float zMax){
+            return p.y > zMax ? FAR : abs(length(p - c) - r);
+          }
+          void main(){
+            vec2 p = vec2(vUv.x * 16.0 - 8.0, 8.0 - vUv.y * 16.0);   // (월드 x, 월드 z)
+            float d = dRect(p, vec2(0.0, 0.0), vec2(7.5, 7.5));      // 외곽 하프코트 15×15
+            d = min(d, dRect(p, vec2(0.0, -4.6), vec2(2.45, 2.9)));  // 페인트존(키)
+            d = min(d, dArc(p, vec2(0.0, -1.7), 1.8, -1.7));         // 자유투 반원(전방)
+            d = min(d, dArc(p, vec2(0.0, -6.325), 6.75, -5.115));    // 3점 아크(양끝 살짝 잘림)
+            d = min(d, dArcMax(p, vec2(0.0, 7.5), 1.8, 7.5));        // 센터서클 근측 절반
+            float aa = max(fwidth(d), 1e-5);                          // 화면공간 폭 — 배율 무관 AA
+            float a = 1.0 - smoothstep(uHalf - aa, uHalf + aa, d);
+            if (a < 0.004) discard;
+            gl_FragColor = vec4(uColor, a * uOpacity);
+          }`,
+        transparent: true, depthWrite: false,
+      });
+      courtLines = new THREE.Mesh(new THREE.PlaneGeometry(16, 16), mat);
       courtLines.rotation.x = -Math.PI / 2; courtLines.position.y = 0.006; courtLines.renderOrder = 1;
       scene.add(courtLines);
     }
-    courtLines.visible = key === 'court' || isCourtColor;
+    if (!courtZones) {
+      // 타일 색 구역(레퍼런스 사진의 '두 톤 밴드') — 코트 안은 밝은 타일, 바깥은 진한 타일.
+      //   반복 텍스처(repeat 120)엔 구울 수 없다. 한 장이 1m 라 구역 같은 대형 패턴을 담을 자리가 없다.
+      //   그래서 곱셈 블렌딩 평면을 바닥 바로 위에 깔아 '타일을 갈아 끼운 것처럼' 톤만 눌러준다.
+      //   라인과 같은 SDF 규약이라 여기도 배율 무관하게 경계가 선명하다.
+      // ⚠ MultiplyBlending 으로 '밝기를 눌러' 구현했다가 기각 — 이 씬은 EffectComposer(HDR RT + 블룸 +
+      //   톤매핑)를 거치는데, 그 경로에서 곱셈 블렌딩이 의도대로 안 먹고 바닥이 통째로 흰색으로
+      //   날아갔다(실측: 존 on → 흰 바닥·라인 소실 / off → 정상). 블렌드 모드에 의존하지 않는
+      //   일반 알파 오버레이로 간다 — '진한 타일을 그 구역에 깔았다'가 원래 의도이기도 하다.
+      const zmat = new THREE.ShaderMaterial({
+        uniforms: { uTint: { value: new THREE.Color(0xB6BABE) },   // 진한 타일색
+          uOut: { value: 0.5 }, uKey: { value: 0.22 } },           // 바깥 존 · 페인트존 덮는 양
+        vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+        fragmentShader: `
+          varying vec2 vUv; uniform vec3 uTint; uniform float uOut, uKey;
+          float sdBox(vec2 p, vec2 h){ vec2 d = abs(p) - h; return min(max(d.x, d.y), 0.0) + length(max(d, 0.0)); }
+          void main(){
+            vec2 p = vec2(vUv.x * 60.0 - 30.0, 30.0 - vUv.y * 60.0);   // (월드 x, 월드 z)
+            float sdC = sdBox(p, vec2(7.5));                            // 코트 경계
+            float outside = smoothstep(-fwidth(sdC), fwidth(sdC), sdC);
+            float sdK = sdBox(p - vec2(0.0, -4.6), vec2(2.45, 2.9));    // 페인트존
+            float key = 1.0 - smoothstep(-fwidth(sdK), fwidth(sdK), sdK);
+            // 대지 가장자리는 서서히 풀어 60m 사각 경계가 드러나지 않게
+            float edge = 1.0 - smoothstep(22.0, 29.5, max(abs(p.x), abs(p.y)));
+            float a = max(outside * uOut, key * uKey) * edge;
+            if (a < 0.004) discard;
+            gl_FragColor = vec4(uTint, a);
+          }`,
+        transparent: true, depthWrite: false,
+      });
+      courtZones = new THREE.Mesh(new THREE.PlaneGeometry(60, 60), zmat);
+      courtZones.rotation.x = -Math.PI / 2; courtZones.position.y = 0.005; courtZones.renderOrder = 0;
+      scene.add(courtZones);
+    }
+    courtZones.visible = key === 'court_tile';   // 조립식 타일 코트에만 — 우드·솔리드 코트는 단색이 맞다
+    courtLines.visible = key === 'court' || key === 'court_tile' || isCourtColor;
     floor.material.map = isCourtColor ? null : fTex;
     wall.material.map = wTex;
     if (isCourtColor) {
@@ -369,10 +501,25 @@ export function createScene(container) {
       wall.material.map = await getSurf('wallpaper');
       wall.material.color.setHex(0xFFFFFF);
       wall.material.emissive?.setHex(dayMode ? 0x6E6A63 : 0x57534B);
+    } else if (key === 'court_tile' || key === 'track') {
+      // 촬영지 톤(타일코트·트랙) — 하이키·저채도. 텍스처가 이미 밝으니 색 틴트는 거의 중립으로 둔다.
+      //   벽은 실내와 같은 깨끗한 흰 벽으로: 두 촬영지 다 야외지만 회색 plaster 는 노이즈가 도드라져
+      //   하이키 톤을 깨뜨린다. 투사면은 어차피 실물이 아니라 '빔이 닿는 밝은 면'이면 된다.
+      const tile = key === 'court_tile';
+      floor.material.roughness = tile ? 0.78 : 0.92;   // 플라스틱 타일은 무광 우레탄보다 살짝 광택
+      floor.material.metalness = tile ? 0.04 : 0.05;
+      // ⚠ 0xFFFFFF 는 안 된다 — 텍스처가 이미 밝은데(타일 #DCDEDF) 흰 틴트를 곱하면 주간 키라이트에서
+      //   흰색으로 클리핑돼 타일 무늬와 라인이 통째로 사라진다(위에서 내려다볼수록 심함, 실측).
+      //   헤드룸을 남겨 무늬가 끝까지 읽히게 한다.
+      floor.material.color.setHex(dayMode ? 0xDCDEDF : 0xBFC4C9);
+      wall.material.map = await getSurf('wallpaper');
+      wall.material.color.setHex(0xFFFFFF);
+      wall.material.emissive?.setHex(dayMode ? 0x6E6A63 : 0x57534B);
     } else if (key === 'indoor' || key === 'court') {
       // 실내: 마루 + 형광등 아래 '진짜 흰' 벽 — 조명 감쇠를 이기도록 자발광 가산
       floor.material.roughness = 0.92; floor.material.metalness = 0.05;   // 코트 광택 원복
-      floor.material.color.setHex(dayMode ? 0xF6F1E8 : 0xD8D0C2);
+      //   아이보리 마루는 텍스처가 이미 밝으니 틴트는 살짝 웜하게만(흰색이면 결이 날아간다).
+      floor.material.color.setHex(key === 'indoor' ? (dayMode ? 0xF7F2E9 : 0xD8D0C2) : (dayMode ? 0xF6F1E8 : 0xD8D0C2));
       wall.material.map = await getSurf('wallpaper');   // 세로 결 벽지 (민무늬 기각)
       wall.material.color.setHex(0xFFFFFF);
       wall.material.emissive?.setHex(dayMode ? 0x6E6A63 : 0x57534B);
