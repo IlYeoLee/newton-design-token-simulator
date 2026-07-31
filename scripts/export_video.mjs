@@ -307,19 +307,28 @@ if (FLAT) {
 //   ponytail: 판별은 PNG 파일 크기로 한다. 완전 투명한 프레임은 수십 KB 로 압축되고
 //   내용이 있으면 그 몇 배가 된다. 프레임을 디코드하자고 의존성을 늘릴 값어치는 없다.
 {
+  //   ★ 그냥 기다리면 안 된다 — 시간은 우리가 미는 것이라, rAF 만 돌려선 장면이 영원히
+  //     시각 0 에 멈춰 있다. 러닝 A3 는 시각 0 이 원래 비어 있고 t 가 흘러야 채워진다
+  //     (실측: f0 0.00% → f1 4.54%). 시계를 안 밀고 12초를 기다렸더니 멀쩡한 러닝을
+  //     '빈 화면'으로 오판해 중단시켰다. 그러니 프리플라이트도 실제로 시계를 민다.
   const probe = path.join(TMP, 'probe.png');
   const floor = W * H > 2e6 ? 80 : 12;      // KB — 4K 는 빈 프레임이 40KB 대, 소형은 훨씬 작다
   let kb = 0, ok = false;
-  for (let a = 0; a < 12; a++) {
-    await page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
+  for (const t of [0, 0.25, 0.5, 1, 2]) {   // 초 — 앞부분 몇 지점만 보면 충분하다
+    await page.evaluate(tt => new Promise(res => {
+      const d = window.__dbg;
+      window.__vt = 1200 + tt * 1000;
+      if (!window.__play) { d.state.playing = false; d.state.time = tt; if (d.session?.active) d.session.t = tt; }
+      for (const g of [d.floorGL, d.wallGL]) if (g) { g._lastPaint = -1; g._sig = null; }
+      requestAnimationFrame(() => { window.__fitFlat?.(); requestAnimationFrame(res); });
+    }), t);
     await page.screenshot({ path: probe, type: 'png', omitBackground: ALPHA });
-    kb = fs.statSync(probe).size / 1024;
+    kb = Math.max(kb, fs.statSync(probe).size / 1024);
     if (kb >= floor) { ok = true; break; }
-    await new Promise(r => setTimeout(r, 1000));
   }
   fs.rmSync(probe, { force: true });
   if (!ok) {
-    console.error(`✗ 12초를 기다려도 화면이 비어 있습니다(${kb.toFixed(0)}KB).`);
+    console.error(`✗ 처음 2초 어디에도 그려진 것이 없습니다(최대 ${kb.toFixed(0)}KB).`);
     console.error(`  GPU 메모리 부족이 유력합니다 — --uiscale 을 낮추거나(지금 ${UISCALE.toFixed(2)}) --w 를 줄이세요.`);
     await browser.close(); process.exit(1);
   }
