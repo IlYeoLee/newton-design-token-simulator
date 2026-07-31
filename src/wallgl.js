@@ -693,7 +693,8 @@ export class WallGL {
     ctx.save();
     ctx.globalAlpha *= kf(q, [[0, 0], [.35, 1], [1, 1]]);
     ctx.translate(CX, cy); ctx.scale(nk, nk); ctx.translate(-CX, -cy);
-    txt(ctx, val, CX, cy, 200, 700, '#fff', { fam: dot9, align: 'center', base: 'middle' });
+    // 3·2·1 은 숫자라 도트, 'GO' 는 글자라 본문 영문 — 도트는 숫자와 마크 R·L 뿐(유저 규약).
+    txt(ctx, val, CX, cy, 200, 700, '#fff', { fam: /\d/.test(val) ? dot9 : sans, align: 'center', base: 'middle' });
     ctx.restore();
     ctx.restore();
   }
@@ -812,9 +813,10 @@ export class WallGL {
     // % 카운트업 — 값 보간만 있고 자릿수 롤이 없었다. 정본(rollNum)으로 통일한다.
     const n = String(RP_.pct);
     ctx.font = F(700, 128.5, dot9); const nw = ctx.measureText(n).width;
-    ctx.font = F(700, 90.3, dot9); const sw = ctx.measureText('%').width;
+    // '%' 는 기호라 본문 영문 — 지면 리포트(floorgl)는 이미 그렇게 쓰고 있어 벽만 어긋나 있었다.
+    ctx.font = F(700, 90.3, sans); const sw = ctx.measureText('%').width;
     rollNum(ctx, n, t, .5, 1.3, CX - (nw + sw + 8) / 2, cy - 128.5 * 0.5, 128.5, { fam: dot9, ls: -3.57, fill: '#fff' });
-    txt(ctx, '%', CX - (nw + sw + 8) / 2 + nw + 8, cy + 12, 90.3, 700, '#fff', { fam: dot9, ls: -2.5, base: 'middle' });
+    txt(ctx, '%', CX - (nw + sw + 8) / 2 + nw + 8, cy + 12, 90.3, 700, '#fff', { fam: sans, ls: -2.5, base: 'middle' });
     ctx.restore();
     // 통계 3열 — stat sUp .7s (1.0/1.15/1.3), sep sepGrow .6s 1.1s
     const sy = cy + 250 + 70, sW = 281, gap = 12;

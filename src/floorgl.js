@@ -274,7 +274,8 @@ export function ringGauge(ctx, cx, cy, r, prog, o = {}) {
 export function drawBadge(ctx, cx, cy, text, o = {}) {
   const S = o.scale || 1, H = 114.26 * S, R = 47.28 * S;
   const fs = 59.1 * S, pad = 36 * S, icon = 47.28 * S, gap = 15.76 * S;
-  ctx.font = `700 ${(fs * TS).toFixed(2)}px 'OffBit','Supreme',sans-serif`;
+  // 배지 문구는 'Success!'·'HOLD' 같은 낱말이라 본문 영문 — 도트는 숫자와 마크 R·L 뿐(유저 규약).
+  ctx.font = F(700, fs, /\d/.test(String(text)) ? dot9 : sans);
   const w = ctx.measureText(text).width + icon + gap + pad * 2;
   const glow = o.glow ?? 0.55;
   ctx.save();
@@ -310,7 +311,7 @@ export function rollNum(ctx, target, t, delay, cd, x, y, size, o = {}) {
   const str = String(target);
   if (!/\d/.test(str)) {   // 숫자가 한 자도 없으면(예: '--'·'—') 그대로 — 카운트업 대상이 아니다
     ctx.save();
-    ctx.font = F(o.weight || 700, size, o.fam || dot9);
+    ctx.font = F(o.weight || 700, size, sans);   // 숫자가 아니면 도트 금지(유저 규약)
     ctx.textBaseline = o.base || 'top';
     ctx.textAlign = o.align || 'left';
     ctx.fillStyle = o.fill || '#fff';
@@ -348,7 +349,12 @@ export function rollNum(ctx, target, t, delay, cd, x, y, size, o = {}) {
     }
   }
   ctx.save();
-  ctx.font = F(o.weight || 700, size, o.fam || dot9);
+  // 서체 규약(유저 확정): **도트(OffBit)는 숫자 0~9 와 마크 글리프 R·L 뿐이다.**
+  //   같은 문자열 안이라도 기호(’ ” . : % /)와 단위는 본문 영문(Supreme)으로 넘긴다 —
+  //   ctx.font 하나로 통째로 그리던 탓에 페이스의 분·초 기호까지 도트로 찍히고 있었다.
+  const NF = F(o.weight || 700, size, o.fam || dot9);   // 숫자
+  const SF = F(o.weight || 700, size, sans);            // 기호
+  ctx.font = NF;
   ctx.textBaseline = 'top';
   // 정렬은 반드시 left — 자리 x(px)를 이 함수가 직접 계산하고 자리마다 창을 clip 하기 때문이다.
   //   호출부(_lstat)가 걸어둔 textAlign='center' 가 남아 있으면 글자가 창보다 반 칸 왼쪽에 찍혀
@@ -361,18 +367,26 @@ export function rollNum(ctx, target, t, delay, cd, x, y, size, o = {}) {
   // 자리 폭 = '최종 문자열을 통째로 그렸을 때의 실제 진행 폭'에서 뽑는다.
   //   한 자씩 measureText 하면 커닝이 사라져 자간이 벌어지고(유저: 억지로 늘어남),
   //   ctx.letterSpacing 이 이미 걸려 있으므로 o.ls 를 또 더하면 이중 적용이었다.
-  const ws = [];
-  let prev = 0;
-  for (let i = 0; i < str.length; i++) {
-    const cum = ctx.measureText(str.slice(0, i + 1)).width;
-    ws.push(cum - prev); prev = cum;
+  //   숫자·기호가 서체를 달리 쓰므로 폭도 서체가 같은 구간끼리 재야 커닝이 살아 있다.
+  const ws = new Array(str.length).fill(0);
+  for (let i0 = 0; i0 < str.length;) {
+    const isNum = wheel[i0] != null;
+    let i1 = i0; while (i1 < str.length && (wheel[i1] != null) === isNum) i1++;
+    ctx.font = isNum ? NF : SF;
+    let prev = 0;
+    for (let k = i0; k < i1; k++) {
+      const cum = ctx.measureText(str.slice(i0, k + 1)).width;
+      ws[k] = cum - prev; prev = cum;
+    }
+    i0 = i1;
   }
-  const total = prev;
+  const total = ws.reduce((a, b) => a + b, 0);
   let px = o.align === 'right' ? x - total : o.align === 'center' ? x - total / 2 : x;
   const H = size * 0.84;   // 휠 한 칸 = 글리프 잉크 높이(글자 상자가 아니라) — 두 자리가 겹쳐 보이지 않게
   for (let i = 0; i < str.length; i++) {
     const w = wheel[i];
-    if (w == null) { ctx.fillText(str[i], px, y); px += ws[i]; continue; }
+    if (w == null) { ctx.font = SF; ctx.fillText(str[i], px, y); px += ws[i]; continue; }
+    ctx.font = NF;
     const d = Math.floor(w.v), fr = w.v - d;
     // 실제 오도미터 규칙 — 맨 아랫자리만 계속 돌고, 윗자리는 '아랫자리가 9→0 을 넘는 순간'에만 넘어간다.
     //   자리마다 fr 을 그대로 쓰면 178 처럼 끝자리가 8 인 값에서 십·백 자리가 78% 넘어간 채 굳는다
@@ -384,6 +398,25 @@ export function rollNum(ctx, target, t, delay, cd, x, y, size, o = {}) {
     if (f > 0.03) ctx.fillText(String((d + 1) % 10), px, y + (1 - f) * H);      // 들어오는 자리 = 아래에서
     ctx.restore();
     px += ws[i];
+  }
+  ctx.letterSpacing = '0px';
+  ctx.restore();
+  return total;
+}
+/** rollNum 이 실제로 차지할 폭 — 숫자는 도트, 기호는 본문 영문이라 한 서체로 재면 틀린다.
+ *  단위를 값 옆에 붙이는 조판(_km 등)이 이걸로 자리를 잡는다. */
+export function rollWidth(ctx, target, size, o = {}) {
+  const str = String(target);
+  const NF = F(o.weight || 700, size, o.fam || dot9), SF = F(o.weight || 700, size, sans);
+  ctx.save();
+  ctx.letterSpacing = (o.ls || 0) + 'px';
+  let total = 0;
+  for (let i0 = 0; i0 < str.length;) {
+    const isNum = /\d/.test(str[i0]);
+    let i1 = i0; while (i1 < str.length && /\d/.test(str[i1]) === isNum) i1++;
+    ctx.font = isNum ? NF : SF;
+    total += ctx.measureText(str.slice(i0, i1)).width;
+    i0 = i1;
   }
   ctx.letterSpacing = '0px';
   ctx.restore();
@@ -529,7 +562,8 @@ function drawRing(ctx, n, y, prog, color) {
 }
 
 function drawCenteredNum(ctx, text, cx, cy, size) {
-  ctx.font = F(700, size, dot9);
+  // 도트는 숫자에만 — 값이 없어 '—' 를 띄우는 순간까지 도트로 찍히면 안 된다(유저 규약).
+  ctx.font = F(700, size, /\d/.test(String(text)) ? dot9 : sans);
   ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.fillText(text, cx, cy);
 }
@@ -875,7 +909,7 @@ export class FloorGL {
     ctx.textBaseline = 'top'; ctx.textAlign = 'center'; ctx.fillStyle = '#fff';
     // 활자 규약(유저 확정): 숫자만 도트, 단위 'km' 은 본문 영문. 크기도 낮춰 값이 주인공이 되게.
     const v = this.map.get('km-n')?.textContent || '0.00';
-    ctx.font = F(700, 180, dot9); const wv = ctx.measureText(v).width;
+    const wv = rollWidth(ctx, v, 180);   // 소수점이 본문 영문이라 도트 한 서체로 재면 어긋난다
     ctx.font = F(500, 78); const wu = ctx.measureText(' km').width;
     const x0 = CX - (wv + wu) / 2;
     ctx.textAlign = 'left';
