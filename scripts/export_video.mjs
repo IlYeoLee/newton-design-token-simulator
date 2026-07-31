@@ -208,6 +208,11 @@ await page.evaluate(({ sport, beam, ht, session, stage, listStages }) => {
     d.scene.traverse(o => {
       if (o.isLight) { o.intensity = 0; return; }
       if (/Grid|Axes|Box3/.test(o.type)) { o.visible = false; return; }
+      // ★ 이름으로 지목하는 무대. 재질만 보면 놓친다 — 코트 라인·존은 SDF(ShaderMaterial)라
+      //   '셰이더 = 투사광' 규칙에 걸리고, 골대의 슈터스 스퀘어·그물은 LineSegments 라
+      //   '선 = 투사광' 규칙에 걸린다. 둘 다 무대지 우리가 쏘는 빛이 아니다
+      //   (유저: 평면 뷰 배경에 코트 원·대각선이 남아 보임).
+      if (/^(courtLines|courtZones|hoop)$/.test(o.name)) { o.visible = false; return; }
       const m = Array.isArray(o.material) ? o.material[0] : o.material;
       if (!m) return;
       const keep = m.type === 'ShaderMaterial'
