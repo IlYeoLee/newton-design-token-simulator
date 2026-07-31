@@ -70,6 +70,9 @@ const STAGE = arg('stage', '');
 const LISTSTAGES = !!arg('liststages', false);
 // --play : 시뮬을 실제로 돌린다(봇·물리). 스크럽으로 못 살리는 상태 누적형 화면용 — 위 루프 주석 참조.
 const PLAY = !!arg('play', false);
+// --alphafloor : 이 밝기(0~1) 아래는 완전 투명. 대지 패널의 검정 배경이 옅은 알파로 남아
+//   투사면 사각형이 통째로 비쳐 보이던 것(유저 지적)을 잘라 낸다. 0.06~0.12 부터 시도.
+const AFLOOR = +arg('alphafloor', 0) || 0;
 const OUT = arg('out', 'out');
 const URLBASE = arg('url', 'http://127.0.0.1:5199/');
 // UI 캔버스 배율 — 실시간 기본 0.75. 4K 내보내기엔 2 이상이어야 확대 흐림이 없다.
@@ -126,6 +129,7 @@ await new Promise(r => setTimeout(r, 9000));   // 에셋 로드(실시간 대기
 await warm(1200);                              // 가상 시계로 초기 애니메이션 워밍업
 
 await page.evaluate(p => { window.__play = p; }, PLAY);
+await page.evaluate(v => { window.__afloor = v; }, AFLOOR);
 await page.evaluate(a => { window.__wantAlpha = a; }, ALPHA);
 // ★ stage 를 구조분해에 반드시 넣을 것 — 빠뜨리면 브라우저 전역의 #stage DOM 요소가 잡힌다
 //   (id 를 가진 요소는 window 의 프로퍼티가 된다). 실측: '없는 스테이지: [object HTMLElement]'.
@@ -191,7 +195,7 @@ await page.evaluate(({ sport, beam, ht, session, stage, listStages }) => {
       if (rp) rp.clearAlpha = 0;
       d.FXP && (d.FXP.__x = 1);
       // 알파는 그레이드 패스가 휘도에서 뽑는다(scene.js FX.alphaOut)
-      import('/src/scene.js').then(m => { m.FX.alphaOut = true; }).catch(() => {});
+      import('/src/scene.js').then(m => { m.FX.alphaOut = true; m.FX.alphaFloor = window.__afloor || 0; }).catch(() => {});
     }
     else d.renderer.setClearColor(0x000000, 1);
     if (d.xbot?.root) d.xbot.root.visible = false;
@@ -308,9 +312,27 @@ for (let i = 0; i < N; i++) {
     //     재생을 켜도 결정론은 그대로다: 같은 명령 = 같은 프레임.
     if (window.__play) { d.state.playing = true; }
     else { d.state.playing = false; d.state.time = tt; if (d.session?.active) d.session.t = tt; }
-    // 첫 rAF 는 앱의 갱신·렌더가 끝난 뒤에 돈다(앱 루프가 먼저 등록돼 있다) — 거기서 카메라를
-    // 이번 프레임의 투사면 위치에 다시 맞추면, 두 번째 틱의 렌더가 그 카메라로 그린다.
-    requestAnimationFrame(() => { window.__fitFlat?.(); requestAnimationFrame(res); });
+    // ★ <video> 를 가상 시계에 묶는다 — 이게 '16배속'의 진짜 원인이었다.
+    //   performance.now·Date.now·rAF 는 우리가 가로챘지만 미디어 클록은 못 가로챈다.
+    //   비디오는 실제 시간으로 계속 재생되는데 프레임 한 장 렌더에 0.2~0.5초가 걸리므로,
+    //   내보낸 1/60초 사이에 영상은 0.2~0.5초어치 진행한다(실측: 가상 시계 +0.0167s 동안
+    //   bhandle_pp.mp4 의 currentTime 이 1.0초 이동). 인물 실루엣만 12~30배로 빨라진다.
+    //   UI·토큰은 가상 시계라 정상 속도 → '사람만 미친 듯이 빠른' 그림이 된다.
+    //   재생을 멈추고 프레임마다 currentTime 을 직접 찍는다. 시크는 비동기라 기다려야 한다.
+    const vids = [...document.querySelectorAll('video')].filter(v => isFinite(v.duration) && v.duration > 0);
+    Promise.all(vids.map(v => new Promise(r => {
+      if (!v.paused) v.pause();
+      const want = v.loop ? (tt % v.duration) : Math.min(tt, v.duration);
+      if (Math.abs(v.currentTime - want) < 1e-3) return r();
+      const done = () => { v.removeEventListener('seeked', done); r(); };
+      v.addEventListener('seeked', done);
+      v.currentTime = want;
+      setTimeout(done, 250);          // 시크가 안 끝나도 렌더는 진행 — 멈추는 것보단 낫다
+    }))).then(() => {
+      // 첫 rAF 는 앱의 갱신·렌더가 끝난 뒤에 돈다(앱 루프가 먼저 등록돼 있다) — 거기서 카메라를
+      // 이번 프레임의 투사면 위치에 다시 맞추면, 두 번째 틱의 렌더가 그 카메라로 그린다.
+      requestAnimationFrame(() => { window.__fitFlat?.(); requestAnimationFrame(res); });
+    });
   }), t);
   await page.screenshot({ path: path.join(TMP, `f${String(i).padStart(5, '0')}.png`), type: 'png', omitBackground: ALPHA });
   done = i + 1;

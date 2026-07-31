@@ -15,6 +15,7 @@ export const FX = {
   vignette: 0.12,
   exposure: 1.0,
   alphaOut: false,   // 영상 내보내기 — 알파를 휘도에서 뽑는다
+  alphaFloor: 0,     // 이 밝기 아래는 완전 투명 (--alphafloor)
 };
 
 // FilmPass 대체 — 가벼운 그레인+비네트+노출 (톤 왜곡 없음), 디더로 밴딩 제거
@@ -26,11 +27,15 @@ const GrainVignetteShader = {
     uExposure: { value: FX.exposure },
     uTime: { value: 0 },
     uAlphaOut: { value: 0 },   // 1 = 알파를 '빛의 세기'에서 뽑는다(영상 내보내기용)
+    // 이 밝기 아래는 '빛이 없는 것'으로 친다. 대지 패널의 검정 배경(rgb≈20)이 알파 0.14 로
+    // 남아 투사면 사각형이 통째로 비쳐 보이던 것의 해법(유저: "배경에 투사영역도 보이고").
+    // 0 이면 예전과 완전히 동일 — 기본은 끔.
+    uAlphaFloor: { value: 0 },
   },
   vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
   fragmentShader: `
     uniform sampler2D tDiffuse;
-    uniform float uGrain, uVignette, uExposure, uTime, uAlphaOut;
+    uniform float uGrain, uVignette, uExposure, uTime, uAlphaOut, uAlphaFloor;
     varying vec2 vUv;
     float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
     void main(){
@@ -45,7 +50,9 @@ const GrainVignetteShader = {
       //   알파를 따로 보존하려 애쓰는 대신 휘도에서 뽑으면 물리적으로도 맞고 매트도 깨끗하다.
       if (uAlphaOut > 0.5) {
         float L = max(c.r, max(c.g, c.b));
-        gl_FragColor = vec4(c.rgb, clamp(L * 1.8, 0.0, 1.0));
+        // 문턱 아래는 잘라 내고 남은 구간을 다시 편다 — 문턱을 넘는 빛의 밝기는 그대로 보존된다.
+        float g = clamp((L - uAlphaFloor) / max(1.0 - uAlphaFloor, 1e-3), 0.0, 1.0);
+        gl_FragColor = vec4(c.rgb, clamp(g * 1.8, 0.0, 1.0));
       } else gl_FragColor = c;
     }`,
 };
@@ -624,6 +631,7 @@ export function createScene(container) {
     gradePass.uniforms.uExposure.value = FX.exposure;
     gradePass.uniforms.uTime.value = timeSec;
     gradePass.uniforms.uAlphaOut.value = FX.alphaOut ? 1 : 0;
+    gradePass.uniforms.uAlphaFloor.value = FX.alphaFloor || 0;
     composer.render();
   }
 
