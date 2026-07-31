@@ -453,6 +453,9 @@ export function createScene(container) {
       });
       courtLines = new THREE.Mesh(new THREE.PlaneGeometry(16, 16), mat);
       courtLines.rotation.x = -Math.PI / 2; courtLines.position.y = 0.006; courtLines.renderOrder = 1;
+      // 이름 = 무대 식별자. 코트 라인·존은 SDF 라 재질이 ShaderMaterial 이고, 내보내기의
+      // --beam 은 '셰이더면 투사광'으로 보므로 이름이 없으면 투사광으로 오인돼 살아남는다.
+      courtLines.name = 'courtLines';
       scene.add(courtLines);
     }
     if (!courtZones) {
@@ -487,6 +490,7 @@ export function createScene(container) {
       });
       courtZones = new THREE.Mesh(new THREE.PlaneGeometry(60, 60), zmat);
       courtZones.rotation.x = -Math.PI / 2; courtZones.position.y = 0.005; courtZones.renderOrder = 0;
+      courtZones.name = 'courtZones';
       scene.add(courtZones);
     }
     courtZones.visible = key === 'court_tile';   // 조립식 타일 코트에만 — 우드·솔리드 코트는 단색이 맞다
