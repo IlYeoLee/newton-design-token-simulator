@@ -4251,11 +4251,14 @@ void main(){
     }
     // 케이던스 메트로놈(사운드 우선 — 러닝 교수법: 목표 SPM은 귀로 먼저). 팩 박자 동기 클릭.
     // 실전=연습 통일(유저): P뿐 아니라 C 실전에서도 소리가 페이스를 가르친다.
-    if (session.active && /^[PC]\d$/.test(session.stage || '') && session.sport === 'running' && ttsOn && tokens._beatT > 0.2) {
+    // 소리(ttsOn)와 케이던스 실측은 분리한다 — 한 조건에 묶여 있어서 음소거하거나
+    //   구간 점프로 ttsOn 이 잠깐 꺼지면 __mySpm 이 갱신을 멈췄고, 그 값을 먹는 SPM·페이스가
+    //   '--'·'—' 로 굳어 버렸다(유저: 페이스 숫자가 멈춤). 계기는 소리와 무관하게 계속 돈다.
+    if (session.active && /^[PC]\d$/.test(session.stage || '') && session.sport === 'running') {
       // 훈련 구간 케이던스 = 메트로놈 템포에 반영 (전력 빠르게·회복 느리게). 소리가 페이스를 가르침.
       const metroBeatT = tokens._beatT / (trainPhase()?.c || session.curStage?.cadence || 1);
       const ph = Math.floor(state.time / metroBeatT);
-      if (ph !== _metroPh) {
+      if (ttsOn && tokens._beatT > 0.2 && ph !== _metroPh) {
         _metroPh = ph;
         try {
           if (!_metroCtx) _metroCtx = new (window.AudioContext || window.webkitAudioContext)();

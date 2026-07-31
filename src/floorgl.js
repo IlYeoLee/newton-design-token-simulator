@@ -307,50 +307,77 @@ const _isCv = typeof document !== 'undefined' ? document.createElement('canvas')
 //   cd 가 지나면 cur === target 이므로, 살아 움직이는 값(km·SPM)도 그대로 따라가며
 //   자릿수만 굴러간다. 정적 숫자와 실시간 값 양쪽에 같은 함수가 쓰인다.
 export function rollNum(ctx, target, t, delay, cd, x, y, size, o = {}) {
-  const m = String(target).match(/^(\d+(?:\.\d+)?)$/);
-  if (!m) {   // 숫자가 아니면(예: '--') 그대로 — 카운트업 대상이 아니다
+  const str = String(target);
+  if (!/\d/.test(str)) {   // 숫자가 한 자도 없으면(예: '--'·'—') 그대로 — 카운트업 대상이 아니다
     ctx.save();
     ctx.font = F(o.weight || 700, size, o.fam || dot9);
     ctx.textBaseline = o.base || 'top';
     ctx.textAlign = o.align || 'left';
     ctx.fillStyle = o.fill || '#fff';
-    ctx.fillText(String(target), x, y);
+    ctx.fillText(str, x, y);
     ctx.restore();
     return;
   }
-  const dec = (m[1].split('.')[1] || '').length, P = Math.pow(10, dec);
-  const cur = parseFloat(m[1]) * P * eOut(clamp01((t - delay) / cd));
-  const cols = String(Math.round(parseFloat(m[1]) * P)).length;
+  const e = eOut(clamp01((t - delay) / cd));
+  // 휠은 '문자열의 글자'와 1:1 로 붙는다 — 숫자 자리는 굴러가고, 기호(. ’ ” :)는 제자리에 그려진다.
+  //   구현이 순수 숫자(/^\d+(\.\d+)?$/)만 받던 탓에 페이스("5’42”")처럼 기호가 낀 계기는
+  //   통째로 문자 취급 → 카운트업이 아예 안 걸렸다(유저: 페이스 숫자가 안 넘어가고 멈춤).
+  //   ① 순수 숫자는 소수점을 무시하고 한 덩어리로 굴린다('1.00' → 100 이 올라야 소수 자리가 같이 오른다)
+  //   ② 기호가 섞이면 숫자 덩어리마다 따로 굴린다(5’42” = '5' 와 '42' 가 각자 0 에서 올라온다)
+  const runs = [];
+  if (/^\d+(?:\.\d+)?$/.test(str)) {
+    const idx = [];
+    for (let i = 0; i < str.length; i++) if (str[i] !== '.') idx.push(i);
+    runs.push({ idx, val: Math.round(parseFloat(str) * Math.pow(10, (str.split('.')[1] || '').length)) });
+  } else {
+    for (let i = 0; i < str.length;) {
+      if (str[i] >= '0' && str[i] <= '9') {
+        const idx = [];
+        while (i < str.length && str[i] >= '0' && str[i] <= '9') idx.push(i++);
+        runs.push({ idx, val: parseInt(idx.map(k => str[k]).join(''), 10) });
+      } else i++;
+    }
+  }
+  // 자리마다 '지금 값' + 그 자리가 10^p 중 어디인지. p 를 들고 있어야 굴림 타이밍을 계산할 수 있다.
+  const wheel = new Array(str.length).fill(null);
+  for (const r of runs) {
+    const cur = e >= 1 ? r.val : r.val * e, L = r.idx.length;
+    for (let k = 0; k < L; k++) {
+      const p = L - 1 - k;
+      wheel[r.idx[k]] = { v: cur / Math.pow(10, p), p };
+    }
+  }
   ctx.save();
   ctx.font = F(o.weight || 700, size, o.fam || dot9);
   ctx.textBaseline = 'top';
+  // 정렬은 반드시 left — 자리 x(px)를 이 함수가 직접 계산하고 자리마다 창을 clip 하기 때문이다.
+  //   호출부(_lstat)가 걸어둔 textAlign='center' 가 남아 있으면 글자가 창보다 반 칸 왼쪽에 찍혀
+  //   왼쪽 획이 잘린다 — SPM '178' 이 '173' 으로, '1' 이 'L' 로 보이던 원인.
+  ctx.textAlign = 'left';
   // 기본 흰색 — 승격 전 rollNum 은 내부에서 '#fff' 를 강제했다. o.fill 있을 때만 칠하게 바꿨더니
   //   색을 안 넘긴 호출부가 캔버스 기본색(검정)으로 떨어졌다(유저: 흰 폰트여야 하는 게 검정).
   ctx.fillStyle = o.fill || '#fff';
   ctx.letterSpacing = (o.ls || 0) + 'px';
-  const gs = [];
-  for (let i = 0; i < cols; i++) {
-    if (dec && i === dec) gs.push({ ch: '.' });
-    gs.push({ w: cur / Math.pow(10, i) });
-  }
-  gs.reverse();
   // 자리 폭 = '최종 문자열을 통째로 그렸을 때의 실제 진행 폭'에서 뽑는다.
   //   한 자씩 measureText 하면 커닝이 사라져 자간이 벌어지고(유저: 억지로 늘어남),
   //   ctx.letterSpacing 이 이미 걸려 있으므로 o.ls 를 또 더하면 이중 적용이었다.
-  const disp = m[1];   // 예: '30' · '1.00' — gs 와 글리프 순서가 같다
   const ws = [];
   let prev = 0;
-  for (let i = 0; i < disp.length; i++) {
-    const cum = ctx.measureText(disp.slice(0, i + 1)).width;
+  for (let i = 0; i < str.length; i++) {
+    const cum = ctx.measureText(str.slice(0, i + 1)).width;
     ws.push(cum - prev); prev = cum;
   }
   const total = prev;
   let px = o.align === 'right' ? x - total : o.align === 'center' ? x - total / 2 : x;
   const H = size * 0.84;   // 휠 한 칸 = 글리프 잉크 높이(글자 상자가 아니라) — 두 자리가 겹쳐 보이지 않게
-  for (let i = 0; i < gs.length; i++) {
-    const g = gs[i];
-    if (g.ch != null) { ctx.fillText(g.ch, px, y); px += ws[i]; continue; }
-    const d = Math.floor(g.w), f = g.w - d;
+  for (let i = 0; i < str.length; i++) {
+    const w = wheel[i];
+    if (w == null) { ctx.fillText(str[i], px, y); px += ws[i]; continue; }
+    const d = Math.floor(w.v), fr = w.v - d;
+    // 실제 오도미터 규칙 — 맨 아랫자리만 계속 돌고, 윗자리는 '아랫자리가 9→0 을 넘는 순간'에만 넘어간다.
+    //   자리마다 fr 을 그대로 쓰면 178 처럼 끝자리가 8 인 값에서 십·백 자리가 78% 넘어간 채 굳는다
+    //   (유저: 숫자가 안 넘어가고 멈춤 — 정지가 아니라 '반쯤 넘어간 채 정지'였다).
+    const f = w.p === 0 ? fr : clamp01(fr * 10 - 9);
     ctx.save();
     ctx.beginPath(); ctx.rect(px - 4, y, ws[i] + 8, size * 0.92); ctx.clip();   // 창 = 딱 한 자리
     ctx.fillText(String(d % 10), px, y - f * H);                                // 나가는 자리 = 위로
@@ -361,6 +388,12 @@ export function rollNum(ctx, target, t, delay, cd, x, y, size, o = {}) {
   ctx.letterSpacing = '0px';
   ctx.restore();
   return total;
+}
+/** 계기 값 → 비교 가능한 수. 페이스("5’42”")는 parseFloat 이 5 에서 끊겨 목표와 늘 같아 보였다(편차 바가
+ *  항상 정중앙). 분’초” 는 초로 환산해야 SPM 과 같은 규칙으로 편차를 잰다. */
+export function statVal(s) {
+  const m = String(s ?? '').match(/^\s*(\d+)\s*[’'′:]\s*(\d{1,2})/);
+  return m ? +m[1] * 60 + +m[2] : parseFloat(s);
 }
 /** 값만 필요한 곳(문자열 반환) — 그리기는 호출부가 한다. 숫자가 아니면 그대로 돌려준다. */
 export function countUp(target, t, delay, cd) {
@@ -791,7 +824,7 @@ export class FloorGL {
   //   활자 규약(유저 확정): **숫자만 도트(OffBit), 라벨·단위는 본문 영문(Supreme).**
   _lstat(cx, y, me, tgt, label) {
     const ctx = this.ctx;
-    const mv = parseFloat(me), tv = parseFloat(tgt);
+    const mv = statVal(me), tv = statVal(tgt);
     const ok = Number.isFinite(mv) && Number.isFinite(tv) && tv > 0;
     const dev = ok ? (mv - tv) / tv : 0;              // 목표 대비 상대 편차
     const off = Math.min(1, Math.abs(dev) / 0.12);    // ±12% 를 만점으로 본다
