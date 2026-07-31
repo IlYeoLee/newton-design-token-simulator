@@ -299,6 +299,33 @@ if (FLAT) {
   console.log(`  평면 직교 카메라 적용됨`);
 }
 
+// ★ 프리플라이트 — 화면이 실제로 채워질 때까지 기다렸다가 캡처를 시작한다.
+//   빈 결과가 두 갈래에서 나온다: ① GPU 메모리가 모자라 텍스처 업로드가 조용히 실패
+//   (컨텍스트도 안 죽고 WebGL 에러도 없고 삼각형도 0 이 아니다), ② 지면 UI 가 rig._fp 를
+//   기다리느라 아직 안 켜진 상태(floorGLOn=false). 둘 다 '기다렸다 다시 보기'로 갈린다 —
+//   ①이면 끝까지 비어 있고, ②면 몇 초 안에 채워진다.
+//   ponytail: 판별은 PNG 파일 크기로 한다. 완전 투명한 프레임은 수십 KB 로 압축되고
+//   내용이 있으면 그 몇 배가 된다. 프레임을 디코드하자고 의존성을 늘릴 값어치는 없다.
+{
+  const probe = path.join(TMP, 'probe.png');
+  const floor = W * H > 2e6 ? 80 : 12;      // KB — 4K 는 빈 프레임이 40KB 대, 소형은 훨씬 작다
+  let kb = 0, ok = false;
+  for (let a = 0; a < 12; a++) {
+    await page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
+    await page.screenshot({ path: probe, type: 'png', omitBackground: ALPHA });
+    kb = fs.statSync(probe).size / 1024;
+    if (kb >= floor) { ok = true; break; }
+    await new Promise(r => setTimeout(r, 1000));
+  }
+  fs.rmSync(probe, { force: true });
+  if (!ok) {
+    console.error(`✗ 12초를 기다려도 화면이 비어 있습니다(${kb.toFixed(0)}KB).`);
+    console.error(`  GPU 메모리 부족이 유력합니다 — --uiscale 을 낮추거나(지금 ${UISCALE.toFixed(2)}) --w 를 줄이세요.`);
+    await browser.close(); process.exit(1);
+  }
+  console.log(`  화면 채워짐 확인 (${kb.toFixed(0)}KB)`);
+}
+
 const t0 = Date.now();
 let done = 0;
 for (let i = 0; i < N; i++) {
