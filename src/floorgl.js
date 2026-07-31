@@ -587,8 +587,15 @@ function buildScene(stage, p) {
   const hasPrev = /^(A2|A3|BK_A[23]|BK_B[12345])$/.test(stage);
   const isStep = /^BK_B[2345]$/.test(stage);
   const col = [];
-  const m = /^BK_B([2345])$/.exec(stage);
-  if (m) col.push(node('s-cap', { type: 'text', textContent: (+m[1] - 1) + ' / 4', size: 46, weight: 700, ls: 6, color: 'rgba(255,255,255,.62)', mb: -38 }));
+  // 머리말 = 벽(wallgl _paint_scene)과 같은 [단계 → 제목 → 진행] 묶음.
+  //   데이터(FLOOR_PHASES · phase · sub)는 처음부터 있었는데 그리질 않아 지면만 제목 하나로
+  //   휑했다 — 유저: "바닥 UI가 왜 벽면이랑 다르고 투박하냐". 구 s-cap('n / 4' 단독)은
+  //   여기 sub 가 그대로 담으므로 폐기(같은 정보 두 벌 금지).
+  const PH = (typeof window !== 'undefined' ? window.FLOOR_PHASES : null)
+    || { running: ['WARM UP', 'PACE', 'RUN'], basketball: ['WARM UP', 'DRILL', 'GAME'] };
+  const phases = PH[/^BK_/.test(stage) ? 'basketball' : 'running'];
+  if (!isC && phases && S.phase != null)
+    col.push(node('s-crumb', { type: 'crumb', phases, phase: S.phase, sub: S.sub || '', mb: -34 }));
   if (!isC) col.push(node('s-title', { type: 'text', textContent: S.title, size: 120, weight: 700, ls: -4, color: '#fff', cascade: true }));
   col.push(node('s-cue', { type: 'text', textContent: S.cue || '', size: 52, weight: 400, color: 'rgba(255,255,255,.72)', style: { display: 'none' } }));
   // 실전 상단 — 케이던스 팩은 누적 거리, 페이스 팩은 '목표 대비 지금 몇 초'.
@@ -751,7 +758,7 @@ export class FloorGL {
 
   // 등장 = 제자리 페이드(원본 sUpFlat/chIn의 요지). 눕힌 프레임에서 translate는 '멀리서 날아옴'이 된다.
   _intro(n) {
-    const d = { 's-cap': 0.18, 's-title': 0.1, 's-cue': 0.28, 's-dots': 0.42 }[n.id] ?? 0.2;
+    const d = { 's-crumb': 0.04, 's-cap': 0.18, 's-title': 0.1, 's-cue': 0.28, 's-dots': 0.42 }[n.id] ?? 0.2;
     return Math.max(0, Math.min(1, (this.t - d) / 0.55));
   }
 
@@ -762,6 +769,7 @@ export class FloorGL {
 
   _h(n) {
     switch (n.type) {
+      case 'crumb': return 50;
       case 'text': return n.size * 1.06;
       case 'dots': return gaugeH(760);
       case 'prevRow': return 200;
@@ -809,6 +817,7 @@ export class FloorGL {
   _draw(n, y) {
     const ctx = this.ctx;
     switch (n.type) {
+      case 'crumb': return this._crumb(n, y);
       case 'text': return drawText(ctx, n, y, this.t);
       case 'dots': return this._dots(n, y);
       case 'prevRow': return this._prevRow(n, y);
@@ -818,6 +827,35 @@ export class FloorGL {
       case 'paceErr': return this._paceErr(n, y);
       case 'paceSub': return this._paceSub(n, y);
       case 'succ': return this._succ(n, y);
+    }
+  }
+
+  /** 단계 브레드크럼 — 벽(wallgl)과 **같은 규약**: 현재 단계만 볼드 + 글로우 + 숨쉬기,
+   *  나머지는 흐리게(두 칸 이상 뒤는 더 흐리게). 치수만 지면 대지 비율로 1.5배(벽 28/24 → 42/36). */
+  _crumb(n, y) {
+    const ctx = this.ctx;
+    const items = n.phases.map((label, i) => {
+      const active = i === n.phase;
+      const str = active ? label + (n.sub ? ' ' + n.sub : '') : label;
+      ctx.font = F(active ? 700 : 400, active ? 42 : 36);
+      return { str, active, far: i > n.phase + 1, w: ctx.measureText(str).width };
+    });
+    const GAP = 60, total = items.reduce((a, b) => a + b.w, 0) + GAP * (items.length - 1);
+    let px = CX - total / 2;
+    ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    for (const it of items) {
+      ctx.save();
+      if (it.active) {
+        const pu = cycle(this.t, 1.2, 2.4, 9999);
+        if (pu != null) ctx.globalAlpha *= kf(pu, [[0, 1], [.5, .6], [1, 1]]);
+        ctx.shadowColor = 'rgba(255,255,255,.45)'; ctx.shadowBlur = 42;
+        ctx.font = F(700, 42); ctx.fillStyle = '#fff';
+      } else {
+        ctx.font = F(400, 36); ctx.fillStyle = it.far ? 'rgba(255,255,255,.5)' : 'rgba(255,255,255,.7)';
+      }
+      ctx.fillText(it.str, px, y + (it.active ? 0 : 5));
+      ctx.restore();
+      px += it.w + GAP;
     }
   }
 
