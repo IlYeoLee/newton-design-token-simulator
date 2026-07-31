@@ -112,6 +112,12 @@ await page.evaluateOnNewDocument(() => {
   window.requestAnimationFrame = cb => raf(() => cb(window.__vt));
   const D0 = 1735689600000;
   Date.now = () => D0 + window.__vt;
+  // ★ <video> 는 미디어 클록으로 돈다 — performance.now 를 가로채도 안 묶인다.
+  //   재생을 그대로 두면 프레임 한 장 렌더에 걸리는 실제 시간(0.2~0.5초)만큼 영상이 앞질러 가
+  //   인물만 12~30배로 빨라진다(유저: "16배속한 것처럼"). 루프에서 pause() 만으론 부족하다 —
+  //   앱이 매 틱 play() 를 다시 부른다(실측: bhandle_pp.mp4 가 계속 paused:false).
+  //   재생 자체를 막고, 프레임마다 currentTime 을 우리가 직접 찍는다.
+  HTMLMediaElement.prototype.play = function () { return Promise.resolve(); };
 });
 await page.setViewport({ width: W, height: H, deviceScaleFactor: SS });
 const errs = [];
