@@ -383,7 +383,7 @@ vec3 personColor(float T){
 //     하단(샌드)으로 — 양끝 다 R≈1이라 알파는 어디서도 안 떨어진다.
 #define P_TEX   3.0     // 국소 대비(옷 결·주름)를 온도로 옮기는 배율
 #define P_ABS   0.18    // 절대 밝기를 반영하는 비율 — 낮을수록 클립 노출차에 둔감
-#define P_VERTMIX 1.0   // T 결정에서 '세로 램프'가 차지하는 비중. 1 = 벽 인물과 완전 동일 매핑(유저 확정:
+#define P_VERTMIX 0.35   // 1.0(세로 램프 단독 = 1차원)에서 낮춤 — 두께가 다시 색을 만든다(유저)   // T 결정에서 '세로 램프'가 차지하는 비중. 1 = 벽 인물과 완전 동일 매핑(유저 확정:
                          //   '벽면이 좋아 벽면스타일대로 바닥을 고쳐줘'). 0 으로 내리면 옛 두께 기반으로 돌아간다.
 #define P_PIVOT 0.34    // 대역 확장 피벗 — 코어 실사용 T(≈0.15)보다 위. 이 값 기준으로 T 가 벌어진다.
 vec3 personLook(float thick, float lumS, float lumB, float mIn, float face, float vTop){

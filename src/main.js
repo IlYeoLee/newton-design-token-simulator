@@ -2334,7 +2334,7 @@ void main(){
     if (U.uPHi) U.uPHi.value = hi;
     if (U.uPDepth) U.uPDepth.value = FXP.person?.depth ?? 0.34;
     //     uPInk/uPInkT = 명암 잉크(그늘 → 뉴턴 RED). 0 = 도입 전과 픽셀 동일.
-    if (U.uPInk) U.uPInk.value = FXP.person?.ink ?? 0.85;
+    if (U.uPInk) U.uPInk.value = FXP.person?.ink ?? 0.30;
     if (U.uPInkT) U.uPInkT.value = FXP.person?.inkT ?? 0.42;
   };
   let _cf = null;
@@ -3162,7 +3162,13 @@ void main(){
     PU.uW.value = FXP.person?.blur ?? 1;   // 엣지 블러 — 랩 person 슬라이더 (누락돼 기본 1.0으로 돌던 버그)
     PU.uGrain.value = FXP.person?.grain ?? 0;
     PU.uTone.value = FXP.person?.tone ?? 0;
-    setPersonUniforms(PU, 0.64);   // 채도·세로대역 = 세 인물 셰이더 공용 · 바닥 대역 상단 0.64(코치판과 동일)
+    // 대역 상단은 **면마다** 다르다. 데모 판은 DEMO_CLIP_MODE='wall' 이면 실제로 벽에 서므로
+    //   벽 값(0.91 + 코랄 억제 0.9)을 써야 한다. 여태 바닥 값 0.64 가 박혀 있어서 램프가
+    //   t 0.33~0.58 = **레드~코랄 구간에만** 갇혀 있었다 — 중황·프리즘이 면적 0%.
+    //   그래서 어떤 자세를 취해도 붉은 판 하나로 보였다(유저: 평면적이고 1차원적).
+    //   ※ 지금 복싱 벽에 보이는 인물이 이 데모 판이다(bxPerson 아틀라스는 wall 모드에선 숨는다).
+    const wallMode = DEMO_CLIP_MODE === 'wall';
+    setPersonUniforms(PU, wallMode ? 0.91 : 0.64, wallMode ? 0.9 : 0);
     trailFlip = 1 - trailFlip;
   }
 

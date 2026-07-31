@@ -31,7 +31,9 @@ export const FXP = {
   //   ink/inkT = 명암 잉크: 실제 인물의 그늘(원본 블러 휘도 < inkT)을 뉴턴 RED 로 물들이는 양·문턱.
   //     depth(=uPDepth)로는 이게 안 된다 — 그 경로는 절대 밝기를 18% 만 반영하도록 설계돼 있어
   //     순흑도 T 를 0.05 밖에 못 민다. ink 는 LUT 대역(하한 P_LO 0.40)도 우회해 #FA3030 를 직접 얹는다.
-  person: { blur: 0, glow: 0, flow: 0, decay: 0, detail: 0.42, sweep: 0, depth: 0.34, grain: 0, tone: 1, ink: 0.85, inkT: 0.42 },
+  // ink 0.85 → 0.30: 문턱(0.42) 아래를 순수 RED 로 덮는 항이라, 실사 클립의 중간톤 대부분이
+  //   걸려 몸 전체가 단색 빨강이 됐다(유저: 평면적·1차원적). 그늘 '강조'로만 남긴다.
+  person: { blur: 0, glow: 0, flow: 0, decay: 0, detail: 0.42, sweep: 0, depth: 0.34, grain: 0, tone: 1, ink: 0.30, inkT: 0.42 },
   gainBoost: 1.0,   // 주간 모드 투사 게인 (주광 가시 = 제품 스토리)
   a3Arrow: 4,       // 하이니 리프트 큐 (1 셰브론 · 2 스템+SVG촉 · 3 바 · 4 궤적 토큰=기본)
   liveUI: 3,   // 실전 UI 기본 = 3안 셰브론 플로우(리서치 확정: 상대속도 흐름·락온)        // 실전 러닝 플로어 UI 5안 (1 페이스라인 · 2 펄스링 · 3 셰브론 · 4 도트 · 5 스트립)
