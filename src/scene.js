@@ -176,6 +176,9 @@ export function createScene(container) {
     const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.36, 10), dark);
     arm.rotation.x = Math.PI / 2; arm.position.set(0, board.position.y, boardZ - 0.18); g.add(arm);
     g.visible = false;
+    // 골대도 무대다. 슈터스 스퀘어·그물이 LineSegments 라 --beam 의 '선은 투사광' 규칙에
+    // 걸려 살아남는다 — 이름으로 통째로 제외한다.
+    g.name = 'hoop';
     scene.add(g);
     return g;
   })();
