@@ -339,13 +339,18 @@ export function rollNum(ctx, target, t, delay, cd, x, y, size, o = {}) {
       } else i++;
     }
   }
-  // 자리마다 '지금 값' + 그 자리가 10^p 중 어디인지. p 를 들고 있어야 굴림 타이밍을 계산할 수 있다.
+  // 자리마다 '보일 숫자(d)'와 '굴림 위상(f)'. 오도미터는 아랫자리부터 위로 물려 돈다 —
+  //   맨 아랫자리만 연속으로 돌고, 윗자리는 **바로 아랫자리가 9 일 때만** 같은 위상으로 따라 돈다.
+  //   (자리마다 소수부를 그대로 쓰면 198 의 백의 자리가 1.98 → 98% 넘어간 채 굳는다.
+  //    9 를 낀 값에서 늘 반쯤 넘어간 숫자가 보이던 원인 — 유저: 안 넘어가고 멈춤.)
   const wheel = new Array(str.length).fill(null);
   for (const r of runs) {
     const cur = e >= 1 ? r.val : r.val * e, L = r.idx.length;
-    for (let k = 0; k < L; k++) {
-      const p = L - 1 - k;
-      wheel[r.idx[k]] = { v: cur / Math.pow(10, p), p };
+    let f = cur - Math.floor(cur);   // 맨 아랫자리 = 연속 회전
+    for (let p = 0; p < L; p++) {
+      const d = Math.floor(cur / Math.pow(10, p)) % 10;
+      wheel[r.idx[L - 1 - p]] = { d, f };
+      f = d === 9 ? f : 0;           // 9 에서만 윗자리로 물린다
     }
   }
   ctx.save();
@@ -387,11 +392,7 @@ export function rollNum(ctx, target, t, delay, cd, x, y, size, o = {}) {
     const w = wheel[i];
     if (w == null) { ctx.font = SF; ctx.fillText(str[i], px, y); px += ws[i]; continue; }
     ctx.font = NF;
-    const d = Math.floor(w.v), fr = w.v - d;
-    // 실제 오도미터 규칙 — 맨 아랫자리만 계속 돌고, 윗자리는 '아랫자리가 9→0 을 넘는 순간'에만 넘어간다.
-    //   자리마다 fr 을 그대로 쓰면 178 처럼 끝자리가 8 인 값에서 십·백 자리가 78% 넘어간 채 굳는다
-    //   (유저: 숫자가 안 넘어가고 멈춤 — 정지가 아니라 '반쯤 넘어간 채 정지'였다).
-    const f = w.p === 0 ? fr : clamp01(fr * 10 - 9);
+    const d = w.d, f = w.f;
     ctx.save();
     ctx.beginPath(); ctx.rect(px - 4, y, ws[i] + 8, size * 0.92); ctx.clip();   // 창 = 딱 한 자리
     ctx.fillText(String(d % 10), px, y - f * H);                                // 나가는 자리 = 위로
@@ -866,8 +867,11 @@ export class FloorGL {
     ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
     // ① 값 — 도트 숫자 = 카운트업(유저 규칙). 진입 후 0.6s 동안 세어 오르고, 그 뒤엔 실시간 값을
     //   그대로 따라가며 자릿수만 굴러간다. '--'(미측정)는 숫자가 아니라 그대로 그려진다.
+    //   색은 싣지 않는다(흰색 고정) — 편차는 아래 ②의 점이 이미 위치로 말한다. 숫자에까지 색을
+    //   태우면 ⓐ 학습자는 늘 목표와 어긋나 있어 빨강이 기본 상태가 되고(경고가 경고를 잃는다),
+    //   ⓑ 가산 투사에서 적색이 가장 먼저 대비를 잃어 '많이 틀어진 순간'에 제일 안 읽힌다.
     rollNum(ctx, me || '--', this.t, 0, 0.6, cx, y + 118 - 132 * 0.78, 132,
-            { fam: dot9, align: 'center', fill: col });
+            { fam: dot9, align: 'center', fill: NEU.paper });
     // ② 편차 바 — 가운데 눈금이 목표, 점이 현재. 관계를 '위치'로 읽는다.
     const BW = 232, BY = y + 154;
     ctx.lineCap = 'round';
