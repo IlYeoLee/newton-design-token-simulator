@@ -1263,11 +1263,17 @@ void main(){
     //     blur .8 · glow .8 · flow .35 · decay .4 · grain .07 → 인물 영상에 잔상(핑퐁 RT 누적)과
     //     필름 그레인이 계속 걸려 있었다. 07-30 결정("인물 = 뉴턴톤만, 나머지 0")대로 걸러 받는다.
     //     저장본이 무엇이든 런타임은 항상 이 규칙 — 좀비 값이 다시 살아날 경로를 없앤다.
-    const PERSON_KEEP = ['detail', 'tone', 'sweep', 'ink', 'inkT'];   // 음영·톤·세로대역 = 룩 토큰 / blur·glow·flow·decay·grain = 아티팩트(은퇴)
+    // ★ blur 를 아티팩트 목록에서 뺀다(07-31). glow·flow·decay·grain 은 잔상·필름그레인이라
+    //   은퇴가 맞지만, blur 는 **실루엣 엣지 부드러움**이다 — 레퍼런스(setup-injury)의 '은은한
+    //   블러'가 정확히 이 값이고, 여기서 0 으로 덮는 바람에 인물이 늘 칼같이 잘려 있었다.
+    const PERSON_KEEP = ['detail', 'tone', 'sweep', 'ink', 'inkT', 'blur'];   // 음영·톤·세로대역·엣지블러 = 룩 토큰
     const stPerson = st.person || st.p;
     if (stPerson) {
       for (const k of PERSON_KEEP) if (stPerson[k] != null) FXP.person[k] = stPerson[k];
-      Object.assign(FXP.person, { blur: 0, glow: 0, flow: 0, decay: 0, grain: 0 });
+      // 저장본의 blur 0 은 '은퇴 시절에 0 으로 굳은 값'이다 — 그걸 그대로 받으면 다시 칼같이 잘린다.
+      //   0 이면 기본값(fxlut)으로 되돌린다. 유저가 실제로 0 을 원하면 랩에서 다시 저장하면 된다.
+      if (!stPerson.blur) FXP.person.blur = 1.0;
+      Object.assign(FXP.person, { glow: 0, flow: 0, decay: 0, grain: 0 });   // 잔상·그레인만 은퇴
     }
     if (st.lane) FXP.lane = st.lane;      // 레인 전용 스타일 (화살표 LINE과 분리 — 유저 확정)
     // markShape(랩 표현형 토글)는 미리보기용 — 시뮬 루프 마크는 설계대로 존 원 고정
@@ -2921,6 +2927,18 @@ void main(){
           #include <clipping_planes_fragment>
           vec2 uv = vUv;
           float m = pmask(uv);
+          // 엣지 블러 — uW(룩 슬라이더 person.blur)는 여태 **선언만 되고 본문에서 한 번도
+          //   안 읽혔다**(죽은 손잡이). 그래서 실루엣이 늘 칼같이 잘려 노이즈까지 그대로 보였다.
+          //   레퍼런스는 인물 전체가 은은하게 뭉개져 있다 — 링 2겹(12탭)으로 마스크를 흐린다.
+          if (uW > 0.001) {
+            float mS = m * 0.28;
+            for (int r = 1; r <= 2; r++) {
+              float rad = 0.012 * float(r) * uW;
+              for (int k = 0; k < 6; k++) { float a = 1.0472 * float(k) + float(r) * 0.5;
+                mS += pmask(uv + vec2(cos(a), sin(a)) * rad) * 0.06; }
+            }
+            m = mix(m, clamp(mS, 0.0, 1.0), clamp(uW, 0.0, 1.0));
+          }
           float trail = texture2D(uTrail, uv).r * (1.0 - m) * uTrailGain;
           // 열화상 v4: 형태(실루엣)와 온도(확산 필드) 분리 — 몸 테두리 크리스프, 얼굴만 은닉
           float H = texture2D(uHeat, uv).r;
@@ -2940,7 +2958,12 @@ void main(){
           // 형태: 전신 크리스프 실루엣만 — 헤일로·확산 완전 제거 (유저 확정: 그림자 금지)
           // 마스크 침식: 크로마키가 불완전한 클립(비순수 그린 배경)에서 마스크 바닥값(~0.2)이
           // 쿼드 전체를 반투명 워시 박스로 칠하던 근본 원인 — 저신뢰 마스크는 0으로
-          float mEro = smoothstep(0.16, 0.52, m);   // 침식 완화 — 골대 림 등 얇은 구조 보존(유저)
+          // 침식 완화 — 골대 림 등 얇은 구조 보존(유저). 문턱을 넓혀 경계 자체를 부드럽게.
+          float mEro = smoothstep(0.04, 0.62, m);
+          // ★ 레퍼런스(multiply over white)의 알파는 **어두움**이다. 밝은 픽셀(피부·머리카락)은
+          //   거의 투명해져 배경으로 녹고, 어두운 옷만 불투명하게 남는다 — 그래서 실루엣 경계선이
+          //   아예 없다(유저: "인물에 페더도 많다"). 마스크를 어두움으로 한 번 더 깎는다.
+          mEro *= mix(1.0, smoothstep(0.94, 0.26, dLumB), 0.72);
           // 하단 잘림 — 코치 판과 같은 처리(fx-core cutFade): 아래로 갈수록 초점이 나가 열 필드로 녹는다.
           float botC = 0.0;
           for (int i = 0; i < 8; i++) botC += praw(vec2((float(i) + 0.5) / 8.0, 0.006));
