@@ -3168,7 +3168,9 @@ void main(){
     //   그래서 어떤 자세를 취해도 붉은 판 하나로 보였다(유저: 평면적이고 1차원적).
     //   ※ 지금 복싱 벽에 보이는 인물이 이 데모 판이다(bxPerson 아틀라스는 wall 모드에선 숨는다).
     const wallMode = DEMO_CLIP_MODE === 'wall';
-    setPersonUniforms(PU, wallMode ? 0.91 : 0.64, wallMode ? 0.9 : 0);
+    //   상단 0.98 = 하이라이트가 PRISM(거의 흰빛)까지 닿는다 — 레퍼런스는 밝은 쪽이 흰색으로
+    //   빠지는 듀오톤이다. 코랄 억제는 0 — 램프 한가운데를 비우면 듀오톤 계조가 끊긴다.
+    setPersonUniforms(PU, wallMode ? 0.98 : 0.72, 0);
     trailFlip = 1 - trailFlip;
   }
 
