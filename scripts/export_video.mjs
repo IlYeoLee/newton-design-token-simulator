@@ -372,29 +372,35 @@ const FF = await import('ffmpeg-static').then(m => m.default).catch(() => 'ffmpe
 const hasFF = (() => {
   try { execFileSync(FF, ['-version'], { stdio: 'ignore' }); return true; } catch { return false; }
 })();
-const made = [];
+// ★ 프레임을 먼저 산출 폴더로 옮기고 나서 인코딩한다 — 순서가 중요하다.
+//   예전엔 TMP 에서 바로 인코딩하고 그 뒤에 옮겼다. mp4 인코딩이 실패하면 예외가 스크립트를
+//   죽여 20분치 4K 프레임이 임시 폴더에 갇혔다(실측: 홀수 높이 3841 로 libx264 가 죽음).
+//   렌더가 끝난 프레임은 무조건 먼저 건진다. 인코딩은 그다음 문제다.
+const seq = path.join(OUT, `${tag}_png`);
+fs.rmSync(seq, { recursive: true, force: true });
+fs.renameSync(TMP, seq);
+const SRC = path.join(seq, 'f%05d.png');
+const made = [`${seq}${path.sep}  (PNG 시퀀스 ${done}장 · ${W * SS}×${H * SS}${ALPHA ? ' · 알파 보존' : ''})`];
+
+// 인코딩은 실패해도 넘어간다 — 최종물은 PNG 시퀀스이고 .mov/.mp4 는 편의용 사본이다.
+const enc = (label, out, args) => {
+  try { execFileSync(FF, ['-y', '-framerate', String(FPS), '-i', SRC, ...args, out],
+    { stdio: ['ignore', 'ignore', 'ignore'] }); made.push(out); }
+  catch { console.log(`⚠ ${label} 인코딩 실패 — 건너뜁니다(PNG 시퀀스는 위에 있습니다).`); }
+};
 if (hasFF) {
-  // ProRes 4444 — 에펙에 그대로 임포트.
+  // ProRes 4444 — 에펙에 그대로 임포트. 홀수 크기도 받는다.
   // SS 배로 렌더했으면 여기서 줄인다 — lanczos 로 내리는 게 GPU 안티에일리어싱보다 깨끗하다.
   const DOWN = SS > 1 ? ['-vf', `scale=${W}:${H}:flags=lanczos`] : [];
-  const mov = path.join(OUT, `${tag}.mov`);
-  execFileSync(FF, ['-y', '-framerate', String(FPS), '-i', path.join(TMP, 'f%05d.png'),
-    ...DOWN, '-c:v', 'prores_ks', '-profile:v', '4444',
-    '-pix_fmt', ALPHA ? 'yuva444p10le' : 'yuv444p10le', mov], { stdio: ['ignore','ignore','inherit'] });
-  // 미리보기용 H.264
-  const mp4 = path.join(OUT, `${tag}_preview.mp4`);
-  execFileSync(FF, ['-y', '-framerate', String(FPS), '-i', path.join(TMP, 'f%05d.png'),
-    '-vf', `scale=${W}:${H}:flags=lanczos`,
-    '-c:v', 'libx264', '-crf', '16', '-pix_fmt', 'yuv420p', mp4], { stdio: ['ignore','ignore','inherit'] });
-  made.push(mov, mp4);
+  enc('ProRes', path.join(OUT, `${tag}.mov`),
+    [...DOWN, '-c:v', 'prores_ks', '-profile:v', '4444',
+     '-pix_fmt', ALPHA ? 'yuva444p10le' : 'yuv444p10le']);
+  // 미리보기용 H.264 — ★ 짝수 크기로 내려야 한다. 평면 뷰는 대지 비율을 따르므로 홀수가 흔하다
+  //   (벽 3840×2363 · 지면 2302×3841). libx264 는 홀수 높이를 못 쓴다.
+  enc('H.264 미리보기', path.join(OUT, `${tag}_preview.mp4`),
+    ['-vf', `scale=${W - (W % 2)}:${H - (H % 2)}:flags=lanczos`,
+     '-c:v', 'libx264', '-crf', '16', '-pix_fmt', 'yuv420p']);
 } else console.log('ⓘ ffmpeg 없음 — PNG 시퀀스만 냅니다(에펙은 이걸 그대로 읽습니다).');
-
-if (ALPHA || !hasFF) {   // 알파는 PNG 시퀀스가 가장 확실하다 — 에펙에서 그대로 임포트
-  const seq = path.join(OUT, `${tag}_png`);
-  fs.rmSync(seq, { recursive: true, force: true });
-  fs.renameSync(TMP, seq);
-  made.unshift(`${seq}${path.sep}  (PNG 시퀀스 ${done}장 · ${W * SS}×${H * SS}${ALPHA ? ' · 알파 보존' : ''})`);
-} else fs.rmSync(TMP, { recursive: true, force: true });
 console.log('\n✅ ' + made.join('\n   '));
 if (errs.length) console.log(`⚠ 페이지 에러 ${errs.length}건:`, errs.slice(0, 3));
 await browser.close();
