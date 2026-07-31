@@ -31,6 +31,7 @@
 //     --out    산출 경로 (기본 out/)
 // ─────────────────────────────────────────────────────────────
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 import { execFileSync } from 'child_process';
 import puppeteer from 'puppeteer';
@@ -54,9 +55,21 @@ const FBASE = SPORT === 'boxing' ? [2600, 1600] : [1600, 2670];   // 벽 / 지�
 // PNG 시퀀스는 줄이지 않는다(에펙에 원본을 주는 게 항상 낫다).
 const SS = Math.min(3, Math.max(1, +arg('ss', FLAT ? 2 : 1)));
 const H = FLAT ? Math.round(W * FBASE[1] / FBASE[0]) : Math.round(W * 9 / 16);
-const BEAM = !!arg('beam', false);
+const ALPHA0 = !!arg('alpha', false);   // 배경 투명 PNG/ProRes 4444
+// ★ --alpha 는 --beam 을 함축한다. 알파를 휘도에서 뽑는 방식(scene.js FX.alphaOut)이라
+//   무대(바닥·벽·봇)가 켜져 있으면 밝은 무대까지 불투명해진다 — 투명 매트가 안 나온다.
+//   예전엔 알파 코드가 if(beam) 안에만 있어서 --alpha 단독은 조용히 검은 배경이 나왔다.
+const BEAM = !!arg('beam', false) || ALPHA0;
 const HT = !!arg('ht', false);
 const SESSION = !!arg('session', false);
+// ★ --stage — 세션은 READY 에서 '발 두 번 탭' 게이트를 기다린다. 헤드리스엔 그 입력이 없으므로
+//   --session 만 주면 인트로 1.1초 재생 뒤 화면이 완전히 정지한다(실측: 러닝 5초 300프레임 중
+//   69프레임째부터 231장이 바이트 단위로 동일). 판정 토큰은 애초에 READY 에 없다.
+//   실전 스테이지로 바로 넣으려면 id 를 지정한다. --liststages 로 목록.
+const STAGE = arg('stage', '');
+const LISTSTAGES = !!arg('liststages', false);
+// --play : 시뮬을 실제로 돌린다(봇·물리). 스크럽으로 못 살리는 상태 누적형 화면용 — 위 루프 주석 참조.
+const PLAY = !!arg('play', false);
 const OUT = arg('out', 'out');
 const URLBASE = arg('url', 'http://127.0.0.1:5199/');
 // UI 캔버스 배율 — 실시간 기본 0.75. 4K 내보내기엔 2 이상이어야 확대 흐림이 없다.
@@ -67,9 +80,9 @@ const URLBASE = arg('url', 'http://127.0.0.1:5199/');
 //   출력의 1.5배면 선예도는 그대로고 메모리는 절반이다.
 const UISCALE = +arg('uiscale', FLAT ? Math.min(3, Math.max(1, W / FBASE[0] * 1.5))
                                      : (W >= 3000 ? 2 : 1.25));
-const ALPHA = !!arg('alpha', false);   // 배경 투명 PNG/ProRes 4444
+const ALPHA = ALPHA0;
 
-const TMP = fs.mkdtempSync('/tmp/newton_export_');
+const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'newton_export_'));
 fs.mkdirSync(OUT, { recursive: true });
 const N = Math.round(DUR * FPS);
 const tag = `${SPORT}${SESSION ? '_session' : ''}${FLAT ? '_flat' : ''}${BEAM ? '_beam' : ''}${HT ? '_ht' : ''}${ALPHA ? '_alpha' : ''}_${W}p${FPS}`;
@@ -78,8 +91,10 @@ console.log(`▶ ${tag} — ${N}프레임 (출력 ${W}×${H} · 렌더 ${W * SS}
 // GPU 우선(맥은 metal). 실패하면 소프트웨어로 떨어진다 — 느리지만 결과는 같다.
 const browser = await puppeteer.launch({
   headless: 'new',
-  args: ['--no-sandbox', '--use-angle=metal', '--enable-gpu',
-    '--enable-unsafe-swiftshader', `--window-size=${W},${H}`],
+  // ANGLE 백엔드는 OS 마다 다르다 — 맥은 metal, 윈도는 d3d11. 틀린 값을 주면 조용히
+  // 소프트웨어(SwiftShader)로 떨어져 프레임당 수 초씩 느려진다.
+  args: ['--no-sandbox', `--use-angle=${process.platform === 'darwin' ? 'metal' : 'd3d11'}`,
+    '--enable-gpu', '--enable-unsafe-swiftshader', `--window-size=${W},${H}`],
 });
 const page = await browser.newPage();
 // ★ 가상 시계 — 페이지의 모든 시간을 우리가 민다.
@@ -110,8 +125,11 @@ const warm = async (ms, step = 16.7) => {
 await new Promise(r => setTimeout(r, 9000));   // 에셋 로드(실시간 대기)
 await warm(1200);                              // 가상 시계로 초기 애니메이션 워밍업
 
+await page.evaluate(p => { window.__play = p; }, PLAY);
 await page.evaluate(a => { window.__wantAlpha = a; }, ALPHA);
-await page.evaluate(({ sport, beam, ht, session }) => {
+// ★ stage 를 구조분해에 반드시 넣을 것 — 빠뜨리면 브라우저 전역의 #stage DOM 요소가 잡힌다
+//   (id 를 가진 요소는 window 의 프로퍼티가 된다). 실측: '없는 스테이지: [object HTMLElement]'.
+await page.evaluate(({ sport, beam, ht, session, stage, listStages }) => {
   const d = window.__dbg;
   // 화면 정리 — 캔버스 말고는 전부 숨긴다.
   //   개별 선택자로 지우면 자막·클립 미리보기·빌드 스탬프처럼 빠뜨린 게 반드시 새어 나온다(실측).
@@ -142,7 +160,19 @@ await page.evaluate(({ sport, beam, ht, session }) => {
   const packBtn = { running: '러닝', boxing: '복싱', basketball: '농구' }[sport];
   [...document.querySelectorAll('button')].find(b => b.textContent.trim() === packBtn)?.click();
   if (ht) document.getElementById('btn-ht')?.click();
-  if (session) d.session.start(sport);
+  if (session) {
+    d.session.start(sport);
+    if (stage || listStages) {
+      const ids = (d.session.stages || []).map(s => s.id);
+      window.__stages = ids;
+      if (stage) {
+        const i = ids.indexOf(stage);
+        // 스테이지 점프는 세션이 스스로 쓰는 관용구 그대로 (session.js _gateAdvance)
+        if (i >= 0) { d.session.stageIdx = i; d.session.t = 0; d.session._enter(); }
+        else window.__stageErr = `없는 스테이지: ${stage}`;
+      }
+    }
+  }
   if (beam) {
     // ── 투사광만 ─────────────────────────────────────────────────────────────
     //   실사 합성용. 우리가 '쏘는 빛'만 남기고 무대(바닥·벽·봇·골대·그리드)를 전부 끈다.
@@ -177,7 +207,14 @@ await page.evaluate(({ sport, beam, ht, session }) => {
     });
   }
   window.__sweep();   // ★ session.start 뒤에 한 번 더 — 클립 미리보기 패널이 그때 생긴다
-}, { sport: SPORT, beam: BEAM, ht: HT, session: SESSION });
+}, { sport: SPORT, beam: BEAM, ht: HT, session: SESSION, stage: STAGE, listStages: LISTSTAGES });
+
+if (SESSION && (STAGE || LISTSTAGES)) {
+  const { ids, err } = await page.evaluate(() => ({ ids: window.__stages, err: window.__stageErr }));
+  if (LISTSTAGES) { console.log(`${SPORT} 스테이지: ${(ids || []).join(' ')}`); await browser.close(); process.exit(0); }
+  if (err) { console.error(`✗ ${err}\n  있는 것: ${(ids || []).join(' ')}`); await browser.close(); process.exit(1); }
+  console.log(`  스테이지 ${STAGE} 진입`);
+}
 
 if (FLAT) await page.evaluate(sport => {
   // ── 평면 정면 뷰 ────────────────────────────────────────────────────────
@@ -196,10 +233,22 @@ if (FLAT) await page.evaluate(sport => {
   const n = new T.Vector3(0, 0, 1).applyQuaternion(q);      // 면 법선(앞쪽)
   const dist = Math.max(hw, hh) * 4 + 5;
   const cam = new T.OrthographicCamera(-hw, hw, hh, -hh, 0.01, dist * 3);
-  cam.position.copy(p).addScaledVector(n, dist);
-  cam.up.copy(new T.Vector3(0, 1, 0).applyQuaternion(q));
-  cam.lookAt(p);
-  cam.updateMatrixWorld(true);
+  // ★ 매 프레임 투사면에 다시 맞춘다 — 한 번만 계산하면 안 된다.
+  //   러닝은 주자가 전진하면서 지면 UI 평면이 z 로 계속 움직인다(main.js followFloor·loopShiftZ).
+  //   고정 카메라는 곧 평면을 절두체 밖으로 흘려보내 화면이 통째로 빈다
+  //   (실측: 러닝 C2·A3·P2 전부 0.4~1초 뒤 평균 알파 28 → 0.4, 즉 빈 프레임).
+  //   벽(복싱)·농구는 투사면이 제자리라 이 버그가 안 드러났다.
+  //   대지 크기·스케일은 안 변하므로 절두체는 그대로 두고 위치·자세만 다시 잡는다.
+  window.__fitFlat = () => {
+    surf.updateWorldMatrix(true, false);
+    surf.matrixWorld.decompose(p, q, s);
+    const nn = new T.Vector3(0, 0, 1).applyQuaternion(q);
+    cam.position.copy(p).addScaledVector(nn, dist);
+    cam.up.copy(new T.Vector3(0, 1, 0).applyQuaternion(q));
+    cam.lookAt(p);
+    cam.updateMatrixWorld(true);
+  };
+  window.__fitFlat();
   // 렌더 카메라만 갈아 끼운다 — 앱은 매 틱 자기 camera 를 움직이지만 그건 이제 안 쓰인다.
   (d.sceneScope?.setRenderCamera ?? (c => { d.composer.passes[0].camera = c; }))(cam);
   d.composer.passes[0].camera = cam;
@@ -216,6 +265,19 @@ await new Promise(r => setTimeout(r, 2500));
 // 안정화 동안 늦게 붙은 DOM 까지 마지막으로 한 번. (매 프레임 쓸면 800개 스타일 재계산으로
 // 프레임 시간이 2.7s→5.6s 로 뛰고 컨텍스트도 더 일찍 잃는다 — 실측.)
 await page.evaluate(() => window.__sweep?.());
+// ★ --flat 이 실제로 걸렸는지 한 번 확인하고 넘어간다. 조용히 실패하면 원근 그림이 나오는데,
+//   그건 '조금 이상한 영상'이라 눈으로는 버그로 안 보이고 카메라 각도 문제처럼 보인다.
+if (FLAT) {
+  const st = await page.evaluate(() => ({
+    err: window.__flatErr, cam: window.__dbg?.composer?.passes?.[0]?.camera?.type,
+    same: window.__dbg?.composer?.passes?.[0]?.camera === window.__flatCam,
+  }));
+  if (st.err) { console.error(`✗ --flat 실패: ${st.err}`); process.exit(1); }
+  if (st.cam !== 'OrthographicCamera' || !st.same) {
+    console.error(`✗ --flat 실패: 렌더 카메라가 ${st.cam} (직교로 안 바뀜)`); process.exit(1);
+  }
+  console.log(`  평면 직교 카메라 적용됨`);
+}
 
 const t0 = Date.now();
 let done = 0;
@@ -228,11 +290,27 @@ for (let i = 0; i < N; i++) {
   await page.evaluate(tt => new Promise(res => {
     const d = window.__dbg;
     window.__vt = 1200 + tt * 1000;          // 가상 시계 — 셰이더·클록이 전부 이걸 본다
+    // ★ 투사 UI 강제 재도색 — 게이트가 두 겹이라 둘 다 풀어야 한다(export_ui.mjs 와 같은 수법).
+    //   ① _lastPaint: UI_FPS(기본 12) 스로틀. 실시간 예산용인데 내보내기는 프레임당 수 초 걸리는
+    //      오프라인 렌더라 의미가 없다. ?uifps=60 으로 올려도 안 된다 — 가상 시계 간격이 정확히
+    //      1/60 이라 `t - _lastPaint < 1/UI_FPS` 가 부동소수점 경계에 걸려 한 프레임 걸러 스킵한다.
+    //   ② _sig: floorgl 의 서명 비교. _sigOf() 가 시간을 Math.round(t*24) 로 24Hz 양자화하므로
+    //      60fps 로 뽑아도 지면 UI 는 24fps 로 덜컹인다.
+    //   실측: 이 두 줄 없이 러닝 5초 299쌍 중 232쌍이 완전 중복 — 씬은 도는데 UI 만 멈춰 있다.
+    for (const g of [d.floorGL, d.wallGL]) if (g) { g._lastPaint = -1; g._sig = null; }
     if (window.__flatCam) d.composer.passes[0].camera = window.__flatCam;   // 앱이 되돌려 놓지 못하게
-    d.state.playing = false;
-    d.state.time = tt;
-    if (d.session?.active) d.session.t = tt;
-    requestAnimationFrame(() => requestAnimationFrame(res));
+    // ★ 시간 모델 두 가지.
+    //   기본(스크럽): playing=false 로 두고 t 를 직접 꽂는다. 앱이 시간의 순수 함수인 부분
+    //     (셰이더 토큰·UI 트윈)은 이걸로 완벽히 재현된다.
+    //   --play(시뮬): 재생을 켜고 가상 시계가 밀게 둔다. 봇·물리처럼 '상태를 쌓아 가는' 것은
+    //     스크럽으로 되살릴 수 없다 — 실측: 러닝 C2 는 스크럽에서 0.95초 뒤 완전 정지한다
+    //     (라이브 수치가 봇 프로브에서 오는데 봇이 얼어 있어서). 가상 시계가 우리 것이라
+    //     재생을 켜도 결정론은 그대로다: 같은 명령 = 같은 프레임.
+    if (window.__play) { d.state.playing = true; }
+    else { d.state.playing = false; d.state.time = tt; if (d.session?.active) d.session.t = tt; }
+    // 첫 rAF 는 앱의 갱신·렌더가 끝난 뒤에 돈다(앱 루프가 먼저 등록돼 있다) — 거기서 카메라를
+    // 이번 프레임의 투사면 위치에 다시 맞추면, 두 번째 틱의 렌더가 그 카메라로 그린다.
+    requestAnimationFrame(() => { window.__fitFlat?.(); requestAnimationFrame(res); });
   }), t);
   await page.screenshot({ path: path.join(TMP, `f${String(i).padStart(5, '0')}.png`), type: 'png', omitBackground: ALPHA });
   done = i + 1;
@@ -254,25 +332,36 @@ if (leaked.length) console.log(`⚠ 캔버스 밖에서 보이는 요소 ${leake
 if (!done) { console.log('프레임이 하나도 없습니다 — 중단.'); await browser.close(); process.exit(1); }
 if (done < N) console.log(`  (${done}/${N} 프레임으로 묶습니다 — ${(done / FPS).toFixed(1)}초)`);
 
-// ProRes 4444 — 에펙에 그대로 임포트. 알파는 안 쓴다(가산 합성이라 검은 배경이면 충분).
-// SS 배로 렌더했으면 여기서 줄인다 — lanczos 로 내리는 게 GPU 안티에일리어싱보다 깨끗하다.
-const DOWN = SS > 1 ? ['-vf', `scale=${W}:${H}:flags=lanczos`] : [];
-const mov = path.join(OUT, `${tag}.mov`);
-execFileSync('ffmpeg', ['-y', '-framerate', String(FPS), '-i', path.join(TMP, 'f%05d.png'),
-  ...DOWN, '-c:v', 'prores_ks', '-profile:v', '4444',
-  '-pix_fmt', ALPHA ? 'yuva444p10le' : 'yuv444p10le', mov], { stdio: ['ignore','ignore','inherit'] });
-// 미리보기용 H.264
-const mp4 = path.join(OUT, `${tag}_preview.mp4`);
-execFileSync('ffmpeg', ['-y', '-framerate', String(FPS), '-i', path.join(TMP, 'f%05d.png'),
-  '-vf', `scale=${W}:${H}:flags=lanczos`,
-  '-c:v', 'libx264', '-crf', '16', '-pix_fmt', 'yuv420p', mp4], { stdio: ['ignore','ignore','inherit'] });
+// ffmpeg 는 선택이다 — 에펙에 얹을 최종물은 PNG 시퀀스이고, .mov 는 편의용 사본일 뿐이다.
+// (윈도엔 시스템 ffmpeg 가 없는 기기가 있다 — 그때 여기서 죽으면 뽑아 둔 프레임까지 날린다.
+//  ffmpeg-static 이 깔려 있으면 그 바이너리를 쓴다: 시스템 설치 없이 .mov/.mp4 가 나온다.)
+const FF = await import('ffmpeg-static').then(m => m.default).catch(() => 'ffmpeg');
+const hasFF = (() => {
+  try { execFileSync(FF, ['-version'], { stdio: 'ignore' }); return true; } catch { return false; }
+})();
+const made = [];
+if (hasFF) {
+  // ProRes 4444 — 에펙에 그대로 임포트.
+  // SS 배로 렌더했으면 여기서 줄인다 — lanczos 로 내리는 게 GPU 안티에일리어싱보다 깨끗하다.
+  const DOWN = SS > 1 ? ['-vf', `scale=${W}:${H}:flags=lanczos`] : [];
+  const mov = path.join(OUT, `${tag}.mov`);
+  execFileSync(FF, ['-y', '-framerate', String(FPS), '-i', path.join(TMP, 'f%05d.png'),
+    ...DOWN, '-c:v', 'prores_ks', '-profile:v', '4444',
+    '-pix_fmt', ALPHA ? 'yuva444p10le' : 'yuv444p10le', mov], { stdio: ['ignore','ignore','inherit'] });
+  // 미리보기용 H.264
+  const mp4 = path.join(OUT, `${tag}_preview.mp4`);
+  execFileSync(FF, ['-y', '-framerate', String(FPS), '-i', path.join(TMP, 'f%05d.png'),
+    '-vf', `scale=${W}:${H}:flags=lanczos`,
+    '-c:v', 'libx264', '-crf', '16', '-pix_fmt', 'yuv420p', mp4], { stdio: ['ignore','ignore','inherit'] });
+  made.push(mov, mp4);
+} else console.log('ⓘ ffmpeg 없음 — PNG 시퀀스만 냅니다(에펙은 이걸 그대로 읽습니다).');
 
-if (ALPHA) {   // 알파는 PNG 시퀀스가 가장 확실하다 — 에펙에서 그대로 임포트
+if (ALPHA || !hasFF) {   // 알파는 PNG 시퀀스가 가장 확실하다 — 에펙에서 그대로 임포트
   const seq = path.join(OUT, `${tag}_png`);
   fs.rmSync(seq, { recursive: true, force: true });
   fs.renameSync(TMP, seq);
-  console.log(`   ${seq}/  (PNG 시퀀스 · 알파 보존)`);
+  made.unshift(`${seq}${path.sep}  (PNG 시퀀스 ${done}장 · ${W * SS}×${H * SS}${ALPHA ? ' · 알파 보존' : ''})`);
 } else fs.rmSync(TMP, { recursive: true, force: true });
-console.log(`\n✅ ${mov}\n   ${mp4}`);
+console.log('\n✅ ' + made.join('\n   '));
 if (errs.length) console.log(`⚠ 페이지 에러 ${errs.length}건:`, errs.slice(0, 3));
 await browser.close();

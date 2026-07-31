@@ -2324,8 +2324,11 @@ void main(){
   //   그래서 주입은 이 함수 하나로 못박는다 — 새 인물 셰이더를 붙일 때도 여기만 부르면 된다.
   //     uPSat   = 채도. 마크 LUT와 같은 소스(FXP.sat)에서 — 슬라이더 하나가 인물·발자국 둘 다 이동.
   //     uPSweep = 세로 열 그라디언트 폭(0 = 도입 전과 픽셀 동일).
-  const setPersonUniforms = (U, hi = 0.86) => {   // hi = 대역 상단(면별). 기본 0.86 = 벽 인물 종전값
+  //     coral   = 코랄 억제(면별). 코랄은 램프 한가운데라 T 가 고르면 최대 면적을 먹는다 —
+  //               벽은 T 가 높이라 그게 곧 몸통이다. 0 = 도입 전과 픽셀 동일.
+  const setPersonUniforms = (U, hi = 0.86, coral = 0) => {   // hi = 대역 상단(면별). 기본 0.86 = 벽 인물 종전값
     if (!U) return;
+    if (U.uPCoral) U.uPCoral.value = coral;
     if (U.uPSat) U.uPSat.value = 1.0 + (FXP.sat ?? 1) * 0.32;
     if (U.uPSweep) U.uPSweep.value = FXP.person?.sweep ?? 0;
     if (U.uPHi) U.uPHi.value = hi;
@@ -2426,7 +2429,7 @@ void main(){
         uCropOff: { value: cfg.cropOff }, uCropScale: { value: cfg.cropScale }, uDetail: { value: 0.25 },
         // uPulse 0 — 복싱 인물엔 루마 펄스가 없다(톤을 흔드는 원인이라 끈다).
         // uPSat·uPSweep = PERSON_GLSL 공용(구 uSat 은 죽은 유니폼이라 폐기).
-        uPSat: { value: 1.32 }, uPSweep: { value: 0 }, uPHi: { value: 0.86 }, uPDepth: { value: 0.34 },
+        uPSat: { value: 1.32 }, uPSweep: { value: 0 }, uPHi: { value: 0.86 }, uPDepth: { value: 0.34 }, uPCoral: { value: 0 },
         uPInk: { value: 0.85 }, uPInkT: { value: 0.42 }, uPulse: { value: 0.0 } },
       vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
       fragmentShader: `
@@ -2677,7 +2680,10 @@ void main(){
         co.plane.material.uniforms.uDetail.value = FXP.person?.detail ?? 0.25;   // 룩 '음영' 슬라이더
         // 채도는 마크 LUT와 같은 소스(FXP.sat)에서 — 인물·발자국 룩 통일(슬라이더 하나가 둘 다 이동).
         //   이제 진짜로 이동한다: 구 uSat 은 선언만 되고 셰이더가 안 읽어 슬라이더가 죽어 있었다.
-        setPersonUniforms(co.plane.material.uniforms, 0.86);   // 복싱 인물과 동일 대역
+        // 바닥은 0.64 — 0.86 은 LUT 의 SAND(#FEC389, 채도 0.46)에 닿아 밝은 자리가 물빠진 살구가 된다.
+        //   벽(0.86)과 맞춘다고 올려놨었는데, 벽은 세로 램프로 T 를 0.06~0.98 훑어 진한 쪽 면적이
+        //   크고 바닥은 안 그렇다 — 같은 상한이 두 면에서 다른 결과를 낸다. fx-core 주석의 원래 값.
+        setPersonUniforms(co.plane.material.uniforms, 0.64);
         // 옆구리(BK_A1) 방향 화살표 = 코치 영상 실제 타이밍에 동기.
         //   bk_sidebend.webm 24fps 84프레임을 그린스크린 마스크로 프레임별 상체/하체 x중심을 재서
         //   기우는 쪽을 실측(scripts 없이 ffmpeg+마스크 1회 측정). 아래 표는 원본 3.5s 클립 기준 전이 시각.
@@ -2879,7 +2885,7 @@ void main(){
       uniforms: {
         tex: { value: demoTex }, uTrail: { value: trailRTs[0].texture }, uHeat: { value: heatRTs[0].texture }, uLUT: { value: getLUT() },
         uTime: { value: 0 }, uNoise: { value: 0.55 }, uW: { value: 1 }, uDetail: { value: 0.62 }, uTrailGain: { value: 1 }, uGrain: { value: 0 }, uTone: { value: 0 }, uLive: { value: 0 },
-        uPSat: { value: 1.32 }, uPSweep: { value: 0 }, uPHi: { value: 0.86 }, uPDepth: { value: 0.34 },
+        uPSat: { value: 1.32 }, uPSweep: { value: 0 }, uPHi: { value: 0.86 }, uPDepth: { value: 0.34 }, uPCoral: { value: 0 },
         uPInk: { value: 0.85 }, uPInkT: { value: 0.42 },   // PERSON_GLSL 공용 — setPersonUniforms 가 주입
         uCropC: { value: new THREE.Vector2(0.5, 0.5) }, uCropS: { value: new THREE.Vector2(1, 1) },
       },
@@ -2957,19 +2963,26 @@ void main(){
           float live = uLive;
           // 컴포저 OutputPass(linear→sRGB) 역변환 상쇄 (tokens.js uOut=1 규약)
           col = clamp(col, 0.0, 1.0);
+          float lumSrgb = max(col.r, max(col.g, col.b));   // ★ 알파 게이트용 — 반드시 변환 **전**에 (아래 설명)
           col = mix(col / 12.92, pow((col + 0.055) / 1.055, vec3(2.4)), step(0.04045, col));
           // 잔상 = 순수 가산광 (알파 0 = 절대 어둡게 못 함) — 잔상 구름이 잉크 알파를 갖고
           // 벽을 어둑한 사각으로 덮던 문제('터질 때 박스') 종결. 실루엣만 잉크 불투명.
           // 빛이 없으면 그리지 않는다 — 투사 UI 는 가산광이라 '검정'은 곧 '없음'이다.
           //   shape(색용)와 shapeA(알파용)가 따로 계산돼서, 마스크가 흔들리면 색은 0인데
           //   알파만 1이 되어 판이 통째로 검은 사각형으로 찍혔다(유저 스샷: 드리블 중 검정 박스).
-          float lum = max(col.r, max(col.g, col.b));
           // 투사광 불변식: 알파는 빛보다 클 수 없다. 프리멀티(One/OneMinusSrcAlpha)에서 알파는
           //   '뒤를 지우는 양'이라, 어두운 픽셀이 큰 알파를 가지면 그만큼 판이 검게 뚫린다.
           //   문턱값 게이트(lum<0.02)로는 lum=0.05 같은 '거의 검정'이 통과해 검은 사각형이 남았다.
           //   빛에 비례해 가림을 묶는다 — 빛이 없으면 가림도 없다.
-          float aOut = clamp(shapeA * 1.2, 0.0, 1.0) * field * live * 0.985;
-          gl_FragColor = vec4(col * live, min(aOut, lum * 1.6));
+          // ★ 게이트는 **표시색(sRGB)** 으로 잰다 — lumS 를 위 linear 변환 **전에** 잡아 둔 이유.
+          //   그 변환은 OutputPass(linear→sRGB) 상쇄용이지 '빛의 양'을 다시 정의하려던 게 아닌데,
+          //   변환 뒤 값으로 재는 바람에 같은 픽셀의 lum 이 절반 이하로 줄었다(0.55 → 0.26).
+          //   알파가 그만큼 무너지고, 프리멀티 합성 out = col + dst·(1−a) 로 **뒤 바닥이 배어 올라온다**.
+          //   복싱 기본 바닥은 아이보리 마루(rgb 238,226,212)라 그 유출이 곧 '허옇게 뜬다'였다.
+          //   같은 사고가 코치판에서 이미 한 번 났다(위 2497: '밝은 타일 코트 위에서 물빠짐').
+          // ★ 0.985 도 걷어낸다 — 코어에서 1.5% 를 비치게 할 이유가 없다. 코치판은 이미 1.0 이다.
+          float aOut = clamp(shapeA * 1.2, 0.0, 1.0) * field * live;
+          gl_FragColor = vec4(col * live, min(aOut, lumSrgb * 1.6));
         }`,
       transparent: true, depthWrite: false,
       // out = col + dst·(1−a) — 랩의 base·(1−a·0.88)+col 과 동일 (프리멀티 커스텀 블렌딩)
@@ -3149,7 +3162,7 @@ void main(){
     PU.uW.value = FXP.person?.blur ?? 1;   // 엣지 블러 — 랩 person 슬라이더 (누락돼 기본 1.0으로 돌던 버그)
     PU.uGrain.value = FXP.person?.grain ?? 0;
     PU.uTone.value = FXP.person?.tone ?? 0;
-    setPersonUniforms(PU);   // 채도·세로대역 = 세 인물 셰이더 공용
+    setPersonUniforms(PU, 0.64);   // 채도·세로대역 = 세 인물 셰이더 공용 · 바닥 대역 상단 0.64(코치판과 동일)
     trailFlip = 1 - trailFlip;
   }
 
@@ -3321,7 +3334,7 @@ void main(){
         uFrame: { value: 0 }, uDecay: { value: 0.6 }, uTime: { value: 0 },
         uCols: { value: COACH.cols }, uRows: { value: COACH.rows }, uN: { value: COACH.n }, uDirect: { value: COACH.direct },
         uW: { value: 1 }, uNoise: { value: 0.55 },
-        uPSat: { value: 1.32 }, uPSweep: { value: 0 }, uPHi: { value: 0.86 }, uPDepth: { value: 0.34 },
+        uPSat: { value: 1.32 }, uPSweep: { value: 0 }, uPHi: { value: 0.86 }, uPDepth: { value: 0.34 }, uPCoral: { value: 0 },
         uPInk: { value: 0 }, uPInkT: { value: 0.42 },   // PERSON_GLSL 공용 — 벽은 personColor 만 쓰지만 선언은 필수(안 하면 무채). 잉크는 바닥 전용이라 0.
       },
       vertexShader: `#include <common>
@@ -3438,7 +3451,18 @@ void main(){
     U.uDecay.value = FXP.person?.decay ?? 0.6;
     U.uNoise.value = FXP.person?.flow ?? 0.55;
     U.uW.value = FXP.person?.blur ?? 1;
-    setPersonUniforms(U);   // 채도·세로대역 = 세 인물 셰이더 공용
+    // 벽 = 대역 상단 0.91 · 중간 억제 0.9.
+    //   ⚠ 이름 주의: palette.js 의 키 이름이 통념과 **반대**다. `coral`(#FE6E3C, 휘도 147)이
+    //     진한 주황이고, `sand`(#FEC389, 휘도 206)가 연한 코랄이다. 유저 규약의 '코랄'은 **연한 쪽**,
+    //     즉 코드의 sand 다. 이걸 뒤집어 읽으면 목표와 정반대 값을 넣게 된다(실제로 한 번 그랬다).
+    //   유저 규약: RED · 주황 · 코랄이 고루 보이되 **연한 코랄은 일부만**.
+    //   실측 배분(personlab 우측 = 벽 매핑, 인물 픽셀 17.3k · 유저 이름 기준):
+    //     0.86 / 0    → RED 46.9  주황 53.1  코랄  0.0   ← 종전. 연한 코랄이 아예 없다
+    //     0.91 / 0.9  → RED 41.1  주황 39.8  코랄 19.1   ← 채택. 셋 고루 + 코랄은 일부
+    //     0.95 / 1.3  → RED 36.5  주황 30.5  코랄 33.1   ← 코랄 과다. 규약 위반
+    //   ★ 상단이 0.86 이면 감마·게인을 거친 t 가 0.807 에서 멈춰 sand 스톱(t 0.86)에 **못 닿는다** —
+    //     그래서 연한 코랄이 면적 0.0% 였다. 0.91 이 그 스톱에 막 닿는 값이다.
+    setPersonUniforms(U, 0.91, 0.9);   // 채도·세로대역 = 세 인물 셰이더 공용
   }
 
   switchPack(state.pack);   // 기본 진입 팩(복싱) — 순서 복싱 → 러닝 → 농구(유저)

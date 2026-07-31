@@ -24,6 +24,7 @@
 //     --out     기본 out/
 // ─────────────────────────────────────────────────────────────
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 import { execFileSync } from 'child_process';
 import puppeteer from 'puppeteer';
@@ -82,7 +83,7 @@ const H = Math.round(W * BASE_H / BASE_W);
 //   출력보다 크게 그린 뒤 줄인다 — 수퍼샘플링이라 가장자리가 오히려 깨끗해진다.
 const UISCALE = Math.min(3, +arg('uiscale', Math.min(3, (W / BASE_W) * 2)));
 
-const TMP = fs.mkdtempSync('/tmp/newton_ui_');
+const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'newton_ui_'));
 fs.mkdirSync(OUT, { recursive: true });
 const N = Math.round(DUR * FPS);
 const tag = `ui_${STAGE}_${W}x${H}p${FPS}`;
@@ -90,7 +91,9 @@ console.log(`▶ ${tag} — ${N}프레임 (${W}×${H} · ${FPS}fps · ${DUR}s ·
 
 const browser = await puppeteer.launch({
   headless: 'new',
-  args: ['--no-sandbox', '--use-angle=metal', '--enable-gpu', '--enable-unsafe-swiftshader'],
+  // ANGLE 백엔드는 OS 마다 다르다 — 맥은 metal, 윈도는 d3d11 (틀리면 소프트웨어로 떨어진다)
+  args: ['--no-sandbox', `--use-angle=${process.platform === 'darwin' ? 'metal' : 'd3d11'}`,
+    '--enable-gpu', '--enable-unsafe-swiftshader'],
 });
 const page = await browser.newPage();
 await page.setViewport({ width: 1280, height: 800, deviceScaleFactor: 1 });
@@ -139,16 +142,29 @@ for (let i = 0; i < N; i++) {
 }
 process.stdout.write('\n');
 
-const mov = path.join(OUT, `${tag}.mov`);
-execFileSync('ffmpeg', ['-y', '-framerate', String(FPS), '-i', path.join(TMP, 'f%05d.png'),
-  '-c:v', 'prores_ks', '-profile:v', '4444',
-  '-pix_fmt', ALPHA ? 'yuva444p10le' : 'yuv444p10le', mov], { stdio: ['ignore', 'ignore', 'inherit'] });
-const mp4 = path.join(OUT, `${tag}_preview.mp4`);
-execFileSync('ffmpeg', ['-y', '-framerate', String(FPS), '-i', path.join(TMP, 'f%05d.png'),
-  '-c:v', 'libx264', '-crf', '16', '-pix_fmt', 'yuv420p',
-  '-vf', 'scale=trunc(iw/2)*2:trunc(ih/2)*2', mp4], { stdio: ['ignore', 'ignore', 'inherit'] });
+// ffmpeg 는 선택 — 에펙 최종물은 PNG 시퀀스다. 없으면 시퀀스만 남긴다.
+const hasFF = (() => {
+  try { execFileSync('ffmpeg', ['-version'], { stdio: 'ignore' }); return true; } catch { return false; }
+})();
+const made = [];
+if (hasFF) {
+  const mov = path.join(OUT, `${tag}.mov`);
+  execFileSync('ffmpeg', ['-y', '-framerate', String(FPS), '-i', path.join(TMP, 'f%05d.png'),
+    '-c:v', 'prores_ks', '-profile:v', '4444',
+    '-pix_fmt', ALPHA ? 'yuva444p10le' : 'yuv444p10le', mov], { stdio: ['ignore', 'ignore', 'inherit'] });
+  const mp4 = path.join(OUT, `${tag}_preview.mp4`);
+  execFileSync('ffmpeg', ['-y', '-framerate', String(FPS), '-i', path.join(TMP, 'f%05d.png'),
+    '-c:v', 'libx264', '-crf', '16', '-pix_fmt', 'yuv420p',
+    '-vf', 'scale=trunc(iw/2)*2:trunc(ih/2)*2', mp4], { stdio: ['ignore', 'ignore', 'inherit'] });
+  made.push(mov, mp4);
+} else console.log('ⓘ ffmpeg 없음 — PNG 시퀀스만 냅니다(에펙은 이걸 그대로 읽습니다).');
 
-fs.rmSync(TMP, { recursive: true, force: true });
-console.log(`\n✅ ${mov}\n   ${mp4}`);
+if (ALPHA || !hasFF) {
+  const seq = path.join(OUT, `${tag}_png`);
+  fs.rmSync(seq, { recursive: true, force: true });
+  fs.renameSync(TMP, seq);
+  made.unshift(`${seq}${path.sep}  (PNG 시퀀스 ${N}장 · ${W}×${H}${ALPHA ? ' · 알파 보존' : ''})`);
+} else fs.rmSync(TMP, { recursive: true, force: true });
+console.log('\n✅ ' + made.join('\n   '));
 if (errs.length) console.log(`⚠ 페이지 에러 ${errs.length}건:`, errs.slice(0, 3));
 await browser.close();

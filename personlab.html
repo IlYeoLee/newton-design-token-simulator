@@ -1,0 +1,236 @@
+<!doctype html>
+<!-- 인물 색 매핑 패리티 랩 — 바닥(personLook)과 벽(personColor+세로램프)을 **같은 실루엣·같은 배경**에
+     나란히 놓고 색을 찍는다.
+
+     왜 필요한가: 두 인물을 각자의 실제 화면에서 캡처해 비교했더니, 배경(초록 코트 vs 흰 그리드)이
+     따뜻한-픽셀 판정에 섞여 벽 채도가 S0.18 로 찍히는 등 측정이 오염됐다. 몇 시간을 그 위에서
+     추측으로 보냈다. 여기서는 배경을 중립 회색으로 고정하고 **입력(마스크·두께장·휘도)을 한 번만
+     만들어 양쪽에 똑같이 먹인다** — 그러면 남는 차이는 오직 색 매핑뿐이다.
+
+     읽는 법: 아래 표가 인물 세로를 8밴드로 잘라 밴드별 중앙값 색을 좌/우로 보여준다.
+     ΔS·ΔV 가 0 에 가까우면 두 매핑이 같은 색을 낸다는 뜻이다. -->
+<html lang="ko"><head><meta charset="utf-8"><title>인물 색 패리티 랩</title><style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:#14171d;color:#ddd;font:13px/1.5 system-ui,'Malgun Gothic',sans-serif;padding:16px}
+  h1{font-size:15px;margin-bottom:2px}
+  .sub{color:#888;font-size:12px;margin-bottom:14px}
+  #wrap{display:flex;gap:18px;align-items:flex-start;flex-wrap:wrap}
+  #cv{border-radius:8px;display:block}
+  .side{min-width:520px;flex:1}
+  .ctl{display:grid;grid-template-columns:120px 1fr 56px;gap:6px 10px;align-items:center;
+       background:#1b1f27;border:1px solid #2b3140;border-radius:8px;padding:12px;margin-bottom:12px}
+  .ctl label{color:#9aa}
+  input[type=range]{width:100%}
+  .val{color:#fec389;text-align:right;font-variant-numeric:tabular-nums}
+  table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums;font-size:12px}
+  th,td{padding:4px 6px;border-bottom:1px solid #262c38;text-align:left;white-space:nowrap}
+  th{color:#8fa;font-weight:600}
+  .sw{display:inline-block;width:13px;height:13px;border-radius:3px;vertical-align:-2px;margin-right:5px;
+      border:1px solid rgba(255,255,255,.25)}
+  .ok{color:#8fdc9a}.warn{color:#fec389}.bad{color:#fa6b6b}
+  #sum{margin-top:8px;padding:10px;background:#1b1f27;border:1px solid #2b3140;border-radius:8px}
+  code{color:#fec389}
+</style></head><body>
+<h1>인물 색 패리티 랩</h1>
+<div class="sub">왼쪽 = 바닥 매핑(personLook) · 오른쪽 = 벽 매핑(personColor + 세로 램프). 입력 실루엣·두께장·휘도는 동일.</div>
+<div id="wrap">
+  <canvas id="cv" width="720" height="560"></canvas>
+  <div class="side">
+    <div class="ctl">
+      <label>uPSat (채도)</label><input id="sat" type="range" min="0.6" max="2.4" step="0.02" value="1.32"><span class="val" id="satV"></span>
+      <label>바닥 uPHi</label><input id="hiA" type="range" min="0.45" max="1" step="0.01" value="0.64"><span class="val" id="hiAV"></span>
+      <label>벽 uPHi</label><input id="hiB" type="range" min="0.45" max="1" step="0.01" value="0.86"><span class="val" id="hiBV"></span>
+      <label>게인</label><input id="gain" type="range" min="0.5" max="1.6" step="0.02" value="1.12"><span class="val" id="gainV"></span>
+      <label>명도 상한 V</label><input id="vcap" type="range" min="0.6" max="1" step="0.01" value="0.90"><span class="val" id="vcapV"></span>
+      <label>디테일 밀도</label><input id="dep" type="range" min="0" max="1.2" step="0.02" value="0.34"><span class="val" id="depV"></span>
+      <label>명암 잉크(그늘→RED)</label><input id="ink" type="range" min="0" max="1" step="0.01" value="0.85"><span class="val" id="inkV"></span>
+      <label>잉크 문턱(밝기)</label><input id="inkT" type="range" min="0.1" max="0.9" step="0.01" value="0.42"><span class="val" id="inkTV"></span>
+      <label>코랄 억제</label><input id="coral" type="range" min="0" max="1.5" step="0.05" value="0"><span class="val" id="coralV"></span>
+      <label>벽에도 디테일</label><input id="wdet" type="range" min="0" max="1" step="0.05" value="0"><span class="val" id="wdetV"></span>
+      <label>배경 밝기</label><input id="bg" type="range" min="0" max="1" step="0.01" value="0.42"><span class="val" id="bgV"></span>
+    </div>
+    <table id="tb"><thead><tr><th>밴드</th><th>바닥(personLook)</th><th>벽(램프)</th><th>차이</th></tr></thead><tbody></tbody></table>
+    <div id="sum"></div>
+  </div>
+</div>
+<script type="module">
+import * as THREE from 'three';
+import { PERSON_GLSL } from './src/fx-core.js';
+import { getLUT } from './src/fxlut.js';
+
+const W = 360, H = 560;                     // 한 칸 크기 (좌/우 두 칸 = 720)
+const cv = document.getElementById('cv');
+// preserveDrawingBuffer — 색을 다시 읽어야 하므로 켠다(랩 전용, 성능은 상관없다).
+const renderer = new THREE.WebGLRenderer({ canvas: cv, antialias: true, preserveDrawingBuffer: true });
+renderer.setPixelRatio(1);
+renderer.setSize(720, H, false);
+const scene = new THREE.Scene();
+const cam = new THREE.OrthographicCamera(0, 720, H, 0, -1, 1);
+
+// ── 입력 만들기: 코치 영상 → 크로마키 마스크 + 넓은/좁은 블러 (양쪽이 같은 값을 쓴다) ──
+const video = document.createElement('video');
+video.src = 'ready-view/assets/bk_sidebend_pp.webm';
+video.muted = true; video.loop = true; video.playsInline = true; video.crossOrigin = 'anonymous';
+ video.style.display = 'none'; document.body.appendChild(video);   // 헤드리스 진단용으로 DOM 에 둔다
+const SRC = 256, mk = () => { const c = document.createElement('canvas'); c.width = c.height = SRC; return c; };
+const cSrc = mk(), cWide = mk(), cNarrow = mk();
+const tSrc = new THREE.CanvasTexture(cSrc), tWide = new THREE.CanvasTexture(cWide), tNarrow = new THREE.CanvasTexture(cNarrow);
+for (const t of [tSrc, tWide, tNarrow]) t.colorSpace = THREE.SRGBColorSpace;
+
+function buildFields() {
+  if (video.readyState < 2) return;
+  const g = cSrc.getContext('2d', { willReadFrequently: true });
+  g.clearRect(0, 0, SRC, SRC);
+  g.drawImage(video, 0, 0, SRC, SRC);
+  // 크로마키 → r = 마스크, g = 마스크×휘도 (앱의 coachField 와 같은 규약)
+  const im = g.getImageData(0, 0, SRC, SRC), d = im.data;
+  for (let i = 0; i < d.length; i += 4) {
+    const r = d[i] / 255, gg = d[i + 1] / 255, b = d[i + 2] / 255;
+    const m = 1 - Math.min(1, Math.max(0, (gg - Math.max(r, b) - 0.04) / 0.10));
+    const lum = 0.299 * r + 0.587 * gg + 0.114 * b;
+    d[i] = m * 255; d[i + 1] = m * lum * 255; d[i + 2] = 0; d[i + 3] = 255;
+  }
+  g.putImageData(im, 0, 0);
+  // 넓은 평균 = 두께장·노출 / 좁은 블러 = 결. 양쪽 매핑이 이 값을 공유한다.
+  for (const [c, px] of [[cWide, 12], [cNarrow, 2]]) {
+    const q = c.getContext('2d');
+    q.clearRect(0, 0, SRC, SRC); q.filter = `blur(${px}px)`; q.drawImage(cSrc, 0, 0); q.filter = 'none';
+  }
+  tSrc.needsUpdate = tWide.needsUpdate = tNarrow.needsUpdate = true;
+}
+
+const FRAG = `
+  precision highp float;
+  varying vec2 vUv;
+  uniform sampler2D uLUT, uSrc, uField, uFieldN;
+  uniform float uMode, uGain, uVCap, uBg, uDetail, uWDet;
+  vec3 lut(float v){ return texture2D(uLUT, vec2(clamp(v, 0.004, 0.996), 0.5)).rgb; }
+  ` + PERSON_GLSL + `
+  void main(){
+    vec2 uv = vUv;
+    vec2 fld  = texture2D(uField,  uv).rg;      // 넓은 블러 = 두께장·노출
+    vec2 fldN = texture2D(uFieldN, uv).rg;      // 좁은 블러 = 결
+    // ★ 실루엣 판정은 **선명한 마스크**로 한다. 블러된 필드로 하면 26px 블러에 다 녹아
+    //   mEro 가 0 이 되고 화면이 배경만 남는다(실제로 그렇게 됐다). 앱도 maskAA(선명)를 쓴다.
+    float m = texture2D(uSrc, uv).r;
+    float mEro = smoothstep(0.16, 0.52, m);
+    vec3 bg = vec3(uBg);
+    if (mEro < 0.02) { gl_FragColor = vec4(bg, 1.0); return; }
+    float thick = clamp(fld.r * 1.60, 0.0, 1.0);
+    float lumB = fld.g / max(fld.r, 0.02);
+    float lumS = mix(lumB, fldN.g / max(fldN.r, 0.02), clamp(uDetail * 2.4, 0.0, 1.0));
+    float mIn = smoothstep(0.55, 0.95, m);
+    vec3 col;
+    if (uMode < 0.5) {
+      col = personLook(thick, lumS, lumB, mIn, 0.0, uv.y) * mEro * uGain;   // 바닥 경로
+    } else {
+      float vert = pow(1.0 - uv.y, 1.35) * 0.92 + 0.06;                      // 벽 경로 = 높이만 본다
+      // uWDet > 0 이면 영상의 국소 대비(결)를 벽 경로에도 섞는다 — 원래 벽엔 이 경로가 없다.
+      float dd = (lumS - lumB) * 3.0; dd = dd / (1.0 + abs(dd) * 1.6);
+      col = personColor(clamp(vert + dd * uWDet * 0.5, 0.0, 1.0)) * mEro * uGain;
+    }
+    float vmx = max(col.r, max(col.g, col.b));
+    if (vmx > uVCap) col *= uVCap / vmx;                                     // 명도 상한(양쪽 동일 조건)
+    gl_FragColor = vec4(mix(bg, col, mEro), 1.0);
+  }`;
+
+const U = () => ({
+  uLUT: { value: getLUT() }, uSrc: { value: tSrc }, uField: { value: tWide }, uFieldN: { value: tNarrow },
+  uMode: { value: 0 }, uGain: { value: 1.12 }, uVCap: { value: 0.9 }, uBg: { value: 0.42 },
+  uDetail: { value: 0.42 }, uPDepth: { value: 0.34 }, uWDet: { value: 0 }, uPSat: { value: 1.32 }, uPSweep: { value: 0 }, uPHi: { value: 0.64 },
+  uPInk: { value: 0.85 }, uPInkT: { value: 0.42 },   // 명암 잉크 — 바닥(personLook)에만 걸린다
+  uPCoral: { value: 0 },                             // 코랄 억제 — 양쪽(personColor 공용)
+});
+const mats = [0, 1].map(mode => {
+  const m = new THREE.ShaderMaterial({
+    uniforms: U(),
+    vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
+    fragmentShader: FRAG,
+  });
+  m.uniforms.uMode.value = mode;
+  const q = new THREE.Mesh(new THREE.PlaneGeometry(W, H), m);
+  q.position.set(W / 2 + mode * W, H / 2, 0);
+  scene.add(q);
+  return m;
+});
+
+// ── 컨트롤 ──
+const bind = (id, fn) => {
+  const el = document.getElementById(id), out = document.getElementById(id + 'V');
+  const set = () => { out.textContent = (+el.value).toFixed(2); fn(+el.value); };
+  el.addEventListener('input', set); set();
+};
+bind('sat',  v => mats.forEach(m => m.uniforms.uPSat.value = v));
+bind('hiA',  v => mats[0].uniforms.uPHi.value = v);
+bind('hiB',  v => mats[1].uniforms.uPHi.value = v);
+bind('gain', v => mats.forEach(m => m.uniforms.uGain.value = v));
+bind('vcap', v => mats.forEach(m => m.uniforms.uVCap.value = v));
+bind('dep',  v => mats.forEach(m => m.uniforms.uPDepth.value = v));
+bind('ink',  v => mats.forEach(m => m.uniforms.uPInk.value = v));    // 벽(mode 1)은 personColor 직행이라 안 먹는다 — 그게 정상
+bind('inkT', v => mats.forEach(m => m.uniforms.uPInkT.value = v));
+bind('coral', v => mats.forEach(m => m.uniforms.uPCoral.value = v));
+ bind('wdet', v => mats[1].uniforms.uWDet.value = v);
+ bind('bg',   v => mats.forEach(m => m.uniforms.uBg.value = v));
+
+// ── 밴드별 중앙값 읽기 ──
+const hex = (r, g, b) => '#' + [r, g, b].map(v => Math.round(v).toString(16).padStart(2, '0')).join('').toUpperCase();
+const hsv = (r, g, b) => { r /= 255; g /= 255; b /= 255;
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b), c = mx - mn;
+  let h = 0; if (c > 1e-6) h = mx === r ? ((g - b) / c % 6) : mx === g ? ((b - r) / c + 2) : ((r - g) / c + 4);
+  return { h: Math.round(((h * 60) + 360) % 360), s: mx === 0 ? 0 : c / mx, v: mx }; };
+
+const tb = document.querySelector('#tb tbody'), sum = document.getElementById('sum');
+function readout() {
+  const gl = renderer.getContext();
+  const px = new Uint8Array(720 * H * 4);
+  gl.readPixels(0, 0, 720, H, gl.RGBA, gl.UNSIGNED_BYTE, px);   // 하단부터
+  const bgv = Math.round((+document.getElementById('bg').value) * 255);
+  const isP = i => Math.abs(px[i] - bgv) + Math.abs(px[i + 1] - bgv) + Math.abs(px[i + 2] - bgv) > 26;
+  const cols = [[], []];
+  for (const side of [0, 1]) {
+    let y0 = 1e9, y1 = -1;
+    for (let y = 0; y < H; y++) for (let x = side * W; x < (side + 1) * W; x++) {
+      if (isP(((H - 1 - y) * 720 + x) * 4)) { if (y < y0) y0 = y; if (y > y1) y1 = y; }
+    }
+    if (y1 < 0) { cols[side] = new Array(8).fill(null); continue; }
+    for (let k = 0; k < 8; k++) {
+      const a = Math.round(y0 + (y1 - y0) * k / 8), b = Math.round(y0 + (y1 - y0) * (k + 1) / 8);
+      const rs = [], gs = [], bs = [];
+      for (let y = a; y < b; y++) for (let x = side * W; x < (side + 1) * W; x++) {
+        const i = ((H - 1 - y) * 720 + x) * 4;
+        if (isP(i)) { rs.push(px[i]); gs.push(px[i + 1]); bs.push(px[i + 2]); }
+      }
+      if (rs.length < 20) { cols[side].push(null); continue; }
+      const med = arr => arr.sort((u, v) => u - v)[arr.length >> 1];
+      cols[side].push([med(rs), med(gs), med(bs)]);
+    }
+  }
+  let rows = '', dS = 0, dV = 0, n = 0;
+  for (let k = 0; k < 8; k++) {
+    const a = cols[0][k], b = cols[1][k];
+    const cell = c => c ? `<span class="sw" style="background:${hex(...c)}"></span>${hex(...c)} S${hsv(...c).s.toFixed(2)} V${hsv(...c).v.toFixed(2)}` : '—';
+    let d = '—';
+    if (a && b) { const x = hsv(...a), y = hsv(...b); dS += x.s - y.s; dV += x.v - y.v; n++;
+      const cls = Math.abs(x.s - y.s) < 0.06 ? 'ok' : Math.abs(x.s - y.s) < 0.14 ? 'warn' : 'bad';
+      d = `<span class="${cls}">ΔS ${(x.s - y.s >= 0 ? '+' : '') + (x.s - y.s).toFixed(2)} · ΔV ${(x.v - y.v >= 0 ? '+' : '') + (x.v - y.v).toFixed(2)}</span>`; }
+    rows += `<tr><td>${k + 1}/8</td><td>${cell(a)}</td><td>${cell(b)}</td><td>${d}</td></tr>`;
+  }
+  tb.innerHTML = rows;
+  sum.innerHTML = n
+    ? `평균 <code>ΔS ${(dS / n >= 0 ? '+' : '') + (dS / n).toFixed(3)}</code> · <code>ΔV ${(dV / n >= 0 ? '+' : '') + (dV / n).toFixed(3)}</code>
+       — 0 에 가까울수록 두 매핑이 같은 색을 낸다. 배경은 양쪽 동일하므로 섞임 오차가 없다.`
+    : '인물 픽셀을 못 찾음 — 영상이 아직 로드 중일 수 있다.';
+}
+
+let acc = 0;
+function loop(t) {
+  requestAnimationFrame(loop);
+  buildFields();
+  renderer.render(scene, cam);
+  if (t - acc > 500) { acc = t; readout(); }   // 읽기는 초당 2회면 충분
+}
+window.__lab = { video, cSrc, cWide, cNarrow, mats };   // 랩 진단 훅
+ video.play().catch(() => {});
+// 시크는 하지 않는다 — 헤드리스에서 seek 가 안 끝나면 readyState 가 떨어져 필드가 영영 안 만들어진다.
+requestAnimationFrame(loop);
+</script></body></html>
