@@ -1,6 +1,6 @@
 import { defineConfig } from 'vite';
 import { resolve } from 'path';
-import { writeFileSync } from 'fs';
+import { writeFileSync, readFileSync } from 'fs';
 
 // 빌드 스탬프 — 화면 좌하단에 노출 (유저가 보는 번들이 어느 빌드인지 즉시 식별: 캐시 혼선 종결)
 const BUILD_TAG = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(5, 16).replace('T', ' ') + ' KST';   // 로컬(한국) 시각 — UTC 태그가 '왜 아직 오전이냐' 혼란을 만들었음
@@ -13,6 +13,33 @@ export default defineConfig({
     // 화면이 검게 변하고 판이 붉게 남는다(유저: 커밋할 때마다). 저장 시 항상 전체 새로고침.
     name: 'always-full-reload',
     handleHotUpdate({ server }) { server.ws.send({ type: 'full-reload' }); return []; },
+  }, {
+    // 데브 전용: 발자국 랩(footlab)이 잡은 MARK 룩을 **리포에** 저장한다.
+    //   예전엔 랩이 localStorage 에만 저장해서, 다른 기기에서 열면 수정 전 값이 나오고
+    //   시뮬로 옮길 때도 코드 기본값만 갔다(유저가 다른 노트북에서 발견). 값의 집이 필요하다.
+    name: 'dev-save-mark-look',
+    configureServer(server) {
+      server.middlewares.use('/__save-look', (req, res) => {
+        if (req.method !== 'POST') { res.statusCode = 405; return res.end('POST only'); }
+        const chunks = [];
+        req.on('data', c => chunks.push(c));
+        req.on('end', () => {
+          try {
+            const obj = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+            if (!obj || typeof obj !== 'object') throw new Error('bad body');
+            // ★ 통째 교체가 아니라 **병합**이다 — 부분 저장(또는 실수로 보낸 일부 키)이
+            //   나머지 값을 통째로 날리면 안 된다. 실제로 테스트 POST 하나로 정본이 날아갔다.
+            const p = resolve(__dirname, 'src/mark-look.json');
+            let cur = {};
+            try { cur = JSON.parse(readFileSync(p, 'utf8')); } catch { /* 첫 저장 */ }
+            const next = { ...cur, ...obj };
+            next._ = "MARK(발형·존원) 룩 정본. footlab.html '코드에 저장'이 이 파일을 덮어쓴다.";
+            writeFileSync(p, JSON.stringify(next, null, 2) + '\n');
+            res.end('saved');
+          } catch (e) { res.statusCode = 400; res.end('bad json: ' + e.message); }
+        });
+      });
+    },
   }, {
     // 데브 전용: 브라우저에서 구운 에셋(마스크 아틀라스 등) 저장 — 베이크 파이프라인 출구
     name: 'dev-save-baked-asset',

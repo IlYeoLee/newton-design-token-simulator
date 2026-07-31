@@ -265,6 +265,9 @@ export function buildLUT(stops, sat = 1, out = new Uint8Array(256 * 4)) {
 //   그래야 흐려지며 사라지는 블러로 읽히고, 그냥 투명해지는 페이드로 안 보인다.
 export const CUT_FEATHER_GLSL = `
 #define CUT_BAND 0.13
+// 디포커스 비중 — 0 이면 순수 마스크 페더(형태 완전 보존), 1 이면 옛 방식(형태 뭉갬).
+//   유저 지적으로 0.22 까지 내렸다: 바닥에 닿는 끝만 살짝 풀리고 다리 실루엣은 남는다.
+#define CUT_DEFOCUS 0.22
 // 하단 잘림 처리 — 알파로 지우는 게 아니라 **아래로 갈수록 초점이 나가며 배경에 녹는다**
 //   (유저 레퍼런스: 확산 유리 실루엣). 호출자는 .y(디포커스)로 날카로운 마스크를 넓은 블러
 //   쪽으로 크로스페이드하고, .x(알파)를 마지막에 곱한다. 디포커스가 알파보다 훨씬 위에서
@@ -278,8 +281,13 @@ vec2 cutFade(float x, float y, float botM, float t){
   // 저주파만 — x 고주파를 넣으면 그게 곧 세로 줄무늬다. 은은한 숨쉬기가 목적.
   float wob = 0.5 * sin(x * 1.7 + t * 0.45) + 0.5 * sin(t * 0.31);
   float band = CUT_BAND * (0.88 + 0.14 * wob);
-  float a = smoothstep(0.0, band * 0.85, y) * (0.55 + 0.45 * smoothstep(0.0, band * 2.6, y));
-  float d = smoothstep(band * 3.0, 0.0, y);
+  // ★ 디포커스(실루엣 → 넓은 가우시안 크로스페이드)를 주력으로 쓰면 **형태가 뭉개진다** —
+  //   다리 두 개가 한 덩이로 붙어 '인위적인 블러'로 읽혔다(유저 스샷). 이제 주력은 **마스크 페더**다:
+  //   실루엣은 끝까지 유지되고 밀도만 사라진다. 디포커스는 가장 아래에서 살짝만 거든다.
+  //   길이도 늘렸다 — 짧은 페더는 경계가 선으로 보여서 결국 '잘렸다'로 읽힌다.
+  float a = smoothstep(0.0, band * 2.30, y);
+  a = a * a * (3.0 - 2.0 * a);            // 부드러운 S — 시작이 급하면 그 자체가 가로선이 된다
+  float d = smoothstep(band * 1.15, 0.0, y) * CUT_DEFOCUS;
   return vec2(mix(1.0, clamp(a, 0.0, 1.0), cut), d * cut);
 }`;
 
@@ -292,9 +300,11 @@ export const PERSON_GLSL = `
 #define P_GAMMA 1.15    // 온도 곡선 (1.38은 대역을 LUT 평지로 밀어넣었다)
 #define P_GAIN  0.96    // LUT 상단 여유(순백 방지)
 #define P_LO    0.40    // LUT t=0~0.3 은 RED 단색 평지 — 대역 하한이 그 위여야 계조가 산다
-//   uPHi = 대역 상단. **면마다 다르다** — 0.86 은 LUT 의 SAND(#FEC389, 채도 0.46)에 닿아 물빠진
-//          살구가 되고, 낮출수록 레드~오렌지(채도 0.73~0.79)에만 머물러 쨍해진다.
-//          벽 인물 0.86(유저: '복싱 너무 쨍해, 이전이 나아') / 바닥 코치판 0.64.
+//   uPHi = 대역 상단. **면마다 다르다** — 낮출수록 레드~오렌지(채도 0.73~0.79)에만 머물러 쨍해진다.
+//          ⚠ '0.86 이면 SAND(#FEC389)에 닿는다'고 적혀 있었으나 **틀렸다**(07-31 실측):
+//            t = pow(0.86, P_GAMMA) * P_GAIN = 0.807 로, SAND 스톱(t 0.86)에 못 닿는다.
+//            그래서 벽 인물에 중황이 면적 0.0% 였고 램프 위쪽 절반이 통째로 코랄 근방이었다.
+//          벽 인물 0.95(중황이 실재하는 최소치) / 바닥 코치판·데모판 0.64.
 //          게인·알파로는 못 바꾼다 — 명도가 이미 0.92 라 곱해봐야 클리핑될 뿐이다(실측).
 // 런타임 유니폼 — 이 GLSL 을 include 하는 호스트 3곳(바닥 코치판·데모판·벽 인물)이 전부
 //   uniforms 에 선언하고 매 프레임 주입한다. 하나라도 빠지면 그 인물만 0(=무채·대역없음)이 된다.
@@ -303,9 +313,35 @@ export const PERSON_GLSL = `
 //             (바닥 코치판엔 uSat 유니폼이 있었는데 셰이더 본문에서 한 번도 안 읽혔다 — 죽은 손잡이.
 //              "채도 슬라이더 하나가 인물·마크 둘 다 움직인다"는 주석이 실제로는 마크만 움직였다.)
 //   uPSweep = 세로 열 그라디언트 폭. **0 이면 도입 전과 픽셀 동일** — 안전한 롤백 지점.
-uniform float uPSat, uPSweep, uPHi;
+uniform float uPSat, uPSweep, uPHi, uPDepth;
+//   uPInk / uPInkT = **명암 잉크** (유저 확정 07-31: "바닥 지면에 뉴턴 빨간 레드를 실제 인물의
+//     명암이 진한 부분에 잉크로 넣어라 — 아직도 밝다"). 세기 · 문턱(이 밝기 아래를 그늘로 본다).
+//     uPInk 0 = 도입 전과 픽셀 동일(롤백 지점). 바닥(personLook)에만 걸린다 — 벽은 personColor 직행.
+uniform float uPInk, uPInkT;
+// 잉크 색 = 팔레트 RED 그 자체. **LUT 를 경유하지 않는다** — personColor 의 대역 하한이 P_LO(0.40)
+//   이라 t 는 아무리 낮춰도 0.33 아래로 못 가고, LUT 의 순수 RED 평지(t ≤ 0.30)에 영영 못 닿는다.
+//   T 를 미는 방식으로 '더 빨갛게'를 시도하면 여기서 막힌다 — 그게 '아직도 밝다'의 구조적 원인이다.
+#define P_INK ${vec3(PAL.red)}
+//   uPDepth = 영상의 국소 대비(옷 주름·결)를 온도로 옮기는 양 = '은은한 디테일 밀도'.
+//             벽 매핑엔 이 경로가 아예 없다(높이만 본다) — 좌우 랩에서 보이는 질감 차이가 이것.
+//             0.88 이 원래 값인데 밝은 맨살이 뽀얗게 뜨는 걸 막으려 0.34 로 내렸었다. 지금은
+//             명도 상한·세로 램프가 그 문제를 따로 막으므로 올려도 된다.
+//   uPCoral = **코랄 억제**(유저 규약: "RED · 중황 · 코랄이 고루 보이되 코랄 양은 일부만").
+//     코랄은 LUT 램프의 한가운데(t 0.56)에 앉는다. T 가 고르게 퍼지면 한가운데가 곧 최대 면적이고,
+//     특히 벽은 T 가 '높이'라 코랄이 **몸통**(사람에서 가장 넓은 부위)에 그대로 깔린다.
+//     그래서 코랄이 앉는 T 를 피벗으로 잡고 양쪽으로 밀어낸다 — 머리는 RED 평지까지, 발은 SAND 까지
+//     내려가/올라가고 코랄은 좁은 띠로 남는다. 새 색을 만들지 않는다: 배분만 바꾼다.
+//     0 = 도입 전과 픽셀 동일(롤백 지점).
+uniform float uPCoral;
 vec3 personColor(float T){
-  float t = P_LO + clamp(T, 0.0, 1.0) * (uPHi - P_LO);   // 공용 대역으로 정규화
+  T = clamp(T, 0.0, 1.0);
+  if (uPCoral > 0.001) {
+    // 코랄이 앉는 T 를 감마·게인·대역에서 역산한다 — uPHi 를 바꿔도 피벗이 따라온다(상수로 박으면 어긋난다).
+    float tc = pow(0.56 / P_GAIN, 1.0 / P_GAMMA);
+    float Tc = clamp((tc - P_LO) / max(uPHi - P_LO, 1e-4), 0.0, 1.0);
+    T = clamp(Tc + (T - Tc) * (1.0 + uPCoral * 1.6), 0.0, 1.0);
+  }
+  float t = P_LO + T * (uPHi - P_LO);   // 공용 대역으로 정규화
   t = pow(t, P_GAMMA) * P_GAIN;
   vec3 c = lut(clamp(t, 0.0, 1.0));
   float l = dot(c, vec3(0.299, 0.587, 0.114));
@@ -323,9 +359,6 @@ vec3 personColor(float T){
 //   lumS  = 원본 휘도(선명 — 몸의 결)      lumB = 블러 휘도(얼굴용)
 //   mIn   = 내부 침식 마스크               face = 얼굴 대역 가중
 #define P_MILK  0.28    // 하이라이트·얼굴이 우유빛으로 빠지는 양(전신 희석 금지)
-#define P_DEPTH 0.34    // 그늘이 '진해지는' 양 — 밝기가 아니라 온도로만.
-                        //   0.88 은 밝은 맨살(팔·다리)을 뽀얀 쪽으로 크게 밀어 하얗게 만들었다.
-                        //   벽 인물엔 이 항이 아예 없다 — 결은 남기되 T 를 지배하진 않게 낮춘다.
 //   ⚠ 밝기를 깎아 그늘을 만들면 안 된다. 알파가 min(aOut, lum*1.6)로 밝기에 묶여 있어
 //     어두운 옷 픽셀만 알파 0.85로 떨어지고 뒤 벽·그리드가 비친다(실측: 0.985→0.847, 유저 신고).
 //     투사광에선 '어둡게' = '투명하게'다. 그래서 그늘은 LUT 상단(딥레드)으로, 하이라이트는
@@ -360,7 +393,7 @@ vec3 personLook(float thick, float lumS, float lumB, float mIn, float face, floa
   //   P_VERTMIX 0 이면 옛 동작(두께 단독), 1 이면 벽과 완전 동일. 0.85 = 거의 벽 매핑.
   float vHeat = pow(clamp(1.0 - vTop, 0.0, 1.0), 1.35) * 0.92 + 0.06;
   float T0 = mix(0.95 - th * 0.80, vHeat, P_VERTMIX)
-           + (shade - 0.5) * P_DEPTH * mIn * (1.0 - face * 0.7) + face * 0.26;
+           + (shade - 0.5) * uPDepth * mIn * (1.0 - face * 0.7) + face * 0.26;
   // 대역 확장(uPSweep) — 왜 필요한가:
   //   두께장은 블러된 실루엣이라 몸통 '안쪽'이 전부 1.0 에 포화한다. 그래서 T 가 좁은 구간
   //   (코어 ≈0.15 ~ 말단 ≈0.63)에만 앉고, 그 대부분이 LUT 중·상단(살구~샌드)이라 면적으로 보면
@@ -385,7 +418,19 @@ vec3 personLook(float thick, float lumS, float lumB, float mIn, float face, floa
   float milk = clamp(pow(1.0 - clamp(thick, 0.0, 1.0), 4.5) * 0.0
                      + face * 0.9 + smoothstep(0.72, 1.00, shade) * mIn * 0.0, 0.0, 1.0);   // 하이라이트 항도 0 —
   //   밝은 맨살(팔·다리)이 이 항으로 크림색이 됐다. 벽 인물엔 우유빛 자체가 없다. 얼굴만 남긴다.
-  return clamp(mix(c, vec3(1.0, 0.95, 0.90), milk * P_MILK), 0.0, 1.0);
+  c = clamp(mix(c, vec3(1.0, 0.95, 0.90), milk * P_MILK), 0.0, 1.0);
+  // ── 명암 잉크 — 실제 인물의 그늘을 뉴턴 RED 로 ─────────────────────────────
+  //   왜 위의 shade 로는 안 되는가: shade 는 절대 밝기를 P_ABS(0.18)만 반영한다. 노출차에 안 흔들리는
+  //   톤을 얻으려고 그렇게 설계했지만, 그 대가로 **실제 명암이 색에 거의 안 실린다** — 순흑에서
+  //   순백까지 가도 shade 는 0.42~0.75 밖에 안 움직이고, uPDepth(0.34)를 곱하면 T 이동은 ±0.05 뿐이다.
+  //   그래서 어두운 옷·그늘이 밝은 살구로 나온다. 잉크는 그 억제를 우회해 **원본 블러 휘도(lumB)** 를
+  //   직접 본다 — 블러라서 이목구비·주름이 아니라 '명암 덩어리'만 잡힌다(유저 표현 그대로).
+  //   ★ 밝기를 깎지 않는다(위 ⚠ 규약): RED 는 R=0.98 이라 알파 게이트 min(aOut, lum*1.6)에 안 걸린다.
+  //     그늘이 어두워지는 게 아니라 **빨개진다** — 투사광에서 검정은 '빛 없음'이고 그건 그늘이 아니다.
+  //   ★ 얼굴은 0.3 배만 — 이목구비 은닉이 제품 요구사항이라, 잉크가 얼굴 명암을 되살리면 안 된다.
+  float dark = 1.0 - smoothstep(uPInkT - 0.20, uPInkT + 0.20, lumB);
+  float ink = clamp(dark * mIn * (1.0 - face * 0.7) * uPInk, 0.0, 1.0);
+  return clamp(mix(c, P_INK, ink), 0.0, 1.0);
 }`;
 
 export const MARK_GLSL = `
@@ -428,6 +473,12 @@ uniform float uPlantar, uBands, uBandSoft;
 // uSilFit: 실루엣이 쿼드에서 차지하는 비율(기준 0.78 대비). 1 = 옛 그대로.
 //   ext·해부학 좌표는 '0.78 로 구웠을 때' 기준의 uv 값이라, 채움비가 바뀌면 같이 줄어야 한다.
 uniform float uEdgeShade, uEdgeW, uEdgeSoft, uDither, uSilFit;
+// uShadeRed / uShadeRedW: **음영 자리에 까는 뉴턴 RED 블룸** (유저: 바닥 색에 가장 빨간 뉴턴 레드가
+//   부족하다 — 음영 지는 부분에 은은한 블러로). 이너 섀도우는 LUT 상단(PRISM)이라 형태는 잡아도
+//   화면에서 빨강이 옅다. 같은 자리에 훨씬 **넓은 가우시안**으로 RED 를 한 겹 깔면, 경계선이 아니라
+//   '음영의 온도'로 읽힌다. 새 색이 아니다 — 팔레트 RED 그대로다(규칙 ①).
+//   uShadeRed 0 = 도입 전과 픽셀 동일(롤백 지점). uShadeRedW = 엣지 폭의 배수(클수록 더 흐리게 번짐).
+uniform float uShadeRed, uShadeRedW;
 /** 압력 0~1 (1 = 최고압). 발형은 자국 깊이 × 해부학 가중, 원형은 중심이 최고압.
  *  좌표는 uv[-1,1]. 오른발은 실루엣 SDF 자체가 미러라 별도 분기가 필요 없다. */
 float plantar(vec2 pQ, float sdIn, float sd){
@@ -655,7 +706,7 @@ vec4 markState(vec2 uv, float state, float prog, float strong, float t){
     //   0.90 에서 멈추면 흰 링이 아니라 뜨거운 모래빛 잔광이 되고, 필과 계속 한 몸으로 읽힌다.
     //   세기도 0.50 → 0.34 로. 밝기로 존재감을 내면 형태가 먹힌다.
     vec3 hCol = lut(clamp(mix(T_ACT_HI, 0.90, smoothstep(0.0, 1.6, hk)), 0.0, 1.0));
-    lay(A, hCol, h * uHalo * (0.34 + 0.10 * sin(t * 5.0)) * dashM);
+    lay(A, hCol, h * uHalo * (0.50 + 0.14 * sin(t * 5.0)) * dashM);   // 0.34 로 내렸다가 흐려졌다(유저) — 복귀
   } else if (state < 2.5) {     // ── Hold: 실루엣 아웃라인을 따라 그려지는 진행 스트로크
     float pr = prog;
     vec2 gc = mix(gcBall, gcHeel, pr);
@@ -728,6 +779,15 @@ vec4 markState(vec2 uv, float state, float prog, float strong, float t){
   //   선을 긋지 않고 **경계 안쪽을 눌러** 형태를 만든다. 그리는 선이 없으니 '촌스러운 아웃라인'이
   //   원천적으로 생기지 않고, 부드러운 그라디언트라는 이 UI 의 강점과 같은 언어가 된다.
   //   색은 압력 램프의 **저역**(가장 어두운 쪽)이라 색과 형태가 한 몸이다 — 따로 노는 회색 선이 아니다.
+  // 음영 적열 블룸 — 섀도우보다 **먼저** 얹는다. 위에 프리즘이 와야 형태를 잡는 경계는 그대로고,
+  //   빨강은 그 뒤로 넓게 번진다(순서를 뒤집으면 빨간 테두리가 생겨 아웃라인으로 읽힌다).
+  //   ★ A.a 를 곱해 **이미 그려진 자리에서만** 달군다 — 빈 곳에 빨강을 새로 켜면 그건 음영이 아니라
+  //     또 하나의 토큰이다. Miss·Locked 처럼 필이 옅은 상태에선 자동으로 같이 옅어진다.
+  if (uShadeRed > 0.001) {
+    float rw = max(uEdgeW * max(uShadeRedW, 0.2), 1e-4);
+    float bl = exp(-pow(max(-sd, 0.0) / rw, 2.0)) * inside;   // 가우시안 = 각이 안 지는 번짐
+    lay(A, C_RED, bl * uShadeRed * A.a);
+  }
   if (uEdgeShade > 0.001) {
     float ins = exp(-pow(max(-sd, 0.0) / max(uEdgeW * 0.9, 1e-4), 1.1)) * inside;
     // 섀도우 색 = LUT 상단(PRISM · 하얀 민트). 빛으로 그리는 매체에서 어두운 색을 얹으면
@@ -768,6 +828,13 @@ vec4 markState(vec2 uv, float state, float prog, float strong, float t){
     lay(A, C_CREAM, inIn * dotM * uImp * (0.06 + 0.94 * dep));
     // 이너 섀도우 — 경계 **안쪽**에서 최대, 안으로 갈수록 사라진다. 자국이 '눌려 들어간' 자리로 읽힌다.
     //   빛을 빼지 않는다(위 uImpShade 주석): LUT 저역(RED)을 얹어 어느 바닥에서도 그림자로 읽히게.
+    // 각인 음영에도 같은 블룸을 — 음영은 실루엣이든 자국이든 하나의 언어여야 한다.
+    //   세기 0.7 배: 자국 음영은 실루엣 음영 **안에** 겹쳐 앉으므로 같은 값이면 두 겹이 쌓여 과열된다.
+    if (uShadeRed > 0.001) {
+      float rwI = max(uImpEdge * max(uShadeRedW, 0.2), 1e-4);
+      float blI = exp(-pow(max(-sdIn, 0.0) / rwI, 2.0)) * inIn;
+      lay(A, C_RED, blI * uShadeRed * uImp * 0.7);
+    }
     if (uImpShade > 0.001) {
       float ins = exp(-pow(max(-sdIn, 0.0) / max(uImpEdge, 1e-4), 1.15)) * inIn;
       lay(A, palPick(uImpShadeCol), ins * uImpShade * uImp);

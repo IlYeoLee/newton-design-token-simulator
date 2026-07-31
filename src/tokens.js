@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { NUM, PAL, NEU, rgba } from './palette.js';
 import { WALL_Z } from './scene.js';
 import { getLUT, FXP, FX_GLSL, GLYPHS, drawGlyph, lutColor, footSDFTexture, warnSDFTexture } from './fxlut.js';
+import LOOK from './mark-look.json';   // ★ MARK 룩 정본 — footlab '코드에 저장'이 굽는 파일
 import { MARK_NUM, MARK_GLSL, drawStemArrow, SIL_FIT, SIL_FIT_REF, QUAD_K, ZONE_GLYPH_K } from './fx-core.js';
 
 // ── MARK 파동 셰이더 (FX Lab 이식) — 재료는 열 하나, 상태는 파동의 위상 ──
@@ -270,7 +271,9 @@ const SF = SIL_FIT / SIL_FIT_REF;   // uv 단위 거리 스케일 — 실루엣 
  *  랩에서 잡은 디자인이 시뮬에서 헤일로 0.25(랩 0.9) 로 나왔다 — "랩에서 본 것보다 흐리다".
  *  이제 마크는 이 상수만 본다. 값을 바꾸려면 footlab 에서 잡고 여기로 옮긴다.
  *  (레인·이펙트·인물은 여전히 스토어를 쓴다 — 마크만 떼어낸 것이다.) */
-export const MARK_LOOK = { core: 1.0, halo: 0.9, pool: 0.55, sweep: 0.4, wobble: 0.5 };
+// pool 은 필 알파를 직접 정한다: fillGain = clamp(pool * 1.6, 0, 1.35).
+//   0.55 로 내렸다가 필이 0.88 로 35% 약해져 '개 흐리다'가 됐다(유저). 수정 전 0.9(=포화 1.35)로 복귀.
+export const MARK_LOOK = { core: LOOK.w, halo: LOOK.halo, pool: LOOK.pool, sweep: 0.4, wobble: LOOK.noise };
 export function makeMarkFXMaterial(footTex = null) {
   const mat = new THREE.ShaderMaterial({
     vertexShader: MARKFX_VERT,
@@ -296,38 +299,47 @@ export function makeMarkFXMaterial(footTex = null) {
       //   신발 발가락 박스가 맨발 엄지보다 좁다). 눈으로 더듬지 말고 랩에서 다시 재서 옮길 것.
       // ★ uv 단위 거리값은 전부 SF 배 — 실루엣이 쿼드에서 작아진 만큼 같이 좁아져야 비율이 유지된다.
       //   (안 맞추면 도트가 굵어지고 핫스팟이 퍼져 다른 그림이 된다.)
-      uImp: { value: footTex ? 1.0 : 0.0 }, uImpPitch: { value: 0.027 * SF }, uImpDot: { value: 0.25 },
+      uImp: { value: footTex ? LOOK.imp : 0.0 }, uImpPitch: { value: LOOK.pitch * SF }, uImpDot: { value: LOOK.dot },
       // 경계는 이너 섀도우가 만든다(유저 확정) — 윤곽 글로우는 기본 0, 필요할 때만 켠다.
-      uImpGlow: { value: 0.0 }, uImpShade: { value: 0.55 }, uImpSharp: { value: 0.22 },
-      uImpShadeCol: { value: 0 },   // 0 흰 — 프로토타입 foot-*-dots.svg 의 white inner shadow 규약
-      uImpEdge: { value: 0.058 * SF }, uImpScale: { value: 0.835 },
-      uImpRot: { value: 0 },   // 각인 기울기(rad) — 오른발은 미러라 부호가 뒤집힌다
+      uImpGlow: { value: LOOK.glow }, uImpShade: { value: LOOK.shade }, uImpSharp: { value: LOOK.sharp },
+      uImpShadeCol: { value: LOOK.shadeCol },   // 0 흰 — 프로토타입 foot-*-dots.svg 의 white inner shadow 규약
+      uImpEdge: { value: LOOK.edge * SF }, uImpScale: { value: LOOK.scale },
+      uImpRot: { value: (footTex?._right ? -LOOK.irot : LOOK.irot) * Math.PI / 180 },   // 각인 기울기(rad) — 오른발은 미러라 부호가 뒤집힌다
       uImpCtr: { value: new THREE.Vector2(
         footTex ? (footTex._inCx ?? 0.5) * 2 - 1 : 0,
         footTex ? 1 - (footTex._inCy ?? 0.5) * 2 : 0) },
       // 미세 이동 — x 는 좌우 미러라 오른발에서 부호가 뒤집힌다(실루엣이 미러이므로 오프셋도 미러).
       // 축척(SIL_FIT)을 바꾸면 자동 맞춤도 다시 재야 한다 — 새 기준 실측: 축소 0.880 · 이동 (0,0).
-      uImpOff: { value: new THREE.Vector2((footTex?._right ? 0.040 : -0.040) * SF, -0.007 * SF) },
+      uImpOff: { value: new THREE.Vector2((footTex?._right ? -LOOK.offx : LOOK.offx) * SF, LOOK.offy * SF) },
       // 파동 — 실루엣 등거리선을 따라 바깥으로. 기본값은 '은은하게' 쪽으로 잡았다:
       //   reach 0.34(쿼드 반폭의 1/3만 나간다) · width 0.09(한 겹) · speed 0.45(느리게).
       //   예전 원형 파장이 과하게 크고 쨍하다는 지적의 실체는 '너무 멀리 · 너무 세게'였다.
-      uRip: { value: 0.55 }, uRipSpeed: { value: 0.45 }, uRipWidth: { value: 0.09 * SF }, uRipReach: { value: 0.34 * SF },
+      uRip: { value: LOOK.rip }, uRipSpeed: { value: LOOK.ripSpeed }, uRipWidth: { value: LOOK.ripWidth * SF }, uRipReach: { value: LOOK.ripReach * SF },
       // 족저 압력장·등고선 — 색을 정하는 입력을 '중심거리'에서 '압력'으로 바꾼다(유저 레퍼런스: 압력맵)
       // 압력 램프(데이터 계열) · 아웃라인 폐기 후 형태를 잡는 이너 섀도우 · 필 소프트 엣지
-      uEdgeShade: { value: 0.55 }, uEdgeW: { value: 0.085 * SF }, uEdgeSoft: { value: 0.75 },
-      uDither: { value: 0.010 },   // LUT 8비트 밴딩 제거 — 조회 좌표를 1단계 미만 흔든다
+      uEdgeShade: { value: LOOK.edgeShade }, uEdgeW: { value: LOOK.edgeW * SF }, uEdgeSoft: { value: LOOK.edgeSoft },
+      // 음영 적열 블룸 — 음영 자리에 뉴턴 RED 를 넓게 깐다(유저: 바닥에 가장 빨간 색이 부족하다).
+      //   ?? 기본값은 옛 mark-look.json(키가 없는 저장본)에서도 NaN 이 안 나게 하는 안전판이다.
+      uShadeRed: { value: LOOK.shadeRed ?? 0.34 }, uShadeRedW: { value: LOOK.shadeRedW ?? 3.4 },
+      uDither: { value: LOOK.dither },   // LUT 8비트 밴딩 제거 — 조회 좌표를 1단계 미만 흔든다
       // uSilFit: SDF 베이크 채움비 / 기준치(0.78). 1 = 지금 그대로. 낮추면 실루엣이 쿼드에서
       //   작아져 파동·헤일로가 쓸 여유가 생긴다(호스트가 평면을 같은 배수로 키워 실제 크기 유지).
       uSilFit: { value: SIL_FIT / SIL_FIT_REF },
-      uPlantar: { value: 1.0 }, uBands: { value: 0 }, uBandSoft: { value: 0.45 },
-      uRipGrad: { value: 1 },   // 1 = 뉴턴 LUT 그라디언트(기본) · 0 = 단색
-      uRipCol: { value: 1 },   // 1 = 샌드(따뜻한 잔광). 0 흰 · 2 코랄 · 3 레드
+      uPlantar: { value: LOOK.plantar }, uBands: { value: LOOK.bands }, uBandSoft: { value: LOOK.bandSoft },
+      uRipGrad: { value: LOOK.ripGrad },   // 1 = 뉴턴 LUT 그라디언트(기본) · 0 = 단색
+      uRipCol: { value: LOOK.ripCol },   // 1 = 샌드(따뜻한 잔광). 0 흰 · 2 코랄 · 3 레드
       uPhase: { value: 0 }, uProg: { value: 0 }, uFade: { value: 1 },
       uToe: { value: 0 },   // 앞꿈치 접지 강조 — 앞은 진하게, 뒤꿈치는 투명하게(스텝백 2/4 왼발)
       uStrong: { value: 0 }, uContract: { value: 0 },
       uTime: { value: 0 }, uSeed: { value: Math.random() * 6.2832 },
       uW: { value: 1 }, uHalo: { value: 0.9 }, uPool: { value: 0.55 }, uGain: { value: 1 },
-      uSweepA: { value: 1 }, uNoise: { value: 0.5 }, uDay: { value: 0 }, uOut: { value: 1 },
+      // ★ uOut 0 — 마크는 랩(footlab)과 **같은 출력 경로**를 쓴다(유저 확정: 랩 코드를 그대로 이식).
+      //   uOut=1 은 컴포저 OutputPass(linear→sRGB)를 미리 상쇄하려는 역변환인데, 실측 결과
+      //   상쇄가 안 맞고 G·B 를 3배 가까이 깎는다 — 같은 유니폼·같은 셰이더인데도:
+      //     앞꿈치  uOut0 (249,106,88)  vs  uOut1 (241,37,25)
+      //     아치    uOut0 (248,183,135) vs  uOut1 (241,116,59)
+      //   밝은 크림·살구빛이 죽고 진한 적색만 남아 '흐리고 채도 낮다'로 보였다.
+      uSweepA: { value: 1 }, uNoise: { value: 0.5 }, uDay: { value: 0 }, uOut: { value: 0 },
       // 하프톤 스킨 — 기본 꺼짐. 랩에서 확정한 값이 기본값이다.
       uHT: { value: 0 }, uHTPitch: { value: 0.055 }, uHTGain: { value: 1.15 }, uHTSoft: { value: 0.55 }, uHTWave: { value: 0.6 }, uHTGlow: { value: 0 }, uHTInner: { value: 0 },
       uNumTex: { value: null }, uNumOn: { value: 0 }, uNumScale: { value: 0.311 }, uNumOff: { value: new THREE.Vector2() },
@@ -657,11 +669,14 @@ export class Marker {
       U.uProg.value = progress;
       U.uFade.value = fade;
       U.uStrong.value = this.strongPreview ? 1 : 0;
-      U.uW.value = FXP.mark.core;
-      U.uHalo.value = FXP.mark.halo;
-      U.uPool.value = FXP.mark.pool;
-      U.uSweepA.value = FXP.mark.sweep;
-      U.uNoise.value = FXP.mark.wobble;
+      // ★ MARK 룩의 출처는 mark-look.json(footlab) 하나다 — 룩시스템 스토어(FXP.mark)를 안 본다.
+      //   session.tickWaves 만 끊고 **여기를 빠뜨려서** 팩 마커는 계속 스토어 값으로 덮였다.
+      //   같은 실수를 또 하지 않으려면: FXP.mark 를 마크 재질에 넣는 곳이 더 있는지 먼저 grep 할 것.
+      U.uW.value = MARK_LOOK.core;
+      U.uHalo.value = MARK_LOOK.halo;
+      U.uPool.value = MARK_LOOK.pool;
+      U.uSweepA.value = MARK_LOOK.sweep;
+      U.uNoise.value = MARK_LOOK.wobble;
       if (U.uUIAmt) {   // 지면 UI 텍스트 구간 = 토큰 광을 블러 마스크로 깎는다(벽 마크는 제외)
         U.uUIOrigin.value.set(UI_MASK.ox, 0, UI_MASK.oz);
         U.uUIFwd.value.set(UI_MASK.fx, 0, UI_MASK.fz);
@@ -712,7 +727,9 @@ export class Marker {
         // 앵커 기준은 '발 평면'이다. radius*2.78 을 쓰면 발형 평면을 FOOT_PLANE_M 고정으로
         //   떼어낸 뒤로는 어긋난다 — 판정 반경이 큰 구간에서 숫자가 발 밖으로 나간다.
         //   (session.js attachMarkNum/placeMarkNum 에 남아 있던 0.46 과 같은 종류의 어긋남)
-        const off = MARK_NUM.anchor(a, this._footRight, FOOT_PLANE_M);   // fx-core 규약
+        // 앵커는 쿼드 전체 기준 — 평면을 QUAD_K 배로 키웠으므로 여기도 같은 배수여야 자리가 맞는다.
+        //   (session.placeMarkNum 은 맞췄는데 여기만 빠져 있었다.)
+        const off = MARK_NUM.anchor(a, this._footRight, FOOT_PLANE_M * QUAD_K);   // fx-core 규약
         this.num.position.set(off.x, off.y, 0.004);
         this.num.scale.setScalar(off.s);
       }
