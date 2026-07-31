@@ -570,7 +570,15 @@ function drawCenteredNum(ctx, text, cx, cy, size) {
 }
 
 // ── 스테이지 → 노드 열 구성 (floor-scene.html의 <script> 분기와 1:1) ──────────────
-const SCRIM_TYPES = new Set(['text', 'trainRow', 'liveRow', 'km', 'dots']);
+const SCRIM_TYPES = new Set(['text', 'trainRow', 'liveRow', 'km', 'dots', 'paceErr', 'paceSub']);
+
+/** 페이스 유지 팩 — 실전 지면의 수치 구성이 케이던스 팩과 다르다. ?pacepack=1 로 갈아 끼운다.
+ *  두 팩은 목표가 다르므로 필요한 수치도 다르다:
+ *    · 케이던스 팩(현행) = SPM 이 주인공. 메트로놈·편차 바가 전부 케이던스를 가르친다.
+ *    · 페이스 유지 팩    = '목표 대비 지금 몇 초'가 주인공. SPM 은 수단이라 화면에서 뺀다.
+ *  현행 화면이 복잡했던 이유가 이것이다(유저) — 두 팩의 수치가 한 화면에 같이 올라가 있었고,
+ *  게다가 Pace 는 SPM 에서 계산된 값이라 넷 중 둘이 같은 말을 하고 있었다. */
+const PACE_PACK = new URLSearchParams(typeof location !== 'undefined' ? location.search : '').get('pacepack') === '1';
 
 function buildScene(stage, p) {
   const S = (window.FLOOR_SCENES || {})[stage] || { title: stage, cue: '' };
@@ -583,7 +591,10 @@ function buildScene(stage, p) {
   if (m) col.push(node('s-cap', { type: 'text', textContent: (+m[1] - 1) + ' / 4', size: 46, weight: 700, ls: 6, color: 'rgba(255,255,255,.62)', mb: -38 }));
   if (!isC) col.push(node('s-title', { type: 'text', textContent: S.title, size: 120, weight: 700, ls: -4, color: '#fff', cascade: true }));
   col.push(node('s-cue', { type: 'text', textContent: S.cue || '', size: 52, weight: 400, color: 'rgba(255,255,255,.72)', style: { display: 'none' } }));
-  if (isC) col.push(node('km', { type: 'km' }));
+  // 실전 상단 — 케이던스 팩은 누적 거리, 페이스 팩은 '목표 대비 지금 몇 초'.
+  //   페이스 팩에서 누적 거리를 안 쓰는 이유: 달리는 중에 필요한 건 이미 한 양이 아니라 남은 양이다
+  //   (남은 거리는 아래 paceSub 로 내려간다). 누적은 리포트에서 볼 값.
+  if (isC) col.push(PACE_PACK ? node('pace-err', { type: 'paceErr' }) : node('km', { type: 'km' }));
   if (hasPrev) col.push(node('prev-row', { type: 'prevRow', pv: p.pv || 3, pvn: p.pvn || 0 }));
   // 도트 진행바 — 원본 HTML의 노출 규칙 두 가지를 그대로 따른다.
   //  ① 시범(Preview) 동안은 감춘다. 공간도 차지하지 않는다 — 프리뷰가 그 자리를 쓰기 때문.
@@ -591,7 +602,7 @@ function buildScene(stage, p) {
   //  ③ 자리를 이어받는 노드는 앞 노드가 다 비운 뒤(아웃로 0.05+0.45) 나타난다 — 안 그러면 슬라이드로 보인다.
   if (!isStep) col.push(node('s-dots', { type: 'dots', mt: -38, dur: p.dur || 8, hideUntil: hasPrev ? (p.pv || 3) + 0.5 : 0, delay: hasPrev ? (p.pv || 3) + 0.15 : 0 }));
   if (isP) col.push(node('train-row', { type: 'trainRow', ring: /^P[23]$/.test(stage) }));
-  if (isC) col.push(node('live-row', { type: 'liveRow' }));
+  if (isC) col.push(PACE_PACK ? node('pace-sub', { type: 'paceSub' }) : node('live-row', { type: 'liveRow' }));
   col.push(node('s-succ', { type: 'succ', style: { display: 'none' } }));
   return { col, hasPrev, isStep, pv: p.pv || 3 };
 }
@@ -672,6 +683,10 @@ export class FloorGL {
       if (n.type === 'trainRow' || n.type === 'liveRow') for (const k of ['spm-me', 'spm-tgt', 'tp-arc', 'tp-tip', 'tp-num', 'pace-me', 'pace-tgt'])
         this.map.set(k, node(k, { textContent: '--' }));
       if (n.type === 'km') this.map.set('km-n', node('km-n', { textContent: '0.00' }));
+      // 페이스 팩이 먹는 값 — main 이 같은 id 로 써 넣는다. km-tgt(목표 거리)·pace-bank(구간 누적 편차 초)는 새 값.
+      if (n.type === 'paceErr' || n.type === 'paceSub')
+        for (const [k, v] of [['pace-me', '--'], ['pace-tgt', '--'], ['km-n', '0.00'], ['km-tgt', '5.00'], ['pace-bank', '0']])
+          if (!this.map.has(k)) this.map.set(k, node(k, { textContent: v }));
     }
     this.map.set('prev-row', b.col.find(n => n.type === 'prevRow') || node('prev-row'));
   }
@@ -752,6 +767,8 @@ export class FloorGL {
       case 'prevRow': return 200;
       case 'trainRow': return n.ring ? 236 : 228;   // 새 스탯 컴포넌트(값 132 + 편차바 + 라벨) 실높이
       case 'liveRow': return 228;
+      case 'paceErr': return 300;   // 값 200 + 편차 바 + 목표 라벨
+      case 'paceSub': return 150;   // 남은 거리 · 구간 누적 편차 두 칸
       case 'km': return 180;
       case 'succ': return 400;
       default: return 0;
@@ -798,6 +815,8 @@ export class FloorGL {
       case 'trainRow': return this._trainRow(n, y);
       case 'liveRow': return this._liveRow(n, y);
       case 'km': return this._km(n, y);
+      case 'paceErr': return this._paceErr(n, y);
+      case 'paceSub': return this._paceSub(n, y);
       case 'succ': return this._succ(n, y);
     }
   }
@@ -906,6 +925,95 @@ export class FloorGL {
     const g = id => this.map.get(id)?.textContent;
     this._lstat(CX - 180, y, g('spm-me'), g('spm-tgt'), 'SPM');
     this._lstat(CX + 180, y, g('pace-me'), g('pace-tgt'), 'Pace');
+  }
+
+  // 편차 바 — 가운데 눈금이 목표, 점이 현재. _lstat 과 같은 물건이라 규칙을 한 곳에 둔다.
+  //   dev = 목표 대비 상대량(-1~1 로 잘린다), col = 점 색.
+  _devBar(cx, by, w, dev, col, on) {
+    const ctx = this.ctx;
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = rgba(NEU.paper, 0.26); ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.moveTo(cx - w / 2, by); ctx.lineTo(cx + w / 2, by); ctx.stroke();
+    ctx.strokeStyle = rgba(NEU.paper, 0.55);
+    ctx.beginPath(); ctx.moveTo(cx, by - 12); ctx.lineTo(cx, by + 12); ctx.stroke();
+    if (!on) return;
+    ctx.fillStyle = col;
+    ctx.beginPath(); ctx.arc(cx + Math.max(-1, Math.min(1, dev)) * (w / 2), by, 11, 0, Math.PI * 2); ctx.fill();
+  }
+
+  /** 부호 붙은 초(±N”) — 페이스 팩의 기본 활자 단위.
+   *  기호(+ − ”)는 본문 영문이라 도트 숫자와 크기·무게가 안 맞는다. 같은 크기로 두면
+   *  솔리드 글리프가 구멍 많은(=시각적으로 가벼운) 도트 숫자를 눌러 부호가 주인공이 된다.
+   *  기호만 0.55배로 낮추고, 부호는 숫자 잉크 중앙에·” 는 위에 건다. */
+  _signedSec(cx, y, secs, size, delay = 0) {
+    const ctx = this.ctx;
+    const SS = size * 0.55, INK = size * 0.84;
+    if (!Number.isFinite(secs)) {
+      ctx.font = F(500, size, sans); ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+      ctx.fillStyle = rgba(NEU.paper, 0.6); ctx.fillText('--', cx, y);
+      return;
+    }
+    const n = String(Math.abs(Math.round(secs))), sign = secs < 0 ? '−' : '+';
+    ctx.font = F(500, SS, sans);
+    const wSign = ctx.measureText(sign).width + size * 0.05, wQ = ctx.measureText('”').width;
+    const wNum = rollWidth(ctx, n, size);
+    const x0 = cx - (wSign + wNum + wQ) / 2;
+    ctx.fillStyle = NEU.paper; ctx.textAlign = 'left';
+    ctx.font = F(500, SS, sans); ctx.textBaseline = 'middle';
+    ctx.fillText(sign, x0, y + INK * 0.5);
+    rollNum(ctx, n, this.t, delay, 0.5, x0 + wSign, y, size, { fam: dot9, fill: NEU.paper });
+    ctx.font = F(500, SS, sans); ctx.textBaseline = 'top';
+    ctx.fillStyle = NEU.paper; ctx.fillText('”', x0 + wSign + wNum, y);
+  }
+
+  // ── 페이스 유지 팩: 주인공 = '목표 대비 지금 몇 초' ────────────────────────────
+  //   절대 페이스(5’42”)만 주면 러너가 달리면서 목표를 빼야 한다. 부호 붙은 초 하나면
+  //   지금 뭘 해야 하는지가 바로 나온다(+ = 느림 → 밀어야, − = 빠름 → 힘 아껴).
+  //   숫자엔 색을 싣지 않는다 — 판정은 아래 편차 바의 점이 위치로 한다(_lstat 과 같은 규칙).
+  _paceErr(n, y) {
+    const ctx = this.ctx;
+    const mv = statVal(this.map.get('pace-me')?.textContent);
+    const tv = statVal(this.map.get('pace-tgt')?.textContent);
+    const ok = Number.isFinite(mv) && Number.isFinite(tv) && tv > 0;
+    const d = ok ? Math.round(mv - tv) : 0;
+    const BAND = 20;                                  // ±20초/km 를 바 만점으로 본다
+    const off = Math.min(1, Math.abs(d) / BAND);
+    const col = !ok ? NEU.paper : off < 0.35 ? PAL.sand : off < 0.72 ? PAL.coral : PAL.red;
+    this._signedSec(CX, y, ok ? d : NaN, 200, 0);
+    this._devBar(CX, y + 232, 460, d / BAND, col, ok);
+    // 목표 페이스는 조용히 — 주인공은 '차이'지 절대값이 아니다.
+    ctx.font = F(500, 40); ctx.letterSpacing = '2px';
+    ctx.fillStyle = rgba(NEU.paper, 0.6); ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+    ctx.fillText(`TARGET ${this.map.get('pace-tgt')?.textContent || '--'}`, CX, y + 300);
+    ctx.letterSpacing = '0px';
+  }
+
+  // 남은 거리 · 구간 누적 편차 — 페이스 배분에 필요한 둘.
+  //   남은 거리: '이 페이스를 얼마나 더 버티나'. 누적 편차: 앞에서 벌어놨으면 지금 늦어도 된다
+  //   (순간값 하나에 과잉 반응하는 걸 막는 값이라, 작게 둔다).
+  _paceSub(n, y) {
+    const ctx = this.ctx;
+    const num = id => statVal(this.map.get(id)?.textContent);
+    const left = Math.max(0, (num('km-tgt') || 0) - (num('km-n') || 0));
+    const bank = Math.round(num('pace-bank') || 0);
+    const label = (cx, s) => {
+      ctx.font = F(400, 32); ctx.letterSpacing = '6px';
+      ctx.fillStyle = rgba(NEU.paper, 0.55); ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+      ctx.fillText(s, cx + 3, y + 122);
+      ctx.letterSpacing = '0px';
+    };
+    // 남은 거리 — 값(도트) + 단위(본문 영문). 단위는 값 옆에 붙으므로 두 서체 섞인 실폭으로 자리 잡는다.
+    const cxL = CX - 230, v = left.toFixed(2);
+    ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    const wv = rollWidth(ctx, v, 88);
+    ctx.font = F(500, 40); const wu = ctx.measureText(' km').width;
+    const x0 = cxL - (wv + wu) / 2;
+    rollNum(ctx, v, this.t, 0.15, 0.6, x0, y, 88, { fam: dot9, fill: NEU.paper });
+    ctx.font = F(500, 40); ctx.fillStyle = rgba(NEU.paper, 0.7);
+    ctx.fillText(' km', x0 + wv, y + 40);
+    label(cxL, 'LEFT');
+    this._signedSec(CX + 230, y, bank, 88, 0.15);
+    label(CX + 230, 'TOTAL');
   }
 
   _km(n, y) {

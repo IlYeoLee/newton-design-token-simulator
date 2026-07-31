@@ -1263,7 +1263,7 @@ void main(){
     //     blur .8 · glow .8 · flow .35 · decay .4 · grain .07 → 인물 영상에 잔상(핑퐁 RT 누적)과
     //     필름 그레인이 계속 걸려 있었다. 07-30 결정("인물 = 뉴턴톤만, 나머지 0")대로 걸러 받는다.
     //     저장본이 무엇이든 런타임은 항상 이 규칙 — 좀비 값이 다시 살아날 경로를 없앤다.
-    const PERSON_KEEP = ['detail', 'tone', 'sweep'];   // 음영·톤·세로대역 = 룩 토큰 / blur·glow·flow·decay·grain = 아티팩트(은퇴)
+    const PERSON_KEEP = ['detail', 'tone', 'sweep', 'ink', 'inkT'];   // 음영·톤·세로대역 = 룩 토큰 / blur·glow·flow·decay·grain = 아티팩트(은퇴)
     const stPerson = st.person || st.p;
     if (stPerson) {
       for (const k of PERSON_KEEP) if (stPerson[k] != null) FXP.person[k] = stPerson[k];
@@ -2330,6 +2330,9 @@ void main(){
     if (U.uPSweep) U.uPSweep.value = FXP.person?.sweep ?? 0;
     if (U.uPHi) U.uPHi.value = hi;
     if (U.uPDepth) U.uPDepth.value = FXP.person?.depth ?? 0.34;
+    //     uPInk/uPInkT = 명암 잉크(그늘 → 뉴턴 RED). 0 = 도입 전과 픽셀 동일.
+    if (U.uPInk) U.uPInk.value = FXP.person?.ink ?? 0.85;
+    if (U.uPInkT) U.uPInkT.value = FXP.person?.inkT ?? 0.42;
   };
   let _cf = null;
   function coachField() {
@@ -2423,7 +2426,8 @@ void main(){
         uCropOff: { value: cfg.cropOff }, uCropScale: { value: cfg.cropScale }, uDetail: { value: 0.25 },
         // uPulse 0 — 복싱 인물엔 루마 펄스가 없다(톤을 흔드는 원인이라 끈다).
         // uPSat·uPSweep = PERSON_GLSL 공용(구 uSat 은 죽은 유니폼이라 폐기).
-        uPSat: { value: 1.32 }, uPSweep: { value: 0 }, uPHi: { value: 0.86 }, uPDepth: { value: 0.34 }, uPulse: { value: 0.0 } },
+        uPSat: { value: 1.32 }, uPSweep: { value: 0 }, uPHi: { value: 0.86 }, uPDepth: { value: 0.34 },
+        uPInk: { value: 0.85 }, uPInkT: { value: 0.42 }, uPulse: { value: 0.0 } },
       vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
       fragmentShader: `
         varying vec2 vUv; uniform sampler2D map, uLUT, uField, uFieldN; uniform float uTime, uCropOff, uCropScale, uPulse, uReady, uDetail;
@@ -2875,7 +2879,8 @@ void main(){
       uniforms: {
         tex: { value: demoTex }, uTrail: { value: trailRTs[0].texture }, uHeat: { value: heatRTs[0].texture }, uLUT: { value: getLUT() },
         uTime: { value: 0 }, uNoise: { value: 0.55 }, uW: { value: 1 }, uDetail: { value: 0.62 }, uTrailGain: { value: 1 }, uGrain: { value: 0 }, uTone: { value: 0 }, uLive: { value: 0 },
-        uPSat: { value: 1.32 }, uPSweep: { value: 0 }, uPHi: { value: 0.86 }, uPDepth: { value: 0.34 },   // PERSON_GLSL 공용 — setPersonUniforms 가 주입
+        uPSat: { value: 1.32 }, uPSweep: { value: 0 }, uPHi: { value: 0.86 }, uPDepth: { value: 0.34 },
+        uPInk: { value: 0.85 }, uPInkT: { value: 0.42 },   // PERSON_GLSL 공용 — setPersonUniforms 가 주입
         uCropC: { value: new THREE.Vector2(0.5, 0.5) }, uCropS: { value: new THREE.Vector2(1, 1) },
       },
       vertexShader: `#include <common>
@@ -3316,7 +3321,8 @@ void main(){
         uFrame: { value: 0 }, uDecay: { value: 0.6 }, uTime: { value: 0 },
         uCols: { value: COACH.cols }, uRows: { value: COACH.rows }, uN: { value: COACH.n }, uDirect: { value: COACH.direct },
         uW: { value: 1 }, uNoise: { value: 0.55 },
-        uPSat: { value: 1.32 }, uPSweep: { value: 0 }, uPHi: { value: 0.86 }, uPDepth: { value: 0.34 },   // PERSON_GLSL 공용 — 벽은 personColor 만 쓰지만 선언은 필수(안 하면 무채)
+        uPSat: { value: 1.32 }, uPSweep: { value: 0 }, uPHi: { value: 0.86 }, uPDepth: { value: 0.34 },
+        uPInk: { value: 0 }, uPInkT: { value: 0.42 },   // PERSON_GLSL 공용 — 벽은 personColor 만 쓰지만 선언은 필수(안 하면 무채). 잉크는 바닥 전용이라 0.
       },
       vertexShader: `#include <common>
 #include <clipping_planes_pars_vertex>
@@ -4231,7 +4237,8 @@ void main(){
       const inLive = session.active && session.sport === 'running' && /^C[2-5]$/.test(session.stage || '');
       if (inLive) {
         const TARGET_KM = 5, LIVE_SECS = 22;   // 목표 5km(유저 세팅), 라이브 구간 동안 0→5 채움(데모)
-        session._liveKm = Math.min(TARGET_KM, (session._liveKm ?? 0) + (_uiDt / LIVE_SECS) * TARGET_KM);
+        const _prevKm = session._liveKm ?? 0;
+        session._liveKm = Math.min(TARGET_KM, _prevKm + (_uiDt / LIVE_SECS) * TARGET_KM);
         try {
           const fdoc = fdocNow();
           const kn = fdoc?.getElementById('km-n');
@@ -4243,10 +4250,19 @@ void main(){
           const fmtPace = s => { s = Math.round(s); return Math.floor(s / 60) + '’' + String(s % 60).padStart(2, '0') + '”'; };
           const pt = fdoc?.getElementById('pace-tgt'); if (pt && pt.textContent !== '5’42”') pt.textContent = '5’42”';
           const pm = fdoc?.getElementById('pace-me');
-          if (pm) { const v = window.__mySpm ? fmtPace(342 * tgtSpm / window.__mySpm) : '—'; if (pm.textContent !== v) pm.textContent = v; }
+          const meSec = window.__mySpm ? 342 * tgtSpm / window.__mySpm : null;
+          if (pm) { const v = meSec != null ? fmtPace(meSec) : '—'; if (pm.textContent !== v) pm.textContent = v; }
+          // ── 페이스 유지 팩(?pacepack=1)이 먹는 값 ──
+          //   목표 거리 = 남은 거리 계산의 기준. 누적 편차 = 목표 페이스로 갔을 때 대비 실제로 더/덜 쓴 초.
+          //   거리 증분(km)에 초/km 차이를 곱해 쌓는다 — 이게 템포런의 실제 판정 단위(뱅크)다.
+          const kt = fdoc?.getElementById('km-tgt');
+          if (kt) { const v = TARGET_KM.toFixed(2); if (kt.textContent !== v) kt.textContent = v; }
+          if (meSec != null) session._paceBank = (session._paceBank ?? 0) + (meSec - 342) * (session._liveKm - _prevKm);
+          const pb = fdoc?.getElementById('pace-bank');
+          if (pb) { const v = String(Math.round(session._paceBank ?? 0)); if (pb.textContent !== v) pb.textContent = v; }
         } catch (e) { /* iframe 로드 전 */ }
       } else if (!/^C[2-5]$/.test(session.stage || '')) {
-        session._liveKm = null;   // 라이브 벗어나면 리셋(재진입 0부터)
+        session._liveKm = null; session._paceBank = 0;   // 라이브 벗어나면 리셋(재진입 0부터)
       }
     }
     // 케이던스 메트로놈(사운드 우선 — 러닝 교수법: 목표 SPM은 귀로 먼저). 팩 박자 동기 클릭.
