@@ -300,8 +300,16 @@ for (let i = 0; i < N; i++) {
   const t = i / FPS;
   // ★ 4K + 큰 uiscale 은 GPU 메모리를 넘겨 컨텍스트를 잃는다(실측: 3840·배율2.5 에서 11프레임째
   //   __dbg 통째로 소실). 죽으면 조용히 끝내고 여기까지 뽑은 프레임으로 영상을 묶는다.
-  const alive = await page.evaluate(() => !!window.__dbg?.state).catch(() => false);
-  if (!alive) { console.log(`\n⚠ ${i}프레임에서 페이지 소실(컨텍스트 손실 추정) — uiscale 을 낮추세요.`); break; }
+  // ★ __dbg?.state 만 보면 안 된다 — WebGL 컨텍스트를 잃어도 JS 객체는 멀쩡히 남는다.
+  //   그러면 렌더만 조용히 죽어 '완전 투명한 프레임'이 계속 쌓인다(실측: 4K 세 종목을 연달아
+  //   돌렸더니 2·3번째가 480장 전부 불투명 픽셀 0.00% — 20분을 통째로 날렸다).
+  //   컨텍스트를 직접 물어본다.
+  const alive = await page.evaluate(() => {
+    const d = window.__dbg; if (!d?.state) return false;
+    const gl = d.renderer?.getContext?.();
+    return !(gl && gl.isContextLost && gl.isContextLost());
+  }).catch(() => false);
+  if (!alive) { console.log(`\n⚠ ${i}프레임에서 WebGL 컨텍스트 손실 — uiscale 을 낮추거나 종목을 하나씩 돌리세요.`); break; }
   await page.evaluate(tt => new Promise(res => {
     const d = window.__dbg;
     window.__vt = 1200 + tt * 1000;          // 가상 시계 — 셰이더·클록이 전부 이걸 본다
@@ -346,6 +354,15 @@ for (let i = 0; i < N; i++) {
     });
   }), t);
   await page.screenshot({ path: path.join(TMP, `f${String(i).padStart(5, '0')}.png`), type: 'png', omitBackground: ALPHA });
+  // ★ 첫 프레임에 아무것도 안 그려졌으면 즉시 멈춘다. 컨텍스트가 살아 있어도 씬이 통째로
+  //   비어 있으면(무대 끄기가 과했거나 카메라가 엉뚱한 곳을 보면) 끝까지 빈 프레임만 쌓인다.
+  if (i === 0) {
+    const tri = await page.evaluate(() => window.__dbg?.renderer?.info?.render?.triangles ?? -1);
+    if (tri === 0) {
+      console.error('✗ 첫 프레임에 그려진 삼각형이 0개 — 빈 영상이 됩니다. 중단합니다.');
+      await browser.close(); process.exit(1);
+    }
+  }
   done = i + 1;
   if (i % 10 === 0 || i === N - 1) {
     const el = (Date.now() - t0) / 1000;
