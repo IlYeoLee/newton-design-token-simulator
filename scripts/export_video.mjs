@@ -367,6 +367,17 @@ for (let i = 0; i < N; i++) {
       console.error('✗ 첫 프레임에 그려진 삼각형이 0개 — 빈 영상이 됩니다. 중단합니다.');
       await browser.close(); process.exit(1);
     }
+    // ★ 삼각형이 0 이 아니어도 결과가 텅 빌 수 있다 — GPU 메모리가 모자라 텍스처 업로드가
+    //   조용히 실패하면 컨텍스트도 안 죽고 에러도 안 나는데 화면만 비어 있다(실측: 4K 러닝).
+    //   ponytail: PNG 파일 크기로 판별한다. 완전 투명한 4K 프레임은 40KB 대로 압축되고
+    //   내용이 있으면 300KB 를 넘는다 — 정밀하진 않지만 이 실패를 확실히 잡고 비용이 0이다.
+    //   더 정확히 보려면 프레임을 디코드해 알파를 재야 한다(그러자고 의존성을 늘릴 값어치는 없다).
+    const kb = fs.statSync(path.join(TMP, 'f00000.png')).size / 1024;
+    if (W * H > 2e6 && kb < 80) {
+      console.error(`✗ 첫 프레임이 사실상 비어 있습니다(${kb.toFixed(0)}KB) — GPU 메모리 부족으로 추정.`);
+      console.error(`  --uiscale 을 낮추세요(지금 ${UISCALE.toFixed(2)}). 4K 지면은 1.2 안팎이 안전합니다.`);
+      await browser.close(); process.exit(1);
+    }
   }
   done = i + 1;
   if (i % 10 === 0 || i === N - 1) {
