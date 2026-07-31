@@ -127,6 +127,11 @@ await page.evaluateOnNewDocument(() => {
 await page.setViewport({ width: W, height: H, deviceScaleFactor: SS });
 const errs = [];
 page.on('pageerror', e => errs.push(e.message.slice(0, 160)));
+// ★ 렌더 도중 페이지가 리로드되면 window.__dbg 가 사라지고 이후 프레임이 전부 텅 빈다.
+//   vite 의 always-full-reload 플러그인이 out/ 에 쌓이는 PNG 를 소스 변경으로 보고 새로고침한
+//   것이 원인이었다(vite.config.js 의 watch.ignored 로 막았다). 다시 새면 조용히 넘기지 않는다.
+let reloaded = 0;
+page.on('framenavigated', f => { if (f === page.mainFrame()) reloaded++; });
 await page.goto(`${URLBASE}?dev=1&uiscale=${UISCALE}${ALPHA ? '&alpha=1' : ''}`, { waitUntil: 'networkidle2', timeout: 180000 });
 await page.waitForFunction('!!window.__dbg?.session', { timeout: 120000 });
 // 부팅 동안에도 가상 시계를 밀어 준다 — 안 그러면 초기화가 시간 0 에 얼어붙는다.

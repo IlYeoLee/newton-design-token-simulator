@@ -7,7 +7,15 @@ const BUILD_TAG = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(5, 
 
 export default defineConfig({
   base: './',   // GitHub Pages 등 서브경로 배포 대응
-  server: { host: '127.0.0.1', port: 5199 },
+  // ★ 산출·임시 폴더는 감시하지 않는다. 아래 always-full-reload 는 '어떤 파일이든' 바뀌면
+  //   페이지를 새로고침하는데, 영상 내보내기는 out/ 에 PNG 를 수백 장 쓴다. 그러면 렌더 도중
+  //   페이지가 리로드돼 window.__dbg 가 사라지고, 그 뒤 프레임이 전부 텅 빈 채로 저장된다
+  //   (실측: 종목을 연달아 뽑으면 첫 종목만 성공하고 나머지가 480장 전부 빈 프레임).
+  //   증상이 조용해서 오래 갔다 — 컨텍스트 손실도, WebGL 에러도, 페이지 에러도 안 뜬다.
+  server: {
+    host: '127.0.0.1', port: 5199,
+    watch: { ignored: ['**/out/**', '**/tmp_*', '**/tmp_*/**', '**/node_modules/**'] },
+  },
   plugins: [{
     // Three.js 씬은 HMR 부분 교체를 못 견딘다 — 모듈만 갈리면 씬·렌더러가 반쯤 죽어
     // 화면이 검게 변하고 판이 붉게 남는다(유저: 커밋할 때마다). 저장 시 항상 전체 새로고침.
