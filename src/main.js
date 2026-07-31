@@ -24,7 +24,7 @@ import { WallGL } from './wallgl.js';     // 복싱 벽 UI WebGL 이식(같은 B
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { CSS3DRenderer, CSS3DObject } from 'three/examples/jsm/renderers/CSS3DRenderer.js';
 import { getLUT, FXP, rebuildLUT, lutColor, GLYPHS, FX_GLSL, DEFAULT_GLYPHS, GLYPH_REV, mergeGlyphs, ensureOffBit } from './fxlut.js';
-import { drawRotate, PERSON_GLSL, CUT_FEATHER_GLSL } from './fx-core.js';
+import { drawRotate, PERSON_GLSL, CUT_FEATHER_GLSL, REF_LOOK_GLSL } from './fx-core.js';
 import { createEditor3D } from './editor3d.js';
 import { LiveUI } from './liveui.js';
 import { SceneUI } from './sceneui.js';
@@ -2435,7 +2435,7 @@ void main(){
       fragmentShader: `
         varying vec2 vUv; uniform sampler2D map, uLUT, uField, uFieldN; uniform float uTime, uCropOff, uCropScale, uPulse, uReady, uDetail;
         vec3 lut(float v){ return texture2D(uLUT, vec2(clamp(v, 0.004, 0.996), 0.5)).rgb; }
-        ` + PERSON_GLSL + CUT_FEATHER_GLSL + `
+        ` + PERSON_GLSL + CUT_FEATHER_GLSL + REF_LOOK_GLSL + `
         vec2 crop(vec2 uv){ return vec2(uv.x, uCropOff + uv.y * uCropScale); }
         // 그린 제거만. (빈 프레임 방지는 픽셀 휘도가 아니라 프레임 단위 uReady가 담당 —
         //  픽셀로 자르면 그림자·모자·옷주름이 통째로 뚫린다: 실측 피사체 14% 소실)
@@ -2464,7 +2464,7 @@ void main(){
           // 상단 잘림 페더 — 크롭 창이 몸통을 가로지르면 마스크가 프레임 경계에서 딱 끊겨
           //   허리가 칼로 자른 듯 보인다(유저 스샷). 위쪽 12%만 부드럽게 소멸.
           //   하단은 건드리지 않는다 — 발 접지는 또렷해야 한다(유저 확정).
-          mEro *= 1.0 - smoothstep(0.88, 1.0, uv.y);
+          mEro *= refEdge(uv);   // 4변 페이드(레퍼런스 정본) — 구 상단 12% 페더를 대체
           // 두께장·블러휘도 = 저해상 RT 가우시안 필드(복싱 판 uHeat와 같은 파이프라인)
           vec2 fld = texture2D(uField, uv).rg;    // 넓은 블러 = 두께장·노출
           vec2 fldN = texture2D(uFieldN, uv).rg;  // 좁은 블러 = 이목구비 지워진 결
@@ -2803,7 +2803,7 @@ void main(){
     }
   }
   setTimeout(initDemoSeg, 1200);   // 부트 선초기화 — 세션 시작 즉시 코치 등장
-  const MASK_GLSL = CUT_FEATHER_GLSL + `
+  const MASK_GLSL = CUT_FEATHER_GLSL + REF_LOOK_GLSL + `
     uniform sampler2D tex;   // 비디오 (그린스크린 소스)
     uniform vec2 uCropC, uCropS;
     float praw(vec2 uv){
@@ -2816,7 +2816,7 @@ void main(){
     // 마스크 빌더는 깨끗하게 둔다 — 하단 잘림 처리는 최종 인물 셰이더가 담당한다.
     //   여기서 미리 지우면 이 마스크로 굽는 블러 필드까지 같이 죽어, 디포커스가 녹일 대상이 없어진다.
     float pmask(vec2 uv){
-      return praw(uv) * smoothstep(0.0, 0.03, uv.y) * smoothstep(1.0, 0.88, uv.y);   // 상단 페더 12%
+      return praw(uv) * refEdge(uv);   // 4변 페이드(레퍼런스 정본)
     }
     // 블러 휘도 — 이목구비·옷주름을 뭉개 명암 덩어리만 남긴다(유저 레퍼런스: 확산 유리 실루엣)
     float plum(vec2 uv){
@@ -3352,7 +3352,7 @@ void main(){
         uniform sampler2D uAtlas, uLUT;
         uniform float uFrame, uDecay, uTime, uW, uNoise, uCols, uRows, uN, uDirect;
         vec3 lut(float v){ return texture2D(uLUT, vec2(clamp(v, 0.004, 0.996), 0.5)).rgb; }
-        ` + PERSON_GLSL + CUT_FEATHER_GLSL + `
+        ` + PERSON_GLSL + CUT_FEATHER_GLSL + REF_LOOK_GLSL + `
         float phash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
         float pvn(vec2 p){
           vec2 i = floor(p), f = fract(p); f = f*f*f*(f*(f*6.0-15.0)+10.0);
@@ -3370,7 +3370,7 @@ void main(){
           return uDirect > 0.5 ? smoothstep(0.30, 0.55, lum) : smoothstep(0.52, 0.34, lum);
         }
         float mask1(vec2 uv, float f){   // 하단 잘림 처리는 main 이 담당(빌더는 깨끗하게)
-          return mraw(uv, f) * smoothstep(0.0, 0.03, uv.y) * smoothstep(1.0, 0.88, uv.y);   // 상단 페더 12%
+          return mraw(uv, f) * refEdge(uv);   // 4변 페이드(레퍼런스 정본)
         }
         float maskF(vec2 uv, float fk){
           float f0 = floor(fk);

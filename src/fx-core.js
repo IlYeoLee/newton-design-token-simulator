@@ -255,6 +255,24 @@ export function buildLUT(stops, sat = 1, out = new Uint8Array(256 * 4)) {
 // ─────────────────────────────────────────────────────────────
 
 // ─────────────────────────────────────────────────────────────
+/** 인물 영상 그레이딩 · 4변 페이드 — dab2n figma-prototype `setup-injury` 정본 이식.
+ *  원본(styles/setup.css .injury-stage video):
+ *    filter: saturate(1.55) contrast(1.05)   ← 이식하지 않았다. 원본은 multiply 로 죽은
+ *      **그 클립의** 색을 되살리는 보정이다. 시뮬 인물의 색은 뉴턴 LUT 가 만들므로 같은
+ *      배수를 먹이면 레드가 더 쨍해질 뿐 레퍼런스에 가까워지지 않는다(실측 — 순빨강이 됐다).
+ *    mask-image: linear-gradient(to right,  transparent, #000 14%, #000 86%, transparent)
+ *                linear-gradient(to bottom, transparent, #000 10%, #000 92%, transparent)
+ *    mask-composite: intersect
+ *  좌우 페이드가 원본의 핵심이다 — 없으면 클립 자체의 조명이 사각 박스를 그린다(원본 주석).
+ *  ※ uv.y 는 아래가 0 이라 CSS 의 to-bottom 과 위아래가 뒤집힌다: 상단 10% · 하단 8%.
+ */
+export const REF_LOOK_GLSL = `
+float refEdge(vec2 uv){
+  float h = smoothstep(0.0, 0.14, uv.x) * smoothstep(1.0, 0.86, uv.x);
+  float v = smoothstep(0.0, 0.08, uv.y) * smoothstep(1.0, 0.90, uv.y);
+  return h * v;                        // mask-composite: intersect
+}`;
+
 // 인물 영상 하단 잘림 페더 — 코치·데모 패널·고스트 공용 단일 정의.
 //   크롭 창이 허벅지를 가로지르면 마스크가 프레임 하단에서 딱 끊겨 다리가 칼자국이 된다(유저 스샷).
 //   ★ 열 단위 자동 판정: 그 열의 **하단 경계에 실루엣이 살아 있을 때만** 페더가 걸린다.
