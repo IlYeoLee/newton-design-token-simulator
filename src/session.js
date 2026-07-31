@@ -132,7 +132,8 @@ class FootMark {
     this.plane = new THREE.Mesh(new THREE.PlaneGeometry(S, S), mat);
     this.group.add(this.plane);
     this.group.rotation.x = -Math.PI / 2; this.group.position.y = 0.013; this.group.renderOrder = 6;
-    this.plane.rotation.z = foot === 'left' ? THREE.MathUtils.degToRad(8) : THREE.MathUtils.degToRad(-8);
+    // 발 벌림 각 — footlab 정본(왼발 -3°, 오른발은 미러)
+    this.plane.rotation.z = foot === 'left' ? THREE.MathUtils.degToRad(-3) : THREE.MathUtils.degToRad(3);
     this.plane.renderOrder = 4;   // 궤적 토큰(9)이 항상 발자국 '위'에 겹쳐 그려지도록 순서 못박음(유저)
     this.group.userData.el = { type: 'foot', side: foot };
   }
@@ -257,7 +258,7 @@ function attachMarkNum(fm, label, right) {
   const S = FOOT_PLANE_M;   // FootMark 쿼드 — 발 평면과 같은 출처여야 한다.
   // 0.46 이 박혀 있었다. 발 평면이 FOOT_LEN_M 을 따라 줄어도 숫자만 옛 크기로 남아
   // 발 밖으로 삐져나왔다(유저: '발 아래 안 뜨고 삐져나와 너무 크다').
-  const p = floorNum(String(label), 0, 0, S * MARK_NUM.RATIO / 0.75 / 1.5, CS.ink).userData.plane;
+  const p = floorNum(String(label), 0, 0, S * MARK_NUM.RATIO / 0.75 / 1.5 * GLYPH_LOOK.size, CS.ink).userData.plane;
   p._numRight = right;
   p._numFm = fm;
   p.renderOrder = 7;

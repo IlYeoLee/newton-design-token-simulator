@@ -145,12 +145,12 @@ export const ZONE_GLYPH_K = 1.18;
  *  크기는 유니폼이 아니라 **호스트가 캔버스로 그리는** 값이라 별도 이식이 필요했다.
  *  값을 바꾸려면 footlab 에서 잡고 여기로 옮긴다. */
 export const GLYPH_LOOK = {
-  size: 1.0,        // MARK_NUM.RATIO 에 곱하는 배율
-  gx: 0, gy: 0,     // 앵커 기준 미세 이동(쿼드 비율). 오른발은 x 부호가 뒤집힌다
-  rot: 0,           // 회전(도). 오른발은 부호가 뒤집힌다
-  shadow: 'glow',   // 'glow' 코랄 번짐 · 'drop' 아래로 밀린 어두운 사본 · 'none'
-  shadowK: 0.75,    // 그림자 세기
-  blend: 'normal',  // 'normal' · 'add' 가산 · 'knock' 파냄(곱하기 구멍)
+  size: 0.85,          // MARK_NUM.RATIO 에 곱하는 배율
+  gx: -0.025, gy: 0.195,  // 앵커 기준 미세 이동(쿼드 비율). 오른발은 x 부호가 뒤집힌다
+  rot: 6,              // 회전(도). 오른발은 부호가 뒤집힌다
+  shadow: 'glow',      // 'glow' 코랄 번짐 · 'drop' 아래로 밀린 어두운 사본 · 'none'
+  shadowK: 0.75,       // 그림자 세기
+  blend: 'add',        // 'normal' · 'add' 가산 · 'knock' 파냄(곱하기 구멍)
 };
 
 /** 마크 글리프를 캔버스에 그린다 — **랩과 시뮬이 같은 이 함수를 쓴다.**
