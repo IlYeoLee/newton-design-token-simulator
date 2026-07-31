@@ -300,14 +300,15 @@ export function makeMarkFXMaterial(footTex = null) {
       // 경계는 이너 섀도우가 만든다(유저 확정) — 윤곽 글로우는 기본 0, 필요할 때만 켠다.
       uImpGlow: { value: 0.0 }, uImpShade: { value: 0.55 }, uImpSharp: { value: 0.22 },
       uImpShadeCol: { value: 0 },   // 0 흰 — 프로토타입 foot-*-dots.svg 의 white inner shadow 규약
-      uImpEdge: { value: 0.058 * SF }, uImpScale: { value: 0.835 },
-      uImpRot: { value: 0 },   // 각인 기울기(rad) — 오른발은 미러라 부호가 뒤집힌다
+      uImpEdge: { value: 0.058 * SF }, uImpScale: { value: 0.830 },
+      // 각인 기울기(rad) — 오른발은 미러라 부호가 뒤집힌다
+      uImpRot: { value: 5.5 * Math.PI / 180 * (footTex?._right ? -1 : 1) },
       uImpCtr: { value: new THREE.Vector2(
         footTex ? (footTex._inCx ?? 0.5) * 2 - 1 : 0,
         footTex ? 1 - (footTex._inCy ?? 0.5) * 2 : 0) },
       // 미세 이동 — x 는 좌우 미러라 오른발에서 부호가 뒤집힌다(실루엣이 미러이므로 오프셋도 미러).
       // 축척(SIL_FIT)을 바꾸면 자동 맞춤도 다시 재야 한다 — 새 기준 실측: 축소 0.880 · 이동 (0,0).
-      uImpOff: { value: new THREE.Vector2((footTex?._right ? 0.040 : -0.040) * SF, -0.007 * SF) },
+      uImpOff: { value: new THREE.Vector2((footTex?._right ? 0.043 : -0.043) * SF, -0.031 * SF) },
       // 파동 — 실루엣 등거리선을 따라 바깥으로. 기본값은 '은은하게' 쪽으로 잡았다:
       //   reach 0.34(쿼드 반폭의 1/3만 나간다) · width 0.09(한 겹) · speed 0.45(느리게).
       //   예전 원형 파장이 과하게 크고 쨍하다는 지적의 실체는 '너무 멀리 · 너무 세게'였다.
