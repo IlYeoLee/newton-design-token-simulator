@@ -2888,7 +2888,7 @@ void main(){
       float m0 = praw(uv);
       vec2 s = vec2(m0, plum(uv) * m0) * 0.36;
       for (int k = 0; k < 4; k++) { float a = 1.5708 * float(k) + 0.7;
-        vec2 o = vec2(cos(a), sin(a)) * 0.005;
+        vec2 o = vec2(cos(a), sin(a)) * 0.016;   // 0.005 는 압축 블록을 그대로 물어 왔다
         float m1 = praw(uv + o);
         s += vec2(m1, plum(uv + o) * m1) * 0.16;
       }
@@ -2934,7 +2934,12 @@ void main(){
   const heatMaskMat = new THREE.ShaderMaterial({
     uniforms: { tex: { value: demoTex }, uCropC: { value: new THREE.Vector2(0.5, 0.5) }, uCropS: { value: new THREE.Vector2(1, 1) } },
     vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }',
-    fragmentShader: 'varying vec2 vUv;\n' + MASK_GLSL + '\nvoid main(){ gl_FragColor = vec4(pmask(vUv), 0.0, 0.0, 1.0); }',
+    // ★ .g 에 마스크×휘도를 같이 굽는다 — 아래 분리형 가우시안이 두 채널을 함께 흐려 주면
+    //   셰이더에서 g/r 로 **진짜 국소 평균**을 복원할 수 있다(코치 판 uField 와 같은 규약).
+    //   셰이더 안 9탭 블러로 대신하던 동안 압축 블록이 그대로 통과해 벽 인물만 텍스처가
+    //   덕지덕지 찢어져 보였다(유저: 복싱은 더거덕, 바닥은 부드러워).
+    fragmentShader: 'varying vec2 vUv;\n' + MASK_GLSL
+      + '\nvoid main(){ float m = pmask(vUv); gl_FragColor = vec4(m, plum(vUv) * m, 0.0, 1.0); }',
     depthTest: false, depthWrite: false,
   });
   const heatBlurMat = new THREE.ShaderMaterial({
@@ -2943,10 +2948,10 @@ void main(){
     fragmentShader: `varying vec2 vUv; uniform sampler2D tex; uniform vec2 uDir; uniform float uStep;
       void main(){
         vec2 px = uDir * uStep / vec2(128.0, 192.0);
-        float s = texture2D(tex, vUv).r * 0.227;
-        s += (texture2D(tex, vUv + px * 1.385).r + texture2D(tex, vUv - px * 1.385).r) * 0.3165;
-        s += (texture2D(tex, vUv + px * 3.23).r + texture2D(tex, vUv - px * 3.23).r) * 0.070;
-        gl_FragColor = vec4(s, 0.0, 0.0, 1.0);
+        vec2 s = texture2D(tex, vUv).rg * 0.227;   // rg 를 함께 흐린다(마스크 · 마스크×휘도)
+        s += (texture2D(tex, vUv + px * 1.385).rg + texture2D(tex, vUv - px * 1.385).rg) * 0.3165;
+        s += (texture2D(tex, vUv + px * 3.23).rg + texture2D(tex, vUv - px * 3.23).rg) * 0.070;
+        gl_FragColor = vec4(s, 0.0, 1.0);
       }`,
     depthTest: false, depthWrite: false,
   });
@@ -2999,10 +3004,12 @@ void main(){
           H *= 1.0 + (flow - 0.5) * uNoise * 0.16;   // 대류 얼룩 최소 — 밝아진 톤에서 노이즈가 얼룩으로 드러남(유저)
           float T = clamp(H * 1.25, 0.0, 1.0);   // 온도 = 두께 필드
           // 선명 = 옷주름·결(몸) / 블러 = 얼굴 소거용. 룩 슬라이더 person.detail = 결의 세기.
-          // 코치 판(main.js ~2490)과 문자 그대로 같은 수식 — 마스크 정규화 국소 평균.
-          //   detail 배수도 2.4 로 통일(구 1.6). 두 면이 같은 입력을 먹어야 같은 색이 나온다.
-          vec2 fB = pblurRG(uv), fN = pblurRGN(uv);
+          // 국소 평균 = **RT 가우시안 필드**에서 복원한다(코치 판 uField 와 같은 규약).
+          //   셰이더 안 9탭으로 대신하던 동안 압축 블록이 통과해 텍스처가 찢어졌다(유저).
+          vec2 fB = texture2D(uHeat, uv).rg;
           float dLumB = fB.g / max(fB.r, 0.02);
+          //   결(detail)은 여전히 셰이더 탭이지만 반경을 넓혀 블록 노이즈를 넘긴다(0.005 → 0.016).
+          vec2 fN = pblurRGN(uv);
           float dLumS = mix(dLumB, fN.g / max(fN.r, 0.02), clamp(uDetail * 2.4, 0.0, 1.0));
           float dlum = mix(dLumS, dLumB, 0.5);
           // 얼굴 대역(상단) = 이목구비 의도적 은닉 — 실사 결 제거 + 강한 확산
