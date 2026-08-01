@@ -28,6 +28,11 @@
   .cap b{color:var(--text)}
   .swatch{display:inline-block;width:11px;height:11px;border-radius:3px;vertical-align:-1px;margin-right:5px;border:1px solid rgba(255,255,255,.25)}
   #log{color:var(--dim);font-size:11px;white-space:pre-wrap;margin-top:10px}
+  .row{display:flex;align-items:center;gap:8px;margin:6px 0}
+  .row label{flex:0 0 34px;color:var(--dim);font-size:11.5px}
+  .row input[type=range]{flex:1;min-width:0;accent-color:var(--red)}
+  .row .v{flex:0 0 34px;text-align:right;font-size:11.5px}
+  .hint{color:var(--dim);font-size:10.5px;line-height:1.4;margin-top:4px}
   iframe{position:fixed;left:-4000px;top:0;width:1200px;height:900px;border:0}
 </style></head><body>
 <div class=wrap>
@@ -44,6 +49,11 @@
     <fieldset><legend>배경</legend>
       <div class=seg><button id=bg-black class=on>검정</button><button id=bg-white>흰색</button></div>
     </fieldset>
+    <fieldset><legend>보기</legend>
+      <div class=row><label>크기</label><input id=size type=range min=200 max=640 step=20 value=300><span class=v id=vsize>300</span></div>
+      <button id=b-live>▶ 라이브 (지금 종목)</button>
+      <div class=hint id=livehint>지금 시뮬이 돌고 있는 종목 한 칸만 실시간으로 갱신한다 — 시뮬은 한 번에 한 종목만 돈다.</div>
+    </fieldset>
     <div id=log>준비됨. 버튼을 누르면 시뮬을 그 종목으로 돌린 뒤 인물 판만 떠서 그린다.</div>
   </div>
   <div class=stage id=stage></div>
@@ -52,7 +62,11 @@
 <script type="module">
 const $ = id => document.getElementById(id);
 const log = m => { $('log').textContent = m; };
-const CELL = 240;   // 패널 210 + 셀 3개(각 256) = 978 — 좁은 창에서도 한 줄에 들어간다
+// 렌더는 항상 고해상(640)으로 굽고, 화면 크기는 CSS 로만 줄인다 — 크기를 바꿔도 다시 안 찍어도 되고
+//   확대해도 뭉개지지 않는다(유저: 고화질로 크게 보고 싶다).
+const CELL = 640;
+let VIEW = 300;               // 화면 표시 크기(px)
+let liveKey = null, liveTimer = null;
 let BG = 'black';
 
 // 종목별: 라벨 · 시뮬 종목 버튼 · 인물이 보이는 스테이지 · 그 판을 찾는 프래그먼트 표식
@@ -66,6 +80,7 @@ function cell(key) {
   if (cells[key]) return cells[key];
   const d = document.createElement('div'); d.className = 'cell';
   const c = document.createElement('canvas'); c.width = c.height = CELL;
+  c.style.width = c.style.height = VIEW + 'px';
   const cap = document.createElement('div'); cap.className = 'cap';
   cap.innerHTML = `<b>${KINDS[key].label}</b><br><span>—</span>`;
   d.append(c, cap); $('stage').append(d);
@@ -130,7 +145,9 @@ function shoot(key, bg) {
   proxy.frustumCulled = false;
   const scene = new T.Scene(); scene.add(proxy);
 
-  const rt = new T.WebGLRenderTarget(CELL, CELL);
+  // RT 는 한 번만 만든다 — 라이브 루프에서 매 프레임 생성/폐기하면 GPU 메모리가 요동친다
+  const RT = (W().__plabRT ||= new T.WebGLRenderTarget(CELL, CELL));
+  const rt = RT;
   const prevRT = R.getRenderTarget(), prevC = R.getClearColor(new T.Color()), prevA = R.getClearAlpha();
   R.setRenderTarget(rt);
   R.setClearColor(bg === 'black' ? 0x000000 : 0xffffff, 1);
@@ -139,7 +156,6 @@ function shoot(key, bg) {
   const px = new Uint8Array(CELL * CELL * 4);
   R.readRenderTargetPixels(rt, 0, 0, CELL, CELL, px);
   R.setRenderTarget(prevRT); R.setClearColor(prevC, prevA);
-  rt.dispose();
 
   const out = new Uint8ClampedArray(CELL * CELL * 4);   // readRenderTargetPixels 는 y 가 뒤집혀 온다
   for (let y = 0; y < CELL; y++)
@@ -182,6 +198,7 @@ async function load(key) {
   c.cap.querySelector('span').innerHTML = s
     ? `<span class=swatch style="background:${s.hex}"></span>${s.hex} · 채도 ${s.sat} · 명도 ${s.val}`
     : '측정 실패';
+  liveKey = key;   // 마지막으로 부른 종목이 곧 시뮬이 돌고 있는 종목
   log(`${K.label} 완료.`);
 }
 
@@ -204,6 +221,29 @@ const setBg = v => {
 };
 $('bg-black').onclick = () => setBg('black');
 $('bg-white').onclick = () => setBg('white');
+
+$('size').addEventListener('input', e => {
+  VIEW = +e.target.value; $('vsize').textContent = VIEW;
+  for (const k in cells) cells[k].cv.style.width = cells[k].cv.style.height = VIEW + 'px';
+});
+
+/** 라이브 — 지금 시뮬이 돌고 있는 종목 한 칸을 20fps 로 다시 찍는다.
+ *  시뮬은 한 번에 한 종목만 돌기 때문에 셋을 동시에 라이브로 둘 수는 없다(구조적 한계). */
+function setLive(on) {
+  clearInterval(liveTimer); liveTimer = null;
+  $('b-live').classList.toggle('on', on);
+  $('b-live').textContent = on ? '■ 라이브 정지' : '▶ 라이브 (지금 종목)';
+  if (!on || !liveKey) return;
+  const c = cells[liveKey];
+  liveTimer = setInterval(() => {
+    try {
+      const img = shoot(liveKey, BG);
+      if (img) { c.cv.getContext('2d').putImageData(img, 0, 0); }
+    } catch (e) { setLive(false); log('라이브 중단: ' + e.message); }
+  }, 50);
+  log(`${KINDS[liveKey].label} 라이브 — 영상이 그대로 돈다.`);
+}
+$('b-live').onclick = () => setLive(!liveTimer);
 
 // 열자마자 자동 실행 — 새로고침했는데 빈 화면이면 랩이 아니다(유저: "새로고침 때 안 뜬다고").
 //   비교 랩의 기본 상태는 '세 개가 이미 나란히 있는 것'이어야 한다. 버튼은 다시 찍을 때만 쓴다.
