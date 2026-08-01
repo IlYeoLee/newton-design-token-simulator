@@ -345,6 +345,9 @@ uniform float uPExp;
 //     명도축으로** 쓴다: 깊이 0 → RED 를 어둡게 · 중간 → CORAL/SAND · 최심부 → PRISM(거의 흰빛).
 uniform float uPForm;
 uniform float uPLo, uPHiL;   // 클립 휘도 실측 범위 — 룩2 의 p5~p95 스트레치(클립 노출·대비 차 상쇄)
+uniform float uPLumLin;      // 1 = 이 판의 비디오 텍스처가 sRGB 디코드되어 셰이더 휘도가 **리니어**.
+                             //   코치판(SRGBColorSpace)=1 · 데모판(미지정)=0. 측정(lo/hi)은 sRGB 라
+                             //   리니어 입력은 sRGB 로 되돌려 **모든 판이 같은 공간**에서 룩2를 탄다.
 //   uPInk / uPInkT = **명암 잉크** (유저 확정 07-31: "바닥 지면에 뉴턴 빨간 레드를 실제 인물의
 //     명암이 진한 부분에 잉크로 넣어라 — 아직도 밝다"). 세기 · 문턱(이 밝기 아래를 그늘로 본다).
 //     uPInk 0 = 도입 전과 픽셀 동일(롤백 지점). 바닥(personLook)에만 걸린다 — 벽은 personColor 직행.
@@ -506,6 +509,11 @@ vec3 look2Ramp(float t){
   return c;
 }
 vec4 personAura(float mBody, float wide, float lumS, float lumB, float face, vec2 uv, float tSec){
+  // 색공간 통일 — 리니어 입력(코치판)은 sRGB 근사로 되돌린다(측정·데모판과 동일 공간).
+  if (uPLumLin > 0.5) {
+    lumS = pow(clamp(lumS, 0.0, 1.0), 0.4545);
+    lumB = pow(clamp(lumB, 0.0, 1.0), 0.4545);
+  }
   // ⚠ lumS 는 반드시 **원본 좁은 블러장 휘도**여야 한다(uDetail 슬라이더 미적용) —
   //   판마다 다른 detail 배율이 곱해져 들어오면 '동일 값' 이 깨진다(유저 지적).
   // 범위 스트레치(앱의 p5~p95 정규화) — 클립별 실측 lo/hi.

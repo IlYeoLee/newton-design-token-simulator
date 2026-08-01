@@ -198,6 +198,17 @@ function shoot(key, bg) {
   const out = new Uint8ClampedArray(CELL * CELL * 4);   // readRenderTargetPixels 는 y 가 뒤집혀 온다
   for (let y = 0; y < CELL; y++)
     out.set(px.subarray((CELL - 1 - y) * CELL * 4, (CELL - y) * CELL * 4), y * CELL * 4);
+  // ★ 본판은 컴포저 OutputPass 가 linear→sRGB 인코딩을 얹는데, 이 랩의 직접 렌더는 그게 없어
+  //   실화면보다 어둡고 붉게 찍혔다(유저: '존나 빨개' — 랩 캡처만의 왜곡). 동일 인코딩을 적용한다.
+  const enc = v => {
+    const l = v / 255;
+    return Math.round((l <= 0.0031308 ? l * 12.92 : 1.055 * Math.pow(l, 1 / 2.4) - 0.055) * 255);
+  };
+  const ENC = new Uint8ClampedArray(256);
+  for (let i = 0; i < 256; i++) ENC[i] = enc(i);
+  for (let i = 0; i < out.length; i += 4) {
+    out[i] = ENC[out[i]]; out[i + 1] = ENC[out[i + 1]]; out[i + 2] = ENC[out[i + 2]];
+  }
   return new ImageData(out, CELL, CELL);
 }
 
