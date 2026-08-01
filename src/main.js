@@ -10,7 +10,7 @@ import { WallGhost } from './ghost.js';
 import { FilesetResolver, ImageSegmenter } from '@mediapipe/tasks-vision';
 import { extractPose, retargetToClip } from './posemocap.js';   // 무료 로컬 비디오 모캡
 import { Judge } from './judge.js';
-import { Session, SCFG, STAGES, STEP_SEG } from './session.js';
+import { Session, SCFG, STAGES, STEP_SEG , refreshMarkNums } from './session.js';
 import { StudioDoc } from './studio/doc.js';
 import { StudioCanvas } from './studio/canvas.js';
 import { StudioProps } from './studio/props.js';
@@ -302,7 +302,11 @@ async function boot() {
     //   저장 룩 유무와 무관하게 부팅에서 건다.
     // 폰트가 도착한 뒤 이미 구워진 숫자 텍스처를 다시 굽는다 — 부팅 시점엔 아직 없어서
     //   Supreme 으로 구워졌다(실측: document.fonts 는 loaded 인데 화면은 일반 활자).
-    if (FXP.numSrc === 'offbit') ensureOffBit().then(ok => { if (ok) refreshGlyphConsumers(); });
+    if (FXP.numSrc === 'offbit') ensureOffBit().then(ok => {
+      if (!ok) return;
+      refreshGlyphConsumers();   // 팩 마커
+      refreshMarkNums();         // 세션 발자국 숫자 — 이쪽이 안 걸려 있어 시뮬만 옛 활자였다
+    });
     enforcePalette(lab0);
     if (lab0?.stops) { FXP.stops = lab0.stops.map(x => [...x]); FXP.sat = lab0.sat ?? 1; }
     rebuildLUT();

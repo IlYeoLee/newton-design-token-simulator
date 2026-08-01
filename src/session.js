@@ -222,6 +222,14 @@ function floorStripe(x, z, w, color, op) {
   m.userData.el = { type: 'stripe' }; return m;
 }
 function floorText(text, x, z, opts) { const g = makeTextMesh(text, opts); g.position.set(x, 0.013, z); return g; }
+// 숫자 평면 등록부 — 폰트(OffBit)는 부팅 뒤에 도착하는데 숫자는 그 전에 텍스처로 구워진다.
+//   구워진 뒤엔 아무도 다시 안 그려서 랩은 도트, 시뮬은 옛 활자로 갈렸다(유저 2회).
+//   main 이 폰트 로드 완료 후 refreshMarkNums() 를 부르면 여기 등록된 걸 전부 다시 굽는다.
+//   (팩 마커만 새로 만드는 refreshGlyphConsumers 는 세션 발자국 숫자까지 안 닿는다 — 실측.)
+const NUM_PLANES = [];
+export function refreshMarkNums() {
+  for (const p of NUM_PLANES) if (p.userData?.canvas) redrawFootNum(p, p.userData.label ?? '');
+}
 function floorNum(text, x, z, size, color) {
   // 숫자 = 글리프 슬롯 소비 (시뮬 마크 숫자와 동일 언어 — 커스텀 SVG 우선, 웜 크림 폴백)
   const c = document.createElement('canvas'); c.width = c.height = 128;
@@ -241,10 +249,19 @@ function floorNum(text, x, z, size, color) {
   g.add(p); g.rotation.x = -Math.PI / 2; g.position.set(x, 0.013, z); g.renderOrder = 7; g.userData.plane = p;
   g.userData.el = { type: 'text', content: String(text) };
   p.userData.canvas = c; p.userData.tex = tex;   // 카운트다운 갱신용 노출
+  p.userData.label = String(text);
+  NUM_PLANES.push(p);
+  // 자가 치유 — 굽는 시점에 OffBit 이 아직 없으면 폰트가 다 자리잡은 뒤 이 판만 다시 굽는다.
+  //   부팅 순서(세션 빌드 vs 폰트 도착)가 어느 쪽이 먼저든 결과가 같아진다.
+  if (typeof document !== 'undefined' && document.fonts
+      && FXP.numSrc === 'offbit' && !document.fonts.check("700 100px 'OffBit'")) {
+    document.fonts.ready.then(() => { if (document.fonts.check("700 100px 'OffBit'")) redrawFootNum(p, p.userData.label); });
+  }
   return g;
 }
 /** 발 안 숫자 글리프 갱신 (카운트다운 5→1) — 캔버스 재드로 */
 function redrawFootNum(p, n) {
+  p.userData.label = String(n);   // 재굽기 때 현재 라벨을 그대로 쓴다(카운트다운 값 보존)
   const c = p.userData.canvas, g2 = c.getContext('2d');
   g2.clearRect(0, 0, 128, 128);
   const knock = drawMarkGlyph(g2, n, 128, drawNumber, GLYPH_LOOK);
