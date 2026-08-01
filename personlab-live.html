@@ -34,6 +34,11 @@
   .row .v{flex:0 0 34px;text-align:right;font-size:11.5px}
   .hint{color:var(--dim);font-size:10.5px;line-height:1.4;margin-top:4px}
   iframe{position:fixed;left:-4000px;top:0;width:1200px;height:900px;border:0}
+  .refs{margin:6px 18px 22px;padding:12px 14px;background:#0d1015;border:1px solid var(--line);border-radius:12px}
+  .refhead{font-size:12px;font-weight:600;margin-bottom:9px}
+  .refhead span{color:var(--dim);font-weight:400;font-size:10.5px;margin-left:8px}
+  .refrow{display:flex;gap:10px;overflow-x:auto}
+  .refrow img{height:190px;border-radius:8px;background:#000;flex:0 0 auto}
 </style></head><body>
 <div class=wrap>
   <div class=panel>
@@ -49,6 +54,12 @@
     <fieldset><legend>배경</legend>
       <div class=seg><button id=bg-black class=on>검정</button><button id=bg-white>흰색</button></div>
     </fieldset>
+    <fieldset><legend>질감 모드</legend>
+      <div class=seg><button id=form-cur class=on>현행</button><button id=form-ref>레퍼런스</button></div>
+      <div class=hint>레퍼런스 = <b>밝기를 깊이에서</b> 뽑는다. 가장자리는 검정으로 떨어지고
+        안쪽 두꺼운 곳이 밝다. 무채축 대신 뉴턴 LUT 를 명도축으로 쓴다
+        (깊이 0 → RED 어둡게 · 중간 → CORAL/SAND · 최심부 → PRISM).</div>
+    </fieldset>
     <fieldset><legend>보기</legend>
       <div class=row><label>크기</label><input id=size type=range min=200 max=640 step=20 value=300><span class=v id=vsize>300</span></div>
       <button id=b-live>▶ 라이브 (지금 종목)</button>
@@ -57,6 +68,18 @@
     <div id=log>준비됨. 버튼을 누르면 시뮬을 그 종목으로 돌린 뒤 인물 판만 떠서 그린다.</div>
   </div>
   <div class=stage id=stage></div>
+</div>
+<!-- 레퍼런스는 화면에 **항상** 있어야 한다. 기준이 안 보이면 값을 만지다 매번 다른 방향으로
+     흘러간다 — 이 프로젝트에서 실제로 하루를 그렇게 썼다. -->
+<div class=refs>
+  <div class=refhead>레퍼런스 — 이 질감이 목표다 <span>public/refs/person · 유저 확정 08-01</span></div>
+  <div class=refrow>
+    <img src="refs/person/ref-29.png" alt="아바타 세트">
+    <img src="refs/person/ref-30.png" alt="손 깊이">
+    <img src="refs/person/ref-31.png" alt="등고선 변주">
+    <img src="refs/person/ref-32.png" alt="제스처">
+    <img src="refs/person/ref-33.png" alt="팔">
+  </div>
 </div>
 <iframe id=app src="./index.html"></iframe>
 <script type="module">
@@ -71,7 +94,9 @@ let BG = 'black';
 
 // 종목별: 라벨 · 시뮬 종목 버튼 · 인물이 보이는 스테이지 · 그 판을 찾는 프래그먼트 표식
 const KINDS = {
-  bx:  { label: '복싱 · 벽',   sport: null,   stage: 'BX_A2', mark: 'uTrail'   },
+  // sport 를 null 로 두면 '기본이 복싱'이라는 가정인데, 한 바퀴 돌고 나면 시뮬은 농구에 있다.
+  //   그 상태로 복싱을 다시 부르면 종목 전환이 없어 영영 '판을 못 찾음'이 된다(실제로 그랬다).
+  bx:  { label: '복싱 · 벽',   sport: '복싱', stage: 'BX_A2', mark: 'uTrail'   },
   run: { label: '러닝 · 바닥', sport: '러닝', stage: 'A1',    mark: 'uCropOff' },
   bk:  { label: '농구 · 바닥', sport: '농구', stage: 'BK_A1', mark: 'uCropOff' },
 };
@@ -221,6 +246,17 @@ const setBg = v => {
 };
 $('bg-black').onclick = () => setBg('black');
 $('bg-white').onclick = () => setBg('white');
+
+// 질감 모드 — 시뮬의 FXP.person.form 을 바꾸면 세 인물이 **동시에** 움직인다(공용 셰이더).
+async function setForm(v) {
+  $('form-cur').classList.toggle('on', !v); $('form-ref').classList.toggle('on', !!v);
+  await ready();
+  W().__dbg.FXP.person.form = v ? 1 : 0;
+  log(v ? '레퍼런스 규약 — 다시 찍는 중…' : '현행 규약 — 다시 찍는 중…');
+  await $('b-all').onclick();
+}
+$('form-cur').onclick = () => setForm(0);
+$('form-ref').onclick = () => setForm(1);
 
 $('size').addEventListener('input', e => {
   VIEW = +e.target.value; $('vsize').textContent = VIEW;

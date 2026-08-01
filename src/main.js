@@ -2366,6 +2366,7 @@ void main(){
   const setPersonUniforms = (U, hi = 0.86, coral = 0, exp = 0.5) => {   // hi = 대역 상단(면별) · exp = 클립 실측 노출
     if (!U) return;
     if (U.uPExp) U.uPExp.value = exp;
+    if (U.uPForm) U.uPForm.value = FXP.person?.form ?? 0;   // 레퍼런스 규약 토글(랩에서 켠다)
     if (U.uPCoral) U.uPCoral.value = coral;
     if (U.uPSat) U.uPSat.value = 1.0 + (FXP.sat ?? 1) * 0.32;
     if (U.uPSweep) U.uPSweep.value = FXP.person?.sweep ?? 0;
@@ -2481,7 +2482,7 @@ void main(){
         uCropOff: { value: cfg.cropOff }, uCropScale: { value: cfg.cropScale }, uDetail: { value: 0.25 },
         // uPulse 0 — 복싱 인물엔 루마 펄스가 없다(톤을 흔드는 원인이라 끈다).
         // uPSat·uPSweep = PERSON_GLSL 공용(구 uSat 은 죽은 유니폼이라 폐기).
-        uPSat: { value: 1.32 }, uPSweep: { value: 0 }, uPHi: { value: 0.86 }, uPDepth: { value: 0.34 }, uPCoral: { value: 0 }, uPExp: { value: 0.5 },
+        uPSat: { value: 1.32 }, uPSweep: { value: 0 }, uPHi: { value: 0.86 }, uPDepth: { value: 0.34 }, uPCoral: { value: 0 }, uPExp: { value: 0.5 }, uPForm: { value: 0 },
         uPInk: { value: 0.85 }, uPInkT: { value: 0.42 }, uPulse: { value: 0.0 } },
       vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
       fragmentShader: `
@@ -2991,7 +2992,7 @@ void main(){
       uniforms: {
         tex: { value: demoTex }, uTrail: { value: trailRTs[0].texture }, uHeat: { value: heatRTs[0].texture }, uHeatN: { value: heatNarrowRT.texture }, uLUT: { value: getLUT() },
         uTime: { value: 0 }, uNoise: { value: 0.55 }, uW: { value: 1 }, uDetail: { value: 0.62 }, uTrailGain: { value: 1 }, uGrain: { value: 0 }, uTone: { value: 0 }, uLive: { value: 0 },
-        uPSat: { value: 1.32 }, uPSweep: { value: 0 }, uPHi: { value: 0.86 }, uPDepth: { value: 0.34 }, uPCoral: { value: 0 }, uPExp: { value: 0.5 },
+        uPSat: { value: 1.32 }, uPSweep: { value: 0 }, uPHi: { value: 0.86 }, uPDepth: { value: 0.34 }, uPCoral: { value: 0 }, uPExp: { value: 0.5 }, uPForm: { value: 0 },
         uPInk: { value: 0.85 }, uPInkT: { value: 0.42 },   // PERSON_GLSL 공용 — setPersonUniforms 가 주입
         uCropC: { value: new THREE.Vector2(0.5, 0.5) }, uCropS: { value: new THREE.Vector2(1, 1) },
       },
@@ -3465,7 +3466,7 @@ void main(){
         uFrame: { value: 0 }, uDecay: { value: 0.6 }, uTime: { value: 0 },
         uCols: { value: COACH.cols }, uRows: { value: COACH.rows }, uN: { value: COACH.n }, uDirect: { value: COACH.direct },
         uW: { value: 1 }, uNoise: { value: 0.55 },
-        uPSat: { value: 1.32 }, uPSweep: { value: 0 }, uPHi: { value: 0.86 }, uPDepth: { value: 0.34 }, uPCoral: { value: 0 }, uPExp: { value: 0.5 },
+        uPSat: { value: 1.32 }, uPSweep: { value: 0 }, uPHi: { value: 0.86 }, uPDepth: { value: 0.34 }, uPCoral: { value: 0 }, uPExp: { value: 0.5 }, uPForm: { value: 0 },
         uPInk: { value: 0 }, uPInkT: { value: 0.42 },   // PERSON_GLSL 공용 — 벽은 personColor 만 쓰지만 선언은 필수(안 하면 무채). 잉크는 바닥 전용이라 0.
       },
       vertexShader: `#include <common>
