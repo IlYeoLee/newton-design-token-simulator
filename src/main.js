@@ -2334,7 +2334,7 @@ void main(){
   //   원인은 파라미터가 아니라 **입력 분포**다 — 클립마다 노출이 다르다. 셰이더 값으로는
   //   못 맞춘다(여러 번 시도해 확인). 색을 정하기 전에 소스를 같은 밝기로 옮긴다.
   //   그린 배경은 셰이더 크로마와 같은 판정으로 제외 — 배경이 평균에 섞이면 보정이 어긋난다.
-  const _expCv = document.createElement('canvas'); _expCv.width = _expCv.height = 16;
+  const _expCv = document.createElement('canvas'); _expCv.width = _expCv.height = 96;
   const _expCtx = _expCv.getContext('2d', { willReadFrequently: true });
   function clipExposure(v, st) {
     const now = performance.now();
@@ -2342,8 +2342,10 @@ void main(){
     st._expT = now;
     if (!v || !v.videoWidth) return st._exp ?? 0.5;
     try {
-      _expCtx.drawImage(v, 0, 0, 16, 16);
-      const px = _expCtx.getImageData(0, 0, 16, 16).data;
+      // 16×16 은 블록 평균이라 휘도 극값(p5·p95)을 뭉갠다 — 실측: hi 0.735 vs 실제 0.864.
+      //   96×96 이면 개별 픽셀에 충분히 가깝고 4Hz 비용은 무시 가능.
+      _expCtx.drawImage(v, 0, 0, 96, 96);
+      const px = _expCtx.getImageData(0, 0, 96, 96).data;
       let sum = 0, n = 0;
       const lums = [];
       for (let i = 0; i < px.length; i += 4) {
@@ -2378,6 +2380,13 @@ void main(){
     if (U.uPLo) U.uPLo.value = lo;
     if (U.uPHiL) U.uPHiL.value = hiL;
     if (U.uPLumLin) U.uPLumLin.value = lumLin;
+    const cal = FXP.person?.cal;
+    if (cal) {
+      if (U.uPCalWave) U.uPCalWave.value = cal.wave ?? 1;
+      if (U.uPCalD) U.uPCalD.value = cal.d ?? 1;
+      if (U.uPCalW) U.uPCalW.value = cal.w ?? 1;
+      if (U.uPCalB) U.uPCalB.value = cal.b ?? 0;
+    }
     if (U.uPForm) U.uPForm.value = FXP.person?.form ?? 0;   // 레퍼런스 규약 토글(랩에서 켠다)
     if (U.uPCoral) U.uPCoral.value = coral;
     if (U.uPSat) U.uPSat.value = 1.0 + (FXP.sat ?? 1) * 0.32;
@@ -2391,7 +2400,7 @@ void main(){
   let _cf = null;
   function coachField() {
     if (_cf) return _cf;
-    const RW = 320, RH = 480;   // 코치 판 실화면 크기 기준 — 미세 결이 평균에 먹히지 않게
+    const RW = 480, RH = 720;   // 320×480 은 960² 소스의 미세 결(저지 주름)을 3배 다운샘플로 죽였다 — 룩2 stdG 병목(실측 16 vs 27)
     // (renderCoachField 의 가로 등방 보정이 이 값을 읽는다)
     const vs = 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }';
     const src = new THREE.ShaderMaterial({
@@ -2494,7 +2503,7 @@ void main(){
         uCropOff: { value: cfg.cropOff }, uCropScale: { value: cfg.cropScale }, uDetail: { value: 0.25 },
         // uPulse 0 — 복싱 인물엔 루마 펄스가 없다(톤을 흔드는 원인이라 끈다).
         // uPSat·uPSweep = PERSON_GLSL 공용(구 uSat 은 죽은 유니폼이라 폐기).
-        uPSat: { value: 1.32 }, uPSweep: { value: 0 }, uPHi: { value: 0.86 }, uPDepth: { value: 0.34 }, uPCoral: { value: 0 }, uPExp: { value: 0.5 }, uPForm: { value: 0 }, uPLo: { value: 0.12 }, uPHiL: { value: 0.85 }, uPLumLin: { value: 0 },
+        uPSat: { value: 1.32 }, uPSweep: { value: 0 }, uPHi: { value: 0.86 }, uPDepth: { value: 0.34 }, uPCoral: { value: 0 }, uPExp: { value: 0.5 }, uPForm: { value: 0 }, uPLo: { value: 0.12 }, uPHiL: { value: 0.85 }, uPLumLin: { value: 0 }, uPCalWave: { value: 1 }, uPCalD: { value: 1 }, uPCalW: { value: 1 }, uPCalB: { value: 0 },
         uPInk: { value: 0.85 }, uPInkT: { value: 0.42 }, uPulse: { value: 0.0 } },
       vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
       fragmentShader: `
@@ -3013,7 +3022,7 @@ void main(){
       uniforms: {
         tex: { value: demoTex }, uTrail: { value: trailRTs[0].texture }, uHeat: { value: heatRTs[0].texture }, uHeatN: { value: heatNarrowRT.texture }, uLUT: { value: getLUT() },
         uTime: { value: 0 }, uNoise: { value: 0.55 }, uW: { value: 1 }, uDetail: { value: 0.62 }, uTrailGain: { value: 1 }, uGrain: { value: 0 }, uTone: { value: 0 }, uLive: { value: 0 },
-        uPSat: { value: 1.32 }, uPSweep: { value: 0 }, uPHi: { value: 0.86 }, uPDepth: { value: 0.34 }, uPCoral: { value: 0 }, uPExp: { value: 0.5 }, uPForm: { value: 0 }, uPLo: { value: 0.12 }, uPHiL: { value: 0.85 }, uPLumLin: { value: 0 },
+        uPSat: { value: 1.32 }, uPSweep: { value: 0 }, uPHi: { value: 0.86 }, uPDepth: { value: 0.34 }, uPCoral: { value: 0 }, uPExp: { value: 0.5 }, uPForm: { value: 0 }, uPLo: { value: 0.12 }, uPHiL: { value: 0.85 }, uPLumLin: { value: 0 }, uPCalWave: { value: 1 }, uPCalD: { value: 1 }, uPCalW: { value: 1 }, uPCalB: { value: 0 },
         uPInk: { value: 0.85 }, uPInkT: { value: 0.42 },   // PERSON_GLSL 공용 — setPersonUniforms 가 주입
         uCropC: { value: new THREE.Vector2(0.5, 0.5) }, uCropS: { value: new THREE.Vector2(1, 1) },
       },
@@ -3495,7 +3504,7 @@ void main(){
         uFrame: { value: 0 }, uDecay: { value: 0.6 }, uTime: { value: 0 },
         uCols: { value: COACH.cols }, uRows: { value: COACH.rows }, uN: { value: COACH.n }, uDirect: { value: COACH.direct },
         uW: { value: 1 }, uNoise: { value: 0.55 },
-        uPSat: { value: 1.32 }, uPSweep: { value: 0 }, uPHi: { value: 0.86 }, uPDepth: { value: 0.34 }, uPCoral: { value: 0 }, uPExp: { value: 0.5 }, uPForm: { value: 0 }, uPLo: { value: 0.12 }, uPHiL: { value: 0.85 }, uPLumLin: { value: 0 },
+        uPSat: { value: 1.32 }, uPSweep: { value: 0 }, uPHi: { value: 0.86 }, uPDepth: { value: 0.34 }, uPCoral: { value: 0 }, uPExp: { value: 0.5 }, uPForm: { value: 0 }, uPLo: { value: 0.12 }, uPHiL: { value: 0.85 }, uPLumLin: { value: 0 }, uPCalWave: { value: 1 }, uPCalD: { value: 1 }, uPCalW: { value: 1 }, uPCalB: { value: 0 },
         uPInk: { value: 0 }, uPInkT: { value: 0.42 },   // PERSON_GLSL 공용 — 벽은 personColor 만 쓰지만 선언은 필수(안 하면 무채). 잉크는 바닥 전용이라 0.
       },
       vertexShader: `#include <common>

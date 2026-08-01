@@ -348,6 +348,11 @@ uniform float uPLo, uPHiL;   // 클립 휘도 실측 범위 — 룩2 의 p5~p95 
 uniform float uPLumLin;      // 1 = 이 판의 비디오 텍스처가 sRGB 디코드되어 셰이더 휘도가 **리니어**.
                              //   코치판(SRGBColorSpace)=1 · 데모판(미지정)=0. 측정(lo/hi)은 sRGB 라
                              //   리니어 입력은 sRGB 로 되돌려 **모든 판이 같은 공간**에서 룩2를 탄다.
+// 룩2 캘리브레이션 노브 — 재빌드 없이 FXP.person.cal 로 조정, 수렴값이 곧 정본.
+uniform float uPCalWave;     // 웨이브 진폭 배율 (기본 1 · 캘리브레이션 시 0)
+uniform float uPCalD;        // d(결 신호) 이득
+uniform float uPCalW;        // 흰 레이어 전역 이득
+uniform float uPCalB;        // band(톤) 오프셋
 //   uPInk / uPInkT = **명암 잉크** (유저 확정 07-31: "바닥 지면에 뉴턴 빨간 레드를 실제 인물의
 //     명암이 진한 부분에 잉크로 넣어라 — 아직도 밝다"). 세기 · 문턱(이 밝기 아래를 그늘로 본다).
 //     uPInk 0 = 도입 전과 픽셀 동일(롤백 지점). 바닥(personLook)에만 걸린다 — 벽은 personColor 직행.
@@ -522,21 +527,30 @@ vec4 personAura(float mBody, float wide, float lumS, float lumB, float face, vec
   float ls = clamp((lumS - lo) / (hi - lo), 0.0, 1.0);
   float lb = clamp((lumB - lo) / (hi - lo), 0.0, 1.0);
   // 표면 블러(surface 1): 약한 결은 블러 휘도에 삼키고 강한 경계만 복원 (임계 = 앱 th 10/255)
-  float d = ls - lb;
-  float keep = clamp((abs(d) - 0.039) / 0.031, 0.0, 1.0);
+  // 톤 베이스 = 좁은·넓은 필드 혼합 — 넓은 필드 단독은 옷 주름(중간 주파수)까지 평균에
+  //   삼켜 평평해졌다(실측: 농구 stdG 16 vs 앱 27). 앱의 0.075·인물높이 블러를 근사한다.
+  float base = mix(ls, lb, 0.35);   // 0.55 는 옷 주름 진폭을 45%로 깎았다 — 농구 stdG 16 vs 앱 27 의 나머지
+  float d = (ls - base) * 1.3 * uPCalD;   // 1.3 = 수렴값(2026-08-02 자율 캘리브레이션)
+  float keep = clamp((abs(d) - 0.020) / 0.018, 0.0, 1.0);   // 임계 축소 — 시뮬 d 는 필드 사전블러로 진폭이 앱의 절반
   keep *= keep;
-  float lum = lb + d * keep;
-  // 얼굴 = 완전 블러 휘도 + 감산(앱 부위 밝기 -1 대응) — 이목구비 소거
-  lum = mix(lum, lb * 0.82, face);
+  float lum = base + d * keep;
+  // 얼굴: 이목구비 소거(디테일 제거)만 여기서 — 톤은 band 단계에서 저열로 민다.
+  lum = mix(lum, base, face);
   // 톤(룩2): 감마 0.59 → 대비 0.8 → 밝기 +0.5 → 인물 대역 0.3~1.0 (앱과 동일 순서·값)
-  float band = 0.3 + 0.7 * clamp((pow(clamp(lum, 0.0, 1.0), 0.59) - 0.5) * 0.8 + 1.0, 0.0, 1.0);
+  float band = 0.3 + 0.7 * clamp((pow(clamp(lum, 0.0, 1.0), 0.59) - 0.5) * 0.8 + 0.825 + uPCalB, 0.0, 1.0);
+  // 얼굴 = 저열(밝은 살구) — 앱의 부위 밝기 -1(multiply)은 열을 0 근처로 눌러 얼굴이 거의
+  //   희게 뜬다. 시뮬 초판은 반대로 어둡게 갔다(실측: p10 다크테일의 정체).
+  band = mix(band, 0.10, face);   // 0.35 는 램프상 진한 레드 구간이었다(실측 p10 악화) — 흰↔RED 혼합 지점으로
+  // 소프트 숄더 — 최상단 포화(하이라이트가 전부 최고열 #FF3300 에 붙는 것)를 완화.
+  //   앱의 hot-tail 분포(p10-G 103)와 맞추기 위한 항 — 실측 기반.
+  band -= 0.085 * smoothstep(0.85, 1.0, band);
   float bandB = 0.3 + 0.7 * clamp((pow(clamp(lb, 0.0, 1.0), 0.59) - 0.5) * 0.8 + 1.0, 0.0, 1.0);
   // Contour 림(룩2 = 1.0, 앱: rim = max(0, sm−aura)·contour·0.9, 글로우 부위 제외) — 이식 누락분
-  float rim = max(0.0, band - bandB) * 1.0 * 0.9 * (1.0 - face);
+  float rim = max(0.0, band - bandB) * 0.45 * (1.0 - face);   // 0.9 는 진한 꼬리(p10)를 과하게 만들었다(실측)
   // 웨이브(세기 1.04 · 속도 1.32 · 밴드 1.95) — 얼굴·반투명 경계 통과 금지
   float ta = tSec * 1.32;
   float wc = uv.y / 1.95;
-  float wave = 1.0 + 1.04 * (-0.13
+  float wave = 1.0 + 1.04 * uPCalWave * (-0.13
     + 0.18 * sin(6.2832 * (wc * 1.4 - ta * 0.10))
     + 0.09 * sin(6.2832 * (wc * 3.1 + ta * 0.07) + uv.x * 2.0));
   wave = mix(wave, 1.0, face);
@@ -547,11 +561,11 @@ vec4 personAura(float mBody, float wide, float lumS, float lumB, float face, vec
   vec3 c = look2Ramp(clamp(t + dth, 0.0, 1.0));
   // 흰 레이어 3종(앱과 동일 강도): 이너섀도 0.28×0.75 · 실루엣 라인 0.24×0.9 · 내부 라인 0.14
   float feather = pow(clamp((mBody - wide) * 2.4, 0.0, 1.0), 1.3);
-  c = mix(c, vec3(1.0), feather * 0.28);   // 흰 레이어 이득 캘리브레이션(동일 프레임 실측: 시뮬 G -20)
+  c = mix(c, vec3(1.0), clamp(feather * 0.42 * uPCalW, 0.0, 1.0));
   float line = pow(4.0 * mBody * (1.0 - mBody), 1.5) * smoothstep(0.35, 0.6, mBody);   // 실루엣 라인(이식 누락분)
-  c = mix(c, vec3(1.0), line * 0.216);
+  c = mix(c, vec3(1.0), clamp(line * 0.324 * uPCalW, 0.0, 1.0));
   float lineIn = sqrt(clamp(abs(d) * 2.6, 0.0, 1.0)) * (1.0 - face);
-  c = mix(c, vec3(1.0), lineIn * 0.19);
+  c = mix(c, vec3(1.0), clamp(lineIn * 0.285 * uPCalW, 0.0, 1.0));
   // 프리멀티 — 투사광에서 배경은 빛 없음. 아우라 0(룩2).
   return vec4(clamp(c, 0.0, 1.0) * mBody, mBody);
 }`;
