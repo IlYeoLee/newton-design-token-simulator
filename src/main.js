@@ -2942,6 +2942,11 @@ void main(){
   //   (유저: 다리 윤곽이 더거덕). 소스 영상은 2276×1280 로 멀쩡했다 — 병목은 이 RT 였다.
   const HEAT_W = 320, HEAT_H = 480;
   const heatRTs = [0, 1].map(() => new THREE.WebGLRenderTarget(HEAT_W, HEAT_H));
+  // 좁은 필드 — 코치 판 uFieldN 의 등가물. **분리형 가우시안 1회**로 굽는다.
+  //   셰이더 안 링 12탭으로 대신했더니 그 링 배치가 그대로 무늬로 찍혔다(로제트) —
+  //   detail(= lumS − lumB) × P_TEX 4.2 로 증폭되면서 몸에 사선 직조 패턴이 됐다(유저:
+  //   "복싱이 유독 텍스처가 별로야"). 링 샘플링은 가우시안이 아니다.
+  const heatNarrowRT = new THREE.WebGLRenderTarget(HEAT_W, HEAT_H);
   const heatMaskMat = new THREE.ShaderMaterial({
     uniforms: { tex: { value: demoTex }, uCropC: { value: new THREE.Vector2(0.5, 0.5) }, uCropS: { value: new THREE.Vector2(1, 1) } },
     vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }',
@@ -2970,7 +2975,7 @@ void main(){
     new THREE.PlaneGeometry(0.62, 0.93),   // 세로 카드 (영상 세로 프레이밍)
     new THREE.ShaderMaterial({
       uniforms: {
-        tex: { value: demoTex }, uTrail: { value: trailRTs[0].texture }, uHeat: { value: heatRTs[0].texture }, uLUT: { value: getLUT() },
+        tex: { value: demoTex }, uTrail: { value: trailRTs[0].texture }, uHeat: { value: heatRTs[0].texture }, uHeatN: { value: heatNarrowRT.texture }, uLUT: { value: getLUT() },
         uTime: { value: 0 }, uNoise: { value: 0.55 }, uW: { value: 1 }, uDetail: { value: 0.62 }, uTrailGain: { value: 1 }, uGrain: { value: 0 }, uTone: { value: 0 }, uLive: { value: 0 },
         uPSat: { value: 1.32 }, uPSweep: { value: 0 }, uPHi: { value: 0.86 }, uPDepth: { value: 0.34 }, uPCoral: { value: 0 }, uPExp: { value: 0.5 },
         uPInk: { value: 0.85 }, uPInkT: { value: 0.42 },   // PERSON_GLSL 공용 — setPersonUniforms 가 주입
@@ -2988,7 +2993,7 @@ void main(){
       fragmentShader: `#include <common>
 #include <clipping_planes_pars_fragment>
         varying vec2 vUv;
-        uniform sampler2D uTrail, uLUT, uHeat; uniform float uTime, uNoise, uW, uDetail, uTrailGain, uGrain, uTone, uLive;
+        uniform sampler2D uTrail, uLUT, uHeat, uHeatN; uniform float uTime, uNoise, uW, uDetail, uTrailGain, uGrain, uTone, uLive;
         vec3 lut(float v){ return texture2D(uLUT, vec2(clamp(v, 0.004, 0.996), 0.5)).rgb; }
         ` + PERSON_GLSL + `
         ` + FX_GLSL.replace('uniform sampler2D uLUT;', '').replace('vec3 lut(float v){ return texture2D(uLUT, vec2(clamp(v, 0.004, 0.996), 0.5)).rgb; }', '') + `
@@ -3019,8 +3024,8 @@ void main(){
           //   셰이더 안 9탭으로 대신하던 동안 압축 블록이 통과해 텍스처가 찢어졌다(유저).
           vec2 fB = texture2D(uHeat, uv).rg;
           float dLumB = fB.g / max(fB.r, 0.02);
-          //   결(detail)은 여전히 셰이더 탭이지만 반경을 넓혀 블록 노이즈를 넘긴다(0.005 → 0.016).
-          vec2 fN = pblurRGN(uv);
+          //   결(detail)도 RT 에서 — 링 탭은 그 배치가 무늬로 찍힌다(로제트). 가우시안만 쓴다.
+          vec2 fN = texture2D(uHeatN, uv).rg;
           float dLumS = mix(dLumB, fN.g / max(fN.r, 0.02), clamp(uDetail * 2.4, 0.0, 1.0));
           float dlum = mix(dLumS, dLumB, 0.5);
           // 얼굴 대역(상단) = 이목구비 의도적 은닉 — 실사 결 제거 + 강한 확산
@@ -3239,8 +3244,15 @@ void main(){
     const fxQuad = trailScene.children[0];
     fxQuad.material = heatMaskMat;
     renderer.setRenderTarget(heatRTs[0]); renderer.render(trailScene, trailQuadCam);
-    heatBlurMat.uniforms.uStep.value = 1.4 + 2.4 * (FXP.person?.blur ?? 1);
     fxQuad.material = heatBlurMat;
+    // ① 좁은 필드 — 짧은 스텝 1회. 압축 블록만 지우고 옷 주름은 남는다(결의 출처).
+    heatBlurMat.uniforms.uStep.value = 1.0;
+    heatBlurMat.uniforms.tex.value = heatRTs[0].texture; heatBlurMat.uniforms.uDir.value.set(1, 0);
+    renderer.setRenderTarget(heatRTs[1]); renderer.render(trailScene, trailQuadCam);
+    heatBlurMat.uniforms.tex.value = heatRTs[1].texture; heatBlurMat.uniforms.uDir.value.set(0, 1);
+    renderer.setRenderTarget(heatNarrowRT); renderer.render(trailScene, trailQuadCam);
+    // ② 넓은 필드 — 국소 평균(노출). 원래대로 3회 반복.
+    heatBlurMat.uniforms.uStep.value = 1.4 + 2.4 * (FXP.person?.blur ?? 1);
     for (let i = 0; i < 3; i++) {
       heatBlurMat.uniforms.tex.value = heatRTs[0].texture; heatBlurMat.uniforms.uDir.value.set(1, 0);
       renderer.setRenderTarget(heatRTs[1]); renderer.render(trailScene, trailQuadCam);
@@ -3250,6 +3262,7 @@ void main(){
     fxQuad.material = trailMat;
     renderer.setRenderTarget(prevT);
     const PU = demoPanel.material.uniforms;
+    PU.uHeatN.value = heatNarrowRT.texture;
     PU.uTrail.value = trailRTs[trailFlip].texture;
     PU.uTime.value = now;
     PU.uNoise.value = FXP.person?.flow ?? 0.55;
