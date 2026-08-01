@@ -389,7 +389,8 @@ function primPanel(kind, sizeM, wall) {
     new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false,
       // 궤적만 일반 블렌딩 — 가산은 '순서'가 결과에 영향을 안 준다(빛의 합). 발마크 빨강이 포화라
       // renderOrder/depthTest를 아무리 올려도 궤적이 묻혔던 근본(유저 4회 지적).
-      blending: isTraj ? THREE.NormalBlending : THREE.AdditiveBlending,
+      // 잉크 모드에서는 프림도 노멀 블렌딩 — 마크와 같은 합성이어야 랩과 톤이 맞는다(유저 지시).
+      blending: (isTraj || FXP.markBlend === 'ink') ? THREE.NormalBlending : THREE.AdditiveBlending,
       // depthTest는 켠 채로 둔다 — 끄면 지면 투사 토큰이 x봇 몸 위로 그려진다(유저 스샷).
       //   투사광은 몸에 가려지는 게 물리적으로 맞다. 발자국과의 상하 관계는 y 오프셋(0.013 vs 0.017)이 잡는다.
       toneMapped: false, depthTest: true }));

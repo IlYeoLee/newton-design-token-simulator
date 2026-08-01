@@ -698,7 +698,7 @@ export class Marker {
       const hitKick = phase === 'linger' ? 1 + 0.9 * Math.max(0, 1 - progress * 2.2) : 1;
       U.uGain.value = this._baseGain * FXP.gainBoost * (FP_VIEW ? 1.35 : 1) * hitKick;   // 주간 부스트 · 1인칭 = 시선 각도 눌림 보정
       // 주간 = 풀컬러 잉크 모드: 가산 → 노멀 블렌딩 (색 보존 알파 합성, 셰이더 규약과 짝)
-      const day = FXP.day ? 1 : 0;
+      const day = (FXP.day || FXP.markBlend === 'ink') ? 1 : 0;
       if (U.uDay.value !== day) {
         U.uDay.value = day;
         this.fx.material.blending = day ? THREE.NormalBlending : THREE.AdditiveBlending;
@@ -790,7 +790,7 @@ export function tickFlowArrows(t, rig) {
   // 촉 SVG persistent 재등록 — GLYPHS.set(lab)가 맵을 통째 교체해도 살아남게
   if (!GLYPHS.map.TIP_TRI) { GLYPHS.map.TIP_TRI = import.meta.env.BASE_URL + 'ready-view/assets/arrow_tip.svg'; GLYPHS.set(GLYPHS.map); }
   if (!GLYPHS.map.LIFT_TIP) { GLYPHS.map.LIFT_TIP = import.meta.env.BASE_URL + 'ready-view/assets/lift_tip.svg'; GLYPHS.set(GLYPHS.map); }
-  const day = FXP.day ? 1 : 0;
+  const day = (FXP.day || FXP.markBlend === 'ink') ? 1 : 0;
   const ENV = { lut: lutColor, glyph: drawGlyph, arrow: FXP.arrow || {} };
   for (let i = FLOW_ARROWS.length - 1; i >= 0; i--) {
     const g = FLOW_ARROWS[i];
@@ -1164,7 +1164,7 @@ export class TokenSystem {
       }
       LU.uLHeat.value = A.heat ?? 0.5;
       LU.uLTail.value = A.tail ?? 0.55;
-      const dayL = FXP.day ? 1 : 0;
+      const dayL = (FXP.day || FXP.markBlend === 'ink') ? 1 : 0;
       if (LU.uDay.value !== dayL) {
         LU.uDay.value = dayL;
         this.laneFX.material.blending = dayL ? THREE.NormalBlending : THREE.AdditiveBlending;

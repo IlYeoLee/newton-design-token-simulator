@@ -4553,7 +4553,7 @@ void main(){
       const P = (d) => [f.ox + f.fx * d, 0.02, f.oz + f.fz * d];   // 정면 방향 d미터 앞
       const heading = Math.atan2(-f.fx, -f.fz);   // rx=-90° 후 z-회전 = 지면 헤딩 (팩 화살표와 동일 규약)
       const tNow = performance.now() / 1000;
-      const dayOn = FXP.day ? 1 : 0;
+      const dayOn = (FXP.day || FXP.markBlend === 'ink') ? 1 : 0;
       // 중앙 화살표 (LINE ① 이동 촉)
       const [ax, , az] = P(0.25);
       bkArrow.position.set(ax, 0.018, az);
