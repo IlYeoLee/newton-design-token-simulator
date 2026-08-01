@@ -635,7 +635,10 @@ export function createScene(container) {
   // 최종 체인 — 원본 씬 + 블룸 텍스처 가산 + 그레인·비네트. 마크는 여기서만 그려지므로
   //   셰이더 출력이 그대로 살고(랩과 동일), 깊이 테스트도 정상이라 몸에 가려지는 규칙도 유지된다.
   const finalComposer = new EffectComposer(renderer);
-  finalComposer.addPass(new RenderPass(scene, camera));
+  // ★ 같은 RenderPass 인스턴스를 공유한다. 새로 만들면 setRenderCamera 와
+  //   export_video 의 `composer.passes[0].camera = ortho`(--flat)가 블룸 체인만 바꾸고
+  //   최종 렌더는 옛 카메라로 남는다 — 평면 내보내기가 조용히 깨진다.
+  finalComposer.addPass(renderPass);
   finalComposer.addPass(new ShaderPass({
     uniforms: { tDiffuse: { value: null }, tBloom: { value: composer.renderTarget2.texture } },
     vertexShader: 'varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
