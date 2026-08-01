@@ -2884,13 +2884,20 @@ void main(){
       }
       return s;
     }
+    // 좁은 블러 — 5탭으로는 압축 블록이 남아 결이 얼룩덜룩 찢어졌다(유저: 더거덕).
+    //   코치 판은 이 자리에 **풀해상 분리형 가우시안 RT**(uFieldN)를 쓴다. 여기선 RT 를 더
+    //   만들지 않고 링 2겹 12탭으로 근사한다 — 탭 수와 반경 둘 다 올려야 블록을 넘긴다.
     vec2 pblurRGN(vec2 uv){
       float m0 = praw(uv);
-      vec2 s = vec2(m0, plum(uv) * m0) * 0.36;
-      for (int k = 0; k < 4; k++) { float a = 1.5708 * float(k) + 0.7;
-        vec2 o = vec2(cos(a), sin(a)) * 0.016;   // 0.005 는 압축 블록을 그대로 물어 왔다
-        float m1 = praw(uv + o);
-        s += vec2(m1, plum(uv + o) * m1) * 0.16;
+      vec2 s = vec2(m0, plum(uv) * m0) * 0.16;
+      for (int r = 1; r <= 2; r++) {
+        float rad = 0.013 * float(r), wgt = r == 1 ? 0.09 : 0.05;
+        for (int k = 0; k < 6; k++) {
+          float a = 1.0472 * float(k) + float(r) * 0.5;
+          vec2 o = vec2(cos(a), sin(a)) * rad;
+          float m1 = praw(uv + o);
+          s += vec2(m1, plum(uv + o) * m1) * wgt;
+        }
       }
       return s;
     }
