@@ -338,13 +338,17 @@ export function makeMarkFXMaterial(footTex = null) {
       uStrong: { value: 0 }, uContract: { value: 0 },
       uTime: { value: 0 }, uSeed: { value: Math.random() * 6.2832 },
       uW: { value: 1 }, uHalo: { value: 0.9 }, uPool: { value: 0.55 }, uGain: { value: 1 },
-      // ★ uOut 0 — 마크는 랩(footlab)과 **같은 출력 경로**를 쓴다(유저 확정: 랩 코드를 그대로 이식).
-      //   uOut=1 은 컴포저 OutputPass(linear→sRGB)를 미리 상쇄하려는 역변환인데, 실측 결과
-      //   상쇄가 안 맞고 G·B 를 3배 가까이 깎는다 — 같은 유니폼·같은 셰이더인데도:
-      //     앞꿈치  uOut0 (249,106,88)  vs  uOut1 (241,37,25)
-      //     아치    uOut0 (248,183,135) vs  uOut1 (241,116,59)
-      //   밝은 크림·살구빛이 죽고 진한 적색만 남아 '흐리고 채도 낮다'로 보였다.
-      uSweepA: { value: 1 }, uNoise: { value: 0.5 }, uDay: { value: 0 }, uOut: { value: 0 },
+      // ★ uOut 1 — 마크의 유일한 출력 경로는 컴포저(OutputPass) 다. 실측(tmp_probe_cs.mjs):
+      //     renderer.outputColorSpace='srgb' · working='srgb-linear' · RT=HalfFloat
+      //     같은 값을 패스 없이(=랩) vs OutputPass 통과로 화면에 낸 결과
+      //       (249,106,88)  → 랩 (249,106,88)  · 시뮬 (252,173,159)
+      //       (248,183,135) → 랩 (248,183,135) · 시뮬 (252,220,192)
+      //       (128,128,128) → 랩 128           · 시뮬 188
+      //   즉 uOut=0 이면 마크만 화면에서 한 번 더 sRGB 인코딩돼 들뜨고 채도가 깎인다
+      //   — 유저가 반복해 지적한 '랩보다 뿌옇고 채도 낮다'의 정체. toLin 역변환이 이를 상쇄해
+      //   화면값이 랩과 같아진다. (LANEFX 는 처음부터 uOut=1 — 마크만 예외였다.)
+      //   ※ 이전 주석의 '(241,37,25)' 는 OutputPass 이전 버퍼값을 잰 것 — toLin(249,106,88) 그 자체다.
+      uSweepA: { value: 1 }, uNoise: { value: 0.5 }, uDay: { value: 0 }, uOut: { value: 1 },
       // 하프톤 스킨 — 기본 꺼짐. 랩에서 확정한 값이 기본값이다.
       uHT: { value: 0 }, uHTPitch: { value: 0.055 }, uHTGain: { value: 1.15 }, uHTSoft: { value: 0.55 }, uHTWave: { value: 0.6 }, uHTGlow: { value: 0 }, uHTInner: { value: 0 },
       uNumTex: { value: null }, uNumOn: { value: 0 }, uNumScale: { value: 0.311 }, uNumOff: { value: new THREE.Vector2() },
