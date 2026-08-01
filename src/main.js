@@ -2470,6 +2470,12 @@ void main(){
           //   허리가 칼로 자른 듯 보인다(유저 스샷). 위쪽 12%만 부드럽게 소멸.
           //   하단은 건드리지 않는다 — 발 접지는 또렷해야 한다(유저 확정).
           mEro *= refEdge(uv);   // 4변 페이드(레퍼런스 정본) — 구 상단 12% 페더를 대체
+          // 안쪽으로만 페더 — 데모 판과 같은 규약. 링 최솟값으로 깎은 뒤 그 안에서만 알파를 올린다.
+          //   바깥으로 번지지 않으니 크로마 프린지가 테두리로 남지 않는다.
+          float mErode = 1.0;
+          for (int k = 0; k < 8; k++) { float a = 0.7854 * float(k);
+            mErode = min(mErode, mask1(uv + vec2(cos(a), sin(a)) * 0.008)); }
+          mEro *= smoothstep(0.04, 0.80, mErode);
           // 두께장·블러휘도 = 저해상 RT 가우시안 필드(복싱 판 uHeat와 같은 파이프라인)
           vec2 fld = texture2D(uField, uv).rg;    // 넓은 블러 = 두께장·노출
           vec2 fldN = texture2D(uFieldN, uv).rg;  // 좁은 블러 = 이목구비 지워진 결
@@ -2688,7 +2694,7 @@ void main(){
         // 바닥은 0.64 — 0.86 은 LUT 의 SAND(#FEC389, 채도 0.46)에 닿아 밝은 자리가 물빠진 살구가 된다.
         //   벽(0.86)과 맞춘다고 올려놨었는데, 벽은 세로 램프로 T 를 0.06~0.98 훑어 진한 쪽 면적이
         //   크고 바닥은 안 그렇다 — 같은 상한이 두 면에서 다른 결과를 낸다. fx-core 주석의 원래 값.
-        setPersonUniforms(co.plane.material.uniforms, 0.64);
+        setPersonUniforms(co.plane.material.uniforms, 0.98);   // 데모 판과 같은 대역 — 바닥만 0.64 라 벽과 색이 갈렸다(유저)
         // 옆구리(BK_A1) 방향 화살표 = 코치 영상 실제 타이밍에 동기.
         //   bk_sidebend.webm 24fps 84프레임을 그린스크린 마스크로 프레임별 상체/하체 x중심을 재서
         //   기우는 쪽을 실측(scripts 없이 ffmpeg+마스크 1회 측정). 아래 표는 원본 3.5s 클립 기준 전이 시각.
