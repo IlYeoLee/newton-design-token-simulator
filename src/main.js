@@ -2834,6 +2834,34 @@ void main(){
       vec2 vuv = clamp(uCropC + (uv - 0.5) * uCropS, 0.0, 1.0);
       return dot(texture2D(tex, vuv).rgb, vec3(0.299, 0.587, 0.114));
     }
+    // ★ 휘도의 정의를 **코치 판과 통일**한다 — 마스크로 정규화한 국소 평균(fld.g / fld.r 규약).
+    //   구 pblur 는 원본 영상을 그냥 블러해서 그린 배경까지 섞였다. 코치는 마스크로 나눠
+    //   '몸 안쪽의 평균 노출'을 재는데, 이름만 같고 뜻이 달랐다.
+    //   P_ABS 를 0.72 로 올려 '영상의 밝기가 색을 주도'하게 된 뒤로는 이 정의 차이가 곧
+    //   바닥·벽 색 차이였다(유저: 색감이 너무 다르다). 값 튜닝으로는 절대 안 맞는 지점.
+    //   반환 .r = 마스크 블러 · .g = (마스크 × 휘도) 블러 → 호출부에서 g/r 로 복원.
+    vec2 pblurRG(vec2 uv){
+      float m0 = praw(uv);
+      vec2 s = vec2(m0, plum(uv) * m0) * 0.30;
+      for (int k = 0; k < 4; k++) { float a = 1.5708 * float(k) + 0.7;
+        vec2 o1 = vec2(cos(a), sin(a)) * 0.014;
+        vec2 o2 = vec2(cos(a + 0.785), sin(a + 0.785)) * 0.026;
+        float m1 = praw(uv + o1), m2 = praw(uv + o2);
+        s += vec2(m1, plum(uv + o1) * m1) * 0.125;
+        s += vec2(m2, plum(uv + o2) * m2) * 0.05;
+      }
+      return s;
+    }
+    vec2 pblurRGN(vec2 uv){
+      float m0 = praw(uv);
+      vec2 s = vec2(m0, plum(uv) * m0) * 0.36;
+      for (int k = 0; k < 4; k++) { float a = 1.5708 * float(k) + 0.7;
+        vec2 o = vec2(cos(a), sin(a)) * 0.005;
+        float m1 = praw(uv + o);
+        s += vec2(m1, plum(uv + o) * m1) * 0.16;
+      }
+      return s;
+    }
     // 좁은 블러 — 센서·압축 노이즈만 지우고 옷 주름은 남긴다(국소 대비 게인이 올라가면서
     //   원본 직접 샘플링(plum)의 픽셀 노이즈가 색 얼룩으로 증폭됐다 — 유저 신고)
     float pblurN(vec2 uv){
@@ -2939,8 +2967,11 @@ void main(){
           H *= 1.0 + (flow - 0.5) * uNoise * 0.16;   // 대류 얼룩 최소 — 밝아진 톤에서 노이즈가 얼룩으로 드러남(유저)
           float T = clamp(H * 1.25, 0.0, 1.0);   // 온도 = 두께 필드
           // 선명 = 옷주름·결(몸) / 블러 = 얼굴 소거용. 룩 슬라이더 person.detail = 결의 세기.
-          float dLumB = pblur(uv);
-          float dLumS = mix(dLumB, pblurN(uv), clamp(uDetail * 1.6, 0.0, 1.0));
+          // 코치 판(main.js ~2490)과 문자 그대로 같은 수식 — 마스크 정규화 국소 평균.
+          //   detail 배수도 2.4 로 통일(구 1.6). 두 면이 같은 입력을 먹어야 같은 색이 나온다.
+          vec2 fB = pblurRG(uv), fN = pblurRGN(uv);
+          float dLumB = fB.g / max(fB.r, 0.02);
+          float dLumS = mix(dLumB, fN.g / max(fN.r, 0.02), clamp(uDetail * 2.4, 0.0, 1.0));
           float dlum = mix(dLumS, dLumB, 0.5);
           // 얼굴 대역(상단) = 이목구비 의도적 은닉 — 실사 결 제거 + 강한 확산
           float faceW = smoothstep(0.70, 0.84, uv.y) * (1.0 - smoothstep(0.965, 1.0, uv.y));
