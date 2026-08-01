@@ -84,12 +84,15 @@ async function toSport(name) {
   if (b) b.click();
   await sleep(2500);
 }
+/** 목표 스테이지로 **직접 점프**한다. next() 로 훑으면 종목을 바꿨을 때 세션이 이전 종목
+ *  스테이지 목록에 머물러 영영 도달하지 못한다 — '판을 못 찾음'의 정체(유저 신고). */
 async function toStage(id) {
   const D = W().__dbg, btn = W().document.getElementById('btn-session');
   if (!D.session.active && btn) { btn.click(); await sleep(3000); }
-  for (let i = 0; i < 14; i++) {
-    if (D.session.stages[D.session.stageIdx].id === id) return true;
-    D.session.next(); await sleep(900);
+  for (let t = 0; t < 12; t++) {                      // 종목 전환 직후엔 목록이 아직 안 바뀌었을 수 있다
+    const i = D.session.stages.findIndex(s => s.id === id);
+    if (i >= 0) { D.session.stageIdx = i; D.session.t = 0; D.session._enter(); return true; }
+    await sleep(500);
   }
   return false;
 }
