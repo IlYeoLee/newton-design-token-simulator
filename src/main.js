@@ -2527,7 +2527,8 @@ void main(){
           for (int i = 0; i < 8; i++) botC += smoothstep(0.16, 0.52, mask1(vec2((float(i) + 0.5) / 8.0, 0.006)));
           vec2 cf = cutFade(uv.x, uv.y, botC * 0.125, uTime);
           mEro = mix(mEro, smoothstep(0.06, 0.55, fld.r), cf.y) * cf.x;   // 날카로운 실루엣 → 넓은 가우시안
-          if (mEro < 0.02) discard;
+          // 레퍼런스 규약(uPForm)은 실루엣 **밖**에 블룸을 그린다 — 블러장이 남은 곳은 살린다.
+          if (max(mEro, step(0.5, uPForm) * fld.r) < 0.02) discard;
           float H = clamp(fld.r * 1.25, 0.0, 1.0);   // 복싱(demoPanel)과 동일 — 1.60 은 코어를 과포화시켜 톤이 갈렸다
           float flow = vn(vec2(uv.x*3.2 + sin(uTime*0.4)*0.3, uv.y*2.4 - uTime*0.5));
           H *= 1.0 + (flow - 0.5) * 0.11;   // 대류 얼룩 최소 — 매끄러운 질감(유저 레퍼런스)
@@ -2547,12 +2548,19 @@ void main(){
           //   복싱 인물과 톤이 갈렸다(유저: "왜 복싱만 과하게 빨갛지").
           // 복싱 인물과 **같은 식**으로 맞춘다: personLook(...) * (실루엣 마스크). 게인·명도상한 없음.
           //   1.12 게인과 V 상한 0.90 은 복싱엔 없는 것이라 톤이 갈렸다(유저: '시뮬레이터 보면 존나 다르다').
-          vec3 col = personLook(clamp(H + pulse + dth, 0.0, 1.0), lumS, lumB, mIn, faceW, uv.y) * mEro;
+          vec3 col; float cov;
+          if (uPForm > 0.5) {   // 레퍼런스 규약 — 5중 레이어 합성(fx-core.personAura)
+            vec4 aura = personAura(mEro, fld.r, fldN.r, lumS, faceW, uv.y);
+            col = aura.rgb; cov = aura.a;
+          } else {
+            col = personLook(clamp(H + pulse + dth, 0.0, 1.0), lumS, lumB, mIn, faceW, uv.y) * mEro;
+            cov = mEro;
+          }
           // uReady=0 = 아직 실제 프레임이 없다. 이때 그리면 빈 텍스처가 크로마키를 통과해
           //   판이 통째로 검은 사각형/붉은 판으로 보인다(유저 스샷). 아예 안 그린다.
             // 알파도 벽과 동일(구 0.95). 0.95 는 코어에서도 배경을 5% 비치게 해, 밝은 타일 코트 위에서
           //   그대로 물빠짐이 됐다(유저: '왜 이렇게 안 쨍해'). 벽은 mSoft*1.15 라 코어가 완전 불투명이다.
-          float alpha = clamp(mEro * 1.15, 0.0, 1.0) * uReady;   // (복싱: max(mSoft*1.15, ...))   // 하단 페더 제거(유저) — 발끝까지 또렷하게
+          float alpha = clamp(cov * 1.15, 0.0, 1.0) * uReady;   // (복싱: max(mSoft*1.15, ...))   // 하단 페더 제거(유저) — 발끝까지 또렷하게
           // 빛이 없으면 알파도 0 — 프리멀티(One / OneMinusSrcAlpha)에서 col=0·alpha=1 은 순수 검정이다.
           //   크로마가 흔들리는 프레임에서 판이 통째로 검은 사각형으로 찍히던 근본(유저 3회 신고).
           // 투사광 불변식: 알파는 빛보다 클 수 없다. 프리멀티(One/OneMinusSrcAlpha)에서 알파는
@@ -3066,7 +3074,14 @@ void main(){
           float shape = max(shapeA, trail * 0.5 * smoothstep(0.06, 0.22, trail));
           // 색 = fx-core.personColor 공용 정의 (벽 인물과 같은 곡선·대역·채도).
           // 구 mix(thermo…) 은 은퇴 — uTone=1 이라 실제로 안 쓰였고, 무지개 램프는 팔레트 밖이었다.
-          vec3 col = personLook(T, dLumS, dLumB, mIn, faceW, uv.y) * shape;
+          vec3 col; float covA;
+          if (uPForm > 0.5) {   // 레퍼런스 규약 — 5중 레이어 합성(fx-core.personAura). 잔상(trail)은 이 모드엔 없다.
+            vec4 aura = personAura(mEro, fB.r, fN.r, dLumS, faceW, uv.y);
+            col = aura.rgb; covA = aura.a;
+          } else {
+            col = personLook(T, dLumS, dLumB, mIn, faceW, uv.y) * shape;
+            covA = shapeA;
+          }
           col += (fxhash(uv * 977.0 + uTime) - 0.5) * (2.0 / 255.0);
           col += (fxhash(uv * 1661.0 + uTime * 3.0) - 0.5) * uGrain;
           // 프레임 원천 제거(유저): 타원 페더 — 잔여 배경·워시가 직선 경계 없이 곡선으로 소멸
@@ -3096,7 +3111,7 @@ void main(){
           //   복싱 기본 바닥은 아이보리 마루(rgb 238,226,212)라 그 유출이 곧 '허옇게 뜬다'였다.
           //   같은 사고가 코치판에서 이미 한 번 났다(위 2497: '밝은 타일 코트 위에서 물빠짐').
           // ★ 0.985 도 걷어낸다 — 코어에서 1.5% 를 비치게 할 이유가 없다. 코치판은 이미 1.0 이다.
-          float aOut = clamp(shapeA * 1.2, 0.0, 1.0) * field * live;
+          float aOut = clamp(covA * 1.2, 0.0, 1.0) * field * live;
           gl_FragColor = vec4(col * live, min(aOut, lumSrgb * 1.6));
         }`,
       transparent: true, depthWrite: false,

@@ -411,15 +411,7 @@ vec3 personLook(float thick, float lumS, float lumB, float mIn, float face, floa
   //   '어떤 카메라로 얼마나 밝게 찍었나'만 상쇄된다.
   float kExp = 0.5 / max(uPExp, 0.06);
   lumS *= kExp; lumB *= kExp;
-  if (uPForm > 0.5) {
-    // 깊이 = 두께장. 가장자리 0 → 최심부 1.
-    float d = pow(smoothstep(0.02, 0.98, clamp(thick, 0.0, 1.0)), 0.85);
-    // 사진의 결은 형태를 흔드는 정도로만 얹는다(±12%) — 주인은 형태다.
-    float tex = (lumS - lumB) * 1.2;
-    d = clamp(d * (1.0 + clamp(tex, -0.5, 0.5) * 0.24), 0.0, 1.0);
-    // 색은 램프에서, **밝기는 깊이에서**. 가장자리가 검정으로 떨어져 배경에 녹는다.
-    return personColor(d) * pow(d, 0.9);
-  }
+  // (uPForm=1 은 이 함수를 타지 않는다 — 호출부에서 personAura 로 분기. 아래 정의 참조.)
   // 절대 휘도를 그대로 읽으면 클립 노출차가 곧 색차가 된다 — 밝게 찍은 러닝·농구 코치가
   //   통째로 LUT 밝은 쪽(SAND)으로 밀려 하얘졌다(유저: "왜 러닝 농구는 더 하얘?").
   //   피부색이 아니라 노출이다. 그래서 국소 평균(lumB)은 노출로 보고 대부분 상쇄하고,
@@ -489,6 +481,35 @@ vec3 personLook(float thick, float lumS, float lumB, float mIn, float face, floa
   float dark = 1.0 - smoothstep(uPInkT - 0.20, uPInkT + 0.20, lumB);
   float ink = clamp(dark * mIn * (1.0 - face * 0.7) * uPInk, 0.0, 1.0);
   return clamp(mix(c, P_INK, ink), 0.0, 1.0);
+}
+// ═══ 레퍼런스 규약(uPForm=1) — 마스크 공유 5중 레이어 합성 ══════════════════════
+//   injury-check.mp4 픽셀 실측(08-02): 색상 12° 고정 · 명도 0.80~0.95 · 채도만 이동,
+//   픽셀 75% 가 mix(흰색, #E0542F, k) 한 축 위. 이 그림은 LUT 램프를 훑어서는 안 나온다 —
+//   **같은 실루엣을 여러 겹으로 쌓아야** 나온다(외곽광·중간광·본체·디테일 screen·내부 흰광).
+//   재료는 전부 기존 파이프라인에 있다: mBody = 침식 마스크(크리스프 실루엣),
+//   wide/narrow = 마스크·휘도 블러 피라미드(CSS 의 blur 42px / 17px 역할).
+//   레퍼런스의 흰 배경만 이식하지 않는다 — 투사광에서 흰 배경 = 판 전체 점등이다.
+//   screen 합성(1-(1-a)(1-b))은 '흰색으로 희석'과 같은 축이라 실측 구조가 보존된다.
+vec4 personAura(float mBody, float wide, float narrow, float lumN, float face, float vTop){
+  // 앵커 = RED↔CORAL 구간 한 점(lut t 0.50 — 실측 12° 는 CORAL 15.5° 보다 약간 붉다).
+  //   uPCoral 의 역산 관용구와 동일 — uPHi 를 바꿔도 앵커가 따라온다. 새 색 금지: 팔레트에서만.
+  float tA = pow(0.50 / P_GAIN, 1.0 / P_GAMMA);
+  vec3 anchor = personColor(clamp((tA - P_LO) / max(uPHi - P_LO, 1e-4), 0.0, 1.0));
+  // ③ 본체 — 세로 그라디언트(레퍼런스 180deg: 위는 흰쪽 30% 희석, 아래는 원색).
+  vec3 body = mix(anchor, mix(anchor, vec3(1.0), 0.30), clamp(vTop, 0.0, 1.0));
+  // ④ 디테일 — grayscale → contrast 1.45 → brightness 1.7 → screen 20% (레퍼런스 CSS 그대로).
+  //   색은 안 싣고 명암만 싣는다 — 색상이 12° 안에 고정되는 이유. 노출차는 uPExp 가 상쇄.
+  float kExp = 0.5 / max(uPExp, 0.06);
+  float dtl = clamp(((lumN * kExp) - 0.5) * 1.45 + 0.5, 0.0, 1.0) * 1.7;
+  body = 1.0 - (1.0 - body) * (1.0 - min(dtl, 1.0) * 0.20 * (1.0 - face * 0.5));
+  // ⑤ 내부 흰 발광 — 두께장 최심부(가슴·몸통)가 흰쪽으로 뜬다. 얼굴은 추가 희석 = 이목구비 은닉.
+  float core = clamp(smoothstep(0.60, 1.05, wide) * 0.42 + face * 0.30, 0.0, 0.9);
+  body = 1.0 - (1.0 - body) * (1.0 - core);
+  // ①② 외곽·중간 광 — 같은 실루엣의 블러 두 겹, 본체 밖에서만 (CSS opacity 0.34 / 0.52 축소판).
+  float halo = clamp(smoothstep(0.02, 0.65, wide) * 0.34
+                   + smoothstep(0.05, 0.90, narrow) * 0.30, 0.0, 0.60) * (1.0 - mBody);
+  // 커버리지 = 본체 + 광. 알파 최종 조임은 호출부 불변식(알파 ≤ 빛)이 담당한다.
+  return vec4(clamp(body, 0.0, 1.0) * mBody + anchor * halo, clamp(mBody + halo, 0.0, 1.0));
 }`;
 
 export const MARK_GLSL = `
