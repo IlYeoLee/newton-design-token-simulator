@@ -2345,12 +2345,21 @@ void main(){
       _expCtx.drawImage(v, 0, 0, 16, 16);
       const px = _expCtx.getImageData(0, 0, 16, 16).data;
       let sum = 0, n = 0;
+      const lums = [];
       for (let i = 0; i < px.length; i += 4) {
         const r = px[i] / 255, g = px[i + 1] / 255, b = px[i + 2] / 255;
         if (g - Math.max(r, b) > 0.10) continue;   // 그린 배경 제외
-        sum += 0.299 * r + 0.587 * g + 0.114 * b; n++;
+        const l = 0.299 * r + 0.587 * g + 0.114 * b;
+        sum += l; n++; lums.push(l);
       }
-      if (n > 12) st._exp = sum / n;               // 표본이 너무 적으면 직전 값 유지
+      if (n > 12) {
+        st._exp = sum / n;
+        // 룩2(uPForm)용 범위 실측 — 평균만 맞추면 명암 폭이 좁은 클립이 통째로 상한에
+        // 붙어 민짜가 된다(유저: 러닝만 디테일 실종). 앱의 p5~p95 스트레치 대응.
+        lums.sort((a, b) => a - b);
+        st._lo = lums[Math.floor(lums.length * 0.08)];
+        st._hi = lums[Math.floor(lums.length * 0.95)];
+      }
     } catch (e) { /* 크로스오리진 — 보정 없이 간다 */ }
     return st._exp ?? 0.5;
   }
@@ -2363,9 +2372,11 @@ void main(){
   //     uPSweep = 세로 열 그라디언트 폭(0 = 도입 전과 픽셀 동일).
   //     coral   = 코랄 억제(면별). 코랄은 램프 한가운데라 T 가 고르면 최대 면적을 먹는다 —
   //               벽은 T 가 높이라 그게 곧 몸통이다. 0 = 도입 전과 픽셀 동일.
-  const setPersonUniforms = (U, hi = 0.86, coral = 0, exp = 0.5) => {   // hi = 대역 상단(면별) · exp = 클립 실측 노출
+  const setPersonUniforms = (U, hi = 0.86, coral = 0, exp = 0.5, lo = 0.12, hiL = 0.85) => {   // hi = 대역 상단(면별) · exp = 클립 실측 노출 · lo/hiL = 클립 휘도 범위(룩2 스트레치)
     if (!U) return;
     if (U.uPExp) U.uPExp.value = exp;
+    if (U.uPLo) U.uPLo.value = lo;
+    if (U.uPHiL) U.uPHiL.value = hiL;
     if (U.uPForm) U.uPForm.value = FXP.person?.form ?? 0;   // 레퍼런스 규약 토글(랩에서 켠다)
     if (U.uPCoral) U.uPCoral.value = coral;
     if (U.uPSat) U.uPSat.value = 1.0 + (FXP.sat ?? 1) * 0.32;
@@ -2482,7 +2493,7 @@ void main(){
         uCropOff: { value: cfg.cropOff }, uCropScale: { value: cfg.cropScale }, uDetail: { value: 0.25 },
         // uPulse 0 — 복싱 인물엔 루마 펄스가 없다(톤을 흔드는 원인이라 끈다).
         // uPSat·uPSweep = PERSON_GLSL 공용(구 uSat 은 죽은 유니폼이라 폐기).
-        uPSat: { value: 1.32 }, uPSweep: { value: 0 }, uPHi: { value: 0.86 }, uPDepth: { value: 0.34 }, uPCoral: { value: 0 }, uPExp: { value: 0.5 }, uPForm: { value: 0 },
+        uPSat: { value: 1.32 }, uPSweep: { value: 0 }, uPHi: { value: 0.86 }, uPDepth: { value: 0.34 }, uPCoral: { value: 0 }, uPExp: { value: 0.5 }, uPForm: { value: 0 }, uPLo: { value: 0.12 }, uPHiL: { value: 0.85 },
         uPInk: { value: 0.85 }, uPInkT: { value: 0.42 }, uPulse: { value: 0.0 } },
       vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
       fragmentShader: `
@@ -2749,7 +2760,7 @@ void main(){
         // 바닥은 0.64 — 0.86 은 LUT 의 SAND(#FEC389, 채도 0.46)에 닿아 밝은 자리가 물빠진 살구가 된다.
         //   벽(0.86)과 맞춘다고 올려놨었는데, 벽은 세로 램프로 T 를 0.06~0.98 훑어 진한 쪽 면적이
         //   크고 바닥은 안 그렇다 — 같은 상한이 두 면에서 다른 결과를 낸다. fx-core 주석의 원래 값.
-        setPersonUniforms(co.plane.material.uniforms, 0.86, 0, clipExposure(co.video, co));   // 대역·노출 모두 데모 판과 동일
+        setPersonUniforms(co.plane.material.uniforms, 0.86, 0, clipExposure(co.video, co), co._lo ?? 0.12, co._hi ?? 0.85);   // 대역·노출·범위 모두 데모 판과 동일
         // 옆구리(BK_A1) 방향 화살표 = 코치 영상 실제 타이밍에 동기.
         //   bk_sidebend.webm 24fps 84프레임을 그린스크린 마스크로 프레임별 상체/하체 x중심을 재서
         //   기우는 쪽을 실측(scripts 없이 ffmpeg+마스크 1회 측정). 아래 표는 원본 3.5s 클립 기준 전이 시각.
@@ -3000,7 +3011,7 @@ void main(){
       uniforms: {
         tex: { value: demoTex }, uTrail: { value: trailRTs[0].texture }, uHeat: { value: heatRTs[0].texture }, uHeatN: { value: heatNarrowRT.texture }, uLUT: { value: getLUT() },
         uTime: { value: 0 }, uNoise: { value: 0.55 }, uW: { value: 1 }, uDetail: { value: 0.62 }, uTrailGain: { value: 1 }, uGrain: { value: 0 }, uTone: { value: 0 }, uLive: { value: 0 },
-        uPSat: { value: 1.32 }, uPSweep: { value: 0 }, uPHi: { value: 0.86 }, uPDepth: { value: 0.34 }, uPCoral: { value: 0 }, uPExp: { value: 0.5 }, uPForm: { value: 0 },
+        uPSat: { value: 1.32 }, uPSweep: { value: 0 }, uPHi: { value: 0.86 }, uPDepth: { value: 0.34 }, uPCoral: { value: 0 }, uPExp: { value: 0.5 }, uPForm: { value: 0 }, uPLo: { value: 0.12 }, uPHiL: { value: 0.85 },
         uPInk: { value: 0.85 }, uPInkT: { value: 0.42 },   // PERSON_GLSL 공용 — setPersonUniforms 가 주입
         uCropC: { value: new THREE.Vector2(0.5, 0.5) }, uCropS: { value: new THREE.Vector2(1, 1) },
       },
@@ -3309,7 +3320,7 @@ void main(){
     //   상단 0.86 = SAND(#FEC389, 따뜻한 살구빛)가 하이라이트의 끝. 0.98 은 PRISM(#D1FEFF,
     //   거의 흰빛)까지 닿아서 밝은 피부·팔·다리가 통째로 **하얗게** 빠졌다(유저 스샷).
     //   ★ 두 면에 **같은 값**을 준다 — 면마다 다른 대역을 주면 톤이 갈릴 수밖에 없다.
-    setPersonUniforms(PU, 0.86, 0, clipExposure(demoVideo, demoPanel));
+    setPersonUniforms(PU, 0.86, 0, clipExposure(demoVideo, demoPanel), demoPanel._lo ?? 0.12, demoPanel._hi ?? 0.85);
     trailFlip = 1 - trailFlip;
   }
 
@@ -3481,7 +3492,7 @@ void main(){
         uFrame: { value: 0 }, uDecay: { value: 0.6 }, uTime: { value: 0 },
         uCols: { value: COACH.cols }, uRows: { value: COACH.rows }, uN: { value: COACH.n }, uDirect: { value: COACH.direct },
         uW: { value: 1 }, uNoise: { value: 0.55 },
-        uPSat: { value: 1.32 }, uPSweep: { value: 0 }, uPHi: { value: 0.86 }, uPDepth: { value: 0.34 }, uPCoral: { value: 0 }, uPExp: { value: 0.5 }, uPForm: { value: 0 },
+        uPSat: { value: 1.32 }, uPSweep: { value: 0 }, uPHi: { value: 0.86 }, uPDepth: { value: 0.34 }, uPCoral: { value: 0 }, uPExp: { value: 0.5 }, uPForm: { value: 0 }, uPLo: { value: 0.12 }, uPHiL: { value: 0.85 },
         uPInk: { value: 0 }, uPInkT: { value: 0.42 },   // PERSON_GLSL 공용 — 벽은 personColor 만 쓰지만 선언은 필수(안 하면 무채). 잉크는 바닥 전용이라 0.
       },
       vertexShader: `#include <common>
