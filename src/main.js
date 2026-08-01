@@ -2379,6 +2379,7 @@ void main(){
   function coachField() {
     if (_cf) return _cf;
     const RW = 320, RH = 480;   // 코치 판 실화면 크기 기준 — 미세 결이 평균에 먹히지 않게
+    // (renderCoachField 의 가로 등방 보정이 이 값을 읽는다)
     const vs = 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }';
     const src = new THREE.ShaderMaterial({
       uniforms: { map: { value: null }, uCropOff: { value: 0 }, uCropScale: { value: 1 } },
@@ -2419,6 +2420,7 @@ void main(){
     const LW = RW >> 2, LH = RH >> 2;
     // A/B = 핑퐁, N = 1회 블러(좁음 — 이목구비·모공만 지운 '결'), W = 3회 블러(넓음 — 두께장·노출)
     _cf = { rts: [mk(), mk(), mk(), mk()], lo: [mk(LW, LH), mk(LW, LH)], texel: [1 / RW, 1 / RH, 1 / LW, 1 / LH],
+            rw: RW, rh: RH,   // 가로 등방 보정(renderCoachField)이 읽는다
             cam: new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1), src, blur, sc, quad };
     return _cf;
   }
@@ -2434,9 +2436,21 @@ void main(){
     // 분리형 가우시안 — 1회차 결과(N)는 '결', 3회차 결과(W)는 '두께장·노출'로 따로 쓴다.
     //   원본 영상을 직접 샘플링하면 모공·이목구비까지 색에 실려 '주황 필터 씌운 사진'이 된다(유저).
     const [A, B, N] = f.rts, [L0, L1] = f.lo;
+    // ★ 가로 보정 — 블러 반경은 **텍셀 기준**인데 이 필드는 소스를 비등방으로 짜 넣는다.
+    //   실측(08-01): 코치 소스 960×960 을 세로 crop 0.58 만 잘라(960×557) 320×480 RT 에 굽는다.
+    //     가로 텍셀밀도 320/960 = 0.333 /px · 세로 480/557 = 0.862 /px → **2.6배 비등방**.
+    //   같은 uStep 이 가로에선 소스 2.6배 폭을 먹는다 = 인물이 가로로만 과하게 뭉갠다
+    //   (유저: "바닥은 프레임에서 인물이 작아서 블러가 과하게 먹는 것 같다" — 맞다).
+    //   벽 데모 판은 인물에 딱 맞춰 crop 하므로(0.386×1.22) 이 왜곡이 거의 없다.
+    const vid = co.mat.uniforms.map.value?.image;
+    const srcW = vid?.videoWidth || vid?.width || 1;
+    const srcH = (vid?.videoHeight || vid?.height || 1) * (co.mat.uniforms.uCropScale.value || 1);
+    // 가로 스텝을 이 비율만큼 줄이면 소스 픽셀 기준으로 등방이 된다
+    const kx = Math.min(1, (srcH / f.rh) / Math.max(srcW / f.rw, 1e-4));
     const pass = (srcRT, dstRT, dir, lo) => {
       f.blur.uniforms.tex.value = srcRT.texture; f.blur.uniforms.uDir.value.set(dir[0], dir[1]);
-      f.blur.uniforms.uTexel.value.set(lo ? f.texel[2] : f.texel[0], lo ? f.texel[3] : f.texel[1]);
+      const tx = (lo ? f.texel[2] : f.texel[0]) * (dir[0] ? kx : 1);
+      f.blur.uniforms.uTexel.value.set(tx, lo ? f.texel[3] : f.texel[1]);
       renderer.setRenderTarget(dstRT); renderer.clear(); renderer.render(f.sc, f.cam);
     };
     // N(좁음) = 고해상 1회. detail = N - W 인데 두 σ가 가까우면 DoG(밴드패스)가 되어
