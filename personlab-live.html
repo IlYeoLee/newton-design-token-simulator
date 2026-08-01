@@ -100,7 +100,7 @@ async function toStage(id) {
 /** 인물 판을 **정면 직교**로 렌더 → 픽셀을 읽어 셀 캔버스에 올린다.
  *  반드시 시뮬 렌더러(=같은 GL 컨텍스트)로 그린다. 재질·텍스처·RT 가 그 컨텍스트 소유라
  *  다른 렌더러를 새로 만들면 전부 빈 텍스처가 된다. 재현이 아니라 이식이어야 한다. */
-function shoot(key) {
+function shoot(key, bg) {
   const D = W().__dbg, T = D.THREE, R = D.renderer;
   let mesh = null;
   D.scene.traverse(o => {
@@ -133,7 +133,7 @@ function shoot(key) {
   const rt = new T.WebGLRenderTarget(CELL, CELL);
   const prevRT = R.getRenderTarget(), prevC = R.getClearColor(new T.Color()), prevA = R.getClearAlpha();
   R.setRenderTarget(rt);
-  R.setClearColor(BG === 'black' ? 0x000000 : 0xffffff, 1);
+  R.setClearColor(bg === 'black' ? 0x000000 : 0xffffff, 1);
   R.clear();
   R.render(scene, cam);
   const px = new Uint8Array(CELL * CELL * 4);
@@ -171,10 +171,13 @@ async function load(key) {
   await toSport(K.sport);
   await toStage(K.stage);
   await sleep(3500);                       // 영상 디코드·필드 안정화
-  const img = shoot(key), c = cell(key);
+  // ★ 배경색은 **렌더 시점에 구워진다**(클리어 컬러). 토글이 카드 CSS 만 바꾸면 흰 카드 안에
+  //   검은 캔버스가 남는다(유저 스샷). 그래서 캡처할 때 검정·흰색 두 벌을 다 굽고 토글은 교체만 한다.
+  const shots = { black: shoot(key, 'black'), white: shoot(key, 'white') };
+  const img = shots[BG], c = cell(key);
   if (!img) { c.cap.querySelector('span').textContent = '판을 못 찾음'; log(`${K.label} — 인물 판이 안 보인다`); return; }
-  c.cv.getContext('2d').putImageData(img, 0, 0);
-  c.root.style.background = BG === 'black' ? '#000' : '#fff';
+  c.shots = shots;
+  draw(c, BG);
   const s = stat(img);
   c.cap.querySelector('span').innerHTML = s
     ? `<span class=swatch style="background:${s.hex}"></span>${s.hex} · 채도 ${s.sat} · 명도 ${s.val}`
@@ -186,9 +189,18 @@ $('b-bx').onclick  = () => load('bx');
 $('b-run').onclick = () => load('run');
 $('b-bk').onclick  = () => load('bk');
 $('b-all').onclick = async () => { for (const k of ['bx', 'run', 'bk']) await load(k); log('세 종목 완료 — 나란히 비교.'); };
+function draw(c, bg) {
+  if (!c.shots || !c.shots[bg]) return;
+  c.cv.getContext('2d').putImageData(c.shots[bg], 0, 0);
+  c.root.style.background = bg === 'black' ? '#000' : '#fff';
+  c.root.style.borderColor = bg === 'black' ? '#1D222C' : '#c9ced8';
+  // 흰 배경에선 라벨도 어두워야 읽힌다 — .cap b 는 CSS 에서 밝은 색이라 개별 지정으로 덮는다
+  c.cap.style.color = bg === 'black' ? '#98A1AD' : '#5b626e';
+  const bEl = c.cap.querySelector('b'); if (bEl) bEl.style.color = bg === 'black' ? '#E9EAEE' : '#111418';
+}
 const setBg = v => {
   BG = v; $('bg-black').classList.toggle('on', v === 'black'); $('bg-white').classList.toggle('on', v === 'white');
-  for (const k in cells) cells[k].root.style.background = v === 'black' ? '#000' : '#fff';
+  for (const k in cells) draw(cells[k], v);
 };
 $('bg-black').onclick = () => setBg('black');
 $('bg-white').onclick = () => setBg('white');
