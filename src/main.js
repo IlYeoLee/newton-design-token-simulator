@@ -2357,7 +2357,7 @@ void main(){
         // 룩2(uPForm)용 범위 실측 — 평균만 맞추면 명암 폭이 좁은 클립이 통째로 상한에
         // 붙어 민짜가 된다(유저: 러닝만 디테일 실종). 앱의 p5~p95 스트레치 대응.
         lums.sort((a, b) => a - b);
-        st._lo = lums[Math.floor(lums.length * 0.08)];
+        st._lo = lums[Math.floor(lums.length * 0.05)];   // 앱과 동일 p5
         st._hi = lums[Math.floor(lums.length * 0.95)];
       }
     } catch (e) { /* 크로스오리진 — 보정 없이 간다 */ }
@@ -2561,7 +2561,8 @@ void main(){
           //   1.12 게인과 V 상한 0.90 은 복싱엔 없는 것이라 톤이 갈렸다(유저: '시뮬레이터 보면 존나 다르다').
           vec3 col; float cov;
           if (uPForm > 0.5) {   // 레퍼런스 규약 — 5중 레이어 합성(fx-core.personAura)
-            vec4 aura = personAura(mEro, fld.r, lumS, lumB, faceW, uv, uTime);
+            float lumNRaw = fldN.g / max(fldN.r, 0.02);   // 룩2: uDetail 미적용 원본 결
+            vec4 aura = personAura(mEro, fld.r, lumNRaw, lumB, faceW, uv, uTime);
             col = aura.rgb; cov = aura.a;
           } else {
             col = personLook(clamp(H + pulse + dth, 0.0, 1.0), lumS, lumB, mIn, faceW, uv.y) * mEro;
@@ -3087,7 +3088,8 @@ void main(){
           // 구 mix(thermo…) 은 은퇴 — uTone=1 이라 실제로 안 쓰였고, 무지개 램프는 팔레트 밖이었다.
           vec3 col; float covA;
           if (uPForm > 0.5) {   // 레퍼런스 규약 — 5중 레이어 합성(fx-core.personAura). 잔상(trail)은 이 모드엔 없다.
-            vec4 aura = personAura(mEro, fB.r, dLumS, dLumB, faceW, uv, uTime);
+            float lumNRaw = fN.g / max(fN.r, 0.02);   // 룩2: uDetail 미적용 원본 결
+            vec4 aura = personAura(mEro, fB.r, lumNRaw, dLumB, faceW, uv, uTime);
             col = aura.rgb; covA = aura.a;
           } else {
             col = personLook(T, dLumS, dLumB, mIn, faceW, uv.y) * shape;
