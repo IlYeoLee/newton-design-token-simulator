@@ -1,0 +1,180 @@
+<!doctype html><html lang=ko><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1">
+<title>NEWTON 발자국 랩 — 깔창 각인 실시간 조정</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>👣</text></svg>">
+<style>
+  /* 마크 숫자 도트 폰트 — 시뮬·랩과 같은 파일 (없으면 숫자가 산세리프로 떨어진다) */
+  /* vite 는 public/ 내용을 루트로 서빙한다 — 'public/fonts/…' 로 쓰면 404 다(도트 폰트가 조용히 죽는다) */
+  @font-face{font-family:'OffBit';src:url('fonts/OffBitTrial-DotBold.woff2') format('woff2');font-weight:700;font-display:block}
+  :root{--bg:#0A0C10;--panel:#10131A;--line:#1D222C;--text:#E9EAEE;--dim:#98A1AD;--red:#FA3030;--sand:#FEC389}
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--text);
+    font:13px/1.5 -apple-system,'Malgun Gothic',sans-serif}
+  .wrap{display:flex;gap:18px;padding:18px;align-items:flex-start;flex-wrap:wrap}
+  /* 패널이 세로로 길어 미리보기를 보면서 조절할 수가 없었다(유저) — 패널만 따로 스크롤한다. */
+  .panel{width:330px;flex:0 0 330px;background:var(--panel);border:1px solid var(--line);
+    border-radius:14px;padding:16px;position:sticky;top:18px;
+    max-height:calc(100vh - 36px);overflow-y:auto;overscroll-behavior:contain}
+  .panel::-webkit-scrollbar{width:8px}
+  .panel::-webkit-scrollbar-thumb{background:#2A3140;border-radius:4px}
+  h1{font-size:15px;margin:0 0 4px}
+  .sub{color:var(--dim);font-size:11.5px;margin:0 0 14px}
+  fieldset{border:1px solid var(--line);border-radius:10px;margin:0 0 12px;padding:10px 12px 12px}
+  legend{color:var(--dim);font-size:11px;padding:0 5px}
+  .row{display:flex;align-items:center;gap:8px;margin:7px 0}
+  .row label{flex:0 0 96px;color:var(--dim);font-size:11.5px}
+  .row input[type=range]{flex:1;min-width:0;accent-color:var(--red)}
+  .row .v{flex:0 0 46px;text-align:right;font-variant-numeric:tabular-nums;font-size:11.5px}
+  .seg{display:flex;gap:4px;flex-wrap:wrap}
+  .seg button{flex:1;min-width:60px;background:#161A22;color:var(--dim);border:1px solid var(--line);
+    border-radius:8px;padding:6px 4px;font-size:11.5px;cursor:pointer}
+  .seg button.on{background:var(--red);border-color:var(--red);color:#fff}
+  .acts{display:flex;gap:6px;margin-top:4px}
+  .acts button{flex:1;background:#161A22;color:var(--text);border:1px solid var(--line);
+    border-radius:8px;padding:8px;font-size:11.5px;cursor:pointer}
+  .stage{flex:1 1 620px;min-width:520px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:14px}
+  .card h2{font-size:12px;color:var(--dim);margin:0 0 10px;font-weight:600}
+  canvas{display:block;border-radius:10px;max-width:100%}
+  /* 표시 크기는 여기서만 정한다 — 렌더 버퍼(canvas width/height)와 분리.
+     예전엔 스크립트가 width:100% 를 걸어서 560px 버퍼가 카드 폭까지 늘어나 화면을 다 먹었다. */
+  /* 미리보기 크기는 유저가 슬라이더로 정한다(--hero). 내가 숫자를 맞히는 게 아니다. */
+  #hero{width:var(--hero,460px);height:var(--hero,460px)}
+  /* ★ aspect-ratio 는 캔버스 버퍼(1120×460)와 반드시 같아야 한다 — 230 으로 두면 세로가 2배
+     압축돼 발도 원도 납작해진다(유저: 찌부시키지 마). 캔버스 크기를 바꾸면 여기도 같이 바꿀 것. */
+  #strip{width:calc(var(--hero,460px) * 2.1);max-width:100%;height:auto;aspect-ratio:1120 / 460}
+  #comp{width:calc(var(--hero,460px) * 2.1);max-width:100%;height:auto;aspect-ratio:1120 / 380}
+  #align{width:calc(var(--hero,460px) * 1.5);max-width:100%;height:auto;aspect-ratio:840 / 280}
+  .stage{flex:1 1 560px;min-width:420px}
+  #snip{width:100%;height:118px;background:#0B0E13;color:var(--sand);border:1px solid var(--line);
+    border-radius:8px;padding:8px;font:11px/1.5 ui-monospace,Consolas,monospace;resize:vertical}
+  .note{color:var(--dim);font-size:11px;margin:8px 0 0}
+  .warn{color:var(--red);font-size:11.5px;margin:8px 0 0;display:none}
+</style>  <script type="module" crossorigin src="./assets/footlab-Bn9AJMbI.js"></script>
+  <link rel="modulepreload" crossorigin href="./assets/fx-core-IEkcJxAM.js">
+  <link rel="modulepreload" crossorigin href="./assets/tokens-K02FBcak.js">
+</head><body>
+<div class=wrap>
+  <div class=panel>
+    <h1>발자국 랩 — 깔창 각인</h1>
+    <p class=sub>겉 = 신발 실루엣 · 안 = 맨발 자국(도트).<br>정본 셰이더(MARK_GLSL)를 그대로 돌린다.</p>
+
+    <fieldset><legend>발</legend>
+      <div class=seg id=segSide><button data-v=left class=on>왼발</button><button data-v=right>오른발</button></div>
+      <div class=seg id=segCtx style="margin-top:6px"><button data-v=out class=on>야외(신발)</button><button data-v=in>실내(맨발)</button></div>
+    </fieldset>
+
+    <fieldset><legend>각인 (안 = 맨발 자국)</legend>
+      <div class=row><label>세기 uImp</label><input type=range id=imp min=0 max=1.6 step=.02><span class=v id=vimp></span></div>
+      <div class=row><label>자국 축소</label><input type=range id=scale min=.7 max=1.06 step=.005><span class=v id=vscale></span></div>
+      <div class=row><label>이동 X</label><input type=range id=offx min=-.16 max=.16 step=.001><span class=v id=voffx></span></div>
+      <div class=row><label>이동 Y</label><input type=range id=offy min=-.16 max=.16 step=.001><span class=v id=voffy></span></div>
+      <div class=row><label>자국 기울기°</label><input type=range id=irot min=-30 max=30 step=.5><span class=v id=virot></span></div>
+      <div class=acts><button id=fit>자동 맞춤 — 신발 안으로</button></div>
+      <div class=row><label>도트 간격</label><input type=range id=pitch min=.008 max=.08 step=.001><span class=v id=vpitch></span></div>
+      <div class=row><label>점 크기</label><input type=range id=dot min=.05 max=.5 step=.005><span class=v id=vdot></span></div>
+      <div class=row><label>이너 섀도우</label><input type=range id=shade min=0 max=1.4 step=.01><span class=v id=vshade></span></div>
+      <div class=seg id=segShadeCol style="margin:2px 0 6px"><button data-v=0 class=on>흰</button><button data-v=1>샌드</button><button data-v=2>코랄</button><button data-v=3>레드</button></div>
+      <div class=row><label>아웃라인 선명</label><input type=range id=sharp min=0 max=1 step=.02><span class=v id=vsharp></span></div>
+      <div class=row><label>섀도우 폭</label><input type=range id=edge min=.004 max=.09 step=.002><span class=v id=vedge></span></div>
+      <div class=row><label>윤곽 글로우</label><input type=range id=glow min=0 max=1.4 step=.02><span class=v id=vglow></span></div>
+    </fieldset>
+
+    <fieldset><legend>압력장 · 등고선 (색을 정하는 입력)</legend>
+      <div class=row><label>압력장</label><input type=range id=plantar min=0 max=1 step=.02><span class=v id=vplantar></span></div>
+      <div class=row><label>등고선 단계</label><input type=range id=bands min=0 max=24 step=1><span class=v id=vbands></span></div>
+      <div class=row><label>밴드 무름</label><input type=range id=bandSoft min=0 max=1 step=.01><span class=v id=vbandSoft></span></div>
+      <div class=row><label>이너 섀도우</label><input type=range id=edgeShade min=0 max=1.4 step=.01><span class=v id=vedgeShade></span></div>
+      <div class=row><label>음영 적열</label><input type=range id=shadeRed min=0 max=1 step=.01><span class=v id=vshadeRed></span></div>
+      <div class=row><label>적열 번짐</label><input type=range id=shadeRedW min=.5 max=8 step=.1><span class=v id=vshadeRedW></span></div>
+      <div class=row><label>엣지 폭</label><input type=range id=edgeW min=.01 max=.3 step=.005><span class=v id=vedgeW></span></div>
+      <div class=row><label>필 소프트</label><input type=range id=edgeSoft min=0 max=1 step=.01><span class=v id=vedgeSoft></span></div>
+      <div class=row><label>디더(밴딩)</label><input type=range id=dither min=0 max=.05 step=.001><span class=v id=vdither></span></div>
+      <p class=sub style="margin:6px 0 0">0 = 옛 방사 그라디언트(중심거리) · 1 = 족저 압력장(앞꿈치·뒤꿈치 핫스팟)</p>
+    </fieldset>
+
+    <fieldset><legend>토큰 공통 (룩 시스템)</legend>
+      <div class=row><label>윤곽 두께 uW</label><input type=range id=w min=.3 max=2.2 step=.05><span class=v id=vw></span></div>
+      <div class=row><label>헤일로 uHalo</label><input type=range id=halo min=0 max=1.6 step=.02><span class=v id=vhalo></span></div>
+      <div class=row><label>필 uPool</label><input type=range id=pool min=0 max=1 step=.01><span class=v id=vpool></span></div>
+      <div class=row><label>일렁임 uNoise</label><input type=range id=noise min=0 max=1.2 step=.02><span class=v id=vnoise></span></div>
+    </fieldset>
+
+    <fieldset><legend>보기</legend>
+      <div class=seg id=segBg><button data-v=day class=on>주간(잉크)</button><button data-v=laser>레이저(잉크+블룸)</button><button data-v=night>야간(가산)</button></div>
+      <!-- 블룸은 0.00~0.40 을 0.005 로 — 예전 0~1/0.02 는 최저 눈금이 이미 너무 셌다(유저: 흰색이 쨍하다) -->
+      <div class=row><label>블룸 세기</label><input type=range id=bloom min=0 max=.4 step=.005><span class=v id=vbloom></span></div>
+      <div class=row><label>블룸 번짐</label><input type=range id=blur min=0 max=2 step=.05><span class=v id=vblur></span></div>
+    </fieldset>
+
+    <fieldset><legend>파동 (발형·원형 공통 — 실루엣을 따라 퍼진다)</legend>
+      <div class=row><label>세기 uRip</label><input type=range id=rip min=0 max=1.6 step=.01><span class=v id=vrip></span></div>
+      <div class=row><label>도달 거리</label><input type=range id=ripReach min=.05 max=1.2 step=.01><span class=v id=vripReach></span></div>
+      <div class=row><label>파면 폭</label><input type=range id=ripWidth min=.01 max=.4 step=.005><span class=v id=vripWidth></span></div>
+      <div class=row><label>속도</label><input type=range id=ripSpeed min=.05 max=2 step=.05><span class=v id=vripSpeed></span></div>
+      <div class=row><label>뉴턴 그라디언트</label><input type=range id=ripGrad min=0 max=1 step=.02><span class=v id=vripGrad></span></div>
+      <p class=sub style="margin:2px 0 4px">1 = LUT 를 훑는다(퍼질수록 식음) · 0 = 아래 단색</p>
+      <div class=seg id=segRipCol><button data-v=0>흰</button><button data-v=1 class=on>샌드</button><button data-v=2>코랄</button><button data-v=3>레드</button></div>
+    </fieldset>
+
+    <fieldset><legend>글리프 (발형·원형 공통)</legend>
+      <div class=seg id=segNum><button data-v=1 class=on>글리프 표시</button><button data-v=0>없음</button></div>
+      <div class=seg id=segSrc style="margin-top:6px"><button data-v=offbit class=on>OffBit 도트폰트</button><button data-v=glyph>내 SVG 글리프</button></div>
+      <div class=row style="margin-top:6px"><label>왼발/원 문자</label><input id=gL value="1" style="flex:1;min-width:0;background:#161A22;color:var(--text);border:1px solid var(--line);border-radius:6px;padding:4px 6px"></div>
+      <div class=row><label>오른발 문자</label><input id=gR value="2" style="flex:1;min-width:0;background:#161A22;color:var(--text);border:1px solid var(--line);border-radius:6px;padding:4px 6px"></div>
+      <div class=row><label>글리프 크기</label><input type=range id=gsize min=.4 max=2.2 step=.05><span class=v id=vgsize></span></div>
+      <div class=row><label>위치 X</label><input type=range id=gx min=-.5 max=.5 step=.005><span class=v id=vgx></span></div>
+      <div class=row><label>위치 Y</label><input type=range id=gy min=-.5 max=.5 step=.005><span class=v id=vgy></span></div>
+      <div class=row><label>회전°</label><input type=range id=grot min=-45 max=45 step=1><span class=v id=vgrot></span></div>
+      <p class=sub style="margin:8px 0 4px">그림자 — 밀도를 만드는 건 결국 이 대비다</p>
+      <div class=seg id=segGShadow><button data-v=glow class=on>글로우</button><button data-v=drop>드롭</button><button data-v=none>없음</button></div>
+      <div class=row><label>그림자 세기</label><input type=range id=gsh min=0 max=1.5 step=.02><span class=v id=vgsh></span></div>
+      <p class=sub style="margin:8px 0 4px">합성 — 같은 글리프도 이걸로 완전히 달라진다</p>
+      <div class=seg id=segGBlend><button data-v=normal class=on>보통</button><button data-v=add>가산</button><button data-v=knock>파냄(각인)</button></div>
+    </fieldset>
+
+    <fieldset><legend>보기 (계속)</legend>
+      <div class=seg id=segOv style="margin-top:6px"><button data-v=0 class=on>겹침 오버레이 끔</button><button data-v=1>켬</button></div>
+      <div class=seg id=segPlay style="margin-bottom:6px"><button data-v=1 class=on>재생 — 상태별 인터랙션</button><button data-v=0>정지(슬라이더)</button></div>
+      <div class=row style="margin-top:8px"><label>미리보기 크기</label><input type=range id=heroSize min=260 max=900 step=10><span class=v id=vheroSize></span></div>
+      <div class=row><label>진행 prog</label><input type=range id=prog min=0 max=1 step=.01><span class=v id=vprog></span></div>
+      <div class=row><label>기울기°</label><input type=range id=tilt min=-20 max=20 step=1><span class=v id=vtilt></span></div>
+    </fieldset>
+
+    <div class=acts><button id=save>코드에 저장 — 이 값이 시뮬로 간다</button></div>
+    <div class=acts><button id=undo>되돌리기 ⌘Z</button><button id=redo>다시 ⇧⌘Z</button></div>
+    <div class=acts><button id=reset>기본값</button><button id=copy>현재값 복사</button></div>
+    <p class=warn id=warn></p>
+    <p class=note>각인 세기 0 = 도입 전과 픽셀 동일(롤백 지점).</p>
+  </div>
+
+  <div class=stage>
+    <div class=card>
+      <h2>확대 — 진행 슬라이더로 상태 안을 훑는다</h2>
+      <canvas id=hero width=640 height=640></canvas>
+    </div>
+    <div class=card>
+      <h2>7상태 × 두 표현형 — 윗줄 발형 · 아랫줄 원형(존). 셀을 클릭하면 위 확대로</h2>
+      <canvas id=strip width=1120 height=460></canvas>
+    </div>
+    <div class=card>
+      <h2>바닥 합성 — 투사광은 가산이라 실제 바닥 위에서 색감이 결정된다</h2>
+      <div class=seg id=segFloor style="margin-bottom:10px">
+        <button data-v=track class=on>트랙(민트)</button><button data-v=tile>인터로킹(회백)</button>
+        <button data-v=dark>어두운 실내</button><button data-v=white>흰 바닥</button>
+      </div>
+      <canvas id=comp width=1120 height=380></canvas>
+      <p class=note>실제 사진을 쓰려면 <code>public/floors/track.jpg</code> · <code>tile.jpg</code> 로 넣으면 자동으로 그걸 씁니다. 지금은 근사색으로 그립니다.</p>
+    </div>
+    <div class=card>
+      <h2>겹침 실측 — 겉(빨강) · 안(크림) · 겹침(시안 = 신발 밖으로 삐져나온 곳)</h2>
+      <canvas id=align width=840 height=280></canvas>
+      <p class=note id=alignNote></p>
+    </div>
+    <div class=card>
+      <h2>현재값 — src/tokens.js makeMarkFXMaterial 기본치로 옮길 스니펫</h2>
+      <textarea id=snip readonly></textarea>
+    </div>
+  </div>
+</div>
+
+</body></html>

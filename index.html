@@ -16,6 +16,9 @@
     /* 피그마 StageCard 임포트 파이프라인 — 로컬 전용 폰트를 번들해 시뮬에서 직접 렌더.
        Pretendard: OFL, Supreme: Fontshare(ITF) 무료 라이선스 — 둘 다 웹 임베드 명시 허용. */
     @font-face { font-family: 'Pretendard'; src: url('fonts/Pretendard-Bold.woff2') format('woff2'); font-weight: 700; font-display: swap; }
+    /* 마크 안 숫자 = OffBit 도트 폰트(랩 정본). 여기 선언이 없어서 시뮬은 Supreme 으로 폴백했다 —
+       랩에선 도트인데 시뮬만 일반 활자로 나오던 근본(유저). fxlab.html 과 같은 파일·같은 굵기. */
+    @font-face { font-family: 'OffBit'; src: url('fonts/OffBitTrial-DotBold.woff2') format('woff2'); font-weight: 700; font-display: block; }
     @font-face { font-family: 'Supreme'; src: url('fonts/Supreme-Medium.woff2') format('woff2'); font-weight: 500; font-display: swap; }
     @font-face { font-family: 'Supreme'; src: url('fonts/Supreme-Bold.woff2') format('woff2'); font-weight: 700; font-display: swap; }
     :root {
@@ -371,9 +374,9 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
   font:var(--t-bodyr);letter-spacing:var(--ls-body);color:var(--d-title);padding:13px 22px}
 #dev-pill{border:0;border-radius:999px;background:var(--d-surface);color:var(--d-t3);font:var(--t-labr)}
 </style>
-  <script type="module" crossorigin src="./assets/main-DGOzvmtq.js"></script>
-  <link rel="modulepreload" crossorigin href="./assets/fx-core-B3OKkA4J.js">
-  <link rel="modulepreload" crossorigin href="./assets/tokens-CmlTZXec.js">
+  <script type="module" crossorigin src="./assets/main-C_Fx6IV1.js"></script>
+  <link rel="modulepreload" crossorigin href="./assets/fx-core-IEkcJxAM.js">
+  <link rel="modulepreload" crossorigin href="./assets/tokens-K02FBcak.js">
 </head>
 <body>
   <aside id="panel" class="dev-only">
