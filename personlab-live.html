@@ -118,27 +118,36 @@ function cell(key) {
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const W = () => $('app').contentWindow;
 
+/** 조건이 참이 될 때까지 짧게 폴링한다. 고정 sleep 은 '가장 느린 기계'에 맞춘 상수라
+ *  빠른 기계에서 그대로 낭비된다 — 종목당 6초가 여기서 나왔다(유저: 왜 이렇게 느리냐). */
+async function until(fn, ms = 20000, step = 60) {
+  for (let t = 0; t < ms; t += step) { try { if (fn()) return true; } catch { /* 로드 중 */ } await sleep(step); }
+  return false;
+}
 async function ready() {
-  for (let i = 0; i < 120; i++) { if (W()?.__dbg?.THREE) return; await sleep(500); }
-  throw new Error('시뮬 로드 실패');
+  if (!await until(() => W()?.__dbg?.THREE, 40000)) throw new Error('시뮬 로드 실패');
 }
 async function toSport(name) {
   if (!name) return;
   const b = [...W().document.querySelectorAll('button')].find(x => (x.textContent || '').trim() === name);
   if (b) b.click();
-  await sleep(2500);
 }
 /** 목표 스테이지로 **직접 점프**한다. next() 로 훑으면 종목을 바꿨을 때 세션이 이전 종목
  *  스테이지 목록에 머물러 영영 도달하지 못한다 — '판을 못 찾음'의 정체(유저 신고). */
 async function toStage(id) {
   const D = W().__dbg, btn = W().document.getElementById('btn-session');
-  if (!D.session.active && btn) { btn.click(); await sleep(3000); }
-  for (let t = 0; t < 12; t++) {                      // 종목 전환 직후엔 목록이 아직 안 바뀌었을 수 있다
-    const i = D.session.stages.findIndex(s => s.id === id);
-    if (i >= 0) { D.session.stageIdx = i; D.session.t = 0; D.session._enter(); return true; }
-    await sleep(500);
-  }
-  return false;
+  if (!D.session.active && btn) { btn.click(); await until(() => D.session.active, 8000); }
+  // 종목 전환 직후엔 스테이지 목록이 아직 안 바뀌었을 수 있다 — 목록에 뜰 때까지만 기다린다
+  if (!await until(() => D.session.stages.some(s => s.id === id), 8000)) return false;
+  D.session.stageIdx = D.session.stages.findIndex(s => s.id === id);
+  D.session.t = 0; D.session._enter();
+  return true;
+}
+/** 클립이 실제로 디코드돼 흐르고 있는지 본다. 고정 3.5초가 아니라 이 조건이 진짜 기준이다. */
+async function clipReady() {
+  await until(() => [...W().document.querySelectorAll('video')]
+    .some(v => v.readyState >= 3 && v.currentTime > 0.15), 8000);
+  await sleep(500);   // 블러 피라미드·두께장이 안정화되는 데 필요한 몇 프레임
 }
 
 /** 인물 판을 **정면 직교**로 렌더 → 픽셀을 읽어 셀 캔버스에 올린다.
@@ -215,7 +224,7 @@ async function load(key) {
   await ready();
   await toSport(K.sport);
   await toStage(K.stage);
-  await sleep(3500);                       // 영상 디코드·필드 안정화
+  await clipReady();                       // 영상 디코드·필드 안정화 (조건 기반)
   // ★ 배경색은 **렌더 시점에 구워진다**(클리어 컬러). 토글이 카드 CSS 만 바꾸면 흰 카드 안에
   //   검은 캔버스가 남는다(유저 스샷). 그래서 캡처할 때 검정·흰색 두 벌을 다 굽고 토글은 교체만 한다.
   const shots = { black: shoot(key, 'black'), white: shoot(key, 'white') };

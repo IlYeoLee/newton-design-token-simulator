@@ -4013,7 +4013,10 @@ void main(){
     setInterval(() => { if (htOn) apply(); }, 700);
   }
 
-  if (import.meta.env.DEV) window.__dbg = {
+  // ★ DEV 가드를 뗐다. 랩(personlab-live 등)이 이 핸들로 시뮬을 조종하는데, 배포본엔
+  //   __dbg 가 아예 없어서 랩이 60초를 헛돌다 '시뮬 로드 실패'로 죽었다 — 유저가 본
+  //   "웹에서 안 뜬다 / 왜 이렇게 느리냐"의 정체. 내부 도구 리포라 노출 비용은 없다.
+  window.__dbg = {
     extractPose, retargetToClip,   // 비디오 모캡 (dev)
     rig, xbot, state, session, sceneScope, camera, controls, tokens, effects, scene, editor3d, sceneUI, FXP, designStore, TCFG, editCam, editControls, judge, THREE,
     renderer, composer, demoVideo, renderDemoPanel, renderBxPerson,
