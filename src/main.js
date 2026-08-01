@@ -2937,7 +2937,11 @@ void main(){
   const trailScene = new THREE.Scene();
   trailScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), trailMat));
   // 열 필드 = 마스크의 진짜 가우시안 확산 (저해상 128×192, 분리형 3회 반복 — 탭 클럼프 근절)
-  const heatRTs = [0, 1].map(() => new THREE.WebGLRenderTarget(128, 192));
+  // ★ 해상도 = 코치 판 필드(320×480)와 동일. 128×192 로 굽던 것을 셰이더가 휘도(dLumB)의
+  //   출처로 쓰기 시작하면서, 640px 로 확대될 때 3~5배 업스케일이 그대로 **계단**으로 드러났다
+  //   (유저: 다리 윤곽이 더거덕). 소스 영상은 2276×1280 로 멀쩡했다 — 병목은 이 RT 였다.
+  const HEAT_W = 320, HEAT_H = 480;
+  const heatRTs = [0, 1].map(() => new THREE.WebGLRenderTarget(HEAT_W, HEAT_H));
   const heatMaskMat = new THREE.ShaderMaterial({
     uniforms: { tex: { value: demoTex }, uCropC: { value: new THREE.Vector2(0.5, 0.5) }, uCropS: { value: new THREE.Vector2(1, 1) } },
     vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }',
@@ -2950,11 +2954,11 @@ void main(){
     depthTest: false, depthWrite: false,
   });
   const heatBlurMat = new THREE.ShaderMaterial({
-    uniforms: { tex: { value: null }, uDir: { value: new THREE.Vector2(1, 0) }, uStep: { value: 3 } },
+    uniforms: { tex: { value: null }, uDir: { value: new THREE.Vector2(1, 0) }, uStep: { value: 3 }, uTexel: { value: new THREE.Vector2(HEAT_W, HEAT_H) } },
     vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }',
-    fragmentShader: `varying vec2 vUv; uniform sampler2D tex; uniform vec2 uDir; uniform float uStep;
+    fragmentShader: `varying vec2 vUv; uniform sampler2D tex; uniform vec2 uDir, uTexel; uniform float uStep;
       void main(){
-        vec2 px = uDir * uStep / vec2(128.0, 192.0);
+        vec2 px = uDir * uStep / uTexel;
         vec2 s = texture2D(tex, vUv).rg * 0.227;   // rg 를 함께 흐린다(마스크 · 마스크×휘도)
         s += (texture2D(tex, vUv + px * 1.385).rg + texture2D(tex, vUv - px * 1.385).rg) * 0.3165;
         s += (texture2D(tex, vUv + px * 3.23).rg + texture2D(tex, vUv - px * 3.23).rg) * 0.070;
