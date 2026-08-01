@@ -48,11 +48,17 @@ export const FXP = {
 };
 
 /** OffBit 도트 폰트가 캔버스에서 쓸 수 있게 미리 로드 — floorgl/wallgl 과 같은 규약 */
+/** OffBit 도트 폰트 로드. 반환 Promise 는 '실제로 쓸 수 있게 된 시점'이다 —
+ *  숫자는 캔버스에 텍스처로 구워지는데, 굽는 시점에 폰트가 없으면 Supreme 으로 구워지고
+ *  나중에 폰트가 도착해도 다시 굽지 않는다(유저: "폰트도 미반영"). 호출부가 이 Promise 뒤에
+ *  refreshGlyphConsumers() 를 걸어 재굽기를 해야 한다. */
 export function ensureOffBit() {
-  if (typeof document === 'undefined' || !document.fonts) return;
+  if (typeof document === 'undefined' || !document.fonts) return Promise.resolve(false);
+  const jobs = [];
   for (const f of ["700 100px 'OffBit'", "700 100px OffBit"]) {
-    try { document.fonts.load(f); } catch { /* 폰트 미선언 페이지 — 폴백으로 간다 */ }
+    try { jobs.push(document.fonts.load(f)); } catch { /* 폰트 미선언 페이지 — 폴백으로 간다 */ }
   }
+  return Promise.all(jobs).then(() => document.fonts.check("700 100px 'OffBit'")).catch(() => false);
 }
 
 // ── LUT 256×1 DataTexture (전 셰이더 공유) ─────

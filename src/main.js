@@ -300,7 +300,9 @@ async function boot() {
     //   신선한 브라우저에서 한 번도 안 탄다. 게다가 그 함수는 저장된 룩이 있을 때만 호출된다
     //   → 폰트가 로드되지 않아 Supreme 으로 폴백했다(유저: "폰트도 도트폰트였잖아").
     //   저장 룩 유무와 무관하게 부팅에서 건다.
-    if (FXP.numSrc === 'offbit') ensureOffBit();
+    // 폰트가 도착한 뒤 이미 구워진 숫자 텍스처를 다시 굽는다 — 부팅 시점엔 아직 없어서
+    //   Supreme 으로 구워졌다(실측: document.fonts 는 loaded 인데 화면은 일반 활자).
+    if (FXP.numSrc === 'offbit') ensureOffBit().then(ok => { if (ok) refreshGlyphConsumers(); });
     enforcePalette(lab0);
     if (lab0?.stops) { FXP.stops = lab0.stops.map(x => [...x]); FXP.sat = lab0.sat ?? 1; }
     rebuildLUT();
