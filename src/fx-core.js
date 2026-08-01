@@ -490,26 +490,54 @@ vec3 personLook(float thick, float lumS, float lumB, float mIn, float face, floa
 //   wide/narrow = 마스크·휘도 블러 피라미드(CSS 의 blur 42px / 17px 역할).
 //   레퍼런스의 흰 배경만 이식하지 않는다 — 투사광에서 흰 배경 = 판 전체 점등이다.
 //   screen 합성(1-(1-a)(1-b))은 '흰색으로 희석'과 같은 축이라 실측 구조가 보존된다.
-vec4 personAura(float mBody, float wide, float narrow, float lumN, float face, float vTop){
-  // 앵커 = RED↔CORAL 구간 한 점(lut t 0.50 — 실측 12° 는 CORAL 15.5° 보다 약간 붉다).
-  //   uPCoral 의 역산 관용구와 동일 — uPHi 를 바꿔도 앵커가 따라온다. 새 색 금지: 팔레트에서만.
-  float tA = pow(0.50 / P_GAIN, 1.0 / P_GAMMA);
-  vec3 anchor = personColor(clamp((tA - P_LO) / max(uPHi - P_LO, 1e-4), 0.0, 1.0));
-  // ③ 본체 — 세로 그라디언트(레퍼런스 180deg: 위는 흰쪽 30% 희석, 아래는 원색).
-  vec3 body = mix(anchor, mix(anchor, vec3(1.0), 0.30), clamp(vTop, 0.0, 1.0));
-  // ④ 디테일 — grayscale → contrast 1.45 → brightness 1.7 → screen 20% (레퍼런스 CSS 그대로).
-  //   색은 안 싣고 명암만 싣는다 — 색상이 12° 안에 고정되는 이유. 노출차는 uPExp 가 상쇄.
+// ═══ 룩2 이식(uPForm=1) — 유저 확정 열화상 룩(인물 필터 앱 2026-08-02)의 GLSL 번역 ═══
+//   벽·바닥·전 종목이 이 한 함수로 통일된다(유저: "바닥 벽 동일한 값으로").
+//   앱 파이프라인 대응: 표면블러 1(lumS↔lumB 바이래터럴 근사) · 감마0.59/대비0.8/밝기0.5 ·
+//   웨이브(세기1.04·속도1.32·밴드1.95, 얼굴·경계 통과 금지) · 얼굴 = 블러휘도+감산(이목구비 소거) ·
+//   이너섀도 0.28 · 내부라인 0.14 · 적응 디더 · 아우라 0. 팔레트 = 룩2 스톱 그대로.
+//   ⚠ 스톱 #FF4000·#FF8E5E·#FF3300 은 뉴턴 4색 밖 — 유저가 앱에서 확정한 값을 우선 이식했다.
+vec3 look2Ramp(float t){
+  // [흰색, #FA3030, #FF4000, #FF8E5E, #FF3300] 균등 스톱 (앱 LUT 규약: t=0 이 배경 흰색)
+  vec3 c = mix(vec3(1.0), vec3(0.980, 0.188, 0.188), clamp(t * 4.0, 0.0, 1.0));
+  c = mix(c, vec3(1.0, 0.251, 0.0), clamp(t * 4.0 - 1.0, 0.0, 1.0));
+  c = mix(c, vec3(1.0, 0.557, 0.369), clamp(t * 4.0 - 2.0, 0.0, 1.0));
+  c = mix(c, vec3(1.0, 0.2, 0.0), clamp(t * 4.0 - 3.0, 0.0, 1.0));
+  return c;
+}
+vec4 personAura(float mBody, float wide, float lumS, float lumB, float face, vec2 uv, float tSec){
   float kExp = 0.5 / max(uPExp, 0.06);
-  float dtl = clamp(((lumN * kExp) - 0.5) * 1.45 + 0.5, 0.0, 1.0) * 1.7;
-  body = 1.0 - (1.0 - body) * (1.0 - min(dtl, 1.0) * 0.20 * (1.0 - face * 0.5));
-  // ⑤ 내부 흰 발광 — 두께장 최심부(가슴·몸통)가 흰쪽으로 뜬다. 얼굴은 추가 희석 = 이목구비 은닉.
-  float core = clamp(smoothstep(0.60, 1.05, wide) * 0.42 + face * 0.30, 0.0, 0.9);
-  body = 1.0 - (1.0 - body) * (1.0 - core);
-  // ①② 외곽·중간 광 — 같은 실루엣의 블러 두 겹, 본체 밖에서만 (CSS opacity 0.34 / 0.52 축소판).
-  float halo = clamp(smoothstep(0.02, 0.65, wide) * 0.34
-                   + smoothstep(0.05, 0.90, narrow) * 0.30, 0.0, 0.60) * (1.0 - mBody);
-  // 커버리지 = 본체 + 광. 알파 최종 조임은 호출부 불변식(알파 ≤ 빛)이 담당한다.
-  return vec4(clamp(body, 0.0, 1.0) * mBody + anchor * halo, clamp(mBody + halo, 0.0, 1.0));
+  float ls = clamp(lumS * kExp, 0.0, 1.5);
+  float lb = clamp(lumB * kExp, 0.0, 1.5);
+  // 표면 블러(surface 1) — 약한 결은 블러 휘도에 삼키고 강한 경계(옷단·핵심 주름)만 복원
+  float d = ls - lb;
+  float keep = clamp((abs(d) - 0.045) / 0.075, 0.0, 1.0);
+  keep *= keep;
+  float lum = lb + d * keep;
+  // 얼굴 = 완전 블러 휘도 + 감산(앱의 부위 밝기 -1 대응) — 이목구비 소거
+  lum = mix(lum, lb * 0.82, face);
+  // 톤(룩2 실측값): 감마 0.59 → 대비 0.8 → 밝기 +0.5 → 인물 대역 0.3~1.0
+  float t = pow(clamp(lum, 0.0, 1.0), 0.59);
+  t = clamp((t - 0.5) * 0.8 + 1.0, 0.0, 1.0);
+  t = 0.3 + 0.7 * t;
+  // 웨이브 — 얼굴·반투명 경계는 통과하지 않는다(줄무늬·테두리 번쩍임 방지, 앱과 동일 규약)
+  float ta = tSec * 1.32;
+  float wc = uv.y / 1.95;
+  float wave = 1.0 + 1.04 * (-0.13
+    + 0.18 * sin(6.2832 * (wc * 1.4 - ta * 0.10))
+    + 0.09 * sin(6.2832 * (wc * 3.1 + ta * 0.07) + uv.x * 2.0));
+  wave = mix(wave, 1.0, face);
+  t *= mix(1.0, wave, mBody * mBody);
+  // 적응 디더 — 8비트 필드·LUT 밴딩 분해(얼굴은 강하게)
+  float dth = (fract(sin(dot(uv * 1483.0 + fract(ta * 1.7) * 3.0, vec2(12.9898, 78.233))) * 43758.5453) - 0.5)
+            * (0.010 + face * 0.022);
+  vec3 c = look2Ramp(clamp(t + dth, 0.0, 1.0));
+  // 흰 레이어: 이너섀도 밴드(실루엣 안쪽, wide = 블러된 마스크장) + 내부 라인(옷단·턱선, 얼굴 제외)
+  float feather = clamp((mBody - wide) * 2.4, 0.0, 1.0);
+  c = mix(c, vec3(1.0), feather * 0.21);
+  float lineIn = sqrt(clamp(abs(d) * 2.6, 0.0, 1.0)) * (1.0 - face);
+  c = mix(c, vec3(1.0), lineIn * 0.14);
+  // 프리멀티 — 투사광에서 배경은 빛 없음. 아우라 0(룩2)이라 커버리지 = 실루엣.
+  return vec4(clamp(c, 0.0, 1.0) * mBody, mBody);
 }`;
 
 export const MARK_GLSL = `
