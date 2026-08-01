@@ -380,6 +380,7 @@ function primPanel(kind, sizeM, wall) {
   // 궤적은 항상 발자국 '위'. renderOrder만으로는 깊이 테스트에 걸려 뒤로 밀릴 수 있어
   // depthTest까지 끈다(유저 3회 지적: 아직도 궤적이 뒤에 있다).
   m.renderOrder = isTraj ? 14 : 6;
+  m.material._noBloom = true;   // 룩 시스템 토큰 — 블룸 입력 제외(scene.js renderFrame)
   m.userData.el = { type: kind, wall: !!wall };
   const panel = { kind, c, tex, m, prog: null, pts: null, P: null, t0: 0 };   // P=인스턴스 파라미터 · t0=사이클 시작 시각(개별 트리거)
   m._prim = panel;

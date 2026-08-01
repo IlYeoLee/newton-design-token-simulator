@@ -354,6 +354,10 @@ export function makeMarkFXMaterial(footTex = null) {
   });
   mat.clipping = true;
   mat._src = footTex ? 'MARKFX(발형)' : 'MARKFX(존원)';   // 진단용 출처 태그
+  // 블룸 제외 표식 — 랩 캔버스엔 후처리가 없다. 마크 안 흰 코어가 블룸 문턱을 넘어
+  //   번지면서 채도를 떨어뜨렸다(유저: "랩에서 본 것과 1000% 동일하게"). scene.js 가 이 플래그로
+  //   블룸 입력에서만 마크를 뺀다 — 최종 합성엔 그대로 들어가므로 몸 가림·깊이는 유지된다.
+  mat._noBloom = true;
   return mat;
 }
 

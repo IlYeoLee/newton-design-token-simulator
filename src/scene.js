@@ -609,6 +609,11 @@ export function createScene(container) {
   // ── 후처리: 블룸(마크·이펙트 발광) + 그레인·비네트 ─────
   // (컴포저에 멀티샘플 타깃을 직접 넘겨 봤으나 첫 화면이 단색으로 렌더되는 회귀가 나서 되돌림.
   //  계단현상은 SMAAPass 같은 후처리 AA로 따로 잡아야 한다 — HANDOFF 참조.)
+  // 선택적 블룸 — 마크(룩 시스템 토큰)는 블룸 입력에서 뺀다.
+  //   랩 캔버스는 후처리가 없는데 시뮬은 블룸을 거쳐서, 마크 안 흰 코어(휘도 1.0)가 문턱 0.55 를
+  //   넘어 번지며 전체를 흰쪽으로 끌어올렸다 = 채도 하락(유저: "랩에서 본 것과 1000% 동일하게").
+  //   문턱을 올려선 못 고친다(코어가 순백이라). 대신 블룸 패스만 마크를 빼고, 최종 합성에서는
+  //   원본 씬을 그대로 그린 뒤 블룸 텍스처를 가산한다 → 마크는 셰이더 출력 그대로, 몸 가림도 유지.
   const composer = new EffectComposer(renderer);
   const renderPass = new RenderPass(scene, camera);
   composer.addPass(renderPass);
@@ -625,9 +630,28 @@ export function createScene(container) {
     new THREE.Vector2(container.clientWidth / 2, container.clientHeight / 2),
     FX.bloomStrength, FX.bloomRadius, FX.bloomThreshold);
   composer.addPass(bloomPass);
+  // composer = 블룸 전용 체인(화면에 직접 안 그린다). 마크는 렌더 직전에 숨겨져 여기 안 들어온다.
+  composer.renderToScreen = false;
+  // 최종 체인 — 원본 씬 + 블룸 텍스처 가산 + 그레인·비네트. 마크는 여기서만 그려지므로
+  //   셰이더 출력이 그대로 살고(랩과 동일), 깊이 테스트도 정상이라 몸에 가려지는 규칙도 유지된다.
+  const finalComposer = new EffectComposer(renderer);
+  finalComposer.addPass(new RenderPass(scene, camera));
+  finalComposer.addPass(new ShaderPass({
+    uniforms: { tDiffuse: { value: null }, tBloom: { value: composer.renderTarget2.texture } },
+    vertexShader: 'varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
+    fragmentShader: 'uniform sampler2D tDiffuse,tBloom;varying vec2 vUv;'
+      + 'void main(){gl_FragColor=texture2D(tDiffuse,vUv)+texture2D(tBloom,vUv);}',
+  }));
   const gradePass = new ShaderPass(GrainVignetteShader);
-  composer.addPass(gradePass);
-  composer.addPass(new OutputPass());
+  finalComposer.addPass(gradePass);
+  finalComposer.addPass(new OutputPass());
+  // 블룸 패스 동안만 마크를 숨긴다 (재질 플래그 _noBloom — tokens.makeMarkFXMaterial · session.primPanel)
+  const _hidden = [];
+  function hideMarks() {
+    _hidden.length = 0;
+    scene.traverse(o => { if (o.visible && o.material?._noBloom) { o.visible = false; _hidden.push(o); } });
+  }
+  function showMarks() { for (const o of _hidden) o.visible = true; _hidden.length = 0; }
 
   function renderFrame(timeSec) {
     bloomPass.threshold = FX.bloomThreshold + (FX.day ? 0.38 : 0);
@@ -639,7 +663,8 @@ export function createScene(container) {
     gradePass.uniforms.uTime.value = timeSec;
     gradePass.uniforms.uAlphaOut.value = FX.alphaOut ? 1 : 0;
     gradePass.uniforms.uAlphaFloor.value = FX.alphaFloor || 0;
-    composer.render();
+    hideMarks(); composer.render(); showMarks();   // 블룸 입력 = 마크 없는 씬
+    finalComposer.render();                        // 최종 = 원본 씬 + 블룸 가산
   }
 
   function resize() {
@@ -652,6 +677,7 @@ export function createScene(container) {
     camera.updateProjectionMatrix();
     renderer.setSize(w, h);
     composer.setSize(w, h);
+    finalComposer.setSize(w, h);
     bloomPass.setSize(w / 2, h / 2);
   }
   window.addEventListener('resize', resize);
