@@ -1,0 +1,63 @@
+<!doctype html><html lang=ko><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1">
+<title>NEWTON 인물 랩(실물) — 벽·러닝·농구 나란히</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🧍</text></svg>">
+<!-- 실물 나란히 랩. personlab.html(합성 실루엣으로 '색 매핑'만 비교)과 짝이다:
+     저기선 입력을 고정해 매핑을 재고, 여기선 **실제 클립·실제 재질**을 같은 배경에 올려 최종 그림을 본다.
+     왜 필요한가: 각자의 화면에서 캡처해 비교했더니 배경(초록 코트 vs 밝은 벽)이 측정에 섞여
+     "채도가 비슷하다"는 거짓 결론이 나왔다. 눈으로는 명백히 다른데. 배경을 검정/흰색으로 고정하고
+     투영 왜곡(바닥 판은 눕혀 있어 납작해진다)도 제거해야 같은 조건에서 비교가 된다. -->
+<style>
+  :root{--bg:#0A0C10;--panel:#10131A;--line:#1D222C;--text:#E9EAEE;--dim:#98A1AD;--red:#FA3030}
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--text);font:13px/1.5 -apple-system,'Malgun Gothic',sans-serif}
+  .wrap{display:flex;gap:18px;padding:18px;align-items:flex-start}
+  .panel{width:210px;flex:0 0 210px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;position:sticky;top:18px}
+  h1{font-size:15px;margin:0 0 4px}
+  .sub{color:var(--dim);font-size:11.5px;margin:0 0 14px}
+  button{width:100%;background:#161A22;color:var(--text);border:1px solid var(--line);border-radius:8px;padding:8px;font-size:12px;cursor:pointer;margin:4px 0}
+  button:hover{border-color:#39404f}
+  button.on{background:var(--red);border-color:var(--red);color:#fff}
+  .seg{display:flex;gap:6px}
+  .seg button{margin:0}
+  fieldset{border:1px solid var(--line);border-radius:10px;margin:0 0 12px;padding:8px 12px 12px}
+  legend{color:var(--dim);font-size:11px;padding:0 5px}
+  .stage{flex:1;display:flex;gap:12px;flex-wrap:nowrap;align-items:flex-start;overflow-x:auto}   /* 줄바꿈 금지 — 셋째가 화면 밖으로 밀리던 것 */
+  .cell{background:#000;border:1px solid var(--line);border-radius:12px;padding:8px;text-align:center;flex:0 0 auto}
+  .cell canvas{display:block;border-radius:6px}
+  .cap{font-size:12px;margin-top:8px;color:var(--dim)}
+  .cap b{color:var(--text)}
+  .swatch{display:inline-block;width:11px;height:11px;border-radius:3px;vertical-align:-1px;margin-right:5px;border:1px solid rgba(255,255,255,.25)}
+  #log{color:var(--dim);font-size:11px;white-space:pre-wrap;margin-top:10px}
+  .row{display:flex;align-items:center;gap:8px;margin:6px 0}
+  .row label{flex:0 0 34px;color:var(--dim);font-size:11.5px}
+  .row input[type=range]{flex:1;min-width:0;accent-color:var(--red)}
+  .row .v{flex:0 0 34px;text-align:right;font-size:11.5px}
+  .hint{color:var(--dim);font-size:10.5px;line-height:1.4;margin-top:4px}
+  iframe{position:fixed;left:-4000px;top:0;width:1200px;height:900px;border:0}
+</style>  <script type="module" crossorigin src="./assets/personlabLive-BZYB55TL.js"></script>
+  <link rel="modulepreload" crossorigin href="./assets/modulepreload-polyfill-B5Qt9EMX.js">
+</head><body>
+<div class=wrap>
+  <div class=panel>
+    <h1>인물 랩(실물) — 나란히</h1>
+    <p class=sub>세 인물 판을 <b>정면 직교 투영</b>으로 같은 배경에 올린다.<br>
+      셰이더·텍스처는 시뮬 것을 <b>그대로</b> 쓴다(복제 아님) — 여기서 다르면 실제로 다른 것.</p>
+    <fieldset><legend>불러오기</legend>
+      <button id=b-bx>복싱 (벽)</button>
+      <button id=b-run>러닝 (바닥)</button>
+      <button id=b-bk>농구 (바닥)</button>
+      <button id=b-all>세 개 전부</button>
+    </fieldset>
+    <fieldset><legend>배경</legend>
+      <div class=seg><button id=bg-black class=on>검정</button><button id=bg-white>흰색</button></div>
+    </fieldset>
+    <fieldset><legend>보기</legend>
+      <div class=row><label>크기</label><input id=size type=range min=200 max=640 step=20 value=300><span class=v id=vsize>300</span></div>
+      <button id=b-live>▶ 라이브 (지금 종목)</button>
+      <div class=hint id=livehint>지금 시뮬이 돌고 있는 종목 한 칸만 실시간으로 갱신한다 — 시뮬은 한 번에 한 종목만 돈다.</div>
+    </fieldset>
+    <div id=log>준비됨. 버튼을 누르면 시뮬을 그 종목으로 돌린 뒤 인물 판만 떠서 그린다.</div>
+  </div>
+  <div class=stage id=stage></div>
+</div>
+<iframe id=app src="./index.html"></iframe></body></html>

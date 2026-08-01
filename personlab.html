@@ -1,0 +1,59 @@
+<!doctype html>
+<!-- 인물 색 매핑 패리티 랩 — 바닥(personLook)과 벽(personColor+세로램프)을 **같은 실루엣·같은 배경**에
+     나란히 놓고 색을 찍는다.
+
+     왜 필요한가: 두 인물을 각자의 실제 화면에서 캡처해 비교했더니, 배경(초록 코트 vs 흰 그리드)이
+     따뜻한-픽셀 판정에 섞여 벽 채도가 S0.18 로 찍히는 등 측정이 오염됐다. 몇 시간을 그 위에서
+     추측으로 보냈다. 여기서는 배경을 중립 회색으로 고정하고 **입력(마스크·두께장·휘도)을 한 번만
+     만들어 양쪽에 똑같이 먹인다** — 그러면 남는 차이는 오직 색 매핑뿐이다.
+
+     읽는 법: 아래 표가 인물 세로를 8밴드로 잘라 밴드별 중앙값 색을 좌/우로 보여준다.
+     ΔS·ΔV 가 0 에 가까우면 두 매핑이 같은 색을 낸다는 뜻이다. -->
+<html lang="ko"><head><meta charset="utf-8"><title>인물 색 패리티 랩</title><style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:#14171d;color:#ddd;font:13px/1.5 system-ui,'Malgun Gothic',sans-serif;padding:16px}
+  h1{font-size:15px;margin-bottom:2px}
+  .sub{color:#888;font-size:12px;margin-bottom:14px}
+  #wrap{display:flex;gap:18px;align-items:flex-start;flex-wrap:wrap}
+  #cv{border-radius:8px;display:block}
+  .side{min-width:520px;flex:1}
+  .ctl{display:grid;grid-template-columns:120px 1fr 56px;gap:6px 10px;align-items:center;
+       background:#1b1f27;border:1px solid #2b3140;border-radius:8px;padding:12px;margin-bottom:12px}
+  .ctl label{color:#9aa}
+  input[type=range]{width:100%}
+  .val{color:#fec389;text-align:right;font-variant-numeric:tabular-nums}
+  table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums;font-size:12px}
+  th,td{padding:4px 6px;border-bottom:1px solid #262c38;text-align:left;white-space:nowrap}
+  th{color:#8fa;font-weight:600}
+  .sw{display:inline-block;width:13px;height:13px;border-radius:3px;vertical-align:-2px;margin-right:5px;
+      border:1px solid rgba(255,255,255,.25)}
+  .ok{color:#8fdc9a}.warn{color:#fec389}.bad{color:#fa6b6b}
+  #sum{margin-top:8px;padding:10px;background:#1b1f27;border:1px solid #2b3140;border-radius:8px}
+  code{color:#fec389}
+</style>  <script type="module" crossorigin src="./assets/personlab-QrLC0dTW.js"></script>
+  <link rel="modulepreload" crossorigin href="./assets/modulepreload-polyfill-B5Qt9EMX.js">
+  <link rel="modulepreload" crossorigin href="./assets/fx-core-Bnr8Pa0y.js">
+  <link rel="modulepreload" crossorigin href="./assets/fxlut-B1IiSt1V.js">
+</head><body>
+<h1>인물 색 패리티 랩</h1>
+<div class="sub">왼쪽 = 바닥 매핑(personLook) · 오른쪽 = 벽 매핑(personColor + 세로 램프). 입력 실루엣·두께장·휘도는 동일.</div>
+<div id="wrap">
+  <canvas id="cv" width="720" height="560"></canvas>
+  <div class="side">
+    <div class="ctl">
+      <label>uPSat (채도)</label><input id="sat" type="range" min="0.6" max="2.4" step="0.02" value="1.32"><span class="val" id="satV"></span>
+      <label>바닥 uPHi</label><input id="hiA" type="range" min="0.45" max="1" step="0.01" value="0.64"><span class="val" id="hiAV"></span>
+      <label>벽 uPHi</label><input id="hiB" type="range" min="0.45" max="1" step="0.01" value="0.86"><span class="val" id="hiBV"></span>
+      <label>게인</label><input id="gain" type="range" min="0.5" max="1.6" step="0.02" value="1.12"><span class="val" id="gainV"></span>
+      <label>명도 상한 V</label><input id="vcap" type="range" min="0.6" max="1" step="0.01" value="0.90"><span class="val" id="vcapV"></span>
+      <label>디테일 밀도</label><input id="dep" type="range" min="0" max="1.2" step="0.02" value="0.34"><span class="val" id="depV"></span>
+      <label>명암 잉크(그늘→RED)</label><input id="ink" type="range" min="0" max="1" step="0.01" value="0.85"><span class="val" id="inkV"></span>
+      <label>잉크 문턱(밝기)</label><input id="inkT" type="range" min="0.1" max="0.9" step="0.01" value="0.42"><span class="val" id="inkTV"></span>
+      <label>코랄 억제</label><input id="coral" type="range" min="0" max="1.5" step="0.05" value="0"><span class="val" id="coralV"></span>
+      <label>벽에도 디테일</label><input id="wdet" type="range" min="0" max="1" step="0.05" value="0"><span class="val" id="wdetV"></span>
+      <label>배경 밝기</label><input id="bg" type="range" min="0" max="1" step="0.01" value="0.42"><span class="val" id="bgV"></span>
+    </div>
+    <table id="tb"><thead><tr><th>밴드</th><th>바닥(personLook)</th><th>벽(램프)</th><th>차이</th></tr></thead><tbody></tbody></table>
+    <div id="sum"></div>
+  </div>
+</div></body></html>
