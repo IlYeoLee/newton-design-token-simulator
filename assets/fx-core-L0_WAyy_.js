@@ -59,6 +59,7 @@ uniform float uPExp;
 //     무채축(검정→흰색)을 그대로 쓰면 규칙 ①(유채 4색)을 깬다. 그래서 **뉴턴 LUT 를
 //     명도축으로** 쓴다: 깊이 0 → RED 를 어둡게 · 중간 → CORAL/SAND · 최심부 → PRISM(거의 흰빛).
 uniform float uPForm;
+uniform float uPLo, uPHiL;   // 클립 휘도 실측 범위 — 룩2 의 p5~p95 스트레치(클립 노출·대비 차 상쇄)
 //   uPInk / uPInkT = **명암 잉크** (유저 확정 07-31: "바닥 지면에 뉴턴 빨간 레드를 실제 인물의
 //     명암이 진한 부분에 잉크로 넣어라 — 아직도 밝다"). 세기 · 문턱(이 밝기 아래를 그늘로 본다).
 //     uPInk 0 = 도입 전과 픽셀 동일(롤백 지점). 바닥(personLook)에만 걸린다 — 벽은 personColor 직행.
@@ -220,9 +221,12 @@ vec3 look2Ramp(float t){
   return c;
 }
 vec4 personAura(float mBody, float wide, float lumS, float lumB, float face, vec2 uv, float tSec){
-  float kExp = 0.5 / max(uPExp, 0.06);
-  float ls = clamp(lumS * kExp, 0.0, 1.5);
-  float lb = clamp(lumB * kExp, 0.0, 1.5);
+  // 범위 스트레치(앱의 p5~p95 정규화) — 평균만 맞추면 명암 폭 좁은 클립이 전부 상한에
+  //   붙어 민짜가 된다(유저: 농구는 디테일 있는데 러닝은 민짜). 클립별 실측 lo/hi 사용.
+  float lo = uPLo;
+  float hi = max(uPHiL, lo + 0.05);
+  float ls = clamp((lumS - lo) / (hi - lo), 0.0, 1.0);
+  float lb = clamp((lumB - lo) / (hi - lo), 0.0, 1.0);
   // 표면 블러(surface 1) — 약한 결은 블러 휘도에 삼키고 강한 경계(옷단·핵심 주름)만 복원
   float d = ls - lb;
   float keep = clamp((abs(d) - 0.045) / 0.075, 0.0, 1.0);
