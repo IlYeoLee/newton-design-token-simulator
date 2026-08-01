@@ -11,7 +11,7 @@
   *{box-sizing:border-box}
   html,body{margin:0;background:var(--bg);color:var(--text);font:13px/1.5 -apple-system,'Malgun Gothic',sans-serif}
   .wrap{display:flex;gap:18px;padding:18px;align-items:flex-start}
-  .panel{width:210px;flex:0 0 210px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;position:sticky;top:18px}
+  .panel{width:196px;flex:0 0 196px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;position:sticky;top:18px;max-height:calc(100vh - 236px);overflow-y:auto}
   h1{font-size:15px;margin:0 0 4px}
   .sub{color:var(--dim);font-size:11.5px;margin:0 0 14px}
   button{width:100%;background:#161A22;color:var(--text);border:1px solid var(--line);border-radius:8px;padding:8px;font-size:12px;cursor:pointer;margin:4px 0}
@@ -34,11 +34,15 @@
   .row .v{flex:0 0 34px;text-align:right;font-size:11.5px}
   .hint{color:var(--dim);font-size:10.5px;line-height:1.4;margin-top:4px}
   iframe{position:fixed;left:-4000px;top:0;width:1200px;height:900px;border:0}
-  .refs{margin:6px 18px 22px;padding:12px 14px;background:#0d1015;border:1px solid var(--line);border-radius:12px}
+  /* 화면 **하단 고정**. 흐름에 두면 왼쪽 패널이 길어 항상 스크롤 밖으로 밀린다(유저: 안 뜬다).
+     기준은 눈에 보여야 기준이다 — 스크롤해야 보이는 기준은 없는 것과 같다. */
+  .refs{position:fixed;left:0;right:0;bottom:0;z-index:20;padding:10px 14px 12px;
+        background:rgba(8,10,14,.96);border-top:1px solid var(--line);backdrop-filter:blur(6px)}
+  body{padding-bottom:200px}
   .refhead{font-size:12px;font-weight:600;margin-bottom:9px}
   .refhead span{color:var(--dim);font-weight:400;font-size:10.5px;margin-left:8px}
   .refrow{display:flex;gap:10px;overflow-x:auto}
-  .refrow img{height:190px;border-radius:8px;background:#000;flex:0 0 auto}
+  .refrow img{height:132px;border-radius:8px;background:#000;flex:0 0 auto}
 </style></head><body>
 <div class=wrap>
   <div class=panel>
@@ -61,7 +65,7 @@
         (깊이 0 → RED 어둡게 · 중간 → CORAL/SAND · 최심부 → PRISM).</div>
     </fieldset>
     <fieldset><legend>보기</legend>
-      <div class=row><label>크기</label><input id=size type=range min=200 max=640 step=20 value=300><span class=v id=vsize>300</span></div>
+      <div class=row><label>크기</label><input id=size type=range min=200 max=640 step=20 value=240><span class=v id=vsize>240</span></div>
       <button id=b-live>▶ 라이브 (지금 종목)</button>
       <div class=hint id=livehint>지금 시뮬이 돌고 있는 종목 한 칸만 실시간으로 갱신한다 — 시뮬은 한 번에 한 종목만 돈다.</div>
     </fieldset>
@@ -88,7 +92,7 @@ const log = m => { $('log').textContent = m; };
 // 렌더는 항상 고해상(640)으로 굽고, 화면 크기는 CSS 로만 줄인다 — 크기를 바꿔도 다시 안 찍어도 되고
 //   확대해도 뭉개지지 않는다(유저: 고화질로 크게 보고 싶다).
 const CELL = 640;
-let VIEW = 300;               // 화면 표시 크기(px)
+let VIEW = 240;               // 화면 표시 크기(px) — 셀 + 레퍼런스가 한 화면에 같이 들어오는 값
 let liveKey = null, liveTimer = null;
 let BG = 'black';
 
@@ -283,9 +287,18 @@ $('b-live').onclick = () => setLive(!liveTimer);
 
 // 열자마자 자동 실행 — 새로고침했는데 빈 화면이면 랩이 아니다(유저: "새로고침 때 안 뜬다고").
 //   비교 랩의 기본 상태는 '세 개가 이미 나란히 있는 것'이어야 한다. 버튼은 다시 찍을 때만 쓴다.
+// 셀을 **먼저** 만들어 자리를 잡는다. 비어 있으면 stage 높이가 0 이라 그 아래 레퍼런스가
+//   한참 밑으로 밀려 화면 밖으로 나간다(유저: "레퍼런스가 안 뜬다" — 실은 스크롤 밖이었다).
+for (const k of ['bx', 'run', 'bk']) {
+  const c = cell(k);
+  const g = c.cv.getContext('2d');
+  g.fillStyle = '#000'; g.fillRect(0, 0, CELL, CELL);
+  g.fillStyle = '#5b6270'; g.font = '28px -apple-system, sans-serif'; g.textAlign = 'center';
+  g.fillText('불러오는 중…', CELL / 2, CELL / 2);
+}
 (async () => {
   try {
-    log('시뮬 로드 대기 중…');
+    log('시뮬 로드 대기 중… (배포본은 에셋이 커서 20~40초 걸린다)');
     await ready();
     await $('b-all').onclick();
   } catch (e) { log('자동 실행 실패: ' + e.message + ' — 버튼으로 다시 시도해 주세요.'); }
