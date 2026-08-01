@@ -2483,9 +2483,13 @@ export class Session {
       // 피그마 훈련01~04(141:204/230/252/274)의 L·R 마크 좌표를 프레임 폭 1600 기준으로 정규화한 값.
       //   u = 가로(-1~1), dv = 앞뒤 오프셋. 임의 배치가 아니라 레퍼런스 실좌표다.
       const POSE = !!STEP_SEG[id];   // 1/4~4/4 + 실전(C2) 전부 같은 발자국 시퀀스로 자동 배치
-      H.mR.setOp?.(POSE ? 0 : (H.beat === 0 ? 0.5 : 0));
-      H.mC.setOp?.(POSE ? 0 : (H.beat === 1 ? 0.5 : 0));
-      H.mL.setOp?.(POSE ? 0 : (H.beat === 2 ? 0.5 : 0));
+      // 액센트 링 = 상태로 켠다. 밝기만 올리면 생성 시 Preview(0) 그대로라 '지금 여기'가
+      //   Preview 로 읽힌다(유저: "사용 가능한 거면 Active 인데 Preview 가 뜬다" · 전수검수에서
+      //   BK_B2 에 5건 검출). 규칙: 이번 비트면 Active(1), 아니면 꺼짐.
+      const accent = (m, on) => { m?.setOp?.(on ? 0.5 : 0); m?.setPhase?.(on ? 1 : 0); };
+      accent(H.mR, !POSE && H.beat === 0);
+      accent(H.mC, !POSE && H.beat === 1);
+      accent(H.mL, !POSE && H.beat === 2);
       // 발자국 페어 — 시작(우)은 비트0, 착지(좌)는 비트2에 밝게. 실전은 착지 쪽만.
       const fpOn = (k, on) => { const f = H[k]; if (!f) return;
         if (on) { f.countdown(Math.min(1, 0.35 + (this.t - H._popT) / 0.35)); f.op(0.95); }   // 헤일로 수축 시작점을 당겨 번짐 축소
