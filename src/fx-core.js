@@ -546,12 +546,12 @@ vec4 personAura(float mBody, float wide, float lumS, float lumB, float face, vec
             * (0.010 + face * 0.022);
   vec3 c = look2Ramp(clamp(t + dth, 0.0, 1.0));
   // 흰 레이어 3종(앱과 동일 강도): 이너섀도 0.28×0.75 · 실루엣 라인 0.24×0.9 · 내부 라인 0.14
-  float feather = pow(clamp((mBody - wide) * 2.4, 0.0, 1.0), 1.6);
-  c = mix(c, vec3(1.0), feather * 0.21);
+  float feather = pow(clamp((mBody - wide) * 2.4, 0.0, 1.0), 1.3);
+  c = mix(c, vec3(1.0), feather * 0.28);   // 흰 레이어 이득 캘리브레이션(동일 프레임 실측: 시뮬 G -20)
   float line = pow(4.0 * mBody * (1.0 - mBody), 1.5) * smoothstep(0.35, 0.6, mBody);   // 실루엣 라인(이식 누락분)
   c = mix(c, vec3(1.0), line * 0.216);
   float lineIn = sqrt(clamp(abs(d) * 2.6, 0.0, 1.0)) * (1.0 - face);
-  c = mix(c, vec3(1.0), lineIn * 0.14);
+  c = mix(c, vec3(1.0), lineIn * 0.19);
   // 프리멀티 — 투사광에서 배경은 빛 없음. 아우라 0(룩2).
   return vec4(clamp(c, 0.0, 1.0) * mBody, mBody);
 }`;
