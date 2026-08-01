@@ -296,6 +296,11 @@ async function boot() {
   // 저장된 룩의 LUT·글리프를 먼저 시드 — 세션 45컷(팔레트 파생 + 발형 텍스처)이 빌드 시 사용
   {
     const lab0 = designStore.globalGet('fx', 'lab', null);
+    // 마크 안 숫자 활자 — 기본값이 이미 'offbit' 이라 applyLabState 의 '바뀌었을 때만' 분기는
+    //   신선한 브라우저에서 한 번도 안 탄다. 게다가 그 함수는 저장된 룩이 있을 때만 호출된다
+    //   → 폰트가 로드되지 않아 Supreme 으로 폴백했다(유저: "폰트도 도트폰트였잖아").
+    //   저장 룩 유무와 무관하게 부팅에서 건다.
+    if (FXP.numSrc === 'offbit') ensureOffBit();
     enforcePalette(lab0);
     if (lab0?.stops) { FXP.stops = lab0.stops.map(x => [...x]); FXP.sat = lab0.sat ?? 1; }
     rebuildLUT();
@@ -1279,9 +1284,6 @@ void main(){
     }
     // 마크 숫자 활자 — 랩 토글이 그대로 건너온다('glyph' 슬롯 SVG / 'offbit' 도트 폰트).
     // glyphs 블록 밖에 둔다: 글리프를 한 번도 안 만진 랩 상태에서도 이 값은 와야 한다.
-    // 기본값이 이미 'offbit' 이라 아래 '바뀌었을 때만' 분기는 신선한 브라우저에서 한 번도 안 탄다
-    //   → 폰트가 로드되지 않아 Supreme 으로 폴백했다(유저: "폰트도 도트폰트였잖아"). 부팅 때 무조건 건다.
-    if (FXP.numSrc === 'offbit') ensureOffBit();
     if (st.numSrc && st.numSrc !== FXP.numSrc) {
       FXP.numSrc = st.numSrc;
       if (FXP.numSrc === 'offbit') ensureOffBit();
