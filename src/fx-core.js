@@ -399,7 +399,9 @@ vec3 personLook(float thick, float lumS, float lumB, float mIn, float face, floa
   //   포스터화된다(유저 스샷). x/(1+|x|)는 작은 결은 그대로, 큰 대비만 압축한다.
   float detail = d / (1.0 + abs(d) * 1.6);
   float base = mix(0.5, lumB, P_ABS);                   // 절대 밝기는 34%만
-  float shade = clamp(smoothstep(0.08, 0.80, base) + detail, 0.0, 1.0);
+  // 하이키 — 레퍼런스는 옷만 진하고 피부·머리카락은 거의 흰빛이다. 감마 0.62 로 중간톤을
+  //   위로 밀어 올려 같은 배분을 만든다(어두운 옷은 여전히 아래에 남는다).
+  float shade = pow(clamp(smoothstep(0.08, 0.80, base) + detail, 0.0, 1.0), 0.62);
   float lum = mix(mix(lumS, lumB, 0.50), lumB, face);   // 우유빛 하이라이트 판정용
   // LUT 실측 방향: T=0 → RED(#FA3030) · T≈0.86 → SAND(#FEC389) · T=1 → ICE.
   //   즉 T가 낮을수록 진하다. 두꺼운 코어·그늘 = 낮은 T(진한 코랄레드),
