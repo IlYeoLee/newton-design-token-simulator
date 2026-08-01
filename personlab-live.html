@@ -1,0 +1,192 @@
+<!doctype html><html lang=ko><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1">
+<title>NEWTON 인물 랩(실물) — 벽·러닝·농구 나란히</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🧍</text></svg>">
+<!-- 실물 나란히 랩. personlab.html(합성 실루엣으로 '색 매핑'만 비교)과 짝이다:
+     저기선 입력을 고정해 매핑을 재고, 여기선 **실제 클립·실제 재질**을 같은 배경에 올려 최종 그림을 본다.
+     왜 필요한가: 각자의 화면에서 캡처해 비교했더니 배경(초록 코트 vs 밝은 벽)이 측정에 섞여
+     "채도가 비슷하다"는 거짓 결론이 나왔다. 눈으로는 명백히 다른데. 배경을 검정/흰색으로 고정하고
+     투영 왜곡(바닥 판은 눕혀 있어 납작해진다)도 제거해야 같은 조건에서 비교가 된다. -->
+<style>
+  :root{--bg:#0A0C10;--panel:#10131A;--line:#1D222C;--text:#E9EAEE;--dim:#98A1AD;--red:#FA3030}
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--text);font:13px/1.5 -apple-system,'Malgun Gothic',sans-serif}
+  .wrap{display:flex;gap:18px;padding:18px;align-items:flex-start}
+  .panel{width:250px;flex:0 0 250px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;position:sticky;top:18px}
+  h1{font-size:15px;margin:0 0 4px}
+  .sub{color:var(--dim);font-size:11.5px;margin:0 0 14px}
+  button{width:100%;background:#161A22;color:var(--text);border:1px solid var(--line);border-radius:8px;padding:8px;font-size:12px;cursor:pointer;margin:4px 0}
+  button:hover{border-color:#39404f}
+  button.on{background:var(--red);border-color:var(--red);color:#fff}
+  .seg{display:flex;gap:6px}
+  .seg button{margin:0}
+  fieldset{border:1px solid var(--line);border-radius:10px;margin:0 0 12px;padding:8px 12px 12px}
+  legend{color:var(--dim);font-size:11px;padding:0 5px}
+  .stage{flex:1;display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start}
+  .cell{background:#000;border:1px solid var(--line);border-radius:12px;padding:10px;text-align:center}
+  .cell canvas{display:block;border-radius:6px}
+  .cap{font-size:12px;margin-top:8px;color:var(--dim)}
+  .cap b{color:var(--text)}
+  .swatch{display:inline-block;width:11px;height:11px;border-radius:3px;vertical-align:-1px;margin-right:5px;border:1px solid rgba(255,255,255,.25)}
+  #log{color:var(--dim);font-size:11px;white-space:pre-wrap;margin-top:10px}
+  iframe{position:fixed;left:-4000px;top:0;width:1200px;height:900px;border:0}
+</style></head><body>
+<div class=wrap>
+  <div class=panel>
+    <h1>인물 랩(실물) — 나란히</h1>
+    <p class=sub>세 인물 판을 <b>정면 직교 투영</b>으로 같은 배경에 올린다.<br>
+      셰이더·텍스처는 시뮬 것을 <b>그대로</b> 쓴다(복제 아님) — 여기서 다르면 실제로 다른 것.</p>
+    <fieldset><legend>불러오기</legend>
+      <button id=b-bx>복싱 (벽)</button>
+      <button id=b-run>러닝 (바닥)</button>
+      <button id=b-bk>농구 (바닥)</button>
+      <button id=b-all>세 개 전부</button>
+    </fieldset>
+    <fieldset><legend>배경</legend>
+      <div class=seg><button id=bg-black class=on>검정</button><button id=bg-white>흰색</button></div>
+    </fieldset>
+    <div id=log>준비됨. 버튼을 누르면 시뮬을 그 종목으로 돌린 뒤 인물 판만 떠서 그린다.</div>
+  </div>
+  <div class=stage id=stage></div>
+</div>
+<iframe id=app src="./index.html"></iframe>
+<script type="module">
+const $ = id => document.getElementById(id);
+const log = m => { $('log').textContent = m; };
+const CELL = 300;
+let BG = 'black';
+
+// 종목별: 라벨 · 시뮬 종목 버튼 · 인물이 보이는 스테이지 · 그 판을 찾는 프래그먼트 표식
+const KINDS = {
+  bx:  { label: '복싱 · 벽',   sport: null,   stage: 'BX_A2', mark: 'uTrail'   },
+  run: { label: '러닝 · 바닥', sport: '러닝', stage: 'A1',    mark: 'uCropOff' },
+  bk:  { label: '농구 · 바닥', sport: '농구', stage: 'BK_A1', mark: 'uCropOff' },
+};
+const cells = {};
+function cell(key) {
+  if (cells[key]) return cells[key];
+  const d = document.createElement('div'); d.className = 'cell';
+  const c = document.createElement('canvas'); c.width = c.height = CELL;
+  const cap = document.createElement('div'); cap.className = 'cap';
+  cap.innerHTML = `<b>${KINDS[key].label}</b><br><span>—</span>`;
+  d.append(c, cap); $('stage').append(d);
+  return (cells[key] = { root: d, cv: c, cap });
+}
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const W = () => $('app').contentWindow;
+
+async function ready() {
+  for (let i = 0; i < 120; i++) { if (W()?.__dbg?.THREE) return; await sleep(500); }
+  throw new Error('시뮬 로드 실패');
+}
+async function toSport(name) {
+  if (!name) return;
+  const b = [...W().document.querySelectorAll('button')].find(x => (x.textContent || '').trim() === name);
+  if (b) b.click();
+  await sleep(2500);
+}
+async function toStage(id) {
+  const D = W().__dbg, btn = W().document.getElementById('btn-session');
+  if (!D.session.active && btn) { btn.click(); await sleep(3000); }
+  for (let i = 0; i < 14; i++) {
+    if (D.session.stages[D.session.stageIdx].id === id) return true;
+    D.session.next(); await sleep(900);
+  }
+  return false;
+}
+
+/** 인물 판을 **정면 직교**로 렌더 → 픽셀을 읽어 셀 캔버스에 올린다.
+ *  반드시 시뮬 렌더러(=같은 GL 컨텍스트)로 그린다. 재질·텍스처·RT 가 그 컨텍스트 소유라
+ *  다른 렌더러를 새로 만들면 전부 빈 텍스처가 된다. 재현이 아니라 이식이어야 한다. */
+function shoot(key) {
+  const D = W().__dbg, T = D.THREE, R = D.renderer;
+  let mesh = null;
+  D.scene.traverse(o => {
+    if (o.isMesh && o.visible && o.material && !Array.isArray(o.material)
+        && new RegExp(KINDS[key].mark).test(o.material.fragmentShader || '')) mesh = o;
+  });
+  if (!mesh) return null;
+  mesh.updateWorldMatrix(true, false);
+
+  const g = mesh.geometry.parameters || { width: 1, height: 1 };
+  const sc = new T.Vector3(); mesh.getWorldScale(sc);
+  const w = g.width * sc.x, h = g.height * sc.y;
+  const q = new T.Quaternion(); mesh.getWorldQuaternion(q);
+  const n  = new T.Vector3(0, 0, 1).applyQuaternion(q);   // 판의 법선
+  const up = new T.Vector3(0, 1, 0).applyQuaternion(q);   // 판의 위쪽(바닥 판은 전방)
+  const c  = new T.Vector3(); mesh.getWorldPosition(c);
+
+  // 정면 직교 — 바닥 판은 눕혀 있어 원래 화면에선 납작하게 눌린다. 여기선 그 왜곡을 없앤다.
+  const half = Math.max(w, h) * 0.5 * 1.06;
+  const cam = new T.OrthographicCamera(-half, half, half, -half, 0.01, 20);
+  cam.position.copy(c).addScaledVector(n, 3);
+  cam.up.copy(up); cam.lookAt(c); cam.updateMatrixWorld();
+
+  // 원본을 트리에서 떼지 않는다(시뮬이 계속 돌아야 한다) — 같은 지오메트리·재질을 쓰는 프록시
+  const proxy = new T.Mesh(mesh.geometry, mesh.material);
+  proxy.position.copy(c); proxy.quaternion.copy(q); proxy.scale.copy(sc);
+  proxy.frustumCulled = false;
+  const scene = new T.Scene(); scene.add(proxy);
+
+  const rt = new T.WebGLRenderTarget(CELL, CELL);
+  const prevRT = R.getRenderTarget(), prevC = R.getClearColor(new T.Color()), prevA = R.getClearAlpha();
+  R.setRenderTarget(rt);
+  R.setClearColor(BG === 'black' ? 0x000000 : 0xffffff, 1);
+  R.clear();
+  R.render(scene, cam);
+  const px = new Uint8Array(CELL * CELL * 4);
+  R.readRenderTargetPixels(rt, 0, 0, CELL, CELL, px);
+  R.setRenderTarget(prevRT); R.setClearColor(prevC, prevA);
+  rt.dispose();
+
+  const out = new Uint8ClampedArray(CELL * CELL * 4);   // readRenderTargetPixels 는 y 가 뒤집혀 온다
+  for (let y = 0; y < CELL; y++)
+    out.set(px.subarray((CELL - 1 - y) * CELL * 4, (CELL - y) * CELL * 4), y * CELL * 4);
+  return new ImageData(out, CELL, CELL);
+}
+
+/** 인물 픽셀 **전체 평균**. 상위 N% 만 보면 몇 안 되는 진한 픽셀이 전체를 대표해
+ *  '비슷하다'는 거짓 결론이 나온다 — 08-01 에 실제로 그렇게 틀렸다. */
+function stat(img) {
+  const d = img.data; let n = 0, R = 0, G = 0, B = 0;
+  for (let i = 0; i < d.length; i += 4) {
+    const r = d[i], g = d[i + 1], b = d[i + 2];
+    const mx = Math.max(r, g, b), mn = Math.min(r, g, b);
+    if (mx < 24 || (mx - mn) / mx < 0.12) continue;   // 배경·무채 제외
+    R += r; G += g; B += b; n++;
+  }
+  if (!n) return null;
+  R = Math.round(R / n); G = Math.round(G / n); B = Math.round(B / n);
+  const mx = Math.max(R, G, B), mn = Math.min(R, G, B);
+  return { hex: '#' + [R, G, B].map(v => v.toString(16).padStart(2, '0')).join(''),
+           sat: ((mx - mn) / mx).toFixed(3), val: (mx / 255).toFixed(3), n };
+}
+
+async function load(key) {
+  const K = KINDS[key];
+  log(`${K.label} — 시뮬 전환 중…`);
+  await ready();
+  await toSport(K.sport);
+  await toStage(K.stage);
+  await sleep(3500);                       // 영상 디코드·필드 안정화
+  const img = shoot(key), c = cell(key);
+  if (!img) { c.cap.querySelector('span').textContent = '판을 못 찾음'; log(`${K.label} — 인물 판이 안 보인다`); return; }
+  c.cv.getContext('2d').putImageData(img, 0, 0);
+  c.root.style.background = BG === 'black' ? '#000' : '#fff';
+  const s = stat(img);
+  c.cap.querySelector('span').innerHTML = s
+    ? `<span class=swatch style="background:${s.hex}"></span>${s.hex} · 채도 ${s.sat} · 명도 ${s.val}`
+    : '측정 실패';
+  log(`${K.label} 완료.`);
+}
+
+$('b-bx').onclick  = () => load('bx');
+$('b-run').onclick = () => load('run');
+$('b-bk').onclick  = () => load('bk');
+$('b-all').onclick = async () => { for (const k of ['bx', 'run', 'bk']) await load(k); log('세 종목 완료 — 나란히 비교.'); };
+const setBg = v => {
+  BG = v; $('bg-black').classList.toggle('on', v === 'black'); $('bg-white').classList.toggle('on', v === 'white');
+  for (const k in cells) cells[k].root.style.background = v === 'black' ? '#000' : '#fff';
+};
+$('bg-black').onclick = () => setBg('black');
+$('bg-white').onclick = () => setBg('white');
+</script></body></html>
