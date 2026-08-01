@@ -412,13 +412,19 @@ vec3 personLook(float thick, float lumS, float lumB, float mIn, float face, floa
   float kExp = 0.5 / max(uPExp, 0.06);
   lumS *= kExp; lumB *= kExp;
   if (uPForm > 0.5) {
-    // 깊이 = 두께장. 가장자리 0 → 최심부 1.
-    float d = pow(smoothstep(0.02, 0.98, clamp(thick, 0.0, 1.0)), 0.85);
-    // 사진의 결은 형태를 흔드는 정도로만 얹는다(±12%) — 주인은 형태다.
+    // 깊이 = 두께장. 가장자리 0 → 최심부 1. 실사용 범위가 좁아 0.10~0.80 으로 편다.
+    float d = smoothstep(0.10, 0.80, clamp(thick, 0.0, 1.0));
+    // 사진의 결은 형태를 흔드는 정도로만 얹는다 — 주인은 형태다.
     float tex = (lumS - lumB) * 1.2;
     d = clamp(d * (1.0 + clamp(tex, -0.5, 0.5) * 0.24), 0.0, 1.0);
-    // 색은 램프에서, **밝기는 깊이에서**. 가장자리가 검정으로 떨어져 배경에 녹는다.
-    return personColor(d) * pow(d, 0.9);
+    // ★ 레퍼런스 방향(유저 08-01): **코어가 진한 코랄, 가장자리가 뽀얗게 빠진다.**
+    //   처음엔 반대로 깔았다(가장자리 → 검정) — 투사광에서 검정은 '빛 없음'이라 인물이
+    //   시커멓게 죽었다. LUT 는 T=0 이 RED, T=1 이 ICE 이므로 깊이를 **뒤집어** 넣는다.
+    float T = pow(1.0 - d, 0.75);
+    vec3 c = personColor(T);
+    // 경계의 부드러움 = 마지막 얇은 층을 우유빛으로 태워 보낸다(어둡게가 아니라 밝게).
+    float milkE = pow(1.0 - d, 3.0) * 0.55 + face * 0.9 * P_MILK;
+    return clamp(mix(c, vec3(1.0, 0.97, 0.94), clamp(milkE, 0.0, 1.0)), 0.0, 1.0);
   }
   // 절대 휘도를 그대로 읽으면 클립 노출차가 곧 색차가 된다 — 밝게 찍은 러닝·농구 코치가
   //   통째로 LUT 밝은 쪽(SAND)으로 밀려 하얘졌다(유저: "왜 러닝 농구는 더 하얘?").
