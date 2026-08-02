@@ -2400,7 +2400,11 @@ void main(){
   let _cf = null;
   function coachField() {
     if (_cf) return _cf;
-    const RW = 480, RH = 720;   // 320×480 은 960² 소스의 미세 결(저지 주름)을 3배 다운샘플로 죽였다 — 룩2 stdG 병목(실측 16 vs 27)
+    // 씬 스테이지(?scene=)는 인물이 화면을 크게 채운다 — 필드 격자를 2배로(찌글임 완화, 유저).
+    // ★ 블러 σ 는 UV 기준 보존: 텍셀 간격을 '기준 해상도(480×720)'로 고정하고 RT 만 키운다.
+    //   σ 가 좁아지면 룩2 캘리브레이션(표면블러 keep·detail)이 통째로 틀어진다.
+    const HQ = new URLSearchParams(location.search).get('scene') != null ? 2 : 1;
+    const RW = 480 * HQ, RH = 720 * HQ;   // 320×480 은 960² 소스의 미세 결(저지 주름)을 3배 다운샘플로 죽였다 — 룩2 stdG 병목(실측 16 vs 27)
     // (renderCoachField 의 가로 등방 보정이 이 값을 읽는다)
     const vs = 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }';
     const src = new THREE.ShaderMaterial({
@@ -2441,7 +2445,8 @@ void main(){
     //     (0.25→0.42 에서 국소Δ색상 0.581→0.701). 같은 시도를 또 하지 않도록 남긴다.
     const LW = RW >> 2, LH = RH >> 2;
     // A/B = 핑퐁, N = 1회 블러(좁음 — 이목구비·모공만 지운 '결'), W = 3회 블러(넓음 — 두께장·노출)
-    _cf = { rts: [mk(), mk(), mk(), mk()], lo: [mk(LW, LH), mk(LW, LH)], texel: [1 / RW, 1 / RH, 1 / LW, 1 / LH],
+    _cf = { rts: [mk(), mk(), mk(), mk()], lo: [mk(LW, LH), mk(LW, LH)],
+            texel: [HQ / RW, HQ / RH, HQ / LW, HQ / LH],   // 기준 해상도 텍셀 — σ 보존(위 주석)
             rw: RW, rh: RH,   // 가로 등방 보정(renderCoachField)이 읽는다
             cam: new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1), src, blur, sc, quad };
     return _cf;

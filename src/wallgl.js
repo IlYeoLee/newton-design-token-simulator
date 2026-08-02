@@ -299,7 +299,7 @@ export class WallGL {
     const TGAP = 20.429, TBH = 52 * 1.2 + TGAP + 32 * 1.2;   // 텍스트 블록 실높이
     const ty = py + ph / 2 - TBH / 2;
     txt(ctx, 'Bring the Ring Home', tx, ty, 52, 700, NEU.t2, { ls: -2.55 });   // 좌측 컬럼 텍스트 = Location 라벨 회색(t2)로 통일(유저)
-    txt(ctx, 'Casey · Boxing · Quiet On', tx, ty + 52 * 1.2 + TGAP, 32, 400, NEU.t2, { ls: -.96 });
+    txt(ctx, 'Casey · Skilled User', tx, ty + 52 * 1.2 + TGAP, 32, 400, NEU.t2, { ls: -.96 });
     ctx.restore();
 
     // 스탯 카드 — slideInLeft .85s .35s
@@ -364,7 +364,7 @@ export class WallGL {
     ctx.restore();
     y += totH + 32;
     // ── Setup
-    txt(ctx, 'Setup', ix + PADL, y + 6, 34, 400, NEU.t1, { ls: -1.13 });
+    txt(ctx, 'Setup', ix + PADL, y + 6, 34, 400, NEU.t2, { ls: -1.13 });
     y += 48 + 8;
     // 흰 래퍼 폐기 — 회색 카드 → 흰 박스 → 셀 로 컨테이너가 3중이었다(유저: "박스 안의 박스").
     //   가운데 박스는 정보를 안 늘리고 묶기만 하는데 그 일은 'Setup' 라벨이 이미 한다.
@@ -399,7 +399,7 @@ export class WallGL {
     });
     y += setH + 32;
     // ── Connected
-    txt(ctx, 'Connected', ix + PADL, y + 6, 34, 400, NEU.t1, { ls: -1.13 });
+    txt(ctx, 'Connected', ix + PADL, y + 6, 34, 400, NEU.t2, { ls: -1.13 });
     y += 48 + 8;
     // 폭에서 CPAD*2 를 빼면서 시작 x 에는 안 더해, 3장이 왼쪽으로 붙고 오른쪽에 48px 이 남았다
     // (유저: 좌우 FILL). 위 Setup 2열은 (iw - CGAP)/2 로 iw 를 꽉 채우므로 오른쪽 끝도 안 맞았다.
@@ -452,24 +452,26 @@ export class WallGL {
     const gl = this._img('glow.svg'), gp = cycle(t, 0, 4.6, INF);
     if (gl) {
       ctx.save();
-      ctx.globalAlpha *= 0.8 * (gp == null ? .86 : kf(gp, [[0, .86], [.5, 1], [1, .86]]));   // 배경 투명도 80(유저)
+      ctx.globalAlpha *= gp == null ? .86 : kf(gp, [[0, .86], [.5, 1], [1, .86]]);
+      ctx.filter = 'brightness(1.35) saturate(1.05)';   // 블렌드 느낌: 더 밝지만 투명하게(유저)
       const gs = gp == null ? 1 : kf(gp, [[0, 1], [.5, 1.055], [1, 1]]);
       const gcx = FX - 70 + 450, gcy = FY - 70 + 455;
       ctx.translate(gcx, gcy); ctx.scale(gs, gs); ctx.translate(-gcx, -gcy);
       ctx.drawImage(gl, FX - 70, FY - 70, 900, 910);
+      ctx.filter = 'none';
       ctx.restore();
     }
     // 발 — footBob 5.5s 2.2s ∞
     const fb = cycle(t, 2.2, 5.5, INF);
     const fdy = fb == null ? 0 : kf(fb, [[0, 0], [.10, 34], [.20, 6], [.32, 31], [.44, 0], [.70, 0], [1, 0]]);
     const foot = this._tinted('foot_shape.png', 300, 400, [[0, rgba(PAL.sand, 0)], [.37, rgba(PAL.sand, .35)], [.94, RED], [1, RED]]);
-    if (foot) { ctx.save(); ctx.globalAlpha *= .9 * 0.8; ctx.drawImage(foot, FX + 380 - 150, FY + 275 + fdy, 300, 400); ctx.restore(); }
+    if (foot) { ctx.save(); ctx.globalAlpha *= .9; ctx.filter = 'brightness(1.2)'; ctx.drawImage(foot, FX + 380 - 150, FY + 275 + fdy, 300, 400); ctx.filter = 'none'; ctx.restore(); }
     // 원반 — floatY 5s 2.2s ∞
     const disc = this._img('footprint_shadow.svg'), fy2 = cycle(t, 2.2, 5, INF);
     if (disc) {
       const dh = 370 * (disc.naturalHeight / disc.naturalWidth);
       const dd = fy2 == null ? 0 : kf(fy2, [[0, -7], [.5, 9], [1, -7]]);
-      ctx.save(); ctx.globalAlpha *= 0.8; ctx.drawImage(disc, FX + 380 - 185, FY + 678 + dd, 370, dh); ctx.restore();
+      ctx.save(); ctx.filter = 'brightness(1.2)'; ctx.drawImage(disc, FX + 380 - 185, FY + 678 + dd, 370, dh); ctx.filter = 'none'; ctx.restore();
     }
     // CTA
     const ar = this._img('arrow-right.svg');
