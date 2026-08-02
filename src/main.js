@@ -4318,8 +4318,12 @@ void main(){
     const q = new URLSearchParams(location.search);
     const scene = q.get('scene');
     if (!scene) return null;
+    // 검은 커튼 — 부팅 UI·로딩 스피너가 씬 전환마다 번쩍이던 것(유저). 준비되면 걷는다.
+    const cover = document.createElement('div');
+    cover.style.cssText = 'position:fixed;inset:0;background:#000;z-index:2147483647;transition:opacity .7s ease';
+    (document.body || document.documentElement).appendChild(cover);
     const view = q.get('view') || (/^BX_/.test(scene) ? 'wall' : 'floor');
-    return { scene, view, ui: false, sport: false, jumped: false };
+    return { scene, view, ui: false, sport: false, cover, okT: 0 };
   })();
   function tickSceneStage() {
     if (!SCENE_STAGE) return;
@@ -4353,6 +4357,15 @@ void main(){
     else if (session.curStage?.id !== S.scene) {
       const i = session.stages.findIndex(x => x.id === S.scene);
       if (i >= 0) { session.stageIdx = i; session.t = 0; session._enter(); }
+    }
+    // 커튼 걷기 — 씬에 실제 진입해 1.5초 안정된 뒤 페이드아웃(1회)
+    if (S.cover) {
+      if (session.curStage?.id === S.scene) S.okT++;
+      if (S.okT > 90) {
+        const c = S.cover; S.cover = null;
+        c.style.opacity = '0';
+        setTimeout(() => c.remove(), 800);
+      }
     }
     // 카메라 정면 고정 — 망원(FOV 9°)이라 사실상 무왜곡 정면
     if (S.view === 'wall') {
