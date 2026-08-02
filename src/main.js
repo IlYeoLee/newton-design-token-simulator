@@ -2307,18 +2307,18 @@ void main(){
   // 룩시스템 열화상 코치 패널(A1 목·어깨, A2 런지 공용) — 그린스크린 영상 → 복싱 벽 톤 열화상.
   //   cfg: { src, cropOff, cropScale(세로 크롭 창), w, h, fwd }  crop을 uniform으로 빼 스테이지별 대응.
   const COACH_CFG = {
-    A1: { src: 'ready-view/assets/sean_neck_shoulder.webm', cropOff: 0.40, cropScale: 0.58, w: 0.88, h: 0.9, fwd: 0.16 },   // A2 런지와 크기 맞춤(유저: 너무 작음)
-    A2: { src: 'ready-view/assets/sean_lunge.webm', cropOff: 0.0, cropScale: 1.0, w: 0.9, h: 0.9, fwd: 0.10, zoom: 0.86 },   // 런지 전신 측면 — 축소로 뒷발이 프레임 페이드에 안 걸리게(유저)
-    A3: { src: 'ready-view/assets/sean_highknee.webm', cropOff: 0.0, cropScale: 1.0, w: 0.9, h: 0.9, fwd: 0.10 },   // 하이니 전신 정면
+    A1: { src: 'ready-view/assets/sean_neck_shoulder.webm', cropOff: 0.40, cropScale: 0.58, w: 0.88, h: 0.9, fwd: 0.16, ph: 0.83 },   // A2 런지와 크기 맞춤(유저: 너무 작음)
+    A2: { src: 'ready-view/assets/sean_lunge.webm', cropOff: 0.0, cropScale: 1.0, w: 0.9, h: 0.9, fwd: 0.10, zoom: 0.86, ph: 0.65 },   // 런지 전신 측면 — 축소로 뒷발이 프레임 페이드에 안 걸리게(유저)
+    A3: { src: 'ready-view/assets/sean_highknee.webm', cropOff: 0.0, cropScale: 1.0, w: 0.9, h: 0.9, fwd: 0.10, ph: 0.87 },   // 하이니 전신 정면
     // 농구 워밍업 코치 영상(kling i2v·그린스크린 960²) — 러닝 A2/A3와 동일 크기(w/h 0.9). 인물이 프레임 채워 1.2는 넘침(유저).
     // _pp = 정방향+역방향 이어붙인 핑퐁 클립(ffmpeg reverse) — 끝에서 뚝 끊고 처음으로 점프하던 것 제거(유저).
     //   loop=true 그대로 두고 자산만 교체 = 런타임 역재생(currentTime 역주행 시킹) 비용 0.
-    BK_A1: { src: 'ready-view/assets/bk_sidebend_pp.webm', cropOff: 0.0, cropScale: 1.0, w: 0.9, h: 0.9, fwd: 0.10 },   // 옆구리 스트레치
-    BK_A2: { src: 'ready-view/assets/bk_highknee.webm', cropOff: 0.0, cropScale: 1.0, w: 0.9, h: 0.9, fwd: 0.10 },   // 무릎 들기
+    BK_A1: { src: 'ready-view/assets/bk_sidebend_pp.webm', cropOff: 0.0, cropScale: 1.0, w: 0.9, h: 0.9, fwd: 0.10, ph: 0.80 },   // 옆구리 스트레치
+    BK_A2: { src: 'ready-view/assets/bk_highknee.webm', cropOff: 0.0, cropScale: 1.0, w: 0.9, h: 0.9, fwd: 0.10, ph: 0.85 },   // 무릎 들기
     // 훈련 관찰 공통 — 이게진짜.mp4(그린스크린 정면 로우 드리블) 핑퐁 베이크(_pp, ffmpeg reverse concat)
-    BK_B1: { src: 'bhandle_pp.mp4', cropOff: 0.0, cropScale: 1.0, w: 0.42, h: 0.75, fwd: 0.45 },   // fwd 0.10 은 1인칭에서 하반신이 시야·투사면 밖 — 패더 대신 배치로 해결(유저)
-    BK_B2: { src: 'stepback_fwd.mp4', cropOff: 0.0, cropScale: 1.0, w: 1.04, h: 0.87, fwd: 0.10 },   // 소스 720x1280 — 9:16 유지(정사각은 세로 눌림)
-    BK_B5: { src: 'stepback_fwd.mp4', cropOff: 0.0, cropScale: 1.0, w: 1.04, h: 0.87, fwd: 0.10 },
+    BK_B1: { src: 'bhandle_pp.mp4', cropOff: 0.0, cropScale: 1.0, w: 0.42, h: 0.75, fwd: 0.45, ph: 0.62 },   // fwd 0.10 은 1인칭에서 하반신이 시야·투사면 밖 — 패더 대신 배치로 해결(유저)
+    BK_B2: { src: 'stepback_fwd.mp4', cropOff: 0.0, cropScale: 1.0, w: 1.04, h: 0.87, fwd: 0.10, ph: 0.63, rng: [0.03, 0.86] },   // 소스 720x1280 · rng = 인물 블롭 실측(골대·콘이 측정 오염)
+    BK_B5: { src: 'stepback_fwd.mp4', cropOff: 0.0, cropScale: 1.0, w: 1.04, h: 0.87, fwd: 0.10, ph: 0.63, rng: [0.03, 0.86] },
     BK_B4: { src: 'stepback_fwd.mp4', cropOff: 0.0, cropScale: 1.0, w: 1.04, h: 0.87, fwd: 0.10 },
     BK_B3: { src: 'stepback_fwd.mp4', cropOff: 0.0, cropScale: 1.0, w: 1.04, h: 0.87, fwd: 0.10 },   // 소스 720x1280 — 9:16 유지(정사각은 세로 눌림)
     BK_C2: { src: 'stepback_fwd.mp4', cropOff: 0.0, cropScale: 1.0, w: 1.04, h: 0.87, fwd: 0.10 },   // 실전 = 같은 클립을 타이밍 소스로만(따라하기 시작하면 화면에선 숨김)
@@ -2469,10 +2469,14 @@ void main(){
     const srcH = (vid?.videoHeight || vid?.height || 1) * (co.mat.uniforms.uCropScale.value || 1);
     // 가로 스텝을 이 비율만큼 줄이면 소스 픽셀 기준으로 등방이 된다
     const kx = Math.min(1, (srcH / f.rh) / Math.max(srcW / f.rw, 1e-4));
+    // ★ 인물 비례 반경 — 반경이 RT 고정이라 인물이 프레임에서 작을수록(광각 클립) 상대
+    //   블러가 커져 결이 뭉개지고 흰 레이어가 퍼져 단조로워졌다(유저 #73). 클립별 실측
+    //   인물 높이(cfg.ph, 기준 0.83)에 비례시켜 어떤 프레이밍이든 같은 결 스케일.
+    const kp = (co.cfg?.ph ?? 0.8) / 0.83;
     const pass = (srcRT, dstRT, dir, lo) => {
       f.blur.uniforms.tex.value = srcRT.texture; f.blur.uniforms.uDir.value.set(dir[0], dir[1]);
-      const tx = (lo ? f.texel[2] : f.texel[0]) * (dir[0] ? kx : 1);
-      f.blur.uniforms.uTexel.value.set(tx, lo ? f.texel[3] : f.texel[1]);
+      const tx = (lo ? f.texel[2] : f.texel[0]) * (dir[0] ? kx : 1) * kp;
+      f.blur.uniforms.uTexel.value.set(tx, (lo ? f.texel[3] : f.texel[1]) * kp);
       renderer.setRenderTarget(dstRT); renderer.clear(); renderer.render(f.sc, f.cam);
     };
     // N(좁음) = 고해상 1회. detail = N - W 인데 두 σ가 가까우면 DoG(밴드패스)가 되어
@@ -2623,7 +2627,7 @@ void main(){
     const fz = document.createElement('canvas'); fz.width = 2; fz.height = 2;
     const fzTex = new THREE.CanvasTexture(fz); fzTex.colorSpace = THREE.SRGBColorSpace;
     const co = _coaches[id] = { video, plane, _fwd: new THREE.Vector3(), fwd: cfg.fwd,
-      tex, mat, fz, fzTex, _frozen: false };
+      tex, mat, fz, fzTex, _frozen: false, cfg };   // cfg = ph(인물 높이)·rng(범위 오버라이드) 등
     // A1: 코치 영상 위에 회전 큐 2개(drawRotate 룩시스템) — 목(위·작게) + 어깨(아래·크게) 동시에 돌리기 지시.
     if (id === 'A1') {
       const mkCue = (size, x, y) => {
@@ -2786,7 +2790,12 @@ void main(){
         // 바닥은 0.64 — 0.86 은 LUT 의 SAND(#FEC389, 채도 0.46)에 닿아 밝은 자리가 물빠진 살구가 된다.
         //   벽(0.86)과 맞춘다고 올려놨었는데, 벽은 세로 램프로 T 를 0.06~0.98 훑어 진한 쪽 면적이
         //   크고 바닥은 안 그렇다 — 같은 상한이 두 면에서 다른 결과를 낸다. fx-core 주석의 원래 값.
-        setPersonUniforms(co.plane.material.uniforms, 0.86, 0, clipExposure(co.video, co), co._lo ?? 0.12, co._hi ?? 0.85, 1);   // 코치판 텍스처는 SRGBColorSpace = 셰이더 휘도 리니어
+        {
+          const exp2 = clipExposure(co.video, co);
+          const lo2 = co.cfg?.rng ? co.cfg.rng[0] : (co._lo ?? 0.12);
+          const hi2 = co.cfg?.rng ? co.cfg.rng[1] : (co._hi ?? 0.85);
+          setPersonUniforms(co.plane.material.uniforms, 0.86, 0, exp2, lo2, hi2, 1);   // rng = 클립 고정 오버라이드(광각 소품 오염 대응)
+        }
         // 옆구리(BK_A1) 방향 화살표 = 코치 영상 실제 타이밍에 동기.
         //   bk_sidebend.webm 24fps 84프레임을 그린스크린 마스크로 프레임별 상체/하체 x중심을 재서
         //   기우는 쪽을 실측(scripts 없이 ffmpeg+마스크 1회 측정). 아래 표는 원본 3.5s 클립 기준 전이 시각.
