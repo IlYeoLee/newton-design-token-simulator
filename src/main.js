@@ -2317,11 +2317,11 @@ void main(){
     BK_A2: { src: 'ready-view/assets/bk_highknee.webm', cropOff: 0.0, cropScale: 1.0, w: 0.9, h: 0.9, fwd: 0.10, ph: 0.85 },   // 무릎 들기
     // 훈련 관찰 공통 — 이게진짜.mp4(그린스크린 정면 로우 드리블) 핑퐁 베이크(_pp, ffmpeg reverse concat)
     BK_B1: { src: 'bhandle_pp.mp4', cropOff: 0.0, cropScale: 1.0, w: 0.55, h: 0.98, fwd: 0.22, ph: 0.62 },   // 워밍업 위계와 크기·거리 통일(유저 #75) — 0.42/fwd0.45 는 작고 멀었다. 9:16 유지
-    BK_B2: { src: 'stepback_fwd.mp4', cropOff: 0.0, cropScale: 1.0, w: 1.04, h: 0.87, fwd: 0.10, ph: 0.63, rng: [0.03, 0.86], tone: 0.035 },   // 소스 720x1280 · rng = 인물 블롭 실측(골대·콘이 측정 오염)
-    BK_B5: { src: 'stepback_fwd.mp4', cropOff: 0.0, cropScale: 1.0, w: 1.04, h: 0.87, fwd: 0.10, ph: 0.63, rng: [0.03, 0.86], tone: 0.035 },
-    BK_B4: { src: 'stepback_fwd.mp4', cropOff: 0.0, cropScale: 1.0, w: 1.04, h: 0.87, fwd: 0.10, ph: 0.63, rng: [0.03, 0.86], tone: 0.035 },
-    BK_B3: { src: 'stepback_fwd.mp4', cropOff: 0.0, cropScale: 1.0, w: 1.04, h: 0.87, fwd: 0.10, ph: 0.63, rng: [0.03, 0.86], tone: 0.035 },   // 소스 720x1280 — 9:16 유지
-    BK_C2: { src: 'stepback_fwd.mp4', cropOff: 0.0, cropScale: 1.0, w: 1.04, h: 0.87, fwd: 0.10, ph: 0.63, rng: [0.03, 0.86], tone: 0.035 },   // 실전 = 같은 클립을 타이밍 소스로만
+    BK_B2: { src: 'stepback_fwd.mp4', cropOff: 0.0, cropScale: 1.0, w: 1.04, h: 0.87, fwd: 0.10, ph: 0.63, rng: [0.03, 0.86], tone: 0.09 },   // 소스 720x1280 · rng = 인물 블롭 실측(골대·콘이 측정 오염)
+    BK_B5: { src: 'stepback_fwd.mp4', cropOff: 0.0, cropScale: 1.0, w: 1.04, h: 0.87, fwd: 0.10, ph: 0.63, rng: [0.03, 0.86], tone: 0.09 },
+    BK_B4: { src: 'stepback_fwd.mp4', cropOff: 0.0, cropScale: 1.0, w: 1.04, h: 0.87, fwd: 0.10, ph: 0.63, rng: [0.03, 0.86], tone: 0.09 },
+    BK_B3: { src: 'stepback_fwd.mp4', cropOff: 0.0, cropScale: 1.0, w: 1.04, h: 0.87, fwd: 0.10, ph: 0.63, rng: [0.03, 0.86], tone: 0.09 },   // 소스 720x1280 — 9:16 유지
+    BK_C2: { src: 'stepback_fwd.mp4', cropOff: 0.0, cropScale: 1.0, w: 1.04, h: 0.87, fwd: 0.10, ph: 0.63, rng: [0.03, 0.86], tone: 0.09 },   // 실전 = 같은 클립을 타이밍 소스로만
     BK_A3: { src: 'ready-view/assets/bk_squat.webm',    cropOff: 0.0, cropScale: 1.0, w: 0.9, h: 0.9, fwd: 0.10 },   // 스쿼트
   };
   const _coaches = {};   // stageId → { video, plane, _fwd }
@@ -2374,19 +2374,19 @@ void main(){
   //     uPSweep = 세로 열 그라디언트 폭(0 = 도입 전과 픽셀 동일).
   //     coral   = 코랄 억제(면별). 코랄은 램프 한가운데라 T 가 고르면 최대 면적을 먹는다 —
   //               벽은 T 가 높이라 그게 곧 몸통이다. 0 = 도입 전과 픽셀 동일.
-  const setPersonUniforms = (U, hi = 0.86, coral = 0, exp = 0.5, lo = 0.12, hiL = 0.85, lumLin = 0) => {   // hi = 대역 상단(면별) · exp = 클립 실측 노출 · lo/hiL = 클립 휘도 범위 · lumLin = 텍스처 리니어 여부
+  const setPersonUniforms = (U, hi = 0.86, coral = 0, exp = 0.5, lo = 0.12, hiL = 0.85, lumLin = 0, tone = 0) => {   // hi = 대역 상단 · exp = 노출 · lo/hiL = 휘도 범위 · lumLin = 텍스처 리니어 · tone = 클립별 톤 트림
     if (!U) return;
     if (U.uPExp) U.uPExp.value = exp;
     if (U.uPLo) U.uPLo.value = lo;
     if (U.uPHiL) U.uPHiL.value = hiL;
     if (U.uPLumLin) U.uPLumLin.value = lumLin;
+    // ★ cal 이 없어도 **무조건 리셋** — 조건부 리셋이던 동안 클립 tone 가산이 매 프레임
+    //   누적돼 발산했다(실측: 1초에 +0.27 씩). 유니폼은 절대값 대입만.
     const cal = FXP.person?.cal;
-    if (cal) {
-      if (U.uPCalWave) U.uPCalWave.value = cal.wave ?? 1;
-      if (U.uPCalD) U.uPCalD.value = cal.d ?? 1;
-      if (U.uPCalW) U.uPCalW.value = cal.w ?? 1;
-      if (U.uPCalB) U.uPCalB.value = cal.b ?? 0;
-    }
+    if (U.uPCalWave) U.uPCalWave.value = cal?.wave ?? 1;
+    if (U.uPCalD) U.uPCalD.value = cal?.d ?? 1;
+    if (U.uPCalW) U.uPCalW.value = cal?.w ?? 1;
+    if (U.uPCalB) U.uPCalB.value = (cal?.b ?? 0) + tone;
     if (U.uPForm) U.uPForm.value = FXP.person?.form ?? 0;   // 레퍼런스 규약 토글(랩에서 켠다)
     if (U.uPCoral) U.uPCoral.value = coral;
     if (U.uPSat) U.uPSat.value = 1.0 + (FXP.sat ?? 1) * 0.32;
@@ -2794,8 +2794,7 @@ void main(){
           const exp2 = clipExposure(co.video, co);
           const lo2 = co.cfg?.rng ? co.cfg.rng[0] : (co._lo ?? 0.12);
           const hi2 = co.cfg?.rng ? co.cfg.rng[1] : (co._hi ?? 0.85);
-          setPersonUniforms(co.plane.material.uniforms, 0.86, 0, exp2, lo2, hi2, 1);   // rng = 클립 고정 오버라이드(광각 소품 오염 대응)
-          if (co.plane.material.uniforms.uPCalB) co.plane.material.uniforms.uPCalB.value += co.cfg?.tone ?? 0;   // 클립별 톤 트림(전수검사 기반)
+          setPersonUniforms(co.plane.material.uniforms, 0.86, 0, exp2, lo2, hi2, 1, co.cfg?.tone ?? 0);   // rng·tone = 클립별 오버라이드
         }
         // 옆구리(BK_A1) 방향 화살표 = 코치 영상 실제 타이밍에 동기.
         //   bk_sidebend.webm 24fps 84프레임을 그린스크린 마스크로 프레임별 상체/하체 x중심을 재서

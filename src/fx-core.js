@@ -560,6 +560,10 @@ vec4 personAura(float mBody, float wide, float lumSharp, float lumBase, float fa
   float dth = (fract(sin(dot(uv * 1483.0 + fract(ta * 1.7) * 3.0, vec2(12.9898, 78.233))) * 43758.5453) - 0.5)
             * (0.010 + face * 0.022);
   vec3 c = look2Ramp(clamp(t + dth, 0.0, 1.0));
+  // 채도 부스트(유저 최종 요청: "제발 채도 올려줘") — 무채 축 기준 1.28배.
+  //   회색 바닥·밝은 코트 위에서 살몬이 먼지빛으로 읽히는 것을 원천 보정.
+  float cGray = dot(c, vec3(0.299, 0.587, 0.114));
+  c = clamp(mix(vec3(cGray), c, 1.28), 0.0, 1.0);
   // 흰 레이어 3종 — 앱 원값(이너섀도 0.28×0.75 · 라인 0.24×0.9 · 내부라인 0.14)
   // 피더는 **가장자리로만** — 얇은 팔다리는 마스크 블러가 안쪽까지 번져 (m−wide)가 사지
   //   전체에서 커지고, 흰 띠가 다리 전면을 덮어 하얗게 떴다(유저: 다리가 너무 하얗다).
