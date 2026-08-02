@@ -544,7 +544,9 @@ vec4 personAura(float mBody, float wide, float lumSharp, float lumBase, float fa
   // 최상단 소프트 숄더 — 최고열 포화 완화(러닝 hot-tail p10 실측 보정)
   band -= 0.06 * smoothstep(0.88, 1.0, band);
   // Contour 림(룩2 1.0 · 앱 rim = (열−아우라열)·0.9) — 아우라열 근사 = base 톤
-  float rim = max(0.0, band - bandB) * 0.9 * (1.0 - face);
+  // 림은 두꺼운 부위(몸통)에서만 — 얇은 팔다리에선 위쪽 모서리를 따라 진한 줄이 생겨
+  //   면이 두 줄로 갈라져 보였다(유저 #70). wide(마스크 블러)가 낮은 곳 = 얇은 부위.
+  float rim = max(0.0, band - bandB) * 0.45 * (1.0 - face) * smoothstep(0.40, 0.75, wide);
   // 웨이브(세기 1.04 · 속도 1.32 · 밴드 1.95) — 얼굴·반투명 경계 통과 금지
   float ta = tSec * 1.32;
   float wc = uv.y / 1.95;
