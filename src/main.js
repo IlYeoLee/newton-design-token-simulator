@@ -2316,7 +2316,7 @@ void main(){
     BK_A1: { src: 'ready-view/assets/bk_sidebend_pp.webm', cropOff: 0.0, cropScale: 1.0, w: 0.9, h: 0.9, fwd: 0.10 },   // 옆구리 스트레치
     BK_A2: { src: 'ready-view/assets/bk_highknee.webm', cropOff: 0.0, cropScale: 1.0, w: 0.9, h: 0.9, fwd: 0.10 },   // 무릎 들기
     // 훈련 관찰 공통 — 이게진짜.mp4(그린스크린 정면 로우 드리블) 핑퐁 베이크(_pp, ffmpeg reverse concat)
-    BK_B1: { src: 'bhandle_pp.mp4', cropOff: 0.0, cropScale: 1.0, w: 0.42, h: 0.75, fwd: 0.10 },   // 소스 720x1280 — 9:16 유지(정사각은 세로 눌림)
+    BK_B1: { src: 'bhandle_pp.mp4', cropOff: 0.0, cropScale: 1.0, w: 0.42, h: 0.75, fwd: 0.45 },   // fwd 0.10 은 1인칭에서 하반신이 시야·투사면 밖 — 패더 대신 배치로 해결(유저)
     BK_B2: { src: 'stepback_fwd.mp4', cropOff: 0.0, cropScale: 1.0, w: 1.04, h: 0.87, fwd: 0.10 },   // 소스 720x1280 — 9:16 유지(정사각은 세로 눌림)
     BK_B5: { src: 'stepback_fwd.mp4', cropOff: 0.0, cropScale: 1.0, w: 1.04, h: 0.87, fwd: 0.10 },
     BK_B4: { src: 'stepback_fwd.mp4', cropOff: 0.0, cropScale: 1.0, w: 1.04, h: 0.87, fwd: 0.10 },
@@ -2514,6 +2514,10 @@ void main(){
         // 그린 제거만. (빈 프레임 방지는 픽셀 휘도가 아니라 프레임 단위 uReady가 담당 —
         //  픽셀로 자르면 그림자·모자·옷주름이 통째로 뚫린다: 실측 피사체 14% 소실)
         float mask1(vec2 uv){ vec3 c = texture2D(map, crop(uv)).rgb; float k = c.g - max(c.r, c.b);
+          // 접지 그림자(어두운 초록)는 그린 우세가 약해 키를 반쯤 통과 → 발밑 흙탕(유저).
+          //   어두울수록 우세 판정을 증폭해 배경으로 — 인물의 어두운 옷(네이비 등)은 g<max(r,b)라 무관.
+          float lum1 = dot(c, vec3(0.299, 0.587, 0.114));
+          k *= mix(1.45, 1.0, smoothstep(0.08, 0.30, lum1));   // 2.4 는 어두운 반바지의 그린 반사까지 먹어 구멍(실측)
           return 1.0 - smoothstep(0.04, 0.14, k); }
         // 크로마키 안티에일리어싱 — 소스가 전부 yuv420p(크로마 절반 해상도)라 단일 탭 키는
         //   확대 시 2px 블록 계단으로 드러난다(유저 스샷). 대칭 5탭 평균이라 엣지 위치는 안 움직인다.
@@ -2905,6 +2909,8 @@ void main(){
       if (vuv.x < 0.0 || vuv.x > 1.0 || vuv.y < 0.0 || vuv.y > 1.0) return 0.0;
       vec3 c = texture2D(tex, vuv).rgb;
       float k = c.g - max(c.r, c.b);                     // 그린 우세도 — 결정론적 크로마 키
+      float lum1 = dot(c, vec3(0.299, 0.587, 0.114));
+      k *= mix(1.45, 1.0, smoothstep(0.08, 0.30, lum1));  // 접지 그림자(어두운 초록) 배경 판정 — 1.45(과증폭은 옷에 구멍)
       return 1.0 - smoothstep(0.05, 0.16, k);            // 임계값 = 랩 mask1 정본
     }
     // 마스크 빌더는 깨끗하게 둔다 — 하단 잘림 처리는 최종 인물 셰이더가 담당한다.
