@@ -1009,7 +1009,7 @@ export class Session {
     const sqRing = floorRing(0, -1.85, 0.20, 0.225, BRAND.red, 0.45);
     const sqArc = floorArc(0, -1.85, BRAND.sand);   // 깊이 채움(표준 링 크기)
     const nc = document.createElement('canvas'); nc.width = nc.height = 128;   // 중앙 카운트다운 숫자
-    const nmesh = new THREE.Mesh(new THREE.PlaneGeometry(0.22, 0.22),
+    const nmesh = new THREE.Mesh(new THREE.PlaneGeometry(0.15, 0.15),   // 0.22 는 링 내경의 절반 이상 — 커 보이고 글로우가 정렬을 흐림(유저)
       new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(nc), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
     nmesh.material.map.colorSpace = THREE.SRGBColorSpace;
     nmesh.userData.canvas = nc; nmesh.userData.tex = nmesh.material.map;
@@ -1030,7 +1030,7 @@ export class Session {
     //   발마크·비트바·라벨은 전부 은퇴(유저: 그래픽 후두둑·발모양 들락날락).
     const b1zone = floorRing(0, BK_STAND - 0.55 - BDEEP, 0.16, 0.20, BRAND.coral, 0.5);   // 원형 마크 — 중앙 정렬(유저)
     const b1c = document.createElement('canvas'); b1c.width = b1c.height = 128;              // 잔여 카운트 = 링 중앙
-    const b1num = new THREE.Mesh(new THREE.PlaneGeometry(0.20, 0.20),
+    const b1num = new THREE.Mesh(new THREE.PlaneGeometry(0.14, 0.14),
       new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(b1c), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
     b1num.material.map.colorSpace = THREE.SRGBColorSpace;
     b1num.userData.canvas = b1c; b1num.userData.tex = b1num.material.map;
