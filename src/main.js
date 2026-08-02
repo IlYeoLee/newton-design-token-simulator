@@ -2577,6 +2577,9 @@ void main(){
             float lumNRaw = fldN.g / max(fldN.r, 0.02);
             vec4 aura = personAura(mEro, fld.r, lumSharp, lumNRaw, faceW, uv, uTime);
             col = aura.rgb; cov = aura.a;
+            // 하단 컷 페이드 — 코랄↔바닥 직접 보간은 중간에서 흙색을 지난다(유저: 손끝 흙탕).
+            //   앱(흰 배경)처럼 **흰빛으로 바래며** 소멸시킨다. cf.y = 컷 디포커스 양.
+            col = mix(col, vec3(1.0) * cov, cf.y * 0.9);
           } else {
             col = personLook(clamp(H + pulse + dth, 0.0, 1.0), lumS, lumB, mIn, faceW, uv.y) * mEro;
             cov = mEro;
@@ -3107,6 +3110,8 @@ void main(){
             float lumNRaw = fN.g / max(fN.r, 0.02);
             vec4 aura = personAura(mEro, fB.r, lumSharp, lumNRaw, faceW, uv, uTime);
             col = aura.rgb; covA = aura.a;
+            // 하단 컷 페이드 — 흰빛으로 바래며 소멸(코치판과 동일 규약)
+            col = mix(col, vec3(1.0) * covA, cf.y * 0.9);
             // 잔상(trail) 복원 — 복싱 버스트의 가산광 궤적. 룩2 앵커색으로 은은하게.
             col = max(col, trail * vec3(0.98, 0.25, 0.06) * 0.55);
             covA = max(covA, trail * 0.3);
