@@ -4341,7 +4341,11 @@ void main(){
         }
       };
       sweep();
-      new MutationObserver(sweep).observe(document.body, { childList: true, subtree: true });
+      // 패널을 display:none 해도 resize 이벤트는 안 온다 → renderer 가 부팅 시(패널 열림) 크기로
+      // 남아 캔버스가 CSS 로 늘려지거나 우측 검은 띠가 생긴다(화질 열화의 정체). 숨긴 직후 재측정.
+      window.dispatchEvent(new Event('resize'));
+      new MutationObserver(() => { sweep(); window.dispatchEvent(new Event('resize')); })
+        .observe(document.body, { childList: true, subtree: true });
       if (typeof controls !== 'undefined' && controls) controls.enabled = false;
     }
     // 사용자 봇은 카메라와 벽 사이에 서서 화면을 가린다 — 스테이지 뷰에선 숨김(매 프레임: 리스폰 대비)
@@ -4349,7 +4353,7 @@ void main(){
     if (xbot?.model) xbot.model.visible = false;
     // 종목 전환(1회) — BK_* = 농구 · A1/A2/A3 = 러닝 · BX_* = 복싱(기본)
     if (!S.sport) {
-      const want = /^BK_/.test(S.scene) ? '농구' : /^A[123]$/.test(S.scene) ? '러닝' : null;
+      const want = /^BK_/.test(S.scene) ? '농구' : /^BX_/.test(S.scene) ? null : '러닝';   // BX_* 외 접두 없음 = 러닝(READY·A·T·P·C·FIN)
       if (want) {
         const btn = [...document.querySelectorAll('button')].find(x => x.textContent.trim() === want);
         if (btn) btn.click();

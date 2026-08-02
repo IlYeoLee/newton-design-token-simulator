@@ -15,8 +15,10 @@ const W = 2600, H = 1600;   // 대지 px (벽 2.6×1.6m 실측 1:1)
 // 캔버스 해상도 — 대지 대비 배율. 화질 vs 업로드 비용의 저울.
 // ?uiscale=N 으로 올릴 수 있다 — 4K 영상 내보내기용. 실시간에선 0.75 가 예산이다
 // (대지 통짜 업로드라 배율을 올리면 프레임당 MB가 제곱으로 는다).
-const K = Math.min(3, Math.max(0.4,
-  +(new URLSearchParams(typeof location !== 'undefined' ? location.search : '').get('uiscale')) || 0.75));             // 캔버스 해상도 — 바닥과 같은 저울(화질 vs 업로드 비용)
+// 씬 스테이지(?scene=)는 벽이 화면 전체를 채우는 정면 뷰 — 0.75 로 구우면 ~1.8× 업스케일 블러.
+// 스테이지에선 기본 2 (영상용 화질 우선, UI_FPS 12 라 업로드 예산 감당).
+const _q = new URLSearchParams(typeof location !== 'undefined' ? location.search : '');
+const K = Math.min(3, Math.max(0.4, +_q.get('uiscale') || (_q.get('scene') ? 2 : 0.75)));             // 캔버스 해상도 — 바닥과 같은 저울(화질 vs 업로드 비용)
 // UI 재도색 주기. 모션을 이식한 뒤로 정지 화면이 없어져 매 틱 9.4~9.6MB 텍스처가 올라간다
 // (24fps = 230MB/s). 씬 애니메이션이 '드드드득' 끊긴 원인 — UI 프레임을 씬보다 낮게 잡고
 // 남는 예산을 봇·영상에 돌려준다. ?uifps=N 으로 8~60 비교 가능.
@@ -56,7 +58,7 @@ function gradV(ctx, y0, y1, stops) {
 // 오도미터 롤·카운트업은 floorgl 정본(rollNum/countUp)으로 승격했다 — 도트 숫자 공통 규칙.
 
 // ── 원본 <script>의 데이터 상수 ─────────────────────────────────────────────────
-const PHASES = ['START', 'WARM UP', 'DRILL', 'FIGHT'];
+const PHASES = ['START', 'STRETCH', 'LEARN', 'STRIKE!'];
 const SCENES = {
   BX_A1: { title: 'NECK & SHOULDER ROLLS', phase: 1, sub: '1/3', coach: { num: '8', unit: 'Rolls' }, you: { num: '8', unit: 'Rolls' },
     say: 'Roll your neck and shoulders, slow', cues: ['Slow…', 'Big circles', 'Other way', 'Easy — breathe'], combos: [] },
@@ -79,19 +81,21 @@ const SCENES = {
   BX_C4: { title: 'COOL DOWN', phase: 3, sub: '3/3', coach: { num: '', unit: '' }, you: { num: '', unit: '' },
     say: 'Breathe, drop your guard. Well done', cues: ['Breathe…', 'Guard down', 'Well done', 'Good work'], combos: [] },
 };
+// 팩 정본 = Figma bK3Q9xIQ(팩 시청·설정 5화면·Main workout) — 'Bring the Ring Home' by Casey.
+//   시간 구성: Stretch 4m · Learn 8m · Strike! 23m (6 Rounds × 3m Work · 1m Rest) = Total 35m.
+const PACK = 'Bring the Ring Home';
 const TR = {
-  BX_T1: { sub: 'Boxing Basic Jab Combo', title: 'Warm-Up Done!',
-    done: { lbl: 'Stretch', time: '5min', img: 'boxer_stretch.png' },
-    next: { lbl: 'Learn', time: '10min', img: 'boxer_learn.png', badge: 'Next' } },
-  BX_T2: { sub: 'Boxing Basic Jab Combo', title: 'Learning complete!',
-    done: { lbl: 'Learn', time: '10min', img: 'boxer_learn.png' },
-    next: { lbl: 'Let’s Fight!', time: '10min', img: 'boxer_fight.png', badge: 'Next' } },
+  BX_T1: { sub: PACK, title: 'Stretch Done!',
+    done: { lbl: 'Stretch', time: '4m', img: 'boxer_stretch.png' },
+    next: { lbl: 'Learn', time: '8m', img: 'boxer_learn.png', badge: 'Next' } },
+  BX_T2: { sub: PACK, title: 'Learning complete!',
+    done: { lbl: 'Learn', time: '8m', img: 'boxer_learn.png' },
+    next: { lbl: 'Strike!', time: '23m', img: 'boxer_fight.png', badge: 'Next' } },
 };
-const TM = { BX_C1: { sub: 'Boxing Basic Jab Combo', title: 'Session Complete' } };
-const RP = { BX_FIN: { sub: 'Boxing Basic Jab Combo', title: 'Session Complete', pct: 100,
-  stats: [['Jabs Landed', '12'], ['Best Combo', '×5'], ['Avg Jab Speed', '7.2']] } };
+const TM = { BX_C1: { sub: PACK, title: 'Round 1 — 3m Work' } };
+const RP = { BX_FIN: { sub: PACK, title: 'Session Complete', pct: 100,
+  stats: [['Rounds Done', '6'], ['Jabs Landed', '12'], ['Best Combo', '×5']] } };
 const BTN = 'Tap X2 For Retry!';
-const READY_TITLE = 'Guard Up & Ready';
 
 export class WallGL {
   constructor() {
@@ -132,9 +136,8 @@ export class WallGL {
     'boxer_fight.png',
     'boxer_learn.png',
     'boxer_stretch.png',
+    'casey.png',
     'check.svg',
-    'coach_a.png',
-    'coach_b.png',
     'flame.svg',
     'foot_shape.png',
     'footprint_shadow.svg',
@@ -287,15 +290,16 @@ export class WallGL {
     rrFill(ctx, LX, ROW_Y, LW, hdrH, 64, '#fff');
     const ph = 217.054, px = LX + 20, py = ROW_Y + 20;
     ctx.save(); rrPath(ctx, px, py, ph, ph, 54); ctx.clip();
-    const ca = this._img('coach_a.png'), cb = this._img('coach_b.png');
-    for (const im of [ca, cb]) if (im) ctx.drawImage(im, px - 28.09, py - 74.05, 275.305, 511.608);
+    // Casey(피그마 팩 히어로, 1129×1757) — 커버 크롭, 얼굴(세로 ~24%)이 썸네일 중심에 오게
+    const ca = this._img('casey.png');
+    if (ca) ctx.drawImage(ca, px - 21, py - 30, 260, 260 * 1757 / 1129);
     ctx.restore();
     const tx = px + ph + 40.857;
     // 제목+메타 두 줄을 썸네일(=카드) 세로 중심에 맞춘다 — py+24 고정이라 위로 24 치우쳐 있었다(유저).
     const TGAP = 20.429, TBH = 52 * 1.2 + TGAP + 32 * 1.2;   // 텍스트 블록 실높이
     const ty = py + ph / 2 - TBH / 2;
-    txt(ctx, 'Boxing Basic Jab Combo', tx, ty, 52, 700, NEU.inkDark, { ls: -2.55 });
-    txt(ctx, 'Skilled User Pack · Boxing', tx, ty + 52 * 1.2 + TGAP, 32, 400, NEU.t2, { ls: -.96 });
+    txt(ctx, 'Bring the Ring Home', tx, ty, 52, 700, NEU.inkDark, { ls: -2.55 });
+    txt(ctx, 'Casey · Boxing · Quiet On', tx, ty + 52 * 1.2 + TGAP, 32, 400, NEU.t2, { ls: -.96 });
     ctx.restore();
 
     // 스탯 카드 — slideInLeft .85s .35s
@@ -333,25 +337,26 @@ export class WallGL {
     // graphReveal — 오른쪽 끝에 붙은 채 왼쪽으로 자란다.
     // 전엔 ctx.rect().clip() 리빌이라 자라는 동안 40px 라운드가 직각으로 썰렸다(유저 지적).
     // 앱은 폭 자체를 애니메이션한다(creator.css `@keyframes bar-grow`) → 라운드가 끝을 달고 간다.
-    const bar = (i, bw, label, delay, solid) => {
+    const bar = (i, bw, label, delay, endLbl) => {
       const by = gY + i * (barH + 4.851);
       growBar(ctx, gR - bw, by, bw, barH, eOut(intro(t, delay, .7)), {
-        anchor: 'right', track: null, r: 40, pad: 24.256, fs: 36, ls: -1.21, num: label,
-        stops: [[.63, PAL.red], [.9, PAL.coral], [1, PAL.sand]], fill: solid,
+        anchor: 'right', track: null, r: 40, pad: 24.256, fs: 36, ls: -1.21, num: label, label: endLbl,
+        stops: [[.63, PAL.red], [.9, PAL.coral], [1, PAL.sand]],
       });
     };
-    bar(0, 194.048, '5min', 1.0);
-    bar(1, 388.095, '10min', 1.15);
-    // run 행 = 회색 트랙 + Fight! + 우측 learn-abs
+    // 시간 구성 = Figma Main workout: 4m + 8m + 23m Strike! = 35 (막대 폭도 비율대로)
+    bar(0, 128, '4m', 1.0);
+    bar(1, 232, '8m', 1.15);
+    // run 행 = 회색 트랙 + You Can Choose + 우측 Strike! 막대
     const ry = gY + 2 * (barH + 4.851);
     rrFill(ctx, gR - (iw - 20), ry, iw - 20, barH, 40, NEU.surface);   // r 40 = 막대와 동일(유저: r 값 안 맞음)
     ctx.save(); ctx.globalAlpha *= 0.7;
-    txt(ctx, 'Fight!', ix + PADL, ry + barH / 2, 32, 700, NEU.inkDark, { ls: -1.21, base: 'middle' });
+    txt(ctx, 'You Can Choose', ix + PADL, ry + barH / 2, 32, 700, NEU.inkDark, { ls: -1.21, base: 'middle' });
     ctx.restore();
-    bar(2, 582.143, '15min', 1.3);
+    bar(2, 582.143, '23m', 1.3, 'Strike!');
     // 좌측 큰 숫자 오버레이
     // 도트 숫자 = 카운트업(유저 규칙). 막대 3개가 자라는 리듬(1.0/1.15/1.3)에 맞춰 같이 세어 오른다.
-    rollNum(ctx, '30', t, 1.0, 0.9, ix + PADL, y + 24.256, 145.536, { fam: dot9, fill: NEU.inkDark });
+    rollNum(ctx, '35', t, 1.0, 0.9, ix + PADL, y + 24.256, 145.536, { fam: dot9, fill: NEU.inkDark });
     ctx.save(); ctx.globalAlpha *= 0.6;
     txt(ctx, 'min', ix + PADL, y + 24.256 + 145.536, 32, 700, NEU.inkDark, { ls: -1.21 });
     ctx.restore();
@@ -374,8 +379,9 @@ export class WallGL {
     // 'Main 15m' 은 Total 바 3번째(15min)와 같은 값인데 표기까지 달라(15min vs 15m) 다른 값처럼
     //   읽혔다(유저). 자리는 셋업 5화면 중 유일하게 화면 어디에도 없던 '부상'이 가져간다 —
     //   안전에 직결되는 값이라 시작 전에 확인되는 게 맞다.
-    const cells = [['Location', 'Indoor', 103], ['Goal', 'Standard', 103],
-                   ['Sound', 'Quiet On', 102], ['Injury', 'None', 102]];
+    // 값 = Figma 설정 5화면의 선택 상태: Indoor · Beginner(Today's Goal) · Quiet On(Assist Mode) · None
+    const cells = [['Location', 'Indoor', 103], ['Goal', 'Beginner', 103],
+                   ['Mode', 'Quiet On', 102], ['Injury', 'None', 102]];
     cells.forEach(([lbl, val, ch], i) => {
       const cx0 = ix + (i % 2) * (cw + CGAP), cy0 = y + (i < 2 ? 0 : 111);
       const e = eOut(intro(t, .95 + i * .10, .55));
@@ -543,7 +549,7 @@ export class WallGL {
     }
 
     // 아바타 — sLeft/sRight .8s .28s (후속 단계는 고정)
-    const av = (x, img, dir) => {
+    const av = (x, img, dir, fx = .5, fy = .24) => {
       const e = mid ? 1 : eOut(intro(t, .28, .8));
       ctx.save();
       ctx.globalAlpha *= e; ctx.translate(dir * 70 * (1 - e), 0);
@@ -554,15 +560,17 @@ export class WallGL {
       rrFill(ctx, x, 855, 237, 237, 999, '#fff');
       ctx.save();
       ctx.beginPath(); ctx.arc(cx0, cy0, R, 0, Math.PI * 2); ctx.clip();
-      for (const rel of img) {
-        const im = this._img(rel);
-        if (im) ctx.drawImage(im, cx0 + (10 - 28.09 - R) * K2, cy0 + (10 - 74.05 - R) * K2, 275.305 * K2, 511.608 * K2);
+      const im = this._img(img);
+      if (im) {
+        // 커버 크롭 — 얼굴 중심(fx,fy = 원본 비율 좌표)이 원 중심에 오게
+        const w2 = R * 3.2, h2 = w2 * (im.naturalHeight / im.naturalWidth);
+        ctx.drawImage(im, cx0 - w2 * fx, cy0 - h2 * fy, w2, h2);
       }
       ctx.restore();
       ctx.restore();
     };
-    av(100, ['coach_a.png', 'coach_b.png'], -1);
-    av(2263, ['you_avatar.png'], 1);
+    av(100, 'casey.png', -1, .52, .21);
+    av(2263, 'you_avatar.png', 1, .60, .32);
 
     // 주체 배지 — sPop .6s .62s. 'You' 는 원본에 있던 것이고, 코치 쪽은 그 컴포넌트를 복제해 짝을 맞춘다.
     //   전엔 오른쪽만 배지가 있고 단위 줄에 'YOU · Slips' 를 덧붙여서 'You' 가 두 번 나왔다(유저 지적).
@@ -580,7 +588,7 @@ export class WallGL {
       txt(ctx, label, cxb, cyb, 47.28, 400, NEU.t3, { ls: -.5, align: 'center', base: 'middle' });
       ctx.restore();
     };
-    badge('Coach', 156);    // 좌 아바타(100~337) 하단 — You 배지와 같은 y·같은 컴포넌트
+    badge('Casey', 156);    // 좌 아바타(100~337) 하단 — 코치 = 팩 크리에이터 Casey(피그마)
     badge('You', 2319);
 
     // 큰 숫자 — sPop .7s .48s + 카운트업 / 단위 — sUp .6s .58s

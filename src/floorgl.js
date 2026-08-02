@@ -17,8 +17,9 @@ const _mp = new THREE.Vector3(), _mf = new THREE.Vector3(), _mr = new THREE.Vect
 // 캔버스 해상도 — 대지 대비 배율. 화질 vs 업로드 비용의 저울.
 // ?uiscale=N 으로 올릴 수 있다 — 4K 영상 내보내기용. 실시간에선 0.75 가 예산이다
 // (대지 통짜 업로드라 배율을 올리면 프레임당 MB가 제곱으로 는다).
-const K = Math.min(3, Math.max(0.4,
-  +(new URLSearchParams(typeof location !== 'undefined' ? location.search : '').get('uiscale')) || 0.75));
+// 씬 스테이지(?scene=)는 투사면이 화면 전체를 채우는 정면 뷰 — 기본 2 (벽 wallgl 과 동일 근거).
+const _q = new URLSearchParams(typeof location !== 'undefined' ? location.search : '');
+const K = Math.min(3, Math.max(0.4, +_q.get('uiscale') || (_q.get('scene') ? 2 : 0.75)));
 // UI 재도색 주기. 모션을 이식한 뒤로 정지 화면이 없어져 매 틱 9.4~9.6MB 텍스처가 올라간다
 // (24fps = 230MB/s). 씬 애니메이션이 '드드드득' 끊긴 원인 — UI 프레임을 씬보다 낮게 잡고
 // 남는 예산을 봇·영상에 돌려준다. ?uifps=N 으로 8~60 비교 가능.

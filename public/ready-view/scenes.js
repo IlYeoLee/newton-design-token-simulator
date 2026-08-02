@@ -3,7 +3,7 @@
 //   coach/you 숫자·dotsOn 은 라이브 판정·세션 시간으로 채울 자리(지금은 정적 샘플).
 //   say = 진입 첫 안내. cues = 장면 동안 비트처럼 흐르는 짧은 코치 콜(실제 말하듯이). 자막이 cues를 순환.
 //   판정 토큰(화살표·타겟·가드)은 여기서 그리지 않음 — 룩 시스템 토큰(session.js _buildBoxing)이 전담.
-window.PHASES = ['START', 'WARM UP', 'DRILL', 'FIGHT'];
+window.PHASES = ['START', 'STRETCH', 'LEARN', 'STRIKE!'];
 window.SCENES = {
   // ── A · 준비운동 (WARM UP) ──
   BX_A1: { title:'NECK & SHOULDER ROLLS', phase:1, sub:'1/3',
