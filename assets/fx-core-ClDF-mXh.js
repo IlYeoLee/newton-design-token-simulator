@@ -250,8 +250,8 @@ vec4 personAura(float mBody, float wide, float lumSharp, float lumBase, float fa
   float lum = lb + d * keep;
   lum = mix(lum, lb, face);   // 얼굴: 결 제거
   // 톤(룩2): 감마 0.59 → 대비 0.8 → 밝기 +0.5 → 인물 대역 0.3~1.0 (앱과 동일)
-  float band = 0.3 + 0.7 * clamp((pow(clamp(lum, 0.0, 1.0), 0.59) - 0.5) * 0.8 + 0.655 + uPCalB, 0.0, 1.0);
-  float bandB = 0.3 + 0.7 * clamp((pow(clamp(lb, 0.0, 1.0), 0.59) - 0.5) * 0.8 + 0.655 + uPCalB, 0.0, 1.0);
+  float band = 0.3 + 0.7 * clamp((pow(clamp(lum, 0.0, 1.0), 0.59) - 0.5) * 0.8 + 0.72 + uPCalB, 0.0, 1.0);
+  float bandB = 0.3 + 0.7 * clamp((pow(clamp(lb, 0.0, 1.0), 0.59) - 0.5) * 0.8 + 0.72 + uPCalB, 0.0, 1.0);
   band = mix(band, 0.17, face * 0.92);   // 얼굴 저열 — 0.10 은 광나는 구슬처럼 떴다(유저). 살짝 톤을 남긴다
   // 얇은 부위(팔·다리) 심화 — wide 낮음 = 얇음. 유저: "다리만 조금 더 진하게"
   band = min(1.0, band + 0.115 * (1.0 - smoothstep(0.40, 0.75, wide)) * (1.0 - face));   // 다리가 최심 주황(#FF3300 대)까지 닿게(유저)
@@ -279,7 +279,7 @@ vec4 personAura(float mBody, float wide, float lumSharp, float lumBase, float fa
   // 피더는 **가장자리로만** — 얇은 팔다리는 마스크 블러가 안쪽까지 번져 (m−wide)가 사지
   //   전체에서 커지고, 흰 띠가 다리 전면을 덮어 하얗게 떴다(유저: 다리가 너무 하얗다).
   float feather = pow(clamp((mBody - wide) * 2.0, 0.0, 1.0), 2.0);
-  c = mix(c, vec3(1.0), clamp(feather * 0.30 * uPCalW, 0.0, 1.0));
+  c = mix(c, vec3(1.0), clamp(feather * 0.24 * uPCalW, 0.0, 1.0));
   float line = pow(4.0 * mBody * (1.0 - mBody), 1.5) * smoothstep(0.35, 0.6, mBody);
   c = mix(c, vec3(1.0), clamp(line * 0.41 * uPCalW, 0.0, 1.0));
   float lineIn = sqrt(clamp(abs(ls - lb) * 2.6, 0.0, 1.0)) * (1.0 - face);
