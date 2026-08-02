@@ -3323,7 +3323,11 @@ void main(){
     // 잔상 누적 (핑퐁) — 룩 person.decay 라이브 소비
     // 랩 잔상 시맨틱 등가: 랩은 6.7fps 탭 decay^j — 45Hz 연속 누적으로 환산(decay^(1/5.7)).
     // 0이면 완전 꺼짐 (구 매핑은 바닥 0.62가 있어 랩에서 꺼도 시뮬에 잔상이 남던 버그).
-    const pd = FXP.person?.decay ?? 0.6;
+    // ★ 복싱 벽 인물 잔상 = 영구 차단(유저 08-03). 07-30 에 "인물 = 뉴턴톤만, 잔상은 아티팩트"로
+    //   결론이 났는데 벽 데모 판만 자기 경로(uTrailGain·핑퐁 RT)를 따로 갖고 있어 예외로 남아 있었다.
+    //   기본값(FXP.person.decay=0)으로는 이미 꺼져 있었지만 랩 슬라이더로 되살아날 수 있었다 —
+    //   되살아날 경로를 없앤다. 다시 켜려면 이 줄만 되돌리면 된다.
+    const pd = 0;
     // pd<0.1 = 지각상 꺼짐 — 잔상 경로 완전 차단(하드 0: 1틱 지연 림·엣지 잔광까지 소멸)
     const trailOff = pd < 0.1;
     demoPanel.material.uniforms.uTrailGain.value = trailOff ? 0 : Math.min(1, pd * 2.2);
@@ -4328,8 +4332,50 @@ void main(){
     cover.style.cssText = 'position:fixed;inset:0;background:#000;z-index:2147483647;transition:opacity .7s ease';
     (document.body || document.documentElement).appendChild(cover);
     const view = q.get('view') || (/^BX_/.test(scene) ? 'wall' : 'floor');
-    return { scene, view, ui: false, sport: false, cover, okT: 0 };
+    // 배경 이식 — ?bg=<url> 이면 3D 실내를 끄고 그 자리에 실사 배경을 깐다.
+    //   투사 그래픽만 남기고 캔버스를 투명하게 두면, 화면 자체가 곧 합성 결과가 된다.
+    //   (?alpha=1 이 함께 있어야 한다 — 렌더러 알파는 생성 시점에 정해진다)
+    //   ?bgdim=0~0.9 로 배경만 어둡게. 투사 그래픽 밝기는 그대로다.
+    const bg = q.get('bg') || '';
+    const bgdim = Math.max(0, Math.min(0.9, +q.get('bgdim') || 0));
+    const S = { scene, view, ui: false, sport: false, cover, okT: 0, bg, bgdim };
+    // ★ 배경·어둡기는 **리로드 없이** 바꾼다. 값을 바꿀 때마다 iframe 을 새로 띄우면
+    //   앱이 매번 부팅되어 '팩 데이터 로드중'이 뜬다(유저 지적). 밖에서 이 함수를 부르면 즉시 반영.
+    window.__setSceneBg = (url, dim) => {
+      S.bg = url || '';
+      S.bgdim = Math.max(0, Math.min(0.9, +dim || 0));
+      const v = S.bgdim > 0 ? `linear-gradient(rgba(0,0,0,${S.bgdim}),rgba(0,0,0,${S.bgdim})),` : '';
+      document.documentElement.style.background = S.bg ? `${v}#000 url("${S.bg}") center/cover no-repeat` : '';
+      document.body.style.setProperty('background', S.bg ? 'transparent' : '', 'important');
+      if (!S.bg) location.reload();   // 3D 실내 복귀는 껐던 무대를 되살려야 해서 리로드가 필요하다
+    };
+    if (bg) window.__setSceneBg(bg, bgdim);
+    // 촬영 조정값 — scenes.html 슬라이더가 직접 쓴다. 기본값 = 손대기 전과 픽셀 동일.
+    window.__sceneAdj = { zoom: 1, pan: 0, tilt: 0, dolly: 1, exposure: 1, bloom: 0.55,
+      uiX: 0, uiY: 0, uiScale: 1 };
+    return S;
   })();
+  // 실사 배경일 때 무대(3D 실내·바닥·벽)를 끄고 투사광만 남긴다. 판별은 유니폼 키 —
+  //   fx-core 공용 GLSL 때문에 셰이더 소스 문자열 매칭은 무대까지 통과시킨다(실측).
+  //   ★ 매 프레임 다시 걸어야 한다: 앱이 스테이지 진입·주간 조명에서 되돌려 놓는다.
+  const SB_KEEP = /^(uTrail|uCropOff|uField|uHT|uHalo|uProg|uPhase|uMark)/;
+  const SB_STAGE = /^(uGrid|uLines|uScan|uBoost|uAccent|uHalf|uKey|uTint)$/;
+  function sceneStageBg() {
+    if (!SCENE_STAGE?.bg) return;
+    scene.background = null;
+    renderer.setClearColor(0x000000, 0);
+    const hasU = (m, re) => !!m.uniforms && Object.keys(m.uniforms).some(k => re.test(k));
+    const UI = new Set([window.__dbg?.floorGL?.mesh, window.__dbg?.wallGL?.mesh].filter(Boolean));
+    scene.traverse(o => {
+      if (o.isLight) return;
+      if (UI.has(o)) { o.visible = true; return; }
+      const m = Array.isArray(o.material) ? o.material[0] : o.material;
+      if (!m) return;
+      const keep = (m.type === 'ShaderMaterial' && hasU(m, SB_KEEP) && !hasU(m, SB_STAGE))
+                || (m.type === 'MeshBasicMaterial' && !!m.map);
+      if (!keep) o.visible = false;
+    });
+  }
   function tickSceneStage() {
     if (!SCENE_STAGE) return;
     const S = SCENE_STAGE;
@@ -4356,6 +4402,7 @@ void main(){
     // 사용자 봇은 카메라와 벽 사이에 서서 화면을 가린다 — 스테이지 뷰에선 숨김(매 프레임: 리스폰 대비)
     if (xbot?.group) xbot.group.visible = false;
     if (xbot?.model) xbot.model.visible = false;
+    sceneStageBg();   // 실사 배경 모드면 무대를 끄고 캔버스를 비운다(매 프레임)
     // 종목 전환(1회) — BK_* = 농구 · A1/A2/A3 = 러닝 · BX_* = 복싱(기본)
     if (!S.sport) {
       const want = /^BK_/.test(S.scene) ? '농구' : /^BX_/.test(S.scene) ? null : '러닝';   // BX_* 외 접두 없음 = 러닝(READY·A·T·P·C·FIN)
@@ -4381,21 +4428,40 @@ void main(){
       }
     }
     // 카메라 정면 고정 — 망원(FOV 9°)이라 사실상 무왜곡 정면
+    //   ★ A = 씬 스테이지 조정값. scenes.html 슬라이더가 이 객체를 직접 쓴다(리로드 없음).
+    //     zoom  : 화각 배율 (작을수록 확대)   pan/tilt : 프레임 이동   dolly : 거리 배율
+    const A = window.__sceneAdj;
+    const half = 4.5 * (A.zoom || 1);
     if (S.view === 'wall') {
       const wc = rig._wallCenter || { cx: 0, cy: 1.5 };
       let wz = -2.0;
       if (rig.wallFill) wz = rig.wallFill.getWorldPosition(new THREE.Vector3()).z;
-      const dist = (rig.wallH / 2) / Math.tan(THREE.MathUtils.degToRad(4.5));
-      camera.fov = 9; camera.position.set(wc.cx ?? 0, wc.cy ?? 1.5, wz + dist);
-      camera.lookAt(wc.cx ?? 0, wc.cy ?? 1.5, wz);
+      const dist = (rig.wallH / 2) / Math.tan(THREE.MathUtils.degToRad(half)) * (A.dolly || 1);
+      const cx = (wc.cx ?? 0) + (A.pan || 0), cy = (wc.cy ?? 1.5) + (A.tilt || 0);
+      camera.fov = 9 * (A.zoom || 1); camera.position.set(cx, cy, wz + dist);
+      camera.lookAt(cx, cy, wz);
     } else {
-      const cz = -1.3, cover = 1.4;   // 바닥 토큰 존 중심·반경 — 씬별 조정 여지
-      const dist = cover / Math.tan(THREE.MathUtils.degToRad(4.5));
-      camera.fov = 9; camera.up.set(0, 0, -1);
-      camera.position.set(0, dist, cz);
-      camera.lookAt(0, 0, cz);
+      const cz = -1.3 + (A.tilt || 0), cover = 1.4;   // 바닥 토큰 존 중심·반경
+      const dist = cover / Math.tan(THREE.MathUtils.degToRad(half)) * (A.dolly || 1);
+      camera.fov = 9 * (A.zoom || 1); camera.up.set(0, 0, -1);
+      camera.position.set(A.pan || 0, dist, cz);
+      camera.lookAt(A.pan || 0, 0, cz);
     }
     camera.updateProjectionMatrix();
+    FX.exposure = A.exposure ?? 1;          // 노출
+    FX.bloomStrength = A.bloom ?? 0.55;     // 글로우 세기
+    // 투사 UI 위치·크기 — 대지 판만 따로 움직인다(카메라와 별개).
+    //   ★ 되돌리기 가능하게: 지난 프레임에 더한 값을 빼고 새 값을 더한다. 앱이 매 프레임
+    //     위치를 다시 쓰든 안 쓰든 결과가 같다(누적 어긋남 방지).
+    const uiMesh = S.view === 'wall' ? wallGL?.mesh : floorGL?.mesh;
+    if (uiMesh) {
+      const vert = S.view === 'wall' ? 'y' : 'z';   // 바닥은 카메라 up 이 -Z 라 화면 상하 = z
+      uiMesh.position.x -= A._ax || 0; uiMesh.position[vert] -= A._av || 0;
+      uiMesh.position.x += A.uiX || 0; uiMesh.position[vert] += A.uiY || 0;
+      A._ax = A.uiX || 0; A._av = A.uiY || 0;
+      const s = A.uiScale || 1, p = A._as || 1;
+      if (s !== p) { uiMesh.scale.multiplyScalar(s / p); A._as = s; }
+    }
   }
 
   let _dotStage = '', _dotMax = 0;   // 도트 진행바 — 스테이지별 최대 진행(되감김 방지)

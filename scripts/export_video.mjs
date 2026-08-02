@@ -1,4 +1,4 @@
-// ─────────────────────────────────────────────────────────────
+﻿// ─────────────────────────────────────────────────────────────
 // 초고화질 영상 내보내기 — 실사 합성용
 //
 //   화면 녹화를 쓰지 않는 이유: rAF 가 실시간에 묶여 프레임이 빠지고(이 프로젝트에서
@@ -53,8 +53,18 @@ const FLAT = !!arg('flat', false);
 const FBASE = SPORT === 'boxing' ? [2600, 1600] : [1600, 2670];   // 벽 / 지면 대지 px
 // 수퍼샘플링 — N배로 렌더하고 영상만 줄인다. 셰이더 가장자리·얇은 선의 계단이 여기서 죽는다.
 // PNG 시퀀스는 줄이지 않는다(에펙에 원본을 주는 게 항상 낫다).
-const SS = Math.min(3, Math.max(1, +arg('ss', FLAT ? 2 : 1)));
+// ★ 4K(--w 3840) 에서는 ss 1 이어야 한다. ss 2 면 렌더면이 7680×4726 = 3600만 픽셀이라
+//   GPU 메모리를 넘긴다 — 에러도 컨텍스트 손실도 없이 **전부 투명한 프레임**이 나온다(실측:
+//   복싱 3840 ss2 프리플라이트 불투명 0.00%, ss1 로 내리면 49.5%). 08-02 에 인물 룩이
+//   personAura 5중 합성으로 바뀌며 RT 가 늘어, 지면 2302 도 ss2 가 안 들어가게 됐다.
+const SS = Math.min(3, Math.max(1, +arg('ss', FLAT ? (W >= 3000 ? 1 : 2) : 1)));
 const H = FLAT ? Math.round(W * FBASE[1] / FBASE[0]) : Math.round(W * 9 / 16);
+// --pad : 대지 바깥 여백 배율. 직교 절두체를 대지에 딱 맞추면 대지를 넘어가는 것이 화면
+//   가장자리에서 **칼같이 잘린다** — 발자국 파동이 프레임 밖으로 퍼질 때 좌우가 잘려 보이던
+//   원인(유저 신고). 1.15 면 사방에 7.5% 씩 여유가 생긴다. 대지의 픽셀 배율은 그대로 두고
+//   출력 크기만 그만큼 키우므로 선예도는 변하지 않는다.
+const PAD = Math.max(1, Math.min(2, +arg('pad', 1) || 1));
+const WP = Math.round(W * PAD), HP = Math.round(H * PAD);   // 실제 출력(여백 포함)
 const ALPHA0 = !!arg('alpha', false);   // 배경 투명 PNG/ProRes 4444
 // ★ --alpha 는 --beam 을 함축한다. 알파를 휘도에서 뽑는 방식(scene.js FX.alphaOut)이라
 //   무대(바닥·벽·봇)가 켜져 있으면 밝은 무대까지 불투명해진다 — 투명 매트가 안 나온다.
@@ -73,6 +83,43 @@ const PLAY = !!arg('play', false);
 // --alphafloor : 이 밝기(0~1) 아래는 완전 투명. 대지 패널의 검정 배경이 옅은 알파로 남아
 //   투사면 사각형이 통째로 비쳐 보이던 것(유저 지적)을 잘라 낸다. 0.06~0.12 부터 시도.
 const AFLOOR = +arg('alphafloor', 0) || 0;
+// --t0 : 시작 시각(초). 스테이지 도입부가 통째로 비어 있는 화면이 있다 — 러닝 A3 는 t<1 이
+//   불투명 0.00% 다. 3초짜리에선 그 1초가 치명적이다.
+const T0 = +arg('t0', 0) || 0;
+// --alphagamma : 어두운 톤의 알파를 들어 올린다(1 = 예전과 동일, 0.5 권장).
+//   투사는 가산광이라 alpha = 빛의 세기인데, 그 선형 관계가 어두운 부분을 통째로 지운다 —
+//   머리카락 회색(휘도 0.10)이 알파 0.18. 0.5 를 주면 0.57 이 된다. 배경(휘도≈0)은 그대로 0.
+//   ※ '전부 불투명(100% 잉크)'은 이 파이프라인에서 안 된다. 인물·마크가 가산 블렌딩이라
+//     커버리지 알파 자체가 없다 — 씬 알파를 그대로 내보내면 인물이 사라지고 대지 판의
+//     불투명 검정 사각형만 남는다(실측 확인). 감마가 실제로 쓸 수 있는 손잡이다.
+const AGAMMA = +arg('alphagamma', 1) || 1;
+// --layer : 레이어를 갈라서 뽑는다. 에펙에서 겹쳐 쓰면 통합본보다 자유롭고, 무엇보다
+//   **인물을 진짜 잉크(검정 포함)로 뽑을 수 있는 유일한 방법**이다.
+//     person — 인물 판만. 알파를 휘도가 아니라 씬 실제 알파(실루엣 마스크)로 쓴다.
+//              통합 프레임에서 이게 안 됐던 건 인물에 알파가 없어서가 아니라 대지 UI 판의
+//              불투명 검정 배경이 화면을 덮었기 때문이다 — 혼자 두면 문제가 사라진다.
+//     tokens — 판정토큰만. 가산광이라 커버리지 알파가 없다 → 휘도 알파, 에펙에서 Screen.
+//     ui     — 투사 UI 대지만. 휘도 알파, 에펙에서 Screen.
+//     all    — 기존 통합본(기본값).
+const LAYER = String(arg('layer', 'all'));
+if (!/^(all|person|tokens|ui)$/.test(LAYER)) { console.error('--layer 는 all|person|tokens|ui'); process.exit(1); }
+const INKA = LAYER === 'person';   // 인물 단독일 때만 잉크 알파
+// --bg : 배경 이미지/영상을 **시뮬레이터 안에** 깔고 통째로 내보낸다.
+//   알파로 뽑아서 에펙에서 합성하는 대신, 캔버스를 투명하게 두고 그 뒤에 배경을 깔면
+//   스크린샷이 곧 최종 합성물이다. 알파·키잉 단계가 통째로 사라지므로
+//   가장자리 등고선·검정 소실·프리멀티 문제가 원천적으로 안 생긴다.
+//   파일은 public/_bg/ 로 복사해 vite 가 서빙하게 한다(로컬 경로는 브라우저가 못 연다).
+const BG = arg('bg', '');
+// --bgfit : cover(꽉 채움·기본) | contain(전체 보이기) | 100% 100%(늘리기)
+const BGFIT = String(arg('bgfit', 'cover'));
+// --bgdim : 배경만 어둡게 (0~0.9). 투사 그래픽은 그대로 두고 벽/지면만 낮춘다.
+const BGDIM = Math.max(0, Math.min(0.9, +arg('bgdim', 0) || 0));
+// --scene : 앱의 **씬 스테이지 모드**(index.html?scene=ID)를 그대로 뽑는다.
+//   화면녹화하던 바로 그 화면이다. --flat/--beam/--alpha 를 쓰지 않으므로 알파·격리에서
+//   생기던 문제(가장자리 등고선·검정 소실·무대 누수)가 원천적으로 없다.
+//   화면녹화는 디스플레이 픽셀에 갇히지만(실측 3292×1874·19.6fps 드롭) 여기선 안 갇힌다:
+//   --w 1920 --ss 2 로 주면 **레이아웃은 1920 그대로, 출력은 3840×2160** 이다.
+const SCENE = arg('scene', '');
 const OUT = arg('out', 'out');
 const URLBASE = arg('url', 'http://127.0.0.1:5199/');
 // UI 캔버스 배율 — 실시간 기본 0.75. 4K 내보내기엔 2 이상이어야 확대 흐림이 없다.
@@ -90,11 +137,53 @@ const UISCALE = +arg('uiscale', FLAT ? Math.min(3, Math.max(1, W / FBASE[0] * 1.
                                      : (W >= 3000 ? 2 : 1.25));
 const ALPHA = ALPHA0;
 
+// 불투명 픽셀 비율(%) — '빈 프레임'을 파일 크기 대신 실제 알파로 판정한다.
+//   알파 8 미만은 사실상 투명. 에펙에서 배경이 검게 보이는 사고는 여기서 100% 가 나오는 것으로
+//   즉시 잡힌다 — 배경까지 불투명하다는 뜻이니까.
+const { PNG } = await import('pngjs');
+const coverage = async (file) => {
+  const png = PNG.sync.read(fs.readFileSync(file));
+  let n = 0;
+  for (let i = 3; i < png.data.length; i += 4) if (png.data[i] >= 8) n++;
+  return n / (png.width * png.height) * 100;
+};
+
+// 색 다양도(%) — 알파가 없는 렌더에서 '빈 화면'을 잡는다.
+//   균일한 한 색으로 덮인 프레임은 다양도가 0 에 수렴한다. 내용이 있으면 밝기 분포가 퍼진다.
+//   64단계 히스토그램에서 '전체의 0.2% 이상을 차지하는 칸'이 몇 개인지로 센다.
+const variety = async (file) => {
+  const png = PNG.sync.read(fs.readFileSync(file));
+  const n = png.width * png.height, h = new Array(64).fill(0);
+  for (let i = 0; i < png.data.length; i += 4) {
+    const l = (png.data[i] * 0.299 + png.data[i + 1] * 0.587 + png.data[i + 2] * 0.114);
+    h[Math.min(63, l >> 2)]++;
+  }
+  const used = h.filter(c => c > n * 0.002).length;
+  return used <= 1 ? 0 : used;   // 칸이 하나뿐 = 단색 = 빈 화면
+};
+
+// --bg 파일을 public/_bg/ 로 복사한다 — 브라우저는 로컬 절대경로를 못 열고, vite 는 public/ 을
+//   루트로 서빙한다. ★ 출력 크기에 맞춰 미리 줄여 두는 게 안전하다: 8208×5348 원본을 그대로
+//   물리면 디코드에만 175MB 가 든다(가로×세로×4). 3840 출력에 8208 소스는 어차피 버려진다.
+let BGURL = '';
+if (BG) {
+  const src = String(BG);
+  if (!fs.existsSync(src)) { console.error(`✗ --bg 파일이 없습니다: ${src}`); process.exit(1); }
+  const dir = path.join('public', '_bg');
+  fs.mkdirSync(dir, { recursive: true });
+  const dst = path.join(dir, path.basename(src).replace(/[^\w.\-]/g, '_'));
+  fs.copyFileSync(src, dst);
+  BGURL = '/_bg/' + path.basename(dst);
+  console.log(`  배경: ${path.basename(src)} → ${BGURL} (${(fs.statSync(dst).size / 1048576).toFixed(0)}MB)`);
+}
+
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'newton_export_'));
 fs.mkdirSync(OUT, { recursive: true });
 const N = Math.round(DUR * FPS);
-const tag = `${SPORT}${SESSION ? '_session' : ''}${FLAT ? '_flat' : ''}${BEAM ? '_beam' : ''}${HT ? '_ht' : ''}${ALPHA ? '_alpha' : ''}_${W}p${FPS}`;
-console.log(`▶ ${tag} — ${N}프레임 (출력 ${W}×${H} · 렌더 ${W * SS}×${H * SS}(SS×${SS}) · ${FPS}fps · ${DUR}s · UI 배율 ${UISCALE}${FLAT ? ' · 평면 직교' : ''})`);
+// ★ 스테이지를 태그에 넣는다 — 안 넣으면 같은 종목의 다른 스테이지가 서로를 덮어쓴다
+//   (실측: 스테이지 7개를 훑었더니 종목당 마지막 것만 남았다).
+const tag = `${SPORT}${STAGE ? '_' + STAGE : ''}${SESSION ? '_session' : ''}${FLAT ? '_flat' : ''}${BEAM ? '_beam' : ''}${HT ? '_ht' : ''}${ALPHA ? '_alpha' : ''}${AGAMMA !== 1 && !INKA ? `_g${AGAMMA}` : ''}${LAYER !== 'all' ? `_L-${LAYER}` : ''}_${W}p${FPS}`;
+console.log(`▶ ${tag} — ${N}프레임 (출력 ${WP}×${HP} · 렌더 ${WP * SS}×${HP * SS}(SS×${SS}) · ${FPS}fps · ${DUR}s · UI 배율 ${UISCALE}${FLAT ? ' · 평면 직교' : ''}${PAD > 1 ? ` · 여백 ×${PAD}` : ''})`);
 
 // GPU 우선(맥은 metal). 실패하면 소프트웨어로 떨어진다 — 느리지만 결과는 같다.
 const browser = await puppeteer.launch({
@@ -102,7 +191,12 @@ const browser = await puppeteer.launch({
   // ANGLE 백엔드는 OS 마다 다르다 — 맥은 metal, 윈도는 d3d11. 틀린 값을 주면 조용히
   // 소프트웨어(SwiftShader)로 떨어져 프레임당 수 초씩 느려진다.
   args: ['--no-sandbox', `--use-angle=${process.platform === 'darwin' ? 'metal' : 'd3d11'}`,
-    '--enable-gpu', '--enable-unsafe-swiftshader', `--window-size=${W},${H}`],
+    '--enable-gpu', '--enable-unsafe-swiftshader', `--window-size=${WP},${HP}`,
+    // ★ 크롬은 GPU 메모리 예산을 스스로 낮게 잡고, 넘으면 **조용히** 텍스처 업로드를 버린다
+    //   (에러도 컨텍스트 손실도 없이 전부 투명한 프레임). 다른 크롬 창이 VRAM 을 먹고 있으면
+    //   그 예산이 더 줄어 4K 가 통째로 안 나온다 — 실측: 아침엔 35MP 가 됐는데 사용자 크롬이
+    //   5.4GB 를 잡은 뒤엔 7MP 도 실패했다. 예산을 명시해 그 조기 축출을 막는다.
+    '--force-gpu-mem-available-mb=4096', '--disable-gpu-program-cache'],
 });
 const page = await browser.newPage();
 // ★ 가상 시계 — 페이지의 모든 시간을 우리가 민다.
@@ -123,8 +217,17 @@ await page.evaluateOnNewDocument(() => {
   //   앱이 매 틱 play() 를 다시 부른다(실측: bhandle_pp.mp4 가 계속 paused:false).
   //   재생 자체를 막고, 프레임마다 currentTime 을 우리가 직접 찍는다.
   HTMLMediaElement.prototype.play = function () { return Promise.resolve(); };
+  // ★ 그런데 앱은 '재생 중인가'로 인물을 그릴지 정한다 —
+  //     main.js: uLive = (readyState>=2 && !ended && !paused) · 코치 판은 uReady 가 같은 역할.
+  //   재생을 막아 두면 paused 가 영원히 true 라 게이트가 닫힌 채로 남는다. 실측 증상:
+  //   복싱 벽 인물이 아예 안 그려지고 흐린 열구름(uHeat 필드)만 남았다(BX_B3·BX_C2 두 장 확인).
+  //   프레임은 실제로 들어와 있으니(우리가 currentTime 을 찍어 시크한다) 게이트만 열어 준다.
+  //   유니폼을 밖에서 덮어쓰는 방법은 안 된다 — 앱이 매 틱 자기 값으로 다시 쓴다.
+  //   ⚠ 이걸 켰으면 시크 완료를 **반드시** 기다려야 한다(아래 requestVideoFrameCallback).
+  //     게이트만 열고 기다리지 않으면 빈 디코드가 그대로 찍혀 인물이 깜빡인다 — 실제로 그랬다.
+  Object.defineProperty(HTMLMediaElement.prototype, 'paused', { get: () => false, configurable: true });
 });
-await page.setViewport({ width: W, height: H, deviceScaleFactor: SS });
+await page.setViewport({ width: WP, height: HP, deviceScaleFactor: SS });
 const errs = [];
 page.on('pageerror', e => errs.push(e.message.slice(0, 160)));
 // ★ 렌더 도중 페이지가 리로드되면 window.__dbg 가 사라지고 이후 프레임이 전부 텅 빈다.
@@ -132,7 +235,8 @@ page.on('pageerror', e => errs.push(e.message.slice(0, 160)));
 //   것이 원인이었다(vite.config.js 의 watch.ignored 로 막았다). 다시 새면 조용히 넘기지 않는다.
 let reloaded = 0;
 page.on('framenavigated', f => { if (f === page.mainFrame()) reloaded++; });
-await page.goto(`${URLBASE}?dev=1&uiscale=${UISCALE}${ALPHA ? '&alpha=1' : ''}`, { waitUntil: 'networkidle2', timeout: 180000 });
+// --bg 를 쓰면 캔버스도 투명해야 뒤의 배경이 비친다(?alpha=1 이 렌더러 알파를 켠다).
+await page.goto(`${URLBASE}?dev=1&uiscale=${UISCALE}${(ALPHA || BGURL) ? '&alpha=1' : ''}${SCENE ? `&scene=${encodeURIComponent(SCENE)}` : ''}`, { waitUntil: 'networkidle2', timeout: 180000 });
 await page.waitForFunction('!!window.__dbg?.session', { timeout: 120000 });
 // 부팅 동안에도 가상 시계를 밀어 준다 — 안 그러면 초기화가 시간 0 에 얼어붙는다.
 const warm = async (ms, step = 16.7) => {
@@ -147,6 +251,13 @@ await warm(1200);                              // 가상 시계로 초기 애니
 await page.evaluate(p => { window.__play = p; }, PLAY);
 await page.evaluate(v => { window.__afloor = v; }, AFLOOR);
 await page.evaluate(a => { window.__wantAlpha = a; }, ALPHA);
+await page.evaluate(v => { window.__bgUrl = v; }, BGURL);
+await page.evaluate(v => { window.__bgFit = v; }, BGFIT);
+await page.evaluate(v => { window.__bgDim = v; }, BGDIM);
+await page.evaluate(v => { window.__agamma = v; }, AGAMMA);
+await page.evaluate(v => { window.__layer = v; }, LAYER);
+await page.evaluate(v => { window.__inka = v; }, INKA);
+await page.evaluate(v => { window.__unclip = v; }, PAD > 1);
 // ★ stage 를 구조분해에 반드시 넣을 것 — 빠뜨리면 브라우저 전역의 #stage DOM 요소가 잡힌다
 //   (id 를 가진 요소는 window 의 프로퍼티가 된다). 실측: '없는 스테이지: [object HTMLElement]'.
 await page.evaluate(({ sport, beam, ht, session, stage, listStages }) => {
@@ -172,8 +283,24 @@ await page.evaluate(({ sport, beam, ht, session, stage, listStages }) => {
       if (!keep.has(el) && !el.contains(cvs)) el.classList.add('__exphide');
     });
     keep.forEach(el => { el.style.setProperty('background', 'transparent', 'important'); });
-    document.body.style.background = window.__wantAlpha ? 'transparent' : '#000';
-    if (window.__wantAlpha) { const st = document.getElementById('stage'); if (st) st.style.background = 'transparent'; }
+    // ★ --bg : 투명 캔버스 뒤에 배경을 깐다. 스크린샷이 곧 최종 합성물이다 —
+    //   알파로 뽑아 에펙에서 키잉하는 단계가 통째로 사라진다.
+    if (window.__bgUrl) {
+      // ★ 반드시 !important 로. 바로 위 keep 루프가 캔버스 조상(body 포함)에
+      //   'background: transparent !important' 를 걸어 두기 때문에 일반 인라인 선언은 진다.
+      //   이 파일 위쪽에 같은 함정이 이미 기록돼 있었는데 그대로 밟았다.
+      // --bgdim : 배경만 어둡게(0 = 원본). 검은 반투명 레이어를 배경 위에 겹친다 —
+      //   filter 를 쓰면 캔버스까지 같이 어두워지므로 배경 레이어 안에서 해결한다.
+      const dim = window.__bgDim || 0;
+      const veil = dim > 0 ? `linear-gradient(rgba(0,0,0,${dim}), rgba(0,0,0,${dim})), ` : '';
+      document.body.style.setProperty('background',
+        `${veil}#000 url("${window.__bgUrl}") center/${window.__bgFit} no-repeat`, 'important');
+      const st = document.getElementById('stage');
+      if (st) st.style.setProperty('background', 'transparent', 'important');
+    } else {
+      document.body.style.background = window.__wantAlpha ? 'transparent' : '#000';
+      if (window.__wantAlpha) { const st = document.getElementById('stage'); if (st) st.style.background = 'transparent'; }
+    }
   };
   window.__sweep();
   // 종목 전환은 좌측 버튼을 눌러야 한다 — state.pack 대입만으로는 씬이 안 바뀐다.
@@ -210,26 +337,78 @@ await page.evaluate(({ sport, beam, ht, session, stage, listStages }) => {
       const rp = d.composer?.passes?.[0];
       if (rp) rp.clearAlpha = 0;
       d.FXP && (d.FXP.__x = 1);
-      // 알파는 그레이드 패스가 휘도에서 뽑는다(scene.js FX.alphaOut)
-      import('/src/scene.js').then(m => { m.FX.alphaOut = true; m.FX.alphaFloor = window.__afloor || 0; }).catch(() => {});
+      // 알파는 그레이드 패스가 휘도에서 뽑는다(scene.js FX.alphaOut).
+      //   --ink 면 끈다: 씬이 실제로 쓴 알파를 그대로 내보내 어두운 톤(머리카락 회색)을 살린다.
+      import('/src/scene.js').then(m => {
+        // 인물 단독 레이어만 씬 실제 알파를 쓴다 — 그래야 검정·머리카락 회색이 살아남는다.
+        m.FX.alphaOut = !window.__inka;
+        m.FX.alphaFloor = window.__inka ? 0 : (window.__afloor || 0);
+        m.FX.alphaGamma = window.__agamma || 1;
+        m.FX.inkAlpha = !!window.__inka;
+      }).catch(() => {});
     }
-    else d.renderer.setClearColor(0x000000, 1);
-    if (d.xbot?.root) d.xbot.root.visible = false;
-    d.scene.traverse(o => {
-      if (o.isLight) { o.intensity = 0; return; }
-      if (/Grid|Axes|Box3/.test(o.type)) { o.visible = false; return; }
-      // ★ 이름으로 지목하는 무대. 재질만 보면 놓친다 — 코트 라인·존은 SDF(ShaderMaterial)라
-      //   '셰이더 = 투사광' 규칙에 걸리고, 골대의 슈터스 스퀘어·그물은 LineSegments 라
-      //   '선 = 투사광' 규칙에 걸린다. 둘 다 무대지 우리가 쏘는 빛이 아니다
-      //   (유저: 평면 뷰 배경에 코트 원·대각선이 남아 보임).
-      if (/^(courtLines|courtZones|hoop)$/.test(o.name)) { o.visible = false; return; }
-      const m = Array.isArray(o.material) ? o.material[0] : o.material;
-      if (!m) return;
-      const keep = m.type === 'ShaderMaterial'
-                || (m.type === 'MeshBasicMaterial' && !!m.map)
-                || o.type === 'Line' || o.type === 'LineSegments';
-      if (!keep) o.visible = false;
-    });
+    else {
+      d.renderer.setClearColor(0x000000, 1);
+      // ★ 배경이 Color 가 아니면 위의 setHex 가 조용히 건너뛴다 — 실내 환경 텍스처가 그대로
+      //   남아 화면을 통째로 덮는다(실측: 8초 240프레임이 전부 균일한 아이보리로 나왔다).
+      //   알파 모드는 background=null 로 지워서 이 문제가 안 드러났다. Color 로 갈아 끼운다 —
+      //   null 로 두면 setSurfaces/applyDayAmbience 가 .setHex 를 부르다 죽는다(위 주석 참조).
+      if (!d.scene.background?.isColor) d.scene.background = new d.THREE.Color(0x000000);
+    }
+    // ★ 유지 규칙은 **화이트리스트**다. 예전엔 '셰이더거나 선이면 투사광' 휴리스틱에 이름
+    //   블랙리스트(courtLines·courtZones·hoop)를 덧대는 방식이었는데, 무대에 새 요소가 생길
+    //   때마다 반드시 샌다. 실제로 두 번 샜다: ① 농구 코트 사이드라인(LineSegments, '선 =
+    //   투사광' 통과) ② 복싱 원근 그리드(uGrid/uLines/uScan 셰이더, '셰이더 = 투사광' 통과).
+    //   유저 요구는 "인물·UI·판정토큰만, 배경은 절대 안 나오게"이므로 방향을 뒤집는다.
+    //   판별은 **유니폼 키**로 한다 — fragmentShader 문자열 매칭은 못 쓴다. 이 프로젝트의
+    //   셰이더는 fx-core 의 공용 GLSL(markState·personLook·refEdge)을 통째로 붙여 쓰므로
+    //   무대 셰이더 소스에도 uProg·uPhase 같은 이름이 섞여 들어온다(실측: 그리드가 통과했다).
+    const has = (m, re) => !!m.uniforms && Object.keys(m.uniforms).some(k => re.test(k));
+    const PERSON_U = /^(uTrail|uCropOff|uField)/;                  // 인물 판(벽 데모 · 코치 클립)
+    const TOKEN_U  = /^(uHT|uHalo|uProg|uPhase|uMark)/;            // 판정토큰(마크 FX · 링)
+    const STAGE_U  = /^(uGrid|uLines|uScan|uBoost|uAccent|uHalf|uKey|uTint)$/;   // 무대(그리드·코트)
+    const L = window.__layer || 'all';
+    const wantPerson = L === 'all' || L === 'person';
+    const wantToken  = L === 'all' || L === 'tokens';
+    const wantUI     = L === 'all' || L === 'ui';
+    // ★ 한 번만 쓸면 안 된다 — DOM 청소(__sweep)와 같은 이유다. 앱은 스테이지 진입·코트
+    //   재구성 때 무대 개체를 **새로 만든다**. 셋업 때 숨긴 건 그 새 개체가 아니다.
+    //   증상이 고약하다: 대부분 프레임은 멀쩡한데 한두 장에서만 코트 사이드라인이 살아나
+    //   프레임 가장자리까지 뻗는다 → 그 프레임만 모서리 알파 255 → 에펙에서 검은 사각형이
+    //   번쩍인다(실측: BK_B3 f1). 매 프레임 다시 건다.
+    window.__isolate3d = () => {
+      // ★ 배경 지우기도 여기 있어야 한다. 셋업에서 한 번만 칠하면 앱이 매 틱 주간 조명을
+      //   다시 적용하며 되돌려 놓는다 — 검은 배경으로 뽑았는데 아이보리 실내가 그대로 남았다(실측).
+      // --bg 도 알파와 같다: 캔버스를 비워야 그 뒤에 깔아 둔 배경 사진/영상이 보인다.
+      //   불투명 검정으로 클리어하면(clearColor alpha=1) 배경을 통째로 덮어 버린다.
+      if (window.__wantAlpha || window.__bgUrl) { d.scene.background = null; d.renderer.setClearColor(0x000000, 0); }
+      else {
+        d.renderer.setClearColor(0x000000, 1);
+        if (!d.scene.background?.isColor) d.scene.background = new d.THREE.Color(0x000000);
+        else d.scene.background.setHex(0x000000);
+      }
+      if (d.scene.fog?.color?.setHex) d.scene.fog.color.setHex(0x000000);
+      if (d.xbot?.root) d.xbot.root.visible = false;
+      const UI = new Set([d.floorGL?.mesh, d.wallGL?.mesh].filter(Boolean));
+      d.scene.traverse(o => {
+        if (o.isLight) { o.intensity = 0; return; }
+        if (/Grid|Axes|Box3/.test(o.type)) { o.visible = false; return; }
+        if (UI.has(o)) { o.visible = wantUI; return; }
+        const m = Array.isArray(o.material) ? o.material[0] : o.material;
+        if (!m) return;
+        const isShader = m.type === 'ShaderMaterial' && !has(m, STAGE_U);
+        // 글리프·아이콘은 마크의 자식이라 토큰 레이어에 딸려 간다(맵을 문 MeshBasic).
+        const keep = (isShader && has(m, PERSON_U) && wantPerson)
+                  || (isShader && has(m, TOKEN_U) && wantToken)
+                  || (m.type === 'MeshBasicMaterial' && !!m.map && wantToken);
+        if (!keep) { o.visible = false; return; }
+        // ★ 투사면 밖 하드 클리핑 해제 — 대지 경계에서 파동이 칼같이 잘리던 것(유저 신고).
+        //   앱은 실사용에서 투사광이 스크린 밖으로 새는 걸 막으려 clippingPlanes 를 건다.
+        //   내보내기는 그 여백까지 담는 게 목적이라 (--pad) 여기선 푼다.
+        if (window.__unclip && m.clippingPlanes?.length) m.clippingPlanes = null;
+      });
+    };
+    window.__isolate3d();
   }
   window.__sweep();   // ★ session.start 뒤에 한 번 더 — 클립 미리보기 패널이 그때 생긴다
 }, { sport: SPORT, beam: BEAM, ht: HT, session: SESSION, stage: STAGE, listStages: LISTSTAGES });
@@ -241,6 +420,7 @@ if (SESSION && (STAGE || LISTSTAGES)) {
   console.log(`  스테이지 ${STAGE} 진입`);
 }
 
+await page.evaluate(p => { window.__pad = p; }, PAD);
 if (FLAT) await page.evaluate(sport => {
   // ── 평면 정면 뷰 ────────────────────────────────────────────────────────
   //   투사면(벽 또는 지면) 메시의 로컬 축을 월드로 옮겨 그 법선 위에 직교 카메라를 세운다.
@@ -254,7 +434,9 @@ if (FLAT) await page.evaluate(sport => {
   const p = new T.Vector3(), q = new T.Quaternion(), s = new T.Vector3();
   surf.matrixWorld.decompose(p, q, s);
   const g = surf.geometry.parameters;                       // PlaneGeometry(대지 px)
-  const hw = g.width * s.x / 2, hh = g.height * s.y / 2;
+  // 절두체를 --pad 배로 넓힌다 — 대지를 넘어가는 파동·글로우가 가장자리에서 잘리지 않게.
+  const PADF = window.__pad || 1;
+  const hw = g.width * s.x / 2 * PADF, hh = g.height * s.y / 2 * PADF;
   const n = new T.Vector3(0, 0, 1).applyQuaternion(q);      // 면 법선(앞쪽)
   const dist = Math.max(hw, hh) * 4 + 5;
   const cam = new T.OrthographicCamera(-hw, hw, hh, -hh, 0.01, dist * 3);
@@ -286,6 +468,14 @@ await page.evaluate(() => {
   if (st) { st.style.position = 'fixed'; st.style.inset = '0'; st.style.width = '100%'; st.style.height = '100%'; }
   window.dispatchEvent(new Event('resize'));
 });
+// ★ 영상 정지·시범 래치 해제는 **여기서 한 번만** 한다.
+//   매 프레임 하면 두 가지가 깨진다: pause() 가 진행 중인 시크를 취소하고(깜빡임),
+//   _followLatch 를 계속 밀면 세션 진행이 망가져 마크가 제 차례가 아닌데 발화한다(유저 신고).
+await page.evaluate(() => {
+  for (const v of document.querySelectorAll('video')) { try { HTMLMediaElement.prototype.pause.call(v); } catch (e) {} }
+  const s = window.__dbg?.session;
+  if (s) s._followLatch = false;   // 시범(코치 클립)을 붙잡아 둔다 — 인물이 내보내기의 목적이다
+});
 await new Promise(r => setTimeout(r, 2500));
 // 안정화 동안 늦게 붙은 DOM 까지 마지막으로 한 번. (매 프레임 쓸면 800개 스타일 재계산으로
 // 프레임 시간이 2.7s→5.6s 로 뛰고 컨텍스트도 더 일찍 잃는다 — 실측.)
@@ -309,17 +499,17 @@ if (FLAT) {
 //   (컨텍스트도 안 죽고 WebGL 에러도 없고 삼각형도 0 이 아니다), ② 지면 UI 가 rig._fp 를
 //   기다리느라 아직 안 켜진 상태(floorGLOn=false). 둘 다 '기다렸다 다시 보기'로 갈린다 —
 //   ①이면 끝까지 비어 있고, ②면 몇 초 안에 채워진다.
-//   ponytail: 판별은 PNG 파일 크기로 한다. 완전 투명한 프레임은 수십 KB 로 압축되고
-//   내용이 있으면 그 몇 배가 된다. 프레임을 디코드하자고 의존성을 늘릴 값어치는 없다.
+//   판별은 **불투명 픽셀 비율**로 한다. 예전엔 PNG 파일 크기로 갈랐는데(수십 KB = 빈 프레임),
+//   --alphafloor 를 켜면 옅은 배경 워시가 사라져 '내용이 있는데도' 6KB 로 압축된다 —
+//   멀쩡한 러닝 A3 를 빈 화면으로 오판해 중단시켰다(실측). pngjs 는 이미 devDependency 다.
 {
   //   ★ 그냥 기다리면 안 된다 — 시간은 우리가 미는 것이라, rAF 만 돌려선 장면이 영원히
   //     시각 0 에 멈춰 있다. 러닝 A3 는 시각 0 이 원래 비어 있고 t 가 흘러야 채워진다
   //     (실측: f0 0.00% → f1 4.54%). 시계를 안 밀고 12초를 기다렸더니 멀쩡한 러닝을
   //     '빈 화면'으로 오판해 중단시켰다. 그러니 프리플라이트도 실제로 시계를 민다.
   const probe = path.join(TMP, 'probe.png');
-  const floor = W * H > 2e6 ? 80 : 12;      // KB — 4K 는 빈 프레임이 40KB 대, 소형은 훨씬 작다
   let kb = 0, ok = false;
-  for (const t of [0, 0.25, 0.5, 1, 2]) {   // 초 — 앞부분 몇 지점만 보면 충분하다
+  for (const t of [T0, T0 + 0.25, T0 + 0.5, T0 + 1, T0 + 2, T0 + 3]) {   // 초 — 몇 지점만 보면 충분하다
     await page.evaluate(tt => new Promise(res => {
       const d = window.__dbg;
       window.__vt = 1200 + tt * 1000;
@@ -328,22 +518,25 @@ if (FLAT) {
       requestAnimationFrame(() => { window.__fitFlat?.(); requestAnimationFrame(res); });
     }), t);
     await page.screenshot({ path: probe, type: 'png', omitBackground: ALPHA });
-    kb = Math.max(kb, fs.statSync(probe).size / 1024);
-    if (kb >= floor) { ok = true; break; }
+    // ★ 알파 렌더는 '불투명 픽셀 비율'로, 검은 배경 렌더는 '색이 몇 가지나 있나'로 판정한다.
+    //   불투명 판정은 알파가 없으면 항상 100% 라 무조건 통과한다 — 그 구멍 때문에 균일한
+    //   아이보리 화면 240장을 13분 걸려 뽑고도 성공으로 보고했다(실측). 다시는 안 되게 막는다.
+    kb = Math.max(kb, ALPHA ? await coverage(probe) : await variety(probe));
+    if (kb >= 0.15) { ok = true; break; }     // 알파: 불투명 0.15% · 검은배경: 색 다양도 0.15%
   }
   fs.rmSync(probe, { force: true });
   if (!ok) {
-    console.error(`✗ 처음 2초 어디에도 그려진 것이 없습니다(최대 ${kb.toFixed(0)}KB).`);
+    console.error(`✗ 처음 3초 어디에도 그려진 것이 없습니다(최대 불투명 ${kb.toFixed(2)}%).`);
     console.error(`  GPU 메모리 부족이 유력합니다 — --uiscale 을 낮추거나(지금 ${UISCALE.toFixed(2)}) --w 를 줄이세요.`);
     await browser.close(); process.exit(1);
   }
-  console.log(`  화면 채워짐 확인 (${kb.toFixed(0)}KB)`);
+  console.log(`  화면 채워짐 확인 (불투명 ${kb.toFixed(2)}%)`);
 }
 
 const t0 = Date.now();
 let done = 0;
 for (let i = 0; i < N; i++) {
-  const t = i / FPS;
+  const t = T0 + i / FPS;
   // ★ 4K + 큰 uiscale 은 GPU 메모리를 넘겨 컨텍스트를 잃는다(실측: 3840·배율2.5 에서 11프레임째
   //   __dbg 통째로 소실). 죽으면 조용히 끝내고 여기까지 뽑은 프레임으로 영상을 묶는다.
   if (reloaded > 1) {
@@ -390,19 +583,29 @@ for (let i = 0; i < N; i++) {
     //   bhandle_pp.mp4 의 currentTime 이 1.0초 이동). 인물 실루엣만 12~30배로 빨라진다.
     //   UI·토큰은 가상 시계라 정상 속도 → '사람만 미친 듯이 빠른' 그림이 된다.
     //   재생을 멈추고 프레임마다 currentTime 을 직접 찍는다. 시크는 비동기라 기다려야 한다.
+    // ★ 깜빡임(유저 신고)의 원인이 이 블록에 세 겹으로 있었다. 실측: 러닝 180장 중 28장에서
+    //   불투명 커버리지가 10% ↔ 4.7% 로 진동 — 인물이 한 프레임 걸러 통째로 사라졌다.
+    //     ① 매 프레임 pause() 를 다시 불렀다. paused 를 false 로 덮어 뒀으니 이 줄이 항상
+    //        실행되고, 시크 직전의 pause() 는 진행 중인 시크를 취소한다.
+    //        → 정지는 셋업에서 한 번만 한다(아래 __pauseAll).
+    //     ② setTimeout(…, 250) 은 **실제 시간**이다. 4K 는 프레임 하나에 1~2초가 걸려
+    //        시크가 안 끝났는데도 250ms 뒤 렌더로 넘어갔다 — 그 프레임은 빈 디코드다.
+    //     ③ 'seeked' 는 '시크가 끝났다'일 뿐 '그 프레임이 텍스처에 올라갔다'가 아니다.
+    //        requestVideoFrameCallback 이 정확히 후자를 알려 준다.
     const vids = [...document.querySelectorAll('video')].filter(v => isFinite(v.duration) && v.duration > 0);
     Promise.all(vids.map(v => new Promise(r => {
-      if (!v.paused) v.pause();
       const want = v.loop ? (tt % v.duration) : Math.min(tt, v.duration);
-      if (Math.abs(v.currentTime - want) < 1e-3) return r();
-      const done = () => { v.removeEventListener('seeked', done); r(); };
-      v.addEventListener('seeked', done);
+      if (Math.abs(v.currentTime - want) < 1e-3 && v.readyState >= 2) return r();
+      let settled = false;
+      const fin = () => { if (settled) return; settled = true; r(); };
+      if (v.requestVideoFrameCallback) v.requestVideoFrameCallback(() => fin());
+      else v.addEventListener('seeked', fin, { once: true });
       v.currentTime = want;
-      setTimeout(done, 250);          // 시크가 안 끝나도 렌더는 진행 — 멈추는 것보단 낫다
+      setTimeout(fin, 3000);          // 안전장치. 넉넉해야 한다 — 짧으면 그게 곧 깜빡임이다
     }))).then(() => {
-      // 첫 rAF 는 앱의 갱신·렌더가 끝난 뒤에 돈다(앱 루프가 먼저 등록돼 있다) — 거기서 카메라를
-      // 이번 프레임의 투사면 위치에 다시 맞추면, 두 번째 틱의 렌더가 그 카메라로 그린다.
-      requestAnimationFrame(() => { window.__fitFlat?.(); requestAnimationFrame(res); });
+      // 첫 rAF 는 앱의 갱신·렌더가 끝난 뒤에 돈다(앱 루프가 먼저 등록돼 있다) — 거기서 무대를
+      // 다시 끄고 카메라를 투사면에 다시 맞추면, 두 번째 틱의 렌더가 그 상태로 그린다.
+      requestAnimationFrame(() => { window.__isolate3d?.(); window.__fitFlat?.(); requestAnimationFrame(res); });
     });
   }), t);
   await page.screenshot({ path: path.join(TMP, `f${String(i).padStart(5, '0')}.png`), type: 'png', omitBackground: ALPHA });
@@ -467,10 +670,43 @@ if (hasFF) {
      '-pix_fmt', ALPHA ? 'yuva444p10le' : 'yuv444p10le']);
   // 미리보기용 H.264 — ★ 짝수 크기로 내려야 한다. 평면 뷰는 대지 비율을 따르므로 홀수가 흔하다
   //   (벽 3840×2363 · 지면 2302×3841). libx264 는 홀수 높이를 못 쓴다.
-  enc('H.264 미리보기', path.join(OUT, `${tag}_preview.mp4`),
+  // ★ 미리보기는 **하위 폴더로 내린다**. 알파가 없는 검은 배경 파일이고 압축도 세다
+  //   (실측: 3초 4K 농구가 1.17MB). 최종물 .mov 와 이름이 한 글자 차이라 에펙에 이걸 잘못
+  //   넣으면 정확히 "배경이 검고 블러가 뭉갠" 그림이 나온다. 아예 섞이지 않게 분리한다.
+  const PV = path.join(OUT, 'preview_black_bg_NOT_for_AE');
+  fs.mkdirSync(PV, { recursive: true });
+  enc('H.264 미리보기', path.join(PV, `${tag}_preview.mp4`),
     ['-vf', `scale=${W - (W % 2)}:${H - (H % 2)}:flags=lanczos`,
      '-c:v', 'libx264', '-crf', '16', '-pix_fmt', 'yuv420p']);
 } else console.log('ⓘ ffmpeg 없음 — PNG 시퀀스만 냅니다(에펙은 이걸 그대로 읽습니다).');
+
+// ── 검수 ────────────────────────────────────────────────────────────────────
+//   "에펙에서 열었더니 배경이 검다"를 여기서 잡는다. 3장만 보면 놓친다 — 한 프레임만
+//   불투명해도 그 순간 검은 사각형이 번쩍인다(실측: 농구 BK_B3 f1 만 모서리 알파 255).
+//   깜빡임도 같이 본다: 커버리지가 프레임 사이에서 크게 진동하면 인물이 사라졌다 나타난 것이다.
+if (ALPHA && done) {
+  const step = Math.max(1, Math.floor(done / 20));
+  const pick = [...new Set([...Array(done).keys()].filter(i => i % step === 0).concat(done - 1))];
+  const rep = [];
+  for (const i of pick) {
+    const f = path.join(seq, `f${String(i).padStart(5, '0')}.png`);
+    if (!fs.existsSync(f)) continue;
+    const png = PNG.sync.read(fs.readFileSync(f));
+    const at = (x, y) => png.data[(y * png.width + x) * 4 + 3];
+    const c = [at(0, 0), at(png.width - 1, 0), at(0, png.height - 1), at(png.width - 1, png.height - 1)];
+    rep.push({ i, cov: await coverage(f), corner: Math.max(...c) });
+  }
+  const worst = rep.reduce((a, b) => (b.corner > a.corner ? b : a), rep[0]);
+  const covs = rep.map(r => r.cov);
+  const swing = Math.max(...covs) - Math.min(...covs);
+  console.log(`  검수 ${rep.length}장 · 불투명 ${Math.min(...covs).toFixed(2)}~${Math.max(...covs).toFixed(2)}%`
+    + ` · 모서리 알파 최대 ${worst.corner} (f${worst.i})`);
+  const bad = rep.filter(r => r.cov < 0.05 || r.corner > 8);
+  for (const r of bad) console.log(`  ✗ f${r.i}: 불투명 ${r.cov.toFixed(2)}% · 모서리 알파 ${r.corner}`);
+  if (bad.length) console.log(`⚠ 검수 실패 ${bad.length}건 — 빈 프레임이거나 배경이 투명하지 않습니다.`);
+  else console.log('  ✓ 배경 투명 확인 (네 모서리 알파 0) · 내용 있음');
+  if (swing > 3) console.log(`⚠ 커버리지가 ${swing.toFixed(1)}%p 진동합니다 — 깜빡임 의심. scripts/measure_flicker.mjs 로 확인하세요.`);
+}
 console.log('\n✅ ' + made.join('\n   '));
 if (errs.length) console.log(`⚠ 페이지 에러 ${errs.length}건:`, errs.slice(0, 3));
 await browser.close();

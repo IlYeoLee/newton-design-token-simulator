@@ -16,6 +16,19 @@ export const FX = {
   exposure: 1.0,
   alphaOut: false,   // 영상 내보내기 — 알파를 휘도에서 뽑는다
   alphaFloor: 0,     // 이 밝기 아래는 완전 투명 (--alphafloor)
+  // 알파 감마 (--alphagamma). 1 = 예전과 동일.
+  //   투사는 가산광이라 알파 = 빛의 세기인데, 그 선형 관계가 **어두운 톤을 통째로 지운다**:
+  //   머리카락 회색(휘도 0.10)이 알파 0.18 로 나와 배경이 비친다(유저: "연한 회색조차 싹 지워버림").
+  //   0.5 를 주면 같은 픽셀이 알파 0.57 이 된다 — 진짜 배경(휘도≈0)은 그대로 0 이다.
+  //   ※ '전부 불투명(100% 잉크)'은 여기서 못 한다. 인물·마크가 가산 블렌딩이라 커버리지
+  //     알파 자체가 없고, 알파를 가진 건 대지 UI 판뿐인데 그 배경은 불투명 검정이다
+  //     (실측: 씬 알파를 그대로 내보내면 인물이 사라지고 검은 사각형만 남는다).
+  alphaGamma: 1,
+  // 잉크 알파 — 블룸의 알파를 더하지 않고 **씬이 실제로 쓴 알파**를 그대로 내보낸다.
+  //   인물 레이어를 단독으로 뽑을 때만 의미가 있다(--layer person). 인물 판은 실루엣 마스크를
+  //   알파로 쓰므로 이러면 어두운 톤까지 불투명하게 남는다. 통합 프레임에서는 못 쓴다 —
+  //   대지 UI 판의 불투명 검정 배경이 화면을 덮어 버린다(실측).
+  inkAlpha: false,
 };
 
 // FilmPass 대체 — 가벼운 그레인+비네트+노출 (톤 왜곡 없음), 디더로 밴딩 제거
@@ -31,11 +44,12 @@ const GrainVignetteShader = {
     // 남아 투사면 사각형이 통째로 비쳐 보이던 것의 해법(유저: "배경에 투사영역도 보이고").
     // 0 이면 예전과 완전히 동일 — 기본은 끔.
     uAlphaFloor: { value: 0 },
+    uAlphaGamma: { value: 1 },   // <1 이면 어두운 톤의 알파를 들어 올린다 (--alphagamma)
   },
   vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
   fragmentShader: `
     uniform sampler2D tDiffuse;
-    uniform float uGrain, uVignette, uExposure, uTime, uAlphaOut, uAlphaFloor;
+    uniform float uGrain, uVignette, uExposure, uTime, uAlphaOut, uAlphaFloor, uAlphaGamma;
     varying vec2 vUv;
     float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
     void main(){
@@ -52,6 +66,8 @@ const GrainVignetteShader = {
         float L = max(c.r, max(c.g, c.b));
         // 문턱 아래는 잘라 내고 남은 구간을 다시 편다 — 문턱을 넘는 빛의 밝기는 그대로 보존된다.
         float g = clamp((L - uAlphaFloor) / max(1.0 - uAlphaFloor, 1e-3), 0.0, 1.0);
+        // 감마로 어두운 쪽을 들어 올린다. pow 밑은 clamp 로 이미 0 이상 — 음수 밑 NaN 함정 없음.
+        g = pow(g, max(uAlphaGamma, 1e-3));
         gl_FragColor = vec4(c.rgb, clamp(g * 1.8, 0.0, 1.0));
       } else gl_FragColor = c;
     }`,
@@ -639,12 +655,20 @@ export function createScene(container) {
   //   export_video 의 `composer.passes[0].camera = ortho`(--flat)가 블룸 체인만 바꾸고
   //   최종 렌더는 옛 카메라로 남는다 — 평면 내보내기가 조용히 깨진다.
   finalComposer.addPass(renderPass);
-  finalComposer.addPass(new ShaderPass({
-    uniforms: { tDiffuse: { value: null }, tBloom: { value: composer.renderTarget2.texture } },
+  // ★ uInkAlpha=1 이면 알파를 **씬 것만** 쓴다(블룸 알파를 더하지 않는다).
+  //   블룸 RT 는 알파가 1 이라 그냥 더하면 프레임 전체가 불투명해진다 — 투명 내보내기가
+  //   '알파를 휘도에서 뽑는'(FX.alphaOut) 우회로 갈 수밖에 없었던 진짜 원인이 이 한 줄이다.
+  //   그 우회는 어두운 톤을 통째로 반투명하게 만든다(유저: "머리카락 회색까지 싹 지워버린다").
+  //   블룸은 빛의 번짐이지 가림이 아니므로, 알파를 안 건드리는 쪽이 물리적으로도 맞다.
+  const bloomAddPass = new ShaderPass({
+    uniforms: { tDiffuse: { value: null }, tBloom: { value: composer.renderTarget2.texture },
+      uInkAlpha: { value: 0 } },
     vertexShader: 'varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
-    fragmentShader: 'uniform sampler2D tDiffuse,tBloom;varying vec2 vUv;'
-      + 'void main(){gl_FragColor=texture2D(tDiffuse,vUv)+texture2D(tBloom,vUv);}',
-  }));
+    fragmentShader: 'uniform sampler2D tDiffuse,tBloom;uniform float uInkAlpha;varying vec2 vUv;'
+      + 'void main(){vec4 s=texture2D(tDiffuse,vUv),b=texture2D(tBloom,vUv);'
+      + 'gl_FragColor=vec4(s.rgb+b.rgb, mix(s.a+b.a, s.a, uInkAlpha));}',
+  });
+  finalComposer.addPass(bloomAddPass);
   const gradePass = new ShaderPass(GrainVignetteShader);
   finalComposer.addPass(gradePass);
   finalComposer.addPass(new OutputPass());
@@ -666,6 +690,8 @@ export function createScene(container) {
     gradePass.uniforms.uTime.value = timeSec;
     gradePass.uniforms.uAlphaOut.value = FX.alphaOut ? 1 : 0;
     gradePass.uniforms.uAlphaFloor.value = FX.alphaFloor || 0;
+    gradePass.uniforms.uAlphaGamma.value = FX.alphaGamma || 1;
+    bloomAddPass.uniforms.uInkAlpha.value = FX.inkAlpha ? 1 : 0;
     hideMarks(); composer.render(); showMarks();   // 블룸 입력 = 마크 없는 씬
     finalComposer.render();                        // 최종 = 원본 씬 + 블룸 가산
   }
