@@ -536,7 +536,7 @@ vec4 personAura(float mBody, float wide, float lumSharp, float lumBase, float fa
   // 톤(룩2): 감마 0.59 → 대비 0.8 → 밝기 +0.5 → 인물 대역 0.3~1.0 (앱과 동일)
   float band = 0.3 + 0.7 * clamp((pow(clamp(lum, 0.0, 1.0), 0.59) - 0.5) * 0.8 + 0.655 + uPCalB, 0.0, 1.0);
   float bandB = 0.3 + 0.7 * clamp((pow(clamp(lb, 0.0, 1.0), 0.59) - 0.5) * 0.8 + 0.655 + uPCalB, 0.0, 1.0);
-  band = mix(band, 0.10, face);   // 얼굴 = 저열(밝은 살구) — 앱 부위 밝기 -1(multiply) 대응
+  band = mix(band, 0.17, face * 0.92);   // 얼굴 저열 — 0.10 은 광나는 구슬처럼 떴다(유저). 살짝 톤을 남긴다
   // ⚠ 세로 부위 프로파일(허리·무릎·종아리 대역)은 **폐기** — A1 처럼 크롭된 판에선 uv 가
   //   신체 좌표가 아니라서 허리 밴드가 셔츠 밑단의 붉은 줄무늬로 찍혔다(같은 프레임 대조 실측).
   //   부위 대비는 포즈 없인 안전하게 재현 불가 — stdG 일부 손해를 감수한다.
