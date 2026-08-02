@@ -3100,13 +3100,16 @@ void main(){
           // 색 = fx-core.personColor 공용 정의 (벽 인물과 같은 곡선·대역·채도).
           // 구 mix(thermo…) 은 은퇴 — uTone=1 이라 실제로 안 쓰였고, 무지개 램프는 팔레트 밖이었다.
           vec3 col; float covA;
-          if (uPForm > 0.5) {   // 레퍼런스 규약 — 5중 레이어 합성(fx-core.personAura). 잔상(trail)은 이 모드엔 없다.
-            // 룩2: 전해상 원본 휘도(디스필) — 데모판 비디오는 tex/uCropC·uCropS 규약
+          if (uPForm > 0.5) {   // 룩2(기본) — fx-core.personAura
+            // 전해상 원본 휘도(디스필) — 데모판 비디오는 tex/uCropC·uCropS 규약
             vec3 srcC = texture2D(tex, uCropC + (uv - 0.5) * uCropS).rgb;
             float lumSharp = dot(vec3(srcC.r, min(srcC.g, max(srcC.r, srcC.b)), srcC.b), vec3(0.299, 0.587, 0.114));
             float lumNRaw = fN.g / max(fN.r, 0.02);
             vec4 aura = personAura(mEro, fB.r, lumSharp, lumNRaw, faceW, uv, uTime);
             col = aura.rgb; covA = aura.a;
+            // 잔상(trail) 복원 — 복싱 버스트의 가산광 궤적. 룩2 앵커색으로 은은하게.
+            col = max(col, trail * vec3(0.98, 0.25, 0.06) * 0.55);
+            covA = max(covA, trail * 0.3);
           } else {
             col = personLook(T, dLumS, dLumB, mIn, faceW, uv.y) * shape;
             covA = shapeA;
