@@ -293,24 +293,8 @@ export class WallGL {
     ctx.save(); rrPath(ctx, px, py, ph, ph, 54); ctx.clip();
     // Casey(피그마 팩 히어로, 1129×1757) — 커버 크롭, 얼굴(세로 ~24%)이 썸네일 중심에 오게
     const ca = this._img('casey.png');
-    // ★ 빔 투사엔 검정이 없다(빛 없음 = 벽 구멍). 사진도 루마만 남기고 브랜드 온도색으로 착색 —
-    //   피그마 어시스트 카드 이미지들과 같은 처리("모든 것은 온도다"). 그레이스케일 + 새도우 리프트
-    //   → 'color' 블렌드로 코랄 휴 입힘. 1회 구워 캐시.
-    if (ca) {
-      if (!this._caseyTint) {
-        const tc = document.createElement('canvas'); tc.width = 260; tc.height = Math.round(260 * 1757 / 1129);
-        const x = tc.getContext('2d');
-        x.filter = 'grayscale(1) contrast(.55) brightness(1.38)';
-        x.drawImage(ca, 0, 0, tc.width, tc.height);
-        x.filter = 'none';
-        x.globalCompositeOperation = 'color';
-        x.fillStyle = PAL.coral; x.fillRect(0, 0, tc.width, tc.height);
-        x.globalCompositeOperation = 'destination-in';   // 원본 알파 유지(전신 배경은 원본이 밝은 스튜디오라 그대로)
-        x.drawImage(ca, 0, 0, tc.width, tc.height);
-        this._caseyTint = tc;
-      }
-      ctx.drawImage(this._caseyTint, px - 21, py - 30);
-    }
+    // 원본 이미지 그대로 + 투명도 70(유저 최종 — "미래엔 다 가능")
+    if (ca) { ctx.save(); ctx.globalAlpha *= 0.7; ctx.drawImage(ca, px - 21, py - 30, 260, 260 * 1757 / 1129); ctx.restore(); }
     ctx.restore();
     const tx = px + ph + 40.857;
     // 제목+메타 두 줄을 썸네일(=카드) 세로 중심에 맞춘다 — py+24 고정이라 위로 24 치우쳐 있었다(유저).
