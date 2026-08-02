@@ -518,7 +518,7 @@ vec4 personAura(float mBody, float wide, float lumSharp, float lumBase, float fa
   //   쓰면 판이 작은 바닥 코치일수록 결이 사전에 뭉개져 뿌옇게 떴다(유저 진단 정확).
   //   lumBase = 좁은 블러장 휘도(앱 표면블러의 base 역할). 이제 신호가 앱과 같은 구조라
   //   우회 보정(임계 축소·d 이득·숄더) 없이 앱 상수를 그대로 쓴다.
-  face = max(face, smoothstep(0.90, 0.965, uv.y));   // 정수리(얼굴 대역 위 3%)가 검붉은 핫스팟으로 남던 것
+  face = max(face, smoothstep(0.80, 0.90, uv.y));   // 정수리 — 판별 얼굴 대역 상단(0.84)과 크라운 사이 틈이 검붉은 반점으로 남던 것(복싱 실측)
   if (uPLumLin > 0.5) {
     lumSharp = pow(clamp(lumSharp, 0.0, 1.0), 0.4545);
     lumBase = pow(clamp(lumBase, 0.0, 1.0), 0.4545);
