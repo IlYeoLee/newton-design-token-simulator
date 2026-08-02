@@ -2571,8 +2571,11 @@ void main(){
           //   1.12 게인과 V 상한 0.90 은 복싱엔 없는 것이라 톤이 갈렸다(유저: '시뮬레이터 보면 존나 다르다').
           vec3 col; float cov;
           if (uPForm > 0.5) {   // 레퍼런스 규약 — 5중 레이어 합성(fx-core.personAura)
-            float lumNRaw = fldN.g / max(fldN.r, 0.02);   // 룩2: uDetail 미적용 원본 결
-            vec4 aura = personAura(mEro, fld.r, lumNRaw, lumB, faceW, uv, uTime);
+            // 룩2: 전해상 원본 휘도(디스필) — 저해상 필드 휘도는 바닥 판에서 결이 사전에 뭉개진다
+            vec3 srcC = texture2D(map, crop(uv)).rgb;
+            float lumSharp = dot(vec3(srcC.r, min(srcC.g, max(srcC.r, srcC.b)), srcC.b), vec3(0.299, 0.587, 0.114));
+            float lumNRaw = fldN.g / max(fldN.r, 0.02);
+            vec4 aura = personAura(mEro, fld.r, lumSharp, lumNRaw, faceW, uv, uTime);
             col = aura.rgb; cov = aura.a;
           } else {
             col = personLook(clamp(H + pulse + dth, 0.0, 1.0), lumS, lumB, mIn, faceW, uv.y) * mEro;
@@ -3098,8 +3101,11 @@ void main(){
           // 구 mix(thermo…) 은 은퇴 — uTone=1 이라 실제로 안 쓰였고, 무지개 램프는 팔레트 밖이었다.
           vec3 col; float covA;
           if (uPForm > 0.5) {   // 레퍼런스 규약 — 5중 레이어 합성(fx-core.personAura). 잔상(trail)은 이 모드엔 없다.
-            float lumNRaw = fN.g / max(fN.r, 0.02);   // 룩2: uDetail 미적용 원본 결
-            vec4 aura = personAura(mEro, fB.r, lumNRaw, dLumB, faceW, uv, uTime);
+            // 룩2: 전해상 원본 휘도(디스필) — 데모판 비디오는 tex/uCropC·uCropS 규약
+            vec3 srcC = texture2D(tex, uCropC + (uv - 0.5) * uCropS).rgb;
+            float lumSharp = dot(vec3(srcC.r, min(srcC.g, max(srcC.r, srcC.b)), srcC.b), vec3(0.299, 0.587, 0.114));
+            float lumNRaw = fN.g / max(fN.r, 0.02);
+            vec4 aura = personAura(mEro, fB.r, lumSharp, lumNRaw, faceW, uv, uTime);
             col = aura.rgb; covA = aura.a;
           } else {
             col = personLook(T, dLumS, dLumB, mIn, faceW, uv.y) * shape;

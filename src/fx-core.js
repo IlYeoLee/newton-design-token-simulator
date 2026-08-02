@@ -513,40 +513,41 @@ vec3 look2Ramp(float t){
   c = mix(c, vec3(1.0, 0.2, 0.0), clamp(t * 4.0 - 3.0, 0.0, 1.0));
   return c;
 }
-vec4 personAura(float mBody, float wide, float lumS, float lumB, float face, vec2 uv, float tSec){
-  // 색공간 통일 — 리니어 입력(코치판)은 sRGB 근사로 되돌린다(측정·데모판과 동일 공간).
+vec4 personAura(float mBody, float wide, float lumSharp, float lumBase, float face, vec2 uv, float tSec){
+  // ★ lumSharp = **비디오 원본 전해상 휘도**(디스필 적용, 호출부 계산). 저해상 필드 RT 휘도를
+  //   쓰면 판이 작은 바닥 코치일수록 결이 사전에 뭉개져 뿌옇게 떴다(유저 진단 정확).
+  //   lumBase = 좁은 블러장 휘도(앱 표면블러의 base 역할). 이제 신호가 앱과 같은 구조라
+  //   우회 보정(임계 축소·d 이득·숄더) 없이 앱 상수를 그대로 쓴다.
   if (uPLumLin > 0.5) {
-    lumS = pow(clamp(lumS, 0.0, 1.0), 0.4545);
-    lumB = pow(clamp(lumB, 0.0, 1.0), 0.4545);
+    lumSharp = pow(clamp(lumSharp, 0.0, 1.0), 0.4545);
+    lumBase = pow(clamp(lumBase, 0.0, 1.0), 0.4545);
   }
-  // ⚠ lumS 는 반드시 **원본 좁은 블러장 휘도**여야 한다(uDetail 슬라이더 미적용) —
-  //   판마다 다른 detail 배율이 곱해져 들어오면 '동일 값' 이 깨진다(유저 지적).
-  // 범위 스트레치(앱의 p5~p95 정규화) — 클립별 실측 lo/hi.
   float lo = uPLo;
   float hi = max(uPHiL, lo + 0.05);
-  float ls = clamp((lumS - lo) / (hi - lo), 0.0, 1.0);
-  float lb = clamp((lumB - lo) / (hi - lo), 0.0, 1.0);
-  // 표면 블러(surface 1): 약한 결은 블러 휘도에 삼키고 강한 경계만 복원 (임계 = 앱 th 10/255)
-  // 톤 베이스 = 좁은·넓은 필드 혼합 — 넓은 필드 단독은 옷 주름(중간 주파수)까지 평균에
-  //   삼켜 평평해졌다(실측: 농구 stdG 16 vs 앱 27). 앱의 0.075·인물높이 블러를 근사한다.
-  float base = mix(ls, lb, 0.35);   // 0.55 는 옷 주름 진폭을 45%로 깎았다 — 농구 stdG 16 vs 앱 27 의 나머지
-  float d = (ls - base) * 1.3 * uPCalD;   // 1.3 = 수렴값(2026-08-02 자율 캘리브레이션)
-  float keep = clamp((abs(d) - 0.020) / 0.018, 0.0, 1.0);   // 임계 축소 — 시뮬 d 는 필드 사전블러로 진폭이 앱의 절반
+  float ls = clamp((lumSharp - lo) / (hi - lo), 0.0, 1.0);
+  float lb = clamp((lumBase - lo) / (hi - lo), 0.0, 1.0);
+  // 표면 블러(surface 1, 앱 th=10/255 그대로): 약한 결은 base 로, 강한 경계만 복원
+  float d = (ls - lb) * 1.1 * uPCalD;   // 수렴값(08-02 2차 캘리브레이션)
+  float keep = clamp((abs(d) - 0.039) / 0.031, 0.0, 1.0);
   keep *= keep;
-  float lum = base + d * keep;
-  // 얼굴: 이목구비 소거(디테일 제거)만 여기서 — 톤은 band 단계에서 저열로 민다.
-  lum = mix(lum, base, face);
-  // 톤(룩2): 감마 0.59 → 대비 0.8 → 밝기 +0.5 → 인물 대역 0.3~1.0 (앱과 동일 순서·값)
-  float band = 0.3 + 0.7 * clamp((pow(clamp(lum, 0.0, 1.0), 0.59) - 0.5) * 0.8 + 0.825 + uPCalB, 0.0, 1.0);
-  // 얼굴 = 저열(밝은 살구) — 앱의 부위 밝기 -1(multiply)은 열을 0 근처로 눌러 얼굴이 거의
-  //   희게 뜬다. 시뮬 초판은 반대로 어둡게 갔다(실측: p10 다크테일의 정체).
-  band = mix(band, 0.10, face);   // 0.35 는 램프상 진한 레드 구간이었다(실측 p10 악화) — 흰↔RED 혼합 지점으로
-  // 소프트 숄더 — 최상단 포화(하이라이트가 전부 최고열 #FF3300 에 붙는 것)를 완화.
-  //   앱의 hot-tail 분포(p10-G 103)와 맞추기 위한 항 — 실측 기반.
-  band -= 0.085 * smoothstep(0.85, 1.0, band);
-  float bandB = 0.3 + 0.7 * clamp((pow(clamp(lb, 0.0, 1.0), 0.59) - 0.5) * 0.8 + 1.0, 0.0, 1.0);
-  // Contour 림(룩2 = 1.0, 앱: rim = max(0, sm−aura)·contour·0.9, 글로우 부위 제외) — 이식 누락분
-  float rim = max(0.0, band - bandB) * 0.45 * (1.0 - face);   // 0.9 는 진한 꼬리(p10)를 과하게 만들었다(실측)
+  float lum = lb + d * keep;
+  lum = mix(lum, lb, face);   // 얼굴: 결 제거
+  // 톤(룩2): 감마 0.59 → 대비 0.8 → 밝기 +0.5 → 인물 대역 0.3~1.0 (앱과 동일)
+  float band = 0.3 + 0.7 * clamp((pow(clamp(lum, 0.0, 1.0), 0.59) - 0.5) * 0.8 + 0.62 + uPCalB, 0.0, 1.0);
+  float bandB = 0.3 + 0.7 * clamp((pow(clamp(lb, 0.0, 1.0), 0.59) - 0.5) * 0.8 + 0.62 + uPCalB, 0.0, 1.0);
+  band = mix(band, 0.10, face);   // 얼굴 = 저열(밝은 살구) — 앱 부위 밝기 -1(multiply) 대응
+  // 룩2 부위 부스트 근사(세로 프로파일 — 영상엔 포즈 검출이 없어 관절 대신 대역):
+  //   허리·복부 +1(screen=뜨겁게) · 무릎 +1 · 종아리 -1(multiply=저열=밝음).
+  //   앱 stdG 27 의 상당분은 이 부위 간 대비였다(전역 톤으로는 재현 불가 — 실측).
+  float torso = smoothstep(0.56, 0.63, uv.y) * (1.0 - smoothstep(0.68, 0.76, uv.y));   // 앱은 허리 한 점 스트로크 — 좁게
+  float knee  = smoothstep(0.30, 0.36, uv.y) * (1.0 - smoothstep(0.40, 0.46, uv.y));
+  float calf  = smoothstep(0.10, 0.17, uv.y) * (1.0 - smoothstep(0.26, 0.33, uv.y));
+  band = 1.0 - (1.0 - band) * (1.0 - 0.20 * clamp(torso + knee, 0.0, 1.0));
+  band = mix(band, band * 0.30, calf * 0.85);
+  // 최상단 소프트 숄더 — 최고열 포화 완화(러닝 hot-tail p10 실측 보정)
+  band -= 0.06 * smoothstep(0.88, 1.0, band);
+  // Contour 림(룩2 1.0 · 앱 rim = (열−아우라열)·0.9) — 아우라열 근사 = base 톤
+  float rim = max(0.0, band - bandB) * 0.9 * (1.0 - face);
   // 웨이브(세기 1.04 · 속도 1.32 · 밴드 1.95) — 얼굴·반투명 경계 통과 금지
   float ta = tSec * 1.32;
   float wc = uv.y / 1.95;
@@ -555,20 +556,19 @@ vec4 personAura(float mBody, float wide, float lumS, float lumB, float face, vec
     + 0.09 * sin(6.2832 * (wc * 3.1 + ta * 0.07) + uv.x * 2.0));
   wave = mix(wave, 1.0, face);
   float t = band * mix(1.0, wave, mBody * mBody) + rim;
-  // 적응 디더 — 8비트 필드·LUT 밴딩 분해(얼굴은 강하게)
   float dth = (fract(sin(dot(uv * 1483.0 + fract(ta * 1.7) * 3.0, vec2(12.9898, 78.233))) * 43758.5453) - 0.5)
             * (0.010 + face * 0.022);
   vec3 c = look2Ramp(clamp(t + dth, 0.0, 1.0));
-  // 흰 레이어 3종(앱과 동일 강도): 이너섀도 0.28×0.75 · 실루엣 라인 0.24×0.9 · 내부 라인 0.14
+  // 흰 레이어 3종 — 앱 원값(이너섀도 0.28×0.75 · 라인 0.24×0.9 · 내부라인 0.14)
   float feather = pow(clamp((mBody - wide) * 2.4, 0.0, 1.0), 1.3);
-  c = mix(c, vec3(1.0), clamp(feather * 0.42 * uPCalW, 0.0, 1.0));
-  float line = pow(4.0 * mBody * (1.0 - mBody), 1.5) * smoothstep(0.35, 0.6, mBody);   // 실루엣 라인(이식 누락분)
-  c = mix(c, vec3(1.0), clamp(line * 0.324 * uPCalW, 0.0, 1.0));
-  float lineIn = sqrt(clamp(abs(d) * 2.6, 0.0, 1.0)) * (1.0 - face);
-  c = mix(c, vec3(1.0), clamp(lineIn * 0.285 * uPCalW, 0.0, 1.0));
-  // 프리멀티 — 투사광에서 배경은 빛 없음. 아우라 0(룩2).
+  c = mix(c, vec3(1.0), clamp(feather * 0.40 * uPCalW, 0.0, 1.0));
+  float line = pow(4.0 * mBody * (1.0 - mBody), 1.5) * smoothstep(0.35, 0.6, mBody);
+  c = mix(c, vec3(1.0), clamp(line * 0.41 * uPCalW, 0.0, 1.0));
+  float lineIn = sqrt(clamp(abs(ls - lb) * 2.6, 0.0, 1.0)) * (1.0 - face);
+  c = mix(c, vec3(1.0), clamp(lineIn * 0.27 * uPCalW, 0.0, 1.0));
   return vec4(clamp(c, 0.0, 1.0) * mBody, mBody);
-}`;
+}
+`;
 
 export const MARK_GLSL = `
 uniform float uRadius, uPool, uContract, uShape, uSeed;
