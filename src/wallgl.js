@@ -452,7 +452,7 @@ export class WallGL {
     const gl = this._img('glow.svg'), gp = cycle(t, 0, 4.6, INF);
     if (gl) {
       ctx.save();
-      ctx.globalAlpha *= gp == null ? .86 : kf(gp, [[0, .86], [.5, 1], [1, .86]]);
+      ctx.globalAlpha *= 0.8 * (gp == null ? .86 : kf(gp, [[0, .86], [.5, 1], [1, .86]]));   // 배경 투명도 80(유저)
       const gs = gp == null ? 1 : kf(gp, [[0, 1], [.5, 1.055], [1, 1]]);
       const gcx = FX - 70 + 450, gcy = FY - 70 + 455;
       ctx.translate(gcx, gcy); ctx.scale(gs, gs); ctx.translate(-gcx, -gcy);
@@ -463,13 +463,13 @@ export class WallGL {
     const fb = cycle(t, 2.2, 5.5, INF);
     const fdy = fb == null ? 0 : kf(fb, [[0, 0], [.10, 34], [.20, 6], [.32, 31], [.44, 0], [.70, 0], [1, 0]]);
     const foot = this._tinted('foot_shape.png', 300, 400, [[0, rgba(PAL.sand, 0)], [.37, rgba(PAL.sand, .35)], [.94, RED], [1, RED]]);
-    if (foot) { ctx.save(); ctx.globalAlpha *= .9; ctx.drawImage(foot, FX + 380 - 150, FY + 275 + fdy, 300, 400); ctx.restore(); }
+    if (foot) { ctx.save(); ctx.globalAlpha *= .9 * 0.8; ctx.drawImage(foot, FX + 380 - 150, FY + 275 + fdy, 300, 400); ctx.restore(); }
     // 원반 — floatY 5s 2.2s ∞
     const disc = this._img('footprint_shadow.svg'), fy2 = cycle(t, 2.2, 5, INF);
     if (disc) {
       const dh = 370 * (disc.naturalHeight / disc.naturalWidth);
       const dd = fy2 == null ? 0 : kf(fy2, [[0, -7], [.5, 9], [1, -7]]);
-      ctx.drawImage(disc, FX + 380 - 185, FY + 678 + dd, 370, dh);
+      ctx.save(); ctx.globalAlpha *= 0.8; ctx.drawImage(disc, FX + 380 - 185, FY + 678 + dd, 370, dh); ctx.restore();
     }
     // CTA
     const ar = this._img('arrow-right.svg');
