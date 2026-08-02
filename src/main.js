@@ -3328,7 +3328,13 @@ void main(){
       demoLiveHold = demoLiveNow ? 8 : Math.max(0, demoLiveHold - 1);
     }
     demoPanel.material.uniforms.uLive.value = demoLiveHold > 0 ? 1 : 0;
-    if (now - demoLastT < 1 / 45) return;
+    // ★ 스로틀 폐기(유저 08-03) — 필드는 **매 프레임** 다시 굽는다.
+    //   본체 셰이더는 매 프레임 현재 영상 텍스처로 실루엣 마스크(pmask)를 뽑는데, 톤·두께 필드
+    //   (uHeat/uHeatN)만 45Hz 로 갱신하면 60fps 화면에서 한 프레임 걸러 스킵된다. 그 프레임은
+    //   마스크는 새 자세, 필드는 이전 자세라 **둘이 어긋난 자리에 이전 실루엣 가장자리가 밝게 남는다**
+    //   (유저: "어떤 투명도 프레임이 그 자리에 머물러 빛반사를 계속 이룬다").
+    //   익스포터에서 덜 보였던 것도 같은 이유다 — 가상 시계가 33ms 씩 뛰어 매번 통과했다.
+    //   비용은 필드 패스 몇 개뿐이고, 마스크와 필드가 항상 같은 영상 프레임에서 나오는 게 옳다.
     demoLastT = now;
     if (demoVideo.readyState < 2) return;
     // 잔상 누적 (핑퐁) — 룩 person.decay 라이브 소비
