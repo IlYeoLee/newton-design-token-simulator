@@ -796,6 +796,9 @@ void main(){
     controls.update?.();
     lastBodyX = a.x; lastBodyZ = a.z;   // 추종 델타 기준도 같은 프레임에 리셋
   }
+  // 씬 스테이지에서 시점을 고를 수 있게 노출 — 카메라를 밖에서 새로 계산하면 종목별 화각·VOR·
+  //   1인칭 가독 보정(setFPView)이 전부 빠진다. 앱의 토글을 그대로 쓰는 게 맞다.
+  window.__setFp = (on) => setFp(!!on);
   function setFp(on) {
     fpMode = on;
     setFPView(on);   // 1인칭 가독 보정 — 순번 감쇠 완화 + 마크·레인 게인 (시선 각도 눌림)
@@ -3016,8 +3019,14 @@ void main(){
   // ★ 해상도 = 코치 판 필드(320×480)와 동일. 128×192 로 굽던 것을 셰이더가 휘도(dLumB)의
   //   출처로 쓰기 시작하면서, 640px 로 확대될 때 3~5배 업스케일이 그대로 **계단**으로 드러났다
   //   (유저: 다리 윤곽이 더거덕). 소스 영상은 2276×1280 로 멀쩡했다 — 병목은 이 RT 였다.
+  // ★ 반정밀도(HalfFloat) — 물감 자국의 정체는 해상도가 아니라 **8비트 양자화**였다.
+  //   이 필드는 셰이더에서 detail(=lumS−lumB) × P_TEX 4.2 로 증폭된다. 8비트의 1/255 계단이
+  //   그대로 4배로 벌어져, 밝은 구간에서 부드러운 면이 뭉텅이로 갈라져 보인다
+  //   (유저: "밝게 변하면서 부드러운 면이 사라지고 물감처럼 거친 면"). σ·해상도는 그대로라
+  //   룩은 안 바뀌고 계조만 살아난다.
+  const HEAT_RT = { type: THREE.HalfFloatType };
   const HEAT_W = 320, HEAT_H = 480;
-  const heatRTs = [0, 1].map(() => new THREE.WebGLRenderTarget(HEAT_W, HEAT_H));
+  const heatRTs = [0, 1].map(() => new THREE.WebGLRenderTarget(HEAT_W, HEAT_H, HEAT_RT));
   // 좁은 필드 — 코치 판 uFieldN 의 등가물. **분리형 가우시안 1회**로 굽는다.
   //   셰이더 안 링 12탭으로 대신했더니 그 링 배치가 그대로 무늬로 찍혔다(로제트) —
   //   detail(= lumS − lumB) × P_TEX 4.2 로 증폭되면서 몸에 사선 직조 패턴이 됐다(유저:
@@ -3052,7 +3061,7 @@ void main(){
     new THREE.ShaderMaterial({
       uniforms: {
         tex: { value: demoTex }, uTrail: { value: trailRTs[0].texture }, uHeat: { value: heatRTs[0].texture }, uHeatN: { value: heatNarrowRT.texture }, uLUT: { value: getLUT() },
-        uTime: { value: 0 }, uNoise: { value: 0.55 }, uW: { value: 1 }, uDetail: { value: 0.62 }, uTrailGain: { value: 1 }, uGrain: { value: 0 }, uTone: { value: 0 }, uLive: { value: 0 },
+        uTime: { value: 0 }, uNoise: { value: 0 }, uW: { value: 1 }, uDetail: { value: 0.62 }, uTrailGain: { value: 1 }, uGrain: { value: 0 }, uTone: { value: 0 }, uLive: { value: 0 },
         uPSat: { value: 1.32 }, uPSweep: { value: 0 }, uPHi: { value: 0.86 }, uPDepth: { value: 0.34 }, uPCoral: { value: 0 }, uPExp: { value: 0.5 }, uPForm: { value: 0 }, uPLo: { value: 0.12 }, uPHiL: { value: 0.85 }, uPLumLin: { value: 0 }, uPCalWave: { value: 1 }, uPCalD: { value: 1 }, uPCalW: { value: 1 }, uPCalB: { value: 0 },
         uPInk: { value: 0.85 }, uPInkT: { value: 0.42 },   // PERSON_GLSL 공용 — setPersonUniforms 가 주입
         uCropC: { value: new THREE.Vector2(0.5, 0.5) }, uCropS: { value: new THREE.Vector2(1, 1) },
@@ -3203,7 +3212,9 @@ void main(){
   // 10-클립 풀세트 (힉스필드 생성 타겟). 역할 = 혼합: A·B 코치 시범 / C 상대 스파링.
   //   미반입 파일은 자동으로 GHOST_DEFAULT 폴백 → 생성된 mp4를 public/ghost/에 드롭만 하면 반영.
   const GHOST_CLIPS = {
-    BX_READY: ['bx_b1_guard.mp4', '대기 — 가드 자세'],
+    // READY 는 전용 클립 — 예전엔 B1 과 같은 파일을 봤는데, 첫 장면만 교체하려 해도
+    //   B1(가드 유지)까지 같이 바뀌었다. 분리해 둔다.
+    BX_READY: ['bx_ready_guard.mp4', '대기 — 가드 자세'],
     BX_A1:    ['bx_a1_neck.mp4',    '시범 — 목·어깨 풀기'],
     BX_A2:    ['bx_a2_step.mp4',    '시범 — 스텝 인·아웃'],
     BX_A3:    ['bx_a3_jab.mp4',     '시범 — 잽 폼'],
@@ -3361,7 +3372,7 @@ void main(){
     PU.uHeatN.value = heatNarrowRT.texture;
     PU.uTrail.value = trailRTs[trailFlip].texture;
     PU.uTime.value = now;
-    PU.uNoise.value = FXP.person?.flow ?? 0.55;
+    PU.uNoise.value = 0;   // 대류 얼룩 영구 차단(유저 08-03) — 시간축으로 흘러가는 노이즈가 0.x초 주기 얼룩으로 보였다. 07-30 "인물 = 뉴턴톤만, 나머지 0" 규칙과 통일.
     PU.uDetail.value = FXP.person?.detail ?? 0.62;
     PU.uW.value = FXP.person?.blur ?? 1;   // 엣지 블러 — 랩 person 슬라이더 (누락돼 기본 1.0으로 돌던 버그)
     PU.uGrain.value = FXP.person?.grain ?? 0;
@@ -4337,22 +4348,51 @@ void main(){
     //   (?alpha=1 이 함께 있어야 한다 — 렌더러 알파는 생성 시점에 정해진다)
     //   ?bgdim=0~0.9 로 배경만 어둡게. 투사 그래픽 밝기는 그대로다.
     const bg = q.get('bg') || '';
-    const bgdim = Math.max(0, Math.min(0.9, +q.get('bgdim') || 0));
+    const bgdim = Math.max(-0.6, Math.min(0.9, +q.get('bgdim') || 0));
     const S = { scene, view, ui: false, sport: false, cover, okT: 0, bg, bgdim };
     // ★ 배경·어둡기는 **리로드 없이** 바꾼다. 값을 바꿀 때마다 iframe 을 새로 띄우면
     //   앱이 매번 부팅되어 '팩 데이터 로드중'이 뜬다(유저 지적). 밖에서 이 함수를 부르면 즉시 반영.
+    // ★ WebGL 캔버스를 정확히 집는다. document.querySelector('canvas') 는 타임라인 UI 캔버스를
+    //   먼저 잡아서 배경을 #timeline-wrap 에 칠하고 있었다(실측: 배경이 아예 안 보임).
+    //   renderer 는 이 시점에 아직 없을 수 있으므로, 없으면 화면에서 가장 큰 캔버스를 고른다.
+    const glCanvas = () => window.__dbg?.renderer?.domElement
+      || [...document.querySelectorAll('canvas')].sort((a, b) => b.width * b.height - a.width * a.height)[0];
     window.__setSceneBg = (url, dim) => {
       S.bg = url || '';
-      S.bgdim = Math.max(0, Math.min(0.9, +dim || 0));
-      const v = S.bgdim > 0 ? `linear-gradient(rgba(0,0,0,${S.bgdim}),rgba(0,0,0,${S.bgdim})),` : '';
-      document.documentElement.style.background = S.bg ? `${v}#000 url("${S.bg}") center/cover no-repeat` : '';
+      S.bgdim = Math.max(-0.6, Math.min(0.9, +dim || 0));
+      // bgdim: 양수 = 어둡게(검정 베일) · 음수 = 밝게(흰 베일). 0 = 사진 원본.
+      const d = S.bgdim;
+      const v = d > 0 ? `linear-gradient(rgba(0,0,0,${d}),rgba(0,0,0,${d})),`
+              : d < 0 ? `linear-gradient(rgba(255,255,255,${-d}),rgba(255,255,255,${-d})),` : '';
+      const bgCss = S.bg ? `${v}#000 url("${S.bg}") center/cover no-repeat` : '';
+      // ★ 배경은 **캔버스 바로 부모**에 깔아야 한다. mix-blend-mode 는 같은 스태킹 컨텍스트
+      //   안에서만 섞이는데, body 에 깔면 캔버스는 그 사이 컨테이너와 섞여 '가산이 안 먹는다'
+      //   (유저 신고). 부모에 깔면 캔버스가 그 배경을 직접 backdrop 으로 본다.
+      const cv = glCanvas();
+      const host = cv?.parentElement;
+      if (host) {
+        host.style.setProperty('background', bgCss, 'important');
+        host.style.setProperty('isolation', 'auto', 'important');   // 격리되면 블렌드가 갇힌다
+      }
+      document.documentElement.style.background = S.bg ? '#000' : '';
       document.body.style.setProperty('background', S.bg ? 'transparent' : '', 'important');
       if (!S.bg) location.reload();   // 3D 실내 복귀는 껐던 무대를 되살려야 해서 리로드가 필요하다
     };
     if (bg) window.__setSceneBg(bg, bgdim);
     // 촬영 조정값 — scenes.html 슬라이더가 직접 쓴다. 기본값 = 손대기 전과 픽셀 동일.
+    //   fp: 1인칭(앱 토글 사용) · opacity/blend: 실사 공간에 얹을 때의 합성 손잡이
     window.__sceneAdj = { zoom: 1, pan: 0, tilt: 0, dolly: 1, exposure: 1, bloom: 0.55,
-      uiX: 0, uiY: 0, uiScale: 1 };
+      uiX: 0, uiY: 0, fp: false, opacity: 1, blend: 'normal' };
+    // 합성 — 캔버스를 실사 배경 위에 어떻게 얹을지.
+    //   screen = 가산광. 프로젝터는 빛을 **더하는** 장치라 이게 물리적으로 맞고,
+    //   벽의 질감·그림자가 투사면을 통해 그대로 비쳐 훨씬 자연스럽다.
+    //   normal = 불투명 잉크. 그래픽 연출용.
+    window.__setComposite = (opacity, blend) => {
+      const c = glCanvas();
+      if (!c) return;
+      c.style.opacity = opacity ?? 1;
+      c.style.mixBlendMode = blend || 'normal';
+    };
     return S;
   })();
   // 실사 배경일 때 무대(3D 실내·바닥·벽)를 끄고 투사광만 남긴다. 판별은 유니폼 키 —
@@ -4362,6 +4402,9 @@ void main(){
   const SB_STAGE = /^(uGrid|uLines|uScan|uBoost|uAccent|uHalf|uKey|uTint)$/;
   function sceneStageBg() {
     if (!SCENE_STAGE?.bg) return;
+    // 배경 CSS 가 아직 안 붙었으면 붙인다 — 최초 호출 시점엔 캔버스가 없을 수 있다.
+    const cv0 = renderer?.domElement, host0 = cv0?.parentElement;
+    if (host0 && !host0.style.backgroundImage) window.__setSceneBg?.(SCENE_STAGE.bg, SCENE_STAGE.bgdim);
     scene.background = null;
     renderer.setClearColor(0x000000, 0);
     const hasU = (m, re) => !!m.uniforms && Object.keys(m.uniforms).some(k => re.test(k));
@@ -4431,6 +4474,10 @@ void main(){
     //   ★ A = 씬 스테이지 조정값. scenes.html 슬라이더가 이 객체를 직접 쓴다(리로드 없음).
     //     zoom  : 화각 배율 (작을수록 확대)   pan/tilt : 프레임 이동   dolly : 거리 배율
     const A = window.__sceneAdj;
+    // 1인칭 — 앱 토글을 그대로 쓴다(종목별 화각·VOR·가독 보정이 딸려 온다). 이때는
+    //   씬 스테이지가 카메라를 건드리지 않는다. 밖에서 다시 잡으면 그 보정이 전부 빠진다.
+    if (!!A.fp !== !!A._fpOn) { A._fpOn = !!A.fp; window.__setFp?.(A._fpOn); }
+    if (A._fpOn) return;
     const half = 4.5 * (A.zoom || 1);
     if (S.view === 'wall') {
       const wc = rig._wallCenter || { cx: 0, cy: 1.5 };
@@ -4453,14 +4500,18 @@ void main(){
     // 투사 UI 위치·크기 — 대지 판만 따로 움직인다(카메라와 별개).
     //   ★ 되돌리기 가능하게: 지난 프레임에 더한 값을 빼고 새 값을 더한다. 앱이 매 프레임
     //     위치를 다시 쓰든 안 쓰든 결과가 같다(누적 어긋남 방지).
-    const uiMesh = S.view === 'wall' ? wallGL?.mesh : floorGL?.mesh;
+    // ★ wallGL/floorGL 은 이 함수보다 **아래**(5043·5251)에서 const 로 선언된다 —
+    //   직접 참조하면 TDZ 예외가 매 프레임 터져 이 뒤가 통째로 안 돈다(실측: UI 조정 무반응).
+    //   __dbg 게터로 우회한다(선언 후엔 정상적으로 값이 나온다).
+    const uiMesh = S.view === 'wall' ? window.__dbg?.wallGL?.mesh : window.__dbg?.floorGL?.mesh;
     if (uiMesh) {
       const vert = S.view === 'wall' ? 'y' : 'z';   // 바닥은 카메라 up 이 -Z 라 화면 상하 = z
       uiMesh.position.x -= A._ax || 0; uiMesh.position[vert] -= A._av || 0;
       uiMesh.position.x += A.uiX || 0; uiMesh.position[vert] += A.uiY || 0;
       A._ax = A.uiX || 0; A._av = A.uiY || 0;
-      const s = A.uiScale || 1, p = A._as || 1;
-      if (s !== p) { uiMesh.scale.multiplyScalar(s / p); A._as = s; }
+      // ※ UI '크기' 슬라이더는 폐기했다 — 투사 크기는 프로젝터 광학·설치 거리에서 계산되는 값이라
+      //   메시만 늘리면 computeStation() 을 우회한 거짓말이 된다. 크기를 바꿔야 하면
+      //   투사 폭 슬라이더(s-wallw)로 스펙 자체를 바꿔야 벽거리·틸트·사람거리가 같이 갱신된다.
     }
   }
 
