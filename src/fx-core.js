@@ -761,9 +761,9 @@ vec3 okmix(vec3 a, vec3 b, float t){ return _ok2l(mix(_l2ok(a), _l2ok(b), t)); }
 #define T_HOT_LO  0.10
 #define T_HOT_HI  1.00
 #define T_ACT_LO  0.06
-#define T_ACT_HI  1.00
+#define T_ACT_HI  0.90   // 1.00 은 몸체가 순백 크림까지 떠서 주황기가 죽었다(유저) — SAND 잔광까지만
 #define T_HOLD_LO 0.04
-#define T_HOLD_HI 0.97
+#define T_HOLD_HI 0.92
 // 온도 → 색. **뉴턴 LUT 한 벌만** 쓴다.
 vec3 fillT(float q, float lo, float hi){
   float x = clamp(mix(lo, hi, clamp(q, 0.0, 1.0)), 0.0, 1.0);
