@@ -309,7 +309,7 @@ export class WallGL {
     ctx.save();
     const se = eOut(intro(t, .35, .85));
     ctx.globalAlpha *= se; ctx.translate(-90 * (1 - se), 0);
-    rrFill(ctx, LX, stY, LW, stH, 76, rgba(NEU.surface, 0.45));   // 겉 래퍼는 연하게(유저)
+    rrFill(ctx, LX, stY, LW, stH, 76, 'rgba(255,255,255,.55)');   // 래퍼 = 벽보다 밝은 '빛 판' — 회색은 투사면에서 그림자로 읽힘(피드백 반영)
     // ★ 투사 거리 가독 하한 — 벽 대지는 1.00 mm/px(PROJECTION-SPEC 6절)라 24px = 실물 24mm.
     // 2~4m 에서 24mm 캡션은 안 읽힌다(유저: "너무 작아서 안 보임"). 캡션류를 32 이상으로,
     // 체크 배지는 40 → 58 로 올렸다. 폰 레이아웃을 1:1 로 벽에 옮긴 값이라 원래 작았던 것.
