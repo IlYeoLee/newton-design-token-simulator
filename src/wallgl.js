@@ -266,7 +266,7 @@ export class WallGL {
     if (glow > 0.002) { ctx.shadowColor = `rgba(255,255,255,${0.35 * glow})`; ctx.shadowBlur = 60 * glow; }
     rrFill(ctx, CX - w / 2, y, w, h, 999, '#fff');
     ctx.shadowBlur = 0;
-    txt(ctx, text, CX, y + h / 2, 72, 700, NEU.inkDark, { ls: -1.33, align: 'center', base: 'middle' });
+    txt(ctx, text, CX, y + h / 2, 72, 700, NEU.t1, { ls: -1.33, align: 'center', base: 'middle' });
     ctx.restore();
     return y + h;
   }
@@ -298,22 +298,22 @@ export class WallGL {
     // 제목+메타 두 줄을 썸네일(=카드) 세로 중심에 맞춘다 — py+24 고정이라 위로 24 치우쳐 있었다(유저).
     const TGAP = 20.429, TBH = 52 * 1.2 + TGAP + 32 * 1.2;   // 텍스트 블록 실높이
     const ty = py + ph / 2 - TBH / 2;
-    txt(ctx, 'Bring the Ring Home', tx, ty, 52, 700, NEU.inkDark, { ls: -2.55 });
+    txt(ctx, 'Bring the Ring Home', tx, ty, 52, 700, NEU.t2, { ls: -2.55 });   // 좌측 컬럼 텍스트 = Location 라벨 회색(t2)로 통일(유저)
     txt(ctx, 'Casey · Boxing · Quiet On', tx, ty + 52 * 1.2 + TGAP, 32, 400, NEU.t2, { ls: -.96 });
     ctx.restore();
 
     // 스탯 카드 — slideInLeft .85s .35s
-    const stY = ROW_Y + hdrH + 24, stH = 1083;   // = CM*2 + 콘텐츠 1049 (하단 여백도 CM 로 딱 맞음)
+    const stY = ROW_Y + hdrH + 24, stH = 1083;   // = CM*2 + 콘텐츠 1049
     ctx.save();
     const se = eOut(intro(t, .35, .85));
     ctx.globalAlpha *= se; ctx.translate(-90 * (1 - se), 0);
-    rrFill(ctx, LX, stY, LW, stH, 76, NEU.surface);
+    rrFill(ctx, LX, stY, LW, stH, 76, rgba(NEU.surface, 0.45));   // 겉 래퍼는 연하게(유저)
     // ★ 투사 거리 가독 하한 — 벽 대지는 1.00 mm/px(PROJECTION-SPEC 6절)라 24px = 실물 24mm.
     // 2~4m 에서 24mm 캡션은 안 읽힌다(유저: "너무 작아서 안 보임"). 캡션류를 32 이상으로,
     // 체크 배지는 40 → 58 로 올렸다. 폰 레이아웃을 1:1 로 벽에 옮긴 값이라 원래 작았던 것.
     // 바깥 회색 카드 ↔ 안쪽 흰 박스 사이 띠. 20 → 40 (유저: 이 간격이 넓어야 한다).
     // 안쪽 좌표는 전부 ix 상대라 이 값만 바꾸면 정렬·축이 통째로 같이 밀린다.
-    const CM = 28;                       // 카드 안쪽 여백 — 상하좌우 100% 통일(구 상 32 / 좌우 40)
+    const CM = 28;                       // 카드 안쪽 여백 — 상하좌우 통일
     const ix = LX + CM, iw = LW - CM * 2;
     // 카드 안 왼쪽 텍스트 기준선 — 하나로 통일(유저: "왼쪽정렬 안 됨").
     // 전엔 30/min 은 ix+24.26, Fight! 는 ix+34.26(트랙이 ix+10 에서 시작 + 24.26),
@@ -327,7 +327,7 @@ export class WallGL {
     const CPAD = 24, CIN = CM, CGAP = 10, DGAP = 8;
     let y = stY + CM;
     // ── Total
-    txt(ctx, 'Total', ix + PADL, y + 6, 34, 400, NEU.t1, { ls: -1.13 });
+    txt(ctx, 'Total', ix + PADL, y + 6, 34, 400, NEU.t2, { ls: -1.13 });
     y += 48 + 8;
     const totH = 378.393;
     rrFill(ctx, ix, y, iw, totH, 64, '#fff');
@@ -351,14 +351,14 @@ export class WallGL {
     const ry = gY + 2 * (barH + 4.851);
     rrFill(ctx, gR - (iw - 20), ry, iw - 20, barH, 40, NEU.surface);   // r 40 = 막대와 동일(유저: r 값 안 맞음)
     ctx.save(); ctx.globalAlpha *= 0.7;
-    txt(ctx, 'You Can Choose', ix + PADL, ry + barH / 2, 32, 700, NEU.inkDark, { ls: -1.21, base: 'middle' });
+    txt(ctx, 'You Can Choose', ix + PADL, ry + barH / 2, 32, 700, NEU.t1, { ls: -1.21, base: 'middle' });
     ctx.restore();
     bar(2, 582.143, '23m', 1.3, 'Strike!');
     // 좌측 큰 숫자 오버레이
     // 도트 숫자 = 카운트업(유저 규칙). 막대 3개가 자라는 리듬(1.0/1.15/1.3)에 맞춰 같이 세어 오른다.
-    rollNum(ctx, '35', t, 1.0, 0.9, ix + PADL, y + 24.256, 145.536, { fam: dot9, fill: NEU.inkDark });
+    rollNum(ctx, '35', t, 1.0, 0.9, ix + PADL, y + 24.256, 145.536, { fam: dot9, fill: NEU.t2 });
     ctx.save(); ctx.globalAlpha *= 0.6;
-    txt(ctx, 'min', ix + PADL, y + 24.256 + 145.536, 32, 700, NEU.inkDark, { ls: -1.21 });
+    txt(ctx, 'min', ix + PADL, y + 24.256 + 145.536, 32, 700, NEU.t2, { ls: -1.21 });
     ctx.restore();
     y += totH + 32;
     // ── Setup
@@ -392,7 +392,7 @@ export class WallGL {
       ctx.translate(cx0 + cw / 2, cy0 + ch / 2); ctx.scale(k, k); ctx.translate(-(cx0 + cw / 2), -(cy0 + ch / 2));
       rrFill(ctx, cx0, cy0, cw, ch, 48, '#fff');   // 래퍼가 없으니 카드 자신이 흰색 — Connected 카드와 동일
       txt(ctx, lbl, cx0 + CIN, cy0 + ch / 2, 34, 400, NEU.t2, { ls: -1.13, base: 'middle' });
-      txt(ctx, val, cx0 + cw - CIN, cy0 + ch / 2, 38, 700, '#000', { ls: -1.27, base: 'middle', align: 'right' });
+      txt(ctx, val, cx0 + cw - CIN, cy0 + ch / 2, 38, 700, NEU.t2, { ls: -1.27, base: 'middle', align: 'right' });
       ctx.restore();
     });
     y += setH + 32;
@@ -419,7 +419,7 @@ export class WallGL {
       // 아이콘 — 웨어러블만 원본 컬러, 나머지는 열화상 그라디언트 마스크
       const tim = i === 0 ? this._img(ic) : this._tinted(ic, 88, 88, [[0, PAL.red], [.6, PAL.coral], [.85, PAL.sand], [1, PAL.prism]]);
       if (tim) ctx.drawImage(tim, dx + CIN, y + DTOP, 88, 88);
-      txt(ctx, n, dx + CIN, y + DTOP + 88 + 14, 38, 700, NEU.inkDark, { ls: -1.27 });
+      txt(ctx, n, dx + CIN, y + DTOP + 88 + 14, 38, 700, NEU.t2, { ls: -1.27 });
       const chk = this._img('check.svg');
       if (chk) ctx.drawImage(chk, dx + dw - CIN - 58, y + DTOP, 58, 58);   // 40 → 58 (투사 거리에서 안 보였다)
       ctx.restore();
@@ -646,7 +646,7 @@ export class WallGL {
       const cueY = H - sh - 40;   // 고정 — 글자 길이가 바뀌어도 중심·높이는 그대로
       ctx.translate(CX, cueY + sh / 2); ctx.scale(sk, sk); ctx.translate(-CX, -(cueY + sh / 2));
       rrFill(ctx, CX - sw / 2, cueY, sw, sh, 9999, '#fff');
-      txt(ctx, say, CX, cueY + sh / 2, 56, 400, '#000', { ls: -2.24, align: 'center', base: 'middle' });
+      txt(ctx, say, CX, cueY + sh / 2, 56, 400, NEU.t1, { ls: -2.24, align: 'center', base: 'middle' });
       ctx.restore();
     }
     if (isLive) {
@@ -796,7 +796,7 @@ export class WallGL {
     ctx.restore();
     // 좌하단 메타
     txt(ctx, D.time, x + P, y + S - P, 36, 400, done ? NEU.paper : NEU.t2, { ls: -1.64, base: 'bottom' });
-    txt(ctx, D.lbl.toUpperCase(), x + P, y + S - P - 36 * 1.2 - 13.098, 64, 700, done ? '#fff' : NEU.inkDark, { ls: -3.27, base: 'bottom' });
+    txt(ctx, D.lbl.toUpperCase(), x + P, y + S - P - 36 * 1.2 - 13.098, 64, 700, done ? '#fff' : NEU.t1, { ls: -3.27, base: 'bottom' });
   }
 
   // ── 리포트 (report.html) ──────────────────────────────────────────────────

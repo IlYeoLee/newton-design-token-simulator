@@ -1131,7 +1131,7 @@ export class FloorGL {
     ctx.fillStyle = '#fff'; this._pill(CX - w / 2, y, w, h);
     ctx.shadowBlur = 0;
     ctx.font = F(700, 80); ctx.letterSpacing = '-1.33px';
-    ctx.fillStyle = NEU.inkDark; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = NEU.t1; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillText(text, CX, y + h / 2);
     ctx.letterSpacing = '0px';
     ctx.restore();
@@ -1376,7 +1376,7 @@ export class FloorGL {
     ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
     ctx.fillStyle = done ? NEU.paper : NEU.t2; ctx.font = F(400, 36 * k); ctx.letterSpacing = (-1.64 * k).toFixed(2) + 'px';
     ctx.fillText(D.time, x + P, y + S - P);
-    ctx.fillStyle = done ? '#fff' : NEU.inkDark; ctx.font = F(700, 64 * k); ctx.letterSpacing = (-3.27 * k).toFixed(2) + 'px';
+    ctx.fillStyle = done ? '#fff' : NEU.t1; ctx.font = F(700, 64 * k); ctx.letterSpacing = (-3.27 * k).toFixed(2) + 'px';
     ctx.fillText(D.lbl.toUpperCase(), x + P, y + S - P - 36 * k * 1.2 - 13.1 * k);
     ctx.letterSpacing = '0px';
   }
