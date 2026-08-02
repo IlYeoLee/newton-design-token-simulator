@@ -292,7 +292,7 @@ export class WallGL {
     ctx.save(); rrPath(ctx, px, py, ph, ph, 54); ctx.clip();
     // Casey(피그마 팩 히어로, 1129×1757) — 커버 크롭, 얼굴(세로 ~24%)이 썸네일 중심에 오게
     const ca = this._img('casey.png');
-    if (ca) ctx.drawImage(ca, px - 21, py - 30, 260, 260 * 1757 / 1129);
+    if (ca) { ctx.save(); ctx.globalAlpha *= 0.5; ctx.drawImage(ca, px - 21, py - 30, 260, 260 * 1757 / 1129); ctx.restore(); }   // 썸네일 사진에만 50(유저)
     ctx.restore();
     const tx = px + ph + 40.857;
     // 제목+메타 두 줄을 썸네일(=카드) 세로 중심에 맞춘다 — py+24 고정이라 위로 24 치우쳐 있었다(유저).
@@ -340,7 +340,9 @@ export class WallGL {
     const bar = (i, bw, label, delay, endLbl) => {
       const by = gY + i * (barH + 4.851);
       growBar(ctx, gR - bw, by, bw, barH, eOut(intro(t, delay, .7)), {
-        anchor: 'right', track: null, r: 40, pad: 24.256, fs: 36, ls: -1.21, num: label, label: endLbl,
+        // 우측 상하 = 풀 라운드(필, 유저 '9999') — 9999 그대로 주면 roundRect 정규화가 좌측 40까지
+        // 비례 축소하므로 barH/2 로 준다.
+        anchor: 'right', track: null, r: [40, barH / 2, barH / 2, 40], pad: 24.256, fs: 36, ls: -1.21, num: label, label: endLbl,
         stops: [[.63, PAL.red], [.9, PAL.coral], [1, PAL.sand]],
       });
     };
@@ -349,7 +351,7 @@ export class WallGL {
     bar(1, 232, '8m', 1.15);
     // run 행 = 회색 트랙 + You Can Choose + 우측 Strike! 막대
     const ry = gY + 2 * (barH + 4.851);
-    rrFill(ctx, gR - (iw - 20), ry, iw - 20, barH, 40, NEU.surface);   // r 40 = 막대와 동일(유저: r 값 안 맞음)
+    rrFill(ctx, gR - (iw - 20), ry, iw - 20, barH, 999, NEU.surface);   // 양쪽 풀 필(유저: 좌측에도 9999)
     ctx.save(); ctx.globalAlpha *= 0.7;
     txt(ctx, 'You Can Choose', ix + PADL, ry + barH / 2, 32, 700, NEU.t1, { ls: -1.21, base: 'middle' });
     ctx.restore();
