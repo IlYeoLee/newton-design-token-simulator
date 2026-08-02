@@ -2400,6 +2400,24 @@ void main(){
     if (U.uPInk) U.uPInk.value = FXP.person?.ink ?? 0.30;
     if (U.uPInkT) U.uPInkT.value = FXP.person?.inkT ?? 0.42;
   };
+  // ── 인물 필드 공용 규칙 ────────────────────────────────────────────────────
+  //   인물 경로가 둘이다: 벽 데모 판(uHeat)과 바닥 코치 판(uField). 구조가 같은데 값이 따로
+  //   놀아서, 08-03 에 복싱에서 잡은 것들이 러닝·농구에는 안 들어가 있었다. 한 곳에 모은다.
+  //   여기 값을 바꾸면 **모든 인물 뷰**에 같이 적용된다. 다시 갈라지지 않게 하는 게 목적이다.
+  const PERSON_FIELD = {
+    // ① 반정밀도 — 8비트로 두면 detail 증폭 단계에서 1/255 계단이 몇 배로 벌어져
+    //    밝은 면이 물감 자국처럼 갈라진다(유저: "부드러운 면이 사라지고 거친 면").
+    rt: { type: THREE.HalfFloatType },
+    // ② 결(detail) 상한 — 셰이더가 clamp(uDetail * 2.4) 라 **0.417 이상이면 좁은 필드 100%** 다.
+    //    저해상 필드를 3~4배 확대해 쓰는 비율이라, 포화시키면 평평한 면에서 저해상 구조가
+    //    덩어리로 드러난다(유저: 얼룩덜룩 + 과질감). 0.45 배로 눌러 46% 근처에 둔다.
+    DETAIL_K: 0.45,
+    detail: () => (FXP.person?.detail ?? 0.42) * 0.45,
+    // ③ 넓은 필드(국소 평균)의 폭은 룩 슬라이더에서 **떼어 놓는다**.
+    //    person.blur 에 묶어 두면 07-30 "인물 = 나머지 0" 결정으로 blur=0 이 될 때 폭이
+    //    좁은 필드와 붙어 DoG(밴드패스)가 되고, 주름 대신 압축 노이즈를 증폭한다.
+    WIDE_STEP: 3.8,
+  };
   let _cf = null;
   function coachField() {
     if (_cf) return _cf;
@@ -2438,7 +2456,9 @@ void main(){
     const sc = new THREE.Scene();
     const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), src);
     sc.add(quad);
-    const mk = (w = RW, h = RH) => new THREE.WebGLRenderTarget(w, h);
+    // 공용 규칙(PERSON_FIELD) — 벽 데모 판과 같은 정밀도. 8비트로 두면 detail 증폭 단계에서
+    //   1/255 계단이 몇 배로 벌어져 밝은 면이 물감 자국처럼 갈라진다(유저 08-03, 복싱에서 먼저 확인).
+    const mk = (w = RW, h = RH) => new THREE.WebGLRenderTarget(w, h, PERSON_FIELD.rt);
     // 넓은 평균 전용 저해상 그리드(80x120).
     //   ⚠ 해상도를 올려봐야 소용없다(실측). >>1(160x240) + 블러 스텝 2배로 σ 를 보존하면
     //     결과가 기준과 픽셀 수준으로 같다: 채도μ 0.587→0.586 · 국소Δ색상 0.581→0.586.
@@ -2792,7 +2812,7 @@ void main(){
         //   시크·되감기 직후엔 텍스처가 비어 크로마키를 통과, 판 전체가 LUT 붉은색이 된다 → 그 사이 숨김.
         co.plane.visible = !!co._live && id !== 'BK_C2';
         co.plane.material.uniforms.uTime.value = performance.now() / 1000;
-        co.plane.material.uniforms.uDetail.value = FXP.person?.detail ?? 0.25;   // 룩 '음영' 슬라이더
+        co.plane.material.uniforms.uDetail.value = PERSON_FIELD.detail();   // 공용 규칙 — 아래 정의
         // 채도는 마크 LUT와 같은 소스(FXP.sat)에서 — 인물·발자국 룩 통일(슬라이더 하나가 둘 다 이동).
         //   이제 진짜로 이동한다: 구 uSat 은 선언만 되고 셰이더가 안 읽어 슬라이더가 죽어 있었다.
         // 바닥은 0.64 — 0.86 은 LUT 의 SAND(#FEC389, 채도 0.46)에 닿아 밝은 자리가 물빠진 살구가 된다.
@@ -3024,7 +3044,7 @@ void main(){
   //   그대로 4배로 벌어져, 밝은 구간에서 부드러운 면이 뭉텅이로 갈라져 보인다
   //   (유저: "밝게 변하면서 부드러운 면이 사라지고 물감처럼 거친 면"). σ·해상도는 그대로라
   //   룩은 안 바뀌고 계조만 살아난다.
-  const HEAT_RT = { type: THREE.HalfFloatType };
+  const HEAT_RT = PERSON_FIELD.rt;   // 공용 규칙 — 바닥 코치 판과 같은 정밀도
   const HEAT_W = 320, HEAT_H = 480;
   const heatRTs = [0, 1].map(() => new THREE.WebGLRenderTarget(HEAT_W, HEAT_H, HEAT_RT));
   // 좁은 필드 — 코치 판 uFieldN 의 등가물. **분리형 가우시안 1회**로 굽는다.
@@ -3371,7 +3391,7 @@ void main(){
     //   detail = 좁음 − 넓음 이 DoG(밴드패스)가 되어 옷 주름이 아니라 중간주파 압축 노이즈를
     //   골라 증폭했다(코치 판에서 이미 겪고 1/4 그리드로 고친 것과 같은 함정).
     //   '국소 평균'은 정의상 넓어야 한다 — 룩 슬라이더가 붙잡을 값이 아니다.
-    heatBlurMat.uniforms.uStep.value = 3.8;
+    heatBlurMat.uniforms.uStep.value = PERSON_FIELD.WIDE_STEP;
     for (let i = 0; i < 3; i++) {
       heatBlurMat.uniforms.tex.value = heatRTs[0].texture; heatBlurMat.uniforms.uDir.value.set(1, 0);
       renderer.setRenderTarget(heatRTs[1]); renderer.render(trailScene, trailQuadCam);
@@ -3389,7 +3409,7 @@ void main(){
     //   셰이더가 clamp(uDetail * 2.4) 라 0.417 이상이면 **좁은 필드 100%** 다. 그 좁은 필드는
     //   320×480 을 1200px 로 3.75배 확대해 쓰는 비율(fN.g/fN.r)이라, 배·브라처럼 평평한 면에서
     //   저해상 구조가 덩어리로 드러났다(유저: 얼룩덜룩 + 과질감). 0.42 → 0.19 = 결 46%.
-    PU.uDetail.value = (FXP.person?.detail ?? 0.42) * 0.45;
+    PU.uDetail.value = PERSON_FIELD.detail();
     PU.uW.value = FXP.person?.blur ?? 1;   // 엣지 블러 — 랩 person 슬라이더 (누락돼 기본 1.0으로 돌던 버그)
     PU.uGrain.value = FXP.person?.grain ?? 0;
     PU.uTone.value = FXP.person?.tone ?? 0;
