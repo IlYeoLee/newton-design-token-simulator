@@ -4328,16 +4328,20 @@ void main(){
   function tickSceneStage() {
     if (!SCENE_STAGE) return;
     const S = SCENE_STAGE;
-    S._uiT = (S._uiT ?? 0) + 1;
-    if (S._uiT % 60 === 1) {   // 주기 숨김 — 세션 UI 는 세션 시작 후에 생성돼 1회성으론 못 잡는다
-      const keep = new Set();
-      for (let n = renderer.domElement; n; n = n.parentElement) keep.add(n);
-      for (const anc of keep) {
-        if (!anc.parentElement) continue;
-        for (const sib of anc.parentElement.children) {
-          if (!keep.has(sib) && sib.tagName !== 'SCRIPT' && sib.tagName !== 'STYLE') sib.style.display = 'none';
+    if (!S.ui) {   // DOM 감시 — 늦게 생성되는 위젯(클립 카드·패널)도 생기는 즉시 숨긴다
+      S.ui = true;
+      const sweep = () => {
+        const keep = new Set();
+        for (let n = renderer.domElement; n; n = n.parentElement) keep.add(n);
+        for (const anc of keep) {
+          if (!anc.parentElement) continue;
+          for (const sib of anc.parentElement.children) {
+            if (!keep.has(sib) && sib.tagName !== 'SCRIPT' && sib.tagName !== 'STYLE') sib.style.display = 'none';
+          }
         }
-      }
+      };
+      sweep();
+      new MutationObserver(sweep).observe(document.body, { childList: true, subtree: true });
       if (typeof controls !== 'undefined' && controls) controls.enabled = false;
     }
     // 사용자 봇은 카메라와 벽 사이에 서서 화면을 가린다 — 스테이지 뷰에선 숨김(매 프레임: 리스폰 대비)
