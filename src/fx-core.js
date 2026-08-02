@@ -519,6 +519,7 @@ vec4 personAura(float mBody, float wide, float lumSharp, float lumBase, float fa
   //   lumBase = 좁은 블러장 휘도(앱 표면블러의 base 역할). 이제 신호가 앱과 같은 구조라
   //   우회 보정(임계 축소·d 이득·숄더) 없이 앱 상수를 그대로 쓴다.
   face = max(face, smoothstep(0.80, 0.90, uv.y));   // 정수리 — 판별 얼굴 대역 상단(0.84)과 크라운 사이 틈이 검붉은 반점으로 남던 것(복싱 실측)
+  face = min(1.0, face * 1.5);   // 전이 구간(0.7~0.85)에서 이마 광택이 새어나와 반점 — 빠르게 포화
   if (uPLumLin > 0.5) {
     lumSharp = pow(clamp(lumSharp, 0.0, 1.0), 0.4545);
     lumBase = pow(clamp(lumBase, 0.0, 1.0), 0.4545);
@@ -556,8 +557,10 @@ vec4 personAura(float mBody, float wide, float lumSharp, float lumBase, float fa
             * (0.010 + face * 0.022);
   vec3 c = look2Ramp(clamp(t + dth, 0.0, 1.0));
   // 흰 레이어 3종 — 앱 원값(이너섀도 0.28×0.75 · 라인 0.24×0.9 · 내부라인 0.14)
-  float feather = pow(clamp((mBody - wide) * 2.4, 0.0, 1.0), 1.3);
-  c = mix(c, vec3(1.0), clamp(feather * 0.40 * uPCalW, 0.0, 1.0));
+  // 피더는 **가장자리로만** — 얇은 팔다리는 마스크 블러가 안쪽까지 번져 (m−wide)가 사지
+  //   전체에서 커지고, 흰 띠가 다리 전면을 덮어 하얗게 떴다(유저: 다리가 너무 하얗다).
+  float feather = pow(clamp((mBody - wide) * 2.0, 0.0, 1.0), 2.0);
+  c = mix(c, vec3(1.0), clamp(feather * 0.30 * uPCalW, 0.0, 1.0));
   float line = pow(4.0 * mBody * (1.0 - mBody), 1.5) * smoothstep(0.35, 0.6, mBody);
   c = mix(c, vec3(1.0), clamp(line * 0.41 * uPCalW, 0.0, 1.0));
   float lineIn = sqrt(clamp(abs(ls - lb) * 2.6, 0.0, 1.0)) * (1.0 - face);
