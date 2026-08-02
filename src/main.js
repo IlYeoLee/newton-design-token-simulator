@@ -4311,6 +4311,67 @@ void main(){
         : '범인 없음 — 씬의 어떤 개체를 꺼도 검정이 안 사라진다.\n  → 후처리(컴포저 grade/bloom) 또는 배경 자체다.');
   }
 
+  // ── 씬 스테이지 모드 (?scene=BX_A1[&view=wall|floor]) ─────────────────────────
+  //   영상용 정면 라이브 뷰: 시뮬 그 자체가 실시간으로 돌고, 카메라만 정면 고정 + UI 숨김.
+  //   파라미터가 없으면 코드 경로 자체가 죽어 있어 기존 동작·성능에 영향이 없다.
+  const SCENE_STAGE = (() => {
+    const q = new URLSearchParams(location.search);
+    const scene = q.get('scene');
+    if (!scene) return null;
+    const view = q.get('view') || (/^BX_/.test(scene) ? 'wall' : 'floor');
+    return { scene, view, ui: false, sport: false, jumped: false };
+  })();
+  function tickSceneStage() {
+    if (!SCENE_STAGE) return;
+    const S = SCENE_STAGE;
+    S._uiT = (S._uiT ?? 0) + 1;
+    if (S._uiT % 60 === 1) {   // 주기 숨김 — 세션 UI 는 세션 시작 후에 생성돼 1회성으론 못 잡는다
+      const keep = new Set();
+      for (let n = renderer.domElement; n; n = n.parentElement) keep.add(n);
+      for (const anc of keep) {
+        if (!anc.parentElement) continue;
+        for (const sib of anc.parentElement.children) {
+          if (!keep.has(sib) && sib.tagName !== 'SCRIPT' && sib.tagName !== 'STYLE') sib.style.display = 'none';
+        }
+      }
+      if (typeof controls !== 'undefined' && controls) controls.enabled = false;
+    }
+    // 사용자 봇은 카메라와 벽 사이에 서서 화면을 가린다 — 스테이지 뷰에선 숨김(매 프레임: 리스폰 대비)
+    if (xbot?.group) xbot.group.visible = false;
+    if (xbot?.model) xbot.model.visible = false;
+    // 종목 전환(1회) — BK_* = 농구 · A1/A2/A3 = 러닝 · BX_* = 복싱(기본)
+    if (!S.sport) {
+      const want = /^BK_/.test(S.scene) ? '농구' : /^A[123]$/.test(S.scene) ? '러닝' : null;
+      if (want) {
+        const btn = [...document.querySelectorAll('button')].find(x => x.textContent.trim() === want);
+        if (btn) btn.click();
+      }
+      S.sport = true;
+    }
+    // 세션 진입 + 씬 점프 — 그리고 **씬 고정**: 자동 진행으로 넘어가면 되감아 무한 루프(촬영용)
+    if (!session.active) document.getElementById('btn-session')?.click();
+    else if (session.curStage?.id !== S.scene) {
+      const i = session.stages.findIndex(x => x.id === S.scene);
+      if (i >= 0) { session.stageIdx = i; session.t = 0; session._enter(); }
+    }
+    // 카메라 정면 고정 — 망원(FOV 9°)이라 사실상 무왜곡 정면
+    if (S.view === 'wall') {
+      const wc = rig._wallCenter || { cx: 0, cy: 1.5 };
+      let wz = -2.0;
+      if (rig.wallFill) wz = rig.wallFill.getWorldPosition(new THREE.Vector3()).z;
+      const dist = (rig.wallH / 2) / Math.tan(THREE.MathUtils.degToRad(4.5));
+      camera.fov = 9; camera.position.set(wc.cx ?? 0, wc.cy ?? 1.5, wz + dist);
+      camera.lookAt(wc.cx ?? 0, wc.cy ?? 1.5, wz);
+    } else {
+      const cz = -1.3, cover = 1.4;   // 바닥 토큰 존 중심·반경 — 씬별 조정 여지
+      const dist = cover / Math.tan(THREE.MathUtils.degToRad(4.5));
+      camera.fov = 9; camera.up.set(0, 0, -1);
+      camera.position.set(0, dist, cz);
+      camera.lookAt(0, 0, cz);
+    }
+    camera.updateProjectionMatrix();
+  }
+
   let _dotStage = '', _dotMax = 0;   // 도트 진행바 — 스테이지별 최대 진행(되감김 방지)
   function loop() {
     requestAnimationFrame(loop);
@@ -4777,6 +4838,7 @@ void main(){
     renderDesignFrame();  // 벽 = 스테이지별 대지 프레임(CSS3D). 프레임 스테이지는 기존 벽 UI 숨김(사람+배경만)
     applyBallOcclusion();  // 공이 빔을 실제로 가리는 순간만 그 지점 UI를 꺼트림(광학 정직성)
     applyEditOverrides();  // 배치 편집(유저): 드래그로 옮긴 벽·인물 위치를 세션 덮어쓰기 후 재적용
+    tickSceneStage();     // ?scene= 씬 스테이지(영상용 정면 라이브 뷰) — 파라미터 없으면 no-op
     renderFrame(clock.elapsedTime);   // 블룸 + 그레인·비네트 컴포저 (scene.js FX)
     blackProbe();   // ?blackprobe=1 — 검은 판이 어느 메시인지 콘솔에 찍는다(기본 꺼짐)
   }

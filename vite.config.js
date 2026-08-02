@@ -84,6 +84,7 @@ export default defineConfig({
         parity:   resolve(__dirname, 'parity.html'),
         personlab:     resolve(__dirname, 'personlab.html'),
         personlabLive: resolve(__dirname, 'personlab-live.html'),
+        scenes:        resolve(__dirname, 'scenes.html'),
       },
     },
   },

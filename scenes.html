@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NEWTON — 씬 스테이지 (영상용 실시간 정면 뷰)</title>
+<style>
+  * { margin: 0; box-sizing: border-box; }
+  body { display: flex; height: 100vh; background: #0a0a0a; color: #eee; font-family: -apple-system, 'Noto Sans KR', sans-serif; }
+  aside { width: 240px; padding: 18px 14px; background: #141414; border-right: 1px solid #262626; overflow-y: auto; flex: none; }
+  h1 { font-size: 16px; margin-bottom: 2px; }
+  .sub { font-size: 11px; color: #888; margin-bottom: 14px; }
+  h2 { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: #999; margin: 14px 0 6px; }
+  button { display: block; width: 100%; text-align: left; padding: 9px 12px; margin-bottom: 5px; border: 1px solid #2c2c2c;
+    border-radius: 9px; background: #1b1b1b; color: #ddd; font-size: 13px; cursor: pointer; }
+  button:hover { background: #242424; }
+  button.on { background: #fa3030; border-color: #fa3030; color: #fff; font-weight: 700; }
+  main { flex: 1; position: relative; background: #000; }
+  iframe { width: 100%; height: 100%; border: 0; display: block; }
+  .hint { font-size: 11px; color: #666; margin-top: 14px; line-height: 1.6; }
+</style>
+</head>
+<body>
+<aside>
+  <h1>씬 스테이지</h1>
+  <p class="sub">시뮬 실시간 · 정면 뷰 · 영상용</p>
+  <h2>복싱 (벽)</h2>
+  <button data-s="BX_READY">가드 올리고 거리 잡기</button>
+  <button data-s="BX_A1">목·어깨 풀기</button>
+  <button data-s="BX_B2">회피 스텝</button>
+  <button data-s="BX_T2">5초 뒤 넘어가요</button>
+  <button data-s="BX_C1">3 · 2 · 1</button>
+  <button data-s="BX_C3">잽 - 잽 - 훅</button>
+  <p class="hint">시뮬레이터 그 자체가 라이브로 돕니다 — 룩·타이밍 수정이 즉시 반영.<br>
+  씬 추가는 버튼 한 줄(data-s="스테이지ID").<br>
+  바닥 씬은 자동 탑다운(&view=floor 로 강제 가능).</p>
+</aside>
+<main><iframe id="f" src="./index.html?scene=BX_READY"></iframe></main>
+<script>
+  const f = document.getElementById('f');
+  const btns = [...document.querySelectorAll('button[data-s]')];
+  const go = (b) => {
+    btns.forEach(x => x.classList.toggle('on', x === b));
+    f.src = './index.html?scene=' + encodeURIComponent(b.dataset.s);   // 새 로드 = 씬 초기 상태부터
+  };
+  btns.forEach(b => b.onclick = () => go(b));
+  btns[0].classList.add('on');
+</script>
+</body>
+</html>
