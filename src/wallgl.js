@@ -274,6 +274,7 @@ export class WallGL {
   // ── BX_READY (index.html) ──────────────────────────────────────────────────
   _paint_ready() {
     const ctx = this.ctx, t = this.t;
+    const SOFT = 'rgba(117,117,117,.6)';   // = 'min' 톤(t2 60%) — READY 회색 텍스트 공통 칩(유저)
     const ROW_Y = 103, LX = 100, LW = 1040;
     // 좌/우 그룹 상시 둥둥 (floatY 6.5s / floatY2 7.5s, delay 1.8s)
     const fl = cycle(t, 1.8, 6.5, INF), fr = cycle(t, 1.8, 7.5, INF);
@@ -292,14 +293,15 @@ export class WallGL {
     ctx.save(); rrPath(ctx, px, py, ph, ph, 54); ctx.clip();
     // Casey(피그마 팩 히어로, 1129×1757) — 커버 크롭, 얼굴(세로 ~24%)이 썸네일 중심에 오게
     const ca = this._img('casey.png');
-    if (ca) { ctx.save(); ctx.globalAlpha *= 0.5; ctx.drawImage(ca, px - 21, py - 30, 260, 260 * 1757 / 1129); ctx.restore(); }   // 썸네일 사진에만 50(유저)
+    // 투명도 대신 '검정만 낮추기'(유저) — contrast<1 이 새도우를 들어올리고 brightness 로 화이트 복구
+    if (ca) { ctx.save(); ctx.filter = 'contrast(.72) brightness(1.12)'; ctx.drawImage(ca, px - 21, py - 30, 260, 260 * 1757 / 1129); ctx.filter = 'none'; ctx.restore(); }
     ctx.restore();
     const tx = px + ph + 40.857;
     // 제목+메타 두 줄을 썸네일(=카드) 세로 중심에 맞춘다 — py+24 고정이라 위로 24 치우쳐 있었다(유저).
     const TGAP = 20.429, TBH = 52 * 1.2 + TGAP + 32 * 1.2;   // 텍스트 블록 실높이
     const ty = py + ph / 2 - TBH / 2;
-    txt(ctx, 'Bring the Ring Home', tx, ty, 52, 700, NEU.t2, { ls: -2.55 });   // 좌측 컬럼 텍스트 = Location 라벨 회색(t2)로 통일(유저)
-    txt(ctx, 'Casey · Skilled User', tx, ty + 52 * 1.2 + TGAP, 32, 400, NEU.t2, { ls: -.96 });
+    txt(ctx, 'Bring the Ring Home', tx, ty, 52, 700, SOFT, { ls: -2.55 });   // 좌측 컬럼 텍스트 = Location 라벨 회색(t2)로 통일(유저)
+    txt(ctx, 'Casey · Skilled User', tx, ty + 52 * 1.2 + TGAP, 32, 400, SOFT, { ls: -.96 });
     ctx.restore();
 
     // 스탯 카드 — slideInLeft .85s .35s
@@ -327,7 +329,7 @@ export class WallGL {
     const CPAD = 24, CIN = CM, CGAP = 10, DGAP = 8;
     let y = stY + CM;
     // ── Total
-    txt(ctx, 'Total', ix + PADL, y + 6, 34, 400, NEU.t2, { ls: -1.13 });
+    txt(ctx, 'Total', ix + PADL, y + 6, 34, 400, SOFT, { ls: -1.13 });
     y += 48 + 8;
     const totH = 378.393;
     rrFill(ctx, ix, y, iw, totH, 64, '#fff');
@@ -352,19 +354,15 @@ export class WallGL {
     // run 행 = 회색 트랙 + You Can Choose + 우측 Strike! 막대
     const ry = gY + 2 * (barH + 4.851);
     rrFill(ctx, gR - (iw - 20), ry, iw - 20, barH, 999, NEU.surface);   // 양쪽 풀 필(유저: 좌측에도 9999)
-    ctx.save(); ctx.globalAlpha *= 0.7;
-    txt(ctx, 'You Can Choose', ix + PADL, ry + barH / 2, 32, 700, NEU.t1, { ls: -1.21, base: 'middle' });
-    ctx.restore();
+    txt(ctx, 'You Can Choose', ix + PADL, ry + barH / 2, 32, 700, SOFT, { ls: -1.21, base: 'middle' });
     bar(2, 582.143, '23m', 1.3, 'Strike!');
     // 좌측 큰 숫자 오버레이
     // 도트 숫자 = 카운트업(유저 규칙). 막대 3개가 자라는 리듬(1.0/1.15/1.3)에 맞춰 같이 세어 오른다.
-    rollNum(ctx, '35', t, 1.0, 0.9, ix + PADL, y + 24.256, 145.536, { fam: dot9, fill: NEU.t2 });
-    ctx.save(); ctx.globalAlpha *= 0.6;
-    txt(ctx, 'min', ix + PADL, y + 24.256 + 145.536, 32, 700, NEU.t2, { ls: -1.21 });
-    ctx.restore();
+    rollNum(ctx, '35', t, 1.0, 0.9, ix + PADL, y + 24.256, 145.536, { fam: dot9, fill: SOFT });
+    txt(ctx, 'min', ix + PADL, y + 24.256 + 145.536, 32, 700, SOFT, { ls: -1.21 });
     y += totH + 32;
     // ── Setup
-    txt(ctx, 'Setup', ix + PADL, y + 6, 34, 400, NEU.t2, { ls: -1.13 });
+    txt(ctx, 'Setup', ix + PADL, y + 6, 34, 400, SOFT, { ls: -1.13 });
     y += 48 + 8;
     // 흰 래퍼 폐기 — 회색 카드 → 흰 박스 → 셀 로 컨테이너가 3중이었다(유저: "박스 안의 박스").
     //   가운데 박스는 정보를 안 늘리고 묶기만 하는데 그 일은 'Setup' 라벨이 이미 한다.
@@ -393,13 +391,13 @@ export class WallGL {
       const k = 0.95 + 0.05 * e;
       ctx.translate(cx0 + cw / 2, cy0 + ch / 2); ctx.scale(k, k); ctx.translate(-(cx0 + cw / 2), -(cy0 + ch / 2));
       rrFill(ctx, cx0, cy0, cw, ch, 48, '#fff');   // 래퍼가 없으니 카드 자신이 흰색 — Connected 카드와 동일
-      txt(ctx, lbl, cx0 + CIN, cy0 + ch / 2, 34, 400, NEU.t2, { ls: -1.13, base: 'middle' });
-      txt(ctx, val, cx0 + cw - CIN, cy0 + ch / 2, 38, 700, NEU.t2, { ls: -1.27, base: 'middle', align: 'right' });
+      txt(ctx, lbl, cx0 + CIN, cy0 + ch / 2, 34, 400, SOFT, { ls: -1.13, base: 'middle' });
+      txt(ctx, val, cx0 + cw - CIN, cy0 + ch / 2, 38, 700, SOFT, { ls: -1.27, base: 'middle', align: 'right' });
       ctx.restore();
     });
     y += setH + 32;
     // ── Connected
-    txt(ctx, 'Connected', ix + PADL, y + 6, 34, 400, NEU.t2, { ls: -1.13 });
+    txt(ctx, 'Connected', ix + PADL, y + 6, 34, 400, SOFT, { ls: -1.13 });
     y += 48 + 8;
     // 폭에서 CPAD*2 를 빼면서 시작 x 에는 안 더해, 3장이 왼쪽으로 붙고 오른쪽에 48px 이 남았다
     // (유저: 좌우 FILL). 위 Setup 2열은 (iw - CGAP)/2 로 iw 를 꽉 채우므로 오른쪽 끝도 안 맞았다.
@@ -421,7 +419,7 @@ export class WallGL {
       // 아이콘 — 웨어러블만 원본 컬러, 나머지는 열화상 그라디언트 마스크
       const tim = i === 0 ? this._img(ic) : this._tinted(ic, 88, 88, [[0, PAL.red], [.6, PAL.coral], [.85, PAL.sand], [1, PAL.prism]]);
       if (tim) ctx.drawImage(tim, dx + CIN, y + DTOP, 88, 88);
-      txt(ctx, n, dx + CIN, y + DTOP + 88 + 14, 38, 700, NEU.t2, { ls: -1.27 });
+      txt(ctx, n, dx + CIN, y + DTOP + 88 + 14, 38, 700, SOFT, { ls: -1.27 });
       const chk = this._img('check.svg');
       if (chk) ctx.drawImage(chk, dx + dw - CIN - 58, y + DTOP, 58, 58);   // 40 → 58 (투사 거리에서 안 보였다)
       ctx.restore();

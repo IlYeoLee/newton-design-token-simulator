@@ -557,8 +557,10 @@ vec4 personAura(float mBody, float wide, float lumSharp, float lumBase, float fa
     + 0.09 * sin(6.2832 * (wc * 3.1 + ta * 0.07) + uv.x * 2.0));
   wave = mix(wave, 1.0, face);
   float t = band * mix(1.0, wave, mBody * mBody) + rim;
-  float dth = (fract(sin(dot(uv * 1483.0 + fract(ta * 1.7) * 3.0, vec2(12.9898, 78.233))) * 43758.5453) - 0.5)
-            * (0.010 + face * 0.022);
+  // ★ 디더는 **정적**으로 — 시드에 시간(ta)을 섞으면 그레인이 매 프레임 기어다닌다
+  //   (유저: "자글자글 너무 싫어"). 밴딩 해소엔 고정 패턴이면 충분하다. 진폭도 축소.
+  float dth = (fract(sin(dot(uv * 1483.0, vec2(12.9898, 78.233))) * 43758.5453) - 0.5)
+            * (0.006 + face * 0.010);
   vec3 c = look2Ramp(clamp(t + dth, 0.0, 1.0));
   // 채도 부스트(유저 최종 요청: "제발 채도 올려줘") — 무채 축 기준 1.28배.
   //   회색 바닥·밝은 코트 위에서 살몬이 먼지빛으로 읽히는 것을 원천 보정.
