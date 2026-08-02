@@ -2308,7 +2308,7 @@ void main(){
   //   cfg: { src, cropOff, cropScale(세로 크롭 창), w, h, fwd }  crop을 uniform으로 빼 스테이지별 대응.
   const COACH_CFG = {
     A1: { src: 'ready-view/assets/sean_neck_shoulder.webm', cropOff: 0.40, cropScale: 0.58, w: 0.88, h: 0.9, fwd: 0.16 },   // A2 런지와 크기 맞춤(유저: 너무 작음)
-    A2: { src: 'ready-view/assets/sean_lunge.webm', cropOff: 0.0, cropScale: 1.0, w: 0.9, h: 0.9, fwd: 0.10 },   // 런지 전신 측면
+    A2: { src: 'ready-view/assets/sean_lunge.webm', cropOff: 0.0, cropScale: 1.0, w: 0.9, h: 0.9, fwd: 0.10, zoom: 0.86 },   // 런지 전신 측면 — 축소로 뒷발이 프레임 페이드에 안 걸리게(유저)
     A3: { src: 'ready-view/assets/sean_highknee.webm', cropOff: 0.0, cropScale: 1.0, w: 0.9, h: 0.9, fwd: 0.10 },   // 하이니 전신 정면
     // 농구 워밍업 코치 영상(kling i2v·그린스크린 960²) — 러닝 A2/A3와 동일 크기(w/h 0.9). 인물이 프레임 채워 1.2는 넘침(유저).
     // _pp = 정방향+역방향 이어붙인 핑퐁 클립(ffmpeg reverse) — 끝에서 뚝 끊고 처음으로 점프하던 것 제거(유저).
@@ -2498,7 +2498,7 @@ void main(){
     tex.colorSpace = THREE.SRGBColorSpace;
     const mat = new THREE.ShaderMaterial({
       transparent: true, depthWrite: false,
-      uniforms: { map: { value: tex }, uLUT: { value: getLUT() }, uTime: { value: 0 }, uReady: { value: 0 },
+      uniforms: { map: { value: tex }, uLUT: { value: getLUT() }, uTime: { value: 0 }, uReady: { value: 0 }, uZoom: { value: cfg.zoom ?? 1 },
         uField: { value: coachField().lo[1].texture }, uFieldN: { value: coachField().rts[2].texture },
         uCropOff: { value: cfg.cropOff }, uCropScale: { value: cfg.cropScale }, uDetail: { value: 0.25 },
         // uPulse 0 — 복싱 인물엔 루마 펄스가 없다(톤을 흔드는 원인이라 끈다).
@@ -2510,7 +2510,11 @@ void main(){
         varying vec2 vUv; uniform sampler2D map, uLUT, uField, uFieldN; uniform float uTime, uCropOff, uCropScale, uPulse, uReady, uDetail;
         vec3 lut(float v){ return texture2D(uLUT, vec2(clamp(v, 0.004, 0.996), 0.5)).rgb; }
         ` + PERSON_GLSL + CUT_FEATHER_GLSL + REF_LOOK_GLSL + `
-        vec2 crop(vec2 uv){ return vec2(uv.x, uCropOff + uv.y * uCropScale); }
+        uniform float uZoom;   // 1 = 원본. <1 = 인물 축소(하단 고정) — 발이 프레임 가장자리 페이드에 걸리는 장면용
+        vec2 crop(vec2 uv){
+          uv.x = (uv.x - 0.5) / uZoom + 0.5;
+          uv.y = uv.y / uZoom;   // 하단 고정 — 발 접지 유지, 위·옆으로만 여백 생성
+          return vec2(uv.x, uCropOff + uv.y * uCropScale); }
         // 그린 제거만. (빈 프레임 방지는 픽셀 휘도가 아니라 프레임 단위 uReady가 담당 —
         //  픽셀로 자르면 그림자·모자·옷주름이 통째로 뚫린다: 실측 피사체 14% 소실)
         float mask1(vec2 uv){ vec3 c = texture2D(map, crop(uv)).rgb; float k = c.g - max(c.r, c.b);
@@ -2538,7 +2542,7 @@ void main(){
           // 깜빡임 방지는 tickA1Coach의 readyState 게이트가 전담 — 픽셀 검은-discard는 어두운 셔츠·그림자에
           // 구멍을 뚫으므로 제거(유저). 크로마키만: 초록 초과분으로 배경만 판정.
           float m = maskAA(uv);
-          float mEro = smoothstep(0.16, 0.52, m);   // 침식 완화 — 골대 림 등 얇은 구조 보존(유저)
+          float mEro = smoothstep(0.26, 0.44, m);   // 결정적 마스크 — 어두운 신발+그린스필이 중간 대역에 남아 회색 뭉침(유저 #68). 얇은 구조(골대 림)는 일부 손해
           // 상단 잘림 페더 — 크롭 창이 몸통을 가로지르면 마스크가 프레임 경계에서 딱 끊겨
           //   허리가 칼로 자른 듯 보인다(유저 스샷). 위쪽 12%만 부드럽게 소멸.
           //   하단은 건드리지 않는다 — 발 접지는 또렷해야 한다(유저 확정).
@@ -2563,7 +2567,8 @@ void main(){
           lumS = mix(lumB, lumS, 1.0 - cf.y);   // 초점 나간 구간은 결도 넓은 블러로 녹는다
           float dlum = mix(lumS, lumB, 0.5);            // 펄스 위상용 대표 휘도
           float mIn = smoothstep(0.55, 0.95, m);
-          float faceW = smoothstep(0.80, 0.92, uv.y) * (1.0 - smoothstep(0.97, 1.0, uv.y));
+          float vy = min(uv.y / uZoom, 1.0);   // 얼굴 대역은 비디오 공간 기준 — 줌 시 어긋나 정수리 반점(실측)
+          float faceW = smoothstep(0.80, 0.92, vy) * (1.0 - smoothstep(0.99, 1.0, vy));
           // LUMA PULSE — 휘도를 따라 흐르는 그라디언트 펄스(effect.app 느낌, 뉴턴 LUT 안에서만 이동)
           float pulse = uPulse * sin(uTime * 2.0 - dlum * 7.0);
           // 디더 — 8bit 영상 양자화가 LUT 위에서 밴딩으로 드러나는 것을 픽셀 노이즈로 분해(색 사이 이음)
@@ -2579,7 +2584,7 @@ void main(){
             vec3 srcC = texture2D(map, crop(uv)).rgb;
             float lumSharp = dot(vec3(srcC.r, min(srcC.g, max(srcC.r, srcC.b)), srcC.b), vec3(0.299, 0.587, 0.114));
             float lumNRaw = fldN.g / max(fldN.r, 0.02);
-            vec4 aura = personAura(mEro, fld.r, lumSharp, lumNRaw, faceW, uv, uTime);
+            vec4 aura = personAura(mEro, fld.r, lumSharp, lumNRaw, faceW, vec2(uv.x, vy), uTime);
             col = aura.rgb; cov = aura.a;
             // 하단 컷 페이드 — 코랄↔바닥 직접 보간은 중간에서 흙색을 지난다(유저: 손끝 흙탕).
             //   앱(흰 배경)처럼 **흰빛으로 바래며** 소멸시킨다. cf.y = 컷 디포커스 양.
@@ -3094,7 +3099,7 @@ void main(){
           // 형태: 전신 크리스프 실루엣만 — 헤일로·확산 완전 제거 (유저 확정: 그림자 금지)
           // 마스크 침식: 크로마키가 불완전한 클립(비순수 그린 배경)에서 마스크 바닥값(~0.2)이
           // 쿼드 전체를 반투명 워시 박스로 칠하던 근본 원인 — 저신뢰 마스크는 0으로
-          float mEro = smoothstep(0.16, 0.52, m);   // 침식 완화 — 골대 림 등 얇은 구조 보존(유저)
+          float mEro = smoothstep(0.26, 0.44, m);   // 결정적 마스크 — 어두운 신발+그린스필이 중간 대역에 남아 회색 뭉침(유저 #68). 얇은 구조(골대 림)는 일부 손해
           // ※ 안쪽 침식 페더는 폐기(07-31 도입 → 08-01 철회). 링 최솟값은 마스크가 국소적으로
           //   조금만 내려가도(압축 노이즈·모션블러) 그 자리에 **구멍**을 뚫는다 —
           //   인물이 종이처럼 찢어져 보이던 것(유저 스샷). 부드러움은 이런 식으로 얻을 수 없다.
