@@ -518,6 +518,7 @@ vec4 personAura(float mBody, float wide, float lumSharp, float lumBase, float fa
   //   쓰면 판이 작은 바닥 코치일수록 결이 사전에 뭉개져 뿌옇게 떴다(유저 진단 정확).
   //   lumBase = 좁은 블러장 휘도(앱 표면블러의 base 역할). 이제 신호가 앱과 같은 구조라
   //   우회 보정(임계 축소·d 이득·숄더) 없이 앱 상수를 그대로 쓴다.
+  face = max(face, smoothstep(0.90, 0.965, uv.y));   // 정수리(얼굴 대역 위 3%)가 검붉은 핫스팟으로 남던 것
   if (uPLumLin > 0.5) {
     lumSharp = pow(clamp(lumSharp, 0.0, 1.0), 0.4545);
     lumBase = pow(clamp(lumBase, 0.0, 1.0), 0.4545);
@@ -533,17 +534,12 @@ vec4 personAura(float mBody, float wide, float lumSharp, float lumBase, float fa
   float lum = lb + d * keep;
   lum = mix(lum, lb, face);   // 얼굴: 결 제거
   // 톤(룩2): 감마 0.59 → 대비 0.8 → 밝기 +0.5 → 인물 대역 0.3~1.0 (앱과 동일)
-  float band = 0.3 + 0.7 * clamp((pow(clamp(lum, 0.0, 1.0), 0.59) - 0.5) * 0.8 + 0.62 + uPCalB, 0.0, 1.0);
-  float bandB = 0.3 + 0.7 * clamp((pow(clamp(lb, 0.0, 1.0), 0.59) - 0.5) * 0.8 + 0.62 + uPCalB, 0.0, 1.0);
+  float band = 0.3 + 0.7 * clamp((pow(clamp(lum, 0.0, 1.0), 0.59) - 0.5) * 0.8 + 0.655 + uPCalB, 0.0, 1.0);
+  float bandB = 0.3 + 0.7 * clamp((pow(clamp(lb, 0.0, 1.0), 0.59) - 0.5) * 0.8 + 0.655 + uPCalB, 0.0, 1.0);
   band = mix(band, 0.10, face);   // 얼굴 = 저열(밝은 살구) — 앱 부위 밝기 -1(multiply) 대응
-  // 룩2 부위 부스트 근사(세로 프로파일 — 영상엔 포즈 검출이 없어 관절 대신 대역):
-  //   허리·복부 +1(screen=뜨겁게) · 무릎 +1 · 종아리 -1(multiply=저열=밝음).
-  //   앱 stdG 27 의 상당분은 이 부위 간 대비였다(전역 톤으로는 재현 불가 — 실측).
-  float torso = smoothstep(0.56, 0.63, uv.y) * (1.0 - smoothstep(0.68, 0.76, uv.y));   // 앱은 허리 한 점 스트로크 — 좁게
-  float knee  = smoothstep(0.30, 0.36, uv.y) * (1.0 - smoothstep(0.40, 0.46, uv.y));
-  float calf  = smoothstep(0.10, 0.17, uv.y) * (1.0 - smoothstep(0.26, 0.33, uv.y));
-  band = 1.0 - (1.0 - band) * (1.0 - 0.20 * clamp(torso + knee, 0.0, 1.0));
-  band = mix(band, band * 0.30, calf * 0.85);
+  // ⚠ 세로 부위 프로파일(허리·무릎·종아리 대역)은 **폐기** — A1 처럼 크롭된 판에선 uv 가
+  //   신체 좌표가 아니라서 허리 밴드가 셔츠 밑단의 붉은 줄무늬로 찍혔다(같은 프레임 대조 실측).
+  //   부위 대비는 포즈 없인 안전하게 재현 불가 — stdG 일부 손해를 감수한다.
   // 최상단 소프트 숄더 — 최고열 포화 완화(러닝 hot-tail p10 실측 보정)
   band -= 0.06 * smoothstep(0.88, 1.0, band);
   // Contour 림(룩2 1.0 · 앱 rim = (열−아우라열)·0.9) — 아우라열 근사 = base 톤
