@@ -3359,7 +3359,13 @@ void main(){
     heatBlurMat.uniforms.tex.value = heatRTs[1].texture; heatBlurMat.uniforms.uDir.value.set(0, 1);
     renderer.setRenderTarget(heatNarrowRT); renderer.render(trailScene, trailQuadCam);
     // ② 넓은 필드 — 국소 평균(노출). 원래대로 3회 반복.
-    heatBlurMat.uniforms.uStep.value = 1.4 + 2.4 * (FXP.person?.blur ?? 1);
+    // ★ 넓은 필드의 폭을 person.blur 에서 떼어낸다 — 얼룩덜룩의 진짜 원인.
+    //   이 식은 blur≈1 을 전제로 쓰였는데(→3.8), 07-30 "인물 = 뉴턴톤만, 나머지 0" 결정으로
+    //   blur 가 0 이 되면서 폭이 1.4 로 주저앉았다. 좁은 필드가 1.0 이니 두 σ 가 거의 같아지고,
+    //   detail = 좁음 − 넓음 이 DoG(밴드패스)가 되어 옷 주름이 아니라 중간주파 압축 노이즈를
+    //   골라 증폭했다(코치 판에서 이미 겪고 1/4 그리드로 고친 것과 같은 함정).
+    //   '국소 평균'은 정의상 넓어야 한다 — 룩 슬라이더가 붙잡을 값이 아니다.
+    heatBlurMat.uniforms.uStep.value = 3.8;
     for (let i = 0; i < 3; i++) {
       heatBlurMat.uniforms.tex.value = heatRTs[0].texture; heatBlurMat.uniforms.uDir.value.set(1, 0);
       renderer.setRenderTarget(heatRTs[1]); renderer.render(trailScene, trailQuadCam);
@@ -3373,7 +3379,11 @@ void main(){
     PU.uTrail.value = trailRTs[trailFlip].texture;
     PU.uTime.value = now;
     PU.uNoise.value = 0;   // 대류 얼룩 영구 차단(유저 08-03) — 시간축으로 흘러가는 노이즈가 0.x초 주기 얼룩으로 보였다. 07-30 "인물 = 뉴턴톤만, 나머지 0" 규칙과 통일.
-    PU.uDetail.value = FXP.person?.detail ?? 0.62;
+    // ★ 벽 인물만 결 비중을 낮춘다(바닥 코치 판은 2795 줄에서 원래 값 그대로).
+    //   셰이더가 clamp(uDetail * 2.4) 라 0.417 이상이면 **좁은 필드 100%** 다. 그 좁은 필드는
+    //   320×480 을 1200px 로 3.75배 확대해 쓰는 비율(fN.g/fN.r)이라, 배·브라처럼 평평한 면에서
+    //   저해상 구조가 덩어리로 드러났다(유저: 얼룩덜룩 + 과질감). 0.42 → 0.19 = 결 46%.
+    PU.uDetail.value = (FXP.person?.detail ?? 0.42) * 0.45;
     PU.uW.value = FXP.person?.blur ?? 1;   // 엣지 블러 — 랩 person 슬라이더 (누락돼 기본 1.0으로 돌던 버그)
     PU.uGrain.value = FXP.person?.grain ?? 0;
     PU.uTone.value = FXP.person?.tone ?? 0;
