@@ -7,41 +7,61 @@
 <style>
   * { margin: 0; box-sizing: border-box; }
   body { display: flex; height: 100vh; background: #000; color: #eee; font-family: -apple-system, 'Noto Sans KR', sans-serif; }
-  aside { width: 300px; padding: 34px 22px; background: #0d0d0d; border-right: 1px solid #1c1c1c; flex: none;
-    display: flex; flex-direction: column; gap: 10px; transition: margin .25s ease; }
-  body.closed aside { margin-left: -300px; }
-  #toggle { position: fixed; left: 14px; top: 14px; z-index: 10; width: 42px; height: 42px; border-radius: 12px;
-    border: 1px solid #2a2a2a; background: rgba(15,15,15,.8); color: #ddd; font-size: 18px; cursor: pointer;
+  aside { width: 220px; padding: 18px 14px; background: #0d0d0d; border-right: 1px solid #1c1c1c; flex: none;
+    display: flex; flex-direction: column; gap: 2px; transition: margin .25s ease; overflow-y: auto; }
+  body.closed aside { margin-left: -220px; }
+  #toggle { position: fixed; left: 10px; top: 10px; z-index: 10; width: 34px; height: 34px; border-radius: 9px;
+    border: 1px solid #2a2a2a; background: rgba(15,15,15,.8); color: #ddd; font-size: 15px; cursor: pointer;
     backdrop-filter: blur(6px); padding: 0; text-align: center; }
-  body:not(.closed) #toggle { left: 314px; }
-  h1 { font-size: 22px; font-weight: 800; letter-spacing: -0.01em; margin-bottom: 18px; }
+  body:not(.closed) #toggle { left: 230px; }
+  h1 { font-size: 15px; font-weight: 800; letter-spacing: -0.01em; margin: 2px 4px 10px; }
   h1 span { color: #fa3030; }
-  button { display: block; width: 100%; text-align: left; padding: 16px 18px; border: 1px solid #222;
-    border-radius: 14px; background: #151515; color: #eee; font-size: 16px; font-weight: 600; cursor: pointer;
-    transition: background .15s, border-color .15s; }
-  button:hover { background: #1f1f1f; border-color: #333; }
-  button.on { background: #fa3030; border-color: #fa3030; color: #fff; }
+  h2 { font-size: 11px; font-weight: 700; color: #777; letter-spacing: .08em; margin: 12px 6px 4px; }
+  button.s { display: block; width: 100%; text-align: left; padding: 7px 10px; border: 0;
+    border-radius: 8px; background: transparent; color: #ccc; font-size: 13px; font-weight: 500; cursor: pointer; }
+  button.s:hover { background: #1c1c1c; }
+  button.s.on { background: #fa3030; color: #fff; font-weight: 700; }
   main { flex: 1; position: relative; background: #000; }
   iframe { width: 100%; height: 100%; border: 0; display: block; }
 </style>
 </head>
 <body>
 <button id="toggle" title="목록 열기/닫기">☰</button>
-<aside>
+<aside id="list">
   <h1>NEWTON <span>씬</span></h1>
-  <button data-s="BX_READY">가드 올리고 거리 잡기</button>
-  <button data-s="BX_A1">목 · 어깨 풀기</button>
-  <button data-s="BX_B2">회피 스텝</button>
-  <button data-s="BX_T2">5초 뒤 넘어가요</button>
-  <button data-s="BX_C1">3 · 2 · 1</button>
-  <button data-s="BX_C3">잽 - 잽 - 훅</button>
 </aside>
 <main><iframe id="f" src="./index.html?scene=BX_READY"></iframe></main>
 <script>
-  const f = document.getElementById('f');
-  const btns = [...document.querySelectorAll('button[data-s]')];
-  const go = (b) => { btns.forEach(x => x.classList.toggle('on', x === b)); f.src = './index.html?scene=' + encodeURIComponent(b.dataset.s); };
-  btns.forEach(b => b.onclick = () => go(b));
+  const GROUPS = [
+    ['복싱', [
+      ['BX_READY', '가드 올리고 거리 잡기'],
+      ['BX_A1', '목 · 어깨 풀기'],
+      ['BX_B2', '회피 스텝'],
+      ['BX_T2', '5초 뒤 넘어가요'],
+      ['BX_C1', '3 · 2 · 1'],
+      ['BX_C3', '잽 - 잽 - 훅'],
+    ]],
+    ['농구', [
+      ['BK_READY', '시작 화면'],
+      ['BK_B1', '제자리 로우 드리블'],
+      ['BK_B5', '스텝백 4/4 미리보기+스텝'],
+    ]],
+    ['러닝', [
+      ['READY', '시작 화면'],
+      ['A2', '종아리 늘리기 홀드'],
+      ['P1', '이지 런'],
+    ]],
+  ];
+  const list = document.getElementById('list'), f = document.getElementById('f');
+  const btns = [];
+  for (const [sport, scenes] of GROUPS) {
+    const h = document.createElement('h2'); h.textContent = sport; list.appendChild(h);
+    for (const [id, name] of scenes) {
+      const b = document.createElement('button'); b.className = 's'; b.textContent = name; b.dataset.s = id;
+      b.onclick = () => { btns.forEach(x => x.classList.toggle('on', x === b)); f.src = './index.html?scene=' + encodeURIComponent(id); };
+      list.appendChild(b); btns.push(b);
+    }
+  }
   btns[0].classList.add('on');
   document.getElementById('toggle').onclick = () => document.body.classList.toggle('closed');
 </script>
