@@ -2592,7 +2592,7 @@ void main(){
           //   '뒤를 지우는 양'이라, 어두운 픽셀이 큰 알파를 가지면 그만큼 판이 검게 뚫린다.
           //   문턱값 게이트(lum<0.02)로는 lum=0.05 같은 '거의 검정'이 통과해 검은 사각형이 남았다.
           //   빛에 비례해 가림을 묶는다 — 빛이 없으면 가림도 없다.
-          alpha = min(alpha, max(col.r, max(col.g, col.b)) * 1.6);
+          alpha = min(alpha, max(col.r, max(col.g, col.b)) * mix(1.6, 1.05, uPForm));   // 룩2: 페이드 구간 알파>빛 = 흙탕 밴드(유저)
           // ★ 컴포저 OutputPass 가 화면 전체에 linear→sRGB 를 얹는다. 벽 인물(데모 판)은 출력 직전
           //   역변환으로 그걸 상쇄하는데(main.js ~3039) **코치 판에는 그 줄이 없었다**.
           //   그래서 바닥 인물만 중간톤이 들려 연하게 보였다 — 값 문제가 아니라 색공간 문제다.
@@ -3144,7 +3144,7 @@ void main(){
           //   같은 사고가 코치판에서 이미 한 번 났다(위 2497: '밝은 타일 코트 위에서 물빠짐').
           // ★ 0.985 도 걷어낸다 — 코어에서 1.5% 를 비치게 할 이유가 없다. 코치판은 이미 1.0 이다.
           float aOut = clamp(covA * 1.2, 0.0, 1.0) * field * live;
-          gl_FragColor = vec4(col * live, min(aOut, lumSrgb * 1.6));
+          gl_FragColor = vec4(col * live, min(aOut, lumSrgb * mix(1.6, 1.05, uPForm)));
         }`,
       transparent: true, depthWrite: false,
       // out = col + dst·(1−a) — 랩의 base·(1−a·0.88)+col 과 동일 (프리멀티 커스텀 블렌딩)

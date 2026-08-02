@@ -15,7 +15,7 @@
   "bands": 24,
   "bandSoft": 1,
   "w": 1.6,
-  "halo": 0.9,
+  "halo": 0.45,
   "pool": 0.82,
   "noise": 0,
   "rip": 0.5,
