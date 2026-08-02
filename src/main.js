@@ -2313,15 +2313,15 @@ void main(){
     // 농구 워밍업 코치 영상(kling i2v·그린스크린 960²) — 러닝 A2/A3와 동일 크기(w/h 0.9). 인물이 프레임 채워 1.2는 넘침(유저).
     // _pp = 정방향+역방향 이어붙인 핑퐁 클립(ffmpeg reverse) — 끝에서 뚝 끊고 처음으로 점프하던 것 제거(유저).
     //   loop=true 그대로 두고 자산만 교체 = 런타임 역재생(currentTime 역주행 시킹) 비용 0.
-    BK_A1: { src: 'ready-view/assets/bk_sidebend_pp.webm', cropOff: 0.0, cropScale: 1.0, w: 0.9, h: 0.9, fwd: 0.10, ph: 0.80 },   // 옆구리 스트레치
+    BK_A1: { src: 'ready-view/assets/bk_sidebend_pp.webm', cropOff: 0.0, cropScale: 1.0, w: 0.9, h: 0.9, fwd: 0.10, ph: 0.80, tone: 0.045 },   // 클립이 소프트해 가족 대비 밝음(g50 142) — 톤 트림   // 옆구리 스트레치
     BK_A2: { src: 'ready-view/assets/bk_highknee.webm', cropOff: 0.0, cropScale: 1.0, w: 0.9, h: 0.9, fwd: 0.10, ph: 0.85 },   // 무릎 들기
     // 훈련 관찰 공통 — 이게진짜.mp4(그린스크린 정면 로우 드리블) 핑퐁 베이크(_pp, ffmpeg reverse concat)
     BK_B1: { src: 'bhandle_pp.mp4', cropOff: 0.0, cropScale: 1.0, w: 0.55, h: 0.98, fwd: 0.22, ph: 0.62 },   // 워밍업 위계와 크기·거리 통일(유저 #75) — 0.42/fwd0.45 는 작고 멀었다. 9:16 유지
     BK_B2: { src: 'stepback_fwd.mp4', cropOff: 0.0, cropScale: 1.0, w: 1.04, h: 0.87, fwd: 0.10, ph: 0.63, rng: [0.03, 0.86] },   // 소스 720x1280 · rng = 인물 블롭 실측(골대·콘이 측정 오염)
     BK_B5: { src: 'stepback_fwd.mp4', cropOff: 0.0, cropScale: 1.0, w: 1.04, h: 0.87, fwd: 0.10, ph: 0.63, rng: [0.03, 0.86] },
-    BK_B4: { src: 'stepback_fwd.mp4', cropOff: 0.0, cropScale: 1.0, w: 1.04, h: 0.87, fwd: 0.10 },
-    BK_B3: { src: 'stepback_fwd.mp4', cropOff: 0.0, cropScale: 1.0, w: 1.04, h: 0.87, fwd: 0.10 },   // 소스 720x1280 — 9:16 유지(정사각은 세로 눌림)
-    BK_C2: { src: 'stepback_fwd.mp4', cropOff: 0.0, cropScale: 1.0, w: 1.04, h: 0.87, fwd: 0.10 },   // 실전 = 같은 클립을 타이밍 소스로만(따라하기 시작하면 화면에선 숨김)
+    BK_B4: { src: 'stepback_fwd.mp4', cropOff: 0.0, cropScale: 1.0, w: 1.04, h: 0.87, fwd: 0.10, ph: 0.63, rng: [0.03, 0.86] },
+    BK_B3: { src: 'stepback_fwd.mp4', cropOff: 0.0, cropScale: 1.0, w: 1.04, h: 0.87, fwd: 0.10, ph: 0.63, rng: [0.03, 0.86] },   // 소스 720x1280 — 9:16 유지
+    BK_C2: { src: 'stepback_fwd.mp4', cropOff: 0.0, cropScale: 1.0, w: 1.04, h: 0.87, fwd: 0.10, ph: 0.63, rng: [0.03, 0.86] },   // 실전 = 같은 클립을 타이밍 소스로만
     BK_A3: { src: 'ready-view/assets/bk_squat.webm',    cropOff: 0.0, cropScale: 1.0, w: 0.9, h: 0.9, fwd: 0.10 },   // 스쿼트
   };
   const _coaches = {};   // stageId → { video, plane, _fwd }
@@ -2795,6 +2795,7 @@ void main(){
           const lo2 = co.cfg?.rng ? co.cfg.rng[0] : (co._lo ?? 0.12);
           const hi2 = co.cfg?.rng ? co.cfg.rng[1] : (co._hi ?? 0.85);
           setPersonUniforms(co.plane.material.uniforms, 0.86, 0, exp2, lo2, hi2, 1);   // rng = 클립 고정 오버라이드(광각 소품 오염 대응)
+          if (co.plane.material.uniforms.uPCalB) co.plane.material.uniforms.uPCalB.value += co.cfg?.tone ?? 0;   // 클립별 톤 트림(전수검사 기반)
         }
         // 옆구리(BK_A1) 방향 화살표 = 코치 영상 실제 타이밍에 동기.
         //   bk_sidebend.webm 24fps 84프레임을 그린스크린 마스크로 프레임별 상체/하체 x중심을 재서
