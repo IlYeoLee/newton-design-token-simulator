@@ -25,7 +25,7 @@ html,body{background:transparent}
 .leftcol{display:flex;flex-direction:column;gap:24px;align-items:flex-end;flex-shrink:0}
 
 /* 헤더 카드 (13:15) */
-.hdr{background:#fff;display:flex;gap:40.857px;align-items:center;padding:20px;border-radius:56px;
+.hdr{background:#fff;display:flex;gap:40.857px;align-items:center;padding:20px;border-radius:64px;
   box-shadow:0 0 30.643px 0 rgba(0,0,0,.08);width:100%;overflow:hidden}
 .hdr-photo{position:relative;width:217.054px;height:217.054px;border-radius:44px;overflow:hidden;flex-shrink:0}
 .hdr-photo .ph{position:absolute;left:-28.09px;top:-74.05px;width:275.305px;height:511.608px}
@@ -39,7 +39,7 @@ html,body{background:transparent}
 
 /* 큰 스탯 카드 (13:23) */
 .stats{background:rgba(255,255,255,.55);display:flex;flex-direction:column;gap:32px;align-items:flex-start;
-  padding:32px 20px;border-radius:64px;overflow:hidden;flex-shrink:0;width:100%}
+  padding:32px 20px;border-radius:76px;overflow:hidden;flex-shrink:0;width:100%}
 .sec{display:flex;flex-direction:column;gap:8px;align-items:flex-start;width:1000px}
 .sec-t{display:flex;align-items:center;padding:0 20px;width:100%}
 .sec-t p{flex:1 0 0;min-width:0;font-weight:500;font-size:32px;line-height:1.5;color:#757575}
@@ -50,18 +50,18 @@ html,body{background:transparent}
 
 /* Total 콘텐츠 (13:28) */
 .total{position:relative;background:#fff;display:flex;gap:24.256px;height:378.393px;align-items:flex-start;
-  justify-content:flex-end;padding:10px;border-radius:60px;width:100%}
+  justify-content:flex-end;padding:10px;border-radius:36px;width:100%}
 .graph{display:flex;flex:1 0 0;flex-direction:column;gap:4.851px;height:100%;align-items:flex-end;
   min-width:0;overflow:hidden;border-radius:58px}
 .bar{display:flex;flex-direction:column;align-items:flex-end;justify-content:center;padding:24.256px;
-  border-radius:36px}
+  border-radius:38px}
 .bar p{font-weight:500;font-size:36px;line-height:1.4;letter-spacing:-1.2128px;color:#fff;white-space:nowrap;width:100%;
   display:flex;justify-content:space-between;align-items:center}
 .bar.stretch{flex:1 0 0;min-height:0;width:128px;border-radius:36px;
   background:linear-gradient(90deg,#fa3030 63.043%,#fe6e3c 89.902%,#fec389 101.08%,#d1feff 108.1%)}
 .bar.learn{flex:1 0 0;min-height:0;width:232px;border-radius:36px;
   background:linear-gradient(90deg,#fa3030 63.043%,#fe6e3c 89.902%,#fec389 101.08%,#d1feff 108.1%)}
-.bar.run{position:relative;background:#f2f2f2;border-radius:36px;flex:1 0 0;min-height:0;width:100%;gap:24.256px;
+.bar.run{position:relative;background:#f2f2f2;border-radius:38px;flex:1 0 0;min-height:0;width:100%;gap:24.256px;
   align-items:flex-start;justify-content:center}
 .bar.run>.fight{font-weight:700;font-size:32px;line-height:1.2;letter-spacing:-1.2128px;color:#3b3b3b;opacity:.7;
   white-space:nowrap;width:100%;display:flex;justify-content:space-between;align-items:center}
@@ -78,7 +78,7 @@ html,body{background:transparent}
 .setup{background:#fff;display:flex;flex-direction:column;align-items:flex-start;padding:10px;border-radius:64px;width:100%}
 .grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;width:100%}
 .cell{background:#f2f2f2;display:flex;flex-direction:column;justify-content:center;height:103px;padding:20px;
-  border-radius:36px;overflow:hidden}
+  border-radius:48px;overflow:hidden}
 .cell.h102{height:102px}
 .cell-lab{font-weight:500;font-size:24px;line-height:1.1;letter-spacing:-.5px;color:#757575;white-space:nowrap}
 .cell-val{font-weight:700;font-size:36px;line-height:1;letter-spacing:-1.08px;color:#757575;white-space:nowrap;
@@ -88,7 +88,7 @@ html,body{background:transparent}
 .conn{display:flex;height:259.607px;width:1000px;align-items:flex-start}
 .conn-in{display:flex;flex:1 0 0;flex-direction:column;gap:8px;align-items:flex-start;min-width:0}
 .conn-row{display:flex;gap:8px;align-items:flex-start;width:100%}
-.dev{position:relative;background:#fff;display:flex;flex:1 0 0;flex-direction:column;padding:20px;border-radius:40px;
+.dev{position:relative;background:#fff;display:flex;flex:1 0 0;flex-direction:column;padding:20px;border-radius:48px;
   min-width:0;overflow:hidden}
 .dev-in{display:flex;flex-direction:column;gap:8px;align-items:flex-start}
 .dev-ic{position:relative;width:88px;height:88px;overflow:hidden}
@@ -100,7 +100,7 @@ html,body{background:transparent}
 .grad-therm{background:linear-gradient(180deg,#fa3030 59.24%,#fe6e3c 84.478%,#fec389 94.982%,#d1feff 101.57%)}
 
 /* ══════════ 우측 (13:122) ══════════ */
-.rightcol{position:relative;flex:1 0 0;height:100%;min-width:0;border-radius:56px;overflow:hidden}
+.rightcol{position:relative;flex:1 0 0;height:100%;min-width:0;border-radius:64px;overflow:hidden}
 .glow{position:absolute;left:calc(50% - 334.5px);top:660px;width:705px;height:608px;
   transform-origin:50% 40%;animation:glowPulse 4.6s ease-in-out infinite}
 .glow .box{position:absolute;inset:-16.61% -14.33%}

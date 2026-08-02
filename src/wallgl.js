@@ -288,9 +288,9 @@ export class WallGL {
     ctx.save();
     const he = eOut(intro(t, .15, .85));
     ctx.globalAlpha *= he; ctx.translate(-90 * (1 - he), 0);
-    rrFill(ctx, LX, ROW_Y, LW, hdrH, 56, '#fff');
+    rrFill(ctx, LX, ROW_Y, LW, hdrH, 64, '#fff');
     const ph = 217.054, px = LX + 20, py = ROW_Y + 20;
-    ctx.save(); rrPath(ctx, px, py, ph, ph, 44); ctx.clip();
+    ctx.save(); rrPath(ctx, px, py, ph, ph, 44); ctx.clip();   // 중첩 라운드: 카드 64 − 여백 20
     // Casey(피그마 팩 히어로, 1129×1757) — 커버 크롭, 얼굴(세로 ~24%)이 썸네일 중심에 오게
     const ca = this._img('casey.png');
     // 원본 이미지 그대로 + 투명도 70(유저 최종 — "미래엔 다 가능")
@@ -309,7 +309,7 @@ export class WallGL {
     ctx.save();
     const se = eOut(intro(t, .35, .85));
     ctx.globalAlpha *= se; ctx.translate(-90 * (1 - se), 0);
-    rrFill(ctx, LX, stY, LW, stH, 64, 'rgba(255,255,255,.55)');   // 래퍼 = 벽보다 밝은 '빛 판' — 회색은 투사면에서 그림자로 읽힘(피드백 반영)
+    rrFill(ctx, LX, stY, LW, stH, 76, 'rgba(255,255,255,.55)');   // 래퍼 = 벽보다 밝은 '빛 판' — 회색은 투사면에서 그림자로 읽힘(피드백 반영)
     // ★ 투사 거리 가독 하한 — 벽 대지는 1.00 mm/px(PROJECTION-SPEC 6절)라 24px = 실물 24mm.
     // 2~4m 에서 24mm 캡션은 안 읽힌다(유저: "너무 작아서 안 보임"). 캡션류를 32 이상으로,
     // 체크 배지는 40 → 58 로 올렸다. 폰 레이아웃을 1:1 로 벽에 옮긴 값이라 원래 작았던 것.
@@ -332,7 +332,7 @@ export class WallGL {
     txt(ctx, 'Total', ix + PADL, y + 6, 34, 400, SOFT, { ls: -1.13 });
     y += 48 + 8;
     const totH = 378.393;
-    rrFill(ctx, ix, y, iw, totH, 60, '#fff');
+    rrFill(ctx, ix, y, iw, totH, 48, '#fff');   // 중첩 라운드: 래퍼 76 − 여백 28
     // 그래프 3단 (우측 정렬, 위에서부터 stretch/learn/run)
     const gY = y + 10, gH = totH - 20, gR = ix + iw - 10;
     const barH = (gH - 4.851 * 2) / 3;
@@ -344,7 +344,7 @@ export class WallGL {
       growBar(ctx, gR - bw, by, bw, barH, eOut(intro(t, delay, .7)), {
         // 우측 상하 = 풀 라운드(필, 유저 '9999') — 9999 그대로 주면 roundRect 정규화가 좌측 40까지
         // 비례 축소하므로 barH/2 로 준다.
-        anchor: 'right', track: null, r: 36, pad: 24.256, fs: 36, ls: -1.21, num: label, label: endLbl,   // 피그마 5:208 r12×3 — 필 라운드 은퇴(과하게 둥긂, 유저)
+        anchor: 'right', track: null, r: 38, pad: 24.256, fs: 36, ls: -1.21, num: label, label: endLbl,   // 중첩 라운드: 박스 48 − 인셋 10
         stops: [[.63, PAL.red], [.9, PAL.coral], [1, PAL.sand]],
       });
     };
@@ -353,7 +353,7 @@ export class WallGL {
     bar(1, 232, '8m', 1.15);
     // run 행 = 회색 트랙 + You Can Choose + 우측 Strike! 막대
     const ry = gY + 2 * (barH + 4.851);
-    rrFill(ctx, gR - (iw - 20), ry, iw - 20, barH, 36, NEU.surface);   // 피그마 5:208 run 행 r12×3
+    rrFill(ctx, gR - (iw - 20), ry, iw - 20, barH, 38, NEU.surface);   // 중첩 라운드: 박스 48 − 인셋 10
     txt(ctx, 'You Can Choose', ix + PADL, ry + barH / 2, 32, 700, SOFT, { ls: -1.21, base: 'middle' });
     bar(2, 582.143, '23m', 1.3, 'Strike!');
     // 좌측 큰 숫자 오버레이
@@ -390,7 +390,7 @@ export class WallGL {
       ctx.translate(0, 26 * (1 - e));
       const k = 0.95 + 0.05 * e;
       ctx.translate(cx0 + cw / 2, cy0 + ch / 2); ctx.scale(k, k); ctx.translate(-(cx0 + cw / 2), -(cy0 + ch / 2));
-      rrFill(ctx, cx0, cy0, cw, ch, 36, '#fff');   // 피그마 스케일 축소(유저)
+      rrFill(ctx, cx0, cy0, cw, ch, 48, '#fff');   // 중첩 라운드: 래퍼 76 − 여백 28
       txt(ctx, lbl, cx0 + CIN, cy0 + ch / 2, 34, 400, SOFT, { ls: -1.13, base: 'middle' });
       txt(ctx, val, cx0 + cw - CIN, cy0 + ch / 2, 38, 700, SOFT, { ls: -1.27, base: 'middle', align: 'right' });
       ctx.restore();
@@ -415,7 +415,7 @@ export class WallGL {
       const e = eOut(intro(t, 1.3 + i * .13, .55));
       ctx.save();
       ctx.globalAlpha *= e; ctx.translate(0, 26 * (1 - e));
-      rrFill(ctx, dx, y, dw, devH, 40, '#fff');
+      rrFill(ctx, dx, y, dw, devH, 48, '#fff');   // 중첩 라운드: 래퍼 76 − 여백 28
       // 아이콘 — 웨어러블만 원본 컬러, 나머지는 열화상 그라디언트 마스크
       const tim = i === 0 ? this._img(ic) : this._tinted(ic, 88, 88, [[0, PAL.red], [.6, PAL.coral], [.85, PAL.sand], [1, PAL.prism]]);
       if (tim) ctx.drawImage(tim, dx + CIN, y + DTOP, 88, 88);
