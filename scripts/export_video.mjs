@@ -151,7 +151,8 @@ const ADJ = {
   // 색 보정 · 개체 숨김은 화면에서만 잡는다(플래그로 넣기엔 값이 많다) — 저장본이 유일한 출처.
   grade: PRESET.grade || { b: 1, c: 1, s: 1, h: 0 },
   bgGrade: PRESET.bgGrade || { b: 1, c: 1, s: 1, h: 0 },
-  hide: PRESET.hide || [],
+  // --hide a,b : 저장본 hide 에 개체 키를 더한다(키는 scenes.html '개체 삭제' 목록과 동일).
+  hide: [...(PRESET.hide || []), ...String(arg('hide', '')).split(',').filter(Boolean)],
 };
 const OUT = arg('out', 'out');
 const URLBASE = arg('url', 'http://127.0.0.1:5199/');

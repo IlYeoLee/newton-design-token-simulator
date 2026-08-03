@@ -3270,6 +3270,7 @@ void main(){
       // out = col + dst·(1−a) — 랩의 base·(1−a·0.88)+col 과 동일 (프리멀티 커스텀 블렌딩)
       blending: THREE.CustomBlending, blendSrc: THREE.OneFactor, blendDst: THREE.OneMinusSrcAlphaFactor,
     }));
+  demoPanel.name = 'demoPanel';   // 씬 편집기 '개체 삭제'·익스포터 --hide 에서 인물 판을 집는 키
   demoPanel.rotation.x = -Math.PI / 2;
   demoPanel.position.set(0, 0.016, -1.45);
   demoPanel.renderOrder = 7;   // 인물 = HUD 위 맨 앞 (버튼만 그 위 — 유저)
