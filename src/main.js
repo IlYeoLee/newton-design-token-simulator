@@ -23,7 +23,7 @@ import { FloorGL } from './floorgl.js';   // 바닥 UI WebGL 이식(B안) — ?f
 import { WallGL } from './wallgl.js';     // 복싱 벽 UI WebGL 이식(같은 B안) — ?wallgl=0 이면 옛 CSS3D
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { CSS3DRenderer, CSS3DObject } from 'three/examples/jsm/renderers/CSS3DRenderer.js';
-import { getLUT, FXP, rebuildLUT, lutColor, GLYPHS, FX_GLSL, DEFAULT_GLYPHS, GLYPH_REV, mergeGlyphs, ensureOffBit } from './fxlut.js';
+import { getLUT, FXP, rebuildLUT, lutColor, GLYPHS, FX_GLSL, DEFAULT_GLYPHS, GLYPH_REV, mergeGlyphs, ensureOffBit, drawGlyph } from './fxlut.js';
 import { drawRotate, PERSON_GLSL, CUT_FEATHER_GLSL, REF_LOOK_GLSL } from './fx-core.js';
 import { createEditor3D } from './editor3d.js';
 import { LiveUI } from './liveui.js';
@@ -2886,7 +2886,7 @@ void main(){
             c.mesh.visible = on;
             if (on) {
               drawRotate(c.g, 256, { r: 0.30, width: 1.1, dir: c.dir ?? 1, sweep: 0.62, tempo: 0.42 },
-                { halo: FXP.mark.halo }, now, { lut: lutColor, arrow: FXP.arrow });
+                { halo: FXP.mark.halo }, now, { lut: lutColor, arrow: FXP.arrow, glyph: drawGlyph });   // glyph — 촉 SVG(누락 시 폴백 촉)
               c.tex.needsUpdate = true;
             }
           });

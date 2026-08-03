@@ -362,6 +362,9 @@ const SWEEP_PATHS = [
   [[0.55, 0.5], [0, -0.2], [-0.55, 0.5]],   // 우 → 좌 스윕
 ];
 function livePrimEnv() {
+  // 촉 SVG 는 스템 화살표가 처음 그려질 때만 lazy 등록됐다(183) — 회전·곡선 큐가 먼저 뜨는
+  //   스테이지(BX_A1 목·어깨)에선 미등록이라 폴백 촉이 나왔다. 여기서도 보장한다.
+  if (!GLYPHS.map.LIFT_TIP) { GLYPHS.map.LIFT_TIP = import.meta.env.BASE_URL + 'ready-view/assets/lift_tip.svg'; GLYPHS.set(GLYPHS.map); }
   return {
     arrow: FXP.arrow,
     lut: lutColor,
