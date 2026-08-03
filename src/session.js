@@ -1708,7 +1708,10 @@ export class Session {
   _enterBoxing(st, { S, FS, FL, FM }) {
     switch (st.id) {
       case 'BX_READY': FS('SHADOW · JAB'); FL('가드 올리고 READY'); FM('발 두 번 탭 → 시작'); break;
-      case 'BX_A1': FS('WARM 1/3'); FL('목·어깨 돌리기'); FM('천천히 크게 8회', CS.sand); break;
+      // 투사 UI 는 영문 조판이다(wallgl 상단 주석 — 한글 폴백은 은퇴했다). 한글을 넣으면
+      //   Supreme 에 글리프가 없어 시스템 고딕으로 떨어지고, 그 한 줄만 딴 서체로 뜬다(유저).
+      //   벽 UI 타이틀(SCENES.BX_A1)과 같은 문구로 맞춘다.
+      case 'BX_A1': FS('WARM 1/3'); FL('NECK & SHOULDER ROLLS'); FM('SLOW · BIG CIRCLES · 8', CS.sand); break;
       case 'BX_A2': FS('WARM 2/3'); FL('스텝 인·아웃'); FM('앞뒤 6회', CS.sand); break;
       case 'BX_A3': FS('WARM 3/3'); FL('잽 폼 가볍게'); FM('뻗고 회수 6회'); break;
       case 'BX_T1': FS('T-1'); S(this.wSlotFL, 'STAGE CLEAR', { size: 0.11, color: CS.prism }); FM('탭 두 번 → 사전 익히기'); break;

@@ -187,6 +187,7 @@ export class WallGL {
       : /report\.html/.test(params.src) ? 'report'
       : /scene\.html/.test(params.src) ? 'scene' : 'ready';
     this.t = 0; this._lastPaint = -1; this._numLast = null; this._numT = 0;
+    this._youLast = null; this._youT = 0;   // YOU 회차 카운터 — 스테이지마다 0 부터 다시
   }
 
   update(dt) {
@@ -605,8 +606,26 @@ export class WallGL {
       rollNum(ctx, val, t, delay, cd, x, 1148, 200, { fam: dot9, ls: -8, align });
       ctx.restore();
     };
-    num(100, 'left', S.coach.num, .62, 1.2);
-    num(2500, 'right', S.you.num, .76, 1.5);   // 구 dur*0.8(=6.4s)는 내내 구르는 중이라 깨져 보였다
+    num(100, 'left', S.coach.num, .62, 1.2);   // 코치 = 목표치. 등장할 때 한 번 굴리고 고정.
+    // YOU = **지금까지 내가 한 횟수**. 0 으로 등장해 한 회씩 오른다(유저).
+    //   구 dur*0.8(=6.4s)은 자릿수가 내내 굴러 깨져 보였고, 1.5s 고정은 등장하자마자
+    //   목표치에 붙어 '이미 다 한 것'으로 읽혔다. 정수 스텝 + 바뀔 때마다 팝 —
+    //   팝 규칙은 카운트다운(_numLast/_numT)과 같은 것을 쓴다.
+    const yTot = parseFloat(S.you.num);
+    let yVal = S.you.num;
+    if (Number.isFinite(yTot) && yTot > 0) {
+      //   ★ tail 을 빼는 이유: dur 로 나누면 마지막 회차가 **마지막 프레임에만** 뜬다
+      //     (floor 라 t 가 dur 에 정확히 닿아야 8 이 되는데, dt 누적이라 7.99 로 끝난다).
+      //     목표치를 찍은 걸 보여줘야 하니 조금 일찍 채우고 끝까지 들고 있는다.
+      const t0 = .76, tail = .6, work = Math.max(.1, dur - t0 - tail);
+      yVal = String(Math.min(yTot, Math.floor(clamp01((t - t0) / work) * yTot)));
+    }
+    if (yVal !== this._youLast) { this._youLast = yVal; this._youT = t; }
+    const yPop = kf(clamp01((t - this._youT) / .45), [[0, 1.32], [1, 1]], eOut);
+    ctx.save();
+    ctx.translate(2500, 1248); ctx.scale(yPop, yPop); ctx.translate(-2500, -1248);
+    num(2500, 'right', yVal, .76, .35);   // 등장 롤은 짧게 — 이후 회차는 스냅 + 팝
+    ctx.restore();
     const ue = eOut(intro(t, .58, .6));
     ctx.save();
     ctx.globalAlpha *= ue; ctx.translate(0, 48 * (1 - ue));
