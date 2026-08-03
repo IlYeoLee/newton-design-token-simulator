@@ -2534,10 +2534,10 @@ void main(){
         // uPulse 0 — 복싱 인물엔 루마 펄스가 없다(톤을 흔드는 원인이라 끈다).
         // uPSat·uPSweep = PERSON_GLSL 공용(구 uSat 은 죽은 유니폼이라 폐기).
         uPSat: { value: 1.32 }, uPSweep: { value: 0 }, uPHi: { value: 0.86 }, uPDepth: { value: 0.34 }, uPCoral: { value: 0 }, uPExp: { value: 0.5 }, uPForm: { value: 0 }, uPLo: { value: 0.12 }, uPHiL: { value: 0.85 }, uPLumLin: { value: 0 }, uPCalWave: { value: 1 }, uPCalD: { value: 1 }, uPCalW: { value: 1 }, uPCalB: { value: 0 },
-        uPInk: { value: 0.85 }, uPInkT: { value: 0.42 }, uPulse: { value: 0.0 } },
+        uPInk: { value: 0.85 }, uPInkT: { value: 0.42 }, uPulse: { value: 0.0 }, uEnter: { value: 99 } },
       vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
       fragmentShader: `
-        varying vec2 vUv; uniform sampler2D map, uLUT, uField, uFieldN; uniform float uTime, uCropOff, uCropScale, uPulse, uReady, uDetail;
+        varying vec2 vUv; uniform sampler2D map, uLUT, uField, uFieldN; uniform float uTime, uCropOff, uCropScale, uPulse, uReady, uDetail, uEnter;
         vec3 lut(float v){ return texture2D(uLUT, vec2(clamp(v, 0.004, 0.996), 0.5)).rgb; }
         ` + PERSON_GLSL + CUT_FEATHER_GLSL + REF_LOOK_GLSL + `
         uniform float uZoom;   // 1 = 원본. <1 = 인물 축소(하단 고정) — 발이 프레임 가장자리 페이드에 걸리는 장면용
@@ -2622,6 +2622,14 @@ void main(){
           } else {
             col = personLook(clamp(H + pulse + dth, 0.0, 1.0), lumS, lumB, mIn, faceW, uv.y) * mEro;
             cov = mEro;
+          }
+          // ── 등장 워시(유저 08-04): 첫 등장에 다리가 연하게 뜨는 대신, 최심 주황(#FF3300)이
+          //   발끝에서 차올라 몸을 한 번 훑고 정상 룩으로 풀린다. uEnter ≥ 1.4s 면 비용 0.
+          float et = clamp(uEnter / 1.4, 0.0, 1.0);
+          if (et < 1.0) {
+            float front = 0.45 + et * 1.1;                      // 시작부터 다리(vy≤0.45) 덮고 → 머리로 전진
+            float wash = smoothstep(front, front - 0.34, vy);   // 파면 아래가 진한 주황
+            col = mix(col, vec3(1.0, 0.2, 0.0) * cov, wash * (1.0 - et * et) * 0.85);
           }
           // uReady=0 = 아직 실제 프레임이 없다. 이때 그리면 빈 텍스처가 크로마키를 통과해
           //   판이 통째로 검은 사각형/붉은 판으로 보인다(유저 스샷). 아예 안 그린다.
@@ -2808,7 +2816,16 @@ void main(){
         if (coLive) co._live = true;
         // 실전은 영상도 화면에서 뺀다 — 타이밍 소스로만 돌린다(유저).
         //   시크·되감기 직후엔 텍스처가 비어 크로마키를 통과, 판 전체가 LUT 붉은색이 된다 → 그 사이 숨김.
-        co.plane.visible = !!co._live && id !== 'BK_C2';
+        {
+          // 등장 워시 트리거 — 판이 새로 보이거나 스테이지가 재진입(t 역행)하면 리셋.
+          //   씬 프리뷰(?scene=)는 같은 스테이지를 루프해 visible 이 안 꺼진다 — t 역행이 그 감지다.
+          const vis = !!co._live && id !== 'BK_C2';
+          const st = session.t ?? 0;
+          if ((vis && !co.plane.visible) || st < (co._lastSt ?? Infinity)) co._showT = now;
+          co._lastSt = st;
+          co.plane.visible = vis;
+          if (co.mat.uniforms.uEnter) co.mat.uniforms.uEnter.value = (now - (co._showT || 0)) / 1000;
+        }
         co.plane.material.uniforms.uTime.value = performance.now() / 1000;
         co.plane.material.uniforms.uDetail.value = PERSON_FIELD.detail();   // 공용 규칙 — 아래 정의
         // 채도는 마크 LUT와 같은 소스(FXP.sat)에서 — 인물·발자국 룩 통일(슬라이더 하나가 둘 다 이동).
