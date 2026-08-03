@@ -843,6 +843,14 @@ export class Session {
     this.wSlotFM = new THREE.Group(); this.wSlotFM.position.set(0, 0.55, WZ + 0.002);
     this.wCount = new THREE.Group(); this.wCount.position.set(0, 1.15, WZ + 0.004);
     this.root.add(this.wSlotFS, this.wSlotFL, this.wSlotFM, this.wCount);
+    // ★ 벽 텍스트 슬롯(FS/FL/FM)은 구버전 3D HUD 다. 지금은 wallgl.js 캔버스 UI 가 정본이라
+    //   둘이 겹쳐 그려지고 있었다 — 모든 복싱 씬 중앙에 '시작 신호'·'SPAR' 같은 한글이
+    //   흰 글씨로 깜빡이던 것의 정체(유저 08-03). _enterBoxing 의 FS/FL/FM 호출은 그대로 둔다
+    //   (지우면 호출부 전체를 손봐야 하고, 되살릴 일이 생길 수 있다) — 표시만 끈다.
+    //   wCount(카운트다운)는 캔버스에 대응물이 없어 남긴다.
+    this.wSlotFS.visible = false;
+    this.wSlotFL.visible = false;
+    this.wSlotFM.visible = false;
 
     this._buildRunning();
     this._buildBasketball();
