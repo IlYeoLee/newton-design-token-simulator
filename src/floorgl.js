@@ -596,11 +596,8 @@ function buildScene(stage, p) {
   //   데이터(FLOOR_PHASES · phase · sub)는 처음부터 있었는데 그리질 않아 지면만 제목 하나로
   //   휑했다 — 유저: "바닥 UI가 왜 벽면이랑 다르고 투박하냐". 구 s-cap('n / 4' 단독)은
   //   여기 sub 가 그대로 담으므로 폐기(같은 정보 두 벌 금지).
-  const PH = (typeof window !== 'undefined' ? window.FLOOR_PHASES : null)
-    || { running: ['WARM UP', 'PACE', 'RUN'], basketball: ['WARM UP', 'DRILL', 'GAME'] };
-  const phases = PH[/^BK_/.test(stage) ? 'basketball' : 'running'];
-  if (!isC && phases && S.phase != null)
-    col.push(node('s-crumb', { type: 'crumb', phases, phase: S.phase, sub: S.sub || '', mb: -34 }));
+  // 페이즈 브레드크럼 은퇴(유저) — 운동 중엔 음성 + 구간명 타이틀이 이미 같은 정보를 말하고,
+  //   투사 실측 ~30mm 활자는 뛰면서 못 읽는다. 단계 안내는 셋업·전환 화면 몫.
   if (!isC) col.push(node('s-title', { type: 'text', textContent: S.title, size: 120, weight: 700, ls: -4, color: '#fff', cascade: true }));
   col.push(node('s-cue', { type: 'text', textContent: S.cue || '', size: 52, weight: 400, color: 'rgba(255,255,255,.72)', style: { display: 'none' } }));
   // 실전 상단 — 케이던스 팩은 누적 거리, 페이스 팩은 '목표 대비 지금 몇 초'.
