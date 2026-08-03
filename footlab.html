@@ -239,7 +239,7 @@ uRip: { value: ${P.rip.toFixed(2)} }, uRipSpeed: { value: ${P.ripSpeed.toFixed(2
 //   그래서 350ms 잠잠해지면 그때 한 칸 쌓는다(타이핑 에디터의 undo 병합과 같은 규약).
 const SAVE_KEY = 'footlab.params';
 let hist = [], future = [], histT = null;
-function persist() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(P)); } catch { /* 사생활 모드 */ } }
+function persist() { try { localStorage.setItem(SAVE_KEY, JSON.stringify({ ...P, _def: DEF })); } catch { /* 사생활 모드 */ } }   // _def = 저장 시점 정본 스냅샷(위 복원 규칙용)
 function commitHist(prev) {
   clearTimeout(histT);
   histT = setTimeout(() => {
@@ -841,7 +841,18 @@ GLYPHS.onLoad(() => { if (!units.foot) rebuild(); else drawAlign(); });
 //   저장본에 없는 키(내가 나중에 추가한 슬라이더)는 DEF 가 채운다.
 try {
   const saved = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null');
-  if (saved) for (const k of KEYS) if (typeof saved[k] === 'number') P[k] = saved[k];
+  // ★ 정본(mark-look.json)이 저장 당시와 달라진 키는 **파일이 이긴다** — 정본을 고쳐 배포해도
+  //   모든 기기의 옛 localStorage 가 그걸 덮어 "반영이 안 된다"(유저, numSrc·sharp 재발 2회).
+  //   저장 시점의 DEF 스냅샷(_def)과 지금 DEF 를 비교해 달라진 키만 파일값을 쓴다.
+  //   _def 없는 구 저장본은 통째로 폐기 — 정본은 이미 파일에 구워져 있고(굽기 버튼),
+  //   남은 건 미커밋 실험값이라 이게 정본을 가리는 게 혼란의 원인이었다.
+  if (saved && saved._def) {
+    const base = saved._def;
+    for (const k of KEYS) {
+      if (base[k] !== undefined && base[k] !== DEF[k]) continue;   // 정본 갱신 → DEF 유지
+      if (typeof saved[k] === 'number') P[k] = saved[k];
+    }
+  }
 } catch { /* 저장본 손상 — 기본값으로 간다 */ }
 // 이제 units·rebuild 가 모두 정의됐으니 저장된 세그먼트 선택을 복원한다
 for (const fn of pendingSegRestore) { try { fn(); } catch (e) { console.warn('세그 복원 실패', e); } }
