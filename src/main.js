@@ -5678,6 +5678,15 @@ void main(){
     const floorWanted = !!fView;
     // 전환·타이머·리포트 = 풀스크린 지면 그래픽 → 옛 운동 3D UI 전부 숨김(겹침 방지).
     const fullFrame = floorWanted && /floor-(transition|timer|report)\.html/.test(fView.src);
+    // ★ 발자국 판정 마크(G그룹) 표시 — **여기가 유일한 출처다. 반드시 매 프레임 무조건 돈다.**
+    //   세션은 진입 시 끄기만 하므로(session.js _enter), 켜는 쪽이 하나라도 안 돌면 마크는
+    //   영영 안 보인다. 예전엔 켜는 줄이 `if (floorShown)` 안에만 있었다 — floorShown 은
+    //   ① 러닝·농구이고 ② rig._fp(무릎 투사)가 준비된 프레임에서만 참이라,
+    //   **복싱은 영구히 꺼지고** 지면 종목도 진입 직후 몇 프레임은 꺼졌다
+    //   (유저 08-04: "모든 mark 판정 토큰들이 다 사라진 상태"). 조건 안에 두지 말 것.
+    //   숨기는 경우는 하나뿐: 지면 프레임이 화면을 전담할 때(시작 페이지·전환/타이머/리포트).
+    const gStage = session.G && session.G[session.curStage?.id];
+    if (gStage) gStage.visible = !(floorWanted && (isStartPage || fullFrame));
     // 팩 판정 토큰 필드 표시 정책(단일 소스): 세션 중엔 라이브에만, 릴리즈(C4)는 슛 집중 위해 제외.
     // 비실전(스트레칭·전환·리포트)에 무관한 마커가 떠 있던 근본(유저 전 화면 검수 지적).
     // 농구 실전(BK_C2)은 마크 판정 토큰만 쓴다 — 팩 판정 필드(레인·존)는 끈다(유저).
@@ -5694,10 +5703,7 @@ void main(){
          ...(session.a3zones || []), ...(session.paceFeet || []).map(f => f && f.group), ...(session.a2 || []).map(a => a && a.pg)]
           .forEach(o => { if (o) o.visible = false; });
       }
-      // 발자국 판정 마크(G그룹) — 시작 페이지·풀스크린 프레임은 프레임이 전담하므로 숨김.
-      //   정렬(위치·회전)은 프레임이 실제로 떠 있을 때만 의미가 있어 아래 floorShown 블록이 담당한다.
-      const g0 = session.G && session.G[session.curStage?.id];
-      if (g0 && (isStartPage || fullFrame)) g0.visible = false;
+      // (마크 G그룹 표시는 위 gStage 한 줄이 단일 출처 — 여기서 또 만지지 않는다)
     }
     // 실전(BK_C2)은 지면 프레임 타이틀만 쓰고, 세션이 그리는 위/아래 큐 텍스트는 끈다(유저).
     if (session.active && session.stage === 'BK_C2') {
@@ -5785,9 +5791,9 @@ void main(){
       // 발자국 판정 마크(G그룹) 정렬. 시작 페이지·풀스크린 프레임=숨김.
       const stageG = session.G && session.G[session.curStage?.id];
       if (stageG) {
-        // session.setStage() 는 진입 시 G그룹을 항상 끈다(순서 의존 제거 — session.js 주석 참조).
-        //   여기가 켜는 유일한 곳이다: 시작 페이지·풀스크린이 아니면 마크는 콘텐츠라 켠다.
-        stageG.visible = !(isStartPage || fullFrame);
+        // 표시 여부는 위 gStage 한 줄이 정한다(단일 출처). 여기는 **정렬만** 한다 —
+        //   이 블록은 floorShown(러닝·농구 + rig._fp 준비)에서만 도는데, 표시까지 여기서
+        //   정하면 복싱과 진입 직후 프레임에서 마크가 통째로 사라진다.
         if (isStartPage || fullFrame) {
           /* 프레임이 화면 전체를 갖는다 — 정렬도 불필요 */
         } else if (session.isLive) {
