@@ -412,6 +412,11 @@ export function applyMarkLook(part = {}) {
   //   FXP.mark.halo / FXP.arrow.w 를 30Hz 로 직접 읽으므로 값만 옮기면 즉시 따라온다.
   if (part.halo != null) FXP.mark.halo = part.halo;
   if (part.w != null) { FXP.mark.core = part.w; if (FXP.arrow) FXP.arrow.w = part.w; }
+  // 프림 고유 값(footlab 전용 슬라이더: 코멧 크기·꼬리·레일·노드) — 세션 tick 이 FXP.prims 를 읽는다
+  if (part.prims) {
+    FXP.prims = FXP.prims || {};
+    for (const k in part.prims) FXP.prims[k] = { ...(FXP.prims[k] || {}), ...part.prims[k] };
+  }
 }
 
 // ─────────────────────────────────────────────────────────────

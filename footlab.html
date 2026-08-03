@@ -171,6 +171,7 @@
     <div class=card>
       <h2>동작 토큰 — 같은 룩으로 (복싱 판정 3단계 · 화살표 수직·수평 · 궤적 경로)</h2>
       <canvas id=prims width=1900 height=800></canvas>
+      <div id=primSld style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:2px 20px;margin:8px 0 2px"></div>
       <p class=note>발자국과 <b>같은 소스</b>(팔레트 LUT · 두께 uW · 헤일로 uHalo)를 소비합니다 — 위 '토큰 공통' 슬라이더를 만지면 함께 변합니다.
       형태 정본은 <code>fx-core</code>(drawApproachRing · drawStemArrow · drawTrajectory) — 시뮬이 쓰는 그 함수 그대로라, 여기서 확인한 그림이 곧 시뮬 그림입니다.</p>
     </div>
@@ -813,6 +814,26 @@ const _primOff = document.createElement('canvas'); _primOff.width = 1900; _primO
 // 잽잽훅 실물 구성 — 세션 C3 정본 타이밍(3.00s · 비트 0.67/1.80/2.67 · 채찍 · 수축 0.70s · 잠금 0.13s)
 const _jjhAP = document.createElement('canvas'); _jjhAP.width = _jjhAP.height = 440;
 const JJH = { CY: 3.0, AT: [0.67, 1.8, 2.67], APPR: 0.7, LOCK: 0.13, VD: ['hit', 'near', 'hit'] };
+// ── 프림 전용 슬라이더(유저) — 노드·코멧·꼬리·레일·수축. 값은 로컬 저장 + 시뮬 실시간 브리지 ──
+const PRIM_P = { node: 1, numS: 1, comet: 1, tailLen: 0.5, rail: 0.22, appr: 0.7 };
+try { Object.assign(PRIM_P, JSON.parse(localStorage.getItem('footlab.prims') || '{}')); } catch { /* 첫 실행 */ }
+{
+  const host = document.getElementById('primSld');
+  const DEFS = [['node', '노드 크기', 0.6, 1.8, 0.02], ['comet', '코멧 크기', 0.4, 2.2, 0.02],
+    ['tailLen', '꼬리 길이', 0.15, 1.2, 0.01], ['rail', '레일 진하기', 0, 0.6, 0.01],
+    ['appr', '수축 시간 s', 0.3, 1.3, 0.01]];
+  for (const [k, label, mn, mx, st] of DEFS) {
+    const d = document.createElement('div'); d.className = 'row';
+    d.innerHTML = `<label style="flex:0 0 74px">${label}</label><input type=range min=${mn} max=${mx} step=${st} value=${PRIM_P[k]}><span class=v>${PRIM_P[k]}</span>`;
+    d.querySelector('input').addEventListener('input', e => {
+      PRIM_P[k] = +e.target.value; d.querySelector('.v').textContent = PRIM_P[k].toFixed(2);
+      try { localStorage.setItem('footlab.prims', JSON.stringify(PRIM_P)); } catch { /* 사생활 모드 */ }
+      // 시뮬 실시간 브리지 — appr 는 세션 박자 상수라 랩 전용(브리지 제외)
+      _bc?.postMessage({ prims: { punchLine: { node: PRIM_P.node, numS: PRIM_P.numS, comet: PRIM_P.comet, tailLen: PRIM_P.tailLen, rail: PRIM_P.rail } } });
+    });
+    host.appendChild(d);
+  }
+}
 function drawJJH(g, X, Y, W, t) {
   const ENV = _primEnv(), look = { halo: P.halo };
   const s = W / 220;
@@ -825,15 +846,16 @@ function drawJJH(g, X, Y, W, t) {
   const since = seg ? tc - JJH.AT[seg - 1] : 9, locking = since < JJH.LOCK;
   const ni = locking ? seg - 1 : Math.min(seg, 2);
   const cp = locking ? 0.9 + 0.1 * (since / JJH.LOCK)
-    : (seg >= 3 ? 1 : Math.min(0.9, Math.max(0, 1 - (next - tc) / JJH.APPR) * 0.9));
+    : (seg >= 3 ? 1 : Math.min(0.9, Math.max(0, 1 - (next - tc) / PRIM_P.appr) * 0.9));
   g.save(); g.translate(X, Y);
   // prog 입력 규약: drawPunchLine 내부 pr = min(1, prog·1.25)·2 — 목표 pr(0..2)의 0.4배를 넣는다
-  drawPunchLine(g, W, { node: 1, numS: 1, done: seg, vd: JJH.VD.slice(0, seg) }, look, t, ENV, null,
+  drawPunchLine(g, W, { node: PRIM_P.node, numS: PRIM_P.numS, comet: PRIM_P.comet,
+    tailLen: PRIM_P.tailLen, rail: PRIM_P.rail, done: seg, vd: JJH.VD.slice(0, seg) }, look, t, ENV, null,
     ((seg ? seg - 1 : 0) + fw) * 0.4);
   // 수축 링 — 타겟 반경(Rt)이 노드 반경에 맞물리게 확대 블릿(세션 C3 규약)
   const ag = _jjhAP.getContext('2d');
   drawApproachRing(ag, 440, { r: 0.42, rt: 0.36, tempo: 0.6 }, look, t, ENV, cp);
-  const R = 12 * s * (ni === 2 ? 1.34 : 1);
+  const R = 12 * s * PRIM_P.node * (ni === 2 ? 1.34 : 1);
   const bs = 440 * (R / (440 * 0.42 * 0.36));
   g.drawImage(_jjhAP, pts[ni][0] - bs / 2, pts[ni][1] - bs / 2, bs, bs);
   g.restore();
