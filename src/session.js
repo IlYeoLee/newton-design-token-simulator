@@ -442,6 +442,9 @@ function tickPrims(t) {
 
 // ── 벽면 프리미티브 (복싱 — z=WALL_Z 세워진 평면, 유저(+z) 바라봄, 눕힘 없음) ──
 const WZ = WALL_Z + 0.03;
+// BX_A1 코치 클립 길이(초) — public/ghost/bx_a1_neck.mp4 실측. 목→어깨 큐 전환의 기준이다.
+//   ffprobe -show_entries format=duration public/ghost/bx_a1_neck.mp4
+const BX_A1_CLIP = 6.04;
 function wallRing(x, y, rIn, rOut, color, op = 0.9) {
   const m = waveRingMesh(rIn, rOut, color, op, true, isHeatColor(color) ? 0 : 3);
   m.position.set(x, y, WZ); m.userData.el = { type: 'ring', wall: true }; return m;
@@ -1145,12 +1148,21 @@ export class Session {
     let g = this._mk('BX_READY');
     this.bxTap = wallTap();   // 미부착 — 원·발판·라벨 중복 제거 (HUD CTA 버튼 전담, 유저)
 
-    // A1 목·어깨 돌리기 — 어깨 좌우 '회전 토큰'(관절 피벗 + 회전 화살표) = 돌리기 명확 지시
+    // A1 목·어깨 돌리기 — 회전 토큰(관절 피벗 + 회전 화살표) = 돌리기 명확 지시.
+    //   코치 클립이 '목 먼저 → 그다음 어깨' 순서라 큐도 같은 순서로 나온다(유저):
+    //   1막 목 1개(중앙·위) → 2막 어깨 2개(좌우). 전환 시점은 _updateBoxing 에서.
     g = this._mk('BX_A1');
+    this.bxA1rotN = primPanel('rotate', 0.38, true); this.bxA1rotN.position.set(0, 1.82, WZ + 0.004);
+    this.bxA1rotN._prim.P = { dir: 1, r: 0.28 }; g.add(this.bxA1rotN);
     this.bxA1rotL = primPanel('rotate', 0.42, true); this.bxA1rotL.position.set(-0.2, 1.66, WZ + 0.004);
     this.bxA1rotL._prim.P = { dir: -1, r: 0.28 }; g.add(this.bxA1rotL);
     this.bxA1rotR = primPanel('rotate', 0.42, true); this.bxA1rotR.position.set( 0.2, 1.66, WZ + 0.004);
     this.bxA1rotR._prim.P = { dir: 1, r: 0.28 }; g.add(this.bxA1rotR);
+    // ★ 초기 가시성을 여기서 못박는다. 메시 기본값이 visible=true 라, 스테이지에 들어간
+    //   첫 프레임(=_updateBoxing 이 아직 안 돈 시점)에 **셋이 한꺼번에** 떴다가 정리됐다.
+    //   그게 등장할 때 한 번 번쩍이던 것이다(유저).
+    this.bxA1rotN.visible = true;
+    this.bxA1rotL.visible = this.bxA1rotR.visible = false;
 
     // A2 스텝 인·아웃 — 발밑 근/원 존 + 전진(위쪽) 방향 화살표(LINE 토큰)
     g = this._mk('BX_A2');
@@ -2644,6 +2656,17 @@ export class Session {
       if (id === 'BX_T1' && this.t >= 4.5) { this.next(); return; }
     } else if (id === 'BX_A1') {
       // 목·어깨 회전 토큰 = 자체 회전(데모 루프)으로 '돌리기' 표시. 카운트만 갱신.
+      // ── 큐 순서를 코치 클립에 맞춘다(유저) ────────────────────────────────
+      //   public/ghost/bx_a1_neck.mp4 실측: 6.04s · 전반(0~3.0s) 목 돌리기 →
+      //   후반(3.0s~) 어깨 롤. 클립을 갈면 BX_A1_CLIP 만 다시 재면 된다.
+      //   어깨는 전환 직후가 아니라 조금 뒤에 띄운다 — 목 큐가 사라지자마자
+      //   두 개가 튀어나오면 '깜빡'으로 읽힌다(러닝 A1 과 같은 규칙, 거기선 +2s).
+      //   목 큐는 어깨가 켜지는 순간까지 들고 있는다 — 사이를 비우면 큐가 하나도 없는
+      //   0.6초가 생겨서 꺼진 것처럼 읽힌다(러닝 A1 은 스테이지가 길어 빈 구간이 티가 안 났다).
+      const shOn = this.t > BX_A1_CLIP * 0.5 + 0.6;
+      const neckOn = !shOn;
+      this.bxA1rotN.visible = neckOn;
+      this.bxA1rotL.visible = this.bxA1rotR.visible = shOn;
       FMU(`${Math.min(8, Math.floor(this.t / 0.7) + 1)} / 8`, CS.sand);
       if (this.t >= 8 * 0.7) { this.next(); return; }
     } else if (id === 'BX_A2') {
