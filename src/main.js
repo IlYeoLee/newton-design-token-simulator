@@ -4300,7 +4300,11 @@ void main(){
       //   개발자 뷰는 기존대로 자유 3D 프리뷰 유지.
       const productStart = () => {
         if (document.body.classList.contains('dev')) return;
-        if (!session.active) startSessionFor(state.pack);
+        // ★ 팩 토큰이 로드되기 전에 세션을 시작하면 렙 판정이 '즉시 완료'로 떨어지고,
+        //   음성 타임아웃(2.5s) 탈출구를 타고 스테이지가 ~2초 간격으로 폭주한다
+        //   (유저: 탭이 안 먹는 것처럼 보임 — 실은 이미 지나가 버림. nextN 계측으로 확정).
+        //   아래 250ms 인터벌이 재시도하므로 로드 완료 시 자동으로 시작된다.
+        if (!session.active && tokens.events?.length) startSessionFor(state.pack);
       };
       pp.querySelectorAll('.pp-pack').forEach(b => b.addEventListener('click', () => setTimeout(productStart, 400)));
       setTimeout(productStart, 900);   // 최초 진입
