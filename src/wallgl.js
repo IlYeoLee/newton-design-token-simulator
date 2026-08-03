@@ -40,6 +40,11 @@ const RED = PAL.red;
 //   테두리·판은 그대로 두고 **사진만** 이만큼 눕힌다. 두 군데가 갈라지면
 //   같은 인물이 화면마다 다른 농도로 나온다(유저: READY 쪽에 맞춰라).
 const PHOTO_A = 0.7;
+// 흰 판 위 텍스트 색 — READY(가드 올리고 거리 잡기) 카드에서 정한 값이 정본이다.
+//   t2(#757575) 60%. 순수 검정도, t1(#3B3B3B) 같은 진회색도 쓰지 않는다:
+//   투사면에선 진한 글자가 '구멍'처럼 읽혀 판 위에 떠 있지 않고 뚫린 것으로 보인다.
+//   전엔 READY 만 이 값이고 나머지 씬은 t1/t2/t3 원색이라 화면마다 글자 농도가 달랐다(유저).
+const SOFT = 'rgba(117,117,117,.6)';
 
 // 텍스트 한 줄 — CSS의 (font-size, weight, color, letter-spacing, align)을 한 줄로
 function txt(ctx, s, x, y, size, weight, color, o = {}) {
@@ -271,7 +276,7 @@ export class WallGL {
     if (glow > 0.002) { ctx.shadowColor = `rgba(255,255,255,${0.35 * glow})`; ctx.shadowBlur = 60 * glow; }
     rrFill(ctx, CX - w / 2, y, w, h, 999, '#fff');
     ctx.shadowBlur = 0;
-    txt(ctx, text, CX, y + h / 2, 72, 700, NEU.t1, { ls: -1.33, align: 'center', base: 'middle' });
+    txt(ctx, text, CX, y + h / 2, 72, 700, SOFT, { ls: -1.33, align: 'center', base: 'middle' });
     ctx.restore();
     return y + h;
   }
@@ -279,7 +284,6 @@ export class WallGL {
   // ── BX_READY (index.html) ──────────────────────────────────────────────────
   _paint_ready() {
     const ctx = this.ctx, t = this.t;
-    const SOFT = 'rgba(117,117,117,.6)';   // = 'min' 톤(t2 60%) — READY 회색 텍스트 공통 칩(유저)
     const ROW_Y = 103, LX = 100, LW = 1040;
     // 좌/우 그룹 상시 둥둥 (floatY 6.5s / floatY2 7.5s, delay 1.8s)
     const fl = cycle(t, 1.8, 6.5, INF), fr = cycle(t, 1.8, 7.5, INF);
@@ -594,7 +598,7 @@ export class WallGL {
       const cxb = bx + bw / 2, cyb = 1043 + bh / 2;
       ctx.translate(cxb, cyb); ctx.scale(bk, bk); ctx.translate(-cxb, -cyb);
       rrFill(ctx, bx, 1043, bw, bh, 80, 'rgba(255,255,255,.9)');
-      txt(ctx, label, cxb, cyb, 47.28, 400, NEU.t3, { ls: -.5, align: 'center', base: 'middle' });
+      txt(ctx, label, cxb, cyb, 47.28, 400, SOFT, { ls: -.5, align: 'center', base: 'middle' });
       ctx.restore();
     };
     badge('Casey', 156);    // 좌 아바타(100~337) 하단 — 코치 = 팩 크리에이터 Casey(피그마)
@@ -673,7 +677,7 @@ export class WallGL {
       const cueY = H - sh - 40;   // 고정 — 글자 길이가 바뀌어도 중심·높이는 그대로
       ctx.translate(CX, cueY + sh / 2); ctx.scale(sk, sk); ctx.translate(-CX, -(cueY + sh / 2));
       rrFill(ctx, CX - sw / 2, cueY, sw, sh, 9999, '#fff');
-      txt(ctx, say, CX, cueY + sh / 2, 56, 400, NEU.t1, { ls: -2.24, align: 'center', base: 'middle' });
+      txt(ctx, say, CX, cueY + sh / 2, 56, 400, SOFT, { ls: -2.24, align: 'center', base: 'middle' });
       ctx.restore();
     }
     if (isLive) {
@@ -818,12 +822,13 @@ export class WallGL {
       ctx.shadowColor = 'rgba(0,0,0,.12)'; ctx.shadowBlur = 39.294;
       rrFill(ctx, x + S - P - bw, y + P, bw, bh, 80, 'rgba(255,255,255,.9)');
       ctx.restore();
-      txt(ctx, D.badge || 'Next', bx, by, 52, 400, NEU.t3, { ls: -1.6, align: 'center', base: 'middle' });
+      txt(ctx, D.badge || 'Next', bx, by, 52, 400, SOFT, { ls: -1.6, align: 'center', base: 'middle' });
     }
     ctx.restore();
     // 좌하단 메타
-    txt(ctx, D.time, x + P, y + S - P, 36, 400, done ? NEU.paper : NEU.t2, { ls: -1.64, base: 'bottom' });
-    txt(ctx, D.lbl.toUpperCase(), x + P, y + S - P - 36 * 1.2 - 13.098, 64, 700, done ? '#fff' : NEU.t1, { ls: -3.27, base: 'bottom' });
+    // done = 빨간 카드(흰 글자) · 미완료 = 흰 카드 → READY 회색(SOFT)
+    txt(ctx, D.time, x + P, y + S - P, 36, 400, done ? NEU.paper : SOFT, { ls: -1.64, base: 'bottom' });
+    txt(ctx, D.lbl.toUpperCase(), x + P, y + S - P - 36 * 1.2 - 13.098, 64, 700, done ? '#fff' : SOFT, { ls: -3.27, base: 'bottom' });
   }
 
   // ── 리포트 (report.html) ──────────────────────────────────────────────────
