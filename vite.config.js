@@ -15,6 +15,10 @@ export default defineConfig({
   server: {
     host: '127.0.0.1', port: 5199,
     watch: { ignored: ['**/out/**', '**/tmp_*', '**/tmp_*/**', '**/node_modules/**'] },
+    // ★ 데브에선 아무것도 캐시하지 않는다. public/ 정적 파일(영상·PNG·SVG)은 HMR 대상이
+    //   아니라서, 같은 파일명으로 에셋을 갈면 브라우저가 옛것을 계속 썼다. 매번 Ctrl+Shift+R
+    //   해야 했던 이유다(유저). 데브 서버에만 걸리고 빌드 산출물에는 영향이 없다.
+    headers: { 'Cache-Control': 'no-store' },
   },
   plugins: [{
     // Three.js 씬은 HMR 부분 교체를 못 견딘다 — 모듈만 갈리면 씬·렌더러가 반쯤 죽어
