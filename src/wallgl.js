@@ -724,8 +724,10 @@ export class WallGL {
     //   새 컴포넌트 없이 있는 자막 알약을 그대로 쓴다.
     //   ★ 창은 dur 기준이 아니라 **마지막 판정 뒤**로 연다. dur−1.4 로 열었더니 마지막 펀치
     //     전에 떠서 40% → 60% 로 올라갔다(아직 안 끝난 걸 '구간 종료'라 부른 셈).
+    let sayExt = 0;   // 이벤트(구간 종료 등)에 윙 라인이 뻗는 축(drawBadge o.ext)
     if (S.beats && t >= S.beats[S.beats.length - 1][0] + .5) {
       say = 'Match Rate ' + Math.round((sc.hit / S.beats.length) * 100) + '%';
+      sayExt = clamp01((t - (S.beats[S.beats.length - 1][0] + .5)) / .45);
     }
     const ce = eOut(intro(t, .68, .8));
 
@@ -741,8 +743,9 @@ export class WallGL {
       const sk = kf(cs, [[0, .9], [.6, 1.06], [1, 1]]);
       const cueY = H - sh - 40;   // 고정 — 글자 길이가 바뀌어도 중심·높이는 그대로
       ctx.translate(CX, cueY + sh / 2); ctx.scale(sk, sk); ctx.translate(-CX, -(cueY + sh / 2));
-      rrFill(ctx, CX - sw / 2, cueY, sw, sh, 9999, '#fff');
-      txt(ctx, say, CX, cueY + sh / 2, 56, 400, SOFT, { ls: -2.24, align: 'center', base: 'middle' });
+      // ★ 흰 필 알약 → 정본 배지(아웃라인 + 윙 선·점 + 블룸, 유저 확정 레퍼런스 스타일).
+      //   이벤트(Match Rate 구간 종료)에 sayExt 로 윙이 뻗는다.
+      drawBadge(ctx, CX, cueY + sh / 2, say, { scale: sh / 114.26, glow: .45, ext: sayExt });
       ctx.restore();
     }
     // 판정(HIT/NEAR/MISS)은 여기서 뱃지로 띄우지 않는다 — 하단 우측에 띄워 봤더니 운동 중엔

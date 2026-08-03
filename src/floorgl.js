@@ -275,25 +275,46 @@ export function ringGauge(ctx, cx, cy, r, prog, o = {}) {
  *  전엔 지면은 흰 필 + 🔥 이모지, 벽은 히트 그라디언트 필 + SVG 불꽃이라 딴판이었다.
  *  정본 = 벽 콤보 쪽(더 설계된 형태). 등장·회전 같은 모션은 호출자가 변환으로 감싼다. */
 export function drawBadge(ctx, cx, cy, text, o = {}) {
+  // ── 아웃라인 필 + 윙(선·점) 문법(유저 확정, NEXT GOAL WINS/FINAL SHOT 레퍼런스) ──
+  //   채움 폐기 — 얇은 발광 아웃라인 + 좌우 '— ·' 윙. o.ext(0~1) = 액션·콤보 등 이벤트에
+  //   윙 라인이 바깥으로 은은하게 뻗는 축(바깥 끝은 알파 0으로 소멸).
   const S = o.scale || 1, H = 114.26 * S, R = 47.28 * S;
   const fs = 59.1 * S, pad = 36 * S, icon = 47.28 * S, gap = 15.76 * S;
   // 배지 문구는 'Success!'·'HOLD' 같은 낱말이라 본문 영문 — 도트는 숫자와 마크 R·L 뿐(유저 규약).
   ctx.font = F(700, fs, /\d/.test(String(text)) ? dot9 : sans);
-  const w = ctx.measureText(text).width + icon + gap + pad * 2;
+  const iw = o.icon ? icon + gap : 0;   // 아이콘 없을 땐 그 여백도 없다 — 중심 정렬이 틀어지던 것
+  const w = ctx.measureText(text).width + iw + pad * 2;
   const glow = o.glow ?? 0.55;
   ctx.save();
   ctx.translate(cx, cy);
-  ctx.shadowColor = rgba(PAL.coral, glow); ctx.shadowBlur = 44 * S * (0.5 + glow);
-  const g = ctx.createLinearGradient(-w / 2, -H / 2, w / 2, H / 2);
-  g.addColorStop(0, rgba(PAL.red, .4)); g.addColorStop(1, rgba(PAL.coral, .28));
-  ctx.fillStyle = g; ctx.beginPath(); ctx.roundRect(-w / 2, -H / 2, w, H, R); ctx.fill();
-  ctx.shadowBlur = 0;
-  ctx.strokeStyle = 'rgba(255,255,255,.4)'; ctx.lineWidth = 2 * S;
+  // 필 아웃라인 — 글로우 패스(블룸) + 크리스프 패스 이중 스트로크
+  ctx.lineWidth = 2.6 * S;
+  ctx.strokeStyle = 'rgba(255,255,255,.92)';
+  ctx.shadowColor = rgba(PAL.coral, glow); ctx.shadowBlur = 34 * S * (0.5 + glow);
   ctx.beginPath(); ctx.roundRect(-w / 2, -H / 2, w, H, R); ctx.stroke();
+  ctx.shadowBlur = 0;
+  ctx.beginPath(); ctx.roundRect(-w / 2, -H / 2, w, H, R); ctx.stroke();
+  // 윙 — 점(필 쪽) + 선(바깥). ext 로 선이 뻗고, 바깥 끝은 알파 0으로 녹는다.
+  const ext = clamp01(o.ext ?? 0);
+  const m = 30 * S, dotR = 4.6 * S, dGap = 16 * S, wing = 42 * S * (1 + 2.4 * ext);
+  ctx.lineCap = 'round'; ctx.lineWidth = 3 * S;
+  for (const dir of [-1, 1]) {
+    const x0 = dir * (w / 2 + m);
+    ctx.shadowColor = rgba(PAL.coral, .5); ctx.shadowBlur = 14 * S;
+    ctx.fillStyle = 'rgba(255,255,255,.9)';
+    ctx.beginPath(); ctx.arc(x0 + dir * dotR, 0, dotR, 0, Math.PI * 2); ctx.fill();
+    const xs = x0 + dir * (dotR * 2 + dGap), xe = xs + dir * wing;
+    const lg = ctx.createLinearGradient(xs, 0, xe, 0);
+    lg.addColorStop(0, 'rgba(255,255,255,.85)');
+    lg.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.strokeStyle = lg;
+    ctx.beginPath(); ctx.moveTo(xs, 0); ctx.lineTo(xe, 0); ctx.stroke();
+  }
+  ctx.shadowBlur = 0;
   if (o.icon) ctx.drawImage(o.icon, -w / 2 + pad, -icon * 0.55, icon, icon * 1.1);
   ctx.shadowColor = rgba(PAL.sand, .75); ctx.shadowBlur = 22 * S;
   ctx.fillStyle = NEU.ink; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-  ctx.fillText(text, -w / 2 + pad + icon + gap, 0);
+  ctx.fillText(text, -w / 2 + pad + iw, 0);
   ctx.restore();
   return w;
 }
@@ -1506,8 +1527,12 @@ export class FloorGL {
     const frac = numOr(arc?.style.strokeDashoffset, 0) / 615.7;   // 원본은 offset이 곧 남은 비율
     const done = frac <= 0.001;
     const S = 88 / 114.26;   // 지면 배지 높이 88 에 맞춘 스케일
+    // 성공 순간 윙이 뻗는다 — 사건(성공)마다 라인이 자라는 문법(유저: 액션·콤보에 은은한 라인)
+    if (done && !this._succT) this._succT = performance.now();
+    if (!done) this._succT = 0;
+    const ext = done ? Math.min(1, (performance.now() - this._succT) / 450) : 0;
     drawBadge(ctx, CX, y + 44, done ? 'Success!' : 'HOLD',
-      { scale: S, icon: done ? this._img('flame.svg') : null, glow: done ? .55 : .3 });
+      { scale: S, icon: done ? this._img('flame.svg') : null, glow: done ? .55 : .3, ext });
     const ry = y + 88 + 56;
     this._ringAt(CX, ry, 220, frac, '#fff');
     drawCenteredNum(ctx, this.map.get('succ-n')?.textContent || '', CX, ry + 110, 88);
