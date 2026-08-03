@@ -4429,7 +4429,7 @@ void main(){
         gate = ` · want ${want ? (want.src.match(/stage=([A-Za-z0-9_]+)/)?.[1] || 'READY') : 'null'}`
              + ` fp${rig?._fp ? 1 : 0} gl${typeof floorGLOn !== 'undefined' && floorGLOn ? 1 : 0}`;
       } catch (e) { gate = ' · gateERR'; }
-      bs.textContent = `build ${TAG} · 세션 ${st} · 지면 ${fv} · 벽 ${wv} · tap ${tapN} · next ${nextN}${gate}`
+      bs.textContent = `v5 · build ${TAG} · 세션 ${st} · 지면 ${fv} · 벽 ${wv} · tap ${tapN} · next ${nextN}${gate}`
         + (session.pinStage ? ' · PIN' : '') + (mm ? '  ⚠ 화면≠세션' : '');
       bs.style.color = mm ? '#ff6666' : 'rgba(170,176,186,.95)';
       bs.style.fontSize = '13px';
