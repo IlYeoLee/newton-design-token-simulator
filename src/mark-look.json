@@ -14,9 +14,9 @@
   "plantar": 1,
   "bands": 24,
   "bandSoft": 1,
-  "w": 1.6,
+  "w": 0.95,
   "halo": 0.45,
-  "pool": 0.82,
+  "pool": 0.88,
   "noise": 0,
   "rip": 0.5,
   "ripReach": 0.5,
@@ -47,5 +47,14 @@
   "edgeShadeCol": 2,
   "edgeShadeGrad": 1,
   "edgeShadeG0": 0.32,
-  "edgeShadeG1": 1
+  "edgeShadeG1": 1,
+  "prims": {
+    "punchLine": {
+      "node": 1.8,
+      "numS": 1,
+      "comet": 2.2,
+      "tailLen": 0.5,
+      "rail": 0.6
+    }
+  }
 }

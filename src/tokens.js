@@ -290,6 +290,12 @@ const SF = SIL_FIT / SIL_FIT_REF;   // uv 단위 거리 스케일 — 실루엣 
 // pool 은 필 알파를 직접 정한다: fillGain = clamp(pool * 1.6, 0, 1.35).
 //   0.55 로 내렸다가 필이 0.88 로 35% 약해져 '개 흐리다'가 됐다(유저). 수정 전 0.9(=포화 1.35)로 복귀.
 export const MARK_LOOK = { core: LOOK.w, halo: LOOK.halo, pool: LOOK.pool, sweep: 0.4, wobble: LOOK.noise };
+// footlab 프림 저장본(코멧·노드·레일 등) → 부팅 반영 — 실시간 브리지(applyMarkLook)의 영구판.
+//   이게 없으면 랩에서 확정한 프림 값이 새로고침마다 증발했다(유저: 시뮬에 이식이 안 된다).
+if (LOOK.prims) {
+  FXP.prims = FXP.prims || {};
+  for (const k in LOOK.prims) FXP.prims[k] = { ...(FXP.prims[k] || {}), ...LOOK.prims[k] };
+}
 export function makeMarkFXMaterial(footTex = null) {
   const mat = new THREE.ShaderMaterial({
     vertexShader: MARKFX_VERT,
