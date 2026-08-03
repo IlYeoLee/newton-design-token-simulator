@@ -41,8 +41,8 @@
   "gBlend": "add",
   "numSrc": "offbit",
   "prog": 0.55,
-  "bloom": 0.125,
-  "blur": 0,
+  "bloom": 0.14,
+  "blur": 0.5,
   "edgeShadeW": 4,
   "edgeShadeCol": 2,
   "edgeShadeGrad": 1,
@@ -50,10 +50,10 @@
   "edgeShadeG1": 1,
   "prims": {
     "punchLine": {
-      "node": 1.8,
+      "node": 1.58,
       "numS": 1,
-      "comet": 2.2,
-      "tailLen": 0.5,
+      "comet": 1,
+      "tailLen": 0.71,
       "rail": 0.6
     }
   }

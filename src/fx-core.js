@@ -1371,13 +1371,21 @@ export function drawPunchLine(g, W, P, look, t, ENV, ptsIn, prog) {
   g.beginPath(); pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.stroke();
   g.setLineDash([]); g.restore();
   if (pr > 0.02) {
-    for (let k = 0; k < 26; k++) {                     // 꼬리 — 헤드 뒤로 tailL 구간, 줄며 사라진다
+    // 꼬리 — **소프트 도트**(radial gradient 폴오프). 민무늬 원 + 균일 알파는 도트 경계가 남아
+    //   페이드가 투박했다(유저 — 특히 밝은 벽의 노멀 블렌딩에서 중간 알파가 탁하게 앉는다).
+    const rgbaT = (v, a) => lut(v).replace('rgb(', 'rgba(').replace(')', `,${a.toFixed(3)})`);
+    for (let k = 0; k < 26; k++) {
       const f = k / 25, u = pr - tailL * f;
       if (u <= 0) break;
       const p2 = at(u);
-      g.save(); g.shadowBlur = 0;
-      g.fillStyle = lut(0.55 - 0.18 * f); g.globalAlpha = (1 - f) * (1 - f) * 0.85;
-      g.beginPath(); g.arc(p2[0], p2[1], 4.7 * s * cometK * (1 - f * 0.75), 0, Math.PI * 2); g.fill();
+      const r = 4.7 * s * cometK * (1 - f * 0.75), ro = r * 2.1;
+      const a = (1 - f) * (1 - f) * 0.8;
+      const gr = g.createRadialGradient(p2[0], p2[1], 0, p2[0], p2[1], ro);
+      gr.addColorStop(0, rgbaT(0.55 - 0.18 * f, a));
+      gr.addColorStop(0.5, rgbaT(0.50 - 0.18 * f, a * 0.35));
+      gr.addColorStop(1, rgbaT(0.45 - 0.18 * f, 0));
+      g.save(); g.shadowBlur = 0; g.globalAlpha = 1; g.fillStyle = gr;
+      g.beginPath(); g.arc(p2[0], p2[1], ro, 0, Math.PI * 2); g.fill();
       g.restore();
     }
     if (pr < pts.length - 1 - 0.001 && pr - Math.floor(pr) > 0.03) {   // 헤드 — 노드 도착 중엔 숨김
