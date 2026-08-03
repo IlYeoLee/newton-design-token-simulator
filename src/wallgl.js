@@ -540,8 +540,11 @@ export class WallGL {
     // 페이즈 열은 우측 그대로 — 축 하나 + 우측 상태열이 좌우 대칭을 깨지 않는다.
     // 위계: 단계(24/28) ≪ 제목(80) — 제목이 이 화면의 주인공이고 단계는 머리말이다(유저).
     // 한때 56 까지 줄였는데 단계(32/40)와 차이가 안 나 둘 다 어중간했다. 배수 ≈2.9 로 벌린다.
-    ctx.translate(CX, 72 + 48); ctx.scale(tk, tk); ctx.translate(-CX, -(72 + 48));
-    txt(ctx, S.title, CX, 72, 80, 700, NEU.ink, { align: 'center', ls: -2.7 });
+    // y 72 → 84: 위 브레드크럼 잉크 하단(≈67)과 제목 상단이 거의 맞붙어 있었다(유저: 아주 조금만).
+    //   게이지(176)까지 24px 여유가 있어 그 안에서만 내린다 — 아래 묶음은 안 건드린다.
+    const TY = 84;
+    ctx.translate(CX, TY + 48); ctx.scale(tk, tk); ctx.translate(-CX, -(TY + 48));
+    txt(ctx, S.title, CX, TY, 80, 700, NEU.ink, { align: 'center', ls: -2.7 });
     ctx.restore();
 
     // 진행 게이지 — 대지 중앙. 상단이 [타이틀(좌) · 게이지(중) · 페이즈(우)] 3단이 된다.
