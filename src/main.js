@@ -4471,6 +4471,7 @@ void main(){
     //   id 는 고정 — 씬 스테이지·내보내기의 DOM 청소가 이 하나만 살려 둔다.
     const isVid = u => /\.(mp4|mov|webm|m4v)(\?|$)/i.test(u || '');
     window.__setSceneBg = (url, dim) => {
+      const had = S.bg;                    // 리로드 판단용 — '있던 걸 껐는가'를 봐야 한다
       S.bg = url || '';
       S.bgdim = Math.max(-0.6, Math.min(0.9, +dim || 0));
       // bgdim: 양수 = 어둡게 · 음수 = 밝게. 0 = 원본.
@@ -4510,7 +4511,12 @@ void main(){
       }
       document.documentElement.style.background = S.bg ? '#000' : '';
       document.body.style.setProperty('background', S.bg ? 'transparent' : '', 'important');
-      if (!S.bg) location.reload();   // 3D 실내 복귀는 껐던 무대를 되살려야 해서 리로드가 필요하다
+      // 3D 실내 복귀는 껐던 무대를 되살려야 해서 리로드가 필요하다 — 단 **껐을 때만**이다.
+      //   무조건 리로드하면, 배경 없는 씬에서 scenes.html 이 값을 밀어넣을 때마다(pushAll →
+      //   __setSceneBg('')) 앱이 스스로 새로고침한다. 그게 씬 전환을 통째로 삼켰다:
+      //   f.src 를 새 씬으로 바꿔 놓으면 그 이동이 시작되기 전에 옛 문서가 자기를 리로드해
+      //   src 속성만 새 씬이고 화면은 계속 BX_READY 였다(유저: 뭘 눌러도 복싱 1로 간다).
+      if (!S.bg && had) location.reload();
     };
     S.isVid = isVid;
     if (bg) window.__setSceneBg(bg, bgdim);
@@ -4561,8 +4567,16 @@ void main(){
     scene.background = null;
     renderer.setClearColor(0x000000, 0);
     const hasU = (m, re) => !!m.uniforms && Object.keys(m.uniforms).some(k => re.test(k));
-    const UI = new Set([window.__dbg?.floorGL?.mesh, window.__dbg?.wallGL?.mesh].filter(Boolean));
+    // ★ 이 씬의 투사면 **하나만** 켠다. 예전엔 바닥·벽 판을 둘 다 켰는데, 러닝·농구(지면 씬)에서
+    //   벽 판이 카메라 앞 1.9m 에 그대로 서 있었다 — 1인칭 화면 아래쪽의 **검은 사각형**의 정체다
+    //   (유저: "달리기에서 이상한 검정색 무언가 보여 계속"). 벽 판 텍스처는 복싱용 어두운 판이라
+    //   지면 씬에서는 내용도 틀렸다. 반대 방향(복싱에서 바닥 판)도 같이 막힌다.
+    const stageUI = SCENE_STAGE.view === 'wall' ? window.__dbg?.wallGL?.mesh : window.__dbg?.floorGL?.mesh;
+    const otherUI = SCENE_STAGE.view === 'wall' ? window.__dbg?.floorGL?.mesh : window.__dbg?.wallGL?.mesh;
+    if (otherUI) otherUI.visible = false;
+    const UI = new Set([stageUI].filter(Boolean));
     scene.traverse(o => {
+      if (o === otherUI) { o.visible = false; return; }
       if (o.isLight) return;
       if (UI.has(o)) { o.visible = true; return; }
       const m = Array.isArray(o.material) ? o.material[0] : o.material;
