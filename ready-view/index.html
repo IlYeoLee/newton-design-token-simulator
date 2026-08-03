@@ -155,7 +155,9 @@ html,body{background:transparent}
   0%,72%,100%{transform:translateY(0)}
   10%{transform:translateY(30px)}18%{transform:translateY(4px)}
   30%{transform:translateY(28px)}40%{transform:translateY(0)}}
-@keyframes glowPulse{0%,100%{transform:scale(1);opacity:.86}50%{transform:scale(1.055);opacity:1}}
+/* 발 글로우 맥동 — 상한을 1 → .84 로. 최대에서 완전 불투명이라 중심이 하얗게 날아갔다(유저 08-03).
+   하한도 같은 비율(.86→.72)로 내려 맥동 폭은 유지한다. */
+@keyframes glowPulse{0%,100%{transform:scale(1);opacity:.72}50%{transform:scale(1.055);opacity:.84}}
 @keyframes footBob{0%,70%,100%{transform:translateY(0)}10%{transform:translateY(34px)}20%{transform:translateY(6px)}32%{transform:translateY(31px)}44%{transform:translateY(0)}}
 .foot-shape{animation:footBob 5.5s cubic-bezier(.4,0,.3,1) infinite 2.2s}
 .foot-imgs{animation:floatY 5s ease-in-out infinite 2.2s}
