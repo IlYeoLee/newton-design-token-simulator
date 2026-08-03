@@ -1,0 +1,21 @@
+{
+  "P1": {
+    "bg": "/_bg/Pace_ON_Boost_On___2-2_2560.mp4",
+    "bgdim": 0.15,
+    "fp": true,
+    "blend": "screen",
+    "zoom": 1,
+    "pan": 0,
+    "tilt": 0,
+    "dolly": 1,
+    "exposure": 1,
+    "bloom": 0.55,
+    "uiX": 0,
+    "uiY": 0,
+    "uiScale": 1,
+    "opacity": 1,
+    "grade": { "b": 1, "c": 1, "s": 1, "h": 0 },
+    "bgGrade": { "b": 1, "c": 1, "s": 1, "h": 0 },
+    "hide": []
+  }
+}

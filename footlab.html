@@ -49,11 +49,11 @@
     border-radius:8px;padding:8px;font:11px/1.5 ui-monospace,Consolas,monospace;resize:vertical}
   .note{color:var(--dim);font-size:11px;margin:8px 0 0}
   .warn{color:var(--red);font-size:11.5px;margin:8px 0 0;display:none}
-</style>  <script type="module" crossorigin src="./assets/footlab-CY49C5OJ.js"></script>
+</style>  <script type="module" crossorigin src="./assets/footlab-egw2JAUs.js"></script>
   <link rel="modulepreload" crossorigin href="./assets/modulepreload-polyfill-B5Qt9EMX.js">
-  <link rel="modulepreload" crossorigin href="./assets/fx-core-BuGR-zox.js">
-  <link rel="modulepreload" crossorigin href="./assets/fxlut-C5aQtK4x.js">
-  <link rel="modulepreload" crossorigin href="./assets/tokens-Cb_5XetH.js">
+  <link rel="modulepreload" crossorigin href="./assets/fx-core-DkFSgleu.js">
+  <link rel="modulepreload" crossorigin href="./assets/fxlut-D2L9-SSg.js">
+  <link rel="modulepreload" crossorigin href="./assets/tokens-Rrh7xCGe.js">
 </head><body>
 <div class=wrap>
   <div class=panel>
@@ -86,6 +86,11 @@
       <div class=row><label>등고선 단계</label><input type=range id=bands min=0 max=24 step=1><span class=v id=vbands></span></div>
       <div class=row><label>밴드 무름</label><input type=range id=bandSoft min=0 max=1 step=.01><span class=v id=vbandSoft></span></div>
       <div class=row><label>이너 섀도우</label><input type=range id=edgeShade min=0 max=1.4 step=.01><span class=v id=vedgeShade></span></div>
+      <div class=row><label>섀도우 면적</label><input type=range id=edgeShadeW min=.2 max=4 step=.05><span class=v id=vedgeShadeW></span></div>
+      <div class=seg id=segEdgeShadeCol style="margin:2px 0 6px"><button data-v=0 class=on>흰</button><button data-v=1>샌드</button><button data-v=2>코랄</button><button data-v=3>레드</button></div>
+      <div class=row><label>섀도우 그라디언트</label><input type=range id=edgeShadeGrad min=0 max=1 step=.02><span class=v id=vedgeShadeGrad></span></div>
+      <div class=row><label>그라디언트 시작(경계)</label><input type=range id=edgeShadeG0 min=0 max=1 step=.01><span class=v id=vedgeShadeG0></span></div>
+      <div class=row><label>그라디언트 끝(안쪽)</label><input type=range id=edgeShadeG1 min=0 max=1 step=.01><span class=v id=vedgeShadeG1></span></div>
       <div class=row><label>음영 적열</label><input type=range id=shadeRed min=0 max=1 step=.01><span class=v id=vshadeRed></span></div>
       <div class=row><label>적열 번짐</label><input type=range id=shadeRedW min=.5 max=8 step=.1><span class=v id=vshadeRedW></span></div>
       <div class=row><label>엣지 폭</label><input type=range id=edgeW min=.01 max=.3 step=.005><span class=v id=vedgeW></span></div>

@@ -196,7 +196,9 @@ html,body{background:transparent}
   }
   const spm = params.get('spm');
   if (spm) { const el = document.createElement('div'); el.id = 'spm-lbl';
-    el.innerHTML = `<b id="spm-me">--</b><span> / ${spm} SPM</span><div style="font-weight:500;font-size:44px;color:rgba(255,255,255,.62);margin-top:6px">내 발걸음 / 목표 — 소리에 맞춰</div>`; document.getElementById('board').appendChild(el); }
+    // 한글 캡션('내 발걸음 / 목표 — 소리에 맞춰') 삭제 — 투사 UI는 영문 조판이다(Supreme 에 한글 글리프가
+    //   없어 그 줄만 시스템 고딕으로 떨어진다). 숫자 자체가 이미 '내 값 / 목표'를 말한다.
+    el.innerHTML = `<b id="spm-me">--</b><span> / ${spm} SPM</span>`; document.getElementById('board').appendChild(el); }
   // A2/A3 시범(3초) — 원본 실전직전 타이머 링(floor-timer.html) 소형 그대로 + DEMO 라벨.
   //   도트 로딩바는 시범 동안 숨김 → 3초 뒤 등장·채움 시작(따라하기 진행 전담).
   if (/^(A2|A3|BK_A[23]|BK_B[12345])$/.test(stage)) {
