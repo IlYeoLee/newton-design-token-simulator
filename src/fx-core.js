@@ -1363,6 +1363,17 @@ export function drawPunchLine(g, W, P, look, t, ENV, ptsIn, prog) {
                  pts[i - 1][1] + (pts[i][1] - pts[i - 1][1]) * seg]);
   }
   if (passed.length > 1) strokeFlowPath(g, passed, t, ENV.arrow.w * s, { color: lut(0.62) }, ENV);
+  // 코멧 헤드(c3 시안 D안 이식·유저) — 이동 중인 획 머리의 빛 구슬. 노드에 도착해 있는 동안은
+  //   숨긴다(수축 링·노드가 그 순간의 주인공 — 머리가 겹치면 잠금 비트가 탁해진다).
+  if (passed.length > 1 && pr > 0.05 && pr < pts.length - 1 - 0.001 && pr - Math.floor(pr) > 0.03) {
+    const hp = passed[passed.length - 1];
+    g.save();
+    g.fillStyle = lut(0.62); g.shadowColor = lut(0.8); g.shadowBlur = 11 * s;
+    g.beginPath(); g.arc(hp[0], hp[1], 5.6 * s, 0, Math.PI * 2); g.fill();
+    g.fillStyle = lut(0.95); g.globalAlpha = 0.95;
+    g.beginPath(); g.arc(hp[0], hp[1], 2.1 * s, 0, Math.PI * 2); g.fill();
+    g.restore();
+  }
   // 연결선 = 규칙의 상시 구성요소(노드 사이 실선). 0.3 알파 점선은 투사면에서 사라져
   //   노드 셋이 따로 떠 있는 것처럼 보였다 — 순서를 읽게 하는 건 이 선이다.
   g.setLineDash([]); g.lineDashOffset = 0; g.globalAlpha = 0.5;
