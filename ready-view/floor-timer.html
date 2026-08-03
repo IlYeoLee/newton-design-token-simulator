@@ -14,7 +14,10 @@ html,body{background:transparent}
 .bg-glow{position:absolute;inset:0;overflow:hidden;pointer-events:none;
   -webkit-mask:radial-gradient(58% 46% at 50% 43%, #000 22%, transparent 82%);
           mask:radial-gradient(58% 46% at 50% 43%, #000 22%, transparent 82%)}
-.bg-glow img{position:absolute;left:50%;top:1160px;width:2200px;transform:translate(-50%,-50%);
+/* 에셋 빛덩이가 뷰박스 정중앙에 없다 — 드리프트를 끄고 재면 −42 대지px 왼쪽(유저: 좌우 간격 안맞음).
+   보정량 ≠ 이동량이다: 마스크(50% 중심)가 오른쪽 falloff 를 깎아 109px 밀어야 42px 이 움직인다.
+   실측 반복으로 109px 확정 — 잔차 +6.5px. */
+.bg-glow img{position:absolute;left:calc(50% + 109px);top:1160px;width:2200px;transform:translate(-50%,-50%);
   will-change:transform;animation:glowDrift 15s ease-in-out 3}
 @keyframes glowDrift{
   0%{transform:translate(-50%,-50%) scale(1) rotate(0deg)}
@@ -22,8 +25,11 @@ html,body{background:transparent}
   50%{transform:translate(-44%,-55%) scale(1.05) rotate(-3deg)}
   75%{transform:translate(-53%,-46%) scale(1.13) rotate(3deg)}
   100%{transform:translate(-50%,-50%) scale(1) rotate(0deg)}}
-.wrap{position:absolute;left:50%;transform:translateX(-50%);top:600px;width:1200px;
-  display:flex;flex-direction:column;gap:88px;align-items:center}
+/* 벽 타이머와 같은 규칙 — 기준은 블록이 아니라 **링**. top:600 이면 링 중심이 글로우 중심(1160)보다
+   73px 내려가 빨강이 링 윗동만 덮었다(유저). wrap 아랫변(=링 아랫변)을 글로우 중심에 붙이고
+   링 반지름(302)만큼 내리면 링 중심이 글로우 중심에 정확히 온다. gap 88 → 48. */
+.wrap{position:absolute;left:50%;top:1160px;transform:translate(-50%,-100%) translateY(302px);
+  width:1200px;display:flex;flex-direction:column;gap:48px;align-items:center}
 .tgrp{display:flex;flex-direction:column;gap:8.8px;align-items:center;text-align:center}
 .tsub{font-weight:400;font-size:64px;letter-spacing:-4.6px;color:rgba(255,255,255,.8);white-space:nowrap}
 .ttl{font-weight:700;font-size:140px;letter-spacing:-5.6px;white-space:nowrap;line-height:1.05}
@@ -64,9 +70,10 @@ html,body{background:transparent}
     </div>
   </div>
   <script>
+  // 전엔 리포트(floor-report) 문구가 그대로 복사돼 시작 전 화면이 'Session Complete' 라고 말했다(유저).
   const TM = {
-    C1:    { sub:'Sean’s Final 1km Pace',    title:'Session Complete' },
-    BK_C1: { sub:'Curry’s Signature Move',   title:'Session Complete' },
+    C1:    { sub:'Run 10 min · Final 1 km',   title:'Run with Sean' },
+    BK_C1: { sub:'Play 10 min · 3 attempts',  title:'Step-Back 1 of 3' },
   };
   const $ = id => document.getElementById(id);
   const q = new URLSearchParams(location.search);
