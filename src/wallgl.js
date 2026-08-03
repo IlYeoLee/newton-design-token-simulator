@@ -219,12 +219,29 @@ export class WallGL {
   }
 
   // ── 공통 조각 ───────────────────────────────────────────────────────────────
-  // 배경 글로우 + glowDrift 15s ∞. 원본은 컨테이너 라디얼 마스크로 사각 모서리를 잘라낸다.
+  // 배경 글로우 = 첫 화면(READY) 발 뒤 글로우와 같은 에셋·같은 숨쉬기(glow.svg + glowPulse 4.6s).
+  //   예전엔 bg_glow.svg 를 불투명하게 깔아 빨강이 벽·바닥까지 다 스몄다(유저). 같은 Figma
+  //   Ellipse 31226 인데 첫 화면 쪽만 opacity .72~.84 로 눌러 써서 '얹힌 빛'으로 읽혔다.
+  //   glowDrift 15s ∞ 는 유지 — 이 화면 고유의 움직임이다.
   _bgGlow() {
-    const ctx = this.ctx, im = this._img('bg_glow.svg');
+    const ctx = this.ctx, im = this._img('glow.svg');
     if (!im) return;
-    const w = 2050, h = w * (im.naturalHeight / im.naturalWidth);
+    // 에셋의 빛덩이는 뷰박스 정중앙에 있지 않다 — 렌더 픽셀의 알파 가중 무게중심이
+    //   x −0.899% · y +1.346%(실측). 보정 없이 깔면 대지 가운데가 아니라 왼쪽·아래로 쏠린다.
+    //   ※ path 좌표로 계산하면 −4.168% 가 나오지만 틀린 값이다. 블러(σ50.5)가 도형을 퍼뜨려
+    //      실제 무게중심은 훨씬 덜 치우친다 — 반드시 렌더 픽셀로 재야 한다.
+    // 크기도 첫 화면 규칙 — 거기선 발 300px 에 글로우 900px, 곧 '주체의 3배'다.
+    //   여기 주체는 링(548.638) → 1646px. 예전 2050px 는 대지의 79% 라 빨강이 화면을 먹었다.
+    //   0.899% 로는 부족했다 — 합성된 벽에서 빨강 무게중심을 재면 아직 왼쪽으로 치우친다
+    //   (드리프트 4위상 평균 −29 화면px ≈ −71 대지px, 유저: 좌우 간격 안맞음). 실측으로 재보정.
+    const w = 1646, h = w * (810 / 907), ox = w * 0.0522, oy = -h * 0.01346;
     ctx.save();
+    const pu = cycle(this.t, 0, 4.6, INF);   // glowPulse — scale 1↔1.055 · opacity .72↔.84
+    if (pu != null) {
+      ctx.globalAlpha *= kf(pu, [[0, .72], [.5, .84], [1, .72]]);
+      const ps = kf(pu, [[0, 1], [.5, 1.055], [1, 1]]);
+      ctx.translate(CX, H / 2); ctx.scale(ps, ps); ctx.translate(-CX, -H / 2);
+    } else ctx.globalAlpha *= .78;
     const p = cycle(this.t, 0, 15, INF);
     if (p != null) {
       const dx = kf(p, [[0, 0], [.25, -.09], [.5, .08], [.75, -.05], [1, 0]]) * w;
@@ -233,12 +250,13 @@ export class WallGL {
       const r = kf(p, [[0, 0], [.25, 5], [.5, -4], [.75, 3], [1, 0]]) * Math.PI / 180;
       ctx.translate(CX + dx, H / 2 + dy); ctx.rotate(r); ctx.scale(s, s); ctx.translate(-CX, -H / 2);
     }
-    ctx.drawImage(im, CX - w / 2, H / 2 - h / 2, w, h);
+    ctx.drawImage(im, CX - w / 2 + ox, H / 2 - h / 2 + oy, w, h);
     ctx.restore();
-    // 라디얼 마스크: 66%×62% at (50%, 44%), #000 20% → transparent 90%
+    // 라디얼 마스크: 66%×62% at (50%, 50%) — 콘텐츠 블록이 대지 정중앙이라 배경도 같은 중심.
+    //   44% 였던 탓에 빨강 덩어리가 링보다 위에 앉아 있었다(유저).
     ctx.save();
     ctx.globalCompositeOperation = 'destination-out';
-    ctx.translate(CX, H * 0.44); ctx.scale(1, (0.62 * H) / (0.66 * W));
+    ctx.translate(CX, H * 0.5); ctx.scale(1, (0.62 * H) / (0.66 * W));
     const rMax = 0.66 * W;
     const g = ctx.createRadialGradient(0, 0, 0, 0, 0, rMax);
     g.addColorStop(0.2, 'rgba(0,0,0,0)'); g.addColorStop(0.9, 'rgba(0,0,0,1)');
@@ -711,8 +729,13 @@ export class WallGL {
   _paint_timer() {
     const ctx = this.ctx, t = this.t, M = TM[this.stage] || TM.BX_C1, dur = this.params.dur || 3;
     this._bgGlow();
-    const y = this._titleGroup(341, M.sub, M.title) + 80;
-    const cy = y + 274.319, r = 250 * (548.638 / 549);
+    // 정렬 기준은 '블록 전체'가 아니라 **링**이다 — 블록을 가운데 두면 링이 글로우 중심보다
+    //   136px 아래로 내려가 빨강이 링 윗동만 덮었다(유저: 빨간 그라디언트 중앙에 타이틀·타이머 오게).
+    //   링 중심 = 대지 정중앙 = 글로우 중심으로 못 박고, 타이틀은 그 위에 GAP 만큼 얹는다.
+    //   GAP 80 → 44: 타이틀과 타이머가 따로 노는 만큼 떠 있었다(유저).
+    const RING = 548.638, TGH = 48 * 1.2 + 8 + 120 * 1.05, GAP = 44;
+    const y = this._titleGroup(H / 2 - RING / 2 - GAP - TGH, M.sub, M.title) + GAP;
+    const cy = y + RING / 2, r = 250 * (RING / 549);
     const rem = dur - t, val = rem > 0.05 ? String(Math.ceil(rem)) : 'GO';
     // ringPop .8s .35s + ringBreath 3s 1.2s ∞
     const e = eOut(intro(t, .35, .8)), br = cycle(t, 1.2, 3, INF);
@@ -733,7 +756,14 @@ export class WallGL {
     ctx.globalAlpha *= kf(q, [[0, 0], [.35, 1], [1, 1]]);
     ctx.translate(CX, cy); ctx.scale(nk, nk); ctx.translate(-CX, -cy);
     // 3·2·1 은 숫자라 도트, 'GO' 는 글자라 본문 영문 — 도트는 숫자와 마크 R·L 뿐(유저 규약).
-    txt(ctx, val, CX, cy, 200, 700, '#fff', { fam: /\d/.test(val) ? dot9 : sans, align: 'center', base: 'middle' });
+    // base:'middle' 은 폰트 em 중앙이라 잉크 중앙이 아니다. 도트 폰트 숫자는 디센더가 0이라
+    //   그대로 두면 링 중심보다 위로 뜬다(200px 에서 실측 20.5px). 잉크 상자로 직접 맞춘다.
+    // 크기 200 → 180: 링 안에서 숫자가 꽉 차 보였다(유저 — 아주 조금만).
+    const NUM = 180, fam = /\d/.test(val) ? dot9 : sans;
+    ctx.font = F(700, NUM, fam);
+    const m = ctx.measureText(val);
+    txt(ctx, val, CX, cy + (m.actualBoundingBoxAscent - m.actualBoundingBoxDescent) / 2,
+        NUM, 700, '#fff', { fam, align: 'center', base: 'alphabetic' });
     ctx.restore();
     ctx.restore();
   }
