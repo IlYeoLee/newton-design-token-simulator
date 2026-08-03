@@ -1280,7 +1280,8 @@ export class Session {
     // 코멧 — 판 2.0m(±1 = ±1.0m). width 1.3: 1.8 은 지름 5cm 로 링에 묻혔고 3.4 는 판을 넘쳤다(실측).
     this.bxB2path = primPanel('trajectory', 2.0, true);
     this.bxB2path.position.set(0, 1.70, WZ + 0.004);
-    this.bxB2path._prim.P = { width: 1.3, glow: 1.1, tail: 1.4 };
+    //   width 0.9(유저: 원형 더 작게) · tail 2.4 = 경로의 86%가 꼬리로 남아 '어디서 날아왔는지'가 보인다.
+    this.bxB2path._prim.P = { width: 0.9, glow: 1.1, tail: 2.4 };
     g.add(this.bxB2path);
 
     // B3 잽 스윕 — 잽 궤적 토큰(스윕 아크) + 타겟 수축 링
@@ -1717,7 +1718,9 @@ export class Session {
     this._a2cdShown = null;           // A2 카운트다운 표시 숫자 리셋
     this.demoActive = false;          // A 시범 구간 신호 (실사 클립 패널 소비)
     this._setCount(null); this._setCountWall(null);
-    if (this.G[st.id]) this.G[st.id].visible = true;
+    // 발자국 마크(G그룹) — 시작 페이지·풀스크린 프레임은 프레임이 전담하므로 여기서 켜지 않는다
+    //   (슬롯과 같은 1프레임 누출 경로였다). frameMarkOff = main.js 가 넘기는 해당 스테이지 집합.
+    if (this.G[st.id] && !this.frameMarkOff?.has(st.id)) this.G[st.id].visible = true;
     // FIN Ghost Review — 션 발자국 격자 + 내 착지점(판정 오차 벡터, ±30cm 클램프)
     if (st.id === 'FIN' && this.finGhost) {
       const R = (this.judge?.results || []).filter(r => r.surface === 'floor').slice(-4);
@@ -1737,7 +1740,13 @@ export class Session {
     this._lastCount = null;
     // 지면/벽 슬롯 전환
     const wall = !!st.wall;
-    [this.slotFS, this.slotFL, this.slotFM].forEach(s => s.visible = !wall);
+    // ★ 지면 프레임(floorgl / floor-*.html)이 헤더를 전담하는 스테이지는 여기서 다시 켜지 않는다.
+    //   예전엔 무조건 visible = !wall 이라 스테이지 진입마다 켜졌고, main.js 는 '다음' 프레임에 껐다
+    //   → 진입마다 정확히 1프레임씩 구버전 텍스트가 샜다(유저 08-04: 모든 바닥 UI에서 로딩 때 샌다).
+    //   벽 슬롯이 겪은 것과 같은 버그다(아래 주석) — 같은 방식으로 출처에서 막는다.
+    //   frameStages 는 main.js 가 FLOOR_FRAMES 키로 넘겨 준다(표가 단일 출처).
+    [this.slotFS, this.slotFL, this.slotFM]
+      .forEach(s => s.visible = !wall && !this.frameStages?.has(st.id));
     // ★ 벽 텍스트 슬롯은 항상 숨김 — wallgl.js 캔버스 UI 가 정본이다. 예전엔 여기서
     //   visible = wall 로 스테이지마다 다시 켜서, 셋업에서 끈 게 매번 덮어써졌다
     //   (유저 08-03: '넥앤숄더'·'회피 슬립' 등 모든 복싱 씬에 한글이 겹쳐 나옴).
@@ -2832,14 +2841,18 @@ export class Session {
       threat._prim.prog = appr;                              // 0 = 프리뷰(수축 전 링), 1 = 착탄
       threat.material.opacity = ph < 0.35 ? 0.4 * clamp01((ph - 0.04) / 0.14) : 1;
       // 코멧 = 돌덩이(원형 헤드) + 궤적. 정본: 원형 = 피해야 하는 돌덩이 · 궤적 = 날아오는 방향
-      //   · 수축링 = 닿는 위치 · 사람 = 궤적 반대로 피한다. 벽 밖(±0.98)에서 착탄점으로.
-      //   판 2.0m → pts ±1 = ±1.0m. 링(±0.40, 1.78) → nx ±0.40 · ny −0.08 (판 중심 y 1.70).
-      //   도착 직전(0.98)에 숨긴다 — 그 순간부터는 착탄 블룸이 이어받는다.
+      //   · 수축링 = 닿는 위치 · 사람 = 궤적 반대로 피한다.
+      //   ★ 경로는 유저 스케치 정본: **링 반대편 아래(허리께)에서 출발**해 몸을 스치듯
+      //   호를 그리며 올라가 링에 꽂힌다 — 훅이 감겨 들어오는 그 선이다. 예전의 '링 쪽
+      //   바깥 위에서 직진'은 정반대였다.
+      //   판 2.0m → pts ±1 = ±1.0m(y 아래로). 링(±0.40, 1.78) → nx ±0.40 · ny −0.08.
+      //   출발 (∓0.55, +0.58) = 반대편 허리 높이(y≈1.12). 도착 직전(0.98)에 숨긴다 —
+      //   그 순간부터는 착탄 블룸이 이어받는다.
       if (this.bxB2path) {
         this.bxB2path.visible = appr > 0.01 && appr < 0.98;
         this.bxB2path._prim.pts = goLeft
-          ? [[0.98, -0.34], [0.66, -0.19], [0.40, -0.08]]      // 밖 → 우측 착탄점
-          : [[-0.98, -0.34], [-0.66, -0.19], [-0.40, -0.08]];  // 밖 → 좌측 착탄점
+          ? [[-0.55, 0.58], [0.02, 0.30], [0.40, -0.08]]       // 좌하 → 호 → 우측 착탄점
+          : [[0.55, 0.58], [-0.02, 0.30], [-0.40, -0.08]];     // 우하 → 호 → 좌측 착탄점
         this.bxB2path._prim.prog = appr;
         this.bxB2path.material.opacity = 1;
       }
@@ -2915,7 +2928,15 @@ export class Session {
         //   잽 둘 사이가 0.38s 라 따라 칠 수가 없었다(유저: 타이밍 너무 빨라).
         //   사이클 6s = 코치 클립(public/ghost/bx_c3_combo.mp4) 길이 — 맞춰 두면 마커 박자와
         //   인물 동작이 매 바퀴 같은 위상에서 만난다(어긋나면 루프마다 조금씩 밀린다).
-        const CY = 6.0, tc = this.t % CY, AT = [1.0, 2.0, 4.0];
+        // ★ 박자 정본 — 여기 세 숫자만 고치면 된다.
+        //   유저(08-04): "1초 쉬었다가 1,2,3 부터 팡팡팡". REST 만큼 아무것도 안 하다가
+        //   세 방이 짧은 간격으로 연달아 터진다. 훅은 몸을 싣느라 잽 간격보다 조금 길다.
+        //   ⚠ 코치 클립(bx_c3_combo.mp4)의 실제 펀치는 프레임 변화량 실측으로 1.5 / 3.0 / 4.3초다.
+        //     이 박자는 그것과 **안 맞는다** — 마커는 요청대로 팡팡팡이고 실루엣은 자기 속도로 친다.
+        //     실루엣까지 맞추려면 AT = [1.5, 3.0, 4.3] 으로 되돌리거나 클립을 그 박자로 다시 받아야 한다.
+        const CY = 6.0, tc = this.t % CY;
+        const REST = 1.0, GAP_JAB = 0.55, GAP_HOOK = 0.75;
+        const AT = [REST, REST + GAP_JAB, REST + GAP_JAB + GAP_HOOK];   // 1.00 · 1.55 · 2.30
         let seg = 0;                                   // 지나온 노드 수(0..2) + 구간 진행
         for (let i = 0; i < AT.length; i++) if (tc >= AT[i]) seg = i + 1;
         const prev = seg === 0 ? 0 : AT[seg - 1], next = AT[Math.min(seg, AT.length - 1)];
