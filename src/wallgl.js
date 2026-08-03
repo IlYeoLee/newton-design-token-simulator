@@ -88,10 +88,22 @@ const SCENES = {
     say: 'Dialled in', cues: ['On target', 'Nice', 'Sharp'], combos: [] },
   BX_C1: { title: 'START SIGNAL', phase: 3, sub: '', coach: { num: '3', unit: 'Go' }, you: { num: '', unit: '' },
     say: '3, 2, 1 — spar!', cues: [], combos: [] },   // 카운트다운은 그 자체가 사건이라 그대로
-  BX_C2: { title: 'JAB SPAR', phase: 3, sub: '1/3', coach: { num: '8', unit: 'Thrown' }, you: { num: '5', unit: 'Landed' },
-    say: 'Let’s go', cues: ['Nice', 'Sharp', 'Keep it up'], combos: ['Jab!'] },
-  BX_C3: { title: 'COMBINATION', phase: 3, sub: '2/3', coach: { num: '3', unit: 'Openings' }, you: { num: '3', unit: 'Combo' },
-    say: 'Rhythm’s good', cues: ['Nice combo', 'On fire', 'Keep it up'], combos: ['Jab · Jab · Hook!'] },
+  // ★ 실전(C2·C3)만 **스코어보드**다 — 좌우에 아바타·이름 배지·큰 숫자가 이미 스코어보드
+  //   조판인데, 그동안 'Thrown/Landed'·'Openings/Combo' 처럼 좌우 단위가 갈려서 두 숫자를
+  //   같은 저울에 못 올렸다(유저: 한번에 직관적으로 이해가 안 간다). 이제 둘 다 Points.
+  //   학습(A·B)은 케이시가 상대가 아니라 시범이라 그대로 '목표 vs 내 기록'을 쓴다.
+  //   beats = 판정 대본. 시뮬레이터라 judge.js 를 못 물리니 시각을 적어 둔다(실전 연결 시 대체).
+  //     hit → You +1 · miss → Casey +1 · near(타이밍/위치 중 하나만) → 무득점.
+  //     near 를 실점으로 치면 화면이 애매한 걸로 나를 깎는 셈이라 뱃지로만 알린다(유저 확정).
+  //   비트 시각은 3D 노드 마커(session.js BX_C3 의 AT)와 같은 박자로 맞춘다 — 벽의 점수가
+  //   코치 몸의 마커와 다른 박자로 움직이면 둘이 다른 경기를 중계하는 꼴이 된다.
+  //   C3 = 잽 1s · 잽 2s · (1초 쉼) · 훅 4s. C2 = 잽 1초 간격.
+  BX_C2: { title: 'JAB SPAR', phase: 3, sub: '1/3', coach: { num: '', unit: 'Points' }, you: { num: '', unit: 'Points' },
+    say: 'Let’s go', cues: ['Nice', 'Sharp', 'Keep it up'], combos: ['Jab!'],
+    beats: [[1, 'hit'], [2, 'hit'], [3, 'miss'], [4, 'hit']] },
+  BX_C3: { title: 'COMBINATION', phase: 3, sub: '2/3', coach: { num: '', unit: 'Points' }, you: { num: '', unit: 'Points' },
+    say: 'Rhythm’s good', cues: ['Nice combo', 'On fire', 'Keep it up'], combos: ['Jab · Jab · Hook!'],
+    beats: [[1, 'hit'], [2, 'near'], [4, 'hit']] },
   BX_C4: { title: 'COOL DOWN', phase: 3, sub: '3/3', coach: { num: '', unit: '' }, you: { num: '', unit: '' },
     say: 'Great work', cues: ['Well done', 'Strong session', 'Nice one'], combos: [] },
 };
@@ -650,14 +662,21 @@ export class WallGL {
       rollNum(ctx, val, t, delay, cd, x, 1148, 200, { fam: dot9, ls: -8, align });
       ctx.restore();
     };
-    num(100, 'left', S.coach.num, .62, 1.2);   // 코치 = 목표치. 등장할 때 한 번 굴리고 고정.
+    // 실전 = 스코어. 지금까지 지나간 beats 로 양쪽 점수를 만든다.
+    //   hit → 나 · miss → 케이시 · near → 아무도 안 먹는다. 둘 다 0 에서 시작해 올라가야
+    //   '스코어'로 읽힌다 — 케이시 쪽을 목표치로 두면 3:0 에서 시작해 경기로 안 보인다.
+    const past = (S.beats || []).filter(([bt]) => t >= bt);
+    const last = past.length ? past[past.length - 1] : null;
+    const sc = { hit: 0, near: 0, miss: 0 };
+    for (const [, v] of past) sc[v]++;
+    num(100, 'left', S.beats ? String(sc.miss) : S.coach.num, .62, 1.2);   // 학습에선 코치 = 목표치(등장 후 고정)
     // YOU = **지금까지 내가 한 횟수**. 0 으로 등장해 한 회씩 오른다(유저).
     //   구 dur*0.8(=6.4s)은 자릿수가 내내 굴러 깨져 보였고, 1.5s 고정은 등장하자마자
     //   목표치에 붙어 '이미 다 한 것'으로 읽혔다. 정수 스텝 + 바뀔 때마다 팝 —
     //   팝 규칙은 카운트다운(_numLast/_numT)과 같은 것을 쓴다.
     const yTot = parseFloat(S.you.num);
-    let yVal = S.you.num;
-    if (Number.isFinite(yTot) && yTot > 0) {
+    let yVal = S.beats ? String(sc.hit) : S.you.num;
+    if (!S.beats && Number.isFinite(yTot) && yTot > 0) {
       //   ★ tail 을 빼는 이유: dur 로 나누면 마지막 회차가 **마지막 프레임에만** 뜬다
       //     (floor 라 t 가 dur 에 정확히 닿아야 8 이 되는데, dt 누적이라 7.99 로 끝난다).
       //     목표치를 찍은 걸 보여줘야 하니 조금 일찍 채우고 끝까지 들고 있는다.
@@ -695,7 +714,16 @@ export class WallGL {
     //   실전이라고 빨리 지나가야 할 이유가 없다 — 전 구간 2.6초.
     const every = Math.max(2.6, dur / (seq.length + 0.5));
     const swapT = seq.length > 1 ? t - Math.floor(t / every) * every : t;
-    const say = seq[seq.length > 1 ? Math.floor(t / every) % seq.length : 0];
+    let say = seq[seq.length > 1 ? Math.floor(t / every) % seq.length : 0];
+    // 구간 종료 Match Rate — session.js BX_C3 에 cue 로 적혀만 있고 화면엔 없던 것.
+    //   judge.js 와 같은 정의: hit / 전체. 스코어(결과)와 시간대가 다르다 — 라운드 끝에만.
+    //   누적 비율이라 경기 중엔 널뛴다(3번 중 1번 = 33% → 50% …). 읽을 시간이 있는 순간으로 미룬다.
+    //   새 컴포넌트 없이 있는 자막 알약을 그대로 쓴다.
+    //   ★ 창은 dur 기준이 아니라 **마지막 판정 뒤**로 연다. dur−1.4 로 열었더니 마지막 펀치
+    //     전에 떠서 40% → 60% 로 올라갔다(아직 안 끝난 걸 '구간 종료'라 부른 셈).
+    if (S.beats && t >= S.beats[S.beats.length - 1][0] + .5) {
+      say = 'Match Rate ' + Math.round((sc.hit / S.beats.length) * 100) + '%';
+    }
     const ce = eOut(intro(t, .68, .8));
 
     // 자막은 학습·실전 한 컴포넌트로 통일 — 실전만 큰 글자로 빼는 '순간 큐'는 폐기(유저:
@@ -713,6 +741,35 @@ export class WallGL {
       rrFill(ctx, CX - sw / 2, cueY, sw, sh, 9999, '#fff');
       txt(ctx, say, CX, cueY + sh / 2, 56, 400, SOFT, { ls: -2.24, align: 'center', base: 'middle' });
       ctx.restore();
+    }
+    // ── 판정 뱃지 (HIT / NEAR / MISS) ──────────────────────────────────────────
+    //   점수만 움직이고 이유를 안 말하면 더 답답하다(유저). 방금 그 한 방이 뭐였는지 짧고 크게.
+    //   색은 panel.js 의 판정 정본 그대로 — hit=prism · near=sand · miss=lo(무채).
+    //   miss 가 빨강이 아닌 건 의도다: 팔레트 규약상 무채 = 상태 부호(잠김·실패)이고,
+    //   홈트 화면이 실패를 빨강으로 때리지 않는다.
+    //   자리는 항상 '나' 쪽 — 뱃지는 내 펀치를 말한다. 좌우로 튀면 눈이 따라다녀야 한다.
+    //   체류 .55s: 주석의 '순간 사건은 크고 짧게', 다음 비트(≈1s) 전에 사라져 안 겹친다.
+    if (last) {
+      const age = t - last[0], LIFE = .55;
+      if (age < LIFE) {
+        const VC = { hit: PAL.prism, near: PAL.sand, miss: NEU.lo };
+        const col = VC[last[1]], p = clamp01(age / LIFE);
+        ctx.save();
+        ctx.globalAlpha *= kf(p, [[0, 0], [.14, 1], [.7, 1], [1, 0]]);
+        ctx.font = F(700, 52);
+        const lb = last[1].toUpperCase();
+        const bw2 = ctx.measureText(lb).width + 72, bh2 = 52 * 1.2 + 34;
+        const bx2 = 2500 - bw2, by2 = 1368 + 64 * 1.2 + 34;   // 콤보 배지와 같은 슬롯
+        const bs2 = kf(p, [[0, .6], [.14, 1.14], [.4, 1], [1, 1]]);
+        ctx.translate(2500, by2 + bh2 / 2); ctx.scale(bs2, bs2); ctx.translate(-2500, -(by2 + bh2 / 2));
+        ctx.shadowColor = rgba(col, .55); ctx.shadowBlur = 40;
+        rrFill(ctx, bx2, by2, bw2, bh2, 9999, rgba(col, .92));
+        ctx.shadowBlur = 0;
+        // prism·sand 는 밝은 색이라 흰 글자가 안 읽힌다 — 밝은 판 위에는 어두운 잉크.
+        txt(ctx, lb, bx2 + bw2 / 2, by2 + bh2 / 2, 52, 700, NEU.inkDark,
+            { ls: -1.73, align: 'center', base: 'middle' });
+        ctx.restore();
+      }
     }
     if (isLive) {
       // 콤보 = 배지 → '나' 카운터에 붙는 지속 상태. 하단 중앙을 비우고 내 기록 옆에 세운다.
