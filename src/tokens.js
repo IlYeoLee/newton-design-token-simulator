@@ -412,6 +412,12 @@ export function applyMarkLook(part = {}) {
   //   FXP.mark.halo / FXP.arrow.w 를 30Hz 로 직접 읽으므로 값만 옮기면 즉시 따라온다.
   if (part.halo != null) FXP.mark.halo = part.halo;
   if (part.w != null) { FXP.mark.core = part.w; if (FXP.arrow) FXP.arrow.w = part.w; }
+  // ★ 마크 재질의 라이브 소스는 MARK_LOOK 이다(아래 per-frame 주입) — 여길 안 갱신해서
+  //   footlab 토큰 공통(uW·uHalo·uPool·uNoise)이 시뮬 발자국에 실시간 반영이 안 됐다(유저).
+  if (part.w != null) MARK_LOOK.core = part.w;
+  if (part.halo != null) MARK_LOOK.halo = part.halo;
+  if (part.pool != null) MARK_LOOK.pool = part.pool;
+  if (part.noise != null) MARK_LOOK.wobble = part.noise;
   // 프림 고유 값(footlab 전용 슬라이더: 코멧 크기·꼬리·레일·노드) — 세션 tick 이 FXP.prims 를 읽는다
   if (part.prims) {
     FXP.prims = FXP.prims || {};

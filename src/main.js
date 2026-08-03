@@ -4381,7 +4381,9 @@ void main(){
   // 빌드 스탬프 — 캐시된 구버전 확인용 + 실시간 진단(스테이지·탭·차단 사유).
   //   유저 화면 스크린샷 한 장으로 '버튼이 죽었는지 / next 가 막혔는지'를 판독하기 위한 계기판.
   {
+    document.querySelectorAll('.nt-diag').forEach(el => el.remove());   // HMR 잔재 계기판 제거
     const bs = document.createElement('div');
+    bs.className = 'nt-diag';
     bs.style.cssText = 'position:absolute;bottom:4px;left:306px;z-index:29;font-size:11px;color:rgba(160,166,176,.9);pointer-events:none;font-family:monospace;background:rgba(0,0,0,.35);padding:2px 6px;border-radius:4px';
     document.body.appendChild(bs);
     let tapN = 0, nextN = 0;
@@ -5432,6 +5434,11 @@ void main(){
   const FRAME_W = 2600, FRAME_H = 1600;   // 디자인 대지 px (벽 2.6×1.6m 실측 1:1) — 모든 DESIGN_FRAMES 뷰는 이 대지로 저작
   const cssRenderer = new CSS3DRenderer();
   Object.assign(cssRenderer.domElement.style, { position: 'fixed', pointerEvents: 'none', zIndex: '6' });
+  // ★ HMR 재실행 잔재 청소 — 이전 실행이 남긴 CSS3D 레이어가 새 레이어 '위'에 떠서
+  //   이전 스테이지 화면이 얼어붙은 채 보인다(유저 블랙박스: 세션 A1 · 지면 A2/READY 고착의 정체).
+  //   새 탭은 잔재가 없어 재현이 안 됐고, 리로드를 여러 번 거친 탭일수록 쌓였다.
+  document.querySelectorAll('.nt-css3d').forEach(el => el.remove());
+  cssRenderer.domElement.classList.add('nt-css3d');
   document.body.appendChild(cssRenderer.domElement);   // 크기·위치는 매 프레임 WebGL 캔버스에 정합(아래 renderDesignFrame)
   const frameIframe = document.createElement('iframe');
   frameIframe.setAttribute('scrolling', 'no');
