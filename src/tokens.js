@@ -27,6 +27,7 @@ uniform sampler2D uNumTex; uniform float uNumOn, uNumScale; uniform vec2 uNumOff
 uniform float uW, uHalo, uNoise;
 ` + MARK_GLSL + `
 uniform float uPhase, uProg, uFade, uStrong, uTime, uGain, uDay, uOut, uToe;
+uniform float uStatePrev, uPrevProg, uXfade;   // 상태 크로스페이드(0.28s) — 이전 상태·진행·혼합량
 uniform vec3 uFPOrigin, uFPFwd, uFPRight;
 uniform float uFPNear, uFPFar, uFPHalfN, uFPHalfF, uFPFadeM;
 uniform vec3 uUIOrigin, uUIFwd, uUIRight;
@@ -74,6 +75,16 @@ void main() {
   float breath = smoothstep(0.10, 0.88, fract(uTime * 0.45));
   float prog = uPhase < 0.5 ? max(breath, max(uStrong, uProg)) : clamp(uProg, 0.0, 1.0);
   vec4 r = markState(uv, st, prog, uStrong, uTime);
+  // ── 상태 크로스페이드(유저: 색만 띡 하고 바뀜) — 이전 상태를 한 번 더 평가해 0.28s 이지로 섞는다.
+  //   markState 는 순수 함수라 두 번 호출이 안전하고, 전환이 끝나면(uXfade 1) 비용 0.
+  if (uXfade < 0.999) {
+    float stP = uStatePrev < 0.5 ? 0.0 : uStatePrev < 1.5 ? 1.0 : uStatePrev < 2.5 ? 3.0
+              : uStatePrev < 3.5 ? 6.0 : uStatePrev < 4.5 ? 4.0 : uStatePrev < 5.5 ? 2.0 : 5.0;
+    float progP = uStatePrev < 0.5 ? max(breath, uStrong) : clamp(uPrevProg, 0.0, 1.0);
+    vec4 rp = markState(uv, stP, progP, uStrong, uTime);
+    float k = smoothstep(0.0, 1.0, clamp(uXfade, 0.0, 1.0));
+    r = mix(rp, r, k);
+  }
   // ── 하프톤 스킨 (uHT) — FX Lab 후보랩에서 확정한 '그라디언트 + 하프톤 마스크' ─────────
   //   정본 색(OKLab 램프)은 그대로 두고 균일한 점으로 뚫는다. 재현이 아니라 이식이다.
   //   ★ 알파를 r 에서 받지 않는다. r 의 알파는 경계에서 급히 끊겨, 그걸 곱하면 경계에 걸친
@@ -325,6 +336,7 @@ export function makeMarkFXMaterial(footTex = null) {
       uEdgeShade: { value: LOOK.edgeShade }, uEdgeW: { value: LOOK.edgeW * SF }, uEdgeSoft: { value: LOOK.edgeSoft },
       uEdgeShadeW: { value: LOOK.edgeShadeW ?? 1 }, uEdgeShadeCol: { value: LOOK.edgeShadeCol ?? 0 },
       uIceOld: { value: 0 },   // 1 = 구(하늘) 램프 미리보기 — applyMarkLook 으로 토글
+      uStatePrev: { value: 0 }, uPrevProg: { value: 0 }, uXfade: { value: 1 },   // 상태 크로스페이드
       uEdgeShadeGrad: { value: LOOK.edgeShadeGrad ?? 0 }, uEdgeShadeG0: { value: LOOK.edgeShadeG0 ?? 1 }, uEdgeShadeG1: { value: LOOK.edgeShadeG1 ?? 0.55 },
       // 음영 적열 블룸 — 음영 자리에 뉴턴 RED 를 넓게 깐다(유저: 바닥에 가장 빨간 색이 부족하다).
       //   ?? 기본값은 옛 mark-look.json(키가 없는 저장본)에서도 NaN 이 안 나게 하는 안전판이다.
@@ -419,6 +431,7 @@ export const COLORS = {
 const FADE_STEPS = [1.0, 0.75, 0.55, 0.38];   // 뒤 순번 파스텔 워시 완화 — 랩 대비 '뿌연 컬러' 주범 1
 // 1인칭(러너 눈): 바닥 그래픽이 시선 각도에서 수직으로 눌려 감쇠가 증발 —
 // 뒤 순번 감쇠를 완화한 전용 계단 + 전체 게인 보정 (setFp가 fpGain 스위치)
+const XFADE_ON = (typeof location === 'undefined') || new URLSearchParams(location.search).get('xfade') !== '0';
 const FADE_STEPS_FP = [1.0, 0.78, 0.58, 0.42];
 let FP_VIEW = false;
 export function setFPView(on) { FP_VIEW = !!on; }
@@ -705,7 +718,19 @@ export class Marker {
     if (this.fx.visible) {
       const U = this.fx.material.uniforms;
       U.uTime.value = performance.now() / 1000;
-      U.uPhase.value = phase === 'preview' ? 0 : phase === 'countdown' ? 1 : phase === 'locked' ? 3 : phase === 'miss' ? 4 : 2;
+      const _pn = phase === 'preview' ? 0 : phase === 'countdown' ? 1 : phase === 'locked' ? 3 : phase === 'miss' ? 4 : 2;
+      // 킬스위치: ?xfade=0 — 크로스페이드가 특정 GPU 에서 문제를 일으키면 재빌드 없이 끈다
+      if (U.uPhase.value !== _pn && XFADE_ON) {   // 상태 전환 — 이전 상태를 0.28s 크로스페이드(유저: 띡 전환)
+        U.uStatePrev.value = U.uPhase.value;
+        U.uPrevProg.value = U.uProg.value;
+        this._xfT = nowP;
+      }
+      U.uPhase.value = _pn;
+      if (this._xfT != null) {
+        const xe = (nowP - this._xfT) / 0.28;
+        U.uXfade.value = xe >= 1 ? 1 : xe;
+        if (xe >= 1) this._xfT = null;
+      }
       U.uProg.value = progress;
       U.uFade.value = fade;
       U.uStrong.value = this.strongPreview ? 1 : 0;
