@@ -115,10 +115,11 @@ function frames(src, align) {
   return dir;
 }
 
-/** [s,e] 를 정확히 NF 프레임으로 리샘플. 등속이 아니라 ease-in-out —
- *  실제 슬립은 가속했다 감속한다. 등속으로 붙이면 로봇처럼 보인다.
- *  원본의 속도 곡선을 여기서 버리므로, 역재생한 소스를 써도 역재생 티가 남지 않는다. */
-function seg(src, s, e, tag, ease = true, align = null) {
+/** [s,e] 를 정확히 NF 프레임으로 리샘플.
+ *  ★ 등속(ease=false)이 기본이다. ease-in-out 을 걸었더니 양끝(느린 구간)에서 같은 원본
+ *  프레임을 여러 번 집어 26~30% 가 중복 프레임이 됐고 그게 '뚝뚝 끊김'으로 보였다(유저).
+ *  소스에 이미 자연스러운 가감속이 들어 있으므로 등속으로 뽑아야 그 곡선이 그대로 산다. */
+function seg(src, s, e, tag, ease = false, align = null) {
   const dir = frames(src, align), lines = [];
   for (let i = 0; i < NF; i++) {
     const u = NF === 1 ? 0 : i / (NF - 1);
@@ -164,12 +165,12 @@ const alLR = alignTo(LR, winLR[0]), alRL = alignTo(RL, winRL[1]);   // 둘 다 '
 
 const parts = [
   seg(A, 0, sA, 'intro', false),                       // 인트로 = 중립 정면에서 가드 올리기(등속)
-  seg(A, sA, eA, 'b1'),                                // 1 좌
-  seg(LR, winLR[0], winLR[1], 'b2', true, alLR),       // 2 우
-  seg(RL, winRL[0], winRL[1], 'b3', true, alRL),       // 3 좌
-  seg(LR, winLR[0], winLR[1], 'b4', true, alLR),       // 4 우
-  seg(RL, winRL[0], winRL[1], 'b5', true, alRL),       // 5 좌
-  seg(LR, winLR[0], winLR[1], 'b6', true, alLR),       // 6 우
+  seg(A, sA, eA, 'b1', false),                                // 1 좌
+  seg(LR, winLR[0], winLR[1], 'b2', false, alLR),       // 2 우
+  seg(RL, winRL[0], winRL[1], 'b3', false, alRL),       // 3 좌
+  seg(LR, winLR[0], winLR[1], 'b4', false, alLR),       // 4 우
+  seg(RL, winRL[0], winRL[1], 'b5', false, alRL),       // 5 좌
+  seg(LR, winLR[0], winLR[1], 'b6', false, alLR),       // 6 우
 ];
 const cl = path.join(tmp, 'all.txt');
 writeFileSync(cl, parts.map(p => `file '${p.replace(/\\/g, '/')}'`).join('\n') + '\n');

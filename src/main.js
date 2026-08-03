@@ -121,18 +121,11 @@ async function boot() {
   const sceneUI = new SceneUI(scene, WALL_Z);
   sceneUI.setClip(rig.floorClip, rig.wallClip);
 
-  // 판정 색상 피드백: 착지점 도트만 (프리즘/샌드/무음 그레이).
-  // 판정 버스트는 제거 — 마크 발화 버스트와 이중 발사였고, t=0 이벤트의 판정이
-  // 랩 직후 확정되며 매 루프 화면 번쩍임을 만들던 진범.
+  // 판정 색상 피드백 = 마크 토큰이 전담한다(성공 채움 + 파형). 여기서 따로 그리지 않는다.
+  //   구 '착지점 도트'(effects.dot · #d1feff) 제거 — 판정 좌표를 찍어 보던 실측기 잔재라,
+  //   인물 발밑에 정체불명의 옅은 청록 원이 상시로 떠 있었다(유저: 처음 보는 터치영역 같은 게 왜 있냐).
+  //   되살리려면 effects.dot(dotPos, col, n) 한 줄이면 된다(도트 헬퍼는 effects.js 에 그대로 있다).
   judge.onVerdict = (ev, verdict, best, terr) => {
-    const col = verdict === 'hit' ? 0xd1feff : verdict === 'near' ? 0xfec389 : 0x9b9b9b;
-    const n = ev.surface === 'wall' ? new THREE.Vector3(0, 0, 1) : new THREE.Vector3(0, 1, 0);
-    if (best) {
-      const dotPos = ev.surface === 'wall'
-        ? new THREE.Vector3(best.px, best.p2, WALL_Z + 0.03)
-        : new THREE.Vector3(best.px, 0.016, best.p2);
-      effects.dot(dotPos, col, n);
-    }
     // 실전 다운시프트: 세션 라이브 중 연속 Miss 누적 → 익히기 복귀
     session.reportVerdict(verdict, terr, best);
   };
@@ -3152,7 +3145,11 @@ void main(){
           float faceW;
           if (uFace.z > 0.0) {
             vec2 fd = (uv - uFace.xy) / max(uFace.zw, vec2(1e-4));
-            faceW = 1.0 - smoothstep(0.70, 1.0, length(fd));
+            //   ★ 램프를 아주 넓게 편다. 0.70~1.00(반경의 30%)으로 뒀더니 경계가 선으로 보여
+            //   히잡·모자를 쓴 것처럼 읽혔다(유저). 위 밴드 주석이 경고한 함정을 그대로 밟은 것 —
+            //   얼굴 은닉은 룩을 크게 바꾸므로 전이 구간이 짧으면 smoothstep 이라도 단차로 보인다.
+            //   0.45~1.40 = 반경의 95% 를 페이드에 쓴다. 중심은 완전히 가리고 가장자리는 스며든다.
+            faceW = 1.0 - smoothstep(0.45, 1.40, length(fd));
           } else {
             faceW = smoothstep(0.56, 0.96, uv.y) * (1.0 - smoothstep(0.99, 1.0, uv.y));
           }
@@ -3359,6 +3356,13 @@ void main(){
     //   같은 클립이면 setGhostClip 이 조기 반환해 영상은 계속 흐른다 → 두 시계가 어긋난다.
     //   '코치가 지금 무슨 자세인가'는 영상 시계만 안다.
     session.clipT = on && demoVideo.duration ? (demoVideo.currentTime || 0) : null;
+    // 코치 머리의 가로 위치(영상 정규 0..1)도 같이 넘긴다. 회피 스테이지가 '위협은 머리 반대편'을
+    //   시간(비트표)이 아니라 **지금 머리가 어디 있는지**로 정하게 하려는 것 — 시계가 한 틱만
+    //   어긋나도 마크가 머리와 같은 쪽에 서던 문제의 근본 해결(유저 3회 지적).
+    if (session.clipT != null && faceTrack) {
+      const i = Math.max(0, Math.min(faceTrack.rows.length - 1, Math.round(session.clipT * faceTrack.fps)));
+      session.clipHeadX = faceTrack.rows[i].x;
+    } else session.clipHeadX = null;
     // 클립 소스 미리보기 카드 = 개발용 진단(파일명·반입 여부). 제품 뷰에선 숨긴다(유저).
     const devNow = document.body.classList.contains('dev');
     ghostPrev.style.display = (on && devNow) ? 'block' : 'none';
@@ -3890,8 +3894,11 @@ void main(){
     // BX_C2(잽 대련)도 제외 — 판정은 벽의 수축 링이 전담한다. 팩 마크가 같이 떠 있으면
     //   바닥 고정 마크 하나가 '실질적으로 때리는 곳'으로 읽힌다(유저 스샷).
     if (session.active) tokens.floorRoot.visible = session.isLive && session.stage !== 'BK_C4' && session.stage !== 'BX_C2';
-    if (session.active && session.stage === 'BX_C2') tokens.wallRoot.visible = false;
-    else if (session.active) tokens.wallRoot.visible = true;
+    // BX_C3(잽·잽·훅)도 같은 이유로 제외 — 마크는 1·2·3 한 컴포넌트(펀치라인 + 수축 링)가 전담한다.
+    //   팩 마크가 같이 뜨면 화면 아래에 숫자 원이 하나 더 서고 파문도 거기서 터져,
+    //   '연달아 있는 컴포넌트'와 위치·타이밍·크기가 전부 따로 논다(유저 스샷 3회).
+    const PACK_WALL_OFF = session.stage === 'BX_C2' || session.stage === 'BX_C3';
+    if (session.active) tokens.wallRoot.visible = !PACK_WALL_OFF;
     // 스톰프 프레스 스테이지: 봇을 뒤로 당겨 착지(전방 0.38m)가 프레스 원 위에 정확히 떨어지게
     if (session.active && !session.isLive && data.sport !== 'boxing') {
       // A2 런지: 봇을 뒤로 당겨 전방 착지가 프레스 원(-1.30) 위에 오게 (교대 런지 보폭 ≈0.7m 가정, 시각 검수로 보정)
