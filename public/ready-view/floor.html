@@ -3,7 +3,6 @@
      촤르륵 슬라이드인 · 타이틀 글자 루핑 · 프로그래스 차오름 · 발 탭모션(footBob) · 글로우 톤다운+드리프트. 배경 투명. -->
 <html><head><meta charset="utf-8"><style>
 @font-face{font-family:'Supreme';src:url('../fonts/Supreme-Bold.woff2') format('woff2');font-weight:700;font-display:block}
-@font-face{font-family:'OffBit';src:url('../fonts/OffBitTrial-DotBold.woff2') format('woff2');font-weight:700;font-display:block}
 @font-face{font-family:'Supreme';src:url('../fonts/Supreme-Medium.woff2') format('woff2');font-weight:500;font-display:block}
 @property --p{syntax:'<number>';inherits:false;initial-value:0}
 *{margin:0;padding:0;box-sizing:border-box}
@@ -19,8 +18,8 @@ html,body{background:transparent}
 /* 크리에이터 헤더 = pyeongso .creator-profile (creator.css) 정본 이식 — ×3.0
    (아바타 101→303 · 테두리 2→6 · 캡션 14→42 · 칩 15→45/패딩 4·8→12·24/radius 12→36 · gap 10→30).
    유저: 시작 전 화면 스타일을 모바일 팩 상세와 맞춘다 — 얼굴 + 캡션 + 이름 칩. */
-.pack{position:absolute;top:290px;left:50%;transform:translateX(-50%);width:230px;height:230px;
-  border-radius:50%;overflow:hidden;border:4px solid #fff;box-sizing:border-box;
+.pack{position:absolute;top:250px;left:50%;transform:translateX(-50%);width:303px;height:303px;
+  border-radius:50%;overflow:hidden;border:6px solid #fff;box-sizing:border-box;
   opacity:0;animation:fadeUpCentered .8s cubic-bezier(.2,.75,.2,1) .12s both}
 .pack img{width:100%;height:100%;object-fit:cover;display:block}
 
@@ -35,14 +34,10 @@ html,body{background:transparent}
    남기는 기준: ① 틀리면 다치는 것(부상·컨디션) ② 지금 바뀔 수 있는 것(기기) ③ 행동.
    뺀 것: Location(지금 그 장소에 서 있다) · Level/Mode(첫 동작에서 체감) · Total 시간 구성.
    ※ 부상·컨디션 줄(.warn)은 조건부 — None·Usual 이면 줄 자체가 없다. 평소 4덩어리, 주의 시 5. */
-.today{position:absolute;top:784px;left:0;right:0;text-align:center;white-space:nowrap;
+.today{position:absolute;top:790px;left:0;right:0;text-align:center;white-space:nowrap;
   font-family:'Supreme',sans-serif;font-weight:400;font-size:46px;letter-spacing:-1.4px;
   color:rgba(255,255,255,.55);
   opacity:0;animation:slideInUp .8s cubic-bezier(.2,.75,.2,1) .4s both}
-/* 비용 줄 — 'Today · Standard' 같은 자명한 라벨 대신 몸이 치를 비용(거리·시간)만.
-   숫자 = 도트(OffBit) 조판 규약(타이머·카운터와 동일) · 단위 = 본문 회색. */
-.today b{font-family:'OffBit';font-weight:700;font-size:58px;color:rgba(255,255,255,.92);
-  letter-spacing:0;vertical-align:-2px}
 
 /* 기기 연결 = 운동 전 필수 체크(유저) — .chip-row / .chip-sel (setup.css) 정본을 자기 줄로.
    '컨디션'과는 다른 정보라 상태 줄에 섞지 않고, 발 구르기 직전에 확인하는 조건이므로 CTA 바로 위. */
@@ -63,13 +58,13 @@ html,body{background:transparent}
    달아 '지시문 덩어리'로 읽히게 한다. 비율은 모바일 그대로(s/m = 14/28 = 0.5, gap 8/28),
    절대 크기는 지면 타입스케일 유지(m 88) — 지면은 판이 물리적으로 커서 ×4.44 가 아니다.
    글로우+발 조합은 이 화면의 시그니처라 그대로 둔다(유저). */
-.hero{position:absolute;left:50%;top:1082px;transform:translateX(-50%);width:1000px;text-align:center;
+.hero{position:absolute;left:50%;top:1057px;transform:translateX(-50%);width:1000px;text-align:center;
   display:flex;flex-direction:column;gap:19px;
   opacity:0;animation:fadeUpCentered .9s cubic-bezier(.2,.75,.2,1) .7s both}
-.hero .arrow{width:66px;height:66px;display:block;margin:0 auto 2px;animation:arrowBob 3s ease-in-out 3 1.5s}
-.hero .s{font-family:'Supreme',sans-serif;font-weight:400;font-size:36px;line-height:1.4;
+.hero .arrow{width:86px;height:86px;display:block;margin:0 auto 5px;animation:arrowBob 3s ease-in-out 3 1.5s}
+.hero .s{font-family:'Supreme',sans-serif;font-weight:400;font-size:44px;line-height:1.4;
   letter-spacing:-1.3px;color:rgba(255,255,255,.8)}
-.hero .m{font-weight:700;font-size:64px;line-height:1.2;letter-spacing:-3.4px;color:#fff}
+.hero .m{font-weight:700;font-size:88px;line-height:1.2;letter-spacing:-4.7px;color:#fff}
 .foot{position:absolute;left:606px;top:1140px;width:400px;height:539px;
   opacity:0;animation:slideInUp .9s cubic-bezier(.2,.75,.2,1) .7s both}
 .foot img{width:100%;height:100%;display:block;transform-origin:50% 100%;
@@ -88,8 +83,6 @@ html,body{background:transparent}
 @keyframes footBob{0%,58%,100%{transform:translateY(0)}12%{transform:translateY(46px)}25%{transform:translateY(6px)}40%{transform:translateY(44px)}52%{transform:translateY(0)}}
 @keyframes arrowBob{0%,58%,100%{transform:translateY(0)}12%{transform:translateY(14px)}25%{transform:translateY(0)}40%{transform:translateY(13px)}52%{transform:translateY(0)}}
 /* 글로우 숨쉬기 + 드리프트 */
-@keyframes fadeInScale{from{opacity:0;transform:translate(-50%,-50%) scale(.85)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
-@keyframes ringSpin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
 @keyframes glowLive{0%,100%{transform:translate(0,0) scale(1);opacity:.85}50%{transform:translate(-16px,10px) scale(1.06);opacity:1}}
 </style></head><body>
   <div id="board">
@@ -101,20 +94,17 @@ html,body{background:transparent}
 
     </div>
 
-    <p class="today"><b>5.0</b> km · <b>30</b> min</p>
+    <p class="today">Today · 5.0km · Standard</p>
 
     <!-- 기기 연결 체크 — 연결·충전된 기기는 sel(뉴턴 그라디언트) -->
     <div class="chips">
-      <div class="chip-sel sel">Pace & Boost On</div>
-      <div class="chip-sel"><img src="assets/run/ic_watch.png">30%</div>
-    </div>
+      <div class="chip-sel sel"><img src="assets/run/ic_glasses.png">90%</div>
       <div class="chip-sel"><img src="assets/run/ic_watch.png">30%</div>
       <div class="chip-sel"><img src="assets/run/ic_earbuds.png">60%</div>
     </div>
 
     <div class="hero">
       <img class="arrow" src="assets/run/arrow.svg" alt="">
-      <span class="s">To start</span>
       <span class="m">Tap your foot Twice</span>
     </div>
     <div class="foot"><img src="assets/run/foot.svg" alt=""></div>
