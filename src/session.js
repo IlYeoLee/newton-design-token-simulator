@@ -1648,7 +1648,11 @@ export class Session {
     // 지면/벽 슬롯 전환
     const wall = !!st.wall;
     [this.slotFS, this.slotFL, this.slotFM].forEach(s => s.visible = !wall);
-    [this.wSlotFS, this.wSlotFL, this.wSlotFM].forEach(s => s.visible = wall);
+    // ★ 벽 텍스트 슬롯은 항상 숨김 — wallgl.js 캔버스 UI 가 정본이다. 예전엔 여기서
+    //   visible = wall 로 스테이지마다 다시 켜서, 셋업에서 끈 게 매번 덮어써졌다
+    //   (유저 08-03: '넥앤숄더'·'회피 슬립' 등 모든 복싱 씬에 한글이 겹쳐 나옴).
+    //   호출부(FS/FL/FM)는 그대로 두고 표시만 막는다 — 되살릴 여지를 남긴다.
+    [this.wSlotFS, this.wSlotFL, this.wSlotFM].forEach(s => s.visible = false);
 
     if (wall) {
       const W = (slot, t, opts) => this._slotWall(slot, t, opts);
