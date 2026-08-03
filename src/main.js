@@ -4661,6 +4661,11 @@ void main(){
         }
       };
       sweep();
+      // ★ 제품 뷰 CSS 가 #stage 에 패널 자리 마진(좌 326·우 320)을 남긴다 — 패널을 숨겨도
+      //   마진은 남아 캔버스가 창−646px 로 잠긴다(유저: "노트북에서 너무 안 보여"의 절반).
+      //   씬 스테이지는 캔버스 조상 마진을 전부 걷어 창 전체를 쓴다.
+      for (let n = renderer.domElement.parentElement; n && n !== document.body; n = n.parentElement)
+        n.style.setProperty('margin', '0', 'important');
       // 패널을 display:none 해도 resize 이벤트는 안 온다 → renderer 가 부팅 시(패널 열림) 크기로
       // 남아 캔버스가 CSS 로 늘려지거나 우측 검은 띠가 생긴다(화질 열화의 정체). 숨긴 직후 재측정.
       window.dispatchEvent(new Event('resize'));
@@ -4762,11 +4767,14 @@ void main(){
       camera.fov = 9 * (A.zoom || 1); camera.position.set(cx, cy, wz + dist);
       camera.lookAt(cx, cy, wz);
     } else {
-      const cz = -1.3 + (A.tilt || 0), cover = 1.4;   // 바닥 토큰 존 중심·반경
-      const dist = cover / Math.tan(THREE.MathUtils.degToRad(half)) * (A.dolly || 1);
-      camera.fov = 9 * (A.zoom || 1); camera.up.set(0, 0, -1);
-      camera.position.set(A.pan || 0, dist, cz);
-      camera.lookAt(A.pan || 0, 0, cz);
+      // 수직 탑다운은 세로로 긴 빔 레인이 와이드 화면에서 가는 스트립으로만 남는다(유저:
+      // "노트북에서 너무 안 보여"). 기본 평면 뷰 = 뒤·위 3/4 앵글 — 레인이 원근으로
+      // 화면을 채우고 바닥 텍스트 방향도 유지된다. tilt 슬라이더 = 존 중심 앞뒤 이동 유지.
+      const cz = -1.3 + (A.tilt || 0);
+      const k = A.dolly || 1;
+      camera.fov = 26 * (A.zoom || 1); camera.up.set(0, 1, 0);
+      camera.position.set(A.pan || 0, 2.9 * k, cz + 3.0 * k);
+      camera.lookAt(A.pan || 0, 0, cz - 0.5);
     }
     camera.updateProjectionMatrix();
     FX.exposure = A.exposure ?? 1;          // 노출
