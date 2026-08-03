@@ -12,7 +12,8 @@
 <stop offset="0.734376" stop-color="#FA3030"/>
 <stop offset="0.734476" stop-color="#FE6E3C"/>
 <stop offset="0.870866" stop-color="#FEC389"/>
-<stop offset="1" stop-color="#D1FEFF"/>
+<stop offset="0.945" stop-color="#D1FEFF" stop-opacity="0.5"/>
+<stop offset="1" stop-color="#D1FEFF" stop-opacity="0"/>
 </radialGradient>
 </defs>
 </svg>
