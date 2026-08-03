@@ -39,13 +39,13 @@
   "ripCol": 1,
   "gShadow": "none",
   "gBlend": "add",
-  "numSrc": "glyph",
+  "numSrc": "offbit",
   "prog": 0.55,
   "bloom": 0.125,
   "blur": 0,
   "edgeShadeW": 1,
   "edgeShadeCol": 2,
   "edgeShadeGrad": 0,
-  "edgeShadeG0": 1.0,
+  "edgeShadeG0": 1,
   "edgeShadeG1": 0.55
 }

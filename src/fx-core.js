@@ -941,9 +941,10 @@ vec4 markState(vec2 uv, float state, float prog, float strong, float t){
     float shW = max(uEdgeW * 0.9 * clamp(uEdgeShadeW, 0.05, 6.0), 1e-4);
     float ins = exp(-pow(max(-sd, 0.0) / shW, 1.1)) * inside;
     // 섀도우 색 = 팔레트 단색(uEdgeShadeCol) ↔ 뉴턴 LUT 그라디언트(uEdgeShadeGrad).
-    //   그라디언트는 경계(G0)→안쪽(G1)으로 LUT 를 훑는다 — 색을 새로 만들지 않는다(팔레트 규약).
-    float shDep = clamp(max(-sd, 0.0) / shW, 0.0, 1.0);
-    vec3 shCol = mix(palPick(uEdgeShadeCol), lut(mix(uEdgeShadeG0, uEdgeShadeG1, shDep)), clamp(uEdgeShadeGrad, 0.0, 1.0));
+    //   그라디언트는 **라인을 따라** 흐른다(유저: 깊이 방향이 아니라 윤곽선 자체에 아름답게) —
+    //   앞꿈치(G0)→뒤꿈치(G1)로 발 길이 방향을 LUT 로 훑는다. 색을 새로 만들지 않는다(팔레트 규약).
+    float shAlong = clamp(uv.y * 0.5 + 0.5, 0.0, 1.0);
+    vec3 shCol = mix(palPick(uEdgeShadeCol), lut(mix(uEdgeShadeG0, uEdgeShadeG1, shAlong)), clamp(uEdgeShadeGrad, 0.0, 1.0));
     lay(A, shCol, ins * uEdgeShade);
   }
   if (holdA > 0.001) lay(A, holdC, holdA);   // 진행 아크를 섀도우 위로 — 덮이지 않게
