@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="ko">
 <head>
 <meta charset="utf-8">
@@ -7,20 +7,36 @@
 <style>
   * { margin: 0; box-sizing: border-box; }
   body { display: flex; height: 100vh; background: #000; color: #eee; font-family: -apple-system, 'Noto Sans KR', sans-serif; }
-  aside { width: 220px; padding: 18px 14px; background: #0d0d0d; border-right: 1px solid #1c1c1c; flex: none;
+  aside { width: 240px; padding: 18px 14px 40px; background: #0d0d0d; border-right: 1px solid #1c1c1c; flex: none;
     display: flex; flex-direction: column; gap: 2px; transition: margin .25s ease; overflow-y: auto; }
-  body.closed aside { margin-left: -220px; }
+  body.closed aside { margin-left: -240px; }
   #toggle { position: fixed; left: 10px; top: 10px; z-index: 10; width: 34px; height: 34px; border-radius: 9px;
     border: 1px solid #2a2a2a; background: rgba(15,15,15,.8); color: #ddd; font-size: 15px; cursor: pointer;
     backdrop-filter: blur(6px); padding: 0; text-align: center; }
-  body:not(.closed) #toggle { left: 230px; }
+  body:not(.closed) #toggle { left: 250px; }
   h1 { font-size: 15px; font-weight: 800; letter-spacing: -0.01em; margin: 2px 4px 10px; }
   h1 span { color: #fa3030; }
-  h2 { font-size: 11px; font-weight: 700; color: #777; letter-spacing: .08em; margin: 12px 6px 4px; }
+  h2 { font-size: 11px; font-weight: 700; color: #777; letter-spacing: .08em; margin: 14px 6px 4px; }
   button.s { display: block; width: 100%; text-align: left; padding: 7px 10px; border: 0;
     border-radius: 8px; background: transparent; color: #ccc; font-size: 13px; font-weight: 500; cursor: pointer; }
   button.s:hover { background: #1c1c1c; }
   button.s.on { background: #fa3030; color: #fff; font-weight: 700; }
+  button.s.saved::after { content: '●'; float: right; color: #4a9; font-size: 9px; }
+  button.act { width: 100%; margin: 4px 0; padding: 7px; border: 1px solid #2a2a2a; border-radius: 8px;
+    background: #161616; color: #ddd; font-size: 12px; cursor: pointer; }
+  button.act:hover { background: #202020; }
+  button.act.pri { background: #fa3030; border-color: #fa3030; color: #fff; font-weight: 700; }
+  select { width: 100%; margin: 2px 0 8px; padding: 6px; border-radius: 8px; background: #161616; color: #ddd;
+    border: 1px solid #2a2a2a; font-size: 12px; }
+  input[type=range] { width: 100%; }
+  .lb { font-size: 11px; color: #777; margin: 6px 4px 2px; }
+  #objs { max-height: 190px; overflow-y: auto; border: 1px solid #1c1c1c; border-radius: 8px; padding: 4px 6px; }
+  #objs label { display: flex; gap: 6px; align-items: center; font-size: 11px; color: #bbb; padding: 2px 0; cursor: pointer; }
+  #objs input { margin: 0; flex: none; }
+  #objs .n { color: #555; margin-left: auto; }
+  #msg { font-size: 11px; color: #4a9; min-height: 14px; margin: 4px; }
+  /* ★ 지우지 말 것 — 이 두 줄이 없으면 iframe 이 기본 크기(300×150)로 쪼그라든다.
+     사이드바에 컨트롤을 붙이다가 같이 날아간 적이 있다(유저: 뷰 크기가 너무 작아졌어). */
   main { flex: 1; position: relative; background: #000; }
   iframe { width: 100%; height: 100%; border: 0; display: block; }
 </style>
@@ -32,6 +48,13 @@
 </aside>
 <main><iframe id="f" src="./index.html?alpha=1&scene=BX_READY"></iframe></main>
 <script>
+  // ─────────────────────────────────────────────────────────────────────────
+  //  씬 스테이지 편집기
+  //   화면에서 씬마다 각도·크기·색·개체를 맞추고 **씬 단위로 저장**한다.
+  //   저장본은 public/_presets.json 한 곳에 모이고, 익스포터가 같은 파일을 읽는다
+  //   → 화면에서 맞춘 그대로 녹화된다(CLI 로 값을 손복사할 필요가 없다).
+  //   자세한 절차: docs/SCENE-VIDEO-PIPELINE.md §7
+  // ─────────────────────────────────────────────────────────────────────────
   const GROUPS = [
     ['복싱', [
       ['BX_READY', '가드 올리고 거리 잡기'],
@@ -52,59 +75,23 @@
       ['P1', '이지 런'],
     ]],
   ];
-  // 실사 배경 — public/_bg/ 에 넣어 둔 파일을 고르면 3D 실내 대신 그 사진 위에 투사된다.
-  //   화면에서 바로 보면서 어둡기를 맞추고, 같은 값으로 내보내면 된다.
+  //   영상 배경(.mp4)은 캔버스 뒤에 <video> 로 깔린다 — 사진과 똑같이 어둡기·합성이 먹는다.
+  //   ★ 원본 .mov 를 직접 넣지 말 것. scripts/make_bg_proxy.mjs 로 프록시를 먼저 만든다
+  //     (전 프레임 키프레임 — 이게 없으면 내보내기 시크가 프레임당 수 초로 무너진다).
   const BGS = [
     ['', '없음 (3D 실내)'],
     ['/_bg/wall.png', '벽 — 정면'],
     ['/_bg/wall_side.png', '벽 — 측면'],
+    ['/_bg/Pace_ON_Boost_On___2-2_2560.mp4', '러닝 — Pace/Boost #2-2 (영상)'],
+    ['/_bg/PRESS_ON___3-2_2560.mp4', '복싱 — PRESS ON #3-2 (영상)'],
   ];
   // 캐시 무효화 — 같은 이름으로 사진을 교체해도 브라우저가 옛 이미지를 계속 쓴다(실제로 겪음).
-  //   페이지를 열 때마다 새 토큰을 붙여 항상 최신 파일을 받는다.
+  //   페이지를 열 때마다 새 토큰을 붙여 항상 최신 파일을 받는다. 토큰은 로드당 하나라
+  //   슬라이더를 만져도 URL 은 안 바뀐다(안 그러면 200MB 영상을 매 틱 다시 받는다).
   const V = '?v=' + Date.now();
   const bust = u => u ? u + V : '';
-  let bgUrl = '', bgDim = 0, cur = 'BX_READY';
-  // ★ alpha=1 은 **항상** 붙인다. 렌더러 알파는 생성 시점에 정해져서, 나중에 배경을 켜려면
-  //   처음부터 켜져 있어야 한다. 배경이 없을 땐 아무 영향도 없다.
-  const srcFor = s => './index.html?alpha=1&scene=' + encodeURIComponent(s)
-    + (bgUrl ? '&bg=' + encodeURIComponent(bust(bgUrl)) + '&bgdim=' + bgDim : '');
-  const list = document.getElementById('list'), f = document.getElementById('f');
-  const btns = [];
-  for (const [sport, scenes] of GROUPS) {
-    const h = document.createElement('h2'); h.textContent = sport; list.appendChild(h);
-    for (const [id, name] of scenes) {
-      const b = document.createElement('button'); b.className = 's'; b.textContent = name; b.dataset.s = id;
-      b.onclick = () => { btns.forEach(x => x.classList.toggle('on', x === b)); cur = id; f.src = srcFor(id); };
-      list.appendChild(b); btns.push(b);
-    }
-  }
-  btns[0].classList.add('on');
 
-  // ── 배경 컨트롤 ────────────────────────────────────────────────
-  const h = document.createElement('h2'); h.textContent = '배경'; list.appendChild(h);
-  const sel = document.createElement('select');
-  sel.style.cssText = 'width:100%;margin:2px 0 8px;padding:6px;border-radius:8px;background:#161616;color:#ddd;border:1px solid #2a2a2a;font-size:12px';
-  for (const [v, t] of BGS) { const o = document.createElement('option'); o.value = v; o.textContent = t; sel.appendChild(o); }
-  const lab = document.createElement('div');
-  lab.style.cssText = 'font-size:11px;color:#777;margin:0 4px 4px';
-  const rng = document.createElement('input');
-  rng.type = 'range'; rng.min = -0.6; rng.max = 0.9; rng.step = 0.05; rng.value = 0;
-  rng.style.cssText = 'width:100%';
-  const sync = () => { lab.textContent = (rng.value < 0 ? '밝게 ' : '어둡게 ') + Math.abs(Number(rng.value)).toFixed(2); };
-  // 리로드 없이 즉시 반영 — iframe 은 같은 출처라 안의 함수를 그대로 부를 수 있다.
-  //   (배경을 '없음'으로 되돌릴 때만 앱이 스스로 리로드한다 — 껐던 무대를 되살려야 해서)
-  const push = () => {
-    const w = f.contentWindow;
-    if (w?.__setSceneBg) w.__setSceneBg(bust(bgUrl), bgDim);
-    else f.src = srcFor(cur);          // 아직 부팅 전이면 파라미터로 넘긴다
-  };
-  sel.onchange = () => { bgUrl = sel.value; push(); };
-  rng.oninput = () => { sync(); bgDim = Number(rng.value); push(); };
-  sync();
-  list.append(sel, lab, rng);
-
-  // ── 촬영 조정 ──────────────────────────────────────────────────
-  //   전부 리로드 없이 즉시 반영된다. '리셋'을 누르면 손대기 전 상태로 정확히 돌아간다.
+  // 슬라이더 정의 — [키, 이름, min, max, step, 기본값]
   const ADJ = [
     ['zoom',     '화각',       0.4,  2.5, 0.02, 1],
     ['pan',      '좌우',      -1.5,  1.5, 0.01, 0],
@@ -114,79 +101,214 @@
     ['bloom',    '글로우',     0,    1.5, 0.01, 0.55],
     ['uiX',      'UI 좌우',   -1.5,  1.5, 0.01, 0],
     ['uiY',      'UI 상하',   -1.5,  1.5, 0.01, 0],
+    ['uiScale',  'UI 크기',    0.3,  3,   0.01, 1],
     ['opacity',  '투사 세기',  0.1,  1,   0.01, 1],
   ];
-  // 시점 — 1인칭은 앱 토글을 그대로 쓴다(종목별 화각·VOR·1인칭 가독 보정이 딸려 온다).
-  //   러닝·농구 지면 UI 는 실제로 내려다보는 각도에서 봐야 판단이 된다.
-  const h4 = document.createElement('h2'); h4.textContent = '시점'; list.appendChild(h4);
-  const vsel = document.createElement('select');
-  vsel.style.cssText = sel.style.cssText;
-  for (const [v, t] of [['flat', '평면 (대지 1:1)'], ['fp', '1인칭 (실제 시야)']]) {
-    const o = document.createElement('option'); o.value = v; o.textContent = t; vsel.appendChild(o);
-  }
-  vsel.onchange = () => {
-    const a = f.contentWindow?.__sceneAdj;
-    if (a) a.fp = vsel.value === 'fp';
-  };
-  list.appendChild(vsel);
+  // 색 보정 — 투사(캔버스)와 배경(실사)을 따로 잡는다. 둘은 다른 광원이라 같이 만지면 한쪽이 틀어진다.
+  const GRADE = [
+    ['b', '밝기',  0.2, 2.5, 0.01, 1],
+    ['c', '대비',  0.2, 2.5, 0.01, 1],
+    ['s', '채도',  0,   3,   0.01, 1],
+    ['h', '색상', -180, 180, 1,    0],
+  ];
+  const DEF = () => ({
+    bg: '', bgdim: 0, fp: false, blend: 'normal',
+    ...Object.fromEntries(ADJ.map(([k, , , , , d]) => [k, d])),
+    grade: Object.fromEntries(GRADE.map(([k, , , , , d]) => [k, d])),
+    bgGrade: Object.fromEntries(GRADE.map(([k, , , , , d]) => [k, d])),
+    hide: [],
+  });
 
-  // 합성 — 실사 공간에 얹는 방식. screen = 가산광(프로젝터의 물리) · normal = 잉크(연출).
-  const h5 = document.createElement('h2'); h5.textContent = '합성'; list.appendChild(h5);
-  const bsel = document.createElement('select');
-  bsel.style.cssText = sel.style.cssText;
-  for (const [v, t] of [['normal', '잉크 (불투명)'], ['screen', '빛 (가산 · 벽 질감 비침)']]) {
-    const o = document.createElement('option'); o.value = v; o.textContent = t; bsel.appendChild(o);
+  const list = document.getElementById('list'), f = document.getElementById('f');
+  const el = (t, css, txt) => { const e = document.createElement(t); if (css) e.style.cssText = css; if (txt) e.textContent = txt; return e; };
+  const head = t => { list.appendChild(el('h2', '', t)); };
+  let cur = 'BX_READY';
+  let st = DEF();                 // 지금 씬의 값
+  let presets = {};               // 씬별 저장본 (public/_presets.json)
+  const msg = el('div'); msg.id = 'msg';
+  const say = (t, ms = 1600) => { msg.textContent = t; if (ms) setTimeout(() => { if (msg.textContent === t) msg.textContent = ''; }, ms); };
+
+  // ── 씬 목록 ──────────────────────────────────────────────────────────────
+  const btns = [];
+  for (const [sport, scenes] of GROUPS) {
+    head(sport);
+    for (const [id, name] of scenes) {
+      const b = el('button'); b.className = 's'; b.textContent = name; b.dataset.s = id;
+      b.onclick = () => selectScene(id);
+      list.appendChild(b); btns.push(b);
+    }
   }
-  bsel.onchange = () => {
-    const w = f.contentWindow, a = w?.__sceneAdj;
+  const srcFor = s => './index.html?alpha=1&scene=' + encodeURIComponent(s);
+
+  // ★ 저장본 로드를 반드시 기다린다. 안 기다리면 부팅 직후 씬을 누른 순간 기본값이 걸리고,
+  //   그 상태로 '저장'하면 **애써 맞춘 값이 기본값으로 덮인다**(테스트에서 실제로 날아갔다).
+  let presetsReady = null;
+  async function selectScene(id) {
+    await presetsReady;
+    cur = id;
+    btns.forEach(x => x.classList.toggle('on', x.dataset.s === id));
+    st = presets[id] ? { ...DEF(), ...structuredClone(presets[id]) } : DEF();
+    syncUI();
+    f.src = srcFor(id);           // 씬 전환은 리로드가 맞다 — 앱이 부팅 시점에 정하는 값이 있다
+    waitBoot(() => pushAll());    // 부팅되면 저장값을 통째로 다시 건다
+  }
+  // 앱이 뜰 때까지 기다린다 — __sceneAdj 가 생기면 준비된 것이다.
+  //   ★ f.onload 로는 부족하다. 로드 이후에 모듈이 돌면서 만들어지는 객체다.
+  function waitBoot(done, tries = 200) {
+    const w = f.contentWindow;
+    if (w?.__sceneAdj) return done();
+    if (tries <= 0) return say('앱이 안 뜹니다 — 새로고침해 보세요', 0);
+    setTimeout(() => waitBoot(done, tries - 1), 150);
+  }
+
+  // ── 값 밀어넣기 ──────────────────────────────────────────────────────────
+  //   __sceneAdj 는 앱이 매 프레임 읽는 살아 있는 객체다 — 대입만 하면 즉시 반영된다.
+  function adj() { return f.contentWindow?.__sceneAdj; }
+  function pushAll() {
+    const w = f.contentWindow, a = adj();
     if (!a) return;
-    a.blend = bsel.value;
-    w.__setComposite?.(a.opacity, a.blend);
-  };
-  list.appendChild(bsel);
-
-  const h3 = document.createElement('h2'); h3.textContent = '촬영 조정'; list.appendChild(h3);
-  const rows = [];
-  for (const [key, name, min, max, step, def] of ADJ) {
-    const t = document.createElement('div');
-    t.style.cssText = 'font-size:11px;color:#777;margin:6px 4px 2px';
-    const r = document.createElement('input');
-    r.type = 'range'; r.min = min; r.max = max; r.step = step; r.value = def;
-    r.style.cssText = 'width:100%';
-    const show = () => { t.textContent = name + '  ' + Number(r.value).toFixed(2); };
-    r.oninput = () => {
-      show();
-      const w = f.contentWindow, a = w?.__sceneAdj;
-      if (!a) return;
-      a[key] = Number(r.value);
-      if (key === 'opacity') w.__setComposite?.(a.opacity, a.blend);   // 합성은 캔버스 스타일
-    };
-    show(); list.append(t, r); rows.push([r, def]);
+    for (const [k] of ADJ) a[k] = st[k];
+    a.fp = st.fp; a.blend = st.blend;
+    a.grade = { ...st.grade }; a.bgGrade = { ...st.bgGrade }; a.hide = [...st.hide];
+    w.__setComposite?.(st.opacity, st.blend);
+    w.__setSceneBg?.(bust(st.bg), st.bgdim);
+    refreshObjs();
   }
-  const rst = document.createElement('button');
-  rst.textContent = '리셋';
-  rst.style.cssText = 'width:100%;margin:12px 0 4px;padding:7px;border:1px solid #2a2a2a;border-radius:8px;background:#161616;color:#ddd;font-size:12px;cursor:pointer';
-  rst.onclick = () => {
-    const a = f.contentWindow?.__sceneAdj;
-    for (const [r, def] of rows) { r.value = def; r.dispatchEvent(new Event('input')); }
-    if (a) { Object.assign(a, { zoom: 1, pan: 0, tilt: 0, dolly: 1, exposure: 1, bloom: 0.55, uiX: 0, uiY: 0, opacity: 1, blend: "normal", fp: false }); vsel.value = "flat"; bsel.value = "normal"; f.contentWindow?.__setComposite?.(1, "normal"); }
+  function pushKey(k) {
+    const a = adj(); if (!a) return;
+    a[k] = st[k];
+    if (k === 'opacity') f.contentWindow.__setComposite?.(st.opacity, st.blend);
+  }
+
+  // ── 배경 ─────────────────────────────────────────────────────────────────
+  head('배경');
+  const bgSel = el('select');
+  for (const [v, t] of BGS) { const o = el('option'); o.value = v; o.textContent = t; bgSel.appendChild(o); }
+  bgSel.onchange = () => { st.bg = bgSel.value; f.contentWindow?.__setSceneBg?.(bust(st.bg), st.bgdim); };
+  const dimLab = el('div', '', ''); dimLab.className = 'lb';
+  const dimRng = el('input'); dimRng.type = 'range'; dimRng.min = -0.6; dimRng.max = 0.9; dimRng.step = 0.05;
+  dimRng.oninput = () => {
+    st.bgdim = +dimRng.value;
+    dimLab.textContent = (st.bgdim < 0 ? '밝게 ' : '어둡게 ') + Math.abs(st.bgdim).toFixed(2);
+    f.contentWindow?.__setSceneBg?.(bust(st.bg), st.bgdim);
   };
-  list.appendChild(rst);
-  // 값 표시용 — 지금 설정을 내보내기 명령으로 그대로 옮길 수 있게
-  const dump = document.createElement('button');
-  dump.textContent = '지금 값 복사';
-  dump.style.cssText = rst.style.cssText;
-  dump.onclick = () => {
-    const a = f.contentWindow?.__sceneAdj || {};
-    const s = `--scene ${cur}` + (bgUrl ? ` --bg <파일> --bgdim ${bgDim}` : '')
-      + ` --zoom ${a.zoom} --pan ${a.pan} --tilt ${a.tilt} --dolly ${a.dolly}`
-      + ` --exposure ${a.exposure} --bloom ${a.bloom}`
-      + ` --uix ${a.uiX} --uiy ${a.uiY} --opacity ${a.opacity} --blend ${a.blend}${a.fp ? " --fp" : ""}`;
+  list.append(bgSel, dimLab, dimRng);
+
+  // ── 시점 · 합성 ──────────────────────────────────────────────────────────
+  //   1인칭은 앱 토글을 그대로 쓴다(종목별 화각·VOR·1인칭 가독 보정이 딸려 온다).
+  //   1인칭에서도 좌우·상하·화각·UI 조정이 전부 먹는다.
+  head('시점');
+  const vSel = el('select');
+  for (const [v, t] of [['flat', '평면 (대지 1:1)'], ['fp', '1인칭 (실제 시야)']]) {
+    const o = el('option'); o.value = v; o.textContent = t; vSel.appendChild(o);
+  }
+  vSel.onchange = () => { st.fp = vSel.value === 'fp'; const a = adj(); if (a) a.fp = st.fp; };
+  list.appendChild(vSel);
+
+  head('합성');
+  const bSel = el('select');
+  for (const [v, t] of [['normal', '잉크 (불투명)'], ['screen', '빛 (가산 · 배경 질감 비침)']]) {
+    const o = el('option'); o.value = v; o.textContent = t; bSel.appendChild(o);
+  }
+  bSel.onchange = () => {
+    st.blend = bSel.value; const a = adj(); if (!a) return;
+    a.blend = st.blend; f.contentWindow.__setComposite?.(st.opacity, st.blend);
+  };
+  list.appendChild(bSel);
+
+  // ── 촬영 조정 ────────────────────────────────────────────────────────────
+  head('촬영 조정');
+  const rows = {};
+  for (const [key, name, min, max, step] of ADJ) {
+    const t = el('div'); t.className = 'lb';
+    const r = el('input'); r.type = 'range'; r.min = min; r.max = max; r.step = step;
+    r.oninput = () => { st[key] = +r.value; t.textContent = name + '  ' + st[key].toFixed(2); pushKey(key); };
+    list.append(t, r); rows[key] = [r, t, name];
+  }
+
+  // ── 색 보정 ──────────────────────────────────────────────────────────────
+  const gRows = {};
+  for (const [grp, title] of [['grade', '색 보정 — 투사'], ['bgGrade', '색 보정 — 배경']]) {
+    head(title);
+    gRows[grp] = {};
+    for (const [key, name, min, max, step] of GRADE) {
+      const t = el('div'); t.className = 'lb';
+      const r = el('input'); r.type = 'range'; r.min = min; r.max = max; r.step = step;
+      r.oninput = () => {
+        st[grp][key] = +r.value;
+        t.textContent = name + '  ' + st[grp][key].toFixed(key === 'h' ? 0 : 2);
+        const a = adj(); if (a) a[grp] = { ...st[grp] };
+      };
+      list.append(t, r); gRows[grp][key] = [r, t, name];
+    }
+  }
+
+  // ── 개체 삭제 ────────────────────────────────────────────────────────────
+  //   체크 = 화면에서 뺀다. 키는 앱의 __sceneList() 가 주는 것(이름 우선, 없으면 '#타입').
+  //   ★ 목록은 '지금 그려지는 것'이라 씬·시간에 따라 달라진다 — 갱신 버튼으로 다시 읽는다.
+  head('개체 삭제');
+  const objBox = el('div'); objBox.id = 'objs';
+  const objBtn = el('button'); objBtn.className = 'act'; objBtn.textContent = '목록 갱신';
+  objBtn.onclick = () => refreshObjs(true);
+  list.append(objBox, objBtn);
+  function refreshObjs(loud) {
+    const w = f.contentWindow;
+    const items = w?.__sceneList?.();
+    if (!items) { if (loud) say('아직 안 떴습니다'); return; }
+    objBox.textContent = '';
+    for (const it of items) {
+      const lab = el('label');
+      const cb = el('input'); cb.type = 'checkbox'; cb.checked = st.hide.includes(it.key);
+      cb.onchange = () => {
+        st.hide = cb.checked ? [...new Set([...st.hide, it.key])] : st.hide.filter(k => k !== it.key);
+        const a = adj(); if (a) a.hide = [...st.hide];
+        if (!cb.checked) f.contentWindow.location.reload();   // 되살리려면 리로드 — 앱이 visible 을 안 되돌린다
+      };
+      lab.append(cb, el('span', '', it.key), el('span', '', '×' + it.n));
+      lab.lastChild.className = 'n';
+      objBox.appendChild(lab);
+    }
+    if (loud) say(items.length + '개');
+  }
+
+  // ── 저장 · 초기화 ────────────────────────────────────────────────────────
+  head('씬 값');
+  const saveBtn = el('button'); saveBtn.className = 'act pri'; saveBtn.textContent = '이 씬 저장';
+  saveBtn.onclick = async () => {
+    presets[cur] = structuredClone(st);
+    const r = await fetch('/__save-scene', { method: 'POST', body: JSON.stringify({ [cur]: presets[cur] }) });
+    say(r.ok ? '저장됨 ✓ — 익스포터가 이 값으로 뽑습니다' : '저장 실패: ' + await r.text(), r.ok ? 2200 : 0);
+    markSaved();
+  };
+  const rstBtn = el('button'); rstBtn.className = 'act'; rstBtn.textContent = '이 씬 초기화';
+  rstBtn.onclick = () => { st = DEF(); syncUI(); f.contentWindow.location.reload(); waitBoot(() => pushAll()); };
+  const cmdBtn = el('button'); cmdBtn.className = 'act'; cmdBtn.textContent = '내보내기 명령 복사';
+  cmdBtn.onclick = () => {
+    // 값은 전부 _presets.json 에 있다 — 명령에는 씬·해상도·길이만 남는다.
+    const s = `node scripts/export_video.mjs --scene ${cur} --play --uiscale 1 --w 2560 --fps 29.97 --dur 4 --out out/SCENE_2K`;
     navigator.clipboard?.writeText(s);
-    dump.textContent = '복사됨 ✓'; setTimeout(() => dump.textContent = '지금 값 복사', 1200);
+    say('복사됨 ✓ (나머지 값은 저장본에서 읽습니다)');
   };
-  list.appendChild(dump);
+  list.append(saveBtn, rstBtn, cmdBtn, msg);
+
+  function markSaved() { btns.forEach(b => b.classList.toggle('saved', !!presets[b.dataset.s])); }
+  // 화면 컨트롤을 st 에 맞춘다(값 → UI). 슬라이더 이벤트를 쏘지 않으므로 되먹임이 없다.
+  function syncUI() {
+    bgSel.value = st.bg; dimRng.value = st.bgdim;
+    dimLab.textContent = (st.bgdim < 0 ? '밝게 ' : '어둡게 ') + Math.abs(st.bgdim).toFixed(2);
+    vSel.value = st.fp ? 'fp' : 'flat'; bSel.value = st.blend;
+    for (const [k, [r, t, name]] of Object.entries(rows)) { r.value = st[k]; t.textContent = name + '  ' + Number(st[k]).toFixed(2); }
+    for (const [grp, ks] of Object.entries(gRows))
+      for (const [k, [r, t, name]] of Object.entries(ks)) { r.value = st[grp][k]; t.textContent = name + '  ' + Number(st[grp][k]).toFixed(k === 'h' ? 0 : 2); }
+    objBox.textContent = '';
+  }
+
   document.getElementById('toggle').onclick = () => document.body.classList.toggle('closed');
+
+  // 저장본 로드 → 첫 씬 진입
+  presetsReady = fetch('/_presets.json' + V).then(r => r.ok ? r.json() : {}).catch(() => ({}))
+    .then(p => { presets = p || {}; markSaved(); });
+  selectScene(cur);
 </script>
 </body>
 </html>
