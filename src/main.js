@@ -5452,15 +5452,9 @@ void main(){
   for (const id of ['FIN', 'BK_FIN']) {
     FLOOR_FRAMES[id] = { src: 'ready-view/floor-report.html?stage=' + id, w: 1600, h: 2670 };
   }
-  // 세션에 '프레임이 UI를 전담하는 스테이지' 집합을 넘긴다 — 이 표가 단일 출처다.
-  //   session.setStage() 가 스테이지 진입마다 옛 3D 슬롯을 다시 켜서 진입마다 1프레임씩 구버전 UI가
-  //   새고 있었다(main.js 는 다음 프레임에 껐다). 세션이 진입 시점에 바로 알아야 한다.
-  //   frameStages  = 슬롯 텍스트(FS/FL/FM)를 프레임이 대신하는 스테이지 = 프레임이 있는 전부
-  //   frameMarkOff = 발자국 마크(G)까지 프레임이 덮는 스테이지 = 시작 페이지 + 풀스크린(전환·타이머·리포트)
-  session.frameStages = new Set(Object.keys(FLOOR_FRAMES));
-  session.frameMarkOff = new Set(Object.keys(FLOOR_FRAMES).filter(id =>
-    id === 'READY' || id === 'BK_READY' ||
-    /floor-(transition|timer|report)\.html/.test(FLOOR_FRAMES[id].src)));
+  // (제거) session.frameMarkOff — 세션에 '켜지 말 스테이지' 목록을 넘기던 방식은 순서에 의존했다:
+  //   session.start() 가 여기보다 4천 줄 먼저 돌아 첫 진입에서 undefined 였고, 그 1프레임에 구버전
+  //   마크가 샜다. 지금은 세션이 진입 시 항상 끄고 main.js 가 켤 곳만 켠다(단방향, 순서 무관).
   // ── iframe 제거(검은 사각 플리커 근본): 3D 변환 아래 iframe은 내용 repaint마다 자체 프로세스가
   // 텍스처를 재래스터하고, 그 사이 컴포지터가 '불투명 검정' 폴백을 그린다(유저 녹화: 프레임 윤곽 그대로
   // 검은 사각 + 흰 타이틀만 잔존 = iframe 레이어의 알파 소실). 스로틀·쓰기차단·더블버퍼로도 경로가 남는 한
@@ -5644,8 +5638,8 @@ void main(){
         // 어깨·발·머리 존이 창 크기·벽 중심과 무관하게 인물에 정렬 (하드코딩 1.4 가정 제거).
         // z(+0.012) = 인물(demoPanel, WALL_Z+0.035) '앞'으로 — 판정 토큰이 인물에 가리지 않고 부위 지시.
         session.root.position.set(wc.cx, wc.cy - 1.4, 0.012);
-        [session.slotFS, session.slotFL, session.slotFM, session.dirSlot, session.paceLight,
-         session.countGroup, session.countRing, session.wSlotFS, session.wSlotFL, session.wSlotFM, session.wCount]
+        [session.paceLight, session.countGroup, session.countRing,
+         session.wSlotFS, session.wSlotFL, session.wSlotFM, session.wCount]
           .forEach(o => { if (o) o.visible = false; });
       } else {
         session.root.position.set(0, 0, 0);
@@ -5692,8 +5686,7 @@ void main(){
     // 프레임이 헤더(타이틀·큐·페이즈)를 담으므로 발자국 아래 3D 보조 텍스트 슬롯 전부 숨김(중복 제거, 유저).
     //   여기가 단일 출처 — 예전엔 이 블록이 if (floorShown) 안에 있어서 로딩 중엔 안 돌았다.
     if (floorWanted) {
-      [session.slotFS, session.slotFL, session.slotFM, session.dirSlot,
-       session.countGroup, session.countRing].forEach(o => { if (o) o.visible = false; });
+      [session.countGroup, session.countRing].forEach(o => { if (o) o.visible = false; });
       // 라이브(C 실전)는 _paceTick이 광점·페이스레인을 매 프레임 관리 — 프레임 켜져도 끄지 않음(러닝·판정 비주얼 유지).
       if (!session.isLive && session.paceLight) session.paceLight.visible = false;
       if (fullFrame) {
@@ -5708,8 +5701,7 @@ void main(){
     }
     // 실전(BK_C2)은 지면 프레임 타이틀만 쓰고, 세션이 그리는 위/아래 큐 텍스트는 끈다(유저).
     if (session.active && session.stage === 'BK_C2') {
-      [session.slotFS, session.slotFL, session.slotFM, session.dirSlot, session.countGroup, session.countRing]
-        .forEach(o => { if (o) o.visible = false; });
+      [session.countGroup, session.countRing].forEach(o => { if (o) o.visible = false; });
     }
     if (floorShown) {
       if (fView.src !== loadedFloorView) {
@@ -5793,8 +5785,11 @@ void main(){
       // 발자국 판정 마크(G그룹) 정렬. 시작 페이지·풀스크린 프레임=숨김.
       const stageG = session.G && session.G[session.curStage?.id];
       if (stageG) {
+        // session.setStage() 는 진입 시 G그룹을 항상 끈다(순서 의존 제거 — session.js 주석 참조).
+        //   여기가 켜는 유일한 곳이다: 시작 페이지·풀스크린이 아니면 마크는 콘텐츠라 켠다.
+        stageG.visible = !(isStartPage || fullFrame);
         if (isStartPage || fullFrame) {
-          stageG.visible = false;
+          /* 프레임이 화면 전체를 갖는다 — 정렬도 불필요 */
         } else if (session.isLive) {
           // 실전(라이브)은 세션 root가 인물 이동을 추종 — G그룹은 저작 기본(원점·무회전) 유지.
           stageG.position.set(0, 0, 0); stageG.quaternion.identity();

@@ -39,7 +39,6 @@ function ctaTexture(sport) {
 // 에디터에서 실시간 조절되는 세션 타이밍 (초)
 export const SCFG = { a1Rep: 2.0, a2Hold: 10, a3Swing: 1.55, a4Beat: 0.6, b1Beat: 0.6, b2Beat: 0.7, b3Step: 1.1, b4Beat: 0.55 };   // a3Swing=햇지런 영상 실측 스윙 주기 1.55s (FK 제로크로싱 측정 — 코치 클립과 카운트 동기)
 // 타이틀·발형이 물리적으로 겹치는 장면(빔 원경계 ~2.85m 안에 실측 운동 요소가 타이틀 깊이까지 뻗음) — 이 셋뿐
-const DENSE_STAGES = new Set(['B3', 'B4', 'C5']);
 
 const BRAND = { red: NUM.red, coral: NUM.coral, sand: NUM.sand, prism: NUM.prism, ink: NUM.ink, dim: NUM.lo };
 export { BRAND };
@@ -700,7 +699,9 @@ export const STAGES = {
     { id:'BX_T2', wall:true, label:'T2 · 전환 — 5초 뒤 실전 시작', voice:['고수','세 조각 다 됐어요. 5초 뒤에 붙어봅니다 — 준비됐으면 두 번 탭.'], dur:5, count:true, foot:'두 번 탭 = 즉시 · 무입력 = 자동' },
     { id:'BX_C1', wall:true, dur:3, label:'C1 · 실전 1/4 — 시작 신호', voice:['고수','갑니다 — 셋, 둘, 하나!'], hap:'시작 진동', foot:'두 번 탭 → 시작' },
     { id:'BX_C2', wall:true, dur:11, live:true, label:'C2 · 실전 2/4 — 잽 대련', voice:['고수','타겟 뜨면 바로 잽. 가드는 내리지 말고.'], wear:'SAFE 가드 안정화' },
-    { id:'BX_C3', wall:true, dur:6, live:true, boost:true, label:'C3 · 실전 3/4 — 콤비네이션', voice:['고수','잽, 잽 — 마지막은 몸을 실어서 훅! 리듬 놓치지 말고.'], wear:'BOOST 스텝 추진', cue:'구간 종료 Match Rate' },
+    // dur = 코치 클립 길이(bx_c3_combo.mp4 4.21초). 둘이 다르면 스테이지가 클립 위에서 밀려
+    //   마커가 엉뚱한 자세에 뜬다 — 씬 루프 주기도 이 값의 정수배로 잡힌다(main.js).
+    { id:'BX_C3', wall:true, dur:4.21, live:true, boost:true, label:'C3 · 실전 3/4 — 콤비네이션', voice:['고수','잽, 잽 — 마지막은 몸을 실어서 훅! 리듬 놓치지 말고.'], wear:'BOOST 스텝 추진', cue:'구간 종료 Match Rate' },
     { id:'BX_C4', wall:true, live:true, cooldown:true, label:'C4 · 실전 4/4 — 마무리', voice:['고수','가드 내리고 숨 고르기. 오늘 잽, 확실히 좋아졌어요.'], hap:'완료 진동' },
     { id:'BX_FIN', wall:true, label:'B-F · 리포트', voice:['고수','내 잽이랑 겹쳐서 볼게요 — 어디가 달랐는지 보여요? 기록은 앱으로 보냈어요.'], cue:'Ghost Review — 고수 잽과 내 폼 겹쳐 보기' },
   ],
@@ -873,11 +874,9 @@ export class Session {
   _mk(id) { const g = new THREE.Group(); g.visible = false; this.root.add(g); this.G[id] = g; return g; }
 
   _build() {
-    // 스테이지 카드 대지 (지면 1.8×1.9m): 아이브로(-2.98) → 타이틀(-2.68) → CTA·운동 존 → 푸터(-1.28) ⚠️ 빔 실측 한계 ~2.85m(무릎41cm·틸트8°): 존 위 헤더 밴드 불가 — 정보 설계 v3 논의 중
-    // — 흩어진 좌표·극소 타이포를 UI 조판으로 (유저: 타이틀+보조+CTA/운동 영역 구조)
-    this.slotFS = new THREE.Group(); this.slotFS.position.set(0, 0, -2.98);
-    this.slotFL = new THREE.Group(); this.slotFL.position.set(0, 0, -2.68);
-    this.slotFM = new THREE.Group(); this.slotFM.position.set(0, 0, -1.28);
+    // (은퇴) 지면 스테이지 카드 3D 텍스트 슬롯 — 아이브로/타이틀/푸터. floorgl.js 캔버스 UI 가 정본이다.
+    //   같은 화면을 두 번 그리던 레거시 + 한글 자막이었다(투사 UI는 영문 조판 — Supreme 에 한글 글리프가
+    //   없어 그 줄만 시스템 고딕으로 떨어졌다). 프레임이 늦게 뜨는 몇 프레임 동안 새어 보였다(유저 08-04).
     // 페이스 라이트 — 션의 현재 위치 지면 마커 (쫓기·동기). 내가 늦으면 멀어짐.
     this.paceLight = floorRing(0, -1.6, 0.19, 0.235, BRAND.red, 0.95);
     this.paceLight.visible = false;
@@ -895,8 +894,8 @@ export class Session {
     this.paceLane = laneLine(BRAND.red, 0.4, -3.2);
     this.paceLane.material._gainK = 1.7;
     this.paceLane.visible = false;
-    this.dirSlot = new THREE.Group();   // C 방향 피드백 글리프 (착지점 추종, _dirCue)
-    this.root.add(this.slotFS, this.slotFL, this.slotFM, this.dirSlot, this.paceLight, this.paceLane);
+    // dirSlot(C 방향 피드백 한글 글리프)도 같이 은퇴 — reportVerdict 주석 참조.
+    this.root.add(this.paceLight, this.paceLane);
 
     this.countGroup = new THREE.Group(); this.countGroup.position.set(0, 0, -1.1);
     this.countRing = floorRing(0, -1.1, 0.30, 0.335, BRAND.red, 0);
@@ -1582,22 +1581,14 @@ export class Session {
     if (!this.active || !this.isLive) return;
     if (this.sport === 'basketball') return;   // 농구 판정(hips 프로브) 미보정 — 다운시프트 보류
 
-    if (verdict !== 'hit' && best && this.sport === 'running') this._dirCue(terr, best);
+    // 방향 피드백 자막(_dirCue: '늦었어요/빨랐어요/간격')은 은퇴 — 지면 UI 정본은 floorgl 캔버스이고
+    //   투사 UI는 영문 조판이라 그 줄만 시스템 고딕으로 떨어졌다. 판정은 빛 언어(페이스 라이트·버스트)가 말한다.
     this._missStreak = verdict !== 'hit' ? this._missStreak + 1 : 0;
     if (this._missStreak >= 2) {
       this._missStreak = 0;
       const i = this._firstBIdx();
       if (i >= 0 && this.stageIdx > i) { this.onGate?.('downshift'); this.liveSpeed = 1; this.stageIdx = i; this.t = 0; this._enter(); }
     }
-  }
-  /** C 방향 피드백 — non-hit 착지점 앞에 왜 틀렸는지(빠름/늦음/위치) 글리프. GLYPH 잉크 토큰 소비. */
-  _dirCue(terr, best) {
-    if (this._dirT0 != null && this.t - this._dirT0 < 1.4) return;   // 과밀 방지
-    this._dirT0 = this.t;
-    const msg = terr > 0.03 ? '늦었어요' : terr < -0.03 ? '빨랐어요' : '간격';
-    this._slot(this.dirSlot, msg, { size: 0.11, color: CS.sand, weight: 800 });
-    // best.px/p2는 월드 좌표, dirSlot은 root 자식(라이브 중 러너 추종) — 로컬로 환산
-    this.dirSlot.position.set(best.px - this.root.position.x, 0, best.p2 - 0.55 - this.root.position.z);
   }
   /** 팩 시그니처 파생 — 좌우폭 반치(스텝 마크 |nx| 평균 × X_SCALE 2.0). 팩 없으면 기본 0.17. */
   _packLaneHalf() {
@@ -1718,9 +1709,12 @@ export class Session {
     this._a2cdShown = null;           // A2 카운트다운 표시 숫자 리셋
     this.demoActive = false;          // A 시범 구간 신호 (실사 클립 패널 소비)
     this._setCount(null); this._setCountWall(null);
-    // 발자국 마크(G그룹) — 시작 페이지·풀스크린 프레임은 프레임이 전담하므로 여기서 켜지 않는다
-    //   (슬롯과 같은 1프레임 누출 경로였다). frameMarkOff = main.js 가 넘기는 해당 스테이지 집합.
-    if (this.G[st.id] && !this.frameMarkOff?.has(st.id)) this.G[st.id].visible = true;
+    // 발자국 마크(G그룹) — 진입 시엔 **항상 끈다**. 켜는 쪽은 main.js 가 프레임 상황을 보고 정한다.
+    //   예전엔 여기서 무조건 켰고 main.js 가 '다음' 프레임에 껐다 → 진입마다 1프레임씩 구버전 마크
+    //   (READY 의 floorRing·TAP CTA 등)가 샜다(유저 08-04). 켜는 목록을 세션에 넘기는 방식도 썼지만
+    //   session.start() 가 main.js 의 대입보다 먼저 돌아 첫 진입에서 undefined 였다 — 순서에 의존했다.
+    //   기본값을 '끔'으로 두면 빠뜨렸을 때 '안 보인다'로 실패하므로 누출이 구조적으로 불가능하다.
+    if (this.G[st.id]) this.G[st.id].visible = false;
     // FIN Ghost Review — 션 발자국 격자 + 내 착지점(판정 오차 벡터, ±30cm 클램프)
     if (st.id === 'FIN' && this.finGhost) {
       const R = (this.judge?.results || []).filter(r => r.surface === 'floor').slice(-4);
@@ -1740,13 +1734,9 @@ export class Session {
     this._lastCount = null;
     // 지면/벽 슬롯 전환
     const wall = !!st.wall;
-    // ★ 지면 프레임(floorgl / floor-*.html)이 헤더를 전담하는 스테이지는 여기서 다시 켜지 않는다.
-    //   예전엔 무조건 visible = !wall 이라 스테이지 진입마다 켜졌고, main.js 는 '다음' 프레임에 껐다
-    //   → 진입마다 정확히 1프레임씩 구버전 텍스트가 샜다(유저 08-04: 모든 바닥 UI에서 로딩 때 샌다).
-    //   벽 슬롯이 겪은 것과 같은 버그다(아래 주석) — 같은 방식으로 출처에서 막는다.
-    //   frameStages 는 main.js 가 FLOOR_FRAMES 키로 넘겨 준다(표가 단일 출처).
-    [this.slotFS, this.slotFL, this.slotFM]
-      .forEach(s => s.visible = !wall && !this.frameStages?.has(st.id));
+    // ★ 지면 텍스트 슬롯(slotFS/FL/FM)은 삭제됐다 — floorgl.js 캔버스가 정본. 위 생성부 주석 참조.
+    //   예전엔 여기서 스테이지 진입마다 visible = !wall 로 다시 켰고 main.js 는 '다음' 프레임에 껐다
+    //   → 진입마다 정확히 1프레임씩 구버전 한글 자막이 샜다(유저 08-04: 모든 바닥 UI에서 로딩 때 샌다).
     // ★ 벽 텍스트 슬롯은 항상 숨김 — wallgl.js 캔버스 UI 가 정본이다. 예전엔 여기서
     //   visible = wall 로 스테이지마다 다시 켜서, 셋업에서 끈 게 매번 덮어써졌다
     //   (유저 08-03: '넥앤숄더'·'회피 슬립' 등 모든 복싱 씬에 한글이 겹쳐 나옴).
@@ -1765,21 +1755,14 @@ export class Session {
       if (st.count) this._setCountWall(5);
       this._enterBoxing(st, H);
     } else {
-      const S = this._slot.bind(this);
-      const H = {
-        S,
-        // 폰트는 피그마 StageCard/베이스와 실제 일치(임포트 파이프라인, 번들: public/fonts/)
-        FS: t => S(this.slotFS, t, { size: (FXP.card?.eyeCap ?? 0.07), color: CS.mute, weight: 500, family: 'Supreme, sans-serif' }),   // 아이브로
-        FL: t => S(this.slotFL, t, { size: (FXP.card?.titleCap ?? 0.17), color: CS.ink, weight: 700, family: 'Pretendard, sans-serif' }),  // 타이틀
-        FM: (t, c = CS.dim) => S(this.slotFM, t, { size: (FXP.card?.footCap ?? 0.095), color: c }),      // 푸터·카운터
-      };
-      H.FS(''); H.FL(''); H.FM('');
+      // ★ 지면 3D 텍스트 슬롯(아이브로·타이틀·푸터)은 은퇴했다 — 지면 UI는 floorgl.js 캔버스가 정본이다.
+      //   같은 화면을 두 번 그리던 레거시였고, 게다가 한글이었다: 투사 UI는 영문 조판이라
+      //   (아래 _enterBoxing 주석) Supreme 에 한글 글리프가 없어 그 줄만 시스템 고딕으로 떨어졌다.
+      //   프레임이 늦게 뜨는 몇 프레임 동안 이 글자들이 새어 보인 것이 유저가 잡은 문제였다(08-04).
       if (st.count) this._setCount(5);
-      if (this.sport === 'basketball') this._enterBasketball(st, H);
-      else this._enterRunning(st, H);
+      if (this.sport !== 'basketball') this._enterRunning(st);
     }
     this._fmCache = null;
-    this._slot(this.dirSlot, ''); this._dirT0 = null;   // 방향 큐는 스테이지 경계에서 정리
   }
 
   _slotWall(slot, text, opts) {
@@ -1792,42 +1775,13 @@ export class Session {
     while (this.wCount.children.length) { const c = this.wCount.children.pop(); c.geometry?.dispose(); c.material?.map?.dispose(); c.material?.dispose(); }
   }
 
-  _enterRunning(st, { S, FS, FL, FM }) {
-    switch (st.id) {
-      case 'READY': FS('션 · 마지막 1KM'); FL('READY'); break;   // 푸터 제거: CTA 라벨과 중복 + CTA 근접 이동으로 겹침
-      case 'A1': FS('준비운동 1/3'); FL('목·어깨 크게 천천히 돌리기'); FM('제자리에 서서 — 링이 찰 때까지', CS.sand); break;
-      case 'A2': FS('준비운동 2/3'); FL('앞무릎 굽히고 뒷다리 쭉 — 종아리 늘리기'); FM('링이 차면 발 교대', CS.sand); break;
-      case 'A3': FS('준비운동 3/3'); FL('무릎 좌우 번갈아 높이 올리기'); FM('켜지는 발 박자로 · 30초', CS.sand); break;
-      case 'A4': FS('준비운동 4/4'); FL('켜지는 발자국 박자로 제자리 걷기'); FM('처음엔 천천히 — 점점 빨라져요'); break;
-      case 'T1': FS('잠깐'); S(this.slotFL, '몸풀기 끝!', { size: 0.12, color: CS.prism }); break;   // 푸터 제거: CTA 라벨과 중복
-      case 'B1': FS('미리 익히기 1/5'); FL('발은 가만히 — 박자만 들어요'); FM('귀로 먼저 배워요'); break;
-      case 'BW': FS('미리 익히기 2/5'); FL('션이 달리는 발자국 — 보기만'); FM('찍히는 속도와 간격을 눈으로'); break;
-      case 'B2': { const h = this._packLaneHalf(); this._b2Half = h; this.b2L.group.position.x = -h; this.b2R.group.position.x = h; FS('미리 익히기 3/5'); FL(h < 0.08 ? '반 보 앞 — 일자로 콕 밟기' : '링이 닫힐 때 — 발자국을 콕 밟기'); FM('맞춘 터치 0 / 8'); } break;
-      case 'B3': FS('미리 익히기 4/5'); FL('1 → 2 → 3 순서로 세 걸음'); FM('세트 1 / 2'); break;
-      case 'B4': FS('미리 익히기 5/5'); FL('박자만 보고 리듬 유지'); FM('링이 켜지는 순서대로'); break;
-      case 'T2': FS('T-2'); FM('두 번 구르면 바로 · 가만히 있으면 자동'); break;
-      // 실전(C) = 무텍스트(유저 확정): 음성+빛 언어(페이스 라이트·발자국·버스트)만. 예외 = C1 3·2·1 글리프.
-      case 'C1': case 'C2': case 'C3': case 'C4': case 'C5': break;
-      case 'FIN': FS('리포트'); break;
-    }
-  }
-
-  _enterBasketball(st, { S, FS, FL, FM }) {
-    switch (st.id) {
-      case 'BK_READY': FS('CURRY · STEP-BACK 3'); FL('READY'); break;
-      case 'BK_A1': FS('WARM-UP 1/3'); FL('옆구리 스트레치 — 팔 뻗어 좌우로'); FM('허리 늘리기 · 번갈아', CS.sand); break;
-      case 'BK_A2': FS('WARM-UP 2/3'); FL('니 드라이브 — 무릎↑ 반대손 터치'); FM('상체 비틀며', CS.sand); break;
-      case 'BK_A3': FS('WARM-UP 3/3'); FL('스쿼트 — 천천히 앉았다 일어나기'); FM('무릎은 발끝 방향', CS.sand); break;
-      case 'BK_T1': FS('T-1'); S(this.slotFL, 'STAGE CLEAR', { size: 0.12, color: CS.prism }); break;
-      case 'BK_B1': FS('HANDLE 1/3'); FL('로우 드리블 — 낮게, 커리 리듬'); FM('발은 마크 위 · 10회'); break;
-      case 'BK_B2': FS('HANDLE 2/3'); FL('크로스오버 — 켜진 존에 바운스'); FM('좌 ↔ 우 · 10회'); break;
-      case 'BK_B3': FS('HANDLE 3/3'); FL('다리 사이 — 라인 통과 후 반대 존'); FM('통과 → 바운스 · 8회'); break;
-      case 'BK_T2': FS('T-2'); FM('두 번 탭 = 바로 · 가만히 있으면 자동'); break;
-      case 'BK_C1': FS('GAME 3·2·1'); break;
-      case 'BK_C2': FS('CUT-IN · SAFE'); FM('수비 앞으로'); break;
-      case 'BK_C3': S(this.slotFS, 'STEP-BACK · BOOST', { size: 0.055, color: CS.prism }); FM('뒤로 빼서 공간', CS.prism); break;
-      case 'BK_C4': FS('RELEASE'); FM('밸런스 · 슛'); break;
-      case 'BK_FIN': FS('REPORT'); break;
+  // 지면 스테이지 진입 — 자막은 전부 은퇴(floorgl.js 캔버스가 전담). 기하 부수효과만 남는다.
+  //   농구는 남은 부수효과가 없어 _enterBasketball 자체를 삭제했다.
+  _enterRunning(st) {
+    // B2 레인 폭 — 스테이지 목록에 B2 가 없어 지금은 도달하지 않지만, 자막이 아니라 기하라서 남긴다.
+    if (st.id === 'B2') {
+      const h = this._packLaneHalf(); this._b2Half = h;
+      this.b2L.group.position.x = -h; this.b2R.group.position.x = h;
     }
   }
 
@@ -1960,46 +1914,17 @@ export class Session {
       this.root.position.x = this._shk.x;
       this.root.position.z += this._shk.z;
     }
-    // 스테이지 카드 조판 라이브 소비 (룩 '스테이지 카드' 슬라이더 — 위치는 즉시, 캡은 다음 텍스트 갱신 시)
+    // 스테이지 카드 조판 라이브 소비 (룩 '스테이지 카드' 슬라이더)
+    // 지면 슬롯(slotFS/FL/FM)의 z 배치·페이드 코드는 슬롯과 함께 삭제됐다 — 조판은 floorgl 캔버스가 갖는다.
     const CARD = FXP.card || {};
-    // 헤더 밴드(타이틀+아이브로)는 빔 투사 풋프린트 안에만 상주 — 고정 z(2.0/2.3m)는 풋프린트가
-    // 작으면(fpFar↓) 오렌지 밖 먼 존으로 떠 보였음(유저: "사람 위 둥둥"). 가장 먼 요소(아이브로)를
-    // 끝단 안쪽으로 클램프하고 타이틀은 간격 유지하며 함께 당김. fpFar 크면 기존값 그대로.
-    const eyeGap = CARD.eyebrow ?? 0.30;
-    const far = this.rig?.fpFar ?? 3.0;
-    const eyeZ = Math.min((CARD.titleZ ?? 2.68) + eyeGap, far - 0.10);
-    this.slotFL.position.z = -(eyeZ - eyeGap);
-    this.slotFS.position.z = -eyeZ;
-    this.slotFM.position.z = -(CARD.footerZ ?? 1.28);
-    // 타이틀·아이브로 페이드는 딱 3장면(B3·B4·C5)에만 — 실측 운동 요소가 타이틀 깊이(~2.68~2.98m)까지
-    // 뻗어 물리적으로 자리가 겹치는 곳은 이 셋뿐(빔 도달 한계 ~2.85m 안에 둘 다 못 들어감).
-    // 나머지 14장면은 겹칠 이유가 없는데 지시 자막을 없앨 이유도 없음 — 전체 페이드는 과했음(유저 지적).
-    if (!wall && DENSE_STAGES.has(id)) {
-      const titleFade = Math.max(0, 1 - Math.max(0, this.t - 1.0) / 0.6);
-      const flMesh = this.slotFL.children[0]?.children[0], fsMesh = this.slotFS.children[0]?.children[0];
-      if (flMesh?.material) flMesh.material.opacity = titleFade;
-      if (fsMesh?.material) fsMesh.material.opacity = titleFade * 0.85;
-    } else if (!wall) {
-      const flMesh = this.slotFL.children[0]?.children[0], fsMesh = this.slotFS.children[0]?.children[0];
-      if (flMesh?.material) flMesh.material.opacity = 1;
-      if (fsMesh?.material) fsMesh.material.opacity = 0.85;
-    }
     const ctaS = CARD.cta ?? 1;
     if (this.tap) this.tap.scale.setScalar(ctaS);
     if (this.tap1) this.tap1.scale.setScalar(ctaS);
     const beat = (per) => (this.t % per) / per;
-    // 방향 피드백 글리프 페이드아웃 (1.2s)
-    if (this._dirT0 != null) {
-      const a = 1 - (this.t - this._dirT0) / 1.2;
-      const m = this.dirSlot.children[0]?.userData?.plane?.material;
-      if (m) m.opacity = Math.max(0, Math.min(1, a * 1.2));
-      if (a <= 0) { this._slot(this.dirSlot, ''); this._dirT0 = null; }
-    }
-    // FM 슬롯 갱신 헬퍼 — 값이 바뀔 때만 텍스처 재생성 (벽/지면 자동)
+    // FM 슬롯 갱신 헬퍼 — 값이 바뀔 때만 텍스처 재생성. 지면 분기는 은퇴해 벽 전용이 됐다.
     const FMU = (text, color) => {
       if (text === this._fmCache) return; this._fmCache = text;
       if (wall) this._slotWall(this.wSlotFM, text, { size: 0.06, color: color || CS.dim });
-      else this._slot(this.slotFM, text, { size: 0.07, color: color || CS.dim });
     };
 
     // 공통: 카운트다운 스테이지(T2류) — 무입력 = 자동 진행 (무한 루프 없음)
@@ -2928,15 +2853,15 @@ export class Session {
         //   잽 둘 사이가 0.38s 라 따라 칠 수가 없었다(유저: 타이밍 너무 빨라).
         //   사이클 6s = 코치 클립(public/ghost/bx_c3_combo.mp4) 길이 — 맞춰 두면 마커 박자와
         //   인물 동작이 매 바퀴 같은 위상에서 만난다(어긋나면 루프마다 조금씩 밀린다).
-        // ★ 박자 정본 — 여기 세 숫자만 고치면 된다.
-        //   유저(08-04): "1초 쉬었다가 1,2,3 부터 팡팡팡". REST 만큼 아무것도 안 하다가
-        //   세 방이 짧은 간격으로 연달아 터진다. 훅은 몸을 싣느라 잽 간격보다 조금 길다.
-        //   ⚠ 코치 클립(bx_c3_combo.mp4)의 실제 펀치는 프레임 변화량 실측으로 1.5 / 3.0 / 4.3초다.
-        //     이 박자는 그것과 **안 맞는다** — 마커는 요청대로 팡팡팡이고 실루엣은 자기 속도로 친다.
-        //     실루엣까지 맞추려면 AT = [1.5, 3.0, 4.3] 으로 되돌리거나 클립을 그 박자로 다시 받아야 한다.
-        const CY = 6.0, tc = this.t % CY;
-        const REST = 1.0, GAP_JAB = 0.55, GAP_HOOK = 0.75;
-        const AT = [REST, REST + GAP_JAB, REST + GAP_JAB + GAP_HOOK];   // 1.00 · 1.55 · 2.30
+        // ★ 박자 정본 — 코치 클립의 **실제 펀치 시각**이다. 추측이 아니라 프레임 변화량으로 쟀다
+        //   (scripts/find_clip_beats.mjs). 클립을 갈면 다시 재서 이 세 숫자를 고친다.
+        //   08-04: 원본 6.04초에서 앞 준비동작과 뒤 정지 구간을 잘라 4.21초로 줄였다
+        //   (bx_c3_combo.full.mp4 가 원본). 그 결과 첫 펀치가 1.00초 — 유저가 요청한
+        //   "1초 쉬었다가" 가 클립 자체로 떨어진다. 잽·잽 1.50초 · 잽·훅 1.30초는 코치의 실제
+        //   리듬이라, 마커를 여기 맞춰야 실루엣과 숫자가 같은 순간에 터진다.
+        //   ⚠ CY 는 반드시 클립 길이와 같아야 한다. 다르면 매 바퀴 조금씩 밀린다.
+        const CY = 4.21, tc = this.t % CY;
+        const AT = [1.00, 2.50, 3.80];
         let seg = 0;                                   // 지나온 노드 수(0..2) + 구간 진행
         for (let i = 0; i < AT.length; i++) if (tc >= AT[i]) seg = i + 1;
         const prev = seg === 0 ? 0 : AT[seg - 1], next = AT[Math.min(seg, AT.length - 1)];

@@ -3,6 +3,7 @@
      촤르륵 슬라이드인 · 타이틀 글자 루핑 · 프로그래스 차오름 · 발 탭모션(footBob) · 글로우 톤다운+드리프트. 배경 투명. -->
 <html><head><meta charset="utf-8"><style>
 @font-face{font-family:'Supreme';src:url('../fonts/Supreme-Bold.woff2') format('woff2');font-weight:700;font-display:block}
+@font-face{font-family:'OffBit';src:url('../fonts/OffBitTrial-DotBold.woff2') format('woff2');font-weight:700;font-display:block}
 @font-face{font-family:'Supreme';src:url('../fonts/Supreme-Medium.woff2') format('woff2');font-weight:500;font-display:block}
 @property --p{syntax:'<number>';inherits:false;initial-value:0}
 *{margin:0;padding:0;box-sizing:border-box}
@@ -34,10 +35,14 @@ html,body{background:transparent}
    남기는 기준: ① 틀리면 다치는 것(부상·컨디션) ② 지금 바뀔 수 있는 것(기기) ③ 행동.
    뺀 것: Location(지금 그 장소에 서 있다) · Level/Mode(첫 동작에서 체감) · Total 시간 구성.
    ※ 부상·컨디션 줄(.warn)은 조건부 — None·Usual 이면 줄 자체가 없다. 평소 4덩어리, 주의 시 5. */
-.today{position:absolute;top:790px;left:0;right:0;text-align:center;white-space:nowrap;
+.today{position:absolute;top:784px;left:0;right:0;text-align:center;white-space:nowrap;
   font-family:'Supreme',sans-serif;font-weight:400;font-size:46px;letter-spacing:-1.4px;
   color:rgba(255,255,255,.55);
   opacity:0;animation:slideInUp .8s cubic-bezier(.2,.75,.2,1) .4s both}
+/* 비용 줄 — 'Today · Standard' 같은 자명한 라벨 대신 몸이 치를 비용(거리·시간)만.
+   숫자 = 도트(OffBit) 조판 규약(타이머·카운터와 동일) · 단위 = 본문 회색. */
+.today b{font-family:'OffBit';font-weight:700;font-size:58px;color:rgba(255,255,255,.92);
+  letter-spacing:0;vertical-align:-2px}
 
 /* 기기 연결 = 운동 전 필수 체크(유저) — .chip-row / .chip-sel (setup.css) 정본을 자기 줄로.
    '컨디션'과는 다른 정보라 상태 줄에 섞지 않고, 발 구르기 직전에 확인하는 조건이므로 CTA 바로 위. */
@@ -94,11 +99,11 @@ html,body{background:transparent}
 
     </div>
 
-    <p class="today">Today · 5.0km · Standard</p>
+    <p class="today"><b>5.0</b> km · <b>30</b> min</p>
 
     <!-- 기기 연결 체크 — 연결·충전된 기기는 sel(뉴턴 그라디언트) -->
     <div class="chips">
-      <div class="chip-sel sel"><img src="assets/run/ic_glasses.png">90%</div>
+      <div class="chip-sel"><img src="assets/run/ic_glasses.png">90%</div>
       <div class="chip-sel"><img src="assets/run/ic_watch.png">30%</div>
       <div class="chip-sel"><img src="assets/run/ic_earbuds.png">60%</div>
     </div>
