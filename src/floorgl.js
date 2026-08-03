@@ -294,23 +294,25 @@ export function drawBadge(ctx, cx, cy, text, o = {}) {
   ctx.translate(cx, cy);
   // 필 아웃라인 — 기본형(유저 확정: FINAL SHOT 레퍼런스가 제일 깔끔). 소프트 글로우 한 겹 + 크리스프.
   ctx.strokeStyle = line;
-  ctx.shadowColor = rgba(glowC, Math.min(1, glow + 0.1)); ctx.shadowBlur = 38 * S * (0.5 + glow);
-  ctx.lineWidth = 3 * S;
+  ctx.shadowColor = rgba(glowC, Math.min(1, glow + 0.2)); ctx.shadowBlur = 46 * S * (0.5 + glow);
+  ctx.lineWidth = 5 * S;   // 3 → 5 — 코랄 라인이 밝은 벽에서 안 보였다(유저)
   ctx.beginPath(); ctx.roundRect(-w / 2, -H / 2, w, H, R); ctx.stroke();
   ctx.shadowBlur = 0;
   ctx.beginPath(); ctx.roundRect(-w / 2, -H / 2, w, H, R); ctx.stroke();
   // 윙 — 점 없이 선만(기본형). 양끝으로 갈수록 투명(유저: 선 좌우에 투명도). ext 로 뻗는다.
   const ext = clamp01(o.ext ?? 0);
-  const m = 34 * S, wing = 64 * S * (1 + 2.0 * ext);
-  ctx.lineCap = 'round'; ctx.lineWidth = 3 * S;
+  const m = 34 * S, wing = 84 * S * (1 + 2.0 * ext);
+  ctx.lineCap = 'round'; ctx.lineWidth = 5 * S;
   for (const dir of [-1, 1]) {
     const xs = dir * (w / 2 + m), xe = xs + dir * wing;
     const lg = ctx.createLinearGradient(xs, 0, xe, 0);
-    lg.addColorStop(0, rgba(glowC, .9));
+    lg.addColorStop(0, rgba(glowC, 1));
+    lg.addColorStop(0.55, rgba(glowC, .75));
     lg.addColorStop(1, rgba(glowC, 0));
     ctx.strokeStyle = lg;
-    ctx.shadowColor = rgba(glowC, .5); ctx.shadowBlur = 12 * S;
+    ctx.shadowColor = rgba(glowC, .7); ctx.shadowBlur = 18 * S;
     ctx.beginPath(); ctx.moveTo(xs, 0); ctx.lineTo(xe, 0); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(xs, 0); ctx.lineTo(xe, 0); ctx.stroke();   // 2회 — 발광 축적(뻗는 게 보이게)
   }
   ctx.shadowBlur = 0;
   if (o.icon) ctx.drawImage(o.icon, -w / 2 + pad, -icon * 0.55, icon, icon * 1.1);
