@@ -1076,7 +1076,7 @@ export function drawStemArrow(g, W, H, t, ENV, opts = {}) {
   // ★ 스템 턱(tuck) — 촉이 보이면 스템 끝을 촉 뒤로 당겨 숨긴다. 촉 SVG는 뒤가 파인
   //   셰브런이라, 스템 머리(w1)가 그 파임 사이로 삐져나와 막대가 뚫고 나온 것처럼
   //   보였다(유저 스샷 08-04 '제발'). 촉 알파 램프와 같은 속도로 당겨 점프가 없다.
-  const tipS0 = 34 * sw * (0.7 + 0.3 * AW);
+  const tipS0 = 42 * sw * (0.7 + 0.3 * AW);   // 촉 크기 — 곡선(drawCurveArrow)과 동일 정본. 직선만 34로 남아 갈렸었다(유저)
   const tuck = (!opts.noTip && draw > 0.28) ? Math.min(1, (draw - 0.28) / 0.22) * tipS0 * 0.42 : 0;
   const yHead = yEnd + tuck;
   const grad = g.createLinearGradient(0, y0, 0, yHead);
