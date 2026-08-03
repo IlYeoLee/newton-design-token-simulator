@@ -891,9 +891,9 @@ function drawPrimsCard(t) {
   out.font = "600 14px -apple-system,'Malgun Gothic',sans-serif"; out.textAlign = 'center'; out.fillStyle = '#98A1AD';
   ['① 대기', '② 판정', '③ 성공'].forEach((n, i) => out.fillText(n, 20 + i * 160 + 75, 300));
   out.fillText('회전 — 목·어깨', 630, 330);
-  out.fillText('잽잽훅 — 콤보 노드 1·2·3', 980, 420);
-  out.fillText('화살표 ↑ · →', 800, 780);
-  out.fillText('궤적 — 코멧 헤드', 1320, 780);
+  out.fillText('잽잽훅 실물 — 콤보 노드 + 수축 링 (세션 정본 박자)', 1570, 700);
+  out.fillText('화살표 ↑ · →', 720, 780);
+  out.fillText('궤적 — 코멧 헤드', 1110, 790);
 }
 function frame() {
   const t = (performance.now() - T0) / 1000;
