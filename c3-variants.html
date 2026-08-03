@@ -1,195 +1,171 @@
 <!doctype html><meta charset="utf-8">
-<title>잽잽훅 컴포넌트 시안 — 움직이는 3안</title>
-<!-- 잽잽훅(BX_C3) 1·2·3 연결 컴포넌트 리디자인 시안 3종을 실제 박자로 돌려 보는 페이지.
-     로직은 세션 정본 그대로: CY 3.00s · AT 0.67/1.80/2.67 (find_clip_beats 실측) ·
-     채찍 매핑(앞 60% 코일 → 마지막 40% 스냅) · 수축 0.70s · 잠금 0.13s.
-     고르면 당첨안을 fx-core drawPunchLine 에 이식한다 — 여긴 시안 전시용 격리 페이지. -->
+<title>잽잽훅 컴포넌트 시안 — 움직이는 4안 (정본 렌더러)</title>
+<!-- 잽잽훅(BX_C3) 1·2·3 연결 컴포넌트 리디자인 시안을 실제 박자로 돌려 보는 페이지.
+     ★ 그리기는 전부 정본에서 가져온다 — 손 흉내 금지(1차 시도가 저퀄이었던 이유):
+       drawApproachRing(수축·노드 타겟) · strokeFlowPath(획) · lutColor(OKLab LUT) ·
+       drawNumber(도트 매트릭스 숫자) · FXP(마크 halo 등 라이브 파라미터).
+     박자 로직은 세션 정본: CY 3.00s · AT 0.67/1.80/2.67 · 채찍 매핑 · 수축 0.70s · 잠금 0.13s.
+     고르면 당첨안을 fx-core drawPunchLine 에 이식하고 이 페이지는 은퇴. -->
 <style>
-@font-face{font-family:'OffBit';src:url('/fonts/OffBitTrial-DotBold.woff2') format('woff2');font-weight:700}
-@font-face{font-family:'Supreme';src:url('/fonts/Supreme-Bold.woff2') format('woff2');font-weight:700}
 body{margin:0;background:#191b20;font-family:'Supreme',sans-serif;color:#e8eaee}
 h1{font-size:18px;margin:14px 18px 2px}
 p.note{margin:2px 18px 10px;font-size:12.5px;color:#9aa0a8}
-#row{display:grid;grid-template-columns:repeat(2,minmax(300px,1fr));gap:12px;padding:0 14px 14px}
+#row{display:grid;grid-template-columns:repeat(2,minmax(320px,1fr));gap:12px;padding:0 14px 14px}
 .card{background:#20242b;border:1px solid #2c313a;border-radius:12px;overflow:hidden}
 .card h2{font-size:15px;margin:10px 12px;display:flex;justify-content:space-between;align-items:center}
 .card h2 button{font:700 12px 'Supreme';padding:5px 10px;border-radius:7px;border:1px solid #3a4150;
   background:#2a2f38;color:#e8eaee;cursor:pointer}
 .card h2 button.on{background:#FA3030;border-color:#FA3030;color:#fff}
-canvas{width:100%;display:block;background:#cbc3b8}
+canvas.stage{width:100%;display:block;background:#cbc3b8}
 .meta{font-size:11.5px;color:#9aa0a8;padding:8px 12px 12px;line-height:1.5}
-#hud{position:fixed;right:14px;top:12px;font:700 13px 'OffBit';color:#9aa0a8}
+#hud{position:fixed;right:14px;top:12px;font-size:13px;color:#9aa0a8}
 </style>
-<h1>잽잽훅 1·2·3 컴포넌트 — 움직이는 시안 3종</h1>
-<p class="note">박자는 세션 정본 그대로(3.00s 사이클 · 0.67/1.80/2.67 비트 · 0.70s 수축 · 채찍 스냅). 배속 버튼으로 손맛 비교. 고르면 그 안을 정본(drawPunchLine)에 이식.</p>
+<h1>잽잽훅 1·2·3 컴포넌트 — 움직이는 시안 (정본 렌더러)</h1>
+<p class="note">노드·수축·획·숫자·색 전부 룩 시스템 정본 함수로 그린다. 박자도 세션 정본(3.00s · 0.67/1.80/2.67 · 채찍 · 0.70s 수축). 배속으로 손맛 비교.</p>
 <div id="hud"></div>
 <div id="row"></div>
-<script>
-const PAL={red:'#FA3030',coral:'#FE6E3C',sand:'#FEC389',prism:'#D1FEFF'};
-function lut(v){const S=[[0,'#8f1d16'],[0.36,'#FA3030'],[0.62,'#FE6E3C'],[0.86,'#FEC389'],[1,'#fff3e2']];
- for(let i=1;i<S.length;i++){ if(v<=S[i][0]){ const [a,ca]=S[i-1],[b,cb]=S[i];
-  const f=(v-a)/(b-a), h=c=>parseInt(c,16), A=[1,3,5].map(j=>h(ca.slice(j,j+2))),B=[1,3,5].map(j=>h(cb.slice(j,j+2)));
-  return `rgb(${A.map((x,k)=>Math.round(x+(B[k]-x)*f)).join(',')})`;}}
- return S[S.length-1][1];}
-// ── 세션 정본 타이밍(로직 유지) ──────────────────────────────────────────────
-const CY=3.00, AT=[0.67,1.80,2.67], LOCK=0.13, APPR=0.70, VD=['hit','near','hit'];
-const N=[[86,300],[225,118],[380,240]], HOOK=2;
-const clamp01=v=>v<0?0:v>1?1:v;
-function state(tc){
-  let seg=0; for(let i=0;i<AT.length;i++) if(tc>=AT[i]) seg=i+1;
-  const prev=seg===0?0:AT[seg-1], next=AT[Math.min(seg,AT.length-1)];
-  const f=seg>=AT.length?1:clamp01((tc-prev)/Math.max(0.01,next-prev));
-  const fw=seg>=AT.length?1: f<=0.6?0.15*(f/0.6):0.15+0.85*(1-Math.pow(1-(f-0.6)/0.4,3));   // 채찍
-  const pr=(seg===0?0:seg-1)+fw;                          // 획 진행(0..2)
-  const sinceBeat=seg>0?tc-AT[seg-1]:9, locking=sinceBeat<LOCK;
-  const ni=locking?seg-1:Math.min(seg,N.length-1);        // 수축 링이 붙는 노드
-  const cp=locking?0.9+0.1*(sinceBeat/LOCK)
-    :(seg>=AT.length?1:Math.min(0.9,clamp01(1-(next-tc)/APPR)*0.9));   // 수축 0.70s 고정
-  return {seg,pr,ni,cp,locking,done:seg,vd:VD.slice(0,seg),t:tc};
-}
-function pt(pr){const i=Math.min(N.length-2,Math.floor(pr)),f=pr-i;
- return [N[i][0]+(N[i+1][0]-N[i][0])*f, N[i][1]+(N[i+1][1]-N[i][1])*f];}
-const vdCol=v=>v==='hit'?PAL.prism:v==='near'?PAL.sand:'#9aa0a8';
-const rgba=(v,a)=>lut(v).replace('rgb(','rgba(').replace(')',','+a+')');
-// 정본 glowRing 이식 — 발광 밴드(radial gradient) + 크리스프 코어. 마크·수축링과 같은 질감.
-function glowRing(g,x,y,r,v,a,wMul=1){
-  const w=7*2.6*wMul, inner=Math.max(0.1,r-w), outer=r+w;
-  const gr=g.createRadialGradient(x,y,inner,x,y,outer);
-  gr.addColorStop(0,rgba(v-0.05,0));gr.addColorStop(0.5,rgba(v,a*0.85));gr.addColorStop(1,rgba(v-0.05,0));
-  g.save();g.fillStyle=gr;g.beginPath();g.arc(x,y,outer,0,7);g.fill();
-  g.globalAlpha=Math.min(1,a*1.1);g.lineWidth=5.5;
-  g.strokeStyle=lut(Math.min(0.98,v+0.12));g.shadowColor=lut(0.88);g.shadowBlur=10;
-  g.beginPath();g.arc(x,y,r,0,7);g.stroke();g.restore();
-}
-// 노드 과녁 — 정본 문법의 3층: 내부 풀(저알파 라디얼) + 발광 링 + 상태.
-//   대기 = 저온 호흡 · 완료 = 판정색 발광 + 채움 풀 · 훅 = 1.34배.
-function nodeTarget(g,x,y,R,{hit,v,t,i}){
-  const br=1+Math.sin(t*2.6+i*1.7)*0.02;                       // 정본 breath(±2%)
-  const pool=g.createRadialGradient(x,y,0,x,y,R*1.08);
-  pool.addColorStop(0,rgba(0.6,hit?0.30:0.10));pool.addColorStop(0.65,rgba(0.5,hit?0.16:0.05));pool.addColorStop(1,rgba(0.5,0));
-  g.save();g.fillStyle=pool;g.beginPath();g.arc(x,y,R*1.08,0,7);g.fill();g.restore();
-  if(hit&&v!=='miss'){
-    g.save();g.fillStyle=lut(v==='near'?0.5:0.36);g.shadowColor=lut(0.5);g.shadowBlur=22;
-    g.beginPath();g.arc(x,y,R*0.62,0,7);g.fill();g.restore();
-    g.save();g.strokeStyle=vdCol(v);g.globalAlpha=.95;g.lineWidth=4.5;g.shadowColor=vdCol(v);g.shadowBlur=14;
-    g.beginPath();g.arc(x,y,R,0,7);g.stroke();g.restore();
-    glowRing(g,x,y,R*br,0.62,0.5,0.8);
-  }else{
-    glowRing(g,x,y,R*br,0.45,0.42,0.9);
-    g.save();g.fillStyle=rgba(0.55,0.85);g.beginPath();g.arc(x,y,4.5,0,7);g.fill();g.restore();
-  }
-}
-function num(g,s,x,y,size,col){g.save();g.font=`700 ${size}px OffBit`;g.textAlign='center';g.textBaseline='middle';g.fillStyle=col;g.fillText(s,x,y);g.restore();}
-function grad(g,x,y,r){const gr=g.createLinearGradient(x,y-r,x,y+r);gr.addColorStop(0,PAL.red);gr.addColorStop(0.7,PAL.coral);gr.addColorStop(1,PAL.sand);return gr;}
-// 수축 링 + 잠금 핑 — 세 안 공통(판정 링은 정본 approachRing 이 담당하므로 근사만)
-function contract(g,st){
-  const [x,y]=N[st.ni], R=(st.ni===HOOK?44:33);
-  if(st.cp<=0)return;
-  if(st.cp<0.9){const c=st.cp/0.9, r=R*(2.6-1.6*c);
-    g.save();g.strokeStyle=lut(0.55+0.3*c);g.globalAlpha=0.3+0.55*c;g.lineWidth=6;
-    g.shadowColor=lut(0.8);g.shadowBlur=18*c;g.beginPath();g.arc(x,y,r,0,7);g.stroke();g.restore();}
-  else{const k=(st.cp-0.9)/0.1, r=R*(1+1.5*k);            // 잠금 = 팽창 핑
-    g.save();g.strokeStyle=lut(0.9);g.globalAlpha=(1-k)*0.9;g.lineWidth=7*(1-k*0.5);
-    g.shadowColor=lut(0.85);g.shadowBlur=24;g.beginPath();g.arc(x,y,r,0,7);g.stroke();g.restore();}
-}
-function bg(g,W,H){g.clearRect(0,0,W,H);g.save();g.strokeStyle='rgba(210,160,60,.18)';g.lineWidth=1;
- for(let x=24;x<W;x+=56){g.beginPath();g.moveTo(x,0);g.lineTo(x,H);g.stroke();}
- for(let y=24;y<H;y+=56){g.beginPath();g.moveTo(0,y);g.lineTo(W,y);g.stroke();}g.restore();}
+<script type="module">
+const FX = await import('/src/fx-core.js');
+const { lutColor, FXP, ensureOffBit, drawNumber } = await import('/src/fxlut.js');
+const { PAL, NEU, rgba } = await import('/src/palette.js');
+ensureOffBit && ensureOffBit();
+const lut = lutColor;
+const look = { halo: FXP.mark.halo };
+const ENV = { arrow: FXP.arrow, lut, foot: null,
+  num: (g, ch, x, y, size, fontPx) => { g.font = `700 ${fontPx}px 'OffBit','Supreme',sans-serif`;
+    g.fillStyle = rgba(NEU.ink, 0.95); g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(String(ch), x, y); } };
 
-// ── A안: 타깃&트랙 ──
-function drawA(g,st){
-  g.setLineDash([2,18]);g.lineCap='round';g.strokeStyle='rgba(120,60,40,.5)';g.lineWidth=6;
-  g.beginPath();N.forEach((p,i)=>i?g.lineTo(...p):g.moveTo(...p));g.stroke();g.setLineDash([]);
-  const full=Math.min(st.pr,N.length-1), path=[N[0]];
-  for(let i=1;i<=24;i++){const u=full*i/24; if(u<=0)break; path.push(pt(u));}
-  if(path.length>1&&full>0.01){g.save();g.lineWidth=15;g.lineCap='round';g.lineJoin='round';
-    g.strokeStyle=grad(g,230,210,180);g.shadowColor=PAL.coral;g.shadowBlur=20;
-    g.beginPath();path.forEach((p,i)=>i?g.lineTo(...p):g.moveTo(...p));g.stroke();g.restore();}
-  N.forEach((p,i)=>{const R=(i===HOOK?44:33),hit=i<st.done,v=st.vd[i];
-    nodeTarget(g,p[0],p[1],R,{hit,v,t:st.t,i});
-    num(g,String(i+1),p[0],p[1]-R-24,30,hit?'rgba(120,60,40,.5)':'rgba(120,60,40,.95)');});
-  contract(g,st);
+// ── 세션 정본 타이밍(로직 유지) ──────────────────────────────────────────────
+const CY = 3.00, AT = [0.67, 1.80, 2.67], LOCK = 0.13, APPR = 0.70, VD = ['hit', 'near', 'hit'];
+const N = [[86, 300], [225, 118], [380, 240]], HOOK = 2;
+const clamp01 = v => v < 0 ? 0 : v > 1 ? 1 : v;
+function state(tc) {
+  let seg = 0; for (let i = 0; i < AT.length; i++) if (tc >= AT[i]) seg = i + 1;
+  const prev = seg === 0 ? 0 : AT[seg - 1], next = AT[Math.min(seg, AT.length - 1)];
+  const f = seg >= AT.length ? 1 : clamp01((tc - prev) / Math.max(0.01, next - prev));
+  const fw = seg >= AT.length ? 1 : f <= 0.6 ? 0.15 * (f / 0.6) : 0.15 + 0.85 * (1 - Math.pow(1 - (f - 0.6) / 0.4, 3));
+  const pr = (seg === 0 ? 0 : seg - 1) + fw;
+  const sinceBeat = seg > 0 ? tc - AT[seg - 1] : 9, locking = sinceBeat < LOCK;
+  const ni = locking ? seg - 1 : Math.min(seg, N.length - 1);
+  const cp = locking ? 0.9 + 0.1 * (sinceBeat / LOCK)
+    : (seg >= AT.length ? 1 : Math.min(0.9, clamp01(1 - (next - tc) / APPR) * 0.9));
+  return { seg, pr, ni, cp, locking, done: seg, vd: VD.slice(0, seg) };
 }
-// ── B안: 온도 ──
-function drawB(g,st){
-  const full=Math.min(st.pr,N.length-1);
-  if(full>0.01)for(let i=1;i<=40;i++){const f0=full*(i-1)/40,f1=full*i/40,a=pt(f0),b=pt(f1),k=i/40;
-    g.save();g.lineCap='round';g.lineWidth=4+13*k;g.strokeStyle=lut(0.34+0.34*k);
-    g.globalAlpha=0.2+0.8*k;g.shadowColor=PAL.coral;g.shadowBlur=16*k;
-    g.beginPath();g.moveTo(...a);g.lineTo(...b);g.stroke();g.restore();}
-  N.forEach((p,i)=>{const R=(i===HOOK?44:33),hit=i<st.done,v=st.vd[i];
-    g.save();
-    if(hit){const rg=g.createRadialGradient(p[0],p[1]-R*0.3,2,p[0],p[1],R);
-      rg.addColorStop(0,lut(v==='near'?0.62:0.5));rg.addColorStop(1,lut(v==='near'?0.42:0.3));
-      g.fillStyle=rg;g.shadowColor=lut(0.55);g.shadowBlur=28;}
-    else g.fillStyle='rgba(120,60,40,.16)';
-    g.beginPath();g.arc(p[0],p[1],R,0,7);g.fill();g.restore();
-    if(hit&&v){g.save();g.strokeStyle=vdCol(v);g.lineWidth=4.5;g.shadowColor=vdCol(v);g.shadowBlur=13;
-      g.beginPath();g.arc(p[0],p[1],R+8,0,7);g.stroke();g.restore();}
-    num(g,String(i+1),p[0],p[1],i===HOOK?40:30,hit?'#fff':'rgba(120,60,40,.75)');});
-  contract(g,st);
+function pt(pr) { const i = Math.min(N.length - 2, Math.floor(pr)), f = pr - i;
+  return [N[i][0] + (N[i + 1][0] - N[i][0]) * f, N[i][1] + (N[i + 1][1] - N[i][1]) * f]; }
+const vdCol = v => v === 'hit' ? PAL.prism : v === 'near' ? PAL.sand : NEU.lo;
+
+// ── 정본 프리미티브를 오프스크린 판에 그려 블릿 (앱과 같은 사용법 — 프림은 자기 캔버스를 통째로 지운다) ──
+const AP = document.createElement('canvas'); AP.width = AP.height = 220;
+const APg = AP.getContext('2d');
+const Rt220 = 220 * 0.42 * 0.36;                        // 프림 도착(타겟) 반경 px ≈ 33.3
+const R0220 = 220 * 0.42;                               // 프림 수축 시작 반경 px ≈ 92.4
+// 수축 토큰 — Rt 가 노드 반경에 오도록(세션 C3 규약: 링이 노드에 정확히 맞물린다)
+function blitContract(g, x, y, R, prog, t) {
+  FX.drawApproachRing(APg, 220, { r: 0.42, rt: 0.36, w: 1.15, glow: 1 }, look, t, ENV, prog);
+  const s = 220 * (R / Rt220);
+  g.drawImage(AP, x - s / 2, y - s / 2, s, s);
 }
-// ── C안: 코멧 스트링 ──
-function drawC(g,st){
-  const full=Math.min(st.pr,N.length-1);
-  for(let i=0;i<28;i++){const f=i/27,u=full-0.55*f;if(u<=0)break;const p=pt(u);
-    g.save();g.fillStyle=lut(0.55-0.2*f);g.globalAlpha=(1-f)*(1-f)*0.9;
-    g.beginPath();g.arc(p[0],p[1],11*(1-f*0.75),0,7);g.fill();g.restore();}
-  if(full<N.length-1-0.001&&full>0.01){const h=pt(full);
-    g.save();g.fillStyle=lut(0.62);g.shadowColor=PAL.coral;g.shadowBlur=24;
-    g.beginPath();g.arc(h[0],h[1],13,0,7);g.fill();
-    g.fillStyle='#fff';g.globalAlpha=.9;g.beginPath();g.arc(h[0],h[1],5,0,7);g.fill();g.restore();}
-  N.forEach((p,i)=>{const R=(i===HOOK?44:33),hit=i<st.done,v=st.vd[i];
-    nodeTarget(g,p[0],p[1],R,{hit,v,t:st.t,i});
-    num(g,String(i+1),p[0]+R+22,p[1]+R*0.55,28,'rgba(120,60,40,.8)');});
-  contract(g,st);
+// 노드 타겟 — 같은 프림의 '대기 상태(prog 0)': 타겟 존 풀 + 호흡 링 + 바깥 소프트 링.
+//   바깥 링이 노드 반경에 오도록 축소 블릿 → 이중 링 + 풀 = 마크 문법 그대로.
+function blitNode(g, x, y, R, t, heat) {
+  FX.drawApproachRing(APg, 220, { r: 0.42, rt: 0.36, w: heat ? 1.3 : 1.0, glow: heat ? 1.25 : 0.9 }, look, t, ENV, 0);
+  const s = 220 * (R / R0220);
+  g.drawImage(AP, x - s / 2, y - s / 2, s, s);
 }
-// ── D안: 하이브리드(추천) — A 골격 + C 코멧 헤드 ──
-function drawD(g,st){
-  g.setLineDash([2,18]);g.lineCap='round';g.strokeStyle='rgba(120,60,40,.5)';g.lineWidth=6;
-  g.beginPath();N.forEach((p,i)=>i?g.lineTo(...p):g.moveTo(...p));g.stroke();g.setLineDash([]);
-  const full=Math.min(st.pr,N.length-1), path=[N[0]];
-  for(let i=1;i<=24;i++){const u=full*i/24; if(u<=0)break; path.push(pt(u));}
-  if(path.length>1&&full>0.01){g.save();g.lineWidth=13;g.lineCap='round';g.lineJoin='round';
-    g.strokeStyle=grad(g,230,210,180);g.shadowColor=PAL.coral;g.shadowBlur=18;
-    g.beginPath();path.forEach((p,i)=>i?g.lineTo(...p):g.moveTo(...p));g.stroke();g.restore();}
-  if(full<N.length-1-0.001&&full>0.01){const h=pt(full);      // C 의 코멧 헤드
-    g.save();g.fillStyle=lut(0.62);g.shadowColor=PAL.coral;g.shadowBlur=24;
-    g.beginPath();g.arc(h[0],h[1],13,0,7);g.fill();
-    g.fillStyle='#fff';g.globalAlpha=.9;g.beginPath();g.arc(h[0],h[1],5,0,7);g.fill();g.restore();}
-  N.forEach((p,i)=>{const R=(i===HOOK?44:33),hit=i<st.done,v=st.vd[i];
-    nodeTarget(g,p[0],p[1],R,{hit,v,t:st.t,i});
-    num(g,String(i+1),p[0],p[1]-R-24,30,hit?'rgba(120,60,40,.5)':'rgba(120,60,40,.95)');});
-  contract(g,st);
+// 판정 완료 오버레이 — 서세스 채움(198/225 규칙: lut 0.36 · near 0.5) + 판정색 링
+function doneOverlay(g, x, y, R, v) {
+  g.save(); g.shadowColor = lut(0.5); g.shadowBlur = 22;
+  g.fillStyle = lut(v === 'near' ? 0.5 : 0.36);
+  g.beginPath(); g.arc(x, y, R * 0.6, 0, 7); g.fill(); g.restore();
+  g.save(); g.strokeStyle = vdCol(v); g.lineWidth = 4.5; g.globalAlpha = 0.95;
+  g.shadowColor = vdCol(v); g.shadowBlur = 13;
+  g.beginPath(); g.arc(x, y, R * 0.88, 0, 7); g.stroke(); g.restore();
 }
-// ── 카드 + 공용 시계(배속) ──
-const DEFS=[['D안 · 하이브리드 ★추천',drawD,'A 골격(트랙+과녁+숫자 밖) + C 코멧 헤드. 경로 문법과 손맛을 둘 다.'],
-            ['A안 · 타깃&트랙',drawA,'점선 트랙 미리 + 그라디언트 획이 채움. 숫자는 과녁 밖. 카운트다운 링과 같은 "트랙을 채운다" 문법.'],
-            ['B안 · 온도',drawB,'노드가 데워지는 디스크(히트맵 언어) + 선두로 갈수록 굵어지는 테이퍼 획. 가장 육중.'],
-            ['C안 · 코멧 스트링',drawC,'상시 선 없음 — 코멧 헤드+꼬리만. B2 돌덩이·B3 스윕과 헤드 언어 통일. 가장 공기감.']];
-let speed=1;
-const row=document.getElementById('row');
-for(const [name,fn,desc] of DEFS){
-  const card=document.createElement('div');card.className='card';
-  card.innerHTML=`<h2>${name}<span></span></h2>`;
-  const cv=document.createElement('canvas');cv.width=470;cv.height=400;card.appendChild(cv);
-  const m=document.createElement('div');m.className='meta';m.textContent=desc;card.appendChild(m);
-  row.appendChild(cv.__card=card);card.__cv=cv;card.__fn=fn;
+function numAt(g, i, x, y, size, dim) {
+  g.save(); g.globalAlpha = dim ? 0.45 : 1;
+  drawNumber(g, i + 1, x, y, size, { color: rgba(NEU.ink, 0.95) });
+  g.restore();
 }
-// 배속 버튼(공용) — 첫 카드 헤더에
-const spWrap=document.querySelector('.card h2 span');
-[0.5,1,1.5].forEach(s=>{const b=document.createElement('button');b.textContent=s+'×';
-  if(s===1)b.className='on';
-  b.onclick=()=>{speed=s;document.querySelectorAll('.card h2 button').forEach(x=>x.classList.remove('on'));b.classList.add('on');};
-  spWrap.appendChild(b);});
-const hud=document.getElementById('hud');
-let t0=performance.now();
-(function loop(now){
-  const tc=((now-t0)/1000*speed)%CY;
-  const st=state(tc); st.t=(now-t0)/1000;
-  document.querySelectorAll('.card').forEach(card=>{
-    const g=card.__cv.getContext('2d');bg(g,card.__cv.width,card.__cv.height);card.__fn(g,st);});
-  hud.textContent=tc.toFixed(2)+' / '+CY.toFixed(2)+'s';
+function bg(g, W, H) { g.clearRect(0, 0, W, H); g.save(); g.strokeStyle = 'rgba(210,160,60,.18)'; g.lineWidth = 1;
+  for (let x = 24; x < W; x += 56) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x, H); g.stroke(); }
+  for (let y = 24; y < H; y += 56) { g.beginPath(); g.moveTo(0, y); g.lineTo(W, y); g.stroke(); } g.restore(); }
+const sPage = 470 / 220;                                 // 프림 s 규약(W/220)을 페이지 좌표로
+
+function nodes(g, st, t, numPos) {
+  N.forEach((p, i) => { const R = (i === HOOK ? 44 : 33), hit = i < st.done, v = st.vd[i];
+    blitNode(g, p[0], p[1], R, t + i * 0.7, hit);
+    if (hit && v !== 'miss') doneOverlay(g, p[0], p[1], R, v);
+    if (numPos === 'out') numAt(g, i, p[0], p[1] - R - 26, 30, hit);
+    else numAt(g, i, p[0] + R + 24, p[1] + R * 0.55, 26, false); });
+}
+function track(g) { g.save(); g.setLineDash([2, 18]); g.lineCap = 'round';
+  g.strokeStyle = rgba(NEU.ink, 0.5); g.lineWidth = 6;
+  g.beginPath(); N.forEach((p, i) => i ? g.lineTo(...p) : g.moveTo(...p)); g.stroke(); g.restore(); }
+function flowStroke(g, st, t) {
+  const full = Math.min(st.pr, N.length - 1); if (full <= 0.01) return null;
+  const path = [N[0]];
+  for (let i = 1; i <= 24; i++) { const u = full * i / 24; if (u <= 0) break; path.push(pt(u)); }
+  FX.strokeFlowPath(g, path, t, ENV.arrow.w * sPage, { color: lut(0.62) }, ENV);
+  return pt(full);
+}
+function cometHead(g, h) {
+  g.save(); g.fillStyle = lut(0.62); g.shadowColor = lut(0.8); g.shadowBlur = 24;
+  g.beginPath(); g.arc(h[0], h[1], 12, 0, 7); g.fill();
+  g.fillStyle = lut(0.95); g.globalAlpha = .95; g.beginPath(); g.arc(h[0], h[1], 4.5, 0, 7); g.fill(); g.restore();
+}
+function cometTail(g, st) {
+  const full = Math.min(st.pr, N.length - 1);
+  for (let i = 0; i < 26; i++) { const f = i / 25, u = full - 0.5 * f; if (u <= 0) break; const p = pt(u);
+    g.save(); g.fillStyle = lut(0.55 - 0.18 * f); g.globalAlpha = (1 - f) * (1 - f) * 0.85;
+    g.beginPath(); g.arc(p[0], p[1], 10 * (1 - f * 0.75), 0, 7); g.fill(); g.restore(); }
+}
+// ── 4안 — 전부 위 정본 부품의 조합 ──
+function drawD(g, st, t) { track(g); const h = flowStroke(g, st, t);
+  if (h && st.pr < N.length - 1 - 0.001) cometHead(g, h);
+  nodes(g, st, t, 'out'); blitContract(g, ...N[st.ni], (st.ni === HOOK ? 44 : 33), st.cp, t); }
+function drawA(g, st, t) { track(g); flowStroke(g, st, t);
+  nodes(g, st, t, 'out'); blitContract(g, ...N[st.ni], (st.ni === HOOK ? 44 : 33), st.cp, t); }
+function drawC(g, st, t) { cometTail(g, st);
+  const full = Math.min(st.pr, N.length - 1);
+  if (full > 0.01 && full < N.length - 1 - 0.001) cometHead(g, pt(full));
+  nodes(g, st, t, 'side'); blitContract(g, ...N[st.ni], (st.ni === HOOK ? 44 : 33), st.cp, t); }
+function drawB(g, st, t) {                                // 온도 — 테이퍼 획(정본 lut 색)
+  const full = Math.min(st.pr, N.length - 1);
+  if (full > 0.01) for (let i = 1; i <= 40; i++) { const a = pt(full * (i - 1) / 40), b = pt(full * i / 40), k = i / 40;
+    g.save(); g.lineCap = 'round'; g.lineWidth = 4 + 13 * k; g.strokeStyle = lut(0.34 + 0.34 * k);
+    g.globalAlpha = 0.2 + 0.8 * k; g.shadowColor = lut(0.62); g.shadowBlur = 16 * k;
+    g.beginPath(); g.moveTo(...a); g.lineTo(...b); g.stroke(); g.restore(); }
+  nodes(g, st, t, 'out'); blitContract(g, ...N[st.ni], (st.ni === HOOK ? 44 : 33), st.cp, t);
+}
+const DEFS = [
+  ['D안 · 하이브리드 ★추천', drawD, '트랙 + 정본 플로우 획(strokeFlowPath) + 코멧 헤드. 노드·수축은 approachRing 정본.'],
+  ['A안 · 타깃&트랙', drawA, '점선 트랙 + 정본 플로우 획. 헤드 없음 — 가장 차분.'],
+  ['B안 · 온도 테이퍼', drawB, '선두로 갈수록 굵고 뜨거워지는 획. 노드는 동일 정본.'],
+  ['C안 · 코멧 스트링', drawC, '상시 선 없음 — 코멧 헤드+꼬리만. 가장 공기감.'],
+];
+let speed = 1;
+const row = document.getElementById('row');
+for (const [name, fn, desc] of DEFS) {
+  const card = document.createElement('div'); card.className = 'card';
+  card.innerHTML = `<h2>${name}<span></span></h2>`;
+  const cv = document.createElement('canvas'); cv.className = 'stage'; cv.width = 470; cv.height = 400; card.appendChild(cv);
+  const m = document.createElement('div'); m.className = 'meta'; m.textContent = desc; card.appendChild(m);
+  row.appendChild(card); card.__cv = cv; card.__fn = fn;
+}
+const spWrap = document.querySelector('.card h2 span');
+[0.5, 1, 1.5].forEach(s => { const b = document.createElement('button'); b.textContent = s + '×';
+  if (s === 1) b.className = 'on';
+  b.onclick = () => { speed = s; document.querySelectorAll('.card h2 button').forEach(x => x.classList.remove('on')); b.classList.add('on'); };
+  spWrap.appendChild(b); });
+const hud = document.getElementById('hud');
+let t0 = performance.now();
+(function loop(now) {
+  const abs = (now - t0) / 1000 * speed, tc = abs % CY;
+  const st = state(tc);
+  document.querySelectorAll('.card').forEach(card => {
+    const g = card.__cv.getContext('2d'); bg(g, card.__cv.width, card.__cv.height); card.__fn(g, st, abs); });
+  hud.textContent = tc.toFixed(2) + ' / ' + CY.toFixed(2) + 's';
   requestAnimationFrame(loop);
 })(performance.now());
 </script>
