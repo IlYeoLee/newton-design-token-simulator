@@ -1393,10 +1393,13 @@ export function drawPunchLine(g, W, P, look, t, ENV, ptsIn, prog) {
       g.fillStyle = lut(v === 'near' ? 0.5 : 0.36);   // near = 반만 온 것 → 램프 위쪽으로 한 칸
       g.beginPath(); g.arc(x, y, R * 0.88, 0, Math.PI * 2); g.fill();
     }
-    // 볼류메트릭 밴드(정본 발광 문법) — 스트로크+shadowBlur 만으로는 평평했다(유저: 발자국과 감도 차이)
-    g.save(); g.translate(x, y);
-    volRing(g, lut, R, hit ? 0.62 : active ? 0.8 : 0.5, active ? 0.9 : hit ? 0.7 : 0.5, LNW * 0.9, GB);
-    g.restore();
+    // 볼류메트릭 밴드(정본 발광 문법) — 스트로크+shadowBlur 만으로는 평평했다(유저: 발자국과 감도 차이).
+    //   ★ 판정 완료 노드는 밴드 생략 — 채움+밴드+블룸이 겹치면 백열로 포화해 숫자가 사라진다(유저 스샷).
+    if (!hit) {
+      g.save(); g.translate(x, y);
+      volRing(g, lut, R, active ? 0.8 : 0.5, active ? 0.9 : 0.5, LNW * 0.9, GB);
+      g.restore();
+    }
     g.strokeStyle = v === 'hit' ? PAL.prism : v === 'near' ? PAL.sand : v === 'miss' ? NEU.lo
       : lut(hit ? 0.62 : active ? 0.8 : 0.45);
     g.lineWidth = LNW * (active ? 1.3 : v ? 1.15 : 0.9);
@@ -1404,9 +1407,17 @@ export function drawPunchLine(g, W, P, look, t, ENV, ptsIn, prog) {
     if (v && v !== 'miss') g.shadowColor = v === 'hit' ? PAL.prism : PAL.sand;
     g.beginPath(); g.arc(x, y, R, 0, Math.PI * 2); g.stroke();
     if (ENV.num) {
-      g.globalAlpha = i <= cur || hit ? 1 : 0.45;
-      ENV.num(g, String(i + 1), x, y, 16 * P.numS * pulse * s, Math.round(14 * P.numS * s));
-      g.globalAlpha = 1;
+      if (hit && v !== 'miss') {
+        // ★ 완료 노드 숫자 = **파냄**(destination-out) — 붉은 채움·글로우·블룸이 아무리 밝아도
+        //   숫자가 배경으로 뚫려 항상 읽힌다(유저: 숫자가 사라짐). 각인(knock)과 같은 문법.
+        g.save(); g.globalCompositeOperation = 'destination-out'; g.shadowBlur = 0;
+        ENV.num(g, String(i + 1), x, y, 16 * P.numS * pulse * s, Math.round(14 * P.numS * s));
+        g.restore();
+      } else {
+        g.globalAlpha = i <= cur ? 1 : 0.6;   // 0.45 는 먼 노드 숫자가 안 보였다(유저 스샷 3번)
+        ENV.num(g, String(i + 1), x, y, 16 * P.numS * pulse * s, Math.round(14 * P.numS * s));
+        g.globalAlpha = 1;
+      }
     }
   });
   g.shadowBlur = 0;
