@@ -45,11 +45,40 @@ function state(tc){
   const ni=locking?seg-1:Math.min(seg,N.length-1);        // 수축 링이 붙는 노드
   const cp=locking?0.9+0.1*(sinceBeat/LOCK)
     :(seg>=AT.length?1:Math.min(0.9,clamp01(1-(next-tc)/APPR)*0.9));   // 수축 0.70s 고정
-  return {seg,pr,ni,cp,locking,done:seg,vd:VD.slice(0,seg)};
+  return {seg,pr,ni,cp,locking,done:seg,vd:VD.slice(0,seg),t:tc};
 }
 function pt(pr){const i=Math.min(N.length-2,Math.floor(pr)),f=pr-i;
  return [N[i][0]+(N[i+1][0]-N[i][0])*f, N[i][1]+(N[i+1][1]-N[i][1])*f];}
 const vdCol=v=>v==='hit'?PAL.prism:v==='near'?PAL.sand:'#9aa0a8';
+const rgba=(v,a)=>lut(v).replace('rgb(','rgba(').replace(')',','+a+')');
+// 정본 glowRing 이식 — 발광 밴드(radial gradient) + 크리스프 코어. 마크·수축링과 같은 질감.
+function glowRing(g,x,y,r,v,a,wMul=1){
+  const w=7*2.6*wMul, inner=Math.max(0.1,r-w), outer=r+w;
+  const gr=g.createRadialGradient(x,y,inner,x,y,outer);
+  gr.addColorStop(0,rgba(v-0.05,0));gr.addColorStop(0.5,rgba(v,a*0.85));gr.addColorStop(1,rgba(v-0.05,0));
+  g.save();g.fillStyle=gr;g.beginPath();g.arc(x,y,outer,0,7);g.fill();
+  g.globalAlpha=Math.min(1,a*1.1);g.lineWidth=5.5;
+  g.strokeStyle=lut(Math.min(0.98,v+0.12));g.shadowColor=lut(0.88);g.shadowBlur=10;
+  g.beginPath();g.arc(x,y,r,0,7);g.stroke();g.restore();
+}
+// 노드 과녁 — 정본 문법의 3층: 내부 풀(저알파 라디얼) + 발광 링 + 상태.
+//   대기 = 저온 호흡 · 완료 = 판정색 발광 + 채움 풀 · 훅 = 1.34배.
+function nodeTarget(g,x,y,R,{hit,v,t,i}){
+  const br=1+Math.sin(t*2.6+i*1.7)*0.02;                       // 정본 breath(±2%)
+  const pool=g.createRadialGradient(x,y,0,x,y,R*1.08);
+  pool.addColorStop(0,rgba(0.6,hit?0.30:0.10));pool.addColorStop(0.65,rgba(0.5,hit?0.16:0.05));pool.addColorStop(1,rgba(0.5,0));
+  g.save();g.fillStyle=pool;g.beginPath();g.arc(x,y,R*1.08,0,7);g.fill();g.restore();
+  if(hit&&v!=='miss'){
+    g.save();g.fillStyle=lut(v==='near'?0.5:0.36);g.shadowColor=lut(0.5);g.shadowBlur=22;
+    g.beginPath();g.arc(x,y,R*0.62,0,7);g.fill();g.restore();
+    g.save();g.strokeStyle=vdCol(v);g.globalAlpha=.95;g.lineWidth=4.5;g.shadowColor=vdCol(v);g.shadowBlur=14;
+    g.beginPath();g.arc(x,y,R,0,7);g.stroke();g.restore();
+    glowRing(g,x,y,R*br,0.62,0.5,0.8);
+  }else{
+    glowRing(g,x,y,R*br,0.45,0.42,0.9);
+    g.save();g.fillStyle=rgba(0.55,0.85);g.beginPath();g.arc(x,y,4.5,0,7);g.fill();g.restore();
+  }
+}
 function num(g,s,x,y,size,col){g.save();g.font=`700 ${size}px OffBit`;g.textAlign='center';g.textBaseline='middle';g.fillStyle=col;g.fillText(s,x,y);g.restore();}
 function grad(g,x,y,r){const gr=g.createLinearGradient(x,y-r,x,y+r);gr.addColorStop(0,PAL.red);gr.addColorStop(0.7,PAL.coral);gr.addColorStop(1,PAL.sand);return gr;}
 // 수축 링 + 잠금 핑 — 세 안 공통(판정 링은 정본 approachRing 이 담당하므로 근사만)
@@ -77,12 +106,7 @@ function drawA(g,st){
     g.strokeStyle=grad(g,230,210,180);g.shadowColor=PAL.coral;g.shadowBlur=20;
     g.beginPath();path.forEach((p,i)=>i?g.lineTo(...p):g.moveTo(...p));g.stroke();g.restore();}
   N.forEach((p,i)=>{const R=(i===HOOK?44:33),hit=i<st.done,v=st.vd[i];
-    if(hit){g.save();g.fillStyle=lut(v==='near'?0.5:0.36);g.shadowColor=lut(0.5);g.shadowBlur=24;
-      g.beginPath();g.arc(p[0],p[1],R*0.72,0,7);g.fill();g.restore();}
-    g.save();g.strokeStyle=hit?vdCol(v):'rgba(140,80,55,.85)';g.lineWidth=hit?6:4.5;
-    if(hit&&v!=='miss'){g.shadowColor=vdCol(v);g.shadowBlur=15;}
-    g.beginPath();g.arc(p[0],p[1],R,0,7);g.stroke();g.restore();
-    if(!hit){g.fillStyle='rgba(140,80,55,.9)';g.beginPath();g.arc(p[0],p[1],5,0,7);g.fill();}
+    nodeTarget(g,p[0],p[1],R,{hit,v,t:st.t,i});
     num(g,String(i+1),p[0],p[1]-R-24,30,hit?'rgba(120,60,40,.5)':'rgba(120,60,40,.95)');});
   contract(g,st);
 }
@@ -116,12 +140,7 @@ function drawC(g,st){
     g.beginPath();g.arc(h[0],h[1],13,0,7);g.fill();
     g.fillStyle='#fff';g.globalAlpha=.9;g.beginPath();g.arc(h[0],h[1],5,0,7);g.fill();g.restore();}
   N.forEach((p,i)=>{const R=(i===HOOK?44:33),hit=i<st.done,v=st.vd[i];
-    g.save();g.strokeStyle=hit?vdCol(v):'rgba(140,80,55,.85)';g.lineWidth=hit?5.5:4.5;
-    if(hit&&v!=='miss'){g.shadowColor=vdCol(v);g.shadowBlur=14;}
-    g.beginPath();g.arc(p[0],p[1],R,0,7);g.stroke();g.restore();
-    g.save();if(hit){g.fillStyle=lut(0.42);g.shadowColor=lut(0.5);g.shadowBlur=18;
-      g.beginPath();g.arc(p[0],p[1],R*0.4,0,7);g.fill();}
-    else{g.fillStyle='rgba(140,80,55,.9)';g.beginPath();g.arc(p[0],p[1],5,0,7);g.fill();}g.restore();
+    nodeTarget(g,p[0],p[1],R,{hit,v,t:st.t,i});
     num(g,String(i+1),p[0]+R+22,p[1]+R*0.55,28,'rgba(120,60,40,.8)');});
   contract(g,st);
 }
@@ -139,12 +158,7 @@ function drawD(g,st){
     g.beginPath();g.arc(h[0],h[1],13,0,7);g.fill();
     g.fillStyle='#fff';g.globalAlpha=.9;g.beginPath();g.arc(h[0],h[1],5,0,7);g.fill();g.restore();}
   N.forEach((p,i)=>{const R=(i===HOOK?44:33),hit=i<st.done,v=st.vd[i];
-    if(hit){g.save();g.fillStyle=lut(v==='near'?0.5:0.36);g.shadowColor=lut(0.5);g.shadowBlur=24;
-      g.beginPath();g.arc(p[0],p[1],R*0.72,0,7);g.fill();g.restore();}
-    g.save();g.strokeStyle=hit?vdCol(v):'rgba(140,80,55,.85)';g.lineWidth=hit?6:4.5;
-    if(hit&&v!=='miss'){g.shadowColor=vdCol(v);g.shadowBlur=15;}
-    g.beginPath();g.arc(p[0],p[1],R,0,7);g.stroke();g.restore();
-    if(!hit){g.fillStyle='rgba(140,80,55,.9)';g.beginPath();g.arc(p[0],p[1],5,0,7);g.fill();}
+    nodeTarget(g,p[0],p[1],R,{hit,v,t:st.t,i});
     num(g,String(i+1),p[0],p[1]-R-24,30,hit?'rgba(120,60,40,.5)':'rgba(120,60,40,.95)');});
   contract(g,st);
 }
@@ -172,7 +186,7 @@ const hud=document.getElementById('hud');
 let t0=performance.now();
 (function loop(now){
   const tc=((now-t0)/1000*speed)%CY;
-  const st=state(tc);
+  const st=state(tc); st.t=(now-t0)/1000;
   document.querySelectorAll('.card').forEach(card=>{
     const g=card.__cv.getContext('2d');bg(g,card.__cv.width,card.__cv.height);card.__fn(g,st);});
   hud.textContent=tc.toFixed(2)+' / '+CY.toFixed(2)+'s';
