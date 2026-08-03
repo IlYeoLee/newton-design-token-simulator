@@ -3082,6 +3082,7 @@ void main(){
       uniforms: {
         tex: { value: demoTex }, uTrail: { value: trailRTs[0].texture }, uHeat: { value: heatRTs[0].texture }, uHeatN: { value: heatNarrowRT.texture }, uLUT: { value: getLUT() },
         uTime: { value: 0 }, uNoise: { value: 0 }, uW: { value: 1 }, uDetail: { value: 0.62 }, uTrailGain: { value: 1 }, uGrain: { value: 0 }, uTone: { value: 0 }, uLive: { value: 0 },
+        uFace: { value: new THREE.Vector4(0, 0, 0, 0) },   // scripts/bake_face_track.mjs 산출물이 채운다
         uPSat: { value: 1.32 }, uPSweep: { value: 0 }, uPHi: { value: 0.86 }, uPDepth: { value: 0.34 }, uPCoral: { value: 0 }, uPExp: { value: 0.5 }, uPForm: { value: 0 }, uPLo: { value: 0.12 }, uPHiL: { value: 0.85 }, uPLumLin: { value: 0 }, uPCalWave: { value: 1 }, uPCalD: { value: 1 }, uPCalW: { value: 1 }, uPCalB: { value: 0 },
         uPInk: { value: 0.85 }, uPInkT: { value: 0.42 },   // PERSON_GLSL 공용 — setPersonUniforms 가 주입
         uCropC: { value: new THREE.Vector2(0.5, 0.5) }, uCropS: { value: new THREE.Vector2(1, 1) },
@@ -3099,6 +3100,7 @@ void main(){
 #include <clipping_planes_pars_fragment>
         varying vec2 vUv;
         uniform sampler2D uTrail, uLUT, uHeat, uHeatN; uniform float uTime, uNoise, uW, uDetail, uTrailGain, uGrain, uTone, uLive;
+        uniform vec4 uFace;   // 머리 추적 타원(패널 uv) — xy 중심 · zw 반경. z<=0 = 추적 없음
         vec3 lut(float v){ return texture2D(uLUT, vec2(clamp(v, 0.004, 0.996), 0.5)).rgb; }
         ` + PERSON_GLSL + `
         ` + FX_GLSL.replace('uniform sampler2D uLUT;', '').replace('vec3 lut(float v){ return texture2D(uLUT, vec2(clamp(v, 0.004, 0.996), 0.5)).rgb; }', '') + `
@@ -3142,7 +3144,18 @@ void main(){
           //   은닉하려고 룩을 꽤 바꾸는데, 좁은 구간에서 0→1 로 올라가면 그 전이가 **가로 단차**로
           //   보인다 — 유저가 모자 중간에 선을 그어 지적한 그 위치가 정확히 램프 상단(0.84)이다.
           //   smoothstep 은 C1 연속이라 수학적으론 매끈하지만, 바뀌는 양이 크면 눈에는 경계로 읽힌다.
-          float faceW = smoothstep(0.56, 0.96, uv.y) * (1.0 - smoothstep(0.99, 1.0, uv.y));
+          //   ★ 08-03: 고정 밴드는 '머리가 늘 화면 위쪽'이라는 가정이다. 회피 슬립처럼 깊게
+          //   웅크리는 클립은 머리가 uv.y 0.63 까지 내려가는데 거기선 이 값이 0.09 라
+          //   이목구비가 그대로 드러났다(유저: "아래로 내려가면서 다 드러나 버렸어").
+          //   추적 데이터(<클립>.face.json → uFace)가 있으면 머리 타원으로 가린다.
+          //   uFace.z <= 0 = 추적 없음 → 예전 밴드 그대로(다른 클립 회귀 방지).
+          float faceW;
+          if (uFace.z > 0.0) {
+            vec2 fd = (uv - uFace.xy) / max(uFace.zw, vec2(1e-4));
+            faceW = 1.0 - smoothstep(0.70, 1.0, length(fd));
+          } else {
+            faceW = smoothstep(0.56, 0.96, uv.y) * (1.0 - smoothstep(0.99, 1.0, uv.y));
+          }
           // 실사 결 = 주 텍스처 — 내부 침식 마스크(mIn)로만: 엣지 반투명 픽셀이 그린 배경
           // 밝기를 온도로 읽어 실루엣 둘레에 밝은 테두리가 생기던 것 차단
           float mIn = smoothstep(0.55, 0.95, m);
@@ -3257,6 +3270,7 @@ void main(){
   //   클립을 갈아서 인물이 벽 상단/하단에 닿을 때만 이 표에 한 줄 추가한다.
   const GHOST_TRIM = { BX_A1: 0.95 };   // 머리가 벽 위에 닿아 5% 만 낮춤(유저: 많이 줄이긴 싫다)
   let ghostClipCur = '', ghostClipWant = null;
+  let faceTrack = null;   // <클립>.face.json — 프레임별 머리 위치(영상 정규좌표, y 아래로 +)
   // 반입 검사: HEAD + content-type — 데브 서버는 없는 파일에 404 대신 index.html(SPA 폴백)을
   // 주므로 미디어 error 이벤트만으론 감지 불가(검정 화면·전면 마스크 회귀의 원인).
   const ghostClipBad = new Set(), ghostClipOk = new Set(), ghostClipChecking = new Set();
@@ -3280,6 +3294,13 @@ void main(){
     ghostClipCur = tgt;
     demoVideo.src = tgt;
     demoVideo.play().catch(() => {});
+    // 머리 추적 데이터 — 있으면 얼굴 은닉을 고정 밴드 대신 이 좌표로 구동한다.
+    //   없는 클립은 그대로 밴드를 쓴다(404 는 정상 경로다).
+    faceTrack = null;
+    fetch(tgt.replace(/\.mp4$/i, '.face.json'))
+      .then(r => (r.ok && /json/.test(r.headers.get('content-type') || '') ? r.json() : null))
+      .then(j => { if (j && ghostClipCur === tgt) faceTrack = j; })
+      .catch(() => {});
   }
   // 소형 미리보기 — 지금 벽에 나가는 원본 클립이 무엇인지 (원본 영상 그대로 + 파일명)
   const ghostPrev = document.createElement('div');
@@ -3333,6 +3354,11 @@ void main(){
     }
     demoPanel.visible = !!on;
     if (on) setGhostClip(session.curStage?.id);   // 스테이지별 클립 자동 전환 (404 → 기본)
+    // 코치 클립의 재생 시각을 세션에 넘긴다 — 프레임 실측으로 박자를 잡는 스테이지(B2 회피)가
+    //   session.t 대신 이걸 본다. 씬 고정 모드는 8초마다 session.t 를 0 으로 되돌리는데
+    //   같은 클립이면 setGhostClip 이 조기 반환해 영상은 계속 흐른다 → 두 시계가 어긋난다.
+    //   '코치가 지금 무슨 자세인가'는 영상 시계만 안다.
+    session.clipT = on && demoVideo.duration ? (demoVideo.currentTime || 0) : null;
     // 클립 소스 미리보기 카드 = 개발용 진단(파일명·반입 여부). 제품 뷰에선 숨긴다(유저).
     const devNow = document.body.classList.contains('dev');
     ghostPrev.style.display = (on && devNow) ? 'block' : 'none';
@@ -3425,6 +3451,20 @@ void main(){
     //   320×480 을 1200px 로 3.75배 확대해 쓰는 비율(fN.g/fN.r)이라, 배·브라처럼 평평한 면에서
     //   저해상 구조가 덩어리로 드러났다(유저: 얼룩덜룩 + 과질감). 0.42 → 0.19 = 결 46%.
     PU.uDetail.value = PERSON_FIELD.detail();
+    // 얼굴 은닉 타원 — 구운 머리 좌표(영상 정규)를 패널 uv 로 옮긴다.
+    //   패널 uv = 0.5 + (영상uv − 0.5) / uCropS  (셰이더의 vuv 식을 뒤집은 것)
+    //   영상 y 는 아래로 +, 텍스처 v 는 위로 + 라 1−y 로 뒤집는다.
+    if (faceTrack && demoVideo.duration) {
+      const i = Math.max(0, Math.min(faceTrack.rows.length - 1,
+        Math.round((demoVideo.currentTime || 0) * faceTrack.fps)));
+      const r = faceTrack.rows[i], cs = PU.uCropS.value;
+      PU.uFace.value.set(
+        0.5 + (r.x - 0.5) / cs.x,
+        0.5 + ((1 - r.y) - 0.5) / cs.y,
+        (r.r * 1.7) / cs.x,     // 머리 반폭보다 넉넉히 — 경계가 얼굴을 가로지르면 단차로 보인다
+        (r.h * 1.5) / cs.y,
+      );
+    } else PU.uFace.value.set(0, 0, 0, 0);
     PU.uW.value = FXP.person?.blur ?? 1;   // 엣지 블러 — 랩 person 슬라이더 (누락돼 기본 1.0으로 돌던 버그)
     PU.uGrain.value = FXP.person?.grain ?? 0;
     PU.uTone.value = FXP.person?.tone ?? 0;
