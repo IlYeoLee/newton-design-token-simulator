@@ -1112,7 +1112,10 @@ void main(){
   sessionReady = true;             // 이 아래부터는 session 접근 안전
   session.onPress = _pressBurst;   // 프레스 완료 버스트 연결
   // 크기 지정 파문 — 세션이 반경(m)을 직접 정할 때(2/4 작은 파형 등). opts로 세기·감쇠속도까지 지정 가능.
-  session.onBurst = (wp, sizeM, col, opts) => effects.burst(wp, col || 0xfec389, new THREE.Vector3(0, 1, 0),
+  //   opts.wall = 벽면 파문(법선 +z). 이게 없을 땐 무조건 바닥 법선이라, 벽 타겟에 쏜 파문이
+  //   가슴 높이에 **눕혀진 원판**으로 떠서 정면에서는 거의 안 보였다(유저: 파형이 전혀 추가가 안 됐다).
+  session.onBurst = (wp, sizeM, col, opts) => effects.burst(wp, col || 0xfec389,
+    new THREE.Vector3(0, opts?.wall ? 0 : 1, opts?.wall ? 1 : 0),
     { intensity: 0.22, sizeM: sizeM || 0.32, ...(opts || {}) });
   // 실전 러닝 플로어 UI 5안 모듈 — C 라이브에서만 렌더 루프가 update
   const liveUI = new LiveUI(scene, tokens, rig);
@@ -3900,12 +3903,12 @@ void main(){
     // 비실전 복귀(라이브 진입) 시에만 다시 켬 — 스트레칭·학습·전환 화면의 무관 마커 원천 차단.
     // BX_C2(잽 대련)도 제외 — 판정은 벽의 수축 링이 전담한다. 팩 마크가 같이 떠 있으면
     //   바닥 고정 마크 하나가 '실질적으로 때리는 곳'으로 읽힌다(유저 스샷).
-    if (session.active) tokens.floorRoot.visible = session.isLive && session.stage !== 'BK_C4' && session.stage !== 'BX_C2';
     // BX_C3(잽·잽·훅)도 같은 이유로 제외 — 마크는 1·2·3 한 컴포넌트(펀치라인 + 수축 링)가 전담한다.
-    //   팩 마크가 같이 뜨면 화면 아래에 숫자 원이 하나 더 서고 파문도 거기서 터져,
-    //   '연달아 있는 컴포넌트'와 위치·타이밍·크기가 전부 따로 논다(유저 스샷 3회).
-    const PACK_WALL_OFF = session.stage === 'BX_C2' || session.stage === 'BX_C3';
-    if (session.active) tokens.wallRoot.visible = !PACK_WALL_OFF;
+    //   벽 토큰이 같이 뜨면 화면 아래에 숫자 원이 하나 더 서고, 지면 토큰이 뜨면 진입 순간
+    //   화면 한복판(대지 원점)에 흰 마크와 파문이 떠 있다(유저 스샷 4회). 두 면 다 끈다.
+    const PACK_OFF = session.stage === 'BX_C2' || session.stage === 'BX_C3';
+    if (session.active) tokens.floorRoot.visible = session.isLive && session.stage !== 'BK_C4' && !PACK_OFF;
+    if (session.active) tokens.wallRoot.visible = !PACK_OFF;
     // 스톰프 프레스 스테이지: 봇을 뒤로 당겨 착지(전방 0.38m)가 프레스 원 위에 정확히 떨어지게
     if (session.active && !session.isLive && data.sport !== 'boxing') {
       // A2 런지: 봇을 뒤로 당겨 전방 착지가 프레스 원(-1.30) 위에 오게 (교대 런지 보폭 ≈0.7m 가정, 시각 검수로 보정)
@@ -4572,11 +4575,20 @@ void main(){
       // 목표 씬에 도착했다 = 여기서 못을 박는다. session.next() 가 이 못을 보고 넘어가지
       //   않으므로, 다음 씬이 한 프레임 비치는 일도 없고 타이머도 끝(링 100%·GO)까지 간다.
       session.pinStage = S.scene;
-      if (session.t >= (window.__sceneLoop || 8)) {
-        // ★ 루프 주기 — 스테이지 자체 dur 에 맡기면 씬마다 3~6초로 제각각이라 8초 클립을 뽑을 때
-        //   중간에 두 번 되감긴다(유저 08-03). 씬 고정 상태에서도 일정 주기로 다시 시작시킨다.
-        //   ?sceneloop=<초> 로 조절. 기본 8 — 익스포터 기본 길이와 맞췄다.
+      // ★ 루프 주기 — 스테이지 자체 dur 에 맡기면 씬마다 3~6초로 제각각이라 8초 클립을 뽑을 때
+      //   중간에 두 번 되감긴다(유저 08-03). 씬 고정 상태에서도 일정 주기로 다시 시작시킨다.
+      //   ?sceneloop=<초> 로 조절. 기본 8 — 익스포터 기본 길이와 맞췄다.
+      // ★★ 단, 코치 클립에 박자를 건 스테이지(dur = 클립 길이)는 그 길이를 쓴다. 8초로 자르면
+      //   10.5초 클립이 스테이지 위에서 계속 밀려 '타이밍이 아무것도 안 맞는' 상태가 된다(유저).
+      const _sd = session.curStage?.dur;
+      const _period = (_sd && _sd > (window.__sceneLoop || 8)) ? _sd : (window.__sceneLoop || 8);
+      if (session.t >= _period) {
         session.t = 0; session._enter();
+        // ★ 영상도 같이 되감는다. setGhostClip 은 같은 클립이면 조기 반환해서 영상만 계속
+        //   흐르고 세션 시계만 0 이 됐다 — 시계가 둘로 갈리는 근본 지점이었다.
+        //   박자는 영상 시계(clipT)로 도는데 스테이지 종료는 세션 시계라, 둘이 어긋나면
+        //   마크가 엉뚱한 자세에 뜨고 카운터가 튄다.
+        if (demoVideo && demoVideo.duration) { try { demoVideo.currentTime = 0; } catch (e) {} }
       }
     }
     // 커튼 걷기 — 씬에 실제 진입해 1.5초 안정된 뒤 페이드아웃(1회)
