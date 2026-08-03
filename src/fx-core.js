@@ -1360,6 +1360,13 @@ export function drawPunchLine(g, W, P, look, t, ENV, ptsIn, prog) {
   //   순서 읽기는 노드 숫자 1·2·3 이 담당(직선 없이도 성립 — c3 라이브 검증).
   const at = (u) => { const i = Math.max(0, Math.min(pts.length - 2, Math.floor(u))), f = u - i;
     return [pts[i][0] + (pts[i + 1][0] - pts[i][0]) * f, pts[i][1] + (pts[i + 1][1] - pts[i][1]) * f]; };
+  // 가이드 레일(유저) — 코멧이 달릴 아주 연한 점 레일. 진한 상시 직선은 기각, 존재감만 남긴다
+  //   (c3 D안 track 문법의 절제판 — 라운드캡 + 0길이 대시 = 점열).
+  g.save(); g.shadowBlur = 0; g.globalAlpha = 0.22;
+  g.strokeStyle = lut(0.6); g.lineWidth = 2.2 * s; g.lineCap = 'round';
+  g.setLineDash([0.01, 8 * s]);
+  g.beginPath(); pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.stroke();
+  g.setLineDash([]); g.restore();
   if (pr > 0.02) {
     for (let k = 0; k < 26; k++) {                     // 꼬리 — 헤드 뒤로 0.5구간, 줄며 사라진다
       const f = k / 25, u = pr - 0.5 * f;
