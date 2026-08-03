@@ -288,7 +288,9 @@ export function drawBadge(ctx, cx, cy, text, o = {}) {
   // ── 톤 규칙(유저): 사건·강조어 = 코랄(밝은 주황 발광) · 일반 안내 = 흰색 ──────────
   //   호출부가 o.tone('coral'|'white')으로 못박을 수 있고, 없으면 낱말 규칙이 정한다.
   const tone = o.tone || (/success|match rate|combo|boost|final|strike/i.test(String(text)) ? 'coral' : 'white');
-  const line = tone === 'coral' ? rgba(PAL.coral, .95) : 'rgba(255,255,255,.92)';
+  // ★ 라인 색 규약(유저 확정): 자막 주변(필)은 **흰색** — 가독 담당. 코랄은 윙 그라디언트와
+  //   글로우에만 — 전부 코랄로 칠하면 밝은 벽에서 통째로 묻힌다(유저).
+  const line = 'rgba(255,255,255,.95)';
   const glowC = tone === 'coral' ? PAL.coral : PAL.sand;
   ctx.save();
   ctx.translate(cx, cy);
@@ -305,10 +307,11 @@ export function drawBadge(ctx, cx, cy, text, o = {}) {
   ctx.lineCap = 'round'; ctx.lineWidth = 5 * S;
   for (const dir of [-1, 1]) {
     const xs = dir * (w / 2 + m), xe = xs + dir * wing;
+    // 흰색(필 쪽) → 코랄(중간) → 투명(끝) — 자막 주변은 희고 끝만 코랄로 식는 그라디언트(유저)
     const lg = ctx.createLinearGradient(xs, 0, xe, 0);
-    lg.addColorStop(0, rgba(glowC, 1));
-    lg.addColorStop(0.55, rgba(glowC, .75));
-    lg.addColorStop(1, rgba(glowC, 0));
+    lg.addColorStop(0, 'rgba(255,255,255,.95)');
+    lg.addColorStop(0.45, rgba(PAL.coral, .85));
+    lg.addColorStop(1, rgba(PAL.coral, 0));
     ctx.strokeStyle = lg;
     ctx.shadowColor = rgba(glowC, .7); ctx.shadowBlur = 18 * S;
     ctx.beginPath(); ctx.moveTo(xs, 0); ctx.lineTo(xe, 0); ctx.stroke();
