@@ -10,7 +10,7 @@
 body{margin:0;background:#191b20;font-family:'Supreme',sans-serif;color:#e8eaee}
 h1{font-size:18px;margin:14px 18px 2px}
 p.note{margin:2px 18px 10px;font-size:12.5px;color:#9aa0a8}
-#row{display:grid;grid-template-columns:repeat(2,minmax(320px,1fr));gap:12px;padding:0 14px 14px}
+#row{display:grid;grid-template-columns:1fr;gap:14px;padding:0 14px 14px;max-width:1000px;margin:0 auto}   /* 1열 대형 — 수축링+콤보 디테일 다듬기용(유저: 크게) */
 .card{background:#20242b;border:1px solid #2c313a;border-radius:12px;overflow:hidden}
 .card h2{font-size:15px;margin:10px 12px;display:flex;justify-content:space-between;align-items:center}
 .card h2 button{font:700 12px 'Supreme';padding:5px 10px;border-radius:7px;border:1px solid #3a4150;
@@ -56,21 +56,23 @@ function pt(pr) { const i = Math.min(N.length - 2, Math.floor(pr)), f = pr - i;
 const vdCol = v => v === 'hit' ? PAL.prism : v === 'near' ? PAL.sand : NEU.lo;
 
 // ── 정본 프리미티브를 오프스크린 판에 그려 블릿 (앱과 같은 사용법 — 프림은 자기 캔버스를 통째로 지운다) ──
-const AP = document.createElement('canvas'); AP.width = AP.height = 220;
+// APW 440 = 2배 확대 표시(아래 K)에서도 링 래스터가 안 뭉개지는 해상도
+const APW = 440;
+const AP = document.createElement('canvas'); AP.width = AP.height = APW;
 const APg = AP.getContext('2d');
-const Rt220 = 220 * 0.42 * 0.36;                        // 프림 도착(타겟) 반경 px ≈ 33.3
-const R0220 = 220 * 0.42;                               // 프림 수축 시작 반경 px ≈ 92.4
+const RtAP = APW * 0.42 * 0.36;                         // 프림 도착(타겟) 반경 px
+const R0AP = APW * 0.42;                                // 프림 수축 시작 반경 px
 // 수축 토큰 — Rt 가 노드 반경에 오도록(세션 C3 규약: 링이 노드에 정확히 맞물린다)
 function blitContract(g, x, y, R, prog, t) {
-  FX.drawApproachRing(APg, 220, { r: 0.42, rt: 0.36, w: 1.15, glow: 1 }, look, t, ENV, prog);
-  const s = 220 * (R / Rt220);
+  FX.drawApproachRing(APg, APW, { r: 0.42, rt: 0.36, w: 1.15, glow: 1 }, look, t, ENV, prog);
+  const s = APW * (R / RtAP);
   g.drawImage(AP, x - s / 2, y - s / 2, s, s);
 }
 // 노드 타겟 — 같은 프림의 '대기 상태(prog 0)': 타겟 존 풀 + 호흡 링 + 바깥 소프트 링.
 //   바깥 링이 노드 반경에 오도록 축소 블릿 → 이중 링 + 풀 = 마크 문법 그대로.
 function blitNode(g, x, y, R, t, heat) {
-  FX.drawApproachRing(APg, 220, { r: 0.42, rt: 0.36, w: heat ? 1.3 : 1.0, glow: heat ? 1.25 : 0.9 }, look, t, ENV, 0);
-  const s = 220 * (R / R0220);
+  FX.drawApproachRing(APg, APW, { r: 0.42, rt: 0.36, w: heat ? 1.3 : 1.0, glow: heat ? 1.25 : 0.9 }, look, t, ENV, 0);
+  const s = APW * (R / R0AP);
   g.drawImage(AP, x - s / 2, y - s / 2, s, s);
 }
 // 판정 완료 오버레이 — 서세스 채움(198/225 규칙: lut 0.36 · near 0.5) + 판정색 링
@@ -149,7 +151,8 @@ const row = document.getElementById('row');
 for (const [name, fn, desc] of DEFS) {
   const card = document.createElement('div'); card.className = 'card';
   card.innerHTML = `<h2>${name}<span></span></h2>`;
-  const cv = document.createElement('canvas'); cv.className = 'stage'; cv.width = 470; cv.height = 400; card.appendChild(cv);
+  // K=2 고해상 — 논리 좌표계(470×400)는 그대로, 픽셀만 2배(확대해도 벡터 크리스프)
+  const cv = document.createElement('canvas'); cv.className = 'stage'; cv.width = 940; cv.height = 800; card.appendChild(cv);
   const m = document.createElement('div'); m.className = 'meta'; m.textContent = desc; card.appendChild(m);
   row.appendChild(card); card.__cv = cv; card.__fn = fn;
 }
@@ -164,7 +167,9 @@ let t0 = performance.now();
   const abs = (now - t0) / 1000 * speed, tc = abs % CY;
   const st = state(tc);
   document.querySelectorAll('.card').forEach(card => {
-    const g = card.__cv.getContext('2d'); bg(g, card.__cv.width, card.__cv.height); card.__fn(g, st, abs); });
+    const g = card.__cv.getContext('2d');
+    g.setTransform(2, 0, 0, 2, 0, 0);                    // 논리 470×400 → 픽셀 940×800
+    bg(g, 470, 400); card.__fn(g, st, abs); });
   hud.textContent = tc.toFixed(2) + ' / ' + CY.toFixed(2) + 's';
   requestAnimationFrame(loop);
 })(performance.now());

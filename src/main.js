@@ -5665,6 +5665,7 @@ void main(){
     frameObj.visible = shown && !wallGLOn;
     wallGL.mesh.visible = wallGLOn;
     if (shown) {
+      if (wallGLOn && wallGL.stage !== session.curStage?.id) loadedView = null;   // 자가 치유 — 지면과 동일 불변식
       if (view !== loadedView) {   // 다른 뷰만 로드(같은 뷰 재진입=그대로)
         const dur = STAGE_DUR[session.curStage?.id] ?? session.curStage?.dur ?? 8;
         const needsDur = view.includes('scene.html') || view.includes('timer.html');
@@ -5767,9 +5768,10 @@ void main(){
       [session.countGroup, session.countRing].forEach(o => { if (o) o.visible = false; });
     }
     if (floorShown) {
-      // ★ src 만 비교하면 전환 순간 fp 가 한 프레임 비어 CSS3D 가 먼저 로드했을 때,
-      //   GL 이 복귀해도 '이미 로드됨'으로 건너뛰어 캔버스가 이전 스테이지(READY)에 영영 얼어붙는다
-      //   (유저: 탭해도 화면이 안 넘어감 — 세션은 A1인데 지면은 READY. 계기판 실측으로 확정).
+      // ★ 자가 치유 불변식 — 어떤 레이스 경로로 꼬였든, GL 캔버스가 그리는 스테이지가
+      //   세션 스테이지와 다르면 무조건 재로드한다(유저: 화면이 이전 스테이지에 얼어붙음 반복).
+      //   개별 레이스를 하나씩 막는 방식은 두 번 실패했다 — 결과 상태를 매 프레임 검증하는 게 정답.
+      if (floorGLOn && floorGL.stage !== session.curStage?.id) loadedFloorView = null;
       if (fView.src !== loadedFloorView || floorGLOn !== loadedFloorGL) {
         const dur = STAGE_DUR[session.curStage?.id] ?? session.curStage?.dur ?? 8;
         const _sid2 = session.curStage?.id;
