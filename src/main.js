@@ -3253,6 +3253,9 @@ void main(){
     BX_C3:    ['bx_c3_combo.mp4',   '상대 — 잽잽훅 콤비'],
     BX_C4:    ['bx_c4_cooldown.mp4','고수 — 마무리 호흡'],
   };
+  // 스테이지별 인물 크기 미세 조정 — 1 = 손대지 않음. 여기 없는 스테이지는 전부 1 이다.
+  //   클립을 갈아서 인물이 벽 상단/하단에 닿을 때만 이 표에 한 줄 추가한다.
+  const GHOST_TRIM = { BX_A1: 0.95 };   // 머리가 벽 위에 닿아 5% 만 낮춤(유저: 많이 줄이긴 싫다)
   let ghostClipCur = '', ghostClipWant = null;
   // 반입 검사: HEAD + content-type — 데브 서버는 없는 파일에 404 대신 index.html(SPA 폴백)을
   // 주므로 미디어 error 이벤트만으론 감지 불가(검정 화면·전면 마스크 회귀의 원인).
@@ -3320,7 +3323,11 @@ void main(){
       // (피그마 WallUI 확정 레이아웃 — 우측은 '내 자세' 슬롯)
       const wallBot = (wc?.cy ?? 1.4) - rig.wallH / 2;
       const mir = HUD_MIRROR.has(session.curStage?.id);   // 수납 크기 유지
-      const gsc = mir ? 0.8 : 1;   // 중앙 단독 — 벽을 당당히 채우는 등신 (쿼드 1.57m)
+      // 스테이지별 미세 트림 — 클립마다 인물이 프레임을 채우는 비율이 다르다. 패널은
+      //   9:16 커버핏이라, 소스가 세로로 꽉 찬 클립일수록 같은 gsc 에서도 인물이 커진다.
+      //   BX_A1 은 코치 클립을 세로 프레이밍(934×1660)으로 갈면서 머리가 벽 상단에 닿았다(유저).
+      //   발은 wallBot 에 고정이라 줄이면 위에서만 내려온다 — 서 있는 자리는 안 변한다.
+      const gsc = (mir ? 0.8 : 1) * (GHOST_TRIM[session.curStage?.id] ?? 1);   // 중앙 단독 — 벽을 당당히 채우는 등신 (쿼드 1.57m)
       demoPanel.scale.set(GHOST_H * (9 / 16) / 0.62 * gsc * GHOST_PAD, GHOST_H / 0.93 * gsc * GHOST_PAD, 1);
       demoPanel.position.set((wc ? wc.cx : 0) + (mir ? 0 : 0), wallBot + GHOST_H * gsc / 2 + (mir ? 0.02 : 0.01), WALL_Z + 0.035);
     }
