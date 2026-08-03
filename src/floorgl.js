@@ -1087,7 +1087,10 @@ export class FloorGL {
       const r = kf(p, [[0, 0], [.25, 4], [.5, -3], [.75, 3], [1, 0]]) * Math.PI / 180;
       ctx.translate(CX + dx, topY + dy); ctx.rotate(r); ctx.scale(s, s); ctx.translate(-CX, -topY);
     }
-    ctx.drawImage(im, CX - w / 2, topY - h / 2, w, h);
+    // 에셋 빛덩이가 뷰박스 정중앙에 없다 — 드리프트를 끄고 렌더 픽셀 무게중심을 재면 −42 대지px
+    //   왼쪽(벽 glow.svg 와 같은 종류의 치우침). 안 넣으면 빨강이 콘텐츠보다 왼쪽에 앉는다(유저).
+    //   보정량 ≠ 이동량 — 마스크(중심 50%)가 오른쪽 falloff 를 깎아 109px(4.95%) 밀어야 42px 움직인다.
+    ctx.drawImage(im, CX - w / 2 + w * 0.0495, topY - h / 2, w, h);
     ctx.restore();
     ctx.save();
     const g = ctx.createRadialGradient(CX, H * 0.43, 0, CX, H * 0.43, W * 0.58);
@@ -1384,9 +1387,13 @@ export class FloorGL {
   // ── 실전 직전 카운트다운 (floor-timer.html) ────────────────────────────────
   _paint_timer() {
     const ctx = this.ctx, M = TM[this.stage] || TM.C1, dur = this.params.dur || 3, t = this.t;
-    this._bgGlow(1160);
-    const y = this._titleGroup(600, M.sub, M.title) + 88;
-    const cy = y + 302, rem = dur - t, txt = rem > 0.05 ? String(Math.ceil(rem)) : 'GO';
+    // 벽 타이머와 같은 규칙 — 정렬 기준은 '타이틀+링 블록'이 아니라 **링**이다.
+    //   블록을 top 600 에 놓으면 링 중심이 글로우 중심보다 73px 내려가 빨강이 링 윗동만 덮었다(유저).
+    //   링 중심 = 글로우 중심으로 못 박고 타이틀은 GAP 만큼 위에. GAP 88 → 48.
+    const GLOW_Y = 1160, RING = 604, GAP = 48, TGH = 64 * 1.2 + 8.8 + 140 * 1.05;
+    this._bgGlow(GLOW_Y);
+    const y = this._titleGroup(GLOW_Y - RING / 2 - GAP - TGH, M.sub, M.title) + GAP;
+    const cy = y + RING / 2, rem = dur - t, txt = rem > 0.05 ? String(Math.ceil(rem)) : 'GO';
     // ringPop .8s .35s + ringBreath 3s 1.2s ×3
     const e = eOut(intro(t, .35, .8)), br = cycle(t, 1.2, 3, 3);
     ctx.save();

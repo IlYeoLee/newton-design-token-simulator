@@ -69,26 +69,31 @@ function gradV(ctx, y0, y1, stops) {
 // ── 원본 <script>의 데이터 상수 ─────────────────────────────────────────────────
 const PHASES = ['START', 'STRETCH', 'LEARN', 'STRIKE!'];
 const SCENES = {
+  // ★ 하단 자막은 '지시'가 아니라 '동기부여'다(유저 08-03). 벽 앞에서 운동하는 사람은 스피커로
+  //   코치 음성을 듣고 있다 — 같은 지시를 글로 또 읽을 이유가 없고, 읽을 새도 없다.
+  //   위 주석의 원칙("지시(음성)와 확인(화면)을 분리 — 화면은 결과만 말한다")이 데이터에는
+  //   반영돼 있지 않았다: 'Slip your head left and right' 처럼 전부 설명문이었다.
+  //   ⇒ say·cues 를 짧은 격려·상태로 갈았다. 지시는 session.voice 가 이미 한다.
   BX_A1: { title: 'NECK & SHOULDER ROLLS', phase: 1, sub: '1/3', coach: { num: '8', unit: 'Rolls' }, you: { num: '8', unit: 'Rolls' },
-    say: 'Roll your neck and shoulders, slow', cues: ['Slow…', 'Big circles', 'Other way', 'Easy — breathe'], combos: [] },
+    say: 'Easing in', cues: ['Nice', 'That’s it', 'Loose already'], combos: [] },
   BX_A2: { title: 'IN & OUT FOOTWORK', phase: 1, sub: '2/3', coach: { num: '6', unit: 'Steps' }, you: { num: '6', unit: 'Steps' },
-    say: 'Light on your feet — front and back', cues: ['Light feet', 'Forward…', 'And back', 'Stay bouncy'], combos: [] },
+    say: 'Feeling light', cues: ['Nice', 'Bouncy', 'That’s it'], combos: [] },
   BX_A3: { title: 'LIGHT JAB', phase: 1, sub: '3/3', coach: { num: '6', unit: 'Jabs' }, you: { num: '6', unit: 'Jabs' },
-    say: 'Extend from the shoulder, snap back', cues: ['Jab!', 'Snap back', 'Again!', 'From the shoulder'], combos: [] },
+    say: 'Sharp', cues: ['Nice snap', 'That’s it', 'Looking good'], combos: [] },
   BX_B1: { title: 'HOLD YOUR GUARD', phase: 2, sub: '1/3', coach: { num: '3.0', unit: 'Sec' }, you: { num: '3.0', unit: 'Sec' },
-    say: 'Keep your fists in the box', cues: ['Fists up', 'Hold it…', 'Tight guard', 'Steady'], combos: [] },
+    say: 'Rock solid', cues: ['Holding', 'Nice', 'Strong'], combos: [] },
   BX_B2: { title: 'SLIP & EVADE', phase: 2, sub: '2/3', coach: { num: '6', unit: 'Slips' }, you: { num: '6', unit: 'Slips' },
-    say: 'Slip your head left and right', cues: ['Slip right!', 'And left!', 'Under it', 'Keep moving'], combos: [] },
+    say: 'Slick', cues: ['Untouchable', 'Nice', 'Can’t catch you'], combos: [] },
   BX_B3: { title: 'JAB SWEEP', phase: 2, sub: '3/3', coach: { num: '6', unit: 'Sweeps' }, you: { num: '6', unit: 'Sweeps' },
-    say: 'Follow the sweep, hit the target', cues: ['Follow it', 'Jab!', 'On target', 'Again!'], combos: [] },
+    say: 'Dialled in', cues: ['On target', 'Nice', 'Sharp'], combos: [] },
   BX_C1: { title: 'START SIGNAL', phase: 3, sub: '', coach: { num: '3', unit: 'Go' }, you: { num: '', unit: '' },
-    say: '3, 2, 1 — spar!', cues: [], combos: [] },
+    say: '3, 2, 1 — spar!', cues: [], combos: [] },   // 카운트다운은 그 자체가 사건이라 그대로
   BX_C2: { title: 'JAB SPAR', phase: 3, sub: '1/3', coach: { num: '8', unit: 'Thrown' }, you: { num: '5', unit: 'Landed' },
-    say: 'Jab when the target shows', cues: ['Target up!', 'Jab!', 'Nice', 'Reset', 'Again!'], combos: ['Jab!'] },
+    say: 'Let’s go', cues: ['Nice', 'Sharp', 'Keep it up'], combos: ['Jab!'] },
   BX_C3: { title: 'COMBINATION', phase: 3, sub: '2/3', coach: { num: '3', unit: 'Openings' }, you: { num: '3', unit: 'Combo' },
-    say: 'Keep the rhythm — jab, jab, hook', cues: ['Jab, jab…', 'Hook!', 'Rhythm!', 'Don’t stop'], combos: ['Jab · Jab · Hook!'] },
+    say: 'Rhythm’s good', cues: ['Nice combo', 'On fire', 'Keep it up'], combos: ['Jab · Jab · Hook!'] },
   BX_C4: { title: 'COOL DOWN', phase: 3, sub: '3/3', coach: { num: '', unit: '' }, you: { num: '', unit: '' },
-    say: 'Breathe, drop your guard. Well done', cues: ['Breathe…', 'Guard down', 'Well done', 'Good work'], combos: [] },
+    say: 'Great work', cues: ['Well done', 'Strong session', 'Nice one'], combos: [] },
 };
 // 팩 정본 = Figma bK3Q9xIQ(팩 시청·설정 5화면·Main workout) — 'Bring the Ring Home' by Casey.
 //   시간 구성: Stretch 4m · Learn 8m · Strike! 23m (6 Rounds × 3m Work · 1m Rest) = Total 35m.
@@ -232,9 +237,9 @@ export class WallGL {
     //      실제 무게중심은 훨씬 덜 치우친다 — 반드시 렌더 픽셀로 재야 한다.
     // 크기도 첫 화면 규칙 — 거기선 발 300px 에 글로우 900px, 곧 '주체의 3배'다.
     //   여기 주체는 링(548.638) → 1646px. 예전 2050px 는 대지의 79% 라 빨강이 화면을 먹었다.
-    //   0.899% 로는 부족했다 — 합성된 벽에서 빨강 무게중심을 재면 아직 왼쪽으로 치우친다
-    //   (드리프트 4위상 평균 −29 화면px ≈ −71 대지px, 유저: 좌우 간격 안맞음). 실측으로 재보정.
-    const w = 1646, h = w * (810 / 907), ox = w * 0.0522, oy = -h * 0.01346;
+    //   0.899% 로는 부족했다(유저: 좌우 간격 안맞음). 드리프트·펄스를 끄고 순수 에셋만 재측정 →
+    //   보정 없이는 −75 대지px. 4.58% 를 먹이면 잔차 +10px 로, 드리프트 진폭(±148px) 안이라 안 보인다.
+    const w = 1646, h = w * (810 / 907), ox = w * 0.0458, oy = -h * 0.01346;
     ctx.save();
     const pu = cycle(this.t, 0, 4.6, INF);   // glowPulse — scale 1↔1.055 · opacity .72↔.84
     if (pu != null) {
@@ -552,10 +557,14 @@ export class WallGL {
     // 앱의 단계 표시(setup-condition 하단 바)도 가로 3단이다 — 세로가 아니라 가로가 정본.
     // 타이틀 위에 놓아 [단계 → 제목 → 진행] 위에서 아래로 읽히는 머리말 묶음이 된다.
     {
+      // ★ 크기는 여기 두 상수에서만 온다. 폭 측정(아래 measureText)과 그리기 두 군데가
+      //   같은 값을 봐야 한다 — 한 곳만 키우면 잰 폭과 그린 폭이 달라져 가운데 정렬이 틀어진다.
+      //   28/24 는 실제 영상(투사 거리)에서 읽기 힘들었다(유저).
+      const PH_ON = 33, PH_OFF = 29;
       const items = PHASES.map((label, i) => {
         const active = i === S.phase;
         const str = active ? label + (S.sub ? ' ' + S.sub : '') : label;
-        ctx.font = F(active ? 700 : 400, active ? 28 : 24);
+        ctx.font = F(active ? 700 : 400, active ? PH_ON : PH_OFF);
         return { str, active, far: i > S.phase + 1, w: ctx.measureText(str).width };
       });
       const GAP = 40, total = items.reduce((a, b) => a + b.w, 0) + GAP * (items.length - 1);
@@ -568,9 +577,9 @@ export class WallGL {
           const pu = cycle(t, 1.2, 2.4, INF);
           if (pu != null) ctx.globalAlpha *= kf(pu, [[0, 1], [.5, .6], [1, 1]]);
           ctx.shadowColor = 'rgba(255,255,255,.45)'; ctx.shadowBlur = 28;
-          txt(ctx, it.str, px, 34, 28, 700, '#fff');
+          txt(ctx, it.str, px, 34, PH_ON, 700, '#fff');
         } else {
-          txt(ctx, it.str, px, 36, 24, 400, it.far ? 'rgba(255,255,255,.5)' : 'rgba(255,255,255,.7)');
+          txt(ctx, it.str, px, 36, PH_OFF, 400, it.far ? 'rgba(255,255,255,.5)' : 'rgba(255,255,255,.7)');
         }
         ctx.restore();
         px += it.w + GAP;
