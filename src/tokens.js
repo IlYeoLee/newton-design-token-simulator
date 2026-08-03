@@ -407,6 +407,11 @@ export function applyMarkLook(part = {}) {
     }
     for (const k in mapSF) if (part[k] != null && U[mapSF[k]]) U[mapSF[k]].value = part[k] * SF;
   }
+  // ── 프림(코멧·잽잽훅 노드·수축링·화살표)도 실시간 — 마크 유니폼만 갱신하고 FXP 를 안 건드려
+  //   footlab 토큰 공통(uW·uHalo)이 프림에는 반영이 안 됐다(유저 확인). 프림은 세션 tick 이
+  //   FXP.mark.halo / FXP.arrow.w 를 30Hz 로 직접 읽으므로 값만 옮기면 즉시 따라온다.
+  if (part.halo != null) FXP.mark.halo = part.halo;
+  if (part.w != null) { FXP.mark.core = part.w; if (FXP.arrow) FXP.arrow.w = part.w; }
 }
 
 // ─────────────────────────────────────────────────────────────
