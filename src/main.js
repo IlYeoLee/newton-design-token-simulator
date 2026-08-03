@@ -1287,13 +1287,9 @@ void main(){
       Object.assign(FXP.arrow, st.arrow);
       if (changed) refreshGlyphConsumers();   // 화살표 자루 리빌드
     }
-    // 마크 숫자 활자 — 랩 토글이 그대로 건너온다('glyph' 슬롯 SVG / 'offbit' 도트 폰트).
-    // glyphs 블록 밖에 둔다: 글리프를 한 번도 안 만진 랩 상태에서도 이 값은 와야 한다.
-    if (st.numSrc && st.numSrc !== FXP.numSrc) {
-      FXP.numSrc = st.numSrc;
-      if (FXP.numSrc === 'offbit') ensureOffBit();
-      refreshGlyphConsumers();   // 이미 구워진 숫자 텍스처를 새 활자로 다시 굽는다
-    }
+    // 마크 숫자 활자 = **OffBit 정본 확정(유저)** — 저장 룩의 numSrc 는 더 이상 채택하지 않는다.
+    //   구버전 랩 저장분(localStorage)에 'glyph'(SVG 활자)가 박혀 있어 부팅마다 정본을
+    //   되돌렸다(실측: 두 기기 모두 발자국 숫자가 옛 활자). 랩 안 실시간 토글은 랩 창 전용.
     if (st.glyphs && typeof st.glyphs === 'object') {
       const changed = JSON.stringify(st.glyphs) !== JSON.stringify(GLYPHS.map);
       FXP.customGlyphs = st.glyphs;
