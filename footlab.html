@@ -43,6 +43,7 @@
      압축돼 발도 원도 납작해진다(유저: 찌부시키지 마). 캔버스 크기를 바꾸면 여기도 같이 바꿀 것. */
   #strip{width:calc(var(--hero,460px) * 2.1);max-width:100%;height:auto;aspect-ratio:1120 / 460}
   #comp{width:calc(var(--hero,460px) * 2.1);max-width:100%;height:auto;aspect-ratio:1120 / 380}
+  #prims{width:calc(var(--hero,460px) * 2.1);max-width:100%;height:auto;aspect-ratio:1120 / 380}
   #align{width:calc(var(--hero,460px) * 1.5);max-width:100%;height:auto;aspect-ratio:840 / 280}
   .stage{flex:1 1 560px;min-width:420px}
   #snip{width:100%;height:118px;background:#0B0E13;color:var(--sand);border:1px solid var(--line);
@@ -168,6 +169,12 @@
       <p class=note>실제 사진을 쓰려면 <code>public/floors/track.jpg</code> · <code>tile.jpg</code> 로 넣으면 자동으로 그걸 씁니다. 지금은 근사색으로 그립니다.</p>
     </div>
     <div class=card>
+      <h2>동작 토큰 — 같은 룩으로 (복싱 판정 3단계 · 화살표 수직·수평 · 궤적 경로)</h2>
+      <canvas id=prims width=1120 height=380></canvas>
+      <p class=note>발자국과 <b>같은 소스</b>(팔레트 LUT · 두께 uW · 헤일로 uHalo)를 소비합니다 — 위 '토큰 공통' 슬라이더를 만지면 함께 변합니다.
+      형태 정본은 <code>fx-core</code>(drawApproachRing · drawStemArrow · drawTrajectory) — 시뮬이 쓰는 그 함수 그대로라, 여기서 확인한 그림이 곧 시뮬 그림입니다.</p>
+    </div>
+    <div class=card>
       <h2>겹침 실측 — 겉(빨강) · 안(크림) · 겹침(시안 = 신발 밖으로 삐져나온 곳)</h2>
       <canvas id=align width=840 height=280></canvas>
       <p class=note id=alignNote></p>
@@ -183,8 +190,8 @@
 'use strict';
 import * as THREE from 'three';
 import { makeMarkFXMaterial, QUAD_K, ZONE_GLYPH_K, SIL_FIT, SIL_FIT_REF } from './src/tokens.js';
-import { FXP, GLYPHS, DEFAULT_GLYPHS, footSlot, footSDFTexture, drawNumber, getLUT, ensureOffBit } from './src/fxlut.js';
-import { MARK_NUM, SDF_DECODE, drawMarkGlyph, invertGlyphCanvas } from './src/fx-core.js';
+import { FXP, GLYPHS, DEFAULT_GLYPHS, footSlot, footSDFTexture, drawNumber, getLUT, ensureOffBit, rebuildLUT } from './src/fxlut.js';
+import { MARK_NUM, SDF_DECODE, drawMarkGlyph, invertGlyphCanvas, drawApproachRing, drawStemArrow, drawTrajectory } from './src/fx-core.js';
 import LOOK from './src/mark-look.json';   // ★ MARK 룩 정본 — 랩·시뮬이 같은 파일을 본다
 
 // 정본 글리프를 항상 싣는다 — 저장본만 믿으면 랩이 낡은 dataURL 을 보는 사고가 반복된다(07-30).
@@ -784,8 +791,49 @@ function composite() {
 
 // ── 프레임 루프 ─────────────────────────────────────────────────────────
 const T0 = performance.now();
+// ── 동작 토큰 카드 — 판정 3단계·화살표·궤적이 발자국과 **같은 룩 소스**를 소비한다 ──
+//   lut = fxlut 정본 LUT(발 마크 셰이더와 같은 굽기) · 두께 = uW(P.w) · 글로우 = uHalo(P.halo).
+//   형태는 fx-core 정본 함수 — 시뮬(session.js)이 소비하는 그 함수라, 여기 그림이 곧 시뮬 그림.
+const _lutArr = rebuildLUT();
+const _lutCss = v => { const i = Math.max(0, Math.min(255, Math.round(v * 255))) * 4;
+  return `rgb(${_lutArr[i]},${_lutArr[i + 1]},${_lutArr[i + 2]})`; };
+const _primEnv = () => ({ lut: _lutCss,
+  arrow: { line: 'solid', w: P.w, speed: 1, gap: 1, glow: P.halo, heat: 0.5, tail: 0.55 },
+  num: (g, ch, x, y, size, fontPx) => { g.font = `300 ${fontPx}px -apple-system,sans-serif`;
+    g.fillStyle = 'rgba(255,240,220,.95)'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(ch, x, y); },
+  foot: () => {} });
+const _stemCv = document.createElement('canvas'); _stemCv.width = 128; _stemCv.height = 256;
+function drawPrimsCard(t) {
+  const cv = $('prims'); if (!cv) return;
+  const g = cv.getContext('2d');
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  g.clearRect(0, 0, cv.width, cv.height);
+  const ENV = _primEnv(), look = { halo: P.halo };
+  // ① 복싱 판정 3단계 — 수축 링 정본(drawApproachRing)의 세 순간: 대기 → 판정(수축) → 성공(잠금)
+  //   셀 150 · 간격 160 — draw 함수가 자기 셀을 clearRect 하므로 간격 < 셀이면 옆 링을 지운다
+  const progs = [0.10, 0.66, 0.995];
+  progs.forEach((pr, i) => {
+    g.save(); g.translate(20 + i * 160, 100);
+    drawApproachRing(g, 150, { r: 0.40, rt: 0.36, tempo: 0.6 }, look, t, ENV, pr);
+    g.restore();
+  });
+  // ② 화살표 수직·수평 — LINE 스템 정본(drawStemArrow)을 축만 돌려서
+  drawStemArrow(_stemCv.getContext('2d'), 128, 256, t, ENV, {});
+  g.drawImage(_stemCv, 510, 30, 100, 200);                        // 수직 ↑
+  g.save(); g.translate(600, 300); g.rotate(Math.PI / 2);
+  g.drawImage(_stemCv, -55, -100, 100, 200); g.restore();         // 수평 → (같은 정본, 90° 회전)
+  // ③ 궤적 경로 — 코멧 헤드 + 테이퍼 꼬리
+  g.save(); g.translate(760, 20);
+  drawTrajectory(g, 340, { spread: 1, width: 1.4, tail: 1, taper: 1.6, spark: 0.6, tempo: 0.5 }, look, t, ENV);
+  g.restore();
+  g.font = "600 14px -apple-system,'Malgun Gothic',sans-serif"; g.textAlign = 'center'; g.fillStyle = '#98A1AD';
+  ['① 대기', '② 판정', '③ 성공'].forEach((n, i) => g.fillText(n, 20 + i * 160 + 75, 285));
+  g.fillText('화살표 ↑ · →', 590, 372);
+  g.fillText('궤적 — 코멧 헤드', 930, 372);
+}
 function frame() {
   const t = (performance.now() - T0) / 1000;
+  drawPrimsCard(t);
   if (units.foot || units.zone) {
     // 확대 — 스트립에서 고른 표현형·상태
     blit($('hero'), heroOff, (mode) => {
