@@ -571,10 +571,13 @@ vec4 personAura(float mBody, float wide, float lumSharp, float lumBase, float fa
   //   전체에서 커지고, 흰 띠가 다리 전면을 덮어 하얗게 떴다(유저: 다리가 너무 하얗다).
   float feather = pow(clamp((mBody - wide) * 2.0, 0.0, 1.0), 2.0);
   c = mix(c, vec3(1.0), clamp(feather * 0.24 * uPCalW, 0.0, 1.0));
+  // ★ 라인 강도 = 앱 스펙으로 복원(0.41→0.22 · 0.27→0.14). 어느 시점에 ~2배로 드리프트돼
+  //   얇은 다리 윗 실루엣이 두꺼운 흰 줄로 떴다(유저 스샷 08-04, A2 런지). 룩2 원값:
+  //   라인 0.24×0.9 · 내부라인 0.14 — 앱 화면(유저가 '이쁘다'한 그 그림)의 절반 강도가 정답.
   float line = pow(4.0 * mBody * (1.0 - mBody), 1.5) * smoothstep(0.35, 0.6, mBody);
-  c = mix(c, vec3(1.0), clamp(line * 0.41 * uPCalW, 0.0, 1.0));
+  c = mix(c, vec3(1.0), clamp(line * 0.22 * uPCalW, 0.0, 1.0));
   float lineIn = sqrt(clamp(abs(ls - lb) * 2.6, 0.0, 1.0)) * (1.0 - face);
-  c = mix(c, vec3(1.0), clamp(lineIn * 0.27 * uPCalW, 0.0, 1.0));
+  c = mix(c, vec3(1.0), clamp(lineIn * 0.14 * uPCalW, 0.0, 1.0));
   return vec4(clamp(c, 0.0, 1.0) * mBody, mBody);
 }
 `;
