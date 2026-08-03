@@ -448,8 +448,22 @@ function tickPrims(t) {
     else if (p.kind === 'trajectory') drawTrajectory(g, CW, P, look, t - (p.t0 || 0), livePrimEnv(), p.prog, p.pts);
     else if (p.kind === 'rotate') drawRotate(g, CW, P, look, t, livePrimEnv(), p.prog);
     else if (p.kind === 'curveArrow') drawCurveArrow(g, CW, CW, p.pts || [[0.5, 0.9], [0.5, 0.1]], t, livePrimEnv(), { prog: p.prog });
-    // ★ punchLine 커스텀 pts(BX_C3 실측 좌표)는 256 공간에서 계산돼 온다 — 캔버스 배율로 환산
-    else drawPunchLine(g, CW, P, look, t, livePrimEnv(), p.pts && p.pts.map(([x, y]) => [x * CW / 256, y * CW / 256]), p.prog);
+    // ★ punchLine 커스텀 pts(BX_C3 실측 좌표)는 256 공간에서 계산돼 온다 — 캔버스 배율로 환산.
+    //   판 자체 블룸(랩 카드와 동일 이중 가우시안 · lighter): 이 판은 씬 블룸 제외(_noBloom)라
+    //   생짜로 그려져 랩과 전혀 다른 톤이 됐다(유저: "전혀 달라"). 본체 + 좁은 블룸 + 넓은 헤일로.
+    else {
+      const off = (p._bloomCv ||= document.createElement('canvas'));
+      if (off.width !== CW) { off.width = off.height = CW; }
+      const og = off.getContext('2d');
+      og.setTransform(1, 0, 0, 1, 0, 0); og.clearRect(0, 0, CW, CW);
+      drawPunchLine(og, CW, P, look, t, livePrimEnv(), p.pts && p.pts.map(([x, y]) => [x * CW / 256, y * CW / 256]), p.prog);
+      g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, CW, CW);
+      g.drawImage(off, 0, 0);
+      g.save(); g.globalCompositeOperation = 'lighter';
+      g.filter = 'blur(4px)'; g.globalAlpha = 0.5; g.drawImage(off, 0, 0);
+      g.filter = 'blur(14px)'; g.globalAlpha = 0.5; g.drawImage(off, 0, 0);
+      g.restore(); g.filter = 'none'; g.globalAlpha = 1;
+    }
     p.tex.needsUpdate = true;
   }
 }
