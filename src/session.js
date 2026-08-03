@@ -459,9 +459,11 @@ function tickPrims(t) {
     else drawPunchLine(og, CW, P, look, t, livePrimEnv(), p.pts && p.pts.map(([x, y]) => [x * CW / 256, y * CW / 256]), p.prog);
     g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, CW, CW);
     g.drawImage(off, 0, 0);
+    // 강도 = footlab '블룸 세기' 하나로 조절(실시간 브리지 + mark-look 저장) — 0.5 고정은 과했다(유저)
+    const bk = FXP.primBloom != null ? FXP.primBloom : 0.125;
     g.save(); g.globalCompositeOperation = 'lighter';
-    g.filter = `blur(${Math.max(2, Math.round(CW / 128))}px)`; g.globalAlpha = 0.5; g.drawImage(off, 0, 0);
-    g.filter = `blur(${Math.max(7, Math.round(CW / 36))}px)`; g.globalAlpha = 0.5; g.drawImage(off, 0, 0);
+    g.filter = `blur(${Math.max(2, Math.round(CW / 128))}px)`; g.globalAlpha = Math.min(0.8, bk * 2.4); g.drawImage(off, 0, 0);
+    g.filter = `blur(${Math.max(7, Math.round(CW / 36))}px)`; g.globalAlpha = Math.min(0.7, bk * 2.0); g.drawImage(off, 0, 0);
     g.restore(); g.filter = 'none'; g.globalAlpha = 1;
     p.tex.needsUpdate = true;
   }

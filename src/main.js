@@ -2892,9 +2892,10 @@ void main(){
                 { halo: FXP.mark.halo }, now, { lut: lutColor, arrow: FXP.arrow, glyph: drawGlyph });
               c.g.setTransform(1, 0, 0, 1, 0, 0); c.g.clearRect(0, 0, 256, 256);
               c.g.drawImage(off, 0, 0);
+              const bk = FXP.primBloom != null ? FXP.primBloom : 0.125;   // footlab '블룸 세기' 연동
               c.g.save(); c.g.globalCompositeOperation = 'lighter';
-              c.g.filter = 'blur(2px)'; c.g.globalAlpha = 0.5; c.g.drawImage(off, 0, 0);
-              c.g.filter = 'blur(7px)'; c.g.globalAlpha = 0.5; c.g.drawImage(off, 0, 0);
+              c.g.filter = 'blur(2px)'; c.g.globalAlpha = Math.min(0.8, bk * 2.4); c.g.drawImage(off, 0, 0);
+              c.g.filter = 'blur(7px)'; c.g.globalAlpha = Math.min(0.7, bk * 2.0); c.g.drawImage(off, 0, 0);
               c.g.restore(); c.g.filter = 'none'; c.g.globalAlpha = 1;
               c.tex.needsUpdate = true;
             }

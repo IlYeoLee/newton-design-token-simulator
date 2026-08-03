@@ -296,6 +296,8 @@ if (LOOK.prims) {
   FXP.prims = FXP.prims || {};
   for (const k in LOOK.prims) FXP.prims[k] = { ...(FXP.prims[k] || {}), ...LOOK.prims[k] };
 }
+// 프림 판 블룸 강도 정본 — footlab '블룸 세기'(mark-look.json bloom)와 같은 손잡이 하나
+FXP.primBloom = LOOK.bloom ?? 0.125;
 export function makeMarkFXMaterial(footTex = null) {
   const mat = new THREE.ShaderMaterial({
     vertexShader: MARKFX_VERT,
@@ -424,6 +426,8 @@ export function applyMarkLook(part = {}) {
   if (part.halo != null) MARK_LOOK.halo = part.halo;
   if (part.pool != null) MARK_LOOK.pool = part.pool;
   if (part.noise != null) MARK_LOOK.wobble = part.noise;
+  // 프림 판 블룸 강도 — footlab '블룸 세기' 슬라이더와 동기(유저: 합성하니 너무 세다, 조절 필요)
+  if (part.bloom != null) FXP.primBloom = part.bloom;
   // 프림 고유 값(footlab 전용 슬라이더: 코멧 크기·꼬리·레일·노드) — 세션 tick 이 FXP.prims 를 읽는다
   if (part.prims) {
     FXP.prims = FXP.prims || {};

@@ -908,9 +908,10 @@ function drawPrimsCard(t) {
   out.setTransform(1, 0, 0, 1, 0, 0);
   out.clearRect(0, 0, cv.width, cv.height);
   out.drawImage(_primOff, 0, 0);
+  // 시뮬(session.tickPrims)과 **같은 공식** — 랩에서 보는 강도가 곧 시뮬 강도(블룸 세기 슬라이더 하나)
   out.save(); out.globalCompositeOperation = 'lighter';
-  out.filter = 'blur(5px)'; out.globalAlpha = 0.5; out.drawImage(_primOff, 0, 0);
-  out.filter = 'blur(16px)'; out.globalAlpha = P.bloom * 3 + 0.15; out.drawImage(_primOff, 0, 0);   // 넓은 헤일로 = 보기 블룸 슬라이더 연동
+  out.filter = 'blur(5px)'; out.globalAlpha = Math.min(0.8, P.bloom * 2.4); out.drawImage(_primOff, 0, 0);
+  out.filter = 'blur(16px)'; out.globalAlpha = Math.min(0.7, P.bloom * 2.0); out.drawImage(_primOff, 0, 0);
   out.restore(); out.filter = 'none'; out.globalAlpha = 1;
   out.font = "600 14px -apple-system,'Malgun Gothic',sans-serif"; out.textAlign = 'center'; out.fillStyle = '#98A1AD';
   ['① 대기', '② 판정', '③ 성공'].forEach((n, i) => out.fillText(n, 20 + i * 160 + 75, 300));
