@@ -659,17 +659,38 @@ for (let i = 0; i < N; i++) {
     //        시크가 안 끝났는데도 250ms 뒤 렌더로 넘어갔다 — 그 프레임은 빈 디코드다.
     //     ③ 'seeked' 는 '시크가 끝났다'일 뿐 '그 프레임이 텍스처에 올라갔다'가 아니다.
     //        requestVideoFrameCallback 이 정확히 후자를 알려 준다.
+    //     ④ **같은 값을 다시 써도 시크가 안 걸린다** — 이게 '한 번 빠지면 영영 안 돌아오는' 정체다.
+    //        옛 코드는 (currentTime === want && readyState >= 2) 일 때만 통과시키고, 아니면
+    //        v.currentTime = want 를 썼다. 그런데 currentTime 이 **이미** want 인데 디코드만
+    //        비어 있는 경우(readyState 1 = HAVE_METADATA), 같은 값 대입은 no-op 이라 seeked 도
+    //        requestVideoFrameCallback 도 영원히 안 온다 → 3초 안전장치로 넘어가고 그 프레임은
+    //        빈 디코드. 다음 프레임도 같은 상태로 시작하니 회복 지점이 없다.
+    //        실측(08-04 · BX_READY 240프레임): 3.87s 이후 readyState 가 1 로 고정, 인물이
+    //        116~219 프레임 통째로 실종(55%). 어제 코드로 재현해도 같아서 코드 회귀가 아니었다 —
+    //        프레임당 시간이 2.4s → 4.8s 로 늘며 3초 안전장치가 시크보다 먼저 터지기 시작한 것이
+    //        방아쇠였고, 위 no-op 이 그걸 영구화했다.
+    //        → 판정 기준을 **readyState 로** 바꾸고, 안 올라왔으면 값을 흔들어 진짜 시크를 건다.
     const vids = [...document.querySelectorAll('video')].filter(v => isFinite(v.duration) && v.duration > 0);
-    Promise.all(vids.map(v => new Promise(r => {
+    Promise.all(vids.map(async v => {
       const want = v.loop ? (tt % v.duration) : Math.min(tt, v.duration);
-      if (Math.abs(v.currentTime - want) < 1e-3 && v.readyState >= 2) return r();
-      let settled = false;
-      const fin = () => { if (settled) return; settled = true; r(); };
-      if (v.requestVideoFrameCallback) v.requestVideoFrameCallback(() => fin());
-      else v.addEventListener('seeked', fin, { once: true });
-      v.currentTime = want;
-      setTimeout(fin, 3000);          // 안전장치. 넉넉해야 한다 — 짧으면 그게 곧 깜빡임이다
-    }))).then(() => {
+      const seekTo = (pos, ms) => new Promise(r => {
+        let settled = false;
+        const fin = () => { if (settled) return; settled = true; r(); };
+        if (v.requestVideoFrameCallback) v.requestVideoFrameCallback(() => fin());
+        else v.addEventListener('seeked', fin, { once: true });
+        v.currentTime = pos;
+        setTimeout(fin, ms);
+      });
+      for (let k = 0; k < 4; k++) {
+        // 목표 위치에 **그리고** 그 프레임이 실제로 올라와 있으면 끝.
+        if (Math.abs(v.currentTime - want) < 1e-3 && v.readyState >= 2) return;
+        // 재시도는 '멀리 던졌다 돌아오기' — 같은 값 대입은 no-op 이라 시크 자체가 안 걸린다.
+        //   돌아오는 대입은 직전 값과 다르므로 반드시 진짜 시크가 되고 디코드가 새로 돈다.
+        if (k > 0) await seekTo(want > 0.5 ? want - 0.5 : Math.min(v.duration, want + 0.5), 900);
+        await seekTo(want, 2500);
+      }
+      if (v.readyState < 2) window.__seekMiss = (window.__seekMiss || 0) + 1;   // 조용히 넘기지 않는다
+    })).then(() => {
       // 첫 rAF 는 앱의 갱신·렌더가 끝난 뒤에 돈다(앱 루프가 먼저 등록돼 있다) — 거기서 무대를
       // 다시 끄고 카메라를 투사면에 다시 맞추면, 두 번째 틱의 렌더가 그 상태로 그린다.
       requestAnimationFrame(() => { window.__isolate3d?.(); window.__fitFlat?.(); requestAnimationFrame(res); });
@@ -702,6 +723,11 @@ const leaked = await page.evaluate(() => {
     .map(el => `${el.tagName}#${el.id || ''}.${el.className || ''}`.slice(0, 60)).slice(0, 8);
 }).catch(() => []);
 if (leaked.length) console.log(`⚠ 캔버스 밖에서 보이는 요소 ${leaked.length}건 — 프레임에 섞였을 수 있습니다:`, leaked);
+// 시크가 끝내 안 끝난 프레임 — 그 프레임엔 인물(코치 클립)이 빠져 있다. 조용히 넘기면
+//   '인물이 깜빡인다'로 나중에 발견된다(실측 08-04: 240장 중 132장 실종을 육안으로 알았다).
+const seekMiss = await page.evaluate(() => window.__seekMiss || 0).catch(() => 0);
+if (seekMiss) console.log(`⚠ 비디오 시크 실패 ${seekMiss}건 — 그만큼의 프레임에 인물이 빠졌습니다.`);
+else console.log('  비디오 시크 전부 성공 — 인물 빠진 프레임 없음');
 if (!done) { console.log('프레임이 하나도 없습니다 — 중단.'); await browser.close(); process.exit(1); }
 if (done < N) console.log(`  (${done}/${N} 프레임으로 묶습니다 — ${(done / FPS).toFixed(1)}초)`);
 
