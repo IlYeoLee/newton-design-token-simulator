@@ -625,7 +625,10 @@ export const STAGES = {
   ],
   boxing: [
     { id:'BX_READY', wall:true, label:'READY · 준비 — 가드 올리고 거리 잡기', voice:['고수','오늘 잽 하나만 제대로 가져갈 거예요. 가드 올리고 — 발 두 번 탭.'], wear:'SAFE 대기', foot:'두 번 탭 → 시작' },
-    { id:'BX_A1', wall:true, label:'A1 · 준비운동 1/3 — 목·어깨 풀기', voice:['고수','목이랑 어깨부터. 크게, 천천히 여덟 번.'], wear:'개입 없음' },
+    // dur = 코치 클립 1회분. 없으면 스테이지는 5.6s 에 끊기는데 벽 UI 카운터는 기본값
+    //   8s 로 페이싱해서 YOU 가 8 에 닿기 전에 넘어갔다(유저: 끝까지 못 감).
+    //   클립 한 바퀴 = 목 전반 + 어깨 후반이라, 8회를 여기 걸면 영상·큐·카운트가 같이 끝난다.
+    { id:'BX_A1', wall:true, dur:BX_A1_CLIP, label:'A1 · 준비운동 1/3 — 목·어깨 풀기', voice:['고수','목이랑 어깨부터. 크게, 천천히 여덟 번.'], wear:'개입 없음' },
     { id:'BX_A2', wall:true, label:'A2 · 준비운동 2/3 — 스텝 인·아웃', voice:['고수','앞뒤로 가볍게 여섯 번. 무게는 항상 앞발에.'], hap:'스텝 박자 (약)' },
     { id:'BX_A3', wall:true, label:'A3 · 준비운동 3/3 — 잽 폼', voice:['고수','이제 잽 폼만. 어깨에서 뻗고 바로 회수 — 여섯 번.'], wear:'낮은 강도 보조 시작' },
     { id:'BX_T1', wall:true, label:'T1 · 전환 — 잽 익히기 시작', voice:['고수','몸 풀렸어요. 잽을 세 조각으로 나눠서 만들어 볼게요. 두 번 탭.'], foot:'두 번 탭 → 사전 익히기' },
@@ -2669,14 +2672,15 @@ export class Session {
       //   후반(3.0s~) 어깨 롤. 클립을 갈면 BX_A1_CLIP 만 다시 재면 된다.
       //   어깨는 전환 직후가 아니라 조금 뒤에 띄운다 — 목 큐가 사라지자마자
       //   두 개가 튀어나오면 '깜빡'으로 읽힌다(러닝 A1 과 같은 규칙, 거기선 +2s).
-      //   목 큐는 어깨가 켜지는 순간까지 들고 있는다 — 사이를 비우면 큐가 하나도 없는
-      //   0.6초가 생겨서 꺼진 것처럼 읽힌다(러닝 A1 은 스테이지가 길어 빈 구간이 티가 안 났다).
-      const shOn = this.t > BX_A1_CLIP * 0.5 + 0.6;
-      const neckOn = !shOn;
-      this.bxA1rotN.visible = neckOn;
+      //   전환은 클립 한가운데 = 영상이 목에서 어깨로 넘어가는 그 지점이다.
+      //   빈 구간을 두지 않는다 — 큐가 하나도 없는 순간은 '꺼졌다'로 읽힌다.
+      const HALF = st.dur / 2, per = st.dur / 8;
+      const shOn = this.t >= HALF;
+      this.bxA1rotN.visible = !shOn;
       this.bxA1rotL.visible = this.bxA1rotR.visible = shOn;
-      FMU(`${Math.min(8, Math.floor(this.t / 0.7) + 1)} / 8`, CS.sand);
-      if (this.t >= 8 * 0.7) { this.next(); return; }
+      // 8회를 스테이지 전체에 고르게 — 앞 4회가 목, 뒤 4회가 어깨다.
+      FMU(`${Math.min(8, Math.floor(this.t / per) + 1)} / 8`, CS.sand);
+      if (this.t >= st.dur) { this.next(); return; }
     } else if (id === 'BX_A2') {
       // 스텝 인·아웃 — 근/원 존 교대
       const per = 0.7, near = Math.floor(this.t / per) % 2 === 0;
