@@ -1328,7 +1328,7 @@ export class Session {
     this.bxB2path = primPanel('trajectory', 2.0, true);
     this.bxB2path.position.set(0, 1.70, WZ + 0.004);
     //   width 0.9(유저: 원형 더 작게) · tail 2.4 = 경로의 86%가 꼬리로 남아 '어디서 날아왔는지'가 보인다.
-    this.bxB2path._prim.P = { width: 1.2, glow: 1.2, tail: 1.8 };   // 헤드 월드 크기 = B3 스윕과 동일
+    this.bxB2path._prim.P = { width: 1.05, glow: 1.2, tail: 1.8 };   // 1.2 → 1.05 — 블룸 이식 후 체감 커짐, 아주 조금 축소(유저)
     //   (B3: 판 1.2 × width 2.0 — 헤드는 판 크기에 비례하므로 판 2.0 인 여기선 1.2 가 등가)
     g.add(this.bxB2path);
 
