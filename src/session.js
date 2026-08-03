@@ -1663,6 +1663,12 @@ export class Session {
     if (this._c3Skill != null && this.judge) { this.judge.skill = this._c3Skill; this._c3Skill = null; }   // C3 중 탭 스킵 시 skill 0.35 영구 잠김 방지
     this.bobY = 0;
     for (const id in this.G) this.G[id].visible = false;
+    // ★ 씬 미리보기 고정(?scene=) — 여기서 막는다. 예전엔 넘어가게 두고 다음 프레임에
+    //   되돌렸는데, 그 사이 한 프레임이 **다음 씬으로 그려져** 인물과 링이 비쳤다(유저).
+    //   타이머 씬은 더 나빴다: dur 에 닿는 순간 넘어가니 링이 꽉 찬 모습도 'GO' 도 못 봤다.
+    //   안 넘기면 t 는 계속 흐르고, 타이머는 링 100% + GO 로 멈춰 있는다. 되감기는
+    //   바깥의 씬 루프(sceneloop)가 맡는다 — 한 곳에서만 되감아야 박자가 안 겹친다.
+    if (this.pinStage) return;
     this.paceLight.visible = false;   // C 실전 틱(_paceTick)이 프레임마다 다시 켬
     this.paceLane.visible = false;
     this.paceFeet.forEach(fm => fm.group.visible = false);

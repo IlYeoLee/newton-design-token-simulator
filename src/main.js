@@ -4550,14 +4550,20 @@ void main(){
     // 세션 진입 + 씬 점프 — 그리고 **씬 고정**: 자동 진행으로 넘어가면 되감아 무한 루프(촬영용)
     if (!session.active) document.getElementById('btn-session')?.click();
     else if (session.curStage?.id !== S.scene) {
+      session.pinStage = null;   // 아직 목표 씬이 아니다 — 여기까지는 정상 진행으로 데려간다
       // 다른 씬으로 넘어갔다 = 즉시 되돌린다(씬 고정)
       const i = session.stages.findIndex(x => x.id === S.scene);
       if (i >= 0) { session.stageIdx = i; session.t = 0; session._enter(); }
-    } else if (session.t >= (window.__sceneLoop || 8)) {
-      // ★ 루프 주기 — 스테이지 자체 dur 에 맡기면 씬마다 3~6초로 제각각이라 8초 클립을 뽑을 때
-      //   중간에 두 번 되감긴다(유저 08-03). 씬 고정 상태에서도 일정 주기로 다시 시작시킨다.
-      //   ?sceneloop=<초> 로 조절. 기본 8 — 익스포터 기본 길이와 맞췄다.
-      session.t = 0; session._enter();
+    } else {
+      // 목표 씬에 도착했다 = 여기서 못을 박는다. session.next() 가 이 못을 보고 넘어가지
+      //   않으므로, 다음 씬이 한 프레임 비치는 일도 없고 타이머도 끝(링 100%·GO)까지 간다.
+      session.pinStage = S.scene;
+      if (session.t >= (window.__sceneLoop || 8)) {
+        // ★ 루프 주기 — 스테이지 자체 dur 에 맡기면 씬마다 3~6초로 제각각이라 8초 클립을 뽑을 때
+        //   중간에 두 번 되감긴다(유저 08-03). 씬 고정 상태에서도 일정 주기로 다시 시작시킨다.
+        //   ?sceneloop=<초> 로 조절. 기본 8 — 익스포터 기본 길이와 맞췄다.
+        session.t = 0; session._enter();
+      }
     }
     // 커튼 걷기 — 씬에 실제 진입해 1.5초 안정된 뒤 페이드아웃(1회)
     if (S.cover) {
