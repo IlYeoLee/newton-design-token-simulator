@@ -1271,16 +1271,17 @@ export class Session {
     //   착탄점은 늘 '머리가 떠나는 자리' = 사람 반대편. 화살표는 없다 — 방향은 코멧 궤적이 말한다.
     // 크기 = Figma 실측(링/인물키 166/1130=14.7%): 판 0.34 → 도착 링 지름 0.10m(코치 키의 10%),
     //   수축 시작 0.286m. 0.5 로 뒀을 땐 바깥 링이 0.42m = 머리 6배 도넛이었다(유저).
-    this.bxB2mkL = primPanel('approachRing', 0.34, true);
+    this.bxB2mkL = primPanel('approachRing', 0.62, true);
     this.bxB2mkL.position.set(-BX_B2_MK_X, BX_B2_MK_Y, WZ + 0.004);
-    this.bxB2mkR = primPanel('approachRing', 0.34, true);
+    this.bxB2mkR = primPanel('approachRing', 0.62, true);
     this.bxB2mkR.position.set( BX_B2_MK_X, BX_B2_MK_Y, WZ + 0.004);
     g.add(this.bxB2mkL); g.add(this.bxB2mkR);
     // 코멧 — 판 2.0m(±1 = ±1.0m). width 1.3: 1.8 은 지름 5cm 로 링에 묻혔고 3.4 는 판을 넘쳤다(실측).
     this.bxB2path = primPanel('trajectory', 2.0, true);
     this.bxB2path.position.set(0, 1.70, WZ + 0.004);
     //   width 0.9(유저: 원형 더 작게) · tail 2.4 = 경로의 86%가 꼬리로 남아 '어디서 날아왔는지'가 보인다.
-    this.bxB2path._prim.P = { width: 0.9, glow: 1.1, tail: 2.4 };
+    this.bxB2path._prim.P = { width: 1.2, glow: 1.2, tail: 1.8 };   // 헤드 월드 크기 = B3 스윕과 동일
+    //   (B3: 판 1.2 × width 2.0 — 헤드는 판 크기에 비례하므로 판 2.0 인 여기선 1.2 가 등가)
     g.add(this.bxB2path);
 
     // B3 잽 스윕 — 잽 궤적 토큰(스윕 아크) + 타겟 수축 링
@@ -2800,11 +2801,18 @@ export class Session {
       const threat = goLeft ? this.bxB2mkR : this.bxB2mkL;   // 착탄점은 그 반대편
       const idle = goLeft ? this.bxB2mkL : this.bxB2mkR;
       idle.visible = false; idle._prim.prog = 0;
-      const appr = clamp01((ph - 0.35) / 0.65);              // 코멧 비행·링 수축 공통 진행
-      const lock = Math.max(0, (appr - 0.9) / 0.1);          // 착탄 블룸(수축링 정본이 그린다)
-      threat.visible = ph > 0.04;
-      threat._prim.prog = appr;                              // 0 = 프리뷰(수축 전 링), 1 = 착탄
-      threat.material.opacity = ph < 0.35 ? 0.4 * clamp01((ph - 0.04) / 0.14) : 1;
+      // ★ B3(잽 스윕) 리듬 이식 — 저 화면이 찰진 이유는 셋뿐이다(유저: B2·C3 도 그 느낌으로):
+      //   ① 수축이 정확히 0.70s (B3: 0.9s 비트 중 0.78 지점 도착) — 늘어진 수축은 긴장을 죽인다
+      //   ② 링이 큰 상태(판 0.62)로 '팟' 나타나 과녁까지 크게 이동 — 여정이 길어야 조여든다
+      //   ③ 도착 즉시 팽창 핑, 직후 소등 — 죽은 시간 0. 프리뷰로 미리 깔아 두지 않는다.
+      //   비트 간격(1.5s) 중 마지막 0.70s 만 산다. 앞 0.8s 는 코치만 — 쉼도 리듬이다.
+      const tb = bt.t - ct;                                  // 비트까지 남은 시간
+      const appr = clamp01(1 - tb / 0.70);                   // B3 와 같은 0.70s 수축
+      const lock = Math.max(0, (appr - 0.9) / 0.1);
+      const sinceB2 = ct - bt.t;                             // 비트 후 경과(마지막 비트만 양수)
+      threat.visible = appr > 0 && sinceB2 < 0.15;           // 핑 잔광 0.15s 후 소등
+      threat._prim.prog = appr;
+      threat.material.opacity = 1;
       // 코멧 = 돌덩이(원형 헤드) + 궤적. 정본: 원형 = 피해야 하는 돌덩이 · 궤적 = 날아오는 방향
       //   · 수축링 = 닿는 위치 · 사람 = 궤적 반대로 피한다.
       //   ★ 경로는 유저 스케치 정본: **링 반대편 아래(허리께)에서 출발**해 몸을 스치듯
@@ -2926,8 +2934,11 @@ export class Session {
         const ni = locking ? seg - 1 : Math.min(seg, this.bxC3nodes.length - 1);
         this.bxC3ap.position.x = this.bxC3nodes[ni][0];
         this.bxC3ap.position.y = this.bxC3nodes[ni][1];
+        //   ★ 수축 시간 = B3(잽 스윕)과 같은 0.70s 고정(유저: B3 의 찰진 느낌으로).
+        //     구간 길이(0.87~1.13s)에 비례시키면 수축이 늘어져 긴장이 죽는다 — 비트가 언제든
+        //     '비트 전 0.70s' 에 나타나 같은 속도로 조여들어야 손맛이 같다.
         this.bxC3ap._prim.prog = locking ? 0.9 + 0.1 * (sinceBeat / LOCK)
-          : (seg >= AT.length ? 1 : Math.min(0.9, f * 0.9));
+          : (seg >= AT.length ? 1 : Math.min(0.9, clamp01(1 - (next - tc) / 0.70) * 0.9));
         // 판정된 노드는 규칙대로 붉게 채워진 채 남고(펀치 라인의 done),
         //   맞는 그 순간에는 그 자리의 MARK Success 가 prog 0→1 을 달린다 = 진홍 블룸 + 파형 단발.
         //   비트(AT[i])에서 시작하므로 수축 링이 노드에 맞물리는 프레임과 정확히 같은 프레임이다.
