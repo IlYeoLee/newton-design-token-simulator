@@ -285,29 +285,31 @@ export function drawBadge(ctx, cx, cy, text, o = {}) {
   const iw = o.icon ? icon + gap : 0;   // 아이콘 없을 땐 그 여백도 없다 — 중심 정렬이 틀어지던 것
   const w = ctx.measureText(text).width + iw + pad * 2;
   const glow = o.glow ?? 0.55;
+  // ── 톤 규칙(유저): 사건·강조어 = 코랄(밝은 주황 발광) · 일반 안내 = 흰색 ──────────
+  //   호출부가 o.tone('coral'|'white')으로 못박을 수 있고, 없으면 낱말 규칙이 정한다.
+  const tone = o.tone || (/success|match rate|combo|boost|final|strike/i.test(String(text)) ? 'coral' : 'white');
+  const line = tone === 'coral' ? rgba(PAL.coral, .95) : 'rgba(255,255,255,.92)';
+  const glowC = tone === 'coral' ? PAL.coral : PAL.sand;
   ctx.save();
   ctx.translate(cx, cy);
-  // 필 아웃라인 — 글로우 패스(블룸) + 크리스프 패스 이중 스트로크
-  ctx.lineWidth = 2.6 * S;
-  ctx.strokeStyle = 'rgba(255,255,255,.92)';
-  ctx.shadowColor = rgba(PAL.coral, glow); ctx.shadowBlur = 34 * S * (0.5 + glow);
+  // 필 아웃라인 — 기본형(유저 확정: FINAL SHOT 레퍼런스가 제일 깔끔). 소프트 글로우 한 겹 + 크리스프.
+  ctx.strokeStyle = line;
+  ctx.shadowColor = rgba(glowC, Math.min(1, glow + 0.1)); ctx.shadowBlur = 38 * S * (0.5 + glow);
+  ctx.lineWidth = 3 * S;
   ctx.beginPath(); ctx.roundRect(-w / 2, -H / 2, w, H, R); ctx.stroke();
   ctx.shadowBlur = 0;
   ctx.beginPath(); ctx.roundRect(-w / 2, -H / 2, w, H, R); ctx.stroke();
-  // 윙 — 점(필 쪽) + 선(바깥). ext 로 선이 뻗고, 바깥 끝은 알파 0으로 녹는다.
+  // 윙 — 점 없이 선만(기본형). 양끝으로 갈수록 투명(유저: 선 좌우에 투명도). ext 로 뻗는다.
   const ext = clamp01(o.ext ?? 0);
-  const m = 30 * S, dotR = 4.6 * S, dGap = 16 * S, wing = 42 * S * (1 + 2.4 * ext);
+  const m = 34 * S, wing = 64 * S * (1 + 2.0 * ext);
   ctx.lineCap = 'round'; ctx.lineWidth = 3 * S;
   for (const dir of [-1, 1]) {
-    const x0 = dir * (w / 2 + m);
-    ctx.shadowColor = rgba(PAL.coral, .5); ctx.shadowBlur = 14 * S;
-    ctx.fillStyle = 'rgba(255,255,255,.9)';
-    ctx.beginPath(); ctx.arc(x0 + dir * dotR, 0, dotR, 0, Math.PI * 2); ctx.fill();
-    const xs = x0 + dir * (dotR * 2 + dGap), xe = xs + dir * wing;
+    const xs = dir * (w / 2 + m), xe = xs + dir * wing;
     const lg = ctx.createLinearGradient(xs, 0, xe, 0);
-    lg.addColorStop(0, 'rgba(255,255,255,.85)');
-    lg.addColorStop(1, 'rgba(255,255,255,0)');
+    lg.addColorStop(0, rgba(glowC, .9));
+    lg.addColorStop(1, rgba(glowC, 0));
     ctx.strokeStyle = lg;
+    ctx.shadowColor = rgba(glowC, .5); ctx.shadowBlur = 12 * S;
     ctx.beginPath(); ctx.moveTo(xs, 0); ctx.lineTo(xe, 0); ctx.stroke();
   }
   ctx.shadowBlur = 0;
