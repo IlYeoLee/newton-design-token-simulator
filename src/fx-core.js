@@ -1362,28 +1362,31 @@ export function drawPunchLine(g, W, P, look, t, ENV, ptsIn, prog) {
     return [pts[i][0] + (pts[i + 1][0] - pts[i][0]) * f, pts[i][1] + (pts[i + 1][1] - pts[i][1]) * f]; };
   // 가이드 레일(유저) — 코멧이 달릴 아주 연한 점 레일. 진한 상시 직선은 기각, 존재감만 남긴다
   //   (c3 D안 track 문법의 절제판 — 라운드캡 + 0길이 대시 = 점열).
-  g.save(); g.shadowBlur = 0; g.globalAlpha = 0.22;
+  // 전용 축(footlab 슬라이더): comet=코멧 크기 · tailLen=꼬리 길이(경로 비율) · rail=레일 진하기
+  const cometK = P.comet != null ? P.comet : 1;
+  const tailL = P.tailLen != null ? P.tailLen : 0.5;
+  g.save(); g.shadowBlur = 0; g.globalAlpha = P.rail != null ? P.rail : 0.22;
   g.strokeStyle = lut(0.6); g.lineWidth = 2.2 * s; g.lineCap = 'round';
   g.setLineDash([0.01, 8 * s]);
   g.beginPath(); pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.stroke();
   g.setLineDash([]); g.restore();
   if (pr > 0.02) {
-    for (let k = 0; k < 26; k++) {                     // 꼬리 — 헤드 뒤로 0.5구간, 줄며 사라진다
-      const f = k / 25, u = pr - 0.5 * f;
+    for (let k = 0; k < 26; k++) {                     // 꼬리 — 헤드 뒤로 tailL 구간, 줄며 사라진다
+      const f = k / 25, u = pr - tailL * f;
       if (u <= 0) break;
       const p2 = at(u);
       g.save(); g.shadowBlur = 0;
       g.fillStyle = lut(0.55 - 0.18 * f); g.globalAlpha = (1 - f) * (1 - f) * 0.85;
-      g.beginPath(); g.arc(p2[0], p2[1], 4.7 * s * (1 - f * 0.75), 0, Math.PI * 2); g.fill();
+      g.beginPath(); g.arc(p2[0], p2[1], 4.7 * s * cometK * (1 - f * 0.75), 0, Math.PI * 2); g.fill();
       g.restore();
     }
     if (pr < pts.length - 1 - 0.001 && pr - Math.floor(pr) > 0.03) {   // 헤드 — 노드 도착 중엔 숨김
       const hp = at(pr);
       g.save();
-      g.fillStyle = lut(0.62); g.shadowColor = lut(0.8); g.shadowBlur = 11 * s;
-      g.beginPath(); g.arc(hp[0], hp[1], 5.6 * s, 0, Math.PI * 2); g.fill();
+      g.fillStyle = lut(0.62); g.shadowColor = lut(0.8); g.shadowBlur = 11 * s * cometK;
+      g.beginPath(); g.arc(hp[0], hp[1], 5.6 * s * cometK, 0, Math.PI * 2); g.fill();
       g.fillStyle = lut(0.95); g.globalAlpha = 0.95;
-      g.beginPath(); g.arc(hp[0], hp[1], 2.1 * s, 0, Math.PI * 2); g.fill();
+      g.beginPath(); g.arc(hp[0], hp[1], 2.1 * s * cometK, 0, Math.PI * 2); g.fill();
       g.restore();
     }
   }

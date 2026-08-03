@@ -1138,7 +1138,18 @@ void main(){
     if (typeof exitStudio === 'function' && studioActive) exitStudio();
     const panelEl = document.getElementById('panel');
     if (panelEl) panelEl.style.display = 'flex';
-    if (state.pack !== sport) switchPack(sport);
+    if (state.pack !== sport) {
+      switchPack(sport);
+      // ★ 팩 전환은 비동기 로드 — 이전 팩 토큰인 채 세션을 시작하면 렙 판정이 즉시 완료로
+      //   떨어져 스테이지가 연쇄 폭주한다(부팅 가드와 같은 병, 전환 경로 버전). 로드 완료까지 보류.
+      if (tokens.pack?.sport !== sport) {
+        const w = setInterval(() => {
+          if (tokens.pack?.sport === sport) { clearInterval(w); if (!session.active) startSessionFor(sport); }
+        }, 120);
+        setTimeout(() => clearInterval(w), 5000);   // 로드 실패 안전망 — 5초 뒤 포기(다음 시도에 맡김)
+        return;
+      }
+    }
     // 세션은 반드시 원점에서 시작 — 데모 루프의 심리스 시프트를 전부 리셋.
     // (미리셋 시 세션 UI가 loopShiftZ만큼 밀린 곳(-8m×루프수)에 지어지고
     //  풋프린트 스무딩이 순간이동을 뒤쫓다 전부 클리핑 → 'UI가 하나도 안 보임' 버그)
@@ -1206,23 +1217,6 @@ void main(){
     startSessionFor(sport);
   });
   document.getElementById('btn-tap')?.addEventListener('click', () => session.tapAdvance());
-  // ★ '발 두 번 탭' = 화면(캔버스)을 빠르게 두 번 탭/클릭해도 동작 — 버튼만으로는 직관과 어긋났다
-  //   (유저: 화면을 두 번 탭했는데 안 넘어간다). 스페이스바도 동일. 배치 편집 더블클릭(리셋)과 충돌 방지.
-  {
-    let _tapT = 0;
-    renderer.domElement.addEventListener('pointerdown', () => {
-      if (!session.active || editMode) return;
-      const now = performance.now();
-      if (now - _tapT < 380) { session.tapAdvance(); _tapT = 0; } else _tapT = now;
-    });
-    window.addEventListener('keydown', e => {
-      if (e.code !== 'Space') return;
-      if (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target?.tagName || '')) return;
-      if (!session.active) return;
-      e.preventDefault();
-      session.tapAdvance();
-    });
-  }
   document.getElementById('btn-stage-prev')?.addEventListener('click', () => session.prev());
   document.getElementById('btn-stage-next')?.addEventListener('click', () => session.next());
   document.getElementById('btn-session-stop')?.addEventListener('click', () => stopSession());

@@ -670,6 +670,7 @@ export class FloorGL {
   }
 
   load(stage, params) {
+    this.stage = stage;   // ★ 이게 빠져 있었다 — 스테이지가 영원히 옛값이라 화면-세션 동기 검증이 전부 오작동(지면 고착의 뿌리)
     this.kind = /floor-transition/.test(params.src) ? 'transition'
       : /floor-timer/.test(params.src) ? 'timer'
       : /floor-report/.test(params.src) ? 'report'
