@@ -190,7 +190,7 @@
 'use strict';
 import * as THREE from 'three';
 import { makeMarkFXMaterial, QUAD_K, ZONE_GLYPH_K, SIL_FIT, SIL_FIT_REF } from './src/tokens.js';
-import { FXP, GLYPHS, DEFAULT_GLYPHS, footSlot, footSDFTexture, drawNumber, getLUT, ensureOffBit, rebuildLUT } from './src/fxlut.js';
+import { FXP, GLYPHS, DEFAULT_GLYPHS, footSlot, footSDFTexture, drawNumber, drawGlyph, getLUT, ensureOffBit, rebuildLUT } from './src/fxlut.js';
 import { MARK_NUM, SDF_DECODE, drawMarkGlyph, invertGlyphCanvas, drawApproachRing, drawStemArrow, drawTrajectory } from './src/fx-core.js';
 import LOOK from './src/mark-look.json';   // ★ MARK 룩 정본 — 랩·시뮬이 같은 파일을 본다
 
@@ -797,7 +797,9 @@ const T0 = performance.now();
 const _lutArr = rebuildLUT();
 const _lutCss = v => { const i = Math.max(0, Math.min(255, Math.round(v * 255))) * 4;
   return `rgb(${_lutArr[i]},${_lutArr[i + 1]},${_lutArr[i + 2]})`; };
-const _primEnv = () => ({ lut: _lutCss,
+// 촉 = 룩시스템 SVG 정본 — 시뮬(session.js)과 같은 슬롯 등록. 없으면 스트로크 폴백이 나온다.
+if (!GLYPHS.map.LIFT_TIP) { GLYPHS.map.LIFT_TIP = import.meta.env.BASE_URL + 'ready-view/assets/lift_tip.svg'; GLYPHS.set(GLYPHS.map); }
+const _primEnv = () => ({ lut: _lutCss, glyph: drawGlyph,
   arrow: { line: 'solid', w: P.w, speed: 1, gap: 1, glow: P.halo, heat: 0.5, tail: 0.55 },
   num: (g, ch, x, y, size, fontPx) => { g.font = `300 ${fontPx}px -apple-system,sans-serif`;
     g.fillStyle = 'rgba(255,240,220,.95)'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(ch, x, y); },
