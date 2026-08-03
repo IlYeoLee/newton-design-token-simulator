@@ -376,7 +376,9 @@ export function makeMarkFXMaterial(footTex = null) {
 
 // ── 마크 룩 라이브 적용 — 랩 실험값·구(하늘) 램프 토글을 이미 만들어진 재질 전부에 즉시 ──
 const MARK_MATS = [];
+globalThis.__beatPulseAmp = LOOK.pulse ?? 0.15;   // 비트 펄스 세기 — 러닝 라이브 주변시 리듬(session._pulseTick)
 export function applyMarkLook(part = {}) {
+  if (part.pulse != null) globalThis.__beatPulseAmp = part.pulse;
   const SF = SIL_FIT / SIL_FIT_REF;
   const map = { imp: 'uImp', dot: 'uImpDot', glow: 'uImpGlow', shade: 'uImpShade', sharp: 'uImpSharp',
     shadeCol: 'uImpShadeCol', scale: 'uImpScale', plantar: 'uPlantar', bands: 'uBands', bandSoft: 'uBandSoft',

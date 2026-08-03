@@ -1619,6 +1619,46 @@ export class Session {
     const z = -1.6 - Math.max(-0.5, Math.min(1.0, err * 2.5));
     this.paceLight.position.z += (z - this.paceLight.position.z) * 0.05;   // 부드러운 추종
     this._paceFeetTick(err);
+    this._pulseTick();
+  }
+
+  /** 비트 펄스 — 초점을 맞춰 '읽는' 마크 대신 주변시 하단에 걸리는 리듬(유저: 고개 과숙임).
+      투사면 **안쪽**에서만 산다: 타원 페이드가 빔 경계 훨씬 전에 0 이 되게 스케일을 85%로 잡아
+      프레임에 잘린 듯한 유출이 없다(유저 요구·투사면 밖 그래픽 금지 원칙). 세기 = mark-look pulse. */
+  _pulseTick() {
+    const amp = globalThis.__beatPulseAmp ?? 0.15;
+    const on = amp > 0.005 && this.isLive && this.sport === 'running' && this.rig;
+    if (!this._pulseMesh) {
+      if (!on) return;
+      const mat = new THREE.ShaderMaterial({
+        transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+        uniforms: { uA: { value: 0 }, uCol: { value: new THREE.Color(PAL.coral) } },
+        vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+        fragmentShader: `varying vec2 vUv; uniform float uA; uniform vec3 uCol;
+          void main(){
+            vec2 d2 = (vUv - 0.5) * 2.0;
+            float d = length(d2);
+            float a = uA * pow(1.0 - smoothstep(0.15, 1.0, d), 1.7);   // 중심 진하고 경계 전 소멸
+            gl_FragColor = vec4(uCol, a);
+          }`,
+      });
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), mat);
+      m.rotation.x = -Math.PI / 2; m.renderOrder = 2;   // 마크(3+) 아래
+      this._pulseMesh = m; this.root.add(m);
+    }
+    const m = this._pulseMesh;
+    if (!on) { m.visible = false; return; }
+    const r = this.rig;
+    const beat = Math.max(0.2, this.tokens?._beatT || 0.39);
+    const ph = ((this.t % beat) + beat) % beat / beat;
+    const k = Math.exp(-ph * 5.5);   // 비트 순간 확 켜졌다 빠르게 잦아드는 스파이크
+    m.material.uniforms.uA.value = amp * k;
+    m.visible = true;
+    // 빔 발자국 내접 타원 — 85% 로 잡아 페이드 끝이 항상 빔 경계 안쪽
+    const halfW = (r._halfAt ? r._halfAt(r.fpFar) : 0.6) * 0.85 * 2;
+    const halfL = (r.fpFar - r.fpNear) * 0.85;
+    m.scale.set(halfW, halfL, 1);
+    m.position.set(0, 0.006, -(r.fpNear + r.fpFar) / 2 - (this.root.position.z || 0));
   }
 
   /** 션 발자국 페이서 — 좌/우 발자국이 션의 스텝 간격으로 앞에 놓여 그의 속도로 흘러옴.
