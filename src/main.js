@@ -4395,6 +4395,16 @@ void main(){
     // ── 블랙박스: 유저의 실제 조작·상태 전이를 기록 — 계기판 클릭 = 클립보드 복사 ──
     const EV = window.__evlog = [('load ' + new Date().toTimeString().slice(0, 8))];
     const ev = m => { EV.push(new Date().toTimeString().slice(3, 8) + ' ' + m); if (EV.length > 60) EV.shift(); };
+    // 예외도 블랙박스에 — 매 프레임 죽는 코드가 있으면 여기 찍힌다(중복은 1회만)
+    const seenErr = new Set();
+    window.addEventListener('error', e => {
+      const m = String(e.error && e.error.stack || e.message).slice(0, 160);
+      if (!seenErr.has(m)) { seenErr.add(m); ev('ERR ' + m); }
+    });
+    window.addEventListener('unhandledrejection', e => {
+      const m = 'REJ ' + String(e.reason && e.reason.stack || e.reason).slice(0, 160);
+      if (!seenErr.has(m)) { seenErr.add(m); ev(m); }
+    });
     document.addEventListener('pointerdown', e => {
       const t = e.target.closest('button, [data-pack], canvas');
       if (!t) return;
@@ -4431,7 +4441,7 @@ void main(){
         gate = ` · want ${want ? (want.src.match(/stage=([A-Za-z0-9_]+)/)?.[1] || 'READY') : 'null'}`
              + ` fp${rig?._fp ? 1 : 0} gl${typeof floorGLOn !== 'undefined' && floorGLOn ? 1 : 0}`;
       } catch (e) { gate = ' · gateERR'; }
-      bs.textContent = `v6 · build ${TAG} · 세션 ${st} · 지면 ${fv} · 벽 ${wv} · tap ${tapN} · next ${nextN}${gate}`
+      bs.textContent = `v7 · build ${TAG} · 세션 ${st} · 지면 ${fv} · 벽 ${wv} · tap ${tapN} · next ${nextN}${gate}`
         + (session.pinStage ? ' · PIN' : '') + (mm ? '  ⚠ 화면≠세션' : '');
       bs.style.color = mm ? '#ff6666' : 'rgba(170,176,186,.95)';
       bs.style.fontSize = '13px';

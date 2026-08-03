@@ -50,11 +50,11 @@
   "edgeShadeG1": 1,
   "prims": {
     "punchLine": {
-      "node": 1,
+      "node": 1.8,
       "numS": 1,
-      "comet": 1,
+      "comet": 2.2,
       "tailLen": 0.5,
-      "rail": 0.22
+      "rail": 0.6
     }
   }
 }
