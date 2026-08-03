@@ -389,7 +389,9 @@ function livePrimEnv() {
 }
 const PRIM_PANELS = [];
 function primPanel(kind, sizeM, wall) {
-  const c = document.createElement('canvas'); c.width = c.height = 256;
+  // 잽잽훅(punchLine)만 512 — 벽에서 0.9m 로 확대되는 판이라 256 은 뭉개져 랩과 퀄이 갈렸다
+  //   (유저: 최신 토큰으로 안 보인다). 나머지 판은 작아 256 유지(캔버스 비용).
+  const c = document.createElement('canvas'); c.width = c.height = kind === 'punchLine' ? 512 : 256;
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
   const isTraj = kind === 'trajectory';
@@ -398,7 +400,9 @@ function primPanel(kind, sizeM, wall) {
       // 궤적만 일반 블렌딩 — 가산은 '순서'가 결과에 영향을 안 준다(빛의 합). 발마크 빨강이 포화라
       // renderOrder/depthTest를 아무리 올려도 궤적이 묻혔던 근본(유저 4회 지적).
       // 잉크 모드에서는 프림도 노멀 블렌딩 — 마크와 같은 합성이어야 랩과 톤이 맞는다(유저 지시).
-      blending: (isTraj || FXP.markBlend === 'ink') ? THREE.NormalBlending : THREE.AdditiveBlending,
+      // ★ 잽잽훅도 노멀 — 밝은 벽(아이보리+노란 그리드) 위 가산은 볼류메트릭 밴드·채움·파냄 숫자를
+      //   통째로 워시아웃시켜 '옛 토큰'처럼 보였다(유저 스샷 최종 진단). 랩과 같은 합성이어야 같은 그림.
+      blending: (isTraj || kind === 'punchLine' || FXP.markBlend === 'ink') ? THREE.NormalBlending : THREE.AdditiveBlending,
       // depthTest는 켠 채로 둔다 — 끄면 지면 투사 토큰이 x봇 몸 위로 그려진다(유저 스샷).
       //   투사광은 몸에 가려지는 게 물리적으로 맞다. 발자국과의 상하 관계는 y 오프셋(0.013 vs 0.017)이 잡는다.
       toneMapped: false, depthTest: true }));
@@ -438,12 +442,14 @@ function tickPrims(t) {
     const look = { halo: FXP.mark.halo };
     const base = (FXP.prims && FXP.prims[p.kind]) || PRIM_DEFAULTS[p.kind];
     const P = p.P ? { ...base, ...p.P } : base;
-    if (p.kind === 'stanceBox') drawStanceBox(g, 256, P, look, t, livePrimEnv());
-    else if (p.kind === 'approachRing') drawApproachRing(g, 256, P, look, t, livePrimEnv(), p.prog);
-    else if (p.kind === 'trajectory') drawTrajectory(g, 256, P, look, t - (p.t0 || 0), livePrimEnv(), p.prog, p.pts);
-    else if (p.kind === 'rotate') drawRotate(g, 256, P, look, t, livePrimEnv(), p.prog);
-    else if (p.kind === 'curveArrow') drawCurveArrow(g, 256, 256, p.pts || [[0.5, 0.9], [0.5, 0.1]], t, livePrimEnv(), { prog: p.prog });
-    else drawPunchLine(g, 256, P, look, t, livePrimEnv(), p.pts, p.prog);
+    const CW = p.c.width;   // punchLine 512 · 나머지 256 — 그리기 함수는 W 기준으로 자동 스케일
+    if (p.kind === 'stanceBox') drawStanceBox(g, CW, P, look, t, livePrimEnv());
+    else if (p.kind === 'approachRing') drawApproachRing(g, CW, P, look, t, livePrimEnv(), p.prog);
+    else if (p.kind === 'trajectory') drawTrajectory(g, CW, P, look, t - (p.t0 || 0), livePrimEnv(), p.prog, p.pts);
+    else if (p.kind === 'rotate') drawRotate(g, CW, P, look, t, livePrimEnv(), p.prog);
+    else if (p.kind === 'curveArrow') drawCurveArrow(g, CW, CW, p.pts || [[0.5, 0.9], [0.5, 0.1]], t, livePrimEnv(), { prog: p.prog });
+    // ★ punchLine 커스텀 pts(BX_C3 실측 좌표)는 256 공간에서 계산돼 온다 — 캔버스 배율로 환산
+    else drawPunchLine(g, CW, P, look, t, livePrimEnv(), p.pts && p.pts.map(([x, y]) => [x * CW / 256, y * CW / 256]), p.prog);
     p.tex.needsUpdate = true;
   }
 }
