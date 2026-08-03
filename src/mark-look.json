@@ -11,7 +11,7 @@
   "shade": 0.3,
   "sharp": 0.92,
   "edge": 0.038,
-  "plantar": 0.84,
+  "plantar": 1,
   "bands": 24,
   "bandSoft": 1,
   "w": 1.6,
@@ -23,7 +23,7 @@
   "ripWidth": 0.125,
   "ripSpeed": 0.4,
   "ripGrad": 1,
-  "edgeShade": 0.34,
+  "edgeShade": 1.4,
   "shadeRed": 0,
   "shadeRedW": 3.4,
   "edgeW": 0.01,
@@ -43,9 +43,9 @@
   "prog": 0.55,
   "bloom": 0.125,
   "blur": 0,
-  "edgeShadeW": 1,
+  "edgeShadeW": 4,
   "edgeShadeCol": 2,
-  "edgeShadeGrad": 0,
-  "edgeShadeG0": 1,
-  "edgeShadeG1": 0.55
+  "edgeShadeGrad": 1,
+  "edgeShadeG0": 0.32,
+  "edgeShadeG1": 1
 }

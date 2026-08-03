@@ -451,7 +451,7 @@ export const FOOT_PLANE_M = FOOT_LEN_M / FOOT_FILL;
 // 발 길이의 배수로 묶으면 발자국과 원이 한 화면에 있을 때 관계가 읽힌다.
 export const ZONE = {
   tight: FOOT_LEN_M * 0.50,   // 0.12m 반경 = 지름이 발 하나 — 정확히 밟아야 하는 곳
-  base:  FOOT_LEN_M * 0.75,   // 0.18m
+  base:  FOOT_LEN_M * 0.65,   // 0.195m — 지름 390mm. 발 300 개편 때 450 으로 따라 커진 것을 검증값(구 390)으로 복원(유저: 45 는 너무 큼)
   loose: FOOT_LEN_M * 1.00,   // 0.24m — 존에 들어오기만 하면 되는 곳
 };
 
