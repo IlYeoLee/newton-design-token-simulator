@@ -666,7 +666,6 @@ export class WallGL {
     //   hit → 나 · miss → 케이시 · near → 아무도 안 먹는다. 둘 다 0 에서 시작해 올라가야
     //   '스코어'로 읽힌다 — 케이시 쪽을 목표치로 두면 3:0 에서 시작해 경기로 안 보인다.
     const past = (S.beats || []).filter(([bt]) => t >= bt);
-    const last = past.length ? past[past.length - 1] : null;
     const sc = { hit: 0, near: 0, miss: 0 };
     for (const [, v] of past) sc[v]++;
     num(100, 'left', S.beats ? String(sc.miss) : S.coach.num, .62, 1.2);   // 학습에선 코치 = 목표치(등장 후 고정)
@@ -742,35 +741,10 @@ export class WallGL {
       txt(ctx, say, CX, cueY + sh / 2, 56, 400, SOFT, { ls: -2.24, align: 'center', base: 'middle' });
       ctx.restore();
     }
-    // ── 판정 뱃지 (HIT / NEAR / MISS) ──────────────────────────────────────────
-    //   점수만 움직이고 이유를 안 말하면 더 답답하다(유저). 방금 그 한 방이 뭐였는지 짧고 크게.
-    //   색은 panel.js 의 판정 정본 그대로 — hit=prism · near=sand · miss=lo(무채).
-    //   miss 가 빨강이 아닌 건 의도다: 팔레트 규약상 무채 = 상태 부호(잠김·실패)이고,
-    //   홈트 화면이 실패를 빨강으로 때리지 않는다.
-    //   자리는 항상 '나' 쪽 — 뱃지는 내 펀치를 말한다. 좌우로 튀면 눈이 따라다녀야 한다.
-    //   체류 .55s: 주석의 '순간 사건은 크고 짧게', 다음 비트(≈1s) 전에 사라져 안 겹친다.
-    if (last) {
-      const age = t - last[0], LIFE = .55;
-      if (age < LIFE) {
-        const VC = { hit: PAL.prism, near: PAL.sand, miss: NEU.lo };
-        const col = VC[last[1]], p = clamp01(age / LIFE);
-        ctx.save();
-        ctx.globalAlpha *= kf(p, [[0, 0], [.14, 1], [.7, 1], [1, 0]]);
-        ctx.font = F(700, 52);
-        const lb = last[1].toUpperCase();
-        const bw2 = ctx.measureText(lb).width + 72, bh2 = 52 * 1.2 + 34;
-        const bx2 = 2500 - bw2, by2 = 1368 + 64 * 1.2 + 34;   // 콤보 배지와 같은 슬롯
-        const bs2 = kf(p, [[0, .6], [.14, 1.14], [.4, 1], [1, 1]]);
-        ctx.translate(2500, by2 + bh2 / 2); ctx.scale(bs2, bs2); ctx.translate(-2500, -(by2 + bh2 / 2));
-        ctx.shadowColor = rgba(col, .55); ctx.shadowBlur = 40;
-        rrFill(ctx, bx2, by2, bw2, bh2, 9999, rgba(col, .92));
-        ctx.shadowBlur = 0;
-        // prism·sand 는 밝은 색이라 흰 글자가 안 읽힌다 — 밝은 판 위에는 어두운 잉크.
-        txt(ctx, lb, bx2 + bw2 / 2, by2 + bh2 / 2, 52, 700, NEU.inkDark,
-            { ls: -1.73, align: 'center', base: 'middle' });
-        ctx.restore();
-      }
-    }
+    // 판정(HIT/NEAR/MISS)은 여기서 뱃지로 띄우지 않는다 — 하단 우측에 띄워 봤더니 운동 중엔
+    //   아무도 안 본다(유저). 눈은 코치 몸에 붙어 있으므로 판정은 **노드 자리**에서 말한다:
+    //   fx-core drawPunchLine 의 P.vd(노드 링 색 = hit prism · near sand · miss 무채).
+    //   여기 좌우 숫자는 그 결과의 누적(스코어)만 맡는다 — 순간은 몸에서, 누적은 벽에서.
     if (isLive) {
       // 콤보 = 배지 → '나' 카운터에 붙는 지속 상태. 하단 중앙을 비우고 내 기록 옆에 세운다.
       // 배수가 오를수록 팔레트 램프로 뜨거워진다(2 red · 3 coral · 4+ sand) — 색이 곧 수치다.

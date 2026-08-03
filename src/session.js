@@ -349,7 +349,7 @@ const PRIM_DEFAULTS = {
   punchLine: { w: 1, glow: 1, tempo: 1, node: 1, numS: 1, dash: 0 },
   approachRing: { w: 1, glow: 1, tempo: 0.6, r: 0.42, rt: 0.36 },
   trajectory: { w: 1, glow: 1, tempo: 0.5, spread: 1, width: 1.4, tail: 1, taper: 1.6, spark: 0.6 },
-  rotate: { w: 1, glow: 1, tempo: 0.5, r: 0.3, sweep: 0.66, dir: 1, width: 1, tail: 0.54 },
+  rotate: { w: 1, glow: 1, tempo: 0.5, r: 0.3, sweep: 0.66, dir: 1, width: 1, tail: 0.68 },
 };
 // 잽 궤적 방향 세트 — 렙마다 바꿔 정면·크로스·좌우 다양한 잽(정규 제어점, 가드 아래→타겟 위)
 const JAB_PATHS = [
@@ -366,9 +366,12 @@ function livePrimEnv() {
   return {
     arrow: FXP.arrow,
     lut: lutColor,
+    // 마크·노드 안 숫자 = **OffBit 도트 폰트**. 전엔 drawGlyph(SVG 래스터)를 먼저 태웠는데,
+    //   그 글리프는 따로 디자인된 활자라 벽 UI 숫자(dot9 = OffBit)와 활자가 갈렸다(유저:
+    //   SVG 디자인된 거 쓰지 말고 OffBit 으로). 숫자는 폰트가 정본 — SVG 경로는 안 탄다.
+    //   (drawGlyph 는 발자국 같은 도형 슬롯에서 계속 쓰인다 — 아래 foot 참조)
     num: (g, ch, x, y, size, fontPx) => {
-      if (drawGlyph(g, String(ch), x, y, size)) return;
-      g.font = `300 ${fontPx}px -apple-system, sans-serif`;
+      g.font = `700 ${fontPx}px 'OffBit', 'Supreme', sans-serif`;
       g.fillStyle = rgba(NEU.ink, 0.95);
       g.textAlign = 'center'; g.textBaseline = 'middle';
       g.fillText(String(ch), x, y);
@@ -449,24 +452,28 @@ const BX_A1_CLIP = 6.04;
 //   큐는 스테이지가 아니라 **클립 위상**을 따라가므로(아래 _updateBoxing), 몇 바퀴를 돌리든
 //   목→어깨 순서가 영상과 계속 맞는다. 올리면 그만큼 오래 보게 된다.
 const BX_A1_LOOPS = 2;
-// ── 회피 스텝(B2) — 코치 클립 bx_b2_slip.mp4 프레임 실측 ──────────────────────
-// 1080×1920 · 24fps · 288프레임 · 12.00s. 크로마 배경을 걷어내고 프레임마다 머리 x 와
-// 스탠스(발) x 를 재서 '머리를 얼마나 흘렸는지'를 뽑았다(scratchpad/slip).
+// ── 회피 스텝(B2) — 코치 클립 bx_b2_slip.mp4 ─────────────────────────────────
+// 1080×1920 · 24fps · 168프레임 · 7.00s. scripts/build_slip_loop.mjs 가 조립한 것이라
+// 박자가 '설계된' 값이다(실측으로 재확인함).
 //
-// ★ 이 클립은 팰린드롬이다 — 프레임 f 와 287−f 의 머리 좌표가 소수점까지 같다.
-//   6초짜리 액션을 정·역으로 이어붙인 부메랑 루프라, 실제 새 동작은 앞 6초뿐이고
-//   뒤 6초는 그것을 거꾸로 되감는다. 비트도 그래서 6.0s 를 축으로 대칭이다.
-const BX_B2_CLIP = 12.0;
-// 슬립이 가장 깊은 순간 = 비트. side = 머리가 흐르는 쪽(−1 왼쪽 · +1 오른쪽).
-// 위협 마크는 그 반대쪽에 선다(피하기 규칙 — 오는 쪽 반대로 흘린다).
-//   예전 코드는 per=1.1s 균등 · 좌우 엄격 교대 · 6회(6.9s)를 가정했다. 실측은 어느 것도 아니다:
-//   간격이 1.33~2.65s 로 들쭉날쭉하고 방향은 좌·우·우·우·좌 다(교대가 아니다).
+// ★ 왜 조립인가: 생성 모델은 "좌우 6회를 일정 템포로"를 못 지킨다. 구 클립을 프레임 실측해
+//   확인했다 — 템포 편차 32% · 12초에 왕복 1.5회 · 뒤 절반이 앞 절반의 역재생(팰린드롬).
+//   그래서 모델에는 시작·끝 포즈를 이미지로 못 박아 '전이 한 번'만 시키고, 반복과 템포는
+//   편집으로 만들었다. 결과 실측: 시작 중립 ✓ · 좌우 6회 ✓ · 좌로 시작 ✓ · 템포 편차 7%.
+//   클립을 다시 만들면 build_slip_loop.mjs 가 넣을 값을 그대로 찍어 준다.
+const BX_B2_CLIP = 10.5;
+// 0~1s 는 인트로(중립 정면에서 가드 올리기) — 비트가 없다. 이후 1초마다 한 번씩 흘린다.
+// side = 머리가 흐르는 쪽(−1 왼쪽 · +1 오른쪽). 위협 마크는 그 반대쪽에 선다
+// (피하기 규칙 — 오는 쪽 반대로 흘린다).
+// 비트 1.5s — 1.0s 는 급했고(유저: 인물 영상이 너무 빠르다) 리샘플에서 프레임이 겹쳐
+//   뚝뚝 끊겨 보였다. 1.5s + 등속 리샘플로 중복 프레임 30%→18%.
 const BX_B2_BEATS = [
-  { t: 2.000, side: -1 },   // f48  · 깊은 왼쪽 슬립(머리 최저 — 상단 y 최대)
-  { t: 3.333, side: +1 },   // f80  · 스텝과 함께 오른쪽으로 크게
-  { t: 5.979, side: +1 },   // f143 · 되감기 축. 여기서 가장 깊게 오른쪽
-  { t: 8.625, side: +1 },   // f207 · f80 의 거울
-  { t: 9.958, side: -1 },   // f239 · f48 의 거울
+  { t: 3.0,  side: -1 },   // 1 좌
+  { t: 4.5,  side: +1 },   // 2 우
+  { t: 6.0,  side: -1 },   // 3 좌
+  { t: 7.5,  side: +1 },   // 4 우
+  { t: 9.0,  side: -1 },   // 5 좌
+  { t: 10.5, side: +1 },   // 6 우
 ];
 // 마크 자리 — 실측 좌표계에서 뽑았다. 코치 판(PlaneGeometry 0.62×0.93 · scale 1.461×1.732 ·
 //   uCropS 1.22)에서 월드 = 판중심 + (영상정규좌표 − 0.5) × (지오×스케일) / uCropS.
@@ -476,6 +483,17 @@ const BX_B2_BEATS = [
 // ★ y 는 '저작 좌표'다. 토큰 그룹은 대지 기준 (0, 1.4)에 저작하고 씬에서 인물 중심(1.508)으로
 //   통째 옮긴다(+0.108). 실측한 머리 중심 절대 y 1.95 → 저작 1.842, 거기서 0.066 아래.
 const BX_B2_MK_X = 0.40, BX_B2_MK_Y = 1.78;
+// ── 잽·잽·훅(C3) 마크 규칙 — Figma '잽잽훅 규칙'(279:3203) 실측 ────────────────
+// 규칙 프레임 941×1672 은 코치 판(0.62×0.93 · scale 1.461×1.732 · uCropS 1.22)과 같은 비율이라
+//   1유닛 = 0.62·1.461/1.22/941 = 0.000789m 로 그대로 환산된다. 판 중심 월드 (0, 1.51),
+//   토큰 저작계는 −0.108(B2 와 같은 규약) → 저작 y = 2.062 − fy·0.000789.
+// 노드(지름 225) 중심 1(249.5,437.5) · 2(514.5,689.5) · 3(794.5,522.5) = 왼위 → 가운데아래 → 오른위 V.
+// 상태 규칙: 대기(회색 링) → 다음 타겟에 수축링(218/192 = 노드에 맞물림) → 판정되면 채움(198)
+//   + 파형(381 = 노드 지름의 1.69배). 채워지는 순간 다음 노드에 수축링이 동시에 뜬다.
+const BX_C3_NODES = [[-0.174, 1.716], [0.035, 1.517], [0.256, 1.649]];
+const BX_C3_NODE_D = 0.178;            // 노드 지름(m) = 225 유닛
+const BX_C3_WAVE_K = 1.69;             // 파형 지름 / 노드 지름 (381 / 225)
+const BX_C3_PANEL = 0.9;               // 펀치라인 패널 한 변(m) — 노드 + 헤일로가 들어갈 만큼만
 function wallRing(x, y, rIn, rOut, color, op = 0.9) {
   const m = waveRingMesh(rIn, rOut, color, op, true, isHeatColor(color) ? 0 : 3);
   m.position.set(x, y, WZ); m.userData.el = { type: 'ring', wall: true }; return m;
@@ -512,7 +530,7 @@ function wallArrow(x, y, len = LINE_M, angleDeg = 0) {
   return a;
 }
 /** 벽 LINE 토큰 기준 길이(m) — 화살표 캔버스(256px)가 덮는 실측 크기. 두께·촉이 여기에 비례한다. */
-const LINE_M = 0.22;
+const LINE_M = 0.26;
 /** 벽면 회전 화살표 — 같은 LINE 토큰(drawRotate → drawCurveArrow)이되, 판이 덮는 크기가
  *  직선 화살표와 달라 scale 로 두께·촉을 벽에서 같은 물리 크기로 맞춘다(유저: 통일). */
 function wallRotate(x, y, sizeM, dir) {
@@ -1247,23 +1265,23 @@ export class Session {
     //   좌우 존을 번갈아 점멸만 시키면 회피가 아니라 그냥 깜빡임이라 배울 게 없었다.
     //   토큰 구성: 수축 링(위협) + 슬립 궤적(머리가 흐르는 길) + 안전 존 점등 + 방향 화살표.
     g = this._mk('BX_B2');
-    // 위협 마크 = 타겟 수축링 정본(drawApproachRing) 하나. 존 링 두 개(wallRing·uContract)를
-    //   따로 굴리던 걸 걷어냈다 — B3·C2·C3 가 이미 이 토큰 하나로 타겟을 그린다(유저: "우리 수축링 하나 아냐?").
-    //   크기 0.5m → 타겟 반경 0.42×0.36×0.5 ≈ 0.076m(지름 0.15m). 코치 키 1.03m 대비 0.147 로
-    //   Figma '피하기 규칙'의 링/인물키 비(166/1130 = 0.147)와 같다.
-    this.bxB2mkL = primPanel('approachRing', 0.5, true);
+    // ── 피하기 규칙(Figma 276:3195) 정본 — 요소는 딱 둘, 비트마다 같은 자리에서 3막 ──
+    //   ① 프리뷰: 착탄점에 희미한 링만 (Figma '프리뷰 마크')
+    //   ② 코멧(돌덩이+궤적)이 벽 밖에서 그 자리로 날아오고, 링이 조여든다
+    //   ③ 착탄 핑(수축링의 잠금 블룸) = 비트 = 머리가 가장 깊게 흘린 순간
+    //   착탄점은 늘 '머리가 떠나는 자리' = 사람 반대편. 화살표는 없다 — 방향은 코멧 궤적이 말한다.
+    // 크기 = Figma 실측(링/인물키 166/1130=14.7%): 판 0.34 → 도착 링 지름 0.10m(코치 키의 10%),
+    //   수축 시작 0.286m. 0.5 로 뒀을 땐 바깥 링이 0.42m = 머리 6배 도넛이었다(유저).
+    this.bxB2mkL = primPanel('approachRing', 0.34, true);
     this.bxB2mkL.position.set(-BX_B2_MK_X, BX_B2_MK_Y, WZ + 0.004);
-    this.bxB2mkR = primPanel('approachRing', 0.5, true);
+    this.bxB2mkR = primPanel('approachRing', 0.34, true);
     this.bxB2mkR.position.set( BX_B2_MK_X, BX_B2_MK_Y, WZ + 0.004);
     g.add(this.bxB2mkL); g.add(this.bxB2mkR);
-    // 슬립 궤적 = 머리가 위협에서 반대편으로 '가라앉으며' 빠지는 U 아크(궤적 토큰 재사용)
-    this.bxB2path = primPanel('trajectory', 1.15, true);
+    // 코멧 — 판 2.0m(±1 = ±1.0m). width 1.3: 1.8 은 지름 5cm 로 링에 묻혔고 3.4 는 판을 넘쳤다(실측).
+    this.bxB2path = primPanel('trajectory', 2.0, true);
     this.bxB2path.position.set(0, 1.70, WZ + 0.004);
-    this.bxB2path._prim.P = { width: 1.8 };
+    this.bxB2path._prim.P = { width: 1.3, glow: 1.1, tail: 1.4 };
     g.add(this.bxB2path);
-    this.bxB2aL = wallArrow(-0.08, 1.72, 0.17, 90);    // 왼쪽으로 슬립
-    this.bxB2aR = wallArrow( 0.08, 1.72, 0.17, -90);   // 오른쪽으로 슬립
-    g.add(this.bxB2aL); g.add(this.bxB2aR);
 
     // B3 잽 스윕 — 잽 궤적 토큰(스윕 아크) + 타겟 수축 링
     g = this._mk('BX_B3');
@@ -1309,18 +1327,36 @@ export class Session {
     // C3 콤비네이션 = 펀치 라인 정본(fx-core drawPunchLine — 노드 MARK 링 + LINE 연결 + 순서 숫자).
     //   유저 지시: 잽·잽·훅은 '연달아 있는 컴포넌트' 하나로 표현한다. 링을 따로 세우면
     //   같은 정보가 두 벌이 되고, 우리 수축 링 디자인은 하나여야 한다.
-    //   노드 좌표(캔버스 256 기준) = 잽 둘은 얼굴 라인에 겹치듯, 훅은 옆·아래로 벌어지게.
+    //   좌표·크기·상태는 BX_C3_* 상수(Figma 잽잽훅 규칙 실측)가 정본이다.
     g = this._mk('BX_C3');
-    this.bxCombo = primPanel('punchLine', 1.05, true);
-    this.bxCombo.position.set(0, 1.60, WZ + 0.002);
-    this.bxCombo._prim.pts = [[92, 104], [126, 92], [186, 140]];   // 잽 · 잽 · 훅
+    // 패널 = 세 노드 바운딩박스 중심에 얹고, 노드/연결선/헤일로가 다 들어갈 만큼만 크게.
+    const C3C = [(BX_C3_NODES[0][0] + BX_C3_NODES[2][0]) / 2, (BX_C3_NODES[0][1] + BX_C3_NODES[1][1]) / 2];
+    const toPx = ([x, y]) => [128 + (x - C3C[0]) / BX_C3_PANEL * 256, 128 - (y - C3C[1]) / BX_C3_PANEL * 256];
+    this.bxCombo = primPanel('punchLine', BX_C3_PANEL, true);
+    this.bxCombo.position.set(C3C[0], C3C[1], WZ + 0.002);
+    this.bxCombo._prim.pts = BX_C3_NODES.map(toPx);
+    // node = 반경 배율(drawPunchLine: r_px = 12·node·W/220) → 실측 지름에서 역산.
+    this.bxCombo._prim.P = { node: (BX_C3_NODE_D / 2) / BX_C3_PANEL * 220 / 12, numS: 1.5, done: 0 };
     g.add(this.bxCombo);
+    // 판정 순간의 '팡' = 룩 시스템 MARK Success 그대로(uPhase 3): 진홍 블룸으로 차오르며
+    //   그 자리에서 파형(uRip 단발)이 실루엣을 따라 퍼진다. 사제 원형 파문(effects.burst)으로
+    //   대신하던 걸 걷어냈다 — 룩 시스템 파형 토큰이 나와야 한다(유저).
+    //   크기는 노드와 같다(마크가 곧 파형의 원점) · prog 0→1 이 한 번의 성공이다.
+    this.bxC3ok = BX_C3_NODES.map(([x, y]) => {
+      const m = waveRingMesh(BX_C3_NODE_D * 0.30, BX_C3_NODE_D / 2, BRAND.red, 0, true, 3);
+      m.position.set(x, y, WZ + 0.001);
+      // 파동(리플)만 이 마크에서 올려 잡는다 — 벽 마크는 uGain 0.6 이라 룩 기본값(rip 0.5)이면
+      //   퍼지는 게 거의 안 읽힌다. tickWaves 는 uRip 을 안 건드리므로 인스턴스 값이 유지된다.
+      m.material.uniforms.uRip.value = 1.0;
+      m.setProg(0);
+      g.add(m);
+      return m;
+    });
     // 판정은 노드 '안'에서 일어나야 한다(유저) — 펀치 라인이 순서를 그리고, 그 자리의 원 안에서
     //   수축 링 정본이 조여들었다 터진다. 링은 하나를 옮겨 쓴다(우리 수축 링 디자인은 하나다).
-    //   캔버스 256 · 패널 1.05m 기준 노드 좌표 → 월드: x=(px−128)/256·1.05, y=1.60−(py−128)/256·1.05
-    const NPX = [[92, 104], [126, 92], [186, 140]];
-    this.bxC3nodes = NPX.map(([px, py]) => [(px - 128) / 256 * 1.05, 1.60 - (py - 128) / 256 * 1.05]);
-    this.bxC3ap = primPanel('approachRing', 0.34, true);
+    //   도착 반경(drawApproachRing Rt = 0.1512·패널) = 노드 반경 → 규칙의 218/225 와 같은 맞물림.
+    this.bxC3nodes = BX_C3_NODES;
+    this.bxC3ap = primPanel('approachRing', (BX_C3_NODE_D / 2) / 0.1512, true);
     this.bxC3ap.position.set(this.bxC3nodes[0][0], this.bxC3nodes[0][1], WZ + 0.004);
     g.add(this.bxC3ap);
 
@@ -1642,6 +1678,12 @@ export class Session {
       if (now - this._waitStart < 2500) return;
     }
     this._waitStart = 0;
+    // ★ 씬 미리보기 고정(?scene=) — 여기서 막는다. 예전엔 넘어가게 두고 다음 프레임에
+    //   되돌렸는데, 그 사이 한 프레임이 **다음 씬으로 그려져** 인물과 링이 비쳤다(유저).
+    //   타이머 씬은 더 나빴다: dur 에 닿는 순간 넘어가니 링이 꽉 찬 모습도 'GO' 도 못 봤다.
+    //   안 넘기면 t 는 계속 흐르고, 타이머는 링 100% + GO 로 멈춰 있는다. 되감기는
+    //   바깥의 씬 루프(sceneloop)가 맡는다 — 한 곳에서만 되감아야 박자가 안 겹친다.
+    if (this.pinStage) return;
     if (this.active && this.stageIdx < this.stages.length - 1) { this.stageIdx++; this.t = 0; this._enter(); }
   }
   prev() { if (this.active && this.stageIdx > 0) { this.stageIdx--; this.t = 0; this._enter(); } }
@@ -1651,6 +1693,8 @@ export class Session {
     const st = this.stages[this.stageIdx];
     this.onStage?.(st);
     this.tokens.root.visible = !!st.live;      // 라이브 = 실제 팩 토큰이 흐른다
+    // C3 콤비네이션은 스테이지가 마크를 직접 그린다(잽잽훅 규칙 = 1·2·3 한 컴포넌트).
+    //   팩 벽 토큰은 매 프레임 정책(main.js 토큰 필드 정책)이 BX_C2 와 같이 꺼 준다.
     this.liveSpeed = st.boost ? 1.18 : 1;
     if (this.xbot) this.xbot.decelK = 0;   // C5 감속 잔재 제거 (다운시프트·FIN 진입 안전망)
     this._waitStart = 0;    // 음성 게이트 대기 타이머 리셋
@@ -1663,12 +1707,6 @@ export class Session {
     if (this._c3Skill != null && this.judge) { this.judge.skill = this._c3Skill; this._c3Skill = null; }   // C3 중 탭 스킵 시 skill 0.35 영구 잠김 방지
     this.bobY = 0;
     for (const id in this.G) this.G[id].visible = false;
-    // ★ 씬 미리보기 고정(?scene=) — 여기서 막는다. 예전엔 넘어가게 두고 다음 프레임에
-    //   되돌렸는데, 그 사이 한 프레임이 **다음 씬으로 그려져** 인물과 링이 비쳤다(유저).
-    //   타이머 씬은 더 나빴다: dur 에 닿는 순간 넘어가니 링이 꽉 찬 모습도 'GO' 도 못 봤다.
-    //   안 넘기면 t 는 계속 흐르고, 타이머는 링 100% + GO 로 멈춰 있는다. 되감기는
-    //   바깥의 씬 루프(sceneloop)가 맡는다 — 한 곳에서만 되감아야 박자가 안 겹친다.
-    if (this.pinStage) return;
     this.paceLight.visible = false;   // C 실전 틱(_paceTick)이 프레임마다 다시 켬
     this.paceLane.visible = false;
     this.paceFeet.forEach(fm => fm.group.visible = false);
@@ -2779,30 +2817,37 @@ export class Session {
       //   수축링 정본은 prog 0.9 부터 잠금 블룸을 터뜨리므로 도착 직전에 '빡' 이 온다.
       const span = Math.max(0.3, bt.t - prevT);
       const ph = clamp01((ct - prevT) / span);
-      const e = Math.pow(ph, 1.6);
-      const lock = Math.max(0, (ph - 0.9) / 0.1);
-      // 위협은 머리가 흐르는 쪽의 '반대'에 선다 = 오는 쪽. side −1(왼쪽으로 흘림) → 마크는 오른쪽.
-      const fromR = bt.side < 0;
-      const threat = fromR ? this.bxB2mkR : this.bxB2mkL;
-      const idle = fromR ? this.bxB2mkL : this.bxB2mkR;
-      threat.visible = true; threat._prim.prog = ph; threat.material.opacity = 1;
-      // 반대쪽은 '프리뷰 마크'(Figma 회색 원) 자리 — 자리만 알려 주고 세기는 죽인다.
-      //   같은 세기로 두면 타겟이 둘로 보여 어디를 피하는지가 안 읽힌다.
-      idle.visible = true; idle._prim.prog = 0; idle.material.opacity = 0.28;
-      if (this.bxB2path) {                              // 머리가 흐르는 길 — 위협 쪽에서 안전 쪽으로 가라앉는 U
-        this.bxB2path._prim.pts = fromR
-          ? [[0.88, -0.10], [0.34, 0.42], [-0.34, 0.42], [-0.88, -0.10]]
-          : [[-0.88, -0.10], [-0.34, 0.42], [0.34, 0.42], [0.88, -0.10]];
-        this.bxB2path._prim.prog = Math.min(1, ph / 0.92);
+      // 3막(Figma 피하기 규칙 정본): ① ph 0~0.35 프리뷰 — 착탄점에 희미한 링만
+      //   ② 0.35~1.0 코멧이 벽 밖에서 날아오고 링이 조여든다  ③ 도착 = 잠금 블룸 = 비트.
+      //   방향은 비트로 고정한다(매 프레임 머리 위치로 정하면 중앙 통과 때마다 좌우가 뒤집혀
+      //   깜빡였다). 착탄점 = 머리가 '떠나는' 자리라, 접근 초반에 머리가 아직 그쪽에 있는 게
+      //   맞는 그림이다 — 공격은 지금 머리 자리를 노리고, 사람은 그 사이 빠져나간다.
+      const goLeft = bt.side < 0;                            // 이번 비트에 머리가 가는 쪽
+      const threat = goLeft ? this.bxB2mkR : this.bxB2mkL;   // 착탄점은 그 반대편
+      const idle = goLeft ? this.bxB2mkL : this.bxB2mkR;
+      idle.visible = false; idle._prim.prog = 0;
+      const appr = clamp01((ph - 0.35) / 0.65);              // 코멧 비행·링 수축 공통 진행
+      const lock = Math.max(0, (appr - 0.9) / 0.1);          // 착탄 블룸(수축링 정본이 그린다)
+      threat.visible = ph > 0.04;
+      threat._prim.prog = appr;                              // 0 = 프리뷰(수축 전 링), 1 = 착탄
+      threat.material.opacity = ph < 0.35 ? 0.4 * clamp01((ph - 0.04) / 0.14) : 1;
+      // 코멧 = 돌덩이(원형 헤드) + 궤적. 정본: 원형 = 피해야 하는 돌덩이 · 궤적 = 날아오는 방향
+      //   · 수축링 = 닿는 위치 · 사람 = 궤적 반대로 피한다. 벽 밖(±0.98)에서 착탄점으로.
+      //   판 2.0m → pts ±1 = ±1.0m. 링(±0.40, 1.78) → nx ±0.40 · ny −0.08 (판 중심 y 1.70).
+      //   도착 직전(0.98)에 숨긴다 — 그 순간부터는 착탄 블룸이 이어받는다.
+      if (this.bxB2path) {
+        this.bxB2path.visible = appr > 0.01 && appr < 0.98;
+        this.bxB2path._prim.pts = goLeft
+          ? [[0.98, -0.34], [0.66, -0.19], [0.40, -0.08]]      // 밖 → 우측 착탄점
+          : [[-0.98, -0.34], [-0.66, -0.19], [-0.40, -0.08]];  // 밖 → 좌측 착탄점
+        this.bxB2path._prim.prog = appr;
+        this.bxB2path.material.opacity = 1;
       }
-      const aOn = fromR ? this.bxB2aL : this.bxB2aR, aOff = fromR ? this.bxB2aR : this.bxB2aL;
-      // 밝기는 _gain 으로 — material.opacity 는 tickFlowArrows 가 매 프레임 _gain 으로 덮어써서
-      //   좌우가 늘 같은 밝기로 떠 있었다(=피할 방향 지시가 죽어 있었음).
-      if (aOn) aOn._gain = 0.35 + 0.6 * e;   // 피할 방향만 밝힌다
-      if (aOff) aOff._gain = 0.08;
       const done = bi + (lock > 0 ? 1 : 0);
       FMU(`슬립 ${Math.min(NB, done)} / ${NB}`, lock > 0.3 ? CS.prism : CS.coral);
-      if (this.t >= BX_B2_CLIP) { this.next(); return; }
+      // 종료도 영상 시계로 — 박자는 clipT 인데 종료만 세션 시계면 둘이 어긋나 마지막 슬립이
+      //   잘리거나 남는다. 영상이 한 바퀴 돌면 끝난다(clipT 없으면 세션 시계 폴백).
+      if ((this.clipT != null ? this.clipT : this.t) >= BX_B2_CLIP - 0.05) { this.next(); return; }
     } else if (id === 'BX_B3') {
       // 잽 스윕 — 스윕 밴드 밝기 + 타겟 수축 링, 맞춘 잽 카운트
       const BT = 0.9, rep = Math.floor(this.t / BT), ph = (this.t % BT) / BT;
@@ -2866,18 +2911,56 @@ export class Session {
       }
       if (id === 'BX_C3' && this.bxCombo) {
         // 콤보 = 잽·잽·훅. 펀치 라인이 노드를 순서대로 이어 그리고, 마지막 노드에서 한 박 쉰다.
-        //   빠른 둘 → 벌어진 하나 리듬은 prog 곡선으로 만든다(0.52·0.90·1.58s / 사이클 2.4s).
-        const CY = 2.4, tc = this.t % CY, AT = [0.52, 0.90, 1.58];
+        //   박자: 잽 1s · 잽 1s · **1초 쉼** · 훅 1s (유저). 구 0.52·0.90·1.58 / 2.4s 는
+        //   잽 둘 사이가 0.38s 라 따라 칠 수가 없었다(유저: 타이밍 너무 빨라).
+        //   사이클 6s = 코치 클립(public/ghost/bx_c3_combo.mp4) 길이 — 맞춰 두면 마커 박자와
+        //   인물 동작이 매 바퀴 같은 위상에서 만난다(어긋나면 루프마다 조금씩 밀린다).
+        const CY = 6.0, tc = this.t % CY, AT = [1.0, 2.0, 4.0];
         let seg = 0;                                   // 지나온 노드 수(0..2) + 구간 진행
         for (let i = 0; i < AT.length; i++) if (tc >= AT[i]) seg = i + 1;
         const prev = seg === 0 ? 0 : AT[seg - 1], next = AT[Math.min(seg, AT.length - 1)];
         const f = seg >= AT.length ? 1 : clamp01((tc - prev) / Math.max(0.01, next - prev));
         this.bxCombo._prim.prog = clamp01(((seg === 0 ? 0 : seg - 1) + (seg >= AT.length ? 1 : f)) / (AT.length - 1) / 1.25);
-        // 판정 링 = 지금 노려야 할 노드로 옮겨 가서 그 원 안에서 수축 → 타격 순간 터진다.
-        const ni = Math.min(seg, this.bxC3nodes.length - 1);
+        // 판정 링 = 지금 노려야 할 노드로 옮겨 가 그 원 안에서 수축한다.
+        //   ★ 수축이 '도착'하는 순간(=인물이 펀치를 뻗는 타이밍)이 곧 판정이다. 접근은 비트까지
+        //     prog 0→0.9 로만 가고, 비트 뒤 LOCK 동안 0.9→1 (팽창 핑)을 그 노드에서 마저 친다.
+        //     예전엔 도착과 동시에 링이 다음 노드로 튀어서, 잠금 구간(prog 0.9~1 ≈ 40ms)이
+        //     화면에 한두 프레임밖에 안 남아 '맞췄다'는 순간이 통째로 안 보였다(유저).
+        const LOCK = 0.13;
+        const sinceBeat = seg > 0 ? tc - AT[seg - 1] : 9;
+        const locking = sinceBeat < LOCK;
+        const ni = locking ? seg - 1 : Math.min(seg, this.bxC3nodes.length - 1);
         this.bxC3ap.position.x = this.bxC3nodes[ni][0];
         this.bxC3ap.position.y = this.bxC3nodes[ni][1];
-        this.bxC3ap._prim.prog = seg >= AT.length ? 1 : f;
+        this.bxC3ap._prim.prog = locking ? 0.9 + 0.1 * (sinceBeat / LOCK)
+          : (seg >= AT.length ? 1 : Math.min(0.9, f * 0.9));
+        // 판정된 노드는 규칙대로 붉게 채워진 채 남고(펀치 라인의 done),
+        //   맞는 그 순간에는 그 자리의 MARK Success 가 prog 0→1 을 달린다 = 진홍 블룸 + 파형 단발.
+        //   비트(AT[i])에서 시작하므로 수축 링이 노드에 맞물리는 프레임과 정확히 같은 프레임이다.
+        this.bxCombo._prim.P.done = seg;
+        // 판정을 노드에 먹인다 — 뱃지를 화면 구석에 띄우면 운동 중엔 안 보인다(유저).
+        //   벽 스코어(wallgl SCENES.beats)와 같은 대본이라 몸의 노드와 벽의 점수가 같은 말을 한다.
+        //   실전 연결 시 judge.js 의 verdict 를 그대로 넣으면 된다.
+        const C3_VD = ['hit', 'near', 'hit'];
+        this.bxCombo._prim.P.vd = C3_VD.slice(0, seg);
+        const SUCC = 0.5;                    // 성공 1회의 길이(파형이 퍼져 나가는 시간)
+        for (let i = 0; i < this.bxC3ok.length; i++) {
+          const dt = tc - AT[i], ok = this.bxC3ok[i];
+          if (dt < 0 || dt > SUCC) { ok.setOp(0); ok.setProg(0); }
+          else { ok.setProg(clamp01(dt / SUCC)); ok.setOp(1); }
+        }
+        // 그리고 맞는 순간 그 자리에 '터짐(리퀴드)' 파형 — FX Lab 터짐 토큰 그대로.
+        //   벽면이므로 wall:true (없으면 눕혀진 원판이 되어 정면에선 안 보인다).
+        //   크기는 규칙대로 노드 지름 × 1.69 (파문 도달 반경 = 쿼드 반폭의 0.9).
+        if (seg !== this._c3seg) {
+          if (seg > this._c3seg && seg > 0) {
+            const n = this.bxC3nodes[seg - 1];
+            const wp = this.bxCombo.parent.localToWorld(new THREE.Vector3(n[0], n[1], WZ + 0.012));
+            this.onBurst?.(wp, BX_C3_NODE_D * BX_C3_WAVE_K / 2 / 0.9, CS.coral,
+              { wall: true, intensity: 0.5, speed: 1.5 });
+          }
+          this._c3seg = seg;
+        }
         const LBL = ['잽', '잽', '훅'];
         FMU(seg ? `${LBL[seg - 1]} ${seg} / 3` : '잽 · 잽 · 훅', seg === 3 ? CS.prism : CS.coral);
       }
