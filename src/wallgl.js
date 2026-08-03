@@ -106,7 +106,11 @@ const TR = {
     done: { lbl: 'Learn', time: '8m', img: 'boxer_learn.png' },
     next: { lbl: 'Strike!', time: '23m', img: 'boxer_fight.png', badge: 'Next' } },
 };
-const TM = { BX_C1: { sub: '3 min · Keep punching', title: 'Round 1 of 6' } };
+// 카운트다운 캡션 — '3 min · Keep punching' 은 두 군데가 어긋났다(유저).
+//   ① 아직 시작 전인데 'Keep punching'(계속 쳐라)은 시제가 안 맞는다.
+//   ② 화면 한가운데 카운트다운 숫자 3 바로 위에 '3 min' 이라 숫자끼리 충돌한다.
+//   → 명령형을 빼고 라운드 구성(6 Rounds × 3m Work · 1m Rest, 위 시간 구성 주석)을 그대로 쓴다.
+const TM = { BX_C1: { sub: 'Work 3 min · Rest 1 min', title: 'Round 1 of 6' } };
 const RP = { BX_FIN: { sub: PACK, title: 'Session Complete', pct: 100,
   stats: [['Rounds Done', '6'], ['Jabs Landed', '12'], ['Best Combo', '×5']] } };
 const BTN = 'Tap X2 For Retry!';

@@ -98,7 +98,8 @@ html,body{background:transparent}
 </div>
 <script>
 // 598f06a 에서 벽 정본(wallgl.js TM)만 고치고 이 파일이 빠져 있었다 — 같은 화면인데 카피가 갈렸다.
-const TM = { BX_C1: { sub:'3 min · Keep punching', title:'Round 1 of 6' } };
+// '3 min · Keep punching' → 시작 전인데 명령형이고, 가운데 카운트다운 숫자 3 과 '3 min' 이 충돌했다(유저).
+const TM = { BX_C1: { sub:'Work 3 min · Rest 1 min', title:'Round 1 of 6' } };
 const $ = id => document.getElementById(id);
 const q = new URLSearchParams(location.search);
 const stage = q.get('stage') || 'BX_C1';

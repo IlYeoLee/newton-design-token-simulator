@@ -503,8 +503,10 @@ const TR = {
     done: { lbl: 'Learn', time: '10min', img: 'bk/bk_learn.png' },
     next: { lbl: 'Play!', time: '10min', img: 'bk/bk_play.png' } },
 };
-const TM = { C1: { sub: 'Sean’s Final 1km Pace', title: 'Session Complete' },
-             BK_C1: { sub: 'Curry’s Signature Move', title: 'Session Complete' } };
+// 실전 직전 카운트다운 캡션. 전엔 아래 RP(리포트) 문구가 그대로 복사돼 있어서, 시작도 안 한
+//   화면이 'Session Complete' 라고 말했다. 벽 타이머와 같은 규칙으로 — 부제=구성·시간, 제목=지금 시작하는 구간.
+const TM = { C1: { sub: 'Run 10 min · Final 1 km', title: 'Run with Sean' },
+             BK_C1: { sub: 'Play 10 min · 3 attempts', title: 'Step-Back 1 of 3' } };
 const RP = {
   FIN: { sub: 'Sean’s Final 1km Pace', title: 'Session Complete',
     stats: [['Distance', '1.00 km'], ['Avg Pace', '5’42”'], ['Cadence', '174 spm']] },

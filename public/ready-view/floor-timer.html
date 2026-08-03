@@ -70,9 +70,10 @@ html,body{background:transparent}
     </div>
   </div>
   <script>
+  // 전엔 리포트(floor-report) 문구가 그대로 복사돼 시작 전 화면이 'Session Complete' 라고 말했다(유저).
   const TM = {
-    C1:    { sub:'Sean’s Final 1km Pace',    title:'Session Complete' },
-    BK_C1: { sub:'Curry’s Signature Move',   title:'Session Complete' },
+    C1:    { sub:'Run 10 min · Final 1 km',   title:'Run with Sean' },
+    BK_C1: { sub:'Play 10 min · 3 attempts',  title:'Step-Back 1 of 3' },
   };
   const $ = id => document.getElementById(id);
   const q = new URLSearchParams(location.search);
