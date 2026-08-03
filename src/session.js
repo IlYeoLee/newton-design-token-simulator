@@ -379,6 +379,9 @@ function livePrimEnv() {
       if (drawGlyph(g, footSlot(right), x, y, size)) return;
       g.beginPath(); g.ellipse(x, y, size * 0.28, size * 0.48, 0, 0, Math.PI * 2); g.stroke();
     },
+    // 촉(LIFT_TIP·TIP_TRI) = 도형 슬롯 — foot 과 같은 drawGlyph 경로. 빠져 있어서 회전·곡선
+    //   화살표만 폴백 스트로크 촉이 나왔다(유저: 랩 승격이 시뮬에 이식 안 됨). 숫자 금지 규약과 무관.
+    glyph: drawGlyph,
   };
 }
 const PRIM_PANELS = [];

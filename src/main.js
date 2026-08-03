@@ -4383,12 +4383,22 @@ void main(){
       }, 200);
     }
   }
-  // 빌드 스탬프 — 캐시된 구버전 확인용 (좌하단 미세 표기)
+  // 빌드 스탬프 — 캐시된 구버전 확인용 + 실시간 진단(스테이지·탭·차단 사유).
+  //   유저 화면 스크린샷 한 장으로 '버튼이 죽었는지 / next 가 막혔는지'를 판독하기 위한 계기판.
   {
     const bs = document.createElement('div');
-    bs.textContent = `build ${typeof __BUILD_TAG__ !== 'undefined' ? __BUILD_TAG__ : 'dev'}`;
-    bs.style.cssText = 'position:absolute;bottom:4px;left:306px;z-index:29;font-size:9.5px;color:rgba(140,146,156,.55);pointer-events:none;font-family:monospace';
+    bs.style.cssText = 'position:absolute;bottom:4px;left:306px;z-index:29;font-size:11px;color:rgba(160,166,176,.9);pointer-events:none;font-family:monospace;background:rgba(0,0,0,.35);padding:2px 6px;border-radius:4px';
     document.body.appendChild(bs);
+    let tapN = 0, nextN = 0;
+    const _ot = session.tapAdvance.bind(session);
+    session.tapAdvance = () => { tapN++; return _ot(); };
+    const _on = session.next.bind(session);
+    session.next = (f) => { nextN++; return _on(f); };
+    setInterval(() => {
+      const st = session.active ? session.curStage?.id : 'IDLE';
+      const blocked = session.pinStage ? ' PIN:' + session.pinStage : '';
+      bs.textContent = `build ${typeof __BUILD_TAG__ !== 'undefined' ? __BUILD_TAG__ : 'dev'} · ${st} · tap ${tapN} · next ${nextN}${blocked}`;
+    }, 300);
   }
 
   // ── 검은 판 탐지기 (?blackprobe=1) ─────────────────────────────────────────
