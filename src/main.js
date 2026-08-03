@@ -2830,6 +2830,9 @@ void main(){
         {
           // 등장 워시 트리거 — 판이 새로 보이거나 스테이지가 재진입(t 역행)하면 리셋.
           //   씬 프리뷰(?scene=)는 같은 스테이지를 루프해 visible 이 안 꺼진다 — t 역행이 그 감지다.
+          // ★ now 미정의 참조가 A1 진입 순간부터 매 프레임 ReferenceError 를 던져 루프 후반부
+          //   (지면 프레임 갱신 포함)를 전멸시켰다 — '화면이 READY 에 얼어붙음'의 진범(유저 블랙박스).
+          const now = performance.now();
           const vis = !!co._live && id !== 'BK_C2';
           const st = session.t ?? 0;
           if ((vis && !co.plane.visible) || st < (co._lastSt ?? Infinity)) co._showT = now;
@@ -4441,7 +4444,7 @@ void main(){
         gate = ` · want ${want ? (want.src.match(/stage=([A-Za-z0-9_]+)/)?.[1] || 'READY') : 'null'}`
              + ` fp${rig?._fp ? 1 : 0} gl${typeof floorGLOn !== 'undefined' && floorGLOn ? 1 : 0}`;
       } catch (e) { gate = ' · gateERR'; }
-      bs.textContent = `v8 · build ${TAG} · 세션 ${st} · 지면 ${fv} · 벽 ${wv} · tap ${tapN} · next ${nextN}${gate}`
+      bs.textContent = `v9 · build ${TAG} · 세션 ${st} · 지면 ${fv} · 벽 ${wv} · tap ${tapN} · next ${nextN}${gate}`
         + (session.pinStage ? ' · PIN' : '') + (mm ? '  ⚠ 화면≠세션' : '');
       bs.style.color = mm ? '#ff6666' : 'rgba(170,176,186,.95)';
       bs.style.fontSize = '13px';
