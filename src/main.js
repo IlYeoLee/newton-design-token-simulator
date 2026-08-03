@@ -4466,32 +4466,75 @@ void main(){
     //   renderer 는 이 시점에 아직 없을 수 있으므로, 없으면 화면에서 가장 큰 캔버스를 고른다.
     const glCanvas = () => window.__dbg?.renderer?.domElement
       || [...document.querySelectorAll('canvas')].sort((a, b) => b.width * b.height - a.width * a.height)[0];
+    // 영상 배경은 CSS background 로 못 깐다 — 캔버스와 **같은 부모** 안에 <video> 를 깔고
+    //   z-index -1 로 뒤에 둔다. 같은 스태킹 컨텍스트라 캔버스의 mix-blend-mode(가산)가 그대로 먹는다.
+    //   id 는 고정 — 씬 스테이지·내보내기의 DOM 청소가 이 하나만 살려 둔다.
+    const isVid = u => /\.(mp4|mov|webm|m4v)(\?|$)/i.test(u || '');
     window.__setSceneBg = (url, dim) => {
       S.bg = url || '';
       S.bgdim = Math.max(-0.6, Math.min(0.9, +dim || 0));
-      // bgdim: 양수 = 어둡게(검정 베일) · 음수 = 밝게(흰 베일). 0 = 사진 원본.
+      // bgdim: 양수 = 어둡게 · 음수 = 밝게. 0 = 원본.
       const d = S.bgdim;
-      const v = d > 0 ? `linear-gradient(rgba(0,0,0,${d}),rgba(0,0,0,${d})),`
-              : d < 0 ? `linear-gradient(rgba(255,255,255,${-d}),rgba(255,255,255,${-d})),` : '';
-      const bgCss = S.bg ? `${v}#000 url("${S.bg}") center/cover no-repeat` : '';
-      // ★ 배경은 **캔버스 바로 부모**에 깔아야 한다. mix-blend-mode 는 같은 스태킹 컨텍스트
+      // ★ 배경은 **캔버스 바로 부모**에 깐다. mix-blend-mode 는 같은 스태킹 컨텍스트
       //   안에서만 섞이는데, body 에 깔면 캔버스는 그 사이 컨테이너와 섞여 '가산이 안 먹는다'
       //   (유저 신고). 부모에 깔면 캔버스가 그 배경을 직접 backdrop 으로 본다.
       const cv = glCanvas();
       const host = cv?.parentElement;
       if (host) {
-        host.style.setProperty('background', bgCss, 'important');
+        // <video> 의 inset:0 이 먹으려면 부모가 위치 지정돼 있어야 한다. static 일 때만 올린다
+        // (absolute 인 컨테이너를 relative 로 바꾸면 레이아웃이 통째로 움직인다).
+        if (getComputedStyle(host).position === 'static') host.style.setProperty('position', 'relative', 'important');
+        let v = document.getElementById('__bgvid');
+        if (isVid(S.bg)) {
+          if (!v) {
+            v = document.createElement('video');
+            v.id = '__bgvid'; v.muted = true; v.loop = true; v.autoplay = true; v.playsInline = true;
+            v.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:-1;pointer-events:none';
+            host.insertBefore(v, host.firstChild);
+          }
+          if (v.dataset.src !== S.bg) { v.dataset.src = S.bg; v.src = S.bg; v.play?.().catch(() => {}); }
+          // 어둡기는 filter 로 — 영상에만 걸리고 캔버스(형제)는 안 건드린다
+          v.style.filter = d ? `brightness(${(1 - d).toFixed(3)})` : '';
+          // ★ 부모 배경은 **비워야** 한다. host 는 스태킹 컨텍스트가 아니라(z-index auto)
+          //   z-index:-1 인 영상은 루트 컨텍스트로 올라가 부모·body 배경보다 **아래**에 그려진다.
+          //   여기에 #000 을 칠하면 배경이 통째로 검게 가려진다(실측: 프레임 전체가 검정).
+          //   검은 바닥은 <html> 이 깔아 준다(아래 documentElement).
+          host.style.setProperty('background', 'transparent', 'important');
+        } else {
+          v?.remove();
+          const veil = d > 0 ? `linear-gradient(rgba(0,0,0,${d}),rgba(0,0,0,${d})),`
+                  : d < 0 ? `linear-gradient(rgba(255,255,255,${-d}),rgba(255,255,255,${-d})),` : '';
+          host.style.setProperty('background', S.bg ? `${veil}#000 url("${S.bg}") center/cover no-repeat` : '', 'important');
+        }
         host.style.setProperty('isolation', 'auto', 'important');   // 격리되면 블렌드가 갇힌다
       }
       document.documentElement.style.background = S.bg ? '#000' : '';
       document.body.style.setProperty('background', S.bg ? 'transparent' : '', 'important');
       if (!S.bg) location.reload();   // 3D 실내 복귀는 껐던 무대를 되살려야 해서 리로드가 필요하다
     };
+    S.isVid = isVid;
     if (bg) window.__setSceneBg(bg, bgdim);
     // 촬영 조정값 — scenes.html 슬라이더가 직접 쓴다. 기본값 = 손대기 전과 픽셀 동일.
     //   fp: 1인칭(앱 토글 사용) · opacity/blend: 실사 공간에 얹을 때의 합성 손잡이
+    //   grade/bgGrade: 색 보정 {b 밝기, c 대비, s 채도, h 색상각}. 투사(캔버스)와 배경(영상·사진)을
+    //     따로 잡는다 — 둘은 물리적으로 다른 광원이라 같이 만지면 반드시 한쪽이 틀어진다.
+    //   uiScale: 투사 판 크기. hide: 씬에서 뺄 개체 키 목록(__sceneList() 가 주는 그 키).
     window.__sceneAdj = { zoom: 1, pan: 0, tilt: 0, dolly: 1, exposure: 1, bloom: 0.55,
-      uiX: 0, uiY: 0, fp: false, opacity: 1, blend: 'normal' };
+      uiX: 0, uiY: 0, uiScale: 1, fp: false, opacity: 1, blend: 'normal',
+      grade: { b: 1, c: 1, s: 1, h: 0 }, bgGrade: { b: 1, c: 1, s: 1, h: 0 }, hide: [] };
+    // 개체 목록 — 지금 화면에 실제로 그려지는 것만. 키는 이름 우선(리로드해도 같다),
+    //   이름이 없으면 타입으로 묶는다. scenes.html 체크박스가 이 키를 그대로 쓴다.
+    window.__sceneList = () => {
+      const seen = new Map();
+      window.__dbg?.scene?.traverse(o => {
+        if (o.isLight || o.isScene || !(o.isMesh || o.isLine || o.isPoints || o.isSprite)) return;
+        const key = o.name || '#' + o.type;
+        const e = seen.get(key) || { key, n: 0, on: false };
+        e.n++; e.on = e.on || o.visible;
+        seen.set(key, e);
+      });
+      return [...seen.values()].sort((a, b) => a.key.localeCompare(b.key));
+    };
     // 합성 — 캔버스를 실사 배경 위에 어떻게 얹을지.
     //   screen = 가산광. 프로젝터는 빛을 **더하는** 장치라 이게 물리적으로 맞고,
     //   벽의 질감·그림자가 투사면을 통해 그대로 비쳐 훨씬 자연스럽다.
@@ -4513,7 +4556,8 @@ void main(){
     if (!SCENE_STAGE?.bg) return;
     // 배경 CSS 가 아직 안 붙었으면 붙인다 — 최초 호출 시점엔 캔버스가 없을 수 있다.
     const cv0 = renderer?.domElement, host0 = cv0?.parentElement;
-    if (host0 && !host0.style.backgroundImage) window.__setSceneBg?.(SCENE_STAGE.bg, SCENE_STAGE.bgdim);
+    const gone = SCENE_STAGE.isVid?.(SCENE_STAGE.bg) ? !document.getElementById('__bgvid') : !host0?.style.backgroundImage;
+    if (host0 && gone) window.__setSceneBg?.(SCENE_STAGE.bg, SCENE_STAGE.bgdim);
     scene.background = null;
     renderer.setClearColor(0x000000, 0);
     const hasU = (m, re) => !!m.uniforms && Object.keys(m.uniforms).some(k => re.test(k));
@@ -4528,6 +4572,64 @@ void main(){
       if (!keep) o.visible = false;
     });
   }
+  // ── 씬 룩: 색 보정 · 개체 숨김 · 투사 판 위치/크기 ───────────────────────────
+  //   전부 **매 프레임** 다시 건다. 앱이 스테이지 진입·주간 조명·리스폰에서 되돌려 놓는다
+  //   (이 파일 위쪽에 같은 함정이 이미 여러 번 기록돼 있다).
+  const _look = { grade: '', bgGrade: '' };
+  const _filt = (g, extra = '') => {
+    const s = `brightness(${g?.b ?? 1}) contrast(${g?.c ?? 1}) saturate(${g?.s ?? 1}) hue-rotate(${g?.h ?? 0}deg)${extra}`;
+    return /^brightness\(1\) contrast\(1\) saturate\(1\) hue-rotate\(0deg\)$/.test(s) ? '' : s;
+  };
+  function applySceneLook(A) {
+    if (!A) return;
+    // ① 색 보정 — 투사(캔버스)와 배경(영상/사진)은 **다른 광원**이라 따로 잡는다.
+    //    CSS filter 라 렌더 파이프라인을 안 건드리고, 스크린샷에 그대로 찍힌다(= 보이는 대로).
+    //    ★ 캔버스의 mix-blend-mode 는 그대로 산다. filter 는 블렌드 **전에** 적용된다.
+    const cv = renderer?.domElement;
+    if (cv) { const f = _filt(A.grade); if (f !== _look.grade) { cv.style.filter = f; _look.grade = f; } }
+    const bv = document.getElementById('__bgvid');
+    if (bv) {
+      // 배경 어둡기(bgdim)는 이미 brightness 로 들어가 있다 — 색 보정과 곱해서 한 문자열로 만든다.
+      const dim = SCENE_STAGE?.bgdim || 0;
+      const f = _filt({ ...(A.bgGrade || {}), b: (A.bgGrade?.b ?? 1) * (1 - dim) });
+      if (f !== _look.bgGrade) { bv.style.filter = f; _look.bgGrade = f; }
+    }
+    // ② 개체 숨김 — 키는 __sceneList() 가 주는 것과 같다(이름 우선, 없으면 '#타입').
+    const hide = A.hide;
+    if (hide?.length) {
+      const H = new Set(hide);
+      scene.traverse(o => { if (H.has(o.name || '#' + o.type)) o.visible = false; });
+    }
+    // ③ 투사 판 위치·크기 — 카메라와 별개로 대지 판만 움직이고 키운다.
+    //    ★ 되돌리기 가능하게: 지난 프레임에 더한 값을 빼고 새 값을 더한다. 앱이 매 프레임
+    //      위치를 다시 쓰든 안 쓰든 결과가 같다(누적 어긋남 방지).
+    //    ※ 크기는 원래 투사 광학·설치 거리에서 **계산되는 값**이다(computeStation()). 여기서
+    //      메시만 키우는 건 그 계산을 우회한 연출값이다 — 스펙을 바꿔야 하면 투사 폭(s-wallw)으로.
+    //    ★ wallGL/floorGL 은 이 함수보다 아래에서 const 로 선언된다 — 직접 참조하면 TDZ 예외가
+    //      매 프레임 터져 이 뒤가 통째로 안 돈다(실측: UI 조정 무반응). __dbg 게터로 우회.
+    const uiMesh = SCENE_STAGE?.view === 'wall' ? window.__dbg?.wallGL?.mesh : window.__dbg?.floorGL?.mesh;
+    if (uiMesh) {
+      const vert = SCENE_STAGE?.view === 'wall' ? 'y' : 'z';   // 바닥은 카메라 up 이 -Z 라 화면 상하 = z
+      uiMesh.position.x -= A._ax || 0; uiMesh.position[vert] -= A._av || 0;
+      uiMesh.position.x += A.uiX || 0; uiMesh.position[vert] += A.uiY || 0;
+      A._ax = A.uiX || 0; A._av = A.uiY || 0;
+      // ★ 크기는 '지난 값을 나누고 새 값을 곱하는' 방식이면 안 된다 — floorGL 이 매 프레임
+      //   자기 scale 을 다시 써서, 한 번 곱한 뒤로는 A._ak 가 같아 건너뛰고 앱 값만 남는다
+      //   (실측: 슬라이더 1.6 인데 mesh.scale 1.0). 원본 배율을 한 번 잡아 두고 **매 프레임**
+      //   base×k 로 덮는다. 이 함수는 루프 마지막에 도니 우리가 마지막에 쓴다.
+      //   ★★ 원본을 '한 번만' 잡으면 안 된다. 첫 프레임엔 renderDesignFrame 이 아직 자기 배율을
+      //     안 써서 mesh.scale 이 생성 기본값 (1,1,1) 이다. 그걸 원본으로 굳히면 이후 매 프레임
+      //     1 로 덮어써서, 지오메트리 2600×1600 짜리 UI 판이 2600m 크기로 그려진다 = 화면 밖.
+      //     (실측: _uiBase [1,1] · meshScale [1,1] · UI 통째로 실종 — 유저: 정보 UI 안 보여)
+      //     대신 **자가 치유**: 우리가 마지막에 쓴 값과 다르면 앱이 새로 쓴 것이니 그게 새 원본.
+      const k = A.uiScale || 1;
+      if (A._uiOut == null || Math.abs(uiMesh.scale.x - A._uiOut) > 1e-9) A._uiBase = uiMesh.scale.clone();
+      A._ak = k;
+      uiMesh.scale.set(A._uiBase.x * k, A._uiBase.y * k, A._uiBase.z * k);
+      A._uiOut = uiMesh.scale.x;
+    }
+  }
+
   function tickSceneStage() {
     if (!SCENE_STAGE) return;
     const S = SCENE_STAGE;
@@ -4539,7 +4641,8 @@ void main(){
         for (const anc of keep) {
           if (!anc.parentElement) continue;
           for (const sib of anc.parentElement.children) {
-            if (!keep.has(sib) && sib.tagName !== 'SCRIPT' && sib.tagName !== 'STYLE') sib.style.display = 'none';
+            // #__bgvid = 실사 배경 영상. 캔버스의 형제라 이 청소에 딱 걸린다(실측: 배경이 안 보임).
+            if (!keep.has(sib) && sib.id !== '__bgvid' && sib.tagName !== 'SCRIPT' && sib.tagName !== 'STYLE') sib.style.display = 'none';
           }
         }
       };
@@ -4604,10 +4707,33 @@ void main(){
     //   ★ A = 씬 스테이지 조정값. scenes.html 슬라이더가 이 객체를 직접 쓴다(리로드 없음).
     //     zoom  : 화각 배율 (작을수록 확대)   pan/tilt : 프레임 이동   dolly : 거리 배율
     const A = window.__sceneAdj;
+    applySceneLook(A);   // 색 보정 · 개체 숨김 · 투사 판 위치/크기 (평면·1인칭 공통)
     // 1인칭 — 앱 토글을 그대로 쓴다(종목별 화각·VOR·가독 보정이 딸려 온다). 이때는
     //   씬 스테이지가 카메라를 건드리지 않는다. 밖에서 다시 잡으면 그 보정이 전부 빠진다.
-    if (!!A.fp !== !!A._fpOn) { A._fpOn = !!A.fp; window.__setFp?.(A._fpOn); }
-    if (A._fpOn) return;
+    // ★ 캐시한 플래그가 아니라 **앱의 실제 상태**(fpMode)와 비교한다. 스테이지 진입이
+    //   자기 판단으로 시점을 뒤집으므로(main.js:1077), 캐시로 두면 한 번 어긋난 뒤 영영 안 돌아온다.
+    if (!!A.fp !== fpMode) {
+      window.__setFp?.(!!A.fp);
+      A._fpFov = camera.fov;   // setFp 가 종목별로 잡아 둔 기준 화각. 매 프레임 곱하면 발산한다
+    }
+    if (A.fp) {
+      // 1인칭 각도 — 눈의 위치·VOR 은 앱이 잡고(위 fpMode 블록), 그 위에 요/피치/화각만 얹는다.
+      //   이 함수는 루프의 **마지막**에 돌므로 여기서 덮으면 그 프레임에 그대로 반영된다.
+      //   pan/tilt 단위는 라디안 — 슬라이더 ±1.5 = ±86°.
+      const yaw = A.pan || 0, tilt = A.tilt || 0;
+      if (yaw || tilt) {
+        const e = new THREE.Euler().setFromQuaternion(camera.quaternion, 'YXZ');
+        e.y += yaw; e.x += tilt;
+        camera.quaternion.setFromEuler(e);
+      }
+      // 거리 — 시선 뒤로 물러난다(1 = 눈 위치 그대로). 1인칭 '어깨너머'까지 커버.
+      if (A.dolly && A.dolly !== 1) camera.translateZ((A.dolly - 1) * 2.0);
+      camera.fov = (A._fpFov || 60) * (A.zoom || 1);
+      camera.updateProjectionMatrix();
+      FX.exposure = A.exposure ?? 1;
+      FX.bloomStrength = A.bloom ?? 0.55;
+      return;
+    }
     const half = 4.5 * (A.zoom || 1);
     if (S.view === 'wall') {
       const wc = rig._wallCenter || { cx: 0, cy: 1.5 };
@@ -4627,22 +4753,7 @@ void main(){
     camera.updateProjectionMatrix();
     FX.exposure = A.exposure ?? 1;          // 노출
     FX.bloomStrength = A.bloom ?? 0.55;     // 글로우 세기
-    // 투사 UI 위치·크기 — 대지 판만 따로 움직인다(카메라와 별개).
-    //   ★ 되돌리기 가능하게: 지난 프레임에 더한 값을 빼고 새 값을 더한다. 앱이 매 프레임
-    //     위치를 다시 쓰든 안 쓰든 결과가 같다(누적 어긋남 방지).
-    // ★ wallGL/floorGL 은 이 함수보다 **아래**(5043·5251)에서 const 로 선언된다 —
-    //   직접 참조하면 TDZ 예외가 매 프레임 터져 이 뒤가 통째로 안 돈다(실측: UI 조정 무반응).
-    //   __dbg 게터로 우회한다(선언 후엔 정상적으로 값이 나온다).
-    const uiMesh = S.view === 'wall' ? window.__dbg?.wallGL?.mesh : window.__dbg?.floorGL?.mesh;
-    if (uiMesh) {
-      const vert = S.view === 'wall' ? 'y' : 'z';   // 바닥은 카메라 up 이 -Z 라 화면 상하 = z
-      uiMesh.position.x -= A._ax || 0; uiMesh.position[vert] -= A._av || 0;
-      uiMesh.position.x += A.uiX || 0; uiMesh.position[vert] += A.uiY || 0;
-      A._ax = A.uiX || 0; A._av = A.uiY || 0;
-      // ※ UI '크기' 슬라이더는 폐기했다 — 투사 크기는 프로젝터 광학·설치 거리에서 계산되는 값이라
-      //   메시만 늘리면 computeStation() 을 우회한 거짓말이 된다. 크기를 바꿔야 하면
-      //   투사 폭 슬라이더(s-wallw)로 스펙 자체를 바꿔야 벽거리·틸트·사람거리가 같이 갱신된다.
-    }
+    // (투사 판 위치·크기는 applySceneLook 으로 옮겼다 — 1인칭에서도 먹어야 하므로)
   }
 
   let _dotStage = '', _dotMax = 0;   // 도트 진행바 — 스테이지별 최대 진행(되감김 방지)
