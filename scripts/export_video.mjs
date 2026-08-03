@@ -681,20 +681,24 @@ for (let i = 0; i < N; i++) {
       //        error null 인데 readyState 만 1 — 데이터가 없어서가 아니라 통지가 안 온 것이다.
       //        → 상태를 **폴링**한다. setTimeout 은 메인스레드가 잠깐이라도 비면 돌고,
       //          그때 readyState 가 갱신돼 있다. 이벤트 도착 여부와 무관해진다.
-      const ok = () => Math.abs(v.currentTime - want) < 0.02 && v.readyState >= 2;
+      //        ★ 폴링으로 바꿔 봤지만(08-04) 회복률이 안 늘고 프레임당 시간만 2배가 됐다.
+      //          근본은 대기 방식이 아니라 **프레임당 시간이 3초를 넘긴 것**이다. 1.77초로
+      //          돌아가면 이 경합은 애초에 안 생긴다(어제 240/240 성공이 그 증거).
+      //          그래서 대기는 문서 §6 이 검증한 원래 방식으로 되돌리고, **놓친 프레임을
+      //          세는 것만** 남긴다 — 조용히 실패하지 않는 게 이 수정의 전부다.
+      const ok = () => Math.abs(v.currentTime - want) < 1e-3 && v.readyState >= 2;
       if (!ok()) {
-        v.currentTime = want;
-        for (let k = 0; k < 260 && !ok(); k++) {          // 최대 ≈8s
-          await new Promise(r => setTimeout(r, 30));
-          // 60틱(≈1.8s)마다 다시 건다 — 같은 값 대입은 no-op 이라 한 번 흔들었다 돌아온다.
-          if (k && k % 60 === 0 && !ok()) {
-            v.currentTime = want > 0.5 ? want - 0.5 : Math.min(v.duration, want + 0.5);
-            await new Promise(r => setTimeout(r, 30));
-            v.currentTime = want;
-          }
-        }
+        await new Promise(r => {
+          let settled = false;
+          const fin = () => { if (settled) return; settled = true; r(); };
+          if (v.requestVideoFrameCallback) v.requestVideoFrameCallback(() => fin());
+          else v.addEventListener('seeked', fin, { once: true });
+          v.currentTime = want;
+          setTimeout(fin, 3000);        // 안전장치. 짧으면 그게 곧 깜빡임이다
+        });
       }
-      if (!ok()) window.__seekMiss = (window.__seekMiss || 0) + 1;   // 조용히 넘기지 않는다
+      // 통지가 왔든 안 왔든, 프레임이 실제로 올라왔는지로 판정한다.
+      if (v.readyState < 2) window.__seekMiss = (window.__seekMiss || 0) + 1;
     })).then(() => {
       // 첫 rAF 는 앱의 갱신·렌더가 끝난 뒤에 돈다(앱 루프가 먼저 등록돼 있다) — 거기서 무대를
       // 다시 끄고 카메라를 투사면에 다시 맞추면, 두 번째 틱의 렌더가 그 상태로 그린다.
