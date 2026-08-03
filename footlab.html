@@ -95,7 +95,6 @@
     </fieldset>
 
     <fieldset><legend>토큰 공통 (룩 시스템)</legend>
-      <div class=row><label>비트 펄스(러닝)</label><input type=range id=pulse min=0 max=0.6 step=.01><span class=v id=vpulse></span></div>
       <div class=row><label>윤곽 두께 uW</label><input type=range id=w min=.3 max=2.2 step=.05><span class=v id=vw></span></div>
       <div class=row><label>헤일로 uHalo</label><input type=range id=halo min=0 max=1.6 step=.02><span class=v id=vhalo></span></div>
       <div class=row><label>필 uPool</label><input type=range id=pool min=0 max=1 step=.01><span class=v id=vpool></span></div>
@@ -207,7 +206,7 @@ const DEF = { imp: 1.0, scale: 0.835, offx: -0.04, offy: -0.007, irot: 0, pitch:
               rip: 0.55, ripReach: 0.34, ripWidth: 0.09, ripSpeed: 0.45, ripGrad: 1,
               plantar: 1.0, bands: 0, bandSoft: 0.45,
               edgeShade: 0.55, edgeW: 0.085, edgeSoft: 0.25, dither: 0.010,
-              shadeRed: 0.34, shadeRedW: 3.4, edgeShadeW: 1, edgeShadeGrad: 0, edgeShadeG0: 1, edgeShadeG1: 0.55, pulse: 0.15 };
+              shadeRed: 0.34, shadeRedW: 3.4, edgeShadeW: 1, edgeShadeGrad: 0, edgeShadeG0: 1, edgeShadeG1: 0.55 };
 // ★ 기본값 = 정본 JSON. localStorage 는 그 위의 '작업 중' 상태일 뿐이다.
 //   예전엔 랩이 localStorage 에만 저장해서 다른 기기에서 열면 수정 전 값이 나왔다(유저 발견).
 for (const k in DEF) if (typeof LOOK[k] === 'number') DEF[k] = LOOK[k];
@@ -218,7 +217,7 @@ const SF = SIL_FIT / SIL_FIT_REF;   // uv 단위 거리 스케일(정본과 동�
 const $ = id => document.getElementById(id);
 const KEYS = ['imp','scale','offx','offy','irot','pitch','dot','glow','shade','sharp','edge',
               'w','halo','pool','noise','prog','tilt','bloom','blur',
-              'gsize','gx','gy','grot','gsh','rip','ripReach','ripWidth','ripSpeed','ripGrad','plantar','bands','bandSoft','edgeShade','edgeShadeW','edgeShadeGrad','edgeShadeG0','edgeShadeG1','shadeRed','shadeRedW','edgeW','edgeSoft','dither','pulse'];
+              'gsize','gx','gy','grot','gsh','rip','ripReach','ripWidth','ripSpeed','ripGrad','plantar','bands','bandSoft','edgeShade','edgeShadeW','edgeShadeGrad','edgeShadeG0','edgeShadeG1','shadeRed','shadeRedW','edgeW','edgeSoft','dither'];
 const DIGITS = { tilt: 0, irot: 1, grot: 0, pitch: 3, edge: 3, scale: 3, offx: 3, offy: 3,
                  gx: 3, gy: 3, ripWidth: 3, bloom: 3, bands: 0, dither: 3 };
 let shadeCol = 0, ripCol = 1, gShadow = 'glow', gBlend = 'normal', edgeShadeCol = +(LOOK.edgeShadeCol ?? 0);

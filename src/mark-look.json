@@ -47,6 +47,5 @@
   "edgeShadeCol": 2,
   "edgeShadeGrad": 1,
   "edgeShadeG0": 0.32,
-  "edgeShadeG1": 1,
-  "pulse": 0.15
+  "edgeShadeG1": 1
 }

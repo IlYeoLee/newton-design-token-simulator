@@ -2416,9 +2416,7 @@ void main(){
     // 씬 스테이지(?scene=)는 인물이 화면을 크게 채운다 — 필드 격자를 2배로(찌글임 완화, 유저).
     // ★ 블러 σ 는 UV 기준 보존: 텍셀 간격을 '기준 해상도(480×720)'로 고정하고 RT 만 키운다.
     //   σ 가 좁아지면 룩2 캘리브레이션(표면블러 keep·detail)이 통째로 틀어진다.
-    // ★ 상시 2배 — 씬 스테이지에만 2배였는데, 제품 뷰도 인물 판이 작아 1배 필드(넓은장 120×180)가
-    //   다리 같은 얇은 부위에서 블록 계단으로 드러났다(유저: 화질저하). σ 는 텍셀 기준이라 룩 불변.
-    const HQ = 2;
+    const HQ = new URLSearchParams(location.search).get('scene') != null ? 2 : 1;
     const RW = 480 * HQ, RH = 720 * HQ;   // 320×480 은 960² 소스의 미세 결(저지 주름)을 3배 다운샘플로 죽였다 — 룩2 stdG 병목(실측 16 vs 27)
     // (renderCoachField 의 가로 등방 보정이 이 값을 읽는다)
     const vs = 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }';
@@ -2522,10 +2520,6 @@ void main(){
     video.play().catch(() => {});
     const tex = new THREE.VideoTexture(video);
     tex.colorSpace = THREE.SRGBColorSpace;
-    // ★ 밉맵 — 바닥 판은 960² 소스를 화면 ~250px 로 **축소** 샘플링한다. 밉 없는 Linear 축소는
-    //   앨리어싱이라 크로마 경계·결이 블록으로 깨졌다(유저: "심각한 화질저하"). WebGL2 라 비POT 허용.
-    tex.generateMipmaps = true;
-    tex.minFilter = THREE.LinearMipmapLinearFilter;
     const mat = new THREE.ShaderMaterial({
       transparent: true, depthWrite: false,
       uniforms: { map: { value: tex }, uLUT: { value: getLUT() }, uTime: { value: 0 }, uReady: { value: 0 }, uZoom: { value: cfg.zoom ?? 1 },
