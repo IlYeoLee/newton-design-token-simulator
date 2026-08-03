@@ -96,7 +96,7 @@ const TR = {
     done: { lbl: 'Learn', time: '8m', img: 'boxer_learn.png' },
     next: { lbl: 'Strike!', time: '23m', img: 'boxer_fight.png', badge: 'Next' } },
 };
-const TM = { BX_C1: { sub: PACK, title: 'Round 1 — 3m Work' } };
+const TM = { BX_C1: { sub: '3 min · Keep punching', title: 'Round 1 of 6' } };
 const RP = { BX_FIN: { sub: PACK, title: 'Session Complete', pct: 100,
   stats: [['Rounds Done', '6'], ['Jabs Landed', '12'], ['Best Combo', '×5']] } };
 const BTN = 'Tap X2 For Retry!';
