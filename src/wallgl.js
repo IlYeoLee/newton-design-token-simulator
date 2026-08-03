@@ -36,6 +36,10 @@ const dot9 = "'OffBit','Supreme',sans-serif";
 const TS = new URLSearchParams(typeof location !== 'undefined' ? location.search : '').get('type') === '1' ? 1 : 0.92;
 const F = (w, s, fam = sans) => `${w} ${(s * TS).toFixed(2)}px ${fam}`;
 const RED = PAL.red;
+// 인물 사진 투명도 — READY 카드 썸네일(케이시)에서 정한 값이 정본이다.
+//   테두리·판은 그대로 두고 **사진만** 이만큼 눕힌다. 두 군데가 갈라지면
+//   같은 인물이 화면마다 다른 농도로 나온다(유저: READY 쪽에 맞춰라).
+const PHOTO_A = 0.7;
 
 // 텍스트 한 줄 — CSS의 (font-size, weight, color, letter-spacing, align)을 한 줄로
 function txt(ctx, s, x, y, size, weight, color, o = {}) {
@@ -295,7 +299,7 @@ export class WallGL {
     // Casey(피그마 팩 히어로, 1129×1757) — 커버 크롭, 얼굴(세로 ~24%)이 썸네일 중심에 오게
     const ca = this._img('casey.png');
     // 원본 이미지 그대로 + 투명도 70(유저 최종 — "미래엔 다 가능")
-    if (ca) { ctx.save(); ctx.globalAlpha *= 0.7; ctx.drawImage(ca, px - 21, py - 30, 260, 260 * 1757 / 1129); ctx.restore(); }
+    if (ca) { ctx.save(); ctx.globalAlpha *= PHOTO_A; ctx.drawImage(ca, px - 21, py - 30, 260, 260 * 1757 / 1129); ctx.restore(); }
     ctx.restore();
     const tx = px + ph + 40.857;
     // 제목+메타 두 줄을 썸네일(=카드) 세로 중심에 맞춘다 — py+24 고정이라 위로 24 치우쳐 있었다(유저).
@@ -567,6 +571,8 @@ export class WallGL {
       if (im) {
         // 커버 크롭 — 얼굴 중심(fx,fy = 원본 비율 좌표)이 원 중심에 오게
         const w2 = R * 3.2, h2 = w2 * (im.naturalHeight / im.naturalWidth);
+        // 사진만 눕힌다 — 흰 링(위 rrFill)은 알파를 안 건드린다(유저).
+        ctx.globalAlpha *= PHOTO_A;
         ctx.drawImage(im, cx0 - w2 * fx, cy0 - h2 * fy, w2, h2);
       }
       ctx.restore();
