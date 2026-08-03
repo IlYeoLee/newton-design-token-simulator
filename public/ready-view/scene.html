@@ -37,7 +37,9 @@ html,body{background:transparent}
 .avatar.coach{left:100px}
 .avatar.you{left:2263px}
 .avatar .ph{position:relative;width:217px;height:217px;border-radius:999px;overflow:hidden}
-.avatar .ph img{position:absolute;left:-28.09px;top:-74.05px;width:275.305px;height:511.608px;object-fit:cover;max-width:none}
+/* 프레이밍은 소스 사진 비율에 묶여 있다 — you_avatar.png 를 갈면 얼굴이 원 중심에 오도록 다시 잡을 것.
+   (현재 소스 = 1:1 정사각 셀카. 예전 3:4 세로 소스 값 left:-28.09 top:-74.05 275.305x511.608 은 머리가 잘렸다) */
+.avatar .ph img{position:absolute;left:-123.2px;top:-15.9px;width:390px;height:390px;object-fit:cover;max-width:none}
 .num{position:absolute;font-family:'OffBit';font-size:200px;line-height:normal;letter-spacing:-8px;top:1148px;width:364px}
 .num.l{left:100px;text-align:left}
 .num.r{left:2136px;text-align:right}
