@@ -14,7 +14,10 @@ export default defineConfig({
   //   증상이 조용해서 오래 갔다 — 컨텍스트 손실도, WebGL 에러도, 페이지 에러도 안 뜬다.
   server: {
     host: '127.0.0.1', port: 5199,
-    watch: { ignored: ['**/out/**', '**/tmp_*', '**/tmp_*/**', '**/node_modules/**'] },
+    // public/_bg = 실사 배경(수백 MB). 여기 파일이 바뀌면 vite 가 페이지를 새로고침해
+    //   진행 중인 렌더가 통째로 죽는다(HANDOFF-0802 ⑦ 과 같은 사고).
+    //   public/_presets.json = 씬별 촬영값. 저장할 때마다 리로드되면 맞추던 값이 통째로 날아간다.
+    watch: { ignored: ['**/out/**', '**/tmp_*', '**/tmp_*/**', '**/node_modules/**', '**/public/_bg/**', '**/public/_presets.json'] },
     // ★ 데브에선 아무것도 캐시하지 않는다. public/ 정적 파일(영상·PNG·SVG)은 HMR 대상이
     //   아니라서, 같은 파일명으로 에셋을 갈면 브라우저가 옛것을 계속 썼다. 매번 Ctrl+Shift+R
     //   해야 했던 이유다(유저). 데브 서버에만 걸리고 빌드 산출물에는 영향이 없다.
@@ -47,6 +50,40 @@ export default defineConfig({
             const next = { ...cur, ...obj };
             next._ = "MARK(발형·존원) 룩 정본. footlab.html '코드에 저장'이 이 파일을 덮어쓴다.";
             writeFileSync(p, JSON.stringify(next, null, 2) + '\n');
+            res.end('saved');
+          } catch (e) { res.statusCode = 400; res.end('bad json: ' + e.message); }
+        });
+      });
+    },
+  }, {
+    // 데브 전용: 씬별 촬영값 저장 — scenes.html 에서 맞춘 값의 **집**.
+    //   이게 없으면 화면에서 맞춘 값을 손으로 CLI 플래그에 옮겨 적어야 하고, 씬이 12개라
+    //   반드시 어긋난다. 익스포터가 같은 파일을 읽으므로 '보이는 대로'가 자동으로 성립한다.
+    //   ★ 통째 교체가 아니라 씬 단위 병합 — 한 씬을 저장할 때 나머지 씬이 날아가면 안 된다
+    //     (mark-look 에서 실제로 정본이 날아간 적이 있다).
+    name: 'dev-save-scene-preset',
+    configureServer(server) {
+      // ★ 읽기도 미들웨어로 준다. public/ 정적 서빙은 **서버가 뜬 뒤에 생긴 파일을 안 준다** —
+      //   저장 직후 새로고침하면 옛 값(또는 index.html)이 돌아온다. 실제로 두 번 밟았다.
+      server.middlewares.use('/__presets', (req, res) => {
+        let body = '{}';
+        try { body = readFileSync(resolve(__dirname, 'public/_presets.json'), 'utf8'); } catch { /* 아직 없음 */ }
+        res.setHeader('Content-Type', 'application/json');
+        res.setHeader('Cache-Control', 'no-store');
+        res.end(body);
+      });
+      server.middlewares.use('/__save-scene', (req, res) => {
+        if (req.method !== 'POST') { res.statusCode = 405; return res.end('POST only'); }
+        const chunks = [];
+        req.on('data', c => chunks.push(c));
+        req.on('end', () => {
+          try {
+            const obj = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+            if (!obj || typeof obj !== 'object' || Array.isArray(obj)) throw new Error('bad body');
+            const p = resolve(__dirname, 'public/_presets.json');
+            let cur = {};
+            try { cur = JSON.parse(readFileSync(p, 'utf8')); } catch { /* 첫 저장 */ }
+            writeFileSync(p, JSON.stringify({ ...cur, ...obj }, null, 2) + '\n');
             res.end('saved');
           } catch (e) { res.statusCode = 400; res.end('bad json: ' + e.message); }
         });

@@ -112,7 +112,11 @@
     ['h', '색상', -180, 180, 1,    0],
   ];
   const DEF = () => ({
-    bg: '', bgdim: 0, fp: false, blend: 'normal',
+    // ★ 기본 합성은 **빛(screen)** 이다. 잉크(normal)로 두면 지면 투사 판의 어두운 면이
+    //   실사 배경 위에 **불투명 검정 사각형**으로 깔린다(유저: "달리기에서 이상한 검정색").
+    //   투사는 가산광이라 검정을 못 쏘는 게 물리적으로도 맞다(docs §1). 배경이 없을 땐
+    //   backdrop 이 검정이라 screen 과 normal 의 결과가 같다 — 손해가 없다.
+    bg: '', bgdim: 0, fp: false, blend: 'screen',
     ...Object.fromEntries(ADJ.map(([k, , , , , d]) => [k, d])),
     grade: Object.fromEntries(GRADE.map(([k, , , , , d]) => [k, d])),
     bgGrade: Object.fromEntries(GRADE.map(([k, , , , , d]) => [k, d])),

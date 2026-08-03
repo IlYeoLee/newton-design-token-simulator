@@ -755,7 +755,7 @@ export class Marker {
 //    촉 크기 = 경로의 0.09 (랩 34px/380px 실측 비율 — 구성 고정, 스케일만 원칙).
 //    구 makeArrow(flatMat 정적 도형 통화살표)와 '촉 끝 주차'는 카탈로그에 없는 종 — 은퇴.
 export const FLOW_ARROWS = [];
-export function makeFlowArrow(len, { tips = 1, wall = false } = {}) {
+export function makeFlowArrow(len, { tips = 1, wall = false, scale = 1 } = {}) {
   // LINE 토큰 = 테이퍼 스템 + SVG 촉 draw-on (유저 확정: 러닝 A3 리프트 큐 2안).
   // 랩 프리뷰와 같은 fx-core drawStemArrow 하나로 그린다 — 셰이더 자루/별도 촉 판 은퇴.
   const g = new THREE.Group();
@@ -767,6 +767,7 @@ export function makeFlowArrow(len, { tips = 1, wall = false } = {}) {
   mesh.position.y = len / 2;
   g.add(mesh);
   g._len = len; g._canvas = c; g._tex = tex; g._mesh = mesh; g._paintT = -9; g._noTip = tips === 0; g._tips = [];
+  g._scale = scale;   // 두께·촉 배율(길이는 그대로) — 길이가 달라도 실측 두께를 맞출 때
   // 바닥 = 수평면(x=-90°, 살짝 띄움). 벽 = 수직면 유지(x=0) → 자루가 +Y로 서고 caller가 rotation.z로 방향 지정.
   if (wall) { g.rotation.x = 0; g.position.y = 0; } else { g.rotation.x = -Math.PI / 2; g.position.y = 0.014; }
   g.renderOrder = 6;
@@ -802,7 +803,7 @@ export function tickFlowArrows(t, rig) {
     if (t - g._paintT >= 1 / 24) {
       g._paintT = t;
       // _prog 지정 = 자유 루프 대신 외부 구동(세션이 타이밍을 잡는 경우). 다 그려지면 그 상태로 멈춘다.
-      drawStemArrow(g._canvas.getContext('2d'), 128, 256, t, ENV, { noTip: g._noTip, prog: g._prog });
+      drawStemArrow(g._canvas.getContext('2d'), 128, 256, t, ENV, { noTip: g._noTip, prog: g._prog, scale: g._scale });
       g._tex.needsUpdate = true;
     }
     // 투사면 소프트 페이드 — 셰이더를 버렸으니 CPU에서 판 전체 알파로 (경계에서 사각으로 잘리지 않게)
@@ -1309,10 +1310,17 @@ export class TokenSystem {
     }
   }
 
+  /** 그 면의 마커 필드가 실제로 화면에 있는가 — 파문·판정 도트가 뜰 수 있는 유일한 조건. */
+  fieldVisible(surface) {
+    return this.root.visible && (surface === 'wall' ? this.wallRoot : this.floorRoot).visible;
+  }
   _fire(ev) {
     // 마커 필드가 숨겨진 상태(세션 비실전 등)에선 이펙트도 발화 금지 — 숨긴 마커의 버스트가
     // 씬 직속 쿼드로 계속 쌓여 '정체불명 원 마커'처럼 화면을 점유하던 근본(유저 검수 지적)
-    if (ev.surface !== 'wall' && !this.floorRoot.visible) return;
+    // 벽도 지면과 같은 규칙 — 마커 필드가 꺼져 있으면 파문도 안 뜬다. 벽만 예외였고 공통 root 는
+    //   아무도 안 봤던 탓에, 토큰이 통째로 숨겨진 씬(씬 스테이지·C3)에서도 팩 마커 자리에서
+    //   파문이 계속 터졌다(유저: 파형이 왜 저기서 나와 — 1·2·3 아래에서 퍼져야지).
+    if (!this.fieldVisible(ev.surface)) return;
     // 루프 시작 순간(t≈0) 이벤트는 랩 아티팩트 — 매 루프 화면이 번쩍이므로 버스트 억제
     // (마크 자체의 잔상·판정은 그대로, 폭발 이펙트만 생략)
     const wrapArtifact = ev.t < 0.15;
@@ -1323,8 +1331,11 @@ export class TokenSystem {
     const b = ev.srcToken?.design?.burst;   // 토큰별 터짐 조절 (없으면 기본 버스트)
     const opts = (b && b.on) ? { ...b } : {};
     if (ev.surface === 'wall') {
-      // 벽 파문은 타겟 크기에 비례 — 전역 크기(지면 기준 1.5m)를 그대로 쓰면 벽 절반을 덮음
-      opts.sizeM = (ev.marker?.radius ?? 0.15) * 3.4;
+      // 벽 파문은 타겟 크기에 비례 — 전역 크기(지면 기준 1.5m)를 그대로 쓰면 벽 절반을 덮음.
+      //   비율은 마크 토큰 규칙(Figma 잽잽훅 279:3203)이 정본: 파형 지름 = 마크 지름 × 1.69.
+      //   파문 도달 반경은 쿼드 반폭의 0.9 → sizeM = 반경 × 1.69 / 0.9 ≈ 1.9.
+      //   3.4 였을 땐 파형이 마크의 6배로 퍼져 인물 프레임 밖으로 나갔다(유저).
+      opts.sizeM = (ev.marker?.radius ?? 0.15) * 1.9;
       opts.intensity = (opts.intensity ?? 1) * 0.8;
       opts.speed = (opts.speed ?? 1) * 1.35;   // 잽 리듬에 맞게 짧게
     }

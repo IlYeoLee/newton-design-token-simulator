@@ -4697,8 +4697,12 @@ void main(){
       //   ?sceneloop=<초> 로 조절. 기본 8 — 익스포터 기본 길이와 맞췄다.
       // ★★ 단, 코치 클립에 박자를 건 스테이지(dur = 클립 길이)는 그 길이를 쓴다. 8초로 자르면
       //   10.5초 클립이 스테이지 위에서 계속 밀려 '타이밍이 아무것도 안 맞는' 상태가 된다(유저).
-      const _sd = session.curStage?.dur;
-      const _period = (_sd && _sd > (window.__sceneLoop || 8)) ? _sd : (window.__sceneLoop || 8);
+      // ★★★ 주기는 스테이지 주기의 **정수배**여야 한다. 8 초로 잘라 두면 6 초짜리 콤보(BX_C3)가
+      //   두 바퀴째 2 초 지점에서 다시 시작해, 씬을 열자마자 **이미 맞은 노드(2번)가 채워진 채**
+      //   보인다(유저: "잽잽훅 처음에 이거 왜 나와"). 올림해서 배수로 맞추면 위상이 영구히 유지되고
+      //   길이도 요청값보다 짧아지지 않는다. dur 6 · 요청 8 → 12초.
+      const _sd = session.curStage?.dur, _want = window.__sceneLoop || 8;
+      const _period = _sd > 0 ? Math.ceil(_want / _sd) * _sd : _want;
       if (session.t >= _period) {
         session.t = 0; session._enter();
         // ★ 영상도 같이 되감는다. setGhostClip 은 같은 클립이면 조기 반환해서 영상만 계속
@@ -5444,6 +5448,15 @@ void main(){
   for (const id of ['FIN', 'BK_FIN']) {
     FLOOR_FRAMES[id] = { src: 'ready-view/floor-report.html?stage=' + id, w: 1600, h: 2670 };
   }
+  // 세션에 '프레임이 UI를 전담하는 스테이지' 집합을 넘긴다 — 이 표가 단일 출처다.
+  //   session.setStage() 가 스테이지 진입마다 옛 3D 슬롯을 다시 켜서 진입마다 1프레임씩 구버전 UI가
+  //   새고 있었다(main.js 는 다음 프레임에 껐다). 세션이 진입 시점에 바로 알아야 한다.
+  //   frameStages  = 슬롯 텍스트(FS/FL/FM)를 프레임이 대신하는 스테이지 = 프레임이 있는 전부
+  //   frameMarkOff = 발자국 마크(G)까지 프레임이 덮는 스테이지 = 시작 페이지 + 풀스크린(전환·타이머·리포트)
+  session.frameStages = new Set(Object.keys(FLOOR_FRAMES));
+  session.frameMarkOff = new Set(Object.keys(FLOOR_FRAMES).filter(id =>
+    id === 'READY' || id === 'BK_READY' ||
+    /floor-(transition|timer|report)\.html/.test(FLOOR_FRAMES[id].src)));
   // ── iframe 제거(검은 사각 플리커 근본): 3D 변환 아래 iframe은 내용 repaint마다 자체 프로세스가
   // 텍스처를 재래스터하고, 그 사이 컴포지터가 '불투명 검정' 폴백을 그린다(유저 녹화: 프레임 윤곽 그대로
   // 검은 사각 + 흰 타이틀만 잔존 = iframe 레이어의 알파 소실). 스로틀·쓰기차단·더블버퍼로도 경로가 남는 한
@@ -5660,11 +5673,35 @@ void main(){
       (state.pack === 'running' || state.pack === 'basketball') && rig.visualize !== false && !floorShown;
     // 시작 페이지(READY/BK_READY)=발자국까지 전부 숨김(UI 전담). A/B/C 운동중=발자국은 콘텐츠라 유지, 프레임은 헤더만 대체.
     const isStartPage = session.curStage?.id === 'READY' || session.curStage?.id === 'BK_READY';
+    // ★ 옛 3D UI 숨김의 기준은 '프레임이 준비됐나(floorShown)'가 아니라 '이 스테이지가 프레임을 쓰나(fView)'다.
+    //   floorShown 은 rig._fp(무릎 투사 풋프린트)를 기다리는데 그건 부팅·스테이지 진입 직후 몇 프레임 비어 있다.
+    //   그 창에서 숨김이 아예 안 돌아 구버전 UI(슬롯 텍스트 "CURRY · STEP-BACK 3"·"READY" / TAP 원 / 발자국 마크)가
+    //   새어 보였다(유저: 모든 바닥 UI에서 로딩 때 샌다). 모든 바닥 스테이지·두 종목 공통 문제였다.
+    const floorWanted = !!fView;
+    // 전환·타이머·리포트 = 풀스크린 지면 그래픽 → 옛 운동 3D UI 전부 숨김(겹침 방지).
+    const fullFrame = floorWanted && /floor-(transition|timer|report)\.html/.test(fView.src);
     // 팩 판정 토큰 필드 표시 정책(단일 소스): 세션 중엔 라이브에만, 릴리즈(C4)는 슛 집중 위해 제외.
     // 비실전(스트레칭·전환·리포트)에 무관한 마커가 떠 있던 근본(유저 전 화면 검수 지적).
     // 농구 실전(BK_C2)은 마크 판정 토큰만 쓴다 — 팩 판정 필드(레인·존)는 끈다(유저).
-    if (isFloorSport) tokens.floorRoot.visible = !(floorShown && isStartPage)
+    if (isFloorSport) tokens.floorRoot.visible = !(floorWanted && (isStartPage || fullFrame))
       && (!session.active || (session.isLive && session.stage !== 'BK_C4' && session.stage !== 'BK_C2'));
+    // 프레임이 헤더(타이틀·큐·페이즈)를 담으므로 발자국 아래 3D 보조 텍스트 슬롯 전부 숨김(중복 제거, 유저).
+    //   여기가 단일 출처 — 예전엔 이 블록이 if (floorShown) 안에 있어서 로딩 중엔 안 돌았다.
+    if (floorWanted) {
+      [session.slotFS, session.slotFL, session.slotFM, session.dirSlot,
+       session.countGroup, session.countRing].forEach(o => { if (o) o.visible = false; });
+      // 라이브(C 실전)는 _paceTick이 광점·페이스레인을 매 프레임 관리 — 프레임 켜져도 끄지 않음(러닝·판정 비주얼 유지).
+      if (!session.isLive && session.paceLight) session.paceLight.visible = false;
+      if (fullFrame) {
+        [session.a1arc, session.a1L, session.a1R, session.a3foot, session.paceLane, session.paceLight,
+         ...(session.a3zones || []), ...(session.paceFeet || []).map(f => f && f.group), ...(session.a2 || []).map(a => a && a.pg)]
+          .forEach(o => { if (o) o.visible = false; });
+      }
+      // 발자국 판정 마크(G그룹) — 시작 페이지·풀스크린 프레임은 프레임이 전담하므로 숨김.
+      //   정렬(위치·회전)은 프레임이 실제로 떠 있을 때만 의미가 있어 아래 floorShown 블록이 담당한다.
+      const g0 = session.G && session.G[session.curStage?.id];
+      if (g0 && (isStartPage || fullFrame)) g0.visible = false;
+    }
     // 실전(BK_C2)은 지면 프레임 타이틀만 쓰고, 세션이 그리는 위/아래 큐 텍스트는 끈다(유저).
     if (session.active && session.stage === 'BK_C2') {
       [session.slotFS, session.slotFL, session.slotFM, session.dirSlot, session.countGroup, session.countRing]
@@ -5748,20 +5785,7 @@ void main(){
           }
         }
       } catch (e) { /* iframe 로드 전 */ }
-      // 프레임이 헤더(타이틀·큐·페이즈)를 담으므로 발자국 아래 3D 보조 텍스트 슬롯 전부 숨김(중복 제거, 유저).
-      // 발자국 마크(G그룹)는 중앙 콘텐츠라 유지 — 슬롯만 끈다.
-      [session.slotFS, session.slotFL, session.slotFM, session.dirSlot,
-       session.countGroup, session.countRing].forEach(o => { if (o) o.visible = false; });
-      // 라이브(C 실전)는 _paceTick이 광점·페이스레인을 매 프레임 관리 — 프레임 켜져도 끄지 않음(러닝·판정 비주얼 유지).
-      if (!session.isLive && session.paceLight) session.paceLight.visible = false;
-      // 전환·타이머·리포트 = 풀스크린 지면 그래픽 → 옛 운동 3D UI(발자국·가이드·레인·리포트 텍스트) 전부 숨김(겹침 방지).
-      const fullFrame = /floor-(transition|timer|report)\.html/.test(fView.src);
-      if (fullFrame) {
-        tokens.floorRoot.visible = false;
-        [session.a1arc, session.a1L, session.a1R, session.a3foot, session.paceLane, session.paceLight,
-         ...(session.a3zones || []), ...(session.paceFeet || []).map(f => f && f.group), ...(session.a2 || []).map(a => a && a.pg)]
-          .forEach(o => { if (o) o.visible = false; });
-      }
+      // 슬롯·풀스크린 숨김은 위 floorWanted 블록이 단일 출처로 담당한다(로딩 중에도 돌아야 해서 밖으로 나갔다).
       // 발자국 판정 마크(G그룹) 정렬. 시작 페이지·풀스크린 프레임=숨김.
       const stageG = session.G && session.G[session.curStage?.id];
       if (stageG) {

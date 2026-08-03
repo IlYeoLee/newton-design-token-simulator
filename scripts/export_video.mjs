@@ -42,7 +42,23 @@ const arg = (k, d) => {
   const v = process.argv[i + 1];
   return (!v || v.startsWith('--')) ? true : v;
 };
-const SPORT = arg('sport', 'running');
+// ★ --scene 을 주면 종목은 씬 id 에서 나온다. --sport 를 따로 안 줬을 때 기본 'running' 이
+//   남아 있으면 복싱 씬을 러닝 팩으로 렌더하고 파일명까지 running 으로 나온다(실제로 겪음).
+const SCENE_ID = String(arg('scene', '') || '');
+const SPORT = arg('sport', /^BK_/.test(SCENE_ID) ? 'basketball' : /^BX_/.test(SCENE_ID) ? 'boxing' : 'running');
+// ★ 씬 저장본 — scenes.html '이 씬 저장'이 쓴 값을 그대로 읽는다. 화면에서 맞춘 게 곧 녹화값이다.
+//   CLI 플래그를 주면 그것이 이긴다(한 번만 다르게 뽑고 싶을 때). 'has' 로 **명시 여부**를 본다 —
+//   arg() 는 기본값과 '안 준 것'을 구분 못 해서, 저장본이 항상 덮이는 사고가 난다.
+const has = k => process.argv.includes(`--${k}`);
+let PRESET = {};
+if (SCENE_ID) {
+  try { PRESET = JSON.parse(fs.readFileSync(path.join('public', '_presets.json'), 'utf8'))[SCENE_ID] || {}; }
+  catch { /* 저장본 없음 — 전부 CLI/기본값 */ }
+  if (Object.keys(PRESET).length) console.log(`  씬 저장본 적용: ${SCENE_ID} (public/_presets.json)`);
+}
+// 저장본 → CLI 순으로 고른다. 색 보정처럼 중첩된 값은 아래에서 따로 합친다.
+const pick = (k, pk, d) => has(k) ? arg(k, d) : (PRESET[pk ?? k] ?? d);
+const pickN = (k, pk, d) => { const v = pick(k, pk, d); const n = +v; return Number.isFinite(n) ? n : d; };
 const DUR = +arg('dur', 3);
 const FPS = +arg('fps', 30);
 const W = +arg('w', 2560);
@@ -109,17 +125,34 @@ const INKA = LAYER === 'person';   // 인물 단독일 때만 잉크 알파
 //   스크린샷이 곧 최종 합성물이다. 알파·키잉 단계가 통째로 사라지므로
 //   가장자리 등고선·검정 소실·프리멀티 문제가 원천적으로 안 생긴다.
 //   파일은 public/_bg/ 로 복사해 vite 가 서빙하게 한다(로컬 경로는 브라우저가 못 연다).
-const BG = arg('bg', '');
+//   저장본의 배경은 브라우저 경로(`/_bg/x.mp4`)라 파일 경로로 바꿔 준다.
+const BG = has('bg') ? arg('bg', '') : (PRESET.bg ? path.join('public', PRESET.bg.replace(/^\//, '')) : '');
 // --bgfit : cover(꽉 채움·기본) | contain(전체 보이기) | 100% 100%(늘리기)
 const BGFIT = String(arg('bgfit', 'cover'));
-// --bgdim : 배경만 어둡게 (0~0.9). 투사 그래픽은 그대로 두고 벽/지면만 낮춘다.
-const BGDIM = Math.max(0, Math.min(0.9, +arg('bgdim', 0) || 0));
+// --bgdim : 배경 밝기. 양수 = 어둡게 · 음수 = 밝게 (씬 모드는 앱과 같은 −0.6~0.9 범위).
+const BGDIM = Math.max(SCENE_ID ? -0.6 : 0, Math.min(0.9, pickN('bgdim', null, 0)));
 // --scene : 앱의 **씬 스테이지 모드**(index.html?scene=ID)를 그대로 뽑는다.
 //   화면녹화하던 바로 그 화면이다. --flat/--beam/--alpha 를 쓰지 않으므로 알파·격리에서
 //   생기던 문제(가장자리 등고선·검정 소실·무대 누수)가 원천적으로 없다.
 //   화면녹화는 디스플레이 픽셀에 갇히지만(실측 3292×1874·19.6fps 드롭) 여기선 안 갇힌다:
 //   --w 1920 --ss 2 로 주면 **레이아웃은 1920 그대로, 출력은 3840×2160** 이다.
-const SCENE = arg('scene', '');
+const SCENE = SCENE_ID;
+// 씬 스테이지 촬영 조정 — scenes.html 의 슬라이더와 **같은 객체**(window.__sceneAdj)를 채운다.
+//   화면에서 '지금 값 복사'로 뽑은 문자열이 그대로 여기 옵션이 된다. 보이는 대로 녹화된다.
+//   --fp 는 1인칭(러닝·농구의 실제 시야). 1인칭에서도 --pan/--tilt(라디안)로 각도를 준다.
+const ADJ = {
+  fp: has('fp') ? true : !!PRESET.fp,
+  zoom: pickN('zoom', null, 1), pan: pickN('pan', null, 0), tilt: pickN('tilt', null, 0),
+  dolly: pickN('dolly', null, 1), exposure: pickN('exposure', null, 1), bloom: pickN('bloom', null, 0.55),
+  uiX: pickN('uix', 'uiX', 0), uiY: pickN('uiy', 'uiY', 0), uiScale: pickN('uiscale2', 'uiScale', 1),
+  // 씬 스테이지 기본 합성은 화면(scenes.html)과 같은 screen — normal 이면 지면 투사 판의
+  //   어두운 면이 실사 배경 위에 검은 사각형으로 남는다. 배경이 없으면 둘의 결과가 같다.
+  opacity: pickN('opacity', null, 1), blend: String(pick('blend', null, SCENE_ID ? 'screen' : 'normal')),
+  // 색 보정 · 개체 숨김은 화면에서만 잡는다(플래그로 넣기엔 값이 많다) — 저장본이 유일한 출처.
+  grade: PRESET.grade || { b: 1, c: 1, s: 1, h: 0 },
+  bgGrade: PRESET.bgGrade || { b: 1, c: 1, s: 1, h: 0 },
+  hide: PRESET.hide || [],
+};
 const OUT = arg('out', 'out');
 const URLBASE = arg('url', 'http://127.0.0.1:5199/');
 // UI 캔버스 배율 — 실시간 기본 0.75. 4K 내보내기엔 2 이상이어야 확대 흐림이 없다.
@@ -166,15 +199,26 @@ const variety = async (file) => {
 //   루트로 서빙한다. ★ 출력 크기에 맞춰 미리 줄여 두는 게 안전하다: 8208×5348 원본을 그대로
 //   물리면 디코드에만 175MB 가 든다(가로×세로×4). 3840 출력에 8208 소스는 어차피 버려진다.
 let BGURL = '';
+// 영상 배경은 CSS 로 못 깐다 — 앱의 __setSceneBg 가 <video> 를 캔버스 뒤에 깐다(같은 스태킹
+//   컨텍스트라 가산 합성 그대로). 프레임 단위 시크는 아래 <video> 동기화 블록이 이미 처리한다.
+//   ★ 원본 .mov 를 그대로 주지 말 것 — long-GOP 시크가 프레임당 수 초다.
+//     scripts/make_bg_proxy.mjs 로 전 키프레임 프록시를 먼저 만들어라.
+const BGVID = /\.(mp4|mov|webm|m4v)$/i.test(String(BG || ''));
 if (BG) {
   const src = String(BG);
   if (!fs.existsSync(src)) { console.error(`✗ --bg 파일이 없습니다: ${src}`); process.exit(1); }
   const dir = path.join('public', '_bg');
   fs.mkdirSync(dir, { recursive: true });
-  const dst = path.join(dir, path.basename(src).replace(/[^\w.\-]/g, '_'));
-  fs.copyFileSync(src, dst);
+  // ★ 렌더 중에 public/ 에 쓰면 vite 가 새로고침해 렌더가 죽는다(HANDOFF-0802 ⑦).
+  //   이미 _bg 안에 있는 파일(프록시)은 복사하지 않는다 — 안전하고 200MB 를 아낀다.
+  let dst = path.resolve(src);
+  if (path.dirname(dst) !== path.resolve(dir)) {
+    dst = path.join(dir, path.basename(src).replace(/[^\w.\-]/g, '_'));
+    fs.copyFileSync(src, dst);
+  }
   BGURL = '/_bg/' + path.basename(dst);
-  console.log(`  배경: ${path.basename(src)} → ${BGURL} (${(fs.statSync(dst).size / 1048576).toFixed(0)}MB)`);
+  if (BGVID && /\.mov$/i.test(dst)) console.warn('  ⚠ .mov 원본입니다 — 시크가 매우 느립니다. make_bg_proxy.mjs 로 프록시를 만드세요.');
+  console.log(`  배경: ${path.basename(src)} → ${BGURL} (${(fs.statSync(dst).size / 1048576).toFixed(0)}MB${BGVID ? ' · 영상' : ''})`);
 }
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'newton_export_'));
@@ -251,13 +295,32 @@ await warm(1200);                              // 가상 시계로 초기 애니
 await page.evaluate(p => { window.__play = p; }, PLAY);
 await page.evaluate(v => { window.__afloor = v; }, AFLOOR);
 await page.evaluate(a => { window.__wantAlpha = a; }, ALPHA);
-await page.evaluate(v => { window.__bgUrl = v; }, BGURL);
+// 영상 배경은 body CSS 경로를 타면 안 된다(url() 로 영상은 안 깔린다) — 앱의 <video> 경로로 넘긴다.
+await page.evaluate(v => { window.__bgUrl = v; }, BGVID ? '' : BGURL);
+await page.evaluate(v => { window.__bgVid = v; }, BGVID);
 await page.evaluate(v => { window.__bgFit = v; }, BGFIT);
 await page.evaluate(v => { window.__bgDim = v; }, BGDIM);
 await page.evaluate(v => { window.__agamma = v; }, AGAMMA);
 await page.evaluate(v => { window.__layer = v; }, LAYER);
 await page.evaluate(v => { window.__inka = v; }, INKA);
 await page.evaluate(v => { window.__unclip = v; }, PAD > 1);
+// ── 씬 스테이지: 화면에서 맞춘 값을 그대로 넘긴다 ─────────────────────────────
+//   __sceneAdj 는 앱이 매 프레임 읽는 **살아 있는 객체**라 한 번만 넣으면 된다.
+//   영상 배경도 여기서 건다 — scenes.html 이 부르는 것과 같은 함수라 결과가 화면과 같다.
+if (SCENE) {
+  const ok = await page.evaluate(({ adj, bg, dim, vid }) => {
+    if (!window.__sceneAdj) return 'no-adj';
+    Object.assign(window.__sceneAdj, adj);
+    window.__setComposite?.(adj.opacity, adj.blend);
+    if (vid && bg) window.__setSceneBg?.(bg, dim);
+    return 'ok';
+  }, { adj: ADJ, bg: BGURL, dim: BGDIM, vid: BGVID });
+  if (ok !== 'ok') console.warn(`  ⚠ 씬 조정값을 못 넣었습니다(${ok}) — ?scene= 이 붙어 있는지 확인`);
+  else console.log(`  조정: ${ADJ.fp ? '1인칭' : '고정'} zoom ${ADJ.zoom} pan ${ADJ.pan} tilt ${ADJ.tilt} dolly ${ADJ.dolly} exp ${ADJ.exposure} bloom ${ADJ.bloom} blend ${ADJ.blend}`);
+  await warm(1500);   // 1인칭 전환·배경 첫 프레임이 자리 잡을 시간
+} else if (BGVID) {
+  console.error('✗ 영상 배경은 --scene 과 함께 써야 합니다(앱의 <video> 배경 경로).'); process.exit(1);
+}
 // ★ stage 를 구조분해에 반드시 넣을 것 — 빠뜨리면 브라우저 전역의 #stage DOM 요소가 잡힌다
 //   (id 를 가진 요소는 window 의 프로퍼티가 된다). 실측: '없는 스테이지: [object HTMLElement]'.
 await page.evaluate(({ sport, beam, ht, session, stage, listStages }) => {
@@ -280,7 +343,8 @@ await page.evaluate(({ sport, beam, ht, session, stage, listStages }) => {
     const keep = new Set();
     for (let el = cvs; el && el !== document.documentElement; el = el.parentElement) keep.add(el);
     document.querySelectorAll('body *').forEach(el => {
-      if (!keep.has(el) && !el.contains(cvs)) el.classList.add('__exphide');
+      // #__bgvid = 실사 배경 영상(캔버스의 형제). 여기 걸리면 배경이 통째로 사라진다.
+      if (!keep.has(el) && el.id !== '__bgvid' && !el.contains(cvs)) el.classList.add('__exphide');
     });
     keep.forEach(el => { el.style.setProperty('background', 'transparent', 'important'); });
     // ★ --bg : 투명 캔버스 뒤에 배경을 깐다. 스크린샷이 곧 최종 합성물이다 —
@@ -298,7 +362,10 @@ await page.evaluate(({ sport, beam, ht, session, stage, listStages }) => {
       const st = document.getElementById('stage');
       if (st) st.style.setProperty('background', 'transparent', 'important');
     } else {
-      document.body.style.background = window.__wantAlpha ? 'transparent' : '#000';
+      // ★ 영상 배경(#__bgvid)은 z-index:-1 로 캔버스 뒤에 깔린다. 음수 z-index 는 **body 배경보다
+      //   아래**에 그려지므로, 여기서 body 를 불투명 검정으로 두면 배경이 통째로 가려진다
+      //   (실측: 배경 영상이 완전히 검은 프레임으로 나왔다). 영상 배경일 땐 body 를 비워 둔다.
+      document.body.style.background = (window.__wantAlpha || window.__bgVid) ? 'transparent' : '#000';
       if (window.__wantAlpha) { const st = document.getElementById('stage'); if (st) st.style.background = 'transparent'; }
     }
   };
