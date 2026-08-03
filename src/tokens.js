@@ -412,7 +412,7 @@ export function setFPView(on) { FP_VIEW = !!on; }
 //   실제 크기는 그대로다: 평면을 SIL_FIT_REF/SIL_FIT 배로 키워 상쇄한다.
 export { SIL_FIT, SIL_FIT_REF, QUAD_K, ZONE_GLYPH_K } from './fx-core.js';
 
-export const FOOT_LEN_M = 0.26;
+export const FOOT_LEN_M = 0.30;   // 260 → 300(유저: 발자국이 화면에서 휑하게 작다 — 과감하게). 존 반경은 발 배수라 같이 따라온다
 /** 실루엣이 평면에서 차지하는 세로 비율 — 정본 SVG 4종 실측(신발 0.7266 · 맨발 0.7285) */
 const FOOT_FILL = 0.727;
 /** 발형 토큰 평면 한 변(m). 발 길이가 0.24m 로 나오도록 역산 ≈ 0.330 */
