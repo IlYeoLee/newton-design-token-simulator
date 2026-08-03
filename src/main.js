@@ -3427,8 +3427,11 @@ void main(){
     fxQuad.material = heatMaskMat;
     renderer.setRenderTarget(heatRTs[0]); renderer.render(trailScene, trailQuadCam);
     fxQuad.material = heatBlurMat;
-    // ① 좁은 필드 — 짧은 스텝 1회. 압축 블록만 지우고 옷 주름은 남는다(결의 출처).
-    heatBlurMat.uniforms.uStep.value = 1.0;
+    // ① 좁은 필드 — 압축 블록을 지우고 옷 주름은 남긴다(결의 출처).
+    //   ★ 1.0 → 1.8. 생성 클립이 예전 소스보다 훨씬 선명해서 스텝 1.0 으로는 이목구비가
+    //   그대로 통과했다(유저: 중간에 얼굴 보이는 장면이 있다). 얼굴 은닉을 face 톤 강제에
+    //   기대면 분홍 덩어리가 되므로, 결 자체를 여기서 지우는 게 맞다. 주름은 이 폭에서 살아남는다.
+    heatBlurMat.uniforms.uStep.value = 1.8;
     heatBlurMat.uniforms.tex.value = heatRTs[0].texture; heatBlurMat.uniforms.uDir.value.set(1, 0);
     renderer.setRenderTarget(heatRTs[1]); renderer.render(trailScene, trailQuadCam);
     heatBlurMat.uniforms.tex.value = heatRTs[1].texture; heatBlurMat.uniforms.uDir.value.set(0, 1);
