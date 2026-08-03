@@ -349,7 +349,7 @@ const PRIM_DEFAULTS = {
   punchLine: { w: 1, glow: 1, tempo: 1, node: 1, numS: 1, dash: 0 },
   approachRing: { w: 1, glow: 1, tempo: 0.6, r: 0.42, rt: 0.36 },
   trajectory: { w: 1, glow: 1, tempo: 0.5, spread: 1, width: 1.4, tail: 1, taper: 1.6, spark: 0.6 },
-  rotate: { w: 1, glow: 1, tempo: 0.5, r: 0.3, sweep: 0.66, dir: 1, width: 1 },
+  rotate: { w: 1, glow: 1, tempo: 0.5, r: 0.3, sweep: 0.66, dir: 1, width: 1, tail: 0.54 },
 };
 // 잽 궤적 방향 세트 — 렙마다 바꿔 정면·크로스·좌우 다양한 잽(정규 제어점, 가드 아래→타겟 위)
 const JAB_PATHS = [
@@ -445,6 +445,37 @@ const WZ = WALL_Z + 0.03;
 // BX_A1 코치 클립 길이(초) — public/ghost/bx_a1_neck.mp4 실측. 목→어깨 큐 전환의 기준이다.
 //   ffprobe -show_entries format=duration public/ghost/bx_a1_neck.mp4
 const BX_A1_CLIP = 6.04;
+// 코치 클립을 몇 바퀴 돌릴지 — 스테이지 길이는 이 숫자 하나로 조절한다(유저: 너무 빨리 넘어간다).
+//   큐는 스테이지가 아니라 **클립 위상**을 따라가므로(아래 _updateBoxing), 몇 바퀴를 돌리든
+//   목→어깨 순서가 영상과 계속 맞는다. 올리면 그만큼 오래 보게 된다.
+const BX_A1_LOOPS = 2;
+// ── 회피 스텝(B2) — 코치 클립 bx_b2_slip.mp4 프레임 실측 ──────────────────────
+// 1080×1920 · 24fps · 288프레임 · 12.00s. 크로마 배경을 걷어내고 프레임마다 머리 x 와
+// 스탠스(발) x 를 재서 '머리를 얼마나 흘렸는지'를 뽑았다(scratchpad/slip).
+//
+// ★ 이 클립은 팰린드롬이다 — 프레임 f 와 287−f 의 머리 좌표가 소수점까지 같다.
+//   6초짜리 액션을 정·역으로 이어붙인 부메랑 루프라, 실제 새 동작은 앞 6초뿐이고
+//   뒤 6초는 그것을 거꾸로 되감는다. 비트도 그래서 6.0s 를 축으로 대칭이다.
+const BX_B2_CLIP = 12.0;
+// 슬립이 가장 깊은 순간 = 비트. side = 머리가 흐르는 쪽(−1 왼쪽 · +1 오른쪽).
+// 위협 마크는 그 반대쪽에 선다(피하기 규칙 — 오는 쪽 반대로 흘린다).
+//   예전 코드는 per=1.1s 균등 · 좌우 엄격 교대 · 6회(6.9s)를 가정했다. 실측은 어느 것도 아니다:
+//   간격이 1.33~2.65s 로 들쭉날쭉하고 방향은 좌·우·우·우·좌 다(교대가 아니다).
+const BX_B2_BEATS = [
+  { t: 2.000, side: -1 },   // f48  · 깊은 왼쪽 슬립(머리 최저 — 상단 y 최대)
+  { t: 3.333, side: +1 },   // f80  · 스텝과 함께 오른쪽으로 크게
+  { t: 5.979, side: +1 },   // f143 · 되감기 축. 여기서 가장 깊게 오른쪽
+  { t: 8.625, side: +1 },   // f207 · f80 의 거울
+  { t: 9.958, side: -1 },   // f239 · f48 의 거울
+];
+// 마크 자리 — 실측 좌표계에서 뽑았다. 코치 판(PlaneGeometry 0.62×0.93 · scale 1.461×1.732 ·
+//   uCropS 1.22)에서 월드 = 판중심 + (영상정규좌표 − 0.5) × (지오×스케일) / uCropS.
+//   그 식으로 잰 값: 코치 키 ≈ 1.03m · 머리 중심 y 1.91~2.00 · 머리 x −0.25~+0.17.
+// Figma '피하기 규칙'(276:3195) 실측 비율: 마크는 머리에서 가로 0.357·키, 세로 0.064·키 아래.
+//   0.357 × 1.03 ≈ 0.37m → 코치 몸(±0.2) 바깥의 빈 공간에 선다(정본 배치와 같다).
+// ★ y 는 '저작 좌표'다. 토큰 그룹은 대지 기준 (0, 1.4)에 저작하고 씬에서 인물 중심(1.508)으로
+//   통째 옮긴다(+0.108). 실측한 머리 중심 절대 y 1.95 → 저작 1.842, 거기서 0.066 아래.
+const BX_B2_MK_X = 0.40, BX_B2_MK_Y = 1.78;
 function wallRing(x, y, rIn, rOut, color, op = 0.9) {
   const m = waveRingMesh(rIn, rOut, color, op, true, isHeatColor(color) ? 0 : 3);
   m.position.set(x, y, WZ); m.userData.el = { type: 'ring', wall: true }; return m;
@@ -472,11 +503,23 @@ function guardBox(x, y, w, h, color, op = 0.8) {
 /** 벽면 방향 화살표 = 룩 시스템 LINE 촉이동 토큰(makeFlowArrow, 수직면).
  *  (x,y)에서 자루가 뻗고 angleDeg로 지시 방향 회전 — 0=위 · 90=왼쪽 · -90=오른쪽 · 180=아래.
  *  촉·자루 애니메이션은 tickFlowArrows(세션 tickWaves 내부)가 매 프레임 급이. */
-function wallArrow(x, y, len, angleDeg = 0) {
-  const a = makeFlowArrow(len, { wall: true });
+function wallArrow(x, y, len = LINE_M, angleDeg = 0) {
+  // scale — 자루 캔버스는 길이에 맞춰 늘어나므로, 그냥 두면 짧은 화살표일수록 얇고 촉도 작아진다.
+  //   길이만 다르고 두께·촉은 벽 어디서나 같아야 한다(유저: A1·B2 화살표 통일).
+  const a = makeFlowArrow(len, { wall: true, scale: LINE_M / len });
   a.position.set(x, y, WZ + 0.004);
   a.rotation.z = THREE.MathUtils.degToRad(angleDeg);
   return a;
+}
+/** 벽 LINE 토큰 기준 길이(m) — 화살표 캔버스(256px)가 덮는 실측 크기. 두께·촉이 여기에 비례한다. */
+const LINE_M = 0.22;
+/** 벽면 회전 화살표 — 같은 LINE 토큰(drawRotate → drawCurveArrow)이되, 판이 덮는 크기가
+ *  직선 화살표와 달라 scale 로 두께·촉을 벽에서 같은 물리 크기로 맞춘다(유저: 통일). */
+function wallRotate(x, y, sizeM, dir) {
+  const m = primPanel('rotate', sizeM, true);
+  m.position.set(x, y, WZ + 0.004);
+  m._prim.P = { dir, r: 0.28, scale: LINE_M / sizeM };
+  return m;
 }
 function wallTap() {
   const g = new THREE.Group();
@@ -628,12 +671,13 @@ export const STAGES = {
     // dur = 코치 클립 1회분. 없으면 스테이지는 5.6s 에 끊기는데 벽 UI 카운터는 기본값
     //   8s 로 페이싱해서 YOU 가 8 에 닿기 전에 넘어갔다(유저: 끝까지 못 감).
     //   클립 한 바퀴 = 목 전반 + 어깨 후반이라, 8회를 여기 걸면 영상·큐·카운트가 같이 끝난다.
-    { id:'BX_A1', wall:true, dur:BX_A1_CLIP, label:'A1 · 준비운동 1/3 — 목·어깨 풀기', voice:['고수','목이랑 어깨부터. 크게, 천천히 여덟 번.'], wear:'개입 없음' },
+    { id:'BX_A1', wall:true, dur:BX_A1_CLIP * BX_A1_LOOPS, label:'A1 · 준비운동 1/3 — 목·어깨 풀기', voice:['고수','목이랑 어깨부터. 크게, 천천히 여덟 번.'], wear:'개입 없음' },
     { id:'BX_A2', wall:true, label:'A2 · 준비운동 2/3 — 스텝 인·아웃', voice:['고수','앞뒤로 가볍게 여섯 번. 무게는 항상 앞발에.'], hap:'스텝 박자 (약)' },
     { id:'BX_A3', wall:true, label:'A3 · 준비운동 3/3 — 잽 폼', voice:['고수','이제 잽 폼만. 어깨에서 뻗고 바로 회수 — 여섯 번.'], wear:'낮은 강도 보조 시작' },
     { id:'BX_T1', wall:true, label:'T1 · 전환 — 잽 익히기 시작', voice:['고수','몸 풀렸어요. 잽을 세 조각으로 나눠서 만들어 볼게요. 두 번 탭.'], foot:'두 번 탭 → 사전 익히기' },
     { id:'BX_B1', wall:true, gate:true, label:'B1 · 익히기 1/3 — 가드 유지', voice:['고수','첫째, 가드. 주먹을 박스 안에 두고 삼 초만 버텨요.'], cue:'Hold Ring — 가드 존' },
-    { id:'BX_B2', wall:true, gate:true, label:'B2 · 익히기 2/3 — 회피 스텝', voice:['고수','둘째, 슬립. 링이 조여오면 그 반대로 머리를 흘려요 — 여섯 번.'], cue:'수축 위협 존 — 반대로 슬립' },
+    // dur 을 코치 클립에 건다(A1 과 같은 이유) — 예전엔 per 1.1×6=6.9s 로 끝나 12s 클립 한복판에서 잘렸다.
+    { id:'BX_B2', wall:true, gate:true, dur:BX_B2_CLIP, label:'B2 · 익히기 2/3 — 회피 스텝', voice:['고수','둘째, 슬립. 링이 조여오면 그 반대로 머리를 흘려요 — 다섯 번.'], cue:'수축 위협 존 — 반대로 슬립' },
     { id:'BX_B3', wall:true, gate:true, label:'B3 · 익히기 3/3 — 잽 스윕', voice:['고수','셋째, 잽. 스윕이 지나가는 선을 따라 뻗어요. 여섯 번 정확히.'], foot:'두 번 탭 → 실전 준비' },
     { id:'BX_T2', wall:true, label:'T2 · 전환 — 5초 뒤 실전 시작', voice:['고수','세 조각 다 됐어요. 5초 뒤에 붙어봅니다 — 준비됐으면 두 번 탭.'], dur:5, count:true, foot:'두 번 탭 = 즉시 · 무입력 = 자동' },
     { id:'BX_C1', wall:true, dur:3, label:'C1 · 실전 1/4 — 시작 신호', voice:['고수','갑니다 — 셋, 둘, 하나!'], hap:'시작 진동', foot:'두 번 탭 → 시작' },
@@ -1163,12 +1207,9 @@ export class Session {
     //   코치 클립이 '목 먼저 → 그다음 어깨' 순서라 큐도 같은 순서로 나온다(유저):
     //   1막 목 1개(중앙·위) → 2막 어깨 2개(좌우). 전환 시점은 _updateBoxing 에서.
     g = this._mk('BX_A1');
-    this.bxA1rotN = primPanel('rotate', 0.38, true); this.bxA1rotN.position.set(0, 1.82, WZ + 0.004);
-    this.bxA1rotN._prim.P = { dir: 1, r: 0.28 }; g.add(this.bxA1rotN);
-    this.bxA1rotL = primPanel('rotate', 0.42, true); this.bxA1rotL.position.set(-0.2, 1.66, WZ + 0.004);
-    this.bxA1rotL._prim.P = { dir: -1, r: 0.28 }; g.add(this.bxA1rotL);
-    this.bxA1rotR = primPanel('rotate', 0.42, true); this.bxA1rotR.position.set( 0.2, 1.66, WZ + 0.004);
-    this.bxA1rotR._prim.P = { dir: 1, r: 0.28 }; g.add(this.bxA1rotR);
+    this.bxA1rotN = wallRotate(0,    1.82, 0.38,  1); g.add(this.bxA1rotN);
+    this.bxA1rotL = wallRotate(-0.2, 1.66, 0.42, -1); g.add(this.bxA1rotL);
+    this.bxA1rotR = wallRotate( 0.2, 1.66, 0.42,  1); g.add(this.bxA1rotR);
     // ★ 초기 가시성을 여기서 못박는다. 메시 기본값이 visible=true 라, 스테이지에 들어간
     //   첫 프레임(=_updateBoxing 이 아직 안 돈 시점)에 **셋이 한꺼번에** 떴다가 정리됐다.
     //   그게 등장할 때 한 번 번쩍이던 것이다(유저).
@@ -1206,10 +1247,15 @@ export class Session {
     //   좌우 존을 번갈아 점멸만 시키면 회피가 아니라 그냥 깜빡임이라 배울 게 없었다.
     //   토큰 구성: 수축 링(위협) + 슬립 궤적(머리가 흐르는 길) + 안전 존 점등 + 방향 화살표.
     g = this._mk('BX_B2');
-    this.bxDodgeL = wallRing(-0.26, 1.72, 0.12, 0.14, BRAND.red, 0.95); g.add(this.bxDodgeL);
-    this.bxDodgeR = wallRing( 0.26, 1.72, 0.12, 0.14, BRAND.red, 0.95); g.add(this.bxDodgeR);
-    this.bxDodgeL.material.uniforms.uContract.value = 1;
-    this.bxDodgeR.material.uniforms.uContract.value = 1;
+    // 위협 마크 = 타겟 수축링 정본(drawApproachRing) 하나. 존 링 두 개(wallRing·uContract)를
+    //   따로 굴리던 걸 걷어냈다 — B3·C2·C3 가 이미 이 토큰 하나로 타겟을 그린다(유저: "우리 수축링 하나 아냐?").
+    //   크기 0.5m → 타겟 반경 0.42×0.36×0.5 ≈ 0.076m(지름 0.15m). 코치 키 1.03m 대비 0.147 로
+    //   Figma '피하기 규칙'의 링/인물키 비(166/1130 = 0.147)와 같다.
+    this.bxB2mkL = primPanel('approachRing', 0.5, true);
+    this.bxB2mkL.position.set(-BX_B2_MK_X, BX_B2_MK_Y, WZ + 0.004);
+    this.bxB2mkR = primPanel('approachRing', 0.5, true);
+    this.bxB2mkR.position.set( BX_B2_MK_X, BX_B2_MK_Y, WZ + 0.004);
+    g.add(this.bxB2mkL); g.add(this.bxB2mkR);
     // 슬립 궤적 = 머리가 위협에서 반대편으로 '가라앉으며' 빠지는 U 아크(궤적 토큰 재사용)
     this.bxB2path = primPanel('trajectory', 1.15, true);
     this.bxB2path.position.set(0, 1.70, WZ + 0.004);
@@ -2676,10 +2722,12 @@ export class Session {
       //   후반(3.0s~) 어깨 롤. 클립을 갈면 BX_A1_CLIP 만 다시 재면 된다.
       //   어깨는 전환 직후가 아니라 조금 뒤에 띄운다 — 목 큐가 사라지자마자
       //   두 개가 튀어나오면 '깜빡'으로 읽힌다(러닝 A1 과 같은 규칙, 거기선 +2s).
-      //   전환은 클립 한가운데 = 영상이 목에서 어깨로 넘어가는 그 지점이다.
+      //   ★ 기준은 스테이지가 아니라 **클립 위상**이다. 스테이지 절반으로 잡으면
+      //     BX_A1_LOOPS 를 올리는 순간 큐가 영상과 어긋난다(영상은 매 바퀴 목→어깨인데
+      //     큐는 스테이지 전반/후반으로 한 번만 갈린다). 나머지 연산으로 매 바퀴 따라간다.
       //   빈 구간을 두지 않는다 — 큐가 하나도 없는 순간은 '꺼졌다'로 읽힌다.
-      const HALF = st.dur / 2, per = st.dur / 8;
-      const shOn = this.t >= HALF;
+      const per = st.dur / 8;
+      const shOn = (this.t % BX_A1_CLIP) >= BX_A1_CLIP / 2;
       this.bxA1rotN.visible = !shOn;
       this.bxA1rotL.visible = this.bxA1rotR.visible = shOn;
       // 8회를 스테이지 전체에 고르게 — 앞 4회가 목, 뒤 4회가 어깨다.
@@ -2710,18 +2758,31 @@ export class Session {
       this._gate = done;
       if (done >= 3) { this.next(); return; }
     } else if (id === 'BX_B2') {
-      // 회피 슬립 — 한쪽에서 위협 링이 조여오고(수축), 머리는 반대쪽으로 흘러 빠진다.
-      //   비트 = 위협 도착 순간. 그 순간 위협은 팽창하며 소멸하고 안전 존이 점등한다 = "피했다".
-      const per = 1.1, rep = Math.floor(this.t / per), ph = (this.t % per) / per;
-      const fromR = rep % 2 === 1;                      // 위협이 오는 쪽. 첫 비트=왼쪽 → 벽 큐 'Slip right!' 와 일치
-      const e = Math.pow(ph, 1.6);                      // 가속 진입 = 기대감(어프로치 링과 같은 곡선)
-      const lock = Math.max(0, (ph - 0.82) / 0.18);     // 도착 = 비트
-      const threat = fromR ? this.bxDodgeR : this.bxDodgeL;
-      const safe = fromR ? this.bxDodgeL : this.bxDodgeR;
-      threat.scale.setScalar((1.85 - 0.85 * e) * (1 + 1.3 * lock));   // 바깥→타겟 수축, 잠금에 팽창 소멸
-      threat.setOp((0.30 + 0.65 * e) * (1 - lock));
-      safe.scale.setScalar(1 + 0.03 * Math.sin(this.t * 3) + 0.30 * lock);
-      safe.setOp(0.20 + 0.72 * lock);                   // 평소 희미 → 빠져나간 순간 점등
+      // 회피 슬립 — 위협 마크가 바깥에서 조여와 '도착'하는 순간, 코치의 머리는 이미 반대쪽으로 빠져 있다.
+      //   ★ 박자를 코치 클립에서 가져온다(BX_B2_BEATS, 프레임 실측). 예전엔 per=1.1s 균등·좌우 교대라
+      //     코치 동작과 무관하게 돌았다 — 실측은 간격 1.33~2.65s, 방향 좌·우·우·우·좌 다.
+      //   시계는 코치 클립의 재생 시각(main.js 가 매 프레임 넣어 준다). session.t 를 쓰면
+      //   씬 고정 모드가 8초마다 그걸 0 으로 되돌리는 동안 영상은 계속 흘러 마크가 코치와 따로 논다.
+      const ct = this.clipT != null ? this.clipT : this.t;
+      const NB = BX_B2_BEATS.length;
+      let bi = 0;
+      while (bi + 1 < NB && ct >= BX_B2_BEATS[bi].t) bi++;
+      if (ct >= BX_B2_BEATS[NB - 1].t) bi = NB - 1;
+      const bt = BX_B2_BEATS[bi], prevT = bi === 0 ? 0 : BX_B2_BEATS[bi - 1].t;
+      // 접근 구간 = 직전 비트 → 이번 비트. 도착(ph=1)이 곧 코치가 머리를 가장 깊게 흘린 프레임.
+      //   수축링 정본은 prog 0.9 부터 잠금 블룸을 터뜨리므로 도착 직전에 '빡' 이 온다.
+      const span = Math.max(0.3, bt.t - prevT);
+      const ph = clamp01((ct - prevT) / span);
+      const e = Math.pow(ph, 1.6);
+      const lock = Math.max(0, (ph - 0.9) / 0.1);
+      // 위협은 머리가 흐르는 쪽의 '반대'에 선다 = 오는 쪽. side −1(왼쪽으로 흘림) → 마크는 오른쪽.
+      const fromR = bt.side < 0;
+      const threat = fromR ? this.bxB2mkR : this.bxB2mkL;
+      const idle = fromR ? this.bxB2mkL : this.bxB2mkR;
+      threat.visible = true; threat._prim.prog = ph; threat.material.opacity = 1;
+      // 반대쪽은 '프리뷰 마크'(Figma 회색 원) 자리 — 자리만 알려 주고 세기는 죽인다.
+      //   같은 세기로 두면 타겟이 둘로 보여 어디를 피하는지가 안 읽힌다.
+      idle.visible = true; idle._prim.prog = 0; idle.material.opacity = 0.28;
       if (this.bxB2path) {                              // 머리가 흐르는 길 — 위협 쪽에서 안전 쪽으로 가라앉는 U
         this.bxB2path._prim.pts = fromR
           ? [[0.88, -0.10], [0.34, 0.42], [-0.34, 0.42], [-0.88, -0.10]]
@@ -2729,10 +2790,13 @@ export class Session {
         this.bxB2path._prim.prog = Math.min(1, ph / 0.92);
       }
       const aOn = fromR ? this.bxB2aL : this.bxB2aR, aOff = fromR ? this.bxB2aR : this.bxB2aL;
-      if (aOn) aOn._mesh.material.opacity = 0.35 + 0.6 * e;   // 피할 방향만 밝힌다
-      if (aOff) aOff._mesh.material.opacity = 0.08;
-      FMU(`슬립 ${Math.min(6, rep + 1)} / 6`, lock > 0.3 ? CS.prism : CS.coral);
-      if (this.t >= 6 * per + 0.3) { this.next(); return; }
+      // 밝기는 _gain 으로 — material.opacity 는 tickFlowArrows 가 매 프레임 _gain 으로 덮어써서
+      //   좌우가 늘 같은 밝기로 떠 있었다(=피할 방향 지시가 죽어 있었음).
+      if (aOn) aOn._gain = 0.35 + 0.6 * e;   // 피할 방향만 밝힌다
+      if (aOff) aOff._gain = 0.08;
+      const done = bi + (lock > 0 ? 1 : 0);
+      FMU(`슬립 ${Math.min(NB, done)} / ${NB}`, lock > 0.3 ? CS.prism : CS.coral);
+      if (this.t >= BX_B2_CLIP) { this.next(); return; }
     } else if (id === 'BX_B3') {
       // 잽 스윕 — 스윕 밴드 밝기 + 타겟 수축 링, 맞춘 잽 카운트
       const BT = 0.9, rep = Math.floor(this.t / BT), ph = (this.t % BT) / BT;

@@ -12,11 +12,11 @@ const out = await p.evaluate(async () => {
   const w = new WallGL();
   // dur 은 BX_A1 스테이지 실값(= 코치 클립 길이)과 같아야 한다 — 여기가 8 로 남아 있던
   //   동안 벽 카운터는 8s 로 페이싱하고 스테이지는 5.6s 에 끊겨 8 에 못 닿았다.
-  w.load('BX_A1', { dur: 6.04, src: 'ready-view/scene.html' });
+  w.load("BX_A1", { dur: 12.08, src: 'ready-view/scene.html' });
   // 씬 UI 가 맞는지
   const kind = w.kind;
   const seq = [], errs = [];
-  for (let t = 0; t <= 6.041; t += 0.05) {
+  for (let t = 0; t <= 12.081; t += 0.05) {
     w.t = t;
     try { w._paint(); } catch (e) { errs.push(`t=${t.toFixed(2)} ${e.message}`); break; }
     if (w._youLast !== seq[seq.length - 1]?.v) seq.push({ t: +t.toFixed(2), v: w._youLast });
