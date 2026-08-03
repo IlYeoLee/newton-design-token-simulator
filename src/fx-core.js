@@ -619,6 +619,7 @@ uniform float uPlantar, uBands, uBandSoft;
 // uSilFit: 실루엣이 쿼드에서 차지하는 비율(기준 0.78 대비). 1 = 옛 그대로.
 //   ext·해부학 좌표는 '0.78 로 구웠을 때' 기준의 uv 값이라, 채움비가 바뀌면 같이 줄어야 한다.
 uniform float uEdgeShade, uEdgeW, uEdgeSoft, uDither, uSilFit;
+uniform float uEdgeShadeW, uEdgeShadeCol;   // 실루엣 이너 섀도우 면적 배율 · 팔레트 색(0흰/1샌드/2코랄/3레드) — 유저: 면적·색 조정
 // uShadeRed / uShadeRedW: **음영 자리에 까는 뉴턴 RED 블룸** (유저: 바닥 색에 가장 빨간 뉴턴 레드가
 //   부족하다 — 음영 지는 부분에 은은한 블러로). 이너 섀도우는 LUT 상단(PRISM)이라 형태는 잡아도
 //   화면에서 빨강이 옅다. 같은 자리에 훨씬 **넓은 가우시안**으로 RED 를 한 겹 깔면, 경계선이 아니라
@@ -787,7 +788,7 @@ vec3 fillActive(float q){  return fillT(q, T_ACT_LO,  T_ACT_HI);  }
 vec3 fillHold(float q){    return fillT(q, T_HOLD_LO, T_HOLD_HI); }
 // Success 는 코어가 가장 뜨겁고(하한이 낮다) 바깥이 백열로 열린다 — 승리의 온도.
 // 상한을 1.0(순백) 이 아니라 0.92 로 — 순백까지 열면 코어와 분리된 흰 링이 생긴다(유저: 아이스 과함).
-vec3 fillSuccess(float q){ return fillT(q, 0.03, 0.94); }   // 성공 블룸도 아이스 끝단 컷(유저: 하늘 과함)
+vec3 fillSuccess(float q){ return fillT(q, 0.02, 0.78); }   // 피그마 성공 정본(163:8908) — 꽉 찬 레드 코어 + 코랄 힐, 백열·아이스 없음(유저: 쨍하게)
 // over 연산 누적 (premultiplied) — 원본 mix(col, X, k) 체인의 기계적 등가 변환
 void lay(inout vec4 A, vec3 X, float k){ A.rgb = A.rgb * (1.0 - k) + X * k; A.a = A.a * (1.0 - k) + k; }
 vec4 markState(vec2 uv, float state, float prog, float strong, float t){
@@ -935,10 +936,10 @@ vec4 markState(vec2 uv, float state, float prog, float strong, float t){
     lay(A, C_RED, bl * uShadeRed * A.a);
   }
   if (uEdgeShade > 0.001) {
-    float ins = exp(-pow(max(-sd, 0.0) / max(uEdgeW * 0.9, 1e-4), 1.1)) * inside;
-    // 섀도우 색 = LUT 상단(PRISM · 하얀 민트). 빛으로 그리는 매체에서 어두운 색을 얹으면
-    //   그건 그림자가 아니라 때다 — 이미 밝고 화사한 팔레트라 밝은 쪽으로 눌러야 형태가 산다(유저).
-    lay(A, lut(1.0), ins * uEdgeShade);
+    float ins = exp(-pow(max(-sd, 0.0) / max(uEdgeW * 0.9 * clamp(uEdgeShadeW, 0.05, 6.0), 1e-4), 1.1)) * inside;
+    // 섀도우 색 = 팔레트 선택(uEdgeShadeCol, 기본 0 = ICE ≈ 구 lut(1.0)). 빛으로 그리는 매체라
+    //   어두운 색 금지 원칙은 그대로 — 선택지도 밝은 4색뿐이다.
+    lay(A, palPick(uEdgeShadeCol), ins * uEdgeShade);
   }
   if (holdA > 0.001) lay(A, holdC, holdA);   // 진행 아크를 섀도우 위로 — 덮이지 않게
   // ── 깔창 각인 (발형 전용) ────────────────────────────────────────────────

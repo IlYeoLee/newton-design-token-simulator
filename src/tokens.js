@@ -323,6 +323,7 @@ export function makeMarkFXMaterial(footTex = null) {
       // 족저 압력장·등고선 — 색을 정하는 입력을 '중심거리'에서 '압력'으로 바꾼다(유저 레퍼런스: 압력맵)
       // 압력 램프(데이터 계열) · 아웃라인 폐기 후 형태를 잡는 이너 섀도우 · 필 소프트 엣지
       uEdgeShade: { value: LOOK.edgeShade }, uEdgeW: { value: LOOK.edgeW * SF }, uEdgeSoft: { value: LOOK.edgeSoft },
+      uEdgeShadeW: { value: LOOK.edgeShadeW ?? 1 }, uEdgeShadeCol: { value: LOOK.edgeShadeCol ?? 0 },
       // 음영 적열 블룸 — 음영 자리에 뉴턴 RED 를 넓게 깐다(유저: 바닥에 가장 빨간 색이 부족하다).
       //   ?? 기본값은 옛 mark-look.json(키가 없는 저장본)에서도 NaN 이 안 나게 하는 안전판이다.
       uShadeRed: { value: LOOK.shadeRed ?? 0.34 }, uShadeRedW: { value: LOOK.shadeRedW ?? 3.4 },

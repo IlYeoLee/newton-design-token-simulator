@@ -42,5 +42,7 @@
   "numSrc": "offbit",
   "prog": 0.55,
   "bloom": 0.125,
-  "blur": 0
+  "blur": 0,
+  "edgeShadeW": 1,
+  "edgeShadeCol": 0
 }
