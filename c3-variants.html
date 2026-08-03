@@ -10,7 +10,7 @@
 body{margin:0;background:#191b20;font-family:'Supreme',sans-serif;color:#e8eaee}
 h1{font-size:18px;margin:14px 18px 2px}
 p.note{margin:2px 18px 10px;font-size:12.5px;color:#9aa0a8}
-#row{display:grid;grid-template-columns:repeat(3,minmax(300px,1fr));gap:12px;padding:0 14px 14px}
+#row{display:grid;grid-template-columns:repeat(2,minmax(300px,1fr));gap:12px;padding:0 14px 14px}
 .card{background:#20242b;border:1px solid #2c313a;border-radius:12px;overflow:hidden}
 .card h2{font-size:15px;margin:10px 12px;display:flex;justify-content:space-between;align-items:center}
 .card h2 button{font:700 12px 'Supreme';padding:5px 10px;border-radius:7px;border:1px solid #3a4150;
@@ -125,8 +125,32 @@ function drawC(g,st){
     num(g,String(i+1),p[0]+R+22,p[1]+R*0.55,28,'rgba(120,60,40,.8)');});
   contract(g,st);
 }
-// ── 카드 3장 + 공용 시계(배속) ──
-const DEFS=[['A안 · 타깃&트랙',drawA,'점선 트랙 미리 + 그라디언트 획이 채움. 숫자는 과녁 밖. 카운트다운 링과 같은 "트랙을 채운다" 문법.'],
+// ── D안: 하이브리드(추천) — A 골격 + C 코멧 헤드 ──
+function drawD(g,st){
+  g.setLineDash([2,18]);g.lineCap='round';g.strokeStyle='rgba(120,60,40,.5)';g.lineWidth=6;
+  g.beginPath();N.forEach((p,i)=>i?g.lineTo(...p):g.moveTo(...p));g.stroke();g.setLineDash([]);
+  const full=Math.min(st.pr,N.length-1), path=[N[0]];
+  for(let i=1;i<=24;i++){const u=full*i/24; if(u<=0)break; path.push(pt(u));}
+  if(path.length>1&&full>0.01){g.save();g.lineWidth=13;g.lineCap='round';g.lineJoin='round';
+    g.strokeStyle=grad(g,230,210,180);g.shadowColor=PAL.coral;g.shadowBlur=18;
+    g.beginPath();path.forEach((p,i)=>i?g.lineTo(...p):g.moveTo(...p));g.stroke();g.restore();}
+  if(full<N.length-1-0.001&&full>0.01){const h=pt(full);      // C 의 코멧 헤드
+    g.save();g.fillStyle=lut(0.62);g.shadowColor=PAL.coral;g.shadowBlur=24;
+    g.beginPath();g.arc(h[0],h[1],13,0,7);g.fill();
+    g.fillStyle='#fff';g.globalAlpha=.9;g.beginPath();g.arc(h[0],h[1],5,0,7);g.fill();g.restore();}
+  N.forEach((p,i)=>{const R=(i===HOOK?44:33),hit=i<st.done,v=st.vd[i];
+    if(hit){g.save();g.fillStyle=lut(v==='near'?0.5:0.36);g.shadowColor=lut(0.5);g.shadowBlur=24;
+      g.beginPath();g.arc(p[0],p[1],R*0.72,0,7);g.fill();g.restore();}
+    g.save();g.strokeStyle=hit?vdCol(v):'rgba(140,80,55,.85)';g.lineWidth=hit?6:4.5;
+    if(hit&&v!=='miss'){g.shadowColor=vdCol(v);g.shadowBlur=15;}
+    g.beginPath();g.arc(p[0],p[1],R,0,7);g.stroke();g.restore();
+    if(!hit){g.fillStyle='rgba(140,80,55,.9)';g.beginPath();g.arc(p[0],p[1],5,0,7);g.fill();}
+    num(g,String(i+1),p[0],p[1]-R-24,30,hit?'rgba(120,60,40,.5)':'rgba(120,60,40,.95)');});
+  contract(g,st);
+}
+// ── 카드 + 공용 시계(배속) ──
+const DEFS=[['D안 · 하이브리드 ★추천',drawD,'A 골격(트랙+과녁+숫자 밖) + C 코멧 헤드. 경로 문법과 손맛을 둘 다.'],
+            ['A안 · 타깃&트랙',drawA,'점선 트랙 미리 + 그라디언트 획이 채움. 숫자는 과녁 밖. 카운트다운 링과 같은 "트랙을 채운다" 문법.'],
             ['B안 · 온도',drawB,'노드가 데워지는 디스크(히트맵 언어) + 선두로 갈수록 굵어지는 테이퍼 획. 가장 육중.'],
             ['C안 · 코멧 스트링',drawC,'상시 선 없음 — 코멧 헤드+꼬리만. B2 돌덩이·B3 스윕과 헤드 언어 통일. 가장 공기감.']];
 let speed=1;
