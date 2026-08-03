@@ -1144,7 +1144,17 @@ export function drawCurveArrow(g, W, H, pts01, t, ENV, opts = {}) {
   // 선 — 뿌리 알파 0 → 머리 최대. 두께·색 램프는 drawStemArrow 와 같은 값(1.1→13px, lut 0.55→0.97).
   //   예전엔 여기만 1.6→4.8px 라 같은 LINE 토큰인데 직선은 굵고 곡선은 실처럼 얇았다(유저: A1·B2 화살표가 너무 다르다).
   g.lineCap = 'round';
-  for (let i = 1; i <= head; i++) {
+  // ★ 촉 크기 34→42 + 선 턱(tuck) — 곡선의 굵은 머리(13px)가 셰브런 파임 사이로 삐져나와
+  //   촉이 촉으로 안 읽혔다(유저, 회전 큐). 촉 뒤 0.42배 구간의 선을 잘라 숨긴다.
+  //   등장 램프와 동속으로 잘라 온셋 프레임에 선-촉 사이 틈이 없다(스템 규약과 동일).
+  const tipS = 42 * s * (0.7 + 0.3 * AW);
+  let cut = head;
+  if (prog > 0.28) {
+    let acc = 0;
+    const need = tipS * 0.42 * Math.min(1, (prog - 0.28) / 0.22);
+    while (cut > 1 && acc < need) { acc += Math.hypot(path[cut][0] - path[cut - 1][0], path[cut][1] - path[cut - 1][1]); cut--; }
+  }
+  for (let i = 1; i <= cut; i++) {
     const k = i / head;
     const f = Math.min(1, k / tail);
     g.globalAlpha = f * f * (3 - 2 * f) * A0;   // smoothstep — 램프가 끝나는 지점에서 꺾이지 않게
@@ -1152,9 +1162,8 @@ export function drawCurveArrow(g, W, H, pts01, t, ENV, opts = {}) {
     g.lineWidth = (1.1 + 11.9 * k) * s * AW;
     g.beginPath(); g.moveTo(path[i - 1][0], path[i - 1][1]); g.lineTo(path[i][0], path[i][1]); g.stroke();
   }
-  // 촉 — 머리에서 접선 정렬(글리프 규약 ↑=전방). 크기·등장 시점은 스템과 동일.
+  // 촉 — 머리에서 접선 정렬(글리프 규약 ↑=전방). 등장 시점은 스템과 동일.
   if (prog > 0.28) {
-    const tipS = 34 * s * (0.7 + 0.3 * AW);
     const px = path[Math.max(0, head - 2)][0], py = path[Math.max(0, head - 2)][1];
     const ang = Math.atan2(path[head][1] - py, path[head][0] - px) + Math.PI / 2;
     // 촉을 머리보다 tipS*0.30 뒤로 물린다 = 촉 '끝'이 경로 끝과 맞는다(스템 규약).
