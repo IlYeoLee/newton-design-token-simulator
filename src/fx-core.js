@@ -1355,30 +1355,31 @@ export function drawPunchLine(g, W, P, look, t, ENV, ptsIn, prog) {
   const pr = Math.min(1, cyc * 1.25) * (pts.length - 1);
   const cur = Math.min(pts.length - 1, Math.floor(pr + 0.35));
   g.shadowColor = lut(0.7); g.shadowBlur = GB;
-  const passed = [[pts[0][0], pts[0][1]]];
-  for (let i = 1; i <= pts.length - 1; i++) {
-    const seg = Math.max(0, Math.min(1, pr - (i - 1)));
-    if (seg <= 0) break;
-    passed.push([pts[i - 1][0] + (pts[i][0] - pts[i - 1][0]) * seg,
-                 pts[i - 1][1] + (pts[i][1] - pts[i - 1][1]) * seg]);
+  // ── 코멧 스트링(c3 시안 C안 — 유저 확정: "코멧 방식이 더 좋다, 직선 별로") ──────────
+  //   상시 연결 직선·플로우 획 폐기 — 이동은 **코멧 헤드 + 테이퍼 꼬리**로만 말한다.
+  //   순서 읽기는 노드 숫자 1·2·3 이 담당(직선 없이도 성립 — c3 라이브 검증).
+  const at = (u) => { const i = Math.max(0, Math.min(pts.length - 2, Math.floor(u))), f = u - i;
+    return [pts[i][0] + (pts[i + 1][0] - pts[i][0]) * f, pts[i][1] + (pts[i + 1][1] - pts[i][1]) * f]; };
+  if (pr > 0.02) {
+    for (let k = 0; k < 26; k++) {                     // 꼬리 — 헤드 뒤로 0.5구간, 줄며 사라진다
+      const f = k / 25, u = pr - 0.5 * f;
+      if (u <= 0) break;
+      const p2 = at(u);
+      g.save(); g.shadowBlur = 0;
+      g.fillStyle = lut(0.55 - 0.18 * f); g.globalAlpha = (1 - f) * (1 - f) * 0.85;
+      g.beginPath(); g.arc(p2[0], p2[1], 4.7 * s * (1 - f * 0.75), 0, Math.PI * 2); g.fill();
+      g.restore();
+    }
+    if (pr < pts.length - 1 - 0.001 && pr - Math.floor(pr) > 0.03) {   // 헤드 — 노드 도착 중엔 숨김
+      const hp = at(pr);
+      g.save();
+      g.fillStyle = lut(0.62); g.shadowColor = lut(0.8); g.shadowBlur = 11 * s;
+      g.beginPath(); g.arc(hp[0], hp[1], 5.6 * s, 0, Math.PI * 2); g.fill();
+      g.fillStyle = lut(0.95); g.globalAlpha = 0.95;
+      g.beginPath(); g.arc(hp[0], hp[1], 2.1 * s, 0, Math.PI * 2); g.fill();
+      g.restore();
+    }
   }
-  if (passed.length > 1) strokeFlowPath(g, passed, t, ENV.arrow.w * s, { color: lut(0.62) }, ENV);
-  // 코멧 헤드(c3 시안 D안 이식·유저) — 이동 중인 획 머리의 빛 구슬. 노드에 도착해 있는 동안은
-  //   숨긴다(수축 링·노드가 그 순간의 주인공 — 머리가 겹치면 잠금 비트가 탁해진다).
-  if (passed.length > 1 && pr > 0.05 && pr < pts.length - 1 - 0.001 && pr - Math.floor(pr) > 0.03) {
-    const hp = passed[passed.length - 1];
-    g.save();
-    g.fillStyle = lut(0.62); g.shadowColor = lut(0.8); g.shadowBlur = 11 * s;
-    g.beginPath(); g.arc(hp[0], hp[1], 5.6 * s, 0, Math.PI * 2); g.fill();
-    g.fillStyle = lut(0.95); g.globalAlpha = 0.95;
-    g.beginPath(); g.arc(hp[0], hp[1], 2.1 * s, 0, Math.PI * 2); g.fill();
-    g.restore();
-  }
-  // 연결선 = 규칙의 상시 구성요소(노드 사이 실선). 0.3 알파 점선은 투사면에서 사라져
-  //   노드 셋이 따로 떠 있는 것처럼 보였다 — 순서를 읽게 하는 건 이 선이다.
-  g.setLineDash([]); g.lineDashOffset = 0; g.globalAlpha = 0.5;
-  g.strokeStyle = lut(0.55); g.lineWidth = LNW * 0.8;
-  g.beginPath(); pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.stroke();
   g.globalAlpha = 1; g.lineCap = 'butt';
   // 노드 상태 = 마크 토큰 규칙(Figma 잽잽훅 279:3203): 대기(빈 링) · 판정 완료(채움 = 서세스 마크).
   //   '지금 노릴 곳'은 수축 링이 말한다 — 여기서 또 밝히면 같은 정보가 두 벌이 된다.

@@ -4407,7 +4407,15 @@ void main(){
       } catch (e) { fv = 'ERR'; }
       try { if (typeof wallGLOn !== 'undefined' && wallGLOn && wallGL?.stage) wv = wallGL.stage; } catch (e) { wv = 'ERR'; }
       const mm = session.active && ((fv !== '—' && fv !== st) || (wv !== '—' && wv !== st));
-      bs.textContent = `build ${TAG} · 세션 ${st} · 지면 ${fv} · 벽 ${wv} · tap ${tapN} · next ${nextN}`
+      // 게이트 입력 원시값 — 어느 조건이 거짓이라 갱신이 막히는지 화면이 직접 말하게 한다
+      let gate = '';
+      try {
+        const want = (session.active && (session.sport === 'running' || session.sport === 'basketball'))
+          ? FLOOR_FRAMES[session.curStage?.id] : null;
+        gate = ` · want ${want ? (want.src.match(/stage=([A-Za-z0-9_]+)/)?.[1] || 'READY') : 'null'}`
+             + ` fp${rig?._fp ? 1 : 0} gl${typeof floorGLOn !== 'undefined' && floorGLOn ? 1 : 0}`;
+      } catch (e) { gate = ' · gateERR'; }
+      bs.textContent = `build ${TAG} · 세션 ${st} · 지면 ${fv} · 벽 ${wv} · tap ${tapN} · next ${nextN}${gate}`
         + (session.pinStage ? ' · PIN' : '') + (mm ? '  ⚠ 화면≠세션' : '');
       bs.style.color = mm ? '#ff6666' : 'rgba(170,176,186,.95)';
       bs.style.fontSize = '13px';
