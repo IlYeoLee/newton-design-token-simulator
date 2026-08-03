@@ -809,11 +809,15 @@ const _primEnv = () => ({ lut: _lutCss, glyph: drawGlyph,
 //   닿으면 칼로 자른 경계가 남는다(유저 스샷). drawStemArrow 내부 clearRect 는 안쪽만
 //   지우므로 바깥 여백은 매 프레임 직접 지운다.
 const _stemCv = document.createElement('canvas'); _stemCv.width = 168; _stemCv.height = 296;
+const _primOff = document.createElement('canvas'); _primOff.width = 1600; _primOff.height = 800;
 function drawPrimsCard(t) {
   const cv = $('prims'); if (!cv) return;
-  const g = cv.getContext('2d');
+  // ★ 프림은 오프스크린에 그리고, 표시 캔버스에서 이중 가우시안 블룸(가산)으로 합성한다 —
+  //   시뮬은 이 프림들이 GL 텍스처로 올라가 블룸을 받는다. 랩만 민캔버스면 같은 토큰이
+  //   싸 보인다(유저: 발자국 토큰과 감도 차이). 본체 + 좁은 블룸 + 넓은 헤일로.
+  const g = _primOff.getContext('2d');
   g.setTransform(1, 0, 0, 1, 0, 0);
-  g.clearRect(0, 0, cv.width, cv.height);
+  g.clearRect(0, 0, 1600, 800);
   const ENV = _primEnv(), look = { halo: P.halo };
   // ① 복싱 판정 3단계 — 수축 링 정본(drawApproachRing)의 세 순간: 대기 → 판정(수축) → 성공(잠금)
   //   셀 150 · 간격 160 — draw 함수가 자기 셀을 clearRect 하므로 간격 < 셀이면 옆 링을 지운다
@@ -847,12 +851,21 @@ function drawPrimsCard(t) {
   g.save(); g.translate(1150, 420);
   drawTrajectory(g, 340, { spread: 1, width: 1.4, tail: 1, taper: 1.6, spark: 0.6, tempo: 0.5 }, look, t, ENV);
   g.restore();
-  g.font = "600 14px -apple-system,'Malgun Gothic',sans-serif"; g.textAlign = 'center'; g.fillStyle = '#98A1AD';
-  ['① 대기', '② 판정', '③ 성공'].forEach((n, i) => g.fillText(n, 20 + i * 160 + 75, 300));
-  g.fillText('회전 — 목·어깨', 630, 330);
-  g.fillText('잽잽훅 — 콤보 노드 1·2·3', 940, 348);
-  g.fillText('화살표 ↑ · →', 800, 780);
-  g.fillText('궤적 — 코멧 헤드', 1320, 780);
+  // ── 합성: 본체 + 좁은 블룸(가산) + 넓은 헤일로(가산) → 라벨은 블룸 위에 크리스프 ──
+  const out = cv.getContext('2d');
+  out.setTransform(1, 0, 0, 1, 0, 0);
+  out.clearRect(0, 0, cv.width, cv.height);
+  out.drawImage(_primOff, 0, 0);
+  out.save(); out.globalCompositeOperation = 'lighter';
+  out.filter = 'blur(5px)'; out.globalAlpha = 0.5; out.drawImage(_primOff, 0, 0);
+  out.filter = 'blur(16px)'; out.globalAlpha = P.bloom * 3 + 0.15; out.drawImage(_primOff, 0, 0);   // 넓은 헤일로 = 보기 블룸 슬라이더 연동
+  out.restore(); out.filter = 'none'; out.globalAlpha = 1;
+  out.font = "600 14px -apple-system,'Malgun Gothic',sans-serif"; out.textAlign = 'center'; out.fillStyle = '#98A1AD';
+  ['① 대기', '② 판정', '③ 성공'].forEach((n, i) => out.fillText(n, 20 + i * 160 + 75, 300));
+  out.fillText('회전 — 목·어깨', 630, 330);
+  out.fillText('잽잽훅 — 콤보 노드 1·2·3', 940, 348);
+  out.fillText('화살표 ↑ · →', 800, 780);
+  out.fillText('궤적 — 코멧 헤드', 1320, 780);
 }
 function frame() {
   const t = (performance.now() - T0) / 1000;

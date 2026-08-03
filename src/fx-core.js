@@ -1087,6 +1087,15 @@ export function drawStemArrow(g, W, H, t, ENV, opts = {}) {
   grad.addColorStop(0.32, rgba(0.76, 0.85 * A0));
   grad.addColorStop(0.62, rgba(0.88, 0.98 * A0));
   grad.addColorStop(1.00, rgba(0.97, A0));
+  // 볼류메트릭 언더글로우 — 같은 폴리곤을 1.9배 넓혀 블러 밴드로. shadowBlur 없이 스템이
+  //   판에 붙은 종이처럼 평평했다(유저: 발자국 토큰과 감도 차이). 링의 volRing 과 같은 취지.
+  g.save(); g.filter = `blur(${7 * sw}px)`; g.globalAlpha = 0.55;
+  g.fillStyle = grad;
+  g.beginPath();
+  g.moveTo(cx - w0, y0); g.lineTo(cx + w0, y0);
+  g.lineTo(cx + w1 * 0.95, yHead); g.lineTo(cx - w1 * 0.95, yHead);
+  g.closePath(); g.fill();
+  g.restore();
   g.globalAlpha = 1;
   g.fillStyle = grad;
   g.beginPath();
@@ -1154,13 +1163,17 @@ export function drawCurveArrow(g, W, H, pts01, t, ENV, opts = {}) {
     const need = tipS * 0.42 * Math.min(1, (prog - 0.28) / 0.22);
     while (cut > 1 && acc < need) { acc += Math.hypot(path[cut][0] - path[cut - 1][0], path[cut][1] - path[cut - 1][1]); cut--; }
   }
-  for (let i = 1; i <= cut; i++) {
-    const k = i / head;
-    const f = Math.min(1, k / tail);
-    g.globalAlpha = f * f * (3 - 2 * f) * A0;   // smoothstep — 램프가 끝나는 지점에서 꺾이지 않게
-    g.strokeStyle = lut(0.55 + 0.42 * k);
-    g.lineWidth = (1.1 + 11.9 * k) * s * AW;
-    g.beginPath(); g.moveTo(path[i - 1][0], path[i - 1][1]); g.lineTo(path[i][0], path[i][1]); g.stroke();
+  // 언더글로우 밴드(넓고 옅게) → 본선 — 스템의 볼류메트릭 규약과 동일 취지
+  for (const pass of [0, 1]) {
+    for (let i = 1; i <= cut; i++) {
+      const k = i / head;
+      const f = Math.min(1, k / tail);
+      const a = f * f * (3 - 2 * f) * A0;
+      g.globalAlpha = pass ? a : a * 0.28;
+      g.strokeStyle = lut(0.55 + 0.42 * k);
+      g.lineWidth = (1.1 + 11.9 * k) * s * AW * (pass ? 1 : 2.8);
+      g.beginPath(); g.moveTo(path[i - 1][0], path[i - 1][1]); g.lineTo(path[i][0], path[i][1]); g.stroke();
+    }
   }
   // 촉 — 머리에서 접선 정렬(글리프 규약 ↑=전방). 등장 시점은 스템과 동일.
   if (prog > 0.28) {
@@ -1377,6 +1390,10 @@ export function drawPunchLine(g, W, P, look, t, ENV, ptsIn, prog) {
       g.fillStyle = lut(v === 'near' ? 0.5 : 0.36);   // near = 반만 온 것 → 램프 위쪽으로 한 칸
       g.beginPath(); g.arc(x, y, R * 0.88, 0, Math.PI * 2); g.fill();
     }
+    // 볼류메트릭 밴드(정본 발광 문법) — 스트로크+shadowBlur 만으로는 평평했다(유저: 발자국과 감도 차이)
+    g.save(); g.translate(x, y);
+    volRing(g, lut, R, hit ? 0.62 : active ? 0.8 : 0.5, active ? 0.9 : hit ? 0.7 : 0.5, LNW * 0.9, GB);
+    g.restore();
     g.strokeStyle = v === 'hit' ? PAL.prism : v === 'near' ? PAL.sand : v === 'miss' ? NEU.lo
       : lut(hit ? 0.62 : active ? 0.8 : 0.45);
     g.lineWidth = LNW * (active ? 1.3 : v ? 1.15 : 0.9);
@@ -1394,6 +1411,23 @@ export function drawPunchLine(g, W, P, look, t, ENV, ptsIn, prog) {
 /** 어프로치 링 — 타이밍 토큰(파생). 시스템 공통 언어(소프트 열 글로우·파문)로 통일 —
  *  하드 지오메트리 없이, 부드러운 글로우 링이 바깥 R → 타겟 Rt로 '수축'(뒤에 파문 에코 잔상),
  *  타겟과 맞물리는 순간 = 동작 타이밍 → 소프트 핑이 퍼진다. prog 0..1(비트). 색은 룩 LUT만. */
+/** 볼류메트릭 글로우 링 — radial gradient 밴드(부피 발광) + 크리스프 코어 스트로크.
+ *  approachRing 에서 추출한 시스템 공통 발광 문법 — shadowBlur 한 겹은 폴오프가 밋밋해
+ *  프리미엄 감도가 안 났다(유저: 발자국 토큰과 감도 차이). 원점 기준 — 호출자가 translate. */
+function volRing(g, lut, r, v, a, lw, GB, wMul = 1) {
+  if (r <= 0.6) return;
+  const rgba = (vv, aa) => lut(vv).replace('rgb(', 'rgba(').replace(')', `,${aa})`);
+  const w = lw * 2.6 * wMul, inner = Math.max(0.1, r - w), outer = r + w;
+  const grad = g.createRadialGradient(0, 0, inner, 0, 0, outer);
+  grad.addColorStop(0, rgba(v - 0.05, 0));
+  grad.addColorStop(0.5, rgba(v, a * 0.85));
+  grad.addColorStop(1, rgba(v - 0.05, 0));
+  g.globalAlpha = 1; g.fillStyle = grad; g.shadowBlur = 0;
+  g.beginPath(); g.arc(0, 0, outer, 0, Math.PI * 2); g.fill();
+  g.globalAlpha = Math.min(1, a * 1.1); g.lineWidth = lw * 0.85;
+  g.strokeStyle = lut(Math.min(0.98, v + 0.12)); g.shadowColor = lut(0.88); g.shadowBlur = GB * 0.6;
+  g.beginPath(); g.arc(0, 0, r, 0, Math.PI * 2); g.stroke(); g.shadowBlur = 0;
+}
 export function drawApproachRing(g, W, P, look, t, ENV, prog) {
   const lut = ENV.lut, GB = 13 * look.halo, s = W / 220, C = W / 2;
   const AW = (ENV.arrow && ENV.arrow.w) || 1;
@@ -1409,19 +1443,7 @@ export function drawApproachRing(g, W, P, look, t, ENV, prog) {
   g.save(); g.translate(C, C);
   // 볼류메트릭 글로우 링 — radial gradient 밴드(부피감 있는 발광) + 크리스프 코어(정의).
   //   shadowBlur 스트로크보다 부드럽고 프리미엄한 발광 폴오프. 형태는 순수 원(시스템 공통 언어).
-  const glowRing = (r, v, a, wMul = 1) => {
-    if (r <= 0.6) return;
-    const w = lw * 2.6 * wMul, inner = Math.max(0.1, r - w), outer = r + w;
-    const grad = g.createRadialGradient(0, 0, inner, 0, 0, outer);
-    grad.addColorStop(0, rgba(v - 0.05, 0));
-    grad.addColorStop(0.5, rgba(v, a * 0.85));
-    grad.addColorStop(1, rgba(v - 0.05, 0));
-    g.globalAlpha = 1; g.fillStyle = grad; g.shadowBlur = 0;
-    g.beginPath(); g.arc(0, 0, outer, 0, Math.PI * 2); g.fill();
-    g.globalAlpha = Math.min(1, a * 1.1); g.lineWidth = lw * 0.85;
-    g.strokeStyle = lut(Math.min(0.98, v + 0.12)); g.shadowColor = lut(0.88); g.shadowBlur = GB * 0.6;
-    g.beginPath(); g.arc(0, 0, r, 0, Math.PI * 2); g.stroke(); g.shadowBlur = 0;
-  };
+  const glowRing = (r, v, a, wMul = 1) => volRing(g, lut, r, v, a, lw, GB, wMul);   // 정본 발광 문법(위 volRing)
 
   // 타겟 존 — 내부 풀 글로우(soft radial fill, 잠금 때 차오름) + 링(은은한 호흡)
   const pool = g.createRadialGradient(0, 0, 0, 0, 0, Rt * 1.08);
