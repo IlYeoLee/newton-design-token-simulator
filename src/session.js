@@ -699,9 +699,9 @@ export const STAGES = {
     { id:'BX_T2', wall:true, label:'T2 · 전환 — 5초 뒤 실전 시작', voice:['고수','세 조각 다 됐어요. 5초 뒤에 붙어봅니다 — 준비됐으면 두 번 탭.'], dur:5, count:true, foot:'두 번 탭 = 즉시 · 무입력 = 자동' },
     { id:'BX_C1', wall:true, dur:3, label:'C1 · 실전 1/4 — 시작 신호', voice:['고수','갑니다 — 셋, 둘, 하나!'], hap:'시작 진동', foot:'두 번 탭 → 시작' },
     { id:'BX_C2', wall:true, dur:11, live:true, label:'C2 · 실전 2/4 — 잽 대련', voice:['고수','타겟 뜨면 바로 잽. 가드는 내리지 말고.'], wear:'SAFE 가드 안정화' },
-    // dur = 코치 클립 길이(bx_c3_combo.mp4 4.21초). 둘이 다르면 스테이지가 클립 위에서 밀려
+    // dur = 코치 클립 길이(bx_c3_combo.mp4 3.00초 — 1.4배속 리타임). 둘이 다르면 스테이지가 클립 위에서 밀려
     //   마커가 엉뚱한 자세에 뜬다 — 씬 루프 주기도 이 값의 정수배로 잡힌다(main.js).
-    { id:'BX_C3', wall:true, dur:4.21, live:true, boost:true, label:'C3 · 실전 3/4 — 콤비네이션', voice:['고수','잽, 잽 — 마지막은 몸을 실어서 훅! 리듬 놓치지 말고.'], wear:'BOOST 스텝 추진', cue:'구간 종료 Match Rate' },
+    { id:'BX_C3', wall:true, dur:3.00, live:true, boost:true, label:'C3 · 실전 3/4 — 콤비네이션', voice:['고수','잽, 잽 — 마지막은 몸을 실어서 훅! 리듬 놓치지 말고.'], wear:'BOOST 스텝 추진', cue:'구간 종료 Match Rate' },
     { id:'BX_C4', wall:true, live:true, cooldown:true, label:'C4 · 실전 4/4 — 마무리', voice:['고수','가드 내리고 숨 고르기. 오늘 잽, 확실히 좋아졌어요.'], hap:'완료 진동' },
     { id:'BX_FIN', wall:true, label:'B-F · 리포트', voice:['고수','내 잽이랑 겹쳐서 볼게요 — 어디가 달랐는지 보여요? 기록은 앱으로 보냈어요.'], cue:'Ghost Review — 고수 잽과 내 폼 겹쳐 보기' },
   ],
@@ -2860,13 +2860,21 @@ export class Session {
         //   "1초 쉬었다가" 가 클립 자체로 떨어진다. 잽·잽 1.50초 · 잽·훅 1.30초는 코치의 실제
         //   리듬이라, 마커를 여기 맞춰야 실루엣과 숫자가 같은 순간에 터진다.
         //   ⚠ CY 는 반드시 클립 길이와 같아야 한다. 다르면 매 바퀴 조금씩 밀린다.
-        const CY = 4.21, tc = this.t % CY;
-        const AT = [1.00, 2.50, 3.80];
+        //   08-04b: 1.4배속 리타임(원본 = bx_c3_combo.1x.mp4). 잽·잽 1.50s 는 콤보로 안 읽혔다
+        //   (유저: 너무 느리다). 4.21s → 3.00s · 잽·잽 1.13s · 잽·훅 0.87s — find_clip_beats 재실측값.
+        const CY = 3.00, tc = this.t % CY;
+        const AT = [0.67, 1.80, 2.67];
         let seg = 0;                                   // 지나온 노드 수(0..2) + 구간 진행
         for (let i = 0; i < AT.length; i++) if (tc >= AT[i]) seg = i + 1;
         const prev = seg === 0 ? 0 : AT[seg - 1], next = AT[Math.min(seg, AT.length - 1)];
         const f = seg >= AT.length ? 1 : clamp01((tc - prev) / Math.max(0.01, next - prev));
-        this.bxCombo._prim.prog = clamp01(((seg === 0 ? 0 : seg - 1) + (seg >= AT.length ? 1 : f)) / (AT.length - 1) / 1.25);
+        // ★ 채찍 매핑 — 등속으로 구간 내내 스멀스멀 자라던 것이 '생동감 없음'의 정체(유저).
+        //   앞 60%는 움츠려(15%까지만) 있다가 마지막 40%에 ease-out 으로 몰아친다.
+        //   실제 펀치의 리듬이다: 예비 동작(코일) → 스냅. 도착 시각은 그대로 비트에 맞는다.
+        const fw = seg >= AT.length ? 1
+          : f <= 0.6 ? 0.15 * (f / 0.6)
+          : 0.15 + 0.85 * (1 - Math.pow(1 - (f - 0.6) / 0.4, 3));
+        this.bxCombo._prim.prog = clamp01(((seg === 0 ? 0 : seg - 1) + fw) / (AT.length - 1) / 1.25);
         // 판정 링 = 지금 노려야 할 노드로 옮겨 가 그 원 안에서 수축한다.
         //   ★ 수축이 '도착'하는 순간(=인물이 펀치를 뻗는 타이밍)이 곧 판정이다. 접근은 비트까지
         //     prog 0→0.9 로만 가고, 비트 뒤 LOCK 동안 0.9→1 (팽창 핑)을 그 노드에서 마저 친다.
