@@ -620,6 +620,8 @@ uniform float uPlantar, uBands, uBandSoft;
 //   ext·해부학 좌표는 '0.78 로 구웠을 때' 기준의 uv 값이라, 채움비가 바뀌면 같이 줄어야 한다.
 uniform float uEdgeShade, uEdgeW, uEdgeSoft, uDither, uSilFit;
 uniform float uEdgeShadeW, uEdgeShadeCol;   // 실루엣 이너 섀도우 면적 배율 · 팔레트 색(0흰/1샌드/2코랄/3레드) — 유저: 면적·색 조정
+uniform float uIceOld;   // 1 = 아이스 컷 이전(하늘색) 램프 — 비교 미리보기용 토글(유저)
+uniform float uEdgeShadeGrad, uEdgeShadeG0, uEdgeShadeG1;   // 이너 섀도우 LUT 그라디언트(0 단색) · 시작/끝 LUT 위치 — 섬세 조정(유저)
 // uShadeRed / uShadeRedW: **음영 자리에 까는 뉴턴 RED 블룸** (유저: 바닥 색에 가장 빨간 뉴턴 레드가
 //   부족하다 — 음영 지는 부분에 은은한 블러로). 이너 섀도우는 LUT 상단(PRISM)이라 형태는 잡아도
 //   화면에서 빨강이 옅다. 같은 자리에 훨씬 **넓은 가우시안**으로 RED 를 한 겹 깔면, 경계선이 아니라
@@ -764,13 +766,13 @@ vec3 okmix(vec3 a, vec3 b, float t){ return _ok2l(mix(_l2ok(a), _l2ok(b), t)); }
 //   LUT 는 OKLab 으로 256스텝 보간해 구운 것이라 이음매가 원천적으로 없고 4색을 다 지난다.
 //   상태의 정체성은 이제 색 조합이 아니라 **온도 창(lo~hi)** 이 정한다.
 #define T_PREV_LO 0.30
-#define T_PREV_HI 0.93   // 대기 발자국도 아이스 끝단 컷 — 하늘 비율 축소(유저)
+#define T_PREV_HI mix(0.93, 0.99, uIceOld)   // 아이스 컷(신) ↔ 구 하늘 램프 — uIceOld 토글
 #define T_HOT_LO  0.10
-#define T_HOT_HI  0.94   // 아이스(프리즘) 비율 축소 — 인물 룩 대비 하늘색 과함(유저)
+#define T_HOT_HI  mix(0.94, 1.00, uIceOld)
 #define T_ACT_LO  0.06
 #define T_ACT_HI  0.86   // 몸체 상한 = SAND 정점 — 더 진한 주황(유저 2차)
 #define T_HOLD_LO 0.04
-#define T_HOLD_HI 0.89   // 동일 — 하늘 비율 소폭 다운
+#define T_HOLD_HI mix(0.89, 0.92, uIceOld)
 // 온도 → 색. **뉴턴 LUT 한 벌만** 쓴다.
 vec3 fillT(float q, float lo, float hi){
   float x = clamp(mix(lo, hi, clamp(q, 0.0, 1.0)), 0.0, 1.0);
@@ -788,7 +790,7 @@ vec3 fillActive(float q){  return fillT(q, T_ACT_LO,  T_ACT_HI);  }
 vec3 fillHold(float q){    return fillT(q, T_HOLD_LO, T_HOLD_HI); }
 // Success 는 코어가 가장 뜨겁고(하한이 낮다) 바깥이 백열로 열린다 — 승리의 온도.
 // 상한을 1.0(순백) 이 아니라 0.92 로 — 순백까지 열면 코어와 분리된 흰 링이 생긴다(유저: 아이스 과함).
-vec3 fillSuccess(float q){ return fillT(q, 0.02, 0.78); }   // 피그마 성공 정본(163:8908) — 꽉 찬 레드 코어 + 코랄 힐, 백열·아이스 없음(유저: 쨍하게)
+vec3 fillSuccess(float q){ return fillT(q, mix(0.02, 0.03, uIceOld), mix(0.78, 1.00, uIceOld)); }   // 신 = 피그마 성공 정본(163:8908) 쨍한 레드-코랄 · 구 = 백열/아이스
 // over 연산 누적 (premultiplied) — 원본 mix(col, X, k) 체인의 기계적 등가 변환
 void lay(inout vec4 A, vec3 X, float k){ A.rgb = A.rgb * (1.0 - k) + X * k; A.a = A.a * (1.0 - k) + k; }
 vec4 markState(vec2 uv, float state, float prog, float strong, float t){
@@ -936,10 +938,13 @@ vec4 markState(vec2 uv, float state, float prog, float strong, float t){
     lay(A, C_RED, bl * uShadeRed * A.a);
   }
   if (uEdgeShade > 0.001) {
-    float ins = exp(-pow(max(-sd, 0.0) / max(uEdgeW * 0.9 * clamp(uEdgeShadeW, 0.05, 6.0), 1e-4), 1.1)) * inside;
-    // 섀도우 색 = 팔레트 선택(uEdgeShadeCol, 기본 0 = ICE ≈ 구 lut(1.0)). 빛으로 그리는 매체라
-    //   어두운 색 금지 원칙은 그대로 — 선택지도 밝은 4색뿐이다.
-    lay(A, palPick(uEdgeShadeCol), ins * uEdgeShade);
+    float shW = max(uEdgeW * 0.9 * clamp(uEdgeShadeW, 0.05, 6.0), 1e-4);
+    float ins = exp(-pow(max(-sd, 0.0) / shW, 1.1)) * inside;
+    // 섀도우 색 = 팔레트 단색(uEdgeShadeCol) ↔ 뉴턴 LUT 그라디언트(uEdgeShadeGrad).
+    //   그라디언트는 경계(G0)→안쪽(G1)으로 LUT 를 훑는다 — 색을 새로 만들지 않는다(팔레트 규약).
+    float shDep = clamp(max(-sd, 0.0) / shW, 0.0, 1.0);
+    vec3 shCol = mix(palPick(uEdgeShadeCol), lut(mix(uEdgeShadeG0, uEdgeShadeG1, shDep)), clamp(uEdgeShadeGrad, 0.0, 1.0));
+    lay(A, shCol, ins * uEdgeShade);
   }
   if (holdA > 0.001) lay(A, holdC, holdA);   // 진행 아크를 섀도우 위로 — 덮이지 않게
   // ── 깔창 각인 (발형 전용) ────────────────────────────────────────────────

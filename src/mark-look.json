@@ -37,12 +37,15 @@
   "gsh": 0.6,
   "shadeCol": 0,
   "ripCol": 1,
-  "gShadow": "glow",
-  "gBlend": "normal",
+  "gShadow": "none",
+  "gBlend": "add",
   "numSrc": "glyph",
   "prog": 0.55,
   "bloom": 0.125,
   "blur": 0,
   "edgeShadeW": 1,
-  "edgeShadeCol": 2
+  "edgeShadeCol": 2,
+  "edgeShadeGrad": 0,
+  "edgeShadeG0": 1.0,
+  "edgeShadeG1": 0.55
 }

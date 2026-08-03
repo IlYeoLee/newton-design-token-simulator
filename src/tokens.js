@@ -324,6 +324,8 @@ export function makeMarkFXMaterial(footTex = null) {
       // 압력 램프(데이터 계열) · 아웃라인 폐기 후 형태를 잡는 이너 섀도우 · 필 소프트 엣지
       uEdgeShade: { value: LOOK.edgeShade }, uEdgeW: { value: LOOK.edgeW * SF }, uEdgeSoft: { value: LOOK.edgeSoft },
       uEdgeShadeW: { value: LOOK.edgeShadeW ?? 1 }, uEdgeShadeCol: { value: LOOK.edgeShadeCol ?? 0 },
+      uIceOld: { value: 0 },   // 1 = 구(하늘) 램프 미리보기 — applyMarkLook 으로 토글
+      uEdgeShadeGrad: { value: LOOK.edgeShadeGrad ?? 0 }, uEdgeShadeG0: { value: LOOK.edgeShadeG0 ?? 1 }, uEdgeShadeG1: { value: LOOK.edgeShadeG1 ?? 0.55 },
       // 음영 적열 블룸 — 음영 자리에 뉴턴 RED 를 넓게 깐다(유저: 바닥에 가장 빨간 색이 부족하다).
       //   ?? 기본값은 옛 mark-look.json(키가 없는 저장본)에서도 NaN 이 안 나게 하는 안전판이다.
       uShadeRed: { value: LOOK.shadeRed ?? 0.34 }, uShadeRedW: { value: LOOK.shadeRedW ?? 3.4 },
@@ -368,7 +370,31 @@ export function makeMarkFXMaterial(footTex = null) {
   //   번지면서 채도를 떨어뜨렸다(유저: "랩에서 본 것과 1000% 동일하게"). scene.js 가 이 플래그로
   //   블룸 입력에서만 마크를 뺀다 — 최종 합성엔 그대로 들어가므로 몸 가림·깊이는 유지된다.
   mat._noBloom = true;
+  MARK_MATS.push(mat);   // 라이브 룩 적용 등록부(랩 브로드캐스트·구 램프 토글)
   return mat;
+}
+
+// ── 마크 룩 라이브 적용 — 랩 실험값·구(하늘) 램프 토글을 이미 만들어진 재질 전부에 즉시 ──
+const MARK_MATS = [];
+export function applyMarkLook(part = {}) {
+  const SF = SIL_FIT / SIL_FIT_REF;
+  const map = { imp: 'uImp', dot: 'uImpDot', glow: 'uImpGlow', shade: 'uImpShade', sharp: 'uImpSharp',
+    shadeCol: 'uImpShadeCol', scale: 'uImpScale', plantar: 'uPlantar', bands: 'uBands', bandSoft: 'uBandSoft',
+    edgeShade: 'uEdgeShade', edgeShadeW: 'uEdgeShadeW', edgeShadeCol: 'uEdgeShadeCol',
+    edgeShadeGrad: 'uEdgeShadeGrad', edgeShadeG0: 'uEdgeShadeG0', edgeShadeG1: 'uEdgeShadeG1',
+    shadeRed: 'uShadeRed', shadeRedW: 'uShadeRedW', edgeSoft: 'uEdgeSoft', dither: 'uDither',
+    rip: 'uRip', ripSpeed: 'uRipSpeed', ripGrad: 'uRipGrad', ripCol: 'uRipCol', iceOld: 'uIceOld' };
+  const mapSF = { pitch: 'uImpPitch', edge: 'uImpEdge', edgeW: 'uEdgeW', ripWidth: 'uRipWidth', ripReach: 'uRipReach' };
+  for (const m of MARK_MATS) {
+    const U = m.uniforms;
+    const isFoot = U.uShape?.value === 1;
+    for (const k in map) {
+      if (part[k] == null || !U[map[k]]) continue;
+      if (k === 'imp' && !isFoot) continue;   // 존원은 각인 없음(생성 시 0) — 켜지 않는다
+      U[map[k]].value = part[k];
+    }
+    for (const k in mapSF) if (part[k] != null && U[mapSF[k]]) U[mapSF[k]].value = part[k] * SF;
+  }
 }
 
 // ─────────────────────────────────────────────────────────────

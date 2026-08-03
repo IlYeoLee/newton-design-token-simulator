@@ -225,6 +225,18 @@
   };
   list.appendChild(bSel);
 
+  // ── 룩 — 구(하늘) 램프 비교 토글 ──────────────────────────────
+  const hL = document.createElement('h2'); hL.textContent = '룩'; list.appendChild(hL);
+  const iceBtn = document.createElement('button');
+  iceBtn.className = 's'; iceBtn.textContent = '하늘(구) 램프 보기';
+  let iceOld = 0;
+  iceBtn.onclick = () => {
+    iceOld = iceOld ? 0 : 1;
+    iceBtn.classList.toggle('on', !!iceOld);
+    f.contentWindow?.__applyMarkLook?.({ iceOld });
+  };
+  list.appendChild(iceBtn);
+
   // ── 촬영 조정 ────────────────────────────────────────────────────────────
   head('촬영 조정');
   const rows = {};

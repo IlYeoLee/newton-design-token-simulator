@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { createScene, WALL_Z, FX } from './scene.js';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { TokenSystem, COLORS, TCFG, setFPView, makeMarkFXMaterial, makeLaneFXMaterial, makeFlowArrow, UI_MASK } from './tokens.js';
+import { TokenSystem, COLORS, TCFG, setFPView, makeMarkFXMaterial, makeLaneFXMaterial, makeFlowArrow, UI_MASK, applyMarkLook } from './tokens.js';
 import { Effects } from './effects.js';
 import { XBot } from './xbot.js';
 import { Panel } from './panel.js';
@@ -4212,6 +4212,9 @@ void main(){
   // ★ DEV 가드를 뗐다. 랩(personlab-live 등)이 이 핸들로 시뮬을 조종하는데, 배포본엔
   //   __dbg 가 아예 없어서 랩이 60초를 헛돌다 '시뮬 로드 실패'로 죽었다 — 유저가 본
   //   "웹에서 안 뜬다 / 왜 이렇게 느리냐"의 정체. 내부 도구 리포라 노출 비용은 없다.
+  // 랩 → 시뮬 실시간 마크 룩 미리보기(유저) + 구(하늘) 램프 토글(scenes.html 버튼)
+  window.__applyMarkLook = applyMarkLook;
+  try { new BroadcastChannel('newton-marklook').onmessage = e => applyMarkLook(e.data || {}); } catch { /* 미지원 브라우저 */ }
   window.__dbg = {
     extractPose, retargetToClip,   // 비디오 모캡 (dev)
     rig, xbot, state, session, sceneScope, camera, controls, tokens, effects, scene, editor3d, sceneUI, FXP, designStore, TCFG, editCam, editControls, judge, THREE,

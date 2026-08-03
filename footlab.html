@@ -83,6 +83,9 @@
       <div class=row><label>이너 섀도우</label><input type=range id=edgeShade min=0 max=1.4 step=.01><span class=v id=vedgeShade></span></div>
       <div class=row><label>섀도우 면적</label><input type=range id=edgeShadeW min=.2 max=4 step=.05><span class=v id=vedgeShadeW></span></div>
       <div class=seg id=segEdgeShadeCol style="margin:2px 0 6px"><button data-v=0 class=on>흰</button><button data-v=1>샌드</button><button data-v=2>코랄</button><button data-v=3>레드</button></div>
+      <div class=row><label>섀도우 그라디언트</label><input type=range id=edgeShadeGrad min=0 max=1 step=.02><span class=v id=vedgeShadeGrad></span></div>
+      <div class=row><label>그라디언트 시작(경계)</label><input type=range id=edgeShadeG0 min=0 max=1 step=.01><span class=v id=vedgeShadeG0></span></div>
+      <div class=row><label>그라디언트 끝(안쪽)</label><input type=range id=edgeShadeG1 min=0 max=1 step=.01><span class=v id=vedgeShadeG1></span></div>
       <div class=row><label>음영 적열</label><input type=range id=shadeRed min=0 max=1 step=.01><span class=v id=vshadeRed></span></div>
       <div class=row><label>적열 번짐</label><input type=range id=shadeRedW min=.5 max=8 step=.1><span class=v id=vshadeRedW></span></div>
       <div class=row><label>엣지 폭</label><input type=range id=edgeW min=.01 max=.3 step=.005><span class=v id=vedgeW></span></div>
@@ -203,7 +206,7 @@ const DEF = { imp: 1.0, scale: 0.835, offx: -0.04, offy: -0.007, irot: 0, pitch:
               rip: 0.55, ripReach: 0.34, ripWidth: 0.09, ripSpeed: 0.45, ripGrad: 1,
               plantar: 1.0, bands: 0, bandSoft: 0.45,
               edgeShade: 0.55, edgeW: 0.085, edgeSoft: 0.25, dither: 0.010,
-              shadeRed: 0.34, shadeRedW: 3.4, edgeShadeW: 1 };
+              shadeRed: 0.34, shadeRedW: 3.4, edgeShadeW: 1, edgeShadeGrad: 0, edgeShadeG0: 1, edgeShadeG1: 0.55 };
 // ★ 기본값 = 정본 JSON. localStorage 는 그 위의 '작업 중' 상태일 뿐이다.
 //   예전엔 랩이 localStorage 에만 저장해서 다른 기기에서 열면 수정 전 값이 나왔다(유저 발견).
 for (const k in DEF) if (typeof LOOK[k] === 'number') DEF[k] = LOOK[k];
@@ -214,7 +217,7 @@ const SF = SIL_FIT / SIL_FIT_REF;   // uv 단위 거리 스케일(정본과 동�
 const $ = id => document.getElementById(id);
 const KEYS = ['imp','scale','offx','offy','irot','pitch','dot','glow','shade','sharp','edge',
               'w','halo','pool','noise','prog','tilt','bloom','blur',
-              'gsize','gx','gy','grot','gsh','rip','ripReach','ripWidth','ripSpeed','ripGrad','plantar','bands','bandSoft','edgeShade','edgeShadeW','shadeRed','shadeRedW','edgeW','edgeSoft','dither'];
+              'gsize','gx','gy','grot','gsh','rip','ripReach','ripWidth','ripSpeed','ripGrad','plantar','bands','bandSoft','edgeShade','edgeShadeW','edgeShadeGrad','edgeShadeG0','edgeShadeG1','shadeRed','shadeRedW','edgeW','edgeSoft','dither'];
 const DIGITS = { tilt: 0, irot: 1, grot: 0, pitch: 3, edge: 3, scale: 3, offx: 3, offy: 3,
                  gx: 3, gy: 3, ripWidth: 3, bloom: 3, bands: 0, dither: 3 };
 let shadeCol = 0, ripCol = 1, gShadow = 'glow', gBlend = 'normal', edgeShadeCol = +(LOOK.edgeShadeCol ?? 0);
@@ -241,7 +244,10 @@ uRip: { value: ${P.rip.toFixed(2)} }, uRipSpeed: { value: ${P.ripSpeed.toFixed(2
 //   그래서 350ms 잠잠해지면 그때 한 칸 쌓는다(타이핑 에디터의 undo 병합과 같은 규약).
 const SAVE_KEY = 'footlab.params';
 let hist = [], future = [], histT = null;
-function persist() { try { localStorage.setItem(SAVE_KEY, JSON.stringify({ ...P, _def: DEF })); } catch { /* 사생활 모드 */ } }   // _def = 저장 시점 정본 스냅샷(위 복원 규칙용)
+function persist() { try { localStorage.setItem(SAVE_KEY, JSON.stringify({ ...P, _def: DEF })); } catch { /* 사생활 모드 */ } bcast(); }   // _def = 저장 시점 정본 스냅샷(위 복원 규칙용)
+// 랩 → 시뮬 실시간 미리보기(유저): 값이 바뀔 때마다 열려 있는 시뮬 전부에 즉시 쏜다.
+const _bc = (() => { try { return new BroadcastChannel('newton-marklook'); } catch { return null; } })();
+function bcast() { _bc?.postMessage({ ...P, shadeCol, ripCol, edgeShadeCol }); }
 function commitHist(prev) {
   clearTimeout(histT);
   histT = setTimeout(() => {
@@ -325,8 +331,8 @@ seg('segPlay', v => { playing = +v; });
 // 글리프 소스 = FXP.numSrc 정본 스위치. 'glyph'=유저 SVG 슬롯 · 'offbit'=도트 폰트.
 // 시뮬(drawNumber)이 읽는 바로 그 값이라, 여기서 고른 게 곧 시뮬에서 보일 활자다.
 seg('segSrc', v => { FXP.numSrc = v; rebuild(); });
-seg('segShadeCol', v => { shadeCol = +v; });
-seg('segEdgeShadeCol', v => { edgeShadeCol = +v; });
+seg('segShadeCol', v => { shadeCol = +v; bcast(); });
+seg('segEdgeShadeCol', v => { edgeShadeCol = +v; bcast(); });
 seg('segRipCol', v => { ripCol = +v; });
 seg('segGShadow', v => { gShadow = v; rebuild(); });
 seg('segGBlend', v => { gBlend = v; rebuild(); });
@@ -519,6 +525,7 @@ function feed(u, ph, prog, t, mode) {
   U.uRipCol.value = ripCol; U.uRipGrad.value = P.ripGrad;
   U.uPlantar.value = P.plantar; U.uBands.value = P.bands; U.uBandSoft.value = P.bandSoft;
   U.uEdgeShade.value = P.edgeShade; U.uEdgeShadeW.value = P.edgeShadeW; U.uEdgeShadeCol.value = edgeShadeCol;
+  U.uEdgeShadeGrad.value = P.edgeShadeGrad; U.uEdgeShadeG0.value = P.edgeShadeG0; U.uEdgeShadeG1.value = P.edgeShadeG1;
   U.uShadeRed.value = P.shadeRed; U.uShadeRedW.value = P.shadeRedW;
   U.uEdgeW.value = P.edgeW * SF; U.uEdgeSoft.value = P.edgeSoft; U.uDither.value = P.dither;
   matMode(u.mat, mode);
@@ -754,6 +761,7 @@ function composite() {
   U.uRipCol.value = ripCol; U.uRipGrad.value = P.ripGrad;
   U.uPlantar.value = P.plantar; U.uBands.value = P.bands; U.uBandSoft.value = P.bandSoft;
   U.uEdgeShade.value = P.edgeShade; U.uEdgeShadeW.value = P.edgeShadeW; U.uEdgeShadeCol.value = edgeShadeCol;
+  U.uEdgeShadeGrad.value = P.edgeShadeGrad; U.uEdgeShadeG0.value = P.edgeShadeG0; U.uEdgeShadeG1.value = P.edgeShadeG1;
   U.uShadeRed.value = P.shadeRed; U.uShadeRedW.value = P.shadeRedW;
   U.uEdgeW.value = P.edgeW * SF; U.uEdgeSoft.value = P.edgeSoft; U.uDither.value = P.dither;
       if (!wm.zone) wm.mesh.rotation.z = (wm.side === 'left' ? P.tilt : -P.tilt) * Math.PI / 180;
