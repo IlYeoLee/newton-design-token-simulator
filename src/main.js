@@ -2684,7 +2684,8 @@ void main(){
         // '코치 영상보다 앞'이라는 원래 의도는 실제 높이(패널 y=0.015 < 큐 y=0.035)와
         // renderOrder 30 이 이미 보장한다 — depthTest 를 끌 이유가 없었다.
         const mesh = new THREE.Mesh(new THREE.PlaneGeometry(size, size),
-          new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, depthTest: true, blending: THREE.AdditiveBlending }));
+          // 노멀 블렌딩 — 프림 판 공통 규약(session.primPanel과 동일): 가산은 밝은 면에서 워시아웃(유저)
+          new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, depthTest: true, blending: THREE.NormalBlending }));
         mesh.position.set(x, y, 0.02);   // 부모 로컬: x=좌우, +y=머리쪽, +z=바닥 위로 띄움
         mesh.renderOrder = 30;           // 코치 영상 레이어보다 앞(유저: 판정 토큰이 인물 앞에)
         plane.add(mesh);
@@ -2882,8 +2883,19 @@ void main(){
             const on = co.plane.visible && (i === 0 ? neckPhase : shoulderOn);
             c.mesh.visible = on;
             if (on) {
-              drawRotate(c.g, 256, { r: 0.30, width: 1.1, dir: c.dir ?? 1, sweep: 0.62, tempo: 0.42 },
-                { halo: FXP.mark.halo }, now, { lut: lutColor, arrow: FXP.arrow, glyph: drawGlyph });   // glyph — 촉 SVG(누락 시 폴백 촉)
+              // 판 자체 블룸 — 프림 공통 규약(session.tickPrims와 동일 이중 가우시안 lighter)
+              const off = (c._bloomCv ||= document.createElement('canvas'));
+              if (off.width !== 256) { off.width = off.height = 256; }
+              const og = off.getContext('2d');
+              og.setTransform(1, 0, 0, 1, 0, 0); og.clearRect(0, 0, 256, 256);
+              drawRotate(og, 256, { r: 0.30, width: 1.1, dir: c.dir ?? 1, sweep: 0.62, tempo: 0.42 },
+                { halo: FXP.mark.halo }, now, { lut: lutColor, arrow: FXP.arrow, glyph: drawGlyph });
+              c.g.setTransform(1, 0, 0, 1, 0, 0); c.g.clearRect(0, 0, 256, 256);
+              c.g.drawImage(off, 0, 0);
+              c.g.save(); c.g.globalCompositeOperation = 'lighter';
+              c.g.filter = 'blur(2px)'; c.g.globalAlpha = 0.5; c.g.drawImage(off, 0, 0);
+              c.g.filter = 'blur(7px)'; c.g.globalAlpha = 0.5; c.g.drawImage(off, 0, 0);
+              c.g.restore(); c.g.filter = 'none'; c.g.globalAlpha = 1;
               c.tex.needsUpdate = true;
             }
           });

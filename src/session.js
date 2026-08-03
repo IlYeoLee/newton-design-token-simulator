@@ -400,9 +400,9 @@ function primPanel(kind, sizeM, wall) {
       // 궤적만 일반 블렌딩 — 가산은 '순서'가 결과에 영향을 안 준다(빛의 합). 발마크 빨강이 포화라
       // renderOrder/depthTest를 아무리 올려도 궤적이 묻혔던 근본(유저 4회 지적).
       // 잉크 모드에서는 프림도 노멀 블렌딩 — 마크와 같은 합성이어야 랩과 톤이 맞는다(유저 지시).
-      // ★ 잽잽훅도 노멀 — 밝은 벽(아이보리+노란 그리드) 위 가산은 볼류메트릭 밴드·채움·파냄 숫자를
-      //   통째로 워시아웃시켜 '옛 토큰'처럼 보였다(유저 스샷 최종 진단). 랩과 같은 합성이어야 같은 그림.
-      blending: (isTraj || kind === 'punchLine' || FXP.markBlend === 'ink') ? THREE.NormalBlending : THREE.AdditiveBlending,
+      // ★ 프림 전부 노멀 — 밝은 면 위 가산은 볼류메트릭 밴드·채움·파냄 숫자를 통째로 워시아웃시켜
+      //   '옛 토큰'처럼 보였다(유저: 전부 다 이식하라). 랩 카드와 같은 합성이어야 같은 그림.
+      blending: THREE.NormalBlending,
       // depthTest는 켠 채로 둔다 — 끄면 지면 투사 토큰이 x봇 몸 위로 그려진다(유저 스샷).
       //   투사광은 몸에 가려지는 게 물리적으로 맞다. 발자국과의 상하 관계는 y 오프셋(0.013 vs 0.017)이 잡는다.
       toneMapped: false, depthTest: true }));
@@ -443,27 +443,26 @@ function tickPrims(t) {
     const base = (FXP.prims && FXP.prims[p.kind]) || PRIM_DEFAULTS[p.kind];
     const P = p.P ? { ...base, ...p.P } : base;
     const CW = p.c.width;   // punchLine 512 · 나머지 256 — 그리기 함수는 W 기준으로 자동 스케일
-    if (p.kind === 'stanceBox') drawStanceBox(g, CW, P, look, t, livePrimEnv());
-    else if (p.kind === 'approachRing') drawApproachRing(g, CW, P, look, t, livePrimEnv(), p.prog);
-    else if (p.kind === 'trajectory') drawTrajectory(g, CW, P, look, t - (p.t0 || 0), livePrimEnv(), p.prog, p.pts);
-    else if (p.kind === 'rotate') drawRotate(g, CW, P, look, t, livePrimEnv(), p.prog);
-    else if (p.kind === 'curveArrow') drawCurveArrow(g, CW, CW, p.pts || [[0.5, 0.9], [0.5, 0.1]], t, livePrimEnv(), { prog: p.prog });
-    // ★ punchLine 커스텀 pts(BX_C3 실측 좌표)는 256 공간에서 계산돼 온다 — 캔버스 배율로 환산.
-    //   판 자체 블룸(랩 카드와 동일 이중 가우시안 · lighter): 이 판은 씬 블룸 제외(_noBloom)라
-    //   생짜로 그려져 랩과 전혀 다른 톤이 됐다(유저: "전혀 달라"). 본체 + 좁은 블룸 + 넓은 헤일로.
-    else {
-      const off = (p._bloomCv ||= document.createElement('canvas'));
-      if (off.width !== CW) { off.width = off.height = CW; }
-      const og = off.getContext('2d');
-      og.setTransform(1, 0, 0, 1, 0, 0); og.clearRect(0, 0, CW, CW);
-      drawPunchLine(og, CW, P, look, t, livePrimEnv(), p.pts && p.pts.map(([x, y]) => [x * CW / 256, y * CW / 256]), p.prog);
-      g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, CW, CW);
-      g.drawImage(off, 0, 0);
-      g.save(); g.globalCompositeOperation = 'lighter';
-      g.filter = 'blur(4px)'; g.globalAlpha = 0.5; g.drawImage(off, 0, 0);
-      g.filter = 'blur(14px)'; g.globalAlpha = 0.5; g.drawImage(off, 0, 0);
-      g.restore(); g.filter = 'none'; g.globalAlpha = 1;
-    }
+    // ★ 모든 프림 판 = 오프스크린에 그리고 **판 자체 블룸**(랩 카드와 동일 이중 가우시안 · lighter)으로
+    //   합성한다. 프림 판은 씬 블룸 제외(_noBloom)라 생짜로 그려져 랩과 전혀 다른 톤이었다
+    //   (유저: 전부 다 이식하라). 본체 + 좁은 블룸 + 넓은 헤일로 — 반경은 캔버스 크기에 비례.
+    const off = (p._bloomCv ||= document.createElement('canvas'));
+    if (off.width !== CW) { off.width = off.height = CW; }
+    const og = off.getContext('2d');
+    og.setTransform(1, 0, 0, 1, 0, 0); og.clearRect(0, 0, CW, CW);
+    if (p.kind === 'stanceBox') drawStanceBox(og, CW, P, look, t, livePrimEnv());
+    else if (p.kind === 'approachRing') drawApproachRing(og, CW, P, look, t, livePrimEnv(), p.prog);
+    else if (p.kind === 'trajectory') drawTrajectory(og, CW, P, look, t - (p.t0 || 0), livePrimEnv(), p.prog, p.pts);
+    else if (p.kind === 'rotate') drawRotate(og, CW, P, look, t, livePrimEnv(), p.prog);
+    else if (p.kind === 'curveArrow') drawCurveArrow(og, CW, CW, p.pts || [[0.5, 0.9], [0.5, 0.1]], t, livePrimEnv(), { prog: p.prog });
+    // punchLine 커스텀 pts(BX_C3 실측 좌표)는 256 공간에서 계산돼 온다 — 캔버스 배율로 환산
+    else drawPunchLine(og, CW, P, look, t, livePrimEnv(), p.pts && p.pts.map(([x, y]) => [x * CW / 256, y * CW / 256]), p.prog);
+    g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, CW, CW);
+    g.drawImage(off, 0, 0);
+    g.save(); g.globalCompositeOperation = 'lighter';
+    g.filter = `blur(${Math.max(2, Math.round(CW / 128))}px)`; g.globalAlpha = 0.5; g.drawImage(off, 0, 0);
+    g.filter = `blur(${Math.max(7, Math.round(CW / 36))}px)`; g.globalAlpha = 0.5; g.drawImage(off, 0, 0);
+    g.restore(); g.filter = 'none'; g.globalAlpha = 1;
     p.tex.needsUpdate = true;
   }
 }
