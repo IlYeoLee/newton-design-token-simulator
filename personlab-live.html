@@ -68,9 +68,6 @@
       <div class=row><label>크기</label><input id=size type=range min=200 max=640 step=20 value=240><span class=v id=vsize>240</span></div>
       <button id=b-live>▶ 라이브 (지금 종목)</button>
       <div class=hint id=livehint>지금 시뮬이 돌고 있는 종목 한 칸만 실시간으로 갱신한다 — 시뮬은 한 번에 한 종목만 돈다.</div>
-      <button id=b-export>⬇ 영상 뽑기 (1024 · webm)</button>
-      <div class=hint>지금 종목의 인물 판을 클립 한 루프만큼 통녹화해서 내려받는다.
-        배경은 위 배경 토글을 따른다. 보정 후 다시 가져오면 이식한다.</div>
     </fieldset>
     <div id=log>준비됨. 버튼을 누르면 시뮬을 그 종목으로 돌린 뒤 인물 판만 떠서 그린다.</div>
   </div>
@@ -156,7 +153,7 @@ async function clipReady() {
 /** 인물 판을 **정면 직교**로 렌더 → 픽셀을 읽어 셀 캔버스에 올린다.
  *  반드시 시뮬 렌더러(=같은 GL 컨텍스트)로 그린다. 재질·텍스처·RT 가 그 컨텍스트 소유라
  *  다른 렌더러를 새로 만들면 전부 빈 텍스처가 된다. 재현이 아니라 이식이어야 한다. */
-function shoot(key, bg, size = CELL) {
+function shoot(key, bg) {
   const D = W().__dbg, T = D.THREE, R = D.renderer;
   let mesh = null;
   D.scene.traverse(o => {
@@ -187,19 +184,20 @@ function shoot(key, bg, size = CELL) {
   const scene = new T.Scene(); scene.add(proxy);
 
   // RT 는 한 번만 만든다 — 라이브 루프에서 매 프레임 생성/폐기하면 GPU 메모리가 요동친다
-  const rt = ((W().__plabRTs ||= {})[size] ||= new T.WebGLRenderTarget(size, size));
+  const RT = (W().__plabRT ||= new T.WebGLRenderTarget(CELL, CELL));
+  const rt = RT;
   const prevRT = R.getRenderTarget(), prevC = R.getClearColor(new T.Color()), prevA = R.getClearAlpha();
   R.setRenderTarget(rt);
   R.setClearColor(bg === 'black' ? 0x000000 : 0xffffff, 1);
   R.clear();
   R.render(scene, cam);
-  const px = new Uint8Array(size * size * 4);
-  R.readRenderTargetPixels(rt, 0, 0, size, size, px);
+  const px = new Uint8Array(CELL * CELL * 4);
+  R.readRenderTargetPixels(rt, 0, 0, CELL, CELL, px);
   R.setRenderTarget(prevRT); R.setClearColor(prevC, prevA);
 
-  const out = new Uint8ClampedArray(size * size * 4);   // readRenderTargetPixels 는 y 가 뒤집혀 온다
-  for (let y = 0; y < size; y++)
-    out.set(px.subarray((size - 1 - y) * size * 4, (size - y) * size * 4), y * size * 4);
+  const out = new Uint8ClampedArray(CELL * CELL * 4);   // readRenderTargetPixels 는 y 가 뒤집혀 온다
+  for (let y = 0; y < CELL; y++)
+    out.set(px.subarray((CELL - 1 - y) * CELL * 4, (CELL - y) * CELL * 4), y * CELL * 4);
   // ★ 본판은 컴포저 OutputPass 가 linear→sRGB 인코딩을 얹는데, 이 랩의 직접 렌더는 그게 없어
   //   실화면보다 어둡고 붉게 찍혔다(유저: '존나 빨개' — 랩 캡처만의 왜곡). 동일 인코딩을 적용한다.
   const enc = v => {
@@ -211,7 +209,7 @@ function shoot(key, bg, size = CELL) {
   for (let i = 0; i < out.length; i += 4) {
     out[i] = ENC[out[i]]; out[i + 1] = ENC[out[i + 1]]; out[i + 2] = ENC[out[i + 2]];
   }
-  return new ImageData(out, size, size);
+  return new ImageData(out, CELL, CELL);
 }
 
 /** 인물 픽셀 **전체 평균**. 상위 N% 만 보면 몇 안 되는 진한 픽셀이 전체를 대표해
@@ -306,44 +304,6 @@ function setLive(on) {
   log(`${KINDS[liveKey].label} 라이브 — 영상이 그대로 돈다.`);
 }
 $('b-live').onclick = () => setLive(!liveTimer);
-
-/** 지금 종목의 인물 판을 클립 한 루프만큼 1024px 로 통녹화해 webm 으로 내려받는다.
- *  프레임 스테핑(시크)이 아니라 실시간 녹화다 — 블러 피라미드·두께장이 시간 누적이라
- *  시크로 끊으면 실화면과 다른 그림이 나온다. 화질은 비트레이트로 확보한다. */
-async function exportClip() {
-  if (!liveKey) { log('먼저 종목을 하나 불러온 뒤 뽑아 주세요.'); return; }
-  const S = 1024;
-  const v = [...W().document.querySelectorAll('video')]
-    .find(x => x.readyState >= 3 && !x.paused && x.duration > 0);
-  if (!v) { log('재생 중인 클립을 못 찾음 — 종목을 다시 불러와 주세요.'); return; }
-  setLive(false);
-  const cv = document.createElement('canvas'); cv.width = cv.height = S;
-  const g = cv.getContext('2d');
-  const rec = new MediaRecorder(cv.captureStream(30),
-    { mimeType: 'video/webm;codecs=vp9', videoBitsPerSecond: 50e6 });
-  const chunks = [];
-  rec.ondataavailable = e => chunks.push(e.data);
-  const done = new Promise(r => { rec.onstop = r; });
-  v.currentTime = 0;
-  await sleep(500);                  // 시크 직후 블러 피라미드 재안정화
-  rec.start();
-  const t0 = performance.now(), dur = v.duration * 1000;
-  const btn = $('b-export'); btn.disabled = true;
-  while (performance.now() - t0 < dur) {
-    const img = shoot(liveKey, BG, S);
-    if (img) g.putImageData(img, 0, 0);
-    log(`녹화 중… ${((performance.now() - t0) / 1000).toFixed(1)} / ${(dur / 1000).toFixed(1)}초`);
-    await new Promise(requestAnimationFrame);
-  }
-  rec.stop(); await done;
-  btn.disabled = false;
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob(chunks, { type: 'video/webm' }));
-  a.download = `person-${liveKey}-${BG}-${S}.webm`;
-  a.click();
-  log(`내려받음: person-${liveKey}-${BG}-${S}.webm — 보정해서 가져오면 이식합니다.`);
-}
-$('b-export').onclick = exportClip;
 
 // 열자마자 자동 실행 — 새로고침했는데 빈 화면이면 랩이 아니다(유저: "새로고침 때 안 뜬다고").
 //   비교 랩의 기본 상태는 '세 개가 이미 나란히 있는 것'이어야 한다. 버튼은 다시 찍을 때만 쓴다.
