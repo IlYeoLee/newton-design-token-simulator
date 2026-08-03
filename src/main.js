@@ -4394,10 +4394,22 @@ void main(){
     session.tapAdvance = () => { tapN++; return _ot(); };
     const _on = session.next.bind(session);
     session.next = (f) => { nextN++; return _on(f); };
+    const TAG = typeof __BUILD_TAG__ !== 'undefined' ? __BUILD_TAG__ : 'dev';
     setInterval(() => {
-      const st = session.active ? session.curStage?.id : 'IDLE';
-      const blocked = session.pinStage ? ' PIN:' + session.pinStage : '';
-      bs.textContent = `build ${typeof __BUILD_TAG__ !== 'undefined' ? __BUILD_TAG__ : 'dev'} · ${st} · tap ${tapN} · next ${nextN}${blocked}`;
+      const st = session.active ? (session.curStage?.id || '?') : 'IDLE';
+      // 지면·벽 프레임이 '실제로 그리는' 스테이지 — 세션과 다르면 그게 곧 버그다(빨간 경고)
+      let fv = '—', wv = '—';
+      try {
+        if (typeof floorGLOn !== 'undefined' && floorGLOn && floorGL?.stage) fv = floorGL.stage;
+        else if (typeof loadedFloorView !== 'undefined' && loadedFloorView)
+          fv = loadedFloorView.match(/stage=([A-Za-z0-9_]+)/)?.[1] || 'READY';
+      } catch (e) { fv = 'ERR'; }
+      try { if (typeof wallGLOn !== 'undefined' && wallGLOn && wallGL?.stage) wv = wallGL.stage; } catch (e) { wv = 'ERR'; }
+      const mm = session.active && ((fv !== '—' && fv !== st) || (wv !== '—' && wv !== st));
+      bs.textContent = `build ${TAG} · 세션 ${st} · 지면 ${fv} · 벽 ${wv} · tap ${tapN} · next ${nextN}`
+        + (session.pinStage ? ' · PIN' : '') + (mm ? '  ⚠ 화면≠세션' : '');
+      bs.style.color = mm ? '#ff6666' : 'rgba(170,176,186,.95)';
+      bs.style.fontSize = '13px';
     }, 300);
   }
 
