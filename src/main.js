@@ -5617,7 +5617,7 @@ void main(){
   if (typeof NO_CSS !== 'undefined' && NO_CSS) floorWrap.style.display = 'none';
   floorObj.visible = false;
   frameCssScene.add(floorObj);
-  let loadedFloorView = null;
+  let loadedFloorView = null, loadedFloorGL = false;   // 어떤 백엔드(GL/CSS3D)가 로드했는지도 기억 — 전환 프레임 fp 공백 레이스에서 스테일 분열 방지
   // ── 바닥 UI WebGL 경로(B안, 플래그 병행) — CSS3D와 같은 변환을 받는 평면. 깊이 테스트로 x봇에 가려진다.
   //   ?floorgl=1 일 때 floor-scene.html 스테이지만 이 경로를 타고, 나머지는 기존 CSS3D 그대로.
   //   기본값 = WebGL. 되돌리려면 ?floorgl=0 (CSS3D 문서 경로가 그대로 남아 있다).
@@ -5647,7 +5647,7 @@ void main(){
     // 팩이 바뀌었거나 세션이 끊겼으면 로드 캐시를 비운다 → 재진입 시 t=0 부터 인트로 재생.
     // (예전엔 러닝→복싱→러닝 왕복에서 같은 src 라 재로드가 안 돼 애니메이션이 이미 끝난 상태로 보였다)
     const _sp = session.active ? session.sport : null;
-    if (_sp !== _lastSport) { _lastSport = _sp; loadedView = null; loadedFloorView = null; }
+    if (_sp !== _lastSport) { _lastSport = _sp; loadedView = null; loadedFloorView = null; loadedFloorGL = false; }
     // CSS3D 레이어 = WebGL 캔버스에 매 프레임 정확 정합 — 창≠캔버스(크기·aspect)여도 원근·스케일 일치
     //   (이게 안 맞으면 디자인이 벽보다 크게 부풀어 프레임영역 밖으로 넘침 — 유저 창 크기 의존 버그의 원인)
     const cvr = renderer.domElement.getBoundingClientRect();
@@ -5767,7 +5767,10 @@ void main(){
       [session.countGroup, session.countRing].forEach(o => { if (o) o.visible = false; });
     }
     if (floorShown) {
-      if (fView.src !== loadedFloorView) {
+      // ★ src 만 비교하면 전환 순간 fp 가 한 프레임 비어 CSS3D 가 먼저 로드했을 때,
+      //   GL 이 복귀해도 '이미 로드됨'으로 건너뛰어 캔버스가 이전 스테이지(READY)에 영영 얼어붙는다
+      //   (유저: 탭해도 화면이 안 넘어감 — 세션은 A1인데 지면은 READY. 계기판 실측으로 확정).
+      if (fView.src !== loadedFloorView || floorGLOn !== loadedFloorGL) {
         const dur = STAGE_DUR[session.curStage?.id] ?? session.curStage?.dur ?? 8;
         const _sid2 = session.curStage?.id;
         const pv = stepPreviewSec(_sid2), pvn = pv ? stepLoops(_sid2) : 0;
@@ -5789,7 +5792,7 @@ void main(){
           const t = floorIframe; floorIframe = back; floorIframeBack = t;
         });
         }
-        loadedFloorView = fView.src;
+        loadedFloorView = fView.src; loadedFloorGL = floorGLOn;
         _fpSmooth = null;   // 스테이지 전환 = 앵커 스냅(슬라이딩 방지)
       }
       if (floorGLOn) floorGL.update(_uiDt);
