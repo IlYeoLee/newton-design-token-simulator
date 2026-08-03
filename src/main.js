@@ -4390,6 +4390,26 @@ void main(){
     const _on = session.next.bind(session);
     session.next = (f) => { nextN++; return _on(f); };
     const TAG = typeof __BUILD_TAG__ !== 'undefined' ? __BUILD_TAG__ : 'dev';
+    // ── 블랙박스: 유저의 실제 조작·상태 전이를 기록 — 계기판 클릭 = 클립보드 복사 ──
+    const EV = window.__evlog = [('load ' + new Date().toTimeString().slice(0, 8))];
+    const ev = m => { EV.push(new Date().toTimeString().slice(3, 8) + ' ' + m); if (EV.length > 60) EV.shift(); };
+    document.addEventListener('pointerdown', e => {
+      const t = e.target.closest('button, [data-pack], canvas');
+      if (!t) return;
+      ev('클릭 ' + (t.id || t.dataset?.pack || t.dataset?.pp || t.tagName).slice(0, 24) + ' "' + (t.textContent || '').trim().slice(0, 14) + '"');
+    }, true);
+    const _oe = session._enter.bind(session);
+    session._enter = () => { const r = _oe(); ev('스테이지→' + session.curStage?.id); return r; };
+    const _os = session.start.bind(session);
+    session.start = (sp) => { ev('세션시작 ' + sp); return _os(sp); };
+    const _ostop = session.stop.bind(session);
+    session.stop = () => { ev('세션중지'); return _ostop(); };
+    bs.style.pointerEvents = 'auto'; bs.style.cursor = 'pointer';
+    bs.title = '클릭 = 진단 로그 복사';
+    bs.addEventListener('click', () => {
+      const dump = bs.textContent + '\n' + EV.join('\n');
+      navigator.clipboard?.writeText(dump).then(() => { bs.style.background = '#2a6'; setTimeout(() => bs.style.background = 'rgba(0,0,0,.35)', 600); });
+    });
     setInterval(() => {
       const st = session.active ? (session.curStage?.id || '?') : 'IDLE';
       // 지면·벽 프레임이 '실제로 그리는' 스테이지 — 세션과 다르면 그게 곧 버그다(빨간 경고)
