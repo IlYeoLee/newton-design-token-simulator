@@ -673,23 +673,28 @@ for (let i = 0; i < N; i++) {
     const vids = [...document.querySelectorAll('video')].filter(v => isFinite(v.duration) && v.duration > 0);
     Promise.all(vids.map(async v => {
       const want = v.loop ? (tt % v.duration) : Math.min(tt, v.duration);
-      const seekTo = (pos, ms) => new Promise(r => {
-        let settled = false;
-        const fin = () => { if (settled) return; settled = true; r(); };
-        if (v.requestVideoFrameCallback) v.requestVideoFrameCallback(() => fin());
-        else v.addEventListener('seeked', fin, { once: true });
-        v.currentTime = pos;
-        setTimeout(fin, ms);
-      });
-      for (let k = 0; k < 4; k++) {
-        // 목표 위치에 **그리고** 그 프레임이 실제로 올라와 있으면 끝.
-        if (Math.abs(v.currentTime - want) < 1e-3 && v.readyState >= 2) return;
-        // 재시도는 '멀리 던졌다 돌아오기' — 같은 값 대입은 no-op 이라 시크 자체가 안 걸린다.
-        //   돌아오는 대입은 직전 값과 다르므로 반드시 진짜 시크가 되고 디코드가 새로 돈다.
-        if (k > 0) await seekTo(want > 0.5 ? want - 0.5 : Math.min(v.duration, want + 0.5), 900);
-        await seekTo(want, 2500);
+      //     ⑤ **이벤트를 기다리면 안 된다.** requestVideoFrameCallback·seeked 는 렌더링 스텝에
+      //        얹혀 오는데, 앱은 프레임 하나에 5~9초씩 WebGL 을 돌며 메인스레드를 붙잡는다.
+      //        시크 자체는 끝났는데 통지가 그 뒤로 밀려서, 안전장치가 먼저 터지고 그 프레임은
+      //        디코드 전 상태(readyState 1)로 찍힌다 = 인물 실종. 재시도해도 같은 이유로 또 밀린다.
+      //        실측(08-04): buffered 0.00-8.00 (클립 전체가 버퍼에 있음) · networkState 1 (IDLE) ·
+      //        error null 인데 readyState 만 1 — 데이터가 없어서가 아니라 통지가 안 온 것이다.
+      //        → 상태를 **폴링**한다. setTimeout 은 메인스레드가 잠깐이라도 비면 돌고,
+      //          그때 readyState 가 갱신돼 있다. 이벤트 도착 여부와 무관해진다.
+      const ok = () => Math.abs(v.currentTime - want) < 0.02 && v.readyState >= 2;
+      if (!ok()) {
+        v.currentTime = want;
+        for (let k = 0; k < 260 && !ok(); k++) {          // 최대 ≈8s
+          await new Promise(r => setTimeout(r, 30));
+          // 60틱(≈1.8s)마다 다시 건다 — 같은 값 대입은 no-op 이라 한 번 흔들었다 돌아온다.
+          if (k && k % 60 === 0 && !ok()) {
+            v.currentTime = want > 0.5 ? want - 0.5 : Math.min(v.duration, want + 0.5);
+            await new Promise(r => setTimeout(r, 30));
+            v.currentTime = want;
+          }
+        }
       }
-      if (v.readyState < 2) window.__seekMiss = (window.__seekMiss || 0) + 1;   // 조용히 넘기지 않는다
+      if (!ok()) window.__seekMiss = (window.__seekMiss || 0) + 1;   // 조용히 넘기지 않는다
     })).then(() => {
       // 첫 rAF 는 앱의 갱신·렌더가 끝난 뒤에 돈다(앱 루프가 먼저 등록돼 있다) — 거기서 무대를
       // 다시 끄고 카메라를 투사면에 다시 맞추면, 두 번째 틱의 렌더가 그 상태로 그린다.
