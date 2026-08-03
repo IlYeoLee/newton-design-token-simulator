@@ -1082,10 +1082,11 @@ export function drawStemArrow(g, W, H, t, ENV, opts = {}) {
   const grad = g.createLinearGradient(0, y0, 0, yHead);
   // 뿌리는 알파 0으로 사라지되(유저 확정) 몸통은 금방 진해진다 — 예전 램프(0.10/0.38)는 스템 대부분이
   // 반투명이라 지면에 투사하면 통째로 흐려 보였음(유저: 화살표가 왜 이렇게 흐려졌어).
+  // 뿌리 투명 구간 연장(0.10→0.18 에서야 첫 스톱) — 출발점이 딱 끊겨 보였다(유저: 부드럽게)
   grad.addColorStop(0.00, rgba(0.55, 0));
-  grad.addColorStop(0.10, rgba(0.64, 0.45 * A0));
-  grad.addColorStop(0.32, rgba(0.76, 0.85 * A0));
-  grad.addColorStop(0.62, rgba(0.88, 0.98 * A0));
+  grad.addColorStop(0.18, rgba(0.64, 0.30 * A0));
+  grad.addColorStop(0.40, rgba(0.76, 0.80 * A0));
+  grad.addColorStop(0.65, rgba(0.88, 0.98 * A0));
   grad.addColorStop(1.00, rgba(0.97, A0));
   // 볼류메트릭 언더글로우 — 같은 폴리곤을 1.9배 넓혀 블러 밴드로. shadowBlur 없이 스템이
   //   판에 붙은 종이처럼 평평했다(유저: 발자국 토큰과 감도 차이). 링의 volRing 과 같은 취지.
@@ -1163,15 +1164,17 @@ export function drawCurveArrow(g, W, H, pts01, t, ENV, opts = {}) {
     const need = tipS * 0.42 * Math.min(1, (prog - 0.28) / 0.22);
     while (cut > 1 && acc < need) { acc += Math.hypot(path[cut][0] - path[cut - 1][0], path[cut][1] - path[cut - 1][1]); cut--; }
   }
-  // 언더글로우 밴드(넓고 옅게) → 본선 — 스템의 볼류메트릭 규약과 동일 취지
+  // 언더글로우 밴드(넓고 옅게) → 본선 — 스템의 볼류메트릭 규약과 동일 취지.
+  //   2.8배·0.28 은 회전 호가 통통해 보였다(유저) — 1.9배·0.16 로 슬림. 뿌리 쪽은
+  //   k² 로 한 번 더 눌러 출발 지점이 더 투명하고 부드럽게 태어난다.
   for (const pass of [0, 1]) {
     for (let i = 1; i <= cut; i++) {
       const k = i / head;
       const f = Math.min(1, k / tail);
       const a = f * f * (3 - 2 * f) * A0;
-      g.globalAlpha = pass ? a : a * 0.28;
+      g.globalAlpha = pass ? a : a * 0.16 * k;
       g.strokeStyle = lut(0.55 + 0.42 * k);
-      g.lineWidth = (1.1 + 11.9 * k) * s * AW * (pass ? 1 : 2.8);
+      g.lineWidth = (1.1 + 11.9 * k) * s * AW * (pass ? 1 : 1.9);
       g.beginPath(); g.moveTo(path[i - 1][0], path[i - 1][1]); g.lineTo(path[i][0], path[i][1]); g.stroke();
     }
   }

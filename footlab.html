@@ -832,8 +832,8 @@ function drawPrimsCard(t) {
   drawRotate(g, 220, { r: 0.3, sweep: 0.66, dir: 1, width: 1, tail: 0.68, tempo: 0.5 }, look, t, ENV);
   g.restore();
   // ③ 잽잽훅 콤보 — 펀치 라인 정본(drawPunchLine): 노드 1·2·3 + 연결선 + 서세스 채움
-  g.save(); g.translate(800, 40);
-  drawPunchLine(g, 280, { node: 1, numS: 1 }, look, t, ENV);
+  g.save(); g.translate(780, 5);
+  drawPunchLine(g, 400, { node: 1, numS: 1 }, look, t, ENV);
   g.restore();
   // ④ 화살표 수직·수평 — LINE 스템 정본(drawStemArrow)을 축만 돌려서. 원본 크기 + 살아있는
   //   draw-on 루프(시뮬과 같은 애니메이션 — 유저: 애니메이션이 보여야 한다).
@@ -863,7 +863,7 @@ function drawPrimsCard(t) {
   out.font = "600 14px -apple-system,'Malgun Gothic',sans-serif"; out.textAlign = 'center'; out.fillStyle = '#98A1AD';
   ['① 대기', '② 판정', '③ 성공'].forEach((n, i) => out.fillText(n, 20 + i * 160 + 75, 300));
   out.fillText('회전 — 목·어깨', 630, 330);
-  out.fillText('잽잽훅 — 콤보 노드 1·2·3', 940, 348);
+  out.fillText('잽잽훅 — 콤보 노드 1·2·3', 980, 420);
   out.fillText('화살표 ↑ · →', 800, 780);
   out.fillText('궤적 — 코멧 헤드', 1320, 780);
 }
