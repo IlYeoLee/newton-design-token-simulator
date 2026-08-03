@@ -1073,7 +1073,13 @@ export function drawStemArrow(g, W, H, t, ENV, opts = {}) {
   // 소멸은 알파 그라디언트가 담당 — 뿌리 알파 0에서 시작해 위로 갈수록 뜨거워진다.
   const rgba = (v, a) => lut(v).replace('rgb(', 'rgba(').replace(')', `,${a.toFixed(3)})`);
   const w0 = 1.1 * sw * AW, w1 = 13 * sw * AW;        // 뿌리 폭(거의 0) → 꼭짓점 폭
-  const grad = g.createLinearGradient(0, y0, 0, yEnd);
+  // ★ 스템 턱(tuck) — 촉이 보이면 스템 끝을 촉 뒤로 당겨 숨긴다. 촉 SVG는 뒤가 파인
+  //   셰브런이라, 스템 머리(w1)가 그 파임 사이로 삐져나와 막대가 뚫고 나온 것처럼
+  //   보였다(유저 스샷 08-04 '제발'). 촉 알파 램프와 같은 속도로 당겨 점프가 없다.
+  const tipS0 = 34 * sw * (0.7 + 0.3 * AW);
+  const tuck = (!opts.noTip && draw > 0.28) ? Math.min(1, (draw - 0.28) / 0.22) * tipS0 * 0.42 : 0;
+  const yHead = yEnd + tuck;
+  const grad = g.createLinearGradient(0, y0, 0, yHead);
   // 뿌리는 알파 0으로 사라지되(유저 확정) 몸통은 금방 진해진다 — 예전 램프(0.10/0.38)는 스템 대부분이
   // 반투명이라 지면에 투사하면 통째로 흐려 보였음(유저: 화살표가 왜 이렇게 흐려졌어).
   grad.addColorStop(0.00, rgba(0.55, 0));
@@ -1085,12 +1091,12 @@ export function drawStemArrow(g, W, H, t, ENV, opts = {}) {
   g.fillStyle = grad;
   g.beginPath();
   g.moveTo(cx - w0 / 2, y0); g.lineTo(cx + w0 / 2, y0);
-  g.lineTo(cx + w1 / 2, yEnd); g.lineTo(cx - w1 / 2, yEnd);
+  g.lineTo(cx + w1 / 2, yHead); g.lineTo(cx - w1 / 2, yHead);
   g.closePath(); g.fill();
   g.globalAlpha = A0;
   if (draw > 0.28 && !opts.noTip) {   // noTip = 촉 없는 자루(감속 바 등)
     // 촉은 '자라는 머리'에 항상 붙는다(고정 위치 X) → 자라는 동안에도 화살표로 읽힌다.
-    const tipS = 34 * sw * (0.7 + 0.3 * AW);   // 촉 크기(유저 3회 축소) — 스템:촉 비율 정본
+    const tipS = tipS0;   // 촉 크기(유저 3회 축소) — 스템:촉 비율 정본
     const tipA = Math.min(1, (draw - 0.28) / 0.22) * A0;
     const ty = yEnd + tipS * 0.30;                     // 머리보다 살짝 뒤 = 촉 끝이 스템 끝과 맞음
     g.globalAlpha = tipA;
