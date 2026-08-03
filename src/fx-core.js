@@ -763,13 +763,13 @@ vec3 okmix(vec3 a, vec3 b, float t){ return _ok2l(mix(_l2ok(a), _l2ok(b), t)); }
 //   LUT 는 OKLab 으로 256스텝 보간해 구운 것이라 이음매가 원천적으로 없고 4색을 다 지난다.
 //   상태의 정체성은 이제 색 조합이 아니라 **온도 창(lo~hi)** 이 정한다.
 #define T_PREV_LO 0.30
-#define T_PREV_HI 0.99
+#define T_PREV_HI 0.93   // 대기 발자국도 아이스 끝단 컷 — 하늘 비율 축소(유저)
 #define T_HOT_LO  0.10
-#define T_HOT_HI  1.00
+#define T_HOT_HI  0.94   // 아이스(프리즘) 비율 축소 — 인물 룩 대비 하늘색 과함(유저)
 #define T_ACT_LO  0.06
 #define T_ACT_HI  0.86   // 몸체 상한 = SAND 정점 — 더 진한 주황(유저 2차)
 #define T_HOLD_LO 0.04
-#define T_HOLD_HI 0.92
+#define T_HOLD_HI 0.89   // 동일 — 하늘 비율 소폭 다운
 // 온도 → 색. **뉴턴 LUT 한 벌만** 쓴다.
 vec3 fillT(float q, float lo, float hi){
   float x = clamp(mix(lo, hi, clamp(q, 0.0, 1.0)), 0.0, 1.0);
@@ -787,7 +787,7 @@ vec3 fillActive(float q){  return fillT(q, T_ACT_LO,  T_ACT_HI);  }
 vec3 fillHold(float q){    return fillT(q, T_HOLD_LO, T_HOLD_HI); }
 // Success 는 코어가 가장 뜨겁고(하한이 낮다) 바깥이 백열로 열린다 — 승리의 온도.
 // 상한을 1.0(순백) 이 아니라 0.92 로 — 순백까지 열면 코어와 분리된 흰 링이 생긴다(유저: 아이스 과함).
-vec3 fillSuccess(float q){ return fillT(q, 0.03, 1.00); }
+vec3 fillSuccess(float q){ return fillT(q, 0.03, 0.94); }   // 성공 블룸도 아이스 끝단 컷(유저: 하늘 과함)
 // over 연산 누적 (premultiplied) — 원본 mix(col, X, k) 체인의 기계적 등가 변환
 void lay(inout vec4 A, vec3 X, float k){ A.rgb = A.rgb * (1.0 - k) + X * k; A.a = A.a * (1.0 - k) + k; }
 vec4 markState(vec2 uv, float state, float prog, float strong, float t){
