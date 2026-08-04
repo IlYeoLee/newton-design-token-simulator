@@ -448,7 +448,12 @@ export class WallGL {
       ctx.translate(0, 26 * (1 - e));
       const k = 0.95 + 0.05 * e;
       ctx.translate(cx0 + cw / 2, cy0 + ch / 2); ctx.scale(k, k); ctx.translate(-(cx0 + cw / 2), -(cy0 + ch / 2));
-      rrFill(ctx, cx0, cy0, cw, ch, 48, '#fff');   // 중첩 라운드: 래퍼 76 − 여백 28
+      // ★ 라운드 사다리 — 래퍼 76 · 큰 박스 48 · **작은 셀 24**(≈ ÷1.6 한 단계씩).
+      //   중첩 규칙(래퍼 76 − 여백 28 = 48)은 큰 판 기준이라 작은 셀에 그대로 쓰면 안 된다:
+      //   Setup 셀은 높이 103 인데 R48 이면 h/2(51.5)의 93% — 사실상 알약이 된다
+      //   (유저: 알값이 거의 999 던데 규칙성을 가지고 줄여달라).
+      //   24 면 h/2 의 47% 로, Total 박스(378·48 = 25%)와 같은 결로 읽힌다.
+      rrFill(ctx, cx0, cy0, cw, ch, 24, '#fff');
       txt(ctx, lbl, cx0 + CIN, cy0 + ch / 2, 34, 400, SOFT, { ls: -1.13, base: 'middle' });
       txt(ctx, val, cx0 + cw - CIN, cy0 + ch / 2, 38, 700, SOFT, { ls: -1.27, base: 'middle', align: 'right' });
       ctx.restore();

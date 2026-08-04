@@ -370,6 +370,9 @@ uniform float uPCalB;        // band(톤) 오프셋
 //     명암이 진한 부분에 잉크로 넣어라 — 아직도 밝다"). 세기 · 문턱(이 밝기 아래를 그늘로 본다).
 //     uPInk 0 = 도입 전과 픽셀 동일(롤백 지점). 바닥(personLook)에만 걸린다 — 벽은 personColor 직행.
 uniform float uPInk, uPInkT;
+// 얼굴 아래 밝기 리프트 — 기본 0(끔). 복싱 벽 인물만 켠다. uFaceE = 얼굴 타원(패널 uv, xy=중심 zw=반경)
+uniform float uFaceLift;
+uniform vec4 uFaceE;
 // 잉크 색 = 팔레트 RED 그 자체. **LUT 를 경유하지 않는다** — personColor 의 대역 하한이 P_LO(0.40)
 //   이라 t 는 아무리 낮춰도 0.33 아래로 못 가고, LUT 의 순수 RED 평지(t ≤ 0.30)에 영영 못 닿는다.
 //   T 를 미는 방식으로 '더 빨갛게'를 시도하면 여기서 막힌다 — 그게 '아직도 밝다'의 구조적 원인이다.
@@ -551,6 +554,20 @@ vec4 personAura(float mBody, float wide, float lumSharp, float lumBase, float fa
   float band = 0.3 + 0.7 * clamp((pow(clamp(lum, 0.0, 1.0), 0.59) - 0.5) * 0.8 + 0.72 + uPCalB, 0.0, 1.0);
   float bandB = 0.3 + 0.7 * clamp((pow(clamp(lb, 0.0, 1.0), 0.59) - 0.5) * 0.8 + 0.72 + uPCalB, 0.0, 1.0);
   band = mix(band, 0.17, face * 0.92);   // 얼굴 저열 — 0.10 은 광나는 구슬처럼 떴다(유저). 살짝 톤을 남긴다
+  // ★ 얼굴 아래 리프트 — 가드를 올리면 얼굴·목·가슴이 한 덩어리로 붙어 글러브와 구분이
+  //   안 됐다(유저 08-04). 실측: 얼굴 휘도 108 · 가슴 110 — 둘이 사실상 같은 색이었다.
+  //   (글러브는 148~159 로 이미 충분히 밝다 — 문제는 얼굴↔가슴이었다)
+  //   은닉 범위를 좁히는 걸로는 못 푼다. 좁히면 이목구비가 뜨고 넓히면 글러브를 먹는다.
+  //   그래서 **얼굴 타원 바로 아래**만 band 를 올려 목–턱에 경계를 만든다.
+  //   uFaceLift = 0 이면 이 항이 통째로 죽는다 — 러닝·농구는 손대지 않는다(기본 0).
+  if (uFaceLift > 0.0 && uFaceE.z > 0.0) {
+    float dx = (uv.x - uFaceE.x) / max(uFaceE.z, 1e-4);
+    float below = (uFaceE.y - uv.y) / max(uFaceE.w, 1e-4);   // 얼굴 아래로 얼마나 (uv.y 는 위로 +)
+    //   가로는 얼굴 폭 안, 세로는 타원 아래 0.6~2.4 반경 구간. 얼굴 자체(face)에는 안 건다.
+    float lift = smoothstep(0.6, 1.3, below) * (1.0 - smoothstep(2.0, 2.8, below))
+               * (1.0 - smoothstep(0.9, 1.7, abs(dx))) * (1.0 - face);
+    band = min(1.0, band + uFaceLift * lift);
+  }
   // 얇은 부위(팔·다리) 심화 — wide 낮음 = 얇음. 유저: "다리만 조금 더 진하게"
   band = min(1.0, band + 0.115 * (1.0 - smoothstep(0.40, 0.75, wide)) * (1.0 - face));   // 다리가 최심 주황(#FF3300 대)까지 닿게(유저)
   // ⚠ 세로 부위 프로파일(허리·무릎·종아리 대역)은 **폐기** — A1 처럼 크롭된 판에선 uv 가

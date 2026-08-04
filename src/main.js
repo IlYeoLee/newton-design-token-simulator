@@ -3127,6 +3127,12 @@ void main(){
         tex: { value: demoTex }, uTrail: { value: trailRTs[0].texture }, uHeat: { value: heatRTs[0].texture }, uHeatN: { value: heatNarrowRT.texture }, uLUT: { value: getLUT() },
         uTime: { value: 0 }, uNoise: { value: 0 }, uW: { value: 1 }, uDetail: { value: 0.62 }, uTrailGain: { value: 1 }, uGrain: { value: 0 }, uTone: { value: 0 }, uLive: { value: 0 },
         uFace: { value: new THREE.Vector4(0, 0, 0, 0) },   // scripts/bake_face_track.mjs 산출물이 채운다
+        // 얼굴 아래 밝기 리프트(fx-core personAura) — 가드를 올리면 얼굴·목·가슴이 한 덩어리로
+        //   붙어 글러브와 구분이 안 되던 것(유저 08-04, 실측 얼굴 108 vs 가슴 110).
+        //   벽 인물에서만 켠다. 0 이면 항이 통째로 죽어 러닝·농구는 그대로다.
+        //   uFaceE 는 uFace 와 같은 값을 준다(fx-core 쪽 이름).
+        uFaceLift: { value: 0 },   // 0 = 끔. 밝기로는 얼굴·글러브가 안 갈린다(08-04 실측: 107 vs 126 이어도 눈엔 같은 주황 덩어리 — R 이 255 로 포화라 G 차이가 안 읽힌다). 경계선/림 방식으로 재시도해야 한다.
+        uFaceE: { value: new THREE.Vector4(0, 0, 0, 0) },
         uPSat: { value: 1.32 }, uPSweep: { value: 0 }, uPHi: { value: 0.86 }, uPDepth: { value: 0.34 }, uPCoral: { value: 0 }, uPExp: { value: 0.5 }, uPForm: { value: 0 }, uPLo: { value: 0.12 }, uPHiL: { value: 0.85 }, uPLumLin: { value: 0 }, uPCalWave: { value: 1 }, uPCalD: { value: 1 }, uPCalW: { value: 1 }, uPCalB: { value: 0 },
         uPInk: { value: 0.85 }, uPInkT: { value: 0.42 },   // PERSON_GLSL 공용 — setPersonUniforms 가 주입
         uCropC: { value: new THREE.Vector2(0.5, 0.5) }, uCropS: { value: new THREE.Vector2(1, 1) },
@@ -3524,10 +3530,14 @@ void main(){
       PU.uFace.value.set(
         0.5 + (r.x - 0.5) / cs.x,
         0.5 + ((1 - r.y) - 0.5) / cs.y,
+        // ★ 크기로는 못 푼다(08-04 실측): 1.10/1.20 으로 좁히면 이목구비가 뜨고,
+        //   1.7/1.5 로 넓히면 턱 옆 글러브까지 먹는다. 은닉 범위는 원래 값을 지키고,
+        //   글러브와의 구분은 **밝기**로 만든다(아래 uFaceLift).
         (r.r * 1.7) / cs.x,     // 머리 반폭보다 넉넉히 — 경계가 얼굴을 가로지르면 단차로 보인다
         (r.h * 1.5) / cs.y,
       );
     } else PU.uFace.value.set(0, 0, 0, 0);
+    if (PU.uFaceE) PU.uFaceE.value.copy(PU.uFace.value);   // fx-core 쪽 이름으로 같은 타원을 넘긴다
     PU.uW.value = FXP.person?.blur ?? 1;   // 엣지 블러 — 랩 person 슬라이더 (누락돼 기본 1.0으로 돌던 버그)
     PU.uGrain.value = FXP.person?.grain ?? 0;
     PU.uTone.value = FXP.person?.tone ?? 0;
