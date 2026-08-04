@@ -1008,6 +1008,16 @@ export class Session {
     numL.visible = false; numR.visible = false;
     const a2cd = floorNum(0, 0, -1.35, 0.22); a2cd.visible = false;   // 시범→따라하기 3-2-1 카운트다운
     this.a2press = { fmL, fmR, numL, numR, cd: a2cd, fill: 0, _cnt: 5, _succ: 0, _succFM: null };
+    // 스탠스 라인 — 두 발을 잇는 은은한 대시(런지 보폭이 곧 자세다). 복싱 높이 캘리브레이션
+    //   라인과 같은 대시 언어 재사용 — 새 문법을 만들지 않는다. 틱에서 발 위치 따라 갱신.
+    {
+      const lm = new THREE.LineDashedMaterial({ color: NUM.sand, dashSize: 0.045, gapSize: 0.055, transparent: true, opacity: 0.0, depthWrite: false });
+      const lgm = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]);
+      const link = new THREE.Line(lgm, lm);
+      link.renderOrder = 5;
+      this.a2press.link = link;
+      g.add(link);
+    }
     g.add(fmL.group, fmR.group, a2cd);
 
     g = this._mk('A3');
@@ -2087,6 +2097,22 @@ export class Session {
       // 딛는 발: 둘 다 Active(빈 링). 홀드 중이면 같은 Hold 페이즈에서 uProg만 0→1 채워짐(부드러운 전환, 팝 없음)
       act.setHold(Math.max(0.02, P.fill));   // 0.02 = 빈 링(Active 모양) → prog 채움
       act.op(0.6 + 0.4 * P.fill);
+      // 홀드 파문 차오름(유저: 화면이 심심) — 버티는 발에서 파문이 진행에 비례해 넓게.
+      //   기존 파동 정본(uRip) 부스트일 뿐 새 이펙트가 아니다. 완주 팡과 리듬이 이어진다.
+      if (act._U?.uRip) act._U.uRip.value = 0.5 + 0.55 * P.fill;
+      if (oth._U?.uRip) oth._U.uRip.value = 0.5;
+      // 스탠스 대시 라인 — 두 발 사이(발 실루엣 반경만큼 안쪽에서 끊어 발과 안 겹침)
+      if (P.link) {
+        const a = P.fmL.group.position, b = P.fmR.group.position;
+        const dx = b.x - a.x, dz = b.z - a.z, L = Math.hypot(dx, dz) || 1;
+        const IN = 0.20;   // 발 반경 여백
+        const p0 = new THREE.Vector3(a.x + dx / L * IN, 0.012, a.z + dz / L * IN);
+        const p1 = new THREE.Vector3(b.x - dx / L * IN, 0.012, b.z - dz / L * IN);
+        P.link.geometry.setFromPoints([p0, p1]);
+        P.link.computeLineDistances();
+        P.link.material.opacity += ((inHold ? 0.34 : 0.16) - P.link.material.opacity) * 0.1;
+        P.link.visible = L > IN * 2.4;
+      }
       if (inHold) {
         const n = Math.max(1, Math.ceil(HOLD_SEC - P.fill * HOLD_SEC));   // 5→1 (UI 5초 타이머)
         if (n !== P._cnt) { redrawFootNum(actNum, n); P._cnt = n; P._pop = 1; }
