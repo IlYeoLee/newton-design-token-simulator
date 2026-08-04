@@ -1011,9 +1011,17 @@ export class Session {
     // 스탠스 라인 — 두 발을 잇는 은은한 대시(런지 보폭이 곧 자세다). 복싱 높이 캘리브레이션
     //   라인과 같은 대시 언어 재사용 — 새 문법을 만들지 않는다. 틱에서 발 위치 따라 갱신.
     {
-      const lm = new THREE.LineDashedMaterial({ color: NUM.sand, dashSize: 0.045, gapSize: 0.055, transparent: true, opacity: 0.0, depthWrite: false });
-      const lgm = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]);
-      const link = new THREE.Line(lgm, lm);
+      // WebGL Line 은 굵기 1px 고정이라 투사 거리에서 사실상 안 보였다(유저) → 대시를 캔버스에
+      //   구워 얇은 면 스트립으로. 대시 언어는 유지하고 물리적 굵기(4cm)를 얻는다.
+      const c = document.createElement('canvas'); c.width = 256; c.height = 16;
+      const g2 = c.getContext('2d');
+      g2.strokeStyle = PAL.sand; g2.lineWidth = 10; g2.lineCap = 'round';
+      g2.setLineDash([18, 22]);
+      g2.beginPath(); g2.moveTo(6, 8); g2.lineTo(250, 8); g2.stroke();
+      const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
+      const link = new THREE.Mesh(new THREE.PlaneGeometry(1, 0.045),
+        new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: 0, depthWrite: false }));
+      link.rotation.x = -Math.PI / 2;
       link.renderOrder = 5;
       this.a2press.link = link;
       g.add(link);
@@ -2106,12 +2114,12 @@ export class Session {
         const a = P.fmL.group.position, b = P.fmR.group.position;
         const dx = b.x - a.x, dz = b.z - a.z, L = Math.hypot(dx, dz) || 1;
         const IN = 0.20;   // 발 반경 여백
-        const p0 = new THREE.Vector3(a.x + dx / L * IN, 0.012, a.z + dz / L * IN);
-        const p1 = new THREE.Vector3(b.x - dx / L * IN, 0.012, b.z - dz / L * IN);
-        P.link.geometry.setFromPoints([p0, p1]);
-        P.link.computeLineDistances();
-        P.link.material.opacity += ((inHold ? 0.34 : 0.16) - P.link.material.opacity) * 0.18;
-        P.link.visible = L > 0.30;   // 실측 런지 간격 ~0.45m — 구 0.48 임계는 영영 안 켜졌다
+        const seg = Math.max(0.01, L - IN * 2);
+        P.link.position.set((a.x + b.x) / 2, 0.012, (a.z + b.z) / 2);
+        P.link.rotation.z = Math.atan2(-dz, dx);   // 평면(-x/2..x/2)을 발 사이 방향으로
+        P.link.scale.set(seg, 1, 1);
+        P.link.material.opacity += ((inHold ? 0.55 : 0.28) - P.link.material.opacity) * 0.18;
+        P.link.visible = L > 0.30;
       }
       if (inHold) {
         const n = Math.max(1, Math.ceil(HOLD_SEC - P.fill * HOLD_SEC));   // 5→1 (UI 5초 타이머)

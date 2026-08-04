@@ -575,6 +575,44 @@ function drawText(ctx, n, y, t) {
   ctx.letterSpacing = '0px';
 }
 
+// ── 부채꼴 조판 프리미티브 (READY 반원 레이아웃 공용 — 바닥·벽) ───────────────
+// 원호 활자 — 문자를 반지름 r 원호 위에 접선 방향으로 눕혀 그린다. aMid = 중심각(rad).
+//   font·fillStyle·letterSpacing 은 호출 전에 설정한다(measureText 가 그 값을 쓴다).
+//   위쪽 호(-π/2 부근)에서 왼→오른쪽으로 읽힌다.
+export function arcText(ctx, s, cx, cy, r, aMid) {
+  const chars = [...String(s)];
+  const ws = chars.map(c => ctx.measureText(c).width);
+  const total = ws.reduce((a, b) => a + b, 0);
+  ctx.save();
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  let a = aMid - total / 2 / r;
+  for (let i = 0; i < chars.length; i++) {
+    const am = a + ws[i] / 2 / r;
+    ctx.save();
+    ctx.translate(cx + Math.cos(am) * r, cy + Math.sin(am) * r);
+    ctx.rotate(am + Math.PI / 2);
+    ctx.fillText(chars[i], 0, 0);
+    ctx.restore();
+    a += ws[i] / r;
+  }
+  ctx.restore();
+}
+// 고리 조각(부채꼴 밴드 셀) — 안팎 반경 r0~r1, 각도 a0~a1. 모서리 라운드는 경로를 round 만큼
+//   안쪽으로 줄이고 같은 색 라운드 스트로크(2×round)로 되살리는 방식 — 진짜 라운드 경로보다
+//   훨씬 짧고 결과가 같다.
+export function arcSegFill(ctx, cx, cy, r0, r1, a0, a1, fill, round = 24) {
+  const rm = (r0 + r1) / 2, da = round / rm;
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(cx, cy, r1 - round, a0 + da, a1 - da);
+  ctx.arc(cx, cy, r0 + round, a1 - da, a0 + da, true);
+  ctx.closePath();
+  ctx.fillStyle = fill; ctx.strokeStyle = fill;
+  ctx.lineWidth = round * 2; ctx.lineJoin = 'round';
+  ctx.fill(); ctx.stroke();
+  ctx.restore();
+}
+
 // 완료 체크 배지 — Figma 52:3178 정본: 흰 원(글로우) + 뉴턴 레드 체크.
 // 원본 HTML은 반투명 흰 원 + 흰 체크였는데 그게 Figma와 달랐다(유저 지적).
 export function checkBadge(ctx, cx, cy, r) {
@@ -1181,7 +1219,14 @@ export class FloorGL {
   // ── 시작화면 (floor.html / floor-bk.html) ──────────────────────────────────
   _paint_ready() {
     const ctx = this.ctx, D = READY[/floor-bk/.test(this.params.src) ? 'floor-bk.html' : 'floor.html'], t = this.t;
-    // glowLive 7s ×3 — 숨쉬기 + 드리프트
+    const bk = /floor-bk/.test(this.params.src);
+    // ── 부채꼴 조판 (유저 요청, 2026-08-04) — 유저 발치(C)를 중심으로 모든 요소가 호를 이룬다.
+    //   센터 스택(아바타/제목/요약/칩/CTA 세로 나열)은 위계가 안 섰다 — 반원 레이아웃으로:
+    //   중심(발·CTA) → 밴드(기기 칩 셀) → 바깥 호(요약 → 제목) 순으로 멀수록 맥락 정보.
+    //   호 양끝 = 아바타(누구 팩) · 시간 캡슐(레퍼런스 arc UI 의 3:12 자리).
+    const C = { x: CX, y: 1600 }, R0 = 560, R1 = 770, RM = (R0 + R1) / 2;
+    const RAD = Math.PI / 180;
+    // 글로우 — 숨쉬기 유지, 중심만 C 로
     const gl = this._img('fig/big_glow.svg');
     if (gl) {
       const g = cycle(t, 0, 7, 3);
@@ -1189,131 +1234,93 @@ export class FloorGL {
       ctx.globalAlpha = g == null ? 0.85 : kf(g, [[0, .85], [.5, 1], [1, .85]]);
       if (g != null) {
         const s = kf(g, [[0, 1], [.5, 1.06], [1, 1]]);
-        ctx.translate(CX + kf(g, [[0, 0], [.5, -16], [1, 0]]), 1400 + kf(g, [[0, 0], [.5, 10], [1, 0]]));
-        ctx.scale(s, s); ctx.translate(-CX, -1400);
+        ctx.translate(C.x + kf(g, [[0, 0], [.5, -16], [1, 0]]), C.y + kf(g, [[0, 0], [.5, 10], [1, 0]]));
+        ctx.scale(s, s); ctx.translate(-C.x, -C.y);
       }
-      // 필터 영역을 블러 반경(3σ=280)만큼 넓힌 에셋 — 예전엔 filter 영역이 viewBox와 같아
-      //   가우시안이 좌우·아래에서 잘려 글로우가 사각으로 뚝 끊겼다(유저: 투사영역 따라 일자로 잘림).
-      //   대지가 1.4495×1.4030 커졌으므로 그리는 사각형도 같은 배율 — 글로우 크기는 그대로다.
-      ctx.drawImage(gl, CX - 739, 1400 - 652, 1478, 1305);
+      ctx.drawImage(gl, C.x - 739, C.y - 652, 1478, 1305);
       ctx.restore();
     }
-    // 크리에이터 얼굴 = pyeongso .creator-profile 의 아바타만(×3.0, 303px + 흰 테두리 6).
-    //   캡션('Running Creator · 240K')·이름 칩은 폐기 — 시작 직전에 필요한 건 '누구 팩인가'
-    //   하나뿐이고 그건 얼굴이 말한다. 이름은 제목이 "Sean's …"로 이미 말하고 있었다(유저: 정보 과다).
-    // ── 팩 헤더 = 아바타 / 제목 / 요약 (중앙 1단) ─────────────────────────────
-    // 가로 2단을 시도했다가 되돌렸다(유저). 세로 400px 은 줄었지만 그게 나아진 게
-    // 아니었다 — 문제는 '길다'가 아니라 '요소가 많다'였는데 배치만 바꿨다.
-    // 게다가 아바타를 303 → 200 으로 줄이니 얼굴이 크지도 작지도 않게 애매해졌고,
-    // 왼쪽 정렬 덩어리를 중앙 정렬로 띄워 어느 축에도 안 맞았다(아래 칩·CTA는 정중앙).
-    // 실제로 효과가 있었던 건 배치가 아니라 'with the Wearable on' 을 뺀 쪽이었다.
+    // ① 바깥 호 — 제목(1순위 맥락) · 요약(2순위) 원호 활자
+    ctx.save(); ctx.globalAlpha *= eOut(intro(t, .12, .8));
+    ctx.fillStyle = 'rgba(255,255,255,.95)'; ctx.font = F(700, 68); ctx.letterSpacing = '-2.3px';
+    arcText(ctx, D.title, C.x, C.y, 1030, -90 * RAD);
+    ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.font = F(400, 44); ctx.letterSpacing = '-1.4px';
+    arcText(ctx, D.today, C.x, C.y, 920, -90 * RAD);
+    ctx.letterSpacing = '0px'; ctx.restore();
+    // ② 밴드 — 기기 칩 3개를 부채꼴 셀로. 내용은 접선 방향(아이콘 위 · 상태 아래).
+    const CHIP = [['run/ic_glasses.png', '90%', true], ['run/ic_watch.png', '30%', false],
+                  ['run/ic_earbuds.png', '60%', false]];
+    const A0 = -160, A1 = -20, GAPD = 3, SEG = (A1 - A0 - GAPD * 2) / 3;
+    CHIP.forEach(([ic, tx, sel], i) => {
+      const s0 = (A0 + i * (SEG + GAPD)) * RAD, s1 = s0 + SEG * RAD, am = (s0 + s1) / 2;
+      ctx.save(); ctx.globalAlpha *= eOut(intro(t, .5 + i * .12, .7));
+      let fill = '#fff';
+      if (sel) {   // 선택 칩 = 열화상 그라디언트(반경 방향: 안 빨강 → 밖 살구)
+        const g = ctx.createLinearGradient(C.x + Math.cos(am) * R1, C.y + Math.sin(am) * R1,
+                                           C.x + Math.cos(am) * R0, C.y + Math.sin(am) * R0);
+        g.addColorStop(0, '#FA3030'); g.addColorStop(.7, '#FE6E3C'); g.addColorStop(1, '#FEC389');
+        fill = g;
+      }
+      arcSegFill(ctx, C.x, C.y, R0, R1, s0, s1, fill);
+      ctx.translate(C.x + Math.cos(am) * RM, C.y + Math.sin(am) * RM);
+      ctx.rotate(am + Math.PI / 2);
+      const im = this._img(ic);
+      if (im) {
+        const IH = 56, iw = im.naturalHeight ? IH * (im.naturalWidth / im.naturalHeight) : IH;
+        ctx.save(); ctx.filter = sel ? 'brightness(0) invert(1)' : 'brightness(0)';
+        ctx.drawImage(im, -iw / 2, -66, iw, IH);
+        ctx.restore();
+      }
+      ctx.font = F(700, 44); ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+      ctx.fillStyle = sel ? '#fff' : '#525252'; ctx.fillText(tx, 0, 8);
+      ctx.restore();
+    });
+    // ③ 호 왼끝 — 크리에이터 아바타(누구 팩인가). 밴드보다 약간 바깥 각도.
     {
-      const bk = /floor-bk/.test(this.params.src);
       const pk = this._img(bk ? 'photos/cardbg-curry.png' : 'photos/creator-profile-sean.png');
-      const R = 151, py = 250;   // 아바타 303px — 원래 크기
-      ctx.save(); this._fadeIn(py, 303, eOut(intro(t, .12, .8)));
-      ctx.beginPath(); ctx.arc(CX, py + R, R - 3, 0, Math.PI * 2); ctx.clip();
+      const AA = -174 * RAD, ax = C.x + Math.cos(AA) * RM, ay = C.y + Math.sin(AA) * RM, R = 110;
+      ctx.save(); ctx.globalAlpha *= eOut(intro(t, .3, .8));
+      ctx.beginPath(); ctx.arc(ax, ay, R - 3, 0, Math.PI * 2); ctx.save(); ctx.clip();
       if (pk) {
         const sc = Math.max(2 * (R - 3) / pk.naturalWidth, 2 * (R - 3) / pk.naturalHeight);
-        ctx.drawImage(pk, CX - pk.naturalWidth * sc / 2, py + R - pk.naturalHeight * sc / 2,
+        ctx.drawImage(pk, ax - pk.naturalWidth * sc / 2, ay - pk.naturalHeight * sc / 2,
                       pk.naturalWidth * sc, pk.naturalHeight * sc);
-      } else { ctx.fillStyle = 'rgba(255,255,255,.14)'; ctx.fillRect(CX - R, py, 2 * R, 2 * R); }
+      } else { ctx.fillStyle = 'rgba(255,255,255,.14)'; ctx.fillRect(ax - R, ay - R, 2 * R, 2 * R); }
       ctx.restore();
-      ctx.save(); this._fadeIn(py, 303, eOut(intro(t, .12, .8)));
       ctx.strokeStyle = '#fff'; ctx.lineWidth = 6;
-      ctx.beginPath(); ctx.arc(CX, py + R, R - 3, 0, Math.PI * 2); ctx.stroke();
+      ctx.beginPath(); ctx.arc(ax, ay, R - 3, 0, Math.PI * 2); ctx.stroke();
       ctx.restore();
     }
-    // 제목 — 2순위. 120·흰100% 이던 것을 68·흰70% 로 내렸다. 아래 CTA(88·흰100%)와
-    //   1.36배 차이뿐인데 CTA 쪽엔 화살표·발까지 붙어 1순위가 2순위처럼 읽혔다.
-    //   '무슨 팩인가'는 이 화면에 반드시 보여야 한다(유저) — 크기만 낮추고 존치한다.
-    ctx.fillStyle = 'rgba(255,255,255,.7)'; ctx.font = F(700, 68);
-    drawChars(ctx, D.title, CX, 620, 68, -2.3, i => {
-      const p = cycle(t, i * 0.09, 3, 3);
-      return p == null ? { dy: 0, alpha: 1, scale: 1 } : {
-        dy: kf(p, [[0, 0], [.12, -16], [.26, 0], [.58, 0], [1, 0]]),
-        alpha: kf(p, [[0, .85], [.12, 1], [.26, 1], [.58, .85], [1, .85]]), scale: 1,
-      };
-    });
-    // 오늘 뭘 하나 = 셋업 5화면의 결과 한 줄 요약.
-    ctx.save(); this._fadeIn(730, 62, eOut(intro(t, .4, .8)));
-    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-    ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.font = F(400, 46); ctx.letterSpacing = '-1.4px';
-    ctx.fillText(D.today, CX, 730);
-    ctx.letterSpacing = '0px';
-    ctx.restore();
-    // 기기 연결 = 운동 전 필수 체크(유저) — 컨디션과 다른 정보라 상태 줄에 섞지 않고 CTA 바로 위.
-    // 세로 배치로 되돌리며 칩도 제자리로(구 900). 가로 2단일 때 600 으로 올렸던 값을 그대로
-    //   두면 제목(620)·요약(730)과 겹친다.
-    const CY = 830;
-    ctx.save(); this._fadeIn(CY, 92, eOut(intro(t, .6, .8)));
+    // ④ 호 오른끝 — 시간 캡슐(레퍼런스 arc UI 의 3:12 자리).
     {
-      // 아이콘 크기를 '높이' 기준으로 통일한다. 전엔 폭을 32/24/28 로 제각각 박아 종횡비가
-      //   다른 세 아이콘의 높이가 다 달라졌고(안경 납작 · 시계 길쭉), 크기도 글자(44)보다
-      //   작아 식별이 안 됐다(유저). 복싱 벽 카드는 아이콘 88 / 글자 38 로 정반대였다 —
-      //   같은 시스템에서 아이콘이 글자보다 작을 이유가 없다.
-      const IH = 52;
-      const CHIP =[['run/ic_glasses.png', 32, '90%', true], ['run/ic_watch.png', 24, '30%', false],
-                    ['run/ic_earbuds.png', 28, '60%', false]];
-      const CPAD = 29, CICG = 12, CGAP = 10, CH2 = 92;
-      ctx.font = F(400, 44); ctx.letterSpacing = '-1.3px';
-      // 실제 종횡비로 폭을 낸다(미로드면 표의 값 폴백) — 레이아웃과 그리기가 같은 값을 쓴다
-      const iconW = CHIP.map(([ic, fw]) => {
-        const im = this._img(ic);
-        return im && im.naturalHeight ? IH * (im.naturalWidth / im.naturalHeight) : fw;
-      });
-      const chipW = CHIP.map(([, , tx], k) => CPAD * 2 + iconW[k] + CICG + ctx.measureText(tx).width);
-      let bx = CX - (chipW.reduce((a, b) => a + b, 0) + CGAP * 2) / 2;
-      CHIP.forEach(([ic, , tx, sel], k) => {
-        const w3 = chipW[k], iw = iconW[k];
-        if (sel) {
-          const g3 = ctx.createLinearGradient(0, CY, 0, CY + CH2);
-          g3.addColorStop(0.48, '#FA3030'); g3.addColorStop(0.776, '#FE6E3C'); g3.addColorStop(1, '#FEC389');
-          ctx.fillStyle = g3;
-        } else ctx.fillStyle = '#fff';
-        this._roundRectPath(bx, CY, w3, CH2, CH2 / 2); ctx.fill();
-        const im = this._img(ic);
-        if (im) {
-          const ih = im.naturalHeight ? IH : iw * (im.naturalHeight / im.naturalWidth);   // 세 아이콘 높이를 같게
-          ctx.save(); ctx.filter = sel ? 'brightness(0) invert(1)' : 'brightness(0)';
-          ctx.drawImage(im, bx + CPAD, CY + CH2 / 2 - ih / 2, iw, ih);
-          ctx.restore();
-        }
-        ctx.fillStyle = sel ? '#fff' : '#525252'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-        ctx.fillText(tx, bx + CPAD + iw + CICG, CY + CH2 / 2 + 1);
-        ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-        bx += w3 + CGAP;
-      });
-      ctx.letterSpacing = '0px';
+      const TA = -6 * RAD, px = C.x + Math.cos(TA) * RM, py = C.y + Math.sin(TA) * RM;
+      ctx.save(); ctx.globalAlpha *= eOut(intro(t, .4, .8));
+      const w = 250, h = 104;
+      ctx.fillStyle = '#fff';
+      ctx.beginPath(); ctx.roundRect(px - w / 2, py - h / 2, w, h, h / 2); ctx.fill();
+      ctx.fillStyle = '#525252'; ctx.font = F(700, 48); ctx.letterSpacing = '-1.5px';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(D.time, px, py + 2);
+      ctx.letterSpacing = '0px'; ctx.restore();
     }
-    ctx.restore();
-    // CTA = 모바일 .rts-prompt 컴포넌트(ready.css) 2줄 스택 이식 — 지시(m) / 캡션(s). 복싱 벽(wallgl:497)과 같은 2줄.
-    //   제목과 같은 흰 볼드 한 줄이라 구분이 안 됐다(유저). 비율은 모바일 그대로(s/m=0.5),
-    //   절대 크기는 지면 타입스케일 유지(m 88). 글로우+발은 이 화면의 시그니처라 존치.
-    ctx.save(); this._fadeIn(1057, 300, eOut(intro(t, .7, .9)));
+    // ⑤ 중심 — CTA + 발(시그니처). 눈금/지시 3단 구성 유지.
+    ctx.save(); this._fadeIn(1080, 500, eOut(intro(t, .7, .9)));
     const bob = cycle(t, 1.5, 3, 3);
     const ady = bob == null ? 0 : kf(bob, [[0, 0], [.12, 14], [.25, 0], [.4, 13], [.52, 0], [.58, 0], [1, 0]]);
     const ar = this._img('run/arrow.svg');
-    if (ar) ctx.drawImage(ar, CX - 43, 1057 + ady, 86, 86);
+    if (ar) ctx.drawImage(ar, C.x - 43, 1080 + ady, 86, 86);
     ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-    let hy = 1057 + 86 + 12;
-    // 'To start' 눈금 — 레퍼런스(ready-to-start)의 3단 구성: 눈금 / 지시 / 조건.
-    //   지시 한 줄만 크고 위아래 작은 글자가 그것을 감싼다.
     ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.font = F(400, 46); ctx.letterSpacing = '-1.4px';
-    ctx.fillText('To start', CX, hy); hy += 46 * 1.2 + 10;
+    ctx.fillText('To start', C.x, 1188);
     ctx.fillStyle = '#fff'; ctx.font = F(700, 88); ctx.letterSpacing = '-4.7px';
-    ctx.fillText('Tap your foot Twice', CX, hy);
-    // 'with the Wearable on' 폐기(유저) — 빔이 바닥에 떠 있다는 건 이미 착용·전원이 켜졌다는 뜻이다.
-    //   이미 일어난 일을 조건처럼 말하고 있었다. 게다가 바로 위 기기 칩(👓⌚🎧)이 연결 상태를
-    //   이미 보여준다 — 같은 정보를 두 번, 한 번은 틀리게. 모바일 ready-to-start 에서는 맞는
-    //   문구지만(폰을 보는 사람은 아직 안 찼을 수 있다) 지면 투사로 옮기며 맥락이 어긋났다.
+    ctx.fillText('Tap your foot Twice', C.x, 1250);
     ctx.letterSpacing = '0px';
     ctx.restore();
-    // 발 — 탭 모션(footBob)
-    ctx.save(); this._fadeIn(1140, 539, eOut(intro(t, .7, .9)));
+    // 발 — 탭 모션(footBob), 호 중심 위
+    ctx.save(); this._fadeIn(1400, 539, eOut(intro(t, .7, .9)));
     const foot = this._img('run/foot.svg');
     const fdy = bob == null ? 0 : kf(bob, [[0, 0], [.12, 46], [.25, 6], [.4, 44], [.52, 0], [.58, 0], [1, 0]]);
-    if (foot) ctx.drawImage(foot, 606, 1140 + fdy, 400, 539);
+    if (foot) ctx.drawImage(foot, 606, 1400 + fdy, 400, 539);
     ctx.restore();
   }
 
