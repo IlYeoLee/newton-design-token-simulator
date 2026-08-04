@@ -109,15 +109,15 @@ const SCENES = {
     beats: [[1, 'hit'], [2, 'hit'], [3, 'miss'], [4, 'hit']] },
   BX_C3: { title: 'COMBINATION', phase: 3, sub: '2/3', coach: { num: '', unit: 'Landed' }, you: { num: '', unit: 'Landed' },
     say: 'Rhythm’s good!', cues: ['Nice combo!', 'On fire!', 'Keep it up!'], combos: ['Jab · Jab · Hook!'],
-    // 2사이클(dur 12.08s) 대본 — 콤보 박자(1.50/3.00/4.33 + 사이클 6.04) 와 **글자 그대로** 정렬.
+    // 2사이클(dur 10.3334s) 대본 — session.js 의 AT(1.50/2.14/3.92) + CY(5.1667) 와 **글자 그대로** 정렬.
+    //   박자 정본은 나레이션 음성이다: 잽 · 0.64s · 잽 · 1.78s · 훅.
     //   링이 닫히는 그 프레임에 카운트가 오른다(유저 08-05).
     //   ★ 여긴 따라하기가 아니라 **실전 대련**이다 — 그래서 코치 타이밍과 일부러 어긋나 있고,
     //     내가 놓치면 그 틈을 상대가 먹는다(유저 정정). Casey 득점은 그 장면이라 말이 된다.
     //   대본: 1바퀴는 전부 성공, 2바퀴 중반에 miss 하나 — 놓쳤다가 훅으로 만회하는 그림이다.
     //   실전 연결 시 judge.js 의 verdict(타이밍 tolT · 위치 tolP)가 이 대본을 그대로 대체한다.
-    beats: [[1.17, 'hit'], [1.80, 'hit'], [2.33, 'hit'],
-            [4.80, 'hit'], [5.43, 'miss'], [5.96, 'hit'],
-            [8.42, 'hit'], [9.05, 'hit'], [9.58, 'hit']] },
+    beats: [[1.50, 'hit'], [2.14, 'hit'], [3.92, 'hit'],
+            [6.67, 'hit'], [7.31, 'miss'], [9.09, 'hit']] },
   BX_C4: { title: 'COOL DOWN', phase: 3, sub: '3/3', coach: { num: '', unit: '' }, you: { num: '', unit: '' },
     say: 'Great work!', cues: ['Well done', 'Strong session', 'Nice one'], combos: [] },
 };

@@ -545,6 +545,26 @@ await page.evaluate(() => {
   if (s) s._followLatch = false;   // 시범(코치 클립)을 붙잡아 둔다 — 인물이 내보내기의 목적이다
 });
 await new Promise(r => setTimeout(r, 2500));
+// ★ 비디오 디코더 예열 — 캡처 첫 프레임은 디코더가 콜드다. 첫 시크가 3초 안전장치에 걸리면
+//   그 동안 메인스레드가 묶여 앱의 rAF 가 안 돌고, 캔버스에는 **직전 그림이 그대로** 남는다.
+//   스크린샷은 캔버스를 찍으므로 결과 PNG 가 바이트 단위로 동일해진다 = 앞부분 통짜 정지.
+//   실측(08-05 · BX_C3 310프레임): f00000~f00017 18장이 완전 동일, 시크 실패 76건.
+//   여기서 클립 전체에 걸쳐 몇 군데 미리 시크해 두면 첫 프레임부터 디코더가 따뜻하다.
+//   ⚠ 이건 실시간 대기다(캡처 전 1회). 프레임 루프 안으로 옮기지 말 것.
+await page.evaluate(async () => {
+  const vids = [...document.querySelectorAll('video')].filter(v => isFinite(v.duration) && v.duration > 0);
+  await Promise.all(vids.map(async v => {
+    for (const f of [0, 0.33, 0.66, 0]) {
+      await new Promise(r => {
+        let done = false; const fin = () => { if (done) return; done = true; r(); };
+        if (v.requestVideoFrameCallback) v.requestVideoFrameCallback(fin);
+        else v.addEventListener('seeked', fin, { once: true });
+        v.currentTime = Math.min(v.duration * f, v.duration - 0.01);
+        setTimeout(fin, 4000);
+      });
+    }
+  }));
+});
 // 안정화 동안 늦게 붙은 DOM 까지 마지막으로 한 번. (매 프레임 쓸면 800개 스타일 재계산으로
 // 프레임 시간이 2.7s→5.6s 로 뛰고 컨텍스트도 더 일찍 잃는다 — 실측.)
 await page.evaluate(() => window.__sweep?.());
@@ -603,8 +623,16 @@ if (FLAT) {
 
 const t0 = Date.now();
 let done = 0;
-for (let i = 0; i < N; i++) {
+// ★ 스테이지 시작 전 프레임은 버린다(--play 전용).
+//   실측(08-05 · BX_C3): 캡처 시작 시점의 session.t 가 **-0.338** 이었고, 0 을 넘을 때까지
+//   18프레임이 걸렸다. 그동안 화면은 통째로 정지 — f00000~f00017 이 **바이트 단위로 동일**하다.
+//   (비디오는 정상이었다: readyState 4 · currentTime 정상 증가. 디코더 문제가 아니었다.)
+//   가상 시계는 계속 밀되 세션이 실제로 시작한 프레임부터 저장한다.
+let saved = 0;                    // 저장한 프레임 수 — 파일 번호는 이걸 쓴다
+const PRE_MAX = 240;              // 안전장치: 이만큼 밀어도 안 시작하면 그냥 저장한다
+for (let i = 0; saved < N; i++) {
   const t = T0 + i / FPS;
+  if (i - saved > PRE_MAX) { console.log('  ⚠ 프리롤 한계 — session.t 가 끝내 0 을 못 넘었습니다'); }
   // ★ 4K + 큰 uiscale 은 GPU 메모리를 넘겨 컨텍스트를 잃는다(실측: 3840·배율2.5 에서 11프레임째
   //   __dbg 통째로 소실). 죽으면 조용히 끝내고 여기까지 뽑은 프레임으로 영상을 묶는다.
   if (reloaded > 1) {
@@ -706,21 +734,42 @@ for (let i = 0; i < N; i++) {
       requestAnimationFrame(() => { window.__isolate3d?.(); window.__fitFlat?.(); requestAnimationFrame(res); });
     });
   }), t);
-  await page.screenshot({ path: path.join(TMP, `f${String(i).padStart(5, '0')}.png`), type: 'png', omitBackground: ALPHA });
+  if (process.env.NEWTON_PROBE) {
+    const p = await page.evaluate(() => {
+      const s = window.__dbg?.session, v = [...document.querySelectorAll('video')].filter(x => isFinite(x.duration) && x.duration > 0);
+      return { st: s?.t, stage: s?.stage?.id ?? s?.cur?.id, playing: window.__dbg?.state?.playing,
+               vid: v.map(x => `${(x.currentTime).toFixed(3)}/${x.readyState}`).join(' ') };
+    });
+    console.log(`  probe f${i}  t=${t.toFixed(3)}  session.t=${p.st?.toFixed?.(3)}  stage=${p.stage}  play=${p.playing}  vid=${p.vid}`);
+  }
+  if (PLAY && saved === 0 && (i - saved) <= PRE_MAX) {
+    const notYet = await page.evaluate(() => (window.__dbg?.session?.t ?? 0) < 0).catch(() => false);
+    if (notYet) continue;   // 아직 스테이지 전 — 시계만 밀고 버린다
+    // 저장을 시작하는 이 프레임이 스테이지 0초다. 벽/지면 UI 는 자기 누적기(_uiDt·실시간)로
+    //   도는데 세션과 시작점이 다르면 그만큼 어긋난다 — 점수가 링보다 먼저 오른다.
+    //   여기서 한 번 맞춰 두면 이후로는 둘 다 실시간이라 계속 같이 간다.
+    await page.evaluate(() => {
+      const d = window.__dbg;
+      for (const g of [d?.wallGL, d?.floorGL]) if (g) { g.t = 0; g._lastPaint = -1; g._sig = null; }
+    }).catch(() => {});
+  }
+  await page.screenshot({ path: path.join(TMP, `f${String(saved).padStart(5, '0')}.png`), type: 'png', omitBackground: ALPHA });
+  saved++;
   // ★ 첫 프레임에 아무것도 안 그려졌으면 즉시 멈춘다. 컨텍스트가 살아 있어도 씬이 통째로
   //   비어 있으면(무대 끄기가 과했거나 카메라가 엉뚱한 곳을 보면) 끝까지 빈 프레임만 쌓인다.
-  if (i === 0) {
+  if (saved === 1) {
     const tri = await page.evaluate(() => window.__dbg?.renderer?.info?.render?.triangles ?? -1);
     if (tri === 0) {
       console.error('✗ 첫 프레임에 그려진 삼각형이 0개 — 빈 영상이 됩니다. 중단합니다.');
       await browser.close(); process.exit(1);
     }
+    if (i > 0) console.log(`\n  프리롤 ${i}프레임 버림 (스테이지 시작 전)`);
     // 프리플라이트에서 이미 내용 있는 프레임을 확인했으므로 여기선 더 볼 게 없다.
   }
-  done = i + 1;
-  if (i % 10 === 0 || i === N - 1) {
+  done = saved;
+  if (saved % 10 === 0 || saved === N) {
     const el = (Date.now() - t0) / 1000;
-    process.stdout.write(`\r  ${i + 1}/${N}  ${el.toFixed(0)}s  (${(el / (i + 1)).toFixed(2)}s/프레임)   `);
+    process.stdout.write(`\r  ${saved}/${N}  ${el.toFixed(0)}s  (${(el / saved).toFixed(2)}s/프레임)   `);
   }
 }
 process.stdout.write('\n');
