@@ -1373,8 +1373,8 @@ export class FloorGL {
           ctx.save();
           if (seg.muted) {
             // 스트레칭 = 흰 반투명 + 블룸(유저) — 열화상 램프는 본운동 쪽 위계로 남긴다
-            ctx.shadowColor = 'rgba(255,255,255,.85)'; ctx.shadowBlur = 40;
-            ctx.strokeStyle = 'rgba(255,255,255,.42)';
+            ctx.shadowColor = 'rgba(255,255,255,.5)'; ctx.shadowBlur = 18;   // 블룸 절제 — 과하면 글자가 안 읽힌다(유저)
+            ctx.strokeStyle = 'rgba(255,255,255,.82)';                       // 판을 불투명하게 = 잉크 대비 확보
           } else {
             const g = ctx.createLinearGradient(p0.x, p0.y, p1.x, p1.y);
             g.addColorStop(0, PAL.coral); g.addColorStop(1, PAL.red);
@@ -1391,7 +1391,7 @@ export class FloorGL {
           const pc = polar(s0 + capA);
           ctx.save(); ctx.globalAlpha *= Math.min(1, ip * 2.5);
           ctx.translate(pc.x, pc.y); ctx.rotate((s0 + capA + 90) * RAD); ctx.scale(ik, ik);
-          ctx.fillStyle = 'rgba(255,255,255,.3)';
+          ctx.fillStyle = seg.muted ? 'rgba(255,255,255,.55)' : 'rgba(255,255,255,.3)';
           ctx.beginPath(); ctx.arc(0, 0, 61, 0, Math.PI * 2); ctx.fill();
           // 아이콘 규격 통일 — 전부 높이 58 박스에 종횡비 유지(러닝·농구 여백 톤 일치, 유저)
           const IH2 = 58;
@@ -1402,8 +1402,10 @@ export class FloorGL {
             if (r2i) { ctx.save(); ctx.translate(21.8, 0); ctx.rotate(Math.PI); ctx.scale(1, -1); ctx.drawImage(r2i, -17.03, -34.73, 34.064, 69.458); ctx.restore(); }
             ctx.restore();
           } else {
-            const file = seg.icon === 'run' ? 'ic-run.svg' : seg.icon === 'bkTrain' ? 'ic-bk-train.svg' : 'ic-bk-play.svg';
-            const im2 = seg.icon === 'run' ? img(file) : this._tinted2('fig/ready2/' + file, 96, 96, () => '#fff');
+            const file = seg.icon === 'run' ? 'ic-run.svg' : seg.icon === 'stretch' ? 'ic-stretch.svg'
+              : seg.icon === 'bkTrain' ? 'ic-bk-train.svg' : 'ic-bk-play.svg';
+            const im2 = seg.icon === 'run' ? img(file)
+              : this._tinted2('fig/ready2/' + file, 96, 96, () => (seg.muted ? NEU.t3 : '#fff'));   // 흰 판 위 = 어두운 잉크(가독)
             if (im2) {
               const nw = im2.naturalWidth || im2.width, nh = im2.naturalHeight || im2.height;
               const iw2 = IH2 * (nw && nh ? nw / nh : 1);
