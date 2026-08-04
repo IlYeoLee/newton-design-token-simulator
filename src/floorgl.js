@@ -7,6 +7,7 @@
 // 인터페이스는 기존과 동일하게 유지한다 — `doc.getElementById(id).textContent/style.…`를
 // main.js 구동 코드가 그대로 쓴다(노드 = 그리기 스펙 겸 DOM 스텁). 이식 비용을 여기 한 파일에 가둔다.
 import * as THREE from 'three';
+import { arc as d3arc } from 'd3-shape';
 import { PAL, NEU, rgba } from './palette.js';
 
 const W = 1600, H = 2670;
@@ -578,44 +579,19 @@ function drawText(ctx, n, y, t) {
   ctx.letterSpacing = '0px';
 }
 
-// ── 부채꼴 조판 프리미티브 (READY 반원 레이아웃 공용 — 바닥·벽) ───────────────
-// 원호 활자 — 문자를 반지름 r 원호 위에 접선 방향으로 눕혀 그린다. aMid = 중심각(rad).
-//   font·fillStyle·letterSpacing 은 호출 전에 설정한다(measureText 가 그 값을 쓴다).
-//   위쪽 호(-π/2 부근)에서 왼→오른쪽으로 읽힌다.
-export function arcText(ctx, s, cx, cy, r, aMid) {
-  const chars = [...String(s)];
-  const ws = chars.map(c => ctx.measureText(c).width);
-  const total = ws.reduce((a, b) => a + b, 0);
-  ctx.save();
-  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  let a = aMid - total / 2 / r;
-  for (let i = 0; i < chars.length; i++) {
-    const am = a + ws[i] / 2 / r;
-    ctx.save();
-    ctx.translate(cx + Math.cos(am) * r, cy + Math.sin(am) * r);
-    ctx.rotate(am + Math.PI / 2);
-    ctx.fillText(chars[i], 0, 0);
-    ctx.restore();
-    a += ws[i] / r;
-  }
-  ctx.restore();
-}
-// 고리 조각(부채꼴 밴드 셀) — 안팎 반경 r0~r1, 각도 a0~a1. 모서리 라운드는 경로를 round 만큼
-//   안쪽으로 줄이고 같은 색 라운드 스트로크(2×round)로 되살리는 방식 — 진짜 라운드 경로보다
-//   훨씬 짧고 결과가 같다.
+// ── 부채꼴 조판 프리미티브 (READY 반원 레이아웃) ───────────────────────────────
 export function arcSegFill(ctx, cx, cy, r0, r1, a0, a1, fill, round) {
-  const rm = (r0 + r1) / 2;
-  // 기본 = 두께의 42% '젤리' 라운딩(레퍼런스 HUD 감). 두께·호길이 반을 못 넘게 클램프.
-  const R = Math.max(4, Math.min(round ?? (r1 - r0) * 0.42, (r1 - r0) / 2 - 1, (a1 - a0) * rm / 2 - 1));
-  const da = R / rm;
+  // d3.arc 정석 — cornerRadius 를 라이브러리가 처리한다(유저: 하드코딩 금지).
+  //   각도 변환: 이 파일은 +x 축 기준(캔버스 arc), d3 는 12시 기준 시계방향 → +90°.
   ctx.save();
+  ctx.translate(cx, cy);
+  ctx.fillStyle = fill;
   ctx.beginPath();
-  ctx.arc(cx, cy, r1 - R, a0 + da, a1 - da);
-  ctx.arc(cx, cy, r0 + R, a1 - da, a0 + da, true);
-  ctx.closePath();
-  ctx.fillStyle = fill; ctx.strokeStyle = fill;
-  ctx.lineWidth = R * 2; ctx.lineJoin = 'round';
-  ctx.fill(); ctx.stroke();
+  d3arc().context(ctx)
+    .innerRadius(r0).outerRadius(r1)
+    .startAngle(a0 + Math.PI / 2).endAngle(a1 + Math.PI / 2)
+    .cornerRadius(round ?? (r1 - r0) * 0.42)({});
+  ctx.fill();
   ctx.restore();
 }
 
@@ -1289,7 +1265,7 @@ export class FloorGL {
       ctx.fillStyle = 'rgba(255,255,255,.95)'; ctx.font = F(700, 76); ctx.letterSpacing = '-2.6px';
       ctx.fillText(D.title, CX, 410);
       ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.font = F(400, 44); ctx.letterSpacing = '-1.4px';
-      ctx.fillText(D.today, CX, 520);
+      ctx.fillText(`${D.today} · ${D.time}`, CX, 520);   // 총시간은 요약줄로(목업 — 30min 셀 폐기)
       ctx.letterSpacing = '0px';
       ctx.restore();
     }
@@ -1298,7 +1274,7 @@ export class FloorGL {
     const R0 = 560, R1 = 1000, RM = (R0 + R1) / 2;
     {
       const A0 = -133, A1 = -47, GAP = 2.4;
-      const SLATN = 3, SLATW = 1.5, slatZone = SLATN * SLATW + (SLATN - 1) * 1.5;
+      const SLATN = 2, SLATW = 1.5, slatZone = SLATN * SLATW + (SLATN - 1) * 1.5;   // 슬랫 2(목업 #8)
       const total = D.comp.reduce((s, p) => s + p[1], 0);
       const span = (A1 - A0) - slatZone - GAP * 3;   // 슬랫존 양옆 + Learn|Run 사이
       let a = A0;
@@ -1345,47 +1321,25 @@ export class FloorGL {
           a += GAP - 1.5;
         } else a += GAP;
       });
-      // 30min 미니 셀 — 부채꼴 오른끝, 시계 글리프 + 총시간 (구 시간 캡슐 자리)
-      {
-        const s0 = -44.6 * RAD, s1 = -33 * RAD, r1 = 800, am = (s0 + s1) / 2, rm = (R0 + r1) / 2;
-        ctx.save(); ctx.globalAlpha *= eOut(intro(t, .8, .7));
-        arcSegFill(ctx, C.x, C.y, R0, r1, s0, s1, 'rgba(255,255,255,.96)', 44);
-        ctx.translate(C.x + Math.cos(am) * rm, C.y + Math.sin(am) * rm);
-        ctx.rotate(am + Math.PI / 2);
-        ctx.strokeStyle = '#525252'; ctx.lineWidth = 4;   // 시계 글리프
-        ctx.beginPath(); ctx.arc(0, -46, 17, 0, Math.PI * 2); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(0, -54); ctx.lineTo(0, -46); ctx.lineTo(7, -41); ctx.stroke();
-        ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-        ctx.fillStyle = '#525252'; ctx.font = F(700, 42); ctx.letterSpacing = '-1.3px';
-        ctx.fillText(D.time, 0, -8);
-        ctx.letterSpacing = '0px';
-        ctx.restore();
-      }
     }
-    // ③ 배터리 필 행 — 작은 흰 알약 3개(아이콘+%), 원 안 위쪽. 30% 이하만 경고색.
+    // ③ 지표 필 행 — 알약(%) + 아래 캡션(목업 #8: CADENCE / HEART RATE / EFFORT). 30% 이하만 경고색.
     {
-      const DEV = [['run/ic_glasses.png', 90], ['run/ic_watch.png', 30], ['run/ic_earbuds.png', 60]];
-      const PY2 = 1288, PH = 76, PADX = 26, ICG = 10, PGAP = 18;
+      const MET = [[90, 'CADENCE'], [30, 'HEART RATE'], [60, 'EFFORT']];
+      const PY2 = 1288, PH = 76, PADX = 34, PGAP = 20;
       ctx.save(); ctx.globalAlpha *= eOut(intro(t, .7, .7));
-      ctx.font = F(700, 32); ctx.letterSpacing = '-.9px';
-      const iws = DEV.map(([ic]) => {
-        const im = this._img(ic);
-        return im && im.naturalHeight ? 36 * (im.naturalWidth / im.naturalHeight) : 36;
-      });
-      const pws = DEV.map(([, pct], k) => PADX * 2 + iws[k] + ICG + ctx.measureText(pct + '%').width);
+      ctx.font = F(700, 34); ctx.letterSpacing = '-.9px';
+      const pws = MET.map(([pct]) => PADX * 2 + ctx.measureText(pct + '%').width);
       let bx = CX - (pws.reduce((a2, b) => a2 + b, 0) + PGAP * 2) / 2;
-      DEV.forEach(([ic, pct], k) => {
+      MET.forEach(([pct, cap], k) => {
+        ctx.font = F(700, 34); ctx.letterSpacing = '-.9px';
         ctx.fillStyle = 'rgba(255,255,255,.95)';
         ctx.beginPath(); ctx.roundRect(bx, PY2, pws[k], PH, PH / 2); ctx.fill();
-        const im = this._img(ic);
-        if (im) {
-          ctx.save(); ctx.filter = 'brightness(0)';
-          ctx.drawImage(im, bx + PADX, PY2 + PH / 2 - 18, iws[k], 36);
-          ctx.restore();
-        }
         ctx.fillStyle = pct <= 30 ? PAL.red : '#525252';
-        ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-        ctx.fillText(pct + '%', bx + PADX + iws[k] + ICG, PY2 + PH / 2 + 1);
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(pct + '%', bx + pws[k] / 2, PY2 + PH / 2 + 1);
+        ctx.font = F(500, 27); ctx.letterSpacing = '2.2px';
+        ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.textBaseline = 'top';
+        ctx.fillText(cap, bx + pws[k] / 2, PY2 + PH + 14);
         bx += pws[k] + PGAP;
       });
       ctx.letterSpacing = '0px';
