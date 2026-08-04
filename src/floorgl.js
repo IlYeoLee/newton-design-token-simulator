@@ -1433,8 +1433,7 @@ export class FloorGL {
         ctx.beginPath(); ctx.arc(P.cx, P.cy, CR, 0, Math.PI * 2); ctx.stroke();
         ctx.filter = 'none';
         ctx.restore();
-        ctx.strokeStyle = 'rgba(255,255,255,.6)'; ctx.lineWidth = 2.5;
-        ctx.beginPath(); ctx.arc(P.cx, P.cy, CR, 0, Math.PI * 2); ctx.stroke();
+        // 외곽 얇은 림 폐기 — 배터리 링과 2겹으로 읽혔다(유저 #70). 링 한 겹이 테두리 겸임.
         // 내용 — 아이콘, 우측은 페이즈2에 코치 사진 크로스페이드
         const pOut = P.coach ? eOut(intro(t, TP2 + 3, .7)) : 0;   // 프로필 3초 뒤 이어버드 복귀
         const coachA = P.coach ? p2 * (1 - pOut) : 0;
@@ -1471,11 +1470,11 @@ export class FloorGL {
         cg.addColorStop(frac * 0.55, 'rgba(255,255,255,.55)');
         cg.addColorStop(Math.min(1, frac), 'rgba(255,255,255,0)');
         if (frac < 1) cg.addColorStop(Math.min(1, frac + 0.001), 'rgba(255,255,255,0)');
-        ctx.strokeStyle = cg; ctx.lineWidth = 7; ctx.lineCap = 'round';
-        ctx.beginPath(); ctx.arc(P.cx, P.cy, CR + 10, a0, a1); ctx.stroke();
+        ctx.strokeStyle = cg; ctx.lineWidth = 15; ctx.lineCap = 'round';   // 두껍게 — 충전 상태 가독(유저 #70)
+        ctx.beginPath(); ctx.arc(P.cx, P.cy, CR + 6, a0, a1); ctx.stroke();
         ctx.fillStyle = NEU.ink;
         ctx.beginPath();
-        ctx.arc(P.cx + Math.cos(a1) * (CR + 10), P.cy + Math.sin(a1) * (CR + 10), 12, 0, Math.PI * 2);
+        ctx.arc(P.cx + Math.cos(a1) * (CR + 6), P.cy + Math.sin(a1) * (CR + 6), 13, 0, Math.PI * 2);
         ctx.fill();
         // 음성 연결 체크 — 페이즈2, 작았다 살짝 커지며(오버슈트) 우하단에
         if (P.coach) {
