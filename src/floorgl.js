@@ -1388,17 +1388,19 @@ export class FloorGL {
         const ip = (seg.icon || seg.chipText) ? Math.max(0, Math.min(1, (sweep - s0) / 14)) : 0;
         if (ip > 0) {
           const ik = kf(eOut(ip), [[0, .4], [.6, 1.12], [1, 1]]);
-          const pc = polar(s0 + capA);
+          const pc = polar(seg === segs[0] ? s0 : s0 + capA);   // 첫 세그는 아래 끝(캡 중심)에(유저 #99)
           ctx.save(); ctx.globalAlpha *= Math.min(1, ip * 2.5);
-          ctx.translate(pc.x, pc.y); ctx.rotate((s0 + capA + 90) * RAD); ctx.scale(ik, ik);
+          const ca = (seg === segs[0] ? s0 : s0 + capA) + 90;
+          ctx.translate(pc.x, pc.y); ctx.rotate(ca * RAD); ctx.scale(ik, ik);
           ctx.fillStyle = seg.muted ? '#fff' : 'rgba(255,255,255,.3)';
           ctx.beginPath(); ctx.arc(0, 0, 61, 0, Math.PI * 2); ctx.fill();
           if (seg.chipText) {   // 5분 구간 = 원형 칩 안에 글자만(유저)
             // ★ 칩은 접선 방향으로 회전돼 있다 — 글자는 그 회전을 되돌려 **똑바로** 세운다.
             //   (안 그러면 '5m' 이 옆으로 누워 안 읽힌다 — 유저 #98 의 진짜 원인)
-            ctx.rotate(-(s0 + capA + 90) * RAD);
+            ctx.rotate(-ca * RAD);
             ctx.shadowBlur = 0;
-            ctx.fillStyle = NEU.inkDark; ctx.font = RF(700, 46); ctx.letterSpacing = '-1.4px';
+            ctx.fillStyle = bk ? '#474C52' : '#44523A';   // 농구=진한 회색 · 러닝=진한 연두(필드색, 유저)
+            ctx.font = RF(700, 46); ctx.letterSpacing = '-1.4px';
             ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
             ctx.fillText(seg.chipText, 0, 2);
             ctx.letterSpacing = '0px';
