@@ -5892,11 +5892,10 @@ void main(){
       const dMid = (rig.fpNear + rig.fpFar) / 2;   // 발자국·토큰 밴드 앵커용(아래 stageG에서 사용)
       // 균일 스케일(비율 유지) — 폭=커버리지 레인폭(투사 범위 유지, 유저: 범위 조정 금지).
       const laneW = 2 * rig._halfAt(dMid);
-      // ★ 프레임 월드 크기 = 커버리지 안에 폭·길이 모두 들어가는 최대(불변 규칙).
-      //   폭만 맞추면 세로(2670px)가 콘 길이를 넘겨 하단(신발·CTA)이 투사각 밖으로 샌다
-      //   (유저 스샷: 농구 봇 발치 UI). far 앵커는 그대로 — 작아지면 near 쪽이 콘 안으로 들어온다.
-      const covL = rig.fpFar - rig.fpNear;
-      const sUni = Math.min(laneW / fView.w, (covL - 0.05) / fView.h);
+      // ★ 투사 비율 = 전 스테이지 동일(유저: 시작화면만 비율이 달라지면 안 됨 — A1 비율이 정답).
+      //   콘 길이 맞춤(covL min)은 시작화면만 작게 만들어 철회. 콘 밖으로 새는 하단은
+      //   캔버스 콘텐츠 스케일/앵커(floorgl r2.scale·pivot)로 캔버스 안에서 해결한다.
+      const sUni = laneW / fView.w;
       // UI 프레임 전방위치 = 타이틀(board-y 176)이 커버리지 far끝(빨간 투사 끝라인 ≈ fpFar) 아래 고정 간격(0.12m)에 오도록.
       //   → 빨간 끝라인에서 타이틀까지 내려오는 거리를 전 스테이지 동일하게(유저 image 21). 대지 중심 앵커(dMid)가 아니라 far끝 기준.
       const boardFwd = (rig.fpFar - 0.12) - (1335 - 176) * sUni;

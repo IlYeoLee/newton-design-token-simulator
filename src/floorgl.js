@@ -525,7 +525,8 @@ const READY = {
                            arcs: [{ v: 10, lbl: '10min', icon: 'feet' }, { v: 15, lbl: '15min', icon: 'run' }], badge: '5' } },   // 배지 5 = 스트레칭 — 합 30
   'floor-bk.html': { title: "Curry's Handle Pack",   today: 'Today · 15min · Standard',  time: '23min',     mode: 'Press On',
                      comp: [['Stretch', 5], ['Learn', 8], ['Play!', 10]],
-                     r2: { lines: ["Curry's", 'Handle Pack'], sub: 'Press On', total: '23',
+                     r2: { scale: 0.75, pivotY: 320,   // 농구 콘이 얕다 — 상단 앵커 축소로 하단을 콘 안으로
+                           lines: ["Curry's", 'Handle Pack'], sub: 'Press On', total: '23',
                            arcs: [{ v: 8, lbl: '8min', icon: 'feet' }, { v: 10, lbl: '10min', icon: 'run' }], badge: '5' } },   // 배지 5 = 스트레칭 — 합 23
 };
 const TR = {
@@ -1235,9 +1236,11 @@ export class FloorGL {
     const D = READY[/floor-bk/.test(this.params.src) ? 'floor-bk.html' : 'floor.html'], R2 = D.r2;
     const RAD = Math.PI / 180;
     // 콘텐츠 스케일 — 프레임(=커버리지)은 절대 못 줄인다. 종목별 실물 크기 동급화는 여기서.
-    const CK = R2.scale || 1;
+    const CK = R2.scale || 1, PV = R2.pivotY ?? 1400;
     ctx.save();
-    if (CK !== 1) { ctx.translate(800, 1400); ctx.scale(CK, CK); ctx.translate(-800, -1400); }
+    if (CK !== 1) { ctx.translate(800, PV); ctx.scale(CK, CK); ctx.translate(-800, -PV); }
+    // ── 페이즈 타임라인 — 등장(왼→오 촤라락) 완료 후 2초 뒤 페이즈2(실루엣·코치 프로필) ──
+    const TP2 = 3.9, p2 = eOut(intro(t, TP2, .7));
     const RF = (w, s, fam = sans) => `${w} ${s}px ${fam}`;   // 피그마 원치수(타입스케일 미적용)
     const img = rel => this._img('fig/ready2/' + rel);
     const e0 = (d, dur = .8) => eOut(intro(t, d, dur));
@@ -1280,14 +1283,36 @@ export class FloorGL {
     ctx.fillStyle = 'rgba(255,255,255,.8)'; ctx.font = RF(400, 64); ctx.letterSpacing = '-2.56px';
     ctx.fillText(R2.sub, 800.5, 971);
     ctx.restore();
-    ctx.save(); ctx.globalAlpha *= e0(.35);
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillStyle = NEU.ink; ctx.font = RF(700, 384, dot9); ctx.letterSpacing = '-9.05px';
-    ctx.fillText(R2.total, 800, 1507);
-    ctx.font = RF(700, 64); ctx.letterSpacing = '-1.51px';
-    ctx.fillText('min', 1079.3, 1315);
-    ctx.letterSpacing = '0px';
-    ctx.restore();
+    if (p2 < 0.99) {
+      ctx.save(); ctx.globalAlpha *= e0(.85) * (1 - p2);
+      // 도트 카운팅 촤라락 — 복싱과 같은 rollNum 정본 (자릿수 롤)
+      rollNum(ctx, R2.total, t, .85, .9, 800, 1277, 384, { fam: dot9, align: 'center', fill: NEU.ink });
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillStyle = NEU.ink; ctx.font = RF(700, 64); ctx.letterSpacing = '-1.51px';
+      ctx.globalAlpha *= e0(1.0) > 0 ? 1 : 0;
+      ctx.fillText('min', 1079.3, 1315);
+      ctx.letterSpacing = '0px';
+      ctx.restore();
+    }
+    // 페이즈2 — 룩시스템 실루엣 영상(임시: 사이드 런지 클립, 가산 합성 + 열화상 틴트 근사)
+    if (p2 > 0.01) {
+      if (!this._readyVid) {
+        const el = document.createElement('video');
+        el.src = (import.meta.env?.BASE_URL || '/') + 'ready-view/assets/sean_lunge.webm';   // 알파 실루엣(임시=스트레칭1)
+        el.muted = true; el.loop = true; el.playsInline = true; el.autoplay = true;
+        el.play?.().catch(() => {});
+        this._readyVid = el;
+      }
+      const v = this._readyVid;
+      if (v.readyState >= 2 && v.videoWidth) {
+        const H2 = 720, W2 = H2 * (v.videoWidth / v.videoHeight);
+        ctx.save(); ctx.globalAlpha *= p2;
+        ctx.filter = 'sepia(1) saturate(3.2) hue-rotate(-18deg) brightness(1.05)';   // 임시 열화상 틴트(정본 personLook 이식 전)
+        ctx.drawImage(v, 800 - W2 / 2, 1810 - H2, W2, H2);
+        ctx.filter = 'none';
+        ctx.restore();
+      }
+    }
     // ── ④ 비례 세그먼트 아크 차트 — 데이터 파생형(r=999 캡슐 아크 언어).
     //   반원 하단 정렬: 배지 중심각(A0)과 마지막 세그먼트 끝각(A1)이 270° 대칭 — 양끝이 같은
     //   기준선에 앉는다. 등장 = 왼쪽(배지)에서 오른쪽으로 호를 따라 차오르는 스윕 + 아이콘 팝 +
@@ -1382,59 +1407,74 @@ export class FloorGL {
       ctx.letterSpacing = '0px';
       ctx.restore();
     }
-    // ── ⑤ 사이드 포드 — 좌(안경 그라디언트·100%) / 우(이어버드·러너 사진), y942 ──
-    const pod = (px) => {
-      ctx.fillStyle = 'rgba(255,255,255,.4)';
-      ctx.beginPath(); ctx.roundRect(px, 942, 220, 424, 110); ctx.fill();
-      ctx.fillStyle = 'rgba(255,255,255,.18)';
-      ctx.beginPath(); ctx.arc(px + 110, 1052, 90, 0, Math.PI * 2); ctx.fill();
-      ctx.beginPath(); ctx.arc(px + 110, 1256, 90, 0, Math.PI * 2); ctx.fill();
-    };
-    ctx.save(); ctx.globalAlpha *= e0(.55);
-    pod(30); pod(1350);
-    // 좌 상단 — 안경 아이콘: 피그마 마스크 + 열화상 그라디언트(180°: red 59→coral 84→sand 95→prism)
-    //   (SVG 익스포트가 스크린샷 패턴 채움이라 비어 나옴 → 노드 PNG 캡처를 그대로 그린다)
-    const gl2 = img('ic-glasses.png');
-    if (gl2) ctx.drawImage(gl2, 140 - 67, 1052 - 44.7, 134, 89.4);
-    // 좌 하단 — 100%
-    ctx.fillStyle = NEU.ink; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.font = RF(700, 64); ctx.letterSpacing = '-1.51px';
-    ctx.fillText('100', 128, 1256);
-    ctx.font = RF(700, 40); ctx.fillText('%', 188, 1266);
-    // 우 상단 — 이어버드(흰 마스크)
-    const eb = this._tinted2('fig/ready2/ic-earbuds.png', 146.709, 127.148, () => '#fff');
-    if (eb) ctx.drawImage(eb, 1460 - 73.35, 1052 - 63.6, 146.709, 127.148);
-    // 우 하단 — 러너 사진(원형 크롭 커버)
-    const ph = img('photo-runner.png');
-    if (ph) {
-      ctx.save();
-      ctx.beginPath(); ctx.arc(1460, 1256, 90, 0, Math.PI * 2); ctx.clip();
-      const sc = Math.max(180 / ph.naturalWidth, 180 / ph.naturalHeight) * (337 / 180);   // 피그마: h337 크롭, top -30%
-      const w = ph.naturalWidth * sc * (181 / 337) / (ph.naturalWidth / ph.naturalHeight) || 181;
-      ctx.drawImage(ph, 1460 - 90.5, 1256 - 90 - 101, 181, 337);
-      ctx.restore();
+    // ── ⑤ 사이드 서클 — 단일 글라스 서클 + 배터리 링 게이지(둘레 호 = 배터리 %, 끝점 도트).
+    //   우측은 페이즈2에 이어버드 → 코치 프로필로 교체 + '음성 연결' 체크 배지 팝(작았다 커짐).
+    {
+      const PODS = [
+        { cx: 120, cy: 1160, icon: 'glasses', pct: 78, d: .3 },                    // 임시 배터리 값
+        { cx: 1480, cy: 1160, icon: 'earbuds', pct: 62, d: 1.05, coach: true },
+      ];
+      const CR = 90;
+      PODS.forEach(P => {
+        const e = e0(P.d, .7);
+        const pop = kf(e, [[0, 0], [.6, 1.08], [1, 1]]);
+        if (pop <= 0.001) return;
+        ctx.save(); ctx.globalAlpha *= Math.min(1, e * 1.6);
+        ctx.translate(P.cx, P.cy); ctx.scale(pop, pop); ctx.translate(-P.cx, -P.cy);
+        // 글라스 서클
+        ctx.fillStyle = 'rgba(255,255,255,.3)';
+        ctx.beginPath(); ctx.arc(P.cx, P.cy, CR, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(P.cx, P.cy, CR, 0, Math.PI * 2); ctx.stroke();
+        // 내용 — 아이콘, 우측은 페이즈2에 코치 사진 크로스페이드
+        const iconA = P.coach ? 1 - p2 : 1;
+        if (iconA > 0.01) {
+          ctx.save(); ctx.globalAlpha *= iconA;
+          if (P.icon === 'glasses') {
+            const gl2 = img('ic-glasses.png');
+            if (gl2) ctx.drawImage(gl2, P.cx - 60, P.cy - 40, 120, 80);
+          } else {
+            const eb = this._tinted2('fig/ready2/ic-earbuds.png', 110, 95.3, () => '#fff');
+            if (eb) ctx.drawImage(eb, P.cx - 55, P.cy - 47.6, 110, 95.3);
+          }
+          ctx.restore();
+        }
+        if (P.coach && p2 > 0.01) {
+          const pk = this._img('photos/creator-profile-sean.png');
+          ctx.save(); ctx.globalAlpha *= p2;
+          ctx.beginPath(); ctx.arc(P.cx, P.cy, CR - 6, 0, Math.PI * 2); ctx.clip();
+          if (pk) {
+            const sc = Math.max((CR - 6) * 2 / pk.naturalWidth, (CR - 6) * 2 / pk.naturalHeight);
+            ctx.drawImage(pk, P.cx - pk.naturalWidth * sc / 2, P.cy - pk.naturalHeight * sc / 2,
+                          pk.naturalWidth * sc, pk.naturalHeight * sc);
+          }
+          ctx.restore();
+        }
+        // 배터리 링 — 12시 시작, % 만큼 시계방향 + 끝점 도트(피그마 #37/#39)
+        const bs = eOut(intro(t, P.d + .2, .9));
+        const a0 = -90 * RAD, a1 = a0 + (P.pct / 100) * Math.PI * 2 * bs;
+        ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.lineWidth = 7; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.arc(P.cx, P.cy, CR + 10, a0, a1); ctx.stroke();
+        ctx.fillStyle = NEU.ink;
+        ctx.beginPath();
+        ctx.arc(P.cx + Math.cos(a1) * (CR + 10), P.cy + Math.sin(a1) * (CR + 10), 12, 0, Math.PI * 2);
+        ctx.fill();
+        // 음성 연결 체크 — 페이즈2, 작았다 살짝 커지며(오버슈트) 우하단에
+        if (P.coach) {
+          const ck = kf(eOut(intro(t, TP2 + .2, .55)), [[0, 0], [.55, 1.2], [1, 1]]);
+          if (ck > 0.001) {
+            ctx.save();
+            ctx.translate(P.cx + 58, P.cy + 58); ctx.scale(ck, ck);
+            checkBadge(ctx, 0, 0, 30);
+            ctx.restore();
+          }
+        }
+        ctx.restore();
+      });
     }
-    ctx.letterSpacing = '0px';
-    ctx.restore();
-    // ── ⑥ 신발 실루엣 + 회색 발자국 — 좌 (205,1954)·우 (828,1954) 550 박스 ──
-    ctx.save(); ctx.globalAlpha *= e0(.65);
-    const shoe = (bx, mirror) => {
-      ctx.save();
-      ctx.translate(bx + 275, 1954 + 275);
-      if (mirror) ctx.scale(-1, 1);
-      const im = img('shoe-l.svg');
-      if (im) ctx.drawImage(im, -98, -199.83, 196, 399.656);
-      // 회색 발자국 — 피그마 마스크+인셋 화이트 글로우의 근사: foot_shape 흰 틴트
-      const fs2 = this._tinted2('foot_shape.png', 150, 200 * (293.042 / 140.017) / (293.042 / 140.017), () => 'rgba(255,255,255,.5)');
-      ctx.rotate(-4.54 * RAD);
-      const fp = this._tinted2('foot_shape.png', 141, 295, () => 'rgba(255,255,255,.55)');
-      if (fp) ctx.drawImage(fp, -70 + (mirror ? 12 : 22), -152, 141, 295);
-      ctx.restore();
-    };
-    shoe(205, false); shoe(828, true);
-    ctx.restore();
+    // ── ⑥ 발 = 룩시스템 FootMark 토큰(tap2 어포던스 상태, session READY) — 캔버스 신발 폐기(유저) ──
     // ── ⑦ CTA — Tap Twice(74 Bold) / To start(74 Regular), 발 사이 중앙 ──
-    ctx.save(); ctx.globalAlpha *= e0(.75);
+    ctx.save(); ctx.globalAlpha *= e0(1.25);
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillStyle = NEU.ink; ctx.font = RF(700, 74); ctx.letterSpacing = '-5.76px';
     ctx.fillText('Tap Twice', 800.15, 1988.7);
