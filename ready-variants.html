@@ -1,0 +1,24 @@
+<!doctype html><meta charset="utf-8">
+<title>러닝 READY 3안 비교 — 꽃잎 다이얼 · 워치 링 · 아크 레일</title>
+<!-- 바닥 READY 변주 3안을 나란히 본다. 각 칸 = 실제 씬 스테이지(?scene=READY&rv=…) iframe.
+     고르면 당첨안만 남기고(floorgl RV 분기 정리) 이 페이지는 은퇴. -->
+<style>
+body{margin:0;background:#191b20;font-family:'Supreme',sans-serif;color:#e8eaee}
+h1{font-size:18px;margin:14px 18px 6px}
+p.note{margin:0 18px 12px;font-size:12.5px;color:#9aa0a8}
+#row{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;padding:0 12px 12px}
+.card{background:#20242b;border:1px solid #2c313a;border-radius:12px;overflow:hidden}
+.card h2{font-size:15px;margin:10px 12px}
+.card iframe{width:100%;aspect-ratio:1600/1000;border:0;display:block;background:#000}
+</style>
+<h1>러닝 READY 3안</h1>
+<p class="note">무거우면 한 칸씩 새 탭으로 열어 보세요 — 제목 클릭 시 단독 창.</p>
+<div id="row"></div>
+<script>
+const V = [['petal', 'A · 꽃잎 다이얼'], ['ring', 'B · 워치 링'], ['rail', 'C · 아크 레일']];
+document.getElementById('row').innerHTML = V.map(([rv, name]) => {
+  const u = `/?scene=READY&rv=${rv}`;
+  return `<div class="card"><h2><a href="${u}" target="_blank" style="color:inherit">${name} ↗</a></h2>
+    <iframe src="${u}" loading="lazy"></iframe></div>`;
+}).join('');
+</script>
