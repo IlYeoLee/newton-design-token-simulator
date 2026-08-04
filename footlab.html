@@ -50,11 +50,11 @@
     border-radius:8px;padding:8px;font:11px/1.5 ui-monospace,Consolas,monospace;resize:vertical}
   .note{color:var(--dim);font-size:11px;margin:8px 0 0}
   .warn{color:var(--red);font-size:11.5px;margin:8px 0 0;display:none}
-</style>  <script type="module" crossorigin src="./assets/footlab-ZED03311.js"></script>
+</style>  <script type="module" crossorigin src="./assets/footlab-DRGzcQ61.js"></script>
   <link rel="modulepreload" crossorigin href="./assets/modulepreload-polyfill-B5Qt9EMX.js">
-  <link rel="modulepreload" crossorigin href="./assets/fx-core-CdDKDHEk.js">
-  <link rel="modulepreload" crossorigin href="./assets/fxlut-CXHfg7yy.js">
-  <link rel="modulepreload" crossorigin href="./assets/tokens-C7UeMXg1.js">
+  <link rel="modulepreload" crossorigin href="./assets/fx-core-B5jZImdK.js">
+  <link rel="modulepreload" crossorigin href="./assets/fxlut-CDVufDlq.js">
+  <link rel="modulepreload" crossorigin href="./assets/tokens-xwqoWK7x.js">
 </head><body>
 <div class=wrap>
   <div class=panel>
@@ -130,9 +130,14 @@
       <div class=row style="margin-top:6px"><label>왼발/원 문자</label><input id=gL value="1" style="flex:1;min-width:0;background:#161A22;color:var(--text);border:1px solid var(--line);border-radius:6px;padding:4px 6px"></div>
       <div class=row><label>오른발 문자</label><input id=gR value="2" style="flex:1;min-width:0;background:#161A22;color:var(--text);border:1px solid var(--line);border-radius:6px;padding:4px 6px"></div>
       <div class=row><label>글리프 크기</label><input type=range id=gsize min=.4 max=2.2 step=.05><span class=v id=vgsize></span></div>
-      <div class=row><label>위치 X</label><input type=range id=gx min=-.5 max=.5 step=.005><span class=v id=vgx></span></div>
-      <div class=row><label>위치 Y</label><input type=range id=gy min=-.5 max=.5 step=.005><span class=v id=vgy></span></div>
-      <div class=row><label>회전°</label><input type=range id=grot min=-45 max=45 step=1><span class=v id=vgrot></span></div>
+      <p class=sub style="margin:8px 0 2px">왼발 글리프</p>
+      <div class=row><label>왼 위치 X</label><input type=range id=gxL min=-.5 max=.5 step=.005><span class=v id=vgxL></span></div>
+      <div class=row><label>왼 위치 Y</label><input type=range id=gyL min=-.5 max=.5 step=.005><span class=v id=vgyL></span></div>
+      <div class=row><label>왼 회전°</label><input type=range id=grotL min=-45 max=45 step=1><span class=v id=vgrotL></span></div>
+      <p class=sub style="margin:8px 0 2px">오른발 글리프</p>
+      <div class=row><label>오른 위치 X</label><input type=range id=gxR min=-.5 max=.5 step=.005><span class=v id=vgxR></span></div>
+      <div class=row><label>오른 위치 Y</label><input type=range id=gyR min=-.5 max=.5 step=.005><span class=v id=vgyR></span></div>
+      <div class=row><label>오른 회전°</label><input type=range id=grotR min=-45 max=45 step=1><span class=v id=vgrotR></span></div>
       <p class=sub style="margin:8px 0 4px">그림자 — 밀도를 만드는 건 결국 이 대비다</p>
       <div class=seg id=segGShadow><button data-v=glow class=on>글로우</button><button data-v=drop>드롭</button><button data-v=none>없음</button></div>
       <div class=row><label>그림자 세기</label><input type=range id=gsh min=0 max=1.5 step=.02><span class=v id=vgsh></span></div>
