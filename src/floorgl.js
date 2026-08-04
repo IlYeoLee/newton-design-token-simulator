@@ -285,37 +285,37 @@ export function drawBadge(ctx, cx, cy, text, o = {}) {
   const iw = o.icon ? icon + gap : 0;   // 아이콘 없을 땐 그 여백도 없다 — 중심 정렬이 틀어지던 것
   const w = ctx.measureText(text).width + iw + pad * 2;
   const glow = o.glow ?? 0.55;
-  // ── 톤 규칙(유저): 사건·강조어 = 코랄(밝은 주황 발광) · 일반 안내 = 흰색 ──────────
-  //   호출부가 o.tone('coral'|'white')으로 못박을 수 있고, 없으면 낱말 규칙이 정한다.
+  // ── 레퍼런스 실측 재현(FINAL SHOT, 20.png 픽셀 계측) ─────────────────────────
+  //   라인 = 채도 낮은 웜 피치(실측 #E7BEA2 — 배경 대비 +47R 정도의 '살짝 밝은 온기').
+  //   두께 얇게(2.5), 글로우는 좁고 은은하게(±4px 폴오프 실측). 진한 코랄·두꺼운 선·강한 블룸이
+  //   레퍼런스 느낌을 계속 깨던 원인이었다(유저: 연구해서 제대로).
+  //   톤 규칙: 강조어(success/match rate/combo/boost/final/strike)는 글로우만 코랄로 더 데운다.
   const tone = o.tone || (/success|match rate|combo|boost|final|strike/i.test(String(text)) ? 'coral' : 'white');
-  // ★ 라인 색 규약(유저 확정): 자막 주변(필)은 **흰색** — 가독 담당. 코랄은 윙 그라디언트와
-  //   글로우에만 — 전부 코랄로 칠하면 밝은 벽에서 통째로 묻힌다(유저).
-  const line = 'rgba(255,255,255,.95)';
+  const line = 'rgba(255,222,194,.95)';   // 웜 피치 — 실측 앵커
   const glowC = tone === 'coral' ? PAL.coral : PAL.sand;
   ctx.save();
   ctx.translate(cx, cy);
-  // 필 아웃라인 — 기본형(유저 확정: FINAL SHOT 레퍼런스가 제일 깔끔). 소프트 글로우 한 겹 + 크리스프.
   ctx.strokeStyle = line;
-  ctx.shadowColor = rgba(glowC, Math.min(1, glow + 0.2)); ctx.shadowBlur = 46 * S * (0.5 + glow);
-  ctx.lineWidth = 5 * S;   // 3 → 5 — 코랄 라인이 밝은 벽에서 안 보였다(유저)
+  ctx.lineWidth = 2.5 * S;
+  // 은은한 이중 글로우(좁게) + 크리스프 — 레퍼런스의 '살짝 배어나는' 헤일로
+  ctx.shadowColor = rgba(glowC, .8); ctx.shadowBlur = 9 * S;
+  ctx.beginPath(); ctx.roundRect(-w / 2, -H / 2, w, H, R); ctx.stroke();
+  ctx.shadowColor = rgba(glowC, .35); ctx.shadowBlur = 26 * S * (0.5 + glow);
   ctx.beginPath(); ctx.roundRect(-w / 2, -H / 2, w, H, R); ctx.stroke();
   ctx.shadowBlur = 0;
   ctx.beginPath(); ctx.roundRect(-w / 2, -H / 2, w, H, R); ctx.stroke();
-  // 윙 — 점 없이 선만(기본형). 양끝으로 갈수록 투명(유저: 선 좌우에 투명도). ext 로 뻗는다.
+  // 윙 — 같은 피치 라인, 얇게, 바깥으로 알파 페이드. ext 로 뻗는다.
   const ext = clamp01(o.ext ?? 0);
-  const m = 34 * S, wing = 84 * S * (1 + 2.0 * ext);
-  ctx.lineCap = 'round'; ctx.lineWidth = 5 * S;
+  const m = 34 * S, wing = 96 * S * (1 + 1.8 * ext);
+  ctx.lineCap = 'round'; ctx.lineWidth = 2.5 * S;
   for (const dir of [-1, 1]) {
     const xs = dir * (w / 2 + m), xe = xs + dir * wing;
-    // 흰색(필 쪽) → 코랄(중간) → 투명(끝) — 자막 주변은 희고 끝만 코랄로 식는 그라디언트(유저)
     const lg = ctx.createLinearGradient(xs, 0, xe, 0);
-    lg.addColorStop(0, 'rgba(255,255,255,.95)');
-    lg.addColorStop(0.45, rgba(PAL.coral, .85));
-    lg.addColorStop(1, rgba(PAL.coral, 0));
+    lg.addColorStop(0, line);
+    lg.addColorStop(1, rgba(glowC, 0));
     ctx.strokeStyle = lg;
-    ctx.shadowColor = rgba(glowC, .7); ctx.shadowBlur = 18 * S;
+    ctx.shadowColor = rgba(glowC, .5); ctx.shadowBlur = 9 * S;
     ctx.beginPath(); ctx.moveTo(xs, 0); ctx.lineTo(xe, 0); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(xs, 0); ctx.lineTo(xe, 0); ctx.stroke();   // 2회 — 발광 축적(뻗는 게 보이게)
   }
   ctx.shadowBlur = 0;
   if (o.icon) ctx.drawImage(o.icon, -w / 2 + pad, -icon * 0.55, icon, icon * 1.1);
