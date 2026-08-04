@@ -35,8 +35,10 @@ const SCENES = [
 ].filter(s => !ONLY || s.id === ONLY);
 
 const run = (s) => new Promise((res) => {
+  // ★ 씬마다 제 폴더에 넣는다 — 익스포터의 파일명(boxing_<w>p<fps>)에 씬 ID 가 안 들어가서
+  //   같은 폴더로 뽑으면 **앞 씬을 조용히 덮어쓴다**(실측: A1 뽑고 B2 뽑으면 A1 이 사라진다).
   const args = ['scripts/export_video.mjs', '--url', URL, '--scene', s.id, '--sport', 'boxing',
-    '--play', '--dur', String(s.dur), '--fps', FPS, '--w', W, '--ss', '1', '--out', OUT];
+    '--play', '--dur', String(s.dur), '--fps', FPS, '--w', W, '--ss', '1', '--out', `${OUT}/${s.id}`];
   const t0 = Date.now();
   const ch = spawn('node', args, { stdio: ['ignore', 'pipe', 'pipe'] });
   let tail = '', miss = null;
