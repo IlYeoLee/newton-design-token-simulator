@@ -1231,7 +1231,9 @@ void main(){
   // ── 🔥 룩 스튜디오 = FX Lab 페이지 통째 임베드 ──────────────
   // 랩에서 만지는 모든 값이 400ms 주기로 전송 → 시뮬 적용 + designStore 저장.
   /** 커스텀 글리프/화살표 변경 → 현재 팩 리베이크 — 디바운스 (이미지 19장 로드·슬라이더 드래그마다 풀 리빌드 방지) */
-  let glyphRefreshTimer = null;
+  // ★ var — let 은 TDZ 라, 위쪽(300)의 ensureOffBit().then 이 톱레벨 await 틈에 먼저 돌면
+  //   'Cannot access before initialization' 으로 죽어 숫자 리베이크가 통째로 빠졌다(블랙박스 실측).
+  var glyphRefreshTimer = null;
   function refreshGlyphConsumers() {
     clearTimeout(glyphRefreshTimer);
     glyphRefreshTimer = setTimeout(() => {
@@ -5859,7 +5861,10 @@ void main(){
         back.style.width = fView.w + 'px';
         back.style.height = fView.h + 'px';
         loadFloorDoc(back, import.meta.env.BASE_URL + fView.src + durSuffix).then(ok => {
-          if (!ok || back !== floorIframeBack) return;   // 뒤늦은 스왑 방지(그 사이 다른 전환)
+          // ★ 자가 치유(CSS3D 판) — 실패·유실 로드는 loadedFloorView 를 풀어 다음 프레임에 재시도.
+          //   예전엔 로드 시작 시점에 래치를 걸어 놔서, 스왑이 유실되면(전환 레이스) 빈 지면이
+          //   '이미 로드됨'으로 영영 남았다(유저: 러닝 훈련·실전 케이던스·아치 HUD 실종의 정체).
+          if (!ok || back !== floorIframeBack) { loadedFloorView = null; return; }
           back.style.visibility = '';
           floorIframe.style.visibility = 'hidden';
           const t = floorIframe; floorIframe = back; floorIframeBack = t;
