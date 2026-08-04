@@ -756,53 +756,7 @@ export class WallGL {
       ctx.translate(CX, cueY + sh / 2); ctx.scale(sk, sk); ctx.translate(-CX, -(cueY + sh / 2));
       // ★ 흰 필 알약 → 정본 배지(아웃라인 + 윙 선·점 + 블룸, 유저 확정 레퍼런스 스타일).
       //   이벤트(Match Rate 구간 종료)에 sayExt 로 윙이 뻗는다.
-      const _bw = drawBadge(ctx, CX, cueY + sh / 2, say, { scale: sh / 114.26, glow: .45, ext: sayExt });
-      // 불 인터랙션(레퍼런스 pyeongso fire-rise 2.6s) — 느낌표 큐에서 배지 왼쪽 불씨 2개가 떠오른다(유저)
-      // 전수검사 규칙(유저): 리액션은 사건에만. 불씨 = 실전(beats) 스테이지에서 **히트 직후 1.3s 단발**.
-      //   느낌표 큐마다 상시 루프는 과잉이라 폐기.
-      const _lastHit = S.beats ? [...S.beats].reverse().find(([bt, v]) => v === 'hit' && t >= bt) : null;
-      if (_lastHit && t - _lastHit[0] < 1.3) {
-        const fl = this._img('flame.svg');
-        if (fl && fl.complete && fl.naturalWidth) {
-          // 2겹 스프라이트(레퍼런스 정본): 선명 실루엣 + ::after 겹 — 같은 불꽃을 블러(1.4px@24px 비례)해
-          //   하단 20% 마스크로만 남긴다 = 바닥 끝만 아지랑이처럼 녹는 그 처리(유저 지적).
-          this._emberCv = this._emberCv || {};
-          const _ember_sprite = (px) => {
-            const key = 'e' + px;
-            if (this._emberCv[key]) return this._emberCv[key];
-            const cv = document.createElement('canvas'); cv.width = cv.height = px;
-            const g2 = cv.getContext('2d');
-            g2.drawImage(fl, 0, 0, px, px);
-            const b = document.createElement('canvas'); b.width = b.height = px;
-            const bg = b.getContext('2d');
-            bg.filter = `blur(${(1.4 * px / 24).toFixed(1)}px)`;
-            bg.drawImage(fl, 0, 0, px, px);
-            bg.filter = 'none';
-            bg.globalCompositeOperation = 'destination-in';
-            const m = bg.createLinearGradient(0, 0, 0, px);
-            m.addColorStop(0, 'rgba(0,0,0,0)'); m.addColorStop(0.8, 'rgba(0,0,0,0)'); m.addColorStop(1, 'rgba(0,0,0,1)');
-            bg.fillStyle = m; bg.fillRect(0, 0, px, px);
-            g2.drawImage(b, 0, 0);
-            return this._emberCv[key] = cv;
-          };
-          const fx0 = CX - _bw / 2 - 34, fy0 = cueY + sh * 0.62;
-          const ember = (dly, sz, rot, ox) => {
-            const p = (t - _lastHit[0] - dly) / 1.6;   // 단발 — 히트 순간 발화, 한 번 오르고 끝
-            if (p < 0 || p > 1) return;
-            // 은은·부드럽게(유저): 피크 알파 0.55, 완만한 인/아웃, ease-out 상승 + 미세 흔들림
-            const a = p < .25 ? (p / .25) * .55 : .55 * (1 - (p - .25) / .75);
-            const pe = 1 - Math.pow(1 - p, 2);          // ease-out — 처음 붕 떠오르고 천천히 잦아든다
-            const yv = 6 - 74 * pe, sc = .8 + .3 * pe, SZ = sz * sc;
-            const wob = Math.sin((p * 2.2 + dly) * 6.283) * 3;
-            ctx.save(); ctx.globalAlpha *= a;
-            ctx.translate(fx0 + ox + wob, fy0 + yv); ctx.rotate(rot);
-            ctx.drawImage(_ember_sprite(Math.round(sz * 2)), -SZ / 2, -SZ / 2, SZ, SZ);
-            ctx.restore();
-          };
-          ember(0, 44, 0, 0); ember(0.2, 34, 13 * Math.PI / 180, 24);
-          if (this.stage === 'BX_C3') ember(0.36, 27, -9 * Math.PI / 180, -20);   // 콤보는 3개(유저)
-        }
-      }
+      drawBadge(ctx, CX, cueY + sh / 2, say, { scale: sh / 114.26, glow: .45, ext: sayExt });
       ctx.restore();
     }
     // 판정(HIT/NEAR/MISS)은 여기서 뱃지로 띄우지 않는다 — 하단 우측에 띄워 봤더니 운동 중엔
