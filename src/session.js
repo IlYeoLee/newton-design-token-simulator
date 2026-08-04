@@ -1134,6 +1134,7 @@ export class Session {
     let g = this._mk('BK_READY');
     g.add(floorRing(0, -1.1, 0.20, 0.225, BRAND.dim, 0.9));
     this.bkTap = this._tap('boxing'); this.bkTap.position.set(0, 0.013, -1.1); g.add(this.bkTap);
+    this.bkTap.visible = false;   // 러닝과 동일 — 캔버스 CTA + tap2 발자국이 전담(검은 박스 방지)
 
     // A1 옆구리 = 마크 없이 코치 영상만(noMark) — ring/arc는 최소 생성(핸들러가 숨김).
     this.bkStretch = {};
