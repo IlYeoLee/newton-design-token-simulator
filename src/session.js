@@ -143,13 +143,15 @@ class FootMark {
   /** tap2 어포던스(READY 전용, 유저 2026-08-05) — 무채(도트+이너 화이트) 대기로 있다가
    *  주기마다 액티브 컬러로 밝아지며 **2회 깜빡** = '발 두 번 탭' 암시. 과하지 않게 3.2s 주기. */
   tapHint(tc) {
-    // 시작 = 무채(도트+이너 화이트, #63 디자인) 그대로. 주기 후반에만 액티브로 2회, 사인 디졸브로
-    //   부드럽게(유저: 애니메이팅 부드럽게 — 스텝 스위치의 팝 제거).
-    const T = 3.6, ph = tc % T;
-    const bl = t0 => { const u = (ph - t0) / 0.55; return (u >= 0 && u <= 1) ? Math.sin(u * Math.PI) : 0; };
-    const b = Math.max(bl(2.0), bl(2.75));
-    if (b > 0.35) { this._U.uPhase.value = 0; this._U.uProg.value = 0; this.op(0.25 + 0.6 * b); }
-    else { this.locked(); this.op(0.6 - 0.35 * b); }   // 교차 지점 밝기 근사 일치 = 디졸브
+    // 유저 확정 루프(08-05): 무채(#63) → 은은한 펄스 2회 = '석세스 최종형태 컬러'(붉은, 가장 진한
+    //   uPhase 2 · uProg 0)로 깜빡깜빡 → 다시 무채. 사인 디졸브로 부드럽게.
+    //   ★ glow() 를 쓰지 않는다 — glow(1) 은 onSuccess 파문까지 발사한다(풀 버전 금지, 유저).
+    //     유니폼 직접 세팅 = 색만 빌려 오고 이펙트는 없다.
+    const T = 4.2, ph = tc % T;
+    const bl = t0 => { const u = (ph - t0) / 0.6; return (u >= 0 && u <= 1) ? Math.sin(u * Math.PI) : 0; };
+    const b = Math.max(bl(2.3), bl(3.05));
+    if (b > 0.3) { this._U.uPhase.value = 2; this._U.uProg.value = 0; this.op(0.3 + 0.4 * b); }   // 은은하게 — 피크 0.7
+    else { this.locked(); this.op(0.6 - 0.3 * b); }   // 교차 밝기 근사 일치 = 디졸브
   }   // 무채 대기(Locked) — READY 시작 전
   countdown(p) {
     if (p < 0) { this._U.uPhase.value = 0; this._U.uProg.value = 0; return; }          // 대기 = Preview 숨쉬기
