@@ -725,7 +725,8 @@ export class WallGL {
     // 실측 A2(dur 4.6 · 큐 5개) 기준 1.1초/개 — 등장 페이드 0.5초를 빼면 읽을 시간이
     // 0.6초뿐이었다(유저: "타이밍이 너무 빨라"). 다 못 보여줘도 읽히는 쪽이 낫다.
     //   실전이라고 빨리 지나가야 할 이유가 없다 — 전 구간 2.6초.
-    const every = Math.max(2.6, dur / (seq.length + 0.5));
+    // 잽잽훅(C3)은 콤보 1사이클(3.0s)당 자막 1개 — 2.6s 순환은 콤보 박자와 어긋나 정신없었다(유저)
+    const every = this.stage === 'BX_C3' ? 3.0 : Math.max(2.6, dur / (seq.length + 0.5));
     const swapT = seq.length > 1 ? t - Math.floor(t / every) * every : t;
     let say = seq[seq.length > 1 ? Math.floor(t / every) % seq.length : 0];
     // 구간 종료 Match Rate — session.js BX_C3 에 cue 로 적혀만 있고 화면엔 없던 것.
