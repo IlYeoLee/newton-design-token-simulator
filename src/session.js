@@ -139,6 +139,7 @@ class FootMark {
   at(x, z, s = 1) { this.group.position.set(x, 0.013, z); this.group.scale.setScalar(s); return this; }
   op(k) { this._U.uFade.value = k; }
   setHold(p) { this._U.uPhase.value = 5; this._U.uProg.value = Math.max(0.001, p); }   // Hold 코닉 진행 림
+  locked() { this._U.uPhase.value = 3; this._U.uProg.value = 0; }   // 무채 대기(Locked) — READY 시작 전
   countdown(p) {
     if (p < 0) { this._U.uPhase.value = 0; this._U.uProg.value = 0; return; }          // 대기 = Preview 숨쉬기
     this._U.uPhase.value = 1; this._U.uProg.value = p;                                 // Active — 헤일로 수축 = 타이밍
@@ -989,7 +990,7 @@ export class Session {
     // READY 발자국 = 룩시스템 발형(MARK Preview 숨쉬기) — 캔버스 사제 발 그래픽 폐기(유저:
     //   바닥은 평면 그래픽, 발 모양은 룩 토큰으로). 링 중앙 = 탭 지점에 놓는다.
     this.readyFoot = new FootMark('right').at(0, -0.78);   // 씬 READY 다이얼 중심(캔버스 ~1780)과 정렬 — 실측 스크린샷 2회 캘리브레이션
-    this.readyFoot.countdown(-1);   // 대기 = Preview 소프트 필 숨쉬기
+    this.readyFoot.locked();        // 대기 = 무채(Locked) — 시작 전은 색 없음, 탭하면 색이 깨어난다(유저 검토안)
     this.readyFoot.op(0.78);        // READY 는 발이 주인공이되 링 안을 삼키지 않게 살짝 절제
     // G.READY 는 '시작 페이지 = 프레임 전담' 정책으로 main 이 끈다 — 발자국은 새 READY 의
     //   어포던스 정본이므로 root 소속으로 예외. 표시는 아래 업데이트 틱이 스테이지로 제어.
