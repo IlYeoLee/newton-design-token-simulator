@@ -954,18 +954,9 @@ export class FloorGL {
     //   ⓑ 가산 투사에서 적색이 가장 먼저 대비를 잃어 '많이 틀어진 순간'에 제일 안 읽힌다.
     rollNum(ctx, me || '--', this.t, 0, 0.6, cx, y + 118 - 132 * 0.78, 132,
             { fam: dot9, align: 'center', fill: NEU.paper });
-    // ② 편차 바 — 가운데 눈금이 목표, 점이 현재. 관계를 '위치'로 읽는다.
+    // ② 편차 바 — 가운데 눈금이 목표, 점이 현재. 관계를 '위치'로 읽는다. (_devBar 공용)
     const BW = 232, BY = y + 154;
-    ctx.lineCap = 'round';
-    ctx.strokeStyle = rgba(NEU.paper, 0.26); ctx.lineWidth = 4;
-    ctx.beginPath(); ctx.moveTo(cx - BW / 2, BY); ctx.lineTo(cx + BW / 2, BY); ctx.stroke();
-    ctx.strokeStyle = rgba(NEU.paper, 0.55);
-    ctx.beginPath(); ctx.moveTo(cx, BY - 10); ctx.lineTo(cx, BY + 10); ctx.stroke();
-    if (ok) {
-      const px = cx + Math.max(-1, Math.min(1, dev / 0.12)) * (BW / 2);
-      ctx.fillStyle = col;
-      ctx.beginPath(); ctx.arc(px, BY, 9, 0, Math.PI * 2); ctx.fill();
-    }
+    this._devBar(cx, BY, BW, dev / 0.12, col, ok);
     // ③ 라벨 — 본문 영문. 숫자가 아니므로 도트 금지(유저 규약).
     ctx.font = F(500, 34); ctx.letterSpacing = '7px';
     ctx.fillStyle = rgba(NEU.paper, 0.6);
@@ -995,13 +986,26 @@ export class FloorGL {
   _devBar(cx, by, w, dev, col, on) {
     const ctx = this.ctx;
     ctx.lineCap = 'round';
-    ctx.strokeStyle = rgba(NEU.paper, 0.26); ctx.lineWidth = 4;
+    // 트랙 — 양끝이 투명으로 사라지는 그라디언트. 끝을 자르지 않고 '여기까지'라는 인상만 남긴다.
+    const g = ctx.createLinearGradient(cx - w / 2, 0, cx + w / 2, 0);
+    g.addColorStop(0, rgba(NEU.paper, 0));
+    g.addColorStop(0.18, rgba(NEU.paper, 0.3));
+    g.addColorStop(0.5, rgba(NEU.paper, 0.34));
+    g.addColorStop(0.82, rgba(NEU.paper, 0.3));
+    g.addColorStop(1, rgba(NEU.paper, 0));
+    ctx.strokeStyle = g; ctx.lineWidth = 7;
     ctx.beginPath(); ctx.moveTo(cx - w / 2, by); ctx.lineTo(cx + w / 2, by); ctx.stroke();
-    ctx.strokeStyle = rgba(NEU.paper, 0.55);
-    ctx.beginPath(); ctx.moveTo(cx, by - 12); ctx.lineTo(cx, by + 12); ctx.stroke();
+    // 목표 눈금 — 트랙보다 밝고 가늘게. 두께가 같으면 점과 눈금이 한 덩어리로 읽힌다.
+    ctx.strokeStyle = rgba(NEU.paper, 0.7); ctx.lineWidth = 5;
+    ctx.beginPath(); ctx.moveTo(cx, by - 13); ctx.lineTo(cx, by + 13); ctx.stroke();
     if (!on) return;
+    // 현재 점 — 같은 색 글로우를 깔아 투사에서도 또렷이 뜬다.
+    const px = cx + Math.max(-1, Math.min(1, dev)) * (w / 2);
+    ctx.save();
+    ctx.shadowColor = col; ctx.shadowBlur = 22;
     ctx.fillStyle = col;
-    ctx.beginPath(); ctx.arc(cx + Math.max(-1, Math.min(1, dev)) * (w / 2), by, 11, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(px, by, 11, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
   }
 
   /** 부호 붙은 초(±N”) — 페이스 팩의 기본 활자 단위.
