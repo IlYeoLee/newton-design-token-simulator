@@ -232,7 +232,9 @@ html,body{background:transparent}
     dots.style.display = 'none';
     // PVN(스텝백) = 숫자·링을 main.js가 실제 재생 횟수로 구동한다. 여기선 카운트다운을 돌리지 않는다.
     let n = PV;
-    const numEl = () => document.getElementById('prev-num');
+    // ★ row 기준 조회 — 섀도루트 주입(어제 iframe→shadow 전환) 뒤 document.getElementById 는
+    //   본문서를 봐서 못 찾고, 첫 틱에 인터벌이 죽어 숫자가 3에 얼었다(유저). 루트 무관 참조로.
+    const numEl = () => row.querySelector('#prev-num');
     const iv = PVN ? null
       : setInterval(() => { const el = numEl(); if (!el || !el.isConnected) { clearInterval(iv); return; }
           n--; if (n < 1) { clearInterval(iv); return; } el.textContent = n; }, 1000);
