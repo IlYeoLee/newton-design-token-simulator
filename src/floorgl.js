@@ -516,18 +516,15 @@ export function drawChars(ctx, txt, cx, y, h, ls, fn, align = 'center') {
 }
 
 // ── 나머지 문서(시작화면·전환·카운트다운·리포트) 데이터 — 각 HTML의 상수를 그대로 옮긴 것 ──
+// 러닝·농구 시작화면 = UI 한 벌(유저 08-05). 종목이 바꾸는 건 아래 다섯 필드뿐 —
+//   lines(제목 2줄) · sub(부제) · total(도트 히어로 분) · arcs(세그먼트 값·라벨·아이콘) · badge(선행 배지).
+//   레이아웃·모션·색은 _paint_ready 하나가 전담한다. Figma 시작화면 353:7066 정본.
+//   scale/pivotY 는 디자인이 아니라 투사 콘 맞춤 노브 — 농구 콘이 얕아 원치수는 잘린다(유저 실측).
+//   폐기: title·today·time·mode·comp(_paint_ready 가 안 읽던 잔재) · vid(코치 판은 main.js COACH_CFG 전담).
 const READY = {
-  // meta = 모바일 홈 카드의 '팩 · 시간' 표기(home.html 원본) — 지면도 같은 조판 규칙을 쓴다
-  // comp = 세션 시간 구성(분) — READY 아크 트랙이 구간 크기로 위계를 말한다. 합 = time.
-  //   r2 = Figma 시작화면(342:3057) 캡슐 디자인 필드 — 제목 2줄 / 부제 / 총 분(도트 히어로·아크 라벨)
-  'floor.html':    { title: "Sean's Final 1km Pace", today: 'Today · 5.0km · Standard', time: '30min', mode: 'Pace & Boost On', modeSm: true,
-                     comp: [['Stretch', 5], ['Learn', 10], ['Run!', 15]],
-                     r2: { vid: 'sean_neck_shoulder.webm',   // 스케일 원복(유저: 러닝 뷰 과소) — 잘림은 -185 시프트만으로 해결
-                           lines: ["Sean's", 'Final 1km Pace'], sub: 'Pace On', total: '30',
+  'floor.html':    { r2: { lines: ["Sean's", 'Final 1km Pace'], sub: 'Pace On', total: '30',
                            arcs: [{ v: 10, lbl: '10min', icon: 'feet' }, { v: 15, lbl: '15min', icon: 'run' }], badge: '5' } },   // 배지 5 = 스트레칭 — 합 30
-  'floor-bk.html': { title: "Curry's Handle Pack",   today: 'Today · 15min · Standard',  time: '23min',     mode: 'Press On',
-                     comp: [['Stretch', 5], ['Learn', 8], ['Play!', 10]],
-                     r2: { scale: 0.75, pivotY: 320, vid: 'bk_squat.webm',   // 농구 콘 얕음 — 상단 앵커 축소 · 실루엣 = 농구 A1(스쿼트)
+  'floor-bk.html': { r2: { scale: 0.75, pivotY: 320,
                            lines: ["Curry's", 'Handle Pack'], sub: 'Press On', total: '23',
                            arcs: [{ v: 8, lbl: '8min', icon: 'bkTrain' }, { v: 10, lbl: '10min', icon: 'bkPlay' }], badge: '5' } },   // 배지 5 = 스트레칭 — 합 23
 };
@@ -1449,109 +1446,10 @@ export class FloorGL {
       ctx.letterSpacing = '0px';
       ctx.restore();
     }
-    // ── ⑤ 사이드 서클 — 단일 글라스 서클 + 배터리 링 게이지(둘레 호 = 배터리 %, 끝점 도트).
-    //   우측은 페이즈2에 이어버드 → 코치 프로필로 교체 + '음성 연결' 체크 배지 팝(작았다 커짐).
-    {
-      // 우측 세로 스택(유저 확정 08-05) — 좌우 대칭이 '몸통+팔' 게슈탈트를 만들던 것 해소.
-      //   위 = 이어버드(페이즈2에 코치 프로필로 교체 유지) · 아래 = 글래스.
-      const PODS = [
-        { cx: 1480, cy: 1055, icon: 'earbuds', pct: 62, d: .95, coach: true },
-        { cx: 1480, cy: 1290, icon: 'glasses', pct: 78, d: 1.1 },                  // 임시 배터리 값
-      ];
-      const CR = 90;
-      PODS.forEach(P => {
-        const e = e0(P.d, .7);
-        const pop = kf(e, [[0, 0], [.6, 1.08], [1, 1]]);
-        if (pop <= 0.001) return;
-        ctx.save(); ctx.globalAlpha *= Math.min(1, e * 1.6);
-        ctx.translate(P.cx, P.cy); ctx.scale(pop, pop); ctx.translate(-P.cx, -P.cy);
-        // 글라스 서클 — 면 채움 없이 이너 쉐도우만(유저 #51): 클립 안에서 블러 스트로크
-        ctx.save();
-        ctx.beginPath(); ctx.arc(P.cx, P.cy, CR, 0, Math.PI * 2); ctx.clip();
-        ctx.filter = 'blur(11px)';
-        ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = 22;
-        ctx.beginPath(); ctx.arc(P.cx, P.cy, CR, 0, Math.PI * 2); ctx.stroke();
-        ctx.filter = 'none';
-        ctx.restore();
-        // 외곽 얇은 림 폐기 — 배터리 링과 2겹으로 읽혔다(유저 #70). 링 한 겹이 테두리 겸임.
-        // 내용 — 아이콘, 우측은 페이즈2에 코치 사진 크로스페이드
-        const pOut = P.coach ? eOut(intro(t, TP2 + 3, .7)) : 0;   // 프로필 3초 뒤 이어버드 복귀
-        const coachA = P.coach ? p2 * (1 - pOut) : 0;
-        const iconA = P.coach ? 1 - coachA : 1;
-        if (iconA > 0.01) {
-          ctx.save(); ctx.globalAlpha *= iconA;
-          if (P.icon === 'glasses') {
-            const gl2 = img('ic-glasses.png');
-            if (gl2) ctx.drawImage(gl2, P.cx - 60, P.cy - 40, 120, 80);
-          } else {
-            const eb = this._tinted2('fig/ready2/ic-earbuds.png', 110, 95.3, () => '#fff');
-            if (eb) ctx.drawImage(eb, P.cx - 55, P.cy - 47.6, 110, 95.3);
-          }
-          ctx.restore();
-        }
-        if (P.coach && coachA > 0.01) {
-          const pk = this._img('photos/creator-profile-sean.png');
-          ctx.save(); ctx.globalAlpha *= coachA;
-          ctx.beginPath(); ctx.arc(P.cx, P.cy, CR - 6, 0, Math.PI * 2); ctx.clip();
-          if (pk) {
-            const sc = Math.max((CR - 6) * 2 / pk.naturalWidth, (CR - 6) * 2 / pk.naturalHeight);
-            ctx.drawImage(pk, P.cx - pk.naturalWidth * sc / 2, P.cy - pk.naturalHeight * sc / 2,
-                          pk.naturalWidth * sc, pk.naturalHeight * sc);
-          }
-          ctx.restore();
-        }
-        // 배터리 링 — 12시 시작, % 만큼 시계방향 + 끝점 도트(피그마 #37/#39)
-        const bs = eOut(intro(t, P.d + .2, .9));
-        const a0 = -90 * RAD, a1 = a0 + (P.pct / 100) * Math.PI * 2 * bs;
-        // 진행 끝으로 갈수록 투명 0 — 컨틱 그라디언트로 꼬리를 은은하게(유저)
-        const cg = ctx.createConicGradient(a0, P.cx, P.cy);
-        const frac = Math.max(0.002, (a1 - a0) / (Math.PI * 2));
-        cg.addColorStop(0, 'rgba(255,255,255,.9)');
-        cg.addColorStop(frac * 0.55, 'rgba(255,255,255,.55)');
-        cg.addColorStop(Math.min(1, frac), 'rgba(255,255,255,0)');
-        if (frac < 1) cg.addColorStop(Math.min(1, frac + 0.001), 'rgba(255,255,255,0)');
-        ctx.strokeStyle = cg; ctx.lineWidth = 15; ctx.lineCap = 'round';   // 두껍게 — 충전 상태 가독(유저 #70)
-        ctx.beginPath(); ctx.arc(P.cx, P.cy, CR + 6, a0, a1); ctx.stroke();
-        ctx.fillStyle = NEU.ink;
-        ctx.beginPath();
-        ctx.arc(P.cx + Math.cos(a1) * (CR + 6), P.cy + Math.sin(a1) * (CR + 6), 13, 0, Math.PI * 2);
-        ctx.fill();
-        // 음성 연결 체크 — 페이즈2, 작았다 살짝 커지며(오버슈트) 우하단에
-        if (P.coach) {
-          const ck = kf(eOut(intro(t, TP2 + .2, .55)), [[0, 0], [.55, 1.2], [1, 1]]) * (1 - pOut);   // 프로필 복귀와 함께 퇴장
-          if (ck > 0.001) {
-            ctx.save();
-            ctx.translate(P.cx + 58, P.cy + 58); ctx.scale(ck, ck);
-            checkBadge(ctx, 0, 0, 30);
-            ctx.restore();
-          }
-        }
-        ctx.restore();
-      });
-    }
-    // ── ⑥ 발 무채 정본(#81, 유저) — 캔버스 회색 도트 발 + 이너 화이트. 붉은 펄스 순간에만
-    //    3D FootMark(석세스색)로 크로스페이드 — 타이밍 상수는 session FootMark.READY_TAP 과 동일.
-    {
-      const T5 = 5.6, W5 = 0.55, P1 = 3.6, P2 = 4.35;
-      const ph5 = t % T5;
-      const bl5 = t0 => { const u = (ph5 - t0) / W5; return (u >= 0 && u <= 1) ? Math.sin(u * Math.PI) : 0; };
-      const b5 = Math.max(bl5(P1), bl5(P2));
-      const feetA = (1 - Math.min(1, b5 * 1.5)) * e0(1.1, .8);
-      if (feetA > 0.01) {
-        const fp = this._tinted2('foot_shape.png', 160, 213, () => 'rgba(255,255,255,.9)');
-        if (fp) {
-          for (const sgn of [-1, 1]) {
-            ctx.save(); ctx.globalAlpha *= 0.4 * feetA;
-            ctx.shadowColor = 'rgba(255,255,255,.75)'; ctx.shadowBlur = 16;   // 이너 화이트 근사
-            ctx.translate(800 + sgn * 392, 1885); ctx.rotate(sgn * 4 * RAD);
-            if (sgn > 0) ctx.scale(-1, 1);
-            ctx.drawImage(fp, -110, -147, 220, 293);
-            ctx.restore();
-          }
-        }
-      }
-    }
-    // ── ⑦ CTA — Tap Twice(74 Bold) / To start(74 Regular), 발 사이 중앙 ──
+    // ⑤ 사이드 서클(이어버드·글래스 배터리 포드 2개) · ⑥ 발 실루엣 = 폐기(유저 08-05) —
+    //   포드는 캡슐 밖에 뜬 동글 2개라 화면이 산만했고, 발은 러닝·농구 양쪽에서 뺀다.
+    //   되살릴 일 있으면 f701745(포드)·#81(발) 커밋에서 블록째 복원.
+    // ── ⑦ CTA — Tap Twice(74 Bold) / To start(74 Regular), 캡슐 아래 중앙 ──
     ctx.save(); ctx.globalAlpha *= e0(1.05);
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillStyle = NEU.ink; ctx.font = RF(700, 74); ctx.letterSpacing = '-5.76px';
@@ -1570,11 +1468,14 @@ export class FloorGL {
   _paint_capsule(cfg) {
     const ctx = this.ctx, t = this.t, V = cfg.variant;
     const RF = (w2, s2, fam = sans) => `${w2} ${s2}px ${fam}`;
-    // ① 캡슐 지오메트리 — 변형별 목표. 등장은 이전 화면 규격에서 부드럽게 lerp:
-    //    preview: READY 캡슐에서 성장 / video·floor·mini: 프리뷰 캡슐에서 상단 카드로 수축.
-    const g = eOut(intro(t, 0, 1.1));
-    const FROM = V === 'preview' ? [291, 285, 1018, 1591] : [162, 14, 1276, 1930];
-    const TO = V === 'preview' ? [162, 14, 1276, 1930] : [291, 63, 1018, 713];
+    // ① 캡슐 지오메트리 — 변형별 목표.
+    //    preview 만 READY 캡슐에서 성장한다(READY→A1 은 실제로 규격이 바뀌는 한 번).
+    //    video·floor·mini 는 '프리뷰 캡슐에서 수축'을 매 장면 다시 재생해서, 이미 카드였던
+    //    이전 장면에서 넘어와도 커졌다 작아지길 반복했다(유저 08-05) → lerp 없이 목표 규격 그대로.
+    const PREV = [162, 14, 1276, 1930], CARD = [291, 63, 1018, 713];
+    const g = V === 'preview' ? eOut(intro(t, 0, 1.1)) : 1;
+    const FROM = V === 'preview' ? [291, 285, 1018, 1591] : CARD;
+    const TO = V === 'preview' ? PREV : CARD;
     const L = k => FROM[k] + (TO[k] - FROM[k]) * g;
     const bx = L(0), by = L(1), bw = L(2), bh = L(3);
     ctx.save();
