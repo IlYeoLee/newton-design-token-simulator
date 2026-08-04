@@ -33,6 +33,7 @@ const CX = W / 2;
 // Freesentation·Pretendard 폴백은 은퇴(투사 UI는 영문 조판이고, 폴백이 끼면 자간이 달라진다).
 const sans = "'Supreme',sans-serif";
 // 수치 전용 페이스. 이걸 sans 로 바꾸면 문서 전체가 Supreme 2종만 남는다(유저가 원하면 한 줄).
+const INF2 = Infinity;
 const dot9 = "'OffBit','Supreme',sans-serif";
 // 투사 UI 공통 타이포 스케일 — 대지 실값이 화면에선 조금 컸다(유저). 조판 좌표는 그대로 두고
 // 글자만 줄인다. ?type=1 로 원래 크기.
@@ -546,6 +547,12 @@ const TR = {
 };
 // 실전 직전 카운트다운 캡션. 전엔 아래 RP(리포트) 문구가 그대로 복사돼 있어서, 시작도 안 한
 //   화면이 'Session Complete' 라고 말했다. 벽 타이머와 같은 규칙으로 — 부제=구성·시간, 제목=지금 시작하는 구간.
+// ── 씬 캡슐 시스템(docs/SCENE-CAPSULE-SYSTEM.md, 유저 2026-08-05) — 스테이지별 옵트인.
+//   variant: preview(관찰: 큰 캡슐+Preview 배지+셰브론 힌트) — 이후 video/floor/mini 확장.
+const CAPS = {
+  A1: { variant: 'preview', title: ['Neck And', 'Shoulder'] },
+  BK_A1: { variant: 'preview', title: ['Side', 'Bend'] },
+};
 const TM = { C1: { sub: 'Run 10 min · Final 1 km', title: 'Run with Sean' },
              BK_C1: { sub: 'Play 10 min · 3 attempts', title: 'Step-Back 1 of 3' } };
 const RP = {
@@ -789,6 +796,8 @@ export class FloorGL {
     ctx.clearRect(0, 0, W, H);
     this._textBand.y0 = 1e9; this._textBand.y1 = -1e9;   // 매 프레임 재수집
     if (this.kind && this.kind !== 'scene') return this['_paint_' + this.kind]();
+    const cap2 = CAPS[this.stage];
+    if (cap2) return this._paint_capsule(cap2);   // 신규 캡슐 시스템(옵트인) — 레거시 조판 대체
     let y = 176;   // Figma 대지 실좌표
     for (const n of this.col) {
       if (n.style.display === 'none') continue;
@@ -1503,6 +1512,106 @@ export class FloorGL {
     ctx.restore();   // /콘텐츠 스케일
   }
 
+
+  // ── 씬 캡슐 프레임(신규 시스템) — READY 캡슐 지오메트리에서 부드럽게 성장 + 배지·게이지·타이틀.
+  //   좌표는 피그마 실측(343:3496): 캡슐 (162,-15) 1276×1955, 배지 y+25, 게이지 y+56 w1048, 타이틀 y+415.
+  _paint_capsule(cfg) {
+    const ctx = this.ctx, t = this.t;
+    const RF = (w2, s2, fam = sans) => `${w2} ${s2}px ${fam}`;
+    // ① 캡슐 성장 — READY(291,285,1018,1591) → 프리뷰(162,-15,1276,1955) 아주 부드럽게
+    const g = eOut(intro(t, 0, 1.1));
+    const L = (a, b) => a + (b - a) * g;
+    const bx = L(291, 162), by = L(285, -15), bw = L(1018, 1276), bh = L(1591, 1955);
+    // READY 캡슐 그리기를 좌표 변환으로 재사용 — 내부 글로우·림 상대 위치가 같이 따라온다
+    ctx.save();
+    ctx.translate(bx, by); ctx.scale(bw / 1018, bh / 1591); ctx.translate(-291, -285);
+    const capPath = () => { ctx.beginPath(); ctx.roundRect(291, 285, 1018, 1591, 509); };
+    ctx.fillStyle = 'rgba(217,217,217,.01)'; capPath(); ctx.fill();
+    ctx.save(); capPath(); ctx.clip();
+    ctx.filter = 'blur(37px)';
+    ctx.strokeStyle = 'rgba(255,255,255,.25)'; ctx.lineWidth = 80;
+    capPath(); ctx.stroke();
+    ctx.filter = 'none'; ctx.restore();
+    const rim = ctx.createLinearGradient(0, 285, 0, 285 + 1591);
+    rim.addColorStop(0, 'rgba(255,255,255,.95)'); rim.addColorStop(.28, 'rgba(255,255,255,.28)');
+    rim.addColorStop(.62, 'rgba(255,255,255,.2)'); rim.addColorStop(.88, 'rgba(255,255,255,.65)');
+    rim.addColorStop(1, 'rgba(255,255,255,.9)');
+    ctx.strokeStyle = rim; ctx.lineWidth = 2.5; capPath(); ctx.stroke();
+    const img = rel => this._img('fig/ready2/' + rel);
+    const GLOWS = [
+      ['glow-subtract.svg', 167.2, 1069.2, 1265.6, 931.6, 'hard-light'],
+      ['glow-hl1.svg', 211.6, 1453.6, 1176.8, 458.8, 'color-dodge'],
+      ['glow-hl2.svg', 310.4, 1380.4, 979.2, 541.2, 'lighter'],
+      ['glow-ell.svg', 150.3, 1189.3, 1300.36, 871.36, 'hard-light'],
+    ];
+    for (const [rel, gx, gy, gw, gh, blend] of GLOWS) {
+      const im = img(rel);
+      if (!im) continue;
+      ctx.save(); ctx.globalCompositeOperation = blend;
+      ctx.drawImage(im, gx, gy, gw, gh);
+      ctx.restore();
+    }
+    ctx.restore();
+    const cx2 = bx + bw / 2;
+    // ② 필 배지 — Preview(Regular) / 타이머·진행(볼드)는 후속 변형에서
+    {
+      const e = eOut(intro(t, .35, .6));
+      ctx.save(); ctx.globalAlpha *= e;
+      ctx.font = RF(400, 64); ctx.letterSpacing = '-2.56px';
+      const txt2 = cfg.badge || 'Preview';
+      const tw = ctx.measureText(txt2).width, pw = tw + 80, ph2 = 100;
+      const byd = by + 103;
+      ctx.fillStyle = 'rgba(127,127,127,.9)';
+      ctx.beginPath(); ctx.roundRect(cx2 - pw / 2, byd, pw, ph2, 50); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,.8)'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(txt2, cx2, byd + ph2 / 2 + 2);
+      ctx.letterSpacing = '0px'; ctx.restore();
+    }
+    // ③ 세션 시간 호(#69, 공통) — 정본 arcGauge: 넓은 호 + 광점 = 현재 스테이지 진행
+    {
+      const e = eOut(intro(t, .45, .6));
+      ctx.save(); ctx.globalAlpha *= e;
+      const dur = this.params?.dur || 8;
+      arcGauge(ctx, cx2 - 524, by + 230, 1048, Math.min(1, t / dur));
+      ctx.restore();
+    }
+    // ④ 타이틀 — 가르쳐야 하는 운동명(100 Bold 2줄), 자연스럽게 페이드 인
+    {
+      const e = eOut(intro(t, .25, .8));
+      ctx.save(); ctx.globalAlpha *= e;
+      ctx.fillStyle = NEU.ink; ctx.font = RF(700, 100); ctx.letterSpacing = '-4px';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      const ty = by + 493;   // 피그마: 타이틀 중심 = 캡슐 상단 +493(컨테이너 415 + 보더 오프셋 78)
+      if (cfg.title.length > 1) {
+        ctx.fillText(cfg.title[0], cx2, ty - 60);
+        ctx.fillText(cfg.title[1], cx2, ty + 60);
+      } else ctx.fillText(cfg.title[0], cx2, ty);
+      ctx.letterSpacing = '0px'; ctx.restore();
+    }
+    // ⑤ 넥스트 힌트(#66) — 우측 블러 필 + 셰브론 3개가 연했다 차차착 진해지며 순차 표시
+    {
+      const e = eOut(intro(t, .8, .7));
+      if (e > 0.01) {
+        const px = 1315 + 130, py2 = 1100;   // 피그마 우측(1315,~50%-290) — 대지 안쪽 실측 보정
+        ctx.save(); ctx.globalAlpha *= e;
+        ctx.fillStyle = 'rgba(255,255,255,.35)';   // backdrop-blur 근사(캔버스) — 반투명 필
+        ctx.beginPath(); ctx.roundRect(px - 145, py2 - 68, 290, 136, 68); ctx.fill();
+        // 셰브론 — 왼쪽부터 연함→진함, 흐르는 순차 펄스(차차착)
+        for (let i = 0; i < 3; i++) {
+          const base = [0.25, 0.45, 0.9][i];
+          const flow = cycle(t, 1.2 + i * 0.22, 1.6, INF2);
+          const pulse = flow == null ? 0 : kf(flow, [[0, 0], [.25, .5], [.5, 0], [1, 0]]);
+          ctx.strokeStyle = `rgba(255,255,255,${Math.min(1, base + pulse * 0.4)})`;
+          ctx.lineWidth = 13; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+          const sx = px - 72 + i * 58;
+          ctx.beginPath();
+          ctx.moveTo(sx - 14, py2 - 26); ctx.lineTo(sx + 14, py2); ctx.lineTo(sx - 14, py2 + 26);
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+    }
+  }
 
   // 제자리 scale+fade 등장 — 호출자가 save()한 상태에서 부른다
   _fadeIn(y, h, e) {
