@@ -2287,6 +2287,7 @@ export class Session {
     else this.bobY = 0;
 
     if (id === 'BK_READY' || id === 'BK_T1') {
+      if (id === 'BK_READY') this.readyFeet?.forEach(f => { f.group.visible = true; f.tapHint(this.t); });   // tap2 발자국 — 러닝과 동일(농구 누락분, 유저)
       const tap = id === 'BK_READY' ? this.bkTap : this.bkTap1; const k = 0.5 + 0.5 * Math.sin(this.t * 4);
       tap.children[0].material.opacity = 0.5 + 0.45 * k; tap.children[1].material.opacity = 0.5 + 0.45 * (1 - k);
       if (id === 'BK_T1' && this.t >= 4.5) { this.next(); return; }

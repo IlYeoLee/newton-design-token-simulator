@@ -2317,7 +2317,7 @@ void main(){
   const COACH_CFG = {
     // READY 페이즈2(등장 후 2초) — A1 원본 데모판을 그대로 UI 캡슐 뒤에. 캔버스 사제 비디오 폐기(유저).
     READY:    { src: 'ready-view/assets/sean_neck_shoulder.webm', cropOff: 0.40, cropScale: 0.58, w: 0.5, h: 0.52, fwd: 0.19, ph: 0.83 },   // 캡슐 '안'에 안정적으로(유저 #57) — 축소·위로, 하단 삐짐 금지
-    BK_READY: { src: 'ready-view/assets/bk_squat.webm', cropOff: 0.0, cropScale: 1.0, w: 0.52, h: 0.52, fwd: 0.19 },
+    BK_READY: { src: 'ready-view/assets/bk_squat.webm', cropOff: 0.0, cropScale: 1.0, w: 0.44, h: 0.44, fwd: 0.3 },   // 농구 콘 얕음 — 더 작게·더 위로(유저: 잘림)
     A1: { src: 'ready-view/assets/sean_neck_shoulder.webm', cropOff: 0.40, cropScale: 0.58, w: 0.88, h: 0.9, fwd: 0.16, ph: 0.83 },   // A2 런지와 크기 맞춤(유저: 너무 작음)
     A2: { src: 'ready-view/assets/sean_lunge.webm', cropOff: 0.0, cropScale: 1.0, w: 0.9, h: 0.9, fwd: 0.10, zoom: 0.86, ph: 0.65 },   // 런지 전신 측면 — 축소로 뒷발이 프레임 페이드에 안 걸리게(유저)
     A3: { src: 'ready-view/assets/sean_highknee.webm', cropOff: 0.0, cropScale: 1.0, w: 0.9, h: 0.9, fwd: 0.10, ph: 0.87 },   // 하이니 전신 정면
