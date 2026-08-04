@@ -556,10 +556,10 @@ const CAPS = {
   // · mini = 복잡 스텝(작은 영상 미리보기 + 진행 배지 + 타이틀 축소)
   A3: { variant: 'video', title: ['High', 'Knees'] },
   A2: { variant: 'floor', title: ['Lunge', 'Press'] },
-  BK_B2: { variant: 'mini', title: ['Step-Back 1/4'], step: '1/4', clip: 'stepback_fwd.mp4' },
-  BK_B3: { variant: 'mini', title: ['Step-Back 2/4'], step: '2/4', clip: 'stepback_fwd.mp4' },
-  BK_B4: { variant: 'mini', title: ['Step-Back 3/4'], step: '3/4', clip: 'stepback_fwd.mp4' },
-  BK_B5: { variant: 'mini', title: ['Step-Back 4/4'], step: '4/4', clip: 'stepback_fwd.mp4' },
+  BK_B2: { variant: 'mini', title: ['Step-Back 1/4'], step: '1/4' },   // clip: 알파/그린 소스 확보 후(stepback_fwd 는 실사 배경 — 검은 박스 실측)
+  BK_B3: { variant: 'mini', title: ['Step-Back 2/4'], step: '2/4' },
+  BK_B4: { variant: 'mini', title: ['Step-Back 3/4'], step: '3/4' },
+  BK_B5: { variant: 'mini', title: ['Step-Back 4/4'], step: '4/4' },
 };
 const TM = { C1: { sub: 'Run 10 min · Final 1 km', title: 'Run with Sean' },
              BK_C1: { sub: 'Play 10 min · 3 attempts', title: 'Step-Back 1 of 3' } };
