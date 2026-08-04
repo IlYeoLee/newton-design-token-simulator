@@ -1484,8 +1484,9 @@ export class FloorGL {
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillStyle = NEU.ink; ctx.font = RF(700, 74); ctx.letterSpacing = '-5.76px';
     ctx.fillText('Tap Twice', 800.15, 1988.7);
-    ctx.font = RF(400, 74);
-    ctx.fillText('To start', 800.15, 2101.7);
+    // To start = 레귤러·70%·축소·자간 완화 — 지시(볼드)와 위계 분리(유저)
+    ctx.fillStyle = 'rgba(255,255,255,.7)'; ctx.font = RF(400, 54); ctx.letterSpacing = '-1.8px';
+    ctx.fillText('To start', 800.15, 2088);
     ctx.letterSpacing = '0px';
     ctx.restore();
     ctx.restore();   // /콘텐츠 스케일
