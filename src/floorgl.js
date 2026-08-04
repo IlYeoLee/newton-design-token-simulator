@@ -1571,9 +1571,9 @@ export class FloorGL {
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.fillStyle = NEU.ink; ctx.font = RF(700, 74); ctx.letterSpacing = '-5.76px';
       // 캡슐 '안' 하단 글로우 위(유저 #92) — 밖으로 내보내면 대지 밖으로 새고 위계도 끊긴다.
-      ctx.fillText('Tap Twice', 800.15, 1642);
-      ctx.fillStyle = 'rgba(255,255,255,.7)'; ctx.font = RF(400, 54); ctx.letterSpacing = '-1.8px';
-      ctx.fillText('To start', 800.15, 1742);
+      ctx.fillText('Tap Twice', 800.15, 1556);
+      ctx.fillStyle = 'rgba(255,255,255,.86)'; ctx.font = RF(400, 54); ctx.letterSpacing = '-1.8px';
+      ctx.fillText('To start', 800.15, 1652);   // 글로우 코어 위로(유저 #103: 아래 글자 잘림) + 대비 상향
       ctx.letterSpacing = '0px'; ctx.restore();
     }
     ctx.restore();   // /콘텐츠 스케일
