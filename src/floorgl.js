@@ -1290,7 +1290,10 @@ export class FloorGL {
     }
     if (CK !== 1) { ctx.translate(800, PV); ctx.scale(CK, CK); ctx.translate(-800, -PV); }
     // ── 페이즈 타임라인 — 등장(왼→오 촤라락) 완료 후 2초 뒤 페이즈2(실루엣·코치 프로필) ──
-    const TP2 = 2.1, p2 = eOut(intro(t, TP2, .7));   // 등장 ~2s 완료 → 쉬지 않고 바로 페이즈2(유저)
+    // 순서 = 팩 이름 → 인물 → 시간(유저 08-05). 전엔 시간(아크·도트)이 먼저 다 나오고
+    //   인물이 마지막에 들어와 도트를 밀어냈다. 무엇을(팩) · 누구와(인물) 를 먼저 각인하고,
+    //   얼마나(시간) 는 그 다음에 얹는다. TP2 2.1 → 0.75 = 제목 바로 뒤.
+    const TP2 = 0.75, p2 = eOut(intro(t, TP2, .7));
     const RF = (w, s, fam = sans) => `${w} ${s}px ${fam}`;   // 피그마 원치수(타입스케일 미적용)
     const img = rel => this._img('fig/ready2/' + rel);
     const e0 = (d, dur = .8) => eOut(intro(t, d, dur));
@@ -1340,14 +1343,15 @@ export class FloorGL {
     ctx.fillStyle = 'rgba(255,255,255,.8)'; ctx.font = RF(400, 64); ctx.letterSpacing = '-2.56px';
     ctx.fillText(R2.sub, 800.5, 971);
     ctx.restore();
-    if (p2 < 0.99) {
-      ctx.save(); ctx.globalAlpha *= e0(.85) * (1 - p2);
-      // 도트 카운팅 촤라락 — 복싱과 같은 rollNum 정본 (자릿수 롤)
-      rollNum(ctx, R2.total, t, .85, .9, 800, 1277, 384, { fam: dot9, align: 'center', fill: NEU.ink });
+    {
+      // 시간 = 마지막. 인물 등장(TP2)이 끝난 뒤 카운팅하고, 이제 **사라지지 않는다**
+      //   (전엔 인물과 자리를 다퉈 크로스페이드로 없앴다 → 정지 화면에 오늘 총 시간이 안 남았다).
+      //   자리는 CTA 를 지워 비운 캡슐 하단 존. 인물 몸통을 피하려 384 → 300 으로 낮춘다.
+      ctx.save(); ctx.globalAlpha *= e0(1.9, .5);
+      rollNum(ctx, R2.total, t, 1.9, .9, 800, 1530, 300, { fam: dot9, align: 'center', fill: NEU.ink });
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillStyle = NEU.ink; ctx.font = RF(700, 64); ctx.letterSpacing = '-1.51px';
-      ctx.globalAlpha *= e0(1.0) > 0 ? 1 : 0;
-      ctx.fillText('min', 1085, 1135);   // 숫자 우상단(피그마 개선안)
+      ctx.fillStyle = NEU.ink; ctx.font = RF(700, 56); ctx.letterSpacing = '-1.51px';
+      ctx.fillText('min', 985, 1408);   // 숫자 우상단
       ctx.letterSpacing = '0px';
       ctx.restore();
     }
@@ -1370,8 +1374,8 @@ export class FloorGL {
       //   종목별 하드코딩이 아니라 v 최댓값으로 뽑으므로 러닝(15m)·농구(10m) 모두 자동.
       const heroIdx = segs.reduce((b, s2, k) => (!s2.muted && (b < 0 || s2.v > segs[b].v) ? k : b), -1);
       // 스윕 — 배지 팝 후 세그먼트 시작각에서 끝각까지 호를 따라 차오른다
-      const sweep = segStart + (A1 - segStart) * eOut(intro(t, .5, 1.2));
-      ctx.save(); ctx.globalAlpha *= e0(.4, .5);
+      const sweep = segStart + (A1 - segStart) * eOut(intro(t, 1.45, 1.2));
+      ctx.save(); ctx.globalAlpha *= e0(1.35, .5);   // 시간 구성 = 인물 뒤(유저 08-05)
       let cur = segStart;
       segs.forEach((seg, si) => {
         const da = seg.v / totalV * avail;
@@ -1503,9 +1507,12 @@ export class FloorGL {
     //    페이즈2 = 알약이 **원으로 줄어들며** 링 게이지 + 끝점 도트가 생기고, % 는 사라진다.
     //              이어폰 포드는 같은 순간 코치 사진으로 바뀐다(연결됨).
     {
+      // 우측 세로 스택 + 형태 변주(유저 08-05) — 좌우 대칭 배치는 크기·높이·내용(85%)까지
+      //   같아서 캡슐에 달린 손잡이로 읽혔다. 둘 다 오른쪽으로 모으고 형태를 다르게 준다:
+      //   위 = 원(코치 얼굴 = 누구의 팩인지) · 아래 = 긴 알약(배터리 %). 크기 차이가 곧 위계다.
       const PODS = [
-        { cx: 150, cy: 1150, icon: 'glasses', pct: 85, d: .95 },
-        { cx: 1450, cy: 1150, icon: 'earbuds', pct: 85, d: 1.05, coach: true },
+        { cx: 1450, cy: 1000, icon: 'earbuds', pct: 85, d: .95, shape: 'circle', coach: true },
+        { cx: 1450, cy: 1330, icon: 'glasses', pct: 85, d: 1.05, shape: 'pill' },
       ];
       const RP = 109, PW = 226, PH = 392;   // 원 반지름 / 알약 폭·높이(피그마 비율 1.73)
       PODS.forEach(P => {
@@ -1513,9 +1520,9 @@ export class FloorGL {
         // 등장 = 알약이 **길어지며** 나타난다(유저) — 세로만 자란다.
         const grow = kf(e, [[0, .35], [.65, 1.04], [1, 1]]);
         if (e <= 0.002) return;
-        // 0 = 알약(긴 것) · 1 = 원(작은 것). 순서 반전(유저 08-05) — 전엔 긴 알약이 먼저 뜨고
-        //   원으로 쪼그라들었다. 작은 원으로 등장 → 최종적으로 긴 알약(배터리 %)이 남는다.
-        const m = 1 - p2;
+        // 0 = 알약(긴 것) · 1 = 원(작은 것). 원 포드는 계속 원, 알약 포드만 작은 원에서
+        //   길어져 최종적으로 알약으로 남는다(유저: 작은 게 먼저 → 긴 게 최종).
+        const m = P.shape === 'circle' ? 1 : 1 - p2;
         const w = PW - (PW - RP * 2) * m;
         const h = (PH - (PH - RP * 2) * m) * grow;
         const rr = Math.min(w, h) / 2;
@@ -1586,17 +1593,8 @@ export class FloorGL {
     }
     // ⑥ 발 실루엣 = 폐기(유저 08-05) — 러닝·농구 양쪽에서 뺀다.
     //   3D FootMark 는 시작페이지에서 이미 숨김이라 잔상 없음. 복원은 #81 커밋.
-    // ── ⑦ CTA — 페이즈2(인물 등장)와 함께 나타난다(유저 08-05). 발자국은 없다.
-    if (p2 > 0.01) {
-      ctx.save(); ctx.globalAlpha *= p2;
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillStyle = NEU.ink; ctx.font = RF(700, 74); ctx.letterSpacing = '-5.76px';
-      // 캡슐 '안' 하단 글로우 위(유저 #92) — 밖으로 내보내면 대지 밖으로 새고 위계도 끊긴다.
-      ctx.fillText('Tap Twice', 800.15, 1556);
-      ctx.fillStyle = 'rgba(255,255,255,.86)'; ctx.font = RF(400, 54); ctx.letterSpacing = '-1.8px';
-      ctx.fillText('To start', 800.15, 1652);   // 글로우 코어 위로(유저 #103: 아래 글자 잘림) + 대비 상향
-      ctx.letterSpacing = '0px'; ctx.restore();
-    }
+    // ⑦ CTA 문구('Tap Twice' / 'To start') 폐기(유저 08-05) — 인물 위에 겹쳐 읽혔고,
+    //   그 자리는 이제 총 시간 도트가 받는다. 탭 안내가 다시 필요하면 이 블록만 복원.
     ctx.restore();   // /콘텐츠 스케일
   }
 
