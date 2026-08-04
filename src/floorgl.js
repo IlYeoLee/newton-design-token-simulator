@@ -188,7 +188,7 @@ export function arcGauge(ctx, x0, y, w, p, o = {}) {
     ctx.strokeStyle = tg; path(ARC.x0, mx); ctx.stroke();
   }
   // ③ 마커 = 글라스
-  glassDot(ctx, hx, hy, ARC.dot / 2 * s);
+  glassDot(ctx, hx, hy, ARC.dot / 2 * s * (o.dotK ?? 1));   // dotK — 화면별 마커 축소(기본 1 = 타 화면 불변)
   ctx.restore();
 }
 
@@ -1544,6 +1544,9 @@ export class FloorGL {
       ['glow-hl2.svg', 310.4, 1380.4, 979.2, 541.2, 'lighter'],
       ['glow-ell.svg', 150.3, 1189.3, 1300.36, 871.36, 'hard-light'],
     ];
+    ctx.save();
+    ctx.translate(800, 1876); ctx.scale(0.88, 0.88); ctx.translate(-800, -1876);   // 하단 그라디언트 조금 축소(유저)
+    ctx.globalAlpha *= 0.9;                                                          // 빛 강도 아주 조금 다운(유저)
     for (const [rel, gx, gy, gw, gh, blend] of GLOWS) {
       const im = img(rel);
       if (!im) continue;
@@ -1551,6 +1554,7 @@ export class FloorGL {
       ctx.drawImage(im, gx, gy, gw, gh);
       ctx.restore();
     }
+    ctx.restore();
     ctx.restore();
     const cx2 = bx + bw / 2;
     // ② 필 배지 — Preview(Regular) / 타이머·진행(볼드)는 후속 변형에서
@@ -1560,11 +1564,16 @@ export class FloorGL {
       ctx.font = RF(400, 64); ctx.letterSpacing = '-2.56px';
       const txt2 = cfg.badge || 'Preview';
       const tw = ctx.measureText(txt2).width, pw = tw + 80, ph2 = 100;
-      const byd = by + 103;
-      ctx.fillStyle = 'rgba(127,127,127,.9)';
+      const byd = by + 90;
+      ctx.save();
+      ctx.shadowColor = 'rgba(255,255,255,.8)'; ctx.shadowBlur = 34;   // 블룸 — 복싱 자막 규약(밝은 랜딩)
+      ctx.fillStyle = 'rgba(255,255,255,.34)';
       ctx.beginPath(); ctx.roundRect(cx2 - pw / 2, byd, pw, ph2, 50); ctx.fill();
-      ctx.fillStyle = 'rgba(255,255,255,.8)'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.restore();
+      ctx.fillStyle = 'rgba(255,255,255,.95)'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.shadowColor = 'rgba(255,255,255,.6)'; ctx.shadowBlur = 14;
       ctx.fillText(txt2, cx2, byd + ph2 / 2 + 2);
+      ctx.shadowBlur = 0;
       ctx.letterSpacing = '0px'; ctx.restore();
     }
     // ③ 세션 시간 호(#69, 공통) — 정본 arcGauge: 넓은 호 + 광점 = 현재 스테이지 진행
@@ -1572,7 +1581,7 @@ export class FloorGL {
       const e = eOut(intro(t, .45, .6));
       ctx.save(); ctx.globalAlpha *= e;
       const dur = this.params?.dur || 8;
-      arcGauge(ctx, cx2 - 524, by + 230, 1048, Math.min(1, t / dur));
+      arcGauge(ctx, cx2 - 524, by + 300, 1048, Math.min(1, t / dur), { dotK: 0.75 });   // 간격 확보 + 마커 축소(유저)
       ctx.restore();
     }
     // ④ 타이틀 — 가르쳐야 하는 운동명(100 Bold 2줄), 자연스럽게 페이드 인
@@ -1581,7 +1590,7 @@ export class FloorGL {
       ctx.save(); ctx.globalAlpha *= e;
       ctx.fillStyle = NEU.ink; ctx.font = RF(700, 100); ctx.letterSpacing = '-4px';
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      const ty = by + 493;   // 피그마: 타이틀 중심 = 캡슐 상단 +493(컨테이너 415 + 보더 오프셋 78)
+      const ty = by + 590;   // 간격 재조정(유저): 배지 90 → 호 300 → 타이틀 590 — 전체 리듬 벌림
       if (cfg.title.length > 1) {
         ctx.fillText(cfg.title[0], cx2, ty - 60);
         ctx.fillText(cfg.title[1], cx2, ty + 60);

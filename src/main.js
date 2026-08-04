@@ -2318,13 +2318,13 @@ void main(){
     // READY 페이즈2(등장 후 2초) — A1 원본 데모판을 그대로 UI 캡슐 뒤에. 캔버스 사제 비디오 폐기(유저).
     READY:    { src: 'ready-view/assets/sean_neck_shoulder.webm', cropOff: 0.40, cropScale: 0.58, w: 0.5, h: 0.52, fwd: 0.19, ph: 0.83 },   // 캡슐 '안'에 안정적으로(유저 #57) — 축소·위로, 하단 삐짐 금지
     BK_READY: { src: 'ready-view/assets/bk_squat.webm', cropOff: 0.0, cropScale: 1.0, w: 0.44, h: 0.44, fwd: 0.3 },   // 농구 콘 얕음 — 더 작게·더 위로(유저: 잘림)
-    A1: { src: 'ready-view/assets/sean_neck_shoulder.webm', cropOff: 0.40, cropScale: 0.58, w: 0.88, h: 0.9, fwd: 0.16, ph: 0.83 },   // A2 런지와 크기 맞춤(유저: 너무 작음)
+    A1: { src: 'ready-view/assets/sean_neck_shoulder.webm', cropOff: 0.40, cropScale: 0.58, w: 0.62, h: 0.64, fwd: 0.02, ph: 0.83 },   // 프리뷰 캡슐 안 — 타이틀 안 가리게 축소·아래(유저 08-05)
     A2: { src: 'ready-view/assets/sean_lunge.webm', cropOff: 0.0, cropScale: 1.0, w: 0.9, h: 0.9, fwd: 0.10, zoom: 0.86, ph: 0.65 },   // 런지 전신 측면 — 축소로 뒷발이 프레임 페이드에 안 걸리게(유저)
     A3: { src: 'ready-view/assets/sean_highknee.webm', cropOff: 0.0, cropScale: 1.0, w: 0.9, h: 0.9, fwd: 0.10, ph: 0.87 },   // 하이니 전신 정면
     // 농구 워밍업 코치 영상(kling i2v·그린스크린 960²) — 러닝 A2/A3와 동일 크기(w/h 0.9). 인물이 프레임 채워 1.2는 넘침(유저).
     // _pp = 정방향+역방향 이어붙인 핑퐁 클립(ffmpeg reverse) — 끝에서 뚝 끊고 처음으로 점프하던 것 제거(유저).
     //   loop=true 그대로 두고 자산만 교체 = 런타임 역재생(currentTime 역주행 시킹) 비용 0.
-    BK_A1: { src: 'ready-view/assets/bk_sidebend_pp.webm', cropOff: 0.0, cropScale: 1.0, w: 0.9, h: 0.9, fwd: 0.10, ph: 0.80, tone: 0.045 },   // 클립이 소프트해 가족 대비 밝음(g50 142) — 톤 트림   // 옆구리 스트레치
+    BK_A1: { src: 'ready-view/assets/bk_sidebend_pp.webm', cropOff: 0.0, cropScale: 1.0, w: 0.62, h: 0.64, fwd: 0.02, ph: 0.80, tone: 0.045 },   // 프리뷰 캡슐 규격(유저 08-05)   // 옆구리 스트레치
     BK_A2: { src: 'ready-view/assets/bk_highknee.webm', cropOff: 0.0, cropScale: 1.0, w: 0.9, h: 0.9, fwd: 0.10, ph: 0.85 },   // 무릎 들기
     // 훈련 관찰 공통 — 이게진짜.mp4(그린스크린 정면 로우 드리블) 핑퐁 베이크(_pp, ffmpeg reverse concat)
     BK_B1: { src: 'bhandle_pp.mp4', cropOff: 0.0, cropScale: 1.0, w: 0.55, h: 0.98, fwd: 0.22, ph: 0.62 },   // 워밍업 위계와 크기·거리 통일(유저 #75) — 0.42/fwd0.45 는 작고 멀었다. 9:16 유지

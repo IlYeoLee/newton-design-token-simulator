@@ -409,7 +409,7 @@ export function createScene(container) {
     if (trackLanes) return trackLanes;
     trackLanes = new THREE.Group();
     const mat = new THREE.MeshBasicMaterial({ color: 0xF8F8F4, transparent: true, opacity: 0.85, depthWrite: false });
-    const XS = [1.35, 2.57, 3.79, 5.01];
+    const XS = [0.95, 2.85, 4.75];   // 균일 1.9m 간격(유저: 가운데만 넓게 아님 — 전부 동일)
     for (const x of XS) for (const sgn of [-1, 1]) {
       const m = new THREE.Mesh(new THREE.PlaneGeometry(0.055, 80), mat);
       m.rotation.x = -Math.PI / 2; m.position.set(sgn * x, 0.002, 0);
