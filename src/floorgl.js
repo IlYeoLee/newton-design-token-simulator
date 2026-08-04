@@ -1277,6 +1277,7 @@ export class FloorGL {
     const CK = R2.scale || 1, PV = R2.pivotY ?? 1400;
     ctx.save();
     ctx.translate(0, -185);   // 콘텐츠 전체 위로 — far 쪽 빈 띠 제거 + Tap Twice 를 가시권으로(유저)
+    ctx.translate(800, 1150); ctx.scale(1.12, 1.12); ctx.translate(-800, -1150);   // 발 도형 폐기로 남은 여백만큼 확대(유저 #106)
     if (CK !== 1) { ctx.translate(800, PV); ctx.scale(CK, CK); ctx.translate(-800, -PV); }
     // ── 페이즈 타임라인 — 등장(왼→오 촤라락) 완료 후 2초 뒤 페이즈2(실루엣·코치 프로필) ──
     const TP2 = 2.1, p2 = eOut(intro(t, TP2, .7));   // 등장 ~2s 완료 → 쉬지 않고 바로 페이즈2(유저)
@@ -1354,11 +1355,15 @@ export class FloorGL {
       const segStart = A0;   // 배지 폐기 — 스트레칭이 첫 세그먼트(유저)
       const segs = R2.arcs, totalV = segs.reduce((s2, x) => s2 + x.v, 0);
       const avail = (A1 - segStart) - GAPA * (segs.length - 1);
+      // 색 위계 = 길이에서 파생(유저 08-05) — 전에는 본운동·학습이 같은 코랄→빨강이라 위계가 안 읽혔다.
+      //   제일 긴 구간(본운동) = 뉴턴 그라디언트 정본 램프 / 나머지 = 단색 빨강 / 스트레칭 = 흰 반투명.
+      //   종목별 하드코딩이 아니라 v 최댓값으로 뽑으므로 러닝(15m)·농구(10m) 모두 자동.
+      const heroIdx = segs.reduce((b, s2, k) => (!s2.muted && (b < 0 || s2.v > segs[b].v) ? k : b), -1);
       // 스윕 — 배지 팝 후 세그먼트 시작각에서 끝각까지 호를 따라 차오른다
       const sweep = segStart + (A1 - segStart) * eOut(intro(t, .5, 1.2));
       ctx.save(); ctx.globalAlpha *= e0(.4, .5);
       let cur = segStart;
-      segs.forEach((seg) => {
+      segs.forEach((seg, si) => {
         const da = seg.v / totalV * avail;
         const s0 = cur, s1 = cur + da, mid = (s0 + s1) / 2;
         cur = s1 + GAPA;
@@ -1376,10 +1381,14 @@ export class FloorGL {
             // 스트레칭 = 흰 반투명 + 블룸(유저) — 열화상 램프는 본운동 쪽 위계로 남긴다
             ctx.shadowBlur = 0;                              // 블룸 제거 — 흰 판이 번지면 글자가 사라진다(유저 #98)
             ctx.strokeStyle = 'rgba(255,255,255,.55)';       // 톤 낮춘 유리판
-          } else {
+          } else if (si === heroIdx) {
+            // 제일 긴 구간 = 뉴턴 그라디언트 정본 램프(red→coral→sand→prism, 팔레트 stops 그대로)
             const g = ctx.createLinearGradient(p0.x, p0.y, p1.x, p1.y);
-            g.addColorStop(0, PAL.coral); g.addColorStop(1, PAL.red);
+            g.addColorStop(0, PAL.red); g.addColorStop(.583, PAL.red);
+            g.addColorStop(.83, PAL.coral); g.addColorStop(.935, PAL.sand); g.addColorStop(1, PAL.prism);
             ctx.strokeStyle = g;
+          } else {
+            ctx.strokeStyle = PAL.red;   // 중간 구간 = 단색 빨강 — 그라디언트는 본운동 하나만 쓴다
           }
           ctx.lineWidth = LWA; ctx.lineCap = 'round';
           ctx.beginPath(); ctx.arc(CXA, CYA, R, sA * RAD, end * RAD); ctx.stroke();
