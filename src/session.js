@@ -1033,7 +1033,7 @@ export class Session {
     // 좌·우 발형(FootMark = 룩시스템 발형 SDF, A3와 동일 방식·사이즈) 나란히 지면 고정.
     // 상태 = countdown/setHold/glow/ghost로 Preview/Active/Hold/Success/Locked. 숫자는 발형 자식.
     // 전방 투사존 — 타이틀·도트(상단, 먼 z) 아래 열린 콘텐츠 존에 나란히 (겹침 방지)
-    const fmL = new FootMark('left').at(-0.16, -1.15), fmR = new FootMark('right').at(0.16, -1.15);
+    const fmL = new FootMark('left').at(-0.16, -0.78), fmR = new FootMark('right').at(0.16, -0.78);   // 카드와 겹침 해소(유저 #88)
     // 숫자 = 룩시스템 attachMarkNum(발 plane 자식·MARK_NUM 크기·numFoot 앵커) — 삐짐 없는 정본 이식
     const numL = attachMarkNum(fmL, '5', false), numR = attachMarkNum(fmR, '5', true);
     numL.visible = false; numR.visible = false;
@@ -1044,14 +1044,26 @@ export class Session {
     {
       // WebGL Line 은 굵기 1px 고정이라 투사 거리에서 사실상 안 보였다(유저) → 대시를 캔버스에
       //   구워 얇은 면 스트립으로. 대시 언어는 유지하고 물리적 굵기(4cm)를 얻는다.
-      const c = document.createElement('canvas'); c.width = 256; c.height = 16;
+      // 도트 애니메이션(유저 #90) — 대시 스트립을 '흐르는 도트 + 블룸'으로. 캔버스를 매 프레임
+      //   다시 굽지 않고, 텍스처 offset 을 흘려 도트가 앞발 쪽으로 흐르게 한다(업로드 0).
+      const c = document.createElement('canvas'); c.width = 256; c.height = 32;
       const g2 = c.getContext('2d');
-      g2.strokeStyle = PAL.sand; g2.lineWidth = 10; g2.lineCap = 'round';
-      g2.setLineDash([18, 22]);
-      g2.beginPath(); g2.moveTo(6, 8); g2.lineTo(250, 8); g2.stroke();
+      const DOTS = 8, GAP = 256 / DOTS;
+      for (let i = 0; i < DOTS; i++) {
+        const x = GAP * (i + 0.5), r = 5.2;
+        const rg = g2.createRadialGradient(x, 16, 0, x, 16, r * 3.2);   // 블룸 후광
+        rg.addColorStop(0, 'rgba(254,195,137,.95)');
+        rg.addColorStop(.35, 'rgba(254,195,137,.42)');
+        rg.addColorStop(1, 'rgba(254,195,137,0)');
+        g2.fillStyle = rg; g2.beginPath(); g2.arc(x, 16, r * 3.2, 0, Math.PI * 2); g2.fill();
+        g2.fillStyle = 'rgba(255,240,224,.98)';                          // 코어
+        g2.beginPath(); g2.arc(x, 16, r, 0, Math.PI * 2); g2.fill();
+      }
       const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
-      const link = new THREE.Mesh(new THREE.PlaneGeometry(1, 0.06),
-        new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: 0, depthWrite: false }));
+      tex.wrapS = THREE.RepeatWrapping;
+      const link = new THREE.Mesh(new THREE.PlaneGeometry(1, 0.1),
+        new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: 0, depthWrite: false,
+          blending: THREE.AdditiveBlending }));
       link.rotation.x = -Math.PI / 2;
       link.renderOrder = 5;
       this.a2press.link = link;
@@ -2153,6 +2165,9 @@ export class Session {
         P.link.position.set((a.x + b.x) / 2, 0.012, (a.z + b.z) / 2);
         P.link.rotation.z = Math.atan2(-dz, dx);   // 평면(-x/2..x/2)을 발 사이 방향으로
         P.link.scale.set(seg, 1, 1);
+        // 도트가 앞발 쪽으로 흐른다(유저 #90) — 반복 수는 길이에 비례(도트 간격 일정), 속도 0.35/s
+        const mp = P.link.material.map;
+        if (mp) { mp.repeat.x = Math.max(1, seg / 0.32); mp.offset.x = -(this.t * 0.35) % 1; }
         P.link.material.opacity += ((inHold ? 0.7 : 0.35) - P.link.material.opacity) * 0.18;
         P.link.visible = L > 0.30;
       }

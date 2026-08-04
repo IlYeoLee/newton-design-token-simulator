@@ -1461,90 +1461,85 @@ export class FloorGL {
       ctx.letterSpacing = '0px';
       ctx.restore();
     }
-    // ── ⑤ 사이드 포드 — 2단 서사(유저 08-05): 등장 = '길쭉한 알약 + 이너 섀도우 + 실제 충전 %'
-    //    → 페이즈2(인물·CTA 등장)에 '원형 + 충전 그래프'로 모프. 이어폰 포드는 코치 사진 + 연결 체크.
+    // ── ⑤ 사이드 포드 — 피그마 애니메이션 정본(유저 #86→#87):
+    //    페이즈1 = **세로로 긴 알약**(글라스+이너 섀도우), 아이콘 위 · 충전 % 아래(숫자 크게 + % 작게)
+    //    페이즈2 = 알약이 **원으로 줄어들며** 링 게이지 + 끝점 도트가 생기고, % 는 사라진다.
+    //              이어폰 포드는 같은 순간 코치 사진으로 바뀐다(연결됨).
     {
       const PODS = [
-        { cx: 112, cy: 1185, icon: 'earbuds', pct: 62, d: .95, coach: true },
-        { cx: 1457, cy: 1210, icon: 'glasses', pct: 78, d: 1.05 },
+        { cx: 150, cy: 1150, icon: 'glasses', pct: 85, d: .95 },
+        { cx: 1450, cy: 1150, icon: 'earbuds', pct: 85, d: 1.05, coach: true },
       ];
-      const R0P = 109;   // 피그마 실측 지름 218
+      const RP = 109, PW = 226, PH = 392;   // 원 반지름 / 알약 폭·높이(피그마 비율 1.73)
       PODS.forEach(P => {
         const e = e0(P.d, .7);
-        const pop = kf(e, [[0, 0], [.6, 1.08], [1, 1]]);
-        if (pop <= 0.001) return;
-        const m = p2;                       // 0 = 알약(% 표기) · 1 = 원(충전 그래프)
-        const w = 340 - (340 - R0P * 2) * m, h = R0P * 2, rr = h / 2;
+        // 등장 = 알약이 **길어지며** 나타난다(유저) — 세로만 자란다.
+        const grow = kf(e, [[0, .35], [.65, 1.04], [1, 1]]);
+        if (e <= 0.002) return;
+        const m = p2;                                   // 0 = 알약 · 1 = 원
+        const w = PW - (PW - RP * 2) * m;
+        const h = (PH - (PH - RP * 2) * m) * grow;
+        const rr = Math.min(w, h) / 2;
         ctx.save(); ctx.globalAlpha *= Math.min(1, e * 1.6);
-        ctx.translate(P.cx, P.cy); ctx.scale(pop, pop); ctx.translate(-P.cx, -P.cy);
-        const path = () => { ctx.beginPath(); ctx.roundRect(P.cx - w / 2, P.cy - h / 2, w, h, rr); };
-        ctx.save(); path(); ctx.clip();     // 이너 섀도우 — 두 단계 모두 유지
-        ctx.filter = 'blur(11px)';
-        ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = 22;
+        const x0 = P.cx - w / 2, y0 = P.cy - h / 2;
+        const path = () => { ctx.beginPath(); ctx.roundRect(x0, y0, w, h, rr); };
+        // 글라스 + 이너 섀도우 — 두 단계 공통
+        ctx.save(); path(); ctx.clip();
+        ctx.filter = 'blur(12px)';
+        ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.lineWidth = 24;
         path(); ctx.stroke();
         ctx.filter = 'none'; ctx.restore();
-        const coachA = P.coach ? p2 * (1 - eOut(intro(t, TP2 + 3, .7))) : 0;
-        // ① 알약 단계 — 아이콘 + 실제 충전 퍼센트
-        if (m < 0.99) {
-          ctx.save(); ctx.globalAlpha *= (1 - m);
-          const ix = P.cx - w / 2 + 62;
+        const coachA = P.coach ? m * (1 - eOut(intro(t, TP2 + 3, .7))) : 0;
+        // 아이콘 — 알약에선 위쪽, 원에선 가운데(모프에 따라 이동)
+        const iy = y0 + h * (0.30 + 0.20 * m);
+        if (P.coach && coachA > 0.01) {
+          const pk = this._img('photos/creator-profile-sean.png');
+          ctx.save(); ctx.globalAlpha *= coachA;
+          ctx.beginPath(); ctx.arc(P.cx, P.cy, RP - 8, 0, Math.PI * 2); ctx.clip();
+          if (pk) {
+            const sc = Math.max((RP - 8) * 2 / pk.naturalWidth, (RP - 8) * 2 / pk.naturalHeight);
+            ctx.drawImage(pk, P.cx - pk.naturalWidth * sc / 2, P.cy - pk.naturalHeight * sc / 2,
+                          pk.naturalWidth * sc, pk.naturalHeight * sc);
+          }
+          ctx.restore();
+        }
+        if (!(P.coach && coachA > 0.99)) {
+          ctx.save(); ctx.globalAlpha *= P.coach ? (1 - coachA) : 1;
           if (P.icon === 'glasses') {
             const gl2 = img('ic-glasses.png');
-            if (gl2) ctx.drawImage(gl2, ix - 48, P.cy - 32, 96, 64);
+            if (gl2) ctx.drawImage(gl2, P.cx - 72, iy - 48, 144, 96);
           } else {
-            const eb = this._tinted2('fig/ready2/ic-earbuds.png', 84, 73, () => '#fff');
-            if (eb) ctx.drawImage(eb, ix - 42, P.cy - 36, 84, 73);
+            const eb = this._tinted2('fig/ready2/ic-earbuds.png', 132, 114, () => '#fff');
+            if (eb) ctx.drawImage(eb, P.cx - 66, iy - 57, 132, 114);
           }
-          ctx.fillStyle = NEU.ink; ctx.font = RF(700, 52); ctx.letterSpacing = '-1.6px';
-          ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
-          ctx.fillText(P.pct + '%', P.cx + w / 2 - 46, P.cy + 2);
+          ctx.restore();
+        }
+        // 충전 % — 알약 아래쪽(숫자 크게 + % 작게). 원으로 줄면 사라진다.
+        if (m < 0.985) {
+          ctx.save(); ctx.globalAlpha *= (1 - m);
+          ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          ctx.fillStyle = NEU.ink; ctx.font = RF(400, 68); ctx.letterSpacing = '-2px';
+          const ty = y0 + h * 0.74;
+          const nw = ctx.measureText(String(P.pct)).width;
+          ctx.font = RF(400, 40);
+          const sw = ctx.measureText('%').width;
+          const cx0 = P.cx - (nw + sw) / 2;
+          ctx.textAlign = 'left';
+          ctx.font = RF(400, 68); ctx.fillText(String(P.pct), cx0, ty);
+          ctx.font = RF(400, 40); ctx.fillStyle = 'rgba(255,255,255,.85)';
+          ctx.fillText('%', cx0 + nw + 4, ty + 10);
           ctx.letterSpacing = '0px'; ctx.restore();
         }
-        // ② 원 단계 — 아이콘(또는 코치 사진) + 충전 그래프 링
-        if (m > 0.01) {
+        // 링 게이지 + 끝점 도트 — 원 단계에서만(피그마 #87)
+        if (m > 0.015) {
           ctx.save(); ctx.globalAlpha *= m;
-          const iconA = P.coach ? 1 - coachA : 1;
-          if (iconA > 0.01) {
-            ctx.save(); ctx.globalAlpha *= iconA;
-            if (P.icon === 'glasses') {
-              const gl2 = img('ic-glasses.png');
-              if (gl2) ctx.drawImage(gl2, P.cx - 72, P.cy - 48, 144, 96);
-            } else {
-              const eb = this._tinted2('fig/ready2/ic-earbuds.png', 132, 114, () => '#fff');
-              if (eb) ctx.drawImage(eb, P.cx - 66, P.cy - 57, 132, 114);
-            }
-            ctx.restore();
-          }
-          if (P.coach && coachA > 0.01) {
-            const pk = this._img('photos/creator-profile-sean.png');
-            ctx.save(); ctx.globalAlpha *= coachA;
-            ctx.beginPath(); ctx.arc(P.cx, P.cy, R0P - 6, 0, Math.PI * 2); ctx.clip();
-            if (pk) {
-              const sc = Math.max((R0P - 6) * 2 / pk.naturalWidth, (R0P - 6) * 2 / pk.naturalHeight);
-              ctx.drawImage(pk, P.cx - pk.naturalWidth * sc / 2, P.cy - pk.naturalHeight * sc / 2,
-                            pk.naturalWidth * sc, pk.naturalHeight * sc);
-            }
-            ctx.restore();
-          }
           const a0 = -90 * RAD, a1 = a0 + (P.pct / 100) * Math.PI * 2;
-          const cg = ctx.createConicGradient(a0, P.cx, P.cy);
-          const frac = Math.max(0.002, (a1 - a0) / (Math.PI * 2));
-          cg.addColorStop(0, 'rgba(255,255,255,.9)');
-          cg.addColorStop(frac * 0.55, 'rgba(255,255,255,.55)');
-          cg.addColorStop(Math.min(1, frac), 'rgba(255,255,255,0)');
-          ctx.strokeStyle = cg; ctx.lineWidth = 15; ctx.lineCap = 'round';
-          ctx.beginPath(); ctx.arc(P.cx, P.cy, R0P + 6, a0, a1); ctx.stroke();
+          ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = 11; ctx.lineCap = 'round';
+          ctx.beginPath(); ctx.arc(P.cx, P.cy, RP + 7, a0, a1); ctx.stroke();
           ctx.fillStyle = NEU.ink;
           ctx.beginPath();
-          ctx.arc(P.cx + Math.cos(a1) * (R0P + 6), P.cy + Math.sin(a1) * (R0P + 6), 13, 0, Math.PI * 2);
+          ctx.arc(P.cx + Math.cos(a1) * (RP + 7), P.cy + Math.sin(a1) * (RP + 7), 13, 0, Math.PI * 2);
           ctx.fill();
-          if (P.coach && coachA > 0.01) {
-            const ck = kf(eOut(intro(t, TP2 + .2, .55)), [[0, 0], [.55, 1.2], [1, 1]]) * coachA;
-            if (ck > 0.001) {
-              ctx.save(); ctx.translate(P.cx + 72, P.cy + 72); ctx.scale(ck, ck);
-              checkBadge(ctx, 0, 0, 30); ctx.restore();
-            }
-          }
           ctx.restore();
         }
         ctx.restore();
@@ -1628,7 +1623,7 @@ export class FloorGL {
         : String(Math.max(0, Math.ceil((this.params?.dur || 8) - t)));
       ctx.font = RF(timer || V === 'mini' ? 700 : 400, 64); ctx.letterSpacing = '-2.56px';
       const tw = Math.max(ctx.measureText(txt2).width, 64), pw = tw + 80, ph2 = 100;
-      const byd = by + (V === 'preview' ? 90 : 103);
+      const byd = by + (V === 'preview' ? 90 : 52);   // 컴팩트 카드는 위로(호와 겹침 해소, 유저 #89)
       ctx.save();
       ctx.shadowColor = 'rgba(255,255,255,.8)'; ctx.shadowBlur = 34;
       ctx.fillStyle = 'rgba(255,255,255,.34)';
@@ -1646,8 +1641,8 @@ export class FloorGL {
       const e = eOut(intro(t, .45, .6));
       ctx.save(); ctx.globalAlpha *= e;
       const dur = this.params?.dur || 8;
-      const ay = V === 'preview' ? by + 300 : by + 134;
-      arcGauge(ctx, cx2 - 524, ay, 1048, Math.min(1, t / dur), { dotK: 0.75 });
+      const ay = V === 'preview' ? by + 300 : by + 250;   // 배지 아래로 내려 겹침 해소(유저 #89)
+      arcGauge(ctx, cx2 - 524, ay, 1048, Math.min(1, t / dur), { dotK: V === 'preview' ? 0.7 : 0.5 });   // 광점 축소(유저)
       ctx.restore();
     }
     // ③' 미니 영상 미리보기(농구 복잡 스텝) — 캡슐 안 작은 패널, 그린스크린 CPU 키(저해상)
