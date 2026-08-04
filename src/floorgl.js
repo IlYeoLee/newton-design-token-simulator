@@ -1373,8 +1373,8 @@ export class FloorGL {
           ctx.save();
           if (seg.muted) {
             // 스트레칭 = 흰 반투명 + 블룸(유저) — 열화상 램프는 본운동 쪽 위계로 남긴다
-            ctx.shadowColor = 'rgba(255,255,255,.5)'; ctx.shadowBlur = 18;   // 블룸 절제 — 과하면 글자가 안 읽힌다(유저)
-            ctx.strokeStyle = 'rgba(255,255,255,.82)';                       // 판을 불투명하게 = 잉크 대비 확보
+            ctx.shadowBlur = 0;                              // 블룸 제거 — 흰 판이 번지면 글자가 사라진다(유저 #98)
+            ctx.strokeStyle = 'rgba(255,255,255,.55)';       // 톤 낮춘 유리판
           } else {
             const g = ctx.createLinearGradient(p0.x, p0.y, p1.x, p1.y);
             g.addColorStop(0, PAL.coral); g.addColorStop(1, PAL.red);
@@ -1391,10 +1391,11 @@ export class FloorGL {
           const pc = polar(s0 + capA);
           ctx.save(); ctx.globalAlpha *= Math.min(1, ip * 2.5);
           ctx.translate(pc.x, pc.y); ctx.rotate((s0 + capA + 90) * RAD); ctx.scale(ik, ik);
-          ctx.fillStyle = seg.muted ? 'rgba(255,255,255,.9)' : 'rgba(255,255,255,.3)';
+          ctx.fillStyle = seg.muted ? '#fff' : 'rgba(255,255,255,.3)';
           ctx.beginPath(); ctx.arc(0, 0, 61, 0, Math.PI * 2); ctx.fill();
           if (seg.chipText) {   // 5분 구간 = 원형 칩 안에 글자만(유저)
-            ctx.fillStyle = NEU.t3; ctx.font = RF(700, 40); ctx.letterSpacing = '-1.2px';
+            ctx.shadowBlur = 0;                              // 앞 단계 블룸이 남아 글자를 지우던 것
+            ctx.fillStyle = NEU.inkDark; ctx.font = RF(700, 46); ctx.letterSpacing = '-1.4px';
             ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
             ctx.fillText(seg.chipText, 0, 2);
             ctx.letterSpacing = '0px';
