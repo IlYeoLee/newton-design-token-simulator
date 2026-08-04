@@ -107,7 +107,11 @@ const SCENES = {
     beats: [[1, 'hit'], [2, 'hit'], [3, 'miss'], [4, 'hit']] },
   BX_C3: { title: 'COMBINATION', phase: 3, sub: '2/3', coach: { num: '', unit: 'Points' }, you: { num: '', unit: 'Points' },
     say: 'Rhythm’s good', cues: ['Nice combo', 'On fire', 'Keep it up'], combos: ['Jab · Jab · Hook!'],
-    beats: [[1, 'hit'], [2, 'near'], [4, 'hit']] },
+    // 3사이클(dur 9s) 전체 대본 — 콤보 박자(0.67/1.80/2.67 + 사이클 오프셋) 정렬.
+    //   miss 1개 포함: 규칙상 Casey 는 내 miss 에만 득점하는데 대본에 miss 가 없어
+    //   전문가가 영원히 0 이었다(유저 분석 요청). 6:1 — 전문가에게도 한 점은 간다.
+    beats: [[0.67, 'hit'], [1.8, 'near'], [2.67, 'hit'], [3.67, 'hit'], [4.8, 'miss'], [5.67, 'hit'],
+            [6.67, 'hit'], [7.8, 'near'], [8.67, 'hit']] },
   BX_C4: { title: 'COOL DOWN', phase: 3, sub: '3/3', coach: { num: '', unit: '' }, you: { num: '', unit: '' },
     say: 'Great work', cues: ['Well done', 'Strong session', 'Nice one'], combos: [] },
 };
