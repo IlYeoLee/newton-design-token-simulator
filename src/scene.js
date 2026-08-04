@@ -300,22 +300,20 @@ export function createScene(container) {
         im.onload = () => res(im);
         im.src = `${BASE_URL}tex/asphalt.jpg`;
       });
-      // 레인 가로 간격 확대(유저 08-05) — 타일을 768 로 넓히고 가로 반복을 40 으로:
-      //   텍셀 밀도(512/60 규격)는 유지한 채 레인 폭만 ~1.8배(313→569px/타일).
-      const c = document.createElement('canvas'); c.width = 768; c.height = 512;
+      // 레인 라인은 타일에서 뺐다(유저 08-05: 가운데 레인만 넓게) — 타일은 우레탄 그레인만,
+      //   라인은 trackLanes 지오메트리가 그린다(중앙 레인 넓게 + 바깥은 표준 간격).
+      const c = document.createElement('canvas'); c.width = c.height = 512;
       const g = c.getContext('2d');
       // 촬영지 트랙(유저 레퍼런스)은 훨씬 옅고 노란기 있는 세이지다 — 구 #6FA88C 는 채도가 두 배쯤 높았다.
-      g.fillStyle = '#B7C6AA'; g.fillRect(0, 0, 768, 512);            // 페일 세이지 우레탄
+      g.fillStyle = '#B7C6AA'; g.fillRect(0, 0, 512, 512);            // 페일 세이지 우레탄
       g.globalAlpha = 0.34; g.globalCompositeOperation = 'overlay';   // 아스팔트 = 그레인 질감만(어둡게 안 함)
-      g.drawImage(asphalt, 0, 0, 768, 512);
+      g.drawImage(asphalt, 0, 0, 512, 512);
       g.globalAlpha = 0.12; g.globalCompositeOperation = 'saturation'; // 채도 살짝 낮춰 무광 실사감
-      g.fillStyle = '#808080'; g.fillRect(0, 0, 768, 512);
+      g.fillStyle = '#808080'; g.fillRect(0, 0, 512, 512);
       g.globalAlpha = 1; g.globalCompositeOperation = 'source-over';
-      g.fillStyle = 'rgba(248,248,244,0.85)';                          // 흰 레인 라인
-      g.fillRect(96, 0, 7, 512); g.fillRect(665, 0, 7, 512);
       const tex = new THREE.CanvasTexture(c);
       tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-      tex.repeat.set(40, 60);
+      tex.repeat.set(60, 60);
       tex.anisotropy = MAXANISO;
       tex.colorSpace = THREE.SRGBColorSpace;
       surfCache.track = tex;
@@ -405,6 +403,22 @@ export function createScene(container) {
     scene.fog.color.setHex(sky);
   }
   let courtLines = null, courtZones = null;
+  // 트랙 레인 라인(지오메트리) — 중앙 레인 폭 2.7m(UI·포드 수납), 바깥은 1.22m 표준 간격(유저 08-05).
+  let trackLanes = null;
+  function ensureTrackLanes() {
+    if (trackLanes) return trackLanes;
+    trackLanes = new THREE.Group();
+    const mat = new THREE.MeshBasicMaterial({ color: 0xF8F8F4, transparent: true, opacity: 0.85, depthWrite: false });
+    const XS = [1.35, 2.57, 3.79, 5.01];
+    for (const x of XS) for (const sgn of [-1, 1]) {
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(0.055, 80), mat);
+      m.rotation.x = -Math.PI / 2; m.position.set(sgn * x, 0.002, 0);
+      trackLanes.add(m);
+    }
+    trackLanes.renderOrder = 1;
+    scene.add(trackLanes);
+    return trackLanes;
+  }
   async function setSurfaces(key) {
     const seq = ++surfSeq;   // 연타 시 마지막 선택만 반영
     curSurfKey = (!key || key === 'none') ? null : key;
@@ -516,6 +530,8 @@ export function createScene(container) {
     }
     courtZones.visible = key === 'court_tile';   // 조립식 타일 코트에만 — 우드·솔리드 코트는 단색이 맞다
     courtLines.visible = key === 'court' || key === 'court_tile' || isCourtColor;
+    if (key === 'track') ensureTrackLanes().visible = true;
+    else if (trackLanes) trackLanes.visible = false;
     floor.material.map = isCourtColor ? null : fTex;
     wall.material.map = wTex;
     if (isCourtColor) {

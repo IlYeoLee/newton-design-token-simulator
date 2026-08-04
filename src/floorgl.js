@@ -1521,7 +1521,7 @@ export class FloorGL {
     // ① 캡슐 성장 — READY(291,285,1018,1591) → 프리뷰(162,-15,1276,1955) 아주 부드럽게
     const g = eOut(intro(t, 0, 1.1));
     const L = (a, b) => a + (b - a) * g;
-    const bx = L(291, 162), by = L(285, -15), bw = L(1018, 1276), bh = L(1591, 1955);
+    const bx = L(291, 162), by = L(285, 14), bw = L(1018, 1276), bh = L(1591, 1930);   // 상단 잘림 방지(유저 #72)
     // READY 캡슐 그리기를 좌표 변환으로 재사용 — 내부 글로우·림 상대 위치가 같이 따라온다
     ctx.save();
     ctx.translate(bx, by); ctx.scale(bw / 1018, bh / 1591); ctx.translate(-291, -285);
@@ -1596,17 +1596,20 @@ export class FloorGL {
         ctx.save(); ctx.globalAlpha *= e;
         ctx.fillStyle = 'rgba(255,255,255,.35)';   // backdrop-blur 근사(캔버스) — 반투명 필
         ctx.beginPath(); ctx.roundRect(px - 145, py2 - 68, 290, 136, 68); ctx.fill();
-        // 셰브론 — 왼쪽부터 연함→진함, 흐르는 순차 펄스(차차착)
-        for (let i = 0; i < 3; i++) {
-          const base = [0.25, 0.45, 0.9][i];
-          const flow = cycle(t, 1.2 + i * 0.22, 1.6, INF2);
-          const pulse = flow == null ? 0 : kf(flow, [[0, 0], [.25, .5], [.5, 0], [1, 0]]);
-          ctx.strokeStyle = `rgba(255,255,255,${Math.min(1, base + pulse * 0.4)})`;
+        // 셰브론 — 파라미터형 트래블링 웨이브(유저: 하드코딩 금지·더 촤라락). N/크기/간격만으로
+        //   파생: 웨이브가 왼→오로 흐르며 각 셰브론이 알파·전진·스케일로 부풀었다 가라앉는다.
+        const N3 = 3, CW = 14, CHH = 26, GAP3 = 58, PERIOD = 1.5, STAG = 0.16, ON = 0.55;
+        for (let i = 0; i < N3; i++) {
+          const ph3 = ((t / PERIOD - i * STAG) % 1 + 1) % 1;
+          const wv = ph3 < ON ? Math.sin((ph3 / ON) * Math.PI) : 0;
+          const base = 0.22 + 0.5 * (i / (N3 - 1));
+          ctx.strokeStyle = `rgba(255,255,255,${Math.min(1, base + wv * 0.55)})`;
           ctx.lineWidth = 13; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-          const sx = px - 72 + i * 58;
+          const sx = px - ((N3 - 1) * GAP3) / 2 + i * GAP3 + wv * 7;
+          ctx.save(); ctx.translate(sx, py2); ctx.scale(1 + wv * 0.14, 1 + wv * 0.14);
           ctx.beginPath();
-          ctx.moveTo(sx - 14, py2 - 26); ctx.lineTo(sx + 14, py2); ctx.lineTo(sx - 14, py2 + 26);
-          ctx.stroke();
+          ctx.moveTo(-CW, -CHH); ctx.lineTo(CW, 0); ctx.lineTo(-CW, CHH);
+          ctx.stroke(); ctx.restore();
         }
         ctx.restore();
       }
