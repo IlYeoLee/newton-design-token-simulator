@@ -528,7 +528,7 @@ const READY = {
                      comp: [['Stretch', 5], ['Learn', 8], ['Play!', 10]],
                      r2: { scale: 0.75, pivotY: 320, vid: 'bk_squat.webm',   // 농구 콘 얕음 — 상단 앵커 축소 · 실루엣 = 농구 A1(스쿼트)
                            lines: ["Curry's", 'Handle Pack'], sub: 'Press On', total: '23',
-                           arcs: [{ v: 8, lbl: '8min', icon: 'feet' }, { v: 10, lbl: '10min', icon: 'run' }], badge: '5' } },   // 배지 5 = 스트레칭 — 합 23
+                           arcs: [{ v: 8, lbl: '8min', icon: 'bkTrain' }, { v: 10, lbl: '10min', icon: 'bkPlay' }], badge: '5' } },   // 배지 5 = 스트레칭 — 합 23
 };
 const TR = {
   T1: { sub: 'Sean’s Final 1km Pace', title: 'Warm-Up Done!',
@@ -1242,7 +1242,7 @@ export class FloorGL {
     ctx.translate(0, -185);   // 콘텐츠 전체 위로 — far 쪽 빈 띠 제거 + Tap Twice 를 가시권으로(유저)
     if (CK !== 1) { ctx.translate(800, PV); ctx.scale(CK, CK); ctx.translate(-800, -PV); }
     // ── 페이즈 타임라인 — 등장(왼→오 촤라락) 완료 후 2초 뒤 페이즈2(실루엣·코치 프로필) ──
-    const TP2 = 3.9, p2 = eOut(intro(t, TP2, .7));
+    const TP2 = 2.1, p2 = eOut(intro(t, TP2, .7));   // 등장 ~2s 완료 → 쉬지 않고 바로 페이즈2(유저)
     const RF = (w, s, fam = sans) => `${w} ${s}px ${fam}`;   // 피그마 원치수(타입스케일 미적용)
     const img = rel => this._img('fig/ready2/' + rel);
     const e0 = (d, dur = .8) => eOut(intro(t, d, dur));
@@ -1319,7 +1319,7 @@ export class FloorGL {
       const segs = R2.arcs, totalV = segs.reduce((s2, x) => s2 + x.v, 0);
       const avail = (A1 - segStart) - GAPA * (segs.length - 1);
       // 스윕 — 배지 팝 후 세그먼트 시작각에서 끝각까지 호를 따라 차오른다
-      const sweep = segStart + (A1 - segStart) * eOut(intro(t, .55, 1.35));
+      const sweep = segStart + (A1 - segStart) * eOut(intro(t, .5, 1.2));
       ctx.save(); ctx.globalAlpha *= e0(.4, .5);
       // 선행 배지 — 팝(오버슈트) 등장
       if (R2.badge) {
@@ -1356,13 +1356,22 @@ export class FloorGL {
           ctx.translate(pc.x, pc.y); ctx.rotate((s0 + capA + 90) * RAD); ctx.scale(ik, ik);
           ctx.fillStyle = 'rgba(255,255,255,.3)';
           ctx.beginPath(); ctx.arc(0, 0, 61, 0, Math.PI * 2); ctx.fill();
-          if (seg.icon === 'run') {
-            const im = img('ic-run.svg');
-            if (im) ctx.drawImage(im, -21.09, -28.67, 42.183, 57.333);
-          } else {
+          // 아이콘 규격 통일 — 전부 높이 58 박스에 종횡비 유지(러닝·농구 여백 톤 일치, 유저)
+          const IH2 = 58;
+          if (seg.icon === 'feet') {
+            ctx.save(); ctx.scale(IH2 / 69.5, IH2 / 69.5);
             const l = img('ic-foot-l.svg'), r2i = img('ic-foot-r.svg');
             if (l) ctx.drawImage(l, -38.85, -34.73, 34.064, 69.458);
             if (r2i) { ctx.save(); ctx.translate(21.8, 0); ctx.rotate(Math.PI); ctx.scale(1, -1); ctx.drawImage(r2i, -17.03, -34.73, 34.064, 69.458); ctx.restore(); }
+            ctx.restore();
+          } else {
+            const file = seg.icon === 'run' ? 'ic-run.svg' : seg.icon === 'bkTrain' ? 'ic-bk-train.svg' : 'ic-bk-play.svg';
+            const im2 = seg.icon === 'run' ? img(file) : this._tinted2('fig/ready2/' + file, 96, 96, () => '#fff');
+            if (im2) {
+              const nw = im2.naturalWidth || im2.width, nh = im2.naturalHeight || im2.height;
+              const iw2 = IH2 * (nw && nh ? nw / nh : 1);
+              ctx.drawImage(im2, -iw2 / 2, -IH2 / 2, iw2, IH2);
+            }
           }
           ctx.restore();
         }
@@ -1404,7 +1413,7 @@ export class FloorGL {
     {
       const PODS = [
         { cx: 120, cy: 1160, icon: 'glasses', pct: 78, d: .3 },                    // 임시 배터리 값
-        { cx: 1480, cy: 1160, icon: 'earbuds', pct: 62, d: 1.05, coach: true },
+        { cx: 1480, cy: 1160, icon: 'earbuds', pct: 62, d: .95, coach: true },
       ];
       const CR = 90;
       PODS.forEach(P => {
@@ -1480,7 +1489,7 @@ export class FloorGL {
     }
     // ── ⑥ 발 = 룩시스템 FootMark 토큰(tap2 어포던스 상태, session READY) — 캔버스 신발 폐기(유저) ──
     // ── ⑦ CTA — Tap Twice(74 Bold) / To start(74 Regular), 발 사이 중앙 ──
-    ctx.save(); ctx.globalAlpha *= e0(1.25);
+    ctx.save(); ctx.globalAlpha *= e0(1.05);
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillStyle = NEU.ink; ctx.font = RF(700, 74); ctx.letterSpacing = '-5.76px';
     ctx.fillText('Tap Twice', 800.15, 1988.7);

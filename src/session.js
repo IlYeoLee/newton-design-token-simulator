@@ -143,10 +143,13 @@ class FootMark {
   /** tap2 어포던스(READY 전용, 유저 2026-08-05) — 무채(도트+이너 화이트) 대기로 있다가
    *  주기마다 액티브 컬러로 밝아지며 **2회 깜빡** = '발 두 번 탭' 암시. 과하지 않게 3.2s 주기. */
   tapHint(tc) {
-    const ph = tc % 3.2;
-    const p = (ph > 1.9 && ph < 2.25) ? (ph - 1.9) / 0.35 : (ph > 2.55 && ph < 2.9) ? (ph - 2.55) / 0.35 : -1;
-    if (p >= 0) { this._U.uPhase.value = 0; this._U.uProg.value = 0; this.op(0.45 + 0.4 * Math.sin(p * Math.PI)); }
-    else { this.locked(); this.op(0.6); }   // 무채 대기 = 은은하게(유저: 룩시스템 발자국 느낌)
+    // 시작 = 무채(도트+이너 화이트, #63 디자인) 그대로. 주기 후반에만 액티브로 2회, 사인 디졸브로
+    //   부드럽게(유저: 애니메이팅 부드럽게 — 스텝 스위치의 팝 제거).
+    const T = 3.6, ph = tc % T;
+    const bl = t0 => { const u = (ph - t0) / 0.55; return (u >= 0 && u <= 1) ? Math.sin(u * Math.PI) : 0; };
+    const b = Math.max(bl(2.0), bl(2.75));
+    if (b > 0.35) { this._U.uPhase.value = 0; this._U.uProg.value = 0; this.op(0.25 + 0.6 * b); }
+    else { this.locked(); this.op(0.6 - 0.35 * b); }   // 교차 지점 밝기 근사 일치 = 디졸브
   }   // 무채 대기(Locked) — READY 시작 전
   countdown(p) {
     if (p < 0) { this._U.uPhase.value = 0; this._U.uProg.value = 0; return; }          // 대기 = Preview 숨쉬기

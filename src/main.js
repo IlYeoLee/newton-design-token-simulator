@@ -2747,7 +2747,7 @@ void main(){
     //   따라하기 화면에도 같은 실루엣이 축소되어 남아야 한다(피그마 143:444) — 예외로 계속 켠다.
     const activeId = COACH_IDS.find(id => id === st
       && !(/^(A2|A3|BK_A2|BK_A3|BK_B1)$/.test(id) && session._followLatch)
-      && !(/READY$/.test(id) && session.t < 3.9)) || null;   // READY 실루엣 = 페이즈2(등장+2s)부터
+      && !(/READY$/.test(id) && session.t < 2.1)) || null;   // READY 실루엣 = 등장 직후 바로(유저: 쉬지 말고)
     for (const id of COACH_IDS) {
       const c = _coaches[id];
       if (id === activeId) {
