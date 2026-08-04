@@ -1293,7 +1293,7 @@ export class FloorGL {
     //   기준선에 앉는다. 등장 = 왼쪽(배지)에서 오른쪽으로 호를 따라 차오르는 스윕 + 아이콘 팝 +
     //   글자 순차 리빌. 모든 좌표·타이밍은 value→각도 누적과 스윕 각도에서만 파생.
     {
-      const CXA = 800, CYA = 810, R = 375, LWA = 130, GAPA = 10;
+      const CXA = 800, CYA = 810, R = 375, LWA = 130, GAPA = 5;   // 갭 10→5°(유저: 간격 과대)
       const A0 = 196, A1 = 344;                       // 270° 대칭 → 하단 정렬
       const polar = (deg, r = R) => ({ x: CXA + Math.cos(deg * RAD) * r, y: CYA + Math.sin(deg * RAD) * r });
       const capA = (LWA / 2) / R / RAD;
@@ -1353,14 +1353,18 @@ export class FloorGL {
         {
           ctx.save();
           ctx.fillStyle = NEU.ink; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          // 라벨 영역 = 아이콘 칩 구간을 제외한 나머지 호(겹침 방지, 유저) — 칩 반각 + 여유 2°
+          const iconHalf = seg.icon ? 61 / R / RAD : 0;
+          const l0 = s0 + capA + (seg.icon ? iconHalf + 2 : 0), l1 = s1 - capA;
+          const lmid = (l0 + l1) / 2;
           let fs = 44;
-          const arcLen = (s1 - s0 - capA * 2) * RAD * R;
+          const arcLen = (l1 - l0) * RAD * R;
           ctx.font = RF(700, fs); ctx.letterSpacing = '-1px';
-          while (fs > 26 && ctx.measureText(seg.lbl).width > arcLen * 0.7) { fs -= 2; ctx.font = RF(700, fs); }
+          while (fs > 26 && ctx.measureText(seg.lbl).width > arcLen * 0.72) { fs -= 2; ctx.font = RF(700, fs); }
           const chars = [...seg.lbl];
           const ws = chars.map(c => ctx.measureText(c).width - 1);
           const totalW = ws.reduce((a2, b) => a2 + b, 0);
-          let a = mid - (totalW / 2) / R / RAD;
+          let a = lmid - (totalW / 2) / R / RAD;
           chars.forEach((c, k) => {
             const am = a + (ws[k] / 2) / R / RAD;
             a += ws[k] / R / RAD;
