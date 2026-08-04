@@ -3229,8 +3229,13 @@ void main(){
           float botC = 0.0;
           for (int i = 0; i < 8; i++) botC += praw(vec2((float(i) + 0.5) / 8.0, 0.006));
           vec2 cf = cutFade(uv.x, uv.y, botC * 0.125, uTime);
-          mEro = mix(mEro, smoothstep(0.06, 0.55, texture2D(uHeat, uv).r), cf.y) * cf.x;
-          dLumS = mix(dLumB, dLumS, 1.0 - cf.y);
+          // ★ 하단에서 저해상도 열 필드(uHeat)와 섞지 않는다. 그 텍스처는 저해상도라
+          //   섞는 순간 다리 아래가 **계단·세로 번짐**으로 드러난다(유저 08-05 스샷).
+          //   주석의 설계 의도('디포커스는 가장 아래에서 살짝만 거든다')대로면 살짝이어야 하는데
+          //   해상도가 낮아 살짝이어도 블록이 보인다. 마스크 페더(cf.x)만으로 충분하다 —
+          //   실루엣은 끝까지 유지되고 밀도만 사라진다(위 주석이 말하는 '주력'이 그것이다).
+          mEro = mEro * cf.x;
+          dLumS = mix(dLumB, dLumS, 1.0 - cf.y);   // 휘도 쪽 디포커스는 남긴다 — 해상도와 무관하다
           float shapeA = mEro * 0.92;   // 알파용 형태 = 실루엣만 (잔상 제외)
           float shape = max(shapeA, trail * 0.5 * smoothstep(0.06, 0.22, trail));
           // 색 = fx-core.personColor 공용 정의 (벽 인물과 같은 곡선·대역·채도).
