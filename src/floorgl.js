@@ -1461,91 +1461,107 @@ export class FloorGL {
       ctx.letterSpacing = '0px';
       ctx.restore();
     }
-    // ── ⑤ 사이드 서클 — 단일 글라스 서클 + 배터리 링 게이지(둘레 호 = 배터리 %, 끝점 도트).
-    //   우측은 페이즈2에 이어버드 → 코치 프로필로 교체 + '음성 연결' 체크 배지 팝(작았다 커짐).
+    // ── ⑤ 사이드 포드 — 2단 서사(유저 08-05): 등장 = '길쭉한 알약 + 이너 섀도우 + 실제 충전 %'
+    //    → 페이즈2(인물·CTA 등장)에 '원형 + 충전 그래프'로 모프. 이어폰 포드는 코치 사진 + 연결 체크.
     {
-      // 우측 세로 스택(유저 확정 08-05) — 좌우 대칭이 '몸통+팔' 게슈탈트를 만들던 것 해소.
-      //   위 = 이어버드(페이즈2에 코치 프로필로 교체 유지) · 아래 = 글래스.
-      // 피그마 개선안(유저) — 좌 이어버드 / 우 글래스, 캡슐 가장자리에 반쯤 걸친다.
-      //   발자국·CTA 가 빠져 '몸통+팔' 게슈탈트가 사라졌으므로 좌우 배치가 다시 성립한다.
       const PODS = [
         { cx: 112, cy: 985, icon: 'earbuds', pct: 62, d: .95, coach: true },
-        { cx: 1488, cy: 1010, icon: 'glasses', pct: 78, d: 1.05 },                 // 임시 배터리 값
+        { cx: 1488, cy: 1010, icon: 'glasses', pct: 78, d: 1.05 },
       ];
-      const CR = 90;
+      const R0P = 90;
       PODS.forEach(P => {
         const e = e0(P.d, .7);
         const pop = kf(e, [[0, 0], [.6, 1.08], [1, 1]]);
         if (pop <= 0.001) return;
+        const m = p2;                       // 0 = 알약(% 표기) · 1 = 원(충전 그래프)
+        const w = 300 - (300 - R0P * 2) * m, h = R0P * 2, rr = h / 2;
         ctx.save(); ctx.globalAlpha *= Math.min(1, e * 1.6);
         ctx.translate(P.cx, P.cy); ctx.scale(pop, pop); ctx.translate(-P.cx, -P.cy);
-        // 글라스 서클 — 면 채움 없이 이너 쉐도우만(유저 #51): 클립 안에서 블러 스트로크
-        ctx.save();
-        ctx.beginPath(); ctx.arc(P.cx, P.cy, CR, 0, Math.PI * 2); ctx.clip();
+        const path = () => { ctx.beginPath(); ctx.roundRect(P.cx - w / 2, P.cy - h / 2, w, h, rr); };
+        ctx.save(); path(); ctx.clip();     // 이너 섀도우 — 두 단계 모두 유지
         ctx.filter = 'blur(11px)';
         ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = 22;
-        ctx.beginPath(); ctx.arc(P.cx, P.cy, CR, 0, Math.PI * 2); ctx.stroke();
-        ctx.filter = 'none';
-        ctx.restore();
-        // 외곽 얇은 림 폐기 — 배터리 링과 2겹으로 읽혔다(유저 #70). 링 한 겹이 테두리 겸임.
-        // 내용 — 아이콘, 우측은 페이즈2에 코치 사진 크로스페이드
-        const pOut = P.coach ? eOut(intro(t, TP2 + 3, .7)) : 0;   // 프로필 3초 뒤 이어버드 복귀
-        const coachA = P.coach ? p2 * (1 - pOut) : 0;
-        const iconA = P.coach ? 1 - coachA : 1;
-        if (iconA > 0.01) {
-          ctx.save(); ctx.globalAlpha *= iconA;
+        path(); ctx.stroke();
+        ctx.filter = 'none'; ctx.restore();
+        const coachA = P.coach ? p2 * (1 - eOut(intro(t, TP2 + 3, .7))) : 0;
+        // ① 알약 단계 — 아이콘 + 실제 충전 퍼센트
+        if (m < 0.99) {
+          ctx.save(); ctx.globalAlpha *= (1 - m);
+          const ix = P.cx - w / 2 + 62;
           if (P.icon === 'glasses') {
             const gl2 = img('ic-glasses.png');
-            if (gl2) ctx.drawImage(gl2, P.cx - 60, P.cy - 40, 120, 80);
+            if (gl2) ctx.drawImage(gl2, ix - 48, P.cy - 32, 96, 64);
           } else {
-            const eb = this._tinted2('fig/ready2/ic-earbuds.png', 110, 95.3, () => '#fff');
-            if (eb) ctx.drawImage(eb, P.cx - 55, P.cy - 47.6, 110, 95.3);
+            const eb = this._tinted2('fig/ready2/ic-earbuds.png', 84, 73, () => '#fff');
+            if (eb) ctx.drawImage(eb, ix - 42, P.cy - 36, 84, 73);
           }
-          ctx.restore();
+          ctx.fillStyle = NEU.ink; ctx.font = RF(700, 52); ctx.letterSpacing = '-1.6px';
+          ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+          ctx.fillText(P.pct + '%', P.cx + w / 2 - 46, P.cy + 2);
+          ctx.letterSpacing = '0px'; ctx.restore();
         }
-        if (P.coach && coachA > 0.01) {
-          const pk = this._img('photos/creator-profile-sean.png');
-          ctx.save(); ctx.globalAlpha *= coachA;
-          ctx.beginPath(); ctx.arc(P.cx, P.cy, CR - 6, 0, Math.PI * 2); ctx.clip();
-          if (pk) {
-            const sc = Math.max((CR - 6) * 2 / pk.naturalWidth, (CR - 6) * 2 / pk.naturalHeight);
-            ctx.drawImage(pk, P.cx - pk.naturalWidth * sc / 2, P.cy - pk.naturalHeight * sc / 2,
-                          pk.naturalWidth * sc, pk.naturalHeight * sc);
-          }
-          ctx.restore();
-        }
-        // 배터리 링 — 12시 시작, % 만큼 시계방향 + 끝점 도트(피그마 #37/#39)
-        const bs = eOut(intro(t, P.d + .2, .9));
-        const a0 = -90 * RAD, a1 = a0 + (P.pct / 100) * Math.PI * 2 * bs;
-        // 진행 끝으로 갈수록 투명 0 — 컨틱 그라디언트로 꼬리를 은은하게(유저)
-        const cg = ctx.createConicGradient(a0, P.cx, P.cy);
-        const frac = Math.max(0.002, (a1 - a0) / (Math.PI * 2));
-        cg.addColorStop(0, 'rgba(255,255,255,.9)');
-        cg.addColorStop(frac * 0.55, 'rgba(255,255,255,.55)');
-        cg.addColorStop(Math.min(1, frac), 'rgba(255,255,255,0)');
-        if (frac < 1) cg.addColorStop(Math.min(1, frac + 0.001), 'rgba(255,255,255,0)');
-        ctx.strokeStyle = cg; ctx.lineWidth = 15; ctx.lineCap = 'round';   // 두껍게 — 충전 상태 가독(유저 #70)
-        ctx.beginPath(); ctx.arc(P.cx, P.cy, CR + 6, a0, a1); ctx.stroke();
-        ctx.fillStyle = NEU.ink;
-        ctx.beginPath();
-        ctx.arc(P.cx + Math.cos(a1) * (CR + 6), P.cy + Math.sin(a1) * (CR + 6), 13, 0, Math.PI * 2);
-        ctx.fill();
-        // 음성 연결 체크 — 페이즈2, 작았다 살짝 커지며(오버슈트) 우하단에
-        if (P.coach) {
-          const ck = kf(eOut(intro(t, TP2 + .2, .55)), [[0, 0], [.55, 1.2], [1, 1]]) * (1 - pOut);   // 프로필 복귀와 함께 퇴장
-          if (ck > 0.001) {
-            ctx.save();
-            ctx.translate(P.cx + 58, P.cy + 58); ctx.scale(ck, ck);
-            checkBadge(ctx, 0, 0, 30);
+        // ② 원 단계 — 아이콘(또는 코치 사진) + 충전 그래프 링
+        if (m > 0.01) {
+          ctx.save(); ctx.globalAlpha *= m;
+          const iconA = P.coach ? 1 - coachA : 1;
+          if (iconA > 0.01) {
+            ctx.save(); ctx.globalAlpha *= iconA;
+            if (P.icon === 'glasses') {
+              const gl2 = img('ic-glasses.png');
+              if (gl2) ctx.drawImage(gl2, P.cx - 60, P.cy - 40, 120, 80);
+            } else {
+              const eb = this._tinted2('fig/ready2/ic-earbuds.png', 110, 95.3, () => '#fff');
+              if (eb) ctx.drawImage(eb, P.cx - 55, P.cy - 47.6, 110, 95.3);
+            }
             ctx.restore();
           }
+          if (P.coach && coachA > 0.01) {
+            const pk = this._img('photos/creator-profile-sean.png');
+            ctx.save(); ctx.globalAlpha *= coachA;
+            ctx.beginPath(); ctx.arc(P.cx, P.cy, R0P - 6, 0, Math.PI * 2); ctx.clip();
+            if (pk) {
+              const sc = Math.max((R0P - 6) * 2 / pk.naturalWidth, (R0P - 6) * 2 / pk.naturalHeight);
+              ctx.drawImage(pk, P.cx - pk.naturalWidth * sc / 2, P.cy - pk.naturalHeight * sc / 2,
+                            pk.naturalWidth * sc, pk.naturalHeight * sc);
+            }
+            ctx.restore();
+          }
+          const a0 = -90 * RAD, a1 = a0 + (P.pct / 100) * Math.PI * 2;
+          const cg = ctx.createConicGradient(a0, P.cx, P.cy);
+          const frac = Math.max(0.002, (a1 - a0) / (Math.PI * 2));
+          cg.addColorStop(0, 'rgba(255,255,255,.9)');
+          cg.addColorStop(frac * 0.55, 'rgba(255,255,255,.55)');
+          cg.addColorStop(Math.min(1, frac), 'rgba(255,255,255,0)');
+          ctx.strokeStyle = cg; ctx.lineWidth = 15; ctx.lineCap = 'round';
+          ctx.beginPath(); ctx.arc(P.cx, P.cy, R0P + 6, a0, a1); ctx.stroke();
+          ctx.fillStyle = NEU.ink;
+          ctx.beginPath();
+          ctx.arc(P.cx + Math.cos(a1) * (R0P + 6), P.cy + Math.sin(a1) * (R0P + 6), 13, 0, Math.PI * 2);
+          ctx.fill();
+          if (P.coach && coachA > 0.01) {
+            const ck = kf(eOut(intro(t, TP2 + .2, .55)), [[0, 0], [.55, 1.2], [1, 1]]) * coachA;
+            if (ck > 0.001) {
+              ctx.save(); ctx.translate(P.cx + 58, P.cy + 58); ctx.scale(ck, ck);
+              checkBadge(ctx, 0, 0, 30); ctx.restore();
+            }
+          }
+          ctx.restore();
         }
         ctx.restore();
       });
     }
     // ⑥ 발 실루엣 = 폐기(유저 08-05) — 러닝·농구 양쪽에서 뺀다.
     //   3D FootMark 는 시작페이지에서 이미 숨김이라 잔상 없음. 복원은 #81 커밋.
-    // ── ⑦ CTA 텍스트·발자국 폐기(유저 08-05 피그마 개선안) — 시작 어포던스는 캡슐 자체가 한다.
+    // ── ⑦ CTA — 페이즈2(인물 등장)와 함께 나타난다(유저 08-05). 발자국은 없다.
+    if (p2 > 0.01) {
+      ctx.save(); ctx.globalAlpha *= p2;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillStyle = NEU.ink; ctx.font = RF(700, 74); ctx.letterSpacing = '-5.76px';
+      ctx.fillText('Tap Twice', 800.15, 1988.7);
+      ctx.fillStyle = 'rgba(255,255,255,.7)'; ctx.font = RF(400, 54); ctx.letterSpacing = '-1.8px';
+      ctx.fillText('To start', 800.15, 2088);
+      ctx.letterSpacing = '0px'; ctx.restore();
+    }
     ctx.restore();   // /콘텐츠 스케일
   }
 
