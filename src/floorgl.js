@@ -1465,16 +1465,16 @@ export class FloorGL {
     //    → 페이즈2(인물·CTA 등장)에 '원형 + 충전 그래프'로 모프. 이어폰 포드는 코치 사진 + 연결 체크.
     {
       const PODS = [
-        { cx: 112, cy: 985, icon: 'earbuds', pct: 62, d: .95, coach: true },
-        { cx: 1488, cy: 1010, icon: 'glasses', pct: 78, d: 1.05 },
+        { cx: 112, cy: 1185, icon: 'earbuds', pct: 62, d: .95, coach: true },
+        { cx: 1457, cy: 1210, icon: 'glasses', pct: 78, d: 1.05 },
       ];
-      const R0P = 90;
+      const R0P = 109;   // 피그마 실측 지름 218
       PODS.forEach(P => {
         const e = e0(P.d, .7);
         const pop = kf(e, [[0, 0], [.6, 1.08], [1, 1]]);
         if (pop <= 0.001) return;
         const m = p2;                       // 0 = 알약(% 표기) · 1 = 원(충전 그래프)
-        const w = 300 - (300 - R0P * 2) * m, h = R0P * 2, rr = h / 2;
+        const w = 340 - (340 - R0P * 2) * m, h = R0P * 2, rr = h / 2;
         ctx.save(); ctx.globalAlpha *= Math.min(1, e * 1.6);
         ctx.translate(P.cx, P.cy); ctx.scale(pop, pop); ctx.translate(-P.cx, -P.cy);
         const path = () => { ctx.beginPath(); ctx.roundRect(P.cx - w / 2, P.cy - h / 2, w, h, rr); };
@@ -1508,10 +1508,10 @@ export class FloorGL {
             ctx.save(); ctx.globalAlpha *= iconA;
             if (P.icon === 'glasses') {
               const gl2 = img('ic-glasses.png');
-              if (gl2) ctx.drawImage(gl2, P.cx - 60, P.cy - 40, 120, 80);
+              if (gl2) ctx.drawImage(gl2, P.cx - 72, P.cy - 48, 144, 96);
             } else {
-              const eb = this._tinted2('fig/ready2/ic-earbuds.png', 110, 95.3, () => '#fff');
-              if (eb) ctx.drawImage(eb, P.cx - 55, P.cy - 47.6, 110, 95.3);
+              const eb = this._tinted2('fig/ready2/ic-earbuds.png', 132, 114, () => '#fff');
+              if (eb) ctx.drawImage(eb, P.cx - 66, P.cy - 57, 132, 114);
             }
             ctx.restore();
           }
@@ -1541,7 +1541,7 @@ export class FloorGL {
           if (P.coach && coachA > 0.01) {
             const ck = kf(eOut(intro(t, TP2 + .2, .55)), [[0, 0], [.55, 1.2], [1, 1]]) * coachA;
             if (ck > 0.001) {
-              ctx.save(); ctx.translate(P.cx + 58, P.cy + 58); ctx.scale(ck, ck);
+              ctx.save(); ctx.translate(P.cx + 72, P.cy + 72); ctx.scale(ck, ck);
               checkBadge(ctx, 0, 0, 30); ctx.restore();
             }
           }
