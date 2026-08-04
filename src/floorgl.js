@@ -1385,14 +1385,20 @@ export class FloorGL {
           ctx.restore();
         }
         // 아이콘 칩 — 스윕이 시작각을 지나면 팝(스케일 오버슈트)
-        const ip = seg.icon ? Math.max(0, Math.min(1, (sweep - s0) / 14)) : 0;   // 아이콘 없는 세그(스트레칭)는 칩 없음
+        const ip = (seg.icon || seg.chipText) ? Math.max(0, Math.min(1, (sweep - s0) / 14)) : 0;
         if (ip > 0) {
           const ik = kf(eOut(ip), [[0, .4], [.6, 1.12], [1, 1]]);
           const pc = polar(s0 + capA);
           ctx.save(); ctx.globalAlpha *= Math.min(1, ip * 2.5);
           ctx.translate(pc.x, pc.y); ctx.rotate((s0 + capA + 90) * RAD); ctx.scale(ik, ik);
-          ctx.fillStyle = seg.muted ? 'rgba(255,255,255,.55)' : 'rgba(255,255,255,.3)';
+          ctx.fillStyle = seg.muted ? 'rgba(255,255,255,.9)' : 'rgba(255,255,255,.3)';
           ctx.beginPath(); ctx.arc(0, 0, 61, 0, Math.PI * 2); ctx.fill();
+          if (seg.chipText) {   // 5분 구간 = 원형 칩 안에 글자만(유저)
+            ctx.fillStyle = NEU.t3; ctx.font = RF(700, 40); ctx.letterSpacing = '-1.2px';
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText(seg.chipText, 0, 2);
+            ctx.letterSpacing = '0px';
+          } else {
           // 아이콘 규격 통일 — 전부 높이 58 박스에 종횡비 유지(러닝·농구 여백 톤 일치, 유저)
           const IH2 = 58;
           if (seg.icon === 'feet') {
@@ -1412,10 +1418,11 @@ export class FloorGL {
               ctx.drawImage(im2, -iw2 / 2, -IH2 / 2, iw2, IH2);
             }
           }
+          }
           ctx.restore();
         }
-        // 라벨 — 호 추종 활자(세그먼트와 같은 중심·반지름), 스윕이 글자 각도를 지날 때 순차 리빌
-        {
+        // 라벨 — 호 추종 활자. 칩에 글자를 넣은 세그(5분)는 중복이라 생략(유저)
+        if (!seg.chipText) {
           ctx.save();
           ctx.fillStyle = NEU.ink; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
           // 라벨 영역 = 아이콘 칩 구간을 제외한 나머지 호(겹침 방지, 유저) — 칩 반각 + 여유 2°
