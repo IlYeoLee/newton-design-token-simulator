@@ -1277,7 +1277,7 @@ export class FloorGL {
     const CK = R2.scale || 1, PV = R2.pivotY ?? 1400;
     ctx.save();
     ctx.translate(0, -185);   // 콘텐츠 전체 위로 — far 쪽 빈 띠 제거 + Tap Twice 를 가시권으로(유저)
-    ctx.translate(800, 1150); ctx.scale(1.12, 1.12); ctx.translate(-800, -1150);   // 발 도형 폐기로 남은 여백만큼 확대(유저 #106)
+    ctx.translate(800, 1080); ctx.scale(1.06, 1.06); ctx.translate(-800, -1080);   // 확대는 1.06 까지 — 1.12 는 사이드 포드가 대지 밖으로 잘렸다(유저 #107)
     if (CK !== 1) { ctx.translate(800, PV); ctx.scale(CK, CK); ctx.translate(-800, -PV); }
     // ── 페이즈 타임라인 — 등장(왼→오 촤라락) 완료 후 2초 뒤 페이즈2(실루엣·코치 프로필) ──
     const TP2 = 2.1, p2 = eOut(intro(t, TP2, .7));   // 등장 ~2s 완료 → 쉬지 않고 바로 페이즈2(유저)

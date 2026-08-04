@@ -1038,7 +1038,17 @@ export class Session {
     const numL = attachMarkNum(fmL, '5', false), numR = attachMarkNum(fmR, '5', true);
     numL.visible = false; numR.visible = false;
     const a2cd = floorNum(0, 0, -1.35, 0.22); a2cd.visible = false;   // 시범→따라하기 3-2-1 카운트다운
-    this.a2press = { fmL, fmR, numL, numR, cd: a2cd, fill: 0, _cnt: 5, _succ: 0, _succFM: null };
+    // 방향 큐 = LINE 토큰(makeFlowArrow) — 뒷다리는 뒤로 밀고, 앞무릎은 아래로(유저 #105).
+    //   새 그래픽을 만들지 않고 판정 토큰 정본을 쓴다. draw-on 은 틱에서 진행값으로 구동.
+    const arBack = makeFlowArrow(0.42, { scale: 0.85 });   // 뒷발 → 뒤쪽
+    const arKnee = makeFlowArrow(0.30, { scale: 0.85 });   // 앞무릎 → 아래
+    arBack.rotation.x = -Math.PI / 2; arKnee.rotation.x = -Math.PI / 2;
+    arBack.rotation.z = Math.PI * 0.5;    // 뒤(−z) 방향
+    arKnee.rotation.z = Math.PI;          // 아래(화면 앞쪽)
+    arBack.position.set(-0.34, 0.014, -0.72); arKnee.position.set(0.22, 0.014, -0.62);
+    arBack.visible = arKnee.visible = false;
+    g.add(arBack, arKnee);
+    this.a2press = { fmL, fmR, numL, numR, cd: a2cd, fill: 0, _cnt: 5, _succ: 0, _succFM: null, arBack, arKnee };
     // 스탠스 라인 — 두 발을 잇는 은은한 대시(런지 보폭이 곧 자세다). 복싱 높이 캘리브레이션
     //   라인과 같은 대시 언어 재사용 — 새 문법을 만들지 않는다. 틱에서 발 위치 따라 갱신.
     {
@@ -2156,6 +2166,20 @@ export class Session {
       //   기존 파동 정본(uRip) 부스트일 뿐 새 이펙트가 아니다. 완주 팡과 리듬이 이어진다.
       if (act._U?.uRip) act._U.uRip.value = 0.5 + 0.55 * P.fill;
       if (oth._U?.uRip) oth._U.uRip.value = 0.5;
+      // 방향 화살표 — 따라하기 구간에서 1.8s 주기로 그려졌다 사라진다(draw-on)
+      if (P.arBack) {
+        const on = !this.demoActive;
+        const cyc = (this.t % 1.8) / 1.8;
+        const u = Math.min(1, cyc / 0.72), pr = cyc < 0.72 ? 1 - Math.pow(1 - u, 3) : 1;   // ease-out (session 엔 eOut 없음)
+        const fade = cyc < 0.72 ? 1 : 1 - (cyc - 0.72) / 0.28;
+        [P.arBack, P.arKnee].forEach(a => {
+          a.visible = on;
+          if (!on) return;
+          a.userData.prog = pr;
+          a.setProg?.(pr); a.setOp?.(Math.max(0, fade));
+          if (a._mesh) a._mesh.material.opacity = Math.max(0, fade);
+        });
+      }
       // 스탠스 대시 라인 — 두 발 사이(발 실루엣 반경만큼 안쪽에서 끊어 발과 안 겹침)
       if (P.link) {
         const a = P.fmL.group.position, b = P.fmR.group.position;
