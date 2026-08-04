@@ -300,20 +300,22 @@ export function createScene(container) {
         im.onload = () => res(im);
         im.src = `${BASE_URL}tex/asphalt.jpg`;
       });
-      const c = document.createElement('canvas'); c.width = c.height = 512;
+      // 레인 가로 간격 확대(유저 08-05) — 타일을 768 로 넓히고 가로 반복을 40 으로:
+      //   텍셀 밀도(512/60 규격)는 유지한 채 레인 폭만 ~1.8배(313→569px/타일).
+      const c = document.createElement('canvas'); c.width = 768; c.height = 512;
       const g = c.getContext('2d');
       // 촬영지 트랙(유저 레퍼런스)은 훨씬 옅고 노란기 있는 세이지다 — 구 #6FA88C 는 채도가 두 배쯤 높았다.
-      g.fillStyle = '#B7C6AA'; g.fillRect(0, 0, 512, 512);            // 페일 세이지 우레탄
+      g.fillStyle = '#B7C6AA'; g.fillRect(0, 0, 768, 512);            // 페일 세이지 우레탄
       g.globalAlpha = 0.34; g.globalCompositeOperation = 'overlay';   // 아스팔트 = 그레인 질감만(어둡게 안 함)
-      g.drawImage(asphalt, 0, 0, 512, 512);
+      g.drawImage(asphalt, 0, 0, 768, 512);
       g.globalAlpha = 0.12; g.globalCompositeOperation = 'saturation'; // 채도 살짝 낮춰 무광 실사감
-      g.fillStyle = '#808080'; g.fillRect(0, 0, 512, 512);
+      g.fillStyle = '#808080'; g.fillRect(0, 0, 768, 512);
       g.globalAlpha = 1; g.globalCompositeOperation = 'source-over';
       g.fillStyle = 'rgba(248,248,244,0.85)';                          // 흰 레인 라인
-      g.fillRect(96, 0, 7, 512); g.fillRect(409, 0, 7, 512);
+      g.fillRect(96, 0, 7, 512); g.fillRect(665, 0, 7, 512);
       const tex = new THREE.CanvasTexture(c);
       tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-      tex.repeat.set(60, 60);
+      tex.repeat.set(40, 60);
       tex.anisotropy = MAXANISO;
       tex.colorSpace = THREE.SRGBColorSpace;
       surfCache.track = tex;
