@@ -871,30 +871,20 @@ export class FloorGL {
   /** 단계 브레드크럼 — 벽(wallgl)과 **같은 규약**: 현재 단계만 볼드 + 글로우 + 숨쉬기,
    *  나머지는 흐리게(두 칸 이상 뒤는 더 흐리게). 치수만 지면 대지 비율로 1.5배(벽 28/24 → 42/36). */
   _crumb(n, y) {
+    // 지면은 '지금'만 말한다(유저) — 예정 단계(PACE·RUN) 나열 없이 현재 페이즈 + 진행만.
+    //   "WARM UP 1/3" 한 조각. 볼드 + 글로우 + 숨쉬기는 기존 활성 규약 그대로.
     const ctx = this.ctx;
-    const items = n.phases.map((label, i) => {
-      const active = i === n.phase;
-      const str = active ? label + (n.sub ? ' ' + n.sub : '') : label;
-      ctx.font = F(active ? 700 : 400, active ? 42 : 36);
-      return { str, active, far: i > n.phase + 1, w: ctx.measureText(str).width };
-    });
-    const GAP = 60, total = items.reduce((a, b) => a + b.w, 0) + GAP * (items.length - 1);
-    let px = CX - total / 2;
-    ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-    for (const it of items) {
-      ctx.save();
-      if (it.active) {
-        const pu = cycle(this.t, 1.2, 2.4, 9999);
-        if (pu != null) ctx.globalAlpha *= kf(pu, [[0, 1], [.5, .6], [1, 1]]);
-        ctx.shadowColor = 'rgba(255,255,255,.45)'; ctx.shadowBlur = 42;
-        ctx.font = F(700, 42); ctx.fillStyle = '#fff';
-      } else {
-        ctx.font = F(400, 36); ctx.fillStyle = it.far ? 'rgba(255,255,255,.5)' : 'rgba(255,255,255,.7)';
-      }
-      ctx.fillText(it.str, px, y + (it.active ? 0 : 5));
-      ctx.restore();
-      px += it.w + GAP;
-    }
+    const str = (n.phases[n.phase] || '') + (n.sub ? ' ' + n.sub : '');
+    ctx.save();
+    const pu = cycle(this.t, 1.2, 2.4, 9999);
+    if (pu != null) ctx.globalAlpha *= kf(pu, [[0, 1], [.5, .6], [1, 1]]);
+    ctx.shadowColor = 'rgba(255,255,255,.45)'; ctx.shadowBlur = 42;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    ctx.font = F(700, 42); ctx.fillStyle = '#fff';
+    ctx.letterSpacing = '6px';
+    ctx.fillText(str, CX + 3, y);
+    ctx.letterSpacing = '0px';
+    ctx.restore();
   }
 
   // 도트 프로그래스 — 공통 컴포넌트(dotProgress). 지면·벽이 같은 물건이다.
