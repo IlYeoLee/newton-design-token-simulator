@@ -999,7 +999,8 @@ export class Session {
     //   바닥은 평면 그래픽, 발 모양은 룩 토큰으로). 링 중앙 = 탭 지점에 놓는다.
     // READY 두 발 = FootMark tap2 어포던스 — Tap Twice 양옆(유저 #49). 캔버스 신발 그래픽 폐기.
     // ±0.33 은 빔 페더 구간에 걸려 발 바깥이 흐려졌다(유저 #52) — 안쪽으로.
-    this.readyFeet = [new FootMark('left').at(-0.24, -0.75), new FootMark('right').at(0.24, -0.75)];
+    // 크기 200mm(유저) — 판정 발(240mm 정본)이 아니라 그래픽 어포던스라 축소 허용. s=200/240.
+    this.readyFeet = [new FootMark('left').at(-0.24, -0.75, 200 / 240), new FootMark('right').at(0.24, -0.75, 200 / 240)];
     this.readyFeet.forEach(f => { f.locked(); f.op(0.8); f.group.visible = false; this.root.add(f.group); });
     // G.READY 는 '시작 페이지 = 프레임 전담' 정책으로 main 이 끈다 — 발자국은 새 READY 의
     //   어포던스 정본이므로 root 소속으로 예외. 표시는 아래 업데이트 틱이 스테이지로 제어.
