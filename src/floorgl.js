@@ -1452,7 +1452,14 @@ export class FloorGL {
         // 배터리 링 — 12시 시작, % 만큼 시계방향 + 끝점 도트(피그마 #37/#39)
         const bs = eOut(intro(t, P.d + .2, .9));
         const a0 = -90 * RAD, a1 = a0 + (P.pct / 100) * Math.PI * 2 * bs;
-        ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.lineWidth = 7; ctx.lineCap = 'round';
+        // 진행 끝으로 갈수록 투명 0 — 컨틱 그라디언트로 꼬리를 은은하게(유저)
+        const cg = ctx.createConicGradient(a0, P.cx, P.cy);
+        const frac = Math.max(0.002, (a1 - a0) / (Math.PI * 2));
+        cg.addColorStop(0, 'rgba(255,255,255,.9)');
+        cg.addColorStop(frac * 0.55, 'rgba(255,255,255,.55)');
+        cg.addColorStop(Math.min(1, frac), 'rgba(255,255,255,0)');
+        if (frac < 1) cg.addColorStop(Math.min(1, frac + 0.001), 'rgba(255,255,255,0)');
+        ctx.strokeStyle = cg; ctx.lineWidth = 7; ctx.lineCap = 'round';
         ctx.beginPath(); ctx.arc(P.cx, P.cy, CR + 10, a0, a1); ctx.stroke();
         ctx.fillStyle = NEU.ink;
         ctx.beginPath();
