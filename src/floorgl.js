@@ -1504,8 +1504,8 @@ export class FloorGL {
     //              이어폰 포드는 같은 순간 코치 사진으로 바뀐다(연결됨).
     {
       const PODS = [
-        { cx: 150, cy: 1150, icon: 'glasses', pct: 85, d: .95 },
-        { cx: 1450, cy: 1150, icon: 'earbuds', pct: 85, d: 1.05, coach: true },
+        { cx: 205, cy: 1150, icon: 'glasses', pct: 85, d: .95 },
+        { cx: 1395, cy: 1150, icon: 'earbuds', pct: 85, d: 1.05, coach: true },
       ];
       const RP = 109, PW = 226, PH = 392;   // 원 반지름 / 알약 폭·높이(피그마 비율 1.73)
       PODS.forEach(P => {
