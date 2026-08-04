@@ -2829,7 +2829,12 @@ export class Session {
       const tailBusy = bi > 0 && afterPrev < 0.15;           // 직전 비트의 핑 잔광이 아직 살아 있다
       threat.visible = appr > 0 && sinceB2 < 0.15 && !tailBusy;
       threat._prim.prog = appr;
-      threat.material.opacity = 1;
+      // ★ 등장 페이드 — opacity 1 로 박아 두면 0 에서 최대 밝기로 **한 프레임 만에** 켜진다.
+      //   f114 아무것도 없음 → f115 링+코멧이 동시에 최대 밝기 → 화면이 튄다(유저 08-04,
+      //   실측: 스파이크 점수 0.63 으로 전 구간 최대). '팟 나타난다'는 의도는 살리되,
+      //   계단이 아니라 2~3프레임 램프로 올린다. 수축(0.70s) 중 앞 0.09s 만 쓴다.
+      const rise = clamp01(appr / 0.13);
+      threat.material.opacity = rise;
       // 코멧 = 돌덩이(원형 헤드) + 궤적. 정본: 원형 = 피해야 하는 돌덩이 · 궤적 = 날아오는 방향
       //   · 수축링 = 닿는 위치 · 사람 = 궤적 반대로 피한다.
       //   ★ 경로는 유저 스케치 정본: **링 반대편 아래(허리께)에서 출발**해 몸을 스치듯
@@ -2844,7 +2849,7 @@ export class Session {
           ? [[-0.55, 0.58], [0.02, 0.30], [0.40, -0.08]]       // 좌하 → 호 → 우측 착탄점
           : [[0.55, 0.58], [-0.02, 0.30], [-0.40, -0.08]];     // 우하 → 호 → 좌측 착탄점
         this.bxB2path._prim.prog = appr;
-        this.bxB2path.material.opacity = 1;
+        this.bxB2path.material.opacity = rise;   // 링과 같은 램프 — 코멧만 먼저 최대로 뜨면 그게 곧 튐이다
       }
       const done = bi + (lock > 0 ? 1 : 0);
       FMU(`슬립 ${Math.min(NB, done)} / ${NB}`, lock > 0.3 ? CS.prism : CS.coral);
