@@ -691,7 +691,7 @@ export class WallGL {
       yVal = String(Math.min(yTot, Math.floor(t / per)));
     }
     if (yVal !== this._youLast) { this._youLast = yVal; this._youT = t; }
-    const yPop = kf(clamp01((t - this._youT) / .45), [[0, 1.32], [1, 1]], eOut);
+    const yPop = kf(clamp01((t - this._youT) / .5), [[0, 1.6], [1, 1]], eOut);   // 1.32→1.6 — 팡과 한 몸으로 튀게(유저)
     ctx.save();
     ctx.translate(2500, 1248); ctx.scale(yPop, yPop); ctx.translate(-2500, -1248);
     num(2500, 'right', yVal, .76, .35);   // 등장 롤은 짧게 — 이후 회차는 스냅 + 팝

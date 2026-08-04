@@ -2955,7 +2955,9 @@ export class Session {
         // 판정을 노드에 먹인다 — 뱃지를 화면 구석에 띄우면 운동 중엔 안 보인다(유저).
         //   벽 스코어(wallgl SCENES.beats)와 같은 대본이라 몸의 노드와 벽의 점수가 같은 말을 한다.
         //   실전 연결 시 judge.js 의 verdict 를 그대로 넣으면 된다.
-        const C3_VD = ['hit', 'near', 'hit'];
+        // 사이클별 대본 — 벽 점수(wallgl SCENES.BX_C3.beats)와 완전 동일: 팡 = 카운터 팝이 한 프레임
+        const C3_VD_CY = [['hit', 'near', 'hit'], ['hit', 'miss', 'hit'], ['hit', 'near', 'hit']];
+        const C3_VD = C3_VD_CY[Math.min(2, Math.floor(this.t / CY))];
         this.bxCombo._prim.P.vd = C3_VD.slice(0, seg);
         const SUCC = 0.5;                    // 성공 1회의 길이(파형이 퍼져 나가는 시간)
         for (let i = 0; i < this.bxC3ok.length; i++) {

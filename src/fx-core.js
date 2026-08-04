@@ -1415,7 +1415,9 @@ export function drawPunchLine(g, W, P, look, t, ENV, ptsIn, prog) {
     const v = VD[i] || null;
     const active = !hit && i === cur && !driven;   // 구동 중엔 '노릴 곳'을 수축 링이 말한다
     const pulse = active ? 1 + Math.sin(t * 6) * 0.14 : 1;
-    const R = 12 * P.node * pulse * s * (i === acc ? 1.34 : 1);
+    // 임팩트 킥 — 방금 맞은 노드가 순간 부풀었다 제자리로(0.3s). 링 자체가 '맞았다'를 몸으로 말한다
+    const kick = (P.pop != null && i === done - 1 && P.pop < 0.3) ? 1 + 0.35 * (1 - P.pop / 0.3) : 1;
+    const R = 12 * P.node * pulse * kick * s * (i === acc ? 1.34 : 1);
     if (hit && v !== 'miss') {                   // 서세스 마크 = 붉은 채움(규칙 198/225 = 0.88)
       //   LUT 저역이 레드다 — 0.86(백열)로 채웠더니 '더 붉어진다'가 아니라 하얘졌다(유저).
       //   놓친 노드는 성공 마크가 아니다 — 채우지 않고 무채 링만 남긴다.
@@ -1453,23 +1455,29 @@ export function drawPunchLine(g, W, P, look, t, ENV, ptsIn, prog) {
   // ── 임팩트 플래시('팡', 유저) — 방금 판정된 노드에서 백열 버스트 + 팽창 쇼크 링.
   //   가속 도착(채찍 v2)만으로는 타격이 안 터졌다 — 도착 '순간'의 시각 사건이 있어야 팡이다.
   //   P.pop = 비트 이후 경과 초(호스트 주입). 0.32s 만에 완전 소멸, 이후 비용 0.
-  if (P.pop != null && P.pop < 0.32 && done > 0 && pts[done - 1]) {
+  if (P.pop != null && P.pop < 0.38 && done > 0 && pts[done - 1]) {
     const [ix, iy] = pts[done - 1];
-    const k = 1 - P.pop / 0.32, ke = k * k;                 // 급감쇠 — 번쩍하고 사라져야 타격
+    const k = 1 - P.pop / 0.38, ke = k * k;                 // 급감쇠 — 번쩍하고 사라져야 타격
     const R0 = 12 * P.node * s * (done - 1 === (P.acc != null ? P.acc : pts.length - 1) ? 1.34 : 1);
     g.save();
-    // 백열 코어 버스트
-    const fg = g.createRadialGradient(ix, iy, 0, ix, iy, R0 * (1.4 + 1.2 * (1 - k)));
-    fg.addColorStop(0, `rgba(255,255,255,${(0.95 * ke).toFixed(3)})`);
-    fg.addColorStop(0.4, lut(0.9).replace('rgb(', 'rgba(').replace(')', `,${(0.6 * ke).toFixed(3)})`));
+    // 백열 코어 버스트 — v2: 더 크고 밝게(유저: 아직 안 찰짐)
+    const BR = R0 * (1.6 + 1.9 * (1 - k));
+    const fg = g.createRadialGradient(ix, iy, 0, ix, iy, BR);
+    fg.addColorStop(0, `rgba(255,255,255,${Math.min(1, 1.2 * ke).toFixed(3)})`);
+    fg.addColorStop(0.35, lut(0.92).replace('rgb(', 'rgba(').replace(')', `,${(0.8 * ke).toFixed(3)})`));
     fg.addColorStop(1, lut(0.7).replace('rgb(', 'rgba(').replace(')', ',0)'));
     g.fillStyle = fg;
-    g.beginPath(); g.arc(ix, iy, R0 * (1.4 + 1.2 * (1 - k)), 0, Math.PI * 2); g.fill();
-    // 팽창 쇼크 링 — 얇아지며 밖으로
+    g.beginPath(); g.arc(ix, iy, BR, 0, Math.PI * 2); g.fill();
+    // 팽창 쇼크 링 ×2 — 본 링 + 반박자 늦은 에코
     g.strokeStyle = lut(0.92); g.globalAlpha = ke;
-    g.lineWidth = Math.max(1, 5 * s * k);
-    g.shadowColor = lut(0.85); g.shadowBlur = 18 * s * ke;
-    g.beginPath(); g.arc(ix, iy, R0 * (1.1 + 2.6 * (1 - k)), 0, Math.PI * 2); g.stroke();
+    g.lineWidth = Math.max(1, 6 * s * k);
+    g.shadowColor = lut(0.85); g.shadowBlur = 24 * s * ke;
+    g.beginPath(); g.arc(ix, iy, R0 * (1.1 + 3.4 * (1 - k)), 0, Math.PI * 2); g.stroke();
+    const k2 = Math.max(0, k - 0.35) / 0.65;
+    if (k2 > 0) {
+      g.globalAlpha = k2 * k2 * 0.6; g.lineWidth = Math.max(1, 3.5 * s * k2);
+      g.beginPath(); g.arc(ix, iy, R0 * (1.1 + 2.0 * (1 - k2)), 0, Math.PI * 2); g.stroke();
+    }
     g.restore();
   }
   g.shadowBlur = 0;
