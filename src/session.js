@@ -2110,8 +2110,8 @@ export class Session {
         const p1 = new THREE.Vector3(b.x - dx / L * IN, 0.012, b.z - dz / L * IN);
         P.link.geometry.setFromPoints([p0, p1]);
         P.link.computeLineDistances();
-        P.link.material.opacity += ((inHold ? 0.34 : 0.16) - P.link.material.opacity) * 0.1;
-        P.link.visible = L > IN * 2.4;
+        P.link.material.opacity += ((inHold ? 0.34 : 0.16) - P.link.material.opacity) * 0.18;
+        P.link.visible = L > 0.30;   // 실측 런지 간격 ~0.45m — 구 0.48 임계는 영영 안 켜졌다
       }
       if (inHold) {
         const n = Math.max(1, Math.ceil(HOLD_SEC - P.fill * HOLD_SEC));   // 5→1 (UI 5초 타이머)
