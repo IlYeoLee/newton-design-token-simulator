@@ -886,7 +886,8 @@ vec4 markState(vec2 uv, float state, float prog, float strong, float t){
     //   ② 길이를 따라 색이 흐른다(진한 빨강 → 선단 민트)
     //   ③ 양끝은 가우시안으로 흐려진다 — 폭과 알파를 **함께** 줄여야 잘린 끝이 안 생긴다
     float fw = max(fwidth(sd), 1e-5);
-    float strokeW = max(0.026 * uW, 1.6 * fw);
+    // 굵기 1.55배 — 얇은 스트로크가 실사 바닥 텍스처에 묻혀 홀드 진행이 안 읽혔다(유저).
+    float strokeW = max(0.040 * uW, 1.6 * fw);
     float dRim = abs(sd + 0.008);              // 실루엣 살짝 안쪽에 얹는다
     // 진행 좌표: 0(시작) → pr(선단). 양끝 블러 폭은 각도 단위.
     float BLUR = 0.16;                          // ≈58° — 이보다 짧으면 끝이 눈에 띈다
@@ -898,15 +899,18 @@ vec4 markState(vec2 uv, float state, float prog, float strong, float t){
     float wk = mix(0.16, 1.0, body);
     float rn = dRim / max(strokeW * wk, 1e-5);
     float stroke = exp(-rn * rn * 1.5) * dashM;
+    // 소프트 글로우 겹 — 스트로크보다 3배 넓고 옅은 후광. 복잡한 실사 위에서 궤적의 존재를
+    //   먼저 잡아주는 층(빛 언어 유지 — 어두운 외곽선 금지 원칙).
+    float glowRim = exp(-rn * rn * 0.17) * dashM;
     // 길이 방향 그라디언트 — 지나온 쪽은 LUT 저역(진한 빨강), 선단으로 갈수록 상단(민트)
     vec3 strokeCol = lut(clamp(mix(0.02, 1.0, clamp(a01 / max(head, 0.001), 0.0, 1.0)), 0.0, 1.0));
     holdC = strokeCol;
-    holdA = stroke * body * 0.95;
+    holdA = max(stroke * body * 0.95, glowRim * body * 0.34);
     // 선단 광점 — 지금 어디까지 왔는지 한 점으로 읽히게. 가우시안이라 각이 안 진다.
-    float hd = (a01 - head) / 0.09;
+    float hd = (a01 - head) / 0.12;   // 광점 0.09→0.12 — '지금 어디'가 실사에서도 잡히게
     float tip = exp(-hd * hd) * step(0.02, pr) * step(pr, 0.995);
     holdC = mix(holdC, lut(1.0), clamp(tip, 0.0, 1.0));
-    holdA = max(holdA, stroke * tip * 0.95);
+    holdA = max(holdA, max(stroke, glowRim * 0.6) * tip);
   } else if (state < 3.5) {     // ── Success: 진홍 블룸 → 잔상 소멸
     float e = 1.0 - pow(1.0 - prog, 2.6);
     float q = mkR(uv, gcBall, uShape < 0.5 ? ext * 1.3 : 1.75, sd);
