@@ -526,7 +526,7 @@ const READY = {
   'floor.html':    { r2: { lines: ["Sean's", 'Final 1km Pace'], sub: 'Pace On', total: '30',
                            arcs: [{ v: 5, lbl: '5m', muted: true, chipText: '5m' }, { v: 10, lbl: '10m', icon: 'feet' }, { v: 15, lbl: '15m', icon: 'run' }] } },   // 스트레칭도 비례 세그먼트(유저)
   'floor-bk.html': { r2: { scale: 0.75, pivotY: 320,
-                           lines: ["Curry's", 'Handle Pack'], sub: 'Press On', total: '23',
+                           scale: 0.85, pivotY: 900, lines: ["Curry's", 'Handle Pack'], sub: 'Press On', total: '23',
                            arcs: [{ v: 5, lbl: '5m', muted: true, chipText: '5m' }, { v: 8, lbl: '8m', icon: 'bkTrain' }, { v: 10, lbl: '10m', icon: 'bkPlay' }] } },   // 스트레칭도 비례 세그먼트(유저)
 };
 const TR = {
