@@ -522,7 +522,7 @@ const READY = {
   //   r2 = Figma 시작화면(342:3057) 캡슐 디자인 필드 — 제목 2줄 / 부제 / 총 분(도트 히어로·아크 라벨)
   'floor.html':    { title: "Sean's Final 1km Pace", today: 'Today · 5.0km · Standard', time: '30min', mode: 'Pace & Boost On', modeSm: true,
                      comp: [['Stretch', 5], ['Learn', 10], ['Run!', 15]],
-                     r2: { scale: 0.8, pivotY: 320, vid: 'sean_neck_shoulder.webm',   // 0.8배·상단 앵커(유저: 잘림 금지+사이즈감) · 실루엣 = 러닝 A1
+                     r2: { vid: 'sean_neck_shoulder.webm',   // 스케일 원복(유저: 러닝 뷰 과소) — 잘림은 -185 시프트만으로 해결
                            lines: ["Sean's", 'Final 1km Pace'], sub: 'Pace On', total: '30',
                            arcs: [{ v: 10, lbl: '10min', icon: 'feet' }, { v: 15, lbl: '15min', icon: 'run' }], badge: '5' } },   // 배지 5 = 스트레칭 — 합 30
   'floor-bk.html': { title: "Curry's Handle Pack",   today: 'Today · 15min · Standard',  time: '23min',     mode: 'Press On',

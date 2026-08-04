@@ -1001,6 +1001,7 @@ export class Session {
     let g = this._mk('READY');
     g.add(floorRing(0, -1.1, 0.20, 0.225, BRAND.dim, 0.9));
     this.tap = this._tap('running'); this.tap.position.set(0, 0.013, -0.78); g.add(this.tap);
+    this.tap.visible = false;   // 캔버스 CTA + tap2 발자국이 어포던스 전담 — 판이 검은 박스로 노출(실측)
     // READY 발자국 = 룩시스템 발형(MARK Preview 숨쉬기) — 캔버스 사제 발 그래픽 폐기(유저:
     //   바닥은 평면 그래픽, 발 모양은 룩 토큰으로). 링 중앙 = 탭 지점에 놓는다.
     // READY 두 발 = FootMark tap2 어포던스 — Tap Twice 양옆(유저 #49). 캔버스 신발 그래픽 폐기.
@@ -2052,7 +2053,7 @@ export class Session {
 
     if (id === 'READY' || id === 'T1') {
       if (id === 'READY') this.readyFeet?.forEach((f, i) => {
-        f.at((i ? 0.19 : -0.19), -0.92, 200 / 240);   // 러닝 조판(0.8배) 기준 — Tap Twice 양옆
+        f.at((i ? 0.26 : -0.26), -0.72, 200 / 240);   // 캡슐 림 밖, Tap Twice 양옆(실측 보정)
         f.group.visible = true; f.tapHint(this.t);
       });
       const tap = id === 'READY' ? this.tap : this.tap1; const k = 0.5 + 0.5 * Math.sin(this.t * 4);
