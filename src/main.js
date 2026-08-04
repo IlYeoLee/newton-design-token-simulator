@@ -2316,8 +2316,11 @@ void main(){
   //   cfg: { src, cropOff, cropScale(세로 크롭 창), w, h, fwd }  crop을 uniform으로 빼 스테이지별 대응.
   const COACH_CFG = {
     // READY 페이즈2(등장 후 2초) — A1 원본 데모판을 그대로 UI 캡슐 뒤에. 캔버스 사제 비디오 폐기(유저).
-    READY:    { src: 'ready-view/assets/sean_neck_shoulder.webm', cropOff: 0.40, cropScale: 0.58, w: 0.5, h: 0.52, fwd: 0.15, ph: 0.83 },   // 캡슐 안 — 머리가 Pace On 에 닿지 않게 한 칸 아래(실측)
-    BK_READY: { src: 'ready-view/assets/bk_squat.webm', cropOff: 0.0, cropScale: 1.0, w: 0.44, h: 0.44, fwd: 0.3 },   // 농구 콘 얕음 — 더 작게·더 위로(유저: 잘림)
+    // 시작화면 인물 = 힉스필드 kling i2v 그린스크린 전신 루프(828×1108 = 3:4, 유저 08-05).
+    //   운동 데모(목·어깨 / 스쿼트)가 아니라 '그 종목을 하는 사람' — 시작화면은 아직 동작 지시가 없다.
+    //   전신 소스라 크롭 창 없음(cropOff 0 · cropScale 1). w/h = 3:4 유지, ph 0.83 = 인물이 프레임에 찬 비율.
+    READY:    { src: 'ready-view/assets/run/runner_green.mp4', cropOff: 0.0, cropScale: 1.0, w: 0.62, h: 0.83, fwd: 0.15, ph: 0.83 },
+    BK_READY: { src: 'ready-view/assets/bk/dribble_green.mp4', cropOff: 0.0, cropScale: 1.0, w: 0.50, h: 0.67, fwd: 0.3, ph: 0.83 },   // 농구 콘 얕음 — 러닝보다 작게(유저: 잘림)
     A1: { src: 'ready-view/assets/sean_neck_shoulder.webm', cropOff: 0.40, cropScale: 0.58, w: 0.62, h: 0.64, fwd: 0.02, ph: 0.83 },   // 프리뷰 캡슐 안 — 타이틀 안 가리게 축소·아래(유저 08-05)
     A2: { src: 'ready-view/assets/sean_lunge.webm', cropOff: 0.0, cropScale: 1.0, w: 0.9, h: 0.9, fwd: 0.10, zoom: 0.86, ph: 0.65 },   // 런지 전신 측면 — 축소로 뒷발이 프레임 페이드에 안 걸리게(유저)
     A3: { src: 'ready-view/assets/sean_highknee.webm', cropOff: 0.0, cropScale: 1.0, w: 0.82, h: 0.82, fwd: -0.04, ph: 0.87 },   // 하이니 — 캡슐 카드 아래로(머리 겹침 방지, 캡슐 시스템)

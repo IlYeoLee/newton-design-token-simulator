@@ -84,12 +84,6 @@ html,body{background:transparent}
 @keyframes arrowBob{0%,58%,100%{transform:translateY(0)}12%{transform:translateY(14px)}25%{transform:translateY(0)}40%{transform:translateY(13px)}52%{transform:translateY(0)}}
 /* 글로우 숨쉬기 + 드리프트 */
 @keyframes glowLive{0%,100%{transform:translate(0,0) scale(1);opacity:.85}50%{transform:translate(-16px,10px) scale(1.06);opacity:1}}
-
-/* 코치 실사 영상(힉스필드 kling 그린스크린 828×1108) — 캔버스 CPU 크로마키(floorgl 미니패널 키 공식).
-   배치: 발 CTA(~1679) 아래 ~ 하단 여백 50 → 위 타이틀 안 겹치고 아래 안 잘림. */
-.coachvid{position:absolute;left:50%;top:1737px;transform:translateX(-50%);width:660px;height:883px;
-  opacity:0;animation:fadeUpCentered .9s cubic-bezier(.2,.75,.2,1) .8s both}
-.coachvid canvas{width:100%;height:100%;display:block}
 </style></head><body>
   <div id="board">
     <div class="bigglow"><img src="assets/fig/big_glow.svg" alt=""></div>
@@ -114,27 +108,7 @@ html,body{background:transparent}
       <span class="m">Tap your foot Twice</span>
     </div>
     <div class="foot"><img src="assets/run/foot.svg" alt=""></div>
-    <div class="coachvid"><canvas id="cv" width="414" height="554"></canvas></div>
-    <video id="cvsrc" src="assets/run/runner_green.mp4" muted loop autoplay playsinline style="display:none"></video>
   </div>
-  <script>
-  // 그린스크린 → 투명 (floorgl.js 미니패널 키 공식 재사용, 절반 해상도 CPU 키)
-  (function(){
-    const v=document.getElementById('cvsrc'), c=document.getElementById('cv'),
-          x=c.getContext('2d',{willReadFrequently:true});
-    (function tick(){
-      if(v.readyState>=2){
-        x.drawImage(v,0,0,c.width,c.height);
-        const d=x.getImageData(0,0,c.width,c.height), p=d.data;
-        for(let k=0;k<p.length;k+=4){ const r=p[k],g=p[k+1],b=p[k+2];
-          if(g>90 && g>r*1.25 && g>b*1.25) p[k+3]=0; }
-        x.putImageData(d,0,0);
-      }
-      requestAnimationFrame(tick);
-    })();
-    v.play().catch(()=>{});
-  })();
-  </script>
   <script>
   // 타이틀 글자 분해 → 루핑 웨이브(촤라라락). 좌→우 순차 delay.
   (function(){
