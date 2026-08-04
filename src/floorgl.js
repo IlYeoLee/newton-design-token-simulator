@@ -601,6 +601,27 @@ function drawText(ctx, n, y, t) {
   ctx.letterSpacing = '0px';
 }
 
+// ── 캡슐 대지 배경 — 투명(기본) / 단색 / 그라디언트. 씬 편집기(scenes.html '대지 배경')가
+//   window.__capBg = { mode, hex, alpha, hex2 } 를 라이브로 바꾸고, 씬 저장본에도 실린다.
+export function capFill(ctx, pathFn, x, y, w, h) {
+  const C = (typeof window !== 'undefined' && window.__capBg) || null;
+  const mode = C?.mode || 'none';
+  const a = C?.alpha ?? 0.18;
+  const hex = C?.hex || '#D9D9D9', hex2 = C?.hex2 || '#FFFFFF';
+  const toRgba = (hx, al) => {
+    const n = parseInt(hx.replace('#', ''), 16);
+    return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${al})`;
+  };
+  if (mode === 'solid') ctx.fillStyle = toRgba(hex, a);
+  else if (mode === 'gradient') {
+    const g = ctx.createLinearGradient(0, y, 0, y + h);
+    g.addColorStop(0, toRgba(hex, a));
+    g.addColorStop(1, toRgba(hex2, a * 0.15));
+    ctx.fillStyle = g;
+  } else ctx.fillStyle = 'rgba(217,217,217,.01)';   // 투명(정본 기본)
+  pathFn(); ctx.fill();
+}
+
 // ── 부채꼴 조판 프리미티브 (READY 반원 레이아웃) ───────────────────────────────
 export function arcSegFill(ctx, cx, cy, r0, r1, a0, a1, fill, round) {
   // d3.arc 정석 — cornerRadius 를 라이브러리가 처리한다(유저: 하드코딩 금지).
@@ -1267,7 +1288,7 @@ export class FloorGL {
     const CAP = { x: 291, y: 285, w: 1018, h: 1591 };
     const capPath = () => { ctx.beginPath(); ctx.roundRect(CAP.x, CAP.y, CAP.w, CAP.h, CAP.w / 2); };
     ctx.save(); ctx.globalAlpha *= e0(.05);
-    ctx.fillStyle = 'rgba(217,217,217,.01)'; capPath(); ctx.fill();
+    capFill(ctx, capPath, CAP.x, CAP.y, CAP.w, CAP.h);
     ctx.save(); capPath(); ctx.clip();
     ctx.filter = 'blur(37px)';
     ctx.strokeStyle = 'rgba(255,255,255,.25)'; ctx.lineWidth = 80;
@@ -1560,7 +1581,7 @@ export class FloorGL {
     // ★ 캡슐은 '눌린 SVG'가 아니라 진짜 알약이다(유저 #82) — 비균일 스케일로 찌그러뜨리지 말고
     //   목표 w/h 로 직접 그리고 r = min(w,h)/2. 카드로 줄어도 좌우 끝이 반원으로 유지된다.
     const capPath = () => { ctx.beginPath(); ctx.roundRect(bx, by, bw, bh, Math.min(bw, bh) / 2); };
-    ctx.fillStyle = 'rgba(217,217,217,.01)'; capPath(); ctx.fill();
+    capFill(ctx, capPath, bx, by, bw, bh);
     ctx.save(); capPath(); ctx.clip();
     ctx.filter = 'blur(37px)';
     ctx.strokeStyle = 'rgba(255,255,255,.25)'; ctx.lineWidth = 80;

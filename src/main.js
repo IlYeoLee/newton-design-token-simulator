@@ -4734,6 +4734,7 @@ void main(){
     }
     // ② 개체 숨김 — 키는 __sceneList() 가 주는 것과 같다(이름 우선, 없으면 '#타입').
     const hide = A.hide;
+    if (A.capBg) window.__capBg = A.capBg;   // 대지 배경(투명/단색/그라디언트) — 저장본 복원
     if (hide?.length) {
       const H = new Set(hide);
       scene.traverse(o => { if (H.has(o.name || '#' + o.type)) o.visible = false; });
