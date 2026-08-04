@@ -523,10 +523,10 @@ export function drawChars(ctx, txt, cx, y, h, ls, fn, align = 'center') {
 //   폐기: title·today·time·mode·comp(_paint_ready 가 안 읽던 잔재) · vid(코치 판은 main.js COACH_CFG 전담).
 const READY = {
   'floor.html':    { r2: { lines: ["Sean's", 'Final 1km Pace'], sub: 'Pace On', total: '30',
-                           arcs: [{ v: 10, lbl: '10min', icon: 'feet' }, { v: 15, lbl: '15min', icon: 'run' }], badge: '5' } },   // 배지 5 = 스트레칭 — 합 30
+                           arcs: [{ v: 5, lbl: '5m', muted: true }, { v: 10, lbl: '10min', icon: 'feet' }, { v: 15, lbl: '15min', icon: 'run' }] } },   // 스트레칭도 비례 세그먼트(유저)
   'floor-bk.html': { r2: { scale: 0.75, pivotY: 320,
                            lines: ["Curry's", 'Handle Pack'], sub: 'Press On', total: '23',
-                           arcs: [{ v: 8, lbl: '8min', icon: 'bkTrain' }, { v: 10, lbl: '10min', icon: 'bkPlay' }], badge: '5' } },   // 배지 5 = 스트레칭 — 합 23
+                           arcs: [{ v: 5, lbl: '5m', muted: true }, { v: 8, lbl: '8min', icon: 'bkTrain' }, { v: 10, lbl: '10min', icon: 'bkPlay' }] } },   // 스트레칭도 비례 세그먼트(유저)
 };
 const TR = {
   T1: { sub: 'Sean’s Final 1km Pace', title: 'Warm-Up Done!',
@@ -1345,29 +1345,16 @@ export class FloorGL {
     //   기준선에 앉는다. 등장 = 왼쪽(배지)에서 오른쪽으로 호를 따라 차오르는 스윕 + 아이콘 팝 +
     //   글자 순차 리빌. 모든 좌표·타이밍은 value→각도 누적과 스윕 각도에서만 파생.
     {
-      const CXA = 800, CYA = 810, R = 375, LWA = 130, GAPA = 5;   // 갭 10→5°(유저: 간격 과대)
+      const CXA = 800, CYA = 810, R = 375, LWA = 130, GAPA = 3;   // 갭 3°(유저: 더 타이트)
       const A0 = 196, A1 = 344;                       // 270° 대칭 → 하단 정렬
       const polar = (deg, r = R) => ({ x: CXA + Math.cos(deg * RAD) * r, y: CYA + Math.sin(deg * RAD) * r });
       const capA = (LWA / 2) / R / RAD;
-      const BR = 71.07, badgeHalf = BR / R / RAD;     // 배지도 같은 원 위 슬롯
-      const segStart = A0 + badgeHalf + GAPA;
+      const segStart = A0;   // 배지 폐기 — 스트레칭이 첫 세그먼트(유저)
       const segs = R2.arcs, totalV = segs.reduce((s2, x) => s2 + x.v, 0);
       const avail = (A1 - segStart) - GAPA * (segs.length - 1);
       // 스윕 — 배지 팝 후 세그먼트 시작각에서 끝각까지 호를 따라 차오른다
       const sweep = segStart + (A1 - segStart) * eOut(intro(t, .5, 1.2));
       ctx.save(); ctx.globalAlpha *= e0(.4, .5);
-      // 선행 배지 = 스트레칭 세그먼트(유저: 5min 은 실제 구간, 비례상 너무 작아 최소 크기 = 이 원)
-      if (R2.badge) {
-        const pb = polar(A0);
-        const bp = kf(eOut(intro(t, .4, .5)), [[0, 0], [.6, 1.1], [1, 1]]);
-        ctx.save(); ctx.translate(pb.x, pb.y); ctx.scale(Math.max(0.001, bp), Math.max(0.001, bp));
-        ctx.fillStyle = 'rgba(255,255,255,.37)';
-        ctx.beginPath(); ctx.arc(0, 0, BR, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = NEU.ink; ctx.font = RF(700, 52); ctx.letterSpacing = '-2.08px';
-        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        ctx.fillText(R2.badge, 0, 2);
-        ctx.restore();
-      }
       let cur = segStart;
       segs.forEach((seg) => {
         const da = seg.v / totalV * avail;
@@ -1379,14 +1366,23 @@ export class FloorGL {
         const sA = s0 + capA, eA = isLast ? s1 : s1 - capA;
         const end = Math.min(eA, sweep);
         if (end > sA + 0.5) {
-          const p0 = polar(sA), p1 = polar(eA);
-          const g = ctx.createLinearGradient(p0.x, p0.y, p1.x, p1.y);
-          g.addColorStop(0, PAL.coral); g.addColorStop(1, PAL.red);
-          ctx.strokeStyle = g; ctx.lineWidth = LWA; ctx.lineCap = 'round';
+            const p0 = polar(sA), p1 = polar(eA);
+          ctx.save();
+          if (seg.muted) {
+            // 스트레칭 = 흰 반투명 + 블룸(유저) — 열화상 램프는 본운동 쪽 위계로 남긴다
+            ctx.shadowColor = 'rgba(255,255,255,.85)'; ctx.shadowBlur = 40;
+            ctx.strokeStyle = 'rgba(255,255,255,.42)';
+          } else {
+            const g = ctx.createLinearGradient(p0.x, p0.y, p1.x, p1.y);
+            g.addColorStop(0, PAL.coral); g.addColorStop(1, PAL.red);
+            ctx.strokeStyle = g;
+          }
+          ctx.lineWidth = LWA; ctx.lineCap = 'round';
           ctx.beginPath(); ctx.arc(CXA, CYA, R, sA * RAD, end * RAD); ctx.stroke();
+          ctx.restore();
         }
         // 아이콘 칩 — 스윕이 시작각을 지나면 팝(스케일 오버슈트)
-        const ip = Math.max(0, Math.min(1, (sweep - s0) / 14));
+        const ip = seg.icon ? Math.max(0, Math.min(1, (sweep - s0) / 14)) : 0;   // 아이콘 없는 세그(스트레칭)는 칩 없음
         if (ip > 0) {
           const ik = kf(eOut(ip), [[0, .4], [.6, 1.12], [1, 1]]);
           const pc = polar(s0 + capA);
@@ -1446,9 +1442,88 @@ export class FloorGL {
       ctx.letterSpacing = '0px';
       ctx.restore();
     }
-    // ⑤ 사이드 서클(이어버드·글래스 배터리 포드 2개) · ⑥ 발 실루엣 = 폐기(유저 08-05) —
-    //   포드는 캡슐 밖에 뜬 동글 2개라 화면이 산만했고, 발은 러닝·농구 양쪽에서 뺀다.
-    //   되살릴 일 있으면 f701745(포드)·#81(발) 커밋에서 블록째 복원.
+    // ── ⑤ 사이드 서클 — 단일 글라스 서클 + 배터리 링 게이지(둘레 호 = 배터리 %, 끝점 도트).
+    //   우측은 페이즈2에 이어버드 → 코치 프로필로 교체 + '음성 연결' 체크 배지 팝(작았다 커짐).
+    {
+      // 우측 세로 스택(유저 확정 08-05) — 좌우 대칭이 '몸통+팔' 게슈탈트를 만들던 것 해소.
+      //   위 = 이어버드(페이즈2에 코치 프로필로 교체 유지) · 아래 = 글래스.
+      const PODS = [
+        { cx: 1480, cy: 1055, icon: 'earbuds', pct: 62, d: .95, coach: true },
+        { cx: 1480, cy: 1290, icon: 'glasses', pct: 78, d: 1.1 },                  // 임시 배터리 값
+      ];
+      const CR = 90;
+      PODS.forEach(P => {
+        const e = e0(P.d, .7);
+        const pop = kf(e, [[0, 0], [.6, 1.08], [1, 1]]);
+        if (pop <= 0.001) return;
+        ctx.save(); ctx.globalAlpha *= Math.min(1, e * 1.6);
+        ctx.translate(P.cx, P.cy); ctx.scale(pop, pop); ctx.translate(-P.cx, -P.cy);
+        // 글라스 서클 — 면 채움 없이 이너 쉐도우만(유저 #51): 클립 안에서 블러 스트로크
+        ctx.save();
+        ctx.beginPath(); ctx.arc(P.cx, P.cy, CR, 0, Math.PI * 2); ctx.clip();
+        ctx.filter = 'blur(11px)';
+        ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = 22;
+        ctx.beginPath(); ctx.arc(P.cx, P.cy, CR, 0, Math.PI * 2); ctx.stroke();
+        ctx.filter = 'none';
+        ctx.restore();
+        // 외곽 얇은 림 폐기 — 배터리 링과 2겹으로 읽혔다(유저 #70). 링 한 겹이 테두리 겸임.
+        // 내용 — 아이콘, 우측은 페이즈2에 코치 사진 크로스페이드
+        const pOut = P.coach ? eOut(intro(t, TP2 + 3, .7)) : 0;   // 프로필 3초 뒤 이어버드 복귀
+        const coachA = P.coach ? p2 * (1 - pOut) : 0;
+        const iconA = P.coach ? 1 - coachA : 1;
+        if (iconA > 0.01) {
+          ctx.save(); ctx.globalAlpha *= iconA;
+          if (P.icon === 'glasses') {
+            const gl2 = img('ic-glasses.png');
+            if (gl2) ctx.drawImage(gl2, P.cx - 60, P.cy - 40, 120, 80);
+          } else {
+            const eb = this._tinted2('fig/ready2/ic-earbuds.png', 110, 95.3, () => '#fff');
+            if (eb) ctx.drawImage(eb, P.cx - 55, P.cy - 47.6, 110, 95.3);
+          }
+          ctx.restore();
+        }
+        if (P.coach && coachA > 0.01) {
+          const pk = this._img('photos/creator-profile-sean.png');
+          ctx.save(); ctx.globalAlpha *= coachA;
+          ctx.beginPath(); ctx.arc(P.cx, P.cy, CR - 6, 0, Math.PI * 2); ctx.clip();
+          if (pk) {
+            const sc = Math.max((CR - 6) * 2 / pk.naturalWidth, (CR - 6) * 2 / pk.naturalHeight);
+            ctx.drawImage(pk, P.cx - pk.naturalWidth * sc / 2, P.cy - pk.naturalHeight * sc / 2,
+                          pk.naturalWidth * sc, pk.naturalHeight * sc);
+          }
+          ctx.restore();
+        }
+        // 배터리 링 — 12시 시작, % 만큼 시계방향 + 끝점 도트(피그마 #37/#39)
+        const bs = eOut(intro(t, P.d + .2, .9));
+        const a0 = -90 * RAD, a1 = a0 + (P.pct / 100) * Math.PI * 2 * bs;
+        // 진행 끝으로 갈수록 투명 0 — 컨틱 그라디언트로 꼬리를 은은하게(유저)
+        const cg = ctx.createConicGradient(a0, P.cx, P.cy);
+        const frac = Math.max(0.002, (a1 - a0) / (Math.PI * 2));
+        cg.addColorStop(0, 'rgba(255,255,255,.9)');
+        cg.addColorStop(frac * 0.55, 'rgba(255,255,255,.55)');
+        cg.addColorStop(Math.min(1, frac), 'rgba(255,255,255,0)');
+        if (frac < 1) cg.addColorStop(Math.min(1, frac + 0.001), 'rgba(255,255,255,0)');
+        ctx.strokeStyle = cg; ctx.lineWidth = 15; ctx.lineCap = 'round';   // 두껍게 — 충전 상태 가독(유저 #70)
+        ctx.beginPath(); ctx.arc(P.cx, P.cy, CR + 6, a0, a1); ctx.stroke();
+        ctx.fillStyle = NEU.ink;
+        ctx.beginPath();
+        ctx.arc(P.cx + Math.cos(a1) * (CR + 6), P.cy + Math.sin(a1) * (CR + 6), 13, 0, Math.PI * 2);
+        ctx.fill();
+        // 음성 연결 체크 — 페이즈2, 작았다 살짝 커지며(오버슈트) 우하단에
+        if (P.coach) {
+          const ck = kf(eOut(intro(t, TP2 + .2, .55)), [[0, 0], [.55, 1.2], [1, 1]]) * (1 - pOut);   // 프로필 복귀와 함께 퇴장
+          if (ck > 0.001) {
+            ctx.save();
+            ctx.translate(P.cx + 58, P.cy + 58); ctx.scale(ck, ck);
+            checkBadge(ctx, 0, 0, 30);
+            ctx.restore();
+          }
+        }
+        ctx.restore();
+      });
+    }
+    // ⑥ 발 실루엣 = 폐기(유저 08-05) — 러닝·농구 양쪽에서 뺀다.
+    //   3D FootMark 는 시작페이지에서 이미 숨김이라 잔상 없음. 복원은 #81 커밋.
     // ── ⑦ CTA — Tap Twice(74 Bold) / To start(74 Regular), 캡슐 아래 중앙 ──
     ctx.save(); ctx.globalAlpha *= e0(1.05);
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';

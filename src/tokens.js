@@ -409,7 +409,7 @@ export function applyMarkLookTo(mat, part = {}) {
     edgeShade: 'uEdgeShade', edgeShadeW: 'uEdgeShadeW', edgeShadeCol: 'uEdgeShadeCol',
     edgeShadeGrad: 'uEdgeShadeGrad', edgeShadeG0: 'uEdgeShadeG0', edgeShadeG1: 'uEdgeShadeG1',
     shadeRed: 'uShadeRed', shadeRedW: 'uShadeRedW', edgeSoft: 'uEdgeSoft', dither: 'uDither',
-    rip: 'uRip', ripSpeed: 'uRipSpeed', ripGrad: 'uRipGrad', ripCol: 'uRipCol' };
+    rip: 'uRip', ripSpeed: 'uRipSpeed', ripGrad: 'uRipGrad', ripCol: 'uRipCol', op: 'uFade' };
   const mapSF = { pitch: 'uImpPitch', edge: 'uImpEdge', edgeW: 'uEdgeW', ripWidth: 'uRipWidth', ripReach: 'uRipReach' };
   const U = mat.uniforms;
   for (const k in map) if (part[k] != null && U[map[k]]) U[map[k]].value = part[k];

@@ -62,6 +62,7 @@
     </fieldset>
 
     <fieldset><legend>각인 (안 = 맨발 자국)</legend>
+      <div class=row><label>투명도 op</label><input type=range id=op min=0 max=1 step=.01><span class=v id=vop></span></div>
       <div class=row><label>세기 uImp</label><input type=range id=imp min=0 max=1.6 step=.02><span class=v id=vimp></span></div>
       <div class=row><label>자국 축소</label><input type=range id=scale min=.7 max=1.06 step=.005><span class=v id=vscale></span></div>
       <div class=row><label>이동 X</label><input type=range id=offx min=-.16 max=.16 step=.001><span class=v id=voffx></span></div>
@@ -217,7 +218,7 @@ FXP.numSrc = 'offbit';   // 랩 기본 글리프 = 도트 폰트(유저 확정)
 
 // 기본값 = tokens.js makeMarkFXMaterial 과 같은 값으로 맞춘다(랩과 시뮬이 어긋나면 그게 곧 사고다).
 // scale·off 는 '자동 맞춤' 계측값 — 좌·우발 모두 삐져나옴 0.00%.
-const DEF = { imp: 1.0, scale: 0.835, offx: -0.04, offy: -0.007, irot: 0, pitch: 0.027, dot: 0.25,
+const DEF = { op: 1.0, imp: 1.0, scale: 0.835, offx: -0.04, offy: -0.007, irot: 0, pitch: 0.027, dot: 0.25,
               glow: 0.0, shade: 0.55, sharp: 0.22, edge: 0.058, gx: 0, gy: 0, grot: 0, gsh: 0.75,
               w: 1.0, halo: 0.9, pool: 0.9, noise: 0.5, prog: 0.55, tilt: 8,
               bloom: 0.08, blur: 0.8, gsize: 1.0,
@@ -234,7 +235,7 @@ let side = 'left', ctx = 'out', bg = 'day', showNum = 1, showOv = 0, floorKind =
 
 const SF = SIL_FIT / SIL_FIT_REF;   // uv 단위 거리 스케일(정본과 동일)
 const $ = id => document.getElementById(id);
-const KEYS = ['imp','scale','offx','offy','irot','pitch','dot','glow','shade','sharp','edge',
+const KEYS = ['op','imp','scale','offx','offy','irot','pitch','dot','glow','shade','sharp','edge',
               'w','halo','pool','noise','prog','tilt','bloom','blur',
               'gsize','gsh','gxL','gyL','grotL','gxR','gyR','grotR','rip','ripReach','ripWidth','ripSpeed','ripGrad','plantar','bands','bandSoft','edgeShade','edgeShadeW','edgeShadeGrad','edgeShadeG0','edgeShadeG1','shadeRed','shadeRedW','edgeW','edgeSoft','dither'];
 const DIGITS = { tilt: 0, irot: 1, grotL: 0, grotR: 0, gxL: 3, gyL: 3, gxR: 3, gyR: 3, pitch: 3, edge: 3, scale: 3, offx: 3, offy: 3,
@@ -330,7 +331,7 @@ $('ovClear').onclick = () => { delete OV[heroPhase]; syncUI(); rebuild(); persis
 
 // 8번째 토큰(Tap2) — 현재 슬라이더 값을 mark-look.json `tap` 으로만 굽는다(정본 룩은 그대로).
 $('saveTap').onclick = async () => {
-  const KEYS = ['imp','scale','pitch','dot','glow','shade','sharp','edge','plantar','bands','bandSoft',
+  const KEYS = ['op','imp','scale','pitch','dot','glow','shade','sharp','edge','plantar','bands','bandSoft',
     'edgeShade','edgeShadeW','edgeShadeGrad','edgeShadeG0','edgeShadeG1','dither'];
   const tap = {}; for (const k of KEYS) if (P[k] != null) tap[k] = P[k];
   tap.shadeCol = shadeCol; tap.edgeShadeCol = edgeShadeCol;
@@ -600,7 +601,7 @@ const OV_MAP = { imp: 'uImp', dot: 'uImpDot', glow: 'uImpGlow', shade: 'uImpShad
   scale: 'uImpScale', plantar: 'uPlantar', bands: 'uBands', bandSoft: 'uBandSoft', edgeShade: 'uEdgeShade',
   edgeShadeW: 'uEdgeShadeW', edgeShadeGrad: 'uEdgeShadeGrad', edgeShadeG0: 'uEdgeShadeG0',
   edgeShadeG1: 'uEdgeShadeG1', dither: 'uDither', w: 'uW', halo: 'uHalo', pool: 'uPool', noise: 'uNoise',
-  rip: 'uRip', ripSpeed: 'uRipSpeed', ripGrad: 'uRipGrad' };
+  rip: 'uRip', ripSpeed: 'uRipSpeed', ripGrad: 'uRipGrad', op: 'uFade' };
 const OV_MAPSF = { pitch: 'uImpPitch', edge: 'uImpEdge', edgeW: 'uEdgeW', ripWidth: 'uRipWidth', ripReach: 'uRipReach' };
 function feedOV(U, ph) {
   const o = OV[ph]; if (!o) return;
@@ -611,6 +612,7 @@ function feed(u, ph, prog, t, mode) {
   if (!u) return;
   const U = u.mat.uniforms;
   U.uPhase.value = ph; U.uProg.value = prog; U.uTime.value = t;
+  if (U.uFade) U.uFade.value = P.op ?? 1;   // 전체 투명도(유저) — 상태별 오버라이드는 feedOV 가 덮는다
   U.uW.value = P.w; U.uHalo.value = P.halo; U.uPool.value = P.pool; U.uNoise.value = P.noise;
   // 파동은 표현형과 무관하게 같은 값 — 이게 '한 디자인 시스템'의 실체다
   U.uRip.value = P.rip; U.uRipReach.value = P.ripReach * SF;
