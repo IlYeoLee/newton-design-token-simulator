@@ -517,8 +517,9 @@ export function drawChars(ctx, txt, cx, y, h, ls, fn, align = 'center') {
 const READY = {
   // meta = 모바일 홈 카드의 '팩 · 시간' 표기(home.html 원본) — 지면도 같은 조판 규칙을 쓴다
   'floor.html':    { title: "Sean's Final 1km Pace", today: 'Today · 5.0km · Standard', time: '30min', mode: 'Pace & Boost On', modeSm: true,
-    // 시작 전 = **셋업 결과** 요약(유저 확정): 거리 · 레벨 · 모드. 부상은 문제 있을 때만 항목 추가.
-    stats: [['5.0', 'KM'], ['Standard', 'LEVEL'], ['Pace·Boost', 'MODE ON']] },
+    // 승인된 5블록(유저): 스탯 트리오(복기 숫자) + 프로세스 행 — today 요약줄 대체
+    stats: [['5.0', 'KM'], ['6\'30"', 'PACE'], ['148', 'TARGET SPM']],
+    process: [['STRETCH', '8m'], ['LEARN', '10m'], ['RUN!', '18m']] },
   'floor-bk.html': { title: "Curry's Handle Pack",   today: 'Today · 15min · Standard',  time: '23min',     mode: 'Press On' },
 };
 const TR = {
@@ -1241,10 +1242,9 @@ export class FloorGL {
       ctx.save(); this._fadeIn(748, 150, eOut(intro(t, .4, .8)));
       ctx.textAlign = 'center'; ctx.textBaseline = 'top';
       D.stats.forEach(([num, lbl], i) => {
-        const sx = CX + (i - 1) * 400;
-        ctx.fillStyle = 'rgba(255,255,255,.85)';
-        ctx.font = F(700, /\d/.test(num) ? 84 : 66, /\d/.test(num) ? dot9 : sans);   // 도트는 숫자만(규약)
-        ctx.fillText(num, sx, /\d/.test(num) ? 748 : 762);
+        const sx = CX + (i - 1) * 330;
+        ctx.fillStyle = 'rgba(255,255,255,.85)'; ctx.font = F(700, 84, dot9);
+        ctx.fillText(num, sx, 748);
         ctx.fillStyle = 'rgba(255,255,255,.5)'; ctx.font = F(400, 38); ctx.letterSpacing = '2px';
         ctx.fillText(lbl, sx, 748 + 84 + 14);
         ctx.letterSpacing = '0px';
