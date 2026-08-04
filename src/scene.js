@@ -275,11 +275,11 @@ export function createScene(container) {
         for (let px = -1; px < 3; px++) {
           const x = px * 380 + off, y = row * PH;
           const tone = 0.962 + rnd() * 0.072;
-          g.fillStyle = `rgb(${Math.min(255, 238 * tone) | 0}, ${Math.min(255, 226 * tone) | 0}, ${Math.min(255, 212 * tone) | 0})`;
+          g.fillStyle = `rgb(${Math.min(255, 236 * tone) | 0}, ${Math.min(255, 230 * tone) | 0}, ${Math.min(255, 222 * tone) | 0})`;   // R−B 26→14 — 아이보리 절반 중화(유저)
           g.fillRect(x, y, 380, PH);
-          g.strokeStyle = 'rgba(196,178,152,0.34)'; g.lineWidth = 1.4;   // 널 이음선 — 웜 그레이
+          g.strokeStyle = 'rgba(196,186,170,0.34)'; g.lineWidth = 1.4;   // 널 이음선 — 웜 그레이
           g.strokeRect(x + 0.7, y + 0.7, 380 - 1.4, PH - 1.4);
-          g.strokeStyle = 'rgba(204,187,162,0.20)'; g.lineWidth = 1;     // 결
+          g.strokeStyle = 'rgba(204,195,180,0.20)'; g.lineWidth = 1;     // 결
           for (let k = 0; k < 3; k++) {
             const gy = y + 12 + rnd() * (PH - 24);
             g.beginPath(); g.moveTo(x + 8, gy); g.lineTo(x + 372, gy + (rnd() - 0.5) * 5); g.stroke();
@@ -371,11 +371,11 @@ export function createScene(container) {
       // 실내 벽지 = 런타임 베이크 (아이보리 화이트 + 연한 세로 결)
       const c = document.createElement('canvas'); c.width = c.height = 256;
       const g = c.getContext('2d');
-      g.fillStyle = '#F7F4EE'; g.fillRect(0, 0, 256, 256);
+      g.fillStyle = '#F6F5F2'; g.fillRect(0, 0, 256, 256);   // 아이보리 → 뉴트럴 웜화이트(유저)
       const rnd = (() => { let s0 = 13; return () => (s0 = (s0 * 16807) % 2147483647) / 2147483647; })();
       for (let x = 0; x < 256; x += 2) {
         const a = 0.020 + rnd() * 0.045;
-        g.fillStyle = rnd() < 0.5 ? `rgba(210,202,188,${a})` : `rgba(255,255,255,${a})`;
+        g.fillStyle = rnd() < 0.5 ? `rgba(208,205,198,${a})` : `rgba(255,255,255,${a})`;
         g.fillRect(x, 0, 1 + rnd() * 1.5, 256);
       }
       for (let i = 0; i < 90; i++) {   // 미세 섬유 노이즈
