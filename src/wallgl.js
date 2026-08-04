@@ -115,8 +115,8 @@ const SCENES = {
     //     내가 놓치면 그 틈을 상대가 먹는다(유저 정정). Casey 득점은 그 장면이라 말이 된다.
     //   대본: 1바퀴는 전부 성공, 2바퀴 중반에 miss 하나 — 놓쳤다가 훅으로 만회하는 그림이다.
     //   실전 연결 시 judge.js 의 verdict(타이밍 tolT · 위치 tolP)가 이 대본을 그대로 대체한다.
-    beats: [[1.50, 'hit'], [3.00, 'hit'], [4.33, 'hit'],
-            [7.54, 'hit'], [9.04, 'miss'], [10.37, 'hit']] },
+    beats: [[2.47, 'hit'], [3.83, 'hit'], [5.17, 'hit'],
+            [9.35, 'hit'], [10.71, 'miss'], [12.05, 'hit']] },
   BX_C4: { title: 'COOL DOWN', phase: 3, sub: '3/3', coach: { num: '', unit: '' }, you: { num: '', unit: '' },
     say: 'Great work!', cues: ['Well done', 'Strong session', 'Nice one'], combos: [] },
 };

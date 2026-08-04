@@ -750,7 +750,7 @@ export const STAGES = {
     { id:'BX_C2', wall:true, dur:11, live:true, label:'C2 · 실전 2/4 — 잽 대련', voice:['고수','타겟 뜨면 바로 잽. 가드는 내리지 말고.'], wear:'SAFE 가드 안정화' },
     // dur = 코치 클립 길이(bx_c3_combo.mp4 3.00초 — 1.4배속 리타임). 둘이 다르면 스테이지가 클립 위에서 밀려
     //   마커가 엉뚱한 자세에 뜬다 — 씬 루프 주기도 이 값의 정수배로 잡힌다(main.js).
-    { id:'BX_C3', wall:true, dur:12.08, live:true, boost:true, label:'C3 · 실전 3/4 — 콤비네이션', voice:['고수','잽, 잽 — 마지막은 몸을 실어서 훅! 리듬 놓치지 말고.'], wear:'BOOST 스텝 추진', cue:'구간 종료 Match Rate' },   // dur = 클립 6.04 × 2바퀴(08-05). 사이클이 클립 길이와 같아야 마커와 실루엣이 매 바퀴 같은 위상에서 만난다
+    { id:'BX_C3', wall:true, dur:13.75, live:true, boost:true, label:'C3 · 실전 3/4 — 콤비네이션', voice:['고수','잽, 잽 — 마지막은 몸을 실어서 훅! 리듬 놓치지 말고.'], wear:'BOOST 스텝 추진', cue:'구간 종료 Match Rate' },   // dur = 클립 6.04 × 2바퀴(08-05). 사이클이 클립 길이와 같아야 마커와 실루엣이 매 바퀴 같은 위상에서 만난다
     { id:'BX_C4', wall:true, live:true, cooldown:true, label:'C4 · 실전 4/4 — 마무리', voice:['고수','가드 내리고 숨 고르기. 오늘 잽, 확실히 좋아졌어요.'], hap:'완료 진동' },
     { id:'BX_FIN', wall:true, label:'B-F · 리포트', voice:['고수','내 잽이랑 겹쳐서 볼게요 — 어디가 달랐는지 보여요? 기록은 앱으로 보냈어요.'], cue:'Ghost Review — 고수 잽과 내 폼 겹쳐 보기' },
   ],
@@ -2938,8 +2938,8 @@ export class Session {
         //     **실제 펀치는 1.5(잽)·3.0(잽)·4.33(훅)** (0.47·3.5 는 거둠). 이게 지정 리듬과 맞는다:
         //     비트 전 0.70s 부터 수축이 뜨므로 첫 마커는 0.80s — 앞 1초가 비어 있고,
         //     잽·잽 1.50s · 잽·훅 1.33s 로 '한 박 쉬고 훅'이 코치 동작 그대로 떨어진다.
-        const CY = 6.04, tc = this.t % CY;
-        const AT = [1.50, 3.00, 4.33];
+        const CY = 6.875, tc = this.t % CY;
+        const AT = [2.47, 3.83, 5.17];
         let seg = 0;                                   // 지나온 노드 수(0..2) + 구간 진행
         for (let i = 0; i < AT.length; i++) if (tc >= AT[i]) seg = i + 1;
         const prev = seg === 0 ? 0 : AT[seg - 1], next = AT[Math.min(seg, AT.length - 1)];
