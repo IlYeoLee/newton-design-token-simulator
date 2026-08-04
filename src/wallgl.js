@@ -96,7 +96,7 @@ const SCENES = {
     say: '3, 2, 1 — spar!', cues: [], combos: [] },   // 카운트다운은 그 자체가 사건이라 그대로
   // ★ 실전(C2·C3)만 **스코어보드**다 — 좌우에 아바타·이름 배지·큰 숫자가 이미 스코어보드
   //   조판인데, 그동안 'Thrown/Landed'·'Openings/Combo' 처럼 좌우 단위가 갈려서 두 숫자를
-  //   같은 저울에 못 올렸다(유저: 한번에 직관적으로 이해가 안 간다). 이제 둘 다 Points.
+  //   같은 저울에 못 올렸다(유저: 한번에 직관적으로 이해가 안 간다). 이제 둘 다 Landed — 복싱 채점의 실제 단어다. Points 는 대결 점수로 읽혀 밋밋했다(유저 08-05).
   //   학습(A·B)은 케이시가 상대가 아니라 시범이라 그대로 '목표 vs 내 기록'을 쓴다.
   //   beats = 판정 대본. 시뮬레이터라 judge.js 를 못 물리니 시각을 적어 둔다(실전 연결 시 대체).
   //     hit → You +1 · miss → Casey +1 · near(타이밍/위치 중 하나만) → 무득점.
@@ -104,16 +104,19 @@ const SCENES = {
   //   비트 시각은 3D 노드 마커(session.js BX_C3 의 AT)와 같은 박자로 맞춘다 — 벽의 점수가
   //   코치 몸의 마커와 다른 박자로 움직이면 둘이 다른 경기를 중계하는 꼴이 된다.
   //   C3 = 잽 1s · 잽 2s · (1초 쉼) · 훅 4s. C2 = 잽 1초 간격.
-  BX_C2: { title: 'JAB SPAR', phase: 3, sub: '1/3', coach: { num: '', unit: 'Points' }, you: { num: '', unit: 'Points' },
+  BX_C2: { title: 'JAB SPAR', phase: 3, sub: '1/3', coach: { num: '', unit: 'Landed' }, you: { num: '', unit: 'Landed' },
     say: 'Let’s go!', cues: ['Nice!', 'Sharp!', 'Keep it up!'], combos: ['Jab!'],
     beats: [[1, 'hit'], [2, 'hit'], [3, 'miss'], [4, 'hit']] },
-  BX_C3: { title: 'COMBINATION', phase: 3, sub: '2/3', coach: { num: '', unit: 'Points' }, you: { num: '', unit: 'Points' },
+  BX_C3: { title: 'COMBINATION', phase: 3, sub: '2/3', coach: { num: '', unit: 'Landed' }, you: { num: '', unit: 'Landed' },
     say: 'Rhythm’s good!', cues: ['Nice combo!', 'On fire!', 'Keep it up!'], combos: ['Jab · Jab · Hook!'],
-    // 3사이클(dur 9s) 전체 대본 — 콤보 박자(0.67/1.80/2.67 + 사이클 오프셋) 정렬.
-    //   miss 1개 포함: 규칙상 Casey 는 내 miss 에만 득점하는데 대본에 miss 가 없어
-    //   전문가가 영원히 0 이었다(유저 분석 요청). 6:1 — 전문가에게도 한 점은 간다.
-    beats: [[0.67, 'hit'], [1.8, 'near'], [2.67, 'hit'], [3.67, 'hit'], [4.8, 'miss'], [5.67, 'hit'],
-            [6.67, 'hit'], [7.8, 'near'], [8.67, 'hit']] },
+    // 2사이클(dur 12.08s) 대본 — 콤보 박자(1.50/3.00/4.33 + 사이클 6.04) 와 **글자 그대로** 정렬.
+    //   링이 닫히는 그 프레임에 카운트가 오른다(유저 08-05).
+    //   ★ 여긴 따라하기가 아니라 **실전 대련**이다 — 그래서 코치 타이밍과 일부러 어긋나 있고,
+    //     내가 놓치면 그 틈을 상대가 먹는다(유저 정정). Casey 득점은 그 장면이라 말이 된다.
+    //   대본: 1바퀴는 전부 성공, 2바퀴 중반에 miss 하나 — 놓쳤다가 훅으로 만회하는 그림이다.
+    //   실전 연결 시 judge.js 의 verdict(타이밍 tolT · 위치 tolP)가 이 대본을 그대로 대체한다.
+    beats: [[1.50, 'hit'], [3.00, 'hit'], [4.33, 'hit'],
+            [7.54, 'hit'], [9.04, 'miss'], [10.37, 'hit']] },
   BX_C4: { title: 'COOL DOWN', phase: 3, sub: '3/3', coach: { num: '', unit: '' }, you: { num: '', unit: '' },
     say: 'Great work!', cues: ['Well done', 'Strong session', 'Nice one'], combos: [] },
 };
