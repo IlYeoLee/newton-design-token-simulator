@@ -4459,7 +4459,7 @@ void main(){
         gate = ` · want ${want ? (want.src.match(/stage=([A-Za-z0-9_]+)/)?.[1] || 'READY') : 'null'}`
              + ` fp${rig?._fp ? 1 : 0} gl${typeof floorGLOn !== 'undefined' && floorGLOn ? 1 : 0}`;
       } catch (e) { gate = ' · gateERR'; }
-      bs.textContent = `v9 · build ${TAG} · 세션 ${st} · 지면 ${fv} · 벽 ${wv} · tap ${tapN} · next ${nextN}${gate}`
+      bs.textContent = `v10 · build ${TAG} · 세션 ${st} · 지면 ${fv} · 벽 ${wv} · tap ${tapN} · next ${nextN}${gate}`
         + (session.pinStage ? ' · PIN' : '') + (mm ? '  ⚠ 화면≠세션' : '');
       bs.style.color = mm ? '#ff6666' : 'rgba(170,176,186,.95)';
       bs.style.fontSize = '13px';
@@ -5691,10 +5691,10 @@ void main(){
   // ── 바닥 UI WebGL 경로(B안, 플래그 병행) — CSS3D와 같은 변환을 받는 평면. 깊이 테스트로 x봇에 가려진다.
   //   ?floorgl=1 일 때 floor-scene.html 스테이지만 이 경로를 타고, 나머지는 기존 CSS3D 그대로.
   //   기본값 = WebGL. 되돌리려면 ?floorgl=0 (CSS3D 문서 경로가 그대로 남아 있다).
-  // ★ 지면 WebGL 경로 기본 OFF(옵트인 ?floorgl=1) — gl1 에서만 '지면이 이전 스테이지에 고착'이
-  //   재현되고 CSS3D(gl0)에선 전 구간 정상(유저 블랙박스 + 재현 로그 교차 확인). GL 경로는
-  //   깊이 가림이 장점이지만 지금은 안정이 우선 — 원인 잡은 뒤 기본 복귀.
-  const FLOORGL = new URLSearchParams(location.search).get('floorgl') === '1';
+  // 지면 WebGL 경로 기본 복귀 — 고착의 진범은 GL 경로가 아니라 tickA1Coach 의 now 미정의
+  //   크래시(v9 수정)였다. 응급 OFF(v8) 동안 최신 컴포넌트(배지·아크·케이던스, floorgl 전용)가
+  //   구식 CSS3D 폴백으로 대체돼 보였다(유저 지적). 도피구는 ?floorgl=0 유지.
+  const FLOORGL = new URLSearchParams(location.search).get('floorgl') !== '0';
   const floorGL = new FloorGL();
   // 지면 UI(제목·SPM·페이스)는 마크 판정 토큰 '앞'에 온다 — 토큰이 글자를 덮어 안 읽히던 것(유저).
   //   ★ 메시의 renderOrder 를 올려도 소용없다. three 는 (groupOrder, renderOrder, depth) 순으로
