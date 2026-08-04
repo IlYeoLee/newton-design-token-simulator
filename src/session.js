@@ -2951,6 +2951,7 @@ export class Session {
         //   맞는 그 순간에는 그 자리의 MARK Success 가 prog 0→1 을 달린다 = 진홍 블룸 + 파형 단발.
         //   비트(AT[i])에서 시작하므로 수축 링이 노드에 맞물리는 프레임과 정확히 같은 프레임이다.
         this.bxCombo._prim.P.done = seg;
+        this.bxCombo._prim.P.pop = seg > 0 ? sinceBeat : 9;   // 임팩트 플래시 시계 — 비트 직후 '팡'(drawPunchLine)
         // 판정을 노드에 먹인다 — 뱃지를 화면 구석에 띄우면 운동 중엔 안 보인다(유저).
         //   벽 스코어(wallgl SCENES.beats)와 같은 대본이라 몸의 노드와 벽의 점수가 같은 말을 한다.
         //   실전 연결 시 judge.js 의 verdict 를 그대로 넣으면 된다.

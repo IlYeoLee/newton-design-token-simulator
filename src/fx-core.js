@@ -1450,6 +1450,28 @@ export function drawPunchLine(g, W, P, look, t, ENV, ptsIn, prog) {
       }
     }
   });
+  // ── 임팩트 플래시('팡', 유저) — 방금 판정된 노드에서 백열 버스트 + 팽창 쇼크 링.
+  //   가속 도착(채찍 v2)만으로는 타격이 안 터졌다 — 도착 '순간'의 시각 사건이 있어야 팡이다.
+  //   P.pop = 비트 이후 경과 초(호스트 주입). 0.32s 만에 완전 소멸, 이후 비용 0.
+  if (P.pop != null && P.pop < 0.32 && done > 0 && pts[done - 1]) {
+    const [ix, iy] = pts[done - 1];
+    const k = 1 - P.pop / 0.32, ke = k * k;                 // 급감쇠 — 번쩍하고 사라져야 타격
+    const R0 = 12 * P.node * s * (done - 1 === (P.acc != null ? P.acc : pts.length - 1) ? 1.34 : 1);
+    g.save();
+    // 백열 코어 버스트
+    const fg = g.createRadialGradient(ix, iy, 0, ix, iy, R0 * (1.4 + 1.2 * (1 - k)));
+    fg.addColorStop(0, `rgba(255,255,255,${(0.95 * ke).toFixed(3)})`);
+    fg.addColorStop(0.4, lut(0.9).replace('rgb(', 'rgba(').replace(')', `,${(0.6 * ke).toFixed(3)})`));
+    fg.addColorStop(1, lut(0.7).replace('rgb(', 'rgba(').replace(')', ',0)'));
+    g.fillStyle = fg;
+    g.beginPath(); g.arc(ix, iy, R0 * (1.4 + 1.2 * (1 - k)), 0, Math.PI * 2); g.fill();
+    // 팽창 쇼크 링 — 얇아지며 밖으로
+    g.strokeStyle = lut(0.92); g.globalAlpha = ke;
+    g.lineWidth = Math.max(1, 5 * s * k);
+    g.shadowColor = lut(0.85); g.shadowBlur = 18 * s * ke;
+    g.beginPath(); g.arc(ix, iy, R0 * (1.1 + 2.6 * (1 - k)), 0, Math.PI * 2); g.stroke();
+    g.restore();
+  }
   g.shadowBlur = 0;
 }
 /** 어프로치 링 — 타이밍 토큰(파생). 시스템 공통 언어(소프트 열 글로우·파문)로 통일 —

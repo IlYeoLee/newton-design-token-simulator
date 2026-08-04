@@ -852,7 +852,7 @@ function drawJJH(g, X, Y, W, t) {
   g.save(); g.translate(X, Y);
   // prog 입력 규약: drawPunchLine 내부 pr = min(1, prog·1.25)·2 — 목표 pr(0..2)의 0.4배를 넣는다
   drawPunchLine(g, W, { node: PRIM_P.node, numS: PRIM_P.numS, comet: PRIM_P.comet,
-    tailLen: PRIM_P.tailLen, rail: PRIM_P.rail, done: seg, vd: JJH.VD.slice(0, seg) }, look, t, ENV, null,
+    tailLen: PRIM_P.tailLen, rail: PRIM_P.rail, done: seg, vd: JJH.VD.slice(0, seg), pop: since }, look, t, ENV, null,
     ((seg ? seg - 1 : 0) + fw) * 0.4);
   // 수축 링 — 타겟 반경(Rt)이 노드 반경에 맞물리게 확대 블릿(세션 C3 규약)
   const ag = _jjhAP.getContext('2d');
