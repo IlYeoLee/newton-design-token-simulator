@@ -786,16 +786,20 @@ export class WallGL {
           };
           const fx0 = CX - _bw / 2 - 34, fy0 = cueY + sh * 0.62;
           const ember = (dly, sz, rot, ox) => {
-            const p = (t - _lastHit[0] - dly) / 1.3;   // 단발 — 히트 순간 발화, 한 번 오르고 끝
+            const p = (t - _lastHit[0] - dly) / 1.6;   // 단발 — 히트 순간 발화, 한 번 오르고 끝
             if (p < 0 || p > 1) return;
-            const a = p < .2 ? (p / .2) * .95 : p < .75 ? .95 - (p - .2) / .55 * .45 : .5 * (1 - (p - .75) / .25);
-            const yv = (6 - 68 * p), sc = .8 + .35 * p, SZ = sz * sc;
+            // 은은·부드럽게(유저): 피크 알파 0.55, 완만한 인/아웃, ease-out 상승 + 미세 흔들림
+            const a = p < .25 ? (p / .25) * .55 : .55 * (1 - (p - .25) / .75);
+            const pe = 1 - Math.pow(1 - p, 2);          // ease-out — 처음 붕 떠오르고 천천히 잦아든다
+            const yv = 6 - 74 * pe, sc = .8 + .3 * pe, SZ = sz * sc;
+            const wob = Math.sin((p * 2.2 + dly) * 6.283) * 3;
             ctx.save(); ctx.globalAlpha *= a;
-            ctx.translate(fx0 + ox, fy0 + yv); ctx.rotate(rot);
+            ctx.translate(fx0 + ox + wob, fy0 + yv); ctx.rotate(rot);
             ctx.drawImage(_ember_sprite(Math.round(sz * 2)), -SZ / 2, -SZ / 2, SZ, SZ);
             ctx.restore();
           };
-          ember(0, 46, 0, 0); ember(0.22, 36, 13 * Math.PI / 180, 24);
+          ember(0, 44, 0, 0); ember(0.2, 34, 13 * Math.PI / 180, 24);
+          if (this.stage === 'BX_C3') ember(0.36, 27, -9 * Math.PI / 180, -20);   // 콤보는 3개(유저)
         }
       }
       ctx.restore();
