@@ -2819,7 +2819,15 @@ export class Session {
       const appr = clamp01(1 - tb / 0.70);                   // B3 와 같은 0.70s 수축
       const lock = Math.max(0, (appr - 0.9) / 0.1);
       const sinceB2 = ct - bt.t;                             // 비트 후 경과(마지막 비트만 양수)
-      threat.visible = appr > 0 && sinceB2 < 0.15;           // 핑 잔광 0.15s 후 소등
+      // ★ 새 비트의 수축은 **직전 비트의 잔광이 끝난 뒤** 시작한다.
+      //   비트가 넘어가면 goLeft 가 뒤집혀 threat/idle 이 자리를 바꾸는데, 수축은 비트
+      //   0.70s 전부터 켜지므로 직전 비트의 잔광(0.15s)과 겹친다. 그 한 프레임 동안
+      //   **양쪽에 마크가 동시에** 뜨고, 곧바로 한쪽이 꺼져 화면이 튄다
+      //   (유저 08-04: 3초대에 반대쪽 판정토큰이 잠깐 떴다 사라져서 프레임이 튄다).
+      //   직전 비트 시각을 기준으로 잔광 구간을 막는다 — 리듬(0.70s 수축)은 그대로다.
+      const afterPrev = ct - prevT;                          // 직전 비트 후 경과
+      const tailBusy = bi > 0 && afterPrev < 0.15;           // 직전 비트의 핑 잔광이 아직 살아 있다
+      threat.visible = appr > 0 && sinceB2 < 0.15 && !tailBusy;
       threat._prim.prog = appr;
       threat.material.opacity = 1;
       // 코멧 = 돌덩이(원형 헤드) + 궤적. 정본: 원형 = 피해야 하는 돌덩이 · 궤적 = 날아오는 방향
