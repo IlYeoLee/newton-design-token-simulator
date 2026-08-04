@@ -2316,8 +2316,8 @@ void main(){
   //   cfg: { src, cropOff, cropScale(세로 크롭 창), w, h, fwd }  crop을 uniform으로 빼 스테이지별 대응.
   const COACH_CFG = {
     // READY 페이즈2(등장 후 2초) — A1 원본 데모판을 그대로 UI 캡슐 뒤에. 캔버스 사제 비디오 폐기(유저).
-    READY:    { src: 'ready-view/assets/sean_neck_shoulder.webm', cropOff: 0.40, cropScale: 0.58, w: 0.66, h: 0.68, fwd: 0.16, ph: 0.83 },   // 캡슐 안 실루엣 — 축소(유저)
-    BK_READY: { src: 'ready-view/assets/bk_squat.webm', cropOff: 0.0, cropScale: 1.0, w: 0.68, h: 0.68, fwd: 0.10 },
+    READY:    { src: 'ready-view/assets/sean_neck_shoulder.webm', cropOff: 0.40, cropScale: 0.58, w: 0.66, h: 0.68, fwd: -0.08, ph: 0.83 },   // 캡슐 안 실루엣 — 축소 + 아래로(제목과 안 겹치게, 유저)
+    BK_READY: { src: 'ready-view/assets/bk_squat.webm', cropOff: 0.0, cropScale: 1.0, w: 0.68, h: 0.68, fwd: -0.08 },
     A1: { src: 'ready-view/assets/sean_neck_shoulder.webm', cropOff: 0.40, cropScale: 0.58, w: 0.88, h: 0.9, fwd: 0.16, ph: 0.83 },   // A2 런지와 크기 맞춤(유저: 너무 작음)
     A2: { src: 'ready-view/assets/sean_lunge.webm', cropOff: 0.0, cropScale: 1.0, w: 0.9, h: 0.9, fwd: 0.10, zoom: 0.86, ph: 0.65 },   // 런지 전신 측면 — 축소로 뒷발이 프레임 페이드에 안 걸리게(유저)
     A3: { src: 'ready-view/assets/sean_highknee.webm', cropOff: 0.0, cropScale: 1.0, w: 0.9, h: 0.9, fwd: 0.10, ph: 0.87 },   // 하이니 전신 정면
