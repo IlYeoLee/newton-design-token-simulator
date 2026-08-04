@@ -1391,6 +1391,11 @@ export class Session {
     this.bxCombo._prim.pts = BX_C3_NODES.map(toPx);
     // node = 반경 배율(drawPunchLine: r_px = 12·node·W/220) → 실측 지름에서 역산.
     this.bxCombo._prim.P = { node: (BX_C3_NODE_D / 2) / BX_C3_PANEL * 220 / 12, numS: 1.5, done: 0 };
+    // ★ 만들 때 꺼 둔다. C3 틱이 처음 돌기 전에 렌더가 한 번 나가면 **기본 상태 그대로**
+    //   한 장이 찍힌다 — 인물·UI 가 하나도 없는데 노드 '2' 만 화면에 크게 뜨던 것의 정체다
+    //   (유저 08-05, 녹화 f327 에서 재현: 좌표도 적용 전이라 위치까지 엉뚱했다).
+    //   틱이 매 프레임 opacity 를 c3In 으로 다시 쓰므로 여기서 0 으로 두면 손해가 없다.
+    this.bxCombo.material.opacity = 0;
     g.add(this.bxCombo);
     // 판정 순간의 '팡' = 룩 시스템 MARK Success 그대로(uPhase 3): 진홍 블룸으로 차오르며
     //   그 자리에서 파형(uRip 단발)이 실루엣을 따라 퍼진다. 사제 원형 파문(effects.burst)으로
@@ -1416,6 +1421,7 @@ export class Session {
     this.bxC3nodes = BX_C3_NODES;
     this.bxC3ap = primPanel('approachRing', (BX_C3_NODE_D / 2) / 0.1512, true);
     this.bxC3ap.position.set(this.bxC3nodes[0][0], this.bxC3nodes[0][1], WZ + 0.004);
+    this.bxC3ap.material.opacity = 0;   // 같은 이유 — 틱 전 첫 렌더에 기본 상태로 찍히지 않게
     g.add(this.bxC3ap);
 
     g = this._mk('BX_C4');
