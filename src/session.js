@@ -145,8 +145,8 @@ class FootMark {
   tapHint(tc) {
     const ph = tc % 3.2;
     const p = (ph > 1.9 && ph < 2.25) ? (ph - 1.9) / 0.35 : (ph > 2.55 && ph < 2.9) ? (ph - 2.55) / 0.35 : -1;
-    if (p >= 0) { this._U.uPhase.value = 0; this._U.uProg.value = 0; this.op(0.55 + 0.45 * Math.sin(p * Math.PI)); }
-    else { this.locked(); this.op(0.8); }
+    if (p >= 0) { this._U.uPhase.value = 0; this._U.uProg.value = 0; this.op(0.45 + 0.4 * Math.sin(p * Math.PI)); }
+    else { this.locked(); this.op(0.6); }   // 무채 대기 = 은은하게(유저: 룩시스템 발자국 느낌)
   }   // 무채 대기(Locked) — READY 시작 전
   countdown(p) {
     if (p < 0) { this._U.uPhase.value = 0; this._U.uProg.value = 0; return; }          // 대기 = Preview 숨쉬기
@@ -1000,7 +1000,7 @@ export class Session {
     // READY 두 발 = FootMark tap2 어포던스 — Tap Twice 양옆(유저 #49). 캔버스 신발 그래픽 폐기.
     // ±0.33 은 빔 페더 구간에 걸려 발 바깥이 흐려졌다(유저 #52) — 안쪽으로.
     // 크기 200mm(유저) — 판정 발(240mm 정본)이 아니라 그래픽 어포던스라 축소 허용. s=200/240.
-    this.readyFeet = [new FootMark('left').at(-0.24, -0.75, 200 / 240), new FootMark('right').at(0.24, -0.75, 200 / 240)];
+    this.readyFeet = [new FootMark('left').at(-0.19, -0.92, 200 / 240), new FootMark('right').at(0.19, -0.92, 200 / 240)];   // 0.8배 조판 보정 — CTA 양옆·콘 안
     this.readyFeet.forEach(f => { f.locked(); f.op(0.8); f.group.visible = false; this.root.add(f.group); });
     // G.READY 는 '시작 페이지 = 프레임 전담' 정책으로 main 이 끈다 — 발자국은 새 READY 의
     //   어포던스 정본이므로 root 소속으로 예외. 표시는 아래 업데이트 틱이 스테이지로 제어.
