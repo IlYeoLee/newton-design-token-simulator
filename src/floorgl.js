@@ -1199,28 +1199,6 @@ export class FloorGL {
   _roundRectPath(x, y, w, h, r) { const c = this.ctx; c.beginPath(); c.roundRect(x, y, w, h, r); }
 
   // ── 시작화면 (floor.html / floor-bk.html) ──────────────────────────────────
-  // 마스크 이미지를 그라디언트로 채운 오프스크린 — wallgl._tinted 와 같은 물건(발자국 틴트용)
-  _tinted(rel, w, h, stops) {
-    this._tints = this._tints || new Map();
-    const key = rel + w + h;
-    let c = this._tints.get(key);
-    const im = this._img(rel);
-    if (!im) return null;
-    if (!c || c._src !== im) {
-      c = document.createElement('canvas');
-      c.width = Math.max(1, Math.round(w)); c.height = Math.max(1, Math.round(h));
-      const x = c.getContext('2d');
-      x.drawImage(im, 0, 0, c.width, c.height);
-      x.globalCompositeOperation = 'source-in';
-      const g = x.createLinearGradient(0, 0, c.width * 0.2, c.height);
-      for (const [p, col] of stops) g.addColorStop(p, col);
-      x.fillStyle = g; x.fillRect(0, 0, c.width, c.height);
-      c._src = im;
-      this._tints.set(key, c);
-    }
-    return c;
-  }
-
   _paint_ready() {
     const ctx = this.ctx, D = READY[/floor-bk/.test(this.params.src) ? 'floor-bk.html' : 'floor.html'], t = this.t;
     const bk = /floor-bk/.test(this.params.src);
@@ -1285,7 +1263,7 @@ export class FloorGL {
         if (main) {
           const g = ctx.createLinearGradient(C.x + Math.cos(am) * R1, C.y + Math.sin(am) * R1,
                                              C.x + Math.cos(am) * R0, C.y + Math.sin(am) * R0);
-          g.addColorStop(0, '#FA3030'); g.addColorStop(.7, '#FE6E3C'); g.addColorStop(1, '#FEC389');
+          g.addColorStop(0, PAL.red); g.addColorStop(.7, PAL.coral); g.addColorStop(1, PAL.sand);
           fill = g;
           ctx.shadowColor = 'rgba(254,110,60,.8)'; ctx.shadowBlur = 60;   // 주인공 셀 글로우
         }
@@ -1293,7 +1271,7 @@ export class FloorGL {
         ctx.shadowBlur = 0;
         ctx.translate(C.x + Math.cos(am) * RM, C.y + Math.sin(am) * RM);
         ctx.rotate(am + Math.PI / 2);
-        ctx.textAlign = 'center'; ctx.fillStyle = main ? '#fff' : '#525252';
+        ctx.textAlign = 'center'; ctx.fillStyle = main ? NEU.ink : NEU.t3;
         ctx.textBaseline = 'alphabetic'; ctx.letterSpacing = '-2.4px';
         for (const fs of [72, 58, 46]) {   // 셀 폭에 맞는 최대 크기
           ctx.font = F(700, fs);
@@ -1334,7 +1312,7 @@ export class FloorGL {
         ctx.font = F(700, 34); ctx.letterSpacing = '-.9px';
         ctx.fillStyle = 'rgba(255,255,255,.95)';
         ctx.beginPath(); ctx.roundRect(bx, PY2, pws[k], PH, PH / 2); ctx.fill();
-        ctx.fillStyle = pct <= 30 ? PAL.red : '#525252';
+        ctx.fillStyle = pct <= 30 ? PAL.red : NEU.t3;
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         ctx.fillText(pct + '%', bx + pws[k] / 2, PY2 + PH / 2 + 1);
         ctx.font = F(500, 27); ctx.letterSpacing = '2.2px';
@@ -1354,23 +1332,8 @@ export class FloorGL {
     ctx.fillText('Tap your foot Twice', CX, 1484);
     ctx.letterSpacing = '0px';
     ctx.restore();
-    // ⑤ 발자국 — 디자인 발자국(foot_shape 틴트) + 적색 라디얼 + 동심 링. 3인칭 발 폐기(유저).
-    {
-      const FX2 = CX, FY2 = 1950;
-      ctx.save(); ctx.globalAlpha *= eOut(intro(t, .8, .9));
-      const rg = ctx.createRadialGradient(FX2, FY2, 40, FX2, FY2, 430);   // 발열 라디얼
-      rg.addColorStop(0, 'rgba(250,48,48,.5)'); rg.addColorStop(.6, 'rgba(250,48,48,.22)');
-      rg.addColorStop(1, 'rgba(250,48,48,0)');
-      ctx.fillStyle = rg; ctx.beginPath(); ctx.arc(FX2, FY2, 430, 0, Math.PI * 2); ctx.fill();
-      ctx.strokeStyle = 'rgba(255,255,255,.14)'; ctx.lineWidth = 3;   // 동심 링
-      for (const rr of [190, 270, 350]) { ctx.beginPath(); ctx.arc(FX2, FY2, rr, 0, Math.PI * 2); ctx.stroke(); }
-      const bob = cycle(t, 1.5, 3, 3);
-      const fdy = bob == null ? 0 : kf(bob, [[0, 0], [.12, 30], [.25, 4], [.4, 28], [.52, 0], [.58, 0], [1, 0]]);
-      const foot = this._tinted('foot_shape.png', 220, 293,
-        [[0, 'rgba(255,255,255,.95)'], [.5, '#FEC389'], [1, '#FA3030']]);
-      if (foot) { ctx.save(); ctx.filter = 'brightness(1.15)'; ctx.drawImage(foot, FX2 - 110, FY2 - 146 + fdy, 220, 293); ctx.filter = 'none'; ctx.restore(); }
-      ctx.restore();
-    }
+    // ⑤ 발자국 — 캔버스로 그리지 않는다. 룩시스템 발형(FootMark, MARK Preview)이 3D 토큰으로
+    //   같은 자리(session READY, 링 중앙)에 놓인다 — 장면 = 룩 토큰만 규칙(유저).
   }
 
   // 제자리 scale+fade 등장 — 호출자가 save()한 상태에서 부른다

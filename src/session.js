@@ -985,7 +985,12 @@ export class Session {
   _buildRunning() {
     let g = this._mk('READY');
     g.add(floorRing(0, -1.1, 0.20, 0.225, BRAND.dim, 0.9));
-    this.tap = this._tap('running'); this.tap.position.set(0, 0.013, -1.1); g.add(this.tap);
+    this.tap = this._tap('running'); this.tap.position.set(0, 0.013, -0.78); g.add(this.tap);
+    // READY 발자국 = 룩시스템 발형(MARK Preview 숨쉬기) — 캔버스 사제 발 그래픽 폐기(유저:
+    //   바닥은 평면 그래픽, 발 모양은 룩 토큰으로). 링 중앙 = 탭 지점에 놓는다.
+    this.readyFoot = new FootMark('right').at(0, -1.1);
+    this.readyFoot.countdown(-1);   // 대기 = Preview 소프트 필 숨쉬기
+    g.add(this.readyFoot.group);
 
     // A1~B4 발형/화살표 그래픽 z — "그래픽=가까운 존(눈앞~발앞), 타이틀=그 뒤(위)"
     // 원칙(유저 지적, 반대로 짰던 이전 시도 정정)에 맞춰 가까운 존(1.0~1.6m)으로 압축.
