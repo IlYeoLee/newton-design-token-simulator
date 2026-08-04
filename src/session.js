@@ -2036,7 +2036,7 @@ export class Session {
     else this.bobY = 0;
 
     if (id === 'READY' || id === 'T1') {
-      if (id === 'READY' && this.readyFoot) this.readyFoot.group.visible = true;
+      // readyFoot(발형 토큰)은 Figma 정본 READY(342:3057)에선 미사용 — 신발 실루엣이 정본(2026-08-05)
       const tap = id === 'READY' ? this.tap : this.tap1; const k = 0.5 + 0.5 * Math.sin(this.t * 4);
       if (tap.userData._ctaPlane) {
         tap.userData._ctaPlane.material.opacity = 0.75 + 0.25 * k;   // 피그마 CTA 에셋 — 통째로 맥동
