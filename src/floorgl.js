@@ -1244,45 +1244,19 @@ export class FloorGL {
         alpha: kf(p, [[0, .85], [.12, 1], [.26, 1], [.58, .85], [1, .85]]), scale: 1,
       };
     });
-    // 크리에이터 캡션(C 스타일: 40 UPPER ls+2 .55) — 팩 헤더 위계(승인 5블록 ①)
-    ctx.save(); this._fadeIn(566, 44, eOut(intro(t, .25, .8)));
-    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-    ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.font = F(400, 40); ctx.letterSpacing = '2px';
-    ctx.fillText((/floor-bk/.test(this.params.src) ? 'CURRY · CREATOR PACK' : 'SEAN · CREATOR PACK'), CX, 566);
-    ctx.letterSpacing = '0px';
-    ctx.restore();
     if (D.stats) {
-      // 오늘 목표 스탯 트리오(N 110 도트 + C 라벨) = 데이터 주인공 — today 요약줄 대체(승인 5블록 ③)
-      ctx.save(); this._fadeIn(756, 190, eOut(intro(t, .4, .8)));
+      // 오늘 목표 스탯 트리오 — 이 화면의 유일한 추가물(유저: 정보 다이어트 + 크게).
+      //   숫자 150 도트 + 라벨 44. 캡션·프로세스 행은 폐기 — 얼굴과 전환 화면이 이미 말한다.
+      ctx.save(); this._fadeIn(760, 240, eOut(intro(t, .4, .8)));
       ctx.textAlign = 'center'; ctx.textBaseline = 'top';
       D.stats.forEach(([num, lbl], i) => {
-        const sx = CX + (i - 1) * 380;
-        ctx.fillStyle = '#fff'; ctx.font = F(700, 110, dot9);
-        ctx.fillText(num, sx, 756);
-        ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.font = F(400, 40); ctx.letterSpacing = '2px';
-        ctx.fillText(lbl, sx, 756 + 110 + 18);
+        const sx = CX + (i - 1) * 440;
+        ctx.fillStyle = '#fff'; ctx.font = F(700, 150, dot9);
+        ctx.fillText(num, sx, 760);
+        ctx.fillStyle = 'rgba(255,255,255,.6)'; ctx.font = F(400, 44); ctx.letterSpacing = '2px';
+        ctx.fillText(lbl, sx, 760 + 150 + 20);
         ctx.letterSpacing = '0px';
       });
-      ctx.restore();
-      // 프로세스 행(B 46) — 보조 정보(승인 5블록 ②). RUN! 만 샌드
-      ctx.save(); this._fadeIn(958, 56, eOut(intro(t, .5, .8)));
-      ctx.textBaseline = 'top'; ctx.font = F(400, 46); ctx.letterSpacing = '-1.3px';
-      const segs = [];
-      D.process.forEach(([lbl, tm], i) => { if (i) segs.push(['→', 'sep']); segs.push([lbl, 'b']); segs.push([tm, 'd']); });
-      ctx.save(); ctx.font = F(700, 46);
-      const wOf = (tx, k) => { ctx.font = F(k === 'b' ? 700 : 400, 46); return ctx.measureText(tx).width; };
-      const total = segs.reduce((a, [tx, k]) => a + wOf(tx, k) + 18, -18);
-      let px2 = CX - total / 2;
-      ctx.textAlign = 'left';
-      segs.forEach(([tx, k], i) => {
-        const run = D.process[D.process.length - 1][0] === segs[i - (k === 'd' ? 1 : 0)]?.[0] || tx === 'RUN!';
-        ctx.font = F(k === 'b' ? 700 : 400, 46);
-        ctx.fillStyle = k === 'sep' ? 'rgba(255,255,255,.3)'
-          : (tx === 'RUN!' || (k === 'd' && segs[i - 1] && segs[i - 1][0] === 'RUN!')) ? '#FEC389'
-          : k === 'b' ? 'rgba(255,255,255,.92)' : 'rgba(255,255,255,.55)';
-        ctx.fillText(tx, px2, 958); px2 += wOf(tx, k) + 18;
-      });
-      ctx.restore();
       ctx.restore();
     } else {
       // (농구 등 stats 없는 변형은 기존 한 줄 요약 유지)
@@ -1296,7 +1270,7 @@ export class FloorGL {
     // 기기 연결 = 운동 전 필수 체크(유저) — 컨디션과 다른 정보라 상태 줄에 섞지 않고 CTA 바로 위.
     // 세로 배치로 되돌리며 칩도 제자리로(구 900). 가로 2단일 때 600 으로 올렸던 값을 그대로
     //   두면 제목(620)·요약(730)과 겹친다.
-    const CY = D.stats ? 1050 : 830;   // 스탯 변형은 하단 블록 일괄 하향(리듬 112)
+    const CY = D.stats ? 1030 : 830;   // 스탯 변형 하단 하향(컴팩트)
     ctx.save(); this._fadeIn(CY, 92, eOut(intro(t, .6, .8)));
     {
       // 아이콘 크기를 '높이' 기준으로 통일한다. 전엔 폭을 32/24/28 로 제각각 박아 종횡비가
@@ -1341,7 +1315,7 @@ export class FloorGL {
     // CTA = 모바일 .rts-prompt 컴포넌트(ready.css) 2줄 스택 이식 — 지시(m) / 캡션(s). 복싱 벽(wallgl:497)과 같은 2줄.
     //   제목과 같은 흰 볼드 한 줄이라 구분이 안 됐다(유저). 비율은 모바일 그대로(s/m=0.5),
     //   절대 크기는 지면 타입스케일 유지(m 88). 글로우+발은 이 화면의 시그니처라 존치.
-    const CTAY = D.stats ? 1190 : 1057;
+    const CTAY = D.stats ? 1165 : 1057;
     ctx.save(); this._fadeIn(CTAY, 300, eOut(intro(t, .7, .9)));
     const bob = cycle(t, 1.5, 3, 3);
     const ady = bob == null ? 0 : kf(bob, [[0, 0], [.12, 14], [.25, 0], [.4, 13], [.52, 0], [.58, 0], [1, 0]]);
@@ -1362,10 +1336,10 @@ export class FloorGL {
     ctx.letterSpacing = '0px';
     ctx.restore();
     // 발 — 탭 모션(footBob)
-    ctx.save(); this._fadeIn(D.stats ? 1272 : 1140, 539, eOut(intro(t, .7, .9)));
+    ctx.save(); this._fadeIn(D.stats ? 1250 : 1140, 539, eOut(intro(t, .7, .9)));
     const foot = this._img('run/foot.svg');
     const fdy = bob == null ? 0 : kf(bob, [[0, 0], [.12, 46], [.25, 6], [.4, 44], [.52, 0], [.58, 0], [1, 0]]);
-    if (foot) ctx.drawImage(foot, 606, (D.stats ? 1272 : 1140) + fdy, 400, 539);
+    if (foot) ctx.drawImage(foot, 606, (D.stats ? 1250 : 1140) + fdy, 400, 539);
     ctx.restore();
   }
 
