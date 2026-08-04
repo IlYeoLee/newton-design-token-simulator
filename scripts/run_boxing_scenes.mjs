@@ -31,7 +31,7 @@ const SCENES = [
   { id: 'BX_A1',    dur: 12.08, title: 'NECK & SHOULDER ROLLS' },   // 코치 클립 6.04 × 2바퀴
   { id: 'BX_B2',    dur: 10.50, title: 'SLIP & EVADE' },            // 클립 길이 10.5
   { id: 'BX_C1',    dur: 9.00,  title: 'Round 1 of 6' },            // 스테이지 3 → 9 (3바퀴)
-  { id: 'BX_C3',    dur: 12.08, title: 'COMBINATION' },             // 클립 6.04 × 2바퀴
+  { id: 'BX_C3',    dur: 10.875, title: 'COMBINATION' },           // 클립 3.625 × 3바퀴 (음성 박자)
 ].filter(s => !ONLY || s.id === ONLY);
 
 const run = (s) => new Promise((res) => {
