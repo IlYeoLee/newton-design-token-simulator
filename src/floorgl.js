@@ -1271,6 +1271,7 @@ export class FloorGL {
   _paint_ready() {
     const ctx = this.ctx, t = this.t;
     const D = READY[/floor-bk/.test(this.params.src) ? 'floor-bk.html' : 'floor.html'], R2 = D.r2;
+    const bk = /floor-bk/.test(this.params.src);   // 종목 분기(칩 잉크 등) — 미정의로 페인트가 통째로 죽었다
     const RAD = Math.PI / 180;
     // 콘텐츠 스케일 — 프레임(=커버리지)은 절대 못 줄인다. 종목별 실물 크기 동급화는 여기서.
     const CK = R2.scale || 1, PV = R2.pivotY ?? 1400;
