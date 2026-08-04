@@ -1247,13 +1247,15 @@ export class FloorGL {
       ctx.letterSpacing = '0px';
       ctx.restore();
     }
-    // ② 세션 부채꼴 — 통통(두께 440). 각도 = 분, 본운동만 열화상 그라디언트 + 글로우.
-    //   Stretch|Learn 사이 얇은 슬랫 3 = 목업의 장식 리듬.
-    const R0 = 560, R1 = 1000, RM = (R0 + R1) / 2;
+    // ② 세션 부채꼴 — 목업 정합: 호 중심을 대지 밖 저 아래(y 3050)에 두는 '얕은 아치'.
+    //   중심이 가까우면(구 1720) 셀이 꽃잎처럼 꺾여 글자가 눕는다(유저: 안 이쁨). 셀 기울기
+    //   ±18° 이내가 목업의 감. 각도 = 분 가중(m+8 — 순비례는 5m 셀이 너무 홀쭉).
     {
-      const A0 = -133, A1 = -47, GAP = 2.4;
-      const SLATN = 2, SLATW = 1.5, slatZone = SLATN * SLATW + (SLATN - 1) * 1.5;   // 슬랫 2(목업 #8)
-      const total = D.comp.reduce((s, p) => s + p[1], 0);
+      const FC = { x: CX, y: 3050 }, R0 = 1750, R1 = 2250, RM = (R0 + R1) / 2;
+      const A0 = -108, A1 = -72, GAP = 1.6;
+      const SLATN = 2, SLATW = 0.8, slatZone = SLATN * SLATW + (SLATN - 1) * 0.8;
+      const wt = m => m + 8;
+      const total = D.comp.reduce((s2, p) => s2 + wt(p[1]), 0);
       const span = (A1 - A0) - slatZone - GAP * 3;   // 슬랫존 양옆 + Learn|Run 사이
       let a = A0;
       const cell = (s0d, s1d, lbl, m, main, di) => {
@@ -1261,55 +1263,55 @@ export class FloorGL {
         ctx.save(); ctx.globalAlpha *= eOut(intro(t, .45 + di * .12, .7));
         let fill = 'rgba(255,255,255,.96)';
         if (main) {
-          const g = ctx.createLinearGradient(C.x + Math.cos(am) * R1, C.y + Math.sin(am) * R1,
-                                             C.x + Math.cos(am) * R0, C.y + Math.sin(am) * R0);
+          const g = ctx.createLinearGradient(FC.x + Math.cos(am) * R1, FC.y + Math.sin(am) * R1,
+                                             FC.x + Math.cos(am) * R0, FC.y + Math.sin(am) * R0);
           g.addColorStop(0, PAL.red); g.addColorStop(.7, PAL.coral); g.addColorStop(1, PAL.sand);
           fill = g;
           ctx.shadowColor = 'rgba(254,110,60,.8)'; ctx.shadowBlur = 60;   // 주인공 셀 글로우
         }
-        arcSegFill(ctx, C.x, C.y, R0, R1, s0, s1, fill, 56);
+        arcSegFill(ctx, FC.x, FC.y, R0, R1, s0, s1, fill, 44);
         ctx.shadowBlur = 0;
-        ctx.translate(C.x + Math.cos(am) * RM, C.y + Math.sin(am) * RM);
+        ctx.translate(FC.x + Math.cos(am) * RM, FC.y + Math.sin(am) * RM);
         ctx.rotate(am + Math.PI / 2);
         ctx.textAlign = 'center'; ctx.fillStyle = main ? NEU.ink : NEU.t3;
         ctx.textBaseline = 'alphabetic'; ctx.letterSpacing = '-2.4px';
         for (const fs of [72, 58, 46]) {   // 셀 폭에 맞는 최대 크기
           ctx.font = F(700, fs);
-          if (ctx.measureText(lbl).width <= da * RM - 36) break;
+          if (ctx.measureText(lbl).width <= da * RM - 44) break;
         }
         ctx.fillText(lbl, 0, -18);
-        ctx.font = F(400, 46); ctx.textBaseline = 'top'; ctx.letterSpacing = '-1.4px';
+        ctx.font = F(400, 44); ctx.textBaseline = 'top'; ctx.letterSpacing = '-1.4px';
         ctx.fillText(`${m}m`, 0, 14);
         ctx.letterSpacing = '0px';
         ctx.restore();
       };
       D.comp.forEach(([lbl, m], i) => {
-        const da = span * m / total;
+        const da = span * wt(m) / total;
         cell(a, a + da, lbl, m, i === D.comp.length - 1, i);
         a += da;
         if (i === 0) {   // 슬랫존 — Stretch 뒤
           a += GAP;
           for (let k = 0; k < SLATN; k++) {
             const s0 = a * RAD, s1 = (a + SLATW) * RAD;
-            ctx.save(); ctx.globalAlpha *= eOut(intro(t, .55 + k * .05, .6)) * .55;
-            arcSegFill(ctx, C.x, C.y, R0 + 24, R1 - 24, s0, s1, '#fff', 10);
+            ctx.save(); ctx.globalAlpha *= eOut(intro(t, .55 + k * .05, .6)) * .45;
+            arcSegFill(ctx, FC.x, FC.y, R0 + 30, R1 - 30, s0, s1, '#fff', 12);
             ctx.restore();
-            a += SLATW + 1.5;
+            a += SLATW + 0.8;
           }
-          a += GAP - 1.5;
+          a += GAP - 0.8;
         } else a += GAP;
       });
     }
     // ③ 지표 필 행 — 알약(%) + 아래 캡션(목업 #8: CADENCE / HEART RATE / EFFORT). 30% 이하만 경고색.
     {
       const MET = [[90, 'CADENCE'], [30, 'HEART RATE'], [60, 'EFFORT']];
-      const PY2 = 1288, PH = 76, PADX = 34, PGAP = 20;
+      const PY2 = 1420, PH = 84, PADX = 36, PGAP = 22;
       ctx.save(); ctx.globalAlpha *= eOut(intro(t, .7, .7));
-      ctx.font = F(700, 34); ctx.letterSpacing = '-.9px';
+      ctx.font = F(700, 36); ctx.letterSpacing = '-1px';
       const pws = MET.map(([pct]) => PADX * 2 + ctx.measureText(pct + '%').width);
       let bx = CX - (pws.reduce((a2, b) => a2 + b, 0) + PGAP * 2) / 2;
       MET.forEach(([pct, cap], k) => {
-        ctx.font = F(700, 34); ctx.letterSpacing = '-.9px';
+        ctx.font = F(700, 36); ctx.letterSpacing = '-1px';
         ctx.fillStyle = 'rgba(255,255,255,.95)';
         ctx.beginPath(); ctx.roundRect(bx, PY2, pws[k], PH, PH / 2); ctx.fill();
         ctx.fillStyle = pct <= 30 ? PAL.red : NEU.t3;
@@ -1317,19 +1319,19 @@ export class FloorGL {
         ctx.fillText(pct + '%', bx + pws[k] / 2, PY2 + PH / 2 + 1);
         ctx.font = F(500, 27); ctx.letterSpacing = '2.2px';
         ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.textBaseline = 'top';
-        ctx.fillText(cap, bx + pws[k] / 2, PY2 + PH + 14);
+        ctx.fillText(cap, bx + pws[k] / 2, PY2 + PH + 18);
         bx += pws[k] + PGAP;
       });
       ctx.letterSpacing = '0px';
       ctx.restore();
     }
     // ④ CTA — 눈금/지시 (직선, 목업 그대로)
-    ctx.save(); this._fadeIn(1420, 200, eOut(intro(t, .7, .9)));
+    ctx.save(); this._fadeIn(1640, 200, eOut(intro(t, .7, .9)));
     ctx.textAlign = 'center'; ctx.textBaseline = 'top';
     ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.font = F(400, 46); ctx.letterSpacing = '-1.4px';
-    ctx.fillText('To start', CX, 1420);
+    ctx.fillText('To start', CX, 1640);
     ctx.fillStyle = '#fff'; ctx.font = F(700, 88); ctx.letterSpacing = '-4.7px';
-    ctx.fillText('Tap your foot Twice', CX, 1484);
+    ctx.fillText('Tap your foot Twice', CX, 1704);
     ctx.letterSpacing = '0px';
     ctx.restore();
     // ⑤ 발자국 — 캔버스로 그리지 않는다. 룩시스템 발형(FootMark, MARK Preview)이 3D 토큰으로
