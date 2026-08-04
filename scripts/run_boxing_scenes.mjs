@@ -16,7 +16,7 @@
 //     node scripts/run_boxing_scenes.mjs --w 3840           # 4K
 //     node scripts/run_boxing_scenes.mjs --out out/BX_FINAL
 
-import { spawn } from 'child_process';
+import { spawn, execFileSync } from 'child_process';
 
 const arg = (k, d) => { const i = process.argv.indexOf('--' + k); return i > 0 ? process.argv[i + 1] : d; };
 const W = arg('w', '2560');
@@ -54,6 +54,18 @@ const run = (s) => new Promise((res) => {
     res({ ...s, code, secs, miss, tail });
   });
 });
+
+// ★ 렌더 전에 클립이 전부 올-인트라인지 먼저 본다. 아니면 인물이 조용히 사라지고,
+//   그걸 알아채는 건 한 시간 뒤 산출물을 눈으로 볼 때다(2026-08-04 에 그렇게 8시간을 썼다).
+try {
+  execFileSync('node', ['scripts/check_clips_intra.mjs'], { stdio: 'pipe' });
+  console.log('클립 검사 통과 — 전부 올-인트라\n');
+} catch (e) {
+  console.error((e.stdout || '').toString());
+  console.error('★ 클립이 올-인트라가 아닙니다. 이대로 뽑으면 인물이 사라집니다.');
+  console.error('   node scripts/check_clips_intra.mjs --fix   로 고친 뒤 다시 실행하세요.');
+  process.exit(1);
+}
 
 const total = SCENES.reduce((a, s) => a + Math.round(s.dur * parseFloat(FPS)), 0);
 console.log(`복싱 ${SCENES.length}씬 · 총 ${total}프레임 · ${W}px ${FPS}fps → ${OUT}`);
