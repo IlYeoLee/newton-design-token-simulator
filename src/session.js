@@ -1033,7 +1033,9 @@ export class Session {
     // 좌·우 발형(FootMark = 룩시스템 발형 SDF, A3와 동일 방식·사이즈) 나란히 지면 고정.
     // 상태 = countdown/setHold/glow/ghost로 Preview/Active/Hold/Success/Locked. 숫자는 발형 자식.
     // 전방 투사존 — 타이틀·도트(상단, 먼 z) 아래 열린 콘텐츠 존에 나란히 (겹침 방지)
-    const fmL = new FootMark('left').at(-0.16, -0.78), fmR = new FootMark('right').at(0.16, -0.78);   // 카드와 겹침 해소(유저 #88)
+    // z −0.78 → −0.48: 뒷발이 위 캡슐 카드와 아예 겹쳤다(유저 08-05 스샷). 발 한 켤레를
+    //   통째로 앞(가까운 z)으로 당겨 카드 아래 빈 존에 앉힌다 — 런지 보폭은 틱이 다시 벌린다.
+    const fmL = new FootMark('left').at(-0.16, -0.48), fmR = new FootMark('right').at(0.16, -0.48);
     // 숫자 = 룩시스템 attachMarkNum(발 plane 자식·MARK_NUM 크기·numFoot 앵커) — 삐짐 없는 정본 이식
     const numL = attachMarkNum(fmL, '5', false), numR = attachMarkNum(fmR, '5', true);
     numL.visible = false; numR.visible = false;
@@ -1045,7 +1047,7 @@ export class Session {
     arBack.rotation.x = -Math.PI / 2; arKnee.rotation.x = -Math.PI / 2;
     arBack.rotation.z = Math.PI * 0.5;    // 뒤(−z) 방향
     arKnee.rotation.z = Math.PI;          // 아래(화면 앞쪽)
-    arBack.position.set(-0.34, 0.014, -0.72); arKnee.position.set(0.22, 0.014, -0.62);
+    arBack.position.set(-0.34, 0.014, -0.42); arKnee.position.set(0.22, 0.014, -0.32);   // 발과 같이 +0.30 앞으로
     arBack.visible = arKnee.visible = false;
     g.add(arBack, arKnee);
     this.a2press = { fmL, fmR, numL, numR, cd: a2cd, fill: 0, _cnt: 5, _succ: 0, _succFM: null, arBack, arKnee };
@@ -2180,8 +2182,11 @@ export class Session {
           if (a._mesh) a._mesh.material.opacity = Math.max(0, fade);
         });
       }
-      // 스탠스 대시 라인 — 두 발 사이(발 실루엣 반경만큼 안쪽에서 끊어 발과 안 겹침)
-      if (P.link) {
+      // 스탠스 대시 라인 폐기(유저 08-05: "중간에 이상한 라인도 예쁘지가 않아") — 발 사이에서
+      //   가로로 늘어난 도트 스트립이 사다리처럼 읽혔다. 보폭은 두 발 위치가 이미 말한다.
+      //   자산·틱 로직은 남겨 둔다(다시 켤 땐 이 한 줄만 지운다).
+      if (P.link) { P.link.visible = false; }
+      else if (P.link) {
         const a = P.fmL.group.position, b = P.fmR.group.position;
         const dx = b.x - a.x, dz = b.z - a.z, L = Math.hypot(dx, dz) || 1;
         const IN = 0.11;   // 발 반경 여백 — 0.20은 실측 런지 간격 0.46m에서 라인을 6cm만 남겼다(안 보임)
