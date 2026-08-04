@@ -516,8 +516,11 @@ export function drawChars(ctx, txt, cx, y, h, ls, fn, align = 'center') {
 // ── 나머지 문서(시작화면·전환·카운트다운·리포트) 데이터 — 각 HTML의 상수를 그대로 옮긴 것 ──
 const READY = {
   // meta = 모바일 홈 카드의 '팩 · 시간' 표기(home.html 원본) — 지면도 같은 조판 규칙을 쓴다
-  'floor.html':    { title: "Sean's Final 1km Pace", today: 'Today · 5.0km · Standard', time: '30min', mode: 'Pace & Boost On', modeSm: true },
-  'floor-bk.html': { title: "Curry's Handle Pack",   today: 'Today · 15min · Standard',  time: '23min',     mode: 'Press On' },
+  // comp = 세션 시간 구성(분) — READY 아크 트랙이 구간 크기로 위계를 말한다. 합 = time.
+  'floor.html':    { title: "Sean's Final 1km Pace", today: 'Today · 5.0km · Standard', time: '30min', mode: 'Pace & Boost On', modeSm: true,
+                     comp: [['Stretch', 5], ['Learn', 10], ['Run!', 15]] },
+  'floor-bk.html': { title: "Curry's Handle Pack",   today: 'Today · 15min · Standard',  time: '23min',     mode: 'Press On',
+                     comp: [['Stretch', 5], ['Learn', 8], ['Play!', 10]] },
 };
 const TR = {
   T1: { sub: 'Sean’s Final 1km Pace', title: 'Warm-Up Done!',
@@ -600,17 +603,39 @@ export function arcText(ctx, s, cx, cy, r, aMid) {
 // 고리 조각(부채꼴 밴드 셀) — 안팎 반경 r0~r1, 각도 a0~a1. 모서리 라운드는 경로를 round 만큼
 //   안쪽으로 줄이고 같은 색 라운드 스트로크(2×round)로 되살리는 방식 — 진짜 라운드 경로보다
 //   훨씬 짧고 결과가 같다.
-export function arcSegFill(ctx, cx, cy, r0, r1, a0, a1, fill, round = 24) {
-  const rm = (r0 + r1) / 2, da = round / rm;
+export function arcSegFill(ctx, cx, cy, r0, r1, a0, a1, fill, round) {
+  const rm = (r0 + r1) / 2;
+  // 기본 = 두께의 42% '젤리' 라운딩(레퍼런스 HUD 감). 두께·호길이 반을 못 넘게 클램프.
+  const R = Math.max(4, Math.min(round ?? (r1 - r0) * 0.42, (r1 - r0) / 2 - 1, (a1 - a0) * rm / 2 - 1));
+  const da = R / rm;
   ctx.save();
   ctx.beginPath();
-  ctx.arc(cx, cy, r1 - round, a0 + da, a1 - da);
-  ctx.arc(cx, cy, r0 + round, a1 - da, a0 + da, true);
+  ctx.arc(cx, cy, r1 - R, a0 + da, a1 - da);
+  ctx.arc(cx, cy, r0 + R, a1 - da, a0 + da, true);
   ctx.closePath();
   ctx.fillStyle = fill; ctx.strokeStyle = fill;
-  ctx.lineWidth = round * 2; ctx.lineJoin = 'round';
+  ctx.lineWidth = R * 2; ctx.lineJoin = 'round';
   ctx.fill(); ctx.stroke();
   ctx.restore();
+}
+// 시간 구성 트랙 — 라운드캡 굵은 호 구간들, 구간 각도 = 분에 비례(위계를 크기로 말한다).
+//   parts = [[라벨, 분]…]. 라벨은 호출자가 그린다 — [중심각, 라벨, 분] 목록을 돌려준다.
+export function arcComp(ctx, cx, cy, r, a0, a1, parts, lw, colors) {
+  const gap = (lw * 1.15) / r;
+  const total = parts.reduce((s, p) => s + p[1], 0);
+  const span = (a1 - a0) - gap * (parts.length - 1);
+  const mids = [];
+  let a = a0;
+  ctx.save(); ctx.lineCap = 'round'; ctx.lineWidth = lw;
+  parts.forEach(([lbl, m], i) => {
+    const da = span * m / total;
+    ctx.strokeStyle = colors[i % colors.length];
+    ctx.beginPath(); ctx.arc(cx, cy, r, a + lw / 2 / r, a + da - lw / 2 / r); ctx.stroke();
+    mids.push([a + da / 2, lbl, m]);
+    a += da + gap;
+  });
+  ctx.restore();
+  return mids;
 }
 
 // 완료 체크 배지 — Figma 52:3178 정본: 흰 원(글로우) + 뉴턴 레드 체크.
@@ -1224,7 +1249,9 @@ export class FloorGL {
     //   센터 스택(아바타/제목/요약/칩/CTA 세로 나열)은 위계가 안 섰다 — 반원 레이아웃으로:
     //   중심(발·CTA) → 밴드(기기 칩 셀) → 바깥 호(요약 → 제목) 순으로 멀수록 맥락 정보.
     //   호 양끝 = 아바타(누구 팩) · 시간 캡슐(레퍼런스 arc UI 의 3:12 자리).
-    const C = { x: CX, y: 1600 }, R0 = 560, R1 = 770, RM = (R0 + R1) / 2;
+    //   ★ 빔 커버리지: 모든 요소는 대지 가장자리에서 110px 이상 안쪽(유저 — 커버리지 초과 금지).
+    //     호 끝(수평에 가까운 각)이 좌우로 제일 튀므로 반경·각 스프레드가 이 여백으로 역산된다.
+    const C = { x: CX, y: 1600 }, R0 = 520, R1 = 706, RM = (R0 + R1) / 2;
     const RAD = Math.PI / 180;
     // 글로우 — 숨쉬기 유지, 중심만 C 로
     const gl = this._img('fig/big_glow.svg');
@@ -1243,14 +1270,14 @@ export class FloorGL {
     // ① 바깥 호 — 제목(1순위 맥락) · 요약(2순위) 원호 활자
     ctx.save(); ctx.globalAlpha *= eOut(intro(t, .12, .8));
     ctx.fillStyle = 'rgba(255,255,255,.95)'; ctx.font = F(700, 68); ctx.letterSpacing = '-2.3px';
-    arcText(ctx, D.title, C.x, C.y, 1030, -90 * RAD);
+    arcText(ctx, D.title, C.x, C.y, 1000, -90 * RAD);
     ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.font = F(400, 44); ctx.letterSpacing = '-1.4px';
-    arcText(ctx, D.today, C.x, C.y, 920, -90 * RAD);
+    arcText(ctx, D.today, C.x, C.y, 896, -90 * RAD);
     ctx.letterSpacing = '0px'; ctx.restore();
     // ② 밴드 — 기기 칩 3개를 부채꼴 셀로. 내용은 접선 방향(아이콘 위 · 상태 아래).
     const CHIP = [['run/ic_glasses.png', '90%', true], ['run/ic_watch.png', '30%', false],
                   ['run/ic_earbuds.png', '60%', false]];
-    const A0 = -160, A1 = -20, GAPD = 3, SEG = (A1 - A0 - GAPD * 2) / 3;
+    const A0 = -146, A1 = -34, GAPD = 3, SEG = (A1 - A0 - GAPD * 2) / 3;
     CHIP.forEach(([ic, tx, sel], i) => {
       const s0 = (A0 + i * (SEG + GAPD)) * RAD, s1 = s0 + SEG * RAD, am = (s0 + s1) / 2;
       ctx.save(); ctx.globalAlpha *= eOut(intro(t, .5 + i * .12, .7));
@@ -1275,10 +1302,20 @@ export class FloorGL {
       ctx.fillStyle = sel ? '#fff' : '#525252'; ctx.fillText(tx, 0, 8);
       ctx.restore();
     });
+    // ②' 세션 구성 트랙 — 라운드캡 굵은 호, 구간 각도 = 분(위계를 크기로). Total 그래프의 호 버전.
+    //   라벨은 짧게(분만), 마지막(본운동)만 이름+분 — 큰 조각 = 주인공이라는 문법.
+    {
+      ctx.save(); ctx.globalAlpha *= eOut(intro(t, .65, .8));
+      const mids = arcComp(ctx, C.x, C.y, 436, -140 * RAD, -40 * RAD, D.comp, 32, [PAL.red, PAL.coral, PAL.sand]);
+      ctx.font = F(700, 30); ctx.fillStyle = 'rgba(255,255,255,.85)';
+      mids.forEach(([am, lbl, m], i) =>
+        arcText(ctx, i === mids.length - 1 ? `${lbl} ${m}m` : `${m}m`, C.x, C.y, 370, am));
+      ctx.restore();
+    }
     // ③ 호 왼끝 — 크리에이터 아바타(누구 팩인가). 밴드보다 약간 바깥 각도.
     {
       const pk = this._img(bk ? 'photos/cardbg-curry.png' : 'photos/creator-profile-sean.png');
-      const AA = -174 * RAD, ax = C.x + Math.cos(AA) * RM, ay = C.y + Math.sin(AA) * RM, R = 110;
+      const AA = -160 * RAD, ax = C.x + Math.cos(AA) * RM, ay = C.y + Math.sin(AA) * RM, R = 88;
       ctx.save(); ctx.globalAlpha *= eOut(intro(t, .3, .8));
       ctx.beginPath(); ctx.arc(ax, ay, R - 3, 0, Math.PI * 2); ctx.save(); ctx.clip();
       if (pk) {
@@ -1293,9 +1330,9 @@ export class FloorGL {
     }
     // ④ 호 오른끝 — 시간 캡슐(레퍼런스 arc UI 의 3:12 자리).
     {
-      const TA = -6 * RAD, px = C.x + Math.cos(TA) * RM, py = C.y + Math.sin(TA) * RM;
+      const TA = -20 * RAD, px = C.x + Math.cos(TA) * RM, py = C.y + Math.sin(TA) * RM;
       ctx.save(); ctx.globalAlpha *= eOut(intro(t, .4, .8));
-      const w = 250, h = 104;
+      const w = 220, h = 96;
       ctx.fillStyle = '#fff';
       ctx.beginPath(); ctx.roundRect(px - w / 2, py - h / 2, w, h, h / 2); ctx.fill();
       ctx.fillStyle = '#525252'; ctx.font = F(700, 48); ctx.letterSpacing = '-1.5px';
@@ -1303,24 +1340,21 @@ export class FloorGL {
       ctx.fillText(D.time, px, py + 2);
       ctx.letterSpacing = '0px'; ctx.restore();
     }
-    // ⑤ 중심 — CTA + 발(시그니처). 눈금/지시 3단 구성 유지.
-    ctx.save(); this._fadeIn(1080, 500, eOut(intro(t, .7, .9)));
+    // ⑤ 중심 — CTA + 발(시그니처). 눈금/지시 구성 유지, 화살표는 폐기(트랙과 겹침 + 발이 이미 지시).
+    ctx.save(); this._fadeIn(1250, 500, eOut(intro(t, .7, .9)));
     const bob = cycle(t, 1.5, 3, 3);
-    const ady = bob == null ? 0 : kf(bob, [[0, 0], [.12, 14], [.25, 0], [.4, 13], [.52, 0], [.58, 0], [1, 0]]);
-    const ar = this._img('run/arrow.svg');
-    if (ar) ctx.drawImage(ar, C.x - 43, 1080 + ady, 86, 86);
     ctx.textAlign = 'center'; ctx.textBaseline = 'top';
     ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.font = F(400, 46); ctx.letterSpacing = '-1.4px';
-    ctx.fillText('To start', C.x, 1188);
+    ctx.fillText('To start', C.x, 1250);
     ctx.fillStyle = '#fff'; ctx.font = F(700, 88); ctx.letterSpacing = '-4.7px';
-    ctx.fillText('Tap your foot Twice', C.x, 1250);
+    ctx.fillText('Tap your foot Twice', C.x, 1312);
     ctx.letterSpacing = '0px';
     ctx.restore();
     // 발 — 탭 모션(footBob), 호 중심 위
-    ctx.save(); this._fadeIn(1400, 539, eOut(intro(t, .7, .9)));
+    ctx.save(); this._fadeIn(1460, 539, eOut(intro(t, .7, .9)));
     const foot = this._img('run/foot.svg');
     const fdy = bob == null ? 0 : kf(bob, [[0, 0], [.12, 46], [.25, 6], [.4, 44], [.52, 0], [.58, 0], [1, 0]]);
-    if (foot) ctx.drawImage(foot, 606, 1400 + fdy, 400, 539);
+    if (foot) ctx.drawImage(foot, 606, 1460 + fdy, 400, 539);
     ctx.restore();
   }
 
