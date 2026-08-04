@@ -1363,8 +1363,10 @@ export class FloorGL {
         cur = s1 + GAPA;
         // 아크 — 스윕이 지나간 만큼만(왼→오 차오름). 세그먼트 '사이'만 캡 인셋, 차트 양끝단은
         //   캡 중심이 끝각에 앉는다 — 마지막 캡 중심(A1)이 배지 중심(A0)의 미러 = 하단 정렬(유저 #64).
-        const isLast = seg === segs[segs.length - 1];
-        const sA = s0 + capA, eA = isLast ? s1 : s1 - capA;
+        // 차트 양끝단은 캡 인셋을 빼지 않는다 — 첫 캡 중심 = A0, 마지막 캡 중심 = A1 이라야
+        //   두 끝이 정확히 같은 높이에 앉는다(유저 #93: 끝 높이 맞춰라, sin196°=sin344°).
+        const isFirst = seg === segs[0], isLast = seg === segs[segs.length - 1];
+        const sA = isFirst ? s0 : s0 + capA, eA = isLast ? s1 : s1 - capA;
         const end = Math.min(eA, sweep);
         if (end > sA + 0.5) {
             const p0 = polar(sA), p1 = polar(eA);
