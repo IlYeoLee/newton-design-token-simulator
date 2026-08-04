@@ -521,11 +521,12 @@ const READY = {
   //   r2 = Figma 시작화면(342:3057) 캡슐 디자인 필드 — 제목 2줄 / 부제 / 총 분(도트 히어로·아크 라벨)
   'floor.html':    { title: "Sean's Final 1km Pace", today: 'Today · 5.0km · Standard', time: '30min', mode: 'Pace & Boost On', modeSm: true,
                      comp: [['Stretch', 5], ['Learn', 10], ['Run!', 15]],
-                     r2: { lines: ["Sean's", 'Final 1km Pace'], sub: 'Pace On', total: '30',
+                     r2: { vid: 'sean_neck_shoulder.webm',   // 페이즈2 실루엣 = 러닝 A1(목·어깨)
+                           lines: ["Sean's", 'Final 1km Pace'], sub: 'Pace On', total: '30',
                            arcs: [{ v: 10, lbl: '10min', icon: 'feet' }, { v: 15, lbl: '15min', icon: 'run' }], badge: '5' } },   // 배지 5 = 스트레칭 — 합 30
   'floor-bk.html': { title: "Curry's Handle Pack",   today: 'Today · 15min · Standard',  time: '23min',     mode: 'Press On',
                      comp: [['Stretch', 5], ['Learn', 8], ['Play!', 10]],
-                     r2: { scale: 0.75, pivotY: 320,   // 농구 콘이 얕다 — 상단 앵커 축소로 하단을 콘 안으로
+                     r2: { scale: 0.75, pivotY: 320, vid: 'bk_squat.webm',   // 농구 콘 얕음 — 상단 앵커 축소 · 실루엣 = 농구 A1(스쿼트)
                            lines: ["Curry's", 'Handle Pack'], sub: 'Press On', total: '23',
                            arcs: [{ v: 8, lbl: '8min', icon: 'feet' }, { v: 10, lbl: '10min', icon: 'run' }], badge: '5' } },   // 배지 5 = 스트레칭 — 합 23
 };
@@ -1238,6 +1239,7 @@ export class FloorGL {
     // 콘텐츠 스케일 — 프레임(=커버리지)은 절대 못 줄인다. 종목별 실물 크기 동급화는 여기서.
     const CK = R2.scale || 1, PV = R2.pivotY ?? 1400;
     ctx.save();
+    ctx.translate(0, -185);   // 콘텐츠 전체 위로 — far 쪽 빈 띠 제거 + Tap Twice 를 가시권으로(유저)
     if (CK !== 1) { ctx.translate(800, PV); ctx.scale(CK, CK); ctx.translate(-800, -PV); }
     // ── 페이즈 타임라인 — 등장(왼→오 촤라락) 완료 후 2초 뒤 페이즈2(실루엣·코치 프로필) ──
     const TP2 = 3.9, p2 = eOut(intro(t, TP2, .7));
@@ -1294,25 +1296,8 @@ export class FloorGL {
       ctx.letterSpacing = '0px';
       ctx.restore();
     }
-    // 페이즈2 — 룩시스템 실루엣 영상(임시: 사이드 런지 클립, 가산 합성 + 열화상 틴트 근사)
-    if (p2 > 0.01) {
-      if (!this._readyVid) {
-        const el = document.createElement('video');
-        el.src = (import.meta.env?.BASE_URL || '/') + 'ready-view/assets/sean_lunge.webm';   // 알파 실루엣(임시=스트레칭1)
-        el.muted = true; el.loop = true; el.playsInline = true; el.autoplay = true;
-        el.play?.().catch(() => {});
-        this._readyVid = el;
-      }
-      const v = this._readyVid;
-      if (v.readyState >= 2 && v.videoWidth) {
-        const H2 = 720, W2 = H2 * (v.videoWidth / v.videoHeight);
-        ctx.save(); ctx.globalAlpha *= p2;
-        ctx.filter = 'sepia(1) saturate(3.2) hue-rotate(-18deg) brightness(1.05)';   // 임시 열화상 틴트(정본 personLook 이식 전)
-        ctx.drawImage(v, 800 - W2 / 2, 1810 - H2, W2, H2);
-        ctx.filter = 'none';
-        ctx.restore();
-      }
-    }
+    // 페이즈2 실루엣 = 3D 코치 데모판 정본(COACH_CFG.READY, main.js)이 UI 캡슐 뒤에 선다 —
+    //   캔버스에는 아무것도 안 그린다(UI 는 투명 레이어, 유저).
     // ── ④ 비례 세그먼트 아크 차트 — 데이터 파생형(r=999 캡슐 아크 언어).
     //   반원 하단 정렬: 배지 중심각(A0)과 마지막 세그먼트 끝각(A1)이 270° 대칭 — 양끝이 같은
     //   기준선에 앉는다. 등장 = 왼쪽(배지)에서 오른쪽으로 호를 따라 차오르는 스윕 + 아이콘 팝 +

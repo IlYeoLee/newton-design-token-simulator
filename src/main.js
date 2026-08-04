@@ -2315,6 +2315,9 @@ void main(){
   // 룩시스템 열화상 코치 패널(A1 목·어깨, A2 런지 공용) — 그린스크린 영상 → 복싱 벽 톤 열화상.
   //   cfg: { src, cropOff, cropScale(세로 크롭 창), w, h, fwd }  crop을 uniform으로 빼 스테이지별 대응.
   const COACH_CFG = {
+    // READY 페이즈2(등장 후 2초) — A1 원본 데모판을 그대로 UI 캡슐 뒤에. 캔버스 사제 비디오 폐기(유저).
+    READY:    { src: 'ready-view/assets/sean_neck_shoulder.webm', cropOff: 0.40, cropScale: 0.58, w: 0.88, h: 0.9, fwd: 0.16, ph: 0.83 },
+    BK_READY: { src: 'ready-view/assets/bk_squat.webm', cropOff: 0.0, cropScale: 1.0, w: 0.9, h: 0.9, fwd: 0.10 },
     A1: { src: 'ready-view/assets/sean_neck_shoulder.webm', cropOff: 0.40, cropScale: 0.58, w: 0.88, h: 0.9, fwd: 0.16, ph: 0.83 },   // A2 런지와 크기 맞춤(유저: 너무 작음)
     A2: { src: 'ready-view/assets/sean_lunge.webm', cropOff: 0.0, cropScale: 1.0, w: 0.9, h: 0.9, fwd: 0.10, zoom: 0.86, ph: 0.65 },   // 런지 전신 측면 — 축소로 뒷발이 프레임 페이드에 안 걸리게(유저)
     A3: { src: 'ready-view/assets/sean_highknee.webm', cropOff: 0.0, cropScale: 1.0, w: 0.9, h: 0.9, fwd: 0.10, ph: 0.87 },   // 하이니 전신 정면
@@ -2739,11 +2742,12 @@ void main(){
     // 실전(BK_C2)도 같은 클립을 타이밍 소스로 쓴다 — 라이브라고 끊으면 마크가 안 움직인다.
     const st = session.active && (!session.isLive || session.stage === 'BK_C2')
       && (state.pack === 'running' || state.pack === 'basketball') ? session.stage : null;
-    const COACH_IDS = ['A1', 'A2', 'A3', 'BK_A1', 'BK_A2', 'BK_A3', 'BK_B1', 'BK_B2', 'BK_B3', 'BK_B4', 'BK_B5', 'BK_C2'];
+    const COACH_IDS = ['READY', 'BK_READY', 'A1', 'A2', 'A3', 'BK_A1', 'BK_A2', 'BK_A3', 'BK_B1', 'BK_B2', 'BK_B3', 'BK_B4', 'BK_B5', 'BK_C2'];
     // 관찰이 끝나면(followLatch) 코치를 끄는 게 기존 규약이었다. 단 스텝백 4페이즈(BK_B2~B5)는
     //   따라하기 화면에도 같은 실루엣이 축소되어 남아야 한다(피그마 143:444) — 예외로 계속 켠다.
     const activeId = COACH_IDS.find(id => id === st
-      && !(/^(A2|A3|BK_A2|BK_A3|BK_B1)$/.test(id) && session._followLatch)) || null;
+      && !(/^(A2|A3|BK_A2|BK_A3|BK_B1)$/.test(id) && session._followLatch)
+      && !(/READY$/.test(id) && session.t < 3.9)) || null;   // READY 실루엣 = 페이즈2(등장+2s)부터
     for (const id of COACH_IDS) {
       const c = _coaches[id];
       if (id === activeId) {
@@ -5898,6 +5902,7 @@ void main(){
       const sUni = laneW / fView.w;
       // UI 프레임 전방위치 = 타이틀(board-y 176)이 커버리지 far끝(빨간 투사 끝라인 ≈ fpFar) 아래 고정 간격(0.12m)에 오도록.
       //   → 빨간 끝라인에서 타이틀까지 내려오는 거리를 전 스테이지 동일하게(유저 image 21). 대지 중심 앵커(dMid)가 아니라 far끝 기준.
+      // ★ far 앵커 고정 — 전진 오프셋은 두 번 다 커버리지 이탈을 냈다(08-05 재발). 절대 더하지 말 것.
       const boardFwd = (rig.fpFar - 0.12) - (1335 - 176) * sUni;
       const cx = sfp.ox + sfp.fx * boardFwd, cz = sfp.oz + sfp.fz * boardFwd;
       // 로컬축 → 월드: 대지 폭(+X)→풋프린트 우측, 대지 높이(+Y=위쪽/제목)→전방(far), 법선(+Z)→상방.
