@@ -5894,7 +5894,8 @@ void main(){
       const laneW = 2 * rig._halfAt(dMid), sUni = laneW / fView.w;
       // UI 프레임 전방위치 = 타이틀(board-y 176)이 커버리지 far끝(빨간 투사 끝라인 ≈ fpFar) 아래 고정 간격(0.12m)에 오도록.
       //   → 빨간 끝라인에서 타이틀까지 내려오는 거리를 전 스테이지 동일하게(유저 image 21). 대지 중심 앵커(dMid)가 아니라 far끝 기준.
-      const boardFwd = (rig.fpFar - 0.12) - (1335 - 176) * sUni;
+      // READY(시작 화면)는 0.3m 더 앞으로 — 발치에 붙어 있으면 캡슐·신발이 유저 그림자에 밟힌다(유저).
+      const boardFwd = (rig.fpFar - 0.12) - (1335 - 176) * sUni + (session.curStage?.id === 'READY' ? 0.3 : 0);
       const cx = sfp.ox + sfp.fx * boardFwd, cz = sfp.oz + sfp.fz * boardFwd;
       // 로컬축 → 월드: 대지 폭(+X)→풋프린트 우측, 대지 높이(+Y=위쪽/제목)→전방(far), 법선(+Z)→상방.
       _rV.set(sfp.rx, 0, sfp.rz); _fV.set(sfp.fx, 0, sfp.fz);

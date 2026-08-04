@@ -518,10 +518,13 @@ export function drawChars(ctx, txt, cx, y, h, ls, fn, align = 'center') {
 const READY = {
   // meta = 모바일 홈 카드의 '팩 · 시간' 표기(home.html 원본) — 지면도 같은 조판 규칙을 쓴다
   // comp = 세션 시간 구성(분) — READY 아크 트랙이 구간 크기로 위계를 말한다. 합 = time.
+  //   r2 = Figma 시작화면(342:3057) 캡슐 디자인 필드 — 제목 2줄 / 부제 / 총 분(도트 히어로·아크 라벨)
   'floor.html':    { title: "Sean's Final 1km Pace", today: 'Today · 5.0km · Standard', time: '30min', mode: 'Pace & Boost On', modeSm: true,
-                     comp: [['Stretch', 5], ['Learn', 10], ['Run!', 15]] },
+                     comp: [['Stretch', 5], ['Learn', 10], ['Run!', 15]],
+                     r2: { lines: ["Sean's", 'Final 1km Pace'], sub: 'Pace On', total: '30' } },
   'floor-bk.html': { title: "Curry's Handle Pack",   today: 'Today · 15min · Standard',  time: '23min',     mode: 'Press On',
-                     comp: [['Stretch', 5], ['Learn', 8], ['Play!', 10]] },
+                     comp: [['Stretch', 5], ['Learn', 8], ['Play!', 10]],
+                     r2: { lines: ["Curry's", 'Handle Pack'], sub: 'Press On', total: '23' } },
 };
 const TR = {
   T1: { sub: 'Sean’s Final 1km Pace', title: 'Warm-Up Done!',
@@ -1227,6 +1230,7 @@ export class FloorGL {
 
   _paint_ready() {
     const ctx = this.ctx, t = this.t;
+    const D = READY[/floor-bk/.test(this.params.src) ? 'floor-bk.html' : 'floor.html'], R2 = D.r2;
     const RF = (w, s, fam = sans) => `${w} ${s}px ${fam}`;   // 피그마 원치수(타입스케일 미적용)
     const img = rel => this._img('fig/ready2/' + rel);
     const e0 = (d, dur = .8) => eOut(intro(t, d, dur));
@@ -1264,15 +1268,15 @@ export class FloorGL {
     ctx.save(); ctx.globalAlpha *= e0(.25);
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillStyle = NEU.ink; ctx.font = RF(700, 100); ctx.letterSpacing = '-4px';
-    ctx.fillText("Sean's", 800, 778 - 60);
-    ctx.fillText('Final 1km Pace', 800, 778 + 60);
+    ctx.fillText(R2.lines[0], 800, 778 - 60);
+    ctx.fillText(R2.lines[1], 800, 778 + 60);
     ctx.fillStyle = 'rgba(255,255,255,.8)'; ctx.font = RF(400, 64); ctx.letterSpacing = '-2.56px';
-    ctx.fillText('Pace On', 800.5, 971);
+    ctx.fillText(R2.sub, 800.5, 971);
     ctx.restore();
     ctx.save(); ctx.globalAlpha *= e0(.35);
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillStyle = NEU.ink; ctx.font = RF(700, 384, dot9); ctx.letterSpacing = '-9.05px';
-    ctx.fillText('30', 800, 1507);
+    ctx.fillText(R2.total, 800, 1507);
     ctx.font = RF(700, 64); ctx.letterSpacing = '-1.51px';
     ctx.fillText('min', 1079.3, 1315);
     ctx.letterSpacing = '0px';
@@ -1293,8 +1297,8 @@ export class FloorGL {
     // 아크 위 라벨 — '30min' ×2 (스크린샷 실측 각도, 밴드 결 따라)
     ctx.fillStyle = NEU.ink; ctx.font = RF(700, 44); ctx.letterSpacing = '-1px';
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.save(); ctx.translate(1070, 500); ctx.rotate(35 * RAD); ctx.fillText('30min', 0, 0); ctx.restore();
-    ctx.save(); ctx.translate(700, 420); ctx.rotate(-43 * RAD); ctx.fillText('30min', 0, 0); ctx.restore();
+    ctx.save(); ctx.translate(1070, 500); ctx.rotate(35 * RAD); ctx.fillText(R2.total + 'min', 0, 0); ctx.restore();
+    ctx.save(); ctx.translate(700, 420); ctx.rotate(-43 * RAD); ctx.fillText(R2.total + 'min', 0, 0); ctx.restore();
     // 회색 '5' 칩
     ctx.fillStyle = 'rgba(255,255,255,.37)';
     ctx.beginPath(); ctx.arc(480.54, 635.7, 71.07, 0, Math.PI * 2); ctx.fill();
