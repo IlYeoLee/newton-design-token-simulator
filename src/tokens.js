@@ -416,6 +416,22 @@ export function applyMarkLookTo(mat, part = {}) {
   for (const k in mapSF) if (part[k] != null && U[mapSF[k]]) U[mapSF[k]].value = part[k] * SF;
 }
 
+/** 상태별 룩 — footlab '이 상태만 편집' 저장본(mark-look.json states[ph]).
+ *  공통값은 이미 재질에 들어 있으므로 오버라이드만 얹고, 상태가 바뀌면 공통값으로 되돌린다. */
+const _stateBase = new WeakMap();
+export function setMarkStateLook(mat, ph) {
+  if (!mat?.uniforms) return;
+  const ov = (LOOK.states || {})[ph] || (LOOK.states || {})[String(ph)];
+  const KEYS = ['imp','dot','glow','shade','sharp','scale','plantar','bands','bandSoft','edgeShade',
+    'edgeShadeW','edgeShadeGrad','edgeShadeG0','edgeShadeG1','dither','pitch','edge','edgeW'];
+  if (!_stateBase.has(mat)) {
+    const base = {}; for (const k of KEYS) if (LOOK[k] != null) base[k] = LOOK[k];
+    _stateBase.set(mat, base);
+  }
+  applyMarkLookTo(mat, _stateBase.get(mat));   // 공통으로 리셋
+  if (ov) applyMarkLookTo(mat, ov);            // 그 상태만 덮기
+}
+
 export function applyMarkLook(part = {}) {
   const SF = SIL_FIT / SIL_FIT_REF;
   const map = { imp: 'uImp', dot: 'uImpDot', glow: 'uImpGlow', shade: 'uImpShade', sharp: 'uImpSharp',
@@ -772,6 +788,7 @@ export class Marker {
         this._xfT = nowP;
       }
       U.uPhase.value = _pn;
+      setMarkStateLook(this.fx?.material || m, _pn);   // 상태별 룩 오버라이드(footlab states)
       if (this._xfT != null) {
         const xe = (nowP - this._xfT) / 0.28;
         U.uXfade.value = xe >= 1 ? 1 : xe;
