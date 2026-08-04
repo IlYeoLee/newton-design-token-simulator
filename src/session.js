@@ -1019,7 +1019,7 @@ export class Session {
       g2.setLineDash([18, 22]);
       g2.beginPath(); g2.moveTo(6, 8); g2.lineTo(250, 8); g2.stroke();
       const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
-      const link = new THREE.Mesh(new THREE.PlaneGeometry(1, 0.045),
+      const link = new THREE.Mesh(new THREE.PlaneGeometry(1, 0.06),
         new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: 0, depthWrite: false }));
       link.rotation.x = -Math.PI / 2;
       link.renderOrder = 5;
@@ -2113,12 +2113,12 @@ export class Session {
       if (P.link) {
         const a = P.fmL.group.position, b = P.fmR.group.position;
         const dx = b.x - a.x, dz = b.z - a.z, L = Math.hypot(dx, dz) || 1;
-        const IN = 0.20;   // 발 반경 여백
+        const IN = 0.11;   // 발 반경 여백 — 0.20은 실측 런지 간격 0.46m에서 라인을 6cm만 남겼다(안 보임)
         const seg = Math.max(0.01, L - IN * 2);
         P.link.position.set((a.x + b.x) / 2, 0.012, (a.z + b.z) / 2);
         P.link.rotation.z = Math.atan2(-dz, dx);   // 평면(-x/2..x/2)을 발 사이 방향으로
         P.link.scale.set(seg, 1, 1);
-        P.link.material.opacity += ((inHold ? 0.55 : 0.28) - P.link.material.opacity) * 0.18;
+        P.link.material.opacity += ((inHold ? 0.7 : 0.35) - P.link.material.opacity) * 0.18;
         P.link.visible = L > 0.30;
       }
       if (inHold) {
