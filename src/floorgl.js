@@ -624,8 +624,12 @@ function buildScene(stage, p) {
   //   데이터(FLOOR_PHASES · phase · sub)는 처음부터 있었는데 그리질 않아 지면만 제목 하나로
   //   휑했다 — 유저: "바닥 UI가 왜 벽면이랑 다르고 투박하냐". 구 s-cap('n / 4' 단독)은
   //   여기 sub 가 그대로 담으므로 폐기(같은 정보 두 벌 금지).
-  // 페이즈 브레드크럼 은퇴(유저) — 운동 중엔 음성 + 구간명 타이틀이 이미 같은 정보를 말하고,
-  //   투사 실측 ~30mm 활자는 뛰면서 못 읽는다. 단계 안내는 셋업·전환 화면 몫.
+  // 페이즈 브레드크럼 — 정본 레퍼런스(유저 #110 실사 합성본)에 포함, 복원.
+  const PH = (typeof window !== 'undefined' ? window.FLOOR_PHASES : null)
+    || { running: ['WARM UP', 'PACE', 'RUN'], basketball: ['WARM UP', 'DRILL', 'GAME'] };
+  const phases = PH[/^BK_/.test(stage) ? 'basketball' : 'running'];
+  if (!isC && phases && S.phase != null)
+    col.push(node('s-crumb', { type: 'crumb', phases, phase: S.phase, sub: S.sub || '', mb: -34 }));
   if (!isC) col.push(node('s-title', { type: 'text', textContent: S.title, size: 120, weight: 700, ls: -4, color: '#fff', cascade: true }));
   col.push(node('s-cue', { type: 'text', textContent: S.cue || '', size: 52, weight: 400, color: 'rgba(255,255,255,.72)', style: { display: 'none' } }));
   // 실전 상단 — 케이던스 팩은 누적 거리, 페이스 팩은 '목표 대비 지금 몇 초'.
@@ -804,8 +808,8 @@ export class FloorGL {
       case 'text': return n.size * 1.06;
       case 'dots': return gaugeH(760);
       case 'prevRow': return 200;
-      case 'trainRow': return n.ring ? 262 : 254;   // 스탯 컴포넌트(값 148 + 편차바 + 라벨 40) 실높이
-      case 'liveRow': return 254;
+      case 'trainRow': return n.ring ? 236 : 228;   // 새 스탯 컴포넌트(값 132 + 편차바 + 라벨) 실높이
+      case 'liveRow': return 228;
       case 'paceErr': return 300;   // 값 200 + 편차 바 + 목표 라벨
       case 'paceSub': return 150;   // 남은 거리 · 구간 누적 편차 두 칸
       case 'km': return 180;
@@ -953,39 +957,29 @@ export class FloorGL {
     const off = Math.min(1, Math.abs(dev) / 0.12);    // ±12% 를 만점으로 본다
     const col = !ok ? NEU.paper : off < 0.35 ? PAL.sand : off < 0.72 ? PAL.coral : PAL.red;
     ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
-    // ① 값 — 도트 숫자 = 카운트업(유저 규칙). 132 → 148: 투사 거리 가독 + 밀도(유저).
-    //   색은 싣지 않는다(흰색 고정) — 편차는 아래 ②의 점이 이미 위치로 말한다.
-    rollNum(ctx, me || '--', this.t, 0, 0.6, cx, y + 118 - 148 * 0.78, 148,
+    // ① 값 — 도트 숫자 = 카운트업(유저 규칙). 진입 후 0.6s 동안 세어 오르고, 그 뒤엔 실시간 값을
+    //   그대로 따라가며 자릿수만 굴러간다. '--'(미측정)는 숫자가 아니라 그대로 그려진다.
+    //   색은 싣지 않는다(흰색 고정) — 편차는 아래 ②의 점이 이미 위치로 말한다. 숫자에까지 색을
+    //   태우면 ⓐ 학습자는 늘 목표와 어긋나 있어 빨강이 기본 상태가 되고(경고가 경고를 잃는다),
+    //   ⓑ 가산 투사에서 적색이 가장 먼저 대비를 잃어 '많이 틀어진 순간'에 제일 안 읽힌다.
+    rollNum(ctx, me || '--', this.t, 0, 0.6, cx, y + 118 - 132 * 0.78, 132,
             { fam: dot9, align: 'center', fill: NEU.paper });
     // ② 편차 바 — 가운데 눈금이 목표, 점이 현재. 관계를 '위치'로 읽는다.
-    //   유저(#101): 굵기 업 + 양끝 페이드 — 바가 공중에서 '떠서 사라지는' 빛 띠로.
-    const BW = 264, BY = y + 168;
+    const BW = 232, BY = y + 154;
     ctx.lineCap = 'round';
-    const trk = ctx.createLinearGradient(cx - BW / 2, 0, cx + BW / 2, 0);
-    trk.addColorStop(0, rgba(NEU.paper, 0));
-    trk.addColorStop(0.18, rgba(NEU.paper, 0.30));
-    trk.addColorStop(0.5, rgba(NEU.paper, 0.34));
-    trk.addColorStop(0.82, rgba(NEU.paper, 0.30));
-    trk.addColorStop(1, rgba(NEU.paper, 0));
-    ctx.strokeStyle = trk; ctx.lineWidth = 10;
+    ctx.strokeStyle = rgba(NEU.paper, 0.26); ctx.lineWidth = 4;
     ctx.beginPath(); ctx.moveTo(cx - BW / 2, BY); ctx.lineTo(cx + BW / 2, BY); ctx.stroke();
-    ctx.strokeStyle = rgba(NEU.paper, 0.7); ctx.lineWidth = 6;
-    ctx.beginPath(); ctx.moveTo(cx, BY - 13); ctx.lineTo(cx, BY + 13); ctx.stroke();
+    ctx.strokeStyle = rgba(NEU.paper, 0.55);
+    ctx.beginPath(); ctx.moveTo(cx, BY - 10); ctx.lineTo(cx, BY + 10); ctx.stroke();
     if (ok) {
       const px = cx + Math.max(-1, Math.min(1, dev / 0.12)) * (BW / 2);
-      ctx.save();
-      ctx.shadowColor = rgba(col, 0.85); ctx.shadowBlur = 22;   // 점 글로우 — 주변시에 걸리게
       ctx.fillStyle = col;
-      ctx.beginPath(); ctx.arc(px, BY, 12, 0, Math.PI * 2); ctx.fill();
-      ctx.restore();
+      ctx.beginPath(); ctx.arc(px, BY, 9, 0, Math.PI * 2); ctx.fill();
     }
-    // ③ 라벨 — 본문 영문(도트 금지). 'SPM' 단독은 초심자(타깃 Beginner)가 즉독 못 한다 —
-    //   STEPS/MIN 풀네임 + 목표값 병기(밀도·관계 명시, 유저).
-    const lbl = String(label).toUpperCase() === 'SPM' ? 'STEPS/MIN' : String(label).toUpperCase();
-    ctx.font = F(500, 40); ctx.letterSpacing = '8px';
-    ctx.fillStyle = rgba(NEU.paper, 0.62);
-    const tail = ok ? `  ·  TARGET ${Math.round(tv)}` : '';
-    ctx.fillText(lbl + tail, cx + 4, BY + 66);
+    // ③ 라벨 — 본문 영문. 숫자가 아니므로 도트 금지(유저 규약).
+    ctx.font = F(500, 34); ctx.letterSpacing = '7px';
+    ctx.fillStyle = rgba(NEU.paper, 0.6);
+    ctx.fillText(String(label).toUpperCase(), cx + 3.5, BY + 60);
     ctx.letterSpacing = '0px';
   }
 
@@ -1011,22 +1005,13 @@ export class FloorGL {
   _devBar(cx, by, w, dev, col, on) {
     const ctx = this.ctx;
     ctx.lineCap = 'round';
-    const trk = ctx.createLinearGradient(cx - w / 2, 0, cx + w / 2, 0);   // 양끝 페이드(유저 #101)
-    trk.addColorStop(0, rgba(NEU.paper, 0));
-    trk.addColorStop(0.18, rgba(NEU.paper, 0.30));
-    trk.addColorStop(0.5, rgba(NEU.paper, 0.34));
-    trk.addColorStop(0.82, rgba(NEU.paper, 0.30));
-    trk.addColorStop(1, rgba(NEU.paper, 0));
-    ctx.strokeStyle = trk; ctx.lineWidth = 10;
+    ctx.strokeStyle = rgba(NEU.paper, 0.26); ctx.lineWidth = 4;
     ctx.beginPath(); ctx.moveTo(cx - w / 2, by); ctx.lineTo(cx + w / 2, by); ctx.stroke();
-    ctx.strokeStyle = rgba(NEU.paper, 0.7); ctx.lineWidth = 6;
-    ctx.beginPath(); ctx.moveTo(cx, by - 13); ctx.lineTo(cx, by + 13); ctx.stroke();
+    ctx.strokeStyle = rgba(NEU.paper, 0.55);
+    ctx.beginPath(); ctx.moveTo(cx, by - 12); ctx.lineTo(cx, by + 12); ctx.stroke();
     if (!on) return;
-    ctx.save();
-    ctx.shadowColor = rgba(col, 0.85); ctx.shadowBlur = 22;
     ctx.fillStyle = col;
-    ctx.beginPath(); ctx.arc(cx + Math.max(-1, Math.min(1, dev)) * (w / 2), by, 12, 0, Math.PI * 2); ctx.fill();
-    ctx.restore();
+    ctx.beginPath(); ctx.arc(cx + Math.max(-1, Math.min(1, dev)) * (w / 2), by, 11, 0, Math.PI * 2); ctx.fill();
   }
 
   /** 부호 붙은 초(±N”) — 페이스 팩의 기본 활자 단위.
