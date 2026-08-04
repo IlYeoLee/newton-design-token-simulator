@@ -684,11 +684,11 @@ export class WallGL {
     const yTot = parseFloat(S.you.num);
     let yVal = S.beats ? String(sc.hit) : S.you.num;
     if (!S.beats && Number.isFinite(yTot) && yTot > 0) {
-      //   ★ tail 을 빼는 이유: dur 로 나누면 마지막 회차가 **마지막 프레임에만** 뜬다
-      //     (floor 라 t 가 dur 에 정확히 닿아야 8 이 되는데, dt 누적이라 7.99 로 끝난다).
-      //     목표치를 찍은 걸 보여줘야 하니 조금 일찍 채우고 끝까지 들고 있는다.
-      const t0 = .76, tail = .6, work = Math.max(.1, dur - t0 - tail);
-      yVal = String(Math.min(yTot, Math.floor(clamp01((t - t0) / work) * yTot)));
+      //   ★ 1회 = 실제 동작 주기(dur/목표횟수). 예전 t0/tail 압축 선형 필은 카운트가 동작보다
+      //     빨리 차올랐다(유저: 목·어깨 카운팅이 과하게 빠르다). 이제 한 바퀴 '끝날 때' 하나씩 —
+      //     첫 카운트도 첫 동작이 끝나는 ~1.5s 에 온다. 0.5s 는 마지막 회차가 화면에 남을 여유.
+      const per = Math.max(.2, (dur - .5) / yTot);
+      yVal = String(Math.min(yTot, Math.floor(t / per)));
     }
     if (yVal !== this._youLast) { this._youLast = yVal; this._youT = t; }
     const yPop = kf(clamp01((t - this._youT) / .45), [[0, 1.32], [1, 1]], eOut);
