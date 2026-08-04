@@ -525,8 +525,8 @@ const READY = {
   // lbl = 분 표기 통일 'Nm'(유저 08-05) — 'min' 혼용 폐기. 글자 크기도 세그먼트 공통(LBL_FS/LBL_MS).
   'floor.html':    { r2: { lines: ["Sean's", 'Final 1km Pace'], sub: 'Pace On', total: '30',
                            arcs: [{ v: 5, lbl: '5m', muted: true, chipText: '5m' }, { v: 10, lbl: '10m', icon: 'feet' }, { v: 15, lbl: '15m', icon: 'run' }] } },   // 스트레칭도 비례 세그먼트(유저)
-  'floor-bk.html': { r2: { scale: 0.75, pivotY: 320,
-                           scale: 0.85, pivotY: 900, lines: ["Curry's", 'Handle Pack'], sub: 'Press On', total: '23',
+  'floor-bk.html': { r2: { scale: 0.78, pivotY: 700,   // 커버리지는 그대로, 카드만 축소(유저 #108)
+                           lines: ["Curry's", 'Handle Pack'], sub: 'Press On', total: '23',
                            arcs: [{ v: 5, lbl: '5m', muted: true, chipText: '5m' }, { v: 8, lbl: '8m', icon: 'bkTrain' }, { v: 10, lbl: '10m', icon: 'bkPlay' }] } },   // 스트레칭도 비례 세그먼트(유저)
 };
 const TR = {
