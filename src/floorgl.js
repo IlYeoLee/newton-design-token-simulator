@@ -1321,7 +1321,7 @@ export class FloorGL {
       // 스윕 — 배지 팝 후 세그먼트 시작각에서 끝각까지 호를 따라 차오른다
       const sweep = segStart + (A1 - segStart) * eOut(intro(t, .5, 1.2));
       ctx.save(); ctx.globalAlpha *= e0(.4, .5);
-      // 선행 배지 — 팝(오버슈트) 등장
+      // 선행 배지 = 스트레칭 세그먼트(유저: 5min 은 실제 구간, 비례상 너무 작아 최소 크기 = 이 원)
       if (R2.badge) {
         const pb = polar(A0);
         const bp = kf(eOut(intro(t, .4, .5)), [[0, 0], [.6, 1.1], [1, 1]]);
@@ -1338,14 +1338,17 @@ export class FloorGL {
         const da = seg.v / totalV * avail;
         const s0 = cur, s1 = cur + da, mid = (s0 + s1) / 2;
         cur = s1 + GAPA;
-        // 아크 — 스윕이 지나간 만큼만(왼→오 차오름). 캡 반지름만큼 안쪽에서 스트로크.
-        const end = Math.min(s1 - capA, sweep);
-        if (end > s0 + capA + 0.5) {
-          const p0 = polar(s0 + capA), p1 = polar(s1 - capA);
+        // 아크 — 스윕이 지나간 만큼만(왼→오 차오름). 세그먼트 '사이'만 캡 인셋, 차트 양끝단은
+        //   캡 중심이 끝각에 앉는다 — 마지막 캡 중심(A1)이 배지 중심(A0)의 미러 = 하단 정렬(유저 #64).
+        const isLast = seg === segs[segs.length - 1];
+        const sA = s0 + capA, eA = isLast ? s1 : s1 - capA;
+        const end = Math.min(eA, sweep);
+        if (end > sA + 0.5) {
+          const p0 = polar(sA), p1 = polar(eA);
           const g = ctx.createLinearGradient(p0.x, p0.y, p1.x, p1.y);
           g.addColorStop(0, PAL.coral); g.addColorStop(1, PAL.red);
           ctx.strokeStyle = g; ctx.lineWidth = LWA; ctx.lineCap = 'round';
-          ctx.beginPath(); ctx.arc(CXA, CYA, R, (s0 + capA) * RAD, end * RAD); ctx.stroke();
+          ctx.beginPath(); ctx.arc(CXA, CYA, R, sA * RAD, end * RAD); ctx.stroke();
         }
         // 아이콘 칩 — 스윕이 시작각을 지나면 팝(스케일 오버슈트)
         const ip = Math.max(0, Math.min(1, (sweep - s0) / 14));
