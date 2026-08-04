@@ -78,7 +78,7 @@ const SCENES = {
   //   위 주석의 원칙("지시(음성)와 확인(화면)을 분리 — 화면은 결과만 말한다")이 데이터에는
   //   반영돼 있지 않았다: 'Slip your head left and right' 처럼 전부 설명문이었다.
   //   ⇒ say·cues 를 짧은 격려·상태로 갈았다. 지시는 session.voice 가 이미 한다.
-  BX_A1: { title: 'NECK & SHOULDER ROLLS', phase: 1, sub: '1/3', coach: { num: '8', unit: 'Rolls' }, you: { num: '8', unit: 'Rolls' },
+  BX_A1: { title: 'NECK & SHOULDER ROLLS', phase: 1, sub: '1/3', coach: { num: '4', unit: 'Rolls' }, you: { num: '4', unit: 'Rolls' },   // 8→4 — 클립 실동작(목 1바퀴·어깨 1롤 = 각 ~3s)과 동기(유저: 여전히 빠름)
     say: 'Easing in', cues: ['Nice', 'That’s it', 'Loose already'], combos: [] },
   BX_A2: { title: 'IN & OUT FOOTWORK', phase: 1, sub: '2/3', coach: { num: '6', unit: 'Steps' }, you: { num: '6', unit: 'Steps' },
     say: 'Feeling light', cues: ['Nice', 'Bouncy', 'That’s it'], combos: [] },
@@ -813,11 +813,11 @@ export class WallGL {
     ctx.save();
     ctx.globalAlpha *= kf(q, [[0, 0], [.35, 1], [1, 1]]);
     ctx.translate(CX, cy); ctx.scale(nk, nk); ctx.translate(-CX, -cy);
-    // 3·2·1 은 숫자라 도트, 'GO' 는 글자라 본문 영문 — 도트는 숫자와 마크 R·L 뿐(유저 규약).
+    // 카운트다운은 'GO' 까지 도트 — 3·2·1·GO 가 한 목소리여야 한다(유저 확정, 숫자-전용 규약의 예외).
     // base:'middle' 은 폰트 em 중앙이라 잉크 중앙이 아니다. 도트 폰트 숫자는 디센더가 0이라
     //   그대로 두면 링 중심보다 위로 뜬다(200px 에서 실측 20.5px). 잉크 상자로 직접 맞춘다.
     // 크기 200 → 180: 링 안에서 숫자가 꽉 차 보였다(유저 — 아주 조금만).
-    const NUM = 180, fam = /\d/.test(val) ? dot9 : sans;
+    const NUM = 180, fam = dot9;
     ctx.font = F(700, NUM, fam);
     const m = ctx.measureText(val);
     txt(ctx, val, CX, cy + (m.actualBoundingBoxAscent - m.actualBoundingBoxDescent) / 2,

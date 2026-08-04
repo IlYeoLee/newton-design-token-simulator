@@ -1461,7 +1461,9 @@ export class FloorGL {
     ctx.save();
     ctx.globalAlpha *= kf(q, [[0, 0], [.35, 1], [1, 1]]);
     ctx.translate(CX, cy); ctx.scale(nk, nk); ctx.translate(-CX, -cy);
-    drawCenteredNum(ctx, txt, CX, cy, 220);
+    // 카운트다운은 'GO' 까지 도트(유저 확정) — drawCenteredNum 의 숫자-전용 규약 예외라 직접 찍는다
+    ctx.font = F(700, 220, dot9); ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(txt, CX, cy);
     ctx.restore();
     ctx.restore();
   }
