@@ -138,7 +138,7 @@ export const GAUGE = { travel: 0.78, lead: 0.15, tail: 0.54 };   // 초 · 초 �
 // 간격으로 보였다(유저: "간격이 과하게 넓어"). 호 자체 좌표는 그대로다.
 const ARC = {
   vw: 360, x0: 19, x1: 341, cx: 180, rx: 261, ry: 188.5, top: 24,
-  stroke: 6, dot: 52, core: 17.15,         // 46 → 52 (core 비례) — 유리 마커 아주 조금 확대(유저 2차)
+  stroke: 6, dot: 60, core: 19.79,         // 52 → 60 (core 비례) — 유리 마커 추가 확대(유저 3차)
   clampL: 64, clampR: 316,                 // gauge.js — 마커는 페이드 구간 밖으로 안 나간다
   trackA: 0.85, trackR: 324.79 * 0.4264,   // trackFade 라디얼: 크라운 .85 → 양끝 0
   inkTop: 4, inkBot: 72,                   // 크라운의 마커 위끝 ~ 우측 끝 마커 아래끝

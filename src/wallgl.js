@@ -87,7 +87,9 @@ const SCENES = {
   BX_B1: { title: 'HOLD YOUR GUARD', phase: 2, sub: '1/3', coach: { num: '3.0', unit: 'Sec' }, you: { num: '3.0', unit: 'Sec' },
     say: 'Rock solid', cues: ['Holding', 'Nice', 'Strong'], combos: [] },
   BX_B2: { title: 'SLIP & EVADE', phase: 2, sub: '2/3', coach: { num: '6', unit: 'Slips' }, you: { num: '6', unit: 'Slips' },
-    say: 'Slick', cues: ['Untouchable', 'Nice', 'Can’t catch you'], combos: [] },
+    say: 'Slick', cues: ['Untouchable', 'Nice', 'Can’t catch you'], combos: [],
+    // counts = 착탄 핑 시각(session BX_B2_BEATS 실측) — 링이 '팡' 잠기는 순간 1씩(유저: 균등 필 과속)
+    counts: [3.0, 4.5, 6.0, 7.5, 9.0, 10.5] },
   BX_B3: { title: 'JAB SWEEP', phase: 2, sub: '3/3', coach: { num: '6', unit: 'Sweeps' }, you: { num: '6', unit: 'Sweeps' },
     say: 'Dialled in', cues: ['On target', 'Nice', 'Sharp'], combos: [] },
   BX_C1: { title: 'START SIGNAL', phase: 3, sub: '', coach: { num: '3', unit: 'Go' }, you: { num: '', unit: '' },
@@ -683,7 +685,11 @@ export class WallGL {
     //   팝 규칙은 카운트다운(_numLast/_numT)과 같은 것을 쓴다.
     const yTot = parseFloat(S.you.num);
     let yVal = S.beats ? String(sc.hit) : S.you.num;
-    if (!S.beats && Number.isFinite(yTot) && yTot > 0) {
+    if (!S.beats && S.counts) {
+      // 이벤트 동기 카운트 — 마크 판정 토큰이 터지는 시각에 정확히 1씩(유저). 마지막 비트가
+      //   스테이지 끝과 같으면 화면에 못 뜨므로 0.05s 관용.
+      yVal = String(S.counts.filter(bt => t >= bt - 0.05).length);
+    } else if (!S.beats && Number.isFinite(yTot) && yTot > 0) {
       //   ★ 1회 = 실제 동작 주기(dur/목표횟수). 예전 t0/tail 압축 선형 필은 카운트가 동작보다
       //     빨리 차올랐다(유저: 목·어깨 카운팅이 과하게 빠르다). 이제 한 바퀴 '끝날 때' 하나씩 —
       //     첫 카운트도 첫 동작이 끝나는 ~1.5s 에 온다. 0.5s 는 마지막 회차가 화면에 남을 여유.
