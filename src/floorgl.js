@@ -1335,7 +1335,7 @@ export class FloorGL {
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.fillStyle = NEU.ink; ctx.font = RF(700, 64); ctx.letterSpacing = '-1.51px';
       ctx.globalAlpha *= e0(1.0) > 0 ? 1 : 0;
-      ctx.fillText('min', 1079.3, 1315);
+      ctx.fillText('min', 1085, 1135);   // 숫자 우상단(피그마 개선안)
       ctx.letterSpacing = '0px';
       ctx.restore();
     }
@@ -1466,9 +1466,11 @@ export class FloorGL {
     {
       // 우측 세로 스택(유저 확정 08-05) — 좌우 대칭이 '몸통+팔' 게슈탈트를 만들던 것 해소.
       //   위 = 이어버드(페이즈2에 코치 프로필로 교체 유지) · 아래 = 글래스.
+      // 피그마 개선안(유저) — 좌 이어버드 / 우 글래스, 캡슐 가장자리에 반쯤 걸친다.
+      //   발자국·CTA 가 빠져 '몸통+팔' 게슈탈트가 사라졌으므로 좌우 배치가 다시 성립한다.
       const PODS = [
-        { cx: 1480, cy: 1055, icon: 'earbuds', pct: 62, d: .95, coach: true },
-        { cx: 1480, cy: 1290, icon: 'glasses', pct: 78, d: 1.1 },                  // 임시 배터리 값
+        { cx: 112, cy: 985, icon: 'earbuds', pct: 62, d: .95, coach: true },
+        { cx: 1488, cy: 1010, icon: 'glasses', pct: 78, d: 1.05 },                 // 임시 배터리 값
       ];
       const CR = 90;
       PODS.forEach(P => {
@@ -1543,16 +1545,7 @@ export class FloorGL {
     }
     // ⑥ 발 실루엣 = 폐기(유저 08-05) — 러닝·농구 양쪽에서 뺀다.
     //   3D FootMark 는 시작페이지에서 이미 숨김이라 잔상 없음. 복원은 #81 커밋.
-    // ── ⑦ CTA — Tap Twice(74 Bold) / To start(74 Regular), 캡슐 아래 중앙 ──
-    ctx.save(); ctx.globalAlpha *= e0(1.05);
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillStyle = NEU.ink; ctx.font = RF(700, 74); ctx.letterSpacing = '-5.76px';
-    ctx.fillText('Tap Twice', 800.15, 1988.7);
-    // To start = 레귤러·70%·축소·자간 완화 — 지시(볼드)와 위계 분리(유저)
-    ctx.fillStyle = 'rgba(255,255,255,.7)'; ctx.font = RF(400, 54); ctx.letterSpacing = '-1.8px';
-    ctx.fillText('To start', 800.15, 2088);
-    ctx.letterSpacing = '0px';
-    ctx.restore();
+    // ── ⑦ CTA 텍스트·발자국 폐기(유저 08-05 피그마 개선안) — 시작 어포던스는 캡슐 자체가 한다.
     ctx.restore();   // /콘텐츠 스케일
   }
 
