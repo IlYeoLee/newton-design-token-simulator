@@ -522,12 +522,11 @@ const READY = {
   'floor.html':    { title: "Sean's Final 1km Pace", today: 'Today · 5.0km · Standard', time: '30min', mode: 'Pace & Boost On', modeSm: true,
                      comp: [['Stretch', 5], ['Learn', 10], ['Run!', 15]],
                      r2: { lines: ["Sean's", 'Final 1km Pace'], sub: 'Pace On', total: '30',
-                           arcs: [{ v: 30, lbl: '30min', icon: 'feet' }, { v: 30, lbl: '30min', icon: 'run' }], badge: '5' } },
+                           arcs: [{ v: 10, lbl: '10min', icon: 'feet' }, { v: 15, lbl: '15min', icon: 'run' }], badge: '5' } },   // 배지 5 = 스트레칭 — 합 30
   'floor-bk.html': { title: "Curry's Handle Pack",   today: 'Today · 15min · Standard',  time: '23min',     mode: 'Press On',
                      comp: [['Stretch', 5], ['Learn', 8], ['Play!', 10]],
-                     r2: { scale: 0.78,   // 농구 레인(≈1.4m)이 러닝(≈1.06m)보다 넓다 — 실물 크기 동급화
-                           lines: ["Curry's", 'Handle Pack'], sub: 'Press On', total: '23',
-                           arcs: [{ v: 23, lbl: '23min', icon: 'feet' }, { v: 23, lbl: '23min', icon: 'run' }], badge: '5' } },
+                     r2: { lines: ["Curry's", 'Handle Pack'], sub: 'Press On', total: '23',
+                           arcs: [{ v: 8, lbl: '8min', icon: 'feet' }, { v: 10, lbl: '10min', icon: 'run' }], badge: '5' } },   // 배지 5 = 스트레칭 — 합 23
 };
 const TR = {
   T1: { sub: 'Sean’s Final 1km Pace', title: 'Warm-Up Done!',
@@ -1289,30 +1288,68 @@ export class FloorGL {
     ctx.fillText('min', 1079.3, 1315);
     ctx.letterSpacing = '0px';
     ctx.restore();
-    // ── ④ 비례 세그먼트 아크 차트 — 데이터 파생형(유저 스펙: proportional segmented arc stroke).
-    //   개별 x/y/rotate 하드코딩 금지 — 모든 좌표는 value→각도 누적과 (center, radius) 극좌표에서만
-    //   파생된다. 굵은 라운드캡 스트로크 + 세그먼트별 선형 그라디언트, 라벨=midAngle 접선,
-    //   아이콘 칩=startAngle, 선행 배지=a0 앞. 데이터(r2.arcs)만 바꾸면 2~6개 자동 재배치.
+    // ── ④ 비례 세그먼트 아크 차트 — 데이터 파생형(r=999 캡슐 아크 언어).
+    //   반원 하단 정렬: 배지 중심각(A0)과 마지막 세그먼트 끝각(A1)이 270° 대칭 — 양끝이 같은
+    //   기준선에 앉는다. 등장 = 왼쪽(배지)에서 오른쪽으로 호를 따라 차오르는 스윕 + 아이콘 팝 +
+    //   글자 순차 리빌. 모든 좌표·타이밍은 value→각도 누적과 스윕 각도에서만 파생.
     {
-      const CXA = 800, CYA = 810, R = 375, LWA = 130, A0 = 196, A1 = 344, GAPA = 10;
+      const CXA = 800, CYA = 810, R = 375, LWA = 130, GAPA = 10;
+      const A0 = 196, A1 = 344;                       // 270° 대칭 → 하단 정렬
       const polar = (deg, r = R) => ({ x: CXA + Math.cos(deg * RAD) * r, y: CYA + Math.sin(deg * RAD) * r });
+      const capA = (LWA / 2) / R / RAD;
+      const BR = 71.07, badgeHalf = BR / R / RAD;     // 배지도 같은 원 위 슬롯
+      const segStart = A0 + badgeHalf + GAPA;
       const segs = R2.arcs, totalV = segs.reduce((s2, x) => s2 + x.v, 0);
-      const avail = (A1 - A0) - GAPA * (segs.length - 1);
-      const capA = (LWA / 2) / R / RAD;   // 라운드캡 반지름만큼 각도 보정 — 캡 끝이 구간 경계에 닿게
-      ctx.save(); ctx.globalAlpha *= e0(.45);
-      let cur = A0;
-      segs.forEach((seg, i) => {
+      const avail = (A1 - segStart) - GAPA * (segs.length - 1);
+      // 스윕 — 배지 팝 후 세그먼트 시작각에서 끝각까지 호를 따라 차오른다
+      const sweep = segStart + (A1 - segStart) * eOut(intro(t, .55, 1.35));
+      ctx.save(); ctx.globalAlpha *= e0(.4, .5);
+      // 선행 배지 — 팝(오버슈트) 등장
+      if (R2.badge) {
+        const pb = polar(A0);
+        const bp = kf(eOut(intro(t, .4, .5)), [[0, 0], [.6, 1.1], [1, 1]]);
+        ctx.save(); ctx.translate(pb.x, pb.y); ctx.scale(Math.max(0.001, bp), Math.max(0.001, bp));
+        ctx.fillStyle = 'rgba(255,255,255,.37)';
+        ctx.beginPath(); ctx.arc(0, 0, BR, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = NEU.ink; ctx.font = RF(700, 52); ctx.letterSpacing = '-2.08px';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(R2.badge, 0, 2);
+        ctx.restore();
+      }
+      let cur = segStart;
+      segs.forEach((seg) => {
         const da = seg.v / totalV * avail;
         const s0 = cur, s1 = cur + da, mid = (s0 + s1) / 2;
         cur = s1 + GAPA;
-        const p0 = polar(s0 + capA), p1 = polar(s1 - capA);
-        const g = ctx.createLinearGradient(p0.x, p0.y, p1.x, p1.y);
-        g.addColorStop(0, PAL.coral); g.addColorStop(1, PAL.red);
-        ctx.strokeStyle = g; ctx.lineWidth = LWA; ctx.lineCap = 'round';
-        ctx.beginPath(); ctx.arc(CXA, CYA, R, (s0 + capA) * RAD, (s1 - capA) * RAD); ctx.stroke();
-        // 라벨 — 세그먼트와 같은 (중심·반지름·중간각)을 공유하는 호 추종 활자(textPath 등가).
-        //   글자별 전각 폭을 호 길이로 환산해 midAngle 중심으로 좌→우 배치, 각 글자는 접선 회전.
-        //   짧은 세그먼트는 폰트 자동 축소(호 길이의 70% 상한).
+        // 아크 — 스윕이 지나간 만큼만(왼→오 차오름). 캡 반지름만큼 안쪽에서 스트로크.
+        const end = Math.min(s1 - capA, sweep);
+        if (end > s0 + capA + 0.5) {
+          const p0 = polar(s0 + capA), p1 = polar(s1 - capA);
+          const g = ctx.createLinearGradient(p0.x, p0.y, p1.x, p1.y);
+          g.addColorStop(0, PAL.coral); g.addColorStop(1, PAL.red);
+          ctx.strokeStyle = g; ctx.lineWidth = LWA; ctx.lineCap = 'round';
+          ctx.beginPath(); ctx.arc(CXA, CYA, R, (s0 + capA) * RAD, end * RAD); ctx.stroke();
+        }
+        // 아이콘 칩 — 스윕이 시작각을 지나면 팝(스케일 오버슈트)
+        const ip = Math.max(0, Math.min(1, (sweep - s0) / 14));
+        if (ip > 0) {
+          const ik = kf(eOut(ip), [[0, .4], [.6, 1.12], [1, 1]]);
+          const pc = polar(s0 + capA);
+          ctx.save(); ctx.globalAlpha *= Math.min(1, ip * 2.5);
+          ctx.translate(pc.x, pc.y); ctx.rotate((s0 + capA + 90) * RAD); ctx.scale(ik, ik);
+          ctx.fillStyle = 'rgba(255,255,255,.3)';
+          ctx.beginPath(); ctx.arc(0, 0, 61, 0, Math.PI * 2); ctx.fill();
+          if (seg.icon === 'run') {
+            const im = img('ic-run.svg');
+            if (im) ctx.drawImage(im, -21.09, -28.67, 42.183, 57.333);
+          } else {
+            const l = img('ic-foot-l.svg'), r2i = img('ic-foot-r.svg');
+            if (l) ctx.drawImage(l, -38.85, -34.73, 34.064, 69.458);
+            if (r2i) { ctx.save(); ctx.translate(21.8, 0); ctx.rotate(Math.PI); ctx.scale(1, -1); ctx.drawImage(r2i, -17.03, -34.73, 34.064, 69.458); ctx.restore(); }
+          }
+          ctx.restore();
+        }
+        // 라벨 — 호 추종 활자(세그먼트와 같은 중심·반지름), 스윕이 글자 각도를 지날 때 순차 리빌
         {
           ctx.save();
           ctx.fillStyle = NEU.ink; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
@@ -1323,40 +1360,21 @@ export class FloorGL {
           const chars = [...seg.lbl];
           const ws = chars.map(c => ctx.measureText(c).width - 1);
           const totalW = ws.reduce((a2, b) => a2 + b, 0);
-          let a = mid - (totalW / 2) / R / RAD;   // 각도(deg)로 환산한 절반 폭만큼 앞에서 시작
+          let a = mid - (totalW / 2) / R / RAD;
           chars.forEach((c, k) => {
             const am = a + (ws[k] / 2) / R / RAD;
-            const pch = polar(am);
-            ctx.save(); ctx.translate(pch.x, pch.y); ctx.rotate((am + 90) * RAD);
-            ctx.fillText(c, 0, 0); ctx.restore();
             a += ws[k] / R / RAD;
+            const cp2 = Math.max(0, Math.min(1, (sweep - am) / 10));   // 스윕 통과 후 10° 에 걸쳐 페이드
+            if (cp2 <= 0) return;
+            const ce = eOut(cp2);
+            const pch = polar(am, R + (1 - ce) * 16);                  // 바깥에서 제자리로 안착
+            ctx.save(); ctx.globalAlpha *= ce;
+            ctx.translate(pch.x, pch.y); ctx.rotate((am + 90) * RAD);
+            ctx.fillText(c, 0, 0); ctx.restore();
           });
           ctx.restore();
         }
-        // 아이콘 칩 — 세그먼트 시작각, 같은 반지름·접선 회전
-        const pc = polar(s0 + capA);
-        ctx.save(); ctx.translate(pc.x, pc.y); ctx.rotate((s0 + capA + 90) * RAD);
-        ctx.fillStyle = 'rgba(255,255,255,.3)';
-        ctx.beginPath(); ctx.arc(0, 0, 61, 0, Math.PI * 2); ctx.fill();
-        if (seg.icon === 'run') {
-          const im = img('ic-run.svg');
-          if (im) ctx.drawImage(im, -21.09, -28.67, 42.183, 57.333);
-        } else {
-          const l = img('ic-foot-l.svg'), r2i = img('ic-foot-r.svg');
-          if (l) ctx.drawImage(l, -38.85, -34.73, 34.064, 69.458);
-          if (r2i) { ctx.save(); ctx.translate(21.8, 0); ctx.rotate(Math.PI); ctx.scale(1, -1); ctx.drawImage(r2i, -17.03, -34.73, 34.064, 69.458); ctx.restore(); }
-        }
-        ctx.restore();
       });
-      // 선행 배지 — 첫 세그먼트 앞(gap 만큼 앞 각도), 같은 반지름
-      if (R2.badge) {
-        const pb = polar(A0 - capA - 2);
-        ctx.fillStyle = 'rgba(255,255,255,.37)';
-        ctx.beginPath(); ctx.arc(pb.x, pb.y, 71.07, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = NEU.ink; ctx.font = RF(700, 52); ctx.letterSpacing = '-2.08px';
-        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        ctx.fillText(R2.badge, pb.x, pb.y + 2);
-      }
       ctx.letterSpacing = '0px';
       ctx.restore();
     }
