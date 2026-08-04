@@ -767,6 +767,10 @@ export class Session {
     this.G = {}; this._lastCount = null;
     this.liveSpeed = 1;   // 실전 라이브 속도 배율 (BOOST/감속)
     this.bobY = 0;        // 박자 시점 바운스 (스트레칭·익히기)
+
+    //   this.t 로 하면 씬 스테이지 모드에서 진입 시 t 가 이미 2초쯤이라 페이드가
+    //   끝난 상태로 시작해, 인물·UI 가 아직 없는데 토큰만 먼저 떠 있었다(유저 08-05).
+
     // Success 파문 = 공통 규칙 (FootMark.glow 진입 래치가 호출)
     // Success 파문은 **토큰 안**으로 들어갔다 — MARK 파동(uRip)이 실루엣 등거리선을 따라 터진다.
     //   effects.burst 는 토큰 모양과 무관한 별도 원형 쿼드라, 발자국 위에 원형 파문이 겹쳐
@@ -2949,7 +2953,7 @@ export class Session {
         //   대신 **토큰만** 늦게 페이드인한다. 인물은 처음부터 자연스럽게 움직인다.
         //   씬 UI 마지막(자막)이 1.48s 에 끝나므로 1.4s 부터 0.6s 에 걸쳐 올린다 = 2.0s 완성.
         //   this.t(스테이지 시각) 기준이라 첫 바퀴에만 걸리고 2바퀴째는 이미 1 이다.
-        const c3In = clamp01((this.t - 1.4) / 0.6);
+        const c3In = clamp01((this.t - 1.4) / 0.6);   // ★ 반드시 this.t(스테이지 가상 시각) — 익스포터가 이걸 프레임마다 직접 넣는다. 실시간 누적기(_enterT)를 쓰면 렌더에선 첫 프레임부터 이미 커져 페이드가 통째로 안 걸린다.
         let seg = 0;                                   // 지나온 노드 수(0..2) + 구간 진행
         for (let i = 0; i < AT.length; i++) if (tc >= AT[i]) seg = i + 1;
         const prev = seg === 0 ? 0 : AT[seg - 1], next = AT[Math.min(seg, AT.length - 1)];
