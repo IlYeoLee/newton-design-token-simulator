@@ -524,10 +524,10 @@ export function drawChars(ctx, txt, cx, y, h, ls, fn, align = 'center') {
 const READY = {
   // lbl = 분 표기 통일 'Nm'(유저 08-05) — 'min' 혼용 폐기. 글자 크기도 세그먼트 공통(LBL_FS/LBL_MS).
   'floor.html':    { r2: { lines: ["Sean's", 'Final 1km Pace'], sub: 'Pace On', total: '30',
-                           arcs: [{ v: 5, lbl: '5m', muted: true }, { v: 10, lbl: '10m', icon: 'feet' }, { v: 15, lbl: '15m', icon: 'run' }] } },   // 스트레칭도 비례 세그먼트(유저)
+                           arcs: [{ v: 5, lbl: '5m', muted: true, chipText: '5m' }, { v: 10, lbl: '10m', icon: 'feet' }, { v: 15, lbl: '15m', icon: 'run' }] } },   // 스트레칭도 비례 세그먼트(유저)
   'floor-bk.html': { r2: { scale: 0.75, pivotY: 320,
                            lines: ["Curry's", 'Handle Pack'], sub: 'Press On', total: '23',
-                           arcs: [{ v: 5, lbl: '5m', muted: true }, { v: 8, lbl: '8m', icon: 'bkTrain' }, { v: 10, lbl: '10m', icon: 'bkPlay' }] } },   // 스트레칭도 비례 세그먼트(유저)
+                           arcs: [{ v: 5, lbl: '5m', muted: true, chipText: '5m' }, { v: 8, lbl: '8m', icon: 'bkTrain' }, { v: 10, lbl: '10m', icon: 'bkPlay' }] } },   // 스트레칭도 비례 세그먼트(유저)
 };
 const TR = {
   T1: { sub: 'Sean’s Final 1km Pace', title: 'Warm-Up Done!',
@@ -1394,7 +1394,10 @@ export class FloorGL {
           ctx.fillStyle = seg.muted ? '#fff' : 'rgba(255,255,255,.3)';
           ctx.beginPath(); ctx.arc(0, 0, 61, 0, Math.PI * 2); ctx.fill();
           if (seg.chipText) {   // 5분 구간 = 원형 칩 안에 글자만(유저)
-            ctx.shadowBlur = 0;                              // 앞 단계 블룸이 남아 글자를 지우던 것
+            // ★ 칩은 접선 방향으로 회전돼 있다 — 글자는 그 회전을 되돌려 **똑바로** 세운다.
+            //   (안 그러면 '5m' 이 옆으로 누워 안 읽힌다 — 유저 #98 의 진짜 원인)
+            ctx.rotate(-(s0 + capA + 90) * RAD);
+            ctx.shadowBlur = 0;
             ctx.fillStyle = NEU.inkDark; ctx.font = RF(700, 46); ctx.letterSpacing = '-1.4px';
             ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
             ctx.fillText(seg.chipText, 0, 2);
