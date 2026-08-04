@@ -43,7 +43,7 @@ function state(tc) {
   let seg = 0; for (let i = 0; i < AT.length; i++) if (tc >= AT[i]) seg = i + 1;
   const prev = seg === 0 ? 0 : AT[seg - 1], next = AT[Math.min(seg, AT.length - 1)];
   const f = seg >= AT.length ? 1 : clamp01((tc - prev) / Math.max(0.01, next - prev));
-  const fw = seg >= AT.length ? 1 : f <= 0.6 ? 0.15 * (f / 0.6) : 0.15 + 0.85 * (1 - Math.pow(1 - (f - 0.6) / 0.4, 3));
+  const fw = seg >= AT.length ? 1 : f <= 0.6 ? 0.15 * (f / 0.6) : 0.15 + 0.85 * Math.pow((f - 0.6) / 0.4, 2.2);   // v2 — ease-in 가속 타격
   const pr = (seg === 0 ? 0 : seg - 1) + fw;
   const sinceBeat = seg > 0 ? tc - AT[seg - 1] : 9, locking = sinceBeat < LOCK;
   const ni = locking ? seg - 1 : Math.min(seg, N.length - 1);

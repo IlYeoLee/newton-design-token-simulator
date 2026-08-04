@@ -2924,12 +2924,12 @@ export class Session {
         for (let i = 0; i < AT.length; i++) if (tc >= AT[i]) seg = i + 1;
         const prev = seg === 0 ? 0 : AT[seg - 1], next = AT[Math.min(seg, AT.length - 1)];
         const f = seg >= AT.length ? 1 : clamp01((tc - prev) / Math.max(0.01, next - prev));
-        // ★ 채찍 매핑 — 등속으로 구간 내내 스멀스멀 자라던 것이 '생동감 없음'의 정체(유저).
-        //   앞 60%는 움츠려(15%까지만) 있다가 마지막 40%에 ease-out 으로 몰아친다.
-        //   실제 펀치의 리듬이다: 예비 동작(코일) → 스냅. 도착 시각은 그대로 비트에 맞는다.
+        // ★ 채찍 매핑 v2 — ease-out(빨랐다 감속 도착)은 타격감이 죽었다(유저: 느렸다 빨라지는
+        //   쫀득함). 앞 60% 코일(15%까지 스멀) → 마지막 40% **ease-in 가속**, 노드에 최고 속도로
+        //   꽂힌다. 도착 시각은 그대로 비트 = 임팩트가 곧 판정 순간.
         const fw = seg >= AT.length ? 1
           : f <= 0.6 ? 0.15 * (f / 0.6)
-          : 0.15 + 0.85 * (1 - Math.pow(1 - (f - 0.6) / 0.4, 3));
+          : 0.15 + 0.85 * Math.pow((f - 0.6) / 0.4, 2.2);
         this.bxCombo._prim.prog = clamp01(((seg === 0 ? 0 : seg - 1) + fw) / (AT.length - 1) / 1.25);
         // 판정 링 = 지금 노려야 할 노드로 옮겨 가 그 원 안에서 수축한다.
         //   ★ 수축이 '도착'하는 순간(=인물이 펀치를 뻗는 타이밍)이 곧 판정이다. 접근은 비트까지

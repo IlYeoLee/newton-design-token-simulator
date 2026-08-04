@@ -844,7 +844,7 @@ function drawJJH(g, X, Y, W, t) {
   let seg = 0; for (const a of JJH.AT) if (tc >= a) seg++;
   const prev = seg ? JJH.AT[seg - 1] : 0, next = JJH.AT[Math.min(seg, 2)];
   const f = seg >= 3 ? 1 : Math.max(0, Math.min(1, (tc - prev) / Math.max(0.01, next - prev)));
-  const fw = seg >= 3 ? 1 : f <= 0.6 ? 0.15 * (f / 0.6) : 0.15 + 0.85 * (1 - Math.pow(1 - (f - 0.6) / 0.4, 3));   // 채찍 매핑
+  const fw = seg >= 3 ? 1 : f <= 0.6 ? 0.15 * (f / 0.6) : 0.15 + 0.85 * Math.pow((f - 0.6) / 0.4, 2.2);   // 채찍 매핑 v2 — ease-in 가속 타격(세션 정본과 동일)
   const since = seg ? tc - JJH.AT[seg - 1] : 9, locking = since < JJH.LOCK;
   const ni = locking ? seg - 1 : Math.min(seg, 2);
   const cp = locking ? 0.9 + 0.1 * (since / JJH.LOCK)
