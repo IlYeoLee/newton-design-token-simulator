@@ -4043,7 +4043,7 @@ void main(){
         else {
         // 실측 사이클(cmu144_11) — 시범 종료 후부터(tt): 첫 홀드가 깔끔히 시작.
         const tt = session.t - (session._aWatchEnd ?? A2_WATCH);
-        const T0 = 5.4, TD = 6.5, T1 = 8.1, HOLD = 5.0;
+        const T0 = 5.4, TD = 6.5, T1 = 8.1, HOLD = 3.0;   // 5→3초(유저): 카운트 3·2·1 → 팡
         const DESC = TD - T0, RISE = T1 - TD, CYC = DESC + HOLD + RISE;
         const c = tt % CYC;
         _phase = c < DESC ? T0 + c : (c < DESC + HOLD ? TD + Math.sin(tt * 1.6) * 0.07 : TD + (c - DESC - HOLD));

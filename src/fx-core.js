@@ -890,11 +890,15 @@ vec4 markState(vec2 uv, float state, float prog, float strong, float t){
     float strokeW = max(0.040 * uW, 1.6 * fw);
     float dRim = abs(sd + 0.008);              // 실루엣 살짝 안쪽에 얹는다
     // 진행 좌표: 0(시작) → pr(선단). 양끝 블러 폭은 각도 단위.
-    float BLUR = 0.16;                          // ≈58° — 이보다 짧으면 끝이 눈에 띈다
+    // 마감 수렴(유저): 진행이 끝나는 순간 링이 12시에서 '한 바퀴 닫혔다'로 읽혀야 한다.
+    //   평시 블러 0.16(≈58°)은 부드럽지만, 그대로면 선단·시작 페이드가 12시에서 겹쳐 끝까지
+    //   틈이 남는다 → 막판(86%~)에 양끝 블러를 조여 원이 닫히고, 완주 프레임은 풀 링.
+    float closeK = smoothstep(0.86, 1.0, pr);
+    float BLUR = mix(0.16, 0.035, closeK);
     float head = clamp(pr, 0.0, 1.0);
     float aIn  = smoothstep(0.0, BLUR, a01);                    // 시작 쪽 블러
     float aOut = smoothstep(head + BLUR * 0.10, head - BLUR, a01);  // 선단 쪽 블러
-    float body = aIn * aOut * smoothstep(0.0, 0.04, pr);
+    float body = max(aIn * aOut, step(0.9975, pr)) * smoothstep(0.0, 0.04, pr);
     // 폭도 같이 좁아진다 — 알파만 줄이면 '가늘어지지 않고 흐려지기만' 해서 잘린 끝으로 읽힌다.
     float wk = mix(0.16, 1.0, body);
     float rn = dRim / max(strokeW * wk, 1e-5);
