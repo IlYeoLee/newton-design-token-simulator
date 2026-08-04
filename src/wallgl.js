@@ -9,7 +9,7 @@
 // 세로 translate가 원근상 왜곡되지 않는다 → 원본 translateY를 그대로 쓴다.
 import * as THREE from 'three';
 import { PAL, NEU, rgba } from './palette.js';
-import { clamp01, eOut, cycle, kf, intro, drawChars, drawBadge, insetGlow, checkBadge, growBar, arcGauge, ringGauge, rollNum, countUp, arcText, arcSegFill } from './floorgl.js';
+import { clamp01, eOut, cycle, kf, intro, drawChars, drawBadge, insetGlow, checkBadge, growBar, arcGauge, ringGauge, rollNum, countUp } from './floorgl.js';
 
 const W = 2600, H = 1600;   // 대지 px (벽 2.6×1.6m 실측 1:1)
 // 캔버스 해상도 — 대지 대비 배율. 화질 vs 업로드 비용의 저울.
@@ -333,102 +333,214 @@ export class WallGL {
   // ── BX_READY (index.html) ──────────────────────────────────────────────────
   _paint_ready() {
     const ctx = this.ctx, t = this.t;
-    const RAD = Math.PI / 180;
-    // ── 부채꼴 조판 (유저 요청, 2026-08-04) — 벽 하단 중앙(유저가 선 자리)이 호의 중심.
-    //   구 좌측 카드 스택(헤더·Total 그래프·Setup 격자·Connected 카드)은 정보는 많은데 위계가
-    //   없었다 — 반원 레이아웃으로: 중심(발·CTA) → 밴드 셀 7개(Setup 4 + Connected 3) →
-    //   바깥 호(부제 → 제목). 호 양끝 = 케이시 아바타 · 총시간 캡슐.
-    //   Total 막대 그래프는 폐기 — 시간 구성 상세는 시작 직전 화면의 일이 아니다(합계만 캡슐로).
-    const C = { x: CX, y: 1720 }, R0 = 690, R1 = 920, RM = (R0 + R1) / 2;
-    // 로고 — 우상단, 부채꼴 밖 (유지)
+    const ROW_Y = 103, LX = 100, LW = 1040;
+    // 좌/우 그룹 상시 둥둥 (floatY 6.5s / floatY2 7.5s, delay 1.8s)
+    const fl = cycle(t, 1.8, 6.5, INF), fr = cycle(t, 1.8, 7.5, INF);
+    const lDy = fl == null ? 0 : kf(fl, [[0, -7], [.5, 9], [1, -7]]);
+    const rDy = fr == null ? 0 : kf(fr, [[0, -10], [.5, 8], [1, -10]]);
+
+    // ══ 좌측 컬럼 ══
+    ctx.save(); ctx.translate(0, lDy);
+    // 헤더 카드 — slideInLeft .85s .15s
+    const hdrH = 257.054;
+    ctx.save();
+    const he = eOut(intro(t, .15, .85));
+    ctx.globalAlpha *= he; ctx.translate(-90 * (1 - he), 0);
+    rrFill(ctx, LX, ROW_Y, LW, hdrH, 64, '#fff');
+    const ph = 217.054, px = LX + 20, py = ROW_Y + 20;
+    ctx.save(); rrPath(ctx, px, py, ph, ph, 44); ctx.clip();   // 중첩 라운드: 카드 64 − 여백 20
+    // Casey(피그마 팩 히어로, 1129×1757) — 커버 크롭, 얼굴(세로 ~24%)이 썸네일 중심에 오게
+    const ca = this._img('casey.png');
+    // 원본 이미지 그대로 + 투명도 70(유저 최종 — "미래엔 다 가능")
+    if (ca) { ctx.save(); ctx.globalAlpha *= PHOTO_A; ctx.drawImage(ca, px - 21, py - 30, 260, 260 * 1757 / 1129); ctx.restore(); }
+    ctx.restore();
+    const tx = px + ph + 40.857;
+    // 제목+메타 두 줄을 썸네일(=카드) 세로 중심에 맞춘다 — py+24 고정이라 위로 24 치우쳐 있었다(유저).
+    const TGAP = 20.429, TBH = 52 * 1.2 + TGAP + 32 * 1.2;   // 텍스트 블록 실높이
+    const ty = py + ph / 2 - TBH / 2;
+    txt(ctx, 'Bring the Ring Home', tx, ty, 52, 700, SOFT, { ls: -2.55 });   // 좌측 컬럼 텍스트 = Location 라벨 회색(t2)로 통일(유저)
+    txt(ctx, 'Casey · Skilled User', tx, ty + 52 * 1.2 + TGAP, 32, 400, SOFT, { ls: -.96 });
+    ctx.restore();
+
+    // 스탯 카드 — slideInLeft .85s .35s
+    const stY = ROW_Y + hdrH + 24, stH = 1083;   // = CM*2 + 콘텐츠 1049
+    ctx.save();
+    const se = eOut(intro(t, .35, .85));
+    ctx.globalAlpha *= se; ctx.translate(-90 * (1 - se), 0);
+    rrFill(ctx, LX, stY, LW, stH, 76, 'rgba(255,255,255,.55)');   // 래퍼 = 벽보다 밝은 '빛 판' — 회색은 투사면에서 그림자로 읽힘(피드백 반영)
+    // ★ 투사 거리 가독 하한 — 벽 대지는 1.00 mm/px(PROJECTION-SPEC 6절)라 24px = 실물 24mm.
+    // 2~4m 에서 24mm 캡션은 안 읽힌다(유저: "너무 작아서 안 보임"). 캡션류를 32 이상으로,
+    // 체크 배지는 40 → 58 로 올렸다. 폰 레이아웃을 1:1 로 벽에 옮긴 값이라 원래 작았던 것.
+    // 바깥 회색 카드 ↔ 안쪽 흰 박스 사이 띠. 20 → 40 (유저: 이 간격이 넓어야 한다).
+    // 안쪽 좌표는 전부 ix 상대라 이 값만 바꾸면 정렬·축이 통째로 같이 밀린다.
+    const CM = 28;                       // 카드 안쪽 여백 — 상하좌우 통일
+    const ix = LX + CM, iw = LW - CM * 2;
+    // 카드 안 왼쪽 텍스트 기준선 — 하나로 통일(유저: "왼쪽정렬 안 됨").
+    // 전엔 30/min 은 ix+24.26, Fight! 는 ix+34.26(트랙이 ix+10 에서 시작 + 24.26),
+    // Setup 라벨 ix+30, Connected 라벨 ix+20 으로 넷이 갈려 있었다.
+    // 하나의 규칙: 모든 컨테이너 내부 좌우 패딩 = CM(28) · 모든 텍스트 축 = ix + CM.
+    //   섹션 라벨 · Total 박스 안 텍스트 · Setup 셀 텍스트 · Connected 카드 내용이 전부 한 축에 선다.
+    const PADL = CM;
+    // CPAD = Setup 흰 박스와 그 안 4개 셀 사이의 여백. 0 으로 두면 셀이 박스 모서리에 딱 붙는다
+    //   (유저: "흰 컨테이너와 그 안 4개 컨테이너 사이 패딩이 0"). 상하좌우 같은 값으로 준다.
+    //   셀 사이 간격은 Figma 실값(10·8) 유지 — 24 로 넓히면 카드가 아래로 넘친다(유저 기각).
+    const CPAD = 24, CIN = CM, CGAP = 10, DGAP = 8;
+    let y = stY + CM;
+    // ── Total
+    txt(ctx, 'Total', ix + PADL, y + 6, 34, 400, SOFT, { ls: -1.13 });
+    y += 48 + 8;
+    const totH = 378.393;
+    rrFill(ctx, ix, y, iw, totH, 48, '#fff');   // 중첩 라운드: 래퍼 76 − 여백 28
+    // 그래프 3단 (우측 정렬, 위에서부터 stretch/learn/run)
+    const gY = y + 10, gH = totH - 20, gR = ix + iw - 10;
+    const barH = (gH - 4.851 * 2) / 3;
+    // graphReveal — 오른쪽 끝에 붙은 채 왼쪽으로 자란다.
+    // 전엔 ctx.rect().clip() 리빌이라 자라는 동안 40px 라운드가 직각으로 썰렸다(유저 지적).
+    // 앱은 폭 자체를 애니메이션한다(creator.css `@keyframes bar-grow`) → 라운드가 끝을 달고 간다.
+    const bar = (i, bw, label, delay, endLbl) => {
+      const by = gY + i * (barH + 4.851);
+      growBar(ctx, gR - bw, by, bw, barH, eOut(intro(t, delay, .7)), {
+        // 우측 상하 = 풀 라운드(필, 유저 '9999') — 9999 그대로 주면 roundRect 정규화가 좌측 40까지
+        // 비례 축소하므로 barH/2 로 준다.
+        anchor: 'right', track: null, r: 38, pad: 24.256, fs: 36, ls: -1.21, num: label, label: endLbl,   // 중첩 라운드: 박스 48 − 인셋 10
+        stops: [[.63, PAL.red], [.9, PAL.coral], [1, PAL.sand]],
+      });
+    };
+    // 시간 구성 = Figma Main workout: 4m + 8m + 23m Strike! = 35 (막대 폭도 비율대로)
+    bar(0, 128, '4m', 1.0);
+    bar(1, 232, '8m', 1.15);
+    // run 행 = 회색 트랙 + You Can Choose + 우측 Strike! 막대
+    const ry = gY + 2 * (barH + 4.851);
+    rrFill(ctx, gR - (iw - 20), ry, iw - 20, barH, 38, NEU.surface);   // 중첩 라운드: 박스 48 − 인셋 10
+    txt(ctx, 'You Can Choose', ix + PADL, ry + barH / 2, 32, 700, SOFT, { ls: -1.21, base: 'middle' });
+    bar(2, 582.143, '23m', 1.3, 'Strike!');
+    // 좌측 큰 숫자 오버레이
+    // 도트 숫자 = 카운트업(유저 규칙). 막대 3개가 자라는 리듬(1.0/1.15/1.3)에 맞춰 같이 세어 오른다.
+    rollNum(ctx, '35', t, 1.0, 0.9, ix + PADL, y + 24.256, 145.536, { fam: dot9, fill: SOFT });
+    txt(ctx, 'min', ix + PADL, y + 24.256 + 145.536, 32, 700, SOFT, { ls: -1.21 });
+    y += totH + 32;
+    // ── Setup
+    txt(ctx, 'Setup', ix + PADL, y + 6, 34, 400, SOFT, { ls: -1.13 });
+    y += 48 + 8;
+    // 흰 래퍼 폐기 — 회색 카드 → 흰 박스 → 셀 로 컨테이너가 3중이었다(유저: "박스 안의 박스").
+    //   가운데 박스는 정보를 안 늘리고 묶기만 하는데 그 일은 'Setup' 라벨이 이미 한다.
+    //   모바일 .sc-list 도 흰 래퍼를 쓰지만 1열 리스트 + padding 4(지면 ≈18)라 '리스트'로 읽힌다.
+    //   여기는 2x2 격자라 같은 구조가 '격자 안 격자'가 된다(1열은 4행 → 카드 1758px, 벽 1600 초과).
+    //   래퍼를 빼면 셀이 Connected 카드 3개와 같은 층위 = 규칙이 하나가 된다.
+    const setH = 103 + 8 + 102;
+    // 흰 박스 안쪽 여백 — 셀이 모서리에 딱 붙어 있었다(유저: "양옆 마진 0").
+    // 셀 안 텍스트 패딩은 PADL - CPAD 로 줘서 바깥 축(ix + PADL)은 그대로 유지된다.
+    const cw = (iw - CGAP) / 2;
+    // 라벨·값을 가운데 점으로 잇던 압축('Indoor · Standard')은 폐기 — 서로 다른 셋업 항목
+    //   (장소/목표)을 점으로 붙여 무슨 관계인지 안 읽혔다(유저: "구리고 AI 티 난다").
+    //   모바일 .sc-row 정본과 같은 규칙으로: 라벨은 왼쪽 연하게, 값은 오른쪽 굵게, 양끝 정렬.
+    // 'Main 15m' 은 Total 바 3번째(15min)와 같은 값인데 표기까지 달라(15min vs 15m) 다른 값처럼
+    //   읽혔다(유저). 자리는 셋업 5화면 중 유일하게 화면 어디에도 없던 '부상'이 가져간다 —
+    //   안전에 직결되는 값이라 시작 전에 확인되는 게 맞다.
+    // 값 = Figma 설정 5화면의 선택 상태: Indoor · Beginner(Today's Goal) · Quiet On(Assist Mode) · None
+    const cells = [['Location', 'Indoor', 103], ['Goal', 'Beginner', 103],
+                   ['Mode', 'Quiet On', 102], ['Injury', 'None', 102]];
+    cells.forEach(([lbl, val, ch], i) => {
+      const cx0 = ix + (i % 2) * (cw + CGAP), cy0 = y + (i < 2 ? 0 : 111);
+      const e = eOut(intro(t, .95 + i * .10, .55));
+      ctx.save();
+      ctx.globalAlpha *= e;
+      ctx.translate(0, 26 * (1 - e));
+      const k = 0.95 + 0.05 * e;
+      ctx.translate(cx0 + cw / 2, cy0 + ch / 2); ctx.scale(k, k); ctx.translate(-(cx0 + cw / 2), -(cy0 + ch / 2));
+      rrFill(ctx, cx0, cy0, cw, ch, 48, '#fff');   // 중첩 라운드: 래퍼 76 − 여백 28
+      txt(ctx, lbl, cx0 + CIN, cy0 + ch / 2, 34, 400, SOFT, { ls: -1.13, base: 'middle' });
+      txt(ctx, val, cx0 + cw - CIN, cy0 + ch / 2, 38, 700, SOFT, { ls: -1.27, base: 'middle', align: 'right' });
+      ctx.restore();
+    });
+    y += setH + 32;
+    // ── Connected
+    txt(ctx, 'Connected', ix + PADL, y + 6, 34, 400, SOFT, { ls: -1.13 });
+    y += 48 + 8;
+    // 폭에서 CPAD*2 를 빼면서 시작 x 에는 안 더해, 3장이 왼쪽으로 붙고 오른쪽에 48px 이 남았다
+    // (유저: 좌우 FILL). 위 Setup 2열은 (iw - CGAP)/2 로 iw 를 꽉 채우므로 오른쪽 끝도 안 맞았다.
+    // 같은 기준으로 통일 — 두 블록의 좌우 끝이 정렬된다.
+    const devH = 203.607, dw = (iw - DGAP * 2) / 3;
+    // 아이콘 88 + 간격 14 + 글자 38 = 147.6 을 카드(203.607) 안에서 위아래 대칭으로 앉힌다
+    // (전엔 위 16 / 아래 47 로 어긋나 있었다 — 유저 지적).
+    const DTOP = (devH - (88 + 14 + 38 * 1.2)) / 2;
+    // 같은 규칙 — 이름+상태 두 줄을 한 줄로. 상태가 곧 이름을 설명한다.
+    const devs = [['icon_wearable.png', 'Wearable 99%'],
+                  ['icon_station.png', 'Station Ready'],
+                  ['icon_device.png', 'Watch Ready']];
+    devs.forEach(([ic, n], i) => {
+      const dx = ix + i * (dw + DGAP);
+      const e = eOut(intro(t, 1.3 + i * .13, .55));
+      ctx.save();
+      ctx.globalAlpha *= e; ctx.translate(0, 26 * (1 - e));
+      rrFill(ctx, dx, y, dw, devH, 48, '#fff');   // 중첩 라운드: 래퍼 76 − 여백 28
+      // 아이콘 — 웨어러블만 원본 컬러, 나머지는 열화상 그라디언트 마스크
+      const tim = i === 0 ? this._img(ic) : this._tinted(ic, 88, 88, [[0, PAL.red], [.6, PAL.coral], [.85, PAL.sand], [1, PAL.prism]]);
+      if (tim) ctx.drawImage(tim, dx + CIN, y + DTOP, 88, 88);
+      txt(ctx, n, dx + CIN, y + DTOP + 88 + 14, 38, 700, SOFT, { ls: -1.27 });
+      const chk = this._img('check.svg');
+      if (chk) ctx.drawImage(chk, dx + dw - CIN - 58, y + DTOP, 58, 58);   // 40 → 58 (투사 거리에서 안 보였다)
+      ctx.restore();
+    });
+    ctx.restore();   // /stats
+    ctx.restore();   // /leftcol float
+
+    // ══ 우측 ══
+    ctx.save(); ctx.translate(0, rDy);
+    const RX = LX + LW + 24, RW = W - LX - RX, RRight = RX + RW;
+    // 로고만 — 우측 정렬. 여기 있던 진행 게이지는 READY 에 아직 진행할 게 없어 의미가
+    // 없었고(유저), "Guard Up & Ready" 타이틀도 뺐다(유저: "그냥 로고만 우측정렬 깔끔하게").
+    // 이 화면의 안내는 아래 발 블록("Tap your foot Twice")이 이미 하고 있다 — 중복이었다.
     const lg = this._img('newton-logo.svg');
     if (lg) {
       const lw = 300, lh = lw * (1353 / 4635), le = eOut(intro(t, .35, .7));
-      ctx.save(); ctx.globalAlpha *= le; ctx.translate(0, 26 * (1 - le));
-      ctx.drawImage(lg, W - 100 - lw, 143, lw, lh);
+      ctx.save();
+      ctx.globalAlpha *= le; ctx.translate(0, 26 * (1 - le));
+      ctx.drawImage(lg, RRight - lw, ROW_Y + 40, lw, lh);
       ctx.restore();
     }
-    // ① 바깥 호 — 제목 · 부제 원호 활자
-    ctx.save(); ctx.globalAlpha *= eOut(intro(t, .15, .85));
-    ctx.fillStyle = SOFT; ctx.font = F(700, 72); ctx.letterSpacing = '-3px';
-    arcText(ctx, 'Bring the Ring Home', C.x, C.y, 1075, -90 * RAD);
-    ctx.font = F(400, 34); ctx.letterSpacing = '-1px';
-    arcText(ctx, 'Casey · Skilled User', C.x, C.y, 985, -90 * RAD);
-    ctx.letterSpacing = '0px'; ctx.restore();
-    // ② 밴드 셀 7 = Setup 4(좌: 라벨/값) + Connected 3(우: 아이콘/상태)
-    const cells = [['Location', 'Indoor'], ['Goal', 'Beginner'], ['Mode', 'Quiet On'], ['Injury', 'None']];
-    const devs = [['icon_wearable.png', '99%'], ['icon_station.png', 'Ready'], ['icon_device.png', 'Ready']];
-    const A0 = -155, A1 = -25, GAPD = 2.5, N = 7, SEG = (A1 - A0 - GAPD * (N - 1)) / N;
-    for (let i = 0; i < N; i++) {
-      const s0 = (A0 + i * (SEG + GAPD)) * RAD, s1 = s0 + SEG * RAD, am = (s0 + s1) / 2;
-      ctx.save(); ctx.globalAlpha *= eOut(intro(t, .35 + i * .09, .55));
-      arcSegFill(ctx, C.x, C.y, R0, R1, s0, s1, '#fff');
-      ctx.translate(C.x + Math.cos(am) * RM, C.y + Math.sin(am) * RM);
-      ctx.rotate(am + Math.PI / 2);
-      if (i < 4) {
-        const [lbl, val] = cells[i];
-        txt(ctx, lbl, 0, -56, 30, 400, SOFT, { align: 'center', ls: -1 });
-        txt(ctx, val, 0, -8, 38, 700, SOFT, { align: 'center', ls: -1.27 });
-      } else {
-        const [ic, st] = devs[i - 4];
-        // 아이콘 — 웨어러블만 원본 컬러, 나머지는 열화상 그라디언트 마스크 (구 카드와 동일 규칙)
-        const tim = i === 4 ? this._img(ic)
-          : this._tinted(ic, 76, 76, [[0, PAL.red], [.6, PAL.coral], [.85, PAL.sand], [1, PAL.prism]]);
-        if (tim) ctx.drawImage(tim, -38, -72, 76, 76);
-        txt(ctx, st, 0, 16, 34, 700, SOFT, { align: 'center', ls: -1.13 });
-      }
-      ctx.restore();
-    }
-    // ③ 호 왼끝 — 케이시 아바타 (원본 컬러 + 투명도 70, 구 헤더 카드의 규칙)
-    {
-      const ca = this._img('casey.png');
-      const AA = -164 * RAD, ax = C.x + Math.cos(AA) * RM, ay = C.y + Math.sin(AA) * RM, R = 100;
-      ctx.save(); ctx.globalAlpha *= eOut(intro(t, .25, .8));
-      ctx.beginPath(); ctx.arc(ax, ay, R - 3, 0, Math.PI * 2); ctx.save(); ctx.clip();
-      ctx.fillStyle = '#fff'; ctx.fillRect(ax - R, ay - R, 2 * R, 2 * R);
-      if (ca) { ctx.save(); ctx.globalAlpha *= PHOTO_A; ctx.drawImage(ca, ax - R, ay - R * 1.15, 2 * R, 2 * R * 1757 / 1129); ctx.restore(); }
-      ctx.restore();
-      ctx.strokeStyle = '#fff'; ctx.lineWidth = 6;
-      ctx.beginPath(); ctx.arc(ax, ay, R - 3, 0, Math.PI * 2); ctx.stroke();
-      ctx.restore();
-    }
-    // ④ 호 오른끝 — 총시간 캡슐 (Total 그래프의 합계가 여기로)
-    {
-      const TA = -16 * RAD, px = C.x + Math.cos(TA) * RM, py = C.y + Math.sin(TA) * RM;
-      ctx.save(); ctx.globalAlpha *= eOut(intro(t, .45, .8));
-      const w = 250, h = 100;
-      rrFill(ctx, px - w / 2, py - h / 2, w, h, h / 2, '#fff');
-      rollNum(ctx, '35', t, .9, .8, px - 78, py - 34, 68, { fam: dot9, fill: SOFT });
-      txt(ctx, 'min', px + 16, py + 24, 30, 700, SOFT, { base: 'alphabetic' });
-      ctx.restore();
-    }
-    // ⑤ 중심 — 글로우 + CTA + 발 (구 우측 발 블록이 호 중심으로)
+    // 발 블록 — slideInUp .9s .6s
+    const FX = RX + RW / 2 - 40, FY = ROW_Y + 570;   // 로고 우측정렬에 맞춰 100px 오른쪽으로(유저)
     ctx.save();
     const fe = eOut(intro(t, .6, .9));
     ctx.globalAlpha *= fe; ctx.translate(0, 52 * (1 - fe));
+    // 글로우 — glowPulse 4.6s ∞
     const gl = this._img('glow.svg'), gp = cycle(t, 0, 4.6, INF);
     if (gl) {
       ctx.save();
       ctx.globalAlpha *= gp == null ? .86 : kf(gp, [[0, .86], [.5, 1], [1, .86]]);
-      ctx.filter = 'brightness(1.35) saturate(1.05)';
+      ctx.filter = 'brightness(1.35) saturate(1.05)';   // 블렌드 느낌: 더 밝지만 투명하게(유저)
       const gs = gp == null ? 1 : kf(gp, [[0, 1], [.5, 1.055], [1, 1]]);
-      ctx.translate(C.x, 1330); ctx.scale(gs, gs); ctx.translate(-C.x, -1330);
-      ctx.drawImage(gl, C.x - 375, 1330 - 377, 750, 758);
+      const gcx = FX - 70 + 450, gcy = FY - 70 + 455;
+      ctx.translate(gcx, gcy); ctx.scale(gs, gs); ctx.translate(-gcx, -gcy);
+      ctx.drawImage(gl, FX - 70, FY - 70, 900, 910);
       ctx.filter = 'none';
       ctx.restore();
     }
-    const ar = this._img('arrow-right.svg');
-    if (ar) ctx.drawImage(ar, C.x - 31, 1042, 62, 62);
-    let wy = 1042 + 62 + 10;
-    txt(ctx, 'To start', C.x, wy, 32, 400, 'rgba(255,255,255,.55)', { align: 'center' });
-    wy += 32 * 1.2 + 8;
-    txt(ctx, 'Tap your foot Twice', C.x, wy, 64, 700, '#fff', { ls: -4.57, align: 'center' });
-    // 발 — footBob 유지, 호 중심 아래(벽 하단 = 바닥선)
+    // 발 — footBob 5.5s 2.2s ∞
     const fb = cycle(t, 2.2, 5.5, INF);
     const fdy = fb == null ? 0 : kf(fb, [[0, 0], [.10, 34], [.20, 6], [.32, 31], [.44, 0], [.70, 0], [1, 0]]);
-    const foot = this._tinted('foot_shape.png', 260, 347, [[0, rgba(PAL.sand, 0)], [.37, rgba(PAL.sand, .35)], [.94, RED], [1, RED]]);
-    if (foot) { ctx.save(); ctx.globalAlpha *= .9; ctx.filter = 'brightness(1.2)'; ctx.drawImage(foot, C.x - 130, 1240 + fdy, 260, 347); ctx.filter = 'none'; ctx.restore(); }
+    const foot = this._tinted('foot_shape.png', 300, 400, [[0, rgba(PAL.sand, 0)], [.37, rgba(PAL.sand, .35)], [.94, RED], [1, RED]]);
+    if (foot) { ctx.save(); ctx.globalAlpha *= .9; ctx.filter = 'brightness(1.2)'; ctx.drawImage(foot, FX + 380 - 150, FY + 275 + fdy, 300, 400); ctx.filter = 'none'; ctx.restore(); }
+    // 원반 — floatY 5s 2.2s ∞
+    const disc = this._img('footprint_shadow.svg'), fy2 = cycle(t, 2.2, 5, INF);
+    if (disc) {
+      const dh = 370 * (disc.naturalHeight / disc.naturalWidth);
+      const dd = fy2 == null ? 0 : kf(fy2, [[0, -7], [.5, 9], [1, -7]]);
+      ctx.save(); ctx.filter = 'brightness(1.2)'; ctx.drawImage(disc, FX + 380 - 185, FY + 678 + dd, 370, dh); ctx.filter = 'none'; ctx.restore();
+    }
+    // CTA
+    const ar = this._img('arrow-right.svg');
+    if (ar) ctx.drawImage(ar, FX + 380 - 31, FY + 100, 62, 62);
+    // 지면(floorgl)과 같은 3단 구성 — 눈금 / 지시 / 조건. 지시 한 줄만 크고 위아래가 감싼다.
+    //   레퍼런스(ready-to-start)의 위계이고, 두 투사면이 같은 규칙을 쓴다.
+    let wy = FY + 100 + 62 + 10;
+    txt(ctx, 'To start', FX + 380, wy, 32, 400, 'rgba(255,255,255,.55)', { align: 'center' });
+    wy += 32 * 1.2 + 8;
+    txt(ctx, 'Tap your foot Twice', FX + 380, wy, 64, 700, '#fff', { ls: -4.57, align: 'center' });
+    // 'with the Wearable on' 폐기 — 지면(floorgl)과 같은 이유. 빔이 떠 있으면 이미 착용 상태다.
     ctx.restore();
+    ctx.restore();   // /rightcol float
   }
 
   // ── 운동중 (scene.html) ────────────────────────────────────────────────────
