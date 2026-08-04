@@ -296,11 +296,11 @@ export function drawBadge(ctx, cx, cy, text, o = {}) {
   ctx.save();
   ctx.translate(cx, cy);
   ctx.strokeStyle = line;
-  ctx.lineWidth = 3.2 * S;   // 2.5 → 3.2 — 1인칭 거리에서 얇은 선이 사라졌다(유저). 레퍼런스 비례는 유지
+  ctx.lineWidth = 4 * S;   // 3.2 → 4 — 합성 화면에서 아직 덜 들어옴(유저). 레퍼런스 계열 유지 한계선
   // 은은한 이중 글로우(좁게) + 크리스프 — 레퍼런스의 '살짝 배어나는' 헤일로
-  ctx.shadowColor = rgba(glowC, .8); ctx.shadowBlur = 11 * S;
+  ctx.shadowColor = rgba(glowC, .9); ctx.shadowBlur = 14 * S;
   ctx.beginPath(); ctx.roundRect(-w / 2, -H / 2, w, H, R); ctx.stroke();
-  ctx.shadowColor = rgba(glowC, .35); ctx.shadowBlur = 26 * S * (0.5 + glow);
+  ctx.shadowColor = rgba(glowC, .5); ctx.shadowBlur = 30 * S * (0.5 + glow);
   ctx.beginPath(); ctx.roundRect(-w / 2, -H / 2, w, H, R); ctx.stroke();
   ctx.shadowBlur = 0;
   ctx.beginPath(); ctx.roundRect(-w / 2, -H / 2, w, H, R); ctx.stroke();
