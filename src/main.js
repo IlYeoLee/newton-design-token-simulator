@@ -2855,7 +2855,8 @@ void main(){
           const st = session.t ?? 0;
           if ((vis && !co.plane.visible) || st < (co._lastSt ?? Infinity)) co._showT = now;
           co._lastSt = st;
-          co.plane.visible = vis;
+          // 소스가 아직(또는 영영) 없으면 검은 판이 그대로 보인다(유저: 검은 사각형) — 준비된 뒤에만 켠다.
+          co.plane.visible = vis && co.video.readyState >= 2;
           if (co.mat.uniforms.uEnter) co.mat.uniforms.uEnter.value = (now - (co._showT || 0)) / 1000;
         }
         co.plane.material.uniforms.uTime.value = performance.now() / 1000;

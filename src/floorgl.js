@@ -1324,7 +1324,7 @@ export class FloorGL {
     // ── ③ 캡슐 텍스트 — 제목 2줄(100/Bold/ls-4) · Pace On(64/.8) · 도트 30(384) + min(64) ──
     ctx.save(); ctx.globalAlpha *= e0(.25);
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillStyle = NEU.ink; ctx.font = RF(700, 100); ctx.letterSpacing = '-4px';
+    ctx.fillStyle = NEU.ink; ctx.font = RF(700, 98); ctx.letterSpacing = '-4px';   // 100→98(유저: 첫 진입 타이틀이 빡빡)
     ctx.fillText(R2.lines[0], 800, 778 - 60);
     ctx.fillText(R2.lines[1], 800, 778 + 60);
     ctx.fillStyle = 'rgba(255,255,255,.8)'; ctx.font = RF(400, 64); ctx.letterSpacing = '-2.56px';
@@ -1397,7 +1397,7 @@ export class FloorGL {
         // 아이콘 칩 — 스윕이 시작각을 지나면 팝(스케일 오버슈트)
         const ip = (seg.icon || seg.chipText) ? Math.max(0, Math.min(1, (sweep - s0) / 14)) : 0;
         if (ip > 0) {
-          const ik = kf(eOut(ip), [[0, .4], [.6, 1.12], [1, 1]]);
+          const ik = kf(eOut(ip), [[0, .4], [1, 1]]);   // 오버슈트 폐기(유저) — 작게 등장 → 최종 크기로 남는다
           const pc = polar(seg === segs[0] ? s0 : s0 + capA);   // 첫 세그는 아래 끝(캡 중심)에(유저 #99)
           ctx.save(); ctx.globalAlpha *= Math.min(1, ip * 2.5);
           const ca = (seg === segs[0] ? s0 : s0 + capA) + 90;
@@ -1503,7 +1503,9 @@ export class FloorGL {
         // 등장 = 알약이 **길어지며** 나타난다(유저) — 세로만 자란다.
         const grow = kf(e, [[0, .35], [.65, 1.04], [1, 1]]);
         if (e <= 0.002) return;
-        const m = p2;                                   // 0 = 알약 · 1 = 원
+        // 0 = 알약(긴 것) · 1 = 원(작은 것). 순서 반전(유저 08-05) — 전엔 긴 알약이 먼저 뜨고
+        //   원으로 쪼그라들었다. 작은 원으로 등장 → 최종적으로 긴 알약(배터리 %)이 남는다.
+        const m = 1 - p2;
         const w = PW - (PW - RP * 2) * m;
         const h = (PH - (PH - RP * 2) * m) * grow;
         const rr = Math.min(w, h) / 2;
@@ -1516,7 +1518,7 @@ export class FloorGL {
         ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.lineWidth = 24;
         path(); ctx.stroke();
         ctx.filter = 'none'; ctx.restore();
-        const coachA = P.coach ? m * (1 - eOut(intro(t, TP2 + 3, .7))) : 0;
+        const coachA = P.coach ? m : 0;   // 코치 얼굴 = 원(작은) 단계에만 — 알약이 되면 %가 자리를 받는다
         // 아이콘 — 알약에선 위쪽, 원에선 가운데(모프에 따라 이동)
         const iy = y0 + h * (0.30 + 0.20 * m);
         if (P.coach && coachA > 0.01) {
