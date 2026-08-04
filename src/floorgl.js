@@ -1232,7 +1232,7 @@ export class FloorGL {
     //   호 양끝 = 아바타(누구 팩) · 시간 캡슐(레퍼런스 arc UI 의 3:12 자리).
     //   ★ 빔 커버리지: 모든 요소는 대지 가장자리에서 110px 이상 안쪽(유저 — 커버리지 초과 금지).
     //     호 끝(수평에 가까운 각)이 좌우로 제일 튀므로 반경·각 스프레드가 이 여백으로 역산된다.
-    const C = { x: CX, y: 1600 }, R0 = 540, R1 = 800, RM = (R0 + R1) / 2;
+    const C = { x: CX, y: 1600 }, R0 = 500, R1 = 740, RM = (R0 + R1) / 2;
     const RAD = Math.PI / 180;
     // 글로우 — 숨쉬기 유지, 중심만 C 로
     const gl = this._img('fig/big_glow.svg');
@@ -1250,15 +1250,15 @@ export class FloorGL {
     }
     // ① 바깥 호 — 제목(1순위 맥락) · 요약(2순위) 원호 활자
     ctx.save(); ctx.globalAlpha *= eOut(intro(t, .12, .8));
-    ctx.fillStyle = 'rgba(255,255,255,.95)'; ctx.font = F(700, 84); ctx.letterSpacing = '-2.9px';
-    arcText(ctx, D.title, C.x, C.y, 1010, -90 * RAD);
-    ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.font = F(400, 48); ctx.letterSpacing = '-1.5px';
-    arcText(ctx, D.today, C.x, C.y, 902, -90 * RAD);
+    ctx.fillStyle = 'rgba(255,255,255,.95)'; ctx.font = F(700, 80); ctx.letterSpacing = '-2.8px';
+    arcText(ctx, D.title, C.x, C.y, 945, -90 * RAD);
+    ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.font = F(400, 46); ctx.letterSpacing = '-1.4px';
+    arcText(ctx, D.today, C.x, C.y, 845, -90 * RAD);
     ctx.letterSpacing = '0px'; ctx.restore();
     // ② 메인 밴드 = 세션 구성 (배터리보다 세션 정보가 위계 위 — 유저).
     //   셀 각도 = 분에 비례(큰 조각 = 본운동), 본운동 셀만 열화상 그라디언트.
     {
-      const A0 = -146 * RAD, A1 = -34 * RAD, GAP = 3 * RAD;
+      const A0 = -146 * RAD, A1 = -34 * RAD, GAP = 2.6 * RAD;
       const total = D.comp.reduce((s, p) => s + p[1], 0);
       const span = (A1 - A0) - GAP * (D.comp.length - 1);
       let a = A0;
@@ -1267,7 +1267,7 @@ export class FloorGL {
         a += da + GAP;
         const main = i === D.comp.length - 1;
         ctx.save(); ctx.globalAlpha *= eOut(intro(t, .5 + i * .12, .7));
-        let fill = '#fff';
+        let fill = 'rgba(255,255,255,.96)';
         if (main) {   // 본운동 = 열화상 그라디언트(반경 방향: 안 빨강 → 밖 살구)
           const g = ctx.createLinearGradient(C.x + Math.cos(am) * R1, C.y + Math.sin(am) * R1,
                                              C.x + Math.cos(am) * R0, C.y + Math.sin(am) * R0);
@@ -1279,12 +1279,12 @@ export class FloorGL {
         ctx.rotate(am + Math.PI / 2);
         ctx.textAlign = 'center'; ctx.fillStyle = main ? '#fff' : '#525252';
         ctx.textBaseline = 'alphabetic'; ctx.letterSpacing = '-2.2px';
-        for (const fs of [64, 52, 42]) {   // 셀 폭에 맞는 가장 큰 크기 — 좁은 셀만 줄어든다
+        for (const fs of [60, 50, 40]) {   // 셀 폭에 맞는 가장 큰 크기 — 좁은 셀만 줄어든다
           ctx.font = F(700, fs);
           if (ctx.measureText(lbl).width <= da * RM - 32) break;
         }
         ctx.fillText(lbl, 0, -14);
-        ctx.font = F(400, 44); ctx.textBaseline = 'top'; ctx.letterSpacing = '-1.3px';
+        ctx.font = F(400, 40); ctx.textBaseline = 'top'; ctx.letterSpacing = '-1.2px';
         ctx.fillText(`${m}m`, 0, 14);
         ctx.letterSpacing = '0px';
         ctx.restore();
@@ -1294,7 +1294,7 @@ export class FloorGL {
     //   두꺼운 세션 밴드와 굵기 대비가 곧 위계다. 낮은 배터리만 경고색.
     {
       const DEV = [['run/ic_glasses.png', 90], ['run/ic_watch.png', 30], ['run/ic_earbuds.png', 60]];
-      const r = 440, lw = 58;
+      const r = 415, lw = 52;
       const A0 = -124 * RAD, A1 = -56 * RAD, GAP = 3 * RAD;
       const SEG = (A1 - A0 - GAP * 2) / 3;
       DEV.forEach(([ic, pct], i) => {
@@ -1305,8 +1305,8 @@ export class FloorGL {
         ctx.translate(C.x + Math.cos(am) * r, C.y + Math.sin(am) * r);
         ctx.rotate(am + Math.PI / 2);
         const im = this._img(ic);
-        const IH = 36, iw = im && im.naturalHeight ? IH * (im.naturalWidth / im.naturalHeight) : IH;
-        ctx.font = F(700, 30); ctx.letterSpacing = '-.9px';
+        const IH = 33, iw = im && im.naturalHeight ? IH * (im.naturalWidth / im.naturalHeight) : IH;
+        ctx.font = F(700, 28); ctx.letterSpacing = '-.8px';
         const tw = ctx.measureText(pct + '%').width, x0 = -(iw + 8 + tw) / 2;
         if (im) {
           ctx.save(); ctx.filter = 'brightness(0)';
@@ -1323,7 +1323,7 @@ export class FloorGL {
     // ③ 호 왼끝 — 크리에이터 아바타(누구 팩인가). 밴드보다 약간 바깥 각도.
     {
       const pk = this._img(bk ? 'photos/cardbg-curry.png' : 'photos/creator-profile-sean.png');
-      const AA = -160 * RAD, ax = C.x + Math.cos(AA) * 640, ay = C.y + Math.sin(AA) * 640, R = 80;
+      const AA = -160 * RAD, ax = C.x + Math.cos(AA) * 595, ay = C.y + Math.sin(AA) * 595, R = 76;
       ctx.save(); ctx.globalAlpha *= eOut(intro(t, .3, .8));
       ctx.beginPath(); ctx.arc(ax, ay, R - 3, 0, Math.PI * 2); ctx.save(); ctx.clip();
       if (pk) {
@@ -1338,12 +1338,12 @@ export class FloorGL {
     }
     // ④ 호 오른끝 — 시간 캡슐(레퍼런스 arc UI 의 3:12 자리).
     {
-      const TA = -24 * RAD, px = C.x + Math.cos(TA) * 640, py = C.y + Math.sin(TA) * 640;
+      const TA = -24 * RAD, px = C.x + Math.cos(TA) * 595, py = C.y + Math.sin(TA) * 595;
       ctx.save(); ctx.globalAlpha *= eOut(intro(t, .4, .8));
-      const w = 210, h = 100;
+      const w = 200, h = 92;
       ctx.fillStyle = '#fff';
       ctx.beginPath(); ctx.roundRect(px - w / 2, py - h / 2, w, h, h / 2); ctx.fill();
-      ctx.fillStyle = '#525252'; ctx.font = F(700, 52); ctx.letterSpacing = '-1.7px';
+      ctx.fillStyle = '#525252'; ctx.font = F(700, 48); ctx.letterSpacing = '-1.6px';
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.fillText(D.time, px, py + 2);
       ctx.letterSpacing = '0px'; ctx.restore();
