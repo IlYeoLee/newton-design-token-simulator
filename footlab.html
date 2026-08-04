@@ -125,9 +125,14 @@
       <div class=row style="margin-top:6px"><label>왼발/원 문자</label><input id=gL value="1" style="flex:1;min-width:0;background:#161A22;color:var(--text);border:1px solid var(--line);border-radius:6px;padding:4px 6px"></div>
       <div class=row><label>오른발 문자</label><input id=gR value="2" style="flex:1;min-width:0;background:#161A22;color:var(--text);border:1px solid var(--line);border-radius:6px;padding:4px 6px"></div>
       <div class=row><label>글리프 크기</label><input type=range id=gsize min=.4 max=2.2 step=.05><span class=v id=vgsize></span></div>
-      <div class=row><label>위치 X</label><input type=range id=gx min=-.5 max=.5 step=.005><span class=v id=vgx></span></div>
-      <div class=row><label>위치 Y</label><input type=range id=gy min=-.5 max=.5 step=.005><span class=v id=vgy></span></div>
-      <div class=row><label>회전°</label><input type=range id=grot min=-45 max=45 step=1><span class=v id=vgrot></span></div>
+      <p class=sub style="margin:8px 0 2px">왼발 글리프</p>
+      <div class=row><label>왼 위치 X</label><input type=range id=gxL min=-.5 max=.5 step=.005><span class=v id=vgxL></span></div>
+      <div class=row><label>왼 위치 Y</label><input type=range id=gyL min=-.5 max=.5 step=.005><span class=v id=vgyL></span></div>
+      <div class=row><label>왼 회전°</label><input type=range id=grotL min=-45 max=45 step=1><span class=v id=vgrotL></span></div>
+      <p class=sub style="margin:8px 0 2px">오른발 글리프</p>
+      <div class=row><label>오른 위치 X</label><input type=range id=gxR min=-.5 max=.5 step=.005><span class=v id=vgxR></span></div>
+      <div class=row><label>오른 위치 Y</label><input type=range id=gyR min=-.5 max=.5 step=.005><span class=v id=vgyR></span></div>
+      <div class=row><label>오른 회전°</label><input type=range id=grotR min=-45 max=45 step=1><span class=v id=vgrotR></span></div>
       <p class=sub style="margin:8px 0 4px">그림자 — 밀도를 만드는 건 결국 이 대비다</p>
       <div class=seg id=segGShadow><button data-v=glow class=on>글로우</button><button data-v=drop>드롭</button><button data-v=none>없음</button></div>
       <div class=row><label>그림자 세기</label><input type=range id=gsh min=0 max=1.5 step=.02><span class=v id=vgsh></span></div>
@@ -226,8 +231,8 @@ const SF = SIL_FIT / SIL_FIT_REF;   // uv 단위 거리 스케일(정본과 동�
 const $ = id => document.getElementById(id);
 const KEYS = ['imp','scale','offx','offy','irot','pitch','dot','glow','shade','sharp','edge',
               'w','halo','pool','noise','prog','tilt','bloom','blur',
-              'gsize','gx','gy','grot','gsh','gxL','gyL','grotL','gxR','gyR','grotR','rip','ripReach','ripWidth','ripSpeed','ripGrad','plantar','bands','bandSoft','edgeShade','edgeShadeW','edgeShadeGrad','edgeShadeG0','edgeShadeG1','shadeRed','shadeRedW','edgeW','edgeSoft','dither'];
-const DIGITS = { tilt: 0, irot: 1, grot: 0, pitch: 3, edge: 3, scale: 3, offx: 3, offy: 3,
+              'gsize','gsh','gxL','gyL','grotL','gxR','gyR','grotR','rip','ripReach','ripWidth','ripSpeed','ripGrad','plantar','bands','bandSoft','edgeShade','edgeShadeW','edgeShadeGrad','edgeShadeG0','edgeShadeG1','shadeRed','shadeRedW','edgeW','edgeSoft','dither'];
+const DIGITS = { tilt: 0, irot: 1, grotL: 0, grotR: 0, gxL: 3, gyL: 3, gxR: 3, gyR: 3, pitch: 3, edge: 3, scale: 3, offx: 3, offy: 3,
                  gx: 3, gy: 3, ripWidth: 3, bloom: 3, bands: 0, dither: 3 };
 let shadeCol = 0, ripCol = 1, gShadow = 'glow', gBlend = 'normal', edgeShadeCol = +(LOOK.edgeShadeCol ?? 0);
 
@@ -241,7 +246,7 @@ uImpGlow: { value: ${P.glow.toFixed(2)} }, uImpEdge: { value: ${P.edge.toFixed(3
 uImpShade: { value: ${P.shade.toFixed(2)} }, uImpSharp: { value: ${P.sharp.toFixed(2)} }, uImpShadeCol: { value: ${shadeCol} },
 uImpRot: { value: ${P.irot.toFixed(1)} * Math.PI / 180 * (footRight ? -1 : 1) },
 uRipCol: { value: ${ripCol} },
-// 글리프(호스트가 그린다): 크기 ${P.gsize.toFixed(2)} · 위치 (${P.gx.toFixed(3)}, ${P.gy.toFixed(3)}) · 회전 ${P.grot.toFixed(0)}° · 그림자 ${gShadow} ${P.gsh.toFixed(2)} · 합성 ${gBlend}
+// 글리프: 크기 ${P.gsize.toFixed(2)} · 왼 (${(P.gxL ?? P.gx).toFixed(3)}, ${(P.gyL ?? P.gy).toFixed(3)}, ${(P.grotL ?? P.grot).toFixed(0)}°) · 오른 (${(P.gxR ?? -P.gx).toFixed(3)}, ${(P.gyR ?? P.gy).toFixed(3)}, ${(P.grotR ?? -P.grot).toFixed(0)}°) · 그림자 ${gShadow} ${P.gsh.toFixed(2)} · 합성 ${gBlend}
 uImpOff: { value: new THREE.Vector2(${P.offx.toFixed(3)} * (footRight ? -1 : 1), ${P.offy.toFixed(3)}) },
 uRip: { value: ${P.rip.toFixed(2)} }, uRipSpeed: { value: ${P.ripSpeed.toFixed(2)} }, uRipWidth: { value: ${P.ripWidth.toFixed(3)} }, uRipReach: { value: ${P.ripReach.toFixed(2)} },
 // 토큰 공통(FXP.mark / graphics 로 주입되는 값): uW ${P.w.toFixed(2)} · uHalo ${P.halo.toFixed(2)} · uPool ${P.pool.toFixed(2)} · uNoise ${P.noise.toFixed(2)}
@@ -332,7 +337,7 @@ function seg(id, cb) {
   //   페이지가 통째로 죽는다. 저장본이 있는 브라우저에서만 터져서 더 위험했다(유저: 페이지가 안 뜬다).
   if (segState[id] != null) pendingSegRestore.push(() => pick(segState[id], true));
 }
-seg('segSide', v => { side = v; loadSideG(); rebuild(); });
+seg('segSide', v => { side = v; rebuild(); });
 seg('segCtx',  v => { ctx = v; FXP.footCtx = v; rebuild(); });
 seg('segBg',   v => { bg = v; applyBg(); });
 seg('segNum',  v => { showNum = +v; rebuild(); });
@@ -352,24 +357,17 @@ for (const id of ['gL', 'gR']) {
   $(id).addEventListener('input', e => { segState[id] = e.target.value; segSave(); rebuild(); });
 }
 // 글리프 평면은 생성 시 크기·위치·회전·텍스처를 굽는다 — 이 값들은 바뀌면 다시 만든다
-for (const id of ['gsize', 'gx', 'gy', 'grot', 'gsh']) $(id).addEventListener('input', rebuild);
-// 좌/우 독립 글리프(유저): gx·gy·grot 슬라이더는 '지금 보는 발'의 값을 편집한다.
-//   side 토글 시 그 발의 저장값(없으면 구 키/미러)을 슬라이더로 불러온다.
-const G_KEYS = ['gx', 'gy', 'grot'];
-function sideG(sd) {   // 해당 발의 유효값 (독립값 ?? 구 키 규약)
+for (const id of ['gsize', 'gxL', 'gyL', 'grotL', 'gxR', 'gyR', 'grotR', 'gsh']) $(id).addEventListener('input', rebuild);
+// 좌/우 독립 글리프(유저) — 전용 슬라이더 6개가 제네릭 저장·복원을 그대로 탄다.
+function sideG(sd) {
   const R = sd === 'right';
   return { gx: R ? (P.gxR ?? -P.gx) : (P.gxL ?? P.gx),
            gy: R ? (P.gyR ?? P.gy) : (P.gyL ?? P.gy),
            grot: R ? (P.grotR ?? -P.grot) : (P.grotL ?? P.grot) };
 }
-function loadSideG() {
-  const g = sideG(side);
-  for (const k of G_KEYS) { $(k).value = g[k]; $('v' + k).textContent = (+g[k]).toFixed(k === 'grot' ? 0 : 3); }
-}
-for (const k of G_KEYS) $(k).addEventListener('input', () => {
-  const R = side === 'right';
-  P[k + (R ? 'R' : 'L')] = +$(k).value;   // 독립 키에 기록 — 구 키(P.gx 등)는 하위 호환용으로 유지
-});
+// 부팅 물질화 — 구 저장본(공용 키)에서 좌/우 키 파생 (오른발 = 미러 규약)
+if (P.gxL == null) { P.gxL = P.gx; P.gyL = P.gy; P.grotL = P.grot; }
+if (P.gxR == null) { P.gxR = -P.gx; P.gyR = P.gy; P.grotR = -P.grot; }
 
 // ── 렌더러 둘: 확대 하나 + 상태 스트립 하나 ──────────────────────────────
 //   ★ alpha:false 로 둔다. 야간 가산 경로는 `gl_FragColor = vec4(col, 1.0)` 이라 알파가 1 이고,
