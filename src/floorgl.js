@@ -522,11 +522,12 @@ export function drawChars(ctx, txt, cx, y, h, ls, fn, align = 'center') {
 //   scale/pivotY 는 디자인이 아니라 투사 콘 맞춤 노브 — 농구 콘이 얕아 원치수는 잘린다(유저 실측).
 //   폐기: title·today·time·mode·comp(_paint_ready 가 안 읽던 잔재) · vid(코치 판은 main.js COACH_CFG 전담).
 const READY = {
+  // lbl = 분 표기 통일 'Nm'(유저 08-05) — 'min' 혼용 폐기. 글자 크기도 세그먼트 공통(LBL_FS/LBL_MS).
   'floor.html':    { r2: { lines: ["Sean's", 'Final 1km Pace'], sub: 'Pace On', total: '30',
-                           arcs: [{ v: 5, lbl: '5m', muted: true }, { v: 10, lbl: '10min', icon: 'feet' }, { v: 15, lbl: '15min', icon: 'run' }] } },   // 스트레칭도 비례 세그먼트(유저)
+                           arcs: [{ v: 5, lbl: '5m', muted: true }, { v: 10, lbl: '10m', icon: 'feet' }, { v: 15, lbl: '15m', icon: 'run' }] } },   // 스트레칭도 비례 세그먼트(유저)
   'floor-bk.html': { r2: { scale: 0.75, pivotY: 320,
                            lines: ["Curry's", 'Handle Pack'], sub: 'Press On', total: '23',
-                           arcs: [{ v: 5, lbl: '5m', muted: true }, { v: 8, lbl: '8min', icon: 'bkTrain' }, { v: 10, lbl: '10min', icon: 'bkPlay' }] } },   // 스트레칭도 비례 세그먼트(유저)
+                           arcs: [{ v: 5, lbl: '5m', muted: true }, { v: 8, lbl: '8m', icon: 'bkTrain' }, { v: 10, lbl: '10m', icon: 'bkPlay' }] } },   // 스트레칭도 비례 세그먼트(유저)
 };
 const TR = {
   T1: { sub: 'Sean’s Final 1km Pace', title: 'Warm-Up Done!',
@@ -1417,25 +1418,43 @@ export class FloorGL {
           const iconHalf = seg.icon ? 61 / R / RAD : 0;
           const l0 = s0 + capA + (seg.icon ? iconHalf + 2 : 0), l1 = s1 - capA;
           const lmid = (l0 + l1) / 2;
-          let fs = 44;
-          const arcLen = (l1 - l0) * RAD * R;
-          ctx.font = RF(700, fs); ctx.letterSpacing = '-1px';
-          while (fs > 26 && ctx.measureText(seg.lbl).width > arcLen * 0.72) { fs -= 2; ctx.font = RF(700, fs); }
+          // 크기 통일(유저 08-05) — 세그먼트 길이에 따라 44→26 으로 줄이던 자동 축소 폐기.
+          //   숫자는 LBL_FS 고정, 단위 m 만 작게. dy = 작은 m 을 숫자 베이스라인에 맞추는 보정.
+          const LBL_FS = 44, LBL_MS = 26;
+          const fontOf = c => RF(700, c === 'm' ? LBL_MS : LBL_FS);
+          const dyOf = c => (c === 'm' ? (LBL_FS - LBL_MS) * 0.3 : 0);
+          ctx.letterSpacing = '-1px';
           const chars = [...seg.lbl];
-          const ws = chars.map(c => ctx.measureText(c).width - 1);
+          const ws = chars.map(c => { ctx.font = fontOf(c); return ctx.measureText(c).width - 1; });
           const totalW = ws.reduce((a2, b) => a2 + b, 0);
-          let a = lmid - (totalW / 2) / R / RAD;
-          chars.forEach((c, k) => {
-            const am = a + (ws[k] / 2) / R / RAD;
-            a += ws[k] / R / RAD;
-            const cp2 = Math.max(0, Math.min(1, (sweep - am) / 10));   // 스윕 통과 후 10° 에 걸쳐 페이드
-            if (cp2 <= 0) return;
-            const ce = eOut(cp2);
-            const pch = polar(am, R + (1 - ce) * 16);                  // 바깥에서 제자리로 안착
-            ctx.save(); ctx.globalAlpha *= ce;
-            ctx.translate(pch.x, pch.y); ctx.rotate((am + 90) * RAD);
-            ctx.fillText(c, 0, 0); ctx.restore();
-          });
+          const arcLen = (l1 - l0) * RAD * R;
+          // 세그먼트가 짧아 호에 못 눕히면(스트레칭 5m) 아이콘 자리에 한 덩어리로 — 크기는 그대로(유저).
+          if (totalW > arcLen) {
+            const ac = s0 + capA;
+            const cp2 = Math.max(0, Math.min(1, (sweep - ac) / 10));
+            if (cp2 > 0) {
+              const ce = eOut(cp2), pc2 = polar(ac, R + (1 - ce) * 16);
+              ctx.save(); ctx.globalAlpha *= ce; ctx.textAlign = 'left';
+              ctx.translate(pc2.x, pc2.y); ctx.rotate((ac + 90) * RAD);
+              let x2 = -totalW / 2;
+              chars.forEach((c, k) => { ctx.font = fontOf(c); ctx.fillText(c, x2, dyOf(c)); x2 += ws[k]; });
+              ctx.restore();
+            }
+          } else {
+            let a = lmid - (totalW / 2) / R / RAD;
+            chars.forEach((c, k) => {
+              const am = a + (ws[k] / 2) / R / RAD;
+              a += ws[k] / R / RAD;
+              const cp2 = Math.max(0, Math.min(1, (sweep - am) / 10));   // 스윕 통과 후 10° 에 걸쳐 페이드
+              if (cp2 <= 0) return;
+              const ce = eOut(cp2);
+              const pch = polar(am, R + (1 - ce) * 16);                  // 바깥에서 제자리로 안착
+              ctx.save(); ctx.globalAlpha *= ce;
+              ctx.translate(pch.x, pch.y); ctx.rotate((am + 90) * RAD);
+              ctx.font = fontOf(c);
+              ctx.fillText(c, 0, dyOf(c)); ctx.restore();
+            });
+          }
           ctx.restore();
         }
       });
