@@ -1,4 +1,5 @@
 import { PAL, NEU, vec3 } from './palette.js';
+import MARK_LOOK_JSON from './mark-look.json';   // 랩 '코드에 저장' 정본 — GLYPH_LOOK 이 이걸 읽어야 랩→시뮬 이식이 된다
 // ─────────────────────────────────────────────────────────────
 // fx-core — 룩 시스템(FX Lab)과 시뮬레이터가 공유하는 단일 정본.
 //
@@ -144,14 +145,26 @@ export const ZONE_GLYPH_K = 1.18;
 /** ── 마크 글리프 룩 정본 — 출처는 footlab.html 하나뿐 (유저 확정) ──────────────
  *  크기는 유니폼이 아니라 **호스트가 캔버스로 그리는** 값이라 별도 이식이 필요했다.
  *  값을 바꾸려면 footlab 에서 잡고 여기로 옮긴다. */
+// ★ 정본은 mark-look.json(footlab '코드에 저장') — 예전엔 여기 하드코딩이라 랩에서 옮긴
+//   글자 위치가 시뮬에 전혀 반영되지 않았다(유저: 100% 이식 안 됨의 뿌리).
+//   좌/우 독립 키(gxL/gyL/rotL·gxR/gyR/rotR)가 있으면 그걸 쓰고, 없으면 구 키(gx/gy/grot)
+//   = 왼발 기준 + 오른발 미러 로 해석한다(하위 호환).
+const _ML = MARK_LOOK_JSON || {};
 export const GLYPH_LOOK = {
-  size: 0.85,          // MARK_NUM.RATIO 에 곱하는 배율
-  gx: -0.025, gy: 0.195,  // 앵커 기준 미세 이동(쿼드 비율). 오른발은 x 부호가 뒤집힌다
-  rot: 6,              // 회전(도). 오른발은 부호가 뒤집힌다
-  shadow: 'glow',      // 'glow' 코랄 번짐 · 'drop' 아래로 밀린 어두운 사본 · 'none'
-  shadowK: 0.75,       // 그림자 세기
-  blend: 'add',        // 'normal' · 'add' 가산 · 'knock' 파냄(곱하기 구멍)
+  size: _ML.gsize ?? 0.85,
+  gx: _ML.gx ?? -0.025, gy: _ML.gy ?? 0.195,
+  rot: _ML.grot ?? 6,
+  gxL: _ML.gxL, gyL: _ML.gyL, rotL: _ML.grotL,
+  gxR: _ML.gxR, gyR: _ML.gyR, rotR: _ML.grotR,
+  shadow: _ML.gShadow ?? 'glow',
+  shadowK: _ML.gsh ?? 0.75,
+  blend: _ML.gBlend ?? 'add',
 };
+/** 발 좌/우별 글리프 오프셋·회전 — 독립값 우선, 없으면 구 키 미러 규약 */
+export function glyphFor(right, look = GLYPH_LOOK) {
+  if (right) return { gx: look.gxR ?? -look.gx, gy: look.gyR ?? look.gy, rot: look.rotR ?? -look.rot };
+  return { gx: look.gxL ?? look.gx, gy: look.gyL ?? look.gy, rot: look.rotL ?? look.rot };
+}
 
 /** 마크 글리프를 캔버스에 그린다 — **랩과 시뮬이 같은 이 함수를 쓴다.**
  *  예전엔 랩(glyphTexture)과 시뮬(floorNum)이 각자 그려서 그림자·합성이 랩에만 있었다.

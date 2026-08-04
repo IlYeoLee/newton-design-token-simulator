@@ -211,6 +211,7 @@ const DEF = { imp: 1.0, scale: 0.835, offx: -0.04, offy: -0.007, irot: 0, pitch:
               glow: 0.0, shade: 0.55, sharp: 0.22, edge: 0.058, gx: 0, gy: 0, grot: 0, gsh: 0.75,
               w: 1.0, halo: 0.9, pool: 0.9, noise: 0.5, prog: 0.55, tilt: 8,
               bloom: 0.08, blur: 0.8, gsize: 1.0,
+              gxL: null, gyL: null, grotL: null, gxR: null, gyR: null, grotR: null,   // 좌/우 독립 글리프(유저) — null = 구 키 미러 규약
               rip: 0.55, ripReach: 0.34, ripWidth: 0.09, ripSpeed: 0.45, ripGrad: 1,
               plantar: 1.0, bands: 0, bandSoft: 0.45,
               edgeShade: 0.55, edgeW: 0.085, edgeSoft: 0.25, dither: 0.010,
@@ -225,7 +226,7 @@ const SF = SIL_FIT / SIL_FIT_REF;   // uv 단위 거리 스케일(정본과 동�
 const $ = id => document.getElementById(id);
 const KEYS = ['imp','scale','offx','offy','irot','pitch','dot','glow','shade','sharp','edge',
               'w','halo','pool','noise','prog','tilt','bloom','blur',
-              'gsize','gx','gy','grot','gsh','rip','ripReach','ripWidth','ripSpeed','ripGrad','plantar','bands','bandSoft','edgeShade','edgeShadeW','edgeShadeGrad','edgeShadeG0','edgeShadeG1','shadeRed','shadeRedW','edgeW','edgeSoft','dither'];
+              'gsize','gx','gy','grot','gsh','gxL','gyL','grotL','gxR','gyR','grotR','rip','ripReach','ripWidth','ripSpeed','ripGrad','plantar','bands','bandSoft','edgeShade','edgeShadeW','edgeShadeGrad','edgeShadeG0','edgeShadeG1','shadeRed','shadeRedW','edgeW','edgeSoft','dither'];
 const DIGITS = { tilt: 0, irot: 1, grot: 0, pitch: 3, edge: 3, scale: 3, offx: 3, offy: 3,
                  gx: 3, gy: 3, ripWidth: 3, bloom: 3, bands: 0, dither: 3 };
 let shadeCol = 0, ripCol = 1, gShadow = 'glow', gBlend = 'normal', edgeShadeCol = +(LOOK.edgeShadeCol ?? 0);
@@ -331,7 +332,7 @@ function seg(id, cb) {
   //   페이지가 통째로 죽는다. 저장본이 있는 브라우저에서만 터져서 더 위험했다(유저: 페이지가 안 뜬다).
   if (segState[id] != null) pendingSegRestore.push(() => pick(segState[id], true));
 }
-seg('segSide', v => { side = v; rebuild(); });
+seg('segSide', v => { side = v; loadSideG(); rebuild(); });
 seg('segCtx',  v => { ctx = v; FXP.footCtx = v; rebuild(); });
 seg('segBg',   v => { bg = v; applyBg(); });
 seg('segNum',  v => { showNum = +v; rebuild(); });
@@ -352,6 +353,23 @@ for (const id of ['gL', 'gR']) {
 }
 // 글리프 평면은 생성 시 크기·위치·회전·텍스처를 굽는다 — 이 값들은 바뀌면 다시 만든다
 for (const id of ['gsize', 'gx', 'gy', 'grot', 'gsh']) $(id).addEventListener('input', rebuild);
+// 좌/우 독립 글리프(유저): gx·gy·grot 슬라이더는 '지금 보는 발'의 값을 편집한다.
+//   side 토글 시 그 발의 저장값(없으면 구 키/미러)을 슬라이더로 불러온다.
+const G_KEYS = ['gx', 'gy', 'grot'];
+function sideG(sd) {   // 해당 발의 유효값 (독립값 ?? 구 키 규약)
+  const R = sd === 'right';
+  return { gx: R ? (P.gxR ?? -P.gx) : (P.gxL ?? P.gx),
+           gy: R ? (P.gyR ?? P.gy) : (P.gyL ?? P.gy),
+           grot: R ? (P.grotR ?? -P.grot) : (P.grotL ?? P.grot) };
+}
+function loadSideG() {
+  const g = sideG(side);
+  for (const k of G_KEYS) { $(k).value = g[k]; $('v' + k).textContent = (+g[k]).toFixed(k === 'grot' ? 0 : 3); }
+}
+for (const k of G_KEYS) $(k).addEventListener('input', () => {
+  const R = side === 'right';
+  P[k + (R ? 'R' : 'L')] = +$(k).value;   // 독립 키에 기록 — 구 키(P.gx 등)는 하위 호환용으로 유지
+});
 
 // ── 렌더러 둘: 확대 하나 + 상태 스트립 하나 ──────────────────────────────
 //   ★ alpha:false 로 둔다. 야간 가산 경로는 `gl_FragColor = vec4(col, 1.0)` 이라 알파가 1 이고,
@@ -507,8 +525,9 @@ function makeUnit(kind) {   // 'foot' | 'zone'
     //   발형은 오른발이 미러라 x·회전 부호가 뒤집힌다(슬라이더는 해부학 기준).
     const isFoot = kind === 'foot';
     const mir = isFoot && side === 'right' ? -1 : 1;
-    num.position.set(off.x + (isFoot ? P.gx * mir * SF : 0), off.y + (isFoot ? P.gy * SF : 0), 0.01);
-    num.rotation.z = (isFoot ? P.grot * mir : 0) * Math.PI / 180;
+    const gEff = sideG(side);   // 좌/우 독립(유저) — 랩은 현재 보는 발(side) 기준, mir 곱 없음
+    num.position.set(off.x + (isFoot ? gEff.gx * SF : 0), off.y + (isFoot ? gEff.gy * SF : 0), 0.01);
+    num.rotation.z = (isFoot ? gEff.grot : 0) * Math.PI / 180;
     pl.add(num);
   }
   return { kind, scene: sc, mat: m, plane: pl, num, tex: tx };

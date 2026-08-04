@@ -3,7 +3,7 @@ import { PAL, NEU, NUM, rgba } from './palette.js';
 import bkStepContacts from '../assets/mocap/contacts-cmu_crossover_shot.json';   // 접지 자동 추출 산출물 (scripts/extract_contacts.mjs)
 import { WALL_Z } from './scene.js';
 import { lutColor, GLYPHS, drawGlyph, drawNumber, footSlot, footSDFTexture, FXP } from './fxlut.js';
-import { MARK_NUM, GLYPH_LOOK, drawMarkGlyph, invertGlyphCanvas, drawStanceBox, drawPunchLine, drawApproachRing, drawTrajectory, drawRotate, drawStemArrow, drawCurveArrow } from './fx-core.js';
+import { MARK_NUM, GLYPH_LOOK, drawMarkGlyph, invertGlyphCanvas, drawStanceBox, drawPunchLine, drawApproachRing, drawTrajectory, drawRotate, drawStemArrow, drawCurveArrow , glyphFor } from './fx-core.js';
 import { makeMarkFXMaterial, makeLaneFXMaterial, makeFlowArrow, tickFlowArrows, beamAlphaAt, COLORS, FOOT_PLANE_M, QUAD_K, UI_MASK, MARK_LOOK } from './tokens.js';
 
 const clamp01 = v => v < 0 ? 0 : v > 1 ? 1 : v;
@@ -296,9 +296,10 @@ function placeMarkNum(p) {
   const off = MARK_NUM.anchor(a, p._numRight, FOOT_PLANE_M * QUAD_K);
   // 글리프 미세 이동·회전도 랩 정본(GLYPH_LOOK)에서 — 오른발은 미러라 x·회전 부호가 뒤집힌다.
   //   gx/gy 는 쿼드 비율이므로 쿼드 실치수를 곱해 월드로 바꾼다.
-  const QW = FOOT_PLANE_M * QUAD_K, mir = p._numRight ? -1 : 1;
-  p.position.set(off.x + GLYPH_LOOK.gx * mir * QW * 0.5, off.y + GLYPH_LOOK.gy * QW * 0.5, 0.002);
-  p.rotation.z = GLYPH_LOOK.rot * mir * Math.PI / 180;
+  const QW = FOOT_PLANE_M * QUAD_K;
+  const G = glyphFor(p._numRight);   // 좌/우 독립값(랩 저장) 우선 — 없으면 구 미러 규약
+  p.position.set(off.x + G.gx * QW * 0.5, off.y + G.gy * QW * 0.5, 0.002);
+  p.rotation.z = G.rot * Math.PI / 180;
   p.scale.setScalar((off.s || 1) * (FXP.mark.radius || 1));
 }
 // 파동 링 재질 틱 목록 (프리뷰·세션 공통 — main 루프가 tickWaves 호출)
