@@ -618,25 +618,6 @@ export function arcSegFill(ctx, cx, cy, r0, r1, a0, a1, fill, round) {
   ctx.fill(); ctx.stroke();
   ctx.restore();
 }
-// 시간 구성 트랙 — 라운드캡 굵은 호 구간들, 구간 각도 = 분에 비례(위계를 크기로 말한다).
-//   parts = [[라벨, 분]…]. 라벨은 호출자가 그린다 — [중심각, 라벨, 분] 목록을 돌려준다.
-export function arcComp(ctx, cx, cy, r, a0, a1, parts, lw, colors) {
-  const gap = (lw * 1.15) / r;
-  const total = parts.reduce((s, p) => s + p[1], 0);
-  const span = (a1 - a0) - gap * (parts.length - 1);
-  const mids = [];
-  let a = a0;
-  ctx.save(); ctx.lineCap = 'round'; ctx.lineWidth = lw;
-  parts.forEach(([lbl, m], i) => {
-    const da = span * m / total;
-    ctx.strokeStyle = colors[i % colors.length];
-    ctx.beginPath(); ctx.arc(cx, cy, r, a + lw / 2 / r, a + da - lw / 2 / r); ctx.stroke();
-    mids.push([a + da / 2, lbl, m]);
-    a += da + gap;
-  });
-  ctx.restore();
-  return mids;
-}
 
 // 완료 체크 배지 — Figma 52:3178 정본: 흰 원(글로우) + 뉴턴 레드 체크.
 // 원본 HTML은 반투명 흰 원 + 흰 체크였는데 그게 Figma와 달랐다(유저 지적).
@@ -1274,43 +1255,65 @@ export class FloorGL {
     ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.font = F(400, 44); ctx.letterSpacing = '-1.4px';
     arcText(ctx, D.today, C.x, C.y, 896, -90 * RAD);
     ctx.letterSpacing = '0px'; ctx.restore();
-    // ② 밴드 — 기기 칩 3개를 부채꼴 셀로. 내용은 접선 방향(아이콘 위 · 상태 아래).
-    const CHIP = [['run/ic_glasses.png', '90%', true], ['run/ic_watch.png', '30%', false],
-                  ['run/ic_earbuds.png', '60%', false]];
-    const A0 = -146, A1 = -34, GAPD = 3, SEG = (A1 - A0 - GAPD * 2) / 3;
-    CHIP.forEach(([ic, tx, sel], i) => {
-      const s0 = (A0 + i * (SEG + GAPD)) * RAD, s1 = s0 + SEG * RAD, am = (s0 + s1) / 2;
-      ctx.save(); ctx.globalAlpha *= eOut(intro(t, .5 + i * .12, .7));
-      let fill = '#fff';
-      if (sel) {   // 선택 칩 = 열화상 그라디언트(반경 방향: 안 빨강 → 밖 살구)
-        const g = ctx.createLinearGradient(C.x + Math.cos(am) * R1, C.y + Math.sin(am) * R1,
-                                           C.x + Math.cos(am) * R0, C.y + Math.sin(am) * R0);
-        g.addColorStop(0, '#FA3030'); g.addColorStop(.7, '#FE6E3C'); g.addColorStop(1, '#FEC389');
-        fill = g;
-      }
-      arcSegFill(ctx, C.x, C.y, R0, R1, s0, s1, fill);
-      ctx.translate(C.x + Math.cos(am) * RM, C.y + Math.sin(am) * RM);
-      ctx.rotate(am + Math.PI / 2);
-      const im = this._img(ic);
-      if (im) {
-        const IH = 56, iw = im.naturalHeight ? IH * (im.naturalWidth / im.naturalHeight) : IH;
-        ctx.save(); ctx.filter = sel ? 'brightness(0) invert(1)' : 'brightness(0)';
-        ctx.drawImage(im, -iw / 2, -66, iw, IH);
-        ctx.restore();
-      }
-      ctx.font = F(700, 44); ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-      ctx.fillStyle = sel ? '#fff' : '#525252'; ctx.fillText(tx, 0, 8);
-      ctx.restore();
-    });
-    // ②' 세션 구성 트랙 — 라운드캡 굵은 호, 구간 각도 = 분(위계를 크기로). Total 그래프의 호 버전.
-    //   라벨은 짧게(분만), 마지막(본운동)만 이름+분 — 큰 조각 = 주인공이라는 문법.
+    // ② 메인 밴드 = 세션 구성 (배터리보다 세션 정보가 위계 위 — 유저).
+    //   셀 각도 = 분에 비례(큰 조각 = 본운동), 본운동 셀만 열화상 그라디언트.
     {
-      ctx.save(); ctx.globalAlpha *= eOut(intro(t, .65, .8));
-      const mids = arcComp(ctx, C.x, C.y, 436, -140 * RAD, -40 * RAD, D.comp, 32, [PAL.red, PAL.coral, PAL.sand]);
-      ctx.font = F(700, 30); ctx.fillStyle = 'rgba(255,255,255,.85)';
-      mids.forEach(([am, lbl, m], i) =>
-        arcText(ctx, i === mids.length - 1 ? `${lbl} ${m}m` : `${m}m`, C.x, C.y, 370, am));
-      ctx.restore();
+      const A0 = -146 * RAD, A1 = -34 * RAD, GAP = 3 * RAD;
+      const total = D.comp.reduce((s, p) => s + p[1], 0);
+      const span = (A1 - A0) - GAP * (D.comp.length - 1);
+      let a = A0;
+      D.comp.forEach(([lbl, m], i) => {
+        const da = span * m / total, s0 = a, s1 = a + da, am = a + da / 2;
+        a += da + GAP;
+        const main = i === D.comp.length - 1;
+        ctx.save(); ctx.globalAlpha *= eOut(intro(t, .5 + i * .12, .7));
+        let fill = '#fff';
+        if (main) {   // 본운동 = 열화상 그라디언트(반경 방향: 안 빨강 → 밖 살구)
+          const g = ctx.createLinearGradient(C.x + Math.cos(am) * R1, C.y + Math.sin(am) * R1,
+                                             C.x + Math.cos(am) * R0, C.y + Math.sin(am) * R0);
+          g.addColorStop(0, '#FA3030'); g.addColorStop(.7, '#FE6E3C'); g.addColorStop(1, '#FEC389');
+          fill = g;
+        }
+        arcSegFill(ctx, C.x, C.y, R0, R1, s0, s1, fill);
+        ctx.translate(C.x + Math.cos(am) * RM, C.y + Math.sin(am) * RM);
+        ctx.rotate(am + Math.PI / 2);
+        ctx.textAlign = 'center'; ctx.fillStyle = main ? '#fff' : '#525252';
+        ctx.font = F(700, 42); ctx.textBaseline = 'alphabetic'; ctx.letterSpacing = '-1.4px';
+        if (ctx.measureText(lbl).width > da * RM - 28) ctx.font = F(700, 34);   // 좁은 셀(짧은 구간) 자동 축소
+        ctx.fillText(lbl, 0, -10);
+        ctx.font = F(400, 34); ctx.textBaseline = 'top'; ctx.letterSpacing = '-1px';
+        ctx.fillText(`${m}m`, 0, 10);
+        ctx.letterSpacing = '0px';
+        ctx.restore();
+      });
+    }
+    // ②' 기기 미니 칩 — 안쪽 얇은 고리로 강등(아이콘 + 배터리). 낮은 배터리만 빨강.
+    {
+      const DEV = [['run/ic_glasses.png', 90], ['run/ic_watch.png', 30], ['run/ic_earbuds.png', 60]];
+      const r0 = 404, r1 = 478, rm = (r0 + r1) / 2;
+      const A0 = -117 * RAD, A1 = -63 * RAD, GAP = 2.5 * RAD;
+      const SEG = (A1 - A0 - GAP * 2) / 3;
+      DEV.forEach(([ic, pct], i) => {
+        const s0 = A0 + i * (SEG + GAP), s1 = s0 + SEG, am = (s0 + s1) / 2;
+        ctx.save(); ctx.globalAlpha *= eOut(intro(t, .75 + i * .1, .6));
+        arcSegFill(ctx, C.x, C.y, r0, r1, s0, s1, 'rgba(255,255,255,.92)');
+        ctx.translate(C.x + Math.cos(am) * rm, C.y + Math.sin(am) * rm);
+        ctx.rotate(am + Math.PI / 2);
+        const im = this._img(ic);
+        const IH = 34, iw = im && im.naturalHeight ? IH * (im.naturalWidth / im.naturalHeight) : IH;
+        ctx.font = F(700, 27); ctx.letterSpacing = '-.8px';
+        const tw = ctx.measureText(pct + '%').width, x0 = -(iw + 8 + tw) / 2;
+        if (im) {
+          ctx.save(); ctx.filter = 'brightness(0)';
+          ctx.drawImage(im, x0, -IH / 2, iw, IH);
+          ctx.restore();
+        }
+        ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+        ctx.fillStyle = pct <= 30 ? PAL.red : '#525252';   // 낮은 배터리만 경고색
+        ctx.fillText(pct + '%', x0 + iw + 8, 1);
+        ctx.letterSpacing = '0px';
+        ctx.restore();
+      });
     }
     // ③ 호 왼끝 — 크리에이터 아바타(누구 팩인가). 밴드보다 약간 바깥 각도.
     {
