@@ -400,6 +400,22 @@ export function makeMarkFXMaterial(footTex = null) {
 
 // ── 마크 룩 라이브 적용 — 랩 실험값·구(하늘) 램프 토글을 이미 만들어진 재질 전부에 즉시 ──
 const MARK_MATS = [];
+/** 재질 하나에만 룩을 입힌다(전역 applyMarkLook 의 인스턴스 판) — 8번째 토큰 'Tap2' 처럼
+ *  특정 토큰만 다른 스타일을 쓰는 경우. 키 규약은 applyMarkLook 과 동일. */
+export function applyMarkLookTo(mat, part = {}) {
+  const SF = SIL_FIT / SIL_FIT_REF;
+  const map = { imp: 'uImp', dot: 'uImpDot', glow: 'uImpGlow', shade: 'uImpShade', sharp: 'uImpSharp',
+    shadeCol: 'uImpShadeCol', scale: 'uImpScale', plantar: 'uPlantar', bands: 'uBands', bandSoft: 'uBandSoft',
+    edgeShade: 'uEdgeShade', edgeShadeW: 'uEdgeShadeW', edgeShadeCol: 'uEdgeShadeCol',
+    edgeShadeGrad: 'uEdgeShadeGrad', edgeShadeG0: 'uEdgeShadeG0', edgeShadeG1: 'uEdgeShadeG1',
+    shadeRed: 'uShadeRed', shadeRedW: 'uShadeRedW', edgeSoft: 'uEdgeSoft', dither: 'uDither',
+    rip: 'uRip', ripSpeed: 'uRipSpeed', ripGrad: 'uRipGrad', ripCol: 'uRipCol' };
+  const mapSF = { pitch: 'uImpPitch', edge: 'uImpEdge', edgeW: 'uEdgeW', ripWidth: 'uRipWidth', ripReach: 'uRipReach' };
+  const U = mat.uniforms;
+  for (const k in map) if (part[k] != null && U[map[k]]) U[map[k]].value = part[k];
+  for (const k in mapSF) if (part[k] != null && U[mapSF[k]]) U[mapSF[k]].value = part[k] * SF;
+}
+
 export function applyMarkLook(part = {}) {
   const SF = SIL_FIT / SIL_FIT_REF;
   const map = { imp: 'uImp', dot: 'uImpDot', glow: 'uImpGlow', shade: 'uImpShade', sharp: 'uImpSharp',

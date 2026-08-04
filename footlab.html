@@ -148,7 +148,8 @@
       <div class=row><label>기울기°</label><input type=range id=tilt min=-20 max=20 step=1><span class=v id=vtilt></span></div>
     </fieldset>
 
-    <div class=acts><button id=save>코드에 저장 — 이 값이 시뮬로 간다</button></div>
+    <div class=acts><button id=save>코드에 저장 — 이 값이 시뮬로 간다</button>
+      <button id=saveTap>8번째 토큰(Tap2)으로 저장 — READY 탭 발자국</button></div>
     <div class=acts><button id=undo>되돌리기 ⌘Z</button><button id=redo>다시 ⇧⌘Z</button></div>
     <div class=acts><button id=reset>기본값</button><button id=copy>현재값 복사</button></div>
     <p class=warn id=warn></p>
@@ -161,7 +162,7 @@
       <canvas id=hero width=640 height=640></canvas>
     </div>
     <div class=card>
-      <h2>7상태 × 두 표현형 — 윗줄 발형 · 아랫줄 원형(존). 셀을 클릭하면 위 확대로</h2>
+      <h2>8상태 × 두 표현형 — 윗줄 발형 · 아랫줄 원형(존). 8번째 Tap2 = READY 탭 어포던스(무채↔석세스 2회 깜빡). 셀을 클릭하면 위 확대로</h2>
       <canvas id=strip width=1120 height=460></canvas>
     </div>
     <div class=card>
@@ -298,6 +299,19 @@ applyHeroSize(+(localStorage.getItem(HERO_KEY) || 460));
 // 랩의 현재 값을 **리포 파일(src/mark-look.json)** 에 굽는다. 이게 곧 시뮬이 읽는 값이다.
 //   예전엔 localStorage 에만 저장돼서 다른 기기에서 열면 수정 전 값이 나왔고, 시뮬로 옮길 때도
 //   코드 기본값만 갔다(유저가 다른 노트북에서 발견). 값의 집이 리포에 있어야 한다.
+// 8번째 토큰(Tap2) — 현재 슬라이더 값을 mark-look.json `tap` 으로만 굽는다(정본 룩은 그대로).
+$('saveTap').onclick = async () => {
+  const KEYS = ['imp','scale','pitch','dot','glow','shade','sharp','edge','plantar','bands','bandSoft',
+    'edgeShade','edgeShadeW','edgeShadeGrad','edgeShadeG0','edgeShadeG1','dither'];
+  const tap = {}; for (const k of KEYS) if (P[k] != null) tap[k] = P[k];
+  tap.shadeCol = shadeCol; tap.edgeShadeCol = edgeShadeCol;
+  const btn = $('saveTap'), old = btn.textContent;
+  try {
+    const r = await fetch('/__save-look', { method: 'POST', body: JSON.stringify({ tap }) });
+    btn.textContent = r.ok ? 'Tap2 저장됨 — 시뮬 새로고침' : '저장 실패: ' + (await r.text());
+  } catch { btn.textContent = '저장 실패(개발 서버 필요)'; }
+  setTimeout(() => { btn.textContent = old; }, 2600);
+};
 $('save').onclick = async () => {
   const body = { ...P, shadeCol, ripCol, edgeShadeCol, gShadow, gBlend, numSrc: FXP.numSrc,
     // 프림 전용 값(코멧·노드·레일)도 정본에 — 없으면 시뮬 새로고침마다 증발(유저: 이식 안 됨)
@@ -408,7 +422,17 @@ function aim(aspect) {
 const STATES = [
   { n: 'Preview', ph: 0 }, { n: 'Active', ph: 1 }, { n: 'Hold', ph: 5 }, { n: 'Success', ph: 2 },
   { n: 'Miss', ph: 4 }, { n: 'Warning', ph: 6 }, { n: 'Locked', ph: 3 },
+  // 8번째 토큰(유저 08-05) — READY '발 두 번 탭' 어포던스. 무채(Locked) 기본에서
+  //   주기마다 석세스 최종색으로 2회 깜빡. 현재 슬라이더 값이 곧 이 토큰의 룩이고,
+  //   '8번째 토큰(Tap2)으로 저장' 버튼이 mark-look.json `tap` 으로 굽는다(시뮬이 그걸 읽는다).
+  { n: 'Tap2', ph: 3, tap: true },
 ];
+const TAP_LOOP = { T: 5.6, W: 0.55, P1: 3.6, P2: 4.35 };   // session FootMark.READY_TAP 과 동일
+function tapPhase(t) {
+  const ph = t % TAP_LOOP.T;
+  const bl = t0 => { const u = (ph - t0) / TAP_LOOP.W; return (u >= 0 && u <= 1) ? Math.sin(u * Math.PI) : 0; };
+  return Math.max(bl(TAP_LOOP.P1), bl(TAP_LOOP.P2)) > 0.35 ? 2 : 3;
+}
 let playing = true;
 let heroPhase = 1, heroKind = 'foot';   // 스트립 셀 클릭이 이 둘을 같이 정한다(윗줄 발형·아랫줄 원형)
 const KINDS = ['foot', 'zone'];
@@ -962,7 +986,8 @@ function frame() {
         // 뷰포트 y 는 아래가 0 — 윗줄(발형)이 화면 위로 가려면 마지막 행부터 채운다
         const vy = (KINDS.length - 1 - row) * ch;
         STATES.forEach((s, i) => {
-          feed(u, s.ph, progFor(s.ph, t), t, mode);
+          const ph2 = s.tap ? tapPhase(t) : s.ph;
+          feed(u, ph2, s.tap ? 0 : progFor(s.ph, t), t, mode);
           rStrip.setViewport(i * cw, vy, cw, ch);
           rStrip.setScissor(i * cw, vy, cw, ch);
           rStrip.render(u.scene, cam);

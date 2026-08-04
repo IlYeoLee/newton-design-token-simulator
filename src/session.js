@@ -4,7 +4,7 @@ import bkStepContacts from '../assets/mocap/contacts-cmu_crossover_shot.json';  
 import { WALL_Z } from './scene.js';
 import { lutColor, GLYPHS, drawGlyph, drawNumber, footSlot, footSDFTexture, FXP } from './fxlut.js';
 import { MARK_NUM, GLYPH_LOOK, drawMarkGlyph, invertGlyphCanvas, drawStanceBox, drawPunchLine, drawApproachRing, drawTrajectory, drawRotate, drawStemArrow, drawCurveArrow , glyphFor } from './fx-core.js';
-import { makeMarkFXMaterial, makeLaneFXMaterial, makeFlowArrow, tickFlowArrows, beamAlphaAt, COLORS, FOOT_PLANE_M, QUAD_K, UI_MASK, MARK_LOOK } from './tokens.js';
+import { makeMarkFXMaterial, makeLaneFXMaterial, makeFlowArrow, tickFlowArrows, beamAlphaAt, COLORS, FOOT_PLANE_M, QUAD_K, UI_MASK, MARK_LOOK, applyMarkLookTo } from './tokens.js';
 
 const clamp01 = v => v < 0 ? 0 : v > 1 ? 1 : v;
 
@@ -109,6 +109,7 @@ function makeTextPlane(text, opts = {}) { const g = makeTextMesh(text, opts); co
 // 구 발형 마크 v2(족저 압력 히트맵 캔버스 텍스처) 삭제 — FootMark가 MARK 발형 셰이더로
 // 대체한 뒤 호출처 0인 죽은 코드였음 (룩 시스템 외 사제 렌더의 마지막 잔재).
 class FootMark {
+  static READY_TAP = { T: 5.6, W: 0.55, P1: 3.6, P2: 4.35 };   // tap2 루프 타이밍 — floorgl 캔버스 발과 공유
   // 세션 발자국 = MARK 발형 상태 머신 소비 (시안 보드 7상태 그대로).
   // 열화상 사제 텍스처·flatMat 카운트다운 링·홀드 호 전부 은퇴 — 룩 시스템이 유일한 형태:
   //   대기=Preview 소프트 필 · 카운트다운=Active 헤일로 수축 · 유지=Hold 코닉 림 · 성공=Success 블룸
@@ -147,12 +148,16 @@ class FootMark {
     //   uPhase 2 · uProg 0)로 깜빡깜빡 → 다시 무채. 사인 디졸브로 부드럽게.
     //   ★ glow() 를 쓰지 않는다 — glow(1) 은 onSuccess 파문까지 발사한다(풀 버전 금지, 유저).
     //     유니폼 직접 세팅 = 색만 빌려 오고 이펙트는 없다.
-    // 무채가 '기본'으로 확실히 읽히게 — 조용한 구간 3.6s(주기 5.6s), 펄스 2회는 더 절제(피크 0.58).
-    const T = 5.6, ph = tc % T;
-    const bl = t0 => { const u = (ph - t0) / 0.55; return (u >= 0 && u <= 1) ? Math.sin(u * Math.PI) : 0; };
-    const b = Math.max(bl(3.6), bl(4.35));
-    if (b > 0.32) { this._U.uPhase.value = 2; this._U.uProg.value = 0; this.op(0.24 + 0.34 * b); }
-    else { this.locked(); this.op(0.55 - 0.25 * b); }   // 교차 밝기 근사 일치 = 디졸브
+    // 스타일 = 8번째 토큰 'Tap2' (footlab 에서 편집·저장 → mark-look.json `tap`).
+    //   같은 마크 토큰에 룩 파라미터만 갈아 끼운다 — 새 그래픽을 그리지 않는다(유저).
+    if (!this._tapStyled) { applyMarkLookTo(this.plane.material, MARK_LOOK.tap || {}); this._tapStyled = true; }
+    const T = FootMark.READY_TAP.T, ph = tc % T;
+    const bl = t0 => { const u = (ph - t0) / FootMark.READY_TAP.W; return (u >= 0 && u <= 1) ? Math.sin(u * Math.PI) : 0; };
+    const b = Math.max(bl(FootMark.READY_TAP.P1), bl(FootMark.READY_TAP.P2));
+    // 무채(Locked) 기본 → 펄스 순간만 석세스 최종색. 형태·도트는 그대로.
+    this._U.uPhase.value = b > 0.35 ? 2 : 3;
+    this._U.uProg.value = 0;
+    this.op(0.72 + 0.28 * b);
   }   // 무채 대기(Locked) — READY 시작 전
   countdown(p) {
     if (p < 0) { this._U.uPhase.value = 0; this._U.uProg.value = 0; return; }          // 대기 = Preview 숨쉬기

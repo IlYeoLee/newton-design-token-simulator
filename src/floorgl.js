@@ -1508,7 +1508,28 @@ export class FloorGL {
         ctx.restore();
       });
     }
-    // ── ⑥ 발 = 룩시스템 FootMark 토큰(tap2 어포던스 상태, session READY) — 캔버스 신발 폐기(유저) ──
+    // ── ⑥ 발 무채 정본(#81, 유저) — 캔버스 회색 도트 발 + 이너 화이트. 붉은 펄스 순간에만
+    //    3D FootMark(석세스색)로 크로스페이드 — 타이밍 상수는 session FootMark.READY_TAP 과 동일.
+    {
+      const T5 = 5.6, W5 = 0.55, P1 = 3.6, P2 = 4.35;
+      const ph5 = t % T5;
+      const bl5 = t0 => { const u = (ph5 - t0) / W5; return (u >= 0 && u <= 1) ? Math.sin(u * Math.PI) : 0; };
+      const b5 = Math.max(bl5(P1), bl5(P2));
+      const feetA = (1 - Math.min(1, b5 * 1.5)) * e0(1.1, .8);
+      if (feetA > 0.01) {
+        const fp = this._tinted2('foot_shape.png', 160, 213, () => 'rgba(255,255,255,.9)');
+        if (fp) {
+          for (const sgn of [-1, 1]) {
+            ctx.save(); ctx.globalAlpha *= 0.4 * feetA;
+            ctx.shadowColor = 'rgba(255,255,255,.75)'; ctx.shadowBlur = 16;   // 이너 화이트 근사
+            ctx.translate(800 + sgn * 392, 1885); ctx.rotate(sgn * 4 * RAD);
+            if (sgn > 0) ctx.scale(-1, 1);
+            ctx.drawImage(fp, -110, -147, 220, 293);
+            ctx.restore();
+          }
+        }
+      }
+    }
     // ── ⑦ CTA — Tap Twice(74 Bold) / To start(74 Regular), 발 사이 중앙 ──
     ctx.save(); ctx.globalAlpha *= e0(1.05);
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
@@ -1536,15 +1557,16 @@ export class FloorGL {
     const L = k => FROM[k] + (TO[k] - FROM[k]) * g;
     const bx = L(0), by = L(1), bw = L(2), bh = L(3);
     ctx.save();
-    ctx.translate(bx, by); ctx.scale(bw / 1018, bh / 1591); ctx.translate(-291, -285);
-    const capPath = () => { ctx.beginPath(); ctx.roundRect(291, 285, 1018, 1591, 509); };
+    // ★ 캡슐은 '눌린 SVG'가 아니라 진짜 알약이다(유저 #82) — 비균일 스케일로 찌그러뜨리지 말고
+    //   목표 w/h 로 직접 그리고 r = min(w,h)/2. 카드로 줄어도 좌우 끝이 반원으로 유지된다.
+    const capPath = () => { ctx.beginPath(); ctx.roundRect(bx, by, bw, bh, Math.min(bw, bh) / 2); };
     ctx.fillStyle = 'rgba(217,217,217,.01)'; capPath(); ctx.fill();
     ctx.save(); capPath(); ctx.clip();
     ctx.filter = 'blur(37px)';
     ctx.strokeStyle = 'rgba(255,255,255,.25)'; ctx.lineWidth = 80;
     capPath(); ctx.stroke();
     ctx.filter = 'none'; ctx.restore();
-    const rim = ctx.createLinearGradient(0, 285, 0, 285 + 1591);
+    const rim = ctx.createLinearGradient(0, by, 0, by + bh);
     rim.addColorStop(0, 'rgba(255,255,255,.95)'); rim.addColorStop(.28, 'rgba(255,255,255,.28)');
     rim.addColorStop(.62, 'rgba(255,255,255,.2)'); rim.addColorStop(.88, 'rgba(255,255,255,.65)');
     rim.addColorStop(1, 'rgba(255,255,255,.9)');
@@ -1557,6 +1579,8 @@ export class FloorGL {
       ['glow-ell.svg', 150.3, 1189.3, 1300.36, 871.36, 'hard-light'],
     ];
     ctx.save();
+    // 글로우는 READY 좌표계 자산 — 현재 캡슐 사각형에 맞춰 매핑(모양이 소프트해 비균일 무해)
+    ctx.translate(bx, by); ctx.scale(bw / 1018, bh / 1591); ctx.translate(-291, -285);
     ctx.translate(800, 1876); ctx.scale(0.88, 0.88); ctx.translate(-800, -1876);   // 하단 그라디언트 조금 축소(유저)
     ctx.globalAlpha *= 0.9;                                                          // 빛 강도 아주 조금 다운(유저)
     for (const [rel, gx, gy, gw, gh, blend] of GLOWS) {
