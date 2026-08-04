@@ -222,14 +222,13 @@ export class ProjectorRig {
     this.wallFill.visible = sport === 'boxing' && viz;
     if (!isKnee) this._fp = null;
 
-    // 농구 무릎 유닛: 컷 중 스윙을 줄이려 적당한 폭(발 앞 근접 존). 러닝은 스트리밍 레인.
-    if (sport === 'basketball') {
-      this.fixedPad = { halfNear: 0.55, halfFar: 0.85 };
-      this.fpNear = 0.05; this.fpFar = 1.6;
-      this._smFwd = null; this._travelDir = null; this._bodyPrev = null;   // 스무딩 리셋
-    } else {
-      this.fixedPad = null;
-    }
+    // ★ 지면 투사 스펙 = 종목 공통(유저 승인 08-05). 예전엔 농구만 fixedPad(0.55~0.85)+far 1.6
+    //   이라 카드 폭이 1.4m vs 러닝 1.1m 로 갈렸고, 그게 '농구만 크다·잘린다' 계열 버그와
+    //   농구 전용 보정(콘텐츠 스케일·별도 좌표)의 근원이었다. 확산각·시작거리는 원래 같았고
+    //   면적도 1.82㎡ 로 동일해 통합해도 광량 손실이 없다. 농구 가이드 실측 폭 ±0.55m 는
+    //   통합 스펙(먼 쪽 반폭 0.75m) 안에 들어온다.
+    this.fixedPad = null;
+    if (sport === 'basketball') { this._smFwd = null; this._travelDir = null; this._bodyPrev = null; }
 
     if (sport === 'boxing') {
       // 벽면 타겟 평균 위치 저장 (빔/투사면은 update에서 실시간 계산 — 크기 슬라이더 반영)

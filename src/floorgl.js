@@ -29,6 +29,10 @@ const K = Math.min(3, Math.max(0.4, +_q.get('uiscale') || (_q.get('scene') ? 1 :
 const UI_FPS = Math.max(4, Math.min(60, +(new URLSearchParams(location.search).get('uifps')) || 12));
 
 const CX = W / 2;
+// ── 세이프 밴드 — 빔이 실제로 닿는 캔버스 세로 구간(유저 승인 08-05) ────────────
+//   커버리지 깊이 1.7m ÷ 캔버스 대응 깊이 2.47m ≈ 0.69. 대지 중앙 기준 그 폭만 쓴다.
+//   SAFE.y0~y1 밖에 그린 요소는 투사면 밖으로 새므로, 새 조판은 반드시 이 안에서.
+export const SAFE = { y0: Math.round(H * 0.155), y1: Math.round(H * 0.845), get h() { return this.y1 - this.y0; } };
 // 투사 UI 서체 규칙(유저 확정): Supreme 두 굵기만 — Bold 700 · Regular 400.
 // Freesentation·Pretendard 폴백은 은퇴(투사 UI는 영문 조판이고, 폴백이 끼면 자간이 달라진다).
 const sans = "'Supreme',sans-serif";
@@ -525,7 +529,7 @@ const READY = {
   // lbl = 분 표기 통일 'Nm'(유저 08-05) — 'min' 혼용 폐기. 글자 크기도 세그먼트 공통(LBL_FS/LBL_MS).
   'floor.html':    { r2: { lines: ["Sean's", 'Final 1km Pace'], sub: 'Pace On', total: '30',
                            arcs: [{ v: 5, lbl: '5m', muted: true, chipText: '5m' }, { v: 10, lbl: '10m', icon: 'feet' }, { v: 15, lbl: '15m', icon: 'run' }] } },   // 스트레칭도 비례 세그먼트(유저)
-  'floor-bk.html': { r2: { scale: 0.78, pivotY: 700,   // 커버리지는 그대로, 카드만 축소(유저 #108)
+  'floor-bk.html': { r2: {   // 종목 공통 스펙으로 통합 — 농구 전용 콘텐츠 보정 폐기(유저 승인 08-05)
                            lines: ["Curry's", 'Handle Pack'], sub: 'Press On', total: '23',
                            arcs: [{ v: 5, lbl: '5m', muted: true, chipText: '5m' }, { v: 8, lbl: '8m', icon: 'bkTrain' }, { v: 10, lbl: '10m', icon: 'bkPlay' }] } },   // 스트레칭도 비례 세그먼트(유저)
 };
@@ -1276,8 +1280,14 @@ export class FloorGL {
     // 콘텐츠 스케일 — 프레임(=커버리지)은 절대 못 줄인다. 종목별 실물 크기 동급화는 여기서.
     const CK = R2.scale || 1, PV = R2.pivotY ?? 1400;
     ctx.save();
-    ctx.translate(0, -185);   // 콘텐츠 전체 위로 — far 쪽 빈 띠 제거 + Tap Twice 를 가시권으로(유저)
-    ctx.translate(800, 1080); ctx.scale(1.06, 1.06); ctx.translate(-800, -1080);   // 확대는 1.06 까지 — 1.12 는 사이드 포드가 대지 밖으로 잘렸다(유저 #107)
+    // 세이프 밴드 정렬(유저 승인) — 임시 시프트(-185)·확대(1.06) 대체.
+    //   콘텐츠 설계 높이(캡슐 285~1876 = 1591)를 밴드 높이에 맞추고 밴드 중심에 놓는다.
+    {
+      const CH = 1591, k = Math.min(1, SAFE.h / CH);   // 확대는 하지 않는다 — 밴드의 목적은 '넘침 방지'이고, 키우면 좌우가 커버리지를 넘는다(실측)
+      const cy0 = 285 + CH / 2, cyT = SAFE.y0 + SAFE.h / 2;
+      ctx.translate(0, cyT - cy0);
+      ctx.translate(800, cyT); ctx.scale(k, k); ctx.translate(-800, -cyT);
+    }
     if (CK !== 1) { ctx.translate(800, PV); ctx.scale(CK, CK); ctx.translate(-800, -PV); }
     // ── 페이즈 타임라인 — 등장(왼→오 촤라락) 완료 후 2초 뒤 페이즈2(실루엣·코치 프로필) ──
     const TP2 = 2.1, p2 = eOut(intro(t, TP2, .7));   // 등장 ~2s 완료 → 쉬지 않고 바로 페이즈2(유저)
