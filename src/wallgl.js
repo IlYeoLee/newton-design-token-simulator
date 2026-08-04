@@ -79,15 +79,15 @@ const SCENES = {
   //   반영돼 있지 않았다: 'Slip your head left and right' 처럼 전부 설명문이었다.
   //   ⇒ say·cues 를 짧은 격려·상태로 갈았다. 지시는 session.voice 가 이미 한다.
   BX_A1: { title: 'NECK & SHOULDER ROLLS', phase: 1, sub: '1/3', coach: { num: '4', unit: 'Rolls' }, you: { num: '4', unit: 'Rolls' },   // 8→4 — 클립 실동작(목 1바퀴·어깨 1롤 = 각 ~3s)과 동기(유저: 여전히 빠름)
-    say: 'Easing in', cues: ['Nice', 'That’s it', 'Loose already'], combos: [] },
+    say: 'Easing in', cues: ['Nice!', 'That’s it!', 'Loose already!'], combos: [] },
   BX_A2: { title: 'IN & OUT FOOTWORK', phase: 1, sub: '2/3', coach: { num: '6', unit: 'Steps' }, you: { num: '6', unit: 'Steps' },
-    say: 'Feeling light', cues: ['Nice', 'Bouncy', 'That’s it'], combos: [] },
+    say: 'Feeling light', cues: ['Nice!', 'Bouncy!', 'That’s it!'], combos: [] },
   BX_A3: { title: 'LIGHT JAB', phase: 1, sub: '3/3', coach: { num: '6', unit: 'Jabs' }, you: { num: '6', unit: 'Jabs' },
     say: 'Sharp', cues: ['Nice snap', 'That’s it', 'Looking good'], combos: [] },
   BX_B1: { title: 'HOLD YOUR GUARD', phase: 2, sub: '1/3', coach: { num: '3.0', unit: 'Sec' }, you: { num: '3.0', unit: 'Sec' },
     say: 'Rock solid', cues: ['Holding', 'Nice', 'Strong'], combos: [] },
   BX_B2: { title: 'SLIP & EVADE', phase: 2, sub: '2/3', coach: { num: '6', unit: 'Slips' }, you: { num: '6', unit: 'Slips' },
-    say: 'Slick', cues: ['Untouchable', 'Nice', 'Can’t catch you'], combos: [],
+    say: 'Slick!', cues: ['Untouchable!', 'Nice!', 'Can’t catch you!'], combos: [],
     // counts = 착탄 핑 시각(session BX_B2_BEATS 실측) — 링이 '팡' 잠기는 순간 1씩(유저: 균등 필 과속)
     counts: [3.0, 4.5, 6.0, 7.5, 9.0, 10.5] },
   BX_B3: { title: 'JAB SWEEP', phase: 2, sub: '3/3', coach: { num: '6', unit: 'Sweeps' }, you: { num: '6', unit: 'Sweeps' },
@@ -105,17 +105,17 @@ const SCENES = {
   //   코치 몸의 마커와 다른 박자로 움직이면 둘이 다른 경기를 중계하는 꼴이 된다.
   //   C3 = 잽 1s · 잽 2s · (1초 쉼) · 훅 4s. C2 = 잽 1초 간격.
   BX_C2: { title: 'JAB SPAR', phase: 3, sub: '1/3', coach: { num: '', unit: 'Points' }, you: { num: '', unit: 'Points' },
-    say: 'Let’s go', cues: ['Nice', 'Sharp', 'Keep it up'], combos: ['Jab!'],
+    say: 'Let’s go!', cues: ['Nice!', 'Sharp!', 'Keep it up!'], combos: ['Jab!'],
     beats: [[1, 'hit'], [2, 'hit'], [3, 'miss'], [4, 'hit']] },
   BX_C3: { title: 'COMBINATION', phase: 3, sub: '2/3', coach: { num: '', unit: 'Points' }, you: { num: '', unit: 'Points' },
-    say: 'Rhythm’s good', cues: ['Nice combo', 'On fire', 'Keep it up'], combos: ['Jab · Jab · Hook!'],
+    say: 'Rhythm’s good!', cues: ['Nice combo!', 'On fire!', 'Keep it up!'], combos: ['Jab · Jab · Hook!'],
     // 3사이클(dur 9s) 전체 대본 — 콤보 박자(0.67/1.80/2.67 + 사이클 오프셋) 정렬.
     //   miss 1개 포함: 규칙상 Casey 는 내 miss 에만 득점하는데 대본에 miss 가 없어
     //   전문가가 영원히 0 이었다(유저 분석 요청). 6:1 — 전문가에게도 한 점은 간다.
     beats: [[0.67, 'hit'], [1.8, 'near'], [2.67, 'hit'], [3.67, 'hit'], [4.8, 'miss'], [5.67, 'hit'],
             [6.67, 'hit'], [7.8, 'near'], [8.67, 'hit']] },
   BX_C4: { title: 'COOL DOWN', phase: 3, sub: '3/3', coach: { num: '', unit: '' }, you: { num: '', unit: '' },
-    say: 'Great work', cues: ['Well done', 'Strong session', 'Nice one'], combos: [] },
+    say: 'Great work!', cues: ['Well done!', 'Strong session!', 'Nice one!'], combos: [] },
 };
 // 팩 정본 = Figma bK3Q9xIQ(팩 시청·설정 5화면·Main workout) — 'Bring the Ring Home' by Casey.
 //   시간 구성: Stretch 4m · Learn 8m · Strike! 23m (6 Rounds × 3m Work · 1m Rest) = Total 35m.
@@ -755,7 +755,24 @@ export class WallGL {
       ctx.translate(CX, cueY + sh / 2); ctx.scale(sk, sk); ctx.translate(-CX, -(cueY + sh / 2));
       // ★ 흰 필 알약 → 정본 배지(아웃라인 + 윙 선·점 + 블룸, 유저 확정 레퍼런스 스타일).
       //   이벤트(Match Rate 구간 종료)에 sayExt 로 윙이 뻗는다.
-      drawBadge(ctx, CX, cueY + sh / 2, say, { scale: sh / 114.26, glow: .45, ext: sayExt });
+      const _bw = drawBadge(ctx, CX, cueY + sh / 2, say, { scale: sh / 114.26, glow: .45, ext: sayExt });
+      // 불 인터랙션(레퍼런스 pyeongso fire-rise 2.6s) — 느낌표 큐에서 배지 왼쪽 불씨 2개가 떠오른다(유저)
+      if (/!$/.test(say)) {
+        const fl = this._img('flame.svg');
+        if (fl) {
+          const fx0 = CX - _bw / 2 - 34, fy0 = cueY + sh * 0.62;
+          const ember = (dly, sz, rot, ox) => {
+            const p = ((t - dly) % 2.6 + 2.6) % 2.6 / 2.6;
+            const a = p < .2 ? (p / .2) * .95 : p < .75 ? .95 - (p - .2) / .55 * .45 : .5 * (1 - (p - .75) / .25);
+            const yv = (6 - 68 * p), sc = .8 + .35 * p, SZ = sz * sc;
+            ctx.save(); ctx.globalAlpha *= a;
+            ctx.translate(fx0 + ox, fy0 + yv); ctx.rotate(rot);
+            ctx.drawImage(fl, -SZ / 2, -SZ / 2, SZ, SZ);
+            ctx.restore();
+          };
+          ember(0, 46, 0, 0); ember(1.1, 36, 13 * Math.PI / 180, 24);
+        }
+      }
       ctx.restore();
     }
     // 판정(HIT/NEAR/MISS)은 여기서 뱃지로 띄우지 않는다 — 하단 우측에 띄워 봤더니 운동 중엔
