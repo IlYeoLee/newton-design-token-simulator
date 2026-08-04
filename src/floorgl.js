@@ -552,6 +552,14 @@ const TR = {
 const CAPS = {
   A1: { variant: 'preview', title: ['Neck And', 'Shoulder'] },
   BK_A1: { variant: 'preview', title: ['Side', 'Bend'] },
+  // 실전 3분화(유저): video = 영상 보며 따라하기(타이머 배지) · floor = 바닥 가이드(호 + 토큰 존)
+  // · mini = 복잡 스텝(작은 영상 미리보기 + 진행 배지 + 타이틀 축소)
+  A3: { variant: 'video', title: ['High', 'Knees'] },
+  A2: { variant: 'floor', title: ['Lunge', 'Press'] },
+  BK_B2: { variant: 'mini', title: ['Step-Back 1/4'], step: '1/4', clip: 'stepback_fwd.mp4' },
+  BK_B3: { variant: 'mini', title: ['Step-Back 2/4'], step: '2/4', clip: 'stepback_fwd.mp4' },
+  BK_B4: { variant: 'mini', title: ['Step-Back 3/4'], step: '3/4', clip: 'stepback_fwd.mp4' },
+  BK_B5: { variant: 'mini', title: ['Step-Back 4/4'], step: '4/4', clip: 'stepback_fwd.mp4' },
 };
 const TM = { C1: { sub: 'Run 10 min · Final 1 km', title: 'Run with Sean' },
              BK_C1: { sub: 'Play 10 min · 3 attempts', title: 'Step-Back 1 of 3' } };
@@ -1516,13 +1524,15 @@ export class FloorGL {
   // ── 씬 캡슐 프레임(신규 시스템) — READY 캡슐 지오메트리에서 부드럽게 성장 + 배지·게이지·타이틀.
   //   좌표는 피그마 실측(343:3496): 캡슐 (162,-15) 1276×1955, 배지 y+25, 게이지 y+56 w1048, 타이틀 y+415.
   _paint_capsule(cfg) {
-    const ctx = this.ctx, t = this.t;
+    const ctx = this.ctx, t = this.t, V = cfg.variant;
     const RF = (w2, s2, fam = sans) => `${w2} ${s2}px ${fam}`;
-    // ① 캡슐 성장 — READY(291,285,1018,1591) → 프리뷰(162,-15,1276,1955) 아주 부드럽게
+    // ① 캡슐 지오메트리 — 변형별 목표. 등장은 이전 화면 규격에서 부드럽게 lerp:
+    //    preview: READY 캡슐에서 성장 / video·floor·mini: 프리뷰 캡슐에서 상단 카드로 수축.
     const g = eOut(intro(t, 0, 1.1));
-    const L = (a, b) => a + (b - a) * g;
-    const bx = L(291, 162), by = L(285, 14), bw = L(1018, 1276), bh = L(1591, 1930);   // 상단 잘림 방지(유저 #72)
-    // READY 캡슐 그리기를 좌표 변환으로 재사용 — 내부 글로우·림 상대 위치가 같이 따라온다
+    const FROM = V === 'preview' ? [291, 285, 1018, 1591] : [162, 14, 1276, 1930];
+    const TO = V === 'preview' ? [162, 14, 1276, 1930] : [291, 63, 1018, 713];
+    const L = k => FROM[k] + (TO[k] - FROM[k]) * g;
+    const bx = L(0), by = L(1), bw = L(2), bh = L(3);
     ctx.save();
     ctx.translate(bx, by); ctx.scale(bw / 1018, bh / 1591); ctx.translate(-291, -285);
     const capPath = () => { ctx.beginPath(); ctx.roundRect(291, 285, 1018, 1591, 509); };
@@ -1557,56 +1567,93 @@ export class FloorGL {
     ctx.restore();
     ctx.restore();
     const cx2 = bx + bw / 2;
-    // ② 필 배지 — Preview(Regular) / 타이머·진행(볼드)는 후속 변형에서
+    // ② 필 배지 — preview: 'Preview'(레귤러·블룸) / video·floor: 볼드 타이머(rollNum 카운팅)
+    //    / mini: 진행 단계(볼드, 예 3/4). 전부 연한 흰 배경 + 블룸(복싱 자막 규약).
     {
       const e = eOut(intro(t, .35, .6));
       ctx.save(); ctx.globalAlpha *= e;
-      ctx.font = RF(400, 64); ctx.letterSpacing = '-2.56px';
-      const txt2 = cfg.badge || 'Preview';
-      const tw = ctx.measureText(txt2).width, pw = tw + 80, ph2 = 100;
-      const byd = by + 90;
+      const timer = V === 'video' || V === 'floor';
+      const txt2 = V === 'preview' ? 'Preview' : V === 'mini' ? (cfg.step || '1/4')
+        : String(Math.max(0, Math.ceil((this.params?.dur || 8) - t)));
+      ctx.font = RF(timer || V === 'mini' ? 700 : 400, 64); ctx.letterSpacing = '-2.56px';
+      const tw = Math.max(ctx.measureText(txt2).width, 64), pw = tw + 80, ph2 = 100;
+      const byd = by + (V === 'preview' ? 90 : 103);
       ctx.save();
-      ctx.shadowColor = 'rgba(255,255,255,.8)'; ctx.shadowBlur = 34;   // 블룸 — 복싱 자막 규약(밝은 랜딩)
+      ctx.shadowColor = 'rgba(255,255,255,.8)'; ctx.shadowBlur = 34;
       ctx.fillStyle = 'rgba(255,255,255,.34)';
       ctx.beginPath(); ctx.roundRect(cx2 - pw / 2, byd, pw, ph2, 50); ctx.fill();
       ctx.restore();
       ctx.fillStyle = 'rgba(255,255,255,.95)'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.shadowColor = 'rgba(255,255,255,.6)'; ctx.shadowBlur = 14;
-      ctx.fillText(txt2, cx2, byd + ph2 / 2 + 2);
+      if (timer) rollNum(ctx, txt2, t, 0, .4, cx2, byd + 15, 64, { align: 'center', fill: 'rgba(255,255,255,.95)' });
+      else ctx.fillText(txt2, cx2, byd + ph2 / 2 + 2);
       ctx.shadowBlur = 0;
       ctx.letterSpacing = '0px'; ctx.restore();
     }
-    // ③ 세션 시간 호(#69, 공통) — 정본 arcGauge: 넓은 호 + 광점 = 현재 스테이지 진행
-    {
+    // ③ 세션 시간 호(#69 공통) — preview·floor 변형(피그마). 광점 = 스테이지 진행.
+    if (V === 'preview' || V === 'floor') {
       const e = eOut(intro(t, .45, .6));
       ctx.save(); ctx.globalAlpha *= e;
       const dur = this.params?.dur || 8;
-      arcGauge(ctx, cx2 - 524, by + 300, 1048, Math.min(1, t / dur), { dotK: 0.75 });   // 간격 확보 + 마커 축소(유저)
+      const ay = V === 'preview' ? by + 300 : by + 134;
+      arcGauge(ctx, cx2 - 524, ay, 1048, Math.min(1, t / dur), { dotK: 0.75 });
       ctx.restore();
     }
-    // ④ 타이틀 — 가르쳐야 하는 운동명(100 Bold 2줄), 자연스럽게 페이드 인
+    // ③' 미니 영상 미리보기(농구 복잡 스텝) — 캡슐 안 작은 패널, 그린스크린 CPU 키(저해상)
+    if (V === 'mini' && cfg.clip) {
+      if (!this._miniVid) {
+        const el = document.createElement('video');
+        el.src = (import.meta.env?.BASE_URL || '/') + cfg.clip;
+        el.muted = true; el.loop = true; el.playsInline = true; el.autoplay = true;
+        el.play?.().catch(() => {});
+        this._miniVid = el;
+      }
+      const v = this._miniVid;
+      if (v.readyState >= 2 && v.videoWidth) {
+        const OW = 200, OH = Math.round(OW * v.videoHeight / v.videoWidth);
+        if (!this._miniC) { this._miniC = document.createElement('canvas'); this._miniC.width = OW; this._miniC.height = OH; }
+        const oc = this._miniC, og = oc.getContext('2d', { willReadFrequently: true });
+        og.drawImage(v, 0, 0, OW, OH);
+        const d2 = og.getImageData(0, 0, OW, OH), px = d2.data;
+        for (let k = 0; k < px.length; k += 4) {
+          const r = px[k], g2 = px[k + 1], b = px[k + 2];
+          if (g2 > 90 && g2 > r * 1.25 && g2 > b * 1.25) px[k + 3] = 0;   // 그린스크린 키
+        }
+        og.putImageData(d2, 0, 0);
+        const e = eOut(intro(t, .5, .7));
+        ctx.save(); ctx.globalAlpha *= e;
+        const pw2 = 569, ph3 = pw2 * OH / OW;
+        ctx.drawImage(oc, cx2 - pw2 / 2, by + 145, pw2, Math.min(ph3, 448));
+        ctx.restore();
+      }
+    }
+    // ④ 타이틀 — preview: 100 Bold 2줄 y+590 / video·floor: 100 Bold 2줄 y+493(컴팩트 하단)
+    //    / mini: 80 Bold 1줄 y+547(축소, 유저)
     {
       const e = eOut(intro(t, .25, .8));
       ctx.save(); ctx.globalAlpha *= e;
-      ctx.fillStyle = NEU.ink; ctx.font = RF(700, 100); ctx.letterSpacing = '-4px';
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      const ty = by + 590;   // 간격 재조정(유저): 배지 90 → 호 300 → 타이틀 590 — 전체 리듬 벌림
-      if (cfg.title.length > 1) {
-        ctx.fillText(cfg.title[0], cx2, ty - 60);
-        ctx.fillText(cfg.title[1], cx2, ty + 60);
-      } else ctx.fillText(cfg.title[0], cx2, ty);
+      ctx.fillStyle = NEU.ink; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      if (V === 'mini') {
+        ctx.font = RF(700, 80); ctx.letterSpacing = '-3.2px';
+        ctx.fillText(cfg.title[0], cx2, by + 547);
+      } else {
+        ctx.font = RF(700, 100); ctx.letterSpacing = '-4px';
+        const ty = by + (V === 'preview' ? 590 : 493);
+        if (cfg.title.length > 1) {
+          ctx.fillText(cfg.title[0], cx2, ty - 60);
+          ctx.fillText(cfg.title[1], cx2, ty + 60);
+        } else ctx.fillText(cfg.title[0], cx2, ty);
+      }
       ctx.letterSpacing = '0px'; ctx.restore();
     }
-    // ⑤ 넥스트 힌트(#66) — 우측 블러 필 + 셰브론 3개가 연했다 차차착 진해지며 순차 표시
-    {
+    // ⑤ 넥스트 힌트(#66) — preview 전용
+    if (V === 'preview') {
       const e = eOut(intro(t, .8, .7));
       if (e > 0.01) {
-        const px = 1315 + 130, py2 = 1100;   // 피그마 우측(1315,~50%-290) — 대지 안쪽 실측 보정
+        const px = 1315 + 130, py2 = 1100;
         ctx.save(); ctx.globalAlpha *= e;
-        ctx.fillStyle = 'rgba(255,255,255,.35)';   // backdrop-blur 근사(캔버스) — 반투명 필
+        ctx.fillStyle = 'rgba(255,255,255,.35)';
         ctx.beginPath(); ctx.roundRect(px - 145, py2 - 68, 290, 136, 68); ctx.fill();
-        // 셰브론 — 파라미터형 트래블링 웨이브(유저: 하드코딩 금지·더 촤라락). N/크기/간격만으로
-        //   파생: 웨이브가 왼→오로 흐르며 각 셰브론이 알파·전진·스케일로 부풀었다 가라앉는다.
         const N3 = 3, CW = 14, CHH = 26, GAP3 = 58, PERIOD = 1.5, STAG = 0.16, ON = 0.55;
         for (let i = 0; i < N3; i++) {
           const ph3 = ((t / PERIOD - i * STAG) % 1 + 1) % 1;
