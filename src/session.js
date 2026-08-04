@@ -147,11 +147,12 @@ class FootMark {
     //   uPhase 2 · uProg 0)로 깜빡깜빡 → 다시 무채. 사인 디졸브로 부드럽게.
     //   ★ glow() 를 쓰지 않는다 — glow(1) 은 onSuccess 파문까지 발사한다(풀 버전 금지, 유저).
     //     유니폼 직접 세팅 = 색만 빌려 오고 이펙트는 없다.
-    const T = 4.2, ph = tc % T;
-    const bl = t0 => { const u = (ph - t0) / 0.6; return (u >= 0 && u <= 1) ? Math.sin(u * Math.PI) : 0; };
-    const b = Math.max(bl(2.3), bl(3.05));
-    if (b > 0.3) { this._U.uPhase.value = 2; this._U.uProg.value = 0; this.op(0.3 + 0.4 * b); }   // 은은하게 — 피크 0.7
-    else { this.locked(); this.op(0.6 - 0.3 * b); }   // 교차 밝기 근사 일치 = 디졸브
+    // 무채가 '기본'으로 확실히 읽히게 — 조용한 구간 3.6s(주기 5.6s), 펄스 2회는 더 절제(피크 0.58).
+    const T = 5.6, ph = tc % T;
+    const bl = t0 => { const u = (ph - t0) / 0.55; return (u >= 0 && u <= 1) ? Math.sin(u * Math.PI) : 0; };
+    const b = Math.max(bl(3.6), bl(4.35));
+    if (b > 0.32) { this._U.uPhase.value = 2; this._U.uProg.value = 0; this.op(0.24 + 0.34 * b); }
+    else { this.locked(); this.op(0.55 - 0.25 * b); }   // 교차 밝기 근사 일치 = 디졸브
   }   // 무채 대기(Locked) — READY 시작 전
   countdown(p) {
     if (p < 0) { this._U.uPhase.value = 0; this._U.uProg.value = 0; return; }          // 대기 = Preview 숨쉬기
