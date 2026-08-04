@@ -1424,7 +1424,8 @@ export class FloorGL {
     ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
     ctx.fillStyle = NEU.ink; ctx.font = F(700, 150, dot9);
     ctx.fillText(String(parseInt(D.time)), DC.x, 1445);
-    ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.font = F(500, 30); ctx.letterSpacing = '3px';
+    // 캡션도 도트 — 도트가 컨셉(유저 확정, '숫자만 도트' 규약의 READY 캡션 예외)
+    ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.font = F(700, 30, dot9); ctx.letterSpacing = '3px';
     ctx.fillText('MIN TOTAL', DC.x, 1498);
     ctx.letterSpacing = '0px';
     ctx.restore();
