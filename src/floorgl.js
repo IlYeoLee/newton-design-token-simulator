@@ -1225,7 +1225,7 @@ export class FloorGL {
   _readyHeader(t, D, bk) {
     const ctx = this.ctx;
     const pk = this._img(bk ? 'photos/cardbg-curry.png' : 'photos/creator-profile-sean.png');
-    const R = 95, py = 165;
+    const R = 78, py = 180;   // 아바타 축소 — 헤더는 컨텍스트(2군)다
     ctx.save(); this._fadeIn(py, 2 * R, eOut(intro(t, .12, .8)));
     ctx.beginPath(); ctx.arc(CX, py + R, R - 3, 0, Math.PI * 2); ctx.save(); ctx.clip();
     if (pk) {
@@ -1237,12 +1237,13 @@ export class FloorGL {
     ctx.strokeStyle = NEU.ink; ctx.lineWidth = 6;
     ctx.beginPath(); ctx.arc(CX, py + R, R - 3, 0, Math.PI * 2); ctx.stroke();
     ctx.restore();
-    ctx.save(); this._fadeIn(410, 180, eOut(intro(t, .2, .8)));
+    ctx.save(); this._fadeIn(382, 160, eOut(intro(t, .2, .8)));
     ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-    ctx.fillStyle = 'rgba(255,255,255,.95)'; ctx.font = F(700, 76); ctx.letterSpacing = '-2.6px';
-    ctx.fillText(D.title, CX, 410);
-    ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.font = F(400, 44); ctx.letterSpacing = '-1.4px';
-    ctx.fillText(`${D.today} · ${D.time}`, CX, 520);
+    ctx.fillStyle = 'rgba(255,255,255,.88)'; ctx.font = F(700, 64); ctx.letterSpacing = '-2.2px';
+    ctx.fillText(D.title, CX, 382);
+    // 총시간은 다이얼 중앙(30 MIN TOTAL)이 말한다 — 같은 정보 두 번 금지(위계 정리)
+    ctx.fillStyle = 'rgba(255,255,255,.5)'; ctx.font = F(400, 40); ctx.letterSpacing = '-1.2px';
+    ctx.fillText(D.today, CX, 478);
     ctx.letterSpacing = '0px';
     ctx.restore();
   }
@@ -1251,21 +1252,21 @@ export class FloorGL {
   _readyPills(t, y) {
     const ctx = this.ctx;
     const MET = [[90, 'CADENCE'], [30, 'HEART RATE'], [60, 'EFFORT']];
-    const PH = 76, PADX = 34, PGAP = 44;
+    const PH = 62, PADX = 28, PGAP = 40;
     ctx.save(); ctx.globalAlpha *= eOut(intro(t, .7, .7));
-    ctx.font = F(700, 36); ctx.letterSpacing = '-1px';
+    ctx.font = F(700, 30); ctx.letterSpacing = '-.9px';
     const pws = MET.map(([pct]) => PADX * 2 + ctx.measureText(pct + '%').width);
     let bx = CX - (pws.reduce((a2, b) => a2 + b, 0) + PGAP * 2) / 2;
     MET.forEach(([pct, cap], k) => {
-      ctx.font = F(700, 36); ctx.letterSpacing = '-1px';
-      ctx.fillStyle = 'rgba(255,255,255,.95)';
+      ctx.font = F(700, 30); ctx.letterSpacing = '-.9px';
+      ctx.fillStyle = 'rgba(255,255,255,.82)';
       ctx.beginPath(); ctx.roundRect(bx, y, pws[k], PH, PH / 2); ctx.fill();
       ctx.fillStyle = pct <= 30 ? PAL.red : NEU.t3;
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.fillText(pct + '%', bx + pws[k] / 2, y + PH / 2 + 1);
-      ctx.font = F(500, 24); ctx.letterSpacing = '1.6px';
+      ctx.font = F(500, 20); ctx.letterSpacing = '1.4px';
       ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.textBaseline = 'top';
-      ctx.fillText(cap, bx + pws[k] / 2, y + PH + 18);
+      ctx.fillText(cap, bx + pws[k] / 2, y + PH + 14);
       bx += pws[k] + PGAP;
     });
     ctx.letterSpacing = '0px';
@@ -1277,10 +1278,10 @@ export class FloorGL {
     const ctx = this.ctx;
     ctx.save(); this._fadeIn(y, 200, eOut(intro(t, .7, .9)));
     ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-    ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.font = F(400, 46); ctx.letterSpacing = '-1.4px';
+    ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.font = F(400, 40); ctx.letterSpacing = '-1.2px';
     ctx.fillText('To start', CX, y);
-    ctx.fillStyle = NEU.ink; ctx.font = F(700, 88); ctx.letterSpacing = '-4.7px';
-    ctx.fillText('Tap your foot Twice', CX, y + 64);
+    ctx.fillStyle = NEU.ink; ctx.font = F(700, 84); ctx.letterSpacing = '-4.4px';
+    ctx.fillText('Tap your foot Twice', CX, y + 56);
     ctx.letterSpacing = '0px';
     ctx.restore();
   }
@@ -1345,8 +1346,8 @@ export class FloorGL {
     const ctx = this.ctx, RAD = Math.PI / 180;
     const DC = { x: CX, y: 1700 }, R = 430, LW = 64;
     this._readyHeader(t, D, bk);
-    this._readyPills(t, 690);
-    this._readyCTA(t, 900);   // 링 위 여백 — 씬 프레이밍 가시영역 안(실측)
+    this._readyPills(t, 560);   // 헤더에 밀착 — 컨텍스트 블록의 꼬리
+    this._readyCTA(t, 1040);    // 다이얼 직전 — 행동 블록(지시→다이얼→발)이 한 덩어리
     const A0 = -210, A1 = 30, GAPD = 9;
     const total = D.comp.reduce((s2, p) => s2 + p[1], 0);
     const span = (A1 - A0) - GAPD * (D.comp.length - 1);
