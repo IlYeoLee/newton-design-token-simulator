@@ -750,7 +750,7 @@ export const STAGES = {
     { id:'BX_C2', wall:true, dur:11, live:true, label:'C2 · 실전 2/4 — 잽 대련', voice:['고수','타겟 뜨면 바로 잽. 가드는 내리지 말고.'], wear:'SAFE 가드 안정화' },
     // dur = 코치 클립 길이(bx_c3_combo.mp4 3.00초 — 1.4배속 리타임). 둘이 다르면 스테이지가 클립 위에서 밀려
     //   마커가 엉뚱한 자세에 뜬다 — 씬 루프 주기도 이 값의 정수배로 잡힌다(main.js).
-    { id:'BX_C3', wall:true, dur:13.75, live:true, boost:true, label:'C3 · 실전 3/4 — 콤비네이션', voice:['고수','잽, 잽 — 마지막은 몸을 실어서 훅! 리듬 놓치지 말고.'], wear:'BOOST 스텝 추진', cue:'구간 종료 Match Rate' },   // dur = 클립 6.04 × 2바퀴(08-05). 사이클이 클립 길이와 같아야 마커와 실루엣이 매 바퀴 같은 위상에서 만난다
+    { id:'BX_C3', wall:true, dur:12.08, live:true, boost:true, label:'C3 · 실전 3/4 — 콤비네이션', voice:['고수','잽, 잽 — 마지막은 몸을 실어서 훅! 리듬 놓치지 말고.'], wear:'BOOST 스텝 추진', cue:'구간 종료 Match Rate' },   // dur = 클립 6.04 × 2바퀴(08-05). 사이클이 클립 길이와 같아야 마커와 실루엣이 매 바퀴 같은 위상에서 만난다
     { id:'BX_C4', wall:true, live:true, cooldown:true, label:'C4 · 실전 4/4 — 마무리', voice:['고수','가드 내리고 숨 고르기. 오늘 잽, 확실히 좋아졌어요.'], hap:'완료 진동' },
     { id:'BX_FIN', wall:true, label:'B-F · 리포트', voice:['고수','내 잽이랑 겹쳐서 볼게요 — 어디가 달랐는지 보여요? 기록은 앱으로 보냈어요.'], cue:'Ghost Review — 고수 잽과 내 폼 겹쳐 보기' },
   ],
@@ -1399,6 +1399,10 @@ export class Session {
       //   퍼지는 게 거의 안 읽힌다. tickWaves 는 uRip 을 안 건드리므로 인스턴스 값이 유지된다.
       m.material.uniforms.uRip.value = 1.0;
       m.setProg(0);
+      // ★ 투명도 초기화가 없으면 C3 틱이 돌기 전(부팅·새로고침 직후)에 기본 불투명으로
+      //   화면 중앙에 큰 마크가 뜬다(유저 08-05: 새로고침할 때마다 관련없는 판정토큰이 크게 뜬다).
+      //   setProg(0) 만으론 안 된다 — prog 는 파형 진행도고 opacity 는 별개다.
+      m.setOp(0);
       g.add(m);
       return m;
     });
@@ -2938,8 +2942,14 @@ export class Session {
         //     **실제 펀치는 1.5(잽)·3.0(잽)·4.33(훅)** (0.47·3.5 는 거둠). 이게 지정 리듬과 맞는다:
         //     비트 전 0.70s 부터 수축이 뜨므로 첫 마커는 0.80s — 앞 1초가 비어 있고,
         //     잽·잽 1.50s · 잽·훅 1.33s 로 '한 박 쉬고 훅'이 코치 동작 그대로 떨어진다.
-        const CY = 6.875, tc = this.t % CY;
-        const AT = [2.47, 3.83, 5.17];
+        const CY = 6.04, tc = this.t % CY;
+        const AT = [1.50, 3.00, 4.33];
+        // ★ 콤보 토큰 등장 페이드 — UI 가 다 뜨기 전에 잽잽훅이 시작해 어색했다(유저).
+        //   클립 앞에 정지 구간을 붙여 봤지만 인물이 멈춰 있는 게 더 별로였다(유저) → 철회.
+        //   대신 **토큰만** 늦게 페이드인한다. 인물은 처음부터 자연스럽게 움직인다.
+        //   씬 UI 마지막(자막)이 1.48s 에 끝나므로 1.4s 부터 0.6s 에 걸쳐 올린다 = 2.0s 완성.
+        //   this.t(스테이지 시각) 기준이라 첫 바퀴에만 걸리고 2바퀴째는 이미 1 이다.
+        const c3In = clamp01((this.t - 1.4) / 0.6);
         let seg = 0;                                   // 지나온 노드 수(0..2) + 구간 진행
         for (let i = 0; i < AT.length; i++) if (tc >= AT[i]) seg = i + 1;
         const prev = seg === 0 ? 0 : AT[seg - 1], next = AT[Math.min(seg, AT.length - 1)];
@@ -2951,6 +2961,7 @@ export class Session {
           : f <= 0.6 ? 0.15 * (f / 0.6)
           : 0.15 + 0.85 * Math.pow((f - 0.6) / 0.4, 2.2);
         this.bxCombo._prim.prog = clamp01(((seg === 0 ? 0 : seg - 1) + fw) / (AT.length - 1) / 1.25);
+        this.bxCombo.material.opacity = c3In;   // 펀치 라인·노드도 같이 페이드인
         // 판정 링 = 지금 노려야 할 노드로 옮겨 가 그 원 안에서 수축한다.
         //   ★ 수축이 '도착'하는 순간(=인물이 펀치를 뻗는 타이밍)이 곧 판정이다. 접근은 비트까지
         //     prog 0→0.9 로만 가고, 비트 뒤 LOCK 동안 0.9→1 (팽창 핑)을 그 노드에서 마저 친다.
@@ -2972,7 +2983,7 @@ export class Session {
         //   크기·밝기로 한 프레임에 튀어나온다(유저 08-05: 아직도 튀는 게 있어).
         //   실측: f142 → f143 에서 노드 3 링이 갑자기 큰 원으로 — 국소 스파이크 강도 6.7.
         //   수축 0.70s 중 앞 0.09s 를 램프로 쓴다(B2 와 같은 값).
-        this.bxC3ap.material.opacity = locking ? 1 : clamp01(c3appr / 0.13);
+        this.bxC3ap.material.opacity = (locking ? 1 : clamp01(c3appr / 0.13)) * c3In;
         // 판정된 노드는 규칙대로 붉게 채워진 채 남고(펀치 라인의 done),
         //   맞는 그 순간에는 그 자리의 MARK Success 가 prog 0→1 을 달린다 = 진홍 블룸 + 파형 단발.
         //   비트(AT[i])에서 시작하므로 수축 링이 노드에 맞물리는 프레임과 정확히 같은 프레임이다.
@@ -2989,7 +3000,7 @@ export class Session {
         for (let i = 0; i < this.bxC3ok.length; i++) {
           const dt = tc - AT[i], ok = this.bxC3ok[i];
           if (dt < 0 || dt > SUCC) { ok.setOp(0); ok.setProg(0); }
-          else { ok.setProg(clamp01(dt / SUCC)); ok.setOp(1); }
+          else { ok.setProg(clamp01(dt / SUCC)); ok.setOp(c3In); }
         }
         // 그리고 맞는 순간 그 자리에 '터짐(리퀴드)' 파형 — FX Lab 터짐 토큰 그대로.
         //   벽면이므로 wall:true (없으면 눕혀진 원판이 되어 정면에선 안 보인다).
