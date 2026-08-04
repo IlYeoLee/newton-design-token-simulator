@@ -759,7 +759,28 @@ export class WallGL {
       // 불 인터랙션(레퍼런스 pyeongso fire-rise 2.6s) — 느낌표 큐에서 배지 왼쪽 불씨 2개가 떠오른다(유저)
       if (/!$/.test(say)) {
         const fl = this._img('flame.svg');
-        if (fl) {
+        if (fl && fl.complete && fl.naturalWidth) {
+          // 2겹 스프라이트(레퍼런스 정본): 선명 실루엣 + ::after 겹 — 같은 불꽃을 블러(1.4px@24px 비례)해
+          //   하단 20% 마스크로만 남긴다 = 바닥 끝만 아지랑이처럼 녹는 그 처리(유저 지적).
+          this._emberCv = this._emberCv || {};
+          const _ember_sprite = (px) => {
+            const key = 'e' + px;
+            if (this._emberCv[key]) return this._emberCv[key];
+            const cv = document.createElement('canvas'); cv.width = cv.height = px;
+            const g2 = cv.getContext('2d');
+            g2.drawImage(fl, 0, 0, px, px);
+            const b = document.createElement('canvas'); b.width = b.height = px;
+            const bg = b.getContext('2d');
+            bg.filter = `blur(${(1.4 * px / 24).toFixed(1)}px)`;
+            bg.drawImage(fl, 0, 0, px, px);
+            bg.filter = 'none';
+            bg.globalCompositeOperation = 'destination-in';
+            const m = bg.createLinearGradient(0, 0, 0, px);
+            m.addColorStop(0, 'rgba(0,0,0,0)'); m.addColorStop(0.8, 'rgba(0,0,0,0)'); m.addColorStop(1, 'rgba(0,0,0,1)');
+            bg.fillStyle = m; bg.fillRect(0, 0, px, px);
+            g2.drawImage(b, 0, 0);
+            return this._emberCv[key] = cv;
+          };
           const fx0 = CX - _bw / 2 - 34, fy0 = cueY + sh * 0.62;
           const ember = (dly, sz, rot, ox) => {
             const p = ((t - dly) % 2.6 + 2.6) % 2.6 / 2.6;
@@ -767,7 +788,7 @@ export class WallGL {
             const yv = (6 - 68 * p), sc = .8 + .35 * p, SZ = sz * sc;
             ctx.save(); ctx.globalAlpha *= a;
             ctx.translate(fx0 + ox, fy0 + yv); ctx.rotate(rot);
-            ctx.drawImage(fl, -SZ / 2, -SZ / 2, SZ, SZ);
+            ctx.drawImage(_ember_sprite(Math.round(sz * 2)), -SZ / 2, -SZ / 2, SZ, SZ);
             ctx.restore();
           };
           ember(0, 46, 0, 0); ember(1.1, 36, 13 * Math.PI / 180, 24);
