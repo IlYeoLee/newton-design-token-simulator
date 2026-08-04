@@ -988,9 +988,13 @@ export class Session {
     this.tap = this._tap('running'); this.tap.position.set(0, 0.013, -0.78); g.add(this.tap);
     // READY 발자국 = 룩시스템 발형(MARK Preview 숨쉬기) — 캔버스 사제 발 그래픽 폐기(유저:
     //   바닥은 평면 그래픽, 발 모양은 룩 토큰으로). 링 중앙 = 탭 지점에 놓는다.
-    this.readyFoot = new FootMark('right').at(0, -1.1);
+    this.readyFoot = new FootMark('right').at(0, -0.78);   // 씬 READY 다이얼 중심(캔버스 ~1780)과 정렬 — 실측 스크린샷 2회 캘리브레이션
     this.readyFoot.countdown(-1);   // 대기 = Preview 소프트 필 숨쉬기
-    g.add(this.readyFoot.group);
+    this.readyFoot.op(0.78);        // READY 는 발이 주인공이되 링 안을 삼키지 않게 살짝 절제
+    // G.READY 는 '시작 페이지 = 프레임 전담' 정책으로 main 이 끈다 — 발자국은 새 READY 의
+    //   어포던스 정본이므로 root 소속으로 예외. 표시는 아래 업데이트 틱이 스테이지로 제어.
+    this.readyFoot.group.visible = false;
+    this.root.add(this.readyFoot.group);
 
     // A1~B4 발형/화살표 그래픽 z — "그래픽=가까운 존(눈앞~발앞), 타이틀=그 뒤(위)"
     // 원칙(유저 지적, 반대로 짰던 이전 시도 정정)에 맞춰 가까운 존(1.0~1.6m)으로 압축.
@@ -1772,6 +1776,7 @@ export class Session {
     if (this._c3Skill != null && this.judge) { this.judge.skill = this._c3Skill; this._c3Skill = null; }   // C3 중 탭 스킵 시 skill 0.35 영구 잠김 방지
     this.bobY = 0;
     for (const id in this.G) this.G[id].visible = false;
+    if (this.readyFoot) this.readyFoot.group.visible = false;   // READY 어포던스 발자국 — 재진입 틱이 켠다
     this.paceLight.visible = false;   // C 실전 틱(_paceTick)이 프레임마다 다시 켬
     this.paceLane.visible = false;
     this.paceFeet.forEach(fm => fm.group.visible = false);
@@ -2030,6 +2035,7 @@ export class Session {
     else this.bobY = 0;
 
     if (id === 'READY' || id === 'T1') {
+      if (id === 'READY' && this.readyFoot) this.readyFoot.group.visible = true;
       const tap = id === 'READY' ? this.tap : this.tap1; const k = 0.5 + 0.5 * Math.sin(this.t * 4);
       if (tap.userData._ctaPlane) {
         tap.userData._ctaPlane.material.opacity = 0.75 + 0.25 * k;   // 피그마 CTA 에셋 — 통째로 맥동

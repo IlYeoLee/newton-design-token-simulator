@@ -1251,7 +1251,7 @@ export class FloorGL {
   _readyPills(t, y) {
     const ctx = this.ctx;
     const MET = [[90, 'CADENCE'], [30, 'HEART RATE'], [60, 'EFFORT']];
-    const PH = 84, PADX = 36, PGAP = 22;
+    const PH = 76, PADX = 34, PGAP = 44;
     ctx.save(); ctx.globalAlpha *= eOut(intro(t, .7, .7));
     ctx.font = F(700, 36); ctx.letterSpacing = '-1px';
     const pws = MET.map(([pct]) => PADX * 2 + ctx.measureText(pct + '%').width);
@@ -1263,7 +1263,7 @@ export class FloorGL {
       ctx.fillStyle = pct <= 30 ? PAL.red : NEU.t3;
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.fillText(pct + '%', bx + pws[k] / 2, y + PH / 2 + 1);
-      ctx.font = F(500, 27); ctx.letterSpacing = '2.2px';
+      ctx.font = F(500, 24); ctx.letterSpacing = '1.6px';
       ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.textBaseline = 'top';
       ctx.fillText(cap, bx + pws[k] / 2, y + PH + 18);
       bx += pws[k] + PGAP;
@@ -1338,64 +1338,96 @@ export class FloorGL {
     this._readyCTA(t, 2270);
   }
 
-  // ── B안 '중첩 아크' — 애슬릿 프로파일 레퍼런스(유저 #17) 이식: 왼쪽 라벨 바에서 출발한
-  //   동심 아크가 발을 감아 돈다. 호 길이 = 분(15m 이 270° 로 제일 깊게 감김), 안쪽 = 본운동.
-  //   바탕에 유령 트랙(희미한 풀 서클) — '이만큼 남았다' 가 아니라 '이 레인을 이만큼 쓴다'.
+  // ── B안 '워치 링' — 발 중심 동심 링. 세션 링 = 컨틱 온도 램프(sand→red 연속), 구간=분. ──
+  //   투박함 잡는 4가지: 배경 트랙 · 연속 그라디언트(구간별 단색 금지) · 확산 글로우 블롭(빛 번짐) ·
+  //   스윕 등장(구간이 호를 따라 자란다). 라벨은 값-우선 스택(도트 숫자 + 캡션).
   _ready_ring(D, bk, t) {
     const ctx = this.ctx, RAD = Math.PI / 180;
-    const DC = { x: CX, y: 1700 };
-    this._readyGlow(t, DC.x, DC.y);
+    const DC = { x: CX, y: 1700 }, R = 430, LW = 64;
     this._readyHeader(t, D, bk);
     this._readyPills(t, 690);
-    // 라벨 바 3개(좌측 스택) — 바 오른끝이 곧 아크의 시작점. 색 = 온도 램프.
-    const COLS = [PAL.sand, PAL.coral, PAL.red];
-    const BX2 = 150, BW = 380, BH = 84, BGAP = 26, BY0 = 1010;
-    const LWs = [56, 60, 68];                 // 안쪽(본운동)일수록 살짝 굵게 — 레퍼런스의 위계
-    const maxM = 15;
-    D.comp.forEach(([lbl, m], i) => {
-      const main = i === D.comp.length - 1;
-      const by = BY0 + i * (BH + BGAP), bcy = by + BH / 2;
-      const ax = BX2 + BW, r = Math.hypot(ax - DC.x, bcy - DC.y);
-      const a0 = Math.atan2(bcy - DC.y, ax - DC.x);
-      const sweep = (m / maxM) * 270 * RAD;   // 분 → 호 길이(최대 270°)
-      const e = eOut(intro(t, .45 + i * .18, 1.0));
-      const lw = LWs[i % 3], col = COLS[i % 3];
-      // 유령 트랙 — 같은 반지름의 희미한 풀 서클
-      ctx.save(); ctx.globalAlpha *= eOut(intro(t, .35, .8));
-      ctx.strokeStyle = 'rgba(255,255,255,.07)'; ctx.lineWidth = lw; ctx.lineCap = 'round';
-      ctx.beginPath(); ctx.arc(DC.x, DC.y, r, 0, Math.PI * 2); ctx.stroke();
+    this._readyCTA(t, 900);   // 링 위 여백 — 씬 프레이밍 가시영역 안(실측)
+    const A0 = -210, A1 = 30, GAPD = 9;
+    const total = D.comp.reduce((s2, p) => s2 + p[1], 0);
+    const span = (A1 - A0) - GAPD * (D.comp.length - 1);
+    // 온도 램프 — 스윕 전체를 잇는 하나의 컨틱 그라디언트(구간은 갭으로만 나뉜다)
+    const ramp = ctx.createConicGradient(A0 * RAD, DC.x, DC.y);
+    ramp.addColorStop(0, PAL.sand);
+    ramp.addColorStop((A1 - A0) * 0.34 / 360, PAL.sand);
+    ramp.addColorStop((A1 - A0) * 0.52 / 360, PAL.coral);
+    ramp.addColorStop((A1 - A0) * 0.94 / 360, PAL.red);
+    ramp.addColorStop((A1 - A0) / 360, PAL.red);
+    ramp.addColorStop(1, PAL.sand);
+    // 확산 글로우 블롭 — 링 뒤에서 빛이 번지는 층(레퍼런스 타이머의 색 안개)
+    {
+      const mids = [];
+      let aa = A0;
+      D.comp.forEach(([, m], i) => { const da = span * m / total; mids.push([aa + da / 2, i]); aa += da + GAPD; });
+      const CB = [PAL.sand, PAL.coral, PAL.red];
+      ctx.save(); ctx.globalAlpha *= eOut(intro(t, .5, 1.2)) * .55;
+      mids.forEach(([md, i]) => {
+        const bx = DC.x + Math.cos(md * RAD) * R, by = DC.y + Math.sin(md * RAD) * R;
+        const rg = ctx.createRadialGradient(bx, by, 20, bx, by, 300);
+        const c = CB[i % 3];
+        rg.addColorStop(0, rgba(c, i === 2 ? 0.34 : 0.2)); rg.addColorStop(1, rgba(c, 0));
+        ctx.fillStyle = rg; ctx.beginPath(); ctx.arc(bx, by, 300, 0, Math.PI * 2); ctx.fill();
+      });
       ctx.restore();
-      // 아크 — 라벨 바 끝에서 출발, 시계방향으로 자라는 스윕 등장
-      ctx.save(); ctx.globalAlpha *= Math.min(1, e * 1.4);
-      if (main) { ctx.shadowColor = rgba(PAL.red, 0.6); ctx.shadowBlur = 46; }
-      ctx.strokeStyle = col; ctx.lineWidth = lw; ctx.lineCap = 'round';
-      ctx.beginPath(); ctx.arc(DC.x, DC.y, r, a0, a0 + sweep * Math.max(0.02, e)); ctx.stroke();
-      ctx.shadowBlur = 0;
-      // 선단 광점 — 자라는 끝을 눈이 따라가게
-      const ea = a0 + sweep * Math.max(0.02, e);
-      const ex = DC.x + Math.cos(ea) * r, ey = DC.y + Math.sin(ea) * r;
-      ctx.fillStyle = 'rgba(255,255,255,.9)';
-      ctx.beginPath(); ctx.arc(ex, ey, lw * 0.16, 0, Math.PI * 2); ctx.fill();
-      ctx.restore();
-      // 라벨 바 — 왼쪽에서 슬라이드 인. 오른끝은 각지게(아크에 접속), 왼끝만 라운드.
-      ctx.save(); ctx.globalAlpha *= e; ctx.translate(-70 * (1 - e), 0);
-      ctx.fillStyle = col;
-      ctx.beginPath(); ctx.roundRect(BX2, by, BW, BH, [BH / 2, 8, 8, BH / 2]); ctx.fill();
-      ctx.fillStyle = NEU.inkDark; ctx.textBaseline = 'middle';
-      ctx.font = F(500, 30); ctx.letterSpacing = '2.4px'; ctx.textAlign = 'left';
-      ctx.fillText(lbl.toUpperCase().replace('!', ''), BX2 + 46, bcy + 2);
-      ctx.font = F(700, 44, dot9); ctx.letterSpacing = '0px'; ctx.textAlign = 'right';
-      ctx.fillText(`${m}m`, BX2 + BW - 34, bcy + 2);
-      ctx.restore();
-    });
-    // 발 무대 이너 링 — FootMark 토큰이 앉는 자리(얇게 두 겹)
-    ctx.save(); ctx.globalAlpha *= eOut(intro(t, .8, .9));
-    ctx.strokeStyle = 'rgba(255,255,255,.16)'; ctx.lineWidth = 3;
-    ctx.beginPath(); ctx.arc(DC.x, DC.y, 300, 0, Math.PI * 2); ctx.stroke();
-    ctx.strokeStyle = 'rgba(255,255,255,.08)';
-    ctx.beginPath(); ctx.arc(DC.x, DC.y, 345, 0, Math.PI * 2); ctx.stroke();
+    }
+    // 배경 트랙 — 스윕 전체를 잇는 얇은 유령 링(구간이 '이 위에 얹혀 있다'는 바닥)
+    ctx.save(); ctx.globalAlpha *= eOut(intro(t, .35, .8));
+    ctx.strokeStyle = 'rgba(255,255,255,.13)'; ctx.lineWidth = 10; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.arc(DC.x, DC.y, R, A0 * RAD, A1 * RAD); ctx.stroke();
     ctx.restore();
-    this._readyCTA(t, 2330);
+    // 세션 구간 — 컨틱 램프 채움 + 호를 따라 자라는 스윕 등장
+    let a = A0;
+    D.comp.forEach(([lbl, m], i) => {
+      const da = span * m / total;
+      const main = i === D.comp.length - 1;
+      const e = eOut(intro(t, .45 + i * .22, .9));
+      const s0 = a * RAD, s1 = (a + da * Math.max(0.001, e)) * RAD, am = (a + da / 2) * RAD;
+      ctx.save();
+      if (main) { ctx.shadowColor = rgba(PAL.red, 0.65); ctx.shadowBlur = 50; }
+      arcSegFill(ctx, DC.x, DC.y, R - LW / 2, R + LW / 2, s0, s1, ramp, LW / 2);
+      ctx.shadowBlur = 0;
+      // 라벨 — 값-우선 스택: 도트 분(위) + 캡션(아래). 링 바깥 수평(워치 컴플리케이션 문법).
+      const lr = R + LW / 2 + 88;
+      const lx = DC.x + Math.cos(am) * lr, ly = DC.y + Math.sin(am) * lr;
+      ctx.globalAlpha *= e;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+      ctx.fillStyle = main ? NEU.ink : 'rgba(255,255,255,.85)';
+      ctx.font = F(700, main ? 66 : 52, dot9);
+      ctx.fillText(String(m), lx, ly);
+      ctx.font = F(500, main ? 27 : 24); ctx.letterSpacing = '3px'; ctx.textBaseline = 'top';
+      ctx.fillStyle = main ? 'rgba(255,255,255,.85)' : 'rgba(255,255,255,.55)';
+      ctx.fillText(lbl.toUpperCase().replace('!', ''), lx, ly + 10);
+      ctx.letterSpacing = '0px';
+      ctx.restore();
+      a += da + GAPD;
+    });
+    // 발 무대 = 파인 틱 다이얼(레퍼런스 #18) — 가는 눈금 72개, 6개마다 길고 진하게.
+    ctx.save(); ctx.globalAlpha *= eOut(intro(t, .8, .9));
+    ctx.lineCap = 'round';
+    for (let k = 0; k < 72; k++) {
+      const aa = (k / 72) * Math.PI * 2, major = k % 6 === 0;
+      const r0 = 296, r1 = 296 + (major ? 24 : 12);
+      ctx.strokeStyle = `rgba(255,255,255,${major ? 0.34 : 0.15})`;
+      ctx.lineWidth = major ? 4 : 2.5;
+      ctx.beginPath();
+      ctx.moveTo(DC.x + Math.cos(aa) * r0, DC.y + Math.sin(aa) * r0);
+      ctx.lineTo(DC.x + Math.cos(aa) * r1, DC.y + Math.sin(aa) * r1);
+      ctx.stroke();
+    }
+    ctx.restore();
+    // 중앙 총시간 — 도트 대자 + 캡션(링 안 위쪽, 발 위)
+    ctx.save(); ctx.globalAlpha *= eOut(intro(t, .7, .8));
+    ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+    ctx.fillStyle = NEU.ink; ctx.font = F(700, 150, dot9);
+    ctx.fillText(String(parseInt(D.time)), DC.x, 1445);
+    ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.font = F(500, 30); ctx.letterSpacing = '3px';
+    ctx.fillText('MIN TOTAL', DC.x, 1498);
+    ctx.letterSpacing = '0px';
+    ctx.restore();
   }
 
   // ── C안 '아크 레일' — 좌측 곡선 레일에 세션 카드 도킹, 다음 시작(Run!)이 하이라이트. ──
