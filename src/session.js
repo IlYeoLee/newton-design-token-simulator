@@ -2050,7 +2050,10 @@ export class Session {
     else this.bobY = 0;
 
     if (id === 'READY' || id === 'T1') {
-      if (id === 'READY') this.readyFeet?.forEach(f => { f.group.visible = true; f.tapHint(this.t); });
+      if (id === 'READY') this.readyFeet?.forEach((f, i) => {
+        f.at((i ? 0.19 : -0.19), -0.92, 200 / 240);   // 러닝 조판(0.8배) 기준 — Tap Twice 양옆
+        f.group.visible = true; f.tapHint(this.t);
+      });
       const tap = id === 'READY' ? this.tap : this.tap1; const k = 0.5 + 0.5 * Math.sin(this.t * 4);
       if (tap.userData._ctaPlane) {
         tap.userData._ctaPlane.material.opacity = 0.75 + 0.25 * k;   // 피그마 CTA 에셋 — 통째로 맥동
@@ -2292,7 +2295,11 @@ export class Session {
     else this.bobY = 0;
 
     if (id === 'BK_READY' || id === 'BK_T1') {
-      if (id === 'BK_READY') this.readyFeet?.forEach(f => { f.group.visible = true; f.tapHint(this.t); });   // tap2 발자국 — 러닝과 동일(농구 누락분, 유저)
+      if (id === 'BK_READY') this.readyFeet?.forEach((f, i) => {
+        // 농구 프레임 스케일(레인 넓음·콘텐츠 0.75)이 달라 월드 좌표 별도 — 캡슐과 겹치던 것(유저 #65)
+        f.at((i ? 0.24 : -0.24), -0.6, 200 / 240);
+        f.group.visible = true; f.tapHint(this.t);
+      });
       const tap = id === 'BK_READY' ? this.bkTap : this.bkTap1; const k = 0.5 + 0.5 * Math.sin(this.t * 4);
       tap.children[0].material.opacity = 0.5 + 0.45 * k; tap.children[1].material.opacity = 0.5 + 0.45 * (1 - k);
       if (id === 'BK_T1' && this.t >= 4.5) { this.next(); return; }
