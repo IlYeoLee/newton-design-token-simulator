@@ -2319,7 +2319,7 @@ void main(){
     // 시작화면 인물 = 힉스필드 kling i2v 그린스크린 전신 루프(828×1108 = 3:4, 유저 08-05).
     //   운동 데모(목·어깨 / 스쿼트)가 아니라 '그 종목을 하는 사람' — 시작화면은 아직 동작 지시가 없다.
     //   전신 소스라 크롭 창 없음(cropOff 0 · cropScale 1). w/h = 3:4 유지, ph 0.83 = 인물이 프레임에 찬 비율.
-    READY:    { src: 'ready-view/assets/run/runner_green.mp4', cropOff: 0.0, cropScale: 1.0, w: 0.62, h: 0.83, fwd: 0.15, ph: 0.83 },
+    READY:    { src: 'ready-view/assets/run/runner_green.mp4', cropOff: 0.0, cropScale: 1.0, w: 0.62, h: 0.83, fwd: 0.15, ph: 0.98 },   // ph 0.83 이 발끝을 페이드로 잘랐다(유저 #100)
     BK_READY: { src: 'ready-view/assets/bk/dribble_green.mp4', cropOff: 0.0, cropScale: 1.0, w: 0.50, h: 0.67, fwd: 0.3, ph: 0.83 },   // 농구 콘 얕음 — 러닝보다 작게(유저: 잘림)
     A1: { src: 'ready-view/assets/sean_neck_shoulder.webm', cropOff: 0.40, cropScale: 0.58, w: 0.62, h: 0.64, fwd: 0.02, ph: 0.83 },   // 프리뷰 캡슐 안 — 타이틀 안 가리게 축소·아래(유저 08-05)
     A2: { src: 'ready-view/assets/sean_lunge.webm', cropOff: 0.0, cropScale: 1.0, w: 0.9, h: 0.9, fwd: 0.10, zoom: 0.86, ph: 0.65 },   // 런지 전신 측면 — 축소로 뒷발이 프레임 페이드에 안 걸리게(유저)
@@ -2536,6 +2536,14 @@ void main(){
     const cfg = COACH_CFG[id];
     const video = document.createElement('video');
     video.src = import.meta.env.BASE_URL + cfg.src;   // VP9 — 전 브라우저 디코드
+    // 소스가 없으면 인물이 통째로 사라진다(실측: runner_green.mp4 미커밋 상태) — 폴백을 건다.
+    video.addEventListener('error', () => {
+      if (video.dataset.fb) return;
+      video.dataset.fb = '1';
+      video.src = import.meta.env.BASE_URL + (cfg.fallback || 'ready-view/assets/sean_neck_shoulder.webm');
+      video.play().catch(() => {});
+      console.warn('[coach] 소스 없음 → 폴백:', cfg.src);
+    }, { once: false });
     video.loop = true; video.muted = true; video.playsInline = true; video.crossOrigin = 'anonymous';
     video.style.display = 'none'; document.body.appendChild(video);
     video.play().catch(() => {});
