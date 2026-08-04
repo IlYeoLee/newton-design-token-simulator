@@ -5891,7 +5891,12 @@ void main(){
       sfp.rx = -sfp.fz; sfp.rz = sfp.fx;   // right = (-fwd.z, fwd.x) — projector와 동일 규약
       const dMid = (rig.fpNear + rig.fpFar) / 2;   // 발자국·토큰 밴드 앵커용(아래 stageG에서 사용)
       // 균일 스케일(비율 유지) — 폭=커버리지 레인폭(투사 범위 유지, 유저: 범위 조정 금지).
-      const laneW = 2 * rig._halfAt(dMid), sUni = laneW / fView.w;
+      const laneW = 2 * rig._halfAt(dMid);
+      // 시작 페이지 프레임 = 고정 실물 폭 1.4m(종목 공통) — 커버리지 '표시'가 아니라 카드형 화면이라
+      //   레인 폭을 따르면 종목마다 크기가 널뛴다(유저: 농구가 과하게 큼 + 코치 발밑 침범).
+      //   ponytail: 1.4 하나가 손잡이 — 두 종목 동시 조절.
+      let sUni = laneW / fView.w;
+      if (isStartPage) sUni = 1.4 / fView.w;
       // UI 프레임 전방위치 = 타이틀(board-y 176)이 커버리지 far끝(빨간 투사 끝라인 ≈ fpFar) 아래 고정 간격(0.12m)에 오도록.
       //   → 빨간 끝라인에서 타이틀까지 내려오는 거리를 전 스테이지 동일하게(유저 image 21). 대지 중심 앵커(dMid)가 아니라 far끝 기준.
       // READY(시작 화면)는 0.3m 더 앞으로 — 발치에 붙어 있으면 캡슐·신발이 유저 그림자에 밟힌다(유저).

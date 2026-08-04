@@ -521,10 +521,12 @@ const READY = {
   //   r2 = Figma 시작화면(342:3057) 캡슐 디자인 필드 — 제목 2줄 / 부제 / 총 분(도트 히어로·아크 라벨)
   'floor.html':    { title: "Sean's Final 1km Pace", today: 'Today · 5.0km · Standard', time: '30min', mode: 'Pace & Boost On', modeSm: true,
                      comp: [['Stretch', 5], ['Learn', 10], ['Run!', 15]],
-                     r2: { lines: ["Sean's", 'Final 1km Pace'], sub: 'Pace On', total: '30' } },
+                     r2: { lines: ["Sean's", 'Final 1km Pace'], sub: 'Pace On', total: '30',
+                           arcs: [{ v: 30, lbl: '30min', icon: 'feet' }, { v: 30, lbl: '30min', icon: 'run' }], badge: '5' } },
   'floor-bk.html': { title: "Curry's Handle Pack",   today: 'Today · 15min · Standard',  time: '23min',     mode: 'Press On',
                      comp: [['Stretch', 5], ['Learn', 8], ['Play!', 10]],
-                     r2: { lines: ["Curry's", 'Handle Pack'], sub: 'Press On', total: '23' } },
+                     r2: { lines: ["Curry's", 'Handle Pack'], sub: 'Press On', total: '23',
+                           arcs: [{ v: 23, lbl: '23min', icon: 'feet' }, { v: 23, lbl: '23min', icon: 'run' }], badge: '5' } },
 };
 const TR = {
   T1: { sub: 'Sean’s Final 1km Pace', title: 'Warm-Up Done!',
@@ -1231,6 +1233,7 @@ export class FloorGL {
   _paint_ready() {
     const ctx = this.ctx, t = this.t;
     const D = READY[/floor-bk/.test(this.params.src) ? 'floor-bk.html' : 'floor.html'], R2 = D.r2;
+    const RAD = Math.PI / 180;
     const RF = (w, s, fam = sans) => `${w} ${s}px ${fam}`;   // 피그마 원치수(타입스케일 미적용)
     const img = rel => this._img('fig/ready2/' + rel);
     const e0 = (d, dur = .8) => eOut(intro(t, d, dur));
@@ -1281,47 +1284,77 @@ export class FloorGL {
     ctx.fillText('min', 1079.3, 1315);
     ctx.letterSpacing = '0px';
     ctx.restore();
-    // ── ④ 원형 그래프 — 그라디언트 아크 2 + 칩 3 (피그마 회전값 그대로) ──
-    const RAD = Math.PI / 180;
-    const rotImg = (rel, cx2, cy2, w, h, deg, alpha = 1) => {
-      const im = img(rel);
-      if (!im) return;
-      ctx.save(); ctx.globalAlpha *= alpha;
-      ctx.translate(cx2, cy2); ctx.rotate(deg * RAD);
-      ctx.drawImage(im, -w / 2, -h / 2, w, h);
+    // ── ④ 비례 세그먼트 아크 차트 — 데이터 파생형(유저 스펙: proportional segmented arc stroke).
+    //   개별 x/y/rotate 하드코딩 금지 — 모든 좌표는 value→각도 누적과 (center, radius) 극좌표에서만
+    //   파생된다. 굵은 라운드캡 스트로크 + 세그먼트별 선형 그라디언트, 라벨=midAngle 접선,
+    //   아이콘 칩=startAngle, 선행 배지=a0 앞. 데이터(r2.arcs)만 바꾸면 2~6개 자동 재배치.
+    {
+      const CXA = 800, CYA = 810, R = 375, LWA = 130, A0 = 196, A1 = 344, GAPA = 10;
+      const polar = (deg, r = R) => ({ x: CXA + Math.cos(deg * RAD) * r, y: CYA + Math.sin(deg * RAD) * r });
+      const segs = R2.arcs, totalV = segs.reduce((s2, x) => s2 + x.v, 0);
+      const avail = (A1 - A0) - GAPA * (segs.length - 1);
+      const capA = (LWA / 2) / R / RAD;   // 라운드캡 반지름만큼 각도 보정 — 캡 끝이 구간 경계에 닿게
+      ctx.save(); ctx.globalAlpha *= e0(.45);
+      let cur = A0;
+      segs.forEach((seg, i) => {
+        const da = seg.v / totalV * avail;
+        const s0 = cur, s1 = cur + da, mid = (s0 + s1) / 2;
+        cur = s1 + GAPA;
+        const p0 = polar(s0 + capA), p1 = polar(s1 - capA);
+        const g = ctx.createLinearGradient(p0.x, p0.y, p1.x, p1.y);
+        g.addColorStop(0, PAL.coral); g.addColorStop(1, PAL.red);
+        ctx.strokeStyle = g; ctx.lineWidth = LWA; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.arc(CXA, CYA, R, (s0 + capA) * RAD, (s1 - capA) * RAD); ctx.stroke();
+        // 라벨 — 세그먼트와 같은 (중심·반지름·중간각)을 공유하는 호 추종 활자(textPath 등가).
+        //   글자별 전각 폭을 호 길이로 환산해 midAngle 중심으로 좌→우 배치, 각 글자는 접선 회전.
+        //   짧은 세그먼트는 폰트 자동 축소(호 길이의 70% 상한).
+        {
+          ctx.save();
+          ctx.fillStyle = NEU.ink; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          let fs = 44;
+          const arcLen = (s1 - s0 - capA * 2) * RAD * R;
+          ctx.font = RF(700, fs); ctx.letterSpacing = '-1px';
+          while (fs > 26 && ctx.measureText(seg.lbl).width > arcLen * 0.7) { fs -= 2; ctx.font = RF(700, fs); }
+          const chars = [...seg.lbl];
+          const ws = chars.map(c => ctx.measureText(c).width - 1);
+          const totalW = ws.reduce((a2, b) => a2 + b, 0);
+          let a = mid - (totalW / 2) / R / RAD;   // 각도(deg)로 환산한 절반 폭만큼 앞에서 시작
+          chars.forEach((c, k) => {
+            const am = a + (ws[k] / 2) / R / RAD;
+            const pch = polar(am);
+            ctx.save(); ctx.translate(pch.x, pch.y); ctx.rotate((am + 90) * RAD);
+            ctx.fillText(c, 0, 0); ctx.restore();
+            a += ws[k] / R / RAD;
+          });
+          ctx.restore();
+        }
+        // 아이콘 칩 — 세그먼트 시작각, 같은 반지름·접선 회전
+        const pc = polar(s0 + capA);
+        ctx.save(); ctx.translate(pc.x, pc.y); ctx.rotate((s0 + capA + 90) * RAD);
+        ctx.fillStyle = 'rgba(255,255,255,.3)';
+        ctx.beginPath(); ctx.arc(0, 0, 61, 0, Math.PI * 2); ctx.fill();
+        if (seg.icon === 'run') {
+          const im = img('ic-run.svg');
+          if (im) ctx.drawImage(im, -21.09, -28.67, 42.183, 57.333);
+        } else {
+          const l = img('ic-foot-l.svg'), r2i = img('ic-foot-r.svg');
+          if (l) ctx.drawImage(l, -38.85, -34.73, 34.064, 69.458);
+          if (r2i) { ctx.save(); ctx.translate(21.8, 0); ctx.rotate(Math.PI); ctx.scale(1, -1); ctx.drawImage(r2i, -17.03, -34.73, 34.064, 69.458); ctx.restore(); }
+        }
+        ctx.restore();
+      });
+      // 선행 배지 — 첫 세그먼트 앞(gap 만큼 앞 각도), 같은 반지름
+      if (R2.badge) {
+        const pb = polar(A0 - capA - 2);
+        ctx.fillStyle = 'rgba(255,255,255,.37)';
+        ctx.beginPath(); ctx.arc(pb.x, pb.y, 71.07, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = NEU.ink; ctx.font = RF(700, 52); ctx.letterSpacing = '-2.08px';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(R2.badge, pb.x, pb.y + 2);
+      }
+      ctx.letterSpacing = '0px';
       ctx.restore();
-    };
-    ctx.save(); ctx.globalAlpha *= e0(.45);
-    rotImg('arc-run.svg', 1041.67, 544.38, 409.297, 292.513, 8.52);
-    rotImg('arc-feet.svg', 673.8, 474.72, 348.372, 212.79, -47.89);
-    // 아크 위 라벨 — '30min' ×2 (스크린샷 실측 각도, 밴드 결 따라)
-    ctx.fillStyle = NEU.ink; ctx.font = RF(700, 44); ctx.letterSpacing = '-1px';
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.save(); ctx.translate(1070, 500); ctx.rotate(35 * RAD); ctx.fillText(R2.total + 'min', 0, 0); ctx.restore();
-    ctx.save(); ctx.translate(700, 420); ctx.rotate(-43 * RAD); ctx.fillText(R2.total + 'min', 0, 0); ctx.restore();
-    // 회색 '5' 칩
-    ctx.fillStyle = 'rgba(255,255,255,.37)';
-    ctx.beginPath(); ctx.arc(480.54, 635.7, 71.07, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = NEU.ink; ctx.font = RF(700, 52); ctx.letterSpacing = '-2.08px';
-    ctx.fillText('5', 480.54, 638);
-    // 러너 칩(8.52°) · 두 발 칩(-47.89°) — 흰 30% 원 122 + 흰 아이콘
-    const chip = (cx2, cy2, deg, draw) => {
-      ctx.save(); ctx.translate(cx2, cy2); ctx.rotate(deg * RAD);
-      ctx.fillStyle = 'rgba(255,255,255,.3)';
-      ctx.beginPath(); ctx.arc(0, 0, 61, 0, Math.PI * 2); ctx.fill();
-      draw(); ctx.restore();
-    };
-    chip(916.1, 443.36, 8.52, () => {
-      const im = img('ic-run.svg');
-      if (im) ctx.drawImage(im, -21.09, -28.67, 42.183, 57.333);
-    });
-    chip(570.16, 527.55, -47.89, () => {
-      ctx.rotate(2.89 * RAD);
-      const l = img('ic-foot-l.svg'), r = img('ic-foot-r.svg');
-      if (l) ctx.drawImage(l, -38.85, -34.73, 34.064, 69.458);
-      if (r) { ctx.save(); ctx.translate(4.77 + 17.03, 0); ctx.scale(1, -1); ctx.rotate(Math.PI); ctx.drawImage(r, -17.03, -34.73, 34.064, 69.458); ctx.restore(); }
-    });
-    ctx.restore();
+    }
     // ── ⑤ 사이드 포드 — 좌(안경 그라디언트·100%) / 우(이어버드·러너 사진), y942 ──
     const pod = (px) => {
       ctx.fillStyle = 'rgba(255,255,255,.4)';
