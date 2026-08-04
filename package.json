@@ -11,7 +11,8 @@
     "check:scene": "node scripts/check_scene_stage.mjs",
     "dev:export": "vite --config vite.export.config.js",
     "export:boxing": "node scripts/run_boxing_scenes.mjs",
-    "check:clips": "node scripts/check_clips_intra.mjs"
+    "check:clips": "node scripts/check_clips_intra.mjs",
+    "preview:boxing": "node scripts/preview_scenes.mjs"
   },
   "dependencies": {
     "@mediapipe/tasks-vision": "^0.10.35",
