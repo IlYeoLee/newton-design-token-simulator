@@ -1257,7 +1257,14 @@ export class FloorGL {
     capPath(); ctx.stroke();
     ctx.filter = 'none';
     ctx.restore();
-    ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.lineWidth = 2;
+    // 아웃라인 — 단색이 아니라 유리 림: 위·아래 하이라이트, 측면은 투명하게 잦아드는 세로 그라디언트(유저)
+    const rim = ctx.createLinearGradient(0, CAP.y, 0, CAP.y + CAP.h);
+    rim.addColorStop(0, 'rgba(255,255,255,.95)');
+    rim.addColorStop(.28, 'rgba(255,255,255,.28)');
+    rim.addColorStop(.62, 'rgba(255,255,255,.2)');
+    rim.addColorStop(.88, 'rgba(255,255,255,.65)');
+    rim.addColorStop(1, 'rgba(255,255,255,.9)');
+    ctx.strokeStyle = rim; ctx.lineWidth = 2.5;
     capPath(); ctx.stroke();
     ctx.restore();
     // ── ② 캡슐 하단 엠버 글로우 — 피그마 익스포트 4겹, 블렌드 모드 그대로 ──
