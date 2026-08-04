@@ -525,7 +525,8 @@ const READY = {
                            arcs: [{ v: 30, lbl: '30min', icon: 'feet' }, { v: 30, lbl: '30min', icon: 'run' }], badge: '5' } },
   'floor-bk.html': { title: "Curry's Handle Pack",   today: 'Today · 15min · Standard',  time: '23min',     mode: 'Press On',
                      comp: [['Stretch', 5], ['Learn', 8], ['Play!', 10]],
-                     r2: { lines: ["Curry's", 'Handle Pack'], sub: 'Press On', total: '23',
+                     r2: { scale: 0.78,   // 농구 레인(≈1.4m)이 러닝(≈1.06m)보다 넓다 — 실물 크기 동급화
+                           lines: ["Curry's", 'Handle Pack'], sub: 'Press On', total: '23',
                            arcs: [{ v: 23, lbl: '23min', icon: 'feet' }, { v: 23, lbl: '23min', icon: 'run' }], badge: '5' } },
 };
 const TR = {
@@ -1234,6 +1235,10 @@ export class FloorGL {
     const ctx = this.ctx, t = this.t;
     const D = READY[/floor-bk/.test(this.params.src) ? 'floor-bk.html' : 'floor.html'], R2 = D.r2;
     const RAD = Math.PI / 180;
+    // 콘텐츠 스케일 — 프레임(=커버리지)은 절대 못 줄인다. 종목별 실물 크기 동급화는 여기서.
+    const CK = R2.scale || 1;
+    ctx.save();
+    if (CK !== 1) { ctx.translate(800, 1400); ctx.scale(CK, CK); ctx.translate(-800, -1400); }
     const RF = (w, s, fam = sans) => `${w} ${s}px ${fam}`;   // 피그마 원치수(타입스케일 미적용)
     const img = rel => this._img('fig/ready2/' + rel);
     const e0 = (d, dur = .8) => eOut(intro(t, d, dur));
@@ -1415,6 +1420,7 @@ export class FloorGL {
     ctx.fillText('To start', 800.15, 2101.7);
     ctx.letterSpacing = '0px';
     ctx.restore();
+    ctx.restore();   // /콘텐츠 스케일
   }
 
 
