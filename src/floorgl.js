@@ -1406,13 +1406,20 @@ export class FloorGL {
         if (pop <= 0.001) return;
         ctx.save(); ctx.globalAlpha *= Math.min(1, e * 1.6);
         ctx.translate(P.cx, P.cy); ctx.scale(pop, pop); ctx.translate(-P.cx, -P.cy);
-        // 글라스 서클
-        ctx.fillStyle = 'rgba(255,255,255,.3)';
-        ctx.beginPath(); ctx.arc(P.cx, P.cy, CR, 0, Math.PI * 2); ctx.fill();
-        ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.lineWidth = 2;
+        // 글라스 서클 — 면 채움 없이 이너 쉐도우만(유저 #51): 클립 안에서 블러 스트로크
+        ctx.save();
+        ctx.beginPath(); ctx.arc(P.cx, P.cy, CR, 0, Math.PI * 2); ctx.clip();
+        ctx.filter = 'blur(11px)';
+        ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = 22;
+        ctx.beginPath(); ctx.arc(P.cx, P.cy, CR, 0, Math.PI * 2); ctx.stroke();
+        ctx.filter = 'none';
+        ctx.restore();
+        ctx.strokeStyle = 'rgba(255,255,255,.6)'; ctx.lineWidth = 2.5;
         ctx.beginPath(); ctx.arc(P.cx, P.cy, CR, 0, Math.PI * 2); ctx.stroke();
         // 내용 — 아이콘, 우측은 페이즈2에 코치 사진 크로스페이드
-        const iconA = P.coach ? 1 - p2 : 1;
+        const pOut = P.coach ? eOut(intro(t, TP2 + 3, .7)) : 0;   // 프로필 3초 뒤 이어버드 복귀
+        const coachA = P.coach ? p2 * (1 - pOut) : 0;
+        const iconA = P.coach ? 1 - coachA : 1;
         if (iconA > 0.01) {
           ctx.save(); ctx.globalAlpha *= iconA;
           if (P.icon === 'glasses') {
@@ -1424,9 +1431,9 @@ export class FloorGL {
           }
           ctx.restore();
         }
-        if (P.coach && p2 > 0.01) {
+        if (P.coach && coachA > 0.01) {
           const pk = this._img('photos/creator-profile-sean.png');
-          ctx.save(); ctx.globalAlpha *= p2;
+          ctx.save(); ctx.globalAlpha *= coachA;
           ctx.beginPath(); ctx.arc(P.cx, P.cy, CR - 6, 0, Math.PI * 2); ctx.clip();
           if (pk) {
             const sc = Math.max((CR - 6) * 2 / pk.naturalWidth, (CR - 6) * 2 / pk.naturalHeight);
@@ -1446,7 +1453,7 @@ export class FloorGL {
         ctx.fill();
         // 음성 연결 체크 — 페이즈2, 작았다 살짝 커지며(오버슈트) 우하단에
         if (P.coach) {
-          const ck = kf(eOut(intro(t, TP2 + .2, .55)), [[0, 0], [.55, 1.2], [1, 1]]);
+          const ck = kf(eOut(intro(t, TP2 + .2, .55)), [[0, 0], [.55, 1.2], [1, 1]]) * (1 - pOut);   // 프로필 복귀와 함께 퇴장
           if (ck > 0.001) {
             ctx.save();
             ctx.translate(P.cx + 58, P.cy + 58); ctx.scale(ck, ck);

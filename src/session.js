@@ -139,7 +139,15 @@ class FootMark {
   at(x, z, s = 1) { this.group.position.set(x, 0.013, z); this.group.scale.setScalar(s); return this; }
   op(k) { this._U.uFade.value = k; }
   setHold(p) { this._U.uPhase.value = 5; this._U.uProg.value = Math.max(0.001, p); }   // Hold 코닉 진행 림
-  locked() { this._U.uPhase.value = 3; this._U.uProg.value = 0; }   // 무채 대기(Locked) — READY 시작 전
+  locked() { this._U.uPhase.value = 3; this._U.uProg.value = 0; }
+  /** tap2 어포던스(READY 전용, 유저 2026-08-05) — 무채(도트+이너 화이트) 대기로 있다가
+   *  주기마다 액티브 컬러로 밝아지며 **2회 깜빡** = '발 두 번 탭' 암시. 과하지 않게 3.2s 주기. */
+  tapHint(tc) {
+    const ph = tc % 3.2;
+    const p = (ph > 1.9 && ph < 2.25) ? (ph - 1.9) / 0.35 : (ph > 2.55 && ph < 2.9) ? (ph - 2.55) / 0.35 : -1;
+    if (p >= 0) { this._U.uPhase.value = 0; this._U.uProg.value = 0; this.op(0.55 + 0.45 * Math.sin(p * Math.PI)); }
+    else { this.locked(); this.op(0.8); }
+  }   // 무채 대기(Locked) — READY 시작 전
   countdown(p) {
     if (p < 0) { this._U.uPhase.value = 0; this._U.uProg.value = 0; return; }          // 대기 = Preview 숨쉬기
     this._U.uPhase.value = 1; this._U.uProg.value = p;                                 // Active — 헤일로 수축 = 타이밍
@@ -989,13 +997,12 @@ export class Session {
     this.tap = this._tap('running'); this.tap.position.set(0, 0.013, -0.78); g.add(this.tap);
     // READY 발자국 = 룩시스템 발형(MARK Preview 숨쉬기) — 캔버스 사제 발 그래픽 폐기(유저:
     //   바닥은 평면 그래픽, 발 모양은 룩 토큰으로). 링 중앙 = 탭 지점에 놓는다.
-    this.readyFoot = new FootMark('right').at(0, -0.78);   // 씬 READY 다이얼 중심(캔버스 ~1780)과 정렬 — 실측 스크린샷 2회 캘리브레이션
-    this.readyFoot.locked();        // 대기 = 무채(Locked) — 시작 전은 색 없음, 탭하면 색이 깨어난다(유저 검토안)
-    this.readyFoot.op(0.78);        // READY 는 발이 주인공이되 링 안을 삼키지 않게 살짝 절제
+    // READY 두 발 = FootMark tap2 어포던스 — Tap Twice 양옆(유저 #49). 캔버스 신발 그래픽 폐기.
+    this.readyFeet = [new FootMark('left').at(-0.33, -0.75), new FootMark('right').at(0.33, -0.75)];
+    this.readyFeet.forEach(f => { f.locked(); f.op(0.8); f.group.visible = false; this.root.add(f.group); });
     // G.READY 는 '시작 페이지 = 프레임 전담' 정책으로 main 이 끈다 — 발자국은 새 READY 의
     //   어포던스 정본이므로 root 소속으로 예외. 표시는 아래 업데이트 틱이 스테이지로 제어.
-    this.readyFoot.group.visible = false;
-    this.root.add(this.readyFoot.group);
+
 
     // A1~B4 발형/화살표 그래픽 z — "그래픽=가까운 존(눈앞~발앞), 타이틀=그 뒤(위)"
     // 원칙(유저 지적, 반대로 짰던 이전 시도 정정)에 맞춰 가까운 존(1.0~1.6m)으로 압축.
@@ -1777,7 +1784,7 @@ export class Session {
     if (this._c3Skill != null && this.judge) { this.judge.skill = this._c3Skill; this._c3Skill = null; }   // C3 중 탭 스킵 시 skill 0.35 영구 잠김 방지
     this.bobY = 0;
     for (const id in this.G) this.G[id].visible = false;
-    if (this.readyFoot) this.readyFoot.group.visible = false;   // READY 어포던스 발자국 — 재진입 틱이 켠다
+    this.readyFeet?.forEach(f => f.group.visible = false);   // READY 어포던스 발자국 — 재진입 틱이 켠다
     this.paceLight.visible = false;   // C 실전 틱(_paceTick)이 프레임마다 다시 켬
     this.paceLane.visible = false;
     this.paceFeet.forEach(fm => fm.group.visible = false);
@@ -2036,7 +2043,7 @@ export class Session {
     else this.bobY = 0;
 
     if (id === 'READY' || id === 'T1') {
-      // readyFoot(발형 토큰)은 Figma 정본 READY(342:3057)에선 미사용 — 신발 실루엣이 정본(2026-08-05)
+      if (id === 'READY') this.readyFeet?.forEach(f => { f.group.visible = true; f.tapHint(this.t); });
       const tap = id === 'READY' ? this.tap : this.tap1; const k = 0.5 + 0.5 * Math.sin(this.t * 4);
       if (tap.userData._ctaPlane) {
         tap.userData._ctaPlane.material.opacity = 0.75 + 0.25 * k;   // 피그마 CTA 에셋 — 통째로 맥동
