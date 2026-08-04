@@ -34,6 +34,8 @@ const CX = W / 2;
 const sans = "'Supreme',sans-serif";
 // 수치 전용 페이스. 이걸 sans 로 바꾸면 문서 전체가 Supreme 2종만 남는다(유저가 원하면 한 줄).
 const dot9 = "'OffBit','Supreme',sans-serif";
+// READY 변주 선택 — ?rv=petal|ring|rail (유저 픽 전까지 세 안 공존, 픽 후 나머지 삭제)
+const RV = (typeof location !== 'undefined' && new URLSearchParams(location.search).get('rv')) || 'petal';
 // 투사 UI 공통 타이포 스케일 — 대지 실값이 화면에선 조금 컸다(유저). 조판 좌표는 그대로 두고
 // 글자만 줄인다. ?type=1 로 원래 크기.
 export const TS = new URLSearchParams(typeof location !== 'undefined' ? location.search : '').get('type') === '1' ? 1 : 0.92;
@@ -1199,143 +1201,234 @@ export class FloorGL {
   _roundRectPath(x, y, w, h, r) { const c = this.ctx; c.beginPath(); c.roundRect(x, y, w, h, r); }
 
   // ── 시작화면 (floor.html / floor-bk.html) ──────────────────────────────────
-  _paint_ready() {
-    const ctx = this.ctx, D = READY[/floor-bk/.test(this.params.src) ? 'floor-bk.html' : 'floor.html'], t = this.t;
-    const bk = /floor-bk/.test(this.params.src);
-    // ── 발바닥뷰 정본 = 유저 목업(2026-08-04) ────────────────────────────────
-    //   위: 아바타·제목·요약 직선 스택 / 가운데: '통통한' 세션 부채꼴(각도=분, 본운동 그라디언트,
-    //   Stretch|Learn 사이 장식 슬랫 3, 오른끝 30min 미니 셀) / 안: 배터리 필 행 → CTA →
-    //   디자인 발자국(foot_shape 틴트, 3인칭 발 일러스트 폐기 — 발바닥뷰니까 발자국).
-    //   ★ 빔 커버리지: 모든 요소 가장자리 110px 안쪽(유저).
-    const RAD = Math.PI / 180;
-    const C = { x: CX, y: 1720 };
-    // 발 중심 글로우 — 숨쉬기 유지
+  // ═══ READY 3안 비교(유저 픽 대기) — ?rv=petal(꽃잎 다이얼)|ring(워치 링)|rail(아크 레일) ═══
+  //   공통 전제: 발 = 화면의 중심. 발자국은 캔버스가 아니라 룩시스템 FootMark 토큰(session READY).
+  //   ★ 빔 커버리지: 모든 요소 가장자리 110px 안쪽.
+
+  // 숨쉬는 배경 글로우 — 중심만 변주별로 받는다
+  _readyGlow(t, gx, gy) {
     const gl = this._img('fig/big_glow.svg');
-    if (gl) {
-      const g = cycle(t, 0, 7, 3);
-      ctx.save();
-      ctx.globalAlpha = g == null ? 0.85 : kf(g, [[0, .85], [.5, 1], [1, .85]]);
-      if (g != null) {
-        const s = kf(g, [[0, 1], [.5, 1.06], [1, 1]]);
-        ctx.translate(C.x + kf(g, [[0, 0], [.5, -16], [1, 0]]), 1900 + kf(g, [[0, 0], [.5, 10], [1, 0]]));
-        ctx.scale(s, s); ctx.translate(-C.x, -1900);
-      }
-      ctx.drawImage(gl, C.x - 739, 1900 - 652, 1478, 1305);
-      ctx.restore();
+    if (!gl) return;
+    const ctx = this.ctx, g = cycle(t, 0, 7, 3);
+    ctx.save();
+    ctx.globalAlpha = g == null ? 0.85 : kf(g, [[0, .85], [.5, 1], [1, .85]]);
+    if (g != null) {
+      const s = kf(g, [[0, 1], [.5, 1.06], [1, 1]]);
+      ctx.translate(gx + kf(g, [[0, 0], [.5, -16], [1, 0]]), gy + kf(g, [[0, 0], [.5, 10], [1, 0]]));
+      ctx.scale(s, s); ctx.translate(-gx, -gy);
     }
-    // ① 헤더 스택 — 아바타 / 제목 / 요약 (직선, 목업 그대로)
-    {
-      const pk = this._img(bk ? 'photos/cardbg-curry.png' : 'photos/creator-profile-sean.png');
-      const R = 95, py = 165;
-      ctx.save(); this._fadeIn(py, 2 * R, eOut(intro(t, .12, .8)));
-      ctx.beginPath(); ctx.arc(CX, py + R, R - 3, 0, Math.PI * 2); ctx.save(); ctx.clip();
-      if (pk) {
-        const sc = Math.max(2 * (R - 3) / pk.naturalWidth, 2 * (R - 3) / pk.naturalHeight);
-        ctx.drawImage(pk, CX - pk.naturalWidth * sc / 2, py + R - pk.naturalHeight * sc / 2,
-                      pk.naturalWidth * sc, pk.naturalHeight * sc);
-      } else { ctx.fillStyle = 'rgba(255,255,255,.14)'; ctx.fillRect(CX - R, py, 2 * R, 2 * R); }
-      ctx.restore();
-      ctx.strokeStyle = '#fff'; ctx.lineWidth = 6;
-      ctx.beginPath(); ctx.arc(CX, py + R, R - 3, 0, Math.PI * 2); ctx.stroke();
-      ctx.restore();
-      ctx.save(); this._fadeIn(410, 180, eOut(intro(t, .2, .8)));
-      ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-      ctx.fillStyle = 'rgba(255,255,255,.95)'; ctx.font = F(700, 76); ctx.letterSpacing = '-2.6px';
-      ctx.fillText(D.title, CX, 410);
-      ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.font = F(400, 44); ctx.letterSpacing = '-1.4px';
-      ctx.fillText(`${D.today} · ${D.time}`, CX, 520);   // 총시간은 요약줄로(목업 — 30min 셀 폐기)
-      ctx.letterSpacing = '0px';
-      ctx.restore();
-    }
-    // ② 세션 부채꼴 — 목업 정합: 호 중심을 대지 밖 저 아래(y 3050)에 두는 '얕은 아치'.
-    //   중심이 가까우면(구 1720) 셀이 꽃잎처럼 꺾여 글자가 눕는다(유저: 안 이쁨). 셀 기울기
-    //   ±18° 이내가 목업의 감. 각도 = 분 가중(m+8 — 순비례는 5m 셀이 너무 홀쭉).
-    {
-      const FC = { x: CX, y: 3050 }, R0 = 1750, R1 = 2250, RM = (R0 + R1) / 2;
-      const A0 = -108, A1 = -72, GAP = 1.6;
-      const SLATN = 2, SLATW = 0.8, slatZone = SLATN * SLATW + (SLATN - 1) * 0.8;
-      const wt = m => m + 8;
-      const total = D.comp.reduce((s2, p) => s2 + wt(p[1]), 0);
-      const span = (A1 - A0) - slatZone - GAP * 3;   // 슬랫존 양옆 + Learn|Run 사이
-      let a = A0;
-      const cell = (s0d, s1d, lbl, m, main, di) => {
-        const s0 = s0d * RAD, s1 = s1d * RAD, am = (s0 + s1) / 2, da = s1 - s0;
-        ctx.save(); ctx.globalAlpha *= eOut(intro(t, .45 + di * .12, .7));
-        let fill = 'rgba(255,255,255,.96)';
-        if (main) {
-          const g = ctx.createLinearGradient(FC.x + Math.cos(am) * R1, FC.y + Math.sin(am) * R1,
-                                             FC.x + Math.cos(am) * R0, FC.y + Math.sin(am) * R0);
-          g.addColorStop(0, PAL.red); g.addColorStop(.7, PAL.coral); g.addColorStop(1, PAL.sand);
-          fill = g;
-          ctx.shadowColor = 'rgba(254,110,60,.8)'; ctx.shadowBlur = 60;   // 주인공 셀 글로우
-        }
-        arcSegFill(ctx, FC.x, FC.y, R0, R1, s0, s1, fill, 44);
-        ctx.shadowBlur = 0;
-        ctx.translate(FC.x + Math.cos(am) * RM, FC.y + Math.sin(am) * RM);
-        ctx.rotate(am + Math.PI / 2);
-        ctx.textAlign = 'center'; ctx.fillStyle = main ? NEU.ink : NEU.t3;
-        ctx.textBaseline = 'alphabetic'; ctx.letterSpacing = '-2.4px';
-        for (const fs of [72, 58, 46]) {   // 셀 폭에 맞는 최대 크기
-          ctx.font = F(700, fs);
-          if (ctx.measureText(lbl).width <= da * RM - 44) break;
-        }
-        ctx.fillText(lbl, 0, -18);
-        ctx.font = F(400, 44); ctx.textBaseline = 'top'; ctx.letterSpacing = '-1.4px';
-        ctx.fillText(`${m}m`, 0, 14);
-        ctx.letterSpacing = '0px';
-        ctx.restore();
-      };
-      D.comp.forEach(([lbl, m], i) => {
-        const da = span * wt(m) / total;
-        cell(a, a + da, lbl, m, i === D.comp.length - 1, i);
-        a += da;
-        if (i === 0) {   // 슬랫존 — Stretch 뒤
-          a += GAP;
-          for (let k = 0; k < SLATN; k++) {
-            const s0 = a * RAD, s1 = (a + SLATW) * RAD;
-            ctx.save(); ctx.globalAlpha *= eOut(intro(t, .55 + k * .05, .6)) * .45;
-            arcSegFill(ctx, FC.x, FC.y, R0 + 30, R1 - 30, s0, s1, '#fff', 12);
-            ctx.restore();
-            a += SLATW + 0.8;
-          }
-          a += GAP - 0.8;
-        } else a += GAP;
-      });
-    }
-    // ③ 지표 필 행 — 알약(%) + 아래 캡션(목업 #8: CADENCE / HEART RATE / EFFORT). 30% 이하만 경고색.
-    {
-      const MET = [[90, 'CADENCE'], [30, 'HEART RATE'], [60, 'EFFORT']];
-      const PY2 = 1420, PH = 84, PADX = 36, PGAP = 22;
-      ctx.save(); ctx.globalAlpha *= eOut(intro(t, .7, .7));
-      ctx.font = F(700, 36); ctx.letterSpacing = '-1px';
-      const pws = MET.map(([pct]) => PADX * 2 + ctx.measureText(pct + '%').width);
-      let bx = CX - (pws.reduce((a2, b) => a2 + b, 0) + PGAP * 2) / 2;
-      MET.forEach(([pct, cap], k) => {
-        ctx.font = F(700, 36); ctx.letterSpacing = '-1px';
-        ctx.fillStyle = 'rgba(255,255,255,.95)';
-        ctx.beginPath(); ctx.roundRect(bx, PY2, pws[k], PH, PH / 2); ctx.fill();
-        ctx.fillStyle = pct <= 30 ? PAL.red : NEU.t3;
-        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        ctx.fillText(pct + '%', bx + pws[k] / 2, PY2 + PH / 2 + 1);
-        ctx.font = F(500, 27); ctx.letterSpacing = '2.2px';
-        ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.textBaseline = 'top';
-        ctx.fillText(cap, bx + pws[k] / 2, PY2 + PH + 18);
-        bx += pws[k] + PGAP;
-      });
-      ctx.letterSpacing = '0px';
-      ctx.restore();
-    }
-    // ④ CTA — 눈금/지시 (직선, 목업 그대로)
-    ctx.save(); this._fadeIn(1640, 200, eOut(intro(t, .7, .9)));
+    ctx.drawImage(gl, gx - 739, gy - 652, 1478, 1305);
+    ctx.restore();
+  }
+
+  // 헤더 스택 — 아바타 / 제목 / 요약(+총시간)
+  _readyHeader(t, D, bk) {
+    const ctx = this.ctx;
+    const pk = this._img(bk ? 'photos/cardbg-curry.png' : 'photos/creator-profile-sean.png');
+    const R = 95, py = 165;
+    ctx.save(); this._fadeIn(py, 2 * R, eOut(intro(t, .12, .8)));
+    ctx.beginPath(); ctx.arc(CX, py + R, R - 3, 0, Math.PI * 2); ctx.save(); ctx.clip();
+    if (pk) {
+      const sc = Math.max(2 * (R - 3) / pk.naturalWidth, 2 * (R - 3) / pk.naturalHeight);
+      ctx.drawImage(pk, CX - pk.naturalWidth * sc / 2, py + R - pk.naturalHeight * sc / 2,
+                    pk.naturalWidth * sc, pk.naturalHeight * sc);
+    } else { ctx.fillStyle = 'rgba(255,255,255,.14)'; ctx.fillRect(CX - R, py, 2 * R, 2 * R); }
+    ctx.restore();
+    ctx.strokeStyle = NEU.ink; ctx.lineWidth = 6;
+    ctx.beginPath(); ctx.arc(CX, py + R, R - 3, 0, Math.PI * 2); ctx.stroke();
+    ctx.restore();
+    ctx.save(); this._fadeIn(410, 180, eOut(intro(t, .2, .8)));
     ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-    ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.font = F(400, 46); ctx.letterSpacing = '-1.4px';
-    ctx.fillText('To start', CX, 1640);
-    ctx.fillStyle = '#fff'; ctx.font = F(700, 88); ctx.letterSpacing = '-4.7px';
-    ctx.fillText('Tap your foot Twice', CX, 1704);
+    ctx.fillStyle = 'rgba(255,255,255,.95)'; ctx.font = F(700, 76); ctx.letterSpacing = '-2.6px';
+    ctx.fillText(D.title, CX, 410);
+    ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.font = F(400, 44); ctx.letterSpacing = '-1.4px';
+    ctx.fillText(`${D.today} · ${D.time}`, CX, 520);
     ctx.letterSpacing = '0px';
     ctx.restore();
-    // ⑤ 발자국 — 캔버스로 그리지 않는다. 룩시스템 발형(FootMark, MARK Preview)이 3D 토큰으로
-    //   같은 자리(session READY, 링 중앙)에 놓인다 — 장면 = 룩 토큰만 규칙(유저).
+  }
+
+  // 지표 필 행 — %필 + 캡션 (30% 이하만 경고색)
+  _readyPills(t, y) {
+    const ctx = this.ctx;
+    const MET = [[90, 'CADENCE'], [30, 'HEART RATE'], [60, 'EFFORT']];
+    const PH = 84, PADX = 36, PGAP = 22;
+    ctx.save(); ctx.globalAlpha *= eOut(intro(t, .7, .7));
+    ctx.font = F(700, 36); ctx.letterSpacing = '-1px';
+    const pws = MET.map(([pct]) => PADX * 2 + ctx.measureText(pct + '%').width);
+    let bx = CX - (pws.reduce((a2, b) => a2 + b, 0) + PGAP * 2) / 2;
+    MET.forEach(([pct, cap], k) => {
+      ctx.font = F(700, 36); ctx.letterSpacing = '-1px';
+      ctx.fillStyle = 'rgba(255,255,255,.95)';
+      ctx.beginPath(); ctx.roundRect(bx, y, pws[k], PH, PH / 2); ctx.fill();
+      ctx.fillStyle = pct <= 30 ? PAL.red : NEU.t3;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(pct + '%', bx + pws[k] / 2, y + PH / 2 + 1);
+      ctx.font = F(500, 27); ctx.letterSpacing = '2.2px';
+      ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.textBaseline = 'top';
+      ctx.fillText(cap, bx + pws[k] / 2, y + PH + 18);
+      bx += pws[k] + PGAP;
+    });
+    ctx.letterSpacing = '0px';
+    ctx.restore();
+  }
+
+  // CTA — 눈금 / 지시
+  _readyCTA(t, y) {
+    const ctx = this.ctx;
+    ctx.save(); this._fadeIn(y, 200, eOut(intro(t, .7, .9)));
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.font = F(400, 46); ctx.letterSpacing = '-1.4px';
+    ctx.fillText('To start', CX, y);
+    ctx.fillStyle = NEU.ink; ctx.font = F(700, 88); ctx.letterSpacing = '-4.7px';
+    ctx.fillText('Tap your foot Twice', CX, y + 64);
+    ctx.letterSpacing = '0px';
+    ctx.restore();
+  }
+
+  _paint_ready() {
+    const D = READY[/floor-bk/.test(this.params.src) ? 'floor-bk.html' : 'floor.html'];
+    const bk = /floor-bk/.test(this.params.src), t = this.t;
+    if (RV === 'ring') this._ready_ring(D, bk, t);
+    else if (RV === 'rail') this._ready_rail(D, bk, t);
+    else this._ready_petal(D, bk, t);
+  }
+
+  // ── A안 '꽃잎 다이얼' — 발 구멍(다이얼 코어)을 감싸고 세션 꽃잎이 방사. 길이 = 분(값-우선). ──
+  _ready_petal(D, bk, t) {
+    const ctx = this.ctx, RAD = Math.PI / 180;
+    const DC = { x: CX, y: 1780 }, HOLE = 360;
+    this._readyGlow(t, DC.x, DC.y);
+    this._readyHeader(t, D, bk);
+    this._readyPills(t, 700);
+    // 꽃잎 — 등각 3장, 바깥 길이만 분에 비례(레퍼런스: 값이 큰 꽃잎이 멀리 뻗는다)
+    const A0 = -135, A1 = -45, GAPD = 4;
+    const SEG = (A1 - A0 - GAPD * 2) / 3;
+    const maxM = Math.max(...D.comp.map(p => p[1]));
+    D.comp.forEach(([lbl, m], i) => {
+      const s0 = (A0 + i * (SEG + GAPD)) * RAD, s1 = s0 + SEG * RAD, am = (s0 + s1) / 2;
+      const outer = HOLE + 200 + 360 * (m / maxM);   // 5m:480 → 15m:920 대역
+      const main = i === D.comp.length - 1;
+      ctx.save(); ctx.globalAlpha *= eOut(intro(t, .45 + i * .13, .7));
+      let fill = 'rgba(255,255,255,.96)';
+      if (main) {
+        const g = ctx.createLinearGradient(DC.x + Math.cos(am) * outer, DC.y + Math.sin(am) * outer,
+                                           DC.x + Math.cos(am) * HOLE, DC.y + Math.sin(am) * HOLE);
+        g.addColorStop(0, PAL.red); g.addColorStop(.7, PAL.coral); g.addColorStop(1, PAL.sand);
+        fill = g;
+        ctx.shadowColor = 'rgba(254,110,60,.8)'; ctx.shadowBlur = 60;
+      }
+      arcSegFill(ctx, DC.x, DC.y, HOLE, outer, s0, s1, fill, 64);
+      ctx.shadowBlur = 0;
+      // 내용 — 수평 고정(레퍼런스: 꽃잎이 기울어도 글자는 선다). 숫자 큰 값-우선 타이포.
+      const rm = (HOLE + outer) / 2;
+      const px = DC.x + Math.cos(am) * rm, py = DC.y + Math.sin(am) * rm;
+      ctx.textAlign = 'center'; ctx.fillStyle = main ? NEU.ink : NEU.t3;
+      ctx.font = F(700, main ? 104 : 84, dot9); ctx.textBaseline = 'alphabetic';
+      ctx.fillText(String(m), px, py - 8);
+      ctx.font = F(400, main ? 46 : 40); ctx.textBaseline = 'top'; ctx.letterSpacing = '-1.3px';
+      ctx.fillText(lbl, px, py + 12);
+      ctx.letterSpacing = '0px';
+      ctx.restore();
+    });
+    // 다이얼 코어 림 — 발(FootMark 토큰)이 앉는 자리 표시(얇게)
+    ctx.save(); ctx.globalAlpha *= eOut(intro(t, .8, .8));
+    ctx.strokeStyle = 'rgba(255,255,255,.22)'; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.arc(DC.x, DC.y, HOLE - 26, 0, Math.PI * 2); ctx.stroke();
+    ctx.restore();
+    this._readyCTA(t, 2270);
+  }
+
+  // ── B안 '워치 링' — 발 중심 동심 링. 바깥 링 = 세션 구성(호 길이=분, 열화상 램프 상승). ──
+  _ready_ring(D, bk, t) {
+    const ctx = this.ctx, RAD = Math.PI / 180;
+    const DC = { x: CX, y: 1700 }, R = 560, LW = 90;
+    this._readyGlow(t, DC.x, DC.y);
+    this._readyHeader(t, D, bk);
+    this._readyPills(t, 690);
+    // 세션 링 — 위 240° 스윕(아래 120°는 유저 쪽으로 열림), 구간 = 분 비례, 라운드 캡(d3)
+    const COLS = [PAL.sand, PAL.coral, PAL.red];   // 워밍업 → 본운동으로 온도 상승
+    const A0 = -210, A1 = 30, GAPD = 8;
+    const total = D.comp.reduce((s, p) => s + p[1], 0);
+    const span = (A1 - A0) - GAPD * (D.comp.length - 1);
+    let a = A0;
+    D.comp.forEach(([lbl, m], i) => {
+      const da = span * m / total, s0 = a * RAD, s1 = (a + da) * RAD, am = (s0 + s1) / 2;
+      const main = i === D.comp.length - 1;
+      ctx.save(); ctx.globalAlpha *= eOut(intro(t, .45 + i * .15, .8));
+      if (main) { ctx.shadowColor = 'rgba(250,48,48,.7)'; ctx.shadowBlur = 55; }
+      arcSegFill(ctx, DC.x, DC.y, R - LW / 2, R + LW / 2, s0, s1, COLS[i % 3], LW / 2);
+      ctx.shadowBlur = 0;
+      // 라벨 — 링 바깥, 수평(워치 컴플리케이션 문법)
+      const lr = R + LW / 2 + 74;
+      const lx = DC.x + Math.cos(am) * lr, ly = DC.y + Math.sin(am) * lr;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillStyle = main ? 'rgba(255,255,255,.95)' : 'rgba(255,255,255,.7)';
+      ctx.font = F(main ? 700 : 500, main ? 44 : 36); ctx.letterSpacing = '1.5px';
+      ctx.fillText(`${lbl.toUpperCase().replace('!', '')} ${m}`, lx, ly);
+      ctx.letterSpacing = '0px';
+      ctx.restore();
+      a += da + GAPD;
+    });
+    // 중앙 총시간 — 링 안 위쪽(발 위), 도트 숫자
+    ctx.save(); ctx.globalAlpha *= eOut(intro(t, .7, .8));
+    ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+    ctx.fillStyle = NEU.ink; ctx.font = F(700, 150, dot9);
+    ctx.fillText(String(parseInt(D.time)), DC.x, 1445);
+    ctx.fillStyle = 'rgba(255,255,255,.6)'; ctx.font = F(400, 44);
+    ctx.fillText('min total', DC.x, 1505);
+    ctx.restore();
+    this._readyCTA(t, 2330);
+  }
+
+  // ── C안 '아크 레일' — 좌측 곡선 레일에 세션 카드 도킹, 다음 시작(Run!)이 하이라이트. ──
+  _ready_rail(D, bk, t) {
+    const ctx = this.ctx, RAD = Math.PI / 180;
+    const RC = { x: 2600, y: 1400 }, RR = 1900;   // 중심을 오른쪽 대지 밖 — 왼쪽으로 불룩한 레일
+    this._readyGlow(t, CX, 1900);
+    this._readyHeader(t, D, bk);
+    this._readyPills(t, 690);
+    // 레일 — 얇은 호 + 틱
+    ctx.save(); ctx.globalAlpha *= eOut(intro(t, .4, .8));
+    ctx.strokeStyle = 'rgba(255,255,255,.25)'; ctx.lineWidth = 5;
+    ctx.beginPath(); ctx.arc(RC.x, RC.y, RR, 160 * RAD, 200 * RAD); ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,255,255,.4)'; ctx.lineWidth = 4;
+    for (let d = 162; d <= 198; d += 4) {
+      const aa = d * RAD;
+      const x0 = RC.x + Math.cos(aa) * (RR - 14), y0 = RC.y + Math.sin(aa) * (RR - 14);
+      const x1 = RC.x + Math.cos(aa) * (RR + 14), y1 = RC.y + Math.sin(aa) * (RR + 14);
+      ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
+    }
+    ctx.restore();
+    // 세션 카드 — 레일 각도에 도킹, 접선 기울기 살짝. 마지막(다음 시작)이 크고 그라디언트.
+    const ANG = [196, 181, 164];
+    D.comp.forEach(([lbl, m], i) => {
+      const main = i === D.comp.length - 1;
+      const aa = ANG[i] * RAD;
+      const px = RC.x + Math.cos(aa) * RR, py = RC.y + Math.sin(aa) * RR;
+      const w = main ? 470 : 330, h = main ? 250 : 175, rr = main ? 56 : 44;
+      const tilt = (ANG[i] - 180) * 0.45 * RAD;
+      ctx.save(); ctx.globalAlpha *= eOut(intro(t, .5 + i * .13, .7));
+      ctx.translate(px + 40, py); ctx.rotate(tilt);
+      if (main) {
+        const g = ctx.createLinearGradient(0, -h / 2, 0, h / 2);
+        g.addColorStop(0, PAL.red); g.addColorStop(.7, PAL.coral); g.addColorStop(1, PAL.sand);
+        ctx.fillStyle = g;
+        ctx.shadowColor = 'rgba(254,110,60,.8)'; ctx.shadowBlur = 60;
+      } else ctx.fillStyle = 'rgba(255,255,255,.94)';
+      ctx.beginPath(); ctx.roundRect(0, -h / 2, w, h, rr); ctx.fill();
+      ctx.shadowBlur = 0;
+      // 내용 — 좌측 정렬: 이름 / 분. 도킹점 쪽에 정보 축.
+      ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+      ctx.fillStyle = main ? NEU.ink : NEU.t3;
+      ctx.font = F(700, main ? 76 : 52); ctx.letterSpacing = '-2.2px';
+      ctx.fillText(lbl, 44, main ? -8 : -2);
+      ctx.font = F(400, main ? 46 : 38); ctx.letterSpacing = '-1.2px';
+      ctx.textBaseline = 'top';
+      ctx.fillText(`${m}m`, 46, main ? 14 : 10);
+      ctx.letterSpacing = '0px';
+      ctx.restore();
+    });
+    this._readyCTA(t, 2270);
   }
 
   // 제자리 scale+fade 등장 — 호출자가 save()한 상태에서 부른다
