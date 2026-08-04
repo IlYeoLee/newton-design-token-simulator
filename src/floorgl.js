@@ -1225,8 +1225,8 @@ export class FloorGL {
     // 제목 — 2순위. 120·흰100% 이던 것을 68·흰70% 로 내렸다. 아래 CTA(88·흰100%)와
     //   1.36배 차이뿐인데 CTA 쪽엔 화살표·발까지 붙어 1순위가 2순위처럼 읽혔다.
     //   '무슨 팩인가'는 이 화면에 반드시 보여야 한다(유저) — 크기만 낮추고 존치한다.
-    ctx.fillStyle = 'rgba(255,255,255,.7)'; ctx.font = F(700, 68);
-    drawChars(ctx, D.title, CX, 620, 68, -2.3, i => {
+    ctx.fillStyle = 'rgba(255,255,255,.85)'; ctx.font = F(700, 96);
+    drawChars(ctx, D.title, CX, 608, 96, -3.2, i => {
       const p = cycle(t, i * 0.09, 3, 3);
       return p == null ? { dy: 0, alpha: 1, scale: 1 } : {
         dy: kf(p, [[0, 0], [.12, -16], [.26, 0], [.58, 0], [1, 0]]),
@@ -1319,8 +1319,9 @@ export class FloorGL {
     //   지시 한 줄만 크고 위아래 작은 글자가 그것을 감싼다.
     ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.font = F(400, 46); ctx.letterSpacing = '-1.4px';
     ctx.fillText('To start', CX, hy); hy += 46 * 1.2 + 10;
-    ctx.fillStyle = '#fff'; ctx.font = F(700, 88); ctx.letterSpacing = '-4.7px';
-    ctx.fillText('Tap your foot Twice', CX, hy);
+    // 축약 CTA(유저) — 시스템 문법 'Tap X2'(wallgl BTN과 동일 계열). '발로'는 아래 발 그래픽이 말한다.
+    ctx.fillStyle = '#fff'; ctx.font = F(700, 124); ctx.letterSpacing = '-5px';
+    ctx.fillText('Tap X2', CX, hy);
     // 'with the Wearable on' 폐기(유저) — 빔이 바닥에 떠 있다는 건 이미 착용·전원이 켜졌다는 뜻이다.
     //   이미 일어난 일을 조건처럼 말하고 있었다. 게다가 바로 위 기기 칩(👓⌚🎧)이 연결 상태를
     //   이미 보여준다 — 같은 정보를 두 번, 한 번은 틀리게. 모바일 ready-to-start 에서는 맞는
