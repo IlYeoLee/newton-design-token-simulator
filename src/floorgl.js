@@ -1340,7 +1340,16 @@ export class FloorGL {
     })();
     const RF = (w, s, fam = sans) => `${w} ${s}px ${fam}`;   // 피그마 원치수(타입스케일 미적용)
     const img = rel => this._img('fig/ready2/' + rel);
-    const e0 = (d, dur = .8) => eOut(intro(t, d, dur));
+    // ── 등장 이징(유저: 더 쫀득하고 부드럽게) ──────────────────────────────────
+    //   전엔 전 요소가 같은 cubic-out(1-(1-t)³) 알파 페이드 하나였다. 시작이 무르고
+    //   끝이 짧아 '툭 나타났다 멈춘다'로 읽힌다. 두 가지만 바꾼다:
+    //     ① quint-out — 초반은 더 빠르게 붙고 꼬리가 길어 **부드럽게 안착**한다(오버슈트 없음:
+    //        칩 오버슈트는 유저가 이미 폐기했다. 여긴 튀지 않고 '녹아드는' 쫀득함).
+    //     ② 알파만 움직이던 걸 **위치 보조 모션**과 묶는다 — 몇 px 떠 있다가 제자리로.
+    //        사람 눈은 알파 변화보다 위치 변화에서 '속도'를 읽는다.
+    const eOut5 = u => 1 - Math.pow(1 - u, 5);
+    const e0 = (d, dur = .9) => eOut5(intro(t, d, dur));
+    const rise = (d, dur, px) => (1 - e0(d, dur)) * px;   // 등장 시 아래에서 올라와 앉는다
     // ── ① 캡슐 대지 — x291 y285 w1018 h1591 r509, 흰 1px 보더 + 내부 화이트 글로우(74/40 25%) ──
     // ★ CUT — '30 min' 아래 빈 공간이 넓어 캡슐 하단을 잘라내고, 그만큼 하단 요소를 끌어올린다(유저).
     //   한 상수로 캡슐·글로우·상태패널·CTA 가 함께 움직인다(따로 만지면 반드시 어긋난다).
@@ -1388,19 +1397,26 @@ export class FloorGL {
     }
     ctx.restore();
     // ── ③ 캡슐 텍스트 — 제목 2줄(100/Bold/ls-4) · Pace On(64/.8) · 도트 30(384) + min(64) ──
-    ctx.save(); ctx.globalAlpha *= e0(.25);
+    // 제목 두 줄은 줄 단위로 아주 살짝 어긋나게(0.04s) — 한 덩어리로 뜨는 것보다 결이 산다.
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillStyle = NEU.ink; ctx.font = RF(700, 98); ctx.letterSpacing = '-4px';   // 100→98(유저: 첫 진입 타이틀이 빡빡)
-    ctx.fillText(R2.lines[0], 800, 778 - 60);
-    ctx.fillText(R2.lines[1], 800, 778 + 60);
+    for (const [i, ln] of R2.lines.entries()) {
+      const d = .26 + i * .04;
+      ctx.save(); ctx.globalAlpha *= e0(d, .85);
+      ctx.fillText(ln, 800, 778 + (i ? 60 : -60) + rise(d, .85, 22));
+      ctx.restore();
+    }
+    ctx.save(); ctx.globalAlpha *= e0(.36, .85);
     ctx.fillStyle = 'rgba(255,255,255,.8)'; ctx.font = RF(400, 64); ctx.letterSpacing = '-2.56px';
-    ctx.fillText(R2.sub, 800.5, 971);
+    ctx.fillText(R2.sub, 800.5, 971 + rise(.36, .85, 18));
     ctx.restore();
+    ctx.letterSpacing = '0px';
     // ★ 순서 반전(유저 08-05): 페이즈1 = 팩 이름 + **사람 형체**, 페이즈2(2초 뒤) = **몇 분인지**.
     //   전엔 도트 숫자가 먼저 뜨고 인물이 그 자리를 밀어냈다 — 첫 화면이 '무슨 팩인지'를 못 보여줬다.
     //   인물은 main.js COACH_CFG.READY 판이 캡슐 뒤에 선다(캔버스엔 안 그린다) — 페이드아웃도 거기서.
     if (p2 > 0.01) {
       ctx.save(); ctx.globalAlpha *= p2;
+      ctx.translate(0, (1 - p2) * 26);   // 숫자도 살짝 떠 있다가 앉는다(알파 단독보다 속도가 읽힌다)
       // 도트 카운팅 촤라락 — 복싱과 같은 rollNum 정본 (자릿수 롤)
       // rollNum 은 자릿수 합 폭을 돌려준다 — 단위 위치를 여기서 파생시킨다.
       const nw = rollNum(ctx, R2.total, t, TP2, .9, 800, 1277, 384, { fam: dot9, align: 'center', fill: NEU.ink });
@@ -1453,7 +1469,7 @@ export class FloorGL {
         return g2;
       })();
       // 스윕 — 배지 팝 후 세그먼트 시작각에서 끝각까지 호를 따라 차오른다
-      const sweep = segStart + (A1 - segStart) * eOut(intro(t, .5, 1.2));
+      const sweep = segStart + (A1 - segStart) * eOut5(intro(t, .5, 1.45));   // 꼬리 긴 감속 — 끝이 급했다
       ctx.save(); ctx.globalAlpha *= e0(.4, .5);
       let cur = segStart;
       segs.forEach((seg, si) => {

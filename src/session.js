@@ -2255,11 +2255,16 @@ export class Session {
         P.arKnee.rotation.z = Math.atan2(-kxD, -kzD);   // 앞무릎이 나아가는 선
         P.arBack.position.set(bpM.group.position.x + bxD * GAPM, 0.014, bpM.group.position.z + bzD * GAPM);
         P.arBack.rotation.z = Math.atan2(-bxD, -bzD);   // 뒷다리를 펴는 선
-        // 보폭이 좁으면(아직 안 벌렸으면) 화살표가 더 세게 재촉한다 — 벌어질수록 잦아든다.
-        const urge = Math.max(0, Math.min(1, (0.42 - sl) / 0.30));
-        const cyc2 = (this.t % 1.8) / 1.8;
+        // ★ 재촉 계수로 **어둡게 만들지 않는다**(유저: 화살표가 왜 이렇게 투명해).
+        //   전에는 (0.45 + 0.55*urge) 를 곱했는데, urge 는 마크 보폭(sl)에서 뽑고 마크는 SC 0.5 로
+        //   압축돼 sl 이 0.40 을 잘 안 넘는다 → urge≈0.07 → 화살표가 상시 0.49 로 눌렸다.
+        //   여기에 빔 페이드(≈0.9)까지 곱해져 0.44. LINE 토큰 룩이 아니라 내 계수가 문제였다.
+        //   재촉은 **밝기가 아니라 리듬**으로 — 안 벌렸으면 주기가 빨라진다.
+        const urge = Math.max(0, Math.min(1, (0.34 - sl) / 0.22));
+        const PER = 1.8 - 0.5 * urge;                 // 1.8s → 1.3s 로 빨라진다
+        const cyc2 = (this.t % PER) / PER;
         const u2 = Math.min(1, cyc2 / 0.72), pr = cyc2 < 0.72 ? 1 - Math.pow(1 - u2, 3) : 1;
-        const fade = (cyc2 < 0.72 ? 1 : 1 - (cyc2 - 0.72) / 0.28) * (0.45 + 0.55 * urge);
+        const fade = cyc2 < 0.72 ? 1 : 1 - (cyc2 - 0.72) / 0.28;
         [P.arBack, P.arKnee].forEach(a => {
           a.visible = on;
           if (!on) return;
