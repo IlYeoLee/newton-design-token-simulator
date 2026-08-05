@@ -1644,8 +1644,10 @@ export class FloorGL {
       //   빛 위로 올라와 대비가 낮아진 만큼 눈금 불투명도 .55 → .68.
       ctx.fillStyle = 'rgba(255,255,255,.68)'; ctx.font = RF(400, 46); ctx.letterSpacing = '-1.2px';
       ctx.fillText('To start', 800.15, 2014 - CUT);
-      ctx.fillStyle = NEU.ink; ctx.font = RF(700, 74); ctx.letterSpacing = '-5.28px';
-      ctx.fillText('Tap your foot Twice', 800.15, 2102 - CUT);
+      // 바닥 버전 축약(유저) — 벽은 'Tap your foot Twice'(멀리서 읽는 안내), 지면은 발밑이라
+      //   '무엇으로'가 자명하다. 짧아진 만큼 글자를 키워 한 덩어리로 읽힌다.
+      ctx.fillStyle = NEU.ink; ctx.font = RF(700, 92); ctx.letterSpacing = '-5.28px';
+      ctx.fillText('Tap Twice', 800.15, 2102 - CUT);
       ctx.letterSpacing = '0px'; ctx.restore();
     }
     ctx.restore();   // /콘텐츠 스케일
