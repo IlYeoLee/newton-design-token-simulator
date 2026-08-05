@@ -35,12 +35,7 @@ h2{font-size:13.5px;margin:22px 0 10px;color:#FEC389}
   <input id="fsize" type="range" min="0.45" max="1" step="0.01" value="0.72" style="width:200px;accent-color:#FEC389">
   <span id="fsz" style="font:12px monospace;color:#98A1AD">0.72</span>
   <span style="color:#98A1AD;font-size:12px;margin-left:10px">동작명</span>
-  <select id="fname" style="background:#1a1e25;color:#E9EAEE;border:1px solid #262b35;border-radius:8px;padding:4px 8px;font-size:12px">
-    <option value="High Knees">High Knees</option>
-    <option value="Neck And Shoulder">Neck And Shoulder</option>
-    <option value="Single Leg Calf Raise">Single Leg Calf Raise</option>
-    <option value="Step Back Three Point Shot">Step Back Three Point Shot</option>
-  </select>
+  <select id="fname" style="background:#1a1e25;color:#E9EAEE;border:1px solid #262b35;border-radius:8px;padding:4px 8px;font-size:12px"><option value="High Knees">High Knees</option><option value="Neck &amp; Shoulders">Neck &amp; Shoulders</option><option value="Final Kilometer">Final Kilometer</option><option value="Low Dribble">Low Dribble</option><option value="Bend Knees, Fake the Layup">Bend Knees, Fake the Layup</option><option value="Left Foot Out, Catch the Ball">Left Foot Out, Catch the Ball</option></select>
 </div>
 <h2 id="ttl">프리뷰(관찰)</h2>
 <div class="row" id="row"></div>
@@ -703,33 +698,38 @@ let FS = 0.72;
 //   긴 이름이 그냥 넘친다. 폭은 **내용에서 파생**시키고, 투사 안전폭에서 자르고, 그래도
 //   안 들어가면 두 줄로 접는다. 줄이지 않는다 — 가독 규약(minFs)이 축소를 막는다.
 let FNAME = 'High Knees';
-const MINI_MAX = 1320, MINI_MIN = 620;
+// ★ 전수 검수(2026-08-05) — 러닝·농구 실제 타이틀 20개를 실측 폭으로 재봤다.
+//   최장 'Left Foot Out, Catch the Ball' 620px, 필요 카드 폭 1052 → **한 줄로 다 들어간다**.
+//   지금 데이터에 '안 들어가는 것'은 없다. 진짜 문제는 다른 데 있었다:
+//     ① 폭을 내용에서 파생하면 스테이지마다 헤더가 620~1052 로 튄다(1.7배). 투사면에서
+//        컨테이너가 매번 크기를 바꾸면 '같은 물건이 자리를 옮긴다'는 원칙과 정면으로 충돌한다.
+//        → **폭 고정**. 최장 기준으로 한 번 정하고 전 스테이지가 같은 헤더를 쓴다.
+//     ② 두 줄은 '폭이 모자라서' 접는 게 아니라 **의미 단위로** 접는다. 농구 스텝 4개는
+//        'Bend Knees, Fake the Layup' 처럼 한 줄에 지시가 둘이다 — 쉼표에서 접으면
+//        두 동작이 각각 한 줄이 되어 오히려 읽힌다. 폭 초과 단어접기는 미래 데이터용 폴백.
+const MINI_W = 1080;
 // 미니 카드 조판 계산 — ③(형태변환)과 미니 카드가 **같은 함수**를 써야 어긋나지 않는다.
 function miniLayout(g, name) {
-  // ★ 왼쪽 슬롯은 알약이 아니라 **링 그대로**다(유저 스케치) — 카운트다운 링이 형태를 바꾸지
-  //   않고 작아져서 헤더 왼쪽에 앉는다. 링이 남으면 '남은 시간'을 계속 원호로도 말할 수 있고,
-  //   관찰→따라하기가 '같은 물건이 자리를 옮긴 것'으로 읽힌다(형태까지 바뀌면 연결이 약해진다).
-  const RR = 84, PFS = 220 * (RR / 275);          // 링 반지름 · 그 안 도트 숫자(컴포넌트 비율)
+  // 왼쪽 슬롯은 알약이 아니라 **링 그대로**다(유저 스케치) — 링이 남으면 남은 시간을
+  // 숫자 + 원호 둘로 말한다. 따라하기 중엔 원호가 더 빨리 읽힌다.
+  const RR = 84, PFS = 220 * (RR / 275);
   g.font = RF(400, 40); const uw = g.measureText('sec').width;
-  const pillW = RR * 2 + 18 + uw;                 // 링 + 간격 + 단위
+  const pillW = RR * 2 + 18 + uw;
   const GAP = 52, PAD = 60, TAIL = 72;
   g.font = RF(700, 52); g.letterSpacing = '-2px';
-  const room = MINI_MAX - PAD - pillW - GAP - TAIL;
-  let lines = [name];
-  if (g.measureText(name).width > room) {          // 두 줄로 접는다(단어 단위)
+  const room = MINI_W - PAD - pillW - GAP - TAIL;
+  let lines;
+  const ci = name.indexOf(', ');
+  if (ci > 0) lines = [name.slice(0, ci + 1), name.slice(ci + 2)];   // 의미 단위(쉼표) 우선
+  else if (g.measureText(name).width > room) {                        // 폴백 — 단어 단위 균등 분할
     const w2 = name.split(' ');
     let best = 1;
-    for (let i = 1; i < w2.length; i++) {
-      const a = w2.slice(0, i).join(' '), b = w2.slice(i).join(' ');
-      if (Math.abs(g.measureText(a).width - g.measureText(b).width) <
-          Math.abs(g.measureText(w2.slice(0, best).join(' ')).width - g.measureText(w2.slice(best).join(' ')).width)) best = i;
-    }
+    const diff = i => Math.abs(g.measureText(w2.slice(0, i).join(' ')).width - g.measureText(w2.slice(i).join(' ')).width);
+    for (let i = 1; i < w2.length; i++) if (diff(i) < diff(best)) best = i;
     lines = [w2.slice(0, best).join(' '), w2.slice(best).join(' ')];
-  }
-  const tw = Math.max(...lines.map(l => g.measureText(l).width));
+  } else lines = [name];
   g.letterSpacing = '0px';
-  const w = Math.min(MINI_MAX, Math.max(MINI_MIN, PAD + pillW + GAP + tw + TAIL));
-  return { pillW, PFS, RR, uw, lines, w, h: lines.length > 1 ? 320 : 250, tx: PAD + pillW + GAP };
+  return { pillW, PFS, RR, uw, lines, w: MINI_W, h: lines.length > 1 ? 330 : 250, tx: PAD + pillW + GAP };
 }
 function drawFlow(g, t) {
   const cx = 800;
