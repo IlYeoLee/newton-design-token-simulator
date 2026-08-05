@@ -1059,9 +1059,9 @@ export class FloorGL {
       // Success 는 흐름에서 빼고 대지 비율로 못박는다 — 앞 노드가 숨으면 같이 튀었다(유저).
       const yFlow = y;
       if (n.type === 'succ') y = Math.round(H * 0.42);
-      // ★ 진행 게이지는 흐름에서 빼 **하단에 못박는다**(유저 확정). 세션이 어디쯤인지는
-      //   동작 정보와 다른 층이고, 흐름에 두면 앞 노드가 바뀔 때마다 같이 오르내렸다.
-      if (n.type === 'dots') y = 2180;
+      // ★ 진행 게이지는 **흐름 그대로** 둔다 — 헤더(capHead) 바로 다음 자리가 이미 y≈586 이라
+      //   '헤더 아래'가 저절로 성립한다. 좌표로 못박았더니 뒤 노드(trainRow)가 그 자리로
+      //   올라와 겹쳤다(실측: P1 에서 SPM 이 아크 위에 얹혔다).
       if (n.style.visibility !== 'hidden') {
         const e = this._intro(n);
         ctx.save();
@@ -1073,7 +1073,7 @@ export class FloorGL {
         if (ctx.globalAlpha > 0.004) { this._band(n, y, h); this._draw(n, y); }
         ctx.restore();
       }
-      y = ((n.type === 'succ' || n.type === 'dots') ? yFlow : y + h + (72 + (n.mb || 0)) * o);
+      y = (n.type === 'succ' ? yFlow : y + h + (72 + (n.mb || 0)) * o);
     }
   }
 
@@ -1935,28 +1935,82 @@ export class FloorGL {
   // ── 씬 캡슐 프레임(신규 시스템) — READY 캡슐 지오메트리에서 부드럽게 성장 + 배지·게이지·타이틀.
   //   좌표는 피그마 실측(343:3496): 캡슐 (162,-15) 1276×1955, 배지 y+25, 게이지 y+56 w1048, 타이틀 y+415.
   _paint_capsule(cfg) {
-    // ★ 전면 교체(유저 확정) — 옛 큰 유리 캡슐 + 안쪽 타이틀 조판은 폐기했다.
-    //   문제였던 것: ① 캡슐이 영상을 감싸 크기 상한이 되고 ② 납작한 비율에 배지 하나뿐이라
-    //   위계가 2층이며 ③ 진행이 캡슐 안에 있어 '이 동작 남은 시간'과 같은 층으로 읽혔다.
-    //   새 문법 = **미니 캡슐 헤더(고정폭 840: 카운트 링 + 동작명) + 지면은 비운다 + 진행은 하단**.
-    //   영상·마크는 3D 쪽(main.js COACH_CFG · MARK)이 지면에 직접 세우므로 캔버스는 관여 안 한다.
+    // ★ 관찰 → 따라하기는 **한 물체의 변형**이다(유저). 앞서 헤더 알약만 남기고 프리뷰 원형
+    //   캡슐을 통째로 없앴던 건 실수 — 관찰 구간엔 큰 원형 캡슐(PREVIEW + 동작명 + 카운트 링)이
+    //   서고, 관찰이 끝나면 그게 **가로 알약 헤더로 줄어들며 올라간다**. 링은 형태를 안 바꾸고
+    //   왼쪽 슬롯으로 옮겨 앉는다(관찰 3·2·1 → 따라하기 남은 시간, 같은 컴포넌트).
     const ctx = this.ctx, t = this.t;
-    const dur = this.params?.dur || 8;
+    const dur = this.params?.dur || 8, PV = this.params?.pv || 3, MOVE = .9;
+    const mo = eOut(clamp01((t - PV) / MOVE));
     const title = Array.isArray(cfg.title) ? cfg.title.join(' ') : String(cfg.title || '');
-    ctx.save();
-    ctx.globalAlpha *= eOut(intro(t, .05, .7));
-    this._capHead({ title, dur, step: cfg.step }, 176);
+    const L = (p, q) => p + (q - p) * mo;
+    // 지오메트리 — 원형(980×1080 @y300) → 가로 알약(840×250 @y176)
+    const w = L(980, 840), h = L(1080, 250), x = CX - w / 2, y = L(300, 176);
+    const r = Math.min(w, h) / 2;
+    const path = () => { ctx.beginPath(); ctx.roundRect(x, y, w, h, r); };
+    ctx.save(); ctx.globalAlpha *= eOut(intro(t, .05, .7));
+    ctx.save(); path(); ctx.clip();
+    ctx.fillStyle = 'rgba(255,255,255,.055)'; ctx.fillRect(x, y, w, h);
+    ctx.filter = 'blur(37px)'; ctx.strokeStyle = 'rgba(255,255,255,.25)'; ctx.lineWidth = 80;
+    path(); ctx.stroke(); ctx.filter = 'none';
+    // 엠버 — 관찰 구간에만(원형 캡슐 하단). 알약이 되면 사라진다.
+    if (mo < .99) {
+      ctx.save(); ctx.globalAlpha *= 1 - mo;
+      ctx.translate(CX, y + h - 150); ctx.scale(1, .46);
+      const rg = ctx.createRadialGradient(0, 0, 0, 0, 0, w * .44);
+      rg.addColorStop(0, 'rgba(250,48,48,.55)'); rg.addColorStop(1, 'rgba(250,48,48,0)');
+      ctx.fillStyle = rg; ctx.beginPath(); ctx.arc(0, 0, w * .44, 0, 7); ctx.fill();
+      ctx.restore();
+    }
     ctx.restore();
-    // 진행 — 하단 고정 + 투사 안전폭(하단은 콘이 좁다)
-    ctx.save();
-    ctx.globalAlpha *= eOut(intro(t, .35, .7));
-    const ay = 2180, wA = Math.min(1048, safeW(ay) - 48);
-    arcGauge(ctx, CX - wA / 2, ay, wA, Math.min(1, t / dur), { dotK: 0.6 });
+    const rim = ctx.createLinearGradient(0, y, 0, y + h);
+    rim.addColorStop(0, 'rgba(255,255,255,.95)'); rim.addColorStop(.45, 'rgba(255,255,255,.22)');
+    rim.addColorStop(1, 'rgba(255,255,255,.06)');
+    ctx.strokeStyle = rim; ctx.lineWidth = 2.5; path(); ctx.stroke();
+    // 카운트 링 — 정본 countRing. 관찰: 캡슐 중앙 아래 / 따라하기: 헤더 왼쪽 슬롯. 형태는 안 바뀐다.
+    const RR = L(96, 84);
+    const rx = L(CX, x + 60 + RR), ry2 = L(y + h * .72, y + h / 2);
+    const rem = mo < .5 ? Math.max(1, Math.ceil(PV - t)) : Math.max(0, Math.ceil(dur - t));
+    if (String(rem) !== this._numLast2) { this._numLast2 = String(rem); this._numT2 = t; }
+    countRing(ctx, rx, ry2, mo < .5 ? clamp01(1 - t / PV) : clamp01(1 - (t - PV) / (dur - PV)),
+      String(rem), { t: 99, k: RR / 275, pulse: clamp01((t - (this._numT2 || 0)) / 0.5),
+                     ring: { trackW: 11, arcW: 11, trackA: .26 } });
+    // PREVIEW 라벨 · 동작명 — 순차 크로스페이드(옛 것이 먼저 빠지고 새 것이 든다)
+    const outA = 1 - clamp01(mo / .45), inA = clamp01((mo - .55) / .45);
+    if (outA > 0) {
+      ctx.save(); ctx.globalAlpha *= outA;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillStyle = 'rgba(255,255,255,.6)'; ctx.font = F(400, 46); ctx.letterSpacing = '6px';
+      ctx.fillText('PREVIEW', CX + 3, y + h * .22);
+      ctx.letterSpacing = '-4px'; ctx.fillStyle = '#fff'; ctx.font = F(700, 100);
+      const ls = Array.isArray(cfg.title) ? cfg.title : [title];
+      ls.forEach((ln, i) => ctx.fillText(ln, CX, y + h * .42 + (i - (ls.length - 1) / 2) * 118));
+      ctx.letterSpacing = '0px'; ctx.restore();
+    }
+    if (inA > 0) {
+      ctx.save(); ctx.globalAlpha *= inA;
+      ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+      ctx.fillStyle = 'rgba(255,255,255,.6)'; ctx.font = F(400, 40);
+      ctx.fillText('sec', rx + RR + 18, ry2 + 6);
+      ctx.fillStyle = '#fff'; ctx.font = F(700, 52); ctx.letterSpacing = '-2px';
+      ctx.fillText(title, x + 60 + RR * 2 + 18 + 62 + 52, ry2);
+      ctx.letterSpacing = '0px';
+      if (cfg.step) {
+        ctx.textAlign = 'right'; ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.font = F(400, 44);
+        ctx.fillText(cfg.step, x + w - 56, ry2);
+      }
+      ctx.restore();
+    }
     ctx.restore();
+    // 진행 — 따라하기 구간에만, 헤더 바로 아래
+    if (mo > .5) {
+      ctx.save(); ctx.globalAlpha *= (mo - .5) / .5;
+      const ay = 530, wA = Math.min(1048, safeW(ay) - 48);
+      arcGauge(ctx, CX - wA / 2, ay, wA, clamp01((t - PV) / (dur - PV)), { dotK: 0.6 });
+      ctx.restore();
+    }
   }
 
-
-  // ── 전환 (floor-transition.html) ───────────────────────────────────────────
   _paint_transition() {
     const ctx = this.ctx, TR_ = TR[this.stage] || TR.T1, t = this.t;
     this._bgGlow(1160);
