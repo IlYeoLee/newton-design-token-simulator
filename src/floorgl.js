@@ -699,8 +699,15 @@ export const TOK = {
   //   죽었다(유저: 압축안에서 저 안의 타이머가 읽히긴 하냐 → 42px = 0.32°, 1급 미달이었다).
   //   숫자는 타이틀과 같은 1급이므로 시각도 기준(docs/FLOOR-LEGIBILITY.md)에서 직접 정한다.
   // ── 확정값 (2026-08-06) — 시각도에서 역산. 근거 전문 docs/FLOOR-LEGIBILITY.md
-  //   1급 0.69° (타이틀·타이머 숫자) · 2급 0.50° (PREVIEW·배지) · 절대 하한 0.20°
-  fsTimer: 88,       // 링 안 숫자 (1급) — 이 값이 정본, 링은 여기서 파생
+  //   1급 0.88° (타이틀·타이머 숫자) · 2급 0.50° (PREVIEW·배지) · 절대 하한 0.20°
+  //
+  // ★ 1급을 0.69° → 0.88° 로 **올렸다.** 근거 없던 감점 계수(움직임·훑기·투사대비 1.5배)를
+  //   실물로 확인한 결과다 — 1인칭 시뮬에서 보니 옹졸했다(유저). 문서 §6.5 가 '이 칸은 실측으로만
+  //   닫힌다' 고 적어둔 바로 그 값이고, 실측이 이제 있다.
+  //   기준점: 시작화면(READY) 타이틀 140px = 1.11°. 사용자가 기억하는 크기감이 그거다.
+  //   0.88° 는 그 79% — 운동 중이라 시작화면보다는 물러나되 '같은 시스템'으로 읽히는 지점.
+  //   알약은 1177×284(81×20cm)로, **폭은 예전(1183)과 같고 세로만 27% 줄었다**.
+  fsTimer: 112,      // 링 안 숫자 (1급) — 이 값이 정본, 링은 여기서 파생
   ringRatio: 1.6,    // 링 지름 ÷ 숫자 폰트. **지금까지 2.5 였다** = 링이 알약 높이의 67%를 먹은 이유
   pad: 52,           // 알약 안쪽 여백 (상하좌우 동일)
   gapT: 48,          // 슬롯 사이 간격
@@ -712,12 +719,19 @@ export const TOK = {
   //   읽히려면 비례가 유지돼야 한다. progW 는 이제 상한으로만 쓴다.
   progK: 0.90, progW: 820,
   statK: 0.78,       // SPM 눈금자 폭 ÷ 알약 폭 (아크 0.90 보다 좁게 — 위계상 3급)
+  // ★ 알약이 **그 화면의 주인공이 아닐 때** 곱하는 배율.
+  //   같은 크기를 전 화면에 쓰니 한쪽은 옹졸하고(준비운동) 한쪽은 과했다(러닝 실전).
+  //   기준: 화면에 다른 1급 수치가 있는가.
+  //     없다 — A1~A3 · BK_A* · BK_B*   알약이 유일한 1급 → 주인공 (배율 1)
+  //     있다 — P1~P3 SPM · C 실전 수치   알약은 라벨 → 물러난다 (배율 subK)
+  //   행동을 바꾸는 값이 SPM 인 화면에서 동작명이 그만큼 클 이유가 없다.
+  titleSubK: 0.78,
   gapPC: 120,        // 진행 ↔ 콘텐츠
   safePad: 48,       // 투사 콘 가장자리에서 띄우는 여백 — 알약·아크가 **같은 값**을 쓴다
   footY: 1980, contentY1: 2330,
   // ── 활자 · 가독 하한은 minFs(y) = 68 − 40·(y/2670) · y176 → 65px(5.8cm)
-  fsTitle: 88,       // 따라하기 1급 0.69°
-  fsTitlePv: 108,    // 프리뷰   1급+ 0.85° — 위계는 상자가 아니라 활자가 담당
+  fsTitle: 112,      // 따라하기 1급 0.88°
+  fsTitlePv: 136,    // 프리뷰   1급+ 1.07° — 시작화면(140)과 거의 같은 존재감
   fsBadge: 64,       // 2급 0.50° — 52 는 0.41° 로 ISO 권장에 겨우 붙어 있었다(유저: 이게 읽히냐)
   fsUnit: 64, fsCaption: 64,
   // ── 형태 (유리 알약)
@@ -1289,7 +1303,12 @@ export class FloorGL {
       if (n.type === 'succ') for (const k of ['succ-n', 'succ-arc', 'succ-dot']) this.map.set(k, node(k, { textContent: '3' }));
       if (n.type === 'trainRow' || n.type === 'liveRow') for (const k of ['spm-me', 'spm-tgt', 'tp-arc', 'tp-tip', 'tp-num', 'pace-me', 'pace-tgt'])
         this.map.set(k, node(k, { textContent: '--' }));
-      if (n.type === 'km') this.map.set('km-n', node('km-n', { textContent: '0.00' }));
+      // ★ km-tgt 도 같이 등록한다 — C4(남은 거리)가 이 값을 읽는다. 예전엔 paceErr/paceSub
+      //   에서만 만들어서, 일반 km 노드에선 tgt 가 0 → 남은 거리 분기가 통째로 죽었다.
+      if (n.type === 'km') {
+        this.map.set('km-n', node('km-n', { textContent: '0.00' }));
+        this.map.set('km-tgt', node('km-tgt', { textContent: '5.00' }));
+      }
       // 페이스 팩이 먹는 값 — main 이 같은 id 로 써 넣는다. km-tgt(목표 거리)·pace-bank(구간 누적 편차 초)는 새 값.
       if (n.type === 'paceErr' || n.type === 'paceSub')
         for (const [k, v] of [['pace-me', '--'], ['pace-tgt', '--'], ['km-n', '0.00'], ['km-tgt', '5.00'], ['pace-bank', '0']])
@@ -1595,7 +1614,9 @@ export class FloorGL {
     // uiK — 콘텐츠가 시선을 많이 요구하는 스테이지에서 UI 가 물러난다(CAPS 참고).
     //   ★ 알약 높이·활자·여백이 **한 배율로 같이** 줄어야 비례가 안 깨진다. 하나만 줄이면
     //     "작아진 시스템"이 아니라 "다른 컴포넌트"가 된다.
-    const K2 = CAPS[this.stage]?.uiK ?? 1;
+    // 그 화면에 다른 1급 수치(SPM·거리)가 있으면 알약은 조연이다 — P·C 가 그렇다.
+    const lead = !/^(Pd|C[1-5])$/.test(this.stage || '');
+    const K2 = (CAPS[this.stage]?.uiK ?? 1) * (lead ? 1 : TOK.titleSubK);
     // ★ 링도 HUG — 값이 '4/10' 처럼 길어지면 원이 그만큼 커진다. 안 그러면 글자가 링을 넘는다
     //   (유저 스샷). 숫자를 줄여 맞추는 건 안 된다: 1급(0.69°)이 2급 아래로 떨어진다.
     const PAD = Math.round(H2.pad * K2);

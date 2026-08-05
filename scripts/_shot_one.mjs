@@ -10,7 +10,7 @@ const shots = await p.evaluate((ids) => {
   const CXfake=800;
   return ids.map(id => {
     const c = window.__cells.find(x=>x.st.id===id); if(!c) return null;
-    c.gl.resetAnim(); for(let s=0;s<4.63;s+=1/30){c.gl.t=s;c.gl._sig=null;c.gl._lastPaint=-1;try{c.gl.update(1/30);}catch{}}
+    c.gl.resetAnim(); for(let s=0;s<4.63;s+=1/30){c.gl.t=s;c.gl._sig=null;c.gl._lastPaint=-1;window.__feed&&window.__feed(c,s);try{c.gl.update(1/30);}catch{}}
     const pill=(c.gl._boxes||[]).find(v=>v.k==='pill')||{x:CXfake,y:100,w:0,h:0};
     const inn=(c.gl._boxes||[]).find(v=>v.k==='inner');
     const cv=c.gl.canvas;
@@ -26,7 +26,7 @@ const shots = await p.evaluate((ids) => {
       g.strokeRect(inn.x-X, 30, inn.w, pill.h); }
     return { id, w:W, h:H, url:t2.toDataURL() };
   }).filter(Boolean);
-}, ['P1','P2','C2']);
+}, ['P2','P3','C4','C5']);
 const html=`<body style="margin:0;background:#2b2b30;font:11px sans-serif;color:#fff">`+
   shots.map(s=>`<div style="padding:4px 8px;background:#111">${s.id} — 청록=알약 중심선 · 주황=내용 박스</div><img src="${s.url}" style="display:block">`).join('')+`</body>`;
 const p2=await b.newPage(); await p2.setContent(html);

@@ -110,9 +110,55 @@ function safeUpdate(c, dt) {
 /** 강제 다시 그리기 — FloorGL 은 서명이 같으면 페인트를 건너뛴다(텍스처 업로드 절약).
  *  토큰은 그 서명에 안 들어가므로 여기서 서명을 무효화해 준다. */
 function repaint() {
-  for (const c of cells) { c.gl._sig = null; c.gl._lastPaint = -1; safeUpdate(c, 0); }
+  for (const c of cells) { feedLive(c, T); c.gl._sig = null; c.gl._lastPaint = -1; safeUpdate(c, 0); }
   drawBands();
   dump();
+}
+
+// ── 실제값 미리보기 ───────────────────────────────────────────────────────
+//  갤러리엔 main.js 가 없어서 SPM·거리·구간초가 전부 '--' 로 나온다(유저: 대략 실제값으로
+//  미리보기하고 싶다). main.js 가 매 프레임 쓰는 것과 **같은 노드 id** 에 그럴듯한 값을 넣는다.
+//  ★ 여기 값은 **미리보기용 모사**다. 정본은 session.js STAGES 의 phases(c 배속·sec)이고,
+//    실제 구동은 main.js 가 한다. 조판이 어떻게 보이는지 보려는 것이지 로직 검증이 아니다.
+const BEAT = 0.39;                                   // tokens._beatT 기본값
+const spmOf = c => Math.round(60 / BEAT * c);        // main.js:5201 과 같은 식
+// session.js STAGES 의 phases 를 그대로 옮긴 것 — 구간명 · 배속 · 초
+const PHASES = {
+  P1: [['EASY', 0.9, 180]],
+  P2: [['ACCELERATE', 1.4, 10], ['DECELERATE', 0.9, 4]],
+  P3: [['SPRINT', 1.55, 30], ['RECOVER', 0.78, 20]],
+};
+const LIVE_SPM = { C2: 1.0, C3: 1.0, C4: 1.15, C5: 0.6 };   // 실전 구간 목표 배속
+let liveOn = true;
+function feedLive(c, t) {
+  if (!liveOn) return;
+  const id = c.st.id, set = (k, v) => { const n = c.gl.map.get(k); if (n && n.textContent !== v) n.textContent = v; };
+  const ph = PHASES[id];
+  if (ph) {
+    // 구간을 실제 초 길이로 돌린다(P2 는 10/4, P3 는 30/20) — 갤러리 8초 루프에 얹는다
+    const total = ph.reduce((a, p) => a + p[2], 0);
+    const u = (t / DUR) * total;
+    let acc = 0, cur = ph[0], into = u;
+    for (const p of ph) { if (u < acc + p[2]) { cur = p; into = u - acc; break; } acc += p[2]; }
+    const tgt = spmOf(cur[1]);
+    set('spm-tgt', String(tgt));
+    set('spm-me', String(tgt + Math.round(Math.sin(t * 2.1) * 7)));   // 목표 근처에서 흔들린다
+    // 구간 진행 — main.js:5207 과 같은 규약(tp-arc 의 strokeDashoffset)
+    const arc = c.gl.map.get('tp-arc');
+    if (arc) arc.style.strokeDashoffset = (1727.9 * (1 - into / cur[2])).toFixed(1);
+    set('tp-num', String(Math.max(0, Math.ceil(cur[2] - into))));
+    return;
+  }
+  if (LIVE_SPM[id]) {
+    const tgt = spmOf(LIVE_SPM[id]);
+    set('spm-tgt', String(tgt));
+    set('spm-me', String(tgt + Math.round(Math.sin(t * 1.7) * 9)));
+    const TOTAL = 3.00;                                  // 목표 거리 km
+    set('km-tgt', TOTAL.toFixed(2));
+    set('km-n', (TOTAL * (0.55 + 0.45 * (t / DUR))).toFixed(2));   // 후반부를 달리는 중
+    return;
+  }
+  if (id === 'BK_B1') set('rep-n', String(Math.min(10, Math.floor(t / DUR * 10))));
 }
 
 // ── 시간 ─────────────────────────────────────────────────────────────────
@@ -129,7 +175,7 @@ function tick(now) {
     T = (T + dt) % DUR;
     for (const c of cells) {
       if (wrapped) c.gl.resetAnim();
-      c.gl.t = T - dt; safeUpdate(c, dt);
+      c.gl.t = T - dt; feedLive(c, T); safeUpdate(c, dt);
     }
     $('#scrub').value = T.toFixed(2);
     $('#tlabel').textContent = `t ${T.toFixed(2)} / ${DUR.toFixed(2)}`;
@@ -316,6 +362,7 @@ $('#mmpx').addEventListener('input', e => { MMPX = +e.target.value || 0.687; app
 // ★ 크롭은 **기본 꺼짐**이다. 대지는 1600×2670 = 세로로 긴 판인데 y1500 에서 잘라 보여주면
 //   정사각처럼 보인다 — 비율을 재려고 만든 화면에서 비율을 속이는 짓이다(유저 지적).
 //   콘텐츠가 세로로 길게 투사된다는 사실 자체가 이 화면이 보여줘야 할 정보다.
+$('#sw-live').addEventListener('change', e => { liveOn = e.target.checked; reload(); });
 $('#sw-crop').addEventListener('change', e => grid.classList.toggle('crop', e.target.checked));
 
 // ── 실측 배율 ─────────────────────────────────────────────────────────────
@@ -474,3 +521,4 @@ reload();
 requestAnimationFrame(tick);
 window.__cells = cells;
 window.__TOK = TOK;
+window.__feed = feedLive;   // 헤드리스 검수 훅
