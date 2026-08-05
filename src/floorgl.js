@@ -1765,6 +1765,13 @@ export class FloorGL {
   _gaugeVal({ PV, dur, inPv, pvEnd, perFoot, hs, hp, pfK }) {
     const t = this.t, AV = advOf(this.stage);
     const stageRest = clamp01(1 - (t - PV) / Math.max(.1, dur - PV));
+    // ★ A2 는 **무조건 3·2·1**(유저: 아직도 5,2,1 이 나온다 — 하드코딩이라도 해라).
+    //   한 발 홀드가 3초인데 링이 관찰 카운트·스테이지 카운트와 소스를 오가며 5 가 샜다.
+    //   이 스테이지에선 다른 소스를 아예 안 본다 — 홀드 진행도 하나로만 센다.
+    if (this.stage === 'A2') {
+      const q = clamp01(hp ?? 0);
+      return { AV, prog: 1 - q, rem: String(Math.min(3, Math.max(1, Math.ceil(3 * (1 - q))))) };
+    }
     if (perFoot) {   // A2 한 발 홀드 — 봇 사이클(a2Cyc)이 정본. 발이 바뀌면 리셋된다.
       return { AV, prog: stageRest + ((1 - hp) - stageRest) * (pfK ?? 1),
                rem: String(Math.max(0, Math.ceil(hs * (1 - hp)))) };
