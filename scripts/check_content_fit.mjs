@@ -23,6 +23,11 @@ const PERSON_H = 0.55;    // 기준 인물 실높이 (m) — 스텝백이 이미
 const TOL = 0.08;         // 허용 편차 ±8%
 
 // main.js COACH 에서 인물 크기에 관계된 필드만
+// ★ READY·BK_READY 는 **검사 대상이 아니다.** 3D 코치 판을 안 켠다 —
+//   시작화면 인물은 캔버스 영상 오버레이(floorgl _paint_ready)가 전담하고, COACH 표의 항목은
+//   꺼진 경로의 잔재다(main.js:2836 `&& !/READY$/.test(id)`). 캡슐 안에 들어가는 **썸네일 카드**지
+//   바닥에서 동작을 보여주는 코치가 아니라서 같은 잣대로 재면 안 된다(유저 지적).
+const SKIP = new Set(['READY', 'BK_READY']);
 const COACH = {
   READY:    { w: 0.432, h: 0.578, ph: 0.76 },
   BK_READY: { w: 0.432, h: 0.578, ph: 0.76 },
@@ -52,6 +57,11 @@ const W = (m) => warns.push(m);
 console.log('① 인물 실높이 = h × ph × zoom   (기준 ' + PERSON_H + 'm ±' + (TOL * 100) + '%)\n');
 console.log('   스테이지     판 h    ph     zoom   실높이    기준대비');
 for (const [id, c] of Object.entries(COACH)) {
+  if (SKIP.has(id)) {
+    console.log('   ' + id.padEnd(11) + String(c.h).padEnd(7) + String(c.ph).padEnd(7)
+      + '1      —         (시작화면 썸네일 — 3D 코치 판 안 씀)');
+    continue;
+  }
   if (c.ph == null) {
     console.log('   ' + id.padEnd(11) + String(c.h).padEnd(7) + '—      —      미정의');
     F(`${id}: ph 가 없다 — 인물 크기가 미정의다. 소스에서 실측해 넣을 것`);
