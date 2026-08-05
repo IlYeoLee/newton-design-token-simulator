@@ -98,7 +98,7 @@
     "bloom": 0.165,
     "w": 1.15
   },
-  "op": 0.91,
+  "op": 1,
   "dotCol": 4,
   "states": {
     "tap": {
@@ -138,6 +138,6 @@
     }
   },
   "loadGain": 1.45,
-  "loadBase": 0.12,
+  "loadBase": 0.22,
   "flow": 0.55
 }
