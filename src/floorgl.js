@@ -647,6 +647,16 @@ const TR = {
 //   화면이 'Session Complete' 라고 말했다. 벽 타이머와 같은 규칙으로 — 부제=구성·시간, 제목=지금 시작하는 구간.
 // ── 씬 캡슐 시스템(docs/SCENE-CAPSULE-SYSTEM.md, 유저 2026-08-05) — 스테이지별 옵트인.
 //   variant: preview(관찰: 큰 캡슐+Preview 배지+셰브론 힌트) — 이후 video/floor/mini 확장.
+// ★ 시작화면 광(엠버) 정본 — 피그마 익스포트 4겹 + 블렌드 모드. READY 캡슐 기준 좌표계
+//   (캡슐 박스 x291 y285 w1018 h1541)에서 잡혀 있다. 프리뷰·따라하기 알약도 **이 광을 그대로**
+//   쓴다(유저) — 같은 불이 캡슐을 따라 줄어드는 것이지 비슷한 그라디언트를 새로 그리는 게 아니다.
+const READY_GLOWS = [
+  ['glow-subtract.svg', 167.2, 1069.2, 1265.6, 931.6, 'hard-light'],
+  ['glow-hl1.svg', 211.6, 1453.6, 1176.8, 458.8, 'color-dodge'],
+  ['glow-hl2.svg', 310.4, 1380.4, 979.2, 541.2, 'lighter'],
+  ['glow-ell.svg', 150.3, 1189.3, 1300.36, 871.36, 'hard-light'],
+];
+const READY_CAP = { x: 291, y: 285, w: 1018, h: 1541 };
 const CAPS = {
   A1: { variant: 'preview', title: ['Neck And', 'Shoulder'] },
   BK_A1: { variant: 'preview', title: ['Side', 'Bend'] },
@@ -1586,12 +1596,7 @@ export class FloorGL {
     capPath(); ctx.stroke();
     ctx.restore();
     // ── ② 캡슐 하단 엠버 글로우 — 피그마 익스포트 4겹, 블렌드 모드 그대로 ──
-    const GLOWS = [
-      ['glow-subtract.svg', 167.2, 1069.2, 1265.6, 931.6, 'hard-light'],
-      ['glow-hl1.svg', 211.6, 1453.6, 1176.8, 458.8, 'color-dodge'],
-      ['glow-hl2.svg', 310.4, 1380.4, 979.2, 541.2, 'lighter'],
-      ['glow-ell.svg', 150.3, 1189.3, 1300.36, 871.36, 'hard-light'],
-    ];
+    const GLOWS = READY_GLOWS;
     ctx.save(); ctx.globalAlpha *= e0(.15, 1.2) * (1 + .3 * tapB);   // 탭 박자에 하단 빛이 두 번 부푼다
     ctx.translate(0, -CUT);   // 캡슐 바닥이 올라간 만큼 하단 빛도 함께(에셋은 원 좌표계)
     // ★ 캡슐 마스크(유저) — 피그마 익스포트 4겹의 박스가 캡슐(x291~1309 · 하단 1876)보다 커서
@@ -1965,15 +1970,22 @@ export class FloorGL {
     ctx.fillStyle = 'rgba(255,255,255,.055)'; ctx.fillRect(x, y, w, h);
     ctx.filter = 'blur(37px)'; ctx.strokeStyle = 'rgba(255,255,255,.25)'; ctx.lineWidth = 80;
     path(); ctx.stroke(); ctx.filter = 'none';
-    // ★ 엠버는 **끊기지 않는다**(유저: 그라디언트 요소도 계속 이어지게 살려라).
-    //   시작화면에서 타고 있던 불이 캡슐이 줄어드는 동안에도 같이 줄어들 뿐 꺼지지 않는다.
-    //   알약이 되면 세기만 낮춘다(0.28) — 없애면 그 순간 '다른 물건'이 된다.
+    // ★ 엠버 = **시작화면 광 정본 그대로**(유저) — 같은 불이 캡슐을 따라 줄어드는 것이지
+    //   비슷한 그라디언트를 새로 그리는 게 아니다. READY 캡슐 박스를 지금 캡슐 박스로 매핑해
+    //   4겹 에셋을 그대로 얹는다(블렌드 모드 포함). 캡슐 패스로 클립하니 밖으로 안 샌다.
     {
-      ctx.save(); ctx.globalAlpha *= 1 - mo * .72;
-      ctx.translate(CX, y + h - 150); ctx.scale(1, .46);
-      const rg = ctx.createRadialGradient(0, 0, 0, 0, 0, w * .44);
-      rg.addColorStop(0, 'rgba(250,48,48,.55)'); rg.addColorStop(1, 'rgba(250,48,48,0)');
-      ctx.fillStyle = rg; ctx.beginPath(); ctx.arc(0, 0, w * .44, 0, 7); ctx.fill();
+      ctx.save();
+      ctx.globalAlpha *= 1 - mo * .55;   // 알약이 돼도 끄지 않는다 — 끄는 순간 다른 물건이 된다
+      ctx.translate(x, y);
+      ctx.scale(w / READY_CAP.w, h / READY_CAP.h);
+      ctx.translate(-READY_CAP.x, -READY_CAP.y);
+      for (const [rel, gx, gy, gw, gh, blend] of READY_GLOWS) {
+        const im = this._img('fig/ready2/' + rel);
+        if (!im) continue;
+        ctx.save(); ctx.globalCompositeOperation = blend;
+        ctx.drawImage(im, gx, gy, gw, gh);
+        ctx.restore();
+      }
       ctx.restore();
     }
     ctx.restore();
