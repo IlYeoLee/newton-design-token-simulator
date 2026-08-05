@@ -925,6 +925,24 @@ export function countRing(ctx, cx, cy, prog, txt, o = {}) {
  *  dev = -1~+1 (0 = 목표) · o.n 눈금 수 · o.h 눈금 높이 · o.col 지시선 색.
  *  ★ 매체 주의: 원본 레퍼런스는 '밝은 블룸 + 어두운 코어'인데 바닥은 밝은 트랙 위 가산 투사라
  *    어두운 값을 못 만든다. 그래서 코어는 빼고 **눈금 구조만** 가져온다. */
+// 눈금 높이는 폭에서 파생한다(좁은 칼럼은 낮게). 조판(_lstat)이 눈금 위아래 여백을 이 값에서
+//   계산하므로 상수로 두 군데 적지 않고 함수 하나로 둔다.
+export const tickH = w => (w < 320 ? 38 : 46);
+// 눈금자의 **시각적** 반높이 = 지시선 기준. 눈금(h/2)보다 지시선(h*.88)이 길어서 조판이
+//   기대야 할 경계는 지시선 쪽이다 — h/2 로 잡으면 라벨이 지시선에 물린다.
+export const tickHalf = w => tickH(w) * 0.88;
+// ── 스탯 컴포넌트(_lstat) 세로 조판 ─────────────────────────────────────────
+//   숫자 / 눈금자 / 라벨 세 덩어리의 간격을 여기 한 곳에서 잡는다. 예약 높이(lstatH)도
+//   같은 식에서 나오므로 GAP 만 만지면 조판과 자리가 함께 움직인다 — 따로 두면 또 어긋난다.
+const LSTAT_GAP = 34;     // 숫자↔눈금, 눈금↔라벨 공통 여백
+const LSTAT_LFS = 58;     // 라벨 활자 크기(minFs(y≈817)=56 하한 위)
+const LSTAT_CAP = 0.72;   // Supreme 캡하이트 비 — 라벨 '윗선'을 여백의 기준으로 삼는다
+const LSTAT_NUM = 0.84;   // OffBit 잉크 높이 비(rollNum 의 휠 한 칸과 같은 값)
+export const lstatW = wide => (wide ? 620 : 232);
+export const lstatFs = wide => (wide ? 172 : 132);
+/** 컴포넌트 실높이 = 숫자 + 여백 + 눈금자 + 여백 + 라벨. _h 의 예약 높이가 이 값을 쓴다. */
+export const lstatH = wide =>
+  lstatFs(wide) * LSTAT_NUM + LSTAT_GAP * 2 + tickHalf(lstatW(wide)) * 2 + LSTAT_LFS * LSTAT_CAP;
 export function tickScale(ctx, cx, by, w, dev, o = {}) {
   // ★ 바닥 튜닝(유저: 바닥에서도 더 잘 읽히게) — 밝은 트랙(#8B9080) 위 가산 투사에서는
   //   얇고 흐린 흰 선이 그냥 사라진다. 화면 UI 감각으로 잡은 3px/.30 은 투사면에서 워시아웃.
@@ -970,7 +988,10 @@ function drawCenteredNum(ctx, text, cx, cy, size) {
 }
 
 // ── 스테이지 → 노드 열 구성 (floor-scene.html의 <script> 분기와 1:1) ──────────────
-const SCRIM_TYPES = new Set(['text', 'trainRow', 'liveRow', 'km', 'dots', 'paceErr', 'paceSub']);
+// ★ capHead 포함(유저: 새 컴포넌트가 붙으면서 위 타이머·제목 영역까지 마스킹이 필요하다).
+//   _band 는 min/max 로 **한 덩어리 띠**를 만든다 — 헤더를 넣으면 띠의 위끝이 알약까지 올라가
+//   알약~SPM 사이 구간이 통째로 덮인다. 전엔 띠가 스탯 행에서 시작해 알약 뒤로 토큰이 그대로 지나갔다.
+const SCRIM_TYPES = new Set(['capHead', 'text', 'trainRow', 'liveRow', 'km', 'dots', 'paceErr', 'paceSub']);
 
 /** 페이스 유지 팩 — 실전 지면의 수치 구성이 케이던스 팩과 다르다. ?pacepack=1 로 갈아 끼운다.
  *  두 팩은 목표가 다르므로 필요한 수치도 다르다:
@@ -1201,8 +1222,10 @@ export class FloorGL {
       case 'text': return n.size * 1.06;
       case 'dots': return gaugeH(760);
       case 'prevRow': return 200;
-      case 'trainRow': return 228;   // 새 스탯 컴포넌트(값 132 + 편차바 + 라벨) 실높이
-      case 'liveRow': return 228;
+      // ★ 예약 높이는 _lstat 의 조판식에서 그대로 나온다 — 하드코딩 금지. 228 로 못박아 두고
+      //   안에서 그보다 큰 걸 그리고 있어서 숫자가 위 노드로 삐져나갔다(wide 는 y-16 부터 그렸다).
+      case 'trainRow': return lstatH(!n.ring);   // 링이 붙으면 2단 = 좁은 규격
+      case 'liveRow': return lstatH(true);
       case 'paceErr': return 300;   // 값 200 + 편차 바 + 목표 라벨
       case 'paceSub': return 150;   // 남은 거리 · 구간 누적 편차 두 칸
       case 'km': return 180;
@@ -1274,6 +1297,42 @@ export class FloorGL {
     return this._headW;
   }
 
+  /** 유리 알약 한 벌 — 채움 + 안쪽 블러 스트로크 + 엠버 광 + 림. **여기가 정본이다.**
+   *  왜: 같은 컴포넌트를 `_capHead`(러닝 연습)와 `_paint_capsule`(스트레칭·농구)이 **따로**
+   *  그리고 있었고 엠버 4겹이 캡슐 쪽에만 있었다 — 그래서 러닝만 뒤에 그라디언트가 없었다(유저).
+   *  채움·블러·림 수치는 두 곳이 우연히 같았을 뿐 언제든 갈릴 수 있는 상태였다.
+   *  광은 '비슷한 그라디언트를 새로 그리는 것'이 아니라 **시작화면 광 정본을 지금 박스로 매핑**한
+   *  것이다(READY_CAP → 현재 박스). 세로 캡슐이든 가로 알약이든 같은 불이 따라온다.
+   *  glow=false 는 손잡이로만 남긴다 — 바닥이 이미 붉은 실전에서 쓸 일이 생기면. */
+  _glassPill(x, y, w, h, r, glow = true) {
+    const ctx = this.ctx;
+    const path = () => { ctx.beginPath(); ctx.roundRect(x, y, w, h, r); };
+    ctx.save(); path(); ctx.clip();
+    ctx.fillStyle = 'rgba(255,255,255,.055)'; ctx.fillRect(x, y, w, h);
+    ctx.filter = 'blur(37px)'; ctx.strokeStyle = 'rgba(255,255,255,.25)'; ctx.lineWidth = 80;
+    path(); ctx.stroke(); ctx.filter = 'none';
+    if (glow) {
+      // 세기는 상태와 무관하게 일정(유저) — 프리뷰/알약에 따라 달라지면 '같은 불'로 안 읽힌다.
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.scale(w / READY_CAP.w, h / READY_CAP.h);
+      ctx.translate(-READY_CAP.x, -READY_CAP.y);
+      for (const [rel, gx, gy, gw, gh, blend] of CAP_GLOWS) {
+        const im = this._img('fig/ready2/' + rel);
+        if (!im) continue;
+        ctx.save(); ctx.globalCompositeOperation = blend;
+        ctx.drawImage(im, gx, gy, gw, gh);
+        ctx.restore();
+      }
+      ctx.restore();
+    }
+    ctx.restore();
+    const rim = ctx.createLinearGradient(0, y, 0, y + h);
+    rim.addColorStop(0, 'rgba(255,255,255,.95)'); rim.addColorStop(.45, 'rgba(255,255,255,.22)');
+    rim.addColorStop(1, 'rgba(255,255,255,.06)');
+    ctx.strokeStyle = rim; ctx.lineWidth = 2.5; path(); ctx.stroke();
+  }
+
   _capHead(n, y) {
     // ★ 위계 정정(유저: 타이머도 개 작아지고 sec 보이지도 않고 타이틀도 줄었다 — 이게 맞냐).
     //   맞지 않았다. 250 높이 알약에 셋을 우겨넣어 전부 작아졌고, 특히 **타이머 숫자(67)가
@@ -1297,17 +1356,7 @@ export class FloorGL {
     const W2 = this._smoothW(Math.max(H2.minW, Math.min(safeW(y) - 80,
       PAD + RR * 2 + H2.gapU + uw + H2.gapT + tw + PAD + (n.step ? 110 : 0))));
     const x = CX - W2 / 2;
-    const path = () => { ctx.beginPath(); ctx.roundRect(x, y, W2, HH, HH / 2); };
-    ctx.save();
-    path(); ctx.clip();
-    ctx.fillStyle = 'rgba(255,255,255,.055)'; ctx.fillRect(x, y, W2, HH);
-    ctx.filter = 'blur(37px)'; ctx.strokeStyle = 'rgba(255,255,255,.25)'; ctx.lineWidth = 80;
-    path(); ctx.stroke(); ctx.filter = 'none';
-    ctx.restore();
-    const rim = ctx.createLinearGradient(0, y, 0, y + HH);
-    rim.addColorStop(0, 'rgba(255,255,255,.95)'); rim.addColorStop(.45, 'rgba(255,255,255,.22)');
-    rim.addColorStop(1, 'rgba(255,255,255,.06)');
-    ctx.strokeStyle = rim; ctx.lineWidth = 2.5; path(); ctx.stroke();
+    this._glassPill(x, y, W2, HH, HH / 2);
     // 카운트 링 — 정본 컴포넌트 그대로(형태 변환 없음, 자리만 여기다)
     const cyR = y + HH / 2, cxR = x + PAD + RR;   // 링 왼쪽 여백 = pad(상하와 동일)
     // 관찰 구간(pv초)엔 3·2·1, 이후엔 남은 시간 — 캡슐 경로와 같은 규약(값이 두 곳에서 안 갈린다).
@@ -1409,12 +1458,14 @@ export class FloorGL {
   }
 
   // 케이던스·페이스 컴포넌트 — 큰 도트 숫자 하나 + 편차 바 + 작은 라벨.
+  //   (세로 조판 상수·예약 높이는 파일 끝 LSTAT_GAP / lstatH 참조)
   //   구 "224 / 214  SPM"은 같은 크기의 숫자 둘과 슬래시가 나란한 '텍스트 나열'이라 달리는 중엔
   //   초점을 맞춰야 읽혔다(유저: '운동중에 방해만 되는 느낌'). 러닝 워치가 공통으로 쓰는 규칙을 따른다 —
   //     ① 값 하나가 압도적으로 크다(한눈에 = 초점 이동 없음)
   //     ② 목표와의 '관계'는 숫자로 또 쓰지 않고 그래픽(위치·색)으로 읽힌다
   //     ③ 라벨은 작고 조용하게, 값의 주인공 자리를 뺏지 않는다
   //   활자 규약(유저 확정): **숫자만 도트(OffBit), 라벨·단위는 본문 영문(Supreme).**
+  //   세로 조판 상수는 아래 LSTAT_* — 예약 높이(lstatH)가 같은 식을 쓴다.
   _lstat(cx, y, me, tgt, label, wide) {
     const ctx = this.ctx;
     const mv = statVal(me), tv = statVal(tgt);
@@ -1428,20 +1479,26 @@ export class FloorGL {
     //   색은 싣지 않는다(흰색 고정) — 편차는 아래 ②의 점이 이미 위치로 말한다. 숫자에까지 색을
     //   태우면 ⓐ 학습자는 늘 목표와 어긋나 있어 빨강이 기본 상태가 되고(경고가 경고를 잃는다),
     //   ⓑ 가산 투사에서 적색이 가장 먼저 대비를 잃어 '많이 틀어진 순간'에 제일 안 읽힌다.
-    const NFS = wide ? 172 : 132;   // 단독 스탯은 수치도 크게 — 화면의 주인공이다
-    rollNum(ctx, me || '--', this.t, 0, 0.6, cx, y + 118 - NFS * 0.78, NFS,
-            { fam: dot9, align: 'center', fill: NEU.paper });
-    // ② 편차 바 — 가운데 눈금이 목표, 점이 현재. 관계를 '위치'로 읽는다. (_devBar 공용)
+    const NFS = lstatFs(wide);   // 단독 스탯은 수치도 크게 — 화면의 주인공이다
     // ★ 단독 스탯(P1 이지런처럼 SPM 하나만 있는 화면)은 **넓게** 쓴다(유저: 큰 점선 그래프가
     //   왜 이렇게 옹졸해졌냐). 232 는 2단 그리드(SPM+PACE)에서 칼럼이 좁을 때의 값인데,
     //   단독일 때도 그 값을 쓰고 있어서 화면 폭을 반도 못 썼다. 눈금 수는 폭에서 파생되므로
     //   넓히면 칸도 그만큼 늘어난다.
-    const BW = wide ? 620 : 232, BY = y + 154;
+    const BW = lstatW(wide);
+    // ★ 세로 조판은 **눈금자에서 파생**한다(유저: 숫자·라인과 SPM 사이가 너무 좁다).
+    //   전엔 셋이 각자 상수를 들고 있었다 — 숫자 y+118-0.78·NFS, 바 y+154, 라벨 바+60.
+    //   그 상수들은 눈금 h=34 · 라벨 34px 시절 값이라, 눈금이 46 으로 굵어지고 라벨이 58 로
+    //   커진 뒤엔 위아래가 둘 다 눈금에 파묻혔다(실측 wide: 숫자 잉크 바닥 y+128 > 눈금 위끝
+    //   y+113, 라벨 윗선 y+173 < 눈금 아래끝 y+177). 이제 GAP 하나만 만지면 둘 다 같이 움직인다.
+    const BY = y + NFS * LSTAT_NUM + LSTAT_GAP + tickHalf(BW);   // 숫자 잉크 높이 + 간격 + 눈금 반높이
+    rollNum(ctx, me || '--', this.t, 0, 0.6, cx, y, NFS,
+            { fam: dot9, align: 'center', fill: NEU.paper });
+    // ② 편차 바 — 가운데 눈금이 목표, 점이 현재. 관계를 '위치'로 읽는다. (_devBar 공용)
     this._devBar(cx, BY, BW, dev / 0.12, col, ok);
     // ③ 라벨 — 본문 영문. 숫자가 아니므로 도트 금지(유저 규약).
-    ctx.font = F(400, 58); ctx.letterSpacing = '7px';   // 34 → 58 (minFs(y≈817)=56) — 안 읽히던 라벨
+    ctx.font = F(400, LSTAT_LFS); ctx.letterSpacing = '7px';   // 34 → 58 (minFs(y≈817)=56) — 안 읽히던 라벨
     ctx.fillStyle = rgba(NEU.paper, 0.6);
-    ctx.fillText(String(label).toUpperCase(), cx + 3.5, BY + 60);
+    ctx.fillText(String(label).toUpperCase(), cx + 3.5, BY + tickHalf(BW) + LSTAT_GAP + LSTAT_LFS * LSTAT_CAP);
     ctx.letterSpacing = '0px';
   }
 
@@ -1469,7 +1526,7 @@ export class FloorGL {
   _devBar(cx, by, w, dev, col, on) {
     // ★ 선+점 → **눈금 스케일**(유저 확정). 선 하나에 점 하나는 '얼마나' 벗어났는지 가늠할
     //   기준이 없었다. 눈금은 폭에서 파생되므로 2단 그리드(232px 칼럼)에서도 그대로 성립한다.
-    tickScale(this.ctx, cx, by, w, dev, { col, on, h: w < 320 ? 38 : 46 });
+    tickScale(this.ctx, cx, by, w, dev, { col, on, h: tickH(w) });
   }
 
 
@@ -2185,8 +2242,10 @@ export class FloorGL {
           }
         };
         // 배터리 다이얼 + 끝점 도트 — 림이 곧 충전량(피그마 상태점 = 게이지 끝)
+        // ★ d0 는 **패널이 뜨는 시각(TP2+.12)** 뒤여야 한다 — 예전 값 .95/1.05 는 등장보다
+        //   1초 이상 앞서 끝나 버려, 원이 나타났을 땐 이미 만충이었다(유저: 채워지는 모션을 달라).
         const dial = (cx, pct, d0) => {
-          const RR = RD - 5, gp = eOut(intro(t, d0, .8));
+          const RR = RD - 5, gp = eOut(intro(t, d0, .9));
           const a1 = (DA0 + (DA1 - DA0) * (pct / 100) * gp) * RAD;
           ctx.save();
           ctx.strokeStyle = NEU.ink; ctx.lineWidth = 8; ctx.lineCap = 'round';
@@ -2202,7 +2261,7 @@ export class FloorGL {
         // ⓐ 안경 — 늘 원
         const gx = x0 + RD;
         glass(() => { ctx.beginPath(); ctx.arc(gx, CY, RD - 2.5, 0, Math.PI * 2); }, gx, RD);
-        dial(gx, BATT.glasses, .95);
+        dial(gx, BATT.glasses, TP2 + .30);
         { const gl2 = img('ic-glasses.png'); if (gl2) ctx.drawImage(gl2, gx - 55, CY - 37, 110, 74); }
         // ⓑ 이어폰 — 원 → 알약. 왼끝은 제자리, 오른쪽으로 자란다.
         const ex = x0 + DD + GAPD;
@@ -2210,7 +2269,7 @@ export class FloorGL {
         //   한 상자에 가두는 것처럼 보였다. 원일 땐 테두리가 있고, 늘어나면서 녹아 없어진다.
         glass(() => { ctx.beginPath(); ctx.roundRect(ex + 2.5, CY - RD + 2.5, WE - 5, DD - 5, RD); },
               ex + WE / 2, RD, 1 - EXP);
-        dial(ex + RD, BATT.buds, 1.05);
+        dial(ex + RD, BATT.buds, TP2 + .42);   // 안경 → 이어폰 순으로 0.12s 시차
         { const eb = this._tinted2('fig/ready2/ic-earbuds.png', 102, 88, () => '#fff');
           if (eb) ctx.drawImage(eb, ex + RD - 51, CY - 44, 102, 88); }
         // 코치 인물 — 확장이 만든 오른쪽 빈칸에 채워진다(연결됨)
@@ -2281,7 +2340,16 @@ export class FloorGL {
     const sess = (typeof window !== 'undefined' ? window.__dbg?.session : null);
     const watching = sess ? (!!sess.demoActive || !!sess.a2Cyc?.watching) : (t < PV);
     if (watching) this._moT = null; else if (this._moT == null) this._moT = t;
-    const mo = HAS_PREV ? (this._moT == null ? 0 : eOut(clamp01((t - this._moT) / MOVE))) : 1;
+    const moU = HAS_PREV ? (this._moT == null ? 0 : clamp01((t - this._moT) / MOVE)) : 1;
+    const mo = eOut(moU);
+    // ★ 확장 모션의 순서 — **컨테이너가 내용보다 먼저 자리를 만든다**(유저: 전환 때 글자가 알약
+    //   밖으로 삐져나온다). 전엔 알약 폭과 타이포가 같은 mo 를 썼다: 폭은 900→1379 로 선형으로
+    //   벌어지는데 타이포는 이미 최종 크기(98)·최종 좌표(링 옆 슬롯)에 가 있어서, 중간 구간
+    //   (mo≈.4~.7)에서 글자 오른쪽 끝이 알약 오른쪽 끝을 300px 가까이 넘었다(유저 스샷).
+    //   넓힐 땐 컨테이너 먼저(.55 안에 몰아 끝냄) · 내용은 늦게 출발(.22 지연) — 글자는 이미
+    //   벌어진 알약 안으로 들어와 앉는다. 줄어들 때 순서가 반대인 건 여기선 안 쓴다(단방향).
+    const moG = eOut(clamp01(moU / .55));          // 기하 — 알약·링
+    const moT = eOut(clamp01((moU - .22) / .78));  // 타이포
     // ★ 타이틀은 **FLOOR_SCENES 가 정본**이다(유저: 농구 적용 안 된 게 많다 → 감사 결과).
     //   CAPS 가 title 을 따로 들고 있어서 두 벌이 어긋나 있었다. 실제 어긋남:
     //     A2  CAPS 'Lunge Press'   vs  scenes 'Calf Stretch'   ← 아예 다른 동작명
@@ -2298,12 +2366,18 @@ export class FloorGL {
     const cyc = (typeof window !== 'undefined' ? window.__dbg?.session?.a2Cyc : null);
     const perFoot = this.stage === 'A2' && cyc && !cyc.watching;
     const hs = cyc?.holdSec ?? 5, hp = cyc?.inHold ? clamp01(cyc.prog) : 0;
-    if (perFoot) title = (cyc.isLeft ? 'Left ' : 'Right ') + title;
+    //   ★★★ 단, **모프가 끝난 뒤에** 붙인다(유저: 전환 애니메이션 때 글자가 삐져나온다).
+    //     접두사가 모프 시작과 동시에 들어오면 한 프레임에 두 가지가 바뀐다 — 형태(원형→알약)와
+    //     문구(12자→17자). 폭 목표가 점프하고, 프리뷰 폭 900 에 안 들어가 1줄이 2줄로 쪼개지면서
+    //     크로스페이드 분기(=옛 '중간다리')로 떨어졌다. 모프 동안은 문구를 고정해 **한 물체가
+    //     줄어드는** 읽기를 지키고, 접두사는 알약이 다 선 뒤 폭이 벌어지며 따로 들어온다.
+    if (perFoot && mo > .999) title = (cyc.isLeft ? 'Left ' : 'Right ') + title;
     // ★ 대소문자 규약(유저 확정) — 타이틀 영역은 **전부 대문자**(프리뷰·헤더·농구 포함).
     //   대문자로 통일해야 관찰→따라하기가 같은 글자가 옮겨간 것으로 읽힌다.
     //   **타이틀 영역은 프리뷰·헤더 모두 대문자**, 'Preview' 라벨만 대+소문자(유저 확정).
     title = title.toUpperCase();
-    const L = (p, q) => p + (q - p) * mo;
+    const L = (p, q) => p + (q - p) * moG;    // 기하 = 앞당긴 진행(컨테이너가 먼저 자리를 만든다)
+    const LT = (p, q) => p + (q - p) * moT;   // 타이포 = 늦춘 진행
     // 지오메트리 — 원형(760×820) → 가로 알약(840×250). **y 는 176 고정**: 위를 붙박아 두면
     //   아래로만 접히므로 코치 판(지면 중앙에 서는 3D 인물)과 안 겹친다.
     //   전엔 y300·h1080 이라 캡슐이 화면 중앙까지 내려와 인물 몸통을 덮었다(유저 스샷).
@@ -2328,37 +2402,10 @@ export class FloorGL {
     const E = (p, q) => p + (q - p) * en;
     const w = E(1018, w1), h = E(1491, h1), y = E(285, y1), x = CX - w / 2;
     const r = Math.min(w, h) / 2;
-    const path = () => { ctx.beginPath(); ctx.roundRect(x, y, w, h, r); };
     ctx.save(); ctx.globalAlpha *= eOut(intro(t, .05, .7));
-    ctx.save(); path(); ctx.clip();
-    ctx.fillStyle = 'rgba(255,255,255,.055)'; ctx.fillRect(x, y, w, h);
-    ctx.filter = 'blur(37px)'; ctx.strokeStyle = 'rgba(255,255,255,.25)'; ctx.lineWidth = 80;
-    path(); ctx.stroke(); ctx.filter = 'none';
-    // ★ 엠버 = **시작화면 광 정본 그대로**(유저) — 같은 불이 캡슐을 따라 줄어드는 것이지
-    //   비슷한 그라디언트를 새로 그리는 게 아니다. READY 캡슐 박스를 지금 캡슐 박스로 매핑해
-    //   4겹 에셋을 그대로 얹는다(블렌드 모드 포함). 캡슐 패스로 클립하니 밖으로 안 샌다.
-    {
-      ctx.save();
-      // ★ 광 세기는 **상태와 무관하게 일정**하다(유저: 프리뷰는 연하고 따라하기는 진하다, 진한 쪽으로).
-      //   전엔 1 - mo*.55 라 프리뷰(mo 0)와 알약(mo 1)이 2배 넘게 달랐고, 진입 모프 중에도
-      //   캡슐 크기에 따라 계속 변해 '같은 불'로 안 읽혔다. 한 값으로 못박는다.
-      ctx.translate(x, y);
-      ctx.scale(w / READY_CAP.w, h / READY_CAP.h);
-      ctx.translate(-READY_CAP.x, -READY_CAP.y);
-      for (const [rel, gx, gy, gw, gh, blend] of CAP_GLOWS) {
-        const im = this._img('fig/ready2/' + rel);
-        if (!im) continue;
-        ctx.save(); ctx.globalCompositeOperation = blend;
-        ctx.drawImage(im, gx, gy, gw, gh);
-        ctx.restore();
-      }
-      ctx.restore();
-    }
+    // 알약 몸통(유리 + 엠버 + 림) = 공통 _glassPill. 러닝 헤더와 **같은 함수**를 쓴다.
+    this._glassPill(x, y, w, h, r);
     ctx.restore();
-    const rim = ctx.createLinearGradient(0, y, 0, y + h);
-    rim.addColorStop(0, 'rgba(255,255,255,.95)'); rim.addColorStop(.45, 'rgba(255,255,255,.22)');
-    rim.addColorStop(1, 'rgba(255,255,255,.06)');
-    ctx.strokeStyle = rim; ctx.lineWidth = 2.5; path(); ctx.stroke();
     // 카운트 링 — 정본 countRing. 관찰: 캡슐 중앙 아래 / 따라하기: 헤더 왼쪽 슬롯. 형태는 안 바뀐다.
     const RR = L(136, RRp);   // 프리뷰 링 112 → 136
     const rx = L(CX, x + PAD + RR), ry2 = L(y + h * .74, y + h / 2);
@@ -2391,7 +2438,9 @@ export class FloorGL {
     const ci2 = title.indexOf(', ');
     const ls = ci2 > 0 ? [title.slice(0, ci2 + 1), title.slice(ci2 + 2)]
       : (() => { ctx.font = F(700, 124); ctx.letterSpacing = '-5px';
-          const fit = ctx.measureText(title).width <= w1 - PAD * 2;
+          // 기준폭은 **프리뷰 캡슐의 고정폭 900**. 전엔 보간 중인 w1 을 썼는데, 폭이 벌어지는
+          //   도중 fit 이 false→true 로 뒤집혀 2줄 크로스페이드가 1줄 이동으로 **툭 갈아탔다**.
+          const fit = ctx.measureText(title).width <= 900 - PAD * 2;
           if (fit) return [title];
           const w2 = title.split(' '); const m = Math.ceil(w2.length / 2);
           return [w2.slice(0, m).join(' '), w2.slice(m).join(' ')]; })();
@@ -2408,22 +2457,35 @@ export class FloorGL {
     //   그게 '중간다리'다. 문구가 프리뷰·헤더 모두 같은 대문자 한 줄이므로 나눌 이유가 없다:
     //   크기·위치를 하나의 mo 로 보간해 **끊김 없이** 이동시킨다(알파 변화 자체가 없다).
     //   두 줄이 필요한 긴 이름만 예외로 크로스페이드를 남긴다.
+    // ★ 최후 안전장치 — 어떤 이징 조합·어떤 문구 길이에서도 글자는 알약 안쪽 여백을 못 넘는다.
+    //   시작점 x0 에서 알약 오른쪽 안쪽(x+w-PAD)까지가 허용폭이고, 넘치면 그 비율로 줄여 그린다.
+    //   기하가 앞서가므로(moG) 평상시엔 k=1 이라 아무 일도 안 하고, 접두사('LEFT ')가 붙어
+    //   폭 목표가 점프하는 0.1~0.2s 동안만 개입한다 → **알약이 벌어지는 만큼 글자가 커지며 들어온다**.
+    //   ponytail: 균일 스케일 한 줄. 줄바꿈·말줄임이 필요해지면 그때 넣는다.
+    const fitDraw = (s, x0, y0) => {
+      const lim = x + w - PAD - (cfg.step ? 110 : 0);
+      const tw = ctx.measureText(s).width;
+      const xa = Math.max(x + PAD, Math.min(x0, lim - tw));   // ① 먼저 **민다** — 글자 크기는 안 건드린다
+      const k = Math.min(1, (lim - xa) / Math.max(1, tw));    // ② 안쪽 폭보다 긴 문구만 줄인다
+      if (k > .999) return ctx.fillText(s, xa, y0);
+      ctx.save(); ctx.translate(xa, y0); ctx.scale(k, k); ctx.fillText(s, 0, 0); ctx.restore();
+    };
     ctx.save();
     ctx.textBaseline = 'middle'; ctx.fillStyle = '#fff';
     if (ls.length === 1) {
-      const fs = 124 + (LAYOUT.TYPE.title - 124) * mo;
-      ctx.font = F(700, fs); ctx.letterSpacing = (-5 + 1 * mo).toFixed(2) + 'px';
+      const fs = 124 + (LAYOUT.TYPE.title - 124) * moT;
+      ctx.font = F(700, fs); ctx.letterSpacing = (-5 + 1 * moT).toFixed(2) + 'px';
       const tw2 = ctx.measureText(title).width;
-      const x0t = (CX - tw2 / 2) + (dstX - (CX - tw2 / 2)) * mo;
-      const y0t = (y + h * .40) + (dstY - (y + h * .40)) * mo;
+      const x0t = (CX - tw2 / 2) + (dstX - (CX - tw2 / 2)) * moT;
+      const y0t = (y + h * .40) + (dstY - (y + h * .40)) * moT;
       ctx.textAlign = 'left';
-      ctx.fillText(title, x0t, y0t);
+      fitDraw(title, x0t, y0t);
     } else {
-      const outA = eQ(1 - clamp01(mo / .48)), inA = eQ((mo - .46) / .54);
+      const outA = eQ(1 - clamp01(moT / .48)), inA = eQ((moT - .46) / .54);
       ctx.textAlign = 'center';
       if (outA > 0) {
         ctx.save(); ctx.globalAlpha *= outA;
-        ctx.translate((dstX - CX) * .32 * mo, (dstY - (y + h * .40)) * .32 * mo);
+        ctx.translate((dstX - CX) * .32 * moT, (dstY - (y + h * .40)) * .32 * moT);
         ctx.letterSpacing = '-5px'; ctx.font = F(700, 124);
         ls.forEach((ln, i) => ctx.fillText(ln, CX, y + h * .40 + (i - (ls.length - 1) / 2) * 136));
         ctx.restore();
@@ -2431,7 +2493,10 @@ export class FloorGL {
       if (inA > 0) {
         ctx.save(); ctx.globalAlpha *= inA; ctx.textAlign = 'left';
         ctx.font = F(700, LAYOUT.TYPE.title); ctx.letterSpacing = '-4px';
-        ctx.fillText(title, dstX - (dstX - CX) * .18 * (1 - inA), ry2 + 22 * (1 - inA));
+        // 가로 슬라이드 제거 — 도착점(dstX)이 중앙(CX)보다 **왼쪽**이라 '남은 거리에서 미끄러져
+        //   들어오기'가 곧 **오른쪽에서 들어오기**였다. 알약이 아직 다 안 벌어진 구간에서 그
+        //   오프셋이 그대로 글자를 밖으로 밀어냈다. 세로 상승만 남긴다(들어오는 인상은 유지).
+        fitDraw(title, dstX, ry2 + 22 * (1 - inA));
         ctx.restore();
       }
     }

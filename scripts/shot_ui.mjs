@@ -28,7 +28,11 @@ await p.goto('http://localhost:5199/', { waitUntil: 'networkidle2', timeout: 600
 await p.evaluate(async (stage, kind, T, floor) => {
   const M = await import((floor ? '/src/floorgl.js?v=' : '/src/wallgl.js?v=') + Date.now());
   const G = floor ? new M.FloorGL() : new M.WallGL();
-  G.stage = stage; G.kind = kind; G.t = T; G.params = { dur: 11 };
+  // ★ stage/kind 를 **대입**하면 안 된다 — 노드 열(col)은 load() 안의 buildScene 이 만든다.
+  //   대입만 하던 탓에 col 이 빈 채로 남아 이 스크립트가 늘 빈 판을 찍었다(배경색만 나옴).
+  //   kind 는 두 클래스 모두 params.src 로 판정하므로 src 를 kind 에서 되돌려 만든다.
+  G.load(stage, { src: kind === 'ready' ? 'floor.html' : `floor-${kind}.html`, dur: 11, pv: 3 });
+  G.t = T;
   // 웹폰트가 오기 전에 그리면 조판이 달라진다 — 캔버스 fillText 는 폰트 로드를 촉발하지 않는다.
   await Promise.all(['700 100px Supreme', '400 100px Supreme', '700 100px OffBit']
     .map(f => document.fonts.load(f).catch(() => {})));
