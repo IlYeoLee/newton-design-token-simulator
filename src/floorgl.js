@@ -9,6 +9,10 @@
 import * as THREE from 'three';
 import { arc as d3arc } from 'd3-shape';
 import { PAL, NEU, rgba } from './palette.js';
+// 지면 토큰 오버라이드 — tokens.html '코드에 저장'이 쓰는 파일. 아래 TOK 기본값 위에 얹힌다.
+//   ★ 값의 **집**이 필요하다. 예전엔 갤러리에서 맞춘 값을 손으로 코드에 옮겨 적어야 했고,
+//     토큰이 스무 개라 반드시 어긋난다(footlab/mark-look.json 과 같은 이유·같은 처방).
+import FLOOR_TOK_JSON from './floor-tokens.json';
 
 const W = 1600, H = 2670;
 const _mp = new THREE.Vector3(), _mf = new THREE.Vector3(), _mr = new THREE.Vector3();   // uiMask 임시   // 대지 px (floor-scene.html과 동일)
@@ -747,6 +751,10 @@ export const LAYOUT = {
   get CAPHEAD_H() { return TOK.ring * 2 + TOK.pad * 2; },
   get CONTENT_Y0() { return this.PROG_Y + TOK.progH + TOK.gapPC; },
 };
+// 저장본을 얹는다 — 파생값(ring)과 설명 키(_)는 건너뛴다.
+for (const [k, v] of Object.entries(FLOOR_TOK_JSON || {}))
+  if (k !== '_' && k !== 'ring' && typeof v === 'number') TOK[k] = v;
+
 // 링 반지름은 **파생값**이다 — 직접 적지 말 것. 숫자(fsTimer)와 비례(ringRatio)에서 나온다.
 //   enumerable:false — 갤러리의 `{...TOK}` / `Object.assign` 이 이 파생값을 복사·역주입하지 않게.
 Object.defineProperty(TOK, 'ring', {

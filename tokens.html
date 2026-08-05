@@ -173,7 +173,12 @@ button.on{background:#fa6030;border-color:#fa6030;color:#fff}
 
   <div class="grp"><h2>값 내보내기</h2>
     <textarea id="dump" readonly spellcheck="false"></textarea>
-    <div class="btnrow" style="margin-top:6px"><button id="copy">복사</button></div>
+    <div class="btnrow" style="margin-top:6px">
+      <button id="save" style="background:#fa6030;border-color:#fa6030;color:#fff">💾 코드에 저장</button>
+      <button id="copy">복사</button>
+    </div>
+    <div id="savemsg" style="font-size:10px;color:#77777f;margin-top:2px">
+      src/floor-tokens.json 에 쓴다 · 시뮬·익스포터가 같은 파일을 읽는다</div>
   </div>
 </div>
 

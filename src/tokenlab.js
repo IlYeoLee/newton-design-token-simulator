@@ -349,6 +349,29 @@ $('#p-legacy').addEventListener('click', e => preset(LEGACY, e.target));
 $('#p-reset').addEventListener('click', () => preset({}, $('#p-now')));
 $('#copy').addEventListener('click', () => navigator.clipboard?.writeText($('#dump').value));
 
+// ── 코드에 저장 ───────────────────────────────────────────────────────────
+//  유저: "저장 버튼이 없다". 맞다 — 슬라이더가 메모리에만 남으면 맞춘 값을 손으로 옮겨 적어야
+//  하고, 토큰이 스무 개라 반드시 어긋난다. 값의 **집**을 준다(footlab/mark-look 과 같은 규약).
+//  기본값과 다른 키만 쓴다 — 전체를 박아두면 나중에 코드 기본값을 고쳐도 저장본이 덮어버린다.
+$('#save').addEventListener('click', async () => {
+  const diff = {};
+  for (const k of Object.keys(BASE)) if (TOK[k] !== BASE[k]) diff[k] = TOK[k];
+  const msg = $('#savemsg');
+  try {
+    const r = await fetch('/__save-floor-tok', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(diff),
+    });
+    const n = Object.keys(diff).length;
+    msg.textContent = r.ok
+      ? `✓ 저장됨 — ${n ? n + '개 토큰' : '기본값과 동일'} · src/floor-tokens.json`
+      : '✗ 저장 실패: ' + await r.text();
+    msg.style.color = r.ok ? '#8de08d' : '#ff7b6b';
+  } catch (e) {
+    msg.textContent = '✗ 데브 서버에서만 저장됩니다 (' + e.message + ')';
+    msg.style.color = '#ff7b6b';
+  }
+});
+
 $('#play').addEventListener('click', e => {
   playing = !playing; e.target.classList.toggle('on', playing);
   e.target.textContent = playing ? '⏸ 정지' : '▶ 재생';

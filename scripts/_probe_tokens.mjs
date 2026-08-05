@@ -6,7 +6,7 @@ const bad = [];
 p.on('requestfailed', r => bad.push('FAIL ' + r.url()));
 p.on('response', r => { if (r.status() >= 400) bad.push(r.status() + ' ' + r.url()); });
 p.on('pageerror', e => bad.push('PAGEERROR ' + (e.stack || e.message).split('\n').slice(0,3).join(' | ')));
-await p.goto('http://127.0.0.1:5201/tokens.html?uiscale=0.34', { waitUntil: 'networkidle0', timeout: 30000 });
+await p.goto('http://127.0.0.1:5202/tokens.html?uiscale=0.34', { waitUntil: 'networkidle0', timeout: 30000 });
 await new Promise(r => setTimeout(r, 3000));
 const rows = await p.evaluate(() => [...document.querySelectorAll('.cell')].map(c => {
   const cv = c.querySelector('canvas');

@@ -2,7 +2,7 @@ import puppeteer from 'puppeteer';
 const b = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox'] });
 const p = await b.newPage();
 await p.setViewport({ width: 1900, height: 1200 });
-await p.goto('http://127.0.0.1:5201/tokens.html?uiscale=0.34', { waitUntil: 'networkidle0', timeout: 30000 });
+await p.goto('http://127.0.0.1:5202/tokens.html?uiscale=0.34', { waitUntil: 'networkidle0', timeout: 30000 });
 await new Promise(r => setTimeout(r, 2000));
 const rows = await p.evaluate(async () => {
   const K = 0.34, cells = window.__cells;

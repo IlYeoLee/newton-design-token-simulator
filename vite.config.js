@@ -93,6 +93,31 @@ export default defineConfig({
       });
     },
   }, {
+    // 데브 전용: 지면 UI 디자인 토큰 저장 — tokens.html 에서 맞춘 값의 **집**.
+    //   이게 없으면 갤러리에서 맞춘 값을 손으로 코드에 옮겨 적어야 하고, 토큰이 스무 개라
+    //   반드시 어긋난다(유저: 저장 버튼이 없다). mark-look·_presets 와 같은 규약 — **병합** 저장.
+    name: 'dev-save-floor-tokens',
+    configureServer(server) {
+      server.middlewares.use('/__save-floor-tok', (req, res) => {
+        if (req.method !== 'POST') { res.statusCode = 405; return res.end('POST only'); }
+        const chunks = [];
+        req.on('data', c => chunks.push(c));
+        req.on('end', () => {
+          try {
+            const obj = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+            if (!obj || typeof obj !== 'object' || Array.isArray(obj)) throw new Error('bad body');
+            const p = resolve(__dirname, 'src/floor-tokens.json');
+            let cur = {};
+            try { cur = JSON.parse(readFileSync(p, 'utf8')); } catch { /* 첫 저장 */ }
+            const next = { ...cur, ...obj };
+            next._ = "지면 UI 디자인 토큰 — tokens.html '코드에 저장'이 이 파일을 덮어쓴다. floorgl.js TOK 기본값 위에 얹힌다.";
+            writeFileSync(p, JSON.stringify(next, null, 2) + '\n');
+            res.end('saved');
+          } catch (e) { res.statusCode = 400; res.end('bad json: ' + e.message); }
+        });
+      });
+    },
+  }, {
     // 데브 전용: 브라우저에서 구운 에셋(마스크 아틀라스 등) 저장 — 베이크 파이프라인 출구
     name: 'dev-save-baked-asset',
     configureServer(server) {
@@ -131,6 +156,7 @@ export default defineConfig({
         scenes:        resolve(__dirname, 'scenes.html'),
         capsuleConcepts: resolve(__dirname, 'capsule-concepts.html'),
         tokens:        resolve(__dirname, 'tokens.html'),   // 지면 디자인 토큰 갤러리
+        marks:         resolve(__dirname, 'marks.html'),    // 마크 공통 언어 (테스트 모델 = 농구 4/4)
       },
     },
   },

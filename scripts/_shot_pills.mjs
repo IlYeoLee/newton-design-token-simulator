@@ -4,7 +4,7 @@ const OUT = process.env.TMP + '/pills.png';
 const b = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox'] });
 const p = await b.newPage();
 await p.setViewport({ width: 1600, height: 1000, deviceScaleFactor: 1 });
-await p.goto('http://127.0.0.1:5201/tokens.html?uiscale=1.0', { waitUntil: 'networkidle0', timeout: 40000 });
+await p.goto('http://127.0.0.1:5202/tokens.html?uiscale=1.0', { waitUntil: 'networkidle0', timeout: 40000 });
 await new Promise(r => setTimeout(r, 2500));
 const preset = process.argv[2];
 const shots = await p.evaluate(async (preset) => {
