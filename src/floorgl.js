@@ -1880,10 +1880,14 @@ export class FloorGL {
     const TCY = 778 - 156 * q;           // 블록 중심 (피그마 델타 156)
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillStyle = NEU.ink; ctx.font = RF(700, 98 * TK); ctx.letterSpacing = `${(-4 * TK).toFixed(2)}px`;   // 100→98(유저: 첫 진입 타이틀이 빡빡)
+    // ★ 등장 순서 = **타이틀 먼저, 부제(뱃지·캡션) 나중**(유저 08-06). 전엔 타이틀 .26 / 부제 .36
+    //   으로 0.1s 차이라 같이 뜬 것처럼 읽혔다. 부제가 타이틀이 **앉은 뒤에** 붙어야
+    //   '누구의 팩인가 → 어떤 팩인가' 순으로 읽힌다. 줄 간 지연도 .04 → .06 으로 벌린다.
+    const SUB_D = .96, SUB_W = .55;   // 부제 슬롯(뱃지/캡션) 공통 — 타이틀(.26~.98)이 끝난 뒤
     for (const [i, ln] of R2.lines.entries()) {
-      const d = .26 + i * .04;   // 피그마 379:3282 — 상태1 에 타이틀이 이미 있다
-      ctx.save(); ctx.globalAlpha *= e0(d, .85);
-      ctx.fillText(ln, 800, TCY + (i ? 60 : -60) * TK + rise(d, .85, 22));
+      const d = .26 + i * .06;   // 피그마 379:3282 — 상태1 에 타이틀이 이미 있다
+      ctx.save(); ctx.globalAlpha *= e0(d, .72);
+      ctx.fillText(ln, 800, TCY + (i ? 60 : -60) * TK + rise(d, .72, 22));
       ctx.restore();
     }
     ctx.letterSpacing = '0px';
@@ -1896,8 +1900,8 @@ export class FloorGL {
       //   투사면에선 색면을 얹는 것보다 이쪽이 맞다 — 아래 엠버를 가리지 않고 그 색을 통과시켜
       //   **유리 칩**으로 읽힌다. 위계는 색이 아니라 알파 차(면 .38 ↔ 글자 1.0)가 만든다.
       //   낱말은 팩마다 다르다: 션 = Creator · 커리 = Pro.
-      ctx.save(); ctx.globalAlpha *= e0(.36, .85) * q;
-      const BY2 = TCY + 270 + rise(.36, .85, 18), BH2 = 115, BTX = R2.badge || 'Creator';
+      ctx.save(); ctx.globalAlpha *= e0(SUB_D, SUB_W) * q;
+      const BY2 = TCY + 270 + rise(SUB_D, SUB_W, 18), BH2 = 115, BTX = R2.badge || 'Creator';
       ctx.font = RF(700, 60); ctx.letterSpacing = '-1.5px';   // 56 → 60 (minFs(y≈638)=58.4)
       const bw = ctx.measureText(BTX).width + 64;
       ctx.save();
@@ -1908,10 +1912,13 @@ export class FloorGL {
       ctx.fillStyle = NEU.ink; ctx.fillText(BTX, 800, BY2 + 2);
       ctx.letterSpacing = '0px'; ctx.restore();
     }
-    if (p2 > 0.01) {
-      ctx.save(); ctx.globalAlpha *= e0(.36, .85) * p2;
+    // 캡션도 같은 규칙 — 상태2 로 넘어갈 때 **타이틀이 먼저 자리를 잡고** 그 뒤 붙는다.
+    //   p2 를 그대로 쓰면 타이틀·숫자·캡션이 한 덩어리로 튀어나온다(0.18s 뒤에 합류).
+    const SUB2 = eOut(intro(t, TP2 + .18, .55));
+    if (SUB2 > 0.01) {
+      ctx.save(); ctx.globalAlpha *= SUB2;
       ctx.fillStyle = 'rgba(255,255,255,.8)'; ctx.font = RF(400, 64); ctx.letterSpacing = '-2.56px';
-      ctx.fillText(R2.sub, 800.5, 971 + rise(.36, .85, 18));
+      ctx.fillText(R2.sub, 800.5, 971 + (1 - SUB2) * 18);
       ctx.letterSpacing = '0px'; ctx.restore();
     }
     // ★ 순서 반전(유저 08-05): 페이즈1 = 팩 이름 + **사람 형체**, 페이즈2(2초 뒤) = **몇 분인지**.
