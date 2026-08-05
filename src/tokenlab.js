@@ -46,29 +46,21 @@ const STAGES = [
 const BASE = { ...TOK };
 // 제안안 = 이 대화에서 합의된 값. 지금 값과의 **차이만** 적는다(전체 복사 금지 — 갈린다).
 const PROPOSED = { ember: 0, bgGlow: 0, collapse: 1, crumb: 0 };
-// ── 확정안 — 감이 아니라 **계산 결과**다. 근거 전문: docs/FLOOR-LEGIBILITY.md
+// ── 프리셋 ────────────────────────────────────────────────────────────────
+//  '지금' = floorgl.js TOK 기본값 = **확정안**(2026-08-06). 갤러리는 값을 갖지 않는다.
+//  '이전' = 08-05 까지의 값. A/B 로 무엇이 어떻게 바뀌었는지 눈으로 보기 위한 비교본이다.
 //
-//  목표 시각도를 정하고 거기서 크기를 역산했다(반대가 아니다).
-//    1급(타이틀·타이머 숫자)  0.55°  = ISO 9241-303 권장(20~22arcmin=0.37°)의 1.5배
-//                                     운동 중 움직임 · 저대비 투사면 · 곁눈 훑기 3중 감점 보정
-//    2급(배지·단위)           0.37°  = ISO 권장 그대로
-//    절대 하한                0.20°  = Legge & Bigelow 2011 임계 활자 크기
-//  링 지름 = 숫자 폰트 × 1.45 (원형 진행 표시 통상 비례. 지금은 2.5배라 링이 알약 높이의 67%를 먹었다)
-//
-//  ★ 신장 160~180cm 에서 필요 크기가 거의 같다 — 눈이 높아지면 거리도 같이 멀어져 상쇄된다.
-//    한 벌로 전 사용자를 덮는다(실측: 160cm 72px / 180cm 72px).
-//
-//  결과 (러닝 0.687mm/px 기준)
-//    알약  1183×388 → 787×200      81×27cm → 54×14cm     세로 −48% · 가로 −33%
-//    시선점유(콘텐츠 면적 대비)      23.7% → 8.1%
-//    타이틀 98px(0.79°) → 72px(0.56°)  — 임계의 2.8배, ISO 권장의 1.5배로 여전히 여유
-//  유저: "콘텐츠 영역보다 타이틀 영역에 과하게 눈이 간다" → 그 비율이 3배 가까이 내려간다.
-const COMPACT = {
-  ...PROPOSED,
-  // 링은 이제 파생값 — 숫자(fsTimer)와 비례(ringRatio)로 정한다.
-  //   숫자는 1급이라 타이틀과 같은 72px 을 지키고, 링만 2.5 → 1.45 로 조인다.
-  fsTimer: 72, ringRatio: 1.45, pad: 48, gapT: 44,
-  fsTitle: 72, fsTitlePv: 90, fsBadge: 48,
+//  확정안이 어떻게 나왔나 — 감이 아니라 목표 시각도에서 역산했다(docs/FLOOR-LEGIBILITY.md):
+//    1급(타이틀·타이머 숫자)  0.69°   ISO 9241-303 권장(0.37°)의 1.9배
+//    2급(PREVIEW·배지)        0.50°   ISO 권장의 1.35배
+//    절대 하한                0.20°   Legge & Bigelow 2011 임계 활자 크기
+//    링 지름 = 숫자 × 1.6            (2.5 였다 — 링이 알약 높이의 67%를 먹던 값)
+//  결과: 알약 1183×388 → 956×244 · 81×27cm → 66×17cm · 시선점유 23.7% → 13%
+//  ★ 신장 160~180cm 에서 필요 크기가 거의 같다(눈이 높아지면 거리도 멀어져 상쇄) — 한 벌로 덮는다.
+const LEGACY = {
+  fsTimer: 104, ringRatio: 2.5, pad: 64, gapT: 56,
+  fsTitle: 98, fsTitlePv: 124, fsBadge: 44,
+  ember: 1, bgGlow: 1, crumb: 1,
 };
 
 // ── 지면 인스턴스 ─────────────────────────────────────────────────────────
@@ -347,13 +339,13 @@ $('#real').addEventListener('click', () => { zoom = 1; $('#zoom').value = 1; app
 
 function preset(obj, btn) {
   Object.assign(TOK, BASE, obj);
-  document.querySelectorAll('#p-now,#p-new,#p-compact').forEach(b => b.classList.remove('on'));
+  document.querySelectorAll('#p-now,#p-new,#p-legacy').forEach(b => b.classList.remove('on'));
   btn?.classList.add('on');
   syncUI(); reload();
 }
 $('#p-now').addEventListener('click', e => preset({}, e.target));
 $('#p-new').addEventListener('click', e => preset(PROPOSED, e.target));
-$('#p-compact').addEventListener('click', e => preset(COMPACT, e.target));
+$('#p-legacy').addEventListener('click', e => preset(LEGACY, e.target));
 $('#p-reset').addEventListener('click', () => preset({}, $('#p-now')));
 $('#copy').addEventListener('click', () => navigator.clipboard?.writeText($('#dump').value));
 

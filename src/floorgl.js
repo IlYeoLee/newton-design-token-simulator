@@ -694,24 +694,29 @@ export const TOK = {
   //   `countRing` 이 숫자를 `220 × (RR/275) = 0.8 × RR` 로 파생시켜서, 링을 조이면 숫자가 같이
   //   죽었다(유저: 압축안에서 저 안의 타이머가 읽히긴 하냐 → 42px = 0.32°, 1급 미달이었다).
   //   숫자는 타이틀과 같은 1급이므로 시각도 기준(docs/FLOOR-LEGIBILITY.md)에서 직접 정한다.
-  fsTimer: 104,      // 링 안 숫자 (1급) — 이 값만 지키면 링 크기는 자유롭다
-  ringRatio: 1.45,   // 링 지름 ÷ 숫자 폰트. **지금까지 2.5 였다** = 링이 알약 높이의 67%를 먹은 이유
-  pad: 64,           // 알약 안쪽 여백 (상하좌우 동일)
-  gapT: 56,          // 슬롯 사이 간격
+  // ── 확정값 (2026-08-06) — 시각도에서 역산. 근거 전문 docs/FLOOR-LEGIBILITY.md
+  //   1급 0.69° (타이틀·타이머 숫자) · 2급 0.50° (PREVIEW·배지) · 절대 하한 0.20°
+  fsTimer: 88,       // 링 안 숫자 (1급) — 이 값이 정본, 링은 여기서 파생
+  ringRatio: 1.6,    // 링 지름 ÷ 숫자 폰트. **지금까지 2.5 였다** = 링이 알약 높이의 67%를 먹은 이유
+  pad: 52,           // 알약 안쪽 여백 (상하좌우 동일)
+  gapT: 48,          // 슬롯 사이 간격
   gapHP: 96,         // 알약 ↔ 진행 아크
   progH: 155, progW: 820,
   gapPC: 120,        // 진행 ↔ 콘텐츠
   safePad: 48,       // 투사 콘 가장자리에서 띄우는 여백 — 알약·아크가 **같은 값**을 쓴다
   footY: 1980, contentY1: 2330,
   // ── 활자 · 가독 하한은 minFs(y) = 68 − 40·(y/2670) · y176 → 65px(5.8cm)
-  fsTitle: 98,       // 따라하기 (1.5× 하한)
-  fsTitlePv: 124,    // 프리뷰   (1.9× 하한) — 위계는 상자가 아니라 여기가 담당
-  fsBadge: 44, fsUnit: 64, fsCaption: 64,
+  fsTitle: 88,       // 따라하기 1급 0.69°
+  fsTitlePv: 108,    // 프리뷰   1급+ 0.85° — 위계는 상자가 아니라 활자가 담당
+  fsBadge: 64,       // 2급 0.50° — 52 는 0.41° 로 ISO 권장에 겨우 붙어 있었다(유저: 이게 읽히냐)
+  fsUnit: 64, fsCaption: 64,
   // ── 형태 (유리 알약)
   fill: 0.055, blurW: 80, blurA: 0.25,
   rimTop: 0.95, rimMid: 0.22, rimBot: 0.06,
   // ── 색 · **색은 판정만 말한다**. 둘은 다른 물건이라 따로 끈다.
-  ember: 1,          // 알약 안쪽 엠버 4겹 (시작화면 READY 는 이 값과 무관 — 거기선 불이 주인공)
+  // ★ 0 = **색은 판정만 말한다.** 엠버와 판정 토큰이 같은 뉴턴 팔레트라, 화면에 붉은 게 둘이면
+  //   어느 쪽이 '지금 밟아라'인지 구분이 안 된다. 시작화면(READY)은 자체 광을 쓰므로 무관.
+  ember: 0,          // 알약 안쪽 엠버 4겹
   bgGlow: 1,         // 대지 전체 배경 광 (전환·카운트·리포트의 붉은 얼룩)
   // ── 시간 (초)
   hold: 2.8,         // 타이틀 유지 — 이후 알약이 원으로 접힌다
@@ -833,9 +838,37 @@ const CAPS = {
   BK_B4: { watch: 'slow', adv: 'skill', step: '3/4', pv: true, uiK: 0.80 },
   BK_B5: { watch: 'slow', adv: 'skill', step: '4/4', pv: true, uiK: 0.80 },
 };
+/** ── adv 정본 — **CAPS 밖에 둔다.**
+ *  CAPS 는 캡슐 페인터만 조회한다. P·C 스테이지는 `_paint()` 에서 이미 갈라져 레거시 칼럼
+ *  조판으로 가므로 CAPS 안에 있으면 **읽는 사람이 없다**(선언만 있고 죽는다 — variant 가 정확히
+ *  그렇게 죽었다). 페인터를 합치는 대신 **정본을 하나 두고 둘 다 읽게** 한다.
+ *
+ *  값 근거는 전부 session.js STAGES 와 floor-scenes.js 에 이미 있다:
+ *    P1  phases 1개(EASY)                    → time     스테이지 내내 목표가 상수
+ *    P2  phases 2개 (가속10 / 감속4)          → segment  경계가 행동을 바꾼다
+ *    P3  phases 2개 (스프린트30 / 회복20)     → segment
+ *    C1  dur:3                               → count    3·2·1 숫자 하나
+ *    C4  '마지막 1킬로미터'                    → distance 남은 거리
+ *    C5  cooldown, dur 없음                   → none     맞춰야 할 목표가 없다
+ *    BK_B1 cue '10회' · BK_C2 cue '3회'       → reps
+ *    BK_B2~5 dur·phases·회수 전부 없음         → skill    동작을 해내면 넘어간다 */
+const ADV = {
+  // ★ A2 는 'hold'(한 발당 3초 카운트)에서 **'time'(전체 시간)** 으로 내렸다(유저 08-06).
+  //   왜: 한 발씩 초를 부여하면 화면이 발을 바꿀 때를 **명령**한다. 스트레칭 중에 타이머가
+  //   뒤집히면 흐름이 끊기고, 느린 사용자에겐 '못 맞췄다'로 읽힌다. 전체 시간만 주면
+  //   "이 시간 안에 양발" 이 되어 페이스가 사용자에게 남는다 — 유저 판단도 같다(강제보다 전체시간).
+  //   어느 발인지는 **발자국이 켜지는 것**과 타이틀 접두사(RIGHT/LEFT)가 이미 말한다.
+  //   순서는 오른발 → 왼발 (main.js a2Cyc.isLeft).
+  A1: 'time', A2: 'time', A3: 'time',
+  P1: 'time', P2: 'segment', P3: 'segment',
+  C1: 'count', C2: 'time', C3: 'time', C4: 'distance', C5: 'none',
+  BK_A1: 'time', BK_A3: 'time', BK_B1: 'reps',
+  BK_B2: 'skill', BK_B3: 'skill', BK_B4: 'skill', BK_B5: 'skill',
+  BK_C1: 'count', BK_C2: 'reps',
+};
 /** 이 장면이 **따라하기 구간에** 두는 시간 표시. 관찰(프리뷰) 카운트는 여기 해당 없음 —
  *  그건 '영상이 몇 초 남았나'라는 다른 값이라 중복이 아니다. */
-const advOf = s => CAPS[s]?.adv || 'time';
+const advOf = s => ADV[s] || CAPS[s]?.adv || 'time';
 const showArc  = s => advOf(s) === 'time';                       // 아크 = time 에서만
 const showRing = s => ['segment', 'hold', 'reps'].includes(advOf(s));   // 링 = 셀 게 따로 있을 때만
 /** 관찰(프리뷰) 구간이 있는 스테이지인가 — 정본은 CAPS 한 곳뿐이다. */
@@ -1126,7 +1159,12 @@ function buildScene(stage, p) {
   // 실전 상단 — 케이던스 팩은 누적 거리, 페이스 팩은 '목표 대비 지금 몇 초'.
   //   페이스 팩에서 누적 거리를 안 쓰는 이유: 달리는 중에 필요한 건 이미 한 양이 아니라 남은 양이다
   //   (남은 거리는 아래 paceSub 로 내려간다). 누적은 리포트에서 볼 값.
-  if (isC) col.push(PACE_PACK ? node('pace-err', { type: 'paceErr' }) : node('km', { type: 'km' }));
+  // ★ 큰 숫자 자리는 **adv 가 'distance' 인 장면에만**(= C4 마지막 스퍼트).
+  //   C2·C3 의 누적 km 는 잉여다 — 달리는 중에 "2.40km 왔다"는 다음 행동을 안 바꾸고,
+  //   SPM(172px) 과 거의 같은 크기(180px)라 어디를 볼지도 안 정해졌다(유저).
+  //   C5(쿨다운)는 adv 'none' — 맞춰야 할 목표 자체가 없다.
+  if (isC && (PACE_PACK || advOf(stage) === 'distance'))
+    col.push(PACE_PACK ? node('pace-err', { type: 'paceErr' }) : node('km', { type: 'km', remain: true }));
   // ★ 레거시 prevRow 폐기(유저: 농구는 러닝 디자인시스템조차 적용 안 된 것 같다).
   //   'PREVIEW →' 알약 + 별도 카운트 링은 **헤더(capHead)의 카운트 링과 같은 값을 두 번** 말한다.
   //   관찰 카운트다운은 헤더 링이 전담한다 — 캡슐 경로(_paint_capsule)와 같은 규약.
@@ -1500,6 +1538,15 @@ export class FloorGL {
   }
 
   /** 헤더 알약 규격(구식) — _row 로 옮기는 중. 승인 전까지 기존 두 페인터가 이걸 계속 쓴다. */
+  /** 게이지 값이 링 안에 들어가려면 반지름이 얼마여야 하나 — 값 폭에서 파생.
+   *  '3' 은 원, '4/10' 은 큰 원. 링이 값을 담는 그릇이지 값이 링에 맞추는 게 아니다. */
+  _ringRFor(rem, K2 = 1) {
+    const ctx = this.ctx, nf = TOK.fsTimer;
+    ctx.font = F(700, nf, dot9);
+    const tw = ctx.measureText(String(rem ?? '')).width;
+    return Math.max(TOK.ring, tw / 2 + nf * 0.34);   // 값 반폭 + 링과의 여백
+  }
+
   /** @param o.fs     타이틀 활자 크기 (프리뷰는 더 크다). 없으면 LAYOUT.TYPE.title
    *  @param o.ringK  링 슬롯 점유 0~1. **0 이면 링 자리가 통째로 사라지고 알약이 그만큼 닫힌다.**
    *    ★ 알약은 HUG 다(유저) — 내용이 상자를 정한다. 링이 빠지면 상자도 같이 줄어야 하고,
@@ -1510,7 +1557,10 @@ export class FloorGL {
     //   ★ 알약 높이·활자·여백이 **한 배율로 같이** 줄어야 비례가 안 깨진다. 하나만 줄이면
     //     "작아진 시스템"이 아니라 "다른 컴포넌트"가 된다.
     const K2 = CAPS[this.stage]?.uiK ?? 1;
-    const PAD = Math.round(H2.pad * K2), RR = Math.round(TOK.ring * K2);
+    // ★ 링도 HUG — 값이 '4/10' 처럼 길어지면 원이 그만큼 커진다. 안 그러면 글자가 링을 넘는다
+    //   (유저 스샷). 숫자를 줄여 맞추는 건 안 된다: 1급(0.69°)이 2급 아래로 떨어진다.
+    const PAD = Math.round(H2.pad * K2);
+    const RR = Math.round(Math.max(TOK.ring, o.ringR ?? 0) * K2);
     this._uiK = K2; this._headRR = RR; this._headPAD = PAD;
     const fs = (o.fs ?? LAYOUT.TYPE.title) * K2;
     const ringK = clamp01(o.ringK ?? 1);
@@ -1551,6 +1601,44 @@ export class FloorGL {
     } };
   }
 
+  /** 게이지 값 — **정본 하나.** `_capHead`(레거시 칼럼)와 `_paint_capsule` 이 같이 쓴다.
+   *  ★ 이걸 안 합쳐서 BK_B1 이 '7/10' 대신 '3' 으로 나왔다 — capHead 에만 adv 를 물리고
+   *    캡슐 페인터는 옛 식을 그대로 두었기 때문이다. 오늘 내내 나온 그 사고(정본이 두 벌)를
+   *    또 만든 것이라, 값 계산을 여기 한 곳으로 못박는다.
+   *  adv 가 '무엇을 세는지'를 정하고 여기선 { prog(남은 비율), rem(표시값) } 만 내놓는다. */
+  _gaugeVal({ PV, dur, inPv, pvEnd, perFoot, hs, hp, pfK }) {
+    const t = this.t, AV = advOf(this.stage);
+    const stageRest = clamp01(1 - (t - PV) / Math.max(.1, dur - PV));
+    if (perFoot) {   // A2 한 발 홀드 — 봇 사이클(a2Cyc)이 정본. 발이 바뀌면 리셋된다.
+      return { AV, prog: stageRest + ((1 - hp) - stageRest) * (pfK ?? 1),
+               rem: String(Math.max(0, Math.ceil(hs * (1 - hp)))) };
+    }
+    if (inPv) {   // 관찰 — '영상이 몇 초 남았나'. adv 와 무관한 고유 값이라 항상 이 값을 센다.
+      const end = pvEnd ?? PV;
+      return { AV, prog: clamp01(1 - t / Math.max(.1, PV)), rem: String(Math.max(1, Math.ceil(end - t))) };
+    }
+    if (AV === 'segment') {
+      // P2·P3 — 스테이지 전체가 아니라 **지금 구간**이 단위다(가속 10초 / 스프린트 30초 …).
+      //   "10초만 가속"인데 몇 초 남았는지 모르면 언제 풀지를 정할 수 없다(유저).
+      //   ★ 값은 이미 매 프레임 tp-arc/tp-num 으로 들어오고 있었다. 그런데 `_trainRow` 의 링
+      //     분기가 `n.ring` 을 한 번도 안 받아서 그리질 않았다(죽은 노드). 여기로 잇는다.
+      //     `_trainRow` 쪽 링은 안 되살린다 — 그러면 타이머가 다시 둘이 된다(유저 #177).
+      const arc = this.map.get('tp-arc');
+      const el = 1 - numOr(arc?.style.strokeDashoffset, 1727.9) / 1727.9;
+      return { AV, prog: clamp01(1 - el), rem: this.map.get('tp-num')?.textContent || '—' };
+    }
+    if (AV === 'reps') {
+      // 횟수형 — 값 자체가 'n/N'. 그래서 단위 라벨이 필요 없다.
+      //   ★ 지금은 진행도에서 역산한 자리표시다. 실제 판정 카운터가 map 에 'rep-n' 을 써 주면
+      //     그 값이 우선한다.
+      const N = CAPS[this.stage]?.reps || 10;
+      const done = numOr(this.map.get('rep-n')?.textContent,
+                         Math.round(clamp01((t - PV) / Math.max(.1, dur - PV)) * N));
+      return { AV, prog: clamp01(1 - done / N), rem: done + '/' + N };
+    }
+    return { AV, prog: stageRest, rem: String(Math.max(0, Math.ceil(dur - t))) };
+  }
+
   _capHead(n, y) {
     // ★ 위계 정정(유저: 타이머도 개 작아지고 sec 보이지도 않고 타이틀도 줄었다 — 이게 맞냐).
     //   맞지 않았다. 250 높이 알약에 셋을 우겨넣어 전부 작아졌고, 특히 **타이머 숫자(67)가
@@ -1564,22 +1652,31 @@ export class FloorGL {
     //   pad 44 를 상하좌우에 동일하게 쓰고(HH = 링지름 + pad*2), 폭은 실측 텍스트에서 만든다.
     const ctx = this.ctx;
     const T = String(n.title || '').toUpperCase();   // 코칭 타이틀 = 대문자(유저)
-    const { w: W2, h: HH, x, x0, RR, PAD, gapT: GT, K2, H2 } = this._headBox(T, n.step, y);
+    // 값을 **먼저** 구한다 — 링 크기가 값 폭에서 나오므로(HUG) 박스보다 앞서야 한다.
+    const _dur0 = n.dur || 8, _PV0 = n.pv || 0;
+    const _g = this._gaugeVal({ PV: _PV0, dur: _dur0, inPv: _PV0 > 0 && this.t < _PV0 });
+    const { w: W2, h: HH, x, x0, RR, PAD, gapT: GT, K2, H2 }
+      = this._headBox(T, n.step, y, { ringR: this._ringRFor(_g.rem) });
     this._glassPill(x, y, W2, HH, HH / 2);
     // 카운트 링 — 정본 컴포넌트 그대로(형태 변환 없음, 자리만 여기다)
     //   ★ x+PAD 가 아니라 **x0**(내용 묶음의 좌단) 에서 시작한다 — 남는 폭이 한쪽에 안 쌓인다.
     const cyR = y + HH / 2, cxR = x0 + RR;
     // 관찰 구간(pv초)엔 3·2·1, 이후엔 남은 시간 — 캡슐 경로와 같은 규약(값이 두 곳에서 안 갈린다).
-    const dur = n.dur || 8, PV = n.pv || 0, inPv = PV > 0 && this.t < PV;
-    const rem = inPv ? Math.max(1, Math.ceil(PV - this.t)) : Math.max(0, Math.ceil(dur - this.t));
-    if (String(rem) !== this._numLast2) { this._numLast2 = String(rem); this._numT2 = this.t; }
-    countRing(ctx, cxR, cyR, inPv ? clamp01(1 - this.t / PV) : clamp01(1 - (this.t - PV) / Math.max(.1, dur - PV)), String(rem),
+    const dur = _dur0, PV = _PV0;
+    // ★ 게이지 슬롯은 **무엇을 세는지 모른다** — {prog, value, unit} 만 받는다.
+    //   무엇을 세느냐는 adv 가 정한다. 그래서 장면마다 화면이 달라지지만 컴포넌트는 하나다.
+    const { prog, rem } = _g;
+    if (rem !== this._numLast2) { this._numLast2 = rem; this._numT2 = this.t; }
+    countRing(ctx, cxR, cyR, prog, rem,
       { t: 99, k: RR / 275, numFs: TOK.fsTimer * K2, pulse: clamp01((this.t - (this._numT2 || 0)) / 0.5),
         ring: { trackW: 10, arcW: 10, trackA: .26 } });
-    ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillStyle = 'rgba(255,255,255,.62)'; ctx.font = F(400, 46);
-    ctx.fillText('sec', cxR, cyR + RR * .55);
+    // ★ 'sec' 라벨 폐기(유저: 1 아래 저 글씨가 읽히냐 — 에바 아니냐).
+    //   실측 30px = 1.48cm = **0.23°**. Legge 임계(0.20°)를 겨우 넘고 ISO 권장(0.37°)의 0.63배다.
+    //   움직이는 저대비 바닥에서는 정보가 아니라 장식이다. 링 안에 2급 크기를 넣을 자리도 없다.
+    //   대신 **값이 스스로 단위를 말하게** 한다:
+    //     시간형  링이 도는 것 자체가 시간이다 → 숫자만
+    //     횟수형  값을 '7/10' 으로 쓴다 → 분모가 단위 노릇을 한다
+    //   이러면 못 읽는 마이크로 라벨이 사라지고, 구분이 필요한 곳에서만 구분된다.
     ctx.textAlign = 'left';
     // 52 → 72(유저: 타이틀이 너무 작다). 최장 'Neck & Shoulders' 가 72px 에서 543px —
     //   폭 1000 의 타이틀 예산(≈560) 안에 들어간다. y176 안전폭은 2174 라 여유는 충분하다.
@@ -1678,7 +1775,9 @@ export class FloorGL {
   //     ③ 라벨은 작고 조용하게, 값의 주인공 자리를 뺏지 않는다
   //   활자 규약(유저 확정): **숫자만 도트(OffBit), 라벨·단위는 본문 영문(Supreme).**
   //   세로 조판 상수는 아래 LSTAT_* — 예약 높이(lstatH)가 같은 식을 쓴다.
-  _lstat(cx, y, me, tgt, label, wide) {
+  /** @param noBar 목표가 없는 장면(C5 쿨다운)은 편차 눈금 자체를 뺀다 — 맞출 게 없는데
+   *    눈금이 있으면 '틀렸다'로 읽힌다(유저). 값 하나만 사실 보고로 남긴다. */
+  _lstat(cx, y, me, tgt, label, wide, noBar) {
     const ctx = this.ctx;
     const mv = statVal(me), tv = statVal(tgt);
     const ok = Number.isFinite(mv) && Number.isFinite(tv) && tv > 0;
@@ -1706,7 +1805,7 @@ export class FloorGL {
     rollNum(ctx, me || '--', this.t, 0, 0.6, cx, y, NFS,
             { fam: dot9, align: 'center', fill: NEU.paper });
     // ② 편차 바 — 가운데 눈금이 목표, 점이 현재. 관계를 '위치'로 읽는다. (_devBar 공용)
-    this._devBar(cx, BY, BW, dev / 0.12, col, ok);
+    if (!noBar) this._devBar(cx, BY, BW, dev / 0.12, col, ok);
     // ③ 라벨 — 본문 영문. 숫자가 아니므로 도트 금지(유저 규약).
     ctx.font = F(400, LSTAT_LFS); ctx.letterSpacing = '7px';   // 34 → 58 (minFs(y≈817)=56) — 안 읽히던 라벨
     ctx.fillStyle = rgba(NEU.paper, 0.6);
@@ -1730,7 +1829,11 @@ export class FloorGL {
     //   계산되는 값이라 둘이 같은 말을 한다 — 이 파일 위쪽 PACE_PACK 주석이 이미 지적해 둔 것.
     //   칼럼이 없어지니 눈금도 232 짜리 옹졸한 폭 대신 단독 규격(620)을 쓴다.
     const g = id => this.map.get(id)?.textContent;
-    this._lstat(CX, y, g('spm-me'), g('spm-tgt'), 'SPM', true);
+    // ★ 쿨다운(C5)엔 **맞춰야 할 목표가 없다**(유저). 지금은 C2~C4 와 같은 목표 SPM 상수를 써서
+    //   제대로 감속할수록 지시선이 왼쪽 끝으로 밀리고 빨개진다 — 정반대 신호다.
+    //   목표를 빼면 내 SPM 만 남는다(= '지금 이 속도' 라는 사실 보고). 완료는 진동·음성이 말한다.
+    const noTarget = advOf(this.stage) === 'none';
+    this._lstat(CX, y, g('spm-me'), noTarget ? null : g('spm-tgt'), 'SPM', true, noTarget);
   }
 
   // 편차 바 — 가운데 눈금이 목표, 점이 현재. _lstat 과 같은 물건이라 규칙을 한 곳에 둔다.
@@ -1821,16 +1924,23 @@ export class FloorGL {
     const ctx = this.ctx;
     ctx.textBaseline = 'top'; ctx.textAlign = 'center'; ctx.fillStyle = '#fff';
     // 활자 규약(유저 확정): 숫자만 도트, 단위 'km' 은 본문 영문. 크기도 낮춰 값이 주인공이 되게.
-    const v = this.map.get('km-n')?.textContent || '0.00';
+    // ★ 스퍼트에서 필요한 건 **남은 양**이지 지나온 양이 아니다(유저). 씬 이름이 'Final
+    //   Kilometer' 이고 음성이 "여기서부터 마지막 1킬로미터"라고 말하는데 화면은 누적 2.40km 를
+    //   보여주고 있었다. km-tgt(목표 거리)는 main.js 가 이미 채우고 있다 — 빼기만 하면 된다.
+    const cum = numOr(this.map.get('km-n')?.textContent, 0);
+    const tgt = numOr(this.map.get('km-tgt')?.textContent, 0);
+    const useRemain = n.remain && tgt > 0;
+    const v = useRemain ? Math.max(0, tgt - cum).toFixed(2)
+                        : (this.map.get('km-n')?.textContent || '0.00');
     const wv = rollWidth(ctx, v, 180);   // 소수점이 본문 영문이라 도트 한 서체로 재면 어긋난다
-    ctx.font = F(400, 78); const wu = ctx.measureText(' km').width;
+    const unit = useRemain ? ' km left' : ' km';
+    ctx.font = F(400, 78); const wu = ctx.measureText(unit).width;
     const x0 = CX - (wv + wu) / 2;
     ctx.textAlign = 'left';
-    // 도트 숫자 = 카운트업(유저 규칙). km 은 라이브 중 계속 오르므로, 0.7s 진입 이징 뒤
-    //   실제 값을 따라가며 소수 자리가 계속 굴러간다 — 오도미터와 같은 움직임.
+    // 도트 숫자 = 카운트업(유저 규칙). 0.7s 진입 이징 뒤 실제 값을 따라가며 소수 자리가 굴러간다.
     rollNum(ctx, v, this.t, 0, 0.7, x0, y, 180, { fam: dot9, fill: '#fff' });
     ctx.font = F(400, 78); ctx.fillStyle = rgba(NEU.paper, 0.7);
-    ctx.fillText(' km', x0 + wv, y + 92);
+    ctx.fillText(unit, x0 + wv, y + 92);
   }
 
   // ── 공통 조각 ───────────────────────────────────────────────────────────────
@@ -2620,8 +2730,10 @@ export class FloorGL {
       : 1;
     const ringK = showRing(this.stage) ? 1 : 1 - ringFade;
     const fsNow = TOK.fsTitlePv + (LAYOUT.TYPE.title - TOK.fsTitlePv) * moT;
+    const _g = this._gaugeVal({ PV, dur, inPv: mo < .5, pvEnd: Math.max(PV, this._moT ?? PV),
+                                perFoot, hs, hp, pfK: perFoot ? clamp01((t - (this._pfT ?? t)) / 0.35) : 0 });
     const { w: WHp, h: HHp, inner: INNER, ringW: RINGW, RR: RRp, PAD, gapT: GT, K2, H2 }
-      = this._headBox(title, cfg.step, LAYOUT.HEAD.y, { fs: fsNow, ringK });
+      = this._headBox(title, cfg.step, LAYOUT.HEAD.y, { fs: fsNow, ringK, ringR: this._ringRFor(_g.rem) });
     const w1 = WHp, h1 = HHp, y1 = H2.y;
     // ★ 진입 = **시작화면 캡슐이 줄어드는 것**(유저: 두 번 탭하면 같은 요소가 줄어들며 넘어간다).
     //   스테이지가 바뀔 때 캡슐을 새로 띄우면 '다른 물건이 나타난' 걸로 읽힌다. READY 캡슐
@@ -2648,18 +2760,17 @@ export class FloorGL {
     if (perFoot && this._pfT == null) this._pfT = t;
     if (!perFoot) this._pfT = null;
     const pfK = perFoot ? clamp01((t - this._pfT) / 0.35) : 0;
-    const rem = perFoot ? Math.max(0, Math.ceil(hs * (1 - hp)))
-      : (mo < .5 ? Math.max(1, Math.ceil(Math.max(PV, (this._moT ?? PV)) - t)) : Math.max(0, Math.ceil(dur - t)));
-    if (String(rem) !== this._numLast2) { this._numLast2 = String(rem); this._numT2 = t; }
+    // 게이지 값 = **공통 헬퍼**. 여기 따로 적으면 capHead 와 갈린다(BK_B1 이 '7/10' 대신 '3'으로
+    //   나왔던 게 정확히 그 사고다).
+    const { prog: gProg, rem } = _g;
+    if (rem !== this._numLast2) { this._numLast2 = rem; this._numT2 = t; }
     // ★ 링을 언제 그리나 — **관찰 중이면 항상**(그건 '영상 몇 초 남았나'라는 고유한 값이다).
     //   따라하기로 넘어가면 `adv` 가 정한다:
     //     time  아크가 이미 같은 시계를 센다 → 링을 빼야 중복이 사라진다
     //     skill 시간 개념 자체가 없다(스텝을 해내면 넘어간다) → 아무 시계도 안 둔다
     //     hold/segment/reps  셀 게 따로 있다 → 링이 그걸 센다
-    if (ringK > 0.004) countRing(ctx, rx, ry2,
-      (() => { const base = mo < .5 ? clamp01(1 - t / PV) : clamp01(1 - (t - PV) / Math.max(.1, dur - PV));
-               return perFoot ? base + ((1 - hp) - base) * pfK : base; })(),
-      String(rem), { t: 99, k: RR / 275, numFs: TOK.fsTimer * K2, pulse: clamp01((t - (this._numT2 || 0)) / 0.5),
+    if (ringK > 0.004) countRing(ctx, rx, ry2, gProg,
+      rem, { t: 99, k: RR / 275, numFs: TOK.fsTimer * K2, pulse: clamp01((t - (this._numT2 || 0)) / 0.5),
                      alpha: ringK,   // 흐려지는 속도 = 알약이 닫히는 속도 (같은 값)
                      ring: { trackW: 11, arcW: 11, trackA: .26 } });
     // PREVIEW 라벨 · 동작명 — 순차 크로스페이드(옛 것이 먼저 빠지고 새 것이 든다)
@@ -2682,11 +2793,15 @@ export class FloorGL {
           const w2 = title.split(' '); const m = Math.ceil(w2.length / 2);
           return [w2.slice(0, m).join(' '), w2.slice(m).join(' ')]; })();
     // 'Preview' 라벨 — 전환 시작과 함께 빠진다(한 줄짜리 요소라 페이드로 충분).
+    // ★ 알약 **밖 위쪽**에 놓는다(유저 스샷: 알약이 작아지자 타이틀과 겹쳤다).
+    //   전엔 `y + h*.15` 분수라 상자가 900→200 으로 줄자 그대로 글자 위로 올라탔다.
+    //   한 줄짜리 알약 안에 kicker 를 넣을 자리는 없다 — 섹션 라벨로 위에 세우는 게 맞다.
     if (mo < .999) {
       ctx.save(); ctx.globalAlpha *= eQ(1 - clamp01(mo / .42));
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillStyle = 'rgba(255,255,255,.7)'; ctx.font = F(400, 72); ctx.letterSpacing = '2px';
-      ctx.fillText('Preview', CX + 3, y + h * .15 - 26 * mo);
+      ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+      const pf = TOK.fsBadge * K2;
+      ctx.fillStyle = 'rgba(255,255,255,.7)'; ctx.font = F(400, pf); ctx.letterSpacing = '2px';
+      ctx.fillText('PREVIEW', CX, y - pf * 0.45 - 12 * mo);
       ctx.letterSpacing = '0px'; ctx.restore();
     }
     // ★ 타이틀 = **한 물체가 계속 움직인다**(유저: 중간다리 없이 매끄럽게).
@@ -2713,18 +2828,18 @@ export class FloorGL {
       const fs = (TOK.fsTitlePv + (LAYOUT.TYPE.title - TOK.fsTitlePv) * moT) * K2;
       ctx.font = F(700, fs); ctx.letterSpacing = (-5 + 1 * moT).toFixed(2) + 'px';
       const tw2 = ctx.measureText(title).width;
-      const x0t = (CX - tw2 / 2) + (dstX - (CX - tw2 / 2)) * moT;
-      const y0t = (y + h * .40) + (dstY - (y + h * .40)) * moT;
+      // ★ 프리뷰도 **같은 행**에 앉는다. 전엔 시작점이 (CX − tw/2) = 알약 가운데였는데,
+      //   링은 왼쪽 슬롯에 있으므로 관찰 구간 내내 타이틀이 링을 덮었다(유저 스샷: 2CALF STRETCH).
+      //   세로 3단 쌓기를 걷어내면서 남은 마지막 잔재다 — 프리뷰/따라하기 차이는 **활자 크기뿐**.
       ctx.textAlign = 'left';
-      fitDraw(title, x0t, y0t);
+      fitDraw(title, dstX, dstY);
     } else {
       const outA = eQ(1 - clamp01(moT / .48)), inA = eQ((moT - .46) / .54);
       ctx.textAlign = 'center';
       if (outA > 0) {
-        ctx.save(); ctx.globalAlpha *= outA;
-        ctx.translate((dstX - CX) * .32 * moT, (dstY - (y + h * .40)) * .32 * moT);
+        ctx.save(); ctx.globalAlpha *= outA;   // 2줄 분기 — 위치는 이제 안 움직인다(같은 행)
         ctx.letterSpacing = '-5px'; ctx.font = F(700, TOK.fsTitlePv * K2);
-        ls.forEach((ln, i) => ctx.fillText(ln, CX, y + h * .40 + (i - (ls.length - 1) / 2) * 136));
+        ls.forEach((ln, i) => ctx.fillText(ln, dstX, dstY + (i - (ls.length - 1) / 2) * fsNow * 1.15));
         ctx.restore();
       }
       if (inA > 0) {
@@ -2860,10 +2975,13 @@ export class FloorGL {
     // 벽 타이머와 같은 규칙 — 정렬 기준은 '타이틀+링 블록'이 아니라 **링**이다.
     //   블록을 top 600 에 놓으면 링 중심이 글로우 중심보다 73px 내려가 빨강이 링 윗동만 덮었다(유저).
     //   링 중심 = 글로우 중심으로 못 박고 타이틀은 GAP 만큼 위에. GAP 88 → 48.
-    const GLOW_Y = 1160, RING = 604, GAP = 48, TGH = 64 * 1.2 + 8.8 + 140 * 1.05;
+    // ★ 3초 출발 카운트에 필요한 건 **숫자 하나**다(유저). 부제·제목을 뺐다 —
+    //   "곧 시작할 구간"은 바로 앞 전환 화면(T2)과 음성이 이미 말했고, 3초 동안 내 행동을
+    //   바꾸는 값은 카운트뿐이다. adv:'count' 규약과 같은 판단.
+    //   배경 광은 남긴다 — 정보가 아니라 '시작한다'는 분위기다.
+    const GLOW_Y = 1160, RING = 604;
     this._bgGlow(GLOW_Y);
-    const y = this._titleGroup(GLOW_Y - RING / 2 - GAP - TGH, M.sub, M.title) + GAP;
-    const cy = y + RING / 2, rem = dur - t, txt = rem > 0.05 ? String(Math.ceil(rem)) : 'GO';
+    const cy = GLOW_Y, rem = dur - t, txt = rem > 0.05 ? String(Math.ceil(rem)) : 'GO';
     // ★ 여기 있던 링·숫자·모션 코드가 countRing 정본 컴포넌트가 됐다(유저: 컴포넌트 자체를 재사용).
     //   출력은 동일 — 규격(604·220)과 모션(ringPop·breath·numPulse)을 그대로 옮겼다.
     if (txt !== this._numLast) { this._numLast = txt; this._numT = t; }

@@ -4214,7 +4214,8 @@ void main(){
         const _hs = Math.max(0, Math.min(1, (c - DESC) / 0.6)), _he = Math.max(0, Math.min(1, (DESC + HOLD - c) / 0.6));
         xbot.lungeDeepen = 0.35 * Math.min(_hs, _he);
         session.a2Cyc = { inHold: c >= DESC && c < DESC + HOLD, prog: Math.max(0, Math.min(1, (c - DESC) / HOLD)),
-          holdSec: HOLD, isLeft: (Math.floor(tt / CYC) % 2) === 0, descending: c < DESC };
+          //   ★ **오른발 먼저**(유저 08-06) — 첫 사이클이 왼발이었다. 짝수 회차 = 오른발.
+          holdSec: HOLD, isLeft: (Math.floor(tt / CYC) % 2) === 1, descending: c < DESC };
         }
       }
       // A1 옆구리 = hj_sidebend(26s 루틴) 루프. 자연 속도는 코치 영상(핑퐁 6.9s 주기)보다 느려
