@@ -24,7 +24,7 @@ import { WallGL } from './wallgl.js';     // 복싱 벽 UI WebGL 이식(같은 B
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { CSS3DRenderer, CSS3DObject } from 'three/examples/jsm/renderers/CSS3DRenderer.js';
 import { getLUT, FXP, rebuildLUT, lutColor, GLYPHS, FX_GLSL, DEFAULT_GLYPHS, GLYPH_REV, mergeGlyphs, ensureOffBit, drawGlyph } from './fxlut.js';
-import { drawRotate, PERSON_GLSL, CUT_FEATHER_GLSL, REF_LOOK_GLSL } from './fx-core.js';
+import { drawRotate, drawStemArrow, PERSON_GLSL, CUT_FEATHER_GLSL, REF_LOOK_GLSL } from './fx-core.js';
 import { createEditor3D } from './editor3d.js';
 import { LiveUI } from './liveui.js';
 import { SceneUI } from './sceneui.js';
@@ -2718,6 +2718,27 @@ void main(){
       // 어깨 회전 방향 = 좌우 미러(유저 스케치): 왼어깨 반시계 · 오른어깨 시계 (대칭 롤)
       co.rotCues[0].dir = 1; co.rotCues[1].dir = -1; co.rotCues[2].dir = 1;
     }
+    // A2 런지: **코치 판 위**에 방향 큐 2개(유저 스케치 #145) — 지면 발자국 옆이 아니라 인물에 붙는다.
+    //   A1 회전 큐와 같은 구조(부모=코치 plane · 노멀 블렌딩 · renderOrder 30 · 판 블룸)에
+    //   그림만 drawStemArrow(LINE 토큰 정본)로 바꾼다. 새 문법을 만들지 않는다.
+    //   방향(패널 로컬 +y=머리쪽): 뒷다리 = 왼쪽·아래(다리 선을 따라 쭉) · 앞무릎 = 아래(눌러 굽혀).
+    if (id === 'A2') {
+      const mkArr = (len, x, y, rotZ) => {
+        const cv = document.createElement('canvas'); cv.width = 128; cv.height = 256;
+        const g = cv.getContext('2d');
+        const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace;
+        const mesh = new THREE.Mesh(new THREE.PlaneGeometry(len * 0.5, len),
+          new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, depthTest: true,
+            blending: THREE.NormalBlending }));
+        mesh.position.set(x, y, 0.02);
+        mesh.rotation.z = rotZ;      // 화살표는 로컬 +Y 로 뻗는다 → 방향 = (−sinθ, cosθ)
+        mesh.renderOrder = 30;
+        plane.add(mesh);
+        return { g, tex, mesh };
+      };
+      co.a2Cues = [mkArr(0.30, -0.17, -0.03, 2.03),   // 뒷다리 — 왼쪽·아래(−0.9,−0.35)
+                   mkArr(0.22, 0.17, -0.06, Math.PI)]; // 앞무릎 — 아래(0,−1)
+    }
     return co;
   }
   // 시크 직전 프레임 고정 / 새 프레임 도착 시 해제 — 루프 순간 검은 깜빡임 방지
@@ -2929,6 +2950,32 @@ void main(){
               c.g.restore(); c.g.filter = 'none'; c.g.globalAlpha = 1;
               c.tex.needsUpdate = true;
             }
+          });
+        }
+        if (co.a2Cues) {   // A2 방향 큐 — 코치 판이 보이는 동안 계속(시범을 보며 방향을 읽는다)
+          const now2 = performance.now() / 1000;
+          const PERC = 1.8, cyc = (now2 % PERC) / PERC;
+          const u = Math.min(1, cyc / 0.72);
+          const prog = cyc < 0.72 ? 1 - Math.pow(1 - u, 3) : 1;
+          const fade = cyc < 0.72 ? 1 : 1 - (cyc - 0.72) / 0.28;
+          co.a2Cues.forEach(c => {
+            c.mesh.visible = co.plane.visible;
+            if (!c.mesh.visible) return;
+            c.mesh.material.opacity = Math.max(0, fade);
+            const off = (c._bloomCv ||= document.createElement('canvas'));
+            if (off.width !== 128) { off.width = 128; off.height = 256; }
+            const og = off.getContext('2d');
+            og.setTransform(1, 0, 0, 1, 0, 0); og.clearRect(0, 0, 128, 256);
+            drawStemArrow(og, 128, 256, now2, { lut: lutColor, glyph: drawGlyph, arrow: FXP.arrow || {} },
+              { prog, scale: 0.9 });
+            c.g.setTransform(1, 0, 0, 1, 0, 0); c.g.clearRect(0, 0, 128, 256);
+            c.g.drawImage(off, 0, 0);
+            const bk2 = FXP.primBloom != null ? FXP.primBloom : 0.125;
+            c.g.save(); c.g.globalCompositeOperation = 'lighter';
+            c.g.filter = 'blur(2px)'; c.g.globalAlpha = Math.min(0.8, bk2 * 2.4); c.g.drawImage(off, 0, 0);
+            c.g.filter = 'blur(7px)'; c.g.globalAlpha = Math.min(0.7, bk2 * 2.0); c.g.drawImage(off, 0, 0);
+            c.g.restore(); c.g.filter = 'none'; c.g.globalAlpha = 1;
+            c.tex.needsUpdate = true;
           });
         }
         if (floorObj.userData.shown) {   // CSS3D·WebGL 어느 경로든 프레임이 떠 있으면 코치 패널도 같은 기준계
