@@ -754,7 +754,9 @@ export const TOK = {
   fade: 0.35,        // 글자 페이드아웃
   morph: 0.9,
   // ── 표시 스위치 (갤러리 대조용)
-  collapse: 0,       // 1 = 유지 시간 뒤 알약을 원으로 접는다
+  // ★ 1 = 유지 시간 뒤 타이틀이 빠진다(유저: 처음엔 이지런이 나왔다가 글자가 자연스럽게
+  //   사라지며 타이머만 남으면 된다). 남는 게 링이면 원으로 접히고, 링도 없으면 알약째 접힌다.
+  collapse: 1,
   crumb: 1,          // 1 = 운동 중 브레드크럼 표시
 };
 // ★ 알약은 **예약 높이와 실제 그리는 높이가 반드시 같아야 한다**. 250 으로 예약하고 388 을
@@ -1228,7 +1230,13 @@ function buildScene(stage, p) {
   //     P 는 헤더(capHead)의 카운트 링이 '남은 초'를 숫자와 링으로 이미 전담한다. 그 아래
   //     아크까지 두면 같은 값을 두 번 그리는 것이고, 알약 바로 밑이라 한 덩어리로 붙어 보였다.
   //     실전(C)은 헤더가 없어 이 아크가 유일한 진행 표시라 그대로 둔다.
-  if (!isStep && !isP) col.push(node('s-dots', { type: 'dots', mt: -38, dur: p.dur || 8, hideUntil: hasPrev ? (p.pv || 3) + 0.5 : 0, delay: hasPrev ? (p.pv || 3) + 0.15 : 0 }));
+  // ★ P 를 통째로 빼던 것을 **adv 로** 바꾼다. 예전엔 '헤더 링이 남은 초를 전담하니 아크는
+  //   중복'이라 뺐는데, adv:'time' 인 장면은 이제 **링을 안 쓴다** — 그러면 아크가 유일한 시계다.
+  //   유저: 복싱에서 세션 시간은 가로형 프로그래스 토큰인데 이지런도 한 세션이니 그래야 하지 않나.
+  //   맞다. P1(단일 구간)은 아크가, P2·P3(구간 2개)은 링이 센다 — 어느 쪽이든 **하나뿐**이다.
+  // ★ 아크는 **adv 'time' 인 장면에만**. 예전엔 isStep·isP 만 걸러서 BK_C2(reps)가 링과 아크를
+  //   둘 다 그렸다(감사 실측) — 같은 장면에 시계가 둘이 되는 그 사고다.
+  if (!isStep && showArc(stage)) col.push(node('s-dots', { type: 'dots', mt: -38, dur: p.dur || 8, hideUntil: hasPrev ? (p.pv || 3) + 0.5 : 0, delay: hasPrev ? (p.pv || 3) + 0.15 : 0 }));
   // ★ 링 제거(유저 #177: 연습할 때 타이머가 2개가 말이 되냐) — P2/P3 의 이 링은 구간 남은
   //   초였는데, 헤더 알약이 이미 '남은 초 + 동작명'을 말한다. 같은 종류의 값이 라벨도 없이
   //   옆에 하나 더 떠 있어서 12 와 7 중 무엇이 진짜 타이머인지 읽을 수 없었다.
@@ -1423,6 +1431,12 @@ export class FloorGL {
 
   // 프리뷰 행은 시범이 끝나면 사라진다(원본 demoOutFlat .45s @ --pvOut = pv + 0.05)
   _outro(n) {
+    // ★ 알약이 접혀 남을 게 없으면 **자리도 비운다** — 안 그러면 아크가 빈 칸 아래에 뜬다.
+    //   칼럼 조판의 "안 보이는 노드는 자리도 안 차지한다" 규약과 같다.
+    if (n.type === 'capHead' && TOK.collapse && !showRing(this.stage)) {
+      const PV = n.pv || 0;
+      return 1 - clamp01((this.t - (PV + TOK.hold)) / Math.max(.05, TOK.fade));
+    }
     return n.type === 'prevRow' ? 1 - clamp01((this.t - (n.pv + 0.05)) / 0.45) : 1;
   }
 
@@ -1741,11 +1755,19 @@ export class FloorGL {
   /** 노드 하나에 대한 알약 상자 — **조판과 그리기가 같이 쓰는 유일한 진입점.**
    *  게이지 값을 먼저 구하고(링 크기가 값 폭에서 나오므로) 그 결과로 상자를 잡는다. */
   _headBoxFor(n, y) {
-    const T = String(n.title || '').toUpperCase();
     const dur = n.dur || 8, PV = n.pv || 0;
-    const g = this._gaugeVal({ PV, dur, inPv: PV > 0 && this.t < PV });
-    const box = this._headBox(T, n.step, y, { ringR: this._ringRFor(g.rem) });
-    return { ...box, T, dur, PV, g };
+    const inPv = PV > 0 && this.t < PV;
+    const g = this._gaugeVal({ PV, dur, inPv });
+    // ★ 접힘 — 타이틀은 **진입 정보**다. 유지 시간이 지나면 빠지고 시계만 남는다
+    //   (유저: 처음엔 이지런이 나왔다가 글자가 자연스럽게 사라지며 타이머만 남으면 된다).
+    //   관찰 구간엔 안 접는다 — 거기선 동작명이 그 화면의 전부다.
+    const tA = (TOK.collapse && !inPv)
+      ? 1 - clamp01((this.t - (PV + TOK.hold)) / Math.max(.05, TOK.fade)) : 1;
+    // 링은 adv 가 정한다 — 관찰 중이면 항상(영상 남은 시간은 고유 값이라 중복이 아니다).
+    const ringK = (inPv || showRing(this.stage)) ? 1 : 0;
+    const T = tA > 0.004 ? String(n.title || '').toUpperCase() : '';
+    const box = this._headBox(T, n.step, y, { ringR: this._ringRFor(g.rem), ringK });
+    return { ...box, T, tA, ringK, dur, PV, inPv, g };
   }
 
   _capHead(n, y) {
@@ -1761,8 +1783,11 @@ export class FloorGL {
     //   pad 44 를 상하좌우에 동일하게 쓰고(HH = 링지름 + pad*2), 폭은 실측 텍스트에서 만든다.
     const ctx = this.ctx;
     // 상자·값 = **조판(_h)이 쓴 것과 같은 호출**. 여기서 따로 재면 예약 높이와 갈린다.
-    const { w: W2, h: HH, x, x0, inner: INNER, RR, PAD, gapT: GT, K2, H2, T, dur: _dur0, PV: _PV0, g: _g }
-      = this._headBoxFor(n, y);
+    const { w: W2, h: HH, x, x0, inner: INNER, RR, PAD, gapT: GT, K2, H2, T, tA, ringK,
+            dur: _dur0, PV: _PV0, g: _g } = this._headBoxFor(n, y);
+    // 남을 게 없으면 알약을 안 그린다. 아크는 **별도 노드(_dots)** 라 영향 없고,
+    //   자리는 _outro 가 비워 준다(칼럼 조판 규약).
+    if (ringK < 0.004 && tA < 0.004) return;
     this._boxes?.push({ k: 'inner', x: x0, y, w: INNER, h: HH });   // 내용 묶음 — 가운데정렬 검수용
     this._glassPill(x, y, W2, HH, HH / 2);
     // 카운트 링 — 정본 컴포넌트 그대로(형태 변환 없음, 자리만 여기다)
@@ -1774,7 +1799,7 @@ export class FloorGL {
     //   무엇을 세느냐는 adv 가 정한다. 그래서 장면마다 화면이 달라지지만 컴포넌트는 하나다.
     const { prog, rem } = _g;
     if (rem !== this._numLast2) { this._numLast2 = rem; this._numT2 = this.t; }
-    countRing(ctx, cxR, cyR, prog, rem,
+    if (ringK > 0.004) countRing(ctx, cxR, cyR, prog, rem,
       { t: 99, k: RR / 275, numFs: TOK.fsTimer * K2, pulse: clamp01((this.t - (this._numT2 || 0)) / 0.5),
         ring: { trackW: 10, arcW: 10, trackA: .26 } });
     // ★ 'sec' 라벨 폐기(유저: 1 아래 저 글씨가 읽히냐 — 에바 아니냐).
@@ -1787,6 +1812,8 @@ export class FloorGL {
     ctx.textAlign = 'left';
     // 52 → 72(유저: 타이틀이 너무 작다). 최장 'Neck & Shoulders' 가 72px 에서 543px —
     //   폭 1000 의 타이틀 예산(≈560) 안에 들어간다. y176 안전폭은 2174 라 여유는 충분하다.
+    if (tA < 0.004) { ctx.restore?.(); return; }
+    ctx.save(); ctx.globalAlpha *= tA;
     ctx.fillStyle = '#fff'; ctx.font = F(700, LAYOUT.TYPE.title * K2); ctx.letterSpacing = '-4px';
     const tx = cxR + RR + H2.gapU + GT;   // 링 → 타이틀 (sec 은 링 안이라 폭 0)
     // 쉼표가 있으면 의미 단위로 두 줄(농구 스텝) — 지금 데이터엔 없지만 규칙은 남긴다.
@@ -1796,6 +1823,7 @@ export class FloorGL {
       ctx.fillText(T.slice(ci + 2), tx, this._baseAt(T, cyR + 56)); }
     else { ctx.textBaseline = 'alphabetic'; ctx.fillText(T, tx, this._baseAt(T, cyR)); }
     ctx.letterSpacing = '0px';
+    ctx.restore();
     // 스텝 배지(n/4) — 농구 분해 스텝만. 헤더 오른쪽 끝에 조용히.
     if (n.step) {
       ctx.textAlign = 'right'; ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.font = F(400, TOK.fsBadge);
@@ -1835,6 +1863,7 @@ export class FloorGL {
     // main.js가 width를 직접 쓰면(반복형 스테이지) 그 값이 우선, 아니면 --dur 시간 진행.
     const w = n.style.width != null ? numOr(n.style.width, 0)
       : 600 * clamp01((this.t - n.delay) / n.dur);
+    this._boxes?.push({ k: 'arc', x: x0, y, w: wD, h: 0 });
     arcGauge(this.ctx, x0, y, wD, w / 600);
   }
 
@@ -2840,11 +2869,17 @@ export class FloorGL {
       ? (this._moT == null ? 0 : eOut(clamp01((t - (this._moT + MOVE)) / 0.45)))
       : 1;
     const ringK = showRing(this.stage) ? 1 : 1 - ringFade;
+    // ★ 타이틀 접힘 — 레거시 경로(_headBoxFor)와 **같은 규약**. 모프가 끝나고 hold 초가 지나면
+    //   동작명이 빠진다(유저: 글자가 자연스럽게 사라지며 타이머만 남으면 된다).
+    //   관찰 중엔 안 접는다 — 거기선 동작명이 화면의 전부다.
+    const tA = (TOK.collapse && !watching && this._moT != null)
+      ? 1 - clamp01((t - (this._moT + MOVE + TOK.hold)) / Math.max(.05, TOK.fade)) : 1;
     const fsNow = TOK.fsTitlePv + (LAYOUT.TYPE.title - TOK.fsTitlePv) * moT;
     const _g = this._gaugeVal({ PV, dur, inPv: mo < .5, pvEnd: Math.max(PV, this._moT ?? PV),
                                 perFoot, hs, hp, pfK: perFoot ? clamp01((t - (this._pfT ?? t)) / 0.35) : 0 });
     const { w: WHp, h: HHp, inner: INNER, ringW: RINGW, RR: RRp, PAD, gapT: GT, K2, H2 }
-      = this._headBox(title, cfg.step, LAYOUT.HEAD.y, { fs: fsNow, ringK, ringR: this._ringRFor(_g.rem) });
+      = this._headBox(tA > 0.004 ? title : '', cfg.step, LAYOUT.HEAD.y,
+                      { fs: fsNow, ringK, ringR: this._ringRFor(_g.rem) });
     const w1 = WHp, h1 = HHp, y1 = H2.y;
     // ★ 진입 = **시작화면 캡슐이 줄어드는 것**(유저: 두 번 탭하면 같은 요소가 줄어들며 넘어간다).
     //   스테이지가 바뀔 때 캡슐을 새로 띄우면 '다른 물건이 나타난' 걸로 읽힌다. READY 캡슐
@@ -2865,7 +2900,24 @@ export class FloorGL {
     const kIn = fromReady ? 1 : 0.94 + 0.06 * eOut(clamp01(t / .45));
     const E = (p, q) => (fromReady ? p + (q - p) * en : q * kIn);
     //   y 는 176 고정 — 위를 붙박아 두면 아래로만 접히므로 코치 판과 안 겹친다(기존 규약).
-    const w = E(1018, w1), h = E(1491, h1), y = fromReady ? 285 + (y1 - 285) * en : y1, x = CX - w / 2;
+    const w = E(1018, w1); let h = E(1491, h1); const y = fromReady ? 285 + (y1 - 285) * en : y1, x = CX - w / 2;
+    // ★ 알약이 사라져도 **아크는 살아야 한다** — 시계가 통째로 없어지면 안 된다.
+    //   처음엔 return 을 아크 앞에 둬서 A1·BK_A1 이 t=6 에 알약도 아크도 없는 빈 화면이 됐다
+    //   (감사기 `_audit_stages` 가 잡았다). 아크를 클로저로 빼서 두 경로가 같이 쓴다.
+    const drawArc = () => {
+      if (!(mo > .5 && showArc(this.stage))) return;
+      ctx.save(); ctx.globalAlpha *= (mo - .5) / .5;
+      // 알약이 HUG 라 높이가 장면마다 다르다 — **실제 알약 바닥**에서 간격을 띄운다.
+      //   폭도 알약에서 파생(progK) — 상수로 두면 알약보다 넓어진다.
+      const ay = y + h + TOK.gapHP;
+      const wA = Math.min(LAYOUT.PROG.wMax, safeW(ay) - TOK.safePad, w * TOK.progK);
+      this._boxes?.push({ k: 'arc', x: CX - wA / 2, y: ay, w: wA, h: 0 });
+      arcGauge(ctx, CX - wA / 2, ay, wA, clamp01((t - PV) / Math.max(.1, dur - PV)));
+      ctx.restore();
+    };
+    if (ringK < 0.004 && tA < 0.004) {   // 알약에 남을 게 없다 — 알약만 지우고 아크는 남긴다
+      h = 0; drawArc(); return;          // 알약 자리로 아크를 끌어올린다(빈 칸을 안 남긴다)
+    }
     const r = Math.min(w, h) / 2;
     ctx.save(); ctx.globalAlpha *= eOut(intro(t, .05, .7));
     // 알약 몸통(유리 + 엠버 + 림) = 공통 _glassPill. 러닝 헤더와 **같은 함수**를 쓴다.
@@ -2946,7 +2998,7 @@ export class FloorGL {
       if (k > .999) return ctx.fillText(s, xa, y0);
       ctx.save(); ctx.translate(xa, y0); ctx.scale(k, k); ctx.fillText(s, 0, 0); ctx.restore();
     };
-    ctx.save();
+    ctx.save(); ctx.globalAlpha *= tA;
     ctx.textBaseline = 'middle'; ctx.fillStyle = '#fff';
     if (ls.length === 1) {
       const fs = (TOK.fsTitlePv + (LAYOUT.TYPE.title - TOK.fsTitlePv) * moT) * K2;
@@ -2988,25 +3040,8 @@ export class FloorGL {
       ctx.restore();
     }
     ctx.restore();
-    // 진행 아크 — **adv 가 'time' 인 장면에만.**
-    //   전엔 모든 캡슐 스테이지가 아크를 그렸는데, 링이 세는 값과 **완전히 같은 시계**였다
-    //   (링 1−(t−PV)/(dur−PV) · 아크 (t−PV)/(dur−PV)). 같은 값을 두 번 말하고 있었다.
-    //   스텝백(skill)엔 아예 안 그린다 — 시간으로 끝나는 장면이 아니다(유저).
-    //   ※ 데이터에도 이미 있던 규칙이다: "스텝백 따라하기엔 도트바 없음 — 진행은 상단 n/4 담당".
-    if (mo > .5 && showArc(this.stage)) {
-      ctx.save(); ctx.globalAlpha *= (mo - .5) / .5;
-      // ★ 벽(복싱)과 **같은 컴포넌트를 통째로, 배율만 줄여** 쓴다(유저).
-      //   전엔 폭을 대지의 65%(1048)까지 늘려 놓고 마커만 dotK 0.6 으로 깎았다 — 아크는 크고
-      //   점은 작은 비균일 스케일이라 복싱의 비례가 깨졌다. 폭을 640 으로 줄이면 s 가 같은 비율로
-      //   작아져 마커도 알아서 그 크기가 된다(= dotK 불필요). 높이도 gaugeH(640) 로 함께 줄어
-      //   헤더 알약을 아크가 가로지르지 않는다.
-      // ★ 알약이 HUG 라 높이가 장면마다 다르다 — 아크 y 를 고정값(LAYOUT.PROG_Y)으로 두면
-      //   알약을 파고들거나 멀어진다. **실제 알약 바닥**에서 간격을 띄운다.
-      const ay = y + h + TOK.gapHP;
-      const wA = Math.min(LAYOUT.PROG.wMax, safeW(ay) - TOK.safePad, w * TOK.progK);
-      arcGauge(ctx, CX - wA / 2, ay, wA, clamp01((t - PV) / Math.max(.1, dur - PV)));
-      ctx.restore();
-    }
+    // 진행 아크 — adv 'time' 에만. 링과 같은 시계를 두 번 세지 않는다(위 drawArc 정의 참고).
+    drawArc();
   }
 
   _paint_transition() {

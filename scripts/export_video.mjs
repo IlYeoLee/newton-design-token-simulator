@@ -92,6 +92,9 @@ const SESSION = !!arg('session', false);
 //   --session 만 주면 인트로 1.1초 재생 뒤 화면이 완전히 정지한다(실측: 러닝 5초 300프레임 중
 //   69프레임째부터 231장이 바이트 단위로 동일). 판정 토큰은 애초에 READY 에 없다.
 //   실전 스테이지로 바로 넣으려면 id 를 지정한다. --liststages 로 목록.
+// --flatground : 평면 카메라를 판 메시가 아니라 **설계 좌표의 지면**에 세운다.
+//   READY 처럼 판이 꺼져 있는 스테이지 전용(판 메시 행렬이 없어 카메라가 허공을 본다).
+const FLATGROUND = !!arg('flatground', false);
 const STAGE = arg('stage', '');
 const LISTSTAGES = !!arg('liststages', false);
 // --play : 시뮬을 실제로 돌린다(봇·물리). 스크럽으로 못 살리는 상태 누적형 화면용 — 위 루프 주석 참조.
@@ -319,6 +322,7 @@ await page.evaluate(v => { window.__pin = v; const s = window.__dbg?.session; if
 await page.evaluate(v => { window.__norip = v; }, NORIP);
 await page.evaluate(v => { window.__inka = v; }, INKA);
 await page.evaluate(v => { window.__unclip = v; }, PAD > 1);
+await page.evaluate(v => { window.__flatGround = v; }, FLATGROUND);
 // ── 씬 스테이지: 화면에서 맞춘 값을 그대로 넘긴다 ─────────────────────────────
 //   __sceneAdj 는 앱이 매 프레임 읽는 **살아 있는 객체**라 한 번만 넣으면 된다.
 //   영상 배경도 여기서 건다 — scenes.html 이 부르는 것과 같은 함수라 결과가 화면과 같다.
@@ -527,6 +531,29 @@ if (FLAT) await page.evaluate(sport => {
   //   원근이 0이므로 대지 좌표가 화면 좌표로 1:1 사상된다 — 피그마 프레임과 같은 그림.
   //   판정 토큰은 면 앞 z −1.05~−1.43 에 있어 이 절두체 안에 그대로 들어온다.
   const d = window.__dbg, T = d.THREE;
+  // ★ READY 는 지면 판이 **꺼져 있다** — 'GREADY = 시작 페이지는 프레임 전담' 정책으로 main 이 끈다
+  //   (session.js). 그러면 판 메시의 월드 행렬이 안 잡혀 카메라가 허공을 보고 프레임이 통째로 빈다
+  //   (실측 08-06: --session --stage READY 가 항상 최대 불투명 0.00%).
+  //   발자국(readyFeet)은 root 소속 예외라 살아 있으므로, 판 대신 **설계 좌표의 지면**에 카메라를 세운다.
+  if (window.__flatGround) {
+    const S = 0.000687;                      // sUni — 대지 1px = 0.687mm
+    const hw = 1600 * S / 2, hh = 2670 * S / 2;
+    // 대지 중심 z — 발자국(월드 −0.745)이 대지 y1821 에 앉고 대지 중심은 y1335 이므로
+    //   중심은 발자국보다 (1821−1335)·sUni = 0.334m **뒤(먼 쪽, −z)** 다.
+    const cz = -0.745 - 0.334;
+    const cam = new T.OrthographicCamera(-hw, hw, hh, -hh, 0.01, 40);
+    window.__fitFlat = () => {
+      cam.position.set(0, 10, cz);
+      cam.up.set(0, 0, -1);                  // 화면 위쪽 = 먼 쪽(−z)
+      cam.lookAt(0, 0, cz);
+      cam.updateMatrixWorld(true);
+    };
+    window.__fitFlat();
+    (d.sceneScope?.setRenderCamera ?? (c => { d.composer.passes[0].camera = c; }))(cam);
+    d.composer.passes[0].camera = cam;
+    window.__flatCam = cam;
+    return;
+  }
   const surf = sport === 'boxing' ? d.wallGL?.mesh : d.floorGL?.mesh;
   if (!surf) { window.__flatErr = '투사면 메시 없음'; return; }
   surf.visible = true;

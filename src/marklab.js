@@ -30,11 +30,17 @@ const SEG = IDS.map((id, i) => ({ id, t0: i === 0 ? 0 : STEP_SEG[IDS[i - 1]], t1
 const COLS = [0, 0.25, 0.5, 0.75, 1];
 
 // ── 좌표 변환 — 빔 박스(SB_BOX)를 칸에 맞춘다 ────────────────────────────────
-const PADX = 0.14, PADY = 0.12;
-const toXY = (u, v, W, H) => ({
-  x: W * (0.5 + (u / SB_BOX.u) * (0.5 - PADX)),
-  y: H * (1 - PADY) - ((v - SB_BOX.v0) / (SB_BOX.v1 - SB_BOX.v0)) * H * (1 - PADY * 2),
-});
+const PADX = 0.14;
+// ★ 두 축이 **같은 배율**을 써야 한다. 전엔 세로를 칸 높이에 꽉 채워 늘렸는데, 실측 박스는
+//   가로 1.60(±0.80) · 세로 0.48 로 **3.3배 납작하다**. 그래서 화면에서 세로가 2.9배 늘어나
+//   보폭·스탠스 간격이 통째로 왜곡됐다(유저 08-06: 다리 사이 간격이 어색하다 · 세로뷰가 너무 길다).
+const uPer = W => (W * (1 - PADX * 2)) / (SB_BOX.u * 2);   // px / 빔단위 — 양축 공용
+const VMID = (SB_BOX.v0 + SB_BOX.v1) / 2;
+const toXY = (u, v, W, H) => { const k = uPer(W);
+  return { x: W / 2 + u * k, y: H / 2 - (v - VMID) * k }; };
+/** 칸 높이도 박스 비율에서 나온다 — 감으로 정한 190px 이 왜곡의 출발점이었다. */
+export const cellH = W => Math.round((SB_BOX.v1 - SB_BOX.v0) * uPer(W) + FOOT_PX_PAD * 2);
+const FOOT_PX_PAD = 34;   // 발 반길이 + 여백(발이 박스 경계에 걸쳐도 안 잘리게)
 
 // ── 발 도식 — 실루엣이 아니라 **압력 도트**가 주인공이다 ──────────────────────
 //   해부 좌표는 fx-core plantar 와 같은 자리를 쓴다(볼 +0.30 · 뒤꿈치 −0.44 · 발가락 +0.56).
@@ -165,7 +171,7 @@ for (const s of SEG) {
     const c = document.createElement('div');
     c.className = 'cell';
     const cv = document.createElement('canvas');
-    cv.width = 230; cv.height = 190;
+    cv.width = 230; cv.height = cellH(230);
     c.appendChild(cv);
     const cap = document.createElement('div'); cap.className = 'cap';
     c.appendChild(cap);
