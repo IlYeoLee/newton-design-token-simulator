@@ -1818,9 +1818,9 @@ export class FloorGL {
         mg.addColorStop(0, 'rgba(0,0,0,0)');
         mg.addColorStop(CLIP.mIn, 'rgba(0,0,0,1)');
         mg.addColorStop(CLIP.mOut, 'rgba(0,0,0,1)');
-        // 아래쪽 **약간의 페더**(유저) — 완전히 0 으로 떨구면 컨테이너 끝에 닿기 전에 사라지고,
-        //   1 로 두면 곡선과 만나는 자리가 딱딱하다. 끝을 .18 로 남겨 스러지듯 이어지게 한다.
-        mg.addColorStop(1, 'rgba(0,0,0,.18)');
+        // ★ 하단 페더 제거(유저) — 러닝·농구 공통. 끝까지 불투명하게 둔다.
+        //   아래 곡선은 캡슐 클립이 만들므로 마스크로 흐릴 이유가 없다.
+        mg.addColorStop(1, 'rgba(0,0,0,1)');
         og.fillStyle = mg; og.fillRect(0, 0, OW, OH);
         og.globalCompositeOperation = 'source-over';
         ctx.save();
