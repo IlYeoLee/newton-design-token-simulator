@@ -1681,9 +1681,11 @@ export class FloorGL {
     //   그래서 투명 위에서 타던 문제가 여기선 안 생긴다(그리는 순서가 곧 조건이다).
     //   클립은 두 겹: roundRect(알약형 r) ∩ capPath(캡슐) — 어떤 경우에도 컨테이너를 안 벗어난다.
     if (p2 < 0.995) {
+      // focus = 소스에서 박스 상단에 걸 세로 비율(얼굴이 위쪽에 오게). 소스 원본 프레이밍이
+      //   둘이 달라 값도 다르다: sean 720x1280(세로 길다) · curry 960x960(정사각).
       const CLIP = bk
-        ? { src: 'ready-view/assets/proto/curry-card.mp4', zoom: 1.14, focus: 0.17 }
-        : { src: 'ready-view/assets/proto/sean-card.mp4',  zoom: 1.30, focus: 0.20 };
+        ? { src: 'ready-view/assets/proto/curry-card.mp4', focus: 0.02 }
+        : { src: 'ready-view/assets/proto/sean-card.mp4',  focus: 0.05 };
       let v = this._pvid;
       if (!v || v._key !== CLIP.src) {
         v = this._pvid = document.createElement('video');
@@ -1693,9 +1695,13 @@ export class FloorGL {
         v.play?.().catch(() => {});
       }
       if (v.readyState >= 2 && v.videoWidth) {
-        // 박스 = 스샷 #161 실측: 머리 꼭대기가 캡슐 로컬 ≈760, 아래는 캡슐 바닥까지.
-        const BX = 450, BY = CAP.y + 745, BW = 700, BH = (CAP.y + CAP.h) - (CAP.y + 745), BR = 320;
-        const sc = Math.max(BW / v.videoWidth, BH / v.videoHeight) * CLIP.zoom;
+        // ★ 박스 = 피그마 인스펙터 실측(유저 #162): 1055x1079 (44/45) · r 527.5 · plus-lighter.
+        //   가로 1055 는 캡슐 폭 1018 보다 넓다 → 중앙정렬하면 좌우가 캡슐을 넘지만 capPath
+        //   클립이 잘라내므로 결과적으로 '캡슐을 꽉 채우는' 형태가 된다(피그마와 동일).
+        //   세로는 박스 바닥을 캡슐 바닥에서 90 띄운다(스샷 #161 비율).
+        const BW = 1055, BH = 1079, BR = 527.5;
+        const BX = 800 - BW / 2, BY = (CAP.y + CAP.h) - 90 - BH;
+        const sc = Math.max(BW / v.videoWidth, BH / v.videoHeight);   // cover — 얼굴 위주는 focus 가 잡는다
         const dw = v.videoWidth * sc, dh = v.videoHeight * sc;
         const dx = BX + (BW - dw) / 2;
         const dy = BY - (dh * CLIP.focus);   // focus = 소스에서 얼굴이 있는 세로 비율
@@ -1703,7 +1709,7 @@ export class FloorGL {
         ctx.globalAlpha *= e0(.30, .9) * (1 - p2);
         ctx.beginPath(); ctx.roundRect(BX, BY, BW, BH, BR); ctx.clip();
         ctx.save(); ctx.translate(0, CUT); capPath(); ctx.restore(); ctx.clip();   // 캡슐 밖 금지
-        ctx.globalCompositeOperation = 'hard-light';
+        ctx.globalCompositeOperation = 'lighter';   // = mix-blend-mode: plus-lighter (피그마)
         ctx.drawImage(v, dx, dy, dw, dh);
         ctx.restore();
       }
