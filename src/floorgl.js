@@ -2180,10 +2180,18 @@ export class FloorGL {
       //   났다. 에셋을 다시 뽑는 대신 'color' 합성으로 **색상만** 갈아끼운다(명암은 에셋 그대로).
       //   위 → 아래로 red → coral → sand. 에셋이 바뀌어도 색은 항상 팔레트 안에 남는다.
       {
-        const gr = ctx.createLinearGradient(0, READY_CAP.y + READY_CAP.h * .42, 0, READY_CAP.y + READY_CAP.h);
-        gr.addColorStop(0, PAL.red); gr.addColorStop(.55, PAL.coral); gr.addColorStop(1, PAL.sand);
+        //   ★ 경계는 **알파 그라디언트**로만 만든다. 전체를 덮으면 유리(중립 회색)까지 물들어
+        //     캡슐이 통째로 빨개지고, rect 로 아래쪽만 덮으면 그 윗변이 직선 이음매로 드러난다
+        //     (둘 다 실측). 그래서 캡슐 전체를 덮되 위쪽 알파를 0 으로 떨어뜨린다 — 이음매가 없다.
+        const gy0 = READY_CAP.y, gy1 = READY_CAP.y + READY_CAP.h + 140;
+        const gr = ctx.createLinearGradient(0, gy0, 0, gy1);
+        gr.addColorStop(0, rgba(PAL.red, 0));
+        gr.addColorStop(.42, rgba(PAL.red, 0));
+        gr.addColorStop(.62, rgba(PAL.red, .55));
+        gr.addColorStop(.82, rgba(PAL.coral, .60));
+        gr.addColorStop(1, rgba(PAL.sand, .60));
         ctx.save(); ctx.globalCompositeOperation = 'color';
-        ctx.fillStyle = gr; ctx.fillRect(READY_CAP.x - 200, READY_CAP.y, READY_CAP.w + 400, READY_CAP.h + 200);
+        ctx.fillStyle = gr; ctx.fillRect(READY_CAP.x - 240, gy0, READY_CAP.w + 480, gy1 - gy0);
         ctx.restore();
       }
       ctx.restore();
