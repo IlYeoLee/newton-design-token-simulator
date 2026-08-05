@@ -1,0 +1,34 @@
+<!doctype html><html lang="ko" translate="no"><head><meta charset="utf-8"><meta name="google" content="notranslate">
+<title>캡슐 언어 확장 시안 — 프리뷰 · 따라하기</title>
+<!-- 시작(READY) 캡슐 언어를 프리뷰(관찰)·따라하기로 확장하는 아이디에이션.
+     ★ 목업이 아니다 — 캡슐 패스·유리 림·엠버 글로우·아크 게이지·도트 롤 전부 정본(src/floorgl.js)
+       부품을 그대로 불러 그린다. 여기서 고른 안을 그 자리에 이식하면 화면이 이 그림과 같다.
+     비교 축: '캡슐을 어떻게 변형해 두 번째 정보(영상·판정)를 담는가'. -->
+<style>
+@font-face{font-family:'Supreme';src:url('fonts/Supreme-Bold.woff2') format('woff2');font-weight:700;font-display:block}
+@font-face{font-family:'Supreme';src:url('fonts/Supreme-Medium.woff2') format('woff2');font-weight:500;font-display:block}
+@font-face{font-family:'OffBit';src:url('fonts/OffBitTrial-DotBold.woff') format('woff');font-weight:700;font-display:block}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#14161a;color:#E9EAEE;font:13px/1.6 -apple-system,'Malgun Gothic',sans-serif;padding:20px 22px 60px}
+h1{font-size:17px;margin:0 0 4px}
+.sub{color:#98A1AD;font-size:12px;margin:0 0 16px;max-width:1100px}
+.seg{display:flex;gap:8px;margin:0 0 18px}
+.seg button{padding:7px 15px;border:1px solid #262b35;border-radius:99px;background:#1a1e25;color:#98A1AD;
+  font-size:12.5px;font-weight:600;cursor:pointer}
+.seg button.on{background:#FA3030;border-color:#FA3030;color:#fff}
+h2{font-size:13.5px;margin:22px 0 10px;color:#FEC389}
+.row{display:flex;gap:16px;flex-wrap:wrap}
+.cell{width:328px}
+.cell canvas{width:328px;height:547px;display:block;border-radius:14px;background:#8B9080}
+.nm{font-size:12.5px;font-weight:700;margin:9px 0 3px}
+.ds{font-size:11.5px;color:#98A1AD;line-height:1.55}
+</style>  <script type="module" crossorigin src="./assets/capsuleConcepts-BFpakKwF.js"></script>
+  <link rel="modulepreload" crossorigin href="./assets/modulepreload-polyfill-B5Qt9EMX.js">
+  <link rel="modulepreload" crossorigin href="./assets/preload-helper-PPVm8Dsz.js">
+</head><body>
+<h1>캡슐 언어 확장 시안 — 프리뷰(관찰) · 따라하기</h1>
+<p class="sub">시작 화면의 <b>유리 캡슐 + 엠버 글로우 + 도트 숫자 + 아크</b> 문법을 두 화면으로 넓히는 세 갈래.
+정본 부품으로 실제 렌더링하며, 배경은 트랙 톤(#8B9080)으로 깔았습니다.</p>
+<div class="seg" id="seg"></div>
+<h2 id="ttl">프리뷰(관찰)</h2>
+<div class="row" id="row"></div></body></html>
