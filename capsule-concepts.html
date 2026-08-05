@@ -45,6 +45,8 @@ const img = rel => {
   const im = new Image(); im.src = '/ready-view/assets/' + rel;
   im.onload = () => {}; IMG[rel] = im; return im;
 };
+const imgAbs = rel => { if (IMG[rel] !== undefined) return IMG[rel];
+  const im = new Image(); im.src = rel; IMG[rel] = im; return im; };
 const RF = (w, s, fam = "'Supreme',sans-serif") => `${w} ${s}px ${fam}`;
 const DOT = "'OffBit',monospace";
 
@@ -91,8 +93,10 @@ const capLabel = (g, tx, cx, y, a = .55, s = 44) => {
   g.fillText(tx, cx, y); g.letterSpacing = '0px';
 };
 // 코치 영상 자리 — 실제 판은 3D 로 뒤에 서지만, 시안에선 실루엣으로 자리를 표시
+// ★ 인물 룩 시스템 적용본(유저) — personlab-live 가 정본 셰이더로 그린 판을 그대로 구운 PNG.
+//   원사진(photo-runner)은 룩이 안 입혀져 실제 화면과 달랐다.
 function coach(g, cx, cy, h, a = 1) {
-  const im = img('fig/ready2/photo-runner.png');
+  const im = imgAbs('/shots/person-look-run.png');
   g.save(); g.globalAlpha *= a;
   if (im.complete && im.naturalWidth) {
     const s = h / im.naturalHeight;

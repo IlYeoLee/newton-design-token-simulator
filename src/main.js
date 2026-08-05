@@ -5950,6 +5950,23 @@ void main(){
       floorObj.quaternion.setFromRotationMatrix(_mBasis);
       floorObj.position.set(cx, 0.012, cz);
       floorObj.scale.set(sUni, sUni, 1);
+      // ★ READY 발자국은 **대지(캔버스) 좌표계**에 붙인다(유저 #138). 고정 로컬 z(-0.75)로 두면
+      //   리그가 도는 종목에서 통째로 어긋난다 — 실측: 러닝 대지 yaw 0°·z -1.08 / 농구 yaw -173.7°·
+      //   z +1.41 인데 발은 양쪽 다 z -0.75 라, 농구에선 대지에서 2.5m 밖에 따로 놓여 있었다.
+      //   캔버스 발자국 중심 y1821 = CTA 슬롯과 같은 띠. 회전도 대지와 같이 준다.
+      {
+        const RF = session.readyFeet;
+        if (RF && RF.length) {
+          const dF = (1335 - 1821) * sUni;              // 대지 중심(1335) 기준 앞뒤 오프셋
+          const SPREAD = 0.189;                          // = FootMark.READY_SPREAD (피그마 342:3057)
+          for (let i = 0; i < RF.length; i++) {
+            const dX = (i === 0 ? -1 : 1) * SPREAD;
+            RF[i].group.position.set(cx + sfp.fx * dF + sfp.rx * dX, 0.013,
+                                     cz + sfp.fz * dF + sfp.rz * dX);
+            RF[i].group.quaternion.copy(floorObj.quaternion);   // 대지와 같은 자세(눕힘+요)
+          }
+        }
+      }
       // WebGL 평면 = 같은 변환(CSS3D는 요소 +Y가 화면 아래 = 로컬 -Y라 평면 지오메트리와 축이 일치한다)
       floorGL.mesh.quaternion.copy(floorObj.quaternion);
       floorGL.mesh.position.copy(floorObj.position);
