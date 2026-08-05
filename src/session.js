@@ -700,6 +700,12 @@ function sbPoseAt(vt, holdAirborne) {
   };
   return { L: one('L'), R: one('R') };
 }
+// ★ 발자국 안정 영역(FOOT 밴드) — floorgl LAYOUT.FOOT_Y(1980) 를 전방 거리로 환산한 값.
+//   러닝 기본 투사에서 0.64m. 마크는 이 z 를 중심으로 놓고 스윙 폭도 CONTENT 밴드(0.40~1.43m)
+//   안에서만 움직인다. 이걸 안 지켜서 A2(CZ -1.45)·A3(-1.05 −0.5p)의 마크가 헤더·진행 위로
+//   올라와 글자를 가렸다(유저 스샷 2장). 새 마크를 놓을 땐 이 상수에서 파생시킬 것.
+const FOOT_Z = -0.75;          // 안정 영역 중심(= 밴드 0.64m 에 여유를 둔 값)
+const FOOT_SWING = 0.30;       // 이 이상 벌리면 CONTENT 밴드를 벗어난다
 const FOLLOW_S = 1.0;   // 따라하기 발자국 배율(농구 지면 UI 공통)
 const SBZ = -3.13;      // 스텝백 마크 기준 z. 빌드·업데이트 양쪽에서 쓴다
 // ★ -1.95 → -3.13 (유저 08-05). 구값은 패턴 중심이 리그 원점에서 겨우 d=0.17m — 빔 사다리꼴의
@@ -1052,7 +1058,7 @@ export class Session {
     // 전방 투사존 — 타이틀·도트(상단, 먼 z) 아래 열린 콘텐츠 존에 나란히 (겹침 방지)
     // z −0.78 → −0.48: 뒷발이 위 캡슐 카드와 아예 겹쳤다(유저 08-05 스샷). 발 한 켤레를
     //   통째로 앞(가까운 z)으로 당겨 카드 아래 빈 존에 앉힌다 — 런지 보폭은 틱이 다시 벌린다.
-    const fmL = new FootMark('left').at(-0.16, -0.48), fmR = new FootMark('right').at(0.16, -0.48);
+    const fmL = new FootMark('left').at(-0.16, FOOT_Z), fmR = new FootMark('right').at(0.16, FOOT_Z);   // 안정 영역
     // 숫자 = 룩시스템 attachMarkNum(발 plane 자식·MARK_NUM 크기·numFoot 앵커) — 삐짐 없는 정본 이식
     const numL = attachMarkNum(fmL, '5', false), numR = attachMarkNum(fmR, '5', true);
     numL.visible = false; numR.visible = false;
@@ -1117,7 +1123,7 @@ export class Session {
     //   앞: 좌·우 발형(A2와 동일 언어)이 번갈아 켜짐 = "좌우 무릎 번갈아 올려"(템포·순서).
     //   뒤: 큰 중앙 숫자 = 누적 횟수(카운트업) + 감싸는 얇은 링이 30초 시계방향 진행.
     // 하이니 재설계(유저): 원형 은퇴 — 발형 2개(안에 각자 카운트) + LINE 리프트 화살표 + 양발 각 10회.
-    const a3L = new FootMark('left').at(-0.17, -1.05), a3R = new FootMark('right').at(0.17, -1.05);
+    const a3L = new FootMark('left').at(-0.17, FOOT_Z), a3R = new FootMark('right').at(0.17, FOOT_Z);   // 안정 영역
     const a3nL = attachMarkNum(a3L, '0', false), a3nR = attachMarkNum(a3R, '0', true);
     // 리프트 큐 = 발 '옆'에 캔버스 플레인(drawLiftCue 3안, FXP.a3Arrow 토글)
     const mkLift = (x) => {
@@ -2184,7 +2190,7 @@ export class Session {
       //   (알파 0.30)로 밀려 사실상 안 보였다.
       //   SC 0.5 · CZ -1.45 → 보폭 0.80m 일 때 마크가 -1.25 / -1.65 = 알파 0.86 / 0.93.
       //   둘 다 밝고 좌우 균형이 맞는다(구 CZ -1.15 는 0.69/0.76 대역이라 둘 다 어두웠다).
-      const CZ = -1.45, SC = 0.5;
+      const CZ = FOOT_Z, SC = 0.5;   // -1.45 → 안정 영역(유저: 발자국이 헤더를 가린다)
       if (pb) {
         const fL = pb.footL, fR = pb.footR;
         const lft = fL.x <= fR.x ? fL : fR, rgt = fL.x <= fR.x ? fR : fL;
@@ -2410,8 +2416,9 @@ export class Session {
       H._prevPL = H._pL; H._prevPR = H._pR;
       // 발자국 '슈욱' 상승(유저): 실제 그 다리가 올라가면 그쪽 발형이 전방(시야상 위)으로 과감히
       // 활강 상승 + 살짝 커짐 — 무릎이 위로 올라간 뉘앙스. A2(정적 추적)보다 다이내믹, 저역이라 부드러움.
-      H.fmL.group.position.z = -1.05 - 0.5 * H._pL;
-      H.fmR.group.position.z = -1.05 - 0.5 * H._pR;
+      // -1.05 −0.5p 는 최대 1.55m 라 프리뷰 캡슐 하단(1.26m)과 겹쳤다(유저 스샷) → 안정 영역으로.
+      H.fmL.group.position.z = FOOT_Z - FOOT_SWING * H._pL;
+      H.fmR.group.position.z = FOOT_Z - FOOT_SWING * H._pR;
       H.fmL.group.scale.setScalar(1.05 * (1 + 0.16 * H._pL));
       H.fmR.group.scale.setScalar(1.05 * (1 + 0.16 * H._pR));
       const leftNow = lUp ? true : (rUp ? false : (H._lastLeft ?? true));   // 지금 올라간 발(없으면 마지막)
