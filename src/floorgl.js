@@ -1273,27 +1273,33 @@ export class FloorGL {
   }
 
   _paint_ready() {
-    const ctx = this.ctx, t = this.t;
+    const ctx = this.ctx;
+    // ★ 시작화면 = **8초 루프**(유저 애니메이션 메모 08-05):
+    //    0~2s  팩 이름 + 인물 실루엣 · 하단 원 2개(배터리) → 1.2s 부터 이어폰 칸이 가로 확장 + 코치
+    //    2~4s  인물 out · 숫자 촤라락 → 오늘 총 운동시간(30 min)
+    //    4~8s  Tap your foot Twice (4초) → 처음으로
+    const LOOP = 8, TP2 = 2.0, TP3 = 4.0;
+    const t = this.t % LOOP;
     const D = READY[/floor-bk/.test(this.params.src) ? 'floor-bk.html' : 'floor.html'], R2 = D.r2;
     const bk = /floor-bk/.test(this.params.src);   // 종목 분기(칩 잉크 등) — 미정의로 페인트가 통째로 죽었다
     const RAD = Math.PI / 180;
     // 콘텐츠 스케일 — 프레임(=커버리지)은 절대 못 줄인다. 종목별 실물 크기 동급화는 여기서.
     const CK = R2.scale || 1, PV = R2.pivotY ?? 1400;
     ctx.save();
-    // 조판 기준 — 피그마 353:7066 정본(유저 #117): 캡슐 상단이 캔버스 71 에 앉는다(285-214).
+    // 조판 기준 — 피그마 367:10132 정본: 캡슐 상단이 캔버스 51 에 앉는다(285-234).
     //   밴드 중심 자동정렬은 콘텐츠를 아래로 밀어 화면이 통째로 내려앉았다(유저 #111) → 폐기.
     //   SAFE 는 넘침 감시용 상수로만 쓴다.
-    ctx.translate(0, -214);
+    ctx.translate(0, -234);
     if (CK !== 1) { ctx.translate(800, PV); ctx.scale(CK, CK); ctx.translate(-800, -PV); }
     // ── 페이즈 타임라인 — 등장(왼→오 촤라락) 완료 후 2초 뒤 페이즈2(실루엣·코치 프로필) ──
-    const TP2 = 2.1, p2 = eOut(intro(t, TP2, .7));   // 등장 ~2s 완료 → 쉬지 않고 바로 페이즈2(유저)
-    // '두 번'을 글자 말고 **빛으로** 말한다(유저: 위치만 만지면 여전히 붕 뜬다) — 캡슐 하단 글로우와
-    //   CTA 가 2.6s 주기로 톡·톡 두 번 밝아진다. 값 0~1. 빼려면 tapB 를 0 으로 두면 끝.
+    const p2 = eOut(intro(t, TP2, .7));            // 인물 out ↔ 숫자 in
+    const p3 = eOut(intro(t, TP3, .55)) * (1 - eOut(intro(t, LOOP - .45, .45)));   // CTA in/out
+    // '두 번'을 글자 말고 **빛으로** 말한다 — CTA 구간에서만 톡·톡 두 번. 빼려면 0 으로 두면 끝.
     const tapB = (() => {
-      if (t < TP2) return 0;
-      const ph = (t - TP2) % 2.6;
-      const bl = t0 => { const u = (ph - t0) / .42; return (u >= 0 && u <= 1) ? Math.sin(u * Math.PI) : 0; };
-      return Math.max(bl(.15), bl(.72));
+      if (t < TP3) return 0;
+      const ph = (t - TP3) % 2.0;
+      const bl = t0 => { const u = (ph - t0) / .34; return (u >= 0 && u <= 1) ? Math.sin(u * Math.PI) : 0; };
+      return Math.max(bl(.10), bl(.55));
     })();
     const RF = (w, s, fam = sans) => `${w} ${s}px ${fam}`;   // 피그마 원치수(타입스케일 미적용)
     const img = rel => this._img('fig/ready2/' + rel);
@@ -1524,95 +1530,86 @@ export class FloorGL {
       ctx.letterSpacing = '0px';
       ctx.restore();
     }
-    // ── ⑤ 상태 패널 — **하단 가로 배치**(유저 실험 08-05). 우측 세로 배치는 위계가 애매했다.
-    //    구성은 피그마 353:7148 그대로: 알약 하나에 디바이스 둘(안경·이어폰) + 옆에 코치 원.
-    //    세로 233×458 → 가로 458×233 으로 눕히고, CTA 와 **같은 자리**에서 3초씩 번갈아 뜬다.
-    //    (예전 우측 배치로 되돌리려면 커밋 a892eb3 의 이 블록을 그대로 쓰면 된다.)
-    const PANEL = { w: 458, h: 233, gap: 36, cr: 110 };
-    PANEL.total = PANEL.w + PANEL.gap + PANEL.cr * 2;      // 714
-    PANEL.x = 800 - PANEL.total / 2;                        // 443
-    PANEL.y = 1897;                                         // 그려지는 계 — CTA 블록과 같은 띠
-    PANEL.cy = PANEL.y + PANEL.h / 2;
-    // 하단 한 자리를 패널과 CTA 가 3초씩 나눠 쓴다 — 0.55s 크로스페이드.
-    const SW = (() => {
-      const CYC = 3, XF = .55;
-      if (t < TP2) return { panel: 1, cta: 0 };
-      const ph = (t - TP2) % (CYC * 2);
-      const onPanel = ph < CYC, seg = onPanel ? ph : ph - CYC;
-      const f = Math.min(1, Math.min(seg, CYC - seg) / XF);
-      return { panel: onPanel ? f : 0, cta: onPanel ? 0 : f };
-    })();
-    if (SW.panel > 0.01) {
-      const P = PANEL, RD = P.h / 2;
-      const DA0 = -135, DA1 = 80;   // 다이얼 — 빈 각(10시) → 만충 각. 85% 가 피그마 상태점(48°)
-      // 공통 유리판 — 알약이든 원이든 같은 재질(글라스 + 이너 글로우 + 잦아드는 림)
-      const glass = (pathFn, cx0, cy0, r0) => {
-        ctx.save(); pathFn(); ctx.clip();
-        ctx.fillStyle = 'rgba(255,255,255,.01)'; ctx.fill();
-        ctx.filter = 'blur(27px)';
-        ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = 54;
-        pathFn(); ctx.stroke(); ctx.filter = 'none'; ctx.restore();
-        const rg = ctx.createLinearGradient(cx0 - r0, cy0 + r0, cx0 + r0, cy0 - r0);
-        rg.addColorStop(0, 'rgba(255,255,255,.16)');
-        rg.addColorStop(.45, 'rgba(255,255,255,.5)');
-        rg.addColorStop(1, 'rgba(255,255,255,.95)');
-        ctx.strokeStyle = rg; ctx.lineWidth = 6; pathFn(); ctx.stroke();
-      };
-      const eP = e0(.9, .7);
-      ctx.save(); ctx.globalAlpha *= SW.panel * Math.min(1, eP * 1.6);
-      const k = .92 + .08 * eP;
-      ctx.translate(800, P.cy); ctx.scale(k, k); ctx.translate(-800, -P.cy);
-      // ①-a 알약 대지 — 가로
-      glass(() => { ctx.beginPath(); ctx.roundRect(P.x + 3, P.y + 3, P.w - 6, P.h - 6, RD); },
-            P.x + P.w / 2, P.cy, RD);
-      // ①-b 디바이스 두 칸 — 게이지 원이 알약 좌·우 곡선을 그대로 타서 한 몸으로 읽힌다.
-      [{ icon: 'glasses', pct: 85, d: .95 }, { icon: 'earbuds', pct: 85, d: 1.05 }].forEach((D, i) => {
-        const cx = P.x + (i === 0 ? RD : P.w - RD), RR = RD - 6;
-        const gp = eOut(intro(t, D.d + .25, .8));
-        const a0 = DA0 * RAD, a1 = (DA0 + (DA1 - DA0) * (D.pct / 100) * gp) * RAD;
-        ctx.save();
-        ctx.strokeStyle = NEU.ink; ctx.lineWidth = 9; ctx.lineCap = 'round';
-        ctx.shadowColor = 'rgba(255,255,255,.8)'; ctx.shadowBlur = 18;
-        ctx.beginPath(); ctx.arc(cx, P.cy, RR, a0, a1); ctx.stroke();
-        ctx.shadowBlur = 0; ctx.fillStyle = NEU.ink;
-        ctx.beginPath(); ctx.arc(cx + Math.cos(a1) * RR, P.cy + Math.sin(a1) * RR, 11, 0, Math.PI * 2);
-        ctx.fill(); ctx.restore();
-        if (D.icon === 'glasses') {
-          const gl2 = img('ic-glasses.png');
-          if (gl2) ctx.drawImage(gl2, cx - 62, P.cy - 41, 124, 83);
-        } else {
-          const eb = this._tinted2('fig/ready2/ic-earbuds.png', 114, 98, () => '#fff');
-          if (eb) ctx.drawImage(eb, cx - 57, P.cy - 49, 114, 98);
-        }
-      });
-      // ② 사람 연결 — 알약 오른쪽 별도 원. 사진은 페이즈2(연결)에 채워진다.
-      {
-        const CCX = P.x + P.w + P.gap + P.cr, CR = P.cr;
-        glass(() => { ctx.beginPath(); ctx.arc(CCX, P.cy, CR - 3, 0, Math.PI * 2); }, CCX, P.cy, CR);
-        const pk = this._img('photos/creator-profile-sean.png');
-        if (pk && p2 > 0.01) {
-          ctx.save(); ctx.globalAlpha *= p2;
-          ctx.beginPath(); ctx.arc(CCX, P.cy, CR - 18, 0, Math.PI * 2); ctx.clip();
-          const sc = Math.max((CR - 18) * 2 / pk.naturalWidth, (CR - 18) * 2 / pk.naturalHeight);
-          ctx.drawImage(pk, CCX - pk.naturalWidth * sc / 2, P.cy - pk.naturalHeight * sc / 2,
-                        pk.naturalWidth * sc, pk.naturalHeight * sc);
+    // ── ⑤ 하단 상태 패널 — 피그마 367:10132 정본 + 유저 애니메이션 메모(08-05).
+    //    ⓐ 0s~   : 작은 원 두 개(안경·이어폰)가 배터리 상태를 든다. 피그마 실측 Ø186 · 간격 73.2 · cy 1827.4
+    //    ⓑ 1.2s~ : **이어폰 쪽이 가로로 확장**되어 알약이 되고 그 안에 코치 인물이 들어온다(연결).
+    //              늘어난 폭만큼 그룹을 다시 중앙정렬 — 화면 중심축이 안 흔들린다.
+    //    ⓒ TP3   : 이 자리를 CTA 에 통째로 내주고 사라진다(같은 슬롯을 나눠 쓴다).
+    {
+      const DD = 186, RD = DD / 2, GAPD = 73.2, CY = 1827.4 + 234;
+      const EXP = eOut(intro(t, 1.2, .9));          // 이어폰 → 알약 확장 0~1
+      const WE = DD + DD * EXP;                     // 이어폰 칸 폭 186 → 372
+      const x0 = 800 - (DD + GAPD + WE) / 2;        // 늘어나도 중앙 유지
+      const eB = e0(.35, .6) * (1 - eOut(intro(t, TP3 - .45, .45)));   // 원 두 개는 초반에 이미 서 있어야 한다
+      if (eB > 0.004) {
+        const DA0 = -135, DA1 = 80;                 // 다이얼 — 빈 각(10시) → 만충 각
+        const glass = (pathFn, cx0, r0) => {
+          ctx.save(); pathFn(); ctx.clip();
+          ctx.fillStyle = 'rgba(255,255,255,.01)'; ctx.fill();
+          ctx.filter = 'blur(22px)';
+          ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = 44;
+          pathFn(); ctx.stroke(); ctx.filter = 'none'; ctx.restore();
+          const rg = ctx.createLinearGradient(cx0 - r0, CY + r0, cx0 + r0, CY - r0);
+          rg.addColorStop(0, 'rgba(255,255,255,.16)');
+          rg.addColorStop(.45, 'rgba(255,255,255,.5)');
+          rg.addColorStop(1, 'rgba(255,255,255,.95)');
+          ctx.strokeStyle = rg; ctx.lineWidth = 5; pathFn(); ctx.stroke();
+        };
+        // 배터리 다이얼 + 끝점 도트 — 림이 곧 충전량(피그마 상태점 = 게이지 끝)
+        const dial = (cx, pct, d0) => {
+          const RR = RD - 5, gp = eOut(intro(t, d0, .8));
+          const a1 = (DA0 + (DA1 - DA0) * (pct / 100) * gp) * RAD;
+          ctx.save();
+          ctx.strokeStyle = NEU.ink; ctx.lineWidth = 8; ctx.lineCap = 'round';
+          ctx.shadowColor = 'rgba(255,255,255,.8)'; ctx.shadowBlur = 16;
+          ctx.beginPath(); ctx.arc(cx, CY, RR, DA0 * RAD, a1); ctx.stroke();
+          ctx.shadowBlur = 0; ctx.fillStyle = NEU.ink;
+          ctx.beginPath(); ctx.arc(cx + Math.cos(a1) * RR, CY + Math.sin(a1) * RR, 9.3, 0, Math.PI * 2);
+          ctx.fill(); ctx.restore();
+        };
+        ctx.save(); ctx.globalAlpha *= Math.min(1, eB * 1.6);
+        const k = .92 + .08 * Math.min(1, eB * 1.6);
+        ctx.translate(800, CY); ctx.scale(k, k); ctx.translate(-800, -CY);
+        // ⓐ 안경 — 늘 원
+        const gx = x0 + RD;
+        glass(() => { ctx.beginPath(); ctx.arc(gx, CY, RD - 2.5, 0, Math.PI * 2); }, gx, RD);
+        dial(gx, 85, .95);
+        { const gl2 = img('ic-glasses.png'); if (gl2) ctx.drawImage(gl2, gx - 55, CY - 37, 110, 74); }
+        // ⓑ 이어폰 — 원 → 알약. 왼끝은 제자리, 오른쪽으로 자란다.
+        const ex = x0 + DD + GAPD;
+        glass(() => { ctx.beginPath(); ctx.roundRect(ex + 2.5, CY - RD + 2.5, WE - 5, DD - 5, RD); },
+              ex + WE / 2, RD);
+        dial(ex + RD, 85, 1.05);
+        { const eb = this._tinted2('fig/ready2/ic-earbuds.png', 102, 88, () => '#fff');
+          if (eb) ctx.drawImage(eb, ex + RD - 51, CY - 44, 102, 88); }
+        // 코치 인물 — 확장이 만든 오른쪽 빈칸에 채워진다(연결됨)
+        if (EXP > 0.02) {
+          const pk = this._img('photos/creator-profile-sean.png');
+          const ccx = ex + WE - RD, CRR = RD - 12;
+          ctx.save(); ctx.globalAlpha *= EXP;
+          ctx.beginPath(); ctx.arc(ccx, CY, CRR, 0, Math.PI * 2); ctx.clip();
+          if (pk) {
+            const sc = Math.max(CRR * 2 / pk.naturalWidth, CRR * 2 / pk.naturalHeight);
+            ctx.drawImage(pk, ccx - pk.naturalWidth * sc / 2, CY - pk.naturalHeight * sc / 2,
+                          pk.naturalWidth * sc, pk.naturalHeight * sc);
+          }
           ctx.restore();
         }
+        ctx.restore();
       }
-      ctx.restore();
     }
     // ⑥ 발 실루엣 = 폐기(유저 08-05) — 러닝·농구 양쪽에서 뺀다.
     //   3D FootMark 는 시작페이지에서 이미 숨김이라 잔상 없음. 복원은 #81 커밋.
     // ── ⑦ CTA — 페이즈2(인물 등장)와 함께. 문구·위계는 **복싱(벽)과 한 벌**(유저 08-05):
     //    작은 눈금 'To start' 위 → 큰 지시 'Tap your foot Twice' 아래. wallgl _paint_ready 와 동일.
-    if (p2 > 0.01 && SW.cta > 0.01) {
-      ctx.save(); ctx.globalAlpha *= p2;
+    if (p3 > 0.01) {
+      ctx.save(); ctx.globalAlpha *= p3;
       // ★ 글자를 **빛 안**에 앉힌다(유저 선택 08-05). 캡슐 하단 글로우 에셋(②)은 캡슐 바닥에서
       //   딱 끊겨 그 아래가 어두운 띠로 남았고, CTA 가 그 띠 위에 붕 떠 보였다. 캡슐 바닥과
       //   겹치는 따뜻한 타원 빛을 한 겹 더 깔아 글로우가 CTA 까지 흘러내리게 한다.
       //   타원 상단 1800 < 캡슐 바닥 1876 이라 이음매가 안 보인다.
       {
-        const GY = 2010, GRX = 560, GRY = 210;
+        const GY = 2061, GRX = 560, GRY = 210;   // 하단 슬롯(패널·CTA 공용) 중심 = 1827.4+234
         ctx.save();
         ctx.globalAlpha *= .9 + .35 * tapB;   // 탭 박자에 이 빛도 같이 부푼다
         ctx.translate(800, GY); ctx.scale(1, GRY / GRX);
@@ -1625,14 +1622,14 @@ export class FloorGL {
         ctx.beginPath(); ctx.arc(0, 0, GRX, 0, Math.PI * 2); ctx.fill();
         ctx.restore();
       }
-      ctx.globalAlpha *= SW.cta * (.9 + .1 * tapB);   // 패널과 3초씩 번갈아
+      ctx.globalAlpha *= .9 + .1 * tapB;
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      // 캡슐 밖 아래(피그마 353:7107/7108) — 블록 = 1962(눈금) → 2042(지시).
+      // 하단 슬롯(피그마 367 의 원 두 개 자리)을 그대로 물려받는다 — 블록 중심 = 2061.
       //   빛 위로 올라와 대비가 낮아진 만큼 눈금 불투명도 .55 → .68.
       ctx.fillStyle = 'rgba(255,255,255,.68)'; ctx.font = RF(400, 46); ctx.letterSpacing = '-1.2px';
-      ctx.fillText('To start', 800.15, 1962);
+      ctx.fillText('To start', 800.15, 2014);
       ctx.fillStyle = NEU.ink; ctx.font = RF(700, 74); ctx.letterSpacing = '-5.28px';
-      ctx.fillText('Tap your foot Twice', 800.15, 2042);
+      ctx.fillText('Tap your foot Twice', 800.15, 2102);
       ctx.letterSpacing = '0px'; ctx.restore();
     }
     ctx.restore();   // /콘텐츠 스케일

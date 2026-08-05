@@ -2763,9 +2763,10 @@ void main(){
     //   따라하기 화면에도 같은 실루엣이 축소되어 남아야 한다(피그마 143:444) — 예외로 계속 켠다.
     const activeId = COACH_IDS.find(id => id === st
       && !(/^(A2|A3|BK_A2|BK_A3|BK_B1)$/.test(id) && session._followLatch)
-      // ★ READY 실루엣은 **첫 화면**이다(유저 08-05) — 팩 이름 + 사람 형체로 시작하고,
-      //   2초 뒤 도트 '30 min' 이 그 자리를 받는다(구: 숫자 먼저 → 인물). 2.8s = p2 완주 시점.
-      && !(/READY$/.test(id) && session.t > 2.85)) || null;
+      // ★ READY 실루엣은 **첫 화면**이다 — 팩 이름 + 사람 형체로 시작하고 2초 뒤 도트 '30 min'
+      //   이 자리를 받는다. 시작화면 전체가 8초 루프라(floorgl _paint_ready) 여기도 같은 주기로
+      //   껐다 켠다 — % 를 빼면 첫 8초 뒤 인물이 영영 안 돌아온다.
+      && !(/READY$/.test(id) && ((session.t ?? 0) % 8) > 2.75)) || null;
     for (const id of COACH_IDS) {
       const c = _coaches[id];
       if (id === activeId) {
@@ -2848,8 +2849,8 @@ void main(){
           : (co.video.readyState >= 2 && co.video.videoWidth > 0 && !co.video.seeking
              && co.video.currentTime > 0.03 && frameHasImage(co))) ? 1 : 0)
           // READY 는 페이즈2(도트 숫자 등장)에 맞춰 부드럽게 빠진다 — uReady 가 곧 알파 계수라
-          //   셰이더를 안 건드리고 페이드가 된다. 하드컷이면 사람이 툭 사라진다.
-          * (/READY$/.test(id) ? Math.max(0, Math.min(1, (2.8 - (session.t ?? 0)) / 0.7)) : 1);
+          //   셰이더를 안 건드리고 페이드가 된다. 하드컷이면 사람이 툭 사라진다. 8초 루프 동기.
+          * (/READY$/.test(id) ? Math.max(0, Math.min(1, (2.7 - ((session.t ?? 0) % 8)) / 0.7)) : 1);
         const coLive = co.video.readyState >= 3 && !co.video.seeking && co.video.currentTime > 0.03
                     && (id !== 'BK_A1' || _coachSeekId === id);   // 시크 전 프레임은 보여주지 않는다
         if (coLive) co._live = true;
