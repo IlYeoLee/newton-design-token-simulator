@@ -2263,7 +2263,10 @@ export class FloorGL {
     if (outA > 0) {
       ctx.save(); ctx.globalAlpha *= outA;
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillStyle = 'rgba(255,255,255,.6)'; ctx.font = F(400, 56); ctx.letterSpacing = '7px';   // 46→56
+      // 'Preview' 라벨 — 56→72, 자간 7→2(유저: 자간 너무 넓고 폰트 너무 작다).
+      //   minFs(y≈300) 가 64 를 요구하므로 56 은 애초에 규약 미달이었다. 자간이 넓으면 글자가
+      //   낱개로 흩어져 더 작아 보인다 — 크기를 올리고 자간을 줄이는 게 같은 방향의 처방이다.
+      ctx.fillStyle = 'rgba(255,255,255,.7)'; ctx.font = F(400, 72); ctx.letterSpacing = '2px';
       ctx.fillText('Preview', CX + 3, y + h * .15 - 26 * mo);   // 라벨만 대+소문자(유저)
       // ① 도착점 쪽으로 끌려간다 — 중앙 기준이라 x 는 좌측 목표로, y 는 헤더 중앙으로.
       ctx.translate((dstX - CX) * .32 * mo, (dstY - (y + h * .40)) * .32 * mo);
