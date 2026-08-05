@@ -1221,6 +1221,18 @@ export class FloorGL {
   /** 미니 캡슐 헤더 — [유리 알약] 왼쪽 카운트 링 + 동작명. 프리뷰 A안 정본(유저 확정).
    *  폭은 고정(840) — 스테이지마다 헤더가 커졌다 작아지면 '같은 물건이 자리를 옮긴다'가 깨진다.
    *  타이틀 상한 400px 은 floor-scenes.js 에서 지킨다(농구 스텝 4개를 그 규칙으로 줄였다). */
+  /** 헤더 폭 스무딩 — 폭은 타이틀 실폭에서 파생되는데, 전환 순간 타이틀이 통째로 바뀐다
+   *  (대문자화 · 'LEFT ' 접두사 · 2줄→1줄). 그러면 폭이 **한 프레임에 점프**해서 캡슐이 툭 끊긴다
+   *  — 유저가 말한 '중간에 버벅인다'의 정체다. 목표 폭으로 지수 수렴시켜 형태 변화를 이어 붙인다.
+   *  시간상수 0.12s: 전환(0.9s)보다 충분히 짧아 지연으로 안 느껴지고, 점프는 완전히 녹는다. */
+  _smoothW(target) {
+    const dt = Math.max(0.001, Math.min(0.25, this.t - (this._hwT ?? this.t)));
+    this._hwT = this.t;
+    if (this._headW == null || Math.abs(target - this._headW) > 900) this._headW = target;   // 스테이지 전환은 즉시
+    else this._headW += (target - this._headW) * (1 - Math.exp(-dt / 0.12));
+    return this._headW;
+  }
+
   _capHead(n, y) {
     // ★ 위계 정정(유저: 타이머도 개 작아지고 sec 보이지도 않고 타이틀도 줄었다 — 이게 맞냐).
     //   맞지 않았다. 250 높이 알약에 셋을 우겨넣어 전부 작아졌고, 특히 **타이머 숫자(67)가
@@ -1241,8 +1253,8 @@ export class FloorGL {
     ctx.font = F(700, LAYOUT.TYPE.title); ctx.letterSpacing = '-4px';
     const tw = ctx.measureText(T).width;
     ctx.letterSpacing = '0px';
-    const W2 = Math.max(H2.minW, Math.min(safeW(y) - 80,
-      PAD + RR * 2 + H2.gapU + uw + H2.gapT + tw + PAD + (n.step ? 110 : 0)));
+    const W2 = this._smoothW(Math.max(H2.minW, Math.min(safeW(y) - 80,
+      PAD + RR * 2 + H2.gapU + uw + H2.gapT + tw + PAD + (n.step ? 110 : 0))));
     const x = CX - W2 / 2;
     const path = () => { ctx.beginPath(); ctx.roundRect(x, y, W2, HH, HH / 2); };
     ctx.save();
@@ -2177,8 +2189,8 @@ export class FloorGL {
     const uwp = 0;   // 'sec' 은 링 안(숫자 아래)으로 — 가로 폭에서 빠진다(유저)
     ctx.font = F(700, LAYOUT.TYPE.title); ctx.letterSpacing = '-4px';
     const twp = ctx.measureText(title).width; ctx.letterSpacing = '0px';
-    const WHp = Math.max(H2.minW, Math.min(safeW(H2.y) - 80,
-      PAD + RRp * 2 + H2.gapU + uwp + H2.gapT + twp + PAD + (cfg.step ? 110 : 0)));
+    const WHp = this._smoothW(Math.max(H2.minW, Math.min(safeW(H2.y) - 80,
+      PAD + RRp * 2 + H2.gapU + uwp + H2.gapT + twp + PAD + (cfg.step ? 110 : 0))));
     const w1 = L(900, WHp), h1 = L(740, HHp), y1 = H2.y;   // 여백 여유(유저) — 820×660 → 900×740
     // ★ 진입 = **시작화면 캡슐이 줄어드는 것**(유저: 두 번 탭하면 같은 요소가 줄어들며 넘어간다).
     //   스테이지가 바뀔 때 캡슐을 새로 띄우면 '다른 물건이 나타난' 걸로 읽힌다. READY 캡슐
@@ -2243,11 +2255,16 @@ export class FloorGL {
     //   헤더 링 = 지금 딛고 있는 발의 남은 홀드 시간(발이 바뀌면 리셋) · 하단 아크 = 좌+우 합친
     //   세션 전체. 둘이 같은 값을 세면 "한 발 5초"라는 이 동작의 구조가 화면에서 사라진다.
     //   값은 session.a2Cyc(홀드 진행 prog·holdSec·isLeft)에서 읽는다 — 봇 사이클과 이미 동기된 정본.
+    // ★ 링 진행값도 소스가 갈릴 때 튄다(스테이지 시간 → 한 발 홀드). 0.35s 램프로 섞는다.
+    if (perFoot && this._pfT == null) this._pfT = t;
+    if (!perFoot) this._pfT = null;
+    const pfK = perFoot ? clamp01((t - this._pfT) / 0.35) : 0;
     const rem = perFoot ? Math.max(0, Math.ceil(hs * (1 - hp)))
       : (mo < .5 ? Math.max(1, Math.ceil(PV - t)) : Math.max(0, Math.ceil(dur - t)));
     if (String(rem) !== this._numLast2) { this._numLast2 = String(rem); this._numT2 = t; }
     countRing(ctx, rx, ry2,
-      perFoot ? 1 - hp : (mo < .5 ? clamp01(1 - t / PV) : clamp01(1 - (t - PV) / Math.max(.1, dur - PV))),
+      (() => { const base = mo < .5 ? clamp01(1 - t / PV) : clamp01(1 - (t - PV) / Math.max(.1, dur - PV));
+               return perFoot ? base + ((1 - hp) - base) * pfK : base; })(),
       String(rem), { t: 99, k: RR / 275, pulse: clamp01((t - (this._numT2 || 0)) / 0.5),
                      ring: { trackW: 11, arcW: 11, trackA: .26 } });
     // PREVIEW 라벨 · 동작명 — 순차 크로스페이드(옛 것이 먼저 빠지고 새 것이 든다)
