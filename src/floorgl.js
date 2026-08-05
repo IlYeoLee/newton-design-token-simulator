@@ -2863,7 +2863,10 @@ export class FloorGL {
     //     계산돼 'Left Calf Stretch' 가 알약 밖으로 잘렸다(유저 스샷).
     const cyc = (typeof window !== 'undefined' ? window.__dbg?.session?.a2Cyc : null);
     const perFoot = this.stage === 'A2' && cyc && !cyc.watching;
-    const hs = cyc?.holdSec ?? 5, hp = cyc?.inHold ? clamp01(cyc.prog) : 0;
+    // ★ 기본값 5 → 3 (유저: 3,2,1 이어야 하는데 5 가 나온다). 홀드는 3초(main HOLD=3.0)인데
+    //   관찰 구간의 a2Cyc 는 {watching, watchProg} 뿐이라 holdSec 이 없다 — 전환 프레임에
+    //   perFoot 이 켜지면 이 기본값 5 가 그대로 링에 찍혔다. 기본값도 홀드와 같게 맞춘다.
+    const hs = cyc?.holdSec ?? 3, hp = cyc?.inHold ? clamp01(cyc.prog) : 0;
     //   ★★★ 단, **모프가 끝난 뒤에** 붙인다(유저: 전환 애니메이션 때 글자가 삐져나온다).
     //     접두사가 모프 시작과 동시에 들어오면 한 프레임에 두 가지가 바뀐다 — 형태(원형→알약)와
     //     문구(12자→17자). 폭 목표가 점프하고, 프리뷰 폭 900 에 안 들어가 1줄이 2줄로 쪼개지면서

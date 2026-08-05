@@ -4202,7 +4202,9 @@ void main(){
       else if (session.stage === 'A3') _phase = Math.max(0, session.t - (session._aWatchEnd ?? A2_WATCH));   // 시범 후 하이니 (1.6배속 철회 — 동작 딱딱해짐)
       else if (session.sport === 'running' && (/^run_|^hj_/.test(_clip) || _clip === 'cmu_stretch' || _clip === 'jumpingJacks')) _phase = session.t;
       else if (session.stage === 'A2') {
-        if (aWatching) { session.a2Cyc = { watching: true, watchProg: Math.max(0, Math.min(1, session.t / A2_WATCH)) }; }
+        //   holdSec 을 관찰 구간에도 실어 보낸다 — 없으면 소비 쪽 기본값으로 떨어져 링에
+        //   엉뚱한 수가 찍힌다(유저: 5,2,1). 값이 한 곳에서만 나오게 하는 게 요지다.
+        if (aWatching) { session.a2Cyc = { watching: true, holdSec: 3.0, watchProg: Math.max(0, Math.min(1, session.t / A2_WATCH)) }; }
         else {
         // 실측 사이클(cmu144_11) — 시범 종료 후부터(tt): 첫 홀드가 깔끔히 시작.
         const tt = session.t - (session._aWatchEnd ?? A2_WATCH);
