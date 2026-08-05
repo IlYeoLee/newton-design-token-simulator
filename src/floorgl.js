@@ -1180,8 +1180,17 @@ export class FloorGL {
     ctx.fillStyle = 'rgba(255,255,255,.6)'; ctx.font = F(400, 40);
     ctx.fillText('sec', cxR + RR + 18, cyR + 6);
     ctx.fillStyle = '#fff'; ctx.font = F(700, 52); ctx.letterSpacing = '-2px';
-    ctx.fillText(n.title || '', x + 60 + RR * 2 + 18 + 62 + 52, cyR);
+    const tx = x + 60 + RR * 2 + 18 + 62 + 52;
+    // 쉼표가 있으면 의미 단위로 두 줄(농구 스텝) — 지금 데이터엔 없지만 규칙은 남긴다.
+    const ci = (n.title || '').indexOf(', ');
+    if (ci > 0) { ctx.fillText(n.title.slice(0, ci + 1), tx, cyR - 32); ctx.fillText(n.title.slice(ci + 2), tx, cyR + 32); }
+    else ctx.fillText(n.title || '', tx, cyR);
     ctx.letterSpacing = '0px';
+    // 스텝 배지(n/4) — 농구 분해 스텝만. 헤더 오른쪽 끝에 조용히.
+    if (n.step) {
+      ctx.textAlign = 'right'; ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.font = F(400, 44);
+      ctx.fillText(n.step, x + W2 - 56, cyR);
+    }
   }
 
   /** 단계 브레드크럼 — 벽(wallgl)과 **같은 규약**: 현재 단계만 볼드 + 글로우 + 숨쉬기,
@@ -1926,177 +1935,26 @@ export class FloorGL {
   // ── 씬 캡슐 프레임(신규 시스템) — READY 캡슐 지오메트리에서 부드럽게 성장 + 배지·게이지·타이틀.
   //   좌표는 피그마 실측(343:3496): 캡슐 (162,-15) 1276×1955, 배지 y+25, 게이지 y+56 w1048, 타이틀 y+415.
   _paint_capsule(cfg) {
-    const ctx = this.ctx, t = this.t, V = cfg.variant;
-    const RF = (w2, s2, fam = sans) => `${w2} ${s2}px ${fam}`;
-    // ① 캡슐 지오메트리 — 변형별 목표.
-    //    preview 만 READY 캡슐에서 성장한다(READY→A1 은 실제로 규격이 바뀌는 한 번).
-    //    video·floor·mini 는 '프리뷰 캡슐에서 수축'을 매 장면 다시 재생해서, 이미 카드였던
-    //    이전 장면에서 넘어와도 커졌다 작아지길 반복했다(유저 08-05) → lerp 없이 목표 규격 그대로.
-    // ★ 프리뷰 캡슐 = 홈(시작화면) 캡슐과 **같은 규격·같은 자리**(유저 08-05).
-    //   피그마 343:3496 의 1276×1955 성장은 캡슐이 커지면서 인물을 더 가두는 인상이라 폐기 —
-    //   홈에서 프리뷰로 넘어갈 때 캡슐은 가만히 있고 내용(배지·호·타이틀·인물)만 바뀐다.
-    //   y=100 = 홈의 285 에 _paint_ready 조판 이동(-185)을 반영한 실좌표.
-    const HOME = [291, 100, 1018, 1591], CARD = [291, 63, 1018, 713];
-    const [bx, by, bw, bh] = V === 'preview' ? HOME : CARD;
+    // ★ 전면 교체(유저 확정) — 옛 큰 유리 캡슐 + 안쪽 타이틀 조판은 폐기했다.
+    //   문제였던 것: ① 캡슐이 영상을 감싸 크기 상한이 되고 ② 납작한 비율에 배지 하나뿐이라
+    //   위계가 2층이며 ③ 진행이 캡슐 안에 있어 '이 동작 남은 시간'과 같은 층으로 읽혔다.
+    //   새 문법 = **미니 캡슐 헤더(고정폭 840: 카운트 링 + 동작명) + 지면은 비운다 + 진행은 하단**.
+    //   영상·마크는 3D 쪽(main.js COACH_CFG · MARK)이 지면에 직접 세우므로 캔버스는 관여 안 한다.
+    const ctx = this.ctx, t = this.t;
+    const dur = this.params?.dur || 8;
+    const title = Array.isArray(cfg.title) ? cfg.title.join(' ') : String(cfg.title || '');
     ctx.save();
-    // ★ 캡슐은 '눌린 SVG'가 아니라 진짜 알약이다(유저 #82) — 비균일 스케일로 찌그러뜨리지 말고
-    //   목표 w/h 로 직접 그리고 r = min(w,h)/2. 카드로 줄어도 좌우 끝이 반원으로 유지된다.
-    const capPath = () => { ctx.beginPath(); ctx.roundRect(bx, by, bw, bh, Math.min(bw, bh) / 2); };
-    // ★ 열린 캡슐(유저 #115) — 인물이 캡슐 '안'에 서는 preview 는 닫힌 테두리가 사람을 가둬
-    //   답답했다. 지오메트리·글로우는 그대로 두고 림/이너할로만 아래로 갈수록 0 으로 빼서
-    //   위는 카드(정보), 아래는 바닥 글로우로 녹아 사라지게 한다. 컴팩트 카드 변형은 인물이
-    //   캡슐 밖(아래)이라 닫힌 채로 둔다.
-    const open = V === 'preview';
-    const vGrad = stops => {
-      const g2 = ctx.createLinearGradient(0, by, 0, by + bh);
-      for (const [o, c] of stops) g2.addColorStop(o, c);
-      return g2;
-    };
-    capFill(ctx, capPath, bx, by, bw, bh);
-    ctx.save(); capPath(); ctx.clip();
-    ctx.filter = 'blur(37px)';
-    ctx.strokeStyle = open
-      ? vGrad([[0, 'rgba(255,255,255,.25)'], [.34, 'rgba(255,255,255,.19)'], [.66, 'rgba(255,255,255,0)']])
-      : 'rgba(255,255,255,.25)';
-    ctx.lineWidth = 80;
-    capPath(); ctx.stroke();
-    ctx.filter = 'none'; ctx.restore();
-    const rim = open
-      ? vGrad([[0, 'rgba(255,255,255,.95)'], [.22, 'rgba(255,255,255,.34)'],
-               [.46, 'rgba(255,255,255,.14)'], [.66, 'rgba(255,255,255,0)']])
-      : vGrad([[0, 'rgba(255,255,255,.95)'], [.28, 'rgba(255,255,255,.28)'],
-               [.62, 'rgba(255,255,255,.2)'], [.88, 'rgba(255,255,255,.65)'],
-               [1, 'rgba(255,255,255,.9)']]);
-    ctx.strokeStyle = rim; ctx.lineWidth = 2.5; capPath(); ctx.stroke();
-    const img = rel => this._img('fig/ready2/' + rel);
-    const GLOWS = [
-      ['glow-subtract.svg', 167.2, 1069.2, 1265.6, 931.6, 'hard-light'],
-      ['glow-hl1.svg', 211.6, 1453.6, 1176.8, 458.8, 'color-dodge'],
-      ['glow-hl2.svg', 310.4, 1380.4, 979.2, 541.2, 'lighter'],
-      ['glow-ell.svg', 150.3, 1189.3, 1300.36, 871.36, 'hard-light'],
-    ];
+    ctx.globalAlpha *= eOut(intro(t, .05, .7));
+    this._capHead({ title, dur, step: cfg.step }, 176);
+    ctx.restore();
+    // 진행 — 하단 고정 + 투사 안전폭(하단은 콘이 좁다)
     ctx.save();
-    // 글로우는 READY 좌표계 자산 — 현재 캡슐 사각형에 맞춰 매핑(모양이 소프트해 비균일 무해)
-    ctx.translate(bx, by); ctx.scale(bw / 1018, bh / 1591); ctx.translate(-291, -285);
-    ctx.translate(800, 1876); ctx.scale(0.88, 0.88); ctx.translate(-800, -1876);   // 하단 그라디언트 조금 축소(유저)
-    ctx.globalAlpha *= 0.9;                                                          // 빛 강도 아주 조금 다운(유저)
-    for (const [rel, gx, gy, gw, gh, blend] of GLOWS) {
-      const im = img(rel);
-      if (!im) continue;
-      ctx.save(); ctx.globalCompositeOperation = blend;
-      ctx.drawImage(im, gx, gy, gw, gh);
-      ctx.restore();
-    }
+    ctx.globalAlpha *= eOut(intro(t, .35, .7));
+    const ay = 2180, wA = Math.min(1048, safeW(ay) - 48);
+    arcGauge(ctx, CX - wA / 2, ay, wA, Math.min(1, t / dur), { dotK: 0.6 });
     ctx.restore();
-    ctx.restore();
-    const cx2 = bx + bw / 2;
-    // ② 필 배지 — preview: 'Preview'(레귤러·블룸) / video·floor: 볼드 타이머(rollNum 카운팅)
-    //    / mini: 진행 단계(볼드, 예 3/4). 전부 연한 흰 배경 + 블룸(복싱 자막 규약).
-    {
-      const e = eOut(intro(t, .35, .6));
-      ctx.save(); ctx.globalAlpha *= e;
-      const timer = V === 'video' || V === 'floor';
-      // ★ 프리뷰 A안(유저 확정) — 'PREVIEW' 글자 배지 대신 **카운트 링**(정본 countRing).
-      //   관찰 구간의 주인공은 '몇 초 뒤에 시작하나'지 'PREVIEW' 라는 단어가 아니다.
-      //   타이머 배지(video·floor)는 기존 컴포넌트 그대로 둔다(유저: 타이머는 기존 유지).
-      if (V === 'preview') {
-        const durP = this.params?.dur || 8, remP = Math.max(0, Math.ceil(durP - t));
-        if (String(remP) !== this._numLast2) { this._numLast2 = String(remP); this._numT2 = t; }
-        countRing(ctx, cx2, by + 150, clamp01(1 - t / durP), String(remP),
-          { t: 99, k: 96 / 275, pulse: clamp01((t - (this._numT2 || 0)) / 0.5),
-            ring: { trackW: 11, arcW: 11, trackA: .26 } });
-        ctx.letterSpacing = '0px'; ctx.restore();
-      } else {
-      const txt2 = V === 'mini' ? (cfg.step || '1/4')
-        : String(Math.max(0, Math.ceil((this.params?.dur || 8) - t)));
-      //   64 → 68 — 배지가 대지 최상단 근처(y≈130)라 minFs 66 을 못 넘겼다(계측).
-      //   알약 폭은 글자에서 파생되므로 같이 커진다.
-      ctx.font = RF(timer || V === 'mini' ? 700 : 400, 68); ctx.letterSpacing = '-2.7px';
-      const tw = Math.max(ctx.measureText(txt2).width, 64), pw = tw + 80, ph2 = 100;
-      const byd = by + (V === 'preview' ? 90 : 52);   // 컴팩트 카드는 위로(호와 겹침 해소, 유저 #89)
-      ctx.save();
-      ctx.shadowColor = 'rgba(255,255,255,.8)'; ctx.shadowBlur = 34;
-      ctx.fillStyle = 'rgba(255,255,255,.34)';
-      ctx.beginPath(); ctx.roundRect(cx2 - pw / 2, byd, pw, ph2, 50); ctx.fill();
-      ctx.restore();
-      ctx.fillStyle = 'rgba(255,255,255,.95)'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.shadowColor = 'rgba(255,255,255,.6)'; ctx.shadowBlur = 14;
-      if (timer) rollNum(ctx, txt2, t, 0, .4, cx2, byd + 13, 68, { align: 'center', fill: 'rgba(255,255,255,.95)' });
-      else ctx.fillText(txt2, cx2, byd + ph2 / 2 + 2);
-      ctx.shadowBlur = 0;
-      ctx.letterSpacing = '0px'; ctx.restore();
-      }
-    }
-    // ③ 세션 시간 호(#69 공통) — preview·floor 변형(피그마). 광점 = 스테이지 진행.
-    if (V === 'preview' || V === 'floor') {
-      const e = eOut(intro(t, .45, .6));
-      ctx.save(); ctx.globalAlpha *= e;
-      const dur = this.params?.dur || 8;
-      // ★ 진행 게이지는 **하단에 못박는다**(유저 확정) — 캡슐 안에 두면 '이 동작 남은 시간'과
-      //   같은 층으로 읽혔다. 폭은 투사 안전폭에서 깎는다(하단은 콘이 좁다).
-      const ay = 2180, wA = Math.min(1048, safeW(ay) - 48);
-      arcGauge(ctx, cx2 - wA / 2, ay, wA, Math.min(1, t / dur), { dotK: 0.6 });
-      ctx.restore();
-    }
-    // ③' 미니 영상 미리보기 = **폐기**(유저 승인 08-05).
-    //   지면 투사에서 유의미하지 않다고 판단: 피그마 569×448px = 실측 0.39m × 0.31m 인데,
-    //   사람 전신을 세로 31cm 에 넣고 그걸 바닥에 **눕혀** 비스듬히 본다. 전방 단축까지 겹쳐
-    //   손목·무릎 각도 같은 판독 정보가 남지 않고, 대비는 큰 실루엣보다도 불리하다.
-    //   화면 UI 발상을 투사 매체로 옮긴 것 — 피그마는 정면 평면도라 멀쩡해 보였을 뿐이다.
-    //   '동작을 잊었을 때'는 지면의 모국어로 푼다: 마크(발자국+화살표+순번) · 3/4 배지 · 코치 음성.
-    //   인물 영상이 필요하면 정면으로 보는 **벽면**이 그 자리다.
-    // ④ 타이틀 — preview: 100 Bold 2줄 y+590 / video·floor: 100 Bold 2줄 y+493(컴팩트 하단)
-    //    / mini: 80 Bold 1줄 y+547(축소, 유저)
-    {
-      const e = eOut(intro(t, .25, .8));
-      ctx.save(); ctx.globalAlpha *= e;
-      ctx.fillStyle = NEU.ink; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      if (V === 'mini') {
-        ctx.font = RF(700, 80); ctx.letterSpacing = '-3.2px';
-        ctx.fillText(cfg.title[0], cx2, by + 547);
-      } else {
-        ctx.font = RF(700, 100); ctx.letterSpacing = '-4px';
-        const ty = by + (V === 'preview' ? 590 : 493);
-        if (cfg.title.length > 1) {
-          ctx.fillText(cfg.title[0], cx2, ty - 60);
-          ctx.fillText(cfg.title[1], cx2, ty + 60);
-        } else ctx.fillText(cfg.title[0], cx2, ty);
-      }
-      ctx.letterSpacing = '0px'; ctx.restore();
-    }
-    // ⑤ 넥스트 힌트(#66) — preview 전용
-    if (V === 'preview') {
-      const e = eOut(intro(t, .8, .7));
-      if (e > 0.01) {
-        const px = bx + bw + 136, py2 = by + 1000;   // 캡슐 오른쪽 끝 기준(규격이 바뀌어도 따라온다)
-        ctx.save(); ctx.globalAlpha *= e;
-        ctx.fillStyle = 'rgba(255,255,255,.35)';
-        ctx.beginPath(); ctx.roundRect(px - 145, py2 - 68, 290, 136, 68); ctx.fill();
-        const N3 = 3, CW = 14, CHH = 26, GAP3 = 58, PERIOD = 1.5, STAG = 0.16, ON = 0.55;
-        for (let i = 0; i < N3; i++) {
-          const ph3 = ((t / PERIOD - i * STAG) % 1 + 1) % 1;
-          const wv = ph3 < ON ? Math.sin((ph3 / ON) * Math.PI) : 0;
-          const base = 0.22 + 0.5 * (i / (N3 - 1));
-          ctx.strokeStyle = `rgba(255,255,255,${Math.min(1, base + wv * 0.55)})`;
-          ctx.lineWidth = 13; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-          const sx = px - ((N3 - 1) * GAP3) / 2 + i * GAP3 + wv * 7;
-          ctx.save(); ctx.translate(sx, py2); ctx.scale(1 + wv * 0.14, 1 + wv * 0.14);
-          ctx.beginPath();
-          ctx.moveTo(-CW, -CHH); ctx.lineTo(CW, 0); ctx.lineTo(-CW, CHH);
-          ctx.stroke(); ctx.restore();
-        }
-        ctx.restore();
-      }
-    }
   }
 
-  // 제자리 scale+fade 등장 — 호출자가 save()한 상태에서 부른다
-  _fadeIn(y, h, e) {
-    const ctx = this.ctx;
-    ctx.globalAlpha *= e;
-    const k = 0.94 + 0.06 * e;
-    ctx.translate(CX, y + h / 2); ctx.scale(k, k); ctx.translate(-CX, -(y + h / 2));
-  }
 
   // ── 전환 (floor-transition.html) ───────────────────────────────────────────
   _paint_transition() {
