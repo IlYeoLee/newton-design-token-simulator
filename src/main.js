@@ -792,6 +792,14 @@ void main(){
   // 씬 스테이지에서 시점을 고를 수 있게 노출 — 카메라를 밖에서 새로 계산하면 종목별 화각·VOR·
   //   1인칭 가독 보정(setFPView)이 전부 빠진다. 앱의 토글을 그대로 쓰는 게 맞다.
   window.__setFp = (on) => setFp(!!on);
+  // 수직 바닥뷰(유저) — 씬 스테이지에서 지면 UI 를 왜곡 없이 보려면 완전 top-down 이 필요하다.
+  //   대각선 3인칭은 원근으로 세로가 눌려 조판 검수가 안 된다. 카메라를 **대지 바로 위**에
+  //   두고 아래를 본다(대지가 봇을 따라 움직이므로 매 프레임 다시 앉힌다 — 아래 루프).
+  window.__setTopView = (on) => {
+    window.__topView = !!on;
+    if (on) setFp(false);
+    else { try { frameThirdPerson(); } catch { /* 앵커 미준비 */ } }
+  };
   function setFp(on) {
     fpMode = on;
     setFPView(on);   // 1인칭 가독 보정 — 순번 감쇠 완화 + 마크·레인 게인 (시선 각도 눌림)
@@ -2899,7 +2907,14 @@ void main(){
           if ((vis && !co.plane.visible) || st < (co._lastSt ?? Infinity)) co._showT = now;
           co._lastSt = st;
           // 소스가 아직(또는 영영) 없으면 검은 판이 그대로 보인다(유저: 검은 사각형) — 준비된 뒤에만 켠다.
-          co.plane.visible = vis && co.video.readyState >= 2;
+          // ★ 단, readyState 를 **매 프레임 그대로 쓰면 깜빡인다**(유저: 무릎 굽히는 영상 깜빡임).
+          //   루프 이음매·버퍼 재충전 순간 readyState 가 1~2 프레임 동안 2 아래로 떨어지는데,
+          //   그때마다 판이 꺼졌다 켜진다. '한 번 준비됐으면 계속 켠다'로 래치하고, 소스가
+          //   바뀔 때만 초기화한다(다른 스테이지 영상으로 갈아탈 때는 다시 준비를 기다려야 하니까).
+          const vsrc = co.video.currentSrc || co.video.src || '';
+          if (co._readySrc !== vsrc) { co._readySrc = vsrc; co._everReady = false; }
+          if (co.video.readyState >= 2) co._everReady = true;
+          co.plane.visible = vis && !!co._everReady;
           if (co.mat.uniforms.uEnter) co.mat.uniforms.uEnter.value = (now - (co._showT || 0)) / 1000;
         }
         co.plane.material.uniforms.uTime.value = performance.now() / 1000;
@@ -5977,6 +5992,14 @@ void main(){
       //   실측: session.t%8 = 4.76 일 때 floorGL.t%8 = 0.25. 발자국만 세션 시계를 보고 있어서
       //   하단 패널·CTA(플로어 시계)와 영영 안 맞았다(유저 3회 신고). 한 시계로 통일한다.
       if (floorGLOn) session.readyPhase = (floorGL.t || 0) % 8;
+      // 수직 바닥뷰 — 대지 중심 바로 위. z 에 미세 오프셋을 주는 이유: 완전 수직이면
+      //   OrbitControls 의 up 벡터와 시선이 평행해져 짐벌락으로 화면이 뒤집힌다.
+      if (window.__topView) {
+        const bp = floorObj.position;
+        controls.target.set(bp.x, 0, bp.z);
+        camera.position.set(bp.x, 3.4, bp.z + 0.002);
+        camera.updateProjectionMatrix(); controls.update?.();
+      }
       else session.readyPhase = null;
       // 읽는 UI(프레임·발자국)는 빔 흔들림(투사오차 지터, 무릎 각속도 비례 — 다리 스윙 때 최대)을 그대로
       // 따르면 글자가 삐걱임(유저). 앵커를 저역통과(≈90ms 시정수)해 인물 총체 이동만 남기고 지터 제거.
