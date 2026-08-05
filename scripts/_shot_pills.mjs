@@ -12,16 +12,16 @@ const shots = await p.evaluate(async (preset) => {
   document.querySelector('#play').click();               // 정지
   await new Promise(r => setTimeout(r, 300));
   const out = [];
-  for (const id of ['A1', 'A2', 'BK_B5']) {
-    for (const [tag, tt] of [['t0.3', 0.3], ['t1.2', 1.2], ['t5.0', 5.0]]) {
+  for (const id of ['BK_C2', 'P2', 'A1']) {
+    for (const [tag, tt] of [['t5.0', 5.0]]) {
       const c = window.__cells.find(x => x.st.id === id); if (!c) continue;
       c.gl.resetAnim(); c.gl.t = 0;
       for (let s = 0; s < tt + 0.23; s += 1 / 30) { c.gl.t = s; c.gl._sig = null; c.gl._lastPaint = -1; try { c.gl.update(1 / 30); } catch {} }
       const cv = c.gl.canvas, g = cv.getContext('2d');
       // 알약 실측 박스 주변만 잘라낸다
       const bx = (c.gl._boxes || []).find(v => v.k === 'pill');
-      const X = bx ? Math.max(0, bx.x - 60) : 0, Y = bx ? Math.max(0, bx.y - 120) : 100;
-      const W = bx ? Math.min(cv.width - X, bx.w + 120) : 1200, H = bx ? bx.h + 200 : 500;
+      const X = 0, Y = 0;
+      const W = cv.width, H = Math.round(cv.height * 0.42);
       const t2 = document.createElement('canvas'); t2.width = W; t2.height = H;
       t2.getContext('2d').drawImage(cv, X, Y, W, H, 0, 0, W, H);
       out.push({ id, tag, w: W, h: H, url: t2.toDataURL() });

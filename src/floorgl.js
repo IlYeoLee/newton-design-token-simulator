@@ -1380,7 +1380,9 @@ export class FloorGL {
   _h(n) {
     switch (n.type) {
       case 'crumb': return 50;
-      case 'capHead': return LAYOUT.CAPHEAD_H;   // 실제 그리는 높이와 같은 식 — 하드코딩 금지
+      // ★ **_capHead 와 같은 호출**로 잰다. 상수를 따로 두면 반드시 갈린다(실측: BK_C2 는
+      //   값이 '4/10' 이라 링이 커져 실제 328, 예약 244 — 84px 차이로 아크가 알약을 파고들었다).
+      case 'capHead': return this._headBoxFor(n, LAYOUT.HEAD.y).h;
       case 'text': return n.size * 1.06;
       case 'dots': return gaugeH(760);
       case 'prevRow': return 200;
@@ -1552,7 +1554,13 @@ export class FloorGL {
     const ctx = this.ctx, nf = TOK.fsTimer;
     ctx.font = F(700, nf, dot9);
     const tw = ctx.measureText(String(rem ?? '')).width;
-    return Math.max(TOK.ring, tw / 2 + nf * 0.34);   // 값 반폭 + 링과의 여백
+    // ★ 바닥값을 `TOK.ring`(= 폰트×비례/2) 로 두면 **한 자리 숫자에도 큰 원**이 걸린다.
+    //   실측: 지름 140 안에 글자 폭 50 — 원의 64%가 빈 공간이라 알약 왼쪽이 텅 빈 것처럼
+    //   읽힌다(유저: 가운데정렬 좀 해라. 수치로는 좌우 52 로 정확한데 눈엔 안 그렇다).
+    //   원은 **값을 담는 그릇**이므로 바닥값도 값의 실치수에서 나와야 한다:
+    //     가로 = 글자 반폭 + 여백 · 세로 = 대문자 반높이 + 여백  → 둘 중 큰 쪽
+    const pad = nf * 0.30, cap = nf * 0.72;
+    return Math.max(cap / 2 + pad, tw / 2 + pad);
   }
 
   /** @param o.fs     타이틀 활자 크기 (프리뷰는 더 크다). 없으면 LAYOUT.TYPE.title
@@ -1560,6 +1568,11 @@ export class FloorGL {
    *    ★ 알약은 HUG 다(유저) — 내용이 상자를 정한다. 링이 빠지면 상자도 같이 줄어야 하고,
    *      그 사이 값(0.4 같은)에서도 폭·높이가 연속이어야 '툭 사라지는' 인상이 안 생긴다. */
   _headBox(title, step, y = LAYOUT.HEAD.y, o = {}) {
+    // ★ 프레임 단위 메모이즈. 조판(_h)과 그리기(_capHead)가 **같은 호출로 같은 결과**를 봐야 한다.
+    //   안 그러면 예약 높이 ≠ 그리는 높이가 되어 다음 노드(진행 아크)가 알약을 파고든다
+    //   — 이 파일이 이미 두 번 겪은 사고다(HEAD.h 348 vs 388). 여기선 HUG 로 바꾸며 되살아났다.
+    const _sig = JSON.stringify([title, step, y, o.fs, o.ringK, o.ringR, this.t, this.stage]);
+    if (this._hbSig === _sig) return this._hbVal;
     const ctx = this.ctx, H2 = LAYOUT.HEAD;
     // uiK — 콘텐츠가 시선을 많이 요구하는 스테이지에서 UI 가 물러난다(CAPS 참고).
     //   ★ 알약 높이·활자·여백이 **한 배율로 같이** 줄어야 비례가 안 깨진다. 하나만 줄이면
@@ -1589,7 +1602,8 @@ export class FloorGL {
     const x = CX - w / 2, x0 = x + (w - inner) / 2;
     // 높이도 HUG — 링이 있으면 링 지름, 없으면 활자 높이가 기준이 된다.
     const h = Math.round(Math.max(RR * 2 * ringK, fs) + PAD * 2);
-    return { w, h, x, x0, inner, ringW, RR, PAD, gapT, fs, ringK, K2, H2 };
+    this._hbSig = _sig;
+    return (this._hbVal = { w, h, x, x0, inner, ringW, RR, PAD, gapT, fs, ringK, K2, H2 });
   }
 
   /** 텍스트 슬롯 — 폭을 **실측**해서 들고 다닌다. 상자가 이 값에서 나오므로 넘칠 수 없다. */
@@ -1647,6 +1661,16 @@ export class FloorGL {
     return { AV, prog: stageRest, rem: String(Math.max(0, Math.ceil(dur - t))) };
   }
 
+  /** 노드 하나에 대한 알약 상자 — **조판과 그리기가 같이 쓰는 유일한 진입점.**
+   *  게이지 값을 먼저 구하고(링 크기가 값 폭에서 나오므로) 그 결과로 상자를 잡는다. */
+  _headBoxFor(n, y) {
+    const T = String(n.title || '').toUpperCase();
+    const dur = n.dur || 8, PV = n.pv || 0;
+    const g = this._gaugeVal({ PV, dur, inPv: PV > 0 && this.t < PV });
+    const box = this._headBox(T, n.step, y, { ringR: this._ringRFor(g.rem) });
+    return { ...box, T, dur, PV, g };
+  }
+
   _capHead(n, y) {
     // ★ 위계 정정(유저: 타이머도 개 작아지고 sec 보이지도 않고 타이틀도 줄었다 — 이게 맞냐).
     //   맞지 않았다. 250 높이 알약에 셋을 우겨넣어 전부 작아졌고, 특히 **타이머 숫자(67)가
@@ -1659,12 +1683,10 @@ export class FloorGL {
     // ★ 여백 균등 + 폭은 **내용에서 파생**(유저: 좌우상하 여백 맞추고, 글자 적으면 줄어들게).
     //   pad 44 를 상하좌우에 동일하게 쓰고(HH = 링지름 + pad*2), 폭은 실측 텍스트에서 만든다.
     const ctx = this.ctx;
-    const T = String(n.title || '').toUpperCase();   // 코칭 타이틀 = 대문자(유저)
-    // 값을 **먼저** 구한다 — 링 크기가 값 폭에서 나오므로(HUG) 박스보다 앞서야 한다.
-    const _dur0 = n.dur || 8, _PV0 = n.pv || 0;
-    const _g = this._gaugeVal({ PV: _PV0, dur: _dur0, inPv: _PV0 > 0 && this.t < _PV0 });
-    const { w: W2, h: HH, x, x0, RR, PAD, gapT: GT, K2, H2 }
-      = this._headBox(T, n.step, y, { ringR: this._ringRFor(_g.rem) });
+    // 상자·값 = **조판(_h)이 쓴 것과 같은 호출**. 여기서 따로 재면 예약 높이와 갈린다.
+    const { w: W2, h: HH, x, x0, inner: INNER, RR, PAD, gapT: GT, K2, H2, T, dur: _dur0, PV: _PV0, g: _g }
+      = this._headBoxFor(n, y);
+    this._boxes?.push({ k: 'inner', x: x0, y, w: INNER, h: HH });   // 내용 묶음 — 가운데정렬 검수용
     this._glassPill(x, y, W2, HH, HH / 2);
     // 카운트 링 — 정본 컴포넌트 그대로(형태 변환 없음, 자리만 여기다)
     //   ★ x+PAD 가 아니라 **x0**(내용 묶음의 좌단) 에서 시작한다 — 남는 폭이 한쪽에 안 쌓인다.
