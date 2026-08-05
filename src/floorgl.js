@@ -1591,7 +1591,7 @@ export class FloorGL {
     //    0~2s  팩 이름 + 인물 실루엣 · 하단 원 2개(배터리) → 1.2s 부터 이어폰 칸이 가로 확장 + 코치
     //    2~4s  인물 out · 숫자 촤라락 → 오늘 총 운동시간(30 min)
     //    4~8s  Tap your foot Twice (4초) → 처음으로
-    const LOOP = 8, TP2 = 2.0, TP3 = 4.0;
+    const LOOP = 8, TP2 = 3.0, TP3 = 4.6;   // 인물 3초 유지(유저) → 숫자 촤라락 → CTA
     const t = this.t % LOOP;
     const D = READY[/floor-bk/.test(this.params.src) ? 'floor-bk.html' : 'floor.html'], R2 = D.r2;
     const bk = /floor-bk/.test(this.params.src);   // 종목 분기(칩 잉크 등) — 미정의로 페인트가 통째로 죽었다
@@ -1673,6 +1673,33 @@ export class FloorGL {
     // ── ②' 림 바깥 초승달 블룸 = **폐기**(유저 08-05). '칼같이 잘리는' 걸 풀려고 반원
     //   그라디언트를 림 밖에 얹었는데, 클립 사각(rect)의 윗변이 그대로 직선 이음매로 드러나고
     //   빛이 캡슐 밖 좌우로 번져 더 이상해졌다. 캡슐 밖으로 새는 광은 만들지 않는다.
+    // ── ②'' 인물 = **캔버스 plus-lighter 오버레이**(유저 08-05, 모바일 일치도).
+    //   피그마 367:10132 '인물스타일레퍼런스3 1' 실측 박스 (396, 834) 757.24×595.84 —
+    //   캡슐 상단(피그마 51)에서 783 아래이므로 우리 캡슐 상단(285) 기준 1068.
+    //   r 값 없음(모서리 안 깎음) · 합성 'lighter'(= plus-lighter) 로 캡슐 위에 얹는다.
+    //   3D 코치 판(LUT 인물)과 달리 원본 화면을 그대로 더하는 방식이라 모바일과 결이 같다.
+    if (p2 < 0.995) {
+      const PB = { x: 396, y: CAP.y + 783, w: 757.24, h: 595.84 };
+      const v = this._readyVid || (this._readyVid = (() => {
+        const el = document.createElement('video');
+        el.src = (import.meta.env?.BASE_URL || '/') + (bk ? 'ready-view/assets/proto/curry-card.mp4'
+                                                          : 'ready-view/assets/proto/sean-card.mp4');
+        el.muted = true; el.loop = true; el.playsInline = true; el.autoplay = true;
+        el.play?.().catch(() => {});
+        return el;
+      })());
+      if (v.readyState >= 2 && v.videoWidth) {
+        ctx.save();
+        ctx.globalAlpha *= e0(.30, .9) * (1 - p2);
+        ctx.globalCompositeOperation = 'lighter';
+        // '확대해서' — 소스를 박스에 cover 로 채운다(레터박스 금지, 검정 여백이 더해지면 안 된다)
+        const sc = Math.max(PB.w / v.videoWidth, PB.h / v.videoHeight) * 1.18;
+        const dw = v.videoWidth * sc, dh = v.videoHeight * sc;
+        ctx.beginPath(); ctx.rect(PB.x, PB.y, PB.w, PB.h); ctx.clip();
+        ctx.drawImage(v, PB.x + (PB.w - dw) / 2, PB.y + (PB.h - dh) / 2, dw, dh);
+        ctx.restore();
+      }
+    }
     // ── ③ 캡슐 텍스트 — 제목 2줄(100/Bold/ls-4) · Pace On(64/.8) · 도트 30(384) + min(64) ──
     // 제목 두 줄은 줄 단위로 아주 살짝 어긋나게(0.04s) — 한 덩어리로 뜨는 것보다 결이 산다.
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
