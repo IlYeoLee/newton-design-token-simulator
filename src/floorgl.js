@@ -1753,11 +1753,13 @@ export class FloorGL {
       //   빛 위로 올라와 대비가 낮아진 만큼 눈금 불투명도 .55 → .68.
       // 타이틀 98 기준 위계(유저 08-05): 지시 74 · 눈금 38(= 지시의 0.5, 복싱 벽 32/64 와 같은 비).
       ctx.fillStyle = 'rgba(255,255,255,.68)'; ctx.font = RF(400, 44); ctx.letterSpacing = '-1px';   // 38 → 44 (minFs 42.4)
-      ctx.fillText('TO START', 800.15, 2014 - CUT);   // 가이드=대문자(유저)
+      //   ★ CTA 는 대문자 규약에서 뺀다(유저) — 세션 가이드(PREVIEW·큐)와 달리 이건 발밑에서
+      //     읽는 지시문이고, 대문자로 올리니 두 줄이 다 소리치는 톤이 됐다.
+      ctx.fillText('To start', 800.15, 2014 - CUT);
       // 바닥 버전 축약(유저) — 벽은 'Tap your foot Twice'(멀리서 읽는 안내), 지면은 발밑이라
       //   '무엇으로'가 자명하다. 짧아진 만큼 글자를 키워 한 덩어리로 읽힌다.
       ctx.fillStyle = NEU.ink; ctx.font = RF(700, 74); ctx.letterSpacing = '-4.25px';
-      ctx.fillText('TAP TWICE', 800.15, 2102 - CUT);   // 가이드=대문자(유저)
+      ctx.fillText('Tap Twice', 800.15, 2102 - CUT);
       ctx.letterSpacing = '0px'; ctx.restore();
     }
     ctx.restore();   // /콘텐츠 스케일
