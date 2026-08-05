@@ -1630,7 +1630,11 @@ export class FloorGL {
     ctx.translate(0, -254);   // -234 → -254 — 최대 투사영역에 맞춰 20 더 위로(유저)
     if (CK !== 1) { ctx.translate(800, PV); ctx.scale(CK, CK); ctx.translate(-800, -PV); }
     // ── 페이즈 타임라인 — 등장(왼→오 촤라락) 완료 후 2초 뒤 페이즈2(실루엣·코치 프로필) ──
-    const p2 = eOut(intro(t, TP2, .7));            // 인물 out ↔ 숫자 in
+    // ★ 숫자 인터랙션 = 프로토타입 gauge.js 규약(유저): TRAVEL 780ms · LEAD 150ms · easeOutCubic.
+    //   '한 동작이지 두 박자가 아니다' — 배경(컬러 면 교대)이 먼저 출발하고 숫자가 150ms 뒤
+    //   합류해서 **같이 도착**한다. 둘을 동시에 시작하면 두 번 움직인 것처럼 읽힌다.
+    const TRAVEL = 0.78, LEAD = 0.15;
+    const p2 = eOut(intro(t, TP2, TRAVEL));       // 인물 out ↔ 컬러 면 교대(먼저 출발)
     const p3 = eOut(intro(t, TP3, .55)) * (1 - eOut(intro(t, LOOP - .45, .45)));   // CTA in/out
     // '두 번'을 글자 말고 **빛으로** 말한다 — CTA 구간에서만 톡·톡 두 번. 빼려면 0 으로 두면 끝.
     const tapB = (() => {
@@ -1815,7 +1819,8 @@ export class FloorGL {
       ctx.translate(0, (1 - p2) * 26);   // 숫자도 살짝 떠 있다가 앉는다(알파 단독보다 속도가 읽힌다)
       // 도트 카운팅 촤라락 — 복싱과 같은 rollNum 정본 (자릿수 롤)
       // rollNum 은 자릿수 합 폭을 돌려준다 — 단위 위치를 여기서 파생시킨다.
-      const nw = rollNum(ctx, R2.total, t, TP2, .9, 800, 1277, 384, { fam: dot9, align: 'center', fill: NEU.ink });
+      //   숫자는 LEAD 만큼 늦게 붙고 남은 시간에 도착 — 배경과 같은 순간에 멈춘다.
+      const nw = rollNum(ctx, R2.total, t, TP2 + LEAD, TRAVEL - LEAD, 800, 1277, 384, { fam: dot9, align: 'center', fill: NEU.ink });
       ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
       // 단위는 숫자의 부속 — 위계 낮춤(유저): 흰 100%/700 → 55%/400. 숫자만 주인공으로 남는다.
       // ★ x 를 하드코딩(1085)하면 안 된다 — '30' 기준으로 잡은 값이라 더 넓은 '48' 에서 숫자와
