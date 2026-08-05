@@ -1097,15 +1097,24 @@ export class Session {
       //   ① 후광 제거 — 점은 단단한 잉크 원(에지 AA 만)
       //   ② 가는 헤어라인을 깔아 점들을 **잇는다**(레퍼런스의 line+dot 문법)
       //   ③ 합성은 Normal — 가산은 밝은 바닥에서 워시아웃되고 절제가 안 된다
+      // ★ 도트가 '원'으로 보이는 조건은 **UV 종횡비**다(유저 08-06: 라인이 찌그러져 있다).
+      //   캔버스 픽셀이 실측에서도 정사각일 때만 원이 원이다: LINK_TILE = 256px × (LINK_W/32) m/px.
+      //   옛 코드는 repeat.x = max(1, seg/0.16) 이라 타일이 0.086~0.156m 로 눌렸고 — 실측 도트가
+      //   5×22mm 세로 슬리버가 되어 8개가 **사다리 발판**으로 읽혔다. 이 함수 주석이 '구 폐기 사유'로
+      //   적어 둔 바로 그 모양이 repeat 계산으로 되돌아와 있었다.
+      const LINK_W = 0.045;                     // 스트립 실측 폭(m) — 도트 지름·간격이 전부 여기서 파생
+      const LINK_TILE = 256 * LINK_W / 32;      // = 0.36m. 이 길이마다 캔버스 한 장
       const c = document.createElement('canvas'); c.width = 256; c.height = 32;
       const g2 = c.getContext('2d');
       g2.fillStyle = 'rgba(255,242,228,.26)';        // 헤어라인 — 점을 잇는 실
       g2.fillRect(0, 15, 256, 2);
-      const DOTS = 8, GAP = 256 / DOTS;
+      // 도트 16개 = 실측 간격 22mm · 지름 7.9mm. 8개(간격 45mm)는 반쪽 한 짝에 2개밖에 안 들어가
+      //   '선'으로 안 읽힌다(반쪽 실측 길이 86~156mm).
+      const DOTS = 16, GAP = 256 / DOTS;
       for (let i = 0; i < DOTS; i++) {
         const x = GAP * (i + 0.5);
         g2.fillStyle = 'rgba(255,246,234,.96)';      // 단단한 코어만
-        g2.beginPath(); g2.arc(x, 16, 4.2, 0, Math.PI * 2); g2.fill();
+        g2.beginPath(); g2.arc(x, 16, 2.8, 0, Math.PI * 2); g2.fill();
       }
       // ★ 스탠스 라인 = **반쪽 두 개**(유저 08-05: 두 발 사이를 잇는 예쁜 라인으로 펼쳐지는 느낌).
       //   한 장짜리 스트립은 offset 이 한 방향으로만 흘러 '흐름'이지 '펼쳐짐'이 아니었고,
@@ -1114,12 +1123,13 @@ export class Session {
       const mkHalf = () => {
         const tx = new THREE.CanvasTexture(c); tx.colorSpace = THREE.SRGBColorSpace;
         tx.wrapS = THREE.RepeatWrapping;
-        const m = new THREE.Mesh(new THREE.PlaneGeometry(1, 0.085),
+        const m = new THREE.Mesh(new THREE.PlaneGeometry(1, LINK_W),
           new THREE.MeshBasicMaterial({ map: tx, transparent: true, opacity: 0, depthWrite: false,
             blending: THREE.NormalBlending }));   // 절제 — 가산은 워시아웃(위 주석)
         m.rotation.x = -Math.PI / 2; m.renderOrder = 5; m.visible = false;
         g.add(m); return m;
       };
+      this.a2press.linkTile = LINK_TILE;   // 틱의 repeat 계산이 이 하나에서만 나온다(숫자 재기입 금지)
       this.a2press.linkA = mkHalf();   // 중앙 → 뒷발
       this.a2press.linkB = mkHalf();   // 중앙 → 앞발
     }
@@ -2369,11 +2379,16 @@ export class Session {
           const seg = L - IN;
           m.visible = seg > 0.04 && spread > 0.02;
           if (!m.visible) return;
-          m.position.set(mx + dx * 0.5, 0.012, mz + dz * 0.5);
+          // ★ 여백 IN 은 **발 쪽 끝에만** 준다. 예전엔 스트립을 중앙↔발 중점에 놓아 길이만 줄여서,
+          //   깎인 0.10m 가 양끝에 반씩 갈렸다 → 중앙에 0.05×2 = 0.1m 구멍(유저: 가운데는 비어있고).
+          //   반쪽 실측 길이가 0.086~0.156m 이니 구멍이 라인보다 길었다. 중앙에서 시작해 발 앞에서 끝난다.
+          m.position.set(mx + (dx / L) * seg * 0.5, 0.012, mz + (dz / L) * seg * 0.5);
           m.rotation.z = Math.atan2(-dz, dx);
           m.scale.set(seg, 1, 1);
           const mp = m.material.map;
-          if (mp) { mp.repeat.x = Math.max(1, seg / 0.16); mp.offset.x = sgn * (this.t * 0.30) % 1; }
+          //   repeat = 실측 길이 / 타일 실측 길이 — 이래야 캔버스 픽셀이 정사각이고 도트가 원이다.
+          //   구 max(1, seg/0.16) 은 타일을 4.4배 눌러 도트를 세로 슬리버(사다리)로 만들었다.
+          if (mp) { mp.repeat.x = seg / P.linkTile; mp.offset.x = sgn * (this.t * 0.30) % 1; }
           const tgt = (0.25 + 0.55 * spread) * (0.75 + 0.25 * P.fill);
           m.material.opacity += (tgt - m.material.opacity) * 0.18;
         };

@@ -2360,6 +2360,13 @@ void main(){
     // 농구 워밍업 코치 영상(kling i2v·그린스크린 960²) — 러닝 A2/A3와 동일 크기(w/h 0.9). 인물이 프레임 채워 1.2는 넘침(유저).
     // _pp = 정방향+역방향 이어붙인 핑퐁 클립(ffmpeg reverse) — 끝에서 뚝 끊고 처음으로 점프하던 것 제거(유저).
     //   loop=true 그대로 두고 자산만 교체 = 런타임 역재생(currentTime 역주행 시킹) 비용 0.
+    // ⚠ tone 은 **채도 손잡이가 아니다**(08-06 실측, scripts/check_person_tone.mjs).
+    //   band = 0.3 + 0.7*clamp((lum^0.59-.5)*.8 + .72 + tone, 0, 1) 이라 tone 은 band 를 위로 민다.
+    //   band 상단이 평평해지니 '평평한 면적'이 커지는 건 맞는데, look2Ramp 는 채도가 단조롭지
+    //   않다 — 스톱이 [흰, FA3030, FF4000, FF8E5E(S .63), FF3300(S 1.0)] 라 **평평해지는 그 자리가
+    //   가장 쨍한 색**이다. 결과 색의 평균 채도로 재면 tone 을 0~0.14 로 흔들어도 S 0.837~0.845 —
+    //   1% 미만이다. '덜 쨍'을 tone 으로 고치려 한 시도(08-06)는 그래서 기각됐다. 값 유지.
+    //   인물이 '처음엔 쨍하다 흐리멍텅'해지는 건 tone 이 아니라 **등장 워시**(uEnter, 아래 셰이더)다.
     BK_A1: { src: 'ready-view/assets/bk_sidebend_pp.webm', cropOff: 0.0, cropScale: 1.0, w: 0.62, h: 0.64, fwd: -0.26, ph: 0.80, tone: 0.045 },   // 프리뷰 캡슐 규격(유저 08-05)   // 옆구리 스트레치
     BK_A2: { src: 'ready-view/assets/bk_highknee.webm', cropOff: 0.0, cropScale: 1.0, w: 0.9, h: 0.9, fwd: -0.18, ph: 0.85 },   // 무릎 들기
     // 훈련 관찰 공통 — 이게진짜.mp4(그린스크린 정면 로우 드리블) 핑퐁 베이크(_pp, ffmpeg reverse concat)
@@ -2687,9 +2694,15 @@ void main(){
           //   발끝에서 차올라 몸을 한 번 훑고 정상 룩으로 풀린다. uEnter ≥ 1.4s 면 비용 0.
           float et = clamp(uEnter / 1.4, 0.0, 1.0);
           if (et < 1.0) {
-            float front = 0.45 + et * 1.1;                      // 시작부터 다리(vy≤0.45) 덮고 → 머리로 전진
-            float wash = smoothstep(front, front - 0.34, vy);   // 파면 아래가 진한 주황
-            col = mix(col, vec3(1.0, 0.2, 0.0) * cov, wash * (1.0 - et * et) * 0.85);
+            // ★ 파면은 **지나가고 끝난다**(유저 08-06: 처음엔 쨍하다가 갑자기 흐리멍텅해진다).
+            //   전엔 front 가 et 0.5 에 이미 머리 위(1.0)를 지나 몸 전체가 균일하게 주황에 덮인 뒤
+            //   진폭 (1-et²)만 빠졌다 — 온몸의 채도가 동시에 1.000 → 0.837 로 드레인되는 그림이라
+            //   '색이 죽는다'로 읽혔다. 아래 경계를 닫아 **띠**로 만들고 화면 위로 내보낸다:
+            //   빛이 지나간 자리는 곧바로 정착 룩이라 전역 페이드가 존재하지 않는다.
+            float front = 0.45 + et * 1.45;                      // 1.0 을 넘겨 완전히 퇴장
+            float wash = smoothstep(front, front - 0.34, vy)     // 파면 아래
+                       * smoothstep(front - 0.68, front - 0.34, vy);   // 꼬리 — 여기가 없어서 전역이 됐다
+            col = mix(col, vec3(1.0, 0.2, 0.0) * cov, wash * 0.85);
           }
           // uReady=0 = 아직 실제 프레임이 없다. 이때 그리면 빈 텍스처가 크로마키를 통과해
           //   판이 통째로 검은 사각형/붉은 판으로 보인다(유저 스샷). 아예 안 그린다.
@@ -6067,8 +6080,15 @@ void main(){
       const aUI = _jump > 1.0 ? 1 : (1 - Math.exp(-_uiDt / (_inPlace ? 0.7 : 0.012)));
       _fpSmooth.ox += (fp.ox - _fpSmooth.ox) * aUI;
       _fpSmooth.oz += (fp.oz - _fpSmooth.oz) * aUI;
-      _fpSmooth.fx += (fp.fx - _fpSmooth.fx) * aUI;
-      _fpSmooth.fz += (fp.fz - _fpSmooth.fz) * aUI;
+      // ★ 방향은 **각도로** 보간한다(projector._smFwd 와 같은 규약). 성분 lerp 후 normalize 하면
+      //   두 방향이 정반대에 가까울 때 중간에서 벡터가 무너져 각속도가 폭발한다 — 농구 대지
+      //   yaw -173.7° 가 정확히 그 경우고, 대지·인물이 휙 돌아 꽂히던 원인이다(유저 08-06).
+      {
+        const aC = Math.atan2(_fpSmooth.fx, _fpSmooth.fz);
+        const d = Math.atan2(fp.fx, fp.fz) - aC;
+        const a = aC + Math.atan2(Math.sin(d), Math.cos(d)) * aUI;   // −π..π 로 감아 최단 회전
+        _fpSmooth.fx = Math.sin(a); _fpSmooth.fz = Math.cos(a);
+      }
       const _fl = Math.hypot(_fpSmooth.fx, _fpSmooth.fz) || 1;
       const sfp = { ox: _fpSmooth.ox, oz: _fpSmooth.oz, fx: _fpSmooth.fx / _fl, fz: _fpSmooth.fz / _fl };
       sfp.rx = -sfp.fz; sfp.rz = sfp.fx;   // right = (-fwd.z, fwd.x) — projector와 동일 규약

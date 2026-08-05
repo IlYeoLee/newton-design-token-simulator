@@ -446,9 +446,15 @@ export class XBot {
   /** 몸 전방 벡터 (월드, 수평) — 농구는 골반 실측(컷·턴 추종), 러닝/복싱은 팩 기준 방향 고정 */
   getForward() {
     if (this.mode === 'basketball') {
-      const a = this.getAnchor();
       const yaw = this.group.rotation.y;
       const px = -Math.sin(yaw), pz = -Math.cos(yaw);   // 팩 정면(그룹 요 — 컷 방향)
+      // ★ 제자리 데모(관찰·워밍업·스텝백 프리뷰)에선 **팩 정면 고정**(유저 08-06: 시작값을 봇에 고정하면 될 일).
+      //   러닝·복싱은 아래처럼 상수를 돌려주는데 농구만 골반을 실측해 따라간다. 그런데 데모 구간의
+      //   봇은 제자리에 서서 클립만 도는 상태라 **따라갈 컷이 없다** — 그런데도 클립 첫 프레임의
+      //   골반 요(스텝백은 정면에서 ~174°)가 그대로 대지 방향이 돼서, 세션 시작에 대지와 인물이
+      //   통째로 휘돌아 꽂혔다. 컷 추종은 실제로 경로를 도는 라이브(update)에서만 의미가 있다.
+      if (this._inDemo || this.lockYaw || this.legLock) return new THREE.Vector3(px, 0, pz);
+      const a = this.getAnchor();
       // 데드존: 골반이 팩 정면에서 20° 안쪽이면 걸음 흔들림으로 보고 정면 유지
       return (a.fx * px + a.fz * pz) > 0.94
         ? new THREE.Vector3(px, 0, pz)
@@ -545,6 +551,7 @@ export class XBot {
       드릴은 지정 관절만 움직이므로(발목 돌리기=발만) 저강도 호흡 레이어(warmup 0.12)를
       깔아 전신이 살아 보이게 — '인물이 완전 정지' 오인 방지 */
   playDemo(name, dt, hold = false, phaseTime = null) {
+    this._inDemo = true;   // 제자리 데모 — getForward 가 팩 정면을 고정한다(휘돌기 방지)
     this._dt = dt; this._anchor = null;   // 프레임 시작 = 몸 앵커 캐시 무효화
     const key = this.actions[name] ? name : (this.actions.warmup ? 'warmup' : null);
     if (!key) return;
@@ -740,6 +747,7 @@ export class XBot {
       드리블(Mixamo) → 개더 0.35s 동안 '루트만' 0.48m 후방 이동(커리 실측 분리) → 실측 점프샷(mf).
       리타겟 신뢰 못하는 상황에서 품질 보장하는 유일한 길 = 검증된 포즈 + 절차적 루트 (stomp_press 전례). */
   stepbackDemo(dt) {
+    this._inDemo = true;
     const dribble = this.actions.dribble, shot = this.actions.mf_jump_shot;
     if (!dribble || !shot) return;
     this._dt = dt; this._anchor = null;   // 프레임 시작 = 몸 앵커 캐시 무효화
@@ -780,6 +788,7 @@ export class XBot {
 
   update(packTime, dt = 0.016) {
     if (!this.model || !this.mode) return;
+    this._inDemo = false;   // 라이브 = 실제로 경로를 돈다 → 골반 실측 컷 추종 복귀
     this._dt = dt; this._anchor = null;   // 프레임 시작 = 몸 앵커 캐시 무효화
 
     // 모션 검증: 실측 모캡을 제자리 재생 — 무릎 투사가 버티는지 rig가 측정

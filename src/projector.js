@@ -206,6 +206,12 @@ export class ProjectorRig {
     this.mode = sport;
     this.initialized = false;
     this._shinPrev = null;
+    // ★ 방향 스무딩도 스냅 — resetOmega 엔 있는데 여기 없어서 **이전 종목의 투사 방향이 남았다**.
+    //   실측 대지 yaw: 러닝 0° · 농구 -173.7°(main.js:6101) → 거의 정반대를 0.6s 로 보간하며
+    //   중간에서 벡터 길이가 0.055 까지 무너지고 각속도가 1641°/s(프레임당 27°)로 튄다.
+    //   화면에선 '대지와 인물이 반시계로 휙 돌아 꽂힌다'로 보였다(유저 08-06 스샷).
+    this._smFwd = null;
+    this._travelDir = null;
     this.omegaDps = 0;
     this.shake.set(0, 0);
     this.errorCm = 0;
@@ -315,7 +321,13 @@ export class ProjectorRig {
     const fwdInst = this.xbot.getForward();
     if (this.mode === 'basketball') {
       if (!this._smFwd) this._smFwd = fwdInst.clone();
-      this._smFwd.lerp(fwdInst, 1 - Math.exp(-dt / 0.6)).normalize();
+      // ★ 방향은 **각도로** 보간한다. 성분 lerp + normalize 는 두 방향이 정반대에 가까울 때
+      //   중간에서 벡터 길이가 0 으로 무너지고(실측 0.055), 그 지점에서 각도가 폭발한다
+      //   (1641°/s vs 각도보간 286°/s = 5.7배). 경로는 같은 짧은 쪽인데 속도가 다르다.
+      const aC = Math.atan2(this._smFwd.x, this._smFwd.z);
+      const d = Math.atan2(fwdInst.x, fwdInst.z) - aC;
+      const a = aC + Math.atan2(Math.sin(d), Math.cos(d)) * (1 - Math.exp(-dt / 0.6));   // −π..π 로 감아 최단 회전
+      this._smFwd.set(Math.sin(a), 0, Math.cos(a));
     }
     let fwd0 = (this.mode === 'basketball' && this._smFwd) ? this._smFwd : fwdInst;
     // RAW(무보정) = 서보·짐벌이 방향을 잡아주지 않는 상태. 다만 유닛은 정강이에 '앞을 향해'

@@ -130,6 +130,7 @@ export default defineConfig({
         personlabLive: resolve(__dirname, 'personlab-live.html'),
         scenes:        resolve(__dirname, 'scenes.html'),
         capsuleConcepts: resolve(__dirname, 'capsule-concepts.html'),
+        tokens:        resolve(__dirname, 'tokens.html'),   // 지면 디자인 토큰 갤러리
       },
     },
   },

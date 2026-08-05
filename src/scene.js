@@ -415,7 +415,9 @@ export function createScene(container) {
       m.rotation.x = -Math.PI / 2; m.position.set(sgn * x, 0.002, 0);
       trackLanes.add(m);
     }
-    trackLanes.renderOrder = 1;
+    // courtLines 와 같은 부류(바닥 표면) — −1. Group 의 renderOrder 는 자식의 **groupOrder** 라
+    //   1 이면 자식들이 groupOrder 0 인 코치 인물 판보다 무조건 뒤에 그려진다(= 인물 위를 덮는다).
+    trackLanes.renderOrder = -1;
     scene.add(trackLanes);
     return trackLanes;
   }
@@ -487,7 +489,9 @@ export function createScene(container) {
         transparent: true, depthWrite: false,
       });
       courtLines = new THREE.Mesh(new THREE.PlaneGeometry(16, 16), mat);
-      courtLines.rotation.x = -Math.PI / 2; courtLines.position.y = 0.006; courtLines.renderOrder = 1;
+      // −1 = courtZones(−2) 위 · 콘텐츠(인물 0 · 마크 ≤6 · 지면 UI 9) 아래. 같은 이유로 1 이면
+      //   흰 라인이 인물 위를 지나간다(유저 스샷에서 라인이 인물을 가로질렀다).
+      courtLines.rotation.x = -Math.PI / 2; courtLines.position.y = 0.006; courtLines.renderOrder = -1;
       // 이름 = 무대 식별자. 코트 라인·존은 SDF 라 재질이 ShaderMaterial 이고, 내보내기의
       // --beam 은 '셰이더면 투사광'으로 보므로 이름이 없으면 투사광으로 오인돼 살아남는다.
       courtLines.name = 'courtLines';
@@ -524,7 +528,14 @@ export function createScene(container) {
         transparent: true, depthWrite: false,
       });
       courtZones = new THREE.Mesh(new THREE.PlaneGeometry(60, 60), zmat);
-      courtZones.rotation.x = -Math.PI / 2; courtZones.position.y = 0.005; courtZones.renderOrder = 0;
+      // ★ renderOrder −2 = **바닥 표면이지 콘텐츠 위 오버레이가 아니다**(유저 08-06).
+      //   0 이었을 때 코치 인물 판(main.js ensureCoach — renderOrder 미지정 = 0, 역시 scene 직속)과
+      //   동순위라, three 가 같은 순위의 투명체를 **깊이순(먼 것 먼저)** 으로 정렬하면서 인물이
+      //   원점보다 멀어지는 순간 인물이 먼저 그려지고 이 판이 그 위에 덮였다. 덮이는 경계가
+      //   아래 sdBox(7.5) = 하프코트 라인이라 "정확히 그 라인에서 핑크가 된다"로 보였다.
+      //   실측: #FF3300 위에 uTint 0.5 → #DB775F (채도 1.00 → 0.57).
+      //   음수라도 불투명 패스 뒤에 그려지므로(three 는 opaque→transparent 리스트 분리) 바닥은 덮는다.
+      courtZones.rotation.x = -Math.PI / 2; courtZones.position.y = 0.005; courtZones.renderOrder = -2;
       courtZones.name = 'courtZones';
       scene.add(courtZones);
     }
