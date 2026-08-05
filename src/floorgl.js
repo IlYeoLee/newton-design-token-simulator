@@ -918,6 +918,9 @@ const ADV = {
 /** 이 장면이 **따라하기 구간에** 두는 시간 표시. 관찰(프리뷰) 카운트는 여기 해당 없음 —
  *  그건 '영상이 몇 초 남았나'라는 다른 값이라 중복이 아니다. */
 const advOf = s => ADV[s] || CAPS[s]?.adv || 'time';
+/** reps 장면의 **총 횟수 배지** — 링은 지금 값(1급)만 세고 총량은 이 2급 배지가 말한다.
+ *  스텝백의 step('n/4')과 **같은 슬롯**이라 조판을 새로 만들 게 없다. */
+const repsTotal = s => (advOf(s) === 'reps' ? '/' + (CAPS[s]?.reps || 10) : null);
 const showArc  = s => advOf(s) === 'time';                       // 아크 = time 에서만
 const showRing = s => ['segment', 'hold', 'reps'].includes(advOf(s));   // 링 = 셀 게 따로 있을 때만
 /** 알약이 **그 화면의 유일한 정보**인가 — SPM·거리 같은 다른 1급 수치가 없으면 참.
@@ -1801,7 +1804,13 @@ export class FloorGL {
       const N = CAPS[this.stage]?.reps || 10;
       const done = numOr(this.map.get('rep-n')?.textContent,
                          Math.round(clamp01((t - PV) / Math.max(.1, dur - PV)) * N));
-      return { AV, prog: clamp01(1 - done / N), rem: done + '/' + N };
+      // ★ 'n/N' 을 링 안에 통째로 넣던 것을 **쪼갰다**(유저: 농구 드리블 개선 · 스샷의 '0/10').
+      //   네 글자는 링(지름 179) 안에서 1급(112px)으로 못 산다 — 실측 243px, 그릇의 1.4배다.
+      //   전엔 링 반지름이 값 폭을 따라 커져서 알약을 위아래로 뚫었고(위 _ringRFor), 상한을 걸면
+      //   대신 숫자가 71px 로 줄어 타이틀(140)보다 작아진다. 둘 다 위계가 뒤집힌다.
+      //   시스템에 이미 답이 있다: **지금 값은 링(1급), 총량은 오른쪽 배지(2급)** — 스텝백의
+      //   'n/4' 배지와 같은 슬롯이다. 링 안엔 한 글자·두 글자만 남아 크기를 안 건드려도 된다.
+      return { AV, prog: clamp01(1 - done / N), rem: String(done) };
     }
     return { AV, prog: stageRest, rem: String(Math.max(0, Math.ceil(dur - t))) };
   }
@@ -1832,7 +1841,7 @@ export class FloorGL {
     // 링은 adv 가 정한다 — 관찰 중이면 항상(영상 남은 시간은 고유 값이라 중복이 아니다).
     const ringK = (inPv || showRing(this.stage)) ? 1 : 0;
     const T = tA > 0.004 ? String(n.title || '').toUpperCase() : '';
-    const box = this._headBox(T, n.step, y, { ringR: this._ringRFor(g.rem), ringK });
+    const box = this._headBox(T, n.step || repsTotal(this.stage), y, { ringR: this._ringRFor(g.rem), ringK });
     return { ...box, T, tA, ringK, dur, PV, inPv, g };
   }
 
@@ -1895,9 +1904,10 @@ export class FloorGL {
     ctx.letterSpacing = '0px';
     ctx.restore();
     // 스텝 배지(n/4) — 농구 분해 스텝만. 헤더 오른쪽 끝에 조용히.
-    if (n.step) {
+    const stepTxt = n.step || repsTotal(this.stage);
+    if (stepTxt) {
       ctx.textAlign = 'right'; ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.font = F(400, TOK.fsBadge);
-      ctx.fillText(n.step, x + W2 - PAD, cyR);
+      ctx.fillText(stepTxt, x + W2 - PAD, cyR);
     }
   }
 
@@ -2961,7 +2971,7 @@ export class FloorGL {
     const _g = this._gaugeVal({ PV, dur, inPv: mo < .5, pvEnd: Math.max(PV, this._moT ?? PV),
                                 perFoot, hs, hp, pfK: perFoot ? clamp01((t - (this._pfT ?? t)) / 0.35) : 0 });
     const { w: WHp, h: HHp, inner: INNER, ringW: RINGW, RR: RRp, PAD, gapT: GT, K2, H2 }
-      = this._headBox(tA > 0.004 ? title : '', cfg.step, LAYOUT.HEAD.y,
+      = this._headBox(tA > 0.004 ? title : '', cfg.step || repsTotal(this.stage), LAYOUT.HEAD.y,
                       { fs: fsNow, ringK, ringR: this._ringRFor(_g.rem) });
     const w1 = WHp, h1 = HHp, y1 = H2.y;
     // ★ 진입 = **시작화면 캡슐이 줄어드는 것**(유저: 두 번 탭하면 같은 요소가 줄어들며 넘어간다).
@@ -3082,7 +3092,7 @@ export class FloorGL {
     //   폭 목표가 점프하는 0.1~0.2s 동안만 개입한다 → **알약이 벌어지는 만큼 글자가 커지며 들어온다**.
     //   ponytail: 균일 스케일 한 줄. 줄바꿈·말줄임이 필요해지면 그때 넣는다.
     const fitDraw = (s, x0, y0) => {
-      const lim = x + w - PAD - (cfg.step ? 110 : 0);
+      const lim = x + w - PAD - (cfg.step || repsTotal(this.stage) ? 110 : 0);
       const tw = ctx.measureText(s).width;
       const xa = Math.max(x + PAD, Math.min(x0, lim - tw));   // ① 먼저 **민다** — 글자 크기는 안 건드린다
       const k = Math.min(1, (lim - xa) / Math.max(1, tw));    // ② 안쪽 폭보다 긴 문구만 줄인다
@@ -3124,11 +3134,12 @@ export class FloorGL {
     ctx.letterSpacing = '0px';
     ctx.restore();
     // step 배지 — 헤더 상태에서만
-    if (cfg.step && mo > .5) {
+    const stepTxt = cfg.step || repsTotal(this.stage);
+    if (stepTxt && mo > .5) {
       ctx.save(); ctx.globalAlpha *= (mo - .5) / .5;
       ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
       ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.font = F(400, TOK.fsBadge);
-      ctx.fillText(cfg.step, x + w - PAD, ry2);
+      ctx.fillText(stepTxt, x + w - PAD, ry2);
       ctx.restore();
     }
     ctx.restore();
