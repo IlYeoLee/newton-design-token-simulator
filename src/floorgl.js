@@ -927,7 +927,9 @@ export function tickScale(ctx, cx, by, w, dev, o = {}) {
     const u = i / (n - 1), x = cx - w / 2 + w * u;
     const edge = Math.sin(u * Math.PI);                 // 양끝으로 갈수록 흐리고 짧게
     const mid = Math.abs(u - .5) < .001;
-    ctx.strokeStyle = rgba(NEU.paper, (mid ? .88 : .48) * (0.34 + 0.66 * edge));
+    // ★ 끝 눈금이 0.34 까지 죽으면 스케일의 **끝이 어딘지**가 안 보인다. 지시선이 끝에
+    //   박혔을 때 '눈금 밖에 뜬 빨간 선'으로 읽히던 두 번째 원인. 하한을 .60 으로 올린다.
+    ctx.strokeStyle = rgba(NEU.paper, (mid ? .88 : .48) * (0.60 + 0.40 * edge));
     ctx.lineWidth = mid ? 8 : 6;
     const hh = h * (mid ? 1.30 : (.66 + .34 * edge));
     ctx.beginPath(); ctx.moveTo(x, by - hh / 2); ctx.lineTo(x, by + hh / 2); ctx.stroke();
@@ -1647,7 +1649,13 @@ export class FloorGL {
     //    0~2s  팩 이름 + 인물 실루엣 · 하단 원 2개(배터리) → 1.2s 부터 이어폰 칸이 가로 확장 + 코치
     //    2~4s  인물 out · 숫자 촤라락 → 오늘 총 운동시간(30 min)
     //    4~8s  Tap your foot Twice (4초) → 처음으로
-    const LOOP = 8, TP2 = 3.0, TP3 = 4.6;   // 인물 3초 유지(유저) → 숫자 촤라락 → CTA
+    // ★ 순서 재배치(유저 08-05, 피그마 379:3282 → 377:3060 → 379:3364):
+    //    0 ~ 2.0s  영상만. **상단 그래프 없음 · 팩 정보 없음.** 하단엔 '발 두 번 탭' CTA 가 먼저.
+    //    2.0 ~ 3.0s 팩 정보(타이틀·부제·도트 숫자)가 **아크 차트와 함께** 등장 + 배터리 원 2개.
+    //               1초 안에 끝난다.
+    //    3.0s ~     그 시점에 이어폰 칸이 확장되며 '연결됨' + 코치 프로필이 뜨고 마무리.
+    //   문법은 전부 원래 있던 것 — 순서만 바뀐다(유저).
+    const LOOP = 8, TP_CTA = 0.25, TP2 = 2.0, TP_CONN = 3.0, TP3 = TP_CTA;
     const t = this.t % LOOP;
     const D = READY[/floor-bk/.test(this.params.src) ? 'floor-bk.html' : 'floor.html'], R2 = D.r2;
     const bk = /floor-bk/.test(this.params.src);   // 종목 분기(칩 잉크 등) — 미정의로 페인트가 통째로 죽었다
@@ -1666,7 +1674,8 @@ export class FloorGL {
     //   합류해서 **같이 도착**한다. 둘을 동시에 시작하면 두 번 움직인 것처럼 읽힌다.
     const TRAVEL = 0.78, LEAD = 0.15;
     const p2 = eOut(intro(t, TP2, TRAVEL));       // 인물 out ↔ 컬러 면 교대(먼저 출발)
-    const p3 = eOut(intro(t, TP3, .55)) * (1 - eOut(intro(t, LOOP - .45, .45)));   // CTA in/out
+    //   CTA 는 **영상 구간의 주인공**이라 처음에 뜨고, 팩 정보가 들어올 때 자리를 비운다.
+    const p3 = eOut(intro(t, TP_CTA, .5)) * (1 - eOut(intro(t, TP2 - .25, .45)));
     // '두 번'을 글자 말고 **빛으로** 말한다 — CTA 구간에서만 톡·톡 두 번. 빼려면 0 으로 두면 끝.
     const tapB = (() => {
       if (t < TP3) return 0;
@@ -1844,14 +1853,14 @@ export class FloorGL {
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillStyle = NEU.ink; ctx.font = RF(700, 98); ctx.letterSpacing = '-4px';   // 100→98(유저: 첫 진입 타이틀이 빡빡)
     for (const [i, ln] of R2.lines.entries()) {
-      const d = .26 + i * .04;
+      const d = TP2 + i * .05;
       ctx.save(); ctx.globalAlpha *= e0(d, .85);
       ctx.fillText(ln, 800, 778 + (i ? 60 : -60) + rise(d, .85, 22));
       ctx.restore();
     }
-    ctx.save(); ctx.globalAlpha *= e0(.36, .85);
+    ctx.save(); ctx.globalAlpha *= e0(TP2 + .12, .6);
     ctx.fillStyle = 'rgba(255,255,255,.8)'; ctx.font = RF(400, 64); ctx.letterSpacing = '-2.56px';
-    ctx.fillText(R2.sub, 800.5, 971 + rise(.36, .85, 18));
+    ctx.fillText(R2.sub, 800.5, 971 + rise(TP2 + .12, .6, 18));
     ctx.restore();
     ctx.letterSpacing = '0px';
     // ★ 순서 반전(유저 08-05): 페이즈1 = 팩 이름 + **사람 형체**, 페이즈2(2초 뒤) = **몇 분인지**.
@@ -1925,8 +1934,8 @@ export class FloorGL {
         return g2;
       })();
       // 스윕 — 배지 팝 후 세그먼트 시작각에서 끝각까지 호를 따라 차오른다
-      const sweep = segStart + (A1 - segStart) * eOut5(intro(t, .5, 1.45));   // 꼬리 긴 감속 — 끝이 급했다
-      ctx.save(); ctx.globalAlpha *= e0(.4, .5);
+      const sweep = segStart + (A1 - segStart) * eOut5(intro(t, TP2 + .1, .9));   // 1초 안에 완료(유저)
+      ctx.save(); ctx.globalAlpha *= e0(TP2 + .08, .5);   // 팩 정보와 함께 등장(유저)
       let cur = segStart;
       // ★ pad(°) — 값 비례를 **의도적으로 깨는** 하드코딩(유저 승인, 영상 추출·합성 전용).
       //   짧은 세그에서 라벨이 끝 캡에 바짝 붙는 게 합성본에서 거슬린다는 판단. 데이터 정직성을
@@ -2080,7 +2089,7 @@ export class FloorGL {
       const DD = 186, RD = DD / 2, GAPD = 44, CY = 1867.4 + 234 - CUT;
       // 확장 → (CTA 전환) **되감기**: 알약이 다시 원으로 줄면서 동시에 페이드아웃(유저).
       //   그냥 사라지면 늘어난 채로 뚝 끊긴다 — 들어온 길로 되돌아 나가야 부드럽다.
-      const EXP = eOut(intro(t, 1.2, .9)) * (1 - eOut(intro(t, TP3 - .55, .5)));
+      const EXP = eOut(intro(t, TP_CONN, .55));   // 연결·프로필은 정보 애니메이션이 끝난 뒤(유저)
       const WE = DD + DD * EXP;                     // 이어폰 칸 폭 186 → 372
       const x0 = 800 - (DD + GAPD + WE) / 2;        // 늘어나도 중앙 유지
       const eB = e0(.35, .6) * (1 - eOut(intro(t, TP3 - .45, .45)));   // 원 두 개는 초반에 이미 서 있어야 한다
