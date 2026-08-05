@@ -2116,9 +2116,12 @@ export class Session {
   _readyFeetTick() {
     const F = this.readyFeet; if (!F) return;
     const tl = this.t % 8;
-    // 4.0 = 하단 패널이 완전히 빠지는 시점 — 겹치면 발과 알약이 한순간 포개진다.
-    if (tl < 4.0) { F.forEach(f => { f.group.visible = false; }); return; }
-    const fin = Math.min(1, (tl - 4.0) / 0.5);              // 4.0~4.5 페이드 인
+    // ★ 하단 슬롯 타임라인은 floorgl _paint_ready 의 TP3 를 따른다(현재 4.6 — 인물 유지가
+    //   2.0→3.0 으로 길어지며 뒤로 밀렸다). 4.0 에 그대로 두니 패널 페이드아웃(4.15~4.6)과
+    //   발자국 등장이 겹쳐 알약 위에 발이 포개졌다(유저 #166). 패널이 완전히 빠진 뒤에 뜬다.
+    const FT = 4.6;
+    if (tl < FT) { F.forEach(f => { f.group.visible = false; }); return; }
+    const fin = Math.min(1, (tl - FT) / 0.5);               // 4.6~5.1 페이드 인
     const fout = 1 - Math.min(1, Math.max(0, (tl - 7.5) / 0.5));   // 7.5~8.0 페이드 아웃
     const a = fin * fout;
     F.forEach(f => {

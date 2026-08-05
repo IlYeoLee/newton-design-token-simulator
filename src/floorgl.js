@@ -1675,7 +1675,7 @@ export class FloorGL {
     //   에셋 모양이 달라 보간하면 어느 쪽도 아닌 형태가 된다).
     const GLOWS = (bk ? READY_GLOWS_BK : READY_GLOWS).map(g =>
       g[0].startsWith('glow-ell') ? [g[0], g[1], g[2], g[3], g[4], g[5], 1 - p2] : g);
-    const GLOW_NEWTON = ['glow-ell-newton.svg', 150.3, 1189.3, 1300.36, 871.36, 'hard-light', p2];
+    const GLOW_NEWTON = ['glow-ell-newton.svg', 150.3, 1189.3, 1300.36, 871.36, 'hard-light', p2, true];
     ctx.save(); ctx.globalAlpha *= e0(.15, 1.2) * (1 + .3 * tapB);   // 탭 박자에 하단 빛이 두 번 부푼다
     ctx.translate(0, -CUT);   // 캡슐 바닥이 올라간 만큼 하단 빛도 함께(에셋은 원 좌표계)
     // ★ 캡슐 마스크 **해제**(유저 08-05, 이식 초기 디자인 복원 — 스샷 #154).
@@ -1684,12 +1684,23 @@ export class FloorGL {
     //   **퍼지는** 형태였고, 그게 홈 화면의 정체성이었다(투사광은 경계에서 끊기지 않는다).
     //   ※ 사각 rect 로 반원 블룸을 덧대는 방식(33088c5 폐기)과는 다르다 — 그건 이음매가 드러났다.
     //     여기선 클립을 걷어낼 뿐이라 에셋 자체의 소프트 falloff 가 그대로 살아난다.
-    for (const [rel, gx, gy, gw, gh, blend, la] of [...GLOWS, GLOW_NEWTON]) {
+    for (const [rel, gx, gy, gw, gh, blend, la, wob] of [...GLOWS, GLOW_NEWTON]) {
       if (la != null && la <= 0.004) continue;
       const im = img(rel);
       if (!im) continue;
       ctx.save(); ctx.globalCompositeOperation = blend;
       if (la != null) ctx.globalAlpha *= la;
+      if (wob) {
+        // ★ 일렁임(유저) — 기본값(뉴턴 그라디언트) 상태에서 빛이 살아 있게. 주기가 서로
+        //   안 맞는 사인 셋(스케일 x·y·세로 이동)이라 패턴이 반복으로 안 읽힌다.
+        //   프로토타입 .hero-blur 의 두 슬랩 드리프트와 같은 취지 — 하나면 '미끄러짐'이고
+        //   둘 이상이어야 '숨쉬기'가 된다. 진폭은 작게(±3.5% · ±11px).
+        const w = t * 0.55, cx0 = gx + gw / 2, cy0 = gy + gh / 2;
+        ctx.translate(cx0, cy0);
+        ctx.scale(1 + 0.035 * Math.sin(w), 1 + 0.028 * Math.sin(w * 0.73 + 1.7));
+        ctx.translate(-cx0, -cy0 + 11 * Math.sin(w * 0.61 + 0.4));
+        ctx.globalAlpha *= 0.92 + 0.08 * Math.sin(w * 0.89 + 2.3);
+      }
       ctx.drawImage(im, gx, gy, gw, gh);
       ctx.restore();
     }
@@ -2152,7 +2163,9 @@ export class FloorGL {
     //   4겹 에셋을 그대로 얹는다(블렌드 모드 포함). 캡슐 패스로 클립하니 밖으로 안 샌다.
     {
       ctx.save();
-      ctx.globalAlpha *= 1 - mo * .55;   // 알약이 돼도 끄지 않는다 — 끄는 순간 다른 물건이 된다
+      // ★ 광 세기는 **상태와 무관하게 일정**하다(유저: 프리뷰는 연하고 따라하기는 진하다, 진한 쪽으로).
+      //   전엔 1 - mo*.55 라 프리뷰(mo 0)와 알약(mo 1)이 2배 넘게 달랐고, 진입 모프 중에도
+      //   캡슐 크기에 따라 계속 변해 '같은 불'로 안 읽혔다. 한 값으로 못박는다.
       ctx.translate(x, y);
       ctx.scale(w / READY_CAP.w, h / READY_CAP.h);
       ctx.translate(-READY_CAP.x, -READY_CAP.y);
@@ -2161,6 +2174,16 @@ export class FloorGL {
         if (!im) continue;
         ctx.save(); ctx.globalCompositeOperation = blend;
         ctx.drawImage(im, gx, gy, gw, gh);
+        ctx.restore();
+      }
+      // ★ 뉴턴 팔레트로 리매핑(유저: 전부 뉴턴 컬러로) — 에셋에 노랑이 섞여 있어 팔레트 밖 색이
+      //   났다. 에셋을 다시 뽑는 대신 'color' 합성으로 **색상만** 갈아끼운다(명암은 에셋 그대로).
+      //   위 → 아래로 red → coral → sand. 에셋이 바뀌어도 색은 항상 팔레트 안에 남는다.
+      {
+        const gr = ctx.createLinearGradient(0, READY_CAP.y + READY_CAP.h * .42, 0, READY_CAP.y + READY_CAP.h);
+        gr.addColorStop(0, PAL.red); gr.addColorStop(.55, PAL.coral); gr.addColorStop(1, PAL.sand);
+        ctx.save(); ctx.globalCompositeOperation = 'color';
+        ctx.fillStyle = gr; ctx.fillRect(READY_CAP.x - 200, READY_CAP.y, READY_CAP.w + 400, READY_CAP.h + 200);
         ctx.restore();
       }
       ctx.restore();
