@@ -1388,10 +1388,11 @@ export class FloorGL {
             ctx.shadowBlur = 0;                              // 블룸 제거 — 흰 판이 번지면 글자가 사라진다(유저 #98)
             ctx.strokeStyle = 'rgba(255,255,255,.55)';       // 톤 낮춘 유리판
           } else if (si === heroIdx) {
-            // 제일 긴 구간 = 뉴턴 그라디언트 정본 램프(red→coral→sand→prism, 팔레트 stops 그대로)
+            // 제일 긴 구간 = 뉴턴 그라디언트 램프. 끝의 prism(#D1FEFF)은 하늘색이라 뺀다(유저 #119)
+            //   — 따뜻한 red→coral→sand 로만 닫는다. 팔레트 정본 stops 는 gaugeArc 쪽에 그대로 남는다.
             const g = ctx.createLinearGradient(p0.x, p0.y, p1.x, p1.y);
             g.addColorStop(0, PAL.red); g.addColorStop(.583, PAL.red);
-            g.addColorStop(.83, PAL.coral); g.addColorStop(.935, PAL.sand); g.addColorStop(1, PAL.prism);
+            g.addColorStop(.86, PAL.coral); g.addColorStop(1, PAL.sand);
             ctx.strokeStyle = g;
           } else {
             ctx.strokeStyle = PAL.red;   // 중간 구간 = 단색 빨강 — 그라디언트는 본운동 하나만 쓴다
