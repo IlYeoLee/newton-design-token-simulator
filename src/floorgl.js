@@ -1668,7 +1668,14 @@ export class FloorGL {
     for (const [rel, gx, gy, gw, gh, blend] of GLOWS) {
       const im = img(rel);
       if (!im) continue;
-      ctx.save(); ctx.globalCompositeOperation = blend;
+      // ★ **컬러 면(glow-ell)만 캡슐 안으로 가둔다**(유저 #158: 잘리잖아 → 실은 넘쳐서 터진 것).
+      //   피그마 377:3209 로 이 레이어가 811x1232(이미지 1288x2009)로 커졌는데, 클립이 없으면
+      //   캡슐 밖까지 hard-light 로 번져 화면이 통째로 하얗게 날아간다.
+      //   나머지 3겹(하단 엠버)은 그대로 클립 없이 — 림을 넘어 퍼지는 게 홈 화면의 정체성이다(#154).
+      const isField = rel === 'glow-ell.svg';
+      ctx.save();
+      if (isField) { ctx.save(); ctx.translate(0, CUT); capPath(); ctx.restore(); ctx.clip(); }
+      ctx.globalCompositeOperation = blend;
       ctx.drawImage(im, gx, gy, gw, gh);
       ctx.restore();
     }
