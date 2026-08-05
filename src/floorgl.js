@@ -2064,7 +2064,8 @@ export class FloorGL {
           if (eb) ctx.drawImage(eb, ex + RD - 51, CY - 44, 102, 88); }
         // 코치 인물 — 확장이 만든 오른쪽 빈칸에 채워진다(연결됨)
         if (EXP > 0.02) {
-          const pk = this._img('photos/creator-profile-sean.png');
+          // 코치 프로필 — 종목별(유저): 농구는 커리. 소스 클립(curry-card.mp4)에서 얼굴을 잘라 구웠다.
+          const pk = this._img(bk ? 'photos/creator-profile-curry.png' : 'photos/creator-profile-sean.png');
           const ccx = ex + WE - RD, CRR = RD - 12;
           ctx.save(); ctx.globalAlpha *= EXP;
           ctx.beginPath(); ctx.arc(ccx, CY, CRR, 0, Math.PI * 2); ctx.clip();
