@@ -1052,12 +1052,15 @@ export class Session {
     const a2cd = floorNum(0, 0, -1.35, 0.22); a2cd.visible = false;   // 시범→따라하기 3-2-1 카운트다운
     // 방향 큐 = LINE 토큰(makeFlowArrow) — 뒷다리는 뒤로 밀고, 앞무릎은 아래로(유저 #105).
     //   새 그래픽을 만들지 않고 판정 토큰 정본을 쓴다. draw-on 은 틱에서 진행값으로 구동.
-    const arBack = makeFlowArrow(0.42, { scale: 0.85 });   // 뒷발 → 뒤쪽
-    const arKnee = makeFlowArrow(0.30, { scale: 0.85 });   // 앞무릎 → 아래
+    // ★ 방향 큐 = 종아리 늘리기의 두 지시를 **스탠스 축**에 실어 서로 **벌어지게** 놓는다:
+    //   앞발 화살표 → 앞(무릎을 앞으로) · 뒷발 화살표 → 뒤(뒤꿈치를 뒤로 눌러). 벌어짐 자체가
+    //   '늘려라'로 읽힌다. 위치·회전은 **틱이 발자국에서 파생**한다 — 하드코딩하면 보폭이
+    //   바뀔 때마다 어긋난다(유저 #138 발자국과 같은 종류의 버그).
+    //   회전 매핑 실측: dir = (−sinθ, −cosθ) → θ = atan2(−dx, −dz).
+    //   구값 arBack rotation.z = π/2 는 주석과 달리 **왼쪽(−x)** 을 가리키고 있었다.
+    const arBack = makeFlowArrow(0.42, { scale: 0.85 });   // 뒷발 → 뒤(+스탠스축)
+    const arKnee = makeFlowArrow(0.34, { scale: 0.85 });   // 앞발 → 앞(−스탠스축)
     arBack.rotation.x = -Math.PI / 2; arKnee.rotation.x = -Math.PI / 2;
-    arBack.rotation.z = Math.PI * 0.5;    // 뒤(−z) 방향
-    arKnee.rotation.z = Math.PI;          // 아래(화면 앞쪽)
-    arBack.position.set(-0.34, 0.014, -0.42); arKnee.position.set(0.22, 0.014, -0.32);   // 발과 같이 +0.30 앞으로
     arBack.visible = arKnee.visible = false;
     g.add(arBack, arKnee);
     this.a2press = { fmL, fmR, numL, numR, cd: a2cd, fill: 0, _cnt: 5, _succ: 0, _succFM: null, arBack, arKnee };
@@ -2155,7 +2158,10 @@ export class Session {
       // 판정 = 봇 다리 상태(발 접지+런지 깊이)로만 구동 — 고정 마크와의 거리 게이트 없음.
       if ((this._a2t ?? 0) > this.t) { P._doneL = false; P._doneR = false; P.sec = 0; P._press = false; P._cnt = 5; P._repLatch = false; this.a2count = 0; }   // 재진입 리셋(a2count 미리셋=조기 전환 버그였음)
       // ── 발자국이 x봇 실제 발을 따라 런지처럼 이동 (고정 배치는 별로 — 유저 확정, 추적 복원) ──
-      const CZ = -1.15, SC = 0.42;
+      // 보폭 압축 폐기(유저: 삼성 발표 품질) — 0.42 는 실측 런지 보폭 0.46m 를 19cm 로 눌러
+      //   마크가 '여기 딛어라'가 아니라 '대충 이쯤'이 됐다. 1.0 = 실제 착지점 그대로.
+      //   콘 검산: 앞발 z -1.38 → 전방 1.38m(콘 0.30~2.0 안), 반폭 0.61m > ±0.16m. 안전.
+      const CZ = -1.15, SC = 1.0;
       if (pb) {
         const fL = pb.footL, fR = pb.footR;
         const lft = fL.x <= fR.x ? fL : fR, rgt = fL.x <= fR.x ? fR : fL;
@@ -2180,6 +2186,7 @@ export class Session {
       // 뉴턴 전환 문법: [시범 = 영상만·도트바] → [마크 Preview 워밍 등장 + '이제 같이' 음성] → [따라하기]
       P.cd.visible = false;
       if (!cyc || cyc.watching) {
+        P._wasWatch = true;   // 따라하기 진입 프레임을 잡기 위한 래치(등장 안무 기점)
         P.fmL.group.visible = false; P.fmR.group.visible = false; P.numL.visible = false; P.numR.visible = false;
         FMU('먼저 보세요', CS.prism);   // 진행표시 = 프레임 미니 타이머 링 전담
         this.demoActive = true;
@@ -2190,20 +2197,48 @@ export class Session {
       placeMarkNum(P.numL); placeMarkNum(P.numR);
       P._pop = Math.max(0, (P._pop || 0) - dt * 3.8);
       P.fmL.group.visible = true; P.fmR.group.visible = true;   // 따라하기 = 마크 표시
+      // ── 등장 안무(유저: 발표 품질) — 그냥 켜지면 '팝' 하고 튀어나온다. 앞발 먼저 서고
+      //   뒷발이 0.18s 늦게 따라 선다 = 런지의 순서(딛고 → 뒤로 뻗는다)를 모션이 먼저 말한다.
+      if (P._wasWatch !== false) { P._folT = this.t; P._wasWatch = false; }
+      const ein = k => {
+        const u = Math.max(0, Math.min(1, (this.t - (P._folT ?? this.t) - k) / 0.55));
+        return 1 - Math.pow(1 - u, 3);                       // easeOutCubic
+      };
+      const eFront = ein(0), eBack = ein(0.18);
+      const fmFront = P.fmL.group.position.z <= P.fmR.group.position.z ? P.fmL : P.fmR;
+      const fmBack = fmFront === P.fmL ? P.fmR : P.fmL;
+      fmFront.group.scale.setScalar(0.82 + 0.18 * eFront);
+      fmBack.group.scale.setScalar(0.82 + 0.18 * eBack);
 
       // 딛는 발: 둘 다 Active(빈 링). 홀드 중이면 같은 Hold 페이즈에서 uProg만 0→1 채워짐(부드러운 전환, 팝 없음)
       act.setHold(Math.max(0.02, P.fill));   // 0.02 = 빈 링(Active 모양) → prog 채움
-      act.op(0.6 + 0.4 * P.fill);
+      const eAct = (act === fmFront) ? eFront : eBack;   // 등장 계수는 **인자로** 넣는다(아래 주석)
+      act.op((0.6 + 0.4 * P.fill) * eAct);
       // 홀드 파문 차오름(유저: 화면이 심심) — 버티는 발에서 파문이 진행에 비례해 넓게.
       //   기존 파동 정본(uRip) 부스트일 뿐 새 이펙트가 아니다. 완주 팡과 리듬이 이어진다.
       if (act._U?.uRip) act._U.uRip.value = 0.5 + 0.55 * P.fill;
       if (oth._U?.uRip) oth._U.uRip.value = 0.5;
-      // 방향 화살표 — 따라하기 구간에서 1.8s 주기로 그려졌다 사라진다(draw-on)
+      // ── 방향 화살표 = **발자국에서 파생**(하드코딩 폐기). 스탠스 축을 따라 서로 벌어진다.
+      //   앞발 앞으로(무릎 전진) · 뒷발 뒤로(뒤꿈치 누르기). draw-on 1.8s 루프.
       if (P.arBack) {
         const on = !this.demoActive;
-        const cyc = (this.t % 1.8) / 1.8;
-        const u = Math.min(1, cyc / 0.72), pr = cyc < 0.72 ? 1 - Math.pow(1 - u, 3) : 1;   // ease-out (session 엔 eOut 없음)
-        const fade = cyc < 0.72 ? 1 : 1 - (cyc - 0.72) / 0.28;
+        // ★ 방향은 **시상면(앞뒤) 축** 고정이다. 두 발 사이 벡터를 쓰면 안 된다 — 발은 좌우로
+        //   ±0.16m 벌어져 있어서, 보폭이 작을 때 그 벡터가 거의 '옆'이 되고 화살표가 옆을 본다
+        //   (실측: stride 0.03m 에서 dir (0.99, -0.11) = 사실상 오른쪽). 런지는 앞뒤 운동이다.
+        //   세션 로컬은 봇 정면 = −z (root 회전 0, 실측). 앞발 → −z / 뒷발 → +z.
+        const fpM = P.fmL.group.position.z <= P.fmR.group.position.z ? P.fmL : P.fmR;   // z 작은 쪽 = 앞
+        const bpM = fpM === P.fmL ? P.fmR : P.fmL;
+        const sl = Math.abs(fpM.group.position.z - bpM.group.position.z);   // 보폭 = 앞뒤 성분만
+        const GAPM = 0.19;                            // 발 끝에서 화살표 시작까지
+        P.arKnee.position.set(fpM.group.position.x, 0.014, fpM.group.position.z - GAPM);
+        P.arKnee.rotation.z = 0;                      // (0,−1) 앞
+        P.arBack.position.set(bpM.group.position.x, 0.014, bpM.group.position.z + GAPM);
+        P.arBack.rotation.z = Math.PI;                // (0,+1) 뒤
+        // 보폭이 좁으면(아직 안 벌렸으면) 화살표가 더 세게 재촉한다 — 벌어질수록 잦아든다.
+        const urge = Math.max(0, Math.min(1, (0.42 - sl) / 0.30));
+        const cyc2 = (this.t % 1.8) / 1.8;
+        const u2 = Math.min(1, cyc2 / 0.72), pr = cyc2 < 0.72 ? 1 - Math.pow(1 - u2, 3) : 1;
+        const fade = (cyc2 < 0.72 ? 1 : 1 - (cyc2 - 0.72) / 0.28) * (0.45 + 0.55 * urge);
         [P.arBack, P.arKnee].forEach(a => {
           a.visible = on;
           if (!on) return;
@@ -2237,7 +2272,20 @@ export class Session {
         actNum.scale.multiplyScalar(1 + 0.42 * P._pop);   // 숫자 전환 팝
       } else { actNum.visible = false; P._cnt = HOLD_SEC; }
       // 반대 발: 완료면 채움 유지, 아니면 Active 빈 링(둘 다 액티브 — 유저)
-      oth.setHold(othDone ? 1 : 0.02); oth.op(othDone ? 0.5 : 0.6);
+      oth.setHold(othDone ? 1 : 0.02);
+      // ── 뒷발 = 이 운동의 **주인공**인데 지금껏 아무 일도 안 일어났다. 종아리가 늘어나는 쪽이므로
+      //   **보폭 × 홀드**에 비례해 파문·광량이 자란다 — 깊게 딛을수록 뒷발이 밝아진다 = 자세가 곧 보상.
+      //   새 이펙트가 아니라 uRip/op 정본의 구동값만 바꾼다.
+      //   ★ 등장 계수는 op() 결과를 **읽어서 다시 곱하지 않는다** — uFade 를 read-modify-write 하면
+      //     호출 순서에 따라 값이 겹쳐 곱해져 뒷발이 0.11 까지 죽었다(실측). 항상 인자로 넣는다.
+      const stretch = Math.max(0, Math.min(1, (Math.abs(P.fmL.group.position.z - P.fmR.group.position.z) - 0.14) / 0.32));
+      const heat = stretch * (0.45 + 0.55 * P.fill);
+      if (fmBack._U?.uRip) fmBack._U.uRip.value = 0.5 + 0.75 * heat;
+      if (oth !== act) {
+        const eOth = (oth === fmFront) ? eFront : eBack;
+        const base = othDone ? 0.5 : (oth === fmBack ? 0.55 + 0.45 * heat : 0.6);
+        oth.op(Math.min(1, base) * eOth);
+      }
       othNum.visible = false;
 
       // 완료 = 홀드 100% 도달(회차당 1회 래치). 왼발 1·오른발 1 = 총 2회
