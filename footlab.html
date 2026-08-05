@@ -71,6 +71,7 @@
       <div class=acts><button id=fit>자동 맞춤 — 신발 안으로</button></div>
       <div class=row><label>도트 간격</label><input type=range id=pitch min=.008 max=.08 step=.001><span class=v id=vpitch></span></div>
       <div class=row><label>점 크기</label><input type=range id=dot min=.05 max=.5 step=.005><span class=v id=vdot></span></div>
+      <div class=seg id=segDotCol style="margin:2px 0 6px"><button data-v=0>흰</button><button data-v=1 class=on>샌드</button><button data-v=2>코랄</button><button data-v=3>레드</button></div>
       <div class=row><label>이너 섀도우</label><input type=range id=shade min=0 max=1.4 step=.01><span class=v id=vshade></span></div>
       <div class=seg id=segShadeCol style="margin:2px 0 6px"><button data-v=0 class=on>흰</button><button data-v=1>샌드</button><button data-v=2>코랄</button><button data-v=3>레드</button></div>
       <div class=row><label>아웃라인 선명</label><input type=range id=sharp min=0 max=1 step=.02><span class=v id=vsharp></span></div>
@@ -241,6 +242,7 @@ const KEYS = ['op','imp','scale','offx','offy','irot','pitch','dot','glow','shad
 const DIGITS = { tilt: 0, irot: 1, grotL: 0, grotR: 0, gxL: 3, gyL: 3, gxR: 3, gyR: 3, pitch: 3, edge: 3, scale: 3, offx: 3, offy: 3,
                  gx: 3, gy: 3, ripWidth: 3, bloom: 3, bands: 0, dither: 3 };
 let shadeCol = 0, ripCol = 1, gShadow = 'glow', gBlend = 'normal', edgeShadeCol = +(LOOK.edgeShadeCol ?? 0);
+let dotCol = +(LOOK.dotCol ?? 1);   // 각인 도트 색(0 흰 · 1 샌드 · 2 코랄 · 3 레드) — 1 = 구 하드코딩 색
 
 function syncUI() {
   for (const k of KEYS) {
@@ -256,6 +258,7 @@ function snippet() {
   return `uImp: { value: footTex ? ${P.imp.toFixed(2)} : 0.0 }, uImpPitch: { value: ${P.pitch.toFixed(3)} }, uImpDot: { value: ${P.dot.toFixed(3)} },
 uImpGlow: { value: ${P.glow.toFixed(2)} }, uImpEdge: { value: ${P.edge.toFixed(3)} }, uImpScale: { value: ${P.scale.toFixed(3)} },
 uImpShade: { value: ${P.shade.toFixed(2)} }, uImpSharp: { value: ${P.sharp.toFixed(2)} }, uImpShadeCol: { value: ${shadeCol} },
+uImpDotCol: { value: ${dotCol} },
 uImpRot: { value: ${P.irot.toFixed(1)} * Math.PI / 180 * (footRight ? -1 : 1) },
 uRipCol: { value: ${ripCol} },
 // 글리프: 크기 ${P.gsize.toFixed(2)} · 왼 (${(P.gxL ?? P.gx).toFixed(3)}, ${(P.gyL ?? P.gy).toFixed(3)}, ${(P.grotL ?? P.grot).toFixed(0)}°) · 오른 (${(P.gxR ?? -P.gx).toFixed(3)}, ${(P.gyR ?? P.gy).toFixed(3)}, ${(P.grotR ?? -P.grot).toFixed(0)}°) · 그림자 ${gShadow} ${P.gsh.toFixed(2)} · 합성 ${gBlend}
@@ -273,7 +276,7 @@ let hist = [], future = [], histT = null;
 function persist() { try { localStorage.setItem(SAVE_KEY, JSON.stringify({ ...P, _def: DEF })); } catch { /* 사생활 모드 */ } bcast(); }   // _def = 저장 시점 정본 스냅샷(위 복원 규칙용)
 // 랩 → 시뮬 실시간 미리보기(유저): 값이 바뀔 때마다 열려 있는 시뮬 전부에 즉시 쏜다.
 const _bc = (() => { try { return new BroadcastChannel('newton-marklook'); } catch { return null; } })();
-function bcast() { _bc?.postMessage({ ...P, shadeCol, ripCol, edgeShadeCol }); }
+function bcast() { _bc?.postMessage({ ...P, shadeCol, dotCol, ripCol, edgeShadeCol }); }
 function commitHist(prev) {
   clearTimeout(histT);
   histT = setTimeout(() => {
@@ -343,7 +346,7 @@ $('saveTap').onclick = async () => {
   setTimeout(() => { btn.textContent = old; }, 2600);
 };
 $('save').onclick = async () => {
-  const body = { ...P, shadeCol, ripCol, edgeShadeCol, gShadow, gBlend, numSrc: FXP.numSrc,
+  const body = { ...P, shadeCol, dotCol, ripCol, edgeShadeCol, gShadow, gBlend, numSrc: FXP.numSrc,
     // 프림 전용 값(코멧·노드·레일)도 정본에 — 없으면 시뮬 새로고침마다 증발(유저: 이식 안 됨)
     prims: { punchLine: { node: PRIM_P.node, numS: PRIM_P.numS, comet: PRIM_P.comet, tailLen: PRIM_P.tailLen, rail: PRIM_P.rail } },
     states: OV };   // 상태별 오버라이드 — 시뮬이 상태 전환마다 입힌다
@@ -393,6 +396,7 @@ seg('segPlay', v => { playing = +v; });
 // 시뮬(drawNumber)이 읽는 바로 그 값이라, 여기서 고른 게 곧 시뮬에서 보일 활자다.
 seg('segSrc', v => { FXP.numSrc = v; rebuild(); });
 seg('segShadeCol', v => { shadeCol = +v; bcast(); });
+seg('segDotCol', v => { dotCol = +v; bcast(); });
 seg('segEdgeShadeCol', v => { edgeShadeCol = +v; bcast(); });
 seg('segRipCol', v => { ripCol = +v; });
 seg('segGShadow', v => { gShadow = v; rebuild(); });
@@ -628,6 +632,7 @@ function feed(u, ph, prog, t, mode) {
     U.uImp.value = P.imp; U.uImpPitch.value = P.pitch * SF; U.uImpDot.value = P.dot;
     U.uImpGlow.value = P.glow; U.uImpEdge.value = P.edge * SF; U.uImpScale.value = P.scale;
     U.uImpShade.value = P.shade; U.uImpSharp.value = P.sharp; U.uImpShadeCol.value = shadeCol;
+    if (U.uImpDotCol) U.uImpDotCol.value = dotCol;
     // 오른발은 실루엣이 미러라 오프셋 x 도 미러 — 슬라이더가 '해부학적으로' 같은 방향을 뜻하게
     // 오른발은 실루엣이 미러라 이동 x·기울기 부호도 미러 — 슬라이더가 '해부학적으로' 같은 뜻이게
     U.uImpOff.value.set((side === 'right' ? -P.offx : P.offx) * SF, P.offy * SF);
@@ -849,6 +854,7 @@ function composite() {
       U.uImp.value = P.imp; U.uImpPitch.value = P.pitch * SF; U.uImpDot.value = P.dot;
       U.uImpGlow.value = P.glow; U.uImpEdge.value = P.edge * SF; U.uImpScale.value = P.scale;
     U.uImpShade.value = P.shade; U.uImpSharp.value = P.sharp; U.uImpShadeCol.value = shadeCol;
+    if (U.uImpDotCol) U.uImpDotCol.value = dotCol;
       U.uImpOff.value.set((wm.side === 'right' ? -P.offx : P.offx) * SF, P.offy * SF);
       U.uImpRot.value = (wm.side === 'right' ? -P.irot : P.irot) * Math.PI / 180;
       U.uW.value = P.w; U.uHalo.value = P.halo; U.uPool.value = P.pool; U.uNoise.value = P.noise;

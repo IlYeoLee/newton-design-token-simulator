@@ -331,6 +331,7 @@ export function makeMarkFXMaterial(footTex = null) {
       // 경계는 이너 섀도우가 만든다(유저 확정) — 윤곽 글로우는 기본 0, 필요할 때만 켠다.
       uImpGlow: { value: LOOK.glow }, uImpShade: { value: LOOK.shade }, uImpSharp: { value: LOOK.sharp },
       uImpShadeCol: { value: LOOK.shadeCol },   // 0 흰 — 프로토타입 foot-*-dots.svg 의 white inner shadow 규약
+      uImpDotCol: { value: LOOK.dotCol ?? 1 },   // 1 샌드 = 구 C_CREAM 하드코딩과 같은 색(기본 무변화)
       uImpEdge: { value: LOOK.edge * SF }, uImpScale: { value: LOOK.scale },
       uImpRot: { value: (footTex?._right ? -LOOK.irot : LOOK.irot) * Math.PI / 180 },   // 각인 기울기(rad) — 오른발은 미러라 부호가 뒤집힌다
       uImpCtr: { value: new THREE.Vector2(
@@ -405,7 +406,7 @@ const MARK_MATS = [];
 export function applyMarkLookTo(mat, part = {}) {
   const SF = SIL_FIT / SIL_FIT_REF;
   const map = { imp: 'uImp', dot: 'uImpDot', glow: 'uImpGlow', shade: 'uImpShade', sharp: 'uImpSharp',
-    shadeCol: 'uImpShadeCol', scale: 'uImpScale', plantar: 'uPlantar', bands: 'uBands', bandSoft: 'uBandSoft',
+    shadeCol: 'uImpShadeCol', dotCol: 'uImpDotCol', scale: 'uImpScale', plantar: 'uPlantar', bands: 'uBands', bandSoft: 'uBandSoft',
     edgeShade: 'uEdgeShade', edgeShadeW: 'uEdgeShadeW', edgeShadeCol: 'uEdgeShadeCol',
     edgeShadeGrad: 'uEdgeShadeGrad', edgeShadeG0: 'uEdgeShadeG0', edgeShadeG1: 'uEdgeShadeG1',
     shadeRed: 'uShadeRed', shadeRedW: 'uShadeRedW', edgeSoft: 'uEdgeSoft', dither: 'uDither',
@@ -435,7 +436,7 @@ export function setMarkStateLook(mat, ph) {
 export function applyMarkLook(part = {}) {
   const SF = SIL_FIT / SIL_FIT_REF;
   const map = { imp: 'uImp', dot: 'uImpDot', glow: 'uImpGlow', shade: 'uImpShade', sharp: 'uImpSharp',
-    shadeCol: 'uImpShadeCol', scale: 'uImpScale', plantar: 'uPlantar', bands: 'uBands', bandSoft: 'uBandSoft',
+    shadeCol: 'uImpShadeCol', dotCol: 'uImpDotCol', scale: 'uImpScale', plantar: 'uPlantar', bands: 'uBands', bandSoft: 'uBandSoft',
     edgeShade: 'uEdgeShade', edgeShadeW: 'uEdgeShadeW', edgeShadeCol: 'uEdgeShadeCol',
     edgeShadeGrad: 'uEdgeShadeGrad', edgeShadeG0: 'uEdgeShadeG0', edgeShadeG1: 'uEdgeShadeG1',
     shadeRed: 'uShadeRed', shadeRedW: 'uShadeRedW', edgeSoft: 'uEdgeSoft', dither: 'uDither',

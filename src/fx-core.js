@@ -616,10 +616,13 @@ uniform sampler2D uSDF2, uSDFWarn;
 //   uImpSharp: 자국 아웃라인 선명도(0 무름 ~ 1 또렷). AA 폭과 도트 가장자리 페이드를 같이 조인다.
 //   uImpShadeCol · uRipCol: 팔레트 색 선택(0 흰 · 1 샌드 · 2 코랄 · 3 레드) — 새 색은 안 만든다.
 uniform float uImp, uImpPitch, uImpDot, uImpGlow, uImpEdge, uImpScale, uImpRot, uImpShade, uImpSharp, uImpShadeCol;
+//   uImpDotCol: 각인 **도트** 팔레트 선택(0 흰 · 1 샌드 · 2 코랄 · 3 레드). 예전엔 C_CREAM(=SAND)
+//   하드코딩이라 랩에서 만질 수가 없었다(유저 08-05). 음영·파동과 같은 palPick 규약.
 // 필 전용 불투명도 — 랩 '투명도 op'. uFade 는 **전부**를 깎아 도트·라인·글리프까지 같이 사라졌다
 //   (유저 08-05). op 는 말 그대로 '필(코랄 면)만' 투명해져야 하므로 필 알파에만 곱한다.
 uniform float uFillOp;
 uniform vec2 uImpCtr, uImpOff;
+uniform float uImpDotCol;
 // 파동(리플) — 실루엣 **등거리선**을 따라 퍼진다. uRip 0 = 도입 전과 픽셀 동일.
 //   유저 지적: 지금 파동이 단순 원형 파장이라 발자국 위에서 따로 놀고, 퍼짐이 과하거나 쨍하다.
 //   부호거리로 몰면 파면이 형태를 따라간다 — 발형은 발 모양, 원형은 원. 토큰이 늘어도 파동은 하나다.
@@ -1005,7 +1008,7 @@ vec4 markState(vec2 uv, float state, float prog, float strong, float t){
     float depR = mix(0.185, 0.018, clamp(uImpSharp, 0.0, 1.0)) * sfi;
     float dep = smoothstep(0.0, depR, -sdIn);
     // 가장자리에서 0.34 로 남으면 도트 영역이 그 밝기로 뚝 끊긴다 — 0 까지 내려 배경과 어우러지게.
-    lay(A, C_CREAM, inIn * dotM * uImp * (0.06 + 0.94 * dep));
+    lay(A, palPick(uImpDotCol), inIn * dotM * uImp * (0.06 + 0.94 * dep));
     // 이너 섀도우 — 경계 **안쪽**에서 최대, 안으로 갈수록 사라진다. 자국이 '눌려 들어간' 자리로 읽힌다.
     //   빛을 빼지 않는다(위 uImpShade 주석): LUT 저역(RED)을 얹어 어느 바닥에서도 그림자로 읽히게.
     // 각인 음영에도 같은 블룸을 — 음영은 실루엣이든 자국이든 하나의 언어여야 한다.
