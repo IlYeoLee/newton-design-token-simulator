@@ -2020,9 +2020,10 @@ export class Session {
     for (const m of WAVE_MATS) {
       const U = m.uniforms;
       U.uTime.value = t;
-      U.uW.value = MK.core;
-      U.uHalo.value = MK.halo;
-      U.uPool.value = MK.pool;
+      const _sk = m._stKeys;   // 상태 오버라이드(setMarkStateLook)가 가진 키는 전역값으로 안 덮는다
+      if (!_sk?.has('w')) U.uW.value = MK.core;
+      if (!_sk?.has('halo')) U.uHalo.value = MK.halo;
+      if (!_sk?.has('pool')) U.uPool.value = MK.pool;
       U.uSweepA.value = MK.sweep;
       U.uNoise.value = MK.wobble;
       if (fp && U.uFPNear && !m._wall) {   // 지면 마크만: 벽 마크는 기본 1e6(무효) 유지

@@ -462,6 +462,10 @@ export function setMarkStateLook(mat, ph) {
   }
   applyMarkLookTo(mat, _stateBase.get(mat));   // 공통으로 리셋
   if (ov) applyMarkLookTo(mat, ov);            // 그 상태만 덮기
+  // ★ 이 상태가 소유한 키를 재질에 새긴다 — uW/uHalo/uPool 은 **매 프레임 전역값이 덮으므로**
+  //   (session.js WAVE_MATS 루프 · tokens.js 팩 마크 루프) 표시가 없으면 상태 오버라이드가
+  //   한 프레임도 못 산다. 이 파일 위 map 주석이 이미 경고한 그 함정이다.
+  mat._stKeys = ov ? new Set(Object.keys(ov)) : null;
 }
 
 export function applyMarkLook(part = {}) {
@@ -832,9 +836,10 @@ export class Marker {
       // ★ MARK 룩의 출처는 mark-look.json(footlab) 하나다 — 룩시스템 스토어(FXP.mark)를 안 본다.
       //   session.tickWaves 만 끊고 **여기를 빠뜨려서** 팩 마커는 계속 스토어 값으로 덮였다.
       //   같은 실수를 또 하지 않으려면: FXP.mark 를 마크 재질에 넣는 곳이 더 있는지 먼저 grep 할 것.
-      U.uW.value = MARK_LOOK.core;
-      U.uHalo.value = MARK_LOOK.halo;
-      U.uPool.value = MARK_LOOK.pool;
+      const _sk = this.fx.material._stKeys;   // 상태 오버라이드가 가진 키는 전역값으로 덮지 않는다
+      if (!_sk?.has('w')) U.uW.value = MARK_LOOK.core;
+      if (!_sk?.has('halo')) U.uHalo.value = MARK_LOOK.halo;
+      if (!_sk?.has('pool')) U.uPool.value = MARK_LOOK.pool;
       U.uSweepA.value = MARK_LOOK.sweep;
       U.uNoise.value = MARK_LOOK.wobble;
       // 진행 아크 감김 — 종목이 바뀌면 즉시 따라오게 매 프레임 읽는다(main.switchPack 이 세운다).
