@@ -229,94 +229,15 @@ const FOLLOW = [
 // ═══ 4패턴 공통 시스템 — 러닝·농구 24 스테이지 수집 결과 ═══════════════════════
 //   모든 따라하기 화면 = [① 정체 · ② 시계 · ③ 판정] 세 슬롯. 패턴 차이는 ②뿐이다.
 //   ①은 상단 캡슐 · ②는 캡슐 내부 · ③은 지면 — 이 조판은 네 패턴에서 완전히 같다.
-function slotFrame(g, t, o) {
-  // ★ 조판은 floorgl.buildScene 의 **한 세로 열** 그대로다(유저 지적 08-05: 하단에 그런 뷰 없다).
-  //   열 순서: [크럼] → 타이틀 → (프리뷰 링) → **아크(진행)** → (수치행) → 성공 배지.
-  //   아크는 화면 바닥에 따로 떠 있는 게 아니라 이 열의 한 칸이다. 바닥은 비어 있다.
-  const cx = 800, cy = 300, cw = 818, ch = 250;
-  const e = eOut(intro(t, .1, .8));
-  // ① 정체 — 상단 캡슐(동작명)
-  capsule(g, cx - cw / 2, cy, cw, ch);
-  titleBlock(g, [o.title], cx, cy + 118, 64);
-  // ② 시계 — 캡슐 **아래 열의 다음 칸**. 패턴이 갈리는 유일한 자리
-  o.clock(g, t, cx, cy + ch + 130);
-  // ③ 판정 — 그 아래 칸(수치행·마크). 코치 판은 관찰이 있는 패턴에만(COACH_CFG 실측)
-  if (o.coach !== false) coach(g, cx, 1320, 700, e);
-  o.verdict(g, t, cx);
-}
-const dotsBar = (g, t, cx, y, p) => arcGauge(g, cx - 380, y - 40, 760, clamp01(p));
-const SYS = [
-  ['A · 관찰 후 따라하기', 'A2 종아리 · A3 하이니 · BK_A3 스쿼트<br><b>② 시계 = 프리뷰 링 → 도트바</b> (같은 슬롯을 물려받는다)',
-    (g, t) => slotFrame(g, t, { title: 'High Knees', tall: true,
-      clock: (g2, t2, cx, by) => {
-        const pv = 3, inPv = (t2 % 8) < pv;
-        if (inPv) {   // 프리뷰: 필 + 카운트 링 → 끝나면 같은 자리를 아크가 물려받는다
-          capLabel(g2, 'PREVIEW', cx - 150, by, .6, 40);
-          ringGauge(g2, cx + 130, by, 74, ((t2 % pv) / pv), { color: '#fff' });
-          g2.textAlign = 'center'; g2.textBaseline = 'middle';
-          g2.fillStyle = '#fff'; g2.font = RF(700, 58, DOT);
-          g2.fillText(String(pv - Math.floor(t2 % pv)), cx + 130, by + 4);
-        } else arcGauge(g2, cx - 380, by - 30, 760, ((t2 % 8) - pv) / (8 - pv));
-      },
-      verdict: (g2, t2, cx) => footMarks(g2, cx, 1900, 1, t2),
-      prog: t2 => (t2 % 8) / 8 })],
-  ['B · 큐만 있는 반복', 'A1 목·어깨 · BK_A1 옆구리 · BK_B1 드리블<br><b>② 시계 = 도트바만</b> (관찰 단계 생략 — 동작이 단순)',
-    (g, t) => slotFrame(g, t, { title: 'Neck Rolls',
-      clock: (g2, t2, cx, by) => {
-        g2.textAlign = 'center'; g2.textBaseline = 'middle';
-        g2.fillStyle = '#fff'; g2.font = RF(700, 56, DOT);
-        g2.fillText(String(4 - Math.floor((t2 % 8) / 2)), cx - 26, by - 70);
-        capLabel(g2, 'left', cx + 52, by - 66, .55, 32);
-        arcGauge(g2, cx - 380, by - 30, 760, (t2 % 8) / 8);
-      },
-      verdict: () => {},
-      prog: t2 => (t2 % 8) / 8 })],
-  ['C · 분해 스텝', 'BK_B2~B5 스텝백 1/4~4/4<br><b>② 시계 = 루프 n/4</b> (초가 아니라 반복 횟수 · 도트바 없음)',
-    (g, t) => slotFrame(g, t, { title: 'Step-Back 2/4',
-      clock: (g2, t2, cx, by) => {
-        const n = 1 + Math.floor((t2 % 8) / 2);
-        capLabel(g2, 'LOOP', cx - 140, by, .6, 40);
-        ringGauge(g2, cx + 120, by, 74, ((t2 % 2) / 2), { color: '#fff' });
-        g2.textAlign = 'center'; g2.textBaseline = 'middle';
-        g2.fillStyle = '#fff'; g2.font = RF(700, 50, DOT);
-        g2.fillText(n + '/4', cx + 120, by + 4);
-      },
-      verdict: (g2, t2, cx) => {
-        footMarks(g2, cx, 1900, .9, t2);
-        g2.save(); g2.strokeStyle = 'rgba(255,222,194,.9)'; g2.lineWidth = 8; g2.lineCap = 'round';
-        g2.shadowColor = 'rgba(254,195,137,.7)'; g2.shadowBlur = 18;
-        g2.beginPath(); g2.moveTo(cx - 40, 2090); g2.lineTo(cx + 120, 2090); g2.stroke();
-        g2.beginPath(); g2.moveTo(cx + 76, 2056); g2.lineTo(cx + 124, 2090); g2.lineTo(cx + 76, 2124); g2.stroke();
-        g2.restore();
-      },
-      prog: t2 => (t2 % 8) / 8 })],
-  ['D · 실전 동행', 'P1~P3 훈련 · C2~C5 실전 · BK_C2<br><b>② 시계 = 연속 아크</b> (끝이 아니라 <b>지금 상태</b>가 주인공)',
-    (g, t) => slotFrame(g, t, { title: 'Interval', coach: false,
-      clock: (g2, t2, cx, by) => {
-        // 실시간 수치 — 남은 시간 대신 SPM·편차
-        g2.textAlign = 'center'; g2.textBaseline = 'middle';
-        g2.fillStyle = '#fff'; g2.font = RF(700, 60, DOT);
-        g2.fillText(String(146 + Math.round(Math.sin(t2 * 1.6) * 5)), cx - 60, by - 70);
-        capLabel(g2, 'SPM', cx + 46, by - 66, .55, 32);
-        arcGauge(g2, cx - 380, by - 30, 760, (t2 % 8) / 8);
-      },
-      verdict: (g2, t2, cx) => {
-        // 편차 바 — 목표 대비 현재
-        const w = 620, y = 1100, p = .5 + Math.sin(t2 * 1.3) * .22;   // 코치 판이 없으니 수치가 위로 올라온다
-        g2.save();
-        g2.fillStyle = 'rgba(255,255,255,.16)';
-        g2.beginPath(); g2.roundRect(cx - w / 2, y, w, 18, 9); g2.fill();
-        const gg = g2.createLinearGradient(cx - w / 2, 0, cx + w / 2, 0);
-        gg.addColorStop(0, '#FA3030'); gg.addColorStop(.5, '#FEC389'); gg.addColorStop(1, '#FA3030');
-        g2.fillStyle = gg; g2.globalAlpha = .5;
-        g2.beginPath(); g2.roundRect(cx - w / 2, y, w, 18, 9); g2.fill();
-        g2.globalAlpha = 1; g2.fillStyle = '#fff';
-        g2.shadowColor = 'rgba(255,255,255,.9)'; g2.shadowBlur = 22;
-        g2.beginPath(); g2.arc(cx - w / 2 + w * p, y + 9, 20, 0, 7); g2.fill();
-        g2.restore();
-        capLabel(g2, 'TARGET 148', cx, y + 78, .5, 34);
-      },
-      prog: t2 => (t2 % 8) / 8 })],
+// ★ 목업 금지(유저 08-05) — 아래는 **정본 렌더러(FloorGL)가 실제로 그린 화면**을 그대로 구운 PNG다.
+//   캡처 방법: floor-scenes.js + new FloorGL() → load(stage) → update() → canvas 저장(t=4.0s).
+const SYS_SHOTS = [
+  ['A1 · 목·어깨 풀기', 'shots/floorshot-a1.png', '<b>패턴 B — 큐만 있는 반복</b><br>캡슐 시스템 <b>preview</b> 변형. 관찰 없이 동작명 + 진행만.'],
+  ['A3 · 하이니', 'shots/floorshot-a3.png', '<b>패턴 A/C — 관찰 후 따라하기</b><br>캡슐 시스템 <b>video</b> 변형. 캡슐 + 타이머 배지(루프 카운트).'],
+  ['A2 · 종아리 늘리기', 'shots/floorshot-a2.png', '<b>패턴 A — 관찰 후 따라하기</b><br>캡슐 시스템 <b>floor</b> 변형. 캡슐 + 세션 시간 호 + 지면 토큰 존.'],
+  ['BK_B3 · 스텝백 2/4', 'shots/floorshot-bk_b3.png', '<b>패턴 C — 분해 스텝</b><br>캡슐 시스템 <b>mini</b> 변형. 작은 영상 미리보기 + 진행 배지(n/4).'],
+  ['P3 · 인터벌', 'shots/floorshot-p3.png', '<b>패턴 D — 실전 동행 · 레거시 조판</b><br>캡슐 <b>미적용</b>: 크럼 → 타이틀 → 아크 → SPM 편차바 + 메트로놈 링.'],
+  ['C2 · 나란히 달리기', 'shots/floorshot-c2.png', '<b>패턴 D — 실전 · 레거시 조판</b><br>캡슐 <b>미적용</b>: 누적 거리 → 아크 → 실시간 수치행.'],
 ];
 // ═══ 전환 인터랙션 — 프리뷰 A → 따라하기 A 를 한 타임라인으로(유저: 전환도 미리보기) ═══
 //   한 물체(캡슐)가 물러나며 작아지고, 그 자리를 사람과 지면 마크가 이어받는다.
@@ -374,8 +295,19 @@ function build() {
   document.getElementById('flowbar').style.display = MODE === 'flow' ? '' : 'none';
   ttl.textContent = MODE === 'preview' ? '프리뷰(관찰) — 3안'
     : MODE === 'follow' ? '따라하기 — 3안'
-    : MODE === 'sys' ? '따라하기 4패턴 — 공통 3슬롯 시스템 [① 정체(캡슐) · ② 시계(캡슐 내부) · ③ 판정(지면)]'
+    : MODE === 'sys' ? '지금 실제로 쓰이는 화면 (정본 렌더러 캡처) — 캡슐 적용 4개 · 레거시 2개'
     : '프리뷰 → 따라하기 전환 (A안 · 5.4초) — 슬라이더로 스크럽';
+  if (MODE === 'sys') {
+    for (const [nm, src, ds] of SYS_SHOTS) {
+      const d = document.createElement('div'); d.className = 'cell';
+      const im = document.createElement('img');
+      im.src = '/' + src; im.style.cssText = 'width:328px;display:block;border-radius:14px';
+      d.append(im, Object.assign(document.createElement('div'), { className: 'nm', textContent: nm }),
+               Object.assign(document.createElement('div'), { className: 'ds', innerHTML: ds }));
+      row.appendChild(d);
+    }
+    return;
+  }
   if (MODE === 'flow') {
     const d = document.createElement('div'); d.className = 'cell'; d.style.width = '420px';
     const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
@@ -387,7 +319,7 @@ function build() {
     row.appendChild(d); cells.push([cv, drawFlow]);
     return;
   }
-  for (const [nm, ds, fn] of (MODE === 'preview' ? PREVIEW : MODE === 'sys' ? SYS : FOLLOW)) {
+  for (const [nm, ds, fn] of (MODE === 'preview' ? PREVIEW : FOLLOW)) {
     const d = document.createElement('div'); d.className = 'cell';
     const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
     d.append(cv, Object.assign(document.createElement('div'), { className: 'nm', textContent: nm }),
@@ -395,7 +327,7 @@ function build() {
     row.appendChild(d); cells.push([cv, fn]);
   }
 }
-for (const [k, lb] of [['preview', '프리뷰(관찰)'], ['follow', '따라하기'], ['flow', '▶ 전환 인터랙션 (A안)'], ['sys', '◆ 4패턴 공통 시스템']]) {
+for (const [k, lb] of [['preview', '프리뷰(관찰)'], ['follow', '따라하기'], ['flow', '▶ 전환 인터랙션 (A안)'], ['sys', '◆ 실제 화면 캡처']]) {
   const b = document.createElement('button'); b.textContent = lb;
   if (k === MODE) b.className = 'on';
   b.onclick = () => { MODE = k; document.querySelectorAll('.seg button').forEach(x => x.classList.remove('on')); b.classList.add('on'); build(); };
@@ -408,6 +340,17 @@ build();
 const T0 = performance.now();
 (function loop() {
   const now = performance.now();
+  if (MODE === 'sys') {
+    for (const [nm, src, ds] of SYS_SHOTS) {
+      const d = document.createElement('div'); d.className = 'cell';
+      const im = document.createElement('img');
+      im.src = '/' + src; im.style.cssText = 'width:328px;display:block;border-radius:14px';
+      d.append(im, Object.assign(document.createElement('div'), { className: 'nm', textContent: nm }),
+               Object.assign(document.createElement('div'), { className: 'ds', innerHTML: ds }));
+      row.appendChild(d);
+    }
+    return;
+  }
   if (MODE === 'flow') {
     if (FPLAY) { FT = (FT + (now - FLAST) / 1000) % CY_LOOP; document.getElementById('fscrub').value = FT.toFixed(2); }
     document.getElementById('ftime').textContent = FT.toFixed(2) + 's';
