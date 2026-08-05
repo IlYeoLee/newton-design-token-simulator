@@ -865,10 +865,13 @@ const READY_CAP = { x: 291, y: 285, w: 1018, h: 1541 };
 const CAPS = {
   A1:    { watch: 'video', adv: 'time' },
   A2:    { watch: 'floor', adv: 'hold',  pv: true },   // 바닥 가이드 — 발자국이 콘텐츠, 영상은 보조
-  A3:    { watch: 'video', adv: 'time',  pv: true },
+  //   ★ pv 는 **자세를 먼저 봐야 하는 동작**에만. 반복 동작(하이니·스쿼트·드리블)은 보면서
+  //     바로 따라 하는 것이라 관찰 구간이 없다 — 그런데 'PREVIEW' 가 떴다(유저: 하이니는
+  //     프리뷰 아닌데 프리뷰라 뜬다, 기준이 모호하다). 기준을 문장으로 못박는다.
+  A3:    { watch: 'video', adv: 'time' },
   BK_A1: { watch: 'video', adv: 'time' },
-  BK_A3: { watch: 'video', adv: 'time',  pv: true },   // ← CAPS 에 빠져 있었다
-  BK_B1: { watch: 'video', adv: 'reps',  pv: true, reps: 10 },   // ← 같음 · cue '10회'
+  BK_A3: { watch: 'video', adv: 'time' },              // 스쿼트 = 반복 → 관찰 없음
+  BK_B1: { watch: 'video', adv: 'reps', reps: 10 },    // 드리블 10회 = 반복 → 관찰 없음
   // 스텝백 4조각 — 동작을 해내면 넘어간다. 시간도 횟수도 아니다.
   BK_B2: { watch: 'slow', adv: 'skill', step: '1/4', pv: true, uiK: 0.80 },
   BK_B3: { watch: 'slow', adv: 'skill', step: '2/4', pv: true, uiK: 0.80 },
@@ -908,6 +911,10 @@ const ADV = {
 const advOf = s => ADV[s] || CAPS[s]?.adv || 'time';
 const showArc  = s => advOf(s) === 'time';                       // 아크 = time 에서만
 const showRing = s => ['segment', 'hold', 'reps'].includes(advOf(s));   // 링 = 셀 게 따로 있을 때만
+/** 알약이 **그 화면의 유일한 정보**인가 — SPM·거리 같은 다른 1급 수치가 없으면 참.
+ *  크기(titleLeadK)와 접힘 여부를 같이 정한다: 주인공이면 크게, 그리고 **안 접는다**
+ *  (유저: 스트레칭할 때 타이틀 없어지니 어색하다 — 거긴 알약이 화면의 전부다). */
+const pillLeads = s => !/^(P[0-9]|C[1-5])$/.test(s || '');
 /** 관찰(프리뷰) 구간이 있는 스테이지인가 — 정본은 CAPS 한 곳뿐이다. */
 const hasPreview = s => !!CAPS[s]?.pv;
 const TM = { C1: { sub: 'Run 10 min · Final 1 km', title: 'Run with Sean' },
@@ -1433,7 +1440,7 @@ export class FloorGL {
   _outro(n) {
     // ★ 알약이 접혀 남을 게 없으면 **자리도 비운다** — 안 그러면 아크가 빈 칸 아래에 뜬다.
     //   칼럼 조판의 "안 보이는 노드는 자리도 안 차지한다" 규약과 같다.
-    if (n.type === 'capHead' && TOK.collapse && !showRing(this.stage)) {
+    if (n.type === 'capHead' && TOK.collapse && !showRing(this.stage) && !pillLeads(this.stage)) {
       const PV = n.pv || 0;
       return 1 - clamp01((this.t - (PV + TOK.hold)) / Math.max(.05, TOK.fade));
     }
@@ -1545,7 +1552,7 @@ export class FloorGL {
    *    팔레트라 화면에 붉은 게 둘이면 어느 쪽이 '지금 밟아라'인지 구분이 안 된다. 크롬(알약·
    *    아크·글자)을 무채색으로 두면 토큰이 켜지는 순간이 화면에서 **유일한 색 사건**이 된다.
    *    시작화면(READY)만 예외 — 거기엔 판정이 없어 경합이 없고, 불이 브랜드를 말하는 자리다. */
-  _glassPill(x, y, w, h, r, glow = true) {
+  _glassPill(x, y, w, h, r, glow = true, emberK = 1) {
     const ctx = this.ctx;
     this._boxes?.push({ k: 'pill', x, y, w, h });
     this._pillW = w;   // 아래 진행 아크·SPM 눈금이 이 폭에서 파생된다(HUG)
@@ -1554,9 +1561,10 @@ export class FloorGL {
     ctx.fillStyle = `rgba(255,255,255,${TOK.fill})`; ctx.fillRect(x, y, w, h);
     ctx.filter = 'blur(37px)'; ctx.strokeStyle = `rgba(255,255,255,${TOK.blurA})`; ctx.lineWidth = TOK.blurW;
     path(); ctx.stroke(); ctx.filter = 'none';
-    if (glow && TOK.ember > 0.004) {
-      // 세기는 상태와 무관하게 일정(유저) — 프리뷰/알약에 따라 달라지면 '같은 불'로 안 읽힌다.
-      ctx.save(); ctx.globalAlpha *= TOK.ember;
+    if (glow && TOK.ember * emberK > 0.004) {
+      // ★ 세기가 **상태를 말한다**(유저 08-06): 관찰 중엔 색이 없고 실제로 수행할 때 색이 들어온다.
+      //   '지금 네가 하는 중'이라는 신호다 — 관찰과 따라하기 차이가 크기만으로는 덜 났다.
+      ctx.save(); ctx.globalAlpha *= TOK.ember * emberK;
       ctx.translate(x, y);
       ctx.scale(w / READY_CAP.w, h / READY_CAP.h);
       ctx.translate(-READY_CAP.x, -READY_CAP.y);
@@ -1642,8 +1650,7 @@ export class FloorGL {
     //   ★ 알약 높이·활자·여백이 **한 배율로 같이** 줄어야 비례가 안 깨진다. 하나만 줄이면
     //     "작아진 시스템"이 아니라 "다른 컴포넌트"가 된다.
     // 그 화면에 다른 1급 수치(SPM·거리)가 있으면 알약은 조연이다 — P·C 가 그렇다.
-    const lead = !/^(Pd|C[1-5])$/.test(this.stage || '');
-    const K2 = (CAPS[this.stage]?.uiK ?? 1) * (lead ? TOK.titleLeadK : TOK.titleSubK);
+    const K2 = (CAPS[this.stage]?.uiK ?? 1) * (pillLeads(this.stage) ? TOK.titleLeadK : TOK.titleSubK);
     // ★ 링도 HUG — 값이 '4/10' 처럼 길어지면 원이 그만큼 커진다. 안 그러면 글자가 링을 넘는다
     //   (유저 스샷). 숫자를 줄여 맞추는 건 안 된다: 1급(0.69°)이 2급 아래로 떨어진다.
     const PAD = Math.round(H2.pad * K2);
@@ -1660,7 +1667,9 @@ export class FloorGL {
     //   (유저 스샷: EASY RUN / STRIDES / INTERVALS 가 알약 왼쪽에 붙어 있었다).
     const gapT = Math.round(H2.gapT * K2);
     // 링 슬롯 = 링 지름 + 그 뒤 간격. ringK 로 **함께** 사라진다(간격만 남으면 빈 칸이 보인다).
-    const ringW = (RR * 2 + gapT) * ringK;
+    // ★ 뒤 간격은 **뒤에 올 게 있을 때만**. 타이틀이 접혀 사라지면 그 간격이 남아 링이
+    //   왼쪽으로 밀린다(유저: 인터벌에서 타이머만 남을 때 가운데정렬이 어정쩡하다).
+    const ringW = (RR * 2 + (tw > 0 ? gapT : 0)) * ringK;
     const inner = ringW + H2.gapU + tw + (step ? 110 * K2 : 0);
     // ★ HUG — 상자는 내용에서 나온다. minW 바닥값은 **쓰지 않는다**: 그것 때문에 짧은 문구에서
     //   알약이 내용보다 넓어졌고, 남는 폭이 한쪽에 쌓여 가운데가 안 맞아 보였다(유저 스샷).
@@ -1761,7 +1770,8 @@ export class FloorGL {
     // ★ 접힘 — 타이틀은 **진입 정보**다. 유지 시간이 지나면 빠지고 시계만 남는다
     //   (유저: 처음엔 이지런이 나왔다가 글자가 자연스럽게 사라지며 타이머만 남으면 된다).
     //   관찰 구간엔 안 접는다 — 거기선 동작명이 그 화면의 전부다.
-    const tA = (TOK.collapse && !inPv)
+    // 접힘은 **다른 수치가 있는 화면에서만**(P·C). 스트레칭·학습은 알약이 화면의 전부다.
+    const tA = (TOK.collapse && !inPv && !pillLeads(this.stage))
       ? 1 - clamp01((this.t - (PV + TOK.hold)) / Math.max(.05, TOK.fade)) : 1;
     // 링은 adv 가 정한다 — 관찰 중이면 항상(영상 남은 시간은 고유 값이라 중복이 아니다).
     const ringK = (inPv || showRing(this.stage)) ? 1 : 0;
@@ -1783,13 +1793,14 @@ export class FloorGL {
     //   pad 44 를 상하좌우에 동일하게 쓰고(HH = 링지름 + pad*2), 폭은 실측 텍스트에서 만든다.
     const ctx = this.ctx;
     // 상자·값 = **조판(_h)이 쓴 것과 같은 호출**. 여기서 따로 재면 예약 높이와 갈린다.
-    const { w: W2, h: HH, x, x0, inner: INNER, RR, PAD, gapT: GT, K2, H2, T, tA, ringK,
+    const { w: W2, h: HH, x, x0, inner: INNER, ringW: RINGW, RR, PAD, gapT: GT, K2, H2, T, tA, ringK,
             dur: _dur0, PV: _PV0, g: _g } = this._headBoxFor(n, y);
     // 남을 게 없으면 알약을 안 그린다. 아크는 **별도 노드(_dots)** 라 영향 없고,
     //   자리는 _outro 가 비워 준다(칼럼 조판 규약).
     if (ringK < 0.004 && tA < 0.004) return;
     this._boxes?.push({ k: 'inner', x: x0, y, w: INNER, h: HH });   // 내용 묶음 — 가운데정렬 검수용
-    this._glassPill(x, y, W2, HH, HH / 2);
+    //   관찰(pv) 중엔 엠버 0 — 색은 '수행 중'의 신호다.
+    this._glassPill(x, y, W2, HH, HH / 2, true, this._headBoxFor(n, y).inPv ? 0 : 1);
     // 카운트 링 — 정본 컴포넌트 그대로(형태 변환 없음, 자리만 여기다)
     //   ★ x+PAD 가 아니라 **x0**(내용 묶음의 좌단) 에서 시작한다 — 남는 폭이 한쪽에 안 쌓인다.
     const cyR = y + HH / 2, cxR = x0 + RR;
@@ -1815,7 +1826,10 @@ export class FloorGL {
     if (tA < 0.004) { ctx.restore?.(); return; }
     ctx.save(); ctx.globalAlpha *= tA;
     ctx.fillStyle = '#fff'; ctx.font = F(700, LAYOUT.TYPE.title * K2); ctx.letterSpacing = '-4px';
-    const tx = cxR + RR + H2.gapU + GT;   // 링 → 타이틀 (sec 은 링 안이라 폭 0)
+    // ★ 링 슬롯 실폭(RINGW)에서 시작한다. `RR` 로 계산하면 링이 **없는** 장면(ringK 0)에서도
+    //   링 자리만큼 밀려 타이틀이 알약 밖으로 나간다(유저: 이지런 글자가 우측으로 빠져있다).
+    //   실측 216px. _paint_capsule 은 이미 RINGW 를 쓰고 있었다 — capHead 만 안 따라갔다.
+    const tx = x0 + RINGW + H2.gapU;
     // 쉼표가 있으면 의미 단위로 두 줄(농구 스텝) — 지금 데이터엔 없지만 규칙은 남긴다.
     const ci = T.indexOf(', ');
     if (ci > 0) { ctx.textBaseline = 'alphabetic';
@@ -2872,7 +2886,7 @@ export class FloorGL {
     // ★ 타이틀 접힘 — 레거시 경로(_headBoxFor)와 **같은 규약**. 모프가 끝나고 hold 초가 지나면
     //   동작명이 빠진다(유저: 글자가 자연스럽게 사라지며 타이머만 남으면 된다).
     //   관찰 중엔 안 접는다 — 거기선 동작명이 화면의 전부다.
-    const tA = (TOK.collapse && !watching && this._moT != null)
+    const tA = (TOK.collapse && !watching && this._moT != null && !pillLeads(this.stage))
       ? 1 - clamp01((t - (this._moT + MOVE + TOK.hold)) / Math.max(.05, TOK.fade)) : 1;
     const fsNow = TOK.fsTitlePv + (LAYOUT.TYPE.title - TOK.fsTitlePv) * moT;
     const _g = this._gaugeVal({ PV, dur, inPv: mo < .5, pvEnd: Math.max(PV, this._moT ?? PV),
@@ -2925,7 +2939,8 @@ export class FloorGL {
     const r = Math.min(w, h) / 2;
     ctx.save(); ctx.globalAlpha *= eOut(intro(t, .05, .7));
     // 알약 몸통(유리 + 엠버 + 림) = 공통 _glassPill. 러닝 헤더와 **같은 함수**를 쓴다.
-    this._glassPill(x, y, w, h, r);
+    //   관찰 → 따라하기로 넘어가며 색이 **들어온다**(mo 0→1). 상태 전환이 색으로 읽힌다.
+    this._glassPill(x, y, w, h, r, true, mo);
     ctx.restore();
     // 카운트 링 — 정본 countRing. 관찰: 캡슐 중앙 아래 / 따라하기: 헤더 왼쪽 슬롯. 형태는 안 바뀐다.
     // 링·타이틀은 이제 **한 줄(row)** 로만 앉는다 — 프리뷰의 세로 3단 쌓기를 폐기했다.
