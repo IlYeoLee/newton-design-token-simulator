@@ -106,12 +106,18 @@ await new Promise(r => setTimeout(r, 9000));   // 폰트·이미지 준비
 await page.evaluate(({ surf, stage, src, w, h }) => {
   const d = window.__dbg;
   const g = surf === 'wall' ? d.wallGL : d.floorGL;
+  // ★ 재생 자체를 막는다 — 앱이 매 틱 play() 를 다시 부르므로 pause() 만으론 부족하다.
+  //   (HANDOFF-0802 ①. 이 스크립트는 그 수정을 못 받아서 READY 의 코치 카드가 배속됐다.)
+  HTMLMediaElement.prototype.play = function () { return Promise.resolve(); };
   g.load(stage, { dur: 8, pv: 3, src: `ready-view/${src}?stage=${stage}` });
   // 내보내기 전용 출력 캔버스 — 대지 캔버스를 원하는 해상도로 리샘플해 담는다
   const o = document.createElement('canvas');
   o.width = w; o.height = h; o.id = '__uiout';
   Object.assign(o.style, { position: 'fixed', left: '0', top: '0', zIndex: '99999' });
   document.body.appendChild(o);
+  // 워밍업 페인트 — `_pvid` 는 첫 _paint 에서 만들어진다. 미리 만들어 둬야 0번 프레임부터
+  //   시크가 걸린다(안 그러면 첫 장만 엉뚱한 시각의 영상이 박힌다).
+  g.t = 0; g._lastPaint = -1; g._sig = null; g._paint();
   window.__uiG = g;
 }, { surf: SURF, stage: STAGE, src, w: W, h: H });
 await new Promise(r => setTimeout(r, 1500));
@@ -121,8 +127,30 @@ for (let i = 0; i < N; i++) {
   const t = i / FPS;
   // ★ 시계를 우리가 민다 — 렌더 루프에 의존하지 않으므로 드롭이 원천적으로 없다.
   //   _lastPaint 를 무효화해 UI_FPS 스로틀을 우회하고 매 프레임 새로 그린다.
-  const dataUrl = await page.evaluate(({ tt, alpha }) => {
+  const dataUrl = await page.evaluate(async ({ tt, alpha }) => {
     const g = window.__uiG;
+    // ★ <video> 는 미디어 클록으로 돈다 — 우리가 t 를 밀어도 안 따라온다. 그대로 두면 프레임 한 장
+    //   렌더에 걸리는 실제 시간(0.2~0.5s)만큼 영상이 앞질러 가 **인물만 배속**된다.
+    //   프레임마다 currentTime 을 직접 찍고, **디코드가 끝날 때까지 기다린다** — 안 기다리면
+    //   빈 디코드가 그대로 찍혀 깜빡인다(HANDOFF-0802 ①의 교훈 그대로).
+    const v = g._pvid;
+    if (v && v.duration > 0) {
+      // 정지는 **한 번만**. 매 프레임 부르면 진행 중인 시크를 취소해서 깜빡인다.
+      if (!v._expPaused) { v._expPaused = true; v.autoplay = false; try { HTMLMediaElement.prototype.pause.call(v); } catch (e) {} }
+      await new Promise(r => {
+        let done = false; const fin = () => { if (done) return; done = true; r(); };
+        if (v.requestVideoFrameCallback) v.requestVideoFrameCallback(fin);
+        else v.addEventListener('seeked', fin, { once: true });
+        v.currentTime = tt % v.duration;   // loop:true 라 나머지로 감는다
+        setTimeout(fin, 4000);             // 디코더가 응답 없으면 그냥 진행 — 훅이 멈추면 안 된다
+      });
+      // ★ 시크 콜백이 왔어도 readyState 가 잠깐 2 아래로 떨어진다. _paint_ready 는
+      //   `readyState >= 2 && videoWidth` 일 때만 인물을 그리므로, 그 틈에 그리면 **인물이 통째로
+      //   빠진 프레임**이 나온다(실측 08-06: t=1.0·2.0 두 장이 인물 없이 배경만). 게이트가
+      //   열릴 때까지 기다린다.
+      for (let k = 0; k < 60 && !(v.readyState >= 2 && v.videoWidth); k++)
+        await new Promise(r => setTimeout(r, 16));
+    }
     g.t = tt; g._lastPaint = -1; g._sig = null;
     g._paint();
     const o = document.getElementById('__uiout');
@@ -152,10 +180,15 @@ if (hasFF) {
   execFileSync('ffmpeg', ['-y', '-framerate', String(FPS), '-i', path.join(TMP, 'f%05d.png'),
     '-c:v', 'prores_ks', '-profile:v', '4444',
     '-pix_fmt', ALPHA ? 'yuva444p10le' : 'yuv444p10le', mov], { stdio: ['ignore', 'ignore', 'inherit'] });
+  // ★ 프리뷰는 **검정 위에 합성해서** 만든다. 알파를 그냥 버리면(구 코드) 글로우가 통째로 깨진다 —
+  //   이 글로우는 RGB 는 거의 순수 빨강이고 부드러운 falloff 을 **알파가** 담당한다. 알파를 떼면
+  //   그 빨강이 100% 강도로 나타나고 알파 0 지점에서 뚝 잘려, 계단 모양 빨간 판이 된다
+  //   (실측 08-06: READY 프리뷰가 상단에 하드 클리핑된 빨간 띠 + 무지개 프린징). PNG·mov 는 멀쩡했다.
   const mp4 = path.join(OUT, `${tag}_preview.mp4`);
   execFileSync('ffmpeg', ['-y', '-framerate', String(FPS), '-i', path.join(TMP, 'f%05d.png'),
-    '-c:v', 'libx264', '-crf', '16', '-pix_fmt', 'yuv420p',
-    '-vf', 'scale=trunc(iw/2)*2:trunc(ih/2)*2', mp4], { stdio: ['ignore', 'ignore', 'inherit'] });
+    '-filter_complex', `color=c=black:s=${W}x${H}:r=${FPS}[bg];[bg][0:v]overlay=shortest=1,`
+      + 'scale=trunc(iw/2)*2:trunc(ih/2)*2,format=yuv420p',
+    '-c:v', 'libx264', '-crf', '16', mp4], { stdio: ['ignore', 'ignore', 'inherit'] });
   made.push(mov, mp4);
 } else console.log('ⓘ ffmpeg 없음 — PNG 시퀀스만 냅니다(에펙은 이걸 그대로 읽습니다).');
 
