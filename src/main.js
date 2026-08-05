@@ -2325,7 +2325,7 @@ void main(){
     //   그래서 클립 자체를 0.78 로 줄여 순수 그린(#00FF00)으로 사방 11% 패딩(ffmpeg, 828×1108 유지).
     //   패딩은 키에서 100% 빠지므로 페이드는 여백만 먹는다. w/h 는 1/0.78 배로 올려 화면 크기 보존.
     // 인물 1.2배 + 위로(유저 08-05: 캡슐 하단 130 축소 후 인물이 빛에 묻혀 안 보인다)
-    READY:    { src: 'ready-view/assets/run/runner_green.mp4', cropOff: 0.0, cropScale: 1.0, w: 0.432, h: 0.578, fwd: 0.10, ph: 0.76 },
+    READY:    { src: 'ready-view/assets/run/runner_green.mp4', cropOff: 0.0, cropScale: 1.0, w: 0.432, h: 0.578, fwd: -0.02, ph: 0.76 },   // fwd .10→-.02 = 0.12m(≈175px) 아래로(유저) — 캡슐 프레임은 그대로 두고 인물만 내린다
     BK_READY: { src: 'ready-view/assets/bk/dribble_green.mp4', cropOff: 0.0, cropScale: 1.0, w: 0.432, h: 0.578, fwd: 0.10, ph: 0.76 },   // 러닝과 동일 규격
     A1: { src: 'ready-view/assets/sean_neck_shoulder.webm', cropOff: 0.40, cropScale: 0.58, w: 0.62, h: 0.64, fwd: 0.02, ph: 0.83 },   // 프리뷰 캡슐 안 — 타이틀 안 가리게 축소·아래(유저 08-05)
     A2: { src: 'ready-view/assets/sean_lunge.webm', cropOff: 0.0, cropScale: 1.0, w: 0.9, h: 0.9, fwd: -0.02, zoom: 0.86, ph: 0.65 },   // fwd .10→-.02 = 0.12m(≈175px) 아래로 — 머리가 캡슐 하단과 겹쳤다(유저 #151)   // 런지 전신 측면 — 축소로 뒷발이 프레임 페이드에 안 걸리게(유저)
