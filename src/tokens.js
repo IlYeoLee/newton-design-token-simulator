@@ -360,7 +360,7 @@ export function makeMarkFXMaterial(footTex = null) {
       uPlantar: { value: LOOK.plantar }, uBands: { value: LOOK.bands }, uBandSoft: { value: LOOK.bandSoft },
       uRipGrad: { value: LOOK.ripGrad },   // 1 = 뉴턴 LUT 그라디언트(기본) · 0 = 단색
       uRipCol: { value: LOOK.ripCol },   // 1 = 샌드(따뜻한 잔광). 0 흰 · 2 코랄 · 3 레드
-      uPhase: { value: 0 }, uProg: { value: 0 }, uFade: { value: 1 },
+      uPhase: { value: 0 }, uProg: { value: 0 }, uFade: { value: 1 }, uFillOp: { value: 1 },
       uToe: { value: 0 },   // 앞꿈치 접지 강조 — 앞은 진하게, 뒤꿈치는 투명하게(스텝백 2/4 왼발)
       uStrong: { value: 0 }, uContract: { value: 0 },
       uTime: { value: 0 }, uSeed: { value: Math.random() * 6.2832 },
@@ -409,7 +409,7 @@ export function applyMarkLookTo(mat, part = {}) {
     edgeShade: 'uEdgeShade', edgeShadeW: 'uEdgeShadeW', edgeShadeCol: 'uEdgeShadeCol',
     edgeShadeGrad: 'uEdgeShadeGrad', edgeShadeG0: 'uEdgeShadeG0', edgeShadeG1: 'uEdgeShadeG1',
     shadeRed: 'uShadeRed', shadeRedW: 'uShadeRedW', edgeSoft: 'uEdgeSoft', dither: 'uDither',
-    rip: 'uRip', ripSpeed: 'uRipSpeed', ripGrad: 'uRipGrad', ripCol: 'uRipCol', op: 'uFade' };
+    rip: 'uRip', ripSpeed: 'uRipSpeed', ripGrad: 'uRipGrad', ripCol: 'uRipCol', op: 'uFillOp' };   // op = 필만(유저)
   const mapSF = { pitch: 'uImpPitch', edge: 'uImpEdge', edgeW: 'uEdgeW', ripWidth: 'uRipWidth', ripReach: 'uRipReach' };
   const U = mat.uniforms;
   for (const k in map) if (part[k] != null && U[map[k]]) U[map[k]].value = part[k];

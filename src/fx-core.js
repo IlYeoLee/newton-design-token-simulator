@@ -616,6 +616,9 @@ uniform sampler2D uSDF2, uSDFWarn;
 //   uImpSharp: 자국 아웃라인 선명도(0 무름 ~ 1 또렷). AA 폭과 도트 가장자리 페이드를 같이 조인다.
 //   uImpShadeCol · uRipCol: 팔레트 색 선택(0 흰 · 1 샌드 · 2 코랄 · 3 레드) — 새 색은 안 만든다.
 uniform float uImp, uImpPitch, uImpDot, uImpGlow, uImpEdge, uImpScale, uImpRot, uImpShade, uImpSharp, uImpShadeCol;
+// 필 전용 불투명도 — 랩 '투명도 op'. uFade 는 **전부**를 깎아 도트·라인·글리프까지 같이 사라졌다
+//   (유저 08-05). op 는 말 그대로 '필(코랄 면)만' 투명해져야 하므로 필 알파에만 곱한다.
+uniform float uFillOp;
 uniform vec2 uImpCtr, uImpOff;
 // 파동(리플) — 실루엣 **등거리선**을 따라 퍼진다. uRip 0 = 도입 전과 픽셀 동일.
 //   유저 지적: 지금 파동이 단순 원형 파장이라 발자국 위에서 따로 놀고, 퍼짐이 과하거나 쨍하다.
@@ -826,7 +829,7 @@ vec4 markState(vec2 uv, float state, float prog, float strong, float t){
   // 필 전용 소프트 엣지 — 우리 UI 의 강점은 그라디언트의 부드러움인데, 하드 마스크가 경계에
   //   선을 그어 원반처럼 보이게 했다(유저). 안쪽으로 uEdgeW 만큼 페더링해 형태가 색으로 읽히게.
   float feath = smoothstep(0.0, max(uEdgeW, 1e-4), -sd);
-  float inFill = mix(inside, inside * feath, clamp(uEdgeSoft, 0.0, 1.0));
+  float inFill = mix(inside, inside * feath, clamp(uEdgeSoft, 0.0, 1.0)) * clamp(uFillOp, 0.0, 1.0);
   float outPos = max(sd, 0.0);
   // 점선 = 회피 계약 (일렁임과 분리한 저주기 — '털 뜯김' 방지 확정판)
   float dashM = (uContract > 0.5 && uContract < 1.5)
