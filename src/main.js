@@ -797,8 +797,19 @@ void main(){
   //   두고 아래를 본다(대지가 봇을 따라 움직이므로 매 프레임 다시 앉힌다 — 아래 루프).
   window.__setTopView = (on) => {
     window.__topView = !!on;
-    if (on) setFp(false);
-    else { try { frameThirdPerson(); } catch { /* 앵커 미준비 */ } }
+    if (!on) { try { frameThirdPerson(); } catch { /* 앵커 미준비 */ } return; }
+    setFp(false);
+    // ★ 독립 rAF 로 앉힌다 — 메인 루프 안 어디에 넣어도 3인칭 추종이 뒤에서 덮어써 카메라가
+    //   꼼짝도 안 했다(실측: 스냅 전후 좌표 동일). 나중에 등록된 rAF 가 마지막에 도므로 이게 이긴다.
+    const tick = () => {
+      if (!window.__topView) return;
+      const bp = floorObj.position;
+      controls.target.set(bp.x, 0, bp.z);
+      camera.position.set(bp.x, 3.4, bp.z + 0.002);   // z 미세 오프셋 = 짐벌락(up ∥ 시선) 회피
+      controls.update?.();
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
   };
   function setFp(on) {
     fpMode = on;
@@ -2322,6 +2333,8 @@ void main(){
   //    목 먼저 2바퀴 → 어깨 롤 (10s 루프). 위치·회전은 매 프레임 타이틀 프레임(floorObj) 앵커에 글루.
   // 룩시스템 열화상 코치 패널(A1 목·어깨, A2 런지 공용) — 그린스크린 영상 → 복싱 벽 톤 열화상.
   //   cfg: { src, cropOff, cropScale(세로 크롭 창), w, h, fwd }  crop을 uniform으로 빼 스테이지별 대응.
+  // ★ 코치 판 fwd = 지면 전방 오프셋(작을수록 화면 아래). 유저 요청으로 러닝 션(0.10→-0.08)에
+  //   이어 농구 커리도 같은 폭(-0.18)만큼 내렸다 — 캡슐 프레임은 floorgl 좌표계라 안 움직인다.
   const COACH_CFG = {
     // READY 페이즈2(등장 후 2초) — A1 원본 데모판을 그대로 UI 캡슐 뒤에. 캔버스 사제 비디오 폐기(유저).
     // 시작화면 인물 = 힉스필드 kling i2v 그린스크린 전신 루프(828×1108 = 3:4, 유저 08-05).
@@ -2334,23 +2347,23 @@ void main(){
     //   패딩은 키에서 100% 빠지므로 페이드는 여백만 먹는다. w/h 는 1/0.78 배로 올려 화면 크기 보존.
     // 인물 1.2배 + 위로(유저 08-05: 캡슐 하단 130 축소 후 인물이 빛에 묻혀 안 보인다)
     READY:    { src: 'ready-view/assets/run/runner_green.mp4', cropOff: 0.0, cropScale: 1.0, w: 0.432, h: 0.578, fwd: -0.08, ph: 0.76 },   // fwd .10→-.02→-.08 = 총 0.18m(≈260px) 아래로(유저 2회) — 캡슐 프레임은 그대로 두고 인물만 내린다
-    BK_READY: { src: 'ready-view/assets/bk/dribble_green.mp4', cropOff: 0.0, cropScale: 1.0, w: 0.432, h: 0.578, fwd: 0.10, ph: 0.76 },   // 러닝과 동일 규격
+    BK_READY: { src: 'ready-view/assets/bk/dribble_green.mp4', cropOff: 0.0, cropScale: 1.0, w: 0.432, h: 0.578, fwd: -0.08, ph: 0.76 },   // 러닝과 동일 규격
     A1: { src: 'ready-view/assets/sean_neck_shoulder.webm', cropOff: 0.40, cropScale: 0.58, w: 0.62, h: 0.64, fwd: 0.02, ph: 0.83 },   // 프리뷰 캡슐 안 — 타이틀 안 가리게 축소·아래(유저 08-05)
     A2: { src: 'ready-view/assets/sean_lunge.webm', cropOff: 0.0, cropScale: 1.0, w: 0.9, h: 0.9, fwd: -0.02, zoom: 0.86, ph: 0.65 },   // fwd .10→-.02 = 0.12m(≈175px) 아래로 — 머리가 캡슐 하단과 겹쳤다(유저 #151)   // 런지 전신 측면 — 축소로 뒷발이 프레임 페이드에 안 걸리게(유저)
     A3: { src: 'ready-view/assets/sean_highknee.webm', cropOff: 0.0, cropScale: 1.0, w: 0.82, h: 0.82, fwd: -0.04, ph: 0.87 },   // 하이니 — 캡슐 카드 아래로(머리 겹침 방지, 캡슐 시스템)
     // 농구 워밍업 코치 영상(kling i2v·그린스크린 960²) — 러닝 A2/A3와 동일 크기(w/h 0.9). 인물이 프레임 채워 1.2는 넘침(유저).
     // _pp = 정방향+역방향 이어붙인 핑퐁 클립(ffmpeg reverse) — 끝에서 뚝 끊고 처음으로 점프하던 것 제거(유저).
     //   loop=true 그대로 두고 자산만 교체 = 런타임 역재생(currentTime 역주행 시킹) 비용 0.
-    BK_A1: { src: 'ready-view/assets/bk_sidebend_pp.webm', cropOff: 0.0, cropScale: 1.0, w: 0.62, h: 0.64, fwd: 0.02, ph: 0.80, tone: 0.045 },   // 프리뷰 캡슐 규격(유저 08-05)   // 옆구리 스트레치
-    BK_A2: { src: 'ready-view/assets/bk_highknee.webm', cropOff: 0.0, cropScale: 1.0, w: 0.9, h: 0.9, fwd: 0.10, ph: 0.85 },   // 무릎 들기
+    BK_A1: { src: 'ready-view/assets/bk_sidebend_pp.webm', cropOff: 0.0, cropScale: 1.0, w: 0.62, h: 0.64, fwd: -0.16, ph: 0.80, tone: 0.045 },   // 프리뷰 캡슐 규격(유저 08-05)   // 옆구리 스트레치
+    BK_A2: { src: 'ready-view/assets/bk_highknee.webm', cropOff: 0.0, cropScale: 1.0, w: 0.9, h: 0.9, fwd: -0.08, ph: 0.85 },   // 무릎 들기
     // 훈련 관찰 공통 — 이게진짜.mp4(그린스크린 정면 로우 드리블) 핑퐁 베이크(_pp, ffmpeg reverse concat)
-    BK_B1: { src: 'bhandle_pp.mp4', cropOff: 0.0, cropScale: 1.0, w: 0.55, h: 0.98, fwd: 0.22, ph: 0.62 },   // 워밍업 위계와 크기·거리 통일(유저 #75) — 0.42/fwd0.45 는 작고 멀었다. 9:16 유지
-    BK_B2: { src: 'stepback_fwd.mp4', cropOff: 0.0, cropScale: 1.0, w: 1.04, h: 0.87, fwd: 0.10, ph: 0.63, rng: [0.03, 0.86], tone: 0.09 },   // 소스 720x1280 · rng = 인물 블롭 실측(골대·콘이 측정 오염)
-    BK_B5: { src: 'stepback_fwd.mp4', cropOff: 0.0, cropScale: 1.0, w: 1.04, h: 0.87, fwd: 0.10, ph: 0.63, rng: [0.03, 0.86], tone: 0.09 },
-    BK_B4: { src: 'stepback_fwd.mp4', cropOff: 0.0, cropScale: 1.0, w: 1.04, h: 0.87, fwd: 0.10, ph: 0.63, rng: [0.03, 0.86], tone: 0.09 },
-    BK_B3: { src: 'stepback_fwd.mp4', cropOff: 0.0, cropScale: 1.0, w: 1.04, h: 0.87, fwd: 0.10, ph: 0.63, rng: [0.03, 0.86], tone: 0.09 },   // 소스 720x1280 — 9:16 유지
-    BK_C2: { src: 'stepback_fwd.mp4', cropOff: 0.0, cropScale: 1.0, w: 1.04, h: 0.87, fwd: 0.10, ph: 0.63, rng: [0.03, 0.86], tone: 0.09 },   // 실전 = 같은 클립을 타이밍 소스로만
-    BK_A3: { src: 'ready-view/assets/bk_squat.webm',    cropOff: 0.0, cropScale: 1.0, w: 0.9, h: 0.9, fwd: 0.10 },   // 스쿼트
+    BK_B1: { src: 'bhandle_pp.mp4', cropOff: 0.0, cropScale: 1.0, w: 0.55, h: 0.98, fwd: 0.04, ph: 0.62 },   // 워밍업 위계와 크기·거리 통일(유저 #75) — 0.42/fwd0.45 는 작고 멀었다. 9:16 유지
+    BK_B2: { src: 'stepback_fwd.mp4', cropOff: 0.0, cropScale: 1.0, w: 1.04, h: 0.87, fwd: -0.08, ph: 0.63, rng: [0.03, 0.86], tone: 0.09 },   // 소스 720x1280 · rng = 인물 블롭 실측(골대·콘이 측정 오염)
+    BK_B5: { src: 'stepback_fwd.mp4', cropOff: 0.0, cropScale: 1.0, w: 1.04, h: 0.87, fwd: -0.08, ph: 0.63, rng: [0.03, 0.86], tone: 0.09 },
+    BK_B4: { src: 'stepback_fwd.mp4', cropOff: 0.0, cropScale: 1.0, w: 1.04, h: 0.87, fwd: -0.08, ph: 0.63, rng: [0.03, 0.86], tone: 0.09 },
+    BK_B3: { src: 'stepback_fwd.mp4', cropOff: 0.0, cropScale: 1.0, w: 1.04, h: 0.87, fwd: -0.08, ph: 0.63, rng: [0.03, 0.86], tone: 0.09 },   // 소스 720x1280 — 9:16 유지
+    BK_C2: { src: 'stepback_fwd.mp4', cropOff: 0.0, cropScale: 1.0, w: 1.04, h: 0.87, fwd: -0.08, ph: 0.63, rng: [0.03, 0.86], tone: 0.09 },   // 실전 = 같은 클립을 타이밍 소스로만
+    BK_A3: { src: 'ready-view/assets/bk_squat.webm',    cropOff: 0.0, cropScale: 1.0, w: 0.9, h: 0.9, fwd: -0.08 },   // 스쿼트
   };
   const _coaches = {};   // stageId → { video, plane, _fwd }
   // ── 코치 두께·휘도 필드 = 저해상 RT + 분리형 가우시안 (복싱 판 uHeat와 같은 방식) ──
@@ -5992,14 +6005,6 @@ void main(){
       //   실측: session.t%8 = 4.76 일 때 floorGL.t%8 = 0.25. 발자국만 세션 시계를 보고 있어서
       //   하단 패널·CTA(플로어 시계)와 영영 안 맞았다(유저 3회 신고). 한 시계로 통일한다.
       if (floorGLOn) session.readyPhase = (floorGL.t || 0) % 8;
-      // 수직 바닥뷰 — 대지 중심 바로 위. z 에 미세 오프셋을 주는 이유: 완전 수직이면
-      //   OrbitControls 의 up 벡터와 시선이 평행해져 짐벌락으로 화면이 뒤집힌다.
-      if (window.__topView) {
-        const bp = floorObj.position;
-        controls.target.set(bp.x, 0, bp.z);
-        camera.position.set(bp.x, 3.4, bp.z + 0.002);
-        camera.updateProjectionMatrix(); controls.update?.();
-      }
       else session.readyPhase = null;
       // 읽는 UI(프레임·발자국)는 빔 흔들림(투사오차 지터, 무릎 각속도 비례 — 다리 스윙 때 최대)을 그대로
       // 따르면 글자가 삐걱임(유저). 앵커를 저역통과(≈90ms 시정수)해 인물 총체 이동만 남기고 지터 제거.

@@ -208,10 +208,15 @@
   //   1인칭에서도 좌우·상하·화각·UI 조정이 전부 먹는다.
   head('시점');
   const vSel = el('select');
-  for (const [v, t] of [['flat', '평면 (대지 1:1)'], ['fp', '1인칭 (실제 시야)']]) {
+  for (const [v, t] of [['flat', '평면 (대지 1:1)'], ['top', '수직 바닥뷰 (top-down)'], ['fp', '1인칭 (실제 시야)']]) {
     const o = el('option'); o.value = v; o.textContent = t; vSel.appendChild(o);
   }
-  vSel.onchange = () => { st.fp = vSel.value === 'fp'; const a = adj(); if (a) a.fp = st.fp; };
+  vSel.onchange = () => {
+    st.fp = vSel.value === 'fp'; st.top = vSel.value === 'top';
+    const a = adj(); if (a) { a.fp = st.fp; a.top = st.top; }
+    // 수직 바닥뷰는 앱 토글을 그대로 쓴다 — 카메라를 밖에서 계산하면 대지 추종이 빠진다.
+    f.contentWindow?.__setTopView?.(st.top);
+  };
   list.appendChild(vSel);
 
   head('합성');
