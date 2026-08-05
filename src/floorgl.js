@@ -1837,13 +1837,18 @@ export class FloorGL {
       // 도트 카운팅 촤라락 — 복싱과 같은 rollNum 정본 (자릿수 롤)
       // rollNum 은 자릿수 합 폭을 돌려준다 — 단위 위치를 여기서 파생시킨다.
       //   숫자는 LEAD 만큼 늦게 붙고 남은 시간에 도착 — 배경과 같은 순간에 멈춘다.
-      const nw = rollNum(ctx, R2.total, t, TP2 + LEAD, TRAVEL - LEAD, 800, 1277, 384, { fam: dot9, align: 'center', fill: NEU.ink });
+      // ★ 시각 보정(유저) — 숫자만 800 에 가운데 정렬하고 'min' 을 오른쪽에 매달면 덩어리가
+      //   오른쪽으로 치우쳐 보인다. 눈은 **숫자+단위 전체**를 하나로 보기 때문이다.
+      //   단위 실폭을 먼저 재서 그룹 중심이 800 에 오도록 숫자를 왼쪽으로 민다.
+      ctx.font = RF(400, 64); ctx.letterSpacing = '-1.51px';
+      const UW = ctx.measureText('min').width, UGAP = 24, NCX = 800 - (UGAP + UW) / 2;
+      const nw = rollNum(ctx, R2.total, t, TP2 + LEAD, TRAVEL - LEAD, NCX, 1277, 384, { fam: dot9, align: 'center', fill: NEU.ink });
       ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
       // 단위는 숫자의 부속 — 위계 낮춤(유저): 흰 100%/700 → 55%/400. 숫자만 주인공으로 남는다.
       // ★ x 를 하드코딩(1085)하면 안 된다 — '30' 기준으로 잡은 값이라 더 넓은 '48' 에서 숫자와
       //   딱 붙어 버렸다(유저: 묘하게 가운데정렬이 아닌 것 같다). 숫자 오른끝에서 파생시킨다.
       ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.font = RF(400, 64); ctx.letterSpacing = '-1.51px';
-      ctx.fillText('min', 800 + nw / 2 + 24, 1315);   // 숫자 상단과 top 정렬(피그마 353:7084)
+      ctx.fillText('min', NCX + nw / 2 + UGAP, 1315);   // 숫자 상단과 top 정렬(피그마 353:7084)
       ctx.letterSpacing = '0px';
       ctx.restore();
     }
