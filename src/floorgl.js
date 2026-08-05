@@ -717,20 +717,20 @@ const READY_GLOWS = [
       //     되어 캡슐 내부가 전 구간 휘도 255 로 탔다(실측).
       //     투사광에서 옳은 번역은 '가산 틴트' — source-over 로 색만 얹는다. 빔은 어차피 실제
       //     바닥 위에서 가산되므로, 최종 합성은 그쪽에서 피그마의 hard-light 역할을 대신한다.
-      ['glow-ell.svg', 155.8, 171.3, 1288.4, 2009.3, 'source-over', 0.62],
+      ['glow-ell.svg', 155.8, 171.3, 1288.4, 2009.3, 'hard-light', 1.0],   // backdrop 합성 경로(위 isField)
 ];
 const READY_CAP = { x: 291, y: 285, w: 1018, h: 1541 };
 const CAPS = {
-  A1: { variant: 'preview', title: ['Neck And', 'Shoulder'] },
-  BK_A1: { variant: 'preview', title: ['Side', 'Bend'] },
+  A1: { variant: 'preview',  },
+  BK_A1: { variant: 'preview',  },
   // 실전 3분화(유저): video = 영상 보며 따라하기(타이머 배지) · floor = 바닥 가이드(호 + 토큰 존)
   // · mini = 복잡 스텝(작은 영상 미리보기 + 진행 배지 + 타이틀 축소)
-  A3: { variant: 'video', title: ['High', 'Knees'] },
-  A2: { variant: 'floor', title: ['Lunge', 'Press'] },
-  BK_B2: { variant: 'mini', title: ['Step-Back 1/4'], step: '1/4' },   // clip: 알파/그린 소스 확보 후(stepback_fwd 는 실사 배경 — 검은 박스 실측)
-  BK_B3: { variant: 'mini', title: ['Step-Back 2/4'], step: '2/4' },
-  BK_B4: { variant: 'mini', title: ['Step-Back 3/4'], step: '3/4' },
-  BK_B5: { variant: 'mini', title: ['Step-Back 4/4'], step: '4/4' },
+  A3: { variant: 'video',  },
+  A2: { variant: 'floor',  },
+  BK_B2: { variant: 'mini', step: '1/4' },   // clip: 알파/그린 소스 확보 후(stepback_fwd 는 실사 배경 — 검은 박스 실측)
+  BK_B3: { variant: 'mini', step: '2/4' },
+  BK_B4: { variant: 'mini', step: '3/4' },
+  BK_B5: { variant: 'mini', step: '4/4' },
 };
 const TM = { C1: { sub: 'Run 10 min · Final 1 km', title: 'Run with Sean' },
              BK_C1: { sub: 'Play 10 min · 3 attempts', title: 'Step-Back 1 of 3' } };
@@ -1686,12 +1686,36 @@ export class FloorGL {
       //   캡슐 밖까지 hard-light 로 번져 화면이 통째로 하얗게 날아간다.
       //   나머지 3겹(하단 엠버)은 그대로 클립 없이 — 림을 넘어 퍼지는 게 홈 화면의 정체성이다(#154).
       const isField = rel === 'glow-ell.svg';
-      ctx.save();
-      if (isField) { ctx.save(); ctx.translate(0, CUT); capPath(); ctx.restore(); ctx.clip(); }
-      if (la != null) ctx.globalAlpha *= la;
-      ctx.globalCompositeOperation = blend;
-      ctx.drawImage(im, gx, gy, gw, gh);
-      ctx.restore();
+      if (isField) {
+        // ★ **하드라이트를 제대로** — CSS mix-blend-hard-light 는 backdrop 과 섞인다. 우리 캔버스는
+        //   투명한 투사광 레이어라 backdrop 이 없어서, 그냥 hard-light 를 걸면 소스가 곧 발광이 되어
+        //   캡슐 내부가 통째로 탄다(실측 휘도 255). source-over 로 바꾸는 건 블렌드를 '포기'하는 것.
+        //   → 오프스크린에 피그마와 **같은 backdrop(#666 아트보드)** 을 깔고 그 위에서 hard-light 를
+        //     계산한 뒤, difference 로 backdrop 을 빼서 **이 레이어가 더하는 빛만** 남긴다.
+        //     그 증분을 캡슐 안에 얹으면 결과가 피그마와 일치하면서 투사광 규약(가산)도 지킨다.
+        const FW = 512, FH = Math.round(FW * CAP.h / CAP.w), k = FW / CAP.w;
+        const fc = this._fieldCv || (this._fieldCv = document.createElement('canvas'));
+        if (fc.width !== FW) { fc.width = FW; fc.height = FH; }
+        const fg2 = fc.getContext('2d');
+        fg2.globalCompositeOperation = 'source-over';
+        fg2.fillStyle = '#666666'; fg2.fillRect(0, 0, FW, FH);
+        fg2.globalCompositeOperation = 'hard-light';
+        fg2.drawImage(im, (gx - CAP.x) * k, (gy - (CAP.y - CUT)) * k, gw * k, gh * k);
+        fg2.globalCompositeOperation = 'difference';
+        fg2.fillStyle = '#666666'; fg2.fillRect(0, 0, FW, FH);
+        fg2.globalCompositeOperation = 'source-over';
+        ctx.save();
+        ctx.save(); ctx.translate(0, CUT); capPath(); ctx.restore(); ctx.clip();
+        if (la != null) ctx.globalAlpha *= la;
+        ctx.drawImage(fc, CAP.x, CAP.y - CUT, CAP.w, CAP.h);
+        ctx.restore();
+      } else {
+        ctx.save();
+        if (la != null) ctx.globalAlpha *= la;
+        ctx.globalCompositeOperation = blend;
+        ctx.drawImage(im, gx, gy, gw, gh);
+        ctx.restore();
+      }
     }
     ctx.restore();
     // ── ②' 림 바깥 초승달 블룸 = **폐기**(유저 08-05). '칼같이 잘리는' 걸 풀려고 반원
@@ -2087,7 +2111,15 @@ export class FloorGL {
     const HAS_PREV = /^(A2|A3|BK_A[23]|BK_B[12345])$/.test(this.stage || '');
     const dur = this.params?.dur || 8, PV = HAS_PREV ? (this.params?.pv || 3) : 0, MOVE = LAYOUT.PREVIEW.morph;
     const mo = HAS_PREV ? eOut(clamp01((t - PV) / MOVE)) : 1;
-    const title = Array.isArray(cfg.title) ? cfg.title.join(' ') : String(cfg.title || '');
+    // ★ 타이틀은 **FLOOR_SCENES 가 정본**이다(유저: 농구 적용 안 된 게 많다 → 감사 결과).
+    //   CAPS 가 title 을 따로 들고 있어서 두 벌이 어긋나 있었다. 실제 어긋남:
+    //     A2  CAPS 'Lunge Press'   vs  scenes 'Calf Stretch'   ← 아예 다른 동작명
+    //     A1  'Neck And Shoulder'  vs  'Neck & Shoulders'
+    //     BK_A1 'Side Bend'        vs  'Side Stretch'
+    //     BK_B2~5 'Step-Back n/4'  vs  'Fake the Layup' / 'Right Foot Down' / … (축약본 미반영)
+    //   CAPS 는 이제 variant·step 만 든다. 타이틀을 두 곳에 두면 반드시 또 어긋난다.
+    const S2 = (typeof window !== 'undefined' ? window.FLOOR_SCENES : null)?.[this.stage];
+    const title = S2?.title || (Array.isArray(cfg.title) ? cfg.title.join(' ') : String(cfg.title || ''));
     const L = (p, q) => p + (q - p) * mo;
     // 지오메트리 — 원형(760×820) → 가로 알약(840×250). **y 는 176 고정**: 위를 붙박아 두면
     //   아래로만 접히므로 코치 판(지면 중앙에 서는 3D 인물)과 안 겹친다.
@@ -2150,7 +2182,12 @@ export class FloorGL {
       ctx.fillStyle = 'rgba(255,255,255,.6)'; ctx.font = F(400, 46); ctx.letterSpacing = '6px';
       ctx.fillText('PREVIEW', CX + 3, y + h * .16);
       ctx.letterSpacing = '-4px'; ctx.fillStyle = '#fff'; ctx.font = F(700, 100);
-      const ls = Array.isArray(cfg.title) ? cfg.title : [title];
+      // 2줄 분할도 정본 타이틀에서 파생 — CAPS 의 하드코딩 배열을 안 쓴다.
+      const ci2 = title.indexOf(', ');
+      const ls = ci2 > 0 ? [title.slice(0, ci2 + 1), title.slice(ci2 + 2)]
+        : (title.length > 12 ? (() => { const w2 = title.split(' ');
+            const m = Math.ceil(w2.length / 2); return [w2.slice(0, m).join(' '), w2.slice(m).join(' ')]; })()
+          : [title]);
       ls.forEach((ln, i) => ctx.fillText(ln, CX, y + h * .40 + (i - (ls.length - 1) / 2) * 112));
       ctx.letterSpacing = '0px'; ctx.restore();
     }
