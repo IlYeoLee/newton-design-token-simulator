@@ -686,7 +686,10 @@ const TR = {
 export const CAPHEAD_RR = 130;
 export const LAYOUT = {
   PAD: 60,
-  HEAD: { y: 176, w: 1320, h: 348, pad: 64, gapU: 0, gapT: 56, minW: 720 },   // pad = 상하좌우 동일(44→64)
+  // ★ h 를 뺐다 — 348 이었는데 실제로 그려지는 높이는 CAPHEAD_H(=130*2+64*2=388) 였다.
+  //   PROG_Y 가 348 로 계산돼 아크가 알약 바로 아래 56px 에 붙었다(의도한 GAP_HP 는 96).
+  //   높이는 **CAPHEAD_H 하나에서만** 나온다. 여기에 다시 숫자를 적지 말 것.
+  HEAD: { y: 176, pad: 64, gapU: 0, gapT: 56, minW: 720 },
   // ★ 아크와 위 알약 사이 간격(유저 #172: 붙어 보인다) 56 → 96.
   GAP_HP: 96,
   //   wMax 1048 은 대지 폭의 65% 라 마커만 깎아 쓰던 값이었다. 820 = 헤더(1320)의 62% —
@@ -698,7 +701,7 @@ export const LAYOUT = {
   FOOT_Y: 1980,
   TYPE: { title: 98, unit: 64, caption: 64, minCaption: 56 },
   PREVIEW: { morph: 0.9, fade: 0.45 },   // 카운트 종료 → 둥근 컨테이너가 알약으로 · 인물 크로스페이드
-  get PROG_Y() { return this.HEAD.y + this.HEAD.h + this.GAP_HP; },
+  get PROG_Y() { return this.HEAD.y + this.CAPHEAD_H + this.GAP_HP; },
   get CAPHEAD_H() { return CAPHEAD_RR * 2 + this.HEAD.pad * 2; },
   get CONTENT_Y0() { return this.PROG_Y + this.PROG.h + this.GAP_PC; },
 };
@@ -1303,7 +1306,10 @@ export class FloorGL {
    *  채움·블러·림 수치는 두 곳이 우연히 같았을 뿐 언제든 갈릴 수 있는 상태였다.
    *  광은 '비슷한 그라디언트를 새로 그리는 것'이 아니라 **시작화면 광 정본을 지금 박스로 매핑**한
    *  것이다(READY_CAP → 현재 박스). 세로 캡슐이든 가로 알약이든 같은 불이 따라온다.
-   *  glow=false 는 손잡이로만 남긴다 — 바닥이 이미 붉은 실전에서 쓸 일이 생기면. */
+   *  ★ 기본값 glow=false (유저 08-06). **색은 판정만 말한다** — 엠버와 판정 토큰이 같은 뉴턴
+   *    팔레트라 화면에 붉은 게 둘이면 어느 쪽이 '지금 밟아라'인지 구분이 안 된다. 크롬(알약·
+   *    아크·글자)을 무채색으로 두면 토큰이 켜지는 순간이 화면에서 **유일한 색 사건**이 된다.
+   *    시작화면(READY)만 예외 — 거기엔 판정이 없어 경합이 없고, 불이 브랜드를 말하는 자리다. */
   _glassPill(x, y, w, h, r, glow = true) {
     const ctx = this.ctx;
     const path = () => { ctx.beginPath(); ctx.roundRect(x, y, w, h, r); };
@@ -1333,6 +1339,67 @@ export class FloorGL {
     ctx.strokeStyle = rim; ctx.lineWidth = 2.5; path(); ctx.stroke();
   }
 
+  /** ── 가로 슬롯 배치 (상자 모델) ─────────────────────────────────────────────
+   *  왜 이게 필요했나: 배치가 전부 **분수**였다 — `y + h*.74`(링) · `y + h*.40`(타이틀) ·
+   *  `y + h*.15`(Preview) · 매직넘버 `CX+3` · `+22`. 상자 높이가 1px 바뀌면 안의 모든 것이
+   *  움직이니 크기를 건드릴 때마다 정렬을 손으로 다시 잡아야 했다(유저: 매번 가운데정렬 다시).
+   *  결정적으로 `fitDraw` 는 **넘칠 수 있다는 전제로 만든 런타임 구조대**였다. 그게 있는 한
+   *  '영역 넘친다'는 영원히 반복된다.
+   *
+   *  규칙 셋. 이걸 지키면 넘칠 수도, 정렬이 깨질 수도 없다.
+   *    ① 슬롯이 자기 폭을 말한다        (측정)
+   *    ② 컨테이너 폭 = 슬롯 합 + 여백    (파생 — 내용이 상자를 정한다. 반대가 아니다)
+   *    ③ 세로는 언제나 h/2              (분수 금지)
+   *
+   *  높이는 **항상 CAPHEAD_H** 로 고정한다 — 높이가 안 변하면 세로 정렬을 다시 잡을 일 자체가
+   *  없어진다. 위계는 상자가 아니라 **활자 크기**가 담당한다.
+   *  slots: [{ w, draw(ctx, s) }] · s 에 x/cx/cy 가 채워져 넘어간다. w=0 이면 통째로 빠진다. */
+  _row(slots, o = {}) {
+    const H2 = LAYOUT.HEAD, pad = o.pad ?? H2.pad, gap = o.gap ?? H2.gapT;
+    const y = o.y ?? H2.y, h = LAYOUT.CAPHEAD_H;
+    const vis = slots.filter(s => s && s.w > 0);
+    const inner = vis.reduce((a, s) => a + s.w, 0) + gap * Math.max(0, vis.length - 1);
+    // 폭은 내용에서. 안전폭을 넘을 일이 없도록 상한만 걸고, 점프는 _smoothW 가 녹인다.
+    const w = this._smoothW(Math.min(safeW(y) - 80, inner + pad * 2));
+    const x = CX - w / 2, cy = y + h / 2;
+    // 남는 폭(스무딩 중이거나 상한에 걸렸을 때)은 spring 슬롯이 흡수한다 — 배지가 오른쪽에 붙는다.
+    const slack = Math.max(0, w - pad * 2 - inner);
+    let cx = x + pad;
+    for (const s of vis) {
+      s.x = cx; s.cx = cx + s.w / 2; s.cy = cy;
+      cx += s.w + gap + (s.spring ? slack : 0);
+    }
+    return { x, y, w, h, cy, slots: vis };
+  }
+
+  /** 헤더 알약 규격(구식) — _row 로 옮기는 중. 승인 전까지 기존 두 페인터가 이걸 계속 쓴다. */
+  _headBox(title, step, y = LAYOUT.HEAD.y) {
+    const ctx = this.ctx, H2 = LAYOUT.HEAD, PAD = H2.pad, RR = CAPHEAD_RR;
+    ctx.font = F(700, LAYOUT.TYPE.title); ctx.letterSpacing = '-4px';
+    const tw = ctx.measureText(String(title || '')).width;
+    ctx.letterSpacing = '0px';
+    const w = this._smoothW(Math.max(H2.minW, Math.min(safeW(y) - 80,
+      PAD + RR * 2 + H2.gapU + H2.gapT + tw + PAD + (step ? 110 : 0))));
+    return { w, h: LAYOUT.CAPHEAD_H, x: CX - w / 2, RR, PAD, H2 };
+  }
+
+  /** 텍스트 슬롯 — 폭을 **실측**해서 들고 다닌다. 상자가 이 값에서 나오므로 넘칠 수 없다. */
+  _sText(str, fs, o = {}) {
+    const ctx = this.ctx, s = String(str || '');
+    if (!s || (o.alpha ?? 1) < 0.004) return null;
+    const ls = o.ls ?? -4;
+    ctx.font = F(o.weight ?? 700, fs); ctx.letterSpacing = ls + 'px';
+    const w = ctx.measureText(s).width;
+    ctx.letterSpacing = '0px';
+    return { w, spring: o.spring, draw: (c, sl) => {
+      c.save(); c.globalAlpha *= (o.alpha ?? 1);
+      c.fillStyle = o.color ?? '#fff'; c.font = F(o.weight ?? 700, fs);
+      c.letterSpacing = ls + 'px'; c.textAlign = 'left'; c.textBaseline = 'middle';
+      c.fillText(s, sl.x, sl.cy);
+      c.letterSpacing = '0px'; c.restore();
+    } };
+  }
+
   _capHead(n, y) {
     // ★ 위계 정정(유저: 타이머도 개 작아지고 sec 보이지도 않고 타이틀도 줄었다 — 이게 맞냐).
     //   맞지 않았다. 250 높이 알약에 셋을 우겨넣어 전부 작아졌고, 특히 **타이머 숫자(67)가
@@ -1344,18 +1411,9 @@ export class FloorGL {
     //     'Neck & Shoulders' 가 98px 에서 739px 이라 알약 폭은 1320 이 필요하다(y176 안전폭 2174).
     // ★ 여백 균등 + 폭은 **내용에서 파생**(유저: 좌우상하 여백 맞추고, 글자 적으면 줄어들게).
     //   pad 44 를 상하좌우에 동일하게 쓰고(HH = 링지름 + pad*2), 폭은 실측 텍스트에서 만든다.
-    const ctx = this.ctx, H2 = LAYOUT.HEAD, PAD = H2.pad;
-    const RR = CAPHEAD_RR, HH = LAYOUT.CAPHEAD_H;   // _h('capHead') 와 같은 식
-    // ★ 'sec' 을 가로로 나열하지 않는다(유저: 그것 때문에 가로 길이가 커진다).
-    //   단위는 숫자에 딸린 값이라 **링 안 숫자 아래**에 붙인다 — 폭 계산에서 통째로 빠진다.
-    const uw = 0;
+    const ctx = this.ctx;
     const T = String(n.title || '').toUpperCase();   // 코칭 타이틀 = 대문자(유저)
-    ctx.font = F(700, LAYOUT.TYPE.title); ctx.letterSpacing = '-4px';
-    const tw = ctx.measureText(T).width;
-    ctx.letterSpacing = '0px';
-    const W2 = this._smoothW(Math.max(H2.minW, Math.min(safeW(y) - 80,
-      PAD + RR * 2 + H2.gapU + uw + H2.gapT + tw + PAD + (n.step ? 110 : 0))));
-    const x = CX - W2 / 2;
+    const { w: W2, h: HH, x, RR, PAD, H2 } = this._headBox(T, n.step, y);
     this._glassPill(x, y, W2, HH, HH / 2);
     // 카운트 링 — 정본 컴포넌트 그대로(형태 변환 없음, 자리만 여기다)
     const cyR = y + HH / 2, cxR = x + PAD + RR;   // 링 왼쪽 여백 = pad(상하와 동일)
@@ -1374,7 +1432,7 @@ export class FloorGL {
     // 52 → 72(유저: 타이틀이 너무 작다). 최장 'Neck & Shoulders' 가 72px 에서 543px —
     //   폭 1000 의 타이틀 예산(≈560) 안에 들어간다. y176 안전폭은 2174 라 여유는 충분하다.
     ctx.fillStyle = '#fff'; ctx.font = F(700, LAYOUT.TYPE.title); ctx.letterSpacing = '-4px';
-    const tx = cxR + RR + H2.gapU + uw + H2.gapT;   // 링 → sec 실폭 → 타이틀
+    const tx = cxR + RR + H2.gapU + H2.gapT;   // 링 → 타이틀 (sec 은 링 안이라 폭 0)
     // 쉼표가 있으면 의미 단위로 두 줄(농구 스텝) — 지금 데이터엔 없지만 규칙은 남긴다.
     const ci = T.indexOf(', ');
     if (ci > 0) { ctx.fillText(T.slice(0, ci + 1), tx, cyR - 56); ctx.fillText(T.slice(ci + 2), tx, cyR + 56); }
@@ -2387,13 +2445,8 @@ export class FloorGL {
     //   내려올수록(=near 쪽으로 커질수록) 머리와 겹칠 수밖에 없다. 위(y176)를 붙박은 채
     //   **아래 끝을 끌어올리는 것**만이 구조적 해법이다: 하단 y1076 → 796(1.26m → 1.45m).
     // 헤더 규격은 _capHead 와 같은 식에서 파생 — 여백 균등(pad 44) · 폭은 내용에서(유저)
-    const H2 = LAYOUT.HEAD, PAD = H2.pad, RRp = 130;
-    const HHp = RRp * 2 + PAD * 2;
-    const uwp = 0;   // 'sec' 은 링 안(숫자 아래)으로 — 가로 폭에서 빠진다(유저)
-    ctx.font = F(700, LAYOUT.TYPE.title); ctx.letterSpacing = '-4px';
-    const twp = ctx.measureText(title).width; ctx.letterSpacing = '0px';
-    const WHp = this._smoothW(Math.max(H2.minW, Math.min(safeW(H2.y) - 80,
-      PAD + RRp * 2 + H2.gapU + uwp + H2.gapT + twp + PAD + (cfg.step ? 110 : 0))));
+    // 알약 규격 = _capHead 와 **같은 함수**. 전엔 이 식이 여기 한 벌 더 있었고 RR 이 복사본이었다.
+    const { w: WHp, h: HHp, RR: RRp, PAD, H2 } = this._headBox(title, cfg.step);
     const w1 = L(900, WHp), h1 = L(740, HHp), y1 = H2.y;   // 여백 여유(유저) — 820×660 → 900×740
     // ★ 진입 = **시작화면 캡슐이 줄어드는 것**(유저: 두 번 탭하면 같은 요소가 줄어들며 넘어간다).
     //   스테이지가 바뀔 때 캡슐을 새로 띄우면 '다른 물건이 나타난' 걸로 읽힌다. READY 캡슐
@@ -2433,7 +2486,7 @@ export class FloorGL {
     //     ② 들어오는 글자는 남은 거리에서 **미끄러져 들어온다**
     //     ③ 알파는 quint 로 — 선형이면 중간이 텅 빈다
     const eQ = u => 1 - Math.pow(1 - clamp01(u), 4);
-    const dstX = rx + RR + H2.gapU + uwp + H2.gapT, dstY = ry2;
+    const dstX = rx + RR + H2.gapU + H2.gapT, dstY = ry2;
     // 프리뷰 2줄 분할 — 한 줄로 들어가면 나누지 않는다(아래 연속 이동의 전제).
     const ci2 = title.indexOf(', ');
     const ls = ci2 > 0 ? [title.slice(0, ci2 + 1), title.slice(ci2 + 2)]
