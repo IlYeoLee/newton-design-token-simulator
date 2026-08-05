@@ -91,9 +91,9 @@
     "ripWidth": 0.1,
     "ripSpeed": 0.4,
     "ripGrad": 1,
-    "shadeCol": 0,
-    "edgeShadeCol": 0,
-    "dotCol": 0,
+    "shadeCol": 4,
+    "edgeShadeCol": 4,
+    "dotCol": 4,
     "ripCol": 0
   }
 }
