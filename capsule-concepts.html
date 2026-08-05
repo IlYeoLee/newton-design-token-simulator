@@ -600,7 +600,7 @@ function devScene(g, t, kind) {
     g.save(); g.shadowColor = '#FEC389'; g.shadowBlur = 22; g.fillStyle = '#FEC389';
     g.beginPath(); g.arc(cx + dev * 230, sy + 104, 11, 0, 7); g.fill(); g.restore();
   } else {
-    tickScale(g, cx, sy + 104, 560, dev, { n: 29, h: 40, col: '#FEC389' });
+    tickScale(g, cx, sy + 104, 560, dev, { col: '#FEC389' });   // 굵기·높이는 컴포넌트 기본값(바닥 튜닝본)
   }
   capLabel(g, 'SPM', cx, sy + 196, .55, 58);
   arcGauge(g, cx - 460, 2430, 920, (t % 8) / 8);
@@ -609,7 +609,7 @@ const DEV = [
   ['현재 · 편차 바 (선 + 점)', null, (g, t) => devScene(g, t, 'bar'),
    '선 하나에 점 하나. 점이 <b>어디쯤인지 가늠할 기준이 없다</b> — 양끝이 페이드라 끝도 안 보이고, 5 벗어난 건지 15 벗어난 건지 읽히지 않는다.'],
   ['눈금 스케일 (레퍼런스 이식)', null, (g, t) => devScene(g, t, 'tick'),
-   '얇은 눈금 29개 + <b>밝은 지시선 하나</b>. 눈금이 촘촘해 <b>얼마나</b> 벗어났는지가 거리 감각으로 잡히고, 밝은 건 하나뿐이라 시선이 바로 간다. 레퍼런스의 절제는 여기서 온다 — 장식이 아니라 <b>기준선의 밀도</b>다.'],
+   '눈금 21개 + <b>밝은 지시선 하나</b>. 바닥용으로 굵기 6px·알파 .48 로 올리고 칸을 벌렸다 — 화면 감각의 3px/.30 은 밝은 트랙 위 가산 투사에서 그냥 사라진다. 눈금이 촘촘해 <b>얼마나</b> 벗어났는지가 거리 감각으로 잡히고, 밝은 건 하나뿐이라 시선이 바로 간다. 레퍼런스의 절제는 여기서 온다 — 장식이 아니라 <b>기준선의 밀도</b>다.'],
 ];
 // ═══ 전환 인터랙션 — 프리뷰 A → 따라하기 A 를 한 타임라인으로(유저: 전환도 미리보기) ═══
 //   한 물체(캡슐)가 물러나며 작아지고, 그 자리를 사람과 지면 마크가 이어받는다.
@@ -646,10 +646,14 @@ function drawFlow(g, t) {
   //   그 자리에 앉으므로 여기선 **동작명만** 그린다(두 번 그리면 알약이 겹친다).
   if (inA > 0) {
     g.save(); g.globalAlpha = inA;
-    g.font = RF(700, 68); const twT = Math.max(g.measureText('12').width, 64);
+    //   폭 계산은 ③ 과 **같은 식**이어야 한다 — 예전엔 숫자만 재서 타이틀이 알약을 파고들었다.
+    const PFS = 96;
+    g.font = RF(700, PFS); const nwT = g.measureText('12').width;
+    g.font = RF(400, PFS * .46); const uwT = g.measureText('sec').width;
+    const T1w = Math.max(nwT + PFS * .16 + uwT, 64) + 96;
     g.fillStyle = '#fff'; g.textAlign = 'left'; g.textBaseline = 'middle';
-    g.font = RF(700, 58); g.letterSpacing = '-2px';
-    g.fillText('High Knees', cx - cw / 2 + 60 + twT + 80 + 44, cy + ch * .5);
+    g.font = RF(700, 52); g.letterSpacing = '-2px';
+    g.fillText('High Knees', cx - cw / 2 + 60 + T1w + 52, cy + ch * .5);
     g.letterSpacing = '0px';
     g.restore();
   }
@@ -657,14 +661,20 @@ function drawFlow(g, t) {
   //   floor-timer.html 의 3·2·1 카운트다운이 정본이고, 형태 변환(morph)도 그 컴포넌트 안에 있다.
   //   여기서 하는 일은 위치·크기·morph 값을 시간축에서 만들어 넘기는 것뿐 — 다시 그리지 않는다.
   {
+    //   ★ k 는 **끝에서 1** 이어야 한다(유저: 이건 시간이 읽히기나 해?). k 를 0.5 로 두면
+    //     컴포넌트 안에서 알약 높이 100·글자 68 이 전부 절반이 되어 숫자가 34px 로 떨어진다 —
+    //     화면에서 제일 작아야 할 이유가 없는 값(남은 시간)이 제일 작아졌다.
+    //     k=1 이면 알약 h100 · 도트 68 = 정본 배지 규격 그대로. 링 쪽은 k=112·FS/275.
     const T0x = cx, T0y = cy + ch0 * .74, K0 = 112 * FS / 275;      // 관찰: 캡슐 안 0.74 자리
-    g.font = RF(700, 68); const twT = Math.max(g.measureText('12').width, 64), T1w = twT + 80;
-    const K1 = T1w / 200 * 0.5;                                     // 알약 높이 100 → k 0.5 기준
+    const PFS = 96;                                              // 타이머가 주인공 — 타이틀(52)보다 크게
+    g.font = RF(700, PFS); const nwT = g.measureText('12').width;
+    g.font = RF(400, PFS * .46); const uwT = g.measureText('sec').width;
+    const twT = Math.max(nwT + PFS * .16 + uwT, 64), T1w = twT + 96;   // 알약 폭 = 숫자+단위 실폭
     const T1x = cx - cw / 2 + 60 + T1w / 2, T1y = cy + ch * .5;     // 따라하기: 미니 카드 왼쪽
     const L = (a2, b2) => a2 + (b2 - a2) * me;
     const cd = Math.max(1, 3 - Math.floor(t * 1.9));
     countRing(g, L(T0x, T1x), L(T0y, T1y), (t * .62) % 1, me < .5 ? String(cd) : '12', {
-      t: 99, k: L(K0, 0.5), morph: me, pillW: T1w / L(K0, 0.5), pulse: 1,
+      t: 99, k: L(K0, 1), morph: me, pillW: T1w, pulse: 1, unit: 'sec', pillFs: PFS,
     });
   }
   // ④ 코치 — 관찰에선 캡슐 아래, 전환하며 앞(위)으로 걸어 나온다

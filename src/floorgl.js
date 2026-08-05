@@ -782,9 +782,26 @@ export function countRing(ctx, cx, cy, prog, txt, o = {}) {
   ctx.globalAlpha *= kf(q, [[0, 0], [.35, 1], [1, 1]]);
   ctx.translate(cx, cy); ctx.scale(nk, nk); ctx.translate(-cx, -cy);
   // 카운트다운은 'GO' 까지 도트(유저 확정) — 숫자-전용 규약의 명시적 예외.
-  ctx.font = F(700, (220 - 152 * mo) * K2, dot9);
+  //   ★ 단위(유저: 여기서 12가 의미하는 게 뭐냐) — 숫자만 있으면 초인지 횟수인지 알 수 없다.
+  //     이 슬롯은 '지금 세고 있는 값'이고, 동작 유형에 따라 초/횟수/세트가 들어간다.
+  //     그래서 단위를 값의 일부로 붙인다. 링(카운트다운) 구간엔 안 붙는다 — 3·2·1 은 자명하다.
+  //   알약 상태의 글자 크기는 호출자가 정한다(o.pillFs, 기본 68 = 정본 배지 규격).
+  //   타이머가 주인공이어야 하는 화면에선 더 키운다(유저: 시간이 읽히기나 해?).
+  const fs2 = (220 - (220 - (o.pillFs ?? 68)) * mo) * K2;
+  ctx.font = F(700, fs2, dot9);
   ctx.fillStyle = o.fill || '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillText(txt, cx, cy);
+  const uk = o.unit && mo > .55 ? (mo - .55) / .45 : 0;
+  if (uk > 0) {
+    const nw2 = ctx.measureText(txt).width;
+    ctx.font = F(400, fs2 * .46);
+    const uw = ctx.measureText(o.unit).width, gap2 = fs2 * .16;
+    ctx.font = F(700, fs2, dot9);
+    ctx.fillText(txt, cx - (uw + gap2) / 2, cy);
+    ctx.save(); ctx.globalAlpha *= Math.min(1, uk);
+    ctx.font = F(400, fs2 * .46); ctx.fillStyle = 'rgba(255,255,255,.62)';
+    ctx.fillText(o.unit, cx + (nw2 + gap2) / 2, cy + fs2 * .17);
+    ctx.restore();
+  } else ctx.fillText(txt, cx, cy);
   ctx.restore();
   ctx.restore();
 }
@@ -796,23 +813,31 @@ export function countRing(ctx, cx, cy, prog, txt, o = {}) {
  *  ★ 매체 주의: 원본 레퍼런스는 '밝은 블룸 + 어두운 코어'인데 바닥은 밝은 트랙 위 가산 투사라
  *    어두운 값을 못 만든다. 그래서 코어는 빼고 **눈금 구조만** 가져온다. */
 export function tickScale(ctx, cx, by, w, dev, o = {}) {
-  const n = o.n ?? 29, h = o.h ?? 34, col = o.col || '#fff';
-  ctx.save(); ctx.lineCap = 'butt';
+  // ★ 바닥 튜닝(유저: 바닥에서도 더 잘 읽히게) — 밝은 트랙(#8B9080) 위 가산 투사에서는
+  //   얇고 흐린 흰 선이 그냥 사라진다. 화면 UI 감각으로 잡은 3px/.30 은 투사면에서 워시아웃.
+  //   ① 눈금 수를 줄여(29→21) 칸을 벌리고 ② 그만큼 굵게(3→6, 중앙 8) ③ 알파를 올리고(.30→.48)
+  //   ④ 높이를 키운다(34→46). 촘촘함보다 **한 칸이 보이는 것**이 먼저다.
+  const n = o.n ?? 21, h = o.h ?? 46, col = o.col || '#fff';
+  ctx.save(); ctx.lineCap = 'round';
   for (let i = 0; i < n; i++) {
     const u = i / (n - 1), x = cx - w / 2 + w * u;
     const edge = Math.sin(u * Math.PI);                 // 양끝으로 갈수록 흐리고 짧게
     const mid = Math.abs(u - .5) < .001;
-    ctx.strokeStyle = rgba(NEU.paper, (mid ? .62 : .30) * (0.25 + 0.75 * edge));
-    ctx.lineWidth = mid ? 4 : 3;
-    const hh = h * (mid ? 1.28 : (.62 + .38 * edge));
+    ctx.strokeStyle = rgba(NEU.paper, (mid ? .88 : .48) * (0.34 + 0.66 * edge));
+    ctx.lineWidth = mid ? 8 : 6;
+    const hh = h * (mid ? 1.30 : (.66 + .34 * edge));
     ctx.beginPath(); ctx.moveTo(x, by - hh / 2); ctx.lineTo(x, by + hh / 2); ctx.stroke();
   }
   if (o.on === false) { ctx.restore(); return; }
   // 지시선 — 눈금과 같은 어휘(세로 선)지만 더 길고 더 밝다. 점이 아니라 선이라 눈금 사이에
   //   있어도 '어느 칸'인지가 읽힌다.
   const px = cx + Math.max(-1, Math.min(1, dev)) * (w / 2);
-  ctx.shadowColor = col; ctx.shadowBlur = 24;
-  ctx.strokeStyle = col; ctx.lineWidth = 7; ctx.lineCap = 'round';
+  //   지시선도 같이 키운다 — 눈금이 굵어진 만큼 더 굵고 더 길어야 '하나만 밝다'가 성립한다.
+  ctx.shadowColor = col; ctx.shadowBlur = 30;
+  ctx.strokeStyle = col; ctx.lineWidth = 12; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(px, by - h * .88); ctx.lineTo(px, by + h * .88); ctx.stroke();
+  ctx.shadowBlur = 0;   // 코어 한 번 더 — 글로우만 남으면 투사에서 뭉개진다
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 5;
   ctx.beginPath(); ctx.moveTo(px, by - h * .78); ctx.lineTo(px, by + h * .78); ctx.stroke();
   ctx.restore();
 }

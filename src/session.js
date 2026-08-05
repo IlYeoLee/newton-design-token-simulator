@@ -4,7 +4,7 @@ import bkStepContacts from '../assets/mocap/contacts-cmu_crossover_shot.json';  
 import { WALL_Z } from './scene.js';
 import { lutColor, GLYPHS, drawGlyph, drawNumber, footSlot, footSDFTexture, FXP } from './fxlut.js';
 import { MARK_NUM, GLYPH_LOOK, drawMarkGlyph, invertGlyphCanvas, drawStanceBox, drawPunchLine, drawApproachRing, drawTrajectory, drawRotate, drawStemArrow, drawCurveArrow , glyphFor } from './fx-core.js';
-import { makeMarkFXMaterial, makeLaneFXMaterial, makeFlowArrow, tickFlowArrows, beamAlphaAt, COLORS, FOOT_PLANE_M, QUAD_K, UI_MASK, MARK_LOOK, applyMarkLookTo } from './tokens.js';
+import { makeMarkFXMaterial, makeLaneFXMaterial, makeFlowArrow, tickFlowArrows, beamAlphaAt, COLORS, FOOT_PLANE_M, QUAD_K, UI_MASK, MARK_LOOK, applyMarkLookTo, applyFloorLook } from './tokens.js';
 
 const clamp01 = v => v < 0 ? 0 : v > 1 ? 1 : v;
 
@@ -1046,6 +1046,9 @@ export class Session {
     // z −0.78 → −0.48: 뒷발이 위 캡슐 카드와 아예 겹쳤다(유저 08-05 스샷). 발 한 켤레를
     //   통째로 앞(가까운 z)으로 당겨 카드 아래 빈 존에 앉힌다 — 런지 보폭은 틱이 다시 벌린다.
     const fmL = new FootMark('left').at(-0.16, -0.48), fmR = new FootMark('right').at(0.16, -0.48);
+    // 바닥 전용 룩 — 벽과 같은 토큰(발형 MARK)에 렌더 강도만 절제해 입힌다(유저 08-05).
+    //   여기서 검증되면 다른 지면 스테이지로 넓힌다. 값은 mark-look.json `floor`.
+    applyFloorLook(fmL.plane.material); applyFloorLook(fmR.plane.material);
     // 숫자 = 룩시스템 attachMarkNum(발 plane 자식·MARK_NUM 크기·numFoot 앵커) — 삐짐 없는 정본 이식
     const numL = attachMarkNum(fmL, '5', false), numR = attachMarkNum(fmR, '5', true);
     numL.visible = false; numR.visible = false;
@@ -1968,11 +1971,14 @@ export class Session {
     for (const m of WAVE_MATS) {
       const U = m.uniforms;
       U.uTime.value = t;
-      U.uW.value = MK.core;
-      U.uHalo.value = MK.halo;
-      U.uPool.value = MK.pool;
+      // 바닥 전용 룩(applyFloorLook)이 붙은 재질은 core/halo/pool/noise 를 자기 값으로 유지한다.
+      //   이 틱이 매 프레임 전역값을 덮어써서 floor.halo(.18)가 계속 .45 로 되돌아갔다(실측).
+      const FL = m.userData && m.userData.floorLook;
+      U.uW.value = (FL && FL.w != null) ? FL.w : MK.core;
+      U.uHalo.value = (FL && FL.halo != null) ? FL.halo : MK.halo;
+      U.uPool.value = (FL && FL.pool != null) ? FL.pool : MK.pool;
       U.uSweepA.value = MK.sweep;
-      U.uNoise.value = MK.wobble;
+      U.uNoise.value = (FL && FL.noise != null) ? FL.noise : MK.wobble;
       if (fp && U.uFPNear && !m._wall) {   // 지면 마크만: 벽 마크는 기본 1e6(무효) 유지
         U.uFPOrigin.value.set(fp.ox, 0, fp.oz);
         U.uFPFwd.value.set(fp.fx, 0, fp.fz);

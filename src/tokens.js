@@ -297,7 +297,16 @@ const SF = SIL_FIT / SIL_FIT_REF;   // uv 단위 거리 스케일 — 실루엣 
 //   session 의 `MARK_LOOK.tap` 이 항상 undefined 였고, 8번째 토큰 룩 적용이 **통째로 no-op** 이었다
 //   (유저 08-05: 랩에서 디자인한 대로 안 보인다). 랩이 굽는 값의 유일한 통로다.
 export const MARK_LOOK = { core: LOOK.w, halo: LOOK.halo, pool: LOOK.pool, sweep: 0.4, wobble: LOOK.noise,
-  tap: LOOK.tap || null, states: LOOK.states || null };
+  tap: LOOK.tap || null, states: LOOK.states || null, floor: LOOK.floor || null };
+/** 바닥 전용 룩 — 벽과 **같은 토큰 문법**(형태·상태·의미)을 쓰고 렌더 강도만 절제한다.
+ *  블룸/후광을 낮추고 필을 물려 선·점이 앞에 서게 한다. 값은 mark-look.json `floor` 가 정본. */
+export function applyFloorLook(mat) {
+  if (!mat || !MARK_LOOK.floor) return;
+  applyMarkLookTo(mat, MARK_LOOK.floor);
+  // core/halo/pool 은 맵 밖(매 프레임 전역 주입)이라 재질에 표시를 남겨 그쪽에서 예외 처리한다.
+  mat.userData = mat.userData || {};
+  mat.userData.floorLook = MARK_LOOK.floor;
+}
 // footlab 프림 저장본(코멧·노드·레일 등) → 부팅 반영 — 실시간 브리지(applyMarkLook)의 영구판.
 //   이게 없으면 랩에서 확정한 프림 값이 새로고침마다 증발했다(유저: 시뮬에 이식이 안 된다).
 if (LOOK.prims) {
@@ -414,7 +423,11 @@ export function applyMarkLookTo(mat, part = {}) {
     edgeShade: 'uEdgeShade', edgeShadeW: 'uEdgeShadeW', edgeShadeCol: 'uEdgeShadeCol',
     edgeShadeGrad: 'uEdgeShadeGrad', edgeShadeG0: 'uEdgeShadeG0', edgeShadeG1: 'uEdgeShadeG1',
     shadeRed: 'uShadeRed', shadeRedW: 'uShadeRedW', edgeSoft: 'uEdgeSoft', dither: 'uDither',
-    rip: 'uRip', ripSpeed: 'uRipSpeed', ripGrad: 'uRipGrad', ripCol: 'uRipCol', op: 'uFillOp' };   // op = 필만(유저)
+    rip: 'uRip', ripSpeed: 'uRipSpeed', ripGrad: 'uRipGrad', ripCol: 'uRipCol', op: 'uFillOp',
+    // ★ halo/w/pool 도 맵에 넣는다 — 이 셋만 빠져 있어서 바닥 룭의 halo 낮춤이 안 먹었다
+    //   (실측: floor.halo .18 을 줘도 재질은 생성값 .45 그대로). 팩 마크는 매 프레임 전역값이
+    //   덮으므로 그쪽은 userData.floorLook 예외로 따로 막는다.
+    halo: 'uHalo', w: 'uW', pool: 'uPool', noise: 'uNoise' };
   const mapSF = { pitch: 'uImpPitch', edge: 'uImpEdge', edgeW: 'uEdgeW', ripWidth: 'uRipWidth', ripReach: 'uRipReach' };
   const U = mat.uniforms;
   for (const k in map) if (part[k] != null && U[map[k]]) U[map[k]].value = part[k];
@@ -805,9 +818,13 @@ export class Marker {
       // ★ MARK 룩의 출처는 mark-look.json(footlab) 하나다 — 룩시스템 스토어(FXP.mark)를 안 본다.
       //   session.tickWaves 만 끊고 **여기를 빠뜨려서** 팩 마커는 계속 스토어 값으로 덮였다.
       //   같은 실수를 또 하지 않으려면: FXP.mark 를 마크 재질에 넣는 곳이 더 있는지 먼저 grep 할 것.
-      U.uW.value = MARK_LOOK.core;
-      U.uHalo.value = MARK_LOOK.halo;
-      U.uPool.value = MARK_LOOK.pool;
+      // ★ 바닥 전용 룩(applyFloorLook)이 붙은 재질은 core/halo/pool 을 **자기 값으로** 덮는다.
+      //   이 세 개는 applyMarkLookTo 맵에 없고 여기서 매 프레임 전역값이 쓰이므로, 예외를 안 두면
+      //   바닥 절제 설정(halo 낮춤)이 프레임마다 지워진다(실측: floor.halo .18 → 매 프레임 .45).
+      const _fl = (this.fx?.material || m)?.userData?.floorLook;
+      U.uW.value = _fl?.w ?? MARK_LOOK.core;
+      U.uHalo.value = _fl?.halo ?? MARK_LOOK.halo;
+      U.uPool.value = _fl?.pool ?? MARK_LOOK.pool;
       U.uSweepA.value = MARK_LOOK.sweep;
       U.uNoise.value = MARK_LOOK.wobble;
       if (U.uUIAmt) {   // 지면 UI 텍스트 구간 = 토큰 광을 블러 마스크로 깎는다(벽 마크는 제외)
