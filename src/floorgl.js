@@ -553,8 +553,10 @@ export function drawChars(ctx, txt, cx, y, h, ls, fn, align = 'center') {
 //   폐기: title·today·time·mode·comp(_paint_ready 가 안 읽던 잔재) · vid(코치 판은 main.js COACH_CFG 전담).
 const READY = {
   // lbl = 분 표기 통일 'Nm'(유저 08-05) — 'min' 혼용 폐기. 글자 크기도 세그먼트 공통(LBL_FS/LBL_MS).
-  'floor.html':    { r2: { lines: ["Sean's", 'Final 1km Pace'], sub: 'Pace On', total: '30',
-                           arcs: [{ v: 5, lbl: '5m', muted: true, chipText: '5m' }, { v: 10, lbl: '10m', icon: 'feet' }, { v: 15, lbl: '15m', icon: 'run' }] } },   // 스트레칭도 비례 세그먼트(유저)
+  // 팩 정본(유저 08-05 셋업 완료 화면): "Sean's Final 1km Pace" · Creator Pack 18m
+  //   프로세스 = STRETCH 8 + LEARN 10 = 18m 팩(고정) + RUN! 30m(유저 선택) → Main Workout 5km · 48m
+  'floor.html':    { r2: { lines: ["Sean's", 'Final 1km Pace'], sub: 'Pace On', total: '48',
+                           arcs: [{ v: 8, lbl: '8m', muted: true, chipText: '8m' }, { v: 10, lbl: '10m', icon: 'feet' }, { v: 30, lbl: '30m', icon: 'run' }] } },   // 8+10+30 = 48
   'floor-bk.html': { r2: {   // 종목 공통 스펙으로 통합 — 농구 전용 콘텐츠 보정 폐기(유저 승인 08-05)
                            lines: ["Curry's", 'Handle Pack'], sub: 'Press On', total: '23',
                            arcs: [{ v: 5, lbl: '5m', muted: true, chipText: '5m' }, { v: 8, lbl: '8m', icon: 'bkTrain' }, { v: 10, lbl: '10m', icon: 'bkPlay' }] } },   // 스트레칭도 비례 세그먼트(유저)
@@ -1393,7 +1395,8 @@ export class FloorGL {
       // 도트 카운팅 촤라락 — 복싱과 같은 rollNum 정본 (자릿수 롤)
       rollNum(ctx, R2.total, t, TP2, .9, 800, 1277, 384, { fam: dot9, align: 'center', fill: NEU.ink });
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillStyle = NEU.ink; ctx.font = RF(700, 64); ctx.letterSpacing = '-1.51px';
+      // 단위는 숫자의 부속 — 위계 낮춤(유저): 흰 100%/700 → 55%/400. 숫자만 주인공으로 남는다.
+      ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.font = RF(400, 64); ctx.letterSpacing = '-1.51px';
       ctx.fillText('min', 1085, 1315);   // 숫자 상단과 top 정렬(피그마 353:7084 = '30' 과 같은 y)
       ctx.letterSpacing = '0px';
       ctx.restore();
