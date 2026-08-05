@@ -110,7 +110,7 @@ function makeTextPlane(text, opts = {}) { const g = makeTextMesh(text, opts); co
 // 대체한 뒤 호출처 0인 죽은 코드였음 (룩 시스템 외 사제 렌더의 마지막 잔재).
 class FootMark {
   static READY_TAP = { T: 5.6, W: 0.55, P1: 3.6, P2: 4.35 };   // tap2 루프 타이밍 — floorgl 캔버스 발과 공유
-  static READY_SPREAD = 0.272;   // 최종 좌우 간격(m) — 등장 때 0 에서 여기까지 퍼진다
+  static READY_SPREAD = 0.189;   // 좌우 간격(m) — 피그마 342:3057 실측(중심 x 525.8/1075.2). 유저: 이걸 넘지 말 것
   // 세션 발자국 = MARK 발형 상태 머신 소비 (시안 보드 7상태 그대로).
   // 열화상 사제 텍스처·flatMat 카운트다운 링·홀드 호 전부 은퇴 — 룩 시스템이 유일한 형태:
   //   대기=Preview 소프트 필 · 카운트다운=Active 헤일로 수축 · 유지=Hold 코닉 림 · 성공=Success 블룸
@@ -2086,23 +2086,21 @@ export class Session {
     if (this.auto && st.dur && this.t >= st.dur && !st.count) this._next();
   }
 
-  /** READY 발자국 틱 — 표시 구간·등장 모션·Tap2 룩을 한곳에서(러닝·농구 공통).
-   *  등장(유저 08-05): 가운데 나란히 모여 있다가 **좌우로 싹 퍼진다**. 4.0s 에서 시작해 0.6s.
-   *  퍼짐이 끝나기 전엔 두 발이 겹치므로 스케일도 같이 자라게 해서 '한 덩어리'로 안 보이게 한다. */
+  /** READY 발자국 틱 — 표시 구간·등장·Tap2 룩을 한곳에서(러닝·농구 공통).
+   *  등장 = **페이드 인/아웃만**(유저 08-05: 퍼지는 모션은 너무 복잡하다). 자리는 고정. */
   _readyFeetTick() {
     const F = this.readyFeet; if (!F) return;
     const tl = this.t % 8;
-    if (tl < 4) { F.forEach(f => { f.group.visible = false; }); return; }
-    const u = Math.min(1, (tl - 4) / 0.6);
-    const e = 1 - Math.pow(1 - u, 3);                  // easeOutCubic — 싹 퍼졌다 안착
-    const x = FootMark.READY_SPREAD * e;
-    const sc = (180 / 240) * (0.72 + 0.28 * e);
-    F.forEach((f, i) => {
-      f.group.visible = true;
-      f.group.position.x = i === 0 ? -x : x;
-      f.group.scale.setScalar(sc);
+    // 4.0 = 하단 패널이 완전히 빠지는 시점 — 겹치면 발과 알약이 한순간 포개진다.
+    if (tl < 4.0) { F.forEach(f => { f.group.visible = false; }); return; }
+    const fin = Math.min(1, (tl - 4.0) / 0.5);              // 4.0~4.5 페이드 인
+    const fout = 1 - Math.min(1, Math.max(0, (tl - 7.5) / 0.5));   // 7.5~8.0 페이드 아웃
+    const a = fin * fout;
+    F.forEach(f => {
+      f.group.visible = a > 0.01;
+      if (!f.group.visible) return;
       f.tapHint(this.t);
-      if (e < 1) f.op(f._U.uFade.value * e);           // 퍼지는 동안 함께 떠오른다
+      f.op(f._U.uFade.value * a);
     });
   }
 
