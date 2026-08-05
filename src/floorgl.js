@@ -1844,9 +1844,15 @@ export class FloorGL {
       //   오른쪽으로 치우쳐 보인다. 눈은 **숫자+단위 전체**를 하나로 보기 때문이다.
       //   단위 실폭을 먼저 재서 그룹 중심이 800 에 오도록 숫자를 왼쪽으로 민다.
       ctx.font = RF(400, 64); ctx.letterSpacing = '-1.51px';
+      // ★ 유저 확정 — 시각 보정(그룹 중심) 철회. **큰 숫자 자체를 가운데** 정렬한다.
+      //   단위는 숫자 오른쪽에 매단다(위치는 숫자 실폭에서 파생하므로 자릿수가 바뀌어도 따라온다).
       const UNIT = R2.unit || 'min';
-      const UW = ctx.measureText(UNIT).width, UGAP = 24, NCX = 800 - (UGAP + UW) / 2;
-      const nw = rollNum(ctx, R2.total, t, TP2 + LEAD, TRAVEL - LEAD, NCX, 1277, 384, { fam: dot9, align: 'center', fill: NEU.ink });
+      const UGAP = 24, NCX = 800;
+      // '5.0' 의 마침표가 도트 폰트에선 큰 사각 점이라 숫자만큼 무겁다 — 크기를 384 → 336 으로
+      //   줄이고 자간을 -14 로 조여 점이 덜 튀게 한다(유저).
+      ctx.letterSpacing = '-14px';
+      const nw = rollNum(ctx, R2.total, t, TP2 + LEAD, TRAVEL - LEAD, NCX, 1277, 336, { fam: dot9, align: 'center', fill: NEU.ink });
+      ctx.letterSpacing = '0px';
       ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
       // 단위는 숫자의 부속 — 위계 낮춤(유저): 흰 100%/700 → 55%/400. 숫자만 주인공으로 남는다.
       // ★ x 를 하드코딩(1085)하면 안 된다 — '30' 기준으로 잡은 값이라 더 넓은 '48' 에서 숫자와
