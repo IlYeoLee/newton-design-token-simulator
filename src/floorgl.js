@@ -705,7 +705,13 @@ export const TOK = {
   pad: 52,           // 알약 안쪽 여백 (상하좌우 동일)
   gapT: 48,          // 슬롯 사이 간격
   gapHP: 96,         // 알약 ↔ 진행 아크
-  progH: 155, progW: 820,
+  progH: 155,
+  // ★ 아크 폭은 **알약 폭에서 파생**한다(유저: 아직 허그 아닌 게 너무 많다).
+  //   820 은 알약이 1320 고정이던 시절 '헤더의 62%' 로 잡은 값이다 — 알약이 HUG 가 되어
+  //   579~955 로 변하자 아크가 알약보다 넓어졌다(P2 에선 241px 더 넓다). 딸린 물건처럼
+  //   읽히려면 비례가 유지돼야 한다. progW 는 이제 상한으로만 쓴다.
+  progK: 0.90, progW: 820,
+  statK: 0.78,       // SPM 눈금자 폭 ÷ 알약 폭 (아크 0.90 보다 좁게 — 위계상 3급)
   gapPC: 120,        // 진행 ↔ 콘텐츠
   safePad: 48,       // 투사 콘 가장자리에서 띄우는 여백 — 알약·아크가 **같은 값**을 쓴다
   footY: 1980, contentY1: 2330,
@@ -1072,11 +1078,21 @@ const LSTAT_GAP = 34;     // 숫자↔눈금, 눈금↔라벨 공통 여백
 const LSTAT_LFS = 58;     // 라벨 활자 크기(minFs(y≈817)=56 하한 위)
 const LSTAT_CAP = 0.72;   // Supreme 캡하이트 비 — 라벨 '윗선'을 여백의 기준으로 삼는다
 const LSTAT_NUM = 0.84;   // OffBit 잉크 높이 비(rollNum 의 휠 한 칸과 같은 값)
-export const lstatW = wide => (wide ? 620 : 232);
+// ★ 눈금자 폭도 **알약 폭에서 파생**한다(유저: SPM 은 손대야 해).
+//   620 은 알약이 1320 고정이던 시절 값이라, 알약이 HUG 로 579~955 가 되자 그 아래 눈금만
+//   혼자 다른 폭으로 떠 있었다. 세로 한 줄(알약 → 아크 → SPM)이 같은 폭 계열을 써야
+//   '한 묶음'으로 읽힌다. 알약이 없는 화면(실전 C)은 상한 그대로.
+//   ※ 눈금 개수는 폭에서 파생되므로 폭이 줄면 칸도 같이 줄어든다 — 해상도가 아니라 비례 문제다.
+//   ★ 모듈 전역으로 들고 있으면 안 된다 — 갤러리는 FloorGL 인스턴스를 25개 동시에 돌리므로
+//     한 인스턴스의 알약 폭이 다른 지면의 눈금 폭을 오염시킨다. **인자로 받는다.**
+export const lstatW = (wide, pillW) => {
+  const cap = wide ? 620 : 232;
+  return pillW ? Math.round(Math.min(cap, pillW * TOK.statK)) : cap;
+};
 export const lstatFs = wide => (wide ? 172 : 132);
 /** 컴포넌트 실높이 = 숫자 + 여백 + 눈금자 + 여백 + 라벨. _h 의 예약 높이가 이 값을 쓴다. */
-export const lstatH = wide =>
-  lstatFs(wide) * LSTAT_NUM + LSTAT_GAP * 2 + tickHalf(lstatW(wide)) * 2 + LSTAT_LFS * LSTAT_CAP;
+export const lstatH = (wide, pillW) =>
+  lstatFs(wide) * LSTAT_NUM + LSTAT_GAP * 2 + tickHalf(lstatW(wide, pillW)) * 2 + LSTAT_LFS * LSTAT_CAP;
 export function tickScale(ctx, cx, by, w, dev, o = {}) {
   // ★ 바닥 튜닝(유저: 바닥에서도 더 잘 읽히게) — 밝은 트랙(#8B9080) 위 가산 투사에서는
   //   얇고 흐린 흰 선이 그냥 사라진다. 화면 UI 감각으로 잡은 3px/.30 은 투사면에서 워시아웃.
@@ -1331,6 +1347,7 @@ export class FloorGL {
     // 이번 프레임에 실제로 그린 상자들 — 토큰 갤러리가 **측정값**으로 오버레이를 그린다.
     //   추정하지 않는다: 페인터가 그린 좌표 그대로다.
     this._boxes = [];
+    this._pillW = 0;   // 이번 프레임에 알약을 그렸는지 — 아래 아크·눈금이 이 값에서 파생된다
     if (this.kind && this.kind !== 'scene') return this['_paint_' + this.kind]();
     const cap2 = CAPS[this.stage];
     if (cap2) return this._paint_capsule(cap2);   // 신규 캡슐 시스템(옵트인) — 레거시 조판 대체
@@ -1388,8 +1405,8 @@ export class FloorGL {
       case 'prevRow': return 200;
       // ★ 예약 높이는 _lstat 의 조판식에서 그대로 나온다 — 하드코딩 금지. 228 로 못박아 두고
       //   안에서 그보다 큰 걸 그리고 있어서 숫자가 위 노드로 삐져나갔다(wide 는 y-16 부터 그렸다).
-      case 'trainRow': return lstatH(!n.ring);   // 링이 붙으면 2단 = 좁은 규격
-      case 'liveRow': return lstatH(true);
+      case 'trainRow': return lstatH(!n.ring, this._pillW);   // 링이 붙으면 2단 = 좁은 규격
+      case 'liveRow': return lstatH(true, this._pillW);
       case 'paceErr': return 300;   // 값 200 + 편차 바 + 목표 라벨
       case 'paceSub': return 150;   // 남은 거리 · 구간 누적 편차 두 칸
       case 'km': return 180;
@@ -1485,6 +1502,7 @@ export class FloorGL {
   _glassPill(x, y, w, h, r, glow = true) {
     const ctx = this.ctx;
     this._boxes?.push({ k: 'pill', x, y, w, h });
+    this._pillW = w;   // 아래 진행 아크·SPM 눈금이 이 폭에서 파생된다(HUG)
     const path = () => { ctx.beginPath(); ctx.roundRect(x, y, w, h, r); };
     ctx.save(); path(); ctx.clip();
     ctx.fillStyle = `rgba(255,255,255,${TOK.fill})`; ctx.fillRect(x, y, w, h);
@@ -1635,7 +1653,21 @@ export class FloorGL {
       return { AV, prog: stageRest + ((1 - hp) - stageRest) * (pfK ?? 1),
                rem: String(Math.max(0, Math.ceil(hs * (1 - hp)))) };
     }
-    if (inPv) {   // 관찰 — '영상이 몇 초 남았나'. adv 와 무관한 고유 값이라 항상 이 값을 센다.
+    if (inPv) {
+      // 관찰 — adv 와 무관한 고유 값(영상이 얼마나 남았나)이라 항상 이 값을 센다.
+      // ★ 그런데 **초를 세는 관찰과 횟수를 세는 관찰이 다르다.**
+      //   농구 스텝백(BK_B2~5)은 '영상 N회 재생'이 단위다 — main.js 가 pvn 으로 넘긴다.
+      //   초 카운트다운을 띄우면 "2회 보여준다"는 구조가 화면에서 사라진다(유저: 2회 재생인데
+      //   왜 타이머가 발동하냐). 이 규약은 옛 HTML 에 있었는데 캡슐 페인터가 안 옮겨왔다
+      //   (`pvn` 을 쓰는 곳이 폐기된 _prevRow 뿐이었다).
+      const pvn = this.params?.pvn || 0;
+      if (pvn > 0) {
+        const per = Math.max(.1, PV / pvn);          // 영상 1회분
+        const live = window.__dbg?.session?._pvLoops;
+        const done = Math.min(pvn, Number.isFinite(live) ? live : Math.floor(t / per));
+        return { AV, prog: clamp01(1 - (t % per) / per),   // 링은 **1회당 한 바퀴**
+                 rem: done + '/' + pvn };
+      }
       const end = pvEnd ?? PV;
       return { AV, prog: clamp01(1 - t / Math.max(.1, PV)), rem: String(Math.max(1, Math.ceil(end - t))) };
     }
@@ -1750,7 +1782,9 @@ export class FloorGL {
     // 폭은 투사 안전폭에서 깎는다 — 하단은 콘이 좁아 760 도 위험할 수 있다(safeW 참고).
     // ★ 폭은 **LAYOUT.PROG.wMax 하나에서만** 나온다. 여기 760 이 박혀 있고 캡슐 경로는 820 을
     //   써서, 같은 섹션인데 스테이지마다 아크 크기가 달랐다(유저 스샷: BK_A1 vs BK_A3).
-    const wD = Math.min(LAYOUT.PROG.wMax, safeW(y) - TOK.safePad), x0 = CX - wD / 2;
+    // 알약 폭 × progK — 위 알약에 딸린 물건으로 읽히게. 알약이 없는 화면은 상한을 쓴다.
+    const wD = Math.min(LAYOUT.PROG.wMax, safeW(y) - TOK.safePad,
+                        this._pillW ? this._pillW * TOK.progK : 1e9), x0 = CX - wD / 2;
     // main.js가 width를 직접 쓰면(반복형 스테이지) 그 값이 우선, 아니면 --dur 시간 진행.
     const w = n.style.width != null ? numOr(n.style.width, 0)
       : 600 * clamp01((this.t - n.delay) / n.dur);
@@ -1825,7 +1859,7 @@ export class FloorGL {
     //   왜 이렇게 옹졸해졌냐). 232 는 2단 그리드(SPM+PACE)에서 칼럼이 좁을 때의 값인데,
     //   단독일 때도 그 값을 쓰고 있어서 화면 폭을 반도 못 썼다. 눈금 수는 폭에서 파생되므로
     //   넓히면 칸도 그만큼 늘어난다.
-    const BW = lstatW(wide);
+    const BW = lstatW(wide, this._pillW);
     // ★ 세로 조판은 **눈금자에서 파생**한다(유저: 숫자·라인과 SPM 사이가 너무 좁다).
     //   전엔 셋이 각자 상수를 들고 있었다 — 숫자 y+118-0.78·NFS, 바 y+154, 라벨 바+60.
     //   그 상수들은 눈금 h=34 · 라벨 34px 시절 값이라, 눈금이 46 으로 굵어지고 라벨이 58 로
@@ -2921,7 +2955,8 @@ export class FloorGL {
       //   헤더 알약을 아크가 가로지르지 않는다.
       // ★ 알약이 HUG 라 높이가 장면마다 다르다 — 아크 y 를 고정값(LAYOUT.PROG_Y)으로 두면
       //   알약을 파고들거나 멀어진다. **실제 알약 바닥**에서 간격을 띄운다.
-      const ay = y + h + TOK.gapHP, wA = Math.min(LAYOUT.PROG.wMax, safeW(ay) - TOK.safePad);
+      const ay = y + h + TOK.gapHP;
+      const wA = Math.min(LAYOUT.PROG.wMax, safeW(ay) - TOK.safePad, w * TOK.progK);
       arcGauge(ctx, CX - wA / 2, ay, wA, clamp01((t - PV) / Math.max(.1, dur - PV)));
       ctx.restore();
     }
