@@ -706,10 +706,12 @@ let FNAME = 'High Knees';
 const MINI_MAX = 1320, MINI_MIN = 620;
 // 미니 카드 조판 계산 — ③(형태변환)과 미니 카드가 **같은 함수**를 써야 어긋나지 않는다.
 function miniLayout(g, name) {
-  const PFS = 96;
-  g.font = RF(700, PFS); const nw = g.measureText('12').width;
-  g.font = RF(400, PFS * .46); const uw = g.measureText('sec').width;
-  const pillW = Math.max(nw + PFS * .16 + uw, 64) + 96;
+  // ★ 왼쪽 슬롯은 알약이 아니라 **링 그대로**다(유저 스케치) — 카운트다운 링이 형태를 바꾸지
+  //   않고 작아져서 헤더 왼쪽에 앉는다. 링이 남으면 '남은 시간'을 계속 원호로도 말할 수 있고,
+  //   관찰→따라하기가 '같은 물건이 자리를 옮긴 것'으로 읽힌다(형태까지 바뀌면 연결이 약해진다).
+  const RR = 84, PFS = 220 * (RR / 275);          // 링 반지름 · 그 안 도트 숫자(컴포넌트 비율)
+  g.font = RF(400, 40); const uw = g.measureText('sec').width;
+  const pillW = RR * 2 + 18 + uw;                 // 링 + 간격 + 단위
   const GAP = 52, PAD = 60, TAIL = 72;
   g.font = RF(700, 52); g.letterSpacing = '-2px';
   const room = MINI_MAX - PAD - pillW - GAP - TAIL;
@@ -727,7 +729,7 @@ function miniLayout(g, name) {
   const tw = Math.max(...lines.map(l => g.measureText(l).width));
   g.letterSpacing = '0px';
   const w = Math.min(MINI_MAX, Math.max(MINI_MIN, PAD + pillW + GAP + tw + TAIL));
-  return { pillW, PFS, lines, w, h: lines.length > 1 ? 320 : 250, tx: PAD + pillW + GAP };
+  return { pillW, PFS, RR, uw, lines, w, h: lines.length > 1 ? 320 : 250, tx: PAD + pillW + GAP };
 }
 function drawFlow(g, t) {
   const cx = 800;
@@ -766,22 +768,26 @@ function drawFlow(g, t) {
     g.letterSpacing = '0px';
     g.restore();
   }
-  // ③ 카운트 링 → 타이머 알약 — **정본 컴포넌트(countRing)를 그대로 쓴다**(유저 2회 지적).
-  //   floor-timer.html 의 3·2·1 카운트다운이 정본이고, 형태 변환(morph)도 그 컴포넌트 안에 있다.
-  //   여기서 하는 일은 위치·크기·morph 값을 시간축에서 만들어 넘기는 것뿐 — 다시 그리지 않는다.
+  // ③ 카운트 링은 **형태를 안 바꾼다** — 작아져서 헤더 왼쪽 슬롯으로 옮겨 앉을 뿐이다(유저).
+  //   전엔 링→알약 morph 였는데, 알약은 이미 헤더가 맡고 있어 같은 어휘가 두 겹이 됐다.
+  //   링이 남으면 남은 시간을 원호로도 계속 말한다(숫자 + 원호, 한 물건).
   {
-    //   ★ k 는 **끝에서 1** 이어야 한다(유저: 이건 시간이 읽히기나 해?). k 를 0.5 로 두면
-    //     컴포넌트 안에서 알약 높이 100·글자 68 이 전부 절반이 되어 숫자가 34px 로 떨어진다 —
-    //     화면에서 제일 작아야 할 이유가 없는 값(남은 시간)이 제일 작아졌다.
-    //     k=1 이면 알약 h100 · 도트 68 = 정본 배지 규격 그대로. 링 쪽은 k=112·FS/275.
-    const T0x = cx, T0y = cy + ch0 * .74, K0 = 112 * FS / 275;      // 관찰: 캡슐 안 0.74 자리
-    const PFS = ML.PFS, T1w = ML.pillW;                          // 타이머가 주인공 — 타이틀(52)보다 크게
-    const T1x = cx - cw / 2 + 60 + T1w / 2, T1y = cy + ch * .5;     // 따라하기: 미니 카드 왼쪽 (파생)
+    const T0x = cx, T0y = cy + ch0 * .74, K0 = 112 * FS / 275;
+    const T1x = cx - cw / 2 + 60 + ML.RR, T1y = cy + ch * .5;
     const L = (a2, b2) => a2 + (b2 - a2) * me;
     const cd = Math.max(1, 3 - Math.floor(t * 1.9));
-    countRing(g, L(T0x, T1x), L(T0y, T1y), (t * .62) % 1, me < .5 ? String(cd) : '12', {
-      t: 99, k: L(K0, 1), morph: me, pillW: T1w, pulse: 1, unit: 'sec', pillFs: PFS,
-    });
+    countRing(g, L(T0x, T1x), L(T0y, T1y), me < .5 ? (t * .62) % 1 : 1 - ((t * .18) % 1),
+      me < .5 ? String(cd) : '12',
+      { t: 99, k: L(K0, ML.RR / 275), pulse: 1,
+        ring: { trackW: 10, arcW: 10, trackA: .26 } });   // 작아진 링은 굵게 — 안 그러면 바닥에서 흐려진다
+    // 단위 — 링 오른쪽. 링만으론 '초'인지 '회'인지 알 수 없다(유저 지적).
+    if (inA > 0) {
+      g.save(); g.globalAlpha = inA;
+      g.textAlign = 'left'; g.textBaseline = 'middle';
+      g.fillStyle = 'rgba(255,255,255,.6)'; g.font = RF(400, 40);
+      g.fillText('sec', T1x + ML.RR + 18, T1y + 6);
+      g.restore();
+    }
   }
   // ④ 코치 — 관찰에선 캡슐 아래, 전환하며 앞(위)으로 걸어 나온다
   //   관찰 구간은 캡슐이 작아진 만큼 영상이 커지고 위로 붙는다. 따라하기 구간의 자리는

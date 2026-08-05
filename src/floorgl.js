@@ -755,7 +755,8 @@ export function countRing(ctx, cx, cy, prog, txt, o = {}) {
   }
   const R2 = 275 * K2;
   if (mo <= 0) {
-    ringGauge(ctx, cx, cy, R2, prog, { color: '#fff' });
+    //   링 굵기는 호출자가 줄 수 있다 — 작아진 링(헤더 슬롯)은 기본 굵기로는 바닥에서 흐려진다.
+    ringGauge(ctx, cx, cy, R2, prog, { color: '#fff', ...(o.ring || {}) });
   } else {
     // 형태 변환 — 링(정사각 roundRect, r=반지름)에서 알약(폭 pw · 높이 100k · r 50k)으로.
     //   같은 패스를 채움 0→.34 · 외곽선 1→0 으로 넘기면 '선으로 그린 링'이 '채워진 알약'이 된다.
