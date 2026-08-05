@@ -624,8 +624,10 @@ const READY = {
   //   프로세스 = STRETCH 8 + LEARN 10 = 18m 팩(고정) + RUN! 30m(유저 선택) → Main Workout 5km · 48m
   //   부제 'Pace On' = Level & Mode.
   'floor.html':    { r2: { lines: ["Sean's", 'Pace Strategy'], sub: 'Pace On', total: '5.0', unit: 'km',   // 시간(48분) → **거리 목표**(유저): 러닝은 '얼마나 뛰나'가 목표다
-                           arcs: [{ v: 0.5, lbl: '0.5k', muted: true, chipText: '0.5k' }, { v: 1.0, lbl: '1.0k', icon: 'feet', pad: 8 }, { v: 3.5, lbl: '3.5k', icon: 'run' }] } },
-                           // 0.5(워밍업) + 1.0(드릴·페이스) + 3.5(본런) = 5.0km. 세그먼트도 거리 비례라 총량과 단위가 일치한다.
+                           arcs: [{ v: 8, lbl: '8m', muted: true, chipText: '8m' }, { v: 10, lbl: '10m', icon: 'feet', pad: 8 }, { v: 30, lbl: '30m', icon: 'run' }] } },
+                           // ★ 세그먼트는 **분**으로 되돌림(유저) — 총량만 거리(5.0km)다.
+                           //   총량 = 오늘의 목표(얼마나 뛰나) · 세그먼트 = 그 목표를 채우는 시간 배분(8+10+30=48분).
+                           //   둘의 단위가 달라도 되는 이유: 하나는 '무엇을 이루나', 다른 하나는 '어떻게 쓰나' 라서다.
   'floor-bk.html': { r2: {   // 종목 공통 스펙으로 통합 — 농구 전용 콘텐츠 보정 폐기(유저 승인 08-05)
                            lines: ["Curry's", 'Step Back'], sub: 'Press On', total: '45', unit: 'min',   // 실제 훈련 구성(유저): 스트레칭 8 + 연습 22 + 실전 15 = 45분
                            arcs: [{ v: 8, lbl: '8m', muted: true, chipText: '8m' }, { v: 22, lbl: '22m', icon: 'bkTrain', pad: 6 }, { v: 15, lbl: '15m', icon: 'bkPlay' }] } },
