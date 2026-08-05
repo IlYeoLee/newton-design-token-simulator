@@ -560,19 +560,20 @@ const BATT = {
 };
 const READY = {
   // lbl = 분 표기 통일 'Nm'(유저 08-05) — 'min' 혼용 폐기. 글자 크기도 세그먼트 공통(LBL_FS/LBL_MS).
-  // 팩 정본(유저 08-05 셋업 완료 화면): "Sean's Final 1km Pace" · Creator Pack 18m
+  // 팩 정본(유저 08-05 팩 상세): 크리에이터 Sean · 팩명 **Sean's Pace Strategy** · Creator Pack 18m
   //   프로세스 = STRETCH 8 + LEARN 10 = 18m 팩(고정) + RUN! 30m(유저 선택) → Main Workout 5km · 48m
-  'floor.html':    { r2: { lines: ["Sean's", 'Final 1km Pace'], sub: 'Pace On', total: '48',
+  //   부제 'Pace On' = Level & Mode.
+  'floor.html':    { r2: { lines: ["Sean's", 'Pace Strategy'], sub: 'Pace On', total: '48',
                            arcs: [{ v: 8, lbl: '8m', muted: true, chipText: '8m' }, { v: 10, lbl: '10m', icon: 'feet' }, { v: 30, lbl: '30m', icon: 'run' }] } },   // 8+10+30 = 48
   'floor-bk.html': { r2: {   // 종목 공통 스펙으로 통합 — 농구 전용 콘텐츠 보정 폐기(유저 승인 08-05)
                            lines: ["Curry's", 'Handle Pack'], sub: 'Press On', total: '23',
                            arcs: [{ v: 5, lbl: '5m', muted: true, chipText: '5m' }, { v: 8, lbl: '8m', icon: 'bkTrain' }, { v: 10, lbl: '10m', icon: 'bkPlay' }] } },   // 스트레칭도 비례 세그먼트(유저)
 };
 const TR = {
-  T1: { sub: 'Sean’s Final 1km Pace', title: 'Warm-Up Done!',
+  T1: { sub: 'Sean’s Pace Strategy', title: 'Warm-Up Done!',
     done: { lbl: 'Stretch', time: '5min', img: 'run/run_stretch.png' },
     next: { lbl: 'Learn', time: '10min', img: 'run/run_learn.png' } },
-  T2: { sub: 'Sean’s Final 1km Pace', title: 'Learning Complete!',
+  T2: { sub: 'Sean’s Pace Strategy', title: 'Learning Complete!',
     done: { lbl: 'Learn', time: '10min', img: 'run/run_learn.png' },
     next: { lbl: 'Run!', time: '10min', img: 'run/run_run.png' } },
   BK_T1: { sub: 'Curry’s Signature Move', title: 'Warm-Up Done!',
@@ -601,7 +602,7 @@ const CAPS = {
 const TM = { C1: { sub: 'Run 10 min · Final 1 km', title: 'Run with Sean' },
              BK_C1: { sub: 'Play 10 min · 3 attempts', title: 'Step-Back 1 of 3' } };
 const RP = {
-  FIN: { sub: 'Sean’s Final 1km Pace', title: 'Session Complete',
+  FIN: { sub: 'Sean’s Pace Strategy', title: 'Session Complete',
     stats: [['Distance', '1.00 km'], ['Avg Pace', '5’42”'], ['Cadence', '174 spm']] },
   BK_FIN: { sub: 'Curry Step-Back Pack', title: 'Step-Back Locked In',
     stats: [['Step-Back 3PT', '2 / 3'], ['Step Accuracy', '86 %'], ['Release', '0.42 s', 'sm']] },
