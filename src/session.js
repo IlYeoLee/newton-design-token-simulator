@@ -2357,7 +2357,10 @@ export class Session {
       const stretch = Math.max(0, Math.min(1, (Math.abs(P.fmL.group.position.z - P.fmR.group.position.z) - 0.14) / 0.32));
       const heat = stretch * (0.45 + 0.55 * P.fill);
       if (fmBack._U?.uRip) fmBack._U.uRip.value = 0.5 + 0.75 * heat;
-      oth.op(Math.min(1, othDone ? 0.5 : (oth === fmBack ? 0.55 + 0.45 * heat : 0.6)));
+      // ★ 반대발 하한(유저: 다리 앞뒤로 벌릴 때 반대발이 잘려나간다) — 마크 룩을 쨍하게
+      //   바꾸면서(번짐↓ 코어↑) 낮은 알파에서 형체가 통째로 사라졌다. 0.5~0.6 은 예전
+      //   흐릿한 룩 기준의 값이다. 하한을 0.72 로 올려 '있지만 비활성'으로 읽히게 한다.
+      oth.op(Math.min(1, Math.max(0.72, othDone ? 0.78 : (oth === fmBack ? 0.75 + 0.25 * heat : 0.78))));
       othNum.visible = false;
 
       // 완료 = 홀드 100% 도달(회차당 1회 래치). 왼발 1·오른발 1 = 총 2회
