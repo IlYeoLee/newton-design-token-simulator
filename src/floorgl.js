@@ -1232,8 +1232,9 @@ export class FloorGL {
     const ctx = this.ctx, H2 = LAYOUT.HEAD, PAD = H2.pad;
     const RR = 130, HH = RR * 2 + PAD * 2;
     ctx.font = F(400, LAYOUT.TYPE.unit); const uw = ctx.measureText('sec').width;
+    const T = String(n.title || '').toUpperCase();   // 코칭 타이틀 = 대문자(유저)
     ctx.font = F(700, LAYOUT.TYPE.title); ctx.letterSpacing = '-4px';
-    const tw = ctx.measureText(n.title || '').width;
+    const tw = ctx.measureText(T).width;
     ctx.letterSpacing = '0px';
     const W2 = Math.max(H2.minW, Math.min(safeW(y) - 80,
       PAD + RR * 2 + H2.gapU + uw + H2.gapT + tw + PAD + (n.step ? 110 : 0)));
@@ -1264,9 +1265,9 @@ export class FloorGL {
     ctx.fillStyle = '#fff'; ctx.font = F(700, LAYOUT.TYPE.title); ctx.letterSpacing = '-4px';
     const tx = cxR + RR + H2.gapU + uw + H2.gapT;   // 링 → sec 실폭 → 타이틀
     // 쉼표가 있으면 의미 단위로 두 줄(농구 스텝) — 지금 데이터엔 없지만 규칙은 남긴다.
-    const ci = (n.title || '').indexOf(', ');
-    if (ci > 0) { ctx.fillText(n.title.slice(0, ci + 1), tx, cyR - 56); ctx.fillText(n.title.slice(ci + 2), tx, cyR + 56); }
-    else ctx.fillText(n.title || '', tx, cyR);
+    const ci = T.indexOf(', ');
+    if (ci > 0) { ctx.fillText(T.slice(0, ci + 1), tx, cyR - 56); ctx.fillText(T.slice(ci + 2), tx, cyR + 56); }
+    else ctx.fillText(T, tx, cyR);
     ctx.letterSpacing = '0px';
     // 스텝 배지(n/4) — 농구 분해 스텝만. 헤더 오른쪽 끝에 조용히.
     if (n.step) {
@@ -2127,6 +2128,17 @@ export class FloorGL {
     //   CAPS 는 이제 variant·step 만 든다. 타이틀을 두 곳에 두면 반드시 또 어긋난다.
     const S2 = (typeof window !== 'undefined' ? window.FLOOR_SCENES : null)?.[this.stage];
     let title = S2?.title || (Array.isArray(cfg.title) ? cfg.title.join(' ') : String(cfg.title || ''));
+    // ★ 좌/우 힌트(유저: '왼발 스트레치' 처럼 알려줘야 하지 않나). 한 발씩 하는 동작에서
+    //   '지금 어느 발'은 남은 시간만큼 중요한 지시다 — 발마크만으론 멀리서 안 읽힌다.
+    //   ★★ 반드시 **폭을 재기 전에** 붙인다. 뒤에서 붙였더니 헤더 폭이 짧은 원본 기준으로
+    //     계산돼 'Left Calf Stretch' 가 알약 밖으로 잘렸다(유저 스샷).
+    const cyc = (typeof window !== 'undefined' ? window.__dbg?.session?.a2Cyc : null);
+    const perFoot = this.stage === 'A2' && cyc && !cyc.watching;
+    const hs = cyc?.holdSec ?? 5, hp = cyc?.inHold ? clamp01(cyc.prog) : 0;
+    if (perFoot) title = (cyc.isLeft ? 'Left ' : 'Right ') + title;
+    // ★ 코칭 타이틀은 대문자(유저) — 프리뷰·따라하기·농구 전부. 대문자는 폭이 5~8% 늘어나므로
+    //   **폭을 재기 전에** 바꾼다(순서를 어기면 또 잘린다).
+    title = title.toUpperCase();
     const L = (p, q) => p + (q - p) * mo;
     // 지오메트리 — 원형(760×820) → 가로 알약(840×250). **y 는 176 고정**: 위를 붙박아 두면
     //   아래로만 접히므로 코치 판(지면 중앙에 서는 3D 인물)과 안 겹친다.
@@ -2208,13 +2220,6 @@ export class FloorGL {
     //   헤더 링 = 지금 딛고 있는 발의 남은 홀드 시간(발이 바뀌면 리셋) · 하단 아크 = 좌+우 합친
     //   세션 전체. 둘이 같은 값을 세면 "한 발 5초"라는 이 동작의 구조가 화면에서 사라진다.
     //   값은 session.a2Cyc(홀드 진행 prog·holdSec·isLeft)에서 읽는다 — 봇 사이클과 이미 동기된 정본.
-    const cyc = (typeof window !== 'undefined' ? window.__dbg?.session?.a2Cyc : null);
-    const perFoot = this.stage === 'A2' && cyc && !cyc.watching;
-    const hs = cyc?.holdSec ?? 5, hp = cyc?.inHold ? clamp01(cyc.prog) : 0;
-    // ★ 좌/우 힌트(유저: 실제 따라하기면 '왼발 스트레치' 처럼 알려줘야 하지 않나).
-    //   한 발씩 하는 동작에서 '지금 어느 발'은 남은 시간만큼 중요한 지시다 — 발마크만으론
-    //   어느 쪽이 활성인지 멀리서 안 읽힌다. 타이틀 앞에 붙여 한 줄로 읽히게 한다.
-    if (perFoot) title = (cyc.isLeft ? 'Left ' : 'Right ') + title;
     const rem = perFoot ? Math.max(0, Math.ceil(hs * (1 - hp)))
       : (mo < .5 ? Math.max(1, Math.ceil(PV - t)) : Math.max(0, Math.ceil(dur - t)));
     if (String(rem) !== this._numLast2) { this._numLast2 = String(rem); this._numT2 = t; }
