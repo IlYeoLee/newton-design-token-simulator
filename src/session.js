@@ -924,8 +924,13 @@ export class Session {
       //   기준점·방향 모두 '멈춰 있는 발 ↔ 목표'로만 계산해 한 방향으로 흐르기만 한다.
       const au = q.slide ? (other.u + q.tu) / 2 : q.tu;
       const av = q.slide ? (other.v + q.tv) / 2 : q.tv + 0.14;
+      // ★ 화살표가 헤더 알약을 침범하지 않게(유저 #186). 클램프는 **원점**만 막는데
+      //   메시는 진행 방향으로 더 뻗는다 — v1 에 딱 붙으면 몸통이 알약 밑단을 파고든다.
+      //   앞을 가리키는 스텝 큐만 여유를 둔다(슬라이드는 두 발 사이라 위로 안 간다).
+      const AR_MARGIN = 0.12;
+      const vMax = SB_BOX.v1 - (q.slide ? 0 : AR_MARGIN);
       const pa = this._beamLocal(Math.max(-SB_BOX.u, Math.min(SB_BOX.u, au)),
-                                Math.max(SB_BOX.v0, Math.min(SB_BOX.v1, av)), H.mL);
+                                Math.max(SB_BOX.v0, Math.min(vMax, av)), H.mL);
       ar.position.set(pa.x, 0.014, pa.z);
       ar.rotation.z = q.slide
         ? -Math.atan2(q.tu - other.u, q.tv - other.v)          // 고정 방향(멈춘 발 → 목표)
