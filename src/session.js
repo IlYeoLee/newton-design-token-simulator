@@ -1058,8 +1058,9 @@ export class Session {
     //   바뀔 때마다 어긋난다(유저 #138 발자국과 같은 종류의 버그).
     //   회전 매핑 실측: dir = (−sinθ, −cosθ) → θ = atan2(−dx, −dz).
     //   구값 arBack rotation.z = π/2 는 주석과 달리 **왼쪽(−x)** 을 가리키고 있었다.
-    const arBack = makeFlowArrow(0.42, { scale: 0.85 });   // 뒷발 → 뒤(+스탠스축)
-    const arKnee = makeFlowArrow(0.34, { scale: 0.85 });   // 앞발 → 앞(−스탠스축)
+    //   길이 0.34 통일 — 0.42 는 뒷발에서 뒤로 뻗을 때 메시 중심이 빔 근거리 페이드로 들어갔다.
+    const arBack = makeFlowArrow(0.34, { scale: 0.85 });   // 뒷발 → 뒤(다리 선)
+    const arKnee = makeFlowArrow(0.34, { scale: 0.85 });   // 앞무릎 → 앞(다리 선)
     arBack.rotation.x = -Math.PI / 2; arKnee.rotation.x = -Math.PI / 2;
     arBack.visible = arKnee.visible = false;
     g.add(arBack, arKnee);
@@ -2250,10 +2251,15 @@ export class Session {
         const [bxD, bzD] = gdir('_dB', fL ? LG?.hipR : LG?.hipL, fL ? LG?.footR : LG?.footL, 0, 1);
         const [kxD, kzD] = gdir('_dK', fL ? LG?.hipL : LG?.hipR, fL ? LG?.kneeL : LG?.kneeR, 0, -1);
         // 각도 매핑 실측: dir = (−sinθ, −cosθ) → θ = atan2(−dx, −dz)
-        const GAPM = 0.19;                              // 발에서 화살표 시작까지
-        P.arKnee.position.set(fpM.group.position.x + kxD * GAPM, 0.014, fpM.group.position.z + kzD * GAPM);
+        // ★ 배치 기준 = 화살표 **메시 중심**이다. _beamAlpha 는 메시 월드 위치로 빔 알파를 샘플링하는데,
+        //   makeFlowArrow 는 원점이 꼬리이고 메시가 진행 방향으로 len/2 앞에 놓인다. 앞발 앞으로
+        //   0.19 를 더 밀었더니 중심이 z -2.01 = far(1.9) 밖으로 나가 opacity 0.002 가 됐다(실측).
+        //   → 앞 화살표는 **꼬리를 뒤로 빼서 촉이 앞발 마크에 닿게** 한다(의미도 더 맞다:
+        //     '무릎이 여기로 나아간다'). 뒤 화살표는 마크에서 그대로 뻗되 길이를 줄여 중심을 당긴다.
+        const AL = 0.34;
+        P.arKnee.position.set(fpM.group.position.x - kxD * AL, 0.014, fpM.group.position.z - kzD * AL);
         P.arKnee.rotation.z = Math.atan2(-kxD, -kzD);   // 앞무릎이 나아가는 선
-        P.arBack.position.set(bpM.group.position.x + bxD * GAPM, 0.014, bpM.group.position.z + bzD * GAPM);
+        P.arBack.position.set(bpM.group.position.x + bxD * 0.02, 0.014, bpM.group.position.z + bzD * 0.02);
         P.arBack.rotation.z = Math.atan2(-bxD, -bzD);   // 뒷다리를 펴는 선
         // ★ 재촉 계수로 **어둡게 만들지 않는다**(유저: 화살표가 왜 이렇게 투명해).
         //   전에는 (0.45 + 0.55*urge) 를 곱했는데, urge 는 마크 보폭(sl)에서 뽑고 마크는 SC 0.5 로
@@ -2268,8 +2274,9 @@ export class Session {
         [P.arBack, P.arKnee].forEach(a => {
           a.visible = on;
           if (!on) return;
-          a.userData.prog = pr;
-          a.setProg?.(pr); a.setOp?.(Math.max(0, fade));
+          // ★ draw-on 구동자는 **_prog** 다(tokens.tickFlowArrows 가 읽는 필드). userData.prog /
+          //   setProg() 에 쓰던 건 아무도 안 읽는 죽은 코드라 화살표가 자유 루프로 돌고 있었다.
+          a._prog = pr;
           if (a._mesh) a._mesh.material.opacity = Math.max(0, fade);
         });
       }

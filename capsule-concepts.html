@@ -600,9 +600,23 @@ function drawFlow(g, t) {
   titleBlock(g, ['Neck And', 'Shoulder'], cx, ty, 86 * FS);
   capLabel(g, 'PREVIEW', cx, ty - 175 * FS, .5, 40 * FS);
   g.restore();
-  g.save(); g.globalAlpha = inA;
-  titleBlock(g, ['High Knees'], cx, ty, 64);
-  g.restore();
+  // ★ 미니 카드는 **타이머(좌) + 동작명(우) 한 줄**(유저: 타이머를 작게 아래 두는 것보다
+  //   왼쪽에 맞춰 크게 두는 편이 보기 쉽다). 세로로 쌓으면 카드가 두 층이 되면서 둘 다 작아진다 —
+  //   한 줄로 펴면 같은 높이 안에서 숫자를 40% 키울 수 있다. 좌표는 카드 폭에서 파생.
+  if (inA > 0) {
+    g.save(); g.globalAlpha = inA;
+    const mx = cx - cw / 2 + 74, my = cy + ch * .5;
+    g.textAlign = 'left'; g.textBaseline = 'middle'; g.fillStyle = '#fff';
+    g.font = RF(700, 104, DOT);
+    const nw = g.measureText('12').width;
+    g.fillText('12', mx, my);
+    g.font = RF(400, 38); g.fillStyle = 'rgba(255,255,255,.55)';
+    g.fillText('sec', mx + nw + 12, my + 26);
+    g.fillStyle = '#fff'; g.font = RF(700, 58); g.letterSpacing = '-2px';
+    g.fillText('High Knees', mx + nw + 108, my);
+    g.letterSpacing = '0px';
+    g.restore();
+  }
   // ③ 카운트 링 → 남은 시간 배지 — 같은 자리에서 형태가 바뀐다(정보의 연속)
   const ry = cy + ch * .74;                                          // 숫자도 같은 규약 — 별도 상승항 없음
   g.save(); g.globalAlpha = outA;
@@ -611,11 +625,7 @@ function drawFlow(g, t) {
   g.fillStyle = '#fff'; g.font = RF(700, 92 * FS, DOT);
   g.fillText(String(Math.max(1, 3 - Math.floor(t * 1.9))), cx, ry + 4);
   g.restore();
-  g.save(); g.globalAlpha = inA;
-  g.textAlign = 'center'; g.textBaseline = 'middle';
-  g.fillStyle = '#fff'; g.font = RF(700, 62, DOT); g.fillText('12', cx - 26, ry);
-  capLabel(g, 'sec', cx + 58, ry + 4, .55, 34);
-  g.restore();
+  // (숫자는 위 한 줄에 합쳐졌다 — 여기 따로 두면 같은 값이 카드 안에 두 번 나온다)
   // ④ 코치 — 관찰에선 캡슐 아래, 전환하며 앞(위)으로 걸어 나온다
   //   관찰 구간은 캡슐이 작아진 만큼 영상이 커지고 위로 붙는다. 따라하기 구간의 자리는
   //   FS 와 무관하게 고정 — 미니 카드는 크기가 안 변하므로, 여기까지 FS 를 물리면 인물이
