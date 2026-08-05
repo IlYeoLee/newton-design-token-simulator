@@ -1390,9 +1390,25 @@ export class FloorGL {
           } else if (si === heroIdx) {
             // 제일 긴 구간 = 뉴턴 그라디언트 램프. 끝의 prism(#D1FEFF)은 하늘색이라 뺀다(유저 #119)
             //   — 따뜻한 red→coral→sand 로만 닫는다. 팔레트 정본 stops 는 gaugeArc 쪽에 그대로 남는다.
-            const g = ctx.createLinearGradient(p0.x, p0.y, p1.x, p1.y);
-            g.addColorStop(0, PAL.red); g.addColorStop(.583, PAL.red);
-            g.addColorStop(.86, PAL.coral); g.addColorStop(1, PAL.sand);
+            // ★ 선형 그라디언트는 호를 **가로지르는 대각선 띠**를 만든다(유저) — 색 경계가 스트로크를
+            //   비스듬히 잘라 각지게 보인다. 원뿔(conic) 그라디언트로 각도를 따라가게 하면 색이
+            //   호를 그대로 타고 흐른다. 스톱도 넓게 벌려 끝을 길게 뺀다.
+            const span = (eA - sA) / 360;
+            const at = u => Math.min(1, Math.max(0, u * span));
+            let g;
+            if (ctx.createConicGradient) {
+              g = ctx.createConicGradient(sA * RAD, CXA, CYA);
+              g.addColorStop(0, PAL.red);
+              g.addColorStop(at(.40), PAL.red);
+              g.addColorStop(at(.68), PAL.coral);
+              g.addColorStop(at(.88), '#FE9A61');   // coral→sand 중간 — 두 구간을 더 길게 이어 붙인다
+              g.addColorStop(at(1), PAL.sand);
+              if (span < 1) g.addColorStop(1, PAL.sand);
+            } else {
+              g = ctx.createLinearGradient(p0.x, p0.y, p1.x, p1.y);
+              g.addColorStop(0, PAL.red); g.addColorStop(.40, PAL.red);
+              g.addColorStop(.68, PAL.coral); g.addColorStop(1, PAL.sand);
+            }
             ctx.strokeStyle = g;
           } else {
             ctx.strokeStyle = PAL.red;   // 중간 구간 = 단색 빨강 — 그라디언트는 본운동 하나만 쓴다
