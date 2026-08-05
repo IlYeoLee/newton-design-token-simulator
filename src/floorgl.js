@@ -1317,11 +1317,13 @@ export class FloorGL {
     ctx.restore();
     // 아웃라인 — 단색이 아니라 유리 림: 위·아래 하이라이트, 측면은 투명하게 잦아드는 세로 그라디언트(유저)
     const rim = ctx.createLinearGradient(0, CAP.y, 0, CAP.y + CAP.h);
+    //   ★ 하단은 알파 0 으로 소멸(유저) — 바닥 쪽 테두리 선이 보이면 캡슐이 '오려붙인 판'으로
+    //     읽힌다. 위(크라운)만 유리 하이라이트를 남기고 아래로 갈수록 사라진다.
     rim.addColorStop(0, 'rgba(255,255,255,.95)');
     rim.addColorStop(.28, 'rgba(255,255,255,.28)');
-    rim.addColorStop(.62, 'rgba(255,255,255,.2)');
-    rim.addColorStop(.88, 'rgba(255,255,255,.65)');
-    rim.addColorStop(1, 'rgba(255,255,255,.9)');
+    rim.addColorStop(.55, 'rgba(255,255,255,.16)');
+    rim.addColorStop(.80, 'rgba(255,255,255,.05)');
+    rim.addColorStop(1, 'rgba(255,255,255,0)');
     ctx.strokeStyle = rim; ctx.lineWidth = 2.5;
     capPath(); ctx.stroke();
     ctx.restore();

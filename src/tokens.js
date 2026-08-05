@@ -293,7 +293,11 @@ const SF = SIL_FIT / SIL_FIT_REF;   // uv 단위 거리 스케일 — 실루엣 
  *  (레인·이펙트·인물은 여전히 스토어를 쓴다 — 마크만 떼어낸 것이다.) */
 // pool 은 필 알파를 직접 정한다: fillGain = clamp(pool * 1.6, 0, 1.35).
 //   0.55 로 내렸다가 필이 0.88 로 35% 약해져 '개 흐리다'가 됐다(유저). 수정 전 0.9(=포화 1.35)로 복귀.
-export const MARK_LOOK = { core: LOOK.w, halo: LOOK.halo, pool: LOOK.pool, sweep: 0.4, wobble: LOOK.noise };
+// ★ tap·states 도 함께 실어야 한다 — 예전엔 이 객체가 5개 키(core/halo/pool/sweep/wobble)뿐이라
+//   session 의 `MARK_LOOK.tap` 이 항상 undefined 였고, 8번째 토큰 룩 적용이 **통째로 no-op** 이었다
+//   (유저 08-05: 랩에서 디자인한 대로 안 보인다). 랩이 굽는 값의 유일한 통로다.
+export const MARK_LOOK = { core: LOOK.w, halo: LOOK.halo, pool: LOOK.pool, sweep: 0.4, wobble: LOOK.noise,
+  tap: LOOK.tap || null, states: LOOK.states || null };
 // footlab 프림 저장본(코멧·노드·레일 등) → 부팅 반영 — 실시간 브리지(applyMarkLook)의 영구판.
 //   이게 없으면 랩에서 확정한 프림 값이 새로고침마다 증발했다(유저: 시뮬에 이식이 안 된다).
 if (LOOK.prims) {
