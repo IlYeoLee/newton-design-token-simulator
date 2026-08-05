@@ -589,16 +589,22 @@ function drawFlow(g, t) {
   // ② 타이틀 — 관찰은 2줄 크게, 따라하기는 1줄 작게(크로스페이드)
   // 순차 크로스페이드 — 옛 것이 먼저 빠지고(0~45%) 새 것이 뒤에 든다(55~100%).
   //   동시에 페이드하면 중간에 두 타이틀이 겹쳐 읽힌다(실측).
+  // ★ 글씨는 자기 궤적을 갖지 않는다(유저: '갑자기 위로 솟구친다').
+  //   전에는 새 타이틀·숫자가 캡슐과 무관한 고정 y(cy+100 / cy+192)로 들어오고,
+  //   숫자는 me 에 비례한 별도 상승항(-(ch0*.74-130)*me, 0.72 에서 307px)까지 얹혀 있었다.
+  //   캡슐이 줄어드는 속도와 글씨가 올라가는 속도가 달라서 '튀어 오르는' 것으로 읽힌다.
+  //   → 전부 캡슐 좌표계의 **비율 자리**(0.40 / 0.74)에 못박는다. 움직임은 캡슐만 만든다.
+  const ty = cy + ch * .40;
   const outA = 1 - clamp01(m / .45), inA = clamp01((m - .55) / .45);
   g.save(); g.globalAlpha = outA * intro0;
-  titleBlock(g, ['Neck And', 'Shoulder'], cx, cy + ch * .40, 86 * FS);
-  capLabel(g, 'PREVIEW', cx, cy + ch * .40 - 175 * FS, .5, 40 * FS);
+  titleBlock(g, ['Neck And', 'Shoulder'], cx, ty, 86 * FS);
+  capLabel(g, 'PREVIEW', cx, ty - 175 * FS, .5, 40 * FS);
   g.restore();
   g.save(); g.globalAlpha = inA;
-  titleBlock(g, ['High Knees'], cx, cy + 100, 64);
+  titleBlock(g, ['High Knees'], cx, ty, 64);
   g.restore();
   // ③ 카운트 링 → 남은 시간 배지 — 같은 자리에서 형태가 바뀐다(정보의 연속)
-  const ry = cy + ch * .74 - (ch0 * .74 - 130) * me;
+  const ry = cy + ch * .74;                                          // 숫자도 같은 규약 — 별도 상승항 없음
   g.save(); g.globalAlpha = outA;
   ringGauge(g, cx, ry, 112 * FS, ((t * .62) % 1), { color: '#fff' });
   g.textAlign = 'center'; g.textBaseline = 'middle';
@@ -607,8 +613,8 @@ function drawFlow(g, t) {
   g.restore();
   g.save(); g.globalAlpha = inA;
   g.textAlign = 'center'; g.textBaseline = 'middle';
-  g.fillStyle = '#fff'; g.font = RF(700, 62, DOT); g.fillText('12', cx - 26, cy + 192);
-  capLabel(g, 'sec', cx + 58, cy + 196, .55, 34);
+  g.fillStyle = '#fff'; g.font = RF(700, 62, DOT); g.fillText('12', cx - 26, ry);
+  capLabel(g, 'sec', cx + 58, ry + 4, .55, 34);
   g.restore();
   // ④ 코치 — 관찰에선 캡슐 아래, 전환하며 앞(위)으로 걸어 나온다
   //   관찰 구간은 캡슐이 작아진 만큼 영상이 커지고 위로 붙는다. 따라하기 구간의 자리는
