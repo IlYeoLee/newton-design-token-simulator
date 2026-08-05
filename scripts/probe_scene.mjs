@@ -12,7 +12,7 @@ const errs = [];
 page.on('pageerror', e => errs.push('PAGEERROR: ' + e.message.slice(0, 200)));
 page.on('console', m => { if (m.type() === 'error') errs.push('CONSOLE: ' + m.text().slice(0, 200)); });
 
-const url = `http://127.0.0.1:5199/?alpha=1&scene=${SCENE}&bg=${encodeURIComponent(BG)}&bgdim=0`;
+const url = `http://127.0.0.1:5200/?alpha=1&scene=${SCENE}&bg=${encodeURIComponent(BG)}&bgdim=0`;
 console.log('열기:', url);
 await page.goto(url, { waitUntil: 'networkidle2', timeout: 120000 });
 await new Promise(r => setTimeout(r, 12000));

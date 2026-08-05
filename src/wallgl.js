@@ -116,8 +116,12 @@ const SCENES = {
     //     내가 놓치면 그 틈을 상대가 먹는다(유저 정정). Casey 득점은 그 장면이라 말이 된다.
     //   대본: 1바퀴는 전부 성공, 2바퀴 중반에 miss 하나 — 놓쳤다가 훅으로 만회하는 그림이다.
     //   실전 연결 시 judge.js 의 verdict(타이밍 tolT · 위치 tolP)가 이 대본을 그대로 대체한다.
-    beats: [[1.50, 'hit'], [2.14, 'hit'], [3.92, 'hit'],
-            [6.67, 'hit'], [7.31, 'miss'], [9.09, 'hit']] },
+    //   08-05c: 실사 합성용 — 유저가 찍어 준 실제 주먹 시각 8개. session.js 의 BEATS 와 동일해야 한다.
+    //   컷이 9.6s 라 마지막 판정(9.02) 뒤 요약을 띄울 자리가 없다 → summary:false.
+    summary: false,
+    beats: [[0.19, 'hit'], [2.02, 'hit'], [4.05, 'hit'],
+            [5.02, 'hit'], [5.15, 'miss'], [6.10, 'hit'],
+            [7.09, 'hit'], [9.02, 'hit']] },
   BX_C4: { title: 'COOL DOWN', phase: 3, sub: '3/3', coach: { num: '', unit: '' }, you: { num: '', unit: '' },
     say: 'Great work!', cues: ['Well done', 'Strong session', 'Nice one'], combos: [] },
 };
@@ -745,7 +749,9 @@ export class WallGL {
     //   ★ 창은 dur 기준이 아니라 **마지막 판정 뒤**로 연다. dur−1.4 로 열었더니 마지막 펀치
     //     전에 떠서 40% → 60% 로 올라갔다(아직 안 끝난 걸 '구간 종료'라 부른 셈).
     let sayExt = 0;   // 이벤트(구간 종료 등)에 윙 라인이 뻗는 축(drawBadge o.ext)
-    if (S.beats && t >= S.beats[S.beats.length - 1][0] + .5) {
+    //   ★ summary:false — 컷이 마지막 판정 직후에 끝나면 'Match Rate' 가 두어 프레임 번쩍이고
+    //     사라진다(08-05c: 실사 합성용 9.6s 컷, 마지막 비트 9.02 + 0.5 = 9.52). 그럴 땐 끈다.
+    if (S.beats && S.summary !== false && t >= S.beats[S.beats.length - 1][0] + .5) {
       say = 'Match Rate ' + Math.round((sc.hit / S.beats.length) * 100) + '%';
       sayExt = clamp01((t - (S.beats[S.beats.length - 1][0] + .5)) / .45);
     }

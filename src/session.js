@@ -750,8 +750,8 @@ export const STAGES = {
     { id:'BX_C2', wall:true, dur:11, live:true, label:'C2 · 실전 2/4 — 잽 대련', voice:['고수','타겟 뜨면 바로 잽. 가드는 내리지 말고.'], wear:'SAFE 가드 안정화' },
     // dur = 코치 클립 길이(bx_c3_combo.mp4 3.00초 — 1.4배속 리타임). 둘이 다르면 스테이지가 클립 위에서 밀려
     //   마커가 엉뚱한 자세에 뜬다 — 씬 루프 주기도 이 값의 정수배로 잡힌다(main.js).
-    // ⚠ dur 은 this.t 단위 = 부스트(1.18) 먹은 시각이다. 실시간 10.3334초 = 12.1934
-    { id:'BX_C3', wall:true, dur:12.1934, live:true, boost:true, label:'C3 · 실전 3/4 — 콤비네이션', voice:['고수','잽, 잽 — 마지막은 몸을 실어서 훅! 리듬 놓치지 말고.'], wear:'BOOST 스텝 추진', cue:'구간 종료 Match Rate' },   // dur = 마커 사이클 5.1667 × 2바퀴. 클립 길이(6.04)와는 일부러 다르다 — 대련이라 실루엣과 마커가 붙을 이유가 없다(08-05b)
+    // ⚠ dur 은 this.t 단위 = 부스트(1.18) 먹은 시각이다. 실시간 9.6초(실사 컷 길이) = 11.328
+    { id:'BX_C3', wall:true, dur:11.328, live:true, boost:true, label:'C3 · 실전 3/4 — 콤비네이션', voice:['고수','잽, 잽 — 마지막은 몸을 실어서 훅! 리듬 놓치지 말고.'], wear:'BOOST 스텝 추진', cue:'구간 종료 Match Rate' },   // dur = 마커 사이클 5.1667 × 2바퀴. 클립 길이(6.04)와는 일부러 다르다 — 대련이라 실루엣과 마커가 붙을 이유가 없다(08-05b)
     { id:'BX_C4', wall:true, live:true, cooldown:true, label:'C4 · 실전 4/4 — 마무리', voice:['고수','가드 내리고 숨 고르기. 오늘 잽, 확실히 좋아졌어요.'], hap:'완료 진동' },
     { id:'BX_FIN', wall:true, label:'B-F · 리포트', voice:['고수','내 잽이랑 겹쳐서 볼게요 — 어디가 달랐는지 보여요? 기록은 앱으로 보냈어요.'], cue:'Ghost Review — 고수 잽과 내 폼 겹쳐 보기' },
   ],
@@ -2961,17 +2961,37 @@ export class Session {
         //      내보내면 0.54/1.51 로 줄어 있었다(실측 08-05: session.t = (t-0.601)×1.18).
         //      → 여기서 실시간으로 되돌린다. 그래야 벽·마커·나레이션이 같은 초를 쓴다.
         const tR = this.t / (this.liveSpeed || 1);
-        const CY = 5.1667, tc = tR % CY;
-        const AT = [1.50, 2.14, 3.92];
+        //   ★★ 08-05c: 박자를 **절대 시각 목록**으로 바꿨다. 합성 대상 실사 영상
+        //      (Downloads/추추가전달00263376, 4096×2160 · 25fps · 9.6s)에서 인물이 실제로
+        //      주먹을 뻗는 시각에 마커를 물린다. 유저가 찍어 준 값이다:
+        //        0.19 · 2.02 · 4.05 · 5.02 · 5.15 · 6.10 · 7.09 · 9.02
+        //      이 사람은 잽·잽·훅을 끊어 하지 않고 계속 섀도복싱한다(상체 봉우리 20개/9.6초).
+        //      그래서 균등 사이클(CY)로는 못 맞춘다 — 비트마다 노드를 하나씩 넘긴다.
+        //      노드 = i % 3, 사이클 = floor(i / 3). 마지막 사이클은 2개라 라인이 덜 그려진다(정상).
+        const BEATS = [0.19, 2.02, 4.05, 5.02, 5.15, 6.10, 7.09, 9.02];
+        const NPC = 3;                                   // 사이클당 노드 수(잽·잽·훅)
+        let bi = 0; while (bi < BEATS.length && tR >= BEATS[bi]) bi++;   // 지나온 비트 수
+        //   ★ cyc 를 floor(bi/3) 로 하면 3번째 비트 직후 바로 다음 사이클로 넘어가 **완성된
+        //     펀치 라인(노드 3개 다 채워진 그림)이 한 프레임도 안 보인다**. 다음 비트가 실제로
+        //     올 때까지 그 사이클에 머물러야 한다 → (bi-1) 기준.
+        const cyc = bi === 0 ? 0 : Math.floor((bi - 1) / NPC);
+        const seg = bi - cyc * NPC;                      // 이 사이클에서 지나온 노드 수(0..3)
+        const base = cyc * NPC;
+        // 이 사이클이 시작한 시각 — 앞 사이클 마지막 비트(첫 사이클은 0)
+        const cycT = cyc === 0 ? 0 : BEATS[base - 1];
+        //   남은 비트가 없는 자리는 Infinity — 마지막 사이클(2개)에서 세 번째 노드가
+        //   두 번째와 같은 시각에 터지는 걸 막는다.
+        const AT = [0, 1, 2].map(i => base + i < BEATS.length ? BEATS[base + i] : Infinity);
+        const tc = tR;                                   // 아래 로직은 tc 를 AT 와 같은 축에서 쓴다
         // ★ 콤보 토큰 등장 페이드 — UI 가 다 뜨기 전에 잽잽훅이 시작해 어색했다(유저).
         //   클립 앞에 정지 구간을 붙여 봤지만 인물이 멈춰 있는 게 더 별로였다(유저) → 철회.
         //   대신 **토큰만** 늦게 페이드인한다. 인물은 처음부터 자연스럽게 움직인다.
         //   씬 UI 마지막(자막)이 1.48s 에 끝난다. 첫 마커가 1.50s 라 0.9s~1.5s 에 걸쳐 올린다
         //   = 첫 잽 직전에 완성. this.t(스테이지 시각) 기준이라 첫 바퀴에만 걸린다.
-        const c3In = clamp01((tR - 0.9) / 0.6);   // ★ 반드시 tR(실시간 환산 스테이지 시각) — 익스포터가 이걸 프레임마다 직접 넣는다. 실시간 누적기(_enterT)를 쓰면 렌더에선 첫 프레임부터 이미 커져 페이드가 통째로 안 걸린다.
-        let seg = 0;                                   // 지나온 노드 수(0..2) + 구간 진행
-        for (let i = 0; i < AT.length; i++) if (tc >= AT[i]) seg = i + 1;
-        const prev = seg === 0 ? 0 : AT[seg - 1], next = AT[Math.min(seg, AT.length - 1)];
+        //   ★ 08-05c: 첫 주먹이 0.19s 라 페이드인을 넣을 자리가 없다. 이 컷은 진행 중인 세션의
+        //     9.6초를 잘라 쓰는 것이라 투사 화면은 처음부터 켜져 있는 게 맞다 — 즉시 등장.
+        const c3In = clamp01(tR / 0.15);
+        const prev = seg === 0 ? cycT : AT[seg - 1], next = AT[Math.min(seg, AT.length - 1)];
         const f = seg >= AT.length ? 1 : clamp01((tc - prev) / Math.max(0.01, next - prev));
         // ★ 채찍 매핑 v2 — ease-out(빨랐다 감속 도착)은 타격감이 죽었다(유저: 느렸다 빨라지는
         //   쫀득함). 앞 60% 코일(15%까지 스멀) → 마지막 40% **ease-in 가속**, 노드에 최고 속도로
@@ -3012,8 +3032,8 @@ export class Session {
         //   벽 스코어(wallgl SCENES.beats)와 같은 대본이라 몸의 노드와 벽의 점수가 같은 말을 한다.
         //   실전 연결 시 judge.js 의 verdict 를 그대로 넣으면 된다.
         // 사이클별 대본 — 벽 점수(wallgl SCENES.BX_C3.beats)와 완전 동일: 팡 = 카운터 팝이 한 프레임
-        const C3_VD_CY = [['hit', 'hit', 'hit'], ['hit', 'miss', 'hit']];
-        const C3_VD = C3_VD_CY[Math.min(C3_VD_CY.length - 1, Math.floor(tR / CY))];
+        const C3_VD_CY = [['hit', 'hit', 'hit'], ['hit', 'miss', 'hit'], ['hit', 'hit', 'hit']];
+        const C3_VD = C3_VD_CY[Math.min(C3_VD_CY.length - 1, cyc)];
         this.bxCombo._prim.P.vd = C3_VD.slice(0, seg);
         const SUCC = 0.5;                    // 성공 1회의 길이(파형이 퍼져 나가는 시간)
         for (let i = 0; i < this.bxC3ok.length; i++) {
