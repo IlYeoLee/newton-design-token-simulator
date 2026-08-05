@@ -12,8 +12,8 @@ const shots = await p.evaluate(async (preset) => {
   document.querySelector('#play').click();               // 정지
   await new Promise(r => setTimeout(r, 300));
   const out = [];
-  for (const id of ['A2', 'P1', 'BK_B1', 'BK_B5']) {
-    for (const [tag, tt] of [['관찰', 1.5], ['따라하기', 5.0]]) {
+  for (const id of ['A1', 'A2', 'BK_B5']) {
+    for (const [tag, tt] of [['t0.3', 0.3], ['t1.2', 1.2], ['t5.0', 5.0]]) {
       const c = window.__cells.find(x => x.st.id === id); if (!c) continue;
       c.gl.resetAnim(); c.gl.t = 0;
       for (let s = 0; s < tt + 0.23; s += 1 / 30) { c.gl.t = s; c.gl._sig = null; c.gl._lastPaint = -1; try { c.gl.update(1 / 30); } catch {} }
