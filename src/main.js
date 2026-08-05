@@ -5973,6 +5973,11 @@ void main(){
         _fpSmooth = null;   // 스테이지 전환 = 앵커 스냅(슬라이딩 방지)
       }
       if (floorGLOn) floorGL.update(_uiDt);
+      // ★ 지면 UI 위상을 세션에 넘긴다 — floorGL 은 **자기 시계**로 돈다(씬 프리뷰에서 특히).
+      //   실측: session.t%8 = 4.76 일 때 floorGL.t%8 = 0.25. 발자국만 세션 시계를 보고 있어서
+      //   하단 패널·CTA(플로어 시계)와 영영 안 맞았다(유저 3회 신고). 한 시계로 통일한다.
+      if (floorGLOn) session.readyPhase = (floorGL.t || 0) % 8;
+      else session.readyPhase = null;
       // 읽는 UI(프레임·발자국)는 빔 흔들림(투사오차 지터, 무릎 각속도 비례 — 다리 스윙 때 최대)을 그대로
       // 따르면 글자가 삐걱임(유저). 앵커를 저역통과(≈90ms 시정수)해 인물 총체 이동만 남기고 지터 제거.
       // 빔·토큰은 원본 rig._fp 그대로라 '정직한 흔들림' 유지 — 읽기용 콘텐츠만 안정화.

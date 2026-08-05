@@ -1695,11 +1695,11 @@ export class FloorGL {
         //   안 맞는 사인 셋(스케일 x·y·세로 이동)이라 패턴이 반복으로 안 읽힌다.
         //   프로토타입 .hero-blur 의 두 슬랩 드리프트와 같은 취지 — 하나면 '미끄러짐'이고
         //   둘 이상이어야 '숨쉬기'가 된다. 진폭은 작게(±3.5% · ±11px).
-        const w = t * 0.55, cx0 = gx + gw / 2, cy0 = gy + gh / 2;
+        const w = t * 0.42, cx0 = gx + gw / 2, cy0 = gy + gh / 2;
         ctx.translate(cx0, cy0);
-        ctx.scale(1 + 0.035 * Math.sin(w), 1 + 0.028 * Math.sin(w * 0.73 + 1.7));
-        ctx.translate(-cx0, -cy0 + 11 * Math.sin(w * 0.61 + 0.4));
-        ctx.globalAlpha *= 0.92 + 0.08 * Math.sin(w * 0.89 + 2.3);
+        ctx.scale(1 + 0.055 * Math.sin(w), 1 + 0.042 * Math.sin(w * 0.73 + 1.7));
+        ctx.translate(-cx0, -cy0 + 19 * Math.sin(w * 0.61 + 0.4));
+        ctx.globalAlpha *= 0.88 + 0.12 * Math.sin(w * 0.89 + 2.3);
       }
       ctx.drawImage(im, gx, gy, gw, gh);
       ctx.restore();

@@ -2115,7 +2115,7 @@ export class Session {
    *  등장 = **페이드 인/아웃만**(유저 08-05: 퍼지는 모션은 너무 복잡하다). 자리는 고정. */
   _readyFeetTick() {
     const F = this.readyFeet; if (!F) return;
-    const tl = this.t % 8;
+    const tl = this.readyPhase != null ? this.readyPhase : (this.t % 8);   // 지면 UI 와 같은 시계(main 이 넘긴다)
     // ★ 하단 슬롯 타임라인은 floorgl _paint_ready 의 TP3 를 따른다(현재 4.6 — 인물 유지가
     //   2.0→3.0 으로 길어지며 뒤로 밀렸다). 4.0 에 그대로 두니 패널 페이드아웃(4.15~4.6)과
     //   발자국 등장이 겹쳐 알약 위에 발이 포개졌다(유저 #166). 패널이 완전히 빠진 뒤에 뜬다.
