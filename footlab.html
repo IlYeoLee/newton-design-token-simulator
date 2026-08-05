@@ -50,11 +50,11 @@
     border-radius:8px;padding:8px;font:11px/1.5 ui-monospace,Consolas,monospace;resize:vertical}
   .note{color:var(--dim);font-size:11px;margin:8px 0 0}
   .warn{color:var(--red);font-size:11.5px;margin:8px 0 0;display:none}
-</style>  <script type="module" crossorigin src="./assets/footlab-DRGzcQ61.js"></script>
+</style>  <script type="module" crossorigin src="./assets/footlab-Y3yg84uG.js"></script>
   <link rel="modulepreload" crossorigin href="./assets/modulepreload-polyfill-B5Qt9EMX.js">
-  <link rel="modulepreload" crossorigin href="./assets/fx-core-B5jZImdK.js">
-  <link rel="modulepreload" crossorigin href="./assets/fxlut-CDVufDlq.js">
-  <link rel="modulepreload" crossorigin href="./assets/tokens-xwqoWK7x.js">
+  <link rel="modulepreload" crossorigin href="./assets/fx-core-CvIaicgI.js">
+  <link rel="modulepreload" crossorigin href="./assets/fxlut-DZ58rvCH.js">
+  <link rel="modulepreload" crossorigin href="./assets/tokens-3PdY6NH6.js">
 </head><body>
 <div class=wrap>
   <div class=panel>
@@ -67,6 +67,7 @@
     </fieldset>
 
     <fieldset><legend>각인 (안 = 맨발 자국)</legend>
+      <div class=row><label>투명도 op</label><input type=range id=op min=0 max=1 step=.01><span class=v id=vop></span></div>
       <div class=row><label>세기 uImp</label><input type=range id=imp min=0 max=1.6 step=.02><span class=v id=vimp></span></div>
       <div class=row><label>자국 축소</label><input type=range id=scale min=.7 max=1.06 step=.005><span class=v id=vscale></span></div>
       <div class=row><label>이동 X</label><input type=range id=offx min=-.16 max=.16 step=.001><span class=v id=voffx></span></div>
@@ -75,6 +76,7 @@
       <div class=acts><button id=fit>자동 맞춤 — 신발 안으로</button></div>
       <div class=row><label>도트 간격</label><input type=range id=pitch min=.008 max=.08 step=.001><span class=v id=vpitch></span></div>
       <div class=row><label>점 크기</label><input type=range id=dot min=.05 max=.5 step=.005><span class=v id=vdot></span></div>
+      <div class=seg id=segDotCol style="margin:2px 0 6px"><button data-v=0>흰</button><button data-v=1 class=on>샌드</button><button data-v=2>코랄</button><button data-v=3>레드</button></div>
       <div class=row><label>이너 섀도우</label><input type=range id=shade min=0 max=1.4 step=.01><span class=v id=vshade></span></div>
       <div class=seg id=segShadeCol style="margin:2px 0 6px"><button data-v=0 class=on>흰</button><button data-v=1>샌드</button><button data-v=2>코랄</button><button data-v=3>레드</button></div>
       <div class=row><label>아웃라인 선명</label><input type=range id=sharp min=0 max=1 step=.02><span class=v id=vsharp></span></div>
@@ -153,7 +155,12 @@
       <div class=row><label>기울기°</label><input type=range id=tilt min=-20 max=20 step=1><span class=v id=vtilt></span></div>
     </fieldset>
 
-    <div class=acts><button id=save>코드에 저장 — 이 값이 시뮬로 간다</button></div>
+    <div class=seg id=segEdit style="margin:6px 0 10px">
+      <button data-v=common class=on>공통 편집</button><button data-v=state>이 상태만 편집</button>
+      <button id=ovClear style="margin-left:8px">이 상태 오버라이드 지우기</button>
+    </div>
+    <div class=acts><button id=save>코드에 저장 — 이 값이 시뮬로 간다</button>
+      <button id=saveTap>8번째 토큰(Tap2)으로 저장 — READY 탭 발자국</button></div>
     <div class=acts><button id=undo>되돌리기 ⌘Z</button><button id=redo>다시 ⇧⌘Z</button></div>
     <div class=acts><button id=reset>기본값</button><button id=copy>현재값 복사</button></div>
     <p class=warn id=warn></p>
@@ -166,7 +173,7 @@
       <canvas id=hero width=640 height=640></canvas>
     </div>
     <div class=card>
-      <h2>7상태 × 두 표현형 — 윗줄 발형 · 아랫줄 원형(존). 셀을 클릭하면 위 확대로</h2>
+      <h2>8상태 × 두 표현형 — 윗줄 발형 · 아랫줄 원형(존). 8번째 Tap2 = READY 탭 어포던스(무채↔석세스 2회 깜빡). 셀을 클릭하면 위 확대로</h2>
       <canvas id=strip width=1120 height=460></canvas>
     </div>
     <div class=card>
