@@ -1498,11 +1498,15 @@ export class FloorGL {
     //    페이즈2 = 알약이 **원으로 줄어들며** 링 게이지 + 끝점 도트가 생기고, % 는 사라진다.
     //              이어폰 포드는 같은 순간 코치 사진으로 바뀐다(연결됨).
     {
-      const PODS = [
-        { cx: 205, cy: 1150, icon: 'glasses', pct: 85, d: .95 },
-        { cx: 1395, cy: 1150, icon: 'earbuds', pct: 85, d: 1.05, coach: true },
-      ];
       const RP = 109, PW = 226, PH = 392;   // 원 반지름 / 알약 폭·높이(피그마 비율 1.73)
+      // 세 컨테이너(포드–캡슐–포드)는 **같은 간격**으로 떨어져야 한다(유저 #114).
+      //   하드코딩 cx(205/1395)는 캡슐(291..1309)을 27px 씩 파고들어 붙어 보였다 →
+      //   캡슐 좌우 끝에서 GAP 만큼 밀어 유도한다. GAP 45 기준 포드 바깥끝 20/1580 = 캔버스 안.
+      const GAP = 45, CAP_X0 = 291, CAP_X1 = 291 + 1018;
+      const PODS = [
+        { cx: CAP_X0 - GAP - PW / 2, cy: 1150, icon: 'glasses', pct: 85, d: .95 },
+        { cx: CAP_X1 + GAP + PW / 2, cy: 1150, icon: 'earbuds', pct: 85, d: 1.05, coach: true },
+      ];
       PODS.forEach(P => {
         const e = e0(P.d, .7);
         // 등장 = 알약이 **길어지며** 나타난다(유저) — 세로만 자란다.
