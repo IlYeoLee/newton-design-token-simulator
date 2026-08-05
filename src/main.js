@@ -2325,8 +2325,13 @@ void main(){
     //   그래서 클립 자체를 0.78 로 줄여 순수 그린(#00FF00)으로 사방 11% 패딩(ffmpeg, 828×1108 유지).
     //   패딩은 키에서 100% 빠지므로 페이드는 여백만 먹는다. w/h 는 1/0.78 배로 올려 화면 크기 보존.
     // 인물 1.2배 + 위로(유저 08-05: 캡슐 하단 130 축소 후 인물이 빛에 묻혀 안 보인다)
-    READY:    { src: 'ready-view/assets/run/runner_green.mp4', cropOff: 0.0, cropScale: 1.0, w: 0.432, h: 0.578, fwd: 0.10, ph: 0.76 },
-    BK_READY: { src: 'ready-view/assets/bk/dribble_green.mp4', cropOff: 0.0, cropScale: 1.0, w: 0.432, h: 0.578, fwd: 0.10, ph: 0.76 },   // 러닝과 동일 규격
+    // ★ 첫 화면 인물 = 홈 프로토타입 히어로 클립(유저 08-05, dab2n.github.io/figma-prototype).
+    //   두 클립 다 **순수 검정 배경**이라 그린 키가 필요 없다 — 인물 셰이더의 불변식
+    //   'alpha ≤ 빛의 세기'(alpha = min(alpha, max(rgb)*k))가 검정을 알파 0 으로 떨군다.
+    //   판 비율은 소스 종횡비에 맞춘다(안 맞추면 늘어난다): sean 720x1280(.5625) · curry 960x960(1.0).
+    //   높이(h .578)는 기존 크기감 유지 — 폭만 종횡비에서 파생.
+    READY:    { src: 'ready-view/assets/proto/sean-card.mp4', cropOff: 0.0, cropScale: 1.0, w: 0.325, h: 0.578, fwd: 0.10, ph: 0.76 },
+    BK_READY: { src: 'ready-view/assets/proto/curry-card.mp4', cropOff: 0.0, cropScale: 1.0, w: 0.578, h: 0.578, fwd: 0.10, ph: 0.76 },   // 1:1 소스라 정사각 판
     A1: { src: 'ready-view/assets/sean_neck_shoulder.webm', cropOff: 0.40, cropScale: 0.58, w: 0.62, h: 0.64, fwd: 0.02, ph: 0.83 },   // 프리뷰 캡슐 안 — 타이틀 안 가리게 축소·아래(유저 08-05)
     A2: { src: 'ready-view/assets/sean_lunge.webm', cropOff: 0.0, cropScale: 1.0, w: 0.9, h: 0.9, fwd: -0.02, zoom: 0.86, ph: 0.65 },   // fwd .10→-.02 = 0.12m(≈175px) 아래로 — 머리가 캡슐 하단과 겹쳤다(유저 #151)   // 런지 전신 측면 — 축소로 뒷발이 프레임 페이드에 안 걸리게(유저)
     A3: { src: 'ready-view/assets/sean_highknee.webm', cropOff: 0.0, cropScale: 1.0, w: 0.82, h: 0.82, fwd: -0.04, ph: 0.87 },   // 하이니 — 캡슐 카드 아래로(머리 겹침 방지, 캡슐 시스템)
