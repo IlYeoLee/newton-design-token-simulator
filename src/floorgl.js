@@ -2910,7 +2910,11 @@ export class FloorGL {
       // 알약이 HUG 라 높이가 장면마다 다르다 — **실제 알약 바닥**에서 간격을 띄운다.
       //   폭도 알약에서 파생(progK) — 상수로 두면 알약보다 넓어진다.
       const ay = y + h + TOK.gapHP;
-      const wA = Math.min(LAYOUT.PROG.wMax, safeW(ay) - TOK.safePad, w * TOK.progK);
+      // ★ 알약이 접혀 사라졌으면(h 0) 알약 폭을 따라가면 안 된다 — 아크가 같이 쪼그라든다
+      //   (실측: A1 이 117px 로 줄었다). 붙을 대상이 없으니 상한을 쓴다 — _dots 와 같은 규약.
+      const wA = h > 0
+        ? Math.min(LAYOUT.PROG.wMax, safeW(ay) - TOK.safePad, w * TOK.progK)
+        : Math.min(LAYOUT.PROG.wMax, safeW(ay) - TOK.safePad);
       this._boxes?.push({ k: 'arc', x: CX - wA / 2, y: ay, w: wA, h: 0 });
       arcGauge(ctx, CX - wA / 2, ay, wA, clamp01((t - PV) / Math.max(.1, dur - PV)));
       ctx.restore();
