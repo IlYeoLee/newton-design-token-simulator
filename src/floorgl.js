@@ -970,7 +970,7 @@ function buildScene(stage, p) {
   //   유리 알약 + 왼쪽에 카운트 링(정본 countRing) + 동작명. 시작화면 캡슐이 작아져 올라온
   //   것으로 읽히고, 카운트다운 링이 형태를 안 바꾸고 그 자리에 앉는다.
   //   타이머는 기존 컴포넌트 그대로 — 새로 그리지 않는다.
-  if (!isC) col.push(node('s-head', { type: 'capHead', title: S.title, dur: p.dur || 8 }));
+  if (!isC) col.push(node('s-head', { type: 'capHead', title: S.title, dur: p.dur || 8, pv: hasPrev ? (p.pv || 3) : 0 }));
   // ★ 가이드 문구는 대문자(유저 08-05) — 복싱(벽)이 세션마다 대문자라 지면도 같은 규약으로.
   //   한글은 toUpperCase 가 무영향이라 그대로 지나간다. 이름·수치는 대상이 아니다.
   col.push(node('s-cue', { type: 'text', textContent: String(S.cue || '').toUpperCase(), size: 52, weight: 400, color: 'rgba(255,255,255,.72)', style: { display: 'none' } }));
@@ -978,7 +978,10 @@ function buildScene(stage, p) {
   //   페이스 팩에서 누적 거리를 안 쓰는 이유: 달리는 중에 필요한 건 이미 한 양이 아니라 남은 양이다
   //   (남은 거리는 아래 paceSub 로 내려간다). 누적은 리포트에서 볼 값.
   if (isC) col.push(PACE_PACK ? node('pace-err', { type: 'paceErr' }) : node('km', { type: 'km' }));
-  if (hasPrev) col.push(node('prev-row', { type: 'prevRow', pv: p.pv || 3, pvn: p.pvn || 0 }));
+  // ★ 레거시 prevRow 폐기(유저: 농구는 러닝 디자인시스템조차 적용 안 된 것 같다).
+  //   'PREVIEW →' 알약 + 별도 카운트 링은 **헤더(capHead)의 카운트 링과 같은 값을 두 번** 말한다.
+  //   관찰 카운트다운은 헤더 링이 전담한다 — 캡슐 경로(_paint_capsule)와 같은 규약.
+  //   (pv 는 capHead 로 넘겨 관찰 구간을 세게 한다)
   // 도트 진행바 — 원본 HTML의 노출 규칙 두 가지를 그대로 따른다.
   //  ① 시범(Preview) 동안은 감춘다. 공간도 차지하지 않는다 — 프리뷰가 그 자리를 쓰기 때문.
   //  ② 스텝백 따라하기(BK_B2~B5)엔 아예 없다. 진행은 상단 n/4 가 담당(유저 확정).
@@ -1254,9 +1257,11 @@ export class FloorGL {
     ctx.strokeStyle = rim; ctx.lineWidth = 2.5; path(); ctx.stroke();
     // 카운트 링 — 정본 컴포넌트 그대로(형태 변환 없음, 자리만 여기다)
     const cyR = y + HH / 2, cxR = x + PAD + RR;   // 링 왼쪽 여백 = pad(상하와 동일)
-    const dur = n.dur || 8, rem = Math.max(0, Math.ceil(dur - this.t));
+    // 관찰 구간(pv초)엔 3·2·1, 이후엔 남은 시간 — 캡슐 경로와 같은 규약(값이 두 곳에서 안 갈린다).
+    const dur = n.dur || 8, PV = n.pv || 0, inPv = PV > 0 && this.t < PV;
+    const rem = inPv ? Math.max(1, Math.ceil(PV - this.t)) : Math.max(0, Math.ceil(dur - this.t));
     if (String(rem) !== this._numLast2) { this._numLast2 = String(rem); this._numT2 = this.t; }
-    countRing(ctx, cxR, cyR, clamp01(1 - this.t / dur), String(rem),
+    countRing(ctx, cxR, cyR, inPv ? clamp01(1 - this.t / PV) : clamp01(1 - (this.t - PV) / Math.max(.1, dur - PV)), String(rem),
       { t: 99, k: RR / 275, pulse: clamp01((this.t - (this._numT2 || 0)) / 0.5),
         ring: { trackW: 10, arcW: 10, trackA: .26 } });
     ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
