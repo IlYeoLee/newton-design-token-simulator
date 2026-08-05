@@ -652,6 +652,46 @@ DEV.push(
   ['2단 그리드 · 눈금 (폭에서 파생)', null, (g, t) => devGrid(g, t, 'tick'),
    '눈금 <b>개수를 고정하면 안 된다</b> — 21개를 232px 에 넣으면 6px 획이 붙어 회색 띠가 된다. 고정할 것은 <b>간격</b>(획 6 + 여백 16 = 22px)이고 개수는 폭에서 나온다(232px → 11칸). 좁아져도 칸이 보이므로 편차가 계속 읽힌다.'],
 );
+// ═══ 세션 타임라인 위치 — 아래 있으면 안 보이지 않나(유저) ═══════════════════════
+//  실측 정정: 앞서 '아래가 가장 가까워 크게 보인다'고 했는데, 가깝다는 건 **발밑**이라는 뜻이다.
+//  대지 y2670 은 발 앞 0.17m — 몸과 발에 가려지고 시선을 크게 내려야 한다. 반대로 y176 은
+//  발 앞 1.88m 로, 코치를 보는 시선 안에 그대로 들어온다. '가장 큼' 과 '가장 잘 보임' 은 다르다.
+function tlScene(g, t, where) {
+  const cx = 800, e = eOut(intro(t, .06, .8)), p = (t % 8) / 8;
+  const HX = cx - 330, HY = 170, HW = 660, HH = 190;
+  const header = () => {
+    capsule(g, HX, HY, HW, HH);
+    g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#fff';
+    g.font = RF(700, 58); g.letterSpacing = '-2px'; g.fillText('High Knees', cx, HY + 66); g.letterSpacing = '0px';
+    g.font = RF(700, 68, DOT); g.fillText('12', cx - 24, HY + 140);
+    capLabel(g, 'sec', cx + 62, HY + 146, .5, 32);
+  };
+  if (where === 'ring') {
+    // ③ 헤더 알약 자체가 게이지 — 테두리가 차오른다(별도 요소를 안 늘린다)
+    header();
+    const per = (HW - HH) * 2 + Math.PI * HH, seg = per * p;
+    g.save(); g.strokeStyle = '#FEC389'; g.lineWidth = 8; g.lineCap = 'round';
+    g.shadowColor = '#FEC389'; g.shadowBlur = 22;
+    g.setLineDash([seg, per]); g.lineDashOffset = -(HW - HH) / 2;
+    g.beginPath(); g.roundRect(HX, HY, HW, HH, HH / 2); g.stroke();
+    g.setLineDash([]); g.restore();
+  } else header();
+  if (where === 'top') arcGauge(g, cx - 420, HY + HH + 96, 840, p);       // ② 헤더 바로 아래
+  coach(g, cx, where === 'top' ? 1200 : 1120, 1180, e);
+  footMarks(g, cx, where === 'top' ? 1800 : 1735, 1.25, t);
+  if (where === 'mid') arcGauge(g, cx - 460, 2010, 920, p);               // ④ 발마크 바로 아래
+  if (where === 'bottom') arcGauge(g, cx - 500, 2430, 1000, p);           // ① 현재 — 대지 맨 아래
+}
+const TL = [
+  ['① 대지 맨 아래 (현재)', null, (g, t) => tlScene(g, t, 'bottom'),
+   '발 앞 <b>0.17m</b> — 사실상 발밑이라 몸·발에 가려지고 시선을 크게 내려야 본다. 화면상 가장 크게 보이는 건 맞지만 <b>가장 잘 보이는 자리는 아니다</b>.'],
+  ['② 헤더 바로 아래', null, (g, t) => tlScene(g, t, 'top'),
+   '발 앞 <b>1.7m</b> 근처 — 코치를 보는 시선 안에 그대로 들어온다. 동작명·남은 시간과 한 덩어리로 읽혀 "이 동작 / 이 세션" 두 시계가 위아래로 정렬된다. 대신 상단 정보량이 늘어난다.'],
+  ['③ 헤더 알약이 게이지 (통합)', null, (g, t) => tlScene(g, t, 'ring'),
+   '요소를 <b>늘리지 않는다</b> — 알약 테두리가 차오른다. 시선이 이미 가 있는 곳에 진행이 얹히므로 따로 볼 필요가 없다. 정밀한 값 읽기는 어렵지만 세션 진행은 원래 정밀할 필요가 없다.'],
+  ['④ 발마크 바로 아래', null, (g, t) => tlScene(g, t, 'mid'),
+   '판정(발마크) 과 한 묶음. 발을 볼 때 같이 들어오지만, 판정 마크와 <b>같은 층으로 읽혀</b> 어느 게 "지금 잘하고 있나"이고 어느 게 "얼마나 남았나"인지 헷갈릴 수 있다.'],
+];
 // ═══ 전환 인터랙션 — 프리뷰 A → 따라하기 A 를 한 타임라인으로(유저: 전환도 미리보기) ═══
 //   한 물체(캡슐)가 물러나며 작아지고, 그 자리를 사람과 지면 마크가 이어받는다.
 const T_HOLD = 1.6, T_MOVE = 1.0, CY_LOOP = 5.4;
@@ -791,9 +831,10 @@ function build() {
     : MODE === 'cont' ? '컨테이너 문법 — 큰 알 유리 카드가 바닥 투사에 맞나 (알 값·필·라인)'
     : MODE === 'lay' ? '밀도·사이즈 — 간격 위계와 영상 크기 상한'
     : MODE === 'dev' ? '눈금 스케일 — 값 하나를 어떻게 읽히게 할 것인가 (레퍼런스 이식)'
+    : MODE === 'tl' ? '세션 타임라인을 어디에 둘 것인가 — 나머지는 동일, 타임라인 자리만 다르다'
     : '프리뷰 → 따라하기 전환 (A안 · 5.4초) — 슬라이더로 스크럽';
-  if (MODE === 'redo' || MODE === 'prog' || MODE === 'cont' || MODE === 'lay' || MODE === 'dev') {
-    for (const [nm, src, fn, ds] of ({ redo: REDO, prog: PROG, cont: CONT, lay: LAY, dev: DEV }[MODE])) {
+  if (MODE === 'redo' || MODE === 'prog' || MODE === 'cont' || MODE === 'lay' || MODE === 'dev' || MODE === 'tl') {
+    for (const [nm, src, fn, ds] of ({ redo: REDO, prog: PROG, cont: CONT, lay: LAY, dev: DEV, tl: TL }[MODE])) {
       const d = document.createElement('div'); d.className = 'cell';
       let el;
       if (src) { el = document.createElement('img'); el.src = '/' + src; el.style.cssText = 'width:328px;display:block;border-radius:14px'; }
@@ -834,7 +875,7 @@ function build() {
     row.appendChild(d); cells.push([cv, fn]);
   }
 }
-for (const [k, lb] of [['preview', '프리뷰(관찰)'], ['follow', '따라하기'], ['flow', '▶ 전환 인터랙션 (A안)'], ['sys', '◆ 실제 화면 캡처'], ['redo', '★ 캡슐 리디자인'], ['prog', '◇ 진행 배치 비교'], ['cont', '◈ 컨테이너 문법'], ['lay', '▤ 밀도·사이즈'], ['dev', '◎ 눈금 스케일']]) {
+for (const [k, lb] of [['preview', '프리뷰(관찰)'], ['follow', '따라하기'], ['flow', '▶ 전환 인터랙션 (A안)'], ['sys', '◆ 실제 화면 캡처'], ['redo', '★ 캡슐 리디자인'], ['prog', '◇ 진행 배치 비교'], ['cont', '◈ 컨테이너 문법'], ['lay', '▤ 밀도·사이즈'], ['dev', '◎ 눈금 스케일'], ['tl', '⌁ 타임라인 위치']]) {
   const b = document.createElement('button'); b.textContent = lb;
   if (k === MODE) b.className = 'on';
   b.onclick = () => { MODE = k; document.querySelectorAll('.seg button').forEach(x => x.classList.remove('on')); b.classList.add('on'); build(); };
