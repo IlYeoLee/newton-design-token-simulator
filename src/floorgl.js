@@ -735,6 +735,59 @@ function drawRing(ctx, n, y, prog, color) {
   ringGauge(ctx, CX, y + n.size / 2, 275 * n.size / 604, prog, { color });
 }
 
+/** 3·2·1 카운트다운 링 — **정본 컴포넌트**. floor-timer.html(_paint_timer)이 쓰던 코드를
+ *  그대로 꺼낸 것이라 링 규격(604 · r275)·도트 숫자(220)·모션(ringPop 0.6→1.05→1 ·
+ *  ringBreath 3회 · numPulse 1.5→1)이 전부 원본과 같다.
+ *  왜 뺐나(유저 2회 지적): 다른 화면에서 카운트다운이 필요할 때마다 링과 숫자를 **다시 그리면**
+ *  같은 물건이 화면마다 다른 물건이 된다. 쓰는 쪽은 이 함수만 부른다.
+ *  o.t = 컴포넌트 로컬 시간(등장 모션용) · o.pulse = 숫자 바뀐 뒤 경과(0~1, numPulse) ·
+ *  o.k = 크기 배율(1 = 604) · o.alpha · o.morph(0~1) = 링→알약 형태 변환(0 이면 순수 링). */
+export function countRing(ctx, cx, cy, prog, txt, o = {}) {
+  const t = o.t ?? 99, K2 = o.k ?? 1, mo = clamp01(o.morph ?? 0);
+  const e = eOut(intro(t, .35, .8)), br = cycle(t, 1.2, 3, 3);
+  ctx.save();
+  ctx.globalAlpha *= kf(e, [[0, 0], [.7, 1], [1, 1]]) * (o.alpha ?? 1);
+  const k = kf(e, [[0, .6], [.7, 1.05], [1, 1]]);
+  ctx.translate(cx, cy); ctx.scale(k, k); ctx.translate(-cx, -cy);
+  if (br != null && mo < .5) {
+    const g2 = kf(br, [[0, 0], [.5, 1], [1, 0]]) * (1 - mo * 2);
+    ctx.shadowColor = `rgba(255,255,255,${.35 * g2})`; ctx.shadowBlur = 26 * g2;
+  }
+  const R2 = 275 * K2;
+  if (mo <= 0) {
+    ringGauge(ctx, cx, cy, R2, prog, { color: '#fff' });
+  } else {
+    // 형태 변환 — 링(정사각 roundRect, r=반지름)에서 알약(폭 pw · 높이 100k · r 50k)으로.
+    //   같은 패스를 채움 0→.34 · 외곽선 1→0 으로 넘기면 '선으로 그린 링'이 '채워진 알약'이 된다.
+    const pw = (o.pillW ?? 200) * K2, ph = 100 * K2;
+    const L = (a, b) => a + (b - a) * mo;
+    const w2 = L(R2 * 2, pw), h2 = L(R2 * 2, ph), r2 = L(R2, 50 * K2);
+    const path = () => { ctx.beginPath(); ctx.roundRect(cx - w2 / 2, cy - h2 / 2, w2, h2, r2); };
+    ctx.save();
+    ctx.shadowColor = 'rgba(255,255,255,.8)'; ctx.shadowBlur = 34 * mo;
+    ctx.fillStyle = `rgba(255,255,255,${.34 * mo})`; path(); ctx.fill();
+    ctx.restore();
+    ctx.strokeStyle = `rgba(255,255,255,${.38 * (1 - mo)})`; ctx.lineWidth = 3; path(); ctx.stroke();
+    if (mo < .9) {   // 진행 광점 — 링일 때만
+      const pa = prog * Math.PI * 2 - Math.PI / 2;
+      ctx.save(); ctx.globalAlpha *= 1 - mo / .9;
+      ctx.beginPath(); ctx.arc(cx + Math.cos(pa) * w2 / 2, cy + Math.sin(pa) * h2 / 2, 9 * K2, 0, 7);
+      ctx.fillStyle = '#fff'; ctx.fill(); ctx.restore();
+    }
+  }
+  ctx.shadowBlur = 0;
+  // numPulse — 숫자가 바뀔 때 1.5 → 1
+  const q = clamp01(o.pulse ?? 1), nk = kf(q, [[0, 1.5], [1, 1]], eOut);
+  ctx.save();
+  ctx.globalAlpha *= kf(q, [[0, 0], [.35, 1], [1, 1]]);
+  ctx.translate(cx, cy); ctx.scale(nk, nk); ctx.translate(-cx, -cy);
+  // 카운트다운은 'GO' 까지 도트(유저 확정) — 숫자-전용 규약의 명시적 예외.
+  ctx.font = F(700, (220 - 152 * mo) * K2, dot9);
+  ctx.fillStyle = o.fill || '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(txt, cx, cy);
+  ctx.restore();
+  ctx.restore();
+}
 function drawCenteredNum(ctx, text, cx, cy, size) {
   // 도트는 숫자에만 — 값이 없어 '—' 를 띄우는 순간까지 도트로 찍히면 안 된다(유저 규약).
   ctx.font = F(700, size, /\d/.test(String(text)) ? dot9 : sans);
@@ -2024,29 +2077,10 @@ export class FloorGL {
     this._bgGlow(GLOW_Y);
     const y = this._titleGroup(GLOW_Y - RING / 2 - GAP - TGH, M.sub, M.title) + GAP;
     const cy = y + RING / 2, rem = dur - t, txt = rem > 0.05 ? String(Math.ceil(rem)) : 'GO';
-    // ringPop .8s .35s + ringBreath 3s 1.2s ×3
-    const e = eOut(intro(t, .35, .8)), br = cycle(t, 1.2, 3, 3);
-    ctx.save();
-    ctx.globalAlpha *= kf(e, [[0, 0], [.7, 1], [1, 1]]);
-    const k = kf(e, [[0, .6], [.7, 1.05], [1, 1]]);
-    ctx.translate(CX, cy); ctx.scale(k, k); ctx.translate(-CX, -cy);
-    if (br != null) {
-      const g = kf(br, [[0, 0], [.5, 1], [1, 0]]);
-      ctx.shadowColor = `rgba(255,255,255,${.35 * g})`; ctx.shadowBlur = 26 * g;
-    }
-    drawRing(ctx, { size: 604 }, y, clamp01(t / dur), '#fff');
-    ctx.shadowBlur = 0;
-    // numPulse — 숫자가 바뀔 때마다 .5s
+    // ★ 여기 있던 링·숫자·모션 코드가 countRing 정본 컴포넌트가 됐다(유저: 컴포넌트 자체를 재사용).
+    //   출력은 동일 — 규격(604·220)과 모션(ringPop·breath·numPulse)을 그대로 옮겼다.
     if (txt !== this._numLast) { this._numLast = txt; this._numT = t; }
-    const q = clamp01((t - this._numT) / 0.5), nk = kf(q, [[0, 1.5], [1, 1]], eOut);
-    ctx.save();
-    ctx.globalAlpha *= kf(q, [[0, 0], [.35, 1], [1, 1]]);
-    ctx.translate(CX, cy); ctx.scale(nk, nk); ctx.translate(-CX, -cy);
-    // 카운트다운은 'GO' 까지 도트(유저 확정) — drawCenteredNum 의 숫자-전용 규약 예외라 직접 찍는다
-    ctx.font = F(700, 220, dot9); ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText(txt, CX, cy);
-    ctx.restore();
-    ctx.restore();
+    countRing(ctx, CX, cy, clamp01(t / dur), txt, { t, pulse: clamp01((t - this._numT) / 0.5) });
   }
 
   // ── 세션 리포트 (floor-report.html) ────────────────────────────────────────

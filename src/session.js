@@ -1085,15 +1085,21 @@ export class Session {
         g2.fillStyle = 'rgba(255,240,224,.98)';                          // 코어
         g2.beginPath(); g2.arc(x, 16, r, 0, Math.PI * 2); g2.fill();
       }
-      const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
-      tex.wrapS = THREE.RepeatWrapping;
-      const link = new THREE.Mesh(new THREE.PlaneGeometry(1, 0.1),
-        new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: 0, depthWrite: false,
-          blending: THREE.AdditiveBlending }));
-      link.rotation.x = -Math.PI / 2;
-      link.renderOrder = 5;
-      this.a2press.link = link;
-      g.add(link);
+      // ★ 스탠스 라인 = **반쪽 두 개**(유저 08-05: 두 발 사이를 잇는 예쁜 라인으로 펼쳐지는 느낌).
+      //   한 장짜리 스트립은 offset 이 한 방향으로만 흘러 '흐름'이지 '펼쳐짐'이 아니었고,
+      //   좌우로 늘어난 도트가 사다리처럼 읽혔다(구 폐기 사유). 중앙에서 각 발로 뻗는 반쪽을
+      //   따로 두고 도트를 **바깥으로** 흘리면 그 자체가 벌어지는 동작이 된다.
+      const mkHalf = () => {
+        const tx = new THREE.CanvasTexture(c); tx.colorSpace = THREE.SRGBColorSpace;
+        tx.wrapS = THREE.RepeatWrapping;
+        const m = new THREE.Mesh(new THREE.PlaneGeometry(1, 0.085),
+          new THREE.MeshBasicMaterial({ map: tx, transparent: true, opacity: 0, depthWrite: false,
+            blending: THREE.AdditiveBlending }));
+        m.rotation.x = -Math.PI / 2; m.renderOrder = 5; m.visible = false;
+        g.add(m); return m;
+      };
+      this.a2press.linkA = mkHalf();   // 중앙 → 뒷발
+      this.a2press.linkB = mkHalf();   // 중앙 → 앞발
     }
     g.add(fmL.group, fmR.group, a2cd);
 
@@ -2281,8 +2287,11 @@ export class Session {
         const cyc2 = (this.t % PER) / PER;
         const u2 = Math.min(1, cyc2 / 0.72), pr = cyc2 < 0.72 ? 1 - Math.pow(1 - u2, 3) : 1;
         const fade = cyc2 < 0.72 ? 1 : 1 - (cyc2 - 0.72) / 0.28;
+        // ★ 지면 화살표 폐기(유저: 발자국에서는 화살표가 안 이쁘다). 방향은 **코치 판 큐**가
+        //   전담하고(main.js co.a2Cues), 지면은 스탠스 라인이 '펼침'만 말한다. 한 지시를 두 곳에
+        //   그리면 시선이 갈린다. 되살리려면 on 을 그대로 쓰면 된다.
         [P.arBack, P.arKnee].forEach(a => {
-          a.visible = on;
+          a.visible = false; void on;
           if (!on) return;
           // ★ draw-on 구동자는 **_prog** 다(tokens.tickFlowArrows 가 읽는 필드). userData.prog /
           //   setProg() 에 쓰던 건 아무도 안 읽는 죽은 코드라 화살표가 자유 루프로 돌고 있었다.
@@ -2290,23 +2299,29 @@ export class Session {
           if (a._mesh) a._mesh.material.opacity = Math.max(0, fade);
         });
       }
-      // 스탠스 대시 라인 폐기(유저 08-05: "중간에 이상한 라인도 예쁘지가 않아") — 발 사이에서
-      //   가로로 늘어난 도트 스트립이 사다리처럼 읽혔다. 보폭은 두 발 위치가 이미 말한다.
-      //   자산·틱 로직은 남겨 둔다(다시 켤 땐 이 한 줄만 지운다).
-      if (P.link) { P.link.visible = false; }
-      else if (P.link) {
-        const a = P.fmL.group.position, b = P.fmR.group.position;
-        const dx = b.x - a.x, dz = b.z - a.z, L = Math.hypot(dx, dz) || 1;
-        const IN = 0.11;   // 발 반경 여백 — 0.20은 실측 런지 간격 0.46m에서 라인을 6cm만 남겼다(안 보임)
-        const seg = Math.max(0.01, L - IN * 2);
-        P.link.position.set((a.x + b.x) / 2, 0.012, (a.z + b.z) / 2);
-        P.link.rotation.z = Math.atan2(-dz, dx);   // 평면(-x/2..x/2)을 발 사이 방향으로
-        P.link.scale.set(seg, 1, 1);
-        // 도트가 앞발 쪽으로 흐른다(유저 #90) — 반복 수는 길이에 비례(도트 간격 일정), 속도 0.35/s
-        const mp = P.link.material.map;
-        if (mp) { mp.repeat.x = Math.max(1, seg / 0.32); mp.offset.x = -(this.t * 0.35) % 1; }
-        P.link.material.opacity += ((inHold ? 0.7 : 0.35) - P.link.material.opacity) * 0.18;
-        P.link.visible = L > 0.30;
+      // ── 스탠스 라인(부활, 유저 08-05) — 중앙에서 두 발로 **펼쳐지는** 반쪽 두 개.
+      //   보폭이 벌어질수록 길어지고 밝아진다 = 라인 자체가 '얼마나 폈나'를 말한다.
+      //   도트는 중앙에서 바깥으로 흐른다(offset 부호가 반대) — 그래서 흐름이 아니라 펼침이 된다.
+      {
+        const a = P.fmL.group.position, b2 = P.fmR.group.position;
+        const mx = (a.x + b2.x) / 2, mz = (a.z + b2.z) / 2;
+        const IN = 0.10;                                     // 발 반경 여백
+        const spread = Math.max(0, Math.min(1, (Math.abs(a.z - b2.z) - 0.12) / 0.28));
+        const put = (m, e, sgn) => {
+          if (!m) return;
+          const dx = e.x - mx, dz = e.z - mz, L = Math.hypot(dx, dz);
+          const seg = L - IN;
+          m.visible = seg > 0.04 && spread > 0.02;
+          if (!m.visible) return;
+          m.position.set(mx + dx * 0.5, 0.012, mz + dz * 0.5);
+          m.rotation.z = Math.atan2(-dz, dx);
+          m.scale.set(seg, 1, 1);
+          const mp = m.material.map;
+          if (mp) { mp.repeat.x = Math.max(1, seg / 0.16); mp.offset.x = sgn * (this.t * 0.30) % 1; }
+          const tgt = (0.25 + 0.55 * spread) * (0.75 + 0.25 * P.fill);
+          m.material.opacity += (tgt - m.material.opacity) * 0.18;
+        };
+        put(P.linkA, a, -1); put(P.linkB, b2, +1);
       }
       if (inHold) {
         const n = Math.max(1, Math.ceil(HOLD_SEC - P.fill * HOLD_SEC));   // 5→1 (UI 5초 타이머)
