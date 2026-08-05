@@ -600,40 +600,53 @@ function drawFlow(g, t) {
   titleBlock(g, ['Neck And', 'Shoulder'], cx, ty, 86 * FS);
   capLabel(g, 'PREVIEW', cx, ty - 175 * FS, .5, 40 * FS);
   g.restore();
-  // ★ 미니 카드 = **정본 타이머 배지(좌) + 동작명(우) 한 줄**.
-  //   타이머는 손으로 다시 그리지 않는다(유저) — floorgl _paint_capsule 의 필 배지가 정본이다:
-  //   알파 .34 알약(r50, h100) + 흰 블룸(.8/34) + rollNum 64 볼드. 규격을 여기 복제해 둔 이유는
-  //   시안이 캔버스 하나에 그리기 때문이고, 값은 정본에서 그대로 가져왔다(바뀌면 같이 고칠 것).
-  //   배치만 유저 요청대로 — 세로로 쌓으면 카드가 두 층이 되어 둘 다 작아진다. 한 줄로 편다.
+  // ★ 미니 카드 = 타이머(좌) + 동작명(우) 한 줄. 타이머 알약은 위 ③ 형태변환이 그대로
+  //   그 자리에 앉으므로 여기선 **동작명만** 그린다(두 번 그리면 알약이 겹친다).
   if (inA > 0) {
     g.save(); g.globalAlpha = inA;
-    const my = cy + ch * .5;
-    g.font = RF(700, 64); g.letterSpacing = '-2.56px';
-    const tw = Math.max(g.measureText('12').width, 64), pw = tw + 80, ph2 = 100;
-    const px0 = cx - cw / 2 + 60;
-    g.save();
-    g.shadowColor = 'rgba(255,255,255,.8)'; g.shadowBlur = 34;
-    g.fillStyle = 'rgba(255,255,255,.34)';
-    g.beginPath(); g.roundRect(px0, my - ph2 / 2, pw, ph2, 50); g.fill();
-    g.restore();
-    g.shadowColor = 'rgba(255,255,255,.6)'; g.shadowBlur = 14;
-    rollNum(g, '12', t, 0, .4, px0 + pw / 2, my - 35, 64, { align: 'center', fill: 'rgba(255,255,255,.95)' });
-    g.shadowBlur = 0;
+    g.font = RF(700, 68); const twT = Math.max(g.measureText('12').width, 64);
     g.fillStyle = '#fff'; g.textAlign = 'left'; g.textBaseline = 'middle';
     g.font = RF(700, 58); g.letterSpacing = '-2px';
-    g.fillText('High Knees', px0 + pw + 44, my);
+    g.fillText('High Knees', cx - cw / 2 + 60 + twT + 80 + 44, cy + ch * .5);
     g.letterSpacing = '0px';
     g.restore();
   }
-  // ③ 카운트 링 → 남은 시간 배지 — 같은 자리에서 형태가 바뀐다(정보의 연속)
-  const ry = cy + ch * .74;                                          // 숫자도 같은 규약 — 별도 상승항 없음
-  g.save(); g.globalAlpha = outA;
-  ringGauge(g, cx, ry, 112 * FS, ((t * .62) % 1), { color: '#fff' });
-  g.textAlign = 'center'; g.textBaseline = 'middle';
-  g.fillStyle = '#fff'; g.font = RF(700, 92 * FS, DOT);
-  g.fillText(String(Math.max(1, 3 - Math.floor(t * 1.9))), cx, ry + 4);
-  g.restore();
-  // (숫자는 위 한 줄에 합쳐졌다 — 여기 따로 두면 같은 값이 카드 안에 두 번 나온다)
+  // ③ 카운트 링 → 타이머 알약 — **같은 물체가 형태를 바꾼다**(유저: 원형이던 게 위로 올라가며
+  //   가로 알약이 되는 거니까 재사용하면 되는 문제다). 전엔 링과 알약을 따로 그려 크로스페이드했다 —
+  //   그러면 '사라지고 다른 게 나타난' 걸로 읽힌다. 하나의 roundRect 로 원(w=h=2r, r=반지름) →
+  //   알약(w=pw, h=100, r=50) 을 보간하면 형태 변환 자체가 연속이 된다.
+  //   채움(0→.34)과 외곽선(1→0)도 같이 넘겨 '선으로 그린 링'이 '채워진 알약'으로 바뀐다.
+  {
+    g.save();
+    g.font = RF(700, 68);
+    const twT = Math.max(g.measureText('12').width, 64), T1w = twT + 80, T1h = 100;
+    const T0d = 224 * FS;                                    // 원 지름
+    const T0x = cx, T0y = cy + ch0 * .74;                    // 관찰: 캡슐 안 0.74 자리
+    const T1x = cx - cw / 2 + 60 + T1w / 2, T1y = cy + ch * .5;   // 따라하기: 미니 카드 왼쪽
+    const L = (a2, b2) => a2 + (b2 - a2) * me;
+    const bx2 = L(T0x, T1x), by2 = L(T0y, T1y);
+    const bw2 = L(T0d, T1w), bh2 = L(T0d, T1h), br2 = L(T0d / 2, 50);
+    const path2 = () => { g.beginPath(); g.roundRect(bx2 - bw2 / 2, by2 - bh2 / 2, bw2, bh2, br2); };
+    g.save();
+    g.shadowColor = 'rgba(255,255,255,.8)'; g.shadowBlur = 34 * me;
+    g.fillStyle = `rgba(255,255,255,${.34 * me})`; path2(); g.fill();
+    g.restore();
+    g.strokeStyle = `rgba(255,255,255,${.38 * (1 - me)})`; g.lineWidth = 3; path2(); g.stroke();
+    // 진행 광점 — 링일 때만(알약이 되면 의미가 없다). 원 궤도를 따라 돈다.
+    if (me < .9) {
+      const pa = ((t * .62) % 1) * Math.PI * 2 - Math.PI / 2, rr = bw2 / 2;
+      g.save(); g.globalAlpha *= (1 - me / .9);
+      g.beginPath(); g.arc(bx2 + Math.cos(pa) * rr, by2 + Math.sin(pa) * rr, 9, 0, 7);
+      g.fillStyle = '#fff'; g.fill(); g.restore();
+    }
+    // 숫자 — 카운트다운 3·2·1 이 그대로 남은 시간으로 넘어간다(같은 슬롯, 같은 도트 폰트)
+    g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = 'rgba(255,255,255,.95)';
+    g.shadowColor = 'rgba(255,255,255,.6)'; g.shadowBlur = 14 * me;
+    g.font = RF(700, L(92 * FS, 68), DOT);
+    g.fillText(me < .5 ? String(Math.max(1, 3 - Math.floor(t * 1.9))) : '12', bx2, by2 + 2);
+    g.shadowBlur = 0;
+    g.restore();
+  }
   // ④ 코치 — 관찰에선 캡슐 아래, 전환하며 앞(위)으로 걸어 나온다
   //   관찰 구간은 캡슐이 작아진 만큼 영상이 커지고 위로 붙는다. 따라하기 구간의 자리는
   //   FS 와 무관하게 고정 — 미니 카드는 크기가 안 변하므로, 여기까지 FS 를 물리면 인물이

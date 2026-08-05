@@ -176,9 +176,13 @@ function legWatch(ctx) {
   ctx.fillText = (txt, x, y, ...r) => {
     try {
       const m = ctx.getTransform();
-      const by = (m.f + m.d * y) / K, fs = (parseFloat(/(\d+(?:\.\d+)?)px/.exec(ctx.font)?.[1]) || 0) * Math.abs(m.d) / K;
+      // ★ 회전 텍스트는 m.d(=cosθ)만 보면 안 된다 — 호 위 라벨이 실제보다 작게 측정돼
+      //   있지도 않은 위반을 만든다. 회전+스케일의 실제 배율은 hypot(m.b, m.d).
+      const by = (m.f + m.d * y) / K, fs = (parseFloat(/(\d+(?:\.\d+)?)px/.exec(ctx.font)?.[1]) || 0) * Math.hypot(m.b, m.d) / K;
       const need = minFs(by);
-      if (fs > 0 && fs < need - 0.5 && String(txt).trim())
+      // 단위(m·min·sec·km·%)는 규약 대상이 아니다 — 큰 수치에 붙어 맥락으로 읽힌다.
+      const isUnit = /^(m|min|sec|km|%)$/.test(String(txt).trim());
+      if (fs > 0 && !isUnit && fs < need - 0.5 && String(txt).trim())
         legFindings.push({ txt: String(txt).slice(0, 24), y: Math.round(by), fs: +fs.toFixed(1), need: +need.toFixed(1) });
     } catch { /* 계측이 페인트를 죽이면 안 된다 */ }
     return orig(txt, x, y, ...r);
@@ -1018,8 +1022,10 @@ export class FloorGL {
     if (pu != null) ctx.globalAlpha *= kf(pu, [[0, 1], [.5, .6], [1, 1]]);
     ctx.shadowColor = 'rgba(255,255,255,.45)'; ctx.shadowBlur = 42;
     ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-    ctx.font = F(700, 42); ctx.fillStyle = '#fff';
-    ctx.letterSpacing = '6px';
+    //   42 → 66 — 대지 최상단(y176)은 가장 멀고 가장 눕혀 보이는 자리라 minFs 가 65 를 요구한다.
+    //   '미감상 작게'가 가장 위험해지는 지점이다(유저). 트래킹 6 → 4 로 폭 증가를 눌렀다.
+    ctx.font = F(700, 66); ctx.fillStyle = '#fff';
+    ctx.letterSpacing = '4px';
     ctx.fillText(str, CX + 3, y);
     ctx.letterSpacing = '0px';
     ctx.restore();
@@ -1048,7 +1054,7 @@ export class FloorGL {
       ? 1 - numOr(arc.style.strokeDashoffset, 0) / 1727.9
       : ((this.t - 0.15) / (n.pvn ? n.pv / n.pvn : n.pv)) % 1;
     const gap = 120, ringW = 200;
-    ctx.font = F(700, 60); const tw = ctx.measureText('PREVIEW').width;   // 가이드=대문자(유저)
+    ctx.font = F(700, 70); const tw = ctx.measureText('PREVIEW').width;   // 60 → 70 (minFs(475)=61)   // 가이드=대문자(유저)
     const pillW = 40 + tw + 20 + 60 + 30, pillH = 100;
     const total = pillW + gap + ringW, x0 = CX - total / 2;
     const py = y + (ringW - pillH) / 2;
@@ -1062,7 +1068,7 @@ export class FloorGL {
     ctx.moveTo(ax + 33, ay - 15); ctx.lineTo(ax + 48, ay); ctx.lineTo(ax + 33, ay + 15); ctx.stroke();
     const save = CX; // 링은 중앙 정렬 헬퍼를 쓰므로 잠시 위치를 옮겨 그린다
     this._ringAt(x0 + pillW + gap + ringW / 2, y, ringW, prog, '#fff');
-    drawCenteredNum(ctx, num?.textContent || '', x0 + pillW + gap + ringW / 2, y + ringW / 2, n.pvn ? 62 : 96);
+    drawCenteredNum(ctx, num?.textContent || '', x0 + pillW + gap + ringW / 2, y + ringW / 2, n.pvn ? 70 : 96);   // 62 → 70 (minFs(y≈130)=66)
     void save;
   }
 
@@ -1099,7 +1105,7 @@ export class FloorGL {
     const BW = 232, BY = y + 154;
     this._devBar(cx, BY, BW, dev / 0.12, col, ok);
     // ③ 라벨 — 본문 영문. 숫자가 아니므로 도트 금지(유저 규약).
-    ctx.font = F(400, 34); ctx.letterSpacing = '7px';
+    ctx.font = F(400, 58); ctx.letterSpacing = '7px';   // 34 → 58 (minFs(y≈817)=56) — 안 읽히던 라벨
     ctx.fillStyle = rgba(NEU.paper, 0.6);
     ctx.fillText(String(label).toUpperCase(), cx + 3.5, BY + 60);
     ctx.letterSpacing = '0px';
@@ -1565,7 +1571,7 @@ export class FloorGL {
             ctx.rotate(-ca * RAD);
             ctx.shadowBlur = 0;
             ctx.fillStyle = NEU.ink;   // 반투명 칩 위 = 흰 글자(아이콘 배지와 같은 잉크)
-            ctx.font = RF(700, 46); ctx.letterSpacing = '-1.4px';
+            ctx.font = RF(700, 62); ctx.letterSpacing = '-1.8px';   // 46 → 62 (minFs(455)=61)
             ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
             ctx.fillText(seg.chipText, 0, 2);
             ctx.letterSpacing = '0px';
@@ -1607,7 +1613,9 @@ export class FloorGL {
           const lmid = (l0 + l1) / 2;
           // 크기 통일(유저 08-05) — 세그먼트 길이에 따라 44→26 으로 줄이던 자동 축소 폐기.
           //   숫자는 LBL_FS 고정, 단위 m 만 작게. dy = 작은 m 을 숫자 베이스라인에 맞추는 보정.
-          const LBL_FS = 56, LBL_MS = 34;   // 44/26 은 호 위에서 안 읽혔다(유저 #122) — 한 단계 키움
+          //   ★ 56/34 → 66/40 — minFs(y≈210~305)가 64 를 요구한다. 10m 은 pad 8° 덕에 자리가
+          //     137px 라 66px 글자(95px)가 들어간다. 30m·농구 세그는 원래 여유가 크다.
+          const LBL_FS = 66, LBL_MS = 40;
           const fontOf = c => RF(700, c === 'm' ? LBL_MS : LBL_FS);
           const dyOf = c => (c === 'm' ? (LBL_FS - LBL_MS) * 0.3 : 0);
           ctx.letterSpacing = '-1px';
@@ -1744,7 +1752,7 @@ export class FloorGL {
       // 하단 슬롯(피그마 367 의 원 두 개 자리)을 그대로 물려받는다 — 블록 중심 = 2061.
       //   빛 위로 올라와 대비가 낮아진 만큼 눈금 불투명도 .55 → .68.
       // 타이틀 98 기준 위계(유저 08-05): 지시 74 · 눈금 38(= 지시의 0.5, 복싱 벽 32/64 와 같은 비).
-      ctx.fillStyle = 'rgba(255,255,255,.68)'; ctx.font = RF(400, 38); ctx.letterSpacing = '-1px';
+      ctx.fillStyle = 'rgba(255,255,255,.68)'; ctx.font = RF(400, 44); ctx.letterSpacing = '-1px';   // 38 → 44 (minFs 42.4)
       ctx.fillText('TO START', 800.15, 2014 - CUT);   // 가이드=대문자(유저)
       // 바닥 버전 축약(유저) — 벽은 'Tap your foot Twice'(멀리서 읽는 안내), 지면은 발밑이라
       //   '무엇으로'가 자명하다. 짧아진 만큼 글자를 키워 한 덩어리로 읽힌다.
@@ -1831,7 +1839,9 @@ export class FloorGL {
       const timer = V === 'video' || V === 'floor';
       const txt2 = V === 'preview' ? 'PREVIEW' : V === 'mini' ? (cfg.step || '1/4')   // 가이드=대문자(유저)
         : String(Math.max(0, Math.ceil((this.params?.dur || 8) - t)));
-      ctx.font = RF(timer || V === 'mini' ? 700 : 400, 64); ctx.letterSpacing = '-2.56px';
+      //   64 → 68 — 배지가 대지 최상단 근처(y≈130)라 minFs 66 을 못 넘겼다(계측).
+      //   알약 폭은 글자에서 파생되므로 같이 커진다.
+      ctx.font = RF(timer || V === 'mini' ? 700 : 400, 68); ctx.letterSpacing = '-2.7px';
       const tw = Math.max(ctx.measureText(txt2).width, 64), pw = tw + 80, ph2 = 100;
       const byd = by + (V === 'preview' ? 90 : 52);   // 컴팩트 카드는 위로(호와 겹침 해소, 유저 #89)
       ctx.save();
@@ -1841,7 +1851,7 @@ export class FloorGL {
       ctx.restore();
       ctx.fillStyle = 'rgba(255,255,255,.95)'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.shadowColor = 'rgba(255,255,255,.6)'; ctx.shadowBlur = 14;
-      if (timer) rollNum(ctx, txt2, t, 0, .4, cx2, byd + 15, 64, { align: 'center', fill: 'rgba(255,255,255,.95)' });
+      if (timer) rollNum(ctx, txt2, t, 0, .4, cx2, byd + 13, 68, { align: 'center', fill: 'rgba(255,255,255,.95)' });
       else ctx.fillText(txt2, cx2, byd + ph2 / 2 + 2);
       ctx.shadowBlur = 0;
       ctx.letterSpacing = '0px'; ctx.restore();

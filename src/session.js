@@ -2203,6 +2203,11 @@ export class Session {
         return;
       }
       this._say('a2follow', '션', '자, 이제 같이! 앞무릎 굽히고 뒷다리 쭉 펴서 버텨요.');
+      // ★ demoActive 를 **여기서 매 프레임 다시 정한다**. 이 플래그는 A2 안에서 true 로만 켜지고
+      //   false 로 되돌리는 코드가 없었다(스테이지 진입 리셋이 유일) — 그래서 시범이 끝나도
+      //   계속 true 로 남아 `on = !demoActive` 인 화살표가 **영영 안 떴다**(유저 2회 신고).
+      //   아래 화살표 블록보다 앞이라 같은 프레임에 반영된다.
+      this.demoActive = this.t < DEMO;
       P.fill = inHold ? cyc.prog : 0;   // 0→1 정확히 5초(봇 최심 정지 구간)
       placeMarkNum(P.numL); placeMarkNum(P.numR);
       P._pop = Math.max(0, (P._pop || 0) - dt * 3.8);
@@ -2328,8 +2333,7 @@ export class Session {
       }
       if (!inHold) P._repLatch = false;   // 다음 홀드 위해 래치 해제
       if (this.t < DEMO) {
-        this.demoActive = true;
-        FMU('먼저 보세요 — 앞으로 크게 딛고 버티기', CS.sand);
+        FMU('먼저 보세요 — 앞으로 크게 딛고 버티기', CS.sand);   // demoActive 는 위에서 이미 정해졌다
       } else {
         // 중간 재안내 제거 — 진입 문장 하나로 (유저: '목소리 2개 안 나오게')
         FMU(`런지 ${Math.min(REPS, this.a2count || 0)} / ${REPS}`, CS.sand);
