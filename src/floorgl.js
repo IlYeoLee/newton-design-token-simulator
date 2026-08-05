@@ -986,7 +986,9 @@ function buildScene(stage, p) {
   const PH = (typeof window !== 'undefined' ? window.FLOOR_PHASES : null)
     || { running: ['WARM UP', 'PACE', 'RUN'], basketball: ['WARM UP', 'DRILL', 'GAME'] };
   const phases = PH[/^BK_/.test(stage) ? 'basketball' : 'running'];
-  if (!isC && phases && S.phase != null)
+  // ★ 연습(P)엔 브레드크럼을 빼다(유저) — 'PACE 1/3' 은 헤더 알약 바로 위 한 줄인데,
+  //   알약이 이미 동작명을 크게 말하고 있어 같은 자리에서 두 번 읽힌다. 정보량 정리의 연장.
+  if (!isC && !isP && phases && S.phase != null)
     col.push(node('s-crumb', { type: 'crumb', phases, phase: S.phase, sub: S.sub || '', mb: -34 }));
   // ★ 프리뷰(관찰) A안 확정(유저) — 제목만 크게 놓던 것을 **미니 캡슐 헤더**로 바꾼다:
   //   유리 알약 + 왼쪽에 카운트 링(정본 countRing) + 동작명. 시작화면 캡슐이 작아져 올라온
