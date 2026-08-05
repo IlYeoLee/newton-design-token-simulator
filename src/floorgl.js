@@ -1353,7 +1353,7 @@ export class FloorGL {
   //     ② 목표와의 '관계'는 숫자로 또 쓰지 않고 그래픽(위치·색)으로 읽힌다
   //     ③ 라벨은 작고 조용하게, 값의 주인공 자리를 뺏지 않는다
   //   활자 규약(유저 확정): **숫자만 도트(OffBit), 라벨·단위는 본문 영문(Supreme).**
-  _lstat(cx, y, me, tgt, label) {
+  _lstat(cx, y, me, tgt, label, wide) {
     const ctx = this.ctx;
     const mv = statVal(me), tv = statVal(tgt);
     const ok = Number.isFinite(mv) && Number.isFinite(tv) && tv > 0;
@@ -1366,10 +1366,15 @@ export class FloorGL {
     //   색은 싣지 않는다(흰색 고정) — 편차는 아래 ②의 점이 이미 위치로 말한다. 숫자에까지 색을
     //   태우면 ⓐ 학습자는 늘 목표와 어긋나 있어 빨강이 기본 상태가 되고(경고가 경고를 잃는다),
     //   ⓑ 가산 투사에서 적색이 가장 먼저 대비를 잃어 '많이 틀어진 순간'에 제일 안 읽힌다.
-    rollNum(ctx, me || '--', this.t, 0, 0.6, cx, y + 118 - 132 * 0.78, 132,
+    const NFS = wide ? 172 : 132;   // 단독 스탯은 수치도 크게 — 화면의 주인공이다
+    rollNum(ctx, me || '--', this.t, 0, 0.6, cx, y + 118 - NFS * 0.78, NFS,
             { fam: dot9, align: 'center', fill: NEU.paper });
     // ② 편차 바 — 가운데 눈금이 목표, 점이 현재. 관계를 '위치'로 읽는다. (_devBar 공용)
-    const BW = 232, BY = y + 154;
+    // ★ 단독 스탯(P1 이지런처럼 SPM 하나만 있는 화면)은 **넓게** 쓴다(유저: 큰 점선 그래프가
+    //   왜 이렇게 옹졸해졌냐). 232 는 2단 그리드(SPM+PACE)에서 칼럼이 좁을 때의 값인데,
+    //   단독일 때도 그 값을 쓰고 있어서 화면 폭을 반도 못 썼다. 눈금 수는 폭에서 파생되므로
+    //   넓히면 칸도 그만큼 늘어난다.
+    const BW = wide ? 620 : 232, BY = y + 154;
     this._devBar(cx, BY, BW, dev / 0.12, col, ok);
     // ③ 라벨 — 본문 영문. 숫자가 아니므로 도트 금지(유저 규약).
     ctx.font = F(400, 58); ctx.letterSpacing = '7px';   // 34 → 58 (minFs(y≈817)=56) — 안 읽히던 라벨
@@ -1380,7 +1385,7 @@ export class FloorGL {
 
   _trainRow(n, y) {
     const me = this.map.get('spm-me')?.textContent, tgt = this.map.get('spm-tgt')?.textContent;
-    if (!n.ring) return this._lstat(CX, y, me, tgt, 'SPM');
+    if (!n.ring) return this._lstat(CX, y, me, tgt, 'SPM', true);   // 단독 = 넓게
     const gap = 96, statW = 300, total = statW + gap + 200, x0 = CX - total / 2;
     this._lstat(x0 + statW / 2, y, me, tgt, 'SPM');
     const arc = this.map.get('tp-arc');
