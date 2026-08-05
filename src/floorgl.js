@@ -1858,19 +1858,42 @@ export class FloorGL {
     }
     // ── ③ 캡슐 텍스트 — 제목 2줄(100/Bold/ls-4) · Pace On(64/.8) · 도트 30(384) + min(64) ──
     // 제목 두 줄은 줄 단위로 아주 살짝 어긋나게(0.04s) — 한 덩어리로 뜨는 것보다 결이 산다.
+    // ★ 상태1 ↔ 상태2 타이틀 모프 — 피그마 실측(379:3282 vs 377:3060):
+    //   영상 화면 = 텍스트박스 744×324(줄간 162) · 숫자 화면 = 620×270(줄간 135) → **0.833 배**.
+    //   블록 중심도 408 → 564 로 **156 내려간다**. 숫자가 주인공이 되면 타이틀이 크기를 줄이고
+    //   자리를 내주는 안무다(하단 광이 내려앉는 것과 같은 박자). p2 하나로 같이 움직인다.
+    const q = 1 - p2;                    // 1 = 영상 화면, 0 = 숫자 화면
+    const TK = 1 + .20 * q;              // 98 → 117.6 (= 98/0.833)
+    const TCY = 778 - 156 * q;           // 블록 중심 (피그마 델타 156)
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillStyle = NEU.ink; ctx.font = RF(700, 98); ctx.letterSpacing = '-4px';   // 100→98(유저: 첫 진입 타이틀이 빡빡)
+    ctx.fillStyle = NEU.ink; ctx.font = RF(700, 98 * TK); ctx.letterSpacing = `${(-4 * TK).toFixed(2)}px`;   // 100→98(유저: 첫 진입 타이틀이 빡빡)
     for (const [i, ln] of R2.lines.entries()) {
       const d = .26 + i * .04;   // 피그마 379:3282 — 상태1 에 타이틀이 이미 있다
       ctx.save(); ctx.globalAlpha *= e0(d, .85);
-      ctx.fillText(ln, 800, 778 + (i ? 60 : -60) + rise(d, .85, 22));
+      ctx.fillText(ln, 800, TCY + (i ? 60 : -60) * TK + rise(d, .85, 22));
       ctx.restore();
     }
-    ctx.save(); ctx.globalAlpha *= e0(.36, .85);
-    ctx.fillStyle = 'rgba(255,255,255,.8)'; ctx.font = RF(400, 64); ctx.letterSpacing = '-2.56px';
-    ctx.fillText(R2.sub, 800.5, 971 + rise(.36, .85, 18));
-    ctx.restore();
     ctx.letterSpacing = '0px';
+    // ── 부제 슬롯 = **두 물건이 나눠 쓴다**(피그마): 영상 화면은 'Creator' 코랄 알약(379:3430),
+    //   숫자 화면은 'Pace On' 텍스트(377:3077). 크로스페이드라 슬롯이 비는 순간이 없다.
+    //   전엔 'Pace On' 만 있어서 첫 화면이 **누구의 팩인지**(크리에이터)를 말하지 않았다.
+    if (q > 0.01) {
+      // 피그마 실측 254×115 r57.5 — 타이틀 블록 중심에서 +270.
+      ctx.save(); ctx.globalAlpha *= e0(.36, .85) * q;
+      const BY2 = TCY + 270 + rise(.36, .85, 18), BH2 = 115;
+      ctx.font = RF(700, 60); ctx.letterSpacing = '-1.5px';   // 56 → 60 (minFs(y≈638)=58.4)
+      const bw = ctx.measureText('Creator').width + 64;
+      ctx.fillStyle = PAL.coral;
+      ctx.beginPath(); ctx.roundRect(800 - bw / 2, BY2 - BH2 / 2, bw, BH2, BH2 / 2); ctx.fill();
+      ctx.fillStyle = NEU.ink; ctx.fillText('Creator', 800, BY2 + 2);
+      ctx.letterSpacing = '0px'; ctx.restore();
+    }
+    if (p2 > 0.01) {
+      ctx.save(); ctx.globalAlpha *= e0(.36, .85) * p2;
+      ctx.fillStyle = 'rgba(255,255,255,.8)'; ctx.font = RF(400, 64); ctx.letterSpacing = '-2.56px';
+      ctx.fillText(R2.sub, 800.5, 971 + rise(.36, .85, 18));
+      ctx.letterSpacing = '0px'; ctx.restore();
+    }
     // ★ 순서 반전(유저 08-05): 페이즈1 = 팩 이름 + **사람 형체**, 페이즈2(2초 뒤) = **몇 분인지**.
     //   전엔 도트 숫자가 먼저 뜨고 인물이 그 자리를 밀어냈다 — 첫 화면이 '무슨 팩인지'를 못 보여줬다.
     //   인물은 main.js COACH_CFG.READY 판이 캡슐 뒤에 선다(캔버스엔 안 그린다) — 페이드아웃도 거기서.
@@ -2100,7 +2123,12 @@ export class FloorGL {
       const EXP = eOut(intro(t, TP_CONN, .55));   // 연결·프로필은 정보 애니메이션이 끝난 뒤(유저)
       const WE = DD + DD * EXP;                     // 이어폰 칸 폭 186 → 372
       const x0 = 800 - (DD + GAPD + WE) / 2;        // 늘어나도 중앙 유지
-      const eB = e0(.35, .6) * (1 - eOut(intro(t, TP3 - .45, .45)));   // 원 두 개는 초반에 이미 서 있어야 한다
+      // ★ 배터리 원 두 개 = **상태2 물건**(피그마 377:3060 에 있고 상태1 379:3282 엔 없다).
+      //   팩 정보(타이틀 이동 · 숫자 · 아크)와 같은 박자로 올라와 상태3(확장·프로필)까지 남는다.
+      //   ※ 옛 식은 `e0(.35) * (1 - eOut(intro(t, TP3-.45, .45)))` — 순서를 바꾸며 TP3 가 0.25 가
+      //     되자 페이드아웃이 t≈-0.2 에 걸려 **패널이 한 프레임도 안 보였다**(실측). 순서가 바뀌면
+      //     '언제 지우나'도 같이 바뀐다 — 이제 지울 일이 없다(루프가 처음으로 되돌린다).
+      const eB = e0(TP2 + .12, .55);
       if (eB > 0.004) {
         // ★ 충전량 다이얼 = **12시에서 시계방향**(유저) — 10시에서 시작하던 것은 게이지의
         //   출발점이 어디인지 안 읽혀 어색했다. 배터리는 시계처럼 위에서 출발해 한 바퀴가 만충.
@@ -2167,12 +2195,26 @@ export class FloorGL {
         ctx.restore();
       }
     }
-    // ⑥ 발 실루엣 = 폐기(유저 08-05) — 러닝·농구 양쪽에서 뺀다.
-    //   3D FootMark 는 시작페이지에서 이미 숨김이라 잔상 없음. 복원은 #81 커밋.
-    // ── ⑦ CTA — 페이즈2(인물 등장)와 함께. 문구·위계는 **복싱(벽)과 한 벌**(유저 08-05):
-    //    작은 눈금 'To start' 위 → 큰 지시 'Tap your foot Twice' 아래. wallgl _paint_ready 와 동일.
+    // ── ⑥+⑦ CTA — **상태1 전용**(피그마 379:3282). 영상이 도는 2초 동안만 하단을 쓴다.
+    //    피그마 실측: 신발 실루엣 2개(172.84×352.42 · 좌우 대칭 · y1645~1997)가 'To start' 를
+    //    가운데 두고 선다. 한때 폐기했던(08-05) 실루엣을 되살린다 — 발을 어디 두라는 지시는
+    //    글자보다 **형태**가 먼저 말한다. SVG 박스는 176×399.66(필터 블리드 포함)이라 그대로 그리면
+    //    보이는 신발이 정확히 172.84×352.42 가 된다.
+    //    ★ 좌우 위치는 피그마(±274)보다 벌린 ±320 — 피그마엔 'To start' 한 줄뿐이지만 여기엔
+    //      'Tap Twice'(74px, 실폭 ≈330)가 같이 서서 ±274 면 신발과 글자가 스친다.
+    //    문구·위계는 **복싱(벽)과 한 벌**(유저 08-05): 작은 눈금 'To start' 위 → 큰 지시 아래.
     if (p3 > 0.01) {
       ctx.save(); ctx.globalAlpha *= p3;
+      {
+        const SY = 2010 - CUT, SW = 196, SH = 399.656;   // 신발 쌍 중심 y = CTA 글자 블록 중심
+        // 탭 박자에 실루엣도 같이 밝아진다 — '두 번'을 빛으로 말하는 규약과 한 벌(빛만 쓰고 글자는 안 늘린다).
+        ctx.save(); ctx.globalAlpha *= .82 + .18 * tapB;
+        for (const [rel, sx] of [['shoe-l.svg', 800 - 320], ['shoe-r.svg', 800 + 320]]) {
+          const im3 = img(rel);
+          if (im3) ctx.drawImage(im3, sx - SW / 2, SY - SH / 2 + (1 - p3) * 14, SW, SH);
+        }
+        ctx.restore();
+      }
       // 하단 빛 침대 폐기(유저 08-05) — 'Tap Twice' 뒤 배경 그라디언트를 없앤다.
       //   캡슐 자체 글로우만으로 충분하고, 한 겹 더 깔면 글자 대비가 오히려 죽었다.
       ctx.globalAlpha *= .9 + .1 * tapB;
