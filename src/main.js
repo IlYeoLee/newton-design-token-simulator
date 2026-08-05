@@ -4210,7 +4210,10 @@ void main(){
         const DESC = TD - T0, RISE = T1 - TD, CYC = DESC + HOLD + RISE;
         const c = tt % CYC;
         _phase = c < DESC ? T0 + c : (c < DESC + HOLD ? TD + Math.sin(tt * 1.6) * 0.07 : TD + (c - DESC - HOLD));
-        xbot.group.scale.x = (Math.floor(tt / CYC) % 2) ? -1 : 1;
+        // ★ 첫 회차를 **미러**로 시작한다(유저 08-06, 영상용) — isLeft 는 이미 '짝수 회차 =
+        //   오른발'로 되어 있는데 봇은 안 뒤집힌 원본 클립으로 시작했다. 그 클립이 왼발
+        //   리드라 플래그(오른발)와 화면(왼발)이 어긋났다. 미러 패리티를 뒤집으면 둘이 맞는다.
+        xbot.group.scale.x = (Math.floor(tt / CYC) % 2) ? 1 : -1;
         const _hs = Math.max(0, Math.min(1, (c - DESC) / 0.6)), _he = Math.max(0, Math.min(1, (DESC + HOLD - c) / 0.6));
         xbot.lungeDeepen = 0.35 * Math.min(_hs, _he);
         session.a2Cyc = { inHold: c >= DESC && c < DESC + HOLD, prog: Math.max(0, Math.min(1, (c - DESC) / HOLD)),
