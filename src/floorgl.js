@@ -1591,7 +1591,9 @@ export class FloorGL {
       const x0 = 800 - (DD + GAPD + WE) / 2;        // 늘어나도 중앙 유지
       const eB = e0(.35, .6) * (1 - eOut(intro(t, TP3 - .45, .45)));   // 원 두 개는 초반에 이미 서 있어야 한다
       if (eB > 0.004) {
-        const DA0 = -135, DA1 = 80;                 // 다이얼 — 빈 각(10시) → 만충 각
+        // ★ 충전량 다이얼 = **12시에서 시계방향**(유저) — 10시에서 시작하던 것은 게이지의
+        //   출발점이 어디인지 안 읽혀 어색했다. 배터리는 시계처럼 위에서 출발해 한 바퀴가 만충.
+        const DA0 = -90, DA1 = 270;
         const glass = (pathFn, cx0, r0) => {
           ctx.save(); pathFn(); ctx.clip();
           ctx.fillStyle = 'rgba(255,255,255,.01)'; ctx.fill();
@@ -1622,13 +1624,13 @@ export class FloorGL {
         // ⓐ 안경 — 늘 원
         const gx = x0 + RD;
         glass(() => { ctx.beginPath(); ctx.arc(gx, CY, RD - 2.5, 0, Math.PI * 2); }, gx, RD);
-        dial(gx, 85, .95);
+        dial(gx, BATT.glasses, .95);
         { const gl2 = img('ic-glasses.png'); if (gl2) ctx.drawImage(gl2, gx - 55, CY - 37, 110, 74); }
         // ⓑ 이어폰 — 원 → 알약. 왼끝은 제자리, 오른쪽으로 자란다.
         const ex = x0 + DD + GAPD;
         glass(() => { ctx.beginPath(); ctx.roundRect(ex + 2.5, CY - RD + 2.5, WE - 5, DD - 5, RD); },
               ex + WE / 2, RD);
-        dial(ex + RD, 85, 1.05);
+        dial(ex + RD, BATT.buds, 1.05);
         { const eb = this._tinted2('fig/ready2/ic-earbuds.png', 102, 88, () => '#fff');
           if (eb) ctx.drawImage(eb, ex + RD - 51, CY - 44, 102, 88); }
         // 코치 인물 — 확장이 만든 오른쪽 빈칸에 채워진다(연결됨)
