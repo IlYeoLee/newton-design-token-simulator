@@ -1710,7 +1710,7 @@ export class FloorGL {
       const CLIP = bk
         // mOut = 1.0 — 프로토타입은 카드 하단에서 페이드아웃(민트 엔딩)하지만, 여기선 **알약
         //   컨테이너 맨 끝까지** 채워야 한다(유저 #164). 아래 곡선은 capPath 클립이 만든다.
-        ? { src: 'ready-view/assets/proto/curry-card.mp4', bright: 1.0, mIn: .3125, mOut: 1.0, focus: 0.02 }
+        ? { src: 'ready-view/assets/proto/curry-card.mp4', bright: 1.0, mIn: .3125, mOut: 1.0, focus: -0.06 }   // focus .02→-.06 = 커리를 아래로(유저)
         : { src: 'ready-view/assets/proto/sean-card.mp4',  bright: 0.68, mIn: .22, mOut: 1.0, focus: 0.05 };
       let v = this._pvid;
       if (!v || v._key !== CLIP.src) {
