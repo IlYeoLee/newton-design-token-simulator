@@ -965,7 +965,14 @@ export class Session {
       if (o.geometry && !o.geometry.boundingSphere) o.geometry.computeBoundingSphere();
       o.getWorldPosition(wp);
       const sc = Math.max(Math.abs(o.matrixWorld.elements[0]), Math.abs(o.matrixWorld.elements[5]), Math.abs(o.matrixWorld.elements[10]));
-      const pad = Math.min(0.5, (o.geometry?.boundingSphere?.radius ?? 0) * sc);
+      // ★ pad 상한 0.5 → 0.12 (유저: 뒤로 가는 발이 아예 투명해진다).
+      //   pad 는 beamAlphaAt 에서 페더 폭 F = 0.25 + pad 로 쓰인다. 마크 바운딩 반경이
+      //   상한 0.5 에 걸려 F 가 0.75m 가 되는데, 콘의 **근거리 반폭이 0.34m** 다 —
+      //   가로 페더 대역이 half-0.75 = 음수까지 뻗어 **축 정중앙에 있어도 페더 한복판**이 된다.
+      //   실측(A2, near .30 / far 1.9): 뒷발 d .387 가로 .167 반폭 .343 → 알파 0.005,
+      //   앞발 d .788 → 0.252. 모델과 일치(0.005 / 0.252). pad 0.12 로 두면 앞발 0.90.
+      //   '큰 마크는 중심이 콘을 벗어나기 전에 페이드를 시작한다'는 의도는 작은 pad 로 충분하다.
+      const pad = Math.min(0.12, (o.geometry?.boundingSphere?.radius ?? 0) * sc);
       const k = beamAlphaAt(rig, wp, pad);
       const cur = uf ? uf.value : m.opacity;
       if (o._bw == null || Math.abs(cur - o._bw) > 1e-4) o._bb = cur;   // 핸들러가 새로 쓴 값 = 기준
@@ -2219,7 +2226,9 @@ export class Session {
       //   (알파 0.30)로 밀려 사실상 안 보였다.
       //   SC 0.5 · CZ -1.45 → 보폭 0.80m 일 때 마크가 -1.25 / -1.65 = 알파 0.86 / 0.93.
       //   둘 다 밝고 좌우 균형이 맞는다(구 CZ -1.15 는 0.69/0.76 대역이라 둘 다 어두웠다).
-      const CZ = FOOT_Z, SC = 0.5;   // -1.45 → 안정 영역(유저: 발자국이 헤더를 가린다)
+      // ★ 스탠스를 콘 안쪽으로 0.42m 민다 — 뒷발이 근거리 립에 걸려 있었다(실측 d .387,
+      //   fpNear .30 에서 겨우 .087m). pad 를 고쳐도 그 자리는 0.22 밖에 안 나온다.
+      const CZ = FOOT_Z - 0.42, SC = 0.5;   // 안정 영역(유저: 발자국이 헤더를 가린다) + 근거리 립 회피
       // ★ pinMarks — 합성용 '설계 그대로' 뽑기 모드(익스포터 --pin).
       //   평면 판에서 x봇은 이미 숨겨져 있는데 **발자국 위치는 계속 조종한다.** 그래서 안 보이는
       //   봇의 걸음이 발자국을 위아래로 흔든다(실측: 프레임간 85px 점프, 91px 폭 진동).
