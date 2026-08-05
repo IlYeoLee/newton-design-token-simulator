@@ -727,6 +727,12 @@ export const TOK = {
   //   크기는 하나로 두고, 무엇이 주인공인지는 **그 화면에 실제로 있는 수치**가 말하게 한다.
   //   ※ 러닝 실전이 여전히 무거우면 손댈 곳은 알약이 아니라 SPM 숫자(1.71°)다.
   titleSubK: 1.0,
+  // ★ 알약이 **그 화면의 유일한 정보**일 때 곱하는 배율 — 시작화면(READY 140px)과 같은 급으로.
+  //   스트레칭·학습 화면(A1~A3 · BK_A* · BK_B*)엔 SPM 도 거리도 없다. 알약이 화면 전부다.
+  //   유저: 러닝 1번화면 스트레칭 알약이 작다. 맞다 — 112px(0.88°)는 시작화면 140px(1.11°)의
+  //   79% 라 같은 흐름으로 안 읽혔다. 1.25 를 곱해 **140px = 1.11° 로 시작화면과 동일**하게 둔다.
+  //   반대로 P·C 처럼 SPM·거리가 같이 있는 화면은 112 그대로 — 거기선 알약이 화면 전부가 아니다.
+  titleLeadK: 1.25,
   gapPC: 120,        // 진행 ↔ 콘텐츠
   safePad: 48,       // 투사 콘 가장자리에서 띄우는 여백 — 알약·아크가 **같은 값**을 쓴다
   footY: 1980, contentY1: 2330,
@@ -1057,19 +1063,25 @@ export function countRing(ctx, cx, cy, prog, txt, o = {}) {
   const fsRing = o.numFs != null ? o.numFs : 220 * K2;
   const fs2 = fsRing - (fsRing - (o.pillFs ?? 68) * K2) * mo;
   ctx.font = F(700, fs2, dot9);
-  ctx.fillStyle = o.fill || '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillStyle = o.fill || '#fff'; ctx.textAlign = 'center';
+  // 숫자도 **실제 잉크**를 원 중심에 맞춘다 — 'middle' 은 em 중앙이라 원과 어긋난다(_baseAt 주석).
+  ctx.textBaseline = 'alphabetic';
+  //   실측 잉크 중앙 → baseline. 폰트가 바뀌어도 따라간다(상수 보정은 또 틀린다).
+  const _bm = ctx.measureText(txt);
+  const _by = cy + (Number.isFinite(_bm.actualBoundingBoxAscent)
+    ? (_bm.actualBoundingBoxAscent - _bm.actualBoundingBoxDescent) / 2 : 0);
   const uk = o.unit && mo > .55 ? (mo - .55) / .45 : 0;
   if (uk > 0) {
     const nw2 = ctx.measureText(txt).width;
     ctx.font = F(400, fs2 * .46);
     const uw = ctx.measureText(o.unit).width, gap2 = fs2 * .16;
     ctx.font = F(700, fs2, dot9);
-    ctx.fillText(txt, cx - (uw + gap2) / 2, cy);
+    ctx.fillText(txt, cx - (uw + gap2) / 2, _by);
     ctx.save(); ctx.globalAlpha *= Math.min(1, uk);
     ctx.font = F(400, fs2 * .46); ctx.fillStyle = 'rgba(255,255,255,.62)';
-    ctx.fillText(o.unit, cx + (nw2 + gap2) / 2, cy + fs2 * .17);
+    ctx.fillText(o.unit, cx + (nw2 + gap2) / 2, _by + fs2 * .17);
     ctx.restore();
-  } else ctx.fillText(txt, cx, cy);
+  } else ctx.fillText(txt, cx, _by);
   ctx.restore();
   ctx.restore();
 }
@@ -1617,7 +1629,7 @@ export class FloorGL {
     //     "작아진 시스템"이 아니라 "다른 컴포넌트"가 된다.
     // 그 화면에 다른 1급 수치(SPM·거리)가 있으면 알약은 조연이다 — P·C 가 그렇다.
     const lead = !/^(Pd|C[1-5])$/.test(this.stage || '');
-    const K2 = (CAPS[this.stage]?.uiK ?? 1) * (lead ? 1 : TOK.titleSubK);
+    const K2 = (CAPS[this.stage]?.uiK ?? 1) * (lead ? TOK.titleLeadK : TOK.titleSubK);
     // ★ 링도 HUG — 값이 '4/10' 처럼 길어지면 원이 그만큼 커진다. 안 그러면 글자가 링을 넘는다
     //   (유저 스샷). 숫자를 줄여 맞추는 건 안 된다: 1급(0.69°)이 2급 아래로 떨어진다.
     const PAD = Math.round(H2.pad * K2);
@@ -1715,6 +1727,17 @@ export class FloorGL {
     return { AV, prog: stageRest, rem: String(Math.max(0, Math.ceil(dur - t))) };
   }
 
+  /** 문자열의 **실제 잉크**가 cy 에 오도록 하는 baseline y.
+   *  ★ 캔버스 `textBaseline='middle'` 은 **em 박스 중앙**이지 글자 중앙이 아니다. 폰트의
+   *    ascent 여백(악센트 자리 등)까지 포함하므로, 대문자 전용 문구에선 글자가 눈에 띄게
+   *    **위로 뜬다**(유저: 타이머랑 타이틀 수평 정렬이 안 맞다 — 실제로 중심선이 글자 아래
+   *    1/3 을 지났다). 상수 보정은 폰트가 바뀌면 또 틀리므로 actualBoundingBox 로 실측한다. */
+  _baseAt(str, cy) {
+    const m = this.ctx.measureText(String(str ?? ''));
+    const a = m.actualBoundingBoxAscent, d = m.actualBoundingBoxDescent;
+    return (Number.isFinite(a) && Number.isFinite(d)) ? cy + (a - d) / 2 : cy;
+  }
+
   /** 노드 하나에 대한 알약 상자 — **조판과 그리기가 같이 쓰는 유일한 진입점.**
    *  게이지 값을 먼저 구하고(링 크기가 값 폭에서 나오므로) 그 결과로 상자를 잡는다. */
   _headBoxFor(n, y) {
@@ -1768,8 +1791,10 @@ export class FloorGL {
     const tx = cxR + RR + H2.gapU + GT;   // 링 → 타이틀 (sec 은 링 안이라 폭 0)
     // 쉼표가 있으면 의미 단위로 두 줄(농구 스텝) — 지금 데이터엔 없지만 규칙은 남긴다.
     const ci = T.indexOf(', ');
-    if (ci > 0) { ctx.fillText(T.slice(0, ci + 1), tx, cyR - 56); ctx.fillText(T.slice(ci + 2), tx, cyR + 56); }
-    else ctx.fillText(T, tx, cyR);
+    if (ci > 0) { ctx.textBaseline = 'alphabetic';
+      ctx.fillText(T.slice(0, ci + 1), tx, this._baseAt(T, cyR - 56));
+      ctx.fillText(T.slice(ci + 2), tx, this._baseAt(T, cyR + 56)); }
+    else { ctx.textBaseline = 'alphabetic'; ctx.fillText(T, tx, this._baseAt(T, cyR)); }
     ctx.letterSpacing = '0px';
     // 스텝 배지(n/4) — 농구 분해 스텝만. 헤더 오른쪽 끝에 조용히.
     if (n.step) {
@@ -2852,6 +2877,7 @@ export class FloorGL {
     const RR = RRp;
     const x0p = x + (w - INNER) / 2;
     const rx = x0p + RR, ry2 = y + h / 2;
+    this._boxes?.push({ k: 'inner', x: x0p, y, w: INNER, h });   // 검수용 — 캡슐 경로도 같이 기록
     // ★ 종아리 늘리기(A2)는 **한 발당** 홀드가 단위다(유저: 시간과 전체 길이가 같으면 어색하다).
     //   헤더 링 = 지금 딛고 있는 발의 남은 홀드 시간(발이 바뀌면 리셋) · 하단 아크 = 좌+우 합친
     //   세션 전체. 둘이 같은 값을 세면 "한 발 5초"라는 이 동작의 구조가 화면에서 사라진다.
@@ -2930,7 +2956,8 @@ export class FloorGL {
       //   링은 왼쪽 슬롯에 있으므로 관찰 구간 내내 타이틀이 링을 덮었다(유저 스샷: 2CALF STRETCH).
       //   세로 3단 쌓기를 걷어내면서 남은 마지막 잔재다 — 프리뷰/따라하기 차이는 **활자 크기뿐**.
       ctx.textAlign = 'left';
-      fitDraw(title, dstX, dstY);
+      ctx.textBaseline = 'alphabetic';
+      fitDraw(title, dstX, this._baseAt(title, dstY));
     } else {
       const outA = eQ(1 - clamp01(moT / .48)), inA = eQ((moT - .46) / .54);
       ctx.textAlign = 'center';
