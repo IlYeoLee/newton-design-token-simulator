@@ -892,7 +892,7 @@ export class Marker {
 //    촉 크기 = 경로의 0.09 (랩 34px/380px 실측 비율 — 구성 고정, 스케일만 원칙).
 //    구 makeArrow(flatMat 정적 도형 통화살표)와 '촉 끝 주차'는 카탈로그에 없는 종 — 은퇴.
 export const FLOW_ARROWS = [];
-export function makeFlowArrow(len, { tips = 1, wall = false, scale = 1 } = {}) {
+export function makeFlowArrow(len, { tips = 1, wall = false, scale = 1, dots } = {}) {
   // LINE 토큰 = 테이퍼 스템 + SVG 촉 draw-on (유저 확정: 러닝 A3 리프트 큐 2안).
   // 랩 프리뷰와 같은 fx-core drawStemArrow 하나로 그린다 — 셰이더 자루/별도 촉 판 은퇴.
   const g = new THREE.Group();
@@ -905,6 +905,8 @@ export function makeFlowArrow(len, { tips = 1, wall = false, scale = 1 } = {}) {
   g.add(mesh);
   g._len = len; g._canvas = c; g._tex = tex; g._mesh = mesh; g._paintT = -9; g._noTip = tips === 0; g._tips = [];
   g._scale = scale;   // 두께·촉 배율(길이는 그대로) — 길이가 달라도 실측 두께를 맞출 때
+  // 자루 재질 — 지면 기본은 **점렬**(유저 08-05: 바닥 동작 토큰에 도트). 벽은 이어진 테이퍼.
+  g._dots = dots != null ? dots : !wall;
   // 바닥 = 수평면(x=-90°, 살짝 띄움). 벽 = 수직면 유지(x=0) → 자루가 +Y로 서고 caller가 rotation.z로 방향 지정.
   if (wall) { g.rotation.x = 0; g.position.y = 0; } else { g.rotation.x = -Math.PI / 2; g.position.y = 0.014; }
   g.renderOrder = 6;
@@ -940,7 +942,7 @@ export function tickFlowArrows(t, rig) {
     if (t - g._paintT >= 1 / 24) {
       g._paintT = t;
       // _prog 지정 = 자유 루프 대신 외부 구동(세션이 타이밍을 잡는 경우). 다 그려지면 그 상태로 멈춘다.
-      drawStemArrow(g._canvas.getContext('2d'), 128, 256, t, ENV, { noTip: g._noTip, prog: g._prog, scale: g._scale });
+      drawStemArrow(g._canvas.getContext('2d'), 128, 256, t, ENV, { noTip: g._noTip, prog: g._prog, scale: g._scale, dots: g._dots });
       g._tex.needsUpdate = true;
     }
     // 투사면 소프트 페이드 — 셰이더를 버렸으니 CPU에서 판 전체 알파로 (경계에서 사각으로 잘리지 않게)

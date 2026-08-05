@@ -2970,7 +2970,7 @@ void main(){
             const og = off.getContext('2d');
             og.setTransform(1, 0, 0, 1, 0, 0); og.clearRect(0, 0, 128, 256);
             drawStemArrow(og, 128, 256, now2, { lut: lutColor, glyph: drawGlyph, arrow: FXP.arrow || {} },
-              { prog, scale: 0.9 });
+              { prog, scale: 0.9, dots: true });   // 지면 동작 토큰 = 점렬 자루(유저)
             c.g.setTransform(1, 0, 0, 1, 0, 0); c.g.clearRect(0, 0, 128, 256);
             c.g.drawImage(off, 0, 0);
             const bk2 = FXP.primBloom != null ? FXP.primBloom : 0.125;

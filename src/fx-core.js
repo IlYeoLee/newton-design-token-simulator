@@ -1121,19 +1121,43 @@ export function drawStemArrow(g, W, H, t, ENV, opts = {}) {
   grad.addColorStop(1.00, rgba(0.97, A0));
   // 볼류메트릭 언더글로우 — 같은 폴리곤을 1.9배 넓혀 블러 밴드로. shadowBlur 없이 스템이
   //   판에 붙은 종이처럼 평평했다(유저: 발자국 토큰과 감도 차이). 링의 volRing 과 같은 취지.
-  g.save(); g.filter = `blur(${7 * sw}px)`; g.globalAlpha = 0.55;
+  g.save(); g.filter = `blur(${7 * sw}px)`; g.globalAlpha = opts.dots ? 0.30 : 0.55;
   g.fillStyle = grad;
-  g.beginPath();
-  g.moveTo(cx - w0, y0); g.lineTo(cx + w0, y0);
-  g.lineTo(cx + w1 * 0.95, yHead); g.lineTo(cx - w1 * 0.95, yHead);
-  g.closePath(); g.fill();
+  if (opts.dots) {
+    // 도트 모드에선 언더글로우도 점으로. 폴리곤 밴드를 깔면 점 사이가 메워져 다시 막대가 된다.
+    const seg = Math.abs(yHead - y0), N = Math.max(3, Math.round(seg / (13 * sw)));
+    for (let i = 0; i < N; i++) {
+      const u = (i + 0.5) / N, y = y0 + (yHead - y0) * u;
+      const r = (w0 / 2 + (w1 / 2 - w0 / 2) * u) * 1.5;
+      g.beginPath(); g.arc(cx, y, Math.max(1.4 * sw, r), 0, Math.PI * 2); g.fill();
+    }
+  } else {
+    g.beginPath();
+    g.moveTo(cx - w0, y0); g.lineTo(cx + w0, y0);
+    g.lineTo(cx + w1 * 0.95, yHead); g.lineTo(cx - w1 * 0.95, yHead);
+    g.closePath(); g.fill();
+  }
   g.restore();
   g.globalAlpha = 1;
   g.fillStyle = grad;
-  g.beginPath();
-  g.moveTo(cx - w0 / 2, y0); g.lineTo(cx + w0 / 2, y0);
-  g.lineTo(cx + w1 / 2, yHead); g.lineTo(cx - w1 / 2, yHead);
-  g.closePath(); g.fill();
+  if (opts.dots) {
+    // ★ 도트 스템(지면 전용, 유저 08-05) — 벽은 이어진 테이퍼 자루, **바닥은 점렬**이다.
+    //   같은 토큰·같은 촉·같은 램프를 쓰고 자루의 '재질'만 바꾼다(문법 공유, 렌더만 절제).
+    //   점 크기는 스템 폭 테이퍼를 그대로 따라 뿌리에서 머리로 굵어진다 = 방향이 점에서도 읽힌다.
+    const seg = Math.abs(yHead - y0);
+    const N = Math.max(3, Math.round(seg / (13 * sw)));
+    for (let i = 0; i < N; i++) {
+      const u = (i + 0.5) / N;
+      const y = y0 + (yHead - y0) * u;
+      const r = (w0 / 2 + (w1 / 2 - w0 / 2) * u) * 0.92;
+      g.beginPath(); g.arc(cx, y, Math.max(0.9 * sw, r), 0, Math.PI * 2); g.fill();
+    }
+  } else {
+    g.beginPath();
+    g.moveTo(cx - w0 / 2, y0); g.lineTo(cx + w0 / 2, y0);
+    g.lineTo(cx + w1 / 2, yHead); g.lineTo(cx - w1 / 2, yHead);
+    g.closePath(); g.fill();
+  }
   g.globalAlpha = A0;
   if (draw > 0.28 && !opts.noTip) {   // noTip = 촉 없는 자루(감속 바 등)
     // 촉은 '자라는 머리'에 항상 붙는다(고정 위치 X) → 자라는 동안에도 화살표로 읽힌다.
