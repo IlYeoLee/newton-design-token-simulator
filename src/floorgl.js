@@ -1167,7 +1167,7 @@ export class FloorGL {
    *  폭은 고정(840) — 스테이지마다 헤더가 커졌다 작아지면 '같은 물건이 자리를 옮긴다'가 깨진다.
    *  타이틀 상한 400px 은 floor-scenes.js 에서 지킨다(농구 스텝 4개를 그 규칙으로 줄였다). */
   _capHead(n, y) {
-    const ctx = this.ctx, W2 = 840, HH = 250, x = CX - W2 / 2;
+    const ctx = this.ctx, W2 = 1000, HH = 250, x = CX - W2 / 2;   // 840→1000: 타이틀 72 를 담는 폭
     const path = () => { ctx.beginPath(); ctx.roundRect(x, y, W2, HH, HH / 2); };
     ctx.save();
     path(); ctx.clip();
@@ -1189,11 +1189,13 @@ export class FloorGL {
     ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
     ctx.fillStyle = 'rgba(255,255,255,.6)'; ctx.font = F(400, 40);
     ctx.fillText('sec', cxR + RR + 18, cyR + 6);
-    ctx.fillStyle = '#fff'; ctx.font = F(700, 52); ctx.letterSpacing = '-2px';
+    // 52 → 72(유저: 타이틀이 너무 작다). 최장 'Neck & Shoulders' 가 72px 에서 543px —
+    //   폭 1000 의 타이틀 예산(≈560) 안에 들어간다. y176 안전폭은 2174 라 여유는 충분하다.
+    ctx.fillStyle = '#fff'; ctx.font = F(700, 72); ctx.letterSpacing = '-2.6px';
     const tx = x + 60 + RR * 2 + 18 + 62 + 52;
     // 쉼표가 있으면 의미 단위로 두 줄(농구 스텝) — 지금 데이터엔 없지만 규칙은 남긴다.
     const ci = (n.title || '').indexOf(', ');
-    if (ci > 0) { ctx.fillText(n.title.slice(0, ci + 1), tx, cyR - 32); ctx.fillText(n.title.slice(ci + 2), tx, cyR + 32); }
+    if (ci > 0) { ctx.fillText(n.title.slice(0, ci + 1), tx, cyR - 42); ctx.fillText(n.title.slice(ci + 2), tx, cyR + 42); }
     else ctx.fillText(n.title || '', tx, cyR);
     ctx.letterSpacing = '0px';
     // 스텝 배지(n/4) — 농구 분해 스텝만. 헤더 오른쪽 끝에 조용히.
@@ -1956,7 +1958,7 @@ export class FloorGL {
     // 지오메트리 — 원형(760×820) → 가로 알약(840×250). **y 는 176 고정**: 위를 붙박아 두면
     //   아래로만 접히므로 코치 판(지면 중앙에 서는 3D 인물)과 안 겹친다.
     //   전엔 y300·h1080 이라 캡슐이 화면 중앙까지 내려와 인물 몸통을 덮었다(유저 스샷).
-    const w1 = L(760, 840), h1 = L(820, 250), y1 = 176;
+    const w1 = L(760, 1000), h1 = L(820, 250), y1 = 176;   // 알약 폭 1000(타이틀 72 수용)
     // ★ 진입 = **시작화면 캡슐이 줄어드는 것**(유저: 두 번 탭하면 같은 요소가 줄어들며 넘어간다).
     //   스테이지가 바뀔 때 캡슐을 새로 띄우면 '다른 물건이 나타난' 걸로 읽힌다. READY 캡슐
     //   지오메트리(x291 y285 w1018 h1491)에서 출발해 0.9s 동안 이 스테이지의 캡슐로 접힌다.
@@ -2018,7 +2020,7 @@ export class FloorGL {
       ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
       ctx.fillStyle = 'rgba(255,255,255,.6)'; ctx.font = F(400, 40);
       ctx.fillText('sec', rx + RR + 18, ry2 + 6);
-      ctx.fillStyle = '#fff'; ctx.font = F(700, 52); ctx.letterSpacing = '-2px';
+      ctx.fillStyle = '#fff'; ctx.font = F(700, 72); ctx.letterSpacing = '-2.6px';   // 52→72(유저)
       ctx.fillText(title, x + 60 + RR * 2 + 18 + 62 + 52, ry2);
       ctx.letterSpacing = '0px';
       if (cfg.step) {
