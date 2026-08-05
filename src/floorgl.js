@@ -1668,7 +1668,14 @@ export class FloorGL {
     capPath(); ctx.stroke();
     ctx.restore();
     // ── ② 캡슐 하단 엠버 글로우 — 피그마 익스포트 4겹, 블렌드 모드 그대로 ──
-    const GLOWS = bk ? READY_GLOWS_BK : READY_GLOWS;
+    // ★ 컬러 면은 **두 상태를 오간다**(유저 08-05, 피그마 342:3057):
+    //   페이즈1(인물) = 새 컬러 면(크고 위) · 페이즈2(도트 숫자) = **원래 뉴턴 그라디언트**가
+    //   세로로 줄어 아래에 앉는다. 숫자가 주인공이 되는 순간 배경이 자리를 비켜주는 안무다.
+    //   두 에셋을 p2 로 크로스페이드하고 지오메트리도 각자 제 값을 쓴다(보간이 아니라 교대 —
+    //   에셋 모양이 달라 보간하면 어느 쪽도 아닌 형태가 된다).
+    const GLOWS = (bk ? READY_GLOWS_BK : READY_GLOWS).map(g =>
+      g[0].startsWith('glow-ell') ? [g[0], g[1], g[2], g[3], g[4], g[5], 1 - p2] : g);
+    const GLOW_NEWTON = ['glow-ell-newton.svg', 150.3, 1189.3, 1300.36, 871.36, 'hard-light', p2];
     ctx.save(); ctx.globalAlpha *= e0(.15, 1.2) * (1 + .3 * tapB);   // 탭 박자에 하단 빛이 두 번 부푼다
     ctx.translate(0, -CUT);   // 캡슐 바닥이 올라간 만큼 하단 빛도 함께(에셋은 원 좌표계)
     // ★ 캡슐 마스크 **해제**(유저 08-05, 이식 초기 디자인 복원 — 스샷 #154).
@@ -1677,10 +1684,12 @@ export class FloorGL {
     //   **퍼지는** 형태였고, 그게 홈 화면의 정체성이었다(투사광은 경계에서 끊기지 않는다).
     //   ※ 사각 rect 로 반원 블룸을 덧대는 방식(33088c5 폐기)과는 다르다 — 그건 이음매가 드러났다.
     //     여기선 클립을 걷어낼 뿐이라 에셋 자체의 소프트 falloff 가 그대로 살아난다.
-    for (const [rel, gx, gy, gw, gh, blend] of GLOWS) {
+    for (const [rel, gx, gy, gw, gh, blend, la] of [...GLOWS, GLOW_NEWTON]) {
+      if (la != null && la <= 0.004) continue;
       const im = img(rel);
       if (!im) continue;
       ctx.save(); ctx.globalCompositeOperation = blend;
+      if (la != null) ctx.globalAlpha *= la;
       ctx.drawImage(im, gx, gy, gw, gh);
       ctx.restore();
     }
