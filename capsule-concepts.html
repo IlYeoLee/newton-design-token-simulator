@@ -34,6 +34,13 @@ h2{font-size:13.5px;margin:22px 0 10px;color:#FEC389}
   <span style="color:#98A1AD;font-size:12px;margin-left:10px">캡슐 크기</span>
   <input id="fsize" type="range" min="0.45" max="1" step="0.01" value="0.72" style="width:200px;accent-color:#FEC389">
   <span id="fsz" style="font:12px monospace;color:#98A1AD">0.72</span>
+  <span style="color:#98A1AD;font-size:12px;margin-left:10px">동작명</span>
+  <select id="fname" style="background:#1a1e25;color:#E9EAEE;border:1px solid #262b35;border-radius:8px;padding:4px 8px;font-size:12px">
+    <option value="High Knees">High Knees</option>
+    <option value="Neck And Shoulder">Neck And Shoulder</option>
+    <option value="Single Leg Calf Raise">Single Leg Calf Raise</option>
+    <option value="Step Back Three Point Shot">Step Back Three Point Shot</option>
+  </select>
 </div>
 <h2 id="ttl">프리뷰(관찰)</h2>
 <div class="row" id="row"></div>
@@ -618,6 +625,36 @@ const T_HOLD = 1.6, T_MOVE = 1.0, CY_LOOP = 5.4;
 //   캡슐이 작아지면 그만큼 코치가 커진다: 캡슐은 정보를 들 만큼만 크면 되고,
 //   남는 자리는 '봐야 하는 것'(영상)이 가져가는 게 맞다.
 let FS = 0.72;
+// ★ 동작명은 길이가 제각각이다(유저: 글자수 길어지면 어칼래). 카드 폭을 760 으로 못박으면
+//   긴 이름이 그냥 넘친다. 폭은 **내용에서 파생**시키고, 투사 안전폭에서 자르고, 그래도
+//   안 들어가면 두 줄로 접는다. 줄이지 않는다 — 가독 규약(minFs)이 축소를 막는다.
+let FNAME = 'High Knees';
+const MINI_MAX = 1320, MINI_MIN = 620;
+// 미니 카드 조판 계산 — ③(형태변환)과 미니 카드가 **같은 함수**를 써야 어긋나지 않는다.
+function miniLayout(g, name) {
+  const PFS = 96;
+  g.font = RF(700, PFS); const nw = g.measureText('12').width;
+  g.font = RF(400, PFS * .46); const uw = g.measureText('sec').width;
+  const pillW = Math.max(nw + PFS * .16 + uw, 64) + 96;
+  const GAP = 52, PAD = 60, TAIL = 72;
+  g.font = RF(700, 52); g.letterSpacing = '-2px';
+  const room = MINI_MAX - PAD - pillW - GAP - TAIL;
+  let lines = [name];
+  if (g.measureText(name).width > room) {          // 두 줄로 접는다(단어 단위)
+    const w2 = name.split(' ');
+    let best = 1;
+    for (let i = 1; i < w2.length; i++) {
+      const a = w2.slice(0, i).join(' '), b = w2.slice(i).join(' ');
+      if (Math.abs(g.measureText(a).width - g.measureText(b).width) <
+          Math.abs(g.measureText(w2.slice(0, best).join(' ')).width - g.measureText(w2.slice(best).join(' ')).width)) best = i;
+    }
+    lines = [w2.slice(0, best).join(' '), w2.slice(best).join(' ')];
+  }
+  const tw = Math.max(...lines.map(l => g.measureText(l).width));
+  g.letterSpacing = '0px';
+  const w = Math.min(MINI_MAX, Math.max(MINI_MIN, PAD + pillW + GAP + tw + TAIL));
+  return { pillW, PFS, lines, w, h: lines.length > 1 ? 320 : 250, tx: PAD + pillW + GAP };
+}
 function drawFlow(g, t) {
   const cx = 800;
   const m = clamp01((t - T_HOLD) / T_MOVE), me = eOut(m);          // 전환 진행
@@ -625,7 +662,8 @@ function drawFlow(g, t) {
   const intro0 = eOut(intro(t, .05, .8));
   // ① 캡슐 — 관찰(큰 캡슐) → 따라하기(미니 카드). 폭·높이·y 를 한 번에 보간
   const cw0 = 818 * FS, ch0 = 821 * FS;                              // 관찰 캡슐 — 슬라이더 크기
-  const cw = cw0 + (760 - cw0) * me, ch = ch0 + (250 - ch0) * me, cy = 300;
+  const ML = miniLayout(g, FNAME);
+  const cw = cw0 + (ML.w - cw0) * me, ch = ch0 + (ML.h - ch0) * me, cy = 300;
   capsule(g, cx - cw / 2, cy, cw, ch);
   ember(g, cx, cy + ch - 120, cw * .46, .5 * (1 - me * .6));
   // ② 타이틀 — 관찰은 2줄 크게, 따라하기는 1줄 작게(크로스페이드)
@@ -646,14 +684,11 @@ function drawFlow(g, t) {
   //   그 자리에 앉으므로 여기선 **동작명만** 그린다(두 번 그리면 알약이 겹친다).
   if (inA > 0) {
     g.save(); g.globalAlpha = inA;
-    //   폭 계산은 ③ 과 **같은 식**이어야 한다 — 예전엔 숫자만 재서 타이틀이 알약을 파고들었다.
-    const PFS = 96;
-    g.font = RF(700, PFS); const nwT = g.measureText('12').width;
-    g.font = RF(400, PFS * .46); const uwT = g.measureText('sec').width;
-    const T1w = Math.max(nwT + PFS * .16 + uwT, 64) + 96;
+    //   좌표·줄바꿈은 miniLayout 이 정한다(③ 과 같은 함수) — 두 곳이 따로 재면 반드시 어긋난다.
     g.fillStyle = '#fff'; g.textAlign = 'left'; g.textBaseline = 'middle';
     g.font = RF(700, 52); g.letterSpacing = '-2px';
-    g.fillText('High Knees', cx - cw / 2 + 60 + T1w + 52, cy + ch * .5);
+    const tx0 = cx - cw / 2 + ML.tx, my2 = cy + ch * .5;
+    ML.lines.forEach((ln, i) => g.fillText(ln, tx0, my2 + (i - (ML.lines.length - 1) / 2) * 62));
     g.letterSpacing = '0px';
     g.restore();
   }
@@ -666,11 +701,8 @@ function drawFlow(g, t) {
     //     화면에서 제일 작아야 할 이유가 없는 값(남은 시간)이 제일 작아졌다.
     //     k=1 이면 알약 h100 · 도트 68 = 정본 배지 규격 그대로. 링 쪽은 k=112·FS/275.
     const T0x = cx, T0y = cy + ch0 * .74, K0 = 112 * FS / 275;      // 관찰: 캡슐 안 0.74 자리
-    const PFS = 96;                                              // 타이머가 주인공 — 타이틀(52)보다 크게
-    g.font = RF(700, PFS); const nwT = g.measureText('12').width;
-    g.font = RF(400, PFS * .46); const uwT = g.measureText('sec').width;
-    const twT = Math.max(nwT + PFS * .16 + uwT, 64), T1w = twT + 96;   // 알약 폭 = 숫자+단위 실폭
-    const T1x = cx - cw / 2 + 60 + T1w / 2, T1y = cy + ch * .5;     // 따라하기: 미니 카드 왼쪽
+    const PFS = ML.PFS, T1w = ML.pillW;                          // 타이머가 주인공 — 타이틀(52)보다 크게
+    const T1x = cx - cw / 2 + 60 + T1w / 2, T1y = cy + ch * .5;     // 따라하기: 미니 카드 왼쪽 (파생)
     const L = (a2, b2) => a2 + (b2 - a2) * me;
     const cd = Math.max(1, 3 - Math.floor(t * 1.9));
     countRing(g, L(T0x, T1x), L(T0y, T1y), (t * .62) % 1, me < .5 ? String(cd) : '12', {
@@ -778,6 +810,7 @@ document.getElementById('fscrub').addEventListener('input', e => { FPLAY = false
 document.getElementById('fsize').addEventListener('input', e => {
   FS = +e.target.value; document.getElementById('fsz').textContent = FS.toFixed(2);
 });
+document.getElementById('fname').addEventListener('change', e => { FNAME = e.target.value; });
 const fp = document.getElementById('fplay');
 fp.onclick = () => { FPLAY = !FPLAY; fp.textContent = FPLAY ? '⏸ 정지' : '▶ 재생'; };
 build();
