@@ -1656,6 +1656,11 @@ export class FloorGL {
     const GLOWS = READY_GLOWS;
     ctx.save(); ctx.globalAlpha *= e0(.15, 1.2) * (1 + .3 * tapB);   // 탭 박자에 하단 빛이 두 번 부푼다
     ctx.translate(0, -CUT);   // 캡슐 바닥이 올라간 만큼 하단 빛도 함께(에셋은 원 좌표계)
+    // ★ 컬러 영역 확대·상승(유저 스샷 #156/#157) — 피그마에서 그라디언트 면을 위로 올리고 키웠다.
+    //   에셋을 다시 뽑지 않고 캡슐 바닥 중심으로 스케일 + 상승. 두 값만 만지면 된다.
+    const GK = 1.34, GUP = 210;   // 배율 · 상승(px)
+    ctx.translate(800, CAP.y + CAP.h); ctx.scale(GK, GK); ctx.translate(-800, -(CAP.y + CAP.h));
+    ctx.translate(0, -GUP);
     // ★ 캡슐 마스크 **해제**(유저 08-05, 이식 초기 디자인 복원 — 스샷 #154).
     //   9019151 이 capPath 클립으로 빛을 캡슐 안에 가뒀는데, 그러면 림에서 **칼같이 잘린다**.
     //   원래 이식본은 피그마 4겹 익스포트가 캡슐보다 큰 박스를 그대로 써서 빛이 림을 넘어
@@ -1673,13 +1678,15 @@ export class FloorGL {
     // ── ②' 림 바깥 초승달 블룸 = **폐기**(유저 08-05). '칼같이 잘리는' 걸 풀려고 반원
     //   그라디언트를 림 밖에 얹었는데, 클립 사각(rect)의 윗변이 그대로 직선 이음매로 드러나고
     //   빛이 캡슐 밖 좌우로 번져 더 이상해졌다. 캡슐 밖으로 새는 광은 만들지 않는다.
-    // ── ②'' 인물 = **캔버스 plus-lighter 오버레이**(유저 08-05, 모바일 일치도).
-    //   피그마 367:10132 '인물스타일레퍼런스3 1' 실측 박스 (396, 834) 757.24×595.84 —
-    //   캡슐 상단(피그마 51)에서 783 아래이므로 우리 캡슐 상단(285) 기준 1068.
-    //   r 값 없음(모서리 안 깎음) · 합성 'lighter'(= plus-lighter) 로 캡슐 위에 얹는다.
-    //   3D 코치 판(LUT 인물)과 달리 원본 화면을 그대로 더하는 방식이라 모바일과 결이 같다.
+    // ── ②'' 인물 = **캔버스 plus-lighter 오버레이**(유저, 모바일 일치도 · 스샷 #156/#157).
+    //   ★ 배치 근거(스샷 실측): 캡슐 1018×1591 이 스샷에서 683×940(=0.671배)로 찍혔고,
+    //     머리 꼭대기가 캡슐 상단에서 455px → 캡슐 로컬 678 → 그려지는 좌표 285+678 = 963.
+    //     어깨 폭은 캡슐의 44% = 447px 인데 소스(720×1280) 인물 어깨가 ≈446px 이므로 **1:1 배율**.
+    //     소스 머리 꼭대기가 y≈40 이라 판 상단 = 963-40 = 923. 아래는 캡슐 밖으로 나가므로 클립.
+    //   ★ 검정 배경이 사각으로 드러나던 것(유저 #155): 'lighter' 는 어두운 값도 **더한다**.
+    //     압축 노이즈로 배경이 순수 0 이 아니라 판 전체가 회색 사각으로 떴다. 오프스크린에서
+    //     자기 자신을 multiply 해 값을 제곱하면 어두운 곳은 0 으로 죽고 밝은 인물만 남는다.
     if (p2 < 0.995) {
-      const PB = { x: 396, y: CAP.y + 783, w: 757.24, h: 595.84 };
       const v = this._readyVid || (this._readyVid = (() => {
         const el = document.createElement('video');
         el.src = (import.meta.env?.BASE_URL || '/') + (bk ? 'ready-view/assets/proto/curry-card.mp4'
@@ -1689,14 +1696,23 @@ export class FloorGL {
         return el;
       })());
       if (v.readyState >= 2 && v.videoWidth) {
+        const OW = 360, OH = Math.round(OW * v.videoHeight / v.videoWidth);
+        const oc = this._readyCv || (this._readyCv = document.createElement('canvas'));
+        if (oc.width !== OW) { oc.width = OW; oc.height = OH; }
+        const og = oc.getContext('2d');
+        og.globalCompositeOperation = 'source-over';
+        og.clearRect(0, 0, OW, OH);
+        og.drawImage(v, 0, 0, OW, OH);
+        og.globalCompositeOperation = 'multiply';   // 값 제곱 — 배경(어두움)만 0 으로 떨어진다
+        og.drawImage(oc, 0, 0);
+        og.globalCompositeOperation = 'source-over';
+        const PW2 = v.videoWidth, PH2 = v.videoHeight;      // 1:1 배율
+        const px = 800 - PW2 / 2, py = CAP.y + 638;         // 638 = 923-285(캡슐 상단 기준)
         ctx.save();
         ctx.globalAlpha *= e0(.30, .9) * (1 - p2);
+        capPath(); ctx.clip();                              // 캡슐 밖으로 안 나간다(스샷과 동일)
         ctx.globalCompositeOperation = 'lighter';
-        // '확대해서' — 소스를 박스에 cover 로 채운다(레터박스 금지, 검정 여백이 더해지면 안 된다)
-        const sc = Math.max(PB.w / v.videoWidth, PB.h / v.videoHeight) * 1.18;
-        const dw = v.videoWidth * sc, dh = v.videoHeight * sc;
-        ctx.beginPath(); ctx.rect(PB.x, PB.y, PB.w, PB.h); ctx.clip();
-        ctx.drawImage(v, PB.x + (PB.w - dw) / 2, PB.y + (PB.h - dh) / 2, dw, dh);
+        ctx.drawImage(oc, px, py, PW2, PH2);
         ctx.restore();
       }
     }
@@ -2043,7 +2059,12 @@ export class FloorGL {
     // 지오메트리 — 원형(760×820) → 가로 알약(840×250). **y 는 176 고정**: 위를 붙박아 두면
     //   아래로만 접히므로 코치 판(지면 중앙에 서는 3D 인물)과 안 겹친다.
     //   전엔 y300·h1080 이라 캡슐이 화면 중앙까지 내려와 인물 몸통을 덮었다(유저 스샷).
-    const w1 = L(860, LAYOUT.HEAD.w), h1 = L(900, LAYOUT.HEAD.h), y1 = LAYOUT.HEAD.y;
+    // ★ 프리뷰 캡슐 높이 900 → 620(유저: 캡슐이 인물 머리를 덮는다).
+    //   기하적으로 서 있는 사람의 머리는 화면에서 **먼 바닥**과 같은 높이로 투영된다 —
+    //   1.7m 키가 카메라 부각 ~40°에서 바닥 2.0m 앞과 같은 자리에 찍힌다. 즉 캡슐이 아래로
+    //   내려올수록(=near 쪽으로 커질수록) 머리와 겹칠 수밖에 없다. 위(y176)를 붙박은 채
+    //   **아래 끝을 끌어올리는 것**만이 구조적 해법이다: 하단 y1076 → 796(1.26m → 1.45m).
+    const w1 = L(760, LAYOUT.HEAD.w), h1 = L(620, LAYOUT.HEAD.h), y1 = LAYOUT.HEAD.y;
     // ★ 진입 = **시작화면 캡슐이 줄어드는 것**(유저: 두 번 탭하면 같은 요소가 줄어들며 넘어간다).
     //   스테이지가 바뀔 때 캡슐을 새로 띄우면 '다른 물건이 나타난' 걸로 읽힌다. READY 캡슐
     //   지오메트리(x291 y285 w1018 h1491)에서 출발해 0.9s 동안 이 스테이지의 캡슐로 접힌다.
@@ -2082,7 +2103,7 @@ export class FloorGL {
     ctx.strokeStyle = rim; ctx.lineWidth = 2.5; path(); ctx.stroke();
     // 카운트 링 — 정본 countRing. 관찰: 캡슐 중앙 아래 / 따라하기: 헤더 왼쪽 슬롯. 형태는 안 바뀐다.
     const RR = L(112, 130);
-    const rx = L(CX, x + 64 + RR), ry2 = L(y + h * .72, y + h / 2);
+    const rx = L(CX, x + 64 + RR), ry2 = L(y + h * .70, y + h / 2);
     const rem = mo < .5 ? Math.max(1, Math.ceil(PV - t)) : Math.max(0, Math.ceil(dur - t));
     if (String(rem) !== this._numLast2) { this._numLast2 = String(rem); this._numT2 = t; }
     countRing(ctx, rx, ry2, mo < .5 ? clamp01(1 - t / PV) : clamp01(1 - (t - PV) / Math.max(.1, dur - PV)),
@@ -2094,10 +2115,10 @@ export class FloorGL {
       ctx.save(); ctx.globalAlpha *= outA;
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.fillStyle = 'rgba(255,255,255,.6)'; ctx.font = F(400, 46); ctx.letterSpacing = '6px';
-      ctx.fillText('PREVIEW', CX + 3, y + h * .22);
+      ctx.fillText('PREVIEW', CX + 3, y + h * .16);
       ctx.letterSpacing = '-4px'; ctx.fillStyle = '#fff'; ctx.font = F(700, 100);
       const ls = Array.isArray(cfg.title) ? cfg.title : [title];
-      ls.forEach((ln, i) => ctx.fillText(ln, CX, y + h * .42 + (i - (ls.length - 1) / 2) * 118));
+      ls.forEach((ln, i) => ctx.fillText(ln, CX, y + h * .40 + (i - (ls.length - 1) / 2) * 112));
       ctx.letterSpacing = '0px'; ctx.restore();
     }
     if (inA > 0) {
