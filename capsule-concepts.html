@@ -237,8 +237,9 @@ function slotFrame(g, t, o) {
   titleBlock(g, [o.title], cx, cy + (o.tall ? 96 : 100), 64);
   // ② 시계 — 캡슐 내부. 패턴이 갈리는 유일한 자리
   o.clock(g, t, cx, cy + ch);
-  // ③ 판정 — 지면
-  coach(g, cx, 1080, 700, e);
+  // ③ 판정 — 지면. 코치 판은 **관찰이 있는 패턴에만** 존재한다(COACH_CFG 실측: A1~A3·BK_*).
+  //   실전 동행(P·C)은 유저가 실제로 달리는 중이라 화면에 코치 영상이 없다(유저 지적 08-05).
+  if (o.coach !== false) coach(g, cx, 1080, 700, e);
   o.verdict(g, t, cx);
   // 하단 진행(공통) — 아크
   g.save(); g.globalAlpha = .9; arcGauge(g, cx - 500, 2180, 1000, o.prog(t)); g.restore();
@@ -293,7 +294,7 @@ const SYS = [
       },
       prog: t2 => (t2 % 8) / 8 })],
   ['D · 실전 동행', 'P1~P3 훈련 · C2~C5 실전 · BK_C2<br><b>② 시계 = 연속 아크</b> (끝이 아니라 <b>지금 상태</b>가 주인공)',
-    (g, t) => slotFrame(g, t, { title: 'Interval',
+    (g, t) => slotFrame(g, t, { title: 'Interval', coach: false,
       clock: (g2, t2, cx, by) => {
         // 실시간 수치 — 남은 시간 대신 SPM·편차
         g2.textAlign = 'center'; g2.textBaseline = 'middle';
@@ -303,7 +304,7 @@ const SYS = [
       },
       verdict: (g2, t2, cx) => {
         // 편차 바 — 목표 대비 현재
-        const w = 620, y = 1760, p = .5 + Math.sin(t2 * 1.3) * .22;
+        const w = 620, y = 1180, p = .5 + Math.sin(t2 * 1.3) * .22;   // 코치 판이 없으니 수치가 위로 올라온다
         g2.save();
         g2.fillStyle = 'rgba(255,255,255,.16)';
         g2.beginPath(); g2.roundRect(cx - w / 2, y, w, 18, 9); g2.fill();
