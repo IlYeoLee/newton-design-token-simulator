@@ -1012,7 +1012,9 @@ export class Session {
     // READY 두 발 = FootMark tap2 어포던스 — Tap Twice 양옆(유저 #49). 캔버스 신발 그래픽 폐기.
     // ±0.33 은 빔 페더 구간에 걸려 발 바깥이 흐려졌다(유저 #52) — 안쪽으로.
     // 크기 200mm(유저) — 판정 발(240mm 정본)이 아니라 그래픽 어포던스라 축소 허용. s=200/240.
-    this.readyFeet = [new FootMark('left').at(-0.19, -0.92, 200 / 240), new FootMark('right').at(0.19, -0.92, 200 / 240)];   // 0.8배 조판 보정 — CTA 양옆·콘 안
+    // 피그마 353:7085/7096 = CTA 양옆, 캡슐 밖 아래(유저 #117). 프레임 실측 중심 (480,1855)/(1103,1855)
+    //   → 대지 중심(캔버스 800,1335)에서 ±0.214m, 0.357m 앞. 크기 250mm(피그마 실루엣 실측).
+    this.readyFeet = [new FootMark('left').at(-0.214, -0.727, 250 / 240), new FootMark('right').at(0.214, -0.727, 250 / 240)];
     this.readyFeet.forEach(f => { f.locked(); f.op(0.8); f.group.visible = false; this.root.add(f.group); });
     // G.READY 는 '시작 페이지 = 프레임 전담' 정책으로 main 이 끈다 — 발자국은 새 READY 의
     //   어포던스 정본이므로 root 소속으로 예외. 표시는 아래 업데이트 틱이 스테이지로 제어.
@@ -2082,8 +2084,8 @@ export class Session {
     else this.bobY = 0;
 
     if (id === 'READY' || id === 'T1') {
-      // READY 발자국 2개 — 유저 지시로 숨김(08-05). 토큰·tapHint·Tap2 룩은 그대로 두고 표시만 끈다.
-      if (id === 'READY') this.readyFeet?.forEach(f => { f.group.visible = false; });
+      // READY 발자국 2개 — 피그마 353:7066 에 다시 들어왔다(유저 #117): CTA 양옆 어포던스.
+      if (id === 'READY') this.readyFeet?.forEach(f => { f.group.visible = true; });
       const tap = id === 'READY' ? this.tap : this.tap1; const k = 0.5 + 0.5 * Math.sin(this.t * 4);
       if (tap.userData._ctaPlane) {
         tap.userData._ctaPlane.material.opacity = 0.75 + 0.25 * k;   // 피그마 CTA 에셋 — 통째로 맥동
