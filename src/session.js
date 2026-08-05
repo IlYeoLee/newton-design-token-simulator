@@ -2147,7 +2147,9 @@ export class Session {
     } else if (id === 'A2') {
       // 런지 — 앞의 원을 크게 딛어 밟고 버티면 홀드 아크가 차오름 (구 A1 프레스 문법).
       // 프로브 구동(왼/오른발 무관): 발이 접지 + 원 반경 안 = 버티는 중.
-      const REPS = 2, DEMO = 4.6;   // 왼발 1 + 오른발 1 = 2회 (유저: 왜 2번씩? → 각 1회)
+      // DEMO 는 main 의 A2_WATCH(7.0)와 **같은 값이어야** 한다 — 어긋나면 프리뷰가 끝났는데도
+      //   demoActive 가 남아 화살표가 안 뜨는 사각지대가 생긴다(구 4.6 vs 3.0).
+      const REPS = 2, DEMO = 5.8;   // 왼발 1 + 오른발 1 = 2회 (유저: 왜 2번씩? → 각 1회)
       const dt = Math.max(0, this.t - (this._a2t ?? this.t));
       if ((this._a2t ?? 0) > this.t) { this.a2count = 0; this.a2press.fill = 0; }   // 재진입 리셋
       this._a2t = this.t;
@@ -2193,6 +2195,9 @@ export class Session {
       P.cd.visible = false;
       if (!cyc || cyc.watching) {
         P.fmL.group.visible = false; P.fmR.group.visible = false; P.numL.visible = false; P.numR.visible = false;
+        // ★ 화살표도 꺼야 한다 — 이 분기는 아래 화살표 코드에 닿기 전에 return 하므로, 안 끄면
+        //   직전 사이클의 visible 이 그대로 남아 **감상 중에 화살표가 떠 있다**(유저: 깜빡인다).
+        if (P.arBack) { P.arBack.visible = false; P.arKnee.visible = false; }
         FMU('먼저 보세요', CS.prism);   // 진행표시 = 프레임 미니 타이머 링 전담
         this.demoActive = true;
         return;

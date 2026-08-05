@@ -4053,7 +4053,12 @@ void main(){
       // A2/A3 = 2단계 흐름(유저): [0~5s 관찰] 봇은 가만히 서서(idle) 전문가 영상 보기 → [5s~ 따라하기].
       // 뉴턴 전환 문법(유저 확정): 시범(영상만·도트바) → 마크 Preview 워밍 등장+음성 → 따라하기.
       //   3·2·1은 실전 트리거(C1) 전용 — 학습 내 전환엔 안 씀(복싱 문법과 통일).
-      const A2_WATCH = stepPreviewSec(session.stage) || 3.0;   // 폴백(영상 미로드 시) — 실제 종료는 아래 루프 카운트
+      // ★ A2 는 STEP_SEG 에 항목이 없어 stepPreviewSec() 이 0 을 준다 → **폴백 3.0s 가 실사용 값**이
+      //   되어 있었다(유저: 미리보기를 너무 짧게 지나가 화살표를 볼 수도 없다). 런지 한 사이클은
+      //   DESC 1.1 + HOLD 3.0 + RISE 1.6 = 5.7s 라 3초로는 동작이 절반도 안 보인다.
+      //   한 사이클(5.7s)을 온전히 보여주는 값 = 5.8s. 더 늘리면 씬 프리뷰(8s 루프)에서 따라하기
+      //   구간이 1초밖에 안 남아 화살표를 볼 수 없다 — 감상과 실습의 균형점.
+      const A2_WATCH = session.stage === 'A2' ? 5.8 : (stepPreviewSec(session.stage) || 3.0);
       const BK_A1_RATE = 1.55;   // 옆구리 봇 배속(코치 영상 페이스 맞춤) — 시각 캘리브레이션 노브
       const _watchWin = /^(A2|A3|BK_A[23]|BK_B[12345]|BK_C2)$/.test(session.stage || '') && !session._followLatch;   // 실전도 정속 프리뷰 1회 먼저(유저)
       if (/^BK_C[135]$/.test(session.stage || '')) session._followLatch = true;   // C2만 프리뷰 있음
