@@ -1768,34 +1768,13 @@ export class FloorGL {
       arcGauge(ctx, cx2 - 524, ay, 1048, Math.min(1, t / dur), { dotK: V === 'preview' ? 0.7 : 0.5 });   // 광점 축소(유저)
       ctx.restore();
     }
-    // ③' 미니 영상 미리보기(농구 복잡 스텝) — 캡슐 안 작은 패널, 그린스크린 CPU 키(저해상)
-    if (V === 'mini' && cfg.clip) {
-      if (!this._miniVid) {
-        const el = document.createElement('video');
-        el.src = (import.meta.env?.BASE_URL || '/') + cfg.clip;
-        el.muted = true; el.loop = true; el.playsInline = true; el.autoplay = true;
-        el.play?.().catch(() => {});
-        this._miniVid = el;
-      }
-      const v = this._miniVid;
-      if (v.readyState >= 2 && v.videoWidth) {
-        const OW = 200, OH = Math.round(OW * v.videoHeight / v.videoWidth);
-        if (!this._miniC) { this._miniC = document.createElement('canvas'); this._miniC.width = OW; this._miniC.height = OH; }
-        const oc = this._miniC, og = oc.getContext('2d', { willReadFrequently: true });
-        og.drawImage(v, 0, 0, OW, OH);
-        const d2 = og.getImageData(0, 0, OW, OH), px = d2.data;
-        for (let k = 0; k < px.length; k += 4) {
-          const r = px[k], g2 = px[k + 1], b = px[k + 2];
-          if (g2 > 90 && g2 > r * 1.25 && g2 > b * 1.25) px[k + 3] = 0;   // 그린스크린 키
-        }
-        og.putImageData(d2, 0, 0);
-        const e = eOut(intro(t, .5, .7));
-        ctx.save(); ctx.globalAlpha *= e;
-        const pw2 = 569, ph3 = pw2 * OH / OW;
-        ctx.drawImage(oc, cx2 - pw2 / 2, by + 145, pw2, Math.min(ph3, 448));
-        ctx.restore();
-      }
-    }
+    // ③' 미니 영상 미리보기 = **폐기**(유저 승인 08-05).
+    //   지면 투사에서 유의미하지 않다고 판단: 피그마 569×448px = 실측 0.39m × 0.31m 인데,
+    //   사람 전신을 세로 31cm 에 넣고 그걸 바닥에 **눕혀** 비스듬히 본다. 전방 단축까지 겹쳐
+    //   손목·무릎 각도 같은 판독 정보가 남지 않고, 대비는 큰 실루엣보다도 불리하다.
+    //   화면 UI 발상을 투사 매체로 옮긴 것 — 피그마는 정면 평면도라 멀쩡해 보였을 뿐이다.
+    //   '동작을 잊었을 때'는 지면의 모국어로 푼다: 마크(발자국+화살표+순번) · 3/4 배지 · 코치 음성.
+    //   인물 영상이 필요하면 정면으로 보는 **벽면**이 그 자리다.
     // ④ 타이틀 — preview: 100 Bold 2줄 y+590 / video·floor: 100 Bold 2줄 y+493(컴팩트 하단)
     //    / mini: 80 Bold 1줄 y+547(축소, 유저)
     {
