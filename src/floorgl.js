@@ -565,7 +565,7 @@ const READY = {
   //   프로세스 = STRETCH 8 + LEARN 10 = 18m 팩(고정) + RUN! 30m(유저 선택) → Main Workout 5km · 48m
   //   부제 'Pace On' = Level & Mode.
   'floor.html':    { r2: { lines: ["Sean's", 'Pace Strategy'], sub: 'Pace On', total: '48',
-                           arcs: [{ v: 8, lbl: '8m', muted: true, chipText: '8m' }, { v: 10, lbl: '10m', icon: 'feet' }, { v: 30, lbl: '30m', icon: 'run' }] } },   // 8+10+30 = 48
+                           arcs: [{ v: 8, lbl: '8m', muted: true, chipText: '8m' }, { v: 10, lbl: '10m', icon: 'feet', pad: 8 }, { v: 30, lbl: '30m', icon: 'run' }] } },   // 8+10+30 = 48 (10m 은 영상용 pad 8°)
   'floor-bk.html': { r2: {   // 종목 공통 스펙으로 통합 — 농구 전용 콘텐츠 보정 폐기(유저 승인 08-05)
                            lines: ["Curry's", 'Handle Pack'], sub: 'Press On', total: '23',
                            arcs: [{ v: 5, lbl: '5m', muted: true, chipText: '5m' }, { v: 8, lbl: '8m', icon: 'bkTrain' }, { v: 10, lbl: '10m', icon: 'bkPlay' }] } },   // 스트레칭도 비례 세그먼트(유저)
@@ -733,7 +733,9 @@ function buildScene(stage, p) {
   if (!isC && phases && S.phase != null)
     col.push(node('s-crumb', { type: 'crumb', phases, phase: S.phase, sub: S.sub || '', mb: -34 }));
   if (!isC) col.push(node('s-title', { type: 'text', textContent: S.title, size: 120, weight: 700, ls: -4, color: '#fff', cascade: true }));
-  col.push(node('s-cue', { type: 'text', textContent: S.cue || '', size: 52, weight: 400, color: 'rgba(255,255,255,.72)', style: { display: 'none' } }));
+  // ★ 가이드 문구는 대문자(유저 08-05) — 복싱(벽)이 세션마다 대문자라 지면도 같은 규약으로.
+  //   한글은 toUpperCase 가 무영향이라 그대로 지나간다. 이름·수치는 대상이 아니다.
+  col.push(node('s-cue', { type: 'text', textContent: String(S.cue || '').toUpperCase(), size: 52, weight: 400, color: 'rgba(255,255,255,.72)', style: { display: 'none' } }));
   // 실전 상단 — 케이던스 팩은 누적 거리, 페이스 팩은 '목표 대비 지금 몇 초'.
   //   페이스 팩에서 누적 거리를 안 쓰는 이유: 달리는 중에 필요한 건 이미 한 양이 아니라 남은 양이다
   //   (남은 거리는 아래 paceSub 로 내려간다). 누적은 리포트에서 볼 값.
@@ -1011,13 +1013,13 @@ export class FloorGL {
       ? 1 - numOr(arc.style.strokeDashoffset, 0) / 1727.9
       : ((this.t - 0.15) / (n.pvn ? n.pv / n.pvn : n.pv)) % 1;
     const gap = 120, ringW = 200;
-    ctx.font = F(700, 60); const tw = ctx.measureText('Preview').width;
+    ctx.font = F(700, 60); const tw = ctx.measureText('PREVIEW').width;   // 가이드=대문자(유저)
     const pillW = 40 + tw + 20 + 60 + 30, pillH = 100;
     const total = pillW + gap + ringW, x0 = CX - total / 2;
     const py = y + (ringW - pillH) / 2;
     ctx.fillStyle = 'rgba(255,255,255,.14)'; this._pill(x0, py, pillW, pillH);
     ctx.fillStyle = '#fff'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-    ctx.fillText('Preview', x0 + 40, py + pillH / 2);
+    ctx.fillText('PREVIEW', x0 + 40, py + pillH / 2);
     // 화살표 →
     const ax = x0 + 40 + tw + 20, ay = py + pillH / 2;
     ctx.strokeStyle = '#fff'; ctx.lineWidth = 6; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
@@ -1472,9 +1474,16 @@ export class FloorGL {
       const sweep = segStart + (A1 - segStart) * eOut5(intro(t, .5, 1.45));   // 꼬리 긴 감속 — 끝이 급했다
       ctx.save(); ctx.globalAlpha *= e0(.4, .5);
       let cur = segStart;
+      // ★ pad(°) — 값 비례를 **의도적으로 깨는** 하드코딩(유저 승인, 영상 추출·합성 전용).
+      //   짧은 세그에서 라벨이 끝 캡에 바짝 붙는 게 합성본에서 거슬린다는 판단. 데이터 정직성을
+      //   포기하는 대신 총 각도(A0~A1)는 유지한다 — 더한 만큼 **가장 긴 세그에서 뺀다**.
+      //   영상용이 아니라면 config 의 pad 를 지우면 원래 비례로 돌아온다.
+      const padSum = segs.reduce((a, x) => a + (x.pad || 0), 0);
+      const iLong = segs.reduce((bi, x, i) => (x.v > segs[bi].v ? i : bi), 0);
       segs.forEach((seg, si) => {
         const isFirst = si === 0, isLast = si === segs.length - 1;
-        const da = seg.v / totalV * availV - (isFirst ? capA : 0) - (isLast ? capA : 0);
+        const da = seg.v / totalV * availV - (isFirst ? capA : 0) - (isLast ? capA : 0)
+                 + (seg.pad || 0) - (si === iLong ? padSum : 0);
         const s0 = cur, s1 = cur + da, mid = (s0 + s1) / 2;
         cur = s1 + GAPA;
         // 아크 — 스윕이 지나간 만큼만(왼→오 차오름). 세그먼트 '사이'만 캡 인셋, 차트 양끝단은
@@ -1698,11 +1707,11 @@ export class FloorGL {
       //   빛 위로 올라와 대비가 낮아진 만큼 눈금 불투명도 .55 → .68.
       // 타이틀 98 기준 위계(유저 08-05): 지시 74 · 눈금 38(= 지시의 0.5, 복싱 벽 32/64 와 같은 비).
       ctx.fillStyle = 'rgba(255,255,255,.68)'; ctx.font = RF(400, 38); ctx.letterSpacing = '-1px';
-      ctx.fillText('To start', 800.15, 2014 - CUT);
+      ctx.fillText('TO START', 800.15, 2014 - CUT);   // 가이드=대문자(유저)
       // 바닥 버전 축약(유저) — 벽은 'Tap your foot Twice'(멀리서 읽는 안내), 지면은 발밑이라
       //   '무엇으로'가 자명하다. 짧아진 만큼 글자를 키워 한 덩어리로 읽힌다.
       ctx.fillStyle = NEU.ink; ctx.font = RF(700, 74); ctx.letterSpacing = '-4.25px';
-      ctx.fillText('Tap Twice', 800.15, 2102 - CUT);
+      ctx.fillText('TAP TWICE', 800.15, 2102 - CUT);   // 가이드=대문자(유저)
       ctx.letterSpacing = '0px'; ctx.restore();
     }
     ctx.restore();   // /콘텐츠 스케일
@@ -1782,7 +1791,7 @@ export class FloorGL {
       const e = eOut(intro(t, .35, .6));
       ctx.save(); ctx.globalAlpha *= e;
       const timer = V === 'video' || V === 'floor';
-      const txt2 = V === 'preview' ? 'Preview' : V === 'mini' ? (cfg.step || '1/4')
+      const txt2 = V === 'preview' ? 'PREVIEW' : V === 'mini' ? (cfg.step || '1/4')   // 가이드=대문자(유저)
         : String(Math.max(0, Math.ceil((this.params?.dur || 8) - t)));
       ctx.font = RF(timer || V === 'mini' ? 700 : 400, 64); ctx.letterSpacing = '-2.56px';
       const tw = Math.max(ctx.measureText(txt2).width, 64), pw = tw + 80, ph2 = 100;

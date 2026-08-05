@@ -600,20 +600,28 @@ function drawFlow(g, t) {
   titleBlock(g, ['Neck And', 'Shoulder'], cx, ty, 86 * FS);
   capLabel(g, 'PREVIEW', cx, ty - 175 * FS, .5, 40 * FS);
   g.restore();
-  // ★ 미니 카드는 **타이머(좌) + 동작명(우) 한 줄**(유저: 타이머를 작게 아래 두는 것보다
-  //   왼쪽에 맞춰 크게 두는 편이 보기 쉽다). 세로로 쌓으면 카드가 두 층이 되면서 둘 다 작아진다 —
-  //   한 줄로 펴면 같은 높이 안에서 숫자를 40% 키울 수 있다. 좌표는 카드 폭에서 파생.
+  // ★ 미니 카드 = **정본 타이머 배지(좌) + 동작명(우) 한 줄**.
+  //   타이머는 손으로 다시 그리지 않는다(유저) — floorgl _paint_capsule 의 필 배지가 정본이다:
+  //   알파 .34 알약(r50, h100) + 흰 블룸(.8/34) + rollNum 64 볼드. 규격을 여기 복제해 둔 이유는
+  //   시안이 캔버스 하나에 그리기 때문이고, 값은 정본에서 그대로 가져왔다(바뀌면 같이 고칠 것).
+  //   배치만 유저 요청대로 — 세로로 쌓으면 카드가 두 층이 되어 둘 다 작아진다. 한 줄로 편다.
   if (inA > 0) {
     g.save(); g.globalAlpha = inA;
-    const mx = cx - cw / 2 + 74, my = cy + ch * .5;
-    g.textAlign = 'left'; g.textBaseline = 'middle'; g.fillStyle = '#fff';
-    g.font = RF(700, 104, DOT);
-    const nw = g.measureText('12').width;
-    g.fillText('12', mx, my);
-    g.font = RF(400, 38); g.fillStyle = 'rgba(255,255,255,.55)';
-    g.fillText('sec', mx + nw + 12, my + 26);
-    g.fillStyle = '#fff'; g.font = RF(700, 58); g.letterSpacing = '-2px';
-    g.fillText('High Knees', mx + nw + 108, my);
+    const my = cy + ch * .5;
+    g.font = RF(700, 64); g.letterSpacing = '-2.56px';
+    const tw = Math.max(g.measureText('12').width, 64), pw = tw + 80, ph2 = 100;
+    const px0 = cx - cw / 2 + 60;
+    g.save();
+    g.shadowColor = 'rgba(255,255,255,.8)'; g.shadowBlur = 34;
+    g.fillStyle = 'rgba(255,255,255,.34)';
+    g.beginPath(); g.roundRect(px0, my - ph2 / 2, pw, ph2, 50); g.fill();
+    g.restore();
+    g.shadowColor = 'rgba(255,255,255,.6)'; g.shadowBlur = 14;
+    rollNum(g, '12', t, 0, .4, px0 + pw / 2, my - 35, 64, { align: 'center', fill: 'rgba(255,255,255,.95)' });
+    g.shadowBlur = 0;
+    g.fillStyle = '#fff'; g.textAlign = 'left'; g.textBaseline = 'middle';
+    g.font = RF(700, 58); g.letterSpacing = '-2px';
+    g.fillText('High Knees', px0 + pw + 44, my);
     g.letterSpacing = '0px';
     g.restore();
   }
