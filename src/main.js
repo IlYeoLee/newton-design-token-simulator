@@ -5238,17 +5238,32 @@ void main(){
       // 내 케이던스 실측 vs 목표(유저: 학습자는 항상 목표와 다름 — 비교가 학습) — 접지 간격→SPM
       const pbc = xbot.getProbes?.(), nowS = performance.now() / 1000;
       const lc = (pbc?.footL?.y ?? 1) < 0.05, rc = (pbc?.footR?.y ?? 1) < 0.05;
-      if (lc && !_lcPrev) _strikeTs.push(nowS);
-      if (rc && !_rcPrev) _strikeTs.push(nowS);
+      // ★ 디바운스(실측 근거) — 발 접지 판정이 y<0.05 한 줄이라 바닥 근처에서 값이 떨리면
+      //   한 걸음이 2~3번 찍힌다. 그러면 간격이 반토막 나 SPM 이 247 같은 불가능한 값이 된다
+      //   (헤드리스 실측: 같은 씬에서 66 / 117 / 247 이 번갈아 나왔다). 0.16s 안에 들어온
+      //   두 번째 접지는 같은 걸음으로 본다 — 러닝 최고 케이던스(220SPM)도 걸음 간격이 0.27s 다.
+      const _last = _strikeTs[_strikeTs.length - 1];
+      const _push = ts => { if (_last == null || ts - _last > 0.16) _strikeTs.push(ts); };
+      if (lc && !_lcPrev) _push(nowS);
+      if (rc && !_rcPrev) _push(nowS);
       _lcPrev = lc; _rcPrev = rc;
       while (_strikeTs.length > 7) _strikeTs.shift();
       if (nowS - _spmUpd > 0.5) {
         _spmUpd = nowS;
         let my = 0;
-        if (_strikeTs.length >= 3) {
+        // ★ 표본 3 → 5, 허용대 30~400SPM → **120~220SPM**(러닝 케이던스 실제 범위).
+        //   전엔 iv 0.15~2s 를 통과시켜 걷기(66)도 불가능한 값(247)도 그대로 화면에 올랐다.
+        //   편차 스케일은 ±12% 눈금이라 이런 값이 들어오면 지시선이 **항상 끝에 박힌다** —
+        //   화면에 빨간 선 하나가 눈금 밖에 떠 있는 것처럼 보이던 게 이것이다.
+        //   밴드를 벗어나면 값을 만들지 않는다(0 = '--'). 틀린 수치보다 '측정 안 됨'이 정직하다.
+        if (_strikeTs.length >= 5) {
           const iv2 = (_strikeTs[_strikeTs.length - 1] - _strikeTs[0]) / (_strikeTs.length - 1);
-          if (iv2 > 0.15 && iv2 < 2) my = Math.round(60 / iv2);
+          const spm = 60 / iv2;
+          if (spm >= 120 && spm <= 220) my = Math.round(spm);
         }
+        // 밴드 밖이면 **직전 유효값을 유지**한다 — 매번 '--' 로 떨어뜨리면 숫자가 깜빡인다
+        //   (실측: 60 표본 중 26 회가 미확정). 측정이 끊긴 것이지 케이던스가 사라진 게 아니다.
+        if (!my) my = window.__mySpm || 0;
         window.__mySpm = my;   // 실전 플로어 UI(V5 스트립)가 소비
 
         try {

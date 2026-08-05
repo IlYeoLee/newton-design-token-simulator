@@ -670,6 +670,11 @@ const TR = {
 //    y 1980    FOOT     발자국 안정 영역(콘텐츠 하단). 3D 발마크는 이 y 를 기준으로 놓는다.
 //
 //  타입 최소치는 minFs(y) 규약과 함께 쓴다 — 타이틀은 시작화면과 같은 98, 캡션/단위는 64 하한.
+// ★ capHead 는 **예약 높이와 실제 그리는 높이가 반드시 같아야 한다**. 250 으로 예약하고
+//   388 을 그리고 있어서(RR 130 → HH = 130*2 + pad*2) 다음 노드가 138px 위에 앉았고,
+//   그 다음 노드가 진행 아크라 **아크가 알약을 가로질렀다**(실측: P3 t7.1 아크 마커 y327,
+//   알약 y112~359). 한 상수에서 둘 다 파생시켜 다시는 어긋나지 않게 한다.
+export const CAPHEAD_RR = 130;
 export const LAYOUT = {
   PAD: 60,
   HEAD: { y: 176, w: 1320, h: 348, pad: 64, gapU: 0, gapT: 56, minW: 720 },   // pad = 상하좌우 동일(44→64)
@@ -685,6 +690,7 @@ export const LAYOUT = {
   TYPE: { title: 98, unit: 64, caption: 64, minCaption: 56 },
   PREVIEW: { morph: 0.9, fade: 0.45 },   // 카운트 종료 → 둥근 컨테이너가 알약으로 · 인물 크로스페이드
   get PROG_Y() { return this.HEAD.y + this.HEAD.h + this.GAP_HP; },
+  get CAPHEAD_H() { return CAPHEAD_RR * 2 + this.HEAD.pad * 2; },
   get CONTENT_Y0() { return this.PROG_Y + this.PROG.h + this.GAP_PC; },
 };
 /** 대지 y → **전방 거리(m)**. 3D 요소(코치 판·발마크)를 레이아웃 밴드에 맞출 때 쓴다.
@@ -1172,7 +1178,7 @@ export class FloorGL {
   _h(n) {
     switch (n.type) {
       case 'crumb': return 50;
-      case 'capHead': return 250;
+      case 'capHead': return LAYOUT.CAPHEAD_H;   // 실제 그리는 높이와 같은 식 — 하드코딩 금지
       case 'text': return n.size * 1.06;
       case 'dots': return gaugeH(760);
       case 'prevRow': return 200;
@@ -1261,7 +1267,7 @@ export class FloorGL {
     // ★ 여백 균등 + 폭은 **내용에서 파생**(유저: 좌우상하 여백 맞추고, 글자 적으면 줄어들게).
     //   pad 44 를 상하좌우에 동일하게 쓰고(HH = 링지름 + pad*2), 폭은 실측 텍스트에서 만든다.
     const ctx = this.ctx, H2 = LAYOUT.HEAD, PAD = H2.pad;
-    const RR = 130, HH = RR * 2 + PAD * 2;
+    const RR = CAPHEAD_RR, HH = LAYOUT.CAPHEAD_H;   // _h('capHead') 와 같은 식
     // ★ 'sec' 을 가로로 나열하지 않는다(유저: 그것 때문에 가로 길이가 커진다).
     //   단위는 숫자에 딸린 값이라 **링 안 숫자 아래**에 붙인다 — 폭 계산에서 통째로 빠진다.
     const uw = 0;
