@@ -2116,13 +2116,16 @@ export class Session {
   _readyFeetTick() {
     const F = this.readyFeet; if (!F) return;
     const tl = this.readyPhase != null ? this.readyPhase : (this.t % 8);   // 지면 UI 와 같은 시계(main 이 넘긴다)
-    // ★ 하단 슬롯 타임라인은 floorgl _paint_ready 의 TP3 를 따른다(현재 4.6 — 인물 유지가
-    //   2.0→3.0 으로 길어지며 뒤로 밀렸다). 4.0 에 그대로 두니 패널 페이드아웃(4.15~4.6)과
-    //   발자국 등장이 겹쳐 알약 위에 발이 포개졌다(유저 #166). 패널이 완전히 빠진 뒤에 뜬다.
-    const FT = 4.6;
+    // ★ 하단 슬롯 타임라인 = floorgl _paint_ready 의 **CTA 구간**과 한 몸이다. 발자국은
+    //   'Tap Twice' 양옆에 서는 물건이라 CTA 가 없는 시각에 뜨면 뜬금없다.
+    //   순서 재배치(08-05, 피그마 379:3282→377:3060→379:3364) 로 CTA 가 **0.25~2.2s** 로
+    //   앞당겨졌는데 여기 FT 는 4.6 에 남아 있었다 — 발자국이 팩 정보·배터리 화면 위로
+    //   혼자 올라오고, 정작 CTA 2초 동안은 비어 있었다(실측). floorgl 의 p3 와 같은 값으로 맞춘다:
+    //     p3 = eOut(intro(t, .25, .5)) * (1 - eOut(intro(t, 1.75, .45)))
+    const FT = 0.25;
     if (tl < FT) { F.forEach(f => { f.group.visible = false; }); return; }
-    const fin = Math.min(1, (tl - FT) / 0.5);               // 4.6~5.1 페이드 인
-    const fout = 1 - Math.min(1, Math.max(0, (tl - 7.5) / 0.5));   // 7.5~8.0 페이드 아웃
+    const fin = Math.min(1, (tl - FT) / 0.5);                      // 0.25~0.75 페이드 인
+    const fout = 1 - Math.min(1, Math.max(0, (tl - 1.75) / 0.45)); // 1.75~2.2 페이드 아웃 (CTA 와 동시)
     const a = fin * fout;
     F.forEach(f => {
       f.group.visible = a > 0.01;
