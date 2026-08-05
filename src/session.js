@@ -226,10 +226,12 @@ function drawLiftCue(g, style, t, pulse, W = 128, Hh = 256) {
   }
   g.globalAlpha = 1; g.shadowBlur = 0;
 }
-function floorArrow(x, z, deg, color, len = 0.4) {
+function floorArrow(x, z, deg, color, len = 0.4, scale = 1) {
   // 방향 = LINE ① 경로 추종 화살표 — 카탈로그 구성 통째(광류 자루 + 이동 촉, tokens.makeFlowArrow).
   // 촉 끝 주차·정적 통화살표는 카탈로그에 없는 종 (유저 지적 2회 — 촉은 경로 위를 이동).
-  const g = makeFlowArrow(len);
+  // scale = 두께·촉·점 크기 배율. 캔버스(128×256)가 판 크기에 맞춰 늘어나므로 짧은 화살표일수록
+  //   자루가 얇고 점이 작아진다 — 벽(wallArrow)이 LINE_M/len 로 잡는 그 보정을 지면에서도 쓴다.
+  const g = makeFlowArrow(len, { scale });
   g.position.set(x, 0.014, z);
   g.rotation.z = THREE.MathUtils.degToRad(deg);
   g.userData.el = { type: 'arrow' }; return g;
@@ -1276,8 +1278,15 @@ export class Session {
     // 셋업 막 발자국 — 어깨보다 넓게(0.56m, wikiHow 기본기). 4초간만 보였다 퇴장(상시 아님).
     const b1sL = new FootMark('left').at(-0.14, BK_STAND - 0.40 - BDEEP, FOLLOW_S);   // 모은 자세에서 시작 → 틱이 벌린다
     const b1sR = new FootMark('right').at(0.14, BK_STAND - 0.40 - BDEEP, FOLLOW_S);
-    const b1aL = floorArrow(-0.20, BK_STAND - 0.40 - BDEEP, 90, BRAND.sand, 0.22);    // ← 룩 화살표(스템+SVG촉)
-    const b1aR = floorArrow(0.20, BK_STAND - 0.40 - BDEEP, -90, BRAND.sand, 0.22);    // →
+    // ←→ 룩 화살표(스템+SVG촉) — 유저: 너무 흐려. 셋 다 고쳤다(실측 근거는 아래 배치 코드).
+    //   ① scale 1.55 = 0.34m 지면 화살표와 같은 실측 두께·점 크기(0.22m 판에 같은 128×256 캔버스를
+    //      눌러 담으면 자루가 65% 로 얇아지고 점렬이 좁쌀이 된다).
+    //   ② 발마크 위가 아니라 **마크 앞 0.26m 빈 바닥**에. 마크 블룸(반경 ~0.12m 백열)에 겹치면
+    //      알파가 1이어도 안 보인다(실측 크롭: 화살표가 발바닥 광 속으로 사라짐).
+    //   ③ 꼬리는 중앙 고정(±0.04) — 촉이 벌어짐과 함께 바깥으로 자란다(draw-on = 벌어짐 진행).
+    const B1AZ = BK_STAND - 0.40 - BDEEP + 0.26;
+    const b1aL = floorArrow(-0.04, B1AZ, 90, BRAND.sand, 0.22, 1.55);
+    const b1aR = floorArrow(0.04, B1AZ, -90, BRAND.sand, 0.22, 1.55);
     b1aL._gain = 0; b1aR._gain = 0;
     this.bkB1 = { zone: b1zone, num: b1num, sL: b1sL, sR: b1sR, aL: b1aL, aR: b1aR,
       count: 0, _shown: -1, _wasLow: false, _popT: -9, _p2t: 0, _setupDone: false };
@@ -2715,8 +2724,12 @@ export class Session {
         const aOn = tB > 0.7 && tB < W_END + 0.5 ? 1 : 0;
         H.aL._gain = aOn; H.aR._gain = aOn;
         H.aL._prog = Math.max(0.15, we); H.aR._prog = Math.max(0.15, we);
-        // 촉 끝이 빔 측면 페더를 넘으면 알파 0(실측 사고) — 짧은 화살표를 마크 바로 옆에.
-        H.aL.position.x = -(half + 0.05); H.aR.position.x = half + 0.05;
+        // ★ 화살표는 발마크를 따라 벌어지지 **않는다**(고정 배치, 생성 위치 그대로).
+        //   옛 배치는 꼬리를 마크 바깥(half+0.05)에 뒀다 → 촉이 |x| 0.41→0.55 로 나가 빔 측면
+        //   페더(d=1.15m 에서 창 반폭 0.549, 페더 0.25m)에 잠겼고, 최종 알파가 0.58 → **0** 으로
+        //   스러졌다(실측). 벌어짐이 클수록 어두워지는, 정확히 거꾸로 된 큐였다.
+        //   지금은 꼬리 ±0.04 · 촉 최대 ±0.26 → 측면 알파 1.0 로 창 한가운데에 있고, 자라는 건
+        //   위치가 아니라 draw-on(_prog)이다. 위치를 매 프레임 안 만지므로 떨림도 없다.
         if (tB < W_END) {
           H.sL.countdown(this.t / W_END); H.sR.countdown(this.t / W_END);
           this._say('bkb1st', '커리', '발은 어깨보다 넓게, 발자국 위에 딱 서 봐요. 무릎은 굽히고요.');
