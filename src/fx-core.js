@@ -717,7 +717,11 @@ float contour(float t){
  *  0 흰(PRISM) · 1 샌드 · 2 코랄 · 3 레드. 인덱스 밖은 흰색으로 떨어진다.
  *  ★ 반드시 위 #define C_* 뒤에 와야 한다 — 앞에 두면 색 상수가 아직 없어 셰이더가 통째로 죽는다. */
 vec3 palPick(float i){
-  return i < 0.5 ? C_ICE : i < 1.5 ? C_SAND : i < 2.5 ? C_CORAL : C_RED;
+  // 0 PRISM(#D1FEFF · 하늘빛) · 1 SAND · 2 CORAL · 3 RED · 4 순백
+  //   ★ 4(순백)는 나중에 붙였다 — 랩 버튼이 0 을 '흰'이라 불렀지만 실제로는 PRISM 이라,
+  //     발자국 각인·이너 섀도우가 통째로 푸른끼를 띠었다(유저 08-05). 인덱스 0~3 의미는
+  //     저장본 호환을 위해 건드리지 않고, 진짜 흰색을 4 로 추가한다.
+  return i < 0.5 ? C_ICE : i < 1.5 ? C_SAND : i < 2.5 ? C_CORAL : i < 3.5 ? C_RED : vec3(1.0);
 }
 /** 디더용 자립 해시 — 호스트의 fxhash 에 기대면 fxlab·parity 처럼 자체 공통부를 쓰는 곳에서
  *  셰이더가 통째로 죽는다(실제로 죽였다). MARK_GLSL 은 lut 외에는 자립해야 한다. */

@@ -1407,9 +1407,11 @@ export class FloorGL {
             const p0 = polar(sA), p1 = polar(eA);
           ctx.save();
           if (seg.muted) {
-            // 스트레칭 = 흰 반투명 + 블룸(유저) — 열화상 램프는 본운동 쪽 위계로 남긴다
-            ctx.shadowBlur = 0;                              // 블룸 제거 — 흰 판이 번지면 글자가 사라진다(유저 #98)
-            ctx.strokeStyle = 'rgba(255,255,255,.55)';       // 톤 낮춘 유리판
+            // 스트레칭도 **같은 빨강 언어**로(유저 08-05). 흰 반투명은 게이지 관습상 '아직 안 채워진
+            //   트랙'으로 읽혀 의미가 정반대였다 — 5분은 실제로 있는 시간이다. 위계는 색상이 아니라
+            //   **농도**로 준다(길이 파생 규칙과 같은 문법). 블룸은 여전히 0 — 번지면 칩 글자가 죽는다.
+            ctx.shadowBlur = 0;
+            ctx.strokeStyle = 'rgba(250,48,48,.55)';
           } else if (si === heroIdx) {
             // 제일 긴 구간 = 뉴턴 그라디언트 램프. 끝의 prism(#D1FEFF)은 하늘색이라 뺀다(유저 #119)
             //   — 따뜻한 red→coral→sand 로만 닫는다. 팔레트 정본 stops 는 gaugeArc 쪽에 그대로 남는다.
@@ -1621,24 +1623,8 @@ export class FloorGL {
     //    작은 눈금 'To start' 위 → 큰 지시 'Tap your foot Twice' 아래. wallgl _paint_ready 와 동일.
     if (p3 > 0.01) {
       ctx.save(); ctx.globalAlpha *= p3;
-      // ★ 글자를 **빛 안**에 앉힌다(유저 선택 08-05). 캡슐 하단 글로우 에셋(②)은 캡슐 바닥에서
-      //   딱 끊겨 그 아래가 어두운 띠로 남았고, CTA 가 그 띠 위에 붕 떠 보였다. 캡슐 바닥과
-      //   겹치는 따뜻한 타원 빛을 한 겹 더 깔아 글로우가 CTA 까지 흘러내리게 한다.
-      //   타원 상단 1800 < 캡슐 바닥 1876 이라 이음매가 안 보인다.
-      {
-        const GY = 2061 - CUT, GRX = 560, GRY = 210;   // 하단 슬롯(패널·CTA 공용) 중심 = 1827.4+234
-        ctx.save();
-        ctx.globalAlpha *= .9 + .35 * tapB;   // 탭 박자에 이 빛도 같이 부푼다
-        ctx.translate(800, GY); ctx.scale(1, GRY / GRX);
-        const gg = ctx.createRadialGradient(0, 0, 0, 0, 0, GRX);
-        gg.addColorStop(0, 'rgba(255,236,214,.34)');
-        gg.addColorStop(.42, 'rgba(254,176,120,.20)');
-        gg.addColorStop(.75, 'rgba(254,110,60,.07)');
-        gg.addColorStop(1, 'rgba(254,110,60,0)');
-        ctx.fillStyle = gg;
-        ctx.beginPath(); ctx.arc(0, 0, GRX, 0, Math.PI * 2); ctx.fill();
-        ctx.restore();
-      }
+      // 하단 빛 침대 폐기(유저 08-05) — 'Tap Twice' 뒤 배경 그라디언트를 없앤다.
+      //   캡슐 자체 글로우만으로 충분하고, 한 겹 더 깔면 글자 대비가 오히려 죽었다.
       ctx.globalAlpha *= .9 + .1 * tapB;
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       // 하단 슬롯(피그마 367 의 원 두 개 자리)을 그대로 물려받는다 — 블록 중심 = 2061.
