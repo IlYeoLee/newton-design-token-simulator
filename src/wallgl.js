@@ -506,7 +506,9 @@ export class WallGL {
     // 이 화면의 안내는 아래 발 블록("Tap your foot Twice")이 이미 하고 있다 — 중복이었다.
     const lg = this._img('newton-logo.svg');
     if (lg) {
-      const lw = 300, lh = lw * (1353 / 4635), le = eOut(intro(t, .35, .7));
+      // 비율은 에셋 viewBox 에서 온다 — 로고 교체(1587x677)에 맞춰 갱신. 옛 4635x1353 를
+      //   그대로 두면 새 로고가 가로로 늘어난다.
+      const lw = 300, lh = lw * (677 / 1587), le = eOut(intro(t, .35, .7));
       ctx.save();
       ctx.globalAlpha *= le; ctx.translate(0, 26 * (1 - le));
       ctx.drawImage(lg, RRight - lw, ROW_Y + 40, lw, lh);
