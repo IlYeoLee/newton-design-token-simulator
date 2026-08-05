@@ -623,13 +623,14 @@ const READY = {
   // 팩 정본(유저 08-05 팩 상세): 크리에이터 Sean · 팩명 **Sean's Pace Strategy** · Creator Pack 18m
   //   프로세스 = STRETCH 8 + LEARN 10 = 18m 팩(고정) + RUN! 30m(유저 선택) → Main Workout 5km · 48m
   //   부제 'Pace On' = Level & Mode.
-  'floor.html':    { r2: { lines: ["Sean's", 'Pace Strategy'], sub: 'Pace On', total: '5.0', unit: 'km',   // 시간(48분) → **거리 목표**(유저): 러닝은 '얼마나 뛰나'가 목표다
+  // badge = 영상 구간(상태1) 부제 슬롯에 서는 낱말. 션은 크리에이터, 커리는 프로 선수(유저 08-06).
+  'floor.html':    { r2: { lines: ["Sean's", 'Pace Strategy'], sub: 'Pace On', badge: 'Creator', total: '5.0', unit: 'km',   // 시간(48분) → **거리 목표**(유저): 러닝은 '얼마나 뛰나'가 목표다
                            arcs: [{ v: 8, lbl: '8m', muted: true, chipText: '8m' }, { v: 10, lbl: '10m', icon: 'feet', pad: 8 }, { v: 30, lbl: '30m', icon: 'run' }] } },
                            // ★ 세그먼트는 **분**으로 되돌림(유저) — 총량만 거리(5.0km)다.
                            //   총량 = 오늘의 목표(얼마나 뛰나) · 세그먼트 = 그 목표를 채우는 시간 배분(8+10+30=48분).
                            //   둘의 단위가 달라도 되는 이유: 하나는 '무엇을 이루나', 다른 하나는 '어떻게 쓰나' 라서다.
   'floor-bk.html': { r2: {   // 종목 공통 스펙으로 통합 — 농구 전용 콘텐츠 보정 폐기(유저 승인 08-05)
-                           lines: ["Curry's", 'Step Back'], sub: 'Press On', total: '45', unit: 'min',   // 실제 훈련 구성(유저): 스트레칭 8 + 연습 22 + 실전 15 = 45분
+                           lines: ["Curry's", 'Step Back'], sub: 'Press On', badge: 'Pro', total: '45', unit: 'min',   // 실제 훈련 구성(유저): 스트레칭 8 + 연습 22 + 실전 15 = 45분
                            arcs: [{ v: 8, lbl: '8m', muted: true, chipText: '8m' }, { v: 22, lbl: '22m', icon: 'bkTrain', pad: 6 }, { v: 15, lbl: '15m', icon: 'bkPlay' }] } },
                            // 스트레칭 8 · 연습(스텝백 드릴) 22 · 실전 15 = 45분. 아마추어 1회 세션 기준으로
                            // 연습이 가장 길고 실전이 그 다음 — 기술 습득 세션의 실제 비중이다.
@@ -1741,8 +1742,17 @@ export class FloorGL {
     //   세로로 줄어 아래에 앉는다. 숫자가 주인공이 되는 순간 배경이 자리를 비켜주는 안무다.
     //   두 에셋을 p2 로 크로스페이드하고 지오메트리도 각자 제 값을 쓴다(보간이 아니라 교대 —
     //   에셋 모양이 달라 보간하면 어느 쪽도 아닌 형태가 된다).
+    // ★ 흰 하이라이트 3겹(subtract·hl1·hl2)도 **p2 에 따라 물러나야 한다**(실측 08-06).
+    //   전엔 이름이 glow-ell 로 시작하는 컬러 면만 1-p2 로 빠지고 나머지 셋은 알파 1 로 남았다.
+    //   페이즈1 에선 그게 인물 발밑의 엠버 침대라 맞지만, 페이즈2 는 컬러 면이 사라지고
+    //   작은 뉴턴 그라디언트(871 높이, 아래쪽)만 남는데 흰 셋이 그대로 위에 얹혀 색을 씻어냈다.
+    //   실측: 피그마 상태2 최대 채도 81.6%(#EF432C, 색상각 7°) ↔ 우리 화면 58.5%(#D97C5A, 20°).
+    //   = 뉴턴 레드가 아니라 **탄색**으로 읽혔다. 흰 셋을 40% 로 낮춰 컬러가 주도하게 한다
+    //   (0 으로 지우면 피그마에 있는 하단 흰 블룸까지 사라진다 — 블룸은 남기고 농도만 뺀다).
+    const HLK = 1 - .6 * p2;
     const GLOWS = (bk ? READY_GLOWS_BK : READY_GLOWS).map(g =>
-      g[0].startsWith('glow-ell') ? [g[0], g[1], g[2], g[3], g[4], g[5], 1 - p2] : g);
+      g[0].startsWith('glow-ell') ? [g[0], g[1], g[2], g[3], g[4], g[5], 1 - p2]
+                                  : [g[0], g[1], g[2], g[3], g[4], g[5], HLK]);
     // ★ 뉴턴 광은 **자기 좌표를 그대로 쓴다**(git 최초 커밋본 = 피그마 342:3057 원본 지오메트리).
     //   두 에셋은 모양이 다르다 — 팩 면(1288×1709, 위)과 뉴턴 그라디언트(1300×871, 아래).
     //   내가 뉴턴 좌표를 팩 좌표로 덮었더니(ce427c1) 원본 형태가 깨졌다. 겹치는 게 아니라
@@ -1885,13 +1895,20 @@ export class FloorGL {
     //   전엔 'Pace On' 만 있어서 첫 화면이 **누구의 팩인지**(크리에이터)를 말하지 않았다.
     if (q > 0.01) {
       // 피그마 실측 254×115 r57.5 — 타이틀 블록 중심에서 +270.
+      // ★ 필은 코랄 단색이 아니라 **흰색(#FFFFFF) 투명도 차이 + hard-light**(유저 08-06).
+      //   투사면에선 색면을 얹는 것보다 이쪽이 맞다 — 아래 엠버를 가리지 않고 그 색을 통과시켜
+      //   **유리 칩**으로 읽힌다. 위계는 색이 아니라 알파 차(면 .38 ↔ 글자 1.0)가 만든다.
+      //   낱말은 팩마다 다르다: 션 = Creator · 커리 = Pro.
       ctx.save(); ctx.globalAlpha *= e0(.36, .85) * q;
-      const BY2 = TCY + 270 + rise(.36, .85, 18), BH2 = 115;
+      const BY2 = TCY + 270 + rise(.36, .85, 18), BH2 = 115, BTX = R2.badge || 'Creator';
       ctx.font = RF(700, 60); ctx.letterSpacing = '-1.5px';   // 56 → 60 (minFs(y≈638)=58.4)
-      const bw = ctx.measureText('Creator').width + 64;
-      ctx.fillStyle = PAL.coral;
+      const bw = ctx.measureText(BTX).width + 64;
+      ctx.save();
+      ctx.globalCompositeOperation = 'hard-light';
+      ctx.fillStyle = 'rgba(255,255,255,.38)';
       ctx.beginPath(); ctx.roundRect(800 - bw / 2, BY2 - BH2 / 2, bw, BH2, BH2 / 2); ctx.fill();
-      ctx.fillStyle = NEU.ink; ctx.fillText('Creator', 800, BY2 + 2);
+      ctx.restore();
+      ctx.fillStyle = NEU.ink; ctx.fillText(BTX, 800, BY2 + 2);
       ctx.letterSpacing = '0px'; ctx.restore();
     }
     if (p2 > 0.01) {
