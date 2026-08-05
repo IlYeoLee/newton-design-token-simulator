@@ -2210,9 +2210,11 @@ export class Session {
       P.cd.visible = false;
       if (!cyc || cyc.watching) {
         P.fmL.group.visible = false; P.fmR.group.visible = false; P.numL.visible = false; P.numR.visible = false;
-        // ★ 화살표도 꺼야 한다 — 이 분기는 아래 화살표 코드에 닿기 전에 return 하므로, 안 끄면
-        //   직전 사이클의 visible 이 그대로 남아 **감상 중에 화살표가 떠 있다**(유저: 깜빡인다).
+        // ★ 화살표·연결선 모두 꺼야 한다 — 이 분기는 아래 코드에 닿기 전에 return 하므로, 안 끄면
+        //   직전 사이클의 visible 이 그대로 남아 **감상 중(인물이 서 있을 때)** 화면에 걸쳐 있다.
+        //   연결선은 두 발을 잇는 대각선이라 인물 몸통을 가로질러 특히 지저분했다(유저 08-05).
         if (P.arBack) { P.arBack.visible = false; P.arKnee.visible = false; }
+        if (P.linkA) { P.linkA.visible = false; P.linkB.visible = false; }
         FMU('먼저 보세요', CS.prism);   // 진행표시 = 프레임 미니 타이머 링 전담
         this.demoActive = true;
         return;
