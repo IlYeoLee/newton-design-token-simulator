@@ -551,6 +551,13 @@ export function drawChars(ctx, txt, cx, y, h, ls, fn, align = 'center') {
 //   레이아웃·모션·색은 _paint_ready 하나가 전담한다. Figma 시작화면 353:7066 정본.
 //   scale/pivotY 는 디자인이 아니라 투사 콘 맞춤 노브 — 농구 콘이 얕아 원치수는 잘린다(유저 실측).
 //   폐기: title·today·time·mode·comp(_paint_ready 가 안 읽던 잔재) · vid(코치 판은 main.js COACH_CFG 전담).
+// 배터리 잔량 — **세션당 한 번** 뽑아 고정(유저): 웨어러블 62~96 · 이어폰 38~88.
+//   기기마다 값이 달라야 '진짜 상태'로 읽힌다. 매 프레임 뽑으면 다이얼이 떤다.
+//   ※ 커밋 b3185e7 이 이 정의 없이 사용부만 들어와 페인트가 통째로 죽었다(동시 편집 유실) — 복구.
+const BATT = {
+  glasses: Math.round(62 + Math.random() * 34),
+  buds: Math.round(38 + Math.random() * 50),
+};
 const READY = {
   // lbl = 분 표기 통일 'Nm'(유저 08-05) — 'min' 혼용 폐기. 글자 크기도 세그먼트 공통(LBL_FS/LBL_MS).
   // 팩 정본(유저 08-05 셋업 완료 화면): "Sean's Final 1km Pace" · Creator Pack 18m
@@ -1393,11 +1400,14 @@ export class FloorGL {
     if (p2 > 0.01) {
       ctx.save(); ctx.globalAlpha *= p2;
       // 도트 카운팅 촤라락 — 복싱과 같은 rollNum 정본 (자릿수 롤)
-      rollNum(ctx, R2.total, t, TP2, .9, 800, 1277, 384, { fam: dot9, align: 'center', fill: NEU.ink });
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      // rollNum 은 자릿수 합 폭을 돌려준다 — 단위 위치를 여기서 파생시킨다.
+      const nw = rollNum(ctx, R2.total, t, TP2, .9, 800, 1277, 384, { fam: dot9, align: 'center', fill: NEU.ink });
+      ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
       // 단위는 숫자의 부속 — 위계 낮춤(유저): 흰 100%/700 → 55%/400. 숫자만 주인공으로 남는다.
+      // ★ x 를 하드코딩(1085)하면 안 된다 — '30' 기준으로 잡은 값이라 더 넓은 '48' 에서 숫자와
+      //   딱 붙어 버렸다(유저: 묘하게 가운데정렬이 아닌 것 같다). 숫자 오른끝에서 파생시킨다.
       ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.font = RF(400, 64); ctx.letterSpacing = '-1.51px';
-      ctx.fillText('min', 1085, 1315);   // 숫자 상단과 top 정렬(피그마 353:7084 = '30' 과 같은 y)
+      ctx.fillText('min', 800 + nw / 2 + 24, 1315);   // 숫자 상단과 top 정렬(피그마 353:7084)
       ctx.letterSpacing = '0px';
       ctx.restore();
     }
