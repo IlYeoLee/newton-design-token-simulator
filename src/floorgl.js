@@ -2178,7 +2178,15 @@ export class FloorGL {
     //   처음부터 가로 알약 헤더로 선다(원형 캡슐을 띄웠다 지우면 없는 단계를 만든 셈이 된다).
     const HAS_PREV = /^(A2|A3|BK_A[23]|BK_B[12345])$/.test(this.stage || '');
     const dur = this.params?.dur || 8, PV = HAS_PREV ? (this.params?.pv || 3) : 0, MOVE = LAYOUT.PREVIEW.morph;
-    const mo = HAS_PREV ? eOut(clamp01((t - PV) / MOVE)) : 1;
+    // ★ 중간다리 제거(유저) — 캡슐이 pv(3s)에 알약이 되는데 코치 영상은 감상이 끝날 때까지
+    //   계속 나온다. 그래서 [알약 + 영상] 이라는 **세 번째 상태**가 생겼다: 프리뷰도 아니고
+    //   따라하기도 아닌 화면. 모프 시점을 **감상 종료**에 맞추면 그 상태가 존재하지 않는다.
+    //   = 영상이 사라지는 순간 알약이 되고 발마크가 뜬다(한 번에 1 → 3).
+    //   session.demoActive 가 감상 여부의 정본(스테이지 틱이 매 프레임 갱신).
+    const sess = (typeof window !== 'undefined' ? window.__dbg?.session : null);
+    const watching = sess ? (!!sess.demoActive || !!sess.a2Cyc?.watching) : (t < PV);
+    if (watching) this._moT = null; else if (this._moT == null) this._moT = t;
+    const mo = HAS_PREV ? (this._moT == null ? 0 : eOut(clamp01((t - this._moT) / MOVE))) : 1;
     // ★ 타이틀은 **FLOOR_SCENES 가 정본**이다(유저: 농구 적용 안 된 게 많다 → 감사 결과).
     //   CAPS 가 title 을 따로 들고 있어서 두 벌이 어긋나 있었다. 실제 어긋남:
     //     A2  CAPS 'Lunge Press'   vs  scenes 'Calf Stretch'   ← 아예 다른 동작명
@@ -2286,7 +2294,7 @@ export class FloorGL {
     if (!perFoot) this._pfT = null;
     const pfK = perFoot ? clamp01((t - this._pfT) / 0.35) : 0;
     const rem = perFoot ? Math.max(0, Math.ceil(hs * (1 - hp)))
-      : (mo < .5 ? Math.max(1, Math.ceil(PV - t)) : Math.max(0, Math.ceil(dur - t)));
+      : (mo < .5 ? Math.max(1, Math.ceil(Math.max(PV, (this._moT ?? PV)) - t)) : Math.max(0, Math.ceil(dur - t)));
     if (String(rem) !== this._numLast2) { this._numLast2 = String(rem); this._numT2 = t; }
     countRing(ctx, rx, ry2,
       (() => { const base = mo < .5 ? clamp01(1 - t / PV) : clamp01(1 - (t - PV) / Math.max(.1, dur - PV));
