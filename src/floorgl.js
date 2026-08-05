@@ -1697,8 +1697,10 @@ export class FloorGL {
     //        시작하기 전에 사라진다. sean 22%~78% · 기본 31.25%~96.65%.
     if (p2 < 0.995) {
       const CLIP = bk
-        ? { src: 'ready-view/assets/proto/curry-card.mp4', bright: 1.0, mIn: .3125, mOut: .9665, focus: 0.02 }
-        : { src: 'ready-view/assets/proto/sean-card.mp4',  bright: 0.68, mIn: .22, mOut: .78, focus: 0.05 };
+        // mOut = 1.0 — 프로토타입은 카드 하단에서 페이드아웃(민트 엔딩)하지만, 여기선 **알약
+        //   컨테이너 맨 끝까지** 채워야 한다(유저 #164). 아래 곡선은 capPath 클립이 만든다.
+        ? { src: 'ready-view/assets/proto/curry-card.mp4', bright: 1.0, mIn: .3125, mOut: 1.0, focus: 0.02 }
+        : { src: 'ready-view/assets/proto/sean-card.mp4',  bright: 0.68, mIn: .22, mOut: 1.0, focus: 0.05 };
       let v = this._pvid;
       if (!v || v._key !== CLIP.src) {
         v = this._pvid = document.createElement('video');
@@ -1710,7 +1712,8 @@ export class FloorGL {
       if (v.readyState >= 2 && v.videoWidth) {
         // 박스 = 피그마 인스펙터 실측: 1055x1079(44/45) · r 527.5.
         const BW = 1055, BH = 1079, BR = 527.5;
-        const BX = 800 - BW / 2, BY = (CAP.y + CAP.h) - 90 - BH;
+        //   박스 바닥을 캡슐 바닥에 맞춘다 — 90 띄웠더니 영상이 곡선 전에 직선으로 끊겼다(#164).
+        const BX = 800 - BW / 2, BY = (CAP.y + CAP.h) - BH;
         // 오프스크린에서 ②(밝기)와 ③(마스크)을 먼저 적용한 뒤, 결과만 lighter 로 얹는다.
         const OW = 264, OH = Math.round(OW * BH / BW);   // 픽셀 패스가 있어 절반 해상도
         const oc = this._pcv || (this._pcv = document.createElement('canvas'));
@@ -2157,9 +2160,18 @@ export class FloorGL {
     // 카운트 링 — 정본 countRing. 관찰: 캡슐 중앙 아래 / 따라하기: 헤더 왼쪽 슬롯. 형태는 안 바뀐다.
     const RR = L(112, RRp);
     const rx = L(CX, x + PAD + RR), ry2 = L(y + h * .70, y + h / 2);
-    const rem = mo < .5 ? Math.max(1, Math.ceil(PV - t)) : Math.max(0, Math.ceil(dur - t));
+    // ★ 종아리 늘리기(A2)는 **한 발당** 홀드가 단위다(유저: 시간과 전체 길이가 같으면 어색하다).
+    //   헤더 링 = 지금 딛고 있는 발의 남은 홀드 시간(발이 바뀌면 리셋) · 하단 아크 = 좌+우 합친
+    //   세션 전체. 둘이 같은 값을 세면 "한 발 5초"라는 이 동작의 구조가 화면에서 사라진다.
+    //   값은 session.a2Cyc(홀드 진행 prog·holdSec·isLeft)에서 읽는다 — 봇 사이클과 이미 동기된 정본.
+    const cyc = (typeof window !== 'undefined' ? window.__dbg?.session?.a2Cyc : null);
+    const perFoot = this.stage === 'A2' && cyc && !cyc.watching;
+    const hs = cyc?.holdSec ?? 5, hp = cyc?.inHold ? clamp01(cyc.prog) : 0;
+    const rem = perFoot ? Math.max(0, Math.ceil(hs * (1 - hp)))
+      : (mo < .5 ? Math.max(1, Math.ceil(PV - t)) : Math.max(0, Math.ceil(dur - t)));
     if (String(rem) !== this._numLast2) { this._numLast2 = String(rem); this._numT2 = t; }
-    countRing(ctx, rx, ry2, mo < .5 ? clamp01(1 - t / PV) : clamp01(1 - (t - PV) / Math.max(.1, dur - PV)),
+    countRing(ctx, rx, ry2,
+      perFoot ? 1 - hp : (mo < .5 ? clamp01(1 - t / PV) : clamp01(1 - (t - PV) / Math.max(.1, dur - PV))),
       String(rem), { t: 99, k: RR / 275, pulse: clamp01((t - (this._numT2 || 0)) / 0.5),
                      ring: { trackW: 11, arcW: 11, trackA: .26 } });
     // PREVIEW 라벨 · 동작명 — 순차 크로스페이드(옛 것이 먼저 빠지고 새 것이 든다)
