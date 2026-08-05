@@ -2056,7 +2056,7 @@ export class FloorGL {
       ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
       ctx.fillStyle = 'rgba(255,255,255,.72)'; ctx.font = F(400, LAYOUT.TYPE.unit);
       ctx.fillText('sec', rx + RR + 22, ry2 + 10);
-      ctx.fillStyle = '#fff'; ctx.font = F(700, LAYOUT.TYPE.title); ctx.letterSpacing = '-4px';(유저)
+      ctx.fillStyle = '#fff'; ctx.font = F(700, LAYOUT.TYPE.title); ctx.letterSpacing = '-4px';
       ctx.fillText(title, rx + RR + 22 + 128 + 46, ry2);
       ctx.letterSpacing = '0px';
       if (cfg.step) {
