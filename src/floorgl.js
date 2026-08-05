@@ -1423,10 +1423,28 @@ export class FloorGL {
       const segStart = A0;   // 배지 폐기 — 스트레칭이 첫 세그먼트(유저)
       const segs = R2.arcs, totalV = segs.reduce((s2, x) => s2 + x.v, 0);
       const avail = (A1 - segStart) - GAPA * (segs.length - 1);
-      // 색 위계 = 길이에서 파생(유저 08-05) — 전에는 본운동·학습이 같은 코랄→빨강이라 위계가 안 읽혔다.
-      //   제일 긴 구간(본운동) = 뉴턴 그라디언트 정본 램프 / 나머지 = 단색 빨강 / 스트레칭 = 흰 반투명.
-      //   종목별 하드코딩이 아니라 v 최댓값으로 뽑으므로 러닝(15m)·농구(10m) 모두 자동.
-      const heroIdx = segs.reduce((b, s2, k) => (!s2.muted && (b < 0 || s2.v > segs[b].v) ? k : b), -1);
+      // ★ 전 세그 **한 벌 램프**(유저 08-05) — 구간마다 색을 달리하던 위계(흰/단색빨강/그라디언트)는
+      //   폐기. 차트 **전체 각도**에 뉴턴 램프를 한 번 깔고, 각 세그먼트는 자기 구간 색을 집는다.
+      //   그래서 끊긴 알약들이 하나의 연속된 열 램프로 읽힌다(구간마다 램프를 따로 돌리면 줄무늬가 된다).
+      //   위계는 이제 길이·아이콘·칩이 맡는다.
+      const RAMP = (() => {
+        const a0d = segStart - capA, a1d = A1 + capA;
+        const span = (a1d - a0d) / 360;
+        const at = u => Math.min(1, Math.max(0, u * span));
+        const stops = [[0, PAL.red], [at(.40), PAL.red], [at(.68), PAL.coral],
+                       [at(.88), '#FE9A61'], [at(1), PAL.sand]];
+        if (!ctx.createConicGradient) {   // 원뿔 미지원 폴백 — 차트 양끝을 잇는 선형
+          const q0 = polar(a0d), q1 = polar(a1d);
+          const g2 = ctx.createLinearGradient(q0.x, q0.y, q1.x, q1.y);
+          for (const [o, c] of [[0, PAL.red], [.40, PAL.red], [.68, PAL.coral], [.88, '#FE9A61'], [1, PAL.sand]])
+            g2.addColorStop(o, c);
+          return g2;
+        }
+        const g2 = ctx.createConicGradient(a0d * RAD, CXA, CYA);
+        for (const [o, c] of stops) g2.addColorStop(o, c);
+        if (span < 1) g2.addColorStop(1, PAL.sand);   // 캡 뒤쪽이 한 바퀴 돌아 첫 스톱을 집지 않게
+        return g2;
+      })();
       // 스윕 — 배지 팝 후 세그먼트 시작각에서 끝각까지 호를 따라 차오른다
       const sweep = segStart + (A1 - segStart) * eOut(intro(t, .5, 1.2));
       ctx.save(); ctx.globalAlpha *= e0(.4, .5);
@@ -1445,43 +1463,10 @@ export class FloorGL {
         if (end > sA + 0.5) {
             const p0 = polar(sA), p1 = polar(eA);
           ctx.save();
-          if (seg.muted) {
-            // 스트레칭도 **같은 빨강 언어**로(유저 08-05). 흰 반투명은 게이지 관습상 '아직 안 채워진
-            //   트랙'으로 읽혀 의미가 정반대였다 — 5분은 실제로 있는 시간이다. 위계는 색상이 아니라
-            //   **농도**로 준다(길이 파생 규칙과 같은 문법). 블룸은 여전히 0 — 번지면 칩 글자가 죽는다.
-            ctx.shadowBlur = 0;
-            ctx.strokeStyle = 'rgba(250,48,48,.82)';   // .55 는 올리브 바닥 위에서 채도가 죽었다(유저 #136)
-          } else if (si === heroIdx) {
-            // 제일 긴 구간 = 뉴턴 그라디언트 램프. 끝의 prism(#D1FEFF)은 하늘색이라 뺀다(유저 #119)
-            //   — 따뜻한 red→coral→sand 로만 닫는다. 팔레트 정본 stops 는 gaugeArc 쪽에 그대로 남는다.
-            // ★ 선형 그라디언트는 호를 **가로지르는 대각선 띠**를 만든다(유저) — 색 경계가 스트로크를
-            //   비스듬히 잘라 각지게 보인다. 원뿔(conic) 그라디언트로 각도를 따라가게 하면 색이
-            //   호를 그대로 타고 흐른다. 스톱도 넓게 벌려 끝을 길게 뺀다.
-            // ★ 원뿔 그라디언트는 **한 바퀴 전체**를 칠한다 — 시작각을 sA 로 잡으면 둥근 캡이
-            //   각도상 sA 보다 **뒤**로 삐져나오면서 그 픽셀이 한 바퀴 돌아 마지막 스톱(sand)을
-            //   집는다. 시작 캡에 크림색 초승달이 박히고 빨강과 각지게 잘렸다(유저 #120).
-            //   → 캡이 밀려나는 각(capA)만큼 앞뒤로 넓혀서 캡까지 램프 안에 넣는다.
-            const a0d = sA - capA, a1d = eA + capA;
-            const span = (a1d - a0d) / 360;
-            const at = u => Math.min(1, Math.max(0, u * span));
-            let g;
-            if (ctx.createConicGradient) {
-              g = ctx.createConicGradient(a0d * RAD, CXA, CYA);
-              g.addColorStop(0, PAL.red);
-              g.addColorStop(at(.40), PAL.red);
-              g.addColorStop(at(.68), PAL.coral);
-              g.addColorStop(at(.88), '#FE9A61');   // coral→sand 중간 — 두 구간을 더 길게 이어 붙인다
-              g.addColorStop(at(1), PAL.sand);
-              if (span < 1) g.addColorStop(1, PAL.sand);
-            } else {
-              g = ctx.createLinearGradient(p0.x, p0.y, p1.x, p1.y);
-              g.addColorStop(0, PAL.red); g.addColorStop(.40, PAL.red);
-              g.addColorStop(.68, PAL.coral); g.addColorStop(1, PAL.sand);
-            }
-            ctx.strokeStyle = g;
-          } else {
-            ctx.strokeStyle = PAL.red;   // 중간 구간 = 단색 빨강 — 그라디언트는 본운동 하나만 쓴다
-          }
+          // 전 세그 동일 — 차트 전체에 깔린 램프에서 자기 구간 색을 집는다(유저 08-05).
+          //   블룸은 0 유지: 번지면 칩·라벨 글자가 죽는다(유저 #98).
+          ctx.shadowBlur = 0;
+          ctx.strokeStyle = RAMP;
           ctx.lineWidth = LWA; ctx.lineCap = 'round';
           // ★ 링 밴드 마스크(유저) — 원뿔 그라디언트는 평면 전체를 칠하고 블룸까지 얹혀서
           //   색이 스트로크 **바깥으로 번져** 호가 지저분해졌다. 반경 밴드(R±LWA/2)로 클립하면

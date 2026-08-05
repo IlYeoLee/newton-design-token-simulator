@@ -230,46 +230,44 @@ const FOLLOW = [
 //   모든 따라하기 화면 = [① 정체 · ② 시계 · ③ 판정] 세 슬롯. 패턴 차이는 ②뿐이다.
 //   ①은 상단 캡슐 · ②는 캡슐 내부 · ③은 지면 — 이 조판은 네 패턴에서 완전히 같다.
 function slotFrame(g, t, o) {
-  const cx = 800, cy = 300, cw = 818, ch = o.tall ? 300 : 250;
+  // ★ 조판은 floorgl.buildScene 의 **한 세로 열** 그대로다(유저 지적 08-05: 하단에 그런 뷰 없다).
+  //   열 순서: [크럼] → 타이틀 → (프리뷰 링) → **아크(진행)** → (수치행) → 성공 배지.
+  //   아크는 화면 바닥에 따로 떠 있는 게 아니라 이 열의 한 칸이다. 바닥은 비어 있다.
+  const cx = 800, cy = 300, cw = 818, ch = 250;
   const e = eOut(intro(t, .1, .8));
   // ① 정체 — 상단 캡슐(동작명)
   capsule(g, cx - cw / 2, cy, cw, ch);
-  titleBlock(g, [o.title], cx, cy + (o.tall ? 96 : 100), 64);
-  // ② 시계 — 캡슐 내부. 패턴이 갈리는 유일한 자리
-  o.clock(g, t, cx, cy + ch);
-  // ③ 판정 — 지면. 코치 판은 **관찰이 있는 패턴에만** 존재한다(COACH_CFG 실측: A1~A3·BK_*).
-  //   실전 동행(P·C)은 유저가 실제로 달리는 중이라 화면에 코치 영상이 없다(유저 지적 08-05).
-  if (o.coach !== false) coach(g, cx, 1080, 700, e);
+  titleBlock(g, [o.title], cx, cy + 118, 64);
+  // ② 시계 — 캡슐 **아래 열의 다음 칸**. 패턴이 갈리는 유일한 자리
+  o.clock(g, t, cx, cy + ch + 130);
+  // ③ 판정 — 그 아래 칸(수치행·마크). 코치 판은 관찰이 있는 패턴에만(COACH_CFG 실측)
+  if (o.coach !== false) coach(g, cx, 1320, 700, e);
   o.verdict(g, t, cx);
-  // 하단 진행(공통) — 아크
-  g.save(); g.globalAlpha = .9; arcGauge(g, cx - 500, 2180, 1000, o.prog(t)); g.restore();
 }
-// ★ 진행 표시 = **아크 게이지**(현행 정본). 구 도트바(회색 10개+빨강 채움)는 은퇴했다 —
-//   floorgl._dots 는 지금 arcGauge 를 그린다(유저 지적으로 실코드 확인, 2026-08-05).
 const dotsBar = (g, t, cx, y, p) => arcGauge(g, cx - 380, y - 40, 760, clamp01(p));
 const SYS = [
   ['A · 관찰 후 따라하기', 'A2 종아리 · A3 하이니 · BK_A3 스쿼트<br><b>② 시계 = 프리뷰 링 → 도트바</b> (같은 슬롯을 물려받는다)',
     (g, t) => slotFrame(g, t, { title: 'High Knees', tall: true,
       clock: (g2, t2, cx, by) => {
         const pv = 3, inPv = (t2 % 8) < pv;
-        if (inPv) {
-          ringGauge(g2, cx, by - 96, 74, ((t2 % pv) / pv), { color: '#fff' });
+        if (inPv) {   // 프리뷰: 필 + 카운트 링 → 끝나면 같은 자리를 아크가 물려받는다
+          capLabel(g2, 'PREVIEW', cx - 150, by, .6, 40);
+          ringGauge(g2, cx + 130, by, 74, ((t2 % pv) / pv), { color: '#fff' });
           g2.textAlign = 'center'; g2.textBaseline = 'middle';
           g2.fillStyle = '#fff'; g2.font = RF(700, 58, DOT);
-          g2.fillText(String(pv - Math.floor(t2 % pv)), cx, by - 92);
-          capLabel(g2, 'PREVIEW', cx, by - 190, .5, 34);
-        } else dotsBar(g2, t2, cx, by - 96, ((t2 % 8) - pv) / (8 - pv));
+          g2.fillText(String(pv - Math.floor(t2 % pv)), cx + 130, by + 4);
+        } else arcGauge(g2, cx - 380, by - 30, 760, ((t2 % 8) - pv) / (8 - pv));
       },
-      verdict: (g2, t2, cx) => footMarks(g2, cx, 1720, 1, t2),
+      verdict: (g2, t2, cx) => footMarks(g2, cx, 1900, 1, t2),
       prog: t2 => (t2 % 8) / 8 })],
   ['B · 큐만 있는 반복', 'A1 목·어깨 · BK_A1 옆구리 · BK_B1 드리블<br><b>② 시계 = 도트바만</b> (관찰 단계 생략 — 동작이 단순)',
     (g, t) => slotFrame(g, t, { title: 'Neck Rolls',
       clock: (g2, t2, cx, by) => {
-        dotsBar(g2, t2, cx, by - 72, (t2 % 8) / 8);
         g2.textAlign = 'center'; g2.textBaseline = 'middle';
         g2.fillStyle = '#fff'; g2.font = RF(700, 56, DOT);
-        g2.fillText(String(4 - Math.floor((t2 % 8) / 2)), cx - 26, by - 150);
-        capLabel(g2, 'left', cx + 52, by - 146, .55, 32);
+        g2.fillText(String(4 - Math.floor((t2 % 8) / 2)), cx - 26, by - 70);
+        capLabel(g2, 'left', cx + 52, by - 66, .55, 32);
+        arcGauge(g2, cx - 380, by - 30, 760, (t2 % 8) / 8);
       },
       verdict: () => {},
       prog: t2 => (t2 % 8) / 8 })],
@@ -277,19 +275,18 @@ const SYS = [
     (g, t) => slotFrame(g, t, { title: 'Step-Back 2/4',
       clock: (g2, t2, cx, by) => {
         const n = 1 + Math.floor((t2 % 8) / 2);
-        ringGauge(g2, cx, by - 96, 74, ((t2 % 2) / 2), { color: '#fff' });
+        capLabel(g2, 'LOOP', cx - 140, by, .6, 40);
+        ringGauge(g2, cx + 120, by, 74, ((t2 % 2) / 2), { color: '#fff' });
         g2.textAlign = 'center'; g2.textBaseline = 'middle';
         g2.fillStyle = '#fff'; g2.font = RF(700, 50, DOT);
-        g2.fillText(n + '/4', cx, by - 92);
-        capLabel(g2, 'LOOP', cx, by - 190, .5, 34);
+        g2.fillText(n + '/4', cx + 120, by + 4);
       },
       verdict: (g2, t2, cx) => {
-        footMarks(g2, cx, 1720, .9, t2);
-        // 방향 화살표 — 스텝 순서를 말한다
+        footMarks(g2, cx, 1900, .9, t2);
         g2.save(); g2.strokeStyle = 'rgba(255,222,194,.9)'; g2.lineWidth = 8; g2.lineCap = 'round';
         g2.shadowColor = 'rgba(254,195,137,.7)'; g2.shadowBlur = 18;
-        g2.beginPath(); g2.moveTo(cx - 40, 1900); g2.lineTo(cx + 120, 1900); g2.stroke();
-        g2.beginPath(); g2.moveTo(cx + 76, 1866); g2.lineTo(cx + 124, 1900); g2.lineTo(cx + 76, 1934); g2.stroke();
+        g2.beginPath(); g2.moveTo(cx - 40, 2090); g2.lineTo(cx + 120, 2090); g2.stroke();
+        g2.beginPath(); g2.moveTo(cx + 76, 2056); g2.lineTo(cx + 124, 2090); g2.lineTo(cx + 76, 2124); g2.stroke();
         g2.restore();
       },
       prog: t2 => (t2 % 8) / 8 })],
@@ -299,12 +296,13 @@ const SYS = [
         // 실시간 수치 — 남은 시간 대신 SPM·편차
         g2.textAlign = 'center'; g2.textBaseline = 'middle';
         g2.fillStyle = '#fff'; g2.font = RF(700, 60, DOT);
-        g2.fillText(String(146 + Math.round(Math.sin(t2 * 1.6) * 5)), cx - 60, by - 92);
-        capLabel(g2, 'SPM', cx + 46, by - 88, .55, 32);
+        g2.fillText(String(146 + Math.round(Math.sin(t2 * 1.6) * 5)), cx - 60, by - 70);
+        capLabel(g2, 'SPM', cx + 46, by - 66, .55, 32);
+        arcGauge(g2, cx - 380, by - 30, 760, (t2 % 8) / 8);
       },
       verdict: (g2, t2, cx) => {
         // 편차 바 — 목표 대비 현재
-        const w = 620, y = 1180, p = .5 + Math.sin(t2 * 1.3) * .22;   // 코치 판이 없으니 수치가 위로 올라온다
+        const w = 620, y = 1100, p = .5 + Math.sin(t2 * 1.3) * .22;   // 코치 판이 없으니 수치가 위로 올라온다
         g2.save();
         g2.fillStyle = 'rgba(255,255,255,.16)';
         g2.beginPath(); g2.roundRect(cx - w / 2, y, w, 18, 9); g2.fill();
