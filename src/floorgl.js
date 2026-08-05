@@ -717,6 +717,11 @@ const READY_GLOWS = [
 ];
 // 농구는 컬러 면만 다르다(피그마 377:3209 '커리' — 러닝은 377:3073 '션'). 나머지 3겹은 공용.
 const READY_GLOWS_BK = READY_GLOWS.map(g => (g[0] === 'glow-ell.svg' ? ['glow-ell-bk.svg', ...g.slice(1)] : g));
+// ★ 색 규약(유저) — **첫 화면(READY)은 팩 대표 컬러**(러닝 glow-ell · 농구 glow-ell-bk),
+//   **그 이후 화면(프리뷰·따라하기)은 뉴턴 팔레트**. 색은 캔버스 합성으로 덮는 게 아니라
+//   **SVG 그라디언트 칩이 이미 갈려 있는 에셋**(glow-ell-newton.svg: FA3030 · FE6E3C · FEC389)
+//   을 쓴다 — 합성으로 덮으면 유리·글자까지 물들고 이음매가 생긴다(실측 2회).
+const CAP_GLOWS = READY_GLOWS.map(g => (g[0] === 'glow-ell.svg' ? ['glow-ell-newton.svg', ...g.slice(1)] : g));
 const READY_CAP = { x: 291, y: 285, w: 1018, h: 1541 };
 const CAPS = {
   A1: { variant: 'preview',  },
@@ -2250,29 +2255,11 @@ export class FloorGL {
       ctx.translate(x, y);
       ctx.scale(w / READY_CAP.w, h / READY_CAP.h);
       ctx.translate(-READY_CAP.x, -READY_CAP.y);
-      for (const [rel, gx, gy, gw, gh, blend] of READY_GLOWS) {
+      for (const [rel, gx, gy, gw, gh, blend] of CAP_GLOWS) {
         const im = this._img('fig/ready2/' + rel);
         if (!im) continue;
         ctx.save(); ctx.globalCompositeOperation = blend;
         ctx.drawImage(im, gx, gy, gw, gh);
-        ctx.restore();
-      }
-      // ★ 뉴턴 팔레트로 리매핑(유저: 전부 뉴턴 컬러로) — 에셋에 노랑이 섞여 있어 팔레트 밖 색이
-      //   났다. 에셋을 다시 뽑는 대신 'color' 합성으로 **색상만** 갈아끼운다(명암은 에셋 그대로).
-      //   위 → 아래로 red → coral → sand. 에셋이 바뀌어도 색은 항상 팔레트 안에 남는다.
-      {
-        //   ★ 경계는 **알파 그라디언트**로만 만든다. 전체를 덮으면 유리(중립 회색)까지 물들어
-        //     캡슐이 통째로 빨개지고, rect 로 아래쪽만 덮으면 그 윗변이 직선 이음매로 드러난다
-        //     (둘 다 실측). 그래서 캡슐 전체를 덮되 위쪽 알파를 0 으로 떨어뜨린다 — 이음매가 없다.
-        const gy0 = READY_CAP.y, gy1 = READY_CAP.y + READY_CAP.h + 140;
-        const gr = ctx.createLinearGradient(0, gy0, 0, gy1);
-        gr.addColorStop(0, rgba(PAL.red, 0));
-        gr.addColorStop(.42, rgba(PAL.red, 0));
-        gr.addColorStop(.62, rgba(PAL.red, .55));
-        gr.addColorStop(.82, rgba(PAL.coral, .60));
-        gr.addColorStop(1, rgba(PAL.sand, .60));
-        ctx.save(); ctx.globalCompositeOperation = 'color';
-        ctx.fillStyle = gr; ctx.fillRect(READY_CAP.x - 240, gy0, READY_CAP.w + 480, gy1 - gy0);
         ctx.restore();
       }
       ctx.restore();
