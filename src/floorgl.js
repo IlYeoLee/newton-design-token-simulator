@@ -1433,24 +1433,9 @@ export class FloorGL {
       ctx.restore();
     }
     ctx.restore();
-    // ── ②' 하단 광 끝 **번짐**(유저 08-05) — 캡슐 클립이 빛을 림에서 칼같이 자른다. 물리적으로
-    //   빛은 경계에서 끊기지 않으므로 '잘린 것'으로 읽혔다. 바닥 캡의 원호를 따라 얇은 초승달
-    //   블룸을 림 바깥으로 얹어 광량이 자연스럽게 스러지게 한다.
-    //   기하: 알약 바닥 캡 = 중심 (800, CAP.y+CAP.h-R) · 반지름 R = CAP.w/2. 아래쪽 반만 쓴다.
-    {
-      const R = CAP.w / 2, ccx = CAP.x + R, ccy = CAP.y + CAP.h - R;
-      ctx.save();
-      ctx.globalAlpha *= e0(.15, 1.2) * (1 + .3 * tapB) * .9;
-      ctx.beginPath(); ctx.rect(CAP.x - 260, ccy, CAP.w + 520, CAP.y + CAP.h + 240 - ccy); ctx.clip();   // 아래 반원만
-      const gg = ctx.createRadialGradient(ccx, ccy, R * 0.90, ccx, ccy, R * 1.30);
-      gg.addColorStop(0, 'rgba(255,244,226,0)');
-      gg.addColorStop(.32, 'rgba(255,240,218,.42)');   // 림 바로 안쪽 = 코어와 이어지는 지점
-      gg.addColorStop(.58, 'rgba(254,196,138,.20)');
-      gg.addColorStop(1, 'rgba(254,110,60,0)');
-      ctx.fillStyle = gg;
-      ctx.beginPath(); ctx.arc(ccx, ccy, R * 1.30, 0, Math.PI * 2); ctx.fill();
-      ctx.restore();
-    }
+    // ── ②' 림 바깥 초승달 블룸 = **폐기**(유저 08-05). '칼같이 잘리는' 걸 풀려고 반원
+    //   그라디언트를 림 밖에 얹었는데, 클립 사각(rect)의 윗변이 그대로 직선 이음매로 드러나고
+    //   빛이 캡슐 밖 좌우로 번져 더 이상해졌다. 캡슐 밖으로 새는 광은 만들지 않는다.
     // ── ③ 캡슐 텍스트 — 제목 2줄(100/Bold/ls-4) · Pace On(64/.8) · 도트 30(384) + min(64) ──
     // 제목 두 줄은 줄 단위로 아주 살짝 어긋나게(0.04s) — 한 덩어리로 뜨는 것보다 결이 산다.
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
