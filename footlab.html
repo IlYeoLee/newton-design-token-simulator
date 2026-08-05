@@ -50,11 +50,11 @@
     border-radius:8px;padding:8px;font:11px/1.5 ui-monospace,Consolas,monospace;resize:vertical}
   .note{color:var(--dim);font-size:11px;margin:8px 0 0}
   .warn{color:var(--red);font-size:11.5px;margin:8px 0 0;display:none}
-</style>  <script type="module" crossorigin src="./assets/footlab-LlsFVgZR.js"></script>
+</style>  <script type="module" crossorigin src="./assets/footlab-gV0kdlou.js"></script>
   <link rel="modulepreload" crossorigin href="./assets/modulepreload-polyfill-B5Qt9EMX.js">
-  <link rel="modulepreload" crossorigin href="./assets/fx-core-CvIaicgI.js">
-  <link rel="modulepreload" crossorigin href="./assets/fxlut-DZ58rvCH.js">
-  <link rel="modulepreload" crossorigin href="./assets/tokens-CpnqQVvK.js">
+  <link rel="modulepreload" crossorigin href="./assets/fx-core-BMbNWHJB.js">
+  <link rel="modulepreload" crossorigin href="./assets/fxlut-DHN_Q5DA.js">
+  <link rel="modulepreload" crossorigin href="./assets/tokens-C31XEGE0.js">
 </head><body>
 <div class=wrap>
   <div class=panel>
@@ -76,9 +76,9 @@
       <div class=acts><button id=fit>자동 맞춤 — 신발 안으로</button></div>
       <div class=row><label>도트 간격</label><input type=range id=pitch min=.008 max=.08 step=.001><span class=v id=vpitch></span></div>
       <div class=row><label>점 크기</label><input type=range id=dot min=.05 max=.5 step=.005><span class=v id=vdot></span></div>
-      <div class=seg id=segDotCol style="margin:2px 0 6px"><button data-v=0>흰</button><button data-v=1 class=on>샌드</button><button data-v=2>코랄</button><button data-v=3>레드</button></div>
+      <div class=seg id=segDotCol style="margin:2px 0 6px"><button data-v=0>프리즘</button><button data-v=1 class=on>샌드</button><button data-v=2>코랄</button><button data-v=3>레드</button><button data-v=4>흰</button></div>
       <div class=row><label>이너 섀도우</label><input type=range id=shade min=0 max=1.4 step=.01><span class=v id=vshade></span></div>
-      <div class=seg id=segShadeCol style="margin:2px 0 6px"><button data-v=0 class=on>흰</button><button data-v=1>샌드</button><button data-v=2>코랄</button><button data-v=3>레드</button></div>
+      <div class=seg id=segShadeCol style="margin:2px 0 6px"><button data-v=0 class=on>프리즘</button><button data-v=1>샌드</button><button data-v=2>코랄</button><button data-v=3>레드</button><button data-v=4>흰</button></div>
       <div class=row><label>아웃라인 선명</label><input type=range id=sharp min=0 max=1 step=.02><span class=v id=vsharp></span></div>
       <div class=row><label>섀도우 폭</label><input type=range id=edge min=.004 max=.09 step=.002><span class=v id=vedge></span></div>
       <div class=row><label>윤곽 글로우</label><input type=range id=glow min=0 max=1.4 step=.02><span class=v id=vglow></span></div>
@@ -90,7 +90,7 @@
       <div class=row><label>밴드 무름</label><input type=range id=bandSoft min=0 max=1 step=.01><span class=v id=vbandSoft></span></div>
       <div class=row><label>이너 섀도우</label><input type=range id=edgeShade min=0 max=1.4 step=.01><span class=v id=vedgeShade></span></div>
       <div class=row><label>섀도우 면적</label><input type=range id=edgeShadeW min=.2 max=4 step=.05><span class=v id=vedgeShadeW></span></div>
-      <div class=seg id=segEdgeShadeCol style="margin:2px 0 6px"><button data-v=0 class=on>흰</button><button data-v=1>샌드</button><button data-v=2>코랄</button><button data-v=3>레드</button></div>
+      <div class=seg id=segEdgeShadeCol style="margin:2px 0 6px"><button data-v=0 class=on>프리즘</button><button data-v=1>샌드</button><button data-v=2>코랄</button><button data-v=3>레드</button><button data-v=4>흰</button></div>
       <div class=row><label>섀도우 그라디언트</label><input type=range id=edgeShadeGrad min=0 max=1 step=.02><span class=v id=vedgeShadeGrad></span></div>
       <div class=row><label>그라디언트 시작(경계)</label><input type=range id=edgeShadeG0 min=0 max=1 step=.01><span class=v id=vedgeShadeG0></span></div>
       <div class=row><label>그라디언트 끝(안쪽)</label><input type=range id=edgeShadeG1 min=0 max=1 step=.01><span class=v id=vedgeShadeG1></span></div>
@@ -123,7 +123,7 @@
       <div class=row><label>속도</label><input type=range id=ripSpeed min=.05 max=2 step=.05><span class=v id=vripSpeed></span></div>
       <div class=row><label>뉴턴 그라디언트</label><input type=range id=ripGrad min=0 max=1 step=.02><span class=v id=vripGrad></span></div>
       <p class=sub style="margin:2px 0 4px">1 = LUT 를 훑는다(퍼질수록 식음) · 0 = 아래 단색</p>
-      <div class=seg id=segRipCol><button data-v=0>흰</button><button data-v=1 class=on>샌드</button><button data-v=2>코랄</button><button data-v=3>레드</button></div>
+      <div class=seg id=segRipCol><button data-v=0>프리즘</button><button data-v=1 class=on>샌드</button><button data-v=2>코랄</button><button data-v=3>레드</button><button data-v=4>흰</button></div>
     </fieldset>
 
     <fieldset><legend>글리프 (발형·원형 공통)</legend>
