@@ -32,7 +32,7 @@ const CX = W / 2;
 // ── 세이프 밴드 — 빔이 실제로 닿는 캔버스 세로 구간(유저 승인 08-05) ────────────
 //   커버리지 깊이 1.7m ÷ 캔버스 대응 깊이 2.47m ≈ 0.69. 대지 중앙 기준 그 폭만 쓴다.
 //   SAFE.y0~y1 밖에 그린 요소는 투사면 밖으로 새므로, 새 조판은 반드시 이 안에서.
-export const SAFE = { y0: Math.round(H * 0.155), y1: Math.round(H * 0.845), get h() { return this.y1 - this.y0; } };
+export const SAFE = { y0: 0, y1: 2480, get h() { return this.y1 - this.y0; } };   // 실측(대지 깊이 0.17~2.0m · near 0.30) — 아래 약 190px 만 빔 밖
 // 투사 UI 서체 규칙(유저 확정): Supreme 두 굵기만 — Bold 700 · Regular 400.
 // Freesentation·Pretendard 폴백은 은퇴(투사 UI는 영문 조판이고, 폴백이 끼면 자간이 달라진다).
 const sans = "'Supreme',sans-serif";
@@ -1280,14 +1280,9 @@ export class FloorGL {
     // 콘텐츠 스케일 — 프레임(=커버리지)은 절대 못 줄인다. 종목별 실물 크기 동급화는 여기서.
     const CK = R2.scale || 1, PV = R2.pivotY ?? 1400;
     ctx.save();
-    // 세이프 밴드 정렬(유저 승인) — 임시 시프트(-185)·확대(1.06) 대체.
-    //   콘텐츠 설계 높이(캡슐 285~1876 = 1591)를 밴드 높이에 맞추고 밴드 중심에 놓는다.
-    {
-      const CH = 1591, k = Math.min(1, SAFE.h / CH);   // 확대는 하지 않는다 — 밴드의 목적은 '넘침 방지'이고, 키우면 좌우가 커버리지를 넘는다(실측)
-      const cy0 = 285 + CH / 2, cyT = SAFE.y0 + SAFE.h / 2;
-      ctx.translate(0, cyT - cy0);
-      ctx.translate(800, cyT); ctx.scale(k, k); ctx.translate(-800, -cyT);
-    }
+    // 조판 기준 — 유저 확정 위치(위로 185px). 밴드 중심 자동정렬은 콘텐츠를 아래로 밀어
+    //   내려 화면이 통째로 내려앉았다(유저 #111) → 폐기. SAFE 는 넘침 감시용 상수로만 쓴다.
+    ctx.translate(0, -185);
     if (CK !== 1) { ctx.translate(800, PV); ctx.scale(CK, CK); ctx.translate(-800, -PV); }
     // ── 페이즈 타임라인 — 등장(왼→오 촤라락) 완료 후 2초 뒤 페이즈2(실루엣·코치 프로필) ──
     const TP2 = 2.1, p2 = eOut(intro(t, TP2, .7));   // 등장 ~2s 완료 → 쉬지 않고 바로 페이즈2(유저)
