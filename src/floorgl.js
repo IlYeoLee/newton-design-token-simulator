@@ -2137,9 +2137,11 @@ export class FloorGL {
     const perFoot = this.stage === 'A2' && cyc && !cyc.watching;
     const hs = cyc?.holdSec ?? 5, hp = cyc?.inHold ? clamp01(cyc.prog) : 0;
     if (perFoot) title = (cyc.isLeft ? 'Left ' : 'Right ') + title;
-    // ★ 코칭 타이틀은 대문자(유저) — 프리뷰·따라하기·농구 전부. 대문자는 폭이 5~8% 늘어나므로
-    //   **폭을 재기 전에** 바꾼다(순서를 어기면 또 잘린다).
-    title = title.toUpperCase();
+    // ★ 대소문자 규약(유저) — **프리뷰는 대+소문자, 따라하기 헤더는 대문자**.
+    //   관찰 구간의 타이틀은 '무슨 동작인지 읽는 이름'이라 문장형이 자연스럽고, 헤더는 계속
+    //   곁눈질로 보는 라벨이라 대문자가 낫다. 폭은 더 넓은 쪽(대문자)으로 재야 안 잘린다.
+    const titleCase = title;              // 프리뷰용 — 원본 표기
+    title = title.toUpperCase();          // 헤더용 — 폭 계산도 이 값으로
     const L = (p, q) => p + (q - p) * mo;
     // 지오메트리 — 원형(760×820) → 가로 알약(840×250). **y 는 176 고정**: 위를 붙박아 두면
     //   아래로만 접히므로 코치 판(지면 중앙에 서는 3D 인물)과 안 겹친다.
@@ -2229,19 +2231,29 @@ export class FloorGL {
       String(rem), { t: 99, k: RR / 275, pulse: clamp01((t - (this._numT2 || 0)) / 0.5),
                      ring: { trackW: 11, arcW: 11, trackA: .26 } });
     // PREVIEW 라벨 · 동작명 — 순차 크로스페이드(옛 것이 먼저 빠지고 새 것이 든다)
-    const outA = 1 - clamp01(mo / .45), inA = clamp01((mo - .55) / .45);
+    // ★ 전환 타이포 애니메이션(유저: 안 예쁘다) — 전엔 두 타이틀을 **제자리에서** 알파만 바꿔
+    //   교차시켰다. 위치가 (중앙 2줄) → (좌측 1줄) 로 멀리 뛰는데 이동이 없으니 '사라졌다 다른
+    //   글자가 나타난' 걸로 읽힌다. 세 가지를 더한다:
+    //     ① 나가는 글자는 도착점 쪽으로 **끌려간다**(거리의 32%까지) — 같은 글자가 옮겨가는 인상
+    //     ② 들어오는 글자는 남은 거리에서 **미끄러져 들어온다**
+    //     ③ 알파는 quint 로 — 선형이면 중간이 텅 빈다
+    const eQ = u => 1 - Math.pow(1 - clamp01(u), 4);
+    const outA = eQ(1 - clamp01(mo / .48)), inA = eQ((mo - .46) / .54);
+    const dstX = rx + RR + H2.gapU + uwp + H2.gapT, dstY = ry2;
     if (outA > 0) {
       ctx.save(); ctx.globalAlpha *= outA;
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.fillStyle = 'rgba(255,255,255,.6)'; ctx.font = F(400, 46); ctx.letterSpacing = '6px';
-      ctx.fillText('PREVIEW', CX + 3, y + h * .16);
+      ctx.fillText('PREVIEW', CX + 3, y + h * .16 - 26 * mo);
+      // ① 도착점 쪽으로 끌려간다 — 중앙 기준이라 x 는 좌측 목표로, y 는 헤더 중앙으로.
+      ctx.translate((dstX - CX) * .32 * mo, (dstY - (y + h * .40)) * .32 * mo);
       ctx.letterSpacing = '-4px'; ctx.fillStyle = '#fff'; ctx.font = F(700, 100);
       // 2줄 분할도 정본 타이틀에서 파생 — CAPS 의 하드코딩 배열을 안 쓴다.
-      const ci2 = title.indexOf(', ');
-      const ls = ci2 > 0 ? [title.slice(0, ci2 + 1), title.slice(ci2 + 2)]
-        : (title.length > 12 ? (() => { const w2 = title.split(' ');
+      const ci2 = titleCase.indexOf(', ');
+      const ls = ci2 > 0 ? [titleCase.slice(0, ci2 + 1), titleCase.slice(ci2 + 2)]
+        : (titleCase.length > 12 ? (() => { const w2 = titleCase.split(' ');
             const m = Math.ceil(w2.length / 2); return [w2.slice(0, m).join(' '), w2.slice(m).join(' ')]; })()
-          : [title]);
+          : [titleCase]);
       ls.forEach((ln, i) => ctx.fillText(ln, CX, y + h * .40 + (i - (ls.length - 1) / 2) * 112));
       ctx.letterSpacing = '0px'; ctx.restore();
     }
@@ -2251,7 +2263,8 @@ export class FloorGL {
       ctx.fillStyle = 'rgba(255,255,255,.72)'; ctx.font = F(400, LAYOUT.TYPE.unit);
       ctx.fillText('sec', rx + RR + H2.gapU, ry2 + 10);
       ctx.fillStyle = '#fff'; ctx.font = F(700, LAYOUT.TYPE.title); ctx.letterSpacing = '-4px';
-      ctx.fillText(title, rx + RR + H2.gapU + uwp + H2.gapT, ry2);
+      // ② 남은 거리에서 미끄러져 들어온다(들어올수록 0 으로 수렴)
+      ctx.fillText(title, dstX - (dstX - CX) * .18 * (1 - inA), ry2 + 22 * (1 - inA));
       ctx.letterSpacing = '0px';
       if (cfg.step) {
         ctx.textAlign = 'right'; ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.font = F(400, 44);
