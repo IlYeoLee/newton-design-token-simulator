@@ -706,6 +706,8 @@ const READY_GLOWS = [
   //   구값: 150.3, 1189.3, 1300.36x871.36 — 크기 그대로 두고 색만 바뀐 게 아니라 둘 다 바뀌었다.
   ['glow-ell.svg', 155.8, 351.3, 1288.36, 1709.36, 'hard-light'],
 ];
+// 농구는 컬러 면만 다르다(피그마 377:3209 '커리' — 러닝은 377:3073 '션'). 나머지 3겹은 공용.
+const READY_GLOWS_BK = READY_GLOWS.map(g => (g[0] === 'glow-ell.svg' ? ['glow-ell-bk.svg', ...g.slice(1)] : g));
 const READY_CAP = { x: 291, y: 285, w: 1018, h: 1541 };
 const CAPS = {
   A1: { variant: 'preview',  },
@@ -1666,7 +1668,7 @@ export class FloorGL {
     capPath(); ctx.stroke();
     ctx.restore();
     // ── ② 캡슐 하단 엠버 글로우 — 피그마 익스포트 4겹, 블렌드 모드 그대로 ──
-    const GLOWS = READY_GLOWS;
+    const GLOWS = bk ? READY_GLOWS_BK : READY_GLOWS;
     ctx.save(); ctx.globalAlpha *= e0(.15, 1.2) * (1 + .3 * tapB);   // 탭 박자에 하단 빛이 두 번 부푼다
     ctx.translate(0, -CUT);   // 캡슐 바닥이 올라간 만큼 하단 빛도 함께(에셋은 원 좌표계)
     // ★ 캡슐 마스크 **해제**(유저 08-05, 이식 초기 디자인 복원 — 스샷 #154).
@@ -1711,7 +1713,9 @@ export class FloorGL {
       }
       if (v.readyState >= 2 && v.videoWidth) {
         // 박스 = 피그마 인스펙터 실측: 1055x1079(44/45) · r 527.5.
-        const BW = 1055, BH = 1079, BR = 527.5;
+        //   폭은 **컨테이너와 동일하게 100%**(유저 #165: 살짝 잘려). 피그마 박스 1055 는 캡슐
+        //   1018 보다 넓어 좌우가 클립에 깎였다 → 캡슐 폭에 맞추고 높이는 44/45 비로 환산.
+        const BW = CAP.w, BH = Math.round(CAP.w * 1079 / 1055), BR = BW / 2;
         //   박스 바닥을 캡슐 바닥에 맞춘다 — 90 띄웠더니 영상이 곡선 전에 직선으로 끊겼다(#164).
         const BX = 800 - BW / 2, BY = (CAP.y + CAP.h) - BH;
         // 오프스크린에서 ②(밝기)와 ③(마스크)을 먼저 적용한 뒤, 결과만 lighter 로 얹는다.
