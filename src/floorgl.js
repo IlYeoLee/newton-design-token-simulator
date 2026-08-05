@@ -1619,16 +1619,31 @@ export class FloorGL {
     // ★ 캡슐은 '눌린 SVG'가 아니라 진짜 알약이다(유저 #82) — 비균일 스케일로 찌그러뜨리지 말고
     //   목표 w/h 로 직접 그리고 r = min(w,h)/2. 카드로 줄어도 좌우 끝이 반원으로 유지된다.
     const capPath = () => { ctx.beginPath(); ctx.roundRect(bx, by, bw, bh, Math.min(bw, bh) / 2); };
+    // ★ 열린 캡슐(유저 #115) — 인물이 캡슐 '안'에 서는 preview 는 닫힌 테두리가 사람을 가둬
+    //   답답했다. 지오메트리·글로우는 그대로 두고 림/이너할로만 아래로 갈수록 0 으로 빼서
+    //   위는 카드(정보), 아래는 바닥 글로우로 녹아 사라지게 한다. 컴팩트 카드 변형은 인물이
+    //   캡슐 밖(아래)이라 닫힌 채로 둔다.
+    const open = V === 'preview';
+    const vGrad = stops => {
+      const g2 = ctx.createLinearGradient(0, by, 0, by + bh);
+      for (const [o, c] of stops) g2.addColorStop(o, c);
+      return g2;
+    };
     capFill(ctx, capPath, bx, by, bw, bh);
     ctx.save(); capPath(); ctx.clip();
     ctx.filter = 'blur(37px)';
-    ctx.strokeStyle = 'rgba(255,255,255,.25)'; ctx.lineWidth = 80;
+    ctx.strokeStyle = open
+      ? vGrad([[0, 'rgba(255,255,255,.25)'], [.34, 'rgba(255,255,255,.19)'], [.66, 'rgba(255,255,255,0)']])
+      : 'rgba(255,255,255,.25)';
+    ctx.lineWidth = 80;
     capPath(); ctx.stroke();
     ctx.filter = 'none'; ctx.restore();
-    const rim = ctx.createLinearGradient(0, by, 0, by + bh);
-    rim.addColorStop(0, 'rgba(255,255,255,.95)'); rim.addColorStop(.28, 'rgba(255,255,255,.28)');
-    rim.addColorStop(.62, 'rgba(255,255,255,.2)'); rim.addColorStop(.88, 'rgba(255,255,255,.65)');
-    rim.addColorStop(1, 'rgba(255,255,255,.9)');
+    const rim = open
+      ? vGrad([[0, 'rgba(255,255,255,.95)'], [.22, 'rgba(255,255,255,.34)'],
+               [.46, 'rgba(255,255,255,.14)'], [.66, 'rgba(255,255,255,0)']])
+      : vGrad([[0, 'rgba(255,255,255,.95)'], [.28, 'rgba(255,255,255,.28)'],
+               [.62, 'rgba(255,255,255,.2)'], [.88, 'rgba(255,255,255,.65)'],
+               [1, 'rgba(255,255,255,.9)']]);
     ctx.strokeStyle = rim; ctx.lineWidth = 2.5; capPath(); ctx.stroke();
     const img = rel => this._img('fig/ready2/' + rel);
     const GLOWS = [
