@@ -673,8 +673,12 @@ const TR = {
 export const LAYOUT = {
   PAD: 60,
   HEAD: { y: 176, w: 1320, h: 348, pad: 64, gapU: 0, gapT: 56, minW: 720 },   // pad = 상하좌우 동일(44→64)
-  GAP_HP: 56,
-  PROG: { h: 143, wMax: 1048 },
+  // ★ 아크와 위 알약 사이 간격(유저 #172: 붙어 보인다) 56 → 96.
+  GAP_HP: 96,
+  //   wMax 1048 은 대지 폭의 65% 라 마커만 깎아 쓰던 값이었다. 820 = 헤더(1320)의 62% —
+  //   아크가 알약에 딸린 물건으로 읽히는 비례. h 는 gaugeH(820)=155 와 맞춘다(전 143 은
+  //   1048 짜리 아크의 실제 잉크 198 보다 작아서 아래 콘텐츠와 겹칠 여지가 있었다).
+  PROG: { h: 155, wMax: 820 },
   GAP_PC: 120,
   CONTENT_Y1: 2330,
   FOOT_Y: 1980,
@@ -2365,7 +2369,7 @@ export class FloorGL {
       //   점은 작은 비균일 스케일이라 복싱의 비례가 깨졌다. 폭을 640 으로 줄이면 s 가 같은 비율로
       //   작아져 마커도 알아서 그 크기가 된다(= dotK 불필요). 높이도 gaugeH(640) 로 함께 줄어
       //   헤더 알약을 아크가 가로지르지 않는다.
-      const ay = LAYOUT.PROG_Y, wA = Math.min(640, safeW(ay) - 48);
+      const ay = LAYOUT.PROG_Y, wA = Math.min(LAYOUT.PROG.wMax, safeW(ay) - 48);
       arcGauge(ctx, CX - wA / 2, ay, wA, clamp01((t - PV) / Math.max(.1, dur - PV)));
       ctx.restore();
     }
