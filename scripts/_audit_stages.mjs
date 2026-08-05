@@ -18,7 +18,12 @@ for(const r of rows){
   const adv=A[r.id]||'—';
   const e=`${r.early.pill}/${r.early.arc}`, l=`${r.late.pill}/${r.late.arc}`;
   let want='';
-  if(adv==='time')    want = r.late.pill===0 && r.late.arc>0 ? 'ok' : '✗ time=아크만 남아야';
+  // ★ 접힘은 **알약이 화면의 전부가 아닌 화면(P·C)** 에서만 — 스트레칭·학습은 타이틀이 남아야
+  //   한다(유저: 스트레칭할 때 타이틀 없어지니 어색하다). pillLeads 와 같은 판정.
+  const leads = !/^(P[0-9]|C[1-5])$/.test(r.id);
+  if(adv==='time')    want = leads
+      ? (r.late.pill>0 && r.late.arc>0 ? 'ok' : '✗ 알약+아크 둘 다 남아야')
+      : (r.late.pill===0 && r.late.arc>0 ? 'ok' : '✗ 접혀서 아크만 남아야');
   else if(adv==='segment'||adv==='hold'||adv==='reps')
                       want = r.late.pill>0 && r.late.arc===0 ? 'ok' : '✗ 링만 남아야';
   else if(adv==='skill') want = r.late.arc===0 ? 'ok' : '✗ 시계 없어야';
