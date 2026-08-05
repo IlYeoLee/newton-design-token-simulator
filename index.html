@@ -19,6 +19,9 @@
     /* 마크 안 숫자 = OffBit 도트 폰트(랩 정본). 여기 선언이 없어서 시뮬은 Supreme 으로 폴백했다 —
        랩에선 도트인데 시뮬만 일반 활자로 나오던 근본(유저). fxlab.html 과 같은 파일·같은 굵기. */
     @font-face { font-family: 'OffBit'; src: url('fonts/OffBitTrial-DotBold.woff2') format('woff2'); font-weight: 700; font-display: block; }
+    /* Supreme 은 Regular/Medium/Bold 세 벌을 다 번들한다 — 400 슬롯이 Medium 을 물고 있어서
+       floorgl 이 400 을 써도 미디움이 나왔다(유저 실측). 400=Regular 로 바로잡는다. */
+    @font-face { font-family: 'Supreme'; src: url('fonts/Supreme-Regular.woff2') format('woff2'); font-weight: 400; font-display: swap; }
     @font-face { font-family: 'Supreme'; src: url('fonts/Supreme-Medium.woff2') format('woff2'); font-weight: 500; font-display: swap; }
     @font-face { font-family: 'Supreme'; src: url('fonts/Supreme-Bold.woff2') format('woff2'); font-weight: 700; font-display: swap; }
     :root {
@@ -233,7 +236,8 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
 /* ── NEWTON 디자인 시스템 · 다크모드 컬러 시스템(Figma 222-37297 정본) ─────────
    시뮬레이터 '겉면'(패널·버튼·자막)에만 적용한다. 빔 투사 UI는 손대지 않는다. */
 @font-face{font-family:'Supreme';src:url('fonts/Supreme-Bold.woff2') format('woff2');font-weight:700;font-display:swap}
-@font-face{font-family:'Supreme';src:url('fonts/Supreme-Medium.woff2') format('woff2');font-weight:400;font-display:swap}
+@font-face{font-family:'Supreme';src:url('fonts/Supreme-Regular.woff2') format('woff2');font-weight:400;font-display:swap}
+@font-face{font-family:'Supreme';src:url('fonts/Supreme-Medium.woff2') format('woff2');font-weight:500;font-display:swap}
 /* 한글 = Freesentation(무료 배포본, freesentation.blog). Supreme을 앞에 두면 라틴·숫자는 Supreme,
    한글 글리프만 Freesentation으로 글리프 단위 폴백된다. Pretendard는 최후 폴백으로만 남긴다. */
 @font-face{font-family:'Freesentation';src:url('fonts/Freesentation-4Regular.woff2') format('woff2');font-weight:400;font-display:swap}

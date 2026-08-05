@@ -1393,11 +1393,16 @@ export class FloorGL {
             // ★ 선형 그라디언트는 호를 **가로지르는 대각선 띠**를 만든다(유저) — 색 경계가 스트로크를
             //   비스듬히 잘라 각지게 보인다. 원뿔(conic) 그라디언트로 각도를 따라가게 하면 색이
             //   호를 그대로 타고 흐른다. 스톱도 넓게 벌려 끝을 길게 뺀다.
-            const span = (eA - sA) / 360;
+            // ★ 원뿔 그라디언트는 **한 바퀴 전체**를 칠한다 — 시작각을 sA 로 잡으면 둥근 캡이
+            //   각도상 sA 보다 **뒤**로 삐져나오면서 그 픽셀이 한 바퀴 돌아 마지막 스톱(sand)을
+            //   집는다. 시작 캡에 크림색 초승달이 박히고 빨강과 각지게 잘렸다(유저 #120).
+            //   → 캡이 밀려나는 각(capA)만큼 앞뒤로 넓혀서 캡까지 램프 안에 넣는다.
+            const a0d = sA - capA, a1d = eA + capA;
+            const span = (a1d - a0d) / 360;
             const at = u => Math.min(1, Math.max(0, u * span));
             let g;
             if (ctx.createConicGradient) {
-              g = ctx.createConicGradient(sA * RAD, CXA, CYA);
+              g = ctx.createConicGradient(a0d * RAD, CXA, CYA);
               g.addColorStop(0, PAL.red);
               g.addColorStop(at(.40), PAL.red);
               g.addColorStop(at(.68), PAL.coral);
@@ -1584,12 +1589,8 @@ export class FloorGL {
                         pk.naturalWidth * sc, pk.naturalHeight * sc);
           ctx.restore();
         }
-        // 연결 상태점 — 피그마 우하단 48°
-        ctx.fillStyle = NEU.ink;
-        ctx.shadowColor = 'rgba(255,255,255,.8)'; ctx.shadowBlur = 18;
-        ctx.beginPath();
-        ctx.arc(PCX + Math.cos(48 * RAD) * (CR - 3), CCY + Math.sin(48 * RAD) * (CR - 3), 11, 0, Math.PI * 2);
-        ctx.fill(); ctx.shadowBlur = 0;
+        // 상태점 폐기(유저) — 배터리 포드는 게이지의 '끝'을 가리키느라 점이 필요했지만,
+        //   코치 원은 사진이 떠 있는 것 자체가 연결 신호라 점이 하는 말이 없다.
         ctx.restore();
       }
     }
