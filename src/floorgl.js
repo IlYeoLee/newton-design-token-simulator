@@ -1025,7 +1025,7 @@ export class FloorGL {
     const BW = 232, BY = y + 154;
     this._devBar(cx, BY, BW, dev / 0.12, col, ok);
     // ③ 라벨 — 본문 영문. 숫자가 아니므로 도트 금지(유저 규약).
-    ctx.font = F(500, 34); ctx.letterSpacing = '7px';
+    ctx.font = F(400, 34); ctx.letterSpacing = '7px';
     ctx.fillStyle = rgba(NEU.paper, 0.6);
     ctx.fillText(String(label).toUpperCase(), cx + 3.5, BY + 60);
     ctx.letterSpacing = '0px';
@@ -1083,20 +1083,20 @@ export class FloorGL {
     const ctx = this.ctx;
     const SS = size * 0.55, INK = size * 0.84;
     if (!Number.isFinite(secs)) {
-      ctx.font = F(500, size, sans); ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+      ctx.font = F(400, size, sans); ctx.textAlign = 'center'; ctx.textBaseline = 'top';
       ctx.fillStyle = rgba(NEU.paper, 0.6); ctx.fillText('--', cx, y);
       return;
     }
     const n = String(Math.abs(Math.round(secs))), sign = secs < 0 ? '−' : '+';
-    ctx.font = F(500, SS, sans);
+    ctx.font = F(400, SS, sans);
     const wSign = ctx.measureText(sign).width + size * 0.05, wQ = ctx.measureText('”').width;
     const wNum = rollWidth(ctx, n, size);
     const x0 = cx - (wSign + wNum + wQ) / 2;
     ctx.fillStyle = NEU.paper; ctx.textAlign = 'left';
-    ctx.font = F(500, SS, sans); ctx.textBaseline = 'middle';
+    ctx.font = F(400, SS, sans); ctx.textBaseline = 'middle';
     ctx.fillText(sign, x0, y + INK * 0.5);
     rollNum(ctx, n, this.t, delay, 0.5, x0 + wSign, y, size, { fam: dot9, fill: NEU.paper });
-    ctx.font = F(500, SS, sans); ctx.textBaseline = 'top';
+    ctx.font = F(400, SS, sans); ctx.textBaseline = 'top';
     ctx.fillStyle = NEU.paper; ctx.fillText('”', x0 + wSign + wNum, y);
   }
 
@@ -1116,7 +1116,7 @@ export class FloorGL {
     this._signedSec(CX, y, ok ? d : NaN, 200, 0);
     this._devBar(CX, y + 232, 460, d / BAND, col, ok);
     // 목표 페이스는 조용히 — 주인공은 '차이'지 절대값이 아니다.
-    ctx.font = F(500, 40); ctx.letterSpacing = '2px';
+    ctx.font = F(400, 40); ctx.letterSpacing = '2px';
     ctx.fillStyle = rgba(NEU.paper, 0.6); ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
     ctx.fillText(`TARGET ${this.map.get('pace-tgt')?.textContent || '--'}`, CX, y + 300);
     ctx.letterSpacing = '0px';
@@ -1140,10 +1140,10 @@ export class FloorGL {
     const cxL = CX - 230, v = left.toFixed(2);
     ctx.textAlign = 'left'; ctx.textBaseline = 'top';
     const wv = rollWidth(ctx, v, 88);
-    ctx.font = F(500, 40); const wu = ctx.measureText(' km').width;
+    ctx.font = F(400, 40); const wu = ctx.measureText(' km').width;
     const x0 = cxL - (wv + wu) / 2;
     rollNum(ctx, v, this.t, 0.15, 0.6, x0, y, 88, { fam: dot9, fill: NEU.paper });
-    ctx.font = F(500, 40); ctx.fillStyle = rgba(NEU.paper, 0.7);
+    ctx.font = F(400, 40); ctx.fillStyle = rgba(NEU.paper, 0.7);
     ctx.fillText(' km', x0 + wv, y + 40);
     label(cxL, 'LEFT');
     this._signedSec(CX + 230, y, bank, 88, 0.15);
@@ -1156,13 +1156,13 @@ export class FloorGL {
     // 활자 규약(유저 확정): 숫자만 도트, 단위 'km' 은 본문 영문. 크기도 낮춰 값이 주인공이 되게.
     const v = this.map.get('km-n')?.textContent || '0.00';
     const wv = rollWidth(ctx, v, 180);   // 소수점이 본문 영문이라 도트 한 서체로 재면 어긋난다
-    ctx.font = F(500, 78); const wu = ctx.measureText(' km').width;
+    ctx.font = F(400, 78); const wu = ctx.measureText(' km').width;
     const x0 = CX - (wv + wu) / 2;
     ctx.textAlign = 'left';
     // 도트 숫자 = 카운트업(유저 규칙). km 은 라이브 중 계속 오르므로, 0.7s 진입 이징 뒤
     //   실제 값을 따라가며 소수 자리가 계속 굴러간다 — 오도미터와 같은 움직임.
     rollNum(ctx, v, this.t, 0, 0.7, x0, y, 180, { fam: dot9, fill: '#fff' });
-    ctx.font = F(500, 78); ctx.fillStyle = rgba(NEU.paper, 0.7);
+    ctx.font = F(400, 78); ctx.fillStyle = rgba(NEU.paper, 0.7);
     ctx.fillText(' km', x0 + wv, y + 92);
   }
 
@@ -1938,10 +1938,10 @@ export class FloorGL {
     // % — 링 게이지와 같은 진행(e)을 쓰던 것을 정본 카운트업으로. 값 보간만 있고 자릿수 롤이 없었다.
     ctx.font = F(700, 128.5, dot9); const nTxt = '100';
     const nw = ctx.measureText(nTxt).width;
-    ctx.font = F(500, 76); const sw = ctx.measureText('%').width;   // 단위 = 본문 영문(유저 규약)
+    ctx.font = F(400, 76); const sw = ctx.measureText('%').width;   // 단위 = 본문 영문(유저 규약)
     ctx.textAlign = 'left';
     rollNum(ctx, nTxt, this.t, 0.4, 1.3, CX - (nw + sw + 8) / 2, cy - 128.5 * 0.5, 128.5, { fam: dot9, fill: '#fff' });
-    ctx.font = F(500, 76); ctx.fillText('%', CX - (nw + sw + 8) / 2 + nw + 8, cy + 18);
+    ctx.font = F(400, 76); ctx.fillText('%', CX - (nw + sw + 8) / 2 + nw + 8, cy + 18);
     ctx.shadowBlur = 0;
     ctx.restore();
     y = cy + 250 + 80;
