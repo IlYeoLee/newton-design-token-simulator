@@ -654,6 +654,19 @@ if (FLAT) {
   //     시각 0 에 멈춰 있다. 러닝 A3 는 시각 0 이 원래 비어 있고 t 가 흘러야 채워진다
   //     (실측: f0 0.00% → f1 4.54%). 시계를 안 밀고 12초를 기다렸더니 멀쩡한 러닝을
   //     '빈 화면'으로 오판해 중단시켰다. 그러니 프리플라이트도 실제로 시계를 민다.
+  // ★ --play 일 때는 시계를 우리가 못 민다(상태 누적형이라 밀면 안 된다). 그런데 프리플라이트는
+  //   T0 지점을 보려 하므로, **시뮬이 T0 에 닿을 때까지 기다렸다가** 재야 한다. 안 그러면 관찰
+  //   구간(A2·BK_B3 는 앞부분이 시범이라 마크가 숨겨져 있다)을 재고 "아무것도 없다"로 중단한다
+  //   (실측 08-06: A2·BK_B3 둘 다 불투명 0.00~0.05% 로 오탐, 해상도를 올려도 그대로).
+  if (PLAY && T0 > 0) {
+    const t0w = Date.now();
+    for (;;) {
+      const st = await page.evaluate(() => window.__dbg?.session?.t ?? window.__dbg?.state?.time ?? 0);
+      if (st >= T0 - 0.05) { console.log(`  시뮬 t=${st.toFixed(2)}s 도달 — 프리플라이트 시작`); break; }
+      if (Date.now() - t0w > (T0 + 20) * 1000) { console.log(`  ⚠ t=${st.toFixed(2)}s 에서 멈춤 — 그대로 진행`); break; }
+      await new Promise(r => setTimeout(r, 250));
+    }
+  }
   const probe = path.join(TMP, 'probe.png');
   let kb = 0, ok = false;
   for (const t of [T0, T0 + 0.25, T0 + 0.5, T0 + 1, T0 + 2, T0 + 3]) {   // 초 — 몇 지점만 보면 충분하다

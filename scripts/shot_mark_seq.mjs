@@ -23,6 +23,11 @@ const arg = (k, d) => { const i = process.argv.indexOf('--' + k); return i > 0 ?
 //   ★ Success·Miss 는 prog 0 이 가장 진한 순간이다(FootMark.glow 규약) — 0→1 스윕이
 //     "터졌다 스러진다"가 된다. 나머지는 0→1 이 "차오른다"다. 의도된 차이다.
 const STATES = { preview: 0, active: 1, success: 2, locked: 3, miss: 4, hold: 5, warning: 6 };
+// ★ tap — READY 탭2 어포던스. 판정 상태가 아니라 **8번째 룩 토큰**이라 위 표에 없다.
+//   FootMark.tapHint 규약: uPhase 3(Locked)·uProg 0 **고정**이고 상태는 안 바뀐다.
+//   움직이는 건 투명도·게인뿐 — 5.6s 주기로 3.6s·4.35s 에 폭 0.55s 사인 펄스 두 번.
+//   그래서 다른 상태와 달리 prog 스윕이 아니라 **시계**를 흘려야 한다.
+const TAP = { T: 5.6, W: 0.55, P1: 3.6, P2: 4.35 };
 
 const SEC = +arg('sec', 2), FPS = +arg('fps', 24), PX = +arg('px', 512);
 const FOOT = arg('foot', 'left');          // left | right | zone(발 없이 존 원)
@@ -31,11 +36,11 @@ const ST = String(arg('state', 'hold')).toLowerCase();
 const OUT0 = arg('out', '');
 const N = Math.max(1, Math.round(SEC * FPS));
 
-if (!ALL && !(ST in STATES)) {
-  console.error('  --state 는 ' + Object.keys(STATES).join(' | ') + ' 중 하나 (또는 --all)');
+if (!ALL && !(ST in STATES) && ST !== 'tap') {
+  console.error('  --state 는 ' + Object.keys(STATES).join(' | ') + ' | tap  중 하나 (또는 --all)');
   process.exit(1);
 }
-const JOBS = ALL ? Object.keys(STATES) : [ST];
+const JOBS = ALL ? [...Object.keys(STATES), 'tap'] : [ST];
 
 const b = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox', '--use-gl=angle', '--enable-unsafe-swiftshader'] });
 const p = await b.newPage();
@@ -47,7 +52,7 @@ await new Promise(r => setTimeout(r, 6000));   // 디자인 스토어 + 글리�
 for (const name of JOBS) {
   const OUT = (OUT0 && !ALL) ? OUT0 : path.join('out', 'mark_' + name);
   fs.mkdirSync(OUT, { recursive: true });
-  const frames = await p.evaluate(async (N, PX, FOOT, SEC, PHASE) => {
+  const frames = await p.evaluate(async (N, PX, FOOT, SEC, PHASE, IS_TAP, TAP) => {
     const THREE = window.__dbg?.THREE || (await import('/node_modules/three/build/three.module.js'));
     const T = await import('/src/tokens.js');
     const L = await import('/src/fxlut.js');
@@ -60,6 +65,8 @@ for (const name of JOBS) {
     const tex = FOOT === 'zone' ? null : L.footSDFTexture(FOOT === 'right');
     const mat = T.makeMarkFXMaterial(tex);
     const U = mat.uniforms;
+    // tap 은 판정 상태가 아니라 룩 토큰 — mark-look.json 의 `tap` 을 재질에 입힌다(session.js tapHint 와 같은 호출).
+    if (IS_TAP) T.applyMarkLookTo(mat, T.MARK_LOOK.tap || {});
     U.uPhase.value = PHASE;
     U.uSeed.value = 0.9;
     U.uOut.value = 0;               // 컴포저 없이 직접 렌더 = raw 컨텍스트
@@ -70,14 +77,25 @@ for (const name of JOBS) {
     const out = [];
     for (let i = 0; i < N; i++) {
       const u = i / Math.max(1, N - 1);
+      if (IS_TAP) {
+        // 시계를 5.6s 주기로 흘린다 — prog 는 고정, 펄스 두 번이 전부다.
+        const tc = u * SEC, ph = tc % TAP.T;
+        const bl = t0 => { const k = (ph - t0) / TAP.W; return (k >= 0 && k <= 1) ? Math.sin(k * Math.PI) : 0; };
+        const bb = Math.max(bl(TAP.P1), bl(TAP.P2));
+        U.uProg.value = 0;
+        U.uFade.value = 0.72 + 0.28 * bb;
+        if (U.uGain) U.uGain.value = 1.35 + 0.45 * bb;
+        U.uTime.value = 1.7 + tc;
+      } else {
       U.uProg.value = u;
       U.uTime.value = 1.7 + u * SEC;   // 일렁임·명멸도 같이 흐른다
+      }
       renderer.render(scene, cam);
       out.push(rc.toDataURL('image/png'));   // ★ 스트레이트 알파
     }
     mesh.geometry.dispose(); mat.dispose(); renderer.dispose();
     return out;
-  }, N, PX, FOOT, SEC, STATES[name]);
+  }, N, PX, FOOT, SEC, name === 'tap' ? STATES.locked : STATES[name], name === 'tap', TAP);
 
   frames.forEach((d, i) =>
     fs.writeFileSync(path.join(OUT, `f${String(i).padStart(5, '0')}.png`), Buffer.from(d.split(',')[1], 'base64')));
