@@ -701,7 +701,10 @@ const READY_GLOWS = [
   ['glow-subtract.svg', 167.2, 1069.2, 1265.6, 931.6, 'hard-light'],
   ['glow-hl1.svg', 211.6, 1453.6, 1176.8, 458.8, 'color-dodge'],
   ['glow-hl2.svg', 310.4, 1380.4, 979.2, 541.2, 'lighter'],
-  ['glow-ell.svg', 150.3, 1189.3, 1300.36, 871.36, 'hard-light'],
+  // ★ 컬러 영역 = 피그마 377:3209 실측(유저: 위로 올려서 키웠어). 노드 (·,227) 811x1232 에
+      //   블리드 inset -29.43%/-19.37% → 이미지 1288.4x2009.3, 캡슐 시각상단 기준 +66.3.
+      //   구값(1189.3, 1300x871)에서 **838px 위로 · 높이 2.3배**. 어림 스케일은 폐기.
+      ['glow-ell.svg', 155.8, 351.3, 1288.4, 2009.3, 'hard-light'],
 ];
 const READY_CAP = { x: 291, y: 285, w: 1018, h: 1541 };
 const CAPS = {
@@ -1656,11 +1659,6 @@ export class FloorGL {
     const GLOWS = READY_GLOWS;
     ctx.save(); ctx.globalAlpha *= e0(.15, 1.2) * (1 + .3 * tapB);   // 탭 박자에 하단 빛이 두 번 부푼다
     ctx.translate(0, -CUT);   // 캡슐 바닥이 올라간 만큼 하단 빛도 함께(에셋은 원 좌표계)
-    // ★ 컬러 영역 확대·상승(유저 스샷 #156/#157) — 피그마에서 그라디언트 면을 위로 올리고 키웠다.
-    //   에셋을 다시 뽑지 않고 캡슐 바닥 중심으로 스케일 + 상승. 두 값만 만지면 된다.
-    const GK = 1.34, GUP = 210;   // 배율 · 상승(px)
-    ctx.translate(800, CAP.y + CAP.h); ctx.scale(GK, GK); ctx.translate(-800, -(CAP.y + CAP.h));
-    ctx.translate(0, -GUP);
     // ★ 캡슐 마스크 **해제**(유저 08-05, 이식 초기 디자인 복원 — 스샷 #154).
     //   9019151 이 capPath 클립으로 빛을 캡슐 안에 가뒀는데, 그러면 림에서 **칼같이 잘린다**.
     //   원래 이식본은 피그마 4겹 익스포트가 캡슐보다 큰 박스를 그대로 써서 빛이 림을 넘어
@@ -1706,13 +1704,17 @@ export class FloorGL {
         og.globalCompositeOperation = 'multiply';   // 값 제곱 — 배경(어두움)만 0 으로 떨어진다
         og.drawImage(oc, 0, 0);
         og.globalCompositeOperation = 'source-over';
-        const PW2 = v.videoWidth, PH2 = v.videoHeight;      // 1:1 배율
-        const px = 800 - PW2 / 2, py = CAP.y + 638;         // 638 = 923-285(캡슐 상단 기준)
+        // ★ 피그마 377:3251 'sean-card 1' 실측: 캡슐 프레임 기준 (59, 630) 901x878 · r 495 ·
+        //   mix-blend-plus-lighter. 캡슐 시각상단(우리 285 = 피그마 51)이라 오프셋 +234.
+        //   → 우리 좌표 (350, 993) 901x878. r 이 있다(모서리 495) — 사각 박스가 아니다.
+        const BX = 350, BY = CAP.y + 708, BW = 901, BH = 878, BR = 495;
+        const sc = Math.max(BW / oc.width, BH / oc.height);   // cover — 여백이 더해지면 안 된다
+        const dw = oc.width * sc, dh = oc.height * sc;
         ctx.save();
         ctx.globalAlpha *= e0(.30, .9) * (1 - p2);
-        capPath(); ctx.clip();                              // 캡슐 밖으로 안 나간다(스샷과 동일)
+        ctx.beginPath(); ctx.roundRect(BX, BY, BW, BH, BR); ctx.clip();
         ctx.globalCompositeOperation = 'lighter';
-        ctx.drawImage(oc, px, py, PW2, PH2);
+        ctx.drawImage(oc, BX + (BW - dw) / 2, BY, dw, dh);   // 위 정렬 = 얼굴이 박스 상단에 온다
         ctx.restore();
       }
     }
