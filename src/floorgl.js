@@ -1676,16 +1676,19 @@ export class FloorGL {
     // ── ②' 림 바깥 초승달 블룸 = **폐기**(유저 08-05). '칼같이 잘리는' 걸 풀려고 반원
     //   그라디언트를 림 밖에 얹었는데, 클립 사각(rect)의 윗변이 그대로 직선 이음매로 드러나고
     //   빛이 캡슐 밖 좌우로 번져 더 이상해졌다. 캡슐 밖으로 새는 광은 만들지 않는다.
-    // ── ②'' 인물 영상 — 얼굴 위주 크롭 + r + hard-light + 컨테이너 밖 금지(유저 #161).
-    //   컬러 면(위 ②)이 이미 캡슐 안을 칠한 뒤라 hard-light 가 섞일 backdrop 이 있다 —
-    //   그래서 투명 위에서 타던 문제가 여기선 안 생긴다(그리는 순서가 곧 조건이다).
-    //   클립은 두 겹: roundRect(알약형 r) ∩ capPath(캡슐) — 어떤 경우에도 컨테이너를 안 벗어난다.
+    // ── ②'' 인물 영상 — 프로토타입(home.css .hero-shot/.hero-clip) 레시피 그대로.
+    //   ★ 순서: **그라디언트 레이어 위**에 얹는다(유저). 위 ②(컬러 면·엠버)가 먼저 칠해진 뒤다.
+    //   ★ 프로토타입이 쓰는 세 가지를 그대로 옮긴다:
+    //     ① mix-blend-mode: plus-lighter        → canvas 'lighter'
+    //     ② filter: brightness(--clip-bright)   → **가산 전에** 밝기를 미리 낮춘다. plus-lighter 는
+    //        더하기만 하므로 밝은 피사체는 흰색으로 클리핑된다(내가 계속 태웠던 그 문제).
+    //        sean 은 프로토타입이 .68 로 지정. curry 는 기본 1.
+    //     ③ 세로 알파 마스크(--mask-in ~ --mask-out) → 머리 위는 스며들 듯 시작하고, 글자가
+    //        시작하기 전에 사라진다. sean 22%~78% · 기본 31.25%~96.65%.
     if (p2 < 0.995) {
-      // focus = 소스에서 박스 상단에 걸 세로 비율(얼굴이 위쪽에 오게). 소스 원본 프레이밍이
-      //   둘이 달라 값도 다르다: sean 720x1280(세로 길다) · curry 960x960(정사각).
       const CLIP = bk
-        ? { src: 'ready-view/assets/proto/curry-card.mp4', focus: 0.02 }
-        : { src: 'ready-view/assets/proto/sean-card.mp4',  focus: 0.05 };
+        ? { src: 'ready-view/assets/proto/curry-card.mp4', bright: 1.0, mIn: .3125, mOut: .9665, focus: 0.02 }
+        : { src: 'ready-view/assets/proto/sean-card.mp4',  bright: 0.68, mIn: .22, mOut: .78, focus: 0.05 };
       let v = this._pvid;
       if (!v || v._key !== CLIP.src) {
         v = this._pvid = document.createElement('video');
@@ -1695,22 +1698,36 @@ export class FloorGL {
         v.play?.().catch(() => {});
       }
       if (v.readyState >= 2 && v.videoWidth) {
-        // ★ 박스 = 피그마 인스펙터 실측(유저 #162): 1055x1079 (44/45) · r 527.5 · plus-lighter.
-        //   가로 1055 는 캡슐 폭 1018 보다 넓다 → 중앙정렬하면 좌우가 캡슐을 넘지만 capPath
-        //   클립이 잘라내므로 결과적으로 '캡슐을 꽉 채우는' 형태가 된다(피그마와 동일).
-        //   세로는 박스 바닥을 캡슐 바닥에서 90 띄운다(스샷 #161 비율).
+        // 박스 = 피그마 인스펙터 실측: 1055x1079(44/45) · r 527.5.
         const BW = 1055, BH = 1079, BR = 527.5;
         const BX = 800 - BW / 2, BY = (CAP.y + CAP.h) - 90 - BH;
-        const sc = Math.max(BW / v.videoWidth, BH / v.videoHeight);   // cover — 얼굴 위주는 focus 가 잡는다
+        // 오프스크린에서 ②(밝기)와 ③(마스크)을 먼저 적용한 뒤, 결과만 lighter 로 얹는다.
+        const OW = 528, OH = Math.round(OW * BH / BW);
+        const oc = this._pcv || (this._pcv = document.createElement('canvas'));
+        if (oc.width !== OW) { oc.width = OW; oc.height = OH; }
+        const og = oc.getContext('2d');
+        og.setTransform(1, 0, 0, 1, 0, 0);
+        og.globalCompositeOperation = 'source-over';
+        og.clearRect(0, 0, OW, OH);
+        og.filter = `brightness(${CLIP.bright})`;
+        const sc = Math.max(OW / v.videoWidth, OH / v.videoHeight);
         const dw = v.videoWidth * sc, dh = v.videoHeight * sc;
-        const dx = BX + (BW - dw) / 2;
-        const dy = BY - (dh * CLIP.focus);   // focus = 소스에서 얼굴이 있는 세로 비율
+        og.drawImage(v, (OW - dw) / 2, -(dh * CLIP.focus), dw, dh);
+        og.filter = 'none';
+        og.globalCompositeOperation = 'destination-in';
+        const mg = og.createLinearGradient(0, 0, 0, OH);
+        mg.addColorStop(0, 'rgba(0,0,0,0)');
+        mg.addColorStop(CLIP.mIn, 'rgba(0,0,0,1)');
+        mg.addColorStop(CLIP.mOut, 'rgba(0,0,0,1)');
+        mg.addColorStop(1, 'rgba(0,0,0,0)');
+        og.fillStyle = mg; og.fillRect(0, 0, OW, OH);
+        og.globalCompositeOperation = 'source-over';
         ctx.save();
         ctx.globalAlpha *= e0(.30, .9) * (1 - p2);
         ctx.beginPath(); ctx.roundRect(BX, BY, BW, BH, BR); ctx.clip();
         ctx.save(); ctx.translate(0, CUT); capPath(); ctx.restore(); ctx.clip();   // 캡슐 밖 금지
-        ctx.globalCompositeOperation = 'lighter';   // = mix-blend-mode: plus-lighter (피그마)
-        ctx.drawImage(v, dx, dy, dw, dh);
+        ctx.globalCompositeOperation = 'lighter';   // = mix-blend-mode: plus-lighter
+        ctx.drawImage(oc, BX, BY, BW, BH);
         ctx.restore();
       }
     }
