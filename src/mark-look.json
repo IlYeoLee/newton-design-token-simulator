@@ -64,8 +64,8 @@
   "gyR": 0.12,
   "grotR": -10,
   "tap": {
-    "op": 1,
-    "imp": 0.96,
+    "op": 0.97,
+    "imp": 0.98,
     "scale": 0.83,
     "pitch": 0.027,
     "dot": 0.25,
@@ -83,6 +83,6 @@
     "edgeShadeG1": 1,
     "dither": 0.011,
     "shadeCol": 0,
-    "edgeShadeCol": 2
+    "edgeShadeCol": 0
   }
 }

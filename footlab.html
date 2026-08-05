@@ -334,10 +334,13 @@ $('ovClear').onclick = () => { delete OV[heroPhase]; syncUI(); rebuild(); persis
 
 // 8번째 토큰(Tap2) — 현재 슬라이더 값을 mark-look.json `tap` 으로만 굽는다(정본 룩은 그대로).
 $('saveTap').onclick = async () => {
+  // ★ 키 목록은 applyMarkLookTo 가 읽는 것과 **같은 집합**이어야 한다 — 여기서 빠진 값은
+  //   랩에서 아무리 만져도 시뮬에 안 실린다(유저 08-05: dotCol·edgeW·edgeSoft·shadeRed 가 빠져 있었다).
   const KEYS = ['op','imp','scale','pitch','dot','glow','shade','sharp','edge','plantar','bands','bandSoft',
-    'edgeShade','edgeShadeW','edgeShadeGrad','edgeShadeG0','edgeShadeG1','dither'];
+    'edgeShade','edgeShadeW','edgeShadeGrad','edgeShadeG0','edgeShadeG1','dither',
+    'edgeW','edgeSoft','shadeRed','shadeRedW','rip','ripReach','ripWidth','ripSpeed','ripGrad'];
   const tap = {}; for (const k of KEYS) if (P[k] != null) tap[k] = P[k];
-  tap.shadeCol = shadeCol; tap.edgeShadeCol = edgeShadeCol;
+  tap.shadeCol = shadeCol; tap.edgeShadeCol = edgeShadeCol; tap.dotCol = dotCol; tap.ripCol = ripCol;
   const btn = $('saveTap'), old = btn.textContent;
   try {
     const r = await fetch('/__save-look', { method: 'POST', body: JSON.stringify({ tap }) });
