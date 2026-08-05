@@ -2324,8 +2324,8 @@ void main(){
     //   판정에 그대로 걸린다 — w/h/fwd 를 아무리 옮겨도 페이드는 플레인 비율에 걸려 따라온다.
     //   그래서 클립 자체를 0.78 로 줄여 순수 그린(#00FF00)으로 사방 11% 패딩(ffmpeg, 828×1108 유지).
     //   패딩은 키에서 100% 빠지므로 페이드는 여백만 먹는다. w/h 는 1/0.78 배로 올려 화면 크기 보존.
-    READY:    { src: 'ready-view/assets/run/runner_green.mp4', cropOff: 0.0, cropScale: 1.0, w: 0.336, h: 0.45, fwd: 0.02, ph: 0.76 },   // 인물 판 상단을 캔버스 y≈980 으로 — 'Pace On'(786) 아래 190px 여유(유저 #113)
-    BK_READY: { src: 'ready-view/assets/bk/dribble_green.mp4', cropOff: 0.0, cropScale: 1.0, w: 0.336, h: 0.45, fwd: 0.02, ph: 0.76 },   // 러닝과 동일 규격
+    READY:    { src: 'ready-view/assets/run/runner_green.mp4', cropOff: 0.0, cropScale: 1.0, w: 0.360, h: 0.482, fwd: 0.02, ph: 0.76 },   // 인물 판 상단을 캔버스 y≈980 으로 — 'Pace On'(786) 아래 190px 여유(유저 #113)
+    BK_READY: { src: 'ready-view/assets/bk/dribble_green.mp4', cropOff: 0.0, cropScale: 1.0, w: 0.360, h: 0.482, fwd: 0.02, ph: 0.76 },   // 러닝과 동일 규격
     A1: { src: 'ready-view/assets/sean_neck_shoulder.webm', cropOff: 0.40, cropScale: 0.58, w: 0.62, h: 0.64, fwd: 0.02, ph: 0.83 },   // 프리뷰 캡슐 안 — 타이틀 안 가리게 축소·아래(유저 08-05)
     A2: { src: 'ready-view/assets/sean_lunge.webm', cropOff: 0.0, cropScale: 1.0, w: 0.9, h: 0.9, fwd: 0.10, zoom: 0.86, ph: 0.65 },   // 런지 전신 측면 — 축소로 뒷발이 프레임 페이드에 안 걸리게(유저)
     A3: { src: 'ready-view/assets/sean_highknee.webm', cropOff: 0.0, cropScale: 1.0, w: 0.82, h: 0.82, fwd: -0.04, ph: 0.87 },   // 하이니 — 캡슐 카드 아래로(머리 겹침 방지, 캡슐 시스템)
