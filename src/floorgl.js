@@ -817,7 +817,13 @@ export function tickScale(ctx, cx, by, w, dev, o = {}) {
   //   얇고 흐린 흰 선이 그냥 사라진다. 화면 UI 감각으로 잡은 3px/.30 은 투사면에서 워시아웃.
   //   ① 눈금 수를 줄여(29→21) 칸을 벌리고 ② 그만큼 굵게(3→6, 중앙 8) ③ 알파를 올리고(.30→.48)
   //   ④ 높이를 키운다(34→46). 촘촘함보다 **한 칸이 보이는 것**이 먼저다.
-  const n = o.n ?? 21, h = o.h ?? 46, col = o.col || '#fff';
+  //   ★ 눈금 **수**를 고정하면 안 된다(유저: 2단 그리드는 어떻게 대응하지). 실전 스탯은
+  //     2단으로 앉아 칼럼이 232~460px 로 좁아지는데, 21개를 그대로 넣으면 6px 획이 붙어
+  //     회색 띠가 된다. 고정할 것은 개수가 아니라 **간격(pitch)** 이다 — 획 6 + 여백 16 = 22.
+  //     n 은 폭에서 파생하고 **항상 홀수**로 만든다(가운데 목표 눈금이 없으면 기준이 사라진다).
+  const PITCH = o.pitch ?? 22;
+  const nAuto = Math.max(5, Math.floor(w / PITCH) | 1);
+  const n = o.n ?? nAuto, h = o.h ?? 46, col = o.col || '#fff';
   ctx.save(); ctx.lineCap = 'round';
   for (let i = 0; i < n; i++) {
     const u = i / (n - 1), x = cx - w / 2 + w * u;

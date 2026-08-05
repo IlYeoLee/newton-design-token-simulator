@@ -612,12 +612,46 @@ function devScene(g, t, kind) {
   capLabel(g, 'SPM', cx, sy + 196, .55, 58);
   arcGauge(g, cx - 460, 2430, 920, (t % 8) / 8);
 }
+// 2단 그리드 — 실전(C2·C3)은 SPM + PACE 가 나란히 앉는다. 칼럼이 좁아지는 케이스.
+function devGrid(g, t, kind) {
+  const cx = 800, e = eOut(intro(t, .06, .8));
+  const d1 = Math.sin(t * .9) * .72, d2 = Math.sin(t * .62 + 1.2) * .55;
+  capsule(g, cx - 330, 170, 660, 190);
+  g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#fff';
+  g.font = RF(700, 96, DOT); g.fillText('1.19', cx - 40, 268);
+  capLabel(g, 'km', cx + 120, 276, .55, 40);
+  coach(g, cx, 1060, 1080, e);
+  const sy = 1830, CW2 = 300;                       // 칼럼 폭 — 실전 조판 실측대
+  for (const [dx, val, lbl, dev] of [[-CW2 / 2 - 30, '185', 'SPM', d1], [CW2 / 2 + 30, "4'43\"", 'PACE', d2]]) {
+    g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#fff';
+    g.font = RF(700, 108, DOT); g.fillText(val, cx + dx, sy);
+    if (kind === 'bar') {
+      g.lineCap = 'round';
+      g.strokeStyle = 'rgba(255,255,255,.32)'; g.lineWidth = 7;
+      g.beginPath(); g.moveTo(cx + dx - 116, sy + 96); g.lineTo(cx + dx + 116, sy + 96); g.stroke();
+      g.strokeStyle = 'rgba(255,255,255,.7)'; g.lineWidth = 5;
+      g.beginPath(); g.moveTo(cx + dx, sy + 84); g.lineTo(cx + dx, sy + 108); g.stroke();
+      g.save(); g.shadowColor = '#FEC389'; g.shadowBlur = 22; g.fillStyle = '#FEC389';
+      g.beginPath(); g.arc(cx + dx + dev * 116, sy + 96, 11, 0, 7); g.fill(); g.restore();
+    } else {
+      tickScale(g, cx + dx, sy + 96, 232, dev, { col: '#FEC389', h: 38 });
+    }
+    capLabel(g, lbl, cx + dx, sy + 178, .55, 54);
+  }
+  arcGauge(g, cx - 460, 2430, 920, (t % 8) / 8);
+}
 const DEV = [
   ['현재 · 편차 바 (선 + 점)', null, (g, t) => devScene(g, t, 'bar'),
    '선 하나에 점 하나. 점이 <b>어디쯤인지 가늠할 기준이 없다</b> — 양끝이 페이드라 끝도 안 보이고, 5 벗어난 건지 15 벗어난 건지 읽히지 않는다.'],
   ['눈금 스케일 (레퍼런스 이식)', null, (g, t) => devScene(g, t, 'tick'),
-   '눈금 21개 + <b>밝은 지시선 하나</b>. 바닥용으로 굵기 6px·알파 .48 로 올리고 칸을 벌렸다 — 화면 감각의 3px/.30 은 밝은 트랙 위 가산 투사에서 그냥 사라진다. 눈금이 촘촘해 <b>얼마나</b> 벗어났는지가 거리 감각으로 잡히고, 밝은 건 하나뿐이라 시선이 바로 간다. 레퍼런스의 절제는 여기서 온다 — 장식이 아니라 <b>기준선의 밀도</b>다.'],
+   '눈금 <b>간격</b>이 22px 로 고정이고 개수는 폭에서 파생된다(항상 홀수 → 가운데 목표 눈금 보장). 밝은 지시선은 하나. 바닥용으로 굵기 6px·알파 .48 로 올리고 칸을 벌렸다 — 화면 감각의 3px/.30 은 밝은 트랙 위 가산 투사에서 그냥 사라진다. 눈금이 촘촘해 <b>얼마나</b> 벗어났는지가 거리 감각으로 잡히고, 밝은 건 하나뿐이라 시선이 바로 간다. 레퍼런스의 절제는 여기서 온다 — 장식이 아니라 <b>기준선의 밀도</b>다.'],
 ];
+DEV.push(
+  ['2단 그리드 · 현재(바)', null, (g, t) => devGrid(g, t, 'bar'),
+   '실전(C2·C3)은 SPM + PACE 가 나란히 앉아 칼럼이 <b>232px</b> 로 좁아진다. 바는 좁아져도 그냥 짧아질 뿐이라 점의 위치가 더 안 읽힌다.'],
+  ['2단 그리드 · 눈금 (폭에서 파생)', null, (g, t) => devGrid(g, t, 'tick'),
+   '눈금 <b>개수를 고정하면 안 된다</b> — 21개를 232px 에 넣으면 6px 획이 붙어 회색 띠가 된다. 고정할 것은 <b>간격</b>(획 6 + 여백 16 = 22px)이고 개수는 폭에서 나온다(232px → 11칸). 좁아져도 칸이 보이므로 편차가 계속 읽힌다.'],
+);
 // ═══ 전환 인터랙션 — 프리뷰 A → 따라하기 A 를 한 타임라인으로(유저: 전환도 미리보기) ═══
 //   한 물체(캡슐)가 물러나며 작아지고, 그 자리를 사람과 지면 마크가 이어받는다.
 const T_HOLD = 1.6, T_MOVE = 1.0, CY_LOOP = 5.4;
