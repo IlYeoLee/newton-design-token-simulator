@@ -2084,8 +2084,9 @@ export class Session {
     else this.bobY = 0;
 
     if (id === 'READY' || id === 'T1') {
-      // READY 발자국 2개 — 피그마 353:7066 에 다시 들어왔다(유저 #117): CTA 양옆 어포던스.
-      if (id === 'READY') this.readyFeet?.forEach(f => { f.group.visible = true; });
+      // READY 발자국 2개 — 다시 숨김(유저 08-05: 발 있는 쪽이 확실히 더 복잡하다).
+      //   좌표·크기(±0.214m·250mm)와 Tap2 룩은 그대로 둔다 — 켜기만 하면 피그마 353:7066 배치.
+      if (id === 'READY') this.readyFeet?.forEach(f => { f.group.visible = false; });
       const tap = id === 'READY' ? this.tap : this.tap1; const k = 0.5 + 0.5 * Math.sin(this.t * 4);
       if (tap.userData._ctaPlane) {
         tap.userData._ctaPlane.material.opacity = 0.75 + 0.25 * k;   // 피그마 CTA 에셋 — 통째로 맥동
