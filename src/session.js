@@ -2158,10 +2158,15 @@ export class Session {
       // 판정 = 봇 다리 상태(발 접지+런지 깊이)로만 구동 — 고정 마크와의 거리 게이트 없음.
       if ((this._a2t ?? 0) > this.t) { P._doneL = false; P._doneR = false; P.sec = 0; P._press = false; P._cnt = 5; P._repLatch = false; this.a2count = 0; }   // 재진입 리셋(a2count 미리셋=조기 전환 버그였음)
       // ── 발자국이 x봇 실제 발을 따라 런지처럼 이동 (고정 배치는 별로 — 유저 확정, 추적 복원) ──
-      // 보폭 압축 폐기(유저: 삼성 발표 품질) — 0.42 는 실측 런지 보폭 0.46m 를 19cm 로 눌러
-      //   마크가 '여기 딛어라'가 아니라 '대충 이쯤'이 됐다. 1.0 = 실제 착지점 그대로.
-      //   콘 검산: 앞발 z -1.38 → 전방 1.38m(콘 0.30~2.0 안), 반폭 0.61m > ±0.16m. 안전.
-      const CZ = -1.15, SC = 1.0;
+      // ★ 보폭 압축·중심 = **빔 알파 실측**에서 나온 값이다(추측 금지). 마크 pad 를 포함한
+      //   beamAlphaAt 커브(로컬 z 기준, near .30 / far 1.9):
+      //     -0.7 → 0.23 | -1.0 → 0.69 | -1.25 → 0.86 | -1.45 → 0.95 | -1.55 → 0.97 | -1.8 → 0.50
+      //   평탄 구간이 0.4m 남짓뿐이라 실제 런지 보폭(실측 0.80m)은 1:1 로 못 담는다 —
+      //   압축은 꼼수가 아니라 프로젝터의 물리 제약이다. SC 1.0 으로 늘렸더니 뒷발이 z -0.75
+      //   (알파 0.30)로 밀려 사실상 안 보였다.
+      //   SC 0.5 · CZ -1.45 → 보폭 0.80m 일 때 마크가 -1.25 / -1.65 = 알파 0.86 / 0.93.
+      //   둘 다 밝고 좌우 균형이 맞는다(구 CZ -1.15 는 0.69/0.76 대역이라 둘 다 어두웠다).
+      const CZ = -1.45, SC = 0.5;
       if (pb) {
         const fL = pb.footL, fR = pb.footR;
         const lft = fL.x <= fR.x ? fL : fR, rgt = fL.x <= fR.x ? fR : fL;
@@ -2186,7 +2191,6 @@ export class Session {
       // 뉴턴 전환 문법: [시범 = 영상만·도트바] → [마크 Preview 워밍 등장 + '이제 같이' 음성] → [따라하기]
       P.cd.visible = false;
       if (!cyc || cyc.watching) {
-        P._wasWatch = true;   // 따라하기 진입 프레임을 잡기 위한 래치(등장 안무 기점)
         P.fmL.group.visible = false; P.fmR.group.visible = false; P.numL.visible = false; P.numR.visible = false;
         FMU('먼저 보세요', CS.prism);   // 진행표시 = 프레임 미니 타이머 링 전담
         this.demoActive = true;
@@ -2197,23 +2201,15 @@ export class Session {
       placeMarkNum(P.numL); placeMarkNum(P.numR);
       P._pop = Math.max(0, (P._pop || 0) - dt * 3.8);
       P.fmL.group.visible = true; P.fmR.group.visible = true;   // 따라하기 = 마크 표시
-      // ── 등장 안무(유저: 발표 품질) — 그냥 켜지면 '팝' 하고 튀어나온다. 앞발 먼저 서고
-      //   뒷발이 0.18s 늦게 따라 선다 = 런지의 순서(딛고 → 뒤로 뻗는다)를 모션이 먼저 말한다.
-      if (P._wasWatch !== false) { P._folT = this.t; P._wasWatch = false; }
-      const ein = k => {
-        const u = Math.max(0, Math.min(1, (this.t - (P._folT ?? this.t) - k) / 0.55));
-        return 1 - Math.pow(1 - u, 3);                       // easeOutCubic
-      };
-      const eFront = ein(0), eBack = ein(0.18);
+      // 앞/뒤 발 식별 — z 가 작은 쪽이 앞(봇 정면 = −z). 뒷발 스트레치 피드백·화살표가 이걸 쓴다.
+      //   ※ 등장 안무(스태거 페이드인)는 폐기: watching 이 렙마다 토글돼 기점이 계속 리셋되고
+      //     뒷발이 0.1 알파에 눌리는 회귀를 냈다(실측). 제대로 된 진입 훅이 생기면 그때 다시.
       const fmFront = P.fmL.group.position.z <= P.fmR.group.position.z ? P.fmL : P.fmR;
       const fmBack = fmFront === P.fmL ? P.fmR : P.fmL;
-      fmFront.group.scale.setScalar(0.82 + 0.18 * eFront);
-      fmBack.group.scale.setScalar(0.82 + 0.18 * eBack);
 
       // 딛는 발: 둘 다 Active(빈 링). 홀드 중이면 같은 Hold 페이즈에서 uProg만 0→1 채워짐(부드러운 전환, 팝 없음)
       act.setHold(Math.max(0.02, P.fill));   // 0.02 = 빈 링(Active 모양) → prog 채움
-      const eAct = (act === fmFront) ? eFront : eBack;   // 등장 계수는 **인자로** 넣는다(아래 주석)
-      act.op((0.6 + 0.4 * P.fill) * eAct);
+      act.op(0.6 + 0.4 * P.fill);
       // 홀드 파문 차오름(유저: 화면이 심심) — 버티는 발에서 파문이 진행에 비례해 넓게.
       //   기존 파동 정본(uRip) 부스트일 뿐 새 이펙트가 아니다. 완주 팡과 리듬이 이어진다.
       if (act._U?.uRip) act._U.uRip.value = 0.5 + 0.55 * P.fill;
@@ -2276,16 +2272,10 @@ export class Session {
       // ── 뒷발 = 이 운동의 **주인공**인데 지금껏 아무 일도 안 일어났다. 종아리가 늘어나는 쪽이므로
       //   **보폭 × 홀드**에 비례해 파문·광량이 자란다 — 깊게 딛을수록 뒷발이 밝아진다 = 자세가 곧 보상.
       //   새 이펙트가 아니라 uRip/op 정본의 구동값만 바꾼다.
-      //   ★ 등장 계수는 op() 결과를 **읽어서 다시 곱하지 않는다** — uFade 를 read-modify-write 하면
-      //     호출 순서에 따라 값이 겹쳐 곱해져 뒷발이 0.11 까지 죽었다(실측). 항상 인자로 넣는다.
       const stretch = Math.max(0, Math.min(1, (Math.abs(P.fmL.group.position.z - P.fmR.group.position.z) - 0.14) / 0.32));
       const heat = stretch * (0.45 + 0.55 * P.fill);
       if (fmBack._U?.uRip) fmBack._U.uRip.value = 0.5 + 0.75 * heat;
-      if (oth !== act) {
-        const eOth = (oth === fmFront) ? eFront : eBack;
-        const base = othDone ? 0.5 : (oth === fmBack ? 0.55 + 0.45 * heat : 0.6);
-        oth.op(Math.min(1, base) * eOth);
-      }
+      oth.op(Math.min(1, othDone ? 0.5 : (oth === fmBack ? 0.55 + 0.45 * heat : 0.6)));
       othNum.visible = false;
 
       // 완료 = 홀드 100% 도달(회차당 1회 래치). 왼발 1·오른발 1 = 총 2회
