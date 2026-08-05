@@ -2218,18 +2218,43 @@ export class Session {
       //   앞발 앞으로(무릎 전진) · 뒷발 뒤로(뒤꿈치 누르기). draw-on 1.8s 루프.
       if (P.arBack) {
         const on = !this.demoActive;
-        // ★ 방향은 **시상면(앞뒤) 축** 고정이다. 두 발 사이 벡터를 쓰면 안 된다 — 발은 좌우로
-        //   ±0.16m 벌어져 있어서, 보폭이 작을 때 그 벡터가 거의 '옆'이 되고 화살표가 옆을 본다
-        //   (실측: stride 0.03m 에서 dir (0.99, -0.11) = 사실상 오른쪽). 런지는 앞뒤 운동이다.
-        //   세션 로컬은 봇 정면 = −z (root 회전 0, 실측). 앞발 → −z / 뒷발 → +z.
+        // ★ 방향 = **실제 다리 선**(유저). 시상면 축 고정도, 두 발 사이 벡터도 아니다:
+        //   - 두 발 벡터는 발이 좌우 ±0.16m 벌어져 있어 보폭이 작을 때 '옆'을 본다(실측 (0.99,-0.11)).
+        //   - 축 고정은 안전하지만 다리가 비스듬할 때 선과 어긋난다.
+        //   봇 본에서 지면 투영 단위벡터를 뽑는다(xbot.getLegs — hip/knee/foot 월드):
+        //     뒷다리 **펴는 방향** = hip→foot   (실측 런지 시 (0.28, 0.96), 길이 0.30)
+        //     앞무릎 **굽히는 방향** = hip→knee (실측 (0.15, -0.99), 길이 0.36)
+        //   서 있을 땐 길이가 0.06~0.12 로 짧고 방향이 튄다 → 시상면 축으로 폴백.
         const fpM = P.fmL.group.position.z <= P.fmR.group.position.z ? P.fmL : P.fmR;   // z 작은 쪽 = 앞
         const bpM = fpM === P.fmL ? P.fmR : P.fmL;
         const sl = Math.abs(fpM.group.position.z - bpM.group.position.z);   // 보폭 = 앞뒤 성분만
-        const GAPM = 0.19;                            // 발 끝에서 화살표 시작까지
-        P.arKnee.position.set(fpM.group.position.x, 0.014, fpM.group.position.z - GAPM);
-        P.arKnee.rotation.z = 0;                      // (0,−1) 앞
-        P.arBack.position.set(bpM.group.position.x, 0.014, bpM.group.position.z + GAPM);
-        P.arBack.rotation.z = Math.PI;                // (0,+1) 뒤
+        const LG = this.xbot?.getLegs?.();
+        // ★ 임계 0.22 + 저역통과. 서 있을 때 hip→foot 지면 길이가 0.12~0.18 인데 방향은 순수
+        //   흔들림이라(실측: 같은 자세에서 (0.84,-0.54) ↔ (-0.34,0.94) 로 뒤집힘) 0.12 문턱은
+        //   노이즈를 통과시켰다. 런지가 실제로 벌어진 뒤에만 다리 선을 따르고, 그 뒤에도
+        //   0.16s 시정수로 눌러 화살표가 '결심한 듯' 움직이게 한다 — 발표에서 떨림은 치명적이다.
+        const gdir = (key, a2, b2, fx, fz) => {
+          let dx = fx, dz = fz;
+          if (a2 && b2) {
+            const vx = b2.x - a2.x, vz = b2.z - a2.z, n = Math.hypot(vx, vz);
+            if (n >= 0.22) { dx = vx / n; dz = vz / n; }
+          }
+          const pv = P[key] || [dx, dz];
+          const k = 1 - Math.exp(-(dt || 0.016) / 0.16);
+          let sx = pv[0] + (dx - pv[0]) * k, sz = pv[1] + (dz - pv[1]) * k;
+          const m = Math.hypot(sx, sz) || 1; sx /= m; sz /= m;
+          P[key] = [sx, sz];
+          return P[key];
+        };
+        const fL = fpM === P.fmL;                       // 앞발이 왼발인가
+        const [bxD, bzD] = gdir('_dB', fL ? LG?.hipR : LG?.hipL, fL ? LG?.footR : LG?.footL, 0, 1);
+        const [kxD, kzD] = gdir('_dK', fL ? LG?.hipL : LG?.hipR, fL ? LG?.kneeL : LG?.kneeR, 0, -1);
+        // 각도 매핑 실측: dir = (−sinθ, −cosθ) → θ = atan2(−dx, −dz)
+        const GAPM = 0.19;                              // 발에서 화살표 시작까지
+        P.arKnee.position.set(fpM.group.position.x + kxD * GAPM, 0.014, fpM.group.position.z + kzD * GAPM);
+        P.arKnee.rotation.z = Math.atan2(-kxD, -kzD);   // 앞무릎이 나아가는 선
+        P.arBack.position.set(bpM.group.position.x + bxD * GAPM, 0.014, bpM.group.position.z + bzD * GAPM);
+        P.arBack.rotation.z = Math.atan2(-bxD, -bzD);   // 뒷다리를 펴는 선
         // 보폭이 좁으면(아직 안 벌렸으면) 화살표가 더 세게 재촉한다 — 벌어질수록 잦아든다.
         const urge = Math.max(0, Math.min(1, (0.42 - sl) / 0.30));
         const cyc2 = (this.t % 1.8) / 1.8;
