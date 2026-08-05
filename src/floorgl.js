@@ -1720,7 +1720,12 @@ export class FloorGL {
     //   에셋 모양이 달라 보간하면 어느 쪽도 아닌 형태가 된다).
     const GLOWS = (bk ? READY_GLOWS_BK : READY_GLOWS).map(g =>
       g[0].startsWith('glow-ell') ? [g[0], g[1], g[2], g[3], g[4], g[5], 1 - p2] : g);
-    const GLOW_NEWTON = ['glow-ell-newton.svg', 150.3, 1189.3, 1300.36, 871.36, 'hard-light', p2, true];
+    // ★ 뉴턴 광은 팩 광과 **같은 자리·같은 크기**여야 한다(유저: 첫 등장 이후엔 뉴턴 그라디언트로).
+    //   구 좌표(150.3, 1189.3, 1300.36×871.36)로 박혀 있어서, 팩 에셋이 재추출로 옮겨간 뒤
+    //   (155.8, 351.3, 1288.36×1709.36) 교차 순간 빛이 자리를 옮기며 크기까지 바뀌었다 —
+    //   그래서 페이즈2 로 넘어가도 팩 색이 남아 보였다. 팩 광의 좌표에서 그대로 파생시킨다.
+    const ELL = (bk ? READY_GLOWS_BK : READY_GLOWS).find(g => g[0].startsWith('glow-ell'));
+    const GLOW_NEWTON = ['glow-ell-newton.svg', ELL[1], ELL[2], ELL[3], ELL[4], ELL[5], p2, true];
     ctx.save(); ctx.globalAlpha *= e0(.15, 1.2) * (1 + .3 * tapB);   // 탭 박자에 하단 빛이 두 번 부푼다
     // ★ 페이즈2(숫자 화면)에서 광량·채도를 올린다(유저: 예전엔 더 쨍했다 — 인물 영상 뷰 말고
     //   그 다음 뷰). 페이즈1 은 인물이 주인공이라 광이 세면 실루엣을 먹지만, 페이즈2 는
