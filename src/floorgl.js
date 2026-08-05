@@ -1650,7 +1650,9 @@ export class FloorGL {
     //    2~4s  인물 out · 숫자 촤라락 → 오늘 총 운동시간(30 min)
     //    4~8s  Tap your foot Twice (4초) → 처음으로
     // ★ 순서 재배치(유저 08-05, 피그마 379:3282 → 377:3060 → 379:3364):
-    //    0 ~ 2.0s  영상만. **상단 그래프 없음 · 팩 정보 없음.** 하단엔 '발 두 번 탭' CTA 가 먼저.
+    //    0 ~ 2.0s  영상 + **팩 이름(타이틀·부제)** + 하단 CTA. 상단 아크 차트·배터리 패널은 없다.
+    //              ※ 피그마 379:3282 실측 — 상태1 프레임에 Group 2147229064(타이틀+Pace On)가
+    //                 이미 들어 있다. 처음엔 타이틀까지 늦췄는데 그건 내 오독이었다.
     //    2.0 ~ 3.0s 팩 정보(타이틀·부제·도트 숫자)가 **아크 차트와 함께** 등장 + 배터리 원 2개.
     //               1초 안에 끝난다.
     //    3.0s ~     그 시점에 이어폰 칸이 확장되며 '연결됨' + 코치 프로필이 뜨고 마무리.
@@ -1853,14 +1855,14 @@ export class FloorGL {
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillStyle = NEU.ink; ctx.font = RF(700, 98); ctx.letterSpacing = '-4px';   // 100→98(유저: 첫 진입 타이틀이 빡빡)
     for (const [i, ln] of R2.lines.entries()) {
-      const d = TP2 + i * .05;
+      const d = .26 + i * .04;   // 피그마 379:3282 — 상태1 에 타이틀이 이미 있다
       ctx.save(); ctx.globalAlpha *= e0(d, .85);
       ctx.fillText(ln, 800, 778 + (i ? 60 : -60) + rise(d, .85, 22));
       ctx.restore();
     }
-    ctx.save(); ctx.globalAlpha *= e0(TP2 + .12, .6);
+    ctx.save(); ctx.globalAlpha *= e0(.36, .85);
     ctx.fillStyle = 'rgba(255,255,255,.8)'; ctx.font = RF(400, 64); ctx.letterSpacing = '-2.56px';
-    ctx.fillText(R2.sub, 800.5, 971 + rise(TP2 + .12, .6, 18));
+    ctx.fillText(R2.sub, 800.5, 971 + rise(.36, .85, 18));
     ctx.restore();
     ctx.letterSpacing = '0px';
     // ★ 순서 반전(유저 08-05): 페이즈1 = 팩 이름 + **사람 형체**, 페이즈2(2초 뒤) = **몇 분인지**.
