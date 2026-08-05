@@ -443,9 +443,19 @@ export function applyMarkLookTo(mat, part = {}) {
 const _stateBase = new WeakMap();
 export function setMarkStateLook(mat, ph) {
   if (!mat?.uniforms) return;
-  const ov = (LOOK.states || {})[ph] || (LOOK.states || {})[String(ph)];
+  // ★ Locked(3) = **Tap2 디자인**(유저: 락 상태를 tap2 로 교체해 시뮬 전체에 반영).
+  //   footlab 9번 슬롯('tap')을 그대로 참조한다 — 값을 복사하면 두 벌이 되어 랩에서
+  //   Tap2 를 고쳐도 Locked 는 안 바뀐다. 참조로 두면 랩 저장 한 번이 시뮬 전역에 간다.
+  const ov = (LOOK.states || {})[ph] || (LOOK.states || {})[String(ph)]
+    || (ph === 3 ? (LOOK.states || {}).tap || LOOK.tap : null);
+  // ★ op·색 키가 빠져 있었다 — 오버라이드는 applyMarkLookTo 가 무슨 키든 먹이는데 리셋 목록에
+  //   없으면 **그 상태를 벗어나도 안 돌아온다**. Tap2 는 op 0(필 없음)이라 이게 없으면 한 번
+  //   Locked 를 지난 마크가 영영 속이 빈 채로 남는다.
   const KEYS = ['imp','dot','glow','shade','sharp','scale','plantar','bands','bandSoft','edgeShade',
-    'edgeShadeW','edgeShadeGrad','edgeShadeG0','edgeShadeG1','dither','pitch','edge','edgeW'];
+    'edgeShadeW','edgeShadeGrad','edgeShadeG0','edgeShadeG1','dither','pitch','edge','edgeW',
+    'op','shadeCol','dotCol','edgeShadeCol','ripCol',
+    // Tap2 가 실제로 들고 있는 나머지 — 하나라도 빠지면 그 키만 락 상태로 눌러앉는다.
+    'edgeSoft','shadeRed','shadeRedW','rip','ripReach','ripWidth','ripSpeed','ripGrad','bloom','w'];
   if (!_stateBase.has(mat)) {
     const base = {}; for (const k of KEYS) if (LOOK[k] != null) base[k] = LOOK[k];
     _stateBase.set(mat, base);

@@ -8,7 +8,7 @@ import { easeMove, stepDelay, stampPop, airK, airAlpha, airScale, overshoot, sli
 import { BK_STEPBACK, LOAD, arrowFor } from './marklang.js';
 import { lutColor, GLYPHS, drawGlyph, drawNumber, footSlot, footSDFTexture, FXP } from './fxlut.js';
 import { MARK_NUM, GLYPH_LOOK, drawMarkGlyph, invertGlyphCanvas, drawStanceBox, drawPunchLine, drawApproachRing, drawTrajectory, drawRotate, drawStemArrow, drawCurveArrow , glyphFor } from './fx-core.js';
-import { makeMarkFXMaterial, makeLaneFXMaterial, makeFlowArrow, tickFlowArrows, beamAlphaAt, COLORS, FOOT_PLANE_M, QUAD_K, UI_MASK, MARK_LOOK, applyMarkLookTo, setMarkLoad } from './tokens.js';
+import { makeMarkFXMaterial, makeLaneFXMaterial, makeFlowArrow, tickFlowArrows, beamAlphaAt, COLORS, FOOT_PLANE_M, QUAD_K, UI_MASK, MARK_LOOK, applyMarkLookTo, setMarkLoad, setMarkStateLook } from './tokens.js';
 
 const clamp01 = v => v < 0 ? 0 : v > 1 ? 1 : v;
 
@@ -144,8 +144,16 @@ class FootMark {
   }
   at(x, z, s = 1) { this.group.position.set(x, 0.013, z); this.group.scale.setScalar(s); return this; }
   op(k) { this._U.uFade.value = k; }
-  setHold(p) { this._U.uPhase.value = 5; this._U.uProg.value = Math.max(0.001, p); }   // Hold 코닉 진행 림
-  locked() { this._U.uPhase.value = 3; this._U.uProg.value = 0; }
+  /** 상태 전환 = uPhase + **상태별 룩**. setMarkStateLook 이 토큰 경로(tokens.js)에만 걸려 있어
+   *  세션 FootMark 은 상태를 바꿔도 룩이 그대로였다 — Locked 를 Tap2 로 바꿔도 반영이 안 되던 이유.
+   *  바뀔 때만 부른다(리셋+오버라이드라 매 프레임 돌릴 일이 아니다). */
+  _ph(v) {
+    if (this._U.uPhase.value === v) return;
+    this._U.uPhase.value = v;
+    setMarkStateLook(this.plane.material, v);
+  }
+  setHold(p) { this._ph(5); this._U.uProg.value = Math.max(0.001, p); }   // Hold 코닉 진행 림
+  locked() { this._ph(3); this._U.uProg.value = 0; }
   /** tap2 어포던스(READY 전용, 유저 2026-08-05) — 무채(도트+이너 화이트) 대기로 있다가
    *  주기마다 액티브 컬러로 밝아지며 **2회 깜빡** = '발 두 번 탭' 암시. 과하지 않게 3.2s 주기. */
   tapHint(tc) {
@@ -161,21 +169,22 @@ class FootMark {
     const b = Math.max(bl(FootMark.READY_TAP.P1), bl(FootMark.READY_TAP.P2));
     // ★ 상태 전환 폐기(유저 08-05): 기본→석세스로 **색이 바뀌는** 깜빡임은 과했다.
     //   상태는 Tap2 룩 그대로 고정하고 **투명도만** 은은하게 두 번 펄스한다.
-    this._U.uPhase.value = 3;
+    this._ph(3);   // Locked = Tap2 룩(정본 연결) — 아래 _tapStyled 수동 적용은 이제 보조일 뿐
     this._U.uProg.value = 0;
     // 빔 페더를 지나면 흐릿해진다(유저) — 대기값을 올리고 게인으로 한 번 더 들어 올린다.
     this.op(0.72 + 0.28 * b);
     if (this._U.uGain) this._U.uGain.value = 1.35 + 0.45 * b;
   }   // 무채 대기(Locked) — READY 시작 전
   countdown(p) {
-    if (p < 0) { this._U.uPhase.value = 0; this._U.uProg.value = 0; return; }          // 대기 = Preview 숨쉬기
-    this._U.uPhase.value = 1; this._U.uProg.value = p;                                 // Active — 헤일로 수축 = 타이밍
+    // _ph 로 간다 — 직접 쓰면 Locked(Tap2 룩)에서 나올 때 룩이 안 돌아온다(op 0 이 눌러앉는다).
+    if (p < 0) { this._ph(0); this._U.uProg.value = 0; return; }                       // 대기 = Preview 숨쉬기
+    this._ph(1); this._U.uProg.value = p;                                              // Active — 헤일로 수축 = 타이밍
   }
   // Success = '색이 진해진 상태' 그 자체다(유저 정의). 저절로 흐려지지 않는다 —
   //   러닝에서 성공 후 사라지는 건 토큰의 성질이 아니라 다음 마크로 넘어가는 '전환 모션'이다.
   //   k=1 이면 진행도 0 = 가장 진한 상태로 고정. 흐리게 하고 싶은 호출부만 k를 낮춘다.
   glow(k = 1) {
-    this._U.uPhase.value = 2; this._U.uProg.value = Math.min(1, 1 - k);
+    this._ph(2); this._U.uProg.value = Math.min(1, 1 - k);
     // Success 진입 = 파문 1회. 팩마다 따로 붙이던 것을 '상태 → 이펙트' 규칙 한 곳으로 통일한다
     //   (실측: 러닝 실전 25회 / 복싱 4회인데 농구는 0회였다 — 같은 Success 인데 팩마다 달랐다).
     //   래치는 k 가 충분히 내려가야 풀린다 → 한 번의 성공에 한 번만.
@@ -183,7 +192,7 @@ class FootMark {
     else if (k < 0.6) this._succLatch = false;
   }
   toe(k) { this._U.uToe.value = k; }   // 1 = 앞꿈치만 접지(뒤꿈치 투명·앞 강조)
-  ghost() { this._U.uPhase.value = 3; this._U.uProg.value = 0; }                        // Locked 무채 고스트 — 션 발자국 시범·예고
+  ghost() { this._ph(3); this._U.uProg.value = 0; }                        // Locked 무채 고스트 — 션 발자국 시범·예고
 }
 
 // ── 지면 프리미티브 (userData.el = 장면 에디터 메타) ──
@@ -2415,12 +2424,10 @@ export class Session {
       //   Hold 가득참과 '완료'는 화면에서 같은 그림이라 끝난 게 안 읽혔다. 마크 토큰이
       //   이미 갖고 있는 상태를 쓴다 — glow()=Success(uPhase 2, 파문 1회) · locked()=Locked(3).
       //   완료 직후 SUCC_HOLD 초는 Success 로 두고 그 뒤 Locked 로 내린다.
-      const FM_SUCC = 0.9;
-      const doneT = isL ? P._doneTR : P._doneTL;   // 반대 발이 끝난 시각
-      if (othDone) {
-        if (doneT != null && this.t - doneT < FM_SUCC) oth.glow(1);
-        else oth.locked();
-      } else oth.setHold(0.02);
+      //   ★ 완료한 발은 **Success 로 남는다**(유저 지적). Locked 로 강등하지 않는다 —
+      //     이 파일이 정의한 대로 Locked 는 '무채 고스트 = 시범·예고'이고, Success 는
+      //     '해냈다'라서 저절로 흐려지지 않는다. 한쪽을 이미 해냈으면 그건 Success 다.
+      if (othDone) oth.glow(1); else oth.setHold(0.02);
       // ── 뒷발 = 이 운동의 **주인공**인데 지금껏 아무 일도 안 일어났다. 종아리가 늘어나는 쪽이므로
       //   **보폭 × 홀드**에 비례해 파문·광량이 자란다 — 깊게 딛을수록 뒷발이 밝아진다 = 자세가 곧 보상.
       //   새 이펙트가 아니라 uRip/op 정본의 구동값만 바꾼다.
