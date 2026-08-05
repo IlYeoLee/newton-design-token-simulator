@@ -110,6 +110,7 @@ function makeTextPlane(text, opts = {}) { const g = makeTextMesh(text, opts); co
 // 대체한 뒤 호출처 0인 죽은 코드였음 (룩 시스템 외 사제 렌더의 마지막 잔재).
 class FootMark {
   static READY_TAP = { T: 5.6, W: 0.55, P1: 3.6, P2: 4.35 };   // tap2 루프 타이밍 — floorgl 캔버스 발과 공유
+  static READY_SPREAD = 0.272;   // 최종 좌우 간격(m) — 등장 때 0 에서 여기까지 퍼진다
   // 세션 발자국 = MARK 발형 상태 머신 소비 (시안 보드 7상태 그대로).
   // 열화상 사제 텍스처·flatMat 카운트다운 링·홀드 호 전부 은퇴 — 룩 시스템이 유일한 형태:
   //   대기=Preview 소프트 필 · 카운트다운=Active 헤일로 수축 · 유지=Hold 코닉 림 · 성공=Success 블룸
@@ -158,7 +159,9 @@ class FootMark {
     //   상태는 Tap2 룩 그대로 고정하고 **투명도만** 은은하게 두 번 펄스한다.
     this._U.uPhase.value = 3;
     this._U.uProg.value = 0;
-    this.op(0.42 + 0.48 * b);
+    // 빔 페더를 지나면 흐릿해진다(유저) — 대기값을 올리고 게인으로 한 번 더 들어 올린다.
+    this.op(0.72 + 0.28 * b);
+    if (this._U.uGain) this._U.uGain.value = 1.35 + 0.45 * b;
   }   // 무채 대기(Locked) — READY 시작 전
   countdown(p) {
     if (p < 0) { this._U.uPhase.value = 0; this._U.uProg.value = 0; return; }          // 대기 = Preview 숨쉬기
@@ -1015,10 +1018,11 @@ export class Session {
     // 크기 200mm(유저) — 판정 발(240mm 정본)이 아니라 그래픽 어포던스라 축소 허용. s=200/240.
     // 피그마 353:7085/7096 = CTA 양옆, 캡슐 밖 아래(유저 #117). 프레임 실측 중심 (480,1855)/(1103,1855)
     //   → 대지 중심(캔버스 800,1335)에서 ±0.214m, 0.357m 앞. 크기 250mm(피그마 실루엣 실측).
-    // 피그마 342:3057 실측: 발자국 프레임 485×485 · 실루엣 172.84×352.42 → 242mm(스케일 ≈ 1.0),
-    //   중심 y 1821.5 = 대지 중심에서 0.334m 앞. 좌우는 피그마가 ±0.19m 지만, CTA 문구를 복싱과
-    //   한 벌로 바꾸며 'Tap your foot Twice'(558px)가 길어져 발과 겹친다 → ±0.272m 로 벌린다.
-    this.readyFeet = [new FootMark('left').at(-0.272, -0.750, 242 / 240), new FootMark('right').at(0.272, -0.750, 242 / 240)];
+    // 피그마 342:3057 기준(실루엣 242mm, 대지 중심 0.334m 앞)에서 **그래픽 요소로 축소**(유저 08-05):
+    //   판정 발이 아니라 장식이라 180mm. 좌우는 CTA('Tap your foot Twice' 558px)를 피해 ±0.272m.
+    //   등장은 가운데 모여 있다가 좌우로 퍼진다 — READY_SPREAD 가 그 목표 좌표다.
+    this.readyFeet = [new FootMark('left').at(-FootMark.READY_SPREAD, -0.750, 180 / 240),
+                      new FootMark('right').at(FootMark.READY_SPREAD, -0.750, 180 / 240)];
     this.readyFeet.forEach(f => { f.locked(); f.op(0.8); f.group.visible = false; this.root.add(f.group); });
     // G.READY 는 '시작 페이지 = 프레임 전담' 정책으로 main 이 끈다 — 발자국은 새 READY 의
     //   어포던스 정본이므로 root 소속으로 예외. 표시는 아래 업데이트 틱이 스테이지로 제어.
@@ -2082,6 +2086,26 @@ export class Session {
     if (this.auto && st.dur && this.t >= st.dur && !st.count) this._next();
   }
 
+  /** READY 발자국 틱 — 표시 구간·등장 모션·Tap2 룩을 한곳에서(러닝·농구 공통).
+   *  등장(유저 08-05): 가운데 나란히 모여 있다가 **좌우로 싹 퍼진다**. 4.0s 에서 시작해 0.6s.
+   *  퍼짐이 끝나기 전엔 두 발이 겹치므로 스케일도 같이 자라게 해서 '한 덩어리'로 안 보이게 한다. */
+  _readyFeetTick() {
+    const F = this.readyFeet; if (!F) return;
+    const tl = this.t % 8;
+    if (tl < 4) { F.forEach(f => { f.group.visible = false; }); return; }
+    const u = Math.min(1, (tl - 4) / 0.6);
+    const e = 1 - Math.pow(1 - u, 3);                  // easeOutCubic — 싹 퍼졌다 안착
+    const x = FootMark.READY_SPREAD * e;
+    const sc = (180 / 240) * (0.72 + 0.28 * e);
+    F.forEach((f, i) => {
+      f.group.visible = true;
+      f.group.position.x = i === 0 ? -x : x;
+      f.group.scale.setScalar(sc);
+      f.tapHint(this.t);
+      if (e < 1) f.op(f._U.uFade.value * e);           // 퍼지는 동안 함께 떠오른다
+    });
+  }
+
   _updateRunning(id, st, beat, FMU) {
     // 박자 시점 바운스 — 몸이 살아있는 느낌 (라이브는 실제 모캡 눈이 담당)
     if (id[0] === 'A') this.bobY = 0.007 * Math.sin(this.t * 1.8);   // 호흡
@@ -2090,14 +2114,8 @@ export class Session {
     if (id === 'READY' || id === 'T1') {
       // READY 발자국 2개 — 피그마 342:3057 규격으로 복귀(유저 08-05). CTA 구간(4~8s)에만 뜬다:
       //   0~4s 는 팩·인물·숫자가 말하는 시간이라 발이 있으면 그때가 복잡해진다.
-      if (id === 'READY') {
-        // ★ tapHint 는 정의만 되고 **아무도 안 불렀다**(유저 08-05: 룩이 안 먹는다) — 여기서 매 틱 돈다.
-        const tl = this.t % 8;
-        this.readyFeet?.forEach(f => {
-          f.group.visible = tl >= 4;
-          if (f.group.visible) f.tapHint(this.t);
-        });
-      }
+      // ★ tapHint 는 정의만 되고 **아무도 안 불렀다**(유저 08-05: 룩이 안 먹는다) — 여기서 매 틱 돈다.
+      if (id === 'READY') this._readyFeetTick();
       const tap = id === 'READY' ? this.tap : this.tap1; const k = 0.5 + 0.5 * Math.sin(this.t * 4);
       if (tap.userData._ctaPlane) {
         tap.userData._ctaPlane.material.opacity = 0.75 + 0.25 * k;   // 피그마 CTA 에셋 — 통째로 맥동
@@ -2360,10 +2378,7 @@ export class Session {
 
     if (id === 'BK_READY' || id === 'BK_T1') {
       // 러닝과 동일 규격·타이밍 — 시작화면은 종목 한 벌이다(유저 승인 08-05).
-      if (id === 'BK_READY') {
-        const tl = this.t % 8;
-        this.readyFeet?.forEach(f => { f.group.visible = tl >= 4; if (f.group.visible) f.tapHint(this.t); });
-      }
+      if (id === 'BK_READY') this._readyFeetTick();
       const tap = id === 'BK_READY' ? this.bkTap : this.bkTap1; const k = 0.5 + 0.5 * Math.sin(this.t * 4);
       tap.children[0].material.opacity = 0.5 + 0.45 * k; tap.children[1].material.opacity = 0.5 + 0.45 * (1 - k);
       if (id === 'BK_T1' && this.t >= 4.5) { this.next(); return; }

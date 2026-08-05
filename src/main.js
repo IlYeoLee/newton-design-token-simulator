@@ -4429,9 +4429,11 @@ void main(){
     document.querySelectorAll('.nt-diag').forEach(el => el.remove());   // HMR 잔재 계기판 제거
     const bs = document.createElement('div');
     bs.className = 'nt-diag';
-    // 진단 바 — 기본 숨김(유저 08-05: 이제 지워달라). ?diag=1 로만 표시 — 계측기는 남긴다.
-    if (!new URLSearchParams(location.search).get('diag')) bs.style.display = 'none';
     bs.style.cssText = 'position:absolute;bottom:4px;left:306px;z-index:29;font-size:11px;color:rgba(160,166,176,.9);pointer-events:none;font-family:monospace;background:rgba(0,0,0,.35);padding:2px 6px;border-radius:4px';
+    // 진단 바 — 기본 숨김(유저 08-05: 이제 지워달라). ?diag=1 로만 표시 — 계측기 자체는 남긴다.
+    //   ★ cssText **뒤에** 꺼야 한다 — cssText 대입이 인라인 스타일을 통째로 갈아치워
+    //     앞서 준 display:none 이 지워지고 있었다(유저: 아직도 보인다).
+    if (!new URLSearchParams(location.search).get('diag')) bs.style.display = 'none';
     document.body.appendChild(bs);
     let tapN = 0, nextN = 0;
     const _ot = session.tapAdvance.bind(session);

@@ -1305,7 +1305,10 @@ export class FloorGL {
     const img = rel => this._img('fig/ready2/' + rel);
     const e0 = (d, dur = .8) => eOut(intro(t, d, dur));
     // ── ① 캡슐 대지 — x291 y285 w1018 h1591 r509, 흰 1px 보더 + 내부 화이트 글로우(74/40 25%) ──
-    const CAP = { x: 291, y: 285, w: 1018, h: 1591 };
+    // ★ CUT — '30 min' 아래 빈 공간이 넓어 캡슐 하단을 잘라내고, 그만큼 하단 요소를 끌어올린다(유저).
+    //   한 상수로 캡슐·글로우·상태패널·CTA 가 함께 움직인다(따로 만지면 반드시 어긋난다).
+    const CUT = 130;
+    const CAP = { x: 291, y: 285, w: 1018, h: 1591 - CUT };
     const capPath = () => { ctx.beginPath(); ctx.roundRect(CAP.x, CAP.y, CAP.w, CAP.h, CAP.w / 2); };
     ctx.save(); ctx.globalAlpha *= e0(.05);
     capFill(ctx, capPath, CAP.x, CAP.y, CAP.w, CAP.h);
@@ -1335,9 +1338,10 @@ export class FloorGL {
       ['glow-ell.svg', 150.3, 1189.3, 1300.36, 871.36, 'hard-light'],
     ];
     ctx.save(); ctx.globalAlpha *= e0(.15, 1.2) * (1 + .3 * tapB);   // 탭 박자에 하단 빛이 두 번 부푼다
+    ctx.translate(0, -CUT);   // 캡슐 바닥이 올라간 만큼 하단 빛도 함께(에셋은 원 좌표계)
     // ★ 캡슐 마스크(유저) — 피그마 익스포트 4겹의 박스가 캡슐(x291~1309 · 하단 1876)보다 커서
     //   빛이 림을 넘어 바닥까지 번졌다. 아크 그라디언트와 같은 규약으로 캡슐 안에 가둔다.
-    capPath(); ctx.clip();
+    ctx.save(); ctx.translate(0, CUT); capPath(); ctx.restore(); ctx.clip();   // 클립은 캡슐 실제 자리
     for (const [rel, gx, gy, gw, gh, blend] of GLOWS) {
       const im = img(rel);
       if (!im) continue;
@@ -1548,7 +1552,7 @@ export class FloorGL {
     //              늘어난 폭만큼 그룹을 다시 중앙정렬 — 화면 중심축이 안 흔들린다.
     //    ⓒ TP3   : 이 자리를 CTA 에 통째로 내주고 사라진다(같은 슬롯을 나눠 쓴다).
     {
-      const DD = 186, RD = DD / 2, GAPD = 73.2, CY = 1827.4 + 234;
+      const DD = 186, RD = DD / 2, GAPD = 73.2, CY = 1827.4 + 234 - CUT;
       const EXP = eOut(intro(t, 1.2, .9));          // 이어폰 → 알약 확장 0~1
       const WE = DD + DD * EXP;                     // 이어폰 칸 폭 186 → 372
       const x0 = 800 - (DD + GAPD + WE) / 2;        // 늘어나도 중앙 유지
@@ -1621,7 +1625,7 @@ export class FloorGL {
       //   겹치는 따뜻한 타원 빛을 한 겹 더 깔아 글로우가 CTA 까지 흘러내리게 한다.
       //   타원 상단 1800 < 캡슐 바닥 1876 이라 이음매가 안 보인다.
       {
-        const GY = 2061, GRX = 560, GRY = 210;   // 하단 슬롯(패널·CTA 공용) 중심 = 1827.4+234
+        const GY = 2061 - CUT, GRX = 560, GRY = 210;   // 하단 슬롯(패널·CTA 공용) 중심 = 1827.4+234
         ctx.save();
         ctx.globalAlpha *= .9 + .35 * tapB;   // 탭 박자에 이 빛도 같이 부푼다
         ctx.translate(800, GY); ctx.scale(1, GRY / GRX);
@@ -1639,9 +1643,9 @@ export class FloorGL {
       // 하단 슬롯(피그마 367 의 원 두 개 자리)을 그대로 물려받는다 — 블록 중심 = 2061.
       //   빛 위로 올라와 대비가 낮아진 만큼 눈금 불투명도 .55 → .68.
       ctx.fillStyle = 'rgba(255,255,255,.68)'; ctx.font = RF(400, 46); ctx.letterSpacing = '-1.2px';
-      ctx.fillText('To start', 800.15, 2014);
+      ctx.fillText('To start', 800.15, 2014 - CUT);
       ctx.fillStyle = NEU.ink; ctx.font = RF(700, 74); ctx.letterSpacing = '-5.28px';
-      ctx.fillText('Tap your foot Twice', 800.15, 2102);
+      ctx.fillText('Tap your foot Twice', 800.15, 2102 - CUT);
       ctx.letterSpacing = '0px'; ctx.restore();
     }
     ctx.restore();   // /콘텐츠 스케일
