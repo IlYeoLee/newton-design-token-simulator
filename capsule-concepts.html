@@ -31,6 +31,9 @@ h2{font-size:13.5px;margin:22px 0 10px;color:#FEC389}
   <button id="fplay" style="padding:6px 14px;border:1px solid #262b35;border-radius:99px;background:#1a1e25;color:#E9EAEE;font-size:12.5px;font-weight:600;cursor:pointer">⏸ 정지</button>
   <input id="fscrub" type="range" min="0" max="5.4" step="0.01" value="0" style="width:520px;accent-color:#FA3030">
   <span id="ftime" style="font:12px monospace;color:#98A1AD">0.00s</span>
+  <span style="color:#98A1AD;font-size:12px;margin-left:10px">캡슐 크기</span>
+  <input id="fsize" type="range" min="0.45" max="1" step="0.01" value="0.72" style="width:200px;accent-color:#FEC389">
+  <span id="fsz" style="font:12px monospace;color:#98A1AD">0.72</span>
 </div>
 <h2 id="ttl">프리뷰(관찰)</h2>
 <div class="row" id="row"></div>
@@ -569,13 +572,18 @@ const LAY = [
 // ═══ 전환 인터랙션 — 프리뷰 A → 따라하기 A 를 한 타임라인으로(유저: 전환도 미리보기) ═══
 //   한 물체(캡슐)가 물러나며 작아지고, 그 자리를 사람과 지면 마크가 이어받는다.
 const T_HOLD = 1.6, T_MOVE = 1.0, CY_LOOP = 5.4;
+// ★ 관찰 캡슐 크기(유저: '이거보다 작은 버전 없나') — 값을 못박지 않고 슬라이더로 뺀다.
+//   캡슐이 작아지면 그만큼 코치가 커진다: 캡슐은 정보를 들 만큼만 크면 되고,
+//   남는 자리는 '봐야 하는 것'(영상)이 가져가는 게 맞다.
+let FS = 0.72;
 function drawFlow(g, t) {
   const cx = 800;
   const m = clamp01((t - T_HOLD) / T_MOVE), me = eOut(m);          // 전환 진행
   const post = clamp01((t - (T_HOLD + T_MOVE)) / .9);              // 따라하기 요소 등장
   const intro0 = eOut(intro(t, .05, .8));
   // ① 캡슐 — 관찰(큰 캡슐) → 따라하기(미니 카드). 폭·높이·y 를 한 번에 보간
-  const cw = 818 - 58 * me, ch = 821 - 571 * me, cy = 300 - 0 * me;
+  const cw0 = 818 * FS, ch0 = 821 * FS;                              // 관찰 캡슐 — 슬라이더 크기
+  const cw = cw0 + (760 - cw0) * me, ch = ch0 + (250 - ch0) * me, cy = 300;
   capsule(g, cx - cw / 2, cy, cw, ch);
   ember(g, cx, cy + ch - 120, cw * .46, .5 * (1 - me * .6));
   // ② 타이틀 — 관찰은 2줄 크게, 따라하기는 1줄 작게(크로스페이드)
@@ -583,18 +591,18 @@ function drawFlow(g, t) {
   //   동시에 페이드하면 중간에 두 타이틀이 겹쳐 읽힌다(실측).
   const outA = 1 - clamp01(m / .45), inA = clamp01((m - .55) / .45);
   g.save(); g.globalAlpha = outA * intro0;
-  titleBlock(g, ['Neck And', 'Shoulder'], cx, cy + ch * .40, 86);
-  capLabel(g, 'PREVIEW', cx, cy + ch * .40 - 175, .5, 40);
+  titleBlock(g, ['Neck And', 'Shoulder'], cx, cy + ch * .40, 86 * FS);
+  capLabel(g, 'PREVIEW', cx, cy + ch * .40 - 175 * FS, .5, 40 * FS);
   g.restore();
   g.save(); g.globalAlpha = inA;
   titleBlock(g, ['High Knees'], cx, cy + 100, 64);
   g.restore();
   // ③ 카운트 링 → 남은 시간 배지 — 같은 자리에서 형태가 바뀐다(정보의 연속)
-  const ry = cy + ch * .74 - 320 * me;
+  const ry = cy + ch * .74 - (ch0 * .74 - 130) * me;
   g.save(); g.globalAlpha = outA;
-  ringGauge(g, cx, ry, 112, ((t * .62) % 1), { color: '#fff' });
+  ringGauge(g, cx, ry, 112 * FS, ((t * .62) % 1), { color: '#fff' });
   g.textAlign = 'center'; g.textBaseline = 'middle';
-  g.fillStyle = '#fff'; g.font = RF(700, 92, DOT);
+  g.fillStyle = '#fff'; g.font = RF(700, 92 * FS, DOT);
   g.fillText(String(Math.max(1, 3 - Math.floor(t * 1.9))), cx, ry + 4);
   g.restore();
   g.save(); g.globalAlpha = inA;
@@ -603,7 +611,15 @@ function drawFlow(g, t) {
   capLabel(g, 'sec', cx + 58, cy + 196, .55, 34);
   g.restore();
   // ④ 코치 — 관찰에선 캡슐 아래, 전환하며 앞(위)으로 걸어 나온다
-  coach(g, cx, 1560 - 520 * me, 760 + 60 * me, intro0);
+  //   관찰 구간은 캡슐이 작아진 만큼 영상이 커지고 위로 붙는다. 따라하기 구간의 자리는
+  //   FS 와 무관하게 고정 — 미니 카드는 크기가 안 변하므로, 여기까지 FS 를 물리면 인물이
+  //   카드를 뚫고 올라온다(실측: FS 0.72 에서 겹쳤다).
+  const chH = 760 + (1 - FS) * 900;
+  //   관찰 구간의 y 는 '캡슐 아래 90px 에 머리끝'으로 역산한다 — 인물 키가 FS 에 따라 변하는데
+  //   중심 y 를 고정하면 캡슐을 뚫는다(실측: FS 0.72 에서 머리가 캡슐 안으로 들어갔다).
+  const cyA = cy + ch0 + 90 + chH / 2, hA = chH;                     // 관찰
+  const cyB = 1190, hB = 1180;                                       // 따라하기(고정)
+  coach(g, cx, cyA + (cyB - cyA) * me, hA + (hB - hA) * me, intro0);
   // ⑤ 지면 마크 — 전환이 끝나며 아래에서 떠오른다
   if (post > 0.01) {
     g.save(); g.globalAlpha = post;
@@ -677,6 +693,9 @@ for (const [k, lb] of [['preview', '프리뷰(관찰)'], ['follow', '따라하�
   document.getElementById('seg').appendChild(b);
 }
 document.getElementById('fscrub').addEventListener('input', e => { FPLAY = false; FT = +e.target.value; fp.textContent = '▶ 재생'; });
+document.getElementById('fsize').addEventListener('input', e => {
+  FS = +e.target.value; document.getElementById('fsz').textContent = FS.toFixed(2);
+});
 const fp = document.getElementById('fplay');
 fp.onclick = () => { FPLAY = !FPLAY; fp.textContent = FPLAY ? '⏸ 정지' : '▶ 재생'; };
 build();
