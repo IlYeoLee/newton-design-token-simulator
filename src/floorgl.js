@@ -1287,6 +1287,14 @@ export class FloorGL {
     if (CK !== 1) { ctx.translate(800, PV); ctx.scale(CK, CK); ctx.translate(-800, -PV); }
     // ── 페이즈 타임라인 — 등장(왼→오 촤라락) 완료 후 2초 뒤 페이즈2(실루엣·코치 프로필) ──
     const TP2 = 2.1, p2 = eOut(intro(t, TP2, .7));   // 등장 ~2s 완료 → 쉬지 않고 바로 페이즈2(유저)
+    // '두 번'을 글자 말고 **빛으로** 말한다(유저: 위치만 만지면 여전히 붕 뜬다) — 캡슐 하단 글로우와
+    //   CTA 가 2.6s 주기로 톡·톡 두 번 밝아진다. 값 0~1. 빼려면 tapB 를 0 으로 두면 끝.
+    const tapB = (() => {
+      if (t < TP2) return 0;
+      const ph = (t - TP2) % 2.6;
+      const bl = t0 => { const u = (ph - t0) / .42; return (u >= 0 && u <= 1) ? Math.sin(u * Math.PI) : 0; };
+      return Math.max(bl(.15), bl(.72));
+    })();
     const RF = (w, s, fam = sans) => `${w} ${s}px ${fam}`;   // 피그마 원치수(타입스케일 미적용)
     const img = rel => this._img('fig/ready2/' + rel);
     const e0 = (d, dur = .8) => eOut(intro(t, d, dur));
@@ -1318,7 +1326,7 @@ export class FloorGL {
       ['glow-hl2.svg', 310.4, 1380.4, 979.2, 541.2, 'lighter'],
       ['glow-ell.svg', 150.3, 1189.3, 1300.36, 871.36, 'hard-light'],
     ];
-    ctx.save(); ctx.globalAlpha *= e0(.15, 1.2);
+    ctx.save(); ctx.globalAlpha *= e0(.15, 1.2) * (1 + .3 * tapB);   // 탭 박자에 하단 빛이 두 번 부푼다
     for (const [rel, gx, gy, gw, gh, blend] of GLOWS) {
       const im = img(rel);
       if (!im) continue;
@@ -1475,7 +1483,7 @@ export class FloorGL {
           const lmid = (l0 + l1) / 2;
           // 크기 통일(유저 08-05) — 세그먼트 길이에 따라 44→26 으로 줄이던 자동 축소 폐기.
           //   숫자는 LBL_FS 고정, 단위 m 만 작게. dy = 작은 m 을 숫자 베이스라인에 맞추는 보정.
-          const LBL_FS = 44, LBL_MS = 26;
+          const LBL_FS = 56, LBL_MS = 34;   // 44/26 은 호 위에서 안 읽혔다(유저 #122) — 한 단계 키움
           const fontOf = c => RF(700, c === 'm' ? LBL_MS : LBL_FS);
           const dyOf = c => (c === 'm' ? (LBL_FS - LBL_MS) * 0.3 : 0);
           ctx.letterSpacing = '-1px';
@@ -1596,17 +1604,17 @@ export class FloorGL {
     }
     // ⑥ 발 실루엣 = 폐기(유저 08-05) — 러닝·농구 양쪽에서 뺀다.
     //   3D FootMark 는 시작페이지에서 이미 숨김이라 잔상 없음. 복원은 #81 커밋.
-    // ── ⑦ CTA — 페이즈2(인물 등장)와 함께 나타난다(유저 08-05). 발자국은 없다.
+    // ── ⑦ CTA — 페이즈2(인물 등장)와 함께. 문구·위계는 **복싱(벽)과 한 벌**(유저 08-05):
+    //    작은 눈금 'To start' 위 → 큰 지시 'Tap your foot Twice' 아래. wallgl _paint_ready 와 동일.
     if (p2 > 0.01) {
-      ctx.save(); ctx.globalAlpha *= p2;
+      ctx.save(); ctx.globalAlpha *= p2 * (.9 + .1 * tapB);
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillStyle = NEU.ink; ctx.font = RF(700, 74); ctx.letterSpacing = '-5.76px';
-      // 캡슐 '안' 하단 글로우 위(유저 #92) — 밖으로 내보내면 대지 밖으로 새고 위계도 끊긴다.
-      //   피그마 353:7107/7108 = **캡슐 밖 아래**, 발자국 두 짝 사이(유저 #117).
-      //   실측 1734/1847 + 214 = 1988/2101 (캡슐 바닥 1876 아래).
-      ctx.fillText('Tap Twice', 800.15, 1988);
-      ctx.fillStyle = 'rgba(255,255,255,.86)'; ctx.font = RF(400, 54); ctx.letterSpacing = '-1.8px';
-      ctx.fillText('To start', 800.15, 2101);
+      // 캡슐 밖 아래(피그마 353:7107/7108) — 발자국이 빠지면서 붕 떠 보여 캡슐 바닥(1876) 쪽으로
+      //   40px 더 붙였다. 블록 = 1962(눈금) → 2042(지시).
+      ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.font = RF(400, 46); ctx.letterSpacing = '-1.2px';
+      ctx.fillText('To start', 800.15, 1962);
+      ctx.fillStyle = NEU.ink; ctx.font = RF(700, 74); ctx.letterSpacing = '-5.28px';
+      ctx.fillText('Tap your foot Twice', 800.15, 2042);
       ctx.letterSpacing = '0px'; ctx.restore();
     }
     ctx.restore();   // /콘텐츠 스케일
