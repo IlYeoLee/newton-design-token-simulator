@@ -1008,7 +1008,11 @@ function buildScene(stage, p) {
   //  ① 시범(Preview) 동안은 감춘다. 공간도 차지하지 않는다 — 프리뷰가 그 자리를 쓰기 때문.
   //  ② 스텝백 따라하기(BK_B2~B5)엔 아예 없다. 진행은 상단 n/4 가 담당(유저 확정).
   //  ③ 자리를 이어받는 노드는 앞 노드가 다 비운 뒤(아웃로 0.05+0.45) 나타난다 — 안 그러면 슬라이드로 보인다.
-  if (!isStep) col.push(node('s-dots', { type: 'dots', mt: -38, dur: p.dur || 8, hideUntil: hasPrev ? (p.pv || 3) + 0.5 : 0, delay: hasPrev ? (p.pv || 3) + 0.15 : 0 }));
+  //  ④ **연습(P)엔 없다**(유저: 정보량 조절·불필요 제거). 시간은 화면에 한 번만 말한다 —
+  //     P 는 헤더(capHead)의 카운트 링이 '남은 초'를 숫자와 링으로 이미 전담한다. 그 아래
+  //     아크까지 두면 같은 값을 두 번 그리는 것이고, 알약 바로 밑이라 한 덩어리로 붙어 보였다.
+  //     실전(C)은 헤더가 없어 이 아크가 유일한 진행 표시라 그대로 둔다.
+  if (!isStep && !isP) col.push(node('s-dots', { type: 'dots', mt: -38, dur: p.dur || 8, hideUntil: hasPrev ? (p.pv || 3) + 0.5 : 0, delay: hasPrev ? (p.pv || 3) + 0.15 : 0 }));
   if (isP) col.push(node('train-row', { type: 'trainRow', ring: /^P[23]$/.test(stage) }));
   if (isC) col.push(PACE_PACK ? node('pace-sub', { type: 'paceSub' }) : node('live-row', { type: 'liveRow' }));
   col.push(node('s-succ', { type: 'succ', style: { display: 'none' } }));
