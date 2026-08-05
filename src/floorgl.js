@@ -425,7 +425,15 @@ export function rollNum(ctx, target, t, delay, cd, x, y, size, o = {}) {
     ctx.font = NF;
     const d = w.d, f = w.f;
     ctx.save();
-    ctx.beginPath(); ctx.rect(px - 4, y, ws[i] + 8, size * 0.92); ctx.clip();   // 창 = 딱 한 자리
+    // 창 = 딱 한 자리. ★ 너비를 **진행폭(ws)** 으로 잡으면 안 된다 — 호출부가 letterSpacing 을
+    //   음수로 주면(예: 벽 스코어 ls:-8) 진행폭이 실제 잉크보다 좁아져 획이 잘린다.
+    //   실측(08-05): OffBit 의 0(⊘)이 오른쪽 3분의 1 이 날아갔다(유저: 저 0만 잘린다고).
+    //   → 잉크 경계(actualBoundingBox)로 창을 잡는다. 없는 브라우저면 진행폭 + 여유로 떨어진다.
+    const mm = ctx.measureText(String(d % 10));
+    const inkL = mm.actualBoundingBoxLeft, inkR = mm.actualBoundingBoxRight;
+    const cx0 = Number.isFinite(inkL) ? px - inkL - 3 : px - 4;
+    const cw = Number.isFinite(inkR) ? (Number.isFinite(inkL) ? inkL : 0) + inkR + 6 : ws[i] + 8;
+    ctx.beginPath(); ctx.rect(cx0, y, cw, size * 0.92); ctx.clip();
     ctx.fillText(String(d % 10), px, y - f * H);                                // 나가는 자리 = 위로
     if (f > 0.03) ctx.fillText(String((d + 1) % 10), px, y + (1 - f) * H);      // 들어오는 자리 = 아래에서
     ctx.restore();

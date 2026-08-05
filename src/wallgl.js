@@ -691,7 +691,11 @@ export class WallGL {
     const past = (S.beats || []).filter(([bt]) => t >= bt);
     const sc = { hit: 0, near: 0, miss: 0 };
     for (const [, v] of past) sc[v]++;
-    num(100, 'left', S.beats ? String(sc.miss) : S.coach.num, .62, 1.2);   // 학습에선 코치 = 목표치(등장 후 고정)
+    // ★ 실전 스코어(beats)는 **굴리지 않는다**. 오도미터 롤은 '등장하며 목표치까지 차오르는'
+    //   학습용 연출이라, 판정마다 1씩 오르는 점수판에 걸면 숫자가 내내 반쯤 넘어간 채 보인다
+    //   (08-05: 유저가 '0이 잘린다'고 한 프레임이 롤 중간이었다). 스냅 + 팝만 남긴다.
+    const RD = S.beats ? 0 : .62, RC = S.beats ? .01 : 1.2;
+    num(100, 'left', S.beats ? String(sc.miss) : S.coach.num, RD, RC);   // 학습에선 코치 = 목표치(등장 후 고정)
     // YOU = **지금까지 내가 한 횟수**. 0 으로 등장해 한 회씩 오른다(유저).
     //   구 dur*0.8(=6.4s)은 자릿수가 내내 굴러 깨져 보였고, 1.5s 고정은 등장하자마자
     //   목표치에 붙어 '이미 다 한 것'으로 읽혔다. 정수 스텝 + 바뀔 때마다 팝 —
@@ -713,7 +717,7 @@ export class WallGL {
     const yPop = kf(clamp01((t - this._youT) / .5), [[0, 1.6], [1, 1]], eOut);   // 1.32→1.6 — 팡과 한 몸으로 튀게(유저)
     ctx.save();
     ctx.translate(2500, 1248); ctx.scale(yPop, yPop); ctx.translate(-2500, -1248);
-    num(2500, 'right', yVal, .76, .35);   // 등장 롤은 짧게 — 이후 회차는 스냅 + 팝
+    num(2500, 'right', yVal, S.beats ? 0 : .76, S.beats ? .01 : .35);   // 실전은 스냅 · 학습만 짧은 등장 롤
     ctx.restore();
     const ue = eOut(intro(t, .58, .6));
     ctx.save();
