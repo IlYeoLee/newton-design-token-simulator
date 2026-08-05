@@ -1940,12 +1940,18 @@ export class FloorGL {
     //   서고, 관찰이 끝나면 그게 **가로 알약 헤더로 줄어들며 올라간다**. 링은 형태를 안 바꾸고
     //   왼쪽 슬롯으로 옮겨 앉는다(관찰 3·2·1 → 따라하기 남은 시간, 같은 컴포넌트).
     const ctx = this.ctx, t = this.t;
-    const dur = this.params?.dur || 8, PV = this.params?.pv || 3, MOVE = .9;
-    const mo = eOut(clamp01((t - PV) / MOVE));
+    // ★ 프리뷰가 **없는** 스테이지가 있다(유저: 넥앤숄더는 프리뷰 없이 바로 따라하기).
+    //   판정은 buildScene 과 같은 규약을 쓴다 — hasPrev 목록에 없으면 관찰 구간 자체가 없으므로
+    //   처음부터 가로 알약 헤더로 선다(원형 캡슐을 띄웠다 지우면 없는 단계를 만든 셈이 된다).
+    const HAS_PREV = /^(A2|A3|BK_A[23]|BK_B[12345])$/.test(this.stage || '');
+    const dur = this.params?.dur || 8, PV = HAS_PREV ? (this.params?.pv || 3) : 0, MOVE = .9;
+    const mo = HAS_PREV ? eOut(clamp01((t - PV) / MOVE)) : 1;
     const title = Array.isArray(cfg.title) ? cfg.title.join(' ') : String(cfg.title || '');
     const L = (p, q) => p + (q - p) * mo;
-    // 지오메트리 — 원형(980×1080 @y300) → 가로 알약(840×250 @y176)
-    const w = L(980, 840), h = L(1080, 250), x = CX - w / 2, y = L(300, 176);
+    // 지오메트리 — 원형(760×820) → 가로 알약(840×250). **y 는 176 고정**: 위를 붙박아 두면
+    //   아래로만 접히므로 코치 판(지면 중앙에 서는 3D 인물)과 안 겹친다.
+    //   전엔 y300·h1080 이라 캡슐이 화면 중앙까지 내려와 인물 몸통을 덮었다(유저 스샷).
+    const w = L(760, 840), h = L(820, 250), x = CX - w / 2, y = 176;
     const r = Math.min(w, h) / 2;
     const path = () => { ctx.beginPath(); ctx.roundRect(x, y, w, h, r); };
     ctx.save(); ctx.globalAlpha *= eOut(intro(t, .05, .7));
@@ -1972,7 +1978,7 @@ export class FloorGL {
     const rx = L(CX, x + 60 + RR), ry2 = L(y + h * .72, y + h / 2);
     const rem = mo < .5 ? Math.max(1, Math.ceil(PV - t)) : Math.max(0, Math.ceil(dur - t));
     if (String(rem) !== this._numLast2) { this._numLast2 = String(rem); this._numT2 = t; }
-    countRing(ctx, rx, ry2, mo < .5 ? clamp01(1 - t / PV) : clamp01(1 - (t - PV) / (dur - PV)),
+    countRing(ctx, rx, ry2, mo < .5 ? clamp01(1 - t / PV) : clamp01(1 - (t - PV) / Math.max(.1, dur - PV)),
       String(rem), { t: 99, k: RR / 275, pulse: clamp01((t - (this._numT2 || 0)) / 0.5),
                      ring: { trackW: 11, arcW: 11, trackA: .26 } });
     // PREVIEW 라벨 · 동작명 — 순차 크로스페이드(옛 것이 먼저 빠지고 새 것이 든다)
@@ -2006,7 +2012,7 @@ export class FloorGL {
     if (mo > .5) {
       ctx.save(); ctx.globalAlpha *= (mo - .5) / .5;
       const ay = 530, wA = Math.min(1048, safeW(ay) - 48);
-      arcGauge(ctx, CX - wA / 2, ay, wA, clamp01((t - PV) / (dur - PV)), { dotK: 0.6 });
+      arcGauge(ctx, CX - wA / 2, ay, wA, clamp01((t - PV) / Math.max(.1, dur - PV)), { dotK: 0.6 });
       ctx.restore();
     }
   }
