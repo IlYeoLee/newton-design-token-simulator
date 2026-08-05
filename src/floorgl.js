@@ -1675,8 +1675,12 @@ export class FloorGL {
     //   알약이 내용보다 넓어졌고, 남는 폭이 한쪽에 쌓여 가운데가 안 맞아 보였다(유저 스샷).
     const w = this._smoothW(Math.min(safeW(y) - TOK.safePad, inner + PAD * 2));
     const x = CX - w / 2, x0 = x + (w - inner) / 2;
-    // 높이도 HUG — 링이 있으면 링 지름, 없으면 활자 높이가 기준이 된다.
-    const h = Math.round(Math.max(RR * 2 * ringK, fs) + PAD * 2);
+    // ★ **HUG 는 폭에만.** 높이는 상수다.
+    //   높이까지 내용에서 뽑았더니 링 유무로 85px 이 튀어 같은 알약이 장면마다 납작해졌다
+    //   (유저 08-06). 실측: 링 있음 355 · 없음 270.
+    //   버튼·알약류는 원래 '높이 고정 + 폭 hug' 다 — 높이가 흔들리면 한 컴포넌트로 안 읽힌다.
+    //   기준은 **링이 들어갈 수 있는 높이**(TOK.ring) — 링이 실제로 그려지는지와 무관하다.
+    const h = Math.round((TOK.ring * 2 + TOK.pad * 2) * K2);
     this._hbSig = _sig;
     return (this._hbVal = { w, h, x, x0, inner, ringW, RR, PAD, gapT, fs, ringK, K2, H2 });
   }
