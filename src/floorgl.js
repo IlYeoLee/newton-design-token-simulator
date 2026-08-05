@@ -1335,19 +1335,19 @@ export class FloorGL {
     ctx.fillStyle = 'rgba(255,255,255,.8)'; ctx.font = RF(400, 64); ctx.letterSpacing = '-2.56px';
     ctx.fillText(R2.sub, 800.5, 971);
     ctx.restore();
-    if (p2 < 0.99) {
-      ctx.save(); ctx.globalAlpha *= e0(.85) * (1 - p2);
+    // ★ 순서 반전(유저 08-05): 페이즈1 = 팩 이름 + **사람 형체**, 페이즈2(2초 뒤) = **몇 분인지**.
+    //   전엔 도트 숫자가 먼저 뜨고 인물이 그 자리를 밀어냈다 — 첫 화면이 '무슨 팩인지'를 못 보여줬다.
+    //   인물은 main.js COACH_CFG.READY 판이 캡슐 뒤에 선다(캔버스엔 안 그린다) — 페이드아웃도 거기서.
+    if (p2 > 0.01) {
+      ctx.save(); ctx.globalAlpha *= p2;
       // 도트 카운팅 촤라락 — 복싱과 같은 rollNum 정본 (자릿수 롤)
-      rollNum(ctx, R2.total, t, .85, .9, 800, 1277, 384, { fam: dot9, align: 'center', fill: NEU.ink });
+      rollNum(ctx, R2.total, t, TP2, .9, 800, 1277, 384, { fam: dot9, align: 'center', fill: NEU.ink });
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.fillStyle = NEU.ink; ctx.font = RF(700, 64); ctx.letterSpacing = '-1.51px';
-      ctx.globalAlpha *= e0(1.0) > 0 ? 1 : 0;
       ctx.fillText('min', 1085, 1135);   // 숫자 우상단(피그마 개선안)
       ctx.letterSpacing = '0px';
       ctx.restore();
     }
-    // 페이즈2 실루엣 = 3D 코치 데모판 정본(COACH_CFG.READY, main.js)이 UI 캡슐 뒤에 선다 —
-    //   캔버스에는 아무것도 안 그린다(UI 는 투명 레이어, 유저).
     // ── ④ 비례 세그먼트 아크 차트 — 데이터 파생형(r=999 캡슐 아크 언어).
     //   반원 하단 정렬: 배지 중심각(A0)과 마지막 세그먼트 끝각(A1)이 270° 대칭 — 양끝이 같은
     //   기준선에 앉는다. 등장 = 왼쪽(배지)에서 오른쪽으로 호를 따라 차오르는 스윕 + 아이콘 팝 +
@@ -1493,91 +1493,84 @@ export class FloorGL {
       ctx.letterSpacing = '0px';
       ctx.restore();
     }
-    // ── ⑤ 사이드 포드 — 피그마 애니메이션 정본(유저 #86→#87):
-    //    페이즈1 = **세로로 긴 알약**(글라스+이너 섀도우), 아이콘 위 · 충전 % 아래(숫자 크게 + % 작게)
-    //    페이즈2 = 알약이 **원으로 줄어들며** 링 게이지 + 끝점 도트가 생기고, % 는 사라진다.
-    //              이어폰 포드는 같은 순간 코치 사진으로 바뀐다(연결됨).
+    // ── ⑤ 우측 상태 패널 — 피그마 348:6869 정본(유저 08-05).
+    //    좌우로 흩어놓지 않고 **오른쪽에 세로로 몬다** — 위=사람 연결, 아래=배터리 충전.
+    //    피그마 실측: x1350, y793 / y1044, 220×220, 보더 6px, 이너 글로우 inset 0 0 54 흰 55%,
+    //    상태점 22px 우하단(48°). 캡슐 오른끝 1309 에서 41px 떨어져 패널로 읽힌다.
     {
-      const RP = 109, PW = 226, PH = 392;   // 원 반지름 / 알약 폭·높이(피그마 비율 1.73)
-      // 세 컨테이너(포드–캡슐–포드)는 **같은 간격**으로 떨어져야 한다(유저 #114).
-      //   하드코딩 cx(205/1395)는 캡슐(291..1309)을 27px 씩 파고들어 붙어 보였다 →
-      //   캡슐 좌우 끝에서 GAP 만큼 밀어 유도한다. GAP 45 기준 포드 바깥끝 20/1580 = 캔버스 안.
-      const GAP = 45, CAP_X0 = 291, CAP_X1 = 291 + 1018;
+      const PX = 1350, PS = 220, PR = PS / 2, PCX = PX + PR;
       const PODS = [
-        { cx: CAP_X0 - GAP - PW / 2, cy: 1150, icon: 'glasses', pct: 85, d: .95 },
-        { cx: CAP_X1 + GAP + PW / 2, cy: 1150, icon: 'earbuds', pct: 85, d: 1.05, coach: true },
+        { y: 793,  icon: 'earbuds', coach: true, d: .95 },   // 사람 연결 — 연결되면 코치 사진
+        { y: 1044, icon: 'glasses', pct: 85,     d: 1.05 },  // 배터리 충전 — 림이 곧 게이지
       ];
+      // 다이얼 = 빈 각(-135°, 10시)에서 시작해 만충 각(80°)까지. 85% 가 피그마 상태점(48°)에 앉는다.
+      const DA0 = -135, DA1 = 80;
+      const DOT_A = 48;   // 연결 상태점 각도(피그마)
       PODS.forEach(P => {
         const e = e0(P.d, .7);
-        // 등장 = 알약이 **길어지며** 나타난다(유저) — 세로만 자란다.
-        const grow = kf(e, [[0, .35], [.65, 1.04], [1, 1]]);
         if (e <= 0.002) return;
-        // 0 = 알약(긴 것) · 1 = 원(작은 것). 순서 반전(유저 08-05) — 전엔 긴 알약이 먼저 뜨고
-        //   원으로 쪼그라들었다. 작은 원으로 등장 → 최종적으로 긴 알약(배터리 %)이 남는다.
-        const m = 1 - p2;
-        const w = PW - (PW - RP * 2) * m;
-        const h = (PH - (PH - RP * 2) * m) * grow;
-        const rr = Math.min(w, h) / 2;
+        const cy = P.y + PR, RR = PR - 3;
         ctx.save(); ctx.globalAlpha *= Math.min(1, e * 1.6);
-        const x0 = P.cx - w / 2, y0 = P.cy - h / 2;
-        const path = () => { ctx.beginPath(); ctx.roundRect(x0, y0, w, h, rr); };
-        // 글라스 + 이너 섀도우 — 두 단계 공통
+        const k = .9 + .1 * e;   // 살짝 커지며 등장
+        ctx.translate(PCX, cy); ctx.scale(k, k); ctx.translate(-PCX, -cy);
+        const path = () => { ctx.beginPath(); ctx.arc(PCX, cy, RR, 0, Math.PI * 2); };
+        // 유리판 + 이너 글로우
         ctx.save(); path(); ctx.clip();
-        ctx.filter = 'blur(12px)';
-        ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.lineWidth = 24;
+        ctx.fillStyle = 'rgba(255,255,255,.01)'; ctx.fill();
+        ctx.filter = 'blur(27px)';
+        ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = 54;
         path(); ctx.stroke();
         ctx.filter = 'none'; ctx.restore();
-        const coachA = P.coach ? m : 0;   // 코치 얼굴 = 원(작은) 단계에만 — 알약이 되면 %가 자리를 받는다
-        // 아이콘 — 알약에선 위쪽, 원에선 가운데(모프에 따라 이동)
-        const iy = y0 + h * (0.30 + 0.20 * m);
-        if (P.coach && coachA > 0.01) {
+        // 림 — 좌하단으로 잦아드는 유리 그라디언트(피그마 렌더 그대로)
+        const rg = ctx.createLinearGradient(PCX - PR, cy + PR, PCX + PR, cy - PR);
+        rg.addColorStop(0, 'rgba(255,255,255,.16)');
+        rg.addColorStop(.45, 'rgba(255,255,255,.5)');
+        rg.addColorStop(1, 'rgba(255,255,255,.95)');
+        ctx.strokeStyle = rg; ctx.lineWidth = 6; path(); ctx.stroke();
+        // ── 배터리: 림 위에 더 두꺼운 게이지를 덮는다 — '테두리가 충전만큼 켜진다'.
+        //   얇은 링은 충전 상태가 안 보였다(유저) → 10px 단선 한 겹.
+        if (P.pct != null) {
+          const gp = eOut(intro(t, P.d + .25, .8));
+          const a0 = DA0 * RAD, a1 = (DA0 + (DA1 - DA0) * (P.pct / 100) * gp) * RAD;
+          ctx.save();
+          ctx.strokeStyle = NEU.ink; ctx.lineWidth = 10; ctx.lineCap = 'round';
+          ctx.shadowColor = 'rgba(255,255,255,.8)'; ctx.shadowBlur = 20;
+          ctx.beginPath(); ctx.arc(PCX, cy, RR, a0, a1); ctx.stroke();
+          ctx.shadowBlur = 0; ctx.fillStyle = NEU.ink;
+          ctx.beginPath(); ctx.arc(PCX + Math.cos(a1) * RR, cy + Math.sin(a1) * RR, 11, 0, Math.PI * 2);
+          ctx.fill(); ctx.restore();
+        } else {
+          // ── 사람 연결: 연결되면(페이즈2) 상태점이 켜진다 — 그전엔 은은한 대기.
+          const on = .35 + .65 * p2;
+          ctx.save();
+          ctx.fillStyle = `rgba(255,255,255,${on})`;
+          ctx.shadowColor = 'rgba(255,255,255,.8)'; ctx.shadowBlur = 20 * p2;
+          ctx.beginPath();
+          ctx.arc(PCX + Math.cos(DOT_A * RAD) * RR, cy + Math.sin(DOT_A * RAD) * RR, 11, 0, Math.PI * 2);
+          ctx.fill(); ctx.restore();
+        }
+        // 아이콘 / 코치 사진 — 연결 포드는 페이즈2 에 이어폰 → 코치 얼굴로 넘어간다(연결됨).
+        const coachA = P.coach ? p2 : 0;
+        if (coachA > 0.01) {
           const pk = this._img('photos/creator-profile-sean.png');
           ctx.save(); ctx.globalAlpha *= coachA;
-          ctx.beginPath(); ctx.arc(P.cx, P.cy, RP - 8, 0, Math.PI * 2); ctx.clip();
+          ctx.beginPath(); ctx.arc(PCX, cy, PR - 20, 0, Math.PI * 2); ctx.clip();
           if (pk) {
-            const sc = Math.max((RP - 8) * 2 / pk.naturalWidth, (RP - 8) * 2 / pk.naturalHeight);
-            ctx.drawImage(pk, P.cx - pk.naturalWidth * sc / 2, P.cy - pk.naturalHeight * sc / 2,
+            const sc = Math.max((PR - 20) * 2 / pk.naturalWidth, (PR - 20) * 2 / pk.naturalHeight);
+            ctx.drawImage(pk, PCX - pk.naturalWidth * sc / 2, cy - pk.naturalHeight * sc / 2,
                           pk.naturalWidth * sc, pk.naturalHeight * sc);
           }
           ctx.restore();
         }
-        if (!(P.coach && coachA > 0.99)) {
-          ctx.save(); ctx.globalAlpha *= P.coach ? (1 - coachA) : 1;
+        if (coachA < 0.99) {
+          ctx.save(); ctx.globalAlpha *= 1 - coachA;
           if (P.icon === 'glasses') {
             const gl2 = img('ic-glasses.png');
-            if (gl2) ctx.drawImage(gl2, P.cx - 72, iy - 48, 144, 96);
+            if (gl2) ctx.drawImage(gl2, PCX - 72, cy - 48, 144, 96);
           } else {
             const eb = this._tinted2('fig/ready2/ic-earbuds.png', 132, 114, () => '#fff');
-            if (eb) ctx.drawImage(eb, P.cx - 66, iy - 57, 132, 114);
+            if (eb) ctx.drawImage(eb, PCX - 66, cy - 57, 132, 114);
           }
-          ctx.restore();
-        }
-        // 충전 % — 알약 아래쪽(숫자 크게 + % 작게). 원으로 줄면 사라진다.
-        if (m < 0.985) {
-          ctx.save(); ctx.globalAlpha *= (1 - m);
-          ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-          ctx.fillStyle = NEU.ink; ctx.font = RF(400, 68); ctx.letterSpacing = '-2px';
-          const ty = y0 + h * 0.74;
-          const nw = ctx.measureText(String(P.pct)).width;
-          ctx.font = RF(400, 40);
-          const sw = ctx.measureText('%').width;
-          const cx0 = P.cx - (nw + sw) / 2;
-          ctx.textAlign = 'left';
-          ctx.font = RF(400, 68); ctx.fillText(String(P.pct), cx0, ty);
-          ctx.font = RF(400, 40); ctx.fillStyle = 'rgba(255,255,255,.85)';
-          ctx.fillText('%', cx0 + nw + 4, ty + 10);
-          ctx.letterSpacing = '0px'; ctx.restore();
-        }
-        // 링 게이지 + 끝점 도트 — 원 단계에서만(피그마 #87)
-        if (m > 0.015) {
-          ctx.save(); ctx.globalAlpha *= m;
-          const a0 = -90 * RAD, a1 = a0 + (P.pct / 100) * Math.PI * 2;
-          ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = 11; ctx.lineCap = 'round';
-          ctx.beginPath(); ctx.arc(P.cx, P.cy, RP + 7, a0, a1); ctx.stroke();
-          ctx.fillStyle = NEU.ink;
-          ctx.beginPath();
-          ctx.arc(P.cx + Math.cos(a1) * (RP + 7), P.cy + Math.sin(a1) * (RP + 7), 13, 0, Math.PI * 2);
-          ctx.fill();
           ctx.restore();
         }
         ctx.restore();
@@ -1591,9 +1584,11 @@ export class FloorGL {
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.fillStyle = NEU.ink; ctx.font = RF(700, 74); ctx.letterSpacing = '-5.76px';
       // 캡슐 '안' 하단 글로우 위(유저 #92) — 밖으로 내보내면 대지 밖으로 새고 위계도 끊긴다.
-      ctx.fillText('Tap Twice', 800.15, 1556);
+      //   도트 숫자가 페이즈2 로 옮겨오면서 CTA 와 겹쳤다(유저 #116) → 숫자 상자 아래로 내린다.
+      //   숫자 = y1277 + size*0.92(rollNum 클립창) = 1630 이 바닥. 캡슐 바닥은 1876.
+      ctx.fillText('Tap Twice', 800.15, 1676);
       ctx.fillStyle = 'rgba(255,255,255,.86)'; ctx.font = RF(400, 54); ctx.letterSpacing = '-1.8px';
-      ctx.fillText('To start', 800.15, 1652);   // 글로우 코어 위로(유저 #103: 아래 글자 잘림) + 대비 상향
+      ctx.fillText('To start', 800.15, 1762);
       ctx.letterSpacing = '0px'; ctx.restore();
     }
     ctx.restore();   // /콘텐츠 스케일

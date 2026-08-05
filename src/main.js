@@ -2763,7 +2763,9 @@ void main(){
     //   따라하기 화면에도 같은 실루엣이 축소되어 남아야 한다(피그마 143:444) — 예외로 계속 켠다.
     const activeId = COACH_IDS.find(id => id === st
       && !(/^(A2|A3|BK_A2|BK_A3|BK_B1)$/.test(id) && session._followLatch)
-      && !(/READY$/.test(id) && session.t < 2.1)) || null;   // READY 실루엣 = 등장 직후 바로(유저: 쉬지 말고)
+      // ★ READY 실루엣은 **첫 화면**이다(유저 08-05) — 팩 이름 + 사람 형체로 시작하고,
+      //   2초 뒤 도트 '30 min' 이 그 자리를 받는다(구: 숫자 먼저 → 인물). 2.8s = p2 완주 시점.
+      && !(/READY$/.test(id) && session.t > 2.85)) || null;
     for (const id of COACH_IDS) {
       const c = _coaches[id];
       if (id === activeId) {
@@ -2842,9 +2844,12 @@ void main(){
         // 영상 실제 프레임이 들어오기 전엔 숨김 — 검은/균일 텍스처가 크로마키 통과 못 해
         // 빨간 방사형 사각형으로 0.x초 깜빡이던 것 방지(유저). readyState≥3(HAVE_FUTURE_DATA)+재생 시작 후.
         // 루프 순간 currentTime이 0으로 되감겨 매 루프 1~2프레임 숨김 → 깜빡임(유저). 첫 표시 후 래치.
-        co.mat.uniforms.uReady.value = (co._frozen ? (co.fz.width > 2 ? 1 : 0)
+        co.mat.uniforms.uReady.value = ((co._frozen ? (co.fz.width > 2 ? 1 : 0)
           : (co.video.readyState >= 2 && co.video.videoWidth > 0 && !co.video.seeking
-             && co.video.currentTime > 0.03 && frameHasImage(co))) ? 1 : 0;
+             && co.video.currentTime > 0.03 && frameHasImage(co))) ? 1 : 0)
+          // READY 는 페이즈2(도트 숫자 등장)에 맞춰 부드럽게 빠진다 — uReady 가 곧 알파 계수라
+          //   셰이더를 안 건드리고 페이드가 된다. 하드컷이면 사람이 툭 사라진다.
+          * (/READY$/.test(id) ? Math.max(0, Math.min(1, (2.8 - (session.t ?? 0)) / 0.7)) : 1);
         const coLive = co.video.readyState >= 3 && !co.video.seeking && co.video.currentTime > 0.03
                     && (id !== 'BK_A1' || _coachSeekId === id);   // 시크 전 프레임은 보여주지 않는다
         if (coLive) co._live = true;
