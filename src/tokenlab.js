@@ -65,7 +65,9 @@ const PROPOSED = { ember: 0, bgGlow: 0, collapse: 1, crumb: 0 };
 //  유저: "콘텐츠 영역보다 타이틀 영역에 과하게 눈이 간다" → 그 비율이 3배 가까이 내려간다.
 const COMPACT = {
   ...PROPOSED,
-  ring: 52, pad: 48, gapT: 44,
+  // 링은 이제 파생값 — 숫자(fsTimer)와 비례(ringRatio)로 정한다.
+  //   숫자는 1급이라 타이틀과 같은 72px 을 지키고, 링만 2.5 → 1.45 로 조인다.
+  fsTimer: 72, ringRatio: 1.45, pad: 48, gapT: 44,
   fsTitle: 72, fsTitlePv: 90, fsBadge: 48,
 };
 

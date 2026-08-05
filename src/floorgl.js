@@ -690,7 +690,12 @@ const TR = {
 export const TOK = {
   // ── 공간 (px, 대지 좌표)
   headY: 176,        // 헤더 알약 상단
-  ring: 130,         // 카운트 링 반지름 → 알약 높이 = ring*2 + pad*2
+  // ★ 링 안 숫자가 **정본**이고 링이 거기서 나온다. 예전엔 반대였다 —
+  //   `countRing` 이 숫자를 `220 × (RR/275) = 0.8 × RR` 로 파생시켜서, 링을 조이면 숫자가 같이
+  //   죽었다(유저: 압축안에서 저 안의 타이머가 읽히긴 하냐 → 42px = 0.32°, 1급 미달이었다).
+  //   숫자는 타이틀과 같은 1급이므로 시각도 기준(docs/FLOOR-LEGIBILITY.md)에서 직접 정한다.
+  fsTimer: 104,      // 링 안 숫자 (1급) — 이 값만 지키면 링 크기는 자유롭다
+  ringRatio: 1.45,   // 링 지름 ÷ 숫자 폰트. **지금까지 2.5 였다** = 링이 알약 높이의 67%를 먹은 이유
   pad: 64,           // 알약 안쪽 여백 (상하좌우 동일)
   gapT: 56,          // 슬롯 사이 간격
   gapHP: 96,         // 알약 ↔ 진행 아크
@@ -737,6 +742,12 @@ export const LAYOUT = {
   get CAPHEAD_H() { return TOK.ring * 2 + TOK.pad * 2; },
   get CONTENT_Y0() { return this.PROG_Y + TOK.progH + TOK.gapPC; },
 };
+// 링 반지름은 **파생값**이다 — 직접 적지 말 것. 숫자(fsTimer)와 비례(ringRatio)에서 나온다.
+//   enumerable:false — 갤러리의 `{...TOK}` / `Object.assign` 이 이 파생값을 복사·역주입하지 않게.
+Object.defineProperty(TOK, 'ring', {
+  enumerable: false,
+  get() { return Math.round(this.fsTimer * this.ringRatio / 2); },
+});
 export const CAPHEAD_RR = TOK.ring;   // 하위호환 — 새 코드는 TOK.ring 을 쓸 것
 /** 대지 y → **전방 거리(m)**. 3D 요소(코치 판·발마크)를 레이아웃 밴드에 맞출 때 쓴다.
  *  대지는 mid(y1335)가 boardFwd 에 놓이고 위로 갈수록 멀어진다 → fwd = boardFwd + (1335 - y)*sUni.
@@ -792,18 +803,41 @@ const READY_CAP = { x: 291, y: 285, w: 1018, h: 1541 };
 //     "크게 오래 봐야 하는 화면"이므로 그걸 가리는 UI 는 더 작아야 한다.
 //     0.80 에서도 타이틀 시각도 0.45° — ISO 권장(0.37°) 위, Legge 임계(0.20°)의 2.2배라 안전하다.
 //     ※ 옛 이름 'mini'(= 작은 영상 미리보기)는 **사실과 반대**여서 버렸다. 영상은 여기가 제일 크다.
+//   adv = **무엇이 이 장면을 끝내는가.** 이게 화면에 둘 진행 표시를 정한다.
+//     시간으로 안 끝나는 장면에 시계를 두면 거짓말이 된다(유저 08-06: "농구는 스텝을 다 따라하면
+//     넘어가는데 애초에 타이머 개념이 필요할까"). 맞다 — 필요 없다.
+//     근거는 지어낸 게 아니라 **session.js STAGES 에 이미 적혀 있다**. 아무도 안 읽고 있었을 뿐이다:
+//       BK_B1  cue:'낮은 자세 · 10회'            → 횟수
+//       BK_B2~5 dur 없음 · phases 없음 · 회수 없음 → 동작 완료로만 넘어간다
+//       BK_C2  dur:40 · cue:'정속 · 3회'          → 횟수(40s 는 상한)
+//       A1     voice:'링이 다 찰 때까지'           → 시간, 링이 정본
+//       A2     foot:'앞으로 딛고 버티기 · 발 교대'  → 한 발 홀드 반복
+//       P2·P3  phases 2구간(10/4 · 30/20)         → 구간 남은 초
+//
+//     adv → 진행 표시 규약 (**한 장면에 시간 표시는 하나**):
+//       time     아크 하나 (스테이지 진행). 링은 안 쓴다 — 같은 시계를 두 번 세게 된다
+//       segment  링 = 지금 구간 남은 초. 아크는 안 쓴다
+//       hold     링 = 그 홀드 남은 초 (발이 바뀌면 리셋)
+//       reps     n/N 카운터
+//       skill    **시간 표시 없음.** 단계 배지만
 const CAPS = {
-  A1:    { watch: 'video' },
-  A2:    { watch: 'floor', pv: true },              // 바닥 가이드 — 발자국이 콘텐츠, 영상은 보조
-  A3:    { watch: 'video', pv: true },
-  BK_A1: { watch: 'video' },
-  BK_A3: { watch: 'video', pv: true },              // ← 빠져 있었다
-  BK_B1: { watch: 'video', pv: true },              // ← 빠져 있었다
-  BK_B2: { watch: 'slow', step: '1/4', pv: true, uiK: 0.80 },   // 크게·느리게 본다 → UI 최소
-  BK_B3: { watch: 'slow', step: '2/4', pv: true, uiK: 0.80 },
-  BK_B4: { watch: 'slow', step: '3/4', pv: true, uiK: 0.80 },
-  BK_B5: { watch: 'slow', step: '4/4', pv: true, uiK: 0.80 },
+  A1:    { watch: 'video', adv: 'time' },
+  A2:    { watch: 'floor', adv: 'hold',  pv: true },   // 바닥 가이드 — 발자국이 콘텐츠, 영상은 보조
+  A3:    { watch: 'video', adv: 'time',  pv: true },
+  BK_A1: { watch: 'video', adv: 'time' },
+  BK_A3: { watch: 'video', adv: 'time',  pv: true },   // ← CAPS 에 빠져 있었다
+  BK_B1: { watch: 'video', adv: 'reps',  pv: true, reps: 10 },   // ← 같음 · cue '10회'
+  // 스텝백 4조각 — 동작을 해내면 넘어간다. 시간도 횟수도 아니다.
+  BK_B2: { watch: 'slow', adv: 'skill', step: '1/4', pv: true, uiK: 0.80 },
+  BK_B3: { watch: 'slow', adv: 'skill', step: '2/4', pv: true, uiK: 0.80 },
+  BK_B4: { watch: 'slow', adv: 'skill', step: '3/4', pv: true, uiK: 0.80 },
+  BK_B5: { watch: 'slow', adv: 'skill', step: '4/4', pv: true, uiK: 0.80 },
 };
+/** 이 장면이 **따라하기 구간에** 두는 시간 표시. 관찰(프리뷰) 카운트는 여기 해당 없음 —
+ *  그건 '영상이 몇 초 남았나'라는 다른 값이라 중복이 아니다. */
+const advOf = s => CAPS[s]?.adv || 'time';
+const showArc  = s => advOf(s) === 'time';                       // 아크 = time 에서만
+const showRing = s => ['segment', 'hold', 'reps'].includes(advOf(s));   // 링 = 셀 게 따로 있을 때만
 /** 관찰(프리뷰) 구간이 있는 스테이지인가 — 정본은 CAPS 한 곳뿐이다. */
 const hasPreview = s => !!CAPS[s]?.pv;
 const TM = { C1: { sub: 'Run 10 min · Final 1 km', title: 'Run with Sean' },
@@ -956,7 +990,10 @@ export function countRing(ctx, cx, cy, prog, txt, o = {}) {
   //     그래서 단위를 값의 일부로 붙인다. 링(카운트다운) 구간엔 안 붙는다 — 3·2·1 은 자명하다.
   //   알약 상태의 글자 크기는 호출자가 정한다(o.pillFs, 기본 68 = 정본 배지 규격).
   //   타이머가 주인공이어야 하는 화면에선 더 키운다(유저: 시간이 읽히기나 해?).
-  const fs2 = (220 - (220 - (o.pillFs ?? 68)) * mo) * K2;
+  // ★ 숫자 크기는 **호출자가 준다**(o.numFs). 안 주면 옛 규약(링에서 파생)으로 떨어진다.
+  //   링에서 파생시키면 링을 조일 때마다 숫자가 같이 죽는다 — 그게 정확히 있던 문제다.
+  const fsRing = o.numFs != null ? o.numFs : 220 * K2;
+  const fs2 = fsRing - (fsRing - (o.pillFs ?? 68) * K2) * mo;
   ctx.font = F(700, fs2, dot9);
   ctx.fillStyle = o.fill || '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   const uk = o.unit && mo > .55 ? (mo - .55) / .45 : 0;
@@ -1463,7 +1500,11 @@ export class FloorGL {
   }
 
   /** 헤더 알약 규격(구식) — _row 로 옮기는 중. 승인 전까지 기존 두 페인터가 이걸 계속 쓴다. */
-  _headBox(title, step, y = LAYOUT.HEAD.y) {
+  /** @param o.fs     타이틀 활자 크기 (프리뷰는 더 크다). 없으면 LAYOUT.TYPE.title
+   *  @param o.ringK  링 슬롯 점유 0~1. **0 이면 링 자리가 통째로 사라지고 알약이 그만큼 닫힌다.**
+   *    ★ 알약은 HUG 다(유저) — 내용이 상자를 정한다. 링이 빠지면 상자도 같이 줄어야 하고,
+   *      그 사이 값(0.4 같은)에서도 폭·높이가 연속이어야 '툭 사라지는' 인상이 안 생긴다. */
+  _headBox(title, step, y = LAYOUT.HEAD.y, o = {}) {
     const ctx = this.ctx, H2 = LAYOUT.HEAD;
     // uiK — 콘텐츠가 시선을 많이 요구하는 스테이지에서 UI 가 물러난다(CAPS 참고).
     //   ★ 알약 높이·활자·여백이 **한 배율로 같이** 줄어야 비례가 안 깨진다. 하나만 줄이면
@@ -1471,7 +1512,9 @@ export class FloorGL {
     const K2 = CAPS[this.stage]?.uiK ?? 1;
     const PAD = Math.round(H2.pad * K2), RR = Math.round(TOK.ring * K2);
     this._uiK = K2; this._headRR = RR; this._headPAD = PAD;
-    ctx.font = F(700, LAYOUT.TYPE.title * K2); ctx.letterSpacing = '-4px';
+    const fs = (o.fs ?? LAYOUT.TYPE.title) * K2;
+    const ringK = clamp01(o.ringK ?? 1);
+    ctx.font = F(700, fs); ctx.letterSpacing = '-4px';
     const tw = ctx.measureText(String(title || '')).width;
     ctx.letterSpacing = '0px';
     // 내용 폭(여백 제외) — 배치의 기준이 된다. 상자 폭과 **따로** 들고 다녀야 한다:
@@ -1479,13 +1522,16 @@ export class FloorGL {
     //   그때 내용을 x+PAD 에서 시작하면 남는 폭이 **전부 오른쪽에 쌓여** 왼쪽으로 쏠린다
     //   (유저 스샷: EASY RUN / STRIDES / INTERVALS 가 알약 왼쪽에 붙어 있었다).
     const gapT = Math.round(H2.gapT * K2);
-    const inner = RR * 2 + H2.gapU + gapT + tw + (step ? 110 * K2 : 0);
-    // ★ minW 도 배율을 탄다 — 안 그러면 축소 스테이지에서 바닥값이 이겨 알약만 안 줄어든다.
-    const w = this._smoothW(Math.max(H2.minW * K2, Math.min(safeW(y) - TOK.safePad, inner + PAD * 2)));
-    // 남는 폭은 **양쪽으로 균등 분배**한다 — 이러면 어떤 문구 길이에서도 가운데가 맞는다.
+    // 링 슬롯 = 링 지름 + 그 뒤 간격. ringK 로 **함께** 사라진다(간격만 남으면 빈 칸이 보인다).
+    const ringW = (RR * 2 + gapT) * ringK;
+    const inner = ringW + H2.gapU + tw + (step ? 110 * K2 : 0);
+    // ★ HUG — 상자는 내용에서 나온다. minW 바닥값은 **쓰지 않는다**: 그것 때문에 짧은 문구에서
+    //   알약이 내용보다 넓어졌고, 남는 폭이 한쪽에 쌓여 가운데가 안 맞아 보였다(유저 스샷).
+    const w = this._smoothW(Math.min(safeW(y) - TOK.safePad, inner + PAD * 2));
     const x = CX - w / 2, x0 = x + (w - inner) / 2;
-    const h = RR * 2 + PAD * 2;   // 높이도 같은 배율 (LAYOUT.CAPHEAD_H 의 K2 판)
-    return { w, h, x, x0, inner, RR, PAD, gapT, K2, H2 };
+    // 높이도 HUG — 링이 있으면 링 지름, 없으면 활자 높이가 기준이 된다.
+    const h = Math.round(Math.max(RR * 2 * ringK, fs) + PAD * 2);
+    return { w, h, x, x0, inner, ringW, RR, PAD, gapT, fs, ringK, K2, H2 };
   }
 
   /** 텍스트 슬롯 — 폭을 **실측**해서 들고 다닌다. 상자가 이 값에서 나오므로 넘칠 수 없다. */
@@ -1528,7 +1574,7 @@ export class FloorGL {
     const rem = inPv ? Math.max(1, Math.ceil(PV - this.t)) : Math.max(0, Math.ceil(dur - this.t));
     if (String(rem) !== this._numLast2) { this._numLast2 = String(rem); this._numT2 = this.t; }
     countRing(ctx, cxR, cyR, inPv ? clamp01(1 - this.t / PV) : clamp01(1 - (this.t - PV) / Math.max(.1, dur - PV)), String(rem),
-      { t: 99, k: RR / 275, pulse: clamp01((this.t - (this._numT2 || 0)) / 0.5),
+      { t: 99, k: RR / 275, numFs: TOK.fsTimer * K2, pulse: clamp01((this.t - (this._numT2 || 0)) / 0.5),
         ring: { trackW: 10, arcW: 10, trackA: .26 } });
     ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
@@ -2560,8 +2606,23 @@ export class FloorGL {
     //   **아래 끝을 끌어올리는 것**만이 구조적 해법이다: 하단 y1076 → 796(1.26m → 1.45m).
     // 헤더 규격은 _capHead 와 같은 식에서 파생 — 여백 균등(pad 44) · 폭은 내용에서(유저)
     // 알약 규격 = _capHead 와 **같은 함수**. 전엔 이 식이 여기 한 벌 더 있었고 RR 이 복사본이었다.
-    const { w: WHp, h: HHp, inner: INNER, RR: RRp, PAD, gapT: GT, K2, H2 } = this._headBox(title, cfg.step);
-    const w1 = L(900, WHp), h1 = L(740, HHp), y1 = H2.y;   // 여백 여유(유저) — 820×660 → 900×740
+    // ★ 알약은 **HUG** 다(유저: 왜 알약이 HUG 가 아니냐). 프리뷰 900×740 하드코딩을 걷어냈다 —
+    //   그 고정 상자가 '거대한 풍선'의 정체였고(가로세로 1.22:1 이 바닥에서 눌려 타원이 됐다),
+    //   내용이 바뀌어도 상자가 안 따라가니 여백이 제멋대로 남았다.
+    //   프리뷰와 따라하기의 차이는 이제 **활자 크기 하나**다(fsTitlePv → fsTitle).
+    //
+    // ★ 링은 **줄어들며** 사라진다(유저: 밑도끝도없이 사라지면 어떡하냐).
+    //   ringK 가 링 슬롯 점유(0~1)라서, 이 값이 내려가면 링이 흐려지는 동시에 **알약도 그만큼
+    //   닫힌다**. 상자와 내용이 같은 값을 보므로 중간 프레임에서 빈 칸이 안 생긴다.
+    //   fade 시작점 = 모프 완료(_moT + MOVE). 프리뷰가 없는 스테이지는 처음부터 0.
+    const ringFade = HAS_PREV
+      ? (this._moT == null ? 0 : eOut(clamp01((t - (this._moT + MOVE)) / 0.45)))
+      : 1;
+    const ringK = showRing(this.stage) ? 1 : 1 - ringFade;
+    const fsNow = TOK.fsTitlePv + (LAYOUT.TYPE.title - TOK.fsTitlePv) * moT;
+    const { w: WHp, h: HHp, inner: INNER, ringW: RINGW, RR: RRp, PAD, gapT: GT, K2, H2 }
+      = this._headBox(title, cfg.step, LAYOUT.HEAD.y, { fs: fsNow, ringK });
+    const w1 = WHp, h1 = HHp, y1 = H2.y;
     // ★ 진입 = **시작화면 캡슐이 줄어드는 것**(유저: 두 번 탭하면 같은 요소가 줄어들며 넘어간다).
     //   스테이지가 바뀔 때 캡슐을 새로 띄우면 '다른 물건이 나타난' 걸로 읽힌다. READY 캡슐
     //   지오메트리(x291 y285 w1018 h1491)에서 출발해 0.9s 동안 이 스테이지의 캡슐로 접힌다.
@@ -2574,11 +2635,11 @@ export class FloorGL {
     this._glassPill(x, y, w, h, r);
     ctx.restore();
     // 카운트 링 — 정본 countRing. 관찰: 캡슐 중앙 아래 / 따라하기: 헤더 왼쪽 슬롯. 형태는 안 바뀐다.
-    const RR = L(136, RRp);   // 프리뷰 링 112 → 136
-    // 내용 좌단 = 남는 폭을 양쪽에 균등 분배한 자리(_headBox.x0 과 같은 식). 여기서도 x+PAD 를
-    //   쓰면 알약이 내용보다 넓어지는 구간(_smoothW 지연·minW 바닥)에서 왼쪽으로 쏠린다.
+    // 링·타이틀은 이제 **한 줄(row)** 로만 앉는다 — 프리뷰의 세로 3단 쌓기를 폐기했다.
+    //   세로를 h*.74 / h*.40 / h*.15 분수로 잡던 게 "높이 바뀌면 정렬 다시"의 원인이었다.
+    const RR = RRp;
     const x0p = x + (w - INNER) / 2;
-    const rx = L(CX, x0p + RR), ry2 = L(y + h * .74, y + h / 2);
+    const rx = x0p + RR, ry2 = y + h / 2;
     // ★ 종아리 늘리기(A2)는 **한 발당** 홀드가 단위다(유저: 시간과 전체 길이가 같으면 어색하다).
     //   헤더 링 = 지금 딛고 있는 발의 남은 홀드 시간(발이 바뀌면 리셋) · 하단 아크 = 좌+우 합친
     //   세션 전체. 둘이 같은 값을 세면 "한 발 5초"라는 이 동작의 구조가 화면에서 사라진다.
@@ -2590,10 +2651,16 @@ export class FloorGL {
     const rem = perFoot ? Math.max(0, Math.ceil(hs * (1 - hp)))
       : (mo < .5 ? Math.max(1, Math.ceil(Math.max(PV, (this._moT ?? PV)) - t)) : Math.max(0, Math.ceil(dur - t)));
     if (String(rem) !== this._numLast2) { this._numLast2 = String(rem); this._numT2 = t; }
-    countRing(ctx, rx, ry2,
+    // ★ 링을 언제 그리나 — **관찰 중이면 항상**(그건 '영상 몇 초 남았나'라는 고유한 값이다).
+    //   따라하기로 넘어가면 `adv` 가 정한다:
+    //     time  아크가 이미 같은 시계를 센다 → 링을 빼야 중복이 사라진다
+    //     skill 시간 개념 자체가 없다(스텝을 해내면 넘어간다) → 아무 시계도 안 둔다
+    //     hold/segment/reps  셀 게 따로 있다 → 링이 그걸 센다
+    if (ringK > 0.004) countRing(ctx, rx, ry2,
       (() => { const base = mo < .5 ? clamp01(1 - t / PV) : clamp01(1 - (t - PV) / Math.max(.1, dur - PV));
                return perFoot ? base + ((1 - hp) - base) * pfK : base; })(),
-      String(rem), { t: 99, k: RR / 275, pulse: clamp01((t - (this._numT2 || 0)) / 0.5),
+      String(rem), { t: 99, k: RR / 275, numFs: TOK.fsTimer * K2, pulse: clamp01((t - (this._numT2 || 0)) / 0.5),
+                     alpha: ringK,   // 흐려지는 속도 = 알약이 닫히는 속도 (같은 값)
                      ring: { trackW: 11, arcW: 11, trackA: .26 } });
     // PREVIEW 라벨 · 동작명 — 순차 크로스페이드(옛 것이 먼저 빠지고 새 것이 든다)
     // ★ 전환 타이포 애니메이션(유저: 안 예쁘다) — 전엔 두 타이틀을 **제자리에서** 알파만 바꿔
@@ -2603,7 +2670,7 @@ export class FloorGL {
     //     ② 들어오는 글자는 남은 거리에서 **미끄러져 들어온다**
     //     ③ 알파는 quint 로 — 선형이면 중간이 텅 빈다
     const eQ = u => 1 - Math.pow(1 - clamp01(u), 4);
-    const dstX = rx + RR + H2.gapU + GT, dstY = ry2;
+    const dstX = x0p + RINGW + H2.gapU, dstY = ry2;   // 링 슬롯이 0 이면 타이틀이 좌단으로 붙는다
     // 프리뷰 2줄 분할 — 한 줄로 들어가면 나누지 않는다(아래 연속 이동의 전제).
     const ci2 = title.indexOf(', ');
     const ls = ci2 > 0 ? [title.slice(0, ci2 + 1), title.slice(ci2 + 2)]
@@ -2681,15 +2748,21 @@ export class FloorGL {
       ctx.restore();
     }
     ctx.restore();
-    // 진행 — 따라하기 구간에만, 헤더 바로 아래
-    if (mo > .5) {
+    // 진행 아크 — **adv 가 'time' 인 장면에만.**
+    //   전엔 모든 캡슐 스테이지가 아크를 그렸는데, 링이 세는 값과 **완전히 같은 시계**였다
+    //   (링 1−(t−PV)/(dur−PV) · 아크 (t−PV)/(dur−PV)). 같은 값을 두 번 말하고 있었다.
+    //   스텝백(skill)엔 아예 안 그린다 — 시간으로 끝나는 장면이 아니다(유저).
+    //   ※ 데이터에도 이미 있던 규칙이다: "스텝백 따라하기엔 도트바 없음 — 진행은 상단 n/4 담당".
+    if (mo > .5 && showArc(this.stage)) {
       ctx.save(); ctx.globalAlpha *= (mo - .5) / .5;
       // ★ 벽(복싱)과 **같은 컴포넌트를 통째로, 배율만 줄여** 쓴다(유저).
       //   전엔 폭을 대지의 65%(1048)까지 늘려 놓고 마커만 dotK 0.6 으로 깎았다 — 아크는 크고
       //   점은 작은 비균일 스케일이라 복싱의 비례가 깨졌다. 폭을 640 으로 줄이면 s 가 같은 비율로
       //   작아져 마커도 알아서 그 크기가 된다(= dotK 불필요). 높이도 gaugeH(640) 로 함께 줄어
       //   헤더 알약을 아크가 가로지르지 않는다.
-      const ay = LAYOUT.PROG_Y, wA = Math.min(LAYOUT.PROG.wMax, safeW(ay) - 48);
+      // ★ 알약이 HUG 라 높이가 장면마다 다르다 — 아크 y 를 고정값(LAYOUT.PROG_Y)으로 두면
+      //   알약을 파고들거나 멀어진다. **실제 알약 바닥**에서 간격을 띄운다.
+      const ay = y + h + TOK.gapHP, wA = Math.min(LAYOUT.PROG.wMax, safeW(ay) - TOK.safePad);
       arcGauge(ctx, CX - wA / 2, ay, wA, clamp01((t - PV) / Math.max(.1, dur - PV)));
       ctx.restore();
     }
