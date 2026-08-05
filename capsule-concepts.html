@@ -280,6 +280,86 @@ function redoB(g, t) {
   footMarks(g, cx, 1960, 1.15, t);
   arcGauge(g, cx - 460, 2200, 920, (t % 8) / 8);
 }
+// ── C · R/D 감도 (유저 레퍼런스) ────────────────────────────────────────────
+//   레퍼런스에서 실제로 '감도'를 만드는 건 재질이 아니라 **네 가지 형태 규약**이다.
+//   우리 재질(유리 림 + 엠버)은 이미 같은 계열 — 아래 넷만 없다.
+//   ① 스타디움(r=w/2)이 아니라 **스퀘어클(초타원 n≈4.3)**. 알약은 '버튼'으로,
+//      스퀘어클은 '판/화면'으로 읽힌다. 지금 캡슐이 장난감처럼 보이는 최대 원인.
+//   ② 도트 폰트를 **작게** 쓴다. 우린 OffBit 을 300px 히어로로만 썼는데, 레퍼런스는
+//      06.26.23 · 12:00 같은 8~14px 메타 라인에 쓴다 — '계측기' 느낌이 여기서 나온다.
+//   ③ 하단 **알약 CTA + 원형 ⊕ 노드**(Book/Read/JOIN). 우리 'Tap Twice' 가 필요한 그 어포던스.
+//   ④ **페이지 도트** — 세트/차수 위치를 한 줄로.
+function sqPath(g, x, y, w, h, n = 4.3) {
+  const a = w / 2, b = h / 2, cx = x + a, cy = y + b, N = 128;
+  g.beginPath();
+  for (let i = 0; i <= N; i++) {
+    const th = i / N * Math.PI * 2, c = Math.cos(th), s = Math.sin(th), e = 2 / n;
+    const px = cx + a * Math.sign(c) * Math.abs(c) ** e;
+    const py = cy + b * Math.sign(s) * Math.abs(s) ** e;
+    i ? g.lineTo(px, py) : g.moveTo(px, py);
+  }
+  g.closePath();
+}
+// 스퀘어클 판 — capsule() 과 같은 재질, 지오메트리만 교체
+function sqPanel(g, x, y, w, h, n) {
+  const path = () => sqPath(g, x, y, w, h, n);
+  g.save(); path(); g.clip();
+  g.fillStyle = 'rgba(255,255,255,.055)'; g.fillRect(x, y, w, h);
+  g.filter = 'blur(37px)'; g.strokeStyle = 'rgba(255,255,255,.25)'; g.lineWidth = 80;
+  path(); g.stroke(); g.filter = 'none'; g.restore();
+  const rim = g.createLinearGradient(0, y, 0, y + h);
+  rim.addColorStop(0, 'rgba(255,255,255,.95)'); rim.addColorStop(.28, 'rgba(255,255,255,.28)');
+  rim.addColorStop(.55, 'rgba(255,255,255,.16)'); rim.addColorStop(.80, 'rgba(255,255,255,.05)');
+  rim.addColorStop(1, 'rgba(255,255,255,0)');
+  g.strokeStyle = rim; g.lineWidth = 2.5; path(); g.stroke();
+  return path;
+}
+// 도트 메타 라인 — 작게 쓸 때 계측기가 된다(레퍼런스의 06.26.23)
+const dotMeta = (g, tx, cx, y, s = 40, a = .62) => {
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillStyle = `rgba(255,255,255,${a})`; g.font = RF(400, s, DOT); g.letterSpacing = '6px';
+  g.fillText(tx, cx, y); g.letterSpacing = '0px';
+};
+// 알약 CTA + ⊕ 노드 — 레퍼런스의 Book/Read/JOIN 어포던스
+function ctaPill(g, cx, cy, label, k = 0) {
+  const w = 560, h = 148, x = cx - w / 2, y = cy - h / 2;
+  g.save();
+  g.beginPath(); g.roundRect(x, y, w, h, h / 2);
+  g.fillStyle = 'rgba(255,255,255,.10)'; g.fill();
+  g.strokeStyle = `rgba(255,255,255,${.30 + .35 * k})`; g.lineWidth = 2.5; g.stroke();
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillStyle = '#fff'; g.font = RF(500, 54); g.fillText(label, cx - 46, cy + 2);
+  const nx = cx + w / 2 - h / 2 - 12, nr = h / 2 - 26;
+  g.beginPath(); g.arc(nx, cy, nr, 0, 7);
+  g.fillStyle = `rgba(255,255,255,${.16 + .2 * k})`; g.fill();
+  g.strokeStyle = `rgba(255,255,255,${.5 + .4 * k})`; g.lineWidth = 2.5; g.stroke();
+  g.beginPath(); g.moveTo(nx - 22, cy); g.lineTo(nx + 22, cy);
+  g.moveTo(nx, cy - 22); g.lineTo(nx, cy + 22);
+  g.strokeStyle = '#fff'; g.lineWidth = 5; g.stroke();
+  g.restore();
+}
+const pageDots = (g, cx, y, n, i) => {
+  for (let k = 0; k < n; k++) {
+    g.beginPath(); g.arc(cx + (k - (n - 1) / 2) * 40, y, k === i ? 9 : 6, 0, 7);
+    g.fillStyle = `rgba(255,255,255,${k === i ? .92 : .30})`; g.fill();
+  }
+};
+function redoC(g, t) {
+  const cx = 800, w = 980, h = 1780, x0 = cx - w / 2, y0 = 230;
+  const e = eOut(intro(t, .06, .8));
+  const path = sqPanel(g, x0, y0, w, h);
+  g.save(); path(); g.clip(); ember(g, cx, y0 + h - 250, 440, .8); g.restore();
+  // 상단 메타 — 작은 도트 라인(계측기 톤). 타이틀보다 먼저 눈에 안 띄어야 한다.
+  dotMeta(g, '03.03 / 3', cx, y0 + 148, 38, .55);
+  capLabel(g, 'WARM UP', cx, y0 + 218, .40, 34);
+  titleBlock(g, ['High Knees'], cx, y0 + 360, 78);
+  coach(g, cx, y0 + 900, 900, e);
+  // 하단 — 페이지 도트 + 알약 CTA(⊕). 캡슐 안에서 끝난다.
+  pageDots(g, cx, y0 + h - 330, 4, 2);
+  const k = (Math.sin(t * 3.1) + 1) / 2;
+  ctaPill(g, cx, y0 + h - 190, 'Follow', k);
+  arcGauge(g, cx - 380, y0 + h + 150, 760, (t % 8) / 8);
+}
 const REDO = [
   ['현재 · A3 하이니 (실캡처)', 'shots/floorshot-a3.png', null,
    '<b>문제</b> ① 캡슐이 납작하다(h 250 — READY 는 1541) ② 층위가 타이틀+배지 2층뿐 ③ 화면 하단 2/3 가 빈다.'],
@@ -287,6 +367,8 @@ const REDO = [
    'READY 캡슐 비율(세로 1.4:1)을 그대로. <b>READY 의 "30 min" 자리를 남은 시간이 물려받는다</b> — 큰 도트 숫자가 화면의 주인공. 엠버·아크·캡션 층위도 READY 그대로 5층.'],
   ['리디자인 B · 헤더 + 지면 무대', null, redoB,
    '캡슐은 <b>정보만 들고 물러난다</b>(헤더 알약 + 수치 알약 2개 = READY 하단 상태 패널 문법). 남은 화면은 코치와 판정 마크가 쓴다 — 하단이 비지 않는다.'],
+  ['리디자인 C · R/D 감도 (레퍼런스 이식)', null, redoC,
+   '재질은 그대로 두고 <b>형태 규약 4개</b>만 바꾼 것: ① 알약(r=w/2) → <b>스퀘어클</b>(초타원 n 4.3) ② 도트 폰트를 <b>작게</b> 메타 라인으로(계측기 톤) ③ 하단 <b>알약 CTA + ⊕ 노드</b> ④ 페이지 도트. 레퍼런스의 회색 반투명 판만 우리 매체(가산 투사)에선 불가 — 어두운 값을 못 만든다.'],
 ];
 // ═══ 전환 인터랙션 — 프리뷰 A → 따라하기 A 를 한 타임라인으로(유저: 전환도 미리보기) ═══
 //   한 물체(캡슐)가 물러나며 작아지고, 그 자리를 사람과 지면 마크가 이어받는다.
