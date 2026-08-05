@@ -633,7 +633,18 @@ function drawFlow(g, t) {
     g.restore();
   }
   // ⑥ 아크 게이지 — 따라하기의 시계
-  if (post > 0.01) { g.save(); g.globalAlpha = post; arcGauge(g, cx - 500, 2150, 1000, clamp01((t - 2.6) / 2.8)); g.restore(); }
+  // ★ 아크는 '이 동작'이 아니라 **세션 전체** 진행이다(유저: 카드의 12초와 아크가 같은 값이었다).
+  //   전엔 clamp01((t-2.6)/2.8) — 따라하기 구간 길이에 그대로 물려 있어서 카드 숫자와 같은
+  //   12 초를 두 번 말했다. 범위를 세션으로 올리면 둘 다 자기 몫이 생긴다:
+  //   숫자 = 지금 이 동작 남은 시간 / 아크 = 오늘 세션에서 어디쯤인가. 0 에서 시작하지 않는
+  //   것만으로도 '같은 값이 아니다'가 한눈에 읽힌다.
+  if (post > 0.01) {
+    g.save(); g.globalAlpha = post;
+    const sess = .38 + .06 * clamp01((t - 2.6) / 2.8);               // 3/8 동작쯤 — 이 동작 몫만 조금 더 찬다
+    arcGauge(g, cx - 500, 2150, 1000, sess);
+    capLabel(g, 'SESSION 3 / 8', cx, 2320, .42, 34);   // 아크 곡선 아래로 — 2250 은 선과 겹쳤다
+    g.restore();
+  }
 }
 let FPLAY = true, FT = 0, FLAST = performance.now();
 let MODE = 'preview';
