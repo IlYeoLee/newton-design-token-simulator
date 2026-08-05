@@ -1289,7 +1289,7 @@ export class FloorGL {
     // 조판 기준 — 피그마 367:10132 정본: 캡슐 상단이 캔버스 51 에 앉는다(285-234).
     //   밴드 중심 자동정렬은 콘텐츠를 아래로 밀어 화면이 통째로 내려앉았다(유저 #111) → 폐기.
     //   SAFE 는 넘침 감시용 상수로만 쓴다.
-    ctx.translate(0, -234);
+    ctx.translate(0, -254);   // -234 → -254 — 최대 투사영역에 맞춰 20 더 위로(유저)
     if (CK !== 1) { ctx.translate(800, PV); ctx.scale(CK, CK); ctx.translate(-800, -PV); }
     // ── 페이즈 타임라인 — 등장(왼→오 촤라락) 완료 후 2초 뒤 페이즈2(실루엣·코치 프로필) ──
     const p2 = eOut(intro(t, TP2, .7));            // 인물 out ↔ 숫자 in
@@ -1307,7 +1307,7 @@ export class FloorGL {
     // ── ① 캡슐 대지 — x291 y285 w1018 h1591 r509, 흰 1px 보더 + 내부 화이트 글로우(74/40 25%) ──
     // ★ CUT — '30 min' 아래 빈 공간이 넓어 캡슐 하단을 잘라내고, 그만큼 하단 요소를 끌어올린다(유저).
     //   한 상수로 캡슐·글로우·상태패널·CTA 가 함께 움직인다(따로 만지면 반드시 어긋난다).
-    const CUT = 130;
+    const CUT = 50;   // 130 → 50 — 하단이 좁았다(유저), 캡슐 80 되돌림
     const CAP = { x: 291, y: 285, w: 1018, h: 1591 - CUT };
     const capPath = () => { ctx.beginPath(); ctx.roundRect(CAP.x, CAP.y, CAP.w, CAP.h, CAP.w / 2); };
     ctx.save(); ctx.globalAlpha *= e0(.05);
