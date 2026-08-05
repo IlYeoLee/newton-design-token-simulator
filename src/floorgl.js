@@ -1433,6 +1433,13 @@ export class FloorGL {
             ctx.strokeStyle = PAL.red;   // 중간 구간 = 단색 빨강 — 그라디언트는 본운동 하나만 쓴다
           }
           ctx.lineWidth = LWA; ctx.lineCap = 'round';
+          // ★ 링 밴드 마스크(유저) — 원뿔 그라디언트는 평면 전체를 칠하고 블룸까지 얹혀서
+          //   색이 스트로크 **바깥으로 번져** 호가 지저분해졌다. 반경 밴드(R±LWA/2)로 클립하면
+          //   둥근 캡(각도 방향)은 그대로 살고 **반경 방향 유출만** 잘린다 = 깔끔한 원형 띠.
+          ctx.beginPath();
+          ctx.arc(CXA, CYA, R + LWA / 2, 0, Math.PI * 2);
+          ctx.arc(CXA, CYA, R - LWA / 2, 0, Math.PI * 2, true);
+          ctx.clip('evenodd');
           ctx.beginPath(); ctx.arc(CXA, CYA, R, sA * RAD, end * RAD); ctx.stroke();
           ctx.restore();
         }

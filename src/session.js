@@ -154,10 +154,11 @@ class FootMark {
     const T = FootMark.READY_TAP.T, ph = tc % T;
     const bl = t0 => { const u = (ph - t0) / FootMark.READY_TAP.W; return (u >= 0 && u <= 1) ? Math.sin(u * Math.PI) : 0; };
     const b = Math.max(bl(FootMark.READY_TAP.P1), bl(FootMark.READY_TAP.P2));
-    // 무채(Locked) 기본 → 펄스 순간만 석세스 최종색. 형태·도트는 그대로.
-    this._U.uPhase.value = b > 0.35 ? 2 : 3;
+    // ★ 상태 전환 폐기(유저 08-05): 기본→석세스로 **색이 바뀌는** 깜빡임은 과했다.
+    //   상태는 Tap2 룩 그대로 고정하고 **투명도만** 은은하게 두 번 펄스한다.
+    this._U.uPhase.value = 3;
     this._U.uProg.value = 0;
-    this.op(0.72 + 0.28 * b);
+    this.op(0.42 + 0.48 * b);
   }   // 무채 대기(Locked) — READY 시작 전
   countdown(p) {
     if (p < 0) { this._U.uPhase.value = 0; this._U.uProg.value = 0; return; }          // 대기 = Preview 숨쉬기
@@ -1014,7 +1015,10 @@ export class Session {
     // 크기 200mm(유저) — 판정 발(240mm 정본)이 아니라 그래픽 어포던스라 축소 허용. s=200/240.
     // 피그마 353:7085/7096 = CTA 양옆, 캡슐 밖 아래(유저 #117). 프레임 실측 중심 (480,1855)/(1103,1855)
     //   → 대지 중심(캔버스 800,1335)에서 ±0.214m, 0.357m 앞. 크기 250mm(피그마 실루엣 실측).
-    this.readyFeet = [new FootMark('left').at(-0.214, -0.727, 250 / 240), new FootMark('right').at(0.214, -0.727, 250 / 240)];
+    // 피그마 342:3057 실측: 발자국 프레임 485×485 · 실루엣 172.84×352.42 → 242mm(스케일 ≈ 1.0),
+    //   중심 y 1821.5 = 대지 중심에서 0.334m 앞. 좌우는 피그마가 ±0.19m 지만, CTA 문구를 복싱과
+    //   한 벌로 바꾸며 'Tap your foot Twice'(558px)가 길어져 발과 겹친다 → ±0.272m 로 벌린다.
+    this.readyFeet = [new FootMark('left').at(-0.272, -0.750, 242 / 240), new FootMark('right').at(0.272, -0.750, 242 / 240)];
     this.readyFeet.forEach(f => { f.locked(); f.op(0.8); f.group.visible = false; this.root.add(f.group); });
     // G.READY 는 '시작 페이지 = 프레임 전담' 정책으로 main 이 끈다 — 발자국은 새 READY 의
     //   어포던스 정본이므로 root 소속으로 예외. 표시는 아래 업데이트 틱이 스테이지로 제어.
@@ -2084,9 +2088,16 @@ export class Session {
     else this.bobY = 0;
 
     if (id === 'READY' || id === 'T1') {
-      // READY 발자국 2개 — 다시 숨김(유저 08-05: 발 있는 쪽이 확실히 더 복잡하다).
-      //   좌표·크기(±0.214m·250mm)와 Tap2 룩은 그대로 둔다 — 켜기만 하면 피그마 353:7066 배치.
-      if (id === 'READY') this.readyFeet?.forEach(f => { f.group.visible = false; });
+      // READY 발자국 2개 — 피그마 342:3057 규격으로 복귀(유저 08-05). CTA 구간(4~8s)에만 뜬다:
+      //   0~4s 는 팩·인물·숫자가 말하는 시간이라 발이 있으면 그때가 복잡해진다.
+      if (id === 'READY') {
+        // ★ tapHint 는 정의만 되고 **아무도 안 불렀다**(유저 08-05: 룩이 안 먹는다) — 여기서 매 틱 돈다.
+        const tl = this.t % 8;
+        this.readyFeet?.forEach(f => {
+          f.group.visible = tl >= 4;
+          if (f.group.visible) f.tapHint(this.t);
+        });
+      }
       const tap = id === 'READY' ? this.tap : this.tap1; const k = 0.5 + 0.5 * Math.sin(this.t * 4);
       if (tap.userData._ctaPlane) {
         tap.userData._ctaPlane.material.opacity = 0.75 + 0.25 * k;   // 피그마 CTA 에셋 — 통째로 맥동
@@ -2348,7 +2359,11 @@ export class Session {
     else this.bobY = 0;
 
     if (id === 'BK_READY' || id === 'BK_T1') {
-      if (id === 'BK_READY') this.readyFeet?.forEach(f => { f.group.visible = false; });   // 러닝과 동일 — 숨김(유저)
+      // 러닝과 동일 규격·타이밍 — 시작화면은 종목 한 벌이다(유저 승인 08-05).
+      if (id === 'BK_READY') {
+        const tl = this.t % 8;
+        this.readyFeet?.forEach(f => { f.group.visible = tl >= 4; if (f.group.visible) f.tapHint(this.t); });
+      }
       const tap = id === 'BK_READY' ? this.bkTap : this.bkTap1; const k = 0.5 + 0.5 * Math.sin(this.t * 4);
       tap.children[0].material.opacity = 0.5 + 0.45 * k; tap.children[1].material.opacity = 0.5 + 0.45 * (1 - k);
       if (id === 'BK_T1' && this.t >= 4.5) { this.next(); return; }
