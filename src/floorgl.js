@@ -1424,7 +1424,12 @@ export class FloorGL {
       const capA = (LWA / 2) / R / RAD;
       const segStart = A0;   // 배지 폐기 — 스트레칭이 첫 세그먼트(유저)
       const segs = R2.arcs, totalV = segs.reduce((s2, x) => s2 + x.v, 0);
-      const avail = (A1 - segStart) - GAPA * (segs.length - 1);
+      // ★ 배분은 **시각 길이** 기준이다(유저: 8·10·30 인데 10 이 8 보다 안 길다).
+      //   중간 세그는 둥근 캡이 자기 각도 안으로 들어오지만(sA=s0+capA, eA=s1-capA),
+      //   차트 양끝단은 끝 정렬 규약 때문에 캡이 밖으로 삐져나온다 → 각도를 값에 비례해
+      //   나눠도 첫/마지막이 capA(≈10°)씩 더 길어 보인다. 실측: 8m 이 33.6°, 10m 이 29.6°
+      //   로 그려져 **작은 값이 더 길었다**. 그래서 양끝 두 세그의 몫에서 캡을 미리 뺀다.
+      const availV = (A1 - segStart) + 2 * capA - GAPA * (segs.length - 1);
       // ★ 전 세그 **한 벌 램프**(유저 08-05) — 구간마다 색을 달리하던 위계(흰/단색빨강/그라디언트)는
       //   폐기. 차트 **전체 각도**에 뉴턴 램프를 한 번 깔고, 각 세그먼트는 자기 구간 색을 집는다.
       //   그래서 끊긴 알약들이 하나의 연속된 열 램프로 읽힌다(구간마다 램프를 따로 돌리면 줄무늬가 된다).
@@ -1452,14 +1457,14 @@ export class FloorGL {
       ctx.save(); ctx.globalAlpha *= e0(.4, .5);
       let cur = segStart;
       segs.forEach((seg, si) => {
-        const da = seg.v / totalV * avail;
+        const isFirst = si === 0, isLast = si === segs.length - 1;
+        const da = seg.v / totalV * availV - (isFirst ? capA : 0) - (isLast ? capA : 0);
         const s0 = cur, s1 = cur + da, mid = (s0 + s1) / 2;
         cur = s1 + GAPA;
         // 아크 — 스윕이 지나간 만큼만(왼→오 차오름). 세그먼트 '사이'만 캡 인셋, 차트 양끝단은
         //   캡 중심이 끝각에 앉는다 — 마지막 캡 중심(A1)이 배지 중심(A0)의 미러 = 하단 정렬(유저 #64).
         // 차트 양끝단은 캡 인셋을 빼지 않는다 — 첫 캡 중심 = A0, 마지막 캡 중심 = A1 이라야
         //   두 끝이 정확히 같은 높이에 앉는다(유저 #93: 끝 높이 맞춰라, sin196°=sin344°).
-        const isFirst = seg === segs[0], isLast = seg === segs[segs.length - 1];
         const sA = isFirst ? s0 : s0 + capA, eA = isLast ? s1 : s1 - capA;
         const end = Math.min(eA, sweep);
         if (end > sA + 0.5) {
@@ -1529,8 +1534,13 @@ export class FloorGL {
           ctx.save();
           ctx.fillStyle = NEU.ink; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
           // 라벨 영역 = 아이콘 칩 구간을 제외한 나머지 호(겹침 방지, 유저) — 칩 반각 + 여유 2°
+          //   ★ 여백이 과해 10m 이 못 들어갔다(유저: '이 정도는 밖으로 빼지 말고 안에 넣자').
+          //     실측 — 글자 81px 인데 잡힌 자리가 17px. 원인 둘: ① 칩 뒤 여유 2° ② 끝쪽에서
+          //     capA(9.93°)를 통째로 뺀 것. 그런데 중간 세그의 **시각 끝**은 s1 이다(둥근 캡이
+          //     자기 각도 안으로 들어온다) — capA 를 뺄 이유가 없다. 마지막 세그는 캡이 밖으로
+          //     나가므로 s1 까지 그대로 쓴다. 이렇게 잡으면 10m 자리가 85px 가 되어 들어간다.
           const iconHalf = seg.icon ? 61 / R / RAD : 0;
-          const l0 = s0 + capA + (seg.icon ? iconHalf + 2 : 0), l1 = s1 - capA;
+          const l0 = s0 + capA + (seg.icon ? iconHalf + 0.5 : 0), l1 = isLast ? s1 : s1 - 1.0;
           const lmid = (l0 + l1) / 2;
           // 크기 통일(유저 08-05) — 세그먼트 길이에 따라 44→26 으로 줄이던 자동 축소 폐기.
           //   숫자는 LBL_FS 고정, 단위 m 만 작게. dy = 작은 m 을 숫자 베이스라인에 맞추는 보정.
@@ -1544,10 +1554,14 @@ export class FloorGL {
           const arcLen = (l1 - l0) * RAD * R;
           // 세그먼트가 짧아 호에 못 눕히면(스트레칭 5m) 아이콘 자리에 한 덩어리로 — 크기는 그대로(유저).
           if (totalW > arcLen) {
-            const ac = s0 + capA;
+            // ★ 호에 못 눕히는 짧은 세그(유저: 10m 에서 아이콘과 글자가 겹친다).
+            //   전엔 ac = s0 + capA — **아이콘과 정확히 같은 각**이라 무조건 겹쳤다.
+            //   (5m 는 chipText 라 라벨을 안 그려서 이 경로를 안 밟았고, 그래서 안 드러났다.)
+            //   각도로는 피할 자리가 없다 → 반경으로 뺀다: 링 바깥에 세그 중앙 정렬로 놓는다.
+            const ac = mid, RO = R + LWA / 2 + 52;
             const cp2 = Math.max(0, Math.min(1, (sweep - ac) / 10));
             if (cp2 > 0) {
-              const ce = eOut(cp2), pc2 = polar(ac, R + (1 - ce) * 16);
+              const ce = eOut(cp2), pc2 = polar(ac, RO + (1 - ce) * 16);
               ctx.save(); ctx.globalAlpha *= ce; ctx.textAlign = 'left';
               ctx.translate(pc2.x, pc2.y); ctx.rotate((ac + 90) * RAD);
               let x2 = -totalW / 2;
@@ -1583,7 +1597,9 @@ export class FloorGL {
     {
       // 간격(유저 #133): 개체 **사이는 좁게**(73.2→44) · 캡슐과의 **위아래는 넓게**(+40).
       const DD = 186, RD = DD / 2, GAPD = 44, CY = 1867.4 + 234 - CUT;
-      const EXP = eOut(intro(t, 1.2, .9));          // 이어폰 → 알약 확장 0~1
+      // 확장 → (CTA 전환) **되감기**: 알약이 다시 원으로 줄면서 동시에 페이드아웃(유저).
+      //   그냥 사라지면 늘어난 채로 뚝 끊긴다 — 들어온 길로 되돌아 나가야 부드럽다.
+      const EXP = eOut(intro(t, 1.2, .9)) * (1 - eOut(intro(t, TP3 - .55, .5)));
       const WE = DD + DD * EXP;                     // 이어폰 칸 폭 186 → 372
       const x0 = 800 - (DD + GAPD + WE) / 2;        // 늘어나도 중앙 유지
       const eB = e0(.35, .6) * (1 - eOut(intro(t, TP3 - .45, .45)));   // 원 두 개는 초반에 이미 서 있어야 한다
@@ -1591,7 +1607,7 @@ export class FloorGL {
         // ★ 충전량 다이얼 = **12시에서 시계방향**(유저) — 10시에서 시작하던 것은 게이지의
         //   출발점이 어디인지 안 읽혀 어색했다. 배터리는 시계처럼 위에서 출발해 한 바퀴가 만충.
         const DA0 = -90, DA1 = 270;
-        const glass = (pathFn, cx0, r0) => {
+        const glass = (pathFn, cx0, r0, rimK = 1) => {
           ctx.save(); pathFn(); ctx.clip();
           ctx.fillStyle = 'rgba(255,255,255,.01)'; ctx.fill();
           ctx.filter = 'blur(22px)';
@@ -1601,7 +1617,11 @@ export class FloorGL {
           rg.addColorStop(0, 'rgba(255,255,255,.16)');
           rg.addColorStop(.45, 'rgba(255,255,255,.5)');
           rg.addColorStop(1, 'rgba(255,255,255,.95)');
-          ctx.strokeStyle = rg; ctx.lineWidth = 5; pathFn(); ctx.stroke();
+          if (rimK > 0.01) {
+            ctx.save(); ctx.globalAlpha *= rimK;
+            ctx.strokeStyle = rg; ctx.lineWidth = 5; pathFn(); ctx.stroke();
+            ctx.restore();
+          }
         };
         // 배터리 다이얼 + 끝점 도트 — 림이 곧 충전량(피그마 상태점 = 게이지 끝)
         const dial = (cx, pct, d0) => {
@@ -1625,8 +1645,10 @@ export class FloorGL {
         { const gl2 = img('ic-glasses.png'); if (gl2) ctx.drawImage(gl2, gx - 55, CY - 37, 110, 74); }
         // ⓑ 이어폰 — 원 → 알약. 왼끝은 제자리, 오른쪽으로 자란다.
         const ex = x0 + DD + GAPD;
+        // 확장하며 **전체 컨테이너 아웃라인은 지운다**(유저) — 인물이 들어오면 테두리가 두 요소를
+        //   한 상자에 가두는 것처럼 보였다. 원일 땐 테두리가 있고, 늘어나면서 녹아 없어진다.
         glass(() => { ctx.beginPath(); ctx.roundRect(ex + 2.5, CY - RD + 2.5, WE - 5, DD - 5, RD); },
-              ex + WE / 2, RD);
+              ex + WE / 2, RD, 1 - EXP);
         dial(ex + RD, BATT.buds, 1.05);
         { const eb = this._tinted2('fig/ready2/ic-earbuds.png', 102, 88, () => '#fff');
           if (eb) ctx.drawImage(eb, ex + RD - 51, CY - 44, 102, 88); }
@@ -1658,11 +1680,12 @@ export class FloorGL {
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       // 하단 슬롯(피그마 367 의 원 두 개 자리)을 그대로 물려받는다 — 블록 중심 = 2061.
       //   빛 위로 올라와 대비가 낮아진 만큼 눈금 불투명도 .55 → .68.
-      ctx.fillStyle = 'rgba(255,255,255,.68)'; ctx.font = RF(400, 46); ctx.letterSpacing = '-1.2px';
+      // 타이틀 98 기준 위계(유저 08-05): 지시 74 · 눈금 38(= 지시의 0.5, 복싱 벽 32/64 와 같은 비).
+      ctx.fillStyle = 'rgba(255,255,255,.68)'; ctx.font = RF(400, 38); ctx.letterSpacing = '-1px';
       ctx.fillText('To start', 800.15, 2014 - CUT);
       // 바닥 버전 축약(유저) — 벽은 'Tap your foot Twice'(멀리서 읽는 안내), 지면은 발밑이라
       //   '무엇으로'가 자명하다. 짧아진 만큼 글자를 키워 한 덩어리로 읽힌다.
-      ctx.fillStyle = NEU.ink; ctx.font = RF(700, 92); ctx.letterSpacing = '-5.28px';
+      ctx.fillStyle = NEU.ink; ctx.font = RF(700, 74); ctx.letterSpacing = '-4.25px';
       ctx.fillText('Tap Twice', 800.15, 2102 - CUT);
       ctx.letterSpacing = '0px'; ctx.restore();
     }
