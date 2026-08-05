@@ -1607,11 +1607,30 @@ export class FloorGL {
     // ── ⑦ CTA — 페이즈2(인물 등장)와 함께. 문구·위계는 **복싱(벽)과 한 벌**(유저 08-05):
     //    작은 눈금 'To start' 위 → 큰 지시 'Tap your foot Twice' 아래. wallgl _paint_ready 와 동일.
     if (p2 > 0.01) {
-      ctx.save(); ctx.globalAlpha *= p2 * (.9 + .1 * tapB);
+      ctx.save(); ctx.globalAlpha *= p2;
+      // ★ 글자를 **빛 안**에 앉힌다(유저 선택 08-05). 캡슐 하단 글로우 에셋(②)은 캡슐 바닥에서
+      //   딱 끊겨 그 아래가 어두운 띠로 남았고, CTA 가 그 띠 위에 붕 떠 보였다. 캡슐 바닥과
+      //   겹치는 따뜻한 타원 빛을 한 겹 더 깔아 글로우가 CTA 까지 흘러내리게 한다.
+      //   타원 상단 1800 < 캡슐 바닥 1876 이라 이음매가 안 보인다.
+      {
+        const GY = 2010, GRX = 560, GRY = 210;
+        ctx.save();
+        ctx.globalAlpha *= .9 + .35 * tapB;   // 탭 박자에 이 빛도 같이 부푼다
+        ctx.translate(800, GY); ctx.scale(1, GRY / GRX);
+        const gg = ctx.createRadialGradient(0, 0, 0, 0, 0, GRX);
+        gg.addColorStop(0, 'rgba(255,236,214,.34)');
+        gg.addColorStop(.42, 'rgba(254,176,120,.20)');
+        gg.addColorStop(.75, 'rgba(254,110,60,.07)');
+        gg.addColorStop(1, 'rgba(254,110,60,0)');
+        ctx.fillStyle = gg;
+        ctx.beginPath(); ctx.arc(0, 0, GRX, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+      }
+      ctx.globalAlpha *= .9 + .1 * tapB;
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      // 캡슐 밖 아래(피그마 353:7107/7108) — 발자국이 빠지면서 붕 떠 보여 캡슐 바닥(1876) 쪽으로
-      //   40px 더 붙였다. 블록 = 1962(눈금) → 2042(지시).
-      ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.font = RF(400, 46); ctx.letterSpacing = '-1.2px';
+      // 캡슐 밖 아래(피그마 353:7107/7108) — 블록 = 1962(눈금) → 2042(지시).
+      //   빛 위로 올라와 대비가 낮아진 만큼 눈금 불투명도 .55 → .68.
+      ctx.fillStyle = 'rgba(255,255,255,.68)'; ctx.font = RF(400, 46); ctx.letterSpacing = '-1.2px';
       ctx.fillText('To start', 800.15, 1962);
       ctx.fillStyle = NEU.ink; ctx.font = RF(700, 74); ctx.letterSpacing = '-5.28px';
       ctx.fillText('Tap your foot Twice', 800.15, 2042);
