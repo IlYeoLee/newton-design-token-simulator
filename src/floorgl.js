@@ -1333,6 +1333,9 @@ export class FloorGL {
       ['glow-ell.svg', 150.3, 1189.3, 1300.36, 871.36, 'hard-light'],
     ];
     ctx.save(); ctx.globalAlpha *= e0(.15, 1.2) * (1 + .3 * tapB);   // 탭 박자에 하단 빛이 두 번 부푼다
+    // ★ 캡슐 마스크(유저) — 피그마 익스포트 4겹의 박스가 캡슐(x291~1309 · 하단 1876)보다 커서
+    //   빛이 림을 넘어 바닥까지 번졌다. 아크 그라디언트와 같은 규약으로 캡슐 안에 가둔다.
+    capPath(); ctx.clip();
     for (const [rel, gx, gy, gw, gh, blend] of GLOWS) {
       const im = img(rel);
       if (!im) continue;
