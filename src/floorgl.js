@@ -623,11 +623,14 @@ const READY = {
   // 팩 정본(유저 08-05 팩 상세): 크리에이터 Sean · 팩명 **Sean's Pace Strategy** · Creator Pack 18m
   //   프로세스 = STRETCH 8 + LEARN 10 = 18m 팩(고정) + RUN! 30m(유저 선택) → Main Workout 5km · 48m
   //   부제 'Pace On' = Level & Mode.
-  'floor.html':    { r2: { lines: ["Sean's", 'Pace Strategy'], sub: 'Pace On', total: '48',
-                           arcs: [{ v: 8, lbl: '8m', muted: true, chipText: '8m' }, { v: 10, lbl: '10m', icon: 'feet', pad: 8 }, { v: 30, lbl: '30m', icon: 'run' }] } },   // 8+10+30 = 48 (10m 은 영상용 pad 8°)
+  'floor.html':    { r2: { lines: ["Sean's", 'Pace Strategy'], sub: 'Pace On', total: '5.0', unit: 'km',   // 시간(48분) → **거리 목표**(유저): 러닝은 '얼마나 뛰나'가 목표다
+                           arcs: [{ v: 0.5, lbl: '0.5k', muted: true, chipText: '0.5k' }, { v: 1.0, lbl: '1.0k', icon: 'feet', pad: 8 }, { v: 3.5, lbl: '3.5k', icon: 'run' }] } },
+                           // 0.5(워밍업) + 1.0(드릴·페이스) + 3.5(본런) = 5.0km. 세그먼트도 거리 비례라 총량과 단위가 일치한다.
   'floor-bk.html': { r2: {   // 종목 공통 스펙으로 통합 — 농구 전용 콘텐츠 보정 폐기(유저 승인 08-05)
-                           lines: ["Curry's", 'Step Back'], sub: 'Press On', total: '23',   // 핸들팩 아님 — 스텝백 팩(유저)
-                           arcs: [{ v: 5, lbl: '5m', muted: true, chipText: '5m' }, { v: 8, lbl: '8m', icon: 'bkTrain' }, { v: 10, lbl: '10m', icon: 'bkPlay' }] } },   // 스트레칭도 비례 세그먼트(유저)
+                           lines: ["Curry's", 'Step Back'], sub: 'Press On', total: '45', unit: 'min',   // 실제 훈련 구성(유저): 스트레칭 8 + 연습 22 + 실전 15 = 45분
+                           arcs: [{ v: 8, lbl: '8m', muted: true, chipText: '8m' }, { v: 22, lbl: '22m', icon: 'bkTrain', pad: 6 }, { v: 15, lbl: '15m', icon: 'bkPlay' }] } },
+                           // 스트레칭 8 · 연습(스텝백 드릴) 22 · 실전 15 = 45분. 아마추어 1회 세션 기준으로
+                           // 연습이 가장 길고 실전이 그 다음 — 기술 습득 세션의 실제 비중이다.
 };
 const TR = {
   T1: { sub: 'Sean’s Pace Strategy', title: 'Warm-Up Done!',
@@ -1841,14 +1844,15 @@ export class FloorGL {
       //   오른쪽으로 치우쳐 보인다. 눈은 **숫자+단위 전체**를 하나로 보기 때문이다.
       //   단위 실폭을 먼저 재서 그룹 중심이 800 에 오도록 숫자를 왼쪽으로 민다.
       ctx.font = RF(400, 64); ctx.letterSpacing = '-1.51px';
-      const UW = ctx.measureText('min').width, UGAP = 24, NCX = 800 - (UGAP + UW) / 2;
+      const UNIT = R2.unit || 'min';
+      const UW = ctx.measureText(UNIT).width, UGAP = 24, NCX = 800 - (UGAP + UW) / 2;
       const nw = rollNum(ctx, R2.total, t, TP2 + LEAD, TRAVEL - LEAD, NCX, 1277, 384, { fam: dot9, align: 'center', fill: NEU.ink });
       ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
       // 단위는 숫자의 부속 — 위계 낮춤(유저): 흰 100%/700 → 55%/400. 숫자만 주인공으로 남는다.
       // ★ x 를 하드코딩(1085)하면 안 된다 — '30' 기준으로 잡은 값이라 더 넓은 '48' 에서 숫자와
       //   딱 붙어 버렸다(유저: 묘하게 가운데정렬이 아닌 것 같다). 숫자 오른끝에서 파생시킨다.
       ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.font = RF(400, 64); ctx.letterSpacing = '-1.51px';
-      ctx.fillText('min', NCX + nw / 2 + UGAP, 1315);   // 숫자 상단과 top 정렬(피그마 353:7084)
+      ctx.fillText(UNIT, NCX + nw / 2 + UGAP, 1315);   // 숫자 상단과 top 정렬(피그마 353:7084)
       ctx.letterSpacing = '0px';
       ctx.restore();
     }
