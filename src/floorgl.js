@@ -701,23 +701,10 @@ const READY_GLOWS = [
   ['glow-subtract.svg', 167.2, 1069.2, 1265.6, 931.6, 'hard-light'],
   ['glow-hl1.svg', 211.6, 1453.6, 1176.8, 458.8, 'color-dodge'],
   ['glow-hl2.svg', 310.4, 1380.4, 979.2, 541.2, 'lighter'],
-  // ★ 컬러 영역 = 피그마 377:3209 실측(유저: 위로 올려서 키웠어). 노드 (·,227) 811x1232 에
-      //   블리드 inset -29.43%/-19.37% → 이미지 1288.4x2009.3, 캡슐 시각상단 기준 +66.3.
-      //   구값(1189.3, 1300x871)에서 **838px 위로 · 높이 2.3배**. 어림 스케일은 폐기.
-      //   ※ 유저 #159 '안 잘리게 위로 올려' — 피그마 정위치(351.3)면 이미지 아래 534px 이
-      //     캡슐 바닥에서 잘려 밝은 코어가 잘린 면으로 읽힌다. 우리 캡슐은 CUT 50 만큼 더
-      //     짧아 피그마보다 불리하다. 코어를 위로 180 올려 잘리는 구간이 이미 어두워지게 한다.
-      //   ※ 2.3배로 커진 뒤 hard-light 가 캡슐 내부를 통째로 흰색으로 태웠다(실측: 세로
-      //     프로파일 300~1620 전 구간 휘도 255). 피그마는 캡슐 자체 필 위에 합성되지만
-      //     캔버스는 투명 위라 hard-light 가 곧 발광이 된다 → 이 겹만 알파를 낮춰 '색을
-      //     입히는' 역할로 되돌린다(7번째 항목 = 레이어 알파).
-      //   ★ 블렌드 정정(유저 질문 '하드라이트 제대로 한 거야' → 아니었다).
-      //     CSS mix-blend-hard-light 는 **backdrop** 과 섞인다(피그마: 캡슐 필 + 아트보드 #666).
-      //     우리 캔버스는 투명한 **투사광 레이어**라 backdrop 이 없다 → hard-light 가 곧 발광이
-      //     되어 캡슐 내부가 전 구간 휘도 255 로 탔다(실측).
-      //     투사광에서 옳은 번역은 '가산 틴트' — source-over 로 색만 얹는다. 빔은 어차피 실제
-      //     바닥 위에서 가산되므로, 최종 합성은 그쪽에서 피그마의 hard-light 역할을 대신한다.
-      ['glow-ell.svg', 155.8, 171.3, 1288.4, 2009.3, 'hard-light', 1.0],   // backdrop 합성 경로(위 isField)
+  // 컬러 면 = 피그마 377:3073 으로 **색·크기만** 갱신(에셋 재추출). 노드 811x1232 + 블리드
+  //   -29.43%/-19.37% → 이미지 1288.36x1709.36. 캡슐 시각상단(285) 기준 +66.
+  //   구값: 150.3, 1189.3, 1300.36x871.36 — 크기 그대로 두고 색만 바뀐 게 아니라 둘 다 바뀌었다.
+  ['glow-ell.svg', 155.8, 351.3, 1288.36, 1709.36, 'hard-light'],
 ];
 const READY_CAP = { x: 291, y: 285, w: 1018, h: 1541 };
 const CAPS = {
@@ -1678,101 +1665,20 @@ export class FloorGL {
     //   **퍼지는** 형태였고, 그게 홈 화면의 정체성이었다(투사광은 경계에서 끊기지 않는다).
     //   ※ 사각 rect 로 반원 블룸을 덧대는 방식(33088c5 폐기)과는 다르다 — 그건 이음매가 드러났다.
     //     여기선 클립을 걷어낼 뿐이라 에셋 자체의 소프트 falloff 가 그대로 살아난다.
-    for (const [rel, gx, gy, gw, gh, blend, la] of GLOWS) {
+    for (const [rel, gx, gy, gw, gh, blend] of GLOWS) {
       const im = img(rel);
       if (!im) continue;
-      // ★ **컬러 면(glow-ell)만 캡슐 안으로 가둔다**(유저 #158: 잘리잖아 → 실은 넘쳐서 터진 것).
-      //   피그마 377:3209 로 이 레이어가 811x1232(이미지 1288x2009)로 커졌는데, 클립이 없으면
-      //   캡슐 밖까지 hard-light 로 번져 화면이 통째로 하얗게 날아간다.
-      //   나머지 3겹(하단 엠버)은 그대로 클립 없이 — 림을 넘어 퍼지는 게 홈 화면의 정체성이다(#154).
-      const isField = rel === 'glow-ell.svg';
-      if (isField) {
-        // ★ **하드라이트를 제대로** — CSS mix-blend-hard-light 는 backdrop 과 섞인다. 우리 캔버스는
-        //   투명한 투사광 레이어라 backdrop 이 없어서, 그냥 hard-light 를 걸면 소스가 곧 발광이 되어
-        //   캡슐 내부가 통째로 탄다(실측 휘도 255). source-over 로 바꾸는 건 블렌드를 '포기'하는 것.
-        //   → 오프스크린에 피그마와 **같은 backdrop(#666 아트보드)** 을 깔고 그 위에서 hard-light 를
-        //     계산한 뒤, difference 로 backdrop 을 빼서 **이 레이어가 더하는 빛만** 남긴다.
-        //     그 증분을 캡슐 안에 얹으면 결과가 피그마와 일치하면서 투사광 규약(가산)도 지킨다.
-        const FW = 512, FH = Math.round(FW * CAP.h / CAP.w), k = FW / CAP.w;
-        const fc = this._fieldCv || (this._fieldCv = document.createElement('canvas'));
-        if (fc.width !== FW) { fc.width = FW; fc.height = FH; }
-        const fg2 = fc.getContext('2d');
-        fg2.globalCompositeOperation = 'source-over';
-        fg2.fillStyle = '#666666'; fg2.fillRect(0, 0, FW, FH);
-        fg2.globalCompositeOperation = 'hard-light';
-        fg2.drawImage(im, (gx - CAP.x) * k, (gy - (CAP.y - CUT)) * k, gw * k, gh * k);
-        fg2.globalCompositeOperation = 'difference';
-        fg2.fillStyle = '#666666'; fg2.fillRect(0, 0, FW, FH);
-        fg2.globalCompositeOperation = 'source-over';
-        ctx.save();
-        ctx.save(); ctx.translate(0, CUT); capPath(); ctx.restore(); ctx.clip();
-        if (la != null) ctx.globalAlpha *= la;
-        ctx.drawImage(fc, CAP.x, CAP.y - CUT, CAP.w, CAP.h);
-        ctx.restore();
-      } else {
-        ctx.save();
-        if (la != null) ctx.globalAlpha *= la;
-        ctx.globalCompositeOperation = blend;
-        ctx.drawImage(im, gx, gy, gw, gh);
-        ctx.restore();
+      ctx.save(); ctx.globalCompositeOperation = blend;
+      ctx.drawImage(im, gx, gy, gw, gh);
+      ctx.restore();
+    }
+    ctx.restore();
       }
     }
     ctx.restore();
     // ── ②' 림 바깥 초승달 블룸 = **폐기**(유저 08-05). '칼같이 잘리는' 걸 풀려고 반원
     //   그라디언트를 림 밖에 얹었는데, 클립 사각(rect)의 윗변이 그대로 직선 이음매로 드러나고
     //   빛이 캡슐 밖 좌우로 번져 더 이상해졌다. 캡슐 밖으로 새는 광은 만들지 않는다.
-    // ── ②'' 인물 = **캔버스 plus-lighter 오버레이**(유저, 모바일 일치도 · 스샷 #156/#157).
-    //   ★ 배치 근거(스샷 실측): 캡슐 1018×1591 이 스샷에서 683×940(=0.671배)로 찍혔고,
-    //     머리 꼭대기가 캡슐 상단에서 455px → 캡슐 로컬 678 → 그려지는 좌표 285+678 = 963.
-    //     어깨 폭은 캡슐의 44% = 447px 인데 소스(720×1280) 인물 어깨가 ≈446px 이므로 **1:1 배율**.
-    //     소스 머리 꼭대기가 y≈40 이라 판 상단 = 963-40 = 923. 아래는 캡슐 밖으로 나가므로 클립.
-    //   ★ 검정 배경이 사각으로 드러나던 것(유저 #155): 'lighter' 는 어두운 값도 **더한다**.
-    //     압축 노이즈로 배경이 순수 0 이 아니라 판 전체가 회색 사각으로 떴다. 오프스크린에서
-    //     자기 자신을 multiply 해 값을 제곱하면 어두운 곳은 0 으로 죽고 밝은 인물만 남는다.
-    if (p2 < 0.995) {
-      const v = this._readyVid || (this._readyVid = (() => {
-        const el = document.createElement('video');
-        el.src = (import.meta.env?.BASE_URL || '/') + (bk ? 'ready-view/assets/proto/curry-card.mp4'
-                                                          : 'ready-view/assets/proto/sean-card.mp4');
-        el.muted = true; el.loop = true; el.playsInline = true; el.autoplay = true;
-        el.play?.().catch(() => {});
-        return el;
-      })());
-      if (v.readyState >= 2 && v.videoWidth) {
-        const OW = 360, OH = Math.round(OW * v.videoHeight / v.videoWidth);
-        const oc = this._readyCv || (this._readyCv = document.createElement('canvas'));
-        if (oc.width !== OW) { oc.width = OW; oc.height = OH; }
-        const og = oc.getContext('2d');
-        og.globalCompositeOperation = 'source-over';
-        og.clearRect(0, 0, OW, OH);
-        og.drawImage(v, 0, 0, OW, OH);
-        og.globalCompositeOperation = 'multiply';   // 값 제곱 — 배경(어두움)만 0 으로 떨어진다
-        og.drawImage(oc, 0, 0);
-        // ★ 가장자리 페더(유저 #160: 아직도 잘린다) — roundRect 하드 클립은 경계가 그대로 선으로
-        //   드러난다. 알파를 가장자리에서 0 으로 떨어뜨려 '빛이 스며드는' 형태로 만든다.
-        og.globalCompositeOperation = 'destination-in';
-        const fg = og.createRadialGradient(OW / 2, OH * 0.42, OW * 0.18, OW / 2, OH * 0.42, OW * 0.78);
-        fg.addColorStop(0, 'rgba(0,0,0,1)');
-        fg.addColorStop(.62, 'rgba(0,0,0,.92)');
-        fg.addColorStop(1, 'rgba(0,0,0,0)');
-        og.fillStyle = fg; og.fillRect(0, 0, OW, OH);
-        og.globalCompositeOperation = 'source-over';
-        // ★ 피그마 377:3251 'sean-card 1' 실측: 캡슐 프레임 기준 (59, 630) 901x878 · r 495 ·
-        //   mix-blend-plus-lighter. 캡슐 시각상단(우리 285 = 피그마 51)이라 오프셋 +234.
-        //   → 우리 좌표 (350, 993) 901x878. r 이 있다(모서리 495) — 사각 박스가 아니다.
-        const BX = 350, BY = CAP.y + 708, BW = 901, BH = 878, BR = 495;
-        const sc = Math.max(BW / oc.width, BH / oc.height);   // cover — 여백이 더해지면 안 된다
-        const dw = oc.width * sc, dh = oc.height * sc;
-        ctx.save();
-        //   알파 0.52 — plus-lighter 는 밝은 상의에서 곧바로 포화된다(실측: 흰 덩어리).
-        //   피그마는 캡슐 필 위 합성이라 여유가 있지만 캔버스는 투명 위라 더 낮춰야 한다.
-        ctx.globalAlpha *= e0(.30, .9) * (1 - p2) * 0.52;
-        ctx.beginPath(); ctx.roundRect(BX, BY, BW, BH, BR); ctx.clip();
-        ctx.globalCompositeOperation = 'lighter';
-        ctx.drawImage(oc, BX + (BW - dw) / 2, BY, dw, dh);   // 위 정렬 = 얼굴이 박스 상단에 온다
-        ctx.restore();
-      }
-    }
     // ── ③ 캡슐 텍스트 — 제목 2줄(100/Bold/ls-4) · Pace On(64/.8) · 도트 30(384) + min(64) ──
     // 제목 두 줄은 줄 단위로 아주 살짝 어긋나게(0.04s) — 한 덩어리로 뜨는 것보다 결이 산다.
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
