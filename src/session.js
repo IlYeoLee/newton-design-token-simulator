@@ -1085,54 +1085,31 @@ export class Session {
     arBack.visible = arKnee.visible = false;
     g.add(arBack, arKnee);
     this.a2press = { fmL, fmR, numL, numR, cd: a2cd, fill: 0, _cnt: 5, _succ: 0, _succFM: null, arBack, arKnee };
-    // 스탠스 라인 — 두 발을 잇는 은은한 대시(런지 보폭이 곧 자세다). 복싱 높이 캘리브레이션
-    //   라인과 같은 대시 언어 재사용 — 새 문법을 만들지 않는다. 틱에서 발 위치 따라 갱신.
-    {
-      // WebGL Line 은 굵기 1px 고정이라 투사 거리에서 사실상 안 보였다(유저) → 대시를 캔버스에
-      //   구워 얇은 면 스트립으로. 대시 언어는 유지하고 물리적 굵기(4cm)를 얻는다.
-      // 도트 애니메이션(유저 #90) — 대시 스트립을 '흐르는 도트 + 블룸'으로. 캔버스를 매 프레임
-      //   다시 굽지 않고, 텍스처 offset 을 흘려 도트가 앞발 쪽으로 흐르게 한다(업로드 0).
-      // ★ 바닥 전용 토큰 룩(유저 08-05 레퍼런스): **블룸 적고 절제된 선 + 점**.
-      //   구 버전은 반경 3.2배 방사 후광 + AdditiveBlending 이라 투사면에서 번져 '광'으로만 읽혔다.
-      //   ① 후광 제거 — 점은 단단한 잉크 원(에지 AA 만)
-      //   ② 가는 헤어라인을 깔아 점들을 **잇는다**(레퍼런스의 line+dot 문법)
-      //   ③ 합성은 Normal — 가산은 밝은 바닥에서 워시아웃되고 절제가 안 된다
-      // ★ 도트가 '원'으로 보이는 조건은 **UV 종횡비**다(유저 08-06: 라인이 찌그러져 있다).
-      //   캔버스 픽셀이 실측에서도 정사각일 때만 원이 원이다: LINK_TILE = 256px × (LINK_W/32) m/px.
-      //   옛 코드는 repeat.x = max(1, seg/0.16) 이라 타일이 0.086~0.156m 로 눌렸고 — 실측 도트가
-      //   5×22mm 세로 슬리버가 되어 8개가 **사다리 발판**으로 읽혔다. 이 함수 주석이 '구 폐기 사유'로
-      //   적어 둔 바로 그 모양이 repeat 계산으로 되돌아와 있었다.
-      const LINK_W = 0.045;                     // 스트립 실측 폭(m) — 도트 지름·간격이 전부 여기서 파생
-      const LINK_TILE = 256 * LINK_W / 32;      // = 0.36m. 이 길이마다 캔버스 한 장
-      const c = document.createElement('canvas'); c.width = 256; c.height = 32;
-      const g2 = c.getContext('2d');
-      g2.fillStyle = 'rgba(255,242,228,.26)';        // 헤어라인 — 점을 잇는 실
-      g2.fillRect(0, 15, 256, 2);
-      // 도트 16개 = 실측 간격 22mm · 지름 7.9mm. 8개(간격 45mm)는 반쪽 한 짝에 2개밖에 안 들어가
-      //   '선'으로 안 읽힌다(반쪽 실측 길이 86~156mm).
-      const DOTS = 16, GAP = 256 / DOTS;
-      for (let i = 0; i < DOTS; i++) {
-        const x = GAP * (i + 0.5);
-        g2.fillStyle = 'rgba(255,246,234,.96)';      // 단단한 코어만
-        g2.beginPath(); g2.arc(x, 16, 2.8, 0, Math.PI * 2); g2.fill();
-      }
-      // ★ 스탠스 라인 = **반쪽 두 개**(유저 08-05: 두 발 사이를 잇는 예쁜 라인으로 펼쳐지는 느낌).
-      //   한 장짜리 스트립은 offset 이 한 방향으로만 흘러 '흐름'이지 '펼쳐짐'이 아니었고,
-      //   좌우로 늘어난 도트가 사다리처럼 읽혔다(구 폐기 사유). 중앙에서 각 발로 뻗는 반쪽을
-      //   따로 두고 도트를 **바깥으로** 흘리면 그 자체가 벌어지는 동작이 된다.
-      const mkHalf = () => {
-        const tx = new THREE.CanvasTexture(c); tx.colorSpace = THREE.SRGBColorSpace;
-        tx.wrapS = THREE.RepeatWrapping;
-        const m = new THREE.Mesh(new THREE.PlaneGeometry(1, LINK_W),
-          new THREE.MeshBasicMaterial({ map: tx, transparent: true, opacity: 0, depthWrite: false,
-            blending: THREE.NormalBlending }));   // 절제 — 가산은 워시아웃(위 주석)
-        m.rotation.x = -Math.PI / 2; m.renderOrder = 5; m.visible = false;
-        g.add(m); return m;
-      };
-      this.a2press.linkTile = LINK_TILE;   // 틱의 repeat 계산이 이 하나에서만 나온다(숫자 재기입 금지)
-      this.a2press.linkA = mkHalf();   // 중앙 → 뒷발
-      this.a2press.linkB = mkHalf();   // 중앙 → 앞발
-    }
+    // 스탠스 라인 = **LINE 토큰 두 개**(중앙 → 각 발). 룩 시스템 편입, 유저 08-06:
+    //   "룩시스템 언어를 안 썼으니 눈에 안 들어오고 촌스럽다".
+    //
+    //   옛 구현은 룩 시스템 밖에서 손으로 만든 물건이었다 — 256×32 캔버스에 rgba 헤어라인+도트를
+    //   직접 굽고, 텍스처 repeat/offset 을 매 프레임 계산하고, 색은 하드코딩, 합성은 고정.
+    //   그래서 ① 뉴턴 LUT 색이 아니고 ② FX Lab 노브(FXP.arrow w·glow·heat)가 안 먹고
+    //   ③ day/ink 블렌딩 전환도 안 따르고 ④ 투사창 페이드도 자기가 안 받았다.
+    //   찌그러짐(도트 종횡비 0.23)·중앙 구멍(0.1m) 둘 다 그 손수학에서 나온 버그다.
+    //
+    //   정본은 이미 있다: makeFlowArrow + fx-core drawStemArrow 의 **지면 점렬 자루**.
+    //   같은 문법을 B1 ←→ 화살표·러닝 화살표가 쓰고 있고, 촉 없는 자루는 감속 바가 이미 쓴다(tips:0).
+    //   공짜로 따라오는 것: LUT 색 · 뿌리 알파 0 → 발 쪽으로 뜨거워지는 테이퍼(= '펼쳐짐'을
+    //   offset 애니메이션 없이 표현) · 도트가 뿌리 1.5mm → 발 쪽 18mm 로 굵어져 방향이 점에서 읽힘 ·
+    //   draw-on(_prog) · 투사창 소프트 페이드 · day/ink 자동 전환.
+    //
+    //   길이는 **스케일이 아니라 draw-on 이 표현한다** — 최대 길이로 한 번 만들고 _prog 에
+    //   보폭을 물린다. UV 종횡비 수학이 아예 없어져 그 종류의 버그가 구조적으로 불가능해진다.
+    const LINK_MAX = 0.30;   // 반쪽 최대 실측 길이(m). 보폭이 이보다 길어지면 _prog 가 1 에서 포화
+    this.a2press.linkMax = LINK_MAX;
+    const mkHalf = () => {
+      const a = makeFlowArrow(LINK_MAX, { tips: 0 });   // 촉 없는 자루 = 방향 지시가 아니라 보폭 표시
+      a.visible = false; a._gain = 0; g.add(a); return a;
+    };
+    this.a2press.linkA = mkHalf();   // 중앙 → 뒷발
+    this.a2press.linkB = mkHalf();   // 중앙 → 앞발
     g.add(fmL.group, fmR.group, a2cd);
 
     g = this._mk('A3');
@@ -2269,7 +2246,7 @@ export class Session {
         //   직전 사이클의 visible 이 그대로 남아 **감상 중(인물이 서 있을 때)** 화면에 걸쳐 있다.
         //   연결선은 두 발을 잇는 대각선이라 인물 몸통을 가로질러 특히 지저분했다(유저 08-05).
         if (P.arBack) { P.arBack.visible = false; P.arKnee.visible = false; }
-        if (P.linkA) { P.linkA.visible = false; P.linkB.visible = false; }
+        if (P.linkA) { P.linkA.visible = false; P.linkB.visible = false; P.linkA._gain = 0; P.linkB._gain = 0; }
         FMU('먼저 보세요', CS.prism);   // 진행표시 = 프레임 미니 타이머 링 전담
         this.demoActive = true;
         return;
@@ -2365,34 +2342,29 @@ export class Session {
           if (a._mesh) a._mesh.material.opacity = Math.max(0, fade);
         });
       }
-      // ── 스탠스 라인(부활, 유저 08-05) — 중앙에서 두 발로 **펼쳐지는** 반쪽 두 개.
-      //   보폭이 벌어질수록 길어지고 밝아진다 = 라인 자체가 '얼마나 폈나'를 말한다.
-      //   도트는 중앙에서 바깥으로 흐른다(offset 부호가 반대) — 그래서 흐름이 아니라 펼침이 된다.
+      // ── 스탠스 라인 — 중앙에서 두 발로 **펼쳐지는** LINE 토큰 두 개(룩 시스템 정본).
+      //   보폭이 벌어질수록 draw-on 이 자라고 밝아진다 = 라인 자체가 '얼마나 폈나'를 말한다.
+      //   자루 원점이 곧 꼬리라 **위치는 정확히 두 발의 중점** — 중앙 구멍이 생길 수학이 없다.
       {
         const a = P.fmL.group.position, b2 = P.fmR.group.position;
         const mx = (a.x + b2.x) / 2, mz = (a.z + b2.z) / 2;
-        const IN = 0.10;                                     // 발 반경 여백
+        const IN = 0.10;                                     // 발 반경 여백 — 발 쪽 끝에만
         const spread = Math.max(0, Math.min(1, (Math.abs(a.z - b2.z) - 0.12) / 0.28));
-        const put = (m, e, sgn) => {
+        const put = (m, e) => {
           if (!m) return;
-          const dx = e.x - mx, dz = e.z - mz, L = Math.hypot(dx, dz);
-          const seg = L - IN;
+          const dx = e.x - mx, dz = e.z - mz;
+          const seg = Math.hypot(dx, dz) - IN;
           m.visible = seg > 0.04 && spread > 0.02;
-          if (!m.visible) return;
-          // ★ 여백 IN 은 **발 쪽 끝에만** 준다. 예전엔 스트립을 중앙↔발 중점에 놓아 길이만 줄여서,
-          //   깎인 0.10m 가 양끝에 반씩 갈렸다 → 중앙에 0.05×2 = 0.1m 구멍(유저: 가운데는 비어있고).
-          //   반쪽 실측 길이가 0.086~0.156m 이니 구멍이 라인보다 길었다. 중앙에서 시작해 발 앞에서 끝난다.
-          m.position.set(mx + (dx / L) * seg * 0.5, 0.012, mz + (dz / L) * seg * 0.5);
-          m.rotation.z = Math.atan2(-dz, dx);
-          m.scale.set(seg, 1, 1);
-          const mp = m.material.map;
-          //   repeat = 실측 길이 / 타일 실측 길이 — 이래야 캔버스 픽셀이 정사각이고 도트가 원이다.
-          //   구 max(1, seg/0.16) 은 타일을 4.4배 눌러 도트를 세로 슬리버(사다리)로 만들었다.
-          if (mp) { mp.repeat.x = seg / P.linkTile; mp.offset.x = sgn * (this.t * 0.30) % 1; }
+          if (!m.visible) { m._gain = 0; return; }
+          m.position.set(mx, m.position.y, mz);
+          m.rotation.z = Math.atan2(-dx, -dz);   // 자루 방향 실측 매핑: dir = (−sinθ, −cosθ)
+          m._prog = Math.min(1, seg / P.linkMax);
+          // 알파는 _gain 으로 — tickFlowArrows 가 투사창 페이드와 곱해 최종 알파로 반영한다
+          //   (material.opacity 를 직접 쓰면 다음 프레임에 덮어써진다).
           const tgt = (0.25 + 0.55 * spread) * (0.75 + 0.25 * P.fill);
-          m.material.opacity += (tgt - m.material.opacity) * 0.18;
+          m._gain += (tgt - m._gain) * 0.18;
         };
-        put(P.linkA, a, -1); put(P.linkB, b2, +1);
+        put(P.linkA, a); put(P.linkB, b2);
       }
       if (inHold) {
         const n = Math.max(1, Math.ceil(HOLD_SEC - P.fill * HOLD_SEC));   // 5→1 (UI 5초 타이머)
