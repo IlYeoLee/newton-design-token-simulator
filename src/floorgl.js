@@ -626,7 +626,7 @@ const READY = {
   'floor.html':    { r2: { lines: ["Sean's", 'Pace Strategy'], sub: 'Pace On', total: '48',
                            arcs: [{ v: 8, lbl: '8m', muted: true, chipText: '8m' }, { v: 10, lbl: '10m', icon: 'feet', pad: 8 }, { v: 30, lbl: '30m', icon: 'run' }] } },   // 8+10+30 = 48 (10m 은 영상용 pad 8°)
   'floor-bk.html': { r2: {   // 종목 공통 스펙으로 통합 — 농구 전용 콘텐츠 보정 폐기(유저 승인 08-05)
-                           lines: ["Curry's", 'Handle Pack'], sub: 'Press On', total: '23',
+                           lines: ["Curry's", 'Step Back'], sub: 'Press On', total: '23',   // 핸들팩 아님 — 스텝백 팩(유저)
                            arcs: [{ v: 5, lbl: '5m', muted: true, chipText: '5m' }, { v: 8, lbl: '8m', icon: 'bkTrain' }, { v: 10, lbl: '10m', icon: 'bkPlay' }] } },   // 스트레칭도 비례 세그먼트(유저)
 };
 const TR = {
@@ -636,10 +636,10 @@ const TR = {
   T2: { sub: 'Sean’s Pace Strategy', title: 'Learning Complete!',
     done: { lbl: 'Learn', time: '10min', img: 'run/run_learn.png' },
     next: { lbl: 'Run!', time: '10min', img: 'run/run_run.png' } },
-  BK_T1: { sub: 'Curry’s Signature Move', title: 'Warm-Up Done!',
+  BK_T1: { sub: 'Curry’s Step Back', title: 'Warm-Up Done!',
     done: { lbl: 'Stretch', time: '5min', img: 'bk/bk_stretch.png' },
     next: { lbl: 'Learn', time: '10min', img: 'bk/bk_learn.png' } },
-  BK_T2: { sub: 'Curry’s Signature Move', title: 'Learning Complete!',
+  BK_T2: { sub: 'Curry’s Step Back', title: 'Learning Complete!',
     done: { lbl: 'Learn', time: '10min', img: 'bk/bk_learn.png' },
     next: { lbl: 'Play!', time: '10min', img: 'bk/bk_play.png' } },
 };
