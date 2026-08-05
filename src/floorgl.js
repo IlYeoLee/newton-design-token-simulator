@@ -672,7 +672,7 @@ const TR = {
 //  왜: 화면마다 좌표를 손으로 박으니 요소가 서로를 가리고, 그때마다 말로 고쳐야 했다(유저).
 //  아래 밴드가 정본이고 페인터는 전부 여기서 파생한다. 새 요소를 놓을 자리는 밴드로 정한다.
 //
-//    y 176   ┌ HEAD   타이틀 영역(헤더 알약 1320×330)
+//    y 176   ┌ HEAD   타이틀 영역(헤더 알약 — **HUG**: 폭·높이가 내용에서 나온다)
 //    y 506   └
 //        +56   GAP_HP
 //    y 562   ┌ PROG   진행(아크) h143 · 폭은 safeW 로 깎는다
@@ -2881,16 +2881,14 @@ export class FloorGL {
     //     ③ 알파는 quint 로 — 선형이면 중간이 텅 빈다
     const eQ = u => 1 - Math.pow(1 - clamp01(u), 4);
     const dstX = x0p + RINGW + H2.gapU, dstY = ry2;   // 링 슬롯이 0 이면 타이틀이 좌단으로 붙는다
-    // 프리뷰 2줄 분할 — 한 줄로 들어가면 나누지 않는다(아래 연속 이동의 전제).
+    // ★ **폭 기준 자동 2줄 분할 폐기**(유저 스샷: CALF STRETCH 가 두 줄로 갈라져 알약을 넘쳤다).
+    //   기준이 `900 - PAD*2` 였는데 900 은 **알약이 고정폭이던 시절의 상수**다. 알약이 HUG 가
+    //   되면서 상자가 타이틀에서 나오므로 **한 줄은 언제나 들어간다** — 그 판정 자체가 무의미해졌고,
+    //   길수록 참이 되어 오히려 멀쩡한 문구를 갈랐다. 게다가 알약 높이도 한 줄 기준이라 넘쳤다.
+    //   안전망은 `fitDraw` 가 이미 한다(안전폭을 넘으면 그 비율로 줄여 그린다).
+    //   쉼표(', ')로 **명시된** 두 줄만 남긴다 — 그건 저작자가 정한 의미 단위다.
     const ci2 = title.indexOf(', ');
-    const ls = ci2 > 0 ? [title.slice(0, ci2 + 1), title.slice(ci2 + 2)]
-      : (() => { ctx.font = F(700, TOK.fsTitlePv * K2); ctx.letterSpacing = '-5px';
-          // 기준폭은 **프리뷰 캡슐의 고정폭 900**. 전엔 보간 중인 w1 을 썼는데, 폭이 벌어지는
-          //   도중 fit 이 false→true 로 뒤집혀 2줄 크로스페이드가 1줄 이동으로 **툭 갈아탔다**.
-          const fit = ctx.measureText(title).width <= 900 - PAD * 2;
-          if (fit) return [title];
-          const w2 = title.split(' '); const m = Math.ceil(w2.length / 2);
-          return [w2.slice(0, m).join(' '), w2.slice(m).join(' ')]; })();
+    const ls = ci2 > 0 ? [title.slice(0, ci2 + 1), title.slice(ci2 + 2)] : [title];
     // 'Preview' 라벨 — 전환 시작과 함께 빠진다(한 줄짜리 요소라 페이드로 충분).
     // ★ 알약 **밖 위쪽**에 놓는다(유저 스샷: 알약이 작아지자 타이틀과 겹쳤다).
     //   전엔 `y + h*.15` 분수라 상자가 900→200 으로 줄자 그대로 글자 위로 올라탔다.
