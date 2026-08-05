@@ -2209,7 +2209,7 @@ export class Session {
       //   Preview(둘 다) → 딛는 발 Active(뻗을때) → 밟는 순간 Hold+숫자 5→1(이펙트 점점 커짐)
       //   → 끝나면 Success → 반대발 되면 상태 바뀜, 대기발은 Locked.
       // 판정 = 봇 다리 상태(발 접지+런지 깊이)로만 구동 — 고정 마크와의 거리 게이트 없음.
-      if ((this._a2t ?? 0) > this.t) { P._doneL = false; P._doneR = false; P.sec = 0; P._press = false; P._cnt = 5; P._repLatch = false; this.a2count = 0; }   // 재진입 리셋(a2count 미리셋=조기 전환 버그였음)
+      if ((this._a2t ?? 0) > this.t) { P._doneL = false; P._doneR = false; P._doneTL = null; P._doneTR = null; P.sec = 0; P._press = false; P._cnt = 5; P._repLatch = false; this.a2count = 0; }   // 재진입 리셋(a2count 미리셋=조기 전환 버그였음)
       // ── 발자국이 x봇 실제 발을 따라 런지처럼 이동 (고정 배치는 별로 — 유저 확정, 추적 복원) ──
       // ★ 보폭 압축·중심 = **빔 알파 실측**에서 나온 값이다(추측 금지). 마크 pad 를 포함한
       //   beamAlphaAt 커브(로컬 z 기준, near .30 / far 1.9):
@@ -2260,7 +2260,13 @@ export class Session {
       const othDone = isL ? P._doneR : P._doneL;
       // 뉴턴 전환 문법: [시범 = 영상만·도트바] → [마크 Preview 워밍 등장 + '이제 같이' 음성] → [따라하기]
       P.cd.visible = false;
-      if (!cyc || cyc.watching) {
+      // ★ **한 번 따라하기에 들어가면 다시 숨기지 않는다**(유저: 왜 사라지는 거야).
+      //   이 분기는 마크를 통째로 visible=false 하고 return 한다 — 원래는 '시범 보는 동안'만
+      //   돌아야 하는데, a2Cyc.watching 이 **렙마다 되돌아온다**(이 파일 아래 등장 안무 주석이
+      //   이미 관찰해 둔 사실: 'watching 이 렙마다 토글돼 기점이 계속 리셋되고'). 그래서 렙
+      //   경계마다 두 발이 한 번씩 통째로 사라졌다. 빔 커버리지와는 무관하다 — 알파가 아니라
+      //   visible 이 꺼진 것이다. _followLatch(스테이지마다 리셋)로 잠근다.
+      if (!cyc || (cyc.watching && !this._followLatch)) {
         P.fmL.group.visible = false; P.fmR.group.visible = false; P.numL.visible = false; P.numR.visible = false;
         // ★ 화살표·연결선 모두 꺼야 한다 — 이 분기는 아래 코드에 닿기 전에 return 하므로, 안 끄면
         //   직전 사이클의 visible 이 그대로 남아 **감상 중(인물이 서 있을 때)** 화면에 걸쳐 있다.
@@ -2395,8 +2401,17 @@ export class Session {
         actNum.visible = true;
         actNum.scale.multiplyScalar(1 + 0.42 * P._pop);   // 숫자 전환 팝
       } else { actNum.visible = false; P._cnt = HOLD_SEC; }
-      // 반대 발: 완료면 채움 유지, 아니면 Active 빈 링(둘 다 액티브 — 유저)
-      oth.setHold(othDone ? 1 : 0.02);
+      // ★ 반대 발 = **끝난 발이면 Success → Locked**(유저: 석세스→락이 되든 시스템을 갖춰야지
+      //   종아리 늘리기는 아예 없애버린다). 전엔 완료해도 Hold 링을 꽉 채운 채로 뒀는데,
+      //   Hold 가득참과 '완료'는 화면에서 같은 그림이라 끝난 게 안 읽혔다. 마크 토큰이
+      //   이미 갖고 있는 상태를 쓴다 — glow()=Success(uPhase 2, 파문 1회) · locked()=Locked(3).
+      //   완료 직후 SUCC_HOLD 초는 Success 로 두고 그 뒤 Locked 로 내린다.
+      const FM_SUCC = 0.9;
+      const doneT = isL ? P._doneTR : P._doneTL;   // 반대 발이 끝난 시각
+      if (othDone) {
+        if (doneT != null && this.t - doneT < FM_SUCC) oth.glow(1);
+        else oth.locked();
+      } else oth.setHold(0.02);
       // ── 뒷발 = 이 운동의 **주인공**인데 지금껏 아무 일도 안 일어났다. 종아리가 늘어나는 쪽이므로
       //   **보폭 × 홀드**에 비례해 파문·광량이 자란다 — 깊게 딛을수록 뒷발이 밝아진다 = 자세가 곧 보상.
       //   새 이펙트가 아니라 uRip/op 정본의 구동값만 바꾼다.
@@ -2412,7 +2427,8 @@ export class Session {
       // 완료 = 홀드 100% 도달(회차당 1회 래치). 왼발 1·오른발 1 = 총 2회
       if (inHold && P.fill >= 0.995 && !P._repLatch) {
         P._repLatch = true; this.a2count = (this.a2count || 0) + 1;
-        if (isL) P._doneL = true; else P._doneR = true;
+        if (isL) { P._doneL = true; P._doneTL = this.t; } else { P._doneR = true; P._doneTR = this.t; }
+        act.glow(1);   // 그 자리에서 바로 Success — 파문은 glow 가 한 번만 쏜다(_succLatch)
         const wp = new THREE.Vector3(); act.group.getWorldPosition(wp); this.onPress?.(wp, false);
       }
       if (!inHold) P._repLatch = false;   // 다음 홀드 위해 래치 해제
