@@ -273,7 +273,9 @@ uRip: { value: ${P.rip.toFixed(2)} }, uRipSpeed: { value: ${P.ripSpeed.toFixed(2
 //   그래서 350ms 잠잠해지면 그때 한 칸 쌓는다(타이핑 에디터의 undo 병합과 같은 규약).
 const SAVE_KEY = 'footlab.params';
 let hist = [], future = [], histT = null;
-function persist() { try { localStorage.setItem(SAVE_KEY, JSON.stringify({ ...P, _def: DEF })); } catch { /* 사생활 모드 */ } bcast(); }   // _def = 저장 시점 정본 스냅샷(위 복원 규칙용)
+// ★ states(OV)도 같이 남긴다 — 이게 빠져 있어서 '이 상태만 편집'한 값이 새로고침마다 통째로
+//   증발했다(유저 08-05: 8번째 토큰이 저장이 안 된다). P 만 남기면 상태 편집 기능이 무의미하다.
+function persist() { try { localStorage.setItem(SAVE_KEY, JSON.stringify({ ...P, _def: DEF, states: OV })); } catch { /* 사생활 모드 */ } bcast(); }   // _def = 저장 시점 정본 스냅샷(위 복원 규칙용)
 // 랩 → 시뮬 실시간 미리보기(유저): 값이 바뀔 때마다 열려 있는 시뮬 전부에 즉시 쏜다.
 const _bc = (() => { try { return new BroadcastChannel('newton-marklook'); } catch { return null; } })();
 function bcast() { _bc?.postMessage({ ...P, shadeCol, dotCol, ripCol, edgeShadeCol }); }
@@ -1083,8 +1085,13 @@ $('strip').addEventListener('click', e => {
 // 계측 훅 — 합성이 이상할 때 바닥/토큰 캔버스를 따로 재기 위해(추측 금지 §3)
 window.__flabTHREE = THREE;
 window.__flab = { get floorCv() { return floorCv; }, get tokenCv() { return tokenCv; },
-                  get P() { return P; }, get walkMats() { return walkMats; } };
+                  get P() { return P; }, get walkMats() { return walkMats; },
+                  get OV() { return OV; }, get slot() { return heroSlot; } };   // 상태 오버라이드 계측용
 GLYPHS.onLoad(() => { if (!units.foot) rebuild(); else drawAlign(); });
+// 정본(mark-look.json)의 상태 룩을 먼저 깐다 — 다른 기기에서 열어도 8번째 토큰이 살아 있어야
+//   한다. localStorage(작업 중 값)가 이 위를 덮는다.
+Object.assign(OV, LOOK.states || {});
+if (LOOK.tap && !OV.tap) OV.tap = { ...LOOK.tap };   // Tap2 = 구워둔 전용 룩이 곧 그 슬롯의 오버라이드
 // 지난 세션 값 복원 — 랩을 닫았다 열었다고 작업이 날아가면 안 된다.
 //   저장본에 없는 키(내가 나중에 추가한 슬라이더)는 DEF 가 채운다.
 try {
@@ -1099,8 +1106,10 @@ try {
     for (const k of KEYS) {
       if (base[k] !== undefined && base[k] !== DEF[k]) continue;   // 정본 갱신 → DEF 유지
       if (typeof saved[k] === 'number') P[k] = saved[k];
-    if (saved.states) Object.assign(OV, saved.states);
     }
+    // ★ 상태 오버라이드 복원 — 예전엔 이 줄이 KEYS 루프 **안**에 있었고 persist 가 states 를
+    //   쓰지도 않아, 조건이 영영 참이 안 됐다. 두 버그가 겹쳐 상태 편집이 통째로 휘발했다.
+    if (saved.states) Object.assign(OV, saved.states);
   }
 } catch { /* 저장본 손상 — 기본값으로 간다 */ }
 // 이제 units·rebuild 가 모두 정의됐으니 저장된 세그먼트 선택을 복원한다
