@@ -2126,7 +2126,7 @@ export class FloorGL {
     //     BK_B2~5 'Step-Back n/4'  vs  'Fake the Layup' / 'Right Foot Down' / … (축약본 미반영)
     //   CAPS 는 이제 variant·step 만 든다. 타이틀을 두 곳에 두면 반드시 또 어긋난다.
     const S2 = (typeof window !== 'undefined' ? window.FLOOR_SCENES : null)?.[this.stage];
-    const title = S2?.title || (Array.isArray(cfg.title) ? cfg.title.join(' ') : String(cfg.title || ''));
+    let title = S2?.title || (Array.isArray(cfg.title) ? cfg.title.join(' ') : String(cfg.title || ''));
     const L = (p, q) => p + (q - p) * mo;
     // 지오메트리 — 원형(760×820) → 가로 알약(840×250). **y 는 176 고정**: 위를 붙박아 두면
     //   아래로만 접히므로 코치 판(지면 중앙에 서는 3D 인물)과 안 겹친다.
@@ -2211,6 +2211,10 @@ export class FloorGL {
     const cyc = (typeof window !== 'undefined' ? window.__dbg?.session?.a2Cyc : null);
     const perFoot = this.stage === 'A2' && cyc && !cyc.watching;
     const hs = cyc?.holdSec ?? 5, hp = cyc?.inHold ? clamp01(cyc.prog) : 0;
+    // ★ 좌/우 힌트(유저: 실제 따라하기면 '왼발 스트레치' 처럼 알려줘야 하지 않나).
+    //   한 발씩 하는 동작에서 '지금 어느 발'은 남은 시간만큼 중요한 지시다 — 발마크만으론
+    //   어느 쪽이 활성인지 멀리서 안 읽힌다. 타이틀 앞에 붙여 한 줄로 읽히게 한다.
+    if (perFoot) title = (cyc.isLeft ? 'Left ' : 'Right ') + title;
     const rem = perFoot ? Math.max(0, Math.ceil(hs * (1 - hp)))
       : (mo < .5 ? Math.max(1, Math.ceil(PV - t)) : Math.max(0, Math.ceil(dur - t)));
     if (String(rem) !== this._numLast2) { this._numLast2 = String(rem); this._numT2 = t; }
