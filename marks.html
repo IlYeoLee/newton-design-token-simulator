@@ -1,0 +1,66 @@
+<!doctype html>
+<!-- 뉴턴 마크 공통 언어 — 발자국·존원이 같이 쓸 어휘를 화면으로 확정한다.
+     왜: 마크 시스템이 지금 둘이다(tokens.js 리듬 판정 / session.js 발 물리). 후자가 정답에
+     가까운데 농구 4단계 전용 로컬 코드다. 그 어휘를 다섯 축으로 뽑아 여기서 시험한다.
+     테스트 모델 = 농구 4/4단계. 네 단계가 남김없이 적히면 언어가 성립한 것이다.
+     정본: src/marklang.js(어휘) · src/session.js SB_POSE(좌표). 이 페이지는 값을 안 갖는다. -->
+<html lang="ko"><head><meta charset="utf-8">
+<title>Newton — 마크 공통 언어</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0d0d0f;color:#e8e8ea;font:13px/1.5 ui-sans-serif,system-ui,sans-serif;display:flex;height:100vh;overflow:hidden}
+
+#panel{width:320px;flex:0 0 auto;overflow-y:auto;padding:16px 14px 60px;border-right:1px solid #26262b;background:#141418}
+#panel h1{font-size:15px;font-weight:700;margin-bottom:2px}
+#panel .sub{font-size:11px;color:#77777f;margin-bottom:14px;line-height:1.6}
+#panel code{color:#fa8a5c;font:10px ui-monospace,monospace}
+.grp{margin-bottom:14px}
+.grp>h2{font-size:11px;font-weight:700;letter-spacing:1.4px;color:#8a8a94;text-transform:uppercase;
+  padding:6px 0;border-bottom:1px solid #26262b;margin-bottom:6px}
+.row2{display:grid;grid-template-columns:64px 44px 1fr;gap:6px;align-items:baseline;margin-bottom:4px}
+.row2 b{font:700 10px ui-monospace,monospace;color:#fa8a5c}
+.row2 span{font-size:11px;color:#c4c4cc}
+.row2 i{font-style:normal;font-size:10px;color:#66666e}
+.row2.mono span,.row2.mono i{font:10px ui-monospace,monospace;color:#8a8a94}
+
+#right{flex:1;display:flex;flex-direction:column;min-width:0}
+#bar{flex:0 0 auto;display:flex;align-items:center;gap:12px;padding:8px 14px;border-bottom:1px solid #26262b;background:#141418}
+#bar input[type=range]{flex:1;max-width:420px;accent-color:#fa6030}
+button{background:#26262d;color:#e8e8ea;border:1px solid #35353d;border-radius:6px;
+  padding:6px 10px;font:600 11px/1 inherit;cursor:pointer}
+button.on{background:#fa6030;border-color:#fa6030;color:#fff}
+#livewrap{display:flex;align-items:center;gap:14px;padding:10px 14px;border-bottom:1px solid #26262b;background:#101014}
+#live{background:#1b1b20;border:1px solid #33333a;border-radius:8px}
+#livecap{font:11px ui-monospace,monospace;color:#c4c4cc}
+
+#grid{flex:1;overflow:auto;padding:12px 14px 40px}
+.row{margin-bottom:14px}
+.rowhd{display:flex;align-items:baseline;gap:10px;font-size:11px;padding:4px 2px 6px;border-bottom:1px solid #26262b;margin-bottom:8px}
+.rowhd b{font-size:12px;color:#fa8a5c}
+.rowhd i{font-style:normal;font-weight:600}
+.rowhd .cue{color:#8a8a94}
+.rowhd .vocab{margin-left:auto;font:10px ui-monospace,monospace;color:#6fae6f}
+.rowhd .seg{font:10px ui-monospace,monospace;color:#66666e}
+.cols{display:flex;gap:10px;flex-wrap:wrap}
+.cell{background:#1b1b20;border:1px solid #26262b;border-radius:8px;overflow:hidden}
+.cell canvas{display:block}
+.cell .cap{font:9.5px ui-monospace,monospace;color:#77777f;padding:4px 6px;border-top:1px solid #26262b}
+</style></head><body>
+
+<div id="panel"></div>
+
+<div id="right">
+  <div id="bar">
+    <button id="play" class="on">▶ 재생</button>
+    <input id="t" type="range" min="0" max="3.1" step="0.01" value="0">
+    <span style="font-size:11px;color:#77777f">스텝백 전 구간 스크럽 — 움직임이 곧 검증</span>
+  </div>
+  <div id="livewrap">
+    <canvas id="live" width="300" height="240"></canvas>
+    <div id="livecap"></div>
+  </div>
+  <div id="grid"></div>
+</div>
+
+<script type="module" src="/src/marklab.js"></script>
+</body></html>

@@ -363,6 +363,9 @@ export function makeMarkFXMaterial(footTex = null) {
       //   작아져 파동·헤일로가 쓸 여유가 생긴다(호스트가 평면을 같은 배수로 키워 실제 크기 유지).
       uSilFit: { value: SIL_FIT / SIL_FIT_REF },
       uPlantar: { value: LOOK.plantar }, uBands: { value: LOOK.bands }, uBandSoft: { value: LOOK.bandSoft },
+      // 하중 배분 기본값 = 옛 plantar 상수 그대로(1.00 / 0.62 / 0.50) — setMarkLoad 로만 바뀐다
+      uLoadBall: { value: 1.00 }, uLoadHeel: { value: 0.62 }, uLoadToe: { value: 0.50 },
+      uLoadGain: { value: LOOK.loadGain ?? 1 }, uLoadBase: { value: LOOK.loadBase ?? 0.30 }, uFlow: { value: LOOK.flow ?? 0 },
       uRipGrad: { value: LOOK.ripGrad },   // 1 = 뉴턴 LUT 그라디언트(기본) · 0 = 단색
       uRipCol: { value: LOOK.ripCol },   // 1 = 샌드(따뜻한 잔광). 0 흰 · 2 코랄 · 3 레드
       // 진행 아크 감김 — 종목별. FXP.arcRev 를 매 프레임 주입한다(아래 MARK_LOOK 주입부와 같은 자리).
@@ -409,10 +412,18 @@ export function makeMarkFXMaterial(footTex = null) {
 const MARK_MATS = [];
 /** 재질 하나에만 룩을 입힌다(전역 applyMarkLook 의 인스턴스 판) — 8번째 토큰 'Tap2' 처럼
  *  특정 토큰만 다른 스타일을 쓰는 경우. 키 규약은 applyMarkLook 과 동일. */
+/** 하중 배분 주입 — marklang LOAD 한 항목({ball,heel,toe})을 그 마크에만 건다.
+ *  ★ 상태(8토큰)와 직교한다: 같은 Active 라도 앞볼로 버틸 수도 전면으로 디딜 수도 있다. */
+export function setMarkLoad(mat, load) {
+  const U = mat?.uniforms; if (!U || !load) return;
+  if (U.uLoadBall) U.uLoadBall.value = load.ball;
+  if (U.uLoadHeel) U.uLoadHeel.value = load.heel;
+  if (U.uLoadToe)  U.uLoadToe.value  = load.toe;
+}
 export function applyMarkLookTo(mat, part = {}) {
   const SF = SIL_FIT / SIL_FIT_REF;
   const map = { imp: 'uImp', dot: 'uImpDot', glow: 'uImpGlow', shade: 'uImpShade', sharp: 'uImpSharp',
-    shadeCol: 'uImpShadeCol', dotCol: 'uImpDotCol', scale: 'uImpScale', plantar: 'uPlantar', bands: 'uBands', bandSoft: 'uBandSoft',
+    shadeCol: 'uImpShadeCol', dotCol: 'uImpDotCol', scale: 'uImpScale', plantar: 'uPlantar', loadGain: 'uLoadGain', loadBase: 'uLoadBase', flow: 'uFlow', bands: 'uBands', bandSoft: 'uBandSoft',
     edgeShade: 'uEdgeShade', edgeShadeW: 'uEdgeShadeW', edgeShadeCol: 'uEdgeShadeCol',
     edgeShadeGrad: 'uEdgeShadeGrad', edgeShadeG0: 'uEdgeShadeG0', edgeShadeG1: 'uEdgeShadeG1',
     shadeRed: 'uShadeRed', shadeRedW: 'uShadeRedW', edgeSoft: 'uEdgeSoft', dither: 'uDither',
@@ -446,7 +457,7 @@ export function setMarkStateLook(mat, ph) {
 export function applyMarkLook(part = {}) {
   const SF = SIL_FIT / SIL_FIT_REF;
   const map = { imp: 'uImp', dot: 'uImpDot', glow: 'uImpGlow', shade: 'uImpShade', sharp: 'uImpSharp',
-    shadeCol: 'uImpShadeCol', dotCol: 'uImpDotCol', scale: 'uImpScale', plantar: 'uPlantar', bands: 'uBands', bandSoft: 'uBandSoft',
+    shadeCol: 'uImpShadeCol', dotCol: 'uImpDotCol', scale: 'uImpScale', plantar: 'uPlantar', loadGain: 'uLoadGain', loadBase: 'uLoadBase', flow: 'uFlow', bands: 'uBands', bandSoft: 'uBandSoft',
     edgeShade: 'uEdgeShade', edgeShadeW: 'uEdgeShadeW', edgeShadeCol: 'uEdgeShadeCol',
     edgeShadeGrad: 'uEdgeShadeGrad', edgeShadeG0: 'uEdgeShadeG0', edgeShadeG1: 'uEdgeShadeG1',
     shadeRed: 'uShadeRed', shadeRedW: 'uShadeRedW', edgeSoft: 'uEdgeSoft', dither: 'uDither',

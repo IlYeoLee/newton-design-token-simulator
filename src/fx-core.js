@@ -659,6 +659,14 @@ uniform float uArcRev;
 //   uBands:   등고선 단계 수(0 = 연속). 레퍼런스의 계단 밴드가 '데이터'로 읽히게 하는 장치.
 //   uBandSoft: 밴드 경계 무름(0 = 칼금 · 1 = 뭉근).
 uniform float uPlantar, uBands, uBandSoft;
+//   uLoadBall/Heel/Toe = **하중 배분**(marklang LOAD). 기본값이 곧 옛 상수라 안 건드리면 픽셀 동일.
+//     이게 없어서 압력장이 전 상태 공통 한 벌이었다 — "앞꿈치에 힘 실어라"를 그림이 말할 수 없었다.
+uniform float uLoadBall, uLoadHeel, uLoadToe;
+//   uLoadGain = 하중 세기 · uLoadBase = 비접지 바닥(낮출수록 접지 대비가 산다) · uFlow = 딛는 흐름.
+//     기본 1 / 0.30 / 0 이면 도입 전과 픽셀 동일(롤백 지점). 색은 손대지 않는다 —
+//     앞볼 피크는 이미 lut(0.076)=#FA3030(팔레트 최강)이고, 별도 램프는 금지다(fillT 주석).
+//     세지는 길은 **면적과 대비**뿐이다.
+uniform float uLoadGain, uLoadBase, uFlow;
 // uSilFit: 실루엣이 쿼드에서 차지하는 비율(기준 0.78 대비). 1 = 옛 그대로.
 //   ext·해부학 좌표는 '0.78 로 구웠을 때' 기준의 uv 값이라, 채움비가 바뀌면 같이 줄어야 한다.
 uniform float uEdgeShade, uEdgeW, uEdgeSoft, uDither, uSilFit;
@@ -693,7 +701,19 @@ float plantar(vec2 pQ, float sdIn, float sd){
   vec2 h = (p - vec2(0.00, -0.44)) / vec2(0.26, 0.22); float heel = exp(-dot(h, h));
   vec2 g = (p - vec2(0.17, 0.56)) / vec2(0.15, 0.13);  float toe  = exp(-dot(g, g));
   vec2 a = (p - vec2(-0.13, -0.02)) / vec2(0.22, 0.26); float arch = exp(-dot(a, a));
-  blob = 0.30 + 1.00 * ball + 0.62 * heel + 0.50 * toe - 0.34 * arch;
+  blob = uLoadBase + (uLoadBall * ball + uLoadHeel * heel + uLoadToe * toe) * uLoadGain - 0.34 * arch;
+  // ── 딛는 흐름 ─────────────────────────────────────────────────────────────
+  //   하중 중심(발 장축)에서 **뒤로 길게 끌리고 앞은 짧게 끊긴다**. 앞뒤 비대칭이 곧 방향이다 —
+  //   대칭이면 그냥 얼룩이고, 비대칭이라야 체중이 뒤에서 앞으로 구르는 중으로 읽힌다.
+  //   중심은 선언하지 않는다: 하중 배분(uLoad*)에서 자동으로 나온다. 두 벌이 되면 반드시 어긋난다.
+  if (uFlow > 0.001) {
+    float wsum = max(uLoadBall + uLoadHeel + uLoadToe, 1e-3);
+    float cy = (uLoadBall * 0.30 + uLoadHeel * (-0.44) + uLoadToe * 0.56) / wsum;
+    float dy = p.y - cy;
+    float tail = exp(-pow(max(-dy, 0.0) / 0.62, 2.0));   // 지나온 쪽 — 길게 남는다
+    float head = exp(-pow(max( dy, 0.0) / 0.22, 2.0));   // 가는 쪽 — 짧게 끊긴다
+    blob += uFlow * max(tail * 0.55, head);
+  }
   return clamp(depth * blob, 0.0, 1.0);
 }
 /** 윤곽선 — **두 겹**이다: 얇고 또렷한 코어 라인 + 그 밖으로 넓게 풀리는 소프트.
@@ -1038,7 +1058,15 @@ vec4 markState(vec2 uv, float state, float prog, float strong, float t){
     float depR = mix(0.185, 0.018, clamp(uImpSharp, 0.0, 1.0)) * sfi;
     float dep = smoothstep(0.0, depR, -sdIn);
     // 가장자리에서 0.34 로 남으면 도트 영역이 그 밝기로 뚝 끊긴다 — 0 까지 내려 배경과 어우러지게.
-    lay(A, palPick(uImpDotCol), inIn * dotM * uImp * (0.06 + 0.94 * dep));
+    // ★ 도트 농도 = 압력 (유저 08-06 레퍼런스: 나이키 깔창 — 도트 농도가 곧 압력이다).
+    //   전엔 dep(경계로부터의 깊이)만 썼다. plantar 가 만든 볼·뒤꿈치·아치 분포가 **도트에는
+    //   하나도 안 실려서**, 압력은 필 색 램프에만 은근히 있고 도트는 발 전체에 균일하게 깔렸다.
+    //   격자·피치·점 크기·이너 섀도우는 그대로 두고(스타일 동결) **압력 없는 자리에서 도트를
+    //   걷어내기만** 한다 — 아치가 비는 순간 그림이 발자국으로 읽힌다.
+    //   최대치 1.0 유지 = 고압부는 도입 전과 동일. uPlantar 0 이면 전 픽셀 동일(롤백 지점).
+    float prI = plantar(uv, sdIn, sd);
+    float press = mix(1.0, 0.16 + 0.84 * prI, clamp(uPlantar, 0.0, 1.0));
+    lay(A, palPick(uImpDotCol), inIn * dotM * uImp * (0.06 + 0.94 * dep) * press);
     // 이너 섀도우 — 경계 **안쪽**에서 최대, 안으로 갈수록 사라진다. 자국이 '눌려 들어간' 자리로 읽힌다.
     //   빛을 빼지 않는다(위 uImpShade 주석): LUT 저역(RED)을 얹어 어느 바닥에서도 그림자로 읽히게.
     // 각인 음영에도 같은 블룸을 — 음영은 실루엣이든 자국이든 하나의 언어여야 한다.

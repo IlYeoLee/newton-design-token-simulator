@@ -2,9 +2,13 @@ import * as THREE from 'three';
 import { PAL, NEU, NUM, rgba } from './palette.js';
 import bkStepContacts from '../assets/mocap/contacts-cmu_crossover_shot.json';   // 접지 자동 추출 산출물 (scripts/extract_contacts.mjs)
 import { WALL_Z } from './scene.js';
+// ★ 마크 움직임 정본 — _sbPlace 안에 갇혀 있던 이징·착지팝·체공을 여기로 뺀다(숫자 동일).
+import { easeMove, stepDelay, stampPop, airK, airAlpha, airScale, overshoot, slideAlpha } from './markmotion.js';
+// ★ 4단계 스펙 정본 — 어느 발이 어떤 하중으로 어떻게 움직이는가. 코드에 흩어져 있던 걸 데이터로.
+import { BK_STEPBACK, LOAD, arrowFor } from './marklang.js';
 import { lutColor, GLYPHS, drawGlyph, drawNumber, footSlot, footSDFTexture, FXP } from './fxlut.js';
 import { MARK_NUM, GLYPH_LOOK, drawMarkGlyph, invertGlyphCanvas, drawStanceBox, drawPunchLine, drawApproachRing, drawTrajectory, drawRotate, drawStemArrow, drawCurveArrow , glyphFor } from './fx-core.js';
-import { makeMarkFXMaterial, makeLaneFXMaterial, makeFlowArrow, tickFlowArrows, beamAlphaAt, COLORS, FOOT_PLANE_M, QUAD_K, UI_MASK, MARK_LOOK, applyMarkLookTo } from './tokens.js';
+import { makeMarkFXMaterial, makeLaneFXMaterial, makeFlowArrow, tickFlowArrows, beamAlphaAt, COLORS, FOOT_PLANE_M, QUAD_K, UI_MASK, MARK_LOOK, applyMarkLookTo, setMarkLoad } from './tokens.js';
 
 const clamp01 = v => v < 0 ? 0 : v > 1 ? 1 : v;
 
@@ -659,7 +663,7 @@ const A_WATCH = 3.0;
 export const STEP_SEG = { BK_B2: 0.60, BK_B3: 1.44, BK_B4: 1.81, BK_B5: 3.10, BK_C2: 3.10 };   // 각 단계가 보여주는 영상 구간 끝(초)
 // 실전(C2) = 끊김 없이 처음부터 끝까지 한 번에, 정속. 학습 단계(B2~B5)는 저속 + 구간 끝 정지.
 export const STEP_LIVE = 'BK_C2';
-const SB_POSE = [
+export const SB_POSE = [
   { t: 0.00, L: [-0.75, -0.50], R: [0.75, -0.50] },                      // 시작 = 어깨너비보다 넓게 나란히(앞줄)
   { t: 0.60, L: [-0.75, -0.50], R: [0.75, -0.50] },                      // 1/4 무릎 굽혀 페이크 — 발은 그대로
   { t: 1.44, L: [-0.75, -0.50, 1], R: [0.34, 1.00] },                    // 2/4 오른발을 살짝 왼쪽 대각선 앞으로(유저) — 왼발은 앞볼 접지
@@ -668,14 +672,14 @@ const SB_POSE = [
   { t: 3.10, L: [-1.00, -0.90], R: [-0.25, -0.60] },                     //     그 자세로 슛까지 유지
 ];
 // 판정 마크 프레임 = 빔 창 안 고정 영역. 어떤 단계·어떤 프레임에서도 이 밖으로 안 나간다.
-const SB_BOX = { u: 0.80, v0: 0.14, v1: 0.62 };   // 앞뒤 폭을 넓혀 '앞으로 쭉' 내딛는 거리를 확보(유저)
+export const SB_BOX = { u: 0.80, v0: 0.14, v1: 0.62 };   // 앞뒤 폭을 넓혀 '앞으로 쭉' 내딛는 거리를 확보(유저)
 const sbU = u => Math.max(-SB_BOX.u, Math.min(SB_BOX.u, u * SB_BOX.u));
 const sbV = v => {
   const c = (SB_BOX.v0 + SB_BOX.v1) / 2, h = (SB_BOX.v1 - SB_BOX.v0) / 2;
   return Math.max(SB_BOX.v0, Math.min(SB_BOX.v1, c + v * h));
 };
 /** 영상 시각 vt의 두 발 상태. holdAirborne = 컷에서 아직 다 옮기지 않은 발은 이전 자리 유지 */
-function sbPoseAt(vt, holdAirborne) {
+export function sbPoseAt(vt, holdAirborne) {
   let i = 0;
   while (i < SB_POSE.length - 2 && SB_POSE[i + 1].t <= vt - 1e-6) i++;   // 컷과 키가 같은 시각이면 '도착한' 구간을 유지 — 안 그러면 착지 이벤트를 건너뛴다
   const a = SB_POSE[i], b = SB_POSE[i + 1];
@@ -688,11 +692,10 @@ function sbPoseAt(vt, holdAirborne) {
     let ff = f;
     if (step) {
       if (holdAirborne && ff > 0 && ff < 1) ff = 0;          // 아직 안 딛었으면 이전 자리
-      else if (!slide) ff = Math.max(0, Math.min(1, (ff - 0.35) / 0.65));   // 구간 후반 65%에 몰아서 '확'
+      else if (!slide) ff = stepDelay(ff);   // 구간 후반 65%에 몰아서 '확'
     }
     // 스텝 = 뗐다 → 빠르게 → 딱 멈춤 / 슬라이드 = 초반에 확 밀고 길게 감속(쓰윽)
-    const ez = slide ? 1 - Math.pow(1 - ff, 2.6)
-                     : (ff < 0.5 ? 2 * ff * ff : 1 - Math.pow(-2 * ff + 2, 2) / 2);
+    const ez = easeMove(slide, ff);   // markmotion 정본
     return {
       u: sbU(p0[0] + (p1[0] - p0[0]) * ez), v: sbV(p0[1] + (p1[1] - p0[1]) * ez),
       tu: sbU(p1[0]), tv: sbV(p1[1]),
@@ -868,22 +871,20 @@ export class Session {
       //   ① 앞꿈치 접지 = 큰 팝(0.18s, 빠른 감쇠)  ② 뒤꿈치가 따라 내려앉는 작은 팝(0.10s 뒤 0.16s)
       //   여기에 착지 직전 6% 오버슈트 → 되돌아옴을 더해 체중이 실리는 느낌을 만든다. 전 단계 공통.
       const age = this.t - (st['p' + side] || -9);
-      const pop1 = Math.max(0, 1 - age / 0.18), pop2 = Math.max(0, 1 - Math.abs(age - 0.10) / 0.16);
-      const pop = Math.max(pop1, pop2 * 0.5);
+      const pop = stampPop(age);   // 타닥 두 박 — markmotion 정본
       const landed = st[side] === q.plantT;   // 이 단계 목표에 이미 딛었나
       if (q.moving && q.slide) {
         // 슬라이드(스텝백) = 바닥에 붙은 채 밀린다 — 들리지 않으니 고스트로 바꾸지 않고,
         //   밀리는 동안만 살짝 흐려져 '쓰윽' 하는 잔상감을 준다.
-        const spd = Math.max(0, 1 - q.f);
-        fm.countdown(1); fm.op(0.70 + 0.25 * (1 - spd));
+        fm.countdown(1); fm.op(slideAlpha(q.f));
         fm.at(p.x, p.z, FOLLOW_S);
       } else if (q.moving) {
         // 이동 중 = 들린 발. 궤적 중간에서 가장 크고 흐리다(유리판 미끄러짐 방지).
-        const air = Math.sin(Math.PI * q.f);
-        const over = q.f > 0.85 ? (q.f - 0.85) / 0.15 * 0.06 : 0;   // 착지 직전 살짝 지나쳤다가
-        fm.ghost(); fm.op(0.30 + 0.25 * (1 - air));
+        const air = airK(q.f);
+        const over = overshoot(q.f);   // 착지 직전 살짝 지나쳤다가
+        fm.ghost(); fm.op(airAlpha(q.f));
         const px = p.x + (q.tu - q.u) * over, pz = p.z + (q.tv - q.v) * over;
-        fm.at(px, pz, FOLLOW_S * (1 + 0.08 * air));   // 체공은 아주 살짝만
+        fm.at(px, pz, FOLLOW_S * airScale(q.f));   // 체공은 아주 살짝만
       } else if (pop > 0) {
         fm.glow(1);   // 착지 = Success 블룸 (그 단계 목표라 흐려지지 않는다)
         fm.op(1); fm.at(p.x, p.z, FOLLOW_S);   // 착지 크기 변화 없음 — 한 번 더 구르는 걸로 읽힌다(유저)
@@ -893,6 +894,13 @@ export class Session {
         fm.countdown(1); fm.op(0.95); fm.at(p.x, p.z, FOLLOW_S);
       }
       fm.toe(q.toe || 0);   // 앞꿈치 접지 구간이면 뒤꿈치가 스러진다
+      // ★ 하중 배분 — 이 단계 이 발의 LOAD(marklang). 단 **물리가 목표를 이긴다**:
+      //   들린 발엔 하중이 0 이고, 미는 중이면 목표와 무관하게 밀기다.
+      {
+        const sp = BK_STEPBACK[id]?.[side];
+        const key = q.moving ? (q.slide ? 'drive' : 'off') : (sp?.load || 'flat');
+        setMarkLoad(fm.plane?.material, LOAD[key]);
+      }
       // 화살표 = '그 발이' 갈 방향. 안 움직이는 발엔 절대 안 붙는다(유저: 왼발에 화살표 뜸).
       if (!ar) return;
       const du = q.tu - q.u, dv = q.tv - q.v;
@@ -914,6 +922,10 @@ export class Session {
         ? -Math.atan2(q.tu - other.u, q.tv - other.v)          // 고정 방향(멈춘 발 → 목표)
         : -Math.atan2(du, Math.max(0.001, dv));                // 이동 방향(주로 전진 = 0°)
       ar._gain = q.slide ? 0.75 : (q.moving ? 0.30 + 0.60 * (1 - q.f) : 0.55);   // 슬라이드 큐는 일정한 밝기로 흐른다
+      // ★ 두께 = MOVE 토큰(marklang ARROW). 길이는 이미 이동 거리가 정하므로 토큰은 두께·촉만 말한다.
+      //   슬라이드가 굵다 — 스텝백에서 힘이 실리는 곳이 거기다(3/4 왼발 밀기).
+      const tok = arrowFor(q.slide ? 'slide' : 'step', Math.min(1, Math.hypot(du, dv)));
+      if (tok) ar._scale = tok.scale;
     };
     one('L', fmL, arrows[0]);
     one('R', fmR, arrows[1]);
