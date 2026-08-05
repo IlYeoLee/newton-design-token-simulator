@@ -2230,16 +2230,24 @@ export class Session {
         P.fmL.group.position.x = -0.16; P.fmL.group.position.z = CZ;
         P.fmR.group.position.x = 0.16; P.fmR.group.position.z = CZ;
       } else if (pb) {
-        const fL = pb.footL, fR = pb.footR;
-        const lft = fL.x <= fR.x ? fL : fR, rgt = fL.x <= fR.x ? fR : fL;
-        const mz = (fL.z + fR.z) / 2;
-        const tgt = (fm, baseX, f) => {
-          const tx = baseX, tz = CZ + (f.z - mz) * SC;
-          const g = fm.group; const a = 1 - Math.exp(-(dt || 0.016) / 0.08);
-          g.position.x += (tx - g.position.x) * a; g.position.z += (tz - g.position.z) * a;
-        };
-        tgt(P.fmL, -0.16, lft); tgt(P.fmR, 0.16, rgt);
-        P._frontLeft = lft.z < rgt.z;
+        // ★ **버티는 동안 마크는 멈춘다**(유저: 애니메이팅이 깔끔하게 정리가 안 된다).
+        //   마크는 '여기를 밟아라'는 **목표**다. 도착한 뒤에도 봇 발을 계속 따라다니면
+        //   3초 내내 미세하게 흔들려 '따라할 대상'이 아니라 '흔들리는 물체'가 된다.
+        //   딛는 동안(내려감)만 따라가고, 홀드에 들어가면 그 자리에 잠근다 —
+        //   딛고 → 잠기고 → 버티고 → 풀린다. 리듬이 생긴다.
+        const holding = !!this.a2Cyc?.inHold;
+        if (!holding) {
+          const fL = pb.footL, fR = pb.footR;
+          const lft = fL.x <= fR.x ? fL : fR, rgt = fL.x <= fR.x ? fR : fL;
+          const mz = (fL.z + fR.z) / 2;
+          const tgt = (fm, baseX, f) => {
+            const tx = baseX, tz = CZ + (f.z - mz) * SC;
+            const g = fm.group; const a = 1 - Math.exp(-(dt || 0.016) / 0.08);
+            g.position.x += (tx - g.position.x) * a; g.position.z += (tz - g.position.z) * a;
+          };
+          tgt(P.fmL, -0.16, lft); tgt(P.fmR, 0.16, rgt);
+          P._frontLeft = lft.z < rgt.z;
+        }
       }
       // ── 홀드 = UI 기준 타이머(5초). x봇 사이클(main a2Cyc)에 직결 — 봇 멈춤 5s와 정확 동기 ──
       // (스프레드 측정은 노이즈(5.7/6.3/3.2s 불규칙)라 폐기 → 봇 사이클 prog 직결)
@@ -2276,8 +2284,11 @@ export class Session {
       // 앞/뒤 발 식별 — z 가 작은 쪽이 앞(봇 정면 = −z). 뒷발 스트레치 피드백·화살표가 이걸 쓴다.
       //   ※ 등장 안무(스태거 페이드인)는 폐기: watching 이 렙마다 토글돼 기점이 계속 리셋되고
       //     뒷발이 0.1 알파에 눌리는 회귀를 냈다(실측). 제대로 된 진입 훅이 생기면 그때 다시.
-      const fmFront = P.fmL.group.position.z <= P.fmR.group.position.z ? P.fmL : P.fmR;
-      const fmBack = fmFront === P.fmL ? P.fmR : P.fmL;
+      // ★ 앞발 = **그 차례의 발**이다(a2Cyc.isLeft). z 비교로 따로 구하지 않는다 —
+      //   fmL/fmR 은 x(좌우)로, z 비교는 앞뒤로 나누는 **다른 축**이라 봇이 좌우 반전될 때
+      //   둘이 어긋나 숫자가 뒷발에 붙었다(유저: 앞발에 숫자가 써 있어야 하는 거 아냐).
+      //   런지는 '그 차례의 발을 앞으로 내딛는' 동작이므로 정의상 act === 앞발이다.
+      const fmFront = act, fmBack = oth;
 
       // 딛는 발: 둘 다 Active(빈 링). 홀드 중이면 같은 Hold 페이즈에서 uProg만 0→1 채워짐(부드러운 전환, 팝 없음)
       act.setHold(Math.max(0.02, P.fill));   // 0.02 = 빈 링(Active 모양) → prog 채움
