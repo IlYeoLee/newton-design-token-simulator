@@ -2139,11 +2139,10 @@ export class FloorGL {
     const perFoot = this.stage === 'A2' && cyc && !cyc.watching;
     const hs = cyc?.holdSec ?? 5, hp = cyc?.inHold ? clamp01(cyc.prog) : 0;
     if (perFoot) title = (cyc.isLeft ? 'Left ' : 'Right ') + title;
-    // ★ 대소문자 규약(유저) — **프리뷰는 대+소문자, 따라하기 헤더는 대문자**.
-    //   관찰 구간의 타이틀은 '무슨 동작인지 읽는 이름'이라 문장형이 자연스럽고, 헤더는 계속
-    //   곁눈질로 보는 라벨이라 대문자가 낫다. 폭은 더 넓은 쪽(대문자)으로 재야 안 잘린다.
-    const titleCase = title;              // 프리뷰용 — 원본 표기
-    title = title.toUpperCase();          // 헤더용 — 폭 계산도 이 값으로
+    // ★ 대소문자 규약(유저 확정) — 타이틀 영역은 **전부 대문자**(프리뷰·헤더·농구 포함).
+    //   대문자로 통일해야 관찰→따라하기가 같은 글자가 옮겨간 것으로 읽힌다.
+    //   **타이틀 영역은 프리뷰·헤더 모두 대문자**, 'Preview' 라벨만 대+소문자(유저 확정).
+    title = title.toUpperCase();
     const L = (p, q) => p + (q - p) * mo;
     // 지오메트리 — 원형(760×820) → 가로 알약(840×250). **y 는 176 고정**: 위를 붙박아 두면
     //   아래로만 접히므로 코치 판(지면 중앙에 서는 3D 인물)과 안 겹친다.
@@ -2246,17 +2245,17 @@ export class FloorGL {
       ctx.save(); ctx.globalAlpha *= outA;
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.fillStyle = 'rgba(255,255,255,.6)'; ctx.font = F(400, 56); ctx.letterSpacing = '7px';   // 46→56
-      ctx.fillText('PREVIEW', CX + 3, y + h * .15 - 26 * mo);
+      ctx.fillText('Preview', CX + 3, y + h * .15 - 26 * mo);   // 라벨만 대+소문자(유저)
       // ① 도착점 쪽으로 끌려간다 — 중앙 기준이라 x 는 좌측 목표로, y 는 헤더 중앙으로.
       ctx.translate((dstX - CX) * .32 * mo, (dstY - (y + h * .40)) * .32 * mo);
       // 100 → 124 — 캡슐 대비 내용이 작아 보였다(유저). 2줄 간격도 112 → 136 으로 같이.
       ctx.letterSpacing = '-5px'; ctx.fillStyle = '#fff'; ctx.font = F(700, 124);
       // 2줄 분할도 정본 타이틀에서 파생 — CAPS 의 하드코딩 배열을 안 쓴다.
-      const ci2 = titleCase.indexOf(', ');
-      const ls = ci2 > 0 ? [titleCase.slice(0, ci2 + 1), titleCase.slice(ci2 + 2)]
-        : (titleCase.length > 12 ? (() => { const w2 = titleCase.split(' ');
+      const ci2 = title.indexOf(', ');
+      const ls = ci2 > 0 ? [title.slice(0, ci2 + 1), title.slice(ci2 + 2)]
+        : (title.length > 12 ? (() => { const w2 = title.split(' ');
             const m = Math.ceil(w2.length / 2); return [w2.slice(0, m).join(' '), w2.slice(m).join(' ')]; })()
-          : [titleCase]);
+          : [title]);
       ls.forEach((ln, i) => ctx.fillText(ln, CX, y + h * .40 + (i - (ls.length - 1) / 2) * 136));
       ctx.letterSpacing = '0px'; ctx.restore();
     }
