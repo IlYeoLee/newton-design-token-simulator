@@ -1,5 +1,5 @@
 {
-  "_": "MARK(발형·존원) 룩 정본. footlab.html '코드에 저장'이 이 파일을 덮어쓴다. 2026-08-05 유저: 발자국이 캡슐 광에 비해 흐리다 → 번짐 계열(blur/halo/pool)을 낮추고 코어(glow/dot/sharp)를 올려 쨍하게. 미세 조정은 footlab 슬라이더로.",
+  "_": "MARK(발형·존원) 룩 정본. footlab.html '코드에 저장'이 이 파일을 덮어쓴다.",
   "imp": 0.98,
   "scale": 0.83,
   "offx": -0.043,
@@ -138,6 +138,6 @@
     }
   },
   "loadGain": 1.45,
-  "loadBase": 0.12,
+  "loadBase": 0.22,
   "flow": 0.55
 }
