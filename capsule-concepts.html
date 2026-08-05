@@ -39,7 +39,7 @@ h2{font-size:13.5px;margin:22px 0 10px;color:#FEC389}
 <div class="row" id="row"></div>
 <script type="module">
 const FG = await import('/src/floorgl.js');
-const { arcGauge, rollNum, drawBadge, ringGauge, countRing, eOut, intro, clamp01, kf, cycle } = FG;
+const { arcGauge, rollNum, drawBadge, ringGauge, countRing, tickScale, eOut, intro, clamp01, kf, cycle } = FG;
 
 const W = 1600, H = 2670;                 // 지면 대지 규격(정본)
 const IMG = {};
@@ -569,6 +569,48 @@ const LAY = [
   ['④ 같은 문법 · 농구(영상 최대 1720)', null, layBK,
    '③ 과 <b>완전히 같은 문법</b>인데 영상만 1400→1720 으로 키웠다. <b>컨테이너가 영상을 감싸지 않기 때문에</b> 가능하다 — 감싸면 컨테이너가 곧 영상 크기의 상한이 되고, 종목마다 필요한 크기가 다른데 크롬이 그걸 막는다(현재 프리뷰가 그 상태: 캡슐이 화면 절반, 인물은 1/4).'],
 ];
+// ═══ 눈금 스케일 — 절제된 그래픽 레퍼런스에서 옮길 수 있는 것(유저) ══════════════
+//   레퍼런스의 핵심은 블룸이 아니라 **눈금 자(ruler) + 밝은 지시선 하나**다. 값 하나를
+//   '많은 얇은 것 + 하나의 밝은 것'으로 말하는 방식이라 시선이 갈 곳이 분명하다.
+//   ★ 옮길 수 없는 것: '밝은 블룸 안의 어두운 코어'. 바닥은 밝은 트랙 위 가산 투사라
+//     어두운 값을 만들 수 없다. (어두운 벽면이라면 코어를 '안 밝히는' 것으로 성립한다.)
+function devScene(g, t, kind) {
+  const cx = 800, e = eOut(intro(t, .06, .8));
+  const dev = Math.sin(t * .9) * .72;                     // 목표 대비 편차(데모)
+  capsule(g, cx - 330, 170, 660, 190);
+  g.textAlign = 'left'; g.textBaseline = 'middle'; g.fillStyle = '#fff';
+  g.font = RF(700, 60); g.letterSpacing = '-2px'; g.fillText('Easy Run', cx - 258, 266); g.letterSpacing = '0px';
+  g.textAlign = 'right'; g.font = RF(700, 62, DOT); g.fillText('12', cx + 214, 268);
+  capLabel(g, 'sec', cx + 262, 272, .5, 32);
+  coach(g, cx, 1060, 1080, e);
+  // 케이던스 스탯 — 큰 도트 숫자 + (편차 바 | 눈금 스케일) + 라벨
+  const sy = 1830;
+  g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#fff';
+  g.font = RF(700, 132, DOT); g.fillText('178', cx, sy);
+  if (kind === 'bar') {
+    g.lineCap = 'round';
+    const lg = g.createLinearGradient(cx - 230, 0, cx + 230, 0);
+    lg.addColorStop(0, 'rgba(255,255,255,0)'); lg.addColorStop(.18, 'rgba(255,255,255,.3)');
+    lg.addColorStop(.5, 'rgba(255,255,255,.34)'); lg.addColorStop(.82, 'rgba(255,255,255,.3)');
+    lg.addColorStop(1, 'rgba(255,255,255,0)');
+    g.strokeStyle = lg; g.lineWidth = 7;
+    g.beginPath(); g.moveTo(cx - 230, sy + 104); g.lineTo(cx + 230, sy + 104); g.stroke();
+    g.strokeStyle = 'rgba(255,255,255,.7)'; g.lineWidth = 5;
+    g.beginPath(); g.moveTo(cx, sy + 91); g.lineTo(cx, sy + 117); g.stroke();
+    g.save(); g.shadowColor = '#FEC389'; g.shadowBlur = 22; g.fillStyle = '#FEC389';
+    g.beginPath(); g.arc(cx + dev * 230, sy + 104, 11, 0, 7); g.fill(); g.restore();
+  } else {
+    tickScale(g, cx, sy + 104, 560, dev, { n: 29, h: 40, col: '#FEC389' });
+  }
+  capLabel(g, 'SPM', cx, sy + 196, .55, 58);
+  arcGauge(g, cx - 460, 2430, 920, (t % 8) / 8);
+}
+const DEV = [
+  ['현재 · 편차 바 (선 + 점)', null, (g, t) => devScene(g, t, 'bar'),
+   '선 하나에 점 하나. 점이 <b>어디쯤인지 가늠할 기준이 없다</b> — 양끝이 페이드라 끝도 안 보이고, 5 벗어난 건지 15 벗어난 건지 읽히지 않는다.'],
+  ['눈금 스케일 (레퍼런스 이식)', null, (g, t) => devScene(g, t, 'tick'),
+   '얇은 눈금 29개 + <b>밝은 지시선 하나</b>. 눈금이 촘촘해 <b>얼마나</b> 벗어났는지가 거리 감각으로 잡히고, 밝은 건 하나뿐이라 시선이 바로 간다. 레퍼런스의 절제는 여기서 온다 — 장식이 아니라 <b>기준선의 밀도</b>다.'],
+];
 // ═══ 전환 인터랙션 — 프리뷰 A → 따라하기 A 를 한 타임라인으로(유저: 전환도 미리보기) ═══
 //   한 물체(캡슐)가 물러나며 작아지고, 그 자리를 사람과 지면 마크가 이어받는다.
 const T_HOLD = 1.6, T_MOVE = 1.0, CY_LOOP = 5.4;
@@ -672,9 +714,10 @@ function build() {
     : MODE === 'prog' ? '시간 진행을 어디에 둘 것인가 — 나머지는 전부 동일, 진행 자리만 다르다'
     : MODE === 'cont' ? '컨테이너 문법 — 큰 알 유리 카드가 바닥 투사에 맞나 (알 값·필·라인)'
     : MODE === 'lay' ? '밀도·사이즈 — 간격 위계와 영상 크기 상한'
+    : MODE === 'dev' ? '눈금 스케일 — 값 하나를 어떻게 읽히게 할 것인가 (레퍼런스 이식)'
     : '프리뷰 → 따라하기 전환 (A안 · 5.4초) — 슬라이더로 스크럽';
-  if (MODE === 'redo' || MODE === 'prog' || MODE === 'cont' || MODE === 'lay') {
-    for (const [nm, src, fn, ds] of ({ redo: REDO, prog: PROG, cont: CONT, lay: LAY }[MODE])) {
+  if (MODE === 'redo' || MODE === 'prog' || MODE === 'cont' || MODE === 'lay' || MODE === 'dev') {
+    for (const [nm, src, fn, ds] of ({ redo: REDO, prog: PROG, cont: CONT, lay: LAY, dev: DEV }[MODE])) {
       const d = document.createElement('div'); d.className = 'cell';
       let el;
       if (src) { el = document.createElement('img'); el.src = '/' + src; el.style.cssText = 'width:328px;display:block;border-radius:14px'; }
@@ -715,7 +758,7 @@ function build() {
     row.appendChild(d); cells.push([cv, fn]);
   }
 }
-for (const [k, lb] of [['preview', '프리뷰(관찰)'], ['follow', '따라하기'], ['flow', '▶ 전환 인터랙션 (A안)'], ['sys', '◆ 실제 화면 캡처'], ['redo', '★ 캡슐 리디자인'], ['prog', '◇ 진행 배치 비교'], ['cont', '◈ 컨테이너 문법'], ['lay', '▤ 밀도·사이즈']]) {
+for (const [k, lb] of [['preview', '프리뷰(관찰)'], ['follow', '따라하기'], ['flow', '▶ 전환 인터랙션 (A안)'], ['sys', '◆ 실제 화면 캡처'], ['redo', '★ 캡슐 리디자인'], ['prog', '◇ 진행 배치 비교'], ['cont', '◈ 컨테이너 문법'], ['lay', '▤ 밀도·사이즈'], ['dev', '◎ 눈금 스케일']]) {
   const b = document.createElement('button'); b.textContent = lb;
   if (k === MODE) b.className = 'on';
   b.onclick = () => { MODE = k; document.querySelectorAll('.seg button').forEach(x => x.classList.remove('on')); b.classList.add('on'); build(); };

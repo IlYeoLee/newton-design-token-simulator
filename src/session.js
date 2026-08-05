@@ -1072,18 +1072,20 @@ export class Session {
       //   구워 얇은 면 스트립으로. 대시 언어는 유지하고 물리적 굵기(4cm)를 얻는다.
       // 도트 애니메이션(유저 #90) — 대시 스트립을 '흐르는 도트 + 블룸'으로. 캔버스를 매 프레임
       //   다시 굽지 않고, 텍스처 offset 을 흘려 도트가 앞발 쪽으로 흐르게 한다(업로드 0).
+      // ★ 바닥 전용 토큰 룩(유저 08-05 레퍼런스): **블룸 적고 절제된 선 + 점**.
+      //   구 버전은 반경 3.2배 방사 후광 + AdditiveBlending 이라 투사면에서 번져 '광'으로만 읽혔다.
+      //   ① 후광 제거 — 점은 단단한 잉크 원(에지 AA 만)
+      //   ② 가는 헤어라인을 깔아 점들을 **잇는다**(레퍼런스의 line+dot 문법)
+      //   ③ 합성은 Normal — 가산은 밝은 바닥에서 워시아웃되고 절제가 안 된다
       const c = document.createElement('canvas'); c.width = 256; c.height = 32;
       const g2 = c.getContext('2d');
+      g2.fillStyle = 'rgba(255,242,228,.26)';        // 헤어라인 — 점을 잇는 실
+      g2.fillRect(0, 15, 256, 2);
       const DOTS = 8, GAP = 256 / DOTS;
       for (let i = 0; i < DOTS; i++) {
-        const x = GAP * (i + 0.5), r = 5.2;
-        const rg = g2.createRadialGradient(x, 16, 0, x, 16, r * 3.2);   // 블룸 후광
-        rg.addColorStop(0, 'rgba(254,195,137,.95)');
-        rg.addColorStop(.35, 'rgba(254,195,137,.42)');
-        rg.addColorStop(1, 'rgba(254,195,137,0)');
-        g2.fillStyle = rg; g2.beginPath(); g2.arc(x, 16, r * 3.2, 0, Math.PI * 2); g2.fill();
-        g2.fillStyle = 'rgba(255,240,224,.98)';                          // 코어
-        g2.beginPath(); g2.arc(x, 16, r, 0, Math.PI * 2); g2.fill();
+        const x = GAP * (i + 0.5);
+        g2.fillStyle = 'rgba(255,246,234,.96)';      // 단단한 코어만
+        g2.beginPath(); g2.arc(x, 16, 4.2, 0, Math.PI * 2); g2.fill();
       }
       // ★ 스탠스 라인 = **반쪽 두 개**(유저 08-05: 두 발 사이를 잇는 예쁜 라인으로 펼쳐지는 느낌).
       //   한 장짜리 스트립은 offset 이 한 방향으로만 흘러 '흐름'이지 '펼쳐짐'이 아니었고,
@@ -1094,7 +1096,7 @@ export class Session {
         tx.wrapS = THREE.RepeatWrapping;
         const m = new THREE.Mesh(new THREE.PlaneGeometry(1, 0.085),
           new THREE.MeshBasicMaterial({ map: tx, transparent: true, opacity: 0, depthWrite: false,
-            blending: THREE.AdditiveBlending }));
+            blending: THREE.NormalBlending }));   // 절제 — 가산은 워시아웃(위 주석)
         m.rotation.x = -Math.PI / 2; m.renderOrder = 5; m.visible = false;
         g.add(m); return m;
       };

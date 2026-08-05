@@ -788,6 +788,34 @@ export function countRing(ctx, cx, cy, prog, txt, o = {}) {
   ctx.restore();
   ctx.restore();
 }
+/** 눈금 스케일 — 연속 값 하나를 '많은 얇은 눈금 + 밝은 지시선'으로 읽힌다.
+ *  왜 필요한가: 편차 바(_devBar)는 선 하나 + 점 하나라 투사면에서 점이 어디쯤인지 가늠할
+ *  기준이 없다(양끝이 페이드라 끝도 안 보인다). 눈금이 촘촘하면 **얼마나** 벗어났는지가
+ *  거리 감각으로 잡히고, 지시선 하나만 밝으면 시선이 거기로 바로 간다.
+ *  dev = -1~+1 (0 = 목표) · o.n 눈금 수 · o.h 눈금 높이 · o.col 지시선 색.
+ *  ★ 매체 주의: 원본 레퍼런스는 '밝은 블룸 + 어두운 코어'인데 바닥은 밝은 트랙 위 가산 투사라
+ *    어두운 값을 못 만든다. 그래서 코어는 빼고 **눈금 구조만** 가져온다. */
+export function tickScale(ctx, cx, by, w, dev, o = {}) {
+  const n = o.n ?? 29, h = o.h ?? 34, col = o.col || '#fff';
+  ctx.save(); ctx.lineCap = 'butt';
+  for (let i = 0; i < n; i++) {
+    const u = i / (n - 1), x = cx - w / 2 + w * u;
+    const edge = Math.sin(u * Math.PI);                 // 양끝으로 갈수록 흐리고 짧게
+    const mid = Math.abs(u - .5) < .001;
+    ctx.strokeStyle = rgba(NEU.paper, (mid ? .62 : .30) * (0.25 + 0.75 * edge));
+    ctx.lineWidth = mid ? 4 : 3;
+    const hh = h * (mid ? 1.28 : (.62 + .38 * edge));
+    ctx.beginPath(); ctx.moveTo(x, by - hh / 2); ctx.lineTo(x, by + hh / 2); ctx.stroke();
+  }
+  if (o.on === false) { ctx.restore(); return; }
+  // 지시선 — 눈금과 같은 어휘(세로 선)지만 더 길고 더 밝다. 점이 아니라 선이라 눈금 사이에
+  //   있어도 '어느 칸'인지가 읽힌다.
+  const px = cx + Math.max(-1, Math.min(1, dev)) * (w / 2);
+  ctx.shadowColor = col; ctx.shadowBlur = 24;
+  ctx.strokeStyle = col; ctx.lineWidth = 7; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(px, by - h * .78); ctx.lineTo(px, by + h * .78); ctx.stroke();
+  ctx.restore();
+}
 function drawCenteredNum(ctx, text, cx, cy, size) {
   // 도트는 숫자에만 — 값이 없어 '—' 를 띄우는 순간까지 도트로 찍히면 안 된다(유저 규약).
   ctx.font = F(700, size, /\d/.test(String(text)) ? dot9 : sans);
