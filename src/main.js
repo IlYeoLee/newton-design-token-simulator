@@ -4218,6 +4218,11 @@ void main(){
         xbot.group.scale.x = (Math.floor(tt / CYC) % 2) ? 1 : -1;
         const _hs = Math.max(0, Math.min(1, (c - DESC) / 0.6)), _he = Math.max(0, Math.min(1, (DESC + HOLD - c) / 0.6));
         xbot.lungeDeepen = 0.35 * Math.min(_hs, _he);
+        // ★ 씬 루프가 이 동작을 다 못 담고 잘라 먹었다(유저: 발자국이 사라진다). A2 는
+        //   관찰 5.8s 뒤에야 마크가 나오는데 기본 루프가 8s 라, 마크가 보이는 시간이 한
+        //   바퀴에 2초뿐이고 나머지는 관찰(=마크 숨김)이었다. 실측: latch(따라하기 진입)가
+        //   t6.0~7.6 에만 true. 필요한 길이를 여기서 알려 주면 아래 루프가 그만큼 늘린다.
+        session._a2LoopNeed = A2_WATCH + 2 * CYC;   // 관찰 + 좌우 1렙씩
         session.a2Cyc = { inHold: c >= DESC && c < DESC + HOLD, prog: Math.max(0, Math.min(1, (c - DESC) / HOLD)),
           //   ★ **오른발 먼저**(유저 08-06) — 첫 사이클이 왼발이었다. 짝수 회차 = 오른발.
           holdSec: HOLD, isLeft: (Math.floor(tt / CYC) % 2) === 1, descending: c < DESC };
@@ -4998,7 +5003,10 @@ void main(){
       //   두 바퀴째 2 초 지점에서 다시 시작해, 씬을 열자마자 **이미 맞은 노드(2번)가 채워진 채**
       //   보인다(유저: "잽잽훅 처음에 이거 왜 나와"). 올림해서 배수로 맞추면 위상이 영구히 유지되고
       //   길이도 요청값보다 짧아지지 않는다. dur 6 · 요청 8 → 12초.
-      const _sd = session.curStage?.dur, _want = window.__sceneLoop || 8;
+      // ★ 동작이 요구하는 최소 길이를 존중한다 — 관찰 구간이 있는 동작은 8초로 자르면
+      //   따라하기를 시작하기도 전에 되감긴다(A2 실측: 마크가 8초 중 2초만 보였다).
+      const _sd = session.curStage?.dur;
+      const _want = Math.max(window.__sceneLoop || 8, session._a2LoopNeed || 0);
       const _period = _sd > 0 ? Math.ceil(_want / _sd) * _sd : _want;
       if (session.t >= _period) {
         session.t = 0; session._enter();
