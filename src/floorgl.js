@@ -667,7 +667,7 @@ const TR = {
 //  타입 최소치는 minFs(y) 규약과 함께 쓴다 — 타이틀은 시작화면과 같은 98, 캡션/단위는 64 하한.
 export const LAYOUT = {
   PAD: 60,
-  HEAD: { y: 176, w: 1320, h: 348, pad: 44, gapU: 22, gapT: 46, minW: 720 },   // pad = 상하좌우 동일
+  HEAD: { y: 176, w: 1320, h: 348, pad: 64, gapU: 0, gapT: 56, minW: 720 },   // pad = 상하좌우 동일(44→64)
   GAP_HP: 56,
   PROG: { h: 143, wMax: 1048 },
   GAP_PC: 120,
@@ -1231,7 +1231,9 @@ export class FloorGL {
     //   pad 44 를 상하좌우에 동일하게 쓰고(HH = 링지름 + pad*2), 폭은 실측 텍스트에서 만든다.
     const ctx = this.ctx, H2 = LAYOUT.HEAD, PAD = H2.pad;
     const RR = 130, HH = RR * 2 + PAD * 2;
-    ctx.font = F(400, LAYOUT.TYPE.unit); const uw = ctx.measureText('sec').width;
+    // ★ 'sec' 을 가로로 나열하지 않는다(유저: 그것 때문에 가로 길이가 커진다).
+    //   단위는 숫자에 딸린 값이라 **링 안 숫자 아래**에 붙인다 — 폭 계산에서 통째로 빠진다.
+    const uw = 0;
     const T = String(n.title || '').toUpperCase();   // 코칭 타이틀 = 대문자(유저)
     ctx.font = F(700, LAYOUT.TYPE.title); ctx.letterSpacing = '-4px';
     const tw = ctx.measureText(T).width;
@@ -1258,8 +1260,10 @@ export class FloorGL {
       { t: 99, k: RR / 275, pulse: clamp01((this.t - (this._numT2 || 0)) / 0.5),
         ring: { trackW: 10, arcW: 10, trackA: .26 } });
     ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-    ctx.fillStyle = 'rgba(255,255,255,.72)'; ctx.font = F(400, LAYOUT.TYPE.unit);
-    ctx.fillText('sec', cxR + RR + H2.gapU, cyR + 10);
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = 'rgba(255,255,255,.62)'; ctx.font = F(400, 46);
+    ctx.fillText('sec', cxR, cyR + RR * .55);
+    ctx.textAlign = 'left';
     // 52 → 72(유저: 타이틀이 너무 작다). 최장 'Neck & Shoulders' 가 72px 에서 543px —
     //   폭 1000 의 타이틀 예산(≈560) 안에 들어간다. y176 안전폭은 2174 라 여유는 충분하다.
     ctx.fillStyle = '#fff'; ctx.font = F(700, LAYOUT.TYPE.title); ctx.letterSpacing = '-4px';
@@ -2160,12 +2164,12 @@ export class FloorGL {
     // 헤더 규격은 _capHead 와 같은 식에서 파생 — 여백 균등(pad 44) · 폭은 내용에서(유저)
     const H2 = LAYOUT.HEAD, PAD = H2.pad, RRp = 130;
     const HHp = RRp * 2 + PAD * 2;
-    ctx.font = F(400, LAYOUT.TYPE.unit); const uwp = ctx.measureText('sec').width;
+    const uwp = 0;   // 'sec' 은 링 안(숫자 아래)으로 — 가로 폭에서 빠진다(유저)
     ctx.font = F(700, LAYOUT.TYPE.title); ctx.letterSpacing = '-4px';
     const twp = ctx.measureText(title).width; ctx.letterSpacing = '0px';
     const WHp = Math.max(H2.minW, Math.min(safeW(H2.y) - 80,
       PAD + RRp * 2 + H2.gapU + uwp + H2.gapT + twp + PAD + (cfg.step ? 110 : 0)));
-    const w1 = L(820, WHp), h1 = L(660, HHp), y1 = H2.y;   // 내용이 커진 만큼 캡슐도 소폭
+    const w1 = L(900, WHp), h1 = L(740, HHp), y1 = H2.y;   // 여백 여유(유저) — 820×660 → 900×740
     // ★ 진입 = **시작화면 캡슐이 줄어드는 것**(유저: 두 번 탭하면 같은 요소가 줄어들며 넘어간다).
     //   스테이지가 바뀔 때 캡슐을 새로 띄우면 '다른 물건이 나타난' 걸로 읽힌다. READY 캡슐
     //   지오메트리(x291 y285 w1018 h1491)에서 출발해 0.9s 동안 이 스테이지의 캡슐로 접힌다.
@@ -2267,8 +2271,10 @@ export class FloorGL {
     if (inA > 0) {
       ctx.save(); ctx.globalAlpha *= inA;
       ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-      ctx.fillStyle = 'rgba(255,255,255,.72)'; ctx.font = F(400, LAYOUT.TYPE.unit);
-      ctx.fillText('sec', rx + RR + H2.gapU, ry2 + 10);
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillStyle = 'rgba(255,255,255,.62)'; ctx.font = F(400, 46);
+      ctx.fillText('sec', rx, ry2 + RR * .55);
+      ctx.textAlign = 'left';
       ctx.fillStyle = '#fff'; ctx.font = F(700, LAYOUT.TYPE.title); ctx.letterSpacing = '-4px';
       // ② 남은 거리에서 미끄러져 들어온다(들어올수록 0 으로 수렴)
       ctx.fillText(title, dstX - (dstX - CX) * .18 * (1 - inA), ry2 + 22 * (1 - inA));
