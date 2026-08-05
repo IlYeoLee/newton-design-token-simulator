@@ -667,7 +667,7 @@ const TR = {
 //  타입 최소치는 minFs(y) 규약과 함께 쓴다 — 타이틀은 시작화면과 같은 98, 캡션/단위는 64 하한.
 export const LAYOUT = {
   PAD: 60,
-  HEAD: { y: 176, w: 1320, h: 330 },
+  HEAD: { y: 176, w: 1320, h: 348, pad: 44, gapU: 22, gapT: 46, minW: 720 },   // pad = 상하좌우 동일
   GAP_HP: 56,
   PROG: { h: 143, wMax: 1048 },
   GAP_PC: 120,
@@ -1225,7 +1225,17 @@ export class FloorGL {
 //   ★ 타이틀 크기는 **시작화면 것을 그대로 유지**한다(유저) — 같은 물건이 줄어드는 것인데
     //     글자만 작아지면 다른 화면이 된다. READY 타이틀 98px 을 프리뷰(100)·헤더 모두 같이 쓴다.
     //     'Neck & Shoulders' 가 98px 에서 739px 이라 알약 폭은 1320 이 필요하다(y176 안전폭 2174).
-    const ctx = this.ctx, W2 = LAYOUT.HEAD.w, HH = LAYOUT.HEAD.h, x = CX - W2 / 2;
+    // ★ 여백 균등 + 폭은 **내용에서 파생**(유저: 좌우상하 여백 맞추고, 글자 적으면 줄어들게).
+    //   pad 44 를 상하좌우에 동일하게 쓰고(HH = 링지름 + pad*2), 폭은 실측 텍스트에서 만든다.
+    const ctx = this.ctx, H2 = LAYOUT.HEAD, PAD = H2.pad;
+    const RR = 130, HH = RR * 2 + PAD * 2;
+    ctx.font = F(400, LAYOUT.TYPE.unit); const uw = ctx.measureText('sec').width;
+    ctx.font = F(700, LAYOUT.TYPE.title); ctx.letterSpacing = '-4px';
+    const tw = ctx.measureText(n.title || '').width;
+    ctx.letterSpacing = '0px';
+    const W2 = Math.max(H2.minW, Math.min(safeW(y) - 80,
+      PAD + RR * 2 + H2.gapU + uw + H2.gapT + tw + PAD + (n.step ? 110 : 0)));
+    const x = CX - W2 / 2;
     const path = () => { ctx.beginPath(); ctx.roundRect(x, y, W2, HH, HH / 2); };
     ctx.save();
     path(); ctx.clip();
@@ -1238,7 +1248,7 @@ export class FloorGL {
     rim.addColorStop(1, 'rgba(255,255,255,.06)');
     ctx.strokeStyle = rim; ctx.lineWidth = 2.5; path(); ctx.stroke();
     // 카운트 링 — 정본 컴포넌트 그대로(형태 변환 없음, 자리만 여기다)
-    const RR = 130, cyR = y + HH / 2, cxR = x + 64 + RR;   // 숫자 104 — 타이틀 98 보다 살짝 크게
+    const cyR = y + HH / 2, cxR = x + PAD + RR;   // 링 왼쪽 여백 = pad(상하와 동일)
     const dur = n.dur || 8, rem = Math.max(0, Math.ceil(dur - this.t));
     if (String(rem) !== this._numLast2) { this._numLast2 = String(rem); this._numT2 = this.t; }
     countRing(ctx, cxR, cyR, clamp01(1 - this.t / dur), String(rem),
@@ -1246,11 +1256,11 @@ export class FloorGL {
         ring: { trackW: 10, arcW: 10, trackA: .26 } });
     ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
     ctx.fillStyle = 'rgba(255,255,255,.72)'; ctx.font = F(400, LAYOUT.TYPE.unit);
-    ctx.fillText('sec', cxR + RR + 22, cyR + 10);
+    ctx.fillText('sec', cxR + RR + H2.gapU, cyR + 10);
     // 52 → 72(유저: 타이틀이 너무 작다). 최장 'Neck & Shoulders' 가 72px 에서 543px —
     //   폭 1000 의 타이틀 예산(≈560) 안에 들어간다. y176 안전폭은 2174 라 여유는 충분하다.
     ctx.fillStyle = '#fff'; ctx.font = F(700, LAYOUT.TYPE.title); ctx.letterSpacing = '-4px';
-    const tx = cxR + RR + 22 + 128 + 46;   // 링 우측 → sec → 타이틀 (실폭에서 파생)
+    const tx = cxR + RR + H2.gapU + uw + H2.gapT;   // 링 → sec 실폭 → 타이틀
     // 쉼표가 있으면 의미 단위로 두 줄(농구 스텝) — 지금 데이터엔 없지만 규칙은 남긴다.
     const ci = (n.title || '').indexOf(', ');
     if (ci > 0) { ctx.fillText(n.title.slice(0, ci + 1), tx, cyR - 56); ctx.fillText(n.title.slice(ci + 2), tx, cyR + 56); }
@@ -1259,7 +1269,7 @@ export class FloorGL {
     // 스텝 배지(n/4) — 농구 분해 스텝만. 헤더 오른쪽 끝에 조용히.
     if (n.step) {
       ctx.textAlign = 'right'; ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.font = F(400, 44);
-      ctx.fillText(n.step, x + W2 - 56, cyR);
+      ctx.fillText(n.step, x + W2 - PAD, cyR);
     }
   }
 
@@ -1702,7 +1712,7 @@ export class FloorGL {
         const BW = 1055, BH = 1079, BR = 527.5;
         const BX = 800 - BW / 2, BY = (CAP.y + CAP.h) - 90 - BH;
         // 오프스크린에서 ②(밝기)와 ③(마스크)을 먼저 적용한 뒤, 결과만 lighter 로 얹는다.
-        const OW = 528, OH = Math.round(OW * BH / BW);
+        const OW = 264, OH = Math.round(OW * BH / BW);   // 픽셀 패스가 있어 절반 해상도
         const oc = this._pcv || (this._pcv = document.createElement('canvas'));
         if (oc.width !== OW) { oc.width = OW; oc.height = OH; }
         const og = oc.getContext('2d');
@@ -1714,6 +1724,18 @@ export class FloorGL {
         const dw = v.videoWidth * sc, dh = v.videoHeight * sc;
         og.drawImage(v, (OW - dw) / 2, -(dh * CLIP.focus), dw, dh);
         og.filter = 'none';
+        // ★ 휘도 → 알파(유저 #163: 검정 배경이 딸려 나온다). canvas 'lighter' 는 색은 0 을 더해도
+        //   **알파는 더한다**(αr = αs + αd). 소스 배경이 알파 1 인 검정이라 그 사각형만큼 '검은 빛'이
+        //   생겼다. 프로토타입은 불투명 카드 위라 이 문제가 없지만, 우리는 투사광 레이어라
+        //   빛이 없는 곳은 알파도 0 이어야 한다(인물 셰이더의 불변식과 같은 규약).
+        {
+          const d2 = og.getImageData(0, 0, OW, OH), q = d2.data;
+          for (let k = 0; k < q.length; k += 4) {
+            const lum = (q[k] * 0.299 + q[k + 1] * 0.587 + q[k + 2] * 0.114);
+            q[k + 3] = lum > 250 ? 255 : Math.min(255, lum * 1.55);
+          }
+          og.putImageData(d2, 0, 0);
+        }
         og.globalCompositeOperation = 'destination-in';
         const mg = og.createLinearGradient(0, 0, 0, OH);
         mg.addColorStop(0, 'rgba(0,0,0,0)');
@@ -2087,7 +2109,15 @@ export class FloorGL {
     //   1.7m 키가 카메라 부각 ~40°에서 바닥 2.0m 앞과 같은 자리에 찍힌다. 즉 캡슐이 아래로
     //   내려올수록(=near 쪽으로 커질수록) 머리와 겹칠 수밖에 없다. 위(y176)를 붙박은 채
     //   **아래 끝을 끌어올리는 것**만이 구조적 해법이다: 하단 y1076 → 796(1.26m → 1.45m).
-    const w1 = L(760, LAYOUT.HEAD.w), h1 = L(620, LAYOUT.HEAD.h), y1 = LAYOUT.HEAD.y;
+    // 헤더 규격은 _capHead 와 같은 식에서 파생 — 여백 균등(pad 44) · 폭은 내용에서(유저)
+    const H2 = LAYOUT.HEAD, PAD = H2.pad, RRp = 130;
+    const HHp = RRp * 2 + PAD * 2;
+    ctx.font = F(400, LAYOUT.TYPE.unit); const uwp = ctx.measureText('sec').width;
+    ctx.font = F(700, LAYOUT.TYPE.title); ctx.letterSpacing = '-4px';
+    const twp = ctx.measureText(title).width; ctx.letterSpacing = '0px';
+    const WHp = Math.max(H2.minW, Math.min(safeW(H2.y) - 80,
+      PAD + RRp * 2 + H2.gapU + uwp + H2.gapT + twp + PAD + (cfg.step ? 110 : 0)));
+    const w1 = L(760, WHp), h1 = L(620, HHp), y1 = H2.y;
     // ★ 진입 = **시작화면 캡슐이 줄어드는 것**(유저: 두 번 탭하면 같은 요소가 줄어들며 넘어간다).
     //   스테이지가 바뀔 때 캡슐을 새로 띄우면 '다른 물건이 나타난' 걸로 읽힌다. READY 캡슐
     //   지오메트리(x291 y285 w1018 h1491)에서 출발해 0.9s 동안 이 스테이지의 캡슐로 접힌다.
@@ -2125,8 +2155,8 @@ export class FloorGL {
     rim.addColorStop(1, 'rgba(255,255,255,.06)');
     ctx.strokeStyle = rim; ctx.lineWidth = 2.5; path(); ctx.stroke();
     // 카운트 링 — 정본 countRing. 관찰: 캡슐 중앙 아래 / 따라하기: 헤더 왼쪽 슬롯. 형태는 안 바뀐다.
-    const RR = L(112, 130);
-    const rx = L(CX, x + 64 + RR), ry2 = L(y + h * .70, y + h / 2);
+    const RR = L(112, RRp);
+    const rx = L(CX, x + PAD + RR), ry2 = L(y + h * .70, y + h / 2);
     const rem = mo < .5 ? Math.max(1, Math.ceil(PV - t)) : Math.max(0, Math.ceil(dur - t));
     if (String(rem) !== this._numLast2) { this._numLast2 = String(rem); this._numT2 = t; }
     countRing(ctx, rx, ry2, mo < .5 ? clamp01(1 - t / PV) : clamp01(1 - (t - PV) / Math.max(.1, dur - PV)),
@@ -2153,13 +2183,13 @@ export class FloorGL {
       ctx.save(); ctx.globalAlpha *= inA;
       ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
       ctx.fillStyle = 'rgba(255,255,255,.72)'; ctx.font = F(400, LAYOUT.TYPE.unit);
-      ctx.fillText('sec', rx + RR + 22, ry2 + 10);
+      ctx.fillText('sec', rx + RR + H2.gapU, ry2 + 10);
       ctx.fillStyle = '#fff'; ctx.font = F(700, LAYOUT.TYPE.title); ctx.letterSpacing = '-4px';
-      ctx.fillText(title, rx + RR + 22 + 128 + 46, ry2);
+      ctx.fillText(title, rx + RR + H2.gapU + uwp + H2.gapT, ry2);
       ctx.letterSpacing = '0px';
       if (cfg.step) {
         ctx.textAlign = 'right'; ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.font = F(400, 44);
-        ctx.fillText(cfg.step, x + w - 56, ry2);
+        ctx.fillText(cfg.step, x + w - PAD, ry2);
       }
       ctx.restore();
     }
