@@ -150,6 +150,40 @@ const ARC = {
   trackA: 0.85, trackR: 324.79 * 0.4264,   // trackFade 라디얼: 크라운 .85 → 양끝 0
   inkTop: 4, inkBot: 72,                   // 크라운의 마커 위끝 ~ 우측 끝 마커 아래끝
 };
+// ═══ 지면 가독 규약 — 165cm 사용자 기준 최소 글자 크기 ════════════════════════════
+//  왜 한 숫자가 아닌가: 대지는 **눕혀져** 있다. 화면 위(먼 쪽)는 시거리가 멀고 시선각이
+//  얕아 세로획이 눌리고, 발밑(가까운 쪽)은 거의 정면으로 본다. 같은 px 이라도 위에 있으면
+//  훨씬 작게 보인다 — 미감으로 크기를 정하면 위쪽 글자가 조용히 안 읽히게 된다.
+//
+//  실측(러닝 기본 투사, 2026-08-05):
+//    레인폭 2·halfAt(1.15m) = 1.098m ÷ 대지 1600px  →  MM_PER_PX = 0.686
+//    눈높이 1.55m(신장 165cm) · 대지는 발 앞 0.17m(y=2670) ~ 1.88m(y=176)
+//    캡높이 0.5°(글랜스 가독선) 확보에 필요한 폰트:
+//      y=176   시거리 2.43m · 단축 0.64 → 68px
+//      y=1335  시거리 1.89m · 단축 0.82 → 41px
+//      y=2670  시거리 1.56m · 단축 0.99 → 28px
+//  → 위에서 아래로 68 → 28 선형. 이 아래로는 '작게 보여서 예쁜' 게 아니라 안 읽히는 것이다.
+export const MM_PER_PX = 0.686;
+export const minFs = y => 68 - 40 * Math.min(1, Math.max(0, y / 2670));
+// 계측기 — ?legaudit=1 로 켜면 이번 페인트의 모든 fillText 를 규약과 대조해 모은다.
+//   추측으로 폰트를 뒤지지 않는다: 실제로 그려진 좌표·크기를 그대로 잡는다.
+const LEG_AUDIT = _q.get('legaudit') === '1';
+export const legFindings = [];
+function legWatch(ctx) {
+  if (!LEG_AUDIT || ctx.__legOn) return;
+  ctx.__legOn = true;
+  const orig = ctx.fillText.bind(ctx);
+  ctx.fillText = (txt, x, y, ...r) => {
+    try {
+      const m = ctx.getTransform();
+      const by = (m.f + m.d * y) / K, fs = (parseFloat(/(\d+(?:\.\d+)?)px/.exec(ctx.font)?.[1]) || 0) * Math.abs(m.d) / K;
+      const need = minFs(by);
+      if (fs > 0 && fs < need - 0.5 && String(txt).trim())
+        legFindings.push({ txt: String(txt).slice(0, 24), y: Math.round(by), fs: +fs.toFixed(1), need: +need.toFixed(1) });
+    } catch { /* 계측이 페인트를 죽이면 안 된다 */ }
+    return orig(txt, x, y, ...r);
+  };
+}
 const arcY = ax => ARC.top + ARC.ry * (1 - Math.sqrt(Math.max(0, 1 - ((ax - ARC.cx) / ARC.rx) ** 2)));
 /** 폭 w(= viewBox 360 에 대응) 게이지의 높이 */
 export const gaugeH = w => Math.round(w / ARC.vw * (ARC.inkBot - ARC.inkTop));
@@ -862,6 +896,7 @@ export class FloorGL {
 
   _paint() {
     const ctx = this.ctx;
+    legWatch(ctx);
     ctx.setTransform(K, 0, 0, K, 0, 0);
     ctx.clearRect(0, 0, W, H);
     this._textBand.y0 = 1e9; this._textBand.y1 = -1e9;   // 매 프레임 재수집
@@ -1398,6 +1433,24 @@ export class FloorGL {
       ctx.restore();
     }
     ctx.restore();
+    // ── ②' 하단 광 끝 **번짐**(유저 08-05) — 캡슐 클립이 빛을 림에서 칼같이 자른다. 물리적으로
+    //   빛은 경계에서 끊기지 않으므로 '잘린 것'으로 읽혔다. 바닥 캡의 원호를 따라 얇은 초승달
+    //   블룸을 림 바깥으로 얹어 광량이 자연스럽게 스러지게 한다.
+    //   기하: 알약 바닥 캡 = 중심 (800, CAP.y+CAP.h-R) · 반지름 R = CAP.w/2. 아래쪽 반만 쓴다.
+    {
+      const R = CAP.w / 2, ccx = CAP.x + R, ccy = CAP.y + CAP.h - R;
+      ctx.save();
+      ctx.globalAlpha *= e0(.15, 1.2) * (1 + .3 * tapB) * .9;
+      ctx.beginPath(); ctx.rect(CAP.x - 260, ccy, CAP.w + 520, CAP.y + CAP.h + 240 - ccy); ctx.clip();   // 아래 반원만
+      const gg = ctx.createRadialGradient(ccx, ccy, R * 0.90, ccx, ccy, R * 1.30);
+      gg.addColorStop(0, 'rgba(255,244,226,0)');
+      gg.addColorStop(.32, 'rgba(255,240,218,.42)');   // 림 바로 안쪽 = 코어와 이어지는 지점
+      gg.addColorStop(.58, 'rgba(254,196,138,.20)');
+      gg.addColorStop(1, 'rgba(254,110,60,0)');
+      ctx.fillStyle = gg;
+      ctx.beginPath(); ctx.arc(ccx, ccy, R * 1.30, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+    }
     // ── ③ 캡슐 텍스트 — 제목 2줄(100/Bold/ls-4) · Pace On(64/.8) · 도트 30(384) + min(64) ──
     // 제목 두 줄은 줄 단위로 아주 살짝 어긋나게(0.04s) — 한 덩어리로 뜨는 것보다 결이 산다.
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
