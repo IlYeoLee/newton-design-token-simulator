@@ -678,6 +678,19 @@ export const LAYOUT = {
   get PROG_Y() { return this.HEAD.y + this.HEAD.h + this.GAP_HP; },
   get CONTENT_Y0() { return this.PROG_Y + this.PROG.h + this.GAP_PC; },
 };
+/** 대지 y → **전방 거리(m)**. 3D 요소(코치 판·발마크)를 레이아웃 밴드에 맞출 때 쓴다.
+ *  대지는 mid(y1335)가 boardFwd 에 놓이고 위로 갈수록 멀어진다 → fwd = boardFwd + (1335 - y)*sUni.
+ *  main.js 가 boardFwd·sUni 를 알고 있으므로 그 둘을 넘겨받아 계산만 해준다.
+ *  ★ 이게 없어서 3D 는 스테이지마다 z 를 손으로 박았고(-0.48/-1.05/-1.85 …), 그래서 지면 UI와
+ *    겹치는지 여부가 순전히 운이었다. 밴드에서 파생시키면 겹칠 수 없게 된다. */
+export const yToFwd = (y, boardFwd, sUni) => boardFwd + (1335 - y) * sUni;
+// 실측(러닝 기본 fpNear .3 / fpFar 2.0 · sUni 0.000687) — 밴드를 전방 거리로 환산하면:
+//   HEAD 1.88~1.653m · PROG 1.615m · CONTENT 1.434~0.40m · FOOT 0.641m
+// 현재 스테이지들이 손으로 박아 둔 발마크 z 와 대조한 결과:
+//   A2 -0.48 → CONTENT 안(다만 FOOT 밴드보다 앞) · A3 -1.05 → CONTENT 안
+//   BK_B1 -1.85 → **밴드 밖**. CONTENT far(1.434)를 넘어 PROG(1.615)·HEAD(1.653~) 구간에 놓인다.
+//   = 유저 스샷의 '발자국이 헤더/진행을 가린다'가 정확히 이것. 깊은 z 를 쓰는 농구 스테이지들이
+//     같은 문제를 공유할 가능성이 높다(각 스테이지 z 를 이 표로 검수해 CONTENT 안으로 옮길 것).
 const READY_GLOWS = [
   ['glow-subtract.svg', 167.2, 1069.2, 1265.6, 931.6, 'hard-light'],
   ['glow-hl1.svg', 211.6, 1453.6, 1176.8, 458.8, 'color-dodge'],
