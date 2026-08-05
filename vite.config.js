@@ -17,7 +17,10 @@ export default defineConfig({
     // public/_bg = 실사 배경(수백 MB). 여기 파일이 바뀌면 vite 가 페이지를 새로고침해
     //   진행 중인 렌더가 통째로 죽는다(HANDOFF-0802 ⑦ 과 같은 사고).
     //   public/_presets.json = 씬별 촬영값. 저장할 때마다 리로드되면 맞추던 값이 통째로 날아간다.
-    watch: { ignored: ['**/out/**', '**/tmp_*', '**/tmp_*/**', '**/node_modules/**', '**/public/_bg/**', '**/public/_presets.json'] },
+    //   public/person = /__save-baked 가 굽는 산출물. 감시 대상이면 **베이크가 곧 리로드**라
+    //     굽는 순간 페이지가 새로고침되고, 방금 맞춰둔 탭·상태가 날아간다(실측: 시안 캡처가
+    //     매번 첫 탭으로 되돌아가 빈 그림이 저장됐다). out/ 과 같은 이유, 같은 처방.
+    watch: { ignored: ['**/out/**', '**/tmp_*', '**/tmp_*/**', '**/node_modules/**', '**/public/_bg/**', '**/public/person/**', '**/public/_presets.json'] },
     // ★ 데브에선 아무것도 캐시하지 않는다. public/ 정적 파일(영상·PNG·SVG)은 HMR 대상이
     //   아니라서, 같은 파일명으로 에셋을 갈면 브라우저가 옛것을 계속 썼다. 매번 Ctrl+Shift+R
     //   해야 했던 이유다(유저). 데브 서버에만 걸리고 빌드 산출물에는 영향이 없다.

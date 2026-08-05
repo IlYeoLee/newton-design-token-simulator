@@ -370,6 +370,42 @@ const REDO = [
   ['리디자인 C · R/D 감도 (레퍼런스 이식)', null, redoC,
    '재질은 그대로 두고 <b>형태 규약 4개</b>만 바꾼 것: ① 알약(r=w/2) → <b>스퀘어클</b>(초타원 n 4.3) ② 도트 폰트를 <b>작게</b> 메타 라인으로(계측기 톤) ③ 하단 <b>알약 CTA + ⊕ 노드</b> ④ 페이지 도트. 레퍼런스의 회색 반투명 판만 우리 매체(가산 투사)에선 불가 — 어두운 값을 못 만든다.'],
 ];
+// ═══ 진행 배치 비교 — '시간 진행'을 어디에 둘 것인가(유저 질문) ══════════════════
+//   전제: 진행은 한 종류가 아니다. floorgl 엔 이미 둘이 따로 있다 —
+//     s-crumb(몇 번째 동작인가 · 위치)  vs  s-dots→arcGauge(이 구간 얼마 남았나 · 시간).
+//   레퍼런스의 페이지 도트는 앞쪽, 전환 A안 하단의 큰 아크는 뒤쪽이다. 아래 셋은
+//   **시간 진행만** 자리를 바꾼다 — 나머지(캡슐·인물·발마크·페이지도트)는 완전히 동일.
+function progScene(g, t, where) {
+  const cx = 800, w = 980, h = 1300, x0 = cx - w / 2, y0 = 230;
+  const e = eOut(intro(t, .06, .8)), p = (t % 8) / 8;
+  const path = sqPanel(g, x0, y0, w, h);
+  g.save(); path(); g.clip(); ember(g, cx, y0 + h - 190, 420, .7); g.restore();
+  dotMeta(g, '03.03 / 3', cx, y0 + 130, 36, .5);
+  titleBlock(g, ['High Knees'], cx, y0 + 250, 72);
+  coach(g, cx, y0 + 720, 780, e);
+  pageDots(g, cx, y0 + h - 120, 4, 2);           // 위치 진행 — 항상 캡슐 안, 작게
+  footMarks(g, cx, 1900, 1.0, t);                // 판정 마크 — 세 안 공통
+  if (where === 'in') {
+    // ① 캡슐 안에 작게 — 알약 폭의 얇은 바
+    const bw = 420, bx = cx - bw / 2, by = y0 + h - 220;
+    g.strokeStyle = 'rgba(255,255,255,.18)'; g.lineWidth = 8; g.lineCap = 'round';
+    g.beginPath(); g.moveTo(bx, by); g.lineTo(bx + bw, by); g.stroke();
+    g.strokeStyle = '#fff'; g.beginPath(); g.moveTo(bx, by); g.lineTo(bx + bw * p, by); g.stroke();
+    capLabel(g, '12 sec', cx, by - 62, .55, 34);
+  } else if (where === 'tight') {
+    arcGauge(g, cx - 380, y0 + h + 60, 760, p);   // ② 캡슐 바로 아래 — 붙임
+  } else {
+    arcGauge(g, cx - 460, 2330, 920, p);          // ③ 마크 아래 바닥선 — 뗌
+  }
+}
+const PROG = [
+  ['① 캡슐 안에 작게 (알약형 포함)', null, (g, t) => progScene(g, t, 'in'),
+   '시간 진행이 캡슐 <b>안</b>으로 들어간다. 화면이 조용해지고 캡슐 하나만 보면 되는 건 장점. 다만 <b>이걸 보려면 캡슐에 초점을 줘야 한다</b> — 동작 중엔 시선이 코치와 자기 발에 있어서, 남은 시간을 볼 때마다 초점을 되돌려야 한다.'],
+  ['② 캡슐 바로 아래 (현재 A안 · 붙임)', null, (g, t) => progScene(g, t, 'tight'),
+   '크게 읽히지만 캡슐에 붙어 있어 <b>캡슐의 일부(하단 테두리)처럼</b> 읽힐 여지가 있다. 캡슐은 "무슨 동작인가", 아크는 "얼마 남았나" — 성격이 다른 둘이 한 덩어리로 보인다.'],
+  ['③ 마크 아래 바닥선 (뗌 · 추천)', null, (g, t) => progScene(g, t, 'far'),
+   '가장 아래 = 사용자에게 <b>가장 가까운</b> 자리(바닥 투사라 크고 얕게 보인다). 초점을 옮기지 않고 주변시로 읽힌다. 세로 한 줄 조판에 바닥선을 만들어 주고, 캡슐과 확실히 다른 층으로 분리된다.'],
+];
 // ═══ 전환 인터랙션 — 프리뷰 A → 따라하기 A 를 한 타임라인으로(유저: 전환도 미리보기) ═══
 //   한 물체(캡슐)가 물러나며 작아지고, 그 자리를 사람과 지면 마크가 이어받는다.
 const T_HOLD = 1.6, T_MOVE = 1.0, CY_LOOP = 5.4;
@@ -427,10 +463,11 @@ function build() {
   ttl.textContent = MODE === 'preview' ? '프리뷰(관찰) — 3안'
     : MODE === 'follow' ? '따라하기 — 3안'
     : MODE === 'sys' ? '지금 실제로 쓰이는 화면 (정본 렌더러 캡처) — 캡슐 적용 4개 · 레거시 2개'
-    : MODE === 'redo' ? '캡슐 리디자인 — 왼쪽이 현재(실캡처), 오른쪽 둘이 시안'
+    : MODE === 'redo' ? '캡슐 리디자인 — 왼쪽이 현재(실캡처), 오른쪽 셋이 시안'
+    : MODE === 'prog' ? '시간 진행을 어디에 둘 것인가 — 나머지는 전부 동일, 진행 자리만 다르다'
     : '프리뷰 → 따라하기 전환 (A안 · 5.4초) — 슬라이더로 스크럽';
-  if (MODE === 'redo') {
-    for (const [nm, src, fn, ds] of REDO) {
+  if (MODE === 'redo' || MODE === 'prog') {
+    for (const [nm, src, fn, ds] of (MODE === 'redo' ? REDO : PROG)) {
       const d = document.createElement('div'); d.className = 'cell';
       let el;
       if (src) { el = document.createElement('img'); el.src = '/' + src; el.style.cssText = 'width:328px;display:block;border-radius:14px'; }
@@ -471,7 +508,7 @@ function build() {
     row.appendChild(d); cells.push([cv, fn]);
   }
 }
-for (const [k, lb] of [['preview', '프리뷰(관찰)'], ['follow', '따라하기'], ['flow', '▶ 전환 인터랙션 (A안)'], ['sys', '◆ 실제 화면 캡처'], ['redo', '★ 캡슐 리디자인']]) {
+for (const [k, lb] of [['preview', '프리뷰(관찰)'], ['follow', '따라하기'], ['flow', '▶ 전환 인터랙션 (A안)'], ['sys', '◆ 실제 화면 캡처'], ['redo', '★ 캡슐 리디자인'], ['prog', '◇ 진행 배치 비교']]) {
   const b = document.createElement('button'); b.textContent = lb;
   if (k === MODE) b.className = 'on';
   b.onclick = () => { MODE = k; document.querySelectorAll('.seg button').forEach(x => x.classList.remove('on')); b.classList.add('on'); build(); };
