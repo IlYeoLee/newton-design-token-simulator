@@ -442,11 +442,15 @@ export class ProjectorRig {
     // ── 사다리꼴 풋프린트 (월드 좌표) ──
     let fwd, ox, oz;
     if (this.mode === 'basketball') {
-      // 농구: 빔프는 선수 정면(-Z, getForward) 기준으로 몸 앞에 투사. 무릎 크라우치·
-      // LEVER 증폭 무시하고 몸 지면 위치에 앵커 → 스텝백(뒤로 이동)해도 투사는 앞에.
+      // 농구: 빔프는 선수 정면(-Z, getForward) 기준. 무릎 크라우치·LEVER 증폭 무시하고
+      // 몸 지면 위치에 앵커 → 스텝백(뒤로 이동)해도 투사는 앞에.
+      // ★ 전방 +0.35m 앵커 폐기(유저 08-05) — 종목 투사 규격을 통합했는데 이 오프셋만 남아
+      //   농구만 대지가 0.35m 더 앞에 섰다. 실측: 봇→대지 러닝 1.083m / 농구 1.414m.
+      //   원점을 옮기면 커버리지 콘(fpNear/fpFar)과 대지(boardFwd)가 **함께** 따라오므로
+      //   UI 가 콘 밖으로 새지 않는다 — 대지만 앞으로 미는 것과는 다르다.
       fwd = this.xbot.getForward();   // 정면(봇이 회전 안 하므로 -Z 고정)
-      ox = body.x + fwd.x * 0.35 + gimbalBreak.x;   // 짐벌 붕괴 반영(정직)
-      oz = body.z + fwd.z * 0.35 + gimbalBreak.z;
+      ox = body.x + gimbalBreak.x;   // 짐벌 붕괴 반영(정직)
+      oz = body.z + gimbalBreak.z;
       this.shake.set(0, 0);
       this.errorCm = Math.hypot(gimbalBreak.x, gimbalBreak.z) * 100;
     } else if (this.beamGroundLock) {

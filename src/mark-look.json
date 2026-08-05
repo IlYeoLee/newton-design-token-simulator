@@ -76,8 +76,8 @@
     "plantar": 0,
     "bands": 0,
     "bandSoft": 0,
-    "edgeShade": 0.9,
-    "edgeShadeW": 2.45,
+    "edgeShade": 0.26,
+    "edgeShadeW": 4,
     "edgeShadeGrad": 0,
     "edgeShadeG0": 0,
     "edgeShadeG1": 0,
@@ -94,6 +94,8 @@
     "shadeCol": 4,
     "edgeShadeCol": 4,
     "dotCol": 4,
-    "ripCol": 0
+    "ripCol": 0,
+    "bloom": 0.165,
+    "w": 1.15
   }
 }
