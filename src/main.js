@@ -2328,7 +2328,7 @@ void main(){
     READY:    { src: 'ready-view/assets/run/runner_green.mp4', cropOff: 0.0, cropScale: 1.0, w: 0.432, h: 0.578, fwd: 0.10, ph: 0.76 },
     BK_READY: { src: 'ready-view/assets/bk/dribble_green.mp4', cropOff: 0.0, cropScale: 1.0, w: 0.432, h: 0.578, fwd: 0.10, ph: 0.76 },   // 러닝과 동일 규격
     A1: { src: 'ready-view/assets/sean_neck_shoulder.webm', cropOff: 0.40, cropScale: 0.58, w: 0.62, h: 0.64, fwd: 0.02, ph: 0.83 },   // 프리뷰 캡슐 안 — 타이틀 안 가리게 축소·아래(유저 08-05)
-    A2: { src: 'ready-view/assets/sean_lunge.webm', cropOff: 0.0, cropScale: 1.0, w: 0.9, h: 0.9, fwd: 0.10, zoom: 0.86, ph: 0.65 },   // 런지 전신 측면 — 축소로 뒷발이 프레임 페이드에 안 걸리게(유저)
+    A2: { src: 'ready-view/assets/sean_lunge.webm', cropOff: 0.0, cropScale: 1.0, w: 0.9, h: 0.9, fwd: -0.02, zoom: 0.86, ph: 0.65 },   // fwd .10→-.02 = 0.12m(≈175px) 아래로 — 머리가 캡슐 하단과 겹쳤다(유저 #151)   // 런지 전신 측면 — 축소로 뒷발이 프레임 페이드에 안 걸리게(유저)
     A3: { src: 'ready-view/assets/sean_highknee.webm', cropOff: 0.0, cropScale: 1.0, w: 0.82, h: 0.82, fwd: -0.04, ph: 0.87 },   // 하이니 — 캡슐 카드 아래로(머리 겹침 방지, 캡슐 시스템)
     // 농구 워밍업 코치 영상(kling i2v·그린스크린 960²) — 러닝 A2/A3와 동일 크기(w/h 0.9). 인물이 프레임 채워 1.2는 넘침(유저).
     // _pp = 정방향+역방향 이어붙인 핑퐁 클립(ffmpeg reverse) — 끝에서 뚝 끊고 처음으로 점프하던 것 제거(유저).
@@ -2875,7 +2875,10 @@ void main(){
              && co.video.currentTime > 0.03 && frameHasImage(co))) ? 1 : 0)
           // READY 는 페이즈2(도트 숫자 등장)에 맞춰 부드럽게 빠진다 — uReady 가 곧 알파 계수라
           //   셰이더를 안 건드리고 페이드가 된다. 하드컷이면 사람이 툭 사라진다. 8초 루프 동기.
-          * (/READY$/.test(id) ? Math.max(0, Math.min(1, (2.7 - ((session.t ?? 0) % 8)) / 0.7)) : 1);
+          * (/READY$/.test(id) ? Math.max(0, Math.min(1, (2.7 - ((session.t ?? 0) % 8)) / 0.7)) : 1)
+          // A2 도 같은 규약 — 감상이 끝나는 **그 순간에 0** 이 되도록 0.55s 에 걸쳐 뺀다.
+          //   전엔 followLatch 가 뜨는 프레임에 판이 통째로 꺼져 인물이 툭 사라졌다(유저: 타이밍이 이상).
+          * (id === 'A2' ? Math.max(0, Math.min(1, ((session._a2WatchSec ?? 5.8) - (session.t ?? 0)) / 0.55)) : 1);
         const coLive = co.video.readyState >= 3 && !co.video.seeking && co.video.currentTime > 0.03
                     && (id !== 'BK_A1' || _coachSeekId === id);   // 시크 전 프레임은 보여주지 않는다
         if (coLive) co._live = true;
@@ -4109,6 +4112,7 @@ void main(){
       //   한 사이클(5.7s)을 온전히 보여주는 값 = 5.8s. 더 늘리면 씬 프리뷰(8s 루프)에서 따라하기
       //   구간이 1초밖에 안 남아 화살표를 볼 수 없다 — 감상과 실습의 균형점.
       const A2_WATCH = session.stage === 'A2' ? 5.8 : (stepPreviewSec(session.stage) || 3.0);
+      session._a2WatchSec = A2_WATCH;   // 인물 페이드아웃이 같은 시계를 보도록 노출(하드컷 방지)
       const BK_A1_RATE = 1.55;   // 옆구리 봇 배속(코치 영상 페이스 맞춤) — 시각 캘리브레이션 노브
       const _watchWin = /^(A2|A3|BK_A[23]|BK_B[12345]|BK_C2)$/.test(session.stage || '') && !session._followLatch;   // 실전도 정속 프리뷰 1회 먼저(유저)
       if (/^BK_C[135]$/.test(session.stage || '')) session._followLatch = true;   // C2만 프리뷰 있음

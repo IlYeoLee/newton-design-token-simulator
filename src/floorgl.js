@@ -650,6 +650,34 @@ const TR = {
 // ★ 시작화면 광(엠버) 정본 — 피그마 익스포트 4겹 + 블렌드 모드. READY 캡슐 기준 좌표계
 //   (캡슐 박스 x291 y285 w1018 h1541)에서 잡혀 있다. 프리뷰·따라하기 알약도 **이 광을 그대로**
 //   쓴다(유저) — 같은 불이 캡슐을 따라 줄어드는 것이지 비슷한 그라디언트를 새로 그리는 게 아니다.
+// ═══ 지면 레이아웃 규약 — **여기서만 정한다** ══════════════════════════════════════
+//  왜: 화면마다 좌표를 손으로 박으니 요소가 서로를 가리고, 그때마다 말로 고쳐야 했다(유저).
+//  아래 밴드가 정본이고 페인터는 전부 여기서 파생한다. 새 요소를 놓을 자리는 밴드로 정한다.
+//
+//    y 176   ┌ HEAD   타이틀 영역(헤더 알약 1320×330)
+//    y 506   └
+//        +56   GAP_HP
+//    y 562   ┌ PROG   진행(아크) h143 · 폭은 safeW 로 깎는다
+//    y 705   └
+//       +120   GAP_PC
+//    y 825   ┌ CONTENT  콘텐츠(인물 영상·판정 마크)가 쓰는 영역. 여기 위로는 아무것도 안 올라온다.
+//    y 2330  └          (아래로 더 내려가면 투사 콘이 급격히 좁아진다 — safeW 참고)
+//    y 1980    FOOT     발자국 안정 영역(콘텐츠 하단). 3D 발마크는 이 y 를 기준으로 놓는다.
+//
+//  타입 최소치는 minFs(y) 규약과 함께 쓴다 — 타이틀은 시작화면과 같은 98, 캡션/단위는 64 하한.
+export const LAYOUT = {
+  PAD: 60,
+  HEAD: { y: 176, w: 1320, h: 330 },
+  GAP_HP: 56,
+  PROG: { h: 143, wMax: 1048 },
+  GAP_PC: 120,
+  CONTENT_Y1: 2330,
+  FOOT_Y: 1980,
+  TYPE: { title: 98, unit: 64, caption: 64, minCaption: 56 },
+  PREVIEW: { morph: 0.9, fade: 0.45 },   // 카운트 종료 → 둥근 컨테이너가 알약으로 · 인물 크로스페이드
+  get PROG_Y() { return this.HEAD.y + this.HEAD.h + this.GAP_HP; },
+  get CONTENT_Y0() { return this.PROG_Y + this.PROG.h + this.GAP_PC; },
+};
 const READY_GLOWS = [
   ['glow-subtract.svg', 167.2, 1069.2, 1265.6, 931.6, 'hard-light'],
   ['glow-hl1.svg', 211.6, 1453.6, 1176.8, 458.8, 'color-dodge'],
@@ -1055,7 +1083,7 @@ export class FloorGL {
     if (this.kind && this.kind !== 'scene') return this['_paint_' + this.kind]();
     const cap2 = CAPS[this.stage];
     if (cap2) return this._paint_capsule(cap2);   // 신규 캡슐 시스템(옵트인) — 레거시 조판 대체
-    let y = 176;   // Figma 대지 실좌표
+    let y = LAYOUT.HEAD.y;   // 레이아웃 규약
     for (const n of this.col) {
       if (n.style.display === 'none') continue;
       if (n.hideUntil && this.t < n.hideUntil) continue;   // 시범 중 도트바 — 자리도 비운다
@@ -1167,7 +1195,15 @@ export class FloorGL {
    *  폭은 고정(840) — 스테이지마다 헤더가 커졌다 작아지면 '같은 물건이 자리를 옮긴다'가 깨진다.
    *  타이틀 상한 400px 은 floor-scenes.js 에서 지킨다(농구 스텝 4개를 그 규칙으로 줄였다). */
   _capHead(n, y) {
-    const ctx = this.ctx, W2 = 1000, HH = 250, x = CX - W2 / 2;   // 840→1000: 타이틀 72 를 담는 폭
+    // ★ 위계 정정(유저: 타이머도 개 작아지고 sec 보이지도 않고 타이틀도 줄었다 — 이게 맞냐).
+    //   맞지 않았다. 250 높이 알약에 셋을 우겨넣어 전부 작아졌고, 특히 **타이머 숫자(67)가
+    //   타이틀(72)보다 작았다** — 따라하기 중 계속 봐야 하는 값이 제일 작았다는 뜻이다.
+    //   'sec' 40px 는 minFs(≈63) 미달이라 애초에 안 보이는 게 정상이었다.
+    //   → 알약을 키우고(1140×330) 링을 키워(RR 120 → 숫자 96) 타이머를 주인공으로 되돌린다.
+//   ★ 타이틀 크기는 **시작화면 것을 그대로 유지**한다(유저) — 같은 물건이 줄어드는 것인데
+    //     글자만 작아지면 다른 화면이 된다. READY 타이틀 98px 을 프리뷰(100)·헤더 모두 같이 쓴다.
+    //     'Neck & Shoulders' 가 98px 에서 739px 이라 알약 폭은 1320 이 필요하다(y176 안전폭 2174).
+    const ctx = this.ctx, W2 = LAYOUT.HEAD.w, HH = LAYOUT.HEAD.h, x = CX - W2 / 2;
     const path = () => { ctx.beginPath(); ctx.roundRect(x, y, W2, HH, HH / 2); };
     ctx.save();
     path(); ctx.clip();
@@ -1180,22 +1216,22 @@ export class FloorGL {
     rim.addColorStop(1, 'rgba(255,255,255,.06)');
     ctx.strokeStyle = rim; ctx.lineWidth = 2.5; path(); ctx.stroke();
     // 카운트 링 — 정본 컴포넌트 그대로(형태 변환 없음, 자리만 여기다)
-    const RR = 84, cyR = y + HH / 2, cxR = x + 60 + RR;
+    const RR = 130, cyR = y + HH / 2, cxR = x + 64 + RR;   // 숫자 104 — 타이틀 98 보다 살짝 크게
     const dur = n.dur || 8, rem = Math.max(0, Math.ceil(dur - this.t));
     if (String(rem) !== this._numLast2) { this._numLast2 = String(rem); this._numT2 = this.t; }
     countRing(ctx, cxR, cyR, clamp01(1 - this.t / dur), String(rem),
       { t: 99, k: RR / 275, pulse: clamp01((this.t - (this._numT2 || 0)) / 0.5),
         ring: { trackW: 10, arcW: 10, trackA: .26 } });
     ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-    ctx.fillStyle = 'rgba(255,255,255,.6)'; ctx.font = F(400, 40);
-    ctx.fillText('sec', cxR + RR + 18, cyR + 6);
+    ctx.fillStyle = 'rgba(255,255,255,.72)'; ctx.font = F(400, LAYOUT.TYPE.unit);
+    ctx.fillText('sec', cxR + RR + 22, cyR + 10);
     // 52 → 72(유저: 타이틀이 너무 작다). 최장 'Neck & Shoulders' 가 72px 에서 543px —
     //   폭 1000 의 타이틀 예산(≈560) 안에 들어간다. y176 안전폭은 2174 라 여유는 충분하다.
-    ctx.fillStyle = '#fff'; ctx.font = F(700, 72); ctx.letterSpacing = '-2.6px';
-    const tx = x + 60 + RR * 2 + 18 + 62 + 52;
+    ctx.fillStyle = '#fff'; ctx.font = F(700, LAYOUT.TYPE.title); ctx.letterSpacing = '-4px';
+    const tx = cxR + RR + 22 + 128 + 46;   // 링 우측 → sec → 타이틀 (실폭에서 파생)
     // 쉼표가 있으면 의미 단위로 두 줄(농구 스텝) — 지금 데이터엔 없지만 규칙은 남긴다.
     const ci = (n.title || '').indexOf(', ');
-    if (ci > 0) { ctx.fillText(n.title.slice(0, ci + 1), tx, cyR - 42); ctx.fillText(n.title.slice(ci + 2), tx, cyR + 42); }
+    if (ci > 0) { ctx.fillText(n.title.slice(0, ci + 1), tx, cyR - 56); ctx.fillText(n.title.slice(ci + 2), tx, cyR + 56); }
     else ctx.fillText(n.title || '', tx, cyR);
     ctx.letterSpacing = '0px';
     // 스텝 배지(n/4) — 농구 분해 스텝만. 헤더 오른쪽 끝에 조용히.
@@ -1951,14 +1987,14 @@ export class FloorGL {
     //   판정은 buildScene 과 같은 규약을 쓴다 — hasPrev 목록에 없으면 관찰 구간 자체가 없으므로
     //   처음부터 가로 알약 헤더로 선다(원형 캡슐을 띄웠다 지우면 없는 단계를 만든 셈이 된다).
     const HAS_PREV = /^(A2|A3|BK_A[23]|BK_B[12345])$/.test(this.stage || '');
-    const dur = this.params?.dur || 8, PV = HAS_PREV ? (this.params?.pv || 3) : 0, MOVE = .9;
+    const dur = this.params?.dur || 8, PV = HAS_PREV ? (this.params?.pv || 3) : 0, MOVE = LAYOUT.PREVIEW.morph;
     const mo = HAS_PREV ? eOut(clamp01((t - PV) / MOVE)) : 1;
     const title = Array.isArray(cfg.title) ? cfg.title.join(' ') : String(cfg.title || '');
     const L = (p, q) => p + (q - p) * mo;
     // 지오메트리 — 원형(760×820) → 가로 알약(840×250). **y 는 176 고정**: 위를 붙박아 두면
     //   아래로만 접히므로 코치 판(지면 중앙에 서는 3D 인물)과 안 겹친다.
     //   전엔 y300·h1080 이라 캡슐이 화면 중앙까지 내려와 인물 몸통을 덮었다(유저 스샷).
-    const w1 = L(760, 1000), h1 = L(820, 250), y1 = 176;   // 알약 폭 1000(타이틀 72 수용)
+    const w1 = L(860, LAYOUT.HEAD.w), h1 = L(900, LAYOUT.HEAD.h), y1 = LAYOUT.HEAD.y;
     // ★ 진입 = **시작화면 캡슐이 줄어드는 것**(유저: 두 번 탭하면 같은 요소가 줄어들며 넘어간다).
     //   스테이지가 바뀔 때 캡슐을 새로 띄우면 '다른 물건이 나타난' 걸로 읽힌다. READY 캡슐
     //   지오메트리(x291 y285 w1018 h1491)에서 출발해 0.9s 동안 이 스테이지의 캡슐로 접힌다.
@@ -1996,8 +2032,8 @@ export class FloorGL {
     rim.addColorStop(1, 'rgba(255,255,255,.06)');
     ctx.strokeStyle = rim; ctx.lineWidth = 2.5; path(); ctx.stroke();
     // 카운트 링 — 정본 countRing. 관찰: 캡슐 중앙 아래 / 따라하기: 헤더 왼쪽 슬롯. 형태는 안 바뀐다.
-    const RR = L(96, 84);
-    const rx = L(CX, x + 60 + RR), ry2 = L(y + h * .72, y + h / 2);
+    const RR = L(112, 130);
+    const rx = L(CX, x + 64 + RR), ry2 = L(y + h * .72, y + h / 2);
     const rem = mo < .5 ? Math.max(1, Math.ceil(PV - t)) : Math.max(0, Math.ceil(dur - t));
     if (String(rem) !== this._numLast2) { this._numLast2 = String(rem); this._numT2 = t; }
     countRing(ctx, rx, ry2, mo < .5 ? clamp01(1 - t / PV) : clamp01(1 - (t - PV) / Math.max(.1, dur - PV)),
@@ -2018,10 +2054,10 @@ export class FloorGL {
     if (inA > 0) {
       ctx.save(); ctx.globalAlpha *= inA;
       ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-      ctx.fillStyle = 'rgba(255,255,255,.6)'; ctx.font = F(400, 40);
-      ctx.fillText('sec', rx + RR + 18, ry2 + 6);
-      ctx.fillStyle = '#fff'; ctx.font = F(700, 72); ctx.letterSpacing = '-2.6px';   // 52→72(유저)
-      ctx.fillText(title, x + 60 + RR * 2 + 18 + 62 + 52, ry2);
+      ctx.fillStyle = 'rgba(255,255,255,.72)'; ctx.font = F(400, LAYOUT.TYPE.unit);
+      ctx.fillText('sec', rx + RR + 22, ry2 + 10);
+      ctx.fillStyle = '#fff'; ctx.font = F(700, LAYOUT.TYPE.title); ctx.letterSpacing = '-4px';(유저)
+      ctx.fillText(title, rx + RR + 22 + 128 + 46, ry2);
       ctx.letterSpacing = '0px';
       if (cfg.step) {
         ctx.textAlign = 'right'; ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.font = F(400, 44);
@@ -2033,7 +2069,7 @@ export class FloorGL {
     // 진행 — 따라하기 구간에만, 헤더 바로 아래
     if (mo > .5) {
       ctx.save(); ctx.globalAlpha *= (mo - .5) / .5;
-      const ay = 530, wA = Math.min(1048, safeW(ay) - 48);
+      const ay = LAYOUT.PROG_Y, wA = Math.min(LAYOUT.PROG.wMax, safeW(ay) - 48);
       arcGauge(ctx, CX - wA / 2, ay, wA, clamp01((t - PV) / Math.max(.1, dur - PV)), { dotK: 0.6 });
       ctx.restore();
     }
