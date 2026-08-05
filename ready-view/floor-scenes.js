@@ -7,6 +7,11 @@ window.FLOOR_PHASES = {
   basketball: ['WARM UP', 'DRILL', 'GAME'],
 };
 // cue = 발자국 아래 있던 보조설명을 타이틀 밑으로 올린 짧은 지시(긴 글 지양 — 상세는 지면 음성).
+// ★ 타이틀 길이 상한 = 400px @ 52px Bold(-2 트래킹) — 헤더 폭을 고정하되 짧은 이름에
+//   허전한 여백이 남지 않는 지점(유저: 고정폭이 미적으로 안 예쁘다, 차라리 타이틀을 줄이자).
+//   기존 최장 'Neck & Shoulders' 392px 가 기준이 됐다. 농구 스텝 4개는 한 줄에 지시가 둘이라
+//   상한을 넘었는데, **타이틀은 동작의 이름 · 두 번째 지시는 cue** 로 나눠 담는 게 원래 맞다
+//   (데이터 모델에 이미 두 필드가 있다). 새 타이틀을 추가할 땐 이 상한을 먼저 확인할 것.
 window.FLOOR_SCENES = {
   // ── 러닝 ──
   // A · 준비운동 (WARM UP)
@@ -31,10 +36,10 @@ window.FLOOR_SCENES = {
   BK_A3: { title: 'Squats',            phase: 0, sub: '2/3', cue: 'Slow down, drive up — wake the legs I shoot with' },                // 스쿼트
   // B · 사전 익히기 (DRILL)
   BK_B1: { title: 'Low Dribble',    phase: 0, sub: '3/3', cue: "Stay low — ride my beat, 10 reps" },  // 로우 드리블
-  BK_B2: { title: 'Bend Knees, Fake the Layup', phase: 1, sub: '1/4', cue: 'Sell it with your eyes and shoulders — like I do' },
-  BK_B3: { title: 'Right Foot Down, Dribble', phase: 1, sub: '2/4', cue: 'Plant it out front — push the ball across, left foot holds' },
-  BK_B4: { title: 'Left Foot Out, Catch the Ball', phase: 1, sub: '3/4', cue: 'Push off and slide back — gather with both hands' },
-  BK_B5: { title: 'Right Foot In, Set to Shoot', phase: 1, sub: '4/4', cue: 'Snap it in and rise straight up — my step-back' },
+  BK_B2: { title: 'Fake the Layup', phase: 1, sub: '1/4', cue: 'Bend your knees — sell it with your eyes and shoulders' },
+  BK_B3: { title: 'Right Foot Down', phase: 1, sub: '2/4', cue: 'Plant it out front — push the ball across, left foot holds' },
+  BK_B4: { title: 'Left Foot Out', phase: 1, sub: '3/4', cue: 'Push off and slide back — gather with both hands' },
+  BK_B5: { title: 'Set to Shoot', phase: 1, sub: '4/4', cue: 'Snap it in and rise straight up — my step-back' },
   // C · 실전 (GAME)
   BK_C1: { title: 'Trigger',          phase: 2, sub: '1/2', cue: '3 · 2 · 1 — let\'s go' },
   BK_C2: { title: 'Full Step-Back',   phase: 2, sub: '2/2', cue: 'Run it with me ×3 — plant, slide, gather, shoot' },   // 실전 = 정속 연속 1회(유저 개편)

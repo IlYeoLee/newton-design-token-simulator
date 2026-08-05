@@ -50,13 +50,13 @@
     border-radius:8px;padding:8px;font:11px/1.5 ui-monospace,Consolas,monospace;resize:vertical}
   .note{color:var(--dim);font-size:11px;margin:8px 0 0}
   .warn{color:var(--red);font-size:11.5px;margin:8px 0 0;display:none}
-</style>  <script type="module" crossorigin src="./assets/footlab-1MKKATSH.js"></script>
+</style>  <script type="module" crossorigin src="./assets/footlab-B5L243c0.js"></script>
   <link rel="modulepreload" crossorigin href="./assets/modulepreload-polyfill-B5Qt9EMX.js">
   <link rel="modulepreload" crossorigin href="./assets/three.core-CLCxADIl.js">
   <link rel="modulepreload" crossorigin href="./assets/palette-Bj20GXDn.js">
-  <link rel="modulepreload" crossorigin href="./assets/fx-core-C5xjwlV3.js">
-  <link rel="modulepreload" crossorigin href="./assets/fxlut-y4GoJkTC.js">
-  <link rel="modulepreload" crossorigin href="./assets/tokens-B9g5Xlor.js">
+  <link rel="modulepreload" crossorigin href="./assets/fx-core-Bhfi064o.js">
+  <link rel="modulepreload" crossorigin href="./assets/fxlut-D65-BF_7.js">
+  <link rel="modulepreload" crossorigin href="./assets/tokens-ChQAqWAf.js">
 </head><body>
 <div class=wrap>
   <div class=panel>
@@ -177,6 +177,19 @@
     <div class=card>
       <h2>8상태 × 두 표현형 — 윗줄 발형 · 아랫줄 원형(존). 8번째 Tap2 = READY 탭 어포던스(무채↔석세스 2회 깜빡). 셀을 클릭하면 위 확대로</h2>
       <canvas id=strip width=1120 height=460></canvas>
+    </div>
+    <div class=card>
+      <h2>연결 토큰(LINK) — 두 발자국을 잇는 지면 전용 기호. 3개 실제 시나리오로 시안 비교</h2>
+      <div class=seg id=segLink style="margin:2px 0 8px">
+        <button data-v=chain class=on>체인(점+실)</button><button data-v=dots>점렬</button>
+        <button data-v=taper>테이퍼(끝이 굵게)</button><button data-v=pulse>펄스(중앙→양끝)</button></div>
+      <div class=row><label>점 개수</label><input type=range id=lkCount min=3 max=14 step=1 value=7><span class=v id=vlkCount>7</span></div>
+      <div class=row><label>점 크기</label><input type=range id=lkR min=1.5 max=9 step=.1 value=4.4><span class=v id=vlkR>4.4</span></div>
+      <div class=row><label>흐름 속도</label><input type=range id=lkFlow min=0 max=1.5 step=.05 value=.35><span class=v id=vlkFlow>0.35</span></div>
+      <div class=row><label>실 진하기</label><input type=range id=lkHair min=0 max=1 step=.02 value=.26><span class=v id=vlkHair>0.26</span></div>
+      <div class=row><label>양끝 여백</label><input type=range id=lkInset min=0 max=.35 step=.01 value=.12><span class=v id=vlkInset>0.12</span></div>
+      <canvas id=linkPrev width=1120 height=300></canvas>
+      <p class=note id=linkNote></p>
     </div>
     <div class=card>
       <h2>바닥 합성 — 투사광은 가산이라 실제 바닥 위에서 색감이 결정된다</h2>
