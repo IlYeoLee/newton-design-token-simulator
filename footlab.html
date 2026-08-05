@@ -401,10 +401,17 @@ seg('segPlay', v => { playing = +v; });
 // 글리프 소스 = FXP.numSrc 정본 스위치. 'glyph'=유저 SVG 슬롯 · 'offbit'=도트 폰트.
 // 시뮬(drawNumber)이 읽는 바로 그 값이라, 여기서 고른 게 곧 시뮬에서 보일 활자다.
 seg('segSrc', v => { FXP.numSrc = v; rebuild(); });
-seg('segShadeCol', v => { shadeCol = +v; bcast(); });
-seg('segDotCol', v => { dotCol = +v; bcast(); });
-seg('segEdgeShadeCol', v => { edgeShadeCol = +v; bcast(); });
-seg('segRipCol', v => { ripCol = +v; });
+// 색 세그 — 슬라이더와 같은 규약: '이 상태만' 이면 OV[slot] 에, 아니면 공통값에 쓴다.
+//   전엔 항상 공통값에만 써서, Tap2 슬롯에서는 파일의 OV 값이 매 프레임 덮어썼다(유저).
+const segCol = (key, set) => v => {
+  const n = +v;
+  if (EDIT_STATE) { curOV()[key] = n; syncUI(); rebuild(); persist(); return; }
+  set(n); bcast();
+};
+seg('segShadeCol', segCol('shadeCol', v => { shadeCol = v; }));
+seg('segDotCol', segCol('dotCol', v => { dotCol = v; }));
+seg('segEdgeShadeCol', segCol('edgeShadeCol', v => { edgeShadeCol = v; }));
+seg('segRipCol', segCol('ripCol', v => { ripCol = v; }));
 seg('segGShadow', v => { gShadow = v; rebuild(); });
 seg('segGBlend', v => { gBlend = v; rebuild(); });
 for (const id of ['gL', 'gR']) {
@@ -614,7 +621,10 @@ const OV_MAP = { imp: 'uImp', dot: 'uImpDot', glow: 'uImpGlow', shade: 'uImpShad
   scale: 'uImpScale', plantar: 'uPlantar', bands: 'uBands', bandSoft: 'uBandSoft', edgeShade: 'uEdgeShade',
   edgeShadeW: 'uEdgeShadeW', edgeShadeGrad: 'uEdgeShadeGrad', edgeShadeG0: 'uEdgeShadeG0',
   edgeShadeG1: 'uEdgeShadeG1', dither: 'uDither', w: 'uW', halo: 'uHalo', pool: 'uPool', noise: 'uNoise',
-  rip: 'uRip', ripSpeed: 'uRipSpeed', ripGrad: 'uRipGrad', op: 'uFillOp' };
+  rip: 'uRip', ripSpeed: 'uRipSpeed', ripGrad: 'uRipGrad', op: 'uFillOp',
+  // ★ 색 선택도 상태별 오버라이드 대상이다 — 빠져 있어서 '이 상태만' 으로 색을 바꿔도
+  //   유니폼에 안 실렸다(유저 08-05: 흰색으로 바꿔 저장했는데 반영이 안 된다).
+  shadeCol: 'uImpShadeCol', dotCol: 'uImpDotCol', edgeShadeCol: 'uEdgeShadeCol', ripCol: 'uRipCol' };
 const OV_MAPSF = { pitch: 'uImpPitch', edge: 'uImpEdge', edgeW: 'uEdgeW', ripWidth: 'uRipWidth', ripReach: 'uRipReach' };
 function feedOV(U, slot) {
   const o = OV[slot]; if (!o) return;
