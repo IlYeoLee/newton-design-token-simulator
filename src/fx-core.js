@@ -1707,3 +1707,61 @@ export function drawRotate(g, W, P, look, t, ENV, prog) {
     scale: (P.scale != null ? P.scale : 1) * (P.width != null ? P.width : 1),
   });
 }
+
+/** ── 연결 토큰(LINK) — 두 발자국을 잇는 지면 전용 기호 ──────────────────────────
+ *  왜 별도 토큰인가: 마크(발형)는 '어디'를 말하고, 연결선은 '여기서 저기로'를 말한다.
+ *  A2 종아리 프레스(정적 스탠스 = 보폭), 농구 스텝백(순차 이동 = 경로) 둘 다 이 하나로 읽힌다.
+ *
+ *  ★ 길이 무관 규격 — **점 개수를 고정**하고 간격을 길이에서 파생한다.
+ *    간격을 고정하면 실측 구간 편차(농구 0.16m ~ 0.92m = 5.7배)에서 짧은 건 점 하나,
+ *    긴 건 여섯 개가 되어 같은 기호로 안 읽힌다.
+ *
+ *  style — 시안 비교용(footlab '연결 토큰' 패널에서 전환):
+ *    dots   균일 점렬            — 가장 절제. 거리만 말한다.
+ *    taper  중앙 작고 끝이 굵다   — '벌어짐'이 점 크기로 읽힌다(스트레치).
+ *    chain  점 + 잇는 헤어라인    — 두 발이 한 세트임이 가장 분명(레퍼런스 line+dot).
+ *    pulse  중앙→양끝 밝기 파동   — 순차 이동(농구 경로)에 방향감을 준다.
+ */
+export function drawLinkDots(g, ax, ay, bx, by, t, o = {}) {
+  const N = Math.max(2, Math.round(o.count ?? 7));
+  const R = o.r ?? 4.4;
+  const flow = o.flow ?? 0.35;
+  const hair = o.hair ?? 0.26;
+  const style = o.style || 'chain';
+  const col = o.color || '255,246,234';
+  const inset = o.inset ?? 0.12;              // 양끝(발) 여백 비율
+  const A = o.alpha ?? 1;
+  const dx = bx - ax, dy = by - ay;
+  const len = Math.hypot(dx, dy);
+  if (len < 1e-3 || A <= 0.004) return;
+  const ux = dx / len, uy = dy / len;
+  const x0 = ax + dx * inset, y0 = ay + dy * inset;
+  const span = len * (1 - inset * 2);
+  if (span <= 0) return;
+  g.save();
+  if (style === 'chain' && hair > 0) {         // 점을 잇는 실 — 굵기는 점보다 훨씬 얇게
+    g.strokeStyle = `rgba(${col},${(hair * A).toFixed(3)})`;
+    g.lineWidth = Math.max(1, R * 0.34);
+    g.beginPath(); g.moveTo(x0, y0); g.lineTo(x0 + ux * span, y0 + uy * span); g.stroke();
+  }
+  const ph = (t * flow) % 1;                   // 중앙에서 바깥으로 흐른다
+  for (let i = 0; i < N; i++) {
+    let u = (i + 0.5) / N;
+    if (style === 'pulse' || style === 'dots' || style === 'chain') {
+      const c = u - 0.5;                       // 중앙 기준 부호
+      u = 0.5 + c + Math.sign(c) * ((ph / N) % (1 / N));   // 바깥 방향 미세 이동
+      if (u < 0 || u > 1) continue;
+    }
+    const px = x0 + ux * span * u, py = y0 + uy * span * u;
+    const c2 = Math.abs(u - 0.5) * 2;          // 0 중앙 → 1 끝
+    let r = R, a = A;
+    if (style === 'taper') r = R * (0.55 + 0.75 * c2);
+    if (style === 'pulse') {
+      const w = ((c2 - ph) % 1 + 1) % 1;
+      a = A * (0.35 + 0.65 * Math.max(0, 1 - Math.abs(w - 0) * 3));
+    }
+    g.fillStyle = `rgba(${col},${(a * 0.96).toFixed(3)})`;
+    g.beginPath(); g.arc(px, py, r, 0, Math.PI * 2); g.fill();
+  }
+  g.restore();
+}

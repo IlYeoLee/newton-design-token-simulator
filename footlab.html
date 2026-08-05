@@ -172,6 +172,19 @@
       <canvas id=strip width=1120 height=460></canvas>
     </div>
     <div class=card>
+      <h2>연결 토큰(LINK) — 두 발자국을 잇는 지면 전용 기호. 3개 실제 시나리오로 시안 비교</h2>
+      <div class=seg id=segLink style="margin:2px 0 8px">
+        <button data-v=chain class=on>체인(점+실)</button><button data-v=dots>점렬</button>
+        <button data-v=taper>테이퍼(끝이 굵게)</button><button data-v=pulse>펄스(중앙→양끝)</button></div>
+      <div class=row><label>점 개수</label><input type=range id=lkCount min=3 max=14 step=1 value=7><span class=v id=vlkCount>7</span></div>
+      <div class=row><label>점 크기</label><input type=range id=lkR min=1.5 max=9 step=.1 value=4.4><span class=v id=vlkR>4.4</span></div>
+      <div class=row><label>흐름 속도</label><input type=range id=lkFlow min=0 max=1.5 step=.05 value=.35><span class=v id=vlkFlow>0.35</span></div>
+      <div class=row><label>실 진하기</label><input type=range id=lkHair min=0 max=1 step=.02 value=.26><span class=v id=vlkHair>0.26</span></div>
+      <div class=row><label>양끝 여백</label><input type=range id=lkInset min=0 max=.35 step=.01 value=.12><span class=v id=vlkInset>0.12</span></div>
+      <canvas id=linkPrev width=1120 height=300></canvas>
+      <p class=note id=linkNote></p>
+    </div>
+    <div class=card>
       <h2>바닥 합성 — 투사광은 가산이라 실제 바닥 위에서 색감이 결정된다</h2>
       <div class=seg id=segFloor style="margin-bottom:10px">
         <button data-v=track class=on>트랙(민트)</button><button data-v=tile>인터로킹(회백)</button>
@@ -204,7 +217,7 @@
 import * as THREE from 'three';
 import { makeMarkFXMaterial, QUAD_K, ZONE_GLYPH_K, SIL_FIT, SIL_FIT_REF } from './src/tokens.js';
 import { FXP, GLYPHS, DEFAULT_GLYPHS, footSlot, footSDFTexture, drawNumber, drawGlyph, getLUT, ensureOffBit, rebuildLUT } from './src/fxlut.js';
-import { MARK_NUM, SDF_DECODE, drawMarkGlyph, invertGlyphCanvas, drawApproachRing, drawStemArrow, drawTrajectory, drawRotate, drawPunchLine } from './src/fx-core.js';
+import { MARK_NUM, SDF_DECODE, drawMarkGlyph, invertGlyphCanvas, drawApproachRing, drawStemArrow, drawTrajectory, drawRotate, drawPunchLine, drawLinkDots } from './src/fx-core.js';
 import LOOK from './src/mark-look.json';   // ★ MARK 룩 정본 — 랩·시뮬이 같은 파일을 본다
 
 // 정본 글리프를 항상 싣는다 — 저장본만 믿으면 랩이 낡은 dataURL 을 보는 사고가 반복된다(07-30).
@@ -1035,6 +1048,7 @@ function drawPrimsCard(t) {
 function frame() {
   const t = (performance.now() - T0) / 1000;
   drawPrimsCard(t);
+  try { drawLinkPrev(t); } catch (e) { /* 패널 없거나 초기화 전 */ }
   if (units.foot || units.zone) {
     // 확대 — 스트립에서 고른 표현형·상태
     blit($('hero'), heroOff, (mode) => {
@@ -1095,6 +1109,57 @@ $('strip').addEventListener('click', e => {
 // 글리프 SVG 로드 대기 → 첫 베이크. GLYPHS.onLoad 는 이미지가 들어올 때마다 부른다.
 // 계측 훅 — 합성이 이상할 때 바닥/토큰 캔버스를 따로 재기 위해(추측 금지 §3)
 window.__flabTHREE = THREE;
+
+// ── 연결 토큰(LINK) 프리뷰 — 실제 3개 시나리오로 시안을 비교한다 ──────────────────
+//   좌표는 실측 미터를 그대로 쓰고 픽셀로만 환산한다(디자인이 실제 크기감과 어긋나지 않게).
+//     ① 종아리 프레스(A2)  — 마크 간 0.40m (SC 0.5 압축 후 실측)
+//     ② 어깨너비 벌리기     — 0.42m 좌우 대칭
+//     ③ 농구 스텝백(BK)     — 5마크 4구간, 실측 0.16~0.92m (구간 편차 5.7배 = 규격의 시험대)
+const LK = { style: 'chain', count: 7, r: 4.4, flow: .35, hair: .26, inset: .12 };
+const LK_SCEN = [
+  { n: '① 종아리 프레스', feet: [[-0.20, 0.10], [0.20, -0.10]], links: [[0, 1]] },
+  { n: '② 어깨너비 벌리기', feet: [[-0.21, 0], [0.21, 0]], links: [[0, 1]] },
+  // 실측 스텝백 4국면(session.js 주석과 같은 값): 준비 L·R → 플랜트 → 착지 L·R
+  { n: '③ 농구 스텝백', feet: [[-0.17, 0.05], [0.22, -0.06], [0.33, 0.06], [-0.43, -0.09], [0.49, -0.32]],
+    links: [[0, 1], [1, 2], [2, 4], [3, 4]] },
+];
+function drawLinkPrev(t) {
+  const cv = $('linkPrev'); if (!cv) return;
+  const g = cv.getContext('2d');
+  g.clearRect(0, 0, cv.width, cv.height);
+  g.fillStyle = '#2a2f27'; g.fillRect(0, 0, cv.width, cv.height);   // 바닥 톤(올리브) 근사
+  const CW = cv.width / LK_SCEN.length;
+  const PPM = 190;                       // 1m = 190px (세 시나리오 공통 — 크기 비교가 가능해야 한다)
+  const notes = [];
+  LK_SCEN.forEach((sc, si) => {
+    const cx = CW * (si + 0.5), cy = cv.height * 0.52;
+    const P = sc.feet.map(([x, z]) => [cx + x * PPM, cy + z * PPM]);
+    // 발자국 = 단순 실루엣(이 패널의 주제는 링크다 — 발은 위치만 알려주면 된다)
+    P.forEach(([x, y]) => {
+      g.fillStyle = 'rgba(255,246,234,.16)';
+      g.beginPath(); g.ellipse(x, y, 13, 26, 0, 0, Math.PI * 2); g.fill();
+      g.strokeStyle = 'rgba(255,246,234,.34)'; g.lineWidth = 1.2; g.stroke();
+    });
+    sc.links.forEach(([a2, b2]) => {
+      drawLinkDots(g, P[a2][0], P[a2][1], P[b2][0], P[b2][1], t,
+        { style: LK.style, count: LK.count, r: LK.r, flow: LK.flow, hair: LK.hair, inset: LK.inset });
+    });
+    g.fillStyle = 'rgba(255,246,234,.72)';
+    g.font = "600 15px -apple-system,'Malgun Gothic',sans-serif";
+    g.textAlign = 'center'; g.fillText(sc.n, cx, 26);
+    const ls = sc.links.map(([a2, b2]) =>
+      Math.hypot(sc.feet[b2][0] - sc.feet[a2][0], sc.feet[b2][1] - sc.feet[a2][1]));
+    notes.push(`${sc.n} 구간 ${ls.map(v => v.toFixed(2)).join('/')}m`);
+  });
+  const nEl = $('linkNote');
+  if (nEl) nEl.textContent = notes.join('  ·  ') +
+    '   — 점 개수 고정이라 구간 길이가 5.7배 달라도 같은 기호로 읽힌다(간격만 파생).';
+}
+seg('segLink', v => { LK.style = v; });
+for (const [id, key, dg] of [['lkCount','count',0],['lkR','r',1],['lkFlow','flow',2],['lkHair','hair',2],['lkInset','inset',2]]) {
+  const el = $(id); if (!el) continue;
+  el.addEventListener('input', e => { LK[key] = +e.target.value; $('v' + id).textContent = LK[key].toFixed(dg); });
+}
 window.__flab = { get floorCv() { return floorCv; }, get tokenCv() { return tokenCv; },
                   get P() { return P; }, get walkMats() { return walkMats; },
                   get OV() { return OV; }, get slot() { return heroSlot; } };   // 상태 오버라이드 계측용

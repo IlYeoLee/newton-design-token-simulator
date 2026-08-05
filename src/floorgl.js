@@ -904,7 +904,11 @@ function buildScene(stage, p) {
   const phases = PH[/^BK_/.test(stage) ? 'basketball' : 'running'];
   if (!isC && phases && S.phase != null)
     col.push(node('s-crumb', { type: 'crumb', phases, phase: S.phase, sub: S.sub || '', mb: -34 }));
-  if (!isC) col.push(node('s-title', { type: 'text', textContent: S.title, size: 120, weight: 700, ls: -4, color: '#fff', cascade: true }));
+  // ★ 프리뷰(관찰) A안 확정(유저) — 제목만 크게 놓던 것을 **미니 캡슐 헤더**로 바꾼다:
+  //   유리 알약 + 왼쪽에 카운트 링(정본 countRing) + 동작명. 시작화면 캡슐이 작아져 올라온
+  //   것으로 읽히고, 카운트다운 링이 형태를 안 바꾸고 그 자리에 앉는다.
+  //   타이머는 기존 컴포넌트 그대로 — 새로 그리지 않는다.
+  if (!isC) col.push(node('s-head', { type: 'capHead', title: S.title, dur: p.dur || 8 }));
   // ★ 가이드 문구는 대문자(유저 08-05) — 복싱(벽)이 세션마다 대문자라 지면도 같은 규약으로.
   //   한글은 toUpperCase 가 무영향이라 그대로 지나간다. 이름·수치는 대상이 아니다.
   col.push(node('s-cue', { type: 'text', textContent: String(S.cue || '').toUpperCase(), size: 52, weight: 400, color: 'rgba(255,255,255,.72)', style: { display: 'none' } }));
@@ -1055,6 +1059,9 @@ export class FloorGL {
       // Success 는 흐름에서 빼고 대지 비율로 못박는다 — 앞 노드가 숨으면 같이 튀었다(유저).
       const yFlow = y;
       if (n.type === 'succ') y = Math.round(H * 0.42);
+      // ★ 진행 게이지는 흐름에서 빼 **하단에 못박는다**(유저 확정). 세션이 어디쯤인지는
+      //   동작 정보와 다른 층이고, 흐름에 두면 앞 노드가 바뀔 때마다 같이 오르내렸다.
+      if (n.type === 'dots') y = 2180;
       if (n.style.visibility !== 'hidden') {
         const e = this._intro(n);
         ctx.save();
@@ -1066,7 +1073,7 @@ export class FloorGL {
         if (ctx.globalAlpha > 0.004) { this._band(n, y, h); this._draw(n, y); }
         ctx.restore();
       }
-      y = (n.type === 'succ' ? yFlow : y + h + (72 + (n.mb || 0)) * o);
+      y = ((n.type === 'succ' || n.type === 'dots') ? yFlow : y + h + (72 + (n.mb || 0)) * o);
     }
   }
 
@@ -1084,6 +1091,7 @@ export class FloorGL {
   _h(n) {
     switch (n.type) {
       case 'crumb': return 50;
+      case 'capHead': return 250;
       case 'text': return n.size * 1.06;
       case 'dots': return gaugeH(760);
       case 'prevRow': return 200;
@@ -1132,6 +1140,7 @@ export class FloorGL {
     const ctx = this.ctx;
     switch (n.type) {
       case 'crumb': return this._crumb(n, y);
+      case 'capHead': return this._capHead(n, y);
       case 'text': return drawText(ctx, n, y, this.t);
       case 'dots': return this._dots(n, y);
       case 'prevRow': return this._prevRow(n, y);
@@ -1142,6 +1151,37 @@ export class FloorGL {
       case 'paceSub': return this._paceSub(n, y);
       case 'succ': return this._succ(n, y);
     }
+  }
+
+  /** 미니 캡슐 헤더 — [유리 알약] 왼쪽 카운트 링 + 동작명. 프리뷰 A안 정본(유저 확정).
+   *  폭은 고정(840) — 스테이지마다 헤더가 커졌다 작아지면 '같은 물건이 자리를 옮긴다'가 깨진다.
+   *  타이틀 상한 400px 은 floor-scenes.js 에서 지킨다(농구 스텝 4개를 그 규칙으로 줄였다). */
+  _capHead(n, y) {
+    const ctx = this.ctx, W2 = 840, HH = 250, x = CX - W2 / 2;
+    const path = () => { ctx.beginPath(); ctx.roundRect(x, y, W2, HH, HH / 2); };
+    ctx.save();
+    path(); ctx.clip();
+    ctx.fillStyle = 'rgba(255,255,255,.055)'; ctx.fillRect(x, y, W2, HH);
+    ctx.filter = 'blur(37px)'; ctx.strokeStyle = 'rgba(255,255,255,.25)'; ctx.lineWidth = 80;
+    path(); ctx.stroke(); ctx.filter = 'none';
+    ctx.restore();
+    const rim = ctx.createLinearGradient(0, y, 0, y + HH);
+    rim.addColorStop(0, 'rgba(255,255,255,.95)'); rim.addColorStop(.45, 'rgba(255,255,255,.22)');
+    rim.addColorStop(1, 'rgba(255,255,255,.06)');
+    ctx.strokeStyle = rim; ctx.lineWidth = 2.5; path(); ctx.stroke();
+    // 카운트 링 — 정본 컴포넌트 그대로(형태 변환 없음, 자리만 여기다)
+    const RR = 84, cyR = y + HH / 2, cxR = x + 60 + RR;
+    const dur = n.dur || 8, rem = Math.max(0, Math.ceil(dur - this.t));
+    if (String(rem) !== this._numLast2) { this._numLast2 = String(rem); this._numT2 = this.t; }
+    countRing(ctx, cxR, cyR, clamp01(1 - this.t / dur), String(rem),
+      { t: 99, k: RR / 275, pulse: clamp01((this.t - (this._numT2 || 0)) / 0.5),
+        ring: { trackW: 10, arcW: 10, trackA: .26 } });
+    ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = 'rgba(255,255,255,.6)'; ctx.font = F(400, 40);
+    ctx.fillText('sec', cxR + RR + 18, cyR + 6);
+    ctx.fillStyle = '#fff'; ctx.font = F(700, 52); ctx.letterSpacing = '-2px';
+    ctx.fillText(n.title || '', x + 60 + RR * 2 + 18 + 62 + 52, cyR);
+    ctx.letterSpacing = '0px';
   }
 
   /** 단계 브레드크럼 — 벽(wallgl)과 **같은 규약**: 현재 단계만 볼드 + 글로우 + 숨쉬기,
@@ -1167,11 +1207,12 @@ export class FloorGL {
 
   // 도트 프로그래스 — 공통 컴포넌트(dotProgress). 지면·벽이 같은 물건이다.
   _dots(n, y) {
-    const x0 = CX - 380;   // 폭 760(= viewBox 360 대응). 구 도트바 600 자리와 비슷
+    // 폭은 투사 안전폭에서 깎는다 — 하단은 콘이 좁아 760 도 위험할 수 있다(safeW 참고).
+    const wD = Math.min(760, safeW(y) - 48), x0 = CX - wD / 2;
     // main.js가 width를 직접 쓰면(반복형 스테이지) 그 값이 우선, 아니면 --dur 시간 진행.
     const w = n.style.width != null ? numOr(n.style.width, 0)
       : 600 * clamp01((this.t - n.delay) / n.dur);
-    arcGauge(this.ctx, x0, y, 760, w / 600);
+    arcGauge(this.ctx, x0, y, wD, w / 600);
   }
 
   _pill(x, y, w, h) {
@@ -1265,29 +1306,11 @@ export class FloorGL {
   // 편차 바 — 가운데 눈금이 목표, 점이 현재. _lstat 과 같은 물건이라 규칙을 한 곳에 둔다.
   //   dev = 목표 대비 상대량(-1~1 로 잘린다), col = 점 색.
   _devBar(cx, by, w, dev, col, on) {
-    const ctx = this.ctx;
-    ctx.lineCap = 'round';
-    // 트랙 — 양끝이 투명으로 사라지는 그라디언트. 끝을 자르지 않고 '여기까지'라는 인상만 남긴다.
-    const g = ctx.createLinearGradient(cx - w / 2, 0, cx + w / 2, 0);
-    g.addColorStop(0, rgba(NEU.paper, 0));
-    g.addColorStop(0.18, rgba(NEU.paper, 0.3));
-    g.addColorStop(0.5, rgba(NEU.paper, 0.34));
-    g.addColorStop(0.82, rgba(NEU.paper, 0.3));
-    g.addColorStop(1, rgba(NEU.paper, 0));
-    ctx.strokeStyle = g; ctx.lineWidth = 7;
-    ctx.beginPath(); ctx.moveTo(cx - w / 2, by); ctx.lineTo(cx + w / 2, by); ctx.stroke();
-    // 목표 눈금 — 트랙보다 밝고 가늘게. 두께가 같으면 점과 눈금이 한 덩어리로 읽힌다.
-    ctx.strokeStyle = rgba(NEU.paper, 0.7); ctx.lineWidth = 5;
-    ctx.beginPath(); ctx.moveTo(cx, by - 13); ctx.lineTo(cx, by + 13); ctx.stroke();
-    if (!on) return;
-    // 현재 점 — 같은 색 글로우를 깔아 투사에서도 또렷이 뜬다.
-    const px = cx + Math.max(-1, Math.min(1, dev)) * (w / 2);
-    ctx.save();
-    ctx.shadowColor = col; ctx.shadowBlur = 22;
-    ctx.fillStyle = col;
-    ctx.beginPath(); ctx.arc(px, by, 11, 0, Math.PI * 2); ctx.fill();
-    ctx.restore();
+    // ★ 선+점 → **눈금 스케일**(유저 확정). 선 하나에 점 하나는 '얼마나' 벗어났는지 가늠할
+    //   기준이 없었다. 눈금은 폭에서 파생되므로 2단 그리드(232px 칼럼)에서도 그대로 성립한다.
+    tickScale(this.ctx, cx, by, w, dev, { col, on, h: w < 320 ? 38 : 46 });
   }
+
 
   /** 부호 붙은 초(±N”) — 페이스 팩의 기본 활자 단위.
    *  기호(+ − ”)는 본문 영문이라 도트 숫자와 크기·무게가 안 맞는다. 같은 크기로 두면
@@ -1973,7 +1996,18 @@ export class FloorGL {
       const e = eOut(intro(t, .35, .6));
       ctx.save(); ctx.globalAlpha *= e;
       const timer = V === 'video' || V === 'floor';
-      const txt2 = V === 'preview' ? 'PREVIEW' : V === 'mini' ? (cfg.step || '1/4')   // 가이드=대문자(유저)
+      // ★ 프리뷰 A안(유저 확정) — 'PREVIEW' 글자 배지 대신 **카운트 링**(정본 countRing).
+      //   관찰 구간의 주인공은 '몇 초 뒤에 시작하나'지 'PREVIEW' 라는 단어가 아니다.
+      //   타이머 배지(video·floor)는 기존 컴포넌트 그대로 둔다(유저: 타이머는 기존 유지).
+      if (V === 'preview') {
+        const durP = this.params?.dur || 8, remP = Math.max(0, Math.ceil(durP - t));
+        if (String(remP) !== this._numLast2) { this._numLast2 = String(remP); this._numT2 = t; }
+        countRing(ctx, cx2, by + 150, clamp01(1 - t / durP), String(remP),
+          { t: 99, k: 96 / 275, pulse: clamp01((t - (this._numT2 || 0)) / 0.5),
+            ring: { trackW: 11, arcW: 11, trackA: .26 } });
+        ctx.letterSpacing = '0px'; ctx.restore();
+      } else {
+      const txt2 = V === 'mini' ? (cfg.step || '1/4')
         : String(Math.max(0, Math.ceil((this.params?.dur || 8) - t)));
       //   64 → 68 — 배지가 대지 최상단 근처(y≈130)라 minFs 66 을 못 넘겼다(계측).
       //   알약 폭은 글자에서 파생되므로 같이 커진다.
@@ -1991,14 +2025,17 @@ export class FloorGL {
       else ctx.fillText(txt2, cx2, byd + ph2 / 2 + 2);
       ctx.shadowBlur = 0;
       ctx.letterSpacing = '0px'; ctx.restore();
+      }
     }
     // ③ 세션 시간 호(#69 공통) — preview·floor 변형(피그마). 광점 = 스테이지 진행.
     if (V === 'preview' || V === 'floor') {
       const e = eOut(intro(t, .45, .6));
       ctx.save(); ctx.globalAlpha *= e;
       const dur = this.params?.dur || 8;
-      const ay = V === 'preview' ? by + 300 : by + 250;   // 배지 아래로 내려 겹침 해소(유저 #89)
-      arcGauge(ctx, cx2 - 524, ay, 1048, Math.min(1, t / dur), { dotK: V === 'preview' ? 0.7 : 0.5 });   // 광점 축소(유저)
+      // ★ 진행 게이지는 **하단에 못박는다**(유저 확정) — 캡슐 안에 두면 '이 동작 남은 시간'과
+      //   같은 층으로 읽혔다. 폭은 투사 안전폭에서 깎는다(하단은 콘이 좁다).
+      const ay = 2180, wA = Math.min(1048, safeW(ay) - 48);
+      arcGauge(ctx, cx2 - wA / 2, ay, wA, Math.min(1, t / dur), { dotK: 0.6 });
       ctx.restore();
     }
     // ③' 미니 영상 미리보기 = **폐기**(유저 승인 08-05).

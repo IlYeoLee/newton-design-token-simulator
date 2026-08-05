@@ -38,7 +38,7 @@ h2{font-size:13.5px;margin:22px 0 10px;color:#FEC389}
   <input id="fsize" type="range" min="0.45" max="1" step="0.01" value="0.72" style="width:200px;accent-color:#FEC389">
   <span id="fsz" style="font:12px monospace;color:#98A1AD">0.72</span>
   <span style="color:#98A1AD;font-size:12px;margin-left:10px">동작명</span>
-  <select id="fname" style="background:#1a1e25;color:#E9EAEE;border:1px solid #262b35;border-radius:8px;padding:4px 8px;font-size:12px"><option value="High Knees">High Knees</option><option value="Neck &amp; Shoulders">Neck &amp; Shoulders</option><option value="Final Kilometer">Final Kilometer</option><option value="Low Dribble">Low Dribble</option><option value="Bend Knees, Fake the Layup">Bend Knees, Fake the Layup</option><option value="Left Foot Out, Catch the Ball">Left Foot Out, Catch the Ball</option></select>
+  <select id="fname" style="background:#1a1e25;color:#E9EAEE;border:1px solid #262b35;border-radius:8px;padding:4px 8px;font-size:12px"><option value="High Knees">High Knees</option><option value="Neck &amp; Shoulders">Neck &amp; Shoulders</option><option value="Fake the Layup">Fake the Layup</option><option value="Right Foot Down">Right Foot Down</option><option value="Final Kilometer">Final Kilometer</option><option value="Full Step-Back">Full Step-Back</option></select>
 </div>
 <h2 id="ttl">프리뷰(관찰)</h2>
 <div class="row" id="row"></div>
@@ -709,15 +709,18 @@ let FS = 0.72;
 //   안 들어가면 두 줄로 접는다. 줄이지 않는다 — 가독 규약(minFs)이 축소를 막는다.
 let FNAME = 'High Knees';
 // ★ 전수 검수(2026-08-05) — 러닝·농구 실제 타이틀 20개를 실측 폭으로 재봤다.
-//   최장 'Left Foot Out, Catch the Ball' 620px, 필요 카드 폭 1052 → **한 줄로 다 들어간다**.
-//   지금 데이터에 '안 들어가는 것'은 없다. 진짜 문제는 다른 데 있었다:
-//     ① 폭을 내용에서 파생하면 스테이지마다 헤더가 620~1052 로 튄다(1.7배). 투사면에서
-//        컨테이너가 매번 크기를 바꾸면 '같은 물건이 자리를 옮긴다'는 원칙과 정면으로 충돌한다.
-//        → **폭 고정**. 최장 기준으로 한 번 정하고 전 스테이지가 같은 헤더를 쓴다.
+//   최장은 농구 스텝 4개(550~620px)였다. 한 줄에 지시가 둘이라 길어진 것 —
+//   **타이틀은 동작의 이름 · 두 번째 지시는 cue** 로 나눠 담는 게 원래 맞다(데이터에 두 필드가 있다).
+//   → floor-scenes.js 에서 4개를 줄였다(Fake the Layup / Right Foot Down / Left Foot Out /
+//     Set to Shoot). 이제 최장은 'Neck & Shoulders' 392px 이고 상한을 400 으로 못박는다.
+//   그래서 정한 것:
+//     ① 폭 고정(840). 내용에서 파생하면 스테이지마다 헤더가 튀어 '같은 물건이 자리를 옮긴다'는
+//        원칙과 충돌한다. 상한을 낮췄으니 고정해도 짧은 이름에 허전한 여백이 안 남는다.
 //     ② 두 줄은 '폭이 모자라서' 접는 게 아니라 **의미 단위로** 접는다. 농구 스텝 4개는
 //        'Bend Knees, Fake the Layup' 처럼 한 줄에 지시가 둘이다 — 쉼표에서 접으면
 //        두 동작이 각각 한 줄이 되어 오히려 읽힌다. 폭 초과 단어접기는 미래 데이터용 폴백.
-const MINI_W = 1080;
+const TITLE_MAX = 400;        // 타이틀 폭 상한(= 기존 최장 'Neck & Shoulders' 392)
+const MINI_W = 840;           // 60(패딩) + 248(링 슬롯) + 52(간격) + 400(타이틀) + 72(꼬리)
 // 미니 카드 조판 계산 — ③(형태변환)과 미니 카드가 **같은 함수**를 써야 어긋나지 않는다.
 function miniLayout(g, name) {
   // 왼쪽 슬롯은 알약이 아니라 **링 그대로**다(유저 스케치) — 링이 남으면 남은 시간을
