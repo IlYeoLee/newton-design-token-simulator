@@ -633,7 +633,13 @@ uniform sampler2D uSDF2, uSDFWarn;
 //   uImpSharp: 자국 아웃라인 선명도(0 무름 ~ 1 또렷). AA 폭과 도트 가장자리 페이드를 같이 조인다.
 //   uImpShadeCol · uRipCol: 팔레트 색 선택(0 흰 · 1 샌드 · 2 코랄 · 3 레드) — 새 색은 안 만든다.
 uniform float uImp, uImpPitch, uImpDot, uImpGlow, uImpEdge, uImpScale, uImpRot, uImpShade, uImpSharp, uImpShadeCol;
+//   uImpDotCol: 각인 **도트** 팔레트 선택(0 흰 · 1 샌드 · 2 코랄 · 3 레드). 예전엔 C_CREAM(=SAND)
+//   하드코딩이라 랩에서 만질 수가 없었다(유저 08-05). 음영·파동과 같은 palPick 규약.
+// 필 전용 불투명도 — 랩 '투명도 op'. uFade 는 **전부**를 깎아 도트·라인·글리프까지 같이 사라졌다
+//   (유저 08-05). op 는 말 그대로 '필(코랄 면)만' 투명해져야 하므로 필 알파에만 곱한다.
+uniform float uFillOp;
 uniform vec2 uImpCtr, uImpOff;
+uniform float uImpDotCol;
 // 파동(리플) — 실루엣 **등거리선**을 따라 퍼진다. uRip 0 = 도입 전과 픽셀 동일.
 //   유저 지적: 지금 파동이 단순 원형 파장이라 발자국 위에서 따로 놀고, 퍼짐이 과하거나 쨍하다.
 //   부호거리로 몰면 파면이 형태를 따라간다 — 발형은 발 모양, 원형은 원. 토큰이 늘어도 파동은 하나다.
@@ -732,7 +738,11 @@ float contour(float t){
  *  0 흰(PRISM) · 1 샌드 · 2 코랄 · 3 레드. 인덱스 밖은 흰색으로 떨어진다.
  *  ★ 반드시 위 #define C_* 뒤에 와야 한다 — 앞에 두면 색 상수가 아직 없어 셰이더가 통째로 죽는다. */
 vec3 palPick(float i){
-  return i < 0.5 ? C_ICE : i < 1.5 ? C_SAND : i < 2.5 ? C_CORAL : C_RED;
+  // 0 PRISM(#D1FEFF · 하늘빛) · 1 SAND · 2 CORAL · 3 RED · 4 순백
+  //   ★ 4(순백)는 나중에 붙였다 — 랩 버튼이 0 을 '흰'이라 불렀지만 실제로는 PRISM 이라,
+  //     발자국 각인·이너 섀도우가 통째로 푸른끼를 띠었다(유저 08-05). 인덱스 0~3 의미는
+  //     저장본 호환을 위해 건드리지 않고, 진짜 흰색을 4 로 추가한다.
+  return i < 0.5 ? C_ICE : i < 1.5 ? C_SAND : i < 2.5 ? C_CORAL : i < 3.5 ? C_RED : vec3(1.0);
 }
 /** 디더용 자립 해시 — 호스트의 fxhash 에 기대면 fxlab·parity 처럼 자체 공통부를 쓰는 곳에서
  *  셰이더가 통째로 죽는다(실제로 죽였다). MARK_GLSL 은 lut 외에는 자립해야 한다. */
@@ -852,7 +862,7 @@ vec4 markState(vec2 uv, float state, float prog, float strong, float t){
   // 필 전용 소프트 엣지 — 우리 UI 의 강점은 그라디언트의 부드러움인데, 하드 마스크가 경계에
   //   선을 그어 원반처럼 보이게 했다(유저). 안쪽으로 uEdgeW 만큼 페더링해 형태가 색으로 읽히게.
   float feath = smoothstep(0.0, max(uEdgeW, 1e-4), -sd);
-  float inFill = mix(inside, inside * feath, clamp(uEdgeSoft, 0.0, 1.0));
+  float inFill = mix(inside, inside * feath, clamp(uEdgeSoft, 0.0, 1.0)) * clamp(uFillOp, 0.0, 1.0);
   float outPos = max(sd, 0.0);
   // 점선 = 회피 계약 (일렁임과 분리한 저주기 — '털 뜯김' 방지 확정판)
   float dashM = (uContract > 0.5 && uContract < 1.5)
@@ -1028,7 +1038,7 @@ vec4 markState(vec2 uv, float state, float prog, float strong, float t){
     float depR = mix(0.185, 0.018, clamp(uImpSharp, 0.0, 1.0)) * sfi;
     float dep = smoothstep(0.0, depR, -sdIn);
     // 가장자리에서 0.34 로 남으면 도트 영역이 그 밝기로 뚝 끊긴다 — 0 까지 내려 배경과 어우러지게.
-    lay(A, C_CREAM, inIn * dotM * uImp * (0.06 + 0.94 * dep));
+    lay(A, palPick(uImpDotCol), inIn * dotM * uImp * (0.06 + 0.94 * dep));
     // 이너 섀도우 — 경계 **안쪽**에서 최대, 안으로 갈수록 사라진다. 자국이 '눌려 들어간' 자리로 읽힌다.
     //   빛을 빼지 않는다(위 uImpShade 주석): LUT 저역(RED)을 얹어 어느 바닥에서도 그림자로 읽히게.
     // 각인 음영에도 같은 블룸을 — 음영은 실루엣이든 자국이든 하나의 언어여야 한다.
@@ -1137,19 +1147,43 @@ export function drawStemArrow(g, W, H, t, ENV, opts = {}) {
   grad.addColorStop(1.00, rgba(0.97, A0));
   // 볼류메트릭 언더글로우 — 같은 폴리곤을 1.9배 넓혀 블러 밴드로. shadowBlur 없이 스템이
   //   판에 붙은 종이처럼 평평했다(유저: 발자국 토큰과 감도 차이). 링의 volRing 과 같은 취지.
-  g.save(); g.filter = `blur(${7 * sw}px)`; g.globalAlpha = 0.55;
+  g.save(); g.filter = `blur(${7 * sw}px)`; g.globalAlpha = opts.dots ? 0.30 : 0.55;
   g.fillStyle = grad;
-  g.beginPath();
-  g.moveTo(cx - w0, y0); g.lineTo(cx + w0, y0);
-  g.lineTo(cx + w1 * 0.95, yHead); g.lineTo(cx - w1 * 0.95, yHead);
-  g.closePath(); g.fill();
+  if (opts.dots) {
+    // 도트 모드에선 언더글로우도 점으로. 폴리곤 밴드를 깔면 점 사이가 메워져 다시 막대가 된다.
+    const seg = Math.abs(yHead - y0), N = Math.max(3, Math.round(seg / (13 * sw)));
+    for (let i = 0; i < N; i++) {
+      const u = (i + 0.5) / N, y = y0 + (yHead - y0) * u;
+      const r = (w0 / 2 + (w1 / 2 - w0 / 2) * u) * 1.5;
+      g.beginPath(); g.arc(cx, y, Math.max(1.4 * sw, r), 0, Math.PI * 2); g.fill();
+    }
+  } else {
+    g.beginPath();
+    g.moveTo(cx - w0, y0); g.lineTo(cx + w0, y0);
+    g.lineTo(cx + w1 * 0.95, yHead); g.lineTo(cx - w1 * 0.95, yHead);
+    g.closePath(); g.fill();
+  }
   g.restore();
   g.globalAlpha = 1;
   g.fillStyle = grad;
-  g.beginPath();
-  g.moveTo(cx - w0 / 2, y0); g.lineTo(cx + w0 / 2, y0);
-  g.lineTo(cx + w1 / 2, yHead); g.lineTo(cx - w1 / 2, yHead);
-  g.closePath(); g.fill();
+  if (opts.dots) {
+    // ★ 도트 스템(지면 전용, 유저 08-05) — 벽은 이어진 테이퍼 자루, **바닥은 점렬**이다.
+    //   같은 토큰·같은 촉·같은 램프를 쓰고 자루의 '재질'만 바꾼다(문법 공유, 렌더만 절제).
+    //   점 크기는 스템 폭 테이퍼를 그대로 따라 뿌리에서 머리로 굵어진다 = 방향이 점에서도 읽힌다.
+    const seg = Math.abs(yHead - y0);
+    const N = Math.max(3, Math.round(seg / (13 * sw)));
+    for (let i = 0; i < N; i++) {
+      const u = (i + 0.5) / N;
+      const y = y0 + (yHead - y0) * u;
+      const r = (w0 / 2 + (w1 / 2 - w0 / 2) * u) * 0.92;
+      g.beginPath(); g.arc(cx, y, Math.max(0.9 * sw, r), 0, Math.PI * 2); g.fill();
+    }
+  } else {
+    g.beginPath();
+    g.moveTo(cx - w0 / 2, y0); g.lineTo(cx + w0 / 2, y0);
+    g.lineTo(cx + w1 / 2, yHead); g.lineTo(cx - w1 / 2, yHead);
+    g.closePath(); g.fill();
+  }
   g.globalAlpha = A0;
   if (draw > 0.28 && !opts.noTip) {   // noTip = 촉 없는 자루(감속 바 등)
     // 촉은 '자라는 머리'에 항상 붙는다(고정 위치 X) → 자라는 동안에도 화살표로 읽힌다.
@@ -1698,4 +1732,62 @@ export function drawRotate(g, W, P, look, t, ENV, prog) {
     tail: P.tail != null ? P.tail : 0.68,   // 게이지 아크와 같은 꼬리 페이드(유저 레퍼런스)
     scale: (P.scale != null ? P.scale : 1) * (P.width != null ? P.width : 1),
   });
+}
+
+/** ── 연결 토큰(LINK) — 두 발자국을 잇는 지면 전용 기호 ──────────────────────────
+ *  왜 별도 토큰인가: 마크(발형)는 '어디'를 말하고, 연결선은 '여기서 저기로'를 말한다.
+ *  A2 종아리 프레스(정적 스탠스 = 보폭), 농구 스텝백(순차 이동 = 경로) 둘 다 이 하나로 읽힌다.
+ *
+ *  ★ 길이 무관 규격 — **점 개수를 고정**하고 간격을 길이에서 파생한다.
+ *    간격을 고정하면 실측 구간 편차(농구 0.16m ~ 0.92m = 5.7배)에서 짧은 건 점 하나,
+ *    긴 건 여섯 개가 되어 같은 기호로 안 읽힌다.
+ *
+ *  style — 시안 비교용(footlab '연결 토큰' 패널에서 전환):
+ *    dots   균일 점렬            — 가장 절제. 거리만 말한다.
+ *    taper  중앙 작고 끝이 굵다   — '벌어짐'이 점 크기로 읽힌다(스트레치).
+ *    chain  점 + 잇는 헤어라인    — 두 발이 한 세트임이 가장 분명(레퍼런스 line+dot).
+ *    pulse  중앙→양끝 밝기 파동   — 순차 이동(농구 경로)에 방향감을 준다.
+ */
+export function drawLinkDots(g, ax, ay, bx, by, t, o = {}) {
+  const N = Math.max(2, Math.round(o.count ?? 7));
+  const R = o.r ?? 4.4;
+  const flow = o.flow ?? 0.35;
+  const hair = o.hair ?? 0.26;
+  const style = o.style || 'chain';
+  const col = o.color || '255,246,234';
+  const inset = o.inset ?? 0.12;              // 양끝(발) 여백 비율
+  const A = o.alpha ?? 1;
+  const dx = bx - ax, dy = by - ay;
+  const len = Math.hypot(dx, dy);
+  if (len < 1e-3 || A <= 0.004) return;
+  const ux = dx / len, uy = dy / len;
+  const x0 = ax + dx * inset, y0 = ay + dy * inset;
+  const span = len * (1 - inset * 2);
+  if (span <= 0) return;
+  g.save();
+  if (style === 'chain' && hair > 0) {         // 점을 잇는 실 — 굵기는 점보다 훨씬 얇게
+    g.strokeStyle = `rgba(${col},${(hair * A).toFixed(3)})`;
+    g.lineWidth = Math.max(1, R * 0.34);
+    g.beginPath(); g.moveTo(x0, y0); g.lineTo(x0 + ux * span, y0 + uy * span); g.stroke();
+  }
+  const ph = (t * flow) % 1;                   // 중앙에서 바깥으로 흐른다
+  for (let i = 0; i < N; i++) {
+    let u = (i + 0.5) / N;
+    if (style === 'pulse' || style === 'dots' || style === 'chain') {
+      const c = u - 0.5;                       // 중앙 기준 부호
+      u = 0.5 + c + Math.sign(c) * ((ph / N) % (1 / N));   // 바깥 방향 미세 이동
+      if (u < 0 || u > 1) continue;
+    }
+    const px = x0 + ux * span * u, py = y0 + uy * span * u;
+    const c2 = Math.abs(u - 0.5) * 2;          // 0 중앙 → 1 끝
+    let r = R, a = A;
+    if (style === 'taper') r = R * (0.55 + 0.75 * c2);
+    if (style === 'pulse') {
+      const w = ((c2 - ph) % 1 + 1) % 1;
+      a = A * (0.35 + 0.65 * Math.max(0, 1 - Math.abs(w - 0) * 3));
+    }
+    g.fillStyle = `rgba(${col},${(a * 0.96).toFixed(3)})`;
+    g.beginPath(); g.arc(px, py, r, 0, Math.PI * 2); g.fill();
+  }
+  g.restore();
 }

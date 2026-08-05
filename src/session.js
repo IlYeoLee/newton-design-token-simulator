@@ -4,7 +4,7 @@ import bkStepContacts from '../assets/mocap/contacts-cmu_crossover_shot.json';  
 import { WALL_Z } from './scene.js';
 import { lutColor, GLYPHS, drawGlyph, drawNumber, footSlot, footSDFTexture, FXP } from './fxlut.js';
 import { MARK_NUM, GLYPH_LOOK, drawMarkGlyph, invertGlyphCanvas, drawStanceBox, drawPunchLine, drawApproachRing, drawTrajectory, drawRotate, drawStemArrow, drawCurveArrow , glyphFor } from './fx-core.js';
-import { makeMarkFXMaterial, makeLaneFXMaterial, makeFlowArrow, tickFlowArrows, beamAlphaAt, COLORS, FOOT_PLANE_M, QUAD_K, UI_MASK, MARK_LOOK } from './tokens.js';
+import { makeMarkFXMaterial, makeLaneFXMaterial, makeFlowArrow, tickFlowArrows, beamAlphaAt, COLORS, FOOT_PLANE_M, QUAD_K, UI_MASK, MARK_LOOK, applyMarkLookTo } from './tokens.js';
 
 const clamp01 = v => v < 0 ? 0 : v > 1 ? 1 : v;
 
@@ -109,6 +109,8 @@ function makeTextPlane(text, opts = {}) { const g = makeTextMesh(text, opts); co
 // 구 발형 마크 v2(족저 압력 히트맵 캔버스 텍스처) 삭제 — FootMark가 MARK 발형 셰이더로
 // 대체한 뒤 호출처 0인 죽은 코드였음 (룩 시스템 외 사제 렌더의 마지막 잔재).
 class FootMark {
+  static READY_TAP = { T: 5.6, W: 0.55, P1: 3.6, P2: 4.35 };   // tap2 루프 타이밍 — floorgl 캔버스 발과 공유
+  static READY_SPREAD = 0.189;   // 좌우 간격(m) — 피그마 342:3057 실측(중심 x 525.8/1075.2). 유저: 이걸 넘지 말 것
   // 세션 발자국 = MARK 발형 상태 머신 소비 (시안 보드 7상태 그대로).
   // 열화상 사제 텍스처·flatMat 카운트다운 링·홀드 호 전부 은퇴 — 룩 시스템이 유일한 형태:
   //   대기=Preview 소프트 필 · 카운트다운=Active 헤일로 수축 · 유지=Hold 코닉 림 · 성공=Success 블룸
@@ -139,6 +141,28 @@ class FootMark {
   at(x, z, s = 1) { this.group.position.set(x, 0.013, z); this.group.scale.setScalar(s); return this; }
   op(k) { this._U.uFade.value = k; }
   setHold(p) { this._U.uPhase.value = 5; this._U.uProg.value = Math.max(0.001, p); }   // Hold 코닉 진행 림
+  locked() { this._U.uPhase.value = 3; this._U.uProg.value = 0; }
+  /** tap2 어포던스(READY 전용, 유저 2026-08-05) — 무채(도트+이너 화이트) 대기로 있다가
+   *  주기마다 액티브 컬러로 밝아지며 **2회 깜빡** = '발 두 번 탭' 암시. 과하지 않게 3.2s 주기. */
+  tapHint(tc) {
+    // 유저 확정 루프(08-05): 무채(#63) → 은은한 펄스 2회 = '석세스 최종형태 컬러'(붉은, 가장 진한
+    //   uPhase 2 · uProg 0)로 깜빡깜빡 → 다시 무채. 사인 디졸브로 부드럽게.
+    //   ★ glow() 를 쓰지 않는다 — glow(1) 은 onSuccess 파문까지 발사한다(풀 버전 금지, 유저).
+    //     유니폼 직접 세팅 = 색만 빌려 오고 이펙트는 없다.
+    // 스타일 = 8번째 토큰 'Tap2' (footlab 에서 편집·저장 → mark-look.json `tap`).
+    //   같은 마크 토큰에 룩 파라미터만 갈아 끼운다 — 새 그래픽을 그리지 않는다(유저).
+    if (!this._tapStyled) { applyMarkLookTo(this.plane.material, MARK_LOOK.tap || {}); this._tapStyled = true; }
+    const T = FootMark.READY_TAP.T, ph = tc % T;
+    const bl = t0 => { const u = (ph - t0) / FootMark.READY_TAP.W; return (u >= 0 && u <= 1) ? Math.sin(u * Math.PI) : 0; };
+    const b = Math.max(bl(FootMark.READY_TAP.P1), bl(FootMark.READY_TAP.P2));
+    // ★ 상태 전환 폐기(유저 08-05): 기본→석세스로 **색이 바뀌는** 깜빡임은 과했다.
+    //   상태는 Tap2 룩 그대로 고정하고 **투명도만** 은은하게 두 번 펄스한다.
+    this._U.uPhase.value = 3;
+    this._U.uProg.value = 0;
+    // 빔 페더를 지나면 흐릿해진다(유저) — 대기값을 올리고 게인으로 한 번 더 들어 올린다.
+    this.op(0.72 + 0.28 * b);
+    if (this._U.uGain) this._U.uGain.value = 1.35 + 0.45 * b;
+  }   // 무채 대기(Locked) — READY 시작 전
   countdown(p) {
     if (p < 0) { this._U.uPhase.value = 0; this._U.uProg.value = 0; return; }          // 대기 = Preview 숨쉬기
     this._U.uPhase.value = 1; this._U.uProg.value = p;                                 // Active — 헤일로 수축 = 타이밍
@@ -676,8 +700,21 @@ function sbPoseAt(vt, holdAirborne) {
   };
   return { L: one('L'), R: one('R') };
 }
+// ★ 발자국 안정 영역(FOOT 밴드) — floorgl LAYOUT.FOOT_Y(1980) 를 전방 거리로 환산한 값.
+//   러닝 기본 투사에서 0.64m. 마크는 이 z 를 중심으로 놓고 스윙 폭도 CONTENT 밴드(0.40~1.43m)
+//   안에서만 움직인다. 이걸 안 지켜서 A2(CZ -1.45)·A3(-1.05 −0.5p)의 마크가 헤더·진행 위로
+//   올라와 글자를 가렸다(유저 스샷 2장). 새 마크를 놓을 땐 이 상수에서 파생시킬 것.
+const FOOT_Z = -0.75;          // 안정 영역 중심(= 밴드 0.64m 에 여유를 둔 값)
+const FOOT_SWING = 0.30;       // 이 이상 벌리면 CONTENT 밴드를 벗어난다
 const FOLLOW_S = 1.0;   // 따라하기 발자국 배율(농구 지면 UI 공통)
-const SBZ = -1.95;      // 스텝백 마크 기준 z(빔 창 중앙). 빌드·업데이트 양쪽에서 쓴다
+const SBZ = -3.13;      // 스텝백 마크 기준 z. 빌드·업데이트 양쪽에서 쓴다
+// ★ -1.95 → -3.13 (유저 08-05). 구값은 패턴 중심이 리그 원점에서 겨우 d=0.17m — 빔 사다리꼴의
+//   **최협부**(반폭 0.32m)이자 fpNear(0.30) 근처라, 실측 스텝백 착지 폭 0.92m 가 좌우로
+//   11~14cm 씩 빛 밖으로 나가고 근거리 페더에도 깎였다(마크가 흐리게 사라짐).
+//   보폭을 압축(A2 처럼 SC 0.5)하는 대신 **패턴을 빔이 넓은 자리로 전진**시킨다 — 반폭은
+//   1m 전진마다 0.27m 씩 늘어나므로, 중심 d=1.35m 면 실측 보폭을 1:1 로 두고도 여유가 남는다.
+//   검산(중심 d=1.35): 준비L +0.42 · 준비R +0.40 · 플랜트 +0.26 · 착지L +0.20 · 착지R +0.20 (m)
+//   → 압축 0, 자세 왜곡 0. '논리(콘)는 지키고 배치로 푼다'(유저).
 
 const BK_STR = {
   BK_A1: { per: 2.4, reps: BK_REPS.BK_A1, side: true, noMark: true, fm: '옆구리 스트레치', say: '팔을 위로 뻗어 옆으로 쭉쭉. 왼쪽 오른쪽 번갈아 허리를 늘려요.' },
@@ -990,7 +1027,24 @@ export class Session {
   _buildRunning() {
     let g = this._mk('READY');
     g.add(floorRing(0, -1.1, 0.20, 0.225, BRAND.dim, 0.9));
-    this.tap = this._tap('running'); this.tap.position.set(0, 0.013, -1.1); g.add(this.tap);
+    this.tap = this._tap('running'); this.tap.position.set(0, 0.013, -0.78); g.add(this.tap);
+    this.tap.visible = false;   // 캔버스 CTA + tap2 발자국이 어포던스 전담 — 판이 검은 박스로 노출(실측)
+    // READY 발자국 = 룩시스템 발형(MARK Preview 숨쉬기) — 캔버스 사제 발 그래픽 폐기(유저:
+    //   바닥은 평면 그래픽, 발 모양은 룩 토큰으로). 링 중앙 = 탭 지점에 놓는다.
+    // READY 두 발 = FootMark tap2 어포던스 — Tap Twice 양옆(유저 #49). 캔버스 신발 그래픽 폐기.
+    // ±0.33 은 빔 페더 구간에 걸려 발 바깥이 흐려졌다(유저 #52) — 안쪽으로.
+    // 크기 200mm(유저) — 판정 발(240mm 정본)이 아니라 그래픽 어포던스라 축소 허용. s=200/240.
+    // 피그마 353:7085/7096 = CTA 양옆, 캡슐 밖 아래(유저 #117). 프레임 실측 중심 (480,1855)/(1103,1855)
+    //   → 대지 중심(캔버스 800,1335)에서 ±0.214m, 0.357m 앞. 크기 250mm(피그마 실루엣 실측).
+    // 피그마 342:3057 기준(실루엣 242mm, 대지 중심 0.334m 앞)에서 **그래픽 요소로 축소**(유저 08-05):
+    //   판정 발이 아니라 장식이라 180mm. 좌우는 CTA('Tap your foot Twice' 558px)를 피해 ±0.272m.
+    //   등장은 가운데 모여 있다가 좌우로 퍼진다 — READY_SPREAD 가 그 목표 좌표다.
+    this.readyFeet = [new FootMark('left').at(-FootMark.READY_SPREAD, -0.750, 180 / 240),
+                      new FootMark('right').at(FootMark.READY_SPREAD, -0.750, 180 / 240)];
+    this.readyFeet.forEach(f => { f.locked(); f.op(0.8); f.group.visible = false; this.root.add(f.group); });
+    // G.READY 는 '시작 페이지 = 프레임 전담' 정책으로 main 이 끈다 — 발자국은 새 READY 의
+    //   어포던스 정본이므로 root 소속으로 예외. 표시는 아래 업데이트 틱이 스테이지로 제어.
+
 
     // A1~B4 발형/화살표 그래픽 z — "그래픽=가까운 존(눈앞~발앞), 타이틀=그 뒤(위)"
     // 원칙(유저 지적, 반대로 짰던 이전 시도 정정)에 맞춰 가까운 존(1.0~1.6m)으로 압축.
@@ -1007,12 +1061,66 @@ export class Session {
     // 좌·우 발형(FootMark = 룩시스템 발형 SDF, A3와 동일 방식·사이즈) 나란히 지면 고정.
     // 상태 = countdown/setHold/glow/ghost로 Preview/Active/Hold/Success/Locked. 숫자는 발형 자식.
     // 전방 투사존 — 타이틀·도트(상단, 먼 z) 아래 열린 콘텐츠 존에 나란히 (겹침 방지)
-    const fmL = new FootMark('left').at(-0.16, -1.15), fmR = new FootMark('right').at(0.16, -1.15);
+    // z −0.78 → −0.48: 뒷발이 위 캡슐 카드와 아예 겹쳤다(유저 08-05 스샷). 발 한 켤레를
+    //   통째로 앞(가까운 z)으로 당겨 카드 아래 빈 존에 앉힌다 — 런지 보폭은 틱이 다시 벌린다.
+    const fmL = new FootMark('left').at(-0.16, FOOT_Z), fmR = new FootMark('right').at(0.16, FOOT_Z);   // 안정 영역
     // 숫자 = 룩시스템 attachMarkNum(발 plane 자식·MARK_NUM 크기·numFoot 앵커) — 삐짐 없는 정본 이식
     const numL = attachMarkNum(fmL, '5', false), numR = attachMarkNum(fmR, '5', true);
     numL.visible = false; numR.visible = false;
     const a2cd = floorNum(0, 0, -1.35, 0.22); a2cd.visible = false;   // 시범→따라하기 3-2-1 카운트다운
-    this.a2press = { fmL, fmR, numL, numR, cd: a2cd, fill: 0, _cnt: 5, _succ: 0, _succFM: null };
+    // 방향 큐 = LINE 토큰(makeFlowArrow) — 뒷다리는 뒤로 밀고, 앞무릎은 아래로(유저 #105).
+    //   새 그래픽을 만들지 않고 판정 토큰 정본을 쓴다. draw-on 은 틱에서 진행값으로 구동.
+    // ★ 방향 큐 = 종아리 늘리기의 두 지시를 **스탠스 축**에 실어 서로 **벌어지게** 놓는다:
+    //   앞발 화살표 → 앞(무릎을 앞으로) · 뒷발 화살표 → 뒤(뒤꿈치를 뒤로 눌러). 벌어짐 자체가
+    //   '늘려라'로 읽힌다. 위치·회전은 **틱이 발자국에서 파생**한다 — 하드코딩하면 보폭이
+    //   바뀔 때마다 어긋난다(유저 #138 발자국과 같은 종류의 버그).
+    //   회전 매핑 실측: dir = (−sinθ, −cosθ) → θ = atan2(−dx, −dz).
+    //   구값 arBack rotation.z = π/2 는 주석과 달리 **왼쪽(−x)** 을 가리키고 있었다.
+    //   길이 0.34 통일 — 0.42 는 뒷발에서 뒤로 뻗을 때 메시 중심이 빔 근거리 페이드로 들어갔다.
+    const arBack = makeFlowArrow(0.34, { scale: 0.85 });   // 뒷발 → 뒤(다리 선)
+    const arKnee = makeFlowArrow(0.34, { scale: 0.85 });   // 앞무릎 → 앞(다리 선)
+    arBack.rotation.x = -Math.PI / 2; arKnee.rotation.x = -Math.PI / 2;
+    arBack.visible = arKnee.visible = false;
+    g.add(arBack, arKnee);
+    this.a2press = { fmL, fmR, numL, numR, cd: a2cd, fill: 0, _cnt: 5, _succ: 0, _succFM: null, arBack, arKnee };
+    // 스탠스 라인 — 두 발을 잇는 은은한 대시(런지 보폭이 곧 자세다). 복싱 높이 캘리브레이션
+    //   라인과 같은 대시 언어 재사용 — 새 문법을 만들지 않는다. 틱에서 발 위치 따라 갱신.
+    {
+      // WebGL Line 은 굵기 1px 고정이라 투사 거리에서 사실상 안 보였다(유저) → 대시를 캔버스에
+      //   구워 얇은 면 스트립으로. 대시 언어는 유지하고 물리적 굵기(4cm)를 얻는다.
+      // 도트 애니메이션(유저 #90) — 대시 스트립을 '흐르는 도트 + 블룸'으로. 캔버스를 매 프레임
+      //   다시 굽지 않고, 텍스처 offset 을 흘려 도트가 앞발 쪽으로 흐르게 한다(업로드 0).
+      // ★ 바닥 전용 토큰 룩(유저 08-05 레퍼런스): **블룸 적고 절제된 선 + 점**.
+      //   구 버전은 반경 3.2배 방사 후광 + AdditiveBlending 이라 투사면에서 번져 '광'으로만 읽혔다.
+      //   ① 후광 제거 — 점은 단단한 잉크 원(에지 AA 만)
+      //   ② 가는 헤어라인을 깔아 점들을 **잇는다**(레퍼런스의 line+dot 문법)
+      //   ③ 합성은 Normal — 가산은 밝은 바닥에서 워시아웃되고 절제가 안 된다
+      const c = document.createElement('canvas'); c.width = 256; c.height = 32;
+      const g2 = c.getContext('2d');
+      g2.fillStyle = 'rgba(255,242,228,.26)';        // 헤어라인 — 점을 잇는 실
+      g2.fillRect(0, 15, 256, 2);
+      const DOTS = 8, GAP = 256 / DOTS;
+      for (let i = 0; i < DOTS; i++) {
+        const x = GAP * (i + 0.5);
+        g2.fillStyle = 'rgba(255,246,234,.96)';      // 단단한 코어만
+        g2.beginPath(); g2.arc(x, 16, 4.2, 0, Math.PI * 2); g2.fill();
+      }
+      // ★ 스탠스 라인 = **반쪽 두 개**(유저 08-05: 두 발 사이를 잇는 예쁜 라인으로 펼쳐지는 느낌).
+      //   한 장짜리 스트립은 offset 이 한 방향으로만 흘러 '흐름'이지 '펼쳐짐'이 아니었고,
+      //   좌우로 늘어난 도트가 사다리처럼 읽혔다(구 폐기 사유). 중앙에서 각 발로 뻗는 반쪽을
+      //   따로 두고 도트를 **바깥으로** 흘리면 그 자체가 벌어지는 동작이 된다.
+      const mkHalf = () => {
+        const tx = new THREE.CanvasTexture(c); tx.colorSpace = THREE.SRGBColorSpace;
+        tx.wrapS = THREE.RepeatWrapping;
+        const m = new THREE.Mesh(new THREE.PlaneGeometry(1, 0.085),
+          new THREE.MeshBasicMaterial({ map: tx, transparent: true, opacity: 0, depthWrite: false,
+            blending: THREE.NormalBlending }));   // 절제 — 가산은 워시아웃(위 주석)
+        m.rotation.x = -Math.PI / 2; m.renderOrder = 5; m.visible = false;
+        g.add(m); return m;
+      };
+      this.a2press.linkA = mkHalf();   // 중앙 → 뒷발
+      this.a2press.linkB = mkHalf();   // 중앙 → 앞발
+    }
     g.add(fmL.group, fmR.group, a2cd);
 
     g = this._mk('A3');
@@ -1020,7 +1128,7 @@ export class Session {
     //   앞: 좌·우 발형(A2와 동일 언어)이 번갈아 켜짐 = "좌우 무릎 번갈아 올려"(템포·순서).
     //   뒤: 큰 중앙 숫자 = 누적 횟수(카운트업) + 감싸는 얇은 링이 30초 시계방향 진행.
     // 하이니 재설계(유저): 원형 은퇴 — 발형 2개(안에 각자 카운트) + LINE 리프트 화살표 + 양발 각 10회.
-    const a3L = new FootMark('left').at(-0.17, -1.05), a3R = new FootMark('right').at(0.17, -1.05);
+    const a3L = new FootMark('left').at(-0.17, FOOT_Z), a3R = new FootMark('right').at(0.17, FOOT_Z);   // 안정 영역
     const a3nL = attachMarkNum(a3L, '0', false), a3nR = attachMarkNum(a3R, '0', true);
     // 리프트 큐 = 발 '옆'에 캔버스 플레인(drawLiftCue 3안, FXP.a3Arrow 토글)
     const mkLift = (x) => {
@@ -1095,6 +1203,7 @@ export class Session {
     let g = this._mk('BK_READY');
     g.add(floorRing(0, -1.1, 0.20, 0.225, BRAND.dim, 0.9));
     this.bkTap = this._tap('boxing'); this.bkTap.position.set(0, 0.013, -1.1); g.add(this.bkTap);
+    this.bkTap.visible = false;   // 러닝과 동일 — 캔버스 CTA + tap2 발자국이 전담(검은 박스 방지)
 
     // A1 옆구리 = 마크 없이 코치 영상만(noMark) — ring/arc는 최소 생성(핸들러가 숨김).
     this.bkStretch = {};
@@ -1764,6 +1873,7 @@ export class Session {
     if (this._c3Skill != null && this.judge) { this.judge.skill = this._c3Skill; this._c3Skill = null; }   // C3 중 탭 스킵 시 skill 0.35 영구 잠김 방지
     this.bobY = 0;
     for (const id in this.G) this.G[id].visible = false;
+    this.readyFeet?.forEach(f => f.group.visible = false);   // READY 어포던스 발자국 — 재진입 틱이 켠다
     this.paceLight.visible = false;   // C 실전 틱(_paceTick)이 프레임마다 다시 켬
     this.paceLane.visible = false;
     this.paceFeet.forEach(fm => fm.group.visible = false);
@@ -2016,12 +2126,40 @@ export class Session {
     if (this.auto && st.dur && this.t >= st.dur && !st.count) this._next();
   }
 
+  /** READY 발자국 틱 — 표시 구간·등장·Tap2 룩을 한곳에서(러닝·농구 공통).
+   *  등장 = **페이드 인/아웃만**(유저 08-05: 퍼지는 모션은 너무 복잡하다). 자리는 고정. */
+  _readyFeetTick() {
+    const F = this.readyFeet; if (!F) return;
+    const tl = this.readyPhase != null ? this.readyPhase : (this.t % 8);   // 지면 UI 와 같은 시계(main 이 넘긴다)
+    // ★ 하단 슬롯 타임라인 = floorgl _paint_ready 의 **CTA 구간**과 한 몸이다. 발자국은
+    //   'Tap Twice' 양옆에 서는 물건이라 CTA 가 없는 시각에 뜨면 뜬금없다.
+    //   순서 재배치(08-05, 피그마 379:3282→377:3060→379:3364) 로 CTA 가 **0.25~2.2s** 로
+    //   앞당겨졌는데 여기 FT 는 4.6 에 남아 있었다 — 발자국이 팩 정보·배터리 화면 위로
+    //   혼자 올라오고, 정작 CTA 2초 동안은 비어 있었다(실측). floorgl 의 p3 와 같은 값으로 맞춘다:
+    //     p3 = eOut(intro(t, .25, .5)) * (1 - eOut(intro(t, 1.75, .45)))
+    const FT = 0.25;
+    if (tl < FT) { F.forEach(f => { f.group.visible = false; }); return; }
+    const fin = Math.min(1, (tl - FT) / 0.5);                      // 0.25~0.75 페이드 인
+    const fout = 1 - Math.min(1, Math.max(0, (tl - 1.75) / 0.45)); // 1.75~2.2 페이드 아웃 (CTA 와 동시)
+    const a = fin * fout;
+    F.forEach(f => {
+      f.group.visible = a > 0.01;
+      if (!f.group.visible) return;
+      f.tapHint(this.t);
+      f.op(f._U.uFade.value * a);
+    });
+  }
+
   _updateRunning(id, st, beat, FMU) {
     // 박자 시점 바운스 — 몸이 살아있는 느낌 (라이브는 실제 모캡 눈이 담당)
     if (id[0] === 'A') this.bobY = 0.007 * Math.sin(this.t * 1.8);   // 호흡
     else this.bobY = 0;
 
     if (id === 'READY' || id === 'T1') {
+      // READY 발자국 2개 — 피그마 342:3057 규격으로 복귀(유저 08-05). CTA 구간(4~8s)에만 뜬다:
+      //   0~4s 는 팩·인물·숫자가 말하는 시간이라 발이 있으면 그때가 복잡해진다.
+      // ★ tapHint 는 정의만 되고 **아무도 안 불렀다**(유저 08-05: 룩이 안 먹는다) — 여기서 매 틱 돈다.
+      if (id === 'READY') this._readyFeetTick();
       const tap = id === 'READY' ? this.tap : this.tap1; const k = 0.5 + 0.5 * Math.sin(this.t * 4);
       if (tap.userData._ctaPlane) {
         tap.userData._ctaPlane.material.opacity = 0.75 + 0.25 * k;   // 피그마 CTA 에셋 — 통째로 맥동
@@ -2051,7 +2189,9 @@ export class Session {
     } else if (id === 'A2') {
       // 런지 — 앞의 원을 크게 딛어 밟고 버티면 홀드 아크가 차오름 (구 A1 프레스 문법).
       // 프로브 구동(왼/오른발 무관): 발이 접지 + 원 반경 안 = 버티는 중.
-      const REPS = 2, DEMO = 4.6;   // 왼발 1 + 오른발 1 = 2회 (유저: 왜 2번씩? → 각 1회)
+      // DEMO 는 main 의 A2_WATCH(7.0)와 **같은 값이어야** 한다 — 어긋나면 프리뷰가 끝났는데도
+      //   demoActive 가 남아 화살표가 안 뜨는 사각지대가 생긴다(구 4.6 vs 3.0).
+      const REPS = 2, DEMO = 5.8;   // 왼발 1 + 오른발 1 = 2회 (유저: 왜 2번씩? → 각 1회)
       const dt = Math.max(0, this.t - (this._a2t ?? this.t));
       if ((this._a2t ?? 0) > this.t) { this.a2count = 0; this.a2press.fill = 0; }   // 재진입 리셋
       this._a2t = this.t;
@@ -2063,7 +2203,15 @@ export class Session {
       // 판정 = 봇 다리 상태(발 접지+런지 깊이)로만 구동 — 고정 마크와의 거리 게이트 없음.
       if ((this._a2t ?? 0) > this.t) { P._doneL = false; P._doneR = false; P.sec = 0; P._press = false; P._cnt = 5; P._repLatch = false; this.a2count = 0; }   // 재진입 리셋(a2count 미리셋=조기 전환 버그였음)
       // ── 발자국이 x봇 실제 발을 따라 런지처럼 이동 (고정 배치는 별로 — 유저 확정, 추적 복원) ──
-      const CZ = -1.15, SC = 0.42;
+      // ★ 보폭 압축·중심 = **빔 알파 실측**에서 나온 값이다(추측 금지). 마크 pad 를 포함한
+      //   beamAlphaAt 커브(로컬 z 기준, near .30 / far 1.9):
+      //     -0.7 → 0.23 | -1.0 → 0.69 | -1.25 → 0.86 | -1.45 → 0.95 | -1.55 → 0.97 | -1.8 → 0.50
+      //   평탄 구간이 0.4m 남짓뿐이라 실제 런지 보폭(실측 0.80m)은 1:1 로 못 담는다 —
+      //   압축은 꼼수가 아니라 프로젝터의 물리 제약이다. SC 1.0 으로 늘렸더니 뒷발이 z -0.75
+      //   (알파 0.30)로 밀려 사실상 안 보였다.
+      //   SC 0.5 · CZ -1.45 → 보폭 0.80m 일 때 마크가 -1.25 / -1.65 = 알파 0.86 / 0.93.
+      //   둘 다 밝고 좌우 균형이 맞는다(구 CZ -1.15 는 0.69/0.76 대역이라 둘 다 어두웠다).
+      const CZ = FOOT_Z, SC = 0.5;   // -1.45 → 안정 영역(유저: 발자국이 헤더를 가린다)
       // ★ pinMarks — 합성용 '설계 그대로' 뽑기 모드(익스포터 --pin).
       //   평면 판에서 x봇은 이미 숨겨져 있는데 **발자국 위치는 계속 조종한다.** 그래서 안 보이는
       //   봇의 걸음이 발자국을 위아래로 흔든다(실측: 프레임간 85px 점프, 91px 폭 진동).
@@ -2098,19 +2246,130 @@ export class Session {
       P.cd.visible = false;
       if (!cyc || cyc.watching) {
         P.fmL.group.visible = false; P.fmR.group.visible = false; P.numL.visible = false; P.numR.visible = false;
+        // ★ 화살표·연결선 모두 꺼야 한다 — 이 분기는 아래 코드에 닿기 전에 return 하므로, 안 끄면
+        //   직전 사이클의 visible 이 그대로 남아 **감상 중(인물이 서 있을 때)** 화면에 걸쳐 있다.
+        //   연결선은 두 발을 잇는 대각선이라 인물 몸통을 가로질러 특히 지저분했다(유저 08-05).
+        if (P.arBack) { P.arBack.visible = false; P.arKnee.visible = false; }
+        if (P.linkA) { P.linkA.visible = false; P.linkB.visible = false; }
         FMU('먼저 보세요', CS.prism);   // 진행표시 = 프레임 미니 타이머 링 전담
         this.demoActive = true;
         return;
       }
       this._say('a2follow', '션', '자, 이제 같이! 앞무릎 굽히고 뒷다리 쭉 펴서 버텨요.');
+      // ★ demoActive 를 **여기서 매 프레임 다시 정한다**. 이 플래그는 A2 안에서 true 로만 켜지고
+      //   false 로 되돌리는 코드가 없었다(스테이지 진입 리셋이 유일) — 그래서 시범이 끝나도
+      //   계속 true 로 남아 `on = !demoActive` 인 화살표가 **영영 안 떴다**(유저 2회 신고).
+      //   아래 화살표 블록보다 앞이라 같은 프레임에 반영된다.
+      this.demoActive = this.t < DEMO;
       P.fill = inHold ? cyc.prog : 0;   // 0→1 정확히 5초(봇 최심 정지 구간)
       placeMarkNum(P.numL); placeMarkNum(P.numR);
       P._pop = Math.max(0, (P._pop || 0) - dt * 3.8);
       P.fmL.group.visible = true; P.fmR.group.visible = true;   // 따라하기 = 마크 표시
+      // 앞/뒤 발 식별 — z 가 작은 쪽이 앞(봇 정면 = −z). 뒷발 스트레치 피드백·화살표가 이걸 쓴다.
+      //   ※ 등장 안무(스태거 페이드인)는 폐기: watching 이 렙마다 토글돼 기점이 계속 리셋되고
+      //     뒷발이 0.1 알파에 눌리는 회귀를 냈다(실측). 제대로 된 진입 훅이 생기면 그때 다시.
+      const fmFront = P.fmL.group.position.z <= P.fmR.group.position.z ? P.fmL : P.fmR;
+      const fmBack = fmFront === P.fmL ? P.fmR : P.fmL;
 
       // 딛는 발: 둘 다 Active(빈 링). 홀드 중이면 같은 Hold 페이즈에서 uProg만 0→1 채워짐(부드러운 전환, 팝 없음)
       act.setHold(Math.max(0.02, P.fill));   // 0.02 = 빈 링(Active 모양) → prog 채움
       act.op(0.6 + 0.4 * P.fill);
+      // 홀드 파문 차오름(유저: 화면이 심심) — 버티는 발에서 파문이 진행에 비례해 넓게.
+      //   기존 파동 정본(uRip) 부스트일 뿐 새 이펙트가 아니다. 완주 팡과 리듬이 이어진다.
+      if (act._U?.uRip) act._U.uRip.value = 0.5 + 0.55 * P.fill;
+      if (oth._U?.uRip) oth._U.uRip.value = 0.5;
+      // ── 방향 화살표 = **발자국에서 파생**(하드코딩 폐기). 스탠스 축을 따라 서로 벌어진다.
+      //   앞발 앞으로(무릎 전진) · 뒷발 뒤로(뒤꿈치 누르기). draw-on 1.8s 루프.
+      if (P.arBack) {
+        const on = !this.demoActive;
+        // ★ 방향 = **실제 다리 선**(유저). 시상면 축 고정도, 두 발 사이 벡터도 아니다:
+        //   - 두 발 벡터는 발이 좌우 ±0.16m 벌어져 있어 보폭이 작을 때 '옆'을 본다(실측 (0.99,-0.11)).
+        //   - 축 고정은 안전하지만 다리가 비스듬할 때 선과 어긋난다.
+        //   봇 본에서 지면 투영 단위벡터를 뽑는다(xbot.getLegs — hip/knee/foot 월드):
+        //     뒷다리 **펴는 방향** = hip→foot   (실측 런지 시 (0.28, 0.96), 길이 0.30)
+        //     앞무릎 **굽히는 방향** = hip→knee (실측 (0.15, -0.99), 길이 0.36)
+        //   서 있을 땐 길이가 0.06~0.12 로 짧고 방향이 튄다 → 시상면 축으로 폴백.
+        const fpM = P.fmL.group.position.z <= P.fmR.group.position.z ? P.fmL : P.fmR;   // z 작은 쪽 = 앞
+        const bpM = fpM === P.fmL ? P.fmR : P.fmL;
+        const sl = Math.abs(fpM.group.position.z - bpM.group.position.z);   // 보폭 = 앞뒤 성분만
+        const LG = this.xbot?.getLegs?.();
+        // ★ 임계 0.22 + 저역통과. 서 있을 때 hip→foot 지면 길이가 0.12~0.18 인데 방향은 순수
+        //   흔들림이라(실측: 같은 자세에서 (0.84,-0.54) ↔ (-0.34,0.94) 로 뒤집힘) 0.12 문턱은
+        //   노이즈를 통과시켰다. 런지가 실제로 벌어진 뒤에만 다리 선을 따르고, 그 뒤에도
+        //   0.16s 시정수로 눌러 화살표가 '결심한 듯' 움직이게 한다 — 발표에서 떨림은 치명적이다.
+        const gdir = (key, a2, b2, fx, fz) => {
+          let dx = fx, dz = fz;
+          if (a2 && b2) {
+            const vx = b2.x - a2.x, vz = b2.z - a2.z, n = Math.hypot(vx, vz);
+            if (n >= 0.22) { dx = vx / n; dz = vz / n; }
+          }
+          const pv = P[key] || [dx, dz];
+          const k = 1 - Math.exp(-(dt || 0.016) / 0.16);
+          let sx = pv[0] + (dx - pv[0]) * k, sz = pv[1] + (dz - pv[1]) * k;
+          const m = Math.hypot(sx, sz) || 1; sx /= m; sz /= m;
+          P[key] = [sx, sz];
+          return P[key];
+        };
+        const fL = fpM === P.fmL;                       // 앞발이 왼발인가
+        const [bxD, bzD] = gdir('_dB', fL ? LG?.hipR : LG?.hipL, fL ? LG?.footR : LG?.footL, 0, 1);
+        const [kxD, kzD] = gdir('_dK', fL ? LG?.hipL : LG?.hipR, fL ? LG?.kneeL : LG?.kneeR, 0, -1);
+        // 각도 매핑 실측: dir = (−sinθ, −cosθ) → θ = atan2(−dx, −dz)
+        // ★ 배치 기준 = 화살표 **메시 중심**이다. _beamAlpha 는 메시 월드 위치로 빔 알파를 샘플링하는데,
+        //   makeFlowArrow 는 원점이 꼬리이고 메시가 진행 방향으로 len/2 앞에 놓인다. 앞발 앞으로
+        //   0.19 를 더 밀었더니 중심이 z -2.01 = far(1.9) 밖으로 나가 opacity 0.002 가 됐다(실측).
+        //   → 앞 화살표는 **꼬리를 뒤로 빼서 촉이 앞발 마크에 닿게** 한다(의미도 더 맞다:
+        //     '무릎이 여기로 나아간다'). 뒤 화살표는 마크에서 그대로 뻗되 길이를 줄여 중심을 당긴다.
+        const AL = 0.34;
+        P.arKnee.position.set(fpM.group.position.x - kxD * AL, 0.014, fpM.group.position.z - kzD * AL);
+        P.arKnee.rotation.z = Math.atan2(-kxD, -kzD);   // 앞무릎이 나아가는 선
+        P.arBack.position.set(bpM.group.position.x + bxD * 0.02, 0.014, bpM.group.position.z + bzD * 0.02);
+        P.arBack.rotation.z = Math.atan2(-bxD, -bzD);   // 뒷다리를 펴는 선
+        // ★ 재촉 계수로 **어둡게 만들지 않는다**(유저: 화살표가 왜 이렇게 투명해).
+        //   전에는 (0.45 + 0.55*urge) 를 곱했는데, urge 는 마크 보폭(sl)에서 뽑고 마크는 SC 0.5 로
+        //   압축돼 sl 이 0.40 을 잘 안 넘는다 → urge≈0.07 → 화살표가 상시 0.49 로 눌렸다.
+        //   여기에 빔 페이드(≈0.9)까지 곱해져 0.44. LINE 토큰 룩이 아니라 내 계수가 문제였다.
+        //   재촉은 **밝기가 아니라 리듬**으로 — 안 벌렸으면 주기가 빨라진다.
+        const urge = Math.max(0, Math.min(1, (0.34 - sl) / 0.22));
+        const PER = 1.8 - 0.5 * urge;                 // 1.8s → 1.3s 로 빨라진다
+        const cyc2 = (this.t % PER) / PER;
+        const u2 = Math.min(1, cyc2 / 0.72), pr = cyc2 < 0.72 ? 1 - Math.pow(1 - u2, 3) : 1;
+        const fade = cyc2 < 0.72 ? 1 : 1 - (cyc2 - 0.72) / 0.28;
+        // ★ 지면 화살표 폐기(유저: 발자국에서는 화살표가 안 이쁘다). 방향은 **코치 판 큐**가
+        //   전담하고(main.js co.a2Cues), 지면은 스탠스 라인이 '펼침'만 말한다. 한 지시를 두 곳에
+        //   그리면 시선이 갈린다. 되살리려면 on 을 그대로 쓰면 된다.
+        [P.arBack, P.arKnee].forEach(a => {
+          a.visible = false; void on;
+          if (!on) return;
+          // ★ draw-on 구동자는 **_prog** 다(tokens.tickFlowArrows 가 읽는 필드). userData.prog /
+          //   setProg() 에 쓰던 건 아무도 안 읽는 죽은 코드라 화살표가 자유 루프로 돌고 있었다.
+          a._prog = pr;
+          if (a._mesh) a._mesh.material.opacity = Math.max(0, fade);
+        });
+      }
+      // ── 스탠스 라인(부활, 유저 08-05) — 중앙에서 두 발로 **펼쳐지는** 반쪽 두 개.
+      //   보폭이 벌어질수록 길어지고 밝아진다 = 라인 자체가 '얼마나 폈나'를 말한다.
+      //   도트는 중앙에서 바깥으로 흐른다(offset 부호가 반대) — 그래서 흐름이 아니라 펼침이 된다.
+      {
+        const a = P.fmL.group.position, b2 = P.fmR.group.position;
+        const mx = (a.x + b2.x) / 2, mz = (a.z + b2.z) / 2;
+        const IN = 0.10;                                     // 발 반경 여백
+        const spread = Math.max(0, Math.min(1, (Math.abs(a.z - b2.z) - 0.12) / 0.28));
+        const put = (m, e, sgn) => {
+          if (!m) return;
+          const dx = e.x - mx, dz = e.z - mz, L = Math.hypot(dx, dz);
+          const seg = L - IN;
+          m.visible = seg > 0.04 && spread > 0.02;
+          if (!m.visible) return;
+          m.position.set(mx + dx * 0.5, 0.012, mz + dz * 0.5);
+          m.rotation.z = Math.atan2(-dz, dx);
+          m.scale.set(seg, 1, 1);
+          const mp = m.material.map;
+          if (mp) { mp.repeat.x = Math.max(1, seg / 0.16); mp.offset.x = sgn * (this.t * 0.30) % 1; }
+          const tgt = (0.25 + 0.55 * spread) * (0.75 + 0.25 * P.fill);
+          m.material.opacity += (tgt - m.material.opacity) * 0.18;
+        };
+        put(P.linkA, a, -1); put(P.linkB, b2, +1);
+      }
       if (inHold) {
         const n = Math.max(1, Math.ceil(HOLD_SEC - P.fill * HOLD_SEC));   // 5→1 (UI 5초 타이머)
         if (n !== P._cnt) { redrawFootNum(actNum, n); P._cnt = n; P._pop = 1; }
@@ -2118,7 +2377,17 @@ export class Session {
         actNum.scale.multiplyScalar(1 + 0.42 * P._pop);   // 숫자 전환 팝
       } else { actNum.visible = false; P._cnt = HOLD_SEC; }
       // 반대 발: 완료면 채움 유지, 아니면 Active 빈 링(둘 다 액티브 — 유저)
-      oth.setHold(othDone ? 1 : 0.02); oth.op(othDone ? 0.5 : 0.6);
+      oth.setHold(othDone ? 1 : 0.02);
+      // ── 뒷발 = 이 운동의 **주인공**인데 지금껏 아무 일도 안 일어났다. 종아리가 늘어나는 쪽이므로
+      //   **보폭 × 홀드**에 비례해 파문·광량이 자란다 — 깊게 딛을수록 뒷발이 밝아진다 = 자세가 곧 보상.
+      //   새 이펙트가 아니라 uRip/op 정본의 구동값만 바꾼다.
+      const stretch = Math.max(0, Math.min(1, (Math.abs(P.fmL.group.position.z - P.fmR.group.position.z) - 0.14) / 0.32));
+      const heat = stretch * (0.45 + 0.55 * P.fill);
+      if (fmBack._U?.uRip) fmBack._U.uRip.value = 0.5 + 0.75 * heat;
+      // ★ 반대발 하한(유저: 다리 앞뒤로 벌릴 때 반대발이 잘려나간다) — 마크 룩을 쨍하게
+      //   바꾸면서(번짐↓ 코어↑) 낮은 알파에서 형체가 통째로 사라졌다. 0.5~0.6 은 예전
+      //   흐릿한 룩 기준의 값이다. 하한을 0.72 로 올려 '있지만 비활성'으로 읽히게 한다.
+      oth.op(Math.min(1, Math.max(0.72, othDone ? 0.78 : (oth === fmBack ? 0.75 + 0.25 * heat : 0.78))));
       othNum.visible = false;
 
       // 완료 = 홀드 100% 도달(회차당 1회 래치). 왼발 1·오른발 1 = 총 2회
@@ -2129,8 +2398,7 @@ export class Session {
       }
       if (!inHold) P._repLatch = false;   // 다음 홀드 위해 래치 해제
       if (this.t < DEMO) {
-        this.demoActive = true;
-        FMU('먼저 보세요 — 앞으로 크게 딛고 버티기', CS.sand);
+        FMU('먼저 보세요 — 앞으로 크게 딛고 버티기', CS.sand);   // demoActive 는 위에서 이미 정해졌다
       } else {
         // 중간 재안내 제거 — 진입 문장 하나로 (유저: '목소리 2개 안 나오게')
         FMU(`런지 ${Math.min(REPS, this.a2count || 0)} / ${REPS}`, CS.sand);
@@ -2181,8 +2449,9 @@ export class Session {
       H._prevPL = H._pL; H._prevPR = H._pR;
       // 발자국 '슈욱' 상승(유저): 실제 그 다리가 올라가면 그쪽 발형이 전방(시야상 위)으로 과감히
       // 활강 상승 + 살짝 커짐 — 무릎이 위로 올라간 뉘앙스. A2(정적 추적)보다 다이내믹, 저역이라 부드러움.
-      H.fmL.group.position.z = -1.05 - 0.5 * H._pL;
-      H.fmR.group.position.z = -1.05 - 0.5 * H._pR;
+      // -1.05 −0.5p 는 최대 1.55m 라 프리뷰 캡슐 하단(1.26m)과 겹쳤다(유저 스샷) → 안정 영역으로.
+      H.fmL.group.position.z = FOOT_Z - FOOT_SWING * H._pL;
+      H.fmR.group.position.z = FOOT_Z - FOOT_SWING * H._pR;
       H.fmL.group.scale.setScalar(1.05 * (1 + 0.16 * H._pL));
       H.fmR.group.scale.setScalar(1.05 * (1 + 0.16 * H._pR));
       const leftNow = lUp ? true : (rUp ? false : (H._lastLeft ?? true));   // 지금 올라간 발(없으면 마지막)
@@ -2256,6 +2525,8 @@ export class Session {
     else this.bobY = 0;
 
     if (id === 'BK_READY' || id === 'BK_T1') {
+      // 러닝과 동일 규격·타이밍 — 시작화면은 종목 한 벌이다(유저 승인 08-05).
+      if (id === 'BK_READY') this._readyFeetTick();
       const tap = id === 'BK_READY' ? this.bkTap : this.bkTap1; const k = 0.5 + 0.5 * Math.sin(this.t * 4);
       tap.children[0].material.opacity = 0.5 + 0.45 * k; tap.children[1].material.opacity = 0.5 + 0.45 * (1 - k);
       if (id === 'BK_T1' && this.t >= 4.5) { this.next(); return; }

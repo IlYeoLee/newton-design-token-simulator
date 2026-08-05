@@ -24,7 +24,7 @@ import { WallGL } from './wallgl.js';     // 복싱 벽 UI WebGL 이식(같은 B
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { CSS3DRenderer, CSS3DObject } from 'three/examples/jsm/renderers/CSS3DRenderer.js';
 import { getLUT, FXP, rebuildLUT, lutColor, GLYPHS, FX_GLSL, DEFAULT_GLYPHS, GLYPH_REV, mergeGlyphs, ensureOffBit, drawGlyph } from './fxlut.js';
-import { drawRotate, PERSON_GLSL, CUT_FEATHER_GLSL, REF_LOOK_GLSL } from './fx-core.js';
+import { drawRotate, drawStemArrow, PERSON_GLSL, CUT_FEATHER_GLSL, REF_LOOK_GLSL } from './fx-core.js';
 import { createEditor3D } from './editor3d.js';
 import { LiveUI } from './liveui.js';
 import { SceneUI } from './sceneui.js';
@@ -795,6 +795,25 @@ void main(){
   // 씬 스테이지에서 시점을 고를 수 있게 노출 — 카메라를 밖에서 새로 계산하면 종목별 화각·VOR·
   //   1인칭 가독 보정(setFPView)이 전부 빠진다. 앱의 토글을 그대로 쓰는 게 맞다.
   window.__setFp = (on) => setFp(!!on);
+  // 수직 바닥뷰(유저) — 씬 스테이지에서 지면 UI 를 왜곡 없이 보려면 완전 top-down 이 필요하다.
+  //   대각선 3인칭은 원근으로 세로가 눌려 조판 검수가 안 된다. 카메라를 **대지 바로 위**에
+  //   두고 아래를 본다(대지가 봇을 따라 움직이므로 매 프레임 다시 앉힌다 — 아래 루프).
+  window.__setTopView = (on) => {
+    window.__topView = !!on;
+    if (!on) { try { frameThirdPerson(); } catch { /* 앵커 미준비 */ } return; }
+    setFp(false);
+    // ★ 독립 rAF 로 앉힌다 — 메인 루프 안 어디에 넣어도 3인칭 추종이 뒤에서 덮어써 카메라가
+    //   꼼짝도 안 했다(실측: 스냅 전후 좌표 동일). 나중에 등록된 rAF 가 마지막에 도므로 이게 이긴다.
+    const tick = () => {
+      if (!window.__topView) return;
+      const bp = floorObj.position;
+      controls.target.set(bp.x, 0, bp.z);
+      camera.position.set(bp.x, 3.4, bp.z + 0.002);   // z 미세 오프셋 = 짐벌락(up ∥ 시선) 회피
+      controls.update?.();
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  };
   function setFp(on) {
     fpMode = on;
     setFPView(on);   // 1인칭 가독 보정 — 순번 감쇠 완화 + 마크·레인 게인 (시선 각도 눌림)
@@ -2317,23 +2336,40 @@ void main(){
   //    목 먼저 2바퀴 → 어깨 롤 (10s 루프). 위치·회전은 매 프레임 타이틀 프레임(floorObj) 앵커에 글루.
   // 룩시스템 열화상 코치 패널(A1 목·어깨, A2 런지 공용) — 그린스크린 영상 → 복싱 벽 톤 열화상.
   //   cfg: { src, cropOff, cropScale(세로 크롭 창), w, h, fwd }  crop을 uniform으로 빼 스테이지별 대응.
+  // ★ 코치 판 fwd = 지면 전방 오프셋(작을수록 화면 아래). 유저 요청으로 러닝 션(0.10→-0.08)에
+  //   이어 농구 커리도 같은 폭(-0.18)만큼 내렸다 — 캡슐 프레임은 floorgl 좌표계라 안 움직인다.
+  // ★ cropOff = **프레임 안에서 영상 내용의 세로 오프셋**(값↑ = 인물이 아래로).
+  //   fwd 는 판 자체를 공간에서 옮기는 값이라 프레임이 같이 움직인다 — 유저가 원한 건
+  //   프레임은 두고 인물만 내리는 것이므로 cropOff 가 맞는 손잡이다(A1 이 이미 0.40 으로 쓴다).
   const COACH_CFG = {
-    A1: { src: 'ready-view/assets/sean_neck_shoulder.webm', cropOff: 0.40, cropScale: 0.58, w: 0.88, h: 0.9, fwd: 0.16, ph: 0.83 },   // A2 런지와 크기 맞춤(유저: 너무 작음)
-    A2: { src: 'ready-view/assets/sean_lunge.webm', cropOff: 0.0, cropScale: 1.0, w: 0.9, h: 0.9, fwd: 0.10, zoom: 0.86, ph: 0.65 },   // 런지 전신 측면 — 축소로 뒷발이 프레임 페이드에 안 걸리게(유저)
-    A3: { src: 'ready-view/assets/sean_highknee.webm', cropOff: 0.0, cropScale: 1.0, w: 0.9, h: 0.9, fwd: 0.10, ph: 0.87 },   // 하이니 전신 정면
+    // READY 페이즈2(등장 후 2초) — A1 원본 데모판을 그대로 UI 캡슐 뒤에. 캔버스 사제 비디오 폐기(유저).
+    // 시작화면 인물 = 힉스필드 kling i2v 그린스크린 전신 루프(828×1108 = 3:4, 유저 08-05).
+    //   운동 데모(목·어깨 / 스쿼트)가 아니라 '그 종목을 하는 사람' — 시작화면은 아직 동작 지시가 없다.
+    //   전신 소스라 크롭 창 없음(cropOff 0 · cropScale 1). w/h = 3:4 유지, ph 0.83 = 인물이 프레임에 찬 비율.
+    // ★ 잘림의 원인은 배치가 아니라 **소스 여백**이었다(유저 반복 지적). 힉스필드 원본은 인물이
+    //   프레임에 꽉 차서 발끝·머리가 refEdge 4변 페이드(하단 8%·상단 10%)와 cutFade 하단 경계
+    //   판정에 그대로 걸린다 — w/h/fwd 를 아무리 옮겨도 페이드는 플레인 비율에 걸려 따라온다.
+    //   그래서 클립 자체를 0.78 로 줄여 순수 그린(#00FF00)으로 사방 11% 패딩(ffmpeg, 828×1108 유지).
+    //   패딩은 키에서 100% 빠지므로 페이드는 여백만 먹는다. w/h 는 1/0.78 배로 올려 화면 크기 보존.
+    // 인물 1.2배 + 위로(유저 08-05: 캡슐 하단 130 축소 후 인물이 빛에 묻혀 안 보인다)
+    READY:    { src: 'ready-view/assets/run/runner_green.mp4', cropOff: 0.20, cropScale: 1.0, w: 0.432, h: 0.578, fwd: -0.18, ph: 0.76 },   // fwd .10→-.02→-.08 = 총 0.18m(≈260px) 아래로(유저 2회) — 캡슐 프레임은 그대로 두고 인물만 내린다
+    BK_READY: { src: 'ready-view/assets/bk/dribble_green.mp4', cropOff: 0.20, cropScale: 1.0, w: 0.432, h: 0.578, fwd: -0.18, ph: 0.76 },   // 러닝과 동일 규격
+    A1: { src: 'ready-view/assets/sean_neck_shoulder.webm', cropOff: 0.40, cropScale: 0.58, w: 0.62, h: 0.64, fwd: 0.02, ph: 0.83 },   // 프리뷰 캡슐 안 — 타이틀 안 가리게 축소·아래(유저 08-05)
+    A2: { src: 'ready-view/assets/sean_lunge.webm', cropOff: 0.0, cropScale: 1.0, w: 0.9, h: 0.9, fwd: -0.02, zoom: 0.86, ph: 0.65 },   // fwd .10→-.02 = 0.12m(≈175px) 아래로 — 머리가 캡슐 하단과 겹쳤다(유저 #151)   // 런지 전신 측면 — 축소로 뒷발이 프레임 페이드에 안 걸리게(유저)
+    A3: { src: 'ready-view/assets/sean_highknee.webm', cropOff: 0.0, cropScale: 1.0, w: 0.82, h: 0.82, fwd: -0.04, ph: 0.87 },   // 하이니 — 캡슐 카드 아래로(머리 겹침 방지, 캡슐 시스템)
     // 농구 워밍업 코치 영상(kling i2v·그린스크린 960²) — 러닝 A2/A3와 동일 크기(w/h 0.9). 인물이 프레임 채워 1.2는 넘침(유저).
     // _pp = 정방향+역방향 이어붙인 핑퐁 클립(ffmpeg reverse) — 끝에서 뚝 끊고 처음으로 점프하던 것 제거(유저).
     //   loop=true 그대로 두고 자산만 교체 = 런타임 역재생(currentTime 역주행 시킹) 비용 0.
-    BK_A1: { src: 'ready-view/assets/bk_sidebend_pp.webm', cropOff: 0.0, cropScale: 1.0, w: 0.9, h: 0.9, fwd: 0.10, ph: 0.80, tone: 0.045 },   // 클립이 소프트해 가족 대비 밝음(g50 142) — 톤 트림   // 옆구리 스트레치
-    BK_A2: { src: 'ready-view/assets/bk_highknee.webm', cropOff: 0.0, cropScale: 1.0, w: 0.9, h: 0.9, fwd: 0.10, ph: 0.85 },   // 무릎 들기
+    BK_A1: { src: 'ready-view/assets/bk_sidebend_pp.webm', cropOff: 0.0, cropScale: 1.0, w: 0.62, h: 0.64, fwd: -0.26, ph: 0.80, tone: 0.045 },   // 프리뷰 캡슐 규격(유저 08-05)   // 옆구리 스트레치
+    BK_A2: { src: 'ready-view/assets/bk_highknee.webm', cropOff: 0.0, cropScale: 1.0, w: 0.9, h: 0.9, fwd: -0.18, ph: 0.85 },   // 무릎 들기
     // 훈련 관찰 공통 — 이게진짜.mp4(그린스크린 정면 로우 드리블) 핑퐁 베이크(_pp, ffmpeg reverse concat)
-    BK_B1: { src: 'bhandle_pp.mp4', cropOff: 0.0, cropScale: 1.0, w: 0.55, h: 0.98, fwd: 0.22, ph: 0.62 },   // 워밍업 위계와 크기·거리 통일(유저 #75) — 0.42/fwd0.45 는 작고 멀었다. 9:16 유지
-    BK_B2: { src: 'stepback_fwd.mp4', cropOff: 0.0, cropScale: 1.0, w: 1.04, h: 0.87, fwd: 0.10, ph: 0.63, rng: [0.03, 0.86], tone: 0.09 },   // 소스 720x1280 · rng = 인물 블롭 실측(골대·콘이 측정 오염)
-    BK_B5: { src: 'stepback_fwd.mp4', cropOff: 0.0, cropScale: 1.0, w: 1.04, h: 0.87, fwd: 0.10, ph: 0.63, rng: [0.03, 0.86], tone: 0.09 },
-    BK_B4: { src: 'stepback_fwd.mp4', cropOff: 0.0, cropScale: 1.0, w: 1.04, h: 0.87, fwd: 0.10, ph: 0.63, rng: [0.03, 0.86], tone: 0.09 },
-    BK_B3: { src: 'stepback_fwd.mp4', cropOff: 0.0, cropScale: 1.0, w: 1.04, h: 0.87, fwd: 0.10, ph: 0.63, rng: [0.03, 0.86], tone: 0.09 },   // 소스 720x1280 — 9:16 유지
-    BK_C2: { src: 'stepback_fwd.mp4', cropOff: 0.0, cropScale: 1.0, w: 1.04, h: 0.87, fwd: 0.10, ph: 0.63, rng: [0.03, 0.86], tone: 0.09 },   // 실전 = 같은 클립을 타이밍 소스로만
-    BK_A3: { src: 'ready-view/assets/bk_squat.webm',    cropOff: 0.0, cropScale: 1.0, w: 0.9, h: 0.9, fwd: 0.10 },   // 스쿼트
+    BK_B1: { src: 'bhandle_pp.mp4', cropOff: 0.0, cropScale: 1.0, w: 0.55, h: 0.98, fwd: -0.06, ph: 0.62 },   // 워밍업 위계와 크기·거리 통일(유저 #75) — 0.42/fwd0.45 는 작고 멀었다. 9:16 유지
+    BK_B2: { src: 'stepback_fwd.mp4', cropOff: 0.0, cropScale: 1.0, w: 1.04, h: 0.87, fwd: -0.18, ph: 0.63, rng: [0.03, 0.86], tone: 0.09 },   // 소스 720x1280 · rng = 인물 블롭 실측(골대·콘이 측정 오염)
+    BK_B5: { src: 'stepback_fwd.mp4', cropOff: 0.0, cropScale: 1.0, w: 1.04, h: 0.87, fwd: -0.18, ph: 0.63, rng: [0.03, 0.86], tone: 0.09 },
+    BK_B4: { src: 'stepback_fwd.mp4', cropOff: 0.0, cropScale: 1.0, w: 1.04, h: 0.87, fwd: -0.18, ph: 0.63, rng: [0.03, 0.86], tone: 0.09 },
+    BK_B3: { src: 'stepback_fwd.mp4', cropOff: 0.0, cropScale: 1.0, w: 1.04, h: 0.87, fwd: -0.18, ph: 0.63, rng: [0.03, 0.86], tone: 0.09 },   // 소스 720x1280 — 9:16 유지
+    BK_C2: { src: 'stepback_fwd.mp4', cropOff: 0.0, cropScale: 1.0, w: 1.04, h: 0.87, fwd: -0.18, ph: 0.63, rng: [0.03, 0.86], tone: 0.09 },   // 실전 = 같은 클립을 타이밍 소스로만
+    BK_A3: { src: 'ready-view/assets/bk_squat.webm',    cropOff: 0.0, cropScale: 1.0, w: 0.9, h: 0.9, fwd: -0.18 },   // 스쿼트
   };
   const _coaches = {};   // stageId → { video, plane, _fwd }
   // ── 코치 두께·휘도 필드 = 저해상 RT + 분리형 가우시안 (복싱 판 uHeat와 같은 방식) ──
@@ -2533,6 +2569,14 @@ void main(){
     const cfg = COACH_CFG[id];
     const video = document.createElement('video');
     video.src = import.meta.env.BASE_URL + cfg.src;   // VP9 — 전 브라우저 디코드
+    // 소스가 없으면 인물이 통째로 사라진다(실측: runner_green.mp4 미커밋 상태) — 폴백을 건다.
+    video.addEventListener('error', () => {
+      if (video.dataset.fb) return;
+      video.dataset.fb = '1';
+      video.src = import.meta.env.BASE_URL + (cfg.fallback || 'ready-view/assets/sean_neck_shoulder.webm');
+      video.play().catch(() => {});
+      console.warn('[coach] 소스 없음 → 폴백:', cfg.src);
+    }, { once: false });
     video.loop = true; video.muted = true; video.playsInline = true; video.crossOrigin = 'anonymous';
     video.style.display = 'none'; document.body.appendChild(video);
     video.play().catch(() => {});
@@ -2701,6 +2745,30 @@ void main(){
       // 어깨 회전 방향 = 좌우 미러(유저 스케치): 왼어깨 반시계 · 오른어깨 시계 (대칭 롤)
       co.rotCues[0].dir = 1; co.rotCues[1].dir = -1; co.rotCues[2].dir = 1;
     }
+    // A2 런지: **코치 판 위**에 방향 큐 2개(유저 스케치 #145) — 지면 발자국 옆이 아니라 인물에 붙는다.
+    //   A1 회전 큐와 같은 구조(부모=코치 plane · 노멀 블렌딩 · renderOrder 30 · 판 블룸)에
+    //   그림만 drawStemArrow(LINE 토큰 정본)로 바꾼다. 새 문법을 만들지 않는다.
+    //   방향(패널 로컬 +y=머리쪽): 뒷다리 = 왼쪽·아래(다리 선을 따라 쭉) · 앞무릎 = 아래(눌러 굽혀).
+    if (id === 'A2') {
+      const mkArr = (len, x, y, rotZ) => {
+        const cv = document.createElement('canvas'); cv.width = 128; cv.height = 256;
+        const g = cv.getContext('2d');
+        const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace;
+        const mesh = new THREE.Mesh(new THREE.PlaneGeometry(len * 0.5, len),
+          new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, depthTest: true,
+            blending: THREE.NormalBlending }));
+        mesh.position.set(x, y, 0.02);
+        mesh.rotation.z = rotZ;      // 화살표는 로컬 +Y 로 뻗는다 → 방향 = (−sinθ, cosθ)
+        mesh.renderOrder = 30;
+        plane.add(mesh);
+        return { g, tex, mesh };
+      };
+      // 앞무릎 큐 x 0.17 → 0.23 (유저 #146: 오른쪽 화살표를 더 다리 쪽으로).
+      //   실측 환산: 큐 두 개(로컬 ∓0.17)가 스샷에서 x 60 / 258px → 1 로컬 = 582px,
+      //   로컬 0 = 159px. 앞무릎이 스샷 295px → 로컬 0.234.
+      co.a2Cues = [mkArr(0.30, -0.17, -0.03, 2.03),   // 뒷다리 — 왼쪽·아래(−0.9,−0.35)
+                   mkArr(0.22, 0.23, -0.08, Math.PI)]; // 앞무릎 — 아래(0,−1)
+    }
     return co;
   }
   // 시크 직전 프레임 고정 / 새 프레임 도착 시 해제 — 루프 순간 검은 깜빡임 방지
@@ -2742,11 +2810,19 @@ void main(){
     // 실전(BK_C2)도 같은 클립을 타이밍 소스로 쓴다 — 라이브라고 끊으면 마크가 안 움직인다.
     const st = session.active && (!session.isLive || session.stage === 'BK_C2')
       && (state.pack === 'running' || state.pack === 'basketball') ? session.stage : null;
-    const COACH_IDS = ['A1', 'A2', 'A3', 'BK_A1', 'BK_A2', 'BK_A3', 'BK_B1', 'BK_B2', 'BK_B3', 'BK_B4', 'BK_B5', 'BK_C2'];
+    const COACH_IDS = ['READY', 'BK_READY', 'A1', 'A2', 'A3', 'BK_A1', 'BK_A2', 'BK_A3', 'BK_B1', 'BK_B2', 'BK_B3', 'BK_B4', 'BK_B5', 'BK_C2'];
     // 관찰이 끝나면(followLatch) 코치를 끄는 게 기존 규약이었다. 단 스텝백 4페이즈(BK_B2~B5)는
     //   따라하기 화면에도 같은 실루엣이 축소되어 남아야 한다(피그마 143:444) — 예외로 계속 켠다.
     const activeId = COACH_IDS.find(id => id === st
-      && !(/^(A2|A3|BK_A2|BK_A3|BK_B1)$/.test(id) && session._followLatch)) || null;
+      && !(/^(A2|A3|BK_A2|BK_A3|BK_B1)$/.test(id) && session._followLatch)
+      // ★ READY 실루엣은 **첫 화면**이다 — 팩 이름 + 사람 형체로 시작하고 2초 뒤 도트 '30 min'
+      //   이 자리를 받는다. 시작화면 전체가 8초 루프라(floorgl _paint_ready) 여기도 같은 주기로
+      //   껐다 켠다 — % 를 빼면 첫 8초 뒤 인물이 영영 안 돌아온다.
+      // ★ READY 실루엣은 첫 화면이다 — 팩 이름 + 사람 형체로 시작하고 2초 뒤 도트 숫자가
+      //   자리를 받는다. 시작화면 전체가 8초 루프라 여기도 같은 주기로 껐다 켠다.
+      // ★ READY 인물은 **캔버스 영상 오버레이**가 전담(floorgl _paint_ready · 유저 #161).
+      //   LUT 3D 판까지 켜면 같은 자리에 두 사람이 겹친다.
+      && !/READY$/.test(id)) || null;
     for (const id of COACH_IDS) {
       const c = _coaches[id];
       if (id === activeId) {
@@ -2834,7 +2910,13 @@ void main(){
         if (_strict) co._shown = true;
         // 디코더가 데이터를 잃으면(클립 교체·버퍼링) 래치를 풀어 첫 판정으로 되돌린다.
         if (!co._frozen && (co.video.readyState < 2 || co.video.videoWidth === 0)) co._shown = false;
-        co.mat.uniforms.uReady.value = (_strict || co._shown) ? 1 : 0;
+        co.mat.uniforms.uReady.value = ((_strict || co._shown) ? 1 : 0)
+          // READY 는 페이즈2(도트 숫자 등장)에 맞춰 부드럽게 빠진다 — uReady 가 곧 알파 계수라
+          //   셰이더를 안 건드리고 페이드가 된다. 하드컷이면 사람이 툭 사라진다. 8초 루프 동기.
+          * (/READY$/.test(id) ? Math.max(0, Math.min(1, (2.7 - ((session.t ?? 0) % 8)) / 0.7)) : 1)
+          // A2 도 같은 규약 — 감상이 끝나는 **그 순간에 0** 이 되도록 0.55s 에 걸쳐 뺀다.
+          //   전엔 followLatch 가 뜨는 프레임에 판이 통째로 꺼져 인물이 툭 사라졌다(유저: 타이밍이 이상).
+          * (id === 'A2' ? Math.max(0, Math.min(1, ((session._a2WatchSec ?? 5.8) - (session.t ?? 0)) / 0.55)) : 1);
         const coLive = co.video.readyState >= 3 && !co.video.seeking && co.video.currentTime > 0.03
                     && (id !== 'BK_A1' || _coachSeekId === id);   // 시크 전 프레임은 보여주지 않는다
         if (coLive) co._live = true;
@@ -2850,7 +2932,15 @@ void main(){
           const st = session.t ?? 0;
           if ((vis && !co.plane.visible) || st < (co._lastSt ?? Infinity)) co._showT = now;
           co._lastSt = st;
-          co.plane.visible = vis;
+          // 소스가 아직(또는 영영) 없으면 검은 판이 그대로 보인다(유저: 검은 사각형) — 준비된 뒤에만 켠다.
+          // ★ 단, readyState 를 **매 프레임 그대로 쓰면 깜빡인다**(유저: 무릎 굽히는 영상 깜빡임).
+          //   루프 이음매·버퍼 재충전 순간 readyState 가 1~2 프레임 동안 2 아래로 떨어지는데,
+          //   그때마다 판이 꺼졌다 켜진다. '한 번 준비됐으면 계속 켠다'로 래치하고, 소스가
+          //   바뀔 때만 초기화한다(다른 스테이지 영상으로 갈아탈 때는 다시 준비를 기다려야 하니까).
+          const vsrc = co.video.currentSrc || co.video.src || '';
+          if (co._readySrc !== vsrc) { co._readySrc = vsrc; co._everReady = false; }
+          if (co.video.readyState >= 2) co._everReady = true;
+          co.plane.visible = vis && !!co._everReady;
           if (co.mat.uniforms.uEnter) co.mat.uniforms.uEnter.value = (now - (co._showT || 0)) / 1000;
         }
         co.plane.material.uniforms.uTime.value = performance.now() / 1000;
@@ -2913,6 +3003,32 @@ void main(){
             }
           });
         }
+        if (co.a2Cues) {   // A2 방향 큐 — 코치 판이 보이는 동안 계속(시범을 보며 방향을 읽는다)
+          const now2 = performance.now() / 1000;
+          const PERC = 1.8, cyc = (now2 % PERC) / PERC;
+          const u = Math.min(1, cyc / 0.72);
+          const prog = cyc < 0.72 ? 1 - Math.pow(1 - u, 3) : 1;
+          const fade = cyc < 0.72 ? 1 : 1 - (cyc - 0.72) / 0.28;
+          co.a2Cues.forEach(c => {
+            c.mesh.visible = co.plane.visible;
+            if (!c.mesh.visible) return;
+            c.mesh.material.opacity = Math.max(0, fade);
+            const off = (c._bloomCv ||= document.createElement('canvas'));
+            if (off.width !== 128) { off.width = 128; off.height = 256; }
+            const og = off.getContext('2d');
+            og.setTransform(1, 0, 0, 1, 0, 0); og.clearRect(0, 0, 128, 256);
+            drawStemArrow(og, 128, 256, now2, { lut: lutColor, glyph: drawGlyph, arrow: FXP.arrow || {} },
+              { prog, scale: 0.9, dots: true });   // 지면 동작 토큰 = 점렬 자루(유저)
+            c.g.setTransform(1, 0, 0, 1, 0, 0); c.g.clearRect(0, 0, 128, 256);
+            c.g.drawImage(off, 0, 0);
+            const bk2 = FXP.primBloom != null ? FXP.primBloom : 0.125;
+            c.g.save(); c.g.globalCompositeOperation = 'lighter';
+            c.g.filter = 'blur(2px)'; c.g.globalAlpha = Math.min(0.8, bk2 * 2.4); c.g.drawImage(off, 0, 0);
+            c.g.filter = 'blur(7px)'; c.g.globalAlpha = Math.min(0.7, bk2 * 2.0); c.g.drawImage(off, 0, 0);
+            c.g.restore(); c.g.filter = 'none'; c.g.globalAlpha = 1;
+            c.tex.needsUpdate = true;
+          });
+        }
         if (floorObj.userData.shown) {   // CSS3D·WebGL 어느 경로든 프레임이 떠 있으면 코치 패널도 같은 기준계
           co.plane.quaternion.copy(floorObj.quaternion);
           co._fwd.set(0, 1, 0).applyQuaternion(floorObj.quaternion);
@@ -2926,11 +3042,14 @@ void main(){
             //   따라하기 국면에서만 축소 후 창 상단(beamUV v 0.80)으로 올리고 아래를 발자국에 내준다.
             const following = !!session._followLatch;
             if (following) {
-              // 따라하기 뷰의 영상 박스 자리에 프리뷰와 '같은' 실루엣 패널을 그대로 얹는다.
-              //   HTML <video>로는 크로마키+룩 LUT 결과를 재현할 수 없으므로 3D 패널을 옮겨 쓴다.
-              co.plane.scale.set(0.46, 0.46, 1);
-              co.plane.position.z -= 0.50;   // 타이틀 아래 — 더 작게, 더 위로(유저)
-              co.plane.position.y = 0.017;
+              // ★ 따라하기 국면엔 인물을 **뺀다**(유저 08-05). 46%로 줄인 실루엣은 가르치기엔 작고
+              //   무시하기엔 커서 시선만 갈랐다. 투사 물리로도 손해다 — 실루엣은 넓은 그라디언트
+              //   면이라 46% 축소 = 발광 면적 21%. 야외 주광에서 제일 먼저 사라지는 형태인데,
+              //   그 대비는 판정 마크(선·점 = 고대비)가 써야 한다. 시범→따라하기 문법상으로도
+              //   프리뷰가 이미 '보여주기'를 끝냈고, 이 국면의 과제는 '발밑을 보라'다.
+              //   기억 보조가 필요하면 피그마 343:6447 의 미니 프리뷰(상단 카드 안 작은 루프)가 그 자리다.
+              //   영상은 계속 돈다 — 마크 타이밍 소스라 끄면 판정이 멈춘다. 화면에서만 뺀다.
+              co.plane.visible = false;
             } else {
               co.plane.scale.set(1, 1, 1);   // 프리뷰 = 기존 배치 유지
             }
@@ -3968,7 +4087,7 @@ void main(){
         //   시작을 앞으로 밀면 near 쪽 극단 사다리꼴 왜곡 구간도 안 쓴다.
         //   착지 마크가 있는 러닝 라이브(P/C)만 위 분기에서 0.25 로 따로 당긴다.
         rig.fpNear = 0.30;
-        rig.fpFar = state.pack === 'basketball' ? 1.6 : 2.0;
+        rig.fpFar = 2.0;   // 종목 공통(유저 승인 08-05) — 농구 1.6 분기 폐기, 농구는 앞쪽 구간만 쓴다
       }
     }
     // BK_C4 릴리즈 = 실측 점프샷 원샷 (xbot 농구 라이브 경로에서 크로스페이드)
@@ -4047,7 +4166,13 @@ void main(){
       // A2/A3 = 2단계 흐름(유저): [0~5s 관찰] 봇은 가만히 서서(idle) 전문가 영상 보기 → [5s~ 따라하기].
       // 뉴턴 전환 문법(유저 확정): 시범(영상만·도트바) → 마크 Preview 워밍 등장+음성 → 따라하기.
       //   3·2·1은 실전 트리거(C1) 전용 — 학습 내 전환엔 안 씀(복싱 문법과 통일).
-      const A2_WATCH = stepPreviewSec(session.stage) || 3.0;   // 폴백(영상 미로드 시) — 실제 종료는 아래 루프 카운트
+      // ★ A2 는 STEP_SEG 에 항목이 없어 stepPreviewSec() 이 0 을 준다 → **폴백 3.0s 가 실사용 값**이
+      //   되어 있었다(유저: 미리보기를 너무 짧게 지나가 화살표를 볼 수도 없다). 런지 한 사이클은
+      //   DESC 1.1 + HOLD 3.0 + RISE 1.6 = 5.7s 라 3초로는 동작이 절반도 안 보인다.
+      //   한 사이클(5.7s)을 온전히 보여주는 값 = 5.8s. 더 늘리면 씬 프리뷰(8s 루프)에서 따라하기
+      //   구간이 1초밖에 안 남아 화살표를 볼 수 없다 — 감상과 실습의 균형점.
+      const A2_WATCH = session.stage === 'A2' ? 5.8 : (stepPreviewSec(session.stage) || 3.0);
+      session._a2WatchSec = A2_WATCH;   // 인물 페이드아웃이 같은 시계를 보도록 노출(하드컷 방지)
       const BK_A1_RATE = 1.55;   // 옆구리 봇 배속(코치 영상 페이스 맞춤) — 시각 캘리브레이션 노브
       const _watchWin = /^(A2|A3|BK_A[23]|BK_B[12345]|BK_C2)$/.test(session.stage || '') && !session._followLatch;   // 실전도 정속 프리뷰 1회 먼저(유저)
       if (/^BK_C[135]$/.test(session.stage || '')) session._followLatch = true;   // C2만 프리뷰 있음
@@ -4428,6 +4553,10 @@ void main(){
     const bs = document.createElement('div');
     bs.className = 'nt-diag';
     bs.style.cssText = 'position:absolute;bottom:4px;left:306px;z-index:29;font-size:11px;color:rgba(160,166,176,.9);pointer-events:none;font-family:monospace;background:rgba(0,0,0,.35);padding:2px 6px;border-radius:4px';
+    // 진단 바 — 기본 숨김(유저 08-05: 이제 지워달라). ?diag=1 로만 표시 — 계측기 자체는 남긴다.
+    //   ★ cssText **뒤에** 꺼야 한다 — cssText 대입이 인라인 스타일을 통째로 갈아치워
+    //     앞서 준 display:none 이 지워지고 있었다(유저: 아직도 보인다).
+    if (!new URLSearchParams(location.search).get('diag')) bs.style.display = 'none';
     document.body.appendChild(bs);
     let tapN = 0, nextN = 0;
     const _ot = session.tapAdvance.bind(session);
@@ -4753,6 +4882,7 @@ void main(){
     }
     // ② 개체 숨김 — 키는 __sceneList() 가 주는 것과 같다(이름 우선, 없으면 '#타입').
     const hide = A.hide;
+    if (A.capBg) window.__capBg = A.capBg;   // 대지 배경(투명/단색/그라디언트) — 저장본 복원
     if (hide?.length) {
       const H = new Set(hide);
       scene.traverse(o => { if (H.has(o.name || '#' + o.type)) o.visible = false; });
@@ -5133,17 +5263,32 @@ void main(){
       // 내 케이던스 실측 vs 목표(유저: 학습자는 항상 목표와 다름 — 비교가 학습) — 접지 간격→SPM
       const pbc = xbot.getProbes?.(), nowS = performance.now() / 1000;
       const lc = (pbc?.footL?.y ?? 1) < 0.05, rc = (pbc?.footR?.y ?? 1) < 0.05;
-      if (lc && !_lcPrev) _strikeTs.push(nowS);
-      if (rc && !_rcPrev) _strikeTs.push(nowS);
+      // ★ 디바운스(실측 근거) — 발 접지 판정이 y<0.05 한 줄이라 바닥 근처에서 값이 떨리면
+      //   한 걸음이 2~3번 찍힌다. 그러면 간격이 반토막 나 SPM 이 247 같은 불가능한 값이 된다
+      //   (헤드리스 실측: 같은 씬에서 66 / 117 / 247 이 번갈아 나왔다). 0.16s 안에 들어온
+      //   두 번째 접지는 같은 걸음으로 본다 — 러닝 최고 케이던스(220SPM)도 걸음 간격이 0.27s 다.
+      const _last = _strikeTs[_strikeTs.length - 1];
+      const _push = ts => { if (_last == null || ts - _last > 0.16) _strikeTs.push(ts); };
+      if (lc && !_lcPrev) _push(nowS);
+      if (rc && !_rcPrev) _push(nowS);
       _lcPrev = lc; _rcPrev = rc;
       while (_strikeTs.length > 7) _strikeTs.shift();
       if (nowS - _spmUpd > 0.5) {
         _spmUpd = nowS;
         let my = 0;
-        if (_strikeTs.length >= 3) {
+        // ★ 표본 3 → 5, 허용대 30~400SPM → **120~220SPM**(러닝 케이던스 실제 범위).
+        //   전엔 iv 0.15~2s 를 통과시켜 걷기(66)도 불가능한 값(247)도 그대로 화면에 올랐다.
+        //   편차 스케일은 ±12% 눈금이라 이런 값이 들어오면 지시선이 **항상 끝에 박힌다** —
+        //   화면에 빨간 선 하나가 눈금 밖에 떠 있는 것처럼 보이던 게 이것이다.
+        //   밴드를 벗어나면 값을 만들지 않는다(0 = '--'). 틀린 수치보다 '측정 안 됨'이 정직하다.
+        if (_strikeTs.length >= 5) {
           const iv2 = (_strikeTs[_strikeTs.length - 1] - _strikeTs[0]) / (_strikeTs.length - 1);
-          if (iv2 > 0.15 && iv2 < 2) my = Math.round(60 / iv2);
+          const spm = 60 / iv2;
+          if (spm >= 120 && spm <= 220) my = Math.round(spm);
         }
+        // 밴드 밖이면 **직전 유효값을 유지**한다 — 매번 '--' 로 떨어뜨리면 숫자가 깜빡인다
+        //   (실측: 60 표본 중 26 회가 미확정). 측정이 끊긴 것이지 케이던스가 사라진 게 아니다.
+        if (!my) my = window.__mySpm || 0;
         window.__mySpm = my;   // 실전 플로어 UI(V5 스트립)가 소비
 
         try {
@@ -5721,6 +5866,7 @@ void main(){
   //   구식 CSS3D 폴백으로 대체돼 보였다(유저 지적). 도피구는 ?floorgl=0 유지.
   const FLOORGL = new URLSearchParams(location.search).get('floorgl') !== '0';
   const floorGL = new FloorGL();
+  if (import.meta.env.DEV) window.__fgl = floorGL;   // 헤드리스 검수 훅 — 지면 캔버스 원본(1600x2670)을 원근 없이 재는 유일한 길
   // 지면 UI(제목·SPM·페이스)는 마크 판정 토큰 '앞'에 온다 — 토큰이 글자를 덮어 안 읽히던 것(유저).
   //   ★ 메시의 renderOrder 를 올려도 소용없다. three 는 (groupOrder, renderOrder, depth) 순으로
   //     정렬하고 groupOrder 는 '내려오다 만난 Group 의 renderOrder'다. 토큰은 group.renderOrder=5
@@ -5899,6 +6045,11 @@ void main(){
         _fpSmooth = null;   // 스테이지 전환 = 앵커 스냅(슬라이딩 방지)
       }
       if (floorGLOn) floorGL.update(_uiDt);
+      // ★ 지면 UI 위상을 세션에 넘긴다 — floorGL 은 **자기 시계**로 돈다(씬 프리뷰에서 특히).
+      //   실측: session.t%8 = 4.76 일 때 floorGL.t%8 = 0.25. 발자국만 세션 시계를 보고 있어서
+      //   하단 패널·CTA(플로어 시계)와 영영 안 맞았다(유저 3회 신고). 한 시계로 통일한다.
+      if (floorGLOn) session.readyPhase = (floorGL.t || 0) % 8;
+      else session.readyPhase = null;
       // 읽는 UI(프레임·발자국)는 빔 흔들림(투사오차 지터, 무릎 각속도 비례 — 다리 스윙 때 최대)을 그대로
       // 따르면 글자가 삐걱임(유저). 앵커를 저역통과(≈90ms 시정수)해 인물 총체 이동만 남기고 지터 제거.
       // 빔·토큰은 원본 rig._fp 그대로라 '정직한 흔들림' 유지 — 읽기용 콘텐츠만 안정화.
@@ -5906,7 +6057,14 @@ void main(){
       // 큰 점프(스테이지 전환 텔레포트, 실전 드리프트→FIN 원점)는 즉시 스냅 — 안 하면 리포트가 멀리서 쓔욱 따라옴(유저 영상).
       // 작은 지터(러닝 다리 스윙 각속도)만 저역통과(≈50ms)로 안정화.
       const _jump = Math.hypot(fp.ox - _fpSmooth.ox, fp.oz - _fpSmooth.oz);
-      const aUI = _jump > 1.0 ? 1 : (1 - Math.exp(-_uiDt / 0.05));
+      // ★ 앵커 시정수는 **모드가 정한다**(유저 08-05: 제자리 뷰에서 발자국이 따로 논다).
+      //   ① 실전(달림) = 12ms — 빔·카메라(원본 rig._fp)와 같은 위상. 예전 50ms 는 다리 스윙
+      //      3Hz 에서 ~54° 지연이라 지면 그림이 빔 위에서 미끄러졌다.
+      //   ② 제자리(비실전: 스트레칭·학습) = 0.7s — 런지·하이니처럼 무릎이 크게 움직이면 투사
+      //      풋프린트가 그만큼 헤엄쳐 지면 UI 가 몸 따라 출렁였다. 사람이 제자리에 서 있는
+      //      장면에서는 지면 그림이 **바닥에 붙어 있어야** 맞다. 시야만 흔들리고 그림은 고정.
+      const _inPlace = session.active && !session.isLive;
+      const aUI = _jump > 1.0 ? 1 : (1 - Math.exp(-_uiDt / (_inPlace ? 0.7 : 0.012)));
       _fpSmooth.ox += (fp.ox - _fpSmooth.ox) * aUI;
       _fpSmooth.oz += (fp.oz - _fpSmooth.oz) * aUI;
       _fpSmooth.fx += (fp.fx - _fpSmooth.fx) * aUI;
@@ -5916,9 +6074,14 @@ void main(){
       sfp.rx = -sfp.fz; sfp.rz = sfp.fx;   // right = (-fwd.z, fwd.x) — projector와 동일 규약
       const dMid = (rig.fpNear + rig.fpFar) / 2;   // 발자국·토큰 밴드 앵커용(아래 stageG에서 사용)
       // 균일 스케일(비율 유지) — 폭=커버리지 레인폭(투사 범위 유지, 유저: 범위 조정 금지).
-      const laneW = 2 * rig._halfAt(dMid), sUni = laneW / fView.w;
+      const laneW = 2 * rig._halfAt(dMid);
+      // ★ 투사 비율 = 전 스테이지 동일(유저: 시작화면만 비율이 달라지면 안 됨 — A1 비율이 정답).
+      //   콘 길이 맞춤(covL min)은 시작화면만 작게 만들어 철회. 콘 밖으로 새는 하단은
+      //   캔버스 콘텐츠 스케일/앵커(floorgl r2.scale·pivot)로 캔버스 안에서 해결한다.
+      const sUni = laneW / fView.w;
       // UI 프레임 전방위치 = 타이틀(board-y 176)이 커버리지 far끝(빨간 투사 끝라인 ≈ fpFar) 아래 고정 간격(0.12m)에 오도록.
       //   → 빨간 끝라인에서 타이틀까지 내려오는 거리를 전 스테이지 동일하게(유저 image 21). 대지 중심 앵커(dMid)가 아니라 far끝 기준.
+      // ★ far 앵커 고정 — 전진 오프셋은 두 번 다 커버리지 이탈을 냈다(08-05 재발). 절대 더하지 말 것.
       const boardFwd = (rig.fpFar - 0.12) - (1335 - 176) * sUni;
       const cx = sfp.ox + sfp.fx * boardFwd, cz = sfp.oz + sfp.fz * boardFwd;
       // 로컬축 → 월드: 대지 폭(+X)→풋프린트 우측, 대지 높이(+Y=위쪽/제목)→전방(far), 법선(+Z)→상방.
@@ -5927,6 +6090,23 @@ void main(){
       floorObj.quaternion.setFromRotationMatrix(_mBasis);
       floorObj.position.set(cx, 0.012, cz);
       floorObj.scale.set(sUni, sUni, 1);
+      // ★ READY 발자국은 **대지(캔버스) 좌표계**에 붙인다(유저 #138). 고정 로컬 z(-0.75)로 두면
+      //   리그가 도는 종목에서 통째로 어긋난다 — 실측: 러닝 대지 yaw 0°·z -1.08 / 농구 yaw -173.7°·
+      //   z +1.41 인데 발은 양쪽 다 z -0.75 라, 농구에선 대지에서 2.5m 밖에 따로 놓여 있었다.
+      //   캔버스 발자국 중심 y1821 = CTA 슬롯과 같은 띠. 회전도 대지와 같이 준다.
+      {
+        const RF = session.readyFeet;
+        if (RF && RF.length) {
+          const dF = (1335 - 1821) * sUni;              // 대지 중심(1335) 기준 앞뒤 오프셋
+          const SPREAD = 0.189;                          // = FootMark.READY_SPREAD (피그마 342:3057)
+          for (let i = 0; i < RF.length; i++) {
+            const dX = (i === 0 ? -1 : 1) * SPREAD;
+            RF[i].group.position.set(cx + sfp.fx * dF + sfp.rx * dX, 0.013,
+                                     cz + sfp.fz * dF + sfp.rz * dX);
+            RF[i].group.quaternion.copy(floorObj.quaternion);   // 대지와 같은 자세(눕힘+요)
+          }
+        }
+      }
       // WebGL 평면 = 같은 변환(CSS3D는 요소 +Y가 화면 아래 = 로컬 -Y라 평면 지오메트리와 축이 일치한다)
       floorGL.mesh.quaternion.copy(floorObj.quaternion);
       floorGL.mesh.position.copy(floorObj.position);

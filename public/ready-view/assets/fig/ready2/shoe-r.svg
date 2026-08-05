@@ -1,0 +1,27 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="196" height="399.656" viewBox="0 0 196 399.656" fill="none" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<g id="Group 2147228931" filter="url(#filter0_i_0_15)">
+<g id="Vector 794391">
+<path d="M118.208 16.9539C169.969 71.5155 157.272 149.887 144.452 182.253C128.862 223.123 157.223 246.234 160.748 251.336C168.063 261.922 191.225 292.364 195.383 327.246C199.54 362.128 182.65 391.804 146.271 398.832C109.892 405.861 75.02 367.009 66.2378 316.053C59.223 275.351 49.2611 241.083 42.8515 229.369C6.47267 173.401 -0.00112552 142.145 2.47935e-05 121.371C0.00125259 99.2026 6.21294 58.8643 28.3001 31.5314C50.3872 4.19852 69.1617 0.00010364 84.2188 9.77223e-06C95.5385 -6.0796e-05 112.491 11.4873 118.208 16.9539Z" fill="white" fill-opacity="0.1"/>
+<path d="M118.208 16.9539C169.969 71.5155 157.272 149.887 144.452 182.253C128.862 223.123 157.223 246.234 160.748 251.336C168.063 261.922 191.225 292.364 195.383 327.246C199.54 362.128 182.65 391.804 146.271 398.832C109.892 405.861 75.02 367.009 66.2378 316.053C59.223 275.351 49.2611 241.083 42.8515 229.369C6.47267 173.401 -0.00112552 142.145 2.47935e-05 121.371C0.00125259 99.2026 6.21294 58.8643 28.3001 31.5314C50.3872 4.19852 69.1617 0.00010364 84.2188 9.77223e-06C95.5385 -6.0796e-05 112.491 11.4873 118.208 16.9539Z" fill="url(#pattern0_0_15)" fill-opacity="0.4"/>
+</g>
+</g>
+<defs>
+<filter id="filter0_i_0_15" x="2.46402e-05" y="9.7719e-06" width="196" height="399.656" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+<feFlood flood-opacity="0" result="BackgroundImageFix"/>
+<feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/>
+<feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
+<feOffset/>
+<feGaussianBlur stdDeviation="22"/>
+<feComposite in2="hardAlpha" operator="arithmetic" k2="-1" k3="1"/>
+<feColorMatrix type="matrix" values="0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 1 0"/>
+<feBlend mode="normal" in2="shape" result="effect1_innerShadow_0_15"/>
+</filter>
+<pattern id="pattern0_0_15" patternUnits="userSpaceOnUse" patternTransform="matrix(8.64 -7.55333e-07 -1.53954e-06 17.28 3.56069e-05 1.71349e-05)" preserveAspectRatio="none" viewBox="0 0 21.6 43.2" width="1" height="1">
+<use xlink:href="#pattern0_0_15_inner" transform="translate(-21.6 0)"/>
+<g id="pattern0_0_15_inner">
+<circle id="Ellipse 31263" cx="6" cy="6" r="6" fill="white"/>
+</g>
+<use xlink:href="#pattern0_0_15_inner" transform="translate(-10.8 21.6)"/>
+<use xlink:href="#pattern0_0_15_inner" transform="translate(10.8 21.6)"/>
+</pattern></defs>
+</svg>

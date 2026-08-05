@@ -1,0 +1,947 @@
+<!doctype html><html lang="ko" translate="no"><head><meta charset="utf-8"><meta name="google" content="notranslate">
+<title>캡슐 언어 확장 시안 — 프리뷰 · 따라하기</title>
+<!-- 시작(READY) 캡슐 언어를 프리뷰(관찰)·따라하기로 확장하는 아이디에이션.
+     ★ 목업이 아니다 — 캡슐 패스·유리 림·엠버 글로우·아크 게이지·도트 롤 전부 정본(src/floorgl.js)
+       부품을 그대로 불러 그린다. 여기서 고른 안을 그 자리에 이식하면 화면이 이 그림과 같다.
+     비교 축: '캡슐을 어떻게 변형해 두 번째 정보(영상·판정)를 담는가'. -->
+<style>
+@font-face{font-family:'Supreme';src:url('/fonts/Supreme-Bold.woff2') format('woff2');font-weight:700;font-display:block}
+@font-face{font-family:'Supreme';src:url('/fonts/Supreme-Medium.woff2') format('woff2');font-weight:500;font-display:block}
+@font-face{font-family:'OffBit';src:url('/fonts/OffBitTrial-DotBold.woff') format('woff');font-weight:700;font-display:block}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#14161a;color:#E9EAEE;font:13px/1.6 -apple-system,'Malgun Gothic',sans-serif;padding:20px 22px 60px}
+h1{font-size:17px;margin:0 0 4px}
+.sub{color:#98A1AD;font-size:12px;margin:0 0 16px;max-width:1100px}
+.seg{display:flex;gap:8px;margin:0 0 18px}
+.seg button{padding:7px 15px;border:1px solid #262b35;border-radius:99px;background:#1a1e25;color:#98A1AD;
+  font-size:12.5px;font-weight:600;cursor:pointer}
+.seg button.on{background:#FA3030;border-color:#FA3030;color:#fff}
+h2{font-size:13.5px;margin:22px 0 10px;color:#FEC389}
+.row{display:flex;gap:16px;flex-wrap:wrap}
+.cell{width:328px}
+.cell canvas{width:328px;height:547px;display:block;border-radius:14px;background:#8B9080}
+.nm{font-size:12.5px;font-weight:700;margin:9px 0 3px}
+.ds{font-size:11.5px;color:#98A1AD;line-height:1.55}
+</style></head><body>
+<h1>캡슐 언어 확장 시안 — 프리뷰(관찰) · 따라하기</h1>
+<p class="sub">시작 화면의 <b>유리 캡슐 + 엠버 글로우 + 도트 숫자 + 아크</b> 문법을 두 화면으로 넓히는 세 갈래.
+정본 부품으로 실제 렌더링하며, 배경은 트랙 톤(#8B9080)으로 깔았습니다.</p>
+<div class="seg" id="seg"></div>
+<label style="display:inline-flex;align-items:center;gap:6px;color:#98A1AD;font-size:12px;margin:0 0 12px">
+  <input type="checkbox" id="fsafe" checked style="accent-color:#FA3030"> 투사 안전영역 표시 (콘은 사다리꼴 — 하단은 대지보다 좁다)
+</label>
+<div id="flowbar" style="display:none;margin:0 0 14px;align-items:center;gap:12px">
+  <button id="fplay" style="padding:6px 14px;border:1px solid #262b35;border-radius:99px;background:#1a1e25;color:#E9EAEE;font-size:12.5px;font-weight:600;cursor:pointer">⏸ 정지</button>
+  <input id="fscrub" type="range" min="0" max="5.4" step="0.01" value="0" style="width:520px;accent-color:#FA3030">
+  <span id="ftime" style="font:12px monospace;color:#98A1AD">0.00s</span>
+  <span style="color:#98A1AD;font-size:12px;margin-left:10px">캡슐 크기</span>
+  <input id="fsize" type="range" min="0.45" max="1" step="0.01" value="0.72" style="width:200px;accent-color:#FEC389">
+  <span id="fsz" style="font:12px monospace;color:#98A1AD">0.72</span>
+  <span style="color:#98A1AD;font-size:12px;margin-left:10px">동작명</span>
+  <select id="fname" style="background:#1a1e25;color:#E9EAEE;border:1px solid #262b35;border-radius:8px;padding:4px 8px;font-size:12px"><option value="High Knees">High Knees</option><option value="Neck &amp; Shoulders">Neck &amp; Shoulders</option><option value="Fake the Layup">Fake the Layup</option><option value="Right Foot Down">Right Foot Down</option><option value="Final Kilometer">Final Kilometer</option><option value="Full Step-Back">Full Step-Back</option></select>
+</div>
+<h2 id="ttl">프리뷰(관찰)</h2>
+<div class="row" id="row"></div>
+<script type="module">
+const FG = await import('/src/floorgl.js');
+const { arcGauge, rollNum, drawBadge, ringGauge, countRing, tickScale, safeW, eOut, intro, clamp01, kf, cycle } = FG;
+
+const W = 1600, H = 2670;                 // 지면 대지 규격(정본)
+const IMG = {};
+const img = rel => {
+  if (IMG[rel] !== undefined) return IMG[rel];
+  const im = new Image(); im.src = '/ready-view/assets/' + rel;
+  im.onload = () => {}; IMG[rel] = im; return im;
+};
+const imgAbs = rel => { if (IMG[rel] !== undefined) return IMG[rel];
+  const im = new Image(); im.src = rel; IMG[rel] = im; return im; };
+const RF = (w, s, fam = "'Supreme',sans-serif") => `${w} ${s}px ${fam}`;
+const DOT = "'OffBit',monospace";
+
+// 하단 아크는 **투사 안전폭**에 맞춘다(유저: 이러면 투사 가능 영역 넘지 않냐).
+//   대지 안이라고 안전한 게 아니다 — 콘이 사다리꼴이라 y2430 의 안전폭은 957px 뿐이다.
+//   1000px 짜리를 놓으면 양끝이 빔 밖으로 잘린다. 폭은 항상 safeW(y) 에서 깎아 쓴다.
+const arcSafe = (g, y, w, p) => {
+  const ww = Math.min(w, safeW(y) - 48);
+  arcGauge(g, 800 - ww / 2, y, ww, p);
+};
+// ── 정본 캡슐 재질 — READY(_paint_ready2)의 지오메트리·림·글로우를 그대로 ──────────
+function capsule(g, x, y, w, h, o = {}) {
+  const r = Math.min(w, h) / 2;
+  const path = () => { g.beginPath(); g.roundRect(x, y, w, h, r); };
+  g.save();
+  path(); g.clip();
+  g.fillStyle = 'rgba(255,255,255,.055)'; g.fillRect(x, y, w, h);
+  g.filter = 'blur(37px)'; g.strokeStyle = 'rgba(255,255,255,.25)'; g.lineWidth = 80;
+  path(); g.stroke(); g.filter = 'none';
+  g.restore();
+  // 유리 림 — 상단 밝고 하단 알파 0(유저 확정)
+  const rim = g.createLinearGradient(0, y, 0, y + h);
+  rim.addColorStop(0, 'rgba(255,255,255,.95)'); rim.addColorStop(.28, 'rgba(255,255,255,.28)');
+  rim.addColorStop(.55, 'rgba(255,255,255,.16)'); rim.addColorStop(.80, 'rgba(255,255,255,.05)');
+  rim.addColorStop(1, 'rgba(255,255,255,0)');
+  g.strokeStyle = rim; g.lineWidth = 2.5; path(); g.stroke();
+  return path;
+}
+// 엠버 글로우 — 캡슐 안쪽 하단(정본 4겹의 축약: 두 겹 라디얼)
+function ember(g, cx, by, rx, k = 1) {
+  g.save();
+  g.translate(cx, by); g.scale(1, .46);
+  for (const [r0, c0, c1, a] of [[rx, 'rgba(250,48,48,.55)', 'rgba(250,48,48,0)', .9],
+                                 [rx * .62, 'rgba(255,236,214,.75)', 'rgba(254,176,120,0)', 1]]) {
+    const rg = g.createRadialGradient(0, 0, 0, 0, 0, r0);
+    rg.addColorStop(0, c0); rg.addColorStop(1, c1);
+    g.globalAlpha = a * k; g.fillStyle = rg;
+    g.beginPath(); g.arc(0, 0, r0, 0, 7); g.fill();
+  }
+  g.restore();
+}
+const titleBlock = (g, lines, cx, cy, size = 98) => {
+  g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#fff';
+  g.font = RF(700, size); g.letterSpacing = '-4px';
+  lines.forEach((l, i) => g.fillText(l, cx, cy + (i - (lines.length - 1) / 2) * size * 1.18));
+  g.letterSpacing = '0px';
+};
+const capLabel = (g, tx, cx, y, a = .55, s = 44) => {
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillStyle = `rgba(255,255,255,${a})`; g.font = RF(400, s); g.letterSpacing = '2px';
+  g.fillText(tx, cx, y); g.letterSpacing = '0px';
+};
+// 코치 영상 자리 — 실제 판은 3D 로 뒤에 서지만, 시안에선 실루엣으로 자리를 표시
+// ★ 인물 룩 시스템 적용본(유저) — personlab-live 가 정본 셰이더로 그린 판을 그대로 구운 PNG.
+//   원사진(photo-runner)은 룩이 안 입혀져 실제 화면과 달랐다.
+function coach(g, cx, cy, h, a = 1) {
+  const im = imgAbs('/shots/person-look-run.png');
+  g.save(); g.globalAlpha *= a;
+  if (im.complete && im.naturalWidth) {
+    const s = h / im.naturalHeight;
+    g.drawImage(im, cx - im.naturalWidth * s / 2, cy - h / 2, im.naturalWidth * s, h);
+  } else { g.fillStyle = 'rgba(250,48,48,.5)'; g.beginPath(); g.ellipse(cx, cy, h * .16, h / 2, 0, 0, 7); g.fill(); }
+  g.restore();
+}
+// 판정 마크(발자국) 자리 — 따라하기 시안의 하단 요소
+function footMarks(g, cx, cy, s, t) {
+  const p = (Math.sin(t * 2.2) + 1) / 2;
+  for (const dir of [-1, 1]) {
+    const x = cx + dir * 150 * s, k = dir < 0 ? p : 1 - p;
+    g.save();
+    const rg = g.createRadialGradient(x, cy, 0, x, cy, 130 * s);
+    rg.addColorStop(0, `rgba(250,48,48,${.55 + .35 * k})`);
+    rg.addColorStop(.55, `rgba(254,110,60,${.30 + .2 * k})`);
+    rg.addColorStop(1, 'rgba(254,195,137,0)');
+    g.fillStyle = rg; g.beginPath(); g.ellipse(x, cy, 130 * s, 165 * s, 0, 0, 7); g.fill();
+    g.strokeStyle = `rgba(255,255,255,${.35 + .45 * k})`; g.lineWidth = 5 * s;
+    g.beginPath(); g.ellipse(x, cy, 74 * s, 118 * s, 0, 0, 7); g.stroke();
+    g.restore();
+  }
+}
+
+// ═══ 시안 정의 ══════════════════════════════════════════════════════════════
+// 프리뷰(관찰) — '지금 뭘 볼 차례인가'
+const PREVIEW = [
+  ['A · 캡슐 축소 + 상단 배지', '시작 캡슐이 그대로 **작아져** 화면 위로 올라가고, 남은 자리에 코치가 선다. 캡슐 안엔 동작명 + Preview 배지 + 카운트다운 링. 시작→관찰이 한 물체의 변형으로 읽힌다.',
+    (g, t) => {
+      const e = eOut(intro(t, .1, .9));
+      const cw = 1018 - 200 * e, ch = 1541 - 720 * e, cx = 800, cy = 300;
+      capsule(g, cx - cw / 2, cy, cw, ch);
+      ember(g, cx, cy + ch - 150, cw * .46, .55);
+      titleBlock(g, ['Neck And', 'Shoulder'], cx, cy + ch * .40, 86);
+      capLabel(g, 'PREVIEW', cx, cy + ch * .40 - 190, .5, 40);
+      ringGauge(g, cx, cy + ch * .74, 118, ((t * .33) % 1), { color: '#fff' });
+      g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.fillStyle = '#fff'; g.font = RF(700, 96, DOT);
+      g.fillText(String(3 - Math.floor((t * .99) % 3)), cx, cy + ch * .74 + 4);
+      coach(g, cx, cy + ch + 430, 760, e);
+    }],
+  ['B · 캡슐 분할(위 = 정보 · 아래 = 무대)', '캡슐이 가로로 **갈라져** 위는 얇은 정보 알약, 아래는 코치가 서는 빈 무대. 유리 재질은 그대로라 같은 물체가 열린 것처럼 보인다. 시선이 아래(사람)로 자연히 내려간다.',
+    (g, t) => {
+      const e = eOut(intro(t, .1, .9));
+      const cx = 800, gap = 60 * e;
+      capsule(g, cx - 509, 300, 1018, 300 + 40 * (1 - e));
+      titleBlock(g, ['Neck And Shoulder'], cx, 450, 72);
+      capLabel(g, 'PREVIEW · 3', cx, 546, .5, 38);
+      const sy = 300 + 300 + gap;
+      capsule(g, cx - 509, sy, 1018, 1180);
+      ember(g, cx, sy + 1030, 470, .5 * e);
+      coach(g, cx, sy + 560, 900, e);
+      arcGauge(g, cx - 460, sy + 1090, 920, (t * .33) % 1);
+    }],
+  ['C · 캡슐 열림(U자 무대)', '캡슐 하단이 **열려** U자 프레임이 되고 그 품에 코치가 선다. 림이 사람을 감싸 무대처럼 읽히고, 카운트다운은 열린 입구에 놓인다. 가장 극적이지만 프레임 인식은 약간 약해진다.',
+    (g, t) => {
+      const e = eOut(intro(t, .1, .9));
+      const cx = 800, x0 = cx - 509, y0 = 300, w = 1018, h = 1541;
+      const open = 620 * e;
+      g.save();
+      g.beginPath(); g.rect(x0 - 60, y0 - 60, w + 120, h - open + 60); g.clip();
+      capsule(g, x0, y0, w, h);
+      g.restore();
+      // 열린 입구의 양쪽 림 — 아래로 잦아든다
+      const rim = g.createLinearGradient(0, y0 + h - open, 0, y0 + h);
+      rim.addColorStop(0, 'rgba(255,255,255,.22)'); rim.addColorStop(1, 'rgba(255,255,255,0)');
+      g.strokeStyle = rim; g.lineWidth = 2.5;
+      for (const dir of [-1, 1]) { g.beginPath(); g.moveTo(cx + dir * w / 2, y0 + h - open); g.lineTo(cx + dir * w / 2, y0 + h); g.stroke(); }
+      coach(g, cx, y0 + h - open + 180, 980, e);
+      ember(g, cx, y0 + h - 60, 520, .6);
+      titleBlock(g, ['Neck And', 'Shoulder'], cx, y0 + 300, 88);
+      capLabel(g, 'PREVIEW', cx, y0 + 150, .5, 40);
+      ringGauge(g, cx, y0 + h + 60, 112, (t * .33) % 1, { color: '#fff' });
+    }],
+];
+// 따라하기 — '지금 내가 뭘 하고 어떻게 되고 있나'
+const FOLLOW = [
+  ['A · 미니 캡슐 + 지면 마크', '캡슐이 화면 위 **미니 카드**로 물러나 동작명·남은 시간만 들고, 바닥은 판정 마크에게 통째로 내준다. 정보는 위, 몸은 아래 — 위계가 가장 명확하다.',
+    (g, t) => {
+      const e = eOut(intro(t, .1, .8)), cx = 800;
+      capsule(g, cx - 380, 300, 760, 250);
+      titleBlock(g, ['High Knees'], cx, 400, 64);
+      g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.fillStyle = '#fff'; g.font = RF(700, 62, DOT); g.fillText('12', cx - 26, 492);
+      capLabel(g, 'sec', cx + 58, 496, .55, 34);
+      coach(g, cx, 1010, 720, e);
+      footMarks(g, cx, 1720, 1, t);
+      arcSafe(g, 2010, 1000, (t * .2) % 1);
+    }],
+  ['B · 캡슐 안에 무대(창)', '캡슐은 시작 때 크기를 **유지**하고, 그 안에 코치 창 + 마크가 함께 들어간다. 화면이 한 물체로 끝나 가장 정돈되지만, 마크가 캡슐 폭에 갇힌다.',
+    (g, t) => {
+      const e = eOut(intro(t, .1, .8)), cx = 800, y0 = 300, h = 1720;
+      const path = capsule(g, cx - 509, y0, 1018, h);
+      g.save(); path(); g.clip();
+      coach(g, cx, y0 + 620, 800, e);
+      ember(g, cx, y0 + h - 210, 470, .7);
+      footMarks(g, cx, y0 + h - 300, .8, t);
+      g.restore();
+      titleBlock(g, ['High Knees'], cx, y0 + 180, 78);
+      capLabel(g, '12 SEC LEFT', cx, y0 + 280, .5, 38);
+      arcGauge(g, cx - 470, y0 + h + 60, 940, (t * .2) % 1);
+    }],
+  ['C · 캡슐 = 진행 자체(림이 차오름)', '캡슐 테두리가 **게이지가 된다** — 남은 시간이 림을 따라 차오르며 색이 뜨거워진다. 별도 게이지가 사라져 화면이 가장 조용하고, 시선은 코치와 마크에만 머문다.',
+    (g, t) => {
+      const e = eOut(intro(t, .1, .8)), cx = 800, x0 = cx - 509, y0 = 300, w = 1018, h = 1560;
+      capsule(g, x0, y0, w, h);
+      // 림 게이지 — 상단 12시에서 시계방향
+      const p = (t * .2) % 1, r = w / 2;
+      g.save();
+      const gg = g.createLinearGradient(0, y0, 0, y0 + h);
+      gg.addColorStop(0, '#FA3030'); gg.addColorStop(.6, '#FE6E3C'); gg.addColorStop(1, '#FEC389');
+      g.strokeStyle = gg; g.lineWidth = 9; g.lineCap = 'round';
+      g.shadowColor = 'rgba(254,110,60,.8)'; g.shadowBlur = 30;
+      const per = 2 * (h - w) + 2 * Math.PI * r, run = per * p;
+      g.beginPath();
+      let d = run;
+      const seg = (fn, len) => { if (d <= 0) return; fn(Math.min(1, d / len)); d -= len; };
+      seg(k => { g.moveTo(cx, y0); g.lineTo(cx + (w / 2) * k * 0, y0); }, 0.001);
+      // 우측 직선 → 하단 반원 → 좌측 직선 → 상단 반원 (근사 경로)
+      g.moveTo(x0 + w, y0 + r);
+      const L1 = h - w;
+      if (run > 0) g.lineTo(x0 + w, y0 + r + Math.min(L1, run));
+      if (run > L1) g.arc(cx, y0 + h - r, r, 0, Math.min(Math.PI, (run - L1) / r));
+      if (run > L1 + Math.PI * r) { const u = Math.min(L1, run - L1 - Math.PI * r); g.lineTo(x0, y0 + h - r - u); }
+      if (run > 2 * L1 + Math.PI * r) g.arc(cx, y0 + r, r, Math.PI, Math.PI + Math.min(Math.PI, (run - 2 * L1 - Math.PI * r) / r));
+      g.stroke(); g.restore();
+      coach(g, cx, y0 + 700, 860, e);
+      ember(g, cx, y0 + h - 250, 480, .6);
+      footMarks(g, cx, y0 + h - 330, .82, t);
+      titleBlock(g, ['High Knees'], cx, y0 + 200, 80);
+    }],
+];
+
+// ═══ 4패턴 공통 시스템 — 러닝·농구 24 스테이지 수집 결과 ═══════════════════════
+//   모든 따라하기 화면 = [① 정체 · ② 시계 · ③ 판정] 세 슬롯. 패턴 차이는 ②뿐이다.
+//   ①은 상단 캡슐 · ②는 캡슐 내부 · ③은 지면 — 이 조판은 네 패턴에서 완전히 같다.
+// ★ 목업 금지(유저 08-05) — 아래는 **정본 렌더러(FloorGL)가 실제로 그린 화면**을 그대로 구운 PNG다.
+//   캡처 방법: floor-scenes.js + new FloorGL() → load(stage) → update() → canvas 저장(t=4.0s).
+const SYS_SHOTS = [
+  ['A1 · 목·어깨 풀기', 'shots/floorshot-a1.png', '<b>패턴 B — 큐만 있는 반복</b><br>캡슐 시스템 <b>preview</b> 변형. 관찰 없이 동작명 + 진행만.'],
+  ['A3 · 하이니', 'shots/floorshot-a3.png', '<b>패턴 A/C — 관찰 후 따라하기</b><br>캡슐 시스템 <b>video</b> 변형. 캡슐 + 타이머 배지(루프 카운트).'],
+  ['A2 · 종아리 늘리기', 'shots/floorshot-a2.png', '<b>패턴 A — 관찰 후 따라하기</b><br>캡슐 시스템 <b>floor</b> 변형. 캡슐 + 세션 시간 호 + 지면 토큰 존.'],
+  ['BK_B3 · 스텝백 2/4', 'shots/floorshot-bk_b3.png', '<b>패턴 C — 분해 스텝</b><br>캡슐 시스템 <b>mini</b> 변형. 작은 영상 미리보기 + 진행 배지(n/4).'],
+  ['P3 · 인터벌', 'shots/floorshot-p3.png', '<b>패턴 D — 실전 동행 · 레거시 조판</b><br>캡슐 <b>미적용</b>: 크럼 → 타이틀 → 아크 → SPM 편차바 + 메트로놈 링.'],
+  ['C2 · 나란히 달리기', 'shots/floorshot-c2.png', '<b>패턴 D — 실전 · 레거시 조판</b><br>캡슐 <b>미적용</b>: 누적 거리 → 아크 → 실시간 수치행.'],
+];
+// ═══ 캡슐 리디자인 — 현재 씬 캡슐의 문제를 READY 문법으로 되돌린다 ══════════════
+//   현재(실캡처)의 문제 3가지: ① 납작한 비율(세로 250~300 = READY 1541 의 1/6)
+//   ② 층위가 2층뿐(타이틀+배지) — READY 는 5층 ③ 화면 하단 2/3 가 통째로 빈다.
+//   아래 두 안은 그 셋을 각각 다른 방식으로 푼다. 부품은 전부 정본.
+function redoA(g, t) {
+  // A · READY 비율 회복 — 큰 세로 캡슐 + 큰 도트 카운트(READY 의 '30 min' 자리)
+  const cx = 800, x0 = cx - 509, y0 = 250, w = 1018, h = 1360;
+  const e = eOut(intro(t, .06, .8));
+  const path = capsule(g, x0, y0, w, h);
+  g.save(); path(); g.clip(); ember(g, cx, y0 + h - 210, 470, .85); g.restore();
+  capLabel(g, 'PREVIEW · WARM UP 3/3', cx, y0 + 150, .5, 40);
+  titleBlock(g, ['High', 'Knees'], cx, y0 + 400, 104);
+  // 큰 도트 카운트 — READY 의 30 자리를 '남은 횟수/초'가 물려받는다
+  g.save(); g.globalAlpha = e;
+  rollNum(g, 12, t, .3, .9, cx - 40, y0 + 690, 300, { fam: "'OffBit',monospace", align: 'center', fill: '#fff' });
+  capLabel(g, 'sec', cx + 210, y0 + 830, .55, 56);
+  g.restore();
+  arcGauge(g, cx - 380, y0 + h - 130, 760, (t % 8) / 8);
+  coach(g, cx, y0 + h + 430, 700, e);
+}
+function redoB(g, t) {
+  // B · 헤더 알약 + 지면 무대 — 캡슐은 정보만 들고 물러나고, 판정이 화면의 주인공이 된다
+  const cx = 800, e = eOut(intro(t, .06, .8));
+  capsule(g, cx - 400, 250, 800, 230);
+  capLabel(g, 'WARM UP 3/3', cx, 330, .5, 36);
+  titleBlock(g, ['High Knees'], cx, 410, 72);
+  // 정보 알약 두 개 — 남은 시간 · 진행(READY 의 하단 상태 패널 문법)
+  for (const [dx, big, small] of [[-210, '12', 'sec'], [210, '3', 'sets']]) {
+    capsule(g, cx + dx - 170, 560, 340, 190);
+    g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillStyle = '#fff'; g.font = RF(700, 96, DOT); g.fillText(big, cx + dx - 30, 652);
+    capLabel(g, small, cx + dx + 90, 660, .55, 40);
+  }
+  coach(g, cx, 1230, 760, e);
+  footMarks(g, cx, 1960, 1.15, t);
+  arcSafe(g, 2200, 920, (t % 8) / 8);
+}
+// ── C · R/D 감도 (유저 레퍼런스) ────────────────────────────────────────────
+//   레퍼런스에서 실제로 '감도'를 만드는 건 재질이 아니라 **네 가지 형태 규약**이다.
+//   우리 재질(유리 림 + 엠버)은 이미 같은 계열 — 아래 넷만 없다.
+//   ① 스타디움(r=w/2)이 아니라 **스퀘어클(초타원 n≈4.3)**. 알약은 '버튼'으로,
+//      스퀘어클은 '판/화면'으로 읽힌다. 지금 캡슐이 장난감처럼 보이는 최대 원인.
+//   ② 도트 폰트를 **작게** 쓴다. 우린 OffBit 을 300px 히어로로만 썼는데, 레퍼런스는
+//      06.26.23 · 12:00 같은 8~14px 메타 라인에 쓴다 — '계측기' 느낌이 여기서 나온다.
+//   ③ 하단 **알약 CTA + 원형 ⊕ 노드**(Book/Read/JOIN). 우리 'Tap Twice' 가 필요한 그 어포던스.
+//   ④ **페이지 도트** — 세트/차수 위치를 한 줄로.
+function sqPath(g, x, y, w, h, n = 4.3) {
+  const a = w / 2, b = h / 2, cx = x + a, cy = y + b, N = 128;
+  g.beginPath();
+  for (let i = 0; i <= N; i++) {
+    const th = i / N * Math.PI * 2, c = Math.cos(th), s = Math.sin(th), e = 2 / n;
+    const px = cx + a * Math.sign(c) * Math.abs(c) ** e;
+    const py = cy + b * Math.sign(s) * Math.abs(s) ** e;
+    i ? g.lineTo(px, py) : g.moveTo(px, py);
+  }
+  g.closePath();
+}
+// 스퀘어클 판 — capsule() 과 같은 재질, 지오메트리만 교체
+function sqPanel(g, x, y, w, h, n) {
+  const path = () => sqPath(g, x, y, w, h, n);
+  g.save(); path(); g.clip();
+  g.fillStyle = 'rgba(255,255,255,.055)'; g.fillRect(x, y, w, h);
+  g.filter = 'blur(37px)'; g.strokeStyle = 'rgba(255,255,255,.25)'; g.lineWidth = 80;
+  path(); g.stroke(); g.filter = 'none'; g.restore();
+  const rim = g.createLinearGradient(0, y, 0, y + h);
+  rim.addColorStop(0, 'rgba(255,255,255,.95)'); rim.addColorStop(.28, 'rgba(255,255,255,.28)');
+  rim.addColorStop(.55, 'rgba(255,255,255,.16)'); rim.addColorStop(.80, 'rgba(255,255,255,.05)');
+  rim.addColorStop(1, 'rgba(255,255,255,0)');
+  g.strokeStyle = rim; g.lineWidth = 2.5; path(); g.stroke();
+  return path;
+}
+// 도트 메타 라인 — 작게 쓸 때 계측기가 된다(레퍼런스의 06.26.23)
+const dotMeta = (g, tx, cx, y, s = 40, a = .62) => {
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillStyle = `rgba(255,255,255,${a})`; g.font = RF(400, s, DOT); g.letterSpacing = '6px';
+  g.fillText(tx, cx, y); g.letterSpacing = '0px';
+};
+// 알약 CTA + ⊕ 노드 — 레퍼런스의 Book/Read/JOIN 어포던스
+function ctaPill(g, cx, cy, label, k = 0) {
+  const w = 560, h = 148, x = cx - w / 2, y = cy - h / 2;
+  g.save();
+  g.beginPath(); g.roundRect(x, y, w, h, h / 2);
+  g.fillStyle = 'rgba(255,255,255,.10)'; g.fill();
+  g.strokeStyle = `rgba(255,255,255,${.30 + .35 * k})`; g.lineWidth = 2.5; g.stroke();
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillStyle = '#fff'; g.font = RF(500, 54); g.fillText(label, cx - 46, cy + 2);
+  const nx = cx + w / 2 - h / 2 - 12, nr = h / 2 - 26;
+  g.beginPath(); g.arc(nx, cy, nr, 0, 7);
+  g.fillStyle = `rgba(255,255,255,${.16 + .2 * k})`; g.fill();
+  g.strokeStyle = `rgba(255,255,255,${.5 + .4 * k})`; g.lineWidth = 2.5; g.stroke();
+  g.beginPath(); g.moveTo(nx - 22, cy); g.lineTo(nx + 22, cy);
+  g.moveTo(nx, cy - 22); g.lineTo(nx, cy + 22);
+  g.strokeStyle = '#fff'; g.lineWidth = 5; g.stroke();
+  g.restore();
+}
+const pageDots = (g, cx, y, n, i) => {
+  for (let k = 0; k < n; k++) {
+    g.beginPath(); g.arc(cx + (k - (n - 1) / 2) * 40, y, k === i ? 9 : 6, 0, 7);
+    g.fillStyle = `rgba(255,255,255,${k === i ? .92 : .30})`; g.fill();
+  }
+};
+function redoC(g, t) {
+  const cx = 800, w = 980, h = 1780, x0 = cx - w / 2, y0 = 230;
+  const e = eOut(intro(t, .06, .8));
+  const path = sqPanel(g, x0, y0, w, h);
+  g.save(); path(); g.clip(); ember(g, cx, y0 + h - 250, 440, .8); g.restore();
+  // 상단 메타 — 작은 도트 라인(계측기 톤). 타이틀보다 먼저 눈에 안 띄어야 한다.
+  dotMeta(g, '03.03 / 3', cx, y0 + 148, 38, .55);
+  capLabel(g, 'WARM UP', cx, y0 + 218, .40, 34);
+  titleBlock(g, ['High Knees'], cx, y0 + 360, 78);
+  coach(g, cx, y0 + 900, 900, e);
+  // 하단 — 페이지 도트 + 알약 CTA(⊕). 캡슐 안에서 끝난다.
+  pageDots(g, cx, y0 + h - 330, 4, 2);
+  const k = (Math.sin(t * 3.1) + 1) / 2;
+  ctaPill(g, cx, y0 + h - 190, 'Follow', k);
+  arcGauge(g, cx - 380, y0 + h + 150, 760, (t % 8) / 8);
+}
+const REDO = [
+  ['현재 · A3 하이니 (실캡처)', 'shots/floorshot-a3.png', null,
+   '<b>문제</b> ① 캡슐이 납작하다(h 250 — READY 는 1541) ② 층위가 타이틀+배지 2층뿐 ③ 화면 하단 2/3 가 빈다.'],
+  ['리디자인 A · READY 비율 회복', null, redoA,
+   'READY 캡슐 비율(세로 1.4:1)을 그대로. <b>READY 의 "30 min" 자리를 남은 시간이 물려받는다</b> — 큰 도트 숫자가 화면의 주인공. 엠버·아크·캡션 층위도 READY 그대로 5층.'],
+  ['리디자인 B · 헤더 + 지면 무대', null, redoB,
+   '캡슐은 <b>정보만 들고 물러난다</b>(헤더 알약 + 수치 알약 2개 = READY 하단 상태 패널 문법). 남은 화면은 코치와 판정 마크가 쓴다 — 하단이 비지 않는다.'],
+  ['리디자인 C · R/D 감도 (레퍼런스 이식)', null, redoC,
+   '재질은 그대로 두고 <b>형태 규약 4개</b>만 바꾼 것: ① 알약(r=w/2) → <b>스퀘어클</b>(초타원 n 4.3) ② 도트 폰트를 <b>작게</b> 메타 라인으로(계측기 톤) ③ 하단 <b>알약 CTA + ⊕ 노드</b> ④ 페이지 도트. 레퍼런스의 회색 반투명 판만 우리 매체(가산 투사)에선 불가 — 어두운 값을 못 만든다.'],
+];
+// ═══ 진행 배치 비교 — '시간 진행'을 어디에 둘 것인가(유저 질문) ══════════════════
+//   전제: 진행은 한 종류가 아니다. floorgl 엔 이미 둘이 따로 있다 —
+//     s-crumb(몇 번째 동작인가 · 위치)  vs  s-dots→arcGauge(이 구간 얼마 남았나 · 시간).
+//   레퍼런스의 페이지 도트는 앞쪽, 전환 A안 하단의 큰 아크는 뒤쪽이다. 아래 셋은
+//   **시간 진행만** 자리를 바꾼다 — 나머지(캡슐·인물·발마크·페이지도트)는 완전히 동일.
+function progScene(g, t, where) {
+  const cx = 800, w = 980, h = 1300, x0 = cx - w / 2, y0 = 230;
+  const e = eOut(intro(t, .06, .8)), p = (t % 8) / 8;
+  const path = sqPanel(g, x0, y0, w, h);
+  g.save(); path(); g.clip(); ember(g, cx, y0 + h - 190, 420, .7); g.restore();
+  dotMeta(g, '03.03 / 3', cx, y0 + 130, 36, .5);
+  titleBlock(g, ['High Knees'], cx, y0 + 250, 72);
+  coach(g, cx, y0 + 720, 780, e);
+  pageDots(g, cx, y0 + h - 120, 4, 2);           // 위치 진행 — 항상 캡슐 안, 작게
+  footMarks(g, cx, 1900, 1.0, t);                // 판정 마크 — 세 안 공통
+  if (where === 'in') {
+    // ① 캡슐 안에 작게 — 알약 폭의 얇은 바
+    const bw = 420, bx = cx - bw / 2, by = y0 + h - 220;
+    g.strokeStyle = 'rgba(255,255,255,.18)'; g.lineWidth = 8; g.lineCap = 'round';
+    g.beginPath(); g.moveTo(bx, by); g.lineTo(bx + bw, by); g.stroke();
+    g.strokeStyle = '#fff'; g.beginPath(); g.moveTo(bx, by); g.lineTo(bx + bw * p, by); g.stroke();
+    capLabel(g, '12 sec', cx, by - 62, .55, 34);
+  } else if (where === 'tight') {
+    arcGauge(g, cx - 380, y0 + h + 60, 760, p);   // ② 캡슐 바로 아래 — 붙임
+  } else {
+    arcSafe(g, 2330, 920, p);          // ③ 마크 아래 바닥선 — 뗌
+  }
+}
+const PROG = [
+  ['① 캡슐 안에 작게 (알약형 포함)', null, (g, t) => progScene(g, t, 'in'),
+   '시간 진행이 캡슐 <b>안</b>으로 들어간다. 화면이 조용해지고 캡슐 하나만 보면 되는 건 장점. 다만 <b>이걸 보려면 캡슐에 초점을 줘야 한다</b> — 동작 중엔 시선이 코치와 자기 발에 있어서, 남은 시간을 볼 때마다 초점을 되돌려야 한다.'],
+  ['② 캡슐 바로 아래 (현재 A안 · 붙임)', null, (g, t) => progScene(g, t, 'tight'),
+   '크게 읽히지만 캡슐에 붙어 있어 <b>캡슐의 일부(하단 테두리)처럼</b> 읽힐 여지가 있다. 캡슐은 "무슨 동작인가", 아크는 "얼마 남았나" — 성격이 다른 둘이 한 덩어리로 보인다.'],
+  ['③ 마크 아래 바닥선 (뗌 · 추천)', null, (g, t) => progScene(g, t, 'far'),
+   '가장 아래 = 사용자에게 <b>가장 가까운</b> 자리(바닥 투사라 크고 얕게 보인다). 초점을 옮기지 않고 주변시로 읽힌다. 세로 한 줄 조판에 바닥선을 만들어 주고, 캡슐과 확실히 다른 층으로 분리된다.'],
+];
+// ═══ 컨테이너 문법 비교 — 레퍼런스(큰 알·유리 카드)가 우리 매체에 맞나(유저) ══════════
+//   큰 알 + 반투명 판은 **화면 위의 카드** 문법이다. 우린 화면이 없다 — 바닥 자체가 표면이고,
+//   빛을 더하는 것만 가능하다. 그래서 같은 형태가 다르게 읽힌다:
+//     · 큰 알 카드  → '바닥에 폰이 하나 놓여 있다'
+//     · 작은 알/라인 → '바닥에 구역이 그어져 있다' (코트 라인·레인 마킹 = 매체 고유 어휘)
+//   우리 MARK(발형·존원)가 이미 후자다. 컨테이너만 카드면 한 화면에 두 문법이 섞인다.
+function contBody(g, t, y0, h) {
+  const cx = 800, e = eOut(intro(t, .06, .8));
+  dotMeta(g, '03.03 / 3', cx, y0 + 120, 36, .5);
+  titleBlock(g, ['High Knees'], cx, y0 + 240, 72);
+  coach(g, cx, y0 + 700, 760, e);
+  pageDots(g, cx, y0 + h - 110, 4, 2);
+  footMarks(g, cx, 1900, 1.0, t);
+  arcSafe(g, 2330, 920, (t % 8) / 8);   // 시간 진행은 ③(바닥선)으로 고정
+}
+function contA(g, t) {                                    // 레퍼런스형 — 큰 알 유리 카드
+  const cx = 800, w = 980, h = 1280, y0 = 230;
+  const path = sqPanel(g, cx - w / 2, y0, w, h);
+  g.save(); path(); g.clip(); ember(g, cx, y0 + h - 180, 420, .7); g.restore();
+  contBody(g, t, y0, h);
+}
+function contB(g, t) {                                    // 작은 알 — 구역(필드) 문법
+  const cx = 800, w = 1040, h = 1280, x0 = cx - w / 2, y0 = 230, R = 44;
+  const p = () => { g.beginPath(); g.roundRect(x0, y0, w, h, R); };
+  g.save(); p(); g.clip(); g.fillStyle = 'rgba(255,255,255,.035)'; g.fillRect(x0, y0, w, h);
+  ember(g, cx, y0 + h - 180, 420, .55); g.restore();
+  // 테두리는 유리 림이 아니라 **그어진 선** — 위아래로 잦아들지 않고 균일하다
+  g.strokeStyle = 'rgba(255,255,255,.34)'; g.lineWidth = 3; p(); g.stroke();
+  // 모서리 틱 — 코트 라인 어휘(구역이 '그어진 것'임을 못박는다)
+  g.strokeStyle = 'rgba(255,255,255,.85)'; g.lineWidth = 6; g.lineCap = 'round';
+  for (const [sx, sy] of [[1, 1], [-1, 1], [1, -1], [-1, -1]]) {
+    const px = cx + sx * w / 2, py = y0 + h / 2 + sy * h / 2, L = 92;
+    g.beginPath();
+    g.moveTo(px - sx * L, py - sy * 0); g.lineTo(px - sx * R * .1, py);   // ㄱ자 브래킷 — 가로
+    g.moveTo(px, py - sy * L); g.lineTo(px, py - sy * R * .1);            //            세로
+    g.stroke();
+  }
+  contBody(g, t, y0, h);
+}
+function contC(g, t) {                                    // 필(광량 패널) — 알 거의 없음
+  const cx = 800, w = 1040, h = 1280, x0 = cx - w / 2, y0 = 230;
+  g.save();
+  g.beginPath(); g.roundRect(x0, y0, w, h, 22); g.clip();
+  // 가산 매체에선 '판'이 곧 광량이다 — 위에서 아래로 잦아드는 빛 웅덩이
+  const lg = g.createLinearGradient(0, y0, 0, y0 + h);
+  lg.addColorStop(0, 'rgba(255,255,255,.20)'); lg.addColorStop(.62, 'rgba(255,255,255,.11)');
+  lg.addColorStop(1, 'rgba(255,255,255,.03)');
+  g.fillStyle = lg; g.fillRect(x0, y0, w, h);
+  ember(g, cx, y0 + h - 180, 430, .8);
+  g.restore();
+  contBody(g, t, y0, h);
+}
+function contD(g, t) {                                    // 컨테이너 없음 — 라인 마킹만
+  const cx = 800, w = 1040, x0 = cx - w / 2, y0 = 230, h = 1280;
+  g.save(); g.strokeStyle = 'rgba(255,255,255,.55)'; g.lineWidth = 4; g.lineCap = 'round';
+  for (const yy of [y0, y0 + h]) { g.beginPath(); g.moveTo(x0, yy); g.lineTo(x0 + w, yy); g.stroke(); }
+  // 짧은 세로 티크 — 구역의 시작/끝만 표시(면을 만들지 않는다)
+  g.lineWidth = 3.5; g.strokeStyle = 'rgba(255,255,255,.34)';
+  for (const sx of [-1, 1]) for (const yy of [y0, y0 + h]) {
+    const px = cx + sx * w / 2; g.beginPath(); g.moveTo(px, yy); g.lineTo(px, yy + (yy === y0 ? 46 : -46)); g.stroke();
+  }
+  g.restore();
+  ember(g, cx, y0 + h - 120, 430, .6);
+  contBody(g, t, y0, h);
+}
+const CONT = [
+  ['A · 레퍼런스형 (큰 알 + 유리)', null, contA,
+   '레퍼런스 그대로. 예쁘지만 <b>화면 위의 카드</b> 문법이다 — 바닥에 폰이 한 대 놓인 것처럼 읽힐 수 있다. 같은 화면의 발마크·존원(빛 웅덩이)과 어휘가 다르다.'],
+  ['B · 작은 알 + 코트 라인 (r 44)', null, contB,
+   '테두리를 <b>유리 림이 아니라 그어진 선</b>으로. 모서리 틱은 트랙·코트 마킹 어휘다. "바닥에 구역이 그어졌다"로 읽혀 <b>MARK 시스템과 같은 말</b>을 쓴다.'],
+  ['C · 필(광량 패널) · 알 22', null, contC,
+   '가산 매체에서 판은 곧 <b>광량</b>이다. 테두리 없이 빛의 세기 차이로만 영역을 만든다. 프로젝터가 실제로 하는 일과 가장 가까워 물리적으로 가장 그럴듯하다.'],
+  ['D · 컨테이너 없음 (라인만)', null, contD,
+   '면을 아예 만들지 않고 <b>위아래 두 선</b>으로만 구역을 연다. 바닥이 가려지지 않아 사람이 주인공이 된다. 가장 급진적 — 정보가 많아지면 흩어져 보일 위험.'],
+];
+// ═══ 밀도·사이즈 — '사이가 너무 벙벙하다'(유저) ═══════════════════════════════
+//   진단: 빈 곳이 문제가 아니라 **간격이 전부 비슷한 것**이 문제다. 헤더-인물, 인물-발마크,
+//   발마크-아크가 모두 300~600px 로 균등해서 무엇이 한 덩어리인지가 안 읽힌다. 게다가
+//   ★ 발마크가 인물의 발에서 590px 떨어져 떠 있다 — 발마크는 '네 발이 갈 자리'인데
+//     정작 발과 무관한 곳에 있다. 의미로도 조판으로도 붙어 있어야 할 둘이 떨어져 있으니
+//     그 사이가 통째로 빈 땅이 된다. 인물을 키우고 마크를 발밑으로 끌어올리면 같이 풀린다.
+function layNow(g, t) {                                   // 현재 — 유저가 지적한 그 화면
+  const cx = 800, e = eOut(intro(t, .06, .8));
+  capsule(g, cx - 400, 200, 800, 240);
+  titleBlock(g, ['High Knees'], cx, 300, 72);
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillStyle = '#fff'; g.font = RF(700, 84, DOT); g.fillText('12', cx - 30, 382);
+  capLabel(g, 'sec', cx + 78, 388, .5, 38);
+  coach(g, cx, 1000, 780, e);
+  footMarks(g, cx, 1900, 1.0, t);
+  arcSafe(g, 2330, 920, (t % 8) / 8);
+}
+function layFix1(g, t) {                                  // 개선 ① 무대 통합 — 마크를 발밑으로
+  const cx = 800, e = eOut(intro(t, .06, .8));
+  // 헤더는 좁고 조밀하게 — 두 값을 한 줄에(좌 이름 · 우 남은 시간)
+  capsule(g, cx - 330, 170, 660, 190);
+  g.textAlign = 'left'; g.textBaseline = 'middle'; g.fillStyle = '#fff';
+  g.font = RF(700, 60); g.letterSpacing = '-2px'; g.fillText('High Knees', cx - 258, 266); g.letterSpacing = '0px';
+  g.textAlign = 'right'; g.font = RF(700, 62, DOT); g.fillText('12', cx + 214, 268);
+  capLabel(g, 'sec', cx + 262, 272, .5, 32);
+  coach(g, cx, 1120, 1180, e);                            // 인물 780 → 1180 (발 ≈ 1710)
+  footMarks(g, cx, 1735, 1.25, t);                        // 발 위치에 붙인다 — 사이의 빈 땅이 사라진다
+  arcSafe(g, 2420, 1000, (t % 8) / 8);         // 아크는 진짜 바닥선으로
+}
+function layFix2(g, t) {                                  // 개선 ② 라인 헤더 + 인물 최대
+  const cx = 800, e = eOut(intro(t, .06, .8));
+  dotMeta(g, '03.03 / 3', cx, 176, 34, .45);
+  titleBlock(g, ['High Knees'], cx, 268, 84);
+  g.strokeStyle = 'rgba(255,255,255,.22)'; g.lineWidth = 3;
+  g.beginPath(); g.moveTo(cx - 300, 344); g.lineTo(cx + 300, 344); g.stroke();
+  g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#fff';
+  g.font = RF(700, 78, DOT); g.fillText('12', cx - 26, 424);
+  capLabel(g, 'sec', cx + 76, 430, .45, 34);
+  coach(g, cx, 1220, 1400, e);                            // 화면 높이의 절반 이상 — 사람이 주인공
+  footMarks(g, cx, 1905, 1.35, t);
+  arcSafe(g, 2450, 1000, (t % 8) / 8);
+}
+// ★ 농구처럼 '크게 봐야 하는 영상'(유저) — 컨테이너 비중이 문제의 핵심이다.
+//   규칙: **컨테이너는 영상을 감싸지 않는다.** 감싸는 순간 영상 크기의 상한이 컨테이너가 되고,
+//   종목마다 필요한 크기가 다른데 크롬이 그걸 막는다(지금 프리뷰가 정확히 그 상태 —
+//   캡슐이 화면 절반을 먹고 인물은 1/4 이다). 컨테이너를 위쪽 '정보 띠'로만 두면
+//   영상은 지면에 직접 서서 종목별로 자유롭게 커진다. 아래 ④ 가 ③ 과 **같은 문법**이다.
+function layBK(g, t) {
+  const cx = 800, e = eOut(intro(t, .06, .8));
+  dotMeta(g, 'STEP BACK / 3', cx, 168, 34, .45);
+  titleBlock(g, ['Step Back 3PT'], cx, 252, 76);
+  g.strokeStyle = 'rgba(255,255,255,.20)'; g.lineWidth = 3;
+  g.beginPath(); g.moveTo(cx - 340, 322); g.lineTo(cx + 340, 322); g.stroke();
+  coach(g, cx, 1230, 1720, e);                            // 영상 최대 — 컨테이너가 막지 않는다
+  footMarks(g, cx, 2110, 1.3, t);
+  arcSafe(g, 2500, 1040, (t % 8) / 8);
+}
+// ★ 정리안(유저) — 알약은 그대로 쓴다. 문제는 알 값이 아니라 **무대를 감싸는 것**이었다.
+//   알약 = 정보 요소(헤더·CTA·수치 칩)의 형태. 이미 모바일에서 쓰던 어휘라 낯설지 않다.
+//   무대 = 컨테이너 없음. 감싸면 컨테이너가 곧 영상 크기의 상한이 되어 종목마다 막힌다.
+function layFinal(g, t) {
+  const cx = 800, e = eOut(intro(t, .06, .8));
+  capsule(g, cx - 330, 170, 660, 190);                    // 헤더 알약 — 형태 그대로
+  g.textAlign = 'left'; g.textBaseline = 'middle'; g.fillStyle = '#fff';
+  g.font = RF(700, 60); g.letterSpacing = '-2px'; g.fillText('High Knees', cx - 258, 266); g.letterSpacing = '0px';
+  g.textAlign = 'right'; g.font = RF(700, 62, DOT); g.fillText('12', cx + 214, 268);
+  capLabel(g, 'sec', cx + 262, 272, .5, 32);
+  capsule(g, cx - 150, 396, 300, 104);                    // 수치 칩 — 같은 알약 어휘, 작게
+  capLabel(g, 'SET 3 / 3', cx, 450, .62, 40);
+  coach(g, cx, 1160, 1260, e);                            // 무대는 감싸지 않는다 → 종목별로 자유
+  footMarks(g, cx, 1790, 1.28, t);                        // 마크는 발밑에
+  arcSafe(g, 2430, 1000, (t % 8) / 8);
+}
+const LAY = [
+  ['★ 정리안 · 알약 유지 + 무대는 감싸지 않음', null, layFinal,
+   '<b>알약은 그대로</b> — 헤더·수치 칩에 쓰던 형태 그대로다(모바일에서 이미 쓰던 어휘). 바뀐 건 셋: ① 무대를 <b>감싸지 않는다</b>(영상 크기 상한이 사라진다) ② 발마크를 <b>발밑</b>으로 ③ 아크는 <b>진짜 바닥선</b>으로. 알 값은 손대지 않았다.'],
+  ['현재 · 간격이 균등하다', null, layNow,
+   '헤더-인물 560 · 인물-발마크 <b>590</b> · 발마크-아크 430. 전부 비슷해서 <b>무엇이 한 덩어리인지</b>가 안 읽힌다. 특히 발마크가 인물의 발에서 590px 떠 있어 그 사이가 통째로 빈 땅이 된다.'],
+  ['개선 ① 무대 통합 (마크를 발밑으로)', null, layFix1,
+   '인물 780→<b>1180</b>, 발마크를 발 위치(1735)로 끌어올려 <b>인물+마크를 한 무대</b>로 묶었다. 빈 땅이 사라지고, 의미도 맞는다 — 발마크는 원래 "네 발이 갈 자리"다. 헤더는 두 값을 한 줄에 넣어 좁혔다.'],
+  ['개선 ② 라인 헤더 + 인물 최대', null, layFix2,
+   '헤더 판을 없애고 <b>선 하나</b>로 대체해 상단을 압축, 인물을 1400(화면 절반 이상)까지 키웠다. 가장 시원하지만 헤더의 정보 위계가 약해져 동작명이 눈에 덜 붙잡힌다.'],
+  ['④ 같은 문법 · 농구(영상 최대 1720)', null, layBK,
+   '③ 과 <b>완전히 같은 문법</b>인데 영상만 1400→1720 으로 키웠다. <b>컨테이너가 영상을 감싸지 않기 때문에</b> 가능하다 — 감싸면 컨테이너가 곧 영상 크기의 상한이 되고, 종목마다 필요한 크기가 다른데 크롬이 그걸 막는다(현재 프리뷰가 그 상태: 캡슐이 화면 절반, 인물은 1/4).'],
+];
+// ═══ 눈금 스케일 — 절제된 그래픽 레퍼런스에서 옮길 수 있는 것(유저) ══════════════
+//   레퍼런스의 핵심은 블룸이 아니라 **눈금 자(ruler) + 밝은 지시선 하나**다. 값 하나를
+//   '많은 얇은 것 + 하나의 밝은 것'으로 말하는 방식이라 시선이 갈 곳이 분명하다.
+//   ★ 옮길 수 없는 것: '밝은 블룸 안의 어두운 코어'. 바닥은 밝은 트랙 위 가산 투사라
+//     어두운 값을 만들 수 없다. (어두운 벽면이라면 코어를 '안 밝히는' 것으로 성립한다.)
+function devScene(g, t, kind) {
+  const cx = 800, e = eOut(intro(t, .06, .8));
+  const dev = Math.sin(t * .9) * .72;                     // 목표 대비 편차(데모)
+  capsule(g, cx - 330, 170, 660, 190);
+  g.textAlign = 'left'; g.textBaseline = 'middle'; g.fillStyle = '#fff';
+  g.font = RF(700, 60); g.letterSpacing = '-2px'; g.fillText('Easy Run', cx - 258, 266); g.letterSpacing = '0px';
+  g.textAlign = 'right'; g.font = RF(700, 62, DOT); g.fillText('12', cx + 214, 268);
+  capLabel(g, 'sec', cx + 262, 272, .5, 32);
+  coach(g, cx, 1060, 1080, e);
+  // 케이던스 스탯 — 큰 도트 숫자 + (편차 바 | 눈금 스케일) + 라벨
+  const sy = 1830;
+  g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#fff';
+  g.font = RF(700, 132, DOT); g.fillText('178', cx, sy);
+  if (kind === 'bar') {
+    g.lineCap = 'round';
+    const lg = g.createLinearGradient(cx - 230, 0, cx + 230, 0);
+    lg.addColorStop(0, 'rgba(255,255,255,0)'); lg.addColorStop(.18, 'rgba(255,255,255,.3)');
+    lg.addColorStop(.5, 'rgba(255,255,255,.34)'); lg.addColorStop(.82, 'rgba(255,255,255,.3)');
+    lg.addColorStop(1, 'rgba(255,255,255,0)');
+    g.strokeStyle = lg; g.lineWidth = 7;
+    g.beginPath(); g.moveTo(cx - 230, sy + 104); g.lineTo(cx + 230, sy + 104); g.stroke();
+    g.strokeStyle = 'rgba(255,255,255,.7)'; g.lineWidth = 5;
+    g.beginPath(); g.moveTo(cx, sy + 91); g.lineTo(cx, sy + 117); g.stroke();
+    g.save(); g.shadowColor = '#FEC389'; g.shadowBlur = 22; g.fillStyle = '#FEC389';
+    g.beginPath(); g.arc(cx + dev * 230, sy + 104, 11, 0, 7); g.fill(); g.restore();
+  } else {
+    tickScale(g, cx, sy + 104, 560, dev, { col: '#FEC389' });   // 굵기·높이는 컴포넌트 기본값(바닥 튜닝본)
+  }
+  capLabel(g, 'SPM', cx, sy + 196, .55, 58);
+  arcSafe(g, 2430, 920, (t % 8) / 8);
+}
+// 2단 그리드 — 실전(C2·C3)은 SPM + PACE 가 나란히 앉는다. 칼럼이 좁아지는 케이스.
+function devGrid(g, t, kind) {
+  const cx = 800, e = eOut(intro(t, .06, .8));
+  const d1 = Math.sin(t * .9) * .72, d2 = Math.sin(t * .62 + 1.2) * .55;
+  capsule(g, cx - 330, 170, 660, 190);
+  g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#fff';
+  g.font = RF(700, 96, DOT); g.fillText('1.19', cx - 40, 268);
+  capLabel(g, 'km', cx + 120, 276, .55, 40);
+  coach(g, cx, 1060, 1080, e);
+  const sy = 1830, CW2 = 300;                       // 칼럼 폭 — 실전 조판 실측대
+  for (const [dx, val, lbl, dev] of [[-CW2 / 2 - 30, '185', 'SPM', d1], [CW2 / 2 + 30, "4'43\"", 'PACE', d2]]) {
+    g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#fff';
+    g.font = RF(700, 108, DOT); g.fillText(val, cx + dx, sy);
+    if (kind === 'bar') {
+      g.lineCap = 'round';
+      g.strokeStyle = 'rgba(255,255,255,.32)'; g.lineWidth = 7;
+      g.beginPath(); g.moveTo(cx + dx - 116, sy + 96); g.lineTo(cx + dx + 116, sy + 96); g.stroke();
+      g.strokeStyle = 'rgba(255,255,255,.7)'; g.lineWidth = 5;
+      g.beginPath(); g.moveTo(cx + dx, sy + 84); g.lineTo(cx + dx, sy + 108); g.stroke();
+      g.save(); g.shadowColor = '#FEC389'; g.shadowBlur = 22; g.fillStyle = '#FEC389';
+      g.beginPath(); g.arc(cx + dx + dev * 116, sy + 96, 11, 0, 7); g.fill(); g.restore();
+    } else {
+      tickScale(g, cx + dx, sy + 96, 232, dev, { col: '#FEC389', h: 38 });
+    }
+    capLabel(g, lbl, cx + dx, sy + 178, .55, 54);
+  }
+  arcSafe(g, 2430, 920, (t % 8) / 8);
+}
+const DEV = [
+  ['현재 · 편차 바 (선 + 점)', null, (g, t) => devScene(g, t, 'bar'),
+   '선 하나에 점 하나. 점이 <b>어디쯤인지 가늠할 기준이 없다</b> — 양끝이 페이드라 끝도 안 보이고, 5 벗어난 건지 15 벗어난 건지 읽히지 않는다.'],
+  ['눈금 스케일 (레퍼런스 이식)', null, (g, t) => devScene(g, t, 'tick'),
+   '눈금 <b>간격</b>이 22px 로 고정이고 개수는 폭에서 파생된다(항상 홀수 → 가운데 목표 눈금 보장). 밝은 지시선은 하나. 바닥용으로 굵기 6px·알파 .48 로 올리고 칸을 벌렸다 — 화면 감각의 3px/.30 은 밝은 트랙 위 가산 투사에서 그냥 사라진다. 눈금이 촘촘해 <b>얼마나</b> 벗어났는지가 거리 감각으로 잡히고, 밝은 건 하나뿐이라 시선이 바로 간다. 레퍼런스의 절제는 여기서 온다 — 장식이 아니라 <b>기준선의 밀도</b>다.'],
+];
+DEV.push(
+  ['2단 그리드 · 현재(바)', null, (g, t) => devGrid(g, t, 'bar'),
+   '실전(C2·C3)은 SPM + PACE 가 나란히 앉아 칼럼이 <b>232px</b> 로 좁아진다. 바는 좁아져도 그냥 짧아질 뿐이라 점의 위치가 더 안 읽힌다.'],
+  ['2단 그리드 · 눈금 (폭에서 파생)', null, (g, t) => devGrid(g, t, 'tick'),
+   '눈금 <b>개수를 고정하면 안 된다</b> — 21개를 232px 에 넣으면 6px 획이 붙어 회색 띠가 된다. 고정할 것은 <b>간격</b>(획 6 + 여백 16 = 22px)이고 개수는 폭에서 나온다(232px → 11칸). 좁아져도 칸이 보이므로 편차가 계속 읽힌다.'],
+);
+// ═══ 세션 타임라인 위치 — 아래 있으면 안 보이지 않나(유저) ═══════════════════════
+//  실측 정정: 앞서 '아래가 가장 가까워 크게 보인다'고 했는데, 가깝다는 건 **발밑**이라는 뜻이다.
+//  대지 y2670 은 발 앞 0.17m — 몸과 발에 가려지고 시선을 크게 내려야 한다. 반대로 y176 은
+//  발 앞 1.88m 로, 코치를 보는 시선 안에 그대로 들어온다. '가장 큼' 과 '가장 잘 보임' 은 다르다.
+function tlScene(g, t, where) {
+  const cx = 800, e = eOut(intro(t, .06, .8)), p = (t % 8) / 8;
+  const HX = cx - 330, HY = 170, HW = 660, HH = 190;
+  const header = () => {
+    capsule(g, HX, HY, HW, HH);
+    g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#fff';
+    g.font = RF(700, 58); g.letterSpacing = '-2px'; g.fillText('High Knees', cx, HY + 66); g.letterSpacing = '0px';
+    g.font = RF(700, 68, DOT); g.fillText('12', cx - 24, HY + 140);
+    capLabel(g, 'sec', cx + 62, HY + 146, .5, 32);
+  };
+  if (where === 'ring') {
+    // ③ 헤더 알약 자체가 게이지 — 테두리가 차오른다(별도 요소를 안 늘린다)
+    header();
+    const per = (HW - HH) * 2 + Math.PI * HH, seg = per * p;
+    g.save(); g.strokeStyle = '#FEC389'; g.lineWidth = 8; g.lineCap = 'round';
+    g.shadowColor = '#FEC389'; g.shadowBlur = 22;
+    g.setLineDash([seg, per]); g.lineDashOffset = -(HW - HH) / 2;
+    g.beginPath(); g.roundRect(HX, HY, HW, HH, HH / 2); g.stroke();
+    g.setLineDash([]); g.restore();
+  } else header();
+  if (where === 'top') arcGauge(g, cx - 420, HY + HH + 96, 840, p);       // ② 헤더 바로 아래
+  coach(g, cx, where === 'top' ? 1200 : 1120, 1180, e);
+  footMarks(g, cx, where === 'top' ? 1800 : 1735, 1.25, t);
+  if (where === 'mid') arcSafe(g, 2010, 920, p);               // ④ 발마크 바로 아래
+  if (where === 'bottom') arcSafe(g, 2430, 1000, p);           // ① 현재 — 대지 맨 아래
+}
+const TL = [
+  ['① 대지 맨 아래 (현재)', null, (g, t) => tlScene(g, t, 'bottom'),
+   '발 앞 <b>0.17m</b> — 사실상 발밑이라 몸·발에 가려지고 시선을 크게 내려야 본다. 화면상 가장 크게 보이는 건 맞지만 <b>가장 잘 보이는 자리는 아니다</b>.'],
+  ['② 헤더 바로 아래', null, (g, t) => tlScene(g, t, 'top'),
+   '발 앞 <b>1.7m</b> 근처 — 코치를 보는 시선 안에 그대로 들어온다. 동작명·남은 시간과 한 덩어리로 읽혀 "이 동작 / 이 세션" 두 시계가 위아래로 정렬된다. 대신 상단 정보량이 늘어난다.'],
+  ['③ 헤더 알약이 게이지 (통합)', null, (g, t) => tlScene(g, t, 'ring'),
+   '요소를 <b>늘리지 않는다</b> — 알약 테두리가 차오른다. 시선이 이미 가 있는 곳에 진행이 얹히므로 따로 볼 필요가 없다. 정밀한 값 읽기는 어렵지만 세션 진행은 원래 정밀할 필요가 없다.'],
+  ['④ 발마크 바로 아래', null, (g, t) => tlScene(g, t, 'mid'),
+   '판정(발마크) 과 한 묶음. 발을 볼 때 같이 들어오지만, 판정 마크와 <b>같은 층으로 읽혀</b> 어느 게 "지금 잘하고 있나"이고 어느 게 "얼마나 남았나"인지 헷갈릴 수 있다.'],
+];
+// ═══ 전환 인터랙션 — 프리뷰 A → 따라하기 A 를 한 타임라인으로(유저: 전환도 미리보기) ═══
+//   한 물체(캡슐)가 물러나며 작아지고, 그 자리를 사람과 지면 마크가 이어받는다.
+const T_HOLD = 1.6, T_MOVE = 1.0, CY_LOOP = 5.4;
+// ★ 관찰 캡슐 크기(유저: '이거보다 작은 버전 없나') — 값을 못박지 않고 슬라이더로 뺀다.
+//   캡슐이 작아지면 그만큼 코치가 커진다: 캡슐은 정보를 들 만큼만 크면 되고,
+//   남는 자리는 '봐야 하는 것'(영상)이 가져가는 게 맞다.
+let FS = 0.72;
+// ★ 동작명은 길이가 제각각이다(유저: 글자수 길어지면 어칼래). 카드 폭을 760 으로 못박으면
+//   긴 이름이 그냥 넘친다. 폭은 **내용에서 파생**시키고, 투사 안전폭에서 자르고, 그래도
+//   안 들어가면 두 줄로 접는다. 줄이지 않는다 — 가독 규약(minFs)이 축소를 막는다.
+let FNAME = 'High Knees';
+// ★ 전수 검수(2026-08-05) — 러닝·농구 실제 타이틀 20개를 실측 폭으로 재봤다.
+//   최장은 농구 스텝 4개(550~620px)였다. 한 줄에 지시가 둘이라 길어진 것 —
+//   **타이틀은 동작의 이름 · 두 번째 지시는 cue** 로 나눠 담는 게 원래 맞다(데이터에 두 필드가 있다).
+//   → floor-scenes.js 에서 4개를 줄였다(Fake the Layup / Right Foot Down / Left Foot Out /
+//     Set to Shoot). 이제 최장은 'Neck & Shoulders' 392px 이고 상한을 400 으로 못박는다.
+//   그래서 정한 것:
+//     ① 폭 고정(840). 내용에서 파생하면 스테이지마다 헤더가 튀어 '같은 물건이 자리를 옮긴다'는
+//        원칙과 충돌한다. 상한을 낮췄으니 고정해도 짧은 이름에 허전한 여백이 안 남는다.
+//     ② 두 줄은 '폭이 모자라서' 접는 게 아니라 **의미 단위로** 접는다. 농구 스텝 4개는
+//        'Bend Knees, Fake the Layup' 처럼 한 줄에 지시가 둘이다 — 쉼표에서 접으면
+//        두 동작이 각각 한 줄이 되어 오히려 읽힌다. 폭 초과 단어접기는 미래 데이터용 폴백.
+const TITLE_MAX = 400;        // 타이틀 폭 상한(= 기존 최장 'Neck & Shoulders' 392)
+const MINI_W = 840;           // 60(패딩) + 248(링 슬롯) + 52(간격) + 400(타이틀) + 72(꼬리)
+// 미니 카드 조판 계산 — ③(형태변환)과 미니 카드가 **같은 함수**를 써야 어긋나지 않는다.
+function miniLayout(g, name) {
+  // 왼쪽 슬롯은 알약이 아니라 **링 그대로**다(유저 스케치) — 링이 남으면 남은 시간을
+  // 숫자 + 원호 둘로 말한다. 따라하기 중엔 원호가 더 빨리 읽힌다.
+  const RR = 84, PFS = 220 * (RR / 275);
+  g.font = RF(400, 40); const uw = g.measureText('sec').width;
+  const pillW = RR * 2 + 18 + uw;
+  const GAP = 52, PAD = 60, TAIL = 72;
+  g.font = RF(700, 52); g.letterSpacing = '-2px';
+  const room = MINI_W - PAD - pillW - GAP - TAIL;
+  let lines;
+  const ci = name.indexOf(', ');
+  if (ci > 0) lines = [name.slice(0, ci + 1), name.slice(ci + 2)];   // 의미 단위(쉼표) 우선
+  else if (g.measureText(name).width > room) {                        // 폴백 — 단어 단위 균등 분할
+    const w2 = name.split(' ');
+    let best = 1;
+    const diff = i => Math.abs(g.measureText(w2.slice(0, i).join(' ')).width - g.measureText(w2.slice(i).join(' ')).width);
+    for (let i = 1; i < w2.length; i++) if (diff(i) < diff(best)) best = i;
+    lines = [w2.slice(0, best).join(' '), w2.slice(best).join(' ')];
+  } else lines = [name];
+  g.letterSpacing = '0px';
+  return { pillW, PFS, RR, uw, lines, w: MINI_W, h: lines.length > 1 ? 330 : 250, tx: PAD + pillW + GAP };
+}
+function drawFlow(g, t) {
+  const cx = 800;
+  const m = clamp01((t - T_HOLD) / T_MOVE), me = eOut(m);          // 전환 진행
+  const post = clamp01((t - (T_HOLD + T_MOVE)) / .9);              // 따라하기 요소 등장
+  const intro0 = eOut(intro(t, .05, .8));
+  // ① 캡슐 — 관찰(큰 캡슐) → 따라하기(미니 카드). 폭·높이·y 를 한 번에 보간
+  const cw0 = 818 * FS, ch0 = 821 * FS;                              // 관찰 캡슐 — 슬라이더 크기
+  const ML = miniLayout(g, FNAME);
+  const cw = cw0 + (ML.w - cw0) * me, ch = ch0 + (ML.h - ch0) * me, cy = 300;
+  capsule(g, cx - cw / 2, cy, cw, ch);
+  ember(g, cx, cy + ch - 120, cw * .46, .5 * (1 - me * .6));
+  // ② 타이틀 — 관찰은 2줄 크게, 따라하기는 1줄 작게(크로스페이드)
+  // 순차 크로스페이드 — 옛 것이 먼저 빠지고(0~45%) 새 것이 뒤에 든다(55~100%).
+  //   동시에 페이드하면 중간에 두 타이틀이 겹쳐 읽힌다(실측).
+  // ★ 글씨는 자기 궤적을 갖지 않는다(유저: '갑자기 위로 솟구친다').
+  //   전에는 새 타이틀·숫자가 캡슐과 무관한 고정 y(cy+100 / cy+192)로 들어오고,
+  //   숫자는 me 에 비례한 별도 상승항(-(ch0*.74-130)*me, 0.72 에서 307px)까지 얹혀 있었다.
+  //   캡슐이 줄어드는 속도와 글씨가 올라가는 속도가 달라서 '튀어 오르는' 것으로 읽힌다.
+  //   → 전부 캡슐 좌표계의 **비율 자리**(0.40 / 0.74)에 못박는다. 움직임은 캡슐만 만든다.
+  const ty = cy + ch * .40;
+  const outA = 1 - clamp01(m / .45), inA = clamp01((m - .55) / .45);
+  g.save(); g.globalAlpha = outA * intro0;
+  titleBlock(g, ['Neck And', 'Shoulder'], cx, ty, 86 * FS);
+  capLabel(g, 'PREVIEW', cx, ty - 175 * FS, .5, 40 * FS);
+  g.restore();
+  // ★ 미니 카드 = 타이머(좌) + 동작명(우) 한 줄. 타이머 알약은 위 ③ 형태변환이 그대로
+  //   그 자리에 앉으므로 여기선 **동작명만** 그린다(두 번 그리면 알약이 겹친다).
+  if (inA > 0) {
+    g.save(); g.globalAlpha = inA;
+    //   좌표·줄바꿈은 miniLayout 이 정한다(③ 과 같은 함수) — 두 곳이 따로 재면 반드시 어긋난다.
+    g.fillStyle = '#fff'; g.textAlign = 'left'; g.textBaseline = 'middle';
+    g.font = RF(700, 52); g.letterSpacing = '-2px';
+    const tx0 = cx - cw / 2 + ML.tx, my2 = cy + ch * .5;
+    ML.lines.forEach((ln, i) => g.fillText(ln, tx0, my2 + (i - (ML.lines.length - 1) / 2) * 62));
+    g.letterSpacing = '0px';
+    g.restore();
+  }
+  // ③ 카운트 링은 **형태를 안 바꾼다** — 작아져서 헤더 왼쪽 슬롯으로 옮겨 앉을 뿐이다(유저).
+  //   전엔 링→알약 morph 였는데, 알약은 이미 헤더가 맡고 있어 같은 어휘가 두 겹이 됐다.
+  //   링이 남으면 남은 시간을 원호로도 계속 말한다(숫자 + 원호, 한 물건).
+  {
+    const T0x = cx, T0y = cy + ch0 * .74, K0 = 112 * FS / 275;
+    const T1x = cx - cw / 2 + 60 + ML.RR, T1y = cy + ch * .5;
+    const L = (a2, b2) => a2 + (b2 - a2) * me;
+    const cd = Math.max(1, 3 - Math.floor(t * 1.9));
+    countRing(g, L(T0x, T1x), L(T0y, T1y), me < .5 ? (t * .62) % 1 : 1 - ((t * .18) % 1),
+      me < .5 ? String(cd) : '12',
+      { t: 99, k: L(K0, ML.RR / 275), pulse: 1,
+        ring: { trackW: 10, arcW: 10, trackA: .26 } });   // 작아진 링은 굵게 — 안 그러면 바닥에서 흐려진다
+    // 단위 — 링 오른쪽. 링만으론 '초'인지 '회'인지 알 수 없다(유저 지적).
+    if (inA > 0) {
+      g.save(); g.globalAlpha = inA;
+      g.textAlign = 'left'; g.textBaseline = 'middle';
+      g.fillStyle = 'rgba(255,255,255,.6)'; g.font = RF(400, 40);
+      g.fillText('sec', T1x + ML.RR + 18, T1y + 6);
+      g.restore();
+    }
+  }
+  // ④ 코치 — 관찰에선 캡슐 아래, 전환하며 앞(위)으로 걸어 나온다
+  //   관찰 구간은 캡슐이 작아진 만큼 영상이 커지고 위로 붙는다. 따라하기 구간의 자리는
+  //   FS 와 무관하게 고정 — 미니 카드는 크기가 안 변하므로, 여기까지 FS 를 물리면 인물이
+  //   카드를 뚫고 올라온다(실측: FS 0.72 에서 겹쳤다).
+  const chH = 760 + (1 - FS) * 900;
+  //   관찰 구간의 y 는 '캡슐 아래 90px 에 머리끝'으로 역산한다 — 인물 키가 FS 에 따라 변하는데
+  //   중심 y 를 고정하면 캡슐을 뚫는다(실측: FS 0.72 에서 머리가 캡슐 안으로 들어갔다).
+  const cyA = cy + ch0 + 90 + chH / 2, hA = chH;                     // 관찰
+  const cyB = 1190, hB = 1180;                                       // 따라하기(고정)
+  coach(g, cx, cyA + (cyB - cyA) * me, hA + (hB - hA) * me, intro0);
+  // ⑤ 지면 마크 — 전환이 끝나며 아래에서 떠오른다
+  if (post > 0.01) {
+    g.save(); g.globalAlpha = post;
+    footMarks(g, cx, 1900 - 60 * eOut(post), 1, t);
+    g.restore();
+  }
+  // ⑥ 아크 게이지 — 따라하기의 시계
+  // ★ 아크는 '이 동작'이 아니라 **세션 전체** 진행이다(유저: 카드의 12초와 아크가 같은 값이었다).
+  //   전엔 clamp01((t-2.6)/2.8) — 따라하기 구간 길이에 그대로 물려 있어서 카드 숫자와 같은
+  //   12 초를 두 번 말했다. 범위를 세션으로 올리면 둘 다 자기 몫이 생긴다:
+  //   숫자 = 지금 이 동작 남은 시간 / 아크 = 오늘 세션에서 어디쯤인가. 0 에서 시작하지 않는
+  //   것만으로도 '같은 값이 아니다'가 한눈에 읽힌다.
+  if (post > 0.01) {
+    g.save(); g.globalAlpha = post;
+    const sess = .38 + .06 * clamp01((t - 2.6) / 2.8);               // 3/8 동작쯤 — 이 동작 몫만 조금 더 찬다
+    arcSafe(g, 2150, 1000, sess);
+    //   ★ 라벨은 뺀다(유저: 이 정도 글씨가 바닥 맨 아래에 있으면 보이기나 하냐).
+    //     34px · 알파 .42 흰 글자를 밝은 트랙(#8B9080) 위에 올린 것 — 가산 투사라 흰색을
+    //     '더하는' 것밖에 못 하는데 바탕이 이미 밝아 대비가 거의 안 생긴다. 안 보일 글자는
+    //     자리도 차지하면 안 된다. 범위 구분은 **아크가 0 에서 시작하지 않는 것**이 이미 말한다.
+    g.restore();
+  }
+}
+let FPLAY = true, FT = 0, FLAST = performance.now();
+let MODE = 'preview';
+const row = document.getElementById('row'), ttl = document.getElementById('ttl');
+const cells = [];
+function build() {
+  row.innerHTML = ''; cells.length = 0;
+  document.getElementById('flowbar').style.display = MODE === 'flow' ? '' : 'none';
+  ttl.textContent = MODE === 'preview' ? '프리뷰(관찰) — 3안'
+    : MODE === 'follow' ? '따라하기 — 3안'
+    : MODE === 'sys' ? '지금 실제로 쓰이는 화면 (정본 렌더러 캡처) — 캡슐 적용 4개 · 레거시 2개'
+    : MODE === 'redo' ? '캡슐 리디자인 — 왼쪽이 현재(실캡처), 오른쪽 셋이 시안'
+    : MODE === 'prog' ? '시간 진행을 어디에 둘 것인가 — 나머지는 전부 동일, 진행 자리만 다르다'
+    : MODE === 'cont' ? '컨테이너 문법 — 큰 알 유리 카드가 바닥 투사에 맞나 (알 값·필·라인)'
+    : MODE === 'lay' ? '밀도·사이즈 — 간격 위계와 영상 크기 상한'
+    : MODE === 'dev' ? '눈금 스케일 — 값 하나를 어떻게 읽히게 할 것인가 (레퍼런스 이식)'
+    : MODE === 'tl' ? '세션 타임라인을 어디에 둘 것인가 — 나머지는 동일, 타임라인 자리만 다르다'
+    : '프리뷰 → 따라하기 전환 (A안 · 5.4초) — 슬라이더로 스크럽';
+  if (MODE === 'redo' || MODE === 'prog' || MODE === 'cont' || MODE === 'lay' || MODE === 'dev' || MODE === 'tl') {
+    for (const [nm, src, fn, ds] of ({ redo: REDO, prog: PROG, cont: CONT, lay: LAY, dev: DEV, tl: TL }[MODE])) {
+      const d = document.createElement('div'); d.className = 'cell';
+      let el;
+      if (src) { el = document.createElement('img'); el.src = '/' + src; el.style.cssText = 'width:328px;display:block;border-radius:14px'; }
+      else { el = document.createElement('canvas'); el.width = W; el.height = H; cells.push([el, fn]); }
+      d.append(el, Object.assign(document.createElement('div'), { className: 'nm', textContent: nm }),
+               Object.assign(document.createElement('div'), { className: 'ds', innerHTML: ds }));
+      row.appendChild(d);
+    }
+    return;
+  }
+  if (MODE === 'sys') {
+    for (const [nm, src, ds] of SYS_SHOTS) {
+      const d = document.createElement('div'); d.className = 'cell';
+      const im = document.createElement('img');
+      im.src = '/' + src; im.style.cssText = 'width:328px;display:block;border-radius:14px';
+      d.append(im, Object.assign(document.createElement('div'), { className: 'nm', textContent: nm }),
+               Object.assign(document.createElement('div'), { className: 'ds', innerHTML: ds }));
+      row.appendChild(d);
+    }
+    return;
+  }
+  if (MODE === 'flow') {
+    const d = document.createElement('div'); d.className = 'cell'; d.style.width = '420px';
+    const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+    cv.style.width = '420px'; cv.style.height = '700px';
+    d.append(cv, Object.assign(document.createElement('div'), { className: 'ds',
+      innerHTML: '<b style="color:#E9EAEE">0.0~1.6s</b> 관찰 — 캡슐이 크게 서고 카운트다운 3·2·1<br>'
+        + '<b style="color:#E9EAEE">1.6~2.6s</b> <b>전환</b> — 캡슐이 위로 물러나며 축소, 코치가 앞으로, 카운트 링이 필 배지로 형태 변환<br>'
+        + '<b style="color:#E9EAEE">2.6~5.4s</b> 따라하기 — 지면 마크가 아래에서 떠오르고 아크 게이지가 차오른다' }));
+    row.appendChild(d); cells.push([cv, drawFlow]);
+    return;
+  }
+  for (const [nm, ds, fn] of (MODE === 'preview' ? PREVIEW : FOLLOW)) {
+    const d = document.createElement('div'); d.className = 'cell';
+    const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+    d.append(cv, Object.assign(document.createElement('div'), { className: 'nm', textContent: nm }),
+             Object.assign(document.createElement('div'), { className: 'ds', innerHTML: ds.replace(/\*\*(.+?)\*\*/g, '<b style="color:#E9EAEE">$1</b>') }));
+    row.appendChild(d); cells.push([cv, fn]);
+  }
+}
+for (const [k, lb] of [['preview', '프리뷰(관찰)'], ['follow', '따라하기'], ['flow', '▶ 전환 인터랙션 (A안)'], ['sys', '◆ 실제 화면 캡처'], ['redo', '★ 캡슐 리디자인'], ['prog', '◇ 진행 배치 비교'], ['cont', '◈ 컨테이너 문법'], ['lay', '▤ 밀도·사이즈'], ['dev', '◎ 눈금 스케일'], ['tl', '⌁ 타임라인 위치']]) {
+  const b = document.createElement('button'); b.textContent = lb;
+  if (k === MODE) b.className = 'on';
+  b.onclick = () => { MODE = k; document.querySelectorAll('.seg button').forEach(x => x.classList.remove('on')); b.classList.add('on'); build(); };
+  document.getElementById('seg').appendChild(b);
+}
+document.getElementById('fscrub').addEventListener('input', e => { FPLAY = false; FT = +e.target.value; fp.textContent = '▶ 재생'; });
+document.getElementById('fsize').addEventListener('input', e => {
+  FS = +e.target.value; document.getElementById('fsz').textContent = FS.toFixed(2);
+});
+document.getElementById('fname').addEventListener('change', e => { FNAME = e.target.value; });
+const fp = document.getElementById('fplay');
+fp.onclick = () => { FPLAY = !FPLAY; fp.textContent = FPLAY ? '⏸ 정지' : '▶ 재생'; };
+build();
+const T0 = performance.now();
+(function loop() {
+  const now = performance.now();
+  if (MODE === 'flow') {
+    if (FPLAY) { FT = (FT + (now - FLAST) / 1000) % CY_LOOP; document.getElementById('fscrub').value = FT.toFixed(2); }
+    document.getElementById('ftime').textContent = FT.toFixed(2) + 's';
+  }
+  FLAST = now;
+  const t = MODE === 'flow' ? FT : (now - T0) / 1000 % 8;
+  for (const [cv, fn] of cells) {
+    const g = cv.getContext('2d');
+    g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, W, H);
+    try {
+      fn(g, t);
+      // ★ 투사 안전영역 오버레이 — 대지 안이라고 안전한 게 아니다. 콘이 사다리꼴이라
+      //   y1300 아래부터 대지(1600)가 콘을 넘는다. 디자인하면서 이 선을 항상 보고 있어야 한다.
+      if (document.getElementById('fsafe')?.checked) {
+        g.save(); g.strokeStyle = 'rgba(250,48,48,.55)'; g.lineWidth = 4; g.setLineDash([18, 14]);
+        g.beginPath();
+        for (let side = 0; side < 2; side++) {
+          for (let y = 0; y <= H; y += 40) {
+            const x = 800 + (side ? 1 : -1) * safeW(y) / 2;
+            y ? g.lineTo(x, y) : g.moveTo(x, y);
+          }
+          if (!side) g.moveTo(0, 0);
+        }
+        g.stroke(); g.setLineDash([]);
+        g.fillStyle = 'rgba(250,48,48,.75)'; g.font = "600 34px 'Supreme',sans-serif";
+        g.textAlign = 'left'; g.textBaseline = 'top';
+        g.fillText('SAFE ' + Math.round(safeW(2430)) + 'px @y2430', 40, 2500);
+        g.restore();
+      }
+    } catch (e) { if (!window.__err) { window.__err = e.message + ' @ ' + (e.stack||'').split('\n')[1]; console.error('[concept]', e); } }
+  }
+  requestAnimationFrame(loop);
+})();
+</script></body></html>

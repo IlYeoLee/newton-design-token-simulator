@@ -7,6 +7,7 @@
 // 인터페이스는 기존과 동일하게 유지한다 — `doc.getElementById(id).textContent/style.…`를
 // main.js 구동 코드가 그대로 쓴다(노드 = 그리기 스펙 겸 DOM 스텁). 이식 비용을 여기 한 파일에 가둔다.
 import * as THREE from 'three';
+import { arc as d3arc } from 'd3-shape';
 import { PAL, NEU, rgba } from './palette.js';
 
 const W = 1600, H = 2670;
@@ -28,10 +29,15 @@ const K = Math.min(3, Math.max(0.4, +_q.get('uiscale') || (_q.get('scene') ? 1 :
 const UI_FPS = Math.max(4, Math.min(60, +(new URLSearchParams(location.search).get('uifps')) || 12));
 
 const CX = W / 2;
+// ── 세이프 밴드 — 빔이 실제로 닿는 캔버스 세로 구간(유저 승인 08-05) ────────────
+//   커버리지 깊이 1.7m ÷ 캔버스 대응 깊이 2.47m ≈ 0.69. 대지 중앙 기준 그 폭만 쓴다.
+//   SAFE.y0~y1 밖에 그린 요소는 투사면 밖으로 새므로, 새 조판은 반드시 이 안에서.
+export const SAFE = { y0: 0, y1: 2480, get h() { return this.y1 - this.y0; } };   // 실측(대지 깊이 0.17~2.0m · near 0.30) — 아래 약 190px 만 빔 밖
 // 투사 UI 서체 규칙(유저 확정): Supreme 두 굵기만 — Bold 700 · Regular 400.
 // Freesentation·Pretendard 폴백은 은퇴(투사 UI는 영문 조판이고, 폴백이 끼면 자간이 달라진다).
 const sans = "'Supreme',sans-serif";
 // 수치 전용 페이스. 이걸 sans 로 바꾸면 문서 전체가 Supreme 2종만 남는다(유저가 원하면 한 줄).
+const INF2 = Infinity;
 const dot9 = "'OffBit','Supreme',sans-serif";
 // 투사 UI 공통 타이포 스케일 — 대지 실값이 화면에선 조금 컸다(유저). 조판 좌표는 그대로 두고
 // 글자만 줄인다. ?type=1 로 원래 크기.
@@ -138,16 +144,77 @@ export const GAUGE = { travel: 0.78, lead: 0.15, tail: 0.54 };   // 초 · 초 �
 // 간격으로 보였다(유저: "간격이 과하게 넓어"). 호 자체 좌표는 그대로다.
 const ARC = {
   vw: 360, x0: 19, x1: 341, cx: 180, rx: 261, ry: 188.5, top: 24,
-  stroke: 6, dot: 60, core: 19.79,         // 52 → 60 (core 비례) — 유리 마커 추가 확대(유저 3차)
+  stroke: 6, dot: 46, core: 15.17,         // 60 → 46 (gauge.js 원치수로 복귀) — 마커가 과했다(유저).
+                                           //   core 는 dot 비례(0.3298) 유지. 화면별로 더 줄이려면 o.dotK.
   clampL: 64, clampR: 316,                 // gauge.js — 마커는 페이드 구간 밖으로 안 나간다
   trackA: 0.85, trackR: 324.79 * 0.4264,   // trackFade 라디얼: 크라운 .85 → 양끝 0
   inkTop: 4, inkBot: 72,                   // 크라운의 마커 위끝 ~ 우측 끝 마커 아래끝
 };
+// ═══ 투사 안전폭 — 대지는 직사각이지만 투사면은 **사다리꼴**이다 ══════════════════
+//  대지(1600×2670)는 mid 행에서 콘 폭에 맞춰 스케일된다. 그래서 mid 위쪽은 콘이 더 넓어
+//  여유가 있고, **아래쪽은 콘이 좁아져 대지가 콘 밖으로 나간다**. 대지 안이라고 안전한 게 아니다.
+//  실측(러닝 기본 fpNear .3 / fpFar 2.0 · 0.687mm/px, 2026-08-05):
+//     y  176 → 2174px   |  y 1335 → 1548px
+//     y  300 → 2107px   |  y 1800 → 1297px
+//     y  500 → 1999px   |  y 2100 → 1135px
+//     y  900 → 1783px   |  y 2430 →  957px
+//                       |  y 2670 →  932px
+//  → 상단은 대지(1600)보다 넓지만 **y 1300 아래부터는 대지가 콘을 넘는다**.
+//    하단에 1000px 짜리를 놓으면 양끝이 빔 밖으로 잘린다(실측: y2430 안전폭 957).
+const SAFE_TBL = [[176, 2174], [300, 2107], [500, 1999], [900, 1783], [1335, 1548],
+                  [1800, 1297], [2100, 1135], [2430, 957], [2670, 932]];
+export function safeW(y) {
+  if (y <= SAFE_TBL[0][0]) return SAFE_TBL[0][1];
+  for (let i = 1; i < SAFE_TBL.length; i++) {
+    const [y0, w0] = SAFE_TBL[i - 1], [y1, w1] = SAFE_TBL[i];
+    if (y <= y1) return w0 + (w1 - w0) * (y - y0) / (y1 - y0);
+  }
+  return SAFE_TBL[SAFE_TBL.length - 1][1];
+}
+// ═══ 지면 가독 규약 — 165cm 사용자 기준 최소 글자 크기 ════════════════════════════
+//  왜 한 숫자가 아닌가: 대지는 **눕혀져** 있다. 화면 위(먼 쪽)는 시거리가 멀고 시선각이
+//  얕아 세로획이 눌리고, 발밑(가까운 쪽)은 거의 정면으로 본다. 같은 px 이라도 위에 있으면
+//  훨씬 작게 보인다 — 미감으로 크기를 정하면 위쪽 글자가 조용히 안 읽히게 된다.
+//
+//  실측(러닝 기본 투사, 2026-08-05):
+//    레인폭 2·halfAt(1.15m) = 1.098m ÷ 대지 1600px  →  MM_PER_PX = 0.686
+//    눈높이 1.55m(신장 165cm) · 대지는 발 앞 0.17m(y=2670) ~ 1.88m(y=176)
+//    캡높이 0.5°(글랜스 가독선) 확보에 필요한 폰트:
+//      y=176   시거리 2.43m · 단축 0.64 → 68px
+//      y=1335  시거리 1.89m · 단축 0.82 → 41px
+//      y=2670  시거리 1.56m · 단축 0.99 → 28px
+//  → 위에서 아래로 68 → 28 선형. 이 아래로는 '작게 보여서 예쁜' 게 아니라 안 읽히는 것이다.
+export const MM_PER_PX = 0.686;
+export const minFs = y => 68 - 40 * Math.min(1, Math.max(0, y / 2670));
+// 계측기 — ?legaudit=1 로 켜면 이번 페인트의 모든 fillText 를 규약과 대조해 모은다.
+//   추측으로 폰트를 뒤지지 않는다: 실제로 그려진 좌표·크기를 그대로 잡는다.
+const LEG_AUDIT = _q.get('legaudit') === '1';
+export const legFindings = [];
+function legWatch(ctx) {
+  if (!LEG_AUDIT || ctx.__legOn) return;
+  ctx.__legOn = true;
+  const orig = ctx.fillText.bind(ctx);
+  ctx.fillText = (txt, x, y, ...r) => {
+    try {
+      const m = ctx.getTransform();
+      // ★ 회전 텍스트는 m.d(=cosθ)만 보면 안 된다 — 호 위 라벨이 실제보다 작게 측정돼
+      //   있지도 않은 위반을 만든다. 회전+스케일의 실제 배율은 hypot(m.b, m.d).
+      const by = (m.f + m.d * y) / K, fs = (parseFloat(/(\d+(?:\.\d+)?)px/.exec(ctx.font)?.[1]) || 0) * Math.hypot(m.b, m.d) / K;
+      const need = minFs(by);
+      // 단위(m·min·sec·km·%)는 규약 대상이 아니다 — 큰 수치에 붙어 맥락으로 읽힌다.
+      const isUnit = /^(m|min|sec|km|%)$/.test(String(txt).trim());
+      if (fs > 0 && !isUnit && fs < need - 0.5 && String(txt).trim())
+        legFindings.push({ txt: String(txt).slice(0, 24), y: Math.round(by), fs: +fs.toFixed(1), need: +need.toFixed(1) });
+    } catch { /* 계측이 페인트를 죽이면 안 된다 */ }
+    return orig(txt, x, y, ...r);
+  };
+}
 const arcY = ax => ARC.top + ARC.ry * (1 - Math.sqrt(Math.max(0, 1 - ((ax - ARC.cx) / ARC.rx) ** 2)));
 /** 폭 w(= viewBox 360 에 대응) 게이지의 높이 */
 export const gaugeH = w => Math.round(w / ARC.vw * (ARC.inkBot - ARC.inkTop));
 
 const _gsCv = typeof document !== 'undefined' ? document.createElement('canvas') : null;
+const _rollCv = typeof document !== 'undefined' ? document.createElement('canvas') : null;   // rollNum 롤 페더 버퍼
 
 /** 기록 화면 스코어 게이지 — progress.html + report.css + gauge.js 1:1 이식.
  *  근사로 옮겼던 것들을 실값으로 되돌렸다(유저: "컴포넌트 그대로 이식한 거지?").
@@ -186,7 +253,7 @@ export function arcGauge(ctx, x0, y, w, p, o = {}) {
     ctx.strokeStyle = tg; path(ARC.x0, mx); ctx.stroke();
   }
   // ③ 마커 = 글라스
-  glassDot(ctx, hx, hy, ARC.dot / 2 * s);
+  glassDot(ctx, hx, hy, ARC.dot / 2 * s * (o.dotK ?? 1));   // dotK — 화면별 마커 축소(기본 1 = 타 화면 불변)
   ctx.restore();
 }
 
@@ -419,25 +486,50 @@ export function rollNum(ctx, target, t, delay, cd, x, y, size, o = {}) {
   const total = ws.reduce((a, b) => a + b, 0);
   let px = o.align === 'right' ? x - total : o.align === 'center' ? x - total / 2 : x;
   const H = size * 0.84;   // 휠 한 칸 = 글리프 잉크 높이(글자 상자가 아니라) — 두 자리가 겹쳐 보이지 않게
+  // ── 롤 중에만 상·하단 페더(유저 08-05) — 도는 동안 위아래가 부드럽게 잦아들어 '릴'로 읽히고,
+  //   카운팅이 끝나면(e→1) 페더 두께가 0 으로 줄며 은은하게 사라진다. 정지 상태 비용 0.
+  const fk = 1 - clamp01((e - 0.72) / 0.28);
+  const WH = size * 0.92, PADX = 8, PADY = Math.ceil(size * 0.10);
+  const px0 = px;
+  let g2 = ctx, dx = 0, dy = 0;
+  if (fk > 0.01 && _rollCv) {
+    _rollCv.width = Math.ceil(total + PADX * 2);
+    _rollCv.height = Math.ceil(WH + PADY * 2);
+    g2 = _rollCv.getContext('2d');
+    g2.font = NF; g2.textBaseline = 'top'; g2.textAlign = 'left';
+    g2.fillStyle = o.fill || '#fff'; g2.letterSpacing = (o.ls || 0) + 'px';
+    dx = PADX - px0; dy = PADY - y;   // 본 좌표 → 오프스크린 좌표
+  }
   for (let i = 0; i < str.length; i++) {
     const w = wheel[i];
-    if (w == null) { ctx.font = SF; ctx.fillText(str[i], px, y); px += ws[i]; continue; }
-    ctx.font = NF;
+    if (w == null) { g2.font = SF; g2.fillText(str[i], px + dx, y + dy); px += ws[i]; continue; }
+    g2.font = NF;
     const d = w.d, f = w.f;
-    ctx.save();
+    g2.save();
     // 창 = 딱 한 자리. ★ 너비를 **진행폭(ws)** 으로 잡으면 안 된다 — 호출부가 letterSpacing 을
     //   음수로 주면(예: 벽 스코어 ls:-8) 진행폭이 실제 잉크보다 좁아져 획이 잘린다.
     //   실측(08-05): OffBit 의 0(⊘)이 오른쪽 3분의 1 이 날아갔다(유저: 저 0만 잘린다고).
     //   → 잉크 경계(actualBoundingBox)로 창을 잡는다. 없는 브라우저면 진행폭 + 여유로 떨어진다.
-    const mm = ctx.measureText(String(d % 10));
+    const mm = g2.measureText(String(d % 10));
     const inkL = mm.actualBoundingBoxLeft, inkR = mm.actualBoundingBoxRight;
-    const cx0 = Number.isFinite(inkL) ? px - inkL - 3 : px - 4;
+    const cx0 = Number.isFinite(inkL) ? px + dx - inkL - 3 : px + dx - 4;
     const cw = Number.isFinite(inkR) ? (Number.isFinite(inkL) ? inkL : 0) + inkR + 6 : ws[i] + 8;
-    ctx.beginPath(); ctx.rect(cx0, y, cw, size * 0.92); ctx.clip();
-    ctx.fillText(String(d % 10), px, y - f * H);                                // 나가는 자리 = 위로
-    if (f > 0.03) ctx.fillText(String((d + 1) % 10), px, y + (1 - f) * H);      // 들어오는 자리 = 아래에서
-    ctx.restore();
+    g2.beginPath(); g2.rect(cx0, y + dy, cw, WH); g2.clip();
+    g2.fillText(String(d % 10), px + dx, y + dy - f * H);                     // 나가는 자리 = 위로
+    if (f > 0.03) g2.fillText(String((d + 1) % 10), px + dx, y + dy + (1 - f) * H);   // 들어오는 자리 = 아래에서
+    g2.restore();
     px += ws[i];
+  }
+  if (g2 !== ctx) {
+    const fpx = size * 0.20 * fk;                       // 페더 두께 — fk 가 줄면 저절로 사라진다
+    g2.globalCompositeOperation = 'destination-in';
+    const mg = g2.createLinearGradient(0, PADY, 0, PADY + WH);
+    mg.addColorStop(0, 'rgba(0,0,0,0)');
+    mg.addColorStop(Math.min(.49, fpx / WH), '#000');
+    mg.addColorStop(Math.max(.51, 1 - fpx / WH), '#000');
+    mg.addColorStop(1, 'rgba(0,0,0,0)');
+    g2.fillStyle = mg; g2.fillRect(0, 0, _rollCv.width, _rollCv.height);
+    ctx.drawImage(_rollCv, px0 - PADX, y - PADY);
   }
   ctx.letterSpacing = '0px';
   ctx.restore();
@@ -522,31 +614,146 @@ export function drawChars(ctx, txt, cx, y, h, ls, fn, align = 'center') {
 }
 
 // ── 나머지 문서(시작화면·전환·카운트다운·리포트) 데이터 — 각 HTML의 상수를 그대로 옮긴 것 ──
+// 러닝·농구 시작화면 = UI 한 벌(유저 08-05). 종목이 바꾸는 건 아래 다섯 필드뿐 —
+//   lines(제목 2줄) · sub(부제) · total(도트 히어로 분) · arcs(세그먼트 값·라벨·아이콘) · badge(선행 배지).
+//   레이아웃·모션·색은 _paint_ready 하나가 전담한다. Figma 시작화면 353:7066 정본.
+//   scale/pivotY 는 디자인이 아니라 투사 콘 맞춤 노브 — 농구 콘이 얕아 원치수는 잘린다(유저 실측).
+//   폐기: title·today·time·mode·comp(_paint_ready 가 안 읽던 잔재) · vid(코치 판은 main.js COACH_CFG 전담).
+// 배터리 잔량 — **세션당 한 번** 뽑아 고정(유저): 웨어러블 62~96 · 이어폰 38~88.
+//   기기마다 값이 달라야 '진짜 상태'로 읽힌다. 매 프레임 뽑으면 다이얼이 떤다.
+//   ※ 커밋 b3185e7 이 이 정의 없이 사용부만 들어와 페인트가 통째로 죽었다(동시 편집 유실) — 복구.
+const BATT = {
+  glasses: Math.round(62 + Math.random() * 34),
+  buds: Math.round(38 + Math.random() * 50),
+};
 const READY = {
-  // meta = 모바일 홈 카드의 '팩 · 시간' 표기(home.html 원본) — 지면도 같은 조판 규칙을 쓴다
-  'floor.html':    { title: "Sean's Final 1km Pace", today: 'Today · 5.0km · Standard', time: '30min', mode: 'Pace & Boost On', modeSm: true },
-  'floor-bk.html': { title: "Curry's Handle Pack",   today: 'Today · 15min · Standard',  time: '23min',     mode: 'Press On' },
+  // lbl = 분 표기 통일 'Nm'(유저 08-05) — 'min' 혼용 폐기. 글자 크기도 세그먼트 공통(LBL_FS/LBL_MS).
+  // 팩 정본(유저 08-05 팩 상세): 크리에이터 Sean · 팩명 **Sean's Pace Strategy** · Creator Pack 18m
+  //   프로세스 = STRETCH 8 + LEARN 10 = 18m 팩(고정) + RUN! 30m(유저 선택) → Main Workout 5km · 48m
+  //   부제 'Pace On' = Level & Mode.
+  // badge = 영상 구간(상태1) 부제 슬롯에 서는 낱말. 션은 크리에이터, 커리는 프로 선수(유저 08-06).
+  'floor.html':    { r2: { lines: ["Sean's", 'Pace Strategy'], sub: 'Pace On', badge: 'Creator', total: '5.0', unit: 'km',   // 시간(48분) → **거리 목표**(유저): 러닝은 '얼마나 뛰나'가 목표다
+                           arcs: [{ v: 8, lbl: '8m', muted: true, chipText: '8m' }, { v: 10, lbl: '10m', icon: 'feet', pad: 8 }, { v: 30, lbl: '30m', icon: 'run' }] } },
+                           // ★ 세그먼트는 **분**으로 되돌림(유저) — 총량만 거리(5.0km)다.
+                           //   총량 = 오늘의 목표(얼마나 뛰나) · 세그먼트 = 그 목표를 채우는 시간 배분(8+10+30=48분).
+                           //   둘의 단위가 달라도 되는 이유: 하나는 '무엇을 이루나', 다른 하나는 '어떻게 쓰나' 라서다.
+  'floor-bk.html': { r2: {   // 종목 공통 스펙으로 통합 — 농구 전용 콘텐츠 보정 폐기(유저 승인 08-05)
+                           lines: ["Curry's", 'Step Back'], sub: 'Press On', badge: 'Pro', total: '45', unit: 'min',   // 실제 훈련 구성(유저): 스트레칭 8 + 연습 22 + 실전 15 = 45분
+                           arcs: [{ v: 8, lbl: '8m', muted: true, chipText: '8m' }, { v: 22, lbl: '22m', icon: 'bkTrain', pad: 6 }, { v: 15, lbl: '15m', icon: 'bkPlay' }] } },
+                           // 스트레칭 8 · 연습(스텝백 드릴) 22 · 실전 15 = 45분. 아마추어 1회 세션 기준으로
+                           // 연습이 가장 길고 실전이 그 다음 — 기술 습득 세션의 실제 비중이다.
 };
 const TR = {
-  T1: { sub: 'Sean’s Final 1km Pace', title: 'Warm-Up Done!',
+  T1: { sub: 'Sean’s Pace Strategy', title: 'Warm-Up Done!',
     done: { lbl: 'Stretch', time: '5min', img: 'run/run_stretch.png' },
     next: { lbl: 'Learn', time: '10min', img: 'run/run_learn.png' } },
-  T2: { sub: 'Sean’s Final 1km Pace', title: 'Learning Complete!',
+  T2: { sub: 'Sean’s Pace Strategy', title: 'Learning Complete!',
     done: { lbl: 'Learn', time: '10min', img: 'run/run_learn.png' },
     next: { lbl: 'Run!', time: '10min', img: 'run/run_run.png' } },
-  BK_T1: { sub: 'Curry’s Signature Move', title: 'Warm-Up Done!',
+  BK_T1: { sub: 'Curry’s Step Back', title: 'Warm-Up Done!',
     done: { lbl: 'Stretch', time: '5min', img: 'bk/bk_stretch.png' },
     next: { lbl: 'Learn', time: '10min', img: 'bk/bk_learn.png' } },
-  BK_T2: { sub: 'Curry’s Signature Move', title: 'Learning Complete!',
+  BK_T2: { sub: 'Curry’s Step Back', title: 'Learning Complete!',
     done: { lbl: 'Learn', time: '10min', img: 'bk/bk_learn.png' },
     next: { lbl: 'Play!', time: '10min', img: 'bk/bk_play.png' } },
 };
 // 실전 직전 카운트다운 캡션. 전엔 아래 RP(리포트) 문구가 그대로 복사돼 있어서, 시작도 안 한
 //   화면이 'Session Complete' 라고 말했다. 벽 타이머와 같은 규칙으로 — 부제=구성·시간, 제목=지금 시작하는 구간.
+// ── 씬 캡슐 시스템(docs/SCENE-CAPSULE-SYSTEM.md, 유저 2026-08-05) — 스테이지별 옵트인.
+//   variant: preview(관찰: 큰 캡슐+Preview 배지+셰브론 힌트) — 이후 video/floor/mini 확장.
+// ★ 시작화면 광(엠버) 정본 — 피그마 익스포트 4겹 + 블렌드 모드. READY 캡슐 기준 좌표계
+//   (캡슐 박스 x291 y285 w1018 h1541)에서 잡혀 있다. 프리뷰·따라하기 알약도 **이 광을 그대로**
+//   쓴다(유저) — 같은 불이 캡슐을 따라 줄어드는 것이지 비슷한 그라디언트를 새로 그리는 게 아니다.
+// ═══ 지면 레이아웃 규약 — **여기서만 정한다** ══════════════════════════════════════
+//  왜: 화면마다 좌표를 손으로 박으니 요소가 서로를 가리고, 그때마다 말로 고쳐야 했다(유저).
+//  아래 밴드가 정본이고 페인터는 전부 여기서 파생한다. 새 요소를 놓을 자리는 밴드로 정한다.
+//
+//    y 176   ┌ HEAD   타이틀 영역(헤더 알약 1320×330)
+//    y 506   └
+//        +56   GAP_HP
+//    y 562   ┌ PROG   진행(아크) h143 · 폭은 safeW 로 깎는다
+//    y 705   └
+//       +120   GAP_PC
+//    y 825   ┌ CONTENT  콘텐츠(인물 영상·판정 마크)가 쓰는 영역. 여기 위로는 아무것도 안 올라온다.
+//    y 2330  └          (아래로 더 내려가면 투사 콘이 급격히 좁아진다 — safeW 참고)
+//    y 1980    FOOT     발자국 안정 영역(콘텐츠 하단). 3D 발마크는 이 y 를 기준으로 놓는다.
+//
+//  타입 최소치는 minFs(y) 규약과 함께 쓴다 — 타이틀은 시작화면과 같은 98, 캡션/단위는 64 하한.
+// ★ capHead 는 **예약 높이와 실제 그리는 높이가 반드시 같아야 한다**. 250 으로 예약하고
+//   388 을 그리고 있어서(RR 130 → HH = 130*2 + pad*2) 다음 노드가 138px 위에 앉았고,
+//   그 다음 노드가 진행 아크라 **아크가 알약을 가로질렀다**(실측: P3 t7.1 아크 마커 y327,
+//   알약 y112~359). 한 상수에서 둘 다 파생시켜 다시는 어긋나지 않게 한다.
+export const CAPHEAD_RR = 130;
+export const LAYOUT = {
+  PAD: 60,
+  HEAD: { y: 176, w: 1320, h: 348, pad: 64, gapU: 0, gapT: 56, minW: 720 },   // pad = 상하좌우 동일(44→64)
+  // ★ 아크와 위 알약 사이 간격(유저 #172: 붙어 보인다) 56 → 96.
+  GAP_HP: 96,
+  //   wMax 1048 은 대지 폭의 65% 라 마커만 깎아 쓰던 값이었다. 820 = 헤더(1320)의 62% —
+  //   아크가 알약에 딸린 물건으로 읽히는 비례. h 는 gaugeH(820)=155 와 맞춘다(전 143 은
+  //   1048 짜리 아크의 실제 잉크 198 보다 작아서 아래 콘텐츠와 겹칠 여지가 있었다).
+  PROG: { h: 155, wMax: 820 },
+  GAP_PC: 120,
+  CONTENT_Y1: 2330,
+  FOOT_Y: 1980,
+  TYPE: { title: 98, unit: 64, caption: 64, minCaption: 56 },
+  PREVIEW: { morph: 0.9, fade: 0.45 },   // 카운트 종료 → 둥근 컨테이너가 알약으로 · 인물 크로스페이드
+  get PROG_Y() { return this.HEAD.y + this.HEAD.h + this.GAP_HP; },
+  get CAPHEAD_H() { return CAPHEAD_RR * 2 + this.HEAD.pad * 2; },
+  get CONTENT_Y0() { return this.PROG_Y + this.PROG.h + this.GAP_PC; },
+};
+/** 대지 y → **전방 거리(m)**. 3D 요소(코치 판·발마크)를 레이아웃 밴드에 맞출 때 쓴다.
+ *  대지는 mid(y1335)가 boardFwd 에 놓이고 위로 갈수록 멀어진다 → fwd = boardFwd + (1335 - y)*sUni.
+ *  main.js 가 boardFwd·sUni 를 알고 있으므로 그 둘을 넘겨받아 계산만 해준다.
+ *  ★ 이게 없어서 3D 는 스테이지마다 z 를 손으로 박았고(-0.48/-1.05/-1.85 …), 그래서 지면 UI와
+ *    겹치는지 여부가 순전히 운이었다. 밴드에서 파생시키면 겹칠 수 없게 된다. */
+export const yToFwd = (y, boardFwd, sUni) => boardFwd + (1335 - y) * sUni;
+// 실측(러닝 기본 fpNear .3 / fpFar 2.0 · sUni 0.000687) — 밴드를 전방 거리로 환산하면:
+//   HEAD 1.88~1.653m · PROG 1.615m · CONTENT 1.434~0.40m · FOOT 0.641m
+// 현재 스테이지들이 손으로 박아 둔 발마크 z 와 대조한 결과:
+//   A2 -0.48 → CONTENT 안(다만 FOOT 밴드보다 앞) · A3 -1.05 → CONTENT 안
+// ★ 정정 — 위 환산은 **러닝 투사(fpFar 2.0)** 기준이다. 농구는 fpFar 2.4 라 대지 스케일(sUni)도
+//   밴드의 실거리도 달라진다. 농구 마크(-1.85 ~ -3.13)를 러닝 표로 재면 전부 '밴드 밖'으로
+//   나오지만, 그건 표가 틀린 것이지 마크가 틀린 게 아닐 수 있다(농구 투사존은 -1.2~-2.8 로
+//   따로 잡혀 있다). **농구 값은 농구 모드에서 rig 를 직접 읽어 재측정한 뒤에 손댈 것.**
+//
+// 그리고 유저 스샷의 '발자국이 헤더/진행을 가린다'는 A2(러닝, 마크 0.48m)였는데,
+//   그때 진행 아크가 y2180(= 0.505m)에 있었다 — **마크와 같은 자리**였다. 진행을 y562(1.615m)로
+//   올리면서 그 충돌은 해소된다. 즉 원인은 마크 z 가 아니라 진행의 위치였다.
+//   남은 검수 대상은 농구 스테이지뿐이고, 그건 위 정정대로 실측이 먼저다.
+const READY_GLOWS = [
+  ['glow-subtract.svg', 167.2, 1069.2, 1265.6, 931.6, 'hard-light'],
+  ['glow-hl1.svg', 211.6, 1453.6, 1176.8, 458.8, 'color-dodge'],
+  ['glow-hl2.svg', 310.4, 1380.4, 979.2, 541.2, 'lighter'],
+  // 컬러 면 = 피그마 377:3073 으로 **색·크기만** 갱신(에셋 재추출). 노드 811x1232 + 블리드
+  //   -29.43%/-19.37% → 이미지 1288.36x1709.36. 캡슐 시각상단(285) 기준 +66.
+  //   구값: 150.3, 1189.3, 1300.36x871.36 — 크기 그대로 두고 색만 바뀐 게 아니라 둘 다 바뀌었다.
+  ['glow-ell.svg', 155.8, 351.3, 1288.36, 1709.36, 'hard-light'],
+];
+// 농구는 컬러 면만 다르다(피그마 377:3209 '커리' — 러닝은 377:3073 '션'). 나머지 3겹은 공용.
+const READY_GLOWS_BK = READY_GLOWS.map(g => (g[0] === 'glow-ell.svg' ? ['glow-ell-bk.svg', ...g.slice(1)] : g));
+// ★ 색 규약(유저) — **첫 화면(READY)은 팩 대표 컬러**(러닝 glow-ell · 농구 glow-ell-bk),
+//   **그 이후 화면(프리뷰·따라하기)은 뉴턴 팔레트**. 색은 캔버스 합성으로 덮는 게 아니라
+//   **SVG 그라디언트 칩이 이미 갈려 있는 에셋**(glow-ell-newton.svg: FA3030 · FE6E3C · FEC389)
+//   을 쓴다 — 합성으로 덮으면 유리·글자까지 물들고 이음매가 생긴다(실측 2회).
+const CAP_GLOWS = READY_GLOWS.map(g => (g[0] === 'glow-ell.svg' ? ['glow-ell-newton.svg', ...g.slice(1)] : g));
+const READY_CAP = { x: 291, y: 285, w: 1018, h: 1541 };
+const CAPS = {
+  A1: { variant: 'preview',  },
+  BK_A1: { variant: 'preview',  },
+  // 실전 3분화(유저): video = 영상 보며 따라하기(타이머 배지) · floor = 바닥 가이드(호 + 토큰 존)
+  // · mini = 복잡 스텝(작은 영상 미리보기 + 진행 배지 + 타이틀 축소)
+  A3: { variant: 'video',  },
+  A2: { variant: 'floor',  },
+  BK_B2: { variant: 'mini', step: '1/4' },   // clip: 알파/그린 소스 확보 후(stepback_fwd 는 실사 배경 — 검은 박스 실측)
+  BK_B3: { variant: 'mini', step: '2/4' },
+  BK_B4: { variant: 'mini', step: '3/4' },
+  BK_B5: { variant: 'mini', step: '4/4' },
+};
 const TM = { C1: { sub: 'Run 10 min · Final 1 km', title: 'Run with Sean' },
              BK_C1: { sub: 'Play 10 min · 3 attempts', title: 'Step-Back 1 of 3' } };
 const RP = {
-  FIN: { sub: 'Sean’s Final 1km Pace', title: 'Session Complete',
+  FIN: { sub: 'Sean’s Pace Strategy', title: 'Session Complete',
     stats: [['Distance', '1.00 km'], ['Avg Pace', '5’42”'], ['Cadence', '174 spm']] },
   BK_FIN: { sub: 'Curry Step-Back Pack', title: 'Step-Back Locked In',
     stats: [['Step-Back 3PT', '2 / 3'], ['Step Accuracy', '86 %'], ['Release', '0.42 s', 'sm']] },
@@ -583,6 +790,43 @@ function drawText(ctx, n, y, t) {
   ctx.letterSpacing = '0px';
 }
 
+// ── 캡슐 대지 배경 — 투명(기본) / 단색 / 그라디언트. 씬 편집기(scenes.html '대지 배경')가
+//   window.__capBg = { mode, hex, alpha, hex2 } 를 라이브로 바꾸고, 씬 저장본에도 실린다.
+export function capFill(ctx, pathFn, x, y, w, h) {
+  const C = (typeof window !== 'undefined' && window.__capBg) || null;
+  const mode = C?.mode || 'none';
+  const a = C?.alpha ?? 0.18;
+  const hex = C?.hex || '#D9D9D9', hex2 = C?.hex2 || '#FFFFFF';
+  const toRgba = (hx, al) => {
+    const n = parseInt(hx.replace('#', ''), 16);
+    return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${al})`;
+  };
+  if (mode === 'solid') ctx.fillStyle = toRgba(hex, a);
+  else if (mode === 'gradient') {
+    const g = ctx.createLinearGradient(0, y, 0, y + h);
+    g.addColorStop(0, toRgba(hex, a));
+    g.addColorStop(1, toRgba(hex2, a * 0.15));
+    ctx.fillStyle = g;
+  } else ctx.fillStyle = 'rgba(217,217,217,.01)';   // 투명(정본 기본)
+  pathFn(); ctx.fill();
+}
+
+// ── 부채꼴 조판 프리미티브 (READY 반원 레이아웃) ───────────────────────────────
+export function arcSegFill(ctx, cx, cy, r0, r1, a0, a1, fill, round) {
+  // d3.arc 정석 — cornerRadius 를 라이브러리가 처리한다(유저: 하드코딩 금지).
+  //   각도 변환: 이 파일은 +x 축 기준(캔버스 arc), d3 는 12시 기준 시계방향 → +90°.
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.fillStyle = fill;
+  ctx.beginPath();
+  d3arc().context(ctx)
+    .innerRadius(r0).outerRadius(r1)
+    .startAngle(a0 + Math.PI / 2).endAngle(a1 + Math.PI / 2)
+    .cornerRadius(round ?? (r1 - r0) * 0.42)({});
+  ctx.fill();
+  ctx.restore();
+}
+
 // 완료 체크 배지 — Figma 52:3178 정본: 흰 원(글로우) + 뉴턴 레드 체크.
 // 원본 HTML은 반투명 흰 원 + 흰 체크였는데 그게 Figma와 달랐다(유저 지적).
 export function checkBadge(ctx, cx, cy, r) {
@@ -603,6 +847,121 @@ function drawRing(ctx, n, y, prog, color) {
   ringGauge(ctx, CX, y + n.size / 2, 275 * n.size / 604, prog, { color });
 }
 
+/** 3·2·1 카운트다운 링 — **정본 컴포넌트**. floor-timer.html(_paint_timer)이 쓰던 코드를
+ *  그대로 꺼낸 것이라 링 규격(604 · r275)·도트 숫자(220)·모션(ringPop 0.6→1.05→1 ·
+ *  ringBreath 3회 · numPulse 1.5→1)이 전부 원본과 같다.
+ *  왜 뺐나(유저 2회 지적): 다른 화면에서 카운트다운이 필요할 때마다 링과 숫자를 **다시 그리면**
+ *  같은 물건이 화면마다 다른 물건이 된다. 쓰는 쪽은 이 함수만 부른다.
+ *  o.t = 컴포넌트 로컬 시간(등장 모션용) · o.pulse = 숫자 바뀐 뒤 경과(0~1, numPulse) ·
+ *  o.k = 크기 배율(1 = 604) · o.alpha · o.morph(0~1) = 링→알약 형태 변환(0 이면 순수 링). */
+export function countRing(ctx, cx, cy, prog, txt, o = {}) {
+  const t = o.t ?? 99, K2 = o.k ?? 1, mo = clamp01(o.morph ?? 0);
+  const e = eOut(intro(t, .35, .8)), br = cycle(t, 1.2, 3, 3);
+  ctx.save();
+  ctx.globalAlpha *= kf(e, [[0, 0], [.7, 1], [1, 1]]) * (o.alpha ?? 1);
+  const k = kf(e, [[0, .6], [.7, 1.05], [1, 1]]);
+  ctx.translate(cx, cy); ctx.scale(k, k); ctx.translate(-cx, -cy);
+  if (br != null && mo < .5) {
+    const g2 = kf(br, [[0, 0], [.5, 1], [1, 0]]) * (1 - mo * 2);
+    ctx.shadowColor = `rgba(255,255,255,${.35 * g2})`; ctx.shadowBlur = 26 * g2;
+  }
+  const R2 = 275 * K2;
+  if (mo <= 0) {
+    //   링 굵기는 호출자가 줄 수 있다 — 작아진 링(헤더 슬롯)은 기본 굵기로는 바닥에서 흐려진다.
+    ringGauge(ctx, cx, cy, R2, prog, { color: '#fff', ...(o.ring || {}) });
+  } else {
+    // 형태 변환 — 링(정사각 roundRect, r=반지름)에서 알약(폭 pw · 높이 100k · r 50k)으로.
+    //   같은 패스를 채움 0→.34 · 외곽선 1→0 으로 넘기면 '선으로 그린 링'이 '채워진 알약'이 된다.
+    const pw = (o.pillW ?? 200) * K2, ph = 100 * K2;
+    const L = (a, b) => a + (b - a) * mo;
+    const w2 = L(R2 * 2, pw), h2 = L(R2 * 2, ph), r2 = L(R2, 50 * K2);
+    const path = () => { ctx.beginPath(); ctx.roundRect(cx - w2 / 2, cy - h2 / 2, w2, h2, r2); };
+    ctx.save();
+    ctx.shadowColor = 'rgba(255,255,255,.8)'; ctx.shadowBlur = 34 * mo;
+    ctx.fillStyle = `rgba(255,255,255,${.34 * mo})`; path(); ctx.fill();
+    ctx.restore();
+    ctx.strokeStyle = `rgba(255,255,255,${.38 * (1 - mo)})`; ctx.lineWidth = 3; path(); ctx.stroke();
+    if (mo < .9) {   // 진행 광점 — 링일 때만
+      const pa = prog * Math.PI * 2 - Math.PI / 2;
+      ctx.save(); ctx.globalAlpha *= 1 - mo / .9;
+      ctx.beginPath(); ctx.arc(cx + Math.cos(pa) * w2 / 2, cy + Math.sin(pa) * h2 / 2, 9 * K2, 0, 7);
+      ctx.fillStyle = '#fff'; ctx.fill(); ctx.restore();
+    }
+  }
+  ctx.shadowBlur = 0;
+  // numPulse — 숫자가 바뀔 때 1.5 → 1
+  const q = clamp01(o.pulse ?? 1), nk = kf(q, [[0, 1.5], [1, 1]], eOut);
+  ctx.save();
+  ctx.globalAlpha *= kf(q, [[0, 0], [.35, 1], [1, 1]]);
+  ctx.translate(cx, cy); ctx.scale(nk, nk); ctx.translate(-cx, -cy);
+  // 카운트다운은 'GO' 까지 도트(유저 확정) — 숫자-전용 규약의 명시적 예외.
+  //   ★ 단위(유저: 여기서 12가 의미하는 게 뭐냐) — 숫자만 있으면 초인지 횟수인지 알 수 없다.
+  //     이 슬롯은 '지금 세고 있는 값'이고, 동작 유형에 따라 초/횟수/세트가 들어간다.
+  //     그래서 단위를 값의 일부로 붙인다. 링(카운트다운) 구간엔 안 붙는다 — 3·2·1 은 자명하다.
+  //   알약 상태의 글자 크기는 호출자가 정한다(o.pillFs, 기본 68 = 정본 배지 규격).
+  //   타이머가 주인공이어야 하는 화면에선 더 키운다(유저: 시간이 읽히기나 해?).
+  const fs2 = (220 - (220 - (o.pillFs ?? 68)) * mo) * K2;
+  ctx.font = F(700, fs2, dot9);
+  ctx.fillStyle = o.fill || '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  const uk = o.unit && mo > .55 ? (mo - .55) / .45 : 0;
+  if (uk > 0) {
+    const nw2 = ctx.measureText(txt).width;
+    ctx.font = F(400, fs2 * .46);
+    const uw = ctx.measureText(o.unit).width, gap2 = fs2 * .16;
+    ctx.font = F(700, fs2, dot9);
+    ctx.fillText(txt, cx - (uw + gap2) / 2, cy);
+    ctx.save(); ctx.globalAlpha *= Math.min(1, uk);
+    ctx.font = F(400, fs2 * .46); ctx.fillStyle = 'rgba(255,255,255,.62)';
+    ctx.fillText(o.unit, cx + (nw2 + gap2) / 2, cy + fs2 * .17);
+    ctx.restore();
+  } else ctx.fillText(txt, cx, cy);
+  ctx.restore();
+  ctx.restore();
+}
+/** 눈금 스케일 — 연속 값 하나를 '많은 얇은 눈금 + 밝은 지시선'으로 읽힌다.
+ *  왜 필요한가: 편차 바(_devBar)는 선 하나 + 점 하나라 투사면에서 점이 어디쯤인지 가늠할
+ *  기준이 없다(양끝이 페이드라 끝도 안 보인다). 눈금이 촘촘하면 **얼마나** 벗어났는지가
+ *  거리 감각으로 잡히고, 지시선 하나만 밝으면 시선이 거기로 바로 간다.
+ *  dev = -1~+1 (0 = 목표) · o.n 눈금 수 · o.h 눈금 높이 · o.col 지시선 색.
+ *  ★ 매체 주의: 원본 레퍼런스는 '밝은 블룸 + 어두운 코어'인데 바닥은 밝은 트랙 위 가산 투사라
+ *    어두운 값을 못 만든다. 그래서 코어는 빼고 **눈금 구조만** 가져온다. */
+export function tickScale(ctx, cx, by, w, dev, o = {}) {
+  // ★ 바닥 튜닝(유저: 바닥에서도 더 잘 읽히게) — 밝은 트랙(#8B9080) 위 가산 투사에서는
+  //   얇고 흐린 흰 선이 그냥 사라진다. 화면 UI 감각으로 잡은 3px/.30 은 투사면에서 워시아웃.
+  //   ① 눈금 수를 줄여(29→21) 칸을 벌리고 ② 그만큼 굵게(3→6, 중앙 8) ③ 알파를 올리고(.30→.48)
+  //   ④ 높이를 키운다(34→46). 촘촘함보다 **한 칸이 보이는 것**이 먼저다.
+  //   ★ 눈금 **수**를 고정하면 안 된다(유저: 2단 그리드는 어떻게 대응하지). 실전 스탯은
+  //     2단으로 앉아 칼럼이 232~460px 로 좁아지는데, 21개를 그대로 넣으면 6px 획이 붙어
+  //     회색 띠가 된다. 고정할 것은 개수가 아니라 **간격(pitch)** 이다 — 획 6 + 여백 16 = 22.
+  //     n 은 폭에서 파생하고 **항상 홀수**로 만든다(가운데 목표 눈금이 없으면 기준이 사라진다).
+  const PITCH = o.pitch ?? 22;
+  const nAuto = Math.max(5, Math.floor(w / PITCH) | 1);
+  const n = o.n ?? nAuto, h = o.h ?? 46, col = o.col || '#fff';
+  ctx.save(); ctx.lineCap = 'round';
+  for (let i = 0; i < n; i++) {
+    const u = i / (n - 1), x = cx - w / 2 + w * u;
+    const edge = Math.sin(u * Math.PI);                 // 양끝으로 갈수록 흐리고 짧게
+    const mid = Math.abs(u - .5) < .001;
+    // ★ 끝 눈금이 0.34 까지 죽으면 스케일의 **끝이 어딘지**가 안 보인다. 지시선이 끝에
+    //   박혔을 때 '눈금 밖에 뜬 빨간 선'으로 읽히던 두 번째 원인. 하한을 .60 으로 올린다.
+    ctx.strokeStyle = rgba(NEU.paper, (mid ? .88 : .48) * (0.60 + 0.40 * edge));
+    ctx.lineWidth = mid ? 8 : 6;
+    const hh = h * (mid ? 1.30 : (.66 + .34 * edge));
+    ctx.beginPath(); ctx.moveTo(x, by - hh / 2); ctx.lineTo(x, by + hh / 2); ctx.stroke();
+  }
+  if (o.on === false) { ctx.restore(); return; }
+  // 지시선 — 눈금과 같은 어휘(세로 선)지만 더 길고 더 밝다. 점이 아니라 선이라 눈금 사이에
+  //   있어도 '어느 칸'인지가 읽힌다.
+  const px = cx + Math.max(-1, Math.min(1, dev)) * (w / 2);
+  //   지시선도 같이 키운다 — 눈금이 굵어진 만큼 더 굵고 더 길어야 '하나만 밝다'가 성립한다.
+  ctx.shadowColor = col; ctx.shadowBlur = 30;
+  ctx.strokeStyle = col; ctx.lineWidth = 12; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(px, by - h * .88); ctx.lineTo(px, by + h * .88); ctx.stroke();
+  ctx.shadowBlur = 0;   // 코어 한 번 더 — 글로우만 남으면 투사에서 뭉개진다
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 5;
+  ctx.beginPath(); ctx.moveTo(px, by - h * .78); ctx.lineTo(px, by + h * .78); ctx.stroke();
+  ctx.restore();
+}
 function drawCenteredNum(ctx, text, cx, cy, size) {
   // 도트는 숫자에만 — 값이 없어 '—' 를 띄우는 순간까지 도트로 찍히면 안 된다(유저 규약).
   ctx.font = F(700, size, /\d/.test(String(text)) ? dot9 : sans);
@@ -636,21 +995,40 @@ function buildScene(stage, p) {
   const PH = (typeof window !== 'undefined' ? window.FLOOR_PHASES : null)
     || { running: ['WARM UP', 'PACE', 'RUN'], basketball: ['WARM UP', 'DRILL', 'GAME'] };
   const phases = PH[/^BK_/.test(stage) ? 'basketball' : 'running'];
-  if (!isC && phases && S.phase != null)
+  // ★ 연습(P)엔 브레드크럼을 빼다(유저) — 'PACE 1/3' 은 헤더 알약 바로 위 한 줄인데,
+  //   알약이 이미 동작명을 크게 말하고 있어 같은 자리에서 두 번 읽힌다. 정보량 정리의 연장.
+  if (!isC && !isP && phases && S.phase != null)
     col.push(node('s-crumb', { type: 'crumb', phases, phase: S.phase, sub: S.sub || '', mb: -34 }));
-  if (!isC) col.push(node('s-title', { type: 'text', textContent: S.title, size: 120, weight: 700, ls: -4, color: '#fff', cascade: true }));
-  col.push(node('s-cue', { type: 'text', textContent: S.cue || '', size: 52, weight: 400, color: 'rgba(255,255,255,.72)', style: { display: 'none' } }));
+  // ★ 프리뷰(관찰) A안 확정(유저) — 제목만 크게 놓던 것을 **미니 캡슐 헤더**로 바꾼다:
+  //   유리 알약 + 왼쪽에 카운트 링(정본 countRing) + 동작명. 시작화면 캡슐이 작아져 올라온
+  //   것으로 읽히고, 카운트다운 링이 형태를 안 바꾸고 그 자리에 앉는다.
+  //   타이머는 기존 컴포넌트 그대로 — 새로 그리지 않는다.
+  if (!isC) col.push(node('s-head', { type: 'capHead', title: S.title, dur: p.dur || 8, pv: hasPrev ? (p.pv || 3) : 0 }));
+  // ★ 가이드 문구는 대문자(유저 08-05) — 복싱(벽)이 세션마다 대문자라 지면도 같은 규약으로.
+  //   한글은 toUpperCase 가 무영향이라 그대로 지나간다. 이름·수치는 대상이 아니다.
+  col.push(node('s-cue', { type: 'text', textContent: String(S.cue || '').toUpperCase(), size: 52, weight: 400, color: 'rgba(255,255,255,.72)', style: { display: 'none' } }));
   // 실전 상단 — 케이던스 팩은 누적 거리, 페이스 팩은 '목표 대비 지금 몇 초'.
   //   페이스 팩에서 누적 거리를 안 쓰는 이유: 달리는 중에 필요한 건 이미 한 양이 아니라 남은 양이다
   //   (남은 거리는 아래 paceSub 로 내려간다). 누적은 리포트에서 볼 값.
   if (isC) col.push(PACE_PACK ? node('pace-err', { type: 'paceErr' }) : node('km', { type: 'km' }));
-  if (hasPrev) col.push(node('prev-row', { type: 'prevRow', pv: p.pv || 3, pvn: p.pvn || 0 }));
+  // ★ 레거시 prevRow 폐기(유저: 농구는 러닝 디자인시스템조차 적용 안 된 것 같다).
+  //   'PREVIEW →' 알약 + 별도 카운트 링은 **헤더(capHead)의 카운트 링과 같은 값을 두 번** 말한다.
+  //   관찰 카운트다운은 헤더 링이 전담한다 — 캡슐 경로(_paint_capsule)와 같은 규약.
+  //   (pv 는 capHead 로 넘겨 관찰 구간을 세게 한다)
   // 도트 진행바 — 원본 HTML의 노출 규칙 두 가지를 그대로 따른다.
   //  ① 시범(Preview) 동안은 감춘다. 공간도 차지하지 않는다 — 프리뷰가 그 자리를 쓰기 때문.
   //  ② 스텝백 따라하기(BK_B2~B5)엔 아예 없다. 진행은 상단 n/4 가 담당(유저 확정).
   //  ③ 자리를 이어받는 노드는 앞 노드가 다 비운 뒤(아웃로 0.05+0.45) 나타난다 — 안 그러면 슬라이드로 보인다.
-  if (!isStep) col.push(node('s-dots', { type: 'dots', mt: -38, dur: p.dur || 8, hideUntil: hasPrev ? (p.pv || 3) + 0.5 : 0, delay: hasPrev ? (p.pv || 3) + 0.15 : 0 }));
-  if (isP) col.push(node('train-row', { type: 'trainRow', ring: /^P[23]$/.test(stage) }));
+  //  ④ **연습(P)엔 없다**(유저: 정보량 조절·불필요 제거). 시간은 화면에 한 번만 말한다 —
+  //     P 는 헤더(capHead)의 카운트 링이 '남은 초'를 숫자와 링으로 이미 전담한다. 그 아래
+  //     아크까지 두면 같은 값을 두 번 그리는 것이고, 알약 바로 밑이라 한 덩어리로 붙어 보였다.
+  //     실전(C)은 헤더가 없어 이 아크가 유일한 진행 표시라 그대로 둔다.
+  if (!isStep && !isP) col.push(node('s-dots', { type: 'dots', mt: -38, dur: p.dur || 8, hideUntil: hasPrev ? (p.pv || 3) + 0.5 : 0, delay: hasPrev ? (p.pv || 3) + 0.15 : 0 }));
+  // ★ 링 제거(유저 #177: 연습할 때 타이머가 2개가 말이 되냐) — P2/P3 의 이 링은 구간 남은
+  //   초였는데, 헤더 알약이 이미 '남은 초 + 동작명'을 말한다. 같은 종류의 값이 라벨도 없이
+  //   옆에 하나 더 떠 있어서 12 와 7 중 무엇이 진짜 타이머인지 읽을 수 없었다.
+  //   헤더 = 타이머 + 타이틀, 아래 = 수행(SPM) 하나. 러닝에 2단 구조는 두지 않는다.
+  if (isP) col.push(node('train-row', { type: 'trainRow' }));
   if (isC) col.push(PACE_PACK ? node('pace-sub', { type: 'paceSub' }) : node('live-row', { type: 'liveRow' }));
   col.push(node('s-succ', { type: 'succ', style: { display: 'none' } }));
   return { col, hasPrev, isStep, pv: p.pv || 3 };
@@ -766,11 +1144,14 @@ export class FloorGL {
 
   _paint() {
     const ctx = this.ctx;
+    legWatch(ctx);
     ctx.setTransform(K, 0, 0, K, 0, 0);
     ctx.clearRect(0, 0, W, H);
     this._textBand.y0 = 1e9; this._textBand.y1 = -1e9;   // 매 프레임 재수집
     if (this.kind && this.kind !== 'scene') return this['_paint_' + this.kind]();
-    let y = 176;   // Figma 대지 실좌표
+    const cap2 = CAPS[this.stage];
+    if (cap2) return this._paint_capsule(cap2);   // 신규 캡슐 시스템(옵트인) — 레거시 조판 대체
+    let y = LAYOUT.HEAD.y;   // 레이아웃 규약
     for (const n of this.col) {
       if (n.style.display === 'none') continue;
       if (n.hideUntil && this.t < n.hideUntil) continue;   // 시범 중 도트바 — 자리도 비운다
@@ -784,6 +1165,9 @@ export class FloorGL {
       // Success 는 흐름에서 빼고 대지 비율로 못박는다 — 앞 노드가 숨으면 같이 튀었다(유저).
       const yFlow = y;
       if (n.type === 'succ') y = Math.round(H * 0.42);
+      // ★ 진행 게이지는 **흐름 그대로** 둔다 — 헤더(capHead) 바로 다음 자리가 이미 y≈586 이라
+      //   '헤더 아래'가 저절로 성립한다. 좌표로 못박았더니 뒤 노드(trainRow)가 그 자리로
+      //   올라와 겹쳤다(실측: P1 에서 SPM 이 아크 위에 얹혔다).
       if (n.style.visibility !== 'hidden') {
         const e = this._intro(n);
         ctx.save();
@@ -813,10 +1197,11 @@ export class FloorGL {
   _h(n) {
     switch (n.type) {
       case 'crumb': return 50;
+      case 'capHead': return LAYOUT.CAPHEAD_H;   // 실제 그리는 높이와 같은 식 — 하드코딩 금지
       case 'text': return n.size * 1.06;
       case 'dots': return gaugeH(760);
       case 'prevRow': return 200;
-      case 'trainRow': return n.ring ? 236 : 228;   // 새 스탯 컴포넌트(값 132 + 편차바 + 라벨) 실높이
+      case 'trainRow': return 228;   // 새 스탯 컴포넌트(값 132 + 편차바 + 라벨) 실높이
       case 'liveRow': return 228;
       case 'paceErr': return 300;   // 값 200 + 편차 바 + 목표 라벨
       case 'paceSub': return 150;   // 남은 거리 · 구간 누적 편차 두 칸
@@ -861,6 +1246,7 @@ export class FloorGL {
     const ctx = this.ctx;
     switch (n.type) {
       case 'crumb': return this._crumb(n, y);
+      case 'capHead': return this._capHead(n, y);
       case 'text': return drawText(ctx, n, y, this.t);
       case 'dots': return this._dots(n, y);
       case 'prevRow': return this._prevRow(n, y);
@@ -870,6 +1256,85 @@ export class FloorGL {
       case 'paceErr': return this._paceErr(n, y);
       case 'paceSub': return this._paceSub(n, y);
       case 'succ': return this._succ(n, y);
+    }
+  }
+
+  /** 미니 캡슐 헤더 — [유리 알약] 왼쪽 카운트 링 + 동작명. 프리뷰 A안 정본(유저 확정).
+   *  폭은 고정(840) — 스테이지마다 헤더가 커졌다 작아지면 '같은 물건이 자리를 옮긴다'가 깨진다.
+   *  타이틀 상한 400px 은 floor-scenes.js 에서 지킨다(농구 스텝 4개를 그 규칙으로 줄였다). */
+  /** 헤더 폭 스무딩 — 폭은 타이틀 실폭에서 파생되는데, 전환 순간 타이틀이 통째로 바뀐다
+   *  (대문자화 · 'LEFT ' 접두사 · 2줄→1줄). 그러면 폭이 **한 프레임에 점프**해서 캡슐이 툭 끊긴다
+   *  — 유저가 말한 '중간에 버벅인다'의 정체다. 목표 폭으로 지수 수렴시켜 형태 변화를 이어 붙인다.
+   *  시간상수 0.12s: 전환(0.9s)보다 충분히 짧아 지연으로 안 느껴지고, 점프는 완전히 녹는다. */
+  _smoothW(target) {
+    const dt = Math.max(0.001, Math.min(0.25, this.t - (this._hwT ?? this.t)));
+    this._hwT = this.t;
+    if (this._headW == null || Math.abs(target - this._headW) > 900) this._headW = target;   // 스테이지 전환은 즉시
+    else this._headW += (target - this._headW) * (1 - Math.exp(-dt / 0.12));
+    return this._headW;
+  }
+
+  _capHead(n, y) {
+    // ★ 위계 정정(유저: 타이머도 개 작아지고 sec 보이지도 않고 타이틀도 줄었다 — 이게 맞냐).
+    //   맞지 않았다. 250 높이 알약에 셋을 우겨넣어 전부 작아졌고, 특히 **타이머 숫자(67)가
+    //   타이틀(72)보다 작았다** — 따라하기 중 계속 봐야 하는 값이 제일 작았다는 뜻이다.
+    //   'sec' 40px 는 minFs(≈63) 미달이라 애초에 안 보이는 게 정상이었다.
+    //   → 알약을 키우고(1140×330) 링을 키워(RR 120 → 숫자 96) 타이머를 주인공으로 되돌린다.
+//   ★ 타이틀 크기는 **시작화면 것을 그대로 유지**한다(유저) — 같은 물건이 줄어드는 것인데
+    //     글자만 작아지면 다른 화면이 된다. READY 타이틀 98px 을 프리뷰(100)·헤더 모두 같이 쓴다.
+    //     'Neck & Shoulders' 가 98px 에서 739px 이라 알약 폭은 1320 이 필요하다(y176 안전폭 2174).
+    // ★ 여백 균등 + 폭은 **내용에서 파생**(유저: 좌우상하 여백 맞추고, 글자 적으면 줄어들게).
+    //   pad 44 를 상하좌우에 동일하게 쓰고(HH = 링지름 + pad*2), 폭은 실측 텍스트에서 만든다.
+    const ctx = this.ctx, H2 = LAYOUT.HEAD, PAD = H2.pad;
+    const RR = CAPHEAD_RR, HH = LAYOUT.CAPHEAD_H;   // _h('capHead') 와 같은 식
+    // ★ 'sec' 을 가로로 나열하지 않는다(유저: 그것 때문에 가로 길이가 커진다).
+    //   단위는 숫자에 딸린 값이라 **링 안 숫자 아래**에 붙인다 — 폭 계산에서 통째로 빠진다.
+    const uw = 0;
+    const T = String(n.title || '').toUpperCase();   // 코칭 타이틀 = 대문자(유저)
+    ctx.font = F(700, LAYOUT.TYPE.title); ctx.letterSpacing = '-4px';
+    const tw = ctx.measureText(T).width;
+    ctx.letterSpacing = '0px';
+    const W2 = this._smoothW(Math.max(H2.minW, Math.min(safeW(y) - 80,
+      PAD + RR * 2 + H2.gapU + uw + H2.gapT + tw + PAD + (n.step ? 110 : 0))));
+    const x = CX - W2 / 2;
+    const path = () => { ctx.beginPath(); ctx.roundRect(x, y, W2, HH, HH / 2); };
+    ctx.save();
+    path(); ctx.clip();
+    ctx.fillStyle = 'rgba(255,255,255,.055)'; ctx.fillRect(x, y, W2, HH);
+    ctx.filter = 'blur(37px)'; ctx.strokeStyle = 'rgba(255,255,255,.25)'; ctx.lineWidth = 80;
+    path(); ctx.stroke(); ctx.filter = 'none';
+    ctx.restore();
+    const rim = ctx.createLinearGradient(0, y, 0, y + HH);
+    rim.addColorStop(0, 'rgba(255,255,255,.95)'); rim.addColorStop(.45, 'rgba(255,255,255,.22)');
+    rim.addColorStop(1, 'rgba(255,255,255,.06)');
+    ctx.strokeStyle = rim; ctx.lineWidth = 2.5; path(); ctx.stroke();
+    // 카운트 링 — 정본 컴포넌트 그대로(형태 변환 없음, 자리만 여기다)
+    const cyR = y + HH / 2, cxR = x + PAD + RR;   // 링 왼쪽 여백 = pad(상하와 동일)
+    // 관찰 구간(pv초)엔 3·2·1, 이후엔 남은 시간 — 캡슐 경로와 같은 규약(값이 두 곳에서 안 갈린다).
+    const dur = n.dur || 8, PV = n.pv || 0, inPv = PV > 0 && this.t < PV;
+    const rem = inPv ? Math.max(1, Math.ceil(PV - this.t)) : Math.max(0, Math.ceil(dur - this.t));
+    if (String(rem) !== this._numLast2) { this._numLast2 = String(rem); this._numT2 = this.t; }
+    countRing(ctx, cxR, cyR, inPv ? clamp01(1 - this.t / PV) : clamp01(1 - (this.t - PV) / Math.max(.1, dur - PV)), String(rem),
+      { t: 99, k: RR / 275, pulse: clamp01((this.t - (this._numT2 || 0)) / 0.5),
+        ring: { trackW: 10, arcW: 10, trackA: .26 } });
+    ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = 'rgba(255,255,255,.62)'; ctx.font = F(400, 46);
+    ctx.fillText('sec', cxR, cyR + RR * .55);
+    ctx.textAlign = 'left';
+    // 52 → 72(유저: 타이틀이 너무 작다). 최장 'Neck & Shoulders' 가 72px 에서 543px —
+    //   폭 1000 의 타이틀 예산(≈560) 안에 들어간다. y176 안전폭은 2174 라 여유는 충분하다.
+    ctx.fillStyle = '#fff'; ctx.font = F(700, LAYOUT.TYPE.title); ctx.letterSpacing = '-4px';
+    const tx = cxR + RR + H2.gapU + uw + H2.gapT;   // 링 → sec 실폭 → 타이틀
+    // 쉼표가 있으면 의미 단위로 두 줄(농구 스텝) — 지금 데이터엔 없지만 규칙은 남긴다.
+    const ci = T.indexOf(', ');
+    if (ci > 0) { ctx.fillText(T.slice(0, ci + 1), tx, cyR - 56); ctx.fillText(T.slice(ci + 2), tx, cyR + 56); }
+    else ctx.fillText(T, tx, cyR);
+    ctx.letterSpacing = '0px';
+    // 스텝 배지(n/4) — 농구 분해 스텝만. 헤더 오른쪽 끝에 조용히.
+    if (n.step) {
+      ctx.textAlign = 'right'; ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.font = F(400, 44);
+      ctx.fillText(n.step, x + W2 - PAD, cyR);
     }
   }
 
@@ -885,8 +1350,10 @@ export class FloorGL {
     if (pu != null) ctx.globalAlpha *= kf(pu, [[0, 1], [.5, .6], [1, 1]]);
     ctx.shadowColor = 'rgba(255,255,255,.45)'; ctx.shadowBlur = 42;
     ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-    ctx.font = F(700, 42); ctx.fillStyle = '#fff';
-    ctx.letterSpacing = '6px';
+    //   42 → 66 — 대지 최상단(y176)은 가장 멀고 가장 눕혀 보이는 자리라 minFs 가 65 를 요구한다.
+    //   '미감상 작게'가 가장 위험해지는 지점이다(유저). 트래킹 6 → 4 로 폭 증가를 눌렀다.
+    ctx.font = F(700, 66); ctx.fillStyle = '#fff';
+    ctx.letterSpacing = '4px';
     ctx.fillText(str, CX + 3, y);
     ctx.letterSpacing = '0px';
     ctx.restore();
@@ -894,11 +1361,12 @@ export class FloorGL {
 
   // 도트 프로그래스 — 공통 컴포넌트(dotProgress). 지면·벽이 같은 물건이다.
   _dots(n, y) {
-    const x0 = CX - 380;   // 폭 760(= viewBox 360 대응). 구 도트바 600 자리와 비슷
+    // 폭은 투사 안전폭에서 깎는다 — 하단은 콘이 좁아 760 도 위험할 수 있다(safeW 참고).
+    const wD = Math.min(760, safeW(y) - 48), x0 = CX - wD / 2;
     // main.js가 width를 직접 쓰면(반복형 스테이지) 그 값이 우선, 아니면 --dur 시간 진행.
     const w = n.style.width != null ? numOr(n.style.width, 0)
       : 600 * clamp01((this.t - n.delay) / n.dur);
-    arcGauge(this.ctx, x0, y, 760, w / 600);
+    arcGauge(this.ctx, x0, y, wD, w / 600);
   }
 
   _pill(x, y, w, h) {
@@ -915,13 +1383,13 @@ export class FloorGL {
       ? 1 - numOr(arc.style.strokeDashoffset, 0) / 1727.9
       : ((this.t - 0.15) / (n.pvn ? n.pv / n.pvn : n.pv)) % 1;
     const gap = 120, ringW = 200;
-    ctx.font = F(700, 60); const tw = ctx.measureText('Preview').width;
+    ctx.font = F(700, 70); const tw = ctx.measureText('PREVIEW').width;   // 60 → 70 (minFs(475)=61)   // 가이드=대문자(유저)
     const pillW = 40 + tw + 20 + 60 + 30, pillH = 100;
     const total = pillW + gap + ringW, x0 = CX - total / 2;
     const py = y + (ringW - pillH) / 2;
     ctx.fillStyle = 'rgba(255,255,255,.14)'; this._pill(x0, py, pillW, pillH);
     ctx.fillStyle = '#fff'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-    ctx.fillText('Preview', x0 + 40, py + pillH / 2);
+    ctx.fillText('PREVIEW', x0 + 40, py + pillH / 2);
     // 화살표 →
     const ax = x0 + 40 + tw + 20, ay = py + pillH / 2;
     ctx.strokeStyle = '#fff'; ctx.lineWidth = 6; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
@@ -929,7 +1397,7 @@ export class FloorGL {
     ctx.moveTo(ax + 33, ay - 15); ctx.lineTo(ax + 48, ay); ctx.lineTo(ax + 33, ay + 15); ctx.stroke();
     const save = CX; // 링은 중앙 정렬 헬퍼를 쓰므로 잠시 위치를 옮겨 그린다
     this._ringAt(x0 + pillW + gap + ringW / 2, y, ringW, prog, '#fff');
-    drawCenteredNum(ctx, num?.textContent || '', x0 + pillW + gap + ringW / 2, y + ringW / 2, n.pvn ? 62 : 96);
+    drawCenteredNum(ctx, num?.textContent || '', x0 + pillW + gap + ringW / 2, y + ringW / 2, n.pvn ? 70 : 96);   // 62 → 70 (minFs(y≈130)=66)
     void save;
   }
 
@@ -947,7 +1415,7 @@ export class FloorGL {
   //     ② 목표와의 '관계'는 숫자로 또 쓰지 않고 그래픽(위치·색)으로 읽힌다
   //     ③ 라벨은 작고 조용하게, 값의 주인공 자리를 뺏지 않는다
   //   활자 규약(유저 확정): **숫자만 도트(OffBit), 라벨·단위는 본문 영문(Supreme).**
-  _lstat(cx, y, me, tgt, label) {
+  _lstat(cx, y, me, tgt, label, wide) {
     const ctx = this.ctx;
     const mv = statVal(me), tv = statVal(tgt);
     const ok = Number.isFinite(mv) && Number.isFinite(tv) && tv > 0;
@@ -960,13 +1428,18 @@ export class FloorGL {
     //   색은 싣지 않는다(흰색 고정) — 편차는 아래 ②의 점이 이미 위치로 말한다. 숫자에까지 색을
     //   태우면 ⓐ 학습자는 늘 목표와 어긋나 있어 빨강이 기본 상태가 되고(경고가 경고를 잃는다),
     //   ⓑ 가산 투사에서 적색이 가장 먼저 대비를 잃어 '많이 틀어진 순간'에 제일 안 읽힌다.
-    rollNum(ctx, me || '--', this.t, 0, 0.6, cx, y + 118 - 132 * 0.78, 132,
+    const NFS = wide ? 172 : 132;   // 단독 스탯은 수치도 크게 — 화면의 주인공이다
+    rollNum(ctx, me || '--', this.t, 0, 0.6, cx, y + 118 - NFS * 0.78, NFS,
             { fam: dot9, align: 'center', fill: NEU.paper });
     // ② 편차 바 — 가운데 눈금이 목표, 점이 현재. 관계를 '위치'로 읽는다. (_devBar 공용)
-    const BW = 232, BY = y + 154;
+    // ★ 단독 스탯(P1 이지런처럼 SPM 하나만 있는 화면)은 **넓게** 쓴다(유저: 큰 점선 그래프가
+    //   왜 이렇게 옹졸해졌냐). 232 는 2단 그리드(SPM+PACE)에서 칼럼이 좁을 때의 값인데,
+    //   단독일 때도 그 값을 쓰고 있어서 화면 폭을 반도 못 썼다. 눈금 수는 폭에서 파생되므로
+    //   넓히면 칸도 그만큼 늘어난다.
+    const BW = wide ? 620 : 232, BY = y + 154;
     this._devBar(cx, BY, BW, dev / 0.12, col, ok);
     // ③ 라벨 — 본문 영문. 숫자가 아니므로 도트 금지(유저 규약).
-    ctx.font = F(500, 34); ctx.letterSpacing = '7px';
+    ctx.font = F(400, 58); ctx.letterSpacing = '7px';   // 34 → 58 (minFs(y≈817)=56) — 안 읽히던 라벨
     ctx.fillStyle = rgba(NEU.paper, 0.6);
     ctx.fillText(String(label).toUpperCase(), cx + 3.5, BY + 60);
     ctx.letterSpacing = '0px';
@@ -974,7 +1447,7 @@ export class FloorGL {
 
   _trainRow(n, y) {
     const me = this.map.get('spm-me')?.textContent, tgt = this.map.get('spm-tgt')?.textContent;
-    if (!n.ring) return this._lstat(CX, y, me, tgt, 'SPM');
+    if (!n.ring) return this._lstat(CX, y, me, tgt, 'SPM', true);   // 단독 = 넓게
     const gap = 96, statW = 300, total = statW + gap + 200, x0 = CX - total / 2;
     this._lstat(x0 + statW / 2, y, me, tgt, 'SPM');
     const arc = this.map.get('tp-arc');
@@ -984,37 +1457,21 @@ export class FloorGL {
   }
 
   _liveRow(n, y) {
+    // ★ 2단(SPM + Pace) → **SPM 단독**(유저: 2단 구조 있으면 다 제거). Pace 는 SPM 에서
+    //   계산되는 값이라 둘이 같은 말을 한다 — 이 파일 위쪽 PACE_PACK 주석이 이미 지적해 둔 것.
+    //   칼럼이 없어지니 눈금도 232 짜리 옹졸한 폭 대신 단독 규격(620)을 쓴다.
     const g = id => this.map.get(id)?.textContent;
-    this._lstat(CX - 180, y, g('spm-me'), g('spm-tgt'), 'SPM');
-    this._lstat(CX + 180, y, g('pace-me'), g('pace-tgt'), 'Pace');
+    this._lstat(CX, y, g('spm-me'), g('spm-tgt'), 'SPM', true);
   }
 
   // 편차 바 — 가운데 눈금이 목표, 점이 현재. _lstat 과 같은 물건이라 규칙을 한 곳에 둔다.
   //   dev = 목표 대비 상대량(-1~1 로 잘린다), col = 점 색.
   _devBar(cx, by, w, dev, col, on) {
-    const ctx = this.ctx;
-    ctx.lineCap = 'round';
-    // 트랙 — 양끝이 투명으로 사라지는 그라디언트. 끝을 자르지 않고 '여기까지'라는 인상만 남긴다.
-    const g = ctx.createLinearGradient(cx - w / 2, 0, cx + w / 2, 0);
-    g.addColorStop(0, rgba(NEU.paper, 0));
-    g.addColorStop(0.18, rgba(NEU.paper, 0.3));
-    g.addColorStop(0.5, rgba(NEU.paper, 0.34));
-    g.addColorStop(0.82, rgba(NEU.paper, 0.3));
-    g.addColorStop(1, rgba(NEU.paper, 0));
-    ctx.strokeStyle = g; ctx.lineWidth = 7;
-    ctx.beginPath(); ctx.moveTo(cx - w / 2, by); ctx.lineTo(cx + w / 2, by); ctx.stroke();
-    // 목표 눈금 — 트랙보다 밝고 가늘게. 두께가 같으면 점과 눈금이 한 덩어리로 읽힌다.
-    ctx.strokeStyle = rgba(NEU.paper, 0.7); ctx.lineWidth = 5;
-    ctx.beginPath(); ctx.moveTo(cx, by - 13); ctx.lineTo(cx, by + 13); ctx.stroke();
-    if (!on) return;
-    // 현재 점 — 같은 색 글로우를 깔아 투사에서도 또렷이 뜬다.
-    const px = cx + Math.max(-1, Math.min(1, dev)) * (w / 2);
-    ctx.save();
-    ctx.shadowColor = col; ctx.shadowBlur = 22;
-    ctx.fillStyle = col;
-    ctx.beginPath(); ctx.arc(px, by, 11, 0, Math.PI * 2); ctx.fill();
-    ctx.restore();
+    // ★ 선+점 → **눈금 스케일**(유저 확정). 선 하나에 점 하나는 '얼마나' 벗어났는지 가늠할
+    //   기준이 없었다. 눈금은 폭에서 파생되므로 2단 그리드(232px 칼럼)에서도 그대로 성립한다.
+    tickScale(this.ctx, cx, by, w, dev, { col, on, h: w < 320 ? 38 : 46 });
   }
+
 
   /** 부호 붙은 초(±N”) — 페이스 팩의 기본 활자 단위.
    *  기호(+ − ”)는 본문 영문이라 도트 숫자와 크기·무게가 안 맞는다. 같은 크기로 두면
@@ -1024,20 +1481,20 @@ export class FloorGL {
     const ctx = this.ctx;
     const SS = size * 0.55, INK = size * 0.84;
     if (!Number.isFinite(secs)) {
-      ctx.font = F(500, size, sans); ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+      ctx.font = F(400, size, sans); ctx.textAlign = 'center'; ctx.textBaseline = 'top';
       ctx.fillStyle = rgba(NEU.paper, 0.6); ctx.fillText('--', cx, y);
       return;
     }
     const n = String(Math.abs(Math.round(secs))), sign = secs < 0 ? '−' : '+';
-    ctx.font = F(500, SS, sans);
+    ctx.font = F(400, SS, sans);
     const wSign = ctx.measureText(sign).width + size * 0.05, wQ = ctx.measureText('”').width;
     const wNum = rollWidth(ctx, n, size);
     const x0 = cx - (wSign + wNum + wQ) / 2;
     ctx.fillStyle = NEU.paper; ctx.textAlign = 'left';
-    ctx.font = F(500, SS, sans); ctx.textBaseline = 'middle';
+    ctx.font = F(400, SS, sans); ctx.textBaseline = 'middle';
     ctx.fillText(sign, x0, y + INK * 0.5);
     rollNum(ctx, n, this.t, delay, 0.5, x0 + wSign, y, size, { fam: dot9, fill: NEU.paper });
-    ctx.font = F(500, SS, sans); ctx.textBaseline = 'top';
+    ctx.font = F(400, SS, sans); ctx.textBaseline = 'top';
     ctx.fillStyle = NEU.paper; ctx.fillText('”', x0 + wSign + wNum, y);
   }
 
@@ -1057,7 +1514,7 @@ export class FloorGL {
     this._signedSec(CX, y, ok ? d : NaN, 200, 0);
     this._devBar(CX, y + 232, 460, d / BAND, col, ok);
     // 목표 페이스는 조용히 — 주인공은 '차이'지 절대값이 아니다.
-    ctx.font = F(500, 40); ctx.letterSpacing = '2px';
+    ctx.font = F(400, 40); ctx.letterSpacing = '2px';
     ctx.fillStyle = rgba(NEU.paper, 0.6); ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
     ctx.fillText(`TARGET ${this.map.get('pace-tgt')?.textContent || '--'}`, CX, y + 300);
     ctx.letterSpacing = '0px';
@@ -1081,10 +1538,10 @@ export class FloorGL {
     const cxL = CX - 230, v = left.toFixed(2);
     ctx.textAlign = 'left'; ctx.textBaseline = 'top';
     const wv = rollWidth(ctx, v, 88);
-    ctx.font = F(500, 40); const wu = ctx.measureText(' km').width;
+    ctx.font = F(400, 40); const wu = ctx.measureText(' km').width;
     const x0 = cxL - (wv + wu) / 2;
     rollNum(ctx, v, this.t, 0.15, 0.6, x0, y, 88, { fam: dot9, fill: NEU.paper });
-    ctx.font = F(500, 40); ctx.fillStyle = rgba(NEU.paper, 0.7);
+    ctx.font = F(400, 40); ctx.fillStyle = rgba(NEU.paper, 0.7);
     ctx.fillText(' km', x0 + wv, y + 40);
     label(cxL, 'LEFT');
     this._signedSec(CX + 230, y, bank, 88, 0.15);
@@ -1097,13 +1554,13 @@ export class FloorGL {
     // 활자 규약(유저 확정): 숫자만 도트, 단위 'km' 은 본문 영문. 크기도 낮춰 값이 주인공이 되게.
     const v = this.map.get('km-n')?.textContent || '0.00';
     const wv = rollWidth(ctx, v, 180);   // 소수점이 본문 영문이라 도트 한 서체로 재면 어긋난다
-    ctx.font = F(500, 78); const wu = ctx.measureText(' km').width;
+    ctx.font = F(400, 78); const wu = ctx.measureText(' km').width;
     const x0 = CX - (wv + wu) / 2;
     ctx.textAlign = 'left';
     // 도트 숫자 = 카운트업(유저 규칙). km 은 라이브 중 계속 오르므로, 0.7s 진입 이징 뒤
     //   실제 값을 따라가며 소수 자리가 계속 굴러간다 — 오도미터와 같은 움직임.
     rollNum(ctx, v, this.t, 0, 0.7, x0, y, 180, { fam: dot9, fill: '#fff' });
-    ctx.font = F(500, 78); ctx.fillStyle = rgba(NEU.paper, 0.7);
+    ctx.font = F(400, 78); ctx.fillStyle = rgba(NEU.paper, 0.7);
     ctx.fillText(' km', x0 + wv, y + 92);
   }
 
@@ -1187,153 +1644,822 @@ export class FloorGL {
   _roundRectPath(x, y, w, h, r) { const c = this.ctx; c.beginPath(); c.roundRect(x, y, w, h, r); }
 
   // ── 시작화면 (floor.html / floor-bk.html) ──────────────────────────────────
+  // ═══ READY = Figma 정본 이식 (파일 a2Zo9mBTQojjGKaSerQzUa · 노드 342:3057 '시작화면', 2026-08-05) ═══
+  //   좌표·크기·자간 전부 피그마 실값(캔버스 1600×2670 동일 좌표계, 타입스케일 미적용 = 원치수).
+  //   글로우·아크·아이콘·신발은 피그마 익스포트 SVG/PNG 를 fig/ready2/ 에 커밋해 그대로 그린다
+  //   (에셋 URL 7일 만료 → 로컬 박제). 발자국 토큰(FootMark)은 이 화면에선 미사용 — 정본이 신발 실루엣.
+
+  // 마스크 이미지를 그라디언트/단색으로 채운 오프스크린 (피그마 mask+fill 재현)
+  _tinted2(rel, w, h, fillFn) {
+    this._tints = this._tints || new Map();
+    const key = rel + 'x' + w + 'x' + h;
+    let c = this._tints.get(key);
+    const im = this._img(rel);
+    if (!im) return null;
+    if (!c || c._src !== im) {
+      c = document.createElement('canvas');
+      c.width = Math.max(1, Math.round(w)); c.height = Math.max(1, Math.round(h));
+      const x = c.getContext('2d');
+      x.drawImage(im, 0, 0, c.width, c.height);
+      x.globalCompositeOperation = 'source-in';
+      x.fillStyle = fillFn(x, c.width, c.height);
+      x.fillRect(0, 0, c.width, c.height);
+      c._src = im;
+      this._tints.set(key, c);
+    }
+    return c;
+  }
+
   _paint_ready() {
-    const ctx = this.ctx, D = READY[/floor-bk/.test(this.params.src) ? 'floor-bk.html' : 'floor.html'], t = this.t;
-    // glowLive 7s ×3 — 숨쉬기 + 드리프트
-    const gl = this._img('fig/big_glow.svg');
-    if (gl) {
-      const g = cycle(t, 0, 7, 3);
-      ctx.save();
-      ctx.globalAlpha = g == null ? 0.85 : kf(g, [[0, .85], [.5, 1], [1, .85]]);
-      if (g != null) {
-        const s = kf(g, [[0, 1], [.5, 1.06], [1, 1]]);
-        ctx.translate(CX + kf(g, [[0, 0], [.5, -16], [1, 0]]), 1400 + kf(g, [[0, 0], [.5, 10], [1, 0]]));
-        ctx.scale(s, s); ctx.translate(-CX, -1400);
-      }
-      // 필터 영역을 블러 반경(3σ=280)만큼 넓힌 에셋 — 예전엔 filter 영역이 viewBox와 같아
-      //   가우시안이 좌우·아래에서 잘려 글로우가 사각으로 뚝 끊겼다(유저: 투사영역 따라 일자로 잘림).
-      //   대지가 1.4495×1.4030 커졌으므로 그리는 사각형도 같은 배율 — 글로우 크기는 그대로다.
-      ctx.drawImage(gl, CX - 739, 1400 - 652, 1478, 1305);
-      ctx.restore();
-    }
-    // 크리에이터 얼굴 = pyeongso .creator-profile 의 아바타만(×3.0, 303px + 흰 테두리 6).
-    //   캡션('Running Creator · 240K')·이름 칩은 폐기 — 시작 직전에 필요한 건 '누구 팩인가'
-    //   하나뿐이고 그건 얼굴이 말한다. 이름은 제목이 "Sean's …"로 이미 말하고 있었다(유저: 정보 과다).
-    // ── 팩 헤더 = 아바타 / 제목 / 요약 (중앙 1단) ─────────────────────────────
-    // 가로 2단을 시도했다가 되돌렸다(유저). 세로 400px 은 줄었지만 그게 나아진 게
-    // 아니었다 — 문제는 '길다'가 아니라 '요소가 많다'였는데 배치만 바꿨다.
-    // 게다가 아바타를 303 → 200 으로 줄이니 얼굴이 크지도 작지도 않게 애매해졌고,
-    // 왼쪽 정렬 덩어리를 중앙 정렬로 띄워 어느 축에도 안 맞았다(아래 칩·CTA는 정중앙).
-    // 실제로 효과가 있었던 건 배치가 아니라 'with the Wearable on' 을 뺀 쪽이었다.
-    {
-      const bk = /floor-bk/.test(this.params.src);
-      const pk = this._img(bk ? 'photos/cardbg-curry.png' : 'photos/creator-profile-sean.png');
-      const R = 151, py = 250;   // 아바타 303px — 원래 크기
-      ctx.save(); this._fadeIn(py, 303, eOut(intro(t, .12, .8)));
-      ctx.beginPath(); ctx.arc(CX, py + R, R - 3, 0, Math.PI * 2); ctx.clip();
-      if (pk) {
-        const sc = Math.max(2 * (R - 3) / pk.naturalWidth, 2 * (R - 3) / pk.naturalHeight);
-        ctx.drawImage(pk, CX - pk.naturalWidth * sc / 2, py + R - pk.naturalHeight * sc / 2,
-                      pk.naturalWidth * sc, pk.naturalHeight * sc);
-      } else { ctx.fillStyle = 'rgba(255,255,255,.14)'; ctx.fillRect(CX - R, py, 2 * R, 2 * R); }
-      ctx.restore();
-      ctx.save(); this._fadeIn(py, 303, eOut(intro(t, .12, .8)));
-      ctx.strokeStyle = '#fff'; ctx.lineWidth = 6;
-      ctx.beginPath(); ctx.arc(CX, py + R, R - 3, 0, Math.PI * 2); ctx.stroke();
-      ctx.restore();
-    }
-    // 제목 — 2순위. 120·흰100% 이던 것을 68·흰70% 로 내렸다. 아래 CTA(88·흰100%)와
-    //   1.36배 차이뿐인데 CTA 쪽엔 화살표·발까지 붙어 1순위가 2순위처럼 읽혔다.
-    //   '무슨 팩인가'는 이 화면에 반드시 보여야 한다(유저) — 크기만 낮추고 존치한다.
-    ctx.fillStyle = 'rgba(255,255,255,.7)'; ctx.font = F(700, 68);
-    drawChars(ctx, D.title, CX, 620, 68, -2.3, i => {
-      const p = cycle(t, i * 0.09, 3, 3);
-      return p == null ? { dy: 0, alpha: 1, scale: 1 } : {
-        dy: kf(p, [[0, 0], [.12, -16], [.26, 0], [.58, 0], [1, 0]]),
-        alpha: kf(p, [[0, .85], [.12, 1], [.26, 1], [.58, .85], [1, .85]]), scale: 1,
-      };
-    });
-    // 오늘 뭘 하나 = 셋업 5화면의 결과 한 줄 요약.
-    ctx.save(); this._fadeIn(730, 62, eOut(intro(t, .4, .8)));
-    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-    ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.font = F(400, 46); ctx.letterSpacing = '-1.4px';
-    ctx.fillText(D.today, CX, 730);
-    ctx.letterSpacing = '0px';
+    const ctx = this.ctx;
+    // ★ 시작화면 = **8초 루프**(유저 애니메이션 메모 08-05):
+    //    0~2s  팩 이름 + 인물 실루엣 · 하단 원 2개(배터리) → 1.2s 부터 이어폰 칸이 가로 확장 + 코치
+    //    2~4s  인물 out · 숫자 촤라락 → 오늘 총 운동시간(30 min)
+    //    4~8s  Tap your foot Twice (4초) → 처음으로
+    // ★ 순서 재배치(유저 08-05, 피그마 379:3282 → 377:3060 → 379:3364):
+    //    0 ~ 2.0s  영상 + **팩 이름(타이틀·부제)** + 하단 CTA. 상단 아크 차트·배터리 패널은 없다.
+    //              ※ 피그마 379:3282 실측 — 상태1 프레임에 Group 2147229064(타이틀+Pace On)가
+    //                 이미 들어 있다. 처음엔 타이틀까지 늦췄는데 그건 내 오독이었다.
+    //    2.0 ~ 3.0s 팩 정보(타이틀·부제·도트 숫자)가 **아크 차트와 함께** 등장 + 배터리 원 2개.
+    //               1초 안에 끝난다.
+    //    3.0s ~     그 시점에 이어폰 칸이 확장되며 '연결됨' + 코치 프로필이 뜨고 마무리.
+    //   문법은 전부 원래 있던 것 — 순서만 바뀐다(유저).
+    const LOOP = 8, TP_CTA = 0.25, TP2 = 2.0, TP_CONN = 3.0, TP3 = TP_CTA;
+    const t = this.t % LOOP;
+    const D = READY[/floor-bk/.test(this.params.src) ? 'floor-bk.html' : 'floor.html'], R2 = D.r2;
+    const bk = /floor-bk/.test(this.params.src);   // 종목 분기(칩 잉크 등) — 미정의로 페인트가 통째로 죽었다
+    const RAD = Math.PI / 180;
+    // 콘텐츠 스케일 — 프레임(=커버리지)은 절대 못 줄인다. 종목별 실물 크기 동급화는 여기서.
+    const CK = R2.scale || 1, PV = R2.pivotY ?? 1400;
+    ctx.save();
+    // 조판 기준 — 피그마 367:10132 정본: 캡슐 상단이 캔버스 51 에 앉는다(285-234).
+    //   밴드 중심 자동정렬은 콘텐츠를 아래로 밀어 화면이 통째로 내려앉았다(유저 #111) → 폐기.
+    //   SAFE 는 넘침 감시용 상수로만 쓴다.
+    ctx.translate(0, -254);   // -234 → -254 — 최대 투사영역에 맞춰 20 더 위로(유저)
+    if (CK !== 1) { ctx.translate(800, PV); ctx.scale(CK, CK); ctx.translate(-800, -PV); }
+    // ── 페이즈 타임라인 — 등장(왼→오 촤라락) 완료 후 2초 뒤 페이즈2(실루엣·코치 프로필) ──
+    // ★ 숫자 인터랙션 = 프로토타입 gauge.js 규약(유저): TRAVEL 780ms · LEAD 150ms · easeOutCubic.
+    //   '한 동작이지 두 박자가 아니다' — 배경(컬러 면 교대)이 먼저 출발하고 숫자가 150ms 뒤
+    //   합류해서 **같이 도착**한다. 둘을 동시에 시작하면 두 번 움직인 것처럼 읽힌다.
+    const TRAVEL = 0.78, LEAD = 0.15;
+    const p2 = eOut(intro(t, TP2, TRAVEL));       // 인물 out ↔ 컬러 면 교대(먼저 출발)
+    //   CTA 는 **영상 구간의 주인공**이라 처음에 뜨고, 팩 정보가 들어올 때 자리를 비운다.
+    const p3 = eOut(intro(t, TP_CTA, .5)) * (1 - eOut(intro(t, TP2 - .25, .45)));
+    // '두 번'을 글자 말고 **빛으로** 말한다 — CTA 구간에서만 톡·톡 두 번. 빼려면 0 으로 두면 끝.
+    const tapB = (() => {
+      if (t < TP3) return 0;
+      const ph = (t - TP3) % 2.0;
+      const bl = t0 => { const u = (ph - t0) / .34; return (u >= 0 && u <= 1) ? Math.sin(u * Math.PI) : 0; };
+      return Math.max(bl(.10), bl(.55));
+    })();
+    const RF = (w, s, fam = sans) => `${w} ${s}px ${fam}`;   // 피그마 원치수(타입스케일 미적용)
+    const img = rel => this._img('fig/ready2/' + rel);
+    // ── 등장 이징(유저: 더 쫀득하고 부드럽게) ──────────────────────────────────
+    //   전엔 전 요소가 같은 cubic-out(1-(1-t)³) 알파 페이드 하나였다. 시작이 무르고
+    //   끝이 짧아 '툭 나타났다 멈춘다'로 읽힌다. 두 가지만 바꾼다:
+    //     ① quint-out — 초반은 더 빠르게 붙고 꼬리가 길어 **부드럽게 안착**한다(오버슈트 없음:
+    //        칩 오버슈트는 유저가 이미 폐기했다. 여긴 튀지 않고 '녹아드는' 쫀득함).
+    //     ② 알파만 움직이던 걸 **위치 보조 모션**과 묶는다 — 몇 px 떠 있다가 제자리로.
+    //        사람 눈은 알파 변화보다 위치 변화에서 '속도'를 읽는다.
+    const eOut5 = u => 1 - Math.pow(1 - u, 5);
+    const e0 = (d, dur = .9) => eOut5(intro(t, d, dur));
+    const rise = (d, dur, px) => (1 - e0(d, dur)) * px;   // 등장 시 아래에서 올라와 앉는다
+    // ── ① 캡슐 대지 — x291 y285 w1018 h1591 r509, 흰 1px 보더 + 내부 화이트 글로우(74/40 25%) ──
+    // ★ CUT — '30 min' 아래 빈 공간이 넓어 캡슐 하단을 잘라내고, 그만큼 하단 요소를 끌어올린다(유저).
+    //   한 상수로 캡슐·글로우·상태패널·CTA 가 함께 움직인다(따로 만지면 반드시 어긋난다).
+    const CUT = 50;   // 130 → 50 — 하단이 좁았다(유저), 캡슐 80 되돌림
+    const CAP = { x: 291, y: 285, w: 1018, h: 1591 - CUT };
+    const capPath = () => { ctx.beginPath(); ctx.roundRect(CAP.x, CAP.y, CAP.w, CAP.h, CAP.w / 2); };
+    ctx.save(); ctx.globalAlpha *= e0(.05);
+    capFill(ctx, capPath, CAP.x, CAP.y, CAP.w, CAP.h);
+    ctx.save(); capPath(); ctx.clip();
+    ctx.filter = 'blur(37px)';
+    ctx.strokeStyle = 'rgba(255,255,255,.25)'; ctx.lineWidth = 80;
+    capPath(); ctx.stroke();
+    ctx.filter = 'none';
     ctx.restore();
-    // 기기 연결 = 운동 전 필수 체크(유저) — 컨디션과 다른 정보라 상태 줄에 섞지 않고 CTA 바로 위.
-    // 세로 배치로 되돌리며 칩도 제자리로(구 900). 가로 2단일 때 600 으로 올렸던 값을 그대로
-    //   두면 제목(620)·요약(730)과 겹친다.
-    const CY = 830;
-    ctx.save(); this._fadeIn(CY, 92, eOut(intro(t, .6, .8)));
+    // 아웃라인 — 단색이 아니라 유리 림: 위·아래 하이라이트, 측면은 투명하게 잦아드는 세로 그라디언트(유저)
+    const rim = ctx.createLinearGradient(0, CAP.y, 0, CAP.y + CAP.h);
+    //   ★ 하단은 알파 0 으로 소멸(유저) — 바닥 쪽 테두리 선이 보이면 캡슐이 '오려붙인 판'으로
+    //     읽힌다. 위(크라운)만 유리 하이라이트를 남기고 아래로 갈수록 사라진다.
+    rim.addColorStop(0, 'rgba(255,255,255,.95)');
+    rim.addColorStop(.28, 'rgba(255,255,255,.28)');
+    rim.addColorStop(.55, 'rgba(255,255,255,.16)');
+    rim.addColorStop(.80, 'rgba(255,255,255,.05)');
+    rim.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.strokeStyle = rim; ctx.lineWidth = 2.5;
+    capPath(); ctx.stroke();
+    ctx.restore();
+    // ── ② 캡슐 하단 엠버 글로우 — 피그마 익스포트 4겹, 블렌드 모드 그대로 ──
+    // ★ 컬러 면은 **두 상태를 오간다**(유저 08-05, 피그마 342:3057):
+    //   페이즈1(인물) = 새 컬러 면(크고 위) · 페이즈2(도트 숫자) = **원래 뉴턴 그라디언트**가
+    //   세로로 줄어 아래에 앉는다. 숫자가 주인공이 되는 순간 배경이 자리를 비켜주는 안무다.
+    //   두 에셋을 p2 로 크로스페이드한다(보간이 아니라 **교대** — 색이 섞이면 어느 쪽도 아니게 된다).
+    // ★ 페이즈2 뉴턴 광 = **알약(_paint_capsule)이 쓰는 CAP_GLOWS 그대로**(유저 08-06:
+    //   "지금 여기 뒤에 깔린 컬러랑 같잖아 · 블렌드 모드 체크하라고 · 같은 거 주면 될 일인데").
+    //   같은 에셋(glow-ell-newton.svg)인데 여기만 **다른 지오메트리(1300×871, 아래로 내려앉음)**
+    //   + brightness 필터로 그리고 있었다. 그래서 알약은 레드(채도 63%/색상각 5.8°)인데
+    //   시작화면은 탄색(58%/20°)으로 갈렸다 — 색 문제가 아니라 **같은 걸 다르게 그린** 문제.
+    //   이제 팩 면 ↔ 뉴턴 면이 **같은 박스(1288.36×1709.36)에서 자리만 교대**한다.
+    //   ※ 앞서 흰 3겹을 알파로 죽이던 보정(HLK)은 폐기 — 원인이 흰 겹이 아니었다.
+    const NEWTON = (bk ? READY_GLOWS_BK : READY_GLOWS).find(g => g[0].startsWith('glow-ell'));
+    const GLOWS = (bk ? READY_GLOWS_BK : READY_GLOWS).map(g =>
+      g[0].startsWith('glow-ell') ? [g[0], g[1], g[2], g[3], g[4], g[5], 1 - p2] : g);
+    const GLOW_NEWTON = ['glow-ell-newton.svg', NEWTON[1], NEWTON[2], NEWTON[3], NEWTON[4], NEWTON[5], p2, true];
+    ctx.save(); ctx.globalAlpha *= e0(.15, 1.2) * (1 + .3 * tapB);   // 탭 박자에 하단 빛이 두 번 부푼다
+    // ★ 필터 전부 제거(유저 08-06) — saturate 는 이미 뺐고, 남아 있던 brightness(1.22)도 뺀다.
+    //   '예전엔 더 쨍했다'(유저)를 밝기로 풀려 한 게 오답이었다. 쨍함 = 채도인데
+    //   brightness 는 채도를 **내린다**. 원인은 지오메트리였고 위에서 고쳤다.
+    //   밝기를 올리면 명도가 올라가면서 **채도가 내려간다**(FA3030 이 탄색으로 읽힌 두 번째 이유).
+    //   알약은 필터 없이 그린다 — 같은 불이면 같은 조건으로 그려야 같은 색이 나온다.
+    ctx.translate(0, -CUT);   // 캡슐 바닥이 올라간 만큼 하단 빛도 함께(에셋은 원 좌표계)
+    // ★ 캡슐 마스크 **해제**(유저 08-05, 이식 초기 디자인 복원 — 스샷 #154).
+    //   9019151 이 capPath 클립으로 빛을 캡슐 안에 가뒀는데, 그러면 림에서 **칼같이 잘린다**.
+    //   원래 이식본은 피그마 4겹 익스포트가 캡슐보다 큰 박스를 그대로 써서 빛이 림을 넘어
+    //   **퍼지는** 형태였고, 그게 홈 화면의 정체성이었다(투사광은 경계에서 끊기지 않는다).
+    //   ※ 사각 rect 로 반원 블룸을 덧대는 방식(33088c5 폐기)과는 다르다 — 그건 이음매가 드러났다.
+    //     여기선 클립을 걷어낼 뿐이라 에셋 자체의 소프트 falloff 가 그대로 살아난다.
+    for (const [rel, gx, gy, gw, gh, blend, la, wob] of [...GLOWS, GLOW_NEWTON]) {
+      if (la != null && la <= 0.004) continue;
+      const im = img(rel);
+      if (!im) continue;
+      ctx.save(); ctx.globalCompositeOperation = blend;
+      if (la != null) ctx.globalAlpha *= la;
+      if (wob) {
+        // ★ 일렁임(유저) — 기본값(뉴턴 그라디언트) 상태에서 빛이 살아 있게. 주기가 서로
+        //   안 맞는 사인 셋(스케일 x·y·세로 이동)이라 패턴이 반복으로 안 읽힌다.
+        //   프로토타입 .hero-blur 의 두 슬랩 드리프트와 같은 취지 — 하나면 '미끄러짐'이고
+        //   둘 이상이어야 '숨쉬기'가 된다. 진폭은 작게(±3.5% · ±11px).
+        const w = t * 0.42, cx0 = gx + gw / 2, cy0 = gy + gh / 2;
+        ctx.translate(cx0, cy0);
+        ctx.scale(1 + 0.055 * Math.sin(w), 1 + 0.042 * Math.sin(w * 0.73 + 1.7));
+        ctx.translate(-cx0, -cy0 + 19 * Math.sin(w * 0.61 + 0.4));
+        ctx.globalAlpha *= 0.88 + 0.12 * Math.sin(w * 0.89 + 2.3);
+      }
+      ctx.drawImage(im, gx, gy, gw, gh);
+      ctx.restore();
+    }
+    ctx.restore();
+    // ── ②' 림 바깥 초승달 블룸 = **폐기**(유저 08-05). '칼같이 잘리는' 걸 풀려고 반원
+    //   그라디언트를 림 밖에 얹었는데, 클립 사각(rect)의 윗변이 그대로 직선 이음매로 드러나고
+    //   빛이 캡슐 밖 좌우로 번져 더 이상해졌다. 캡슐 밖으로 새는 광은 만들지 않는다.
+    // ── ②'' 인물 영상 — 프로토타입(home.css .hero-shot/.hero-clip) 레시피 그대로.
+    //   ★ 순서: **그라디언트 레이어 위**에 얹는다(유저). 위 ②(컬러 면·엠버)가 먼저 칠해진 뒤다.
+    //   ★ 프로토타입이 쓰는 세 가지를 그대로 옮긴다:
+    //     ① mix-blend-mode: plus-lighter        → canvas 'lighter'
+    //     ② filter: brightness(--clip-bright)   → **가산 전에** 밝기를 미리 낮춘다. plus-lighter 는
+    //        더하기만 하므로 밝은 피사체는 흰색으로 클리핑된다(내가 계속 태웠던 그 문제).
+    //        sean 은 프로토타입이 .68 로 지정. curry 는 기본 1.
+    //     ③ 세로 알파 마스크(--mask-in ~ --mask-out) → 머리 위는 스며들 듯 시작하고, 글자가
+    //        시작하기 전에 사라진다. sean 22%~78% · 기본 31.25%~96.65%.
+    if (p2 < 0.995) {
+      const CLIP = bk
+        // mOut = 1.0 — 프로토타입은 카드 하단에서 페이드아웃(민트 엔딩)하지만, 여기선 **알약
+        //   컨테이너 맨 끝까지** 채워야 한다(유저 #164). 아래 곡선은 capPath 클립이 만든다.
+        ? { src: 'ready-view/assets/proto/curry-card.mp4', bright: 1.0, mIn: .3125, mOut: .86, focus: -0.06 }   // focus .02→-.06 = 커리를 아래로(유저)
+        : { src: 'ready-view/assets/proto/sean-card.mp4',  bright: 0.68, mIn: .22, mOut: .86, focus: 0.05 };
+      let v = this._pvid;
+      if (!v || v._key !== CLIP.src) {
+        v = this._pvid = document.createElement('video');
+        v._key = CLIP.src;
+        v.src = (import.meta.env?.BASE_URL || '/') + CLIP.src;
+        v.muted = true; v.loop = true; v.playsInline = true; v.autoplay = true;
+        v.play?.().catch(() => {});
+      }
+      if (v.readyState >= 2 && v.videoWidth) {
+        // 박스 = 피그마 인스펙터 실측: 1055x1079(44/45) · r 527.5.
+        //   폭은 **컨테이너와 동일하게 100%**(유저 #165: 살짝 잘려). 피그마 박스 1055 는 캡슐
+        //   1018 보다 넓어 좌우가 클립에 깎였다 → 캡슐 폭에 맞추고 높이는 44/45 비로 환산.
+        const BW = CAP.w, BH = Math.round(CAP.w * 1079 / 1055), BR = BW / 2;
+        //   박스 바닥을 캡슐 바닥에 맞춘다 — 90 띄웠더니 영상이 곡선 전에 직선으로 끊겼다(#164).
+        const BX = 800 - BW / 2, BY = (CAP.y + CAP.h) - BH;
+        // 오프스크린에서 ②(밝기)와 ③(마스크)을 먼저 적용한 뒤, 결과만 lighter 로 얹는다.
+        const OW = 264, OH = Math.round(OW * BH / BW);   // 픽셀 패스가 있어 절반 해상도
+        const oc = this._pcv || (this._pcv = document.createElement('canvas'));
+        if (oc.width !== OW) { oc.width = OW; oc.height = OH; }
+        const og = oc.getContext('2d');
+        og.setTransform(1, 0, 0, 1, 0, 0);
+        og.globalCompositeOperation = 'source-over';
+        og.clearRect(0, 0, OW, OH);
+        og.filter = `brightness(${CLIP.bright})`;
+        const sc = Math.max(OW / v.videoWidth, OH / v.videoHeight);
+        const dw = v.videoWidth * sc, dh = v.videoHeight * sc;
+        og.drawImage(v, (OW - dw) / 2, -(dh * CLIP.focus), dw, dh);
+        og.filter = 'none';
+        // ★ 휘도 → 알파(유저 #163: 검정 배경이 딸려 나온다). canvas 'lighter' 는 색은 0 을 더해도
+        //   **알파는 더한다**(αr = αs + αd). 소스 배경이 알파 1 인 검정이라 그 사각형만큼 '검은 빛'이
+        //   생겼다. 프로토타입은 불투명 카드 위라 이 문제가 없지만, 우리는 투사광 레이어라
+        //   빛이 없는 곳은 알파도 0 이어야 한다(인물 셰이더의 불변식과 같은 규약).
+        {
+          const d2 = og.getImageData(0, 0, OW, OH), q = d2.data;
+          for (let k = 0; k < q.length; k += 4) {
+            const lum = (q[k] * 0.299 + q[k + 1] * 0.587 + q[k + 2] * 0.114);
+            q[k + 3] = lum > 250 ? 255 : Math.min(255, lum * 1.55);
+          }
+          og.putImageData(d2, 0, 0);
+        }
+        og.globalCompositeOperation = 'destination-in';
+        const mg = og.createLinearGradient(0, 0, 0, OH);
+        mg.addColorStop(0, 'rgba(0,0,0,0)');
+        mg.addColorStop(CLIP.mIn, 'rgba(0,0,0,1)');
+        mg.addColorStop(CLIP.mOut, 'rgba(0,0,0,1)');
+        // ★ 하단 페더 제거(유저) — 러닝·농구 공통. 끝까지 불투명하게 둔다.
+        //   아래 곡선은 캡슐 클립이 만들므로 마스크로 흐릴 이유가 없다.
+        mg.addColorStop(1, 'rgba(0,0,0,1)');
+        og.fillStyle = mg; og.fillRect(0, 0, OW, OH);
+        og.globalCompositeOperation = 'source-over';
+        ctx.save();
+        ctx.globalAlpha *= e0(.30, .9) * (1 - p2);
+        ctx.beginPath(); ctx.roundRect(BX, BY, BW, BH, BR); ctx.clip();
+        ctx.save(); ctx.translate(0, CUT); capPath(); ctx.restore(); ctx.clip();   // 캡슐 밖 금지
+        ctx.globalCompositeOperation = 'lighter';   // = mix-blend-mode: plus-lighter
+        ctx.drawImage(oc, BX, BY, BW, BH);
+        ctx.restore();
+      }
+    }
+    // ── ③ 캡슐 텍스트 — 제목 2줄(100/Bold/ls-4) · Pace On(64/.8) · 도트 30(384) + min(64) ──
+    // 제목 두 줄은 줄 단위로 아주 살짝 어긋나게(0.04s) — 한 덩어리로 뜨는 것보다 결이 산다.
+    // ★ 상태1 ↔ 상태2 타이틀 모프 — 피그마 실측(379:3282 vs 377:3060):
+    //   영상 화면 = 텍스트박스 744×324(줄간 162) · 숫자 화면 = 620×270(줄간 135) → **0.833 배**.
+    //   블록 중심도 408 → 564 로 **156 내려간다**. 숫자가 주인공이 되면 타이틀이 크기를 줄이고
+    //   자리를 내주는 안무다(하단 광이 내려앉는 것과 같은 박자). p2 하나로 같이 움직인다.
+    const q = 1 - p2;                    // 1 = 영상 화면, 0 = 숫자 화면
+    const TK = 1 + .20 * q;              // 98 → 117.6 (= 98/0.833)
+    const TCY = 778 - 156 * q;           // 블록 중심 (피그마 델타 156)
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = NEU.ink; ctx.font = RF(700, 98 * TK); ctx.letterSpacing = `${(-4 * TK).toFixed(2)}px`;   // 100→98(유저: 첫 진입 타이틀이 빡빡)
+    // ★ 등장 순서 = **타이틀 먼저, 부제(뱃지·캡션) 나중**(유저 08-06). 전엔 타이틀 .26 / 부제 .36
+    //   으로 0.1s 차이라 같이 뜬 것처럼 읽혔다. 부제가 타이틀이 **앉은 뒤에** 붙어야
+    //   '누구의 팩인가 → 어떤 팩인가' 순으로 읽힌다. 줄 간 지연도 .04 → .06 으로 벌린다.
+    const SUB_D = .96, SUB_W = .55;   // 부제 슬롯(뱃지/캡션) 공통 — 타이틀(.26~.98)이 끝난 뒤
+    for (const [i, ln] of R2.lines.entries()) {
+      const d = .26 + i * .06;   // 피그마 379:3282 — 상태1 에 타이틀이 이미 있다
+      ctx.save(); ctx.globalAlpha *= e0(d, .72);
+      ctx.fillText(ln, 800, TCY + (i ? 60 : -60) * TK + rise(d, .72, 22));
+      ctx.restore();
+    }
+    ctx.letterSpacing = '0px';
+    // ── 부제 슬롯 = **두 물건이 나눠 쓴다**(피그마): 영상 화면은 'Creator' 코랄 알약(379:3430),
+    //   숫자 화면은 'Pace On' 텍스트(377:3077). 크로스페이드라 슬롯이 비는 순간이 없다.
+    //   전엔 'Pace On' 만 있어서 첫 화면이 **누구의 팩인지**(크리에이터)를 말하지 않았다.
+    if (q > 0.01) {
+      // 피그마 실측 254×115 r57.5 — 타이틀 블록 중심에서 +270.
+      // ★ 필은 코랄 단색이 아니라 **흰색(#FFFFFF) 투명도 차이 + hard-light**(유저 08-06).
+      //   투사면에선 색면을 얹는 것보다 이쪽이 맞다 — 아래 엠버를 가리지 않고 그 색을 통과시켜
+      //   **유리 칩**으로 읽힌다. 위계는 색이 아니라 알파 차(면 .38 ↔ 글자 1.0)가 만든다.
+      //   낱말은 팩마다 다르다: 션 = Creator · 커리 = Pro.
+      ctx.save(); ctx.globalAlpha *= e0(SUB_D, SUB_W) * q;
+      const BY2 = TCY + 270 + rise(SUB_D, SUB_W, 18), BH2 = 115, BTX = R2.badge || 'Creator';
+      ctx.font = RF(700, 60); ctx.letterSpacing = '-1.5px';   // 56 → 60 (minFs(y≈638)=58.4)
+      const bw = ctx.measureText(BTX).width + 64;
+      ctx.save();
+      ctx.globalCompositeOperation = 'hard-light';
+      ctx.fillStyle = 'rgba(255,255,255,.38)';
+      ctx.beginPath(); ctx.roundRect(800 - bw / 2, BY2 - BH2 / 2, bw, BH2, BH2 / 2); ctx.fill();
+      ctx.restore();
+      ctx.fillStyle = NEU.ink; ctx.fillText(BTX, 800, BY2 + 2);
+      ctx.letterSpacing = '0px'; ctx.restore();
+    }
+    // 캡션도 같은 규칙 — 상태2 로 넘어갈 때 **타이틀이 먼저 자리를 잡고** 그 뒤 붙는다.
+    //   p2 를 그대로 쓰면 타이틀·숫자·캡션이 한 덩어리로 튀어나온다(0.18s 뒤에 합류).
+    const SUB2 = eOut(intro(t, TP2 + .18, .55));
+    if (SUB2 > 0.01) {
+      ctx.save(); ctx.globalAlpha *= SUB2;
+      ctx.fillStyle = 'rgba(255,255,255,.8)'; ctx.font = RF(400, 64); ctx.letterSpacing = '-2.56px';
+      ctx.fillText(R2.sub, 800.5, 971 + (1 - SUB2) * 18);
+      ctx.letterSpacing = '0px'; ctx.restore();
+    }
+    // ★ 순서 반전(유저 08-05): 페이즈1 = 팩 이름 + **사람 형체**, 페이즈2(2초 뒤) = **몇 분인지**.
+    //   전엔 도트 숫자가 먼저 뜨고 인물이 그 자리를 밀어냈다 — 첫 화면이 '무슨 팩인지'를 못 보여줬다.
+    //   인물은 main.js COACH_CFG.READY 판이 캡슐 뒤에 선다(캔버스엔 안 그린다) — 페이드아웃도 거기서.
+    if (p2 > 0.01) {
+      ctx.save(); ctx.globalAlpha *= p2;
+      ctx.translate(0, (1 - p2) * 26);   // 숫자도 살짝 떠 있다가 앉는다(알파 단독보다 속도가 읽힌다)
+      // 도트 카운팅 촤라락 — 복싱과 같은 rollNum 정본 (자릿수 롤)
+      // rollNum 은 자릿수 합 폭을 돌려준다 — 단위 위치를 여기서 파생시킨다.
+      //   숫자는 LEAD 만큼 늦게 붙고 남은 시간에 도착 — 배경과 같은 순간에 멈춘다.
+      // ★ 시각 보정(유저) — 숫자만 800 에 가운데 정렬하고 'min' 을 오른쪽에 매달면 덩어리가
+      //   오른쪽으로 치우쳐 보인다. 눈은 **숫자+단위 전체**를 하나로 보기 때문이다.
+      //   단위 실폭을 먼저 재서 그룹 중심이 800 에 오도록 숫자를 왼쪽으로 민다.
+      ctx.font = RF(400, 64); ctx.letterSpacing = '-1.51px';
+      // ★ 유저 확정 — 시각 보정(그룹 중심) 철회. **큰 숫자 자체를 가운데** 정렬한다.
+      //   단위는 숫자 오른쪽에 매단다(위치는 숫자 실폭에서 파생하므로 자릿수가 바뀌어도 따라온다).
+      const UNIT = R2.unit || 'min';
+      const UGAP = 24, NCX = 800;
+      // '5.0' 의 마침표가 도트 폰트에선 큰 사각 점이라 숫자만큼 무겁다 — 크기를 384 → 336 으로
+      //   줄이고 자간을 -14 로 조여 점이 덜 튀게 한다(유저).
+      ctx.letterSpacing = '-14px';
+      const nw = rollNum(ctx, R2.total, t, TP2 + LEAD, TRAVEL - LEAD, NCX, 1277, 336, { fam: dot9, align: 'center', fill: NEU.ink });
+      ctx.letterSpacing = '0px';
+      ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+      // 단위는 숫자의 부속 — 위계 낮춤(유저): 흰 100%/700 → 55%/400. 숫자만 주인공으로 남는다.
+      // ★ x 를 하드코딩(1085)하면 안 된다 — '30' 기준으로 잡은 값이라 더 넓은 '48' 에서 숫자와
+      //   딱 붙어 버렸다(유저: 묘하게 가운데정렬이 아닌 것 같다). 숫자 오른끝에서 파생시킨다.
+      ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.font = RF(400, 64); ctx.letterSpacing = '-1.51px';
+      ctx.fillText(UNIT, NCX + nw / 2 + UGAP, 1315);   // 숫자 상단과 top 정렬(피그마 353:7084)
+      ctx.letterSpacing = '0px';
+      ctx.restore();
+    }
+    // ── ④ 비례 세그먼트 아크 차트 — 데이터 파생형(r=999 캡슐 아크 언어).
+    //   반원 하단 정렬: 배지 중심각(A0)과 마지막 세그먼트 끝각(A1)이 270° 대칭 — 양끝이 같은
+    //   기준선에 앉는다. 등장 = 왼쪽(배지)에서 오른쪽으로 호를 따라 차오르는 스윕 + 아이콘 팝 +
+    //   글자 순차 리빌. 모든 좌표·타이밍은 value→각도 누적과 스윕 각도에서만 파생.
     {
-      // 아이콘 크기를 '높이' 기준으로 통일한다. 전엔 폭을 32/24/28 로 제각각 박아 종횡비가
-      //   다른 세 아이콘의 높이가 다 달라졌고(안경 납작 · 시계 길쭉), 크기도 글자(44)보다
-      //   작아 식별이 안 됐다(유저). 복싱 벽 카드는 아이콘 88 / 글자 38 로 정반대였다 —
-      //   같은 시스템에서 아이콘이 글자보다 작을 이유가 없다.
-      const IH = 52;
-      const CHIP =[['run/ic_glasses.png', 32, '90%', true], ['run/ic_watch.png', 24, '30%', false],
-                    ['run/ic_earbuds.png', 28, '60%', false]];
-      const CPAD = 29, CICG = 12, CGAP = 10, CH2 = 92;
-      ctx.font = F(400, 44); ctx.letterSpacing = '-1.3px';
-      // 실제 종횡비로 폭을 낸다(미로드면 표의 값 폴백) — 레이아웃과 그리기가 같은 값을 쓴다
-      const iconW = CHIP.map(([ic, fw]) => {
-        const im = this._img(ic);
-        return im && im.naturalHeight ? IH * (im.naturalWidth / im.naturalHeight) : fw;
-      });
-      const chipW = CHIP.map(([, , tx], k) => CPAD * 2 + iconW[k] + CICG + ctx.measureText(tx).width);
-      let bx = CX - (chipW.reduce((a, b) => a + b, 0) + CGAP * 2) / 2;
-      CHIP.forEach(([ic, , tx, sel], k) => {
-        const w3 = chipW[k], iw = iconW[k];
-        if (sel) {
-          const g3 = ctx.createLinearGradient(0, CY, 0, CY + CH2);
-          g3.addColorStop(0.48, '#FA3030'); g3.addColorStop(0.776, '#FE6E3C'); g3.addColorStop(1, '#FEC389');
-          ctx.fillStyle = g3;
-        } else ctx.fillStyle = '#fff';
-        this._roundRectPath(bx, CY, w3, CH2, CH2 / 2); ctx.fill();
-        const im = this._img(ic);
-        if (im) {
-          const ih = im.naturalHeight ? IH : iw * (im.naturalHeight / im.naturalWidth);   // 세 아이콘 높이를 같게
-          ctx.save(); ctx.filter = sel ? 'brightness(0) invert(1)' : 'brightness(0)';
-          ctx.drawImage(im, bx + CPAD, CY + CH2 / 2 - ih / 2, iw, ih);
+      const CXA = 800, CYA = 810, R = 375, LWA = 130, GAPA = 3;   // 갭 3°(유저: 더 타이트)
+      const A0 = 196, A1 = 344;                       // 270° 대칭 → 하단 정렬
+      const polar = (deg, r = R) => ({ x: CXA + Math.cos(deg * RAD) * r, y: CYA + Math.sin(deg * RAD) * r });
+      const capA = (LWA / 2) / R / RAD;
+      const segStart = A0;   // 배지 폐기 — 스트레칭이 첫 세그먼트(유저)
+      const segs = R2.arcs, totalV = segs.reduce((s2, x) => s2 + x.v, 0);
+      // ★ 배분은 **시각 길이** 기준이다(유저: 8·10·30 인데 10 이 8 보다 안 길다).
+      //   중간 세그는 둥근 캡이 자기 각도 안으로 들어오지만(sA=s0+capA, eA=s1-capA),
+      //   차트 양끝단은 끝 정렬 규약 때문에 캡이 밖으로 삐져나온다 → 각도를 값에 비례해
+      //   나눠도 첫/마지막이 capA(≈10°)씩 더 길어 보인다. 실측: 8m 이 33.6°, 10m 이 29.6°
+      //   로 그려져 **작은 값이 더 길었다**. 그래서 양끝 두 세그의 몫에서 캡을 미리 뺀다.
+      const availV = (A1 - segStart) + 2 * capA - GAPA * (segs.length - 1);
+      // ★ 전 세그 **한 벌 램프**(유저 08-05) — 구간마다 색을 달리하던 위계(흰/단색빨강/그라디언트)는
+      //   폐기. 차트 **전체 각도**에 뉴턴 램프를 한 번 깔고, 각 세그먼트는 자기 구간 색을 집는다.
+      //   그래서 끊긴 알약들이 하나의 연속된 열 램프로 읽힌다(구간마다 램프를 따로 돌리면 줄무늬가 된다).
+      //   위계는 이제 길이·아이콘·칩이 맡는다.
+      const RAMP = (() => {
+        const a0d = segStart - capA, a1d = A1 + capA;
+        const span = (a1d - a0d) / 360;
+        const at = u => Math.min(1, Math.max(0, u * span));
+        const stops = [[0, PAL.red], [at(.40), PAL.red], [at(.68), PAL.coral],
+                       [at(.88), '#FE9A61'], [at(1), PAL.sand]];
+        if (!ctx.createConicGradient) {   // 원뿔 미지원 폴백 — 차트 양끝을 잇는 선형
+          const q0 = polar(a0d), q1 = polar(a1d);
+          const g2 = ctx.createLinearGradient(q0.x, q0.y, q1.x, q1.y);
+          for (const [o, c] of [[0, PAL.red], [.40, PAL.red], [.68, PAL.coral], [.88, '#FE9A61'], [1, PAL.sand]])
+            g2.addColorStop(o, c);
+          return g2;
+        }
+        const g2 = ctx.createConicGradient(a0d * RAD, CXA, CYA);
+        for (const [o, c] of stops) g2.addColorStop(o, c);
+        if (span < 1) g2.addColorStop(1, PAL.sand);   // 캡 뒤쪽이 한 바퀴 돌아 첫 스톱을 집지 않게
+        return g2;
+      })();
+      // 스윕 — 배지 팝 후 세그먼트 시작각에서 끝각까지 호를 따라 차오른다
+      const sweep = segStart + (A1 - segStart) * eOut5(intro(t, TP2 + .1, .9));   // 1초 안에 완료(유저)
+      ctx.save(); ctx.globalAlpha *= e0(TP2 + .08, .5);   // 팩 정보와 함께 등장(유저)
+      let cur = segStart;
+      // ★ pad(°) — 값 비례를 **의도적으로 깨는** 하드코딩(유저 승인, 영상 추출·합성 전용).
+      //   짧은 세그에서 라벨이 끝 캡에 바짝 붙는 게 합성본에서 거슬린다는 판단. 데이터 정직성을
+      //   포기하는 대신 총 각도(A0~A1)는 유지한다 — 더한 만큼 **가장 긴 세그에서 뺀다**.
+      //   영상용이 아니라면 config 의 pad 를 지우면 원래 비례로 돌아온다.
+      const padSum = segs.reduce((a, x) => a + (x.pad || 0), 0);
+      const iLong = segs.reduce((bi, x, i) => (x.v > segs[bi].v ? i : bi), 0);
+      segs.forEach((seg, si) => {
+        const isFirst = si === 0, isLast = si === segs.length - 1;
+        const da = seg.v / totalV * availV - (isFirst ? capA : 0) - (isLast ? capA : 0)
+                 + (seg.pad || 0) - (si === iLong ? padSum : 0);
+        const s0 = cur, s1 = cur + da, mid = (s0 + s1) / 2;
+        cur = s1 + GAPA;
+        // 아크 — 스윕이 지나간 만큼만(왼→오 차오름). 세그먼트 '사이'만 캡 인셋, 차트 양끝단은
+        //   캡 중심이 끝각에 앉는다 — 마지막 캡 중심(A1)이 배지 중심(A0)의 미러 = 하단 정렬(유저 #64).
+        // 차트 양끝단은 캡 인셋을 빼지 않는다 — 첫 캡 중심 = A0, 마지막 캡 중심 = A1 이라야
+        //   두 끝이 정확히 같은 높이에 앉는다(유저 #93: 끝 높이 맞춰라, sin196°=sin344°).
+        const sA = isFirst ? s0 : s0 + capA, eA = isLast ? s1 : s1 - capA;
+        const end = Math.min(eA, sweep);
+        if (end > sA + 0.5) {
+            const p0 = polar(sA), p1 = polar(eA);
+          ctx.save();
+          // 전 세그 동일 — 차트 전체에 깔린 램프에서 자기 구간 색을 집는다(유저 08-05).
+          //   블룸은 0 유지: 번지면 칩·라벨 글자가 죽는다(유저 #98).
+          ctx.shadowBlur = 0;
+          ctx.strokeStyle = RAMP;
+          ctx.lineWidth = LWA; ctx.lineCap = 'round';
+          // ★ 링 밴드 마스크(유저) — 원뿔 그라디언트는 평면 전체를 칠하고 블룸까지 얹혀서
+          //   색이 스트로크 **바깥으로 번져** 호가 지저분해졌다. 반경 밴드(R±LWA/2)로 클립하면
+          //   둥근 캡(각도 방향)은 그대로 살고 **반경 방향 유출만** 잘린다 = 깔끔한 원형 띠.
+          ctx.beginPath();
+          ctx.arc(CXA, CYA, R + LWA / 2, 0, Math.PI * 2);
+          ctx.arc(CXA, CYA, R - LWA / 2, 0, Math.PI * 2, true);
+          ctx.clip('evenodd');
+          ctx.beginPath(); ctx.arc(CXA, CYA, R, sA * RAD, end * RAD); ctx.stroke();
           ctx.restore();
         }
-        ctx.fillStyle = sel ? '#fff' : '#525252'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-        ctx.fillText(tx, bx + CPAD + iw + CICG, CY + CH2 / 2 + 1);
-        ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-        bx += w3 + CGAP;
+        // 아이콘 칩 — 스윕이 시작각을 지나면 팝(스케일 오버슈트)
+        const ip = (seg.icon || seg.chipText) ? Math.max(0, Math.min(1, (sweep - s0) / 14)) : 0;
+        if (ip > 0) {
+          const ik = kf(eOut(ip), [[0, .4], [1, 1]]);   // 오버슈트 폐기(유저) — 작게 등장 → 최종 크기로 남는다
+          const pc = polar(seg === segs[0] ? s0 : s0 + capA);   // 첫 세그는 아래 끝(캡 중심)에(유저 #99)
+          ctx.save(); ctx.globalAlpha *= Math.min(1, ip * 2.5);
+          const ca = (seg === segs[0] ? s0 : s0 + capA) + 90;
+          ctx.translate(pc.x, pc.y); ctx.rotate(ca * RAD); ctx.scale(ik, ik);
+          // 칩은 전 세그 공통 규격 — 스트레칭만 불투명 흰 원이라 동그란 자리만 뜬 것처럼 보였다(유저 #136).
+          ctx.fillStyle = 'rgba(255,255,255,.3)';
+          ctx.beginPath(); ctx.arc(0, 0, 61, 0, Math.PI * 2); ctx.fill();
+          if (seg.chipText) {   // 5분 구간 = 원형 칩 안에 글자만(유저)
+            // ★ 칩은 접선 방향으로 회전돼 있다 — 글자는 그 회전을 되돌려 **똑바로** 세운다.
+            //   (안 그러면 '5m' 이 옆으로 누워 안 읽힌다 — 유저 #98 의 진짜 원인)
+            ctx.rotate(-ca * RAD);
+            ctx.shadowBlur = 0;
+            ctx.fillStyle = NEU.ink;   // 반투명 칩 위 = 흰 글자(아이콘 배지와 같은 잉크)
+            ctx.font = RF(700, 62); ctx.letterSpacing = '-1.8px';   // 46 → 62 (minFs(455)=61)
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText(seg.chipText, 0, 2);
+            ctx.letterSpacing = '0px';
+          } else {
+          // 아이콘 규격 통일 — 전부 높이 58 박스에 종횡비 유지(러닝·농구 여백 톤 일치, 유저)
+          const IH2 = 58;
+          if (seg.icon === 'feet') {
+            ctx.save(); ctx.scale(IH2 / 69.5, IH2 / 69.5);
+            const l = img('ic-foot-l.svg'), r2i = img('ic-foot-r.svg');
+            if (l) ctx.drawImage(l, -38.85, -34.73, 34.064, 69.458);
+            if (r2i) { ctx.save(); ctx.translate(21.8, 0); ctx.rotate(Math.PI); ctx.scale(1, -1); ctx.drawImage(r2i, -17.03, -34.73, 34.064, 69.458); ctx.restore(); }
+            ctx.restore();
+          } else {
+            const file = seg.icon === 'run' ? 'ic-run.svg' : seg.icon === 'stretch' ? 'ic-stretch.svg'
+              : seg.icon === 'bkTrain' ? 'ic-bk-train.svg' : 'ic-bk-play.svg';
+            const im2 = seg.icon === 'run' ? img(file)
+              : this._tinted2('fig/ready2/' + file, 96, 96, () => (seg.muted ? NEU.t3 : '#fff'));   // 흰 판 위 = 어두운 잉크(가독)
+            if (im2) {
+              const nw = im2.naturalWidth || im2.width, nh = im2.naturalHeight || im2.height;
+              const iw2 = IH2 * (nw && nh ? nw / nh : 1);
+              ctx.drawImage(im2, -iw2 / 2, -IH2 / 2, iw2, IH2);
+            }
+          }
+          }
+          ctx.restore();
+        }
+        // 라벨 — 호 추종 활자. 칩에 글자를 넣은 세그(5분)는 중복이라 생략(유저)
+        if (!seg.chipText) {
+          ctx.save();
+          ctx.fillStyle = NEU.ink; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          // 라벨 영역 = 아이콘 칩 구간을 제외한 나머지 호(겹침 방지, 유저) — 칩 반각 + 여유 2°
+          //   ★ 여백이 과해 10m 이 못 들어갔다(유저: '이 정도는 밖으로 빼지 말고 안에 넣자').
+          //     실측 — 글자 81px 인데 잡힌 자리가 17px. 원인 둘: ① 칩 뒤 여유 2° ② 끝쪽에서
+          //     capA(9.93°)를 통째로 뺀 것. 그런데 중간 세그의 **시각 끝**은 s1 이다(둥근 캡이
+          //     자기 각도 안으로 들어온다) — capA 를 뺄 이유가 없다. 마지막 세그는 캡이 밖으로
+          //     나가므로 s1 까지 그대로 쓴다. 이렇게 잡으면 10m 자리가 85px 가 되어 들어간다.
+          const iconHalf = seg.icon ? 61 / R / RAD : 0;
+          const l0 = s0 + capA + (seg.icon ? iconHalf + 0.5 : 0), l1 = isLast ? s1 : s1 - 1.0;
+          const lmid = (l0 + l1) / 2;
+          // 크기 통일(유저 08-05) — 세그먼트 길이에 따라 44→26 으로 줄이던 자동 축소 폐기.
+          //   숫자는 LBL_FS 고정, 단위 m 만 작게. dy = 작은 m 을 숫자 베이스라인에 맞추는 보정.
+          //   ★ 56/34 → 66/40 — minFs(y≈210~305)가 64 를 요구한다. 10m 은 pad 8° 덕에 자리가
+          //     137px 라 66px 글자(95px)가 들어간다. 30m·농구 세그는 원래 여유가 크다.
+          const LBL_FS = 66, LBL_MS = 40;
+          const fontOf = c => RF(700, c === 'm' ? LBL_MS : LBL_FS);
+          const dyOf = c => (c === 'm' ? (LBL_FS - LBL_MS) * 0.3 : 0);
+          ctx.letterSpacing = '-1px';
+          const chars = [...seg.lbl];
+          const ws = chars.map(c => { ctx.font = fontOf(c); return ctx.measureText(c).width - 1; });
+          const totalW = ws.reduce((a2, b) => a2 + b, 0);
+          const arcLen = (l1 - l0) * RAD * R;
+          // 세그먼트가 짧아 호에 못 눕히면(스트레칭 5m) 아이콘 자리에 한 덩어리로 — 크기는 그대로(유저).
+          if (totalW > arcLen) {
+            // ★ 호에 못 눕히는 짧은 세그(유저: 10m 에서 아이콘과 글자가 겹친다).
+            //   전엔 ac = s0 + capA — **아이콘과 정확히 같은 각**이라 무조건 겹쳤다.
+            //   (5m 는 chipText 라 라벨을 안 그려서 이 경로를 안 밟았고, 그래서 안 드러났다.)
+            //   각도로는 피할 자리가 없다 → 반경으로 뺀다: 링 바깥에 세그 중앙 정렬로 놓는다.
+            const ac = mid, RO = R + LWA / 2 + 52;
+            const cp2 = Math.max(0, Math.min(1, (sweep - ac) / 10));
+            if (cp2 > 0) {
+              const ce = eOut(cp2), pc2 = polar(ac, RO + (1 - ce) * 16);
+              ctx.save(); ctx.globalAlpha *= ce; ctx.textAlign = 'left';
+              ctx.translate(pc2.x, pc2.y); ctx.rotate((ac + 90) * RAD);
+              let x2 = -totalW / 2;
+              chars.forEach((c, k) => { ctx.font = fontOf(c); ctx.fillText(c, x2, dyOf(c)); x2 += ws[k]; });
+              ctx.restore();
+            }
+          } else {
+            let a = lmid - (totalW / 2) / R / RAD;
+            chars.forEach((c, k) => {
+              const am = a + (ws[k] / 2) / R / RAD;
+              a += ws[k] / R / RAD;
+              const cp2 = Math.max(0, Math.min(1, (sweep - am) / 10));   // 스윕 통과 후 10° 에 걸쳐 페이드
+              if (cp2 <= 0) return;
+              const ce = eOut(cp2);
+              const pch = polar(am, R + (1 - ce) * 16);                  // 바깥에서 제자리로 안착
+              ctx.save(); ctx.globalAlpha *= ce;
+              ctx.translate(pch.x, pch.y); ctx.rotate((am + 90) * RAD);
+              ctx.font = fontOf(c);
+              ctx.fillText(c, 0, dyOf(c)); ctx.restore();
+            });
+          }
+          ctx.restore();
+        }
       });
       ctx.letterSpacing = '0px';
+      ctx.restore();
+    }
+    // ── ⑤ 하단 상태 패널 — 피그마 367:10132 정본 + 유저 애니메이션 메모(08-05).
+    //    ⓐ 0s~   : 작은 원 두 개(안경·이어폰)가 배터리 상태를 든다. 피그마 실측 Ø186 · 간격 73.2 · cy 1827.4
+    //    ⓑ 1.2s~ : **이어폰 쪽이 가로로 확장**되어 알약이 되고 그 안에 코치 인물이 들어온다(연결).
+    //              늘어난 폭만큼 그룹을 다시 중앙정렬 — 화면 중심축이 안 흔들린다.
+    //    ⓒ TP3   : 이 자리를 CTA 에 통째로 내주고 사라진다(같은 슬롯을 나눠 쓴다).
+    {
+      // 간격(유저 #133): 개체 **사이는 좁게**(73.2→44) · 캡슐과의 **위아래는 넓게**(+40).
+      const DD = 186, RD = DD / 2, GAPD = 44, CY = 1867.4 + 234 - CUT;
+      // 확장 → (CTA 전환) **되감기**: 알약이 다시 원으로 줄면서 동시에 페이드아웃(유저).
+      //   그냥 사라지면 늘어난 채로 뚝 끊긴다 — 들어온 길로 되돌아 나가야 부드럽다.
+      const EXP = eOut(intro(t, TP_CONN, .55));   // 연결·프로필은 정보 애니메이션이 끝난 뒤(유저)
+      const WE = DD + DD * EXP;                     // 이어폰 칸 폭 186 → 372
+      const x0 = 800 - (DD + GAPD + WE) / 2;        // 늘어나도 중앙 유지
+      // ★ 배터리 원 두 개 = **상태2 물건**(피그마 377:3060 에 있고 상태1 379:3282 엔 없다).
+      //   팩 정보(타이틀 이동 · 숫자 · 아크)와 같은 박자로 올라와 상태3(확장·프로필)까지 남는다.
+      //   ※ 옛 식은 `e0(.35) * (1 - eOut(intro(t, TP3-.45, .45)))` — 순서를 바꾸며 TP3 가 0.25 가
+      //     되자 페이드아웃이 t≈-0.2 에 걸려 **패널이 한 프레임도 안 보였다**(실측). 순서가 바뀌면
+      //     '언제 지우나'도 같이 바뀐다 — 이제 지울 일이 없다(루프가 처음으로 되돌린다).
+      const eB = e0(TP2 + .12, .55);
+      if (eB > 0.004) {
+        // ★ 충전량 다이얼 = **12시에서 시계방향**(유저) — 10시에서 시작하던 것은 게이지의
+        //   출발점이 어디인지 안 읽혀 어색했다. 배터리는 시계처럼 위에서 출발해 한 바퀴가 만충.
+        const DA0 = -90, DA1 = 270;
+        const glass = (pathFn, cx0, r0, rimK = 1) => {
+          ctx.save(); pathFn(); ctx.clip();
+          ctx.fillStyle = 'rgba(255,255,255,.01)'; ctx.fill();
+          ctx.filter = 'blur(22px)';
+          ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = 44;
+          pathFn(); ctx.stroke(); ctx.filter = 'none'; ctx.restore();
+          const rg = ctx.createLinearGradient(cx0 - r0, CY + r0, cx0 + r0, CY - r0);
+          rg.addColorStop(0, 'rgba(255,255,255,.16)');
+          rg.addColorStop(.45, 'rgba(255,255,255,.5)');
+          rg.addColorStop(1, 'rgba(255,255,255,.95)');
+          if (rimK > 0.01) {
+            ctx.save(); ctx.globalAlpha *= rimK;
+            ctx.strokeStyle = rg; ctx.lineWidth = 5; pathFn(); ctx.stroke();
+            ctx.restore();
+          }
+        };
+        // 배터리 다이얼 + 끝점 도트 — 림이 곧 충전량(피그마 상태점 = 게이지 끝)
+        const dial = (cx, pct, d0) => {
+          const RR = RD - 5, gp = eOut(intro(t, d0, .8));
+          const a1 = (DA0 + (DA1 - DA0) * (pct / 100) * gp) * RAD;
+          ctx.save();
+          ctx.strokeStyle = NEU.ink; ctx.lineWidth = 8; ctx.lineCap = 'round';
+          ctx.shadowColor = 'rgba(255,255,255,.8)'; ctx.shadowBlur = 16;
+          ctx.beginPath(); ctx.arc(cx, CY, RR, DA0 * RAD, a1); ctx.stroke();
+          ctx.shadowBlur = 0; ctx.fillStyle = NEU.ink;
+          ctx.beginPath(); ctx.arc(cx + Math.cos(a1) * RR, CY + Math.sin(a1) * RR, 9.3, 0, Math.PI * 2);
+          ctx.fill(); ctx.restore();
+        };
+        ctx.save(); ctx.globalAlpha *= Math.min(1, eB * 1.6);
+        const k = .92 + .08 * Math.min(1, eB * 1.6);
+        ctx.translate(800, CY); ctx.scale(k, k); ctx.translate(-800, -CY);
+        // ⓐ 안경 — 늘 원
+        const gx = x0 + RD;
+        glass(() => { ctx.beginPath(); ctx.arc(gx, CY, RD - 2.5, 0, Math.PI * 2); }, gx, RD);
+        dial(gx, BATT.glasses, .95);
+        { const gl2 = img('ic-glasses.png'); if (gl2) ctx.drawImage(gl2, gx - 55, CY - 37, 110, 74); }
+        // ⓑ 이어폰 — 원 → 알약. 왼끝은 제자리, 오른쪽으로 자란다.
+        const ex = x0 + DD + GAPD;
+        // 확장하며 **전체 컨테이너 아웃라인은 지운다**(유저) — 인물이 들어오면 테두리가 두 요소를
+        //   한 상자에 가두는 것처럼 보였다. 원일 땐 테두리가 있고, 늘어나면서 녹아 없어진다.
+        glass(() => { ctx.beginPath(); ctx.roundRect(ex + 2.5, CY - RD + 2.5, WE - 5, DD - 5, RD); },
+              ex + WE / 2, RD, 1 - EXP);
+        dial(ex + RD, BATT.buds, 1.05);
+        { const eb = this._tinted2('fig/ready2/ic-earbuds.png', 102, 88, () => '#fff');
+          if (eb) ctx.drawImage(eb, ex + RD - 51, CY - 44, 102, 88); }
+        // 코치 인물 — 확장이 만든 오른쪽 빈칸에 채워진다(연결됨)
+        if (EXP > 0.02) {
+          // 코치 프로필 — 종목별(유저): 농구는 커리. 소스 클립(curry-card.mp4)에서 얼굴을 잘라 구웠다.
+          const pk = this._img(bk ? 'photos/creator-profile-curry.png' : 'photos/creator-profile-sean.png');
+          const ccx = ex + WE - RD, CRR = RD - 12;
+          ctx.save(); ctx.globalAlpha *= EXP;
+          ctx.beginPath(); ctx.arc(ccx, CY, CRR, 0, Math.PI * 2); ctx.clip();
+          if (pk) {
+            const sc = Math.max(CRR * 2 / pk.naturalWidth, CRR * 2 / pk.naturalHeight);
+            ctx.drawImage(pk, ccx - pk.naturalWidth * sc / 2, CY - pk.naturalHeight * sc / 2,
+                          pk.naturalWidth * sc, pk.naturalHeight * sc);
+          }
+          ctx.restore();
+        }
+        ctx.restore();
+      }
+    }
+    // ⑥ 발 그래픽은 **여기서 안 그린다**(유저 08-05, 재확인 08-06). 캔버스 신발 SVG 를
+    //   되살렸다가 지운다 — 발자국은 이미 3D FootMark 토큰(session.js readyFeet, tap2 어포던스)이
+    //   갖고 있다. 룩(도트·풀·글로우)이 mark-look.json 정본을 따르는 쪽이 그 토큰이고,
+    //   캔버스에 사제 신발을 또 그리면 같은 물건이 두 벌이 된다.
+    //   ※ 대신 **표시 구간**을 CTA 와 맞춰야 한다 — session.js _readyFeetTick 참조(순서 재배치 반영).
+    // ── ⑦ CTA — **상태1 전용**(피그마 379:3282). 영상이 도는 2초 동안만 하단을 쓴다.
+    //    문구·위계는 **복싱(벽)과 한 벌**(유저 08-05): 작은 눈금 'To start' 위 → 큰 지시 아래.
+    if (p3 > 0.01) {
+      ctx.save(); ctx.globalAlpha *= p3;
+      // 하단 빛 침대 폐기(유저 08-05) — 'Tap Twice' 뒤 배경 그라디언트를 없앤다.
+      //   캡슐 자체 글로우만으로 충분하고, 한 겹 더 깔면 글자 대비가 오히려 죽었다.
+      ctx.globalAlpha *= .9 + .1 * tapB;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      // 하단 슬롯(피그마 367 의 원 두 개 자리)을 그대로 물려받는다 — 블록 중심 = 2061.
+      //   빛 위로 올라와 대비가 낮아진 만큼 눈금 불투명도 .55 → .68.
+      // 타이틀 98 기준 위계(유저 08-05): 지시 74 · 눈금 38(= 지시의 0.5, 복싱 벽 32/64 와 같은 비).
+      ctx.fillStyle = 'rgba(255,255,255,.68)'; ctx.font = RF(400, 44); ctx.letterSpacing = '-1px';   // 38 → 44 (minFs 42.4)
+      //   ★ CTA 는 대문자 규약에서 뺀다(유저) — 세션 가이드(PREVIEW·큐)와 달리 이건 발밑에서
+      //     읽는 지시문이고, 대문자로 올리니 두 줄이 다 소리치는 톤이 됐다.
+      ctx.fillText('To start', 800.15, 2014 - CUT);
+      // 바닥 버전 축약(유저) — 벽은 'Tap your foot Twice'(멀리서 읽는 안내), 지면은 발밑이라
+      //   '무엇으로'가 자명하다. 짧아진 만큼 글자를 키워 한 덩어리로 읽힌다.
+      ctx.fillStyle = NEU.ink; ctx.font = RF(700, 74); ctx.letterSpacing = '-4.25px';
+      ctx.fillText('Tap Twice', 800.15, 2102 - CUT);
+      ctx.letterSpacing = '0px'; ctx.restore();
+    }
+    ctx.restore();   // /콘텐츠 스케일
+  }
+
+
+  // ── 씬 캡슐 프레임(신규 시스템) — READY 캡슐 지오메트리에서 부드럽게 성장 + 배지·게이지·타이틀.
+  //   좌표는 피그마 실측(343:3496): 캡슐 (162,-15) 1276×1955, 배지 y+25, 게이지 y+56 w1048, 타이틀 y+415.
+  _paint_capsule(cfg) {
+    // ★ 관찰 → 따라하기는 **한 물체의 변형**이다(유저). 앞서 헤더 알약만 남기고 프리뷰 원형
+    //   캡슐을 통째로 없앴던 건 실수 — 관찰 구간엔 큰 원형 캡슐(PREVIEW + 동작명 + 카운트 링)이
+    //   서고, 관찰이 끝나면 그게 **가로 알약 헤더로 줄어들며 올라간다**. 링은 형태를 안 바꾸고
+    //   왼쪽 슬롯으로 옮겨 앉는다(관찰 3·2·1 → 따라하기 남은 시간, 같은 컴포넌트).
+    const ctx = this.ctx, t = this.t;
+    // ★ 프리뷰가 **없는** 스테이지가 있다(유저: 넥앤숄더는 프리뷰 없이 바로 따라하기).
+    //   판정은 buildScene 과 같은 규약을 쓴다 — hasPrev 목록에 없으면 관찰 구간 자체가 없으므로
+    //   처음부터 가로 알약 헤더로 선다(원형 캡슐을 띄웠다 지우면 없는 단계를 만든 셈이 된다).
+    const HAS_PREV = /^(A2|A3|BK_A[23]|BK_B[12345])$/.test(this.stage || '');
+    const dur = this.params?.dur || 8, PV = HAS_PREV ? (this.params?.pv || 3) : 0, MOVE = LAYOUT.PREVIEW.morph;
+    // ★ 중간다리 제거(유저) — 캡슐이 pv(3s)에 알약이 되는데 코치 영상은 감상이 끝날 때까지
+    //   계속 나온다. 그래서 [알약 + 영상] 이라는 **세 번째 상태**가 생겼다: 프리뷰도 아니고
+    //   따라하기도 아닌 화면. 모프 시점을 **감상 종료**에 맞추면 그 상태가 존재하지 않는다.
+    //   = 영상이 사라지는 순간 알약이 되고 발마크가 뜬다(한 번에 1 → 3).
+    //   session.demoActive 가 감상 여부의 정본(스테이지 틱이 매 프레임 갱신).
+    const sess = (typeof window !== 'undefined' ? window.__dbg?.session : null);
+    const watching = sess ? (!!sess.demoActive || !!sess.a2Cyc?.watching) : (t < PV);
+    if (watching) this._moT = null; else if (this._moT == null) this._moT = t;
+    const mo = HAS_PREV ? (this._moT == null ? 0 : eOut(clamp01((t - this._moT) / MOVE))) : 1;
+    // ★ 타이틀은 **FLOOR_SCENES 가 정본**이다(유저: 농구 적용 안 된 게 많다 → 감사 결과).
+    //   CAPS 가 title 을 따로 들고 있어서 두 벌이 어긋나 있었다. 실제 어긋남:
+    //     A2  CAPS 'Lunge Press'   vs  scenes 'Calf Stretch'   ← 아예 다른 동작명
+    //     A1  'Neck And Shoulder'  vs  'Neck & Shoulders'
+    //     BK_A1 'Side Bend'        vs  'Side Stretch'
+    //     BK_B2~5 'Step-Back n/4'  vs  'Fake the Layup' / 'Right Foot Down' / … (축약본 미반영)
+    //   CAPS 는 이제 variant·step 만 든다. 타이틀을 두 곳에 두면 반드시 또 어긋난다.
+    const S2 = (typeof window !== 'undefined' ? window.FLOOR_SCENES : null)?.[this.stage];
+    let title = S2?.title || (Array.isArray(cfg.title) ? cfg.title.join(' ') : String(cfg.title || ''));
+    // ★ 좌/우 힌트(유저: '왼발 스트레치' 처럼 알려줘야 하지 않나). 한 발씩 하는 동작에서
+    //   '지금 어느 발'은 남은 시간만큼 중요한 지시다 — 발마크만으론 멀리서 안 읽힌다.
+    //   ★★ 반드시 **폭을 재기 전에** 붙인다. 뒤에서 붙였더니 헤더 폭이 짧은 원본 기준으로
+    //     계산돼 'Left Calf Stretch' 가 알약 밖으로 잘렸다(유저 스샷).
+    const cyc = (typeof window !== 'undefined' ? window.__dbg?.session?.a2Cyc : null);
+    const perFoot = this.stage === 'A2' && cyc && !cyc.watching;
+    const hs = cyc?.holdSec ?? 5, hp = cyc?.inHold ? clamp01(cyc.prog) : 0;
+    if (perFoot) title = (cyc.isLeft ? 'Left ' : 'Right ') + title;
+    // ★ 대소문자 규약(유저 확정) — 타이틀 영역은 **전부 대문자**(프리뷰·헤더·농구 포함).
+    //   대문자로 통일해야 관찰→따라하기가 같은 글자가 옮겨간 것으로 읽힌다.
+    //   **타이틀 영역은 프리뷰·헤더 모두 대문자**, 'Preview' 라벨만 대+소문자(유저 확정).
+    title = title.toUpperCase();
+    const L = (p, q) => p + (q - p) * mo;
+    // 지오메트리 — 원형(760×820) → 가로 알약(840×250). **y 는 176 고정**: 위를 붙박아 두면
+    //   아래로만 접히므로 코치 판(지면 중앙에 서는 3D 인물)과 안 겹친다.
+    //   전엔 y300·h1080 이라 캡슐이 화면 중앙까지 내려와 인물 몸통을 덮었다(유저 스샷).
+    // ★ 프리뷰 캡슐 높이 900 → 620(유저: 캡슐이 인물 머리를 덮는다).
+    //   기하적으로 서 있는 사람의 머리는 화면에서 **먼 바닥**과 같은 높이로 투영된다 —
+    //   1.7m 키가 카메라 부각 ~40°에서 바닥 2.0m 앞과 같은 자리에 찍힌다. 즉 캡슐이 아래로
+    //   내려올수록(=near 쪽으로 커질수록) 머리와 겹칠 수밖에 없다. 위(y176)를 붙박은 채
+    //   **아래 끝을 끌어올리는 것**만이 구조적 해법이다: 하단 y1076 → 796(1.26m → 1.45m).
+    // 헤더 규격은 _capHead 와 같은 식에서 파생 — 여백 균등(pad 44) · 폭은 내용에서(유저)
+    const H2 = LAYOUT.HEAD, PAD = H2.pad, RRp = 130;
+    const HHp = RRp * 2 + PAD * 2;
+    const uwp = 0;   // 'sec' 은 링 안(숫자 아래)으로 — 가로 폭에서 빠진다(유저)
+    ctx.font = F(700, LAYOUT.TYPE.title); ctx.letterSpacing = '-4px';
+    const twp = ctx.measureText(title).width; ctx.letterSpacing = '0px';
+    const WHp = this._smoothW(Math.max(H2.minW, Math.min(safeW(H2.y) - 80,
+      PAD + RRp * 2 + H2.gapU + uwp + H2.gapT + twp + PAD + (cfg.step ? 110 : 0))));
+    const w1 = L(900, WHp), h1 = L(740, HHp), y1 = H2.y;   // 여백 여유(유저) — 820×660 → 900×740
+    // ★ 진입 = **시작화면 캡슐이 줄어드는 것**(유저: 두 번 탭하면 같은 요소가 줄어들며 넘어간다).
+    //   스테이지가 바뀔 때 캡슐을 새로 띄우면 '다른 물건이 나타난' 걸로 읽힌다. READY 캡슐
+    //   지오메트리(x291 y285 w1018 h1491)에서 출발해 0.9s 동안 이 스테이지의 캡슐로 접힌다.
+    const en = eOut(clamp01(t / .9));
+    const E = (p, q) => p + (q - p) * en;
+    const w = E(1018, w1), h = E(1491, h1), y = E(285, y1), x = CX - w / 2;
+    const r = Math.min(w, h) / 2;
+    const path = () => { ctx.beginPath(); ctx.roundRect(x, y, w, h, r); };
+    ctx.save(); ctx.globalAlpha *= eOut(intro(t, .05, .7));
+    ctx.save(); path(); ctx.clip();
+    ctx.fillStyle = 'rgba(255,255,255,.055)'; ctx.fillRect(x, y, w, h);
+    ctx.filter = 'blur(37px)'; ctx.strokeStyle = 'rgba(255,255,255,.25)'; ctx.lineWidth = 80;
+    path(); ctx.stroke(); ctx.filter = 'none';
+    // ★ 엠버 = **시작화면 광 정본 그대로**(유저) — 같은 불이 캡슐을 따라 줄어드는 것이지
+    //   비슷한 그라디언트를 새로 그리는 게 아니다. READY 캡슐 박스를 지금 캡슐 박스로 매핑해
+    //   4겹 에셋을 그대로 얹는다(블렌드 모드 포함). 캡슐 패스로 클립하니 밖으로 안 샌다.
+    {
+      ctx.save();
+      // ★ 광 세기는 **상태와 무관하게 일정**하다(유저: 프리뷰는 연하고 따라하기는 진하다, 진한 쪽으로).
+      //   전엔 1 - mo*.55 라 프리뷰(mo 0)와 알약(mo 1)이 2배 넘게 달랐고, 진입 모프 중에도
+      //   캡슐 크기에 따라 계속 변해 '같은 불'로 안 읽혔다. 한 값으로 못박는다.
+      ctx.translate(x, y);
+      ctx.scale(w / READY_CAP.w, h / READY_CAP.h);
+      ctx.translate(-READY_CAP.x, -READY_CAP.y);
+      for (const [rel, gx, gy, gw, gh, blend] of CAP_GLOWS) {
+        const im = this._img('fig/ready2/' + rel);
+        if (!im) continue;
+        ctx.save(); ctx.globalCompositeOperation = blend;
+        ctx.drawImage(im, gx, gy, gw, gh);
+        ctx.restore();
+      }
+      ctx.restore();
     }
     ctx.restore();
-    // CTA = 모바일 .rts-prompt 컴포넌트(ready.css) 2줄 스택 이식 — 지시(m) / 캡션(s). 복싱 벽(wallgl:497)과 같은 2줄.
-    //   제목과 같은 흰 볼드 한 줄이라 구분이 안 됐다(유저). 비율은 모바일 그대로(s/m=0.5),
-    //   절대 크기는 지면 타입스케일 유지(m 88). 글로우+발은 이 화면의 시그니처라 존치.
-    ctx.save(); this._fadeIn(1057, 300, eOut(intro(t, .7, .9)));
-    const bob = cycle(t, 1.5, 3, 3);
-    const ady = bob == null ? 0 : kf(bob, [[0, 0], [.12, 14], [.25, 0], [.4, 13], [.52, 0], [.58, 0], [1, 0]]);
-    const ar = this._img('run/arrow.svg');
-    if (ar) ctx.drawImage(ar, CX - 43, 1057 + ady, 86, 86);
-    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-    let hy = 1057 + 86 + 12;
-    // 'To start' 눈금 — 레퍼런스(ready-to-start)의 3단 구성: 눈금 / 지시 / 조건.
-    //   지시 한 줄만 크고 위아래 작은 글자가 그것을 감싼다.
-    ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.font = F(400, 46); ctx.letterSpacing = '-1.4px';
-    ctx.fillText('To start', CX, hy); hy += 46 * 1.2 + 10;
-    ctx.fillStyle = '#fff'; ctx.font = F(700, 88); ctx.letterSpacing = '-4.7px';
-    ctx.fillText('Tap your foot Twice', CX, hy);
-    // 'with the Wearable on' 폐기(유저) — 빔이 바닥에 떠 있다는 건 이미 착용·전원이 켜졌다는 뜻이다.
-    //   이미 일어난 일을 조건처럼 말하고 있었다. 게다가 바로 위 기기 칩(👓⌚🎧)이 연결 상태를
-    //   이미 보여준다 — 같은 정보를 두 번, 한 번은 틀리게. 모바일 ready-to-start 에서는 맞는
-    //   문구지만(폰을 보는 사람은 아직 안 찼을 수 있다) 지면 투사로 옮기며 맥락이 어긋났다.
+    const rim = ctx.createLinearGradient(0, y, 0, y + h);
+    rim.addColorStop(0, 'rgba(255,255,255,.95)'); rim.addColorStop(.45, 'rgba(255,255,255,.22)');
+    rim.addColorStop(1, 'rgba(255,255,255,.06)');
+    ctx.strokeStyle = rim; ctx.lineWidth = 2.5; path(); ctx.stroke();
+    // 카운트 링 — 정본 countRing. 관찰: 캡슐 중앙 아래 / 따라하기: 헤더 왼쪽 슬롯. 형태는 안 바뀐다.
+    const RR = L(136, RRp);   // 프리뷰 링 112 → 136
+    const rx = L(CX, x + PAD + RR), ry2 = L(y + h * .74, y + h / 2);
+    // ★ 종아리 늘리기(A2)는 **한 발당** 홀드가 단위다(유저: 시간과 전체 길이가 같으면 어색하다).
+    //   헤더 링 = 지금 딛고 있는 발의 남은 홀드 시간(발이 바뀌면 리셋) · 하단 아크 = 좌+우 합친
+    //   세션 전체. 둘이 같은 값을 세면 "한 발 5초"라는 이 동작의 구조가 화면에서 사라진다.
+    //   값은 session.a2Cyc(홀드 진행 prog·holdSec·isLeft)에서 읽는다 — 봇 사이클과 이미 동기된 정본.
+    // ★ 링 진행값도 소스가 갈릴 때 튄다(스테이지 시간 → 한 발 홀드). 0.35s 램프로 섞는다.
+    if (perFoot && this._pfT == null) this._pfT = t;
+    if (!perFoot) this._pfT = null;
+    const pfK = perFoot ? clamp01((t - this._pfT) / 0.35) : 0;
+    const rem = perFoot ? Math.max(0, Math.ceil(hs * (1 - hp)))
+      : (mo < .5 ? Math.max(1, Math.ceil(Math.max(PV, (this._moT ?? PV)) - t)) : Math.max(0, Math.ceil(dur - t)));
+    if (String(rem) !== this._numLast2) { this._numLast2 = String(rem); this._numT2 = t; }
+    countRing(ctx, rx, ry2,
+      (() => { const base = mo < .5 ? clamp01(1 - t / PV) : clamp01(1 - (t - PV) / Math.max(.1, dur - PV));
+               return perFoot ? base + ((1 - hp) - base) * pfK : base; })(),
+      String(rem), { t: 99, k: RR / 275, pulse: clamp01((t - (this._numT2 || 0)) / 0.5),
+                     ring: { trackW: 11, arcW: 11, trackA: .26 } });
+    // PREVIEW 라벨 · 동작명 — 순차 크로스페이드(옛 것이 먼저 빠지고 새 것이 든다)
+    // ★ 전환 타이포 애니메이션(유저: 안 예쁘다) — 전엔 두 타이틀을 **제자리에서** 알파만 바꿔
+    //   교차시켰다. 위치가 (중앙 2줄) → (좌측 1줄) 로 멀리 뛰는데 이동이 없으니 '사라졌다 다른
+    //   글자가 나타난' 걸로 읽힌다. 세 가지를 더한다:
+    //     ① 나가는 글자는 도착점 쪽으로 **끌려간다**(거리의 32%까지) — 같은 글자가 옮겨가는 인상
+    //     ② 들어오는 글자는 남은 거리에서 **미끄러져 들어온다**
+    //     ③ 알파는 quint 로 — 선형이면 중간이 텅 빈다
+    const eQ = u => 1 - Math.pow(1 - clamp01(u), 4);
+    const dstX = rx + RR + H2.gapU + uwp + H2.gapT, dstY = ry2;
+    // 프리뷰 2줄 분할 — 한 줄로 들어가면 나누지 않는다(아래 연속 이동의 전제).
+    const ci2 = title.indexOf(', ');
+    const ls = ci2 > 0 ? [title.slice(0, ci2 + 1), title.slice(ci2 + 2)]
+      : (() => { ctx.font = F(700, 124); ctx.letterSpacing = '-5px';
+          const fit = ctx.measureText(title).width <= w1 - PAD * 2;
+          if (fit) return [title];
+          const w2 = title.split(' '); const m = Math.ceil(w2.length / 2);
+          return [w2.slice(0, m).join(' '), w2.slice(m).join(' ')]; })();
+    // 'Preview' 라벨 — 전환 시작과 함께 빠진다(한 줄짜리 요소라 페이드로 충분).
+    if (mo < .999) {
+      ctx.save(); ctx.globalAlpha *= eQ(1 - clamp01(mo / .42));
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillStyle = 'rgba(255,255,255,.7)'; ctx.font = F(400, 72); ctx.letterSpacing = '2px';
+      ctx.fillText('Preview', CX + 3, y + h * .15 - 26 * mo);
+      ctx.letterSpacing = '0px'; ctx.restore();
+    }
+    // ★ 타이틀 = **한 물체가 계속 움직인다**(유저: 중간다리 없이 매끄럽게).
+    //   전엔 두 벌을 크로스페이드해서 중간에 '반쯤 사라진 글자'라는 제3의 상태가 보였다 —
+    //   그게 '중간다리'다. 문구가 프리뷰·헤더 모두 같은 대문자 한 줄이므로 나눌 이유가 없다:
+    //   크기·위치를 하나의 mo 로 보간해 **끊김 없이** 이동시킨다(알파 변화 자체가 없다).
+    //   두 줄이 필요한 긴 이름만 예외로 크로스페이드를 남긴다.
+    ctx.save();
+    ctx.textBaseline = 'middle'; ctx.fillStyle = '#fff';
+    if (ls.length === 1) {
+      const fs = 124 + (LAYOUT.TYPE.title - 124) * mo;
+      ctx.font = F(700, fs); ctx.letterSpacing = (-5 + 1 * mo).toFixed(2) + 'px';
+      const tw2 = ctx.measureText(title).width;
+      const x0t = (CX - tw2 / 2) + (dstX - (CX - tw2 / 2)) * mo;
+      const y0t = (y + h * .40) + (dstY - (y + h * .40)) * mo;
+      ctx.textAlign = 'left';
+      ctx.fillText(title, x0t, y0t);
+    } else {
+      const outA = eQ(1 - clamp01(mo / .48)), inA = eQ((mo - .46) / .54);
+      ctx.textAlign = 'center';
+      if (outA > 0) {
+        ctx.save(); ctx.globalAlpha *= outA;
+        ctx.translate((dstX - CX) * .32 * mo, (dstY - (y + h * .40)) * .32 * mo);
+        ctx.letterSpacing = '-5px'; ctx.font = F(700, 124);
+        ls.forEach((ln, i) => ctx.fillText(ln, CX, y + h * .40 + (i - (ls.length - 1) / 2) * 136));
+        ctx.restore();
+      }
+      if (inA > 0) {
+        ctx.save(); ctx.globalAlpha *= inA; ctx.textAlign = 'left';
+        ctx.font = F(700, LAYOUT.TYPE.title); ctx.letterSpacing = '-4px';
+        ctx.fillText(title, dstX - (dstX - CX) * .18 * (1 - inA), ry2 + 22 * (1 - inA));
+        ctx.restore();
+      }
+    }
     ctx.letterSpacing = '0px';
     ctx.restore();
-    // 발 — 탭 모션(footBob)
-    ctx.save(); this._fadeIn(1140, 539, eOut(intro(t, .7, .9)));
-    const foot = this._img('run/foot.svg');
-    const fdy = bob == null ? 0 : kf(bob, [[0, 0], [.12, 46], [.25, 6], [.4, 44], [.52, 0], [.58, 0], [1, 0]]);
-    if (foot) ctx.drawImage(foot, 606, 1140 + fdy, 400, 539);
+    // step 배지 — 헤더 상태에서만
+    if (cfg.step && mo > .5) {
+      ctx.save(); ctx.globalAlpha *= (mo - .5) / .5;
+      ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+      ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.font = F(400, 44);
+      ctx.fillText(cfg.step, x + w - PAD, ry2);
+      ctx.restore();
+    }
     ctx.restore();
+    // 진행 — 따라하기 구간에만, 헤더 바로 아래
+    if (mo > .5) {
+      ctx.save(); ctx.globalAlpha *= (mo - .5) / .5;
+      // ★ 벽(복싱)과 **같은 컴포넌트를 통째로, 배율만 줄여** 쓴다(유저).
+      //   전엔 폭을 대지의 65%(1048)까지 늘려 놓고 마커만 dotK 0.6 으로 깎았다 — 아크는 크고
+      //   점은 작은 비균일 스케일이라 복싱의 비례가 깨졌다. 폭을 640 으로 줄이면 s 가 같은 비율로
+      //   작아져 마커도 알아서 그 크기가 된다(= dotK 불필요). 높이도 gaugeH(640) 로 함께 줄어
+      //   헤더 알약을 아크가 가로지르지 않는다.
+      const ay = LAYOUT.PROG_Y, wA = Math.min(LAYOUT.PROG.wMax, safeW(ay) - 48);
+      arcGauge(ctx, CX - wA / 2, ay, wA, clamp01((t - PV) / Math.max(.1, dur - PV)));
+      ctx.restore();
+    }
   }
 
-  // 제자리 scale+fade 등장 — 호출자가 save()한 상태에서 부른다
-  _fadeIn(y, h, e) {
-    const ctx = this.ctx;
-    ctx.globalAlpha *= e;
-    const k = 0.94 + 0.06 * e;
-    ctx.translate(CX, y + h / 2); ctx.scale(k, k); ctx.translate(-CX, -(y + h / 2));
-  }
-
-  // ── 전환 (floor-transition.html) ───────────────────────────────────────────
   _paint_transition() {
     const ctx = this.ctx, TR_ = TR[this.stage] || TR.T1, t = this.t;
     this._bgGlow(1160);
@@ -1430,29 +2556,10 @@ export class FloorGL {
     this._bgGlow(GLOW_Y);
     const y = this._titleGroup(GLOW_Y - RING / 2 - GAP - TGH, M.sub, M.title) + GAP;
     const cy = y + RING / 2, rem = dur - t, txt = rem > 0.05 ? String(Math.ceil(rem)) : 'GO';
-    // ringPop .8s .35s + ringBreath 3s 1.2s ×3
-    const e = eOut(intro(t, .35, .8)), br = cycle(t, 1.2, 3, 3);
-    ctx.save();
-    ctx.globalAlpha *= kf(e, [[0, 0], [.7, 1], [1, 1]]);
-    const k = kf(e, [[0, .6], [.7, 1.05], [1, 1]]);
-    ctx.translate(CX, cy); ctx.scale(k, k); ctx.translate(-CX, -cy);
-    if (br != null) {
-      const g = kf(br, [[0, 0], [.5, 1], [1, 0]]);
-      ctx.shadowColor = `rgba(255,255,255,${.35 * g})`; ctx.shadowBlur = 26 * g;
-    }
-    drawRing(ctx, { size: 604 }, y, clamp01(t / dur), '#fff');
-    ctx.shadowBlur = 0;
-    // numPulse — 숫자가 바뀔 때마다 .5s
+    // ★ 여기 있던 링·숫자·모션 코드가 countRing 정본 컴포넌트가 됐다(유저: 컴포넌트 자체를 재사용).
+    //   출력은 동일 — 규격(604·220)과 모션(ringPop·breath·numPulse)을 그대로 옮겼다.
     if (txt !== this._numLast) { this._numLast = txt; this._numT = t; }
-    const q = clamp01((t - this._numT) / 0.5), nk = kf(q, [[0, 1.5], [1, 1]], eOut);
-    ctx.save();
-    ctx.globalAlpha *= kf(q, [[0, 0], [.35, 1], [1, 1]]);
-    ctx.translate(CX, cy); ctx.scale(nk, nk); ctx.translate(-CX, -cy);
-    // 카운트다운은 'GO' 까지 도트(유저 확정) — drawCenteredNum 의 숫자-전용 규약 예외라 직접 찍는다
-    ctx.font = F(700, 220, dot9); ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText(txt, CX, cy);
-    ctx.restore();
-    ctx.restore();
+    countRing(ctx, CX, cy, clamp01(t / dur), txt, { t, pulse: clamp01((t - this._numT) / 0.5) });
   }
 
   // ── 세션 리포트 (floor-report.html) ────────────────────────────────────────
@@ -1479,10 +2586,10 @@ export class FloorGL {
     // % — 링 게이지와 같은 진행(e)을 쓰던 것을 정본 카운트업으로. 값 보간만 있고 자릿수 롤이 없었다.
     ctx.font = F(700, 128.5, dot9); const nTxt = '100';
     const nw = ctx.measureText(nTxt).width;
-    ctx.font = F(500, 76); const sw = ctx.measureText('%').width;   // 단위 = 본문 영문(유저 규약)
+    ctx.font = F(400, 76); const sw = ctx.measureText('%').width;   // 단위 = 본문 영문(유저 규약)
     ctx.textAlign = 'left';
     rollNum(ctx, nTxt, this.t, 0.4, 1.3, CX - (nw + sw + 8) / 2, cy - 128.5 * 0.5, 128.5, { fam: dot9, fill: '#fff' });
-    ctx.font = F(500, 76); ctx.fillText('%', CX - (nw + sw + 8) / 2 + nw + 8, cy + 18);
+    ctx.font = F(400, 76); ctx.fillText('%', CX - (nw + sw + 8) / 2 + nw + 8, cy + 18);
     ctx.shadowBlur = 0;
     ctx.restore();
     y = cy + 250 + 80;

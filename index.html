@@ -19,6 +19,9 @@
     /* 마크 안 숫자 = OffBit 도트 폰트(랩 정본). 여기 선언이 없어서 시뮬은 Supreme 으로 폴백했다 —
        랩에선 도트인데 시뮬만 일반 활자로 나오던 근본(유저). fxlab.html 과 같은 파일·같은 굵기. */
     @font-face { font-family: 'OffBit'; src: url('fonts/OffBitTrial-DotBold.woff2') format('woff2'); font-weight: 700; font-display: block; }
+    /* Supreme 은 Regular/Medium/Bold 세 벌을 다 번들한다 — 400 슬롯이 Medium 을 물고 있어서
+       floorgl 이 400 을 써도 미디움이 나왔다(유저 실측). 400=Regular 로 바로잡는다. */
+    @font-face { font-family: 'Supreme'; src: url('fonts/Supreme-Regular.woff2') format('woff2'); font-weight: 400; font-display: swap; }
     @font-face { font-family: 'Supreme'; src: url('fonts/Supreme-Medium.woff2') format('woff2'); font-weight: 500; font-display: swap; }
     @font-face { font-family: 'Supreme'; src: url('fonts/Supreme-Bold.woff2') format('woff2'); font-weight: 700; font-display: swap; }
     :root {
@@ -51,8 +54,9 @@
     .tabs button {
       flex: 1; padding: 8px 0; border: 1px solid var(--line); border-radius: 8px;
       background: var(--panel2); color: var(--dim); font-size: 12px; font-weight: 600;
-      cursor: pointer; transition: all .15s;
+      cursor: pointer; transition: all .22s cubic-bezier(.2,.8,.3,1);
     }
+    .tabs button:active { transform: scale(.96); }
     .tabs button.active { background: var(--accent); border-color: var(--accent); color: #fff; }
 
     .section { padding: 12px 16px; border-bottom: 1px solid var(--line); }
@@ -138,14 +142,15 @@ body:not(.dev):has(#play-panel.folded) #stage{margin-right:56px}
 #play-panel .pp-sub{margin-left:auto;font-size:11px;color:rgba(255,255,255,.42)}
 #play-panel .pp-fold{margin-left:8px;width:24px;height:24px;line-height:1;border:1px solid rgba(255,255,255,.12);
   border-radius:8px;background:rgba(255,255,255,.05);color:rgba(255,255,255,.6);font-size:12px;cursor:pointer;
-  display:flex;align-items:center;justify-content:center;transition:transform .2s}
+  display:flex;align-items:center;justify-content:center;transition:transform .26s cubic-bezier(.2,.8,.3,1)}
 #play-panel .pp-fold:hover{background:rgba(255,255,255,.1);color:#fff}
 #play-panel.folded .pp-body{display:none}
 #play-panel.folded .pp-fold{transform:rotate(180deg)}
 #play-panel .pp-packs{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:14px}
 #play-panel .pp-pack{padding:10px 0;border:1px solid rgba(255,255,255,.12);border-radius:11px;
   background:rgba(255,255,255,.04);color:rgba(255,255,255,.66);font-size:12px;font-weight:700;cursor:pointer;
-  transition:background .18s,border-color .18s,color .18s}
+  transition:background .22s cubic-bezier(.2,.8,.3,1),border-color .22s cubic-bezier(.2,.8,.3,1),color .22s cubic-bezier(.2,.8,.3,1),transform .16s cubic-bezier(.2,.8,.3,1)}
+#play-panel .pp-pack:active{transform:scale(.97)}
 #play-panel .pp-pack:hover{background:rgba(255,255,255,.09);color:#fff}
 #play-panel .pp-pack.on{border-color:#fa3030;background:rgba(250,48,48,.16);color:#ff6b6b}
 #play-panel .pp-stage{font-size:15px;font-weight:800;line-height:1.45;letter-spacing:-.2px;min-height:44px}
@@ -189,7 +194,7 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
 #lab-panel details>summary::-webkit-details-marker{display:none}
 #lab-panel details>summary::after{content:'';margin-left:auto;width:5px;height:5px;flex:0 0 auto;
   border-right:1.5px solid rgba(255,255,255,.4);border-bottom:1.5px solid rgba(255,255,255,.4);
-  transform:rotate(45deg) translateY(-2px);transition:transform .18s}
+  transform:rotate(45deg) translateY(-2px);transition:transform .24s cubic-bezier(.2,.8,.3,1)}
 #lab-panel details[open]>summary::after{transform:rotate(-135deg) translateY(-1px)}
 #lab-panel details>summary .cnt{margin-left:auto;font-size:10px;font-weight:600;letter-spacing:0;
   color:rgba(255,255,255,.32)}
@@ -203,7 +208,7 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
   border:1px solid rgba(255,255,255,.10);border-radius:10px;background:rgba(255,255,255,.04);cursor:pointer}
 #lab-panel .lab-sw .dotsw{width:26px;height:15px;border-radius:99px;background:#333a45;position:relative;flex:0 0 auto}
 #lab-panel .lab-sw .dotsw::after{content:'';position:absolute;top:2px;left:2px;width:11px;height:11px;border-radius:50%;
-  background:#8b93a1;transition:transform .18s,background .18s}
+  background:#8b93a1;transition:transform .28s cubic-bezier(.34,1.32,.5,1),background .22s cubic-bezier(.2,.8,.3,1)}
 #lab-panel .lab-sw.on .dotsw{background:rgba(209,254,255,.3)}
 #lab-panel .lab-sw.on .dotsw::after{transform:translateX(11px);background:#d1feff}
 #lab-panel .lab-sw .t{font-size:12px;font-weight:700}
@@ -231,7 +236,8 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
 /* ── NEWTON 디자인 시스템 · 다크모드 컬러 시스템(Figma 222-37297 정본) ─────────
    시뮬레이터 '겉면'(패널·버튼·자막)에만 적용한다. 빔 투사 UI는 손대지 않는다. */
 @font-face{font-family:'Supreme';src:url('fonts/Supreme-Bold.woff2') format('woff2');font-weight:700;font-display:swap}
-@font-face{font-family:'Supreme';src:url('fonts/Supreme-Medium.woff2') format('woff2');font-weight:400;font-display:swap}
+@font-face{font-family:'Supreme';src:url('fonts/Supreme-Regular.woff2') format('woff2');font-weight:400;font-display:swap}
+@font-face{font-family:'Supreme';src:url('fonts/Supreme-Medium.woff2') format('woff2');font-weight:500;font-display:swap}
 /* 한글 = Freesentation(무료 배포본, freesentation.blog). Supreme을 앞에 두면 라틴·숫자는 Supreme,
    한글 글리프만 Freesentation으로 글리프 단위 폴백된다. Pretendard는 최후 폴백으로만 남긴다. */
 @font-face{font-family:'Freesentation';src:url('fonts/Freesentation-4Regular.woff2') format('woff2');font-weight:400;font-display:swap}

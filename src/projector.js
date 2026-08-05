@@ -222,14 +222,13 @@ export class ProjectorRig {
     this.wallFill.visible = sport === 'boxing' && viz;
     if (!isKnee) this._fp = null;
 
-    // 농구 무릎 유닛: 컷 중 스윙을 줄이려 적당한 폭(발 앞 근접 존). 러닝은 스트리밍 레인.
-    if (sport === 'basketball') {
-      this.fixedPad = { halfNear: 0.55, halfFar: 0.85 };
-      this.fpNear = 0.05; this.fpFar = 1.6;
-      this._smFwd = null; this._travelDir = null; this._bodyPrev = null;   // 스무딩 리셋
-    } else {
-      this.fixedPad = null;
-    }
+    // ★ 지면 투사 스펙 = 종목 공통(유저 승인 08-05). 예전엔 농구만 fixedPad(0.55~0.85)+far 1.6
+    //   이라 카드 폭이 1.4m vs 러닝 1.1m 로 갈렸고, 그게 '농구만 크다·잘린다' 계열 버그와
+    //   농구 전용 보정(콘텐츠 스케일·별도 좌표)의 근원이었다. 확산각·시작거리는 원래 같았고
+    //   면적도 1.82㎡ 로 동일해 통합해도 광량 손실이 없다. 농구 가이드 실측 폭 ±0.55m 는
+    //   통합 스펙(먼 쪽 반폭 0.75m) 안에 들어온다.
+    this.fixedPad = null;
+    if (sport === 'basketball') { this._smFwd = null; this._travelDir = null; this._bodyPrev = null; }
 
     if (sport === 'boxing') {
       // 벽면 타겟 평균 위치 저장 (빔/투사면은 update에서 실시간 계산 — 크기 슬라이더 반영)
@@ -443,11 +442,15 @@ export class ProjectorRig {
     // ── 사다리꼴 풋프린트 (월드 좌표) ──
     let fwd, ox, oz;
     if (this.mode === 'basketball') {
-      // 농구: 빔프는 선수 정면(-Z, getForward) 기준으로 몸 앞에 투사. 무릎 크라우치·
-      // LEVER 증폭 무시하고 몸 지면 위치에 앵커 → 스텝백(뒤로 이동)해도 투사는 앞에.
+      // 농구: 빔프는 선수 정면(-Z, getForward) 기준. 무릎 크라우치·LEVER 증폭 무시하고
+      // 몸 지면 위치에 앵커 → 스텝백(뒤로 이동)해도 투사는 앞에.
+      // ★ 전방 +0.35m 앵커 폐기(유저 08-05) — 종목 투사 규격을 통합했는데 이 오프셋만 남아
+      //   농구만 대지가 0.35m 더 앞에 섰다. 실측: 봇→대지 러닝 1.083m / 농구 1.414m.
+      //   원점을 옮기면 커버리지 콘(fpNear/fpFar)과 대지(boardFwd)가 **함께** 따라오므로
+      //   UI 가 콘 밖으로 새지 않는다 — 대지만 앞으로 미는 것과는 다르다.
       fwd = this.xbot.getForward();   // 정면(봇이 회전 안 하므로 -Z 고정)
-      ox = body.x + fwd.x * 0.35 + gimbalBreak.x;   // 짐벌 붕괴 반영(정직)
-      oz = body.z + fwd.z * 0.35 + gimbalBreak.z;
+      ox = body.x + gimbalBreak.x;   // 짐벌 붕괴 반영(정직)
+      oz = body.z + gimbalBreak.z;
       this.shake.set(0, 0);
       this.errorCm = Math.hypot(gimbalBreak.x, gimbalBreak.z) * 100;
     } else if (this.beamGroundLock) {

@@ -75,6 +75,10 @@ void main() {
   float breath = smoothstep(0.10, 0.88, fract(uTime * 0.45));
   float prog = uPhase < 0.5 ? max(breath, max(uStrong, uProg)) : clamp(uProg, 0.0, 1.0);
   vec4 r = markState(uv, st, prog, uStrong, uTime);
+  // 쿼드 가장자리 페이드 — 헤일로·파동이 판 경계에 닿으면 '잘린 날'이 생긴다(유저 #113).
+  //   경계 10% 구간에서 소멸시켜 어떤 상태·어떤 크기에서도 하드 컷이 없다.
+  float edgeF = smoothstep(1.0, 0.90, max(abs(uv.x), abs(uv.y)));
+  r *= edgeF;
   // ── 상태 크로스페이드(유저: 색만 띡 하고 바뀜) — 이전 상태를 한 번 더 평가해 0.28s 이지로 섞는다.
   //   markState 는 순수 함수라 두 번 호출이 안전하고, 전환이 끝나면(uXfade 1) 비용 0.
   if (uXfade < 0.999) {
@@ -289,7 +293,11 @@ const SF = SIL_FIT / SIL_FIT_REF;   // uv 단위 거리 스케일 — 실루엣 
  *  (레인·이펙트·인물은 여전히 스토어를 쓴다 — 마크만 떼어낸 것이다.) */
 // pool 은 필 알파를 직접 정한다: fillGain = clamp(pool * 1.6, 0, 1.35).
 //   0.55 로 내렸다가 필이 0.88 로 35% 약해져 '개 흐리다'가 됐다(유저). 수정 전 0.9(=포화 1.35)로 복귀.
-export const MARK_LOOK = { core: LOOK.w, halo: LOOK.halo, pool: LOOK.pool, sweep: 0.4, wobble: LOOK.noise };
+// ★ tap·states 도 함께 실어야 한다 — 예전엔 이 객체가 5개 키(core/halo/pool/sweep/wobble)뿐이라
+//   session 의 `MARK_LOOK.tap` 이 항상 undefined 였고, 8번째 토큰 룩 적용이 **통째로 no-op** 이었다
+//   (유저 08-05: 랩에서 디자인한 대로 안 보인다). 랩이 굽는 값의 유일한 통로다.
+export const MARK_LOOK = { core: LOOK.w, halo: LOOK.halo, pool: LOOK.pool, sweep: 0.4, wobble: LOOK.noise,
+  tap: LOOK.tap || null, states: LOOK.states || null };
 // footlab 프림 저장본(코멧·노드·레일 등) → 부팅 반영 — 실시간 브리지(applyMarkLook)의 영구판.
 //   이게 없으면 랩에서 확정한 프림 값이 새로고침마다 증발했다(유저: 시뮬에 이식이 안 된다).
 if (LOOK.prims) {
@@ -327,6 +335,7 @@ export function makeMarkFXMaterial(footTex = null) {
       // 경계는 이너 섀도우가 만든다(유저 확정) — 윤곽 글로우는 기본 0, 필요할 때만 켠다.
       uImpGlow: { value: LOOK.glow }, uImpShade: { value: LOOK.shade }, uImpSharp: { value: LOOK.sharp },
       uImpShadeCol: { value: LOOK.shadeCol },   // 0 흰 — 프로토타입 foot-*-dots.svg 의 white inner shadow 규약
+      uImpDotCol: { value: LOOK.dotCol ?? 1 },   // 1 샌드 = 구 C_CREAM 하드코딩과 같은 색(기본 무변화)
       uImpEdge: { value: LOOK.edge * SF }, uImpScale: { value: LOOK.scale },
       uImpRot: { value: (footTex?._right ? -LOOK.irot : LOOK.irot) * Math.PI / 180 },   // 각인 기울기(rad) — 오른발은 미러라 부호가 뒤집힌다
       uImpCtr: { value: new THREE.Vector2(
@@ -358,7 +367,7 @@ export function makeMarkFXMaterial(footTex = null) {
       uRipCol: { value: LOOK.ripCol },   // 1 = 샌드(따뜻한 잔광). 0 흰 · 2 코랄 · 3 레드
       // 진행 아크 감김 — 종목별. FXP.arcRev 를 매 프레임 주입한다(아래 MARK_LOOK 주입부와 같은 자리).
       uArcRev: { value: FXP.arcRev || 0 },
-      uPhase: { value: 0 }, uProg: { value: 0 }, uFade: { value: 1 },
+      uPhase: { value: 0 }, uProg: { value: 0 }, uFade: { value: 1 }, uFillOp: { value: 1 },
       uToe: { value: 0 },   // 앞꿈치 접지 강조 — 앞은 진하게, 뒤꿈치는 투명하게(스텝백 2/4 왼발)
       uStrong: { value: 0 }, uContract: { value: 0 },
       uTime: { value: 0 }, uSeed: { value: Math.random() * 6.2832 },
@@ -398,10 +407,46 @@ export function makeMarkFXMaterial(footTex = null) {
 
 // ── 마크 룩 라이브 적용 — 랩 실험값·구(하늘) 램프 토글을 이미 만들어진 재질 전부에 즉시 ──
 const MARK_MATS = [];
+/** 재질 하나에만 룩을 입힌다(전역 applyMarkLook 의 인스턴스 판) — 8번째 토큰 'Tap2' 처럼
+ *  특정 토큰만 다른 스타일을 쓰는 경우. 키 규약은 applyMarkLook 과 동일. */
+export function applyMarkLookTo(mat, part = {}) {
+  const SF = SIL_FIT / SIL_FIT_REF;
+  const map = { imp: 'uImp', dot: 'uImpDot', glow: 'uImpGlow', shade: 'uImpShade', sharp: 'uImpSharp',
+    shadeCol: 'uImpShadeCol', dotCol: 'uImpDotCol', scale: 'uImpScale', plantar: 'uPlantar', bands: 'uBands', bandSoft: 'uBandSoft',
+    edgeShade: 'uEdgeShade', edgeShadeW: 'uEdgeShadeW', edgeShadeCol: 'uEdgeShadeCol',
+    edgeShadeGrad: 'uEdgeShadeGrad', edgeShadeG0: 'uEdgeShadeG0', edgeShadeG1: 'uEdgeShadeG1',
+    shadeRed: 'uShadeRed', shadeRedW: 'uShadeRedW', edgeSoft: 'uEdgeSoft', dither: 'uDither',
+    rip: 'uRip', ripSpeed: 'uRipSpeed', ripGrad: 'uRipGrad', ripCol: 'uRipCol', op: 'uFillOp',
+    // ★ halo/w/pool 도 맵에 넣는다 — 이 셋만 빠져 있어서 바닥 룭의 halo 낮춤이 안 먹었다
+    //   (실측: floor.halo .18 을 줘도 재질은 생성값 .45 그대로). 팩 마크는 매 프레임 전역값이
+    //   덮으므로 그쪽은 userData.floorLook 예외로 따로 막는다.
+    halo: 'uHalo', w: 'uW', pool: 'uPool', noise: 'uNoise' };
+  const mapSF = { pitch: 'uImpPitch', edge: 'uImpEdge', edgeW: 'uEdgeW', ripWidth: 'uRipWidth', ripReach: 'uRipReach' };
+  const U = mat.uniforms;
+  for (const k in map) if (part[k] != null && U[map[k]]) U[map[k]].value = part[k];
+  for (const k in mapSF) if (part[k] != null && U[mapSF[k]]) U[mapSF[k]].value = part[k] * SF;
+}
+
+/** 상태별 룩 — footlab '이 상태만 편집' 저장본(mark-look.json states[ph]).
+ *  공통값은 이미 재질에 들어 있으므로 오버라이드만 얹고, 상태가 바뀌면 공통값으로 되돌린다. */
+const _stateBase = new WeakMap();
+export function setMarkStateLook(mat, ph) {
+  if (!mat?.uniforms) return;
+  const ov = (LOOK.states || {})[ph] || (LOOK.states || {})[String(ph)];
+  const KEYS = ['imp','dot','glow','shade','sharp','scale','plantar','bands','bandSoft','edgeShade',
+    'edgeShadeW','edgeShadeGrad','edgeShadeG0','edgeShadeG1','dither','pitch','edge','edgeW'];
+  if (!_stateBase.has(mat)) {
+    const base = {}; for (const k of KEYS) if (LOOK[k] != null) base[k] = LOOK[k];
+    _stateBase.set(mat, base);
+  }
+  applyMarkLookTo(mat, _stateBase.get(mat));   // 공통으로 리셋
+  if (ov) applyMarkLookTo(mat, ov);            // 그 상태만 덮기
+}
+
 export function applyMarkLook(part = {}) {
   const SF = SIL_FIT / SIL_FIT_REF;
   const map = { imp: 'uImp', dot: 'uImpDot', glow: 'uImpGlow', shade: 'uImpShade', sharp: 'uImpSharp',
-    shadeCol: 'uImpShadeCol', scale: 'uImpScale', plantar: 'uPlantar', bands: 'uBands', bandSoft: 'uBandSoft',
+    shadeCol: 'uImpShadeCol', dotCol: 'uImpDotCol', scale: 'uImpScale', plantar: 'uPlantar', bands: 'uBands', bandSoft: 'uBandSoft',
     edgeShade: 'uEdgeShade', edgeShadeW: 'uEdgeShadeW', edgeShadeCol: 'uEdgeShadeCol',
     edgeShadeGrad: 'uEdgeShadeGrad', edgeShadeG0: 'uEdgeShadeG0', edgeShadeG1: 'uEdgeShadeG1',
     shadeRed: 'uShadeRed', shadeRedW: 'uShadeRedW', edgeSoft: 'uEdgeSoft', dither: 'uDither',
@@ -754,6 +799,7 @@ export class Marker {
         this._xfT = nowP;
       }
       U.uPhase.value = _pn;
+      setMarkStateLook(this.fx?.material || m, _pn);   // 상태별 룩 오버라이드(footlab states)
       if (this._xfT != null) {
         const xe = (nowP - this._xfT) / 0.28;
         U.uXfade.value = xe >= 1 ? 1 : xe;
@@ -837,7 +883,7 @@ export class Marker {
 //    촉 크기 = 경로의 0.09 (랩 34px/380px 실측 비율 — 구성 고정, 스케일만 원칙).
 //    구 makeArrow(flatMat 정적 도형 통화살표)와 '촉 끝 주차'는 카탈로그에 없는 종 — 은퇴.
 export const FLOW_ARROWS = [];
-export function makeFlowArrow(len, { tips = 1, wall = false, scale = 1 } = {}) {
+export function makeFlowArrow(len, { tips = 1, wall = false, scale = 1, dots } = {}) {
   // LINE 토큰 = 테이퍼 스템 + SVG 촉 draw-on (유저 확정: 러닝 A3 리프트 큐 2안).
   // 랩 프리뷰와 같은 fx-core drawStemArrow 하나로 그린다 — 셰이더 자루/별도 촉 판 은퇴.
   const g = new THREE.Group();
@@ -850,6 +896,8 @@ export function makeFlowArrow(len, { tips = 1, wall = false, scale = 1 } = {}) {
   g.add(mesh);
   g._len = len; g._canvas = c; g._tex = tex; g._mesh = mesh; g._paintT = -9; g._noTip = tips === 0; g._tips = [];
   g._scale = scale;   // 두께·촉 배율(길이는 그대로) — 길이가 달라도 실측 두께를 맞출 때
+  // 자루 재질 — 지면 기본은 **점렬**(유저 08-05: 바닥 동작 토큰에 도트). 벽은 이어진 테이퍼.
+  g._dots = dots != null ? dots : !wall;
   // 바닥 = 수평면(x=-90°, 살짝 띄움). 벽 = 수직면 유지(x=0) → 자루가 +Y로 서고 caller가 rotation.z로 방향 지정.
   if (wall) { g.rotation.x = 0; g.position.y = 0; } else { g.rotation.x = -Math.PI / 2; g.position.y = 0.014; }
   g.renderOrder = 6;
@@ -885,7 +933,7 @@ export function tickFlowArrows(t, rig) {
     if (t - g._paintT >= 1 / 24) {
       g._paintT = t;
       // _prog 지정 = 자유 루프 대신 외부 구동(세션이 타이밍을 잡는 경우). 다 그려지면 그 상태로 멈춘다.
-      drawStemArrow(g._canvas.getContext('2d'), 128, 256, t, ENV, { noTip: g._noTip, prog: g._prog, scale: g._scale });
+      drawStemArrow(g._canvas.getContext('2d'), 128, 256, t, ENV, { noTip: g._noTip, prog: g._prog, scale: g._scale, dots: g._dots });
       g._tex.needsUpdate = true;
     }
     // 투사면 소프트 페이드 — 셰이더를 버렸으니 CPU에서 판 전체 알파로 (경계에서 사각으로 잘리지 않게)

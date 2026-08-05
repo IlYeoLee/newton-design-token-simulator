@@ -211,10 +211,15 @@
   //   1인칭에서도 좌우·상하·화각·UI 조정이 전부 먹는다.
   head('시점');
   const vSel = el('select');
-  for (const [v, t] of [['flat', '평면 (대지 1:1)'], ['fp', '1인칭 (실제 시야)']]) {
+  for (const [v, t] of [['flat', '평면 (대지 1:1)'], ['top', '수직 바닥뷰 (top-down)'], ['fp', '1인칭 (실제 시야)']]) {
     const o = el('option'); o.value = v; o.textContent = t; vSel.appendChild(o);
   }
-  vSel.onchange = () => { st.fp = vSel.value === 'fp'; const a = adj(); if (a) a.fp = st.fp; };
+  vSel.onchange = () => {
+    st.fp = vSel.value === 'fp'; st.top = vSel.value === 'top';
+    const a = adj(); if (a) { a.fp = st.fp; a.top = st.top; }
+    // 수직 바닥뷰는 앱 토글을 그대로 쓴다 — 카메라를 밖에서 계산하면 대지 추종이 빠진다.
+    f.contentWindow?.__setTopView?.(st.top);
+  };
   list.appendChild(vSel);
 
   head('합성');
@@ -265,6 +270,36 @@
       };
       list.append(t, r); gRows[grp][key] = [r, t, name];
     }
+  }
+
+  // ── 대지 배경(유저 08-05) — 캡슐 판 채움: 투명 / 단색 / 그라디언트 + 색·투명도.
+  //   앱은 window.__capBg 를 매 프레임 읽는다(floorgl capFill). 씬 저장본에도 실린다.
+  head('대지 배경');
+  {
+    const cur = () => (window.__capBg = window.__capBg || { mode: 'none', hex: '#D9D9D9', hex2: '#FFFFFF', alpha: 0.18 });
+    const push = () => { const a = adj(); if (a) a.capBg = { ...cur() }; };
+    const seg = el('div'); seg.className = 'seg';
+    [['none', '투명'], ['solid', '단색'], ['gradient', '그라디언트']].forEach(([v, n]) => {
+      const b = el('button'); b.textContent = n; b.className = cur().mode === v ? 'on' : '';
+      b.onclick = () => {
+        cur().mode = v; push();
+        [...seg.children].forEach(x => x.classList.toggle('on', x === b));
+      };
+      seg.appendChild(b);
+    });
+    list.append(seg);
+    const mkColor = (key, label) => {
+      const t = el('div'); t.className = 'lb'; t.textContent = label;
+      const c = el('input'); c.type = 'color'; c.value = cur()[key];
+      c.oninput = () => { cur()[key] = c.value; push(); };
+      list.append(t, c);
+    };
+    mkColor('hex', '색 (위)');
+    mkColor('hex2', '색 (아래 — 그라디언트)');
+    const t2 = el('div'); t2.className = 'lb'; t2.textContent = '투명도  ' + cur().alpha.toFixed(2);
+    const r2 = el('input'); r2.type = 'range'; r2.min = 0; r2.max = 1; r2.step = 0.01; r2.value = cur().alpha;
+    r2.oninput = () => { cur().alpha = +r2.value; t2.textContent = '투명도  ' + cur().alpha.toFixed(2); push(); };
+    list.append(t2, r2);
   }
 
   // ── 개체 삭제 ────────────────────────────────────────────────────────────

@@ -62,6 +62,7 @@
     </fieldset>
 
     <fieldset><legend>각인 (안 = 맨발 자국)</legend>
+      <div class=row><label>투명도 op</label><input type=range id=op min=0 max=1 step=.01><span class=v id=vop></span></div>
       <div class=row><label>세기 uImp</label><input type=range id=imp min=0 max=1.6 step=.02><span class=v id=vimp></span></div>
       <div class=row><label>자국 축소</label><input type=range id=scale min=.7 max=1.06 step=.005><span class=v id=vscale></span></div>
       <div class=row><label>이동 X</label><input type=range id=offx min=-.16 max=.16 step=.001><span class=v id=voffx></span></div>
@@ -70,8 +71,9 @@
       <div class=acts><button id=fit>자동 맞춤 — 신발 안으로</button></div>
       <div class=row><label>도트 간격</label><input type=range id=pitch min=.008 max=.08 step=.001><span class=v id=vpitch></span></div>
       <div class=row><label>점 크기</label><input type=range id=dot min=.05 max=.5 step=.005><span class=v id=vdot></span></div>
+      <div class=seg id=segDotCol style="margin:2px 0 6px"><button data-v=0>프리즘</button><button data-v=1 class=on>샌드</button><button data-v=2>코랄</button><button data-v=3>레드</button><button data-v=4>흰</button></div>
       <div class=row><label>이너 섀도우</label><input type=range id=shade min=0 max=1.4 step=.01><span class=v id=vshade></span></div>
-      <div class=seg id=segShadeCol style="margin:2px 0 6px"><button data-v=0 class=on>흰</button><button data-v=1>샌드</button><button data-v=2>코랄</button><button data-v=3>레드</button></div>
+      <div class=seg id=segShadeCol style="margin:2px 0 6px"><button data-v=0 class=on>프리즘</button><button data-v=1>샌드</button><button data-v=2>코랄</button><button data-v=3>레드</button><button data-v=4>흰</button></div>
       <div class=row><label>아웃라인 선명</label><input type=range id=sharp min=0 max=1 step=.02><span class=v id=vsharp></span></div>
       <div class=row><label>섀도우 폭</label><input type=range id=edge min=.004 max=.09 step=.002><span class=v id=vedge></span></div>
       <div class=row><label>윤곽 글로우</label><input type=range id=glow min=0 max=1.4 step=.02><span class=v id=vglow></span></div>
@@ -83,7 +85,7 @@
       <div class=row><label>밴드 무름</label><input type=range id=bandSoft min=0 max=1 step=.01><span class=v id=vbandSoft></span></div>
       <div class=row><label>이너 섀도우</label><input type=range id=edgeShade min=0 max=1.4 step=.01><span class=v id=vedgeShade></span></div>
       <div class=row><label>섀도우 면적</label><input type=range id=edgeShadeW min=.2 max=4 step=.05><span class=v id=vedgeShadeW></span></div>
-      <div class=seg id=segEdgeShadeCol style="margin:2px 0 6px"><button data-v=0 class=on>흰</button><button data-v=1>샌드</button><button data-v=2>코랄</button><button data-v=3>레드</button></div>
+      <div class=seg id=segEdgeShadeCol style="margin:2px 0 6px"><button data-v=0 class=on>프리즘</button><button data-v=1>샌드</button><button data-v=2>코랄</button><button data-v=3>레드</button><button data-v=4>흰</button></div>
       <div class=row><label>섀도우 그라디언트</label><input type=range id=edgeShadeGrad min=0 max=1 step=.02><span class=v id=vedgeShadeGrad></span></div>
       <div class=row><label>그라디언트 시작(경계)</label><input type=range id=edgeShadeG0 min=0 max=1 step=.01><span class=v id=vedgeShadeG0></span></div>
       <div class=row><label>그라디언트 끝(안쪽)</label><input type=range id=edgeShadeG1 min=0 max=1 step=.01><span class=v id=vedgeShadeG1></span></div>
@@ -116,7 +118,7 @@
       <div class=row><label>속도</label><input type=range id=ripSpeed min=.05 max=2 step=.05><span class=v id=vripSpeed></span></div>
       <div class=row><label>뉴턴 그라디언트</label><input type=range id=ripGrad min=0 max=1 step=.02><span class=v id=vripGrad></span></div>
       <p class=sub style="margin:2px 0 4px">1 = LUT 를 훑는다(퍼질수록 식음) · 0 = 아래 단색</p>
-      <div class=seg id=segRipCol><button data-v=0>흰</button><button data-v=1 class=on>샌드</button><button data-v=2>코랄</button><button data-v=3>레드</button></div>
+      <div class=seg id=segRipCol><button data-v=0>프리즘</button><button data-v=1 class=on>샌드</button><button data-v=2>코랄</button><button data-v=3>레드</button><button data-v=4>흰</button></div>
     </fieldset>
 
     <fieldset><legend>글리프 (발형·원형 공통)</legend>
@@ -148,7 +150,12 @@
       <div class=row><label>기울기°</label><input type=range id=tilt min=-20 max=20 step=1><span class=v id=vtilt></span></div>
     </fieldset>
 
-    <div class=acts><button id=save>코드에 저장 — 이 값이 시뮬로 간다</button></div>
+    <div class=seg id=segEdit style="margin:6px 0 10px">
+      <button data-v=common class=on>공통 편집</button><button data-v=state>이 상태만 편집</button>
+      <button id=ovClear style="margin-left:8px">이 상태 오버라이드 지우기</button>
+    </div>
+    <div class=acts><button id=save>코드에 저장 — 이 값이 시뮬로 간다</button>
+      <button id=saveTap>8번째 토큰(Tap2)으로 저장 — READY 탭 발자국</button></div>
     <div class=acts><button id=undo>되돌리기 ⌘Z</button><button id=redo>다시 ⇧⌘Z</button></div>
     <div class=acts><button id=reset>기본값</button><button id=copy>현재값 복사</button></div>
     <p class=warn id=warn></p>
@@ -161,8 +168,24 @@
       <canvas id=hero width=640 height=640></canvas>
     </div>
     <div class=card>
-      <h2>7상태 × 두 표현형 — 윗줄 발형 · 아랫줄 원형(존). 셀을 클릭하면 위 확대로</h2>
+      <h2>8상태 × 두 표현형 — 윗줄 발형 · 아랫줄 원형(존). 8번째 Tap2 = READY 탭 어포던스(무채↔석세스 2회 깜빡). 셀을 클릭하면 위 확대로</h2>
       <canvas id=strip width=1120 height=460></canvas>
+    </div>
+    <div class=card>
+      <h2>연결 토큰(LINK) — 두 발자국을 잇는 지면 전용 기호. 3개 실제 시나리오로 시안 비교</h2>
+      <div class=seg id=segLink style="margin:2px 0 8px">
+        <button data-v=chain class=on>체인(점+실)</button><button data-v=dots>점렬</button>
+        <button data-v=taper>테이퍼(끝이 굵게)</button><button data-v=pulse>펄스(중앙→양끝)</button></div>
+      <div class=seg id=segScen style="margin:2px 0 8px">
+        <button data-v=0 class=on>① 종아리 프레스</button><button data-v=1>② 어깨너비</button>
+        <button data-v=2>③ 농구 스텝백</button></div>
+      <div class=row><label>점 개수</label><input type=range id=lkCount min=3 max=14 step=1 value=7><span class=v id=vlkCount>7</span></div>
+      <div class=row><label>점 크기</label><input type=range id=lkR min=1.5 max=9 step=.1 value=4.4><span class=v id=vlkR>4.4</span></div>
+      <div class=row><label>흐름 속도</label><input type=range id=lkFlow min=0 max=1.5 step=.05 value=.35><span class=v id=vlkFlow>0.35</span></div>
+      <div class=row><label>실 진하기</label><input type=range id=lkHair min=0 max=1 step=.02 value=.26><span class=v id=vlkHair>0.26</span></div>
+      <div class=row><label>양끝 여백</label><input type=range id=lkInset min=0 max=.35 step=.01 value=.12><span class=v id=vlkInset>0.12</span></div>
+      <canvas id=linkPrev width=1120 height=620></canvas>
+      <p class=note id=linkNote></p>
     </div>
     <div class=card>
       <h2>바닥 합성 — 투사광은 가산이라 실제 바닥 위에서 색감이 결정된다</h2>
@@ -197,7 +220,7 @@
 import * as THREE from 'three';
 import { makeMarkFXMaterial, QUAD_K, ZONE_GLYPH_K, SIL_FIT, SIL_FIT_REF } from './src/tokens.js';
 import { FXP, GLYPHS, DEFAULT_GLYPHS, footSlot, footSDFTexture, drawNumber, drawGlyph, getLUT, ensureOffBit, rebuildLUT } from './src/fxlut.js';
-import { MARK_NUM, SDF_DECODE, drawMarkGlyph, invertGlyphCanvas, drawApproachRing, drawStemArrow, drawTrajectory, drawRotate, drawPunchLine } from './src/fx-core.js';
+import { MARK_NUM, SDF_DECODE, drawMarkGlyph, invertGlyphCanvas, drawApproachRing, drawStemArrow, drawTrajectory, drawRotate, drawPunchLine, drawLinkDots } from './src/fx-core.js';
 import LOOK from './src/mark-look.json';   // ★ MARK 룩 정본 — 랩·시뮬이 같은 파일을 본다
 
 // 정본 글리프를 항상 싣는다 — 저장본만 믿으면 랩이 낡은 dataURL 을 보는 사고가 반복된다(07-30).
@@ -212,7 +235,7 @@ FXP.numSrc = 'offbit';   // 랩 기본 글리프 = 도트 폰트(유저 확정)
 
 // 기본값 = tokens.js makeMarkFXMaterial 과 같은 값으로 맞춘다(랩과 시뮬이 어긋나면 그게 곧 사고다).
 // scale·off 는 '자동 맞춤' 계측값 — 좌·우발 모두 삐져나옴 0.00%.
-const DEF = { imp: 1.0, scale: 0.835, offx: -0.04, offy: -0.007, irot: 0, pitch: 0.027, dot: 0.25,
+const DEF = { op: 1.0, imp: 1.0, scale: 0.835, offx: -0.04, offy: -0.007, irot: 0, pitch: 0.027, dot: 0.25,
               glow: 0.0, shade: 0.55, sharp: 0.22, edge: 0.058, gx: 0, gy: 0, grot: 0, gsh: 0.75,
               w: 1.0, halo: 0.9, pool: 0.9, noise: 0.5, prog: 0.55, tilt: 8,
               bloom: 0.08, blur: 0.8, gsize: 1.0,
@@ -229,21 +252,29 @@ let side = 'left', ctx = 'out', bg = 'day', showNum = 1, showOv = 0, floorKind =
 
 const SF = SIL_FIT / SIL_FIT_REF;   // uv 단위 거리 스케일(정본과 동일)
 const $ = id => document.getElementById(id);
-const KEYS = ['imp','scale','offx','offy','irot','pitch','dot','glow','shade','sharp','edge',
+const KEYS = ['op','imp','scale','offx','offy','irot','pitch','dot','glow','shade','sharp','edge',
               'w','halo','pool','noise','prog','tilt','bloom','blur',
               'gsize','gsh','gxL','gyL','grotL','gxR','gyR','grotR','rip','ripReach','ripWidth','ripSpeed','ripGrad','plantar','bands','bandSoft','edgeShade','edgeShadeW','edgeShadeGrad','edgeShadeG0','edgeShadeG1','shadeRed','shadeRedW','edgeW','edgeSoft','dither'];
 const DIGITS = { tilt: 0, irot: 1, grotL: 0, grotR: 0, gxL: 3, gyL: 3, gxR: 3, gyR: 3, pitch: 3, edge: 3, scale: 3, offx: 3, offy: 3,
                  gx: 3, gy: 3, ripWidth: 3, bloom: 3, bands: 0, dither: 3 };
 let shadeCol = 0, ripCol = 1, gShadow = 'glow', gBlend = 'normal', edgeShadeCol = +(LOOK.edgeShadeCol ?? 0);
+let dotCol = +(LOOK.dotCol ?? 1);   // 각인 도트 색(0 흰 · 1 샌드 · 2 코랄 · 3 레드) — 1 = 구 하드코딩 색
 
 function syncUI() {
-  for (const k of KEYS) { $(k).value = P[k]; $('v' + k).textContent = P[k].toFixed(DIGITS[k] ?? 2); }
+  for (const k of KEYS) {
+    const v = (typeof effVal === 'function') ? effVal(k) : P[k];
+    $(k).value = v; $('v' + k).textContent = v.toFixed(DIGITS[k] ?? 2);
+    // 이 상태 전용으로 덮인 값은 색으로 표시 — 공통값과 헷갈리면 편집 자체가 위험하다
+    const ovd = typeof EDIT_STATE !== 'undefined' && EDIT_STATE && OV[heroSlot] && OV[heroSlot][k] != null;
+    $('v' + k).style.color = ovd ? '#FA3030' : '';
+  }
   $('snip').value = snippet();
 }
 function snippet() {
   return `uImp: { value: footTex ? ${P.imp.toFixed(2)} : 0.0 }, uImpPitch: { value: ${P.pitch.toFixed(3)} }, uImpDot: { value: ${P.dot.toFixed(3)} },
 uImpGlow: { value: ${P.glow.toFixed(2)} }, uImpEdge: { value: ${P.edge.toFixed(3)} }, uImpScale: { value: ${P.scale.toFixed(3)} },
 uImpShade: { value: ${P.shade.toFixed(2)} }, uImpSharp: { value: ${P.sharp.toFixed(2)} }, uImpShadeCol: { value: ${shadeCol} },
+uImpDotCol: { value: ${dotCol} },
 uImpRot: { value: ${P.irot.toFixed(1)} * Math.PI / 180 * (footRight ? -1 : 1) },
 uRipCol: { value: ${ripCol} },
 // 글리프: 크기 ${P.gsize.toFixed(2)} · 왼 (${(P.gxL ?? P.gx).toFixed(3)}, ${(P.gyL ?? P.gy).toFixed(3)}, ${(P.grotL ?? P.grot).toFixed(0)}°) · 오른 (${(P.gxR ?? -P.gx).toFixed(3)}, ${(P.gyR ?? P.gy).toFixed(3)}, ${(P.grotR ?? -P.grot).toFixed(0)}°) · 그림자 ${gShadow} ${P.gsh.toFixed(2)} · 합성 ${gBlend}
@@ -258,10 +289,12 @@ uRip: { value: ${P.rip.toFixed(2)} }, uRipSpeed: { value: ${P.ripSpeed.toFixed(2
 //   그래서 350ms 잠잠해지면 그때 한 칸 쌓는다(타이핑 에디터의 undo 병합과 같은 규약).
 const SAVE_KEY = 'footlab.params';
 let hist = [], future = [], histT = null;
-function persist() { try { localStorage.setItem(SAVE_KEY, JSON.stringify({ ...P, _def: DEF })); } catch { /* 사생활 모드 */ } bcast(); }   // _def = 저장 시점 정본 스냅샷(위 복원 규칙용)
+// ★ states(OV)도 같이 남긴다 — 이게 빠져 있어서 '이 상태만 편집'한 값이 새로고침마다 통째로
+//   증발했다(유저 08-05: 8번째 토큰이 저장이 안 된다). P 만 남기면 상태 편집 기능이 무의미하다.
+function persist() { try { localStorage.setItem(SAVE_KEY, JSON.stringify({ ...P, _def: DEF, states: OV })); } catch { /* 사생활 모드 */ } bcast(); }   // _def = 저장 시점 정본 스냅샷(위 복원 규칙용)
 // 랩 → 시뮬 실시간 미리보기(유저): 값이 바뀔 때마다 열려 있는 시뮬 전부에 즉시 쏜다.
 const _bc = (() => { try { return new BroadcastChannel('newton-marklook'); } catch { return null; } })();
-function bcast() { _bc?.postMessage({ ...P, shadeCol, ripCol, edgeShadeCol }); }
+function bcast() { _bc?.postMessage({ ...P, shadeCol, dotCol, ripCol, edgeShadeCol }); }
 function commitHist(prev) {
   clearTimeout(histT);
   histT = setTimeout(() => {
@@ -281,9 +314,19 @@ addEventListener('keydown', e => {
   (e.shiftKey ? $('redo') : $('undo')).click();
 });
 
+// ── 편집 대상: 공통 / 이 상태만(유저 08-05) ─────────────────────────────────
+//   OV[ph] = 그 상태에만 얹는 오버라이드. 저장하면 mark-look.json `states` 로 굽고,
+//   시뮬은 상태 전환마다 base 룩 + states[ph] 를 그 재질에 입힌다(tokens.setMarkStateLook).
+let EDIT_STATE = false;                       // false = 공통, true = 현재 확대 중인 상태만
+const OV = {};                                // { [ph]: { key: value } }
+function curOV() { return (OV[heroSlot] = OV[heroSlot] || {}); }
+/** 슬라이더가 읽을 유효값 — 상태 편집 중이면 오버라이드 우선 */
+function effVal(k) { const o = OV[heroSlot]; return (EDIT_STATE && o && o[k] != null) ? o[k] : P[k]; }
 for (const k of KEYS) $(k).addEventListener('input', e => {
+  const v = +e.target.value;
+  if (EDIT_STATE) { curOV()[k] = v; syncUI(); rebuild(); persist(); return; }
   const prev = { ...P };
-  P[k] = +e.target.value; syncUI(); commitHist(prev);
+  P[k] = v; syncUI(); commitHist(prev);
 });
 
 // 미리보기 크기 — CSS 변수 하나로 확대·스트립·합성·겹침이 같이 따라간다. 값은 브라우저에 남는다.
@@ -298,10 +341,37 @@ applyHeroSize(+(localStorage.getItem(HERO_KEY) || 460));
 // 랩의 현재 값을 **리포 파일(src/mark-look.json)** 에 굽는다. 이게 곧 시뮬이 읽는 값이다.
 //   예전엔 localStorage 에만 저장돼서 다른 기기에서 열면 수정 전 값이 나왔고, 시뮬로 옮길 때도
 //   코드 기본값만 갔다(유저가 다른 노트북에서 발견). 값의 집이 리포에 있어야 한다.
+// 편집 대상 세그 — '이 상태만'이면 슬라이더가 OV[heroPhase] 에 쓴다(확대 중인 상태 = 대상)
+$('segEdit').addEventListener('click', e => {
+  const b = e.target.closest('button[data-v]'); if (!b) return;
+  EDIT_STATE = b.dataset.v === 'state';
+  [...$('segEdit').querySelectorAll('button[data-v]')].forEach(x => x.classList.toggle('on', x === b));
+  syncUI(); rebuild();
+});
+$('ovClear').onclick = () => { delete OV[heroSlot]; syncUI(); rebuild(); persist(); };
+
+// 8번째 토큰(Tap2) — 현재 슬라이더 값을 mark-look.json `tap` 으로만 굽는다(정본 룩은 그대로).
+$('saveTap').onclick = async () => {
+  // ★ 키 목록은 applyMarkLookTo 가 읽는 것과 **같은 집합**이어야 한다 — 여기서 빠진 값은
+  //   랩에서 아무리 만져도 시뮬에 안 실린다(유저 08-05: dotCol·edgeW·edgeSoft·shadeRed 가 빠져 있었다).
+  const KEYS = ['op','imp','scale','pitch','dot','glow','shade','sharp','edge','plantar','bands','bandSoft',
+    'edgeShade','edgeShadeW','edgeShadeGrad','edgeShadeG0','edgeShadeG1','dither',
+    'edgeW','edgeSoft','shadeRed','shadeRedW','rip','ripReach','ripWidth','ripSpeed','ripGrad'];
+  const tap = {}; for (const k of KEYS) if (P[k] != null) tap[k] = P[k];
+  tap.shadeCol = shadeCol; tap.edgeShadeCol = edgeShadeCol; tap.dotCol = dotCol; tap.ripCol = ripCol;
+  Object.assign(tap, OV.tap || {});   // '이 상태만'으로 얹은 값이 정본 — 공통값 위에 덮는다
+  const btn = $('saveTap'), old = btn.textContent;
+  try {
+    const r = await fetch('/__save-look', { method: 'POST', body: JSON.stringify({ tap }) });
+    btn.textContent = r.ok ? 'Tap2 저장됨 — 시뮬 새로고침' : '저장 실패: ' + (await r.text());
+  } catch { btn.textContent = '저장 실패(개발 서버 필요)'; }
+  setTimeout(() => { btn.textContent = old; }, 2600);
+};
 $('save').onclick = async () => {
-  const body = { ...P, shadeCol, ripCol, edgeShadeCol, gShadow, gBlend, numSrc: FXP.numSrc,
+  const body = { ...P, shadeCol, dotCol, ripCol, edgeShadeCol, gShadow, gBlend, numSrc: FXP.numSrc,
     // 프림 전용 값(코멧·노드·레일)도 정본에 — 없으면 시뮬 새로고침마다 증발(유저: 이식 안 됨)
-    prims: { punchLine: { node: PRIM_P.node, numS: PRIM_P.numS, comet: PRIM_P.comet, tailLen: PRIM_P.tailLen, rail: PRIM_P.rail } } };
+    prims: { punchLine: { node: PRIM_P.node, numS: PRIM_P.numS, comet: PRIM_P.comet, tailLen: PRIM_P.tailLen, rail: PRIM_P.rail } },
+    states: OV };   // 상태별 오버라이드 — 시뮬이 상태 전환마다 입힌다
   const btn = $('save'); const old = btn.textContent;
   try {
     const r = await fetch('/__save-look', { method: 'POST', body: JSON.stringify(body) });
@@ -347,9 +417,17 @@ seg('segPlay', v => { playing = +v; });
 // 글리프 소스 = FXP.numSrc 정본 스위치. 'glyph'=유저 SVG 슬롯 · 'offbit'=도트 폰트.
 // 시뮬(drawNumber)이 읽는 바로 그 값이라, 여기서 고른 게 곧 시뮬에서 보일 활자다.
 seg('segSrc', v => { FXP.numSrc = v; rebuild(); });
-seg('segShadeCol', v => { shadeCol = +v; bcast(); });
-seg('segEdgeShadeCol', v => { edgeShadeCol = +v; bcast(); });
-seg('segRipCol', v => { ripCol = +v; });
+// 색 세그 — 슬라이더와 같은 규약: '이 상태만' 이면 OV[slot] 에, 아니면 공통값에 쓴다.
+//   전엔 항상 공통값에만 써서, Tap2 슬롯에서는 파일의 OV 값이 매 프레임 덮어썼다(유저).
+const segCol = (key, set) => v => {
+  const n = +v;
+  if (EDIT_STATE) { curOV()[key] = n; syncUI(); rebuild(); persist(); return; }
+  set(n); bcast();
+};
+seg('segShadeCol', segCol('shadeCol', v => { shadeCol = v; }));
+seg('segDotCol', segCol('dotCol', v => { dotCol = v; }));
+seg('segEdgeShadeCol', segCol('edgeShadeCol', v => { edgeShadeCol = v; }));
+seg('segRipCol', segCol('ripCol', v => { ripCol = v; }));
 seg('segGShadow', v => { gShadow = v; rebuild(); });
 seg('segGBlend', v => { gBlend = v; rebuild(); });
 for (const id of ['gL', 'gR']) {
@@ -408,9 +486,23 @@ function aim(aspect) {
 const STATES = [
   { n: 'Preview', ph: 0 }, { n: 'Active', ph: 1 }, { n: 'Hold', ph: 5 }, { n: 'Success', ph: 2 },
   { n: 'Miss', ph: 4 }, { n: 'Warning', ph: 6 }, { n: 'Locked', ph: 3 },
+  // 8번째 토큰(유저 08-05) — READY '발 두 번 탭' 어포던스. 무채(Locked) 기본에서
+  //   주기마다 석세스 최종색으로 2회 깜빡. 현재 슬라이더 값이 곧 이 토큰의 룩이고,
+  //   '8번째 토큰(Tap2)으로 저장' 버튼이 mark-look.json `tap` 으로 굽는다(시뮬이 그걸 읽는다).
+  { n: 'Tap2', ph: 3, tap: true, slot: 'tap' },   // ★ ph 는 Locked 와 같지만 **슬롯은 별도** — 안 그러면 편집·저장이 Locked 와 겹친다
+
 ];
+const TAP_LOOP = { T: 5.6, W: 0.55, P1: 3.6, P2: 4.35 };   // session FootMark.READY_TAP 과 동일
+function tapPhase(t) {
+  const ph = t % TAP_LOOP.T;
+  const bl = t0 => { const u = (ph - t0) / TAP_LOOP.W; return (u >= 0 && u <= 1) ? Math.sin(u * Math.PI) : 0; };
+  return Math.max(bl(TAP_LOOP.P1), bl(TAP_LOOP.P2)) > 0.35 ? 2 : 3;
+}
 let playing = true;
 let heroPhase = 1, heroKind = 'foot';   // 스트립 셀 클릭이 이 둘을 같이 정한다(윗줄 발형·아랫줄 원형)
+// ★ 오버라이드 키는 **슬롯**이다(phase 아님). Tap2 는 phase 3(Locked)을 빌려 쓰는 8번째 토큰이라
+//   phase 로 키를 잡으면 Locked 를 편집한 게 되고, 확대 뷰도 둘을 구분 못 한다(유저 #129).
+let heroSlot = '1';
 const KINDS = ['foot', 'zone'];
 /** 상태별 진행 매핑 — Success·Miss 는 **prog 0 이 가장 진한 순간**이다(FootMark.glow 규약).
  *  나머지 상태와 반대라, 슬라이더 값을 그대로 주면 Success 의 얼음 링(flash = exp(-prog*9))이
@@ -541,10 +633,26 @@ function rebuild() {
 }
 
 /** 한 단위에 현재 파라미터를 주입 — 발형·원형이 **같은 함수**를 통과한다(통일감의 실체). */
-function feed(u, ph, prog, t, mode) {
+// 상태별 오버라이드 → 유니폼 (applyMarkLookTo 와 같은 키 규약)
+const OV_MAP = { imp: 'uImp', dot: 'uImpDot', glow: 'uImpGlow', shade: 'uImpShade', sharp: 'uImpSharp',
+  scale: 'uImpScale', plantar: 'uPlantar', bands: 'uBands', bandSoft: 'uBandSoft', edgeShade: 'uEdgeShade',
+  edgeShadeW: 'uEdgeShadeW', edgeShadeGrad: 'uEdgeShadeGrad', edgeShadeG0: 'uEdgeShadeG0',
+  edgeShadeG1: 'uEdgeShadeG1', dither: 'uDither', w: 'uW', halo: 'uHalo', pool: 'uPool', noise: 'uNoise',
+  rip: 'uRip', ripSpeed: 'uRipSpeed', ripGrad: 'uRipGrad', op: 'uFillOp',
+  // ★ 색 선택도 상태별 오버라이드 대상이다 — 빠져 있어서 '이 상태만' 으로 색을 바꿔도
+  //   유니폼에 안 실렸다(유저 08-05: 흰색으로 바꿔 저장했는데 반영이 안 된다).
+  shadeCol: 'uImpShadeCol', dotCol: 'uImpDotCol', edgeShadeCol: 'uEdgeShadeCol', ripCol: 'uRipCol' };
+const OV_MAPSF = { pitch: 'uImpPitch', edge: 'uImpEdge', edgeW: 'uEdgeW', ripWidth: 'uRipWidth', ripReach: 'uRipReach' };
+function feedOV(U, slot) {
+  const o = OV[slot]; if (!o) return;
+  for (const k in OV_MAP) if (o[k] != null && U[OV_MAP[k]]) U[OV_MAP[k]].value = o[k];
+  for (const k in OV_MAPSF) if (o[k] != null && U[OV_MAPSF[k]]) U[OV_MAPSF[k]].value = o[k] * SF;
+}
+function feed(u, ph, prog, t, mode, slot) {
   if (!u) return;
   const U = u.mat.uniforms;
   U.uPhase.value = ph; U.uProg.value = prog; U.uTime.value = t;
+  if (U.uFillOp) U.uFillOp.value = P.op ?? 1;   // **필만** 투명(유저 08-05) — 도트·라인·글리프는 제 알파를 지킨다
   U.uW.value = P.w; U.uHalo.value = P.halo; U.uPool.value = P.pool; U.uNoise.value = P.noise;
   // 파동은 표현형과 무관하게 같은 값 — 이게 '한 디자인 시스템'의 실체다
   U.uRip.value = P.rip; U.uRipReach.value = P.ripReach * SF;
@@ -560,6 +668,7 @@ function feed(u, ph, prog, t, mode) {
     U.uImp.value = P.imp; U.uImpPitch.value = P.pitch * SF; U.uImpDot.value = P.dot;
     U.uImpGlow.value = P.glow; U.uImpEdge.value = P.edge * SF; U.uImpScale.value = P.scale;
     U.uImpShade.value = P.shade; U.uImpSharp.value = P.sharp; U.uImpShadeCol.value = shadeCol;
+    if (U.uImpDotCol) U.uImpDotCol.value = dotCol;
     // 오른발은 실루엣이 미러라 오프셋 x 도 미러 — 슬라이더가 '해부학적으로' 같은 방향을 뜻하게
     // 오른발은 실루엣이 미러라 이동 x·기울기 부호도 미러 — 슬라이더가 '해부학적으로' 같은 뜻이게
     U.uImpOff.value.set((side === 'right' ? -P.offx : P.offx) * SF, P.offy * SF);
@@ -571,6 +680,7 @@ function feed(u, ph, prog, t, mode) {
   //   4 Miss·5 Hold·6 Warning). 카탈로그 번호로 바꿔 넘기면 카탈로그 2(Hold)가 라이브 2(Success)의
   //   '숨김' 규칙에 걸려 **Hold 에서 숫자가 사라진다**(유저 신고). STATES 가 이미 라이브 번호다.
   if (u.num) u.num.material.opacity = MARK_NUM.opacity(ph);
+  feedOV(U, slot ?? String(ph));   // 상태별 오버라이드가 공통값을 덮는다(마지막에 적용)
 }
 
 // ── 겹침 실측 — SDF 두 채널을 2D 로 직접 그린다(셰이더를 안 거치므로 겹침 자체가 보인다) ──
@@ -780,6 +890,7 @@ function composite() {
       U.uImp.value = P.imp; U.uImpPitch.value = P.pitch * SF; U.uImpDot.value = P.dot;
       U.uImpGlow.value = P.glow; U.uImpEdge.value = P.edge * SF; U.uImpScale.value = P.scale;
     U.uImpShade.value = P.shade; U.uImpSharp.value = P.sharp; U.uImpShadeCol.value = shadeCol;
+    if (U.uImpDotCol) U.uImpDotCol.value = dotCol;
       U.uImpOff.value.set((wm.side === 'right' ? -P.offx : P.offx) * SF, P.offy * SF);
       U.uImpRot.value = (wm.side === 'right' ? -P.irot : P.irot) * Math.PI / 180;
       U.uW.value = P.w; U.uHalo.value = P.halo; U.uPool.value = P.pool; U.uNoise.value = P.noise;
@@ -940,6 +1051,7 @@ function drawPrimsCard(t) {
 function frame() {
   const t = (performance.now() - T0) / 1000;
   drawPrimsCard(t);
+  try { drawLinkPrev(t); } catch (e) { /* 패널 없거나 초기화 전 */ }
   if (units.foot || units.zone) {
     // 확대 — 스트립에서 고른 표현형·상태
     blit($('hero'), heroOff, (mode) => {
@@ -947,7 +1059,7 @@ function frame() {
       aim(HERO.w / HERO.h);
       const u = units[heroKind];
       if (!u) return;
-      feed(u, heroPhase, progFor(heroPhase, t), t, mode);
+      feed(u, heroPhase, progFor(heroPhase, t), t, mode, heroSlot);
       rHero.render(u.scene, cam);
     });
     // 상태 스트립 — 7상태 × 두 표현형. 윗줄 발형·아랫줄 원형이 **같은 파라미터**로 나란히 간다.
@@ -962,7 +1074,8 @@ function frame() {
         // 뷰포트 y 는 아래가 0 — 윗줄(발형)이 화면 위로 가려면 마지막 행부터 채운다
         const vy = (KINDS.length - 1 - row) * ch;
         STATES.forEach((s, i) => {
-          feed(u, s.ph, progFor(s.ph, t), t, mode);
+          const ph2 = s.tap ? tapPhase(t) : s.ph;
+          feed(u, ph2, s.tap ? 0 : progFor(s.ph, t), t, mode, s.slot ?? String(s.ph));
           rStrip.setViewport(i * cw, vy, cw, ch);
           rStrip.setScissor(i * cw, vy, cw, ch);
           rStrip.render(u.scene, cam);
@@ -993,15 +1106,89 @@ $('strip').addEventListener('click', e => {
   const r = $('strip').getBoundingClientRect();
   const col = Math.min(STATES.length - 1, Math.floor((e.clientX - r.left) / r.width * STATES.length));
   const row = Math.min(KINDS.length - 1, Math.floor((e.clientY - r.top) / r.height * KINDS.length));
-  heroPhase = STATES[col].ph; heroKind = KINDS[row];
+  heroPhase = STATES[col].ph; heroSlot = STATES[col].slot ?? String(STATES[col].ph); heroKind = KINDS[row];
 });
 
 // 글리프 SVG 로드 대기 → 첫 베이크. GLYPHS.onLoad 는 이미지가 들어올 때마다 부른다.
 // 계측 훅 — 합성이 이상할 때 바닥/토큰 캔버스를 따로 재기 위해(추측 금지 §3)
 window.__flabTHREE = THREE;
+
+// ── 연결 토큰(LINK) 프리뷰 — 실제 3개 시나리오로 시안을 비교한다 ──────────────────
+//   좌표는 실측 미터를 그대로 쓰고 픽셀로만 환산한다(디자인이 실제 크기감과 어긋나지 않게).
+//     ① 종아리 프레스(A2)  — 마크 간 0.40m (SC 0.5 압축 후 실측)
+//     ② 어깨너비 벌리기     — 0.42m 좌우 대칭
+//     ③ 농구 스텝백(BK)     — 5마크 4구간, 실측 0.16~0.92m (구간 편차 5.7배 = 규격의 시험대)
+const LK = { style: 'chain', count: 7, r: 4.4, flow: .35, hair: .26, inset: .12, scen: 0 };
+const LK_SCEN = [
+  { n: '① 종아리 프레스 — 앞뒤로 벌려 꾹 누르기', feet: [[-0.20, 0.10], [0.20, -0.10]], links: [[0, 1]], rights: [1] },
+  { n: '② 두 발 어깨너비로 벌리기', feet: [[-0.21, 0], [0.21, 0]], links: [[0, 1]], rights: [1] },
+  // 실측 스텝백 4국면(session.js 주석과 같은 값): 준비 L·R → 플랜트 → 착지 L·R
+  { n: '③ 농구 스텝백 — 준비 → 플랜트 → 착지', feet: [[-0.17, 0.05], [0.22, -0.06], [0.33, 0.06], [-0.43, -0.09], [0.49, -0.32]],
+    links: [[0, 1], [1, 2], [2, 4], [3, 4]], rights: [1, 2, 4], order: ['①L', '①R', '②', '③L', '③R'] },
+];
+function drawLinkPrev(t) {
+  const cv = $('linkPrev'); if (!cv) return;
+  const g = cv.getContext('2d');
+  // 바닥 = 실제 투사 바닥 톤(올리브) + 중앙이 밝은 빔 감쇠. 검은 배경에서 고르면 실제와 다르다.
+  const bgr = g.createRadialGradient(cv.width / 2, cv.height * 0.52, 40, cv.width / 2, cv.height * 0.52, cv.width * 0.6);
+  bgr.addColorStop(0, '#6d7565'); bgr.addColorStop(1, '#4c5347');
+  g.fillStyle = bgr; g.fillRect(0, 0, cv.width, cv.height);
+  const sc = LK_SCEN[LK.scen] || LK_SCEN[0];
+  // 스케일 = 시나리오 폭이 캔버스의 62% 를 채우도록 자동(시나리오마다 크기감이 유지된다)
+  const xs = sc.feet.map(f => f[0]), zs = sc.feet.map(f => f[1]);
+  const wM = Math.max(0.5, Math.max(...xs) - Math.min(...xs)) + 0.34;
+  const PPM = Math.min(cv.width * 0.82 / wM, 560);
+  const cx = cv.width / 2 - ((Math.max(...xs) + Math.min(...xs)) / 2) * PPM;
+  const cy = cv.height * 0.54 - ((Math.max(...zs) + Math.min(...zs)) / 2) * PPM;
+  const P = sc.feet.map(([x, z]) => [cx + x * PPM, cy + z * PPM]);
+  const FOOT_M = 0.25;                       // 발 길이 250mm(피그마 실측) — 링크와 크기 비교의 기준
+  const fl = FOOT_M * PPM, fw = fl * 0.38;
+  // 진짜 발 실루엣 — 랩이 이미 들고 있는 SVG(GLYPHS)를 그대로 쓴다. 회색 타원으로는 판단이 안 된다.
+  const fimg = (right) => { try { return GLYPHS.img(footSlot(right)); } catch (e) { return null; } };
+  P.forEach(([x, y], i2) => {
+    const right = (sc.rights || []).includes(i2);
+    const im = fimg(right);
+    g.save(); g.globalAlpha = 0.9;
+    if (im && im.width) {
+      g.drawImage(im, x - fw / 2, y - fl / 2, fw, fl);
+    } else {
+      g.fillStyle = 'rgba(255,246,234,.22)'; g.strokeStyle = 'rgba(255,246,234,.45)'; g.lineWidth = 1.4;
+      g.beginPath(); g.ellipse(x, y, fw / 2, fl / 2, 0, 0, Math.PI * 2); g.fill(); g.stroke();
+    }
+    g.restore();
+    if (sc.order) {   // 순차 동작은 번호를 붙인다 — 농구는 '순서'가 정보다
+      g.fillStyle = 'rgba(255,246,234,.55)';
+      g.font = "600 15px -apple-system,sans-serif"; g.textAlign = 'center';
+      g.fillText(String(sc.order[i2]), x, y - fl / 2 - 8);
+    }
+  });
+  sc.links.forEach(([a2, b2]) => {
+    drawLinkDots(g, P[a2][0], P[a2][1], P[b2][0], P[b2][1], t,
+      { style: LK.style, count: LK.count, r: LK.r * (PPM / 190), flow: LK.flow, hair: LK.hair, inset: LK.inset });
+  });
+  g.fillStyle = 'rgba(255,246,234,.8)';
+  g.font = "600 16px -apple-system,'Malgun Gothic',sans-serif"; g.textAlign = 'center';
+  g.fillText(sc.n, cv.width / 2, 28);
+  const ls = sc.links.map(([a2, b2]) =>
+    Math.hypot(sc.feet[b2][0] - sc.feet[a2][0], sc.feet[b2][1] - sc.feet[a2][1]));
+  const nEl = $('linkNote');
+  if (nEl) nEl.textContent = `구간 ${ls.map(v => v.toFixed(2)).join(' / ')}m · 발 250mm · ${(PPM).toFixed(0)}px/m` +
+    '   — 점 개수 고정이라 길이가 달라도 같은 기호로 읽힌다(간격만 파생).';
+}
+seg('segScen', v => { LK.scen = +v; });
+seg('segLink', v => { LK.style = v; });
+for (const [id, key, dg] of [['lkCount','count',0],['lkR','r',1],['lkFlow','flow',2],['lkHair','hair',2],['lkInset','inset',2]]) {
+  const el = $(id); if (!el) continue;
+  el.addEventListener('input', e => { LK[key] = +e.target.value; $('v' + id).textContent = LK[key].toFixed(dg); });
+}
 window.__flab = { get floorCv() { return floorCv; }, get tokenCv() { return tokenCv; },
-                  get P() { return P; }, get walkMats() { return walkMats; } };
+                  get P() { return P; }, get walkMats() { return walkMats; },
+                  get OV() { return OV; }, get slot() { return heroSlot; } };   // 상태 오버라이드 계측용
 GLYPHS.onLoad(() => { if (!units.foot) rebuild(); else drawAlign(); });
+// 정본(mark-look.json)의 상태 룩을 먼저 깐다 — 다른 기기에서 열어도 8번째 토큰이 살아 있어야
+//   한다. localStorage(작업 중 값)가 이 위를 덮는다.
+Object.assign(OV, LOOK.states || {});
+if (LOOK.tap && !OV.tap) OV.tap = { ...LOOK.tap };   // Tap2 = 구워둔 전용 룩이 곧 그 슬롯의 오버라이드
 // 지난 세션 값 복원 — 랩을 닫았다 열었다고 작업이 날아가면 안 된다.
 //   저장본에 없는 키(내가 나중에 추가한 슬라이더)는 DEF 가 채운다.
 try {
@@ -1017,6 +1204,9 @@ try {
       if (base[k] !== undefined && base[k] !== DEF[k]) continue;   // 정본 갱신 → DEF 유지
       if (typeof saved[k] === 'number') P[k] = saved[k];
     }
+    // ★ 상태 오버라이드 복원 — 예전엔 이 줄이 KEYS 루프 **안**에 있었고 persist 가 states 를
+    //   쓰지도 않아, 조건이 영영 참이 안 됐다. 두 버그가 겹쳐 상태 편집이 통째로 휘발했다.
+    if (saved.states) Object.assign(OV, saved.states);
   }
 } catch { /* 저장본 손상 — 기본값으로 간다 */ }
 // 이제 units·rebuild 가 모두 정의됐으니 저장된 세그먼트 선택을 복원한다

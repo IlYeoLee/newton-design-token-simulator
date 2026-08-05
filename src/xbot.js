@@ -260,6 +260,9 @@ export class XBot {
     this._hips = xbot.getObjectByName('mixamorigHips');
     this._kneeR = xbot.getObjectByName('mixamorigRightLeg');
     this._kneeL = xbot.getObjectByName('mixamorigLeftLeg');   // 미러 시 프로젝터 앵커 스위칭용
+    // 허벅지 본 — 다리 '선'이 필요한 가이드(A2 런지 화살표)가 쓴다. 무릎만으로는 방향이 안 나온다.
+    this._hipL = xbot.getObjectByName('mixamorigLeftUpLeg');
+    this._hipR = xbot.getObjectByName('mixamorigRightUpLeg');
     this._head = xbot.getObjectByName('mixamorigHead');
     this._footL = xbot.getObjectByName('mixamorigLeftToeBase') || xbot.getObjectByName('mixamorigLeftFoot');
     this._footR = xbot.getObjectByName('mixamorigRightToeBase') || xbot.getObjectByName('mixamorigRightFoot');
@@ -351,6 +354,14 @@ export class XBot {
   getProbes() {
     const w = o => o ? new THREE.Vector3().setFromMatrixPosition(o.matrixWorld) : null;
     return { footL: w(this._footL), footR: w(this._footR), wrist: w(this._wristR), hips: w(this._hips) };
+  }
+
+  /** 다리 세그먼트(엉덩이·무릎·발) 월드 좌표 — 지면 가이드가 **실제 다리 선**에 붙을 때 쓴다.
+   *  A2 런지: 뒷다리는 hip→foot 지면 투영이 '펴는 방향', 앞다리는 hip→knee 가 '굽히는 방향'. */
+  getLegs() {
+    const w = o => o ? new THREE.Vector3().setFromMatrixPosition(o.matrixWorld) : null;
+    return { hipL: w(this._hipL), kneeL: w(this._kneeL), footL: w(this._footL),
+             hipR: w(this._hipR), kneeR: w(this._kneeR), footR: w(this._footR) };
   }
 
   /** 그림자 검증용 오른팔 세그먼트 (어깨·팔꿈치·손목 월드 좌표) */
