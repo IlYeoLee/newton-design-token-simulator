@@ -395,6 +395,9 @@ async function boot() {
   function switchPack(p) {
     if (typeof stopSession === 'function') stopSession();  // 팩 전환 시 세션 종료
     state.pack = p;
+    // 진행 아크 감김 — **농구만** 뒤집는다(유저). 지면 토큰은 쿼드가 바닥에 누워 있어
+    //   감김이 반대로 읽혀 '먼 쪽에서 반시계로 크게 그리며' 등장했다. 러닝·복싱은 그대로 둔다.
+    FXP.arcRev = (p === 'basketball') ? 1 : 0;
     state.time = 0;
     state.loop = 0;
     tokens.loopShiftZ = 0;
@@ -2822,9 +2825,16 @@ void main(){
         // 영상 실제 프레임이 들어오기 전엔 숨김 — 검은/균일 텍스처가 크로마키 통과 못 해
         // 빨간 방사형 사각형으로 0.x초 깜빡이던 것 방지(유저). readyState≥3(HAVE_FUTURE_DATA)+재생 시작 후.
         // 루프 순간 currentTime이 0으로 되감겨 매 루프 1~2프레임 숨김 → 깜빡임(유저). 첫 표시 후 래치.
-        co.mat.uniforms.uReady.value = (co._frozen ? (co.fz.width > 2 ? 1 : 0)
+        // ★ 래치가 실제로는 없었다 — 주석만 있고 매 프레임 다시 판정했다(유저 재신고: 션 영상이
+        //   깜빡인다). 루프로 되감기면 currentTime 이 0 이 되어 `> 0.03` 이 1~2프레임 깨진다.
+        //   첫 등장만 엄격하게 보고, 그 뒤로는 **영상이 실제로 죽었을 때만** 다시 숨긴다.
+        const _strict = co._frozen ? (co.fz.width > 2)
           : (co.video.readyState >= 2 && co.video.videoWidth > 0 && !co.video.seeking
-             && co.video.currentTime > 0.03 && frameHasImage(co))) ? 1 : 0;
+             && co.video.currentTime > 0.03 && frameHasImage(co));
+        if (_strict) co._shown = true;
+        // 디코더가 데이터를 잃으면(클립 교체·버퍼링) 래치를 풀어 첫 판정으로 되돌린다.
+        if (!co._frozen && (co.video.readyState < 2 || co.video.videoWidth === 0)) co._shown = false;
+        co.mat.uniforms.uReady.value = (_strict || co._shown) ? 1 : 0;
         const coLive = co.video.readyState >= 3 && !co.video.seeking && co.video.currentTime > 0.03
                     && (id !== 'BK_A1' || _coachSeekId === id);   // 시크 전 프레임은 보여주지 않는다
         if (coLive) co._live = true;

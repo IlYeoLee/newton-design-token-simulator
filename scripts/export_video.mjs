@@ -96,6 +96,15 @@ const STAGE = arg('stage', '');
 const LISTSTAGES = !!arg('liststages', false);
 // --play : 시뮬을 실제로 돌린다(봇·물리). 스크럽으로 못 살리는 상태 누적형 화면용 — 위 루프 주석 참조.
 const PLAY = !!arg('play', false);
+// --pin : 합성용 '설계 그대로' 모드. 판정 마크를 x봇 발 추적에서 떼어 설계 좌표에 못 박는다.
+//   평면 판에서 봇은 이미 숨겨지는데 마크 위치는 계속 조종하고 있어서, 안 보이는 봇의 걸음이
+//   발자국을 흔든다(실측 85px 점프). 에펙 합성은 설계를 정확히 옮기는 게 목적이라 끊는다.
+const PIN = !!arg('pin', false);
+// --norip : 마크의 **발모양 파형**(MARK 셰이더 Success 의 uRip)을 끈다.
+//   팡(원형)은 별도 쿼드라 --layer 로 뺄 수 있지만, 이 파형은 마크 셰이더 안에 있어서
+//   레이어로는 못 뺀다. 유니폼을 매 프레임 0 으로 눌러 끈다.
+//   에펙에서 파형을 직접 만들어 얹으려는 경우에 쓴다(팡과 같은 방침).
+const NORIP = !!arg('norip', false);
 // --alphafloor : 이 밝기(0~1) 아래는 완전 투명. 대지 패널의 검정 배경이 옅은 알파로 남아
 //   투사면 사각형이 통째로 비쳐 보이던 것(유저 지적)을 잘라 낸다. 0.06~0.12 부터 시도.
 const AFLOOR = +arg('alphafloor', 0) || 0;
@@ -118,7 +127,9 @@ const AGAMMA = +arg('alphagamma', 1) || 1;
 //     ui     — 투사 UI 대지만. 휘도 알파, 에펙에서 Screen.
 //     all    — 기존 통합본(기본값).
 const LAYER = String(arg('layer', 'all'));
-if (!/^(all|person|tokens|ui)$/.test(LAYER)) { console.error('--layer 는 all|person|tokens|ui'); process.exit(1); }
+if (!/^(all|person|tokens|ui|noburst|burst)$/.test(LAYER)) {
+  console.error('--layer 는 all|person|tokens|ui|noburst|burst'); process.exit(1);
+}
 const INKA = LAYER === 'person';   // 인물 단독일 때만 잉크 알파
 // --bg : 배경 이미지/영상을 **시뮬레이터 안에** 깔고 통째로 내보낸다.
 //   알파로 뽑아서 에펙에서 합성하는 대신, 캔버스를 투명하게 두고 그 뒤에 배경을 깔면
@@ -303,6 +314,9 @@ await page.evaluate(v => { window.__bgFit = v; }, BGFIT);
 await page.evaluate(v => { window.__bgDim = v; }, BGDIM);
 await page.evaluate(v => { window.__agamma = v; }, AGAMMA);
 await page.evaluate(v => { window.__layer = v; }, LAYER);
+// 세션이 매 프레임 읽는 플래그 — 마크를 봇 발 추적에서 떼어 설계 좌표에 고정(session.js A2).
+await page.evaluate(v => { window.__pin = v; const s = window.__dbg?.session; if (s) s.pinMarks = v; }, PIN);
+await page.evaluate(v => { window.__norip = v; }, NORIP);
 await page.evaluate(v => { window.__inka = v; }, INKA);
 await page.evaluate(v => { window.__unclip = v; }, PAD > 1);
 // ── 씬 스테이지: 화면에서 맞춘 값을 그대로 넘긴다 ─────────────────────────────
@@ -435,16 +449,29 @@ await page.evaluate(({ sport, beam, ht, session, stage, listStages }) => {
     const PERSON_U = /^(uTrail|uCropOff|uField)/;                  // 인물 판(벽 데모 · 코치 클립)
     const TOKEN_U  = /^(uHT|uHalo|uProg|uPhase|uMark)/;            // 판정토큰(마크 FX · 링)
     const STAGE_U  = /^(uGrid|uLines|uScan|uBoost|uAccent|uHalf|uKey|uTint)$/;   // 무대(그리드·코트)
+    // ★ '팡'(effects.burst) 전용 판별 — 이 쿼드만 uIntensity·uForward·uFPOrigin 을 갖는다.
+    //   왜 따로 빼나: 이건 씬에서 THREE.AdditiveBlending 으로 그리는 **순수한 빛**이라
+    //   커버리지 알파가 없다. 알파로 뽑아 Normal 로 얹으면 그 넓은 자락이 어두운 물감이 되어
+    //   바닥에 빨간 그림자 박스를 만든다(실측). 인물·발자국·원형토큰은 잉크가 예쁜데
+    //   팡만 그렇다(유저). 그래서 팡만 검정으로 빼서 AE 에서 가산으로 얹는다.
+    //   ※ uFPOrigin·uFPNear 류는 쓰면 안 된다 — 1인칭 빔 클리핑용이라 토큰 재질도 다 갖고 있다
+    //     (그걸로 잡았다가 판정토큰이 통째로 팡 레이어로 넘어갔다). 아래 셋은 effects.js 전용.
+    const BURST_U  = /^(uIntensity|uEmber|uForward)$/;
     const L = window.__layer || 'all';
-    const wantPerson = L === 'all' || L === 'person';
-    const wantToken  = L === 'all' || L === 'tokens';
-    const wantUI     = L === 'all' || L === 'ui';
+    const isBurst = m => has(m, BURST_U);
+    // noburst = 팡 빼고 전부(잉크) · burst = 팡만(빛)
+    const wantPerson = L === 'all' || L === 'person' || L === 'noburst';
+    const wantToken  = L === 'all' || L === 'tokens' || L === 'noburst';
+    const wantUI     = L === 'all' || L === 'ui' || L === 'noburst';
+    const wantBurst  = L === 'all' || L === 'burst' || L === 'tokens';
     // ★ 한 번만 쓸면 안 된다 — DOM 청소(__sweep)와 같은 이유다. 앱은 스테이지 진입·코트
     //   재구성 때 무대 개체를 **새로 만든다**. 셋업 때 숨긴 건 그 새 개체가 아니다.
     //   증상이 고약하다: 대부분 프레임은 멀쩡한데 한두 장에서만 코트 사이드라인이 살아나
     //   프레임 가장자리까지 뻗는다 → 그 프레임만 모서리 알파 255 → 에펙에서 검은 사각형이
     //   번쩍인다(실측: BK_B3 f1). 매 프레임 다시 건다.
     window.__isolate3d = () => {
+      // 세션은 이 시점 이후에 만들어질 수 있다 — 매 프레임 다시 건다(DOM 청소와 같은 이유).
+      if (d.session) d.session.pinMarks = !!window.__pin;
       // ★ 배경 지우기도 여기 있어야 한다. 셋업에서 한 번만 칠하면 앱이 매 틱 주간 조명을
       //   다시 적용하며 되돌려 놓는다 — 검은 배경으로 뽑았는데 아이보리 실내가 그대로 남았다(실측).
       // --bg 도 알파와 같다: 캔버스를 비워야 그 뒤에 깔아 둔 배경 사진/영상이 보인다.
@@ -464,8 +491,13 @@ await page.evaluate(({ sport, beam, ht, session, stage, listStages }) => {
         if (UI.has(o)) { o.visible = wantUI; return; }
         const m = Array.isArray(o.material) ? o.material[0] : o.material;
         if (!m) return;
+        // --norip : 발모양 파형 끄기. 마크 셰이더 안에 있어 레이어로는 못 빼므로 유니폼을 누른다.
+        //   앱이 매 프레임 룩 스토어에서 다시 써넣으므로 여기서도 매 프레임 눌러야 한다.
+        if (window.__norip && m.uniforms && m.uniforms.uRip) m.uniforms.uRip.value = 0;
         const isShader = m.type === 'ShaderMaterial' && !has(m, STAGE_U);
         // 글리프·아이콘은 마크의 자식이라 토큰 레이어에 딸려 간다(맵을 문 MeshBasic).
+        // 팡은 uHalo 를 갖고 있어 TOKEN_U 에도 걸린다 — 먼저 가로채야 분리가 된다.
+        if (isBurst(m)) { o.visible = wantBurst; return; }
         const keep = (isShader && has(m, PERSON_U) && wantPerson)
                   || (isShader && has(m, TOKEN_U) && wantToken)
                   || (m.type === 'MeshBasicMaterial' && !!m.map && wantToken);

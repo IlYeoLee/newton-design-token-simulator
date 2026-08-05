@@ -2064,7 +2064,16 @@ export class Session {
       if ((this._a2t ?? 0) > this.t) { P._doneL = false; P._doneR = false; P.sec = 0; P._press = false; P._cnt = 5; P._repLatch = false; this.a2count = 0; }   // 재진입 리셋(a2count 미리셋=조기 전환 버그였음)
       // ── 발자국이 x봇 실제 발을 따라 런지처럼 이동 (고정 배치는 별로 — 유저 확정, 추적 복원) ──
       const CZ = -1.15, SC = 0.42;
-      if (pb) {
+      // ★ pinMarks — 합성용 '설계 그대로' 뽑기 모드(익스포터 --pin).
+      //   평면 판에서 x봇은 이미 숨겨져 있는데 **발자국 위치는 계속 조종한다.** 그래서 안 보이는
+      //   봇의 걸음이 발자국을 위아래로 흔든다(실측: 프레임간 85px 점프, 91px 폭 진동).
+      //   게다가 lft/rgt 를 x 로 판정해서 두 발이 x 로 가까워지면 좌우가 뒤집히고 마크가
+      //   서로의 자리로 순간이동한다(빔 마스크 꼭짓점이 뒤집혀 우글거리던 것과 같은 종류).
+      //   에펙 합성은 '설계한 그림을 정확히 옮기는 것'이 목적이라 봇의 개입을 끊는다.
+      if (this.pinMarks) {
+        P.fmL.group.position.x = -0.16; P.fmL.group.position.z = CZ;
+        P.fmR.group.position.x = 0.16; P.fmR.group.position.z = CZ;
+      } else if (pb) {
         const fL = pb.footL, fR = pb.footR;
         const lft = fL.x <= fR.x ? fL : fR, rgt = fL.x <= fR.x ? fR : fL;
         const mz = (fL.z + fR.z) / 2;

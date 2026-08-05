@@ -356,6 +356,8 @@ export function makeMarkFXMaterial(footTex = null) {
       uPlantar: { value: LOOK.plantar }, uBands: { value: LOOK.bands }, uBandSoft: { value: LOOK.bandSoft },
       uRipGrad: { value: LOOK.ripGrad },   // 1 = 뉴턴 LUT 그라디언트(기본) · 0 = 단색
       uRipCol: { value: LOOK.ripCol },   // 1 = 샌드(따뜻한 잔광). 0 흰 · 2 코랄 · 3 레드
+      // 진행 아크 감김 — 종목별. FXP.arcRev 를 매 프레임 주입한다(아래 MARK_LOOK 주입부와 같은 자리).
+      uArcRev: { value: FXP.arcRev || 0 },
       uPhase: { value: 0 }, uProg: { value: 0 }, uFade: { value: 1 },
       uToe: { value: 0 },   // 앞꿈치 접지 강조 — 앞은 진하게, 뒤꿈치는 투명하게(스텝백 2/4 왼발)
       uStrong: { value: 0 }, uContract: { value: 0 },
@@ -768,6 +770,8 @@ export class Marker {
       U.uPool.value = MARK_LOOK.pool;
       U.uSweepA.value = MARK_LOOK.sweep;
       U.uNoise.value = MARK_LOOK.wobble;
+      // 진행 아크 감김 — 종목이 바뀌면 즉시 따라오게 매 프레임 읽는다(main.switchPack 이 세운다).
+      if (U.uArcRev) U.uArcRev.value = FXP.arcRev || 0;
       if (U.uUIAmt) {   // 지면 UI 텍스트 구간 = 토큰 광을 블러 마스크로 깎는다(벽 마크는 제외)
         U.uUIOrigin.value.set(UI_MASK.ox, 0, UI_MASK.oz);
         U.uUIFwd.value.set(UI_MASK.fx, 0, UI_MASK.fz);
