@@ -126,6 +126,7 @@ export default defineConfig({
         personlab:     resolve(__dirname, 'personlab.html'),
         personlabLive: resolve(__dirname, 'personlab-live.html'),
         scenes:        resolve(__dirname, 'scenes.html'),
+        capsuleConcepts: resolve(__dirname, 'capsule-concepts.html'),
       },
     },
   },

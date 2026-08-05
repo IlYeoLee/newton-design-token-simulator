@@ -1,0 +1,255 @@
+<!doctype html><html lang="ko" translate="no"><head><meta charset="utf-8"><meta name="google" content="notranslate">
+<title>캡슐 언어 확장 시안 — 프리뷰 · 따라하기</title>
+<!-- 시작(READY) 캡슐 언어를 프리뷰(관찰)·따라하기로 확장하는 아이디에이션.
+     ★ 목업이 아니다 — 캡슐 패스·유리 림·엠버 글로우·아크 게이지·도트 롤 전부 정본(src/floorgl.js)
+       부품을 그대로 불러 그린다. 여기서 고른 안을 그 자리에 이식하면 화면이 이 그림과 같다.
+     비교 축: '캡슐을 어떻게 변형해 두 번째 정보(영상·판정)를 담는가'. -->
+<style>
+@font-face{font-family:'Supreme';src:url('/fonts/Supreme-Bold.woff2') format('woff2');font-weight:700;font-display:block}
+@font-face{font-family:'Supreme';src:url('/fonts/Supreme-Medium.woff2') format('woff2');font-weight:500;font-display:block}
+@font-face{font-family:'OffBit';src:url('/fonts/OffBitTrial-DotBold.woff') format('woff');font-weight:700;font-display:block}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#14161a;color:#E9EAEE;font:13px/1.6 -apple-system,'Malgun Gothic',sans-serif;padding:20px 22px 60px}
+h1{font-size:17px;margin:0 0 4px}
+.sub{color:#98A1AD;font-size:12px;margin:0 0 16px;max-width:1100px}
+.seg{display:flex;gap:8px;margin:0 0 18px}
+.seg button{padding:7px 15px;border:1px solid #262b35;border-radius:99px;background:#1a1e25;color:#98A1AD;
+  font-size:12.5px;font-weight:600;cursor:pointer}
+.seg button.on{background:#FA3030;border-color:#FA3030;color:#fff}
+h2{font-size:13.5px;margin:22px 0 10px;color:#FEC389}
+.row{display:flex;gap:16px;flex-wrap:wrap}
+.cell{width:328px}
+.cell canvas{width:328px;height:547px;display:block;border-radius:14px;background:#8B9080}
+.nm{font-size:12.5px;font-weight:700;margin:9px 0 3px}
+.ds{font-size:11.5px;color:#98A1AD;line-height:1.55}
+</style></head><body>
+<h1>캡슐 언어 확장 시안 — 프리뷰(관찰) · 따라하기</h1>
+<p class="sub">시작 화면의 <b>유리 캡슐 + 엠버 글로우 + 도트 숫자 + 아크</b> 문법을 두 화면으로 넓히는 세 갈래.
+정본 부품으로 실제 렌더링하며, 배경은 트랙 톤(#8B9080)으로 깔았습니다.</p>
+<div class="seg" id="seg"></div>
+<h2 id="ttl">프리뷰(관찰)</h2>
+<div class="row" id="row"></div>
+<script type="module">
+const FG = await import('/src/floorgl.js');
+const { arcGauge, rollNum, drawBadge, ringGauge, eOut, intro, clamp01, kf, cycle } = FG;
+
+const W = 1600, H = 2670;                 // 지면 대지 규격(정본)
+const IMG = {};
+const img = rel => {
+  if (IMG[rel] !== undefined) return IMG[rel];
+  const im = new Image(); im.src = '/ready-view/assets/' + rel;
+  im.onload = () => {}; IMG[rel] = im; return im;
+};
+const RF = (w, s, fam = "'Supreme',sans-serif") => `${w} ${s}px ${fam}`;
+const DOT = "'OffBit',monospace";
+
+// ── 정본 캡슐 재질 — READY(_paint_ready2)의 지오메트리·림·글로우를 그대로 ──────────
+function capsule(g, x, y, w, h, o = {}) {
+  const r = Math.min(w, h) / 2;
+  const path = () => { g.beginPath(); g.roundRect(x, y, w, h, r); };
+  g.save();
+  path(); g.clip();
+  g.fillStyle = 'rgba(255,255,255,.055)'; g.fillRect(x, y, w, h);
+  g.filter = 'blur(37px)'; g.strokeStyle = 'rgba(255,255,255,.25)'; g.lineWidth = 80;
+  path(); g.stroke(); g.filter = 'none';
+  g.restore();
+  // 유리 림 — 상단 밝고 하단 알파 0(유저 확정)
+  const rim = g.createLinearGradient(0, y, 0, y + h);
+  rim.addColorStop(0, 'rgba(255,255,255,.95)'); rim.addColorStop(.28, 'rgba(255,255,255,.28)');
+  rim.addColorStop(.55, 'rgba(255,255,255,.16)'); rim.addColorStop(.80, 'rgba(255,255,255,.05)');
+  rim.addColorStop(1, 'rgba(255,255,255,0)');
+  g.strokeStyle = rim; g.lineWidth = 2.5; path(); g.stroke();
+  return path;
+}
+// 엠버 글로우 — 캡슐 안쪽 하단(정본 4겹의 축약: 두 겹 라디얼)
+function ember(g, cx, by, rx, k = 1) {
+  g.save();
+  g.translate(cx, by); g.scale(1, .46);
+  for (const [r0, c0, c1, a] of [[rx, 'rgba(250,48,48,.55)', 'rgba(250,48,48,0)', .9],
+                                 [rx * .62, 'rgba(255,236,214,.75)', 'rgba(254,176,120,0)', 1]]) {
+    const rg = g.createRadialGradient(0, 0, 0, 0, 0, r0);
+    rg.addColorStop(0, c0); rg.addColorStop(1, c1);
+    g.globalAlpha = a * k; g.fillStyle = rg;
+    g.beginPath(); g.arc(0, 0, r0, 0, 7); g.fill();
+  }
+  g.restore();
+}
+const titleBlock = (g, lines, cx, cy, size = 98) => {
+  g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#fff';
+  g.font = RF(700, size); g.letterSpacing = '-4px';
+  lines.forEach((l, i) => g.fillText(l, cx, cy + (i - (lines.length - 1) / 2) * size * 1.18));
+  g.letterSpacing = '0px';
+};
+const capLabel = (g, tx, cx, y, a = .55, s = 44) => {
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillStyle = `rgba(255,255,255,${a})`; g.font = RF(400, s); g.letterSpacing = '2px';
+  g.fillText(tx, cx, y); g.letterSpacing = '0px';
+};
+// 코치 영상 자리 — 실제 판은 3D 로 뒤에 서지만, 시안에선 실루엣으로 자리를 표시
+function coach(g, cx, cy, h, a = 1) {
+  const im = img('fig/ready2/photo-runner.png');
+  g.save(); g.globalAlpha *= a;
+  if (im.complete && im.naturalWidth) {
+    const s = h / im.naturalHeight;
+    g.drawImage(im, cx - im.naturalWidth * s / 2, cy - h / 2, im.naturalWidth * s, h);
+  } else { g.fillStyle = 'rgba(250,48,48,.5)'; g.beginPath(); g.ellipse(cx, cy, h * .16, h / 2, 0, 0, 7); g.fill(); }
+  g.restore();
+}
+// 판정 마크(발자국) 자리 — 따라하기 시안의 하단 요소
+function footMarks(g, cx, cy, s, t) {
+  const p = (Math.sin(t * 2.2) + 1) / 2;
+  for (const dir of [-1, 1]) {
+    const x = cx + dir * 150 * s, k = dir < 0 ? p : 1 - p;
+    g.save();
+    const rg = g.createRadialGradient(x, cy, 0, x, cy, 130 * s);
+    rg.addColorStop(0, `rgba(250,48,48,${.55 + .35 * k})`);
+    rg.addColorStop(.55, `rgba(254,110,60,${.30 + .2 * k})`);
+    rg.addColorStop(1, 'rgba(254,195,137,0)');
+    g.fillStyle = rg; g.beginPath(); g.ellipse(x, cy, 130 * s, 165 * s, 0, 0, 7); g.fill();
+    g.strokeStyle = `rgba(255,255,255,${.35 + .45 * k})`; g.lineWidth = 5 * s;
+    g.beginPath(); g.ellipse(x, cy, 74 * s, 118 * s, 0, 0, 7); g.stroke();
+    g.restore();
+  }
+}
+
+// ═══ 시안 정의 ══════════════════════════════════════════════════════════════
+// 프리뷰(관찰) — '지금 뭘 볼 차례인가'
+const PREVIEW = [
+  ['A · 캡슐 축소 + 상단 배지', '시작 캡슐이 그대로 **작아져** 화면 위로 올라가고, 남은 자리에 코치가 선다. 캡슐 안엔 동작명 + Preview 배지 + 카운트다운 링. 시작→관찰이 한 물체의 변형으로 읽힌다.',
+    (g, t) => {
+      const e = eOut(intro(t, .1, .9));
+      const cw = 1018 - 200 * e, ch = 1541 - 720 * e, cx = 800, cy = 300;
+      capsule(g, cx - cw / 2, cy, cw, ch);
+      ember(g, cx, cy + ch - 150, cw * .46, .55);
+      titleBlock(g, ['Neck And', 'Shoulder'], cx, cy + ch * .40, 86);
+      capLabel(g, 'PREVIEW', cx, cy + ch * .40 - 190, .5, 40);
+      ringGauge(g, cx, cy + ch * .74, 118, ((t * .33) % 1), { color: '#fff' });
+      g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.fillStyle = '#fff'; g.font = RF(700, 96, DOT);
+      g.fillText(String(3 - Math.floor((t * .99) % 3)), cx, cy + ch * .74 + 4);
+      coach(g, cx, cy + ch + 430, 760, e);
+    }],
+  ['B · 캡슐 분할(위 = 정보 · 아래 = 무대)', '캡슐이 가로로 **갈라져** 위는 얇은 정보 알약, 아래는 코치가 서는 빈 무대. 유리 재질은 그대로라 같은 물체가 열린 것처럼 보인다. 시선이 아래(사람)로 자연히 내려간다.',
+    (g, t) => {
+      const e = eOut(intro(t, .1, .9));
+      const cx = 800, gap = 60 * e;
+      capsule(g, cx - 509, 300, 1018, 300 + 40 * (1 - e));
+      titleBlock(g, ['Neck And Shoulder'], cx, 450, 72);
+      capLabel(g, 'PREVIEW · 3', cx, 546, .5, 38);
+      const sy = 300 + 300 + gap;
+      capsule(g, cx - 509, sy, 1018, 1180);
+      ember(g, cx, sy + 1030, 470, .5 * e);
+      coach(g, cx, sy + 560, 900, e);
+      arcGauge(g, cx - 460, sy + 1090, 920, (t * .33) % 1);
+    }],
+  ['C · 캡슐 열림(U자 무대)', '캡슐 하단이 **열려** U자 프레임이 되고 그 품에 코치가 선다. 림이 사람을 감싸 무대처럼 읽히고, 카운트다운은 열린 입구에 놓인다. 가장 극적이지만 프레임 인식은 약간 약해진다.',
+    (g, t) => {
+      const e = eOut(intro(t, .1, .9));
+      const cx = 800, x0 = cx - 509, y0 = 300, w = 1018, h = 1541;
+      const open = 620 * e;
+      g.save();
+      g.beginPath(); g.rect(x0 - 60, y0 - 60, w + 120, h - open + 60); g.clip();
+      capsule(g, x0, y0, w, h);
+      g.restore();
+      // 열린 입구의 양쪽 림 — 아래로 잦아든다
+      const rim = g.createLinearGradient(0, y0 + h - open, 0, y0 + h);
+      rim.addColorStop(0, 'rgba(255,255,255,.22)'); rim.addColorStop(1, 'rgba(255,255,255,0)');
+      g.strokeStyle = rim; g.lineWidth = 2.5;
+      for (const dir of [-1, 1]) { g.beginPath(); g.moveTo(cx + dir * w / 2, y0 + h - open); g.lineTo(cx + dir * w / 2, y0 + h); g.stroke(); }
+      coach(g, cx, y0 + h - open + 180, 980, e);
+      ember(g, cx, y0 + h - 60, 520, .6);
+      titleBlock(g, ['Neck And', 'Shoulder'], cx, y0 + 300, 88);
+      capLabel(g, 'PREVIEW', cx, y0 + 150, .5, 40);
+      ringGauge(g, cx, y0 + h + 60, 112, (t * .33) % 1, { color: '#fff' });
+    }],
+];
+// 따라하기 — '지금 내가 뭘 하고 어떻게 되고 있나'
+const FOLLOW = [
+  ['A · 미니 캡슐 + 지면 마크', '캡슐이 화면 위 **미니 카드**로 물러나 동작명·남은 시간만 들고, 바닥은 판정 마크에게 통째로 내준다. 정보는 위, 몸은 아래 — 위계가 가장 명확하다.',
+    (g, t) => {
+      const e = eOut(intro(t, .1, .8)), cx = 800;
+      capsule(g, cx - 380, 300, 760, 250);
+      titleBlock(g, ['High Knees'], cx, 400, 64);
+      g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.fillStyle = '#fff'; g.font = RF(700, 62, DOT); g.fillText('12', cx - 26, 492);
+      capLabel(g, 'sec', cx + 58, 496, .55, 34);
+      coach(g, cx, 1010, 720, e);
+      footMarks(g, cx, 1720, 1, t);
+      arcGauge(g, cx - 500, 2010, 1000, (t * .2) % 1);
+    }],
+  ['B · 캡슐 안에 무대(창)', '캡슐은 시작 때 크기를 **유지**하고, 그 안에 코치 창 + 마크가 함께 들어간다. 화면이 한 물체로 끝나 가장 정돈되지만, 마크가 캡슐 폭에 갇힌다.',
+    (g, t) => {
+      const e = eOut(intro(t, .1, .8)), cx = 800, y0 = 300, h = 1720;
+      const path = capsule(g, cx - 509, y0, 1018, h);
+      g.save(); path(); g.clip();
+      coach(g, cx, y0 + 620, 800, e);
+      ember(g, cx, y0 + h - 210, 470, .7);
+      footMarks(g, cx, y0 + h - 300, .8, t);
+      g.restore();
+      titleBlock(g, ['High Knees'], cx, y0 + 180, 78);
+      capLabel(g, '12 SEC LEFT', cx, y0 + 280, .5, 38);
+      arcGauge(g, cx - 470, y0 + h + 60, 940, (t * .2) % 1);
+    }],
+  ['C · 캡슐 = 진행 자체(림이 차오름)', '캡슐 테두리가 **게이지가 된다** — 남은 시간이 림을 따라 차오르며 색이 뜨거워진다. 별도 게이지가 사라져 화면이 가장 조용하고, 시선은 코치와 마크에만 머문다.',
+    (g, t) => {
+      const e = eOut(intro(t, .1, .8)), cx = 800, x0 = cx - 509, y0 = 300, w = 1018, h = 1560;
+      capsule(g, x0, y0, w, h);
+      // 림 게이지 — 상단 12시에서 시계방향
+      const p = (t * .2) % 1, r = w / 2;
+      g.save();
+      const gg = g.createLinearGradient(0, y0, 0, y0 + h);
+      gg.addColorStop(0, '#FA3030'); gg.addColorStop(.6, '#FE6E3C'); gg.addColorStop(1, '#FEC389');
+      g.strokeStyle = gg; g.lineWidth = 9; g.lineCap = 'round';
+      g.shadowColor = 'rgba(254,110,60,.8)'; g.shadowBlur = 30;
+      const per = 2 * (h - w) + 2 * Math.PI * r, run = per * p;
+      g.beginPath();
+      let d = run;
+      const seg = (fn, len) => { if (d <= 0) return; fn(Math.min(1, d / len)); d -= len; };
+      seg(k => { g.moveTo(cx, y0); g.lineTo(cx + (w / 2) * k * 0, y0); }, 0.001);
+      // 우측 직선 → 하단 반원 → 좌측 직선 → 상단 반원 (근사 경로)
+      g.moveTo(x0 + w, y0 + r);
+      const L1 = h - w;
+      if (run > 0) g.lineTo(x0 + w, y0 + r + Math.min(L1, run));
+      if (run > L1) g.arc(cx, y0 + h - r, r, 0, Math.min(Math.PI, (run - L1) / r));
+      if (run > L1 + Math.PI * r) { const u = Math.min(L1, run - L1 - Math.PI * r); g.lineTo(x0, y0 + h - r - u); }
+      if (run > 2 * L1 + Math.PI * r) g.arc(cx, y0 + r, r, Math.PI, Math.PI + Math.min(Math.PI, (run - 2 * L1 - Math.PI * r) / r));
+      g.stroke(); g.restore();
+      coach(g, cx, y0 + 700, 860, e);
+      ember(g, cx, y0 + h - 250, 480, .6);
+      footMarks(g, cx, y0 + h - 330, .82, t);
+      titleBlock(g, ['High Knees'], cx, y0 + 200, 80);
+    }],
+];
+
+let MODE = 'preview';
+const row = document.getElementById('row'), ttl = document.getElementById('ttl');
+const cells = [];
+function build() {
+  row.innerHTML = ''; cells.length = 0;
+  ttl.textContent = MODE === 'preview' ? '프리뷰(관찰) — 3안' : '따라하기 — 3안';
+  for (const [nm, ds, fn] of (MODE === 'preview' ? PREVIEW : FOLLOW)) {
+    const d = document.createElement('div'); d.className = 'cell';
+    const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+    d.append(cv, Object.assign(document.createElement('div'), { className: 'nm', textContent: nm }),
+             Object.assign(document.createElement('div'), { className: 'ds', innerHTML: ds.replace(/\*\*(.+?)\*\*/g, '<b style="color:#E9EAEE">$1</b>') }));
+    row.appendChild(d); cells.push([cv, fn]);
+  }
+}
+for (const [k, lb] of [['preview', '프리뷰(관찰)'], ['follow', '따라하기']]) {
+  const b = document.createElement('button'); b.textContent = lb;
+  if (k === MODE) b.className = 'on';
+  b.onclick = () => { MODE = k; document.querySelectorAll('.seg button').forEach(x => x.classList.remove('on')); b.classList.add('on'); build(); };
+  document.getElementById('seg').appendChild(b);
+}
+build();
+const T0 = performance.now();
+(function loop() {
+  const t = (performance.now() - T0) / 1000 % 8;
+  for (const [cv, fn] of cells) {
+    const g = cv.getContext('2d');
+    g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, W, H);
+    try { fn(g, t); } catch (e) { /* 시안 — 한 셀이 죽어도 나머지는 돈다 */ }
+  }
+  requestAnimationFrame(loop);
+})();
+</script></body></html>
