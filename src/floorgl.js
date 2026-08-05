@@ -154,6 +154,7 @@ const arcY = ax => ARC.top + ARC.ry * (1 - Math.sqrt(Math.max(0, 1 - ((ax - ARC.
 export const gaugeH = w => Math.round(w / ARC.vw * (ARC.inkBot - ARC.inkTop));
 
 const _gsCv = typeof document !== 'undefined' ? document.createElement('canvas') : null;
+const _rollCv = typeof document !== 'undefined' ? document.createElement('canvas') : null;   // rollNum 롤 페더 버퍼
 
 /** 기록 화면 스코어 게이지 — progress.html + report.css + gauge.js 1:1 이식.
  *  근사로 옮겼던 것들을 실값으로 되돌렸다(유저: "컴포넌트 그대로 이식한 거지?").
@@ -425,17 +426,42 @@ export function rollNum(ctx, target, t, delay, cd, x, y, size, o = {}) {
   const total = ws.reduce((a, b) => a + b, 0);
   let px = o.align === 'right' ? x - total : o.align === 'center' ? x - total / 2 : x;
   const H = size * 0.84;   // 휠 한 칸 = 글리프 잉크 높이(글자 상자가 아니라) — 두 자리가 겹쳐 보이지 않게
+  // ── 롤 중에만 상·하단 페더(유저 08-05) — 도는 동안 위아래가 부드럽게 잦아들어 '릴'로 읽히고,
+  //   카운팅이 끝나면(e→1) 페더 두께가 0 으로 줄며 은은하게 사라진다. 정지 상태 비용 0.
+  const fk = 1 - clamp01((e - 0.72) / 0.28);
+  const WH = size * 0.92, PADX = 8, PADY = Math.ceil(size * 0.10);
+  const px0 = px;
+  let g2 = ctx, dx = 0, dy = 0;
+  if (fk > 0.01 && _rollCv) {
+    _rollCv.width = Math.ceil(total + PADX * 2);
+    _rollCv.height = Math.ceil(WH + PADY * 2);
+    g2 = _rollCv.getContext('2d');
+    g2.font = NF; g2.textBaseline = 'top'; g2.textAlign = 'left';
+    g2.fillStyle = o.fill || '#fff'; g2.letterSpacing = (o.ls || 0) + 'px';
+    dx = PADX - px0; dy = PADY - y;   // 본 좌표 → 오프스크린 좌표
+  }
   for (let i = 0; i < str.length; i++) {
     const w = wheel[i];
-    if (w == null) { ctx.font = SF; ctx.fillText(str[i], px, y); px += ws[i]; continue; }
-    ctx.font = NF;
+    if (w == null) { g2.font = SF; g2.fillText(str[i], px + dx, y + dy); px += ws[i]; continue; }
+    g2.font = NF;
     const d = w.d, f = w.f;
-    ctx.save();
-    ctx.beginPath(); ctx.rect(px - 4, y, ws[i] + 8, size * 0.92); ctx.clip();   // 창 = 딱 한 자리
-    ctx.fillText(String(d % 10), px, y - f * H);                                // 나가는 자리 = 위로
-    if (f > 0.03) ctx.fillText(String((d + 1) % 10), px, y + (1 - f) * H);      // 들어오는 자리 = 아래에서
-    ctx.restore();
+    g2.save();
+    g2.beginPath(); g2.rect(px + dx - 4, y + dy, ws[i] + 8, WH); g2.clip();   // 창 = 딱 한 자리
+    g2.fillText(String(d % 10), px + dx, y + dy - f * H);                     // 나가는 자리 = 위로
+    if (f > 0.03) g2.fillText(String((d + 1) % 10), px + dx, y + dy + (1 - f) * H);   // 들어오는 자리 = 아래에서
+    g2.restore();
     px += ws[i];
+  }
+  if (g2 !== ctx) {
+    const fpx = size * 0.20 * fk;                       // 페더 두께 — fk 가 줄면 저절로 사라진다
+    g2.globalCompositeOperation = 'destination-in';
+    const mg = g2.createLinearGradient(0, PADY, 0, PADY + WH);
+    mg.addColorStop(0, 'rgba(0,0,0,0)');
+    mg.addColorStop(Math.min(.49, fpx / WH), '#000');
+    mg.addColorStop(Math.max(.51, 1 - fpx / WH), '#000');
+    mg.addColorStop(1, 'rgba(0,0,0,0)');
+    g2.fillStyle = mg; g2.fillRect(0, 0, _rollCv.width, _rollCv.height);
+    ctx.drawImage(_rollCv, px0 - PADX, y - PADY);
   }
   ctx.letterSpacing = '0px';
   ctx.restore();
