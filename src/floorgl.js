@@ -1609,12 +1609,12 @@ export class FloorGL {
     //    preview 만 READY 캡슐에서 성장한다(READY→A1 은 실제로 규격이 바뀌는 한 번).
     //    video·floor·mini 는 '프리뷰 캡슐에서 수축'을 매 장면 다시 재생해서, 이미 카드였던
     //    이전 장면에서 넘어와도 커졌다 작아지길 반복했다(유저 08-05) → lerp 없이 목표 규격 그대로.
-    const PREV = [162, 14, 1276, 1930], CARD = [291, 63, 1018, 713];
-    const g = V === 'preview' ? eOut(intro(t, 0, 1.1)) : 1;
-    const FROM = V === 'preview' ? [291, 285, 1018, 1591] : CARD;
-    const TO = V === 'preview' ? PREV : CARD;
-    const L = k => FROM[k] + (TO[k] - FROM[k]) * g;
-    const bx = L(0), by = L(1), bw = L(2), bh = L(3);
+    // ★ 프리뷰 캡슐 = 홈(시작화면) 캡슐과 **같은 규격·같은 자리**(유저 08-05).
+    //   피그마 343:3496 의 1276×1955 성장은 캡슐이 커지면서 인물을 더 가두는 인상이라 폐기 —
+    //   홈에서 프리뷰로 넘어갈 때 캡슐은 가만히 있고 내용(배지·호·타이틀·인물)만 바뀐다.
+    //   y=100 = 홈의 285 에 _paint_ready 조판 이동(-185)을 반영한 실좌표.
+    const HOME = [291, 100, 1018, 1591], CARD = [291, 63, 1018, 713];
+    const [bx, by, bw, bh] = V === 'preview' ? HOME : CARD;
     ctx.save();
     // ★ 캡슐은 '눌린 SVG'가 아니라 진짜 알약이다(유저 #82) — 비균일 스케일로 찌그러뜨리지 말고
     //   목표 w/h 로 직접 그리고 r = min(w,h)/2. 카드로 줄어도 좌우 끝이 반원으로 유지된다.
@@ -1750,7 +1750,7 @@ export class FloorGL {
     if (V === 'preview') {
       const e = eOut(intro(t, .8, .7));
       if (e > 0.01) {
-        const px = 1315 + 130, py2 = 1100;
+        const px = bx + bw + 136, py2 = by + 1000;   // 캡슐 오른쪽 끝 기준(규격이 바뀌어도 따라온다)
         ctx.save(); ctx.globalAlpha *= e;
         ctx.fillStyle = 'rgba(255,255,255,.35)';
         ctx.beginPath(); ctx.roundRect(px - 145, py2 - 68, 290, 136, 68); ctx.fill();
