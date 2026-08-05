@@ -239,6 +239,51 @@ const SYS_SHOTS = [
   ['P3 · 인터벌', 'shots/floorshot-p3.png', '<b>패턴 D — 실전 동행 · 레거시 조판</b><br>캡슐 <b>미적용</b>: 크럼 → 타이틀 → 아크 → SPM 편차바 + 메트로놈 링.'],
   ['C2 · 나란히 달리기', 'shots/floorshot-c2.png', '<b>패턴 D — 실전 · 레거시 조판</b><br>캡슐 <b>미적용</b>: 누적 거리 → 아크 → 실시간 수치행.'],
 ];
+// ═══ 캡슐 리디자인 — 현재 씬 캡슐의 문제를 READY 문법으로 되돌린다 ══════════════
+//   현재(실캡처)의 문제 3가지: ① 납작한 비율(세로 250~300 = READY 1541 의 1/6)
+//   ② 층위가 2층뿐(타이틀+배지) — READY 는 5층 ③ 화면 하단 2/3 가 통째로 빈다.
+//   아래 두 안은 그 셋을 각각 다른 방식으로 푼다. 부품은 전부 정본.
+function redoA(g, t) {
+  // A · READY 비율 회복 — 큰 세로 캡슐 + 큰 도트 카운트(READY 의 '30 min' 자리)
+  const cx = 800, x0 = cx - 509, y0 = 250, w = 1018, h = 1360;
+  const e = eOut(intro(t, .06, .8));
+  const path = capsule(g, x0, y0, w, h);
+  g.save(); path(); g.clip(); ember(g, cx, y0 + h - 210, 470, .85); g.restore();
+  capLabel(g, 'PREVIEW · WARM UP 3/3', cx, y0 + 150, .5, 40);
+  titleBlock(g, ['High', 'Knees'], cx, y0 + 400, 104);
+  // 큰 도트 카운트 — READY 의 30 자리를 '남은 횟수/초'가 물려받는다
+  g.save(); g.globalAlpha = e;
+  rollNum(g, 12, t, .3, .9, cx - 40, y0 + 690, 300, { fam: "'OffBit',monospace", align: 'center', fill: '#fff' });
+  capLabel(g, 'sec', cx + 210, y0 + 830, .55, 56);
+  g.restore();
+  arcGauge(g, cx - 380, y0 + h - 130, 760, (t % 8) / 8);
+  coach(g, cx, y0 + h + 430, 700, e);
+}
+function redoB(g, t) {
+  // B · 헤더 알약 + 지면 무대 — 캡슐은 정보만 들고 물러나고, 판정이 화면의 주인공이 된다
+  const cx = 800, e = eOut(intro(t, .06, .8));
+  capsule(g, cx - 400, 250, 800, 230);
+  capLabel(g, 'WARM UP 3/3', cx, 330, .5, 36);
+  titleBlock(g, ['High Knees'], cx, 410, 72);
+  // 정보 알약 두 개 — 남은 시간 · 진행(READY 의 하단 상태 패널 문법)
+  for (const [dx, big, small] of [[-210, '12', 'sec'], [210, '3', 'sets']]) {
+    capsule(g, cx + dx - 170, 560, 340, 190);
+    g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillStyle = '#fff'; g.font = RF(700, 96, DOT); g.fillText(big, cx + dx - 30, 652);
+    capLabel(g, small, cx + dx + 90, 660, .55, 40);
+  }
+  coach(g, cx, 1230, 760, e);
+  footMarks(g, cx, 1960, 1.15, t);
+  arcGauge(g, cx - 460, 2200, 920, (t % 8) / 8);
+}
+const REDO = [
+  ['현재 · A3 하이니 (실캡처)', 'shots/floorshot-a3.png', null,
+   '<b>문제</b> ① 캡슐이 납작하다(h 250 — READY 는 1541) ② 층위가 타이틀+배지 2층뿐 ③ 화면 하단 2/3 가 빈다.'],
+  ['리디자인 A · READY 비율 회복', null, redoA,
+   'READY 캡슐 비율(세로 1.4:1)을 그대로. <b>READY 의 "30 min" 자리를 남은 시간이 물려받는다</b> — 큰 도트 숫자가 화면의 주인공. 엠버·아크·캡션 층위도 READY 그대로 5층.'],
+  ['리디자인 B · 헤더 + 지면 무대', null, redoB,
+   '캡슐은 <b>정보만 들고 물러난다</b>(헤더 알약 + 수치 알약 2개 = READY 하단 상태 패널 문법). 남은 화면은 코치와 판정 마크가 쓴다 — 하단이 비지 않는다.'],
+];
 // ═══ 전환 인터랙션 — 프리뷰 A → 따라하기 A 를 한 타임라인으로(유저: 전환도 미리보기) ═══
 //   한 물체(캡슐)가 물러나며 작아지고, 그 자리를 사람과 지면 마크가 이어받는다.
 const T_HOLD = 1.6, T_MOVE = 1.0, CY_LOOP = 5.4;
@@ -296,7 +341,20 @@ function build() {
   ttl.textContent = MODE === 'preview' ? '프리뷰(관찰) — 3안'
     : MODE === 'follow' ? '따라하기 — 3안'
     : MODE === 'sys' ? '지금 실제로 쓰이는 화면 (정본 렌더러 캡처) — 캡슐 적용 4개 · 레거시 2개'
+    : MODE === 'redo' ? '캡슐 리디자인 — 왼쪽이 현재(실캡처), 오른쪽 둘이 시안'
     : '프리뷰 → 따라하기 전환 (A안 · 5.4초) — 슬라이더로 스크럽';
+  if (MODE === 'redo') {
+    for (const [nm, src, fn, ds] of REDO) {
+      const d = document.createElement('div'); d.className = 'cell';
+      let el;
+      if (src) { el = document.createElement('img'); el.src = '/' + src; el.style.cssText = 'width:328px;display:block;border-radius:14px'; }
+      else { el = document.createElement('canvas'); el.width = W; el.height = H; cells.push([el, fn]); }
+      d.append(el, Object.assign(document.createElement('div'), { className: 'nm', textContent: nm }),
+               Object.assign(document.createElement('div'), { className: 'ds', innerHTML: ds }));
+      row.appendChild(d);
+    }
+    return;
+  }
   if (MODE === 'sys') {
     for (const [nm, src, ds] of SYS_SHOTS) {
       const d = document.createElement('div'); d.className = 'cell';
@@ -327,7 +385,7 @@ function build() {
     row.appendChild(d); cells.push([cv, fn]);
   }
 }
-for (const [k, lb] of [['preview', '프리뷰(관찰)'], ['follow', '따라하기'], ['flow', '▶ 전환 인터랙션 (A안)'], ['sys', '◆ 실제 화면 캡처']]) {
+for (const [k, lb] of [['preview', '프리뷰(관찰)'], ['follow', '따라하기'], ['flow', '▶ 전환 인터랙션 (A안)'], ['sys', '◆ 실제 화면 캡처'], ['redo', '★ 캡슐 리디자인']]) {
   const b = document.createElement('button'); b.textContent = lb;
   if (k === MODE) b.className = 'on';
   b.onclick = () => { MODE = k; document.querySelectorAll('.seg button').forEach(x => x.classList.remove('on')); b.classList.add('on'); build(); };
@@ -340,17 +398,6 @@ build();
 const T0 = performance.now();
 (function loop() {
   const now = performance.now();
-  if (MODE === 'sys') {
-    for (const [nm, src, ds] of SYS_SHOTS) {
-      const d = document.createElement('div'); d.className = 'cell';
-      const im = document.createElement('img');
-      im.src = '/' + src; im.style.cssText = 'width:328px;display:block;border-radius:14px';
-      d.append(im, Object.assign(document.createElement('div'), { className: 'nm', textContent: nm }),
-               Object.assign(document.createElement('div'), { className: 'ds', innerHTML: ds }));
-      row.appendChild(d);
-    }
-    return;
-  }
   if (MODE === 'flow') {
     if (FPLAY) { FT = (FT + (now - FLAST) / 1000) % CY_LOOP; document.getElementById('fscrub').value = FT.toFixed(2); }
     document.getElementById('ftime').textContent = FT.toFixed(2) + 's';
@@ -360,7 +407,7 @@ const T0 = performance.now();
   for (const [cv, fn] of cells) {
     const g = cv.getContext('2d');
     g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, W, H);
-    try { fn(g, t); } catch (e) { /* 시안 — 한 셀이 죽어도 나머지는 돈다 */ }
+    try { fn(g, t); } catch (e) { if (!window.__err) { window.__err = e.message + ' @ ' + (e.stack||'').split('\n')[1]; console.error('[concept]', e); } }
   }
   requestAnimationFrame(loop);
 })();
