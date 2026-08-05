@@ -27,6 +27,11 @@ h2{font-size:13.5px;margin:22px 0 10px;color:#FEC389}
 <p class="sub">시작 화면의 <b>유리 캡슐 + 엠버 글로우 + 도트 숫자 + 아크</b> 문법을 두 화면으로 넓히는 세 갈래.
 정본 부품으로 실제 렌더링하며, 배경은 트랙 톤(#8B9080)으로 깔았습니다.</p>
 <div class="seg" id="seg"></div>
+<div id="flowbar" style="display:none;margin:0 0 14px;align-items:center;gap:12px">
+  <button id="fplay" style="padding:6px 14px;border:1px solid #262b35;border-radius:99px;background:#1a1e25;color:#E9EAEE;font-size:12.5px;font-weight:600;cursor:pointer">⏸ 정지</button>
+  <input id="fscrub" type="range" min="0" max="5.4" step="0.01" value="0" style="width:520px;accent-color:#FA3030">
+  <span id="ftime" style="font:12px monospace;color:#98A1AD">0.00s</span>
+</div>
 <h2 id="ttl">프리뷰(관찰)</h2>
 <div class="row" id="row"></div>
 <script type="module">
@@ -221,12 +226,74 @@ const FOLLOW = [
     }],
 ];
 
+// ═══ 전환 인터랙션 — 프리뷰 A → 따라하기 A 를 한 타임라인으로(유저: 전환도 미리보기) ═══
+//   한 물체(캡슐)가 물러나며 작아지고, 그 자리를 사람과 지면 마크가 이어받는다.
+const T_HOLD = 1.6, T_MOVE = 1.0, CY_LOOP = 5.4;
+function drawFlow(g, t) {
+  const cx = 800;
+  const m = clamp01((t - T_HOLD) / T_MOVE), me = eOut(m);          // 전환 진행
+  const post = clamp01((t - (T_HOLD + T_MOVE)) / .9);              // 따라하기 요소 등장
+  const intro0 = eOut(intro(t, .05, .8));
+  // ① 캡슐 — 관찰(큰 캡슐) → 따라하기(미니 카드). 폭·높이·y 를 한 번에 보간
+  const cw = 818 - 58 * me, ch = 821 - 571 * me, cy = 300 - 0 * me;
+  capsule(g, cx - cw / 2, cy, cw, ch);
+  ember(g, cx, cy + ch - 120, cw * .46, .5 * (1 - me * .6));
+  // ② 타이틀 — 관찰은 2줄 크게, 따라하기는 1줄 작게(크로스페이드)
+  // 순차 크로스페이드 — 옛 것이 먼저 빠지고(0~45%) 새 것이 뒤에 든다(55~100%).
+  //   동시에 페이드하면 중간에 두 타이틀이 겹쳐 읽힌다(실측).
+  const outA = 1 - clamp01(m / .45), inA = clamp01((m - .55) / .45);
+  g.save(); g.globalAlpha = outA * intro0;
+  titleBlock(g, ['Neck And', 'Shoulder'], cx, cy + ch * .40, 86);
+  capLabel(g, 'PREVIEW', cx, cy + ch * .40 - 175, .5, 40);
+  g.restore();
+  g.save(); g.globalAlpha = inA;
+  titleBlock(g, ['High Knees'], cx, cy + 100, 64);
+  g.restore();
+  // ③ 카운트 링 → 남은 시간 배지 — 같은 자리에서 형태가 바뀐다(정보의 연속)
+  const ry = cy + ch * .74 - 320 * me;
+  g.save(); g.globalAlpha = outA;
+  ringGauge(g, cx, ry, 112, ((t * .62) % 1), { color: '#fff' });
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillStyle = '#fff'; g.font = RF(700, 92, DOT);
+  g.fillText(String(Math.max(1, 3 - Math.floor(t * 1.9))), cx, ry + 4);
+  g.restore();
+  g.save(); g.globalAlpha = inA;
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillStyle = '#fff'; g.font = RF(700, 62, DOT); g.fillText('12', cx - 26, cy + 192);
+  capLabel(g, 'sec', cx + 58, cy + 196, .55, 34);
+  g.restore();
+  // ④ 코치 — 관찰에선 캡슐 아래, 전환하며 앞(위)으로 걸어 나온다
+  coach(g, cx, 1560 - 520 * me, 760 + 60 * me, intro0);
+  // ⑤ 지면 마크 — 전환이 끝나며 아래에서 떠오른다
+  if (post > 0.01) {
+    g.save(); g.globalAlpha = post;
+    footMarks(g, cx, 1900 - 60 * eOut(post), 1, t);
+    g.restore();
+  }
+  // ⑥ 아크 게이지 — 따라하기의 시계
+  if (post > 0.01) { g.save(); g.globalAlpha = post; arcGauge(g, cx - 500, 2150, 1000, clamp01((t - 2.6) / 2.8)); g.restore(); }
+}
+let FPLAY = true, FT = 0, FLAST = performance.now();
 let MODE = 'preview';
 const row = document.getElementById('row'), ttl = document.getElementById('ttl');
 const cells = [];
 function build() {
   row.innerHTML = ''; cells.length = 0;
-  ttl.textContent = MODE === 'preview' ? '프리뷰(관찰) — 3안' : '따라하기 — 3안';
+  document.getElementById('flowbar').style.display = MODE === 'flow' ? '' : 'none';
+  ttl.textContent = MODE === 'preview' ? '프리뷰(관찰) — 3안'
+    : MODE === 'follow' ? '따라하기 — 3안'
+    : '프리뷰 → 따라하기 전환 (A안 · 5.4초) — 슬라이더로 스크럽';
+  if (MODE === 'flow') {
+    const d = document.createElement('div'); d.className = 'cell'; d.style.width = '420px';
+    const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+    cv.style.width = '420px'; cv.style.height = '700px';
+    d.append(cv, Object.assign(document.createElement('div'), { className: 'ds',
+      innerHTML: '<b style="color:#E9EAEE">0.0~1.6s</b> 관찰 — 캡슐이 크게 서고 카운트다운 3·2·1<br>'
+        + '<b style="color:#E9EAEE">1.6~2.6s</b> <b>전환</b> — 캡슐이 위로 물러나며 축소, 코치가 앞으로, 카운트 링이 필 배지로 형태 변환<br>'
+        + '<b style="color:#E9EAEE">2.6~5.4s</b> 따라하기 — 지면 마크가 아래에서 떠오르고 아크 게이지가 차오른다' }));
+    row.appendChild(d); cells.push([cv, drawFlow]);
+    return;
+  }
   for (const [nm, ds, fn] of (MODE === 'preview' ? PREVIEW : FOLLOW)) {
     const d = document.createElement('div'); d.className = 'cell';
     const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
@@ -235,16 +302,25 @@ function build() {
     row.appendChild(d); cells.push([cv, fn]);
   }
 }
-for (const [k, lb] of [['preview', '프리뷰(관찰)'], ['follow', '따라하기']]) {
+for (const [k, lb] of [['preview', '프리뷰(관찰)'], ['follow', '따라하기'], ['flow', '▶ 전환 인터랙션 (A안)']]) {
   const b = document.createElement('button'); b.textContent = lb;
   if (k === MODE) b.className = 'on';
   b.onclick = () => { MODE = k; document.querySelectorAll('.seg button').forEach(x => x.classList.remove('on')); b.classList.add('on'); build(); };
   document.getElementById('seg').appendChild(b);
 }
+document.getElementById('fscrub').addEventListener('input', e => { FPLAY = false; FT = +e.target.value; fp.textContent = '▶ 재생'; });
+const fp = document.getElementById('fplay');
+fp.onclick = () => { FPLAY = !FPLAY; fp.textContent = FPLAY ? '⏸ 정지' : '▶ 재생'; };
 build();
 const T0 = performance.now();
 (function loop() {
-  const t = (performance.now() - T0) / 1000 % 8;
+  const now = performance.now();
+  if (MODE === 'flow') {
+    if (FPLAY) { FT = (FT + (now - FLAST) / 1000) % CY_LOOP; document.getElementById('fscrub').value = FT.toFixed(2); }
+    document.getElementById('ftime').textContent = FT.toFixed(2) + 's';
+  }
+  FLAST = now;
+  const t = MODE === 'flow' ? FT : (now - T0) / 1000 % 8;
   for (const [cv, fn] of cells) {
     const g = cv.getContext('2d');
     g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, W, H);
