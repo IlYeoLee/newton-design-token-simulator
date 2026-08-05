@@ -2793,7 +2793,9 @@ void main(){
       //   껐다 켠다 — % 를 빼면 첫 8초 뒤 인물이 영영 안 돌아온다.
       // ★ READY 실루엣은 첫 화면이다 — 팩 이름 + 사람 형체로 시작하고 2초 뒤 도트 숫자가
       //   자리를 받는다. 시작화면 전체가 8초 루프라 여기도 같은 주기로 껐다 켠다.
-      && !(/READY$/.test(id) && ((session.t ?? 0) % 8) > 2.75)) || null;
+      // ★ READY 인물은 **캔버스 영상 오버레이**가 전담(floorgl _paint_ready · 유저 #161).
+      //   LUT 3D 판까지 켜면 같은 자리에 두 사람이 겹친다.
+      && !/READY$/.test(id)) || null;
     for (const id of COACH_IDS) {
       const c = _coaches[id];
       if (id === activeId) {

@@ -1676,6 +1676,38 @@ export class FloorGL {
     // ── ②' 림 바깥 초승달 블룸 = **폐기**(유저 08-05). '칼같이 잘리는' 걸 풀려고 반원
     //   그라디언트를 림 밖에 얹었는데, 클립 사각(rect)의 윗변이 그대로 직선 이음매로 드러나고
     //   빛이 캡슐 밖 좌우로 번져 더 이상해졌다. 캡슐 밖으로 새는 광은 만들지 않는다.
+    // ── ②'' 인물 영상 — 얼굴 위주 크롭 + r + hard-light + 컨테이너 밖 금지(유저 #161).
+    //   컬러 면(위 ②)이 이미 캡슐 안을 칠한 뒤라 hard-light 가 섞일 backdrop 이 있다 —
+    //   그래서 투명 위에서 타던 문제가 여기선 안 생긴다(그리는 순서가 곧 조건이다).
+    //   클립은 두 겹: roundRect(알약형 r) ∩ capPath(캡슐) — 어떤 경우에도 컨테이너를 안 벗어난다.
+    if (p2 < 0.995) {
+      const CLIP = bk
+        ? { src: 'ready-view/assets/proto/curry-card.mp4', zoom: 1.14, focus: 0.17 }
+        : { src: 'ready-view/assets/proto/sean-card.mp4',  zoom: 1.30, focus: 0.20 };
+      let v = this._pvid;
+      if (!v || v._key !== CLIP.src) {
+        v = this._pvid = document.createElement('video');
+        v._key = CLIP.src;
+        v.src = (import.meta.env?.BASE_URL || '/') + CLIP.src;
+        v.muted = true; v.loop = true; v.playsInline = true; v.autoplay = true;
+        v.play?.().catch(() => {});
+      }
+      if (v.readyState >= 2 && v.videoWidth) {
+        // 박스 = 스샷 #161 실측: 머리 꼭대기가 캡슐 로컬 ≈760, 아래는 캡슐 바닥까지.
+        const BX = 450, BY = CAP.y + 745, BW = 700, BH = (CAP.y + CAP.h) - (CAP.y + 745), BR = 320;
+        const sc = Math.max(BW / v.videoWidth, BH / v.videoHeight) * CLIP.zoom;
+        const dw = v.videoWidth * sc, dh = v.videoHeight * sc;
+        const dx = BX + (BW - dw) / 2;
+        const dy = BY - (dh * CLIP.focus);   // focus = 소스에서 얼굴이 있는 세로 비율
+        ctx.save();
+        ctx.globalAlpha *= e0(.30, .9) * (1 - p2);
+        ctx.beginPath(); ctx.roundRect(BX, BY, BW, BH, BR); ctx.clip();
+        ctx.save(); ctx.translate(0, CUT); capPath(); ctx.restore(); ctx.clip();   // 캡슐 밖 금지
+        ctx.globalCompositeOperation = 'hard-light';
+        ctx.drawImage(v, dx, dy, dw, dh);
+        ctx.restore();
+      }
+    }
     // ── ③ 캡슐 텍스트 — 제목 2줄(100/Bold/ls-4) · Pace On(64/.8) · 도트 30(384) + min(64) ──
     // 제목 두 줄은 줄 단위로 아주 살짝 어긋나게(0.04s) — 한 덩어리로 뜨는 것보다 결이 산다.
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
