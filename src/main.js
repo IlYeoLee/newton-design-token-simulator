@@ -5914,7 +5914,11 @@ void main(){
       // 큰 점프(스테이지 전환 텔레포트, 실전 드리프트→FIN 원점)는 즉시 스냅 — 안 하면 리포트가 멀리서 쓔욱 따라옴(유저 영상).
       // 작은 지터(러닝 다리 스윙 각속도)만 저역통과(≈50ms)로 안정화.
       const _jump = Math.hypot(fp.ox - _fpSmooth.ox, fp.oz - _fpSmooth.oz);
-      const aUI = _jump > 1.0 ? 1 : (1 - Math.exp(-_uiDt / 0.05));
+      // ★ 시정수 50ms → 12ms(유저 08-05: 발자국과 카메라 흔들림 '속도'가 달라 따로 논다).
+      //   빔·카메라는 원본 rig._fp 를 쓰는데 지면 콘텐츠만 50ms 저역통과라, 다리 스윙(≈3Hz)에서
+      //   위상이 ~54° 어긋나 지면 그림이 빔 위에서 미끄러졌다. 12ms 면 한 프레임 미만이라
+      //   센서 스파이크만 깎이고 눈에 보이는 지연은 사라진다.
+      const aUI = _jump > 1.0 ? 1 : (1 - Math.exp(-_uiDt / 0.012));
       _fpSmooth.ox += (fp.ox - _fpSmooth.ox) * aUI;
       _fpSmooth.oz += (fp.oz - _fpSmooth.oz) * aUI;
       _fpSmooth.fx += (fp.fx - _fpSmooth.fx) * aUI;
