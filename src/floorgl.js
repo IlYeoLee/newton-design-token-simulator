@@ -2161,7 +2161,7 @@ export class FloorGL {
     const twp = ctx.measureText(title).width; ctx.letterSpacing = '0px';
     const WHp = Math.max(H2.minW, Math.min(safeW(H2.y) - 80,
       PAD + RRp * 2 + H2.gapU + uwp + H2.gapT + twp + PAD + (cfg.step ? 110 : 0)));
-    const w1 = L(760, WHp), h1 = L(620, HHp), y1 = H2.y;
+    const w1 = L(820, WHp), h1 = L(660, HHp), y1 = H2.y;   // 내용이 커진 만큼 캡슐도 소폭
     // ★ 진입 = **시작화면 캡슐이 줄어드는 것**(유저: 두 번 탭하면 같은 요소가 줄어들며 넘어간다).
     //   스테이지가 바뀔 때 캡슐을 새로 띄우면 '다른 물건이 나타난' 걸로 읽힌다. READY 캡슐
     //   지오메트리(x291 y285 w1018 h1491)에서 출발해 0.9s 동안 이 스테이지의 캡슐로 접힌다.
@@ -2219,8 +2219,8 @@ export class FloorGL {
     rim.addColorStop(1, 'rgba(255,255,255,.06)');
     ctx.strokeStyle = rim; ctx.lineWidth = 2.5; path(); ctx.stroke();
     // 카운트 링 — 정본 countRing. 관찰: 캡슐 중앙 아래 / 따라하기: 헤더 왼쪽 슬롯. 형태는 안 바뀐다.
-    const RR = L(112, RRp);
-    const rx = L(CX, x + PAD + RR), ry2 = L(y + h * .70, y + h / 2);
+    const RR = L(136, RRp);   // 프리뷰 링 112 → 136
+    const rx = L(CX, x + PAD + RR), ry2 = L(y + h * .74, y + h / 2);
     // ★ 종아리 늘리기(A2)는 **한 발당** 홀드가 단위다(유저: 시간과 전체 길이가 같으면 어색하다).
     //   헤더 링 = 지금 딛고 있는 발의 남은 홀드 시간(발이 바뀌면 리셋) · 하단 아크 = 좌+우 합친
     //   세션 전체. 둘이 같은 값을 세면 "한 발 5초"라는 이 동작의 구조가 화면에서 사라진다.
@@ -2245,18 +2245,19 @@ export class FloorGL {
     if (outA > 0) {
       ctx.save(); ctx.globalAlpha *= outA;
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillStyle = 'rgba(255,255,255,.6)'; ctx.font = F(400, 46); ctx.letterSpacing = '6px';
-      ctx.fillText('PREVIEW', CX + 3, y + h * .16 - 26 * mo);
+      ctx.fillStyle = 'rgba(255,255,255,.6)'; ctx.font = F(400, 56); ctx.letterSpacing = '7px';   // 46→56
+      ctx.fillText('PREVIEW', CX + 3, y + h * .15 - 26 * mo);
       // ① 도착점 쪽으로 끌려간다 — 중앙 기준이라 x 는 좌측 목표로, y 는 헤더 중앙으로.
       ctx.translate((dstX - CX) * .32 * mo, (dstY - (y + h * .40)) * .32 * mo);
-      ctx.letterSpacing = '-4px'; ctx.fillStyle = '#fff'; ctx.font = F(700, 100);
+      // 100 → 124 — 캡슐 대비 내용이 작아 보였다(유저). 2줄 간격도 112 → 136 으로 같이.
+      ctx.letterSpacing = '-5px'; ctx.fillStyle = '#fff'; ctx.font = F(700, 124);
       // 2줄 분할도 정본 타이틀에서 파생 — CAPS 의 하드코딩 배열을 안 쓴다.
       const ci2 = titleCase.indexOf(', ');
       const ls = ci2 > 0 ? [titleCase.slice(0, ci2 + 1), titleCase.slice(ci2 + 2)]
         : (titleCase.length > 12 ? (() => { const w2 = titleCase.split(' ');
             const m = Math.ceil(w2.length / 2); return [w2.slice(0, m).join(' '), w2.slice(m).join(' ')]; })()
           : [titleCase]);
-      ls.forEach((ln, i) => ctx.fillText(ln, CX, y + h * .40 + (i - (ls.length - 1) / 2) * 112));
+      ls.forEach((ln, i) => ctx.fillText(ln, CX, y + h * .40 + (i - (ls.length - 1) / 2) * 136));
       ctx.letterSpacing = '0px'; ctx.restore();
     }
     if (inA > 0) {
