@@ -1951,7 +1951,13 @@ export class FloorGL {
     // 지오메트리 — 원형(760×820) → 가로 알약(840×250). **y 는 176 고정**: 위를 붙박아 두면
     //   아래로만 접히므로 코치 판(지면 중앙에 서는 3D 인물)과 안 겹친다.
     //   전엔 y300·h1080 이라 캡슐이 화면 중앙까지 내려와 인물 몸통을 덮었다(유저 스샷).
-    const w = L(760, 840), h = L(820, 250), x = CX - w / 2, y = 176;
+    const w1 = L(760, 840), h1 = L(820, 250), y1 = 176;
+    // ★ 진입 = **시작화면 캡슐이 줄어드는 것**(유저: 두 번 탭하면 같은 요소가 줄어들며 넘어간다).
+    //   스테이지가 바뀔 때 캡슐을 새로 띄우면 '다른 물건이 나타난' 걸로 읽힌다. READY 캡슐
+    //   지오메트리(x291 y285 w1018 h1491)에서 출발해 0.9s 동안 이 스테이지의 캡슐로 접힌다.
+    const en = eOut(clamp01(t / .9));
+    const E = (p, q) => p + (q - p) * en;
+    const w = E(1018, w1), h = E(1491, h1), y = E(285, y1), x = CX - w / 2;
     const r = Math.min(w, h) / 2;
     const path = () => { ctx.beginPath(); ctx.roundRect(x, y, w, h, r); };
     ctx.save(); ctx.globalAlpha *= eOut(intro(t, .05, .7));
@@ -1959,9 +1965,11 @@ export class FloorGL {
     ctx.fillStyle = 'rgba(255,255,255,.055)'; ctx.fillRect(x, y, w, h);
     ctx.filter = 'blur(37px)'; ctx.strokeStyle = 'rgba(255,255,255,.25)'; ctx.lineWidth = 80;
     path(); ctx.stroke(); ctx.filter = 'none';
-    // 엠버 — 관찰 구간에만(원형 캡슐 하단). 알약이 되면 사라진다.
-    if (mo < .99) {
-      ctx.save(); ctx.globalAlpha *= 1 - mo;
+    // ★ 엠버는 **끊기지 않는다**(유저: 그라디언트 요소도 계속 이어지게 살려라).
+    //   시작화면에서 타고 있던 불이 캡슐이 줄어드는 동안에도 같이 줄어들 뿐 꺼지지 않는다.
+    //   알약이 되면 세기만 낮춘다(0.28) — 없애면 그 순간 '다른 물건'이 된다.
+    {
+      ctx.save(); ctx.globalAlpha *= 1 - mo * .72;
       ctx.translate(CX, y + h - 150); ctx.scale(1, .46);
       const rg = ctx.createRadialGradient(0, 0, 0, 0, 0, w * .44);
       rg.addColorStop(0, 'rgba(250,48,48,.55)'); rg.addColorStop(1, 'rgba(250,48,48,0)');
