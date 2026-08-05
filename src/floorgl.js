@@ -2284,52 +2284,76 @@ export class FloorGL {
     //     ② 들어오는 글자는 남은 거리에서 **미끄러져 들어온다**
     //     ③ 알파는 quint 로 — 선형이면 중간이 텅 빈다
     const eQ = u => 1 - Math.pow(1 - clamp01(u), 4);
-    const outA = eQ(1 - clamp01(mo / .48)), inA = eQ((mo - .46) / .54);
     const dstX = rx + RR + H2.gapU + uwp + H2.gapT, dstY = ry2;
-    if (outA > 0) {
-      ctx.save(); ctx.globalAlpha *= outA;
+    // 프리뷰 2줄 분할 — 한 줄로 들어가면 나누지 않는다(아래 연속 이동의 전제).
+    const ci2 = title.indexOf(', ');
+    const ls = ci2 > 0 ? [title.slice(0, ci2 + 1), title.slice(ci2 + 2)]
+      : (() => { ctx.font = F(700, 124); ctx.letterSpacing = '-5px';
+          const fit = ctx.measureText(title).width <= w1 - PAD * 2;
+          if (fit) return [title];
+          const w2 = title.split(' '); const m = Math.ceil(w2.length / 2);
+          return [w2.slice(0, m).join(' '), w2.slice(m).join(' ')]; })();
+    // 'Preview' 라벨 — 전환 시작과 함께 빠진다(한 줄짜리 요소라 페이드로 충분).
+    if (mo < .999) {
+      ctx.save(); ctx.globalAlpha *= eQ(1 - clamp01(mo / .42));
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      // 'Preview' 라벨 — 56→72, 자간 7→2(유저: 자간 너무 넓고 폰트 너무 작다).
-      //   minFs(y≈300) 가 64 를 요구하므로 56 은 애초에 규약 미달이었다. 자간이 넓으면 글자가
-      //   낱개로 흩어져 더 작아 보인다 — 크기를 올리고 자간을 줄이는 게 같은 방향의 처방이다.
       ctx.fillStyle = 'rgba(255,255,255,.7)'; ctx.font = F(400, 72); ctx.letterSpacing = '2px';
-      ctx.fillText('Preview', CX + 3, y + h * .15 - 26 * mo);   // 라벨만 대+소문자(유저)
-      // ① 도착점 쪽으로 끌려간다 — 중앙 기준이라 x 는 좌측 목표로, y 는 헤더 중앙으로.
-      ctx.translate((dstX - CX) * .32 * mo, (dstY - (y + h * .40)) * .32 * mo);
-      // 100 → 124 — 캡슐 대비 내용이 작아 보였다(유저). 2줄 간격도 112 → 136 으로 같이.
-      ctx.letterSpacing = '-5px'; ctx.fillStyle = '#fff'; ctx.font = F(700, 124);
-      // 2줄 분할도 정본 타이틀에서 파생 — CAPS 의 하드코딩 배열을 안 쓴다.
-      const ci2 = title.indexOf(', ');
-      const ls = ci2 > 0 ? [title.slice(0, ci2 + 1), title.slice(ci2 + 2)]
-        : (title.length > 12 ? (() => { const w2 = title.split(' ');
-            const m = Math.ceil(w2.length / 2); return [w2.slice(0, m).join(' '), w2.slice(m).join(' ')]; })()
-          : [title]);
-      ls.forEach((ln, i) => ctx.fillText(ln, CX, y + h * .40 + (i - (ls.length - 1) / 2) * 136));
+      ctx.fillText('Preview', CX + 3, y + h * .15 - 26 * mo);
       ctx.letterSpacing = '0px'; ctx.restore();
     }
-    if (inA > 0) {
-      ctx.save(); ctx.globalAlpha *= inA;
-      ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillStyle = 'rgba(255,255,255,.62)'; ctx.font = F(400, 46);
-      ctx.fillText('sec', rx, ry2 + RR * .55);
+    // ★ 타이틀 = **한 물체가 계속 움직인다**(유저: 중간다리 없이 매끄럽게).
+    //   전엔 두 벌을 크로스페이드해서 중간에 '반쯤 사라진 글자'라는 제3의 상태가 보였다 —
+    //   그게 '중간다리'다. 문구가 프리뷰·헤더 모두 같은 대문자 한 줄이므로 나눌 이유가 없다:
+    //   크기·위치를 하나의 mo 로 보간해 **끊김 없이** 이동시킨다(알파 변화 자체가 없다).
+    //   두 줄이 필요한 긴 이름만 예외로 크로스페이드를 남긴다.
+    ctx.save();
+    ctx.textBaseline = 'middle'; ctx.fillStyle = '#fff';
+    if (ls.length === 1) {
+      const fs = 124 + (LAYOUT.TYPE.title - 124) * mo;
+      ctx.font = F(700, fs); ctx.letterSpacing = (-5 + 1 * mo).toFixed(2) + 'px';
+      const tw2 = ctx.measureText(title).width;
+      const x0t = (CX - tw2 / 2) + (dstX - (CX - tw2 / 2)) * mo;
+      const y0t = (y + h * .40) + (dstY - (y + h * .40)) * mo;
       ctx.textAlign = 'left';
-      ctx.fillStyle = '#fff'; ctx.font = F(700, LAYOUT.TYPE.title); ctx.letterSpacing = '-4px';
-      // ② 남은 거리에서 미끄러져 들어온다(들어올수록 0 으로 수렴)
-      ctx.fillText(title, dstX - (dstX - CX) * .18 * (1 - inA), ry2 + 22 * (1 - inA));
-      ctx.letterSpacing = '0px';
-      if (cfg.step) {
-        ctx.textAlign = 'right'; ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.font = F(400, 44);
-        ctx.fillText(cfg.step, x + w - PAD, ry2);
+      ctx.fillText(title, x0t, y0t);
+    } else {
+      const outA = eQ(1 - clamp01(mo / .48)), inA = eQ((mo - .46) / .54);
+      ctx.textAlign = 'center';
+      if (outA > 0) {
+        ctx.save(); ctx.globalAlpha *= outA;
+        ctx.translate((dstX - CX) * .32 * mo, (dstY - (y + h * .40)) * .32 * mo);
+        ctx.letterSpacing = '-5px'; ctx.font = F(700, 124);
+        ls.forEach((ln, i) => ctx.fillText(ln, CX, y + h * .40 + (i - (ls.length - 1) / 2) * 136));
+        ctx.restore();
       }
+      if (inA > 0) {
+        ctx.save(); ctx.globalAlpha *= inA; ctx.textAlign = 'left';
+        ctx.font = F(700, LAYOUT.TYPE.title); ctx.letterSpacing = '-4px';
+        ctx.fillText(title, dstX - (dstX - CX) * .18 * (1 - inA), ry2 + 22 * (1 - inA));
+        ctx.restore();
+      }
+    }
+    ctx.letterSpacing = '0px';
+    ctx.restore();
+    // step 배지 — 헤더 상태에서만
+    if (cfg.step && mo > .5) {
+      ctx.save(); ctx.globalAlpha *= (mo - .5) / .5;
+      ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+      ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.font = F(400, 44);
+      ctx.fillText(cfg.step, x + w - PAD, ry2);
       ctx.restore();
     }
     ctx.restore();
     // 진행 — 따라하기 구간에만, 헤더 바로 아래
     if (mo > .5) {
       ctx.save(); ctx.globalAlpha *= (mo - .5) / .5;
-      const ay = LAYOUT.PROG_Y, wA = Math.min(LAYOUT.PROG.wMax, safeW(ay) - 48);
-      arcGauge(ctx, CX - wA / 2, ay, wA, clamp01((t - PV) / Math.max(.1, dur - PV)), { dotK: 0.6 });
+      // ★ 벽(복싱)과 **같은 컴포넌트를 통째로, 배율만 줄여** 쓴다(유저).
+      //   전엔 폭을 대지의 65%(1048)까지 늘려 놓고 마커만 dotK 0.6 으로 깎았다 — 아크는 크고
+      //   점은 작은 비균일 스케일이라 복싱의 비례가 깨졌다. 폭을 640 으로 줄이면 s 가 같은 비율로
+      //   작아져 마커도 알아서 그 크기가 된다(= dotK 불필요). 높이도 gaugeH(640) 로 함께 줄어
+      //   헤더 알약을 아크가 가로지르지 않는다.
+      const ay = LAYOUT.PROG_Y, wA = Math.min(640, safeW(ay) - 48);
+      arcGauge(ctx, CX - wA / 2, ay, wA, clamp01((t - PV) / Math.max(.1, dur - PV)));
       ctx.restore();
     }
   }
