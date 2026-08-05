@@ -2335,6 +2335,9 @@ void main(){
   //   cfg: { src, cropOff, cropScale(세로 크롭 창), w, h, fwd }  crop을 uniform으로 빼 스테이지별 대응.
   // ★ 코치 판 fwd = 지면 전방 오프셋(작을수록 화면 아래). 유저 요청으로 러닝 션(0.10→-0.08)에
   //   이어 농구 커리도 같은 폭(-0.18)만큼 내렸다 — 캡슐 프레임은 floorgl 좌표계라 안 움직인다.
+  // ★ cropOff = **프레임 안에서 영상 내용의 세로 오프셋**(값↑ = 인물이 아래로).
+  //   fwd 는 판 자체를 공간에서 옮기는 값이라 프레임이 같이 움직인다 — 유저가 원한 건
+  //   프레임은 두고 인물만 내리는 것이므로 cropOff 가 맞는 손잡이다(A1 이 이미 0.40 으로 쓴다).
   const COACH_CFG = {
     // READY 페이즈2(등장 후 2초) — A1 원본 데모판을 그대로 UI 캡슐 뒤에. 캔버스 사제 비디오 폐기(유저).
     // 시작화면 인물 = 힉스필드 kling i2v 그린스크린 전신 루프(828×1108 = 3:4, 유저 08-05).
@@ -2346,8 +2349,8 @@ void main(){
     //   그래서 클립 자체를 0.78 로 줄여 순수 그린(#00FF00)으로 사방 11% 패딩(ffmpeg, 828×1108 유지).
     //   패딩은 키에서 100% 빠지므로 페이드는 여백만 먹는다. w/h 는 1/0.78 배로 올려 화면 크기 보존.
     // 인물 1.2배 + 위로(유저 08-05: 캡슐 하단 130 축소 후 인물이 빛에 묻혀 안 보인다)
-    READY:    { src: 'ready-view/assets/run/runner_green.mp4', cropOff: 0.0, cropScale: 1.0, w: 0.432, h: 0.578, fwd: -0.18, ph: 0.76 },   // fwd .10→-.02→-.08 = 총 0.18m(≈260px) 아래로(유저 2회) — 캡슐 프레임은 그대로 두고 인물만 내린다
-    BK_READY: { src: 'ready-view/assets/bk/dribble_green.mp4', cropOff: 0.0, cropScale: 1.0, w: 0.432, h: 0.578, fwd: -0.18, ph: 0.76 },   // 러닝과 동일 규격
+    READY:    { src: 'ready-view/assets/run/runner_green.mp4', cropOff: 0.20, cropScale: 1.0, w: 0.432, h: 0.578, fwd: -0.18, ph: 0.76 },   // fwd .10→-.02→-.08 = 총 0.18m(≈260px) 아래로(유저 2회) — 캡슐 프레임은 그대로 두고 인물만 내린다
+    BK_READY: { src: 'ready-view/assets/bk/dribble_green.mp4', cropOff: 0.20, cropScale: 1.0, w: 0.432, h: 0.578, fwd: -0.18, ph: 0.76 },   // 러닝과 동일 규격
     A1: { src: 'ready-view/assets/sean_neck_shoulder.webm', cropOff: 0.40, cropScale: 0.58, w: 0.62, h: 0.64, fwd: 0.02, ph: 0.83 },   // 프리뷰 캡슐 안 — 타이틀 안 가리게 축소·아래(유저 08-05)
     A2: { src: 'ready-view/assets/sean_lunge.webm', cropOff: 0.0, cropScale: 1.0, w: 0.9, h: 0.9, fwd: -0.02, zoom: 0.86, ph: 0.65 },   // fwd .10→-.02 = 0.12m(≈175px) 아래로 — 머리가 캡슐 하단과 겹쳤다(유저 #151)   // 런지 전신 측면 — 축소로 뒷발이 프레임 페이드에 안 걸리게(유저)
     A3: { src: 'ready-view/assets/sean_highknee.webm', cropOff: 0.0, cropScale: 1.0, w: 0.82, h: 0.82, fwd: -0.04, ph: 0.87 },   // 하이니 — 캡슐 카드 아래로(머리 겹침 방지, 캡슐 시스템)
@@ -5823,6 +5826,7 @@ void main(){
   //   구식 CSS3D 폴백으로 대체돼 보였다(유저 지적). 도피구는 ?floorgl=0 유지.
   const FLOORGL = new URLSearchParams(location.search).get('floorgl') !== '0';
   const floorGL = new FloorGL();
+  if (import.meta.env.DEV) window.__fgl = floorGL;   // 헤드리스 검수 훅 — 지면 캔버스 원본(1600x2670)을 원근 없이 재는 유일한 길
   // 지면 UI(제목·SPM·페이스)는 마크 판정 토큰 '앞'에 온다 — 토큰이 글자를 덮어 안 읽히던 것(유저).
   //   ★ 메시의 renderOrder 를 올려도 소용없다. three 는 (groupOrder, renderOrder, depth) 순으로
   //     정렬하고 groupOrder 는 '내려오다 만난 Group 의 renderOrder'다. 토큰은 group.renderOrder=5
