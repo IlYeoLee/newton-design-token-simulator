@@ -12,7 +12,7 @@ import { WallGhost } from './ghost.js';
 import { FilesetResolver, ImageSegmenter } from '@mediapipe/tasks-vision';
 import { extractPose, retargetToClip } from './posemocap.js';   // 무료 로컬 비디오 모캡
 import { Judge } from './judge.js';
-import { Session, SCFG, STAGES, STEP_SEG , refreshMarkNums } from './session.js';
+import { Session, SCFG, STAGES, STEP_SEG , refreshMarkNums, AD } from './session.js';
 import { StudioDoc } from './studio/doc.js';
 import { StudioCanvas } from './studio/canvas.js';
 import { StudioProps } from './studio/props.js';
@@ -6088,7 +6088,10 @@ void main(){
   // 스텝백 4페이즈 누적 구간(초)은 session.js가 단일 소스(마크 배치가 같은 표를 쓴다).
   //   한 루프 = 구간/배속 + 끝프레임 정지 1초.  프리뷰 = STEP_LOOPS 루프.
   //   학습(B2~B5) = 0.5배속 + 구간 끝 1초 정지 + 프리뷰 2회 / 실전(C2) = 정속·정지 없음·프리뷰 1회(유저)
-  const stepRate = id => (id === 'BK_C2' ? 1.0 : 0.5);
+  // ★ 실전만 정속(1.0) — **발표 프리셋(?ad=1)은 예외**: 유저 08-07 "너무 빠르고 복잡해서
+  //   뭘 봐야 할지 모르겠다. 4/4 배움 단계의 것을 재생하자". 4/4(BK_B4)는 구간이 실전과
+  //   **같고**(STEP_SEG 둘 다 [1.05, 2.20]) 속도만 0.5 다. 그 속도를 실전에 그대로 준다.
+  const stepRate = id => (id === 'BK_C2' && !AD ? 1.0 : 0.5);
   const stepHold = id => (id === 'BK_C2' ? 0.0 : 1.0);
   const stepLoops = id => (id === 'BK_C2' || id === 'BK_T1' ? 1 : 2);   // T1 = 통째로 한 번만 본다(유저)
   const STEP_RATE = 0.5, STEP_HOLD = 1.0, STEP_LOOPS = 2;

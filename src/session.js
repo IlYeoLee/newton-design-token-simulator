@@ -1158,7 +1158,9 @@ export class Session {
    *  A2 스탠스 라인과 **같은 물건**을 쓴다 — 중앙에서 각 발로 뻗는 촉 없는 LINE 자루 두 개.
    *  ponytail: 새 그래픽 0개. 길이는 draw-on(_prog), 색·페이드·day 전환은 룩 시스템이 공짜로 준다. */
   _sbLink(H, id, P, fmL, fmR) {
-    const want = BK_STEPBACK[id]?.link === 'pair';
+    // 발표 프리셋은 실전에도 스탠스 링크를 준다 — 4/4 화면에는 있고 실전엔 없던 물건이다
+    //   (BK_STEPBACK.BK_C2 에 link 선언이 없어서 안 만들어졌다. 실측: lkA 미생성).
+    const want = BK_STEPBACK[id]?.link === 'pair' || (AD && id === 'BK_C2');
     if (!H.lkA) {
       if (!want) return;
       const mk = () => { const a = makeFlowArrow(SB_LINK_MAX, { tips: 0 }); a._gain = 0; a._prog = 0;
@@ -3479,7 +3481,7 @@ export class Session {
         FMU('먼저 보세요 — 스텝백', CS.prism);
         return;
       }
-      this.clipRate = 1;   // 봇은 정속(유저) — 느리게 보여줄 건 코치 영상 playbackRate 쪽이다
+      this.clipRate = AD ? 0.5 : 1;   // 봇은 정속(유저) — 발표 프리셋만 4/4 속도(0.5)로 같이 내린다
       const pr = this.xbot?.getProbes?.();
       let ex = 0;
       if (pr?.hips && pr.footL && pr.footR) {

@@ -11,14 +11,16 @@ const b = await puppeteer.launch({ headless: 'new',
 const p = await b.newPage();
 await p.setViewport({ width: 1400, height: 800, deviceScaleFactor: 1 });
 p.on('pageerror', e => console.log('  PAGEERROR:', String(e).slice(0,150)));
-await p.goto('http://127.0.0.1:5199/?fxq=1&scene=BK_C2&ad=1', { waitUntil: 'networkidle2', timeout: 180000 });
+await p.goto(`http://127.0.0.1:5199/?fxq=1&scene=${process.env.ST||'BK_B4'}${process.env.AD?'&ad=1':''}`, { waitUntil: 'networkidle2', timeout: 180000 });
 await p.waitForFunction('!!window.__dbg?.session', { timeout: 120000 });
-const ok = await p.waitForFunction(() => window.__dbg.session.curStage?.id === 'BK_C2',
+await p.evaluate(st => { window.__ST = st; }, process.env.ST || 'BK_B4');
+const ok = await p.waitForFunction(() => window.__dbg.session.curStage?.id === window.__ST,
   { timeout: 60000, polling: 300 }).then(()=>true).catch(()=>false);
 console.log(ok ? '도달 OK' : '⚠ 못 감');
 // 12초 동안 훑는다 — 화살표는 '움직이는 동안만' 뜨는 물건이라 한 순간만 보면 0 이 나온다
 const r = await p.evaluate(async () => {
-  const s = window.__dbg.session, H = s.bkC2x || {};
+  const s = window.__dbg.session;
+  const H = ({BK_T1:s.bkT1x,BK_B3:s.bkB3x,BK_B4:s.bkB4x,BK_C2:s.bkC2x}[s.curStage?.id]) || {};
   const max = { a1:0, a2:0, zone:0, lkA:0, trA:0, trB:0, trC:0 };
   const seen = { a1:0, a2:0, zone:0 };   // gain>0.02 인 프레임 수
   let n = 0, tmin = 9e9, tmax = -9e9;
@@ -34,7 +36,7 @@ const r = await p.evaluate(async () => {
     if ((H._zFade||0) > 0.02) seen.zone++;
   }
   return { frames:n, tRange:[+tmin.toFixed(2), +tmax.toFixed(2)], max, 뜬프레임: seen,
-    존생성: !!H.zTgt, 링크생성: !!H.lkA, latch: !!s._followLatch, stage: s.curStage?.id };
+    존생성: !!H.zTgt, 링크생성: !!H.lkA, latch: !!s._followLatch, clipRate: s.clipRate, vidT: +(s.stepVidT??0).toFixed(2), stage: s.curStage?.id };
 });
 console.log(JSON.stringify(r, null, 1));
 await b.close();
