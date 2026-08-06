@@ -14,7 +14,7 @@
   .rows{display:flex;gap:16px;color:#98A1AD;font-size:12px;margin:0 0 8px}
 </style></head><body>
 <div class=wrap>
-  <div class=rows><span>윗줄 · 원본(정본 룩)</span><span>아랫줄 · 그라디언트판</span></div>
+  <div class=rows><span>1줄 · 원본(정본 룩)</span><span>2줄 · 그라디언트판</span><span>3줄 · 걸음판(마스킹 깊이 · pressA 0)</span></div>
   <canvas id=c></canvas>
   <div class=labels id=lb></div>
   <div class=ramp id=ramp></div>
@@ -81,7 +81,12 @@ const HEAT_LOOK = { imp: 0, glow: 0, shade: 0, rip: 0, shadeRed: 0, edgeShade: 0
 const LOAD = { ball: 1.0, heel: 0.9, toe: 1.0 };   // 발가락도 접지한다 — 기본 0.5 면 안 보인다
 
 // 두 줄 — 윗줄 원본(정본 룩 그대로), 아랫줄 그라디언트판. 같은 상태를 세로로 맞대 놓고 본다.
-const ROWS = [{ n: '원본', look: null }, { n: '그라디언트', look: HEAT_LOOK }];
+// 걸음판(gait.html) 룩 — 채도를 원본과 맞대 보기 위한 줄. 깊이를 투명도가 아니라
+//   **마스킹**(필 인셋 + 이너 섀도우)으로 내므로 알파가 안 깎이고 채도가 살아 있어야 한다.
+const GAIT_LOOK = { ...HEAT_LOOK, pressA: 0, tLo: 0.02, tHi: 0.86,
+                    edgeSoft: 1, edgeW: 0.10, edgeShade: 0.38, edgeShadeW: 1.0, edgeShadeGrad: 1,
+                    loadGain: 2.6, loadBase: 0.10 };
+const ROWS = [{ n: '원본', look: null }, { n: '그라디언트', look: HEAT_LOOK }, { n: '걸음판', look: GAIT_LOOK }];
 const N = STATES.length, step = FOOT_LEN_M * 1.62, rowH = FOOT_LEN_M * 1.9;
 const W = N * step, H = ROWS.length * rowH;
 const PPM = 700;   // px/m — 캔버스 버퍼와 ortho 뷰의 비율을 **하나의 수**로 묶는다(찌부 방지)
