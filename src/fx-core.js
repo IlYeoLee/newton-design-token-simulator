@@ -1386,11 +1386,16 @@ export function drawStemArrow(g, W, H, t, ENV, opts = {}) {
   // 뿌리는 알파 0으로 사라지되(유저 확정) 몸통은 금방 진해진다 — 예전 램프(0.10/0.38)는 스템 대부분이
   // 반투명이라 지면에 투사하면 통째로 흐려 보였음(유저: 화살표가 왜 이렇게 흐려졌어).
   // 뿌리 투명 구간 연장(0.10→0.18 에서야 첫 스톱) — 출발점이 딱 끊겨 보였다(유저: 부드럽게)
-  grad.addColorStop(0.00, rgba(0.55, 0));
-  grad.addColorStop(0.18, rgba(0.64, 0.30 * A0));
-  grad.addColorStop(0.40, rgba(0.76, 0.80 * A0));
-  grad.addColorStop(0.65, rgba(0.88, 0.98 * A0));
-  grad.addColorStop(1.00, rgba(0.97, A0));
+  // ★ 온도(A.heat) — 이 스템만 LUT 위치가 상수로 박혀 있었다(0.55~0.97 = 코랄→샌드→프리즘).
+  //   LINE 정본의 다른 획은 전부 A.heat 를 타는데(아래 drawTrajectory·drawPunchLine 등) 여기만
+  //   빠져서, **밝은 바닥(주간 잉크)에서는 화살표가 통째로 씻겨 안 보였다**(유저 08-07 스샷).
+  //   heat 0.5 = 종전과 픽셀 동일(기본값), 0 쪽 = 레드로 내려가 밝은 면에서도 읽힌다.
+  const hv = v => Math.max(0.02, Math.min(0.99, v + ((A.heat ?? 0.5) - 0.5) * 1.1));
+  grad.addColorStop(0.00, rgba(hv(0.55), 0));
+  grad.addColorStop(0.18, rgba(hv(0.64), 0.30 * A0));
+  grad.addColorStop(0.40, rgba(hv(0.76), 0.80 * A0));
+  grad.addColorStop(0.65, rgba(hv(0.88), 0.98 * A0));
+  grad.addColorStop(1.00, rgba(hv(0.97), A0));
   // 볼류메트릭 언더글로우 — 같은 폴리곤을 1.9배 넓혀 블러 밴드로. shadowBlur 없이 스템이
   //   판에 붙은 종이처럼 평평했다(유저: 발자국 토큰과 감도 차이). 링의 volRing 과 같은 취지.
   // ★ 도트 스템의 흐름 — **점 목록을 한 번 계산**해 언더글로우와 본체가 같은 점을 쓴다.
@@ -1459,7 +1464,8 @@ export function drawStemArrow(g, W, H, t, ENV, opts = {}) {
     const tipA = Math.min(1, (draw - 0.28) / 0.22) * A0;
     const ty = yEnd + tipS * 0.30;                     // 머리보다 살짝 뒤 = 촉 끝이 스템 끝과 맞음
     g.globalAlpha = tipA;
-    const go = { color: lut(0.95), glowColor: lut(0.85), glow: 12 * glowK };
+    // 촉도 같은 온도를 탄다 — 스템만 내리면 촉만 창백하게 남아 화살표가 반쪽으로 읽힌다(실측).
+    const go = { color: lut(hv(0.95)), glowColor: lut(hv(0.85)), glow: 12 * glowK };
     const ok = ENV.glyph && (ENV.glyph(g, 'LIFT_TIP', cx, ty, tipS, go)
                           || ENV.glyph(g, 'TIP_TRI', cx, ty, tipS * 0.93, go));
     if (!ok) {                                        // 글리프 미로드 폴백 = 같은 비율 스트로크 촉
@@ -1534,7 +1540,8 @@ export function drawCurveArrow(g, W, H, pts01, t, ENV, opts = {}) {
     // 촉을 머리보다 tipS*0.30 뒤로 물린다 = 촉 '끝'이 경로 끝과 맞는다(스템 규약).
     const hx = path[head][0] - Math.sin(ang) * tipS * 0.30, hy = path[head][1] + Math.cos(ang) * tipS * 0.30;
     g.save(); g.translate(hx, hy); g.rotate(ang); g.globalAlpha = Math.min(1, (prog - 0.28) / 0.22) * A0;
-    const go = { color: lut(0.95), glowColor: lut(0.85), glow: 12 * glowK };
+    // 촉도 같은 온도를 탄다 — 스템만 내리면 촉만 창백하게 남아 화살표가 반쪽으로 읽힌다(실측).
+    const go = { color: lut(hv(0.95)), glowColor: lut(hv(0.85)), glow: 12 * glowK };
     if (!(ENV.glyph && (ENV.glyph(g, 'LIFT_TIP', 0, 0, tipS, go) || ENV.glyph(g, 'TIP_TRI', 0, 0, tipS * 0.93, go)))) {
       g.strokeStyle = lut(0.95); g.lineWidth = 9 * s * AW; g.lineJoin = 'round'; g.lineCap = 'round';
       g.beginPath(); g.moveTo(-18 * s, 12 * s); g.lineTo(0, -14 * s); g.lineTo(18 * s, 12 * s); g.stroke();

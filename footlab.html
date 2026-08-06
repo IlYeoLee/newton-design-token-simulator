@@ -255,7 +255,7 @@
 <script type="module">
 'use strict';
 import * as THREE from 'three';
-import { makeMarkFXMaterial, QUAD_K, ZONE_GLYPH_K, SIL_FIT, SIL_FIT_REF } from './src/tokens.js';
+import { makeMarkFXMaterial, QUAD_K, ZONE_GLYPH_K, SIL_FIT, SIL_FIT_REF, FOOT_PLANE_M, FOOT_LEN_M } from './src/tokens.js';
 import { FXP, GLYPHS, DEFAULT_GLYPHS, footSlot, footSDFTexture, drawNumber, drawGlyph, getLUT, ensureOffBit, rebuildLUT } from './src/fxlut.js';
 import { MARK_NUM, SDF_DECODE, drawMarkGlyph, invertGlyphCanvas, drawApproachRing, drawStemArrow, drawTrajectory, drawRotate, drawPunchLine, drawLinkDots, drawDribbleMat } from './src/fx-core.js';
 import LOOK from './src/mark-look.json';   // ★ MARK 룩 정본 — 랩·시뮬이 같은 파일을 본다
@@ -1009,7 +1009,12 @@ function buildA2() {
     const tx = footSDFTexture(s === 'right');
     if (!tx) return false;                     // 글리프 로드 전 — buildWalk 와 같은 규약(전역에 빈 씬을 남기지 않는다)
     const m = makeMarkFXMaterial(tx); m.uniforms.uOut.value = 0;
-    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(0.86 * QUAD_K, 0.86 * QUAD_K), m);
+    // ★ A2 판만 **실제 미터**로 짓는다. 걷기 카드는 0.86 이라는 임의 단위를 쓰는데,
+    //   거기에 실측 미터(스탠스 1.54m·좌우 0.20m)를 그대로 꽂았더니 1단위가 0.48m 라
+    //   좌우 0.20 이 실제로는 0.096m 가 되어 **두 발이 겹쳤다**(유저 스샷).
+    //   시뮬과 같은 상수로 지으면 이 카드의 모든 미터 값이 글자 그대로 맞는다.
+    const side_m = FOOT_PLANE_M * QUAD_K;                       // 0.413 × 1.5 = 0.619m
+    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(side_m, side_m), m);
     sc.add(mesh); mats.push({ m, side: s, mesh });
   }
   a2Scene = sc; a2Mats = mats; return true;
@@ -1102,7 +1107,7 @@ function drawA2() {
   if (!a2Scene && !buildA2()) return;
   const W = A2C.w, H = A2C.h, t = (performance.now() - T0) / 1000;
   const S = a2Seg(t);
-  const half = 2.0;                        // 가로 반폭 — **세로**가 스탠스(1.54m)+발 길이를 담아야 한다
+  const half = 2.2;                        // 가로 반폭(m) — 세로 2.44m 가 스탠스 1.54 + 평면 0.62 를 담는다
   compCam.left = -half; compCam.right = half;
   compCam.top = half * H / W; compCam.bottom = -half * H / W;
   compCam.updateProjectionMatrix();
@@ -1117,7 +1122,7 @@ function drawA2() {
   const F = a2Feet(S);
   // ★ 좌우 벌림은 **못 잰 값**이다. 레퍼런스가 순수 측면뷰라 횡폭이 화면에서 0 으로 눌린다.
   //   앞뒤 1.54m 만 실측이고 이 0.10 은 눈으로 맞추는 노브다. 실측인 척하지 않는다.
-  const LAT = 0.10;
+  const LAT = 0.10;   // 발 중심에서 ±0.10m = 두 발 0.20m 간격. 발 폭 0.11m 라 모아 서도 안 겹친다
   const scale = a2Stance / A2_STANCE;   // 세그로 '지금 시뮬 0.32m' 를 골랐을 때 궤적째 줄인다
   blit($('a2'), a2Cv, (mode) => {
     passSetup(rA2, mode);
