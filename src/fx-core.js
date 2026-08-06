@@ -990,9 +990,12 @@ vec4 markState(vec2 uv, float state, float prog, float strong, float t){
   //   ★ 여기 한 줄이 7상태 전부에 걸린다 — 아래 lay(...) 가 모두 inFill 을 곱하기 때문.
   //     상태마다 따로 넣으면 반드시 어긋난다.
   //   0 = 예전 그대로(기본). 완전히 뚫지 않는다 — 바닥 0.30 은 형태가 끊기지 않을 만큼만 남긴다.
+  //   ★ prA 를 그대로 곱하면 **토큰 전체가 흐려진다**(유저). 압력장은 실제로 1 까지 안 올라와서
+  //     (실측 peak ≈ 0.6) 가장 진한 자리마저 30% 깎였다. 어느 정도 눌린 자리는 **1 로 포화**시키고,
+  //     덜 눌린 자리만 비운다 — 색은 그대로 두고 알파만 빠지는 게 요점이다.
   if (uPressA > 0.001) {
-    float prA = plantar(uv, mkSDIn(uv), sd);
-    inFill *= mix(1.0, 0.30 + 0.70 * prA, clamp(uPressA, 0.0, 1.0));
+    float prA = smoothstep(0.05, 0.50, plantar(uv, mkSDIn(uv), sd));
+    inFill *= mix(1.0, 0.42 + 0.58 * prA, clamp(uPressA, 0.0, 1.0));
   }
   float outPos = max(sd, 0.0);
   // 점선 = 회피 계약 (일렁임과 분리한 저주기 — '털 뜯김' 방지 확정판)
