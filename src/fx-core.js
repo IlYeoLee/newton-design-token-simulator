@@ -1942,7 +1942,7 @@ export function drawDribbleMat(g, W, P, look, t, ENV) {
       const qx = X(q.x), qy = Y(q.y), dx = X(cU) - qx, dy = Y(cV) - qy;
       const onPath = TRn.k > 0 && TRn.k < 1 && (q.n === TRn.from || q.n === TRn.to);
       const L = Math.hypot(dx, dy) || 1;
-      const NR = (q.r != null ? q.r : 0.20) * W / 2 * 1.16;   // 노드 림 바깥에서 시작
+      const NR = (q.r != null ? q.r : 0.13) * W / 2 * 1.25;   // 노드 림 바깥에서 시작
       const sx = qx + dx / L * NR, sy = qy + dy / L * NR;
       const ex = X(cU) - dx / L * CR * 1.12, ey = Y(cV) - dy / L * CR * 1.12;
       g.beginPath(); g.moveTo(sx, sy); g.lineTo(ex, ey); g.stroke();
@@ -1995,23 +1995,40 @@ export function drawDribbleMat(g, W, P, look, t, ENV) {
     }
   }
 
-  // ── 노드 = 잽잽훅 노드와 **같은 레시피**. 채움 + volRing + 헤일로 — 윤곽선을 긋지 않는다.
+  // ── 노드 = 잽잽훅 노드 **상태 규칙 그대로**(drawPunchLine 1745·1773).
+  //   대기 = **빈 링**(채우지 않는다) · 지목 = 채움 + 숫자 파냄.
+  //   넷을 다 채웠더니 오렌지 덩어리 다섯 개가 됐다(유저: 촌스럽다) — 채움은 판정어다.
+  //   색 사건은 화면에 하나뿐이어야 한다: 지금은 허브(공이 닿을 자리)와 지목된 노드 하나.
   const GB = 13 * look.halo;
   for (const tg of (P.targets || [])) {
     const on = tg.on !== false, live = !!tg.live;
     const k = nodeK(tg.n ? tg.n - 1 : 0);
     if (k <= 0.001) continue;
     const cx = X(tg.x), cy = Y(tg.y);
-    const R = (tg.r != null ? tg.r : 0.20) * W / 2 * (live ? 1.34 : 1) * (0.9 + 0.1 * k);
-    g.globalAlpha = k * (on ? 1 : 0.45);
-    g.shadowBlur = GB * 1.4; g.shadowColor = lut(0.5);
-    g.fillStyle = lut(live ? 0.5 : 0.36);
-    g.beginPath(); g.arc(cx, cy, R * 0.88, 0, Math.PI * 2); g.fill();
-    g.shadowBlur = 0;
-    g.save(); g.translate(cx, cy);
-    volRing(g, lut, R, live ? 0.8 : 0.5, live ? 0.9 : 0.5, LNW * 0.9, GB);
-    g.restore();
-    ENV.num(g, tg.n, cx, cy, R * 0.9, Math.round(R * 0.78));
+    const R = (tg.r != null ? tg.r : 0.13) * W / 2 * (live ? 1.34 : 1) * (0.9 + 0.1 * k);
+    g.globalAlpha = k * (on ? 1 : 0.4);
+    if (live) {
+      // 지목 = 판정 완료 노드와 같은 문법: 채움 + 얇은 림, 볼류메트릭 밴드는 생략한다
+      //   (채움+밴드+블룸이 겹치면 백열로 포화해 숫자가 사라진다 — punchLine 1772 와 같은 이유)
+      g.shadowBlur = GB * 1.4; g.shadowColor = lut(0.5);
+      g.fillStyle = lut(0.36);
+      g.beginPath(); g.arc(cx, cy, R * 0.88, 0, Math.PI * 2); g.fill();
+      g.shadowBlur = GB * 1.6; g.strokeStyle = lut(0.8); g.lineWidth = LNW * 1.3;
+      g.beginPath(); g.arc(cx, cy, R, 0, Math.PI * 2); g.stroke(); g.shadowBlur = 0;
+      g.save(); g.globalCompositeOperation = 'destination-out';
+      ENV.num(g, tg.n, cx, cy, R * 0.9, Math.round(R * 0.72));
+      g.restore();
+    } else {
+      // 대기 = 헤어라인 링 하나. 무채(lut 상단)라 색을 쓰지 않는다
+      g.save(); g.translate(cx, cy);
+      volRing(g, lut, R, 0.5, 0.42, LNW * 0.75, GB * 0.6);
+      g.restore();
+      g.strokeStyle = INK(0.5); g.lineWidth = LNW * 0.75;
+      g.shadowBlur = GB * 0.5; g.shadowColor = lut(0.5);
+      g.beginPath(); g.arc(cx, cy, R, 0, Math.PI * 2); g.stroke(); g.shadowBlur = 0;
+      g.globalAlpha = k * 0.55;
+      ENV.num(g, tg.n, cx, cy, R * 0.9, Math.round(R * 0.66));
+    }
     g.globalAlpha = 1;
   }
 
@@ -2020,11 +2037,16 @@ export function drawDribbleMat(g, W, P, look, t, ENV) {
     const cx = X(cU), cy = Y(cV), GB2 = 13 * look.halo;
     const per = P.per || 0.4;
     const pr = Math.max(0, Math.min(1, hit / per));      // 0 = 방금 닿음 → 1 = 다음 박자
-    const R0 = CR * 1.9;
-    for (let kk = 2; kk >= 0; kk--) {                    // 실키 트레일 — 뒤에 남는 잔상 2겹
+    const R0 = CR * 2.05, R1 = CR * 1.18;   // 도착을 진행 링 **바깥**에 둔다 — 같은 반경에
+    //   내려앉으면 링 셋이 겹쳐 인쇄 오정합처럼 보였다(유저 스샷). 밖에서 좁혀 와 링에 닿는다.
+    // 착지하면 **통째로 사라진다** — 수축은 박자 사건이지 테두리가 아니다. 도착 알파를
+    //   유지했더니 굵은 링이 상시 주차돼 진행 링과 두 겹으로 읽혔고, 알파만 낮췄더니
+    //   잔상 두 겹이 흙빛 띠로 남았다(유저 스샷 2회). 들어와서 번쩍, 진행 링에 넘기고 끝.
+    const settle = Math.min(1, Math.max(0, (Math.pow(pr, 1.6) - 0.58) / 0.42));
+    for (let kk = 2; kk >= 0 && settle < 1; kk--) {       // 실키 트레일 — 뒤에 남는 잔상 2겹
       const pe = Math.pow(Math.max(0, pr - kk * 0.05), 1.6);
-      const rr = R0 - (R0 - CR) * pe;
-      const a = kk === 0 ? (0.55 + 0.35 * pe) : (0.16 / kk);
+      const rr = R0 - (R0 - R1) * pe;
+      const a = (kk === 0 ? (0.5 + 0.4 * pe) : (0.16 / kk)) * (1 - settle);
       g.save(); g.translate(cx, cy);
       volRing(g, lut, rr, 0.5 + 0.35 * pe, a, LNW * 0.7, GB2, 1.15 - 0.35 * pe);
       g.restore();
@@ -2039,18 +2061,19 @@ export function drawDribbleMat(g, W, P, look, t, ENV) {
   // ── 액티브 타깃 — 화면에서 **유일한 색 사건**. 지금 겨눌 자리
   if (P.center) {
     const cx = X(cU), cy = Y(cV);
-    const pool = g.createRadialGradient(cx, cy, CR * 0.1, cx, cy, CR * 1.6);
-    pool.addColorStop(0, rgbaL(0.42, 0.30)); pool.addColorStop(0.6, rgbaL(0.35, 0.12));
+    // 내부 풀 — 숨결만. 0.30 은 검은 바닥 위에서 흙탕 갈색 원판이 됐고 로고를 삼켰다(유저 스샷).
+    //   허브를 정의하는 건 링이지 채워진 판이 아니다.
+    const pool = g.createRadialGradient(cx, cy, CR * 0.1, cx, cy, CR * 1.35);
+    pool.addColorStop(0, rgbaL(0.45, 0.07)); pool.addColorStop(0.62, rgbaL(0.38, 0.025));
     pool.addColorStop(1, rgbaL(0.3, 0));
-    g.fillStyle = pool; g.beginPath(); g.arc(cx, cy, CR * 1.6, 0, Math.PI * 2); g.fill();
+    g.fillStyle = pool; g.beginPath(); g.arc(cx, cy, CR * 1.35, 0, Math.PI * 2); g.fill();
     if (P.center.ring !== 0) {
-      g.strokeStyle = rgbaL(0.3, 0.30); g.lineWidth = LNW * 0.85;   // 미진행 트랙 — 진행 획이 위를 덮는다
-      g.shadowColor = lut(0.42); g.shadowBlur = 18 * s;
-      g.beginPath(); g.arc(cx, cy, CR, 0, Math.PI * 2); g.stroke(); g.shadowBlur = 0;
+      g.strokeStyle = rgbaL(0.3, 0.18); g.lineWidth = LNW * 0.5;   // 미진행 트랙 = 헤어라인.
+      g.beginPath(); g.arc(cx, cy, CR, 0, Math.PI * 2); g.stroke(); //   진행 획과 굵기가 같으면 어느 쪽이 상태인지 갈린다
     }
     if (P.brand && ENV.logo && ENV.logo.complete && ENV.logo.naturalWidth) {
-      const lw = CR * 1.05, lh = lw * ENV.logo.naturalHeight / ENV.logo.naturalWidth;
-      g.globalAlpha = 0.5 * hubK;                 // 허브 정중앙 — 판정 링 안이 브랜드 자리다
+      const lw = CR * 0.62, lh = lw * ENV.logo.naturalHeight / ENV.logo.naturalWidth;
+      g.globalAlpha = 0.88 * hubK;                // 허브 정중앙 — 판정 링 안이 브랜드 자리다
       g.drawImage(ENV.logo, cx - lw / 2, cy - lh / 2, lw, lh);
       g.globalAlpha = 1;
     }
