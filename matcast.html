@@ -19,7 +19,8 @@
     ?bg=000       배경 색. bg=none 이면 투명(알파 채널 녹화·PNG 시퀀스용)
     ?plate=court  배경에 실제 코트 깔기 — 밝은 바닥에서 읽히는지 그 자리에서 판단
     ?tilt=52      바닥 기울기(도). 기본 = GAZE.MAT 실측. tilt=0 이면 평면
-    ?m=0.90       판 한 변(m) — session.js MAT_SIZE. 실측 크기 계산용
+    ?m=0.90       판 한 변(m) — session.js MAT_SIZE
+    ?ppm=520      플레이트의 px/m (농구공 0.24m 로 실측). 주면 크기가 미터에 묶인다
     ?token=punch|arrow|mat   같은 바닥에 **다른 토큰**을 놓고 비교(유저: 잽잽훅·화살표는 되나)
     ?loop=1       자동 재생(기본). loop=0 이면 스페이스로 시작
   키
@@ -66,7 +67,15 @@ const SEQ = [5, 3, 5, 4, 5, 1, 5, 2];   // 순회 모드 전용 — 실측 아�
 const RUN = +(q.get('run') || 4);       // 순회 모드에서 한 자리 반복 타수
 const HOME = +(q.get('spot') || 5);     // 고정 모드에서 때릴 자리. 5 = 가운데(몸 앞)
 
-const SIZE = +(q.get('size') || 1440);
+// ★ **미터 결속** — 크기를 눈대중으로 주면 플레이트와 축척이 안 맞는다(유저: 비율 이게 맞음?
+//   개 큰데). 지금까지 size 를 임의 픽셀로 주고 플레이트는 CSS cover 로 따로 늘려서, 둘 사이에
+//   축척 관계가 **아예 없었다**. 실측 2~3배 과대였다.
+//   ?ppm 을 주면 캔버스 표시 크기를 MAT_M x ppm 으로 잡고 플레이트도 원본 배율로 깐다 —
+//   그러면 캔버스와 플레이트가 같은 좌표계(플레이트 픽셀)에 놓인다.
+//   ppm 실측: 농구공 규격 0.24m 를 자로 써서 plate-court.png 에서 480~570 px/m (≈520).
+const MAT_M_PRE = +(q.get('m') || 0.90);   // 판 한 변(m) — session.js MAT_SIZE
+const PPM = +(q.get('ppm') || 0);
+const SIZE = PPM ? Math.round(MAT_M_PRE * PPM) : +(q.get('size') || 1440);
 const BG = (q.get('bg') || '000').toLowerCase();
 // ★ 배경 플레이트 — **밝은 코트 위에서 읽히는지** 그 자리에서 본다(유저).
 //   검은 배경에서는 네온이 스스로 빛나지만 밝은 타일 위에서는 더할 여지가 없다.
@@ -75,7 +84,9 @@ const BG = (q.get('bg') || '000').toLowerCase();
 const PLATE = q.get('plate');
 if (PLATE) {
   const src = PLATE === 'court' ? 'plate-court.png' : PLATE;
-  Object.assign(document.body.style, { background: `#111 url("${src}") center/cover no-repeat` });
+  // ppm 을 주면 플레이트를 **원본 배율**로 깐다 — cover 로 늘리면 축척이 다시 깨진다.
+  const sz = PPM ? 'auto' : 'cover';
+  Object.assign(document.body.style, { background: `#111 url("${src}") center/${sz} no-repeat` });
 } else if (BG === 'none') document.body.classList.add('none');
 else document.body.style.background = BG.startsWith('#') ? BG : '#' + BG;
 
@@ -90,7 +101,7 @@ cv.style.width = cv.style.height = SIZE + 'px';
 //   ※ 캔버스 2D 는 아핀뿐이라 진짜 원근이 안 나온다. CSS 3D 로 눕히면 브라우저가 원근을
 //     정확히 계산해 주고, 그 값이 그대로 에펙 카메라와 대응된다(scripts/ae_stance_tilt.jsx 규약).
 const TILT = +(q.get('tilt') ?? 52);
-const MAT_M = +(q.get('m') || 0.90);          // 판 한 변(m) — session.js MAT_SIZE
+const MAT_M = MAT_M_PRE;
 if (TILT) {
   const P = (SIZE / 2) / Math.tan(30 * Math.PI / 180);
   cv.style.transform = `perspective(${P.toFixed(0)}px) rotateX(${TILT}deg)`;
