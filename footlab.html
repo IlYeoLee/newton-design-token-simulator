@@ -217,7 +217,7 @@
       <div class=seg id=segA2Stance style="margin-bottom:10px">
         <button data-v=0.77 class=on>압축 ×0.5 · 0.77m</button><button data-v=0.92>압축 ×0.6 · 0.92m</button><button data-v=1.54>실척 1.54m</button><button data-v=0.32>지금 시뮬 0.32m</button>
       </div>
-      <div class=row style="margin-bottom:8px"><label>잉크 자락 끊기</label><input type=range id=a2Floor min=0 max=0.6 step=0.01 value=0><span class=v id=va2Floor>0.00</span></div>
+      <div class=row style="margin-bottom:8px"><label>잉크 자락 끊기</label><input type=range id=a2Floor min=0 max=0.6 step=0.01 value=0.35><span class=v id=va2Floor>0.00</span></div>
       <canvas id=a2 width=1120 height=620></canvas>
       <p class=note id=a2note>레퍼런스 실측(9초·60fps·540프레임): <b>홀드 2.15 · 앞발 당겨오기 0.35 · 모아 섬 1.25 · 반대발 내딛기 0.55</b> = 1렙 4.30s.
         <b>발 교대는 좌우 반전이 아니다</b> — 앞발이 돌아와 모이고, 모아 선 채로 1.25초 있다가, 반대 발이 나간다.
@@ -501,7 +501,8 @@ seg('segOv',   v => { showOv = +v; });
 seg('segFloor', v => { floorKind = v; paintFloor(); });
 seg('segA2Stance', v => { a2Stance = +v; });
 { const el = $('a2Floor'), out = $('va2Floor');
-  el.oninput = () => { P.inkFloor = +el.value; out.textContent = (+el.value).toFixed(2); }; }   // 실측 1.54m ↔ 지금 시뮬 0.32m
+  el.oninput = () => { P.inkFloor = +el.value; out.textContent = (+el.value).toFixed(2); };
+  el.oninput(); }   // 정본(mark-look.json inkFloor 0.35)과 같은 값에서 시작한다   // 실측 1.54m ↔ 지금 시뮬 0.32m
 seg('segPlay', v => { playing = +v; });
 // 글리프 소스 = FXP.numSrc 정본 스위치. 'glyph'=유저 SVG 슬롯 · 'offbit'=도트 폰트.
 // 시뮬(drawNumber)이 읽는 바로 그 값이라, 여기서 고른 게 곧 시뮬에서 보일 활자다.

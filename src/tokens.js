@@ -465,7 +465,9 @@ export function applyMarkLookTo(mat, part = {}) {
     // ★ halo/w/pool 도 맵에 넣는다 — 이 셋만 빠져 있어서 바닥 룭의 halo 낮춤이 안 먹었다
     //   (실측: floor.halo .18 을 줘도 재질은 생성값 .45 그대로). 팩 마크는 매 프레임 전역값이
     //   덮으므로 그쪽은 userData.floorLook 예외로 따로 막는다.
-    halo: 'uHalo', w: 'uW', pool: 'uPool', noise: 'uNoise', tLo: 'uTLo', tHi: 'uTHi', dotMode: 'uDotMode' };
+    halo: 'uHalo', w: 'uW', pool: 'uPool', noise: 'uNoise', tLo: 'uTLo', tHi: 'uTHi', dotMode: 'uDotMode',
+    // 잉크 자락 끊기 — 잉크 분기(uDay>0.5)에서만 듣는다. 가산 화면은 값이 있어도 그대로다.
+    inkFloor: 'uInkFloor' };
   const mapSF = { pitch: 'uImpPitch', edge: 'uImpEdge', edgeW: 'uEdgeW', ripWidth: 'uRipWidth', ripReach: 'uRipReach' };
   const U = mat.uniforms;
   for (const k in map) if (part[k] != null && U[map[k]]) U[map[k]].value = part[k];

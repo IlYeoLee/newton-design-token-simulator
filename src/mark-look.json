@@ -202,5 +202,6 @@
   },
   "tLo": 0,
   "tHi": 0,
-  "dotMode": 0
+  "dotMode": 0,
+  "inkFloor": 0.35
 }
