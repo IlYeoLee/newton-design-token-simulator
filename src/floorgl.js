@@ -3529,9 +3529,15 @@ export class FloorGL {
     const fsNow = TOK.fsTitlePv + (LAYOUT.TYPE.title - TOK.fsTitlePv) * moT;
     const _g = this._gaugeVal({ PV, dur, inPv: mo < .5, pvEnd: Math.max(PV, this._moT ?? PV),
                                 perFoot, hs, hp, pfK: perFoot ? clamp01((t - (this._pfT ?? t)) / 0.35) : 0 });
+    const fsBox = Math.max(TOK.fsTitlePv, LAYOUT.TYPE.title);
     const { w: WHp, wT: WTp, h: HHp, inner: INNER, ringW: RINGW, RR: RRp, PAD, gapT: GT, K2, H2 }
+      // ★ 그릇 폭은 **국면과 무관하게 하나**다(유저 08-07: 공통 너비로 맞춰라).
+      //   실측이었던 문제: 관찰 폭 1328 · 따라하기 폭 530 — 같은 스테이지에서 그릇이 2.5배 달랐다.
+      //   원인은 HUG 가 **그 순간의 활자 크기**(fsNow: 관찰 136 → 따라하기 112)로 재던 것.
+      //   상자는 **가장 큰 활자**로 한 번 재고, 글자만 fsNow 로 그린다 —
+      //   "컨테이너가 내용보다 먼저 자리를 만든다"(CLAUDE.md)의 원래 뜻이다.
       = this._headBox(tA > 0.004 ? title : '', cfg.step || repsTotal(this.stage), LAYOUT.HEAD.y,
-                      { fs: fsNow, ringK, ringR: this._ringRFor(_g.rem) });
+                      { fs: fsBox, ringK, ringR: this._ringRFor(_g.rem) });
     const w1 = WHp, h1 = HHp, y1 = H2.y;
     // ★ 진입 = **시작화면 캡슐이 줄어드는 것**(유저: 두 번 탭하면 같은 요소가 줄어들며 넘어간다).
     //   스테이지가 바뀔 때 캡슐을 새로 띄우면 '다른 물건이 나타난' 걸로 읽힌다. READY 캡슐
