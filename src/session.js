@@ -6,9 +6,10 @@ import { WALL_Z } from './scene.js';
 import { easeMove, stepDelay, stampPop, airK, airAlpha, airScale, overshoot, slideAlpha, lerpTo, ARROW } from './markmotion.js';
 // ★ 4단계 스펙 정본 — 어느 발이 어떤 하중으로 어떻게 움직이는가. 코드에 흩어져 있던 걸 데이터로.
 import { BK_STEPBACK, LOAD, arrowFor, stageTime } from './marklang.js';
+import { READY_OPT } from './floorgl.js';   // 시작화면 시안 토글(발자국 어포던스 등) — 랩과 같은 스위치를 본다
 import { lutColor, GLYPHS, drawGlyph, drawNumber, footSlot, footSDFTexture, FXP } from './fxlut.js';
 import { MARK_NUM, GLYPH_LOOK, drawMarkGlyph, invertGlyphCanvas, drawStanceBox, drawPunchLine, drawApproachRing, drawTrajectory, drawRotate, drawStemArrow, drawCurveArrow , glyphFor } from './fx-core.js';
-import { makeMarkFXMaterial, makeLaneFXMaterial, makeFlowArrow, tickFlowArrows, beamAlphaAt, COLORS, FOOT_LEN_M, FOOT_PLANE_M, QUAD_K, UI_MASK, MARK_LOOK, applyMarkLookTo, setMarkLoad, setMarkStateLook } from './tokens.js';
+import { makeMarkFXMaterial, makeLaneFXMaterial, makeFlowArrow, tickFlowArrows, beamAlphaAt, COLORS, FOOT_LEN_M, FOOT_PLANE_M, QUAD_K, UI_MASK, MARK_LOOK, applyMarkLookTo, setMarkLoad, setMarkStateLook, ZONE } from './tokens.js';
 
 const clamp01 = v => v < 0 ? 0 : v > 1 ? 1 : v;
 
@@ -687,7 +688,17 @@ export const SB_POSE = [
   { t: 3.10, L: [-1.00, -0.90], R: [-0.25, -0.60] },                     //     그 자세로 슛까지 유지
 ];
 // 판정 마크 프레임 = 빔 창 안 고정 영역. 어떤 단계·어떤 프레임에서도 이 밖으로 안 나간다.
-export const SB_BOX = { u: 0.80, v0: 0.14, v1: 0.62 };   // 앞뒤 폭을 넓혀 '앞으로 쭉' 내딛는 거리를 확보(유저)
+// ★ 무대를 **빔이 넓은 자리로 전진**시킨다(유저 08-06 확정). 근거는 실측 반폭 곡선:
+//     v 0.14 → 반폭 0.24m · 전방 0.66m · 화면y 793   (구값 — 마크가 화면 최하단, 일부 프레임은 화면 밖 822)
+//     v 0.24 → 반폭 0.28m · 전방 0.79m · 화면y 728
+//     v 0.72 → 반폭 0.45m · 전방 1.41m · 화면y 530    (알약 하단 1.52m 아래로 유지)
+//   u 클램프도 0.80 → 0.95 로 연다. 빔 가장자리 페더(M=0.18)는 이미 반폭에서 빠져 있어
+//   0.95 까지는 알파 손실이 없다(1.0 은 경계라 페더에 물린다).
+//   결과: 박스 폭 0.383 → 0.524m(+37%) · 마크가 안전 영역 안으로 올라온다.
+//   ⚠ 세로(앞뒤) 이동은 이걸로 안 커진다 — h=(v1-v0)/2 를 구값과 같은 0.24 로 유지했고,
+//     애초에 SB_POSE 의 v 좌표가 정규 범위의 20%(-0.50~-0.90)만 써서 스텝백 슬라이드가
+//     0.13m 로 압축된다. 그건 좌표 재저작(SB_POSE) 문제라 여기서 안 건드린다.
+export const SB_BOX = { u: 0.95, v0: 0.24, v1: 0.72 };
 const sbU = u => Math.max(-SB_BOX.u, Math.min(SB_BOX.u, u * SB_BOX.u));
 const sbV = v => {
   const c = (SB_BOX.v0 + SB_BOX.v1) / 2, h = (SB_BOX.v1 - SB_BOX.v0) / 2;
@@ -714,6 +725,7 @@ export function sbPoseAt(vt, holdAirborne) {
     return {
       u: sbU(p0[0] + (p1[0] - p0[0]) * ez), v: sbV(p0[1] + (p1[1] - p0[1]) * ez),
       tu: sbU(p1[0]), tv: sbV(p1[1]),
+      su: sbU(p0[0]), sv: sbV(p0[1]),   // 구간 **출발** 자리 — 화살표가 여기서 목표까지 걸린다(marks.html 규약)
       toe: (ez < 0.5 ? (p0[2] || 0) : (p1[2] || 0)), slide,
       f: ez, dist, step, plantT: b.t, moving: step && ez > 0.001 && ez < 0.999,
     };
@@ -728,6 +740,11 @@ const FOOT_Z = -0.75;          // 안정 영역 중심(= 밴드 0.64m 에 여유
 const FOOT_SWING = 0.30;       // 이 이상 벌리면 CONTENT 밴드를 벗어난다
 const FOLLOW_S = 1.0;   // 따라하기 발자국 배율(농구 지면 UI 공통)
 const SBZ = -3.13;      // 스텝백 마크 기준 z. 빌드·업데이트 양쪽에서 쓴다
+// 스탠스 링크 반쪽 최대 길이(m). ★ 이건 '보기 좋은 길이'가 아니라 **빔이 허락하는 길이**다 —
+//   메시가 빔 창(실측 0.383×0.643m) 밖으로 뻗으면 tickFlowArrows 의 양끝 알파 샘플이 0 을 잡아
+//   **선 전체가 안 보인다**(0.52 로 뒀다가 그대로 당했다: gain 0.62 인데 opacity 0.000).
+//   그리는 길이는 어차피 draw-on(_prog)이 정하므로 메시는 창 안에 들어가기만 하면 된다.
+const SB_LINK_MAX = 0.24;
 // ★ -1.95 → -3.13 (유저 08-05). 구값은 패턴 중심이 리그 원점에서 겨우 d=0.17m — 빔 사다리꼴의
 //   **최협부**(반폭 0.32m)이자 fpNear(0.30) 근처라, 실측 스텝백 착지 폭 0.92m 가 좌우로
 //   11~14cm 씩 빛 밖으로 나가고 근거리 페더에도 깎였다(마크가 흐리게 사라짐).
@@ -927,36 +944,94 @@ export class Session {
       const _dtA = Math.max(0, Math.min(0.1, this.t - (ar._gT ?? this.t)));
       ar._gT = this.t;
       if (!cue) { ar._gain = lerpTo(ar._gain ?? 0, 0, ARROW.ramp, _dtA); return; }
-      // 위치: 내딛는 스텝은 목표 지점 '앞쪽'(같은 좌우 라인).
-      //   슬라이드(뒤로 빠지기)는 두 발 사이에서 빠질 방향을 가리킨다 — 미리 알려주는 큐(유저 지시).
-      const other = side === 'L' ? P.R : P.L;
-      // 슬라이드 큐는 고정이다 — 발을 따라 움직이면 화살표가 흔들려 읽기 어렵다(유저).
-      //   기준점·방향 모두 '멈춰 있는 발 ↔ 목표'로만 계산해 한 방향으로 흐르기만 한다.
-      const au = q.slide ? (other.u + q.tu) / 2 : q.tu;
-      const av = q.slide ? (other.v + q.tv) / 2 : q.tv + 0.14;
-      // ★ 화살표가 헤더 알약을 침범하지 않게(유저 #186). 클램프는 **원점**만 막는데
-      //   메시는 진행 방향으로 더 뻗는다 — v1 에 딱 붙으면 몸통이 알약 밑단을 파고든다.
-      //   앞을 가리키는 스텝 큐만 여유를 둔다(슬라이드는 두 발 사이라 위로 안 간다).
-      const AR_MARGIN = 0.12;
-      const vMax = SB_BOX.v1 - (q.slide ? 0 : AR_MARGIN);
-      const pa = this._beamLocal(Math.max(-SB_BOX.u, Math.min(SB_BOX.u, au)),
-                                Math.max(SB_BOX.v0, Math.min(vMax, av)), H.mL);
-      ar.position.set(pa.x, 0.014, pa.z);
-      ar.rotation.z = q.slide
-        ? -Math.atan2(q.tu - other.u, q.tv - other.v)          // 고정 방향(멈춘 발 → 목표)
-        : -Math.atan2(du, Math.max(0.001, dv));                // 이동 방향(주로 전진 = 0°)
+      // ── 위치·길이 = **출발 자리 → 목표 자리**. marks.html(marklab drawArrow)이 그리는 그것과 같다.
+      //   유저 08-06: "marks.html 엔 화살표가 정확히 있는데 실제로 플레이하면 없다/엉뚱하다".
+      //   원인 둘 — ① 길이가 고정(0.26/0.62)이라 이동 거리와 무관했고 ② 기준점이 '목표 앞 0.14'
+      //   또는 '두 발 사이'라 **어느 발의 어디서 어디로**인지가 선에서 안 읽혔다.
+      //   이제 자루가 출발점에 뿌리내리고 목표까지 자란다 = 선 하나가 곧 지시다.
+      //   떨림 걱정(유저: 발 따라 움직이면 읽기 어렵다)은 구조가 해결한다 — 기준은 **구간 출발점**
+      //   (q.su/q.sv, 구간 내내 고정)이지 매 프레임 움직이는 발이 아니다.
+      const sp = this._beamLocal(q.su, q.sv, H.mL);
+      const tp = this._beamLocal(q.tu, q.tv, H.mL);
+      const dx = tp.x - sp.x, dz = tp.z - sp.z;
+      const travel = Math.hypot(dx, dz);
+      // 마크를 안 덮게 발 **폭** 절반만 비켜서 뿌리내린다(A2 스탠스 라인과 같은 여백 규약).
+      // ponytail: 여백은 **이동 거리의 25% 상한**을 받는다. 고정 0.086×2 를 그대로 쓰면
+      //   3/4 왼발 슬라이드(실측 이동 0.132m)가 통째로 먹혀 화살표가 안 뜬다 —
+      //   ★ 진짜 천장은 여기가 아니라 **무대 크기**다: 빔 박스가 0.383×0.643m 인데 발이 0.30m 라
+      //   스텝백 실측 이동(0.5m+)이 0.13m 로 압축된다. 박스를 넓히면(SB_BOX·SBZ) 이 상한은 놀게 된다.
+      const IN = Math.min(FOOT_LEN_M * 0.22 + 0.02, travel * 0.25);
+      const ux = travel > 1e-4 ? dx / travel : 0, uz = travel > 1e-4 ? dz / travel : -1;
+      const seg = travel - IN * 2;
+      if (seg <= 0.04) { ar._gain = lerpTo(ar._gain ?? 0, 0, ARROW.ramp, _dtA); return; }
+      ar.position.set(sp.x + ux * IN, 0.014, sp.z + uz * IN);
+      ar.rotation.z = Math.atan2(-ux, -uz);   // 자루 방향 실측 매핑: dir = (−sinθ, −cosθ)
+      ar._prog = Math.min(1, seg / (H.arMax || 0.62));   // 길이 = draw-on. 이동 거리가 곧 선 길이다
       // 목표 밝기 + 대기 중 미세 호흡(멈춰 있는 큐가 죽어 보이지 않게)
       const _tgtA = (q.slide ? 0.75 : (q.moving ? 0.30 + 0.60 * (1 - q.f) : 0.55))
         * (1 + (q.moving ? 0 : ARROW.breath * Math.sin(this.t * 2.1)));
       ar._gain = lerpTo(ar._gain ?? 0, _tgtA, ARROW.ramp, _dtA);   // 슬라이드 큐는 일정한 밝기로 흐른다
-      // ★ 두께 = MOVE 토큰(marklang ARROW). 길이는 이미 이동 거리가 정하므로 토큰은 두께·촉만 말한다.
+      // ★ 두께 = MOVE 토큰(marklang ARROW). 길이는 draw-on 이 정하므로 토큰은 두께·촉만 말한다.
       //   슬라이드가 굵다 — 스텝백에서 힘이 실리는 곳이 거기다(3/4 왼발 밀기).
       const tok = arrowFor(q.slide ? 'slide' : 'step', Math.min(1, Math.hypot(du, dv)));
       if (tok) ar._scale = tok.scale;
+      // 목표 존 — '여기 안에 놓으면 된다'. marklang ZONE.base(발 길이 배수)를 그대로 쓴다.
+      this._sbZone(H, side, tp, q);
     };
+    H._zOn = false;
     one('L', fmL, arrows[0]);
     one('R', fmR, arrows[1]);
+    // 큐가 없는 프레임엔 존 원도 스러진다 — 안 그러면 마지막 자리에 영영 남는다(화살표가 겪던 그 버그).
+    if (H.zTgt && !H._zOn) { H._zFade = Math.max(0, (H._zFade ?? 0) - 0.06); H.zTgt.setOp?.(H._zFade); }
+    this._sbLink(H, id, P, fmL, fmR);
     return P;
+  }
+
+  /** 목표 존 원 — 움직이는 발의 **도착 자리**에 놓는다. marks.html 이 그리던 그 원(ZONE.base).
+   *  왜 필요한가: 발자국 실루엣만 있으면 '얼마나 정확해야 하나'가 안 보인다 — 허용 반경이 곧 지시다.
+   *  ponytail: 링은 마크 핸들당 하나만 만든다(스텝하는 발은 한 번에 하나다). 두 발이 동시에
+   *    움직이는 단계가 생기면 그때 side 별로 나눈다. */
+  _sbZone(H, side, tp, q) {
+    if (!H.zTgt) {
+      // ★ 색이 상태다 — 히트색(coral)으로 만들면 Preview(0) 채움이라 **속이 꽉 찬 원**이 되어
+      //   목표 발자국을 덮는다(실측: 주황 덩어리). 무채(dim)로 만들면 Locked = **crisp 아웃라인**
+      //   이 되고, 이게 marks.html 이 그리던 그 점선 원과 같은 읽힘이다.
+      H.zTgt = floorRing(0, SBZ, ZONE.base - 0.018, ZONE.base, BRAND.dim, 0);
+      H.zTgt.renderOrder = 3;   // 발마크(7~8) 아래 — 원이 실루엣을 덮지 않게
+      (H.mL?.parent || this.root).add(H.zTgt);
+    }
+    H.zTgt.position.set(tp.x, 0.0125, tp.z);
+    H.zTgt.setPhase?.(3);   // Locked 아웃라인 — 아직 안 밟은 목표는 '테두리'로만 말한다
+    H._zFade = q.moving ? 0.42 : 0.20;   // 이동 중엔 또렷, 도착하면 잦아든다
+    H.zTgt.setOp?.(H._zFade);
+    H._zOn = true;
+  }
+
+  /** LINK.pair — 좌우를 잇는 선. **폭 자체가 지시**인 단계(1/4 '나란히' · 4/4 '모음')에서
+   *  발자국 두 개만으로는 '넓게'인지 '모아서'인지가 안 읽힌다(유저: 농구를 유기한 것 같다).
+   *  A2 스탠스 라인과 **같은 물건**을 쓴다 — 중앙에서 각 발로 뻗는 촉 없는 LINE 자루 두 개.
+   *  ponytail: 새 그래픽 0개. 길이는 draw-on(_prog), 색·페이드·day 전환은 룩 시스템이 공짜로 준다. */
+  _sbLink(H, id, P, fmL, fmR) {
+    const want = BK_STEPBACK[id]?.link === 'pair';
+    if (!H.lkA) {
+      if (!want) return;
+      const mk = () => { const a = makeFlowArrow(SB_LINK_MAX, { tips: 0 }); a._gain = 0; a._prog = 0;
+        (H.mL?.parent || this.root).add(a); return a; };
+      H.lkA = mk(); H.lkB = mk();
+    }
+    const a = fmL.group.position, b = fmR.group.position;
+    const mx = (a.x + b.x) / 2, mz = (a.z + b.z) / 2;
+    const IN = FOOT_LEN_M * 0.22 + 0.02;   // 발 **폭** 절반 + 숨 — 선이 마크를 덮지도, 죽지도 않게
+    const put = (m, e) => {
+      const dx = e.x - mx, dz = e.z - mz, seg = Math.hypot(dx, dz) - IN;
+      m.visible = want && seg > 0.04;
+      if (!m.visible) { m._gain = 0; return; }
+      m.position.set(mx, 0.014, mz);
+      m.rotation.z = Math.atan2(-dx, -dz);
+      m._prog = Math.min(1, seg / SB_LINK_MAX);
+      m._gain += (0.62 - m._gain) * 0.18;
+    };
+    put(H.lkA, a); put(H.lkB, b);
   }
 
   _beamLocal(u, v, ref) {
@@ -1384,10 +1459,19 @@ export class Session {
       H.numL = attachMarkNum(H.fRl, 'L', false); H.numR = attachMarkNum(H.fRr, 'R', true);
       H.numL.visible = false; H.numR.visible = false;
       // 이동 경로 화살표 — 발자국만으로는 '무슨 동작인지' 안 읽힌다(유저). 순서와 방향을 선으로.
-      //   a1: 준비 → 플랜트(오른쪽으로 밀고 들어감) · a2: 플랜트 → 착지(반대로 크게 빠짐)
-      H.a1 = floorArrow(0.28, SBZ + 0.02, -90, BRAND.prism, 0.26);
-      H.a2 = floorArrow(-0.05, SBZ - 0.02, 90, BRAND.red, 0.62);
-      H.a1._gain = 0; H.a2._gain = 0;
+      // ★ a1=왼발 · a2=오른발 **per-foot 큐**다(_sbPlace 규약). 구값은 'a1: 준비→플랜트 /
+      //   a2: 플랜트→착지' 경로 조각용이라 길이가 0.26·0.62 로 **고정**이었다 — 발 큐로 쓰는 순간
+      //   길이가 거짓말이 된다(3/4 왼발 슬라이드가 가장 큰 이동인데 짧은 a1 을 달고 있었다).
+      //   길이는 **draw-on 이 표현한다**: 최대 길이로 한 번 만들고 _prog 에 실제 이동 거리를 문다.
+      //   A2 스탠스 라인(linkA/B)이 이미 쓰는 규약이라 UV 종횡비 수학이 아예 없다.
+      // ★ 길이 상한 = **빔이 허락하는 길이**(SB_LINK_MAX 와 같은 이유). 메시가 창 밖으로 뻗으면
+      //   tickFlowArrows 가 양끝 알파를 0 으로 잡아 선이 통째로 사라진다 — 구 a2(0.62m)가 그랬다.
+      //   ponytail: 4/4 오른발 모으기(실측 이동 0.541m)는 여기서 포화해 실제보다 짧게 그려진다.
+      //   무대(SB_BOX·SBZ)를 넓히면 이 상한도 같이 올릴 것.
+      H.arMax = 0.30;
+      H.a1 = floorArrow(0, SBZ, 0, BRAND.prism, H.arMax);
+      H.a2 = floorArrow(0, SBZ, 0, BRAND.red, H.arMax);
+      H.a1._gain = 0; H.a2._gain = 0; H.a1._prog = 0; H.a2._prog = 0;
       gg.add(H.mL, H.mC, H.mR, H.rise, H.gh.group, H.a1, H.a2,
         H.fLl.group, H.fLr.group, H.fRl.group, H.fRr.group, H.fC.group);
       if (!big) {   // 훈련 단계만 커서 표시 — 실전은 시선 부담 최소화(유저 확정)
@@ -2205,6 +2289,11 @@ export class Session {
    *  등장 = **페이드 인/아웃만**(유저 08-05: 퍼지는 모션은 너무 복잡하다). 자리는 고정. */
   _readyFeetTick() {
     const F = this.readyFeet; if (!F) return;
+    // ★ 시작화면 발자국 어포던스 — **끔**(유저 08-06). 복싱 벽 CTA 는 발밑 광 위 맨 글씨뿐이고
+    //   발자국을 세우지 않는다. 지면만 발 두 짝이 서 있으면 세 화면이 다른 물건으로 읽힌다.
+    //   '두 번 탭'은 이미 CTA 문구 + 하단 광의 톡·톡 두 번(floorgl tapB)이 말하고 있다.
+    //   되살리려면 floorgl 의 READY_OPT.feetTokens 를 true 로.
+    if (!READY_OPT.feetTokens) { F.forEach(f => { f.group.visible = false; }); return; }
     const tl = this.readyPhase != null ? this.readyPhase : (this.t % 8);   // 지면 UI 와 같은 시계(main 이 넘긴다)
     // ★ 하단 슬롯 타임라인 = floorgl _paint_ready 의 **CTA 구간**과 한 몸이다. 발자국은
     //   'Tap Twice' 양옆에 서는 물건이라 CTA 가 없는 시각에 뜨면 뜬금없다.
@@ -2835,7 +2924,7 @@ export class Session {
     } else if (id === 'BK_B1') {
       // ① 원형 마크에 10회(바닥 보며) → ② 중앙 안내 '시선 바깥' → ③ 접점 파형만.
       const H = this.bkB1, TOTAL = 10, MAXSEC = 45;   // MAXSEC = 공 검출이 죽었을 때의 탈출구
-      if (this._bkStrId !== 'BK_B1') { H.count = 0; H._shown = -1; H._wasLow = false; H._popT = -9; H._setupDone = false; }
+      if (this._bkStrId !== 'BK_B1') { H.count = 0; H._shown = -1; H._wasLow = false; H._popT = -9; H._setupDone = false; H._per = 0; H._zHit = null; }
       this._bkStrId = 'BK_B1';
       if (!this._followLatch) {   // 관찰 5초 — 코치 실루엣+Preview 필만, 가이드 전부 숨김(유저: 훈련 전체)
         H.sL.op(0); H.sR.op(0); H.aL._gain = 0; H.aR._gain = 0;
@@ -2903,6 +2992,12 @@ export class Session {
       if (isLow && !H._wasLow) {
         // 광학 정직성(유저 지적): 실측 바운스(몸앞 0.44~0.83m)의 절반은 빔 시작선(0.65m) 안쪽 —
         //   접점 파형은 투사 불가능한 거짓말이다. 파형은 '존 위치'(빔 안 1.3m, 시선도 거기)에서.
+        // 바운스 간격 = 링 수축 주기. 두 박을 봐야 주기가 생기므로 첫 바운스는 시드만 남긴다.
+        //   튀는 값(0.15s 미만·1.2s 초과)은 검출 노이즈라 버린다 — 링이 덜컥거리면 리듬이 안 읽힌다.
+        if (H._zHit != null && H._zHit > 0) {
+          const gap = this.t - H._zHit;
+          if (gap > 0.15 && gap < 1.2) H._per = H._per ? H._per + (gap - H._per) * 0.35 : gap;
+        }
         H._zHit = this.t;
         H.count += 1; H._popT = this.t;
         // 파문은 '작고 빠른 틱'이다 — 프레스 버스트(0.52m·세기 .72·1.05s)를 그대로 쓰면 0.4s 비트마다
@@ -2912,11 +3007,22 @@ export class Session {
         this.onBurst?.(wp, 0.22, null, { intensity: 0.30, speed: 2.6 });
       }
       H._wasLow = isLow;
-      // 원형 판정 토큰: 평소 Preview(숨쉬기) → 공이 탕 떨어지는 순간 Success 블룸으로 전이(유저)
+      // ── 원형 판정 토큰 = **박자를 보여주는 링**(유저 08-06: 원 하나만 덩그러니 있다).
+      //   전엔 바운스 순간에만 Success 블룸이 터지고 그 사이 0.4초는 Preview 숨쉬기라,
+      //   "지금 몇 번째"는 숫자로만 알 수 있고 "다음이 언제"는 화면에 아예 없었다 —
+      //   따라 칠 리듬이 없으니 원 하나가 덩그러니로 읽힌다.
+      //   고치는 법은 새 그래픽이 아니라 **이미 있는 상태**다: Active + 수축 진행(uProg).
+      //   수축이 다 닫히는 순간이 곧 다음 바운스 = 링이 카운트인이 된다.
+      //   주기는 **실제 바운스 간격에서 자동**으로 잡는다(봇 공 물리라 고정 상수를 쓰면 어긋난다).
+      //   BK_BEAT(0.40s = 커리 실측 150BPM)는 첫 바운스 전 시드값으로만 쓴다.
       const zU = H.zone.material.uniforms;
       const zk = Math.max(0, 1 - (this.t - (H._zHit ?? -9)) / 0.45);
-      if (zk > 0) { zU.uPhase.value = 2; zU.uProg.value = Math.min(1, 1.2 - zk); }
-      else { zU.uPhase.value = 0; zU.uProg.value = 0; }
+      if (zk > 0) { zU.uPhase.value = 2; zU.uProg.value = Math.min(1, 1.2 - zk); }   // 탕 — Success 블룸
+      else {
+        const per = H._per || BK_BEAT;
+        const ph = Math.min(1, (this.t - (H._zHit ?? this.t)) / per);
+        zU.uPhase.value = 1; zU.uProg.value = ph;   // Active 수축 — 다 닫히면 다음 박자
+      }
       H.zone.setOp?.(0.45 + 0.4 * zk);
       const left1 = Math.max(1, TOTAL - H.count);   // 하한 1 — 마지막 바운스에서 '0' 이 한 프레임 새는 걸 막는다
       if (left1 !== H._shown) { redrawFootNum(H.num, left1); H._shown = left1; }
@@ -2941,6 +3047,7 @@ export class Session {
         for (const k of ['sL1', 'sR1', 'sL2', 'sR2']) H[k].op(0);
         H.numL.visible = false; H.numR.visible = false;   // 글리프는 자체 재질 — op(0)로 안 꺼진다
         H.rise.setOp?.(0); H.cL.op(0); H.cR.op(0);
+        if (H.lkA) { H.lkA.visible = false; H.lkB.visible = false; }   // 스탠스 링크도 관찰 땐 없다
         this.demoActive = true;
         FMU('먼저 보세요 — 스텝백', CS.prism);
         return;
@@ -3008,6 +3115,8 @@ export class Session {
         for (const k of ['fLl', 'fLr', 'fRl', 'fRr', 'fC']) H[k]?.op(0);
         if (H.numL) { H.numL.visible = false; H.numR.visible = false; }   // 글리프는 op(0)로 안 꺼진다
         H.rise.setOp?.(0); H.gh.op(0); H.cL?.op(0); H.cR?.op(0);
+        H.zTgt?.setOp?.(0); H._zFade = 0;                       // 목표 존·스탠스 링크도 관찰 땐 없다
+        if (H.lkA) { H.lkA.visible = false; H.lkB.visible = false; }
         this.demoActive = true;
         FMU('먼저 보세요 — 스텝백', CS.prism);
         return;
@@ -3094,8 +3203,19 @@ export class Session {
       //   발자국만으로 읽어야 했다. 덧칠 걱정은 draw-on 이 매 비트 리셋되며 스스로 해소된다.
       //   실전(LIVE=BK_C2)은 그대로 화살표 없음 — 그건 이 파일이 원래 정한 규칙이다(유저 확정).
       const arrK = LIVE ? 0 : 1;
-      H.a1._gain = arrK * (H.beat === 0 ? 0.9 : (H.beat === 1 ? 0.35 : 0));
-      H.a2._gain = arrK * (H.beat === 1 ? 0.95 : (H.beat === 2 ? 0.5 : 0));
+      // ★ **시계가 둘이면 안 된다**(유저 08-06: marks.html 엔 타이밍이 정확한데 실제 플레이는 아니다).
+      //   POSE 단계(1/4~4/4·실전)의 화살표 주인은 _sbPlace 다 — 영상 재생 위치(stepVidT)에서
+      //   '지금 어느 발이 움직이나'를 뽑는다. 아래 비트 클럭(H.beat, 2.2s 자유 메트로놈)은
+      //   같은 프레임에 같은 객체의 _gain 을 먼저 덮어써서 _sbPlace 의 램프를 매 프레임 리셋했다 —
+      //   결과적으로 화면에 보이던 건 **메트로놈**이었고, 밝기가 발의 움직임과 무관했다.
+      //   (실측: B3 vt=1.00 에서 안 움직이는 왼발 0.87 · 움직이는 오른발 0.03 = 정확히 반대)
+      //   덤으로 _sbPlace 는 큐가 없을 때 위치를 안 갱신하므로, 메트로놈이 켜 놓은 화살표가
+      //   **이전 자리**에 떠 있었다(실측: 발 0.6m · 화살표 2.0m = 1.4m 어긋남, 화면상 400px).
+      //   비트 클럭은 POSE 가 아닌 예전 3링 레이아웃 전용으로 남긴다.
+      if (!POSE) {
+        H.a1._gain = arrK * (H.beat === 0 ? 0.9 : (H.beat === 1 ? 0.35 : 0));
+        H.a2._gain = arrK * (H.beat === 1 ? 0.95 : (H.beat === 2 ? 0.5 : 0));
+      }
       // 봇 구동 = 실측 4국면. 폭(스탠스)만으론 '스텝백을 한다'가 안 보인다(유저) —
       //   루트를 실제로 옆으로 옮기고(밀기 +0.22 → 빠지기 -0.34), 마지막에 점프까지 시킨다.
       const WID = [0.39, 0.42, 0.92, 0.55];     // 스탠스 폭(m) — 영상 실측
@@ -3115,7 +3235,11 @@ export class Session {
         // 1/4~4/4 + 실전 공통 — 좌표·박자 전부 영상 재생 위치에서 자동(_sbPlace).
         //   실전은 '4/4의 마크 판정 토큰'만 남긴다 — 화살표·링·고스트·커서 전부 없음(유저).
         this._sbPlace(H, id, H.fRl, H.fRr, (LIVE || !arrK) ? [null, null] : [H.a1, H.a2]);
-        if (LIVE || !arrK) { H.a1._gain = 0; H.a2._gain = 0; }   // 첫 턴 뒤엔 배치도 안 한다
+        if (LIVE || !arrK) {   // 실전 = 마크 판정 토큰만. 화살표·목표 존·스탠스 링크 전부 없음(유저)
+          H.a1._gain = 0; H.a2._gain = 0;
+          H.zTgt?.setOp?.(0); H._zFade = 0;
+          if (H.lkA) { H.lkA.visible = false; H.lkB.visible = false; }
+        }
         for (const k of ['fC', 'fLl', 'fLr']) H[k]?.op(0);
         if (H.numL) { placeMarkNum(H.numL); placeMarkNum(H.numR); H.numL.visible = H.numR.visible = true; }
         H.mL.setOp?.(0); H.mR.setOp?.(0); H.mC.setOp?.(0);
