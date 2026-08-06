@@ -379,6 +379,7 @@ export function makeMarkFXMaterial(footTex = null) {
       uToe: { value: 0 },   // 앞꿈치 접지 강조 — 앞은 진하게, 뒤꿈치는 투명하게(스텝백 2/4 왼발)
       uStrong: { value: 0 }, uContract: { value: 0 },
       uTime: { value: 0 }, uSeed: { value: Math.random() * 6.2832 },
+      uSuccT: { value: -999 },   // Success 파문 시계 — 성공 순간에 uTime 을 복사해 넣는다(FootMark.glow)
       uW: { value: 1 }, uHalo: { value: 0.9 }, uPool: { value: 0.55 }, uGain: { value: 1 },
       // ★ uOut 1 — 마크의 유일한 출력 경로는 컴포저(OutputPass) 다. 실측(tmp_probe_cs.mjs):
       //     renderer.outputColorSpace='srgb' · working='srgb-linear' · RT=HalfFloat

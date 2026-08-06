@@ -647,6 +647,11 @@ uniform float uImpDotCol;
 //     갓 나온 파면이 상단(백열)이고 퍼질수록 하단(적)으로 식는다 — "모든 것은 온도다" 규약을
 //     파동에도 그대로 적용한 것. 색을 새로 만드는 게 아니라 있는 LUT 를 훑는다.
 uniform float uRip, uRipSpeed, uRipWidth, uRipReach, uRipCol, uRipGrad;
+// Success 파문 전용 시계 — **성공한 시각**(호스트 uTime 과 같은 시계). -999 = 미설정.
+//   왜 필요한가: Success 파문은 원래 prog 로 돌았는데, Success 의 prog 는 0 에 **고정**이다
+//   (FootMark.glow: "k=1 이면 진행도 0 = 가장 진한 상태로 고정" — 유저가 못박은 규칙).
+//   그래서 파면이 front=0 에 얼어붙어 '터지지 않고 멈춘 링'이 됐다. 색은 고정, 파문은 흘러야 한다.
+uniform float uSuccT;
 // 진행 아크의 감김 — 0 이면 기존(로컬 12시에서 시계방향), 1 이면 화면 기준으로 뒤집는다.
 //   지면 토큰은 쿼드가 바닥에 누워(−90° X) 감김이 반대로 읽혀 '먼 쪽에서 반시계로 크게
 //   그리며' 등장했다(유저 신고). 종목마다 원하는 게 달라 유니폼으로 뺀다 — 지금은 농구만 1.
@@ -1140,7 +1145,12 @@ vec4 markState(vec2 uv, float state, float prog, float strong, float t){
     ripCyc = fract(t * max(uRipSpeed, 0.01) + uSeed * 0.159);
   } else if (state > 2.5 && state < 3.5) {   // Success — 단발
     ripAmt = uRip * 1.6;
-    ripCyc = clamp(prog / 0.80, 0.0, 1.0);
+    // ★ **시각으로 돈다**(유저 08-06: 서세스 애니메이팅이 안 돌아간다).
+    //   prog 구동은 Success 에서 구조적으로 불가능하다 — 그 상태의 prog 는 0 고정이 규칙이라
+    //   ripCyc 가 항상 0, 파면이 front 0 에 얼어붙는다. 정지한 링이 화면에 남던 게 이것이다.
+    //   uSuccT 가 있으면 성공 순간부터 0.62초에 걸쳐 한 번 퍼지고 끝난다(단발 규약 유지).
+    //   미설정(-999)이면 옛 식 그대로 — 다른 호스트(fxlab·footlab 데모)는 영향 없다.
+    ripCyc = uSuccT > -900.0 ? clamp((t - uSuccT) / 0.62, 0.0, 1.0) : clamp(prog / 0.80, 0.0, 1.0);
     ripK   = 1.9;                            // 더 멀리 나간다 ('팡')
   }
   if (ripAmt > 0.001) {

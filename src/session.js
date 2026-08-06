@@ -150,6 +150,8 @@ class FootMark {
    *  바뀔 때만 부른다(리셋+오버라이드라 매 프레임 돌릴 일이 아니다). */
   _ph(v) {
     if (this._U.uPhase.value === v) return;
+    // Success 를 떠나면 파문 시계도 끈다 — 안 끄면 다음에 다시 성공할 때 옛 위상에서 이어진다.
+    if (this._U.uPhase.value === 2 && this._U.uSuccT) this._U.uSuccT.value = -999;
     this._U.uPhase.value = v;
     setMarkStateLook(this.plane.material, v);
   }
@@ -189,8 +191,15 @@ class FootMark {
     // Success 진입 = 파문 1회. 팩마다 따로 붙이던 것을 '상태 → 이펙트' 규칙 한 곳으로 통일한다
     //   (실측: 러닝 실전 25회 / 복싱 4회인데 농구는 0회였다 — 같은 Success 인데 팩마다 달랐다).
     //   래치는 k 가 충분히 내려가야 풀린다 → 한 번의 성공에 한 번만.
-    if (k >= 0.99) { if (!this._succLatch) { this._succLatch = true; FootMark.onSuccess?.(this); } }
-    else if (k < 0.6) this._succLatch = false;
+    if (k >= 0.99) {
+      if (!this._succLatch) {
+        this._succLatch = true;
+        // ★ 파문 시계 시작. **셰이더가 보는 그 시계**(uTime)를 그대로 복사한다 —
+        //   session.t / performance.now 중 어느 쪽이 uTime 에 실리는지 여기서 몰라도 정확하다.
+        if (this._U.uSuccT) this._U.uSuccT.value = this._U.uTime.value;
+        FootMark.onSuccess?.(this);
+      }
+    } else if (k < 0.6) this._succLatch = false;
   }
   toe(k) { this._U.uToe.value = k; }   // 1 = 앞꿈치만 접지(뒤꿈치 투명·앞 강조)
   ghost() { this._ph(3); this._U.uProg.value = 0; }                        // Locked 무채 고스트 — 션 발자국 시범·예고
