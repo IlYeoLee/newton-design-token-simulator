@@ -1,0 +1,357 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>BX_READY · Guard Up & Ready</title>
+<style>
+/* ── 프로젝트 폰트 (public/fonts) ── */
+@font-face{font-family:'Supreme';src:url('/assets/Supreme-Bold-C0dDqjAt.woff2') format('woff2');font-weight:700;font-style:normal;font-display:block}
+@font-face{font-family:'Supreme';src:url('/assets/Supreme-Medium-Dz3gu50B.woff2') format('woff2');font-weight:500;font-style:normal;font-display:block}
+@font-face{font-family:'OffBit';src:url('/assets/OffBitTrial-DotBold-BmUPRW3p.woff2') format('woff2');font-weight:700;font-style:normal;font-display:block}
+
+*{margin:0;padding:0;box-sizing:border-box}
+/* 배경 투명 — 벽(열화상/그라디언트) 위에 합성 */
+html,body{background:transparent}
+.stage{position:relative;width:2600px;height:1600px;background:transparent;overflow:hidden;
+  font-family:'Supreme',sans-serif;-webkit-font-smoothing:antialiased}
+
+/* 콘텐츠 랩 (13:152) — 중앙, padding 100 */
+.content{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  width:2600px;height:1594.054px;padding:100px;display:flex;flex-direction:column;align-items:flex-start}
+/* 로우 (13:13) */
+.row{display:flex;gap:24px;align-items:flex-start;width:100%;flex:1 0 0;min-height:0}
+
+/* ══════════ 좌측 스탯 컬럼 (13:14) ══════════ */
+.leftcol{display:flex;flex-direction:column;gap:24px;align-items:flex-end;flex-shrink:0}
+
+/* 헤더 카드 (13:15) */
+.hdr{background:#fff;display:flex;gap:40.857px;align-items:center;padding:20px;border-radius:64px;
+  box-shadow:0 0 30.643px 0 rgba(0,0,0,.08);width:100%;overflow:hidden}
+.hdr-photo{position:relative;width:217.054px;height:217.054px;border-radius:54px;overflow:hidden;flex-shrink:0}
+.hdr-photo .ph{position:absolute;left:-28.09px;top:-74.05px;width:275.305px;height:511.608px}
+.hdr-photo .ph img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;max-width:none}
+.hdr-photo .blur{position:absolute;left:calc(50% + 1.28px);top:117.46px;transform:translateX(-50%);
+  width:429px;height:268.125px;filter:blur(81.714px);
+  background:linear-gradient(to bottom,rgba(108,94,67,.7),rgba(210,183,130,.7))}
+.hdr-txt{display:flex;flex-direction:column;gap:20.429px;align-items:flex-start;flex-shrink:0;width:589.875px}
+.hdr-title{font-weight:700;font-size:52px;line-height:1.2;letter-spacing:-2.5536px;color:#050a0a;word-break:break-word;min-width:100%}
+.hdr-sub{font-weight:500;font-size:32px;line-height:1.4;letter-spacing:-.96px;color:#757575;white-space:nowrap}
+
+/* 큰 스탯 카드 (13:23) */
+.stats{background:#f2f2f2;display:flex;flex-direction:column;gap:32px;align-items:flex-start;
+  padding:32px 20px;border-radius:76px;overflow:hidden;flex-shrink:0;width:100%}
+.sec{display:flex;flex-direction:column;gap:8px;align-items:flex-start;width:1000px}
+.sec-t{display:flex;align-items:center;padding:0 20px;width:100%}
+.sec-t p{flex:1 0 0;min-width:0;font-weight:500;font-size:32px;line-height:1.5;color:#3b3b3b}
+.sec-t.h48{height:48px;justify-content:center}
+.sec-t.h48 p{letter-spacing:-1px}
+.sec-t.plain{justify-content:center}
+.sec-t.plain p{letter-spacing:-.5px}
+
+/* Total 콘텐츠 (13:28) */
+.total{position:relative;background:#fff;display:flex;gap:24.256px;height:378.393px;align-items:flex-start;
+  justify-content:flex-end;padding:10px;border-radius:64px;width:100%}
+.graph{display:flex;flex:1 0 0;flex-direction:column;gap:4.851px;height:100%;align-items:flex-end;
+  min-width:0;overflow:hidden;border-radius:58px}
+.bar{display:flex;flex-direction:column;align-items:flex-end;justify-content:center;padding:24.256px;
+  border-radius:40px}
+.bar p{font-weight:500;font-size:36px;line-height:1.4;letter-spacing:-1.2128px;color:#fff;white-space:nowrap;width:100%;
+  display:flex;justify-content:space-between;align-items:center}
+.bar.stretch{flex:1 0 0;min-height:0;width:194.048px;
+  background:linear-gradient(90deg,#fa3030 63.043%,#fe6e3c 89.902%,#fec389 101.08%,#d1feff 108.1%)}
+.bar.learn{flex:1 0 0;min-height:0;width:388.095px;
+  background:linear-gradient(90deg,#fa3030 63.043%,#fe6e3c 89.902%,#fec389 101.08%,#d1feff 108.1%)}
+.bar.run{position:relative;background:#f2f2f2;flex:1 0 0;min-height:0;width:100%;gap:24.256px;
+  align-items:flex-start;justify-content:center}
+.bar.run>.fight{font-weight:700;font-size:32px;line-height:1.2;letter-spacing:-1.2128px;color:#050a0a;opacity:.7;
+  white-space:nowrap;width:100%;display:flex;justify-content:space-between;align-items:center}
+.bar.run>.learn-abs{position:absolute;right:.4px;top:0;width:582.143px;height:116.429px;border-radius:40px;
+  display:flex;flex-direction:column;justify-content:center;padding:24.256px;
+  background:linear-gradient(90deg,#fa3030 63.043%,#fe6e3c 89.902%,#fec389 101.08%,#d1feff 108.1%)}
+.bar.run>.learn-abs p{font-weight:500;font-size:36px;line-height:1.4;letter-spacing:-1.2128px;color:#fff;white-space:nowrap;
+  width:100%;display:flex;justify-content:space-between;align-items:center}
+.num{position:absolute;left:0;top:0;width:242.56px;height:378.393px;padding:24.256px;display:flex;flex-direction:column;color:#050a0a}
+.num .big{font-family:'OffBit';font-weight:700;font-size:145.536px;line-height:1;min-width:100%}
+.num .unit{font-weight:700;font-size:32px;line-height:1.2;opacity:.6;text-align:left;letter-spacing:-1.2128px;white-space:nowrap}
+
+/* Setup 그리드 (13:50/51) */
+.setup{background:#fff;display:flex;flex-direction:column;align-items:flex-start;padding:10px;border-radius:64px;width:100%}
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;width:100%}
+.cell{background:#f2f2f2;display:flex;flex-direction:column;justify-content:center;height:103px;padding:20px;
+  border-radius:48px;overflow:hidden}
+.cell.h102{height:102px}
+.cell-lab{font-weight:500;font-size:24px;line-height:1.1;letter-spacing:-.5px;color:#757575;white-space:nowrap}
+.cell-val{font-weight:700;font-size:36px;line-height:1;letter-spacing:-1.08px;color:#000;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;max-width:100%}
+
+/* Connected (13:72/76) */
+.conn{display:flex;height:259.607px;width:1000px;align-items:flex-start}
+.conn-in{display:flex;flex:1 0 0;flex-direction:column;gap:8px;align-items:flex-start;min-width:0}
+.conn-row{display:flex;gap:8px;align-items:flex-start;width:100%}
+.dev{position:relative;background:#fff;display:flex;flex:1 0 0;flex-direction:column;padding:20px;border-radius:64px;
+  min-width:0;overflow:hidden}
+.dev-in{display:flex;flex-direction:column;gap:8px;align-items:flex-start}
+.dev-ic{position:relative;width:88px;height:88px;overflow:hidden}
+.dev-ic .m{position:absolute;-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat}
+.dev-txt{display:flex;flex-direction:column;align-items:flex-start;white-space:nowrap}
+.dev-txt .n{font-weight:700;font-size:36px;line-height:1.2;letter-spacing:-1px;color:#050a0a}
+.dev-txt .s{font-weight:500;font-size:24px;line-height:1.4;letter-spacing:-.72px;color:#757575}
+.dev .chk{position:absolute;width:40px;height:40px;top:20px;right:20px}
+.grad-therm{background:linear-gradient(180deg,#fa3030 59.24%,#fe6e3c 84.478%,#fec389 94.982%,#d1feff 101.57%)}
+
+/* ══════════ 우측 (13:122) ══════════ */
+.rightcol{position:relative;flex:1 0 0;height:100%;min-width:0;border-radius:56px;overflow:hidden}
+.glow{position:absolute;left:calc(50% - 334.5px);top:660px;width:705px;height:608px;
+  transform-origin:50% 40%;animation:glowPulse 4.6s ease-in-out infinite}
+.glow .box{position:absolute;inset:-16.61% -14.33%}
+.glow img{display:block;width:100%;height:100%;max-width:none}
+.footgrp{position:absolute;left:551px;top:700px;width:376.076px;display:flex;flex-direction:column;align-items:center}
+.foot-shape{opacity:.52;width:350.265px;height:529.092px;margin-top:-45.82px;
+  -webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;
+  -webkit-mask-position:0 45.815px;mask-position:0 45.815px;
+  -webkit-mask-size:368px 465.542px;mask-size:368px 465.542px;
+  -webkit-mask-image:url('/assets/foot_shape-DuU_KKlp.png');mask-image:url('/assets/foot_shape-DuU_KKlp.png');
+  background-image:linear-gradient(168.8785449870195deg,rgba(102,102,102,0) 19.153%,rgba(0,0,0,.2) 88.147%),
+    linear-gradient(169.562529142532deg,rgba(254,195,137,0) 36.974%,#fa3030 94.565%)}
+.foot-imgs{position:relative}
+.foot-imgs .f1{position:relative;width:376.076px;height:40.878px}
+.foot-imgs .f2{position:relative;width:227.281px;height:19.621px;margin-left:71.04px;margin-top:10.9px}
+.foot-imgs img{display:block;width:100%;height:100%;max-width:none}
+
+.titlegrp{position:absolute;right:0;top:40px;
+  display:flex;flex-direction:column;gap:27px;align-items:flex-end}
+.big-title{text-align:right}
+.big-title{font-weight:700;font-size:80px;line-height:normal;color:#fff;white-space:nowrap;letter-spacing:-3px}
+.dots{display:flex;align-items:flex-start}
+.dot{width:45.734px;height:45.734px;border-radius:157.704px;flex-shrink:0}
+.dot.on{background:#fa3030}
+.dot.off{background:#d0d0d0}
+.dot.half{position:relative;background:#fa3030;overflow:hidden}
+.dot.half::after{content:"";position:absolute;right:-15.06px;top:0;width:34px;height:48px;background:#d9d9d9}
+
+.cta{position:absolute;left:calc(50% - 12px);top:876.03px;transform:translateX(-50%);
+  display:flex;flex-direction:column;gap:18.251px;align-items:center;text-align:center;width:381px;height:148.293px}
+.cta .a{font-weight:700;font-size:64px;line-height:1.1;letter-spacing:-4.5652px;color:#fff;white-space:nowrap}
+.cta .b{font-weight:500;font-size:32px;line-height:41.087px;color:rgba(255,255,255,.8);min-width:100%}
+
+/* Tap 영역 — Image#10 글로우/디스크 */
+.footzone{position:absolute;left:calc(50% - 230px);top:650px;width:920px;height:auto;opacity:0;
+  animation:slideInUp .9s cubic-bezier(.2,.75,.2,1) .6s both}
+.cta-arrow{width:58px;height:auto;margin-bottom:4px}
+.footglow{display:block;width:100%;height:432px;transform-origin:50% 30%;
+  -webkit-mask-image:radial-gradient(58% 78% at 50% 42%,#000 18%,rgba(0,0,0,.45) 46%,transparent 70%);
+  mask-image:radial-gradient(58% 78% at 50% 42%,#000 18%,rgba(0,0,0,.45) 46%,transparent 70%);
+  animation:tapTwice 5.5s cubic-bezier(.4,0,.3,1) infinite 2.1s}
+
+/* ═══════════ 애니메이션 ═══════════ */
+@keyframes slideInLeft{from{opacity:0;transform:translateX(-90px)}to{opacity:1;transform:translateX(0)}}
+@keyframes slideInUp{from{opacity:0;transform:translateY(52px)}to{opacity:1;transform:translateY(0)}}
+@keyframes popIn{from{opacity:0;transform:translateY(26px) scale(.95)}to{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes graphReveal{from{clip-path:inset(0 0 0 100%)}to{clip-path:inset(0 0 0 0)}}
+@keyframes charIn{from{opacity:0;transform:translateY(64px) rotate(6deg)}to{opacity:1;transform:translateY(0) rotate(0)}}
+@keyframes dotFill{from{background:#d0d0d0}to{background:#fa3030}}
+@keyframes tapTwice{
+  0%,72%,100%{transform:translateY(0)}
+  10%{transform:translateY(30px)}18%{transform:translateY(4px)}
+  30%{transform:translateY(28px)}40%{transform:translateY(0)}}
+@keyframes glowPulse{0%,100%{transform:scale(1);opacity:.86}50%{transform:scale(1.055);opacity:1}}
+@keyframes footBob{0%,70%,100%{transform:translateY(0)}10%{transform:translateY(34px)}20%{transform:translateY(6px)}32%{transform:translateY(31px)}44%{transform:translateY(0)}}
+.foot-shape{animation:footBob 5.5s cubic-bezier(.4,0,.3,1) infinite 2.2s}
+.foot-imgs{animation:floatY 5s ease-in-out infinite 2.2s}
+@keyframes floatY{0%,100%{transform:translateY(-7px)}50%{transform:translateY(9px)}}
+@keyframes floatY2{0%,100%{transform:translateY(-10px)}50%{transform:translateY(8px)}}
+
+/* 전체 둥둥 — 좌/우 그룹 (등장 이후) */
+.leftcol{animation:floatY 6.5s ease-in-out infinite 1.8s}
+.rightcol{animation:floatY2 7.5s ease-in-out infinite 1.8s}
+
+/* 좌 패널 슬라이드인 */
+.hdr{opacity:0;animation:slideInLeft .85s cubic-bezier(.2,.75,.2,1) .15s both}
+.stats{opacity:0;animation:slideInLeft .85s cubic-bezier(.2,.75,.2,1) .35s both}
+.grid2 .cell{opacity:0;animation:popIn .55s ease-out both}
+.grid2 .cell:nth-child(1){animation-delay:.95s}
+.grid2 .cell:nth-child(2){animation-delay:1.05s}
+.grid2 .cell:nth-child(3){animation-delay:1.15s}
+.grid2 .cell:nth-child(4){animation-delay:1.25s}
+.conn-row .dev{opacity:0;animation:popIn .55s ease-out both}
+.conn-row .dev:nth-child(1){animation-delay:1.3s}
+.conn-row .dev:nth-child(2){animation-delay:1.43s}
+.conn-row .dev:nth-child(3){animation-delay:1.56s}
+
+/* 그래프 — 없다가 오른쪽에서 촤르륵 */
+.graph .bar.stretch,.graph .bar.learn{clip-path:inset(0 0 0 100%);animation:graphReveal .7s cubic-bezier(.2,.75,.2,1) both}
+.graph .bar.stretch{animation-delay:1.0s}
+.graph .bar.learn{animation-delay:1.15s}
+.bar.run>.learn-abs{clip-path:inset(0 0 0 100%);animation:graphReveal .7s cubic-bezier(.2,.75,.2,1) 1.3s both}
+
+/* 타이틀 글자별 등장 */
+.big-title .ch{display:inline-block;opacity:0;animation:charIn .6s cubic-bezier(.2,.85,.25,1) both}
+.big-title .sp{display:inline-block;width:.18em}
+
+/* 도트 프로그래스 (회색→빨강 순차, 루프) */
+.dots{opacity:0;animation:fadeIn .5s ease 1.55s both}
+.dots .dot{background:#d0d0d0;animation:dotFill .5s ease forwards;animation-delay:calc(2s + var(--i)*.22s)}
+.dot.half::after{display:none}
+
+/* CTA */
+.cta{left:calc(50% + 40px)!important;top:760px!important;transform:none!important;opacity:0;
+  animation:slideInUp .85s ease-out 1.05s both}
+
+/* ── Foot 영역 (Image #20: 둥근 글로우 + 화살표→ + 텍스트 + 발 + 원반) ── */
+.footblock{position:absolute;left:calc(50% - 140px);top:570px;width:760px;height:770px;
+  opacity:0;animation:slideInUp .9s cubic-bezier(.2,.75,.2,1) .6s both}
+.fb-glow{position:absolute;left:-70px;top:-70px;width:900px;height:910px;
+  transform-origin:50% 50%;animation:glowPulse 4.6s ease-in-out infinite}
+.fb-cta{position:absolute;left:0;right:0;top:100px;display:flex;flex-direction:column;align-items:center;text-align:center}
+.fb-arrow{width:62px;height:62px;display:block;margin-bottom:26px}
+.fb-a{font-weight:700;font-size:64px;line-height:1.1;letter-spacing:-4.5652px;color:#fff;white-space:nowrap;margin-bottom:14px}
+.fb-b{font-weight:500;font-size:32px;line-height:1.2;color:rgba(255,255,255,.8)}
+.fb-foot{position:absolute;left:50%;margin-left:-150px;top:275px;width:300px;height:400px;opacity:.9;
+  -webkit-mask-image:url('/assets/foot_shape-DuU_KKlp.png');mask-image:url('/assets/foot_shape-DuU_KKlp.png');
+  -webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-size:contain;mask-size:contain;
+  -webkit-mask-position:center;mask-position:center;
+  background-image:linear-gradient(168deg,rgba(102,102,102,0) 19%,rgba(0,0,0,.22) 88%),linear-gradient(169deg,rgba(254,195,137,0) 37%,#fa3030 94%);
+  animation:footBob 5.5s cubic-bezier(.4,0,.3,1) infinite 2.2s}
+.fb-disc{position:absolute;left:50%;margin-left:-185px;top:678px;width:370px;height:auto;display:block;
+  animation:floatY 5s ease-in-out infinite 2.2s}
+</style>
+</head>
+<body>
+<div class="stage">
+ <div class="content">
+  <div class="row">
+
+   <!-- ══ 좌측 컬럼 ══ -->
+   <div class="leftcol">
+
+    <!-- 헤더 카드 -->
+    <div class="hdr">
+     <div class="hdr-photo">
+      <div class="ph"><img src="/assets/coach_a-AiA_MY9i.png" alt=""><img src="/assets/coach_b-NOTAWLKt.png" alt=""></div>
+      <div class="blur"></div>
+     </div>
+     <div class="hdr-txt">
+      <p class="hdr-title">Boxing Basic Jab Combo</p>
+      <p class="hdr-sub">Skilled User Pack · Boxing ·Quite On</p>
+     </div>
+    </div>
+
+    <!-- 스탯 카드 -->
+    <div class="stats">
+
+     <!-- Total -->
+     <div class="sec">
+      <div class="sec-t h48"><p>Total</p></div>
+      <div class="total">
+       <div class="graph">
+        <div class="bar stretch"><p>5min</p></div>
+        <div class="bar learn"><p>10min</p></div>
+        <div class="bar run">
+         <div class="fight">Fight!</div>
+         <div class="learn-abs"><p>15min</p></div>
+        </div>
+       </div>
+       <div class="num">
+        <div class="big">30</div>
+        <div class="unit">min</div>
+       </div>
+      </div>
+     </div>
+
+     <!-- Setup -->
+     <div class="sec">
+      <div class="sec-t plain"><p>Setup</p></div>
+      <div class="setup">
+       <div class="grid2">
+        <div class="cell"><div class="cell-lab">Location &amp; Goal</div><div class="cell-val">Inoor ·Standard</div></div>
+        <div class="cell"><div class="cell-lab">Condition</div><div class="cell-val">About the same as usual</div></div>
+        <div class="cell h102"><div class="cell-lab">Level &amp; Mode</div><div class="cell-val">Quite On</div></div>
+        <div class="cell h102"><div class="cell-lab">Main Workout</div><div class="cell-val">15m</div></div>
+       </div>
+      </div>
+     </div>
+
+     <!-- Connected -->
+     <div class="conn">
+      <div class="conn-in">
+       <div class="sec-t plain"><p>Connected</p></div>
+       <div class="conn-row">
+        <div class="dev">
+         <div class="dev-in">
+          <div class="dev-ic"><img src="/assets/icon_wearable-CCAgomsv.png" alt="" style="position:absolute;left:0;top:0;width:88px;height:88px;object-fit:contain"></div>
+          <div class="dev-txt"><p class="n">Wearable</p><p class="s">Battery 99%</p></div>
+         </div>
+         <img class="chk" src="/assets/check-cbVkDZ0c.svg" alt="">
+        </div>
+        <div class="dev">
+         <div class="dev-in">
+          <div class="dev-ic"><div class="m grad-therm" style="left:calc(50% - 9.16px);top:calc(50% + 0.75px);transform:translate(-50%,-50%);
+            width:61.681px;height:81.507px;
+            -webkit-mask-position:13.069px 2.667px;mask-position:13.069px 2.667px;
+            -webkit-mask-size:44.587px 76px;mask-size:44.587px 76px;
+            -webkit-mask-image:url('/assets/icon_station-Dgz7w4Zg.png');mask-image:url('/assets/icon_station-Dgz7w4Zg.png')"></div></div>
+          <div class="dev-txt"><p class="n">Station</p><p class="s">Projection ready</p></div>
+         </div>
+         <img class="chk" src="/assets/check-cbVkDZ0c.svg" alt="">
+        </div>
+        <div class="dev">
+         <div class="dev-in">
+          <div class="dev-ic"><div class="m grad-therm" style="left:21.08px;top:9.13px;width:45.187px;height:71.889px;
+            -webkit-mask-position:-3.081px -5.134px;mask-position:-3.081px -5.134px;
+            -webkit-mask-size:51.168px 81.132px;mask-size:51.168px 81.132px;
+            -webkit-mask-image:url('/assets/icon_device-C7qegsQc.png');mask-image:url('/assets/icon_device-C7qegsQc.png')"></div></div>
+          <div class="dev-txt"><p class="n">External Device</p><p class="s">Galaxy Watch Ready</p></div>
+         </div>
+         <img class="chk" src="/assets/check-cbVkDZ0c.svg" alt="">
+        </div>
+       </div>
+      </div>
+     </div>
+
+    </div><!-- /stats -->
+   </div><!-- /leftcol -->
+
+   <!-- ══ 우측 ══ -->
+   <div class="rightcol">
+    <div class="titlegrp">
+     <div class="big-title">Guard Up &amp; Ready</div>
+     <div class="dots">
+      <div class="dot" style="--i:0"></div><div class="dot" style="--i:1"></div><div class="dot" style="--i:2"></div>
+      <div class="dot" style="--i:3"></div><div class="dot" style="--i:4"></div><div class="dot" style="--i:5"></div>
+      <div class="dot" style="--i:6"></div><div class="dot" style="--i:7"></div><div class="dot" style="--i:8"></div>
+      <div class="dot" style="--i:9"></div>
+     </div>
+    </div>
+    <div class="footblock">
+     <img class="fb-glow" src="data:image/svg+xml,%3csvg%20preserveAspectRatio='none'%20width='100%25'%20height='100%25'%20overflow='visible'%20style='display:%20block;'%20viewBox='0%200%20907%20810'%20fill='none'%20xmlns='http://www.w3.org/2000/svg'%3e%3cg%20id='Ellipse%2031226'%20filter='url(%23filter0_f_0_6)'%3e%3cpath%20d='M730.406%20327.569C730.406%20452.699%20976.198%20697.281%20581.365%20709C229.828%20690.933%20101%20656.191%20101%20327.569C101%20202.438%20241.897%20101%20415.703%20101C589.509%20101%20730.406%20202.438%20730.406%20327.569Z'%20fill='url(%23paint0_radial_0_6)'/%3e%3c/g%3e%3cdefs%3e%3cfilter%20id='filter0_f_0_6'%20x='0'%20y='0'%20width='907'%20height='810'%20filterUnits='userSpaceOnUse'%20color-interpolation-filters='sRGB'%3e%3cfeFlood%20flood-opacity='0'%20result='BackgroundImageFix'/%3e%3cfeBlend%20mode='normal'%20in='SourceGraphic'%20in2='BackgroundImageFix'%20result='shape'/%3e%3cfeGaussianBlur%20stdDeviation='50.5'%20result='effect1_foregroundBlur_0_6'/%3e%3c/filter%3e%3cradialGradient%20id='paint0_radial_0_6'%20cx='0'%20cy='0'%20r='1'%20gradientTransform='matrix(0%20430.947%20-356.357%200.137094%20416.349%20232.08)'%20gradientUnits='userSpaceOnUse'%3e%3cstop%20offset='0.734376'%20stop-color='%23FA3030'/%3e%3cstop%20offset='0.734476'%20stop-color='%23FE6E3C'/%3e%3cstop%20offset='0.870866'%20stop-color='%23FEC389'/%3e%3cstop%20offset='1'%20stop-color='%23D1FEFF'/%3e%3c/radialGradient%3e%3c/defs%3e%3c/svg%3e" alt="">
+     <div class="fb-foot"></div>
+     <img class="fb-disc" src="data:image/svg+xml,%3csvg%20width='377'%20height='41'%20viewBox='0%200%20377%2041'%20fill='none'%20xmlns='http://www.w3.org/2000/svg'%3e%3cg%20opacity='0.12'%20style='mix-blend-mode:plus-darker'%3e%3cellipse%20cx='188.038'%20cy='20.4389'%20rx='188.038'%20ry='20.4389'%20fill='url(%23paint0_linear_13_6960)'/%3e%3c/g%3e%3cg%20opacity='0.2'%20style='mix-blend-mode:plus-darker'%3e%3cellipse%20cx='184.678'%20cy='20.7155'%20rx='113.64'%20ry='9.81068'%20fill='url(%23paint1_linear_13_6960)'/%3e%3c/g%3e%3cdefs%3e%3clinearGradient%20id='paint0_linear_13_6960'%20x1='357.664'%20y1='1.66937e-07'%20x2='357.664'%20y2='41.5213'%20gradientUnits='userSpaceOnUse'%3e%3cstop%20offset='0.583222'%20stop-color='%23FA3030'/%3e%3cstop%20offset='0.83169'%20stop-color='%23FE6E3C'/%3e%3cstop%20offset='0.9351'%20stop-color='%23FEC389'/%3e%3cstop%20offset='1'%20stop-color='%23D1FEFF'/%3e%3c/linearGradient%3e%3clinearGradient%20id='paint1_linear_13_6960'%20x1='287.191'%20y1='10.9048'%20x2='287.191'%20y2='30.835'%20gradientUnits='userSpaceOnUse'%3e%3cstop%20offset='0.583222'%20stop-color='%23FA3030'/%3e%3cstop%20offset='0.83169'%20stop-color='%23FE6E3C'/%3e%3cstop%20offset='0.9351'%20stop-color='%23FEC389'/%3e%3cstop%20offset='1'%20stop-color='%23D1FEFF'/%3e%3c/linearGradient%3e%3c/defs%3e%3c/svg%3e" alt="">
+     <div class="fb-cta">
+      <img class="fb-arrow" src="data:image/svg+xml,%3csvg%20width='80'%20height='80'%20viewBox='0%200%2080%2080'%20fill='none'%20xmlns='http://www.w3.org/2000/svg'%3e%3cpath%20d='M46.6667%2063.3333L70%2040L46.6667%2016.6666M70%2040L10%2040'%20stroke='white'%20stroke-width='5'%20stroke-linecap='round'%20stroke-linejoin='round'/%3e%3c/svg%3e" alt="">
+      <p class="fb-a">Tap your foot Twice</p>
+      <p class="fb-b">with the Wearable on</p>
+     </div>
+    </div>
+   </div><!-- /rightcol -->
+
+  </div>
+ </div>
+</div>
+<script>
+// 타이틀 글자별 등장 (split-text)
+(function(){
+  const t=document.querySelector('.big-title');
+  if(!t) return;
+  const txt=t.textContent;
+  t.textContent='';
+  [...txt].forEach((c,i)=>{
+    const s=document.createElement('span');
+    if(c===' '){ s.className='sp'; }
+    else{ s.className='ch'; s.textContent=c; s.style.animationDelay=(0.55+i*0.05)+'s'; }
+    t.appendChild(s);
+  });
+})();
+</script>
+</body>
+</html>
