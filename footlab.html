@@ -1130,9 +1130,9 @@ function drawMatCard(t) {
   const g = off.getContext('2d');
   g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, W, W);
   drawDribbleMat(g, W, {
-    round: 0.35, bracket: 1, chev: 1, prog: 0.5,
+    round: 0.35, chev: 0, prog: 0.5,
     mat: { nx: 0.50, fx: 0.86, ny: -0.80, fy: 0.80 },
-    center: { x: 0, y: 0.00, r: 0.28, label: 'ACTIVE\nTARGET' },
+    center: { x: 0, y: 0.00, r: 0.28, label: null },
     // 시뮬 배치와 같은 다섯 — ①② 먼 쪽(스탠스) · ③④ 가까운 쪽(스텝) · 가운데 액티브
     targets: [
       { x: -0.42, y: 0.36, n: 1, r: 0.19, on: true },
@@ -1140,7 +1140,7 @@ function drawMatCard(t) {
       { x: -0.32, y: -0.48, n: 3, r: 0.19, on: true, live: true },
       { x: 0.32, y: -0.48, n: 4, r: 0.19, on: false },
     ],
-    ruler: { w: 1.6, h: 2.2 }, title: 'LOW DRIBBLE', brand: 'NEWTON',
+    brand: 1,
   }, { halo: P.halo }, t, Object.assign(_primEnv(), { logo: _matLogo() }));
   const c = cv.getContext('2d');
   c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, W, W);

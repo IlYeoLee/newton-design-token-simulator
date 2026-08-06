@@ -1953,21 +1953,26 @@ export function drawDribbleMat(g, W, P, look, t, ENV) {
     g.stroke(); g.setLineDash([]);
   }
 
-  // ── 표적 — 유리 원반 + OffBit 숫자. 세션이 3D 판정 마크를 쓰면 P.targets 를 안 넘겨 여기는 빈다.
+  // ── 노드 — 허브를 도는 링 위의 슬롯. 대기는 헤어라인, 선택된 것만 채워진다.
+  //    (원형 메뉴·게임 HUD 셀렉터의 기본 위계 — 넷을 같은 무게로 두면 '스티커 네 장'이 된다)
   for (const tg of (P.targets || [])) {
-    const on = tg.on !== false, A = on ? 1 : 0.42;
-    const cx = X(tg.x), cy = Y(tg.y), R = (tg.r != null ? tg.r : 0.20) * W / 2;
-    const disc = () => { g.beginPath(); g.arc(cx, cy, R, 0, Math.PI * 2); };
-    glass(disc, 0.34, A);
-    if (tg.live) {                                  // 지금 밟을 표적 = 판정색 림 하나
-      g.strokeStyle = rgbaL(0.32, 0.95); g.lineWidth = 3.2 * AW * s;
-      g.shadowColor = lut(0.4); g.shadowBlur = 12 * s;
-      disc(); g.stroke(); g.shadowBlur = 0;
+    const on = tg.on !== false, live = !!tg.live;
+    const cx = X(tg.x), cy = Y(tg.y);
+    const R = (tg.r != null ? tg.r : 0.20) * W / 2 * (live ? 1.06 : 1);
+    if (live) {                                   // 선택 = 채움 + 밝은 림. 화면에 하나뿐이다.
+      const f = g.createRadialGradient(cx, cy, R * 0.2, cx, cy, R);
+      f.addColorStop(0, rgbaL(0.34, 0.34)); f.addColorStop(1, rgbaL(0.3, 0.14));
+      g.fillStyle = f; g.beginPath(); g.arc(cx, cy, R, 0, Math.PI * 2); g.fill();
+      g.strokeStyle = rgbaL(0.3, 0.95); g.lineWidth = 3 * AW * s;
+      g.shadowColor = lut(0.4); g.shadowBlur = 14 * s;
+      g.beginPath(); g.arc(cx, cy, R, 0, Math.PI * 2); g.stroke(); g.shadowBlur = 0;
+    } else {                                      // 대기 = 헤어라인. 채우지 않는다.
+      g.strokeStyle = INK(on ? 0.34 : 0.14); g.lineWidth = 1.6 * s;
+      g.beginPath(); g.arc(cx, cy, R, 0, Math.PI * 2); g.stroke();
     }
-    g.setLineDash([2 * s, 6 * s]);                  // 안쪽 점선 = 밟는 자리의 안쪽 한계
-    g.strokeStyle = INK(0.3 * A); g.lineWidth = 1.3 * s;
-    g.beginPath(); g.arc(cx, cy, R * 0.78, 0, Math.PI * 2); g.stroke(); g.setLineDash([]);
-    g.globalAlpha = A; ENV.num(g, tg.n, cx, cy + s, R, R * 0.9); g.globalAlpha = 1;
+    g.globalAlpha = live ? 1 : (on ? 0.55 : 0.22);
+    ENV.num(g, tg.n, cx, cy + s, R, R * 0.82);
+    g.globalAlpha = 1;
   }
 
   // ── 액티브 타깃 — 화면에서 **유일한 색 사건**. 지금 겨눌 자리
@@ -2016,23 +2021,16 @@ export function drawDribbleMat(g, W, P, look, t, ENV) {
     g.globalAlpha = 1;
   }
 
-  // ── 진행 — 림이 상단 중앙부터 밝아지며 한 바퀴(반복 카운트). 판정이 아니라 크롬이다
-  if (P.prog > 0.001) {
-    let total = 0;
-    for (let i = 1; i < pts.length; i++)
-      total += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
-    const want = total * Math.min(1, P.prog);
-    g.strokeStyle = INK(0.98); g.lineWidth = 3 * AW * s;
-    g.shadowColor = INK(0.5); g.shadowBlur = 8 * s;
-    g.beginPath(); g.moveTo(pts[0][0], pts[0][1]);
-    let acc = 0;
-    for (let i = 1; i < pts.length && acc < want; i++) {
-      const d = Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
-      if (acc + d <= want) { g.lineTo(pts[i][0], pts[i][1]); acc += d; }
-      else { const f = (want - acc) / d;
-        g.lineTo(pts[i - 1][0] + (pts[i][0] - pts[i - 1][0]) * f,
-                 pts[i - 1][1] + (pts[i][1] - pts[i - 1][1]) * f); acc = want; }
-    }
+  // ── 진행 = 허브 바깥 아크 게이지. 판 테두리를 채우던 걸 여기로 옮긴다 —
+  //    테두리는 '판이 어디까지인가'를 말하는 선이지 진행 막대가 아니다. 진행은 판정 옆에 붙는다.
+  if (P.prog > 0.001 && P.center) {
+    const cx = X(cU), cy = Y(cV), GR = CR * 1.26;
+    g.strokeStyle = INK(0.14); g.lineWidth = 3 * s;
+    g.beginPath(); g.arc(cx, cy, GR, 0, Math.PI * 2); g.stroke();
+    g.strokeStyle = rgbaL(0.34, 0.95); g.lineWidth = 3.4 * AW * s; g.lineCap = 'round';
+    g.shadowColor = lut(0.42); g.shadowBlur = 10 * s;
+    g.beginPath();
+    g.arc(cx, cy, GR, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.min(1, P.prog));
     g.stroke(); g.shadowBlur = 0;
   }
 }
