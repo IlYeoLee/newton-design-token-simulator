@@ -717,7 +717,20 @@ vec4 personAura(float mBody, float wide, float lumSharp, float lumBase, float fa
   if (uPEmph > 0.001) {
     float e = smoothstep(uPEmphY0 - uPEmphSoft, uPEmphY0 + uPEmphSoft, uv.y)
             * (1.0 - smoothstep(uPEmphY1 - uPEmphSoft, uPEmphY1 + uPEmphSoft, uv.y));
-    t = mix(t, uPEmphT, clamp(e * uPEmph, 0.0, 1.0) * mBody * (1.0 - face));
+    // ★ 열처럼 보이게 — 선형 마스크는 '띠'로 읽히고 얹은 티가 난다(유저: 동떨어지지 않고 자연스럽게).
+    //   ① 감마 0.55 = 코어는 꽉 차고 가장자리는 길게 흘러내린다 → 열 확산의 모양
+    //   ② 맥동은 **기존 웨이브 시계(tSec)를 그대로** 쓴다 — 새 시계를 만들면 몸통 일렁임과
+    //      박자가 어긋나 두 개의 다른 효과로 보인다. 룩시스템 어휘 안에 남는 방법이 이것이다.
+    //   ③ 얼굴 제외는 그대로(이목구비 소거가 풀리면 반점이 돌아온다)
+    e = pow(clamp(e, 0.0, 1.0), 0.55);
+    e *= 0.88 + 0.12 * sin(tSec * 1.9 + uv.y * 2.4);
+    float ek = clamp(e * uPEmph, 0.0, 1.0) * mBody * (1.0 - face);
+    t = mix(t, uPEmphT, ek);
+    // 열 경계 — 강조부는 rim(이 룩의 고유 장치)도 같이 세운다. 색만 바꾸면 평면 스티커가 되고,
+    //   rim 이 서야 '달아오른 덩어리'로 읽힌다. 몸통 rim 과 같은 식·같은 성분이다.
+    //   ⚠ t 는 이미 위에서 rim 을 먹고 나왔다 — rim 변수를 여기서 더해 봐야 죽은 코드다.
+    //     반드시 t 에 직접 얹는다(실측으로 잡은 함정).
+    t += max(0.0, band - bandB) * 0.9 * ek;
   }
   vec3 c = look2Ramp(clamp(t + dth, 0.0, 1.0));
   // 채도 부스트(유저 최종 요청: "제발 채도 올려줘") — 무채 축 기준 1.28배.
@@ -2085,12 +2098,11 @@ export function drawDribbleMat(g, W, P, look, t, ENV) {
     g.shadowColor = V === 'hit' ? PAL.prism : V === 'near' ? PAL.sand : lut(0.5);
     g.beginPath(); g.arc(cx, cy, R, 0, Math.PI * 2); g.stroke();
     g.shadowBlur = 0;
-    // ★ 숫자 = **파냄**(destination-out) — 잽잽훅 정본의 그 기법(유저: 밟게 빛나는 그게 있는데).
-    //   채움·글로우·블룸이 아무리 밝아져도 숫자가 배경으로 뚫려 항상 읽힌다. 위에 얹기만 하면
-    //   밝아질수록 같이 묻힌다. 활성 노드에서 특히 그랬다.
-    g.save(); g.globalCompositeOperation = 'destination-out'; g.shadowBlur = 0;
+    // ★ 파냄(destination-out) **철회**(유저: 구멍을 뚫으면서 오히려 글자가 눈에 더 안 들어온다).
+    //   잽잽훅은 어두운 캔버스라 뚫린 자리가 검게 남아 글자로 읽혔다. 여기는 **잉크로 합성**해
+    //   바닥이 비치는데, 그러면 구멍 = 코트 무늬가 되어 글자가 배경 텍스처에 먹힌다.
+    //   합성 매체가 다르면 같은 기법이 반대로 작동한다. 솔리드로 얹는다.
     ENV.num(g, tg.n, cx, cy, R * 0.9, Math.round(R * 0.78));
-    g.restore();
     g.globalAlpha = 1;
   }
 

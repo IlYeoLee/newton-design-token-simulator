@@ -18,7 +18,7 @@
     ?size=1440    정사각 한 변(px)
     ?bg=000       배경 색. bg=none 이면 투명(알파 채널 녹화·PNG 시퀀스용)
     ?plate=court  배경에 실제 코트 깔기 — 밝은 바닥에서 읽히는지 그 자리에서 판단
-    ?tilt=52      바닥 기울기(도). 기본 = GAZE.MAT 실측. tilt=0 이면 평면
+    ?tilt=0       바닥 기울기(도). **기본 0 = 평면**(촬영용). 52 = GAZE.MAT 실측 각(미리보기)
     ?m=0.90       판 한 변(m) — session.js MAT_SIZE
     ?ppm=520      플레이트의 px/m (농구공 0.24m 로 실측). 주면 크기가 미터에 묶인다
     ?token=punch|arrow|mat   같은 바닥에 **다른 토큰**을 놓고 비교(유저: 잽잽훅·화살표는 되나)
@@ -100,7 +100,10 @@ cv.style.width = cv.style.height = SIZE + 'px';
 //   원근 거리는 화각에서 나온다 — vfov 60°(main.js fpMode) 기준 P = (H/2)/tan(30°).
 //   ※ 캔버스 2D 는 아핀뿐이라 진짜 원근이 안 나온다. CSS 3D 로 눕히면 브라우저가 원근을
 //     정확히 계산해 주고, 그 값이 그대로 에펙 카메라와 대응된다(scripts/ae_stance_tilt.jsx 규약).
-const TILT = +(q.get('tilt') ?? 52);
+// ★ 기본 **0(평면)**(유저: 1차 촬영은 일반 프레임뷰로 찍고 각도는 나중에 에펙에서).
+//   미리 눕혀 뽑으면 글로우까지 원근으로 눌려 AE 에서 되돌릴 수 없다. 각은 AE 가 잡는다.
+//   ?tilt=52 로 주면 GAZE.MAT 실측 각으로 눕혀서 미리보기할 수 있다(판단용).
+const TILT = +(q.get('tilt') ?? 0);
 const MAT_M = MAT_M_PRE;
 if (TILT) {
   const P = (SIZE / 2) / Math.tan(30 * Math.PI / 180);
