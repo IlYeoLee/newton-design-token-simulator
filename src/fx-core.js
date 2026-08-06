@@ -1921,24 +1921,34 @@ export function drawDribbleMat(g, W, P, look, t, ENV) {
 
   // ── 레일 — 노드 순서를 잇는 점열. 잽잽훅 가이드 레일과 같은 값(0길이 대시 · 라운드캡 · 0.22)
   const NODES = (P.targets || []).slice().sort((a, b) => (a.n || 0) - (b.n || 0));
-  if (NODES.length > 1) {
+  if (NODES.length) {
     g.save(); g.shadowBlur = 0; g.globalAlpha = 0.22 * eOutQuint(IN / 0.9);
     g.strokeStyle = lut(0.6); g.lineWidth = 2.2 * s; g.lineCap = 'round';
     g.setLineDash([0.01, 8 * s]);
-    g.beginPath();
-    NODES.forEach((q, i) => i ? g.lineTo(X(q.x), Y(q.y)) : g.moveTo(X(q.x), Y(q.y)));
-    g.stroke(); g.setLineDash([]); g.restore();
+    for (const q of NODES) {
+      const qx = X(q.x), qy = Y(q.y), dx = X(cU) - qx, dy = Y(cV) - qy;
+      const L = Math.hypot(dx, dy) || 1;
+      const NR = (q.r != null ? q.r : 0.20) * W / 2 * 1.16;   // 노드 림 바깥에서 시작
+      g.beginPath();
+      g.moveTo(qx + dx / L * NR, qy + dy / L * NR);
+      g.lineTo(X(cU) - dx / L * CR * 1.12, Y(cV) - dy / L * CR * 1.12);   // 허브 림 앞에서 멈춤
+      g.stroke();
+    }
+    g.setLineDash([]); g.restore();
   }
   // ── 코멧 — 타깃이 옮겨 갈 때 레일 위를 달린다. P.travel = { from, to, k 0..1 }
   const TR = P.travel;
   if (TR && TR.k > 0.001 && TR.k < 1) {
     const a = NODES.find(q => q.n === TR.from), b = NODES.find(q => q.n === TR.to);
     if (a && b) {
-      const ax = X(a.x), ay = Y(a.y), bx = X(b.x), by = Y(b.y);
+      // 두 구간(노드 → 허브 → 노드). 가로지르지 않고 가운데를 찍고 간다.
+      const ax = X(a.x), ay = Y(a.y), bx = X(b.x), by = Y(b.y), mx = X(cU), my = Y(cV);
       const e = eOutQuint(TR.k);
-      const hx = ax + (bx - ax) * e, hy = ay + (by - ay) * e;
-      const tk = Math.max(0, e - 0.28);
-      const tx = ax + (bx - ax) * tk, ty = ay + (by - ay) * tk;
+      const at = u => u < 0.5
+        ? [ax + (mx - ax) * (u / 0.5), ay + (my - ay) * (u / 0.5)]
+        : [mx + (bx - mx) * ((u - 0.5) / 0.5), my + (by - my) * ((u - 0.5) / 0.5)];
+      const [hx, hy] = at(e);
+      const [tx, ty] = at(Math.max(0, e - 0.28));
       const gr = g.createLinearGradient(tx, ty, hx, hy);
       gr.addColorStop(0, lut(0.5).replace('rgb(', 'rgba(').replace(')', ',0)'));
       gr.addColorStop(1, lut(0.85).replace('rgb(', 'rgba(').replace(')', ',0.85)'));
