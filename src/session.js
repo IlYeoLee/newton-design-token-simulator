@@ -1161,6 +1161,31 @@ export class Session {
     seg(H.trC, H.fRl, H.fLl);
   }
 
+  /** 실전 경로의 **밟을 자리** — 목표 존 원(ZONE.base · phase 3 Locked 아웃라인).
+   *  ★ 고스트 발자국을 쓰면 안 된다(유저 08-07): 고스트는 '지나간 자리'라 의미가 정반대다.
+   *    앞으로 밟을 곳에 잔상을 놓으면 이미 밟은 걸로 읽힌다.
+   *    zTgt 가 쓰던 그 레시피 그대로다 — 그 함수 주석이 이미 규약을 적어 뒀다:
+   *    "아직 안 밟은 목표는 **테두리로만** 말한다."
+   *  ponytail: 새 그래픽 0개. floorRing(= waveRingMesh = MARK 존 원) 세 개뿐. */
+  _sbPathZones(H, on) {
+    if (!H.zPath) {
+      if (!on) return;
+      const mk = () => { const r = floorRing(0, SBZ, ZONE.base - 0.018, ZONE.base, BRAND.dim, 0);
+        r.renderOrder = 3;   // 발마크(7~8) 아래 — 원이 실루엣을 덮지 않게(zTgt 와 같은 규약)
+        r.setPhase?.(3); (H.mL?.parent || this.root).add(r); return r; };
+      H.zPath = [mk(), mk(), mk()];
+    }
+    const at = [H.fC, H.fLr, H.fLl];
+    H.zPath.forEach((r, i) => {
+      const f = at[i];
+      r.visible = !!(on && f);
+      if (!r.visible) { r.setOp?.(0); return; }
+      const q = f.group.position;
+      r.position.set(q.x, 0.0125, q.z);
+      r.setOp?.(0.42);   // 2급 — 지금 밟을 자리(판정 토큰, 1급)보다 옅게
+    });
+  }
+
   /** 빔 창 안에 **반경까지 포함해서** 앉힌다 — 투사 영역 밖으로 나가는 것을 금지(유저 08-06).
    *
    *  왜 필요한가: 지금까지의 클램프(SB_BOX·sbU·sbV)는 전부 **원점**만 막았다. 마크는 중심이
@@ -3516,10 +3541,12 @@ export class Session {
         //   맞다 — 어디에 집중할지가 명확해진다. 하지만 실전에서까지 순차로 뜨면 '다음 발이
         //   어디였지'를 기억으로 때워야 해서 **이어서 할 수가 없다**. 배운 걸 붙이는 자리에서는
         //   전체 경로가 먼저 보여야 한다.
-        //   ⚠ 새로 만들 게 없었다: 국면 5개 발자국(준비 페어 · 플랜트 · 착지 페어)을
-        //     buildStepback 이 **영상 실측 좌표로 이미 만들어 두고** op(0.10)으로 죽여 놨다.
-        //     밟을 자리는 Locked 고스트로 옅게 · 지금 밟을 자리는 판정 토큰이 따로 말한다.
-        for (const k of ['fC', 'fLl', 'fLr']) { if (LIVE) { H[k]?.ghost(); H[k]?.op(0.30); } else H[k]?.op(0); }
+        //   ★★ 밟을 자리는 **고스트로 그리지 않는다**(유저 08-07). 고스트는 '지나간 자리'라
+        //     의미가 정반대다 — 앞으로 밟을 곳에 잔상을 놓으면 이미 밟은 걸로 읽힌다.
+        //     정본은 이미 있다: **목표 존 원**(zTgt 가 쓰는 ZONE.base · phase 3 Locked 아웃라인,
+        //     주석 그대로 "아직 안 밟은 목표는 테두리로만 말한다"). 경로에 그걸 깐다.
+        for (const k of ['fC', 'fLl', 'fLr']) H[k]?.op(0);
+        this._sbPathZones(H, LIVE);
         if (H.numL) { placeMarkNum(H.numL); placeMarkNum(H.numR); H.numL.visible = H.numR.visible = true; }
         H.mL.setOp?.(0); H.mR.setOp?.(0); H.mC.setOp?.(0);
         H.rise.setOp?.(0); H.gh.op(0); H.cL?.op(0); H.cR?.op(0);
