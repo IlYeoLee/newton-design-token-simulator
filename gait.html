@@ -35,9 +35,11 @@ import { LOAD } from '/src/marklang.js';
 import { makeMarkFXMaterial, applyMarkLookTo, setMarkStateLook, setMarkLoad,
          FOOT_LEN_M, FOOT_PLANE_M, QUAD_K } from '/src/tokens.js';
 
-// 맨발 슬롯 — 실루엣 자체에 **발가락이 갈라져** 있다. 깔창('out')이면 발가락 모양이
-//   실루엣이 아니라 각인 채널로만 들어가서, 구르는 하중이 발가락에 안 실린다.
-FXP.footCtx = 'in';
+// ★ 신발 안에서 걷는다 — 겉은 **깔창 실루엣**(SDF R 채널), 안은 **맨발 접지 프린트**(G 채널).
+//   'in' 으로 두면 신발이 사라지고 맨발만 남는다. 접지는 신발 구조 **안**에서 일어난다.
+//   plantar 의 depth = 깔창 깊이 × 맨발 프린트 깊이 라, 이 컨텍스트라야 접지면이
+//   발가락·아치를 가진 프린트 모양으로 깔창 안에 앉는다.
+FXP.footCtx = 'out';
 
 // ── 한 걸음 = **입각기(stance)** ────────────────────────────────────────────
 //   보행 문헌의 정본 구간. % 는 입각기 기준(보행주기로는 0~60% 가 입각기다).
@@ -79,9 +81,9 @@ const LOOK = { imp: 0, glow: 0, shade: 0, rip: 0, shadeRed: 0, edgeShade: 0, hal
                //   하중 차이를 덮어서 다섯 단계가 전부 같은 그림이 된다(실측). 단계 대비가 이 페이지의 전부다.
                //   맨발 슬롯은 겉·안이 같은 그림이라 plantar 의 depth 가 0.42 에서 천장을 친다 —
                //   gain 을 그만큼 되올려야 고압부가 램프의 **레드 끝**까지 닿는다(안 그러면 전부 한기).
-               //   실측: 뒤꿈치 한가운데서도 dShoe 가 0.5 언저리라 depth ≈ 0.21 —
-               //   램프의 레드 끝(q→0)에 닿으려면 gain 이 4 근처까지 올라가야 한다.
-               plantar: 1, loadGain: 4.0, loadBase: 0.10, bands: 0, pool: 0.9, pressA: 0.6 };
+               //   깔창 컨텍스트는 depth 가 겉·안 두 겹으로 곱해져 맨발 슬롯보다 낮게 나온다.
+               //   pressA 는 낮춘다 — 높으면 접지 안 한 깔창 몸통까지 비어서 신발이 안 읽힌다.
+               plantar: 1, loadGain: 2.6, loadBase: 0.10, bands: 0, pool: 0.9, pressA: 0.4 };
 
 const S_W = FOOT_LEN_M * 1.15, S_H = FOOT_LEN_M * 1.75, PPM = 1100;
 const cv = document.getElementById('c');

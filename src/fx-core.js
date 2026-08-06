@@ -807,6 +807,10 @@ float plantar(vec2 pQ, float sdIn, float sd){
   if (uCopA > 0.001) {
     vec2 dC = (p - uCop) / max(uCopR, vec2(0.06));
     float win = exp(-dot(dC, dC));
+    //   ★ 창은 **맨발 프린트 안에서만** 접지한다. 안 그러면 깔창 위에 둥근 얼룩이 떠다니고
+    //     발가락·아치가 안 나온다 — depth 의 0.42 바닥이 프린트 밖에도 절반을 남기기 때문.
+    //     이 곱으로 접지면이 발 모양(발가락 갈라짐·움푹 팬 아치)을 갖는다.
+    win *= mix(0.14, 1.0, smoothstep(0.02, -0.05, sdIn));
     //   창 안은 램프의 레드 끝까지 닿아야 한다 — 1.45 로는 접지 중심도 주황에서 멈췄다(실측).
     blob = mix(blob, (0.30 + 0.70 * clamp(blob, 0.0, 1.4)) * win * 2.6, clamp(uCopA, 0.0, 1.0));
   }
