@@ -1066,7 +1066,14 @@ vec4 markState(vec2 uv, float state, float prog, float strong, float t){
     //   최대치 1.0 유지 = 고압부는 도입 전과 동일. uPlantar 0 이면 전 픽셀 동일(롤백 지점).
     float prI = plantar(uv, sdIn, sd);
     float press = mix(1.0, 0.16 + 0.84 * prI, clamp(uPlantar, 0.0, 1.0));
-    lay(A, palPick(uImpDotCol), inIn * dotM * uImp * (0.06 + 0.94 * dep) * press);
+    // 도트 색 = 압력 온도. 전엔 단색이라 알파만 압력을 탔고, 고압부의 지정색(레드)이
+    //   그 아래 필(연주황)과 색이 안 이어져 해칭이 통째로 끊겨 보였다(유저 08-06).
+    //   압력이 빠질수록 LUT 를 따라 주황(coral t=0.56) → 연주황(sand t=0.86) 으로 식는다 —
+    //   필이 이미 그 구간에 있으므로 경계가 사라진다. 새 색은 만들지 않는다(유채 4색 규칙).
+    //   지정 팔레트색(uImpDotCol)은 정점 부근에만 남겨 노브를 죽이지 않는다.
+    float dotT = clamp(press * dep, 0.0, 1.0);
+    vec3 dotC = mix(lut(mix(0.86, 0.56, dotT)), palPick(uImpDotCol), smoothstep(0.72, 1.0, dotT));
+    lay(A, dotC, inIn * dotM * uImp * (0.06 + 0.94 * dep) * press);
     // 이너 섀도우 — 경계 **안쪽**에서 최대, 안으로 갈수록 사라진다. 자국이 '눌려 들어간' 자리로 읽힌다.
     //   빛을 빼지 않는다(위 uImpShade 주석): LUT 저역(RED)을 얹어 어느 바닥에서도 그림자로 읽히게.
     // 각인 음영에도 같은 블룸을 — 음영은 실루엣이든 자국이든 하나의 언어여야 한다.
