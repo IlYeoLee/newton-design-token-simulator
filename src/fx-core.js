@@ -65,7 +65,25 @@ export function sdfFromAlpha(imgData, N) {
 
 /** SVG → 비트맵 래스터 + 실픽셀 타이트 바운딩 (9인자 drawImage의 SVG 버그 회피).
  *  해상도별 이미지 캐시 — 저해상 캐시가 고해상 요청을 누르던 병목 방지. */
-export function glyphRaster(img, S = 512) {
+/** ── 래스터 품질 스칼라 (FXQ) ──────────────────────────────────────────────────
+ *  유저 2026-08-07: *"레이아웃이 저렇게 크게 들어갈 거라 확대는 할 거라도 품질을 신경 써야 해."*
+ *  실측 병목: 마크 안 글리프가 **128×128 캔버스**이고 SVG 글리프 래스터가 512 다 —
+ *  대지 캔버스를 K=3(4800×8010)으로 올려도 그 안의 글리프는 128 을 늘린 것이라 뭉갠다.
+ *  실시간 예산(0.75)은 건드리지 않는다. **추출 경로만** 이 값을 올린다:
+ *    window.__FXQ = 3  (export_ui.mjs 가 uiscale 과 같이 세운다)
+ *  좌표는 전부 캔버스 크기에서 파생시켜야 한다 — 상수 64/96 을 그대로 두면 스케일이 깨진다. */
+export const FXQ = {
+  // ★ **눈으로 바로 본다**(유저: 굽는 게 아니라 시각적으로 바로 보게).
+  //   `?fxq=3` 이면 5199 에서 즉시 고품질로 그려진다 — 추출을 기다릴 필요가 없다.
+  //   우선순위: window.__FXQ(추출 스크립트가 세움) > ?fxq= > 1(실시간 기본, 예산 유지).
+  get k() {
+    if (typeof window === 'undefined') return 1;
+    const q = +new URLSearchParams(location.search).get('fxq');
+    const v = +window.__FXQ || q || 1;
+    return Math.min(4, Math.max(1, v));
+  },
+};
+export function glyphRaster(img, S = 512 * FXQ.k) {
   const key = '_raster' + S;
   if (img[key]) return img[key];
   const c = document.createElement('canvas'); c.width = c.height = S;
@@ -2059,7 +2077,12 @@ export function drawDribbleMat(g, W, P, look, t, ENV) {
     const R = (q.r != null ? q.r : 0.20) * W / 2 * (q.live ? 1.34 : 1);
     contactFx(X(q.x), Y(q.y), R, q.hit);
   }
-  if (!nodeHits.length && P.center && P.hit != null) contactFx(X(cU), Y(cV), CR, hit);
+  // ★ 가운데도 **표적 5번**이다(유저: 가이드 보니 가운데에서도 공 튀길 수 있더구만).
+  //   내가 앞선 수정에서 허브를 반응에서 통째로 뺐는데, 그러면 가운데에 튀길 때 아무 일도
+  //   안 일어난다 — 노드 넷과 같은 자격으로 되돌린다. center.hit 이 그 신호다.
+  //   P.hit(전역)은 center.hit 이 없을 때만 도는 옛 폴백으로 남긴다.
+  const cHit = P.center ? (P.center.hit != null ? P.center.hit : (P.hit != null ? hit : null)) : null;
+  if (cHit != null && cHit < 1.2) contactFx(X(cU), Y(cV), CR, cHit);
 
   // ── 액티브 타깃 — 화면에서 **유일한 색 사건**. 지금 겨눌 자리
   if (P.center) {
@@ -2102,6 +2125,10 @@ export function drawDribbleMat(g, W, P, look, t, ENV) {
 
   // ── 진행 = 허브 바깥 아크 게이지. 판 테두리를 채우던 걸 여기로 옮긴다 —
   //    테두리는 '판이 어디까지인가'를 말하는 선이지 진행 막대가 아니다. 진행은 판정 옆에 붙는다.
+  // ★ 진행 게이지는 **허브에서 뺀다**(유저: 가운데 링이 왜 반만 차 있냐고, 애매하다).
+  //   가운데가 표적이 된 이상 그 링은 '지금 겨눌 자리'를 말해야 한다 — 거기에 '16회 중 8회'를
+  //   겹쳐 놓으니 한 선이 공간과 시간을 동시에 말해 어느 쪽도 안 읽혔다. 회차는 헤더 알약이
+  //   이미 '/16' 으로 말한다(같은 정보 두 벌 금지). 파라미터는 남기되 매트 호출부가 안 넘긴다.
   if (P.prog > 0.001 && P.center) {
     const cx = X(cU), cy = Y(cV);
     // 링 = 진행이다. 별도 게이지 원을 하나 더 그리지 않는다(줄이 둘이면 어느 쪽이 상태인지 갈린다).

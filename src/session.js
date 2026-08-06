@@ -3247,7 +3247,7 @@ export class Session {
       //     per    박자 주기    ← H._per (실측 바운스 간격)
       //     live   지휘 대상    ← H.tg[i].on (표적 활성 플래그)
       const MP = H.mat._prim.P;
-      MP.prog = Math.min(1, H.count / TOTAL);   // 테두리 도트가 차오름 = 남은 회차
+      MP.prog = 0;   // 회차는 헤더 알약이 '/16' 으로 말한다 — 허브 링에 겹쳐 그리지 않는다(유저)
       MP.in = Math.min(1, Math.max(0, tB / 0.6));
       MP.hit = this.t - (H._popT ?? -9);
       if (H._per > 0.05) MP.per = H._per;

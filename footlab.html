@@ -1224,7 +1224,7 @@ addEventListener('DOMContentLoaded', () => {
   const now = () => performance.now() / 1000;
   document.getElementById('mIn').onclick = () => { _mInT = now(); };
   document.getElementById('mHit').onclick = () => { _mHitT = now(); };
-  document.getElementById('mLive').onclick = () => { _mPrev = _mLive; _mLive = _mLive % 4 + 1; _mLiveT = now(); };
+  document.getElementById('mLive').onclick = () => { _mPrev = _mLive; _mLive = _mLive % 5 + 1; _mLiveT = now(); };   // 5 = 가운데
   const pb = document.getElementById('mPlay');
   pb.onclick = () => {
     _mPlay = !_mPlay; pb.textContent = _mPlay ? '■ 정지' : '▶ 재생';
@@ -1239,16 +1239,18 @@ function drawMatCard(t) {
   if (_mPlay && t >= _mNext) {
     _mNext = t + _mPer;
     _mHitT = t;                                  // 접촉 = 수축 링 + 잠금 핑
-    if (++_mBeat % 4 === 0) { _mPrev = _mLive; _mLive = _mLive % 4 + 1; _mLiveT = t; }
+    if (++_mBeat % 4 === 0) { _mPrev = _mLive; _mLive = _mLive % 5 + 1; _mLiveT = t; }   // 표적 5개 순회
   }
   const W = 1080;
   const off = drawMatCard._o || (drawMatCard._o = Object.assign(document.createElement('canvas'), { width: W, height: W }));
   const g = off.getContext('2d');
   g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, W, W);
   drawDribbleMat(g, W, {
-    chev: 0, prog: 0.5, in: _mIn(t), hit: null, travel: { from: _mPrev, to: _mLive, k: Math.min(1, (t - _mLiveT) / 0.45) },
+    chev: 0, prog: 0, in: _mIn(t), hit: null, travel: { from: _mPrev, to: _mLive, k: Math.min(1, (t - _mLiveT) / 0.45) },
     mat: { nx: 0.50, fx: 0.86, ny: -0.80, fy: 0.80 },
-    center: { x: 0, y: 0.00, r: 0.28, label: null },
+    // 가운데 = 표적 5번. 노드 넷과 같은 자격으로 지휘·접촉이 온다.
+    center: { x: 0, y: 0.00, r: 0.28, label: null,
+              live: _mLive === 5, hit: _mLive === 5 ? t - _mHitT : null },
     // 시뮬 배치와 같은 다섯 — ①② 먼 쪽(스탠스) · ③④ 가까운 쪽(스텝) · 가운데 액티브
     targets: [
       // hit = **그 노드가** 닿은 뒤 경과(유저: 3번에서 튀기면 3번이 반응해야지 중앙이 아니라).

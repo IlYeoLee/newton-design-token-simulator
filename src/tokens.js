@@ -3,7 +3,7 @@ import { NUM, PAL, NEU, rgba } from './palette.js';
 import { WALL_Z } from './scene.js';
 import { getLUT, FXP, FX_GLSL, GLYPHS, drawGlyph, lutColor, footSDFTexture, warnSDFTexture } from './fxlut.js';
 import LOOK from './mark-look.json';   // ★ MARK 룩 정본 — footlab '코드에 저장'이 굽는 파일
-import { MARK_NUM, MARK_GLSL, drawStemArrow, SIL_FIT, SIL_FIT_REF, QUAD_K, ZONE_GLYPH_K } from './fx-core.js';
+import { MARK_NUM, MARK_GLSL, drawStemArrow, SIL_FIT, SIL_FIT_REF, QUAD_K, ZONE_GLYPH_K, FXQ } from './fx-core.js';
 
 // ── MARK 파동 셰이더 (FX Lab 이식) — 재료는 열 하나, 상태는 파동의 위상 ──
 const MARKFX_VERT = `
@@ -658,18 +658,19 @@ const _footNumTex = {};
 function makeFootGlyphTexture(right) {
   const k = right ? 'R' : 'L';
   if (_footNumTex[k]) return _footNumTex[k];
-  const c = document.createElement('canvas'); c.width = c.height = 128;
+  const N = Math.round(128 * FXQ.k);   // ★ 품질 스칼라 — 추출에선 3배(384). 좌표도 N 에서 파생시킨다
+  const c = document.createElement('canvas'); c.width = c.height = N;
   const ctx = c.getContext('2d');
   // ★★ 이 자리는 **로고다**(유저 확정 3회: "우리 러닝에서 쓰이는 건 우리 로고 들어간 원형 마크
   //   판정 토큰이잖아" / "또 로고 없어졌어" / "왜 러닝할 때 갑자기 R L 이 된 거야").
   //   L/R 글리프로 바꾸지 말 것 — 08-06 에 두 번 바뀌었다. 어느 발인지는 **로고를 좌우로
   //   미러**해서 말한다(mirror). '숫자와 같은 취급'은 **그리는 경로·크기**를 말한 것이지
   //   글리프를 L/R 로 바꾸라는 뜻이 아니었다: 같은 drawGlyph · 같은 96px.
-  const ok = drawGlyph(ctx, 'LOGO', 64, 64, 96, { mirror: right });
+  const ok = drawGlyph(ctx, 'LOGO', N / 2, N / 2, N * 0.75, { mirror: right });
   if (!ok) {   // 슬롯 미로드 폴백 — 캐시하지 않는다(로드 후 정본으로 재생성)
     ctx.strokeStyle = rgba(NEU.ink, 0.95); ctx.lineWidth = 5;
     ctx.shadowColor = rgba(PAL.coral, 0.75); ctx.shadowBlur = 12;
-    ctx.beginPath(); ctx.ellipse(64, 64, 20, 34, right ? 0.12 : -0.12, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(N/2, N/2, N*0.156, N*0.266, right ? 0.12 : -0.12, 0, Math.PI * 2); ctx.stroke();
   }
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
@@ -677,16 +678,17 @@ function makeFootGlyphTexture(right) {
   return tex;
 }
 function makeNumberTexture(n) {
+  const N = Math.round(128 * FXQ.k);   // ★ 품질 스칼라(FXQ) — 클로즈업에서 128 은 뭉갠다
   const c = document.createElement('canvas');
-  c.width = c.height = 128;
+  c.width = c.height = N;
   const ctx = c.getContext('2d');
   // 커스텀 글리프(FX Lab 슬롯 SVG) 우선 — 없으면 웜 크림 타이포 (동일 온도 언어)
-  if (!drawGlyph(ctx, String(n), 64, 64, 96)) {
+  if (!drawGlyph(ctx, String(n), N / 2, N / 2, N * 0.75)) {
     ctx.fillStyle = rgba(NEU.ink, 0.95);
     // ★ 규약(유저 08-06, 못 박음): **마크 안 영문·한글은 무조건 도트 폰트**.
     //   로고는 러닝에서만(makeFootGlyphTexture). 슬롯 SVG 가 없을 때 시스템 산세리프로
     //   떨어지면 그 글자만 다른 활자가 되어 규약이 깨진다 — OffBit 을 먼저 세운다.
-    ctx.font = "700 86px 'OffBit', -apple-system, sans-serif";
+    ctx.font = `700 ${Math.round(N * 0.67)}px 'OffBit', -apple-system, sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.shadowColor = rgba(PAL.coral, 0.75);
