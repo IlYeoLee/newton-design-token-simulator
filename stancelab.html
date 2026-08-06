@@ -60,6 +60,7 @@
     <button id=grid>각도 그리드</button>
     <button id=mgrid>30cm 격자</button>
     <button id=blend>블렌딩: 잉크</button>
+    <label>각인(전 상태) <input type=range id=s-imp min=0 max=1 step=0.01 value=0.98><span class=v id=v-imp>0.98</span></label>
   </div>
 
   <p class=note>프레임 1816×510(3.561:1) = 16:9·vfov 60°의 중앙 띠. 카메라는 실측 눈(y 1.69 · z −1.809),
@@ -202,6 +203,7 @@ function applySucc(k) {
   LOOK.states['2'] = { ...C.ov };
   $('succHint').textContent = C.label;
   [...$('segSucc').children].forEach(b => b.classList.toggle('on', b.dataset.v === k));
+  sImp.value = LOOK.states['2'].imp ?? LOOK.imp; vImp.textContent = (+sImp.value).toFixed(2);
   buildTokens();
   forcePh = 2; _lastPh = null;   // 누르면 바로 그 상태로 — 비교가 목적이다
   [...$('segState').children].forEach(x => x.classList.toggle('on', x.dataset.v === '2'));
@@ -213,7 +215,7 @@ $('segSucc').append(...Object.entries(SUCCESS_CANDS).map(([k, C]) => {
 $('succSave').onclick = async () => {
   // 데브 미들웨어(/__save-look)는 **최상위 키 단위 병합**이라 states 는 통째로 보낸다.
   const C = SUCCESS_CANDS[SUCC] || {};
-  const body = { ...Object.fromEntries(SUCC_BASE_KEYS.map(k => [k, LOOK[k]])), states: LOOK.states };
+  const body = { ...Object.fromEntries(SUCC_BASE_KEYS.map(k => [k, LOOK[k]])), imp: LOOK.imp, states: LOOK.states };
   const r = await fetch('/__save-look', { method: 'POST', body: JSON.stringify(body) });
   $('succHint').textContent = r.ok ? `mark-look.json 에 구웠다 — 시뮬 새로고침하면 전 종목 Success 가 이걸로 돈다 (${SUCC})`
                                    : '저장 실패: ' + await r.text();
@@ -250,9 +252,23 @@ $('grid').onclick = e => { gridG.visible = !gridG.visible; e.target.classList.to
 $('mgrid').onclick = e => { mGrid.visible = !mGrid.visible; e.target.classList.toggle('on', mGrid.visible); };
 $('blend').onclick = e => { FXP.day = FXP.day ? 0 : 1;
   e.target.textContent = '블렌딩: ' + (FXP.day ? '잉크' : '가산'); };
+// ★ 각인(점)은 Success 소유가 아니라 **base 룩**이다 — 실측: M0(각인 0)을 골라도
+//   uImp 가 0 인 건 Success 뿐이고 Active·Preview·Hold 는 base 0.98 을 그대로 쓴다.
+//   그래서 이 노브는 base 와 **각 상태 오버라이드를 같이** 민다. 안 그러면 상태를 옮길 때
+//   점이 되살아나 "껐는데도 보인다"가 된다(유저 08-07).
+const sImp = $('s-imp'), vImp = $('v-imp');
+function setImp(v, rebuild) {
+  LOOK.imp = v;
+  for (const k of Object.keys(LOOK.states || {})) if (LOOK.states[k].imp != null) LOOK.states[k].imp = v;
+  vImp.textContent = v.toFixed(2);
+  if (rebuild) buildTokens(); else applyMarkLook({ imp: v });   // 놓을 때만 재빌드(상태 기준선 재캐시)
+}
+sImp.oninput = () => setImp(+sImp.value, false);
+sImp.onchange = () => setImp(+sImp.value, true);
 
 // 계측 훅 — 룩 키를 바꿔 가며 실측할 때(scripts/_probe_*) 쓴다. 화면 기능 아님.
-window.__lab = { LOOK, rebuild: buildTokens, applyMarkLook, setPh: p => { forcePh = p; _lastPh = null; } };
+window.__lab = { LOOK, rebuild: buildTokens, applyMarkLook, setPh: p => { forcePh = p; _lastPh = null; },
+  mats: () => [sL.plane.material, sR.plane.material], scene, THREE };
 
 applyVersion('now');
 
