@@ -397,6 +397,12 @@ uniform float uPInk, uPInkT;
 //     같은 룩2 램프의 아래 구간을 쓴다 — 룩시스템 밖으로 안 나간다.
 //   uPEmphY0/Y1 = 판 uv.y 기준 강조 띠(발 = 아래쪽). uPEmphSoft = 경계 무름.
 uniform float uPEmph, uPEmphT, uPEmphY0, uPEmphY1, uPEmphSoft;
+// ── 몸통 대역 자체(유저 08-07: "몸통은 하양에 가까운 맑은 코랄, 아래는 거의 붉은") ─────────
+//   룩2 램프에서 t 0.08 #ffd7d7 · 0.12 #fec6c6 · 0.20 #fb5959 · 0.25 #FA3030 · 0.50 #ff4000.
+//   종전 몸통 밴드 0.30~1.00 은 통째로 주황 구간이라 '맑은 코랄'이 나올 자리가 없었다.
+//   대역을 내리고 좁히면 몸통이 흰-코랄로 가고, 강조(uPEmphT)만 붉은 자리에 남아 갈린다.
+//   기본 0.30 / 1.00 = 도입 전과 픽셀 동일(롤백 지점).
+uniform float uPBandLo, uPBandHi;
 // 얼굴 아래 밝기 리프트 — 기본 0(끔). 복싱 벽 인물만 켠다. uFaceE = 얼굴 타원(패널 uv, xy=중심 zw=반경)
 uniform float uFaceLift;
 uniform vec4 uFaceE;
@@ -664,8 +670,9 @@ vec4 personAura(float mBody, float wide, float lumSharp, float lumBase, float fa
   float lum = lb + d * keep;
   lum = mix(lum, lb, face);   // 얼굴: 결 제거
   // 톤(룩2): 감마 0.59 → 대비 0.8 → 밝기 +0.5 → 인물 대역 0.3~1.0 (앱과 동일)
-  float band = 0.3 + 0.7 * clamp((pow(clamp(lum, 0.0, 1.0), 0.59) - 0.5) * 0.8 + 0.72 + uPCalB, 0.0, 1.0);
-  float bandB = 0.3 + 0.7 * clamp((pow(clamp(lb, 0.0, 1.0), 0.59) - 0.5) * 0.8 + 0.72 + uPCalB, 0.0, 1.0);
+  float bandW = uPBandHi - uPBandLo;
+  float band = uPBandLo + bandW * clamp((pow(clamp(lum, 0.0, 1.0), 0.59) - 0.5) * 0.8 + 0.72 + uPCalB, 0.0, 1.0);
+  float bandB = uPBandLo + bandW * clamp((pow(clamp(lb, 0.0, 1.0), 0.59) - 0.5) * 0.8 + 0.72 + uPCalB, 0.0, 1.0);
   band = mix(band, 0.17, face * 0.92);   // 얼굴 저열 — 0.10 은 광나는 구슬처럼 떴다(유저). 살짝 톤을 남긴다
   // ★ 얼굴 아래 리프트 — 가드를 올리면 얼굴·목·가슴이 한 덩어리로 붙어 글러브와 구분이
   //   안 됐다(유저 08-04). 실측: 얼굴 휘도 108 · 가슴 110 — 둘이 사실상 같은 색이었다.
@@ -682,7 +689,7 @@ vec4 personAura(float mBody, float wide, float lumSharp, float lumBase, float fa
     band = min(1.0, band + uFaceLift * lift);
   }
   // 얇은 부위(팔·다리) 심화 — wide 낮음 = 얇음. 유저: "다리만 조금 더 진하게"
-  band = min(1.0, band + 0.115 * (1.0 - smoothstep(0.40, 0.75, wide)) * (1.0 - face));   // 다리가 최심 주황(#FF3300 대)까지 닿게(유저)
+  band = min(uPBandHi, band + 0.115 * (bandW / 0.7) * (1.0 - smoothstep(0.40, 0.75, wide)) * (1.0 - face));   // 다리가 최심 주황(#FF3300 대)까지 닿게(유저)
   // ⚠ 세로 부위 프로파일(허리·무릎·종아리 대역)은 **폐기** — A1 처럼 크롭된 판에선 uv 가
   //   신체 좌표가 아니라서 허리 밴드가 셔츠 밑단의 붉은 줄무늬로 찍혔다(같은 프레임 대조 실측).
   //   부위 대비는 포즈 없인 안전하게 재현 불가 — stdG 일부 손해를 감수한다.
@@ -1974,9 +1981,12 @@ export function drawDribbleMat(g, W, P, look, t, ENV) {
   // ── 레일 — 노드 순서를 잇는 점열. 잽잽훅 가이드 레일과 같은 값(0길이 대시 · 라운드캡 · 0.22)
   const NODES = (P.targets || []).slice().sort((a, b) => (a.n || 0) - (b.n || 0));
   if (NODES.length) {
-    g.save(); g.shadowBlur = 0; g.globalAlpha = 0.22 * eOutQuint(IN / 0.9);
-    g.strokeStyle = lut(0.6); g.lineWidth = 2.2 * s; g.lineCap = 'round';
-    g.setLineDash([0.01, 8 * s]);
+    // ★ 밝은 바닥에서는 이 값으로 안 보인다(유저: 라인들이 사라졌네). alpha .22 · 2.2px 는
+    //   어두운 랩 캔버스 기준이다 — 코트 타일 무늬에 그대로 묻힌다. 주간엔 진하고 굵게.
+    g.save(); g.shadowBlur = 0;
+    g.globalAlpha = (DAY ? 0.55 : 0.22) * eOutQuint(IN / 0.9);
+    g.strokeStyle = lut(DAY ? 0.3 : 0.6); g.lineWidth = (DAY ? 3.6 : 2.2) * s; g.lineCap = 'round';
+    g.setLineDash([0.01, (DAY ? 6 : 8) * s]);
     const TRn = P.travel || {};
     for (const q of NODES) {
       const qx = X(q.x), qy = Y(q.y), dx = X(cU) - qx, dy = Y(cV) - qy;
@@ -1984,7 +1994,10 @@ export function drawDribbleMat(g, W, P, look, t, ENV) {
       const L = Math.hypot(dx, dy) || 1;
       const NR = (q.r != null ? q.r : 0.20) * W / 2 * 1.16;   // 노드 림 바깥에서 시작
       const sx = qx + dx / L * NR, sy = qy + dy / L * NR;
-      const ex = X(cU) - dx / L * CR * 1.12, ey = Y(cV) - dy / L * CR * 1.12;
+      // ★ 허브가 live 면 1.34배로 커진다(내가 노드 재질로 맞추면서 생긴 것) — 레일 끝을 CR 로
+      //   잡으면 **허브 안으로 들어가 가려진다**. 실제 반경으로 끝낸다.
+      const CRh = CR * (P.center && P.center.live ? 1.34 : 1);
+      const ex = X(cU) - dx / L * CRh * 1.12, ey = Y(cV) - dy / L * CRh * 1.12;
       g.beginPath(); g.moveTo(sx, sy); g.lineTo(ex, ey); g.stroke();
       // 접촉 파 — 허브에서 레일을 타고 바깥으로 훑고 나간다(모든 레일 동시)
       if (hitK > 0.01) {

@@ -18,6 +18,8 @@
     ?size=1440    정사각 한 변(px)
     ?bg=000       배경 색. bg=none 이면 투명(알파 채널 녹화·PNG 시퀀스용)
     ?plate=court  배경에 실제 코트 깔기 — 밝은 바닥에서 읽히는지 그 자리에서 판단
+    ?tilt=52      바닥 기울기(도). 기본 = GAZE.MAT 실측. tilt=0 이면 평면
+    ?m=0.90       판 한 변(m) — session.js MAT_SIZE. 실측 크기 계산용
     ?token=punch|arrow|mat   같은 바닥에 **다른 토큰**을 놓고 비교(유저: 잽잽훅·화살표는 되나)
     ?loop=1       자동 재생(기본). loop=0 이면 스페이스로 시작
   키
@@ -81,6 +83,19 @@ const cv = document.getElementById('cv');
 const DPR = Math.min(2, devicePixelRatio || 1);
 cv.width = cv.height = Math.round(SIZE * DPR);
 cv.style.width = cv.style.height = SIZE + 'px';
+// ★ 바닥 기울기 — 눕혀 놓고 봐야 크기를 판단할 수 있다(유저: 바닥 기울기로 눕힌 다음 사이즈 실측).
+//   값은 **이미 실측돼 있다**: 매트 판 한 변 0.90 m(session.js MAT_SIZE) · 시선 −52°(main.js
+//   GAZE.MAT, 낙하점 1.2 m). 눈대중으로 각을 잡지 않는다.
+//   원근 거리는 화각에서 나온다 — vfov 60°(main.js fpMode) 기준 P = (H/2)/tan(30°).
+//   ※ 캔버스 2D 는 아핀뿐이라 진짜 원근이 안 나온다. CSS 3D 로 눕히면 브라우저가 원근을
+//     정확히 계산해 주고, 그 값이 그대로 에펙 카메라와 대응된다(scripts/ae_stance_tilt.jsx 규약).
+const TILT = +(q.get('tilt') ?? 52);
+const MAT_M = +(q.get('m') || 0.90);          // 판 한 변(m) — session.js MAT_SIZE
+if (TILT) {
+  const P = (SIZE / 2) / Math.tan(30 * Math.PI / 180);
+  cv.style.transform = `perspective(${P.toFixed(0)}px) rotateX(${TILT}deg)`;
+  cv.style.transformOrigin = '50% 50%';
+}
 const g = cv.getContext('2d');
 const W = cv.width;
 
