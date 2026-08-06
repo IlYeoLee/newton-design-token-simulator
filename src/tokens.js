@@ -378,6 +378,8 @@ export function makeMarkFXMaterial(footTex = null) {
       uSilFit: { value: SIL_FIT / SIL_FIT_REF },
       uPlantar: { value: LOOK.plantar }, uBands: { value: LOOK.bands }, uBandSoft: { value: LOOK.bandSoft },
       uPressA: { value: LOOK.pressA ?? 0 },   // 압력 투명도 — 기본 0(기존 화면 무변화)
+      // 접지 창(CoP) — 호스트가 매 프레임 주입한다. uCopA 0 = 끔(기본).
+      uCop: { value: new THREE.Vector2(0, 0) }, uCopR: { value: new THREE.Vector2(0.4, 0.5) }, uCopA: { value: 0 },
       // 하중 배분 기본값 = 옛 plantar 상수 그대로(1.00 / 0.62 / 0.50) — setMarkLoad 로만 바뀐다
       uLoadBall: { value: 1.00 }, uLoadHeel: { value: 0.62 }, uLoadToe: { value: 0.50 },
       uLoadGain: { value: LOOK.loadGain ?? 1 }, uLoadBase: { value: LOOK.loadBase ?? 0.30 }, uFlow: { value: LOOK.flow ?? 0 },

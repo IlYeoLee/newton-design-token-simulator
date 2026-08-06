@@ -751,6 +751,11 @@ uniform float uArcRev;
 //   uBandSoft: 밴드 경계 무름(0 = 칼금 · 1 = 뭉근).
 uniform float uPlantar, uBands, uBandSoft;
 uniform float uPressA;   // 압력 투명도 — 0 = 끔(기본). 저압부를 은은하게 비워 입체감을 낸다
+// 접지 창(CoP) — 지금 실제로 바닥에 닿아 있는 자리. 걷기는 하중의 세기만 변하는 게 아니라
+//   **닿는 면적이 뒤꿈치 바깥에서 엄지로 옮겨 간다**(보행 문헌의 gait line / butterfly diagram).
+//   uCop = 압력중심 위치 · uCopR = 그 시점 접지 타원의 반지름(초기접지 작게 → 중간입각 크게)
+//   uCopA = 0 이면 예전 그대로 해부학 블롭 고정(기본) — 다른 화면은 아무것도 안 바뀐다.
+uniform vec2 uCop, uCopR; uniform float uCopA;
 //   uLoadBall/Heel/Toe = **하중 배분**(marklang LOAD). 기본값이 곧 옛 상수라 안 건드리면 픽셀 동일.
 //     이게 없어서 압력장이 전 상태 공통 한 벌이었다 — "앞꿈치에 힘 실어라"를 그림이 말할 수 없었다.
 uniform float uLoadBall, uLoadHeel, uLoadToe;
@@ -795,6 +800,16 @@ float plantar(vec2 pQ, float sdIn, float sd){
   vec2 g = (p - vec2(0.17, 0.56)) / vec2(0.15, 0.13);  float toe  = exp(-dot(g, g));
   vec2 a = (p - vec2(-0.13, -0.02)) / vec2(0.22, 0.26); float arch = exp(-dot(a, a));
   blob = uLoadBase + (uLoadBall * ball + uLoadHeel * heel + uLoadToe * toe) * uLoadGain - 0.34 * arch;
+  // ── 접지 창 — 해부학 블롭 위에 **움직이는 타원**을 씌운다 ─────────────────────
+  //   해부학 자리(볼·뒤꿈치·엄지)는 고정이라 세기만 바꾸면 같은 그림이 밝아졌다 어두워질 뿐이다.
+  //   실제 걸음은 닿는 자리가 옮겨 간다 — 그 이동을 CoP 타원이 맡고, 해부학 블롭은 그 안에서
+  //   '어디가 더 눌리는가'만 담당한다(곱한다). 그래서 발 모양은 유지된 채 접지면이 흐른다.
+  if (uCopA > 0.001) {
+    vec2 dC = (p - uCop) / max(uCopR, vec2(0.06));
+    float win = exp(-dot(dC, dC));
+    //   창 안은 램프의 레드 끝까지 닿아야 한다 — 1.45 로는 접지 중심도 주황에서 멈췄다(실측).
+    blob = mix(blob, (0.30 + 0.70 * clamp(blob, 0.0, 1.4)) * win * 2.6, clamp(uCopA, 0.0, 1.0));
+  }
   // ── 딛는 흐름 ─────────────────────────────────────────────────────────────
   //   하중 중심(발 장축)에서 **뒤로 길게 끌리고 앞은 짧게 끊긴다**. 앞뒤 비대칭이 곧 방향이다 —
   //   대칭이면 그냥 얼룩이고, 비대칭이라야 체중이 뒤에서 앞으로 구르는 중으로 읽힌다.
