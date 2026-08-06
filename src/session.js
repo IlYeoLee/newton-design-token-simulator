@@ -2102,6 +2102,15 @@ export class Session {
     if (!this.active) return;
     this._dt = dt;   // 페이서 스크롤 등 dt 소비자용
     const st = this.stages[this.stageIdx]; this.t += dt; const id = st.id;
+    // ★★ demoActive 는 **매 틱 여기서 꺼진다** — 관찰 중인 스테이지 분기가 다시 켠다.
+    //   왜: 이 플래그는 지금까지 **true 로만 세팅**되고 (A2 한 곳만 매 프레임 다시 정했다)
+    //   내려가는 곳이 생성자뿐이었다. 그래서 어느 스테이지든 한 번 관찰에 들어가면 이후
+    //   **세션 내내 true** 로 남았고, 지면 UI 의 `watching`(= demoActive)이 계속 참이라
+    //   관찰→따라하기 **모프가 영영 안 일어났다**: 프리뷰 알약이 링·PREVIEW 라벨을 달고
+    //   그대로 남는다(유저 스샷: 프리뷰 2/2 다 끝났는데 그 UI 가 이어져 있다).
+    //   A2 주석이 이미 경고해 둔 사고와 같은 종류다 — 신호는 **매 프레임 다시 정해야** 한다.
+    //   여기서 끄면 각 분기의 `demoActive = true` 가 그 프레임의 진실이 된다.
+    this.demoActive = false;
     const wall = !!st.wall;
     // 오버레이 좌표: 벽면(복싱)은 고정, 지면은 러너/컷을 따라감.
     // 비실전 단계(READY·스트레칭 등, !isLive)는 러너가 실제로 전진하지 않으므로 원점 고정.
