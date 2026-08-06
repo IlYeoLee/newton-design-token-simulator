@@ -1542,7 +1542,7 @@ export class Session {
     //   존을 **앞으로 당길수록**(z 덜 음수) 둘이 멀어진다. 0.55 → 0.25 (0.30m 앞으로).
     // ★ 0.25 → 0.20: 매트에 마크가 **5개**(①②·③④·액티브) 들어가면서 깊이 예산이 빡빡해졌다.
     //   0.05m 앞으로 당기면 ①②(먼 쪽)가 CONTENT 밴드 안에 들어온다. 알약과는 오히려 멀어진다.
-    const B1Z = BK_STAND - 0.20 - BDEEP;
+    const B1Z = BK_STAND - 0.60;
     // 액티브 타깃 Ø300 — 예전 Ø400 은 마크가 하나뿐일 때의 크기다. 표적 4개가 같은 판에 들어오면서
     //   ①② 와 물리적으로 겹쳤다(중심거리 0.283 < 반지름합 0.315). 겹치는 가이드는 가이드가 아니다.
     const b1zone = floorRing(0, B1Z, 0.12, 0.15, BRAND.coral, 0.5);
@@ -1556,12 +1556,10 @@ export class Session {
     //   존 마크와 같은 floorRing 이다 — 상태(Preview·Active·Success·Locked)를 그대로 갖고,
     //   룩 시스템 슬라이더·상태 룩(setMarkStateLook)이 이 마크에도 똑같이 걸린다.
     //   캔버스로 흉내 낸 원반은 상태가 없어서 '켜졌다/꺼졌다'밖에 말 못 했다.
-    const B1_TG = [
-      { x: -0.265, d: 1.05, n: 1, r: 0.105, on: true },
-      { x: 0.265, d: 1.05, n: 2, r: 0.105, on: true },
-      { x: -0.14, d: 0.60, n: 3, r: 0.10, on: false },   // 스텝 표적 — 사이드 드리블 단계에서 점등
-      { x: 0.14, d: 0.60, n: 4, r: 0.10, on: false },
-    ];
+    // 제자리 드리블에는 표적이 없다. 발은 몸 아래(d≈0)에 있고 거긴 빔이 못 닿는다 —
+    //   몸 앞 1m 에 발자리를 그리면 "걸어 나가서 뒤로 쳐라"가 된다(유저 지적).
+    //   번호 표적은 발을 실제로 옮기는 단계(사이드 드리블 BK_C3)에서 켠다.
+    const B1_TG = [];
     const b1tg = B1_TG.map(tg => {
       const z = BK_STAND - tg.d;
       const ring = floorRing(tg.x, z, tg.r * 0.80, tg.r, BRAND.coral, tg.on ? 0.42 : 0.16);
@@ -1610,7 +1608,7 @@ export class Session {
       mat: { nx: toU(matInk(MAT_D0)), fx: toU(matInk(MAT_D1)), ny: toV(MAT_D0), fy: toV(MAT_D1) },
       // 액티브 타깃 = 바운스 링과 같은 자리. ring:0 — 링 자체는 3D 존 마크(b1zone)가 박자로 그리고
       //   토큰은 채움·조준 눈금만 얹는다. 라벨도 null — 링 중앙은 잔여 횟수 숫자 슬롯이다.
-      center: { x: 0, y: toV(0.95), r: 0.15 / (MAT_SIZE / 2), ring: 0, label: null },
+      center: { x: 0, y: toV(0.60), r: 0.15 / (MAT_SIZE / 2), ring: 0, label: null },
       // 표적은 3D 판정 토큰(b1tg)이 그린다 — 프림은 그 사이를 잇는 레일만 안다.
       rails: B1_TG.map(tg => ({ x: toU(tg.x), y: toV(tg.d), r: tg.r / (MAT_SIZE / 2), on: tg.on })),
       // 눈금자는 뺐다 — 운동 중에 '0.5 m'를 읽을 사람은 없다. 도면·합성용이라 랩에서만 켠다.
