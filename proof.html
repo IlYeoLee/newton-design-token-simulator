@@ -36,6 +36,9 @@
 import * as THREE from 'three';
 import { GLYPHS, footSDFTexture, FXP } from '/src/fxlut.js';
 import { LOAD, BK_STEPBACK } from '/src/marklang.js';
+// ★ 좌표 정본 = session.js SB_POSE / sbPoseAt. 여기 좌표를 적으면 시뮬과 갈린다(marklab.js 규율).
+//   sbPoseAt 은 이징(step 은 후반에 확 · slide 는 초반에 확)과 체공 여부까지 같이 준다.
+import { SB_POSE, SB_BOX, sbPoseAt } from '/src/session.js';
 import { makeMarkFXMaterial, applyMarkLookTo, setMarkStateLook, setMarkLoad,
          FOOT_LEN_M, FOOT_PLANE_M, QUAD_K } from '/src/tokens.js';
 
@@ -68,10 +71,13 @@ const LUNGE = [
 ];
 
 // ── ② 농구 4/4 — 정본에서 그대로 읽는다. 숫자를 여기 적지 않는다.
-const BK = Object.entries(BK_STEPBACK).map(([id, s], i, all) => ({
+//   ★ 마지막에 첫 항목을 t=1 로 한 번 더 넣는다. step() 이 구간을 [i, i+1] 로 잡으므로
+//     꼬리 키가 없으면 **마지막 박(BK_B4)이 영영 안 나온다** — 실제로 3박만 돌고 있었다.
+const _BK = Object.entries(BK_STEPBACK).map(([id, s], i, all) => ({
   t: i / all.length, id, title: (s.n ? s.n + ' · ' : '') + s.title, cue: s.cue,
   L: s.L.load, R: s.R.load, mvL: s.L.move, mvR: s.R.move,
 }));
+const BK = [..._BK, { ..._BK[0], t: 1 }];
 
 const lerp = (a, b, f) => a + (b - a) * f;
 function blend(A, B, e) {   // 접지 창 두 개를 섞는다 — 하중이 옮겨 가는 게 곧 애니메이션이다
@@ -87,7 +93,7 @@ function step(seq, u, key) {
   return { a, b, e, i, na: a[key], nb: (b[key] ?? a[key]) };
 }
 
-function makePanel(canvasId, cueId, beatId, readId, seq, feet, period) {
+function makePanel(canvasId, cueId, beatId, readId, seq, feet, period, pose) {
   const cv = document.getElementById(canvasId);
   const W = FOOT_LEN_M * 2.0, H = FOOT_LEN_M * 2.3, PPM = 620;
   cv.width = Math.round(W * PPM); cv.height = Math.round(H * PPM);
@@ -114,11 +120,11 @@ function makePanel(canvasId, cueId, beatId, readId, seq, feet, period) {
       const m = new THREE.Mesh(new THREE.PlaneGeometry(S, S), mat);
       m.position.set(f.x, f.y, 0);
       m.rotation.z = THREE.MathUtils.degToRad(f.rot || 0);
-      scene.add(m); mats.push({ mat, f });
+      scene.add(m); mats.push({ mat, f, mesh: m });
     }
     return true;
   };
-  return { renderer, scene, cam, mats, build, seq, period,
+  return { renderer, scene, cam, mats, build, seq, period, pose,
            cue: document.getElementById(cueId), beat: document.getElementById(beatId),
            read: document.getElementById(readId) };
 }
@@ -128,12 +134,19 @@ const A = makePanel('cvA', 'cueA', 'beatA', 'readA', LUNGE,
    { right: true,  x:  0.055, y: -0.135, key: 'back',  rot: 0 }], 4.2);
 const B = makePanel('cvB', 'cueB', 'beatB', 'readB', BK,
   [{ right: false, x: -0.085, y: 0.02, key: 'L', rot: 0 },
-   { right: true,  x:  0.085, y: -0.02, key: 'R', rot: 0 }], 4.8);
+   { right: true,  x:  0.085, y: -0.02, key: 'R', rot: 0 }], 4.8, true);
+
+// 스텝백 좌표 → 패널 좌표. 미터 그대로 쓰면 패널을 넘으므로 박스 중심 기준으로 눌러 담는다.
+const SB_T0 = SB_POSE[0].t, SB_T1 = SB_POSE[SB_POSE.length - 1].t;
+const SB_VC = (SB_BOX.v0 + SB_BOX.v1) / 2;
+const SB_K = 0.20;   // SB_BOX.u 는 0.95m — 0.44 로 담으면 발이 패널 밖으로 나간다(실측 x ±0.42 · 반폭 0.30)
 
 function tick(P, t) {
   if (!P.build()) return;
   const u = (t / P.period) % 1;
-  for (const { mat, f } of P.mats) {
+  // ── 위치 이동 — 좌표는 정본에서 읽는다(하중만 바꾸던 이전 판의 빈자리) ──
+  const pose = P.pose ? sbPoseAt(SB_T0 + u * (SB_T1 - SB_T0)) : null;
+  for (const { mat, f, mesh } of P.mats) {
     const s = step(P.seq, u, f.key);
     const CA = CONTACT[s.na] || CONTACT.flat, CB = CONTACT[s.nb] || CA;
     const c = blend(CA, CB, s.e);
@@ -144,7 +157,14 @@ function tick(P, t) {
     mat.uniforms.uLoadGain.value = LOOK.loadGain * lerp(L0.ink, L1.ink, s.e);
     mat.uniforms.uCop.value.set(c.cop[0], c.cop[1]);
     mat.uniforms.uCopR.value.set(c.r[0], c.r[1]);
-    mat.uniforms.uCopA.value = c.a;
+    let amp = c.a;
+    if (pose) {
+      const q = pose[f.key];                       // f.key = 'L' | 'R'
+      mesh.position.set(q.u * SB_K, (q.v - SB_VC) * SB_K, 0);
+      // 체공 중이면 접지가 없다 — 들었다 놓는 스텝만. 슬라이드는 바닥에 붙은 채라 계속 닿아 있다.
+      if (q.moving && !q.slide) amp = 0;
+    }
+    mat.uniforms.uCopA.value = amp;
     mat.uniforms.uTime.value = t;
   }
   const s0 = step(P.seq, u, P.mats[0].f.key);
@@ -161,5 +181,5 @@ GLYPHS.onLoad(() => {});
 const clock = new THREE.Clock();
 function loop() { const t = clock.getElapsedTime(); tick(A, t); tick(B, t); requestAnimationFrame(loop); }
 loop();
-window.__proof = { CONTACT, LUNGE, BK };
+window.__proof = { CONTACT, LUNGE, BK, SB_BOX, sample: () => B.mats.map(x => [x.f.key, +x.mesh.position.x.toFixed(3), +x.mesh.position.y.toFixed(3), x.mat.uniforms.uCopA.value]) };
 </script></body></html>
