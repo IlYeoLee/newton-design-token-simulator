@@ -1301,13 +1301,16 @@ export class Session {
     // B1 · 로우 드리블 — 유저 확정 프로세스: ①원형 마크 토큰에 맞춰 10회(바닥 보며) →
     //   ②중앙 안내 '시선은 바깥으로' → ③이후엔 UI 없음, 공 닿는 지점에 파형 이펙트만.
     //   발마크·비트바·라벨은 전부 은퇴(유저: 그래픽 후두둑·발모양 들락날락).
-    const b1zone = floorRing(0, BK_STAND - 0.55 - BDEEP, 0.16, 0.20, BRAND.coral, 0.5);   // 원형 마크 — 중앙 정렬(유저)
+    // ★ 존 z — 타이틀 알약과의 간격(유저: 더 넓혀라). 알약은 대지 위쪽(먼 쪽)이라
+    //   존을 **앞으로 당길수록**(z 덜 음수) 둘이 멀어진다. 0.55 → 0.25 (0.30m 앞으로).
+    const B1Z = BK_STAND - 0.25 - BDEEP;
+    const b1zone = floorRing(0, B1Z, 0.16, 0.20, BRAND.coral, 0.5);   // 원형 마크 — 중앙 정렬(유저)
     const b1c = document.createElement('canvas'); b1c.width = b1c.height = 128;              // 잔여 카운트 = 링 중앙
     const b1num = new THREE.Mesh(new THREE.PlaneGeometry(0.14, 0.14),
       new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(b1c), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
     b1num.material.map.colorSpace = THREE.SRGBColorSpace;
     b1num.userData.canvas = b1c; b1num.userData.tex = b1num.material.map;
-    b1num.rotation.x = -Math.PI / 2; b1num.position.set(0, 0.016, BK_STAND - 0.55 - BDEEP); b1num.renderOrder = 8;
+    b1num.rotation.x = -Math.PI / 2; b1num.position.set(0, 0.016, B1Z); b1num.renderOrder = 8;   // 숫자는 링과 한 몸 — 같은 상수에서
     // 셋업 막 발자국 — 어깨보다 넓게(0.56m, wikiHow 기본기). 4초간만 보였다 퇴장(상시 아님).
     const b1sL = new FootMark('left').at(-0.14, BK_STAND - 0.40 - BDEEP, FOLLOW_S);   // 모은 자세에서 시작 → 틱이 벌린다
     const b1sR = new FootMark('right').at(0.14, BK_STAND - 0.40 - BDEEP, FOLLOW_S);
@@ -1322,7 +1325,7 @@ export class Session {
     const b1aR = floorArrow(0.04, B1AZ, -90, BRAND.sand, 0.22, 1.55);
     b1aL._gain = 0; b1aR._gain = 0;
     this.bkB1 = { zone: b1zone, num: b1num, sL: b1sL, sR: b1sR, aL: b1aL, aR: b1aR,
-      count: 0, _shown: -1, _wasLow: false, _popT: -9, _p2t: 0, _setupDone: false };
+      count: 0, _shown: -1, _wasLow: false, _popT: -9, _setupDone: false };
     g.add(b1zone, b1num, b1sL.group, b1sR.group, b1aL, b1aR);   // 지시문은 피그마 프레임 헤더가 담당(유저)
 
     g = this._mk('BK_B2');
@@ -2825,11 +2828,9 @@ export class Session {
       if (S.count >= cfg.reps) { this.next(); return; }
     } else if (id === 'BK_B1') {
       // ① 원형 마크에 10회(바닥 보며) → ② 중앙 안내 '시선 바깥' → ③ 접점 파형만.
-      const H = this.bkB1, TOTAL = 10, P2SEC = 8, MAXSEC = 45;
-      if (this._bkStrId !== 'BK_B1') { H.count = 0; H._shown = -1; H._wasLow = false; H._popT = -9; H._p2t = 0; H._eyeK = 0; H._setupDone = false; }
+      const H = this.bkB1, TOTAL = 10, MAXSEC = 45;   // MAXSEC = 공 검출이 죽었을 때의 탈출구
+      if (this._bkStrId !== 'BK_B1') { H.count = 0; H._shown = -1; H._wasLow = false; H._popT = -9; H._setupDone = false; }
       this._bkStrId = 'BK_B1';
-      const dtB = Math.max(0, Math.min(0.1, this.t - (this._bkB1t ?? this.t)));
-      this._bkB1t = this.t;
       if (!this._followLatch) {   // 관찰 5초 — 코치 실루엣+Preview 필만, 가이드 전부 숨김(유저: 훈련 전체)
         H.sL.op(0); H.sR.op(0); H.aL._gain = 0; H.aR._gain = 0;
         H.zone.setOp?.(0); H.num.material.opacity = 0;
@@ -2887,31 +2888,22 @@ export class Session {
       }
       this.bkB1Succ = null;
       H.aL._gain = 0; H.aR._gain = 0;
-      const phase2 = H.count >= TOTAL;
-      H._eyeK = Math.max(0, Math.min(1, (H._eyeK ?? 0) + (phase2 ? dtB : -dtB) * 1.6));
-      const vK = 1 - H._eyeK;
-      this.bkB1EyesUp = phase2;   // main: 봇 고개 정면 + 메트로놈
-      this.bkB1P2t = phase2 ? H._p2t : null;   // main: 봇 연출(정지→재개) 타이밍 소스
-      if (phase2) {
-        H._p2t += dtB;
-        this._say('bkb1up', '커리', '좋아요 — 이제 시선은 앞으로. 공은 안 봐도 돼요, 손이 기억하니까.');
-      }
-      // 바운스 검출 — 공 y 최저 통과. ①에선 카운트+링 펄스, ②에선 접점 파형만.
+      // ★ 2막('시선은 바깥으로' 8초)은 은퇴(유저: 10회 세고 바로 종료).
+      //   카운트는 **10 9 8 … 1** 로만 보인다 — 0 은 안 뜬다(10번째 바운스 = 종료 프레임).
+      this.bkB1EyesUp = false; this.bkB1P2t = null;   // main: 봇 고개·메트로놈 — 2막이 없으니 항상 꺼짐
+      // 바운스 검출 — 공 y 최저 통과. 카운트+링 펄스.
       const ball = this.xbot?.ball;
       const isLow = !!ball?.visible && ball.position.y < 0.20;
       if (isLow && !H._wasLow) {
         // 광학 정직성(유저 지적): 실측 바운스(몸앞 0.44~0.83m)의 절반은 빔 시작선(0.65m) 안쪽 —
-        //   접점 파형은 투사 불가능한 거짓말이다. ① 파형은 '존 위치'(빔 안 1.3m, 시선도 거기)에서.
-        //   ③(시선 바깥)은 바닥 이펙트 전면 제거 — 주변시는 작은 파형을 못 보고, 피드백은 메트로놈이 전담.
+        //   접점 파형은 투사 불가능한 거짓말이다. 파형은 '존 위치'(빔 안 1.3m, 시선도 거기)에서.
         H._zHit = this.t;
-        if (!phase2) {
-          H.count += 1; H._popT = this.t;
-          // 파문은 '작고 빠른 틱'이다 — 프레스 버스트(0.52m·세기 .72·1.05s)를 그대로 쓰면 0.4s 비트마다
-          //   1m짜리 파문이 3겹씩 쌓여 발밑을 덮는다(유저: 파파파팍). 1인칭이라 발밑 1m = 화면 절반.
-          //   존 마크(반경 급)에 얹히는 크기로 줄이고 비트보다 짧게 꺼뜨려 겹침 자체를 없앤다.
-          const wp = new THREE.Vector3(); H.zone.getWorldPosition(wp);
-          this.onBurst?.(wp, 0.22, null, { intensity: 0.30, speed: 2.6 });
-        }
+        H.count += 1; H._popT = this.t;
+        // 파문은 '작고 빠른 틱'이다 — 프레스 버스트(0.52m·세기 .72·1.05s)를 그대로 쓰면 0.4s 비트마다
+        //   1m짜리 파문이 3겹씩 쌓여 발밑을 덮는다(유저: 파파파팍). 1인칭이라 발밑 1m = 화면 절반.
+        //   존 마크(반경 급)에 얹히는 크기로 줄이고 비트보다 짧게 꺼뜨려 겹침 자체를 없앤다.
+        const wp = new THREE.Vector3(); H.zone.getWorldPosition(wp);
+        this.onBurst?.(wp, 0.22, null, { intensity: 0.30, speed: 2.6 });
       }
       H._wasLow = isLow;
       // 원형 판정 토큰: 평소 Preview(숨쉬기) → 공이 탕 떨어지는 순간 Success 블룸으로 전이(유저)
@@ -2919,14 +2911,14 @@ export class Session {
       const zk = Math.max(0, 1 - (this.t - (H._zHit ?? -9)) / 0.45);
       if (zk > 0) { zU.uPhase.value = 2; zU.uProg.value = Math.min(1, 1.2 - zk); }
       else { zU.uPhase.value = 0; zU.uProg.value = 0; }
-      H.zone.setOp?.((0.45 + 0.4 * zk) * vK);
-      const left1 = Math.max(0, TOTAL - H.count);
+      H.zone.setOp?.(0.45 + 0.4 * zk);
+      const left1 = Math.max(1, TOTAL - H.count);   // 하한 1 — 마지막 바운스에서 '0' 이 한 프레임 새는 걸 막는다
       if (left1 !== H._shown) { redrawFootNum(H.num, left1); H._shown = left1; }
-      H.num.material.opacity = vK;
+      H.num.material.opacity = 1;
       this.repLeft = left1; this.repTotal = TOTAL;
-      this.repFrac = phase2 ? Math.min(1, (TOTAL + H._p2t / P2SEC * 2) / (TOTAL + 2)) : Math.min(1, H.count / TOTAL);
-      FMU(phase2 ? '시선은 바깥으로 — 리듬만 유지' : `원형 마크에 맞춰 튕겨요 — 남은 ${left1}회`, phase2 ? CS.prism : CS.sand);
-      if (H._p2t >= P2SEC || this.t >= MAXSEC) { this.next(); return; }
+      this.repFrac = Math.min(1, H.count / TOTAL);
+      FMU(`원형 마크에 맞춰 튕겨요 — 남은 ${left1}회`, CS.sand);
+      if (H.count >= TOTAL || this.t >= MAXSEC) { this.next(); return; }
     } else if (id === 'BK_B2') {
       // B2 · 측면 스텝백 Break Down — 비트별 정지 학습. 커서(발 미러)가 마크에 머물면 다음 비트.
       //   ①시작(우) ②플랜트(중) ③착지(좌, 어깨너비) ④슛(상승 링) = 1세트로 종료.
