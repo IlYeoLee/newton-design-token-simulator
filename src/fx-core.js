@@ -1982,6 +1982,27 @@ export function drawDribbleMat(g, W, P, look, t, ENV) {
     g.globalAlpha = 1;
   }
 
+  // ── 접촉 = 수축 링 + 잠금 핑. 잽잽훅·복싱 판정이 쓰는 어프로치 링과 같은 구조다.
+  if (P.center && P.hit != null) {
+    const cx = X(cU), cy = Y(cV), GB2 = 13 * look.halo;
+    const per = P.per || 0.4;
+    const pr = Math.max(0, Math.min(1, hit / per));      // 0 = 방금 닿음 → 1 = 다음 박자
+    const R0 = CR * 1.9;
+    for (let kk = 2; kk >= 0; kk--) {                    // 실키 트레일 — 뒤에 남는 잔상 2겹
+      const pe = Math.pow(Math.max(0, pr - kk * 0.05), 1.6);
+      const rr = R0 - (R0 - CR) * pe;
+      const a = kk === 0 ? (0.55 + 0.35 * pe) : (0.16 / kk);
+      g.save(); g.translate(cx, cy);
+      volRing(g, lut, rr, 0.5 + 0.35 * pe, a, LNW * 0.7, GB2, 1.15 - 0.35 * pe);
+      g.restore();
+    }
+    if (hitK > 0.01) {                                    // 잠금 핑 — 팽창하며 소멸
+      g.save(); g.translate(cx, cy);
+      volRing(g, lut, CR * (1 + 1.5 * (1 - hitK)), 0.92, hitK * 0.85, LNW * 0.8, GB2, 1.1);
+      g.restore();
+    }
+  }
+
   // ── 액티브 타깃 — 화면에서 **유일한 색 사건**. 지금 겨눌 자리
   if (P.center) {
     const cx = X(cU), cy = Y(cV);
