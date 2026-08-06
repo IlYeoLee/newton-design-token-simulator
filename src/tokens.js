@@ -297,6 +297,11 @@ const SF = SIL_FIT / SIL_FIT_REF;   // uv 단위 거리 스케일 — 실루엣 
 //   session 의 `MARK_LOOK.tap` 이 항상 undefined 였고, 8번째 토큰 룩 적용이 **통째로 no-op** 이었다
 //   (유저 08-05: 랩에서 디자인한 대로 안 보인다). 랩이 굽는 값의 유일한 통로다.
 export const MARK_LOOK = { core: LOOK.w, halo: LOOK.halo, pool: LOOK.pool, sweep: 0.4, wobble: LOOK.noise,
+  // ★ rip 도 정본에 싣는다 — 세션이 홀드·히트에서 파동을 **부스트**하는데, 그 기준선을 0.5 로
+  //   박아 두고 있었다(session A2 홀드·뒷발 히트·B1). 그래서 mark-look.json rip 을 0 으로 내려도
+  //   그 장면들만 파동이 살아남는다(유저: 파동 지워줘 0 → 지워지지 않는 곳이 있었다).
+  //   부스트는 정본의 **배수**여야 한다: rip 0 이면 어떤 부스트도 0 이다.
+  rip: LOOK.rip ?? 0,
   tap: LOOK.tap || null, states: LOOK.states || null };
 // footlab 프림 저장본(코멧·노드·레일 등) → 부팅 반영 — 실시간 브리지(applyMarkLook)의 영구판.
 //   이게 없으면 랩에서 확정한 프림 값이 새로고침마다 증발했다(유저: 시뮬에 이식이 안 된다).
@@ -385,7 +390,12 @@ export function makeMarkFXMaterial(footTex = null) {
       //   — 유저가 반복해 지적한 '랩보다 뿌옇고 채도 낮다'의 정체. toLin 역변환이 이를 상쇄해
       //   화면값이 랩과 같아진다. (LANEFX 는 처음부터 uOut=1 — 마크만 예외였다.)
       //   ※ 이전 주석의 '(241,37,25)' 는 OutputPass 이전 버퍼값을 잰 것 — toLin(249,106,88) 그 자체다.
-      uSweepA: { value: 1 }, uNoise: { value: 0.5 }, uDay: { value: 0 }, uOut: { value: 1 },
+      uTLo: { value: 0 }, uTHi: { value: 0 }, uDotMode: { value: 0 },   // 상태 색 축(온도 창) — 0 = 상태 기본 창
+      uSweepA: { value: 1 }, uNoise: { value: MARK_LOOK.wobble }, uDay: { value: 0 }, uOut: { value: 1 },
+      // ★ 생성 기본값도 **정본(MARK_LOOK)** 에서 온다. 0.5 를 박아 두면, per-frame 주입을 안 받는
+      //   경로(상태 오버라이드·floorLook·랩 프리뷰)가 일렁임 0.5 로 굳는다 — 실측 결과 그런 재질이
+      //   4개 남아 있었다(전부 visible:false 라 화면엔 안 나왔지만, 추출 경로가 하나 늘면 바로 샌다).
+      //   유저: 일렁임 0 인데 내보낼 때 형태가 유기적이다 → 기본값이 정본과 다르면 그 질문이 계속 나온다.
       // 하프톤 스킨 — 기본 꺼짐. 랩에서 확정한 값이 기본값이다.
       uHT: { value: 0 }, uHTPitch: { value: 0.055 }, uHTGain: { value: 1.15 }, uHTSoft: { value: 0.55 }, uHTWave: { value: 0.6 }, uHTGlow: { value: 0 }, uHTInner: { value: 0 },
       uNumTex: { value: null }, uNumOn: { value: 0 }, uNumScale: { value: 0.311 }, uNumOff: { value: new THREE.Vector2() },
@@ -431,7 +441,7 @@ export function applyMarkLookTo(mat, part = {}) {
     // ★ halo/w/pool 도 맵에 넣는다 — 이 셋만 빠져 있어서 바닥 룭의 halo 낮춤이 안 먹었다
     //   (실측: floor.halo .18 을 줘도 재질은 생성값 .45 그대로). 팩 마크는 매 프레임 전역값이
     //   덮으므로 그쪽은 userData.floorLook 예외로 따로 막는다.
-    halo: 'uHalo', w: 'uW', pool: 'uPool', noise: 'uNoise' };
+    halo: 'uHalo', w: 'uW', pool: 'uPool', noise: 'uNoise', tLo: 'uTLo', tHi: 'uTHi', dotMode: 'uDotMode' };
   const mapSF = { pitch: 'uImpPitch', edge: 'uImpEdge', edgeW: 'uEdgeW', ripWidth: 'uRipWidth', ripReach: 'uRipReach' };
   const U = mat.uniforms;
   for (const k in map) if (part[k] != null && U[map[k]]) U[map[k]].value = part[k];
@@ -443,15 +453,29 @@ export function applyMarkLookTo(mat, part = {}) {
 const _stateBase = new WeakMap();
 export function setMarkStateLook(mat, ph) {
   if (!mat?.uniforms) return;
-  const ov = (LOOK.states || {})[ph] || (LOOK.states || {})[String(ph)];
+  // ★ Locked(3) = **Tap2 디자인**(유저: 락 상태를 tap2 로 교체해 시뮬 전체에 반영).
+  //   footlab 9번 슬롯('tap')을 그대로 참조한다 — 값을 복사하면 두 벌이 되어 랩에서
+  //   Tap2 를 고쳐도 Locked 는 안 바뀐다. 참조로 두면 랩 저장 한 번이 시뮬 전역에 간다.
+  const ov = (LOOK.states || {})[ph] || (LOOK.states || {})[String(ph)]
+    || (ph === 3 ? (LOOK.states || {}).tap || LOOK.tap : null);
+  // ★ op·색 키가 빠져 있었다 — 오버라이드는 applyMarkLookTo 가 무슨 키든 먹이는데 리셋 목록에
+  //   없으면 **그 상태를 벗어나도 안 돌아온다**. Tap2 는 op 0(필 없음)이라 이게 없으면 한 번
+  //   Locked 를 지난 마크가 영영 속이 빈 채로 남는다.
   const KEYS = ['imp','dot','glow','shade','sharp','scale','plantar','bands','bandSoft','edgeShade',
-    'edgeShadeW','edgeShadeGrad','edgeShadeG0','edgeShadeG1','dither','pitch','edge','edgeW'];
+    'edgeShadeW','edgeShadeGrad','edgeShadeG0','edgeShadeG1','dither','pitch','edge','edgeW',
+    'op','shadeCol','dotCol','edgeShadeCol','ripCol',
+    // Tap2 가 실제로 들고 있는 나머지 — 하나라도 빠지면 그 키만 락 상태로 눌러앉는다.
+    'edgeSoft','shadeRed','shadeRedW','rip','ripReach','ripWidth','ripSpeed','ripGrad','bloom','w'];
   if (!_stateBase.has(mat)) {
     const base = {}; for (const k of KEYS) if (LOOK[k] != null) base[k] = LOOK[k];
     _stateBase.set(mat, base);
   }
   applyMarkLookTo(mat, _stateBase.get(mat));   // 공통으로 리셋
   if (ov) applyMarkLookTo(mat, ov);            // 그 상태만 덮기
+  // ★ 이 상태가 소유한 키를 재질에 새긴다 — uW/uHalo/uPool 은 **매 프레임 전역값이 덮으므로**
+  //   (session.js WAVE_MATS 루프 · tokens.js 팩 마크 루프) 표시가 없으면 상태 오버라이드가
+  //   한 프레임도 못 산다. 이 파일 위 map 주석이 이미 경고한 그 함정이다.
+  mat._stKeys = ov ? new Set(Object.keys(ov)) : null;
 }
 
 export function applyMarkLook(part = {}) {
@@ -461,7 +485,7 @@ export function applyMarkLook(part = {}) {
     edgeShade: 'uEdgeShade', edgeShadeW: 'uEdgeShadeW', edgeShadeCol: 'uEdgeShadeCol',
     edgeShadeGrad: 'uEdgeShadeGrad', edgeShadeG0: 'uEdgeShadeG0', edgeShadeG1: 'uEdgeShadeG1',
     shadeRed: 'uShadeRed', shadeRedW: 'uShadeRedW', edgeSoft: 'uEdgeSoft', dither: 'uDither',
-    rip: 'uRip', ripSpeed: 'uRipSpeed', ripGrad: 'uRipGrad', ripCol: 'uRipCol', iceOld: 'uIceOld' };
+    rip: 'uRip', ripSpeed: 'uRipSpeed', ripGrad: 'uRipGrad', ripCol: 'uRipCol', iceOld: 'uIceOld', tLo: 'uTLo', tHi: 'uTHi', dotMode: 'uDotMode' };
   const mapSF = { pitch: 'uImpPitch', edge: 'uImpEdge', edgeW: 'uEdgeW', ripWidth: 'uRipWidth', ripReach: 'uRipReach' };
   for (const m of MARK_MATS) {
     const U = m.uniforms;
@@ -589,38 +613,33 @@ export const LAYOUT = {
 export const BK_SCALE = 5.0;   // xbot 경로와 공유 (봇·토큰 좌표 일치)
 
 // ── 텍스처 유틸 ───────────────────────────────────────────────
-// 러닝 라이브: 순번 대신 발 L/R 글리프(어느 발로 밟는지 — 순번은 러닝 교수법에 없음, 유저 확인).
-// 글리프 = 유저 제공 SVG(pace_foot.svg), 이전 글리프 스타일(웜 크림 틴트+글로우), 우측=미러.
+// 러닝 라이브: 순번 대신 **로고 글리프**(어느 발로 밟는지는 좌우 미러가 말한다 — 순번은
+// 러닝 교수법에 없음, 유저 확인).
+// ★ **시스템화**(유저 08-06) — 전엔 이 파일이 로고 SVG 를 직접 물고(`new Image()`) 틴트·글로우·
+//   미러를 **여기서 다시 구현**했다. 그래서 ⓐ FX 랩 슬롯 목록에 안 나오고 ⓑ 글리프 룩(색 온도·
+//   글로우 세기)을 바꿔도 이 하나만 안 따라오고 ⓒ 같은 그림을 그리는 코드가 두 벌이 됐다.
+//   지금은 다른 글리프와 **완전히 같은 경로**다: GLYPHS 'LOGO' 슬롯 → drawGlyph(정본 한 벌),
+//   오른발은 mirror 옵션. 25줄이 사라지고 룩이 한 곳에서 온다.
 const _footNumTex = {};
-const _pfImg = new Image();
-_pfImg.src = import.meta.env.BASE_URL + 'ready-view/assets/pace_foot.svg';
 function makeFootGlyphTexture(right) {
   const k = right ? 'R' : 'L';
   if (_footNumTex[k]) return _footNumTex[k];
   const c = document.createElement('canvas'); c.width = c.height = 128;
   const ctx = c.getContext('2d');
-  const ready = _pfImg.complete && _pfImg.naturalWidth;
-  if (ready) {
-    // 틴트: SVG → source-in 웜 크림 (이전 글리프와 동일 온도 언어)
-    const off = document.createElement('canvas'); off.width = off.height = 128;
-    const og = off.getContext('2d');
-    const ar = _pfImg.naturalWidth / _pfImg.naturalHeight;
-    const w = 100, h = w / ar;
-    og.save(); if (right) { og.translate(128, 0); og.scale(-1, 1); }
-    og.drawImage(_pfImg, (128 - w) / 2, (128 - h) / 2, w, h);
-    og.restore();
-    og.globalCompositeOperation = 'source-in';
-    og.fillStyle = rgba(NEU.ink, 0.95); og.fillRect(0, 0, 128, 128);
-    ctx.shadowColor = rgba(PAL.coral, 0.75); ctx.shadowBlur = 12;
-    ctx.drawImage(off, 0, 0); ctx.shadowBlur = 0; ctx.drawImage(off, 0, 0);
-  } else {
+  // ★★ 이 자리는 **로고다**(유저 확정 3회: "우리 러닝에서 쓰이는 건 우리 로고 들어간 원형 마크
+  //   판정 토큰이잖아" / "또 로고 없어졌어" / "왜 러닝할 때 갑자기 R L 이 된 거야").
+  //   L/R 글리프로 바꾸지 말 것 — 08-06 에 두 번 바뀌었다. 어느 발인지는 **로고를 좌우로
+  //   미러**해서 말한다(mirror). '숫자와 같은 취급'은 **그리는 경로·크기**를 말한 것이지
+  //   글리프를 L/R 로 바꾸라는 뜻이 아니었다: 같은 drawGlyph · 같은 96px.
+  const ok = drawGlyph(ctx, 'LOGO', 64, 64, 96, { mirror: right });
+  if (!ok) {   // 슬롯 미로드 폴백 — 캐시하지 않는다(로드 후 정본으로 재생성)
     ctx.strokeStyle = rgba(NEU.ink, 0.95); ctx.lineWidth = 5;
     ctx.shadowColor = rgba(PAL.coral, 0.75); ctx.shadowBlur = 12;
     ctx.beginPath(); ctx.ellipse(64, 64, 20, 34, right ? 0.12 : -0.12, 0, Math.PI * 2); ctx.stroke();
   }
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
-  if (ready) _footNumTex[k] = tex;   // 로드 전 폴백은 캐시 안 함(로드 후 정본으로 재생성)
+  if (ok) _footNumTex[k] = tex;
   return tex;
 }
 function makeNumberTexture(n) {
@@ -630,7 +649,10 @@ function makeNumberTexture(n) {
   // 커스텀 글리프(FX Lab 슬롯 SVG) 우선 — 없으면 웜 크림 타이포 (동일 온도 언어)
   if (!drawGlyph(ctx, String(n), 64, 64, 96)) {
     ctx.fillStyle = rgba(NEU.ink, 0.95);
-    ctx.font = '300 86px -apple-system, sans-serif';
+    // ★ 규약(유저 08-06, 못 박음): **마크 안 영문·한글은 무조건 도트 폰트**.
+    //   로고는 러닝에서만(makeFootGlyphTexture). 슬롯 SVG 가 없을 때 시스템 산세리프로
+    //   떨어지면 그 글자만 다른 활자가 되어 규약이 깨진다 — OffBit 을 먼저 세운다.
+    ctx.font = "700 86px 'OffBit', -apple-system, sans-serif";
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.shadowColor = rgba(PAL.coral, 0.75);
@@ -648,11 +670,11 @@ function makeSmallLabel(text) {
   const c = document.createElement('canvas');
   c.width = 4; c.height = 4;
   let ctx = c.getContext('2d');
-  ctx.font = `400 ${capPx}px -apple-system, 'Apple SD Gothic Neo', sans-serif`;
+  ctx.font = `700 ${capPx}px 'OffBit', -apple-system, 'Apple SD Gothic Neo', sans-serif`;   // 도트 폰트 우선(규약)
   const w = Math.ceil(ctx.measureText(text).width);
   c.width = w + pad * 2; c.height = capPx * 1.7;
   ctx = c.getContext('2d');
-  ctx.font = `400 ${capPx}px -apple-system, 'Apple SD Gothic Neo', sans-serif`;
+  ctx.font = `700 ${capPx}px 'OffBit', -apple-system, 'Apple SD Gothic Neo', sans-serif`;   // 도트 폰트 우선(규약)
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.shadowColor = rgba(PAL.coral, 0.7); ctx.shadowBlur = capPx * 0.25;
   ctx.fillStyle = NEU.ink;
@@ -822,9 +844,10 @@ export class Marker {
       // ★ MARK 룩의 출처는 mark-look.json(footlab) 하나다 — 룩시스템 스토어(FXP.mark)를 안 본다.
       //   session.tickWaves 만 끊고 **여기를 빠뜨려서** 팩 마커는 계속 스토어 값으로 덮였다.
       //   같은 실수를 또 하지 않으려면: FXP.mark 를 마크 재질에 넣는 곳이 더 있는지 먼저 grep 할 것.
-      U.uW.value = MARK_LOOK.core;
-      U.uHalo.value = MARK_LOOK.halo;
-      U.uPool.value = MARK_LOOK.pool;
+      const _sk = this.fx.material._stKeys;   // 상태 오버라이드가 가진 키는 전역값으로 덮지 않는다
+      if (!_sk?.has('w')) U.uW.value = MARK_LOOK.core;
+      if (!_sk?.has('halo')) U.uHalo.value = MARK_LOOK.halo;
+      if (!_sk?.has('pool')) U.uPool.value = MARK_LOOK.pool;
       U.uSweepA.value = MARK_LOOK.sweep;
       U.uNoise.value = MARK_LOOK.wobble;
       // 진행 아크 감김 — 종목이 바뀌면 즉시 따라오게 매 프레임 읽는다(main.switchPack 이 세운다).
@@ -1384,7 +1407,7 @@ export class TokenSystem {
       if (this.liveHideFloorMarks && ev.surface !== 'wall') phase = 'hidden';
       // 박자 연습(P) = 중앙 레인 제거(유저: 박자에 집중) — 마크 데워짐+이펙트만
       if (this.laneFX) this.laneFX.visible = !this.liveHideLane;
-      // 러닝 라이브 = 마크 안 순번 → 발 L/R 글리프 스왑(왕복) — 유저 SVG(pace_foot)
+      // 러닝 라이브 = 마크 안 순번 → 좌/우 로고 글리프 스왑(왕복) — GLYPHS 'LOGO' 슬롯
       const mkN = ev.marker;
       if (mkN?.num && ev.surface !== 'wall' && ev.foot) {
         const wantFoot = !!FXP.hideOrderNums;

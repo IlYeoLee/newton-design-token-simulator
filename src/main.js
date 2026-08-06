@@ -4202,7 +4202,9 @@ void main(){
       else if (session.stage === 'A3') _phase = Math.max(0, session.t - (session._aWatchEnd ?? A2_WATCH));   // 시범 후 하이니 (1.6배속 철회 — 동작 딱딱해짐)
       else if (session.sport === 'running' && (/^run_|^hj_/.test(_clip) || _clip === 'cmu_stretch' || _clip === 'jumpingJacks')) _phase = session.t;
       else if (session.stage === 'A2') {
-        if (aWatching) { session.a2Cyc = { watching: true, watchProg: Math.max(0, Math.min(1, session.t / A2_WATCH)) }; }
+        //   holdSec 을 관찰 구간에도 실어 보낸다 — 없으면 소비 쪽 기본값으로 떨어져 링에
+        //   엉뚱한 수가 찍힌다(유저: 5,2,1). 값이 한 곳에서만 나오게 하는 게 요지다.
+        if (aWatching) { session.a2Cyc = { watching: true, holdSec: 3.0, watchProg: Math.max(0, Math.min(1, session.t / A2_WATCH)) }; }
         else {
         // 실측 사이클(cmu144_11) — 시범 종료 후부터(tt): 첫 홀드가 깔끔히 시작.
         const tt = session.t - (session._aWatchEnd ?? A2_WATCH);
@@ -4210,12 +4212,26 @@ void main(){
         const DESC = TD - T0, RISE = T1 - TD, CYC = DESC + HOLD + RISE;
         const c = tt % CYC;
         _phase = c < DESC ? T0 + c : (c < DESC + HOLD ? TD + Math.sin(tt * 1.6) * 0.07 : TD + (c - DESC - HOLD));
-        xbot.group.scale.x = (Math.floor(tt / CYC) % 2) ? -1 : 1;
+        // ★ 첫 회차를 **미러**로 시작한다(유저 08-06, 영상용) — isLeft 는 이미 '짝수 회차 =
+        //   오른발'로 되어 있는데 봇은 안 뒤집힌 원본 클립으로 시작했다. 그 클립이 왼발
+        //   리드라 플래그(오른발)와 화면(왼발)이 어긋났다. 미러 패리티를 뒤집으면 둘이 맞는다.
+        xbot.group.scale.x = (Math.floor(tt / CYC) % 2) ? 1 : -1;
         const _hs = Math.max(0, Math.min(1, (c - DESC) / 0.6)), _he = Math.max(0, Math.min(1, (DESC + HOLD - c) / 0.6));
         xbot.lungeDeepen = 0.35 * Math.min(_hs, _he);
+        // ★ 씬 루프가 이 동작을 다 못 담고 잘라 먹었다(유저: 발자국이 사라진다). A2 는
+        //   관찰 5.8s 뒤에야 마크가 나오는데 기본 루프가 8s 라, 마크가 보이는 시간이 한
+        //   바퀴에 2초뿐이고 나머지는 관찰(=마크 숨김)이었다. 실측: latch(따라하기 진입)가
+        //   t6.0~7.6 에만 true. 필요한 길이를 여기서 알려 주면 아래 루프가 그만큼 늘린다.
+        session._a2LoopNeed = A2_WATCH + 2 * CYC;   // 관찰 + 좌우 1렙씩
+        //   ★ **오른발 먼저**(유저 08-06) — 첫 사이클이 왼발이었다. 짝수 회차 = 오른발.
+        const _isL = (Math.floor(tt / CYC) % 2) === 1;
         session.a2Cyc = { inHold: c >= DESC && c < DESC + HOLD, prog: Math.max(0, Math.min(1, (c - DESC) / HOLD)),
-          //   ★ **오른발 먼저**(유저 08-06) — 첫 사이클이 왼발이었다. 짝수 회차 = 오른발.
-          holdSec: HOLD, isLeft: (Math.floor(tt / CYC) % 2) === 1, descending: c < DESC };
+          // ★★ 두 발은 **다른 이름**을 갖는다 — 이 구분이 없어서 자막과 타이머가 엉뚱한 발에 붙었다.
+          //   isLeft   = 앞으로 **내딛는**(무릎 굽히는) 발 = 그 차례 발. 봇 미러 패리티와 짝이다.
+          //   workLeft = **늘어나는 종아리** 쪽 = 뒷발(뒤꿈치를 눌러 버티는 발).
+          //   자막(LEFT/RIGHT CALF STRETCH) · 홀드 링 · 카운트다운 · Success 는 전부 workLeft 를 본다.
+          //   소비자가 각자 `!isLeft` 를 하면 언젠가 한 곳이 빠진다(실제로 자막이 그랬다).
+          holdSec: HOLD, isLeft: _isL, workLeft: !_isL, descending: c < DESC };
         }
       }
       // A1 옆구리 = hj_sidebend(26s 루틴) 루프. 자연 속도는 코치 영상(핑퐁 6.9s 주기)보다 느려
@@ -4993,7 +5009,10 @@ void main(){
       //   두 바퀴째 2 초 지점에서 다시 시작해, 씬을 열자마자 **이미 맞은 노드(2번)가 채워진 채**
       //   보인다(유저: "잽잽훅 처음에 이거 왜 나와"). 올림해서 배수로 맞추면 위상이 영구히 유지되고
       //   길이도 요청값보다 짧아지지 않는다. dur 6 · 요청 8 → 12초.
-      const _sd = session.curStage?.dur, _want = window.__sceneLoop || 8;
+      // ★ 동작이 요구하는 최소 길이를 존중한다 — 관찰 구간이 있는 동작은 8초로 자르면
+      //   따라하기를 시작하기도 전에 되감긴다(A2 실측: 마크가 8초 중 2초만 보였다).
+      const _sd = session.curStage?.dur;
+      const _want = Math.max(window.__sceneLoop || 8, session._a2LoopNeed || 0);
       const _period = _sd > 0 ? Math.ceil(_want / _sd) * _sd : _want;
       if (session.t >= _period) {
         session.t = 0; session._enter();

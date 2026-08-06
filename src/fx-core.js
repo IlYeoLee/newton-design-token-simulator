@@ -672,6 +672,7 @@ uniform float uLoadGain, uLoadBase, uFlow;
 uniform float uEdgeShade, uEdgeW, uEdgeSoft, uDither, uSilFit;
 uniform float uEdgeShadeW, uEdgeShadeCol;   // 실루엣 이너 섀도우 면적 배율 · 팔레트 색(0흰/1샌드/2코랄/3레드) — 유저: 면적·색 조정
 uniform float uIceOld;   // 1 = 아이스 컷 이전(하늘색) 램프 — 비교 미리보기용 토글(유저)
+uniform float uTLo, uTHi, uDotMode;   // 상태 온도 창(색 축) — 0 = 미설정(각 상태 기본 창)
 uniform float uEdgeShadeGrad, uEdgeShadeG0, uEdgeShadeG1;   // 이너 섀도우 LUT 그라디언트(0 단색) · 시작/끝 LUT 위치 — 섬세 조정(유저)
 // uShadeRed / uShadeRedW: **음영 자리에 까는 뉴턴 RED 블룸** (유저: 바닥 색에 가장 빨간 뉴턴 레드가
 //   부족하다 — 음영 지는 부분에 은은한 블러로). 이너 섀도우는 LUT 상단(PRISM)이라 형태는 잡아도
@@ -851,13 +852,22 @@ vec3 fillT(float q, float lo, float hi){
   //   압력맵용 별도 계열 램프를 넣었다가 유저 지적으로 되돌렸다. 다시 만들지 말 것.
   return lut(x);
 }
-vec3 fillPreview(float q){ return fillT(q, T_PREV_LO, T_PREV_HI); }
-vec3 fillHot(float q){     return fillT(q, T_HOT_LO,  T_HOT_HI);  }
-vec3 fillActive(float q){  return fillT(q, T_ACT_LO,  T_ACT_HI);  }
-vec3 fillHold(float q){    return fillT(q, T_HOLD_LO, T_HOLD_HI); }
+// ★★ **상태 색 축**(유저: 색 조합을 쨍한 빨강부터 연한 주황까지 그라디언트로 구분).
+//   상태의 정체성은 '온도 창(lo~hi)'이 정한다고 이 파일이 이미 적어 뒀는데, 그 창이 #define
+//   컴파일 상수라 **상태별로 못 움직였다** — 그래서 Active·Warning·Success 가 같은 대역에서
+//   뭉쳐 구분이 안 갔고(유저), 결국 외곽선·해칭 같은 **다른 축으로 구분하려는 시도**가 생겼다.
+//   창을 uniform 으로 열면 색 하나로 갈린다: uTHi 0 = 미설정 → 각 상태의 기존 창 그대로(픽셀 동일).
+//   ※ 규칙은 그대로다 — 새 색을 만들지 않는다. 같은 뉴턴 LUT 의 **다른 구간**을 쓸 뿐이다.
+vec3 fillWin(float q, float lo, float hi){
+  return (uTHi > 0.0001) ? fillT(q, uTLo, uTHi) : fillT(q, lo, hi);
+}
+vec3 fillPreview(float q){ return fillWin(q, T_PREV_LO, T_PREV_HI); }
+vec3 fillHot(float q){     return fillWin(q, T_HOT_LO,  T_HOT_HI);  }
+vec3 fillActive(float q){  return fillWin(q, T_ACT_LO,  T_ACT_HI);  }
+vec3 fillHold(float q){    return fillWin(q, T_HOLD_LO, T_HOLD_HI); }
 // Success 는 코어가 가장 뜨겁고(하한이 낮다) 바깥이 백열로 열린다 — 승리의 온도.
 // 상한을 1.0(순백) 이 아니라 0.92 로 — 순백까지 열면 코어와 분리된 흰 링이 생긴다(유저: 아이스 과함).
-vec3 fillSuccess(float q){ return fillT(q, mix(0.02, 0.03, uIceOld), mix(0.78, 1.00, uIceOld)); }   // 신 = 피그마 성공 정본(163:8908) 쨍한 레드-코랄 · 구 = 백열/아이스
+vec3 fillSuccess(float q){ return fillWin(q, mix(0.02, 0.03, uIceOld), mix(0.78, 1.00, uIceOld)); }   // 신 = 피그마 성공 정본(163:8908) 쨍한 레드-코랄 · 구 = 백열/아이스
 // over 연산 누적 (premultiplied) — 원본 mix(col, X, k) 체인의 기계적 등가 변환
 void lay(inout vec4 A, vec3 X, float k){ A.rgb = A.rgb * (1.0 - k) + X * k; A.a = A.a * (1.0 - k) + k; }
 vec4 markState(vec2 uv, float state, float prog, float strong, float t){
@@ -1066,7 +1076,25 @@ vec4 markState(vec2 uv, float state, float prog, float strong, float t){
     //   최대치 1.0 유지 = 고압부는 도입 전과 동일. uPlantar 0 이면 전 픽셀 동일(롤백 지점).
     float prI = plantar(uv, sdIn, sd);
     float press = mix(1.0, 0.16 + 0.84 * prI, clamp(uPlantar, 0.0, 1.0));
-    lay(A, palPick(uImpDotCol), inIn * dotM * uImp * (0.06 + 0.94 * dep) * press);
+    // 도트 색 = 압력 온도. 전엔 단색이라 알파만 압력을 탔고, 고압부의 지정색(레드)이
+    //   그 아래 필(연주황)과 색이 안 이어져 해칭이 통째로 끊겨 보였다(유저 08-06).
+    //   압력이 빠질수록 LUT 를 따라 주황(coral t=0.56) → 연주황(sand t=0.86) 으로 식는다 —
+    //   필이 이미 그 구간에 있으므로 경계가 사라진다. 새 색은 만들지 않는다(유채 4색 규칙).
+    //   ※ 지정 팔레트색(uImpDotCol)은 **극성을 뒤집는 원인**이라 도트에서 은퇴했다(유저 08-06).
+    //     선언은 남겨 둔다 — 저장본 호환(랩 버튼)과 다른 소비처가 있다.
+    // ★ 도트 색 = **3안 비교용 유니폼**(유저: 버전들 버튼으로 눌러 보게 해줘).
+    //   0 = 단색 순백(09:25 저장본 · 각인이 필과 다른 색이라 발가락·아치 형태가 산다)
+    //   1 = 압력 온도 그라디언트(13:31) — 저압 연주황 → 고압 순백
+    //   2 = 상태 온도 창 안으로 클램프(14:23) — 필과 같은 계열, 극성 고정
+    //   기본 0. 랩에서만 갈아 끼운다(mark-look.json dotMode 로도 저장 가능).
+    float dotT = clamp(press * dep, 0.0, 1.0);
+    vec3 dotSolid = palPick(uImpDotCol);
+    vec3 dotGrad  = mix(lut(mix(0.86, 0.56, dotT)), palPick(uImpDotCol), smoothstep(0.72, 1.0, dotT));
+    float dwHi = (uTHi > 0.0001) ? uTHi : 0.86;
+    float dwLo = (uTHi > 0.0001) ? uTLo : 0.56;
+    vec3 dotWin   = lut(mix(dwHi, mix(dwHi, dwLo, 0.65), dotT));
+    vec3 dotC = (uDotMode < 0.5) ? dotSolid : (uDotMode < 1.5 ? dotGrad : dotWin);
+    lay(A, dotC, inIn * dotM * uImp * (0.06 + 0.94 * dep) * press);
     // 이너 섀도우 — 경계 **안쪽**에서 최대, 안으로 갈수록 사라진다. 자국이 '눌려 들어간' 자리로 읽힌다.
     //   빛을 빼지 않는다(위 uImpShade 주석): LUT 저역(RED)을 얹어 어느 바닥에서도 그림자로 읽히게.
     // 각인 음영에도 같은 블룸을 — 음영은 실루엣이든 자국이든 하나의 언어여야 한다.
@@ -1175,16 +1203,41 @@ export function drawStemArrow(g, W, H, t, ENV, opts = {}) {
   grad.addColorStop(1.00, rgba(0.97, A0));
   // 볼류메트릭 언더글로우 — 같은 폴리곤을 1.9배 넓혀 블러 밴드로. shadowBlur 없이 스템이
   //   판에 붙은 종이처럼 평평했다(유저: 발자국 토큰과 감도 차이). 링의 volRing 과 같은 취지.
+  // ★ 도트 스템의 흐름 — **점 목록을 한 번 계산**해 언더글로우와 본체가 같은 점을 쓴다.
+  //   따로 계산하던 시절엔 개수 상수(13)를 한쪽만 고쳐 글로우와 점이 어긋났다.
+  //   유저 08-06: "더 촤르르륵 · 더 쫀뜩 · 끝에는 약간 투명도".
+  //     촤르르륵 = 점이 뿌리→머리로 **흘러간다**(간격 유지, 한 칸 주기로 순환)
+  //     쫀뜩     = 촘촘하게(13→9.5) + 흐름을 타고 **뭉쳤다 늘어나는** 사인 스퀴즈
+  //     끝 투명  = 머리 쪽 마지막 구간 알파를 깎는다. 순환하는 점이 머리에서 툭 사라지는
+  //                이음매를 가리는 일도 같이 한다(뿌리 쪽 소멸은 그라디언트가 이미 한다).
+  const dotList = opts.dots ? (() => {
+    const seg = Math.abs(yHead - y0);
+    const N = Math.max(3, Math.round(seg / (9.5 * sw)));
+    const dph = (t * 1.15 * speed) % 1;
+    const sm = (a2, b2, x) => { const u = Math.max(0, Math.min(1, (x - a2) / (b2 - a2))); return u * u * (3 - 2 * u); };
+    const out = [];
+    for (let i = 0; i < N; i++) {
+      const u = ((i + 0.5) / N + dph / N) % 1;
+      const squeeze = 1 + 0.22 * Math.sin((u * 3 - dph * 2) * Math.PI * 2);
+      out.push({ y: y0 + (yHead - y0) * u,
+                 r: (w0 / 2 + (w1 / 2 - w0 / 2) * u) * squeeze,
+                 // 끝 투명 = '약간'(0.72~0.92 에서 −35%) + **머리 끝은 0 으로**(0.92~1).
+                 //   0 이 안 되면 순환하는 점이 알파 0.5 에서 툭 사라져 흐름이 끊겨 보인다
+                 //   (유저: 애니메이팅 끊기는 느낌). 이음매는 알파 0 에서만 안 보인다.
+                 a: (1 - 0.35 * sm(0.72, 0.92, u)) * (1 - sm(0.92, 1, u)) });
+    }
+    return out;
+  })() : null;
   g.save(); g.filter = `blur(${7 * sw}px)`; g.globalAlpha = opts.dots ? 0.30 : 0.55;
   g.fillStyle = grad;
   if (opts.dots) {
     // 도트 모드에선 언더글로우도 점으로. 폴리곤 밴드를 깔면 점 사이가 메워져 다시 막대가 된다.
-    const seg = Math.abs(yHead - y0), N = Math.max(3, Math.round(seg / (13 * sw)));
-    for (let i = 0; i < N; i++) {
-      const u = (i + 0.5) / N, y = y0 + (yHead - y0) * u;
-      const r = (w0 / 2 + (w1 / 2 - w0 / 2) * u) * 1.5;
-      g.beginPath(); g.arc(cx, y, Math.max(1.4 * sw, r), 0, Math.PI * 2); g.fill();
+    const gA = g.globalAlpha;
+    for (const d of dotList) {
+      g.globalAlpha = gA * d.a;
+      g.beginPath(); g.arc(cx, d.y, Math.max(1.4 * sw, d.r * 1.5), 0, Math.PI * 2); g.fill();
     }
+    g.globalAlpha = gA;
   } else {
     g.beginPath();
     g.moveTo(cx - w0, y0); g.lineTo(cx + w0, y0);
@@ -1198,14 +1251,11 @@ export function drawStemArrow(g, W, H, t, ENV, opts = {}) {
     // ★ 도트 스템(지면 전용, 유저 08-05) — 벽은 이어진 테이퍼 자루, **바닥은 점렬**이다.
     //   같은 토큰·같은 촉·같은 램프를 쓰고 자루의 '재질'만 바꾼다(문법 공유, 렌더만 절제).
     //   점 크기는 스템 폭 테이퍼를 그대로 따라 뿌리에서 머리로 굵어진다 = 방향이 점에서도 읽힌다.
-    const seg = Math.abs(yHead - y0);
-    const N = Math.max(3, Math.round(seg / (13 * sw)));
-    for (let i = 0; i < N; i++) {
-      const u = (i + 0.5) / N;
-      const y = y0 + (yHead - y0) * u;
-      const r = (w0 / 2 + (w1 / 2 - w0 / 2) * u) * 0.92;
-      g.beginPath(); g.arc(cx, y, Math.max(0.9 * sw, r), 0, Math.PI * 2); g.fill();
+    for (const d of dotList) {
+      g.globalAlpha = d.a;
+      g.beginPath(); g.arc(cx, d.y, Math.max(0.9 * sw, d.r * 0.92), 0, Math.PI * 2); g.fill();
     }
+    g.globalAlpha = 1;
   } else {
     g.beginPath();
     g.moveTo(cx - w0 / 2, y0); g.lineTo(cx + w0 / 2, y0);

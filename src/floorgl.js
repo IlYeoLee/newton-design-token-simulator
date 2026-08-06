@@ -704,7 +704,14 @@ const TR = {
  *  실치수 환산: 대지 1600×2670px = 농구 141×235cm(0.88mm/px) · 러닝 117×195cm(0.73mm/px). */
 export const TOK = {
   // ── 공간 (px, 대지 좌표)
-  headY: 176,        // 헤더 알약 상단
+  // ★ **투사 far 경계 안쪽**이어야 한다(유저: 알약이 튀어나온다 · 설계 원칙: 투사면 밖 그래픽 금지).
+  //   실측(P1 프레임): 대지 far 끝 z −8.982 · 빔 far 경계 z −8.693(oz −6.093, fpFar 2.6)
+  //   → **대지의 위쪽 289px 은 빔 밖**이다. 176 이면 알약(높이 355)의 위 113px 이 투사면을 넘는다.
+  //   289 + safePad(48) = 337 → 340. 폭 상한(safeW)만 있고 **깊이 상한이 없었던 게 구멍**이다:
+  //   SAFE_TBL 은 y176 을 2174px 로 보고하는데 그 표는 fpNear .3 / fpFar 2.0 시절 실측이다.
+  //   ※ 이 값은 tokens.html '알약 상단 y' 슬라이더로 조정한다. 빔 설정이 바뀌면 다시 재야 한다 —
+  //     리그에서 런타임 파생시키려면 대지 px → 월드 매핑을 main.js(UI_MASK 를 세우는 쪽)가 줘야 한다.
+  headY: 340,        // 헤더 알약 상단 — 투사 far 경계 + safePad
   // ★ 링 안 숫자가 **정본**이고 링이 거기서 나온다. 예전엔 반대였다 —
   //   `countRing` 이 숫자를 `220 × (RR/275) = 0.8 × RR` 로 파생시켜서, 링을 조이면 숫자가 같이
   //   죽었다(유저: 압축안에서 저 안의 타이머가 읽히긴 하냐 → 42px = 0.32°, 1급 미달이었다).
@@ -722,7 +729,13 @@ export const TOK = {
   ringRatio: 1.6,    // 링 지름 ÷ 숫자 폰트. **지금까지 2.5 였다** = 링이 알약 높이의 67%를 먹은 이유
   pad: 52,           // 알약 안쪽 여백 (상하좌우 동일)
   gapT: 48,          // 슬롯 사이 간격
-  gapHP: 96,         // 알약 ↔ 진행 아크
+  //   96 → 132 (유저 #188: 위아래 간격이 아슬아슬하다). 아크는 위로 알약, 아래로 3D 발마크
+  //   사이에 끼는데 96 이면 위 30px·아래 5px 수준이었다(스샷 실측). 여유를 키운다.
+  gapHP: 132,        // 알약 ↔ 진행 아크
+  // ★ PREVIEW 라벨 ↔ 알약 — 전엔 `fsBadge * 0.45`(=29px) 라 라벨이 알약에 붙어 한 덩어리로
+  //   읽혔다(유저: 프리뷰랑 알약 사이 거리 벌려라). 배지 크기에서 파생시킬 값이 아니다 —
+  //   위 여백은 아래(gapHP 96)와 같은 계열의 **간격 토큰**이다. 알약 위/아래가 같이 움직인다.
+  gapPv: 72,         // PREVIEW 라벨 ↔ 알약 (알약 위쪽)
   progH: 155,
   // ★ 아크 폭은 **알약 폭에서 파생**한다(유저: 아직 허그 아닌 게 너무 많다).
   //   820 은 알약이 1320 고정이던 시절 '헤더의 62%' 로 잡은 값이다 — 알약이 HUG 가 되어
@@ -920,6 +933,9 @@ const ADV = {
 /** 이 장면이 **따라하기 구간에** 두는 시간 표시. 관찰(프리뷰) 카운트는 여기 해당 없음 —
  *  그건 '영상이 몇 초 남았나'라는 다른 값이라 중복이 아니다. */
 const advOf = s => ADV[s] || CAPS[s]?.adv || 'time';
+/** reps 장면의 **총 횟수 배지** — 링은 지금 값(1급)만 세고 총량은 이 2급 배지가 말한다.
+ *  스텝백의 step('n/4')과 **같은 슬롯**이라 조판을 새로 만들 게 없다. */
+const repsTotal = s => (advOf(s) === 'reps' ? '/' + (CAPS[s]?.reps || 10) : null);
 const showArc  = s => advOf(s) === 'time';                       // 아크 = time 에서만
 const showRing = s => ['segment', 'hold', 'reps'].includes(advOf(s));   // 링 = 셀 게 따로 있을 때만
 /** 알약이 **그 화면의 유일한 정보**인가 — SPM·거리 같은 다른 1급 수치가 없으면 참.
@@ -1032,6 +1048,20 @@ function drawRing(ctx, n, y, prog, color) {
  *  같은 물건이 화면마다 다른 물건이 된다. 쓰는 쪽은 이 함수만 부른다.
  *  o.t = 컴포넌트 로컬 시간(등장 모션용) · o.pulse = 숫자 바뀐 뒤 경과(0~1, numPulse) ·
  *  o.k = 크기 배율(1 = 604) · o.alpha · o.morph(0~1) = 링→알약 형태 변환(0 이면 순수 링). */
+/** ── 조판 계측기 — **그릇을 넘어서 줄여 그린 곳**을 남긴다.
+ *  눈으로 훑으면 반드시 놓친다(유저: 알약 프로그래스·타이머 벗어난 게 없는지 검수).
+ *  런타임 구조대(축소)는 화면을 구하지만 **문제를 숨긴다** — 그 순간을 기록해야 감사가 된다.
+ *  scripts/check_pill_fit.mjs 가 씬을 전부 돌려 이 로그를 읽는다.
+ */
+const fitLog = (kind, tag, txt, w, avail) => {
+  if (typeof window === 'undefined' || !(avail > 0)) return;
+  const L = (window.__fitLog ||= []);
+  const key = kind + '|' + tag + '|' + txt, over = w / avail;
+  const cur = L.find(e => e.key === key);
+  if (cur) { if (over > cur.over) { cur.over = over; cur.w = Math.round(w); cur.avail = Math.round(avail); } }
+  else L.push({ key, kind, tag, txt, over, w: Math.round(w), avail: Math.round(avail) });
+};
+
 export function countRing(ctx, cx, cy, prog, txt, o = {}) {
   const t = o.t ?? 99, K2 = o.k ?? 1, mo = clamp01(o.morph ?? 0);
   const e = eOut(intro(t, .35, .8)), br = cycle(t, 1.2, 3, 3);
@@ -1081,7 +1111,22 @@ export function countRing(ctx, cx, cy, prog, txt, o = {}) {
   // ★ 숫자 크기는 **호출자가 준다**(o.numFs). 안 주면 옛 규약(링에서 파생)으로 떨어진다.
   //   링에서 파생시키면 링을 조일 때마다 숫자가 같이 죽는다 — 그게 정확히 있던 문제다.
   const fsRing = o.numFs != null ? o.numFs : 220 * K2;
-  const fs2 = fsRing - (fsRing - (o.pillFs ?? 68) * K2) * mo;
+  let fs2 = fsRing - (fsRing - (o.pillFs ?? 68) * K2) * mo;
+  // ★ 숫자는 **그릇 안에** 있어야 한다(유저 스샷: 농구 로우드리블 '0/10' 이 링을 좌우로 넘쳤다).
+  //   크기가 글자 수와 무관하게 고정이라, 한 글자('3')를 기준으로 잡은 112px 이 네 글자('0/10')
+  //   에서는 링 지름의 1.4배가 됐다. 세는 값이 초냐 횟수냐에 따라 글자 수가 변하는 슬롯이므로
+  //   **그릇에 맞춰 줄인다** — 링이면 지름 안쪽(트랙 굵기·여백 제외), 알약이면 알약 폭.
+  //   ※ 줄인 순간은 fitLog 가 기록한다. 축소는 구조대일 뿐, 정답은 값(fsTimer)이나 문구다.
+  {
+    // 원 안에 글자가 들어가는 폭은 지름이 아니라 **대문자 높이에서의 현(chord)** 이다 —
+    //   지름으로 재면 위아래 모서리가 트랙을 뚫는다.
+    const arcW = (o.ring?.arcW ?? 11) * (mo <= 0 ? 1 : 0);
+    const rIn = Math.max(1, R2 - arcW - 4 * K2), half = Math.min(rIn * 0.98, fs2 * 0.36);
+    const avail = (mo <= 0.5 ? 2 * Math.sqrt(rIn * rIn - half * half) : (o.pillW ?? 200) * K2 - 24 * K2);
+    ctx.font = F(700, fs2, dot9);
+    const wNow = ctx.measureText(txt).width;
+    if (wNow > avail) { fitLog('ring', o.tag || '?', String(txt), wNow, avail); fs2 *= avail / wNow; }
+  }
   ctx.font = F(700, fs2, dot9);
   ctx.fillStyle = o.fill || '#fff'; ctx.textAlign = 'center';
   // 숫자도 **실제 잉크**를 원 중심에 맞춘다 — 'middle' 은 em 중앙이라 원과 어긋난다(_baseAt 주석).
@@ -1374,9 +1419,11 @@ export class FloorGL {
                             //   차가 음수가 되어 **한 바퀴 내내 한 프레임도 안 그린다**.
     this._moT = null;       // 관찰→따라하기 모프 시작 시각
     this._pfT = null;       // 좌/우 발 전환 램프
+    this._a2Latch = false;  // A2 한 발 홀드 카운트 래치(스테이지마다 리셋)
     this._numLast2 = null; this._numT2 = 0;   // 카운트 숫자 펄스
     this._numLast = null; this._numT = 0;
     this._headW = null;     // 알약 폭 스무딩 (되감으면 지난 폭에서 출발해 첫 프레임이 튄다)
+    this._rk = null;        // 링 슬롯 점유 스무딩 — 폭과 같은 시계(리셋도 같이)
     this._textBand.y0 = 1e9; this._textBand.y1 = -1e9;
   }
 
@@ -1545,11 +1592,37 @@ export class FloorGL {
    *  (대문자화 · 'LEFT ' 접두사 · 2줄→1줄). 그러면 폭이 **한 프레임에 점프**해서 캡슐이 툭 끊긴다
    *  — 유저가 말한 '중간에 버벅인다'의 정체다. 목표 폭으로 지수 수렴시켜 형태 변화를 이어 붙인다.
    *  시간상수 0.12s: 전환(0.9s)보다 충분히 짧아 지연으로 안 느껴지고, 점프는 완전히 녹는다. */
+  /** 링 슬롯 점유 스무딩 — **폭과 같은 시계**로 움직인다.
+   *  왜: ringK 가 0/1 로 튀면 링이 한 프레임에 사라지고, 알약 폭과 타이틀 위치는 그 뒤 0.18s 에
+   *  걸쳐 따라온다 → 유저가 말한 순서('타이머가 들어가고 그 이후에 글자가 들어온다')가 된다.
+   *  링 슬롯은 폭(inner)의 구성 요소이므로, 이 값을 이징하면 **링·상자·글자가 한 동작**이 된다.
+   *  줄어들 때만 이징한다(켜질 때는 즉시) — 컨테이너가 내용보다 먼저 자리를 만드는 규칙 그대로. */
+  _smoothRingK(target) {
+    const dt = Math.max(0.001, Math.min(0.25, this.t - (this._rkT ?? this.t)));
+    this._rkT = this.t;
+    if (this._rk == null || target > this._rk) this._rk = target;
+    else this._rk += (target - this._rk) * (1 - Math.exp(-dt / 0.18));
+    return this._rk < 0.004 ? 0 : this._rk;
+  }
+
   _smoothW(target) {
     const dt = Math.max(0.001, Math.min(0.25, this.t - (this._hwT ?? this.t)));
     this._hwT = this.t;
     if (this._headW == null || Math.abs(target - this._headW) > 900) this._headW = target;   // 스테이지 전환은 즉시
-    else this._headW += (target - this._headW) * (1 - Math.exp(-dt / 0.12));
+    else {
+      // ★★ **비대칭**이다 — 유저: 옆으로 튀어나왔다가 타이머가 들어가고 그 다음에 글자가 들어와서
+      //   어색하다 · 컨테이너 밖으로 무언가 빠져나가지 않게.
+      //   대칭 이징(0.12s 양방향)이면 **커질 때** 상자가 내용을 못 따라간다 — 접두사가 붙거나
+      //   링이 도는 순간 내용이 먼저 넓어져 알약 밖으로 삐져나온다. 그게 '튀어나옴'이고,
+      //   그 뒤에 상자가 따라잡으며 링·글자가 차례로 제자리를 찾는 것이 '순차적'으로 읽힌다.
+      //   규칙(이 파일이 이미 적어 둔 원칙): **컨테이너가 내용보다 먼저 자리를 만든다.**
+      //     커질 때  = 거의 즉시(0.03s) — 상자가 앞서 열린다. 내용은 그 안에서 자란다.
+      //     줄어들 때 = 천천히(0.18s)   — 내용이 먼저 비고 상자가 뒤따라 닫힌다.
+      //   글자 크기는 이미 **목표 폭** 기준이라(위 wT), 상자가 즉시 열리면 글자와 링이 같은
+      //   프레임에 최종 자리로 들어간다 = '동시에' 읽힌다.
+      const grow = target > this._headW;
+      this._headW += (target - this._headW) * (1 - Math.exp(-dt / (grow ? 0.03 : 0.18)));
+    }
     return this._headW;
   }
 
@@ -1643,7 +1716,13 @@ export class FloorGL {
     //   원은 **값을 담는 그릇**이므로 바닥값도 값의 실치수에서 나와야 한다:
     //     가로 = 글자 반폭 + 여백 · 세로 = 대문자 반높이 + 여백  → 둘 중 큰 쪽
     const pad = nf * 0.30, cap = nf * 0.72;
-    return Math.max(cap / 2 + pad, tw / 2 + pad);
+    // ★ **예약 슬롯(TOK.ring)을 넘지 않는다.** 이 함수는 '한 자리 숫자에 큰 원이 걸린다'를
+    //   고치려고 만든 것인데 max 가 위로도 열려 있었다 — '0/10'(폭 243)에서 반지름이 155 가 되어
+    //   **알약 안쪽 높이(CAPHEAD_H − pad×2)를 60px 넘겼다**(유저 스샷: 농구 로우드리블 링이
+    //   알약을 위아래로 뚫었다). 알약 높이는 TOK.ring 에서 나오므로, 링이 그 값을 넘으면
+    //   알약과 링이 **두 벌의 값**이 된다. 위로는 슬롯이 상한, 아래로는 값이 정한다.
+    //   넘치는 문구는 countRing 이 그릇에 맞춰 줄이고 그 순간을 fitLog 가 기록한다.
+    return Math.min(TOK.ring, Math.max(cap / 2 + pad, tw / 2 + pad));
   }
 
   /** @param o.fs     타이틀 활자 크기 (프리뷰는 더 크다). 없으면 LAYOUT.TYPE.title
@@ -1684,7 +1763,23 @@ export class FloorGL {
     const inner = ringW + H2.gapU + tw + (step ? 110 * K2 : 0);
     // ★ HUG — 상자는 내용에서 나온다. minW 바닥값은 **쓰지 않는다**: 그것 때문에 짧은 문구에서
     //   알약이 내용보다 넓어졌고, 남는 폭이 한쪽에 쌓여 가운데가 안 맞아 보였다(유저 스샷).
-    const w = this._smoothW(Math.min(safeW(y) - TOK.safePad, inner + PAD * 2));
+    // ★ 목표 폭과 **표시 폭**을 따로 들고 다닌다. 표시는 _smoothW 로 이징되는데, 글자는
+    //   그 프레임의 표시 폭에 맞춰 축소되고 있었다 — 폭이 벌어지는 0.12s 동안 축소율이 매 프레임
+    //   달라져 **글자가 늘었다 줄었다** 한다(유저: 모션 약간 튀기면서 잘려).
+    //   접두사('LEFT ')가 붙는 순간 목표가 크게 늘어나므로 이 구간이 눈에 보인다.
+    //   글자 크기는 **목표 폭**에서 한 번 정한다 → 이징 내내 크기가 고정이라 튐이 없다.
+    //   (이징 중 0.1초쯤 글자가 유리 알약보다 살짝 넓게 나가지만, 알약은 반투명이고
+    //    폭은 곧 따라잡는다 — 눈에 보이는 건 '크기가 흔들리는 것'이지 '살짝 넓은 것'이 아니다.)
+    // ★★ 상한이 **둘**이다(유저: 알약 잘린다):
+    //     ① 투사 콘 안전폭 safeW(y) — 빔 밖으로 나가면 GPU 클리핑이 하드컷한다
+    //     ② **대지 폭 W(1600)** — 캔버스 밖은 텍스처가 없다. 그냥 사라진다.
+    //   이걸 놓치고 있었다: y176 의 안전폭은 **2174** 로 대지(1600)보다 넓다(위 SAFE_TBL 주석이
+    //   '상단은 대지보다 넓다'고 이미 적어 뒀다). 그래서 상단 알약은 safeW 상한에 걸리지 **않고**
+    //   내용 폭 그대로 자라 대지를 넘어갔다 — 'LEFT CALF STRETCH' 처럼 접두사가 붙은 긴 문구에서
+    //   양끝이 통째로 잘렸다. 콘 검사만 통과하면 안전하다고 믿은 게 구멍이다.
+    //   대지 여백도 safePad 를 쓴다 — 알약·아크가 같은 값을 쓰는 그 규약(TOK.safePad 주석) 그대로.
+    const wT = Math.min(safeW(y) - TOK.safePad, W - TOK.safePad * 2, inner + PAD * 2);
+    const w = this._smoothW(wT);
     // ★ **광학 보정**(유저: 로우드리블 좌우 간격 안 맞는다). 계산상으론 대칭인데 —
     //   실측 BK_B1: 알약 135~1465, 내용 200~1400 으로 좌우 여백이 65 로 같고 중심도 800 이다.
     //   그런데 눈에는 왼쪽이 넓다. 왼쪽 끝 물체가 **링의 옅은 트랙**(trackA .26)이라
@@ -1700,7 +1795,7 @@ export class FloorGL {
     //   기준은 **링이 들어갈 수 있는 높이**(TOK.ring) — 링이 실제로 그려지는지와 무관하다.
     const h = Math.round((TOK.ring * 2 + TOK.pad * 2) * K2);
     this._hbSig = _sig;
-    return (this._hbVal = { w, h, x, x0, inner, ringW, RR, PAD, gapT, fs, ringK, K2, H2 });
+    return (this._hbVal = { w, wT, h, x, x0, inner, ringW, RR, PAD, gapT, fs, ringK, K2, H2 });
   }
 
   /** 텍스트 슬롯 — 폭을 **실측**해서 들고 다닌다. 상자가 이 값에서 나오므로 넘칠 수 없다. */
@@ -1728,6 +1823,13 @@ export class FloorGL {
   _gaugeVal({ PV, dur, inPv, pvEnd, perFoot, hs, hp, pfK }) {
     const t = this.t, AV = advOf(this.stage);
     const stageRest = clamp01(1 - (t - PV) / Math.max(.1, dur - PV));
+    // ★ A2 는 **무조건 3·2·1**(유저: 아직도 5,2,1 이 나온다 — 하드코딩이라도 해라).
+    //   한 발 홀드가 3초인데 링이 관찰 카운트·스테이지 카운트와 소스를 오가며 5 가 샜다.
+    //   이 스테이지에선 다른 소스를 아예 안 본다 — 홀드 진행도 하나로만 센다.
+    if (this.stage === 'A2') {
+      const q = clamp01(hp ?? 0);
+      return { AV, prog: 1 - q, rem: String(Math.min(3, Math.max(1, Math.ceil(3 * (1 - q))))) };
+    }
     if (perFoot) {   // A2 한 발 홀드 — 봇 사이클(a2Cyc)이 정본. 발이 바뀌면 리셋된다.
       return { AV, prog: stageRest + ((1 - hp) - stageRest) * (pfK ?? 1),
                rem: String(Math.max(0, Math.ceil(hs * (1 - hp)))) };
@@ -1767,7 +1869,13 @@ export class FloorGL {
       const N = CAPS[this.stage]?.reps || 10;
       const done = numOr(this.map.get('rep-n')?.textContent,
                          Math.round(clamp01((t - PV) / Math.max(.1, dur - PV)) * N));
-      return { AV, prog: clamp01(1 - done / N), rem: done + '/' + N };
+      // ★ 'n/N' 을 링 안에 통째로 넣던 것을 **쪼갰다**(유저: 농구 드리블 개선 · 스샷의 '0/10').
+      //   네 글자는 링(지름 179) 안에서 1급(112px)으로 못 산다 — 실측 243px, 그릇의 1.4배다.
+      //   전엔 링 반지름이 값 폭을 따라 커져서 알약을 위아래로 뚫었고(위 _ringRFor), 상한을 걸면
+      //   대신 숫자가 71px 로 줄어 타이틀(140)보다 작아진다. 둘 다 위계가 뒤집힌다.
+      //   시스템에 이미 답이 있다: **지금 값은 링(1급), 총량은 오른쪽 배지(2급)** — 스텝백의
+      //   'n/4' 배지와 같은 슬롯이다. 링 안엔 한 글자·두 글자만 남아 크기를 안 건드려도 된다.
+      return { AV, prog: clamp01(1 - done / N), rem: String(done) };
     }
     return { AV, prog: stageRest, rem: String(Math.max(0, Math.ceil(dur - t))) };
   }
@@ -1796,9 +1904,9 @@ export class FloorGL {
     const tA = (TOK.collapse && !inPv && !pillLeads(this.stage))
       ? 1 - clamp01((this.t - (PV + TOK.hold)) / Math.max(.05, TOK.fade)) : 1;
     // 링은 adv 가 정한다 — 관찰 중이면 항상(영상 남은 시간은 고유 값이라 중복이 아니다).
-    const ringK = (inPv || showRing(this.stage)) ? 1 : 0;
+    const ringK = this._smoothRingK((inPv || showRing(this.stage)) ? 1 : 0);
     const T = tA > 0.004 ? String(n.title || '').toUpperCase() : '';
-    const box = this._headBox(T, n.step, y, { ringR: this._ringRFor(g.rem), ringK });
+    const box = this._headBox(T, n.step || repsTotal(this.stage), y, { ringR: this._ringRFor(g.rem), ringK });
     return { ...box, T, tA, ringK, dur, PV, inPv, g };
   }
 
@@ -1834,7 +1942,7 @@ export class FloorGL {
     if (rem !== this._numLast2) { this._numLast2 = rem; this._numT2 = this.t; }
     if (ringK > 0.004) countRing(ctx, cxR, cyR, prog, rem,
       { t: 99, k: RR / 275, numFs: TOK.fsTimer * K2, pulse: clamp01((this.t - (this._numT2 || 0)) / 0.5),
-        ring: { trackW: 10, arcW: 10, trackA: .26 } });
+        tag: this.stage, ring: { trackW: 10, arcW: 10, trackA: .26 } });
     // ★ 'sec' 라벨 폐기(유저: 1 아래 저 글씨가 읽히냐 — 에바 아니냐).
     //   실측 30px = 1.48cm = **0.23°**. Legge 임계(0.20°)를 겨우 넘고 ISO 권장(0.37°)의 0.63배다.
     //   움직이는 저대비 바닥에서는 정보가 아니라 장식이다. 링 안에 2급 크기를 넣을 자리도 없다.
@@ -1861,9 +1969,10 @@ export class FloorGL {
     ctx.letterSpacing = '0px';
     ctx.restore();
     // 스텝 배지(n/4) — 농구 분해 스텝만. 헤더 오른쪽 끝에 조용히.
-    if (n.step) {
+    const stepTxt = n.step || repsTotal(this.stage);
+    if (stepTxt) {
       ctx.textAlign = 'right'; ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.font = F(400, TOK.fsBadge);
-      ctx.fillText(n.step, x + W2 - PAD, cyR);
+      ctx.fillText(stepTxt, x + W2 - PAD, cyR);
     }
   }
 
@@ -2868,17 +2977,36 @@ export class FloorGL {
     //   ★★ 반드시 **폭을 재기 전에** 붙인다. 뒤에서 붙였더니 헤더 폭이 짧은 원본 기준으로
     //     계산돼 'Left Calf Stretch' 가 알약 밖으로 잘렸다(유저 스샷).
     const cyc = (typeof window !== 'undefined' ? window.__dbg?.session?.a2Cyc : null);
-    const perFoot = this.stage === 'A2' && cyc && !cyc.watching;
-    const hs = cyc?.holdSec ?? 5, hp = cyc?.inHold ? clamp01(cyc.prog) : 0;
+    // ★ **래치**(유저: 숫자가 3→1 로 2를 건너뛴다). a2Cyc.watching 은 프레임에 따라 되돌아올
+    //   때가 있는데, 그때마다 perFoot 이 꺼져 링이 '홀드 카운트(3·2·1)' 와 '관찰 카운트' 를
+    //   오갔다 — 소스가 바뀌는 순간의 값이 그대로 찍혀 2 가 통째로 사라졌다.
+    //   A2 가 한 번 따라하기에 들어가면 스테이지가 바뀔 때까지 홀드 카운트만 쓴다
+    //   (래치는 resetAnim 에서 스테이지마다 풀린다).
+    const _pfNow = this.stage === 'A2' && cyc && !cyc.watching;
+    if (_pfNow) this._a2Latch = true;
+    const perFoot = this.stage === 'A2' && !!cyc && (_pfNow || this._a2Latch === true);
+    // ★ 기본값 5 → 3 (유저: 3,2,1 이어야 하는데 5 가 나온다). 홀드는 3초(main HOLD=3.0)인데
+    //   관찰 구간의 a2Cyc 는 {watching, watchProg} 뿐이라 holdSec 이 없다 — 전환 프레임에
+    //   perFoot 이 켜지면 이 기본값 5 가 그대로 링에 찍혔다. 기본값도 홀드와 같게 맞춘다.
+    const hs = cyc?.holdSec ?? 3, hp = cyc?.inHold ? clamp01(cyc.prog) : 0;
     //   ★★★ 단, **모프가 끝난 뒤에** 붙인다(유저: 전환 애니메이션 때 글자가 삐져나온다).
     //     접두사가 모프 시작과 동시에 들어오면 한 프레임에 두 가지가 바뀐다 — 형태(원형→알약)와
     //     문구(12자→17자). 폭 목표가 점프하고, 프리뷰 폭 900 에 안 들어가 1줄이 2줄로 쪼개지면서
     //     크로스페이드 분기(=옛 '중간다리')로 떨어졌다. 모프 동안은 문구를 고정해 **한 물체가
     //     줄어드는** 읽기를 지키고, 접두사는 알약이 다 선 뒤 폭이 벌어지며 따로 들어온다.
-    // ★ 접두사는 **발이 바뀔 때마다** 따라간다(cyc.isLeft 는 5.7s 주기로 토글된다).
-    //   mo > .999 는 '모프가 끝난 뒤에만 붙인다'는 뜻이지 한 번 붙고 고정하라는 뜻이 아니었다 —
-    //   매 프레임 cyc 에서 다시 읽으므로 발과 함께 바뀐다. 순서는 오른발 → 왼발.
-    if (perFoot && mo > .999) title = (cyc.isLeft ? 'LEFT ' : 'RIGHT ') + title;
+    // ★ 접두사는 **발이 바뀔 때마다** 따라간다(5.7s 주기로 토글된다). 매 프레임 cyc 에서 다시 읽는다.
+    // ★★ 가리키는 발을 고쳤다(유저: 칼프가 종아리면 자막이 반대 아닌가 — 맞다).
+    //   접두사는 **늘어나는 종아리**를 말해야 한다 = 뒷발 = `cyc.workLeft`.
+    //   전엔 `isLeft`(앞으로 내딛는 발 = 무릎 굽히는 쪽)를 썼다 — 늘어나지 **않는** 발이다.
+    //   타이머를 뒷발로 옮길 때 자막을 같이 안 옮겨서, 화면이 서로 다른 발을 가리키고 있었다.
+    // ★★ 타이밍도 고쳤다(유저: 프레임이 튄다). 전엔 `mo > .999` — 모프가 **다 끝난 뒤**에
+    //   접두사가 들어왔다. 그 순간엔 형태·크기·영상 페이드가 전부 멈춰 있어서 문구 변화만
+    //   홀로 튄다('CALF' → 'LEFT CALF' = 좌측 정렬이라 단어가 한 프레임에 오른쪽으로 밀린다).
+    //   미뤘던 이유(프리뷰 폭 900 에 안 들어가 1줄이 2줄로 쪼개짐)는 **폭 기준 자동 2줄 분할이
+    //   폐기된 뒤 사라졌다** — 지금은 한 줄이 언제나 들어가고 넘치면 fitDraw 가 줄인다.
+    //   모프 **시작**과 함께 붙이면 영상 페이드아웃·타이머·자막이 한 사건으로 읽히고,
+    //   폭 점프는 _smoothW(0.12s)가, 활자 이동은 moT 가 이미 녹인다.
+    if (perFoot && mo > 0.02) title = ((cyc.workLeft ?? !cyc.isLeft) ? 'LEFT ' : 'RIGHT ') + title;
     // ★ 대소문자 규약(유저 확정) — 타이틀 영역은 **전부 대문자**(프리뷰·헤더·농구 포함).
     //   대문자로 통일해야 관찰→따라하기가 같은 글자가 옮겨간 것으로 읽힌다.
     //   **타이틀 영역은 프리뷰·헤더 모두 대문자**, 'Preview' 라벨만 대+소문자(유저 확정).
@@ -2907,7 +3035,7 @@ export class FloorGL {
     const ringFade = HAS_PREV
       ? (this._moT == null ? 0 : eOut(clamp01((t - (this._moT + MOVE)) / 0.45)))
       : 1;
-    const ringK = showRing(this.stage) ? 1 : 1 - ringFade;
+    const ringK = this._smoothRingK(showRing(this.stage) ? 1 : 1 - ringFade);
     // ★ 타이틀 접힘 — 레거시 경로(_headBoxFor)와 **같은 규약**. 모프가 끝나고 hold 초가 지나면
     //   동작명이 빠진다(유저: 글자가 자연스럽게 사라지며 타이머만 남으면 된다).
     //   관찰 중엔 안 접는다 — 거기선 동작명이 화면의 전부다.
@@ -2916,8 +3044,8 @@ export class FloorGL {
     const fsNow = TOK.fsTitlePv + (LAYOUT.TYPE.title - TOK.fsTitlePv) * moT;
     const _g = this._gaugeVal({ PV, dur, inPv: mo < .5, pvEnd: Math.max(PV, this._moT ?? PV),
                                 perFoot, hs, hp, pfK: perFoot ? clamp01((t - (this._pfT ?? t)) / 0.35) : 0 });
-    const { w: WHp, h: HHp, inner: INNER, ringW: RINGW, RR: RRp, PAD, gapT: GT, K2, H2 }
-      = this._headBox(tA > 0.004 ? title : '', cfg.step, LAYOUT.HEAD.y,
+    const { w: WHp, wT: WTp, h: HHp, inner: INNER, ringW: RINGW, RR: RRp, PAD, gapT: GT, K2, H2 }
+      = this._headBox(tA > 0.004 ? title : '', cfg.step || repsTotal(this.stage), LAYOUT.HEAD.y,
                       { fs: fsNow, ringK, ringR: this._ringRFor(_g.rem) });
     const w1 = WHp, h1 = HHp, y1 = H2.y;
     // ★ 진입 = **시작화면 캡슐이 줄어드는 것**(유저: 두 번 탭하면 같은 요소가 줄어들며 넘어간다).
@@ -2997,7 +3125,7 @@ export class FloorGL {
     if (ringK > 0.004) countRing(ctx, rx, ry2, gProg,
       rem, { t: 99, k: RR / 275, numFs: TOK.fsTimer * K2, pulse: clamp01((t - (this._numT2 || 0)) / 0.5),
                      alpha: ringK,   // 흐려지는 속도 = 알약이 닫히는 속도 (같은 값)
-                     ring: { trackW: 11, arcW: 11, trackA: .26 } });
+                     tag: this.stage, ring: { trackW: 11, arcW: 11, trackA: .26 } });
     // PREVIEW 라벨 · 동작명 — 순차 크로스페이드(옛 것이 먼저 빠지고 새 것이 든다)
     // ★ 전환 타이포 애니메이션(유저: 안 예쁘다) — 전엔 두 타이틀을 **제자리에서** 알파만 바꿔
     //   교차시켰다. 위치가 (중앙 2줄) → (좌측 1줄) 로 멀리 뛰는데 이동이 없으니 '사라졌다 다른
@@ -3024,7 +3152,7 @@ export class FloorGL {
       ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
       const pf = TOK.fsBadge * K2;
       ctx.fillStyle = 'rgba(255,255,255,.7)'; ctx.font = F(400, pf); ctx.letterSpacing = '2px';
-      ctx.fillText('PREVIEW', CX, y - pf * 0.45 - 12 * mo);
+      ctx.fillText('PREVIEW', CX, y - TOK.gapPv * K2 - 12 * mo);
       ctx.letterSpacing = '0px'; ctx.restore();
     }
     // ★ 타이틀 = **한 물체가 계속 움직인다**(유저: 중간다리 없이 매끄럽게).
@@ -3034,15 +3162,20 @@ export class FloorGL {
     //   두 줄이 필요한 긴 이름만 예외로 크로스페이드를 남긴다.
     // ★ 최후 안전장치 — 어떤 이징 조합·어떤 문구 길이에서도 글자는 알약 안쪽 여백을 못 넘는다.
     //   시작점 x0 에서 알약 오른쪽 안쪽(x+w-PAD)까지가 허용폭이고, 넘치면 그 비율로 줄여 그린다.
-    //   기하가 앞서가므로(moG) 평상시엔 k=1 이라 아무 일도 안 하고, 접두사('LEFT ')가 붙어
-    //   폭 목표가 점프하는 0.1~0.2s 동안만 개입한다 → **알약이 벌어지는 만큼 글자가 커지며 들어온다**.
+    // ★★ 한계는 **목표 폭**에서 잡는다(유저: 모션 약간 튀기면서 잘려).
+    //   전엔 그 프레임의 표시 폭(이징 중)에서 잡아, 접두사가 붙어 목표가 점프하는 0.12s 동안
+    //   축소율 k 가 매 프레임 달라졌다 — '알약이 벌어지는 만큼 글자가 커지며 들어온다'로 의도했지만
+    //   실제로는 **글자 크기가 흔들리며 잘리는** 것으로 읽힌다(그 순간 형태 모프까지 겹친다).
+    //   목표 폭 기준이면 크기가 처음부터 최종값이라 흔들림이 없고, 이징은 상자만 한다.
     //   ponytail: 균일 스케일 한 줄. 줄바꿈·말줄임이 필요해지면 그때 넣는다.
     const fitDraw = (s, x0, y0) => {
-      const lim = x + w - PAD - (cfg.step ? 110 : 0);
+      const xT = CX - WTp / 2;
+      const lim = xT + WTp - PAD - (cfg.step || repsTotal(this.stage) ? 110 : 0);
       const tw = ctx.measureText(s).width;
       const xa = Math.max(x + PAD, Math.min(x0, lim - tw));   // ① 먼저 **민다** — 글자 크기는 안 건드린다
       const k = Math.min(1, (lim - xa) / Math.max(1, tw));    // ② 안쪽 폭보다 긴 문구만 줄인다
       if (k > .999) return ctx.fillText(s, xa, y0);
+      fitLog('title', this.stage, s, tw, lim - xa);   // 줄여 그렸다 = 알약을 넘쳤다 (감사 대상)
       ctx.save(); ctx.translate(xa, y0); ctx.scale(k, k); ctx.fillText(s, 0, 0); ctx.restore();
     };
     ctx.save(); ctx.globalAlpha *= tA;
@@ -3079,11 +3212,12 @@ export class FloorGL {
     ctx.letterSpacing = '0px';
     ctx.restore();
     // step 배지 — 헤더 상태에서만
-    if (cfg.step && mo > .5) {
+    const stepTxt = cfg.step || repsTotal(this.stage);
+    if (stepTxt && mo > .5) {
       ctx.save(); ctx.globalAlpha *= (mo - .5) / .5;
       ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
       ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.font = F(400, TOK.fsBadge);
-      ctx.fillText(cfg.step, x + w - PAD, ry2);
+      ctx.fillText(stepTxt, x + w - PAD, ry2);
       ctx.restore();
     }
     ctx.restore();
@@ -3193,7 +3327,7 @@ export class FloorGL {
     // ★ 여기 있던 링·숫자·모션 코드가 countRing 정본 컴포넌트가 됐다(유저: 컴포넌트 자체를 재사용).
     //   출력은 동일 — 규격(604·220)과 모션(ringPop·breath·numPulse)을 그대로 옮겼다.
     if (txt !== this._numLast) { this._numLast = txt; this._numT = t; }
-    countRing(ctx, CX, cy, clamp01(t / dur), txt, { t, pulse: clamp01((t - this._numT) / 0.5) });
+    countRing(ctx, CX, cy, clamp01(t / dur), txt, { t, tag: this.stage, pulse: clamp01((t - this._numT) / 0.5) });
   }
 
   // ── 세션 리포트 (floor-report.html) ────────────────────────────────────────
