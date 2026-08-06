@@ -40,7 +40,7 @@ const res = await p.evaluate(async () => {
         uPHiL: { value: 0.85 }, uPLumLin: { value: 0 }, uPCalWave: { value: 1 }, uPCalD: { value: 1 },
         uPCalW: { value: 1 }, uPCalB: { value: 0 }, uPInk: { value: 0.85 }, uPInkT: { value: 0.42 },
         uFaceLift: { value: 0 }, uFaceE: { value: new THREE.Vector4() },
-        uHotE: { value: cur ? new THREE.Vector4(cur.at[0], cur.at[1], cur.r*1.30, cur.r*2.00) : new THREE.Vector4() },
+        uHotE: { value: cur ? new THREE.Vector4(cur.at[0], cur.at[1] + cur.r*0.55, cur.r*1.35, cur.r*2.10) : new THREE.Vector4() },
         uGaze: { value: cur ? new THREE.Vector4(cur.at[0], cur.at[1], gz*asp, gz) : new THREE.Vector4() },
         uHot: { value: cur ? k : 0 }, uPHiPale: { value: 0.86 + (0.97-0.86)*paleK }, uPHiHot: { value: 0.55 },
         uTokTex: { value: tok },
