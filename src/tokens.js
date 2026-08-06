@@ -156,7 +156,12 @@ void main() {
       aNew = clamp(aNew * (uHTInner > 0.0 ? mix(1.0, 1.0 + 0.80 * uHTInner, ee)
                                           : mix(1.0, 1.0 + 0.72 * uHTInner, ee)), 0.0, 1.0);
     }
-    r = mix(r, vec4(c0 * aNew, aNew), clamp(uHT, 0.0, 1.0));
+    // ★ 도트를 **접지한 자리에만** 남긴다. 실루엣 전체에 깔면 바깥까지 점이 있어 산만하다(유저).
+    //   섞는 양도 압력을 따른다 — 크기(위 press)와 같은 규약을 불투명도에 한 번 더 건다.
+    //   압력장이 꺼져 있으면(uPlantar 0) 예전처럼 전면에 깔린다.
+    float htW = clamp(uHT, 0.0, 1.0)
+              * mix(1.0, smoothstep(0.04, 0.42, prH), clamp(uPlantar, 0.0, 1.0));
+    r = mix(r, vec4(c0 * aNew, aNew), htW);
   }
   // 쿼드 보더 페이드 — 원형 + 사각 경계(체비셰프) 이중: 어떤 경로에서도 평면 모서리가
   // 사각 박스로 드러나지 않게 (주간 잉크의 색 정규화가 원형 페이드를 상쇄하던 구멍 봉인)
