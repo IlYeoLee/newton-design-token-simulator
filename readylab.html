@@ -58,6 +58,11 @@ const SPECS = [
   { key: 'bk',     name: '농구 — floor-bk.html',           mod: '/src/floorgl.js', cls: 'FloorGL', src: 'floor-bk.html' },
   { key: 'boxing', name: '복싱 — ready-view/index.html',   mod: '/src/wallgl.js',  cls: 'WallGL',  src: 'ready-view/index.html' },
 ];
+// ★ 캐시 무효화 스탬프는 **페이지 로드당 하나**다. 전엔 임포트할 때마다 Date.now() 를 새로
+//   불러서, 셀이 쓰는 모듈과 아래 토글이 만지는 모듈이 **다른 인스턴스**가 됐다(specifier 가
+//   다르면 브라우저는 다른 모듈로 취급한다). 그래서 시안 토글이 셀에 전혀 안 닿았다 —
+//   ms 가 우연히 같이 떨어질 때만 먹던 것. 랩의 존재 이유가 토글 비교인데 그게 복불복이었다.
+const V = Date.now();
 const $ = id => document.getElementById(id);
 const row = $('row'), errEl = $('err');
 const cells = [];
@@ -72,7 +77,7 @@ for (const s of SPECS) {
   const h = document.createElement('h2'); h.textContent = s.name; box.appendChild(h);
   row.appendChild(box);
   try {
-    const M = await import(s.mod + '?v=' + Date.now());
+    const M = await import(s.mod + '?v=' + V);
     const G = new M[s.cls]();
     // dur/pv 는 시작화면 페인터가 쓰지 않지만 load 시그니처가 요구한다(다른 랩과 같은 값).
     G.load('READY', { src: s.src, dur: 11, pv: 3 });
@@ -100,13 +105,16 @@ function paint() {
 paint(); setTimeout(paint, 800); setTimeout(paint, 2200);
 
 // ── 시안 토글 — floorgl 의 READY_OPT 를 직접 켜고 끈다(값 복사 금지: 두 벌이 되면 갈린다) ──
-const { READY_OPT } = await import('/src/floorgl.js?v=' + Date.now());
+const { READY_OPT } = await import('/src/floorgl.js?v=' + V);
 document.getElementById('optseg').addEventListener('click', e => {
   const b = e.target.closest('button[data-opt]'); if (!b) return;
   const k = b.dataset.opt;
   READY_OPT[k] = !READY_OPT[k];
   b.classList.toggle('on', READY_OPT[k]);
-  paint();
+  // ★ 토글이 **새 에셋**을 처음 요청하는 경우가 있다(⑨ 의 glow-ell-f1/f2·arrow).
+  //   _img 는 로드되면 _sig 만 비우고 다시 그리는 건 rAF 루프인데, 스크럽 중엔 루프가 멈춰
+  //   있어 광이 통째로 빈 화면을 보게 된다. 로드 대기 재페인트 — 첫 페인트와 같은 처방.
+  paint(); setTimeout(paint, 400); setTimeout(paint, 1400);
 });
 // ── 배경 — 지면 UI 는 알파 캔버스라 뒤가 그대로 비친다. 밝은 바닥 위에서의 가독을 여기서 본다.
 const BGS = { dark: '#14171d', light: '#F2F2F2', floor: '#8E9A86' };   // floor = 실측 트랙 그린
