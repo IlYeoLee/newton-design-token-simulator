@@ -323,8 +323,21 @@ await page.waitForFunction('!!window.__dbg?.session', { timeout: 120000 });
 // 부팅 동안에도 가상 시계를 밀어 준다 — 안 그러면 초기화가 시간 0 에 얼어붙는다.
 const warm = async (ms, step = 16.7) => {
   for (let v = 0; v < ms; v += step) {
-    await page.evaluate(vv => { window.__vt = vv; }, v);
-    await page.evaluate(() => new Promise(r => requestAnimationFrame(() => r())));
+    try {
+      await page.evaluate(vv => { window.__vt = vv; }, v);
+      await page.evaluate(() => new Promise(r => requestAnimationFrame(() => r())));
+    } catch (e) {
+      // ★ 부팅 직후 페이지가 한 번 리로드되면 실행 컨텍스트가 통째로 사라진다(간헐).
+      //   vite 의 의존성 재최적화·always-full-reload 가 이 창에 걸린다. 실측: 516프레임
+      //   렌더가 첫 프레임도 못 뽑고 warm() 에서 죽었다 — 20분짜리를 12초에 날린 셈이다.
+      //   리로드 자체는 정상 동작이니 다시 붙어서 워밍업을 **처음부터** 다시 한다.
+      if (!/context was destroyed|Target closed|detached/i.test(String(e))) throw e;
+      console.log('  ⚠ 부팅 중 페이지 리로드 — 다시 붙어 워밍업을 재시작합니다');
+      await page.waitForFunction('!!window.__dbg?.session', { timeout: 120000 });
+      await new Promise(r => setTimeout(r, 6000));   // 에셋 재로드
+      reloaded = 0;                                  // 이 리로드는 정상 — 프레임 루프의 중단 조건에서 뺀다
+      v = -step;
+    }
   }
 };
 await new Promise(r => setTimeout(r, 9000));   // 에셋 로드(실시간 대기)
