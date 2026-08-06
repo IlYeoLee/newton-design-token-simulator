@@ -1552,7 +1552,7 @@ export class Session {
       m.position.set(x, y, WZ + 0.001);
       // 파동(리플)만 이 마크에서 올려 잡는다 — 벽 마크는 uGain 0.6 이라 룩 기본값(rip 0.5)이면
       //   퍼지는 게 거의 안 읽힌다. tickWaves 는 uRip 을 안 건드리므로 인스턴스 값이 유지된다.
-      m.material.uniforms.uRip.value = 1.0;
+      m.material.uniforms.uRip.value = MARK_LOOK.rip * 2;
       m.setProg(0);
       // ★ 투명도 초기화가 없으면 C3 틱이 돌기 전(부팅·새로고침 직후)에 기본 불투명으로
       //   화면 중앙에 큰 마크가 뜬다(유저 08-05: 새로고침할 때마다 관련없는 판정토큰이 크게 뜬다).
@@ -2332,8 +2332,9 @@ export class Session {
       act.op(0.6 + 0.4 * P.fill);
       // 홀드 파문 차오름(유저: 화면이 심심) — 버티는 발에서 파문이 진행에 비례해 넓게.
       //   기존 파동 정본(uRip) 부스트일 뿐 새 이펙트가 아니다. 완주 팡과 리듬이 이어진다.
-      if (act._U?.uRip) act._U.uRip.value = 0.5 + 0.55 * P.fill;
-      if (oth._U?.uRip) oth._U.uRip.value = 0.5;
+      // 부스트는 정본 rip 의 배수다 — rip 0 이면 0 (기준선 0.5 하드코딩 폐기)
+      if (act._U?.uRip) act._U.uRip.value = MARK_LOOK.rip * (1 + 1.1 * P.fill);
+      if (oth._U?.uRip) oth._U.uRip.value = MARK_LOOK.rip;
       // ── 방향 화살표 = **발자국에서 파생**(하드코딩 폐기). 스탠스 축을 따라 서로 벌어진다.
       //   앞발 앞으로(무릎 전진) · 뒷발 뒤로(뒤꿈치 누르기). draw-on 1.8s 루프.
       if (P.arBack) {
@@ -2446,7 +2447,7 @@ export class Session {
       //   새 이펙트가 아니라 uRip/op 정본의 구동값만 바꾼다.
       const stretch = Math.max(0, Math.min(1, (Math.abs(P.fmL.group.position.z - P.fmR.group.position.z) - 0.14) / 0.32));
       const heat = stretch * (0.45 + 0.55 * P.fill);
-      if (fmBack._U?.uRip) fmBack._U.uRip.value = 0.5 + 0.75 * heat;
+      if (fmBack._U?.uRip) fmBack._U.uRip.value = MARK_LOOK.rip * (1 + 1.5 * heat);
       // ★ 반대발 하한(유저: 다리 앞뒤로 벌릴 때 반대발이 잘려나간다) — 마크 룩을 쨍하게
       //   바꾸면서(번짐↓ 코어↑) 낮은 알파에서 형체가 통째로 사라졌다. 0.5~0.6 은 예전
       //   흐릿한 룩 기준의 값이다. 하한을 0.72 로 올려 '있지만 비활성'으로 읽히게 한다.

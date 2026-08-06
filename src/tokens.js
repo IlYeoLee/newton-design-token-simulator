@@ -297,6 +297,11 @@ const SF = SIL_FIT / SIL_FIT_REF;   // uv 단위 거리 스케일 — 실루엣 
 //   session 의 `MARK_LOOK.tap` 이 항상 undefined 였고, 8번째 토큰 룩 적용이 **통째로 no-op** 이었다
 //   (유저 08-05: 랩에서 디자인한 대로 안 보인다). 랩이 굽는 값의 유일한 통로다.
 export const MARK_LOOK = { core: LOOK.w, halo: LOOK.halo, pool: LOOK.pool, sweep: 0.4, wobble: LOOK.noise,
+  // ★ rip 도 정본에 싣는다 — 세션이 홀드·히트에서 파동을 **부스트**하는데, 그 기준선을 0.5 로
+  //   박아 두고 있었다(session A2 홀드·뒷발 히트·B1). 그래서 mark-look.json rip 을 0 으로 내려도
+  //   그 장면들만 파동이 살아남는다(유저: 파동 지워줘 0 → 지워지지 않는 곳이 있었다).
+  //   부스트는 정본의 **배수**여야 한다: rip 0 이면 어떤 부스트도 0 이다.
+  rip: LOOK.rip ?? 0,
   tap: LOOK.tap || null, states: LOOK.states || null };
 // footlab 프림 저장본(코멧·노드·레일 등) → 부팅 반영 — 실시간 브리지(applyMarkLook)의 영구판.
 //   이게 없으면 랩에서 확정한 프림 값이 새로고침마다 증발했다(유저: 시뮬에 이식이 안 된다).
