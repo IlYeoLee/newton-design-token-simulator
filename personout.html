@@ -22,7 +22,7 @@ import { getLUT, FXP } from './src/fxlut.js';
 
 const q = new URLSearchParams(location.search);
 const num = (k, d) => { const s = q.get(k); const v = +s; return s !== null && Number.isFinite(v) ? v : d; };
-const SRC  = q.get('src') || '/_bg/bk_chroma_2560_intra.mp4';
+const SRC  = q.get('src') || '/_bg/bk_chroma_4k_intra.mp4';   // 2560 판은 없다 — 없는 파일이라 ?src 없이 열면 빈 화면이었다
 const W    = num('w', 2560), H = num('h', 1440);
 const FS   = num('fs', 0.30);
 const HI   = num('hi', 0.86);

@@ -55,6 +55,11 @@ if (SCENE_ID) {
   try { PRESET = JSON.parse(fs.readFileSync(path.join('public', '_presets.json'), 'utf8'))[SCENE_ID] || {}; }
   catch { /* 저장본 없음 — 전부 CLI/기본값 */ }
   if (Object.keys(PRESET).length) console.log(`  씬 저장본 적용: ${SCENE_ID} (public/_presets.json)`);
+  // ★ 저장본이 없으면 **크게 알린다.** 예전엔 조용히 기본값으로 갔다 — 배경도 색보정도 카메라도
+  //   없이 렌더가 끝나는데 아무 말이 없어서, 다 뽑고 나서야 안다. 이 리포가 반복해서 당한
+  //   '조용한 실패' 계열이다(out/ 리로드·ss2 투명 프레임과 같은 종류).
+  else console.log(`\n  ⚠ ${SCENE_ID} 의 씬 저장본이 없다 — 배경·색보정·카메라가 전부 **기본값**으로 간다.`
+    + `\n    scenes.html 에서 '이 씬 저장'을 먼저 하거나, --bg 등을 직접 줄 것.\n`);
 }
 // 저장본 → CLI 순으로 고른다. 색 보정처럼 중첩된 값은 아래에서 따로 합친다.
 const pick = (k, pk, d) => has(k) ? arg(k, d) : (PRESET[pk ?? k] ?? d);
