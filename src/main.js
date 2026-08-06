@@ -2542,6 +2542,9 @@ void main(){
     co.mat.uniforms.uField.value = L1.texture;
     co.mat.uniforms.uFieldN.value = N.texture;
   }
+  /** 코치 판 뒤 그리드 = **벽 GridScan 그대로**(유저 08-06). 근사치를 새로 그렸더니
+   *  그라디언트·스캔 펄스·프리즘 누적이 빠져 다른 물건이 됐다. makeGridScanMat() 인스턴스를 쓴다.
+   *  ※ 이 팩토리는 아래(벽 패널 정의부)에서 만들어지므로 호출은 런타임(ensureCoach) 시점이다. */
   function ensureCoach(id) {
     if (_coaches[id]) return _coaches[id];
     const cfg = COACH_CFG[id];
@@ -2704,7 +2707,15 @@ void main(){
     //   시크 직전 프레임을 캔버스에 떠서 그걸 대신 물려두고, 새 프레임이 들어오면 되돌린다.
     const fz = document.createElement('canvas'); fz.width = 2; fz.height = 2;
     const fzTex = new THREE.CanvasTexture(fz); fzTex.colorSpace = THREE.SRGBColorSpace;
-    const co = _coaches[id] = { video, plane, _fwd: new THREE.Vector3(), fwd: cfg.fwd,
+    // ★ 인물 뒤 **공간감 그리드**(유저 08-06) — 복싱 벽은 인물 뒤에 GridScan 코리도가 깔려
+    //   '저 사람이 공간 안에 서 있다'가 읽히는데 지면 코치 판은 배경이 비어 인물이 떠 보인다.
+    //   벽 그리드(gridScanPanel)와 **같은 색·같은 구도**를 판 뒤에 깐다. 스테이지별로 끌 수 있다
+    //   (COACH_GRID). 판보다 살짝 뒤(-0.004)에 두고 renderOrder 를 한 단 낮춘다.
+    const gridMesh = new THREE.Mesh(new THREE.PlaneGeometry(cfg.w * 1.35, cfg.h * 1.15), makeGridScanMat());
+    gridMesh.material.uniforms.uLineW.value = 0.45;   // 벽보다 얇게(유저) — 지면은 판이 작아 같은 두께면 굵어 보인다
+    gridMesh.visible = false; gridMesh.renderOrder = (plane.renderOrder || 0) - 1;
+    scene.add(gridMesh);
+    const co = _coaches[id] = { video, plane, grid: gridMesh, _fwd: new THREE.Vector3(), fwd: cfg.fwd,
       tex, mat, fz, fzTex, _frozen: false, cfg };   // cfg = ph(인물 높이)·rng(범위 오버라이드) 등
     // A1: 코치 영상 위에 회전 큐 2개(drawRotate 룩시스템) — 목(위·작게) + 어깨(아래·크게) 동시에 돌리기 지시.
     if (id === 'A1') {
@@ -2794,7 +2805,17 @@ void main(){
     // 실전(BK_C2)도 같은 클립을 타이밍 소스로 쓴다 — 라이브라고 끊으면 마크가 안 움직인다.
     const st = session.active && (!session.isLive || session.stage === 'BK_C2')
       && (state.pack === 'running' || state.pack === 'basketball') ? session.stage : null;
-    const COACH_IDS = ['READY', 'BK_READY', 'A1', 'A2', 'A3', 'BK_A1', 'BK_A2', 'BK_A3', 'BK_B1', 'BK_B2', 'BK_B3', 'BK_B4', 'BK_B5', 'BK_C2'];
+    // ★ 인물 뒤 공간감 그리드 — **스테이지별 스위치**(유저 08-06: 다 반영해두고 끌지 말지는 내가 정한다).
+  //   실측(scripts/_probe_coach.mjs)에서 인물이 실제로 보인 8개가 대상이다:
+  //     A1 200x88 · A2 365x182(관찰만) · BK_A1/BK_A2 200x85 · BK_B2~B5 는 화면급(3000~5800px)
+  //   false 로 두면 그 스테이지만 꺼진다.
+  window.COACH_GRID = window.COACH_GRID || {
+    A1: true, A2: true, A3: true,
+    BK_A1: true, BK_A2: true, BK_A3: true,
+    BK_B1: true, BK_B2: true, BK_B3: true, BK_B4: true, BK_B5: true, BK_C2: true,
+  };
+  const COACH_GRID = window.COACH_GRID;
+  const COACH_IDS = ['READY', 'BK_READY', 'A1', 'A2', 'A3', 'BK_A1', 'BK_A2', 'BK_A3', 'BK_B1', 'BK_B2', 'BK_B3', 'BK_B4', 'BK_B5', 'BK_C2'];
     // 관찰이 끝나면(followLatch) 코치를 끄는 게 기존 규약이었다. 단 스텝백 4페이즈(BK_B2~B5)는
     //   따라하기 화면에도 같은 실루엣이 축소되어 남아야 한다(피그마 143:444) — 예외로 계속 켠다.
     const activeId = COACH_IDS.find(id => id === st
@@ -2925,6 +2946,21 @@ void main(){
           if (co._readySrc !== vsrc) { co._readySrc = vsrc; co._everReady = false; }
           if (co.video.readyState >= 2) co._everReady = true;
           co.plane.visible = vis && !!co._everReady;
+          // ★ 그리드는 판을 그대로 따라간다 — 위치·회전·스케일을 복사하고 **판 뒤로** 살짝 물린다.
+          //   따로 계산하면 판이 앵커에 글루되는 순간(매 프레임 재배치) 어긋난다.
+          if (co.grid) {
+            const on = co.plane.visible && COACH_GRID[id] !== false;
+            co.grid.visible = on;
+            if (on) {
+              co.grid.position.copy(co.plane.position);
+              co.grid.quaternion.copy(co.plane.quaternion);
+              co.grid.scale.copy(co.plane.scale);
+              co.grid.translateZ(-0.004);   // 판 뒤
+              const gu = co.grid.material.uniforms;
+              gu.uTime.value = (session.t ?? state.time ?? 0);        // 스캔 펄스 — 벽과 같은 시계
+              gu.uBoost.value = (co.mat.uniforms.uFade?.value ?? 1);   // 판 페이드를 그대로 따라간다
+            }
+          }
           if (co.mat.uniforms.uEnter) co.mat.uniforms.uEnter.value = (now - (co._showT || 0)) / 1000;
         }
         co.plane.material.uniforms.uTime.value = performance.now() / 1000;
@@ -3679,11 +3715,13 @@ void main(){
   // ── GridScan 배경 (reactbits GridScan 포팅) — 복싱 벽 배경 라인의 정본.
   //    레이캐스트 코리도(바닥·천장·좌우벽 그리드) + 깊이로 진행하는 가우시안 스캔 펄스.
   //    파라미터 = 유저 확정: softness 4, jitter 0, post 없음. 컬러 = 뉴턴 시스템.
-  const gridScanPanel = new THREE.Mesh(
-    new THREE.PlaneGeometry(3.2, 2.0),
-    new THREE.ShaderMaterial({
+  /** 벽 GridScan 재질 팩토리 — **같은 셰이더**를 벽 패널과 코치 판 뒤 그리드가 공유한다.
+   *  (유저 08-06: 복싱 시작화면 3D 셰이더의 그라디언트까지 똑같이) 근사치를 새로 그리면
+   *  스캔 펄스·프리즘 누적·블렌딩이 빠져 다른 물건이 된다 — 인스턴스만 새로 만든다.
+   */
+  const makeGridScanMat = () =>     new THREE.ShaderMaterial({
       uniforms: {
-        uTime: { value: 0 }, uBoost: { value: 1 }, uGrid: { value: 1 },   // uGrid=0 → 퍼스펙티브 그리드 끔(바닥판)
+        uTime: { value: 0 }, uBoost: { value: 1 }, uGrid: { value: 1 }, uLineW: { value: 1 },   // uGrid=0 → 퍼스펙티브 그리드 끔(바닥판)
         uLines: { value: new THREE.Color(0.55, 0.28, 0.14) },
         uScan: { value: new THREE.Color(0.98, 0.19, 0.19) },
         uAccent: { value: new THREE.Color(0.13, 0.80, 0.86) },
@@ -3697,7 +3735,7 @@ void main(){ vUv = uv; vec4 mvPosition = modelViewMatrix * vec4(position, 1.0); 
       fragmentShader: `#include <common>
 #include <clipping_planes_pars_fragment>
 varying vec2 vUv;
-uniform float uTime, uBoost, uGrid;
+uniform float uTime, uBoost, uGrid, uLineW;
 uniform vec3 uLines, uScan, uAccent;
 // ── reactbits Prism 정본 (height 3.5 / baseWidth 5.5 / scale 3.6) ──
 vec4 tanh4(vec4 x){ vec4 e2x = exp(2.0 * x); return (e2x - 1.0) / (e2x + 1.0); }
@@ -3706,10 +3744,12 @@ float sdPyramid(vec3 p){
   float oct = (q.x + q.y + q.z - 1.0) * 2.75 * 0.57735;
   return max(oct, -p.y);
 }
+// ★ uLineW = 선 두께 배율. **기본 1 이면 벽은 픽셀 동일**하고, 코치 판 뒤 그리드만 얇게 쓴다
+//   (유저 08-06: 더 얇게). 두께는 fwidth 기반이라 거리에 따라 자동으로 가늘어진다 — 배율만 곱한다.
 float gridLine(vec2 guv){
   vec2 f = fract(guv);
   vec2 a = min(f, 1.0 - f);
-  vec2 w = fwidth(guv) * 0.7;
+  vec2 w = fwidth(guv) * 0.7 * uLineW;
   vec2 l = 1.0 - smoothstep(w, w * 2.4, a);
   return max(l.x, l.y);
 }
@@ -3779,7 +3819,8 @@ void main(){
 }`,
       transparent: true, depthWrite: false,
       blending: THREE.CustomBlending, blendSrc: THREE.OneFactor, blendDst: THREE.OneMinusSrcAlphaFactor,
-    }));
+    });
+  const gridScanPanel = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 2.0), makeGridScanMat());
   gridScanPanel.renderOrder = 5;
   gridScanPanel.visible = false;
   scene.add(gridScanPanel);
