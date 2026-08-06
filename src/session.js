@@ -853,6 +853,19 @@ const SB_FIT_V = FOOT_LEN_M * 0.55;   // 앞뒤 = 발 **길이** 절반 + 숨(0.
 //   메시가 빔 창(실측 0.383×0.643m) 밖으로 뻗으면 tickFlowArrows 의 양끝 알파 샘플이 0 을 잡아
 //   **선 전체가 안 보인다**(0.52 로 뒀다가 그대로 당했다: gain 0.62 인데 opacity 0.000).
 //   그리는 길이는 어차피 draw-on(_prog)이 정하므로 메시는 창 안에 들어가기만 하면 된다.
+/** 광고/발표용 프리셋 — `?ad=1`. **제품 룩은 이 플래그가 없으면 1비트도 안 바뀐다**
+ *  (docs/AD-FLOOR-UI-PLAN.md §3: 제품 정본을 광고 때문에 바꾸지 않는다).
+ *
+ *  왜 실전(BK_C2) 위에 얹는가(유저 08-07): 발표용은 **사진이 아니라 영상**이고
+ *  **모든 스텝이 한 뷰에** 있어야 하며 4/4 이후 모션까지 필요하다.
+ *  조각 단계(B2~B4)는 한 스텝씩만 보여주므로 이어 붙여도 모션이 끊긴다.
+ *  4국면을 **끊김 없이** 도는 화면은 C2 하나뿐이다 — 거기서 꺼 둔 설명 토큰만 도로 켠다.
+ *  (C2 가 그것들을 끈 이유는 '실전은 시험이라'였다. 발표는 시험이 아니다.)
+ *  켜는 것: 이동 화살표 · 목표 존 원 · 스탠스 링크 · 경로 마크(SHOW_PATH) · 경로선 게인.
+ *  새 그래픽은 0개다 — 전부 이미 다른 화면에서 쓰는 어휘다. */
+export const AD = typeof location !== 'undefined'
+  && new URLSearchParams(location.search).get('ad') === '1';
+
 const SB_LINK_MAX = 0.24;
 // 경로선(LINK.trail)은 스탠스선보다 멀리 간다 — 준비→착지 거리가 실측 0.9m 대다.
 // ★ 1.10 → 1.60 (유저 08-07 녹화 대비). `_prog = min(1, len/MAX)` 는 '판 길이 중 얼마를 그렸나' 라서
@@ -1199,7 +1212,7 @@ export class Session {
       m.position.set(a.x + dx / d * IN, 0.013, a.z + dz / d * IN);
       m.rotation.z = Math.atan2(-dx, -dz);   // 부호 규약 = _sbLink 와 같다
       m._prog = Math.min(1, len / SB_TRAIL_MAX) * on;
-      m._gain += (0.42 - m._gain) * 0.15;    // 2급 — 발자국(1급)보다 옅게
+      m._gain += ((AD ? 0.70 : 0.42) - m._gain) * 0.15;   // 2급 — 발자국(1급)보다 옅게. 광고는 0.70(A층)
     };
     // 순서: 준비 R → 플랜트 → 착지 R · 준비 L → 착지 L (왼발은 한 번에 크게 빠진다)
     seg(H.trA, H.fRr, H.fC,  0);
@@ -3569,8 +3582,10 @@ export class Session {
       if (POSE) {
         // 1/4~4/4 + 실전 공통 — 좌표·박자 전부 영상 재생 위치에서 자동(_sbPlace).
         //   실전은 '4/4의 마크 판정 토큰'만 남긴다 — 화살표·링·고스트·커서 전부 없음(유저).
-        this._sbPlace(H, id, H.fRl, H.fRr, (LIVE || !arrK) ? [null, null] : [H.a1, H.a2]);
-        if (LIVE || !arrK) {   // 실전 = 마크 판정 토큰만. 화살표·목표 존·스탠스 링크 전부 없음(유저)
+        // ★ 광고 프리셋(?ad=1)은 이 셋을 되켠다 — '보고 따라해요'를 말하려면 지시가 있어야 한다.
+        const MUTE = (LIVE && !AD) || !arrK;
+        this._sbPlace(H, id, H.fRl, H.fRr, MUTE ? [null, null] : [H.a1, H.a2]);
+        if (MUTE) {   // 실전 = 마크 판정 토큰만. 화살표·목표 존·스탠스 링크 전부 없음(유저)
           H.a1._gain = 0; H.a2._gain = 0;
           H.zTgt?.setOp?.(0); H._zFade = 0;
           if (H.lkA) { H.lkA.visible = false; H.lkB.visible = false; }
@@ -3619,7 +3634,7 @@ export class Session {
           //   발자국만 늘리면 '뭘 하라는 건지'가 아니라 어질러짐이 된다. 남은 fC 하나도 같은 병이다.
           //   위 배치(_beamFit)는 남긴다: 좌표계 버그를 고친 것이라, 나중에 광고 프리셋이 이 셋을
           //   켜더라도 그때는 창 안에 앉는다. 켜는 스위치는 그 프리셋이 갖는다.
-          const SHOW_PATH = false;   // 광고 프리셋이 생기면 그 값으로 바뀐다
+          const SHOW_PATH = AD;   // 제품은 끔 · 광고 프리셋에서만 켠다
           f.op(SHOW_PATH && !near ? 0.30 * Math.max(0, Math.min(1, (this.t - TR_ARR[k]) / 0.25)) : 0);
         }
         if (H.numL) { placeMarkNum(H.numL); placeMarkNum(H.numR); H.numL.visible = H.numR.visible = true; }
