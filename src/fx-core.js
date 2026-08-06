@@ -672,7 +672,7 @@ uniform float uLoadGain, uLoadBase, uFlow;
 uniform float uEdgeShade, uEdgeW, uEdgeSoft, uDither, uSilFit;
 uniform float uEdgeShadeW, uEdgeShadeCol;   // 실루엣 이너 섀도우 면적 배율 · 팔레트 색(0흰/1샌드/2코랄/3레드) — 유저: 면적·색 조정
 uniform float uIceOld;   // 1 = 아이스 컷 이전(하늘색) 램프 — 비교 미리보기용 토글(유저)
-uniform float uTLo, uTHi;   // 상태 온도 창(색 축) — 0 = 미설정(각 상태 기본 창)
+uniform float uTLo, uTHi, uDotMode;   // 상태 온도 창(색 축) — 0 = 미설정(각 상태 기본 창)
 uniform float uEdgeShadeGrad, uEdgeShadeG0, uEdgeShadeG1;   // 이너 섀도우 LUT 그라디언트(0 단색) · 시작/끝 LUT 위치 — 섬세 조정(유저)
 // uShadeRed / uShadeRedW: **음영 자리에 까는 뉴턴 RED 블룸** (유저: 바닥 색에 가장 빨간 뉴턴 레드가
 //   부족하다 — 음영 지는 부분에 은은한 블러로). 이너 섀도우는 LUT 상단(PRISM)이라 형태는 잡아도
@@ -1082,14 +1082,19 @@ vec4 markState(vec2 uv, float state, float prog, float strong, float t){
     //   필이 이미 그 구간에 있으므로 경계가 사라진다. 새 색은 만들지 않는다(유채 4색 규칙).
     //   ※ 지정 팔레트색(uImpDotCol)은 **극성을 뒤집는 원인**이라 도트에서 은퇴했다(유저 08-06).
     //     선언은 남겨 둔다 — 저장본 호환(랩 버튼)과 다른 소비처가 있다.
-    // ★ **단색 도트로 복귀**(유저 08-06: 5시간 전 저장 버전이 더 좋다 · 발가락 모양이 두드러진다).
-    //   그 사이 두 번 바뀌었다: ① 1cc3bdf 압력 온도 그라디언트(주황→연주황)
-    //   ② 3355241 상태 온도 창 안으로 클램프. 둘 다 도트를 **필과 같은 계열**로 만들었는데,
-    //   그러면 각인이 필에 녹아 발가락·아치 같은 **형태 정보가 사라진다** — 각인이 두드러지는
-    //   이유는 필과 **다른 색**(순백)이기 때문이다.
-    //   극성 문제도 없다: 언제나 순백이므로 상태가 바뀌어도 '밝은 점' 하나로 고정이다
-    //   (뒤집힘은 그라디언트가 필을 따라가면서 생긴 것이었다).
-    lay(A, palPick(uImpDotCol), inIn * dotM * uImp * (0.06 + 0.94 * dep) * press);
+    // ★ 도트 색 = **3안 비교용 유니폼**(유저: 버전들 버튼으로 눌러 보게 해줘).
+    //   0 = 단색 순백(09:25 저장본 · 각인이 필과 다른 색이라 발가락·아치 형태가 산다)
+    //   1 = 압력 온도 그라디언트(13:31) — 저압 연주황 → 고압 순백
+    //   2 = 상태 온도 창 안으로 클램프(14:23) — 필과 같은 계열, 극성 고정
+    //   기본 0. 랩에서만 갈아 끼운다(mark-look.json dotMode 로도 저장 가능).
+    float dotT = clamp(press * dep, 0.0, 1.0);
+    vec3 dotSolid = palPick(uImpDotCol);
+    vec3 dotGrad  = mix(lut(mix(0.86, 0.56, dotT)), palPick(uImpDotCol), smoothstep(0.72, 1.0, dotT));
+    float dwHi = (uTHi > 0.0001) ? uTHi : 0.86;
+    float dwLo = (uTHi > 0.0001) ? uTLo : 0.56;
+    vec3 dotWin   = lut(mix(dwHi, mix(dwHi, dwLo, 0.65), dotT));
+    vec3 dotC = (uDotMode < 0.5) ? dotSolid : (uDotMode < 1.5 ? dotGrad : dotWin);
+    lay(A, dotC, inIn * dotM * uImp * (0.06 + 0.94 * dep) * press);
     // 이너 섀도우 — 경계 **안쪽**에서 최대, 안으로 갈수록 사라진다. 자국이 '눌려 들어간' 자리로 읽힌다.
     //   빛을 빼지 않는다(위 uImpShade 주석): LUT 저역(RED)을 얹어 어느 바닥에서도 그림자로 읽히게.
     // 각인 음영에도 같은 블룸을 — 음영은 실루엣이든 자국이든 하나의 언어여야 한다.
