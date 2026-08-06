@@ -38,11 +38,17 @@ const res = await p.evaluate(() => {
     if (o.material?.uniforms?.uCropOff) { const y = yOf(o); if (y) out.layers.push({ 층:'코치 판(인물 영상)', ...y }); }
   });
   // ② 지면 UI 프레임 (타이틀 알약이 그려지는 캔버스 판)
+  //   ★ 텍스처 폭으로 찾으면 못 잡는다(캔버스가 리사이즈된다). **판 실치수**로 찾는다 —
+  //     대지 1600x2670 이 그대로 비율이라 세로/가로 = 1.669 인 큰 수평 판이 그것이다.
+  const sz = new THREE.Vector3();
   D.scene.traverse(o => {
     if (!o.isMesh || !vis(o)) return;
-    const m = o.material;
-    if (m?.map && m.map.image && (m.map.image.width === 1600 || o.name === 'floorFrame')) {
-      const y = yOf(o); if (y) out.layers.push({ 층:'지면 UI 프레임(타이틀)', ...y, tex: m.map.image.width + 'x' + m.map.image.height });
+    box.setFromObject(o); if (!isFinite(box.min.x)) return;
+    box.getSize(sz);
+    const ar = sz.z / Math.max(sz.x, 1e-4);
+    if (sz.x > 0.6 && sz.x < 2.2 && ar > 1.45 && ar < 1.95) {
+      const y = yOf(o);
+      if (y) out.layers.push({ 층:'지면 UI 프레임(타이틀)', ...y, 판: `${sz.x.toFixed(2)}x${sz.z.toFixed(2)}m` });
     }
   });
   // ③ 판정 마크 (세션 스테이지 그룹)
