@@ -1145,6 +1145,28 @@ function drawA2() {
     });
     rA2.render(a2Scene, compCam);
   });
+  // ── 연결 토큰(LINK) ────────────────────────────────────────────────
+  //   마크(발형)가 '어디'를 말하면 이 선은 '이 둘이 한 스탠스'를 말한다.
+  //   유저가 밟아서 확인하는 게 아니라 **보고 몸을 옮기는** UI라, 1.54m 떨어진 두 마크가
+  //   서로 무관해 보이면 안 된다. fx-core.drawLinkDots 정본을 그대로 쓴다 —
+  //   랩 '연결 토큰' 카드와 같은 함수·같은 슬라이더(LK)라 여기서 만진 게 곧 그 시안이다.
+  //   ★ 모아 선 구간에서는 뺀다. 두 발이 0.20m 로 붙는데 그 사이에 체인을 그리면 뭉갠다.
+  //     pull 에서 짧아지며 스러지고 step 에서 늘어나며 들어온다.
+  const linkA = S.seg === 'hold' ? 1 : S.seg === 'pull' ? 1 - S.k : S.seg === 'step' ? S.k : 0;
+  if (linkA > 0.004) {
+    const gl = $('a2').getContext('2d');
+    const pxPerM = W / (2 * half);
+    const sx = x => (x / half * 0.5 + 0.5) * W;
+    const sy = y => (0.5 - y / (half * H / W) * 0.5) * H;
+    // 색은 하드코딩하지 않는다 — 마크와 같은 LUT 에서 뽑는다(0.15 = 레드 대역).
+    const i = Math.round(0.15 * 255) * 4;
+    drawLinkDots(gl, sx(-LAT), sy(F.ya * scale), sx(LAT), sy(F.yb * scale), t, {
+      style: LK.style, count: LK.count, r: LK.r * (pxPerM / 190), flow: LK.flow,
+      hair: LK.hair, inset: LK.inset, alpha: linkA,
+      color: `${_lutArr[i]},${_lutArr[i + 1]},${_lutArr[i + 2]}`,
+    });
+  }
+
   // 랩 크롬 — 지금 몇 초의 어느 구간인지 안 보이면 '타이밍을 본다'는 말이 성립하지 않는다.
   const g = $('a2').getContext('2d');
   g.font = "600 15px -apple-system,'Malgun Gothic',sans-serif";

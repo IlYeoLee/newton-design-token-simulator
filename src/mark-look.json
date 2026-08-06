@@ -145,7 +145,7 @@
       "op": 0.71
     },
     "tap": {
-      "op": 0,
+      "op": 0.1,
       "imp": 0.0,
       "scale": 0.83,
       "pitch": 0.027,
@@ -157,13 +157,13 @@
       "plantar": 0,
       "bands": 0,
       "bandSoft": 0,
-      "edgeShade": 0.26,
+      "edgeShade": 0.7,
       "edgeShadeW": 4,
       "edgeShadeGrad": 0,
       "edgeShadeG0": 0,
       "edgeShadeG1": 0,
       "dither": 0.011,
-      "edgeW": 0.01,
+      "edgeW": 0.028,
       "edgeSoft": 0,
       "shadeRed": 0,
       "shadeRedW": 0.5,
@@ -176,7 +176,7 @@
       "edgeShadeCol": 4,
       "dotCol": 4,
       "ripCol": 0,
-      "bloom": 0.165,
+      "bloom": 0.26,
       "w": 1.15
     }
   },
