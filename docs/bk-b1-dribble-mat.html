@@ -336,7 +336,7 @@ const matY0 = dToY(MAT_D0), matY1 = dToY(MAT_D1);
 const matW0 = 2 * ink(MAT_D0), matW1 = 2 * ink(MAT_D1);
 
 // 기존 요소 실측
-const RING_D = 1.00, RING_R0 = 0.16, RING_R1 = 0.20;
+const RING_D = 0.95, RING_R0 = 0.12, RING_R1 = 0.15;   // 액티브 타깃 Ø300 — 마크 5개가 겹치지 않는 크기
 const FOOT_D = 1.15, FOOT_X = 0.262, FOOT_L = 0.30, FOOT_W = 0.12;
 const NUM_M = 0.14;
 
@@ -384,31 +384,55 @@ const ctxt = el('text', { x: 20, y: 970, fill: '#7B95AB', 'font-size': 42,
   'text-anchor': 'start', 'font-family': 'ui-monospace, monospace' });
 ctxt.textContent = 'CONTENT 상단 y1007 — 마크는 이 아래로'; svg.appendChild(ctxt);
 
-// 매트
+// 매트 — 외곽은 100% 밝기 경계에 앉는다(코드 matInk 와 같은 식)
 svg.appendChild(el('polygon', { points: trap(MAT_D0, MAT_D1, ink), fill: 'url(#matfill)',
-  stroke: '#FE6E3C', 'stroke-width': 11, 'stroke-dasharray': '19 15', 'stroke-linecap': 'round' }));
+  stroke: '#FFF6EA', 'stroke-width': 7, 'stroke-opacity': 0.85 }));
 
-// 레인 2줄 — 스탠스 폭을 가리킨다
-for (const sgn of [-1, 1]) {
-  const xa = xToPx(sgn * FOOT_X * (ink(MAT_D0) / ink(MAT_D1)));
-  const xb = xToPx(sgn * FOOT_X);
-  svg.appendChild(el('line', { x1: xa, y1: dToY(MAT_D0) - 24, x2: xb, y2: dToY(MAT_D1) + 24,
-    stroke: '#FE6E3C', 'stroke-opacity': 0.5, 'stroke-width': 6, 'stroke-dasharray': '12 16' }));
+// ── 마크 5개 ─────────────────────────────────────────────────────────────
+//   ①②  먼 쪽  = 시작 스탠스 (BK_B1 점등)
+//   ③④  가까운 쪽 = 스텝 표적 (사이드 드리블 단계에서 점등 — 지금은 자리만)
+//   ●    가운데 = 액티브 타깃(공 튀길 자리). 화면에서 유일한 색 사건이다.
+const TARGETS = [
+  { x: -0.265, d: 1.05, n: '1', r: 0.105, on: true },
+  { x: 0.265, d: 1.05, n: '2', r: 0.105, on: true },
+  { x: -0.14, d: 0.60, n: '3', r: 0.10, on: false },
+  { x: 0.14, d: 0.60, n: '4', r: 0.10, on: false },
+];
+// 커넥터 — 표적 → 액티브 타깃
+for (const tg of TARGETS) {
+  const ax = xToPx(tg.x), ay = dToY(tg.d), bx = xToPx(0), by = dToY(RING_D);
+  const dx = bx - ax, dy = by - ay, L = Math.hypot(dx, dy) || 1;
+  const r0 = mToPx(tg.r) * 1.2, r1 = mToPx(RING_R1) * 1.2;
+  svg.appendChild(el('line', { x1: ax + dx / L * r0, y1: ay + dy / L * r0,
+    x2: bx - dx / L * r1, y2: by - dy / L * r1,
+    stroke: '#FFF6EA', 'stroke-opacity': tg.on ? 0.45 : 0.2,
+    'stroke-width': 4, 'stroke-dasharray': '6 22' }));
 }
-
-// 발자국
-for (const sgn of [-1, 1]) {
-  svg.appendChild(el('rect', { x: xToPx(sgn * FOOT_X) - mToPx(FOOT_W) / 2,
-    y: dToY(FOOT_D) - mToPx(FOOT_L) / 2, width: mToPx(FOOT_W), height: mToPx(FOOT_L),
-    rx: mToPx(FOOT_W) / 2, fill: '#FEC389', 'fill-opacity': 0.22, stroke: '#FEC389', 'stroke-width': 6 }));
+// 표적 — 무채(정체성은 번호가 말한다)
+for (const tg of TARGETS) {
+  const cx = xToPx(tg.x), cy = dToY(tg.d), R = mToPx(tg.r), op = tg.on ? 1 : 0.4;
+  svg.appendChild(el('circle', { cx, cy, r: R, fill: '#FFF6EA', 'fill-opacity': 0.07 * op,
+    stroke: '#FFF6EA', 'stroke-opacity': 0.8 * op, 'stroke-width': 5 }));
+  svg.appendChild(el('circle', { cx, cy, r: R * 0.78, fill: 'none', stroke: '#FFF6EA',
+    'stroke-opacity': 0.32 * op, 'stroke-width': 3, 'stroke-dasharray': '5 12' }));
+  const nt = el('text', { x: cx, y: cy + R * 0.36, 'text-anchor': 'middle', fill: '#FFF6EA',
+    'fill-opacity': op, 'font-size': R * 1.0, 'font-weight': 700,
+    'font-family': 'ui-monospace, monospace' });
+  nt.textContent = tg.n; svg.appendChild(nt);
 }
-// 바운스 링 + 숫자 자리
+// 액티브 타깃 — 판정색은 여기 하나뿐
+svg.appendChild(el('circle', { cx: xToPx(0), cy: dToY(RING_D), r: mToPx(RING_R1) * 1.5,
+  fill: '#FA3030', 'fill-opacity': 0.10 }));
 svg.appendChild(el('circle', { cx: xToPx(0), cy: dToY(RING_D), r: mToPx(RING_R1),
   fill: 'none', stroke: '#FA3030', 'stroke-width': 9 }));
-svg.appendChild(el('circle', { cx: xToPx(0), cy: dToY(RING_D), r: mToPx(RING_R0),
-  fill: 'none', stroke: '#FA3030', 'stroke-opacity': 0.45, 'stroke-width': 5 }));
+for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {   // 십자 조준 눈금
+  const R = mToPx(RING_R1);
+  svg.appendChild(el('line', { x1: xToPx(0) + dx * R * 1.18, y1: dToY(RING_D) + dy * R * 1.18,
+    x2: xToPx(0) + dx * R * 1.38, y2: dToY(RING_D) + dy * R * 1.38,
+    stroke: '#FFF6EA', 'stroke-opacity': 0.6, 'stroke-width': 4 }));
+}
 const numT = el('text', { x: xToPx(0), y: dToY(RING_D) + mToPx(NUM_M) * 0.36,
-  'text-anchor': 'middle', fill: '#FEC389', 'font-size': mToPx(NUM_M) * 0.95,
+  'text-anchor': 'middle', fill: '#FFF6EA', 'font-size': mToPx(NUM_M) * 0.95,
   'font-weight': 700, 'font-family': 'ui-monospace, monospace' });
 numT.textContent = '7'; svg.appendChild(numT);
 
@@ -426,9 +450,10 @@ dim(xToPx(-ink(MAT_D1)) - 40, matY1 + 20,
   `먼 변 ${Math.round(mToPx(matW1))} px (${(matW1 * 1000) | 0} mm)`, 'end');
 dim(xToPx(0), matY0 + 92, `가까운 변 ${Math.round(mToPx(matW0))} px (${(matW0 * 1000) | 0} mm)`);
 dim(xToPx(ink(MAT_D1)) + 40, (matY0 + matY1) / 2, `깊이 ${Math.round(matY0 - matY1)} px`, 'start');
-dim(xToPx(FOOT_X) + 130, dToY(FOOT_D) + 16, `스탠스 ±${(FOOT_X * 1000) | 0} mm`, 'start', '#FEC389');
-dim(xToPx(0), dToY(RING_D) + mToPx(RING_R1) + 74,
-  `바운스 링 Ø${(RING_R1 * 2000) | 0} mm`, 'middle', '#FA3030');
+dim(xToPx(0.265) + 130, dToY(1.05) + 16, '① ② x ±265 · d 1.05 m · Ø210', 'start', '#FFF6EA');
+dim(xToPx(-0.14) - 130, dToY(0.60) + 16, '③ ④ x ±140 · d 0.60 m · Ø200 (꺼짐)', 'end', '#FFF6EA');
+dim(xToPx(0) + mToPx(RING_R1) * 1.5 + 40, dToY(RING_D) + 110,
+  '액티브 타깃 Ø300 · d 0.95 m', 'start', '#FA3030');
 
 document.getElementById('plancap').textContent =
   `대지 1600 × 2670 px · 1 px = 0.67 mm · 빔 앞거리 ${FP_NEAR}–${FP_FAR} m · 매트 y ${Math.round(matY1)}–${Math.round(matY0)}`;

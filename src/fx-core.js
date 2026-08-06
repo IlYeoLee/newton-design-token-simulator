@@ -403,10 +403,19 @@ uniform float uHot, uPHiPale, uPHiHot;
 //   프래그먼트 전역 — 호출 체인(personLook → personColor)이 uv 를 안 물고 다닌다.
 //   호스트 main() 이 첫머리에 gHot = hotAt(uv) 로 세운다. 안 세우면 0 = 종전 동작.
 float gHot = 0.0;
+/** 강조장 — **가우시안**이다(유저 레퍼런스: 발바닥 열화상).
+ *  ★ smoothstep 을 쓰면 안 된다. 아무리 부드럽게 잡아도 **끝나는 반경**이 있어서 경계가 서고,
+ *    그 순간 '열이 오른 자리'가 아니라 '붙여 놓은 스티커'로 읽힌다. 레퍼런스의 성질은
+ *    경계가 없다는 것 하나다 — 중심이 제일 진하고 사방으로 끝없이 풀린다.
+ *  g(넓은 열) + core(중심 심지) 2겹. core 가 '제일 빨간 곳'을 만든다(레퍼런스의 노란 심지 자리). */
 float hotAt(vec2 uv){
   if (uHotE.z <= 0.0 || uHot <= 0.0) return 0.0;
   vec2 d = (uv - uHotE.xy) / max(uHotE.zw, vec2(1e-4));
-  return uHot * (1.0 - smoothstep(0.55, 1.0, length(d)));   // 가장자리는 부드럽게 — 하드 원은 스티커로 읽힌다
+  float r2 = dot(d, d);
+  //   ★ **평지 + 치마** 구조. 가우시안을 1 이상으로 밀어 올리고 clamp 하면 안쪽은 통째로 1 이
+  //     되고(= 확 빨간 덩어리) 바깥만 부드럽게 풀린다(= 블러 가장자리). 순수 가우시안은
+  //     꼭짓점 하나만 최대라 '작고 흐린 점'이 되고, 유저가 반복해서 지적한 게 그거다.
+  return uHot * clamp(exp(-r2 * 1.35) * 1.32, 0.0, 1.0);
 }
 /** 이 프래그먼트가 쓸 대역 상단. uPHiPale 0 = 기능 끔. */
 float pHi(){ return uPHiPale > 0.0 ? mix(uPHiPale, uPHiHot > 0.0 ? uPHiHot : uPHi, gHot) : uPHi; }
@@ -440,13 +449,24 @@ vec4 gazeToken(vec2 uv, float t){
  *  T 는 높을수록 밝은 쪽이다(LUT 방향과 같음) — 두 램프 다 그 방향을 지킨다.
  *  ⚠ 네 색 전부 R≈1.0 이다. 투사광 불변식(알파 = min(aOut, lum×1.6))에 안 걸린다 —
  *    어느 픽셀도 어두워지지 않으므로 뒤 바닥이 배어 오르지 않는다. 색을 바꿀 땐 이걸 먼저 본다. */
-#define G_PALE_D ${vec3(PAL.sand)}
-#define G_PALE_L vec3(1.000, 0.984, 0.973)
+//   연 = **흰끼 도는 연주황**(유저). sand 를 흰색 쪽으로 45% 끌어와 하드코딩한다 —
+//     sand 원색 그대로면 '연한 주황'이 아니라 그냥 주황이라, 강조와의 대비가 안 선다.
+#define G_PALE_D vec3(1.000, 0.871, 0.745)
+#define G_PALE_L vec3(1.000, 0.980, 0.969)
+//   진 = **제일 빨간 곳**. 위아래 폭을 좁게 잡아 강조 영역이 통째로 RED 로 읽히게 한다.
 #define G_DEEP_D ${vec3(PAL.red)}
-#define G_DEEP_L ${vec3(PAL.coral)}
+#define G_DEEP_L vec3(1.000, 0.353, 0.227)
 vec3 personGuideColor(float T){
   T = clamp(T, 0.0, 1.0);
-  return mix(mix(G_PALE_D, G_PALE_L, T), mix(G_DEEP_D, G_DEEP_L, T), clamp(gHot, 0.0, 1.0));
+  vec3 pale = mix(G_PALE_D, G_PALE_L, T);
+  // ★ 강조는 영상 밝기에 **덜 흔들린다**(T×0.35). 열화상의 붉은 덩어리는 옷 주름을 따라
+  //   얼룩지지 않는다 — 그대로 두면 강조 안에서 밝은 픽셀이 연해져 '덩어리'가 안 뭉친다.
+  vec3 deep = mix(G_DEEP_D, G_DEEP_L, T * 0.35);
+  // ★ 대비 곡선. 선형이면 중간값이 넓게 깔려 '살짝 붉다'로만 읽힌다(유저 반복 지적).
+  //   smoothstep 으로 중간을 양끝으로 밀어 **연한 곳은 더 연하게, 붉은 곳은 확실히 붉게**.
+  float k = clamp(gHot, 0.0, 1.0);
+  k = k * k * (3.0 - 2.0 * k);
+  return mix(pale, deep, k);
 }
 vec3 personColor(float T){
   if (uPHiPale > 0.0) return personGuideColor(T);   // 가이드 모드 = LUT 를 안 탄다
@@ -1781,42 +1801,63 @@ function volRing(g, lut, r, v, a, lw, GB, wMul = 1) {
   g.strokeStyle = lut(Math.min(0.98, v + 0.12)); g.shadowColor = lut(0.88); g.shadowBlur = GB * 0.6;
   g.beginPath(); g.arc(0, 0, r, 0, Math.PI * 2); g.stroke(); g.shadowBlur = 0;
 }
-/** 드리블 매트 — 실물 스텝 매트를 지면 투사 문법으로 옮긴 영역 토큰(유저 레퍼런스 렌더가 정본).
- *  구성 요소는 전부 이 시스템의 어휘다 — 새 도형 언어를 만들지 않는다.
- *    외곽·브래킷 = LINE 획 + 라운드 코너 브래킷     눈금자 = '잰 공간'이라는 부호
- *    번호 표적   = MARK 채움 + 이중 파선 링 + OffBit 숫자
- *    액티브 타깃 = MARK 존 원 + 십자 조준 눈금       커넥터 = 흰 파선(이동 경로)
- *    셰브론      = LINE 방향 큐                      워드마크 = 매트의 신원
+/** 드리블 매트 — 훈련 판 영역 토큰.
  *
- *  P.mat     = { nx, fx, ny, fy } 판 정규좌표(-1..1, +y = 먼 쪽). nx = fx 면 직사각.
- *  P.targets = [{ x, y, n, v, r, on }]  v = LUT 위치(색) · on = 이 단계 점등 여부
- *  P.center  = { x, y, r, label, ring } 액티브 타깃. ring:0 = 링은 3D 존 마크가 그린다
- *  P.title   = 상단 라벨 · P.brand = 하단 워드마크 · P.ruler = { w, h } 실치수(m)
- *  P.chev    = 0|1 방향 셰브론 · P.prog = 0..1 반복 진행(외곽이 밝아지며 차오름)
+ *  재질은 **유리 알약과 같은 레시피**다(floorgl _glassPill 정본): 아주 옅은 채움 +
+ *  안쪽으로 스며드는 넓은 광 + 위(먼 쪽)가 밝고 아래(가까운 쪽)가 어두운 림 그라디언트.
+ *  네온 윤곽선이 아니다 — 이 시스템의 면은 '빛나는 선'이 아니라 '빛을 머금은 유리'다.
+ *
+ *  ★ **색은 판정만 말한다**(TOK.ember = 0 과 같은 규율). 판·표적·눈금·글자는 전부 무채(크림
+ *    HUD 잉크)이고, 화면에서 유일한 색 사건은 **지금 겨눌 자리(액티브 타깃)** 하나다.
+ *    표적 네 개를 색으로 구분하면 '어느 게 지금이냐'가 안 읽힌다 — 정체성은 번호가 말한다.
+ *
+ *  서체 규약: 숫자는 OffBit(ENV.num) · 라틴 단어는 Supreme **400/700 두 굵기만**.
+ *
+ *  P.mat     = { nx, fx, ny, fy } 판 정규좌표(-1..1, +y = 먼 쪽). nx = fx 면 직사각
+ *  P.targets = [{ x, y, n, r, on, live }]  on = 이 단계에서 쓰는가 · live = 지금 겨눌 표적(색)
+ *  P.center  = { x, y, r, label, ring }    액티브 타깃. ring:0 = 링은 3D 존 마크가 그린다
+ *  P.title / P.brand / P.ruler{w,h} / P.chev / P.bracket / P.round / P.prog
  */
 export function drawDribbleMat(g, W, P, look, t, ENV) {
-  const lut = ENV.lut, GB = 13 * look.halo, s = W / 512;
+  const lut = ENV.lut, s = W / 512;
   const AW = (ENV.arrow && ENV.arrow.w) || 1;
-  const INK = '255,255,255';
+  const INK = (a) => 'rgba(255,246,234,' + a + ')';      // HUD 잉크 — 모바일 '블랙 타이포'의 발광 등가
   g.clearRect(0, 0, W, W); g.lineJoin = 'round'; g.lineCap = 'round';
   const M = P.mat || { nx: 0.86, fx: 0.86, ny: -0.86, fy: 0.86 };
   const X = u => W / 2 + u * W / 2, Y = v => W / 2 - v * W / 2;
   const halfAt = v => M.nx + (M.fx - M.nx) * (v - M.ny) / Math.max(1e-4, M.fy - M.ny);
   const rgbaL = (v, a) => lut(v).replace('rgb(', 'rgba(').replace(')', ',' + a + ')');
-  // 자간 있는 대문자 라벨 — 지면 투사 조판 규약(영문 대문자 + 넓은 자간)
+
+  // 자간 있는 대문자 라벨 — Supreme 700/400 만(유저 확정 2종)
   const label = (txt, cx, cy, px, col, track, weight) => {
-    track = track == null ? 0.30 : track;
-    g.font = (weight || 700) + ' ' + px + 'px "Supreme", "OffBit", sans-serif';
+    g.font = (weight === 400 ? 400 : 700) + ' ' + px + 'px "Supreme", sans-serif';
     g.textAlign = 'center'; g.textBaseline = 'middle';
-    const ch = Array.from(String(txt));
-    const tr = px * track;
+    const ch = Array.from(String(txt)), tr = px * (track == null ? 0.3 : track);
     let wSum = -tr;
     for (const c of ch) wSum += g.measureText(c).width + tr;
     let x = cx - wSum / 2;
     g.fillStyle = col;
     for (const c of ch) { const w = g.measureText(c).width; g.fillText(c, x + w / 2, cy); x += w + tr; }
   };
-  // 외곽 경로(모서리 라운드) — 채움·획·진행이 같은 점열을 쓴다
+
+  /** 유리 면 — floorgl `_glassPill` 과 같은 3단(채움 · 안쪽 광 · 림). k = 크기 배율.
+   *  대지(1600px/1.07m)의 blur37·lw80·rim2.5 를 이 판의 px/m 로 환산한 값이다. */
+  const glass = (path, k, alpha) => {
+    const a = alpha == null ? 1 : alpha;
+    g.save(); path(); g.clip();
+    g.fillStyle = INK(0.055 * a); g.fillRect(0, 0, W, W);
+    g.filter = 'blur(' + 14 * s * k + 'px)';
+    g.strokeStyle = INK(0.25 * a); g.lineWidth = 30 * s * k;
+    path(); g.stroke(); g.filter = 'none';
+    g.restore();
+    const rim = g.createLinearGradient(0, Y(M.fy), 0, Y(M.ny));   // 먼 쪽이 밝다(알약 위쪽과 같은 규약)
+    rim.addColorStop(0, INK(0.95 * a));
+    rim.addColorStop(0.45, INK(0.22 * a));
+    rim.addColorStop(1, INK(0.06 * a));
+    g.strokeStyle = rim; g.lineWidth = 2.2 * s * AW; path(); g.stroke();
+  };
+
+  // ── 판 경로(모서리 라운드 사다리꼴) ─────────────────────────────────────
   const r = 0.05 * (P.round != null ? P.round / 0.35 : 1);
   const pts = [];
   const arcP = (cu, cv, a0, a1) => { for (let i = 0; i <= 6; i++) {
@@ -1828,160 +1869,135 @@ export function drawDribbleMat(g, W, P, look, t, ENV) {
   pts.push(pts[0]);
   const path = () => { g.beginPath();
     pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.closePath(); };
+  glass(path, 1);
 
   const cU = P.center ? P.center.x : 0, cV = P.center ? P.center.y : 0;
   const CR = (P.center && P.center.r != null ? P.center.r : 0.26) * W / 2;
 
-  // ── ① 투사 웅덩이 — 매트 안쪽에만 옅게. 바닥이 '켜져 있다'는 최소 신호
-  const pool = g.createRadialGradient(X(cU), Y(cV), 0, X(cU), Y(cV), W * 0.5);
-  pool.addColorStop(0, rgbaL(0.55, 0.16)); pool.addColorStop(1, rgbaL(0.4, 0));
-  path(); g.fillStyle = pool; g.fill();
-
-  // ── ② 외곽선 — 얇고 밝은 실선 + 그 아래 넓은 광. 실선인 게 이 판의 뼈대다
-  g.shadowColor = lut(0.72); g.shadowBlur = GB * 1.1;
-  g.strokeStyle = 'rgba(' + INK + ',0.92)'; g.lineWidth = 2.6 * AW * s;
-  path(); g.stroke();
-  g.strokeStyle = rgbaL(0.42, 0.7); g.lineWidth = 6.5 * AW * s; g.shadowBlur = GB * 1.7;
-  path(); g.stroke();
-  g.shadowBlur = 0;
-
-  // ── ③ 코너 브래킷 — 굵은 라운드 L. 네 귀퉁이가 판의 모서리임을 못 박는다
+  // ── 코너 브래킷 — 판이 어디서 끝나는지 못 박는 얇은 크롬. 색 없음
   if (P.bracket !== 0) {
-    const L = 0.20;
-    g.lineWidth = 7 * AW * s; g.strokeStyle = rgbaL(0.5, 0.95);
-    g.shadowColor = lut(0.6); g.shadowBlur = GB;
+    const L = 0.18;
+    g.lineWidth = 3.4 * AW * s; g.strokeStyle = INK(0.8);
     for (const sg of [-1, 1]) {
       const seg = (a, b, c) => { g.beginPath(); g.moveTo(X(a[0]), Y(a[1]));
         g.quadraticCurveTo(X(b[0]), Y(b[1]), X(c[0]), Y(c[1])); g.stroke(); };
       seg([sg * halfAt(M.fy - L), M.fy - L], [sg * M.fx, M.fy], [sg * (M.fx - L), M.fy]);
+      g.strokeStyle = INK(0.34);                       // 가까운 쪽은 림과 같이 어둡다
       seg([sg * halfAt(M.ny + L), M.ny + L], [sg * M.nx, M.ny], [sg * (M.nx - L * 0.8), M.ny]);
+      g.strokeStyle = INK(0.8);
     }
-    g.shadowBlur = 0;
   }
 
-  // ── ④ 눈금자 — 좌변·하변. 이 판이 **잰 공간**이라는 부호(레퍼런스의 핵심 인상)
+  // ── 눈금자 — 잰 공간이라는 부호. 3급 정보라 아주 얇고 옅다
   if (P.ruler) {
-    const RW = P.ruler.w, RH = P.ruler.h;
-    const tick = (x1, y1, x2, y2, a) => { g.strokeStyle = rgbaL(0.55, a); g.lineWidth = 1.6 * s;
-      g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke(); };
-    const N = Math.max(4, Math.round(RH / 0.1));          // 10 cm 눈금 · 50 cm 마다 큰 눈금
+    const RH = P.ruler.h, RW = P.ruler.w;
+    const N = Math.max(4, Math.round(RH / 0.1));
     for (let i = 0; i <= N; i++) {
-      const v = M.ny + (M.fy - M.ny) * i / N, big = i % 5 === 0;
-      const ex = -halfAt(v);
-      tick(X(ex) + 5 * s, Y(v), X(ex) + (big ? 19 : 11) * s, Y(v), big ? 0.85 : 0.4);
-      if (big && i > 0 && i < N)
-        label((RH * i / N).toFixed(1), X(ex) - 20 * s, Y(v), 13 * s, rgbaL(0.62, 0.85), 0.08, 600);
+      const v = M.ny + (M.fy - M.ny) * i / N, big = i % 5 === 0, ex = -halfAt(v);
+      g.strokeStyle = INK(big ? 0.55 : 0.22); g.lineWidth = 1.4 * s;
+      g.beginPath(); g.moveTo(X(ex) + 6 * s, Y(v)); g.lineTo(X(ex) + (big ? 17 : 10) * s, Y(v)); g.stroke();
+      if (big && i > 0 && i < N) ENV.num(g, (RH * i / N).toFixed(1), X(ex) - 20 * s, Y(v), 10 * s, 11 * s);
     }
     const NB = Math.max(4, Math.round(RW / 0.1));
     for (let i = 0; i <= NB; i++) {
       const u = -M.nx + M.nx * 2 * i / NB, big = i % 5 === 0;
-      tick(X(u), Y(M.ny) - 5 * s, X(u), Y(M.ny) - (big ? 17 : 10) * s, big ? 0.85 : 0.4);
+      g.strokeStyle = INK(big ? 0.55 : 0.22); g.lineWidth = 1.4 * s;
+      g.beginPath(); g.moveTo(X(u), Y(M.ny) - 6 * s); g.lineTo(X(u), Y(M.ny) - (big ? 15 : 9) * s); g.stroke();
     }
-    label(RH.toFixed(1) + ' m', X(-halfAt(0)) - 62 * s, Y(0), 15 * s, rgbaL(0.62, 0.9), 0.12, 600);
-    label(RW.toFixed(1) + ' m', X(0), Y(M.ny) - 26 * s, 15 * s, rgbaL(0.62, 0.9), 0.12, 600);
+    label(RH.toFixed(1) + ' m', X(-halfAt(0)) - 56 * s, Y(0), 13 * s, INK(0.55), 0.1, 400);
+    label(RW.toFixed(1) + ' m', X(0), Y(M.ny) - 26 * s, 13 * s, INK(0.55), 0.1, 400);
   }
 
-  // ── ⑤ 타이틀 — 상단 중앙, 양옆 방향 마크
+  // ── 타이틀 — 판의 이름. 크림 뉴트럴(정보는 무채, 색은 판정)
   if (P.title) {
     const ty = Y(M.fy) + 30 * s;
-    label(P.title, X(0), ty, 18 * s, 'rgba(' + INK + ',0.95)', 0.34);
-    g.font = '700 ' + 16 * s + 'px "Supreme", sans-serif';
-    const half = g.measureText(P.title).width * 0.76;
-    g.fillStyle = rgbaL(0.6, 0.85); g.textAlign = 'center'; g.textBaseline = 'middle';
-    g.fillText('≫', X(0) - half - 16 * s, ty);
-    g.fillText('≪', X(0) + half + 16 * s, ty);
+    label(P.title, X(0), ty, 17 * s, INK(0.92), 0.32);
+    g.font = '400 ' + 13 * s + 'px "Supreme", sans-serif';
+    const half = g.measureText(P.title).width * 0.8;
+    g.fillStyle = INK(0.4); g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText('/', X(0) - half - 14 * s, ty); g.fillText('/', X(0) + half + 14 * s, ty);
   }
 
-  // ── ⑥ 커넥터 — 타깃에서 액티브 타깃으로 가는 흰 파선(이동 경로)
+  // ── 커넥터 — 표적에서 액티브 타깃으로. 경로는 정보지 장식이 아니라 아주 옅게
   const TG = P.targets || [];
   for (const tg of TG) {
-    const on = tg.on !== false;
+    if (tg.on === false) continue;
     const ax = X(tg.x), ay = Y(tg.y), bx = X(cU), by = Y(cV);
     const dx = bx - ax, dy = by - ay, len = Math.hypot(dx, dy) || 1;
     const R = (tg.r != null ? tg.r : 0.20) * W / 2;
-    g.setLineDash([7 * s, 7 * s]); g.lineDashOffset = -t * 14 * s;
-    g.strokeStyle = 'rgba(' + INK + ',' + (on ? 0.6 : 0.2) + ')'; g.lineWidth = 2 * s;
+    g.setLineDash([2 * s, 9 * s]); g.lineDashOffset = -t * 12 * s;
+    g.strokeStyle = INK(tg.live ? 0.5 : 0.2); g.lineWidth = 1.8 * s;
     g.beginPath();
-    g.moveTo(ax + dx / len * R * 1.15, ay + dy / len * R * 1.15);
-    g.lineTo(bx - dx / len * CR * 1.14, by - dy / len * CR * 1.14);
+    g.moveTo(ax + dx / len * R * 1.14, ay + dy / len * R * 1.14);
+    g.lineTo(bx - dx / len * CR * 1.16, by - dy / len * CR * 1.16);
     g.stroke(); g.setLineDash([]);
   }
 
-  // ── ⑦ 번호 표적 — 채움 디스크 + 안쪽 점선 + 바깥 파선 링 + 숫자
+  // ── 표적 — 유리 원반 + OffBit 숫자. 색은 없다. live 인 것만 판정색을 얻는다
   for (const tg of TG) {
-    // 색 = 상태다(팔레트 규칙 ②). 표적의 정체성은 **번호**가 말하므로 네 개가 같은 색조를 쓰고,
-    //   지금 켜졌는가(on)만 밝기로 갈린다. v 를 넘기면 그 단계에서만 색조를 덮어쓴다.
-    const on = tg.on !== false, A = on ? 1 : 0.34;
-    const v = tg.v != null ? tg.v : (on ? 0.42 : 0.5);
+    const on = tg.on !== false, A = on ? 1 : 0.42;
     const cx = X(tg.x), cy = Y(tg.y), R = (tg.r != null ? tg.r : 0.20) * W / 2;
-    const fill = g.createRadialGradient(cx, cy, R * 0.1, cx, cy, R);
-    fill.addColorStop(0, rgbaL(v, 0.6 * A)); fill.addColorStop(1, rgbaL(v - 0.06, 0.32 * A));
-    g.fillStyle = fill; g.beginPath(); g.arc(cx, cy, R, 0, Math.PI * 2); g.fill();
-    g.setLineDash([3 * s, 5 * s]);                     // 안쪽 점선 = 밟는 자리의 안쪽 한계
-    g.strokeStyle = 'rgba(' + INK + ',' + 0.5 * A + ')'; g.lineWidth = 1.6 * s;
-    g.beginPath(); g.arc(cx, cy, R * 0.84, 0, Math.PI * 2); g.stroke();
-    g.setLineDash([13 * s, 9 * s]); g.lineDashOffset = on ? t * 10 * s : 0;
-    g.strokeStyle = 'rgba(' + INK + ',' + 0.92 * A + ')'; g.lineWidth = 3.4 * AW * s;
-    g.shadowColor = lut(0.82); g.shadowBlur = GB * (on ? 1 : 0.2);
-    g.beginPath(); g.arc(cx, cy, R * 1.15, 0, Math.PI * 2); g.stroke();
-    g.setLineDash([]); g.shadowBlur = 0;
-    g.globalAlpha = A; ENV.num(g, tg.n, cx, cy + s, R, R * 1.05); g.globalAlpha = 1;
+    const disc = () => { g.beginPath(); g.arc(cx, cy, R, 0, Math.PI * 2); };
+    glass(disc, 0.34, A);
+    if (tg.live) {                                  // 지금 밟을 표적 = 판정색 림 하나
+      g.strokeStyle = rgbaL(0.32, 0.95); g.lineWidth = 3.2 * AW * s;
+      g.shadowColor = lut(0.4); g.shadowBlur = 12 * s;
+      disc(); g.stroke(); g.shadowBlur = 0;
+    }
+    g.setLineDash([2 * s, 6 * s]);                  // 안쪽 점선 = 밟는 자리의 안쪽 한계
+    g.strokeStyle = INK(0.3 * A); g.lineWidth = 1.3 * s;
+    g.beginPath(); g.arc(cx, cy, R * 0.78, 0, Math.PI * 2); g.stroke(); g.setLineDash([]);
+    g.globalAlpha = A; ENV.num(g, tg.n, cx, cy + s, R, R * 0.9); g.globalAlpha = 1;
   }
 
-  // ── ⑧ 액티브 타깃 — 지금 겨눌 자리. 채움 + 십자 조준 눈금
+  // ── 액티브 타깃 — 화면에서 **유일한 색 사건**. 지금 겨눌 자리
   if (P.center) {
     const cx = X(cU), cy = Y(cV);
-    const halo = g.createRadialGradient(cx, cy, CR * 0.15, cx, cy, CR * 1.5);
-    halo.addColorStop(0, rgbaL(0.62, 0.5)); halo.addColorStop(0.62, rgbaL(0.5, 0.24));
-    halo.addColorStop(1, rgbaL(0.45, 0));
-    g.fillStyle = halo; g.beginPath(); g.arc(cx, cy, CR * 1.5, 0, Math.PI * 2); g.fill();
-    if (P.center.ring !== 0) {            // 단독 사용 시 링도 토큰이 그린다(3D 존 마크가 없을 때)
-      g.strokeStyle = 'rgba(' + INK + ',0.95)'; g.lineWidth = 6 * AW * s;
-      g.shadowColor = lut(0.9); g.shadowBlur = GB * 1.8;
+    const pool = g.createRadialGradient(cx, cy, CR * 0.1, cx, cy, CR * 1.6);
+    pool.addColorStop(0, rgbaL(0.42, 0.30)); pool.addColorStop(0.6, rgbaL(0.35, 0.12));
+    pool.addColorStop(1, rgbaL(0.3, 0));
+    g.fillStyle = pool; g.beginPath(); g.arc(cx, cy, CR * 1.6, 0, Math.PI * 2); g.fill();
+    if (P.center.ring !== 0) {
+      g.strokeStyle = rgbaL(0.3, 0.98); g.lineWidth = 4.6 * AW * s;
+      g.shadowColor = lut(0.42); g.shadowBlur = 18 * s;
       g.beginPath(); g.arc(cx, cy, CR, 0, Math.PI * 2); g.stroke(); g.shadowBlur = 0;
     }
-    g.strokeStyle = 'rgba(' + INK + ',0.8)'; g.lineWidth = 2 * s;   // 십자 조준 눈금
+    g.strokeStyle = INK(0.6); g.lineWidth = 1.6 * s;          // 십자 조준 눈금 — 크롬이라 무채
     for (const d of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
       g.beginPath();
-      g.moveTo(cx + d[0] * CR * 1.14, cy + d[1] * CR * 1.14);
-      g.lineTo(cx + d[0] * CR * 1.36, cy + d[1] * CR * 1.36); g.stroke();
+      g.moveTo(cx + d[0] * CR * 1.16, cy + d[1] * CR * 1.16);
+      g.lineTo(cx + d[0] * CR * 1.34, cy + d[1] * CR * 1.34); g.stroke();
     }
     if (P.center.label) {
       const ls = String(P.center.label).split('\n');
-      ls.forEach((ln, i) => label(ln, cx, cy + (i - (ls.length - 1) / 2) * 17 * s,
-        13 * s, 'rgba(' + INK + ',0.95)', 0.22));
-      g.beginPath();                       // 중심 + 는 라벨이 있을 때만(숫자 슬롯과 안 겹치게)
-      g.moveTo(cx - 7 * s, cy + 24 * s); g.lineTo(cx + 7 * s, cy + 24 * s);
-      g.moveTo(cx, cy + 17 * s); g.lineTo(cx, cy + 31 * s); g.stroke();
+      ls.forEach((ln, i) => label(ln, cx, cy + (i - (ls.length - 1) / 2) * 15 * s, 12 * s, INK(0.9), 0.24));
     }
   }
 
-  // ── ⑨ 방향 셰브론 — 액티브 타깃 위/아래. 다음이 어느 쪽인지 말한다
+  // ── 방향 셰브론 — 다음이 어느 쪽인지. 크롬이라 무채, 호흡만 준다
   if (P.chev) {
     const chev = (cy, dir) => {
       for (let k = 0; k < 2; k++) {
-        const o = k * 11 * s, w = 13 * s, h = 9 * s, yy = cy + dir * o;
+        const o = k * 9 * s, w = 11 * s, h = 7 * s, yy = cy + dir * o;
         g.beginPath(); g.moveTo(X(cU) - w, yy - dir * h); g.lineTo(X(cU), yy);
         g.lineTo(X(cU) + w, yy - dir * h); g.stroke();
       }
     };
-    g.strokeStyle = 'rgba(' + INK + ',0.8)'; g.lineWidth = 3 * AW * s;
-    g.globalAlpha = 0.55 + 0.45 * Math.sin(t * 3.2);
-    chev(Y(cV) - CR * 1.95, -1); chev(Y(cV) + CR * 1.95, 1);
-    g.globalAlpha = 1;
+    g.strokeStyle = INK(0.45 + 0.3 * Math.sin(t * 2.4)); g.lineWidth = 2.2 * AW * s;
+    chev(Y(cV) - CR * 2.0, -1); chev(Y(cV) + CR * 2.0, 1);
   }
 
-  // ── ⑩ 워드마크 — 실물 매트가 중앙 하단에 브랜드를 박는 그 자리
-  if (P.brand) label(P.brand, X(0), Y(M.ny) + 32 * s, 15 * s, rgbaL(0.55, 0.85), 0.55);
+  // ── 워드마크 — 실물 매트가 브랜드를 박는 그 자리. 4급이라 가장 옅다
+  if (P.brand) label(P.brand, X(0), Y(M.ny) + 30 * s, 12 * s, INK(0.34), 0.62, 400);
 
-  // ── ⑪ 진행 — 외곽이 상단 중앙부터 밝아지며 한 바퀴(반복 카운트)
+  // ── 진행 — 림이 상단 중앙부터 밝아지며 한 바퀴(반복 카운트). 판정이 아니라 크롬이다
   if (P.prog > 0.001) {
     let total = 0;
     for (let i = 1; i < pts.length; i++)
       total += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
     const want = total * Math.min(1, P.prog);
-    g.strokeStyle = 'rgba(' + INK + ',0.98)'; g.lineWidth = 4.6 * AW * s;
-    g.shadowColor = lut(0.95); g.shadowBlur = GB * 1.5;
+    g.strokeStyle = INK(0.98); g.lineWidth = 3 * AW * s;
+    g.shadowColor = INK(0.5); g.shadowBlur = 8 * s;
     g.beginPath(); g.moveTo(pts[0][0], pts[0][1]);
     let acc = 0;
     for (let i = 1; i < pts.length && acc < want; i++) {

@@ -1469,8 +1469,12 @@ export class Session {
     //   발마크·비트바·라벨은 전부 은퇴(유저: 그래픽 후두둑·발모양 들락날락).
     // ★ 존 z — 타이틀 알약과의 간격(유저: 더 넓혀라). 알약은 대지 위쪽(먼 쪽)이라
     //   존을 **앞으로 당길수록**(z 덜 음수) 둘이 멀어진다. 0.55 → 0.25 (0.30m 앞으로).
-    const B1Z = BK_STAND - 0.25 - BDEEP;
-    const b1zone = floorRing(0, B1Z, 0.16, 0.20, BRAND.coral, 0.5);   // 원형 마크 — 중앙 정렬(유저)
+    // ★ 0.25 → 0.20: 매트에 마크가 **5개**(①②·③④·액티브) 들어가면서 깊이 예산이 빡빡해졌다.
+    //   0.05m 앞으로 당기면 ①②(먼 쪽)가 CONTENT 밴드 안에 들어온다. 알약과는 오히려 멀어진다.
+    const B1Z = BK_STAND - 0.20 - BDEEP;
+    // 액티브 타깃 Ø300 — 예전 Ø400 은 마크가 하나뿐일 때의 크기다. 표적 4개가 같은 판에 들어오면서
+    //   ①② 와 물리적으로 겹쳤다(중심거리 0.283 < 반지름합 0.315). 겹치는 가이드는 가이드가 아니다.
+    const b1zone = floorRing(0, B1Z, 0.12, 0.15, BRAND.coral, 0.5);
     const b1c = document.createElement('canvas'); b1c.width = b1c.height = 128;              // 잔여 카운트 = 링 중앙
     const b1num = new THREE.Mesh(new THREE.PlaneGeometry(0.14, 0.14),
       new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(b1c), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
@@ -1512,15 +1516,16 @@ export class Session {
       mat: { nx: toU(matInk(MAT_D0)), fx: toU(matInk(MAT_D1)), ny: toV(MAT_D0), fy: toV(MAT_D1) },
       // 액티브 타깃 = 바운스 링과 같은 자리. ring:0 — 링 자체는 3D 존 마크(b1zone)가 박자로 그리고
       //   토큰은 채움·조준 눈금만 얹는다. 라벨도 null — 링 중앙은 잔여 횟수 숫자 슬롯이다.
-      center: { x: 0, y: toV(1.00), r: 0.20 / (MAT_SIZE / 2), ring: 0, label: null },
+      center: { x: 0, y: toV(0.95), r: 0.15 / (MAT_SIZE / 2), ring: 0, label: null },
       // 표적 = 실물의 번호 디스크. ①② 먼 쪽 = 시작 스탠스(이 단계 점등) ·
       //   ③④ 가까운 쪽 = 스텝 표적(사이드 드리블 단계에서 켜진다 — 지금은 꺼 둔 채 자리만).
-      //   x 는 그 깊이의 100% 반폭 안: ①② ±0.27 < 0.394 · ③④ ±0.17 < 0.256.
+      //   배치 검산(전부 통과): ①② 폭 0.370 < ink 0.372 · 깊이 0.945~1.155 ⊂ 매트 0.45~1.22 ·
+      //   링과 중심거리 0.283 ≥ 반지름합 0.255. ③④ 폭 0.240 < 0.251 · 거리 0.377 ≥ 0.250.
       targets: [
-        { x: toU(-0.27), y: toV(1.13), n: 1, v: 0.30, r: 0.115 / (MAT_SIZE / 2), on: true },
-        { x: toU(0.27), y: toV(1.13), n: 2, v: 0.56, r: 0.115 / (MAT_SIZE / 2), on: true },
-        { x: toU(-0.17), y: toV(0.62), n: 3, v: 0.86, r: 0.105 / (MAT_SIZE / 2), on: false },
-        { x: toU(0.17), y: toV(0.62), n: 4, v: 0.99, r: 0.105 / (MAT_SIZE / 2), on: false },
+        { x: toU(-0.265), y: toV(1.05), n: 1, r: 0.105 / (MAT_SIZE / 2), on: true },
+        { x: toU(0.265), y: toV(1.05), n: 2, r: 0.105 / (MAT_SIZE / 2), on: true },
+        { x: toU(-0.14), y: toV(0.60), n: 3, r: 0.10 / (MAT_SIZE / 2), on: false },
+        { x: toU(0.14), y: toV(0.60), n: 4, r: 0.10 / (MAT_SIZE / 2), on: false },
       ],
       // 눈금자·워드마크 = 매트의 신원. 타이틀은 **안 넣는다** — 대지 알약이 이미 스테이지명을 말한다.
       ruler: { w: 2 * matInk(MAT_D0), h: MAT_D1 - MAT_D0 },
