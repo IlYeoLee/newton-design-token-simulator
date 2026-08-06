@@ -2456,7 +2456,11 @@ void main(){
     }
     if (U.uPForm) U.uPForm.value = FXP.person?.form ?? 0;   // 레퍼런스 규약 토글(랩에서 켠다)
     if (U.uPCoral) U.uPCoral.value = coral;
-    if (U.uPSat) U.uPSat.value = 1.0 + (FXP.sat ?? 1) * 0.32;
+    // 채도 — 전역(FXP.sat) 파생이 기본. person.sat 을 주면 **인물만** 덮는다.
+    //   '진짜 하양에 가까운 코랄'(유저 08-07)은 대역을 낮추는 것만으론 안 된다 —
+    //   부스트 1.28 이 무채축에서 다시 끌어내 채도를 살려 놓기 때문이다. 대역과 짝으로 내린다.
+    //   전역을 내리면 마크·프림까지 같이 빠지므로 인물 전용 슬롯을 따로 뒀다.
+    if (U.uPSat) U.uPSat.value = FXP.person?.sat ?? (1.0 + (FXP.sat ?? 1) * 0.32);
     if (U.uPSweep) U.uPSweep.value = FXP.person?.sweep ?? 0;
     if (U.uPHi) U.uPHi.value = hi;
     if (U.uPDepth) U.uPDepth.value = FXP.person?.depth ?? 0.34;
@@ -4766,6 +4770,7 @@ void main(){
     get floorGL() { return floorGL; },
     get wallGL() { return wallGL; },
     get demoSeg() { return demoSeg; }, initDemoSeg,
+    get coaches() { return _coaches; },   // 코치 판 실측용(scripts/_grid_bkcoach.mjs) — 씬 순회로는 못 잡힌다
     makeImageSegmenter: async () => {
       const fileset = await FilesetResolver.forVisionTasks(import.meta.env.BASE_URL + 'mediapipe-wasm');
       return ImageSegmenter.createFromOptions(fileset, {
