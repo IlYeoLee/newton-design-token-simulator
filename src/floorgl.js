@@ -661,6 +661,10 @@ export const READY_OPT = {
   //   왼쪽 정렬선이 존재하지 않고 라벨이 원근에서 눕는다. 이전 구현(아이콘 칩 + 띠 위 라벨 +
   //   전체 한 벌 램프)이 이 지오메트리에 맞는 답이었다. 실험은 토글로 남긴다.
   feetTokens: false, // ⑧ 시작화면 발자국 어포던스 (복싱엔 없다 — 기본 끔)
+  // ⑨ 최종확정 안 (피그마 423:3637 '최종화정', 2026-08-07) — 캡슐을 걷고 큰 광 위에 인물만.
+  //   기존 안과 **배타적**이다(레이아웃이 통째로 다르다) — 켜면 _paint_ready_final 이 전담한다.
+  //   발자국 3D 토큰도 이 값을 본다(session.js _readyFeetTick) — 2안에 발자국이 있어서다.
+  final:     false,
   arcBoxing: false,
   arcLabelMode: 'flat',   // 라벨 배치: 'head'(머리·접선) | 'mid'(중앙·접선) | 'flat'(머리·수평)   // ④ 아크 = 복싱 막대 규약 (세그마다 같은 램프 · 앞머리에 시간 · 아이콘/칩 없음)
 };
@@ -2396,7 +2400,82 @@ export class FloorGL {
     return c;
   }
 
+  /** 시작화면 인물 카드 — 프로토타입(home.css .hero-shot/.hero-clip) 레시피 **정본**.
+   *  기존 안(_paint_ready)과 최종확정 안(_paint_ready_final)이 같은 걸 그린다 — 사본을 만들면
+   *  반드시 갈린다(COACH_CFG 가 두 벌이었던 그 사고와 같은 부류).
+   *  프로토타입이 쓰는 세 가지를 그대로 옮긴 것:
+   *    ① mix-blend-mode: plus-lighter        → canvas 'lighter'
+   *    ② filter: brightness(--clip-bright)   → **가산 전에** 밝기를 미리 낮춘다. plus-lighter 는
+   *       더하기만 하므로 밝은 피사체는 흰색으로 클리핑된다(계속 태웠던 그 문제).
+   *       sean 은 프로토타입이 .68 로 지정. curry 는 기본 1.
+   *    ③ 세로 알파 마스크(--mask-in ~ --mask-out) → 머리 위는 스며들 듯 시작하고, 글자가
+   *       시작하기 전에 사라진다. sean 22%~86% · curry 31.25%~86%.
+   *  @param box   {x,y,w,h,r} 카드 박스 — 피그마 실측을 그대로 넣는다
+   *  @param clipFn 있으면 카드 위에 한 겹 더 클립(캡슐 안 가두기). 최종확정 안엔 캡슐이 없다. */
+  _readyPerson(bk, box, alpha, clipFn) {
+    const ctx = this.ctx;
+    if (alpha <= 0.004) return;
+    const CLIP = bk
+      // mOut = .86 — 프로토타입은 카드 하단에서 페이드아웃(민트 엔딩)하지만, 여기선 **컨테이너
+      //   맨 끝까지** 채워야 한다(유저 #164).
+      ? { src: 'ready-view/assets/proto/curry-card.mp4', bright: 1.0, mIn: .3125, mOut: .86, focus: -0.06 }   // focus .02→-.06 = 커리를 아래로(유저)
+      : { src: 'ready-view/assets/proto/sean-card.mp4',  bright: 0.68, mIn: .22, mOut: .86, focus: 0.05 };
+    let v = this._pvid;
+    if (!v || v._key !== CLIP.src) {
+      v = this._pvid = document.createElement('video');
+      v._key = CLIP.src;
+      v.src = (import.meta.env?.BASE_URL || '/') + CLIP.src;
+      v.muted = true; v.loop = true; v.playsInline = true; v.autoplay = true;
+      v.play?.().catch(() => {});
+    }
+    if (!(v.readyState >= 2 && v.videoWidth)) return;
+    const { x: BX, y: BY, w: BW, h: BH, r: BR } = box;
+    // 오프스크린에서 ②(밝기)와 ③(마스크)을 먼저 적용한 뒤, 결과만 lighter 로 얹는다.
+    const OW = 264, OH = Math.round(OW * BH / BW);   // 픽셀 패스가 있어 절반 해상도
+    const oc = this._pcv || (this._pcv = document.createElement('canvas'));
+    if (oc.width !== OW || oc.height !== OH) { oc.width = OW; oc.height = OH; }
+    const og = oc.getContext('2d');
+    og.setTransform(1, 0, 0, 1, 0, 0);
+    og.globalCompositeOperation = 'source-over';
+    og.clearRect(0, 0, OW, OH);
+    og.filter = `brightness(${CLIP.bright})`;
+    const sc = Math.max(OW / v.videoWidth, OH / v.videoHeight);
+    const dw = v.videoWidth * sc, dh = v.videoHeight * sc;
+    og.drawImage(v, (OW - dw) / 2, -(dh * CLIP.focus), dw, dh);
+    og.filter = 'none';
+    // ★ 휘도 → 알파(유저 #163: 검정 배경이 딸려 나온다). canvas 'lighter' 는 색은 0 을 더해도
+    //   **알파는 더한다**(αr = αs + αd). 소스 배경이 알파 1 인 검정이라 그 사각형만큼 '검은 빛'이
+    //   생겼다. 프로토타입은 불투명 카드 위라 이 문제가 없지만, 우리는 투사광 레이어라
+    //   빛이 없는 곳은 알파도 0 이어야 한다(인물 셰이더의 불변식과 같은 규약).
+    {
+      const d2 = og.getImageData(0, 0, OW, OH), q = d2.data;
+      for (let k = 0; k < q.length; k += 4) {
+        const lum = (q[k] * 0.299 + q[k + 1] * 0.587 + q[k + 2] * 0.114);
+        q[k + 3] = lum > 250 ? 255 : Math.min(255, lum * 1.55);
+      }
+      og.putImageData(d2, 0, 0);
+    }
+    og.globalCompositeOperation = 'destination-in';
+    const mg = og.createLinearGradient(0, 0, 0, OH);
+    mg.addColorStop(0, 'rgba(0,0,0,0)');
+    mg.addColorStop(CLIP.mIn, 'rgba(0,0,0,1)');
+    mg.addColorStop(CLIP.mOut, 'rgba(0,0,0,1)');
+    // ★ 하단 페더 제거(유저) — 러닝·농구 공통. 끝까지 불투명하게 둔다.
+    //   아래 곡선은 카드 라운드 클립이 만들므로 마스크로 흐릴 이유가 없다.
+    mg.addColorStop(1, 'rgba(0,0,0,1)');
+    og.fillStyle = mg; og.fillRect(0, 0, OW, OH);
+    og.globalCompositeOperation = 'source-over';
+    ctx.save();
+    ctx.globalAlpha *= alpha;
+    ctx.beginPath(); ctx.roundRect(BX, BY, BW, BH, BR); ctx.clip();
+    if (clipFn) { clipFn(); ctx.clip(); }
+    ctx.globalCompositeOperation = 'lighter';   // = mix-blend-mode: plus-lighter
+    ctx.drawImage(oc, BX, BY, BW, BH);
+    ctx.restore();
+  }
+
   _paint_ready() {
+    if (READY_OPT.final) return this._paint_ready_final();
     const ctx = this.ctx;
     // ★ 시작화면 = **8초 루프**(유저 애니메이션 메모 08-05):
     //    0~2s  팩 이름 + 인물 실루엣 · 하단 원 2개(배터리) → 1.2s 부터 이어폰 칸이 가로 확장 + 코치
@@ -2550,79 +2629,17 @@ export class FloorGL {
     // ── ②' 림 바깥 초승달 블룸 = **폐기**(유저 08-05). '칼같이 잘리는' 걸 풀려고 반원
     //   그라디언트를 림 밖에 얹었는데, 클립 사각(rect)의 윗변이 그대로 직선 이음매로 드러나고
     //   빛이 캡슐 밖 좌우로 번져 더 이상해졌다. 캡슐 밖으로 새는 광은 만들지 않는다.
-    // ── ②'' 인물 영상 — 프로토타입(home.css .hero-shot/.hero-clip) 레시피 그대로.
-    //   ★ 순서: **그라디언트 레이어 위**에 얹는다(유저). 위 ②(컬러 면·엠버)가 먼저 칠해진 뒤다.
-    //   ★ 프로토타입이 쓰는 세 가지를 그대로 옮긴다:
-    //     ① mix-blend-mode: plus-lighter        → canvas 'lighter'
-    //     ② filter: brightness(--clip-bright)   → **가산 전에** 밝기를 미리 낮춘다. plus-lighter 는
-    //        더하기만 하므로 밝은 피사체는 흰색으로 클리핑된다(내가 계속 태웠던 그 문제).
-    //        sean 은 프로토타입이 .68 로 지정. curry 는 기본 1.
-    //     ③ 세로 알파 마스크(--mask-in ~ --mask-out) → 머리 위는 스며들 듯 시작하고, 글자가
-    //        시작하기 전에 사라진다. sean 22%~78% · 기본 31.25%~96.65%.
+    // ── ②'' 인물 영상 — 레시피는 _readyPerson 정본. 순서만 여기서 정한다:
+    //   **그라디언트 레이어 위**에 얹는다(유저). 위 ②(컬러 면·엠버)가 먼저 칠해진 뒤다.
     if (p2 < 0.995) {
-      const CLIP = bk
-        // mOut = 1.0 — 프로토타입은 카드 하단에서 페이드아웃(민트 엔딩)하지만, 여기선 **알약
-        //   컨테이너 맨 끝까지** 채워야 한다(유저 #164). 아래 곡선은 capPath 클립이 만든다.
-        ? { src: 'ready-view/assets/proto/curry-card.mp4', bright: 1.0, mIn: .3125, mOut: .86, focus: -0.06 }   // focus .02→-.06 = 커리를 아래로(유저)
-        : { src: 'ready-view/assets/proto/sean-card.mp4',  bright: 0.68, mIn: .22, mOut: .86, focus: 0.05 };
-      let v = this._pvid;
-      if (!v || v._key !== CLIP.src) {
-        v = this._pvid = document.createElement('video');
-        v._key = CLIP.src;
-        v.src = (import.meta.env?.BASE_URL || '/') + CLIP.src;
-        v.muted = true; v.loop = true; v.playsInline = true; v.autoplay = true;
-        v.play?.().catch(() => {});
-      }
-      if (v.readyState >= 2 && v.videoWidth) {
-        // 박스 = 피그마 인스펙터 실측: 1055x1079(44/45) · r 527.5.
-        //   폭은 **컨테이너와 동일하게 100%**(유저 #165: 살짝 잘려). 피그마 박스 1055 는 캡슐
-        //   1018 보다 넓어 좌우가 클립에 깎였다 → 캡슐 폭에 맞추고 높이는 44/45 비로 환산.
-        const BW = CAP.w, BH = Math.round(CAP.w * 1079 / 1055), BR = BW / 2;
-        //   박스 바닥을 캡슐 바닥에 맞춘다 — 90 띄웠더니 영상이 곡선 전에 직선으로 끊겼다(#164).
-        const BX = 800 - BW / 2, BY = (CAP.y + CAP.h) - BH;
-        // 오프스크린에서 ②(밝기)와 ③(마스크)을 먼저 적용한 뒤, 결과만 lighter 로 얹는다.
-        const OW = 264, OH = Math.round(OW * BH / BW);   // 픽셀 패스가 있어 절반 해상도
-        const oc = this._pcv || (this._pcv = document.createElement('canvas'));
-        if (oc.width !== OW) { oc.width = OW; oc.height = OH; }
-        const og = oc.getContext('2d');
-        og.setTransform(1, 0, 0, 1, 0, 0);
-        og.globalCompositeOperation = 'source-over';
-        og.clearRect(0, 0, OW, OH);
-        og.filter = `brightness(${CLIP.bright})`;
-        const sc = Math.max(OW / v.videoWidth, OH / v.videoHeight);
-        const dw = v.videoWidth * sc, dh = v.videoHeight * sc;
-        og.drawImage(v, (OW - dw) / 2, -(dh * CLIP.focus), dw, dh);
-        og.filter = 'none';
-        // ★ 휘도 → 알파(유저 #163: 검정 배경이 딸려 나온다). canvas 'lighter' 는 색은 0 을 더해도
-        //   **알파는 더한다**(αr = αs + αd). 소스 배경이 알파 1 인 검정이라 그 사각형만큼 '검은 빛'이
-        //   생겼다. 프로토타입은 불투명 카드 위라 이 문제가 없지만, 우리는 투사광 레이어라
-        //   빛이 없는 곳은 알파도 0 이어야 한다(인물 셰이더의 불변식과 같은 규약).
-        {
-          const d2 = og.getImageData(0, 0, OW, OH), q = d2.data;
-          for (let k = 0; k < q.length; k += 4) {
-            const lum = (q[k] * 0.299 + q[k + 1] * 0.587 + q[k + 2] * 0.114);
-            q[k + 3] = lum > 250 ? 255 : Math.min(255, lum * 1.55);
-          }
-          og.putImageData(d2, 0, 0);
-        }
-        og.globalCompositeOperation = 'destination-in';
-        const mg = og.createLinearGradient(0, 0, 0, OH);
-        mg.addColorStop(0, 'rgba(0,0,0,0)');
-        mg.addColorStop(CLIP.mIn, 'rgba(0,0,0,1)');
-        mg.addColorStop(CLIP.mOut, 'rgba(0,0,0,1)');
-        // ★ 하단 페더 제거(유저) — 러닝·농구 공통. 끝까지 불투명하게 둔다.
-        //   아래 곡선은 캡슐 클립이 만들므로 마스크로 흐릴 이유가 없다.
-        mg.addColorStop(1, 'rgba(0,0,0,1)');
-        og.fillStyle = mg; og.fillRect(0, 0, OW, OH);
-        og.globalCompositeOperation = 'source-over';
-        ctx.save();
-        ctx.globalAlpha *= e0(.30, .9) * (1 - p2);
-        ctx.beginPath(); ctx.roundRect(BX, BY, BW, BH, BR); ctx.clip();
-        ctx.save(); ctx.translate(0, CUT); capPath(); ctx.restore(); ctx.clip();   // 캡슐 밖 금지
-        ctx.globalCompositeOperation = 'lighter';   // = mix-blend-mode: plus-lighter
-        ctx.drawImage(oc, BX, BY, BW, BH);
-        ctx.restore();
-      }
+      // 박스 = 피그마 인스펙터 실측: 1055x1079(44/45) · r 527.5.
+      //   폭은 **컨테이너와 동일하게 100%**(유저 #165: 살짝 잘려). 피그마 박스 1055 는 캡슐
+      //   1018 보다 넓어 좌우가 클립에 깎였다 → 캡슐 폭에 맞추고 높이는 44/45 비로 환산.
+      const BW = CAP.w, BH = Math.round(CAP.w * 1079 / 1055);
+      //   박스 바닥을 캡슐 바닥에 맞춘다 — 90 띄웠더니 영상이 곡선 전에 직선으로 끊겼다(#164).
+      this._readyPerson(bk, { x: 800 - BW / 2, y: (CAP.y + CAP.h) - BH, w: BW, h: BH, r: BW / 2 },
+        e0(.30, .9) * (1 - p2),
+        () => { ctx.save(); ctx.translate(0, CUT); capPath(); ctx.restore(); });   // 캡슐 밖 금지
     }
     // ── ③ 캡슐 텍스트 — 제목 2줄(100/Bold/ls-4) · Pace On(64/.8) · 도트 30(384) + min(64) ──
     // 제목 두 줄은 줄 단위로 아주 살짝 어긋나게(0.04s) — 한 덩어리로 뜨는 것보다 결이 산다.
@@ -3079,6 +3096,147 @@ export class FloorGL {
       ctx.letterSpacing = '0px'; ctx.restore();
     }
     ctx.restore();   // /콘텐츠 스케일
+  }
+
+
+  // ── 시작화면 **최종확정 안** (피그마 a2Zo9mBTQojjGKaSerQzUa · 423:3637 '최종화정', 2026-08-07) ──
+  //   READY_OPT.final 로 켠다. 기존 안과 배타 — 레이아웃이 통째로 다르다.
+  //
+  //   ★ 좌표를 그대로 쓴다. 피그마 프레임이 **1600×2670 = 대지 실치수**라 환산도, 조판
+  //     오프셋(기존 안의 translate -254)도 없다. 지면 사이즈를 디자이너가 이미 맞춰 놨다.
+  //   ★ 기존 안과의 차이 셋:
+  //     ① 캡슐(유리판·림)이 **없다**. 인물이 광 위에 그냥 뜬다 — '더 시원하게'(유저).
+  //     ② 광이 4겹(subtract/hl1/hl2/ell) → **한 겹**. 대신 크다: 1682×1963 (기존 1288×1709).
+  //        f1 램프는 커리(#920F0F→FA3030→FF9E2C→D1FEFF) · f2 는 뉴턴(FA3030→FE6E3C→FEC389→D1FEFF)
+  //        — 피그마 익스포트 stop 이 기존 glow-ell-bk / glow-ell-newton 과 **바이트 동일**이고
+  //        경로·블러만 다르다(그래서 새 파일로 박제, 스케일로 때우지 않는다).
+  //     ③ 타이포가 크다: 타이틀 117.6 → **130**, 숫자 336 → **384**, CTA 74 → **80.7**.
+  //   ★ 아크 차트·배터리 칩·연결/코치 프로필은 이 안에 **없다**(피그마에 없다).
+  //   ★ 발자국은 여기서 안 그린다 — 3D FootMark 토큰(session.js _readyFeetTick)이 정본이고,
+  //     같은 READY_OPT.final 을 본다. 피그마의 십자 가이드선은 미구현(3D 발과 정렬이 안 맞는다).
+  _paint_ready_final() {
+    const ctx = this.ctx;
+    const LOOP = 8, TP2 = 2.0, TP_CTA = 2.9;   // 0~2 인물 · 2~ 숫자 · 2.9~ CTA(2안은 숫자와 한 화면)
+    const t = this.t % LOOP;
+    const bk = /floor-bk/.test(this.params.src);
+    const D = READY[bk ? 'floor-bk.html' : 'floor.html'], R2 = D.r2;
+    const CK = R2.scale || 1, PV = R2.pivotY ?? 1400;
+    const RF = (w, s, fam = sans) => `${w} ${s}px ${fam}`;   // 피그마 원치수(타입스케일 미적용)
+    const img = rel => this._img('fig/ready2/' + rel);
+    const eOut5 = u => 1 - Math.pow(1 - u, 5);
+    const e0 = (d, dur = .9) => eOut5(intro(t, d, dur));
+    const rise = (d, dur, px) => (1 - e0(d, dur)) * px;
+    const TRAVEL = 0.78, LEAD = 0.15;                  // 프로토타입 gauge.js 규약 — 기존 안과 동일
+    const p2 = eOut(intro(t, TP2, TRAVEL));            // 0 = 인물 화면, 1 = 숫자 화면
+    const q = 1 - p2;
+    // '두 번'을 글자 말고 빛으로 — CTA 구간에서만 톡·톡. 빼려면 0 으로 두면 끝.
+    const tapB = (() => {
+      if (t < TP_CTA) return 0;
+      const ph = (t - TP_CTA) % 2.0;
+      const bl = t0 => { const u = (ph - t0) / .34; return (u >= 0 && u <= 1) ? Math.sin(u * Math.PI) : 0; };
+      return Math.max(bl(.10), bl(.55));
+    })();
+
+    ctx.save();
+    if (CK !== 1) { ctx.translate(800, PV); ctx.scale(CK, CK); ctx.translate(-800, -PV); }
+
+    // ── ① 광 — 두 상태가 **교대**한다(보간이 아니다: 색이 섞이면 어느 쪽도 아니게 된다).
+    //   박스는 피그마 노드 + 블러 블리드. f1: 타원 1183×1463.32 @(232,501.84), 블리드 249.6 사방.
+    //   f2: 타원 864×784 @(369,1320), 블리드 가로 238.64 · 세로 238.65.
+    //   블렌드 없음(normal) — 최종확정 노드엔 mix-blend 가 안 걸려 있다. 기존 안의 hard-light 는
+    //   4겹을 서로 태우려던 것이고, 한 겹만 쓰는 지금은 에셋 색이 그대로 나와야 맞다.
+    for (const [rel, gx, gy, gw, gh, la] of [
+      ['glow-ell-f1.svg', -17.61, 252.20, 1682.31, 1962.63, q],
+      ['glow-ell-f2.svg', 130.36, 1081.35, 1341.36, 1261.36, p2],
+    ]) {
+      if (la <= 0.004) continue;
+      const im = img(rel);
+      if (!im) continue;
+      ctx.save();
+      ctx.globalAlpha *= la * e0(.05, 1.2) * (1 + .3 * tapB);   // 탭 박자에 빛이 두 번 부푼다
+      // 일렁임 — 주기가 안 맞는 사인 셋이라 반복으로 안 읽힌다(기존 안과 같은 진폭).
+      const w = t * 0.42, cx0 = gx + gw / 2, cy0 = gy + gh / 2;
+      ctx.translate(cx0, cy0);
+      ctx.scale(1 + 0.055 * Math.sin(w), 1 + 0.042 * Math.sin(w * 0.73 + 1.7));
+      ctx.translate(-cx0, -cy0 + 19 * Math.sin(w * 0.61 + 0.4));
+      ctx.globalAlpha *= 0.88 + 0.12 * Math.sin(w * 0.89 + 2.3);
+      ctx.drawImage(im, gx, gy, gw, gh);
+      ctx.restore();
+    }
+
+    // ── ② 인물 — 피그마 415:3861 'sean-card 1' 1078×1050 @(337,969) r495, mix-blend-plus-lighter.
+    //   레시피는 _readyPerson 정본(기존 안과 같은 물건). 캡슐이 없으니 clipFn 도 없다.
+    this._readyPerson(bk, { x: 337, y: 969, w: 1078, h: 1050, r: 495 }, e0(.30, .9) * q);
+
+    // ── ③ 뱃지 — 254.36×114.68 r12, 흰 20% 면 + 흰 글자. **타이틀 위**로 올라왔다(기존 안은 아래).
+    //   글자 크기는 인스턴스 스케일을 되돌린 실측: (114.68 − 15.84*2) / 1.4 = 59.3.
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    if (q > 0.01) {
+      ctx.save(); ctx.globalAlpha *= e0(.96, .55) * q;
+      const BY = 572 + rise(.96, .55, 18);
+      ctx.fillStyle = 'rgba(255,255,255,.2)';
+      ctx.beginPath(); ctx.roundRect(673, BY, 254.36, 114.68, 12); ctx.fill();
+      ctx.fillStyle = NEU.ink; ctx.font = RF(700, 59.3); ctx.letterSpacing = '-0.5px';
+      ctx.fillText(R2.badge || 'Creator', 800.18, BY + 114.68 / 2 + 2);   // +2 = 기존 안과 같은 시각 보정
+      ctx.letterSpacing = '0px'; ctx.restore();
+    }
+
+    // ── ④ 타이틀 — 130px/700/ls-5.2, 줄간 176. 크기는 안 변하고 **자리만 올라간다**
+    //   (피그마: 1안 블록중심 900 → 2안 367). 기존 안의 크기 모프(0.833배)는 최종확정엔 없다.
+    const TCY = 900 - 533 * p2;
+    ctx.fillStyle = NEU.ink; ctx.font = RF(700, 130); ctx.letterSpacing = '-5.2px';
+    for (const [i, ln] of R2.lines.entries()) {
+      const d = .26 + i * .06;   // 타이틀 먼저, 부제 나중(유저 08-06)
+      ctx.save(); ctx.globalAlpha *= e0(d, .72);
+      ctx.fillText(ln, 800, TCY + (i ? 88 : -88) + rise(d, .72, 22));
+      ctx.restore();
+    }
+    ctx.letterSpacing = '0px';
+
+    // ── ⑤ 숫자 + 단위 + 부제 — 도트 384 @ top 630 · km 64/50% · Pace On 100.5/60%.
+    if (p2 > 0.01) {
+      ctx.save(); ctx.globalAlpha *= p2;
+      ctx.translate(0, (1 - p2) * 26);
+      const NCX = 800, NTOP = 630;
+      // 숫자 자체를 가운데(유저 확정) · 단위는 숫자 실폭에서 파생 — 자릿수가 바뀌어도 따라온다.
+      // ponytail: 소수점이 있는 값('5.0')만 자간을 조인다. 도트 폰트의 마침표가 숫자만큼 큰
+      //   사각 점이라 그대로 두면 점이 튄다(기존 안이 336/-14 로 눌러 두던 그 문제).
+      //   크기까지 줄이지는 않는다 — 최종확정은 '큼직하게'가 요지다. 더 튀면 여기가 노브.
+      ctx.letterSpacing = (/\./.test(String(R2.total)) ? -16 : -9.05) + 'px';
+      const nw = rollNum(ctx, R2.total, t, TP2 + LEAD, TRAVEL - LEAD, NCX, NTOP, 384,
+                         { fam: dot9, align: 'center', fill: NEU.ink });
+      ctx.letterSpacing = '0px';
+      ctx.textAlign = 'left';
+      ctx.fillStyle = 'rgba(255,255,255,.5)'; ctx.font = RF(700, 64); ctx.letterSpacing = '-1.51px';
+      ctx.fillText(R2.unit || 'min', NCX + nw / 2 + 44, NTOP + 118.5);   // gap 44 · 숫자 상단 기준(피그마)
+      ctx.letterSpacing = '0px';
+      // 부제는 타이틀·숫자가 앉은 **뒤에** 붙는다(한 덩어리로 튀어나오지 않게).
+      const SUB2 = eOut(intro(t, TP2 + .18, .55));
+      if (SUB2 > 0.01) {
+        ctx.save(); ctx.globalAlpha *= SUB2;
+        ctx.textAlign = 'center';
+        ctx.fillStyle = 'rgba(255,255,255,.6)'; ctx.font = RF(400, 100.5); ctx.letterSpacing = '-3.16px';
+        ctx.fillText(R2.sub, 800, 1157.5 + (1 - SUB2) * 18);
+        ctx.letterSpacing = '0px'; ctx.restore();
+      }
+      ctx.restore();
+    }
+
+    // ── ⑥ CTA — 화살표 + 'Tap your foot Twice'. 2안에선 숫자와 **같은 화면**이라 CTA 는
+    //   숫자가 도착한 뒤에 붙는다. 발자국은 3D 토큰이 그린다(session.js).
+    const p3 = e0(TP_CTA, .5);
+    if (p3 > 0.01) {
+      ctx.save(); ctx.globalAlpha *= p3 * (.9 + .1 * tapB);
+      // 화살표 — fig/arrow.svg 가 피그마 arrow-right 인스턴스와 같은 컴포넌트(뷰박스 81.25×64.58).
+      //   박스 85.778 → 아이콘 leaf 인셋 12.5%/20.83% → 블리드 4.17%/5.36% = 69.70×55.40.
+      const ar = this._img('fig/arrow.svg');
+      if (ar) ctx.drawImage(ar, 742.65, 1384.19 + rise(TP_CTA, .5, 14), 69.70, 55.40);
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillStyle = NEU.ink; ctx.font = RF(700, 80.74); ctx.letterSpacing = '-5.76px';
+      ctx.fillText('Tap your foot Twice', 780.65, 1565.5 + rise(TP_CTA, .5, 14));
+      ctx.letterSpacing = '0px'; ctx.restore();
+    }
+    ctx.restore();
   }
 
 
