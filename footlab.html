@@ -65,6 +65,8 @@
         <button data-v=v2>13:40 섀도우 완화</button><button data-v=v3>14:28 상태 색·명도</button>
       </div>
       <div class=hint id=verHint style="margin-top:4px"></div>
+      <button id=verApply style="margin-top:6px;width:100%">이 버전을 정본에 적용 (시뮬 반영)</button>
+      <div class=hint style="margin-top:3px">누르면 mark-look.json 을 덮어쓴다 — 시뮬 새로고침하면 그 룩으로 돈다.</div>
     </fieldset>
 
     <fieldset><legend>발</legend>
@@ -377,11 +379,22 @@ const VERSIONS = {
   //   · 섀도우 0.3→0 · 이너섀도우 0.34→1.4 · 파동 0.5→0(제거) · 헤일로 0.45→0.3 · 폭 1.6→0.95.
   //   ⚠ 되돌리면 그 뒤 사흘의 수정도 같이 사라진다(스냅샷의 대가). 눌러서 **보는** 용도다.
   v03: { label: '08-02 14:17 (3일 전) — 전체 스냅샷 · 파동 있고 헤일로 넓고 이너섀도우 얕던 때',
-         P: { imp: 0.98, scale: 0.83, offx: -0.043, offy: -0.031, dot: 0.25, glow: 0.26,
-              shade: 0.3, sharp: 0.74, plantar: 0.84, w: 1.6, halo: 0.45, pool: 0.82,
-              rip: 0.5, ripReach: 0.5, ripWidth: 0.125, edgeShade: 0.34, edgeShadeW: 4,
-              shadeRedW: 3.4, gsize: 0.8, gx: -0.085, gy: 0.16, shadeCol: 1,
-              bloom: 0.125, blur: 0, dotMode: 0 },   // dotMode 0 = 도트 그라디언트 실험 이전
+         // ★ **그날 파일의 전 키**를 그대로 적는다(델타가 아니다). 처음엔 '지금과 다른 값'만
+         //   담았는데, 그때 우연히 같았던 키(edge·bandSoft)가 빠져서 적용하면 랩 기본값이 대신
+         //   구워졌다 — 실측으로 43개 중 2개가 어긋났다. 스냅샷은 전 키가 아니면 스냅샷이 아니다.
+         P: { imp: 0.98, scale: 0.83, offx: -0.043, offy: -0.031, irot: 5.5, pitch: 0.027,
+              dot: 0.25, glow: 0.26, shade: 0.3, sharp: 0.74, edge: 0.038, w: 1.6, halo: 0.45,
+              pool: 0.82, noise: 0, prog: 0.55, tilt: -2, bloom: 0.125, blur: 0, gsize: 0.8,
+              gsh: 0.6, gx: -0.085, gy: 0.16, grot: 4, rip: 0.5, ripReach: 0.5,
+              ripWidth: 0.125, ripSpeed: 0.4, ripGrad: 1, plantar: 0.84, bands: 24,
+              bandSoft: 1, edgeShade: 0.34, shadeRed: 0, shadeRedW: 3.4, edgeW: 0.01,
+              edgeSoft: 0, dither: 0.011,
+              // 08-02 엔 없던 키 — 그땐 이 축 자체가 없었다. 이너섀도우 폭만 당시 셰이더 기본(1)로.
+              edgeShadeW: 1, edgeShadeGrad: 0, edgeShadeG0: 1, edgeShadeG1: 0.55,
+              dotMode: 0 },   // dotMode 0 = 도트 그라디언트 실험 이전
+         // ★ 색·합성은 **P 밖 독립 변수**다(shadeCol·dotCol·edgeShadeCol·gBlend…).
+         //   P 에 넣어 두면 조용히 무시된다 — 처음 판이 정확히 그래서 반쪽이었다.
+         vars: { shadeCol: 1, dotCol: 1, edgeShadeCol: 0, gBlend: 'add' },
          states: null },
   v0: { label: '09:25 — 단색 순백 도트 · 이너 섀도우 1.4/4 (유저가 더 좋다고 한 저장본)',
         P: { edgeShade: 1.4, edgeShadeW: 4, dotMode: 0 }, states: null },
@@ -397,10 +410,24 @@ const VERSIONS = {
                   '4': { tLo: 0.02, tHi: 0.30, op: 1.00, bloom: 0.36 } } },
 };
 let VER = 'v0';
+// ★ 버전을 오갈 때 **이전 버전의 흔적이 남지 않게** — states 에 이미 걸어 둔 규칙을 P·vars 에도 건다.
+//   안 걸면 v03(전체 스냅샷) → v0 에서 v0 의 edgeShade 에 08-02 의 halo·w·imp 가 얹힌,
+//   **실제로 존재한 적 없는 하이브리드**가 나온다. 어떤 버전도 안 건드리는 키는 그대로 둔다.
+const VER_KEYS = [...new Set(Object.values(VERSIONS).flatMap(V => Object.keys(V.P || {})))];
+const VER_VARS = [...new Set(Object.values(VERSIONS).flatMap(V => Object.keys(V.vars || {})))];
+const VER_BASE = { P: Object.fromEntries(VER_KEYS.map(k => [k, P[k]])),
+                   vars: { shadeCol, dotCol, ripCol, edgeShadeCol, gShadow, gBlend } };
 function applyVersion(v) {
   const V = VERSIONS[v]; if (!V) return;
   VER = v;
+  for (const k of VER_KEYS) if (VER_BASE.P[k] !== undefined) P[k] = VER_BASE.P[k];   // 먼저 원위치
   Object.assign(P, V.P);
+  // 색·합성(P 밖 변수) — **세그먼트를 통해** 넣는다. 변수만 바꾸면 버튼이 이전 버전을 가리킨 채
+  //   남아서, 무엇이 적용됐는지 화면이 거짓말한다. 등록소(SEGS)가 값과 버튼을 같이 옮긴다.
+  const SEGOF = { shadeCol: 'segShadeCol', dotCol: 'segDotCol', ripCol: 'segRipCol',
+                  edgeShadeCol: 'segEdgeShadeCol', gShadow: 'segGShadow', gBlend: 'segGBlend' };
+  const wantV = { ...Object.fromEntries(VER_VARS.map(k => [k, VER_BASE.vars[k]])), ...(V.vars || {}) };
+  for (const [k, val] of Object.entries(wantV)) SEGS[SEGOF[k]]?.(val, true);
   // 상태 창·명도는 오버라이드 슬롯에 얹는다. 버전을 오갈 때 **이전 버전의 흔적이 남지 않게**
   //   이 네 키는 매번 지우고 다시 깐다(안 지우면 v3 → v0 에서 색만 남는다).
   for (const k of ['0', '1', '2', '4']) {
@@ -434,18 +461,24 @@ $('saveTap').onclick = async () => {
   } catch { btn.textContent = '저장 실패(개발 서버 필요)'; }
   setTimeout(() => { btn.textContent = old; }, 2600);
 };
-$('save').onclick = async () => {
-  const body = { ...P, shadeCol, dotCol, ripCol, edgeShadeCol, gShadow, gBlend, numSrc: FXP.numSrc,
-    // 프림 전용 값(코멧·노드·레일)도 정본에 — 없으면 시뮬 새로고침마다 증발(유저: 이식 안 됨)
-    prims: { punchLine: { node: PRIM_P.node, numS: PRIM_P.numS, comet: PRIM_P.comet, tailLen: PRIM_P.tailLen, rail: PRIM_P.rail } },
-    states: OV };   // 상태별 오버라이드 — 시뮬이 상태 전환마다 입힌다
-  const btn = $('save'); const old = btn.textContent;
+/** 지금 랩 상태 = 정본 한 벌. 저장 버튼과 '버전 적용' 버튼이 **같은 함수**를 쓴다 —
+ *  두 벌로 적으면 한쪽에만 키가 빠지고, 그건 이 파일이 이미 겪은 사고다(Tap2 저장 키 누락). */
+const lookBody = () => ({ ...P, shadeCol, dotCol, ripCol, edgeShadeCol, gShadow, gBlend, numSrc: FXP.numSrc,
+  // 프림 전용 값(코멧·노드·레일)도 정본에 — 없으면 시뮬 새로고침마다 증발(유저: 이식 안 됨)
+  prims: { punchLine: { node: PRIM_P.node, numS: PRIM_P.numS, comet: PRIM_P.comet, tailLen: PRIM_P.tailLen, rail: PRIM_P.rail } },
+  states: OV });   // 상태별 오버라이드 — 시뮬이 상태 전환마다 입힌다
+async function saveLook(btn, okMsg = '저장됨 — 시뮬 새로고침하면 반영') {
+  const old = btn.textContent;
   try {
-    const r = await fetch('/__save-look', { method: 'POST', body: JSON.stringify(body) });
-    btn.textContent = r.ok ? '저장됨 — 시뮬 새로고침하면 반영' : '저장 실패: ' + (await r.text());
+    const r = await fetch('/__save-look', { method: 'POST', body: JSON.stringify(lookBody()) });
+    btn.textContent = r.ok ? okMsg : '저장 실패: ' + (await r.text());
   } catch { btn.textContent = '저장 실패(개발 서버 필요)'; }
   setTimeout(() => { btn.textContent = old; }, 2600);
-};
+}
+$('save').onclick = () => saveLook($('save'));
+// ★ 버전 적용 = **고른 버전을 먼저 입힌 뒤** 저장한다. 순서가 뒤집히면 화면엔 새 버전이
+//   보이는데 파일엔 이전 값이 굽히는, 제일 찾기 어려운 종류의 사고가 난다.
+$('verApply').onclick = () => { applyVersion(VER); saveLook($('verApply'), '적용됨 — 시뮬 새로고침'); };
 $('reset').onclick = () => { hist.push({ ...P }); future.length = 0; applySnapshot({ ...DEF }); };
 $('copy').onclick = () => { $('snip').select(); navigator.clipboard?.writeText($('snip').value); };
 
@@ -456,6 +489,9 @@ const SEG_KEY = 'footlab.segs';
 const segState = (() => { try { return JSON.parse(localStorage.getItem(SEG_KEY) || '{}'); } catch { return {}; } })();
 const pendingSegRestore = [];   // 초기화 완료 후에 실행할 복원들(TDZ 회피)
 const segSave = () => { try { localStorage.setItem(SEG_KEY, JSON.stringify(segState)); } catch { /* 사생활 모드 */ } };
+// 세그먼트 선택기 등록소 — **버전 적용이 버튼 상태까지 바꾸려면** 밖에서 부를 손잡이가 필요하다.
+//   (색·합성은 P 가 아니라 독립 변수 shadeCol·dotCol·gBlend… 라, 값만 바꾸면 버튼이 거짓말한다.)
+const SEGS = {};
 function seg(id, cb) {
   const pick = (v, fire) => {
     const btns = [...$(id).children];
@@ -473,6 +509,7 @@ function seg(id, cb) {
   //   rebuild 가 쓰는 units 는 아래에서 선언되므로 TDZ(Cannot access 'units' before initialization)로
   //   페이지가 통째로 죽는다. 저장본이 있는 브라우저에서만 터져서 더 위험했다(유저: 페이지가 안 뜬다).
   if (segState[id] != null) pendingSegRestore.push(() => pick(segState[id], true));
+  SEGS[id] = pick;
 }
 seg('segSide', v => { side = v; rebuild(); });
 seg('segCtx',  v => { ctx = v; FXP.footCtx = v; rebuild(); });
