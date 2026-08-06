@@ -27,7 +27,8 @@ export const PRESETS = {
     look: { imp: 0, glow: 0, shade: 0, rip: 0, halo: 0, shadeRed: 0, dither: 0,
             edgeSoft: 1, edgeW: 0.10, edgeShade: 0.38, edgeShadeW: 1.0, edgeShadeGrad: 1,
             tLo: 0.02, tHi: 0.86,
-            plantar: 1, loadGain: 1.7, loadBase: 0.10, bands: 0, pool: 0.9 },
+            plantar: 1, loadGain: 1.7, loadBase: 0.10, bands: 0, pool: 0.9,
+            contactWindow: 1 },   // setMarkLoad 이 하중 무게중심에서 접지 창을 만든다
     ht: { amt: 0.22, pitch: 0.011, wave: 0, glow: 0.15 },
   },
 };

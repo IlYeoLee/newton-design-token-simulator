@@ -450,11 +450,31 @@ const MARK_MATS = [];
  *  특정 토큰만 다른 스타일을 쓰는 경우. 키 규약은 applyMarkLook 과 동일. */
 /** 하중 배분 주입 — marklang LOAD 한 항목({ball,heel,toe})을 그 마크에만 건다.
  *  ★ 상태(8토큰)와 직교한다: 같은 Active 라도 앞볼로 버틸 수도 전면으로 디딜 수도 있다. */
+// 해부학 핫스팟 좌표 — fx-core plantar 와 **같은 값**이어야 한다(거기가 정본).
+const HS = { ball: [0.02, 0.30], heel: [0.00, -0.44], toe: [0.17, 0.56] };
 export function setMarkLoad(mat, load) {
   const U = mat?.uniforms; if (!U || !load) return;
   if (U.uLoadBall) U.uLoadBall.value = load.ball;
   if (U.uLoadHeel) U.uLoadHeel.value = load.heel;
   if (U.uLoadToe)  U.uLoadToe.value  = load.toe;
+  // ★ 접지 창(CoP) — **하중 배분의 무게중심이 곧 압력중심이다.** 따로 선언하지 않는다:
+  //   두 벌이 되면 반드시 어긋난다(이 파일이 이미 여러 번 배운 것). 그래서 setMarkLoad 를
+  //   지나가는 **모든 호출부**가 공짜로 접지 창을 얻는다 — 세션 발마크·팩 마크 전부.
+  //   창 크기는 하중이 얼마나 몰렸는가에서 나온다: 한 곳에 몰리면 작고, 고르면 넓다.
+  mat._load = load;            // 프리셋이 나중에 켜져도 다시 계산할 수 있게 기억해 둔다
+  applyContact(mat, load);
+}
+/** 하중 배분 → 접지 창. setMarkLoad 와 프리셋 전환 양쪽에서 쓴다. */
+function applyContact(mat, load) {
+  const U = mat?.uniforms;
+  if (!CONTACT_ON || !U?.uCopA || !load) return;
+  const w = Math.max(1e-4, load.ball + load.heel + load.toe);
+  const cx = (load.ball * HS.ball[0] + load.heel * HS.heel[0] + load.toe * HS.toe[0]) / w;
+  const cy = (load.ball * HS.ball[1] + load.heel * HS.heel[1] + load.toe * HS.toe[1]) / w;
+  const spread = 1 - Math.max(load.ball, load.heel, load.toe) / w;   // 0 = 한 곳 · 0.67 = 고름
+  U.uCop.value.set(cx, cy);
+  U.uCopR.value.set(0.19 + 0.34 * spread, 0.16 + 0.66 * spread);
+  U.uCopA.value = w > 0.02 ? 1 : 0;   // 하중 0 = 체공 = 접지 없음
 }
 export function applyMarkLookTo(mat, part = {}) {
   const SF = SIL_FIT / SIL_FIT_REF;
@@ -482,8 +502,17 @@ let _stateBase = new WeakMap();
 //   setMarkStateLook 이 상태가 바뀔 때마다 mark-look.json 값으로 되돌려서
 //   프리셋이 조용히 지워진다(실측: edgeShade 가 매번 정본 값으로 복귀).
 let LOOK_OVR = {};
+let CONTACT_ON = false;   // 접지 창을 setMarkLoad 가 만들지 여부 — 프리셋이 정한다
 export function setLookOverride(o = {}) {
   LOOK_OVR = { ...o };
+  CONTACT_ON = !!o.contactWindow;
+  // ★ 프리셋은 마크가 다 만들어진 뒤에 켜진다 — 그때 이미 있던 마크에도 접지 창을 채워야 한다.
+  //   안 하면 상태가 한 번도 안 바뀌는 마크(Preview 로 태어나 그대로인 발자국)는 영영 0 이다.
+  for (const m of MARK_MATS) {
+    if (!m.uniforms.uCopA) continue;
+    if (CONTACT_ON) applyContact(m, m._load || { ball: 0.80, heel: 0.80, toe: 0.45 });
+    else m.uniforms.uCopA.value = 0;
+  }
   _stateBase = new WeakMap();                       // 바탕이 바뀌었으니 캐시를 버린다
   if (o.w != null) MARK_LOOK.core = o.w;            // 매 프레임 전역 푸시가 읽는 자리
   if (o.halo != null) MARK_LOOK.halo = o.halo;

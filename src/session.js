@@ -144,6 +144,9 @@ class FootMark {
     this.plane.rotation.z = foot === 'left' ? THREE.MathUtils.degToRad(-3) : THREE.MathUtils.degToRad(3);
     this.plane.renderOrder = 4;   // 궤적 토큰(9)이 항상 발자국 '위'에 겹쳐 그려지도록 순서 못박음(유저)
     this.group.userData.el = { type: 'foot', side: foot };
+    // ★ 생성 시에도 한 번 — _ph 는 상태가 **바뀔 때만** 돌아서(같은 값이면 즉시 return),
+    //   Preview(0) 로 태어난 마크는 하중을 영영 못 받았다. 접지 창이 0 으로 남던 이유다.
+    setMarkLoad(this.plane.material, LOAD[FootMark.LOAD_BY_PH[0]]);
   }
   at(x, z, s = 1) { this.group.position.set(x, 0.013, z); this.group.scale.setScalar(s); return this; }
   op(k) { this._U.uFade.value = k; }
