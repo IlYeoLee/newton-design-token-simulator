@@ -441,39 +441,33 @@ vec4 gazeToken(vec2 uv, float t){
   }
   return o;
 }
-/** 가이드 룩 — **하드코딩 2단 램프**(유저 08-06: 하드코딩해서라도 확실히 보이게).
- *  LUT 대역(uPHi)을 밀어서 연하게 만드는 방식은 간접적이라 '얼마나 연해지나'가 안 잡혔다.
- *  여기선 두 램프를 못박고 gHot 으로 갈아탄다 — 화면에서 무슨 색이 나올지가 코드에 그대로 있다.
- *    연(전신)   거의 흰빛 → sand(#FEC389)   = 유저가 말하는 '연연한 주황·맑은 코랄'
- *    진(강조)   coral(#FE6E3C) → red(#FA3030) = 뉴턴 메인컬러로 **찐해진다**
- *  T 는 높을수록 밝은 쪽이다(LUT 방향과 같음) — 두 램프 다 그 방향을 지킨다.
- *  ⚠ 네 색 전부 R≈1.0 이다. 투사광 불변식(알파 = min(aOut, lum×1.6))에 안 걸린다 —
- *    어느 픽셀도 어두워지지 않으므로 뒤 바닥이 배어 오르지 않는다. 색을 바꿀 땐 이걸 먼저 본다. */
-//   연 = **흰끼 도는 연주황**(유저). sand 를 흰색 쪽으로 45% 끌어와 하드코딩한다 —
-//     sand 원색 그대로면 '연한 주황'이 아니라 그냥 주황이라, 강조와의 대비가 안 선다.
-//   ★ **흰색까지 가지 않는다**(유저 08-07: 너무 하얘서 당황스럽다). 요구는
-//     "제일 진한 빨강 → **가파르게** 주황 → 연주황"이지 흰색이 아니다.
-//     구값 상단 (1.000,0.980,0.969)는 사실상 흰색이었고 그게 전신을 표백했다.
-//     이제 상단도 sand(#FEC389) 근방에 머문다 — 램프 전체가 유채 안에 있다.
-#define G_PALE_D ${vec3(PAL.sand)}
-#define G_PALE_L vec3(1.000, 0.855, 0.686)
-//   진 = **제일 빨간 곳**. 위아래 폭을 좁게 잡아 강조 영역이 통째로 RED 로 읽히게 한다.
-#define G_DEEP_D ${vec3(PAL.red)}
-#define G_DEEP_L vec3(1.000, 0.353, 0.227)
-vec3 personGuideColor(float T){
-  T = clamp(T, 0.0, 1.0);
-  vec3 pale = mix(G_PALE_D, G_PALE_L, T);
-  // ★ 강조는 영상 밝기에 **덜 흔들린다**(T×0.35). 열화상의 붉은 덩어리는 옷 주름을 따라
-  //   얼룩지지 않는다 — 그대로 두면 강조 안에서 밝은 픽셀이 연해져 '덩어리'가 안 뭉친다.
-  vec3 deep = mix(G_DEEP_D, G_DEEP_L, T * 0.35);
-  // ★ 전이는 **가파르게**(유저 08-07). 유저가 그린 곡선은 이렇다:
-  //     주요 부위 = 제일 진한 빨강  →  (가파르게)  →  주황  →  연주황
-  //   선형이나 완만한 S 로는 중간(주황)이 넓게 깔려 '살짝 붉다'로만 읽힌다.
-  //   smoothstep 을 두 번 태워 중간 구간을 좁힌다 — 빨강과 연주황이 각자 넓고 그 사이가 짧다.
+/** 가이드 룩 — **룩을 갈아치우지 않는다. 그 안에서 위치만 민다.**
+ *
+ *  ★ 하드코딩 RGB 2단 램프로 덮어썼던 게 잘못이었다(유저 08-07: 강제 마스킹한 것 같아 별로다).
+ *    LUT(중황빛 열화상 램프)를 통째로 버리니 결·질감이 다 날아가고, 인물이 아니라
+ *    **인물 모양으로 칠한 면**이 됐다. 요구는 그게 아니었다:
+ *      "원래 그 중황빛 열화상 그래픽 **안에서** 가장 밝은 톤으로 변하고,
+ *       강조 부분은 **그 안에서** 진했으면 해."
+ *    즉 색을 새로 만드는 게 아니라 **같은 램프 위에서 각 픽셀이 앉는 자리를 옮기는** 것이다.
+ *
+ *  LUT 실측 방향: t 낮을수록 진하다(RED #FA3030) · 높을수록 밝다(SAND #FEC389 → PRISM).
+ *    전신   t 0.62~0.98  = 램프의 **밝은 쪽**
+ *    강조   t 0.02~0.34  = 램프의 **진한 쪽**
+ *  두 구간 다 **원본 밝기 l 로 폭을 채운다** — 그래서 옷 주름·명암 같은 결이 그대로 산다.
+ *  하드코딩한 건 색이 아니라 **구간 두 개**뿐이다. 팔레트를 안 벗어난다. */
+#define G_PALE_LO 0.62
+#define G_PALE_HI 0.98
+#define G_DEEP_LO 0.02
+#define G_DEEP_HI 0.34
+vec3 personGuideColor(float l){
+  l = clamp(l, 0.0, 1.0);
+  // ★ 전이는 **가파르게**(유저). 선형이면 중간(주황)이 넓게 깔려 '살짝 붉다'로만 읽힌다.
+  //   smoothstep 두 번 = 밝은 쪽과 진한 쪽이 각자 넓고 그 사이가 짧다.
   float k = clamp(gHot, 0.0, 1.0);
   k = k * k * (3.0 - 2.0 * k);
   k = k * k * (3.0 - 2.0 * k);
-  return mix(pale, deep, k);
+  float t = mix(mix(G_PALE_LO, G_PALE_HI, l), mix(G_DEEP_LO, G_DEEP_HI, l), k);
+  return lut(clamp(t, 0.004, 0.996));   // ★ 램프는 그대로 — 자리만 옮겼다
 }
 /** 가이드 룩을 **최종 색에** 건다.
  *  ★ personColor 안에만 넣으면 안 된다(08-07 실제 사고). 코치 판은 uPForm 으로 두 갈래다:
@@ -484,7 +478,10 @@ vec3 personGuideColor(float T){
  *  입력 색의 밝기만 읽어 램프를 다시 태운다 — 앞 단계가 무엇이든 결과는 같다. */
 vec3 personGuide(vec3 c){
   if (uPHiPale <= 0.0) return c;
-  return personGuideColor(clamp(dot(c, vec3(0.299, 0.587, 0.114)) * 1.35, 0.0, 1.0));
+  // ★ 들어온 색은 이미 이 룩(personLook / personAura)의 결과다. 그 **밝기**를 램프 좌표로 읽어
+  //   같은 LUT 위에서 자리만 옮긴다 — 결(옷 주름·명암)이 밝기에 실려 있으므로 그대로 살아남는다.
+  //   ×1.25 는 룩 출력이 램프 상단을 다 안 쓰기 때문의 보정(어두운 쪽이 뭉치는 걸 막는다).
+  return personGuideColor(clamp(dot(c, vec3(0.299, 0.587, 0.114)) * 1.25, 0.0, 1.0));
 }
 vec3 personColor(float T){
   //   ⚠ 여기서 가이드로 갈아타면 **두 번 걸린다**(personGuide 가 합류 지점에서 또 건다).
@@ -1939,9 +1936,12 @@ export function drawDribbleMat(g, W, P, look, t, ENV) {
 
 
   // ── 레일 — 노드 순서를 잇는 점열. 잽잽훅 가이드 레일과 같은 값(0길이 대시 · 라운드캡 · 0.22)
-  const NODES = (P.targets || []).slice().sort((a, b) => (a.n || 0) - (b.n || 0));
+  // tgK — 표적만 따로 여닫는 문(허브는 계속 켜 둔다). 셋업 발자국이 물러난 뒤에 열린다:
+  //   발자국 자리에 번호가 겹쳐 뜨면 "발자국 위에 뜨는 게 말이 되니"가 된다(유저).
+  const tgK = P.tgK == null ? 1 : Math.max(0, Math.min(1, P.tgK));
+  const NODES = tgK > 0.004 ? (P.targets || []).slice().sort((a, b) => (a.n || 0) - (b.n || 0)) : [];
   if (NODES.length) {
-    g.save(); g.shadowBlur = 0; g.globalAlpha = 0.22 * eOutQuint(IN / 0.9);
+    g.save(); g.shadowBlur = 0; g.globalAlpha = 0.22 * eOutQuint(IN / 0.9) * tgK;
     g.strokeStyle = lut(0.6); g.lineWidth = 2.2 * s; g.lineCap = 'round';
     g.setLineDash([0.01, 8 * s]);
     const TRn = P.travel || {};
@@ -2007,9 +2007,9 @@ export function drawDribbleMat(g, W, P, look, t, ENV) {
   //   넷을 다 채웠더니 오렌지 덩어리 다섯 개가 됐다(유저: 촌스럽다) — 채움은 판정어다.
   //   색 사건은 화면에 하나뿐이어야 한다: 지금은 허브(공이 닿을 자리)와 지목된 노드 하나.
   const GB = 13 * look.halo;
-  for (const tg of (P.targets || [])) {
+  for (const tg of NODES) {
     const on = tg.on !== false, live = !!tg.live;
-    const k = nodeK(tg.n ? tg.n - 1 : 0);
+    const k = nodeK(tg.n ? tg.n - 1 : 0) * tgK;
     if (k <= 0.001) continue;
     const cx = X(tg.x), cy = Y(tg.y);
     const R = (tg.r != null ? tg.r : 0.13) * W / 2 * (live ? 1.34 : 1) * (0.9 + 0.1 * k);

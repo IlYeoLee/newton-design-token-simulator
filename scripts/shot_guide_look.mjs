@@ -34,7 +34,7 @@ const res = await p.evaluate(async () => {
     const mat = new THREE.ShaderMaterial({
       transparent: true, depthWrite: false,
       uniforms: {
-        map: { value: map }, uLUT: { value: window.__dbg.effects?.lutTex || null }, uTime: { value: 1.2 },
+        map: { value: map }, uLUT: { value: (await import('/src/fxlut.js')).getLUT() }, uTime: { value: 1.2 },
         uPSat: { value: 1.32 }, uPSweep: { value: 0 }, uPHi: { value: 0.86 }, uPDepth: { value: 0.34 },
         uPCoral: { value: 0 }, uPExp: { value: 0.5 }, uPForm: { value: 0 }, uPLo: { value: 0.12 },
         uPHiL: { value: 0.85 }, uPLumLin: { value: 0 }, uPCalWave: { value: 1 }, uPCalD: { value: 1 },
