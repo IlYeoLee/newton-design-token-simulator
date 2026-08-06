@@ -8,7 +8,7 @@ import { easeMove, stepDelay, stampPop, airK, airAlpha, airScale, overshoot, sli
 import { BK_STEPBACK, LOAD, arrowFor } from './marklang.js';
 import { lutColor, GLYPHS, drawGlyph, drawNumber, footSlot, footSDFTexture, FXP } from './fxlut.js';
 import { MARK_NUM, GLYPH_LOOK, drawMarkGlyph, invertGlyphCanvas, drawStanceBox, drawPunchLine, drawApproachRing, drawTrajectory, drawRotate, drawStemArrow, drawCurveArrow , glyphFor } from './fx-core.js';
-import { makeMarkFXMaterial, makeLaneFXMaterial, makeFlowArrow, tickFlowArrows, beamAlphaAt, COLORS, FOOT_PLANE_M, QUAD_K, UI_MASK, MARK_LOOK, applyMarkLookTo, setMarkLoad, setMarkStateLook } from './tokens.js';
+import { makeMarkFXMaterial, makeLaneFXMaterial, makeFlowArrow, tickFlowArrows, beamAlphaAt, COLORS, FOOT_LEN_M, FOOT_PLANE_M, QUAD_K, UI_MASK, MARK_LOOK, applyMarkLookTo, setMarkLoad, setMarkStateLook } from './tokens.js';
 
 const clamp01 = v => v < 0 ? 0 : v > 1 ? 1 : v;
 
@@ -2401,9 +2401,15 @@ export class Session {
         //   → 앞 화살표는 **꼬리를 뒤로 빼서 촉이 앞발 마크에 닿게** 한다(의미도 더 맞다:
         //     '무릎이 여기로 나아간다'). 뒤 화살표는 마크에서 그대로 뻗되 길이를 줄여 중심을 당긴다.
         const AL = 0.34;
-        P.arKnee.position.set(fpM.group.position.x - kxD * AL, 0.014, fpM.group.position.z - kzD * AL);
+        // ★ **마크와 겹치지 않는다**(유저: 일단 안 겹치게). 전엔 앞 화살표의 촉이 앞발 마크
+        //   **중심**에 닿도록 꼬리를 AL 만큼만 뒤로 뺐고, 뒤 화살표는 마크 중심에서 0.02 만
+        //   떨어져 시작했다 — 둘 다 마크 위를 덮는다. 발자국 반경만큼 비켜세운다:
+        //   촉·꼬리가 마크 **경계 밖**에서 시작/끝나므로 선과 마크가 서로를 안 가린다.
+        const MK_R = FOOT_LEN_M * 0.5, CLR = 0.045;   // 마크 반경 + 여백(선·마크 사이 숨)
+        const OFF = MK_R + CLR;
+        P.arKnee.position.set(fpM.group.position.x - kxD * (AL + OFF), 0.014, fpM.group.position.z - kzD * (AL + OFF));
         P.arKnee.rotation.z = Math.atan2(-kxD, -kzD);   // 앞무릎이 나아가는 선
-        P.arBack.position.set(bpM.group.position.x + bxD * 0.02, 0.014, bpM.group.position.z + bzD * 0.02);
+        P.arBack.position.set(bpM.group.position.x + bxD * OFF, 0.014, bpM.group.position.z + bzD * OFF);
         P.arBack.rotation.z = Math.atan2(-bxD, -bzD);   // 뒷다리를 펴는 선
         // ★ 재촉 계수로 **어둡게 만들지 않는다**(유저: 화살표가 왜 이렇게 투명해).
         //   전에는 (0.45 + 0.55*urge) 를 곱했는데, urge 는 마크 보폭(sl)에서 뽑고 마크는 SC 0.5 로
@@ -2433,7 +2439,7 @@ export class Session {
       {
         const a = P.fmL.group.position, b2 = P.fmR.group.position;
         const mx = (a.x + b2.x) / 2, mz = (a.z + b2.z) / 2;
-        const IN = 0.10;                                     // 발 반경 여백 — 발 쪽 끝에만
+        const IN = FOOT_LEN_M * 0.5 + 0.045;                 // 발 반경 + 여백 — 마크를 덮지 않는다(유저: 안 겹치게)
         const spread = Math.max(0, Math.min(1, (Math.abs(a.z - b2.z) - 0.12) / 0.28));
         const put = (m, e) => {
           if (!m) return;
@@ -2454,9 +2460,18 @@ export class Session {
       if (inHold) {
         const n = Math.max(1, Math.ceil(HOLD_SEC - P.fill * HOLD_SEC));   // 5→1 (UI 5초 타이머)
         if (n !== P._cnt) { redrawFootNum(workNum, n); P._cnt = n; P._pop = 1; }
-        workNum.visible = true;
+        P._numA = Math.min(1, (P._numA ?? 0) + dt / 0.14);   // 들어올 때는 빠르게
         workNum.scale.multiplyScalar(1 + 0.42 * P._pop);   // 숫자 전환 팝
-      } else { workNum.visible = false; P._cnt = HOLD_SEC; }
+      } else { P._numA = Math.max(0, (P._numA ?? 0) - dt / 0.28); P._cnt = HOLD_SEC; }
+      // ★ 숫자는 **끄지 않고 스러진다**(유저: 매끄럽고 부드럽게 동시에 사라지게).
+      //   visible 토글은 한 프레임에 사라져서, 0.18s 로 접히는 알약(링 슬롯·폭)과 순서가 갈렸다 —
+      //   "타이머가 먼저 들어가고 그 다음 글자" 로 읽히던 그 순서다. 같은 시간대(0.28s)로 스러지게
+      //   해서 둘이 한 동작이 된다. 나가는 쪽을 더 길게(0.28 vs 0.14) 두는 건 사라짐이 등장보다
+      //   눈에 덜 걸려야 하기 때문이다.
+      { const a = P._numA ?? 0;
+        workNum.visible = a > 0.004;
+        const m = workNum.material; if (m) { m.transparent = true; if (m._baseOp == null) m._baseOp = m.opacity ?? 1; m.opacity = m._baseOp * a; }
+        workNum.scale.multiplyScalar(0.86 + 0.14 * a); }   // 스러질 때 살짝 수축 = '빠져나간다'가 아니라 '스민다'
       // ★ 반대 발 = **끝난 발이면 Success → Locked**(유저: 석세스→락이 되든 시스템을 갖춰야지
       //   종아리 늘리기는 아예 없애버린다). 전엔 완료해도 Hold 링을 꽉 채운 채로 뒀는데,
       //   Hold 가득참과 '완료'는 화면에서 같은 그림이라 끝난 게 안 읽혔다. 마크 토큰이
