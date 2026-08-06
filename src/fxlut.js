@@ -159,6 +159,11 @@ export const DEFAULT_GLYPHS = {
   // 실내=맨발(FOOT_IN) · 야외=신발(FOOT_OUT) — footSlot() 규약
   FOOT_IN_L:  _G + 'foot-in-l.svg',  FOOT_IN_R:  _G + 'foot-in-r.svg',
   FOOT_OUT_L: _G + 'foot-out-l.svg', FOOT_OUT_R: _G + 'foot-out-r.svg',
+  // ★ 러닝 판정 마크 안에 들어가는 **로고 글리프**. 전엔 tokens.js 가 이 SVG(pace_foot.svg)를
+  //   직접 `new Image()` 로 물고 틴트·글로우·미러를 **따로 구현**하고 있었다 — 슬롯 시스템
+  //   밖이라 랩에서 안 보이고, 룩(색·글로우)을 바꿔도 이 하나만 안 따라왔다(유저: 시스템화해라).
+  //   이제 다른 글리프와 같은 슬롯이다: drawGlyph 한 벌이 그리고, 좌/우는 mirror 로 뒤집는다.
+  LOGO: _G + 'logo.svg',
 };
 
 // 정본을 모듈 로드 시점에 즉시 깔아둔다. 예전엔 디자인 스토어를 읽고 병합한 뒤에야
@@ -190,7 +195,7 @@ function drawOffBit(ctx, text, x, y, sizePx, { color = rgba(NEU.ink, 0.95), glow
 }
 
 /** 캔버스에 커스텀 글리프를 웜 크림 틴트+글로우로 (x,y) 중심 렌더. 성공 시 true. */
-export function drawGlyph(ctx, ch, x, y, sizePx, { color = rgba(NEU.ink, 0.95), glowColor = rgba(PAL.coral, 0.75), glow = 14 } = {}) {
+export function drawGlyph(ctx, ch, x, y, sizePx, { color = rgba(NEU.ink, 0.95), glowColor = rgba(PAL.coral, 0.75), glow = 14, mirror = false } = {}) {
   // 숫자 소스가 OffBit 이면 0~9 는 도트 폰트로. 문자 슬롯(L·R·연산·촉)은 늘 SVG 글리프다.
   if (FXP.numSrc === 'offbit' && /^[0-9]$/.test(String(ch))) {
     return drawOffBit(ctx, ch, x, y, sizePx, { color, glowColor, glow });
@@ -203,9 +208,12 @@ export function drawGlyph(ctx, ch, x, y, sizePx, { color = rgba(NEU.ink, 0.95), 
   const R = glyphRaster(img);
   const sc = Math.min(sizePx / R.w, sizePx / R.h);
   const w = R.w * sc, h = R.h * sc;
-  if (GLYPHS.flip[ch]) { og.save(); og.translate(0, sizePx); og.scale(1, -1); }
+  // flip = 슬롯 자체의 상하 반전(저작 값) · mirror = 호출부의 좌우 반전(왼발/오른발 같은 대칭 쌍)
+  const tf = GLYPHS.flip[ch] || mirror;
+  if (tf) { og.save(); og.translate(mirror ? sizePx : 0, GLYPHS.flip[ch] ? sizePx : 0);
+            og.scale(mirror ? -1 : 1, GLYPHS.flip[ch] ? -1 : 1); }
   og.drawImage(R.canvas, R.x, R.y, R.w, R.h, (sizePx - w) / 2, (sizePx - h) / 2, w, h);
-  if (GLYPHS.flip[ch]) og.restore();
+  if (tf) og.restore();
   og.globalCompositeOperation = 'source-in';
   og.fillStyle = color;
   og.fillRect(0, 0, sizePx, sizePx);
@@ -221,8 +229,12 @@ export function drawGlyph(ctx, ch, x, y, sizePx, { color = rgba(NEU.ink, 0.95), 
  *  들도록 축소 + 미세 커닝('1'처럼 좁은 글리프는 자연 폭이라 자동으로 붙음). */
 export function drawNumber(ctx, num, cx, cy, sizePx, opts = {}) {
   const s = String(num);
+  // ★ **슬롯 이름이 오면 그 슬롯을 한 글자로 그린다**(LOGO·FOOT_OUT_L·TIP_TRI …).
+  //   전엔 여기로 'LOGO' 가 들어오면 OffBit 도트로 "LOGO" 라고 쓰거나 L·O·G·O 네 글자로
+  //   쪼개 그렸다 — 숫자만 가정한 함수에 도형 슬롯을 통과시킨 쪽의 사고다. 슬롯이 있으면 슬롯이다.
+  if (GLYPHS.img(s)) return drawGlyph(ctx, s, cx, cy, sizePx, opts);
   // OffBit 은 진짜 활자라 커닝이 폰트에 들어 있다 — 자리별로 쪼개지 말고 한 번에 그린다.
-  if (FXP.numSrc === 'offbit') return drawOffBit(ctx, s, cx, cy, sizePx, opts);
+  if (FXP.numSrc === 'offbit' && /^[0-9]+$/.test(s)) return drawOffBit(ctx, s, cx, cy, sizePx, opts);
   if (s.length <= 1) return drawGlyph(ctx, s, cx, cy, sizePx, opts);
   const ds = sizePx * (s.length === 2 ? 0.66 : 0.48);   // 자리당 크기 축소(2자리는 급하지 않게 0.66)
   const adv = ds * 0.66;                                 // 자간 = 넉넉히(너무 붙지 않게)

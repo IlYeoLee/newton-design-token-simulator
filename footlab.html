@@ -168,8 +168,8 @@
       <canvas id=hero width=640 height=640></canvas>
     </div>
     <div class=card>
-      <h2>8상태 × 두 표현형 — 윗줄 발형 · 아랫줄 원형(존). 8번째 Tap2 = READY 탭 어포던스(무채↔석세스 2회 깜빡). 셀을 클릭하면 위 확대로</h2>
-      <canvas id=strip width=1120 height=460></canvas>
+      <h2>8상태 × 세 표현형 — 1줄 발형 · 2줄 원형(존) · 3줄 원형+로고 글리프(러닝 판정 마크 정본). 8번째 Tap2 = READY 탭 어포던스(무채↔석세스 2회 깜빡). 셀을 클릭하면 위 확대로</h2>
+      <canvas id=strip width=1120 height=690></canvas>
     </div>
     <div class=card>
       <h2>연결 토큰(LINK) — 두 발자국을 잇는 지면 전용 기호. 3개 실제 시나리오로 시안 비교</h2>
@@ -503,7 +503,10 @@ let heroPhase = 1, heroKind = 'foot';   // 스트립 셀 클릭이 이 둘을 �
 // ★ 오버라이드 키는 **슬롯**이다(phase 아님). Tap2 는 phase 3(Locked)을 빌려 쓰는 8번째 토큰이라
 //   phase 로 키를 잡으면 Locked 를 편집한 게 되고, 확대 뷰도 둘을 구분 못 한다(유저 #129).
 let heroSlot = '1';
-const KINDS = ['foot', 'zone'];
+// ★ 'logo' = 원형과 **같은 토큰**에 글리프 슬롯만 LOGO(러닝 지면 판정 마크가 실제로 쓰는 것).
+//   표현형을 하나 더 두는 게 아니라, 같은 구조에 글리프만 갈아 끼운 줄이다 — 그래서 위 두 줄과
+//   나란히 놓고 보면 '로고가 이 룩을 견디나'가 바로 판정된다(유저: 실제 시뮬 원형 로고도 가져와라).
+const KINDS = ['foot', 'zone', 'logo'];
 /** 상태별 진행 매핑 — Success·Miss 는 **prog 0 이 가장 진한 순간**이다(FootMark.glow 규약).
  *  나머지 상태와 반대라, 슬라이더 값을 그대로 주면 Success 의 얼음 링(flash = exp(-prog*9))이
  *  0.55 에서 이미 0.007 로 사라진다. 스트립만 이 매핑을 하고 확대는 안 해서 같은 셀인데
@@ -585,7 +588,7 @@ function glyphTexture(label, invert) {
 //   같은 makeMarkFXMaterial · 같은 상태 머신 · 같은 글리프 규약. 다른 것은 SDF(겉 모양)뿐이다.
 //   그래야 한쪽만 예뻐지고 다른 쪽이 뒤처지는 일이 구조적으로 안 생긴다.
 const units = {};
-function makeUnit(kind) {   // 'foot' | 'zone'
+function makeUnit(kind) {   // 'foot' | 'zone' | 'logo' (zone + LOGO 글리프)
   const tx = kind === 'foot' ? footSDFTexture(side === 'right') : null;
   if (kind === 'foot' && !tx) return null;
   const m = makeMarkFXMaterial(tx);
@@ -598,8 +601,9 @@ function makeUnit(kind) {   // 'foot' | 'zone'
     // 글리프 = MARK_NUM 규약 그대로: 크기 = 쿼드 × RATIO/0.75, 앵커는 표현형이 정한다.
     //   발형 = 맨발 자국 무게중심(깔창 프린트의 글자 자리) · 원형 = 정중앙.
     // 존 원은 ZONE_GLYPH_K 만큼 더 크다(정본 규약과 같은 상수)
-    const S = 2 * MARK_NUM.RATIO / 0.75 * P.gsize * SF * (kind === 'zone' ? ZONE_GLYPH_K : 1);
-    const label = kind === 'foot' && side === 'right' ? ($('gR').value || '2') : ($('gL').value || '1');
+    const S = 2 * MARK_NUM.RATIO / 0.75 * P.gsize * SF * (kind === 'foot' ? 1 : ZONE_GLYPH_K);
+    const label = kind === 'logo' ? 'LOGO'
+      : kind === 'foot' && side === 'right' ? ($('gR').value || '2') : ($('gL').value || '1');
     // ★ 앵커 해석 순서를 **시뮬과 똑같이** 한다: 저작값(FXP.numFoot) 우선 → 없으면 자국 무게중심.
     //   랩이 numFoot 을 무시하고 무게중심만 쓰는 바람에, 저작 앵커가 있는 시뮬과 글자 자리가
     //   전혀 달랐다(유저: 100% 이식이 안 됐다). 여기서 보는 자리가 곧 시뮬 자리여야 한다.
@@ -625,6 +629,7 @@ function makeUnit(kind) {   // 'foot' | 'zone'
 function rebuild() {
   units.foot = makeUnit('foot');
   units.zone = makeUnit('zone');
+  units.logo = makeUnit('logo');
   const ok = !!units.foot;
   $('warn').style.display = ok ? 'none' : 'block';
   $('warn').textContent = ok ? '' : '발형 SDF 를 못 구웠다 — 글리프 SVG 로드 대기 중.';
@@ -1052,7 +1057,7 @@ function frame() {
   const t = (performance.now() - T0) / 1000;
   drawPrimsCard(t);
   try { drawLinkPrev(t); } catch (e) { /* 패널 없거나 초기화 전 */ }
-  if (units.foot || units.zone) {
+  if (units.foot || units.zone || units.logo) {
     // 확대 — 스트립에서 고른 표현형·상태
     blit($('hero'), heroOff, (mode) => {
       passSetup(rHero, mode);

@@ -1,14 +1,14 @@
 {
-  "_": "MARK(발형·존원) 룩 정본. footlab.html '코드에 저장'이 이 파일을 덮어쓴다. states['2']=Success · ['4']=Miss 는 흰 블룸 강도 보정(유저: 너무 하얘서 안 이쁘다) — footlab '이 상태만 편집'으로 계속 튜닝 가능. states['tap'] 은 Locked(3) 이 참조한다.",
-  "imp": 0.98,
-  "scale": 0.83,
-  "offx": -0.043,
+  "_": "MARK(발형·존원) 룩 정본. footlab.html '코드에 저장'이 이 파일을 덮어쓴다.",
+  "imp": 0.7,
+  "scale": 0.87,
+  "offx": -0.054,
   "offy": -0.031,
   "irot": 5.5,
   "pitch": 0.027,
   "dot": 0.34,
-  "glow": 0.34,
-  "shade": 0.3,
+  "glow": 0,
+  "shade": 0,
   "sharp": 0.97,
   "edge": 0.038,
   "plantar": 1,
@@ -25,7 +25,7 @@
   "ripGrad": 1,
   "edgeShade": 1.4,
   "shadeRed": 0,
-  "shadeRedW": 3.4,
+  "shadeRedW": 8,
   "edgeW": 0.01,
   "edgeSoft": 0,
   "dither": 0.011,
@@ -37,24 +37,24 @@
   "gsh": 0.6,
   "shadeCol": 4,
   "ripCol": 1,
-  "gShadow": "drop",
-  "gBlend": "add",
+  "gShadow": "glow",
+  "gBlend": "normal",
   "numSrc": "offbit",
   "prog": 0.55,
-  "bloom": 0.14,
+  "bloom": 0.065,
   "blur": 0.26,
   "edgeShadeW": 4,
   "edgeShadeCol": 4,
-  "edgeShadeGrad": 1,
-  "edgeShadeG0": 0.32,
+  "edgeShadeGrad": 0.56,
+  "edgeShadeG0": 0.61,
   "edgeShadeG1": 1,
   "prims": {
     "punchLine": {
-      "node": 1.58,
+      "node": 1,
       "numS": 1,
       "comet": 1,
-      "tailLen": 0.71,
-      "rail": 0.6
+      "tailLen": 0.5,
+      "rail": 0.22
     }
   },
   "gxL": -0.095,
@@ -101,6 +101,38 @@
   "op": 1,
   "dotCol": 4,
   "states": {
+    "0": {
+      "sharp": 0,
+      "op": 0.56
+    },
+    "2": {
+      "glow": 0,
+      "halo": 0.16,
+      "w": 0.72,
+      "bloom": 0.07,
+      "shade": 0,
+      "imp": 1,
+      "sharp": 0,
+      "edge": 0.004
+    },
+    "4": {
+      "glow": 0,
+      "halo": 0.14,
+      "w": 0.7,
+      "bloom": 0.06,
+      "shade": 0,
+      "imp": 1,
+      "edgeShadeGrad": 0,
+      "pitch": 0.048,
+      "dot": 0.13,
+      "irot": 21,
+      "dotCol": 4,
+      "edge": 0.004,
+      "sharp": 0,
+      "plantar": 1,
+      "edgeShadeCol": 4,
+      "op": 0.71
+    },
     "tap": {
       "op": 0,
       "imp": 0.98,
@@ -135,22 +167,6 @@
       "ripCol": 0,
       "bloom": 0.165,
       "w": 1.15
-    },
-    "2": {
-      "glow": 0.16,
-      "halo": 0.16,
-      "w": 0.72,
-      "bloom": 0.07,
-      "shade": 0.42,
-      "imp": 1.0
-    },
-    "4": {
-      "glow": 0.14,
-      "halo": 0.14,
-      "w": 0.7,
-      "bloom": 0.06,
-      "shade": 0.44,
-      "imp": 1.0
     }
   },
   "loadGain": 1.45,

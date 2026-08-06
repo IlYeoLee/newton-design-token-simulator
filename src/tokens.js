@@ -604,37 +604,26 @@ export const BK_SCALE = 5.0;   // xbot 경로와 공유 (봇·토큰 좌표 일�
 
 // ── 텍스처 유틸 ───────────────────────────────────────────────
 // 러닝 라이브: 순번 대신 발 L/R 글리프(어느 발로 밟는지 — 순번은 러닝 교수법에 없음, 유저 확인).
-// 글리프 = 유저 제공 SVG(pace_foot.svg), 이전 글리프 스타일(웜 크림 틴트+글로우), 우측=미러.
+// ★ **시스템화**(유저 08-06) — 전엔 이 파일이 로고 SVG 를 직접 물고(`new Image()`) 틴트·글로우·
+//   미러를 **여기서 다시 구현**했다. 그래서 ⓐ FX 랩 슬롯 목록에 안 나오고 ⓑ 글리프 룩(색 온도·
+//   글로우 세기)을 바꿔도 이 하나만 안 따라오고 ⓒ 같은 그림을 그리는 코드가 두 벌이 됐다.
+//   지금은 다른 글리프와 **완전히 같은 경로**다: GLYPHS 'LOGO' 슬롯 → drawGlyph(정본 한 벌),
+//   오른발은 mirror 옵션. 25줄이 사라지고 룩이 한 곳에서 온다.
 const _footNumTex = {};
-const _pfImg = new Image();
-_pfImg.src = import.meta.env.BASE_URL + 'ready-view/assets/pace_foot.svg';
 function makeFootGlyphTexture(right) {
   const k = right ? 'R' : 'L';
   if (_footNumTex[k]) return _footNumTex[k];
   const c = document.createElement('canvas'); c.width = c.height = 128;
   const ctx = c.getContext('2d');
-  const ready = _pfImg.complete && _pfImg.naturalWidth;
-  if (ready) {
-    // 틴트: SVG → source-in 웜 크림 (이전 글리프와 동일 온도 언어)
-    const off = document.createElement('canvas'); off.width = off.height = 128;
-    const og = off.getContext('2d');
-    const ar = _pfImg.naturalWidth / _pfImg.naturalHeight;
-    const w = 100, h = w / ar;
-    og.save(); if (right) { og.translate(128, 0); og.scale(-1, 1); }
-    og.drawImage(_pfImg, (128 - w) / 2, (128 - h) / 2, w, h);
-    og.restore();
-    og.globalCompositeOperation = 'source-in';
-    og.fillStyle = rgba(NEU.ink, 0.95); og.fillRect(0, 0, 128, 128);
-    ctx.shadowColor = rgba(PAL.coral, 0.75); ctx.shadowBlur = 12;
-    ctx.drawImage(off, 0, 0); ctx.shadowBlur = 0; ctx.drawImage(off, 0, 0);
-  } else {
+  const ok = drawGlyph(ctx, 'LOGO', 64, 64, 100, { mirror: right });
+  if (!ok) {   // 슬롯 미로드 폴백 — 캐시하지 않는다(로드 후 정본으로 재생성)
     ctx.strokeStyle = rgba(NEU.ink, 0.95); ctx.lineWidth = 5;
     ctx.shadowColor = rgba(PAL.coral, 0.75); ctx.shadowBlur = 12;
     ctx.beginPath(); ctx.ellipse(64, 64, 20, 34, right ? 0.12 : -0.12, 0, Math.PI * 2); ctx.stroke();
   }
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
-  if (ready) _footNumTex[k] = tex;   // 로드 전 폴백은 캐시 안 함(로드 후 정본으로 재생성)
+  if (ok) _footNumTex[k] = tex;
   return tex;
 }
 function makeNumberTexture(n) {
@@ -1399,7 +1388,7 @@ export class TokenSystem {
       if (this.liveHideFloorMarks && ev.surface !== 'wall') phase = 'hidden';
       // 박자 연습(P) = 중앙 레인 제거(유저: 박자에 집중) — 마크 데워짐+이펙트만
       if (this.laneFX) this.laneFX.visible = !this.liveHideLane;
-      // 러닝 라이브 = 마크 안 순번 → 발 L/R 글리프 스왑(왕복) — 유저 SVG(pace_foot)
+      // 러닝 라이브 = 마크 안 순번 → 좌/우 로고 글리프 스왑(왕복) — GLYPHS 'LOGO' 슬롯
       const mkN = ev.marker;
       if (mkN?.num && ev.surface !== 'wall' && ev.foot) {
         const wantFoot = !!FXP.hideOrderNums;
