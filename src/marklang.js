@@ -132,6 +132,23 @@ export function arrowFor(move, dist01) {
   return { ...a, scale: a.scale * (0.85 + 0.35 * Math.min(1, dist01)) };
 }
 
+/** ── 스테이지 타이밍 **정본** (2026-08-06) ───────────────────────────────────
+ *  왜 여기인가: 이 값들이 지금까지 **세 파일에 각각** 적혀 있었고 서로 달랐다.
+ *    main.js:4211  HOLD = 3.0        (실제 구동값)
+ *    main.js:4207  holdSec: 3.0      (관찰 구간용으로 또 적음)
+ *    session.js    cyc?.holdSec ?? 5 (마크 안 숫자 기본값 — 5초)
+ *    floorgl.js    cyc?.holdSec ?? 3 (지면 링 기본값 — 3초)
+ *  → a2Cyc 가 한 프레임이라도 비면 **숫자는 5초, 링은 3초** 기준으로 그려졌다.
+ *    관찰 길이 5.8 도 session.js(DEMO)·main.js(A2_WATCH) 두 곳에 있어, 한쪽만 고치면
+ *    "시범이 끝났는데 화살표가 안 뜨는" 사각지대가 생겼다(그 파일 주석이 이미 경고한 그것).
+ *  규칙: 소비자는 **fallback 을 두지 않는다.** 값이 없으면 조용히 다른 숫자로 도는 대신
+ *    여기에 스테이지를 추가하라는 뜻이다. */
+export const STAGE_TIME = {
+  A2: { hold: 3.0, watch: 5.8, reps: 2 },   // 종아리 늘리기 — 홀드 3초(카운트 3·2·1 → 팡) · 시범 5.8초(한 사이클) · 좌1+우1
+};
+/** 스테이지 타이밍 조회 — 없는 스테이지는 기본 관찰 3초만 준다(홀드는 그 스테이지에 없다는 뜻). */
+export const stageTime = id => STAGE_TIME[id] || { hold: 0, watch: 3.0, reps: 0 };
+
 export const AXES = [
   ['LOAD',    '힘',        LOAD],
   ['MOVE',    '이동',      MOVE],

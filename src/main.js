@@ -6,6 +6,8 @@ import { Effects } from './effects.js';
 import { XBot } from './xbot.js';
 import { Panel } from './panel.js';
 import { ProjectorRig } from './projector.js';
+// 스테이지 타이밍 정본 — 홀드/시범 초. 여기 값을 고치면 마크 숫자·지면 링·시범 길이가 같이 움직인다.
+import { stageTime } from './marklang.js';
 import { WallGhost } from './ghost.js';
 import { FilesetResolver, ImageSegmenter } from '@mediapipe/tasks-vision';
 import { extractPose, retargetToClip } from './posemocap.js';   // 무료 로컬 비디오 모캡
@@ -2929,7 +2931,7 @@ void main(){
           * (/READY$/.test(id) ? Math.max(0, Math.min(1, (2.7 - ((session.t ?? 0) % 8)) / 0.7)) : 1)
           // A2 도 같은 규약 — 감상이 끝나는 **그 순간에 0** 이 되도록 0.55s 에 걸쳐 뺀다.
           //   전엔 followLatch 가 뜨는 프레임에 판이 통째로 꺼져 인물이 툭 사라졌다(유저: 타이밍이 이상).
-          * (id === 'A2' ? Math.max(0, Math.min(1, ((session._a2WatchSec ?? 5.8) - (session.t ?? 0)) / 0.55)) : 1);
+          * (id === 'A2' ? Math.max(0, Math.min(1, ((session._a2WatchSec ?? stageTime('A2').watch) - (session.t ?? 0)) / 0.55)) : 1);   // 정본: marklang.STAGE_TIME
         const coLive = co.video.readyState >= 3 && !co.video.seeking && co.video.currentTime > 0.03
                     && (id !== 'BK_A1' || _coachSeekId === id);   // 시크 전 프레임은 보여주지 않는다
         if (coLive) co._live = true;
@@ -4184,7 +4186,7 @@ void main(){
       //   DESC 1.1 + HOLD 3.0 + RISE 1.6 = 5.7s 라 3초로는 동작이 절반도 안 보인다.
       //   한 사이클(5.7s)을 온전히 보여주는 값 = 5.8s. 더 늘리면 씬 프리뷰(8s 루프)에서 따라하기
       //   구간이 1초밖에 안 남아 화살표를 볼 수 없다 — 감상과 실습의 균형점.
-      const A2_WATCH = session.stage === 'A2' ? 5.8 : (stepPreviewSec(session.stage) || 3.0);
+      const A2_WATCH = session.stage === 'A2' ? stageTime('A2').watch : (stepPreviewSec(session.stage) || 3.0);
       session._a2WatchSec = A2_WATCH;   // 인물 페이드아웃이 같은 시계를 보도록 노출(하드컷 방지)
       const BK_A1_RATE = 1.55;   // 옆구리 봇 배속(코치 영상 페이스 맞춤) — 시각 캘리브레이션 노브
       const _watchWin = /^(A2|A3|BK_A[23]|BK_B[12345]|BK_C2)$/.test(session.stage || '') && !session._followLatch;   // 실전도 정속 프리뷰 1회 먼저(유저)
@@ -4204,11 +4206,11 @@ void main(){
       else if (session.stage === 'A2') {
         //   holdSec 을 관찰 구간에도 실어 보낸다 — 없으면 소비 쪽 기본값으로 떨어져 링에
         //   엉뚱한 수가 찍힌다(유저: 5,2,1). 값이 한 곳에서만 나오게 하는 게 요지다.
-        if (aWatching) { session.a2Cyc = { watching: true, holdSec: 3.0, watchProg: Math.max(0, Math.min(1, session.t / A2_WATCH)) }; }
+        if (aWatching) { session.a2Cyc = { watching: true, holdSec: stageTime('A2').hold, watchProg: Math.max(0, Math.min(1, session.t / A2_WATCH)) }; }
         else {
         // 실측 사이클(cmu144_11) — 시범 종료 후부터(tt): 첫 홀드가 깔끔히 시작.
         const tt = session.t - (session._aWatchEnd ?? A2_WATCH);
-        const T0 = 5.4, TD = 6.5, T1 = 8.1, HOLD = 3.0;   // 5→3초(유저): 카운트 3·2·1 → 팡
+        const T0 = 5.4, TD = 6.5, T1 = 8.1, HOLD = stageTime('A2').hold;   // 정본: marklang.STAGE_TIME   // 5→3초(유저): 카운트 3·2·1 → 팡
         const DESC = TD - T0, RISE = T1 - TD, CYC = DESC + HOLD + RISE;
         const c = tt % CYC;
         _phase = c < DESC ? T0 + c : (c < DESC + HOLD ? TD + Math.sin(tt * 1.6) * 0.07 : TD + (c - DESC - HOLD));

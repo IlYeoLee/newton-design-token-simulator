@@ -5,7 +5,7 @@ import { WALL_Z } from './scene.js';
 // ★ 마크 움직임 정본 — _sbPlace 안에 갇혀 있던 이징·착지팝·체공을 여기로 뺀다(숫자 동일).
 import { easeMove, stepDelay, stampPop, airK, airAlpha, airScale, overshoot, slideAlpha, lerpTo, ARROW } from './markmotion.js';
 // ★ 4단계 스펙 정본 — 어느 발이 어떤 하중으로 어떻게 움직이는가. 코드에 흩어져 있던 걸 데이터로.
-import { BK_STEPBACK, LOAD, arrowFor } from './marklang.js';
+import { BK_STEPBACK, LOAD, arrowFor, stageTime } from './marklang.js';
 import { lutColor, GLYPHS, drawGlyph, drawNumber, footSlot, footSDFTexture, FXP } from './fxlut.js';
 import { MARK_NUM, GLYPH_LOOK, drawMarkGlyph, invertGlyphCanvas, drawStanceBox, drawPunchLine, drawApproachRing, drawTrajectory, drawRotate, drawStemArrow, drawCurveArrow , glyphFor } from './fx-core.js';
 import { makeMarkFXMaterial, makeLaneFXMaterial, makeFlowArrow, tickFlowArrows, beamAlphaAt, COLORS, FOOT_LEN_M, FOOT_PLANE_M, QUAD_K, UI_MASK, MARK_LOOK, applyMarkLookTo, setMarkLoad, setMarkStateLook } from './tokens.js';
@@ -1113,7 +1113,10 @@ export class Session {
     //   통째로 앞(가까운 z)으로 당겨 카드 아래 빈 존에 앉힌다 — 런지 보폭은 틱이 다시 벌린다.
     const fmL = new FootMark('left').at(-0.16, FOOT_Z), fmR = new FootMark('right').at(0.16, FOOT_Z);   // 안정 영역
     // 숫자 = 룩시스템 attachMarkNum(발 plane 자식·MARK_NUM 크기·numFoot 앵커) — 삐짐 없는 정본 이식
-    const numL = attachMarkNum(fmL, '5', false), numR = attachMarkNum(fmR, '5', true);
+    // ★ 초기 라벨도 정본에서 — '5' 하드코딩이라 홀드가 3초인데 화면엔 5 가 떠 있었다(실측 렌더).
+    //   홀드에 들어가야 카운트가 갱신되므로, 그 전 프레임은 이 값이 그대로 보인다.
+    const _n0 = String(Math.round(stageTime('A2').hold));
+    const numL = attachMarkNum(fmL, _n0, false), numR = attachMarkNum(fmR, _n0, true);
     numL.visible = false; numR.visible = false;
     const a2cd = floorNum(0, 0, -1.35, 0.22); a2cd.visible = false;   // 시범→따라하기 3-2-1 카운트다운
     // 방향 큐 = LINE 토큰(makeFlowArrow) — 뒷다리는 뒤로 밀고, 앞무릎은 아래로(유저 #105).
@@ -2263,7 +2266,7 @@ export class Session {
       // 프로브 구동(왼/오른발 무관): 발이 접지 + 원 반경 안 = 버티는 중.
       // DEMO 는 main 의 A2_WATCH(7.0)와 **같은 값이어야** 한다 — 어긋나면 프리뷰가 끝났는데도
       //   demoActive 가 남아 화살표가 안 뜨는 사각지대가 생긴다(구 4.6 vs 3.0).
-      const REPS = 2, DEMO = 5.8;   // 왼발 1 + 오른발 1 = 2회 (유저: 왜 2번씩? → 각 1회)
+      const REPS = stageTime('A2').reps, DEMO = stageTime('A2').watch;   // 정본: marklang.STAGE_TIME
       const dt = Math.max(0, this.t - (this._a2t ?? this.t));
       if ((this._a2t ?? 0) > this.t) { this.a2count = 0; this.a2press.fill = 0; }   // 재진입 리셋
       this._a2t = this.t;
@@ -2322,7 +2325,7 @@ export class Session {
       // ── 홀드 = UI 기준 타이머(5초). x봇 사이클(main a2Cyc)에 직결 — 봇 멈춤 5s와 정확 동기 ──
       // (스프레드 측정은 노이즈(5.7/6.3/3.2s 불규칙)라 폐기 → 봇 사이클 prog 직결)
       const cyc = this.a2Cyc;
-      const HOLD_SEC = cyc?.holdSec ?? 5;
+      const HOLD_SEC = cyc?.holdSec ?? stageTime('A2').hold;   // 정본: marklang.STAGE_TIME (구 ?? 5 = floorgl 의 ?? 3 과 갈렸다)
       const isL = cyc ? cyc.isLeft : (P._frontLeft !== false);   // 첫 회차 왼발
       const inHold = !!cyc?.inHold;
       const act = isL ? P.fmL : P.fmR, oth = isL ? P.fmR : P.fmL;
@@ -2379,7 +2382,10 @@ export class Session {
 
       // 딛는 발: 둘 다 Active(빈 링). 홀드 중이면 같은 Hold 페이즈에서 uProg만 0→1 채워짐(부드러운 전환, 팝 없음)
       work.setHold(Math.max(0.02, P.fill));   // 0.02 = 빈 링(Active 모양) → prog 채움
-      work.op(0.6 + 0.4 * P.fill);
+      // ★ 하한을 **받치는 발과 같게**(2527줄 0.94). 0.6 이면 여기에 빔 알파(≈0.8)가 한 번 더
+      //   곱해져 0.48 — 숫자 붙은 발만 갈색으로 죽는다(실측 렌더 f5, 유저 반복 신고).
+      //   차오름은 0.94→1.0 으로 그대로 표현되고, 주인공은 숫자·타이머·파문이 말한다.
+      work.op(0.94 + 0.06 * P.fill);
       // 홀드 파문 차오름(유저: 화면이 심심) — 버티는 발에서 파문이 진행에 비례해 넓게.
       //   기존 파동 정본(uRip) 부스트일 뿐 새 이펙트가 아니다. 완주 팡과 리듬이 이어진다.
       // 부스트는 정본 rip 의 배수다 — rip 0 이면 0 (기준선 0.5 하드코딩 폐기)

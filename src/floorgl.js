@@ -13,6 +13,8 @@ import { PAL, NEU, rgba } from './palette.js';
 //   ★ 값의 **집**이 필요하다. 예전엔 갤러리에서 맞춘 값을 손으로 코드에 옮겨 적어야 했고,
 //     토큰이 스무 개라 반드시 어긋난다(footlab/mark-look.json 과 같은 이유·같은 처방).
 import FLOOR_TOK_JSON from './floor-tokens.json';
+// 스테이지 타이밍 정본 — 홀드/시범 초는 여기 하나에서만 나온다(구: 세 파일에 각각 하드코딩).
+import { stageTime } from './marklang.js';
 
 const W = 1600, H = 2670;
 const _mp = new THREE.Vector3(), _mf = new THREE.Vector3(), _mr = new THREE.Vector3();   // uiMask 임시   // 대지 px (floor-scene.html과 동일)
@@ -2988,7 +2990,7 @@ export class FloorGL {
     // ★ 기본값 5 → 3 (유저: 3,2,1 이어야 하는데 5 가 나온다). 홀드는 3초(main HOLD=3.0)인데
     //   관찰 구간의 a2Cyc 는 {watching, watchProg} 뿐이라 holdSec 이 없다 — 전환 프레임에
     //   perFoot 이 켜지면 이 기본값 5 가 그대로 링에 찍혔다. 기본값도 홀드와 같게 맞춘다.
-    const hs = cyc?.holdSec ?? 3, hp = cyc?.inHold ? clamp01(cyc.prog) : 0;
+    const hs = cyc?.holdSec ?? stageTime('A2').hold, hp = cyc?.inHold ? clamp01(cyc.prog) : 0;   // 정본: marklang.STAGE_TIME
     //   ★★★ 단, **모프가 끝난 뒤에** 붙인다(유저: 전환 애니메이션 때 글자가 삐져나온다).
     //     접두사가 모프 시작과 동시에 들어오면 한 프레임에 두 가지가 바뀐다 — 형태(원형→알약)와
     //     문구(12자→17자). 폭 목표가 점프하고, 프리뷰 폭 900 에 안 들어가 1줄이 2줄로 쪼개지면서
