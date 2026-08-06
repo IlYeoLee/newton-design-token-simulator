@@ -2466,9 +2466,11 @@ export class FloorGL {
     mg.addColorStop(0, 'rgba(0,0,0,0)');
     mg.addColorStop(CLIP.mIn, 'rgba(0,0,0,1)');
     mg.addColorStop(CLIP.mOut, 'rgba(0,0,0,1)');
-    // ★ 하단 페더 제거(유저) — 러닝·농구 공통. 끝까지 불투명하게 둔다.
-    //   아래 곡선은 카드 라운드 클립이 만들므로 마스크로 흐릴 이유가 없다.
-    mg.addColorStop(1, 'rgba(0,0,0,1)');
+    // 하단 — 기존 안(캡슐 있음)은 **끝까지 불투명**하다(유저 #164: 알약 맨 끝까지 채운다).
+    //   최종확정 안(feather>0)은 캡슐이 없어 그 규칙이 반대로 작용한다: 불투명하게 끝내면
+    //   카드 밑변에서 칼같이 떨어진다(유저 08-07). 마지막 14%(mOut~1)를 알파 0 으로 뺀다 —
+    //   아래 방사 페더와 겹쳐 하단이 광 속으로 녹는다.
+    mg.addColorStop(1, feather > 0 ? 'rgba(0,0,0,0)' : 'rgba(0,0,0,1)');
     og.fillStyle = mg; og.fillRect(0, 0, OW, OH);
     // ★ 가장자리 페더(최종확정 안 전용) — 세로 마스크는 위/아래만 다루므로 **옆구리**가
     //   그대로 잘린다. 카드 타원 안쪽으로 한 겹 더 깎아 광 속으로 녹아들게 한다.
@@ -2493,6 +2495,36 @@ export class FloorGL {
     ctx.globalCompositeOperation = 'lighter';   // = mix-blend-mode: plus-lighter
     ctx.drawImage(oc, BX, BY, BW, BH);
     ctx.restore();
+  }
+
+  /** 시작화면 발자국 텍스처 — 피그마 423:3491 의 레이어 스택을 그대로 조립한다(정적, 1회 캐시).
+   *  ★ 실루엣만 그리면 안 된다(유저 08-07: '원본은 이너쉐도우 있고 도트 있어야 할 텐데').
+   *    피그마에서 발자국은 **마스크가 도트**이고 그 위에 필과 이너 그림자가 얹힌 물건이다:
+   *      ① 도트 = foot-final-dot.svg — SVG <pattern> 으로 짜인 벡터 하프톤(타일 10.8×21.6,
+   *         6×12 격자 엇갈림). 익스포트 원본 그대로다.
+   *      ② 필   = 흰 50% (피그마 bg: linear-gradient(rgba(255,255,255,.5)))
+   *      ③ 이너 글로우 = inset 0 0 28px white. 실루엣 **바깥**을 블러해 안으로 스며든 띠를
+   *         셰이프로 잘라 만든다 — 이게 있어야 테두리가 밝고 안쪽이 가라앉는다.
+   *      ④ 마지막에 도트로 자른다(피그마의 mask 순서 그대로).
+   *  실루엣(foot-final.svg)은 ③ 의 경계를 잡는 데만 쓴다. */
+  _readyFootTex() {
+    if (this._footTex) return this._footTex;
+    const dot = this._img('fig/ready2/foot-final-dot.svg');
+    const sil = this._img('fig/ready2/foot-final.svg');
+    if (!dot || !sil) return null;
+    const S = 3, W = Math.round(94.751 * S), H = Math.round(228.779 * S);   // 3배 — 도트가 뭉치지 않게
+    const mk = () => { const c = document.createElement('canvas'); c.width = W; c.height = H; return c; };
+    const inv = mk(), ig = inv.getContext('2d');
+    ig.fillStyle = '#fff'; ig.fillRect(0, 0, W, H);
+    ig.globalCompositeOperation = 'destination-out'; ig.drawImage(sil, 0, 0, W, H);   // 바깥만 흰색
+    const oc = mk(), g = oc.getContext('2d');
+    g.filter = `blur(${28 * S}px)`; g.drawImage(inv, 0, 0); g.filter = 'none';
+    g.globalCompositeOperation = 'destination-in'; g.drawImage(sil, 0, 0, W, H);      // ③ 안쪽 가장자리 띠
+    g.globalCompositeOperation = 'destination-over';
+    g.fillStyle = 'rgba(255,255,255,.5)'; g.fillRect(0, 0, W, H);                     // ② 필은 글로우 아래
+    g.globalCompositeOperation = 'destination-in'; g.drawImage(dot, 0, 0, W, H);      // ④ 도트로 자름
+    this._footTex = oc;
+    return oc;
   }
 
   _paint_ready() {
@@ -3172,14 +3204,23 @@ export class FloorGL {
     //   f2: 타원 864×784 @(369,1320), 블리드 가로 238.64 · 세로 238.65.
     //   블렌드 없음(normal) — 최종확정 노드엔 mix-blend 가 안 걸려 있다. 기존 안의 hard-light 는
     //   4겹을 서로 태우려던 것이고, 한 겹만 쓰는 지금은 에셋 색이 그대로 나와야 맞다.
-    for (const [rel, gx, gy, gw, gh, la] of [
-      [bk ? 'glow-ell-f1.svg' : 'glow-ell-f1-run.svg', -17.61, 252.20, 1682.31, 1962.63, q],
-      ['glow-ell-f2.svg', 130.36, 1081.35, 1341.36, 1261.36, p2],
+    // ★ 필터는 **복싱 벽과 한 벌**이다(유저 08-07: '벽은 블렌드 모드를 건 것 같네, 바닥도 맞춰줘').
+    //   벽은 실제 블렌드가 아니라 wallgl.js 의 발 뒤 글로우처럼 brightness(1.35) saturate(1.05)
+    //   로 '블렌드 느낌'을 낸다 — 같은 Figma Ellipse 31226 인데 바닥만 맨살로 깔려 탁해 보였다.
+    //   대응은 역할로 건다: **CTA·발자국 뒤 광(f2) = 벽의 발 뒤 광** → 필터 있음.
+    //   인물 뒤 배경 광(f1)은 벽의 _bgGlow 대응이라 필터 없음(벽도 거기엔 안 건다).
+    //   ※ saturate 가 같이 붙어야 한다 — brightness 만 올리면 명도가 올라가며 채도가 내려가
+    //     FA3030 이 탄색으로 읽힌다(08-06 에 한 번 밟은 함정).
+    const WALL_BLEND = 'brightness(1.35) saturate(1.05)';
+    for (const [rel, gx, gy, gw, gh, la, filt] of [
+      [bk ? 'glow-ell-f1.svg' : 'glow-ell-f1-run.svg', -17.61, 252.20, 1682.31, 1962.63, q, null],
+      ['glow-ell-f2.svg', 130.36, 1081.35, 1341.36, 1261.36, p2, WALL_BLEND],
     ]) {
       if (la <= 0.004) continue;
       const im = img(rel);
       if (!im) continue;
       ctx.save();
+      if (filt) ctx.filter = filt;
       ctx.globalAlpha *= la * e0(.05, 1.2) * (1 + .3 * tapB);   // 탭 박자에 빛이 두 번 부푼다
       // 일렁임 — 주기가 안 맞는 사인 셋이라 반복으로 안 읽힌다(기존 안과 같은 진폭).
       const w = t * 0.42, cx0 = gx + gw / 2, cy0 = gy + gh / 2;
@@ -3194,11 +3235,12 @@ export class FloorGL {
     // ── ② 인물 — 피그마 415:3861 'sean-card 1' 1078×1050 @(337,969) r495, mix-blend-plus-lighter.
     //   레시피는 _readyPerson 정본(기존 안과 같은 물건). 캡슐이 없으니 clipFn 도 없다.
     //   페더 = 피그마 카드의 inset **70px** 그림자 폭(70 / (1078/2) = 0.13)이 기본이다.
-    //   ★ 션만 0.22 로 넓힌다 — 소스(sean-card.mp4)가 전신 컷아웃이 아니라 **흉상**이라
-    //     상의가 타원 끝까지 꽉 차서 0.13 으로는 '동그랗게 잘린' 선이 그대로 보였다(유저).
+    //   ★ 션만 0.30 으로 넓힌다 — 소스(sean-card.mp4)가 전신 컷아웃이 아니라 **흉상**이라
+    //     상의가 타원 끝까지 꽉 차서 0.13 → 0.22 로도 하단이 칼같이 떨어졌다(유저 2회).
+    //     세로 마스크 하단 페이드(_readyPerson, feather>0 분기)와 같이 걸린다.
     //     커리는 컷아웃이라 넓히면 오히려 발끝이 먹힌다(실측) → 피그마 값 유지.
     this._readyPerson(bk, { x: 337, y: 969, w: 1078, h: 1050, r: 495 },
-                      e0(.30, .9) * q, null, bk ? 0.13 : 0.22);
+                      e0(.30, .9) * q, null, bk ? 0.13 : 0.30);
 
     // ── ③ 뱃지 — 254.36×114.68 **r45**, 흰 20% 면 + 흰 글자. **타이틀 위**로 올라왔다(기존 안은 아래).
     //   ★ R 은 코드젠 값(12)을 쓰면 안 된다 — 뱃지가 **축소된 인스턴스**라 코드젠이 컴포넌트
@@ -3240,7 +3282,7 @@ export class FloorGL {
       const NCX = 820, NTOP = 630;
       // ★ 소수점이 낀 값('5.0')은 자간을 더 조인다 — 도트 폰트의 마침표가 숫자만큼 큰 사각
       //   점이라 피그마 값(-9.05, '30' 기준)으로는 점 좌우가 벌어져 '5 . 0' 세 덩어리로 읽힌다.
-      ctx.letterSpacing = (/\./.test(String(R2.total)) ? -24 : -9.05) + 'px';
+      ctx.letterSpacing = (/\./.test(String(R2.total)) ? -38 : -9.05) + 'px';
       const nw = rollNum(ctx, R2.total, t, TP2 + LEAD, TRAVEL - LEAD, NCX, NTOP, 384,
                          { fam: dot9, align: 'center', fill: NEU.ink });
       ctx.letterSpacing = '0px';
@@ -3341,14 +3383,14 @@ export class FloorGL {
       // ⑤ 회색 발자국 두 짝 (피그마 423:3491 / 423:3499) — 94.751×228.779.
       //   왼발 @600.00 · 오른발 @991.26, 둘 다 y1738.58. 오른발은 **왼발을 좌우 반전**한 것
       //   (피그마 CSS: rotate(180) + scaleY(-1) = 좌우 미러). 에셋 한 벌이면 된다.
-      //   에셋 자체가 흰 65% 라 따로 칠하지 않는다.
+      //   룩(도트 하프톤 + 흰 50% 필 + inset 28px 이너 글로우)은 _readyFootTex 정본.
       //   ★ 모션 — 문구가 'Twice' 라 발도 **두 번 밟는다**. 3D FootMark.tapHint 와 같은
       //     문법(펄스 두 번 · 사인 디졸브)이고, 여기선 캔버스라 세 가지로 준다:
       //       ⓐ 뒤꿈치를 축으로 살짝 눌린다(세로 3%) — 밟는 건 위치 이동이 아니라 압축이다
       //       ⓑ 알파가 오른다(밟은 자리가 진해진다)
       //       ⓒ lighter 로 한 겹 더 얹어 발광 — 투사광이라 '눌림'을 빛으로 말한다
       //     좌우를 0.08s 어긋나게 둔다. 정확히 같이 뛰면 두 발이 한 물체로 읽힌다.
-      const ft = img('foot-final.svg');
+      const ft = this._readyFootTex();
       if (ft) {
         const FW = 94.751, FH = 228.779, FY = 1738.58;
         for (const [fx, mirror, d, off] of [[600.00, false, CD.footL, 0], [991.26, true, CD.footR, .08]]) {
