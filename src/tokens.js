@@ -643,7 +643,10 @@ function makeNumberTexture(n) {
   // 커스텀 글리프(FX Lab 슬롯 SVG) 우선 — 없으면 웜 크림 타이포 (동일 온도 언어)
   if (!drawGlyph(ctx, String(n), 64, 64, 96)) {
     ctx.fillStyle = rgba(NEU.ink, 0.95);
-    ctx.font = '300 86px -apple-system, sans-serif';
+    // ★ 규약(유저 08-06, 못 박음): **마크 안 영문·한글은 무조건 도트 폰트**.
+    //   로고는 러닝에서만(makeFootGlyphTexture). 슬롯 SVG 가 없을 때 시스템 산세리프로
+    //   떨어지면 그 글자만 다른 활자가 되어 규약이 깨진다 — OffBit 을 먼저 세운다.
+    ctx.font = "700 86px 'OffBit', -apple-system, sans-serif";
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.shadowColor = rgba(PAL.coral, 0.75);
@@ -661,11 +664,11 @@ function makeSmallLabel(text) {
   const c = document.createElement('canvas');
   c.width = 4; c.height = 4;
   let ctx = c.getContext('2d');
-  ctx.font = `400 ${capPx}px -apple-system, 'Apple SD Gothic Neo', sans-serif`;
+  ctx.font = `700 ${capPx}px 'OffBit', -apple-system, 'Apple SD Gothic Neo', sans-serif`;   // 도트 폰트 우선(규약)
   const w = Math.ceil(ctx.measureText(text).width);
   c.width = w + pad * 2; c.height = capPx * 1.7;
   ctx = c.getContext('2d');
-  ctx.font = `400 ${capPx}px -apple-system, 'Apple SD Gothic Neo', sans-serif`;
+  ctx.font = `700 ${capPx}px 'OffBit', -apple-system, 'Apple SD Gothic Neo', sans-serif`;   // 도트 폰트 우선(규약)
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.shadowColor = rgba(PAL.coral, 0.7); ctx.shadowBlur = capPx * 0.25;
   ctx.fillStyle = NEU.ink;
