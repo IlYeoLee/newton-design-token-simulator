@@ -1002,6 +1002,14 @@ vec4 markState(vec2 uv, float state, float prog, float strong, float t){
     float e = 1.0 - pow(1.0 - prog, 2.6);
     float q = mkR(uv, gcBall, uShape < 0.5 ? ext * 1.3 : 1.75, sd);
     float fillA = (prog < 0.4 ? 1.0 : pow(1.0 - (prog - 0.4) / 0.6, 1.4)) * max(min(fillGain * 1.2, 1.0), 0.85);
+    // ── Success 숨쉬기 (유저 08-06: 발자국 석세스가 다 정지 화면으로 보인다) ──
+    //   라이브 Success 는 prog 를 **0 에 못 박는다**(FootMark.glow: "가장 진한 상태로 고정").
+    //   그래서 이 분기의 모든 값이 상수가 되고, 파문 0.62초가 끝나면 완전 정지 화면이 된다.
+    //   랩(shot_mark_seq·footlab)은 prog 를 0→1 로 훑기 때문에 항상 움직여 보였다 — 그래서
+    //   "랩은 맞는데 앱만 죽어 있다"가 반복됐다. 오늘 아침 화살표·드리블과 **같은 함정**이다.
+    //   Hold 가 쓰는 그 문법을 그대로 빌린다(holdA *= 0.88 + 0.12*sin). 색·진하기는 안 건드리고
+    //   밝기만 느리게 맥동한다 — "저절로 흐려지지 않는다"(유저 규칙)를 깨지 않는다.
+    fillA *= 0.90 + 0.10 * sin(t * 1.8);
     lay(A, fillSuccess(q / (0.55 + 0.55 * e)), inFill * fillA);
     float flash = exp(-prog * 9.0);
     // 성공 섬광 — 예전엔 순 ICE 0.8 이라 흰 띠가 코어와 분리돼 보였다(유저: 아이스가 과하다).
