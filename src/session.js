@@ -3468,7 +3468,14 @@ export class Session {
           H.zTgt?.setOp?.(0); H._zFade = 0;
           if (H.lkA) { H.lkA.visible = false; H.lkB.visible = false; }
         }
-        for (const k of ['fC', 'fLl', 'fLr']) H[k]?.op(0);
+        // ★ 실전(C2)은 **경로를 미리 다 깔아 둔다**(유저 08-07). 조각 단계는 하나씩 보여주는 게
+        //   맞다 — 어디에 집중할지가 명확해진다. 하지만 실전에서까지 순차로 뜨면 '다음 발이
+        //   어디였지'를 기억으로 때워야 해서 **이어서 할 수가 없다**. 배운 걸 붙이는 자리에서는
+        //   전체 경로가 먼저 보여야 한다.
+        //   ⚠ 새로 만들 게 없었다: 국면 5개 발자국(준비 페어 · 플랜트 · 착지 페어)을
+        //     buildStepback 이 **영상 실측 좌표로 이미 만들어 두고** op(0.10)으로 죽여 놨다.
+        //     밟을 자리는 Locked 고스트로 옅게 · 지금 밟을 자리는 판정 토큰이 따로 말한다.
+        for (const k of ['fC', 'fLl', 'fLr']) { if (LIVE) { H[k]?.ghost(); H[k]?.op(0.30); } else H[k]?.op(0); }
         if (H.numL) { placeMarkNum(H.numL); placeMarkNum(H.numR); H.numL.visible = H.numR.visible = true; }
         H.mL.setOp?.(0); H.mR.setOp?.(0); H.mC.setOp?.(0);
         H.rise.setOp?.(0); H.gh.op(0); H.cL?.op(0); H.cR?.op(0);
