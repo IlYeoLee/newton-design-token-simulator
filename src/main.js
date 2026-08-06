@@ -490,7 +490,7 @@ async function boot() {
   //   규칙 ① 그 장면에서 봐야 할 대상이 시야 중앙에 오는 단을 고른다
   //        ② 오래 지속되는 장면일수록 얕게(목 굴곡 20° 권장 — ISO 9241 계열)
   //        ③ 정밀 조작(발 위치 맞추기)일수록 깊게
-  const GAZE = { FRONT: -8, FAR: -20, MID: -30, NEAR: -40 };   // 낙하점 11.4m / 4.4m / 2.8m / 1.9m
+  const GAZE = { FRONT: -8, FAR: -20, MID: -30, NEAR: -40, MAT: -52 };   // 낙하점 11.4m / 4.4m / 2.8m / 1.9m / 1.2m
   const STAGE_GAZE_DEG = { R: GAZE.NEAR, A: GAZE.NEAR, B: GAZE.NEAR, T: GAZE.MID, C: GAZE.FAR };
   function sessionGazeTarget() {
     // 벽 종목(복싱): 시선은 벽 정면 — 코치(y≈1.0~1.7)·타겟(y≈1.14)이 전부 시야에 안정적으로.
@@ -501,6 +501,10 @@ async function boot() {
     const id = session.curStage?.id || '';
     // 전환·타이머·리포트(지면 풀스크린 화면) = x봇이 바닥의 화면을 보도록 게이즈 하향(세션 컴플리트·실전 직전).
     if (/^(T1|T2|C1|FIN|BK_T1|BK_T2|BK_C1|BK_FIN)$/.test(id)) return GAZE.NEAR;
+    // ★ B1 = 드리블 매트를 **다 보는** 각도. 매트는 몸 앞 0.45~1.22m 를 덮는데, 눈높이 1.56m 에서
+    //   그건 수평 아래 74°~52° 다. NEAR(-40°)로는 세로 화각(±25°) 상 가까운 절반이 프레임 밖으로
+    //   나간다(실측: ③④ 와 가까운 쪽 브래킷이 안 보였다). 판이 다 들어오는 최소각이 -52°다.
+    if (id === 'BK_B1') return GAZE.MAT;
     if (id === 'A1') return GAZE.MID;   // 전방 리치 홀드 — 투사각을 앞으로 눕혀 발 앞 가이드까지 보이게(미래 알고리즘 보정 가정)
     // 종목 접두사를 떼고 판정. 안 떼면 'BK_A2'의 B가 익히기(-38°)로 매칭돼 농구 워밍업이 얕게 봤다
     // (복싱 'BX_'에서 같은 버그를 이미 잡아놨는데 농구는 남아 있었음 — 유저: 워밍업 시선 더 아래).
@@ -4395,7 +4399,7 @@ void main(){
     // 지면 풀스크린 화면(세션 컴플리트·전환·카운트다운) = 3인칭 봇도 바닥의 화면을 응시(머리 숙임).
     // B1 2막(시선 바깥) = 봇도 고개를 정면으로 들어 시범(유저) — bkB1EyesUp이 최우선.
     xbot.headPitch = session.bkB1EyesUp ? THREE.MathUtils.degToRad(-14)
-      : (session.active && session.stage === 'BK_B1') ? THREE.MathUtils.degToRad(-10)   // 기본기 시범 = 스테이지 내내 시선 멀리(유저·wikiHow)
+      : (session.active && session.stage === 'BK_B1') ? THREE.MathUtils.degToRad(-30)   // 매트를 보고 튄다 — '시선 바깥' 2막이 은퇴하면서 시선도 판으로 내려온다
       : (session.active && /^(T1|T2|C1|FIN|BK_T1|BK_T2|BK_C1|BK_FIN)$/.test(session.stage || ''))
       ? THREE.MathUtils.degToRad(24) : 0;
     // B1 2막 메트로놈 — 박자를 소리가 이끈다(공 소리 추종이 아니라 리드). WebAudio 클릭.

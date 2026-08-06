@@ -679,6 +679,9 @@ const BK_REPS = { BK_A1: 2, BK_A2: 10, BK_A3: 6 };   // A3=6: 음성('여섯 번
                                                      // A1=2 (×2.4s ≈ 5s) — 옆구리는 8회(19s)가 너무 길다(유저)
 // B단계 리듬 = 커리 SportVU 실측(2015-10-31 GSW@NOP, 53득점 경기). 두 소유 구간의 바운스 간격이
 // 각각 0.400s·0.395s로 독립 수렴 → 150 BPM. data/curry_stepback_sportvu.json 에서 추출.
+// ★ B1 반복 = **정본 한 곳**. floorgl REPS_BY_ID 도 이 값을 읽는다 — 두 군데 적으면 갈린다.
+//   10 → 16 (유저: 최소 15회는 튀겨야 리듬이 몸에 붙는다). 0.40s 박자 × 16 ≈ 6.4s + 셋업 6s.
+export const BK_B1_TOTAL = 16;
 const BK_BEAT = 0.40, BK_B1_REPS = 8;
 // B 가이드 심도 시프트 — 실측 빔 창(origin 몸앞 0.35m + near 0.3 + far 1.9)은 z −2.5~−4.1.
 // 몸 바로 앞(0.3~0.55m)은 투사 불가 구간이라, 가이드는 '발 위치'가 아니라 '앞의 도식'으로 0.75m 깊이 배치.
@@ -845,7 +848,7 @@ export const STAGES = {
     //     BK_B5 4/4  — 클립 실측상 1.81~3.10 구간의 **뒤쪽 1.2초가 정지 프레임**이다(슛 상승이
     //       소스에 안 담겨 있다). 배우는 사람이 멈춘 화면을 보는 단계였다. 모으기는 3/3 이 담는다.
     { id:'BK_A1', label:'A1 · 준비운동 1/2 — 옆구리 풀기', voice:['커리','나도 경기 전엔 옆구리부터 풀어요. 팔 위로 뻗고 좌우로 쭉쭉, 허리를 열어 줘요.'], wear:'개입 없음 (자세 측정)' },
-    { id:'BK_B1', label:'A2 · 준비운동 2/2 — 제자리 드리블', voice:['커리','이제 공을 손에 붙여 볼게요. 무릎 굽히고 낮게 열 번 — 내 리듬을 따라와요.'], cue:'낮은 자세 · 10회' },
+    { id:'BK_B1', label:'A2 · 준비운동 2/2 — 제자리 드리블', voice:['커리','이제 공을 손에 붙여 볼게요. 무릎 굽히고 낮게 열여섯 번 — 내 리듬을 따라와요.'], cue:'낮은 자세 · 16회' },
     // ★ T1 = **전체 재생**. 전엔 4.5초 동안 아무것도 안 하는 전환이었다 — 조각을 배우기 전에
     //   완성형을 한 번 보는 게 학습 순서상 맞고(유저), 새 스테이지를 늘리지 않아도 된다.
     // ★ 진입 멘트는 **짧아야 한다.** 재생이 2.3초인데 그 안에 비트 음성이 3개(간격 0.60s) 들어간다 —
@@ -1481,6 +1484,29 @@ export class Session {
     b1num.material.map.colorSpace = THREE.SRGBColorSpace;
     b1num.userData.canvas = b1c; b1num.userData.tex = b1num.material.map;
     b1num.rotation.x = -Math.PI / 2; b1num.position.set(0, 0.016, B1Z); b1num.renderOrder = 8;   // 숫자는 링과 한 몸 — 같은 상수에서
+    // ── 번호 표적 4개 = **판정 토큰 그대로**(유저). 캔버스에 그린 그림이 아니라 다른 스테이지의
+    //   존 마크와 같은 floorRing 이다 — 상태(Preview·Active·Success·Locked)를 그대로 갖고,
+    //   룩 시스템 슬라이더·상태 룩(setMarkStateLook)이 이 마크에도 똑같이 걸린다.
+    //   캔버스로 흉내 낸 원반은 상태가 없어서 '켜졌다/꺼졌다'밖에 말 못 했다.
+    const B1_TG = [
+      { x: -0.265, d: 1.05, n: 1, r: 0.105, on: true },
+      { x: 0.265, d: 1.05, n: 2, r: 0.105, on: true },
+      { x: -0.14, d: 0.60, n: 3, r: 0.10, on: false },   // 스텝 표적 — 사이드 드리블 단계에서 점등
+      { x: 0.14, d: 0.60, n: 4, r: 0.10, on: false },
+    ];
+    const b1tg = B1_TG.map(tg => {
+      const z = BK_STAND - tg.d;
+      const ring = floorRing(tg.x, z, tg.r * 0.80, tg.r, BRAND.coral, tg.on ? 0.42 : 0.16);
+      const nc = document.createElement('canvas'); nc.width = nc.height = 128;
+      const num = new THREE.Mesh(new THREE.PlaneGeometry(tg.r * 1.1, tg.r * 1.1),
+        new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(nc), transparent: true,
+          depthWrite: false, blending: THREE.AdditiveBlending }));
+      num.material.map.colorSpace = THREE.SRGBColorSpace;
+      num.userData.canvas = nc; num.userData.tex = num.material.map;
+      num.rotation.x = -Math.PI / 2; num.position.set(tg.x, 0.016, z); num.renderOrder = 8;
+      redrawFootNum(num, tg.n);
+      return { ...tg, ring, num };
+    });
     // 셋업 막 발자국 — 어깨보다 넓게(0.56m, wikiHow 기본기). 4초간만 보였다 퇴장(상시 아님).
     const b1sL = new FootMark('left').at(-0.14, BK_STAND - 0.40 - BDEEP, FOLLOW_S);   // 모은 자세에서 시작 → 틱이 벌린다
     const b1sR = new FootMark('right').at(0.14, BK_STAND - 0.40 - BDEEP, FOLLOW_S);
@@ -1517,25 +1543,18 @@ export class Session {
       // 액티브 타깃 = 바운스 링과 같은 자리. ring:0 — 링 자체는 3D 존 마크(b1zone)가 박자로 그리고
       //   토큰은 채움·조준 눈금만 얹는다. 라벨도 null — 링 중앙은 잔여 횟수 숫자 슬롯이다.
       center: { x: 0, y: toV(0.95), r: 0.15 / (MAT_SIZE / 2), ring: 0, label: null },
-      // 표적 = 실물의 번호 디스크. ①② 먼 쪽 = 시작 스탠스(이 단계 점등) ·
-      //   ③④ 가까운 쪽 = 스텝 표적(사이드 드리블 단계에서 켜진다 — 지금은 꺼 둔 채 자리만).
-      //   배치 검산(전부 통과): ①② 폭 0.370 < ink 0.372 · 깊이 0.945~1.155 ⊂ 매트 0.45~1.22 ·
-      //   링과 중심거리 0.283 ≥ 반지름합 0.255. ③④ 폭 0.240 < 0.251 · 거리 0.377 ≥ 0.250.
-      targets: [
-        { x: toU(-0.265), y: toV(1.05), n: 1, r: 0.105 / (MAT_SIZE / 2), on: true },
-        { x: toU(0.265), y: toV(1.05), n: 2, r: 0.105 / (MAT_SIZE / 2), on: true },
-        { x: toU(-0.14), y: toV(0.60), n: 3, r: 0.10 / (MAT_SIZE / 2), on: false },
-        { x: toU(0.14), y: toV(0.60), n: 4, r: 0.10 / (MAT_SIZE / 2), on: false },
-      ],
+      // 표적은 3D 판정 토큰(b1tg)이 그린다 — 프림은 그 사이를 잇는 레일만 안다.
+      rails: B1_TG.map(tg => ({ x: toU(tg.x), y: toV(tg.d), r: tg.r / (MAT_SIZE / 2), on: tg.on })),
       // 눈금자·워드마크 = 매트의 신원. 타이틀은 **안 넣는다** — 대지 알약이 이미 스테이지명을 말한다.
       ruler: { w: 2 * matInk(MAT_D0), h: MAT_D1 - MAT_D0 },
       brand: 'NEWTON',
     };
     b1mat.position.set(0, 0.0125, b1matZ);   // 링(0.013)·숫자(0.016) 아래 — 매트가 바닥면이다
     b1mat.material.opacity = 0;
-    this.bkB1 = { zone: b1zone, num: b1num, sL: b1sL, sR: b1sR, aL: b1aL, aR: b1aR, mat: b1mat,
+    this.bkB1 = { zone: b1zone, num: b1num, sL: b1sL, sR: b1sR, aL: b1aL, aR: b1aR, mat: b1mat, tg: b1tg,
       count: 0, _shown: -1, _wasLow: false, _popT: -9, _setupDone: false };
-    g.add(b1zone, b1num, b1sL.group, b1sR.group, b1aL, b1aR, b1mat);   // 지시문은 피그마 프레임 헤더가 담당(유저)
+    g.add(b1zone, b1num, b1sL.group, b1sR.group, b1aL, b1aR, b1mat);
+    for (const tg of b1tg) g.add(tg.ring, tg.num);   // 지시문은 피그마 프레임 헤더가 담당(유저)
 
     g = this._mk('BK_B2');
     // B2 · 크로스오버 — 좌우 바운스 존 교대 점등. '공이 우리 평면에 닿는 지점'이 곧 커서라
@@ -3096,12 +3115,14 @@ export class Session {
       if (S.count >= cfg.reps) { this.next(); return; }
     } else if (id === 'BK_B1') {
       // ① 원형 마크에 10회(바닥 보며) → ② 중앙 안내 '시선 바깥' → ③ 접점 파형만.
-      const H = this.bkB1, TOTAL = 10, MAXSEC = 45;   // MAXSEC = 공 검출이 죽었을 때의 탈출구
+      // MAXSEC = 공 검출이 죽었을 때의 탈출구. 16회 × 0.40s + 셋업 6s + 여유 → 45 로는 모자란다.
+      const H = this.bkB1, TOTAL = BK_B1_TOTAL, MAXSEC = 75;
       if (this._bkStrId !== 'BK_B1') { H.count = 0; H._shown = -1; H._wasLow = false; H._popT = -9; H._setupDone = false; H._per = 0; H._zHit = null; }
       this._bkStrId = 'BK_B1';
       if (!this._followLatch) {   // 관찰 5초 — 코치 실루엣+Preview 필만, 가이드 전부 숨김(유저: 훈련 전체)
         H.sL.op(0); H.sR.op(0); H.aL._gain = 0; H.aR._gain = 0;
         H.zone.setOp?.(0); H.num.material.opacity = 0; H.mat.material.opacity = 0;
+        for (const q of H.tg) { q.ring.setOp?.(0); q.num.material.opacity = 0; }
         this.bkB1Setup = false; this.bkB1Succ = null; this.bkB1Widen = null;
         this.demoActive = true;
         FMU('먼저 보세요 — 로우 드리블', CS.prism);
@@ -3115,6 +3136,8 @@ export class Session {
       // 매트는 따라하기 시작(셋업 0초)에 깔린다 — 발자국을 그 위에 놓고 밟게 하는 게 순서다.
       H.mat.material.opacity = Math.min(1, Math.max(0, tB / 0.5)) * 0.85;
       H.mat._prim.P.prog = Math.min(1, H.count / TOTAL);   // 테두리 도트가 차오름 = 남은 회차
+      const tgK = Math.min(1, Math.max(0, (tB - 0.3) / 0.6));
+      for (const q of H.tg) { q.ring.setOp?.((q.on ? 0.42 : 0.16) * tgK); q.num.material.opacity = (q.on ? 0.9 : 0.3) * tgK; }
       const W_END = 3.0, SETUP = 6.0, inSetup = tB < SETUP;
       this.bkB1Setup = inSetup;
       const wk = tB < 0.8 ? 0 : Math.min(1, (tB - 0.8) / (W_END - 0.8));

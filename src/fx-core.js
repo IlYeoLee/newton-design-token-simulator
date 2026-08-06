@@ -1929,8 +1929,8 @@ export function drawDribbleMat(g, W, P, look, t, ENV) {
   }
 
   // ── 커넥터 — 표적에서 액티브 타깃으로. 경로는 정보지 장식이 아니라 아주 옅게
-  const TG = P.targets || [];
-  for (const tg of TG) {
+  const RAIL = P.rails || P.targets || [];
+  for (const tg of RAIL) {
     if (tg.on === false) continue;
     const ax = X(tg.x), ay = Y(tg.y), bx = X(cU), by = Y(cV);
     const dx = bx - ax, dy = by - ay, len = Math.hypot(dx, dy) || 1;
@@ -1943,8 +1943,8 @@ export function drawDribbleMat(g, W, P, look, t, ENV) {
     g.stroke(); g.setLineDash([]);
   }
 
-  // ── 표적 — 유리 원반 + OffBit 숫자. 색은 없다. live 인 것만 판정색을 얻는다
-  for (const tg of TG) {
+  // ── 표적 — 유리 원반 + OffBit 숫자. 세션이 3D 판정 마크를 쓰면 P.targets 를 안 넘겨 여기는 빈다.
+  for (const tg of (P.targets || [])) {
     const on = tg.on !== false, A = on ? 1 : 0.42;
     const cx = X(tg.x), cy = Y(tg.y), R = (tg.r != null ? tg.r : 0.20) * W / 2;
     const disc = () => { g.beginPath(); g.arc(cx, cy, R, 0, Math.PI * 2); };
