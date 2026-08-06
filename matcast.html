@@ -1,0 +1,131 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>드리블 매트 — 녹화용</title>
+<!--
+  녹화 전용 판 (유저 2026-08-07)
+    "별도로 빼고, 아예 프레임 배경 검정 녹화 가능 상태로, 수직에서 본 듯한 뷰로,
+     실측에 맞춰서 동시에 팡팡팡 해야 하고, 실제로도 내가 인물 합성으로 합성할 거야."
+
+  · drawDribbleMat 은 **원래 평면(수직) 뷰**다 — 카메라를 돌릴 필요가 없다. 그대로 꽉 채운다.
+  · 랩·시뮬의 UI 를 하나도 안 얹는다. 캔버스 한 장뿐이라 그대로 화면 녹화하면 소스가 된다.
+  · 박자는 **실측값**이 기본이다(아래 TEMPO 주석). 임의값을 넣지 않는다.
+
+  파라미터
+    ?per=0.25     박자(초). 기본 = 실측 중앙값
+    ?size=1440    정사각 한 변(px)
+    ?bg=000       배경 색. bg=none 이면 투명(알파 채널 녹화·PNG 시퀀스용)
+    ?loop=1       자동 재생(기본). loop=0 이면 스페이스로 시작
+  키
+    스페이스  재생/정지 (녹화 시작 타이밍 맞출 때)
+    R        처음부터
+-->
+<style>
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+  body.none { background: transparent; }
+  #wrap { height: 100%; display: grid; place-items: center; }
+  canvas { display: block; }
+  #hint { position: fixed; left: 12px; bottom: 10px; font: 12px/1.5 ui-monospace, monospace;
+          color: #6b7280; user-select: none; }
+  body.rec #hint { display: none; }
+</style>
+<div id="wrap"><canvas id="cv"></canvas></div>
+<div id="hint">스페이스 재생·정지 · R 처음부터 · H 이 안내 숨기기</div>
+
+<script type="module">
+import { drawDribbleMat } from './src/fx-core.js';
+import { GLYPHS, drawGlyph, rebuildLUT } from './src/fxlut.js';
+
+const q = new URLSearchParams(location.search);
+
+// ── 박자 = 실측 (03-[농구]합성전.mp4 · 로우 드리블 구간 9.11~11.85s) ──────────────
+//   바운스 11 회 · 간격 0.24 0.19 0.22 0.31 0.22 0.25 0.43 0.25 0.19 0.44
+//   중앙 0.250s · 평균 0.274s · 편차 0.087s → 219 BPM · 초당 3.65 회
+//   ★ 균일한 메트로놈이 아니다. 짧은 게 3~4 번 이어지다 **두 배로 벌어지는** 지점이 온다 —
+//     손을 바꾸거나 자세를 고쳐 잡는 순간이다. 그 긴 간격에 자리를 옮긴다(이동이 곧 쉼).
+const PER = +(q.get('per') || 0.25);
+const LONG = 1.76;            // 긴 간격 배수 — 실측 0.44 / 0.25
+const RUN = 4;                // 한 자리에서 두드리는 횟수
+
+// ── 자리 순회 — 가운데를 **홈**으로 두고 좌우로 다녀온다 ─────────────────────────
+//   매트가 방사형 레일(모든 길은 허브를 거친다)로 설계돼 있다. 가운데는 다섯 번째 표적이
+//   아니라 홈 포지션이다. 로우 드리블도 몸 앞에서 하다 좌우로 흔드는 동작이라 구조와 맞는다.
+const SEQ = [5, 3, 5, 4, 5, 1, 5, 2];
+
+const SIZE = +(q.get('size') || 1440);
+const BG = (q.get('bg') || '000').toLowerCase();
+if (BG === 'none') document.body.classList.add('none');
+else document.body.style.background = BG.startsWith('#') ? BG : '#' + BG;
+
+const cv = document.getElementById('cv');
+const DPR = Math.min(2, devicePixelRatio || 1);
+cv.width = cv.height = Math.round(SIZE * DPR);
+cv.style.width = cv.style.height = SIZE + 'px';
+const g = cv.getContext('2d');
+const W = cv.width;
+
+const lutArr = rebuildLUT();
+const lut = v => { const i = Math.max(0, Math.min(255, Math.round(v * 255))) * 4;
+  return `rgb(${lutArr[i]},${lutArr[i + 1]},${lutArr[i + 2]})`; };
+if (!GLYPHS.map.LIFT_TIP) { GLYPHS.map.LIFT_TIP = 'ready-view/assets/lift_tip.svg'; GLYPHS.set(GLYPHS.map); }
+const logo = new Image(); logo.src = 'newton-symbol.svg';
+
+const ENV = { lut, glyph: drawGlyph, logo,
+  arrow: { line: 'solid', w: 1, speed: 1, gap: 1, glow: 0.9, heat: 0.5, tail: 0.55 },
+  // 숫자 = OffBit 도트 폰트 (마크 안 활자 규약 — 디자인 SVG 활자 금지)
+  num: (c, ch, x, y, size, fontPx) => { c.font = `700 ${fontPx}px 'OffBit', sans-serif`;
+    c.fillStyle = 'rgba(255,240,220,.95)'; c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.fillText(String(ch), x, y); },
+  foot: () => {} };
+
+// ── 상태 ────────────────────────────────────────────────────────────────────
+let playing = q.get('loop') !== '0';
+let t0 = performance.now() / 1000, hitT = -9, live = SEQ[0], prev = SEQ[0], liveT = -9;
+let beat = 0, next = 0;
+const reset = () => { t0 = performance.now() / 1000; hitT = -9; beat = 0; next = 0.6;
+  live = prev = SEQ[0]; liveT = -9; };
+reset();
+
+addEventListener('keydown', e => {
+  if (e.code === 'Space') { e.preventDefault(); playing = !playing; if (playing) reset(); }
+  if (e.key === 'r' || e.key === 'R') reset();
+  if (e.key === 'h' || e.key === 'H') document.body.classList.toggle('rec');
+});
+
+const at = n => n === 1 ? [-0.44, 0.44] : n === 2 ? [0.44, 0.44]
+  : n === 3 ? [-0.44, -0.44] : n === 4 ? [0.44, -0.44] : [0, 0];
+
+function frame() {
+  const t = performance.now() / 1000 - t0;
+  // 박자 진행 — RUN 번 두드리고, 마지막 한 박은 길게 쉬며 자리를 옮긴다
+  if (playing && t >= next) {
+    const inRun = beat % RUN;
+    hitT = t;
+    if (inRun === RUN - 1) {                 // 마지막 타 → 긴 쉼 + 자리 이동
+      next = t + PER * LONG;
+      prev = live; live = SEQ[(Math.floor(beat / RUN) + 1) % SEQ.length]; liveT = t;
+    } else next = t + PER;
+    beat++;
+  }
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  g.clearRect(0, 0, W, W);
+  if (BG !== 'none') { g.fillStyle = BG.startsWith('#') ? BG : '#' + BG; g.fillRect(0, 0, W, W); }
+
+  const tgt = n => ({ ...{ 1: { x: -0.44, y: 0.44 }, 2: { x: 0.44, y: 0.44 },
+                           3: { x: -0.44, y: -0.44 }, 4: { x: 0.44, y: -0.44 } }[n],
+                      n, r: 0.19, on: true, live: live === n,
+                      hit: live === n ? t - hitT : null });
+
+  drawDribbleMat(g, W, {
+    chev: 0, prog: 0, in: Math.min(1, Math.max(0, t / 1.1)), hit: null, per: PER,
+    travel: { from: prev, to: live, k: Math.min(1, (t - liveT) / 0.45) },
+    mat: { nx: 0.50, fx: 0.86, ny: -0.80, fy: 0.80 },
+    center: { x: 0, y: 0, r: 0.28, label: null,
+              live: live === 5, hit: live === 5 ? t - hitT : null },
+    targets: [tgt(1), tgt(2), tgt(3), tgt(4)],
+    brand: 1,
+  }, { halo: 0.9 }, t, ENV);
+
+  requestAnimationFrame(frame);
+}
+frame();
+</script>
