@@ -72,7 +72,12 @@ function sample(u) {                                   // u = 입각기 진행 0
   return { L, ink, cop, r, i, a };
 }
 
-const LOOK = { imp: 0, glow: 0, shade: 0, rip: 0, shadeRed: 0, edgeShade: 0, halo: 0.2, op: 1,
+// ★ 깊이는 **마스킹**으로 낸다 — 투명도로 내면 안 된다(유저). 가산 합성에서 알파를 깎으면
+//   그만큼 채도가 같이 죽어서 전체가 뿌예진다. pressA 를 0 으로 두고, 대신
+//   ① edgeSoft·edgeW 로 필을 테두리에서 **안쪽으로 물려** 신발 벽 여백을 만들고
+//   ② edgeShade 로 그 여백에 이너 섀도우를 깔아 '발이 들어가는 안쪽'으로 읽히게 한다.
+const LOOK = { imp: 0, glow: 0, shade: 0, rip: 0, halo: 0.2, op: 1, shadeRed: 0,
+               edgeSoft: 1, edgeW: 0.10, edgeShade: 0.38, edgeShadeW: 1.0, edgeShadeGrad: 1,
                // 색 축(온도 창)을 연다 — 상태 기본 창은 0.56~0.86(샌드↔코랄)이라 대역이 좁다.
                //   heatmap7 에선 이걸 열면 상태 정체성이 깨져서 안 건드렸지만, 여기는 상태가
                //   Active 하나뿐이라 그 문제가 없다. 레드~프리즘 전 구간을 쓴다.
@@ -84,8 +89,7 @@ const LOOK = { imp: 0, glow: 0, shade: 0, rip: 0, shadeRed: 0, edgeShade: 0, hal
                //   맨발 슬롯은 겉·안이 같은 그림이라 plantar 의 depth 가 0.42 에서 천장을 친다 —
                //   gain 을 그만큼 되올려야 고압부가 램프의 **레드 끝**까지 닿는다(안 그러면 전부 한기).
                //   깔창 컨텍스트는 depth 가 겉·안 두 겹으로 곱해져 맨발 슬롯보다 낮게 나온다.
-               //   pressA 는 낮춘다 — 높으면 접지 안 한 깔창 몸통까지 비어서 신발이 안 읽힌다.
-               plantar: 1, loadGain: 2.6, loadBase: 0.10, bands: 0, pool: 0.9, pressA: 0.4 };
+               plantar: 1, loadGain: 2.6, loadBase: 0.10, bands: 0, pool: 0.9, pressA: 0 };
 
 const S_W = FOOT_LEN_M * 1.15, S_H = FOOT_LEN_M * 1.75, PPM = 1100;
 const cv = document.getElementById('c');
