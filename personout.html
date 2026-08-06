@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><title>인물 룩 단독 추출</title>
+<!--
+  임의의 그린스크린 클립을 **바닥 코치 판과 같은 룩**으로 화면 가득 렌더한다(알파 출력).
+  코치 판(main.js ensureCoach)은 판 프레이밍(crop·refEdge·cutFade)이 붙어 있어 인물만
+  크게 뽑을 수 없다 — 여기선 그 프레이밍만 빼고 같은 입력·같은 PERSON_GLSL 을 쓴다.
+  룩 값은 전부 FXP(룩 시스템 토큰)에서 온다. 셰이더 색 코드는 여기 없다.
+
+  ?src=/_bg/x.mp4&w=2560&h=1440&fs=0.30&hi=0.86&tone=0
+    fs   = 필드 블러 스케일. 코치 클립은 인물이 프레임을 꽉 채우지만 이 클립은 작다 —
+           블러 반경은 프레임 기준이라 인물 대비 폭을 이 값으로 맞춘다(1 = 코치 클립 기준).
+    hi   = 대역 상단(바닥 코치 판 0.86)   tone = 클립별 톤 트림(COACH_CFG.tone 대응)
+  익스포터: scripts/export_person_clip.mjs
+-->
+<style>html,body{margin:0;padding:0;background:transparent;overflow:hidden}canvas{display:block}</style>
+</head><body>
+<canvas id="cv"></canvas>
+<script type="module">
+import * as THREE from 'three';
+import { PERSON_GLSL } from './src/fx-core.js';
+import { getLUT, FXP } from './src/fxlut.js';
+
+const q = new URLSearchParams(location.search);
+const num = (k, d) => { const s = q.get(k); const v = +s; return s !== null && Number.isFinite(v) ? v : d; };
+const SRC  = q.get('src') || '/_bg/bk_chroma_2560_intra.mp4';
+const W    = num('w', 2560), H = num('h', 1440);
+const FS   = num('fs', 0.30);
+const HI   = num('hi', 0.86);
+const TONE = num('tone', 0);
+
+const cv = document.getElementById('cv');
+const renderer = new THREE.WebGLRenderer({ canvas: cv, alpha: true, antialias: true, premultipliedAlpha: false, preserveDrawingBuffer: true });
+renderer.setPixelRatio(1);
+renderer.setSize(W, H, false);
+renderer.setClearColor(0x000000, 0);
+
+const video = document.createElement('video');
+video.src = SRC; video.muted = true; video.playsInline = true; video.crossOrigin = 'anonymous';
+video.preload = 'auto'; video.style.display = 'none'; document.body.appendChild(video);
+const tex = new THREE.VideoTexture(video);
+tex.colorSpace = THREE.SRGBColorSpace;          // 코치 판과 동일 → uPLumLin = 1
+tex.generateMipmaps = false;
+tex.minFilter = THREE.LinearFilter; tex.magFilter = THREE.LinearFilter;
+
+// ── 필드(두께장·결) — main.js coachField 와 같은 파이프라인 ───────────────────
+//   r = 크로마 마스크 · g = 마스크×휘도. N(좁음)=1회 블러 · W(넓음)=1/4 그리드 3회 블러.
+//   반정밀도 RT(PERSON_FIELD ①) · 탭 가중치·스텝 동일. 소스 비율이 16:9 라 RT 도 16:9 —
+//   코치 판의 가로 등방 보정이 필요 없다(그 보정은 세로 crop 때문에 생긴 것).
+const RW = 1280, RH = Math.round(RW * H / W), LW = RW >> 2, LH = RH >> 2;
+const vs = 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }';
+const fsrc = new THREE.ShaderMaterial({
+  uniforms: { map: { value: tex } }, vertexShader: vs, depthTest: false, depthWrite: false,
+  fragmentShader: `varying vec2 vUv; uniform sampler2D map;
+    void main(){
+      vec3 c = texture2D(map, vUv).rgb;
+      float m = 1.0 - smoothstep(0.04, 0.14, c.g - max(c.r, c.b));
+      gl_FragColor = vec4(m, dot(c, vec3(0.299, 0.587, 0.114)) * m, 0.0, 1.0);
+    }`,
+});
+const fblur = new THREE.ShaderMaterial({
+  uniforms: { tex: { value: null }, uDir: { value: new THREE.Vector2(1, 0) }, uStep: { value: 2 },
+    uTexel: { value: new THREE.Vector2(1 / RW, 1 / RH) } },
+  vertexShader: vs, depthTest: false, depthWrite: false,
+  fragmentShader: `varying vec2 vUv; uniform sampler2D tex; uniform vec2 uDir, uTexel; uniform float uStep;
+    void main(){
+      vec2 px = uDir * uStep * uTexel;
+      vec2 s = texture2D(tex, vUv).rg * 0.227;
+      s += (texture2D(tex, vUv + px * 1.385).rg + texture2D(tex, vUv - px * 1.385).rg) * 0.3165;
+      s += (texture2D(tex, vUv + px * 3.23).rg + texture2D(tex, vUv - px * 3.23).rg) * 0.070;
+      gl_FragColor = vec4(s, 0.0, 1.0);
+    }`,
+});
+const RTO = { type: THREE.HalfFloatType };
+const mkRT = (w, h) => new THREE.WebGLRenderTarget(w, h, RTO);
+const [A, B, N] = [mkRT(RW, RH), mkRT(RW, RH), mkRT(RW, RH)];
+const [L0, L1] = [mkRT(LW, LH), mkRT(LW, LH)];
+const fsc = new THREE.Scene(), fcam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+const fquad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), fsrc); fsc.add(fquad);
+// 텍셀 = 코치 판(HQ 2)과 같은 규약 × FS. σ 는 텍셀 기준이라 FS 하나로 폭이 움직인다.
+const TX = [FS * 2 / RW, FS * 2 / RH, FS * 2 / LW, FS * 2 / LH];
+
+function buildFields() {
+  const prev = renderer.getRenderTarget();
+  fquad.material = fsrc;
+  renderer.setRenderTarget(A); renderer.clear(); renderer.render(fsc, fcam);
+  fquad.material = fblur;
+  const pass = (s, d, dir, lo) => {
+    fblur.uniforms.tex.value = s.texture;
+    fblur.uniforms.uDir.value.set(dir[0], dir[1]);
+    fblur.uniforms.uTexel.value.set(lo ? TX[2] : TX[0], lo ? TX[3] : TX[1]);
+    renderer.setRenderTarget(d); renderer.clear(); renderer.render(fsc, fcam);
+  };
+  pass(A, B, [1, 0]); pass(B, N, [0, 1]);                     // 좁음(결)
+  pass(N, L0, [1, 0], true); pass(L0, L1, [0, 1], true);      // 1/4 그리드로 3회 → 넓음(두께장)
+  pass(L1, L0, [1, 0], true); pass(L0, L1, [0, 1], true);
+  pass(L1, L0, [1, 0], true); pass(L0, L1, [0, 1], true);
+  renderer.setRenderTarget(prev);
+  mat.uniforms.uField.value = L1.texture;
+  mat.uniforms.uFieldN.value = N.texture;
+}
+
+// ── 본체 — main.js 코치 판 프래그먼트에서 판 프레이밍(crop·refEdge·cutFade·등장워시)만 뺀 것 ──
+const FRAG = `
+  varying vec2 vUv;
+  uniform sampler2D map, uLUT, uField, uFieldN;
+  uniform float uTime, uDetail;
+  vec3 lut(float v){ return texture2D(uLUT, vec2(clamp(v, 0.004, 0.996), 0.5)).rgb; }
+  ` + PERSON_GLSL + `
+  float mask1(vec2 uv){ vec3 c = texture2D(map, uv).rgb; float k = c.g - max(c.r, c.b);
+    float lum1 = dot(c, vec3(0.299, 0.587, 0.114));
+    k *= mix(1.45, 1.0, smoothstep(0.08, 0.30, lum1));      // 접지 그림자(어두운 초록) 제거
+    return 1.0 - smoothstep(0.04, 0.14, k); }
+  float maskAA(vec2 uv){                                     // yuv420p 크로마 계단 완화(대칭 5탭)
+    float s = mask1(uv) * 0.36;
+    for (int k = 0; k < 4; k++) {
+      vec2 d = vec2(cos(1.5708 * float(k) + 0.785), sin(1.5708 * float(k) + 0.785));
+      s += mask1(uv + d * 0.0018) * 0.16;
+    }
+    return s; }
+  float ch(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7)))*43758.5453); }
+  float vn(vec2 p){ vec2 i=floor(p),f=fract(p); f=f*f*(3.0-2.0*f);
+    return mix(mix(ch(i),ch(i+vec2(1,0)),f.x),mix(ch(i+vec2(0,1)),ch(i+vec2(1,1)),f.x),f.y); }
+  void main(){
+    vec2 uv = vUv;
+    float m = maskAA(uv);
+    float mEro = smoothstep(0.26, 0.44, m);
+    vec2 fld  = texture2D(uField,  uv).rg;
+    vec2 fldN = texture2D(uFieldN, uv).rg;
+    if (max(mEro, step(0.5, uPForm) * fld.r) < 0.02) discard;
+    float Hh = clamp(fld.r * 1.25, 0.0, 1.0);
+    float flow = vn(vec2(uv.x*3.2 + sin(uTime*0.4)*0.3, uv.y*2.4 - uTime*0.5));
+    Hh *= 1.0 + (flow - 0.5) * 0.11;
+    float lumB = fld.g / max(fld.r, 0.02);
+    float lumS = mix(lumB, fldN.g / max(fldN.r, 0.02), clamp(uDetail * 1.6, 0.0, 1.0));
+    float mIn = smoothstep(0.55, 0.95, m);
+    float faceW = smoothstep(0.80, 0.92, uv.y) * (1.0 - smoothstep(0.99, 1.0, uv.y));
+    float dth = (ch(gl_FragCoord.xy + vec2(uTime, uTime * 1.3)) - 0.5) / 255.0;
+    vec3 col; float cov;
+    if (uPForm > 0.5) {                                      // 룩2(레퍼런스 규약) — 기본
+      vec3 srcC = texture2D(map, uv).rgb;
+      float lumSharp = dot(vec3(srcC.r, min(srcC.g, max(srcC.r, srcC.b)), srcC.b), vec3(0.299, 0.587, 0.114));
+      vec4 aura = personAura(mEro, fld.r, lumSharp, fldN.g / max(fldN.r, 0.02), faceW, uv, uTime);
+      col = aura.rgb; cov = aura.a;
+    } else {
+      col = personLook(clamp(Hh + dth, 0.0, 1.0), lumS, lumB, mIn, faceW, uv.y) * mEro;
+      cov = mEro;
+    }
+    gl_FragColor = vec4(col, cov);                           // 스트레이트 알파
+  }`;
+
+const mat = new THREE.ShaderMaterial({
+  transparent: true, depthTest: false, depthWrite: false,
+  uniforms: {
+    map: { value: tex }, uLUT: { value: getLUT() }, uField: { value: L1.texture }, uFieldN: { value: N.texture },
+    uTime: { value: 0 }, uDetail: { value: 0.25 },
+    uPSat: { value: 1.32 }, uPSweep: { value: 0 }, uPHi: { value: HI }, uPDepth: { value: 0.34 },
+    uPCoral: { value: 0 }, uPExp: { value: 0.5 }, uPForm: { value: 1 }, uPLo: { value: 0.12 }, uPHiL: { value: 0.85 },
+    uPLumLin: { value: 1 }, uPCalWave: { value: 1 }, uPCalD: { value: 1 }, uPCalW: { value: 1 }, uPCalB: { value: 0 },
+    uPInk: { value: 0.30 }, uPInkT: { value: 0.42 },
+    uFaceLift: { value: 0 }, uFaceE: { value: new THREE.Vector4(0, 0, 0, 0) },
+  },
+  vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }',
+  fragmentShader: FRAG,
+});
+const scene = new THREE.Scene();
+scene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), mat));
+const cam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+
+// ── 룩 유니폼 주입 = main.js setPersonUniforms 와 같은 규칙(값의 출처는 FXP) ──
+const expCv = document.createElement('canvas'); expCv.width = expCv.height = 96;
+const expCtx = expCv.getContext('2d', { willReadFrequently: true });
+function clipExposure() {   // 클립 노출 실측 — 그린 배경 제외 · p5~p95
+  const st = { exp: 0.5, lo: 0.12, hi: 0.85 };
+  if (!video.videoWidth) return st;
+  expCtx.drawImage(video, 0, 0, 96, 96);
+  const px = expCtx.getImageData(0, 0, 96, 96).data, lums = [];
+  let sum = 0;
+  for (let i = 0; i < px.length; i += 4) {
+    const r = px[i] / 255, g = px[i + 1] / 255, b = px[i + 2] / 255;
+    if (g - Math.max(r, b) > 0.10) continue;
+    const l = 0.299 * r + 0.587 * g + 0.114 * b;
+    sum += l; lums.push(l);
+  }
+  if (lums.length > 12) {
+    st.exp = sum / lums.length;
+    lums.sort((a, b) => a - b);
+    st.lo = lums[Math.floor(lums.length * 0.05)];
+    st.hi = lums[Math.floor(lums.length * 0.95)];
+  }
+  return st;
+}
+function syncLook() {
+  const U = mat.uniforms, e = clipExposure();
+  U.uDetail.value = (FXP.person?.detail ?? 0.42) * 0.45;   // PERSON_FIELD.DETAIL_K
+  U.uPExp.value = e.exp; U.uPLo.value = e.lo; U.uPHiL.value = e.hi;
+  U.uPForm.value = FXP.person?.form ?? 0;
+  U.uPSat.value = 1.0 + (FXP.sat ?? 1) * 0.32;
+  U.uPSweep.value = FXP.person?.sweep ?? 0;
+  U.uPDepth.value = FXP.person?.depth ?? 0.34;
+  U.uPInk.value = FXP.person?.ink ?? 0.30;
+  U.uPInkT.value = FXP.person?.inkT ?? 0.42;
+  const cal = FXP.person?.cal;
+  U.uPCalWave.value = cal?.wave ?? 1; U.uPCalD.value = cal?.d ?? 1;
+  U.uPCalW.value = cal?.w ?? 1; U.uPCalB.value = (cal?.b ?? 0) + TONE;
+  return e;
+}
+
+function draw(t) {
+  mat.uniforms.uTime.value = t;
+  tex.needsUpdate = true;
+  buildFields();
+  renderer.setRenderTarget(null);
+  renderer.clear();
+  renderer.render(scene, cam);
+}
+
+// ── 익스포터 훅 ──────────────────────────────────────────────────────────────
+const ready = new Promise(res => {
+  if (video.readyState >= 2) return res();
+  video.addEventListener('loadeddata', () => res(), { once: true });
+});
+window.__po = {
+  ready: false, err: '',
+  size: () => [W, H],
+  meta: () => ({ dur: video.duration, vw: video.videoWidth, vh: video.videoHeight, look: syncLook() }),
+  // 한 프레임: 시크 → 디코드 완료 대기 → 필드 재계산 → 렌더
+  frame: t => new Promise((res, rej) => {
+    const to = setTimeout(() => rej(new Error('seek timeout ' + t)), 8000);
+    const go = () => { clearTimeout(to); syncLook(); draw(t); requestAnimationFrame(() => res(true)); };
+    if (Math.abs(video.currentTime - t) < 1e-4 && video.readyState >= 2) return go();
+    video.addEventListener('seeked', go, { once: true });
+    video.currentTime = t;
+  }),
+};
+ready.then(() => { syncLook(); draw(0); window.__po.ready = true; })
+     .catch(e => { window.__po.err = String(e); });
+window.addEventListener('error', e => { window.__po.err = String(e.message || e); });
+</script></body></html>
