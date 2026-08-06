@@ -1,0 +1,102 @@
+<!doctype html><html lang=ko><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1">
+<title>NEWTON 시작화면 랩 — 러닝 · 농구 · 복싱 한 화면</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚀</text></svg>">
+<!--
+  왜 이 파일인가: 시작화면이 세 벌(러닝 floor.html · 농구 floor-bk.html · 복싱 ready-view/index.html)
+  인데 지금까지 **따로** 봐야 했다. 한 화면에 못 놓으니 "복싱이랑 따로 논다"를 눈으로 확인할 수가 없다.
+  여기서는 **같은 시계**로 셋을 동시에 그린다 — 룩은 정본 렌더러(FloorGL/WallGL)를 그대로
+  인스턴스화해서 나온다. 이 파일엔 그리기 코드가 한 줄도 없다(재구성 금지 규칙).
+-->
+<style>
+  :root{--bg:#0A0C10;--panel:#10131A;--line:#1D222C;--text:#E9EAEE;--dim:#98A1AD}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 system-ui,-apple-system,'Segoe UI',sans-serif}
+  header{position:sticky;top:0;z-index:10;background:var(--panel);border-bottom:1px solid var(--line);padding:10px 16px;display:flex;gap:18px;align-items:center;flex-wrap:wrap}
+  h1{font-size:15px;margin:0;font-weight:700}
+  .sub{color:var(--dim);font-size:12px}
+  .ctl{display:flex;gap:8px;align-items:center}
+  input[type=range]{width:260px}
+  button{background:#1A1F27;color:var(--text);border:1px solid var(--line);border-radius:7px;padding:5px 11px;cursor:pointer;font-size:13px}
+  button.on{background:#FA3030;border-color:#FA3030}
+  .row{display:flex;gap:14px;padding:16px;align-items:flex-start;flex-wrap:wrap}
+  .cell{background:#0E1116;border:1px solid var(--line);border-radius:12px;padding:10px}
+  .cell h2{margin:0 0 8px;font-size:12px;color:var(--dim);font-weight:600;letter-spacing:.04em}
+  .cell canvas{display:block;background:#14171d;border-radius:8px}
+  .err{color:#FA3030;font-size:12px;padding:8px}
+</style></head><body>
+<header>
+  <h1>시작화면 랩</h1>
+  <span class=sub>러닝 · 농구 · 복싱 — 같은 시계로 동시에</span>
+  <div class=ctl>
+    <button id=play class=on>재생</button>
+    <label class=sub>t</label><input type=range id=t min=0 max=8 step=.05 value=3.2>
+    <span class=sub id=tv>3.20s</span>
+  </div>
+  <div class=ctl>
+    <label class=sub>높이</label><input type=range id=zoom min=280 max=1000 step=20 value=620>
+  </div>
+</header>
+<div class=row id=row></div>
+<div class=err id=err></div>
+<script type="module">
+// 정본 렌더러를 그대로 쓴다 — 시작화면 룩은 전부 저 안에 있다.
+const SPECS = [
+  { key: 'run',    name: '러닝 — floor.html',              mod: '/src/floorgl.js', cls: 'FloorGL', src: 'floor.html' },
+  { key: 'bk',     name: '농구 — floor-bk.html',           mod: '/src/floorgl.js', cls: 'FloorGL', src: 'floor-bk.html' },
+  { key: 'boxing', name: '복싱 — ready-view/index.html',   mod: '/src/wallgl.js',  cls: 'WallGL',  src: 'ready-view/index.html' },
+];
+const $ = id => document.getElementById(id);
+const row = $('row'), errEl = $('err');
+const cells = [];
+let playing = true, t = 3.2, zoom = 620, t0 = performance.now();
+
+await Promise.all(['700 100px Supreme', '400 100px Supreme', '700 100px OffBit']
+  .map(f => document.fonts.load(f).catch(() => {})));
+await document.fonts.ready;
+
+for (const s of SPECS) {
+  const box = document.createElement('div'); box.className = 'cell';
+  const h = document.createElement('h2'); h.textContent = s.name; box.appendChild(h);
+  row.appendChild(box);
+  try {
+    const M = await import(s.mod + '?v=' + Date.now());
+    const G = new M[s.cls]();
+    // dur/pv 는 시작화면 페인터가 쓰지 않지만 load 시그니처가 요구한다(다른 랩과 같은 값).
+    G.load('READY', { src: s.src, dur: 11, pv: 3 });
+    box.appendChild(G.canvas);
+    cells.push({ ...s, G, box });
+  } catch (e) {
+    box.insertAdjacentHTML('beforeend', `<div class=err>로드 실패: ${e.message}</div>`);
+  }
+}
+
+function paint() {
+  for (const c of cells) {
+    c.G.t = t;
+    // 캐시 무효화 — 페인터는 서명(_sig)이 같으면 다시 안 그린다(실시간 스크럽엔 매번 필요).
+    c.G._sig = null; c.G._lastPaint = -1;
+    try { c.G._paint(); } catch (e) { errEl.textContent = c.key + ': ' + e.message; }
+    // ★ **높이** 기준으로 맞춘다 — 지면은 세로(1600×2670), 벽은 가로(2600×1600)라
+    //   폭을 맞추면 벽만 손톱만 하게 보여 비교가 안 된다(그게 이 랩의 목적인데).
+    const cv = c.G.canvas;
+    cv.style.height = zoom + 'px';
+    cv.style.width = Math.round(zoom * cv.width / cv.height) + 'px';
+  }
+}
+// 에셋(글로우 SVG·아이콘)은 첫 페인트가 로드를 촉발한다 — 두 번 더 그려서 채운다.
+paint(); setTimeout(paint, 800); setTimeout(paint, 2200);
+
+$('play').onclick = e => { playing = !playing; e.target.classList.toggle('on', playing); t0 = performance.now() - t * 1000; };
+$('t').oninput = e => { playing = false; $('play').classList.remove('on'); t = +e.target.value; $('tv').textContent = t.toFixed(2) + 's'; paint(); };
+$('zoom').oninput = e => { zoom = +e.target.value; paint(); };
+
+function loop(now) {
+  requestAnimationFrame(loop);
+  if (!playing) return;
+  t = ((now - t0) / 1000) % 8;                 // 시작화면 루프는 8초
+  $('t').value = t; $('tv').textContent = t.toFixed(2) + 's';
+  paint();
+}
+requestAnimationFrame(loop);
+window.__readylab = { cells, get t() { return t; } };
+</script></body></html>
