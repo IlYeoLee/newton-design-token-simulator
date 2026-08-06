@@ -1853,6 +1853,8 @@ function volRing(g, lut, r, v, a, lw, GB, wMul = 1) {
 const eOutQuint = u => 1 - Math.pow(1 - Math.max(0, Math.min(1, u)), 5);
 export function drawDribbleMat(g, W, P, look, t, ENV) {
   const lut = ENV.lut, s = W / 512;
+  // 주간(잉크) 여부 — 아래 CHROME·GB·노드 채움이 전부 이 값에서 갈린다. **맨 위에서** 정한다.
+  const DAY = ENV?.day ? 1 : 0;
   const AW = (ENV.arrow && ENV.arrow.w) || 1;
   const rgbaL0 = (v, a) => lut(v).replace('rgb(', 'rgba(').replace(')', ',' + a + ')');
   //   ★ 주간 크롬은 LUT **위쪽 끝**으로 올린다. 실측(바닥 #8B9080 L=141):
@@ -1861,7 +1863,7 @@ export function drawDribbleMat(g, W, P, look, t, ENV) {
   //     이 팔레트는 **한가운데(0.50)가 바닥과 휘도가 같다**. 낮에 안 보인다는 건 밝기 문제가
   //     아니라 램프의 그 지점을 쓰고 있었다는 뜻이다. 대비는 양 끝에만 있다.
   //     (내가 처음에 0.62 로 내렸던 건 오히려 Δ+65 → Δ+20 으로 **악화**였다 — 실측으로 확인.)
-  const CHROME = ENV?.day ? 0.95 : 0.86;
+  const CHROME = DAY ? 0.95 : 0.86;
   const INK = (a, v) => rgbaL0(v == null ? CHROME : v, a);
   const LNW = 4 * AW * s;                                  // LINE 두께 정본 — 모든 선이 여기서 파생
   g.clearRect(0, 0, W, W); g.lineJoin = 'round'; g.lineCap = 'round';
@@ -1994,7 +1996,6 @@ export function drawDribbleMat(g, W, P, look, t, ENV) {
   // ★ 주간(잉크) 예산 — 밝은 바닥에서는 **글로우를 줄이고 코어를 세운다**.
   //   빛을 더해 읽히게 만드는 건 어두운 면에서만 통한다. 밝은 면에서는 번짐이 곧 뿌옇게
   //   보이는 원인이라, 헤일로를 절반으로 깎고 그만큼 획 자체를 진하게 남긴다.
-  const DAY = ENV?.day ? 1 : 0;
   const GB = 13 * look.halo * (DAY ? 0.45 : 1);
   for (const tg of (P.targets || [])) {
     const on = tg.on !== false, live = !!tg.live;
@@ -2007,7 +2008,7 @@ export function drawDribbleMat(g, W, P, look, t, ENV) {
     // ★ 주간엔 램프의 **양 끝**으로 벌린다 — 0.5 는 바닥과 휘도가 같아 활성 노드가 통째로
     //   사라졌다(실측 Δ0). 밝은 면에서 '강함'은 밝음이 아니라 **잉크(어두움)** 다:
     //   활성 0.26(Δ-32, 진한 적) · 대기 0.62(Δ+20, 옅은 살구). 둘 사이 휘도차 ≈52.
-    g.fillStyle = ENV?.day ? lut(live ? 0.26 : 0.62) : lut(live ? 0.5 : 0.36);
+    g.fillStyle = DAY ? lut(live ? 0.26 : 0.62) : lut(live ? 0.5 : 0.36);
     g.beginPath(); g.arc(cx, cy, R * 0.88, 0, Math.PI * 2); g.fill();
     g.shadowBlur = 0;
     g.save(); g.translate(cx, cy);

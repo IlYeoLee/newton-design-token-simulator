@@ -157,6 +157,7 @@ export default defineConfig({
         capsuleConcepts: resolve(__dirname, 'capsule-concepts.html'),
         tokens:        resolve(__dirname, 'tokens.html'),   // 지면 디자인 토큰 갤러리
         marks:         resolve(__dirname, 'marks.html'),    // 마크 공통 언어 (테스트 모델 = 농구 4/4)
+        stancelab:     resolve(__dirname, 'stancelab.html'),// 발 벌리기 토큰 · 띠 프레임 미리보기
       },
     },
   },

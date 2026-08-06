@@ -1,0 +1,144 @@
+<!doctype html><html lang=ko><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1">
+<title>NEWTON 스탠스 랩 — 발 벌리기 토큰 · 띠 프레임 미리보기</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>↔️</text></svg>">
+<style>
+  :root{--bg:#0A0C10;--panel:#10131A;--line:#1D222C;--text:#E9EAEE;--dim:#98A1AD;--red:#FA3030}
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--text);font:13px/1.5 -apple-system,'Malgun Gothic',sans-serif}
+  .wrap{padding:20px;display:flex;flex-direction:column;gap:14px;align-items:center}
+  /* 프레임 = 유저 레퍼런스 비율. 화면 폭에 맞춰 줄되 비율은 절대 안 깨진다. */
+  #frame{position:relative;width:min(1816px,calc(100vw - 40px));aspect-ratio:1816/510;
+    background:#000 center/cover no-repeat;border:1px solid var(--line);overflow:hidden}
+  #frame canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+  .bar{display:flex;gap:14px;align-items:center;flex-wrap:wrap;justify-content:center;
+    background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 16px}
+  .bar label{color:var(--dim);font-size:11.5px}
+  .bar input[type=range]{accent-color:var(--red);width:150px;vertical-align:middle}
+  .v{font-variant-numeric:tabular-nums;font-size:11.5px;min-width:46px;display:inline-block;text-align:right}
+  button{background:#161A22;color:var(--text);border:1px solid var(--line);border-radius:8px;
+    padding:6px 12px;font-size:12px;cursor:pointer}
+  button.on{background:var(--red);border-color:var(--red);color:#fff}
+  .note{color:var(--dim);font-size:11.5px;max-width:900px;text-align:center}
+  code{color:#FEC389}
+</style></head><body>
+<div class=wrap>
+  <div id=frame></div>
+  <div class=bar>
+    <button id=play class=on>⏸ 일시정지</button>
+    <label>t <input type=range id=s-t min=0 max=6 step=0.02 value=0><span class=v id=v-t>0.00s</span></label>
+    <label>pitch <input type=range id=s-p min=-75 max=-30 step=0.5 value=-55><span class=v id=v-p>-55°</span></label>
+    <button id=bgmode>배경: 뒷판</button>
+    <button id=grid>각도 그리드</button>
+  </div>
+  <p class=note>프레임 1816×510(3.561:1) = 16:9·vfov 60°의 중앙 띠. 카메라는 실측 눈(y 1.69 · z −1.809),
+  토큰은 시뮬 정본(<code>FootMark</code>·<code>floorArrow</code>)이고 모션 곡선은 <code>bkB1SetupPose</code> 한 곳에서 온다.
+  블렌딩은 잉크(NormalBlending) — 밝은 바닥이라 가산은 씻긴다.</p>
+</div>
+<script type="module">
+import * as THREE from 'three';
+import { FootMark, floorArrow, bkB1SetupPose, B1_SETUP, BRAND } from './src/session.js';
+import { tickFlowArrows } from './src/tokens.js';
+import { FXP, GLYPHS, DEFAULT_GLYPHS, footSDFTexture, rebuildLUT } from './src/fxlut.js';
+
+// 블렌드모드 없이(잉크) — 밝은 바닥 위에서 가산광은 씻겨 안 보인다(시뮬 tickWaves 와 같은 판단).
+FXP.day = 1;
+// ★ 글리프·LUT 를 **먼저** 심는다. main.js 가 부팅 때 하는 일 — 랩엔 main 이 없다.
+//   안 하면 footSDFTexture 가 null 을 주고 FootMark 이 발형 대신 존 원(빨간 타원)으로 떨어진다(실측).
+GLYPHS.set(DEFAULT_GLYPHS);
+rebuildLUT();
+await new Promise(res => {
+  const ok = () => footSDFTexture(false) && footSDFTexture(true);
+  if (ok()) return res();
+  const off = GLYPHS.onLoad(() => { if (ok()) { off(); res(); } });
+  setTimeout(() => { off(); res(); }, 4000);   // 못 받아도 폴백 발형으로 뜬다
+});
+
+const BG = 'textures/tmp_stance_bg.png';
+// 실측 눈(_grid_b1stance.mjs) — 봇을 안 띄우고 그 자리만 빌린다.
+const EYE = new THREE.Vector3(0.014, 1.69, -1.809);
+const RATIO = 1816 / 510;
+// 렌더 프레임(16:9·vfov 60°)의 가로 화각을 유지한 채 세로만 띠로 자른다 → 시뮬 화면의 중앙 띠 그대로.
+const TANH = Math.tan(THREE.MathUtils.degToRad(60) / 2) * (16 / 9);
+const FOV = THREE.MathUtils.radToDeg(2 * Math.atan(TANH / RATIO));
+
+const frame = document.getElementById('frame');
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+renderer.setPixelRatio(Math.min(2, devicePixelRatio));
+renderer.setSize(1816, 510, false);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+frame.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(FOV, RATIO, 0.05, 60);
+
+// 임시 배경 — ① 뒷판(이미지 그대로, 토큰만 각도를 얹는다) ② 지면(바닥 평면에 깔아 같이 기운다)
+const tex = new THREE.TextureLoader().load(BG);
+tex.colorSpace = THREE.SRGBColorSpace; tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+tex.repeat.set(3, 3); tex.anisotropy = 8;
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(16, 16),
+  new THREE.MeshBasicMaterial({ map: tex }));
+ground.rotation.x = -Math.PI / 2; ground.position.z = -3; ground.visible = false;
+scene.add(ground);
+
+// 토큰 — 시뮬 정본 그대로
+const sL = new FootMark('left').at(-B1_SETUP.HALF0, B1_SETUP.Z);
+const sR = new FootMark('right').at(B1_SETUP.HALF0, B1_SETUP.Z);
+const aL = floorArrow(-B1_SETUP.AX, B1_SETUP.AZ, 90, BRAND.sand, B1_SETUP.ALEN, B1_SETUP.ASCALE);
+const aR = floorArrow(B1_SETUP.AX, B1_SETUP.AZ, -90, BRAND.sand, B1_SETUP.ALEN, B1_SETUP.ASCALE);
+scene.add(sL.group, sR.group, aL, aR);
+
+// 각도 그리드 — 하향각 5° 눈금(눈 기준). 계산이 맞는지 눈으로 대조하는 용도.
+const gridG = new THREE.Group(); gridG.visible = false; scene.add(gridG);
+for (let dep = 40; dep <= 75; dep += 5) {
+  const d = EYE.y / Math.tan(THREE.MathUtils.degToRad(dep));
+  const z = EYE.z - d, half = 2.2;
+  const g = new THREE.BufferGeometry().setFromPoints(
+    [new THREE.Vector3(-half, 0.002, z), new THREE.Vector3(half, 0.002, z)]);
+  gridG.add(new THREE.Line(g, new THREE.LineBasicMaterial({
+    color: dep % 10 === 0 ? 0x40E0FF : 0x1E5F70, transparent: true, opacity: 0.75 })));
+}
+
+let playing = true, t = 0, last = performance.now() / 1000;
+const $ = s => document.getElementById(s);
+const sT = $('s-t'), vT = $('v-t'), sP = $('s-p'), vP = $('v-p');
+$('play').onclick = e => { playing = !playing; e.target.classList.toggle('on', playing);
+  e.target.textContent = playing ? '⏸ 일시정지' : '▶ 재생'; };
+sT.oninput = () => { playing = false; $('play').classList.remove('on'); $('play').textContent = '▶ 재생'; t = +sT.value; };
+let bgMode = 0;   // 0 = 뒷판, 1 = 지면, 2 = 없음
+$('bgmode').onclick = e => { bgMode = (bgMode + 1) % 3;
+  e.target.textContent = '배경: ' + ['뒷판', '지면', '없음'][bgMode];
+  frame.style.backgroundImage = bgMode === 0 ? `url(${BG})` : 'none';
+  ground.visible = bgMode === 1; };
+frame.style.backgroundImage = `url(${BG})`;
+$('grid').onclick = e => { gridG.visible = !gridG.visible; e.target.classList.toggle('on', gridG.visible); };
+
+function frameCam() {
+  const g = THREE.MathUtils.degToRad(+sP.value);
+  camera.position.copy(EYE);
+  camera.lookAt(EYE.x, EYE.y + Math.sin(g), EYE.z - Math.cos(g));
+  vP.textContent = `${(+sP.value).toFixed(1)}°`;
+}
+
+function tick() {
+  requestAnimationFrame(tick);
+  const now = performance.now() / 1000, dt = Math.min(0.05, now - last); last = now;
+  if (playing) { t = (t + dt) % B1_SETUP.SETUP; sT.value = t.toFixed(2); }
+  vT.textContent = `${t.toFixed(2)}s`;
+
+  const P = bkB1SetupPose(t);
+  sL.group.position.x = -P.half; sR.group.position.x = P.half;
+  sL.op(P.footOp); sR.op(P.footOp);
+  aL._gain = P.arrowGain; aR._gain = P.arrowGain;
+  aL._prog = P.arrowProg; aR._prog = P.arrowProg;
+  if (P.done) { sL.glow(1); sR.glow(1); } else { sL.countdown(t / B1_SETUP.W_END); sR.countdown(t / B1_SETUP.W_END); }
+  // 마크 셰이더 시계 — 세션 tickWaves 대신 이 두 장만 돌린다(랩은 rig 가 없다).
+  for (const m of [sL, sR]) { m._U.uTime.value = now; m._U.uDay.value = 1;
+    if (m.plane.material.blending !== THREE.NormalBlending) {
+      m.plane.material.blending = THREE.NormalBlending; m.plane.material.needsUpdate = true; } }
+  tickFlowArrows(now, null);
+
+  frameCam();
+  renderer.render(scene, camera);
+}
+tick();
+</script></body></html>
