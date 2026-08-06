@@ -19,6 +19,7 @@
     "preview:boxing": "node scripts/preview_scenes.mjs",
     "check:motion": "node scripts/check_mark_motion.mjs",
     "check:lang": "node scripts/check_mark_lang.mjs",
+    "check:beam": "node scripts/check_beam_fit.mjs",
     "check:content": "node scripts/check_content_fit.mjs"
   },
   "dependencies": {

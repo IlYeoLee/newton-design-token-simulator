@@ -740,6 +740,12 @@ const FOOT_Z = -0.75;          // 안정 영역 중심(= 밴드 0.64m 에 여유
 const FOOT_SWING = 0.30;       // 이 이상 벌리면 CONTENT 밴드를 벗어난다
 const FOLLOW_S = 1.0;   // 따라하기 발자국 배율(농구 지면 UI 공통)
 const SBZ = -3.13;      // 스텝백 마크 기준 z. 빌드·업데이트 양쪽에서 쓴다
+// ★ 스텝백이 창 안에 앉을 때 쓰는 **단일 반경**(m) = 존 원 반경. 발 잉크 반경(0.16)이 아니라
+//   이 값을 쓰는 이유: 목표 자리에는 발자국과 존 원이 **겹쳐** 놓이는데 둘을 다른 반경으로
+//   맞추면 창 가장자리에서 원만 안쪽으로 밀려 동심이 깨진다. 제일 바깥 물건 하나로 통일한다.
+//   (쿼드 반경 0.31 을 쓰면 무대가 통째로 사라진다 — 그 여백은 beamAlphaAt 소프트 페이드 몫이다.)
+const SB_FIT_R = ZONE.base;
+
 // 스탠스 링크 반쪽 최대 길이(m). ★ 이건 '보기 좋은 길이'가 아니라 **빔이 허락하는 길이**다 —
 //   메시가 빔 창(실측 0.383×0.643m) 밖으로 뻗으면 tickFlowArrows 의 양끝 알파 샘플이 0 을 잡아
 //   **선 전체가 안 보인다**(0.52 로 뒀다가 그대로 당했다: gain 0.62 인데 opacity 0.000).
@@ -889,7 +895,7 @@ export class Session {
     const one = (side, fm, ar) => {
       const q = P[side];
       fm.plane.rotation.z = 0;   // 스텝백 스탠스는 발이 평행(유저) — 기본 ±8° 벌림 해제
-      const p = this._beamLocal(q.u, q.v, H.mL);
+      const p = this._beamFit(q.u, q.v, SB_FIT_R, H.mL);   // 발 잉크 반경까지 창 안에
       // 착지 순간 래치 — 플랜트 시각을 지나면 1회 블룸 + 파문(따닥)
       // 영상이 되감겨 그 발이 다시 출발점으로 가면 래치를 푼다 — 안 그러면 파문이 첫 루프에만 뜬다.
       if (q.step && q.f < 0.2 && st[side] === q.plantT) { st[side] = -9; st['p' + side] = -9; }
@@ -951,8 +957,10 @@ export class Session {
       //   이제 자루가 출발점에 뿌리내리고 목표까지 자란다 = 선 하나가 곧 지시다.
       //   떨림 걱정(유저: 발 따라 움직이면 읽기 어렵다)은 구조가 해결한다 — 기준은 **구간 출발점**
       //   (q.su/q.sv, 구간 내내 고정)이지 매 프레임 움직이는 발이 아니다.
-      const sp = this._beamLocal(q.su, q.sv, H.mL);
-      const tp = this._beamLocal(q.tu, q.tv, H.mL);
+      // 화살표도 같은 규칙 — 출발·도착 둘 다 창 안이어야 그 사이 자루가 통째로 창 안이다
+      //   (볼록 영역이라 양 끝이 안이면 선분 전체가 안이다).
+      const sp = this._beamFit(q.su, q.sv, SB_FIT_R, H.mL);
+      const tp = this._beamFit(q.tu, q.tv, SB_FIT_R, H.mL);
       const dx = tp.x - sp.x, dz = tp.z - sp.z;
       const travel = Math.hypot(dx, dz);
       // 마크를 안 덮게 발 **폭** 절반만 비켜서 뿌리내린다(A2 스탠스 라인과 같은 여백 규약).
@@ -1032,6 +1040,34 @@ export class Session {
       m._gain += (0.62 - m._gain) * 0.18;
     };
     put(H.lkA, a); put(H.lkB, b);
+  }
+
+  /** 빔 창 안에 **반경까지 포함해서** 앉힌다 — 투사 영역 밖으로 나가는 것을 금지(유저 08-06).
+   *
+   *  왜 필요한가: 지금까지의 클램프(SB_BOX·sbU·sbV)는 전부 **원점**만 막았다. 마크는 중심이
+   *  창 안이어도 **몸이 밖으로 나간다** — 발 잉크 반경이 0.16m 인데 빔 반폭은 그 깊이에서
+   *  0.24~0.45m 밖에 안 된다. 화살표 주석(AR_MARGIN)이 이미 같은 병을 적어 놨었다:
+   *  "클램프는 원점만 막는데 메시는 진행 방향으로 더 뻗는다". 발마크·존 원은 그 처방을 못 받았다.
+   *
+   *  radius(m) 를 **그 깊이의 정규 단위**로 환산해 u·v 를 미리 좁힌다. 깊이마다 빔 반폭이
+   *  다르므로(1m 전진에 0.27m 씩 넓어진다) 정규 인셋도 깊이마다 다르다 — 상수로 두면 앞에선
+   *  모자라고 뒤에선 과하다.
+   *
+   *  ★ 반경은 **잉크**다(쿼드가 아니다). 쿼드 한 변 0.619m 는 파동·헤일로가 퍼질 여백까지
+   *    포함한 값이라(SIL_FIT 0.52 — "실루엣이 쿼드의 2/3만 쓴다") 그걸로 좁히면 무대가 통째로
+   *    사라진다. 여백은 이미 beamAlphaAt(pad) 소프트 페이드가 담당한다. */
+  _beamFit(u, v, radiusM, ref) {
+    const r = this.rig, fp = r?._fp;
+    if (!fp) return this._beamLocal(u, v, ref);
+    const M = 0.18;                                        // beamUV 와 같은 가장자리 페더 여유
+    const span = Math.max(0.05, r.fpFar - r.fpNear - M * 2);
+    const vIn = Math.min(0.45, radiusM / span);            // 앞뒤 인셋(정규)
+    const vv = Math.max(vIn, Math.min(1 - vIn, v));
+    const d = r.fpNear + M + span * vv;
+    const half = Math.max(0.05, r._halfAt(d) - M);
+    const uIn = Math.min(0.9, radiusM / half);             // 좌우 인셋(정규) — 깊이마다 다르다
+    const uu = Math.max(-1 + uIn, Math.min(1 - uIn, u));
+    return this._beamLocal(uu, vv, ref);
   }
 
   _beamLocal(u, v, ref) {

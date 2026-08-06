@@ -61,7 +61,7 @@
 
     <fieldset><legend>버전 비교 — 오늘 발자국 룩이 바뀐 지점</legend>
       <div class=seg id=segVer style="flex-wrap:wrap">
-        <button data-v=v0 class=on>09:25 (지금)</button><button data-v=v1>13:31 도트 그라디언트</button>
+        <button data-v=v03>08-02 (3일 전)</button><button data-v=v0 class=on>09:25 (지금)</button><button data-v=v1>13:31 도트 그라디언트</button>
         <button data-v=v2>13:40 섀도우 완화</button><button data-v=v3>14:28 상태 색·명도</button>
       </div>
       <div class=hint id=verHint style="margin-top:4px"></div>
@@ -370,6 +370,19 @@ $('ovClear').onclick = () => { delete OV[heroSlot]; syncUI(); rebuild(); persist
 //   유일한 방법이고 그게 이 랩의 존재 이유다. 각 항목은 그 커밋이 **실제로 바꾼 값만** 담는다
 //   (전체 룩 스냅샷이 아니다 — 스냅샷을 깔면 그 뒤의 다른 수정까지 되돌아간다).
 const VERSIONS = {
+  // ★ 3일 전(유저 요청) — 다른 항목과 달리 **전체 스냅샷**이다. 그래서 라벨에 그렇게 적는다.
+  //   근거: mark-look.json 은 08-03 에 커밋이 없다. 그날 화면에 떠 있던 값은 08-02 14:17
+  //   `fa2e8d6 발자국 헤일로 완화 + 룩2 페이드 흙탕 밴드 제거` 가 마지막이다 — 그게 이 값이다.
+  //   지금과 23개 키가 다르다. 큰 것만: 세기 0.98→0.7 · 도트 0.25→0.34 · 글로우 0.26→0
+  //   · 섀도우 0.3→0 · 이너섀도우 0.34→1.4 · 파동 0.5→0(제거) · 헤일로 0.45→0.3 · 폭 1.6→0.95.
+  //   ⚠ 되돌리면 그 뒤 사흘의 수정도 같이 사라진다(스냅샷의 대가). 눌러서 **보는** 용도다.
+  v03: { label: '08-02 14:17 (3일 전) — 전체 스냅샷 · 파동 있고 헤일로 넓고 이너섀도우 얕던 때',
+         P: { imp: 0.98, scale: 0.83, offx: -0.043, offy: -0.031, dot: 0.25, glow: 0.26,
+              shade: 0.3, sharp: 0.74, plantar: 0.84, w: 1.6, halo: 0.45, pool: 0.82,
+              rip: 0.5, ripReach: 0.5, ripWidth: 0.125, edgeShade: 0.34, edgeShadeW: 4,
+              shadeRedW: 3.4, gsize: 0.8, gx: -0.085, gy: 0.16, shadeCol: 1,
+              bloom: 0.125, blur: 0, dotMode: 0 },   // dotMode 0 = 도트 그라디언트 실험 이전
+         states: null },
   v0: { label: '09:25 — 단색 순백 도트 · 이너 섀도우 1.4/4 (유저가 더 좋다고 한 저장본)',
         P: { edgeShade: 1.4, edgeShadeW: 4, dotMode: 0 }, states: null },
   v1: { label: '13:31 — 각인 도트를 압력 온도 그라디언트로(주황→연주황). 각인이 필에 녹는다',
