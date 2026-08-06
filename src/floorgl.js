@@ -15,6 +15,8 @@ import { PAL, NEU, rgba } from './palette.js';
 import FLOOR_TOK_JSON from './floor-tokens.json';
 // 스테이지 타이밍 정본 — 홀드/시범 초는 여기 하나에서만 나온다(구: 세 파일에 각각 하드코딩).
 import { stageTime } from './marklang.js';
+// A2 홀드 진행 — '모름(null)'을 0 으로 뭉개지 않는 표. 링이 3 에 멈춰 있던 원인.
+import { a2Hold, a2Rem } from './a2hold.js';
 
 const W = 1600, H = 2670;
 const _mp = new THREE.Vector3(), _mf = new THREE.Vector3(), _mr = new THREE.Vector3();   // uiMask 임시   // 대지 px (floor-scene.html과 동일)
@@ -948,7 +950,16 @@ const ADV = {
   //   "이 시간 안에 양발" 이 되어 페이스가 사용자에게 남는다 — 유저 판단도 같다(강제보다 전체시간).
   //   어느 발인지는 **발자국이 켜지는 것**과 타이틀 접두사(RIGHT/LEFT)가 이미 말한다.
   //   순서는 오른발 → 왼발 (main.js a2Cyc.isLeft).
-  A1: 'time', A2: 'time', A3: 'time',
+  //   ★★ 되돌린다: A2 = **'hold'** (CAPS 원래 값과 같다). 위 'time' 결정(02:48)과 그 뒤의
+  //     "무조건 3·2·1"(07:52, 유저) 이 **서로를 무효화하고 있었다** — 'time' 이면 showRing 이
+  //     false 라 링이 접혀 사라지는데, 그 사라진 링에 3·2·1 을 하드코딩해 넣고 있었다.
+  //     값은 맞게 들어가는데 그릴 그릇이 없으니 화면엔 아무 변화가 없었고, 그래서 "아직도
+  //     3 에서 멈춰 있다"가 반복됐다(유저 08-06).
+  //     'hold' 면 규약이 스스로 맞는다: 링 = 그 홀드 남은 초 · 아크는 꺼진다(showArc 는
+  //     'time' 에서만) → **한 장면에 시간 표시는 하나** 도 지켜진다.
+  //     위 'time' 의 걱정(발 교대를 명령한다)은 남지만, 3초 버티기에서 '몇 초 남았나'는
+  //     명령이 아니라 그 동작 자체다 — 그게 없으면 언제 힘을 빼는지 알 수 없다.
+  A1: 'time', A2: 'hold', A3: 'time',
   P1: 'time', P2: 'segment', P3: 'segment',
   C1: 'count', C2: 'time', C3: 'time', C4: 'distance', C5: 'none',
   BK_A1: 'time', BK_A3: 'time', BK_B1: 'reps',
@@ -1860,9 +1871,12 @@ export class FloorGL {
     // ★ A2 는 **무조건 3·2·1**(유저: 아직도 5,2,1 이 나온다 — 하드코딩이라도 해라).
     //   한 발 홀드가 3초인데 링이 관찰 카운트·스테이지 카운트와 소스를 오가며 5 가 샜다.
     //   이 스테이지에선 다른 소스를 아예 안 본다 — 홀드 진행도 하나로만 센다.
-    if (this.stage === 'A2') {
-      const q = clamp01(hp ?? 0);
-      return { AV, prog: 1 - q, rem: String(Math.min(3, Math.max(1, Math.ceil(3 * (1 - q))))) };
+    // ★ **hp 가 있을 때만** 이 분기를 탄다. 예전엔 `hp ?? 0` 이라 값이 없어도 '3' 을
+    //   그럴듯하게 찍었다 — 관찰 구간에도, 세션 없는 갤러리·익스포터에서도 3 이었다.
+    //   hp 가 null 이면 아래로 흘러 관찰 카운트(inPv)나 스테이지 잔여로 간다.
+    if (this.stage === 'A2' && hp != null) {
+      const q = clamp01(hp);
+      return { AV, prog: 1 - q, rem: a2Rem(q) };
     }
     if (perFoot) {   // A2 한 발 홀드 — 봇 사이클(a2Cyc)이 정본. 발이 바뀌면 리셋된다.
       return { AV, prog: stageRest + ((1 - hp) - stageRest) * (pfK ?? 1),
@@ -3124,7 +3138,10 @@ export class FloorGL {
     // ★ 기본값 5 → 3 (유저: 3,2,1 이어야 하는데 5 가 나온다). 홀드는 3초(main HOLD=3.0)인데
     //   관찰 구간의 a2Cyc 는 {watching, watchProg} 뿐이라 holdSec 이 없다 — 전환 프레임에
     //   perFoot 이 켜지면 이 기본값 5 가 그대로 링에 찍혔다. 기본값도 홀드와 같게 맞춘다.
-    const hs = cyc?.holdSec ?? stageTime('A2').hold, hp = cyc?.inHold ? clamp01(cyc.prog) : 0;   // 정본: marklang.STAGE_TIME
+    // ★ hp 는 **null 이 될 수 있다** — 관찰 구간이거나 세션이 없을 때(갤러리·익스포터).
+    //   예전엔 그 경우를 0 으로 뭉갰는데 0 = '홀드 막 시작' 이라 링이 3 으로 되돌아갔다.
+    //   근거·표는 src/a2hold.js · 검사는 scripts/check_a2_hold.mjs
+    const hs = cyc?.holdSec ?? stageTime('A2').hold, hp = a2Hold(cyc);   // 정본: marklang.STAGE_TIME
     //   ★★★ 단, **모프가 끝난 뒤에** 붙인다(유저: 전환 애니메이션 때 글자가 삐져나온다).
     //     접두사가 모프 시작과 동시에 들어오면 한 프레임에 두 가지가 바뀐다 — 형태(원형→알약)와
     //     문구(12자→17자). 폭 목표가 점프하고, 프리뷰 폭 900 에 안 들어가 1줄이 2줄로 쪼개지면서
