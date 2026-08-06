@@ -4223,9 +4223,15 @@ void main(){
         //   바퀴에 2초뿐이고 나머지는 관찰(=마크 숨김)이었다. 실측: latch(따라하기 진입)가
         //   t6.0~7.6 에만 true. 필요한 길이를 여기서 알려 주면 아래 루프가 그만큼 늘린다.
         session._a2LoopNeed = A2_WATCH + 2 * CYC;   // 관찰 + 좌우 1렙씩
+        //   ★ **오른발 먼저**(유저 08-06) — 첫 사이클이 왼발이었다. 짝수 회차 = 오른발.
+        const _isL = (Math.floor(tt / CYC) % 2) === 1;
         session.a2Cyc = { inHold: c >= DESC && c < DESC + HOLD, prog: Math.max(0, Math.min(1, (c - DESC) / HOLD)),
-          //   ★ **오른발 먼저**(유저 08-06) — 첫 사이클이 왼발이었다. 짝수 회차 = 오른발.
-          holdSec: HOLD, isLeft: (Math.floor(tt / CYC) % 2) === 1, descending: c < DESC };
+          // ★★ 두 발은 **다른 이름**을 갖는다 — 이 구분이 없어서 자막과 타이머가 엉뚱한 발에 붙었다.
+          //   isLeft   = 앞으로 **내딛는**(무릎 굽히는) 발 = 그 차례 발. 봇 미러 패리티와 짝이다.
+          //   workLeft = **늘어나는 종아리** 쪽 = 뒷발(뒤꿈치를 눌러 버티는 발).
+          //   자막(LEFT/RIGHT CALF STRETCH) · 홀드 링 · 카운트다운 · Success 는 전부 workLeft 를 본다.
+          //   소비자가 각자 `!isLeft` 를 하면 언젠가 한 곳이 빠진다(실제로 자막이 그랬다).
+          holdSec: HOLD, isLeft: _isL, workLeft: !_isL, descending: c < DESC };
         }
       }
       // A1 옆구리 = hj_sidebend(26s 루틴) 루프. 자연 속도는 코치 영상(핑퐁 6.9s 주기)보다 느려

@@ -2335,7 +2335,9 @@ export class Session {
       //   뒤꿈치를 누르고 버티는 **뒷발**이다. 앞발에 홀드 링·5초 숫자를 붙이면 화면이
       //   "이 발을 앞으로 내딛고 5초"라고 말하는데, 이 동작의 목적은 "이 발의 종아리를 5초 늘려라"다.
       //   (이 파일은 이미 '뒷발 = 이 운동의 주인공'이라 적고 파문만 뒷발에 주고 있었다 — 절반만 맞았다.)
-      const work = fmBack, stance = fmFront;                       // work = 늘어나는 발 · stance = 딛고 받치는 발
+      //   정본은 a2Cyc.workLeft 하나다(main.js) — 소비자가 각자 `!isLeft` 하면 한 곳이 빠진다.
+      const _wL = cyc?.workLeft ?? !isL;
+      const work = _wL ? P.fmL : P.fmR, stance = _wL ? P.fmR : P.fmL;   // work = 늘어나는 발(뒷발) · stance = 받치는 발
       const workNum = work === P.fmL ? P.numL : P.numR;
       const stanceNum = stance === P.fmL ? P.numL : P.numR;
       const workDone = work === P.fmL ? P._doneL : P._doneR;       // 완료 플래그도 '늘어난 발' 기준
