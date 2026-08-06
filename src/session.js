@@ -2469,21 +2469,11 @@ export class Session {
     //   발자국을 세우지 않는다. 지면만 발 두 짝이 서 있으면 세 화면이 다른 물건으로 읽힌다.
     //   '두 번 탭'은 이미 CTA 문구 + 하단 광의 톡·톡 두 번(floorgl tapB)이 말하고 있다.
     //   되살리려면 floorgl 의 READY_OPT.feetTokens 를 true 로.
-    // ★ 최종확정 안(READY_OPT.final)에는 발자국이 **있다** — 피그마 423:3478 '2안' 하단.
-    //   대신 구간이 다르다: 기존 안은 인물 화면(0.25~2.2s)의 CTA 옆, 최종확정은 CTA 가
-    //   숫자 화면과 한 몸이라 2.9s 부터 루프 끝까지 서 있는다(floorgl _paint_ready_final 의 p3).
-    if (!READY_OPT.feetTokens && !READY_OPT.final) { F.forEach(f => { f.group.visible = false; }); return; }
+    // ★ 최종확정 안(READY_OPT.final)에는 발자국이 있지만 **캔버스가 그린다** — 피그마
+    //   423:3483 이 십자 가이드선과 한 그룹으로 묶어 놓은 물건이라(좌표·크기가 그 그룹에서
+    //   나온다) 3D 토큰으로 쪼개면 둘이 어긋난다. 여기선 3D 를 끈다 — 같은 물건 두 벌 금지.
+    if (!READY_OPT.feetTokens || READY_OPT.final) { F.forEach(f => { f.group.visible = false; }); return; }
     const tl = this.readyPhase != null ? this.readyPhase : (this.t % 8);   // 지면 UI 와 같은 시계(main 이 넘긴다)
-    if (READY_OPT.final) {
-      const a2 = Math.min(1, Math.max(0, (tl - 2.9) / 0.5));
-      F.forEach(f => {
-        f.group.visible = a2 > 0.01;
-        if (!f.group.visible) return;
-        f.tapHint(this.t);
-        f.op(f._U.uFade.value * a2);
-      });
-      return;
-    }
     // ★ 하단 슬롯 타임라인 = floorgl _paint_ready 의 **CTA 구간**과 한 몸이다. 발자국은
     //   'Tap Twice' 양옆에 서는 물건이라 CTA 가 없는 시각에 뜨면 뜬금없다.
     //   순서 재배치(08-05, 피그마 379:3282→377:3060→379:3364) 로 CTA 가 **0.25~2.2s** 로

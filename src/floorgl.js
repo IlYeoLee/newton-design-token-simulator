@@ -2411,8 +2411,12 @@ export class FloorGL {
    *    ③ 세로 알파 마스크(--mask-in ~ --mask-out) → 머리 위는 스며들 듯 시작하고, 글자가
    *       시작하기 전에 사라진다. sean 22%~86% · curry 31.25%~86%.
    *  @param box   {x,y,w,h,r} 카드 박스 — 피그마 실측을 그대로 넣는다
-   *  @param clipFn 있으면 카드 위에 한 겹 더 클립(캡슐 안 가두기). 최종확정 안엔 캡슐이 없다. */
-  _readyPerson(bk, box, alpha, clipFn) {
+   *  @param clipFn 있으면 카드 위에 한 겹 더 클립(캡슐 안 가두기). 최종확정 안엔 캡슐이 없다.
+   *  @param feather 0 이면 없음. 카드 반지름의 몇 배를 가장자리 페더로 쓸지 —
+   *    캡슐이 있던 기존 안은 0(캡슐 곡선이 경계를 설명한다). 최종확정 안은 캡슐이 없어
+   *    타원이 그냥 잘려 보인다(유저: '동그랗게 하단 잘린 거'). 피그마 sean-card 의
+   *    inset 0 4 4 **70px** 그림자가 그 자리에 있던 물건이라 그 폭(70/539)에서 시작한다. */
+  _readyPerson(bk, box, alpha, clipFn, feather = 0) {
     const ctx = this.ctx;
     if (alpha <= 0.004) return;
     const CLIP = bk
@@ -2464,6 +2468,21 @@ export class FloorGL {
     //   아래 곡선은 카드 라운드 클립이 만들므로 마스크로 흐릴 이유가 없다.
     mg.addColorStop(1, 'rgba(0,0,0,1)');
     og.fillStyle = mg; og.fillRect(0, 0, OW, OH);
+    // ★ 가장자리 페더(최종확정 안 전용) — 세로 마스크는 위/아래만 다루므로 **옆구리**가
+    //   그대로 잘린다. 카드 타원 안쪽으로 한 겹 더 깎아 광 속으로 녹아들게 한다.
+    //   destination-in 이라 타원 밖은 같이 사라진다 = 라운드 클립을 대신한다.
+    if (feather > 0) {
+      og.save();
+      og.translate(OW / 2, OH / 2); og.scale(1, OH / OW);
+      const R = OW / 2;
+      const rg = og.createRadialGradient(0, 0, 0, 0, 0, R);
+      rg.addColorStop(0, 'rgba(0,0,0,1)');
+      rg.addColorStop(Math.max(0, 1 - feather), 'rgba(0,0,0,1)');
+      rg.addColorStop(1, 'rgba(0,0,0,0)');
+      og.fillStyle = rg;
+      og.beginPath(); og.arc(0, 0, R, 0, Math.PI * 2); og.fill();
+      og.restore();
+    }
     og.globalCompositeOperation = 'source-over';
     ctx.save();
     ctx.globalAlpha *= alpha;
@@ -3107,13 +3126,17 @@ export class FloorGL {
   //   ★ 기존 안과의 차이 셋:
   //     ① 캡슐(유리판·림)이 **없다**. 인물이 광 위에 그냥 뜬다 — '더 시원하게'(유저).
   //     ② 광이 4겹(subtract/hl1/hl2/ell) → **한 겹**. 대신 크다: 1682×1963 (기존 1288×1709).
-  //        f1 램프는 커리(#920F0F→FA3030→FF9E2C→D1FEFF) · f2 는 뉴턴(FA3030→FE6E3C→FEC389→D1FEFF)
-  //        — 피그마 익스포트 stop 이 기존 glow-ell-bk / glow-ell-newton 과 **바이트 동일**이고
-  //        경로·블러만 다르다(그래서 새 파일로 박제, 스케일로 때우지 않는다).
   //     ③ 타이포가 크다: 타이틀 117.6 → **130**, 숫자 336 → **384**, CTA 74 → **80.7**.
   //   ★ 아크 차트·배터리 칩·연결/코치 프로필은 이 안에 **없다**(피그마에 없다).
-  //   ★ 발자국은 여기서 안 그린다 — 3D FootMark 토큰(session.js _readyFeetTick)이 정본이고,
-  //     같은 READY_OPT.final 을 본다. 피그마의 십자 가이드선은 미구현(3D 발과 정렬이 안 맞는다).
+  //
+  //   ★★ 1안 광의 **색은 종목이 정한다**(유저 08-07). 피그마 최종확정 프레임은 션인데
+  //     디자이너가 '커리' 컬러 스타일을 붙여 놨다(익스포트 stop 이 glow-ell-bk 와 바이트 동일).
+  //     션은 션 램프(FA3030→FF9E2C→FEC389→D1FEFF)로 되돌린다.
+  //     션 에셋(glow-ell-f1-run.svg)은 눈으로 맞춘 게 아니라 **구→신 변환을 그대로 적용**해
+  //     만들었다: 커리 구(1288.36×1709.36) → 신(1682.31×1962.63) 이 그라디언트 핸들을
+  //     x1.4587 · y1.1878 로 늘리고 중심은 도형좌표(블러 패드 제외)에 같은 배율을 곱한다.
+  //     같은 식을 션 핸들 matrix(0 1368.94 -963.912 4.17334 645.451 374.729) 에 먹였다.
+  //     ※ paint1(프리즘 림)은 두 램프가 원래 동일 — 손대지 않았다.
   _paint_ready_final() {
     const ctx = this.ctx;
     const LOOP = 8, TP2 = 2.0, TP_CTA = 2.9;   // 0~2 인물 · 2~ 숫자 · 2.9~ CTA(2안은 숫자와 한 화면)
@@ -3146,7 +3169,7 @@ export class FloorGL {
     //   블렌드 없음(normal) — 최종확정 노드엔 mix-blend 가 안 걸려 있다. 기존 안의 hard-light 는
     //   4겹을 서로 태우려던 것이고, 한 겹만 쓰는 지금은 에셋 색이 그대로 나와야 맞다.
     for (const [rel, gx, gy, gw, gh, la] of [
-      ['glow-ell-f1.svg', -17.61, 252.20, 1682.31, 1962.63, q],
+      [bk ? 'glow-ell-f1.svg' : 'glow-ell-f1-run.svg', -17.61, 252.20, 1682.31, 1962.63, q],
       ['glow-ell-f2.svg', 130.36, 1081.35, 1341.36, 1261.36, p2],
     ]) {
       if (la <= 0.004) continue;
@@ -3166,7 +3189,12 @@ export class FloorGL {
 
     // ── ② 인물 — 피그마 415:3861 'sean-card 1' 1078×1050 @(337,969) r495, mix-blend-plus-lighter.
     //   레시피는 _readyPerson 정본(기존 안과 같은 물건). 캡슐이 없으니 clipFn 도 없다.
-    this._readyPerson(bk, { x: 337, y: 969, w: 1078, h: 1050, r: 495 }, e0(.30, .9) * q);
+    //   페더 = 피그마 카드의 inset **70px** 그림자 폭(70 / (1078/2) = 0.13)이 기본이다.
+    //   ★ 션만 0.22 로 넓힌다 — 소스(sean-card.mp4)가 전신 컷아웃이 아니라 **흉상**이라
+    //     상의가 타원 끝까지 꽉 차서 0.13 으로는 '동그랗게 잘린' 선이 그대로 보였다(유저).
+    //     커리는 컷아웃이라 넓히면 오히려 발끝이 먹힌다(실측) → 피그마 값 유지.
+    this._readyPerson(bk, { x: 337, y: 969, w: 1078, h: 1050, r: 495 },
+                      e0(.30, .9) * q, null, bk ? 0.13 : 0.22);
 
     // ── ③ 뱃지 — 254.36×114.68 r12, 흰 20% 면 + 흰 글자. **타이틀 위**로 올라왔다(기존 안은 아래).
     //   글자 크기는 인스턴스 스케일을 되돌린 실측: (114.68 − 15.84*2) / 1.4 = 59.3.
@@ -3197,44 +3225,79 @@ export class FloorGL {
     if (p2 > 0.01) {
       ctx.save(); ctx.globalAlpha *= p2;
       ctx.translate(0, (1 - p2) * 26);
-      const NCX = 800, NTOP = 630;
-      // 숫자 자체를 가운데(유저 확정) · 단위는 숫자 실폭에서 파생 — 자릿수가 바뀌어도 따라온다.
-      // ponytail: 소수점이 있는 값('5.0')만 자간을 조인다. 도트 폰트의 마침표가 숫자만큼 큰
-      //   사각 점이라 그대로 두면 점이 튄다(기존 안이 336/-14 로 눌러 두던 그 문제).
-      //   크기까지 줄이지는 않는다 — 최종확정은 '큼직하게'가 요지다. 더 튀면 여기가 노브.
-      ctx.letterSpacing = (/\./.test(String(R2.total)) ? -16 : -9.05) + 'px';
+      // 피그마 423:3634 블록 실측: x596 y630, gap 44. 왼칸 448 폭 가운데정렬 → 숫자 중심 820.
+      //   숫자 top 630 · 'Pace On' 1097(중심 1157.5) · km 칸 x1088, 텍스트 중심 748.5.
+      //   단위 x 는 하드코딩하지 않고 숫자 실폭에서 파생한다 — '30' 이면 820+224+44 = 1088 로
+      //   피그마와 정확히 같고, '5.0'·'45' 처럼 폭이 달라져도 간격 44 가 유지된다.
+      const NCX = 820, NTOP = 630;
+      ctx.letterSpacing = '-9.05px';   // 피그마 값 그대로
       const nw = rollNum(ctx, R2.total, t, TP2 + LEAD, TRAVEL - LEAD, NCX, NTOP, 384,
                          { fam: dot9, align: 'center', fill: NEU.ink });
       ctx.letterSpacing = '0px';
       ctx.textAlign = 'left';
       ctx.fillStyle = 'rgba(255,255,255,.5)'; ctx.font = RF(700, 64); ctx.letterSpacing = '-1.51px';
-      ctx.fillText(R2.unit || 'min', NCX + nw / 2 + 44, NTOP + 118.5);   // gap 44 · 숫자 상단 기준(피그마)
+      ctx.fillText(R2.unit || 'min', NCX + nw / 2 + 44, 748.5);
       ctx.letterSpacing = '0px';
       // 부제는 타이틀·숫자가 앉은 **뒤에** 붙는다(한 덩어리로 튀어나오지 않게).
       const SUB2 = eOut(intro(t, TP2 + .18, .55));
       if (SUB2 > 0.01) {
         ctx.save(); ctx.globalAlpha *= SUB2;
         ctx.textAlign = 'center';
-        ctx.fillStyle = 'rgba(255,255,255,.6)'; ctx.font = RF(400, 100.5); ctx.letterSpacing = '-3.16px';
-        ctx.fillText(R2.sub, 800, 1157.5 + (1 - SUB2) * 18);
+        ctx.fillStyle = 'rgba(255,255,255,.6)'; ctx.font = RF(400, 100.508); ctx.letterSpacing = '-3.1583px';
+        ctx.fillText(R2.sub, NCX, 1157.5 + (1 - SUB2) * 18);
         ctx.letterSpacing = '0px'; ctx.restore();
       }
       ctx.restore();
     }
 
-    // ── ⑥ CTA — 화살표 + 'Tap your foot Twice'. 2안에선 숫자와 **같은 화면**이라 CTA 는
-    //   숫자가 도착한 뒤에 붙는다. 발자국은 3D 토큰이 그린다(session.js).
+    // ── ⑥ CTA — 화살표 + 'Tap your foot Twice' + 십자 가이드 + 발자국 두 짝.
+    //   2안에선 숫자와 **같은 화면**이라 CTA 는 숫자가 도착한 뒤에 붙는다.
     const p3 = e0(TP_CTA, .5);
     if (p3 > 0.01) {
+      const dy = rise(TP_CTA, .5, 14);
       ctx.save(); ctx.globalAlpha *= p3 * (.9 + .1 * tapB);
       // 화살표 — fig/arrow.svg 가 피그마 arrow-right 인스턴스와 같은 컴포넌트(뷰박스 81.25×64.58).
       //   박스 85.778 → 아이콘 leaf 인셋 12.5%/20.83% → 블리드 4.17%/5.36% = 69.70×55.40.
       const ar = this._img('fig/arrow.svg');
-      if (ar) ctx.drawImage(ar, 742.65, 1384.19 + rise(TP_CTA, .5, 14), 69.70, 55.40);
+      if (ar) ctx.drawImage(ar, 742.65, 1384.19 + dy, 69.70, 55.40);
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.fillStyle = NEU.ink; ctx.font = RF(700, 80.74); ctx.letterSpacing = '-5.76px';
-      ctx.fillText('Tap your foot Twice', 780.65, 1565.5 + rise(TP_CTA, .5, 14));
-      ctx.letterSpacing = '0px'; ctx.restore();
+      ctx.fillText('Tap your foot Twice', 780.65, 1565.5 + dy);
+      ctx.letterSpacing = '0px';
+
+      // ── 십자 가이드 (피그마 423:3483) — **점선**이다: 흰 그라디언트 스트로크 2.8px,
+      //   대시 4.8/4.8, mix-blend-mode: soft-light. 에셋 대신 그린다 — 선 두 개와 점 다섯
+      //   개뿐이고, SVG 로 넣으면 대시가 리샘플링돼 오히려 흐려진다.
+      //   ※ 세로선(x793.49)과 가로선(중앙 800 기준 폭 612)이 서로 안 겹치는 건 피그마 그대로다.
+      ctx.save();
+      ctx.globalCompositeOperation = 'soft-light';
+      ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = 2.8; ctx.setLineDash([4.8, 4.8]);
+      ctx.beginPath();
+      ctx.moveTo(793.49, 1716.99 + dy); ctx.lineTo(793.49, 1971.50 + dy);   // 세로 254.514
+      ctx.moveTo(494, 1853.96 + dy);    ctx.lineTo(1106, 1853.96 + dy);     // 가로 612
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.restore();
+      ctx.fillStyle = '#FFFFFF';
+      // 끝점 4 개(지름 9.981) + 중앙 점(지름 8) — 블렌드 없음(피그마도 없다)
+      for (const [cx, cy, r] of [[793.49, 1716.99, 4.99], [522.99, 1854.20, 4.99],
+                                 [1066.95, 1854.20, 4.99], [793.49, 1969.01, 4.99],
+                                 [794, 1853.95, 4]]) {
+        ctx.beginPath(); ctx.arc(cx, cy + dy, r, 0, Math.PI * 2); ctx.fill();
+      }
+
+      // ── 회색 발자국 두 짝 (피그마 423:3491 / 423:3499) — 94.751×228.779.
+      //   왼발 @600.00 · 오른발 @991.26, 둘 다 y1738.58. 오른발은 **왼발을 좌우 반전**한 것
+      //   (피그마 CSS: rotate(180) + scaleY(-1) = 좌우 미러). 에셋 한 벌이면 된다.
+      //   에셋 자체가 흰 65% 라 따로 칠하지 않는다.
+      const ft = img('foot-final.svg');
+      if (ft) {
+        const FW = 94.751, FH = 228.779, FY = 1738.58 + dy;
+        ctx.drawImage(ft, 600.00, FY, FW, FH);
+        ctx.save(); ctx.translate(991.26 + FW, FY); ctx.scale(-1, 1);
+        ctx.drawImage(ft, 0, 0, FW, FH); ctx.restore();
+      }
+      ctx.restore();
     }
     ctx.restore();
   }
