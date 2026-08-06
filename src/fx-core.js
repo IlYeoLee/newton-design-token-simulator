@@ -395,7 +395,9 @@ uniform float uPCoral;
 //     **uPHiPale = 0 이면 도입 전과 픽셀 동일**(롤백 지점) — 이 리포의 유니폼 규약 그대로다.
 uniform vec4 uHotE;
 uniform vec3 uGaze;        // 시선 토큰(xy 중심 · z 반경). z<=0 = 끔
-uniform float uHot, uPHiPale;
+//   uPHiHot = 강조 부위 대역 상단. **낮을수록 쨍하다**(위 uPHi 주석의 실측) — 강조는
+//     '지금 색 그대로'가 아니라 **더 붉게** 가야 한다(유저: 엄청 메인컬러로 변하면서).
+uniform float uHot, uPHiPale, uPHiHot;
 //   프래그먼트 전역 — 호출 체인(personLook → personColor)이 uv 를 안 물고 다닌다.
 //   호스트 main() 이 첫머리에 gHot = hotAt(uv) 로 세운다. 안 세우면 0 = 종전 동작.
 float gHot = 0.0;
@@ -405,7 +407,7 @@ float hotAt(vec2 uv){
   return uHot * (1.0 - smoothstep(0.55, 1.0, length(d)));   // 가장자리는 부드럽게 — 하드 원은 스티커로 읽힌다
 }
 /** 이 프래그먼트가 쓸 대역 상단. uPHiPale 0 = 기능 끔. */
-float pHi(){ return uPHiPale > 0.0 ? mix(uPHiPale, uPHi, gHot) : uPHi; }
+float pHi(){ return uPHiPale > 0.0 ? mix(uPHiPale, uPHiHot > 0.0 ? uPHiHot : uPHi, gHot) : uPHi; }
 /** 시선 토큰 — dab2n setup-injury 의 '흰 코어 + 주황 헤일로' 그대로. 인물 **위에** 얹는다.
  *  인물 알파에 안 갇힌다(몸 밖으로 나가도 보여야 지시가 된다). */
 vec4 gazeToken(vec2 uv, float t){

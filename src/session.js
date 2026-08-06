@@ -3397,7 +3397,7 @@ export class Session {
           this._say('bkc2shot', '커리', '그거예요 — 슛! 오늘 내 무브, 완전히 가져갔네요.'); }
         if (this.bkShotNow && this.t - (this._shotT ?? 0) > 1.6) { this.bkShotNow = false; this.next(); return; }
       }
-      const BEATN = { BK_T1: ['① 딛고', '② 빠지고', '③ 모으고', '④ 이게 전부예요'],
+      const BEATN = { BK_T1: ['통째로 한 번 볼게요', '오른발 — 크로스', '왼발 — 뒤로', '모아서 올라가기'],
         BK_B2: ['① 준비', '② 오른발 크로스', '③ 공은 반대로!', '④ 왼발 버팀'],
         BK_B3: ['① 준비', '② 왼발로 밀어', '③ 뒤로 쓱!', '④ 두 손으로 잡기'],
         BK_B4: ['① 준비', '② 오른발 모으고', '③ 수직으로!', '④ 슛!'],
@@ -3408,7 +3408,9 @@ export class Session {
       //   벽시계로 재지 않는 이유는 기존 규약과 같다: 배속·버퍼링에 어긋난다.
       if (id === 'BK_T1') {
         this.repTotal = 0; this.repLeft = 0; this.repFrac = 0;   // 셀 게 없다 = 링 안 켬(floorgl showRing)
-        FMU(BEATN[Math.min(3, H.beat)], CS.sand);
+        // 지면 문구도 **같은 비트**를 따른다 — 화면 글자와 코치 목소리가 다른 걸 말하면 안 된다.
+        //   _hotSaid 는 main.js tickHotVoice 가 세우는 지금 비트 번호다(-1 = 아직 시작 전).
+        FMU(BEATN[Math.min(3, (this._hotSaid ?? -1) + 1)], CS.sand);
         if ((this._pvLoops ?? 0) >= 1) { this.next(); return; }
         return;
       }

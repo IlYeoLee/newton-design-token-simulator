@@ -2665,7 +2665,7 @@ void main(){
         uPInk: { value: 0.85 }, uPInkT: { value: 0.42 }, uPulse: { value: 0.0 }, uEnter: { value: 99 },
         // 주목 강조(스텝백 가이드) — 기본 전부 0/끔 = 도입 전과 픽셀 동일. setHotspot 이 주입한다.
         uHotE: { value: new THREE.Vector4(0, 0, 0, 0) }, uGaze: { value: new THREE.Vector3(0, 0, 0) },
-        uHot: { value: 0 }, uPHiPale: { value: 0 } },
+        uHot: { value: 0 }, uPHiPale: { value: 0 }, uPHiHot: { value: 0 } },
       vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
       fragmentShader: `
         varying vec2 vUv; uniform sampler2D map, uLUT, uField, uFieldN; uniform float uTime, uCropOff, uCropScale, uPulse, uReady, uDetail, uEnter;
@@ -2920,28 +2920,55 @@ void main(){
   let _HOT = null;
   fetch(import.meta.env.BASE_URL + 'stepback-hotspots.json').then(r => r.ok ? r.json() : null)
     .then(j => { _HOT = j; }).catch(() => {});
-  /** 영상 시각 → 그 프레임의 강조 타원(움직이는 발)과 시선 토큰(공). 선형 보간. */
-  function hotAtTime(vt) {
+  /** 지금 영상 시각이 속한 **비트**. 비트는 시작(tOn)에 생겨서 다음 비트 시작까지 산다.
+   *  ★ 강조는 사람을 **따라다니지 않는다**(유저 08-06). 동작이 시작되면 '봐야 할 자리' 하나가
+   *    생기고, 그 자리는 **도착 지점에 고정**이다 — 그래야 눈이 먼저 가 있고 발이 거기로 온다.
+   *    따라다니면 시선은 늘 뒤늦고, 화면에는 '움직이는 얼룩'만 남는다(직전 시도가 그랬다). */
+  function beatAt(vt) {
     if (!_HOT || vt == null) return null;
-    const P = _HOT.pts, t = Math.max(_HOT.t0, Math.min(_HOT.t1, vt));
-    let i = 0; while (i < P.length - 2 && P[i + 1].t <= t) i++;
-    const a = P[i], b = P[i + 1] || a;
-    const k = b.t > a.t ? (t - a.t) / (b.t - a.t) : 0, L = (p, q) => p + (q - p) * k;
-    return { fx: L(a.foot[0], b.foot[0]), fy: L(a.foot[1], b.foot[1]),
-             gx: L(a.gaze[0], b.gaze[0]), gy: L(a.gaze[1], b.gaze[1]), r: L(a.r, b.r) };
+    const B = _HOT.beats;
+    let cur = null;
+    for (let i = 0; i < B.length; i++) if (vt >= B[i].tOn - 1e-6) cur = B[i];
+    if (!cur) return null;
+    // k = 이 비트의 무르익음. 시작 0 → 도착 1 → 그 뒤 유지.
+    const k = Math.max(0, Math.min(1, (vt - cur.tOn) / Math.max(0.05, cur.tLand - cur.tOn)));
+    // 도착 순간의 '딱' — 도착 전후 0.12s 동안 토큰이 한 번 커졌다 제자리로. 이게 붙는 소리다.
+    const pop = Math.max(0, 1 - Math.abs(vt - cur.tLand) / 0.12);
+    return { b: cur, k, pop };
   }
-  /** 코치 판에 강조를 주입. FXP.hot 이 없거나 0 이면 전부 꺼진 채(= 도입 전과 픽셀 동일) 나간다. */
+  /** 코치 판에 강조를 주입. FXP.hot.on = 0 이면 전부 꺼진 채(= 도입 전과 픽셀 동일) 나간다. */
   function setHotspot(co, vt) {
     const U = co?.plane?.material?.uniforms; if (!U?.uHotE) return;
     const cfg = FXP.hot || {};
-    const on = cfg.on ?? 1, h = hotAtTime(vt);
-    if (!on || !h) { U.uHot.value = 0; U.uPHiPale.value = 0; U.uGaze.value.set(0, 0, 0); return; }
-    // 연핑크 대역 상단. LUT 는 T=1 이 ICE(거의 흰빛)라 uPHi(0.86)보다 위로 올리면 전신이 연해진다.
-    U.uPHiPale.value = cfg.pale ?? 0.97;
-    U.uHot.value = cfg.k ?? 1;
-    // 타원은 발을 따라간다. 세로가 조금 더 긴 건 발+정강이를 함께 물어야 '다리'로 읽히기 때문.
-    U.uHotE.value.set(h.fx, h.fy, h.r * 1.35, h.r * 2.10);
-    U.uGaze.value.set(h.gx, h.gy, (cfg.gaze ?? 1) * 0.055);
+    const S = (cfg.on ?? 1) ? beatAt(vt) : null;
+    if (!S) { U.uHot.value = 0; U.uPHiPale.value = 0; U.uPHiHot.value = 0; U.uGaze.value.set(0, 0, 0); return; }
+    // ★ 나머지는 **서서히** 연해진다(유저). 첫 비트 시작부터 0.5s(영상시각)에 걸쳐 든다 —
+    //   한 프레임에 전신이 뒤집히면 '색이 튀었다'로 읽히지 '주목이 생겼다'로 안 읽힌다.
+    const paleK = Math.max(0, Math.min(1, (vt - _HOT.beats[0].tOn) / 0.5));
+    const pale = cfg.pale ?? 0.97;
+    U.uPHiPale.value = 0.86 + (pale - 0.86) * paleK;   // 0.86 = 이 판의 평소 대역(setPersonUniforms)
+    U.uPHiHot.value = cfg.hot ?? 0.55;                 // 낮을수록 쨍 — 강조는 평소보다 **더** 붉게
+    U.uHot.value = (cfg.k ?? 1) * S.k;                 // 도착까지 차오른다
+    // 타원은 **고정 지점**. 세로가 긴 건 발+정강이를 함께 물어야 '다리'로 읽히기 때문.
+    const r = S.b.r;
+    U.uHotE.value.set(S.b.at[0], S.b.at[1], r * 1.30, r * 2.00);
+    // 토큰도 같은 자리에 붙는다 — 봐야 할 곳이 둘이면 그건 지시가 아니다.
+    U.uGaze.value.set(S.b.at[0], S.b.at[1], (cfg.gaze ?? 1) * 0.052 * (1 + 0.55 * S.pop));
+  }
+  /** 이번 비트의 코치 한마디 — 비트 **시작**에 한 번, **전체 재생(BK_T1)에서만**.
+   *  조각 단계(B2~B4)엔 이미 그 단계 전용 멘트가 있다 — 거기서 또 외치면 두 목소리가 겹친다.
+   *  ★ 키는 비트마다 **고정**이다(루프 번호를 안 섞는다). _say 가 mp3 를 key 로 찾으므로
+   *    키가 매번 달라지면 사전 생성 음성을 영영 못 붙인다 — 지금은 파일이 없어 브라우저 TTS 로
+   *    떨어진다. public/voice/say_sb_beat_{R1,L,R2}.mp3 를 넣으면 그때부터 그 파일이 나간다. */
+  function tickHotVoice(vt) {
+    if (!_HOT || vt == null || !session.active || session.stage !== 'BK_T1') return;
+    const B = _HOT.beats;
+    if (vt < B[0].tOn - 0.1) { session._hotSaid = -1; return; }
+    for (let i = 0; i < B.length; i++) {
+      if (vt < B[i].tOn - 1e-6 || i <= (session._hotSaid ?? -1)) continue;
+      session._hotSaid = i;
+      session._say?.('sb_beat_' + B[i].key, '커리', B[i].voice);
+    }
   }
   function tickA1Coach() {
     // 어떤 스테이지 코치를 켤지: 러닝 A1·농구 워밍업 전부 = 전 구간 상시, 러닝 A2/A3 = 시범(관찰) 중에만.
@@ -3037,7 +3064,8 @@ void main(){
             if (co.video.currentTime < a - 0.05) { freezeCoach(co); try { co.video.currentTime = a; } catch (e) {} }
             if (co.video.paused) co.video.play().catch(() => {});
           }
-          setHotspot(co, session.stepVidT);   // 강조 타원·시선 토큰 = 지금 영상 시각의 실측 좌표
+          setHotspot(co, session.stepVidT);   // 강조 타원·시선 토큰 = 이 비트의 실측 도착 지점
+          tickHotVoice(session.stepVidT);     // 코치 한마디도 **같은 시각축**에서 — 벽시계로 재면 배속에 어긋난다
         }
         // 새 프레임이 실제로 들어왔으면 고정 해제
         if (co._frozen && ((!co.video.seeking && co.video.readyState >= 3
