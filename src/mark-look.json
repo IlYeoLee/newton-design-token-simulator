@@ -103,27 +103,29 @@
   "states": {
     "0": {
       "sharp": 0,
-      "op": 0.56,
-      "tLo": 0.46,
-      "tHi": 0.7
+      "op": 0.42,
+      "tLo": 0.52,
+      "tHi": 0.76,
+      "bloom": 0.03
     },
     "2": {
       "glow": 0,
       "halo": 0.16,
       "w": 0.72,
-      "bloom": 0.07,
+      "bloom": 0.22,
       "shade": 0,
       "imp": 1,
       "sharp": 0,
       "edge": 0.004,
-      "tLo": 0.03,
-      "tHi": 0.74
+      "tLo": 0.06,
+      "tHi": 0.9,
+      "op": 1.0
     },
     "4": {
       "glow": 0,
       "halo": 0.14,
       "w": 0.7,
-      "bloom": 0.06,
+      "bloom": 0.36,
       "shade": 0,
       "imp": 1,
       "edgeShadeGrad": 0,
@@ -135,9 +137,9 @@
       "sharp": 0,
       "plantar": 1,
       "edgeShadeCol": 4,
-      "op": 0.71,
+      "op": 1.0,
       "tLo": 0.02,
-      "tHi": 0.26
+      "tHi": 0.3
     },
     "tap": {
       "op": 0,
@@ -175,8 +177,10 @@
       "w": 1.15
     },
     "1": {
-      "tLo": 0.1,
-      "tHi": 0.82
+      "tLo": 0.12,
+      "tHi": 0.84,
+      "op": 0.88,
+      "bloom": 0.1
     }
   },
   "loadGain": 1.45,
