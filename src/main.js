@@ -2569,21 +2569,37 @@ void main(){
                   // uStep 7cm — 촘촘해야 점이 하나씩 도드라지지 않고 **질감**으로 읽힌다(유저: 간격이 넓어 징그럽다)
                   uGain: { value: 1 }, uSpan: { value: new THREE.Vector2(2.6, 3.4) }, uStep: { value: 0.07 },
                   // 빔 창(투사 사다리꼴) — rig 에서 매 프레임 주입. (near, far, halfNear, halfFar) · uZC = 필드 중심의 월드 z
-                  uBeam: { value: new THREE.Vector4(0.30, 1.90, 0.34, 1.10) }, uZC: { value: -1.5 } },
+                  uBeam: { value: new THREE.Vector4(0.30, 1.90, 0.34, 1.10) }, uZC: { value: -1.5 }, uMode: { value: 0 }, uClip: { value: 1 }, uAlpha: { value: 0.07 } },
       vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
       fragmentShader: `
         varying vec2 vUv; uniform float uTime, uPing, uGain, uStep;
         uniform vec2 uPingUv, uSpan;
-        uniform vec4 uBeam; uniform float uZC;
+        uniform vec4 uBeam; uniform float uZC, uMode, uClip, uAlpha;   // uClip 0 = 빔 클립 없이 사각 페이드 · uMode 0 = 도트 · 1 = 선
         void main(){
           vec2 p = (vUv - 0.5) * uSpan;              // 로컬 미터
-          vec2 g = p / uStep;
+          // ★ 일렁임(유저 스케치) — 수평선이 좌우로 물결친다. 지면이 '살아 있는 빛'으로 읽히게.
+          //   진폭은 선 간격의 8% 정도라 선이 흐트러지지 않고 숨만 쉰다.
+          float wob = sin(p.x * 3.1 + uTime * 1.15) * 0.5 + sin(p.x * 1.7 - uTime * 0.73) * 0.5;
+          vec2 pw = vec2(p.x, p.y + wob * uStep * 0.08);
+          vec2 g = pw / uStep;
           vec2 a = abs(fract(g) - 0.5);
           float r = length(a) / 0.5;                 // 0 = 격자점
           float w = fwidth(g.x) * 1.6;
           // ★ 아주 작게(유저 08-06: 도트 징그럽다 → 매우 작고 티도 안 나게). 평소엔 거의 안 보이고
           //   발 인식 파문이 지나갈 때만 도드라진다 — 배경이 아니라 '반응하는 지면'이 되는 게 목적이다.
-          float dot0 = 1.0 - smoothstep(0.045, 0.045 + max(w, 0.05), r);
+          // ★ 프리셋 — 0: 도트(평면뷰) · 1: 선(인물 뒤). **둘 다 월드 등간격**이라 투시는 카메라가
+          //   만든다. GridScan 은 셰이더에 지평선이 구워져 있어 바닥 판 위에서 소실점이 씬과
+          //   어긋났다(유저: 바닥시점 뷰에서 투시 안 맞으면 어색하지 않나).
+          float dot0;
+          if (uMode > 0.5) {
+            // ★ **수평선만**(유저 08-06). 격자(세로선까지)는 바닥에 깐 그물처럼 보인다 —
+            //   깊이가 같은 선만 남기면 '지면의 결'로 읽히고 인물이 그 위에 선다.
+            //   판이 바닥에 눕혀 있어 로컬 y = 월드 깊이 → a.y 축만 쓴다.
+            float lw = max(fwidth(g.y) * 1.6, 0.02) * 1.2;
+            dot0 = 1.0 - smoothstep(0.0, lw, a.y);
+          } else {
+            dot0 = 1.0 - smoothstep(0.045, 0.045 + max(w, 0.05), r);
+          }
           // 발 인식 파문 — 닿은 지점에서 링 하나가 퍼진다(3D 스캔 아님)
           float dt = uTime - uPing, ring = 0.0;
           if (dt > 0.0 && dt < 1.5) {
@@ -2592,15 +2608,26 @@ void main(){
           }
           // ★ **실제 투사영역**을 따른다(유저 08-06: 빔프 투사영역이 존재하는데 무시하는 느낌).
           //   tokens.beamAlphaAt 과 같은 규칙 — 근/원 경계와 거리별 반폭으로 자른다.
-          float wz = uZC - p.y;                       // 로컬 → 월드 z (판은 바닥에 눕혀 있다)
-          float dd = -wz;                             // 전방 거리(리그 원점 기준)
-          float kk = clamp((dd - uBeam.x) / max(0.01, uBeam.y - uBeam.x), 0.0, 1.0);
-          float half = mix(uBeam.z, uBeam.w, kk);
-          float F = 0.22;                             // 경계 페더(m)
-          float edge = smoothstep(uBeam.x, uBeam.x + F, dd)
-                     * smoothstep(uBeam.y, uBeam.y - F, dd)
-                     * smoothstep(half, half - F, abs(p.x));
-          float aa = dot0 * (0.07 + ring * 3.4) * edge * uGain;   // 촘촘해진 만큼 더 옅게
+          float edge;
+          if (uClip > 0.5) {
+            float wz = uZC - p.y;                     // 로컬 → 월드 z (판은 바닥에 눕혀 있다)
+            float dd = -wz;                           // 전방 거리(리그 원점 기준)
+            float kk = clamp((dd - uBeam.x) / max(0.01, uBeam.y - uBeam.x), 0.0, 1.0);
+            float hw = mix(uBeam.z, uBeam.w, kk);   // ★ half 는 GLSL 예약어다 — 쓰면 셰이더가 통째로 컴파일 실패한다(실측)
+            float F = 0.22;                           // 경계 페더(m)
+            edge = smoothstep(uBeam.x, uBeam.x + F, dd)
+                 * smoothstep(uBeam.y, uBeam.y - F, dd)
+                 * smoothstep(hw, hw - F, abs(p.x));
+          } else {
+            // 판 안에서만 쓰는 경우(인물 발밑 땅) — 가장자리를 부드럽게 지운다.
+            //   ★ 클립을 끄려고 uBeam 에 큰 수를 넣으면 smoothstep(edge0 > edge1) = **미정의**라
+            //     격자가 통째로 사라진다(실측). 분기로 나눈다.
+            edge = (1.0 - smoothstep(0.30, 0.5, abs(vUv.x - 0.5)))
+                 * (1.0 - smoothstep(0.30, 0.5, abs(vUv.y - 0.5)));
+          }
+          // ★ 기본 알파는 **프리셋마다 다르다** — 도트는 0.07(티 안 나게), 선은 0.34.
+          //   같은 값을 쓰면 선 프리셋이 통째로 안 보인다(실측: 격자가 사라짐).
+          float aa = dot0 * (uAlpha + ring * 3.4) * edge * uGain;
           gl_FragColor = vec4(vec3(0.55, 0.28, 0.14) * 2.4, aa);
         }`,
     });
@@ -2772,7 +2799,22 @@ void main(){
     //   벽 그리드(gridScanPanel)와 **같은 색·같은 구도**를 판 뒤에 깐다. 스테이지별로 끌 수 있다
     //   (COACH_GRID). 판보다 살짝 뒤(-0.004)에 두고 renderOrder 를 한 단 낮춘다.
     const gridMesh = new THREE.Mesh(new THREE.PlaneGeometry(cfg.w * 1.35, cfg.h * 1.15), makeGridScanMat());
-    gridMesh.material.uniforms.uLineW.value = 0.45;   // 벽보다 얇게(유저) — 지면은 판이 작아 같은 두께면 굵어 보인다
+    {
+      // ★ 복싱 문법 **그대로** 쓰되(그라디언트·스캔 펄스 포함) **세로 수렴선만 지운다**(유저 08-06).
+      //   수렴선이 없으면 셰이더에 구워진 소실점이 화면에 안 드러나 씬 투시와 싸우지 않는다 —
+      //   평면 재질을 새로 만들 필요가 없었다(그 시도는 도트 필드에만 남긴다).
+      const gu = gridMesh.material.uniforms;
+      // ★ uGrid 는 1 이어야 한다(유저 08-06: 바닥판 애니메이팅은 유지). 0 으로 끄면 선뿐 아니라
+      //   **스캔 펄스까지 같이 죽는다** — 셰이더에서 둘 다 uGrid 로 곱해지기 때문이다.
+      //   그래서 '선 제거'는 uGrid 가 아니라 uNoCross 로 한다: 세로 수렴선만 지우고
+      //   가로 면 구분 + 그 위를 지나가는 스캔은 그대로 남는다(복싱 바닥판의 그 움직임).
+      gu.uGrid.value = 1;
+      gu.uLineOn.value = 1;       // 가로 면 구분 유지(세로 수렴선은 uNoCross 로 제거)
+      gu.uNearCut.value = 2.6;    // 앞쪽(가까운 쪽) 라인·광을 0 으로 — 인물 앞이 비어야 실루엣이 산다
+      gu.uCenterCut.value = 0.72; // 중앙(인물 자리) 그라디언트를 끊는다
+      gu.uNoCross.value = 1;      // (선을 되살릴 때) 세로 수렴선은 여전히 없음
+      gu.uLineW.value = 0.45;
+    }
     gridMesh.visible = false; gridMesh.renderOrder = (plane.renderOrder || 0) - 1;
     scene.add(gridMesh);
     const co = _coaches[id] = { video, plane, grid: gridMesh, _fwd: new THREE.Vector3(), fwd: cfg.fwd,
@@ -3018,7 +3060,7 @@ void main(){
               co.grid.translateZ(-0.004);   // 판 뒤
               const gu = co.grid.material.uniforms;
               gu.uTime.value = (session.t ?? state.time ?? 0);        // 스캔 펄스 — 벽과 같은 시계
-              gu.uBoost.value = (co.mat.uniforms.uFade?.value ?? 1);   // 판 페이드를 그대로 따라간다
+              gu.uBoost.value = (co.mat.uniforms.uFade?.value ?? 1);  // 판 페이드를 그대로 따라간다
             }
           }
           if (co.mat.uniforms.uEnter) co.mat.uniforms.uEnter.value = (now - (co._showT || 0)) / 1000;
@@ -3822,7 +3864,7 @@ void main(){
    */
   const makeGridScanMat = () =>     new THREE.ShaderMaterial({
       uniforms: {
-        uTime: { value: 0 }, uBoost: { value: 1 }, uGrid: { value: 1 }, uLineW: { value: 1 },
+        uTime: { value: 0 }, uBoost: { value: 1 }, uGrid: { value: 1 }, uLineW: { value: 1 }, uNoCross: { value: 0 }, uLineOn: { value: 1 }, uNearCut: { value: 0 }, uCenterCut: { value: 0 },
         uDot: { value: 0 }, uPing: { value: -99 }, uPingUv: { value: new THREE.Vector2(0.5, 0.5) },   // uGrid=0 → 퍼스펙티브 그리드 끔(바닥판)
         uLines: { value: new THREE.Color(0.55, 0.28, 0.14) },
         uScan: { value: new THREE.Color(0.98, 0.19, 0.19) },
@@ -3837,7 +3879,9 @@ void main(){ vUv = uv; vec4 mvPosition = modelViewMatrix * vec4(position, 1.0); 
       fragmentShader: `#include <common>
 #include <clipping_planes_pars_fragment>
 varying vec2 vUv;
-uniform float uTime, uBoost, uGrid, uLineW;
+uniform float uTime, uBoost, uGrid, uLineW, uNoCross, uLineOn, uNearCut, uCenterCut;
+// uNearCut = 이 깊이까지 **앞쪽을 투명하게** 지운다(유저: 앞에 있는 라인 투명도를 0으로)
+// uCenterCut = 화면 중앙(인물 자리)에서 그라디언트를 끊는 양(유저: 중앙부분을 끊어주면 안 돼?)   // uLineOn 0 = **선 없이 스캔 광만**(움직임 유지)   // uNoCross 1 = **가로 면 구분만** 남기고 격자(세로 수렴선) 제거
 uniform float uDot, uPing;   // uDot=1 → 격자선 대신 **도트 필드**(평면뷰 프리셋) · uPing = 발 인식 시각(s)
 uniform vec2 uPingUv;        // 발이 닿은 지점(그리드 uv) — 거기서 파문이 퍼진다
 uniform vec3 uLines, uScan, uAccent;
@@ -3871,6 +3915,9 @@ float gridLine(vec2 guv){
     return clamp(dot0 * (1.0 + ring * 2.6), 0.0, 1.4);
   }
   vec2 l = 1.0 - smoothstep(w, w * 2.4, a);
+  // ★ uNoCross — 깊이 방향 선(가로 면 구분)만 남긴다. 세로 수렴선을 지우면 셰이더에 구워진
+  //   소실점이 화면에 드러나지 않아, 바닥 판 위에서도 씬 투시와 싸우지 않는다(유저 08-06).
+  if (uNoCross > 0.5) return l.y;
   return max(l.x, l.y);
 }
 void main(){
@@ -3899,13 +3946,20 @@ void main(){
       float sigma = 0.18 * 4.0;
       float band = exp(-0.5 * dz * dz / (sigma * sigma)) * win;
       float aura = exp(-0.5 * dz * dz / (sigma * sigma * 4.0)) * 0.25 * win;
-      col += uLines * line * fog * 1.15 * uGrid;   // 배경선 업 3차 (유저) · uGrid=0이면 그리드 제거
-      col += uScan * (line * band * 1.1 + aura * fog * 0.5) * uGrid;
+      // ★ 앞쪽 페이드 + 중앙 끊기 — 인물이 서는 자리(가까운 중앙)에서 배경을 비운다.
+      //   그래야 실루엣이 배경에 안 묻고, 지면은 인물 **뒤에서** 열린다.
+      float nearK = uNearCut > 0.0 ? smoothstep(0.0, uNearCut, h.z) : 1.0;
+      float ctrK  = 1.0 - uCenterCut * exp(-pow(suv.x / 0.30, 2.0));
+      float mask  = nearK * ctrK;
+      col += uLines * line * fog * 1.15 * uGrid * uLineOn * mask;   // 배경선 · uLineOn 0 이면 선만 빠진다
+      // ★ 선을 빼도 **움직임은 남는다**(유저 08-06: 가로면도 없애되 애니메이션은 유지).
+      //   band 는 선에 걸린 날카로운 스캔이고, aura 는 선과 무관한 부드러운 이동 광이다.
+      col += uScan * (line * band * 1.1 * uLineOn + aura * fog * 0.5) * uGrid * mask;
     }
   }
   // 지평선 은은한 라인
   float hz = exp(-abs(suv.y * 0.55 - 0.22) * 26.0) * 0.10;
-  col += uLines * hz * uGrid;
+  col += uLines * hz * uGrid * uLineOn;   // 지평선 라인도 선의 일부
   // reactbits Prism 정본 레이마치 — 채널 위상 누적을 뉴턴 칩 가중으로 매핑 (칩 조합 그라디언트만)
   vec2 fp = (vUv - vec2(0.5, 0.70)) * vec2(1.6, 1.0) * 4.1;
   float zz = 5.0;
