@@ -19,7 +19,19 @@ for (const k of ['headY', 'ringRatio', 'fsTimer', 'pad', 'gapHP', 'progH', 'gapP
                  'safePad', 'footY', 'contentY1', 'fsTitle', 'fsTitlePv', 'fsBadge', 'gapPv']) T[k] = num(k);
 
 const W = 1600, H = 2670;
-const BEAM_FAR_Y = 289;            // 러닝 기본 리그 실측(2026-08-07). 팩·리그가 바뀌면 다시 재야 한다.
+// ★ 상단 금지선은 **상수가 아니라 식**이다(2026-08-07 재측정).
+//   main.js 배치: boardFwd = (fpFar − 0.12) − (1335 − 176)·sUni  ⇒ 대지 y176 이 빔 far − 0.12m 에 앵커된다.
+//   따라서  y_금지 = 176 − 0.12 / sUni,  sUni = 2·halfAt(dMid) / 1600.
+//     러닝 fpFar 2.0 → sUni .000687 → y ≥ 1      농구 fpFar 2.4 → .000754 → y ≥ 17
+//   팩 중 가장 보수적인 값(농구 17)을 쓴다. 리그가 또 바뀌면 이 표만 갱신하면 된다.
+const RIGS = { 러닝: { far: 2.0, hN: 0.32, hF: 0.779 }, 농구: { far: 2.4, hN: 0.32, hF: 0.887 } };
+const yForbid = (r) => {
+  const dMid = (0.3 + r.far) / 2;
+  const half = r.hN + (r.hF - r.hN) * (dMid - 0.3) / (r.far - 0.3);
+  const sUni = 2 * half / W;
+  return 176 - 0.12 / sUni;
+};
+const BEAM_FAR_Y = Math.max(...Object.values(RIGS).map(yForbid));
 const ring = T.fsTimer * T.ringRatio / 2;
 const CAPHEAD_H = ring * 2 + T.pad * 2;
 const band = {
@@ -83,7 +95,8 @@ if (advM) {
     const src2 = [];
     if (adv === 'time') src2.push('아크(시간)');
     if (['segment', 'hold', 'reps'].includes(adv)) src2.push(`링(${adv})`);
-    if (PV.has(st)) src2.push('관찰 링(pv)');
+    // ★ 관찰 링(pv)은 **중복이 아니다** — '영상이 몇 초/몇 회 남았나'는 따라하기 시계와
+    //   시간대가 겹치지 않는 다른 값이다(floorgl 주석의 정본 규약). 따라하기 시계만 센다.
     if (st === 'A2') src2.push('마크 안 숫자');       // 코드 특수: work 발에 카운트다운
     if (src2.length > 1) dup.push(`${st}: ${src2.join(' + ')}`);
   }

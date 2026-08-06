@@ -113,7 +113,7 @@ function makeTextPlane(text, opts = {}) { const g = makeTextMesh(text, opts); co
 
 // 구 발형 마크 v2(족저 압력 히트맵 캔버스 텍스처) 삭제 — FootMark가 MARK 발형 셰이더로
 // 대체한 뒤 호출처 0인 죽은 코드였음 (룩 시스템 외 사제 렌더의 마지막 잔재).
-class FootMark {
+export class FootMark {
   static READY_TAP = { T: 5.6, W: 0.55, P1: 3.6, P2: 4.35 };   // tap2 루프 타이밍 — floorgl 캔버스 발과 공유
   static READY_SPREAD = 0.189;   // 좌우 간격(m) — 피그마 342:3057 실측(중심 x 525.8/1075.2). 유저: 이걸 넘지 말 것
   // 세션 발자국 = MARK 발형 상태 머신 소비 (시안 보드 7상태 그대로).
@@ -261,7 +261,7 @@ function drawLiftCue(g, style, t, pulse, W = 128, Hh = 256) {
   }
   g.globalAlpha = 1; g.shadowBlur = 0;
 }
-function floorArrow(x, z, deg, color, len = 0.4, scale = 1) {
+export function floorArrow(x, z, deg, color, len = 0.4, scale = 1) {
   // 방향 = LINE ① 경로 추종 화살표 — 카탈로그 구성 통째(광류 자루 + 이동 촉, tokens.makeFlowArrow).
   // 촉 끝 주차·정적 통화살표는 카탈로그에 없는 종 (유저 지적 2회 — 촉은 경로 위를 이동).
   // scale = 두께·촉·점 크기 배율. 캔버스(128×256)가 판 크기에 맞춰 늘어나므로 짧은 화살표일수록
@@ -431,6 +431,11 @@ function livePrimEnv() {
   return {
     arrow: FXP.arrow,
     lut: lutColor,
+    // ★ 주간/잉크 신호를 프림에도 넘긴다 — 마크 재질은 이미 이걸로 합성을 바꾸는데(uDay →
+    //   Normal/Additive) 프림 **그리기 함수**는 이 값을 못 받아서, 어두운 랩 캔버스 기준으로
+    //   잡은 글로우 예산을 밝은 바닥에서도 그대로 썼다. 가산 글로우는 밝은 면 위에서 더할
+    //   여지가 없어 대비가 구조적으로 사라진다(유저: 낮에 안 보인다).
+    day: (FXP.day || FXP.markBlend === 'ink') ? 1 : 0,
     // 마크·노드 안 숫자 = **OffBit 도트 폰트**. 전엔 drawGlyph(SVG 래스터)를 먼저 태웠는데,
     //   그 글리프는 따로 디자인된 활자라 벽 UI 숫자(dot9 = OffBit)와 활자가 갈렸다(유저:
     //   SVG 디자인된 거 쓰지 말고 OffBit 으로). 숫자는 폰트가 정본 — SVG 경로는 안 탄다.
@@ -807,6 +812,28 @@ export function sbPoseAt(vt, holdAirborne) {
 const FOOT_Z = -0.75;          // 안정 영역 중심(= 밴드 0.64m 에 여유를 둔 값)
 const FOOT_SWING = 0.30;       // 이 이상 벌리면 CONTENT 밴드를 벗어난다
 const FOLLOW_S = 1.0;   // 따라하기 발자국 배율(농구 지면 UI 공통)
+
+// ── BK_B1 셋업 막(발 벌리기) 정본 ──────────────────────────────────────────
+//   시뮬 틱과 stancelab.html 이 **같은 곡선**을 본다. 랩에 곡선을 옮겨 적으면 그 순간 두 벌이 된다.
+export const B1_SETUP = {
+  W_END: 3.0, SETUP: 6.0,
+  HALF0: 0.14, HALF1: 0.28,                       // 모은 자세 → 어깨너비+ (반간격 m)
+  Z: BK_STAND - 0.40 - BDEEP,                     // 발자국 z
+  AZ: BK_STAND - 0.40 - BDEEP + 0.26,             // ←→ 화살표 z (마크 블룸 밖 빈 바닥)
+  AX: 0.04, ALEN: 0.22, ASCALE: 1.55,             // 꼬리 중앙 고정 · 0.34m 화살표와 같은 실측 두께
+};
+export function bkB1SetupPose(tB) {
+  const { W_END, SETUP, HALF0, HALF1 } = B1_SETUP;
+  const wk = tB < 0.8 ? 0 : Math.min(1, (tB - 0.8) / (W_END - 0.8));
+  const we = wk * wk * (3 - 2 * wk);
+  return { we,
+    widen: -0.25 + 1.40 * we,                                        // 봇 스탠스 노브
+    half: HALF0 + (HALF1 - HALF0) * we,                              // 발자국도 실제로 벌어진다
+    footOp: Math.max(0, Math.min(1, (W_END + 1.2 - tB) / 0.9)),      // Success 여운 후 퇴장
+    arrowGain: tB > 0.7 && tB < W_END + 0.5 ? 1 : 0,
+    arrowProg: Math.max(0.15, we),                                   // draw-on = 벌어짐 진행
+    inSetup: tB < SETUP, done: tB >= W_END };
+}
 const SBZ = -3.13;      // 스텝백 마크 기준 z. 빌드·업데이트 양쪽에서 쓴다
 // ★ 스텝백이 창 안에 앉을 때 쓰는 **단일 반경**(m) = 존 원 반경. 발 잉크 반경(0.16)이 아니라
 //   이 값을 쓰는 이유: 목표 자리에는 발자국과 존 원이 **겹쳐** 놓이는데 둘을 다른 반경으로
@@ -1574,17 +1601,16 @@ export class Session {
       return { ...tg, ring, num };
     });
     // 셋업 막 발자국 — 어깨보다 넓게(0.56m, wikiHow 기본기). 4초간만 보였다 퇴장(상시 아님).
-    const b1sL = new FootMark('left').at(-0.14, BK_STAND - 0.40 - BDEEP, FOLLOW_S);   // 모은 자세에서 시작 → 틱이 벌린다
-    const b1sR = new FootMark('right').at(0.14, BK_STAND - 0.40 - BDEEP, FOLLOW_S);
+    const b1sL = new FootMark('left').at(-B1_SETUP.HALF0, B1_SETUP.Z, FOLLOW_S);   // 모은 자세에서 시작 → 틱이 벌린다
+    const b1sR = new FootMark('right').at(B1_SETUP.HALF0, B1_SETUP.Z, FOLLOW_S);
     // ←→ 룩 화살표(스템+SVG촉) — 유저: 너무 흐려. 셋 다 고쳤다(실측 근거는 아래 배치 코드).
     //   ① scale 1.55 = 0.34m 지면 화살표와 같은 실측 두께·점 크기(0.22m 판에 같은 128×256 캔버스를
     //      눌러 담으면 자루가 65% 로 얇아지고 점렬이 좁쌀이 된다).
     //   ② 발마크 위가 아니라 **마크 앞 0.26m 빈 바닥**에. 마크 블룸(반경 ~0.12m 백열)에 겹치면
     //      알파가 1이어도 안 보인다(실측 크롭: 화살표가 발바닥 광 속으로 사라짐).
     //   ③ 꼬리는 중앙 고정(±0.04) — 촉이 벌어짐과 함께 바깥으로 자란다(draw-on = 벌어짐 진행).
-    const B1AZ = BK_STAND - 0.40 - BDEEP + 0.26;
-    const b1aL = floorArrow(-0.04, B1AZ, 90, BRAND.sand, 0.22, 1.55);
-    const b1aR = floorArrow(0.04, B1AZ, -90, BRAND.sand, 0.22, 1.55);
+    const b1aL = floorArrow(-B1_SETUP.AX, B1_SETUP.AZ, 90, BRAND.sand, B1_SETUP.ALEN, B1_SETUP.ASCALE);
+    const b1aR = floorArrow(B1_SETUP.AX, B1_SETUP.AZ, -90, BRAND.sand, B1_SETUP.ALEN, B1_SETUP.ASCALE);
     b1aL._gain = 0; b1aR._gain = 0;
     // ── 드리블 매트 ─────────────────────────────────────────────────────────
     // '원 하나만 덩그러니'(유저 08-06)의 답이자 실물 스텝 매트의 이식(유저 레퍼런스 3장).
@@ -3225,21 +3251,19 @@ export class Session {
       }
       const tgK = Math.min(1, Math.max(0, (tB - 0.3) / 0.6));
       for (const q of H.tg) { q.ring.setOp?.((q.on ? 0.42 : 0.16) * tgK); q.num.material.opacity = (q.on ? 0.9 : 0.3) * tgK; }
-      const W_END = 3.0, SETUP = 6.0, inSetup = tB < SETUP;
+      const { W_END, SETUP } = B1_SETUP;
+      const PS = bkB1SetupPose(tB);                       // ★ 곡선 정본 — stancelab 과 공유
+      const inSetup = PS.inSetup;
       this.bkB1Setup = inSetup;
-      const wk = tB < 0.8 ? 0 : Math.min(1, (tB - 0.8) / (W_END - 0.8));
-      const we = wk * wk * (3 - 2 * wk);
-      this.bkB1Widen = -0.25 + 1.40 * we;   // 봇: 모은 다리(-0.25) → 어깨너비+(1.15)
-      const sK = Math.max(0, Math.min(1, (W_END + 1.2 - tB) / 0.9));   // Success 블룸 여운 후 퇴장
-      H.sL.op(sK); H.sR.op(sK);
+      const we = PS.we;
+      this.bkB1Widen = PS.widen;   // 봇: 모은 다리(-0.25) → 어깨너비+(1.15)
+      H.sL.op(PS.footOp); H.sR.op(PS.footOp);
       if (inSetup) {
-        const half = 0.14 + 0.14 * we;                    // 발자국도 실제로 벌어진다
-        H.sL.group.position.x = -half; H.sR.group.position.x = half;
+        H.sL.group.position.x = -PS.half; H.sR.group.position.x = PS.half;
         // ← → 룩 화살표: draw-on 진행(_prog)을 '발자국이 실제 벌어지는 진행'에 직접 물린다(유저).
         //   벌어짐과 동시에 촉이 바깥으로 자라고, 끝나면 완성 상태로 잠깐 머물다 소등.
-        const aOn = tB > 0.7 && tB < W_END + 0.5 ? 1 : 0;
-        H.aL._gain = aOn; H.aR._gain = aOn;
-        H.aL._prog = Math.max(0.15, we); H.aR._prog = Math.max(0.15, we);
+        H.aL._gain = PS.arrowGain; H.aR._gain = PS.arrowGain;
+        H.aL._prog = PS.arrowProg; H.aR._prog = PS.arrowProg;
         // ★ 화살표는 발마크를 따라 벌어지지 **않는다**(고정 배치, 생성 위치 그대로).
         //   옛 배치는 꼬리를 마크 바깥(half+0.05)에 뒀다 → 촉이 |x| 0.41→0.55 로 나가 빔 측면
         //   페더(d=1.15m 에서 창 반폭 0.549, 페더 0.25m)에 잠겼고, 최종 알파가 0.58 → **0** 으로
