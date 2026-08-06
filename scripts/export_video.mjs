@@ -119,6 +119,18 @@ const AFLOOR = +arg('alphafloor', 0) || 0;
 // --t0 : 시작 시각(초). 스테이지 도입부가 통째로 비어 있는 화면이 있다 — 러닝 A3 는 t<1 이
 //   불투명 0.00% 다. 3초짜리에선 그 1초가 치명적이다.
 const T0 = +arg('t0', 0) || 0;
+// --ramp : 시간 구부리기. "<소스초>:<배속>,…" — 그 시각부터 그 배속으로 흐른다(구간 상수).
+//   출력은 등간격 프레임이고 **소스 시각만** 느리게/빠르게 민다 → 에펙 리타이밍의 보간이
+//   아니라 그 시각을 진짜로 렌더한 프레임이다(0.2배속도 뭉개지지 않는다).
+//   예) --ramp "0:1,6.9:0.3,9.9:1"   홀드 구간만 0.3배속.
+//   ⚠ --dur 은 **출력** 길이다. 느린 구간을 넣으면 소스는 그만큼 덜 흐른다.
+const RAMP = (() => {
+  const s = arg('ramp', ''); if (!s || s === true) return null;
+  const ks = String(s).split(',').map(p => p.split(':').map(Number))
+    .filter(a => a.length === 2 && a.every(Number.isFinite)).sort((a, b) => a[0] - b[0]);
+  return ks.length ? ks : null;
+})();
+const speedAt = t => { let v = 1; for (const [k, s] of RAMP) { if (t >= k) v = s; else break; } return v > 0 ? v : 1; };
 // --alphagamma : 어두운 톤의 알파를 들어 올린다(1 = 예전과 동일, 0.5 권장).
 //   투사는 가산광이라 alpha = 빛의 세기인데, 그 선형 관계가 어두운 부분을 통째로 지운다 —
 //   머리카락 회색(휘도 0.10)이 알파 0.18. 0.5 를 주면 0.57 이 된다. 배경(휘도≈0)은 그대로 0.
@@ -713,8 +725,11 @@ let done = 0;
 //   가상 시계는 계속 밀되 세션이 실제로 시작한 프레임부터 저장한다.
 let saved = 0;                    // 저장한 프레임 수 — 파일 번호는 이걸 쓴다
 const PRE_MAX = 240;              // 안전장치: 이만큼 밀어도 안 시작하면 그냥 저장한다
+let lastInfo = null;              // 직전 프레임의 renderer.info — 손실 원인 판별용
+let tSrc = T0;                    // --ramp 전용 소스 시계(구부린 시간). 램프가 없으면 안 쓴다
 for (let i = 0; saved < N; i++) {
-  const t = T0 + i / FPS;
+  const t = RAMP ? tSrc : T0 + i / FPS;
+  if (RAMP) tSrc += speedAt(t) / FPS;
   if (i - saved > PRE_MAX) { console.log('  ⚠ 프리롤 한계 — session.t 가 끝내 0 을 못 넘었습니다'); }
   // ★ 4K + 큰 uiscale 은 GPU 메모리를 넘겨 컨텍스트를 잃는다(실측: 3840·배율2.5 에서 11프레임째
   //   __dbg 통째로 소실). 죽으면 조용히 끝내고 여기까지 뽑은 프레임으로 영상을 묶는다.
@@ -728,12 +743,22 @@ for (let i = 0; saved < N; i++) {
   //   그러면 렌더만 조용히 죽어 '완전 투명한 프레임'이 계속 쌓인다(실측: 4K 세 종목을 연달아
   //   돌렸더니 2·3번째가 480장 전부 불투명 픽셀 0.00% — 20분을 통째로 날렸다).
   //   컨텍스트를 직접 물어본다.
+  // ★ 같은 왕복에서 renderer.info 도 받아 온다 — 손실이 '상한'인지 '누수'인지 이걸로만 갈린다.
+  //   해상도를 낮춰도 같은 자리에서 죽으면 상한이 아니다. 죽기 직전 수치가 증거다.
   const alive = await page.evaluate(() => {
     const d = window.__dbg; if (!d?.state) return false;
     const gl = d.renderer?.getContext?.();
-    return !(gl && gl.isContextLost && gl.isContextLost());
+    if (gl && gl.isContextLost && gl.isContextLost()) return false;
+    const m = d.renderer?.info?.memory, p = d.renderer?.info?.programs;
+    return { geo: m?.geometries ?? -1, tex: m?.textures ?? -1, prog: p?.length ?? -1 };
   }).catch(() => false);
-  if (!alive) { console.log(`\n⚠ ${i}프레임에서 WebGL 컨텍스트 손실 — uiscale 을 낮추거나 종목을 하나씩 돌리세요.`); break; }
+  if (!alive) {
+    console.log(`\n⚠ ${i}프레임에서 WebGL 컨텍스트 손실 — 직전 자원: ${JSON.stringify(lastInfo)}`);
+    console.log(`  자원이 프레임마다 늘고 있었다면 누수, 시작부터 평평했다면 상한(해상도·uiscale)이다.`);
+    break;
+  }
+  if (i === 0 || i % 10 === 0) console.log(`   [자원] f${i} geo ${alive.geo} tex ${alive.tex} prog ${alive.prog}`);
+  lastInfo = alive;
   await page.evaluate(tt => new Promise(res => {
     const d = window.__dbg;
     window.__vt = 1200 + tt * 1000;          // 가상 시계 — 셰이더·클록이 전부 이걸 본다

@@ -761,7 +761,9 @@ export const TOK = {
   //   0.88° 는 그 79% — 운동 중이라 시작화면보다는 물러나되 '같은 시스템'으로 읽히는 지점.
   //   알약은 1177×284(81×20cm)로, **폭은 예전(1183)과 같고 세로만 27% 줄었다**.
   fsTimer: 112,      // 링 안 숫자 (1급) — 이 값이 정본, 링은 여기서 파생
-  ringRatio: 1.6,    // 링 지름 ÷ 숫자 폰트. **지금까지 2.5 였다** = 링이 알약 높이의 67%를 먹은 이유
+  // ★ 1.6 → 1.9: 두 자리 초('27')가 고정 지름 링에 안 들어가 60%로 줄어들었다(검사기 실측 1.25배).
+  //   링은 '두 자리까지 담는 그릇' 이 최소 규격이다 — 한 자리 기준으로 조이면 인터벌·스트라이드에서 깨진다.
+  ringRatio: 1.9,    // 링 지름 ÷ 숫자 폰트. **지금까지 2.5 였다** = 링이 알약 높이의 67%를 먹은 이유
   pad: 52,           // 알약 안쪽 여백 (상하좌우 동일)
   gapT: 48,          // 슬롯 사이 간격
   //   96 → 132 (유저 #188: 위아래 간격이 아슬아슬하다). 아크는 위로 알약, 아래로 3D 발마크
@@ -1899,7 +1901,11 @@ export class FloorGL {
         const live = window.__dbg?.session?._pvLoops;
         const done = Math.min(pvn, Number.isFinite(live) ? live : Math.floor(t / per));
         return { AV, prog: clamp01(1 - (t % per) / per),   // 링은 **1회당 한 바퀴**
-                 rem: done + '/' + pvn };
+                 // ★ 규칙⑤(SPEC): 카운트는 한 화면에 하나. 'n/N' 은 4글자라 **고정 지름 링에 못 들어간다**
+                 //   (검사기 실측 1.45~1.72배 넘침 → 숫자가 60%로 줄어 읽히지 않았다).
+                 //   그래서 링은 **진행만** 돌리고(rem 빈 문자열) 횟수는 ② 라벨이 말한다:
+                 //   'PREVIEW 1/2'. 드리블에서 링(1급)+배지(2급)로 쪼갠 것과 같은 처리다.
+                 rem: '', pvLabel: done + '/' + pvn };
       }
       const end = pvEnd ?? PV;
       return { AV, prog: clamp01(1 - t / Math.max(.1, PV)), rem: String(Math.max(1, Math.ceil(end - t))) };
@@ -3596,7 +3602,8 @@ export class FloorGL {
       ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
       const pf = TOK.fsBadge * K2;
       ctx.fillStyle = 'rgba(255,255,255,.7)'; ctx.font = F(400, pf); ctx.letterSpacing = '2px';
-      ctx.fillText('PREVIEW', CX, y - TOK.gapPv * K2 - 12 * mo);
+      const pvTxt = _g.pvLabel ? `PREVIEW  ${_g.pvLabel}` : 'PREVIEW';
+      ctx.fillText(pvTxt, CX, y - TOK.gapPv * K2 - 12 * mo);
       ctx.letterSpacing = '0px'; ctx.restore();
     }
     // ★ 타이틀 = **한 물체가 계속 움직인다**(유저: 중간다리 없이 매끄럽게).

@@ -490,7 +490,7 @@ async function boot() {
   //   규칙 ① 그 장면에서 봐야 할 대상이 시야 중앙에 오는 단을 고른다
   //        ② 오래 지속되는 장면일수록 얕게(목 굴곡 20° 권장 — ISO 9241 계열)
   //        ③ 정밀 조작(발 위치 맞추기)일수록 깊게
-  const GAZE = { FRONT: -8, FAR: -20, MID: -30, NEAR: -40, MAT: -52 };   // 낙하점 11.4m / 4.4m / 2.8m / 1.9m / 1.2m
+  const GAZE = { FRONT: -8, FAR: -20, MID: -30, NEAR: -40, MAT: -52, STANCE: -55 };   // 낙하점 11.4m / 4.4m / 2.8m / 1.9m / 1.2m / 1.18m
   const STAGE_GAZE_DEG = { R: GAZE.NEAR, A: GAZE.NEAR, B: GAZE.NEAR, T: GAZE.MID, C: GAZE.FAR };
   function sessionGazeTarget() {
     // 벽 종목(복싱): 시선은 벽 정면 — 코치(y≈1.0~1.7)·타겟(y≈1.14)이 전부 시야에 안정적으로.
@@ -498,6 +498,11 @@ async function boot() {
     if (session.curStage?.wall) return GAZE.FRONT;
     // B1 2막 '시선 바깥' = 1인칭 카메라도 정면(-5도) — 지면 UI를 의도적으로 시야 밖으로(유저).
     if (session.bkB1EyesUp) return GAZE.FRONT;
+    // B1 셋업 막(발 벌리기) = 발자국 + ←→ 화살표만 담는 **띠 프레임**(3.561:1, 유저 레퍼런스)용 각.
+    //   실측(scripts/_grid_b1stance.mjs, 눈 y1.69·z-1.809): 화살표 d 0.88~0.99(하향 62.6~59.7°),
+    //   발자국 판 d 0.87~1.52(62.9~48.1°). 16:9 렌더의 중앙 49.9% 띠에 넷 다 들어오는 구간이
+    //   -63°~-47° 이고 정중앙이 -55.3°다. MAT(-52°)도 들어오지만 10% 아래로 처져 띠 하단에 붙는다.
+    if (session.bkB1Setup) return GAZE.STANCE;
     const id = session.curStage?.id || '';
     // 전환·타이머·리포트(지면 풀스크린 화면) = x봇이 바닥의 화면을 보도록 게이즈 하향(세션 컴플리트·실전 직전).
     if (/^(T1|T2|C1|FIN|BK_T1|BK_T2|BK_C1|BK_FIN)$/.test(id)) return GAZE.NEAR;

@@ -66,6 +66,31 @@ const minFs = 68 - 40 * (T.headY / H);
 if (T.fsBadge < minFs) fails.push(`2급(${T.fsBadge}) 이 y${T.headY} 가독 하한(${minFs.toFixed(0)}) 미달`);
 else ok.push(`③ 2급 ${T.fsBadge} ≥ 하한 ${minFs.toFixed(0)}`);
 
+
+// ── 규칙⑤ 타이머·카운트는 한 화면에 하나 ────────────────────────────────────────
+//   유저 2026-08-07: "어느 화면은 타이머가 이미 있거나 중복되는 것도 잡아, 모두."
+//   정본: floorgl 의 ADV(무엇을 세나) + showArc/showRing(어디에 그리나) + CAPS.pv(관찰 링).
+//   같은 값을 두 곳에서 세면 화면이 "어느 게 진짜 타이머냐" 를 묻게 된다(유저 #177 과 같은 사고).
+const advM = /const ADV = \{([\s\S]*?)\};/.exec(src);
+if (advM) {
+  const ADV = {};
+  for (const m of advM[1].matchAll(/([A-Z0-9_]+)\s*:\s*'(\w+)'/g)) ADV[m[1]] = m[2];
+  const capsM = /const CAPS = \{([\s\S]*?)\n\};/.exec(src);
+  const PV = new Set();
+  if (capsM) for (const m of capsM[1].matchAll(/(\w+)\s*:\s*\{[^}]*\bpv:\s*true/g)) PV.add(m[1]);
+  const dup = [];
+  for (const [st, adv] of Object.entries(ADV)) {
+    const src2 = [];
+    if (adv === 'time') src2.push('아크(시간)');
+    if (['segment', 'hold', 'reps'].includes(adv)) src2.push(`링(${adv})`);
+    if (PV.has(st)) src2.push('관찰 링(pv)');
+    if (st === 'A2') src2.push('마크 안 숫자');       // 코드 특수: work 발에 카운트다운
+    if (src2.length > 1) dup.push(`${st}: ${src2.join(' + ')}`);
+  }
+  if (dup.length) { console.log('\n■ 타이머 중복 (규칙⑤)'); dup.forEach(d => console.log('  ✗ ' + d)); fails.push(...dup.map(d => '타이머 중복 — ' + d)); }
+  else ok.push('⑤ 타이머 중복 없음');
+}
+
 console.log('\n■ 밴드 (측정)');
 for (const [n, [a, b]] of Object.entries(band)) console.log(`  ${n.padEnd(9)} ${String(Math.round(a)).padStart(4)} ~ ${String(Math.round(b)).padStart(4)}   (${Math.round(b - a)}px)`);
 console.log('\n■ 통과'); ok.forEach(s2 => console.log('  ✓ ' + s2));
