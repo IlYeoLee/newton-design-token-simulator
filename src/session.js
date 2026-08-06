@@ -265,6 +265,9 @@ function drawLiftCue(g, style, t, pulse, W = 128, Hh = 256) {
   }
   g.globalAlpha = 1; g.shadowBlur = 0;
 }
+// ⚠ color 인자는 **안 쓰인다**(makeFlowArrow 가 안 받는다). 스템·촉 색은 fx-core drawStemArrow 가
+//   LUT 위치로 정하고, 그 위치는 FXP.arrow.heat 가 민다 — 그래서 sand 를 넘겨도 화살표가
+//   주황으로 나왔다(유저 08-07: 왜 화살표가 원래 주황이었나). 색을 바꾸려면 heat 를 만진다.
 export function floorArrow(x, z, deg, color, len = 0.4, scale = 1) {
   // 방향 = LINE ① 경로 추종 화살표 — 카탈로그 구성 통째(광류 자루 + 이동 촉, tokens.makeFlowArrow).
   // 촉 끝 주차·정적 통화살표는 카탈로그에 없는 종 (유저 지적 2회 — 촉은 경로 위를 이동).
