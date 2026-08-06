@@ -476,7 +476,20 @@ export function applyMarkLookTo(mat, part = {}) {
 
 /** 상태별 룩 — footlab '이 상태만 편집' 저장본(mark-look.json states[ph]).
  *  공통값은 이미 재질에 들어 있으므로 오버라이드만 얹고, 상태가 바뀌면 공통값으로 되돌린다. */
-const _stateBase = new WeakMap();
+let _stateBase = new WeakMap();
+// ★ 활성 룩 오버라이드 — 프리셋(lookpresets.js)이 갈아 끼운다.
+//   **상태 리셋의 바탕이 여기여야 한다.** applyMarkLook 으로 겉에만 바르면
+//   setMarkStateLook 이 상태가 바뀔 때마다 mark-look.json 값으로 되돌려서
+//   프리셋이 조용히 지워진다(실측: edgeShade 가 매번 정본 값으로 복귀).
+let LOOK_OVR = {};
+export function setLookOverride(o = {}) {
+  LOOK_OVR = { ...o };
+  _stateBase = new WeakMap();                       // 바탕이 바뀌었으니 캐시를 버린다
+  if (o.w != null) MARK_LOOK.core = o.w;            // 매 프레임 전역 푸시가 읽는 자리
+  if (o.halo != null) MARK_LOOK.halo = o.halo;
+  if (o.pool != null) MARK_LOOK.pool = o.pool;
+  applyMarkLook(LOOK_OVR);                          // 이미 만들어진 재질에도 즉시
+}
 export function setMarkStateLook(mat, ph) {
   if (!mat?.uniforms) return;
   // ★ Locked(3) = **Tap2 디자인**(유저: 락 상태를 tap2 로 교체해 시뮬 전체에 반영).
@@ -493,7 +506,8 @@ export function setMarkStateLook(mat, ph) {
     // Tap2 가 실제로 들고 있는 나머지 — 하나라도 빠지면 그 키만 락 상태로 눌러앉는다.
     'edgeSoft','shadeRed','shadeRedW','rip','ripReach','ripWidth','ripSpeed','ripGrad','bloom','w'];
   if (!_stateBase.has(mat)) {
-    const base = {}; for (const k of KEYS) if (LOOK[k] != null) base[k] = LOOK[k];
+    // 오버라이드가 정본보다 우선한다 — 그래야 상태를 오갈 때도 프리셋이 살아남는다.
+    const base = {}; for (const k of KEYS) { const v = LOOK_OVR[k] ?? LOOK[k]; if (v != null) base[k] = v; }
     _stateBase.set(mat, base);
   }
   applyMarkLookTo(mat, _stateBase.get(mat));   // 공통으로 리셋

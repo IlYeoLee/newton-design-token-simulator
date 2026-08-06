@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { createScene, WALL_Z, FX } from './scene.js';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { TokenSystem, COLORS, TCFG, setFPView, makeMarkFXMaterial, makeLaneFXMaterial, makeFlowArrow, UI_MASK, applyMarkLook } from './tokens.js';
+import { TokenSystem, COLORS, TCFG, setFPView, makeMarkFXMaterial, makeLaneFXMaterial, makeFlowArrow, UI_MASK, applyMarkLook, setLookOverride } from './tokens.js';
 import { PRESETS, currentPreset, savePreset, pushHT } from './lookpresets.js';
 import { Effects } from './effects.js';
 import { XBot } from './xbot.js';
@@ -4750,7 +4750,7 @@ void main(){
     const btnL = document.getElementById('btn-look2');
     const applyPreset = () => {
       const P = PRESETS[cur]; if (!P) return;
-      applyMarkLook(P.look);
+      setLookOverride(P.look);   // 겉에만 바르면 상태 전환에 지워진다 — 바탕을 갈아 끼운다
       const push = m => pushHT(m, P.ht);
       tokens.scene?.traverse?.(o => push(o.material));
       scene.traverse(o => push(o.material));
