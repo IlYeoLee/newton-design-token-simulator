@@ -150,8 +150,14 @@ class FootMark {
    *  바뀔 때만 부른다(리셋+오버라이드라 매 프레임 돌릴 일이 아니다). */
   _ph(v) {
     if (this._U.uPhase.value === v) return;
-    // Success 를 떠나면 파문 시계도 끈다 — 안 끄면 다음에 다시 성공할 때 옛 위상에서 이어진다.
-    if (this._U.uPhase.value === 2 && this._U.uSuccT) this._U.uSuccT.value = -999;
+    // Success 를 떠나면 파문 시계도 끄고 **래치도 푼다**.
+    //   ★ 래치를 안 풀면 두 번째 성공부터 uSuccT 를 못 찍는다 — glow() 의 스탬프가
+    //     `!_succLatch` 안에 있기 때문이다. 실측: A2 에서 Success 인데 uSuccT 가 계속 -999.
+    //     상태를 떠났으면 그 성공은 끝난 것이다. 다시 성공하면 다시 쏜다.
+    if (this._U.uPhase.value === 2) {
+      if (this._U.uSuccT) this._U.uSuccT.value = -999;
+      this._succLatch = false;
+    }
     this._U.uPhase.value = v;
     setMarkStateLook(this.plane.material, v);
   }
@@ -2415,7 +2421,7 @@ export class Session {
       //   Preview(둘 다) → 딛는 발 Active(뻗을때) → 밟는 순간 Hold+숫자 5→1(이펙트 점점 커짐)
       //   → 끝나면 Success → 반대발 되면 상태 바뀜, 대기발은 Locked.
       // 판정 = 봇 다리 상태(발 접지+런지 깊이)로만 구동 — 고정 마크와의 거리 게이트 없음.
-      if ((this._a2t ?? 0) > this.t) { P._doneL = false; P._doneR = false; P._doneTL = null; P._doneTR = null; P.sec = 0; P._press = false; P._cnt = 5; P._repLatch = false; this.a2count = 0; }   // 재진입 리셋(a2count 미리셋=조기 전환 버그였음)
+      if ((this._a2t ?? 0) > this.t) { P._doneL = false; P._doneR = false; P._doneTL = null; P._doneTR = null; P.sec = 0; P._press = false; P._cnt = 5; P._repLatch = false; P._fillPeak = 0; P._wasHold = false; this.a2count = 0; }   // 재진입 리셋(a2count 미리셋=조기 전환 버그였음)
       // ── 발자국이 x봇 실제 발을 따라 런지처럼 이동 (고정 배치는 별로 — 유저 확정, 추적 복원) ──
       // ★ 보폭 압축·중심 = **빔 알파 실측**에서 나온 값이다(추측 금지). 마크 pad 를 포함한
       //   beamAlphaAt 커브(로컬 z 기준, near .30 / far 1.9):
@@ -2680,14 +2686,25 @@ export class Session {
       stanceNum.visible = false;
 
       // 완료 = 홀드 100% 도달(회차당 1회 래치). 왼발 1·오른발 1 = 총 2회
-      if (inHold && P.fill >= 0.995 && !P._repLatch) {
+      // ★ **프레임 운에 맡기지 않는다**(유저 08-06: 종아리에서 성공이 안 뜬다).
+      //   옛 조건은 `inHold && fill >= 0.995` 하나였는데, fill 은 봇 사이클(cyc.prog)에서 오고
+      //   봇이 홀드를 빠져나가는 순간 inHold 가 false 가 되면서 fill 이 **0 으로 리셋**된다.
+      //   그 사이 프레임이 0.995 를 안 밟으면 회차가 통째로 증발했다 — Success 도, 카운트도,
+      //   파문도 없다. 실측: fill 이 0.97 까지 갔다가 다음 프레임에 0.02 로 떨어지며 그대로 끝났다.
+      //   그래서 '성공 애니메이션이 안 나온다'가 실은 '성공이 아예 안 일어났다' 였다.
+      //   고침: 홀드 중 **최고치**를 기억하고, 홀드가 끝나는 프레임에 0.90 이상이면 완주로 친다.
+      //   (0.90 = 3초 홀드의 2.7초. 그만큼 버텼으면 해낸 것이다.)
+      if (inHold) P._fillPeak = Math.max(P._fillPeak || 0, P.fill);
+      const _holdEnded = !inHold && !!P._wasHold;
+      if (!P._repLatch && ((inHold && P.fill >= 0.995) || (_holdEnded && (P._fillPeak || 0) >= 0.90))) {
         P._repLatch = true; this.a2count = (this.a2count || 0) + 1;
         // 완료 플래그는 **늘어난 발**(work) 에 찍는다 — 화면이 '이 발 끝냈다'고 말하는 그 발이다.
         if (work === P.fmL) { P._doneL = true; P._doneTL = this.t; } else { P._doneR = true; P._doneTR = this.t; }
         work.glow(1);   // 그 자리에서 바로 Success — 파문은 glow 가 한 번만 쏜다(_succLatch)
         const wp = new THREE.Vector3(); work.group.getWorldPosition(wp); this.onPress?.(wp, false);
       }
-      if (!inHold) P._repLatch = false;   // 다음 홀드 위해 래치 해제
+      P._wasHold = inHold;
+      if (!inHold) { P._repLatch = false; P._fillPeak = 0; }   // 다음 홀드 위해 래치·최고치 해제
       if (this.t < DEMO) {
         FMU('먼저 보세요 — 앞으로 크게 딛고 버티기', CS.sand);   // demoActive 는 위에서 이미 정해졌다
       } else {
