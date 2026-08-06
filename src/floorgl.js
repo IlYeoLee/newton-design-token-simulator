@@ -1723,7 +1723,15 @@ export class FloorGL {
     const inner = ringW + H2.gapU + tw + (step ? 110 * K2 : 0);
     // ★ HUG — 상자는 내용에서 나온다. minW 바닥값은 **쓰지 않는다**: 그것 때문에 짧은 문구에서
     //   알약이 내용보다 넓어졌고, 남는 폭이 한쪽에 쌓여 가운데가 안 맞아 보였다(유저 스샷).
-    const w = this._smoothW(Math.min(safeW(y) - TOK.safePad, inner + PAD * 2));
+    // ★ 목표 폭과 **표시 폭**을 따로 들고 다닌다. 표시는 _smoothW 로 이징되는데, 글자는
+    //   그 프레임의 표시 폭에 맞춰 축소되고 있었다 — 폭이 벌어지는 0.12s 동안 축소율이 매 프레임
+    //   달라져 **글자가 늘었다 줄었다** 한다(유저: 모션 약간 튀기면서 잘려).
+    //   접두사('LEFT ')가 붙는 순간 목표가 크게 늘어나므로 이 구간이 눈에 보인다.
+    //   글자 크기는 **목표 폭**에서 한 번 정한다 → 이징 내내 크기가 고정이라 튐이 없다.
+    //   (이징 중 0.1초쯤 글자가 유리 알약보다 살짝 넓게 나가지만, 알약은 반투명이고
+    //    폭은 곧 따라잡는다 — 눈에 보이는 건 '크기가 흔들리는 것'이지 '살짝 넓은 것'이 아니다.)
+    const wT = Math.min(safeW(y) - TOK.safePad, inner + PAD * 2);
+    const w = this._smoothW(wT);
     // ★ **광학 보정**(유저: 로우드리블 좌우 간격 안 맞는다). 계산상으론 대칭인데 —
     //   실측 BK_B1: 알약 135~1465, 내용 200~1400 으로 좌우 여백이 65 로 같고 중심도 800 이다.
     //   그런데 눈에는 왼쪽이 넓다. 왼쪽 끝 물체가 **링의 옅은 트랙**(trackA .26)이라
@@ -1739,7 +1747,7 @@ export class FloorGL {
     //   기준은 **링이 들어갈 수 있는 높이**(TOK.ring) — 링이 실제로 그려지는지와 무관하다.
     const h = Math.round((TOK.ring * 2 + TOK.pad * 2) * K2);
     this._hbSig = _sig;
-    return (this._hbVal = { w, h, x, x0, inner, ringW, RR, PAD, gapT, fs, ringK, K2, H2 });
+    return (this._hbVal = { w, wT, h, x, x0, inner, ringW, RR, PAD, gapT, fs, ringK, K2, H2 });
   }
 
   /** 텍스트 슬롯 — 폭을 **실측**해서 들고 다닌다. 상자가 이 값에서 나오므로 넘칠 수 없다. */
@@ -2988,7 +2996,7 @@ export class FloorGL {
     const fsNow = TOK.fsTitlePv + (LAYOUT.TYPE.title - TOK.fsTitlePv) * moT;
     const _g = this._gaugeVal({ PV, dur, inPv: mo < .5, pvEnd: Math.max(PV, this._moT ?? PV),
                                 perFoot, hs, hp, pfK: perFoot ? clamp01((t - (this._pfT ?? t)) / 0.35) : 0 });
-    const { w: WHp, h: HHp, inner: INNER, ringW: RINGW, RR: RRp, PAD, gapT: GT, K2, H2 }
+    const { w: WHp, wT: WTp, h: HHp, inner: INNER, ringW: RINGW, RR: RRp, PAD, gapT: GT, K2, H2 }
       = this._headBox(tA > 0.004 ? title : '', cfg.step || repsTotal(this.stage), LAYOUT.HEAD.y,
                       { fs: fsNow, ringK, ringR: this._ringRFor(_g.rem) });
     const w1 = WHp, h1 = HHp, y1 = H2.y;
@@ -3106,11 +3114,15 @@ export class FloorGL {
     //   두 줄이 필요한 긴 이름만 예외로 크로스페이드를 남긴다.
     // ★ 최후 안전장치 — 어떤 이징 조합·어떤 문구 길이에서도 글자는 알약 안쪽 여백을 못 넘는다.
     //   시작점 x0 에서 알약 오른쪽 안쪽(x+w-PAD)까지가 허용폭이고, 넘치면 그 비율로 줄여 그린다.
-    //   기하가 앞서가므로(moG) 평상시엔 k=1 이라 아무 일도 안 하고, 접두사('LEFT ')가 붙어
-    //   폭 목표가 점프하는 0.1~0.2s 동안만 개입한다 → **알약이 벌어지는 만큼 글자가 커지며 들어온다**.
+    // ★★ 한계는 **목표 폭**에서 잡는다(유저: 모션 약간 튀기면서 잘려).
+    //   전엔 그 프레임의 표시 폭(이징 중)에서 잡아, 접두사가 붙어 목표가 점프하는 0.12s 동안
+    //   축소율 k 가 매 프레임 달라졌다 — '알약이 벌어지는 만큼 글자가 커지며 들어온다'로 의도했지만
+    //   실제로는 **글자 크기가 흔들리며 잘리는** 것으로 읽힌다(그 순간 형태 모프까지 겹친다).
+    //   목표 폭 기준이면 크기가 처음부터 최종값이라 흔들림이 없고, 이징은 상자만 한다.
     //   ponytail: 균일 스케일 한 줄. 줄바꿈·말줄임이 필요해지면 그때 넣는다.
     const fitDraw = (s, x0, y0) => {
-      const lim = x + w - PAD - (cfg.step || repsTotal(this.stage) ? 110 : 0);
+      const xT = CX - WTp / 2;
+      const lim = xT + WTp - PAD - (cfg.step || repsTotal(this.stage) ? 110 : 0);
       const tw = ctx.measureText(s).width;
       const xa = Math.max(x + PAD, Math.min(x0, lim - tw));   // ① 먼저 **민다** — 글자 크기는 안 건드린다
       const k = Math.min(1, (lim - xa) / Math.max(1, tw));    // ② 안쪽 폭보다 긴 문구만 줄인다
