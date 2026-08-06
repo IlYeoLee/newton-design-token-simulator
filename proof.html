@@ -58,7 +58,17 @@ const CONTACT = {
 const LOOK = { imp: 0, glow: 0, shade: 0, rip: 0, halo: 0, op: 1, shadeRed: 0, dither: 0,
                edgeSoft: 1, edgeW: 0.10, edgeShade: 0.38, edgeShadeW: 1.0, edgeShadeGrad: 1,
                tLo: 0.02, tHi: 0.86, dotMode: 0,
-               plantar: 1, loadGain: 2.6, loadBase: 0.10, bands: 0, pool: 0.9, pressA: 0 };
+               // ★ gain 을 낮춘다 — 2.6 은 접지 창 한가운데가 램프 끝에서 **잘려서** 빨강 덩어리와
+               //   연주황 사이에 중간색이 없다. 낮추면 코랄(진주황) 대역이 살아나 자연스레 녹는다.
+               plantar: 1, loadGain: 1.7, loadBase: 0.10, bands: 0, pool: 0.9, pressA: 0 };
+
+// 하프톤 — **양**으로 은은하게 얹는다(uHT 1 = 필을 통째로 대체, 0.3 = 살짝 비친다).
+//   점 크기는 이미 압력을 따라간다(tokens.js press) — 눌린 자리는 촘촘, 아치는 성기다.
+const HT = { amt: 0.22, pitch: 0.011, wave: 0, glow: 0.15 };   // 피치를 조이면 격자가 아니라 결로 읽힌다
+
+// 두 발이 겹치면 안 된다 — '모으기'(3/3 Gather)는 붙는 게 맞지만 겹치면 한 덩어리로 읽힌다.
+//   안무를 왜곡하지 않도록 **최소 간격이 깨질 때만** 좌우로 대칭 분리한다.
+const MIN_GAP = 0.175;   // 발 실루엣 실폭 ≈ 0.147m(FOOT_LEN_M 0.30 × 폭비 0.49) + 여유. 0.132 로는 여전히 겹쳤다
 
 // ── ① 런지 종아리 — 정지 동작이다. 발은 안 움직이고 **하중만** 뒷발 뒤꿈치로 실린다.
 //   4박: 들어가기 → 누르기(뒤꿈치) → 버티기 → 풀기. 뒷발이 늘어나는 발(session A2 정본).
@@ -116,6 +126,8 @@ function makePanel(canvasId, cueId, beatId, readId, seq, feet, period, pose) {
       mat.uniforms.uOut.value = 0;
       mat.uniforms.uNumTex.value = mat.uniforms.uLUT.value;
       setMarkStateLook(mat, 1); applyMarkLookTo(mat, LOOK);
+      mat.uniforms.uHT.value = HT.amt; mat.uniforms.uHTPitch.value = HT.pitch;
+      mat.uniforms.uHTWave.value = HT.wave; mat.uniforms.uHTGlow.value = HT.glow;
       mat.uniforms.uPhase.value = 1; mat.uniforms.uProg.value = 0;
       const m = new THREE.Mesh(new THREE.PlaneGeometry(S, S), mat);
       m.position.set(f.x, f.y, 0);
@@ -146,6 +158,13 @@ function tick(P, t) {
   const u = (t / P.period) % 1;
   // ── 위치 이동 — 좌표는 정본에서 읽는다(하중만 바꾸던 이전 판의 빈자리) ──
   const pose = P.pose ? sbPoseAt(SB_T0 + u * (SB_T1 - SB_T0)) : null;
+  // 겹침 방지 — 두 발 중심 간격이 최소값보다 좁아지면 중점 기준으로 대칭 분리한다.
+  //   안무(모으기)는 그대로 두고 '겹치는 순간'만 벌린다. 좌표 정본은 안 건드린다.
+  let push = 0;
+  if (pose) {
+    const dx = (pose.R.u - pose.L.u) * SB_K, ad = Math.abs(dx);
+    if (ad < MIN_GAP) push = (MIN_GAP - ad) / 2 * (dx < 0 ? -1 : 1);
+  }
   for (const { mat, f, mesh } of P.mats) {
     const s = step(P.seq, u, f.key);
     const CA = CONTACT[s.na] || CONTACT.flat, CB = CONTACT[s.nb] || CA;
@@ -160,7 +179,7 @@ function tick(P, t) {
     let amp = c.a;
     if (pose) {
       const q = pose[f.key];                       // f.key = 'L' | 'R'
-      mesh.position.set(q.u * SB_K, (q.v - SB_VC) * SB_K, 0);
+      mesh.position.set(q.u * SB_K + (f.key === 'R' ? push : -push), (q.v - SB_VC) * SB_K, 0);
       // 체공 중이면 접지가 없다 — 들었다 놓는 스텝만. 슬라이드는 바닥에 붙은 채라 계속 닿아 있다.
       if (q.moving && !q.slide) amp = 0;
     }
