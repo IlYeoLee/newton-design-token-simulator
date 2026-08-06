@@ -959,6 +959,13 @@ vec4 markState(vec2 uv, float state, float prog, float strong, float t){
     // 마감 수렴(유저): 진행이 끝나는 순간 링이 12시에서 '한 바퀴 닫혔다'로 읽혀야 한다.
     //   평시 블러 0.16(≈58°)은 부드럽지만, 그대로면 선단·시작 페이드가 12시에서 겹쳐 끝까지
     //   틈이 남는다 → 막판(86%~)에 양끝 블러를 조여 원이 닫히고, 완주 프레임은 풀 링.
+    // ── 미완주 가이드 트랙 (유저 08-06: 홀드 들어가면 라인이 확 줄어 화면이 빈다) ──
+    //   예전 트랙을 지운 이유는 '트랙이 있어서'가 아니라 **무채(C_RIMG)라서** 였다 —
+    //   회색이 밝은 이너 섀도우 위에 얹혀 12시에 홈이 파였다. 그래서 색만 바꿔 되살린다:
+    //   어둡게가 아니라 **밝게 옅게**(빛 언어 원칙 — 어두운 외곽선 금지). LUT 상단 연주황을
+    //   아주 낮은 알파로 실루엣 한 바퀴. 지나온 스트로크가 그 위를 덮어 진행이 그대로 읽힌다.
+    float rnT = dRim / max(strokeW * 0.62, 1e-5);
+    lay(A, lut(0.86), exp(-rnT * rnT * 1.1) * dashM * uW * (0.13 + 0.03 * sin(t * 1.7)));
     float closeK = smoothstep(0.86, 1.0, pr);
     float BLUR = mix(0.16, 0.035, closeK);
     float head = clamp(pr, 0.0, 1.0);
@@ -981,6 +988,11 @@ vec4 markState(vec2 uv, float state, float prog, float strong, float t){
     float tip = exp(-hd * hd) * step(0.02, pr) * step(pr, 0.995);
     holdC = mix(holdC, lut(1.0), clamp(tip, 0.0, 1.0));
     holdA = max(holdA, max(stroke, glowRim * 0.6) * tip);
+    // ── 홀드 숨쉬기 (유저 08-06: 애니메이팅도 줄었다) ──
+    //   session.js 가 홀드 중 마크 **위치**를 의도적으로 잠근다(흔들리는 물체 방지) — 그건 유지.
+    //   대신 스트로크 밝기만 느리게 맥동시켜 '멈춘 화면'이 아니라 '버티는 중'으로 읽히게 한다.
+    //   위치는 그대로라 흔들림은 안 돌아온다. 2.0Hz = 홀드 5초에 10번, 호흡 리듬.
+    holdA *= 0.88 + 0.12 * sin(t * 2.0);
   } else if (state < 3.5) {     // ── Success: 진홍 블룸 → 잔상 소멸
     float e = 1.0 - pow(1.0 - prog, 2.6);
     float q = mkR(uv, gcBall, uShape < 0.5 ? ext * 1.3 : 1.75, sd);
