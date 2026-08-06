@@ -390,6 +390,7 @@ export function makeMarkFXMaterial(footTex = null) {
       //   — 유저가 반복해 지적한 '랩보다 뿌옇고 채도 낮다'의 정체. toLin 역변환이 이를 상쇄해
       //   화면값이 랩과 같아진다. (LANEFX 는 처음부터 uOut=1 — 마크만 예외였다.)
       //   ※ 이전 주석의 '(241,37,25)' 는 OutputPass 이전 버퍼값을 잰 것 — toLin(249,106,88) 그 자체다.
+      uTLo: { value: 0 }, uTHi: { value: 0 },   // 상태 색 축(온도 창) — 0 = 상태 기본 창
       uSweepA: { value: 1 }, uNoise: { value: MARK_LOOK.wobble }, uDay: { value: 0 }, uOut: { value: 1 },
       // ★ 생성 기본값도 **정본(MARK_LOOK)** 에서 온다. 0.5 를 박아 두면, per-frame 주입을 안 받는
       //   경로(상태 오버라이드·floorLook·랩 프리뷰)가 일렁임 0.5 로 굳는다 — 실측 결과 그런 재질이
@@ -440,7 +441,7 @@ export function applyMarkLookTo(mat, part = {}) {
     // ★ halo/w/pool 도 맵에 넣는다 — 이 셋만 빠져 있어서 바닥 룭의 halo 낮춤이 안 먹었다
     //   (실측: floor.halo .18 을 줘도 재질은 생성값 .45 그대로). 팩 마크는 매 프레임 전역값이
     //   덮으므로 그쪽은 userData.floorLook 예외로 따로 막는다.
-    halo: 'uHalo', w: 'uW', pool: 'uPool', noise: 'uNoise' };
+    halo: 'uHalo', w: 'uW', pool: 'uPool', noise: 'uNoise', tLo: 'uTLo', tHi: 'uTHi' };
   const mapSF = { pitch: 'uImpPitch', edge: 'uImpEdge', edgeW: 'uEdgeW', ripWidth: 'uRipWidth', ripReach: 'uRipReach' };
   const U = mat.uniforms;
   for (const k in map) if (part[k] != null && U[map[k]]) U[map[k]].value = part[k];
@@ -484,7 +485,7 @@ export function applyMarkLook(part = {}) {
     edgeShade: 'uEdgeShade', edgeShadeW: 'uEdgeShadeW', edgeShadeCol: 'uEdgeShadeCol',
     edgeShadeGrad: 'uEdgeShadeGrad', edgeShadeG0: 'uEdgeShadeG0', edgeShadeG1: 'uEdgeShadeG1',
     shadeRed: 'uShadeRed', shadeRedW: 'uShadeRedW', edgeSoft: 'uEdgeSoft', dither: 'uDither',
-    rip: 'uRip', ripSpeed: 'uRipSpeed', ripGrad: 'uRipGrad', ripCol: 'uRipCol', iceOld: 'uIceOld' };
+    rip: 'uRip', ripSpeed: 'uRipSpeed', ripGrad: 'uRipGrad', ripCol: 'uRipCol', iceOld: 'uIceOld', tLo: 'uTLo', tHi: 'uTHi' };
   const mapSF = { pitch: 'uImpPitch', edge: 'uImpEdge', edgeW: 'uEdgeW', ripWidth: 'uRipWidth', ripReach: 'uRipReach' };
   for (const m of MARK_MATS) {
     const U = m.uniforms;

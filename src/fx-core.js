@@ -672,6 +672,7 @@ uniform float uLoadGain, uLoadBase, uFlow;
 uniform float uEdgeShade, uEdgeW, uEdgeSoft, uDither, uSilFit;
 uniform float uEdgeShadeW, uEdgeShadeCol;   // 실루엣 이너 섀도우 면적 배율 · 팔레트 색(0흰/1샌드/2코랄/3레드) — 유저: 면적·색 조정
 uniform float uIceOld;   // 1 = 아이스 컷 이전(하늘색) 램프 — 비교 미리보기용 토글(유저)
+uniform float uTLo, uTHi;   // 상태 온도 창(색 축) — 0 = 미설정(각 상태 기본 창)
 uniform float uEdgeShadeGrad, uEdgeShadeG0, uEdgeShadeG1;   // 이너 섀도우 LUT 그라디언트(0 단색) · 시작/끝 LUT 위치 — 섬세 조정(유저)
 // uShadeRed / uShadeRedW: **음영 자리에 까는 뉴턴 RED 블룸** (유저: 바닥 색에 가장 빨간 뉴턴 레드가
 //   부족하다 — 음영 지는 부분에 은은한 블러로). 이너 섀도우는 LUT 상단(PRISM)이라 형태는 잡아도
@@ -851,13 +852,22 @@ vec3 fillT(float q, float lo, float hi){
   //   압력맵용 별도 계열 램프를 넣었다가 유저 지적으로 되돌렸다. 다시 만들지 말 것.
   return lut(x);
 }
-vec3 fillPreview(float q){ return fillT(q, T_PREV_LO, T_PREV_HI); }
-vec3 fillHot(float q){     return fillT(q, T_HOT_LO,  T_HOT_HI);  }
-vec3 fillActive(float q){  return fillT(q, T_ACT_LO,  T_ACT_HI);  }
-vec3 fillHold(float q){    return fillT(q, T_HOLD_LO, T_HOLD_HI); }
+// ★★ **상태 색 축**(유저: 색 조합을 쨍한 빨강부터 연한 주황까지 그라디언트로 구분).
+//   상태의 정체성은 '온도 창(lo~hi)'이 정한다고 이 파일이 이미 적어 뒀는데, 그 창이 #define
+//   컴파일 상수라 **상태별로 못 움직였다** — 그래서 Active·Warning·Success 가 같은 대역에서
+//   뭉쳐 구분이 안 갔고(유저), 결국 외곽선·해칭 같은 **다른 축으로 구분하려는 시도**가 생겼다.
+//   창을 uniform 으로 열면 색 하나로 갈린다: uTHi 0 = 미설정 → 각 상태의 기존 창 그대로(픽셀 동일).
+//   ※ 규칙은 그대로다 — 새 색을 만들지 않는다. 같은 뉴턴 LUT 의 **다른 구간**을 쓸 뿐이다.
+vec3 fillWin(float q, float lo, float hi){
+  return (uTHi > 0.0001) ? fillT(q, uTLo, uTHi) : fillT(q, lo, hi);
+}
+vec3 fillPreview(float q){ return fillWin(q, T_PREV_LO, T_PREV_HI); }
+vec3 fillHot(float q){     return fillWin(q, T_HOT_LO,  T_HOT_HI);  }
+vec3 fillActive(float q){  return fillWin(q, T_ACT_LO,  T_ACT_HI);  }
+vec3 fillHold(float q){    return fillWin(q, T_HOLD_LO, T_HOLD_HI); }
 // Success 는 코어가 가장 뜨겁고(하한이 낮다) 바깥이 백열로 열린다 — 승리의 온도.
 // 상한을 1.0(순백) 이 아니라 0.92 로 — 순백까지 열면 코어와 분리된 흰 링이 생긴다(유저: 아이스 과함).
-vec3 fillSuccess(float q){ return fillT(q, mix(0.02, 0.03, uIceOld), mix(0.78, 1.00, uIceOld)); }   // 신 = 피그마 성공 정본(163:8908) 쨍한 레드-코랄 · 구 = 백열/아이스
+vec3 fillSuccess(float q){ return fillWin(q, mix(0.02, 0.03, uIceOld), mix(0.78, 1.00, uIceOld)); }   // 신 = 피그마 성공 정본(163:8908) 쨍한 레드-코랄 · 구 = 백열/아이스
 // over 연산 누적 (premultiplied) — 원본 mix(col, X, k) 체인의 기계적 등가 변환
 void lay(inout vec4 A, vec3 X, float k){ A.rgb = A.rgb * (1.0 - k) + X * k; A.a = A.a * (1.0 - k) + k; }
 vec4 markState(vec2 uv, float state, float prog, float strong, float t){
