@@ -2680,9 +2680,11 @@ export class Session {
       //     받치는 발도 실제로 3초를 같이 버티고 있으므로 같은 진행을 그리는 게 거짓말도 아니다.
       //     ('타이머는 늘어나는 발에' 라는 유저 규칙은 **숫자** 얘기다 — 숫자는 여전히 한쪽만
       //      붙는다(stanceNum.visible = false). 링만 둘 다 찬다.)
-      if (stanceDone) stance.glow(1);
-      else if (P.fill > 0.02) stance.setHold(P.fill);   // 홀드 중 = 같이 차오른다
-      else stance.countdown(-1);                        // 그 밖 = Preview(자체 차오름)
+      //   ★ 링·숫자·Success 는 **늘어나는 발 하나만** 갖는다(원래 규칙, main.js a2Cyc 주석과 같은 축).
+      //     한때 두 발을 같이 채웠는데, 그러면 "이 발의 종아리를 늘려라"는 지시가 흐려진다.
+      //     받치는 발은 Preview — **진행 링을 아예 안 그린다.** 구값 setHold(0.02) 는
+      //     진행이 2% 에 못 박힌 링이라 화면에 '영원히 안 차는 타이머'가 남아 있었다.
+      if (stanceDone) stance.glow(1); else stance.countdown(-1);
       // ── 뒷발 = 이 운동의 **주인공**인데 지금껏 아무 일도 안 일어났다. 종아리가 늘어나는 쪽이므로
       //   **보폭 × 홀드**에 비례해 파문·광량이 자란다 — 깊게 딛을수록 뒷발이 밝아진다 = 자세가 곧 보상.
       //   새 이펙트가 아니라 uRip/op 정본의 구동값만 바꾼다.
