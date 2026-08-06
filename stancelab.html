@@ -62,7 +62,7 @@
     <button id=blend>블렌딩: 잉크</button>
     <label>각인(전 상태) <input type=range id=s-imp min=0 max=1 step=0.01 value=0.98><span class=v id=v-imp>0.98</span></label>
     <label>압력장 <input type=range id=s-pl min=0 max=1 step=0.01 value=0.55><span class=v id=v-pl>0.55</span></label>
-    <label>화살표 온도 <input type=range id=s-heat min=0 max=1 step=0.01 value=0.5><span class=v id=v-heat>0.50</span></label>
+    <label>화살표 온도 <input type=range id=s-heat min=0 max=1 step=0.01 value=0.15><span class=v id=v-heat>0.15</span></label>
   </div>
 
   <p class=note>프레임 1816×510(3.561:1) = 16:9·vfov 60°의 중앙 띠. 카메라는 실측 눈(y 1.69 · z −1.809),
@@ -274,7 +274,8 @@ sPl.oninput = () => { const v = +sPl.value; LOOK.plantar = v; vPl.textContent = 
 sPl.onchange = () => buildTokens();
 // 화살표 온도 — fx-core drawStemArrow 의 LUT 위치. 0 쪽 = 레드(밝은 바닥에서 읽힘)
 const sHeat = $('s-heat'), vHeat = $('v-heat');
-sHeat.oninput = () => { const v = +sHeat.value; FXP.arrow = FXP.arrow || {}; FXP.arrow.heat = v;
+sHeat.oninput = () => { const v = +sHeat.value; FXP.arrow = FXP.arrow || {};
+  FXP.arrow.heat = v; FXP.arrow.heatDay = v;   // 잉크 모드 기본 강하(0.15)를 이 노브가 덮는다
   vHeat.textContent = v.toFixed(2); for (const g of [aL, aR]) g._paintT = -9; };
 
 // 계측 훅 — 룩 키를 바꿔 가며 실측할 때(scripts/_probe_*) 쓴다. 화면 기능 아님.

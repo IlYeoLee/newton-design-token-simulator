@@ -1003,7 +1003,13 @@ export function tickFlowArrows(t, rig) {
   if (!GLYPHS.map.TIP_TRI) { GLYPHS.map.TIP_TRI = import.meta.env.BASE_URL + 'ready-view/assets/arrow_tip.svg'; GLYPHS.set(GLYPHS.map); }
   if (!GLYPHS.map.LIFT_TIP) { GLYPHS.map.LIFT_TIP = import.meta.env.BASE_URL + 'ready-view/assets/lift_tip.svg'; GLYPHS.set(GLYPHS.map); }
   const day = (FXP.day || FXP.markBlend === 'ink') ? 1 : 0;
-  const ENV = { lut: lutColor, glyph: drawGlyph, arrow: FXP.arrow || {} };
+  // ★ 주간(잉크) 화살표는 **온도를 내린다**. 스템·촉이 LUT 0.55~0.97(코랄→샌드→프리즘)이라
+  //   밝은 바닥 위에서 통째로 씻겨 안 보였다(유저 08-07 스샷 · stancelab 실측).
+  //   같은 무대에서 마크가 가산광을 못 쓰는 것과 **같은 이유·같은 처방**이다(tickWaves 주석).
+  //   야간(가산)은 종전 그대로 — heat 0.5 는 이 파일 이전 픽셀과 동일하다.
+  const A0 = FXP.arrow || {};
+  const ENV = { lut: lutColor, glyph: drawGlyph,
+    arrow: day ? { ...A0, heat: A0.heatDay ?? 0.15 } : A0 };
   for (let i = FLOW_ARROWS.length - 1; i >= 0; i--) {
     const g = FLOW_ARROWS[i];
     if (!g.parent) { FLOW_ARROWS.splice(i, 1); continue; }

@@ -1486,6 +1486,7 @@ export function drawStemArrow(g, W, H, t, ENV, opts = {}) {
 export function drawCurveArrow(g, W, H, pts01, t, ENV, opts = {}) {
   const lut = ENV.lut, A = ENV.arrow || {};
   const AW = A.w ?? 1, glowK = A.glow ?? 1;
+  const hv = v => Math.max(0.02, Math.min(0.99, v + ((A.heat ?? 0.5) - 0.5) * 1.1));   // 온도 — drawStemArrow 와 같은 식
   const s = (H / 256) * (opts.scale ?? 1);
   g.clearRect(0, 0, W, H);
   const P = pts01.map(([x, y]) => [x * W, y * H]);
