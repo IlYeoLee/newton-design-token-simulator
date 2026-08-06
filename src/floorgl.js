@@ -3206,7 +3206,14 @@ export class FloorGL {
   //     ※ paint1(프리즘 림)은 두 램프가 원래 동일 — 손대지 않았다.
   _paint_ready_final() {
     const ctx = this.ctx;
-    const LOOP = 8, TP2 = 2.0, TP_CTA = 2.9;   // 0~2 인물 · 2~ 숫자 · 2.9~ CTA(2안은 숫자와 한 화면)
+    // ★ 1안(인물)이 너무 길었다(유저 08-07: '처음 나오는 그 화면이 넘 길어, 바로 발 두 번이
+    //   나오게'). 2.0 → 1.35 로 줄이고 CTA 도 0.8초 당긴다. 루프 8초는 그대로 — 줄인 만큼
+    //   전부 '발 두 번' 구간으로 간다(탭 박자가 2초 주기라 3세트가 온전히 들어간다).
+    const LOOP = 8, TP2 = 1.35, TP_CTA = 2.1;   // 0~1.35 인물 · ~ 숫자 · 2.1~ CTA(2안은 숫자와 한 화면)
+    // ★ 1안 **등장 타이밍은 TP2 에서 파생**시킨다. 하드코딩해 두면 TP2 를 줄일 때 뱃지가
+    //   자기 등장(.96~1.51)을 마치기도 전에 화면이 넘어간다 — 실제로 그렇게 될 뻔했다.
+    //   기준은 원래 잡았던 2.0초이고, 지금은 그 배수만큼 통째로 당겨진다.
+    const S1 = TP2 / 2.0;
     const t = this.t % LOOP;
     const bk = /floor-bk/.test(this.params.src);
     const D = READY[bk ? 'floor-bk.html' : 'floor.html'], R2 = D.r2;
@@ -3244,17 +3251,21 @@ export class FloorGL {
     //   인물 뒤 배경 광(f1)은 벽의 _bgGlow 대응이라 필터 없음(벽도 거기엔 안 건다).
     //   ※ saturate 가 같이 붙어야 한다 — brightness 만 올리면 명도가 올라가며 채도가 내려가
     //     FA3030 이 탄색으로 읽힌다(08-06 에 한 번 밟은 함정).
-    const WALL_BLEND = 'brightness(1.35) saturate(1.05)';
+    // ★ **껐다**(유저 08-07). 이 필터가 CTA 광에만 걸려 있는데 그 광이 'Tap your foot Twice'
+    //   **바로 뒤**라, 글자 자리만 밝아져 문구에 라이트가 걸린 것처럼 읽혔다.
+    //   글자 자체는 순백 불투명이다(실측: 납품 mov 에서 글자 픽셀 24,150개가 255,255,255).
+    //   벽과 다시 맞추고 싶으면 f2 의 마지막 null 을 `'brightness(1.35) saturate(1.05)'`
+    //   (= wallgl.js 발 뒤 글로우와 같은 값)로 되돌리면 끝이다.
     for (const [rel, gx, gy, gw, gh, la, filt] of [
       [bk ? 'glow-ell-f1.svg' : 'glow-ell-f1-run.svg', -17.61, 252.20, 1682.31, 1962.63, q, null],
-      ['glow-ell-f2.svg', 130.36, 1081.35, 1341.36, 1261.36, p2, WALL_BLEND],
+      ['glow-ell-f2.svg', 130.36, 1081.35, 1341.36, 1261.36, p2, null],
     ]) {
       if (la <= 0.004) continue;
       const im = img(rel);
       if (!im) continue;
       ctx.save();
       if (filt) ctx.filter = filt;
-      ctx.globalAlpha *= la * e0(.05, 1.2) * (1 + .3 * tapB);   // 탭 박자에 빛이 두 번 부푼다
+      ctx.globalAlpha *= la * e0(.05 * S1, 1.2 * S1) * (1 + .3 * tapB);   // 탭 박자에 빛이 두 번 부푼다
       // 일렁임 — 주기가 안 맞는 사인 셋이라 반복으로 안 읽힌다(기존 안과 같은 진폭).
       const w = t * 0.42, cx0 = gx + gw / 2, cy0 = gy + gh / 2;
       ctx.translate(cx0, cy0);
@@ -3273,7 +3284,7 @@ export class FloorGL {
     //     세로 마스크 하단 페이드(_readyPerson, feather>0 분기)와 같이 걸린다.
     //     커리는 컷아웃이라 넓히면 오히려 발끝이 먹힌다(실측) → 피그마 값 유지.
     this._readyPerson(bk, { x: 337, y: 969, w: 1078, h: 1050, r: 495 },
-                      e0(.30, .9) * q, null, bk ? 0.13 : 0.30);
+                      e0(.30 * S1, .9 * S1) * q, null, bk ? 0.13 : 0.30);
 
     // ── ③ 뱃지 — 254.36×114.68 **r45**, 흰 20% 면 + 흰 글자. **타이틀 위**로 올라왔다(기존 안은 아래).
     //   ★ R 은 코드젠 값(12)을 쓰면 안 된다 — 뱃지가 **축소된 인스턴스**라 코드젠이 컴포넌트
@@ -3283,8 +3294,8 @@ export class FloorGL {
     //   글자 크기 59.3 은 같은 렌더에서 캡 높이로 확인.
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     if (q > 0.01) {
-      ctx.save(); ctx.globalAlpha *= e0(.96, .55) * q;
-      const BY = 572 + rise(.96, .55, 18);
+      ctx.save(); ctx.globalAlpha *= e0(.96 * S1, .55 * S1) * q;
+      const BY = 572 + rise(.96 * S1, .55 * S1, 18);
       ctx.fillStyle = 'rgba(255,255,255,.2)';
       ctx.beginPath(); ctx.roundRect(673, BY, 254.36, 114.68, 45); ctx.fill();
       ctx.fillStyle = NEU.ink; ctx.font = RF(700, 59.3); ctx.letterSpacing = '-0.5px';
@@ -3297,9 +3308,9 @@ export class FloorGL {
     const TCY = 900 - 533 * p2;
     ctx.fillStyle = NEU.ink; ctx.font = RF(700, 130); ctx.letterSpacing = '-5.2px';
     for (const [i, ln] of R2.lines.entries()) {
-      const d = .26 + i * .06;   // 타이틀 먼저, 부제 나중(유저 08-06)
-      ctx.save(); ctx.globalAlpha *= e0(d, .72);
-      ctx.fillText(ln, 800, TCY + (i ? 88 : -88) + rise(d, .72, 22));
+      const d = (.26 + i * .06) * S1, dd = .72 * S1;   // 타이틀 먼저, 부제 나중(유저 08-06)
+      ctx.save(); ctx.globalAlpha *= e0(d, dd);
+      ctx.fillText(ln, 800, TCY + (i ? 88 : -88) + rise(d, dd, 22));
       ctx.restore();
     }
     ctx.letterSpacing = '0px';
