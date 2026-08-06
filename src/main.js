@@ -2767,6 +2767,10 @@ void main(){
             col = personLook(clamp(H + pulse + dth, 0.0, 1.0), lumS, lumB, mIn, faceW, uv.y) * mEro;
             cov = mEro;
           }
+          // ★ 가이드 룩은 **두 갈래가 합류한 뒤** 건다. personColor 안에만 넣었더니
+          //   uPForm>0.5(personAura) 경로에서 통째로 무시돼, 랩에선 되는데 실화면에선
+          //   아무 일도 안 일어났다(유저 08-07). uPHiPale 0 이면 이 줄은 아무것도 안 한다.
+          col = personGuide(col);
           // ── 등장 워시(유저 08-04): 첫 등장에 다리가 연하게 뜨는 대신, 최심 주황(#FF3300)이
           //   발끝에서 차올라 몸을 한 번 훑고 정상 룩으로 풀린다. uEnter ≥ 1.4s 면 비용 0.
           float et = clamp(uEnter / 1.4, 0.0, 1.0);

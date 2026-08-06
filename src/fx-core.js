@@ -468,8 +468,20 @@ vec3 personGuideColor(float T){
   k = k * k * (3.0 - 2.0 * k);
   return mix(pale, deep, k);
 }
+/** 가이드 룩을 **최종 색에** 건다.
+ *  ★ personColor 안에만 넣으면 안 된다(08-07 실제 사고). 코치 판은 uPForm 으로 두 갈래다:
+ *      uPForm ≤ 0.5 → personLook → personColor  (가이드 걸림)
+ *      uPForm > 0.5 → personAura (레퍼런스 5중 레이어) → **personColor 를 안 거침**
+ *    후자가 실사용 경로였고, 그래서 랩 렌더에선 하얀 인물이 빨갛게 달아올랐는데
+ *    실제 화면에선 아무 일도 안 일어났다(유저). 두 갈래가 합류하는 **끝**에서 걸어야 한다.
+ *  입력 색의 밝기만 읽어 램프를 다시 태운다 — 앞 단계가 무엇이든 결과는 같다. */
+vec3 personGuide(vec3 c){
+  if (uPHiPale <= 0.0) return c;
+  return personGuideColor(clamp(dot(c, vec3(0.299, 0.587, 0.114)) * 1.35, 0.0, 1.0));
+}
 vec3 personColor(float T){
-  if (uPHiPale > 0.0) return personGuideColor(T);   // 가이드 모드 = LUT 를 안 탄다
+  //   ⚠ 여기서 가이드로 갈아타면 **두 번 걸린다**(personGuide 가 합류 지점에서 또 건다).
+  //     두 번 걸면 램프를 두 번 타서 전신이 하얗게 뜬다(08-07 렌더로 확인). 가이드는 한 곳에서만.
   T = clamp(T, 0.0, 1.0);
   float hiN = pHi();
   if (uPCoral > 0.001) {
