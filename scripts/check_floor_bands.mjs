@@ -109,6 +109,23 @@ if (advM) {
   else ok.push('⑤ 타이머 중복 없음');
 }
 
+// ── 규칙⑦ 죽은 스테이지 금지 — 갤러리·정본에 있는 화면은 세션에 실재해야 한다 ──────────────
+//   유저 스샷: BK_A3 알약에 'BK_A3' 라고 찍혀 있었다. 농구 개편으로 세션에서 빠진 스테이지가
+//   갤러리 목록(tokenlab)에 남아, 씬 정본에 타이틀이 없으니 **폴백으로 id 가 그대로 그려졌다**.
+{
+  const sess = readFileSync(new URL('../src/session.js', import.meta.url), 'utf8');
+  const lab  = readFileSync(new URL('../src/tokenlab.js', import.meta.url), 'utf8');
+  const scn  = readFileSync(new URL('../public/ready-view/floor-scenes.js', import.meta.url), 'utf8');
+  const live = new Set([...sess.matchAll(/id:\s*'([A-Z0-9_]+)'/g)].map(m => m[1]));
+  const inLab = [...lab.matchAll(/\{\s*id:\s*'([A-Z0-9_]+)'/g)].map(m => m[1]);
+  const titled = new Set([...scn.matchAll(/^\s{2}([A-Z0-9_]+):\s*\{/gm)].map(m => m[1]));
+  const dead = inLab.filter(id => !live.has(id));
+  const untitled = inLab.filter(id => live.has(id) && !titled.has(id) && !/READY|FIN|T1|T2|C1$/.test(id));
+  if (dead.length) fails.push(`갤러리에 죽은 스테이지: ${dead.join(', ')} — 세션 STAGES 에 없다(규칙⑦)`);
+  if (untitled.length) fails.push(`씬 정본에 타이틀 없음: ${untitled.join(', ')} — 알약에 id 가 찍힌다(규칙⑦)`);
+  if (!dead.length && !untitled.length) ok.push('⑦ 죽은 스테이지·무제 스테이지 없음');
+}
+
 console.log('\n■ 밴드 (측정)');
 for (const [n, [a, b]] of Object.entries(band)) console.log(`  ${n.padEnd(9)} ${String(Math.round(a)).padStart(4)} ~ ${String(Math.round(b)).padStart(4)}   (${Math.round(b - a)}px)`);
 console.log('\n■ 통과'); ok.forEach(s2 => console.log('  ✓ ' + s2));

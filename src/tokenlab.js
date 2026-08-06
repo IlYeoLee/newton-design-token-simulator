@@ -35,8 +35,13 @@ const STAGES = [
   { id: 'C2',      pack: 'run' }, { id: 'C3', pack: 'run' }, { id: 'C4', pack: 'run' }, { id: 'C5', pack: 'run' },
   { id: 'FIN',     pack: 'run', src: SRC.report,     note: '리포트' },
   { id: 'BK_READY', pack: 'bk', src: SRC.readyBk,    note: '시작' },
-  { id: 'BK_A1',   pack: 'bk' }, { id: 'BK_A3', pack: 'bk' }, { id: 'BK_B1', pack: 'bk' },
-  { id: 'BK_B2',   pack: 'bk' }, { id: 'BK_B3', pack: 'bk' }, { id: 'BK_B4', pack: 'bk' }, { id: 'BK_B5', pack: 'bk' },
+  // ★ 폐기 스테이지 제거(유저 스샷: BK_A3 알약에 'BK_A3' 라고 찍혀 있다). 농구 개편으로 세션
+  //   STAGES.basketball 에서 BK_A3·BK_B5 가 빠졌는데 이 목록에 남아 있었다 — 씬 정본
+  //   (floor-scenes.js)에 타이틀이 없으니 폴백으로 **스테이지 id 가 그대로 찍혔다**.
+  //   갤러리는 '지금 있는 화면' 만 보여야 한다. 죽은 스테이지는 check_floor_bands 규칙⑦이 잡는다.
+  { id: 'BK_A1',   pack: 'bk' }, { id: 'BK_B1', pack: 'bk' },
+  { id: 'BK_T1',   pack: 'bk' },
+  { id: 'BK_B2',   pack: 'bk' }, { id: 'BK_B3', pack: 'bk' }, { id: 'BK_B4', pack: 'bk' },
   { id: 'BK_C1',   pack: 'bk', src: SRC.timer,       note: '카운트' },
   { id: 'BK_C2',   pack: 'bk' },
   { id: 'BK_FIN',  pack: 'bk', src: SRC.report,      note: '리포트' },
