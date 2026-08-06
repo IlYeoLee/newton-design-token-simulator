@@ -1725,7 +1725,12 @@ export class Session {
       H.gh.op(0);
       // 완료 '팡' 링 — 실전(big)에만. 평소엔 안 보이고 3회를 다 해낸 순간 한 번 퍼진다.
       //   반경은 작게 만들고 **스케일로** 키운다(지오메트리 재생성 없음).
-      if (big) { H.pang = waveRingMesh(0.19, 0.225, BRAND.red, 0, false, 2);
+      // ★ 완료 '팡' 은 **은퇴**(유저 08-07: "이 원형 안 예뻐서 안 쓰기로 했잖아").
+      //   더해서 실측 사고가 있었다 — 씬 고정 루프에서 bkShotNow 가 안 풀려 이 링이 3.5배로
+      //   커진 채 영영 남아, 발자국 화면에 **은은한 배경 그라디언트**로 깔렸다
+      //   (유저 스샷 2장. 헤드리스 실측: pang visible true · scale 3.5 · 폭 2.11m).
+      //   만들지 않는다 = 켜질 길도 없다.
+      if (false && big) { H.pang = waveRingMesh(0.19, 0.225, BRAND.red, 0, false, 2);
         H.pang.rotation.x = -Math.PI / 2; H.pang.position.set(0, 0.012, SBZ);
         H.pang.visible = false; H.pang.setOp(0); gg.add(H.pang); }
       // 발자국 좌표 = 레퍼런스 영상 MediaPipe 실측(골반 기준 상대, 미터). 임의값 아님.

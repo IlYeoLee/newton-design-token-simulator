@@ -6092,7 +6092,9 @@ void main(){
   //   뭘 봐야 할지 모르겠다. 4/4 배움 단계의 것을 재생하자". 4/4(BK_B4)는 구간이 실전과
   //   **같고**(STEP_SEG 둘 다 [1.05, 2.20]) 속도만 0.5 다. 그 속도를 실전에 그대로 준다.
   const stepRate = id => (id === 'BK_C2' && !AD ? 1.0 : 0.5);
-  const stepHold = id => (id === 'BK_C2' ? 0.0 : 1.0);
+  // ★ 실전만 쉼 없이 이어 붙인다 — **발표 프리셋은 예외**(유저 08-07: 한 동작 하고 최소
+  //   한 번은 쉬게 해야 하지 않나). 4/4 배움 단계가 쓰는 1.0초 hold 를 그대로 준다.
+  const stepHold = id => (id === 'BK_C2' && !AD ? 0.0 : 1.0);
   const stepLoops = id => (id === 'BK_C2' || id === 'BK_T1' ? 1 : 2);   // T1 = 통째로 한 번만 본다(유저)
   const STEP_RATE = 0.5, STEP_HOLD = 1.0, STEP_LOOPS = 2;
   const stepLoopSec = id => (STEP_SEG[id] ? (STEP_SEG[id][1] - STEP_SEG[id][0]) / stepRate(id) + stepHold(id) : 0);
