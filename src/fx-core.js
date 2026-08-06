@@ -1919,6 +1919,39 @@ export function drawDribbleMat(g, W, P, look, t, ENV) {
     * hubK * (1 + 0.055 * hitK + 0.008 * Math.sin(t * 2.4));   // 등장 + 접촉 펄스 + 상시 호흡
 
 
+  // ── 레일 — 노드 순서를 잇는 점열. 잽잽훅 가이드 레일과 같은 값(0길이 대시 · 라운드캡 · 0.22)
+  const NODES = (P.targets || []).slice().sort((a, b) => (a.n || 0) - (b.n || 0));
+  if (NODES.length > 1) {
+    g.save(); g.shadowBlur = 0; g.globalAlpha = 0.22 * eOutQuint(IN / 0.9);
+    g.strokeStyle = lut(0.6); g.lineWidth = 2.2 * s; g.lineCap = 'round';
+    g.setLineDash([0.01, 8 * s]);
+    g.beginPath();
+    NODES.forEach((q, i) => i ? g.lineTo(X(q.x), Y(q.y)) : g.moveTo(X(q.x), Y(q.y)));
+    g.stroke(); g.setLineDash([]); g.restore();
+  }
+  // ── 코멧 — 타깃이 옮겨 갈 때 레일 위를 달린다. P.travel = { from, to, k 0..1 }
+  const TR = P.travel;
+  if (TR && TR.k > 0.001 && TR.k < 1) {
+    const a = NODES.find(q => q.n === TR.from), b = NODES.find(q => q.n === TR.to);
+    if (a && b) {
+      const ax = X(a.x), ay = Y(a.y), bx = X(b.x), by = Y(b.y);
+      const e = eOutQuint(TR.k);
+      const hx = ax + (bx - ax) * e, hy = ay + (by - ay) * e;
+      const tk = Math.max(0, e - 0.28);
+      const tx = ax + (bx - ax) * tk, ty = ay + (by - ay) * tk;
+      const gr = g.createLinearGradient(tx, ty, hx, hy);
+      gr.addColorStop(0, lut(0.5).replace('rgb(', 'rgba(').replace(')', ',0)'));
+      gr.addColorStop(1, lut(0.85).replace('rgb(', 'rgba(').replace(')', ',0.85)'));
+      g.strokeStyle = gr; g.lineWidth = 3.2 * s; g.lineCap = 'round';
+      g.beginPath(); g.moveTo(tx, ty); g.lineTo(hx, hy); g.stroke();
+      g.fillStyle = lut(0.62); g.shadowColor = lut(0.8); g.shadowBlur = 11 * s;
+      g.beginPath(); g.arc(hx, hy, 5.6 * s, 0, Math.PI * 2); g.fill();
+      g.fillStyle = lut(0.95); g.globalAlpha = 0.95; g.shadowBlur = 0;
+      g.beginPath(); g.arc(hx, hy, 2.1 * s, 0, Math.PI * 2); g.fill();
+      g.globalAlpha = 1;
+    }
+  }
+
   // ── 노드 = 잽잽훅 노드와 **같은 레시피**. 채움 + volRing + 헤일로 — 윤곽선을 긋지 않는다.
   const GB = 13 * look.halo;
   for (const tg of (P.targets || [])) {
