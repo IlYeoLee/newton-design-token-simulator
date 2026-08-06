@@ -49,7 +49,11 @@ const STAGES = [
   { id: 'P1',       pack: 'run', title: '러닝 P1 — SPM 실시간', live: true },
   { id: 'BK_READY', pack: 'bk',  title: '시작 — Step Back' },
   { id: 'BK_B1',    pack: 'bk',  title: '준비운동 3/3 — 제자리 드리블' },
-  { id: 'BK_B5',    pack: 'bk',  title: '스텝백 4/4' },
+  // ★ BK_B5 → BK_B4: 농구 개편으로 BK_B5 는 세션 STAGES 에서 빠졌다(죽은 스테이지 — 뽑으면
+  //   알약에 'BK_B5' 라고 id 가 찍힌다). 스텝백 마지막 조각은 BK_B4(Gather and Rise) 다.
+  //   ※ 스테이지 목록이 이 파일까지 **넷째 사본**이다 — check_floor_bands 규칙⑦이 이제 여기도 본다.
+  { id: 'BK_B4',    pack: 'bk',  title: '스텝백 3/3 — 모아서 올라가기' },
+  { id: 'BK_T1',    pack: 'bk',  title: '전체 재생 — The Whole Move' },
 ].filter(s => (!ONLY || s.id === ONLY) && (!PACK || s.pack === PACK));
 
 const run = (s) => new Promise((res) => {

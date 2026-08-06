@@ -494,6 +494,24 @@ export function setMarkStateLook(mat, ph) {
   mat._stKeys = ov ? new Set(Object.keys(ov)) : null;
 }
 
+/** 상태 크로스페이드 시작 — Marker(팩 판정 토큰)가 쓰던 규약을 **함수로 꺼낸다**.
+ *  세션 FootMark 은 이 배선이 없어 상태가 '띡' 바뀌었다(유저 08-07: 중간다리 모션이 없다).
+ *  markState 는 순수 함수라 셰이더가 이전 상태를 한 번 더 평가해 섞는다 — 끝나면 비용 0. */
+export function startMarkXfade(mat, now = performance.now() / 1000) {
+  const U = mat?.uniforms; if (!U?.uXfade || !XFADE_ON) return;
+  U.uStatePrev.value = U.uPhase.value;
+  U.uPrevProg.value = U.uProg.value;
+  U.uXfade.value = 0;
+  mat._xfT = now;
+}
+/** 그 시계를 민다(0.28s). uTime 을 넣어 주는 곳이면 어디서든 같이 부른다. */
+export function tickMarkXfade(mat, now) {
+  if (mat?._xfT == null) return;
+  const e = (now - mat._xfT) / 0.28;
+  mat.uniforms.uXfade.value = e >= 1 ? 1 : e;
+  if (e >= 1) mat._xfT = null;
+}
+
 export function applyMarkLook(part = {}) {
   const SF = SIL_FIT / SIL_FIT_REF;
   const map = { imp: 'uImp', dot: 'uImpDot', glow: 'uImpGlow', shade: 'uImpShade', sharp: 'uImpSharp',

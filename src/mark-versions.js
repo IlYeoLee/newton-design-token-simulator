@@ -76,6 +76,11 @@ export const SUCCESS_CANDS = {
     base: { loadGain: 0.36, loadBase: 0.04 },
     ov: { tLo: 0.30, tHi: 0.86, w: 2.10, halo: 0.62, op: 1.00, bloom: 0.32, glow: 0.28,
           imp: 0.30, shade: 0, sharp: 0.30, edge: 0.030, dotCol: 4, rip: 0 } },
+  // 유저 08-07: "이 애매한 작은 점도 최선인지" — 각인을 아예 끈 안. 답은 눌러 보고 고른다.
+  m0: { label: 'M0 점 없음 — 각인 소등(imp 0). 실루엣과 압력 그라디언트만 남는다',
+    base: { loadGain: 0.45, loadBase: 0.06 },
+    ov: { w: 1.90, halo: 0.55, op: 1.00, bloom: 0.20, glow: 0, imp: 0,
+          shade: 0.20, sharp: 0.35, edge: 0.038, rip: 0 } },
   m4: { label: 'M4 매끈·각인 유지 — M1 + 각인을 순백 단색으로 살린다(발 형태가 읽혀야 할 때)',
     base: { loadGain: 0.45, loadBase: 0.06 },
     ov: { w: 1.80, halo: 0.50, op: 1.00, bloom: 0.16, glow: 0.15, imp: 0.85, dot: 0.20,

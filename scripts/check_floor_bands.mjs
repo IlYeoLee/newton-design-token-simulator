@@ -117,7 +117,11 @@ if (advM) {
   const lab  = readFileSync(new URL('../src/tokenlab.js', import.meta.url), 'utf8');
   const scn  = readFileSync(new URL('../public/ready-view/floor-scenes.js', import.meta.url), 'utf8');
   const live = new Set([...sess.matchAll(/id:\s*'([A-Z0-9_]+)'/g)].map(m => m[1]));
-  const inLab = [...lab.matchAll(/\{\s*id:\s*'([A-Z0-9_]+)'/g)].map(m => m[1]);
+  const runner = readFileSync(new URL('../scripts/run_floor_ui.mjs', import.meta.url), 'utf8');
+  const inLab = [...lab.matchAll(/\{\s*id:\s*'([A-Z0-9_]+)'/g)].map(m => m[1])
+    // ★ 스테이지 목록은 **네 곳**에 있다: session(실재) · tokenlab(갤러리) · floor-scenes(타이틀) ·
+    //   run_floor_ui(추출 러너). 개편이 있을 때마다 어긋난다 — 넷을 한 번에 교차 검증한다.
+    .concat([...runner.matchAll(/\{\s*id:\s*'([A-Z0-9_]+)'/g)].map(m => m[1]));
   const titled = new Set([...scn.matchAll(/^\s{2}([A-Z0-9_]+):\s*\{/gm)].map(m => m[1]));
   const dead = inLab.filter(id => !live.has(id));
   const untitled = inLab.filter(id => live.has(id) && !titled.has(id) && !/READY|FIN|T1|T2|C1$/.test(id));

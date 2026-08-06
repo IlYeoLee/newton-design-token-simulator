@@ -9,7 +9,7 @@ import { BK_STEPBACK, LOAD, arrowFor, stageTime } from './marklang.js';
 import { READY_OPT } from './floorgl.js';   // 시작화면 시안 토글(발자국 어포던스 등) — 랩과 같은 스위치를 본다
 import { lutColor, GLYPHS, drawGlyph, drawNumber, footSlot, footSDFTexture, FXP } from './fxlut.js';
 import { MARK_NUM, GLYPH_LOOK, drawMarkGlyph, invertGlyphCanvas, drawStanceBox, drawPunchLine, drawApproachRing, drawTrajectory, drawRotate, drawStemArrow, drawCurveArrow, drawDribbleMat, glyphFor } from './fx-core.js';
-import { makeMarkFXMaterial, makeLaneFXMaterial, makeFlowArrow, tickFlowArrows, beamAlphaAt, COLORS, FOOT_LEN_M, FOOT_PLANE_M, QUAD_K, UI_MASK, MARK_LOOK, applyMarkLookTo, setMarkLoad, setMarkStateLook, ZONE } from './tokens.js';
+import { makeMarkFXMaterial, makeLaneFXMaterial, makeFlowArrow, tickFlowArrows, beamAlphaAt, COLORS, FOOT_LEN_M, FOOT_PLANE_M, QUAD_K, UI_MASK, MARK_LOOK, applyMarkLookTo, setMarkLoad, setMarkStateLook, startMarkXfade, tickMarkXfade, ZONE } from './tokens.js';
 
 const clamp01 = v => v < 0 ? 0 : v > 1 ? 1 : v;
 
@@ -158,6 +158,10 @@ export class FootMark {
       if (this._U.uSuccT) this._U.uSuccT.value = -999;
       this._succLatch = false;
     }
+    // ★ 상태 크로스페이드(0.28s) — Marker(팩 판정 토큰)는 처음부터 이걸 탔는데 세션 발자국만
+    //   빠져 있었다. 그래서 Active→Success 가 한 프레임에 '띡' 갈렸다(유저: 중간다리 모션이 없다).
+    //   반드시 uPhase 를 바꾸기 **전에** 부른다 — 이전 상태를 읽어 가는 함수다.
+    startMarkXfade(this.plane.material);
     this._U.uPhase.value = v;
     setMarkStateLook(this.plane.material, v);
   }
@@ -2391,6 +2395,7 @@ export class Session {
     for (const m of WAVE_MATS) {
       const U = m.uniforms;
       U.uTime.value = t;
+      tickMarkXfade(m, t);   // 상태 크로스페이드 시계 — uTime 을 주는 자리가 이 시계의 집이다
       const _sk = m._stKeys;   // 상태 오버라이드(setMarkStateLook)가 가진 키는 전역값으로 안 덮는다
       if (!_sk?.has('w')) U.uW.value = MK.core;
       if (!_sk?.has('halo')) U.uHalo.value = MK.halo;

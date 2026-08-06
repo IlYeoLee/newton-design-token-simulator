@@ -70,7 +70,7 @@
 <script type="module">
 import * as THREE from 'three';
 import { FootMark, floorArrow, bkB1SetupPose, B1_SETUP, BRAND } from './src/session.js';
-import { tickFlowArrows, applyMarkLook, FOOT_LEN_M } from './src/tokens.js';
+import { tickFlowArrows, applyMarkLook, tickMarkXfade, FOOT_LEN_M } from './src/tokens.js';
 import { FXP, GLYPHS, DEFAULT_GLYPHS, footSDFTexture, rebuildLUT } from './src/fxlut.js';
 import { VERSIONS, SUCCESS_CANDS } from './src/mark-versions.js';
 import LOOK from './src/mark-look.json';
@@ -285,6 +285,7 @@ function tick() {
   const day = FXP.day ? 1 : 0;
   for (const m of [sL, sR]) {
     m._U.uTime.value = now; m._U.uDay.value = day;
+    tickMarkXfade(m.plane.material, now);   // 상태 크로스페이드(0.28s) — 시뮬 tickWaves 와 같은 시계
     const want = day ? THREE.NormalBlending : THREE.AdditiveBlending;
     if (m.plane.material.blending !== want) { m.plane.material.blending = want; m.plane.material.needsUpdate = true; }
   }
