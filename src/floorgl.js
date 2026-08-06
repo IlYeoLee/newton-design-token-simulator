@@ -644,14 +644,22 @@ export function drawChars(ctx, txt, cx, y, h, ls, fn, align = 'center') {
  *  판단 대상이다. 넷을 한꺼번에 넣으면 어느 것이 효과를 냈는지 못 가른다(유저 요청).
  *  전부 끄면 08-06 이전 화면과 픽셀 동일. */
 export const READY_OPT = {
-  ctaPill:   true,   // ① CTA = 채워진 알약 (모바일 `View Now →` · 복싱 CTA 와 같은 문법)
+  capRim:    false,  // ⑦ 캡슐 유리 아웃라인 (밝은 바닥에선 스티커 테두리처럼 보인다 — 기본 끔)
+  // ★ 기본 **끔**(유저 08-06). 채움 알약은 복싱이 아니라 **모바일** 문법이다 — 복싱 벽 CTA 는
+  //   발밑 광 위의 맨 글씨다. 게다가 지면 CTA 자리에는 발자국 토큰 두 개가 이미 서 있어서
+  //   빨간 덩어리가 끼면 셋이 같은 띠에서 서로를 밀어낸다(유저 스샷). 실험은 토글로 남긴다.
+  ctaPill:   false,   // ① CTA = 채워진 알약 (모바일 `View Now →` · 복싱 CTA 와 같은 문법)
   logo:      false,  // ② 뉴턴 **워드마크** — 껐다(유저 08-06). 필기체라 화면에선 구불구불한 선으로
                      //   읽히고, 브랜드 표기는 이미 러닝 판정 토큰 안 **심볼로고**가 하고 있다.
                      //   한 화면에 브랜드 표기가 두 벌이면 둘 다 약해진다. 심볼 SVG 가 따로 생기면 그때 다시.
   chipLabel: true,   // ③ 하단 원형에 라벨 (복싱 Wearable/Station/Watch 칩과 같은 급으로)
   chipDial:  false,  // ⑥ 칩 링 게이지 (복싱·모바일엔 없는 표현 — 기본 끔)
   glowDown:  true,   // ⑤ 페이즈2 색면을 하단으로 축소 (숫자 뒤 여백 확보)
-  arcBoxing: true,   // ④ 아크 = 복싱 막대 규약 (세그마다 같은 램프 · 앞머리에 시간 · 아이콘/칩 없음)
+  // ★ 기본 **끔**(유저 08-06): 아크를 복싱 막대 문법으로 바꾸려 했으나, 축이 각도라
+  //   왼쪽 정렬선이 존재하지 않고 라벨이 원근에서 눕는다. 이전 구현(아이콘 칩 + 띠 위 라벨 +
+  //   전체 한 벌 램프)이 이 지오메트리에 맞는 답이었다. 실험은 토글로 남긴다.
+  arcBoxing: false,
+  arcLabelMode: 'flat',   // 라벨 배치: 'head'(머리·접선) | 'mid'(중앙·접선) | 'flat'(머리·수평)   // ④ 아크 = 복싱 막대 규약 (세그마다 같은 램프 · 앞머리에 시간 · 아이콘/칩 없음)
 };
 const BATT = {
   glasses: Math.round(62 + Math.random() * 34),
@@ -951,9 +959,18 @@ const ADV = {
 const advOf = s => ADV[s] || CAPS[s]?.adv || 'time';
 /** reps 장면의 **총 횟수 배지** — 링은 지금 값(1급)만 세고 총량은 이 2급 배지가 말한다.
  *  스텝백의 step('n/4')과 **같은 슬롯**이라 조판을 새로 만들 게 없다. */
-const repsTotal = s => (advOf(s) === 'reps' ? '/' + (CAPS[s]?.reps || 10) : null);
+//  ★ 링과 **같은 조건**으로 뜬다(repsLive). 안 그러면 관찰·셋업 동안 값 없는 '/10' 배지만
+//    덩그러니 남아, 셀 게 없는 화면에서 '10 중 몇'을 묻는 꼴이 된다.
+const repsTotal = s => (advOf(s) === 'reps' && repsLive()
+  ? '/' + (window.__dbg?.session?.repTotal || CAPS[s]?.reps || 10) : null);
 const showArc  = s => advOf(s) === 'time';                       // 아크 = time 에서만
-const showRing = s => ['segment', 'hold', 'reps'].includes(advOf(s));   // 링 = 셀 게 따로 있을 때만
+/** 세션이 지금 **실제로 세고 있는** 반복이 있나. 없으면 반복형 스테이지라도 링을 안 켠다.
+ *  왜: BK_B1 은 관찰(3초) → 스탠스 셋업(6초) → 본 연습 순서인데, 앞의 두 막에는 셀 반복이
+ *  없다. 그런데도 링이 켜져 있어서 '숫자가 도는 원'이 떴고, 그게 곧 타이머로 읽혔다
+ *  (유저 08-06: 처음엔 프리뷰인데 타이머가 이상하다 · 저게 타이먼지 카운튼지 모르겠다).
+ *  세션은 그 구간에 repTotal 을 비워 둔다 — 그 신호를 그대로 쓴다. */
+const repsLive = () => !!window.__dbg?.session?.repTotal;
+const showRing = s => (advOf(s) === 'reps' ? repsLive() : ['segment', 'hold'].includes(advOf(s)));   // 링 = 셀 게 따로 있을 때만
 /** 알약이 **그 화면의 유일한 정보**인가 — SPM·거리 같은 다른 1급 수치가 없으면 참.
  *  크기(titleLeadK)와 접힘 여부를 같이 정한다: 주인공이면 크게, 그리고 **안 접는다**
  *  (유저: 스트레칭할 때 타이틀 없어지니 어색하다 — 거긴 알약이 화면의 전부다). */
@@ -1880,18 +1897,28 @@ export class FloorGL {
     }
     if (AV === 'reps') {
       // 횟수형 — 값 자체가 'n/N'. 그래서 단위 라벨이 필요 없다.
-      //   ★ 지금은 진행도에서 역산한 자리표시다. 실제 판정 카운터가 map 에 'rep-n' 을 써 주면
-      //     그 값이 우선한다.
-      const N = CAPS[this.stage]?.reps || 10;
-      const done = numOr(this.map.get('rep-n')?.textContent,
-                         Math.round(clamp01((t - PV) / Math.max(.1, dur - PV)) * N));
+      // ★★ 값은 **세션의 실제 판정 카운터**다. 옛 식은 map 의 'rep-n' 이 없으면 스테이지
+      //   경과시간으로 역산했는데, 라이브 앱에선 'rep-n' 을 **아무도 안 썼다**(쓰는 건
+      //   tokenlab.js 랩 페이지뿐). 그래서 이 자리는 항상 시계였다 — 실측:
+      //     t=1.6s 관찰 중(드리블 0회) → '1/10'   ·   t=7.1s 셋업 중(0회) → '8/10'
+      //   공을 한 번도 안 튕겼는데 숫자가 올라간다. "저게 타이머냐 카운트냐"의 정체가 이것이다
+      //   (유저 08-06). 시계 폴백은 폐기한다 — 셀 게 없으면 링 자체를 안 켠다(showRing).
+      // ★ 방향은 **바닥 링을 따른다**: 바닥은 10·9·…·1 로 남은 횟수를 센다(유저 확정, 0 은 안 뜸).
+      //   헤더가 done 을 세면 같은 순간에 헤더 6 · 바닥 4 처럼 두 숫자가 갈린다.
+      const S = window.__dbg?.session;
+      const N = S?.repTotal || CAPS[this.stage]?.reps || 10;
+      const left = Math.max(0, Math.min(N, S?.repLeft ?? N));
+      const done = N - left;
       // ★ 'n/N' 을 링 안에 통째로 넣던 것을 **쪼갰다**(유저: 농구 드리블 개선 · 스샷의 '0/10').
       //   네 글자는 링(지름 179) 안에서 1급(112px)으로 못 산다 — 실측 243px, 그릇의 1.4배다.
       //   전엔 링 반지름이 값 폭을 따라 커져서 알약을 위아래로 뚫었고(위 _ringRFor), 상한을 걸면
       //   대신 숫자가 71px 로 줄어 타이틀(140)보다 작아진다. 둘 다 위계가 뒤집힌다.
       //   시스템에 이미 답이 있다: **지금 값은 링(1급), 총량은 오른쪽 배지(2급)** — 스텝백의
       //   'n/4' 배지와 같은 슬롯이다. 링 안엔 한 글자·두 글자만 남아 크기를 안 건드려도 된다.
-      return { AV, prog: clamp01(1 - done / N), rem: String(done) };
+      //   ★ 링 안 숫자 = **남은 횟수**(바닥과 같은 숫자), 링은 그만큼 비어 간다. 배지 '/10' 은
+      //     총량이다 — "10 중 n 남음". 링이 차오르는 게 아니라 비어 가므로 '남은 것'으로 읽힌다.
+      void done;
+      return { AV, prog: clamp01(left / N), rem: String(left) };
     }
     return { AV, prog: stageRest, rem: String(Math.max(0, Math.ceil(dur - t))) };
   }
@@ -2433,8 +2460,7 @@ export class FloorGL {
     rim.addColorStop(.55, 'rgba(255,255,255,.16)');
     rim.addColorStop(.80, 'rgba(255,255,255,.05)');
     rim.addColorStop(1, 'rgba(255,255,255,0)');
-    ctx.strokeStyle = rim; ctx.lineWidth = 2.5;
-    capPath(); ctx.stroke();
+    if (READY_OPT.capRim) { ctx.strokeStyle = rim; ctx.lineWidth = 2.5; capPath(); ctx.stroke(); }
     ctx.restore();
     // ② 뉴턴 로고 — 복싱 벽은 우상단, 모바일 홈은 좌상단에 있는데 **지면만 없었다**(유저).
     //   ★ 위가 아니라 **아래**다. 이 화면은 조판 기준이 통째로 254 위로 올라가 있어(위 translate)
@@ -2706,14 +2732,18 @@ export class FloorGL {
         return g2;
       })();
       /** 세그먼트 한 벌 램프 — 복싱 막대와 같은 규약(줄마다 red→coral→sand 를 한 번씩). */
+      //   ★ **선형**이다(원뿔 아님). 원뿔로 깔았더니 세그마다 램프 방향이 뒤집혀 보였다
+      //     (유저: 그라디언트 고치라니까 안 고쳐졌다) — 호 위에서 각도가 도는 방향과 화면에서
+      //     읽는 방향이 세그 위치마다 달라서다. 복싱 막대는 **줄마다 red→sand 한 방향**이므로
+      //     세그의 머리→꼬리를 잇는 현(chord)에 그대로 건다. 방향이 위치와 무관해진다.
       const segRamp = (a0, a1) => {
-        if (!ctx.createConicGradient) return RAMP;
-        const sp = Math.max(1e-3, (a1 - a0) / 360), at = u => Math.min(1, u * sp);
-        const g2 = ctx.createConicGradient(a0 * RAD, CXA, CYA);
+        const q0 = polar(a0), q1 = polar(a1);
+        const g2 = ctx.createLinearGradient(q0.x, q0.y, q1.x, q1.y);
+        //   ★ 빨강 존재감(유저 08-06): 스톱을 뒤로 밀어 **막대 절반이 순수 RED** 로 남게 한다.
+        //     0/0.58/1 은 코랄~샌드가 대부분을 먹어 주황 막대로 읽혔다 — 복싱·모바일은 레드가 주인공이다.
         g2.addColorStop(0, PAL.red);
-        g2.addColorStop(at(.58), PAL.coral);
-        g2.addColorStop(at(1), PAL.sand);
-        if (sp < 1) g2.addColorStop(1, PAL.sand);
+        g2.addColorStop(0.72, PAL.red);     // 막대의 3/4 가 순수 RED — 복싱 그래프 느낌(유저 08-06 2차)
+        g2.addColorStop(1, PAL.coral);      // 끝은 **코랄까지만** — 샌드로 빼면 막대 끝이 바래 미완성으로 보인다
         return g2;
       };
       // 스윕 — 배지 팝 후 세그먼트 시작각에서 끝각까지 호를 따라 차오른다
@@ -2771,18 +2801,10 @@ export class FloorGL {
         // ★ 복싱 규약(유저 08-06): 막대 **앞머리에 원형 컨테이너도 아이콘도 없고 시간이 온다.**
         //   우리는 앞머리에 아이콘 칩을 두고 시간을 띠 위에 눕혀서, 같은 그래프로 안 읽혔다.
         //   앞머리에 시간을 똑바로 세워 놓는다 — 아이콘·칩·눕힌 라벨은 전부 끈다.
-        if (READY_OPT.arcBoxing) {
-          if (ip > 0) {
-            const ph2 = polar(seg === segs[0] ? s0 : s0 + capA);
-            ctx.save(); ctx.globalAlpha *= Math.min(1, ip * 2.5);
-            ctx.translate(ph2.x, ph2.y);
-            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-            ctx.font = RF(700, 64); ctx.letterSpacing = '-1.8px';   // 대지 캡션 하한 64
-            ctx.fillStyle = seg.muted ? 'rgba(255,255,255,.72)' : NEU.ink;
-            ctx.fillText(seg.lbl, 0, 0);
-            ctx.letterSpacing = '0px'; ctx.restore();
-          }
-        } else if (ip > 0) {
+        // ★ 아이콘 칩·띠 위 라벨은 **이전 구현 그대로 쓴다**(유저 08-06: 이전 걸 참고해 개선해).
+        //   그 조판은 짧은 세그 오버플로·아이콘 회피·글자 크기까지 이미 풀려 있다 — 새로 짠 것보다 낫다.
+        //   arcBoxing 은 이제 **색만** 바꾸는 스위치다(세그마다 자기 램프 · 빨강 비중).
+        if (ip > 0) {
           const ik = kf(eOut(ip), [[0, .4], [1, 1]]);   // 오버슈트 폐기(유저) — 작게 등장 → 최종 크기로 남는다
           const pc = polar(seg === segs[0] ? s0 : s0 + capA);   // 첫 세그는 아래 끝(캡 중심)에(유저 #99)
           ctx.save(); ctx.globalAlpha *= Math.min(1, ip * 2.5);
@@ -2826,7 +2848,7 @@ export class FloorGL {
         }
         // 라벨 — 호 추종 활자. 칩에 글자를 넣은 세그(5분)는 중복이라 생략(유저)
         //   ★ 복싱 규약(arcBoxing)에선 시간이 **앞머리**에 이미 있다 — 눕힌 라벨은 중복이라 끈다.
-        if (!seg.chipText && !READY_OPT.arcBoxing) {
+        if (!seg.chipText) {
           ctx.save();
           ctx.fillStyle = NEU.ink; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
           // 라벨 영역 = 아이콘 칩 구간을 제외한 나머지 호(겹침 방지, 유저) — 칩 반각 + 여유 2°
@@ -2949,7 +2971,10 @@ export class FloorGL {
         ctx.translate(800, CY); ctx.scale(k, k); ctx.translate(-800, -CY);
         // ⓐ 안경 — 늘 원
         const gx = x0 + RD;
-        glass(() => { ctx.beginPath(); ctx.arc(gx, CY, RD - 2.5, 0, Math.PI * 2); }, gx, RD);
+        // ★ 안경 원도 이어폰과 **같은 시각에** 테두리를 놓는다(유저: 여기만 아웃라인 있다).
+        //   이어폰은 확장하며 rimK = 1-EXP 로 녹는데 안경은 확장이 없어 테두리가 영영 남았다 —
+        //   두 개가 한 그룹인데 하나만 선이 있으면 그게 눈에 걸린다. 같은 값을 준다.
+        glass(() => { ctx.beginPath(); ctx.arc(gx, CY, RD - 2.5, 0, Math.PI * 2); }, gx, RD, 1 - EXP);
         dial(gx, BATT.glasses, TP2 + .30);
         { const gl2 = img('ic-glasses.png'); if (gl2) ctx.drawImage(gl2, gx - 55, CY - 37, 110, 74); }
         // ③ 라벨 — 복싱 벽의 Wearable/Station/Watch 칩은 **아이콘 + 라벨 + 수치**다. 지면은
@@ -2975,7 +3000,7 @@ export class FloorGL {
           ctx.textAlign = 'center'; ctx.textBaseline = 'top';
           ctx.font = RF(600, 64); ctx.fillStyle = 'rgba(255,255,255,.86)';
           //   확장 중엔 코치 사진이 오른쪽을 채우므로 라벨은 **원 자리**(왼끝) 기준에 둔다.
-          ctx.fillText(`${BATT.buds}%`, ex + RD, CY + RD + 30);
+          ctx.fillText(`${BATT.buds}%`, ex + WE / 2, CY + RD + 30);   // 컨테이너(알약) 중심 — 원 중심이면 확장 후 라벨만 왼쪽에 남는다
           ctx.restore();
         }
         // 코치 인물 — 확장이 만든 오른쪽 빈칸에 채워진다(연결됨)
@@ -3014,7 +3039,7 @@ export class FloorGL {
       ctx.fillStyle = 'rgba(255,255,255,.68)'; ctx.font = RF(400, 44); ctx.letterSpacing = '-1px';   // 38 → 44 (minFs 42.4)
       //   ★ CTA 는 대문자 규약에서 뺀다(유저) — 세션 가이드(PREVIEW·큐)와 달리 이건 발밑에서
       //     읽는 지시문이고, 대문자로 올리니 두 줄이 다 소리치는 톤이 됐다.
-      ctx.fillText('To start', 800.15, 1962 - CUT);   // 알약 윗변(2102-69=2033)에서 71 띄운다 — 전 2014 는 19px 라 붙어 보였다
+      ctx.fillText('To start', 800.15, (READY_OPT.ctaPill ? 1962 : 2014) - CUT);   // 알약이 있으면 71 띄우고, 맨 글씨면 예전 간격   // 알약 윗변(2102-69=2033)에서 71 띄운다 — 전 2014 는 19px 라 붙어 보였다
       // 바닥 버전 축약(유저) — 벽은 'Tap your foot Twice'(멀리서 읽는 안내), 지면은 발밑이라
       //   '무엇으로'가 자명하다. 짧아진 만큼 글자를 키워 한 덩어리로 읽힌다.
       // ★ CTA = **채워진 알약**(유저 08-06). 모바일 홈의 `View Now →` 와 복싱 벽 CTA 가 둘 다
