@@ -3582,15 +3582,30 @@ export class Session {
         //   ⚠ 새로 만들 게 없었다: 국면 5개 발자국(준비 페어 · 플랜트 · 착지 페어)을
         //     buildStepback 이 **영상 실측 좌표로 이미 만들어 두고** op(0.10)으로 죽여 놨다.
         //     밟을 자리는 Locked 고스트로 옅게 · 지금 밟을 자리는 판정 토큰이 따로 말한다.
+        // ★★ 경로 마크는 **좌표계가 달랐다** — 이게 '경로선이 안 보이던' 진짜 이유다(08-07 실측).
+        //   buildStepback 이 이 셋을 `F(x, dz) = at(x, SBZ + dz)` 로, 즉 **원시 미터**로 만들어
+        //   z ≈ SBZ(−3.13) 에 그대로 뒀다. 반면 살아 있는 페어는 _sbPlace 가 매 프레임
+        //   sbU/sbV → _beamFit 으로 빔 창 안(실측 z −0.91/−1.01)에 앉힌다.
+        //   → 셋은 2m 뒤, 투사 창 밖이었다. op(1)·_gain 1.2 로 올려도 화면에 안 나온다(직접 확인).
+        //   경로선은 이 셋을 잇고 있었으니 선도 같이 창 밖으로 뻗어 있었다.
+        //   고침: **페어와 같은 길**로 앉힌다 — 좌표는 SB_POSE 정본에서 그대로 읽는다(새 값 0개).
+        //     fC  = ① 오른발 플랜트   SB_POSE[1].R
+        //     fLl = ② 왼발 스텝백     SB_POSE[2].L
+        //     fLr = ③ 오른발 모으기   SB_POSE[3].R
+        //   경로선 배선(trA fRr→fC · trB fC→fLr · trC fRl→fLl)이 이미 이 순서였다.
         // ★ 등장 리듬 — 셋을 t=0 에 한꺼번에 켜면 '경로가 있다'만 남고 **순서**가 안 남는다.
         //   박자를 새로 짜지 않는다: 경로선(_sbTrail)이 **그 자리에 도착하는 시각**에 켠다.
         //   trA(→fC) 0.45 · trB(→fLr) 0.75 · trC(→fLl) 1.05 = 시차 0.30 + 그리기 0.45.
-        //   선이 닿으면 발자국이 켜진다 — 인과가 보이므로 새 어휘 없이 순서가 읽힌다.
+        const PATH_AT = { fC: SB_POSE[1].R, fLl: SB_POSE[2].L, fLr: SB_POSE[3].R };
         const TR_ARR = { fC: 0.45, fLr: 0.75, fLl: 1.05 };
         for (const k of ['fC', 'fLl', 'fLr']) {
-          if (!LIVE) { H[k]?.op(0); continue; }
-          H[k]?.ghost();
-          H[k]?.op(0.30 * Math.max(0, Math.min(1, (this.t - TR_ARR[k]) / 0.25)));
+          const f = H[k]; if (!f) continue;
+          if (!LIVE) { f.op(0); continue; }
+          const [mx, mv] = PATH_AT[k];
+          const p = this._beamFit(sbU(mx), sbV(mv), SB_FIT_U, SB_FIT_V, H.mL);
+          f.at(p.x, p.z, FOLLOW_S);
+          f.ghost();
+          f.op(0.30 * Math.max(0, Math.min(1, (this.t - TR_ARR[k]) / 0.25)));
         }
         if (H.numL) { placeMarkNum(H.numL); placeMarkNum(H.numR); H.numL.visible = H.numR.visible = true; }
         H.mL.setOp?.(0); H.mR.setOp?.(0); H.mC.setOp?.(0);
