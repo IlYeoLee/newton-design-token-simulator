@@ -693,6 +693,12 @@ const BK_BEAT = 0.40, BK_B1_REPS = 8;
 // B 가이드 심도 시프트 — 실측 빔 창(origin 몸앞 0.35m + near 0.3 + far 1.9)은 z −2.5~−4.1.
 // 몸 바로 앞(0.3~0.55m)은 투사 불가 구간이라, 가이드는 '발 위치'가 아니라 '앞의 도식'으로 0.75m 깊이 배치.
 const BDEEP = 0.75;
+// BK_B1 스탠스 정본 — 셋업 발자국·벌어짐 애니메이션·매트 표적이 **전부 여기서** 나온다.
+//   전엔 발자국은 0.14/0.28 을 각자 적고 매트 표적은 내가 지어낸 좌표를 썼다. 그래서
+//   ③④ 가 발자국 위에 겹쳤다(유저 스샷) — 두 배치가 서로를 모르면 언제든 다시 겹친다.
+const B1_FOOT_D = 0.40 + BDEEP;        // 셋업 발자국 앞거리(m)
+const B1_HALF_SHUT = 0.14;             // 모은 자세 반폭 — 셋업 시작
+const B1_HALF_OPEN = 0.28;             // 어깨보다 넓게(0.56m, wikiHow 기본기) — 셋업 도착
 const BK_SQUAT_REPS = BK_REPS.BK_A3;
 // 시범(관찰) 길이 — 프리뷰 타이머 링·장면 시간·main.js A2_WATCH·floor-scene.html이 전부 이 값(3초, 유저)
 const A_WATCH = 3.0;
@@ -1577,37 +1583,20 @@ export class Session {
     b1num.material.map.colorSpace = THREE.SRGBColorSpace;
     b1num.userData.canvas = b1c; b1num.userData.tex = b1num.material.map;
     b1num.rotation.x = -Math.PI / 2; b1num.position.set(0, 0.016, B1Z); b1num.renderOrder = 8;   // 숫자는 링과 한 몸 — 같은 상수에서
-    // ── 번호 표적 4개 = **판정 토큰 그대로**(유저). 캔버스에 그린 그림이 아니라 다른 스테이지의
-    //   존 마크와 같은 floorRing 이다 — 상태(Preview·Active·Success·Locked)를 그대로 갖고,
-    //   룩 시스템 슬라이더·상태 룩(setMarkStateLook)이 이 마크에도 똑같이 걸린다.
-    //   캔버스로 흉내 낸 원반은 상태가 없어서 '켜졌다/꺼졌다'밖에 말 못 했다.
-    // 3D 링 표적은 은퇴 — 같은 자리를 프림 토큰이 직접 그린다(유저: 우리가 디자인한 토큰
-    //   다섯 개를 사람 앞에 펼쳐라). 링 메시로 흉내 내면 재설계한 노드 문법(대기=헤어라인·
-    //   지목=채움+숫자 파냄)이 안 걸리고, 레일도 못 잇는다. 배치는 아래 MAT_TG.
-    const B1_TG = [];
-    const b1tg = B1_TG.map(tg => {
-      const z = BK_STAND - tg.d;
-      const ring = floorRing(tg.x, z, tg.r * 0.80, tg.r, BRAND.coral, tg.on ? 0.42 : 0.16);
-      const nc = document.createElement('canvas'); nc.width = nc.height = 128;
-      const num = new THREE.Mesh(new THREE.PlaneGeometry(tg.r * 1.1, tg.r * 1.1),
-        new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(nc), transparent: true,
-          depthWrite: false, blending: THREE.AdditiveBlending }));
-      num.material.map.colorSpace = THREE.SRGBColorSpace;
-      num.userData.canvas = nc; num.userData.tex = num.material.map;
-      num.rotation.x = -Math.PI / 2; num.position.set(tg.x, 0.016, z); num.renderOrder = 8;
-      redrawFootNum(num, tg.n);
-      return { ...tg, ring, num };
-    });
+    // ── 번호 표적 4개는 **프림 토큰이 직접 그린다**(배치는 아래 MAT_TG).
+    //   floorRing 메시로 흉내 내던 판(구버전)은 은퇴했다 — 재설계한 노드 문법(대기=헤어라인 링
+    //   · 지목=채움+숫자 파냄)이 링 메시엔 안 걸리고, 노드끼리 잇는 레일도 못 그린다.
+    //   룩 시스템은 프림 쪽에도 그대로 걸린다: 색은 ENV.lut, 두께는 LNW(=4×arrow.w), 헤일로는 look.halo.
     // 셋업 막 발자국 — 어깨보다 넓게(0.56m, wikiHow 기본기). 4초간만 보였다 퇴장(상시 아님).
-    const b1sL = new FootMark('left').at(-0.14, BK_STAND - 0.40 - BDEEP, FOLLOW_S);   // 모은 자세에서 시작 → 틱이 벌린다
-    const b1sR = new FootMark('right').at(0.14, BK_STAND - 0.40 - BDEEP, FOLLOW_S);
+    const b1sL = new FootMark('left').at(-B1_HALF_SHUT, BK_STAND - B1_FOOT_D, FOLLOW_S);   // 모은 자세에서 시작 → 틱이 벌린다
+    const b1sR = new FootMark('right').at(B1_HALF_SHUT, BK_STAND - B1_FOOT_D, FOLLOW_S);
     // ←→ 룩 화살표(스템+SVG촉) — 유저: 너무 흐려. 셋 다 고쳤다(실측 근거는 아래 배치 코드).
     //   ① scale 1.55 = 0.34m 지면 화살표와 같은 실측 두께·점 크기(0.22m 판에 같은 128×256 캔버스를
     //      눌러 담으면 자루가 65% 로 얇아지고 점렬이 좁쌀이 된다).
     //   ② 발마크 위가 아니라 **마크 앞 0.26m 빈 바닥**에. 마크 블룸(반경 ~0.12m 백열)에 겹치면
     //      알파가 1이어도 안 보인다(실측 크롭: 화살표가 발바닥 광 속으로 사라짐).
     //   ③ 꼬리는 중앙 고정(±0.04) — 촉이 벌어짐과 함께 바깥으로 자란다(draw-on = 벌어짐 진행).
-    const B1AZ = BK_STAND - 0.40 - BDEEP + 0.26;
+    const B1AZ = BK_STAND - B1_FOOT_D + 0.26;
     const b1aL = floorArrow(-0.04, B1AZ, 90, BRAND.sand, 0.22, 1.55);
     const b1aR = floorArrow(0.04, B1AZ, -90, BRAND.sand, 0.22, 1.55);
     b1aL._gain = 0; b1aR._gain = 0;
@@ -1627,13 +1616,29 @@ export class Session {
     const b1matZ = BK_STAND - matMid;                        // 빔 원점(=BK_STAND)에서 앞으로
     const toV = d => (d - matMid) / (MAT_SIZE / 2);          // 앞거리 → 판 정규 v(+ = 먼 쪽)
     const toU = x => x / (MAT_SIZE / 2);
-    // 표적 배치(m) — 빔 사다리꼴 안에 들어가는지 검산하고 넣은 값이다:
-    //   ①② d0.90 x±0.17 (반폭 0.332 / 필요 0.275) · ③④ d1.12 x±0.26 (반폭 0.391 / 필요 0.365)
-    //   허브(d0.60 r0.15)와 최소거리 0.345 > 0.255 · ①③ 간격 0.238 > 0.210 · 먼 끝 1.225 ≈ MAT_D1
+    // ── 표적 배치 — **좌표를 지어내지 않는다.** 씬이 이미 가진 상수에서만 뽑는다.
+    //   ③④ = 벌어진 스탠스 자리(B1_HALF_OPEN, B1_FOOT_D) — 발자국이 가르치고 물러난 그 자리에
+    //         번호가 남는다. 그래서 절대 겹칠 수 없다(같은 좌표를 공유하니까).
+    //   ①② = 모은 스탠스 폭(B1_HALF_SHUT), 깊이는 허브 바깥끝과 발자국 앞끝의 한가운데.
+    //   전엔 내가 d0.90/1.12 를 지어냈고 그게 발자국(1.15) 위에 얹혔다(유저 스샷).
+    const B1_HUB_D = 0.60, B1_HUB_R = 0.15;
+    const MAT_TG_R = FOOT_LEN_M / 3;                                   // 발 길이 1/3 = 표적 반지름
+    const MAT_TG_D = (B1_HUB_D + B1_HUB_R + (B1_FOOT_D - FOOT_LEN_M / 2)) / 2;
     const MAT_TG = [
-      { x: -0.17, d: 0.90, n: 1, r: 0.105 }, { x: 0.17, d: 0.90, n: 2, r: 0.105 },
-      { x: -0.26, d: 1.12, n: 3, r: 0.105 }, { x: 0.26, d: 1.12, n: 4, r: 0.105 },
+      { x: -B1_HALF_SHUT, d: MAT_TG_D, n: 1, r: MAT_TG_R },
+      { x: B1_HALF_SHUT, d: MAT_TG_D, n: 2, r: MAT_TG_R },
+      { x: -B1_HALF_OPEN, d: B1_FOOT_D, n: 3, r: MAT_TG_R },
+      { x: B1_HALF_OPEN, d: B1_FOOT_D, n: 4, r: MAT_TG_R },
     ];
+    // 검산 — 지어낸 값이 아니어도 상수가 바뀌면 깨질 수 있다. 조용히 겹치느니 콘솔에 뜨는 게 낫다.
+    for (const a of MAT_TG) {
+      if (Math.abs(a.x) + a.r > matInk(a.d))
+        console.warn('[BK_B1] 표적 ' + a.n + ' 이 빔 밖:', (Math.abs(a.x) + a.r).toFixed(3), '>', matInk(a.d).toFixed(3));
+      if (Math.hypot(a.x, a.d - B1_HUB_D) < B1_HUB_R + a.r)
+        console.warn('[BK_B1] 표적 ' + a.n + ' 이 허브와 겹침');
+      for (const b of MAT_TG) if (b.n > a.n && Math.hypot(a.x - b.x, a.d - b.d) < a.r + b.r)
+        console.warn('[BK_B1] 표적 ' + a.n + '·' + b.n + ' 겹침');
+    }
     const b1mat = primPanel('dribbleMat', MAT_SIZE, false);
     b1mat._prim.P = {
       // chev 는 껐다 — 방향 셰브론은 '다음이 어느 쪽'을 말하는 기호인데 제자리 드리블엔
@@ -1655,10 +1660,9 @@ export class Session {
     };
     b1mat.position.set(0, 0.0125, b1matZ);   // 링(0.013)·숫자(0.016) 아래 — 매트가 바닥면이다
     b1mat.material.opacity = 0;
-    this.bkB1 = { zone: b1zone, num: b1num, sL: b1sL, sR: b1sR, aL: b1aL, aR: b1aR, mat: b1mat, tg: b1tg,
+    this.bkB1 = { zone: b1zone, num: b1num, sL: b1sL, sR: b1sR, aL: b1aL, aR: b1aR, mat: b1mat,
       count: 0, _shown: -1, _wasLow: false, _popT: -9, _setupDone: false };
-    g.add(b1zone, b1num, b1sL.group, b1sR.group, b1aL, b1aR, b1mat);
-    for (const tg of b1tg) g.add(tg.ring, tg.num);   // 지시문은 피그마 프레임 헤더가 담당(유저)
+    g.add(b1zone, b1num, b1sL.group, b1sR.group, b1aL, b1aR, b1mat);   // 지시문은 피그마 프레임 헤더가 담당(유저)
 
     g = this._mk('BK_B2');
     // B2 · 크로스오버 — 좌우 바운스 존 교대 점등. '공이 우리 평면에 닿는 지점'이 곧 커서라
@@ -3239,7 +3243,7 @@ export class Session {
       if (!this._followLatch) {   // 관찰 5초 — 코치 실루엣+Preview 필만, 가이드 전부 숨김(유저: 훈련 전체)
         H.sL.op(0); H.sR.op(0); H.aL._gain = 0; H.aR._gain = 0;
         H.zone.setOp?.(0); H.num.material.opacity = 0; H.mat.material.opacity = 0;
-        for (const q of H.tg) { q.ring.setOp?.(0); q.num.material.opacity = 0; }
+        H.mat._prim.P.tgK = 0;
         this.bkB1Setup = false; this.bkB1Succ = null; this.bkB1Widen = null;
         this.demoActive = true;
         FMU('먼저 보세요 — 로우 드리블', CS.prism);
@@ -3253,9 +3257,11 @@ export class Session {
       // 매트는 따라하기 시작(셋업 0초)에 깔린다 — 발자국을 그 위에 놓고 밟게 하는 게 순서다.
       H.mat.material.opacity = Math.min(1, Math.max(0, tB / 0.5)) * 0.85;
       H.mat._prim.P.prog = Math.min(1, H.count / TOTAL);   // 테두리 도트가 차오름 = 남은 회차
-      const tgK = Math.min(1, Math.max(0, (tB - 0.3) / 0.6));
-      for (const q of H.tg) { q.ring.setOp?.((q.on ? 0.42 : 0.16) * tgK); q.num.material.opacity = (q.on ? 0.9 : 0.3) * tgK; }
       const W_END = 3.0, SETUP = 6.0, inSetup = tB < SETUP;
+      // 번호 표적은 **발자국이 물러난 뒤에** 열린다. ③④ 는 발자국과 같은 좌표라 동시에 켜면
+      //   겹친다 — 겹치는 게 아니라 **자리를 물려받는** 순서다: 발자국이 가르치고, 사라지고,
+      //   그 자리에 번호가 남는다. (발자국 소등 = sK 가 0 이 되는 tB 4.2s)
+      H.mat._prim.P.tgK = Math.min(1, Math.max(0, (tB - 4.2) / 0.7));
       this.bkB1Setup = inSetup;
       const wk = tB < 0.8 ? 0 : Math.min(1, (tB - 0.8) / (W_END - 0.8));
       const we = wk * wk * (3 - 2 * wk);
@@ -3263,7 +3269,7 @@ export class Session {
       const sK = Math.max(0, Math.min(1, (W_END + 1.2 - tB) / 0.9));   // Success 블룸 여운 후 퇴장
       H.sL.op(sK); H.sR.op(sK);
       if (inSetup) {
-        const half = 0.14 + 0.14 * we;                    // 발자국도 실제로 벌어진다
+        const half = B1_HALF_SHUT + (B1_HALF_OPEN - B1_HALF_SHUT) * we;   // 발자국도 실제로 벌어진다
         H.sL.group.position.x = -half; H.sR.group.position.x = half;
         // ← → 룩 화살표: draw-on 진행(_prog)을 '발자국이 실제 벌어지는 진행'에 직접 물린다(유저).
         //   벌어짐과 동시에 촉이 바깥으로 자라고, 끝나면 완성 상태로 잠깐 머물다 소등.
