@@ -52,11 +52,28 @@ export const airK = f => Math.sin(Math.PI * Math.max(0, Math.min(1, f)));
 export const airAlpha = f => 0.30 + 0.25 * (1 - airK(f));
 export const airScale = f => 1 + v('airScale', 0.08) * airK(f);
 
-/** 착지 직전 살짝 지나쳤다가 되돌아온다 — 체중이 앞으로 실리는 느낌. */
+/** 착지 직전 살짝 지나쳤다가 **반동하며** 되돌아온다 — 쫀득함의 핵심(유저).
+ *  전엔 지나친 만큼 선형으로 되돌아와서 '밀렸다 돌아옴'으로만 읽혔다.
+ *  감쇠 사인을 얹으면 한 번 지나쳤다가 살짝 되튀고 멎는다 = 무게가 실린 착지.
+ *  settleHz 1 이하 = 흐물 · 3 이상 = 떨림. 2~2.6 이 '쫀득'의 창이다. */
 export function overshoot(f) {
-  const at = v('overAt', 0.85);
-  return f > at ? (f - at) / (1 - at) * v('over', 0.06) : 0;
+  const at = v('overAt', 0.78);
+  if (f <= at) return 0;
+  const u = (f - at) / (1 - at);              // 0→1, 오버슈트 구간 로컬 진행
+  //   ★ (1-u^3) 로 **정확히 0 에서 닫는다**. exp 만 쓰면 u=1 에서 0.010 이 남아
+  //     마크가 그만큼 영구히 밀린 자리에 선다(실측). 감쇠는 느낌, 마감은 계약이다.
+  const decay = Math.exp(-3.2 * u) * (1 - u * u * u);
+  const wob = Math.sin(u * Math.PI * v('settleHz', 2.4));
+  return v('over', 0.14) * u * decay + v('settle', 0.11) * wob * decay;
 }
+
+/** 저역통과 — 프레임 독립. 값이 툭 바뀌는 자리에 끼워 '차오르듯' 만든다.
+ *  tau = 시상수(s). dt 가 흔들려도 결과가 같다(1-exp 라 프레임률에 안 묶인다). */
+export const lerpTo = (cur, tgt, tau, dt) =>
+  cur + (tgt - cur) * (1 - Math.exp(-Math.max(0, dt) / Math.max(1e-3, tau)));
+
+/** 화살표 밝기 램프 시상수 · 대기 호흡 — 켜짐/꺼짐이 툭 끊기던 것을 녹인다. */
+export const ARROW = { ramp: v('arrowRamp', 0.16), breath: v('arrowBreath', 0.06) };
 
 /** 슬라이드 — 들리지 않으니 고스트로 안 바꾼다. 밀리는 동안만 살짝 흐려져 잔상감을 준다. */
 export const slideAlpha = f => 0.70 + 0.25 * (1 - Math.max(0, 1 - f));

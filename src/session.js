@@ -3,7 +3,7 @@ import { PAL, NEU, NUM, rgba } from './palette.js';
 import bkStepContacts from '../assets/mocap/contacts-cmu_crossover_shot.json';   // 접지 자동 추출 산출물 (scripts/extract_contacts.mjs)
 import { WALL_Z } from './scene.js';
 // ★ 마크 움직임 정본 — _sbPlace 안에 갇혀 있던 이징·착지팝·체공을 여기로 뺀다(숫자 동일).
-import { easeMove, stepDelay, stampPop, airK, airAlpha, airScale, overshoot, slideAlpha } from './markmotion.js';
+import { easeMove, stepDelay, stampPop, airK, airAlpha, airScale, overshoot, slideAlpha, lerpTo, ARROW } from './markmotion.js';
 // ★ 4단계 스펙 정본 — 어느 발이 어떤 하중으로 어떻게 움직이는가. 코드에 흩어져 있던 걸 데이터로.
 import { BK_STEPBACK, LOAD, arrowFor } from './marklang.js';
 import { lutColor, GLYPHS, drawGlyph, drawNumber, footSlot, footSDFTexture, FXP } from './fxlut.js';
@@ -916,7 +916,11 @@ export class Session {
       const settled = age > 0 && age < 1e6 ? age : 0;
       // 착지 후 2초가 지나면 다음 루프 예고로 다시 켠다(유저). 그 전에는 이동 중에만.
       const cue = q.step && (q.moving || (landed && settled > 2.0));
-      if (!cue) { ar._gain = 0; return; }
+      // ★ 밝기는 **차오른다**(유저: 더 쫀득하게). 전엔 조건이 바뀌는 프레임에 0↔0.75 로
+      //   툭 끊겨서 화살표가 '깜빡'였다. 목표만 정하고 램프는 저역통과가 만든다.
+      const _dtA = Math.max(0, Math.min(0.1, this.t - (ar._gT ?? this.t)));
+      ar._gT = this.t;
+      if (!cue) { ar._gain = lerpTo(ar._gain ?? 0, 0, ARROW.ramp, _dtA); return; }
       // 위치: 내딛는 스텝은 목표 지점 '앞쪽'(같은 좌우 라인).
       //   슬라이드(뒤로 빠지기)는 두 발 사이에서 빠질 방향을 가리킨다 — 미리 알려주는 큐(유저 지시).
       const other = side === 'L' ? P.R : P.L;
@@ -935,7 +939,10 @@ export class Session {
       ar.rotation.z = q.slide
         ? -Math.atan2(q.tu - other.u, q.tv - other.v)          // 고정 방향(멈춘 발 → 목표)
         : -Math.atan2(du, Math.max(0.001, dv));                // 이동 방향(주로 전진 = 0°)
-      ar._gain = q.slide ? 0.75 : (q.moving ? 0.30 + 0.60 * (1 - q.f) : 0.55);   // 슬라이드 큐는 일정한 밝기로 흐른다
+      // 목표 밝기 + 대기 중 미세 호흡(멈춰 있는 큐가 죽어 보이지 않게)
+      const _tgtA = (q.slide ? 0.75 : (q.moving ? 0.30 + 0.60 * (1 - q.f) : 0.55))
+        * (1 + (q.moving ? 0 : ARROW.breath * Math.sin(this.t * 2.1)));
+      ar._gain = lerpTo(ar._gain ?? 0, _tgtA, ARROW.ramp, _dtA);   // 슬라이드 큐는 일정한 밝기로 흐른다
       // ★ 두께 = MOVE 토큰(marklang ARROW). 길이는 이미 이동 거리가 정하므로 토큰은 두께·촉만 말한다.
       //   슬라이드가 굵다 — 스텝백에서 힘이 실리는 곳이 거기다(3/4 왼발 밀기).
       const tok = arrowFor(q.slide ? 'slide' : 'step', Math.min(1, Math.hypot(du, dv)));
