@@ -832,6 +832,13 @@ export class Marker {
         U.uPrevProg.value = U.uProg.value;
         this._xfT = nowP;
       }
+      // ★ Success 파문 시계 — FootMark.glow 와 **같은 규약**. 여기 빠뜨리면 팩 판정 토큰만
+      //   옛 경로(prog 구동)로 떨어져 파면이 얼어붙는다(유저: "다른 써세스 토큰도 이렇게 멈추네").
+      //   진입할 때 찍고 나갈 때 끈다 — 안 끄면 다음 성공이 옛 위상에서 이어진다.
+      if (U.uSuccT) {
+        if (_pn === 2 && U.uPhase.value !== 2) U.uSuccT.value = U.uTime.value;
+        else if (_pn !== 2 && U.uPhase.value === 2) U.uSuccT.value = -999;
+      }
       U.uPhase.value = _pn;
       setMarkStateLook(this.fx?.material || m, _pn);   // 상태별 룩 오버라이드(footlab states)
       if (this._xfT != null) {
