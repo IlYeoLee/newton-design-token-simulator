@@ -1185,21 +1185,26 @@ export class Session {
     // 여백은 발 **폭** 기준(0.22) — 길이(0.34) 로 잡으면 짧은 구간(준비R→플랜트 0.16m)이
     //   여백 두 개(0.20m)에 통째로 먹혀 선이 사라진다. 스탠스선에서 같은 이유로 고친 값이다.
     const IN = FOOT_LEN_M * 0.22;
-    const seg = (m, from, to) => {
+    // ★ 순차 draw-on — 셋이 **동시에** 뜨면 순서가 안 읽힌다(유저: 박자가 없다).
+    //   _prog 가 이미 draw-on 이므로 시차만 곱한다 — 새 그래픽 0개(AD-FLOOR-UI-PLAN B층).
+    //   시차 0.3s · 그리기 0.45s → 셋째 선이 다 그려지는 시점 1.05s. 관찰 7.2초 앞머리에 들어간다.
+    const TR_STAG = 0.30, TR_DRAW = 0.45;
+    const seg = (m, from, to, i) => {
       if (!m || !from || !to) return;
       const a = from.group.position, b = to.group.position;
       const dx = b.x - a.x, dz = b.z - a.z, d = Math.hypot(dx, dz), len = d - IN * 2;
-      m.visible = want && len > 0.05;
+      const on = Math.max(0, Math.min(1, (this.t - i * TR_STAG) / TR_DRAW));
+      m.visible = want && len > 0.05 && on > 0;
       if (!m.visible) { m._gain = 0; return; }
       m.position.set(a.x + dx / d * IN, 0.013, a.z + dz / d * IN);
       m.rotation.z = Math.atan2(-dx, -dz);   // 부호 규약 = _sbLink 와 같다
-      m._prog = Math.min(1, len / SB_TRAIL_MAX);
+      m._prog = Math.min(1, len / SB_TRAIL_MAX) * on;
       m._gain += (0.42 - m._gain) * 0.15;    // 2급 — 발자국(1급)보다 옅게
     };
     // 순서: 준비 R → 플랜트 → 착지 R · 준비 L → 착지 L (왼발은 한 번에 크게 빠진다)
-    seg(H.trA, H.fRr, H.fC);
-    seg(H.trB, H.fC,  H.fLr);
-    seg(H.trC, H.fRl, H.fLl);
+    seg(H.trA, H.fRr, H.fC,  0);
+    seg(H.trB, H.fC,  H.fLr, 1);
+    seg(H.trC, H.fRl, H.fLl, 2);
   }
 
   /** 빔 창 안에 **반경까지 포함해서** 앉힌다 — 투사 영역 밖으로 나가는 것을 금지(유저 08-06).
