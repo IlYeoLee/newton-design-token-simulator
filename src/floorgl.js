@@ -639,6 +639,16 @@ export function drawChars(ctx, txt, cx, y, h, ls, fn, align = 'center') {
 // 배터리 잔량 — **세션당 한 번** 뽑아 고정(유저): 웨어러블 62~96 · 이어폰 38~88.
 //   기기마다 값이 달라야 '진짜 상태'로 읽힌다. 매 프레임 뽑으면 다이얼이 떤다.
 //   ※ 커밋 b3185e7 이 이 정의 없이 사용부만 들어와 페인트가 통째로 죽었다(동시 편집 유실) — 복구.
+/** 시작화면 시안 토글 — 랩(readylab.html)에서 켜고 끄며 **나란히 비교**한다.
+ *  왜 토글인가: 모바일 홈·복싱 벽과 "인상을 붙이는" 작업이라 값이 아니라 **있고 없고**가
+ *  판단 대상이다. 넷을 한꺼번에 넣으면 어느 것이 효과를 냈는지 못 가른다(유저 요청).
+ *  전부 끄면 08-06 이전 화면과 픽셀 동일. */
+export const READY_OPT = {
+  ctaPill:   true,   // ① CTA = 채워진 알약 (모바일 `View Now →` · 복싱 CTA 와 같은 문법)
+  logo:      true,   // ② 뉴턴 로고 (복싱 우상단 · 모바일 좌상단에는 있는데 지면엔 없었다)
+  chipLabel: true,   // ③ 하단 원형에 라벨 (복싱 Wearable/Station/Watch 칩과 같은 급으로)
+  arcLabel:  true,   // ④ 아크 세그먼트 이름 (복싱 알약은 수치+의미가 같이 있다)
+};
 const BATT = {
   glasses: Math.round(62 + Math.random() * 34),
   buds: Math.round(38 + Math.random() * 50),
@@ -650,13 +660,13 @@ const READY = {
   //   부제 'Pace On' = Level & Mode.
   // badge = 영상 구간(상태1) 부제 슬롯에 서는 낱말. 션은 크리에이터, 커리는 프로 선수(유저 08-06).
   'floor.html':    { r2: { lines: ["Sean's", 'Pace Strategy'], sub: 'Pace On', badge: 'Creator', total: '5.0', unit: 'km',   // 시간(48분) → **거리 목표**(유저): 러닝은 '얼마나 뛰나'가 목표다
-                           arcs: [{ v: 8, lbl: '8m', muted: true, chipText: '8m' }, { v: 10, lbl: '10m', icon: 'feet', pad: 8 }, { v: 30, lbl: '30m', icon: 'run' }] } },
+                           arcs: [{ v: 8, lbl: '8m', muted: true, chipText: '8m', name: 'STRETCH' }, { v: 10, lbl: '10m', icon: 'feet', pad: 8, name: 'WARM UP' }, { v: 30, lbl: '30m', icon: 'run', name: 'RUN' }] } },
                            // ★ 세그먼트는 **분**으로 되돌림(유저) — 총량만 거리(5.0km)다.
                            //   총량 = 오늘의 목표(얼마나 뛰나) · 세그먼트 = 그 목표를 채우는 시간 배분(8+10+30=48분).
                            //   둘의 단위가 달라도 되는 이유: 하나는 '무엇을 이루나', 다른 하나는 '어떻게 쓰나' 라서다.
   'floor-bk.html': { r2: {   // 종목 공통 스펙으로 통합 — 농구 전용 콘텐츠 보정 폐기(유저 승인 08-05)
                            lines: ["Curry's", 'Step Back'], sub: 'Press On', badge: 'Pro', total: '45', unit: 'min',   // 실제 훈련 구성(유저): 스트레칭 8 + 연습 22 + 실전 15 = 45분
-                           arcs: [{ v: 8, lbl: '8m', muted: true, chipText: '8m' }, { v: 22, lbl: '22m', icon: 'bkTrain', pad: 6 }, { v: 15, lbl: '15m', icon: 'bkPlay' }] } },
+                           arcs: [{ v: 8, lbl: '8m', muted: true, chipText: '8m', name: 'STRETCH' }, { v: 22, lbl: '22m', icon: 'bkTrain', pad: 6, name: 'DRILL' }, { v: 15, lbl: '15m', icon: 'bkPlay', name: 'GAME' }] } },
                            // 스트레칭 8 · 연습(스텝백 드릴) 22 · 실전 15 = 45분. 아마추어 1회 세션 기준으로
                            // 연습이 가장 길고 실전이 그 다음 — 기술 습득 세션의 실제 비중이다.
 };
@@ -2422,6 +2432,19 @@ export class FloorGL {
     ctx.strokeStyle = rim; ctx.lineWidth = 2.5;
     capPath(); ctx.stroke();
     ctx.restore();
+    // ② 뉴턴 로고 — 복싱 벽은 우상단, 모바일 홈은 좌상단에 있는데 **지면만 없었다**(유저).
+    //   ★ 위가 아니라 **아래**다. 이 화면은 조판 기준이 통째로 254 위로 올라가 있어(위 translate)
+    //     캡슐 상단(285) 위에 남는 띠가 31px 뿐이다 — 거기 그리면 캔버스 밖으로 나간다(실측).
+    //     아래(칩 아래 ~2380)는 비어 있고, 투사에서 그 자리는 사용자 발밑이라 브랜드 마크가 앉기 좋다.
+    if (READY_OPT.logo) {
+      const lg = this._img('newton-logo.svg');
+      if (lg) {
+        const LW2 = 230, LH2 = LW2 * lg.naturalHeight / lg.naturalWidth;
+        ctx.save(); ctx.globalAlpha *= e0(.05) * 0.8;
+        ctx.drawImage(lg, 800 - LW2 / 2, 2380 - CUT - LH2 / 2, LW2, LH2);
+        ctx.restore();
+      }
+    }
     // ── ② 캡슐 하단 엠버 글로우 — 피그마 익스포트 4겹, 블렌드 모드 그대로 ──
     // ★ 컬러 면은 **두 상태를 오간다**(유저 08-05, 피그마 342:3057):
     //   페이즈1(인물) = 새 컬러 면(크고 위) · 페이즈2(도트 숫자) = **원래 뉴턴 그라디언트**가
@@ -2710,6 +2733,14 @@ export class FloorGL {
           ctx.clip('evenodd');
           ctx.beginPath(); ctx.arc(CXA, CYA, R, sA * RAD, end * RAD); ctx.stroke();
           ctx.restore();
+          // ④ 세그먼트 이름 — **폐기**(2026-08-06, 시도해 보고 접었다).
+          //   복싱 알약처럼 수치+의미를 같이 주려 했는데 두 가지가 동시에 걸린다:
+          //   ① 띠 두께 130px 안에 넣으려면 34px 인데, 이 대지의 캡션 하한은 **64px**
+          //      (docs/FLOOR-LEGIBILITY.md) — 규약 위반이고 실제로 안 읽힌다.
+          //   ② 64px 로 올리면 아이콘 칩·수치 칩과 겹친다(실측 스샷: DRILL 이 띠 밖으로,
+          //      GAME 이 15m 칩 위로 올라탔다).
+          //   → 아크에 의미를 넣는 건 이 지오메트리에선 불가능하다. 이름은 데이터
+          //     (R2.arcs[].name)에 남겨 둔다 — 다른 자리(예: 캡션 줄)에서 쓸 수 있다.
         }
         // 아이콘 칩 — 스윕이 시작각을 지나면 팝(스케일 오버슈트)
         const ip = (seg.icon || seg.chipText) ? Math.max(0, Math.min(1, (sweep - s0) / 14)) : 0;
@@ -2878,6 +2909,15 @@ export class FloorGL {
         glass(() => { ctx.beginPath(); ctx.arc(gx, CY, RD - 2.5, 0, Math.PI * 2); }, gx, RD);
         dial(gx, BATT.glasses, TP2 + .30);
         { const gl2 = img('ic-glasses.png'); if (gl2) ctx.drawImage(gl2, gx - 55, CY - 37, 110, 74); }
+        // ③ 라벨 — 복싱 벽의 Wearable/Station/Watch 칩은 **아이콘 + 라벨 + 수치**다. 지면은
+        //   아이콘만 있는 유리 원이라 장식으로 읽혔다(유저). 원형은 그대로 두고 라벨만 붙인다.
+        if (READY_OPT.chipLabel) {
+          ctx.save();
+          ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+          ctx.font = RF(600, 64); ctx.fillStyle = 'rgba(255,255,255,.86)';
+          ctx.fillText(`${BATT.glasses}%`, gx, CY + RD + 30);
+          ctx.restore();
+        }
         // ⓑ 이어폰 — 원 → 알약. 왼끝은 제자리, 오른쪽으로 자란다.
         const ex = x0 + DD + GAPD;
         // 확장하며 **전체 컨테이너 아웃라인은 지운다**(유저) — 인물이 들어오면 테두리가 두 요소를
@@ -2887,6 +2927,14 @@ export class FloorGL {
         dial(ex + RD, BATT.buds, TP2 + .42);   // 안경 → 이어폰 순으로 0.12s 시차
         { const eb = this._tinted2('fig/ready2/ic-earbuds.png', 102, 88, () => '#fff');
           if (eb) ctx.drawImage(eb, ex + RD - 51, CY - 44, 102, 88); }
+        if (READY_OPT.chipLabel) {
+          ctx.save();
+          ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+          ctx.font = RF(600, 64); ctx.fillStyle = 'rgba(255,255,255,.86)';
+          //   확장 중엔 코치 사진이 오른쪽을 채우므로 라벨은 **원 자리**(왼끝) 기준에 둔다.
+          ctx.fillText(`${BATT.buds}%`, ex + RD, CY + RD + 30);
+          ctx.restore();
+        }
         // 코치 인물 — 확장이 만든 오른쪽 빈칸에 채워진다(연결됨)
         if (EXP > 0.02) {
           // 코치 프로필 — 종목별(유저): 농구는 커리. 소스 클립(curry-card.mp4)에서 얼굴을 잘라 구웠다.
@@ -2932,15 +2980,17 @@ export class FloorGL {
       //   폭은 글자에서 나온다(HUG) — 고정폭으로 두면 종목마다 여백이 갈린다.
       const CTA_Y = 2102 - CUT;
       ctx.font = RF(700, 74); ctx.letterSpacing = '-4.25px';
-      const _tw = ctx.measureText('Tap Twice').width;
-      const _ph = 138, _pw = _tw + 132;                    // 좌우 여백 66 (알약 규약과 같은 급)
-      const _pg = ctx.createLinearGradient(800.15 - _pw / 2, 0, 800.15 + _pw / 2, 0);
-      _pg.addColorStop(0, PAL.red); _pg.addColorStop(1, PAL.coral);   // 모바일 히어로와 같은 램프 방향
-      ctx.save();
-      ctx.globalAlpha *= .92 + .08 * tapB;                 // 탭 박자에 알약도 같이 숨쉰다
-      ctx.fillStyle = _pg;
-      ctx.beginPath(); ctx.roundRect(800.15 - _pw / 2, CTA_Y - _ph / 2, _pw, _ph, _ph / 2); ctx.fill();
-      ctx.restore();
+      if (READY_OPT.ctaPill) {
+        const _tw = ctx.measureText('Tap Twice').width;
+        const _ph = 138, _pw = _tw + 132;                  // 좌우 여백 66 (알약 규약과 같은 급)
+        const _pg = ctx.createLinearGradient(800.15 - _pw / 2, 0, 800.15 + _pw / 2, 0);
+        _pg.addColorStop(0, PAL.red); _pg.addColorStop(1, PAL.coral);   // 모바일 히어로와 같은 램프 방향
+        ctx.save();
+        ctx.globalAlpha *= .92 + .08 * tapB;               // 탭 박자에 알약도 같이 숨쉰다
+        ctx.fillStyle = _pg;
+        ctx.beginPath(); ctx.roundRect(800.15 - _pw / 2, CTA_Y - _ph / 2, _pw, _ph, _ph / 2); ctx.fill();
+        ctx.restore();
+      }
       ctx.fillStyle = NEU.ink;
       ctx.fillText('Tap Twice', 800.15, CTA_Y);
       ctx.letterSpacing = '0px'; ctx.restore();

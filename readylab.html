@@ -35,6 +35,17 @@
   <div class=ctl>
     <label class=sub>높이</label><input type=range id=zoom min=280 max=1000 step=20 value=620>
   </div>
+  <div class=ctl id=bgseg>
+    <label class=sub>배경</label>
+    <button data-bg=dark class=on>어두움</button><button data-bg=light>밝음</button><button data-bg=floor>실제 바닥</button>
+  </div>
+  <!-- 시안 토글 — 전부 끄면 08-06 이전 화면과 픽셀 동일. 어느 항목이 인상을 바꿨는지 하나씩 가른다. -->
+  <div class=ctl id=optseg>
+    <label class=sub>시안</label>
+    <button data-opt=ctaPill class=on>① CTA 알약</button>
+    <button data-opt=logo class=on>② 로고</button>
+    <button data-opt=chipLabel class=on>③ 칩 수치</button>
+  </div>
 </header>
 <div class=row id=row></div>
 <div class=err id=err></div>
@@ -85,6 +96,23 @@ function paint() {
 }
 // 에셋(글로우 SVG·아이콘)은 첫 페인트가 로드를 촉발한다 — 두 번 더 그려서 채운다.
 paint(); setTimeout(paint, 800); setTimeout(paint, 2200);
+
+// ── 시안 토글 — floorgl 의 READY_OPT 를 직접 켜고 끈다(값 복사 금지: 두 벌이 되면 갈린다) ──
+const { READY_OPT } = await import('/src/floorgl.js?v=' + Date.now());
+document.getElementById('optseg').addEventListener('click', e => {
+  const b = e.target.closest('button[data-opt]'); if (!b) return;
+  const k = b.dataset.opt;
+  READY_OPT[k] = !READY_OPT[k];
+  b.classList.toggle('on', READY_OPT[k]);
+  paint();
+});
+// ── 배경 — 지면 UI 는 알파 캔버스라 뒤가 그대로 비친다. 밝은 바닥 위에서의 가독을 여기서 본다.
+const BGS = { dark: '#14171d', light: '#F2F2F2', floor: '#8E9A86' };   // floor = 실측 트랙 그린
+document.getElementById('bgseg').addEventListener('click', e => {
+  const b = e.target.closest('button[data-bg]'); if (!b) return;
+  [...b.parentElement.querySelectorAll('button')].forEach(x => x.classList.toggle('on', x === b));
+  for (const c of cells) c.G.canvas.style.background = BGS[b.dataset.bg];
+});
 
 $('play').onclick = e => { playing = !playing; e.target.classList.toggle('on', playing); t0 = performance.now() - t * 1000; };
 $('t').oninput = e => { playing = false; $('play').classList.remove('on'); t = +e.target.value; $('tv').textContent = t.toFixed(2) + 's'; paint(); };
