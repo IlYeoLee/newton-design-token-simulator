@@ -9,8 +9,17 @@
 import { readFileSync } from 'fs';
 
 const src = readFileSync(new URL('../src/floorgl.js', import.meta.url), 'utf8');
+// ★ **TOK 블록 안에서만** 찾는다. 파일 전체에 걸면 첫 일치가 이겨서 엉뚱한 값을 읽는다 —
+//   실측 08-07: `pad` 가 팩 정의의 `pad: 8`(아크 칩 여백)에 걸려 TOK.pad(52) 대신 8 이 들어갔고,
+//   그 결과 알약 높이를 229 로 보고했다(실제 317). 검사기가 스스로 틀린 채 '위반 없음'을 냈다.
+const TOK_SRC = (() => {
+  const i = src.indexOf('export const TOK = {');
+  if (i < 0) throw new Error('TOK 블록을 못 찾았다 — 선언이 바뀌었으면 이 검사기도 고칠 것');
+  const j = src.indexOf('\n};', i);
+  return src.slice(i, j);
+})();
 const num = (k) => {
-  const m = new RegExp(`\\b${k}:\\s*([0-9.]+)`).exec(src);
+  const m = new RegExp(`\\b${k}:\\s*([0-9.]+)`).exec(TOK_SRC);
   if (!m) throw new Error(`TOK.${k} 를 못 찾았다 — 이름이 바뀌었으면 이 검사기도 고칠 것`);
   return +m[1];
 };

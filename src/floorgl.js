@@ -1524,6 +1524,19 @@ export class FloorGL {
     const cap2 = CAPS[this.stage];
     if (cap2) return this._paint_capsule(cap2);   // 신규 캡슐 시스템(옵트인) — 레거시 조판 대체
     let y = LAYOUT.HEAD.y;   // 레이아웃 규약
+    // ★ headY 는 **알약 상단**이다(SPEC 밴드 ③ = headY … headY+CAPHEAD_H). 크럼(GAME 2/2)은
+    //   그 위 **라벨 밴드 ②**(17~200)에 앉는 물건인데, 흐름을 headY 에서 시작하면 크럼이
+    //   밴드 ③ 의 앞 88px 을 먹고 알약이 통째로 그만큼 내려간다.
+    //   실측 08-07(BK_C2·대지 1600×2670): 크럼 203~254 · 알약 298~603 — 규격은 알약 200~516.
+    //   (유저: "타이틀이 과하게 크고 낮은 곳에 있다". 큰 게 아니라 **내려앉은** 것이었다.)
+    //   검사기가 못 잡은 이유: check_floor_bands 는 상수만 본다 — 크럼이 밴드를 먹는 건 흐름이다.
+    // ★ 페이드 계수(o)까지 **루프와 같은 식**으로 빼야 한다. 상수 88 로 박으면 크럼이 스러질 때
+    //   알약만 따라 내려온다.
+    const cr = this.col.find(n => n.type === 'crumb');
+    if (cr && cr.style.display !== 'none' && !(cr.hideUntil && this.t < cr.hideUntil)) {
+      const oC = this._outro(cr);
+      if (oC >= 0.004) y -= (cr.mt || 0) + this._h(cr) * oC + (72 + (cr.mb || 0)) * oC;
+    }
     for (const n of this.col) {
       if (n.style.display === 'none') continue;
       if (n.hideUntil && this.t < n.hideUntil) continue;   // 시범 중 도트바 — 자리도 비운다
