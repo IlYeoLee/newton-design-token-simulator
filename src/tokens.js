@@ -478,7 +478,10 @@ export function setMarkStateLook(mat, ph) {
     'edgeShadeW','edgeShadeGrad','edgeShadeG0','edgeShadeG1','dither','pitch','edge','edgeW',
     'op','shadeCol','dotCol','edgeShadeCol','ripCol',
     // Tap2 가 실제로 들고 있는 나머지 — 하나라도 빠지면 그 키만 락 상태로 눌러앉는다.
-    'edgeSoft','shadeRed','shadeRedW','rip','ripReach','ripWidth','ripSpeed','ripGrad','bloom','w'];
+    'edgeSoft','shadeRed','shadeRedW','rip','ripReach','ripWidth','ripSpeed','ripGrad','bloom','w',
+    // 압력장 3종 — 상태별로 만질 수 있어야 하고(Success 매끈 처방), 리셋 목록에 없으면
+    //   한 번 Success 를 지난 마크가 그 압력값을 영영 들고 다닌다(위 op·Tap2 와 같은 함정).
+    'loadGain','loadBase','flow','plantar','tLo','tHi','halo','pool','noise','dotMode'];
   if (!_stateBase.has(mat)) {
     const base = {}; for (const k of KEYS) if (LOOK[k] != null) base[k] = LOOK[k];
     _stateBase.set(mat, base);
