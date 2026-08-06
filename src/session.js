@@ -6,6 +6,7 @@ import { WALL_Z } from './scene.js';
 import { easeMove, stepDelay, stampPop, airK, airAlpha, airScale, overshoot, slideAlpha, lerpTo, ARROW } from './markmotion.js';
 // ★ 4단계 스펙 정본 — 어느 발이 어떤 하중으로 어떻게 움직이는가. 코드에 흩어져 있던 걸 데이터로.
 import { BK_STEPBACK, LOAD, arrowFor, stageTime } from './marklang.js';
+import { a2Rem } from './a2hold.js';   // 마크 안 숫자 = 진행률 3등분 정본(초 올림 금지)
 import { READY_OPT } from './floorgl.js';   // 시작화면 시안 토글(발자국 어포던스 등) — 랩과 같은 스위치를 본다
 import { lutColor, GLYPHS, drawGlyph, drawNumber, footSlot, footSDFTexture, FXP } from './fxlut.js';
 import { MARK_NUM, GLYPH_LOOK, drawMarkGlyph, invertGlyphCanvas, drawStanceBox, drawPunchLine, drawApproachRing, drawTrajectory, drawRotate, drawStemArrow, drawCurveArrow, drawDribbleMat, glyphFor } from './fx-core.js';
@@ -1408,7 +1409,9 @@ export class Session {
     // 숫자 = 룩시스템 attachMarkNum(발 plane 자식·MARK_NUM 크기·numFoot 앵커) — 삐짐 없는 정본 이식
     // ★ 초기 라벨도 정본에서 — '5' 하드코딩이라 홀드가 3초인데 화면엔 5 가 떠 있었다(실측 렌더).
     //   홀드에 들어가야 카운트가 갱신되므로, 그 전 프레임은 이 값이 그대로 보인다.
-    const _n0 = String(Math.round(stageTime('A2').hold));
+    // ★ round(hold) 로 잡으면 홀드 2.15 에서 **'2'** 가 뜬다(카운트는 3 부터 시작하는데).
+    //   숫자의 정본은 초가 아니라 진행률이다 — 시작 진행률 0 의 값을 그대로 쓴다.
+    const _n0 = a2Rem(0);
     const numL = attachMarkNum(fmL, _n0, false), numR = attachMarkNum(fmR, _n0, true);
     numL.visible = false; numR.visible = false;
     const a2cd = floorNum(0, 0, -1.35, 0.22); a2cd.visible = false;   // 시범→따라하기 3-2-1 카운트다운
@@ -2871,7 +2874,10 @@ export class Session {
         put(P.linkA, a); put(P.linkB, b2);
       }
       if (inHold) {
-        const n = Math.max(1, Math.ceil(HOLD_SEC - P.fill * HOLD_SEC));   // 5→1 (UI 5초 타이머)
+        // ★ 남은 **초**를 올림하면 홀드 길이에 숫자가 끌려간다. 홀드 2.15s 에서는
+        //   '3' 이 0.15초만 번쩍하고 사라진다. 정본 a2Rem 은 진행률을 3등분하므로(각 0.717s)
+        //   홀드가 몇 초든 3·2·1 이 고르게 나온다 — floorgl 의 같은 자리와 한 벌이다.
+        const n = +a2Rem(Math.max(0, Math.min(1, P.fill)));
         if (n !== P._cnt) { redrawFootNum(workNum, n); P._cnt = n; P._pop = 1; }
         P._numA = Math.min(1, (P._numA ?? 0) + dt / 0.14);   // 들어올 때는 빠르게
         workNum.scale.multiplyScalar(1 + 0.42 * P._pop);   // 숫자 전환 팝
