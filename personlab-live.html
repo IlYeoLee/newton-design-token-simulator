@@ -65,15 +65,15 @@
         (깊이 0 → RED 어둡게 · 중간 → CORAL/SAND · 최심부 → PRISM).</div>
     </fieldset>
     <fieldset><legend>부위 강조 — 붉게 축하하기</legend>
-      <div class=row><label>세기 k</label><input id=em-k type=range min=0 max=1 step=0.02 value=0.95><span class=v id=v-em-k>0.95</span></div>
-      <div class=row><label>목표 t</label><input id=em-t type=range min=0.10 max=0.60 step=0.01 value=0.38><span class=v id=v-em-t>0.38</span></div>
+      <div class=row><label>세기 k</label><input id=em-k type=range min=0 max=1 step=0.02 value=0><span class=v id=v-em-k>0.00</span></div>
+      <div class=row><label>목표 t</label><input id=em-t type=range min=0.10 max=0.60 step=0.01 value=0.25><span class=v id=v-em-t>0.25</span></div>
       <div class=row><label>띠 아래</label><input id=em-y0 type=range min=0 max=1 step=0.01 value=0><span class=v id=v-em-y0>0.00</span></div>
-      <div class=row><label>띠 위</label><input id=em-y1 type=range min=0 max=1 step=0.01 value=0.45><span class=v id=v-em-y1>0.45</span></div>
-      <div class=row><label>무름</label><input id=em-soft type=range min=0.01 max=0.40 step=0.01 value=0.18><span class=v id=v-em-soft>0.18</span></div>
-      <div class=row><label>몸통 대역 아래</label><input id=bd-lo type=range min=0 max=0.5 step=0.01 value=0.00><span class=v id=v-bd-lo>0.00</span></div>
-      <div class=row><label>몸통 대역 위</label><input id=bd-hi type=range min=0.02 max=1 step=0.01 value=0.06><span class=v id=v-bd-hi>0.06</span></div>
-      <div class=row><label>인물 채도</label><input id=p-sat type=range min=0.6 max=2.2 step=0.01 value=1.45><span class=v id=v-p-sat>1.45</span></div>
-      <button id=em-preset>하양코랄 몸통 + 새빨강~주황 다리 (제안값)</button>
+      <div class=row><label>띠 위</label><input id=em-y1 type=range min=0 max=1 step=0.01 value=0.22><span class=v id=v-em-y1>0.22</span></div>
+      <div class=row><label>무름</label><input id=em-soft type=range min=0.01 max=0.40 step=0.01 value=0.06><span class=v id=v-em-soft>0.06</span></div>
+      <div class=row><label>몸통 대역 아래</label><input id=bd-lo type=range min=0 max=0.5 step=0.01 value=0.30><span class=v id=v-bd-lo>0.30</span></div>
+      <div class=row><label>몸통 대역 위</label><input id=bd-hi type=range min=0.02 max=1 step=0.01 value=1.00><span class=v id=v-bd-hi>1.00</span></div>
+      <div class=row><label>인물 채도</label><input id=p-sat type=range min=0.6 max=2.2 step=0.01 value=1.32><span class=v id=v-p-sat>1.32</span></div>
+      <button id=em-preset>연주황 몸통 + 새빨간 다리 (팔레트 양 극단)</button>
       <div class=hint>몸통 밴드가 <b>t 0.30~1.00</b> 이라 룩2 램프의 붉은 자리(0.25 = #FA3030)를 안 지난다 —
         그래서 강조는 t 를 올리는 게 아니라 <b>내린다</b>. 새 색을 안 만들고 같은 램프 안에서만 논다.<br>
         판 uv.y 기준이라 <b>0 = 아래(발)</b>. 발 강조는 대략 0~0.22.
@@ -325,11 +325,14 @@ $('em-preset').onclick = async () => {
   // 유저 08-07 2차: "진짜 하양에 가까운 코랄, 강조는 새빨간~주황으로 은은하게"
   //   몸통 0.02~0.13 = #fff5f5~#fdbfbf. 강조는 t 0.36(새빨강 0.25 ~ 주황 0.50 사이)에
   //   k 0.7 로 **섞어서** 건다 — 1.0 으로 못 박으면 단색이 되고 '은은한 그라디언트'가 죽는다.
-  // 유저 08-07 3차(레퍼런스 이미지): 몸통은 **거의 흰색**, 강조만 채도 높은 덩어리.
-  //   ★ 채도(p-sat)를 내리면 강조까지 같이 죽는다 — 2차의 실패 원인. 채도는 **올려 두고**
-  //     몸통을 램프의 t≈0(흰색) 쪽에 붙인다. 흰색은 채도를 곱해도 흰색이라 안 물든다.
-  //     대비는 '둘 다 낮추기'가 아니라 '한쪽만 0 에 붙이기'로 만든다.
-  const V = { 'bd-lo': 0.00, 'bd-hi': 0.06, 'p-sat': 1.45, 'em-k': 0.95, 'em-t': 0.38, 'em-y0': 0, 'em-y1': 0.45, 'em-soft': 0.18 };
+  // ★ 컬러칩 = **우리 열화상 팔레트의 두 극단**만 쓴다(유저 08-07). look2Ramp 의 정지점 그대로:
+  //     t 0.75 #FF8E5E = 가장 밝은 연주황   ← 몸통
+  //     t 0.25 #FA3030 = 가장 빨간          ← 강조
+  //   둘 사이를 지나면 t 0.50 #FF4000 을 거친다 — 팔레트 안에서만 흐르니 눈이 편하다.
+  //   흰색(t≈0)까지 내렸던 직전 안은 대비는 셌지만 열화상 어휘 밖으로 나가 이질적이었다.
+  //   ⚠ 이건 **랩 제안값**이다. FXP 전역 기본값에 굽지 않는다 —
+  //     굽는 순간 복싱·러닝까지 같이 간다(유저: 복싱이랑 다른 것도 건드렸어, 그러면 안 돼).
+  const V = { 'bd-lo': 0.66, 'bd-hi': 0.82, 'p-sat': 1.32, 'em-k': 0.95, 'em-t': 0.25, 'em-y0': 0, 'em-y1': 0.45, 'em-soft': 0.18 };
   for (const id in V) { const e = $(id); e.value = V[id]; e.dispatchEvent(new Event('input')); }
   await $('b-all').onclick();
 };
