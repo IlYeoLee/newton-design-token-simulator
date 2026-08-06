@@ -53,13 +53,13 @@
     border-radius:8px;padding:8px;font:11px/1.5 ui-monospace,Consolas,monospace;resize:vertical}
   .note{color:var(--dim);font-size:11px;margin:8px 0 0}
   .warn{color:var(--red);font-size:11.5px;margin:8px 0 0;display:none}
-</style>  <script type="module" crossorigin src="./assets/footlab-Bs9x5r3n.js"></script>
+</style>  <script type="module" crossorigin src="./assets/footlab-CXCkhPH4.js"></script>
   <link rel="modulepreload" crossorigin href="./assets/modulepreload-polyfill-B5Qt9EMX.js">
   <link rel="modulepreload" crossorigin href="./assets/three.core-CuD-R6Ua.js">
   <link rel="modulepreload" crossorigin href="./assets/palette-Bj20GXDn.js">
-  <link rel="modulepreload" crossorigin href="./assets/fx-core-BQFTn8yt.js">
-  <link rel="modulepreload" crossorigin href="./assets/fxlut-C3YSez4F.js">
-  <link rel="modulepreload" crossorigin href="./assets/tokens-BQOUttpo.js">
+  <link rel="modulepreload" crossorigin href="./assets/fx-core-CBIDj-hi.js">
+  <link rel="modulepreload" crossorigin href="./assets/fxlut-CKA0NuY-.js">
+  <link rel="modulepreload" crossorigin href="./assets/tokens-BpdStn7u.js">
 </head><body>
 <div class=wrap>
   <div class=panel>
@@ -101,6 +101,9 @@
       <div class=row><label>압력장</label><input type=range id=plantar min=0 max=1 step=.02><span class=v id=vplantar></span></div>
       <div class=row><label>등고선 단계</label><input type=range id=bands min=0 max=24 step=1><span class=v id=vbands></span></div>
       <div class=row><label>밴드 무름</label><input type=range id=bandSoft min=0 max=1 step=.01><span class=v id=vbandSoft></span></div>
+      <div class=row><label>상태 색 · 뜨거운 끝 tLo</label><input type=range id=tLo min=0 max=1 step=.01><span class=v id=vtLo></span></div>
+      <div class=row><label>상태 색 · 밝은 끝 tHi</label><input type=range id=tHi min=0 max=1 step=.01><span class=v id=vtHi></span></div>
+      <div class=hint>온도 창 = **상태의 색**. 0 쪽이 레드(팔레트 최강), 0.86 쯤이 샌드. tHi 0 = 미설정(상태 기본 창).<br>'이 상태만' 으로 두고 확대 중인 상태에 얹는다 — 피그마 성공 정본(163:8908)이 기준.</div>
       <div class=row><label>이너 섀도우</label><input type=range id=edgeShade min=0 max=1.4 step=.01><span class=v id=vedgeShade></span></div>
       <div class=row><label>섀도우 면적</label><input type=range id=edgeShadeW min=.2 max=4 step=.05><span class=v id=vedgeShadeW></span></div>
       <div class=seg id=segEdgeShadeCol style="margin:2px 0 6px"><button data-v=0 class=on>프리즘</button><button data-v=1>샌드</button><button data-v=2>코랄</button><button data-v=3>레드</button><button data-v=4>흰</button></div>
