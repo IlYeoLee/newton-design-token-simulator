@@ -2014,6 +2014,15 @@ export function drawDribbleMat(g, W, P, look, t, ENV) {
     g.save(); g.translate(cx, cy);
     volRing(g, lut, R, live ? 0.8 : 0.5, live ? 0.9 : 0.5, LNW * 0.9, GB);
     g.restore();
+    // ★ **바깥 림** — 잽잽훅 노드에는 있는데 여기만 빠져 있었다(유저 #191: 반짝반짝한 느낌이
+    //   안 든다). '윤곽선을 긋지 않는다'가 원래 의도였지만, 채움이 0.88R 이라 R 까지의 띠가
+    //   비어 납작한 원반으로 읽혔다. 채움(0.88R) ↔ 림(R) 사이의 **간격이 곧 겹으로 보이는 구조**다.
+    //   수치는 콤보 노드 정본 그대로 — lineWidth LNW×(활성 1.3 / 대기 0.9) · shadowBlur GB×(1.6/0.6).
+    g.strokeStyle = lut(live ? 0.8 : 0.45);
+    g.lineWidth = LNW * (live ? 1.3 : 0.9);
+    g.shadowBlur = live ? GB * 1.6 : GB * 0.6; g.shadowColor = lut(0.5);
+    g.beginPath(); g.arc(cx, cy, R, 0, Math.PI * 2); g.stroke();
+    g.shadowBlur = 0;
     ENV.num(g, tg.n, cx, cy, R * 0.9, Math.round(R * 0.78));
     g.globalAlpha = 1;
   }
