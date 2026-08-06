@@ -3387,7 +3387,11 @@ export class FloorGL {
       //   개뿐이고, SVG 로 넣으면 대시가 리샘플링돼 흐려지는 데다 **그어지는 모션**을 못 준다.
       //   교차점에서 양끝으로 자란다 — 자리를 '찍는' 동작이라 가운데에서 나가야 맞다.
       //   ※ 세로선(x793.49)과 가로선(중앙 800 기준 폭 612)이 서로 안 겹치는 건 피그마 그대로다.
-      const CROSS_X = 793.49, CROSS_Y = 1853.96;
+      // ★ 피그마 그룹은 **가운데가 셋으로 갈려 있다**(실측): 가로선 중심 800 · 세로선 793.49 ·
+      //   끝점 중점 794.97 · 발 쌍 중심 843. 발이 43px 오른쪽으로 밀려 보이는 게 그 때문이다
+      //   (유저 08-07 '발 가운데 정렬 맞춰줘'). 크기·간격은 피그마 그대로 두고 **축만 800 으로**
+      //   모은다. 끝점 인셋도 좌 28.99 / 우 39.05 로 갈려 있어 평균 34 로 대칭화했다.
+      const CROSS_X = 800, CROSS_Y = 1853.96;
       const grow = (a, c, lo, hi) => [c + (lo - c) * a, c + (hi - c) * a];
       if (at(CD.hLine, .55) > 0.004 || at(CD.vLine, .55) > 0.004) {
         ctx.save();
@@ -3404,7 +3408,7 @@ export class FloorGL {
       // ④ 끝점 4 개(지름 9.981) + 중앙 점(지름 8) — 블렌드 없음(피그마도 없다).
       //   선이 다다른 순서대로 톡톡 찍힌다.
       ctx.fillStyle = '#FFFFFF';
-      [[794, 1853.95, 4], [522.99, 1854.20, 4.99], [1066.95, 1854.20, 4.99],
+      [[CROSS_X, 1853.95, 4], [800 - 272, 1854.20, 4.99], [800 + 272, 1854.20, 4.99],
        [CROSS_X, 1716.99, 4.99], [CROSS_X, 1969.01, 4.99]].forEach(([cx, cy, r], i) => {
         const a = at(CD.dot + i * CD.dotStep, .3);
         if (a <= 0.004) return;
@@ -3430,7 +3434,9 @@ export class FloorGL {
         //   반올림해서 되돌리고, 크기도 텍스처 폭에서 파생한다.
         const KD = this.canvas.width / 1600, snap = v => Math.round(v * KD) / KD;
         const FW = ft.width / KD, FH = ft.height / KD, FY = 1738.58;
-        for (const [fx, mirror, d, off] of [[600.00, false, CD.footL, 0], [991.26, true, CD.footR, .08]]) {
+        // 발 사이 간격은 피그마 그대로(991.26 − (600 + 94.751) = 296.51), 쌍의 중심만 800 으로.
+        const GAP = 296.51, LX = 800 - (FW * 2 + GAP) / 2;
+        for (const [fx, mirror, d, off] of [[LX, false, CD.footL, 0], [LX + FW + GAP, true, CD.footR, .08]]) {
           const a = at(d, .5);
           if (a <= 0.004) continue;
           const b = beat(off);

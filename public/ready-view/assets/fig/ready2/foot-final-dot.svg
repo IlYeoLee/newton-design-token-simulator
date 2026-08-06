@@ -1,3 +1,6 @@
+<!-- 피그마 익스포트(423:3499 마스크) — 도트 반지름만 원본 0.5 -> 0.72 로 키웠다.
+     지면 투사 스케일에서 원본 도트(지름 1.8 유닛 = 러닝 바닥 약 1.3mm)가 너무 작다(유저 08-07).
+     피치/격자/타일 크기는 원본 그대로. 재익스포트하면 되돌아가니 다시 먹일 것. -->
 <svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="94.7507" height="228.779" viewBox="0 0 94.7507 228.779" fill="none" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
 <g id="Group 2147228951">
 <g id="Vector">
@@ -26,15 +29,15 @@
 <use xlink:href="#pattern0_0_5_inner" transform="translate(-6 0)"/>
 <g id="pattern0_0_5_inner">
 <g id="Group 2147228967">
-<circle id="Ellipse 31266" cx="0.5" cy="0.5" r="0.5" fill="white"/>
-<circle id="Ellipse 31267" cx="2.5" cy="0.5" r="0.5" fill="white"/>
-<circle id="Ellipse 31268" cx="4.5" cy="0.5" r="0.5" fill="white"/>
-<circle id="Ellipse 31269" cx="0.5" cy="2.5" r="0.5" fill="white"/>
-<circle id="Ellipse 31272" cx="0.5" cy="4.5" r="0.5" fill="white"/>
-<circle id="Ellipse 31270" cx="2.5" cy="2.5" r="0.5" fill="white"/>
-<circle id="Ellipse 31273" cx="2.5" cy="4.5" r="0.5" fill="white"/>
-<circle id="Ellipse 31271" cx="4.5" cy="2.5" r="0.5" fill="white"/>
-<circle id="Ellipse 31274" cx="4.5" cy="4.5" r="0.5" fill="white"/>
+<circle id="Ellipse 31266" cx="0.5" cy="0.5" r="0.72" fill="white"/>
+<circle id="Ellipse 31267" cx="2.5" cy="0.5" r="0.72" fill="white"/>
+<circle id="Ellipse 31268" cx="4.5" cy="0.5" r="0.72" fill="white"/>
+<circle id="Ellipse 31269" cx="0.5" cy="2.5" r="0.72" fill="white"/>
+<circle id="Ellipse 31272" cx="0.5" cy="4.5" r="0.72" fill="white"/>
+<circle id="Ellipse 31270" cx="2.5" cy="2.5" r="0.72" fill="white"/>
+<circle id="Ellipse 31273" cx="2.5" cy="4.5" r="0.72" fill="white"/>
+<circle id="Ellipse 31271" cx="4.5" cy="2.5" r="0.72" fill="white"/>
+<circle id="Ellipse 31274" cx="4.5" cy="4.5" r="0.72" fill="white"/>
 </g>
 </g>
 <use xlink:href="#pattern0_0_5_inner" transform="translate(-3 6)"/>
@@ -43,15 +46,15 @@
 <use xlink:href="#pattern1_0_5_inner" transform="translate(-6 0)"/>
 <g id="pattern1_0_5_inner">
 <g id="Group 2147228967">
-<circle id="Ellipse 31266" cx="0.5" cy="0.5" r="0.5" fill="white"/>
-<circle id="Ellipse 31267" cx="2.5" cy="0.5" r="0.5" fill="white"/>
-<circle id="Ellipse 31268" cx="4.5" cy="0.5" r="0.5" fill="white"/>
-<circle id="Ellipse 31269" cx="0.5" cy="2.5" r="0.5" fill="white"/>
-<circle id="Ellipse 31272" cx="0.5" cy="4.5" r="0.5" fill="white"/>
-<circle id="Ellipse 31270" cx="2.5" cy="2.5" r="0.5" fill="white"/>
-<circle id="Ellipse 31273" cx="2.5" cy="4.5" r="0.5" fill="white"/>
-<circle id="Ellipse 31271" cx="4.5" cy="2.5" r="0.5" fill="white"/>
-<circle id="Ellipse 31274" cx="4.5" cy="4.5" r="0.5" fill="white"/>
+<circle id="Ellipse 31266" cx="0.5" cy="0.5" r="0.72" fill="white"/>
+<circle id="Ellipse 31267" cx="2.5" cy="0.5" r="0.72" fill="white"/>
+<circle id="Ellipse 31268" cx="4.5" cy="0.5" r="0.72" fill="white"/>
+<circle id="Ellipse 31269" cx="0.5" cy="2.5" r="0.72" fill="white"/>
+<circle id="Ellipse 31272" cx="0.5" cy="4.5" r="0.72" fill="white"/>
+<circle id="Ellipse 31270" cx="2.5" cy="2.5" r="0.72" fill="white"/>
+<circle id="Ellipse 31273" cx="2.5" cy="4.5" r="0.72" fill="white"/>
+<circle id="Ellipse 31271" cx="4.5" cy="2.5" r="0.72" fill="white"/>
+<circle id="Ellipse 31274" cx="4.5" cy="4.5" r="0.72" fill="white"/>
 </g>
 </g>
 <use xlink:href="#pattern1_0_5_inner" transform="translate(-3 6)"/>
@@ -60,15 +63,15 @@
 <use xlink:href="#pattern2_0_5_inner" transform="translate(-6 0)"/>
 <g id="pattern2_0_5_inner">
 <g id="Group 2147228967">
-<circle id="Ellipse 31266" cx="0.5" cy="0.5" r="0.5" fill="white"/>
-<circle id="Ellipse 31267" cx="2.5" cy="0.5" r="0.5" fill="white"/>
-<circle id="Ellipse 31268" cx="4.5" cy="0.5" r="0.5" fill="white"/>
-<circle id="Ellipse 31269" cx="0.5" cy="2.5" r="0.5" fill="white"/>
-<circle id="Ellipse 31272" cx="0.5" cy="4.5" r="0.5" fill="white"/>
-<circle id="Ellipse 31270" cx="2.5" cy="2.5" r="0.5" fill="white"/>
-<circle id="Ellipse 31273" cx="2.5" cy="4.5" r="0.5" fill="white"/>
-<circle id="Ellipse 31271" cx="4.5" cy="2.5" r="0.5" fill="white"/>
-<circle id="Ellipse 31274" cx="4.5" cy="4.5" r="0.5" fill="white"/>
+<circle id="Ellipse 31266" cx="0.5" cy="0.5" r="0.72" fill="white"/>
+<circle id="Ellipse 31267" cx="2.5" cy="0.5" r="0.72" fill="white"/>
+<circle id="Ellipse 31268" cx="4.5" cy="0.5" r="0.72" fill="white"/>
+<circle id="Ellipse 31269" cx="0.5" cy="2.5" r="0.72" fill="white"/>
+<circle id="Ellipse 31272" cx="0.5" cy="4.5" r="0.72" fill="white"/>
+<circle id="Ellipse 31270" cx="2.5" cy="2.5" r="0.72" fill="white"/>
+<circle id="Ellipse 31273" cx="2.5" cy="4.5" r="0.72" fill="white"/>
+<circle id="Ellipse 31271" cx="4.5" cy="2.5" r="0.72" fill="white"/>
+<circle id="Ellipse 31274" cx="4.5" cy="4.5" r="0.72" fill="white"/>
 </g>
 </g>
 <use xlink:href="#pattern2_0_5_inner" transform="translate(-3 6)"/>
@@ -77,15 +80,15 @@
 <use xlink:href="#pattern3_0_5_inner" transform="translate(-6 0)"/>
 <g id="pattern3_0_5_inner">
 <g id="Group 2147228967">
-<circle id="Ellipse 31266" cx="0.5" cy="0.5" r="0.5" fill="white"/>
-<circle id="Ellipse 31267" cx="2.5" cy="0.5" r="0.5" fill="white"/>
-<circle id="Ellipse 31268" cx="4.5" cy="0.5" r="0.5" fill="white"/>
-<circle id="Ellipse 31269" cx="0.5" cy="2.5" r="0.5" fill="white"/>
-<circle id="Ellipse 31272" cx="0.5" cy="4.5" r="0.5" fill="white"/>
-<circle id="Ellipse 31270" cx="2.5" cy="2.5" r="0.5" fill="white"/>
-<circle id="Ellipse 31273" cx="2.5" cy="4.5" r="0.5" fill="white"/>
-<circle id="Ellipse 31271" cx="4.5" cy="2.5" r="0.5" fill="white"/>
-<circle id="Ellipse 31274" cx="4.5" cy="4.5" r="0.5" fill="white"/>
+<circle id="Ellipse 31266" cx="0.5" cy="0.5" r="0.72" fill="white"/>
+<circle id="Ellipse 31267" cx="2.5" cy="0.5" r="0.72" fill="white"/>
+<circle id="Ellipse 31268" cx="4.5" cy="0.5" r="0.72" fill="white"/>
+<circle id="Ellipse 31269" cx="0.5" cy="2.5" r="0.72" fill="white"/>
+<circle id="Ellipse 31272" cx="0.5" cy="4.5" r="0.72" fill="white"/>
+<circle id="Ellipse 31270" cx="2.5" cy="2.5" r="0.72" fill="white"/>
+<circle id="Ellipse 31273" cx="2.5" cy="4.5" r="0.72" fill="white"/>
+<circle id="Ellipse 31271" cx="4.5" cy="2.5" r="0.72" fill="white"/>
+<circle id="Ellipse 31274" cx="4.5" cy="4.5" r="0.72" fill="white"/>
 </g>
 </g>
 <use xlink:href="#pattern3_0_5_inner" transform="translate(-3 6)"/>
@@ -94,15 +97,15 @@
 <use xlink:href="#pattern4_0_5_inner" transform="translate(-6 0)"/>
 <g id="pattern4_0_5_inner">
 <g id="Group 2147228967">
-<circle id="Ellipse 31266" cx="0.5" cy="0.5" r="0.5" fill="white"/>
-<circle id="Ellipse 31267" cx="2.5" cy="0.5" r="0.5" fill="white"/>
-<circle id="Ellipse 31268" cx="4.5" cy="0.5" r="0.5" fill="white"/>
-<circle id="Ellipse 31269" cx="0.5" cy="2.5" r="0.5" fill="white"/>
-<circle id="Ellipse 31272" cx="0.5" cy="4.5" r="0.5" fill="white"/>
-<circle id="Ellipse 31270" cx="2.5" cy="2.5" r="0.5" fill="white"/>
-<circle id="Ellipse 31273" cx="2.5" cy="4.5" r="0.5" fill="white"/>
-<circle id="Ellipse 31271" cx="4.5" cy="2.5" r="0.5" fill="white"/>
-<circle id="Ellipse 31274" cx="4.5" cy="4.5" r="0.5" fill="white"/>
+<circle id="Ellipse 31266" cx="0.5" cy="0.5" r="0.72" fill="white"/>
+<circle id="Ellipse 31267" cx="2.5" cy="0.5" r="0.72" fill="white"/>
+<circle id="Ellipse 31268" cx="4.5" cy="0.5" r="0.72" fill="white"/>
+<circle id="Ellipse 31269" cx="0.5" cy="2.5" r="0.72" fill="white"/>
+<circle id="Ellipse 31272" cx="0.5" cy="4.5" r="0.72" fill="white"/>
+<circle id="Ellipse 31270" cx="2.5" cy="2.5" r="0.72" fill="white"/>
+<circle id="Ellipse 31273" cx="2.5" cy="4.5" r="0.72" fill="white"/>
+<circle id="Ellipse 31271" cx="4.5" cy="2.5" r="0.72" fill="white"/>
+<circle id="Ellipse 31274" cx="4.5" cy="4.5" r="0.72" fill="white"/>
 </g>
 </g>
 <use xlink:href="#pattern4_0_5_inner" transform="translate(-3 6)"/>
