@@ -3208,7 +3208,21 @@ export class Session {
       //   → 3.0 Success(마크 블룸+파형+피그마 배지) → 3~6 카운트다운 링 3·2·1 → 본 연습.
       // 매트는 따라하기 시작(셋업 0초)에 깔린다 — 발자국을 그 위에 놓고 밟게 하는 게 순서다.
       H.mat.material.opacity = Math.min(1, Math.max(0, tB / 0.5)) * 0.85;
-      H.mat._prim.P.prog = Math.min(1, H.count / TOTAL);   // 테두리 도트가 차오름 = 남은 회차
+      // ★ 매트 모션을 **실제 세션에 물린다**(유저: 시뮬레이터에 그대로 박아놔).
+      //   인수인계 문서(HANDOFF-0806-DRIBBLE-MAT '남은 일 1')가 지적한 그대로 — 지금까지
+      //   모션이 랩에서만 돌고 시뮬은 정적이었다. 값의 출처는 전부 이미 여기 있었다:
+      //     in     등장 램프    ← 셋업 타임라인 tB
+      //     hit    마지막 접촉  ← 바운스 래치 H._popT (수축 링·잠금 핑이 이걸로 돈다)
+      //     per    박자 주기    ← H._per (실측 바운스 간격)
+      //     live   지휘 대상    ← H.tg[i].on (표적 활성 플래그)
+      const MP = H.mat._prim.P;
+      MP.prog = Math.min(1, H.count / TOTAL);   // 테두리 도트가 차오름 = 남은 회차
+      MP.in = Math.min(1, Math.max(0, tB / 0.6));
+      MP.hit = this.t - (H._popT ?? -9);
+      if (H._per > 0.05) MP.per = H._per;
+      if (Array.isArray(MP.targets)) for (let i = 0; i < MP.targets.length; i++) {
+        if (MP.targets[i]) MP.targets[i].live = !!H.tg[i]?.on;
+      }
       const tgK = Math.min(1, Math.max(0, (tB - 0.3) / 0.6));
       for (const q of H.tg) { q.ring.setOp?.((q.on ? 0.42 : 0.16) * tgK); q.num.material.opacity = (q.on ? 0.9 : 0.3) * tgK; }
       const W_END = 3.0, SETUP = 6.0, inSetup = tB < SETUP;

@@ -1,6 +1,6 @@
 {
   "_": "지면 UI 디자인 토큰 — tokens.html '코드에 저장'이 이 파일을 덮어쓴다. floorgl.js TOK 기본값 위에 얹힌다.",
-  "ember": 1,
+  "ember": 0.5,
   "bgGlow": 0,
   "fill": 0,
   "blurW": 0,
