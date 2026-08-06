@@ -2287,8 +2287,8 @@ export class Session {
       const isL = cyc ? cyc.isLeft : (P._frontLeft !== false);   // 첫 회차 왼발
       const inHold = !!cyc?.inHold;
       const act = isL ? P.fmL : P.fmR, oth = isL ? P.fmR : P.fmL;
-      const actNum = isL ? P.numL : P.numR, othNum = isL ? P.numR : P.numL;
-      const othDone = isL ? P._doneR : P._doneL;
+      // (숫자·완료 플래그는 아래에서 **역할(work/stance)** 기준으로 다시 잡는다 —
+      //  isL 은 '그 차례 발'(앞발)이라 늘어나는 발과 다르다.)
       // 뉴턴 전환 문법: [시범 = 영상만·도트바] → [마크 Preview 워밍 등장 + '이제 같이' 음성] → [따라하기]
       P.cd.visible = false;
       // ★ **한 번 따라하기에 들어가면 다시 숨기지 않는다**(유저: 왜 사라지는 거야).
@@ -2326,15 +2326,24 @@ export class Session {
       //   둘이 어긋나 숫자가 뒷발에 붙었다(유저: 앞발에 숫자가 써 있어야 하는 거 아냐).
       //   런지는 '그 차례의 발을 앞으로 내딛는' 동작이므로 정의상 act === 앞발이다.
       const fmFront = act, fmBack = oth;
+      // ★★ 타이머는 **늘어나는 발**에 붙는다(유저 동의 08-06).
+      //   a2Cyc.isLeft = '그 차례 발' = **앞으로 내딛는** 발이다. 그런데 종아리가 늘어나는 쪽은
+      //   뒤꿈치를 누르고 버티는 **뒷발**이다. 앞발에 홀드 링·5초 숫자를 붙이면 화면이
+      //   "이 발을 앞으로 내딛고 5초"라고 말하는데, 이 동작의 목적은 "이 발의 종아리를 5초 늘려라"다.
+      //   (이 파일은 이미 '뒷발 = 이 운동의 주인공'이라 적고 파문만 뒷발에 주고 있었다 — 절반만 맞았다.)
+      const work = fmBack, stance = fmFront;                       // work = 늘어나는 발 · stance = 딛고 받치는 발
+      const workNum = work === P.fmL ? P.numL : P.numR;
+      const stanceNum = stance === P.fmL ? P.numL : P.numR;
+      const workDone = work === P.fmL ? P._doneL : P._doneR;       // 완료 플래그도 '늘어난 발' 기준
 
       // 딛는 발: 둘 다 Active(빈 링). 홀드 중이면 같은 Hold 페이즈에서 uProg만 0→1 채워짐(부드러운 전환, 팝 없음)
-      act.setHold(Math.max(0.02, P.fill));   // 0.02 = 빈 링(Active 모양) → prog 채움
-      act.op(0.6 + 0.4 * P.fill);
+      work.setHold(Math.max(0.02, P.fill));   // 0.02 = 빈 링(Active 모양) → prog 채움
+      work.op(0.6 + 0.4 * P.fill);
       // 홀드 파문 차오름(유저: 화면이 심심) — 버티는 발에서 파문이 진행에 비례해 넓게.
       //   기존 파동 정본(uRip) 부스트일 뿐 새 이펙트가 아니다. 완주 팡과 리듬이 이어진다.
       // 부스트는 정본 rip 의 배수다 — rip 0 이면 0 (기준선 0.5 하드코딩 폐기)
-      if (act._U?.uRip) act._U.uRip.value = MARK_LOOK.rip * (1 + 1.1 * P.fill);
-      if (oth._U?.uRip) oth._U.uRip.value = MARK_LOOK.rip;
+      if (work._U?.uRip) work._U.uRip.value = MARK_LOOK.rip * (1 + 1.1 * P.fill);
+      if (stance._U?.uRip) stance._U.uRip.value = MARK_LOOK.rip;
       // ── 방향 화살표 = **발자국에서 파생**(하드코딩 폐기). 스탠스 축을 따라 서로 벌어진다.
       //   앞발 앞으로(무릎 전진) · 뒷발 뒤로(뒤꿈치 누르기). draw-on 1.8s 루프.
       if (P.arBack) {
@@ -2429,10 +2438,10 @@ export class Session {
       }
       if (inHold) {
         const n = Math.max(1, Math.ceil(HOLD_SEC - P.fill * HOLD_SEC));   // 5→1 (UI 5초 타이머)
-        if (n !== P._cnt) { redrawFootNum(actNum, n); P._cnt = n; P._pop = 1; }
-        actNum.visible = true;
-        actNum.scale.multiplyScalar(1 + 0.42 * P._pop);   // 숫자 전환 팝
-      } else { actNum.visible = false; P._cnt = HOLD_SEC; }
+        if (n !== P._cnt) { redrawFootNum(workNum, n); P._cnt = n; P._pop = 1; }
+        workNum.visible = true;
+        workNum.scale.multiplyScalar(1 + 0.42 * P._pop);   // 숫자 전환 팝
+      } else { workNum.visible = false; P._cnt = HOLD_SEC; }
       // ★ 반대 발 = **끝난 발이면 Success → Locked**(유저: 석세스→락이 되든 시스템을 갖춰야지
       //   종아리 늘리기는 아예 없애버린다). 전엔 완료해도 Hold 링을 꽉 채운 채로 뒀는데,
       //   Hold 가득참과 '완료'는 화면에서 같은 그림이라 끝난 게 안 읽혔다. 마크 토큰이
@@ -2441,7 +2450,8 @@ export class Session {
       //   ★ 완료한 발은 **Success 로 남는다**(유저 지적). Locked 로 강등하지 않는다 —
       //     이 파일이 정의한 대로 Locked 는 '무채 고스트 = 시범·예고'이고, Success 는
       //     '해냈다'라서 저절로 흐려지지 않는다. 한쪽을 이미 해냈으면 그건 Success 다.
-      if (othDone) oth.glow(1); else oth.setHold(0.02);
+      const stanceDone = stance === P.fmL ? P._doneL : P._doneR;
+      if (stanceDone) stance.glow(1); else stance.setHold(0.02);   // 받치는 발 = Active 빈 링 고정
       // ── 뒷발 = 이 운동의 **주인공**인데 지금껏 아무 일도 안 일어났다. 종아리가 늘어나는 쪽이므로
       //   **보폭 × 홀드**에 비례해 파문·광량이 자란다 — 깊게 딛을수록 뒷발이 밝아진다 = 자세가 곧 보상.
       //   새 이펙트가 아니라 uRip/op 정본의 구동값만 바꾼다.
@@ -2455,15 +2465,16 @@ export class Session {
       //   반대쪽 발도 '지금 딛고 있는 발'이지 사라져야 할 대상이 아니다. 게다가 이 값 뒤에
       //   빔 알파가 한 번 더 곱해지는데, 뒷발은 투사 콘이 좁아지는 근거리라 알파가 낮다 —
       //   0.72 x 낮은 빔 알파 = 화면에서 소실. 대비는 유지하되 하한만 올린다.
-      oth.op(Math.min(1, Math.max(0.90, othDone ? 0.94 : (oth === fmBack ? 0.92 + 0.08 * heat : 0.94))));
-      othNum.visible = false;
+      stance.op(Math.min(1, Math.max(0.90, stanceDone ? 0.94 : 0.94)));
+      stanceNum.visible = false;
 
       // 완료 = 홀드 100% 도달(회차당 1회 래치). 왼발 1·오른발 1 = 총 2회
       if (inHold && P.fill >= 0.995 && !P._repLatch) {
         P._repLatch = true; this.a2count = (this.a2count || 0) + 1;
-        if (isL) { P._doneL = true; P._doneTL = this.t; } else { P._doneR = true; P._doneTR = this.t; }
-        act.glow(1);   // 그 자리에서 바로 Success — 파문은 glow 가 한 번만 쏜다(_succLatch)
-        const wp = new THREE.Vector3(); act.group.getWorldPosition(wp); this.onPress?.(wp, false);
+        // 완료 플래그는 **늘어난 발**(work) 에 찍는다 — 화면이 '이 발 끝냈다'고 말하는 그 발이다.
+        if (work === P.fmL) { P._doneL = true; P._doneTL = this.t; } else { P._doneR = true; P._doneTR = this.t; }
+        work.glow(1);   // 그 자리에서 바로 Success — 파문은 glow 가 한 번만 쏜다(_succLatch)
+        const wp = new THREE.Vector3(); work.group.getWorldPosition(wp); this.onPress?.(wp, false);
       }
       if (!inHold) P._repLatch = false;   // 다음 홀드 위해 래치 해제
       if (this.t < DEMO) {
@@ -2473,11 +2484,12 @@ export class Session {
         FMU(`런지 ${Math.min(REPS, this.a2count || 0)} / ${REPS}`, CS.sand);
         // 4회 완료 후에도 '서기 복귀'까지 대기 — 런지 자세 중 다음 단계로 튀지 않게 (유저)
         if ((this.a2count || 0) >= REPS) {
-          // ★ **다 하면 Locked**(유저). 한 발 성공 = Success 지만, 세트가 끝나면 이 마크들은
-          //   더 이상 밟을 대상이 아니다 — 그게 Locked 의 뜻이다('무채 고스트 = 볼 것은 있으나
-          //   네 차례가 아님'). Success 로 계속 두면 '아직 하는 중'으로 읽혀서, 서기 복귀를
-          //   기다리는 이 구간이 끝난 건지 아닌지 화면이 말해주지 않는다.
-          P.fmL.locked(); P.fmR.locked();
+          // ★ **어느 발도 Locked 로 내리지 않는다**(유저 08-06: "어느 한쪽이 락될 필요도 없네?").
+          //   Locked = '무채 고스트 = 볼 것은 있으나 네 차례가 아님' 이다. 그런데 A2 의 두 발은
+          //   **끝까지 한 스탠스**로 남아 역할만 주고받는다(늘어나는 발 ↔ 받치는 발) — 밟기를
+          //   끝낸 과녁이 아니다. 한쪽을 무채로 내리면 '이 발은 이제 볼 것 없다'는 거짓말이 된다.
+          //   세트가 끝났다는 말은 마크가 아니라 **세션(알약·아크)** 이 한다 — 위계가 거기 있다.
+          //   해낸 두 발은 Success 로 남는다. 끝난 것은 카운트뿐이라 숫자만 접는다.
           P.numL.visible = false; P.numR.visible = false;   // 카운트도 끝났다
           const stand = pb?.footL && pb?.footR && Math.abs(pb.footL.z - pb.footR.z) < 0.18 && pb.footL.y < 0.09 && pb.footR.y < 0.09;
           if (stand) { this.next(); return; }
