@@ -603,7 +603,8 @@ export const LAYOUT = {
 export const BK_SCALE = 5.0;   // xbot 경로와 공유 (봇·토큰 좌표 일치)
 
 // ── 텍스처 유틸 ───────────────────────────────────────────────
-// 러닝 라이브: 순번 대신 발 L/R 글리프(어느 발로 밟는지 — 순번은 러닝 교수법에 없음, 유저 확인).
+// 러닝 라이브: 순번 대신 **로고 글리프**(어느 발로 밟는지는 좌우 미러가 말한다 — 순번은
+// 러닝 교수법에 없음, 유저 확인).
 // ★ **시스템화**(유저 08-06) — 전엔 이 파일이 로고 SVG 를 직접 물고(`new Image()`) 틴트·글로우·
 //   미러를 **여기서 다시 구현**했다. 그래서 ⓐ FX 랩 슬롯 목록에 안 나오고 ⓑ 글리프 룩(색 온도·
 //   글로우 세기)을 바꿔도 이 하나만 안 따라오고 ⓒ 같은 그림을 그리는 코드가 두 벌이 됐다.
@@ -615,10 +616,12 @@ function makeFootGlyphTexture(right) {
   if (_footNumTex[k]) return _footNumTex[k];
   const c = document.createElement('canvas'); c.width = c.height = 128;
   const ctx = c.getContext('2d');
-  // ★ L/R 은 **도트로 고정**(유저: 이미지 바꾸면서 도트에서 글리프로 바뀌었다).
-  //   LOGO 슬롯을 그리면 마크 안이 로고가 된다 — 그건 원형 토큰이 쓸 것이고,
-  //   마크 안 L/R 슬롯은 숫자와 **같은 취급**이어야 한다(같은 drawGlyph 경로 · 같은 크기).
-  const ok = drawGlyph(ctx, k, 64, 64, 96);
+  // ★★ 이 자리는 **로고다**(유저 확정 3회: "우리 러닝에서 쓰이는 건 우리 로고 들어간 원형 마크
+  //   판정 토큰이잖아" / "또 로고 없어졌어" / "왜 러닝할 때 갑자기 R L 이 된 거야").
+  //   L/R 글리프로 바꾸지 말 것 — 08-06 에 두 번 바뀌었다. 어느 발인지는 **로고를 좌우로
+  //   미러**해서 말한다(mirror). '숫자와 같은 취급'은 **그리는 경로·크기**를 말한 것이지
+  //   글리프를 L/R 로 바꾸라는 뜻이 아니었다: 같은 drawGlyph · 같은 96px.
+  const ok = drawGlyph(ctx, 'LOGO', 64, 64, 96, { mirror: right });
   if (!ok) {   // 슬롯 미로드 폴백 — 캐시하지 않는다(로드 후 정본으로 재생성)
     ctx.strokeStyle = rgba(NEU.ink, 0.95); ctx.lineWidth = 5;
     ctx.shadowColor = rgba(PAL.coral, 0.75); ctx.shadowBlur = 12;

@@ -232,7 +232,11 @@ export function drawNumber(ctx, num, cx, cy, sizePx, opts = {}) {
   // ★ **슬롯 이름이 오면 그 슬롯을 한 글자로 그린다**(LOGO·FOOT_OUT_L·TIP_TRI …).
   //   전엔 여기로 'LOGO' 가 들어오면 OffBit 도트로 "LOGO" 라고 쓰거나 L·O·G·O 네 글자로
   //   쪼개 그렸다 — 숫자만 가정한 함수에 도형 슬롯을 통과시킨 쪽의 사고다. 슬롯이 있으면 슬롯이다.
-  if (GLYPHS.img(s)) return drawGlyph(ctx, s, cx, cy, sizePx, opts);
+  //   ★ 판정 기준은 `map`(선언된 슬롯)이지 `img`(로드 끝난 이미지)가 아니다. img 로 보면
+  //     **로드 전 한 프레임**에 'LOGO' 가 L·O·G·O 로 쪼개져 'L' 만 그려지고, 그 텍스처가
+  //     캐시되어 영원히 L 로 남는다(유저: 또 로고 없어졌어 → 실제로 L 이 찍혀 있었다).
+  //     선언된 슬롯이면 drawGlyph 가 미로드 시 false 를 돌려주고, 호출부는 로드 후 다시 굽는다.
+  if (GLYPHS.map[s]) return drawGlyph(ctx, s, cx, cy, sizePx, opts);
   // OffBit 은 진짜 활자라 커닝이 폰트에 들어 있다 — 자리별로 쪼개지 말고 한 번에 그린다.
   if (FXP.numSrc === 'offbit' && /^[0-9]+$/.test(s)) return drawOffBit(ctx, s, cx, cy, sizePx, opts);
   if (s.length <= 1) return drawGlyph(ctx, s, cx, cy, sizePx, opts);
