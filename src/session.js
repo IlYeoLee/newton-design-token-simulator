@@ -772,7 +772,7 @@ export const SB_POSE = [
 //   ⚠ 영역을 **줄이는 선택은 기각**했다. 빔은 멀수록 넓어지므로(반폭 0.32 → 0.75) 앞으로
 //     옮기면 잘림과 폭이 같이 풀린다. 줄이면 마크가 작아져 시각도 하한(docs/FLOOR-LEGIBILITY.md
 //     1급 0.55°)에 걸릴 위험만 생긴다.
-export const SB_BOX = { u: 0.95, v0: 0.30, v1: 0.78 };
+export const SB_BOX = { u: 0.95, v0: 0.24, v1: 0.64 };
 const sbU = u => Math.max(-SB_BOX.u, Math.min(SB_BOX.u, u * SB_BOX.u));
 const sbV = v => {
   const c = (SB_BOX.v0 + SB_BOX.v1) / 2, h = (SB_BOX.v1 - SB_BOX.v0) / 2;
@@ -1611,11 +1611,6 @@ export class Session {
     //   더 멀리 가면 타이틀 알약 자리를 침범한다.
     const MAT_D0 = 0.45, MAT_D1 = 1.22;
     const matInk = d => 0.32 + 0.27 * (d - 0.30) - 0.15;
-    const MAT_SIZE = 0.90;                                   // 판 한 변(m) — 사다리꼴을 담는 정사각 판
-    const matMid = (MAT_D0 + MAT_D1) / 2;                    // 판 중심 앞거리
-    const b1matZ = BK_STAND - matMid;                        // 빔 원점(=BK_STAND)에서 앞으로
-    const toV = d => (d - matMid) / (MAT_SIZE / 2);          // 앞거리 → 판 정규 v(+ = 먼 쪽)
-    const toU = x => x / (MAT_SIZE / 2);
     // ── 표적 배치 — **좌표를 지어내지 않는다.** 씬이 이미 가진 상수에서만 뽑는다.
     //   ③④ = 벌어진 스탠스 자리(B1_HALF_OPEN, B1_FOOT_D) — 발자국이 가르치고 물러난 그 자리에
     //         번호가 남는다. 그래서 절대 겹칠 수 없다(같은 좌표를 공유하니까).
@@ -1624,6 +1619,17 @@ export class Session {
     const B1_HUB_D = 0.60, B1_HUB_R = 0.15;
     const MAT_TG_R = FOOT_LEN_M / 3;                                   // 발 길이 1/3 = 표적 반지름
     const MAT_TG_D = (B1_HUB_D + B1_HUB_R + (B1_FOOT_D - FOOT_LEN_M / 2)) / 2;
+    // ★ 판 크기는 **그릴 것에서 나온다.** 0.90 고정판은 허브가 가장자리에 붙어 접촉 링이
+    //   판 밖으로 잘려 반쪽 아크가 됐다(유저 스샷: "이게 같니"). 랩에선 허브가 판 한가운데라
+    //   안 잘렸고, 그래서 랩 그림과 실화면이 달랐다.
+    //   앞끝 = 접촉 링 최대 반경(허브 반지름 ×1.75, fx-core R0) · 뒤끝 = ③④ 바깥
+    const MAT_NEAR = B1_HUB_D - B1_HUB_R * 1.75;
+    const MAT_FAR = B1_FOOT_D + MAT_TG_R;
+    const MAT_SIZE = (MAT_FAR - MAT_NEAR) + 0.06;            // 판 한 변(m) — 여백 6cm
+    const matMid = (MAT_NEAR + MAT_FAR) / 2;                 // 판 중심 앞거리
+    const b1matZ = BK_STAND - matMid;                        // 빔 원점(=BK_STAND)에서 앞으로
+    const toV = d => (d - matMid) / (MAT_SIZE / 2);          // 앞거리 → 판 정규 v(+ = 먼 쪽)
+    const toU = x => x / (MAT_SIZE / 2);
     const MAT_TG = [
       { x: -B1_HALF_SHUT, d: MAT_TG_D, n: 1, r: MAT_TG_R },
       { x: B1_HALF_SHUT, d: MAT_TG_D, n: 2, r: MAT_TG_R },
@@ -1647,7 +1653,7 @@ export class Session {
       mat: { nx: toU(matInk(MAT_D0)), fx: toU(matInk(MAT_D1)), ny: toV(MAT_D0), fy: toV(MAT_D1) },
       // 액티브 타깃 = 바운스 링과 같은 자리. ring:0 — 링 자체는 3D 존 마크(b1zone)가 박자로 그리고
       //   토큰은 채움·조준 눈금만 얹는다. 라벨도 null — 링 중앙은 잔여 횟수 숫자 슬롯이다.
-      center: { x: 0, y: toV(0.60), r: 0.15 / (MAT_SIZE / 2), ring: 0, label: null },
+      center: { x: 0, y: toV(B1_HUB_D), r: B1_HUB_R / (MAT_SIZE / 2), ring: 0, label: null },
       // ── 번호 표적 4개 — 판 전체가 한 컴포넌트다. 허브만 덩그러니 두면 '원 하나' 로 되돌아간다.
       //   배치는 빔이 정한다: 반폭 = 0.17 + 0.27(d−0.30) 이라 앞이 좁고 뒤가 넓다.
       //   먼 줄이 더 벌어져 있는 건 멋이 아니라 사다리꼴 그 자체다(검산: 넘침 0건·충돌 0건).
@@ -1656,7 +1662,10 @@ export class Session {
       targets: MAT_TG.map(tg => ({ x: toU(tg.x), y: toV(tg.d), n: tg.n,
         r: tg.r / (MAT_SIZE / 2), on: true, live: false })),
       // 눈금자는 뺐다 — 운동 중에 '0.5 m'를 읽을 사람은 없다. 도면·합성용이라 랩에서만 켠다.
-      brand: 1,
+      // ★ 로고 끔 — 허브 정중앙은 **잔여 횟수 숫자 슬롯**이다(b1num 이 같은 좌표에 있다).
+      //   둘 다 켜면 숫자 위에 로고가 겹친다(유저 스샷). 랩 토큰은 숫자가 없으니 로고가 그 자리를
+      //   쓰지만, 실화면에서 그 자리의 주인은 데이터다. 브랜드가 데이터를 덮지 않는다.
+      brand: 0,
     };
     b1mat.position.set(0, 0.0125, b1matZ);   // 링(0.013)·숫자(0.016) 아래 — 매트가 바닥면이다
     b1mat.material.opacity = 0;
