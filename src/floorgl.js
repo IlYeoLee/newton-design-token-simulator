@@ -645,9 +645,13 @@ export function drawChars(ctx, txt, cx, y, h, ls, fn, align = 'center') {
  *  전부 끄면 08-06 이전 화면과 픽셀 동일. */
 export const READY_OPT = {
   ctaPill:   true,   // ① CTA = 채워진 알약 (모바일 `View Now →` · 복싱 CTA 와 같은 문법)
-  logo:      true,   // ② 뉴턴 로고 (복싱 우상단 · 모바일 좌상단에는 있는데 지면엔 없었다)
+  logo:      false,  // ② 뉴턴 **워드마크** — 껐다(유저 08-06). 필기체라 화면에선 구불구불한 선으로
+                     //   읽히고, 브랜드 표기는 이미 러닝 판정 토큰 안 **심볼로고**가 하고 있다.
+                     //   한 화면에 브랜드 표기가 두 벌이면 둘 다 약해진다. 심볼 SVG 가 따로 생기면 그때 다시.
   chipLabel: true,   // ③ 하단 원형에 라벨 (복싱 Wearable/Station/Watch 칩과 같은 급으로)
-  arcLabel:  true,   // ④ 아크 세그먼트 이름 (복싱 알약은 수치+의미가 같이 있다)
+  chipDial:  false,  // ⑥ 칩 링 게이지 (복싱·모바일엔 없는 표현 — 기본 끔)
+  glowDown:  true,   // ⑤ 페이즈2 색면을 하단으로 축소 (숫자 뒤 여백 확보)
+  arcBoxing: true,   // ④ 아크 = 복싱 막대 규약 (세그마다 같은 램프 · 앞머리에 시간 · 아이콘/칩 없음)
 };
 const BATT = {
   glasses: Math.round(62 + Math.random() * 34),
@@ -2460,7 +2464,14 @@ export class FloorGL {
     const NEWTON = (bk ? READY_GLOWS_BK : READY_GLOWS).find(g => g[0].startsWith('glow-ell'));
     const GLOWS = (bk ? READY_GLOWS_BK : READY_GLOWS).map(g =>
       g[0].startsWith('glow-ell') ? [g[0], g[1], g[2], g[3], g[4], g[5], 1 - p2] : g);
-    const GLOW_NEWTON = ['glow-ell-newton.svg', NEWTON[1], NEWTON[2], NEWTON[3], NEWTON[4], NEWTON[5], p2, true];
+    // ★ 페이즈2 색면은 **영역만** 줄여 아래로 내린다(유저 08-06: 숫자 뒤가 풀 빨강이라 여백의 미가 없다).
+    //   바닥 고정 — 하단 초승달·캡슐 바닥과의 관계는 이 화면의 정체성이라 건드리지 않는다.
+    const NSH = READY_OPT.glowDown ? { x: 0.92, y: 0.52 } : { x: 1, y: 1 };
+    const _nw = NEWTON[3] * NSH.x, _nh = NEWTON[4] * NSH.y;
+    const GLOW_NEWTON = ['glow-ell-newton.svg',
+      NEWTON[1] + (NEWTON[3] - _nw) / 2,   // 가로 중심 유지
+      NEWTON[2] + (NEWTON[4] - _nh),       // 바닥 고정
+      _nw, _nh, NEWTON[5], p2, true];
     ctx.save(); ctx.globalAlpha *= e0(.15, 1.2) * (1 + .3 * tapB);   // 탭 박자에 하단 빛이 두 번 부푼다
     // ★ 필터 전부 제거(유저 08-06) — saturate 는 이미 뺐고, 남아 있던 brightness(1.22)도 뺀다.
     //   '예전엔 더 쨍했다'(유저)를 밝기로 풀려 한 게 오답이었다. 쨍함 = 채도인데
@@ -2694,6 +2705,17 @@ export class FloorGL {
         if (span < 1) g2.addColorStop(1, PAL.sand);   // 캡 뒤쪽이 한 바퀴 돌아 첫 스톱을 집지 않게
         return g2;
       })();
+      /** 세그먼트 한 벌 램프 — 복싱 막대와 같은 규약(줄마다 red→coral→sand 를 한 번씩). */
+      const segRamp = (a0, a1) => {
+        if (!ctx.createConicGradient) return RAMP;
+        const sp = Math.max(1e-3, (a1 - a0) / 360), at = u => Math.min(1, u * sp);
+        const g2 = ctx.createConicGradient(a0 * RAD, CXA, CYA);
+        g2.addColorStop(0, PAL.red);
+        g2.addColorStop(at(.58), PAL.coral);
+        g2.addColorStop(at(1), PAL.sand);
+        if (sp < 1) g2.addColorStop(1, PAL.sand);
+        return g2;
+      };
       // 스윕 — 배지 팝 후 세그먼트 시작각에서 끝각까지 호를 따라 차오른다
       const sweep = segStart + (A1 - segStart) * eOut5(intro(t, TP2 + .1, .9));   // 1초 안에 완료(유저)
       ctx.save(); ctx.globalAlpha *= e0(TP2 + .08, .5);   // 팩 정보와 함께 등장(유저)
@@ -2722,7 +2744,9 @@ export class FloorGL {
           // 전 세그 동일 — 차트 전체에 깔린 램프에서 자기 구간 색을 집는다(유저 08-05).
           //   블룸은 0 유지: 번지면 칩·라벨 글자가 죽는다(유저 #98).
           ctx.shadowBlur = 0;
-          ctx.strokeStyle = RAMP;
+          // ★ 복싱 규약(유저 08-06): 막대 **한 줄 한 줄이 같은 램프**를 갖는다. 전체 각도에 램프를
+          //   한 번 까는 방식은 세그마다 다른 색 구간이 걸려 '같은 언어'로 안 읽힌다.
+          ctx.strokeStyle = READY_OPT.arcBoxing ? segRamp(sA, eA) : RAMP;
           ctx.lineWidth = LWA; ctx.lineCap = 'round';
           // ★ 링 밴드 마스크(유저) — 원뿔 그라디언트는 평면 전체를 칠하고 블룸까지 얹혀서
           //   색이 스트로크 **바깥으로 번져** 호가 지저분해졌다. 반경 밴드(R±LWA/2)로 클립하면
@@ -2744,7 +2768,21 @@ export class FloorGL {
         }
         // 아이콘 칩 — 스윕이 시작각을 지나면 팝(스케일 오버슈트)
         const ip = (seg.icon || seg.chipText) ? Math.max(0, Math.min(1, (sweep - s0) / 14)) : 0;
-        if (ip > 0) {
+        // ★ 복싱 규약(유저 08-06): 막대 **앞머리에 원형 컨테이너도 아이콘도 없고 시간이 온다.**
+        //   우리는 앞머리에 아이콘 칩을 두고 시간을 띠 위에 눕혀서, 같은 그래프로 안 읽혔다.
+        //   앞머리에 시간을 똑바로 세워 놓는다 — 아이콘·칩·눕힌 라벨은 전부 끈다.
+        if (READY_OPT.arcBoxing) {
+          if (ip > 0) {
+            const ph2 = polar(seg === segs[0] ? s0 : s0 + capA);
+            ctx.save(); ctx.globalAlpha *= Math.min(1, ip * 2.5);
+            ctx.translate(ph2.x, ph2.y);
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.font = RF(700, 64); ctx.letterSpacing = '-1.8px';   // 대지 캡션 하한 64
+            ctx.fillStyle = seg.muted ? 'rgba(255,255,255,.72)' : NEU.ink;
+            ctx.fillText(seg.lbl, 0, 0);
+            ctx.letterSpacing = '0px'; ctx.restore();
+          }
+        } else if (ip > 0) {
           const ik = kf(eOut(ip), [[0, .4], [1, 1]]);   // 오버슈트 폐기(유저) — 작게 등장 → 최종 크기로 남는다
           const pc = polar(seg === segs[0] ? s0 : s0 + capA);   // 첫 세그는 아래 끝(캡 중심)에(유저 #99)
           ctx.save(); ctx.globalAlpha *= Math.min(1, ip * 2.5);
@@ -2787,7 +2825,8 @@ export class FloorGL {
           ctx.restore();
         }
         // 라벨 — 호 추종 활자. 칩에 글자를 넣은 세그(5분)는 중복이라 생략(유저)
-        if (!seg.chipText) {
+        //   ★ 복싱 규약(arcBoxing)에선 시간이 **앞머리**에 이미 있다 — 눕힌 라벨은 중복이라 끈다.
+        if (!seg.chipText && !READY_OPT.arcBoxing) {
           ctx.save();
           ctx.fillStyle = NEU.ink; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
           // 라벨 영역 = 아이콘 칩 구간을 제외한 나머지 호(겹침 방지, 유저) — 칩 반각 + 여유 2°
@@ -2891,6 +2930,10 @@ export class FloorGL {
         // ★ d0 는 **패널이 뜨는 시각(TP2+.12)** 뒤여야 한다 — 예전 값 .95/1.05 는 등장보다
         //   1초 이상 앞서 끝나 버려, 원이 나타났을 땐 이미 만충이었다(유저: 채워지는 모션을 달라).
         const dial = (cx, pct, d0) => {
+          // ★ **링 게이지 폐기 옵션**(유저 08-06): 이 표현은 복싱에도 모바일에도 없다.
+          //   복싱 Connected 칩은 '아이콘 + 값 + 체크'이지 링으로 퍼센트를 그리지 않는다.
+          //   끄면 아래 % 텍스트(③)가 값을 전담한다 — 정보는 그대로, 표현만 공용어로 바뀐다.
+          if (!READY_OPT.chipDial) return;
           const RR = RD - 5, gp = eOut(intro(t, d0, .9));
           const a1 = (DA0 + (DA1 - DA0) * (pct / 100) * gp) * RAD;
           ctx.save();
@@ -2971,7 +3014,7 @@ export class FloorGL {
       ctx.fillStyle = 'rgba(255,255,255,.68)'; ctx.font = RF(400, 44); ctx.letterSpacing = '-1px';   // 38 → 44 (minFs 42.4)
       //   ★ CTA 는 대문자 규약에서 뺀다(유저) — 세션 가이드(PREVIEW·큐)와 달리 이건 발밑에서
       //     읽는 지시문이고, 대문자로 올리니 두 줄이 다 소리치는 톤이 됐다.
-      ctx.fillText('To start', 800.15, 2014 - CUT);
+      ctx.fillText('To start', 800.15, 1962 - CUT);   // 알약 윗변(2102-69=2033)에서 71 띄운다 — 전 2014 는 19px 라 붙어 보였다
       // 바닥 버전 축약(유저) — 벽은 'Tap your foot Twice'(멀리서 읽는 안내), 지면은 발밑이라
       //   '무엇으로'가 자명하다. 짧아진 만큼 글자를 키워 한 덩어리로 읽힌다.
       // ★ CTA = **채워진 알약**(유저 08-06). 모바일 홈의 `View Now →` 와 복싱 벽 CTA 가 둘 다
