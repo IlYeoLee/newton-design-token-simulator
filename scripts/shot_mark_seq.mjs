@@ -34,6 +34,13 @@ const FOOT = arg('foot', 'left');          // left | right | zone(발 없이 존
 const ALL = process.argv.includes('--all');
 const ST = String(arg('state', 'hold')).toLowerCase();
 const OUT0 = arg('out', '');
+// --glyph : 마크 안에 넣을 글리프. 기본 = 뉴턴 로고. 'none' 이면 안 넣는다.
+var GLYPH = String(arg('glyph', '/newton-logo.svg'));
+if (GLYPH === 'none') GLYPH = '';
+// --glyphk : 글리프 크기 배수(기본 1 = 앱 규약). 워드마크처럼 가로로 긴 로고는 키워야 읽힌다.
+const GLYPHK = +arg('glyphk', 1);
+// --htpitch : 하프톤 격자 간격(기본 0.055 = 앱값). 글리프를 또렷하게 하려면 줄인다.
+const HTP = +arg('htpitch', 0);
 const N = Math.max(1, Math.round(SEC * FPS));
 
 if (!ALL && !(ST in STATES) && ST !== 'tap') {
@@ -52,7 +59,7 @@ await new Promise(r => setTimeout(r, 6000));   // 디자인 스토어 + 글리�
 for (const name of JOBS) {
   const OUT = (OUT0 && !ALL) ? OUT0 : path.join('out', 'mark_' + name);
   fs.mkdirSync(OUT, { recursive: true });
-  const frames = await p.evaluate(async (N, PX, FOOT, SEC, PHASE, IS_TAP, TAP) => {
+  const frames = await p.evaluate(async (N, PX, FOOT, SEC, PHASE, IS_TAP, TAP, GLYPH, GLYPHK, HTP) => {
     const THREE = window.__dbg?.THREE || (await import('/node_modules/three/build/three.module.js'));
     const T = await import('/src/tokens.js');
     const L = await import('/src/fxlut.js');
@@ -71,6 +78,37 @@ for (const name of JOBS) {
     U.uSeed.value = 0.9;
     U.uOut.value = 0;               // 컴포저 없이 직접 렌더 = raw 컨텍스트
     if (U.uDay) U.uDay.value = 1;   // 추출 경로 = 주간 잉크(main.js dayOn 기본 true)
+    // ── 글리프(뉴턴 로고) — 셰이더 안으로 물린다 ─────────────────────────────
+    //   원과 **한 몸으로** 움직여야 한다. 위에 따로 얹으면 원이 밝아질 때 로고만 정지해
+    //   둘이 따로 노는 그림이 된다(컨셉 영상에선 그게 바로 티가 난다).
+    //   uNumTex 에 넣으면 하프톤 스킨이 로고에도 먹고, 잉크·글로우가 같이 간다.
+    //   크기 규약은 tokens.js:759 와 같다 — 쿼드(=2) 의 MARK_NUM.RATIO/0.75 배,
+    //   존 원은 실루엣이 글자를 안 받쳐 줘서 ZONE_GLYPH_K 로 한 번 더 키운다.
+    if (GLYPH) {
+      const FX = await import('/src/fx-core.js');
+      const img = new Image();
+      img.src = GLYPH;
+      await new Promise(function (r) { img.onload = r; img.onerror = r; setTimeout(r, 4000); });
+      if (img.naturalWidth) {
+        const gc = document.createElement('canvas');
+        gc.width = gc.height = 512;
+        const g2 = gc.getContext('2d');
+        const s = Math.min(512 / img.naturalWidth, 512 / img.naturalHeight) * 0.96;
+        const dw = img.naturalWidth * s, dh = img.naturalHeight * s;
+        g2.drawImage(img, (512 - dw) / 2, (512 - dh) / 2, dw, dh);
+        const gt = new THREE.CanvasTexture(gc);
+        gt.colorSpace = THREE.SRGBColorSpace;
+        U.uNumTex.value = gt;
+        U.uNumOn.value = 1;
+        // ★ 글리프는 **하프톤이 켜져 있어야** 보인다. 방식이 '오버레이'가 아니라
+        //   '도트 격자에서 글자 자리의 점을 빼는 것'이라(tokens.js:116 rad *= 1−inN),
+        //   uHT 가 0 이면 격자가 없어 뺄 점도 없다 → 로고가 통째로 안 보인다(실측 08-06).
+        if (U.uHT && U.uHT.value < 0.01) U.uHT.value = 1;
+        if (HTP > 0 && U.uHTPitch) U.uHTPitch.value = HTP;
+        U.uNumScale.value = FX.MARK_NUM.RATIO / 0.75 * (FOOT === 'zone' ? FX.ZONE_GLYPH_K : 1) * GLYPHK;
+        U.uNumOff.value.set(0, 0);
+      }
+    }
     const mesh = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), mat);
     scene.add(mesh);
 
@@ -95,7 +133,7 @@ for (const name of JOBS) {
     }
     mesh.geometry.dispose(); mat.dispose(); renderer.dispose();
     return out;
-  }, N, PX, FOOT, SEC, name === 'tap' ? STATES.locked : STATES[name], name === 'tap', TAP);
+  }, N, PX, FOOT, SEC, name === 'tap' ? STATES.locked : STATES[name], name === 'tap', TAP, GLYPH, GLYPHK, HTP);
 
   frames.forEach((d, i) =>
     fs.writeFileSync(path.join(OUT, `f${String(i).padStart(5, '0')}.png`), Buffer.from(d.split(',')[1], 'base64')));

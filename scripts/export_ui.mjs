@@ -68,6 +68,13 @@ const FPS = +arg('fps', 60);
 const ALPHA = !!arg('alpha', false);
 const OUT = arg('out', 'out');
 const URLBASE = arg('url', 'http://127.0.0.1:5199/');
+// --live : 판이 읽는 값(SPM 등)을 프레임마다 주입한다.
+//   이 경로는 세션을 안 돌려서 안 넣으면 '--' 로 그려진다. 판은 2D 캔버스라 값만 넣으면 그려진다.
+//   기본 곡선 = 2026-08-06 P1 세션 실측(목표 137 · 175→140 수렴 후 143~150 진동).
+const LIVE = process.argv.includes('--live') ? {
+  tgt: +arg('spmtgt', 137), me0: +arg('spm0', 175), base: +arg('spmbase', 145),
+  amp: +arg('spmamp', 4.5), w: +arg('spmw', 1.9), dur: +arg('stagedur', 11),
+} : null;
 
 const MAP = SURF === 'wall' ? WALL : FLOOR;
 const src = MAP[STAGE];
@@ -127,8 +134,27 @@ for (let i = 0; i < N; i++) {
   const t = i / FPS;
   // ★ 시계를 우리가 민다 — 렌더 루프에 의존하지 않으므로 드롭이 원천적으로 없다.
   //   _lastPaint 를 무효화해 UI_FPS 스로틀을 우회하고 매 프레임 새로 그린다.
-  const dataUrl = await page.evaluate(async ({ tt, alpha }) => {
+  const dataUrl = await page.evaluate(async ({ tt, alpha, live }) => {
     const g = window.__uiG;
+    // ── 라이브 값 주입 ────────────────────────────────────────────────────────
+    //   이 경로는 세션을 안 돌리므로 판이 읽는 노드(spm-me 등)가 비어 '--' 로 그려진다.
+    //   판 자체는 2D 캔버스라 값만 넣으면 그대로 그려진다 — 세션 실측 곡선을 프레임마다 먹인다.
+    //   숫자는 rollNum 이 오도미터로 굴리고, 편차 눈금 지시선도 그 값에서 파생된다.
+    if (live) {
+      const set = (id, v) => { const n = g.map.get(id); if (n) n.textContent = String(v); };
+      // 실측(2026-08-06 P1 세션): 목표 137 고정 · 내 SPM 175→158→140 수렴 후 143~150 진동
+      const TGT = live.tgt;
+      let me;
+      if (tt < 0.5) me = live.me0;
+      else if (tt < 2.8) me = Math.round(live.me0 + (live.base - live.me0) * ((tt - 0.5) / 2.3));
+      else me = Math.round(live.base + live.amp * Math.sin((tt - 2.8) * live.w)
+                                     + live.amp * 0.45 * Math.sin((tt - 2.8) * live.w * 2.7));
+      set('spm-me', me);
+      set('spm-tgt', TGT);
+      // 진행 아크 — 스테이지 시간 비율. main.js 가 style.width 를 쓰면 그게 우선이다.
+      const dn = g.map.get('s-dots');
+      if (dn) dn.style.width = String(600 * Math.max(0, Math.min(1, tt / live.dur)));
+    }
     // ★ <video> 는 미디어 클록으로 돈다 — 우리가 t 를 밀어도 안 따라온다. 그대로 두면 프레임 한 장
     //   렌더에 걸리는 실제 시간(0.2~0.5s)만큼 영상이 앞질러 가 **인물만 배속**된다.
     //   프레임마다 currentTime 을 직접 찍고, **디코드가 끝날 때까지 기다린다** — 안 기다리면
@@ -160,7 +186,7 @@ for (let i = 0; i < N; i++) {
     x.imageSmoothingQuality = 'high';
     x.drawImage(g.canvas, 0, 0, o.width, o.height);
     return o.toDataURL('image/png');
-  }, { tt: t, alpha: ALPHA });
+  }, { tt: t, alpha: ALPHA, live: LIVE });
   fs.writeFileSync(path.join(TMP, `f${String(i).padStart(5, '0')}.png`),
     Buffer.from(dataUrl.split(',')[1], 'base64'));
   if (i % 20 === 0 || i === N - 1) {

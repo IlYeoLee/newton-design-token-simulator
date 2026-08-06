@@ -184,6 +184,10 @@ class FootMark {
   }
   toe(k) { this._U.uToe.value = k; }   // 1 = 앞꿈치만 접지(뒤꿈치 투명·앞 강조)
   ghost() { this._U.uPhase.value = 3; this._U.uProg.value = 0; }                        // Locked 무채 고스트 — 션 발자국 시범·예고
+  /** Active(ph1) — Locked 와 Success 사이의 중간 단계. 페이서가 다가오는 구간에서 쓴다.
+   *  k = 0(막 켜짐) ~ 1(거의 도착). Success·Miss 와 달리 **prog 는 0→1 이 차오르는 방향**이다
+   *  (footlab STATE_PROG 규약 — 반대인 건 Success·Miss 둘뿐). */
+  active(k = 0.5) { this._U.uPhase.value = 1; this._U.uProg.value = Math.max(0, Math.min(1, k)); }
 }
 
 // ── 지면 프리미티브 (userData.el = 장면 에디터 메타) ──
@@ -1808,27 +1812,44 @@ export class Session {
       투사면(fpFar) 안에만 상주 — 밖 그래픽 금지 원칙. err(페이스 오차)로 전체 온도(밝기) 조절. */
   _paceFeetTick(err = 0) {
     const feet = this.paceFeet; if (!feet.length) return;
-    // 실전=연습 통일(유저): 션 발자국 페이서 은퇴 — P·C 모두 원형 판정 토큰+이펙트만.
-    feet.forEach(fm => fm.group.visible = false); return;
+    // ★ 페이서 되살림(유저 08-06). 한때 '실전=연습 통일'로 은퇴시켰지만(P·C 모두 원형 판정
+    //   토큰+이펙트만), 이지런은 **따라 밟을 리듬**을 보여주는 게 핵심이라 흐르는 페이서가
+    //   있어야 케이던스가 눈으로 읽힌다. 상태도 2단계 → 3단계로 되돌렸다(아래).
+    //   ?nopacer=1 로 끄면 예전 동작이다.
+    if (typeof location !== 'undefined' && new URLSearchParams(location.search).get('nopacer') === '1') {
+      feet.forEach(fm => { fm.group.visible = false; }); return;
+    }
     const stride = Math.max(0.55, this.tokens?._strideM || 0.98);   // 션 보폭(1스텝, m)
     const beat = Math.max(0.2, this.tokens?._beatT || 0.39);        // 션 스텝 간격(s) = 케이던스
     const speed = stride / beat;                                    // 션 속도(m/s)
     const far = Math.min(2.2, (this.rig?.fpFar ?? 2.2) - 0.1);      // 투사 안쪽 끝
     const zNear = 0.35, zFar = -far, span = zNear - zFar;
     const stepLine = -0.95;                                         // '지금 밟아' 라인 (밝기 정점)
-    const N = Math.max(2, Math.min(feet.length, Math.floor(span / stride)));
+    // ★ 개수는 **반드시 짝수**. 좌/우를 i 의 홀짝으로 정하는데(아래), 홀수 개면 순환해서
+    //   되돌아온 발(i=N−1 → i=0)이 같은 홀짝이 되어 **같은 발이 두 번 연속** 나온다.
+    //   이지런은 span/stride 가 2 라 지금 안 터지지만, 보폭이 바뀌면 바로 드러난다
+    //   (같은 원인을 컨셉영상 레일에서 실제로 잡았다 — 유저 신고 08-06 "같은 왼발이 2개").
+    const N0 = Math.max(2, Math.min(feet.length, Math.floor(span / stride)));
+    const N = N0 % 2 ? N0 - 1 : N0;
     this._paceScroll = (this._paceScroll || 0) + (this._dt || 0.016) * (this.liveSpeed || 1) * speed;
     const warm = 1 - Math.min(0.7, Math.max(0, err) * 1.4);        // 처지면 식음(온도↓)
     for (let i = 0; i < feet.length; i++) {
       const fm = feet[i];
       if (i >= N) { fm.group.visible = false; continue; }
-      const z = zFar + (((i * stride + this._paceScroll) % span) + span) % span;
+      const z = zFar + (((i * (span / N) + this._paceScroll) % span) + span) % span;
       const g = Math.max(0, 1 - Math.abs(z - stepLine) / (stride * 0.7));   // 스텝라인서 최대
       fm.group.visible = true;
       // z는 러너(월드 원점) 기준 흐름 — root(팩 스크롤 추종)의 z를 상쇄해 이중 스크롤 방지, 션 속도만큼만.
       fm.group.position.set(i % 2 === 0 ? -0.12 : 0.12, 0.013, z - this.root.position.z);
-      // 션 발자국: 멀리선 회색 예고(다가옴) → 스텝라인서 착지 블룸(진홍)으로 '지금 밟아' → 케이던스 리듬이 또렷.
-      if (g > 0.42) fm.glow(g); else fm.ghost();
+      // 션 발자국: 멀리선 회색 예고(다가옴) → 가까워지며 켜짐 → 스텝라인서 착지 블룸(진홍)으로
+      //   '지금 밟아' → 케이던스 리듬이 또렷.
+      // ★ 3단계로 되돌린다(유저 08-06). 예전엔 Locked ↔ Success 두 갈래뿐이라 무채에서 진홍으로
+      //   **한 프레임에 튀었다** — '다가온다'가 안 읽히고 깜빡이는 것처럼 보인다.
+      //   footlab STATES 정본은 7상태이고 Active(ph1) 가 그 중간을 담당한다. 임계는 실측 튜닝값.
+      if (g > 0.75) fm.glow(g);            // Success — 스텝라인 정점
+      // Active 구간(0.28~0.75) 안에서 0→1 로 차오른다 — 다가올수록 진해진다
+      else if (g > 0.28) fm.active((g - 0.28) / 0.47);
+      else fm.ghost();                     // Locked  — 먼 쪽 무채 예고
       fm.op((0.42 + 0.58 * g * g) * warm);   // 예고 발자국도 잘 보이게(줄지어 다가오는 게 읽히도록)
     }
   }

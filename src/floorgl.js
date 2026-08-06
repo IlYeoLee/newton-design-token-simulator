@@ -519,8 +519,14 @@ export function rollNum(ctx, target, t, delay, cd, x, y, size, o = {}) {
     //   음수로 주면(예: 벽 스코어 ls:-8) 진행폭이 실제 잉크보다 좁아져 획이 잘린다.
     //   실측(08-05): OffBit 의 0(⊘)이 오른쪽 3분의 1 이 날아갔다(유저: 저 0만 잘린다고).
     //   → 잉크 경계(actualBoundingBox)로 창을 잡는다. 없는 브라우저면 진행폭 + 여유로 떨어진다.
+    //   ★ 창은 **두 숫자의 합집합**으로 잡는다. 롤 중엔 이 창에 나가는 숫자와 들어오는 숫자를
+    //     둘 다 그리는데, 나가는 쪽만 재면 들어오는 쪽이 더 넓을 때 그 오른쪽이 잘린다.
+    //     실측(유저 08-06): 5.0km 카운트업의 **4.9 → 5.0** 순간 — 4→5 와 9→0 이 동시에 돌면서
+    //     더 넓은 5·0 의 오른쪽 획이 날아갔다. 자간이 −14 라 진행폭이 좁아 더 심했다.
     const mm = g2.measureText(String(d % 10));
-    const inkL = mm.actualBoundingBoxLeft, inkR = mm.actualBoundingBoxRight;
+    const mmIn = g2.measureText(String((d + 1) % 10));
+    const inkL = Math.max(mm.actualBoundingBoxLeft, mmIn.actualBoundingBoxLeft);
+    const inkR = Math.max(mm.actualBoundingBoxRight, mmIn.actualBoundingBoxRight);
     const cx0 = Number.isFinite(inkL) ? px + dx - inkL - 3 : px + dx - 4;
     const cw = Number.isFinite(inkR) ? (Number.isFinite(inkL) ? inkL : 0) + inkR + 6 : ws[i] + 8;
     g2.beginPath(); g2.rect(cx0, y + dy, cw, WH); g2.clip();
