@@ -3003,6 +3003,15 @@ void main(){
     //   토큰 38px / 인물 세로 약 470px = 인물 키의 8%. 이 판에서 인물은 세로의 ph(0.63)이므로
     //   토큰 지름 = 0.08 × 0.63 ≈ 0.050 (uv.y), 즉 반경 0.025. 처음 쓴 0.075 는 3배였고
     //   실제로 발을 통째로 덮었다(렌더 확인).
+    // ★ 도착 순간 **영상을 잠깐 세운다**(유저: 찍어줄 때 약간 멈춰준다든지).
+    //   토큰이 '딱' 붙는 그 프레임에 그림이 멈춰야 눈이 따라간다 — 움직이는 몸 위에 찍으면
+    //   시선이 토큰이 아니라 움직임을 따라간다. 비트마다 한 번만(래치).
+    const HOLDS = cfg.hold ?? 0;
+    if (HOLDS > 0 && S.k >= 1 && co._spotBeat !== S.b.tLand) {
+      co._spotBeat = S.b.tLand;
+      co._holdUntil = performance.now() + HOLDS * 1000;
+      try { co.video.pause(); } catch (e) {}
+    }
     const gz = (cfg.gaze ?? 1) * 0.025 * (1 + 0.55 * S.pop) * Math.min(1, S.k * 3 + 0.15);
     const asp = (co.cfg?.h ?? 1) / (co.cfg?.w ?? 1);
     U.uGaze.value.set(S.b.at[0], S.b.at[1], gz * asp, gz);
