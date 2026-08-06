@@ -385,7 +385,11 @@ export function makeMarkFXMaterial(footTex = null) {
       //   — 유저가 반복해 지적한 '랩보다 뿌옇고 채도 낮다'의 정체. toLin 역변환이 이를 상쇄해
       //   화면값이 랩과 같아진다. (LANEFX 는 처음부터 uOut=1 — 마크만 예외였다.)
       //   ※ 이전 주석의 '(241,37,25)' 는 OutputPass 이전 버퍼값을 잰 것 — toLin(249,106,88) 그 자체다.
-      uSweepA: { value: 1 }, uNoise: { value: 0.5 }, uDay: { value: 0 }, uOut: { value: 1 },
+      uSweepA: { value: 1 }, uNoise: { value: MARK_LOOK.wobble }, uDay: { value: 0 }, uOut: { value: 1 },
+      // ★ 생성 기본값도 **정본(MARK_LOOK)** 에서 온다. 0.5 를 박아 두면, per-frame 주입을 안 받는
+      //   경로(상태 오버라이드·floorLook·랩 프리뷰)가 일렁임 0.5 로 굳는다 — 실측 결과 그런 재질이
+      //   4개 남아 있었다(전부 visible:false 라 화면엔 안 나왔지만, 추출 경로가 하나 늘면 바로 샌다).
+      //   유저: 일렁임 0 인데 내보낼 때 형태가 유기적이다 → 기본값이 정본과 다르면 그 질문이 계속 나온다.
       // 하프톤 스킨 — 기본 꺼짐. 랩에서 확정한 값이 기본값이다.
       uHT: { value: 0 }, uHTPitch: { value: 0.055 }, uHTGain: { value: 1.15 }, uHTSoft: { value: 0.55 }, uHTWave: { value: 0.6 }, uHTGlow: { value: 0 }, uHTInner: { value: 0 },
       uNumTex: { value: null }, uNumOn: { value: 0 }, uNumScale: { value: 0.311 }, uNumOff: { value: new THREE.Vector2() },
