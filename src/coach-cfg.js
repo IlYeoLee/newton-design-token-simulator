@@ -53,12 +53,12 @@ export const COACH_CFG = {
   // ★ w·h 를 **같은 배율(×0.9052)** 로 내렸다 — 0.55/0.98(110%) → 0.498/0.887(100%).
   //   9:16 유지가 이 클립의 제약이라 h 만 풀면 안 된다(0.5612 → 0.620 으로 깨진다).
   BK_B1: { src: 'bhandle_pp.mp4', cropOff: 0.0, cropScale: 1.0, w: 0.498, h: 0.887, fwd: -0.06, ph: 0.62 },   // 워밍업 위계와 크기·거리 통일(유저 #75) — 0.42/fwd0.45 는 작고 멀었다. 9:16 유지
+  // 전체 재생(T1) — 조각들과 **같은 규격**이어야 한다. 크기가 다르면 '같은 영상'으로 안 읽힌다.
+  BK_T1: { src: 'stepback_fwd.mp4', cropOff: 0.0, cropScale: 1.0, w: 1.04, h: 0.87, fwd: -0.18, ph: 0.63, rng: [0.03, 0.86], tone: 0.09 },
   BK_B2: { src: 'stepback_fwd.mp4', cropOff: 0.0, cropScale: 1.0, w: 1.04, h: 0.87, fwd: -0.18, ph: 0.63, rng: [0.03, 0.86], tone: 0.09 },   // 소스 720x1280 · rng = 인물 블롭 실측(골대·콘이 측정 오염)
-  BK_B5: { src: 'stepback_fwd.mp4', cropOff: 0.0, cropScale: 1.0, w: 1.04, h: 0.87, fwd: -0.18, ph: 0.63, rng: [0.03, 0.86], tone: 0.09 },
   BK_B4: { src: 'stepback_fwd.mp4', cropOff: 0.0, cropScale: 1.0, w: 1.04, h: 0.87, fwd: -0.18, ph: 0.63, rng: [0.03, 0.86], tone: 0.09 },
   BK_B3: { src: 'stepback_fwd.mp4', cropOff: 0.0, cropScale: 1.0, w: 1.04, h: 0.87, fwd: -0.18, ph: 0.63, rng: [0.03, 0.86], tone: 0.09 },   // 소스 720x1280 — 9:16 유지
   BK_C2: { src: 'stepback_fwd.mp4', cropOff: 0.0, cropScale: 1.0, w: 1.04, h: 0.87, fwd: -0.18, ph: 0.63, rng: [0.03, 0.86], tone: 0.09 },   // 실전 = 같은 클립을 타이밍 소스로만
-  BK_A3: { src: 'ready-view/assets/bk_squat.webm',    cropOff: 0.0, cropScale: 1.0, w: 0.9, h: 0.9, fwd: -0.18 },   // 스쿼트
 };
 
 /** 시작화면 썸네일 — 3D 코치 판을 안 켠다(캔버스 영상 오버레이가 전담). 인물 크기 검사 제외. */

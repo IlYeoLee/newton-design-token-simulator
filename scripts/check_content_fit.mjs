@@ -68,7 +68,8 @@ for (const [id, c] of Object.entries(COACH)) {
 
 // ── ② 소스 종횡비 — w/h 가 소스 비율을 지키는가 (9:16 클립이 섞여 있다) ────
 console.log('\n② 판 종횡비 (w/h) — 같은 소스를 쓰는 스테이지끼리 같아야 한다\n');
-const bySrc = { '스텝백 720×1280': ['BK_B2', 'BK_B3', 'BK_B4', 'BK_B5', 'BK_C2'] };
+// 소스 실측 760×637(08-06 ffprobe) — 주석의 720×1280 은 옛 값이었다.
+const bySrc = { '스텝백 760×637': ['BK_T1', 'BK_B2', 'BK_B3', 'BK_B4', 'BK_C2'] };
 for (const [name, ids] of Object.entries(bySrc)) {
   const ars = ids.map(i => +(COACH[i].w / COACH[i].h).toFixed(4));
   const uniq = [...new Set(ars)];

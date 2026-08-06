@@ -25,7 +25,7 @@ const LK = MARK_LOOK_JSON;   // footlab 이 굽는 정본 — 도트 피치·세
 const $ = s => document.querySelector(s);
 
 // 단계별 영상 구간 = 이전 단계 끝 → 이 단계 끝 (STEP_SEG 가 끝점만 갖는다)
-const IDS = ['BK_B2', 'BK_B3', 'BK_B4', 'BK_B5'];
+const IDS = ['BK_T1', 'BK_B2', 'BK_B3', 'BK_B4'];
 const SEG = IDS.map((id, i) => ({ id, t0: i === 0 ? 0 : STEP_SEG[IDS[i - 1]], t1: STEP_SEG[id] }));
 const COLS = [0, 0.25, 0.5, 0.75, 1];
 
@@ -197,14 +197,14 @@ function paintLive() {
   liveCap.textContent = `${s.id} ${BK_STEPBACK[s.id].n} — ${T.toFixed(2)}s   `
     + `L ${PHYS[o.L.phys].label}·${LOAD[o.L.load].label}   R ${PHYS[o.R.phys].label}·${LOAD[o.R.load].label}`;
 }
-slider.max = String(STEP_SEG.BK_B5);
+slider.max = String(STEP_SEG.BK_B4[1]);
 slider.addEventListener('input', () => { playing = false; T = +slider.value; paintLive(); $('#play').classList.remove('on'); });
 $('#play').addEventListener('click', e => { playing = !playing; e.target.classList.toggle('on', playing); });
 
 let last = performance.now();
 function tick(now) {
   const dt = Math.min(0.05, (now - last) / 1000); last = now;
-  if (playing) { T = (T + dt) % STEP_SEG.BK_B5; slider.value = String(T); }
+  if (playing) { T = STEP_SEG.BK_B4[0] + ((T - STEP_SEG.BK_B4[0] + dt) % (STEP_SEG.BK_B4[1] - STEP_SEG.BK_B4[0])); slider.value = String(T); }
   paintLive();
   requestAnimationFrame(tick);
 }

@@ -69,26 +69,28 @@ export const LINK = {
  *  이게 언어의 첫 시험대다: 네 단계가 이 어휘로 남김없이 적히면 언어가 성립한 것이고,
  *  못 적히는 칸이 나오면 축이 모자란 것이다. (검증: scripts/check_mark_lang.mjs) */
 export const BK_STEPBACK = {
-  BK_B2: {
-    n: '1/4', title: 'Fake the Layup', cue: 'L·R 나란히 · 낮은 자세',
-    L: { load: 'flat', move: 'hold', enter: 'rise',  exit: 'hold' },
-    R: { load: 'flat', move: 'hold', enter: 'rise',  exit: 'hold' },
-    link: 'pair',   // 어깨너비보다 넓게 — 폭 자체가 지시다
+  // ★ 3조각 재편(08-06 실측) — 구 1/4 'Fake the Layup' 은 클립에서 **발이 안 움직이는 구간**이라
+  //   문법이 전부 hold 였다(가르칠 게 없는 단계). 나머지 셋이 그대로 1/3·2/3·3/3 이 된다.
+  BK_T1: {
+    n: null, title: 'The Whole Move', cue: '딛고 · 빠지고 · 모으고',
+    L: { load: 'drive', move: 'slide', enter: 'rise', exit: 'hold' },
+    R: { load: 'heel',  move: 'step',  enter: 'stamp', exit: 'hold' },
+    link: 'arrow',
   },
-  BK_B3: {
-    n: '2/4', title: 'Right Foot Down', cue: 'R 앞 · L 뒤 · 공은 왼쪽',
-    L: { load: 'toe',   move: 'hold', enter: 'rise',  exit: 'hold' },   // SB_POSE t1.44 L[2]=1 = 앞볼 접지
+  BK_B2: {
+    n: '1/3', title: 'Cross Step', cue: 'R 크로스 · L 버팀',
+    L: { load: 'toe',   move: 'hold', enter: 'rise',  exit: 'hold' },   // SB_POSE t1.47 L[2]=1 = 앞볼 접지
     R: { load: 'heel',  move: 'step', enter: 'stamp', exit: 'hold' },
     link: 'arrow',  // R 의 출발 → 도착
   },
-  BK_B4: {
-    n: '3/4', title: 'Left Foot Out', cue: 'L 크게 벌림 · 두 손 개더',
-    L: { load: 'drive', move: 'slide', enter: 'rise', exit: 'hold' },   // SB_POSE t1.81 L[3]='slide'
+  BK_B3: {
+    n: '2/3', title: 'Slide Back', cue: 'L 크게 벌림 · 두 손 개더',
+    L: { load: 'drive', move: 'slide', enter: 'rise', exit: 'hold' },   // SB_POSE t1.70 L[3]='slide'
     R: { load: 'toe',   move: 'hold',  enter: 'rise', exit: 'hold' },
     link: 'arrow',
   },
-  BK_B5: {
-    n: '4/4', title: 'Set to Shoot', cue: 'L·R 모음 · 수직 상승',
+  BK_B4: {
+    n: '3/3', title: 'Gather and Rise', cue: 'R 모음 · 수직 상승',
     L: { load: 'flat', move: 'hold', enter: 'rise',  exit: 'hold' },
     R: { load: 'flat', move: 'step', enter: 'stamp', exit: 'hold' },
     link: 'pair',

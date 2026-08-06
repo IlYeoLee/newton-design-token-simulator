@@ -2913,15 +2913,15 @@ void main(){
   //   false 로 두면 그 스테이지만 꺼진다.
   window.COACH_GRID = window.COACH_GRID || {
     A1: true, A2: true, A3: true,
-    BK_A1: true, BK_A2: true, BK_A3: true,
-    BK_B1: true, BK_B2: true, BK_B3: true, BK_B4: true, BK_B5: true, BK_C2: true,
+    BK_A1: true, BK_A2: true,
+    BK_T1: true, BK_B1: true, BK_B2: true, BK_B3: true, BK_B4: true, BK_C2: true,
   };
   const COACH_GRID = window.COACH_GRID;
-  const COACH_IDS = ['READY', 'BK_READY', 'A1', 'A2', 'A3', 'BK_A1', 'BK_A2', 'BK_A3', 'BK_B1', 'BK_B2', 'BK_B3', 'BK_B4', 'BK_B5', 'BK_C2'];
-    // 관찰이 끝나면(followLatch) 코치를 끄는 게 기존 규약이었다. 단 스텝백 4페이즈(BK_B2~B5)는
+  const COACH_IDS = ['READY', 'BK_READY', 'A1', 'A2', 'A3', 'BK_A1', 'BK_A2', 'BK_T1', 'BK_B1', 'BK_B2', 'BK_B3', 'BK_B4', 'BK_C2'];
+    // 관찰이 끝나면(followLatch) 코치를 끄는 게 기존 규약이었다. 단 스텝백 조각(BK_T1·BK_B2~B4)은
     //   따라하기 화면에도 같은 실루엣이 축소되어 남아야 한다(피그마 143:444) — 예외로 계속 켠다.
     const activeId = COACH_IDS.find(id => id === st
-      && !(/^(A2|A3|BK_A2|BK_A3|BK_B1)$/.test(id) && session._followLatch)
+      && !(/^(A2|A3|BK_A2|BK_B1)$/.test(id) && session._followLatch)
       // ★ READY 실루엣은 **첫 화면**이다 — 팩 이름 + 사람 형체로 시작하고 2초 뒤 도트 '30 min'
       //   이 자리를 받는다. 시작화면 전체가 8초 루프라(floorgl _paint_ready) 여기도 같은 주기로
       //   껐다 켠다 — % 를 빼면 첫 8초 뒤 인물이 영영 안 돌아온다.
@@ -2953,13 +2953,10 @@ void main(){
           if (performance.now() - _coachSeekT0 > 2500) _coachSeekId = id;   // 안전장치: 영상 없이도 화면은 나와야
         }
         if (id !== 'BK_A1') { _coachSeekId = null; _coachSeekT0 = null; }
-        // 단계별 구간 루프 — 4페이즈로 쪼갰으면 각 단계는 '그 구간만' 반복해야 한다(유저).
-        //   실측(3.33s 정방향): 준비 0~0.60 · 오른발 딛고 드리블 0.60~1.25 ·
-        //   왼발 뻗어 공 잡기 1.25~1.80 · 오른발 모으며 슛 1.80~3.10
-        // 2번째(오른발 딛고 드리블)는 유저 지정 1.47s에서 끊는다 — 그 프레임이 '딛는 순간'
-        // 누적식(유저) — 구간만 반복하면 앞 동작과 이어지지 않아 따라하기 어렵다.
-        //   1단계 0~0.60 / 2단계 0~1.47 / 3단계 0~1.81 / 4단계 0~3.10 = 매 단계가 처음부터 다시.
-        const PHW = STEP_SEG[id] ? [0, STEP_SEG[id]] : null;
+        // 단계별 구간 루프 — 각 단계는 '그 구간만' 반복한다(유저). 누적식이라 매 단계가 1.05 에서 다시 시작.
+        //   ★ 구간표(정본·실측)는 session.js STEP_SEG **하나뿐이다.** 여기에 숫자를 다시 적지 않는다 —
+        //     예전 이 자리 주석의 '0.60~1.25 / 1.25~1.80' 은 실측(1.20~1.47 / 1.50~1.70)과 어긋나 있었다.
+        const PHW = STEP_SEG[id] || null;
 
         if (PHW && co.video.readyState >= 2) {
           const [a, b] = PHW;
@@ -3159,7 +3156,7 @@ void main(){
           co.plane.position.set(floorObj.position.x + co._fwd.x * co.fwd, 0.015, floorObj.position.z + co._fwd.z * co.fwd);
           // 스텝백 4페이즈 = 2분할(피그마 레퍼런스): 영상은 상단(원거리), 발자국은 하단(근거리).
           //   시선이 먼 영상 → 발밑 발자국으로 자연스럽게 내려오고, 둘을 동시에 볼 수 있다.
-          if (/^BK_B[2345]$/.test(id)) {
+          if (/^(BK_T1|BK_B[234])$/.test(id)) {
             // 관찰(프리뷰)은 이전 버전 그대로 — 위치·크기 손대지 않는다(유저).
             //   따라하기 국면에서만 축소 후 창 상단(beamUV v 0.80)으로 올리고 아래를 발자국에 내준다.
             const following = !!session._followLatch;
@@ -4226,7 +4223,7 @@ void main(){
       // B단계 = 공을 튄다 → 튀기며 움직인다 → 튀기다 멈추고 뒤로(BK-B-CURRICULUM.md)
       BK_B1: 'bp_dribble',            // 드리블 루프 2(Sketchfab 네이티브 1.6s) — 유저: 이걸로 교체
       BK_B2: 'bkStance',              // 깨끗한 애슬레틱 스탠스 + sbWidth 실측 구동(모캡 지터 회피)
-      BK_B3: 'bkStance', BK_B4: 'bkStance', BK_B5: 'bkStance',   // 스텝백 4단계 — 폭·크라우치는 sbWidth
+      BK_T1: 'bkStance', BK_B3: 'bkStance', BK_B4: 'bkStance',   // 전체 재생 + 스텝백 3조각 — 폭·크라우치는 sbWidth
       BK_C2: 'bkStance',              // 실전 — 릴리즈는 판정으로
     };
     // 실전 대기(C1)부터 실전 종료·리포트까지 봇은 가만히 서 있는다(유저). 동작 연출 없음.
@@ -4306,7 +4303,7 @@ void main(){
       // A2 런지: 봇을 뒤로 당겨 전방 착지가 프레스 원(-1.30) 위에 오게 (교대 런지 보폭 ≈0.7m 가정, 시각 검수로 보정)
       // 농구 워밍업(BK_A*)은 READY와 같은 자리(0) — 스테이지 진입마다 봇이 앞으로 1.15m 순간이동하던 것
       // (유저: '농구 시작위치는 여긴데 스트레칭하면 앞으로 이동해'). 한 운동 장면 = 제자리 수행.
-      xbot.demoStandZ = session.stage === 'A2' ? -1.0 : (/^BK_B[12345]$/.test(session.stage) ? -1.85 : 0);
+      xbot.demoStandZ = session.stage === 'A2' ? -1.0 : (/^(BK_T1|BK_B[1234])$/.test(session.stage) ? -1.85 : 0);
     }
     // 지면 풀스크린 화면(세션 컴플리트·전환·카운트다운) = 3인칭 봇도 바닥의 화면을 응시(머리 숙임).
     // B1 2막(시선 바깥) = 봇도 고개를 정면으로 들어 시범(유저) — bkB1EyesUp이 최우선.
@@ -4373,7 +4370,7 @@ void main(){
       const A2_WATCH = session.stage === 'A2' ? stageTime('A2').watch : (stepPreviewSec(session.stage) || 3.0);
       session._a2WatchSec = A2_WATCH;   // 인물 페이드아웃이 같은 시계를 보도록 노출(하드컷 방지)
       const BK_A1_RATE = 1.55;   // 옆구리 봇 배속(코치 영상 페이스 맞춤) — 시각 캘리브레이션 노브
-      const _watchWin = /^(A2|A3|BK_A[23]|BK_B[12345]|BK_C2)$/.test(session.stage || '') && !session._followLatch;   // 실전도 정속 프리뷰 1회 먼저(유저)
+      const _watchWin = /^(A2|A3|BK_A2|BK_T1|BK_B[1234]|BK_C2)$/.test(session.stage || '') && !session._followLatch;   // 실전도 정속 프리뷰 1회 먼저(유저)
       if (/^BK_C[135]$/.test(session.stage || '')) session._followLatch = true;   // C2만 프리뷰 있음
       const _stepPv = STEP_SEG[session.stage || ''] && _stepId === session.stage;   // 스텝백 = 재생 횟수로 판정
       const aWatching = _watchWin && (_stepPv ? _stepLoops < stepLoops(session.stage) : session.t < A2_WATCH);
@@ -4382,6 +4379,11 @@ void main(){
       // 위상잠금: 씬 링·카운트와 코치 동작을 같은 시간축에 — 절차 드릴 + A1 전신풀기·A2 점핑잭(주기=씬 BT).
       // BK_B2 = 분해 밟기: 씬 3s 사이클당 크로스오버 1회(마크 1-2-3과 사이클 동기).
       // BK_B3 = 컷·감속: 로우 드리블 클립의 컷 구간(16~21s) 창 반복. 그 외 실측 모캡은 자연 속도(왜곡 방지).
+      // ★ a2Cyc 는 **A2 밖에서 지운다.** 아래 체인은 A2 일 때만 이걸 세팅하고 아무도 안 지웠다 —
+      //   A2 가 끝나도 {prog:1, holdSec:3} 이 세션 끝까지 남아, 마크가 Success(빨강)·숫자 1 인
+      //   채로 영영 굳었다(유저 스샷: 두 프레임이 픽셀 단위로 같다). demoActive 와 같은 사고이고
+      //   같은 해법이다 — **신호는 매 프레임 다시 정한다.**
+      if (session.stage !== 'A2') session.a2Cyc = null;
       let _phase = null;
       if (_clip === 'stomp_press') _phase = session.t;
       else if (session.stage === 'A1') _phase = session.t;   // A1 neckShoulder 목부터 시작 (잔여 _demoT 위상 오류 방지)
@@ -5949,15 +5951,17 @@ void main(){
   const stepHold = id => (id === 'BK_C2' ? 0.0 : 1.0);
   const stepLoops = id => (id === 'BK_C2' ? 1 : 2);
   const STEP_RATE = 0.5, STEP_HOLD = 1.0, STEP_LOOPS = 2;
-  const stepLoopSec = id => (STEP_SEG[id] ? STEP_SEG[id] / stepRate(id) + stepHold(id) : 0);
+  const stepLoopSec = id => (STEP_SEG[id] ? (STEP_SEG[id][1] - STEP_SEG[id][0]) / stepRate(id) + stepHold(id) : 0);
   const stepPreviewSec = id => stepLoopSec(id) * stepLoops(id);
   // 운동중 A/B/C 지면 화면 — 세로 공통 프레임(floor-scene.html)에 stage 주입. 시작화면과 달리 중앙 발자국은 유지.
   for (const id of ['A1', 'A2', 'A3', 'P1', 'P2', 'P3', 'C2', 'C3', 'C4', 'C5',
-                    'BK_A1', 'BK_A2', 'BK_A3', 'BK_B1', 'BK_B2', 'BK_B3', 'BK_B4', 'BK_B5', 'BK_C2', 'BK_C3', 'BK_C4']) {
+                    'BK_A1', 'BK_A2', 'BK_T1', 'BK_B1', 'BK_B2', 'BK_B3', 'BK_B4', 'BK_C2', 'BK_C3', 'BK_C4']) {
     FLOOR_FRAMES[id] = { src: 'ready-view/floor-scene.html?stage=' + id, w: 1600, h: 2670 };
   }
   // 전환 화면 (스트레칭→학습·학습→실전) — Figma [러닝/농구] 세로 전환 템플릿 (복싱 transition.html 이식)
-  for (const id of ['T1', 'T2', 'BK_T1', 'BK_T2']) {
+  // ★ BK_T1 은 여기서 빠졌다 — 이제 전환 화면이 아니라 **전체 재생 스테이지**라 위 씬 프레임을 쓴다.
+  //   (이 루프가 씬 루프보다 뒤라 여기 남겨 두면 씬 배정을 덮어써서 영상이 안 뜬다.)
+  for (const id of ['T1', 'T2', 'BK_T2']) {
     FLOOR_FRAMES[id] = { src: 'ready-view/floor-transition.html?stage=' + id, w: 1600, h: 2670 };
   }
   // 실전 직전 3·2·1 카운트다운 타이머 (복싱 timer.html 세로 이식) — 러닝 C1 · 농구 BK_C1
@@ -6368,7 +6372,7 @@ void main(){
         } else if (session.isLive) {
           // 실전(라이브)은 세션 root가 인물 이동을 추종 — G그룹은 저작 기본(원점·무회전) 유지.
           stageG.position.set(0, 0, 0); stageG.quaternion.identity();
-        } else if (/^(A1|BK_A2|BK_A3|BK_B1|BK_B2|BK_B3)$/.test(session.curStage?.id || '')) {
+        } else if (/^(A1|BK_A2|BK_B1|BK_B2|BK_B3)$/.test(session.curStage?.id || '')) {
           // 봇-정합 스테이지: 재앵커(밴드 시프트) 제외 + 스테이지별 전방 오프셋만 —
           // 투사 법칙(가이드는 서기 앞 0.4~2.1m 창 안): 실측 감사에서 B1 28/30·B2 16/17
           // 메쉬가 존 밖(반달 절단)이라 필드 통째 전진. 원점 고정이 여기서 오프셋을 매 프레임

@@ -691,16 +691,36 @@ const A_WATCH = 3.0;
 // 규약(유저): 1/4의 상태를 유지한 채 2/4에서 그 다음 이동을 '더하고', 3/4·4/4도 같은 식으로 쌓는다.
 //   각 단계는 [이전 포즈 → 이 단계 포즈]만 움직이며, 안 움직이는 발은 자리를 지킨다.
 //   좌표는 마크 프레임 단위(u -1~1 가로, v -1~1 앞뒤. +v = 멀리/앞). 빔 창 안으로 자동 클램프.
-export const STEP_SEG = { BK_B2: 0.60, BK_B3: 1.44, BK_B4: 1.81, BK_B5: 3.10, BK_C2: 3.10 };   // 각 단계가 보여주는 영상 구간 끝(초)
+/** 각 단계가 보여주는 영상 구간 **[시작, 끝]**(초). 정본 = 이 표 하나.
+ *  ★ 값은 **실측이다**(08-06, MediaPipe 33관절 정규좌표 100프레임 — assets/mocap/stepback_fwd-landmarks.json,
+ *    추출: scripts/extract_stepback_landmarks.mjs). 감으로 나눈 게 아니다. 발목 x 속도(/초):
+ *      0.00~1.167  L 0.598 · R 0.765 에서 **완전 고정** — 제자리 드리블뿐(발은 아무 데도 안 간다)
+ *      1.20~1.47   R 0.763→0.529  최고 2.88   ① 오른발 크로스 딛기
+ *      1.50~1.70   L 0.598→0.177  최고 5.35   ② 왼발 뒤로 빼기(발목 간격 최대 0.322)
+ *      1.80~2.10   R 0.503→0.239  최고 1.93   ③ 오른발 모으기(간격 0.069)
+ *      2.13~3.33   전 관절 정지 — **데드 1.2초**(슛 상승은 이 클립에 안 담겨 있다)
+ *    그래서 구간을 [1.05, 2.20] 안으로 옮겼다. 구값(0~0.60 / ~1.44 / ~1.81 / ~3.10)의 문제:
+ *      · 1/4 '무릎 굽혀 페이크' = 발이 안 움직이는 구간. 오히려 엉덩이가 **올라간다**(0.612→0.674).
+ *      · 4/4 끝 3.10 = 뒤쪽 1.2초가 정지 프레임. 배우는 사람은 멈춘 화면을 1.2초 본다.
+ *    조각이 4→3 인 건 클립이 스스로 그렇게 갈라지기 때문이다(움직임 덩어리가 셋).
+ *  누적식은 유지(유저 규약) — 매 단계가 1.05 에서 다시 시작해 그 단계 것까지 보여준다. */
+export const STEP_SEG = {
+  BK_T1: [1.05, 2.20],   // 전체 재생 — 쪼개기 전에 한 번 통째로(0.5배속 = 2.3초)
+  BK_B2: [1.05, 1.50],   // ① 오른발 크로스 딛기
+  BK_B3: [1.05, 1.75],   // ② + 왼발 뒤로 빼기
+  BK_B4: [1.05, 2.20],   // ③ + 오른발 모으기
+  BK_C2: [1.05, 2.20],   // 실전 = 같은 구간을 정속으로
+};
 // 실전(C2) = 끊김 없이 처음부터 끝까지 한 번에, 정속. 학습 단계(B2~B5)는 저속 + 구간 끝 정지.
 export const STEP_LIVE = 'BK_C2';
+// ★ 키 시각도 실측에 맞췄다(위 STEP_SEG 주석의 속도표). 전엔 발이 안 움직이는 0~1.05 구간에
+//   키가 둘(0.00·0.60) 있었고, 모으기 도착이 1.95 로 실측(2.10)보다 0.15s 일렀다.
 export const SB_POSE = [
-  { t: 0.00, L: [-0.75, -0.50], R: [0.75, -0.50] },                      // 시작 = 어깨너비보다 넓게 나란히(앞줄)
-  { t: 0.60, L: [-0.75, -0.50], R: [0.75, -0.50] },                      // 1/4 무릎 굽혀 페이크 — 발은 그대로
-  { t: 1.44, L: [-0.75, -0.50, 1], R: [0.34, 1.00] },                    // 2/4 오른발을 살짝 왼쪽 대각선 앞으로(유저) — 왼발은 앞볼 접지
-  { t: 1.81, L: [-1.00, -0.90, 0, 'slide'], R: [0.34, 1.00] },           // 3/4 왼발이 왼쪽·뒤로 '쓰윽' 미끄러진다(스텝백)
-  { t: 1.95, L: [-1.00, -0.90], R: [-0.25, -0.60] },                     // 4/4 오른발을 싹 끌어와 모음(0.14s — 유저: 더 빠르게)
-  { t: 3.10, L: [-1.00, -0.90], R: [-0.25, -0.60] },                     //     그 자세로 슛까지 유지
+  { t: 1.05, L: [-0.75, -0.50], R: [0.75, -0.50] },                      // 시작 = 어깨너비보다 넓게 나란히(앞줄)
+  { t: 1.47, L: [-0.75, -0.50, 1], R: [0.34, 1.00] },                    // ① 오른발을 살짝 왼쪽 대각선 앞으로 — 왼발은 앞볼 접지
+  { t: 1.70, L: [-1.00, -0.90, 0, 'slide'], R: [0.34, 1.00] },           // ② 왼발이 왼쪽·뒤로 '쓰윽' 미끄러진다(스텝백)
+  { t: 2.10, L: [-1.00, -0.90], R: [-0.25, -0.60] },                     // ③ 오른발을 싹 끌어와 모음
+  { t: 2.20, L: [-1.00, -0.90], R: [-0.25, -0.60] },                     //     그 자세로 유지(구간 끝)
 ];
 // 판정 마크 프레임 = 빔 창 안 고정 영역. 어떤 단계·어떤 프레임에서도 이 밖으로 안 나간다.
 // ★ 무대를 **빔이 넓은 자리로 전진**시킨다(유저 08-06 확정). 근거는 실측 반폭 곡선:
@@ -815,15 +835,21 @@ export const STAGES = {
   ],
   basketball: [
     { id:'BK_READY', label:'READY · 준비 — 발 두 번 탭하면 시작', voice:['커리','안녕, 스테판 커리예요. 오늘은 내 스텝백을 같이 만들어 볼게요. 준비되면 발을 두 번 탭해요.'], wear:'SAFE 대기', foot:'두 번 탭 → 시작' },
-    { id:'BK_A1', label:'A1 · 준비운동 1/3 — 옆구리 풀기', voice:['커리','나도 경기 전엔 옆구리부터 풀어요. 팔 위로 뻗고 좌우로 쭉쭉, 허리를 열어 줘요.'], wear:'개입 없음 (자세 측정)' },
-    { id:'BK_A3', label:'A2 · 준비운동 2/3 — 스쿼트', voice:['커리','이번엔 스쿼트. 천천히 앉았다 일어나요 — 슛할 때 쓰는 다리 힘을 깨우는 거예요.'], wear:'낮은 강도 보조 시작' },
-    { id:'BK_B1', label:'A3 · 준비운동 3/3 — 제자리 드리블', voice:['커리','이제 공을 손에 붙여 볼게요. 무릎 굽히고 낮게 열 번 — 내 리듬을 따라와요.'], cue:'낮은 자세 · 10회' },
-    { id:'BK_T1', label:'T1 · 전환 — 스텝백 익히기 시작', voice:['커리','몸 좋아졌네요. 이제 내 시그니처 무브를 네 조각으로 나눠서 알려줄게요. 두 번 탭해요.'], foot:'두 번 탭 → 사전 익히기' },
-    { id:'BK_B2', label:'B1 · 스텝백 1/4 — 무릎 굽혀 페이크', voice:['커리','첫 조각. 무릎을 낮추고 들어가는 척해요 — 눈과 어깨로 수비를 속이는 게 시작이에요.'], cue:'L·R 나란히 · 낮은 자세' },
-    { id:'BK_B3', label:'B2 · 스텝백 2/4 — 오른발 딛고 드리블', voice:['커리','둘째. 오른발을 앞으로 크게 딛으면서 공을 왼쪽으로 밀어요. 왼발은 그대로 버텨요.'], cue:'R 앞 · L 뒤 · 공은 왼쪽' },
-    { id:'BK_B4', label:'B3 · 스텝백 3/4 — 왼발 빼며 공 잡기', voice:['커리','셋째. 왼발로 바닥을 밀면서 몸을 뒤로 쓱 빼요 — 그 순간 두 손으로 공을 잡아요.'], cue:'L 크게 벌림 · 두 손 개더' },
-    { id:'BK_B5', label:'B4 · 스텝백 4/4 — 모아서 슛 준비', voice:['커리','마지막. 오른발을 재빨리 모으고 그대로 올라가요 — 이게 내 스텝백 슛이에요.'], cue:'L·R 모음 · 수직 상승', foot:'두 번 탭 → 실전 준비' },
-    { id:'BK_T2', label:'T2 · 전환 — 5초 뒤 실전 시작', voice:['커리','네 조각을 다 배웠어요. 이제 이어서 해 볼게요 — 준비됐으면 두 번 탭.'], dur:5, count:true, foot:'두 번 탭 = 즉시 · 무입력 = 자동' },
+    // ★ 농구 정리(유저 08-06): 워밍업 3 → 2, 스텝백 4조각 → 3조각, 전환 하나를 '전체 재생'으로 승격.
+    //   기준은 '진짜 배울 수 있는 것만 남긴다'. 뺀 것과 이유:
+    //     BK_A3 스쿼트 — 배우는 동작이 아니고(반복 몸풀기) 스텝백에 직접 쓰이지도 않는데,
+    //       혼자 다른 UI(중앙 링 + 깊이 아크 + 중앙 카운트) 한 벌을 끌고 있었다.
+    //     BK_B5 4/4  — 클립 실측상 1.81~3.10 구간의 **뒤쪽 1.2초가 정지 프레임**이다(슛 상승이
+    //       소스에 안 담겨 있다). 배우는 사람이 멈춘 화면을 보는 단계였다. 모으기는 3/3 이 담는다.
+    { id:'BK_A1', label:'A1 · 준비운동 1/2 — 옆구리 풀기', voice:['커리','나도 경기 전엔 옆구리부터 풀어요. 팔 위로 뻗고 좌우로 쭉쭉, 허리를 열어 줘요.'], wear:'개입 없음 (자세 측정)' },
+    { id:'BK_B1', label:'A2 · 준비운동 2/2 — 제자리 드리블', voice:['커리','이제 공을 손에 붙여 볼게요. 무릎 굽히고 낮게 열 번 — 내 리듬을 따라와요.'], cue:'낮은 자세 · 10회' },
+    // ★ T1 = **전체 재생**. 전엔 4.5초 동안 아무것도 안 하는 전환이었다 — 조각을 배우기 전에
+    //   완성형을 한 번 보는 게 학습 순서상 맞고(유저), 새 스테이지를 늘리지 않아도 된다.
+    { id:'BK_T1', label:'T1 · 전체 재생 — 스텝백 한 번에 보기', voice:['커리','먼저 통째로 한 번 볼게요. 딛고 — 빠지고 — 모으고. 이 셋이에요.'], cue:'전체 재생 · 0.5배속', foot:'두 번 탭 → 조각 익히기' },
+    { id:'BK_B2', label:'B1 · 스텝백 1/3 — 오른발 크로스 딛기', voice:['커리','첫 조각. 오른발을 왼쪽으로 크게 딛으면서 공을 반대로 밀어요. 왼발은 그대로 버텨요.'], cue:'R 크로스 · L 버팀' },
+    { id:'BK_B3', label:'B2 · 스텝백 2/3 — 왼발 뒤로 빼기', voice:['커리','둘째. 왼발로 바닥을 밀면서 몸을 뒤로 쓱 빼요 — 그 순간 두 손으로 공을 잡아요.'], cue:'L 크게 벌림 · 두 손 개더' },
+    { id:'BK_B4', label:'B3 · 스텝백 3/3 — 오른발 모으고 올라가기', voice:['커리','마지막. 오른발을 재빨리 끌어와 모으고 그대로 올라가요 — 이게 내 스텝백이에요.'], cue:'R 모음 · 수직 상승', foot:'두 번 탭 → 실전 준비' },
+    { id:'BK_T2', label:'T2 · 전환 — 5초 뒤 실전 시작', voice:['커리','세 조각을 다 배웠어요. 이제 이어서 해 볼게요 — 준비됐으면 두 번 탭.'], dur:5, count:true, foot:'두 번 탭 = 즉시 · 무입력 = 자동' },
     { id:'BK_C1', dur:3, label:'C1 · 실전 1/2 — 출발 신호', voice:['커리','셋, 둘, 하나 — 가요!'], hap:'컷 시작 진동', foot:'두 번 탭 → 출발' },
     { id:'BK_C2', dur:40, live:true, label:'C2 · 실전 2/2 — 스텝백 3점 3회', voice:['커리','이번엔 진짜예요. 배운 그대로 세 번 — 딛고, 빠지고, 모아서 슛!'], wear:'BOOST 측면 추진', cue:'정속 · 3회' },
     { id:'BK_FIN', label:'FIN · 리포트 — 오늘의 기록', voice:['커리','오늘 정말 잘했어요. 기록은 앱으로 보내 뒀어요 — 다음엔 더 빠른 스텝백을 만들어 봐요.'], cue:'Ghost Review — 커리 궤적과 내 스텝 겹쳐 보기' },
@@ -899,13 +925,13 @@ export class Session {
    *  뜬 발 = Locked 고스트 + 살짝 커짐(들린 느낌) · 닿는 순간 = 임팩트 팝 + 작은 파문(따닥).
    *  전부 '영상이 지금 어디냐'만 본다 = 시범. 유저 수행 판정(Success 블룸)은 별도다. */
   _sbPlace(H, id, fmL, fmR, arrows) {
-    const seg = STEP_SEG[id] || 0;
-    const raw = Math.max(0, this.stepVidT ?? 0);
-    const vt = Math.min(seg, raw);
+    const [segA, segB] = STEP_SEG[id] || [0, 0];
+    const raw = Math.max(segA, this.stepVidT ?? segA);
+    const vt = Math.min(segB, raw);
     // 단계 컷이 한 발의 체공 중간에서 끊긴다(2/4 컷 1.47s = 오른발이 딛는 순간, 왼발은 아직 공중).
     //   그 발은 '아직 옮기지 않은 발'이므로 마지막으로 딛었던 자리에 그대로 둔다 —
     //   공중에서 얼어붙은 고스트도, 다음 단계 자리로 미리 가버리는 것도 아니다(유저).
-    const P = sbPoseAt(vt, raw >= seg - 1e-3);
+    const P = sbPoseAt(vt, raw >= segB - 1e-3);
     const key = '_sbP' + id;
     const st = H[key] || (H[key] = { L: -9, R: -9, pL: 0, pR: 0 });
     const one = (side, fm, ar) => {
@@ -1458,9 +1484,21 @@ export class Session {
     const b1aL = floorArrow(-0.04, B1AZ, 90, BRAND.sand, 0.22, 1.55);
     const b1aR = floorArrow(0.04, B1AZ, -90, BRAND.sand, 0.22, 1.55);
     b1aL._gain = 0; b1aR._gain = 0;
-    this.bkB1 = { zone: b1zone, num: b1num, sL: b1sL, sR: b1sR, aL: b1aL, aR: b1aR,
+    // 드리블 매트 — '원 하나만 덩그러니'(유저 08-06 재지적)의 답. 새 그래픽이 아니라 **이미 있는**
+    //   스탠스 박스 토큰(fx-core drawStanceBox)을 지면에 눕힌 것. 실물 드리블 매트와 같은 역할:
+    //   테두리 = 내 구역(발자국·링·숫자가 전부 이 안에 들어온다) · 도트가 차오름 = 10회 진행.
+    //   feet:0 — 매트 중앙은 바운스 링 자리다. 스탠스는 진짜 발마크(b1sL/R)가 담당한다.
+    // 폭은 감이 아니라 빔 창에서 온다: 매트 앞모서리 z −2.50 → d 0.91 → 창 반폭 0.498, 페더 0.25.
+    // ponytail: 사각 매트 vs 사다리꼴 빔 — 앞모서리 코너는 페더에 걸려 살짝 흐려진다.
+    //   거슬리면 B1_MAT 을 줄이고, 창 모양대로 자르려면 새 프림(사다리꼴)이 필요하다.
+    const B1_MAT = 0.70;
+    const b1mat = primPanel('stanceBox', B1_MAT / 0.636, false);   // 0.636 = 캔버스 내 박스 폭비(140/220)
+    b1mat._prim.P = { feet: 0, round: 0.35, prog: 0 };
+    b1mat.position.set(0, 0.0125, B1Z);   // 링(0.013)·숫자(0.016) 아래 — 매트가 바닥면이다
+    b1mat.material.opacity = 0;
+    this.bkB1 = { zone: b1zone, num: b1num, sL: b1sL, sR: b1sR, aL: b1aL, aR: b1aR, mat: b1mat,
       count: 0, _shown: -1, _wasLow: false, _popT: -9, _setupDone: false };
-    g.add(b1zone, b1num, b1sL.group, b1sR.group, b1aL, b1aR);   // 지시문은 피그마 프레임 헤더가 담당(유저)
+    g.add(b1zone, b1num, b1sL.group, b1sR.group, b1aL, b1aR, b1mat);   // 지시문은 피그마 프레임 헤더가 담당(유저)
 
     g = this._mk('BK_B2');
     // B2 · 크로스오버 — 좌우 바운스 존 교대 점등. '공이 우리 평면에 닿는 지점'이 곧 커서라
@@ -1540,7 +1578,7 @@ export class Session {
     };
     this.bkB3x = buildStepback('BK_B3', false);
     this.bkB4x = buildStepback('BK_B4', true);
-    this.bkB5x = buildStepback('BK_B5', false);
+    this.bkT1x = buildStepback('BK_T1', false);   // 전체 재생 — 조각과 같은 판정 골격을 쓴다
     this.bkC2x = buildStepback('BK_C2', true);
 
     g = this._mk('BK_T2');   // 카운트 공통(countGroup) 사용 — 별도 지오메트리 없음
@@ -2862,12 +2900,13 @@ export class Session {
     else if (id[3] === 'A' || id[3] === 'B') this.bobY = 0.007 * Math.sin(this.t * 1.8);
     else this.bobY = 0;
 
-    if (id === 'BK_READY' || id === 'BK_T1') {
+    // ★ BK_T1 은 여기서 빠졌다 — 빈 전환(4.5초 탭 대기)이 아니라 **전체 재생 스테이지**가 됐다.
+    //   아래 스텝백 분기가 받는다(조각들과 같은 판정 골격, need 1회).
+    if (id === 'BK_READY') {
       // 러닝과 동일 규격·타이밍 — 시작화면은 종목 한 벌이다(유저 승인 08-05).
-      if (id === 'BK_READY') this._readyFeetTick();
-      const tap = id === 'BK_READY' ? this.bkTap : this.bkTap1; const k = 0.5 + 0.5 * Math.sin(this.t * 4);
+      this._readyFeetTick();
+      const tap = this.bkTap; const k = 0.5 + 0.5 * Math.sin(this.t * 4);
       tap.children[0].material.opacity = 0.5 + 0.45 * k; tap.children[1].material.opacity = 0.5 + 0.45 * (1 - k);
-      if (id === 'BK_T1' && this.t >= 4.5) { this.next(); return; }
     } else if (id === 'BK_A3') {
       // 스쿼트(2안) = 발자국 없이 큰 중앙 링 + 깊이 채움 아크 + 중앙 큰 카운트 + 깊이 펄스(발 고정이라 발마크 무의미).
       const S = this.bkSquat;
@@ -3025,7 +3064,7 @@ export class Session {
       this._bkStrId = 'BK_B1';
       if (!this._followLatch) {   // 관찰 5초 — 코치 실루엣+Preview 필만, 가이드 전부 숨김(유저: 훈련 전체)
         H.sL.op(0); H.sR.op(0); H.aL._gain = 0; H.aR._gain = 0;
-        H.zone.setOp?.(0); H.num.material.opacity = 0;
+        H.zone.setOp?.(0); H.num.material.opacity = 0; H.mat.material.opacity = 0;
         this.bkB1Setup = false; this.bkB1Succ = null; this.bkB1Widen = null;
         this.demoActive = true;
         FMU('먼저 보세요 — 로우 드리블', CS.prism);
@@ -3036,6 +3075,9 @@ export class Session {
       // 막0 · 스탠스 셋업(4초): 넓은 발자국 2개만 보여주고 밟게 한다 — 이후 퇴장(페이드)
       // 셋업 타임라인(유저·피그마 130-2984): 0~0.8 모은 자세 → 0.8~3.0 ←→ 화살표와 함께 벌어짐
       //   → 3.0 Success(마크 블룸+파형+피그마 배지) → 3~6 카운트다운 링 3·2·1 → 본 연습.
+      // 매트는 따라하기 시작(셋업 0초)에 깔린다 — 발자국을 그 위에 놓고 밟게 하는 게 순서다.
+      H.mat.material.opacity = Math.min(1, Math.max(0, tB / 0.5)) * 0.85;
+      H.mat._prim.P.prog = Math.min(1, H.count / TOTAL);   // 테두리 도트가 차오름 = 남은 회차
       const W_END = 3.0, SETUP = 6.0, inSetup = tB < SETUP;
       this.bkB1Setup = inSetup;
       const wk = tB < 0.8 ? 0 : Math.min(1, (tB - 0.8) / (W_END - 0.8));
@@ -3191,12 +3233,12 @@ export class Session {
       FMU(`Break Down · ${H.beat + 1}/4 — ${BEATN[H.beat]}`, CS.sand);
       this.repLeft = 4 - H.beat; this.repTotal = 4; this.repFrac = H.beat / 4;
       if (this.t >= MAXSEC) { this.next(); return; }
-    } else if (id === 'BK_B3' || id === 'BK_B4' || id === 'BK_B5' || id === 'BK_C2') {
+    } else if (id === 'BK_T1' || id === 'BK_B3' || id === 'BK_B4' || id === 'BK_C2') {
       // 스텝백 연속 단계 — 같은 판정, 파라미터만 다르다.
-      //   B3 0.5배속·3회 / B4 정속·5회 / C2 실전(무작위 방향·릴리즈 판정)·3회
+      //   T1 전체 재생(관찰만·1회) / B3·B4 0.5배속·3회 / C2 실전(무작위 방향·릴리즈 판정)·3회
       const LIVE = id === 'BK_C2';
-      const CFG = { BK_B3: { per: 2.2, need: 3 }, BK_B4: { per: 2.2, need: 3 }, BK_B5: { per: 2.0, need: 3 }, BK_C2: { per: 0.9, need: 3 } }[id];
-      const H = { BK_B3: this.bkB3x, BK_B4: this.bkB4x, BK_B5: this.bkB5x, BK_C2: this.bkC2x }[id];
+      const CFG = { BK_T1: { per: 2.3, need: 1 }, BK_B3: { per: 2.2, need: 3 }, BK_B4: { per: 2.2, need: 3 }, BK_C2: { per: 0.9, need: 3 } }[id];
+      const H = { BK_T1: this.bkT1x, BK_B3: this.bkB3x, BK_B4: this.bkB4x, BK_C2: this.bkC2x }[id];
       // ★ **되감김도 재진입이다**(유저: 가이드 화살표 왜 날아갔어).
       //   화살표를 '첫 턴에만'(H.count < 1) 으로 바꿨는데, count 를 **스테이지가 바뀔 때만** 리셋해서
       //   씬 프리뷰 루프(t 가 0 으로 되감김)에서는 한 번 턴이 끝나면 영영 0 으로 못 돌아왔다 —
@@ -3348,15 +3390,17 @@ export class Session {
         if ((H._prevVt ?? 0) > vt + 0.3) H.count = (H.count || 0) + 1;   // 되감김 = 1회 완료
         H._prevVt = vt;
         this.repTotal = NEED; this.repLeft = Math.max(0, NEED - (H.count || 0));
-        this.repFrac = Math.min(1, ((H.count || 0) + vt / STEP_SEG.BK_C2) / NEED);
+        // 구간이 [a,b] 라 진행률은 **a 를 빼고** 재야 한다 — 안 빼면 첫 프레임부터 46% 로 시작한다.
+        const [cA, cB] = STEP_SEG.BK_C2;
+        this.repFrac = Math.min(1, ((H.count || 0) + (vt - cA) / (cB - cA)) / NEED);
         if (H.count >= NEED && !this.bkShotNow) { this.bkShotNow = true; this._shotT = this.t;
           this._say('bkc2shot', '커리', '그거예요 — 슛! 오늘 내 무브, 완전히 가져갔네요.'); }
         if (this.bkShotNow && this.t - (this._shotT ?? 0) > 1.6) { this.bkShotNow = false; this.next(); return; }
       }
-      const BEATN = { BK_B2: ['① 무릎 구부리고', '② 낮은 자세 유지', '③ 들어가는 척!', '④ 그대로 준비'],
-        BK_B3: ['① 준비', '② 오른발 딛고', '③ 공을 왼쪽으로!', '④ 시선 유지'],
-        BK_B4: ['① 준비', '② 왼발 크게 뻗어', '③ 두 손으로 잡기!', '④ 밸런스'],
-        BK_B5: ['① 준비', '② 오른발 모으고', '③ 수직으로!', '④ 슛!'],
+      const BEATN = { BK_T1: ['① 딛고', '② 빠지고', '③ 모으고', '④ 이게 전부예요'],
+        BK_B2: ['① 준비', '② 오른발 크로스', '③ 공은 반대로!', '④ 왼발 버팀'],
+        BK_B3: ['① 준비', '② 왼발로 밀어', '③ 뒤로 쓱!', '④ 두 손으로 잡기'],
+        BK_B4: ['① 준비', '② 오른발 모으고', '③ 수직으로!', '④ 슛!'],
         BK_C2: ['① 시작 자리', '② 플랜트 — 안으로', '③ 스텝백!', '④ 슛!'] }[id] || ['①', '②', '③', '④'];
       const left = Math.max(0, CFG.need - H.count);
       this.repLeft = left; this.repTotal = CFG.need; this.repFrac = Math.min(1, H.count / CFG.need);

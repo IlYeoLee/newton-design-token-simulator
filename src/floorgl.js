@@ -921,13 +921,13 @@ const CAPS = {
   //     프리뷰 아닌데 프리뷰라 뜬다, 기준이 모호하다). 기준을 문장으로 못박는다.
   A3:    { watch: 'video', adv: 'time' },
   BK_A1: { watch: 'video', adv: 'time' },
-  BK_A3: { watch: 'video', adv: 'time' },              // 스쿼트 = 반복 → 관찰 없음
   BK_B1: { watch: 'video', adv: 'reps', reps: 10 },    // 드리블 10회 = 반복 → 관찰 없음
-  // 스텝백 4조각 — 동작을 해내면 넘어간다. 시간도 횟수도 아니다.
-  BK_B2: { watch: 'slow', adv: 'skill', step: '1/4', pv: true, uiK: 0.80 },
-  BK_B3: { watch: 'slow', adv: 'skill', step: '2/4', pv: true, uiK: 0.80 },
-  BK_B4: { watch: 'slow', adv: 'skill', step: '3/4', pv: true, uiK: 0.80 },
-  BK_B5: { watch: 'slow', adv: 'skill', step: '4/4', pv: true, uiK: 0.80 },
+  // 전체 재생 — 조각을 배우기 전 완성형 1회. **관찰만 있는 스테이지**라 pv 는 참이고 따라하기가 없다.
+  BK_T1: { watch: 'slow', adv: 'skill', pv: true, uiK: 0.80 },
+  // 스텝백 3조각 — 동작을 해내면 넘어간다. 시간도 횟수도 아니다.
+  BK_B2: { watch: 'slow', adv: 'skill', step: '1/3', pv: true, uiK: 0.80 },
+  BK_B3: { watch: 'slow', adv: 'skill', step: '2/3', pv: true, uiK: 0.80 },
+  BK_B4: { watch: 'slow', adv: 'skill', step: '3/3', pv: true, uiK: 0.80 },
 };
 /** ── adv 정본 — **CAPS 밖에 둔다.**
  *  CAPS 는 캡슐 페인터만 조회한다. P·C 스테이지는 `_paint()` 에서 이미 갈라져 레거시 칼럼
@@ -962,8 +962,8 @@ const ADV = {
   A1: 'time', A2: 'hold', A3: 'time',
   P1: 'time', P2: 'segment', P3: 'segment',
   C1: 'count', C2: 'time', C3: 'time', C4: 'distance', C5: 'none',
-  BK_A1: 'time', BK_A3: 'time', BK_B1: 'reps',
-  BK_B2: 'skill', BK_B3: 'skill', BK_B4: 'skill', BK_B5: 'skill',
+  BK_A1: 'time', BK_B1: 'reps',
+  BK_T1: 'skill', BK_B2: 'skill', BK_B3: 'skill', BK_B4: 'skill',
   BK_C1: 'count', BK_C2: 'reps',
 };
 /** 이 장면이 **따라하기 구간에** 두는 시간 표시. 관찰(프리뷰) 카운트는 여기 해당 없음 —
@@ -1293,7 +1293,7 @@ function buildScene(stage, p) {
   const isP = /^P\d$/.test(stage);
   const isC = /^C[2-5]$/.test(stage);
   const hasPrev = hasPreview(stage);   // 정본 = CAPS.pv (정규식 두 벌 폐기)
-  const isStep = /^BK_B[2345]$/.test(stage);
+  const isStep = /^(BK_T1|BK_B[234])$/.test(stage);
   const col = [];
   // 머리말 = 벽(wallgl _paint_scene)과 같은 [단계 → 제목 → 진행] 묶음.
   //   데이터(FLOOR_PHASES · phase · sub)는 처음부터 있었는데 그리질 않아 지면만 제목 하나로
