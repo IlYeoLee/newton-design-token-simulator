@@ -1121,6 +1121,8 @@ function drawJJH(g, X, Y, W, t) {
   g.drawImage(_jjhAP, pts[ni][0] - bs / 2, pts[ni][1] - bs / 2, bs, bs);
   g.restore();
 }
+let _mlogo = null;
+function _matLogo() { if (!_mlogo) { _mlogo = new Image(); _mlogo.src = 'newton-logo.svg'; } return _mlogo; }
 function drawMatCard(t) {
   const cv = $('mat'); if (!cv) return;
   const W = 1080;
@@ -1139,7 +1141,7 @@ function drawMatCard(t) {
       { x: 0.32, y: -0.48, n: 4, r: 0.19, on: false },
     ],
     ruler: { w: 1.6, h: 2.2 }, title: 'LOW DRIBBLE', brand: 'NEWTON',
-  }, { halo: P.halo }, t, _primEnv());
+  }, { halo: P.halo }, t, Object.assign(_primEnv(), { logo: _matLogo() }));
   const c = cv.getContext('2d');
   c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, W, W);
   c.drawImage(off, 0, 0);

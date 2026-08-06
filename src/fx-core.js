@@ -1887,20 +1887,6 @@ export function drawDribbleMat(g, W, P, look, t, ENV) {
   const cU = P.center ? P.center.x : 0, cV = P.center ? P.center.y : 0;
   const CR = (P.center && P.center.r != null ? P.center.r : 0.26) * W / 2;
 
-  // ── 코너 브래킷 — 판이 어디서 끝나는지 못 박는 얇은 크롬. 색 없음
-  if (P.bracket !== 0) {
-    const L = 0.18;
-    g.lineWidth = 3.4 * AW * s; g.strokeStyle = INK(0.8);
-    for (const sg of [-1, 1]) {
-      const seg = (a, b, c) => { g.beginPath(); g.moveTo(X(a[0]), Y(a[1]));
-        g.quadraticCurveTo(X(b[0]), Y(b[1]), X(c[0]), Y(c[1])); g.stroke(); };
-      seg([sg * halfAt(M.fy - L), M.fy - L], [sg * M.fx, M.fy], [sg * (M.fx - L), M.fy]);
-      g.strokeStyle = INK(0.34);                       // 가까운 쪽은 림과 같이 어둡다
-      seg([sg * halfAt(M.ny + L), M.ny + L], [sg * M.nx, M.ny], [sg * (M.nx - L * 0.8), M.ny]);
-      g.strokeStyle = INK(0.8);
-    }
-  }
-
   // ── 눈금자 — 잰 공간이라는 부호. 3급 정보라 아주 얇고 옅다
   if (P.ruler) {
     const RH = P.ruler.h, RW = P.ruler.w;
@@ -1924,7 +1910,7 @@ export function drawDribbleMat(g, W, P, look, t, ENV) {
   // ── 타이틀 — 판의 이름. 크림 뉴트럴(정보는 무채, 색은 판정)
   if (P.title) {
     const ty = Y(M.fy) + 30 * s;
-    label(P.title, X(0), ty, 17 * s, INK(0.92), 0.32);
+    label(P.title, X(0), ty, 17 * s, INK(0.92), 0.14);
     g.font = '400 ' + 13 * s + 'px "Supreme", sans-serif';
     const half = g.measureText(P.title).width * 0.8;
     g.fillStyle = INK(0.4); g.textAlign = 'center'; g.textBaseline = 'middle';
@@ -1985,7 +1971,7 @@ export function drawDribbleMat(g, W, P, look, t, ENV) {
     }
     if (P.center.label) {
       const ls = String(P.center.label).split('\n');
-      ls.forEach((ln, i) => label(ln, cx, cy + (i - (ls.length - 1) / 2) * 15 * s, 12 * s, INK(0.9), 0.24));
+      ls.forEach((ln, i) => label(ln, cx, cy + (i - (ls.length - 1) / 2) * 15 * s, 12 * s, INK(0.9), 0.14));
     }
   }
 
@@ -2003,7 +1989,13 @@ export function drawDribbleMat(g, W, P, look, t, ENV) {
   }
 
   // ── 워드마크 — 실물 매트가 브랜드를 박는 그 자리. 4급이라 가장 옅다
-  if (P.brand) label(P.brand, X(0), Y(M.ny) + 30 * s, 12 * s, INK(0.34), 0.62, 400);
+  // 브랜드 — 자간 준 글자로 워드마크를 흉내 내지 않는다. 실제 로고 에셋(ENV.logo)을 쓴다.
+  if (P.brand && ENV.logo && ENV.logo.complete && ENV.logo.naturalWidth) {
+    const lw = M.nx * W * 0.34, lh = lw * ENV.logo.naturalHeight / ENV.logo.naturalWidth;
+    g.globalAlpha = 0.42;
+    g.drawImage(ENV.logo, X(0) - lw / 2, Y(M.ny) + 20 * s, lw, lh);
+    g.globalAlpha = 1;
+  }
 
   // ── 진행 — 림이 상단 중앙부터 밝아지며 한 바퀴(반복 카운트). 판정이 아니라 크롬이다
   if (P.prog > 0.001) {

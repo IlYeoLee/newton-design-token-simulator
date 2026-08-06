@@ -448,7 +448,14 @@ function livePrimEnv() {
     // 촉(LIFT_TIP·TIP_TRI) = 도형 슬롯 — foot 과 같은 drawGlyph 경로. 빠져 있어서 회전·곡선
     //   화살표만 폴백 스트로크 촉이 나왔다(유저: 랩 승격이 시뮬에 이식 안 됨). 숫자 금지 규약과 무관.
     glyph: drawGlyph,
+    // 브랜드 로고 — 자간 준 글자로 워드마크를 흉내 내던 걸 실제 에셋으로 바꾼다(유저).
+    logo: _logoImg(),
   };
+}
+let _logo = null;
+function _logoImg() {
+  if (!_logo) { _logo = new Image(); _logo.src = import.meta.env.BASE_URL + 'newton-logo.svg'; }
+  return _logo;
 }
 const PRIM_PANELS = [];
 function primPanel(kind, sizeM, wall) {
@@ -1561,9 +1568,8 @@ export class Session {
       center: { x: 0, y: toV(0.95), r: 0.15 / (MAT_SIZE / 2), ring: 0, label: null },
       // 표적은 3D 판정 토큰(b1tg)이 그린다 — 프림은 그 사이를 잇는 레일만 안다.
       rails: B1_TG.map(tg => ({ x: toU(tg.x), y: toV(tg.d), r: tg.r / (MAT_SIZE / 2), on: tg.on })),
-      // 눈금자·워드마크 = 매트의 신원. 타이틀은 **안 넣는다** — 대지 알약이 이미 스테이지명을 말한다.
-      ruler: { w: 2 * matInk(MAT_D0), h: MAT_D1 - MAT_D0 },
-      brand: 'NEWTON',
+      // 눈금자는 뺐다 — 운동 중에 '0.5 m'를 읽을 사람은 없다. 도면·합성용이라 랩에서만 켠다.
+      brand: 1,
     };
     b1mat.position.set(0, 0.0125, b1matZ);   // 링(0.013)·숫자(0.016) 아래 — 매트가 바닥면이다
     b1mat.material.opacity = 0;
@@ -2459,8 +2465,21 @@ export class Session {
     //   발자국을 세우지 않는다. 지면만 발 두 짝이 서 있으면 세 화면이 다른 물건으로 읽힌다.
     //   '두 번 탭'은 이미 CTA 문구 + 하단 광의 톡·톡 두 번(floorgl tapB)이 말하고 있다.
     //   되살리려면 floorgl 의 READY_OPT.feetTokens 를 true 로.
-    if (!READY_OPT.feetTokens) { F.forEach(f => { f.group.visible = false; }); return; }
+    // ★ 최종확정 안(READY_OPT.final)에는 발자국이 **있다** — 피그마 423:3478 '2안' 하단.
+    //   대신 구간이 다르다: 기존 안은 인물 화면(0.25~2.2s)의 CTA 옆, 최종확정은 CTA 가
+    //   숫자 화면과 한 몸이라 2.9s 부터 루프 끝까지 서 있는다(floorgl _paint_ready_final 의 p3).
+    if (!READY_OPT.feetTokens && !READY_OPT.final) { F.forEach(f => { f.group.visible = false; }); return; }
     const tl = this.readyPhase != null ? this.readyPhase : (this.t % 8);   // 지면 UI 와 같은 시계(main 이 넘긴다)
+    if (READY_OPT.final) {
+      const a2 = Math.min(1, Math.max(0, (tl - 2.9) / 0.5));
+      F.forEach(f => {
+        f.group.visible = a2 > 0.01;
+        if (!f.group.visible) return;
+        f.tapHint(this.t);
+        f.op(f._U.uFade.value * a2);
+      });
+      return;
+    }
     // ★ 하단 슬롯 타임라인 = floorgl _paint_ready 의 **CTA 구간**과 한 몸이다. 발자국은
     //   'Tap Twice' 양옆에 서는 물건이라 CTA 가 없는 시각에 뜨면 뜬금없다.
     //   순서 재배치(08-05, 피그마 379:3282→377:3060→379:3364) 로 CTA 가 **0.25~2.2s** 로
