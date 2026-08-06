@@ -2103,16 +2103,29 @@ export function drawDribbleMat(g, W, P, look, t, ENV) {
 
   // ── 액티브 타깃 — 화면에서 **유일한 색 사건**. 지금 겨눌 자리
   if (P.center) {
-    const cx = X(cU), cy = Y(cV);
+    const cx = X(cU), cy = Y(cV), GBc = 13 * look.halo * (DAY ? 0.45 : 1);
     const pool = g.createRadialGradient(cx, cy, CR * 0.1, cx, cy, CR * 1.6);
     pool.addColorStop(0, rgbaL(0.42, 0.30)); pool.addColorStop(0.6, rgbaL(0.35, 0.12));
     pool.addColorStop(1, rgbaL(0.3, 0));
     g.fillStyle = pool; g.beginPath(); g.arc(cx, cy, CR * 1.6, 0, Math.PI * 2); g.fill();
-    if (P.center.ring !== 0) {
-      g.strokeStyle = rgbaL(0.3, 0.30); g.lineWidth = LNW * 0.85;   // 미진행 트랙 — 진행 획이 위를 덮는다
-      g.shadowColor = lut(0.42); g.shadowBlur = 18 * s;
-      g.beginPath(); g.arc(cx, cy, CR, 0, Math.PI * 2); g.stroke(); g.shadowBlur = 0;
-    }
+    // ★ 허브도 **노드와 같은 재질**이다(유저). 밝은 코트 플레이트에 얹고 재보니 허브만 무너졌다 —
+    //   노드 1~4 는 솔리드 채움 + 굵은 림이라 살아남는데 허브는 pool 그라디언트뿐이라 바닥에 녹았다.
+    //   같은 조건에서 잽잽훅 노드·화살표 촉도 멀쩡했다(둘 다 솔리드 면이다). 즉 주간에 살아남는
+    //   것은 **면적과 채도**지 글로우가 아니다 — 허브만 그 문법 밖에 있었다.
+    //   가운데는 표적 5번이므로 채움·림·크기 규약을 노드와 공유한다(live 면 1.34배도 같이).
+    const cLive = !!P.center.live;
+    const CRL = CR * (cLive ? 1.34 : 1);
+    g.shadowBlur = GBc * 1.4; g.shadowColor = lut(0.5);
+    g.fillStyle = DAY ? lut(cLive ? 0.26 : 0.62) : lut(cLive ? 0.5 : 0.36);
+    g.beginPath(); g.arc(cx, cy, CRL * 0.88, 0, Math.PI * 2); g.fill();
+    g.shadowBlur = 0;
+    g.save(); g.translate(cx, cy);
+    volRing(g, lut, CRL, cLive ? 0.8 : 0.5, cLive ? 0.9 : 0.5, LNW * 0.9, GBc);
+    g.restore();
+    g.strokeStyle = lut(cLive ? 0.8 : 0.45);
+    g.lineWidth = LNW * (cLive ? 1.3 : 0.9);
+    g.shadowBlur = cLive ? GBc * 1.6 : GBc * 0.6; g.shadowColor = lut(0.5);
+    g.beginPath(); g.arc(cx, cy, CRL, 0, Math.PI * 2); g.stroke(); g.shadowBlur = 0;
     if (P.brand && ENV.logo && ENV.logo.complete && ENV.logo.naturalWidth) {
       const lw = CR * 1.05, lh = lw * ENV.logo.naturalHeight / ENV.logo.naturalWidth;
       g.globalAlpha = 0.5 * hubK;                 // 허브 정중앙 — 판정 링 안이 브랜드 자리다
