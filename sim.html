@@ -1,0 +1,69 @@
+<!doctype html><html lang=ko><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1">
+<title>NEWTON 시뮬레이터 — 재건 ① 발자국</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>👣</text></svg>">
+<style>html,body{margin:0;height:100%;background:#0A0C10;overflow:hidden}canvas{display:block}</style>
+</head><body>
+<script type="module">
+import * as THREE from 'three';
+import { GLYPHS, footSDFTexture } from '/src/fxlut.js';
+import { makeMarkFXMaterial, applyMarkLookTo, FOOT_PLANE_M, QUAD_K } from '/src/tokens.js';
+
+// 하프톤 스킨(uHT) — 실루엣 **전체**를 등간격 점으로 뚫고, 점 크기는 압력을 따른다.
+// 각인 도트(uImp)는 자국 안쪽만 덮으므로 끈다 — 두 벌이 겹치면 격자가 두 겹이 된다.
+const LOOK = { rip: 0, halo: 0, imp: 0, edgeShade: 0, shadeRed: 0, pool: 0.9 };
+
+const SPREAD = 0.189;   // 좌우 간격(m) — FootMark.READY_SPREAD (피그마 342:3057)
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(2, devicePixelRatio));
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+document.body.append(renderer.domElement);
+
+const scene = new THREE.Scene();
+const cam = new THREE.PerspectiveCamera(38, 1, 0.05, 20);
+cam.position.set(0, 0.62, 0.5); cam.lookAt(0, 0, -0.02);   // 발자국을 크게 — 도트를 눈으로 볼 수 있게
+
+// 발자국 2개 = 세션 FootMark 과 같은 부품(발형 SDF + MARK 셰이더). 새로 그리지 않는다.
+const mats = [];
+function build() {
+  if (mats.length) return;
+  const tex = [footSDFTexture(false), footSDFTexture(true)];
+  if (tex.some(t => !t)) return;                     // 글리프 로드 전 — GLYPHS.onLoad 가 다시 부른다
+  const S = FOOT_PLANE_M * QUAD_K;                   // 성인 240mm 를 채움비로 역산한 쿼드
+  tex.forEach((t, i) => {
+    const mat = makeMarkFXMaterial(t);
+    mat.uniforms.uOut.value = 0;                     // 컴포저(OutputPass) 없는 raw 경로 규약
+    const plane = new THREE.Mesh(new THREE.PlaneGeometry(S, S), mat);
+    plane.rotation.z = THREE.MathUtils.degToRad(i ? 3 : -3);   // 발 벌림 각 — footlab 정본
+    const g = new THREE.Group();
+    g.add(plane);
+    g.rotation.x = -Math.PI / 2;
+    g.position.set(i ? SPREAD / 2 : -SPREAD / 2, 0.013, 0);
+    scene.add(g);
+    applyMarkLookTo(mat, LOOK);
+    mat.uniforms.uHT.value = 1;
+    mat.uniforms.uHTWave.value = 0;      // 점이 꿈틀대면 그게 '일렁이는 광'이다
+    mat.uniforms.uHTPitch.value = 0.024;   // 발 폭에 26줄 — 레퍼런스 깔창과 같은 밀도
+    mat.uniforms.uPhase.value = 2; mat.uniforms.uProg.value = 0;   // 가장 진한 상태
+    // ★ uNumTex 가 null 이면 sampler2D 가 0번 유닛을 다른 타입과 공유해 프로그램 검증이 깨진다
+    //   (VALIDATE_STATUS false → 화면이 통째로 빈다). 안 쓰더라도 아무 텍스처나 물려 둔다.
+    mat.uniforms.uNumTex.value = mat.uniforms.uLUT.value;
+    mats.push(mat);
+  });
+}
+GLYPHS.onLoad(build); build();
+
+const resize = () => {
+  renderer.setSize(innerWidth, innerHeight);
+  cam.aspect = innerWidth / innerHeight; cam.updateProjectionMatrix();
+};
+addEventListener('resize', resize); resize();
+
+const clock = new THREE.Clock();
+renderer.setAnimationLoop(() => {
+  const t = clock.getElapsedTime();
+  for (const m of mats) m.uniforms.uTime.value = t;
+  renderer.render(scene, cam);
+});
+window.__sim = { scene, cam, mats };                 // 다음 조각 붙일 때 콘솔에서 잡는 손잡이
+</script></body></html>

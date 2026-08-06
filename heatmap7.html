@@ -1,0 +1,128 @@
+<!doctype html><html lang=ko><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1">
+<title>NEWTON 발자국 — 접지 프린트 그라디언트 7상태</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌡️</text></svg>">
+<style>
+  html,body{margin:0;min-height:100%;background:#0A0C10;color:#E9EAEE;
+    font:12px/1.5 -apple-system,'Malgun Gothic',sans-serif;display:grid;place-items:center}
+  .wrap{padding:24px}
+  canvas{display:block;width:min(96vw,1540px);height:auto;border-radius:12px;background:#0A0C10}
+  .labels{display:grid;grid-template-columns:repeat(7,1fr);margin-top:10px}
+  .labels span{text-align:center;color:#98A1AD;font-size:12px;letter-spacing:.4px}
+  .labels b{display:block;color:#E9EAEE;font-size:13px;font-weight:600}
+  .ramp{margin-top:18px;height:14px;border-radius:7px}
+  .rampx{display:flex;justify-content:space-between;color:#98A1AD;font-size:11px;margin-top:5px}
+  .rows{display:flex;gap:16px;color:#98A1AD;font-size:12px;margin:0 0 8px}
+</style></head><body>
+<div class=wrap>
+  <div class=rows><span>윗줄 · 원본(정본 룩)</span><span>아랫줄 · 그라디언트판</span></div>
+  <canvas id=c></canvas>
+  <div class=labels id=lb></div>
+  <div class=ramp id=ramp></div>
+  <div class=rampx><span>고압</span><span>저압</span></div>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { GLYPHS, footSDFTexture, FXP, rebuildLUT } from '/src/fxlut.js';
+import { buildLUT } from '/src/fx-core.js';
+import { STOPS } from '/src/palette.js';
+import { makeMarkFXMaterial, applyMarkLookTo, setMarkStateLook, setMarkLoad, FOOT_LEN_M, FOOT_PLANE_M, QUAD_K } from '/src/tokens.js';
+
+// 실내신발 = 겉은 **깔창 실루엣**, 안은 맨발 접지 프린트(발가락·아치). SDF 두 채널이 그 둘이다.
+FXP.footCtx = 'out';
+
+// ── 램프 = 뉴턴 정본(레드→코랄→샌드→프리즘). 새 색을 만들지 않는다(유채 4색 규칙).
+// LUT 좌표는 **차가운 정도**다(mkR 이 1−압력을 넘긴다) — 0 = 고압(레드), 1 = 저압.
+const lutData = rebuildLUT();
+// 아래 띠 미리보기도 같은 데이터에서 — 두 벌이 되면 반드시 어긋난다
+ramp.style.background = 'linear-gradient(90deg,' + Array.from({ length: 33 }, (_, i) => {
+  const j = Math.round(i / 32 * 255) * 4;
+  return `rgb(${lutData[j]},${lutData[j + 1]},${lutData[j + 2]}) ${i / 32 * 100}%`;
+}).join(',') + ')';
+
+// ── 7상태 (footlab STATES 정본. 8번째 Tap2 는 Locked 와 같은 슬롯이라 제외) ──
+// ★ Success ↔ Miss 를 맞바꿨다(유저): 예전 Miss 의 밝고 환한 룩이 오히려 성공으로 읽혔다.
+//   바꾼 건 이 표의 ph 뿐이다 — 상태 디자인이 서로 자리를 옮겼을 뿐, 새로 그린 건 없다.
+//   그리고 Miss 는 **회색조** — 실패는 유채로 칭찬하지 않는다(규칙 ②: 무채는 상태 부호).
+const STATES = [
+  { n: 'Preview', ph: 0, p: 0 },   { n: 'Active', ph: 1, p: 0.45 }, { n: 'Hold', ph: 5, p: 0.62 },
+  { n: 'Success', ph: 4, p: 0 },   { n: 'Miss',   ph: 2, p: 0, gray: true }, { n: 'Warning', ph: 6, p: 0 },
+  { n: 'Locked', ph: 3, p: 0 },
+];
+// 회색조 램프 — 같은 STOPS 를 채도 0 으로 굽는다(buildLUT sat 인자). 새 색이 아니라 같은 색의 명도다.
+const grayData = buildLUT(STOPS, 0);
+const grayLut = new THREE.DataTexture(grayData, 256, 1, THREE.RGBAFormat);
+grayLut.minFilter = grayLut.magFilter = THREE.LinearFilter;
+grayLut.wrapS = grayLut.wrapT = THREE.ClampToEdgeWrapping;
+grayLut.needsUpdate = true;
+lb.innerHTML = STATES.map((s, i) => `<span><b>${s.n}</b>${i + 1} · ph${s.ph}</span>`).join('');
+
+// 프린트 룩 — 도트·파동·적열을 끄고 압력장만 남긴다. 발 모양을 따라 고이는 그라디언트가 전부다.
+//   loadGain 은 **낮게** 둔다. 핫스팟이 세면 앞볼·뒤꿈치 덩어리 두 개로 뭉쳐서
+//   발가락도 아치도 안 읽힌다(실측). 바닥값을 올려 형태가 먼저 보이게 하고 온도는 그 위에.
+// ★ op:1 — Locked 저장본이 Tap2(속 빈 고스트, op 0)라 그것만 통째로 사라진다(7칸 중 1칸).
+// ★ tLo/tHi 0 — Locked 가 좁혀 둔 무채 온도창을 상태 기본으로 되돌린다.
+// ★ 겹쳐 그리지 않는다 — 각인·이너섀도우·윤곽 글로우·적열 전부 0.
+//   화면에 있는 건 **압력값 하나를 LUT 로 읽은 색**뿐이다. 형태는 그 값이 그린다.
+//   loadBase 를 1 로 올리고 loadGain 을 거의 0 으로 내리면, 압력 = plantar 의 depth 항
+//   (= 깔창 깊이 × 맨발 프린트 깊이) 이 되어 값 자체가 발가락·아치 모양을 갖는다.
+//   해부학 블롭(ball/heel/toe)이 세면 그 위에 덩어리가 얹혀 프린트 형상을 덮어 버린다.
+const HEAT_LOOK = { imp: 0, glow: 0, shade: 0, rip: 0, shadeRed: 0, edgeShade: 0, halo: 0.2, op: 1,
+                    // ★ 색 축(온도 창)은 **건드리지 않는다**(0 = 상태 기본). 레드~프리즘 전 구간으로
+                    //   넓혀 봤더니 대비는 늘었지만 상태 정체성이 깨졌다 — Preview 가 흙빛으로,
+                    //   Success 가 얼음색으로 넘어간다(실측). 창은 상태의 것이다.
+                    tLo: 0, tHi: 0, dotMode: 0,
+                    // loadBase 를 더 올리면 압력이 1 로 포화해 **전체가 한 색**이 된다 —
+                    // Preview 처럼 원래 램프가 완만한 상태부터 흙빛 판때기로 죽는다(실측 0.85).
+                    plantar: 1, loadGain: 0.6, loadBase: 0.5, bands: 0, pool: 0.9 };
+const LOAD = { ball: 1.0, heel: 0.9, toe: 1.0 };   // 발가락도 접지한다 — 기본 0.5 면 안 보인다
+
+// 두 줄 — 윗줄 원본(정본 룩 그대로), 아랫줄 그라디언트판. 같은 상태를 세로로 맞대 놓고 본다.
+const ROWS = [{ n: '원본', look: null }, { n: '그라디언트', look: HEAT_LOOK }];
+const N = STATES.length, step = FOOT_LEN_M * 1.62, rowH = FOOT_LEN_M * 1.9;
+const W = N * step, H = ROWS.length * rowH;
+const PPM = 700;   // px/m — 캔버스 버퍼와 ortho 뷰의 비율을 **하나의 수**로 묶는다(찌부 방지)
+const cv = document.getElementById('c');
+cv.width = Math.round(W * PPM); cv.height = Math.round(H * PPM);
+
+const renderer = new THREE.WebGLRenderer({ canvas: cv, antialias: true, alpha: true });
+renderer.setPixelRatio(1);
+renderer.setSize(cv.width, cv.height, false);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+const scene = new THREE.Scene();
+const cam = new THREE.OrthographicCamera(-W / 2, W / 2, H / 2, -H / 2, 0.01, 10);
+cam.position.z = 2;
+
+const mats = [];
+function build() {
+  if (mats.length) return;
+  const tex = footSDFTexture(false);
+  if (!tex) return;                                  // 글리프 로드 전 — GLYPHS.onLoad 가 다시 부른다
+  const S = FOOT_PLANE_M * QUAD_K;
+  ROWS.forEach((row, r) => STATES.forEach((st, i) => {
+    const mat = makeMarkFXMaterial(tex);
+    mat.uniforms.uOut.value = 0;                     // 후처리 없는 raw 경로
+    mat.uniforms.uNumTex.value = mat.uniforms.uLUT.value;   // null 샘플러 = 검증 실패(화면 통째로 빔)
+    setMarkStateLook(mat, st.ph);                    // 상태별 저장본 — 원본 줄은 여기까지가 전부
+    if (row.look) { applyMarkLookTo(mat, row.look); setMarkLoad(mat, LOAD); }
+    if (st.gray) mat.uniforms.uLUT.value = grayLut;
+    mat.uniforms.uPhase.value = st.ph;
+    mat.uniforms.uProg.value = st.p;
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(S, S), mat);
+    m.position.x = (i - (N - 1) / 2) * step;
+    m.position.y = (ROWS.length - 1) / 2 * rowH - r * rowH;
+    scene.add(m);
+    mats.push(mat);
+  }));
+}
+GLYPHS.onLoad(build); build();
+
+const clock = new THREE.Clock();
+renderer.setAnimationLoop(() => {
+  const t = clock.getElapsedTime();
+  for (const m of mats) m.uniforms.uTime.value = t;
+  renderer.render(scene, cam);
+});
+window.__heat = { scene, cam, mats, lutData };
+</script></body></html>

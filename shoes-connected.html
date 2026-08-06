@@ -1,0 +1,169 @@
+<!doctype html><html lang=ko><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1">
+<title>SHOES CONNECTED</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>👟</text></svg>">
+<style>
+  html,body{margin:0;height:100%;background:#000;display:grid;place-items:center;
+    font:14px/1 'Arial Narrow','Roboto Condensed',Arial,sans-serif;color:#fff}
+  .phone{width:600px;height:900px;position:relative;overflow:hidden;background:#1b1b1d;
+    display:grid;grid-template-rows:38px 78px 1fr auto}
+
+  /* ── 상태바 ───────────────────────────────────────────────── */
+  .status{background:#000;display:flex;align-items:center;padding:0 10px;gap:8px;font-size:19px;letter-spacing:.3px}
+  .status .mid{flex:1;text-align:center;font-weight:700;letter-spacing:.5px}
+  .bars{display:flex;align-items:flex-end;gap:2px;height:15px}
+  .bars i{width:4px;background:#fff;border-radius:1px}
+
+  /* ── 내비게이션 ───────────────────────────────────────────── */
+  .nav{background:linear-gradient(#3a3a3c,#1c1c1e);border-bottom:1px solid #000;
+    display:flex;align-items:center;justify-content:space-between;padding:0 14px;
+    box-shadow:inset 0 1px 0 #5a5a5c}
+  .nav h1{margin:0;font-size:30px;font-weight:700;letter-spacing:1.5px;
+    text-shadow:0 -1px 0 #000;white-space:nowrap}
+  .nav button{background:linear-gradient(#4a4a4c,#232325);color:#d8d8d8;border:1px solid #0a0a0a;
+    border-radius:6px;padding:11px 14px;font-family:inherit;font-weight:700;font-size:19px;letter-spacing:1px;
+    box-shadow:inset 0 1px 0 #6a6a6c;cursor:pointer}
+
+  /* ── 무대 — 어두운 도트 텍스처 + 흐린 격자 ─────────────────── */
+  .stage{position:relative;
+    background:
+      linear-gradient(rgba(255,255,255,.028) 1px,transparent 1px) 0 0/100% 152px,
+      linear-gradient(90deg,rgba(255,255,255,.028) 1px,transparent 1px) 0 0/152px 100%,
+      radial-gradient(rgba(255,255,255,.05) .8px,transparent .9px) 0 0/4px 4px,
+      radial-gradient(120% 80% at 50% 45%,#232326,#141416 70%,#0d0d0e)}
+  .feet{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:56px}
+  .feet svg{height:470px;width:auto;display:block}
+
+  /* 배터리 — 좌/우 가장자리 */
+  .batt{position:absolute;top:50%;transform:translateY(-50%);text-align:left}
+  .batt.l{left:22px} .batt.r{right:22px}
+  .cell{width:40px;height:20px;border:2px solid #e6e6e6;border-radius:3px;padding:2px;position:relative}
+  .cell::after{content:'';position:absolute;right:-6px;top:5px;width:3px;height:8px;background:#e6e6e6;border-radius:0 2px 2px 0}
+  .cell i{display:block;height:100%}
+  .batt b{display:block;margin-top:6px;font-size:26px;font-weight:700;letter-spacing:.5px}
+  .batt b span{font-size:15px}
+
+  /* 중앙 연결 표시 */
+  .link{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);opacity:.55}
+
+  /* ── CTA ──────────────────────────────────────────────────── */
+  .cta{margin:16px;height:74px;border:0;border-radius:7px;cursor:pointer;
+    background:linear-gradient(#ff8b2b,#f04a06 52%,#e33c02);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.55),0 2px 0 #6d1c00;
+    /* ★ font 단축속성에 family:inherit 은 못 쓴다 — 'inherit' 이 글꼴 **이름**으로 파싱돼
+       조판이 통째로 기본 산세리프로 떨어진다(굵기·컨덴스드 다 날아감). 따로 쓴다. */
+    color:#3d1200;font-family:inherit;font-weight:700;font-size:40px;letter-spacing:3px;
+    text-shadow:0 1px 0 rgba(255,220,180,.4)}
+</style></head><body>
+<div class=phone>
+
+  <div class=status>
+    <span class=bars><i style="height:5px"></i><i style="height:8px"></i><i style="height:11px"></i><i style="height:14px"></i><i style="height:15px"></i></span>
+    <span>AT&amp;T</span><span style="font-weight:700">4G</span>
+    <span class=mid>4:56 PM</span>
+    <svg width="11" height="17" viewBox="0 0 11 17"><path d="M1 4.5 9.5 12.5 5.5 16.5V.5l4 4L1 12.5" fill="none" stroke="#fff" stroke-width="1.6"/></svg>
+    <svg width="28" height="14" viewBox="0 0 28 14"><rect x=".8" y=".8" width="24" height="12.4" rx="2.2" fill="none" stroke="#fff" stroke-width="1.6"/><rect x="3" y="3" width="19.6" height="8" rx="1" fill="#fff"/><rect x="26" y="4.6" width="2" height="4.8" rx="1" fill="#fff"/></svg>
+  </div>
+
+  <div class=nav>
+    <button>BACK</button><h1>SHOES CONNECTED</h1><button>HELP</button>
+  </div>
+
+  <div class=stage>
+    <div class=feet>
+      <!-- 깔창 = foot-out-l.svg 실루엣 그대로(public/ready-view/assets/glyphs) — 새로 그리지 않는다 -->
+      <svg viewBox="188 56 174 438" id=insoleL></svg>
+      <svg viewBox="188 56 174 438" id=insoleR style="transform:scaleX(-1)"></svg>
+    </div>
+
+    <div class="batt l">
+      <div class=cell><i style="width:55%;background:#f0b429"></i></div>
+      <b>55<span>%</span></b>
+    </div>
+    <div class="batt r">
+      <div class=cell><i style="width:15%;background:#e03a1a"></i></div>
+      <b>15<span>%</span></b>
+    </div>
+
+    <svg class=link width="70" height="44" viewBox="0 0 70 44" fill="none" stroke="#8a8a8a" stroke-width="3.4" stroke-linecap="round">
+      <circle cx="35" cy="22" r="3.6" fill="#8a8a8a" stroke="none"/>
+      <path d="M26 14a13 13 0 0 0 0 16M44 14a13 13 0 0 1 0 16"/>
+      <path d="M18 7a23 23 0 0 0 0 30M52 7a23 23 0 0 1 0 30"/>
+    </svg>
+  </div>
+
+  <button class=cta>GET STARTED</button>
+</div>
+
+<script type="module">
+// 깔창 실루엣 — 리포 자산 foot-out-l.svg 의 패스 그대로
+const D = 'M295.208 91.9539C346.969 146.516 334.272 224.887 321.452 257.253C305.862 298.123 334.223 321.234 337.748 326.336C345.063 336.922 368.225 367.364 372.382 402.246C376.54 437.128 359.65 466.804 323.271 473.832C286.892 480.861 252.02 442.009 243.238 391.053C236.223 350.351 226.261 316.083 219.851 304.369C183.473 248.401 176.999 217.145 177 196.371C177.001 174.203 183.213 133.864 205.3 106.531C227.387 79.1985 246.162 75.0001 261.219 75C272.538 74.9999 289.491 86.4873 295.208 91.9539Z';
+
+// 리포 실루엣은 맨발 비율(폭/길이 .49)이고 레퍼런스 깔창은 .34 다 — 가로만 줄인다.
+// 세로로 늘리면 뒤꿈치·앞볼 곡률이 뭉개진다(찌부 금지).
+const NARROW = 'translate(275,0) scale(.72,1) translate(-275,0)';
+const INSET  = 'translate(275,278) scale(.90) translate(-275,-278)';   // 열 필드를 베젤 안쪽으로
+
+// 두 짝의 차이는 **압력 세기 하나**다(55% 대 15%) — 도형·패턴·베젤은 완전히 같은 부품.
+const HEAT = {
+  L: { core: '#FFF6DC', mid: '#FF9520', rim: '#C22C06', glow: .55 },
+  R: { core: '#D2571C', mid: '#8A2A09', rim: '#3A1004', glow: .16 },
+};
+
+const svg = (id, k) => {
+  const h = HEAT[k];
+  document.getElementById(id).innerHTML = `
+  <defs>
+    <!-- 하프톤 — 등간격 도트 마스크. 밝기는 아래 열 그라디언트가 정한다(도트 크기는 고정) -->
+    <pattern id="dot${k}" width="5.3" height="5.3" patternUnits="userSpaceOnUse">
+      <circle cx="2.65" cy="2.65" r="1.8" fill="#fff"/>
+    </pattern>
+    <!-- 아치 파냄 — 마스크에 **검정**을 얹으면 그 자리가 실제로 투명해진다(도트가 사라지고
+         아래 깔창 바닥이 비친다). 발이 안 닿는 자리가 뚫리면서 그림이 발자국으로 읽힌다. -->
+    <radialGradient id="arch${k}" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#000" stop-opacity="1"/>
+      <stop offset=".62" stop-color="#000" stop-opacity=".96"/>
+      <stop offset="1" stop-color="#000" stop-opacity="0"/>
+    </radialGradient>
+    <mask id="ht${k}">
+      <rect x="150" y="50" width="260" height="450" fill="url(#dot${k})"/>
+      <!-- 마스크는 바깥 좌표계 = 화면에 보이는 그대로다(NARROW 를 받지 않는다) -->
+      <!-- 안쪽(내측) 아치 — 오른쪽 가장자리에서 파고들어, 바깥쪽에 좁은 접지 띠만 남긴다 -->
+      <!-- ry 를 키우면 뒤꿈치까지 먹는다 — 파냄은 **허리 구간만**이다(뒤꿈치는 접지면) -->
+      <ellipse cx="322" cy="332" rx="54" ry="66" transform="rotate(-12 322 332)" fill="url(#arch${k})"/>
+    </mask>
+    <!-- 압력장 — 앞볼(위)·뒤꿈치(아래)가 밝고 아치(허리)가 식는다 -->
+    <radialGradient id="base${k}" cx="50%" cy="50%" r="62%">
+      <stop offset="0" stop-color="${h.mid}"/><stop offset="1" stop-color="${h.rim}"/>
+    </radialGradient>
+    <radialGradient id="ball${k}" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="${h.core}"/><stop offset=".55" stop-color="${h.mid}" stop-opacity=".75"/><stop offset="1" stop-color="${h.mid}" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="bloom${k}" x="-40%" y="-25%" width="180%" height="150%">
+      <feGaussianBlur stdDeviation="14"/>
+    </filter>
+  </defs>
+
+  <!-- ① 바깥 번짐 — 밝은 쪽만 지면으로 샌다 -->
+  <g transform="${NARROW}"><path d="${D}" fill="${h.mid}" opacity="${h.glow}" filter="url(#bloom${k})"/></g>
+  <!-- ② 베젤 — 두꺼운 어두운 테두리 + 얇은 림 하이라이트 -->
+  <g transform="${NARROW}">
+    <path d="${D}" fill="#140B06" stroke="#090504" stroke-width="20"/>
+    <path d="${D}" fill="none" stroke="#4A2C1C" stroke-width="2.5"/>
+  </g>
+  <!-- ③ 열 + 하프톤. 마스크는 **바깥 좌표계**에 둔다 — 안쪽 가로축소를 같이 받으면 도트가 타원이 된다 -->
+  <g mask="url(#ht${k})">
+    <g transform="${NARROW} ${INSET}">
+      <path d="${D}" fill="url(#base${k})"/>
+      <g clip-path="url(#in${k})">
+        <!-- 밝은 중심선(앞볼→아치→뒤꿈치) + 앞볼·뒤꿈치 핫스팟 = 레퍼런스의 열 분포 -->
+        <ellipse cx="277" cy="280" rx="92" ry="200" fill="url(#ball${k})"/>
+        <ellipse cx="272" cy="185" rx="76" ry="95" fill="url(#ball${k})"/>
+        <ellipse cx="308" cy="418" rx="58" ry="66" fill="url(#ball${k})"/>
+      </g>
+    </g>
+  </g>
+  <clipPath id="in${k}"><path d="${D}"/></clipPath>`;
+};
+svg('insoleL', 'L'); svg('insoleR', 'R');
+</script>
+</body></html>
