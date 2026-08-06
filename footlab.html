@@ -488,7 +488,11 @@ function aim(aspect) {
 // FootMark 와 같은 상태 번호 규약 (uPhase): 0 Preview·1 Active·5 Hold·2 Success·4 Miss·6 Warning·3 Locked
 const STATES = [
   { n: 'Preview', ph: 0 }, { n: 'Active', ph: 1 }, { n: 'Hold', ph: 5 }, { n: 'Success', ph: 2 },
-  { n: 'Miss', ph: 4 }, { n: 'Warning', ph: 6 }, { n: 'Locked', ph: 3 },
+  { n: 'Miss', ph: 4 }, { n: 'Warning', ph: 6 },
+  // ★ Locked 는 **Tap2 와 같은 슬롯**을 본다(유저: 락이랑 탭투 디자인 통일).
+  //   시뮬(tokens.setMarkStateLook)이 이미 Locked→tap 을 참조하는데 랩만 '3' 을 봐서
+  //   둘이 다르게 보였다(스샷: 7 Locked 크림 채움 · 8 Tap2 투명 고스트).
+  { n: 'Locked', ph: 3, slot: 'tap' },
   // 8번째 토큰(유저 08-05) — READY '발 두 번 탭' 어포던스. 무채(Locked) 기본에서
   //   주기마다 석세스 최종색으로 2회 깜빡. 현재 슬라이더 값이 곧 이 토큰의 룩이고,
   //   '8번째 토큰(Tap2)으로 저장' 버튼이 mark-look.json `tap` 으로 굽는다(시뮬이 그걸 읽는다).
@@ -688,7 +692,11 @@ function feed(u, ph, prog, t, mode, slot) {
   //   4 Miss·5 Hold·6 Warning). 카탈로그 번호로 바꿔 넘기면 카탈로그 2(Hold)가 라이브 2(Success)의
   //   '숨김' 규칙에 걸려 **Hold 에서 숫자가 사라진다**(유저 신고). STATES 가 이미 라이브 번호다.
   if (u.num) u.num.material.opacity = MARK_NUM.opacity(ph);
-  feedOV(U, slot ?? String(ph));   // 상태별 오버라이드가 공통값을 덮는다(마지막에 적용)
+  // ★ Locked(3) 은 **Tap2 와 같은 디자인**이다(유저) — 시뮬(tokens.setMarkStateLook)이
+  //   이미 그렇게 참조하는데 랩만 자기 슬롯('3')을 봐서 둘이 다르게 보였다(유저 스샷:
+  //   7 Locked 는 크림색 채움 · 8 Tap2 는 투명 고스트). 랩도 같은 슬롯을 본다.
+  const _slot = slot ?? (ph === 3 ? 'tap' : String(ph));
+  feedOV(U, _slot);   // 상태별 오버라이드가 공통값을 덮는다(마지막에 적용)
 }
 
 // ── 겹침 실측 — SDF 두 채널을 2D 로 직접 그린다(셰이더를 안 거치므로 겹침 자체가 보인다) ──
