@@ -14,6 +14,7 @@
     "check:person": "node scripts/check_person_tone.mjs",
     "dev:export": "vite --config vite.export.config.js",
     "export:boxing": "node scripts/run_boxing_scenes.mjs",
+    "export:ui": "node scripts/run_floor_ui.mjs",
     "check:clips": "node scripts/check_clips_intra.mjs",
     "preview:boxing": "node scripts/preview_scenes.mjs",
     "check:motion": "node scripts/check_mark_motion.mjs",
