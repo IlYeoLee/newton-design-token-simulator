@@ -2661,7 +2661,14 @@ export class Session {
       //     이 파일이 정의한 대로 Locked 는 '무채 고스트 = 시범·예고'이고, Success 는
       //     '해냈다'라서 저절로 흐려지지 않는다. 한쪽을 이미 해냈으면 그건 Success 다.
       const stanceDone = stance === P.fmL ? P._doneL : P._doneR;
-      if (stanceDone) stance.glow(1); else stance.setHold(0.02);   // 받치는 발 = Active 빈 링 고정
+      // ★ 받치는 발(= 앞발)은 **스스로 도는 상태**여야 한다(유저 08-06, 여러 번: 앞발이 멈춰 있다).
+      //   구값 setHold(0.02) 는 **진행 링인데 진행이 0.02 에 못 박힌 것** — 화면에선 영원히
+      //   안 차는 타이머다. 밝기만 흔들어 봤지만(±6%) 그건 '움직인다'로 안 읽힌다.
+      //   Preview 는 이 시스템에서 **구동자 없이 스스로 도는 유일한 상태**다:
+      //     tokens.js  prog = uPhase < 0.5 ? max(breath, …)   breath = fract(uTime*0.45) 램프
+      //   그 자리에 만들어 둔 이유가 정확히 이 문제였다("구동자 없는 Preview 가 prog 0 에
+      //   얼어붙어 얇은 정지 외곽선으로 보이던 것의 근본 해결" — 그 주석 그대로).
+      if (stanceDone) stance.glow(1); else stance.countdown(-1);   // 받치는 발 = Preview(자체 차오름)
       // ── 뒷발 = 이 운동의 **주인공**인데 지금껏 아무 일도 안 일어났다. 종아리가 늘어나는 쪽이므로
       //   **보폭 × 홀드**에 비례해 파문·광량이 자란다 — 깊게 딛을수록 뒷발이 밝아진다 = 자세가 곧 보상.
       //   새 이펙트가 아니라 uRip/op 정본의 구동값만 바꾼다.
@@ -2681,8 +2688,8 @@ export class Session {
       //   상태·모양은 그대로 두고(유저가 정한 '빈 링') 밝기만 흔든다 — 화살표 대기 큐가 쓰는
       //   그 규약(ARROW.breath)과 같은 문법이고, 새 이펙트가 아니다.
       //   완료한 발(Success)은 안 흔든다 — 거긴 파문이 이미 말한다.
-      const _brK = stanceDone ? 0 : ARROW.breath;
-      stance.op(Math.min(1, 0.94 * (1 + _brK * Math.sin(this.t * 2.0))));
+      //   밝기 흔들기는 뺀다 — Preview 자체 차오름과 두 겹이 되면 리듬이 갈린다.
+      stance.op(0.94);
       stanceNum.visible = false;
 
       // 완료 = 홀드 100% 도달(회차당 1회 래치). 왼발 1·오른발 1 = 총 2회
