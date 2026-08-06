@@ -1,0 +1,133 @@
+<!doctype html><html lang=ko><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1">
+<title>NEWTON 발자국 — 한 걸음(입각기) 애니메이션</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚶</text></svg>">
+<style>
+  html,body{margin:0;min-height:100%;background:#0A0C10;color:#E9EAEE;
+    font:12px/1.5 -apple-system,'Malgun Gothic',sans-serif;display:grid;place-items:center}
+  .wrap{padding:24px;width:min(94vw,900px)}
+  /* 높이로 맞춘다 — 폭 100% 로 두면 세로가 화면을 넘어 발이 잘린다(버퍼 비 0.66) */
+  canvas{display:block;height:min(58vh,520px);width:auto;margin:0 auto;border-radius:12px;background:#0A0C10}
+  .bar{display:flex;align-items:center;gap:12px;margin-top:14px}
+  .bar button{background:#161A22;color:#E9EAEE;border:1px solid #1D222C;border-radius:8px;
+    padding:8px 14px;font:inherit;cursor:pointer}
+  .bar input{flex:1;accent-color:#FA3030}
+  .ph{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-top:12px}
+  .ph div{border-top:2px solid #1D222C;padding-top:6px;color:#98A1AD;font-size:11.5px;transition:.2s}
+  .ph div.on{border-top-color:#FA3030;color:#E9EAEE}
+  .ph b{display:block;font-size:12.5px}
+  .read{margin-top:10px;color:#98A1AD;font-size:11.5px;font-variant-numeric:tabular-nums}
+</style></head><body>
+<div class=wrap>
+  <canvas id=c></canvas>
+  <div class=bar>
+    <button id=play>일시정지</button>
+    <input id=scrub type=range min=0 max=1000 value=0>
+    <span id=pct class=read style="margin:0;min-width:96px;text-align:right"></span>
+  </div>
+  <div class=ph id=phases></div>
+  <div class=read id=read></div>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { GLYPHS, footSDFTexture, FXP } from '/src/fxlut.js';
+import { LOAD } from '/src/marklang.js';
+import { makeMarkFXMaterial, applyMarkLookTo, setMarkStateLook, setMarkLoad,
+         FOOT_LEN_M, FOOT_PLANE_M, QUAD_K } from '/src/tokens.js';
+
+FXP.footCtx = 'out';   // 겉 = 깔창 · 안 = 맨발 프린트 (heatmap7 과 같은 이유)
+
+// ── 한 걸음 = **입각기(stance)** ────────────────────────────────────────────
+//   보행 문헌의 정본 구간. % 는 입각기 기준(보행주기로는 0~60% 가 입각기다).
+//   하중 프리셋은 리포에 이미 있다 — marklang.js LOAD (heel·flat·toe·drive·off).
+//   레퍼런스 그림 5칸이 그대로 이 다섯이다. 새 어휘를 만들지 않는다.
+const PHASES = [
+  { t: 0.00, load: LOAD.heel,  n: '초기접지',   en: 'Initial contact',  d: '뒤꿈치 바깥이 먼저 닿는다' },
+  { t: 0.12, load: LOAD.flat,  n: '하중수용',   en: 'Loading response', d: '발바닥 전체로 체중을 받는다' },
+  { t: 0.45, load: LOAD.flat,  n: '중간입각',   en: 'Midstance',        d: '중심이 발 위를 지난다' },
+  { t: 0.62, load: LOAD.toe,   n: '말기입각',   en: 'Terminal stance',  d: '뒤꿈치가 들린다' },
+  { t: 0.85, load: LOAD.drive, n: '전유각',     en: 'Pre-swing',        d: '엄지로 바닥을 민다' },
+  { t: 1.00, load: LOAD.off,   n: '유각',       en: 'Swing',            d: '체공 — 하중 0' },
+];
+
+// CoP(압력중심) 궤적 — 뒤꿈치 바깥 → 발 바깥날 → 중족골 가로질러 → 1중족지관절/엄지.
+//   문헌의 'gait line / butterfly diagram' 이 이 곡선이다. plantar 의 uFlow 가 이걸 받는다.
+//   (x: −1 바깥 … +1 안쪽 · y: −1 뒤꿈치 … +1 발가락)
+const COP = [[-0.55, -0.90], [-0.62, -0.35], [-0.45, 0.10], [-0.10, 0.42], [0.30, 0.62], [0.45, 0.72]];
+
+const lerp = (a, b, f) => a + (b - a) * f;
+function sample(u) {                                   // u = 입각기 진행 0..1
+  let i = 0; while (i < PHASES.length - 2 && u > PHASES[i + 1].t) i++;
+  const a = PHASES[i], b = PHASES[i + 1];
+  const f = Math.max(0, Math.min(1, (u - a.t) / Math.max(1e-4, b.t - a.t)));
+  const e = f * f * (3 - 2 * f);                       // smoothstep — 하중은 끊기지 않는다
+  const L = { ball: lerp(a.load.ball, b.load.ball, e),
+              heel: lerp(a.load.heel, b.load.heel, e),
+              toe:  lerp(a.load.toe,  b.load.toe,  e) };
+  const ink = lerp(a.load.ink, b.load.ink, e);
+  const j = Math.min(COP.length - 2, i), cf = i === j ? e : 1;
+  const cop = [lerp(COP[j][0], COP[j + 1][0], cf), lerp(COP[j][1], COP[j + 1][1], cf)];
+  return { L, ink, cop, i, a };
+}
+
+const LOOK = { imp: 0, glow: 0, shade: 0, rip: 0, shadeRed: 0, edgeShade: 0, halo: 0.2, op: 1,
+               tLo: 0, tHi: 0, dotMode: 0,
+               // ★ 여기선 loadBase 를 **낮춘다**(heatmap7 은 0.5). 바닥값이 높으면 상수 성분이
+               //   하중 차이를 덮어서 다섯 단계가 전부 같은 그림이 된다(실측). 단계 대비가 이 페이지의 전부다.
+               plantar: 1, loadGain: 1.35, loadBase: 0.18, bands: 0, pool: 0.9, pressA: 0.6 };
+
+const S_W = FOOT_LEN_M * 1.15, S_H = FOOT_LEN_M * 1.75, PPM = 1100;
+const cv = document.getElementById('c');
+cv.width = Math.round(S_W * PPM); cv.height = Math.round(S_H * PPM);
+const renderer = new THREE.WebGLRenderer({ canvas: cv, antialias: true, alpha: true });
+renderer.setPixelRatio(1); renderer.setSize(cv.width, cv.height, false);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+const scene = new THREE.Scene();
+const cam = new THREE.OrthographicCamera(-S_W / 2, S_W / 2, S_H / 2, -S_H / 2, 0.01, 10);
+cam.position.z = 2;
+
+let mat = null;
+function build() {
+  if (mat) return;
+  const tex = footSDFTexture(false); if (!tex) return;
+  mat = makeMarkFXMaterial(tex);
+  mat.uniforms.uOut.value = 0;
+  mat.uniforms.uNumTex.value = mat.uniforms.uLUT.value;
+  setMarkStateLook(mat, 1);            // Active — 라이브 판정 상태
+  applyMarkLookTo(mat, LOOK);
+  mat.uniforms.uPhase.value = 1; mat.uniforms.uProg.value = 0;
+  const S = FOOT_PLANE_M * QUAD_K;
+  scene.add(new THREE.Mesh(new THREE.PlaneGeometry(S, S), mat));
+}
+GLYPHS.onLoad(build); build();
+
+phases.innerHTML = PHASES.slice(0, 5).map(p =>
+  `<div><b>${p.n}</b>${p.en}<br>${p.d}</div>`).join('');
+const cells = [...phases.children];
+
+const STEP_T = 1.05;   // 한 걸음(입각기) 실측 근사 — 편한 보행 케이던스 ~110 SPM 기준
+let playing = true, u = 0;
+play.onclick = () => { playing = !playing; play.textContent = playing ? '일시정지' : '재생'; };
+scrub.oninput = () => { playing = false; play.textContent = '재생'; u = scrub.value / 1000; };
+
+const clock = new THREE.Clock();
+renderer.setAnimationLoop(() => {
+  const dt = clock.getDelta();
+  if (playing) { u = (u + dt / STEP_T) % 1; scrub.value = Math.round(u * 1000); }
+  if (mat) {
+    const s = sample(u);
+    setMarkLoad(mat, s.L);
+    mat.uniforms.uLoadGain.value = LOOK.loadGain * s.ink;   // 잉크 = 그 단계의 진하기
+    // uFlow = 딛는 흐름(하중 중심에서 뒤로 길게·앞으로 짧게). CoP 가 앞으로 갈수록 세게.
+    //   세게 주면 꼬리가 발 전체에 깔려 단계 구분이 뭉갠다 — 방향만 읽힐 만큼만.
+    if (mat.uniforms.uFlow) mat.uniforms.uFlow.value = 0.10 + 0.22 * Math.max(0, s.cop[1] * 0.5 + 0.5);
+    mat.uniforms.uTime.value = clock.elapsedTime;
+    cells.forEach((c, i) => c.classList.toggle('on', i === Math.min(4, s.i)));
+    pct.textContent = (u * 100).toFixed(0) + '% 입각기';
+    read.textContent = `하중 ball ${s.L.ball.toFixed(2)} · heel ${s.L.heel.toFixed(2)} · toe ${s.L.toe.toFixed(2)}`
+      + `   |   CoP (${s.cop[0].toFixed(2)}, ${s.cop[1].toFixed(2)})   |   잉크 ${s.ink.toFixed(2)}`;
+  }
+  renderer.render(scene, cam);
+});
+window.__gait = { PHASES, COP, sample };
+</script></body></html>
