@@ -1035,10 +1035,21 @@ function a2Seg(t) {
 function a2Feet(S) {
   const back = -A2_STANCE / 2, front = A2_STANCE / 2;
   const ease = x => x * x * (3 - 2 * x);
+  // ★ 실측 정정(유저 질문에서 나옴): 영상은 **반대 무릎을 안 굽힌다 — 같은 다리로 두 번** 한다.
+  //   1렙/2렙 홀드에서 두 덩어리의 가까움·멂 관계가 그대로다:
+  //     1렙  뒤발 1293화소·바닥y 755 | 앞발 528·y 791   (비 0.41)
+  //     2렙  뒤발 1129화소·바닥y 751 | 앞발 431·y 791   (비 0.38)
+  //   뒤집혔다면 앞발이 멀어져 바닥선이 위로 올라갔어야 한다. 안 올라갔다.
+  //   궤적도 같은 말을 한다 — 뒷발 덩어리는 126→230px 로 거의 제자리고,
+  //   나간 발은 되돌아왔던 **그 발**이다. 즉 발 교대가 아니라 **렙 리셋**이다.
+  //   (다리 교대는 7.95s 컷 뒤로 넘어갔다. 이 클립엔 안 나온다.)
+  // ★ 이 모델이 루프 이음매의 순간이동도 없앤다. 예전엔 step 끝에 B 가 앞에 서 있는데
+  //   다음 hold 가 A 를 앞으로 되돌려서, 사이클 경계마다 두 발이 텔레포트했다.
+  //   A = 내딛는 발(왔다 갔다) · B = 뒷발(늘어나는 종아리, **끝까지 제자리**).
   if (S.seg === 'hold')     return { ya: front, yb: back };
-  if (S.seg === 'pull')     return { ya: front + (back - front) * ease(S.k), yb: back };   // 앞발만 돌아온다
-  if (S.seg === 'together') return { ya: back, yb: back };                                  // 나란히
-  return { ya: back, yb: back + (front - back) * ease(S.k) };                               // 반대 발이 나간다
+  if (S.seg === 'pull')     return { ya: front + (back - front) * ease(S.k), yb: back };
+  if (S.seg === 'together') return { ya: back, yb: back };
+  return { ya: back + (front - back) * ease(S.k), yb: back };   // 같은 발이 다시 나간다
 }
 /** 바닥에 누운 마크 하나에 현재 슬라이더 값을 먹인다 — 합성 카드와 A2 카드가 **한 벌**을 쓴다.
  *  (같은 블록을 카드마다 베껴 두면 슬라이더 하나를 추가할 때 한 곳을 빠뜨린다. 이 리포가
@@ -1117,7 +1128,7 @@ function drawA2() {
     hold:     { a: [1, 1],    b: [5, S.k] },   // 차오름이 곧 카운트다
     pull:     { a: [1, 1],    b: [2, S.k] },   // 앞발이 돌아오는 동안 뒷발이 Success
     together: { a: [0, 0],    b: [0, 0] },
-    step:     { a: [0, 0],    b: [1, S.k] },   // 나가는 발이 다음 홀드의 주인공
+    step:     { a: [1, S.k],  b: [0, 0] },   // 나가는 발 = A(같은 발). 뒷발 B 는 계속 제자리다
   }[S.seg];
   const F = a2Feet(S);
   // ★ 좌우 벌림은 **못 잰 값**이다. 레퍼런스가 순수 측면뷰라 횡폭이 화면에서 0 으로 눌린다.
