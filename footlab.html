@@ -53,13 +53,11 @@
     border-radius:8px;padding:8px;font:11px/1.5 ui-monospace,Consolas,monospace;resize:vertical}
   .note{color:var(--dim);font-size:11px;margin:8px 0 0}
   .warn{color:var(--red);font-size:11.5px;margin:8px 0 0;display:none}
-</style>  <script type="module" crossorigin src="./assets/footlab-DLUmFYq_.js"></script>
+</style>  <script type="module" crossorigin src="./assets/footlab-DHUyf-M9.js"></script>
   <link rel="modulepreload" crossorigin href="./assets/modulepreload-polyfill-B5Qt9EMX.js">
-  <link rel="modulepreload" crossorigin href="./assets/three.core-CuD-R6Ua.js">
-  <link rel="modulepreload" crossorigin href="./assets/palette-Bj20GXDn.js">
-  <link rel="modulepreload" crossorigin href="./assets/fx-core-K-VUK0Wr.js">
-  <link rel="modulepreload" crossorigin href="./assets/fxlut-D-m-050W.js">
-  <link rel="modulepreload" crossorigin href="./assets/tokens-DQBjDjlq.js">
+  <link rel="modulepreload" crossorigin href="./assets/fx-core-DGvcR5P-.js">
+  <link rel="modulepreload" crossorigin href="./assets/fxlut-p-urZe4z.js">
+  <link rel="modulepreload" crossorigin href="./assets/tokens-CaX1XtwP.js">
 </head><body>
 <div class=wrap>
   <div class=panel>
@@ -68,10 +66,12 @@
 
     <fieldset><legend>버전 비교 — 오늘 발자국 룩이 바뀐 지점</legend>
       <div class=seg id=segVer style="flex-wrap:wrap">
-        <button data-v=v0 class=on>09:25 (지금)</button><button data-v=v1>13:31 도트 그라디언트</button>
+        <button data-v=v03>08-02 (3일 전)</button><button data-v=v0 class=on>09:25 (지금)</button><button data-v=v1>13:31 도트 그라디언트</button>
         <button data-v=v2>13:40 섀도우 완화</button><button data-v=v3>14:28 상태 색·명도</button>
       </div>
       <div class=hint id=verHint style="margin-top:4px"></div>
+      <button id=verApply style="margin-top:6px;width:100%">이 버전을 정본에 적용 (시뮬 반영)</button>
+      <div class=hint style="margin-top:3px">누르면 mark-look.json 을 덮어쓴다 — 시뮬 새로고침하면 그 룩으로 돈다.</div>
     </fieldset>
 
     <fieldset><legend>발</legend>
@@ -216,6 +216,15 @@
       </div>
       <canvas id=comp width=1120 height=380></canvas>
       <p class=note>실제 사진을 쓰려면 <code>public/floors/track.jpg</code> · <code>tile.jpg</code> 로 넣으면 자동으로 그걸 씁니다. 지금은 근사색으로 그립니다.</p>
+    </div>
+    <div class=card>
+      <h2>드리블 매트 — 훈련 판 한 프레임 (판 · 표적 5 · 인터랙션 방향)</h2>
+      <canvas id=mat width=1080 height=1080></canvas>
+      <div style="display:flex;gap:8px;margin:10px 0 2px"><button id=mIn>등장</button><button id=mHit>공 닿음</button><button id=mLive>타겟 이동</button></div>
+      <p class=note>판·눈금·크롬은 <b>유리 알약과 같은 레시피</b>(옅은 채움 · 안쪽 광 · 먼 쪽 0.95 → 가까운 쪽 0.06 림)이고,
+      표적은 시뮬에서 <b>판정 토큰(존 마크)</b> 그 자체입니다 — 여기 그림은 배치 확인용 대역입니다.
+      <b>인터랙션 방향은 안쪽</b>: 커넥터·셰브론이 전부 액티브 타깃을 향하고, 공이 닿는 순간의 반응도 거기서만 납니다.
+      형태 정본은 <code>fx-core · drawDribbleMat</code>.</p>
     </div>
     <div class=card>
       <h2>동작 토큰 — 같은 룩으로 (복싱 판정 3단계 · 화살표 수직·수평 · 궤적 경로)</h2>
