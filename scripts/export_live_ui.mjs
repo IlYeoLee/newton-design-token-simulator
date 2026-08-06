@@ -14,7 +14,9 @@ const STAGE = arg('stage', 'BK_B5'), DUR = +arg('dur', 5), FPS = +arg('fps', 30)
 const W = +arg('w', 2048), WAIT = +arg('wait-loops', 1), OUT = arg('out', 'out');
 const PIN = process.argv.includes('--pin-loops') ? +arg('pin-loops', 1) : null;   // 관찰 상태 고정
 const N = Math.round(DUR * FPS);
-const b = await puppeteer.launch({ headless: 'new', args: ['--autoplay-policy=no-user-gesture-required'] });
+const HEADED = process.argv.includes('--headed');   // 코치 mp4 가 실제로 재생돼야 관찰 구간이 재현된다
+const b = await puppeteer.launch({ headless: HEADED ? false : 'new',
+  args: ['--autoplay-policy=no-user-gesture-required', '--mute-audio'] });
 const p = await b.newPage();
 await p.setViewport({ width: 1400, height: 900, deviceScaleFactor: 1 });
 await p.goto('http://127.0.0.1:5199/?dev=1&uiscale=2', { waitUntil: 'networkidle2', timeout: 180000 });
