@@ -377,6 +377,7 @@ export function makeMarkFXMaterial(footTex = null) {
       //   작아져 파동·헤일로가 쓸 여유가 생긴다(호스트가 평면을 같은 배수로 키워 실제 크기 유지).
       uSilFit: { value: SIL_FIT / SIL_FIT_REF },
       uPlantar: { value: LOOK.plantar }, uBands: { value: LOOK.bands }, uBandSoft: { value: LOOK.bandSoft },
+      uPressA: { value: LOOK.pressA ?? 0 },   // 압력 투명도 — 기본 0(기존 화면 무변화)
       // 하중 배분 기본값 = 옛 plantar 상수 그대로(1.00 / 0.62 / 0.50) — setMarkLoad 로만 바뀐다
       uLoadBall: { value: 1.00 }, uLoadHeel: { value: 0.62 }, uLoadToe: { value: 0.50 },
       uLoadGain: { value: LOOK.loadGain ?? 1 }, uLoadBase: { value: LOOK.loadBase ?? 0.30 }, uFlow: { value: LOOK.flow ?? 0 },
@@ -446,7 +447,7 @@ export function applyMarkLookTo(mat, part = {}) {
     shadeCol: 'uImpShadeCol', dotCol: 'uImpDotCol', scale: 'uImpScale', plantar: 'uPlantar', loadGain: 'uLoadGain', loadBase: 'uLoadBase', flow: 'uFlow', bands: 'uBands', bandSoft: 'uBandSoft',
     edgeShade: 'uEdgeShade', edgeShadeW: 'uEdgeShadeW', edgeShadeCol: 'uEdgeShadeCol',
     edgeShadeGrad: 'uEdgeShadeGrad', edgeShadeG0: 'uEdgeShadeG0', edgeShadeG1: 'uEdgeShadeG1',
-    shadeRed: 'uShadeRed', shadeRedW: 'uShadeRedW', edgeSoft: 'uEdgeSoft', dither: 'uDither',
+    shadeRed: 'uShadeRed', shadeRedW: 'uShadeRedW', edgeSoft: 'uEdgeSoft', dither: 'uDither', pressA: 'uPressA',
     rip: 'uRip', ripSpeed: 'uRipSpeed', ripGrad: 'uRipGrad', ripCol: 'uRipCol', op: 'uFillOp',
     // ★ halo/w/pool 도 맵에 넣는다 — 이 셋만 빠져 있어서 바닥 룭의 halo 낮춤이 안 먹었다
     //   (실측: floor.halo .18 을 줘도 재질은 생성값 .45 그대로). 팩 마크는 매 프레임 전역값이
@@ -494,7 +495,7 @@ export function applyMarkLook(part = {}) {
     shadeCol: 'uImpShadeCol', dotCol: 'uImpDotCol', scale: 'uImpScale', plantar: 'uPlantar', loadGain: 'uLoadGain', loadBase: 'uLoadBase', flow: 'uFlow', bands: 'uBands', bandSoft: 'uBandSoft',
     edgeShade: 'uEdgeShade', edgeShadeW: 'uEdgeShadeW', edgeShadeCol: 'uEdgeShadeCol',
     edgeShadeGrad: 'uEdgeShadeGrad', edgeShadeG0: 'uEdgeShadeG0', edgeShadeG1: 'uEdgeShadeG1',
-    shadeRed: 'uShadeRed', shadeRedW: 'uShadeRedW', edgeSoft: 'uEdgeSoft', dither: 'uDither',
+    shadeRed: 'uShadeRed', shadeRedW: 'uShadeRedW', edgeSoft: 'uEdgeSoft', dither: 'uDither', pressA: 'uPressA',
     rip: 'uRip', ripSpeed: 'uRipSpeed', ripGrad: 'uRipGrad', ripCol: 'uRipCol', iceOld: 'uIceOld', tLo: 'uTLo', tHi: 'uTHi', dotMode: 'uDotMode' };
   const mapSF = { pitch: 'uImpPitch', edge: 'uImpEdge', edgeW: 'uEdgeW', ripWidth: 'uRipWidth', ripReach: 'uRipReach' };
   for (const m of MARK_MATS) {

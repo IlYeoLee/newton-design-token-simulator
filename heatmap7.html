@@ -74,7 +74,10 @@ const HEAT_LOOK = { imp: 0, glow: 0, shade: 0, rip: 0, shadeRed: 0, edgeShade: 0
                     tLo: 0, tHi: 0, dotMode: 0,
                     // loadBase 를 더 올리면 압력이 1 로 포화해 **전체가 한 색**이 된다 —
                     // Preview 처럼 원래 램프가 완만한 상태부터 흙빛 판때기로 죽는다(실측 0.85).
-                    plantar: 1, loadGain: 0.6, loadBase: 0.5, bands: 0, pool: 0.9 };
+                    plantar: 1, loadGain: 0.6, loadBase: 0.5, bands: 0, pool: 0.9,
+                    // 압력을 **알파에도** 태운다 — 저압부가 은은하게 비쳐 판때기가 입체로 읽힌다.
+                    // 1 로 올리면 아치가 통째로 뚫려 형태가 끊긴다. 은은한 게 요점이다.
+                    pressA: 0.6 };
 const LOAD = { ball: 1.0, heel: 0.9, toe: 1.0 };   // 발가락도 접지한다 — 기본 0.5 면 안 보인다
 
 // 두 줄 — 윗줄 원본(정본 룩 그대로), 아랫줄 그라디언트판. 같은 상태를 세로로 맞대 놓고 본다.

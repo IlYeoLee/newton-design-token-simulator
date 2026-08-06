@@ -750,6 +750,7 @@ uniform float uArcRev;
 //   uBands:   등고선 단계 수(0 = 연속). 레퍼런스의 계단 밴드가 '데이터'로 읽히게 하는 장치.
 //   uBandSoft: 밴드 경계 무름(0 = 칼금 · 1 = 뭉근).
 uniform float uPlantar, uBands, uBandSoft;
+uniform float uPressA;   // 압력 투명도 — 0 = 끔(기본). 저압부를 은은하게 비워 입체감을 낸다
 //   uLoadBall/Heel/Toe = **하중 배분**(marklang LOAD). 기본값이 곧 옛 상수라 안 건드리면 픽셀 동일.
 //     이게 없어서 압력장이 전 상태 공통 한 벌이었다 — "앞꿈치에 힘 실어라"를 그림이 말할 수 없었다.
 uniform float uLoadBall, uLoadHeel, uLoadToe;
@@ -984,6 +985,15 @@ vec4 markState(vec2 uv, float state, float prog, float strong, float t){
   //   선을 그어 원반처럼 보이게 했다(유저). 안쪽으로 uEdgeW 만큼 페더링해 형태가 색으로 읽히게.
   float feath = smoothstep(0.0, max(uEdgeW, 1e-4), -sd);
   float inFill = mix(inside, inside * feath, clamp(uEdgeSoft, 0.0, 1.0)) * clamp(uFillOp, 0.0, 1.0);
+  // 압력 투명도(uPressA) — 색만으로 그리던 압력을 **알파에도** 태운다. 눌린 자리는 그대로
+  //   차 있고 덜 눌린 자리(아치·가장자리)가 은은하게 비쳐서, 판때기가 아니라 입체로 읽힌다.
+  //   ★ 여기 한 줄이 7상태 전부에 걸린다 — 아래 lay(...) 가 모두 inFill 을 곱하기 때문.
+  //     상태마다 따로 넣으면 반드시 어긋난다.
+  //   0 = 예전 그대로(기본). 완전히 뚫지 않는다 — 바닥 0.30 은 형태가 끊기지 않을 만큼만 남긴다.
+  if (uPressA > 0.001) {
+    float prA = plantar(uv, mkSDIn(uv), sd);
+    inFill *= mix(1.0, 0.30 + 0.70 * prA, clamp(uPressA, 0.0, 1.0));
+  }
   float outPos = max(sd, 0.0);
   // 점선 = 회피 계약 (일렁임과 분리한 저주기 — '털 뜯김' 방지 확정판)
   float dashM = (uContract > 0.5 && uContract < 1.5)
