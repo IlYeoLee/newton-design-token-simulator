@@ -3614,7 +3614,13 @@ export class Session {
             const q = H[j]?.group?.position; if (!q) return false;
             return Math.hypot(p.x - q.x, p.z - q.z) < FOOT_LEN_M;
           });
-          f.op(near ? 0 : 0.30 * Math.max(0, Math.min(1, (this.t - TR_ARR[k]) / 0.25)));
+          // ★★ 그래서 **실전에서는 하나도 안 띄운다**(유저 08-07: 하나도 이해 안 가고 복잡하다).
+          //   C2 는 설계상 화살표·목표 존·스탠스 링크를 전부 끈 화면이다 — 설명 토큰이 없는데
+          //   발자국만 늘리면 '뭘 하라는 건지'가 아니라 어질러짐이 된다. 남은 fC 하나도 같은 병이다.
+          //   위 배치(_beamFit)는 남긴다: 좌표계 버그를 고친 것이라, 나중에 광고 프리셋이 이 셋을
+          //   켜더라도 그때는 창 안에 앉는다. 켜는 스위치는 그 프리셋이 갖는다.
+          const SHOW_PATH = false;   // 광고 프리셋이 생기면 그 값으로 바뀐다
+          f.op(SHOW_PATH && !near ? 0.30 * Math.max(0, Math.min(1, (this.t - TR_ARR[k]) / 0.25)) : 0);
         }
         if (H.numL) { placeMarkNum(H.numL); placeMarkNum(H.numR); H.numL.visible = H.numR.visible = true; }
         H.mL.setOp?.(0); H.mR.setOp?.(0); H.mC.setOp?.(0);
