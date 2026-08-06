@@ -35,7 +35,9 @@ import { LOAD } from '/src/marklang.js';
 import { makeMarkFXMaterial, applyMarkLookTo, setMarkStateLook, setMarkLoad,
          FOOT_LEN_M, FOOT_PLANE_M, QUAD_K } from '/src/tokens.js';
 
-FXP.footCtx = 'out';   // 겉 = 깔창 · 안 = 맨발 프린트 (heatmap7 과 같은 이유)
+// 맨발 슬롯 — 실루엣 자체에 **발가락이 갈라져** 있다. 깔창('out')이면 발가락 모양이
+//   실루엣이 아니라 각인 채널로만 들어가서, 구르는 하중이 발가락에 안 실린다.
+FXP.footCtx = 'in';
 
 // ── 한 걸음 = **입각기(stance)** ────────────────────────────────────────────
 //   보행 문헌의 정본 구간. % 는 입각기 기준(보행주기로는 0~60% 가 입각기다).
@@ -71,10 +73,17 @@ function sample(u) {                                   // u = 입각기 진행 0
 }
 
 const LOOK = { imp: 0, glow: 0, shade: 0, rip: 0, shadeRed: 0, edgeShade: 0, halo: 0.2, op: 1,
-               tLo: 0, tHi: 0, dotMode: 0,
+               // 색 축(온도 창)을 연다 — 상태 기본 창은 0.56~0.86(샌드↔코랄)이라 대역이 좁다.
+               //   heatmap7 에선 이걸 열면 상태 정체성이 깨져서 안 건드렸지만, 여기는 상태가
+               //   Active 하나뿐이라 그 문제가 없다. 레드~프리즘 전 구간을 쓴다.
+               tLo: 0.04, tHi: 1.0, dotMode: 0,
                // ★ 여기선 loadBase 를 **낮춘다**(heatmap7 은 0.5). 바닥값이 높으면 상수 성분이
                //   하중 차이를 덮어서 다섯 단계가 전부 같은 그림이 된다(실측). 단계 대비가 이 페이지의 전부다.
-               plantar: 1, loadGain: 1.35, loadBase: 0.18, bands: 0, pool: 0.9, pressA: 0.6 };
+               //   맨발 슬롯은 겉·안이 같은 그림이라 plantar 의 depth 가 0.42 에서 천장을 친다 —
+               //   gain 을 그만큼 되올려야 고압부가 램프의 **레드 끝**까지 닿는다(안 그러면 전부 한기).
+               //   실측: 뒤꿈치 한가운데서도 dShoe 가 0.5 언저리라 depth ≈ 0.21 —
+               //   램프의 레드 끝(q→0)에 닿으려면 gain 이 4 근처까지 올라가야 한다.
+               plantar: 1, loadGain: 4.0, loadBase: 0.10, bands: 0, pool: 0.9, pressA: 0.6 };
 
 const S_W = FOOT_LEN_M * 1.15, S_H = FOOT_LEN_M * 1.75, PPM = 1100;
 const cv = document.getElementById('c');
