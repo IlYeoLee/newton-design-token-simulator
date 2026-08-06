@@ -3582,7 +3582,16 @@ export class Session {
         //   ⚠ 새로 만들 게 없었다: 국면 5개 발자국(준비 페어 · 플랜트 · 착지 페어)을
         //     buildStepback 이 **영상 실측 좌표로 이미 만들어 두고** op(0.10)으로 죽여 놨다.
         //     밟을 자리는 Locked 고스트로 옅게 · 지금 밟을 자리는 판정 토큰이 따로 말한다.
-        for (const k of ['fC', 'fLl', 'fLr']) { if (LIVE) { H[k]?.ghost(); H[k]?.op(0.30); } else H[k]?.op(0); }
+        // ★ 등장 리듬 — 셋을 t=0 에 한꺼번에 켜면 '경로가 있다'만 남고 **순서**가 안 남는다.
+        //   박자를 새로 짜지 않는다: 경로선(_sbTrail)이 **그 자리에 도착하는 시각**에 켠다.
+        //   trA(→fC) 0.45 · trB(→fLr) 0.75 · trC(→fLl) 1.05 = 시차 0.30 + 그리기 0.45.
+        //   선이 닿으면 발자국이 켜진다 — 인과가 보이므로 새 어휘 없이 순서가 읽힌다.
+        const TR_ARR = { fC: 0.45, fLr: 0.75, fLl: 1.05 };
+        for (const k of ['fC', 'fLl', 'fLr']) {
+          if (!LIVE) { H[k]?.op(0); continue; }
+          H[k]?.ghost();
+          H[k]?.op(0.30 * Math.max(0, Math.min(1, (this.t - TR_ARR[k]) / 0.25)));
+        }
         if (H.numL) { placeMarkNum(H.numL); placeMarkNum(H.numR); H.numL.visible = H.numR.visible = true; }
         H.mL.setOp?.(0); H.mR.setOp?.(0); H.mC.setOp?.(0);
         H.rise.setOp?.(0); H.gh.op(0); H.cL?.op(0); H.cR?.op(0);
