@@ -1853,7 +1853,9 @@ function volRing(g, lut, r, v, a, lw, GB, wMul = 1) {
 export function drawDribbleMat(g, W, P, look, t, ENV) {
   const lut = ENV.lut, s = W / 512;
   const AW = (ENV.arrow && ENV.arrow.w) || 1;
-  const INK = (a) => 'rgba(255,246,234,' + a + ')';      // HUD 잉크 — 모바일 '블랙 타이포'의 발광 등가
+  const rgbaL0 = (v, a) => lut(v).replace('rgb(', 'rgba(').replace(')', ',' + a + ')');
+  const INK = (a, v) => rgbaL0(v == null ? 0.86 : v, a);   // 크롬 = LUT 밝은 끝. 하드코딩 크림 폐기
+  const LNW = 4 * AW * s;                                  // LINE 두께 정본 — 모든 선이 여기서 파생
   g.clearRect(0, 0, W, W); g.lineJoin = 'round'; g.lineCap = 'round';
   const M = P.mat || { nx: 0.86, fx: 0.86, ny: -0.86, fy: 0.86 };
   const X = u => W / 2 + u * W / 2, Y = v => W / 2 - v * W / 2;
@@ -1886,7 +1888,7 @@ export function drawDribbleMat(g, W, P, look, t, ENV) {
     rim.addColorStop(0, INK(0.95 * a));
     rim.addColorStop(0.45, INK(0.22 * a));
     rim.addColorStop(1, INK(0.06 * a));
-    g.strokeStyle = rim; g.lineWidth = 2.2 * s * AW; path(); g.stroke();
+    g.strokeStyle = rim; g.lineWidth = LNW * 0.55; path(); g.stroke();
   };
 
   // ── 판 경로(모서리 라운드 사다리꼴) ─────────────────────────────────────
@@ -1912,14 +1914,14 @@ export function drawDribbleMat(g, W, P, look, t, ENV) {
     const N = Math.max(4, Math.round(RH / 0.1));
     for (let i = 0; i <= N; i++) {
       const v = M.ny + (M.fy - M.ny) * i / N, big = i % 5 === 0, ex = -halfAt(v);
-      g.strokeStyle = INK(big ? 0.55 : 0.22); g.lineWidth = 1.4 * s;
+      g.strokeStyle = INK(big ? 0.55 : 0.22); g.lineWidth = LNW * 0.35;
       g.beginPath(); g.moveTo(X(ex) + 6 * s, Y(v)); g.lineTo(X(ex) + (big ? 17 : 10) * s, Y(v)); g.stroke();
       if (big && i > 0 && i < N) ENV.num(g, (RH * i / N).toFixed(1), X(ex) - 20 * s, Y(v), 10 * s, 11 * s);
     }
     const NB = Math.max(4, Math.round(RW / 0.1));
     for (let i = 0; i <= NB; i++) {
       const u = -M.nx + M.nx * 2 * i / NB, big = i % 5 === 0;
-      g.strokeStyle = INK(big ? 0.55 : 0.22); g.lineWidth = 1.4 * s;
+      g.strokeStyle = INK(big ? 0.55 : 0.22); g.lineWidth = LNW * 0.35;
       g.beginPath(); g.moveTo(X(u), Y(M.ny) - 6 * s); g.lineTo(X(u), Y(M.ny) - (big ? 15 : 9) * s); g.stroke();
     }
     label(RH.toFixed(1) + ' m', X(-halfAt(0)) - 56 * s, Y(0), 13 * s, INK(0.55), 0.1, 400);
@@ -1936,23 +1938,6 @@ export function drawDribbleMat(g, W, P, look, t, ENV) {
     g.fillText('/', X(0) - half - 14 * s, ty); g.fillText('/', X(0) + half + 14 * s, ty);
   }
 
-  // ── 커넥터 — 표적에서 액티브 타깃으로. 경로는 정보지 장식이 아니라 아주 옅게
-  const RAIL = P.rails || P.targets || [];
-  for (const tg of RAIL) {
-    if (tg.on === false) continue;
-    const ax = X(tg.x), ay = Y(tg.y), bx = X(cU), by = Y(cV);
-    const dx = bx - ax, dy = by - ay, len = Math.hypot(dx, dy) || 1;
-    const R = (tg.r != null ? tg.r : 0.20) * W / 2;
-    // ★ 잽잽훅 레일과 같은 레시피(0길이 대시 + 라운드캡 = 점열). 콤보 노드를 잇던 문법을
-    //   그대로 쓴다 — 형태(판 vs 콤보)는 달라도 '순서가 있는 노드를 잇는 선'은 한 벌이어야 한다.
-    g.setLineDash([0.01, 8 * s]); g.lineDashOffset = -t * 12 * s; g.lineCap = 'round';
-    g.strokeStyle = INK(tg.live ? 0.34 : 0.22); g.lineWidth = 2.2 * s;
-    g.beginPath();
-    g.moveTo(ax + dx / len * R * 1.14, ay + dy / len * R * 1.14);
-    g.lineTo(bx - dx / len * CR * 1.16, by - dy / len * CR * 1.16);
-    g.stroke(); g.setLineDash([]);
-  }
-
   // ── 노드 — 허브를 도는 링 위의 슬롯. 대기는 헤어라인, 선택된 것만 채워진다.
   //    (원형 메뉴·게임 HUD 셀렉터의 기본 위계 — 넷을 같은 무게로 두면 '스티커 네 장'이 된다)
   for (const tg of (P.targets || [])) {
@@ -1963,11 +1948,11 @@ export function drawDribbleMat(g, W, P, look, t, ENV) {
       const f = g.createRadialGradient(cx, cy, R * 0.2, cx, cy, R);
       f.addColorStop(0, rgbaL(0.34, 0.34)); f.addColorStop(1, rgbaL(0.3, 0.14));
       g.fillStyle = f; g.beginPath(); g.arc(cx, cy, R, 0, Math.PI * 2); g.fill();
-      g.strokeStyle = rgbaL(0.3, 0.95); g.lineWidth = 3 * AW * s;
+      g.strokeStyle = rgbaL(0.3, 0.95); g.lineWidth = LNW * 0.75;
       g.shadowColor = lut(0.4); g.shadowBlur = 14 * s;
       g.beginPath(); g.arc(cx, cy, R, 0, Math.PI * 2); g.stroke(); g.shadowBlur = 0;
     } else {                                      // 대기 = 헤어라인. 채우지 않는다.
-      g.strokeStyle = INK(on ? 0.34 : 0.14); g.lineWidth = 1.6 * s;
+      g.strokeStyle = INK(on ? 0.34 : 0.14); g.lineWidth = LNW * 0.4;
       g.beginPath(); g.arc(cx, cy, R, 0, Math.PI * 2); g.stroke();
     }
     g.globalAlpha = live ? 1 : (on ? 0.55 : 0.22);
@@ -1983,11 +1968,11 @@ export function drawDribbleMat(g, W, P, look, t, ENV) {
     pool.addColorStop(1, rgbaL(0.3, 0));
     g.fillStyle = pool; g.beginPath(); g.arc(cx, cy, CR * 1.6, 0, Math.PI * 2); g.fill();
     if (P.center.ring !== 0) {
-      g.strokeStyle = rgbaL(0.3, 0.98); g.lineWidth = 4.6 * AW * s;
+      g.strokeStyle = rgbaL(0.3, 0.98); g.lineWidth = LNW * 1.15;
       g.shadowColor = lut(0.42); g.shadowBlur = 18 * s;
       g.beginPath(); g.arc(cx, cy, CR, 0, Math.PI * 2); g.stroke(); g.shadowBlur = 0;
     }
-    g.strokeStyle = INK(0.6); g.lineWidth = 1.6 * s;          // 십자 조준 눈금 — 크롬이라 무채
+    g.strokeStyle = INK(0.6); g.lineWidth = LNW * 0.4;          // 십자 조준 눈금 — 크롬이라 무채
     for (const d of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
       g.beginPath();
       g.moveTo(cx + d[0] * CR * 1.16, cy + d[1] * CR * 1.16);
@@ -2025,9 +2010,9 @@ export function drawDribbleMat(g, W, P, look, t, ENV) {
   //    테두리는 '판이 어디까지인가'를 말하는 선이지 진행 막대가 아니다. 진행은 판정 옆에 붙는다.
   if (P.prog > 0.001 && P.center) {
     const cx = X(cU), cy = Y(cV), GR = CR * 1.26;
-    g.strokeStyle = INK(0.14); g.lineWidth = 3 * s;
+    g.strokeStyle = INK(0.14); g.lineWidth = LNW * 0.75;
     g.beginPath(); g.arc(cx, cy, GR, 0, Math.PI * 2); g.stroke();
-    g.strokeStyle = rgbaL(0.34, 0.95); g.lineWidth = 3.4 * AW * s; g.lineCap = 'round';
+    g.strokeStyle = rgbaL(0.34, 0.95); g.lineWidth = LNW * 0.85; g.lineCap = 'round';
     g.shadowColor = lut(0.42); g.shadowBlur = 10 * s;
     g.beginPath();
     g.arc(cx, cy, GR, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.min(1, P.prog));
