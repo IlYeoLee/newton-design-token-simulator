@@ -1980,7 +1980,7 @@ export function drawDribbleMat(g, W, P, look, t, ENV) {
     pool.addColorStop(1, rgbaL(0.3, 0));
     g.fillStyle = pool; g.beginPath(); g.arc(cx, cy, CR * 1.6, 0, Math.PI * 2); g.fill();
     if (P.center.ring !== 0) {
-      g.strokeStyle = rgbaL(0.3, 0.98); g.lineWidth = LNW * 1.15;
+      g.strokeStyle = rgbaL(0.3, 0.30); g.lineWidth = LNW * 0.85;   // 미진행 트랙 — 진행 획이 위를 덮는다
       g.shadowColor = lut(0.42); g.shadowBlur = 18 * s;
       g.beginPath(); g.arc(cx, cy, CR, 0, Math.PI * 2); g.stroke(); g.shadowBlur = 0;
     }
@@ -2014,13 +2014,15 @@ export function drawDribbleMat(g, W, P, look, t, ENV) {
   // ── 진행 = 허브 바깥 아크 게이지. 판 테두리를 채우던 걸 여기로 옮긴다 —
   //    테두리는 '판이 어디까지인가'를 말하는 선이지 진행 막대가 아니다. 진행은 판정 옆에 붙는다.
   if (P.prog > 0.001 && P.center) {
-    const cx = X(cU), cy = Y(cV), GR = CR * 1.26;
-    g.strokeStyle = INK(0.14); g.lineWidth = LNW * 0.75;
-    g.beginPath(); g.arc(cx, cy, GR, 0, Math.PI * 2); g.stroke();
-    g.strokeStyle = rgbaL(0.34, 0.95); g.lineWidth = LNW * 0.85; g.lineCap = 'round';
-    g.shadowColor = lut(0.42); g.shadowBlur = 10 * s;
+    const cx = X(cU), cy = Y(cV);
+    // 링 = 진행이다. 별도 게이지 원을 하나 더 그리지 않는다(줄이 둘이면 어느 쪽이 상태인지 갈린다).
+    //   접촉 직후엔 같은 획이 한 번 밝아지며 훑고 지나간다 — 선 자체가 반응한다.
+    const sweep = hitK;
+    g.strokeStyle = rgbaL(0.34, 0.9 + 0.1 * sweep); g.lineWidth = LNW * (0.85 + 0.5 * sweep);
+    g.lineCap = 'round';
+    g.shadowColor = lut(0.42); g.shadowBlur = (10 + 16 * sweep) * s;
     g.beginPath();
-    g.arc(cx, cy, GR, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.min(1, P.prog));
+    g.arc(cx, cy, CR, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.min(1, P.prog));
     g.stroke(); g.shadowBlur = 0;
   }
 }
