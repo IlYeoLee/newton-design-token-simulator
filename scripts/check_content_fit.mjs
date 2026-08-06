@@ -8,9 +8,9 @@
 //   지침 전문: docs/FLOOR-CONTENT-PLACEMENT.md
 //   실행: node scripts/check_content_fit.mjs   (통과 exit 0)
 //
-// ponytail: main.js COACH 표를 여기 옮겨 적었다(중복 = 드리프트 위험). COACH 를 고치면 여기도
-//   고쳐야 한다 — 그 대신 얻는 건 **시뮬을 안 띄우고 도는 회귀 검사**다. 자동 동기가 필요해지면
-//   COACH 를 별도 모듈로 빼서 양쪽이 import 하게 할 것.
+// ★ 사본이었던 COACH 표는 src/coach-cfg.js 로 승격했다(08-06). 사본 시절 **BK_A2 가 빠져 있어서**
+//   인물 실높이 139% 인 스테이지가 이 검사에 한 번도 안 걸렸다 — 위에 적혀 있던 '고치면 여기도
+//   고쳐야 한다'가 그대로 현실이 된 경우다. 이제 main.js 와 같은 파일을 읽는다.
 
 import { readFileSync } from 'fs';
 import { resolve, dirname } from 'path';
@@ -18,31 +18,13 @@ import { fileURLToPath } from 'url';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
-// ── 기준값 (docs/FLOOR-CONTENT-PLACEMENT.md §2) ────────────────────────────
-const PERSON_H = 0.55;    // 기준 인물 실높이 (m) — 스텝백이 이미 이 값
-const TOL = 0.08;         // 허용 편차 ±8%
-
-// main.js COACH 에서 인물 크기에 관계된 필드만
+// ── 기준값 — 정본은 src/coach-cfg.js (docs/FLOOR-CONTENT-PLACEMENT.md §2) ──
 // ★ READY·BK_READY 는 **검사 대상이 아니다.** 3D 코치 판을 안 켠다 —
 //   시작화면 인물은 캔버스 영상 오버레이(floorgl _paint_ready)가 전담하고, COACH 표의 항목은
-//   꺼진 경로의 잔재다(main.js:2836 `&& !/READY$/.test(id)`). 캡슐 안에 들어가는 **썸네일 카드**지
+//   꺼진 경로의 잔재다(main.js `&& !/READY$/.test(id)`). 캡슐 안에 들어가는 **썸네일 카드**지
 //   바닥에서 동작을 보여주는 코치가 아니라서 같은 잣대로 재면 안 된다(유저 지적).
-const SKIP = new Set(['READY', 'BK_READY']);
-const COACH = {
-  READY:    { w: 0.432, h: 0.578, ph: 0.76 },
-  BK_READY: { w: 0.432, h: 0.578, ph: 0.76 },
-  A1:       { w: 0.62,  h: 0.64,  ph: 0.83 },
-  A2:       { w: 0.9,   h: 0.9,   ph: 0.65, zoom: 0.86 },
-  A3:       { w: 0.82,  h: 0.82,  ph: 0.87 },
-  BK_A1:    { w: 0.62,  h: 0.64,  ph: 0.80 },
-  BK_A3:    { w: 0.9,   h: 0.9 },                       // ph 없음 — 검사에 걸린다
-  BK_B1:    { w: 0.55,  h: 0.98,  ph: 0.62 },
-  BK_B2:    { w: 1.04,  h: 0.87,  ph: 0.63 },
-  BK_B3:    { w: 1.04,  h: 0.87,  ph: 0.63 },
-  BK_B4:    { w: 1.04,  h: 0.87,  ph: 0.63 },
-  BK_B5:    { w: 1.04,  h: 0.87,  ph: 0.63 },
-  BK_C2:    { w: 1.04,  h: 0.87,  ph: 0.63 },
-};
+import { COACH_CFG as COACH, COACH_SKIP as SKIP, PERSON_H, PERSON_TOL as TOL, personH }
+  from '../src/coach-cfg.js';
 
 // 대지 밴드 → 전방 거리 (러닝 기본: fpNear .3 · fpFar 2.0 · sUni 0.000687)
 //   ★ 농구는 fpFar 2.4 라 이 환산이 다르다 — 미검증으로 남긴다(지침 §2 ★).
@@ -67,16 +49,20 @@ for (const [id, c] of Object.entries(COACH)) {
     F(`${id}: ph 가 없다 — 인물 크기가 미정의다. 소스에서 실측해 넣을 것`);
     continue;
   }
-  const H = c.h * c.ph * (c.zoom ?? 1);
+  const H = personH(c);
   const rel = H / PERSON_H;
   const bad = Math.abs(rel - 1) > TOL;
   console.log('   ' + id.padEnd(11) + String(c.h).padEnd(7) + String(c.ph).padEnd(7)
     + String(c.zoom ?? 1).padEnd(7) + (H.toFixed(3) + 'm').padEnd(10)
     + (rel * 100).toFixed(0) + '%' + (bad ? '   ← 벗어남' : ''));
   if (bad) {
-    const want = PERSON_H / (c.ph * (c.zoom ?? 1));
+    // ★ w·h 를 **같은 배율**로 건다. 예전엔 h 만 풀라고 안내했는데(want = PERSON_H/(ph*zoom)),
+    //   그러면 종횡비가 깨져 인물이 늘거나 눌린다 — 크기 교정이 아니라 왜곡이다.
+    //   A2 는 정방(1.0), BK_B1 은 9:16 이 클립 제약이라 실제로 밟을 뻔했다(08-06).
+    const k = PERSON_H / H;
     F(`${id}: 인물 ${H.toFixed(3)}m (기준의 ${(rel * 100).toFixed(0)}%). `
-      + `h 를 ${c.h} → ${want.toFixed(3)} 으로. **크기 대신 fwd 로 겹침을 풀 것**`);
+      + `w·h 를 ×${k.toFixed(4)} → ${(c.w * k).toFixed(3)}/${(c.h * k).toFixed(3)} `
+      + `(지금 ${c.w}/${c.h}). **종횡비 유지 · 겹침은 크기 말고 fwd 로**`);
   }
 }
 
