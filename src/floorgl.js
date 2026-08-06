@@ -992,7 +992,15 @@ const showRing = s => (advOf(s) === 'reps' ? repsLive() : ['segment', 'hold'].in
 /** 알약이 **그 화면의 유일한 정보**인가 — SPM·거리 같은 다른 1급 수치가 없으면 참.
  *  크기(titleLeadK)와 접힘 여부를 같이 정한다: 주인공이면 크게, 그리고 **안 접는다**
  *  (유저: 스트레칭할 때 타이틀 없어지니 어색하다 — 거긴 알약이 화면의 전부다). */
-const pillLeads = s => !/^(P[0-9]|C[1-5])$/.test(s || '');
+//  ★ 스텝백(BK_T1·B2~B4)은 **주인공이 아니다**(유저 08-07: 타이틀이 판정 토큰을 침범한다).
+//    실측(scripts/audit_fp_bands.mjs · 1인칭 농구): 알약 행 ≈ NDC 0.04~0.20 · 마크 상단 −0.013 —
+//    사이가 **0.05 뿐**이라 조금만 흔들려도 물린다. 그리고 자리를 더 벌릴 여유가 없다:
+//    1인칭에 보이는 바닥이 0.77~1.90m = 1.13m 뿐인데 코치 판·알약·마크가 다 들어가야 한다.
+//    자리가 모자라면 **2급이 비켜야 한다.** 판정 토큰이 1급이고 동작명은 2급이다 —
+//    겹치면 둘 다 못 읽으니 그게 최악이다(유저: 겹치는 게 말이 된다 생각해?).
+//    pillLeads=false 가 되면 ① 활자가 titleSubK 로 줄고 ② TOK.collapse 가 살아나
+//    동작명이 hold 뒤 빠지며 링만 남는다 — 알약이 사라지는 게 아니라 **자리를 내주는** 것이다.
+const pillLeads = s => !/^(P[0-9]|C[1-5]|BK_T1|BK_B[234])$/.test(s || '');
 /** 관찰(프리뷰) 구간이 있는 스테이지인가 — 정본은 CAPS 한 곳뿐이다. */
 const hasPreview = s => !!CAPS[s]?.pv;
 const TM = { C1: { sub: 'Run 10 min · Final 1 km', title: 'Run with Sean' },
@@ -2508,21 +2516,46 @@ export class FloorGL {
    *      ④ 마지막에 도트로 자른다(피그마의 mask 순서 그대로).
    *  실루엣(foot-final.svg)은 ③ 의 경계를 잡는 데만 쓴다. */
   _readyFootTex() {
-    if (this._footTex) return this._footTex;
     const dot = this._img('fig/ready2/foot-final-dot.svg');
     const sil = this._img('fig/ready2/foot-final.svg');
     if (!dot || !sil) return null;
-    const S = 3, W = Math.round(94.751 * S), H = Math.round(228.779 * S);   // 3배 — 도트가 뭉치지 않게
-    const mk = () => { const c = document.createElement('canvas'); c.width = W; c.height = H; return c; };
-    const inv = mk(), ig = inv.getContext('2d');
-    ig.fillStyle = '#fff'; ig.fillRect(0, 0, W, H);
-    ig.globalCompositeOperation = 'destination-out'; ig.drawImage(sil, 0, 0, W, H);   // 바깥만 흰색
-    const oc = mk(), g = oc.getContext('2d');
-    g.filter = `blur(${28 * S}px)`; g.drawImage(inv, 0, 0); g.filter = 'none';
-    g.globalCompositeOperation = 'destination-in'; g.drawImage(sil, 0, 0, W, H);      // ③ 안쪽 가장자리 띠
+    // ★ 텍스처는 **화면에 그려질 실제 픽셀 수 그대로** 만든다. 전엔 고정 3배(284px)로 굽고
+    //   대지 94.751 유닛(= K배)으로 줄여 그렸는데, 그러면 도트 격자가 리샘플에 걸려
+    //   모아레로 깨진다 — 유저: '시뮬레이터에서 보니까 그냥 지지직거리던데'.
+    //   여기서 구우면 배율 1.0 로 그려지므로 브라우저가 SVG <pattern> 을 그 해상도에 직접
+    //   래스터라이즈한다(도트가 또렷하고, 일렁임·탭 모션에도 안 떤다).
+    const K = this.canvas.width / 1600;
+    const w = Math.max(48, Math.round(94.751 * K)), h = Math.round(w * 228.779 / 94.751);
+    if (this._footTex && this._footTex._w === w) return this._footTex;
+    // ★ 블러 반경 ≠ 표준편차. CSS `inset 0 0 28px` 의 28 은 **블러 반경**이고 σ = 반경/2 = 14.
+    //   28 을 그대로 σ 로 먹였더니 글로우가 발 전체를 채워 **가장자리와 안쪽이 같아졌다**
+    //   (유저: '솔직히 이너쉐도우 안 되었지'). 피그마 실측은 테두리:안쪽 휘도 153:93 이다.
+    const sig = 14 * (w / 94.751);
+    // ★ 여백(P)이 반드시 있어야 한다. 에셋 뷰박스가 발 바운딩박스에 딱 맞아서, 패딩 없이
+    //   만들면 '바깥'이 몇 픽셀뿐이라 안으로 스밀 흰색 자체가 없다 → 글로우가 안 생긴다.
+    //   실측으로 잡혔다: 테두리:안쪽 휘도가 58:65 로 **역전**돼 있었다(피그마는 153:93).
+    const P = Math.ceil(sig * 3);
+    const mk = (pw, ph) => { const c = document.createElement('canvas'); c.width = pw; c.height = ph; return c; };
+    const PW = w + P * 2, PH = h + P * 2;
+    // ★ 실루엣 에셋은 fill-opacity="0.65" 다. 그대로 마스크로 쓰면 destination-out/in 이
+    //   65% 만 먹어 안팎이 뭉개진다(위 역전의 진짜 원인). 여러 번 겹쳐 알파 1 로 굳힌다.
+    const solid = mk(w, h), sg = solid.getContext('2d');
+    for (let i = 0; i < 8; i++) sg.drawImage(sil, 0, 0, w, h);   // 1-0.35^8 ≈ 0.9998
+    const inv = mk(PW, PH), ig = inv.getContext('2d');
+    ig.fillStyle = '#fff'; ig.fillRect(0, 0, PW, PH);
+    ig.globalCompositeOperation = 'destination-out'; ig.drawImage(solid, P, P);       // 바깥만 흰색
+    const pad = mk(PW, PH), pg = pad.getContext('2d');
+    pg.filter = `blur(${sig}px)`; pg.drawImage(inv, 0, 0); pg.filter = 'none';
+    pg.globalCompositeOperation = 'destination-in'; pg.drawImage(solid, P, P);        // ③ 안쪽 가장자리 띠
+    const oc = mk(w, h), g = oc.getContext('2d');
+    // ★ 글로우 띠를 한 번만 그리면 피크 알파가 0.34 다(블러가 경계 계단을 반으로 나누므로).
+    //   피그마 실측 대비(테두리:안쪽 휘도 153:93)를 알파 합성식 rim = g + f(1−g) 로 역산하면
+    //   필 f=0.55 · 글로우 피크 g=0.79 가 나온다. 0.34 를 4겹 쌓으면 1−0.66⁴ = 0.81 로 맞는다.
+    for (let i = 0; i < 5; i++) g.drawImage(pad, -P, -P);
     g.globalCompositeOperation = 'destination-over';
-    g.fillStyle = 'rgba(255,255,255,.5)'; g.fillRect(0, 0, W, H);                     // ② 필은 글로우 아래
-    g.globalCompositeOperation = 'destination-in'; g.drawImage(dot, 0, 0, W, H);      // ④ 도트로 자름
+    g.fillStyle = 'rgba(255,255,255,.46)'; g.fillRect(0, 0, w, h);                    // ② 필은 글로우 아래
+    g.globalCompositeOperation = 'destination-in'; g.drawImage(dot, 0, 0, w, h);      // ④ 도트로 자름
+    oc._w = w;
     this._footTex = oc;
     return oc;
   }
@@ -3392,15 +3425,20 @@ export class FloorGL {
       //     좌우를 0.08s 어긋나게 둔다. 정확히 같이 뛰면 두 발이 한 물체로 읽힌다.
       const ft = this._readyFootTex();
       if (ft) {
-        const FW = 94.751, FH = 228.779, FY = 1738.58;
+        // ★ 텍스처는 화면 픽셀 수 그대로 구워져 있다 — **배율 1.0 · 정수 픽셀**로 그려야
+        //   도트가 리샘플에 안 걸린다(유저: 시뮬에서 지지직거림). 대지 좌표를 장치 픽셀로
+        //   반올림해서 되돌리고, 크기도 텍스처 폭에서 파생한다.
+        const KD = this.canvas.width / 1600, snap = v => Math.round(v * KD) / KD;
+        const FW = ft.width / KD, FH = ft.height / KD, FY = 1738.58;
         for (const [fx, mirror, d, off] of [[600.00, false, CD.footL, 0], [991.26, true, CD.footR, .08]]) {
           const a = at(d, .5);
           if (a <= 0.004) continue;
           const b = beat(off);
           ctx.save();
-          ctx.translate(fx + (mirror ? FW : 0), FY + up(d, .5, 20));
+          ctx.translate(snap(fx) + (mirror ? FW : 0), snap(FY + up(d, .5, 20)));
           if (mirror) ctx.scale(-1, 1);
-          ctx.translate(0, FH); ctx.scale(1, 1 - 0.03 * b); ctx.translate(0, -FH);   // ⓐ 뒤꿈치 축
+          // 밟는 순간에만 눌린다 — 평소엔 변환을 아예 안 걸어 격자가 그대로 남는다.
+          if (b > 0.01) { ctx.translate(0, FH); ctx.scale(1, 1 - 0.03 * b); ctx.translate(0, -FH); }   // ⓐ 뒤꿈치 축
           ctx.globalAlpha *= a * (0.78 + 0.22 * b);                                   // ⓑ
           ctx.drawImage(ft, 0, 0, FW, FH);
           if (b > 0.01) {                                                             // ⓒ
