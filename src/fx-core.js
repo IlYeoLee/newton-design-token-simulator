@@ -1925,14 +1925,35 @@ export function drawDribbleMat(g, W, P, look, t, ENV) {
     g.save(); g.shadowBlur = 0; g.globalAlpha = 0.22 * eOutQuint(IN / 0.9);
     g.strokeStyle = lut(0.6); g.lineWidth = 2.2 * s; g.lineCap = 'round';
     g.setLineDash([0.01, 8 * s]);
+    const TRn = P.travel || {};
     for (const q of NODES) {
       const qx = X(q.x), qy = Y(q.y), dx = X(cU) - qx, dy = Y(cV) - qy;
+      const onPath = TRn.k > 0 && TRn.k < 1 && (q.n === TRn.from || q.n === TRn.to);
       const L = Math.hypot(dx, dy) || 1;
       const NR = (q.r != null ? q.r : 0.20) * W / 2 * 1.16;   // 노드 림 바깥에서 시작
-      g.beginPath();
-      g.moveTo(qx + dx / L * NR, qy + dy / L * NR);
-      g.lineTo(X(cU) - dx / L * CR * 1.12, Y(cV) - dy / L * CR * 1.12);   // 허브 림 앞에서 멈춤
-      g.stroke();
+      const sx = qx + dx / L * NR, sy = qy + dy / L * NR;
+      const ex = X(cU) - dx / L * CR * 1.12, ey = Y(cV) - dy / L * CR * 1.12;
+      g.beginPath(); g.moveTo(sx, sy); g.lineTo(ex, ey); g.stroke();
+      // 접촉 파 — 허브에서 레일을 타고 바깥으로 훑고 나간다(모든 레일 동시)
+      if (hitK > 0.01) {
+        const u = 1 - hitK, w = 0.34;
+        const gr2 = g.createLinearGradient(ex, ey, sx, sy);
+        const stop = (p, a) => gr2.addColorStop(Math.max(0, Math.min(1, p)),
+          lut(0.85).replace('rgb(', 'rgba(').replace(')', ',' + a + ')'));
+        stop(u - w, 0); stop(u, 0.9 * hitK); stop(u + w, 0);
+        g.save(); g.setLineDash([]); g.globalAlpha = 1;
+        g.strokeStyle = gr2; g.lineWidth = 3.4 * s; g.stroke(); g.restore();
+      }
+      // 이동 파 — 출발·도착 레일만 통째로 밝아진다. 코멧이 탈 길을 먼저 켠다.
+      if (onPath) {
+        const gr3 = g.createLinearGradient(sx, sy, ex, ey);
+        const A = Math.sin(Math.PI * TRn.k) * 0.85;
+        gr3.addColorStop(0, lut(0.5).replace('rgb(', 'rgba(').replace(')', ',0)'));
+        gr3.addColorStop(0.5, lut(0.9).replace('rgb(', 'rgba(').replace(')', ',' + A + ')'));
+        gr3.addColorStop(1, lut(0.5).replace('rgb(', 'rgba(').replace(')', ',0)'));
+        g.save(); g.setLineDash([]); g.globalAlpha = 1;
+        g.strokeStyle = gr3; g.lineWidth = 3 * s; g.stroke(); g.restore();
+      }
     }
     g.setLineDash([]); g.restore();
   }
