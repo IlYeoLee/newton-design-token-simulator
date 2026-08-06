@@ -2472,6 +2472,12 @@ export class Session {
         FMU(`런지 ${Math.min(REPS, this.a2count || 0)} / ${REPS}`, CS.sand);
         // 4회 완료 후에도 '서기 복귀'까지 대기 — 런지 자세 중 다음 단계로 튀지 않게 (유저)
         if ((this.a2count || 0) >= REPS) {
+          // ★ **다 하면 Locked**(유저). 한 발 성공 = Success 지만, 세트가 끝나면 이 마크들은
+          //   더 이상 밟을 대상이 아니다 — 그게 Locked 의 뜻이다('무채 고스트 = 볼 것은 있으나
+          //   네 차례가 아님'). Success 로 계속 두면 '아직 하는 중'으로 읽혀서, 서기 복귀를
+          //   기다리는 이 구간이 끝난 건지 아닌지 화면이 말해주지 않는다.
+          P.fmL.locked(); P.fmR.locked();
+          P.numL.visible = false; P.numR.visible = false;   // 카운트도 끝났다
           const stand = pb?.footL && pb?.footR && Math.abs(pb.footL.z - pb.footR.z) < 0.18 && pb.footL.y < 0.09 && pb.footR.y < 0.09;
           if (stand) { this.next(); return; }
         }

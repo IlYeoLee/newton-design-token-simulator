@@ -1175,16 +1175,38 @@ export function drawStemArrow(g, W, H, t, ENV, opts = {}) {
   grad.addColorStop(1.00, rgba(0.97, A0));
   // 볼류메트릭 언더글로우 — 같은 폴리곤을 1.9배 넓혀 블러 밴드로. shadowBlur 없이 스템이
   //   판에 붙은 종이처럼 평평했다(유저: 발자국 토큰과 감도 차이). 링의 volRing 과 같은 취지.
+  // ★ 도트 스템의 흐름 — **점 목록을 한 번 계산**해 언더글로우와 본체가 같은 점을 쓴다.
+  //   따로 계산하던 시절엔 개수 상수(13)를 한쪽만 고쳐 글로우와 점이 어긋났다.
+  //   유저 08-06: "더 촤르르륵 · 더 쫀뜩 · 끝에는 약간 투명도".
+  //     촤르르륵 = 점이 뿌리→머리로 **흘러간다**(간격 유지, 한 칸 주기로 순환)
+  //     쫀뜩     = 촘촘하게(13→9.5) + 흐름을 타고 **뭉쳤다 늘어나는** 사인 스퀴즈
+  //     끝 투명  = 머리 쪽 마지막 구간 알파를 깎는다. 순환하는 점이 머리에서 툭 사라지는
+  //                이음매를 가리는 일도 같이 한다(뿌리 쪽 소멸은 그라디언트가 이미 한다).
+  const dotList = opts.dots ? (() => {
+    const seg = Math.abs(yHead - y0);
+    const N = Math.max(3, Math.round(seg / (9.5 * sw)));
+    const dph = (t * 1.15 * speed) % 1;
+    const sm = (a2, b2, x) => { const u = Math.max(0, Math.min(1, (x - a2) / (b2 - a2))); return u * u * (3 - 2 * u); };
+    const out = [];
+    for (let i = 0; i < N; i++) {
+      const u = ((i + 0.5) / N + dph / N) % 1;
+      const squeeze = 1 + 0.22 * Math.sin((u * 3 - dph * 2) * Math.PI * 2);
+      out.push({ y: y0 + (yHead - y0) * u,
+                 r: (w0 / 2 + (w1 / 2 - w0 / 2) * u) * squeeze,
+                 a: 1 - 0.5 * sm(0.78, 1, u) });
+    }
+    return out;
+  })() : null;
   g.save(); g.filter = `blur(${7 * sw}px)`; g.globalAlpha = opts.dots ? 0.30 : 0.55;
   g.fillStyle = grad;
   if (opts.dots) {
     // 도트 모드에선 언더글로우도 점으로. 폴리곤 밴드를 깔면 점 사이가 메워져 다시 막대가 된다.
-    const seg = Math.abs(yHead - y0), N = Math.max(3, Math.round(seg / (13 * sw)));
-    for (let i = 0; i < N; i++) {
-      const u = (i + 0.5) / N, y = y0 + (yHead - y0) * u;
-      const r = (w0 / 2 + (w1 / 2 - w0 / 2) * u) * 1.5;
-      g.beginPath(); g.arc(cx, y, Math.max(1.4 * sw, r), 0, Math.PI * 2); g.fill();
+    const gA = g.globalAlpha;
+    for (const d of dotList) {
+      g.globalAlpha = gA * d.a;
+      g.beginPath(); g.arc(cx, d.y, Math.max(1.4 * sw, d.r * 1.5), 0, Math.PI * 2); g.fill();
     }
+    g.globalAlpha = gA;
   } else {
     g.beginPath();
     g.moveTo(cx - w0, y0); g.lineTo(cx + w0, y0);
@@ -1198,14 +1220,11 @@ export function drawStemArrow(g, W, H, t, ENV, opts = {}) {
     // ★ 도트 스템(지면 전용, 유저 08-05) — 벽은 이어진 테이퍼 자루, **바닥은 점렬**이다.
     //   같은 토큰·같은 촉·같은 램프를 쓰고 자루의 '재질'만 바꾼다(문법 공유, 렌더만 절제).
     //   점 크기는 스템 폭 테이퍼를 그대로 따라 뿌리에서 머리로 굵어진다 = 방향이 점에서도 읽힌다.
-    const seg = Math.abs(yHead - y0);
-    const N = Math.max(3, Math.round(seg / (13 * sw)));
-    for (let i = 0; i < N; i++) {
-      const u = (i + 0.5) / N;
-      const y = y0 + (yHead - y0) * u;
-      const r = (w0 / 2 + (w1 / 2 - w0 / 2) * u) * 0.92;
-      g.beginPath(); g.arc(cx, y, Math.max(0.9 * sw, r), 0, Math.PI * 2); g.fill();
+    for (const d of dotList) {
+      g.globalAlpha = d.a;
+      g.beginPath(); g.arc(cx, d.y, Math.max(0.9 * sw, d.r * 0.92), 0, Math.PI * 2); g.fill();
     }
+    g.globalAlpha = 1;
   } else {
     g.beginPath();
     g.moveTo(cx - w0 / 2, y0); g.lineTo(cx + w0 / 2, y0);
