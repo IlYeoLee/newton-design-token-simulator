@@ -26,7 +26,7 @@ uniform sampler2D uNumTex; uniform float uNumOn, uNumScale; uniform vec2 uNumOff
 ` + FX_GLSL + `
 uniform float uW, uHalo, uNoise;
 ` + MARK_GLSL + `
-uniform float uPhase, uProg, uFade, uStrong, uTime, uGain, uDay, uOut, uToe;
+uniform float uPhase, uProg, uFade, uStrong, uTime, uGain, uDay, uOut, uToe, uInkFloor;
 uniform float uStatePrev, uPrevProg, uXfade;   // 상태 크로스페이드(0.28s) — 이전 상태·진행·혼합량
 uniform vec3 uFPOrigin, uFPFwd, uFPRight;
 uniform float uFPNear, uFPFar, uFPHalfN, uFPHalfF, uFPFadeM;
@@ -170,7 +170,18 @@ void main() {
     //   감쇠 스택이 없다. 그래서 같은 잉크 모드인데도 벽은 쨍하고 바닥만 물빠진 것처럼 보였다
     //   (유저: "왜 벽면 채도는 쨍하고 바닥은 흐리멍텅해"). 색이 아니라 **덮는 양**의 문제다.
     //   배수를 올려 감쇠를 지나온 뒤에도 잔디를 제대로 덮게 한다. 색(ink)은 그대로다.
-    gl_FragColor = vec4(uOut > 0.5 ? toLin(ink) : ink, clamp(mc * 2.30, 0.0, 1.0) * border);
+    float a = clamp(mc * 2.30, 0.0, 1.0) * border;
+    // ★ 잉크 자락 끊기(uInkFloor) — **잉크에서만** 필요한 손잡이다.
+    //   가산은 바닥에 빛을 더하므로 옅은 자락이 그냥 옅게 보인다. 그런데 잉크는
+    //   결과 = 색×알파 + 바닥×(1−알파) 라, 낮은 알파의 빨강이 초록 바닥과 섞여 **갈색**이 된다.
+    //   실측(바닥 #9FA58F · 잉크 #FF3300):
+    //     알파 1.00 → #ff3300 채도 100%   0.50 → #cf6c48 65%
+    //     알파 0.25 → #b7896b  채도  41%   0.15 → #ad947a 30%  ← 진흙
+    //   유저가 "발자국 옆 갈색 얼룩"으로 본 것이 이 자락이다. 색을 바꿔서 될 문제가 아니라
+    //   자락 길이의 문제라, 문턱 아래를 끊고 남은 구간을 세운다.
+    //   ★ 기본 0 = 도입 전과 **픽셀 동일**. 켜야만 동작한다(이 리포의 신규 노브 규약).
+    if (uInkFloor > 0.0001) a = smoothstep(uInkFloor, min(1.0, uInkFloor + 0.20), a);
+    gl_FragColor = vec4(uOut > 0.5 ? toLin(ink) : ink, a);
   } else {
     gl_FragColor = vec4(uOut > 0.5 ? toLin(col) : col, 1.0);   // 야간: 가산 광
   }
@@ -278,7 +289,7 @@ export function makeLaneFXMaterial(lenM) {
       uHalo: { value: 0.9 },
       uGain: { value: 1 },
       uLStyle: { value: 1 }, uLSpeed: { value: 1 }, uLGap: { value: 1 }, uLHeat: { value: 0.5 }, uLTail: { value: 0.55 },
-      uDay: { value: 0 }, uOut: { value: 1 },
+      uDay: { value: 0 }, uOut: { value: 1 }, uInkFloor: { value: 0 },
       // 풋프린트 소프트 페이드 기본값 — rig 미연결(FX Lab 등) 시 항상 안 죽게 넉넉한 범위
       uFPOrigin: { value: new THREE.Vector3() }, uFPFwd: { value: new THREE.Vector3(0, 0, -1) }, uFPRight: { value: new THREE.Vector3(1, 0, 0) },
       uFPNear: { value: -1e6 }, uFPFar: { value: 1e6 }, uFPHalfN: { value: 1e6 }, uFPHalfF: { value: 1e6 }, uFPFadeM: { value: 0.15 },
@@ -404,7 +415,7 @@ export function makeMarkFXMaterial(footTex = null) {
       //   화면값이 랩과 같아진다. (LANEFX 는 처음부터 uOut=1 — 마크만 예외였다.)
       //   ※ 이전 주석의 '(241,37,25)' 는 OutputPass 이전 버퍼값을 잰 것 — toLin(249,106,88) 그 자체다.
       uTLo: { value: 0 }, uTHi: { value: 0 }, uDotMode: { value: 0 },   // 상태 색 축(온도 창) — 0 = 상태 기본 창
-      uSweepA: { value: 1 }, uNoise: { value: MARK_LOOK.wobble }, uDay: { value: 0 }, uOut: { value: 1 },
+      uSweepA: { value: 1 }, uNoise: { value: MARK_LOOK.wobble }, uDay: { value: 0 }, uOut: { value: 1 }, uInkFloor: { value: 0 },
       // ★ 생성 기본값도 **정본(MARK_LOOK)** 에서 온다. 0.5 를 박아 두면, per-frame 주입을 안 받는
       //   경로(상태 오버라이드·floorLook·랩 프리뷰)가 일렁임 0.5 로 굳는다 — 실측 결과 그런 재질이
       //   4개 남아 있었다(전부 visible:false 라 화면엔 안 나왔지만, 추출 경로가 하나 늘면 바로 샌다).

@@ -388,6 +388,15 @@ uniform float uPCalB;        // band(톤) 오프셋
 //     명암이 진한 부분에 잉크로 넣어라 — 아직도 밝다"). 세기 · 문턱(이 밝기 아래를 그늘로 본다).
 //     uPInk 0 = 도입 전과 픽셀 동일(롤백 지점). 바닥(personLook)에만 걸린다 — 벽은 personColor 직행.
 uniform float uPInk, uPInkT;
+// ── 부위 강조(유저 08-07: "몸통이 너무 주황이라 붉게 되어야 할 강조가 안 된다") ──────────
+//   ★ 원인은 램프가 아니라 **몸통 대역의 위치**다. look2Ramp 를 t 0~1 로 뽑아 보면
+//     0.20 #fb5959 · 0.25 부근 #FA3030(브랜드 RED) · 0.30 #fb3326 · 0.50 #ff4000 · 0.80 #ff7c4b
+//     인데 몸통 밴드는 0.3 + 0.7*x 라 **0.30~1.00** 이다. 붉은 자리를 아예 안 지난다.
+//     그래서 강조를 아무리 세게 줘도 더 주황이 될 뿐 붉어질 수가 없었다.
+//   처방: 강조는 t 를 **끌어올리지 않고 끌어내린다**(uPEmphT 쪽으로). 새 색을 만들지 않고
+//     같은 룩2 램프의 아래 구간을 쓴다 — 룩시스템 밖으로 안 나간다.
+//   uPEmphY0/Y1 = 판 uv.y 기준 강조 띠(발 = 아래쪽). uPEmphSoft = 경계 무름.
+uniform float uPEmph, uPEmphT, uPEmphY0, uPEmphY1, uPEmphSoft;
 // 얼굴 아래 밝기 리프트 — 기본 0(끔). 복싱 벽 인물만 켠다. uFaceE = 얼굴 타원(패널 uv, xy=중심 zw=반경)
 uniform float uFaceLift;
 uniform vec4 uFaceE;
@@ -695,6 +704,14 @@ vec4 personAura(float mBody, float wide, float lumSharp, float lumBase, float fa
   //   (유저: "자글자글 너무 싫어"). 밴딩 해소엔 고정 패턴이면 충분하다. 진폭도 축소.
   float dth = (fract(sin(dot(uv * 1483.0, vec2(12.9898, 78.233))) * 43758.5453) - 0.5)
             * (0.006 + face * 0.010);
+  // 부위 강조 — 띠 안에서 t 를 uPEmphT(기본 0.25 = #FA3030)로 끌어내린다.
+  //   ⚠ 얼굴은 제외한다(face) — 얼굴 대역은 이미 저열로 눌러 놨는데 여기서 또 만지면
+  //     이목구비 소거가 풀려 반점이 돌아온다(정수리 반점과 같은 경로).
+  if (uPEmph > 0.001) {
+    float e = smoothstep(uPEmphY0 - uPEmphSoft, uPEmphY0 + uPEmphSoft, uv.y)
+            * (1.0 - smoothstep(uPEmphY1 - uPEmphSoft, uPEmphY1 + uPEmphSoft, uv.y));
+    t = mix(t, uPEmphT, clamp(e * uPEmph, 0.0, 1.0) * mBody * (1.0 - face));
+  }
   vec3 c = look2Ramp(clamp(t + dth, 0.0, 1.0));
   // 채도 부스트(유저 최종 요청: "제발 채도 올려줘") — 무채 축 기준 1.28배.
   //   회색 바닥·밝은 코트 위에서 살몬이 먼지빛으로 읽히는 것을 원천 보정.

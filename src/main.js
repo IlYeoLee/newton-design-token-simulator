@@ -2441,6 +2441,15 @@ void main(){
     if (U.uPCalD) U.uPCalD.value = cal?.d ?? 1;
     if (U.uPCalW) U.uPCalW.value = cal?.w ?? 1;
     if (U.uPCalB) U.uPCalB.value = (cal?.b ?? 0) + tone;
+    // 부위 강조 — FXP.person.emph 로 실시간 구동(랩·세션 공용). 기본 0 이면 종전과 픽셀 동일.
+    const em = FXP.person?.emph;
+    if (U.uPEmph) {
+      U.uPEmph.value = em?.k ?? 0;
+      U.uPEmphT.value = em?.t ?? 0.25;
+      U.uPEmphY0.value = em?.y0 ?? 0;
+      U.uPEmphY1.value = em?.y1 ?? 0.22;
+      U.uPEmphSoft.value = em?.soft ?? 0.06;
+    }
     if (U.uPForm) U.uPForm.value = FXP.person?.form ?? 0;   // 레퍼런스 규약 토글(랩에서 켠다)
     if (U.uPCoral) U.uPCoral.value = coral;
     if (U.uPSat) U.uPSat.value = 1.0 + (FXP.sat ?? 1) * 0.32;
@@ -2678,6 +2687,7 @@ void main(){
         // uPulse 0 — 복싱 인물엔 루마 펄스가 없다(톤을 흔드는 원인이라 끈다).
         // uPSat·uPSweep = PERSON_GLSL 공용(구 uSat 은 죽은 유니폼이라 폐기).
         uPSat: { value: 1.32 }, uPSweep: { value: 0 }, uPHi: { value: 0.86 }, uPDepth: { value: 0.34 }, uPCoral: { value: 0 }, uPExp: { value: 0.5 }, uPForm: { value: 0 }, uPLo: { value: 0.12 }, uPHiL: { value: 0.85 }, uPLumLin: { value: 0 }, uPCalWave: { value: 1 }, uPCalD: { value: 1 }, uPCalW: { value: 1 }, uPCalB: { value: 0 },
+        uPEmph: { value: 0 }, uPEmphT: { value: 0.25 }, uPEmphY0: { value: 0 }, uPEmphY1: { value: 0.22 }, uPEmphSoft: { value: 0.06 },   // 부위 강조 — 기본 0(도입 전과 픽셀 동일)
         uPInk: { value: 0.85 }, uPInkT: { value: 0.42 }, uPulse: { value: 0.0 }, uEnter: { value: 99 },
         // 주목 강조(스텝백 가이드) — 기본 전부 0/끔 = 도입 전과 픽셀 동일. setHotspot 이 주입한다.
         uHotE: { value: new THREE.Vector4(0, 0, 0, 0) }, uGaze: { value: new THREE.Vector4(0, 0, 0, 0) },
@@ -3526,6 +3536,7 @@ void main(){
         uFaceLift: { value: 0 },   // 0 = 끔. 밝기로는 얼굴·글러브가 안 갈린다(08-04 실측: 107 vs 126 이어도 눈엔 같은 주황 덩어리 — R 이 255 로 포화라 G 차이가 안 읽힌다). 경계선/림 방식으로 재시도해야 한다.
         uFaceE: { value: new THREE.Vector4(0, 0, 0, 0) },
         uPSat: { value: 1.32 }, uPSweep: { value: 0 }, uPHi: { value: 0.86 }, uPDepth: { value: 0.34 }, uPCoral: { value: 0 }, uPExp: { value: 0.5 }, uPForm: { value: 0 }, uPLo: { value: 0.12 }, uPHiL: { value: 0.85 }, uPLumLin: { value: 0 }, uPCalWave: { value: 1 }, uPCalD: { value: 1 }, uPCalW: { value: 1 }, uPCalB: { value: 0 },
+        uPEmph: { value: 0 }, uPEmphT: { value: 0.25 }, uPEmphY0: { value: 0 }, uPEmphY1: { value: 0.22 }, uPEmphSoft: { value: 0.06 },   // 부위 강조 — 기본 0(도입 전과 픽셀 동일)
         uPInk: { value: 0.85 }, uPInkT: { value: 0.42 },   // PERSON_GLSL 공용 — setPersonUniforms 가 주입
         uCropC: { value: new THREE.Vector2(0.5, 0.5) }, uCropS: { value: new THREE.Vector2(1, 1) },
       },
@@ -4156,6 +4167,7 @@ void main(){
         uCols: { value: COACH.cols }, uRows: { value: COACH.rows }, uN: { value: COACH.n }, uDirect: { value: COACH.direct },
         uW: { value: 1 }, uNoise: { value: 0.55 },
         uPSat: { value: 1.32 }, uPSweep: { value: 0 }, uPHi: { value: 0.86 }, uPDepth: { value: 0.34 }, uPCoral: { value: 0 }, uPExp: { value: 0.5 }, uPForm: { value: 0 }, uPLo: { value: 0.12 }, uPHiL: { value: 0.85 }, uPLumLin: { value: 0 }, uPCalWave: { value: 1 }, uPCalD: { value: 1 }, uPCalW: { value: 1 }, uPCalB: { value: 0 },
+        uPEmph: { value: 0 }, uPEmphT: { value: 0.25 }, uPEmphY0: { value: 0 }, uPEmphY1: { value: 0.22 }, uPEmphSoft: { value: 0.06 },   // 부위 강조 — 기본 0(도입 전과 픽셀 동일)
         uPInk: { value: 0 }, uPInkT: { value: 0.42 },   // PERSON_GLSL 공용 — 벽은 personColor 만 쓰지만 선언은 필수(안 하면 무채). 잉크는 바닥 전용이라 0.
       },
       vertexShader: `#include <common>

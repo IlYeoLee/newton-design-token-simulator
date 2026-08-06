@@ -64,6 +64,17 @@
         안쪽 두꺼운 곳이 밝다. 무채축 대신 뉴턴 LUT 를 명도축으로 쓴다
         (깊이 0 → RED 어둡게 · 중간 → CORAL/SAND · 최심부 → PRISM).</div>
     </fieldset>
+    <fieldset><legend>부위 강조 — 붉게 축하하기</legend>
+      <div class=row><label>세기 k</label><input id=em-k type=range min=0 max=1 step=0.02 value=0><span class=v id=v-em-k>0.00</span></div>
+      <div class=row><label>목표 t</label><input id=em-t type=range min=0.10 max=0.45 step=0.01 value=0.25><span class=v id=v-em-t>0.25</span></div>
+      <div class=row><label>띠 아래</label><input id=em-y0 type=range min=0 max=1 step=0.01 value=0><span class=v id=v-em-y0>0.00</span></div>
+      <div class=row><label>띠 위</label><input id=em-y1 type=range min=0 max=1 step=0.01 value=0.22><span class=v id=v-em-y1>0.22</span></div>
+      <div class=row><label>무름</label><input id=em-soft type=range min=0.01 max=0.30 step=0.01 value=0.06><span class=v id=v-em-soft>0.06</span></div>
+      <div class=hint>몸통 밴드가 <b>t 0.30~1.00</b> 이라 룩2 램프의 붉은 자리(0.25 = #FA3030)를 안 지난다 —
+        그래서 강조는 t 를 올리는 게 아니라 <b>내린다</b>. 새 색을 안 만들고 같은 램프 안에서만 논다.<br>
+        판 uv.y 기준이라 <b>0 = 아래(발)</b>. 발 강조는 대략 0~0.22.
+        k 0 이면 도입 전과 픽셀 동일이다.</div>
+    </fieldset>
     <fieldset><legend>보기</legend>
       <div class=row><label>크기</label><input id=size type=range min=200 max=640 step=20 value=240><span class=v id=vsize>240</span></div>
       <button id=b-live>▶ 라이브 (지금 종목)</button>
@@ -281,6 +292,21 @@ async function setForm(v) {
 }
 $('form-cur').onclick = () => setForm(0);
 $('form-ref').onclick = () => setForm(1);
+
+// 부위 강조 — 시뮬의 FXP.person.emph 를 그대로 민다(공용 셰이더라 세 인물이 같이 움직인다).
+//   값은 매 프레임 main 이 유니폼에 주입하므로 여기선 스토어만 갱신하면 된다.
+const EM = [['em-k','k'],['em-t','t'],['em-y0','y0'],['em-y1','y1'],['em-soft','soft']];
+for (const [id, key] of EM) {
+  $(id).addEventListener('input', async e => {
+    const v = +e.target.value;
+    $('v-' + id).textContent = v.toFixed(2);
+    await ready();
+    const P = W().__dbg.FXP.person;
+    P.emph = P.emph || { k: 0, t: 0.25, y0: 0, y1: 0.22, soft: 0.06 };
+    P.emph[key] = v;
+  });
+  $(id).addEventListener('change', () => $('b-all').onclick());
+}
 
 $('size').addEventListener('input', e => {
   VIEW = +e.target.value; $('vsize').textContent = VIEW;
