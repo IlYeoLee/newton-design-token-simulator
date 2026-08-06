@@ -461,13 +461,8 @@ function livePrimEnv() {
     glyph: drawGlyph,
     // 브랜드 로고 — 자간 준 글자로 워드마크를 흉내 내던 걸 실제 에셋으로 바꾼다(유저).
     logo: _logoImg(),
-    // ★ 밝은 투사면 보정 — 검은 바닥에서 맞춘 헤어라인 알파가 코트(밝은 타일) 위에서 통째로
-    //   스러졌다(유저: "이게 이식한 거라고?"). 밝은 면에선 헤일로가 일을 못 한다 —
-    //   밝은 바닥에 밝은 글로우를 얹으면 대비가 아니라 뿌연 김이 되고, 그 몫을 획이 받아야 한다.
-    //   ※ FXP.day / markBlend 는 신호가 아니다 — 다크 테마에서도 항상 true 라 실측으로 확인했다.
-    //     실제 신호는 투사면 칩(FXP.bg)이다. 어두운 면 목록은 SURF_DEFS(main.js)에 면을
-    //     추가할 때 같이 봐야 한다.
-    day: (FXP.bg && FXP.bg !== 'none' && FXP.bg !== 'court_black') ? 1 : 0,
+    // 밝은 투사면 보정은 프림에 따로 두지 않는다 — 마크 셰이더의 잉크 모드가 정본이다
+    //   (tokens.js 178: 색 보존 + 밝기→커버리지). 여기 배수를 두면 시스템 밖의 두 번째 보정이 된다.
   };
 }
 let _logo = null;
@@ -1601,10 +1596,11 @@ export class Session {
     b1num.material.map.colorSpace = THREE.SRGBColorSpace;
     b1num.userData.canvas = b1c; b1num.userData.tex = b1num.material.map;
     b1num.rotation.x = -Math.PI / 2; b1num.position.set(0, 0.016, B1Z); b1num.renderOrder = 8;   // 숫자는 링과 한 몸 — 같은 상수에서
-    // ── 번호 표적 4개는 **프림 토큰이 직접 그린다**(배치는 아래 MAT_TG).
-    //   floorRing 메시로 흉내 내던 판(구버전)은 은퇴했다 — 재설계한 노드 문법(대기=헤어라인 링
-    //   · 지목=채움+숫자 파냄)이 링 메시엔 안 걸리고, 노드끼리 잇는 레일도 못 그린다.
-    //   룩 시스템은 프림 쪽에도 그대로 걸린다: 색은 ENV.lut, 두께는 LNW(=4×arrow.w), 헤일로는 look.halo.
+    // ── 번호 표적 4개 = **판정 마크 그대로**(floorRing). 발자국·화살표와 같은 마크 셰이더를
+    //   타므로 밝은 투사면 대응(잉크 모드)·상태 룩·룩 슬라이더가 **공짜로 따라온다**.
+    //   한 번 캔버스 프림으로 옮겼다가 되돌린다 — 캔버스로 옮기는 순간 디자인 시스템 밖으로
+    //   나가서, 화살표는 코트 위에서 멀쩡한데 이것만 스러졌다(유저: 이식만 하면 되는 일).
+    //   프림 판은 마크가 못 하는 것만 맡는다: 노드 사이를 잇는 레일 · 허브 접촉 모션.
     // 셋업 막 발자국 — 어깨보다 넓게(0.56m, wikiHow 기본기). 4초간만 보였다 퇴장(상시 아님).
     const b1sL = new FootMark('left').at(-B1_HALF_SHUT, BK_STAND - B1_FOOT_D, FOLLOW_S);   // 모은 자세에서 시작 → 틱이 벌린다
     const b1sR = new FootMark('right').at(B1_HALF_SHUT, BK_STAND - B1_FOOT_D, FOLLOW_S);
@@ -1635,7 +1631,9 @@ export class Session {
     //   ①② = 모은 스탠스 폭(B1_HALF_SHUT), 깊이는 허브 바깥끝과 발자국 앞끝의 한가운데.
     //   전엔 내가 d0.90/1.12 를 지어냈고 그게 발자국(1.15) 위에 얹혔다(유저 스샷).
     const B1_HUB_D = 0.60, B1_HUB_R = 0.15;
-    const MAT_TG_R = FOOT_LEN_M / 3;                                   // 발 길이 1/3 = 표적 반지름
+    // 표적 반지름 = **빔이 허용하는 최대치**. 제일 바깥인 ③④(±B1_HALF_OPEN, B1_FOOT_D)가
+    //   창 밖으로 안 나가는 선이 상한이고, 발 반 길이가 그 위 상한이다. 눈으로 고른 값이 아니다.
+    const MAT_TG_R = Math.min(FOOT_LEN_M / 2, matInk(B1_FOOT_D) - B1_HALF_OPEN);
     const MAT_TG_D = (B1_HUB_D + B1_HUB_R + (B1_FOOT_D - FOOT_LEN_M / 2)) / 2;
     // ★ 판 크기는 **그릴 것에서 나온다.** 0.90 고정판은 허브가 가장자리에 붙어 접촉 링이
     //   판 밖으로 잘려 반쪽 아크가 됐다(유저 스샷: "이게 같니"). 랩에선 허브가 판 한가운데라
@@ -1663,6 +1661,20 @@ export class Session {
       for (const b of MAT_TG) if (b.n > a.n && Math.hypot(a.x - b.x, a.d - b.d) < a.r + b.r)
         console.warn('[BK_B1] 표적 ' + a.n + '·' + b.n + ' 겹침');
     }
+    // 마크로 짓는다 — 다른 스테이지 존 마크와 **같은 floorRing**. 그래서 밝은 면 대응이 공짜다.
+    const b1tg = MAT_TG.map(tg => {
+      const z = BK_STAND - tg.d;
+      const ring = floorRing(tg.x, z, tg.r * 0.80, tg.r, BRAND.coral, 0.42);
+      const nc = document.createElement('canvas'); nc.width = nc.height = 128;
+      const num = new THREE.Mesh(new THREE.PlaneGeometry(tg.r * 1.1, tg.r * 1.1),
+        new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(nc), transparent: true,
+          depthWrite: false, blending: THREE.AdditiveBlending }));
+      num.material.map.colorSpace = THREE.SRGBColorSpace;
+      num.userData.canvas = nc; num.userData.tex = num.material.map;
+      num.rotation.x = -Math.PI / 2; num.position.set(tg.x, 0.016, z); num.renderOrder = 8;
+      redrawFootNum(num, tg.n);
+      return { ...tg, ring, num };
+    });
     const b1mat = primPanel('dribbleMat', MAT_SIZE, false);
     b1mat._prim.P = {
       // chev 는 껐다 — 방향 셰브론은 '다음이 어느 쪽'을 말하는 기호인데 제자리 드리블엔
@@ -1677,6 +1689,8 @@ export class Session {
       //   먼 줄이 더 벌어져 있는 건 멋이 아니라 사다리꼴 그 자체다(검산: 넘침 0건·충돌 0건).
       //   상태는 **대기(헤어라인 링)** — 제자리 드리블에서 밟을 곳은 없다. 다섯 자리가 있고
       //   지금 켜진 건 가운데 하나라는 걸 말한다. 코치가 번호를 부르면 그때 live 가 켜진다.
+      //   노드 자체는 위 b1tg(판정 마크)가 그린다 — 프림은 좌표만 알고 레일만 잇는다.
+      railsOnly: 1,
       targets: MAT_TG.map(tg => ({ x: toU(tg.x), y: toV(tg.d), n: tg.n,
         r: tg.r / (MAT_SIZE / 2), on: true, live: false })),
       // 눈금자는 뺐다 — 운동 중에 '0.5 m'를 읽을 사람은 없다. 도면·합성용이라 랩에서만 켠다.
@@ -1687,9 +1701,10 @@ export class Session {
     };
     b1mat.position.set(0, 0.0125, b1matZ);   // 링(0.013)·숫자(0.016) 아래 — 매트가 바닥면이다
     b1mat.material.opacity = 0;
-    this.bkB1 = { zone: b1zone, num: b1num, sL: b1sL, sR: b1sR, aL: b1aL, aR: b1aR, mat: b1mat,
+    this.bkB1 = { zone: b1zone, num: b1num, sL: b1sL, sR: b1sR, aL: b1aL, aR: b1aR, mat: b1mat, tg: b1tg,
       count: 0, _shown: -1, _wasLow: false, _popT: -9, _setupDone: false };
     g.add(b1zone, b1num, b1sL.group, b1sR.group, b1aL, b1aR, b1mat);   // 지시문은 피그마 프레임 헤더가 담당(유저)
+    for (const tg of b1tg) g.add(tg.ring, tg.num);
 
     g = this._mk('BK_B2');
     // B2 · 크로스오버 — 좌우 바운스 존 교대 점등. '공이 우리 평면에 닿는 지점'이 곧 커서라
@@ -3289,6 +3304,7 @@ export class Session {
         H.sL.op(0); H.sR.op(0); H.aL._gain = 0; H.aR._gain = 0;
         H.zone.setOp?.(0); H.num.material.opacity = 0; H.mat.material.opacity = 0;
         H.mat._prim.P.tgK = 0;
+        for (const q of H.tg) { q.ring.setOp?.(0); q.num.material.opacity = 0; }
         this.bkB1Setup = false; this.bkB1Succ = null; this.bkB1Widen = null;
         this.demoActive = true;
         FMU('먼저 보세요 — 로우 드리블', CS.prism);
@@ -3306,7 +3322,9 @@ export class Session {
       // 번호 표적은 **발자국이 물러난 뒤에** 열린다. ③④ 는 발자국과 같은 좌표라 동시에 켜면
       //   겹친다 — 겹치는 게 아니라 **자리를 물려받는** 순서다: 발자국이 가르치고, 사라지고,
       //   그 자리에 번호가 남는다. (발자국 소등 = sK 가 0 이 되는 tB 4.2s)
-      H.mat._prim.P.tgK = Math.min(1, Math.max(0, (tB - 4.2) / 0.7));
+      const tgK = Math.min(1, Math.max(0, (tB - 4.2) / 0.7));
+      H.mat._prim.P.tgK = tgK;                       // 레일(프림)
+      for (const q of H.tg) { q.ring.setOp?.(0.42 * tgK); q.num.material.opacity = 0.9 * tgK; }
       this.bkB1Setup = inSetup;
       const wk = tB < 0.8 ? 0 : Math.min(1, (tB - 0.8) / (W_END - 0.8));
       const we = wk * wk * (3 - 2 * wk);
