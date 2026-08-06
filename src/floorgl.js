@@ -1817,7 +1817,10 @@ export class FloorGL {
     // ★ 뒤 간격은 **뒤에 올 게 있을 때만**. 타이틀이 접혀 사라지면 그 간격이 남아 링이
     //   왼쪽으로 밀린다(유저: 인터벌에서 타이머만 남을 때 가운데정렬이 어정쩡하다).
     const ringW = (RR * 2 + (tw > 0 ? gapT : 0)) * ringK;
-    const inner = ringW + H2.gapU + tw + (step ? 110 * K2 : 0);
+    // ★ 배지 슬롯 = 배지 폭 + **슬롯 간격**(유저 검수: CROSS STEP¹ᐟ³ 처럼 타이틀에 붙어 읽힌다).
+    //   110 만 예약하던 것이 문제였다: uiK 0.80 인 농구 B단계에서 110×0.8=88 − 배지폭(≈70) = 18px 만 남았다.
+    //   규칙⑥(SPEC): 배지는 타이틀과 **같은 베이스라인, 오른쪽 끝** — 붙어 있으면 타이틀의 일부로 읽힌다.
+    const inner = ringW + H2.gapU + tw + (step ? (110 + TOK.gapT) * K2 : 0);
     // ★ HUG — 상자는 내용에서 나온다. minW 바닥값은 **쓰지 않는다**: 그것 때문에 짧은 문구에서
     //   알약이 내용보다 넓어졌고, 남는 폭이 한쪽에 쌓여 가운데가 안 맞아 보였다(유저 스샷).
     // ★ 목표 폭과 **표시 폭**을 따로 들고 다닌다. 표시는 _smoothW 로 이징되는데, 글자는
@@ -1918,6 +1921,10 @@ export class FloorGL {
       const end = pvEnd ?? PV;
       return { AV, prog: clamp01(1 - t / Math.max(.1, PV)), rem: String(Math.max(1, Math.ceil(end - t))) };
     }
+    // ★ 규칙⑤(SPEC): 'skill' 은 **시간 개념이 없는** 스테이지다(동작을 해내면 넘어간다) — 그런데
+    //   폴백이 남은 초를 돌려줘 링에 '4' 가 찍히고 있었다(유저 검수: BK_T1·B2·B3·B4 에 의미 없는 시계).
+    //   'none' 도 같다(A2 — 시계는 마크 안 숫자 하나). 값이 없으면 링은 진행만 돌린다.
+    if (AV === 'skill' || AV === 'none') return { AV, prog: stageRest, rem: '' };
     if (AV === 'segment') {
       // P2·P3 — 스테이지 전체가 아니라 **지금 구간**이 단위다(가속 10초 / 스프린트 30초 …).
       //   "10초만 가속"인데 몇 초 남았는지 모르면 언제 풀지를 정할 수 없다(유저).
@@ -2180,7 +2187,9 @@ export class FloorGL {
   _trainRow(n, y) {
     const me = this.map.get('spm-me')?.textContent, tgt = this.map.get('spm-tgt')?.textContent;
     if (!n.ring) return this._lstat(CX, y, me, tgt, 'SPM', true);   // 단독 = 넓게
-    const gap = 96, statW = 300, total = statW + gap + 200, x0 = CX - total / 2;
+    // ★ 96 → 144(유저 검수: 링이 큰 숫자에 붙어 답답하다). 링(지름 200)과 3급 눈금자 사이는
+    //   슬롯 간격(48)의 3배가 필요하다 — 둘 다 원·숫자라 시각 경계가 약하다.
+    const gap = 144, statW = 300, total = statW + gap + 200, x0 = CX - total / 2;
     this._lstat(x0 + statW / 2, y, me, tgt, 'SPM');
     const arc = this.map.get('tp-arc');
     const prog = 1 - numOr(arc?.style.strokeDashoffset, 1727.9) / 1727.9;

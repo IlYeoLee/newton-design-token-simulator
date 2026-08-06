@@ -42,3 +42,33 @@ export const VERSIONS = {
                   '2': { tLo: 0.06, tHi: 0.90, op: 1.00, bloom: 0.22 },
                   '4': { tLo: 0.02, tHi: 0.30, op: 1.00, bloom: 0.36 } } },
 };
+
+// ── Success 후보 (유저 08-07: "고춧가루 묻힌 것처럼 안에만 빨갛고 영역이 날카롭게 구분된다") ──
+//
+//   ★ 원인은 Success 룩이 아니라 **LUT 의 평탄 구간**이다.
+//     palette.js STOPS = [red@0, red@0.30, coral@0.56, sand@0.86, prism@1]
+//     → LUT 0.00~0.30 은 그라디언트가 아니라 **순수 red 한 색이 눌러앉은 고원**이다.
+//     fx-core fillSuccess 의 창은 0.02~0.78 이라, 필의 안쪽 37% 가 통째로 그 고원에 떨어진다.
+//     그래서 안쪽은 단색 빨강 섬이 되고, 0.30 을 넘는 지점에서 램프가 시작되며 **선이 생긴다**.
+//     Active(states."1", tLo 0.12)도 같은 병이다 — 창이 0.30 아래에서 시작하는 모든 상태가 그렇다.
+//
+//   ★ 처방: 창을 **고원 위(≥0.30)에서 시작**시키면 필 전체가 진짜 램프를 타고 경계가 사라진다.
+//     팔레트를 안 건드리는 최소 수술이다(고원을 없애면 전 종목·전 토큰의 빨강이 같이 바뀐다).
+//   규약(CLAUDE.md §3) 유지: 상태 구분은 온도 창 × 명도, 아웃라인 아님 · 도트는 단색 순백 · rip 0.
+export const SUCCESS_CANDS = {
+  cur: { label: '현행 — 빨강 섬 + 날카로운 경계(유저가 싫다고 한 그것)',
+    ov: { glow: 0, halo: 0.16, w: 0.72, bloom: 0.07, shade: 0, imp: 1, sharp: 0, edge: 0.004 } },
+  g1: { label: 'G1 매끈 — 창을 고원 위로(0.30~0.92). red→coral→sand→prism 전 구간을 매끄럽게 탄다',
+    ov: { tLo: 0.30, tHi: 0.92, w: 1.90, halo: 0.55, op: 1.00, bloom: 0.20, glow: 0.18,
+          imp: 0.35, shade: 0.20, sharp: 0.35, edge: 0.038, dotCol: 4, rip: 0 } },
+  g2: { label: 'G2 매끈·뜨겁게 — 창 0.30~0.70. 램프 아랫동네만 써서 더 붉되 경계는 없다',
+    ov: { tLo: 0.30, tHi: 0.70, w: 2.00, halo: 0.58, op: 1.00, bloom: 0.24, glow: 0.22,
+          imp: 0.35, shade: 0.15, sharp: 0.35, edge: 0.038, dotCol: 4, rip: 0 } },
+  g3: { label: 'G3 백열 — 창 0.32~1.00. prism 까지 열어 가장 밝고 가장 부드럽다',
+    ov: { tLo: 0.32, tHi: 1.00, w: 2.10, halo: 0.62, op: 1.00, bloom: 0.32, glow: 0.28,
+          imp: 0.30, shade: 0, sharp: 0.30, edge: 0.030, dotCol: 4, rip: 0 } },
+  g4: { label: 'G4 매끈·각인 유지 — G1 창 + 각인은 순백 단색으로 살린다(발 형태가 읽혀야 할 때)',
+    ov: { tLo: 0.30, tHi: 0.92, w: 1.80, halo: 0.50, op: 1.00, bloom: 0.16, glow: 0.15,
+          imp: 0.85, dot: 0.20, pitch: 0.030, shade: 0, sharp: 0.65, edge: 0.038,
+          dotCol: 4, rip: 0 } },
+};

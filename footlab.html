@@ -1416,7 +1416,11 @@ for (const [id, key, dg] of [['lkCount','count',0],['lkR','r',1],['lkFlow','flow
 }
 window.__flab = { get floorCv() { return floorCv; }, get tokenCv() { return tokenCv; },
                   get P() { return P; }, get walkMats() { return walkMats; },
-                  get OV() { return OV; }, get slot() { return heroSlot; } };   // 상태 오버라이드 계측용
+                  get OV() { return OV; }, get slot() { return heroSlot; },      // 상태 오버라이드 계측용
+                  // A2 판의 시계 — 추출 하니스가 위상을 **정확히** 겨냥할 수 있게 연다.
+                  //   performance.now 를 가짜로 바꿔 끼우는 방식이라, 지금 t 를 알아야 목표 위상을 계산한다.
+                  get a2t() { return (performance.now() - T0) / 1000; },
+                  get A2_CYC() { return A2_CYC; }, get A2T() { return A2T; } };
 // ★ 슬롯 이미지가 늦게 오면 **다시 굽는다**. 전엔 units.foot 이 있으면 재빌드를 건너뛰어서,
 //   발형 SDF 보다 늦게 도착하는 슬롯(LOGO)이 로드 전 텍스처(빈 칸)로 굳었다.
 let _logoReady = false;
