@@ -2428,7 +2428,10 @@ export class Session {
         //   **중심**에 닿도록 꼬리를 AL 만큼만 뒤로 뺐고, 뒤 화살표는 마크 중심에서 0.02 만
         //   떨어져 시작했다 — 둘 다 마크 위를 덮는다. 발자국 반경만큼 비켜세운다:
         //   촉·꼬리가 마크 **경계 밖**에서 시작/끝나므로 선과 마크가 서로를 안 가린다.
-        const MK_R = FOOT_LEN_M * 0.5, CLR = 0.045;   // 마크 반경 + 여백(선·마크 사이 숨)
+        // ★ 여백은 발 **폭** 기준이다(유저: 화살표가 왜 이렇게 작아졌냐).
+        //   FOOT_LEN_M*0.5 = 0.15 를 뺐더니 스탠스 반쪽(0.15~0.2m)이 통째로 먹혀 선이 사라졌다.
+        //   선은 스탠스 축을 따라 마크의 **옆면**으로 들어오므로 필요한 여유는 길이가 아니라 폭이다.
+        const MK_R = FOOT_LEN_M * 0.22, CLR = 0.02;   // 발 폭 절반 + 최소 숨
         const OFF = MK_R + CLR;
         P.arKnee.position.set(fpM.group.position.x - kxD * (AL + OFF), 0.014, fpM.group.position.z - kzD * (AL + OFF));
         P.arKnee.rotation.z = Math.atan2(-kxD, -kzD);   // 앞무릎이 나아가는 선
@@ -2462,7 +2465,7 @@ export class Session {
       {
         const a = P.fmL.group.position, b2 = P.fmR.group.position;
         const mx = (a.x + b2.x) / 2, mz = (a.z + b2.z) / 2;
-        const IN = FOOT_LEN_M * 0.5 + 0.045;                 // 발 반경 + 여백 — 마크를 덮지 않는다(유저: 안 겹치게)
+        const IN = FOOT_LEN_M * 0.22 + 0.02;                 // 발 **폭** 절반 + 숨 — 덮지도 않고 선도 안 죽는다
         const spread = Math.max(0, Math.min(1, (Math.abs(a.z - b2.z) - 0.12) / 0.28));
         const put = (m, e) => {
           if (!m) return;
@@ -2992,8 +2995,16 @@ export class Session {
       const LIVE = id === 'BK_C2';
       const CFG = { BK_B3: { per: 2.2, need: 3 }, BK_B4: { per: 2.2, need: 3 }, BK_B5: { per: 2.0, need: 3 }, BK_C2: { per: 0.9, need: 3 } }[id];
       const H = { BK_B3: this.bkB3x, BK_B4: this.bkB4x, BK_B5: this.bkB5x, BK_C2: this.bkC2x }[id];
-      if (this._bkStrId !== id) { H.beat = 0; H.count = 0; H._beatT = this.t; H._popT = -9; H._side = -1; H._ghT = -9; }
-      this._bkStrId = id;
+      // ★ **되감김도 재진입이다**(유저: 가이드 화살표 왜 날아갔어).
+      //   화살표를 '첫 턴에만'(H.count < 1) 으로 바꿨는데, count 를 **스테이지가 바뀔 때만** 리셋해서
+      //   씬 프리뷰 루프(t 가 0 으로 되감김)에서는 한 번 턴이 끝나면 영영 0 으로 못 돌아왔다 —
+      //   그래서 화살표가 통째로 사라졌다. 유저 요구는 '한 턴 안에서 덧칠하지 마라'였고
+      //   '다시는 보여주지 마라'가 아니다. 이 파일의 다른 스텝백 핸들러(BK_A3·BK_B1)는 이미
+      //   `(_bkStrT > t)` 되감김 가드를 갖고 있었다 — 여기만 빠져 있었다.
+      if ((this._bkStrT2 ?? 0) > this.t || this._bkStrId !== id) {
+        H.beat = 0; H.count = 0; H._beatT = this.t; H._popT = -9; H._side = -1; H._ghT = -9;
+      }
+      this._bkStrT2 = this.t; this._bkStrId = id;
       if (!this._followLatch && !LIVE) {   // 훈련만 관찰 국면
         for (const k of ['mL', 'mC', 'mR']) H[k].setOp?.(0);
         for (const k of ['fLl', 'fLr', 'fRl', 'fRr', 'fC']) H[k]?.op(0);
@@ -3079,10 +3090,12 @@ export class Session {
       if (this.t - H._beatT > CFG.per * 4.6) { H._beatT = this.t; H.beat = 0; H._landed = false; }   // 놓치면 다음 사이클
       H.gh.op(Math.max(0, 1 - (this.t - H._ghT) / 0.6) * 0.65);   // 오차 잔상 0.6초
       // 화살표 = 한 박자 앞서 켜서 '다음에 어디로'를 알린다
-      // ★ **첫 턴에만**(유저 08-06: 한 턴이 끝나고 나면 화살표는 추가적으로 더하지 마).
-      //   방향은 한 번 배우면 아는 것인데, 매 사이클 draw-on 이 다시 켜지면 새 정보인 척하며
-      //   화면이 계속 덧칠된다. 한 턴(H.count ≥ 1)이 지나면 마크만 남는다.
-      const arrK = (H.count || 0) < 1 ? 1 : 0;
+      // ★ **가이드에서는 매 턴 켠다**(유저 08-06 최종: 가이드에 화살표 되살려 달라).
+      //   앞서 '한 턴 뒤엔 덧칠 금지'로 count 래치를 걸었는데, 가이드는 **따라하는 화면**이라
+      //   방향 지시가 매 턴 있어야 한다 — 래치를 걸면 두 번째 턴부터 무엇을 하는 화면인지
+      //   발자국만으로 읽어야 했다. 덧칠 걱정은 draw-on 이 매 비트 리셋되며 스스로 해소된다.
+      //   실전(LIVE=BK_C2)은 그대로 화살표 없음 — 그건 이 파일이 원래 정한 규칙이다(유저 확정).
+      const arrK = LIVE ? 0 : 1;
       H.a1._gain = arrK * (H.beat === 0 ? 0.9 : (H.beat === 1 ? 0.35 : 0));
       H.a2._gain = arrK * (H.beat === 1 ? 0.95 : (H.beat === 2 ? 0.5 : 0));
       // 봇 구동 = 실측 4국면. 폭(스탠스)만으론 '스텝백을 한다'가 안 보인다(유저) —

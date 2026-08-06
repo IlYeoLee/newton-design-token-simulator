@@ -94,6 +94,9 @@
       <div class=row><label>압력장</label><input type=range id=plantar min=0 max=1 step=.02><span class=v id=vplantar></span></div>
       <div class=row><label>등고선 단계</label><input type=range id=bands min=0 max=24 step=1><span class=v id=vbands></span></div>
       <div class=row><label>밴드 무름</label><input type=range id=bandSoft min=0 max=1 step=.01><span class=v id=vbandSoft></span></div>
+      <div class=row><label>상태 색 · 뜨거운 끝 tLo</label><input type=range id=tLo min=0 max=1 step=.01><span class=v id=vtLo></span></div>
+      <div class=row><label>상태 색 · 밝은 끝 tHi</label><input type=range id=tHi min=0 max=1 step=.01><span class=v id=vtHi></span></div>
+      <div class=hint>온도 창 = **상태의 색**. 0 쪽이 레드(팔레트 최강), 0.86 쯤이 샌드. tHi 0 = 미설정(상태 기본 창).<br>'이 상태만' 으로 두고 확대 중인 상태에 얹는다 — 피그마 성공 정본(163:8908)이 기준.</div>
       <div class=row><label>이너 섀도우</label><input type=range id=edgeShade min=0 max=1.4 step=.01><span class=v id=vedgeShade></span></div>
       <div class=row><label>섀도우 면적</label><input type=range id=edgeShadeW min=.2 max=4 step=.05><span class=v id=vedgeShadeW></span></div>
       <div class=seg id=segEdgeShadeCol style="margin:2px 0 6px"><button data-v=0 class=on>프리즘</button><button data-v=1>샌드</button><button data-v=2>코랄</button><button data-v=3>레드</button><button data-v=4>흰</button></div>
@@ -249,6 +252,7 @@ FXP.numSrc = 'offbit';   // 랩 기본 글리프 = 도트 폰트(유저 확정)
 const DEF = { op: 1.0, imp: 1.0, scale: 0.835, offx: -0.04, offy: -0.007, irot: 0, pitch: 0.027, dot: 0.25,
               glow: 0.0, shade: 0.55, sharp: 0.22, edge: 0.058, gx: 0, gy: 0, grot: 0, gsh: 0.75,
               w: 1.0, halo: 0.9, pool: 0.9, noise: 0.5, prog: 0.55, tilt: 8,
+              tLo: 0, tHi: 0,   // 상태 색 축 — 0/0 = 미설정(각 상태 기본 창). '이 상태만' 으로 얹는다
               bloom: 0.08, blur: 0.8, gsize: 1.0,
               gxL: null, gyL: null, grotL: null, gxR: null, gyR: null, grotR: null,   // 좌/우 독립 글리프(유저) — null = 구 키 미러 규약
               rip: 0.55, ripReach: 0.34, ripWidth: 0.09, ripSpeed: 0.45, ripGrad: 1,
@@ -265,7 +269,7 @@ const SF = SIL_FIT / SIL_FIT_REF;   // uv 단위 거리 스케일(정본과 동�
 const $ = id => document.getElementById(id);
 const KEYS = ['op','imp','scale','offx','offy','irot','pitch','dot','glow','shade','sharp','edge',
               'w','halo','pool','noise','prog','tilt','bloom','blur',
-              'gsize','gsh','gxL','gyL','grotL','gxR','gyR','grotR','rip','ripReach','ripWidth','ripSpeed','ripGrad','plantar','bands','bandSoft','edgeShade','edgeShadeW','edgeShadeGrad','edgeShadeG0','edgeShadeG1','shadeRed','shadeRedW','edgeW','edgeSoft','dither'];
+              'gsize','gsh','gxL','gyL','grotL','gxR','gyR','grotR','rip','ripReach','ripWidth','ripSpeed','ripGrad','plantar','bands','bandSoft','edgeShade','edgeShadeW','edgeShadeGrad','edgeShadeG0','edgeShadeG1','shadeRed','shadeRedW','edgeW','edgeSoft','dither','tLo','tHi'];
 const DIGITS = { tilt: 0, irot: 1, grotL: 0, grotR: 0, gxL: 3, gyL: 3, gxR: 3, gyR: 3, pitch: 3, edge: 3, scale: 3, offx: 3, offy: 3,
                  gx: 3, gy: 3, ripWidth: 3, bloom: 3, bands: 0, dither: 3 };
 let shadeCol = 0, ripCol = 1, gShadow = 'glow', gBlend = 'normal', edgeShadeCol = +(LOOK.edgeShadeCol ?? 0);
@@ -700,7 +704,12 @@ const OV_MAP = { imp: 'uImp', dot: 'uImpDot', glow: 'uImpGlow', shade: 'uImpShad
   rip: 'uRip', ripSpeed: 'uRipSpeed', ripGrad: 'uRipGrad', op: 'uFillOp',
   // ★ 색 선택도 상태별 오버라이드 대상이다 — 빠져 있어서 '이 상태만' 으로 색을 바꿔도
   //   유니폼에 안 실렸다(유저 08-05: 흰색으로 바꿔 저장했는데 반영이 안 된다).
-  shadeCol: 'uImpShadeCol', dotCol: 'uImpDotCol', edgeShadeCol: 'uEdgeShadeCol', ripCol: 'uRipCol' };
+  shadeCol: 'uImpShadeCol', dotCol: 'uImpDotCol', edgeShadeCol: 'uEdgeShadeCol', ripCol: 'uRipCol',
+  // ★ **상태 색 축**(tLo/tHi) · 도트 모드(dotMode) — 이 표에 없으면 랩에서 값이 유니폼에 안 실린다.
+  //   tokens.js applyMarkLookTo 에는 넣었는데 여기 랩 표를 빠뜨려서, 상태 창을 넣어도 **랩만
+  //   아무 변화가 없었다**(그래서 "색으로 구분이 안 간다"가 절반은 이 누락이었다).
+  //   랩과 시뮬이 같은 키 집합을 봐야 한다 — 이 파일이 이미 같은 사고를 두 번 겪었다(위 주석).
+  tLo: 'uTLo', tHi: 'uTHi', dotMode: 'uDotMode' };
 const OV_MAPSF = { pitch: 'uImpPitch', edge: 'uImpEdge', edgeW: 'uEdgeW', ripWidth: 'uRipWidth', ripReach: 'uRipReach' };
 function feedOV(U, slot) {
   const o = OV[slot]; if (!o) return;

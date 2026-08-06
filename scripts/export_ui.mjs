@@ -62,7 +62,18 @@ if (arg('list', false)) {
 }
 
 const SURF = arg('surface', 'floor');
+const T0  = +arg('t0', 0);   // 시작 시각(초) — 컴포넌트가 특정 상태로 돌고 있는 구간만 뽑을 때
+// ★ 관찰(프리뷰) 구간 파라미터 — 전엔 `pv: 3` 을 **하드코딩**하고 `pvn` 을 안 넘겼다.
+//   그래서 '영상 N회 재생' 을 세는 링이 재생횟수 대신 **남은 초**를 셌다(유저: 뜬금없이 7, 8 이 섞인다).
+//   정본은 main.js 의 stepLoopSec/stepLoops 다 — 값이 갈리지 않게 같은 식을 쓴다:
+//     stepLoopSec = STEP_SEG[id] / rate + hold   ·   pv = stepLoopSec × loops   ·   pvn = loops
+//   (STEP_SEG·rate·hold 는 session.js/main.js 상수. 여기 표는 그 사본이므로 바뀌면 같이 고칠 것.)
+const STEP_SEG = { BK_B2: 0.60, BK_B3: 1.44, BK_B4: 1.81, BK_B5: 3.10, BK_C2: 3.10 };
+const stepRate = () => 0.5, stepHold = () => 1.0;
+const stepLoops = id => (id === 'BK_C2' ? 1 : 2);
+const pvOf = id => (STEP_SEG[id] ? (STEP_SEG[id] / stepRate(id) + stepHold(id)) * stepLoops(id) : 0);
 const STAGE = arg('stage', SURF === 'wall' ? 'BX_T1' : 'A3');
+const PV = pvOf(STAGE);   // 이 스테이지의 실제 관찰 길이(초). 0 = 관찰 없는 화면
 const DUR = +arg('dur', 8);
 const FPS = +arg('fps', 60);
 const ALPHA = !!arg('alpha', false);
@@ -110,13 +121,13 @@ await page.goto(`${URLBASE}?dev=1&uiscale=${UISCALE}`, { waitUntil: 'networkidle
 await page.waitForFunction('!!window.__dbg?.floorGL', { timeout: 120000 });
 await new Promise(r => setTimeout(r, 9000));   // 폰트·이미지 준비
 
-await page.evaluate(({ surf, stage, src, w, h }) => {
+await page.evaluate(({ surf, stage, src, w, h, pp }) => {
   const d = window.__dbg;
   const g = surf === 'wall' ? d.wallGL : d.floorGL;
   // ★ 재생 자체를 막는다 — 앱이 매 틱 play() 를 다시 부르므로 pause() 만으론 부족하다.
   //   (HANDOFF-0802 ①. 이 스크립트는 그 수정을 못 받아서 READY 의 코치 카드가 배속됐다.)
   HTMLMediaElement.prototype.play = function () { return Promise.resolve(); };
-  g.load(stage, { dur: 8, pv: 3, src: `ready-view/${src}?stage=${stage}` });
+  g.load(stage, { dur: pp.dur, pv: pp.pv, pvn: pp.pvn, src: `ready-view/${src}?stage=${stage}` });
   // 내보내기 전용 출력 캔버스 — 대지 캔버스를 원하는 해상도로 리샘플해 담는다
   const o = document.createElement('canvas');
   o.width = w; o.height = h; o.id = '__uiout';
@@ -126,15 +137,23 @@ await page.evaluate(({ surf, stage, src, w, h }) => {
   //   시크가 걸린다(안 그러면 첫 장만 엉뚱한 시각의 영상이 박힌다).
   g.t = 0; g._lastPaint = -1; g._sig = null; g._paint();
   window.__uiG = g;
-}, { surf: SURF, stage: STAGE, src, w: W, h: H });
+}, { surf: SURF, stage: STAGE, src, w: W, h: H, pp: { dur: Math.max(8, PV || 0), pv: PV || 3, pvn: PV ? stepLoops(STAGE) : 0 } });
 await new Promise(r => setTimeout(r, 1500));
 
 const t0 = Date.now();
 for (let i = 0; i < N; i++) {
-  const t = i / FPS;
+  const t = T0 + i / FPS;   // T0 = 뽑고 싶은 구간의 시작
   // ★ 시계를 우리가 민다 — 렌더 루프에 의존하지 않으므로 드롭이 원천적으로 없다.
   //   _lastPaint 를 무효화해 UI_FPS 스로틀을 우회하고 매 프레임 새로 그린다.
-  const dataUrl = await page.evaluate(async ({ tt, alpha, live }) => {
+  // 병합 08-06: 두 갈래가 같은 시그니처에 각각 인자를 더했다 — live(실측값 주입)와 pv(관찰 구간).
+  //   둘은 서로 독립이라 **둘 다** 받는다. 하나만 남기면 그 갈래의 기능이 조용히 죽는다.
+  const dataUrl = await page.evaluate(async ({ tt, alpha, live, pv }) => {
+    // ★ 관찰(프리뷰) 여부를 **프레임마다 직접 민다.** floorgl 은 `session.demoActive` 를 보고
+    //   관찰↔따라하기를 가르는데, 이 스크립트는 세션을 돌리지 않으므로 그 값이 항상 false 다
+    //   (세션 틱이 매 틱 false 로 내리는 것이 정본 — 그래서 export 는 첫 프레임부터 모프된 헤더가
+    //   찍혔다: 유저가 요청한 '0/2 링이 도는 구간'이 아예 안 나온다). 시계를 우리가 미는 만큼
+    //   관찰 여부도 우리가 정해야 한다: t < pv 면 관찰.
+    if (pv > 0 && window.__dbg?.session) window.__dbg.session.demoActive = tt < pv;
     const g = window.__uiG;
     // ── 라이브 값 주입 ────────────────────────────────────────────────────────
     //   이 경로는 세션을 안 돌리므로 판이 읽는 노드(spm-me 등)가 비어 '--' 로 그려진다.
@@ -186,7 +205,7 @@ for (let i = 0; i < N; i++) {
     x.imageSmoothingQuality = 'high';
     x.drawImage(g.canvas, 0, 0, o.width, o.height);
     return o.toDataURL('image/png');
-  }, { tt: t, alpha: ALPHA, live: LIVE });
+  }, { tt: t, alpha: ALPHA, live: LIVE, pv: PV });
   fs.writeFileSync(path.join(TMP, `f${String(i).padStart(5, '0')}.png`),
     Buffer.from(dataUrl.split(',')[1], 'base64'));
   if (i % 20 === 0 || i === N - 1) {
