@@ -2662,7 +2662,10 @@ void main(){
         // uPulse 0 — 복싱 인물엔 루마 펄스가 없다(톤을 흔드는 원인이라 끈다).
         // uPSat·uPSweep = PERSON_GLSL 공용(구 uSat 은 죽은 유니폼이라 폐기).
         uPSat: { value: 1.32 }, uPSweep: { value: 0 }, uPHi: { value: 0.86 }, uPDepth: { value: 0.34 }, uPCoral: { value: 0 }, uPExp: { value: 0.5 }, uPForm: { value: 0 }, uPLo: { value: 0.12 }, uPHiL: { value: 0.85 }, uPLumLin: { value: 0 }, uPCalWave: { value: 1 }, uPCalD: { value: 1 }, uPCalW: { value: 1 }, uPCalB: { value: 0 },
-        uPInk: { value: 0.85 }, uPInkT: { value: 0.42 }, uPulse: { value: 0.0 }, uEnter: { value: 99 } },
+        uPInk: { value: 0.85 }, uPInkT: { value: 0.42 }, uPulse: { value: 0.0 }, uEnter: { value: 99 },
+        // 주목 강조(스텝백 가이드) — 기본 전부 0/끔 = 도입 전과 픽셀 동일. setHotspot 이 주입한다.
+        uHotE: { value: new THREE.Vector4(0, 0, 0, 0) }, uGaze: { value: new THREE.Vector3(0, 0, 0) },
+        uHot: { value: 0 }, uPHiPale: { value: 0 } },
       vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
       fragmentShader: `
         varying vec2 vUv; uniform sampler2D map, uLUT, uField, uFieldN; uniform float uTime, uCropOff, uCropScale, uPulse, uReady, uDetail, uEnter;
@@ -2696,6 +2699,8 @@ void main(){
           return mix(mix(ch(i),ch(i+vec2(1,0)),f.x),mix(ch(i+vec2(0,1)),ch(i+vec2(1,1)),f.x),f.y); }
         void main(){
           vec2 uv = vUv;
+          // ★ 강조 세기는 **색을 정하기 전에** 세운다 — personColor 가 이 전역을 읽는다(fx-core pHi).
+          gHot = hotAt(uv);
           vec3 c = texture2D(map, crop(uv)).rgb;
           // 깜빡임 방지는 tickA1Coach의 readyState 게이트가 전담 — 픽셀 검은-discard는 어두운 셔츠·그림자에
           // 구멍을 뚫으므로 제거(유저). 크로마키만: 초록 초과분으로 배경만 판정.
@@ -2782,6 +2787,11 @@ void main(){
           //   그래서 바닥 인물만 중간톤이 들려 연하게 보였다 — 값 문제가 아니라 색공간 문제다.
           //   (실측 08-01: 벽 명도 0.820 / 러닝 0.906 / 농구 0.984)
           col = mix(col / 12.92, pow((col + 0.055) / 1.055, vec3(2.4)), step(0.04045, col));
+          // ★ 시선 토큰은 **맨 마지막**, 색공간 변환 뒤에 얹는다 — 인물 알파에 안 갇혀야
+          //   몸 밖(공)에서도 보인다. 토큰은 UI 라 인물 그레이딩을 안 탄다.
+          vec4 gz = gazeToken(uv, uTime);
+          col = mix(col, gz.rgb, gz.a);
+          alpha = max(alpha, gz.a);
           gl_FragColor = vec4(col, alpha);
         }`,
     });
@@ -2902,6 +2912,37 @@ void main(){
   // 스텝백 프리뷰 = '영상 N회 재생'. 벽시계로 재면 배속·시작 위상·버퍼링에 어긋난다 —
   //   실제 재생 위치에서 루프 수와 진행률을 뽑아 타이머(링·분수)와 관찰 종료를 같은 값으로 구동한다.
   let _stepId = null, _stepLoops = 0, _stepFrac = 0;
+  // ── 주목 강조 궤적 (스텝백 가이드) ────────────────────────────────────────────
+  //   좌표는 **실측이다** — MediaPipe 33관절에서 구운 public/stepback-hotspots.json
+  //   (굽는 스크립트 scripts/build_stepback_hotspots.mjs · 원본 assets/mocap/stepback_fwd-landmarks.json).
+  //   손으로 찍은 상수가 아니라 그 프레임의 실제 발목·손목 위치라, 영상이 바뀌면 다시 구우면 된다.
+  //   못 읽으면(파일 없음) 조용히 꺼진다 — 강조가 없을 뿐 가이드는 그대로 돈다.
+  let _HOT = null;
+  fetch(import.meta.env.BASE_URL + 'stepback-hotspots.json').then(r => r.ok ? r.json() : null)
+    .then(j => { _HOT = j; }).catch(() => {});
+  /** 영상 시각 → 그 프레임의 강조 타원(움직이는 발)과 시선 토큰(공). 선형 보간. */
+  function hotAtTime(vt) {
+    if (!_HOT || vt == null) return null;
+    const P = _HOT.pts, t = Math.max(_HOT.t0, Math.min(_HOT.t1, vt));
+    let i = 0; while (i < P.length - 2 && P[i + 1].t <= t) i++;
+    const a = P[i], b = P[i + 1] || a;
+    const k = b.t > a.t ? (t - a.t) / (b.t - a.t) : 0, L = (p, q) => p + (q - p) * k;
+    return { fx: L(a.foot[0], b.foot[0]), fy: L(a.foot[1], b.foot[1]),
+             gx: L(a.gaze[0], b.gaze[0]), gy: L(a.gaze[1], b.gaze[1]), r: L(a.r, b.r) };
+  }
+  /** 코치 판에 강조를 주입. FXP.hot 이 없거나 0 이면 전부 꺼진 채(= 도입 전과 픽셀 동일) 나간다. */
+  function setHotspot(co, vt) {
+    const U = co?.plane?.material?.uniforms; if (!U?.uHotE) return;
+    const cfg = FXP.hot || {};
+    const on = cfg.on ?? 1, h = hotAtTime(vt);
+    if (!on || !h) { U.uHot.value = 0; U.uPHiPale.value = 0; U.uGaze.value.set(0, 0, 0); return; }
+    // 연핑크 대역 상단. LUT 는 T=1 이 ICE(거의 흰빛)라 uPHi(0.86)보다 위로 올리면 전신이 연해진다.
+    U.uPHiPale.value = cfg.pale ?? 0.97;
+    U.uHot.value = cfg.k ?? 1;
+    // 타원은 발을 따라간다. 세로가 조금 더 긴 건 발+정강이를 함께 물어야 '다리'로 읽히기 때문.
+    U.uHotE.value.set(h.fx, h.fy, h.r * 1.35, h.r * 2.10);
+    U.uGaze.value.set(h.gx, h.gy, (cfg.gaze ?? 1) * 0.055);
+  }
   function tickA1Coach() {
     // 어떤 스테이지 코치를 켤지: 러닝 A1·농구 워밍업 전부 = 전 구간 상시, 러닝 A2/A3 = 시범(관찰) 중에만.
     // 실전(BK_C2)도 같은 클립을 타이밍 소스로 쓴다 — 라이브라고 끊으면 마크가 안 움직인다.
@@ -2996,6 +3037,7 @@ void main(){
             if (co.video.currentTime < a - 0.05) { freezeCoach(co); try { co.video.currentTime = a; } catch (e) {} }
             if (co.video.paused) co.video.play().catch(() => {});
           }
+          setHotspot(co, session.stepVidT);   // 강조 타원·시선 토큰 = 지금 영상 시각의 실측 좌표
         }
         // 새 프레임이 실제로 들어왔으면 고정 해제
         if (co._frozen && ((!co.video.seeking && co.video.readyState >= 3
@@ -5949,7 +5991,7 @@ void main(){
   //   학습(B2~B5) = 0.5배속 + 구간 끝 1초 정지 + 프리뷰 2회 / 실전(C2) = 정속·정지 없음·프리뷰 1회(유저)
   const stepRate = id => (id === 'BK_C2' ? 1.0 : 0.5);
   const stepHold = id => (id === 'BK_C2' ? 0.0 : 1.0);
-  const stepLoops = id => (id === 'BK_C2' ? 1 : 2);
+  const stepLoops = id => (id === 'BK_C2' || id === 'BK_T1' ? 1 : 2);   // T1 = 통째로 한 번만 본다(유저)
   const STEP_RATE = 0.5, STEP_HOLD = 1.0, STEP_LOOPS = 2;
   const stepLoopSec = id => (STEP_SEG[id] ? (STEP_SEG[id][1] - STEP_SEG[id][0]) / stepRate(id) + stepHold(id) : 0);
   const stepPreviewSec = id => stepLoopSec(id) * stepLoops(id);

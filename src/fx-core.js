@@ -388,15 +388,43 @@ uniform vec4 uFaceE;
 //     내려가/올라가고 코랄은 좁은 띠로 남는다. 새 색을 만들지 않는다: 배분만 바꾼다.
 //     0 = 도입 전과 픽셀 동일(롤백 지점).
 uniform float uPCoral;
+//   ★ 주목 강조(농구 스텝백 가이드, 유저 08-06) — **새 색을 만들지 않는다. 대역 상단만 바꾼다.**
+//     전신은 uPHiPale(높음 → LUT 위쪽 = 거의 흰 연핑크), 강조 타원 안만 uPHi(현행 = 붉음).
+//     LUT 램프 위를 어디에 앉힐지의 문제라 뉴턴 4색 규칙을 안 깬다.
+//     uHotE = 강조 타원(xy 패널 uv 중심 · zw 반경) · uHot = 세기.
+//     **uPHiPale = 0 이면 도입 전과 픽셀 동일**(롤백 지점) — 이 리포의 유니폼 규약 그대로다.
+uniform vec4 uHotE;
+uniform vec3 uGaze;        // 시선 토큰(xy 중심 · z 반경). z<=0 = 끔
+uniform float uHot, uPHiPale;
+//   프래그먼트 전역 — 호출 체인(personLook → personColor)이 uv 를 안 물고 다닌다.
+//   호스트 main() 이 첫머리에 gHot = hotAt(uv) 로 세운다. 안 세우면 0 = 종전 동작.
+float gHot = 0.0;
+float hotAt(vec2 uv){
+  if (uHotE.z <= 0.0 || uHot <= 0.0) return 0.0;
+  vec2 d = (uv - uHotE.xy) / max(uHotE.zw, vec2(1e-4));
+  return uHot * (1.0 - smoothstep(0.55, 1.0, length(d)));   // 가장자리는 부드럽게 — 하드 원은 스티커로 읽힌다
+}
+/** 이 프래그먼트가 쓸 대역 상단. uPHiPale 0 = 기능 끔. */
+float pHi(){ return uPHiPale > 0.0 ? mix(uPHiPale, uPHi, gHot) : uPHi; }
+/** 시선 토큰 — dab2n setup-injury 의 '흰 코어 + 주황 헤일로' 그대로. 인물 **위에** 얹는다.
+ *  인물 알파에 안 갇힌다(몸 밖으로 나가도 보여야 지시가 된다). */
+vec4 gazeToken(vec2 uv, float t){
+  if (uGaze.z <= 0.0) return vec4(0.0);
+  float d = length((uv - uGaze.xy) / vec2(max(uGaze.z, 1e-4)));
+  float core = 1.0 - smoothstep(0.20, 0.40, d);
+  float halo = (1.0 - smoothstep(0.34, 1.0, d)) * (0.62 + 0.16 * sin(t * 3.0));   // 느린 맥동 = 살아있음
+  return vec4(mix(lut(0.62), vec3(1.0), core), clamp(core + halo * 0.52, 0.0, 1.0));
+}
 vec3 personColor(float T){
   T = clamp(T, 0.0, 1.0);
+  float hiN = pHi();
   if (uPCoral > 0.001) {
     // 코랄이 앉는 T 를 감마·게인·대역에서 역산한다 — uPHi 를 바꿔도 피벗이 따라온다(상수로 박으면 어긋난다).
     float tc = pow(0.56 / P_GAIN, 1.0 / P_GAMMA);
-    float Tc = clamp((tc - P_LO) / max(uPHi - P_LO, 1e-4), 0.0, 1.0);
+    float Tc = clamp((tc - P_LO) / max(hiN - P_LO, 1e-4), 0.0, 1.0);
     T = clamp(Tc + (T - Tc) * (1.0 + uPCoral * 1.6), 0.0, 1.0);
   }
-  float t = P_LO + T * (uPHi - P_LO);   // 공용 대역으로 정규화
+  float t = P_LO + T * (hiN - P_LO);   // 공용 대역으로 정규화
   t = pow(t, P_GAMMA) * P_GAIN;
   vec3 c = lut(clamp(t, 0.0, 1.0));
   float l = dot(c, vec3(0.299, 0.587, 0.114));
@@ -504,7 +532,11 @@ vec3 personLook(float thick, float lumS, float lumB, float mIn, float face, floa
   //     그늘이 어두워지는 게 아니라 **빨개진다** — 투사광에서 검정은 '빛 없음'이고 그건 그늘이 아니다.
   //   ★ 얼굴은 0.3 배만 — 이목구비 은닉이 제품 요구사항이라, 잉크가 얼굴 명암을 되살리면 안 된다.
   float dark = 1.0 - smoothstep(uPInkT - 0.20, uPInkT + 0.20, lumB);
-  float ink = clamp(dark * mIn * (1.0 - face * 0.7) * uPInk, 0.0, 1.0);
+  //   ★ 연핑크 모드에선 잉크도 **강조 부위에만** 남는다. 안 그러면 전신을 뽀얗게 띄워 놓고
+  //     그늘만 빨간 얼룩으로 남아, '연해진 게 아니라 지저분해진' 걸로 읽힌다(대역 상단만 바꾼
+  //     의도가 잉크에서 되돌아온다). uPHiPale 0(기능 끔)이면 이 항은 1 = 종전 그대로.
+  float inkK = uPHiPale > 0.0 ? mix(0.10, 1.0, gHot) : 1.0;
+  float ink = clamp(dark * mIn * (1.0 - face * 0.7) * uPInk * inkK, 0.0, 1.0);
   return clamp(mix(c, P_INK, ink), 0.0, 1.0);
 }
 // ═══ 레퍼런스 규약(uPForm=1) — 마스크 공유 5중 레이어 합성 ══════════════════════
@@ -1092,7 +1124,11 @@ vec4 markState(vec2 uv, float state, float prog, float strong, float t){
     //   (실측: 간격 1.8px · 지름 0.9px on 48px 폭). 그래서 uImpDot 기본 0.25(=반지름/피치).
     vec2  cc  = fract(uv / pit) - 0.5;
     float dd  = length(cc) * pit;
-    float rad = pit * clamp(uImpDot, 0.03, 0.5);
+    // 상한 0.5 = 점이 셀 안에 갇힌다 → 아무리 키워도 **격자가 남는다**. 1.0 까지 열어 두면
+    //   같은 각인 채널을 도트가 아니라 **채움**으로도 쓸 수 있다(기본 0.25 는 그대로).
+    //   셀 모서리까지 덮으려면 반지름이 대각선 절반(0.707) + 아래 dSoft(≈0.14) 를 넘어야 한다
+    //   → uImpDot ≳ 0.86 부터 완전한 채움. 0.75 는 아직 격자가 비쳐 보인다(실측).
+    float rad = pit * clamp(uImpDot, 0.03, 1.0);
     float dAA = max(fwidth(dd), 1e-5) * 1.2;
     float dSoft = max(pit * mix(0.34, 0.12, clamp(uImpSharp, 0.0, 1.0)), dAA);
     float dotM = smoothstep(rad + dSoft, rad - dSoft, dd);

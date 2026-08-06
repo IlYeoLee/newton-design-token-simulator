@@ -3403,6 +3403,15 @@ export class Session {
         BK_B4: ['① 준비', '② 오른발 모으고', '③ 수직으로!', '④ 슛!'],
         BK_C2: ['① 시작 자리', '② 플랜트 — 안으로', '③ 스텝백!', '④ 슛!'] }[id] || ['①', '②', '③', '④'];
       const left = Math.max(0, CFG.need - H.count);
+      // ★ 전체 재생(T1)은 **관찰만이다** — 따라할 걸 요구하면 안 된다(아직 안 배웠으니까).
+      //   그래서 렙 카운트가 아니라 **영상 재생 1회**로 끝난다(main.js _pvLoops = 실제 재생 횟수).
+      //   벽시계로 재지 않는 이유는 기존 규약과 같다: 배속·버퍼링에 어긋난다.
+      if (id === 'BK_T1') {
+        this.repTotal = 0; this.repLeft = 0; this.repFrac = 0;   // 셀 게 없다 = 링 안 켬(floorgl showRing)
+        FMU(BEATN[Math.min(3, H.beat)], CS.sand);
+        if ((this._pvLoops ?? 0) >= 1) { this.next(); return; }
+        return;
+      }
       this.repLeft = left; this.repTotal = CFG.need; this.repFrac = Math.min(1, H.count / CFG.need);
       FMU(LIVE ? `스텝백 3점 — 남은 ${left}회` : `${BEATN[H.beat]} · 남은 ${left}회`, LIVE ? CS.red : CS.sand);
       if (left === 0) { this.next(); return; }
