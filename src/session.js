@@ -454,7 +454,7 @@ function livePrimEnv() {
 }
 let _logo = null;
 function _logoImg() {
-  if (!_logo) { _logo = new Image(); _logo.src = import.meta.env.BASE_URL + 'newton-logo.svg'; }
+  if (!_logo) { _logo = new Image(); _logo.src = import.meta.env.BASE_URL + 'newton-symbol.svg'; }
   return _logo;
 }
 const PRIM_PANELS = [];

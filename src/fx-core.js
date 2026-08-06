@@ -1850,6 +1850,7 @@ function volRing(g, lut, r, v, a, lw, GB, wMul = 1) {
  *  P.center  = { x, y, r, label, ring }    액티브 타깃. ring:0 = 링은 3D 존 마크가 그린다
  *  P.title / P.brand / P.ruler{w,h} / P.chev / P.bracket / P.round / P.prog
  */
+const eOutQuint = u => 1 - Math.pow(1 - Math.max(0, Math.min(1, u)), 5);
 export function drawDribbleMat(g, W, P, look, t, ENV) {
   const lut = ENV.lut, s = W / 512;
   const AW = (ENV.arrow && ENV.arrow.w) || 1;
@@ -1858,6 +1859,13 @@ export function drawDribbleMat(g, W, P, look, t, ENV) {
   const LNW = 4 * AW * s;                                  // LINE 두께 정본 — 모든 선이 여기서 파생
   g.clearRect(0, 0, W, W); g.lineJoin = 'round'; g.lineCap = 'round';
   const M = P.mat || { nx: 0.86, fx: 0.86, ny: -0.86, fy: 0.86 };
+  // 등장/퇴장 — 허브 먼저, 노드는 스태거로 뒤따른다. 닫힐 땐 역순(코치가 다음 부위를 짚을 때).
+  const IN = P.in == null ? 1 : Math.max(0, Math.min(1, P.in));
+  const hubK = eOutQuint(IN / 0.45);
+  const nodeK = i => eOutQuint((IN - 0.28 - i * 0.09) / 0.42);
+  // 접촉 펄스 — 공이 닿은 뒤 0.34s 동안 허브가 한 번 부풀었다 돌아온다(파문은 세션이 따로 쏜다)
+  const hit = P.hit == null ? 9 : P.hit;
+  const hitK = hit < 0.34 ? Math.sin(Math.PI * (hit / 0.34)) : 0;
   const X = u => W / 2 + u * W / 2, Y = v => W / 2 - v * W / 2;
   const halfAt = v => M.nx + (M.fx - M.nx) * (v - M.ny) / Math.max(1e-4, M.fy - M.ny);
   const rgbaL = (v, a) => lut(v).replace('rgb(', 'rgba(').replace(')', ',' + a + ')');
@@ -1903,47 +1911,22 @@ export function drawDribbleMat(g, W, P, look, t, ENV) {
   pts.push(pts[0]);
   const path = () => { g.beginPath();
     pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.closePath(); };
-  glass(path, 1);
+  // ★ 판(마름모꼴) 제거 — 프로젝터는 매트가 아니다. 사각형을 그려 '여기 있다'를 증명할
+  //   필요가 없다(유저). 빛이 닿는 자리가 곧 판이다. path 는 진행 아크 계산에만 남는다.
 
   const cU = P.center ? P.center.x : 0, cV = P.center ? P.center.y : 0;
-  const CR = (P.center && P.center.r != null ? P.center.r : 0.26) * W / 2;
+  const CR = (P.center && P.center.r != null ? P.center.r : 0.26) * W / 2
+    * hubK * (1 + 0.055 * hitK + 0.008 * Math.sin(t * 2.4));   // 등장 + 접촉 펄스 + 상시 호흡
 
-  // ── 눈금자 — 잰 공간이라는 부호. 3급 정보라 아주 얇고 옅다
-  if (P.ruler) {
-    const RH = P.ruler.h, RW = P.ruler.w;
-    const N = Math.max(4, Math.round(RH / 0.1));
-    for (let i = 0; i <= N; i++) {
-      const v = M.ny + (M.fy - M.ny) * i / N, big = i % 5 === 0, ex = -halfAt(v);
-      g.strokeStyle = INK(big ? 0.55 : 0.22); g.lineWidth = LNW * 0.35;
-      g.beginPath(); g.moveTo(X(ex) + 6 * s, Y(v)); g.lineTo(X(ex) + (big ? 17 : 10) * s, Y(v)); g.stroke();
-      if (big && i > 0 && i < N) ENV.num(g, (RH * i / N).toFixed(1), X(ex) - 20 * s, Y(v), 10 * s, 11 * s);
-    }
-    const NB = Math.max(4, Math.round(RW / 0.1));
-    for (let i = 0; i <= NB; i++) {
-      const u = -M.nx + M.nx * 2 * i / NB, big = i % 5 === 0;
-      g.strokeStyle = INK(big ? 0.55 : 0.22); g.lineWidth = LNW * 0.35;
-      g.beginPath(); g.moveTo(X(u), Y(M.ny) - 6 * s); g.lineTo(X(u), Y(M.ny) - (big ? 15 : 9) * s); g.stroke();
-    }
-    label(RH.toFixed(1) + ' m', X(-halfAt(0)) - 56 * s, Y(0), 13 * s, INK(0.55), 0.1, 400);
-    label(RW.toFixed(1) + ' m', X(0), Y(M.ny) - 26 * s, 13 * s, INK(0.55), 0.1, 400);
-  }
-
-  // ── 타이틀 — 판의 이름. 크림 뉴트럴(정보는 무채, 색은 판정)
-  if (P.title) {
-    const ty = Y(M.fy) + 30 * s;
-    label(P.title, X(0), ty, 17 * s, INK(0.92), 0.14);
-    g.font = '400 ' + 13 * s + 'px "Supreme", sans-serif';
-    const half = g.measureText(P.title).width * 0.8;
-    g.fillStyle = INK(0.4); g.textAlign = 'center'; g.textBaseline = 'middle';
-    g.fillText('/', X(0) - half - 14 * s, ty); g.fillText('/', X(0) + half + 14 * s, ty);
-  }
 
   // ── 노드 — 허브를 도는 링 위의 슬롯. 대기는 헤어라인, 선택된 것만 채워진다.
   //    (원형 메뉴·게임 HUD 셀렉터의 기본 위계 — 넷을 같은 무게로 두면 '스티커 네 장'이 된다)
   for (const tg of (P.targets || [])) {
     const on = tg.on !== false, live = !!tg.live;
     const cx = X(tg.x), cy = Y(tg.y);
-    const R = (tg.r != null ? tg.r : 0.20) * W / 2 * (live ? 1.06 : 1);
+    const k = nodeK(tg.n ? tg.n - 1 : 0);
+    if (k <= 0.001) continue;
+    const R = (tg.r != null ? tg.r : 0.20) * W / 2 * (live ? 1.06 : 1) * (0.9 + 0.1 * k);
     if (live) {                                   // 선택 = 채움 + 밝은 림. 화면에 하나뿐이다.
       const f = g.createRadialGradient(cx, cy, R * 0.2, cx, cy, R);
       f.addColorStop(0, rgbaL(0.34, 0.34)); f.addColorStop(1, rgbaL(0.3, 0.14));
@@ -1955,7 +1938,7 @@ export function drawDribbleMat(g, W, P, look, t, ENV) {
       g.strokeStyle = INK(on ? 0.34 : 0.14); g.lineWidth = LNW * 0.4;
       g.beginPath(); g.arc(cx, cy, R, 0, Math.PI * 2); g.stroke();
     }
-    g.globalAlpha = live ? 1 : (on ? 0.55 : 0.22);
+    g.globalAlpha = (live ? 1 : (on ? 0.55 : 0.22)) * k;
     ENV.num(g, tg.n, cx, cy + s, R, R * 0.82);
     g.globalAlpha = 1;
   }
@@ -1978,6 +1961,12 @@ export function drawDribbleMat(g, W, P, look, t, ENV) {
       g.moveTo(cx + d[0] * CR * 1.16, cy + d[1] * CR * 1.16);
       g.lineTo(cx + d[0] * CR * 1.34, cy + d[1] * CR * 1.34); g.stroke();
     }
+    if (P.brand && ENV.logo && ENV.logo.complete && ENV.logo.naturalWidth) {
+      const lw = CR * 1.05, lh = lw * ENV.logo.naturalHeight / ENV.logo.naturalWidth;
+      g.globalAlpha = 0.5 * hubK;                 // 허브 정중앙 — 판정 링 안이 브랜드 자리다
+      g.drawImage(ENV.logo, cx - lw / 2, cy - lh / 2, lw, lh);
+      g.globalAlpha = 1;
+    }
     if (P.center.label) {
       const ls = String(P.center.label).split('\n');
       ls.forEach((ln, i) => label(ln, cx, cy + (i - (ls.length - 1) / 2) * 15 * s, 12 * s, INK(0.9), 0.14));
@@ -1998,13 +1987,6 @@ export function drawDribbleMat(g, W, P, look, t, ENV) {
   }
 
   // ── 워드마크 — 실물 매트가 브랜드를 박는 그 자리. 4급이라 가장 옅다
-  // 브랜드 — 자간 준 글자로 워드마크를 흉내 내지 않는다. 실제 로고 에셋(ENV.logo)을 쓴다.
-  if (P.brand && ENV.logo && ENV.logo.complete && ENV.logo.naturalWidth) {
-    const lw = M.nx * W * 0.34, lh = lw * ENV.logo.naturalHeight / ENV.logo.naturalWidth;
-    g.globalAlpha = 0.42;
-    g.drawImage(ENV.logo, X(0) - lw / 2, Y(M.ny) + 20 * s, lw, lh);
-    g.globalAlpha = 1;
-  }
 
   // ── 진행 = 허브 바깥 아크 게이지. 판 테두리를 채우던 걸 여기로 옮긴다 —
   //    테두리는 '판이 어디까지인가'를 말하는 선이지 진행 막대가 아니다. 진행은 판정 옆에 붙는다.
