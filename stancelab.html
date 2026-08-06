@@ -1,0 +1,43 @@
+<!doctype html><html lang=ko><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1">
+<title>NEWTON 스탠스 랩 — 발 벌리기 토큰 · 띠 프레임 미리보기</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>↔️</text></svg>">
+<style>
+  :root{--bg:#0A0C10;--panel:#10131A;--line:#1D222C;--text:#E9EAEE;--dim:#98A1AD;--red:#FA3030}
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--text);font:13px/1.5 -apple-system,'Malgun Gothic',sans-serif}
+  .wrap{padding:20px;display:flex;flex-direction:column;gap:14px;align-items:center}
+  /* 프레임 = 유저 레퍼런스 비율. 화면 폭에 맞춰 줄되 비율은 절대 안 깨진다. */
+  #frame{position:relative;width:min(1816px,calc(100vw - 40px));aspect-ratio:1816/510;
+    background:#000 center/cover no-repeat;border:1px solid var(--line);overflow:hidden}
+  #frame canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+  .bar{display:flex;gap:14px;align-items:center;flex-wrap:wrap;justify-content:center;
+    background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 16px}
+  .bar label{color:var(--dim);font-size:11.5px}
+  .bar input[type=range]{accent-color:var(--red);width:150px;vertical-align:middle}
+  .v{font-variant-numeric:tabular-nums;font-size:11.5px;min-width:46px;display:inline-block;text-align:right}
+  button{background:#161A22;color:var(--text);border:1px solid var(--line);border-radius:8px;
+    padding:6px 12px;font-size:12px;cursor:pointer}
+  button.on{background:var(--red);border-color:var(--red);color:#fff}
+  .note{color:var(--dim);font-size:11.5px;max-width:900px;text-align:center}
+  code{color:#FEC389}
+</style>  <script type="module" crossorigin src="./assets/stancelab-0PJoPrcz.js"></script>
+  <link rel="modulepreload" crossorigin href="./assets/modulepreload-polyfill-B5Qt9EMX.js">
+  <link rel="modulepreload" crossorigin href="./assets/fx-core-C6WiWw5s.js">
+  <link rel="modulepreload" crossorigin href="./assets/fxlut-C6eeF_TI.js">
+  <link rel="modulepreload" crossorigin href="./assets/tokens-CqBcRnOX.js">
+  <link rel="modulepreload" crossorigin href="./assets/floorgl-D5fchesP.js">
+  <link rel="modulepreload" crossorigin href="./assets/session-CY__XFxQ.js">
+</head><body>
+<div class=wrap>
+  <div id=frame></div>
+  <div class=bar>
+    <button id=play class=on>⏸ 일시정지</button>
+    <label>t <input type=range id=s-t min=0 max=6 step=0.02 value=0><span class=v id=v-t>0.00s</span></label>
+    <label>pitch <input type=range id=s-p min=-75 max=-30 step=0.5 value=-55><span class=v id=v-p>-55°</span></label>
+    <button id=bgmode>배경: 뒷판</button>
+    <button id=grid>각도 그리드</button>
+  </div>
+  <p class=note>프레임 1816×510(3.561:1) = 16:9·vfov 60°의 중앙 띠. 카메라는 실측 눈(y 1.69 · z −1.809),
+  토큰은 시뮬 정본(<code>FootMark</code>·<code>floorArrow</code>)이고 모션 곡선은 <code>bkB1SetupPose</code> 한 곳에서 온다.
+  블렌딩은 잉크(NormalBlending) — 밝은 바닥이라 가산은 씻긴다.</p>
+</div></body></html>
