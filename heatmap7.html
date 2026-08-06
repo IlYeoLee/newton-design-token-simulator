@@ -83,10 +83,13 @@ const LOAD = { ball: 1.0, heel: 0.9, toe: 1.0 };   // 발가락도 접지한다 
 // 두 줄 — 윗줄 원본(정본 룩 그대로), 아랫줄 그라디언트판. 같은 상태를 세로로 맞대 놓고 본다.
 // 걸음판(gait.html) 룩 — 채도를 원본과 맞대 보기 위한 줄. 깊이를 투명도가 아니라
 //   **마스킹**(필 인셋 + 이너 섀도우)으로 내므로 알파가 안 깎이고 채도가 살아 있어야 한다.
-const GAIT_LOOK = { ...HEAT_LOOK, pressA: 0, tLo: 0.02, tHi: 0.86,
+const GAIT_LOOK = { ...HEAT_LOOK, pressA: 0, tLo: 0.02, tHi: 0.86, halo: 0, dither: 0,
                     edgeSoft: 1, edgeW: 0.10, edgeShade: 0.38, edgeShadeW: 1.0, edgeShadeGrad: 1,
-                    loadGain: 2.6, loadBase: 0.10 };
-const ROWS = [{ n: '원본', look: null }, { n: '그라디언트', look: HEAT_LOOK }, { n: '걸음판', look: GAIT_LOOK }];
+                    loadGain: 1.7, loadBase: 0.10 };
+// 하프톤은 룩 키가 아니라 유니폼이다 — 양(0..1)으로 은은하게. proof.html 과 같은 값.
+const GAIT_HT = { amt: 0.22, pitch: 0.011, wave: 0, glow: 0.15 };
+const ROWS = [{ n: '원본', look: null }, { n: '그라디언트', look: HEAT_LOOK },
+              { n: '걸음판', look: GAIT_LOOK, ht: GAIT_HT }];
 const N = STATES.length, step = FOOT_LEN_M * 1.62, rowH = FOOT_LEN_M * 1.9;
 const W = N * step, H = ROWS.length * rowH;
 const PPM = 700;   // px/m — 캔버스 버퍼와 ortho 뷰의 비율을 **하나의 수**로 묶는다(찌부 방지)
@@ -113,7 +116,22 @@ function build() {
     mat.uniforms.uOut.value = 0;                     // 후처리 없는 raw 경로
     mat.uniforms.uNumTex.value = mat.uniforms.uLUT.value;   // null 샘플러 = 검증 실패(화면 통째로 빔)
     setMarkStateLook(mat, st.ph);                    // 상태별 저장본 — 원본 줄은 여기까지가 전부
-    if (row.look) { applyMarkLookTo(mat, row.look); setMarkLoad(mat, LOAD); }
+    // ★ 상태가 **자기 것이라고 선언한 키**는 덮지 않는다. 그냥 덮으면 7상태가 전부 같은
+    //   그림이 된다 — 상태의 정체성이 바로 그 키들(온도 창·헤일로·엣지…)에 들어 있다.
+    //   setMarkStateLook 이 mat._stKeys 에 그 목록을 남겨 두므로 거기서 빼고 바른다.
+    if (row.look) {
+      const own = mat._stKeys;
+      const base = { ...row.look };
+      // ★ Hold 는 **림을 진행 아크가 쓴다**. 거기에 이너 섀도우를 같이 깔면 둘이 같은 자리에서
+      //   싸워 아크도 섀도우도 안 읽힌다 — 홀드가 다른 상태와 구별되던 유일한 신호가 그 아크다.
+      if (st.ph === 5) base.edgeShade = 0;
+      applyMarkLookTo(mat, own ? Object.fromEntries(
+        Object.entries(base).filter(([k]) => !own.has(k))) : base);
+      setMarkLoad(mat, LOAD);
+    }
+    if (row.ht) { const U = mat.uniforms;
+      U.uHT.value = row.ht.amt; U.uHTPitch.value = row.ht.pitch;
+      U.uHTWave.value = row.ht.wave; U.uHTGlow.value = row.ht.glow; }
     if (st.gray) mat.uniforms.uLUT.value = grayLut;
     mat.uniforms.uPhase.value = st.ph;
     mat.uniforms.uProg.value = st.p;
