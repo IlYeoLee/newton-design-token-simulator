@@ -1173,8 +1173,20 @@ function drawA2() {
     const sy = y => (0.5 - y / (half * H / W) * 0.5) * H;
     // 색은 하드코딩하지 않는다 — 마크와 같은 LUT 에서 뽑는다(0.15 = 레드 대역).
     const i = Math.round(0.15 * 255) * 4;
+    // ★ 점 반지름은 **점 사이 간격**에서 파생한다(유저: 발자국 크기에 비해 굵기가 안 줄어든다).
+    //   씬 배율(px/m)에 묶어 두면 스탠스를 압축해도 점이 그대로라 뭉친다 — 개수가 7 로 고정된
+    //   규격이라 간격만 줄기 때문이다. 실측:
+    //     간격 1.54m → 점사이 50px · 지름 12px = 24%   (실척에서 보기 좋은 비율)
+    //     간격 0.77m → 점사이 25px · 지름 12px = 47%   뭉친다
+    //     간격 0.32m → 점사이 10px · 지름 12px = 114%  아예 겹친다
+    //   그래서 지름을 간격의 24% 로 고정한다 — 어느 압축률에서도 실척과 같은 밀도로 읽힌다.
+    //   상한은 발 폭 기준(마크보다 굵어지면 연결선이 주인공이 된다).
+    const spanPx = Math.abs(sy(CY + F.yb * scale) - sy(CY + F.ya * scale)) * (1 - LK.inset * 2);
+    const gapPx = spanPx / Math.max(1, LK.count - 1);
+    const footWpx = FOOT_LEN_M * 0.38 * pxPerM;
+    const rDot = Math.max(1.2, Math.min(gapPx * 0.12, footWpx * 0.20));
     drawLinkDots(gl, sx(-LAT), sy(CY + F.ya * scale), sx(LAT), sy(CY + F.yb * scale), t, {
-      style: LK.style, count: LK.count, r: LK.r * (pxPerM / 190), flow: LK.flow,
+      style: LK.style, count: LK.count, r: rDot, flow: LK.flow,
       hair: LK.hair, inset: LK.inset, alpha: linkA,
       color: `${_lutArr[i]},${_lutArr[i + 1]},${_lutArr[i + 2]}`,
     });
