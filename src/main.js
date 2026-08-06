@@ -1136,7 +1136,20 @@ void main(){
     else if (type === 'downshift') { showCaption('시스템', '폼이 흔들려요 — 익히기로 되돌립니다.'); wearPulse('#fec389', 1600); }
   };
   sessionReady = true;             // 이 아래부터는 session 접근 안전
-  session.onPress = _pressBurst;   // 프레스 완료 버스트 연결
+  // ★ 평면뷰 도트 필드(유저 08-06) — 인물이 없는 구간은 배경이 비어 '평면으로 전환됐다'는
+  //   신호가 없다. 인물 뒤 그리드와 **같은 셰이더의 도트 프리셋**을 바닥에 깔고, 발이 인식되면
+  //   그 지점에서 파문이 퍼진다. 같은 룩 시스템이라 색·간격·원근이 이미 맞다.
+  //   ★ **지연 생성**이다 — makeGridScanMat 은 이 아래(벽 패널 정의부)에서 만들어진다.
+  //     여기서 바로 부르면 TDZ ReferenceError 로 앱이 통째로 죽는다(실측: __dbg 가 영영 안 뜸).
+  session.onPress = (wp, wall) => {        // 발 인식 → 파문 시작점을 도트 필드에 전달
+    const df = window.__dotField;
+    if (df) {
+      const u = df.material.uniforms;
+      u.uPing.value = (session.t ?? state.time ?? 0);
+      if (wp) u.uPingUv.value.set(wp.x, -(wp.z - df.position.z));   // 월드 → 필드 로컬(m)
+    }
+    _pressBurst(wp, wall);
+  };
   // 크기 지정 파문 — 세션이 반경(m)을 직접 정할 때(2/4 작은 파형 등). opts로 세기·감쇠속도까지 지정 가능.
   //   opts.wall = 벽면 파문(법선 +z). 이게 없을 땐 무조건 바닥 법선이라, 벽 타겟에 쏜 파문이
   //   가슴 높이에 **눕혀진 원판**으로 떠서 정면에서는 거의 안 보였다(유저: 파형이 전혀 추가가 안 됐다).
@@ -2545,6 +2558,53 @@ void main(){
   /** 코치 판 뒤 그리드 = **벽 GridScan 그대로**(유저 08-06). 근사치를 새로 그렸더니
    *  그라디언트·스캔 펄스·프리즘 누적이 빠져 다른 물건이 됐다. makeGridScanMat() 인스턴스를 쓴다.
    *  ※ 이 팩토리는 아래(벽 패널 정의부)에서 만들어지므로 호출은 런타임(ensureCoach) 시점이다. */
+  /** 평면뷰 도트 필드 재질 — **3D 가이드 없음**(유저 08-06: 도트는 '평면'으로 넣어서 3D 가이드를 빼자).
+   *  GridScan 은 셰이더 안에 지평선·레이마치 원근이 구워져 있어서, 바닥에 눕히면 카메라 원근과
+   *  이중으로 겹친다. 여기선 **등간격 도트**만 찍고 원근은 카메라가 만들게 둔다.
+   *  색은 룩 시스템 그대로(GridScan uLines 와 같은 값) — 프리셋만 다른 같은 언어다. */
+  function makeDotFieldMat() {
+    return new THREE.ShaderMaterial({
+      transparent: true, depthWrite: false,
+      uniforms: { uTime: { value: 0 }, uPing: { value: -99 }, uPingUv: { value: new THREE.Vector2(0, 0) },
+                  // uStep 7cm — 촘촘해야 점이 하나씩 도드라지지 않고 **질감**으로 읽힌다(유저: 간격이 넓어 징그럽다)
+                  uGain: { value: 1 }, uSpan: { value: new THREE.Vector2(2.6, 3.4) }, uStep: { value: 0.07 },
+                  // 빔 창(투사 사다리꼴) — rig 에서 매 프레임 주입. (near, far, halfNear, halfFar) · uZC = 필드 중심의 월드 z
+                  uBeam: { value: new THREE.Vector4(0.30, 1.90, 0.34, 1.10) }, uZC: { value: -1.5 } },
+      vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
+      fragmentShader: `
+        varying vec2 vUv; uniform float uTime, uPing, uGain, uStep;
+        uniform vec2 uPingUv, uSpan;
+        uniform vec4 uBeam; uniform float uZC;
+        void main(){
+          vec2 p = (vUv - 0.5) * uSpan;              // 로컬 미터
+          vec2 g = p / uStep;
+          vec2 a = abs(fract(g) - 0.5);
+          float r = length(a) / 0.5;                 // 0 = 격자점
+          float w = fwidth(g.x) * 1.6;
+          // ★ 아주 작게(유저 08-06: 도트 징그럽다 → 매우 작고 티도 안 나게). 평소엔 거의 안 보이고
+          //   발 인식 파문이 지나갈 때만 도드라진다 — 배경이 아니라 '반응하는 지면'이 되는 게 목적이다.
+          float dot0 = 1.0 - smoothstep(0.045, 0.045 + max(w, 0.05), r);
+          // 발 인식 파문 — 닿은 지점에서 링 하나가 퍼진다(3D 스캔 아님)
+          float dt = uTime - uPing, ring = 0.0;
+          if (dt > 0.0 && dt < 1.5) {
+            float rr = length(p - uPingUv);
+            ring = exp(-pow((rr - dt * 1.9) * 3.4, 2.0)) * (1.0 - dt / 1.5);
+          }
+          // ★ **실제 투사영역**을 따른다(유저 08-06: 빔프 투사영역이 존재하는데 무시하는 느낌).
+          //   tokens.beamAlphaAt 과 같은 규칙 — 근/원 경계와 거리별 반폭으로 자른다.
+          float wz = uZC - p.y;                       // 로컬 → 월드 z (판은 바닥에 눕혀 있다)
+          float dd = -wz;                             // 전방 거리(리그 원점 기준)
+          float kk = clamp((dd - uBeam.x) / max(0.01, uBeam.y - uBeam.x), 0.0, 1.0);
+          float half = mix(uBeam.z, uBeam.w, kk);
+          float F = 0.22;                             // 경계 페더(m)
+          float edge = smoothstep(uBeam.x, uBeam.x + F, dd)
+                     * smoothstep(uBeam.y, uBeam.y - F, dd)
+                     * smoothstep(half, half - F, abs(p.x));
+          float aa = dot0 * (0.07 + ring * 3.4) * edge * uGain;   // 촘촘해진 만큼 더 옅게
+          gl_FragColor = vec4(vec3(0.55, 0.28, 0.14) * 2.4, aa);
+        }`,
+    });
+  }
   function ensureCoach(id) {
     if (_coaches[id]) return _coaches[id];
     const cfg = COACH_CFG[id];
@@ -3079,6 +3139,44 @@ void main(){
       //   그리드를 놔두면 지나온 스테이지의 격자가 바닥에 그대로 남아 계속 쌓인다 —
       //   ensureCoach 가 스테이지마다 메시를 하나씩 만들기 때문이다.
       } else if (c) { c.plane.visible = false; if (c.grid) c.grid.visible = false; if (!c.video.paused) c.video.pause(); }
+    }
+    // ★ 평면뷰 = **인물이 하나도 없는 프레임**. 그때만 도트 필드를 켠다(유저: 평면으로 전환된다는
+    //   걸 시각적으로 보여주면 좋겠다). 인물 뒤 라인 그리드와 동시에 뜨면 두 배경이 싸운다.
+    {
+      if (window.__dotField === undefined) {          // 최초 1회 생성(팩토리가 준비된 뒤)
+        const df = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 3.4), makeDotFieldMat());
+        df.rotation.x = -Math.PI / 2;      // 바닥에 눕힌다
+        // ★ 배경 영역은 **고정**이다(유저 08-06). 투사영역은 설치 스펙(프로젝터 광학·거리)에서
+        //   나오는 상수지, 인물 크기나 카메라에 따라 변하는 값이 아니다. 생성 시 한 번만 잡는다 —
+        //   매 프레임 리그에서 다시 읽었더니 리그가 흔들릴 때 배경까지 따라 움직였다.
+        {
+          const u = df.material.uniforms;
+          const nr = rig?.fpNear ?? 0.30, fr = rig?.fpFar ?? 1.90;
+          const hn = rig?._halfAt ? rig._halfAt(nr) : 0.34;
+          const hf = rig?._halfAt ? rig._halfAt(fr) : 1.10;
+          u.uBeam.value.set(nr, fr, hn, hf);
+          const span = Math.max(0.6, fr - nr);
+          df.position.set(0, 0.011, -(nr + span / 2));
+          u.uSpan.value.set(hf * 2.2, span * 1.05);
+          u.uZC.value = df.position.z;
+          df.geometry.dispose();
+          df.geometry = new THREE.PlaneGeometry(hf * 2.2, span * 1.05);   // 창에 딱 맞는 판 — 스케일 대신 지오메트리로
+        }
+        df.renderOrder = -1; df.visible = false;
+        scene.add(df);
+        window.__dotField = df;            // 콘솔에서 window.__dotField.visible=false 로 끌 수 있다
+      }
+      const df = window.__dotField;
+      if (df) {
+        const anyCoach = COACH_IDS.some(x => _coaches[x]?.plane.visible);
+        // ★ 시작화면 제외(유저 08-06, 반복 지시) — READY/BK_READY 는 캡슐 화면이라 배경을 깔면 안 된다.
+        const isReady = /READY$/.test(session.stage || '');
+        // ★ **따라하기 가이드에는 배경을 깔지 않는다**(유저 08-06). 사용자가 따라 움직이는 동안엔
+        //   화면이 '지금 밟을 자리'만 말해야 한다 — 배경 격자가 있으면 발자국과 같은 밝기의 점들이
+        //   바닥에 깔려 목표가 묻힌다. 배경은 '평면으로 전환됐다'를 말하는 구간에서만.
+        df.visible = !!session.active && !anyCoach && !isReady && !session._followLatch;
+        if (df.visible) df.material.uniforms.uTime.value = (session.t ?? state.time ?? 0);
+      }
     }
   }
 
@@ -3724,7 +3822,8 @@ void main(){
    */
   const makeGridScanMat = () =>     new THREE.ShaderMaterial({
       uniforms: {
-        uTime: { value: 0 }, uBoost: { value: 1 }, uGrid: { value: 1 }, uLineW: { value: 1 },   // uGrid=0 → 퍼스펙티브 그리드 끔(바닥판)
+        uTime: { value: 0 }, uBoost: { value: 1 }, uGrid: { value: 1 }, uLineW: { value: 1 },
+        uDot: { value: 0 }, uPing: { value: -99 }, uPingUv: { value: new THREE.Vector2(0.5, 0.5) },   // uGrid=0 → 퍼스펙티브 그리드 끔(바닥판)
         uLines: { value: new THREE.Color(0.55, 0.28, 0.14) },
         uScan: { value: new THREE.Color(0.98, 0.19, 0.19) },
         uAccent: { value: new THREE.Color(0.13, 0.80, 0.86) },
@@ -3739,6 +3838,8 @@ void main(){ vUv = uv; vec4 mvPosition = modelViewMatrix * vec4(position, 1.0); 
 #include <clipping_planes_pars_fragment>
 varying vec2 vUv;
 uniform float uTime, uBoost, uGrid, uLineW;
+uniform float uDot, uPing;   // uDot=1 → 격자선 대신 **도트 필드**(평면뷰 프리셋) · uPing = 발 인식 시각(s)
+uniform vec2 uPingUv;        // 발이 닿은 지점(그리드 uv) — 거기서 파문이 퍼진다
 uniform vec3 uLines, uScan, uAccent;
 // ── reactbits Prism 정본 (height 3.5 / baseWidth 5.5 / scale 3.6) ──
 vec4 tanh4(vec4 x){ vec4 e2x = exp(2.0 * x); return (e2x - 1.0) / (e2x + 1.0); }
@@ -3753,6 +3854,22 @@ float gridLine(vec2 guv){
   vec2 f = fract(guv);
   vec2 a = min(f, 1.0 - f);
   vec2 w = fwidth(guv) * 0.7 * uLineW;
+  if (uDot > 0.5) {
+    // ★ 도트 필드 프리셋(유저 08-06) — **같은 격자**의 교차점만 남긴다. 새 좌표계를 만들지
+    //   않으므로 라인 버전과 간격·원근이 정확히 일치한다(같은 룩 시스템, 다른 프리셋).
+    float r = length(a) ;
+    float dw = max(w.x, w.y) * 2.6;
+    float dot0 = 1.0 - smoothstep(dw, dw * 2.2, r);
+    // 발 인식 파문 — 닿은 지점에서 바깥으로 퍼지는 링 하나. uPing 이 과거면 0 이 된다.
+    float dt = uTime - uPing;
+    float ring = 0.0;
+    if (dt > 0.0 && dt < 1.6) {
+      float rr = length(guv * 0.30 - uPingUv);      // 그리드 좌표 → 대략 m
+      float front = dt * 2.4;                        // 파문 속도(m/s)
+      ring = exp(-pow((rr - front) * 3.2, 2.0)) * (1.0 - dt / 1.6);
+    }
+    return clamp(dot0 * (1.0 + ring * 2.6), 0.0, 1.4);
+  }
   vec2 l = 1.0 - smoothstep(w, w * 2.4, a);
   return max(l.x, l.y);
 }
