@@ -1193,7 +1193,10 @@ export function drawStemArrow(g, W, H, t, ENV, opts = {}) {
       const squeeze = 1 + 0.22 * Math.sin((u * 3 - dph * 2) * Math.PI * 2);
       out.push({ y: y0 + (yHead - y0) * u,
                  r: (w0 / 2 + (w1 / 2 - w0 / 2) * u) * squeeze,
-                 a: 1 - 0.5 * sm(0.78, 1, u) });
+                 // 끝 투명 = '약간'(0.72~0.92 에서 −35%) + **머리 끝은 0 으로**(0.92~1).
+                 //   0 이 안 되면 순환하는 점이 알파 0.5 에서 툭 사라져 흐름이 끊겨 보인다
+                 //   (유저: 애니메이팅 끊기는 느낌). 이음매는 알파 0 에서만 안 보인다.
+                 a: (1 - 0.35 * sm(0.72, 0.92, u)) * (1 - sm(0.92, 1, u)) });
     }
     return out;
   })() : null;

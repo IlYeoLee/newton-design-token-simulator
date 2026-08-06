@@ -3032,8 +3032,12 @@ export class Session {
       if (this.t - H._beatT > CFG.per * 4.6) { H._beatT = this.t; H.beat = 0; H._landed = false; }   // 놓치면 다음 사이클
       H.gh.op(Math.max(0, 1 - (this.t - H._ghT) / 0.6) * 0.65);   // 오차 잔상 0.6초
       // 화살표 = 한 박자 앞서 켜서 '다음에 어디로'를 알린다
-      H.a1._gain = H.beat === 0 ? 0.9 : (H.beat === 1 ? 0.35 : 0);
-      H.a2._gain = H.beat === 1 ? 0.95 : (H.beat === 2 ? 0.5 : 0);
+      // ★ **첫 턴에만**(유저 08-06: 한 턴이 끝나고 나면 화살표는 추가적으로 더하지 마).
+      //   방향은 한 번 배우면 아는 것인데, 매 사이클 draw-on 이 다시 켜지면 새 정보인 척하며
+      //   화면이 계속 덧칠된다. 한 턴(H.count ≥ 1)이 지나면 마크만 남는다.
+      const arrK = (H.count || 0) < 1 ? 1 : 0;
+      H.a1._gain = arrK * (H.beat === 0 ? 0.9 : (H.beat === 1 ? 0.35 : 0));
+      H.a2._gain = arrK * (H.beat === 1 ? 0.95 : (H.beat === 2 ? 0.5 : 0));
       // 봇 구동 = 실측 4국면. 폭(스탠스)만으론 '스텝백을 한다'가 안 보인다(유저) —
       //   루트를 실제로 옆으로 옮기고(밀기 +0.22 → 빠지기 -0.34), 마지막에 점프까지 시킨다.
       const WID = [0.39, 0.42, 0.92, 0.55];     // 스탠스 폭(m) — 영상 실측
@@ -3052,8 +3056,8 @@ export class Session {
       if (POSE) {
         // 1/4~4/4 + 실전 공통 — 좌표·박자 전부 영상 재생 위치에서 자동(_sbPlace).
         //   실전은 '4/4의 마크 판정 토큰'만 남긴다 — 화살표·링·고스트·커서 전부 없음(유저).
-        this._sbPlace(H, id, H.fRl, H.fRr, LIVE ? [null, null] : [H.a1, H.a2]);
-        if (LIVE) { H.a1._gain = 0; H.a2._gain = 0; }
+        this._sbPlace(H, id, H.fRl, H.fRr, (LIVE || !arrK) ? [null, null] : [H.a1, H.a2]);
+        if (LIVE || !arrK) { H.a1._gain = 0; H.a2._gain = 0; }   // 첫 턴 뒤엔 배치도 안 한다
         for (const k of ['fC', 'fLl', 'fLr']) H[k]?.op(0);
         if (H.numL) { placeMarkNum(H.numL); placeMarkNum(H.numR); H.numL.visible = H.numR.visible = true; }
         H.mL.setOp?.(0); H.mR.setOp?.(0); H.mC.setOp?.(0);

@@ -196,8 +196,12 @@ function drawOffBit(ctx, text, x, y, sizePx, { color = rgba(NEU.ink, 0.95), glow
 
 /** 캔버스에 커스텀 글리프를 웜 크림 틴트+글로우로 (x,y) 중심 렌더. 성공 시 true. */
 export function drawGlyph(ctx, ch, x, y, sizePx, { color = rgba(NEU.ink, 0.95), glowColor = rgba(PAL.coral, 0.75), glow = 14, mirror = false } = {}) {
-  // 숫자 소스가 OffBit 이면 0~9 는 도트 폰트로. 문자 슬롯(L·R·연산·촉)은 늘 SVG 글리프다.
-  if (FXP.numSrc === 'offbit' && /^[0-9]$/.test(String(ch))) {
+  // ★★ 규약(유저 08-06, 3회 지적): **마크 안 영문·한글·숫자는 무조건 도트 폰트**.
+  //   전엔 `/^[0-9]$/` 라 숫자만 도트로 가고 L·R 은 SVG 슬롯(glyph_L/R.svg 필기체)으로 갔다 —
+  //   그게 "아직도 도트폰트 안 쓰냐"의 정체다. 한 글자 글자(영문·한글·숫자)는 전부 도트로 보낸다.
+  //   **도형 슬롯은 그대로 SVG**다: LOGO·FOOT_OUT_L·TIP_TRI·WARN_EXCL 처럼 두 글자 이상인 이름과
+  //   연산 기호(+ − × %)는 이 정규식에 안 걸린다 — 글자가 아니라 그림이기 때문이다.
+  if (FXP.numSrc === 'offbit' && /^[0-9A-Za-z가-힣]$/.test(String(ch))) {
     return drawOffBit(ctx, ch, x, y, sizePx, { color, glowColor, glow });
   }
   const img = GLYPHS.img(ch);
