@@ -73,6 +73,11 @@ if (/_ringRFor[\s\S]{0,400}?measureText/.test(src))
   fails.push('_ringRFor 가 글자 폭을 재고 있다 — 규칙④ 위반(링 지름 고정)');
 else ok.push('④ 링 지름 = 고정');
 
+// 규칙⑥ 진행 아크 폭은 상수 — 알약 폭에서 파생하지 않는다
+if (/progK/.test(src) && /\*\s*TOK\.progK/.test(src))
+  fails.push('아크 폭을 알약 폭 × progK 로 파생시키고 있다 — 규칙⑥ 위반(전 화면 공통 상수)');
+else ok.push('⑥ 아크 폭 = 상수');
+
 // 규칙③ 활자 위계 — 2급이 가독 하한 위인가
 const minFs = 68 - 40 * (T.headY / H);
 if (T.fsBadge < minFs) fails.push(`2급(${T.fsBadge}) 이 y${T.headY} 가독 하한(${minFs.toFixed(0)}) 미달`);

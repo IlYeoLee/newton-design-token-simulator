@@ -782,7 +782,8 @@ export const TOK = {
   //   820 은 알약이 1320 고정이던 시절 '헤더의 62%' 로 잡은 값이다 — 알약이 HUG 가 되어
   //   579~955 로 변하자 아크가 알약보다 넓어졌다(P2 에선 241px 더 넓다). 딸린 물건처럼
   //   읽히려면 비례가 유지돼야 한다. progW 는 이제 상한으로만 쓴다.
-  progK: 0.90, progW: 820,
+  // progK 는 **은퇴**(규칙⑥) — 아크 폭을 알약에서 파생시키던 계수. 저장본 호환으로만 남긴다.
+  progK: 0.90, progW: 820,   // progW = 아크 폭 상수(전 화면 공통)
   statK: 0.78,       // SPM 눈금자 폭 ÷ 알약 폭 (아크 0.90 보다 좁게 — 위계상 3급)
   // ★ 1.0 — **알약 크기는 전 화면 공통이다.**
   //   한때 0.78 을 곱했다(SPM 이 있는 화면에선 알약이 조연이라고 봤다). 그런데 실측하면
@@ -2077,9 +2078,12 @@ export class FloorGL {
     // 폭은 투사 안전폭에서 깎는다 — 하단은 콘이 좁아 760 도 위험할 수 있다(safeW 참고).
     // ★ 폭은 **LAYOUT.PROG.wMax 하나에서만** 나온다. 여기 760 이 박혀 있고 캡슐 경로는 820 을
     //   써서, 같은 섹션인데 스테이지마다 아크 크기가 달랐다(유저 스샷: BK_A1 vs BK_A3).
-    // 알약 폭 × progK — 위 알약에 딸린 물건으로 읽히게. 알약이 없는 화면은 상한을 쓴다.
+    // ★ 규칙⑥(SPEC, 유저 2026-08-07: 왜 어떤 건 프로그래스가 크고 어떤 건 작아 — 다 맞춰):
+    //   **아크 폭은 상수다.** 예전엔 알약 폭 × progK 로 파생시켰다 — '딸린 물건으로 읽히게' 하려던
+    //   의도였지만, 알약이 HUG(문구 길이에 따라 494~932px)라 아크가 화면마다 두 배씩 갈렸다.
+    //   같은 컴포넌트가 화면마다 크기가 다르면 한 시스템으로 안 읽힌다(높이·링과 같은 결론).
     const wD = Math.min(LAYOUT.PROG.wMax, safeW(y) - TOK.safePad,
-                        this._pillW ? this._pillW * TOK.progK : 1e9), x0 = CX - wD / 2;
+                        TOK.progW), x0 = CX - wD / 2;
     // main.js가 width를 직접 쓰면(반복형 스테이지) 그 값이 우선, 아니면 --dur 시간 진행.
     const w = n.style.width != null ? numOr(n.style.width, 0)
       : 600 * clamp01((this.t - n.delay) / n.dur);
@@ -3537,7 +3541,7 @@ export class FloorGL {
       // ★ 알약이 접혀 사라졌으면(h 0) 알약 폭을 따라가면 안 된다 — 아크가 같이 쪼그라든다
       //   (실측: A1 이 117px 로 줄었다). 붙을 대상이 없으니 상한을 쓴다 — _dots 와 같은 규약.
       const wA = h > 0
-        ? Math.min(LAYOUT.PROG.wMax, safeW(ay) - TOK.safePad, w * TOK.progK)
+        ? Math.min(LAYOUT.PROG.wMax, safeW(ay) - TOK.safePad, TOK.progW)   // 규칙⑥ 아크 폭 = 상수
         : Math.min(LAYOUT.PROG.wMax, safeW(ay) - TOK.safePad);
       this._boxes?.push({ k: 'arc', x: CX - wA / 2, y: ay, w: wA, h: 0 });
       arcGauge(ctx, CX - wA / 2, ay, wA, clamp01((t - PV) / Math.max(.1, dur - PV)));
