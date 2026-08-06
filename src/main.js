@@ -4522,30 +4522,44 @@ void main(){
         else {
         // 실측 사이클(cmu144_11) — 시범 종료 후부터(tt): 첫 홀드가 깔끔히 시작.
         const tt = session.t - (session._aWatchEnd ?? A2_WATCH);
-        const T0 = 5.4, TD = 6.5, T1 = 8.1, HOLD = stageTime('A2').hold;   // 정본: marklang.STAGE_TIME   // 5→3초(유저): 카운트 3·2·1 → 팡
-        const DESC = TD - T0, RISE = T1 - TD, CYC = DESC + HOLD + RISE;
+        // ── 실사 실측 사이클 ──────────────────────────────────────────────
+        //   레퍼런스 9초·60fps 540프레임에서 빨간 신발 연결요소를 추적해 구간을 갈랐다.
+        //     홀드 2.15 → 앞발 당겨오기 0.35 → 모아 섬 1.25 → 같은 발 다시 내딛기 0.55  = 4.30s
+        //   ★ **발을 바꾸지 않는다**(유저 질문에서 확인). 1렙/2렙 홀드에서 두 신발의
+        //     가까움·멂 관계가 그대로다(뒤발 1293화소·바닥y755 → 1129·751 / 앞발 528·791 → 431·791).
+        //     다리를 바꿨다면 앞발이 멀어져 바닥선이 올라갔어야 한다. 안 올라갔다.
+        //     궤적도 같은 말을 한다 — 뒷발은 126→230px 로 거의 제자리고, 나간 발은 되돌아왔던 그 발이다.
+        //     즉 발 교대가 아니라 **렙 리셋**이다. 그래서 미러 패리티(scale.x 뒤집기)를 없앤다.
+        //     사람은 미러로 뒤집히지 않는다(유저: "좌우 반전인 게 말이 안 되잖아").
+        //   ★ '내려가기'는 따로 있는 동작이 아니다 — 발을 내미는 그 0.55초에 자세가 같이 낮아진다.
+        const T0 = 5.4, TD = 6.5, T1 = 8.1;          // 클립(cmu144_11) 구간: 서기 → 최저 → 복귀
+        const HOLD = stageTime('A2').hold;           // 정본: marklang.STAGE_TIME (실측 2.15)
+        const PULL = 0.35, TOG = 1.25, STEP = 0.55;
+        const CYC = HOLD + PULL + TOG + STEP;        // 4.30 — 실사 홀드→홀드 간격과 같다
         const c = tt % CYC;
-        _phase = c < DESC ? T0 + c : (c < DESC + HOLD ? TD + Math.sin(tt * 1.6) * 0.07 : TD + (c - DESC - HOLD));
-        // ★ 첫 회차를 **미러**로 시작한다(유저 08-06, 영상용) — isLeft 는 이미 '짝수 회차 =
-        //   오른발'로 되어 있는데 봇은 안 뒤집힌 원본 클립으로 시작했다. 그 클립이 왼발
-        //   리드라 플래그(오른발)와 화면(왼발)이 어긋났다. 미러 패리티를 뒤집으면 둘이 맞는다.
-        xbot.group.scale.x = (Math.floor(tt / CYC) % 2) ? 1 : -1;
-        const _hs = Math.max(0, Math.min(1, (c - DESC) / 0.6)), _he = Math.max(0, Math.min(1, (DESC + HOLD - c) / 0.6));
-        xbot.lungeDeepen = 0.35 * Math.min(_hs, _he);
+        //   클립 위상을 구간에 **압축해서** 태운다. 클립의 복귀 1.6s 를 0.35s 에, 하강 1.1s 를 0.55s 에.
+        //   등속 매핑이면 사람 동작이 안 되므로 시작·끝이 느려지는 smoothstep 을 태운다.
+        const ez = x => x * x * (3 - 2 * x);
+        _phase = c < HOLD ? TD + Math.sin(tt * 1.6) * 0.07
+               : c < HOLD + PULL ? TD + (T1 - TD) * ez((c - HOLD) / PULL)
+               : c < HOLD + PULL + TOG ? T1
+               : T0 + (TD - T0) * ez((c - HOLD - PULL - TOG) / STEP);
+        // 미러는 **고정**이다. 회차마다 뒤집으면 사람이 순간이동한다.
+        //   -1 = 08-06 에 유저가 고른 그 방향(오른발 리드).
+        xbot.group.scale.x = -1;
+        const _hs = Math.max(0, Math.min(1, c / 0.4)), _he = Math.max(0, Math.min(1, (HOLD - c) / 0.4));
+        xbot.lungeDeepen = c < HOLD ? 0.35 * Math.min(_hs, _he) : 0;
         // ★ 씬 루프가 이 동작을 다 못 담고 잘라 먹었다(유저: 발자국이 사라진다). A2 는
-        //   관찰 5.8s 뒤에야 마크가 나오는데 기본 루프가 8s 라, 마크가 보이는 시간이 한
-        //   바퀴에 2초뿐이고 나머지는 관찰(=마크 숨김)이었다. 실측: latch(따라하기 진입)가
-        //   t6.0~7.6 에만 true. 필요한 길이를 여기서 알려 주면 아래 루프가 그만큼 늘린다.
-        session._a2LoopNeed = A2_WATCH + 2 * CYC;   // 관찰 + 좌우 1렙씩
-        //   ★ **오른발 먼저**(유저 08-06) — 첫 사이클이 왼발이었다. 짝수 회차 = 오른발.
-        const _isL = (Math.floor(tt / CYC) % 2) === 1;
-        session.a2Cyc = { inHold: c >= DESC && c < DESC + HOLD, prog: Math.max(0, Math.min(1, (c - DESC) / HOLD)),
+        //   관찰 5.8s 뒤에야 마크가 나오므로 필요한 길이를 여기서 알려 준다.
+        session._a2LoopNeed = A2_WATCH + 2 * CYC;   // 관찰 + 2렙 = 5.8 + 8.6 = 14.4s
+        session.a2Cyc = {
+          inHold: c < HOLD, prog: Math.max(0, Math.min(1, c / HOLD)),
           // ★★ 두 발은 **다른 이름**을 갖는다 — 이 구분이 없어서 자막과 타이머가 엉뚱한 발에 붙었다.
-          //   isLeft   = 앞으로 **내딛는**(무릎 굽히는) 발 = 그 차례 발. 봇 미러 패리티와 짝이다.
-          //   workLeft = **늘어나는 종아리** 쪽 = 뒷발(뒤꿈치를 눌러 버티는 발).
-          //   자막(LEFT/RIGHT CALF STRETCH) · 홀드 링 · 카운트다운 · Success 는 전부 workLeft 를 본다.
-          //   소비자가 각자 `!isLeft` 를 하면 언젠가 한 곳이 빠진다(실제로 자막이 그랬다).
-          holdSec: HOLD, isLeft: _isL, workLeft: !_isL, descending: c < DESC };
+          //   isLeft   = 앞으로 **내딛는**(무릎 굽히는) 발. workLeft = **늘어나는 종아리** = 뒷발.
+          //   자막·홀드 링·카운트다운·Success 는 전부 workLeft 를 본다.
+          //   ★ 이제 회차마다 안 바뀐다 — 같은 발로 2렙을 하므로 상수다.
+          holdSec: HOLD, isLeft: false, workLeft: true,
+          descending: c >= HOLD + PULL + TOG };
         }
       }
       // A1 옆구리 = hj_sidebend(26s 루틴) 루프. 자연 속도는 코치 영상(핑퐁 6.9s 주기)보다 느려
