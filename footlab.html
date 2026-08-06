@@ -41,7 +41,10 @@
   #hero{width:var(--hero,460px);height:var(--hero,460px)}
   /* ★ aspect-ratio 는 캔버스 버퍼(1120×460)와 반드시 같아야 한다 — 230 으로 두면 세로가 2배
      압축돼 발도 원도 납작해진다(유저: 찌부시키지 마). 캔버스 크기를 바꾸면 여기도 같이 바꿀 것. */
-  #strip{width:calc(var(--hero,460px) * 2.1);max-width:100%;height:auto;aspect-ratio:1120 / 460}
+  /* ★ aspect-ratio 는 **렌더 버퍼와 반드시 같아야 한다** — 줄을 2→3 으로 늘려 버퍼를
+     460→690 으로 키웠는데 여기가 460 으로 남아 있어서, 690px 비트맵이 460 비율 상자에
+     짓눌려 들어갔다(유저: 왜 찌그러져 보이냐). 칸 수를 바꾸면 이 값도 같이 바꿀 것. */
+  #strip{width:calc(var(--hero,460px) * 2.1);max-width:100%;height:auto;aspect-ratio:1120 / 690}
   #comp{width:calc(var(--hero,460px) * 2.1);max-width:100%;height:auto;aspect-ratio:1120 / 380}
   #prims{width:calc(var(--hero,460px) * 3.0);max-width:100%;height:auto;aspect-ratio:1900 / 800}
   #align{width:calc(var(--hero,460px) * 1.5);max-width:100%;height:auto;aspect-ratio:840 / 280}

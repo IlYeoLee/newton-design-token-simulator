@@ -615,7 +615,10 @@ function makeFootGlyphTexture(right) {
   if (_footNumTex[k]) return _footNumTex[k];
   const c = document.createElement('canvas'); c.width = c.height = 128;
   const ctx = c.getContext('2d');
-  const ok = drawGlyph(ctx, 'LOGO', 64, 64, 100, { mirror: right });
+  // ★ L/R 은 **도트로 고정**(유저: 이미지 바꾸면서 도트에서 글리프로 바뀌었다).
+  //   LOGO 슬롯을 그리면 마크 안이 로고가 된다 — 그건 원형 토큰이 쓸 것이고,
+  //   마크 안 L/R 슬롯은 숫자와 **같은 취급**이어야 한다(같은 drawGlyph 경로 · 같은 크기).
+  const ok = drawGlyph(ctx, k, 64, 64, 96);
   if (!ok) {   // 슬롯 미로드 폴백 — 캐시하지 않는다(로드 후 정본으로 재생성)
     ctx.strokeStyle = rgba(NEU.ink, 0.95); ctx.lineWidth = 5;
     ctx.shadowColor = rgba(PAL.coral, 0.75); ctx.shadowBlur = 12;
