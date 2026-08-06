@@ -1581,9 +1581,9 @@ export class Session {
     //   존 마크와 같은 floorRing 이다 — 상태(Preview·Active·Success·Locked)를 그대로 갖고,
     //   룩 시스템 슬라이더·상태 룩(setMarkStateLook)이 이 마크에도 똑같이 걸린다.
     //   캔버스로 흉내 낸 원반은 상태가 없어서 '켜졌다/꺼졌다'밖에 말 못 했다.
-    // 제자리 드리블에는 표적이 없다. 발은 몸 아래(d≈0)에 있고 거긴 빔이 못 닿는다 —
-    //   몸 앞 1m 에 발자리를 그리면 "걸어 나가서 뒤로 쳐라"가 된다(유저 지적).
-    //   번호 표적은 발을 실제로 옮기는 단계(사이드 드리블 BK_C3)에서 켠다.
+    // 3D 링 표적은 은퇴 — 같은 자리를 프림 토큰이 직접 그린다(유저: 우리가 디자인한 토큰
+    //   다섯 개를 사람 앞에 펼쳐라). 링 메시로 흉내 내면 재설계한 노드 문법(대기=헤어라인·
+    //   지목=채움+숫자 파냄)이 안 걸리고, 레일도 못 잇는다. 배치는 아래 MAT_TG.
     const B1_TG = [];
     const b1tg = B1_TG.map(tg => {
       const z = BK_STAND - tg.d;
@@ -1627,15 +1627,29 @@ export class Session {
     const b1matZ = BK_STAND - matMid;                        // 빔 원점(=BK_STAND)에서 앞으로
     const toV = d => (d - matMid) / (MAT_SIZE / 2);          // 앞거리 → 판 정규 v(+ = 먼 쪽)
     const toU = x => x / (MAT_SIZE / 2);
+    // 표적 배치(m) — 빔 사다리꼴 안에 들어가는지 검산하고 넣은 값이다:
+    //   ①② d0.90 x±0.17 (반폭 0.332 / 필요 0.275) · ③④ d1.12 x±0.26 (반폭 0.391 / 필요 0.365)
+    //   허브(d0.60 r0.15)와 최소거리 0.345 > 0.255 · ①③ 간격 0.238 > 0.210 · 먼 끝 1.225 ≈ MAT_D1
+    const MAT_TG = [
+      { x: -0.17, d: 0.90, n: 1, r: 0.105 }, { x: 0.17, d: 0.90, n: 2, r: 0.105 },
+      { x: -0.26, d: 1.12, n: 3, r: 0.105 }, { x: 0.26, d: 1.12, n: 4, r: 0.105 },
+    ];
     const b1mat = primPanel('dribbleMat', MAT_SIZE, false);
     b1mat._prim.P = {
-      round: 0.35, prog: 0, chev: 1,
+      // chev 는 껐다 — 방향 셰브론은 '다음이 어느 쪽'을 말하는 기호인데 제자리 드리블엔
+      //   방향이 없다. 뜻 없는 기호는 눈금자와 같은 종류의 군더더기다.
+      round: 0.35, prog: 0, chev: 0,
       mat: { nx: toU(matInk(MAT_D0)), fx: toU(matInk(MAT_D1)), ny: toV(MAT_D0), fy: toV(MAT_D1) },
       // 액티브 타깃 = 바운스 링과 같은 자리. ring:0 — 링 자체는 3D 존 마크(b1zone)가 박자로 그리고
       //   토큰은 채움·조준 눈금만 얹는다. 라벨도 null — 링 중앙은 잔여 횟수 숫자 슬롯이다.
       center: { x: 0, y: toV(0.60), r: 0.15 / (MAT_SIZE / 2), ring: 0, label: null },
-      // 표적은 3D 판정 토큰(b1tg)이 그린다 — 프림은 그 사이를 잇는 레일만 안다.
-      rails: B1_TG.map(tg => ({ x: toU(tg.x), y: toV(tg.d), r: tg.r / (MAT_SIZE / 2), on: tg.on })),
+      // ── 번호 표적 4개 — 판 전체가 한 컴포넌트다. 허브만 덩그러니 두면 '원 하나' 로 되돌아간다.
+      //   배치는 빔이 정한다: 반폭 = 0.17 + 0.27(d−0.30) 이라 앞이 좁고 뒤가 넓다.
+      //   먼 줄이 더 벌어져 있는 건 멋이 아니라 사다리꼴 그 자체다(검산: 넘침 0건·충돌 0건).
+      //   상태는 **대기(헤어라인 링)** — 제자리 드리블에서 밟을 곳은 없다. 다섯 자리가 있고
+      //   지금 켜진 건 가운데 하나라는 걸 말한다. 코치가 번호를 부르면 그때 live 가 켜진다.
+      targets: MAT_TG.map(tg => ({ x: toU(tg.x), y: toV(tg.d), n: tg.n,
+        r: tg.r / (MAT_SIZE / 2), on: true, live: false })),
       // 눈금자는 뺐다 — 운동 중에 '0.5 m'를 읽을 사람은 없다. 도면·합성용이라 랩에서만 켠다.
       brand: 1,
     };
@@ -1699,7 +1713,12 @@ export class Session {
       H.fRl = F(-0.17, 0.05, 'left');  H.fRr = F(0.22, -0.06, 'right');   // ① 준비 페어
       H.fC  = F(0.33, 0.06, 'right');                                      // ② 플랜트 리드 발
       H.fLl = F(-0.43, -0.09, 'left'); H.fLr = F(0.49, -0.32, 'right');   // ③ 착지 페어(폭 0.92)
-      for (const k of ['fLl', 'fLr', 'fRl', 'fRr', 'fC']) { H[k].ghost(); H[k].op(0.10); }   // 대기 = Locked 고스트(crisp 실루엣)
+      // ★ 대기 상태는 **완전히 끈다**(유저 08-07: 아직도 고스트 토큰 있다).
+      //   구값 op(0.10) 은 '있는 듯 없는 듯'을 노렸지만 화면에선 그냥 **지저분한 잔상**이다.
+      //   그리고 의미가 틀렸다 — 고스트는 '지나간 자리'인데 아직 아무것도 안 지났다.
+      //   앞으로 밟을 자리는 **목표 존 원**(_sbPathZones)이 따로 말한다. 역할이 겹치면 안 된다.
+      //   0.10 은 죽은 값이 아니라 **끄지 않은 값**이었다 — 어느 단계에서도 켠 적이 없다.
+      for (const k of ['fLl', 'fLr', 'fRl', 'fRr', 'fC']) { H[k].ghost(); H[k].op(0); }
       // 따라하기 페어 안 L·R 글리프 — 1/4과 같은 슬롯(숫자 규약). 표시는 따라하기에서만.
       H.numL = attachMarkNum(H.fRl, 'L', false); H.numR = attachMarkNum(H.fRr, 'R', true);
       H.numL.visible = false; H.numR.visible = false;
