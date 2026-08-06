@@ -309,7 +309,7 @@ for (const [id, key] of [['bd-lo','bandLo'],['bd-hi','bandHi']]) {
 }
 // 제안값 — 몸통 0.06~0.30(흰→코랄) · 발 0.26(#FA3030 붉은) 아래 35%
 $('em-preset').onclick = async () => {
-  const V = { 'bd-lo': 0.06, 'bd-hi': 0.30, 'em-k': 1, 'em-t': 0.26, 'em-y0': 0, 'em-y1': 0.35, 'em-soft': 0.10 };
+  const V = { 'bd-lo': 0.04, 'bd-hi': 0.24, 'em-k': 1, 'em-t': 0.26, 'em-y0': 0, 'em-y1': 0.35, 'em-soft': 0.10 };
   for (const id in V) { const e = $(id); e.value = V[id]; e.dispatchEvent(new Event('input')); }
   await $('b-all').onclick();
 };
