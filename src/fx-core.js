@@ -1938,8 +1938,10 @@ export function drawDribbleMat(g, W, P, look, t, ENV) {
     const ax = X(tg.x), ay = Y(tg.y), bx = X(cU), by = Y(cV);
     const dx = bx - ax, dy = by - ay, len = Math.hypot(dx, dy) || 1;
     const R = (tg.r != null ? tg.r : 0.20) * W / 2;
-    g.setLineDash([2 * s, 9 * s]); g.lineDashOffset = -t * 12 * s;
-    g.strokeStyle = INK(tg.live ? 0.5 : 0.2); g.lineWidth = 1.8 * s;
+    // ★ 잽잽훅 레일과 같은 레시피(0길이 대시 + 라운드캡 = 점열). 콤보 노드를 잇던 문법을
+    //   그대로 쓴다 — 형태(판 vs 콤보)는 달라도 '순서가 있는 노드를 잇는 선'은 한 벌이어야 한다.
+    g.setLineDash([0.01, 8 * s]); g.lineDashOffset = -t * 12 * s; g.lineCap = 'round';
+    g.strokeStyle = INK(tg.live ? 0.34 : 0.22); g.lineWidth = 2.2 * s;
     g.beginPath();
     g.moveTo(ax + dx / len * R * 1.14, ay + dy / len * R * 1.14);
     g.lineTo(bx - dx / len * CR * 1.16, by - dy / len * CR * 1.16);

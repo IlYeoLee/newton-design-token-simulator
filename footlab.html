@@ -213,6 +213,14 @@
       <p class=note>실제 사진을 쓰려면 <code>public/floors/track.jpg</code> · <code>tile.jpg</code> 로 넣으면 자동으로 그걸 씁니다. 지금은 근사색으로 그립니다.</p>
     </div>
     <div class=card>
+      <h2>드리블 매트 — 훈련 판 한 프레임 (판 · 표적 5 · 인터랙션 방향)</h2>
+      <canvas id=mat width=1080 height=1080></canvas>
+      <p class=note>판·눈금·크롬은 <b>유리 알약과 같은 레시피</b>(옅은 채움 · 안쪽 광 · 먼 쪽 0.95 → 가까운 쪽 0.06 림)이고,
+      표적은 시뮬에서 <b>판정 토큰(존 마크)</b> 그 자체입니다 — 여기 그림은 배치 확인용 대역입니다.
+      <b>인터랙션 방향은 안쪽</b>: 커넥터·셰브론이 전부 액티브 타깃을 향하고, 공이 닿는 순간의 반응도 거기서만 납니다.
+      형태 정본은 <code>fx-core · drawDribbleMat</code>.</p>
+    </div>
+    <div class=card>
       <h2>동작 토큰 — 같은 룩으로 (복싱 판정 3단계 · 화살표 수직·수평 · 궤적 경로)</h2>
       <canvas id=prims width=1900 height=800></canvas>
       <div id=primSld style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:2px 20px;margin:8px 0 2px"></div>
@@ -236,7 +244,7 @@
 import * as THREE from 'three';
 import { makeMarkFXMaterial, QUAD_K, ZONE_GLYPH_K, SIL_FIT, SIL_FIT_REF } from './src/tokens.js';
 import { FXP, GLYPHS, DEFAULT_GLYPHS, footSlot, footSDFTexture, drawNumber, drawGlyph, getLUT, ensureOffBit, rebuildLUT } from './src/fxlut.js';
-import { MARK_NUM, SDF_DECODE, drawMarkGlyph, invertGlyphCanvas, drawApproachRing, drawStemArrow, drawTrajectory, drawRotate, drawPunchLine, drawLinkDots } from './src/fx-core.js';
+import { MARK_NUM, SDF_DECODE, drawMarkGlyph, invertGlyphCanvas, drawApproachRing, drawStemArrow, drawTrajectory, drawRotate, drawPunchLine, drawLinkDots, drawDribbleMat } from './src/fx-core.js';
 import LOOK from './src/mark-look.json';   // ★ MARK 룩 정본 — 랩·시뮬이 같은 파일을 본다
 
 // 정본 글리프를 항상 싣는다 — 저장본만 믿으면 랩이 낡은 dataURL 을 보는 사고가 반복된다(07-30).
@@ -1113,6 +1121,33 @@ function drawJJH(g, X, Y, W, t) {
   g.drawImage(_jjhAP, pts[ni][0] - bs / 2, pts[ni][1] - bs / 2, bs, bs);
   g.restore();
 }
+function drawMatCard(t) {
+  const cv = $('mat'); if (!cv) return;
+  const W = 1080;
+  const off = drawMatCard._o || (drawMatCard._o = Object.assign(document.createElement('canvas'), { width: W, height: W }));
+  const g = off.getContext('2d');
+  g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, W, W);
+  drawDribbleMat(g, W, {
+    round: 0.35, bracket: 1, chev: 1, prog: 0.5,
+    mat: { nx: 0.50, fx: 0.86, ny: -0.80, fy: 0.80 },
+    center: { x: 0, y: 0.00, r: 0.28, label: 'ACTIVE\nTARGET' },
+    // 시뮬 배치와 같은 다섯 — ①② 먼 쪽(스탠스) · ③④ 가까운 쪽(스텝) · 가운데 액티브
+    targets: [
+      { x: -0.42, y: 0.36, n: 1, r: 0.19, on: true },
+      { x: 0.42, y: 0.36, n: 2, r: 0.19, on: true },
+      { x: -0.32, y: -0.48, n: 3, r: 0.19, on: true, live: true },
+      { x: 0.32, y: -0.48, n: 4, r: 0.19, on: false },
+    ],
+    ruler: { w: 1.6, h: 2.2 }, title: 'LOW DRIBBLE', brand: 'NEWTON',
+  }, { halo: P.halo }, t, _primEnv());
+  const c = cv.getContext('2d');
+  c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, W, W);
+  c.drawImage(off, 0, 0);
+  c.save(); c.globalCompositeOperation = 'lighter';
+  c.filter = 'blur(5px)'; c.globalAlpha = 0.34; c.drawImage(off, 0, 0);
+  c.filter = 'blur(18px)'; c.globalAlpha = 0.24; c.drawImage(off, 0, 0);
+  c.restore(); c.filter = 'none'; c.globalAlpha = 1;
+}
 function drawPrimsCard(t) {
   const cv = $('prims'); if (!cv) return;
   // ★ 프림은 오프스크린에 그리고, 표시 캔버스에서 이중 가우시안 블룸(가산)으로 합성한다 —
@@ -1173,7 +1208,7 @@ function drawPrimsCard(t) {
 }
 function frame() {
   const t = (performance.now() - T0) / 1000;
-  drawPrimsCard(t);
+  drawPrimsCard(t); drawMatCard(t);
   try { drawLinkPrev(t); } catch (e) { /* 패널 없거나 초기화 전 */ }
   if (units.foot || units.zone || units.logo) {
     // 확대 — 스트립에서 고른 표현형·상태
