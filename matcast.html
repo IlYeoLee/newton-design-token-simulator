@@ -17,6 +17,8 @@
     ?run=4        순회 모드 한 자리 반복 타수
     ?size=1440    정사각 한 변(px)
     ?bg=000       배경 색. bg=none 이면 투명(알파 채널 녹화·PNG 시퀀스용)
+    ?plate=court  배경에 실제 코트 깔기 — 밝은 바닥에서 읽히는지 그 자리에서 판단
+    ?token=punch|arrow|mat   같은 바닥에 **다른 토큰**을 놓고 비교(유저: 잽잽훅·화살표는 되나)
     ?loop=1       자동 재생(기본). loop=0 이면 스페이스로 시작
   키
     스페이스  재생/정지 (녹화 시작 타이밍 맞출 때)
@@ -35,7 +37,7 @@
 <div id="hint">스페이스 재생·정지 · R 처음부터 · H 이 안내 숨기기</div>
 
 <script type="module">
-import { drawDribbleMat } from './src/fx-core.js';
+import { drawDribbleMat, drawPunchLine, drawStemArrow } from './src/fx-core.js';
 import { GLYPHS, drawGlyph, rebuildLUT } from './src/fxlut.js';
 
 const q = new URLSearchParams(location.search);
@@ -64,7 +66,15 @@ const HOME = +(q.get('spot') || 5);     // 고정 모드에서 때릴 자리. 5 
 
 const SIZE = +(q.get('size') || 1440);
 const BG = (q.get('bg') || '000').toLowerCase();
-if (BG === 'none') document.body.classList.add('none');
+// ★ 배경 플레이트 — **밝은 코트 위에서 읽히는지** 그 자리에서 본다(유저).
+//   검은 배경에서는 네온이 스스로 빛나지만 밝은 타일 위에서는 더할 여지가 없다.
+//   랩에서 예쁜 것과 합성에서 보이는 것은 다른 문제라, 판단은 실제 바닥 위에서 해야 한다.
+//   ?plate=court  클립에서 뽑은 야외 코트 · ?plate=<url> 임의 이미지 · 없으면 단색
+const PLATE = q.get('plate');
+if (PLATE) {
+  const src = PLATE === 'court' ? 'plate-court.png' : PLATE;
+  Object.assign(document.body.style, { background: `#111 url("${src}") center/cover no-repeat` });
+} else if (BG === 'none') document.body.classList.add('none');
 else document.body.style.background = BG.startsWith('#') ? BG : '#' + BG;
 
 const cv = document.getElementById('cv');
@@ -118,12 +128,29 @@ function frame() {
   }
   g.setTransform(1, 0, 0, 1, 0, 0);
   g.clearRect(0, 0, W, W);
-  if (BG !== 'none') { g.fillStyle = BG.startsWith('#') ? BG : '#' + BG; g.fillRect(0, 0, W, W); }
+  if (!PLATE && BG !== 'none') { g.fillStyle = BG.startsWith('#') ? BG : '#' + BG; g.fillRect(0, 0, W, W); }
 
   const tgt = n => ({ ...{ 1: { x: -0.44, y: 0.44 }, 2: { x: 0.44, y: 0.44 },
                            3: { x: -0.44, y: -0.44 }, 4: { x: 0.44, y: -0.44 } }[n],
                       n, r: 0.19, on: true, live: live === n,
                       hit: live === n ? t - hitT : null });
+
+  // ★ 비교 모드 — **같은 바닥에 다른 토큰**을 놓는다(유저: 반대로 룩시스템 화살표랑 잽잽훅
+  //   여기 들고 와봐, 거긴 되나 보게). 매트만의 문제인지 시스템 전체의 주간 문제인지는
+  //   같은 조건에 나란히 놓아야 갈린다 — 랩은 검은 캔버스라 이 판단을 못 한다.
+  const TOKEN = q.get('token');
+  if (TOKEN === 'punch') {
+    drawPunchLine(g, W, { w: 1, glow: 1, tempo: 1, node: 1, numS: 1, dash: 0 },
+      { halo: 0.9 }, t, ENV, null, 0.85);
+    requestAnimationFrame(frame); return;
+  }
+  if (TOKEN === 'arrow') {
+    const AW2 = Math.round(W * 0.34), AH2 = Math.round(W * 0.68);
+    g.save(); g.translate((W - AW2) / 2, (W - AH2) / 2);
+    drawStemArrow(g, AW2, AH2, t, ENV, { prog: 1, scale: 1, dots: true });
+    g.restore();
+    requestAnimationFrame(frame); return;
+  }
 
   drawDribbleMat(g, W, {
     chev: 0, prog: 0, in: Math.min(1, Math.max(0, t / 1.1)), hit: null, per: PER,
