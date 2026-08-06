@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { createScene, WALL_Z, FX } from './scene.js';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { TokenSystem, COLORS, TCFG, setFPView, makeMarkFXMaterial, makeLaneFXMaterial, makeFlowArrow, UI_MASK, applyMarkLook } from './tokens.js';
+import { PRESETS, currentPreset, savePreset, pushHT } from './lookpresets.js';
 import { Effects } from './effects.js';
 import { XBot } from './xbot.js';
 import { Panel } from './panel.js';
@@ -4737,6 +4738,29 @@ void main(){
   //   "웹에서 안 뜬다 / 왜 이렇게 느리냐"의 정체. 내부 도구 리포라 노출 비용은 없다.
   // 랩 → 시뮬 실시간 마크 룩 미리보기(유저) + 구(하늘) 램프 토글(scenes.html 버튼)
   window.__applyMarkLook = applyMarkLook;
+  // ── 룩 프리셋 토글 (👣) — '접지 룩' ↔ '정본 룩'. 이전 룩을 버리지 않고 왕복한다.
+  //   정본 값은 src/mark-look.json 하나에서만 읽는다(lookpresets.js) — 복사본을 두면
+  //   footlab 에서 다시 구웠을 때 갈린다.
+  {
+    let cur = currentPreset();
+    const btnL = document.getElementById('btn-look2');
+    const applyPreset = () => {
+      const P = PRESETS[cur]; if (!P) return;
+      applyMarkLook(P.look);
+      const push = m => pushHT(m, P.ht);
+      tokens.scene?.traverse?.(o => push(o.material));
+      scene.traverse(o => push(o.material));
+      if (btnL) { btnL.title = `마크 룩 — ${P.label} (눌러서 전환)`;
+        btnL.style.borderColor = cur === 'contact' ? 'var(--accent)' : 'var(--line)';
+        btnL.style.color = cur === 'contact' ? 'var(--accent)' : 'var(--text)'; }
+    };
+    btnL?.addEventListener('click', () => {
+      cur = cur === 'contact' ? 'classic' : 'contact'; savePreset(cur); applyPreset();
+    });
+    applyPreset();
+    // 마크 재질은 나중에 더 만들어진다(세션 진입·팩 교체) — 잠깐씩 다시 발라 준다.
+    setInterval(applyPreset, 1500);
+  }
   try { new BroadcastChannel('newton-marklook').onmessage = e => applyMarkLook(e.data || {}); } catch { /* 미지원 브라우저 */ }
   window.__dbg = {
     extractPose, retargetToClip,   // 비디오 모캡 (dev)
