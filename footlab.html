@@ -53,7 +53,7 @@
     border-radius:8px;padding:8px;font:11px/1.5 ui-monospace,Consolas,monospace;resize:vertical}
   .note{color:var(--dim);font-size:11px;margin:8px 0 0}
   .warn{color:var(--red);font-size:11.5px;margin:8px 0 0;display:none}
-</style>  <script type="module" crossorigin src="./assets/footlab-iVXr6Cl6.js"></script>
+</style>  <script type="module" crossorigin src="./assets/footlab-BjWhcFhQ.js"></script>
   <link rel="modulepreload" crossorigin href="./assets/modulepreload-polyfill-B5Qt9EMX.js">
   <link rel="modulepreload" crossorigin href="./assets/fx-core-C6WiWw5s.js">
   <link rel="modulepreload" crossorigin href="./assets/fxlut-C6eeF_TI.js">
@@ -216,6 +216,17 @@
       </div>
       <canvas id=comp width=1120 height=380></canvas>
       <p class=note>실제 사진을 쓰려면 <code>public/floors/track.jpg</code> · <code>tile.jpg</code> 로 넣으면 자동으로 그걸 씁니다. 지금은 근사색으로 그립니다.</p>
+    </div>
+    <div class=card>
+      <h2>A2 종아리 늘리기 — 실측 스탠스 · 실측 타이밍으로 도는 판</h2>
+      <div class=seg id=segA2Stance style="margin-bottom:10px">
+        <button data-v=1.19 class=on>실측 스탠스 1.19m</button><button data-v=0.32>지금 시뮬 0.32m</button>
+      </div>
+      <canvas id=a2 width=1120 height=620></canvas>
+      <p class=note id=a2note>레퍼런스 실측(9초·60fps·540프레임): <b>내려가기 0.55 · 홀드 2.15 · 일어서기 0.50 · 서서 교대 1.05</b> = 1렙 4.25s.
+        스탠스는 빨간 신발 두 덩어리의 중심 거리를 러닝화 270mm 로 축척해 <b>앞뒤 1.19m</b>(홀드 12프레임 중앙값).
+        좌우 벌림 0.10m 만 눈으로 맞춘 노브다 — 측면뷰라 횡폭은 원리적으로 못 잰다.
+        합성은 위 <b>바닥 합성</b> 카드의 낮/밤/레이저 토글을 그대로 따른다(기본 = 잉크).</p>
     </div>
     <div class=card>
       <h2>드리블 매트 — 훈련 판 한 프레임 (판 · 표적 5 · 인터랙션 방향)</h2>
