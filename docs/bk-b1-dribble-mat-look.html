@@ -1,0 +1,716 @@
+<title>BK_B1 드리블 매트 — 룩 시안</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #F6F3F0; --card: #FFFFFF; --line: #DAD2CB;
+    --tx: #1A1715; --tx-2: #6B625C; --tx-3: #948A83;
+    --coral: #FE6E3C; --red: #FA3030; --sand: #FEC389;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #0E0B09; --card: #17120F; --line: #2B231E;
+            --tx: #F2ECE7; --tx-2: #A79B92; --tx-3: #74675F; }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0E0B09; --card: #17120F; --line: #2B231E;
+    --tx: #F2ECE7; --tx-2: #A79B92; --tx-3: #74675F;
+  }
+  :root[data-theme="light"] {
+    --bg: #F6F3F0; --card: #FFFFFF; --line: #DAD2CB;
+    --tx: #1A1715; --tx-2: #6B625C; --tx-3: #948A83;
+  }
+  body {
+    margin: 0; background: var(--bg); color: var(--tx);
+    font-family: "Pretendard", "Malgun Gothic", -apple-system, "Segoe UI", system-ui, sans-serif;
+    font-size: 16px; line-height: 1.65; -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 0 24px 90px; }
+  header { padding: 52px 0 26px; border-bottom: 1px solid var(--line); margin-bottom: 34px; }
+  .eyebrow { font-family: ui-monospace, Consolas, monospace; font-size: 12px;
+             letter-spacing: .16em; text-transform: uppercase; color: var(--coral); margin: 0 0 12px; }
+  h1 { font-size: clamp(28px, 4.2vw, 44px); line-height: 1.1; letter-spacing: -.025em;
+       font-weight: 800; margin: 0 0 14px; text-wrap: balance; }
+  .lede { max-width: 60ch; color: var(--tx-2); margin: 0; font-size: 17px; }
+  .lede b { color: var(--tx); font-weight: 600; }
+
+  h2 { font-size: 13px; font-family: ui-monospace, Consolas, monospace; letter-spacing: .14em;
+       text-transform: uppercase; color: var(--tx-3); font-weight: 600;
+       margin: 0 0 16px; padding-bottom: 10px; border-bottom: 1px solid var(--line); }
+  section { margin: 0 0 58px; }
+  p { margin: 0 0 14px; max-width: 66ch; }
+  .note { color: var(--tx-2); font-size: 14.5px; }
+
+  .stage { background: #0B0908; border: 1px solid var(--line); border-radius: 5px;
+           overflow: hidden; position: relative; }
+  .stage canvas { display: block; width: 100%; height: auto; }
+  .tag { position: absolute; left: 14px; top: 12px; font-family: ui-monospace, Consolas, monospace;
+         font-size: 11px; letter-spacing: .12em; text-transform: uppercase;
+         color: #8A7663; background: rgba(10,8,7,.7); padding: 4px 9px; border-radius: 3px; }
+
+  .variants { display: grid; gap: 20px; }
+  @media (min-width: 620px) { .variants { grid-template-columns: repeat(2, 1fr); } }
+  @media (min-width: 980px) { .variants { grid-template-columns: repeat(4, 1fr); } }
+  .v h3 { margin: 14px 0 4px; font-size: 16px; letter-spacing: -.015em; }
+  .v p { margin: 0; font-size: 13.5px; color: var(--tx-2); }
+  .v .pick { display: inline-block; font-family: ui-monospace, Consolas, monospace;
+             font-size: 11px; letter-spacing: .1em; color: #0B0908; background: var(--coral);
+             padding: 2px 7px; border-radius: 2px; margin-left: 8px; vertical-align: 2px; }
+
+  .ctl { display: flex; gap: 10px; align-items: center; margin: 16px 0 0; flex-wrap: wrap; }
+  .ctl button { font: inherit; font-size: 13.5px; padding: 7px 14px; border-radius: 3px;
+                border: 1px solid var(--line); background: var(--card); color: var(--tx);
+                cursor: pointer; }
+  .ctl button[aria-pressed="true"] { background: var(--coral); border-color: var(--coral); color: #17120F; font-weight: 600; }
+  .ctl button:focus-visible { outline: 2px solid var(--coral); outline-offset: 2px; }
+  .ctl span { font-size: 13px; color: var(--tx-3); }
+
+  dl.spec { display: grid; grid-template-columns: max-content 1fr; gap: 6px 18px;
+            margin: 0; font-size: 14px; }
+  dl.spec dt { color: var(--tx-3); font-family: ui-monospace, Consolas, monospace; font-size: 12.5px; }
+  dl.spec dd { margin: 0; color: var(--tx-2); }
+  code.inline { font-family: ui-monospace, Consolas, monospace; font-size: .9em;
+                background: color-mix(in srgb, var(--tx) 7%, transparent);
+                border: 1px solid var(--line); border-radius: 3px; padding: 1px 5px; }
+  .scroll { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; min-width: 560px; }
+  th, td { text-align: left; padding: 9px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  thead th { font-size: 11.5px; letter-spacing: .08em; text-transform: uppercase;
+             color: var(--tx-3); font-weight: 600; }
+  tbody td:nth-child(3) { color: var(--tx-2); font-size: 13.5px; }
+  footer { border-top: 1px solid var(--line); padding-top: 18px; color: var(--tx-3); font-size: 13px; }
+</style>
+
+<div class="wrap">
+  <header>
+    <p class="eyebrow">NEWTON · BK_B1 · 로우 드리블</p>
+    <h1>드리블 매트 룩 시안</h1>
+    <p class="lede">앞의 도면은 치수였고, 이건 <b>실제로 보이는 그림</b>이다. 바닥은 어두운 체육관,
+      그 위에 무릎 프로젝터가 쏜 빛. 선은 전부 흐르는 점선이고 가장자리는 빔이 닿는 데까지만 간다 —
+      토큰 시스템이 이미 쓰고 있는 문법 그대로다.</p>
+  </header>
+
+  <section>
+    <h2>1인칭 — 실제로 보이는 각도</h2>
+    <div class="stage">
+      <span class="tag">FPV · 눈높이 1.58 m · 시선 −60°</span>
+      <canvas id="fpv" width="1400" height="900" role="img"
+        aria-label="1인칭 시점에서 본 드리블 매트 — 어두운 바닥 위 주황 점선 사다리꼴 매트, 중앙 바운스 링, 어깨너비 발자국"></canvas>
+    </div>
+    <div class="ctl">
+      <button id="bA" aria-pressed="false">A 미니멀</button>
+      <button id="bB" aria-pressed="false">B 코트</button>
+      <button id="bC" aria-pressed="false">C 표적</button>
+      <button id="bD" aria-pressed="true">D 실물 오마주</button>
+      <span id="beat">공이 바닥에 닿을 때마다 링이 다시 벌어진다 · 150 BPM</span>
+    </div>
+  </section>
+
+  <section>
+    <h2>네 가지 안 — 위에서</h2>
+    <div class="variants">
+      <div class="v">
+        <div class="stage"><span class="tag">A</span>
+          <canvas id="pA" width="900" height="1000" role="img" aria-label="시안 A 미니멀 — 점선 테두리와 바운스 링만"></canvas></div>
+        <h3>미니멀</h3>
+        <p>테두리 + 링 + 발자국. 지금 토큰만으로 만들어지는 최소 구성. 정보가 아닌 선은 하나도 없다.</p>
+      </div>
+      <div class="v">
+        <div class="stage"><span class="tag">B</span>
+          <canvas id="pB" width="900" height="1000" role="img" aria-label="시안 B 코트 — 레인 2줄과 코너 브래킷이 더해진 매트"></canvas></div>
+        <h3>코트</h3>
+        <p>레인 2줄로 스탠스 폭을 긋고 네 모서리에 브래킷. 실물 매트의 코트감이 나오면서 선은 4개만 늘었다.</p>
+      </div>
+      <div class="v">
+        <div class="stage"><span class="tag">C</span>
+          <canvas id="pC" width="900" height="1000" role="img" aria-label="시안 C 표적 — 번호가 붙은 발 표적 세 개가 추가된 매트"></canvas></div>
+        <h3>표적</h3>
+        <p>번호 표적 ①②③ 추가. BK_B1 은 제자리라 쓸 일이 없지만, 발을 옮기는 사이드 드리블에서 그대로 살아난다.</p>
+      </div>
+      <div class="v">
+        <div class="stage"><span class="tag">D</span>
+          <canvas id="pD" width="900" height="1000" role="img" aria-label="시안 D 실물 오마주 — 톱니 번호 표적 네 개와 중앙 홈, 파선 커넥터"></canvas></div>
+        <h3>실물 오마주 <span class="pick">추천</span></h3>
+        <p>파는 매트의 문법 그대로 — 톱니 번호 표적 4개, 중앙 홈, 표적↔홈 파선 커넥터. 지금 단계에선 ①② 만 켜고 ③④ 는 꺼 둔다.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>발끝에서 얼마나 앞인가 — 측면 도식</h2>
+    <p>투사 원점은 <b>골반 수직선</b>(몸 축)이다. 서 있을 때 발은 몸 축 아래 가운데에 오므로
+      <b>발끝 = 몸 축 + 0.15 m</b>(발 길이 0.30 m의 절반). 아래 눈금은 전부 <b>발끝 기준</b>이다.</p>
+    <div class="stage" style="background:#0E0B09">
+      <svg id="side" role="img" aria-label="측면 도식 — 무릎 유닛에서 나온 빔이 발끝 앞 어디를 덮는지"></svg>
+    </div>
+    <dl class="spec" style="margin-top:20px">
+      <dt>0.15 m</dt><dd>빔이 처음 닿는 선 — 여기보다 가까운 바닥엔 아무것도 못 그린다</dd>
+      <dt>0.30 m</dt><dd><b>매트 가까운 변</b> — 100% 밝기가 시작되는 곳</dd>
+      <dt>0.85 m</dt><dd><b>바운스 링 중심</b> — 공이 닿을 자리</dd>
+      <dt>0.47 m</dt><dd>스텝 표적 ③④ 중심 (좌우 ±170 mm · 이 단계에선 꺼짐)</dd>
+      <dt>0.98 m</dt><dd>스탠스 표적 ①② 중심 (좌우 ±270 mm · 표적 Ø164 mm)</dd>
+      <dt>1.07 m</dt><dd><b>매트 먼 변</b> — 대지 UI(타이틀 알약)가 시작되기 직전</dd>
+      <dt>1.75 m</dt><dd>빔 끝</dd>
+    </dl>
+    <p class="note" style="margin-top:16px">즉 <b>매트는 발끝 30 cm 앞에서 시작해 1.07 m 앞에서 끝난다</b>.
+      발 밑에는 못 깐다 — 무릎에서 쏘는 빛이라 자기 정강이에 가린다. 실물 매트와 결정적으로 다른 점이고,
+      스탠스 표적이 <b>먼 쪽</b>에 있는 이유이기도 하다.</p>
+  </section>
+
+  <section>
+    <h2>밝은 야외 타일 위에서 — 주간 가시성</h2>
+    <div class="stage">
+      <span class="tag" id="dayTag">야외 PP 타일 · 목표 광량</span>
+      <canvas id="fpvLight" width="1400" height="900" role="img"
+        aria-label="밝은 회색 조립식 코트 타일 위에 투사된 드리블 매트"></canvas>
+    </div>
+    <div class="ctl">
+      <button id="gNow" aria-pressed="false">지금 광량 (~200 lm 급)</button>
+      <button id="gFut" aria-pressed="true">목표 광량 (~1,400 lm 선스캐닝)</button>
+      <span>합성 컷은 오른쪽 값으로 간다</span>
+    </div>
+
+    <h3 class="sub" style="font-size:18px;margin:32px 0 10px;letter-spacing:-.015em">필요 광량 — 계산해 보면 된다</h3>
+    <p>주간 야외가 어려운 건 물리지만, <b>얼마나 부족한지는 숫자로 나온다</b>. 관건은 광량 총량이 아니라
+      <b>그 빛을 어디에 뿌리느냐</b>다. 면(面)으로 투사하면 매트 전체 0.48 ㎡ 를 다 밝혀야 하지만,
+      우리 그래픽은 선이라 실제 잉크 면적이 <b>0.047 ㎡</b>(약 10 %)뿐이다.</p>
+    <div class="scroll"><table>
+      <thead><tr><th>환경</th><th>바닥 조도</th><th>필요 추가 조도<br><span style="font-weight:400;text-transform:none;letter-spacing:0">(ΔL/L ≈ 0.3)</span></th><th>선 스캐닝<br>0.047 ㎡</th><th>면 투사<br>1.8 ㎡</th></tr></thead>
+      <tbody>
+        <tr><td>실내 체육관</td><td>500 lux</td><td>150 lux</td><td><b>7 lm</b></td><td>270 lm</td></tr>
+        <tr><td>야외 그늘 · 흐림</td><td>15,000 lux</td><td>4,400 lux</td><td><b>210 lm</b></td><td>7,900 lm</td></tr>
+        <tr><td>야외 직사광</td><td>100,000 lux</td><td>29,600 lux</td><td><b>1,400 lm</b></td><td>53,000 lm</td></tr>
+      </tbody>
+    </table></div>
+    <p class="note" style="margin-top:16px">면 투사로는 <b>5만 루멘</b> — 무릎에 달 물건이 아니다.
+      선 스캐닝(갈보/MEMS 로 획만 그림)으로 가면 <b>1,400 루멘</b>이고, 이건 5년 뒤 무릎 유닛에서
+      충분히 이야기할 수 있는 수다. 오늘의 피코 레이저가 이미 200~500 lm 급이다.</p>
+
+    <h3 class="sub" style="font-size:18px;margin:28px 0 10px;letter-spacing:-.015em">여기까지 가는 레버</h3>
+    <dl class="spec">
+      <dt>×30</dt><dd><b>선 스캐닝</b> — 면을 밝히지 말고 획만 그린다. 가장 큰 레버이자, 우리 그래픽이 애초에 선으로 되어 있어서 공짜로 얻는 이득</dd>
+      <dt>×2.4</dt><dd><b>매트 표면</b> — 실물 매트를 검정 대신 고반사 밝은 면으로. 반사율 0.35 → 0.85</dd>
+      <dt>×2</dt><dd><b>광원 효율</b> — 5년치 lm/W 개선분</dd>
+      <dt>—</dt><dd><b>재귀반사는 안 된다.</b> 빛이 광원(무릎)으로 되돌아오는데 눈은 1.58 m 위에 있다. 30° 넘게 벗어나 재귀반사 로브 밖이다 — 이 구조에서는 오히려 손해</dd>
+    </dl>
+    <div class="warn" style="border-left:3px solid var(--red);padding:2px 0 2px 16px;margin:20px 0;color:var(--tx-2);font-size:14.5px">
+      <b>주간 모드는 팔레트와 싸운다.</b> 사람 눈은 555 nm(녹색)에서 가장 밝게 느끼는데 우리 유채색은
+      주황·빨강 계열이라 같은 와트로 손해를 본다. 주간 전용 모드에서 램프를 밝은 쪽(샌드·프리즘)으로
+      밀지, 아니면 광량으로 밀어붙일지는 정하고 가야 할 문제다.
+    </div>
+  </section>
+
+  <section>
+    <h2>합성용 규격 — 에펙에 그대로</h2>
+    <div class="cards" style="display:grid;gap:16px;grid-template-columns:1fr">
+      <div class="card" style="background:var(--card);border:1px solid var(--line);border-radius:3px;padding:20px 22px">
+        <h4 style="margin:0 0 8px;font-size:15px">내보낼 판</h4>
+        <p style="margin:0;font-size:14px;color:var(--tx-2)">
+          <b>900 × 900 px · 1 px = 1 mm · 알파 투명.</b> 지면 900 × 900 mm 를 덮고,
+          판의 <b>아래 변 = 발끝 앞 0.25 m</b> · <b>위 변 = 발끝 앞 1.15 m</b> · 좌우 중심 = 몸 중심선.
+          코너핀 네 점을 바닥 평면에 맞추면 원근은 저절로 맞는다.
+        </p>
+      </div>
+      <div class="card" style="background:var(--card);border:1px solid var(--line);border-radius:3px;padding:20px 22px">
+        <h4 style="margin:0 0 8px;font-size:15px">스케일 맞추는 법</h4>
+        <p style="margin:0;font-size:14px;color:var(--tx-2)">
+          사진 속 <b>농구공 지름 240 mm</b>(FIBA 7호) 또는 <b>운동화 길이 270 mm</b>로 px/mm 를 먼저 재고,
+          그 배율로 판을 놓는다. 조립식 코트 타일은 제조사마다 250 또는 305 mm 라 <b>보조 검증용</b>으로만 쓴다.
+        </p>
+      </div>
+      <div class="card" style="background:var(--card);border:1px solid var(--line);border-radius:3px;padding:20px 22px">
+        <h4 style="margin:0 0 8px;font-size:15px">합성 모드</h4>
+        <p style="margin:0;font-size:14px;color:var(--tx-2)">
+          <b>Add(가산)</b> — 투사광이라 곱하기·오버레이가 아니다. 색공간은 RGB 로 (YUV 에서 가산하면 초록·마젠타로 깨진다).
+          블룸은 판에 이미 들어 있으니 에펙에서 Glow 를 또 얹지 말 것.
+        </p>
+      </div>
+    </div>
+    <div class="ctl" style="margin-top:18px">
+      <button id="dl">합성용 PNG 내려받기 (900×900)</button>
+      <span>파일은 <code class="inline">public/textures/bk_dribble_mat_D.png</code> 에도 있다</span>
+    </div>
+  </section>
+
+  <section>
+    <h2>실물 리서치 — 무엇을 가져오고 무엇을 버렸나</h2>
+    <p>파는 제품(스텝 매트 계열)은 <b>91 × 119 cm 내외</b>가 최대 규격이고, 인쇄물은 번호·화살표로
+      발 패턴을 그려 준다. 한 제조사는 아예 <i>"효과는 치수가 아니라 시각적 책임감에서 온다"</i>고
+      쓴다 — 정확한 밟기가 아니라 <b>어디에 설지 눈으로 계속 확인시키는 것</b>이 이 물건의 기능이다.
+      그 관점이 우리 투사 UI와 정확히 같아서, 형태를 가져올 근거가 된다.</p>
+    <div class="scroll"><table>
+      <thead><tr><th>실물 요소</th><th>우리 대응</th><th>메모</th></tr></thead>
+      <tbody>
+        <tr><td>4분할 색 코딩 (빨강·노랑·흰·파랑)</td><td>팔레트 4색 (레드·코랄·샌드·프리즘)</td><td>파랑은 팔레트 밖 → 프리즘으로</td></tr>
+        <tr><td>방사 톱니 번호 디스크</td><td>링 토큰 + 세그먼트 14</td><td>새 도형 아님 — 진행 림과 같은 문법</td></tr>
+        <tr><td>중앙 흰 파선 원 (홈)</td><td>바운스 링</td><td>꺼짐=무채, 켜짐=레드. 색=상태 원칙 그대로</td></tr>
+        <tr><td>표적↔중앙 파선 커넥터</td><td>점 레일</td><td>이미 콤보 마크가 쓰는 레일</td></tr>
+        <tr><td>굵은 L 브래킷·코트 라인</td><td>코너 브래킷 4개</td><td>구조만 남기고 격자는 버림</td></tr>
+        <tr><td>중앙 하단 브랜드 마크</td><td>NEWTON 워드마크</td><td>같은 자리</td></tr>
+        <tr><td>전면 격자 (레인 다수)</td><td><b>버림</b></td><td>1인칭에서 링·발자국과 엉킨다</td></tr>
+        <tr><td>가까운 쪽 표적 2개를 코너까지</td><td><b>안쪽으로 압축</b></td><td>빔 가까운 변이 42 cm — 코너가 없다</td></tr>
+      </tbody>
+    </table></div>
+    <div class="warn" style="border-left:3px solid var(--red); padding:2px 0 2px 16px; margin:20px 0; color:var(--tx-2); font-size:14.5px;">
+      <b>1:1 복제는 안 된다.</b> 실물은 119 × 91 cm 인데 우리의 100% 밝기 영역은
+      <b>84 × 77 cm</b>이고 가까운 변은 42 cm 까지 좁아진다. 표적 4개를 코너에 두면 아래 둘이 빔 밖이다.
+      그래서 D 안은 표적을 <b>사다리꼴에 맞춰 압축</b>했다 — 먼 쪽 ±27 cm, 가까운 쪽 ±17 cm.
+    </div>
+    <p class="note">덤으로 얻은 것 — 실물이 <b>한 장으로 여러 드릴</b>을 돌리듯, 이 매트도 한 장으로
+      단계를 돌릴 수 있다. 제자리 드리블에선 ①② 와 중앙 홈만, 사이드 스텝 단계에선 ③④ 가 점등.
+      매 단계 새 그래픽을 그리지 않아도 된다.</p>
+  </section>
+
+  <section>
+    <h2>그림에 들어간 규칙</h2>
+    <dl class="spec">
+      <dt>바깥 모양</dt><dd>빔 사다리꼴 — 먼 변 836 mm · 가까운 변 421 mm · 깊이 770 mm</dd>
+      <dt>테두리</dt><dd>흐르는 점선(코랄 #FE6E3C) · 10회를 채우는 동안 상단 중앙부터 시계방향으로 밝아진다</dd>
+      <dt>레인</dt><dd>스탠스 폭을 가리키는 2줄 · 테두리의 60% 굵기 · 더 이상은 무늬다</dd>
+      <dt>바운스 링</dt><dd>Ø400 mm(레드) · 바운스마다 수축 — 다 닫히는 순간이 다음 박자</dd>
+      <dt>발자국</dt><dd>±262 mm · 샌드 · 셋업 6초 동안만 밝고 이후엔 매트에 눌린 자국으로 남는다</dd>
+      <dt>가장자리</dt><dd>빔 끝 0.15 m 는 소프트 페이드 — 사각으로 잘리지 않는다</dd>
+    </dl>
+    <p class="note" style="margin-top:18px">치수 근거와 피그마 프레임 좌표는 앞의 작도 초안에 있다
+      (<code class="inline">docs/bk-b1-dribble-mat.html</code>).</p>
+  </section>
+
+  <footer>리서치 출처 —
+    <a href="https://possibletraining.com/products/drillmat-the-skill-and-footwork-gripmat" style="color:var(--coral)">DrillMat</a> ·
+    <a href="https://www.perfectjumper.com/products/basketball-training-mat-indoor-step-positioning-step-point-control-ball-step-mat-indoor-ball-control-training-dribbling-drill-thickening" style="color:var(--coral)">Perfect Jumper 스텝 매트</a> ·
+    <a href="https://www.amazon.com/Portable-Basketball-Footwork-Equipment-Coordination/dp/B0DB59ZXYF" style="color:var(--coral)">Amazon 풋워크 매트</a><br>
+    렌더는 실제 배치값으로 그린 시안이다 — 시뮬레이터 캡처가 아니다. 형태·비율은 정본, 합성 강도는 코드가 다시 잡는다.</footer>
+</div>
+
+<script>
+// ── 좌표계: 빔 프레임 (x = 좌우 m, d = 앞거리 m). 사용자 = (0, 0) ────────────
+const FP_NEAR = 0.30, FADE = 0.15;
+const HALF = d => 0.32 + 0.27 * (d - FP_NEAR);
+const ink = d => HALF(d) - FADE;                  // 100% 밝기 반폭
+const D0 = 0.45, D1 = 1.22;                       // 매트 앞/뒤
+const RING_D = 1.00, RING_R = 0.20, RING_R2 = 0.16;
+const FOOT_D = 1.05, FOOT_X = 0.262, FOOT_W = 0.12, FOOT_L = 0.30;
+const CORAL = '#FE6E3C', RED = '#FA3030', SAND = '#FEC389', PRISM = '#D1FEFF';
+// 실물 매트의 번호 표적 4개를 빔 사다리꼴에 압축한 자리. [x, 앞거리, 번호, 색, 이 단계에서 켜지나]
+//   ①② = 먼 쪽 = 시작 스탠스(BK_B1 에서 켜짐) · ③④ = 가까운 쪽 = 스텝 표적(스텝 단계에서 켜짐)
+const TARGETS = [
+  [-0.27, 1.13, '1', RED, true], [0.27, 1.13, '2', CORAL, true],
+  [-0.17, 0.62, '3', SAND, false], [0.17, 0.62, '4', PRISM, false],
+];
+
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+// ── 두 가지 투영 ─────────────────────────────────────────────────────────
+function planProj(W, H) {
+  const m = 0.11, sc = Math.min(W * (1 - 2 * m) / (2 * ink(D1) + 0.28), H * (1 - 2 * m) / (D1 - D0 + 0.30));
+  const cx = W / 2, dMid = (D0 + D1) / 2, cy = H / 2;
+  const P = (x, d) => [cx + x * sc, cy - (d - dMid) * sc];
+  P.h = (x, y, d) => P(x, d);            // 평면도엔 높이가 없다
+  P.scaleAt = () => sc;
+  return P;
+}
+// 핀홀 — 눈높이 1.58 m, 시선 아래로 60°. 바닥점 P(x,d) · 공중점 P.h(x,y,d)
+function fpvProj(W, H) {
+  const EYE = 1.58, PITCH = 60 * Math.PI / 180, F = 1500 * (W / 1400);
+  const s = Math.sin(PITCH), c = Math.cos(PITCH), cy = H * 0.45;
+  const h = (x, y, d) => {
+    const zc = (EYE - y) * s + d * c, yc = (y - EYE) * c + d * s;
+    return [W / 2 + F * x / zc, cy - F * yc / zc, zc];
+  };
+  const P = (x, d) => h(x, 0, d);
+  P.h = h;
+  P.scaleAt = (x, y, d) => F / h(x, y, d)[2];   // 그 지점의 m→px 배율
+  return P;
+}
+
+// ── 월드 도형 → 화면 패스 ────────────────────────────────────────────────
+const poly = (g, P, pts, close) => {
+  g.beginPath();
+  pts.forEach(([x, d], i) => { const [a, b] = P(x, d); i ? g.lineTo(a, b) : g.moveTo(a, b); });
+  if (close) g.closePath();
+};
+// 모서리를 둥글린 사다리꼴 — 월드에서 곡선을 샘플링하므로 두 투영 모두에서 자연스럽다
+function matPath(r = 0.07) {
+  const a0 = ink(D0), a1 = ink(D1), pts = [];
+  const corner = (cx, cd, from, to) => {
+    for (let i = 0; i <= 6; i++) { const t = from + (to - from) * i / 6;
+      pts.push([cx + r * Math.cos(t), cd + r * Math.sin(t)]); }
+  };
+  corner(-a1 + r, D1 - r, Math.PI / 2, Math.PI);
+  pts.push([-a0 + r * 0.6, D0 + r]);
+  corner(-a0 + r * 0.6, D0 + r, Math.PI, Math.PI * 1.5);
+  pts.push([a0 - r * 0.6, D0]);
+  corner(a0 - r * 0.6, D0 + r, -Math.PI / 2, 0);
+  pts.push([a1 - r, D1]);
+  corner(a1 - r, D1 - r, 0, Math.PI / 2);
+  return pts;
+}
+const circlePts = (cx, cd, rad, n = 56) =>
+  Array.from({ length: n + 1 }, (_, i) => [cx + rad * Math.cos(i / n * Math.PI * 2),
+                                          cd + rad * Math.sin(i / n * Math.PI * 2)]);
+const rectPts = (cx, cd, w, l, r = 0.05) => {
+  const pts = [], hw = w / 2, hl = l / 2;
+  const arc = (ax, ad, f, t) => { for (let i = 0; i <= 5; i++) { const a = f + (t - f) * i / 5;
+    pts.push([ax + r * Math.cos(a), ad + r * Math.sin(a)]); } };
+  arc(cx - hw + r, cd + hl - r, Math.PI / 2, Math.PI);
+  arc(cx - hw + r, cd - hl + r, Math.PI, Math.PI * 1.5);
+  arc(cx + hw - r, cd - hl + r, -Math.PI / 2, 0);
+  arc(cx + hw - r, cd + hl - r, 0, Math.PI / 2);
+  return pts;
+};
+
+// ── 한 장면 그리기 ───────────────────────────────────────────────────────
+// ── 바닥: 체육관 마루 + 빔이 만드는 빛웅덩이 (투사광이 아니므로 블룸 밖) ──
+function floorPlate(g, W, H, P) {
+  g.fillStyle = '#120E0B'; g.fillRect(0, 0, W, H);
+  // 널 이음매 — 소실점으로 달아나는 세로선
+  g.lineWidth = 1.6;
+  for (let x = -2.4; x <= 2.4; x += 0.19) {
+    const [ax, ay] = P(x, 0.20), [bx, by] = P(x, 3.4);
+    g.strokeStyle = 'rgba(0,0,0,0.55)'; g.beginPath(); g.moveTo(ax, ay); g.lineTo(bx, by); g.stroke();
+    g.strokeStyle = 'rgba(255,214,170,0.055)';
+    g.beginPath(); g.moveTo(ax + 1.5, ay); g.lineTo(bx + 1, by); g.stroke();
+  }
+  // 널 끝 이음매 — 엇갈리게
+  for (let i = 0; i < 26; i++) {
+    const x = -2.4 + (i % 13) * 0.38, d = 0.28 + ((i * 0.37) % 1) * 3.0;
+    const [ax, ay] = P(x, d), [bx, by] = P(x + 0.19, d);
+    g.strokeStyle = 'rgba(0,0,0,0.42)'; g.lineWidth = 1.4;
+    g.beginPath(); g.moveTo(ax, ay); g.lineTo(bx, by); g.stroke();
+  }
+  // 빔 빛웅덩이 — 마루를 실제로 밝힌다(주황 램프의 가장 연한 끝)
+  const [cx, cy] = P(0, (D0 + D1) / 2);
+  const [, y1] = P(0, D1 + 0.5), [, y0] = P(0, D0 - 0.2);
+  const R = Math.max(W * 0.42, Math.abs(y0 - y1) * 0.7);
+  const pool = g.createRadialGradient(cx, cy, R * 0.05, cx, cy, R);
+  pool.addColorStop(0, 'rgba(254,195,137,0.13)');
+  pool.addColorStop(0.55, 'rgba(254,110,60,0.055)');
+  pool.addColorStop(1, 'rgba(254,110,60,0)');
+  g.fillStyle = pool; g.fillRect(0, 0, W, H);
+}
+// ── 공 — 투사광이 아니라 실물이다. 블룸 뒤에 얹고, 그림자로 빛을 가린다 ──
+function ball(g, P, t) {
+  const per = 0.40, u = reduce ? 0.5 : (t % per) / per;
+  const hgt = 0.26 * Math.sin(Math.PI * u) ** 0.75 + 0.05;   // 로우 드리블 — 무릎 아래   // 바닥 근처에서 빠르고 정점에서 느리다
+  const R = 0.121;
+  const [sx, sy] = P.h(0.02, hgt + R, RING_D);
+  const rr = R * P.scaleAt(0.02, hgt + R, RING_D);
+  // 접지 그림자 — 공이 낮을수록 진하고 작다
+  const near = 1 - Math.min(1, hgt / 0.42);
+  const [gx, gy] = P(0.02, RING_D);
+  const gs = P.scaleAt(0.02, 0, RING_D);
+  g.save();
+  g.globalAlpha = 0.14 + 0.34 * near;
+  const sh = g.createRadialGradient(gx, gy, 1, gx, gy, R * gs * (1.15 - 0.35 * near));
+  sh.addColorStop(0, 'rgba(4,3,2,0.95)'); sh.addColorStop(1, 'rgba(4,3,2,0)');
+  g.fillStyle = sh;
+  g.beginPath(); g.ellipse(gx, gy, R * gs * (1.15 - 0.35 * near), R * gs * 0.62 * (1.5 - 0.5 * near), 0, 0, 7); g.fill();
+  g.restore();
+  // 몸통
+  const grd = g.createRadialGradient(sx - rr * 0.35, sy - rr * 0.45, rr * 0.1, sx, sy, rr * 1.15);
+  grd.addColorStop(0, '#E8814A'); grd.addColorStop(0.55, '#C25A2A'); grd.addColorStop(1, '#5E2711');
+  g.fillStyle = grd; g.beginPath(); g.arc(sx, sy, rr, 0, 7); g.fill();
+  // 솔기
+  g.save(); g.beginPath(); g.arc(sx, sy, rr, 0, 7); g.clip();
+  g.strokeStyle = 'rgba(30,12,6,0.85)'; g.lineWidth = Math.max(1.2, rr * 0.075); g.lineCap = 'round';
+  g.beginPath(); g.moveTo(sx - rr, sy + rr * 0.05); g.lineTo(sx + rr, sy + rr * 0.05); g.stroke();
+  g.beginPath(); g.ellipse(sx, sy, rr * 0.42, rr, 0, 0, 7); g.stroke();
+  g.beginPath(); g.ellipse(sx, sy - rr * 0.72, rr * 1.05, rr * 0.5, 0, 0, 7); g.stroke();
+  g.beginPath(); g.ellipse(sx, sy + rr * 0.82, rr * 1.05, rr * 0.5, 0, 0, 7); g.stroke();
+  g.restore();
+  // 아래에서 올라오는 투사광 반사
+  g.save(); g.globalCompositeOperation = 'lighter'; g.globalAlpha = 0.30 * (1 - Math.min(1, hgt / 0.8));
+  const rim = g.createRadialGradient(sx, sy + rr * 0.75, rr * 0.05, sx, sy + rr * 0.55, rr * 1.1);
+  rim.addColorStop(0, 'rgba(254,140,80,0.9)'); rim.addColorStop(1, 'rgba(254,110,60,0)');
+  g.fillStyle = rim; g.beginPath(); g.arc(sx, sy, rr, 0, 7); g.fill(); g.restore();
+}
+
+function scene(g, W, H, P, variant, t, fpv, plate) {
+  g.clearRect(0, 0, W, H);
+  const bp = matPath(0.07).map(([x, d]) => P(x, d));
+  const [bx0, by0] = P(0, D0), [bx1, by1] = P(0, D1);
+  const gr = g.createLinearGradient(bx1, by1, bx0, by0);
+  gr.addColorStop(0, plate ? 'rgba(254,195,137,0.05)' : 'rgba(254,195,137,0.15)');
+  gr.addColorStop(1, plate ? 'rgba(254,110,60,0.015)' : 'rgba(254,110,60,0.05)');
+  g.beginPath(); bp.forEach(([a, b], i) => i ? g.lineTo(a, b) : g.moveTo(a, b)); g.closePath();
+  g.fillStyle = gr; g.fill();
+
+  const K = fpv ? 1 : 0.82;                       // 평면 시안은 선을 살짝 얇게
+  const flow = -t * 26;
+
+  // 코너 브래킷 (B·C)
+  if (variant !== 'A') {
+    const a0 = ink(D0), a1 = ink(D1), L = 0.10;
+    g.strokeStyle = SAND; g.globalAlpha = 0.55; g.lineWidth = 5 * K; g.lineCap = 'round';
+    // ★ 브래킷의 세로변은 **기울어진 매트 변을 따라간다**. x 를 고정하면 변 밖으로 삐져나온다
+    //   (실측: 먼 쪽 코너에서 갈고리처럼 튀어나왔다 — 사다리꼴이라 폭이 깊이마다 다르다).
+    for (const s of [-1, 1]) {
+      poly(g, P, [[s * ink(D1 - L), D1 - L], [s * a1, D1], [s * (a1 - L), D1]]); g.stroke();
+      poly(g, P, [[s * ink(D0 + L), D0 + L], [s * a0, D0], [s * (a0 - L * 0.7), D0]]); g.stroke();
+    }
+    g.globalAlpha = 1;
+  }
+  // 레인 2줄 (B·C)
+  if (variant !== 'A') {
+    g.strokeStyle = CORAL; g.globalAlpha = 0.42; g.lineWidth = 4.5 * K;
+    g.setLineDash([9, 13]); g.lineDashOffset = flow;
+    for (const s of [-1, 1]) {
+      poly(g, P, [[s * FOOT_X * (ink(D0) / ink(D1)), D0 + 0.04], [s * FOOT_X, D1 - 0.04]]);
+      g.stroke();
+    }
+    g.setLineDash([]); g.globalAlpha = 1;
+  }
+  // 매트 테두리 — 흐르는 점선
+  g.strokeStyle = CORAL; g.lineWidth = 8 * K; g.lineCap = 'round';
+  g.setLineDash([16, 13]); g.lineDashOffset = flow;
+  poly(g, P, matPath(0.07), true); g.stroke();
+  // 진행 — 같은 점선이 밝아지며 차오른다(7/10 상태)
+  const prog = 0.7;
+  g.save();
+  const full = matPath(0.07), cut = full.slice(0, Math.max(2, Math.round(full.length * prog)));
+  g.strokeStyle = SAND; g.lineWidth = 10 * K; g.setLineDash([16, 13]); g.lineDashOffset = flow;
+  g.shadowColor = SAND; g.shadowBlur = 18;
+  poly(g, P, cut, false); g.stroke();
+  g.restore();
+  g.setLineDash([]);
+
+  // 번호 표적 (C)
+  if (variant === 'C') {
+    const tg = [[-0.30, 1.13, '1', RED], [0.30, 1.13, '2', CORAL], [0, 0.62, '3', SAND]];
+    for (const [x, d, n, col] of tg) {
+      g.strokeStyle = col; g.globalAlpha = 0.85; g.lineWidth = 5 * K;
+      poly(g, P, circlePts(x, d, 0.085), true); g.stroke();
+      g.globalAlpha = 0.14; g.fillStyle = col; g.fill(); g.globalAlpha = 1;
+      const [sx, sy] = P(x, d), [, syr] = P(x, d + 0.085);
+      const fs = Math.abs(sy - syr) * 1.15;
+      g.fillStyle = col; g.font = `700 ${fs}px ui-monospace, Consolas, monospace`;
+      g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.fillText(n, sx, sy);
+    }
+  }
+
+  // ── D · 실물 오마주 — 톱니 표적 4개 + 중앙 홈 + 파선 커넥터 ─────────────
+  if (variant === 'D') {
+    for (const [x, d, n, col, on] of TARGETS) {
+      // 커넥터 — 표적에서 중앙 홈으로 (실물의 점선 이동 경로)
+      g.strokeStyle = col; g.globalAlpha = on ? 0.5 : 0.22; g.lineWidth = 3.5 * K;
+      g.setLineDash([7, 11]); g.lineDashOffset = flow * 0.5;
+      const ux = -x, ud = RING_D - d, L = Math.hypot(ux, ud);
+      poly(g, P, [[x + ux / L * 0.10, d + ud / L * 0.10],
+                  [x + ux / L * (L - 0.22), d + ud / L * (L - 0.22)]]);
+      g.stroke(); g.setLineDash([]);
+      // 톱니 링 — 14 세그먼트(실물 방사 톱니를 우리 링 토큰으로)
+      const R = 0.082, N = 14, gap = 0.30;
+      g.globalAlpha = on ? 1 : 0.34; g.lineWidth = 9 * K; g.lineCap = 'butt';
+      g.strokeStyle = col;
+      for (let i = 0; i < N; i++) {
+        const a0 = (i + gap / 2) / N * Math.PI * 2, a1 = (i + 1 - gap / 2) / N * Math.PI * 2;
+        const pts = [];
+        for (let k = 0; k <= 4; k++) { const a = a0 + (a1 - a0) * k / 4;
+          pts.push([x + R * Math.cos(a), d + R * Math.sin(a)]); }
+        poly(g, P, pts); g.stroke();
+      }
+      // 안쪽 디스크 + 숫자
+      poly(g, P, circlePts(x, d, R * 0.62), true);
+      g.globalAlpha = on ? 0.20 : 0.08; g.fillStyle = col; g.fill();
+      const [sx, sy] = P(x, d), [, syr] = P(x, d + R * 0.6);
+      g.globalAlpha = on ? 1 : 0.4;
+      g.fillStyle = col; g.font = `700 ${Math.abs(sy - syr) * 1.5}px ui-monospace, Consolas, monospace`;
+      g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.fillText(n, sx, sy);
+      g.globalAlpha = 1;
+    }
+    // 워드마크 — 실물의 중앙 하단 브랜드 자리
+    const [wx, wy] = P(0, D0 + 0.085), [, wy2] = P(0, D0 + 0.115);
+    g.fillStyle = SAND; g.globalAlpha = 0.5;
+    g.font = `600 ${Math.abs(wy - wy2) * 1.1}px ui-monospace, Consolas, monospace`;
+    g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText('N E W T O N', wx, wy); g.globalAlpha = 1;
+  }
+
+  // 발자국 — 셋업이 끝난 뒤의 '눌린 자국' 톤 (D 는 번호 표적이 곧 발자리라 생략)
+  if (variant !== 'D') for (const s of [-1, 1]) {
+    poly(g, P, rectPts(s * FOOT_X, FOOT_D, FOOT_W, FOOT_L), true);
+    g.strokeStyle = SAND; g.globalAlpha = 0.62; g.lineWidth = 5 * K; g.stroke();
+    g.globalAlpha = 0.10; g.fillStyle = SAND; g.fill(); g.globalAlpha = 1;
+  }
+
+  // 바운스 링 — 박자에 맞춰 수축
+  const beat = reduce ? 0.45 : (t % 0.40) / 0.40;
+  const kk = 1 - 0.22 * (1 - beat);
+  g.strokeStyle = RED; g.lineWidth = 10 * K; g.shadowColor = RED; g.shadowBlur = 22;
+  poly(g, P, circlePts(0, RING_D, RING_R), true); g.stroke();
+  g.shadowBlur = 0;
+  g.strokeStyle = RED; g.globalAlpha = 0.5 + 0.5 * (1 - beat); g.lineWidth = 6 * K;
+  poly(g, P, circlePts(0, RING_D, RING_R2 * kk), true); g.stroke();
+  g.globalAlpha = 1;
+
+  // 남은 회차
+  const [nx, ny] = P(0, RING_D), [, ny2] = P(0, RING_D + 0.075);
+  const nfs = Math.abs(ny - ny2) * (fpv ? 2.0 : 1.5);
+  g.fillStyle = SAND; g.font = `700 ${nfs}px ui-monospace, Consolas, monospace`;
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.shadowColor = SAND; g.shadowBlur = 16;
+  g.fillText('7', nx, ny); g.shadowBlur = 0;   // 남은 회차 — 표적 번호(1~4)와 안 겹치는 값
+}
+
+// ── 블룸 합성 — 코드가 쓰는 이중 가우시안과 같은 방식 ────────────────────
+function render(cv, variant, t, fpv, tile, lum) {
+  const W = cv.width, H = cv.height;
+  const P = fpv ? fpvProj(W, H) : planProj(W, H);
+  const off = render._o || (render._o = document.createElement('canvas'));
+  if (off.width !== W || off.height !== H) { off.width = W; off.height = H; }
+  const og = off.getContext('2d');
+  og.setTransform(1, 0, 0, 1, 0, 0);
+  scene(og, W, H, P, variant, t, fpv);
+  const g = cv.getContext('2d');
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  g.clearRect(0, 0, W, H);
+  // ① 마루 — 실물이라 블룸 대상이 아니다
+  if (fpv) (tile ? tilePlate : floorPlate)(g, W, H, P); else { g.fillStyle = '#0B0908'; g.fillRect(0, 0, W, H); }
+  // ② 투사광 = 본체 + 이중 가우시안(코드와 같은 합성)
+  g.save(); g.globalCompositeOperation = fpv ? 'lighter' : 'source-over';
+  // 밝은 바닥에서 보이는 정도 = 광량. now = 지금 광량(대비 손실) · future = 목표 광량(획이 바닥을 이긴다)
+  if (tile && lum === 'now') { g.globalAlpha = 0.5; g.drawImage(off, 0, 0); g.globalAlpha = 1; }
+  else if (tile) { g.globalCompositeOperation = 'source-over'; g.drawImage(off, 0, 0); g.globalCompositeOperation = 'lighter'; g.globalAlpha = 0.5; g.drawImage(off, 0, 0); g.globalAlpha = 1; }
+  else g.drawImage(off, 0, 0);
+  g.globalCompositeOperation = 'lighter';
+  g.filter = 'blur(4px)'; g.globalAlpha = 0.42; g.drawImage(off, 0, 0);
+  g.filter = 'blur(15px)'; g.globalAlpha = 0.30; g.drawImage(off, 0, 0);
+  g.restore(); g.filter = 'none'; g.globalAlpha = 1;
+  // ③ 공 — 빛을 받는 실물. 그림자가 투사광을 가린다
+  if (fpv) {
+    ball(g, P, t);
+    const vg = g.createRadialGradient(W / 2, H * 0.5, H * 0.30, W / 2, H * 0.5, H * 0.86);
+    vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,0.62)');
+    g.fillStyle = vg; g.fillRect(0, 0, W, H);
+  }
+}
+
+// ── 밝은 야외 PP 타일 바닥 (합성 대상 조건) ─────────────────────────────
+function tilePlate(g, W, H, P) {
+  g.fillStyle = '#9AA0A2'; g.fillRect(0, 0, W, H);
+  const T = 0.25;                                    // 타일 한 변(m) — 250 · 305 혼재라 대표값
+  g.lineWidth = 1.4;
+  for (let x = -3; x <= 3; x += T) {
+    const [ax, ay] = P(x, 0.18), [bx, by] = P(x, 3.4);
+    g.strokeStyle = 'rgba(60,66,68,0.55)'; g.beginPath(); g.moveTo(ax, ay); g.lineTo(bx, by); g.stroke();
+  }
+  for (let d = 0.25; d <= 3.4; d += T) {
+    const [ax, ay] = P(-3, d), [bx, by] = P(3, d);
+    g.strokeStyle = 'rgba(60,66,68,0.45)'; g.beginPath(); g.moveTo(ax, ay); g.lineTo(bx, by); g.stroke();
+    // 타일 안쪽 격자 무늬(사진의 잔무늬) — 멀수록 촘촘해지므로 가까운 줄만
+    if (d < 1.9) for (let x = -1.6; x <= 1.6; x += T / 4) {
+      const [px, py] = P(x, d + T / 2);
+      g.fillStyle = 'rgba(70,76,78,0.30)'; g.fillRect(px - 2, py - 1.4, 4, 2.8);
+    }
+  }
+  // 햇빛 — 왼쪽 위에서 들어오는 넓은 밝음
+  const sun = g.createLinearGradient(0, 0, W, H);
+  sun.addColorStop(0, 'rgba(255,255,255,0.16)'); sun.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = sun; g.fillRect(0, 0, W, H);
+}
+
+// ── 측면 도식 — 발끝 기준 눈금 ──────────────────────────────────────────
+const TOE = 0.15;                     // 몸 축 → 발끝 (발 길이 0.30 m 의 절반)
+const KNEE_UNIT_H = 0.42;             // 무릎 유닛 높이 = 무릎 0.53 − 종아리 드롭 0.11
+function drawSide() {
+  const svg = document.getElementById('side');
+  const W = 1120, H = 740, GY = 600;                 // 지면 y
+  const M = 330;                                     // m → px (도식 배율 — 사람 1.72 m 가 프레임에 들어오는 값)
+  const x0 = 230;                                    // 몸 축 x
+  const X = d => x0 + d * M;                         // 앞거리 → 화면 x
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  svg.setAttribute('width', '100%');
+  const NS = 'http://www.w3.org/2000/svg';
+  const e = (n, a, txt) => { const q = document.createElementNS(NS, n);
+    for (const k in a) q.setAttribute(k, a[k]); if (txt != null) q.textContent = txt;
+    svg.appendChild(q); return q; };
+  svg.innerHTML = '';
+  // 빔 부채 — 무릎 유닛에서 지면 0.30~1.90
+  e('polygon', { points: `${x0 + 12},${GY - KNEE_UNIT_H * M} ${X(0.30)},${GY} ${X(1.90)},${GY}`,
+    fill: 'rgba(254,110,60,0.13)', stroke: '#5A4433', 'stroke-width': 1.5, 'stroke-dasharray': '7 6' });
+  // 지면
+  e('line', { x1: 40, y1: GY, x2: W - 30, y2: GY, stroke: '#4A403A', 'stroke-width': 3 });
+  // 사람 — 측면 도식(머리·몸통·허벅지·정강이·발). 눈높이 1.58 · 무릎 0.53 m 실척.
+  const hip = GY - 0.92 * M, knee = GY - 0.53 * M, shoulder = GY - 1.38 * M;
+  const L = (x1, y1, x2, y2, w, c) => e('line', { x1, y1, x2, y2, stroke: c || '#6E625B',
+    'stroke-width': w, 'stroke-linecap': 'round' });
+  e('circle', { cx: x0 + 8, cy: GY - 1.62 * M, r: 0.105 * M, fill: 'none', stroke: '#6E625B', 'stroke-width': 8 });
+  L(x0 + 6, GY - 1.50 * M, x0, shoulder, 8);
+  L(x0, shoulder, x0 - 4, hip, 11);            // 몸통
+  L(x0 - 4, hip, x0 + 10, knee, 10);           // 허벅지
+  L(x0 + 10, knee, x0 - 2, GY, 9);             // 정강이
+  L(x0 - 0.13 * M, GY - 5, X(TOE), GY - 5, 11, '#B9ADA4');   // 발
+  L(x0, shoulder + 12, x0 + 0.30 * M, GY - 0.96 * M, 7);     // 팔(드리블 자세)
+  // 무릎 유닛 = 정강이 위쪽(무릎에서 110 mm 아래)
+  const uy = GY - KNEE_UNIT_H * M;
+  e('rect', { x: x0 - 6, y: uy - 13, width: 36, height: 26, rx: 9,
+    fill: '#FA3030', stroke: '#FEC389', 'stroke-width': 2 });
+  e('text', { x: x0 + 40, y: uy - 24, fill: '#FEC389', 'font-size': 20,
+    'text-anchor': 'start', 'font-family': 'ui-monospace, monospace' }, '무릎 유닛 · 지면 420 mm');
+  // 매트 구간
+  e('rect', { x: X(0.45), y: GY - 6, width: (1.22 - 0.45) * M, height: 12, fill: '#FE6E3C' });
+  // 눈금 — 발끝 기준
+  const marks = [[0.15, '빔 시작', '#8A7663'], [0.45, '매트 앞', '#FE6E3C'],
+                 [1.00, '바운스 링', '#FA3030'], [1.22, '매트 뒤', '#FE6E3C'], [1.90, '빔 끝', '#8A7663']];
+  // 눈금이 촘촘한 구간(링 0.85 · 매트 뒤 1.07)은 라벨을 두 줄로 엇갈린다 — 겹치면 못 읽는다
+  marks.forEach(([d, lab, col], i) => {
+    const row = i % 2 ? 116 : 60, anc = d > 1.8 ? 'end' : 'middle';
+    e('line', { x1: X(d), y1: GY - 26, x2: X(d), y2: GY + row - 22, stroke: col, 'stroke-width': 2, 'stroke-dasharray': '4 4' });
+    e('text', { x: X(d), y: GY + row, fill: col, 'font-size': 22, 'text-anchor': anc,
+      'font-family': 'ui-monospace, monospace' }, `${(d - TOE).toFixed(2)} m`);
+    e('text', { x: X(d), y: GY + row + 26, fill: '#7A6E66', 'font-size': 19, 'text-anchor': anc,
+      'font-family': 'ui-monospace, monospace' }, lab);
+  });
+  e('text', { x: X(TOE) + 14, y: GY - 30, fill: '#B9ADA4', 'font-size': 21, 'text-anchor': 'start',
+    'font-family': 'ui-monospace, monospace' }, '발끝 = 0');
+  e('text', { x: W - 30, y: 40, fill: '#7A6E66', 'font-size': 19, 'text-anchor': 'end',
+    'font-family': 'ui-monospace, monospace' }, '측면 · 실척 1:1 비례');
+}
+drawSide();
+
+// ── 합성용 PNG — 1 px = 1 mm, 투명 배경, 위에서 본 매트 ──────────────────
+window.__matPNG = function (variant = 'D') {
+  const W = 900, H = 900, MM = 1000;                 // 1 m = 1000 px
+  const D_LO = 0.40, D_HI = 1.30;                    // 판이 덮는 앞거리
+  const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+  const P = (x, d) => [W / 2 + x * MM, H - (d - D_LO) * MM];
+  P.h = (x, y, d) => P(x, d);
+  P.scaleAt = () => MM;
+  const off = document.createElement('canvas'); off.width = W; off.height = H;
+  scene(off.getContext('2d'), W, H, P, variant, 0, false, true);
+  // 합성판은 **블룸을 굽지 않는다** — 가산 합성에서 알파가 누적돼 매트 안이 통째로 주황이 된다.
+  //   획에 이미 shadowBlur 광이 들어 있고, 더 필요하면 에펙에서 한 번만 얹는 게 조절 가능하다.
+  const g = cv.getContext('2d');
+  g.drawImage(off, 0, 0);
+  return cv.toDataURL('image/png');
+};
+document.getElementById('dl').addEventListener('click', () => {
+  const a = document.createElement('a');
+  a.href = window.__matPNG('D'); a.download = 'bk_dribble_mat_D.png'; a.click();
+});
+
+const fpvCv = document.getElementById('fpv');
+const fpvLightCv = document.getElementById('fpvLight');
+const plans = [['pA', 'A'], ['pB', 'B'], ['pC', 'C'], ['pD', 'D']];
+let cur = 'D';
+const btns = { A: document.getElementById('bA'), B: document.getElementById('bB'), C: document.getElementById('bC'), D: document.getElementById('bD') };
+for (const k of ['A', 'B', 'C', 'D']) btns[k].addEventListener('click', () => {
+  cur = k; for (const j of ['A', 'B', 'C', 'D']) btns[j].setAttribute('aria-pressed', String(j === k));
+});
+
+let lum = 'future';
+const gN = document.getElementById('gNow'), gF = document.getElementById('gFut'), dTag = document.getElementById('dayTag');
+const setLum = v => { lum = v; gN.setAttribute('aria-pressed', String(v === 'now')); gF.setAttribute('aria-pressed', String(v === 'future'));
+  dTag.textContent = v === 'now' ? '야외 PP 타일 · 지금 광량' : '야외 PP 타일 · 목표 광량'; };
+gN.addEventListener('click', () => setLum('now')); gF.addEventListener('click', () => setLum('future'));
+let t0 = null;
+function frame(ts) {
+  if (t0 === null) t0 = ts;
+  const t = (ts - t0) / 1000;
+  render(fpvCv, cur, t, true);
+  render(fpvLightCv, 'D', t, true, true, lum);
+  for (const [id, v] of plans) render(document.getElementById(id), v, t, false);
+  if (!reduce) requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>

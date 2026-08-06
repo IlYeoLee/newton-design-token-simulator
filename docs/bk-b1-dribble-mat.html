@@ -1,0 +1,488 @@
+<title>BK_B1 드리블 매트 — 작도 초안</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #F6F3F0;
+    --bg-2: #EDE8E3;
+    --card: #FFFFFF;
+    --line: #DAD2CB;
+    --tx: #1A1715;
+    --tx-2: #6B625C;
+    --tx-3: #948A83;
+    --red: #FA3030;
+    --coral: #FE6E3C;
+    --sand: #FEC389;
+    --prism: #29A7AC;      /* 라이트 배경용 prism 대체 — 원색 #D1FEFF 는 흰 위에서 안 보인다 */
+    --prism-true: #D1FEFF;
+    --floor: #17130F;      /* 도면 바탕 = 어두운 체육관 바닥 */
+    --grid: #2A231C;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0E0B09; --bg-2: #151110; --card: #17120F; --line: #2B231E;
+      --tx: #F2ECE7; --tx-2: #A79B92; --tx-3: #74675F;
+      --prism: #D1FEFF;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0E0B09; --bg-2: #151110; --card: #17120F; --line: #2B231E;
+    --tx: #F2ECE7; --tx-2: #A79B92; --tx-3: #74675F;
+    --prism: #D1FEFF;
+  }
+  :root[data-theme="light"] {
+    --bg: #F6F3F0; --bg-2: #EDE8E3; --card: #FFFFFF; --line: #DAD2CB;
+    --tx: #1A1715; --tx-2: #6B625C; --tx-3: #948A83;
+    --prism: #29A7AC;
+  }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--tx);
+    font-family: "Pretendard", "Malgun Gothic", -apple-system, "Segoe UI", system-ui, sans-serif;
+    font-size: 16px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1240px; margin: 0 auto; padding: 0 24px 96px; }
+
+  /* ── 헤더 ─────────────────────────────────────────────── */
+  header {
+    border-bottom: 1px solid var(--line);
+    padding: 56px 0 28px;
+    margin-bottom: 40px;
+  }
+  .eyebrow {
+    font-family: ui-monospace, "SFMono-Regular", "Consolas", monospace;
+    font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase;
+    color: var(--coral); margin: 0 0 14px;
+  }
+  h1 {
+    font-size: clamp(30px, 4.4vw, 46px);
+    line-height: 1.1; letter-spacing: -0.025em; font-weight: 800;
+    margin: 0 0 16px; text-wrap: balance;
+  }
+  .lede { max-width: 62ch; color: var(--tx-2); font-size: 17px; margin: 0; }
+  .lede strong { color: var(--tx); font-weight: 600; }
+
+  /* ── 결론 3줄 ─────────────────────────────────────────── */
+  .verdict { display: grid; gap: 1px; background: var(--line); border: 1px solid var(--line);
+             border-radius: 3px; margin: 36px 0 56px; overflow: hidden; }
+  @media (min-width: 720px) { .verdict { grid-template-columns: repeat(3, 1fr); } }
+  .verdict div { background: var(--card); padding: 20px 22px; }
+  .verdict h3 { margin: 0 0 6px; font-size: 15px; font-weight: 700; letter-spacing: -0.01em; }
+  .verdict p { margin: 0; font-size: 14px; color: var(--tx-2); line-height: 1.6; }
+  .verdict .no h3 { color: var(--red); }
+  .verdict .yes h3 { color: var(--coral); }
+
+  /* ── 섹션 ─────────────────────────────────────────────── */
+  section { margin: 0 0 64px; }
+  h2 {
+    font-size: 13px; font-family: ui-monospace, "SFMono-Regular", "Consolas", monospace;
+    letter-spacing: 0.14em; text-transform: uppercase; color: var(--tx-3);
+    margin: 0 0 20px; padding-bottom: 10px; border-bottom: 1px solid var(--line); font-weight: 600;
+  }
+  h3.sub { font-size: 18px; margin: 32px 0 10px; letter-spacing: -0.015em; }
+  p { margin: 0 0 14px; max-width: 68ch; }
+  .note { color: var(--tx-2); font-size: 14.5px; }
+
+  /* ── 도면 ─────────────────────────────────────────────── */
+  .plate { background: var(--floor); border: 1px solid var(--line); border-radius: 4px;
+           padding: 14px; overflow-x: auto; }
+  .plate svg { display: block; width: 100%; height: auto; min-width: 460px; }
+  figcaption { color: var(--tx-3); font-size: 13px; margin-top: 12px;
+               font-family: ui-monospace, "SFMono-Regular", "Consolas", monospace; }
+  figure { margin: 0; }
+
+  .legend { display: flex; flex-wrap: wrap; gap: 8px 22px; margin: 18px 0 0;
+            font-size: 13px; color: var(--tx-2); list-style: none; padding: 0; }
+  .legend li { display: flex; align-items: center; gap: 8px; }
+  .swatch { width: 22px; height: 3px; border-radius: 2px; flex: none; }
+
+  /* ── 표 ───────────────────────────────────────────────── */
+  .scroll { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px;
+          font-variant-numeric: tabular-nums; min-width: 520px; }
+  th, td { text-align: right; padding: 9px 14px; border-bottom: 1px solid var(--line); }
+  th:first-child, td:first-child { text-align: left; }
+  thead th { font-size: 11.5px; letter-spacing: 0.08em; text-transform: uppercase;
+             color: var(--tx-3); font-weight: 600; }
+  tbody tr.hi td { background: color-mix(in srgb, var(--coral) 9%, transparent); font-weight: 600; }
+  td.mono, th.mono { font-family: ui-monospace, "SFMono-Regular", "Consolas", monospace; }
+
+  /* ── 스펙 카드 ────────────────────────────────────────── */
+  .cards { display: grid; gap: 16px; }
+  @media (min-width: 780px) { .cards { grid-template-columns: 1fr 1fr; } }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 3px; padding: 20px 22px; }
+  .card h4 { margin: 0 0 4px; font-size: 15px; letter-spacing: -0.01em; }
+  .card .spec { font-family: ui-monospace, "SFMono-Regular", "Consolas", monospace;
+                font-size: 13px; color: var(--coral); margin: 0 0 10px; }
+  .card p { margin: 0; font-size: 14px; color: var(--tx-2); }
+
+  /* ── 팔레트 ───────────────────────────────────────────── */
+  .pal { display: flex; flex-wrap: wrap; gap: 12px; margin: 0 0 18px; padding: 0; list-style: none; }
+  .pal li { flex: 1 1 130px; border: 1px solid var(--line); border-radius: 3px; overflow: hidden;
+            background: var(--card); }
+  .pal .chip { height: 46px; }
+  .pal .meta { padding: 10px 12px; font-size: 12.5px; line-height: 1.5; }
+  .pal .meta b { display: block; font-size: 13.5px; }
+  .pal .meta code { color: var(--tx-3); font-family: ui-monospace, monospace; font-size: 11.5px; }
+
+  /* ── 순서 목록 ────────────────────────────────────────── */
+  ol.steps { counter-reset: s; list-style: none; padding: 0; margin: 0; }
+  ol.steps li { counter-increment: s; position: relative; padding: 0 0 16px 42px; }
+  ol.steps li::before {
+    content: counter(s); position: absolute; left: 0; top: 1px;
+    width: 26px; height: 26px; border-radius: 50%;
+    background: var(--coral); color: #17120F;
+    font-size: 13px; font-weight: 700; display: grid; place-items: center;
+    font-family: ui-monospace, monospace;
+  }
+  ol.steps b { font-weight: 650; }
+  ol.steps p { margin: 2px 0 0; font-size: 14px; color: var(--tx-2); }
+
+  code.inline { font-family: ui-monospace, "SFMono-Regular", "Consolas", monospace;
+                font-size: 0.9em; background: var(--bg-2); border: 1px solid var(--line);
+                border-radius: 3px; padding: 1px 5px; }
+  .warn { border-left: 3px solid var(--red); padding: 2px 0 2px 16px; margin: 20px 0;
+          color: var(--tx-2); font-size: 14.5px; }
+  .warn b { color: var(--tx); }
+  footer { border-top: 1px solid var(--line); padding-top: 20px; color: var(--tx-3); font-size: 13px; }
+</style>
+
+<div class="wrap">
+  <header>
+    <p class="eyebrow">NEWTON · BK_B1 · 로우 드리블</p>
+    <h1>드리블 매트 작도 초안</h1>
+    <p class="lede">원 하나로는 가이드가 안 된다는 지적의 답. 실물 드리블 매트를 지면에 올리되,
+      <strong>무릎 프로젝터가 실제로 닿는 범위</strong> 안에서만 그린다. 아래 수치는 전부
+      시뮬레이터를 띄워 <code class="inline">scripts/_probe_b1mat.mjs</code> 로 읽은 실측이다 —
+      감으로 잡은 값은 하나도 없다.</p>
+  </header>
+
+  <div class="verdict">
+    <div class="no">
+      <h3>사각형은 안 된다</h3>
+      <p>빔은 무릎에서 퍼지는 쐐기다. 사각 매트를 그리면 앞쪽 두 귀퉁이가 창 밖으로 나가 스러진다.</p>
+    </div>
+    <div class="yes">
+      <h3>매트 = 빔 사다리꼴</h3>
+      <p>먼 쪽이 넓고 가까운 쪽이 좁다. 투사 범위 자체를 매트 모양으로 삼으면 한 픽셀도 안 버린다.</p>
+    </div>
+    <div class="yes">
+      <h3>색은 4색뿐</h3>
+      <p>레퍼런스 매트의 파랑·노랑은 팔레트 밖이다. 히트 램프(레드→코랄→샌드→프리즘)로 옮긴다.</p>
+    </div>
+  </div>
+
+  <section>
+    <h2>1 · 작도면 — 대지 1600 × 2670 px</h2>
+    <p class="note">위에서 내려다본 도면. 사용자는 아래쪽에 서 있고 위쪽이 먼 쪽이다.
+      피그마 프레임을 그대로 이 크기로 잡으면 1 px = 0.67 mm 로 실제 바닥 치수와 1:1 대응한다.</p>
+    <figure>
+      <div class="plate"><svg id="plan" role="img" aria-label="BK_B1 지면 작도면 — 빔 사다리꼴 안에 놓인 드리블 매트 평면도"></svg></div>
+      <ul class="legend">
+        <li><span class="swatch" style="background:#5A4433"></span> 빔 경계 (여기까지만 빛이 간다)</li>
+        <li><span class="swatch" style="background:#FE6E3C"></span> 매트 외곽 = 100% 밝기 한계선</li>
+        <li><span class="swatch" style="background:#FEC389"></span> 기존 요소 (실측 좌표)</li>
+        <li><span class="swatch" style="background:#3E566B"></span> 대지 UI 밴드 (침범 금지)</li>
+      </ul>
+      <figcaption id="plancap"></figcaption>
+    </figure>
+    <p class="note" style="margin-top:22px"><b>사각형으로 그리고 싶다면</b> — 가능은 하다. 단
+      가장 좁은 곳(가까운 변 421 mm)에 맞춰야 하므로 매트는 <code class="inline">0.42 × 0.77 m</code>
+      가 되고, 그 폭에는 <b>어깨너비 스탠스가 안 들어간다</b>(발 바깥까지 644 mm 필요).
+      사다리꼴을 권하는 이유는 모양 취향이 아니라 이것이다.</p>
+    <p class="note">1인칭 화면에서는 눈이 가까운 변 쪽에 더 붙어 있어 평면도만큼 급하게
+      좁아 보이지는 않는다 — 화면상 폭 비는 약 1 : 1.6 이다(평면도 1 : 2).</p>
+  </section>
+
+  <section>
+    <h2>2 · 매트 치수</h2>
+    <div class="cards">
+      <div class="card">
+        <h4>매트 외곽</h4>
+        <p class="spec" id="specMat"></p>
+        <p>사다리꼴. 위(먼 쪽) 변이 넓고 아래(가까운 쪽) 변이 좁다. 모서리는 라운드 —
+          같은 시스템의 스탠스 박스가 쓰는 <code class="inline">round 0.35</code> 비율.</p>
+      </div>
+      <div class="card">
+        <h4>바운스 링 (공 튀기는 자리)</h4>
+        <p class="spec" id="specRing"></p>
+        <p>지금 화면의 그 원. 매트 위에서는 중앙 표적이 된다 — 바운스마다 수축해서
+          다음 박자를 미리 알려주는 역할은 그대로.</p>
+      </div>
+      <div class="card">
+        <h4>스탠스 발자국</h4>
+        <p class="spec" id="specFoot"></p>
+        <p>어깨보다 넓게. <b>매트의 먼 쪽</b>에 놓인다 — 가까운 쪽은 빔이 좁아 어깨너비가
+          아예 안 들어간다. 이건 디자인 선택이 아니라 광학이 정한 자리다.</p>
+      </div>
+      <div class="card">
+        <h4>남은 회차 숫자</h4>
+        <p class="spec" id="specNum"></p>
+        <p>링 한가운데. 1.0 m 앞 · 스침각 58° 에서 시각도 약 5.7° — 지면 가독 기준(1급 0.70°)의
+          8배라 크기는 더 볼 것 없다.</p>
+      </div>
+    </div>
+    <div class="warn">
+      <b>도면에서 바로 보이는 문제 하나.</b> 지금 발자국은 앞거리 1.15 m 에 있고 발 길이가 0.30 m 라
+      발끝이 1.30 m 까지 간다 — 매트 먼 변(1.22 m)과 CONTENT 밴드 상단을 <b>0.08 m 넘는다</b>.
+      피그마에서는 스탠스를 <b>y 1264 (앞거리 1.05 m)</b> 로 당겨 그리면 발끝까지 밴드 안이고,
+      그 깊이의 100% 반폭 0.373 m 라 어깨너비(±0.262 + 발 반폭 0.06)도 그대로 들어간다.
+    </div>
+  </section>
+
+  <section>
+    <h2>3 · 왜 사다리꼴인가 — 빔 반폭 실측</h2>
+    <p class="note">투사 반폭 = <code class="inline">0.32 + 0.27 × (앞거리 − 0.30)</code> m.
+      마크 셰이더는 가장자리 <b>0.15 m</b>를 부드럽게 죽인다(<code class="inline">uFPFadeM</code>) —
+      그래서 <b>100% 밝기 폭 = 반폭 − 0.15</b> 이고, 매트 외곽선은 이 선에 앉힌다.</p>
+    <div class="scroll"><table id="tbl">
+      <thead><tr>
+        <th>대지 y</th><th class="mono">앞거리 d</th><th class="mono">빔 반폭</th>
+        <th class="mono">100% 반폭</th><th class="mono">매트 폭</th><th>비고</th>
+      </tr></thead>
+      <tbody></tbody>
+    </table></div>
+    <div class="warn">
+      <b>대지 UI 밴드를 넘지 말 것.</b> 타이틀 알약과 진행 아크가 위쪽을 쓴다.
+      마크가 쓸 수 있는 건 CONTENT 밴드(y 1007 – 2330)뿐이라, 매트의 먼 쪽 변은
+      y 1011 에서 멈춘다. 빔은 더 멀리까지 가지만 거긴 글자 자리다.
+    </div>
+  </section>
+
+  <section>
+    <h2>4 · 색과 선 — 시스템에서 벗어나지 않게</h2>
+    <ul class="pal" id="pal"></ul>
+    <p class="note">유채색은 이 넷뿐이다(<code class="inline">src/palette.js</code>). 레퍼런스 사진의
+      파란 ④ 서클은 그대로 쓰면 규칙 위반 — 번호 표적을 넣는다면 램프 위치로 구분한다:
+      가까운 표적 = 레드, 중간 = 코랄, 먼 = 샌드. 무채(흰·회)는 색이 아니라 <b>상태 부호</b>
+      (Locked · Miss)라 장식에 쓰지 않는다.</p>
+
+    <h3 class="sub">선 문법</h3>
+    <div class="cards">
+      <div class="card">
+        <h4>매트 외곽선</h4>
+        <p class="spec">도트 · 대시 10 : 갭 8 (대지 px ×1.9) · 라운드 캡</p>
+        <p>실선 금지. 이 시스템의 영역선은 전부 흐르는 점선이다 — 점이 far 방향으로 천천히
+          흘러가고, 10회를 채우는 동안 <b>점이 밝아지며 한 바퀴를 채운다</b>(진행 표시 겸용).</p>
+      </div>
+      <div class="card">
+        <h4>글로우</h4>
+        <p class="spec">이중 가우시안 · blur 2px + 7px · lighter</p>
+        <p>피그마에서는 Layer blur 대신 <b>Drop shadow(색=선 색, spread 0)</b> 두 겹으로 근사해서
+          보내면 된다. 실제 합성은 코드가 다시 한다 — 피그마 산출물은 형태와 비율이 정본.</p>
+      </div>
+      <div class="card">
+        <h4>레인 라인 (매트 안 격자)</h4>
+        <p class="spec">최대 2 줄 · 굵기 = 외곽선의 0.6</p>
+        <p>레퍼런스 매트처럼 격자를 꽉 채우면 1인칭에서 발자국·링과 뒤엉킨다. 스탠스 폭을
+          가리키는 세로 2줄이면 충분하다 — 그 이상은 정보가 아니라 무늬다.</p>
+      </div>
+      <div class="card">
+        <h4>번호 서클</h4>
+        <p class="spec">선택 · 이 단계에선 권장하지 않음</p>
+        <p>BK_B1 은 제자리 드리블이라 밟을 번호가 없다. 번호 표적은 발을 옮기는 단계
+          (BK_C3 사이드 드리블)에서 살아난다 — 매트를 거기까지 재사용할 생각으로 그려 두면 좋다.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>5 · 피그마 작업 순서</h2>
+    <ol class="steps">
+      <li><b>프레임 1600 × 2670</b> 을 만든다. 배경은 투명.
+        <p>이게 지면 대지(캔버스 UI)의 실제 해상도다. 1 px = 0.67 mm.</p></li>
+      <li><b>가이드 사다리꼴</b>을 먼저 놓는다 — 위 변 y 1011 / 폭 1248, 아래 변 y 2160 / 폭 628, 중심 x 800.
+        <p>이 안이 100% 밝기 영역이다. 여기서 삐져나온 것은 화면에서 흐려진다.</p></li>
+      <li><b>매트를 그린다.</b> 외곽 점선 → 레인 2줄 → 중앙 바운스 링 자리(빈 원으로 표시만).
+        <p>링·숫자·발자국은 코드가 그리는 살아 있는 토큰이라 피그마에서는 <b>자리만</b> 잡아 준다.</p></li>
+      <li><b>PNG 2×로 내보낸다</b> → <code class="inline">public/textures/bk_dribble_mat.png</code>
+        <p>CTA 에셋과 같은 경로 규약이라 코드 쪽은 파일명만 알면 된다.</p></li>
+    </ol>
+    <p class="note" style="margin-top:22px"><b>1차 개발 완료 — 코드에 들어가 있다.</b>
+      D안(실물 오마주)이 <code class="inline">fx-core.js · drawDribbleMat</code> 프림 토큰과
+      <code class="inline">session.js · bkB1.mat</code> 으로 구현됐다. 외곽·브래킷은 LINE 흐름 획,
+      번호 표적은 MARK 볼류메트릭 링 + 톱니, 커넥터는 점 레일 — 전부 기존 토큰 위에 서 있다.
+      피그마 산출물이 나오면 같은 자리를 텍스처로 갈아 끼우면 된다.</p>
+  </section>
+
+  <footer>
+    실측: <code class="inline">node scripts/_probe_b1mat.mjs</code> (2026-08-06 · 농구 팩 BK_B1) ·
+    근거 문서: <code class="inline">docs/FLOOR-CONTENT-PLACEMENT.md</code> ·
+    <code class="inline">docs/FLOOR-LEGIBILITY.md</code>
+  </footer>
+</div>
+
+<script>
+// ── 실측 상수 (scripts/_probe_b1mat.mjs 출력) ─────────────────────────
+const FP_NEAR = 0.30, FP_FAR = 1.90;          // 빔 앞뒤 (m)
+const HALF = d => 0.32 + 0.27 * (d - FP_NEAR); // 빔 반폭 (m)
+const FADE = 0.15;                             // 마크 셰이더 가장자리 페이드 uFPFadeM
+const S = 0.00067;                             // m / 대지 px
+const BOARD_FWD = 1.003;                       // 대지 중심(y1335)의 앞거리
+const BW = 1600, BH = 2670;
+const dToY = d => 1335 - (d - BOARD_FWD) / S;
+const yToD = y => BOARD_FWD + (1335 - y) * S;
+const xToPx = x => BW / 2 + x / S;
+const mToPx = m => m / S;
+const ink = d => HALF(d) - FADE;               // 100% 밝기 반폭
+
+// 매트 범위 — 앞: 밝기 한계(near+fade), 뒤: CONTENT 밴드 상단(y1007)
+const MAT_D0 = FP_NEAR + FADE;                 // 0.45 m
+const MAT_D1 = yToD(1011);                     // 1.22 m
+const matY0 = dToY(MAT_D0), matY1 = dToY(MAT_D1);
+const matW0 = 2 * ink(MAT_D0), matW1 = 2 * ink(MAT_D1);
+
+// 기존 요소 실측
+const RING_D = 1.00, RING_R0 = 0.16, RING_R1 = 0.20;
+const FOOT_D = 1.15, FOOT_X = 0.262, FOOT_L = 0.30, FOOT_W = 0.12;
+const NUM_M = 0.14;
+
+const NS = 'http://www.w3.org/2000/svg';
+const el = (n, a) => { const e = document.createElementNS(NS, n); for (const k in a) e.setAttribute(k, a[k]); return e; };
+const hel = (n, a) => { const e = document.createElement(n); for (const k in a || {}) e.setAttribute(k, a[k]); return e; };
+const svg = document.getElementById('plan');
+const X0 = -600, Y0 = -150, VW = 2800, VH = 2800;
+svg.setAttribute('viewBox', `${X0} ${Y0} ${VW} ${VH}`);
+
+const defs = el('defs');
+defs.innerHTML =
+  '<linearGradient id="beam" x1="0" y1="1" x2="0" y2="0">' +
+  '<stop offset="0" stop-color="#FE6E3C" stop-opacity="0.03"/>' +
+  '<stop offset="0.55" stop-color="#FE6E3C" stop-opacity="0.10"/>' +
+  '<stop offset="1" stop-color="#FEC389" stop-opacity="0.16"/></linearGradient>' +
+  '<linearGradient id="matfill" x1="0" y1="1" x2="0" y2="0">' +
+  '<stop offset="0" stop-color="#FE6E3C" stop-opacity="0.07"/>' +
+  '<stop offset="1" stop-color="#FE6E3C" stop-opacity="0.17"/></linearGradient>';
+svg.appendChild(defs);
+
+const trap = (d0, d1, halfFn) => {
+  const y0 = dToY(d0), y1 = dToY(d1);
+  const a = mToPx(halfFn(d0)), b = mToPx(halfFn(d1));
+  return `${xToPx(0) - b},${y1} ${xToPx(0) + b},${y1} ${xToPx(0) + a},${y0} ${xToPx(0) - a},${y0}`;
+};
+
+// 빔 창
+svg.appendChild(el('polygon', { points: trap(FP_NEAR, FP_FAR, HALF), fill: 'url(#beam)',
+  stroke: '#5A4433', 'stroke-width': 5, 'stroke-dasharray': '26 18' }));
+
+// 대지 프레임 + UI 밴드
+svg.appendChild(el('rect', { x: 0, y: 0, width: BW, height: BH, fill: 'none',
+  stroke: '#33291F', 'stroke-width': 4 }));
+for (const [y0b, y1b, lab] of [[340, 600, '알약 (HEAD)'], [732, 887, '진행 아크 (PROG)']]) {
+  svg.appendChild(el('rect', { x: 60, y: y0b, width: BW - 120, height: y1b - y0b,
+    fill: '#3E566B', 'fill-opacity': 0.16, stroke: '#3E566B', 'stroke-width': 3 }));
+  const t = el('text', { x: 80, y: y0b + 62, fill: '#7B95AB', 'font-size': 44,
+    'font-family': 'ui-monospace, monospace' }); t.textContent = lab; svg.appendChild(t);
+}
+const cline = el('line', { x1: 0, y1: 1007, x2: BW, y2: 1007, stroke: '#3E566B',
+  'stroke-width': 4, 'stroke-dasharray': '18 14' });
+svg.appendChild(cline);
+const ctxt = el('text', { x: 20, y: 970, fill: '#7B95AB', 'font-size': 42,
+  'text-anchor': 'start', 'font-family': 'ui-monospace, monospace' });
+ctxt.textContent = 'CONTENT 상단 y1007 — 마크는 이 아래로'; svg.appendChild(ctxt);
+
+// 매트
+svg.appendChild(el('polygon', { points: trap(MAT_D0, MAT_D1, ink), fill: 'url(#matfill)',
+  stroke: '#FE6E3C', 'stroke-width': 11, 'stroke-dasharray': '19 15', 'stroke-linecap': 'round' }));
+
+// 레인 2줄 — 스탠스 폭을 가리킨다
+for (const sgn of [-1, 1]) {
+  const xa = xToPx(sgn * FOOT_X * (ink(MAT_D0) / ink(MAT_D1)));
+  const xb = xToPx(sgn * FOOT_X);
+  svg.appendChild(el('line', { x1: xa, y1: dToY(MAT_D0) - 24, x2: xb, y2: dToY(MAT_D1) + 24,
+    stroke: '#FE6E3C', 'stroke-opacity': 0.5, 'stroke-width': 6, 'stroke-dasharray': '12 16' }));
+}
+
+// 발자국
+for (const sgn of [-1, 1]) {
+  svg.appendChild(el('rect', { x: xToPx(sgn * FOOT_X) - mToPx(FOOT_W) / 2,
+    y: dToY(FOOT_D) - mToPx(FOOT_L) / 2, width: mToPx(FOOT_W), height: mToPx(FOOT_L),
+    rx: mToPx(FOOT_W) / 2, fill: '#FEC389', 'fill-opacity': 0.22, stroke: '#FEC389', 'stroke-width': 6 }));
+}
+// 바운스 링 + 숫자 자리
+svg.appendChild(el('circle', { cx: xToPx(0), cy: dToY(RING_D), r: mToPx(RING_R1),
+  fill: 'none', stroke: '#FA3030', 'stroke-width': 9 }));
+svg.appendChild(el('circle', { cx: xToPx(0), cy: dToY(RING_D), r: mToPx(RING_R0),
+  fill: 'none', stroke: '#FA3030', 'stroke-opacity': 0.45, 'stroke-width': 5 }));
+const numT = el('text', { x: xToPx(0), y: dToY(RING_D) + mToPx(NUM_M) * 0.36,
+  'text-anchor': 'middle', fill: '#FEC389', 'font-size': mToPx(NUM_M) * 0.95,
+  'font-weight': 700, 'font-family': 'ui-monospace, monospace' });
+numT.textContent = '7'; svg.appendChild(numT);
+
+// 사용자 위치 + 치수 라벨
+const you = el('text', { x: xToPx(0), y: dToY(FP_NEAR) + 130, 'text-anchor': 'middle',
+  fill: '#8A7663', 'font-size': 50, 'font-family': 'ui-monospace, monospace' });
+you.textContent = '▲ 사용자 (무릎 프로젝터 원점 · 앞거리 0)'; svg.appendChild(you);
+
+const dim = (x, y, txt, anchor, color) => {
+  const t = el('text', { x, y, fill: color || '#FE6E3C', 'font-size': 46,
+    'text-anchor': anchor || 'middle', 'font-family': 'ui-monospace, monospace' });
+  t.textContent = txt; svg.appendChild(t);
+};
+dim(xToPx(-ink(MAT_D1)) - 40, matY1 + 20,
+  `먼 변 ${Math.round(mToPx(matW1))} px (${(matW1 * 1000) | 0} mm)`, 'end');
+dim(xToPx(0), matY0 + 92, `가까운 변 ${Math.round(mToPx(matW0))} px (${(matW0 * 1000) | 0} mm)`);
+dim(xToPx(ink(MAT_D1)) + 40, (matY0 + matY1) / 2, `깊이 ${Math.round(matY0 - matY1)} px`, 'start');
+dim(xToPx(FOOT_X) + 130, dToY(FOOT_D) + 16, `스탠스 ±${(FOOT_X * 1000) | 0} mm`, 'start', '#FEC389');
+dim(xToPx(0), dToY(RING_D) + mToPx(RING_R1) + 74,
+  `바운스 링 Ø${(RING_R1 * 2000) | 0} mm`, 'middle', '#FA3030');
+
+document.getElementById('plancap').textContent =
+  `대지 1600 × 2670 px · 1 px = 0.67 mm · 빔 앞거리 ${FP_NEAR}–${FP_FAR} m · 매트 y ${Math.round(matY1)}–${Math.round(matY0)}`;
+
+// ── 스펙 카드 ────────────────────────────────────────────────────────
+const px = m => Math.round(mToPx(m));
+document.getElementById('specMat').textContent =
+  `y ${Math.round(matY1)} – ${Math.round(matY0)} · 폭 ${px(matW1)} → ${px(matW0)} px · 중심 x 800`;
+document.getElementById('specRing').textContent =
+  `중심 y ${Math.round(dToY(RING_D))} · 내경 ${px(RING_R0 * 2)} · 외경 ${px(RING_R1 * 2)} px`;
+document.getElementById('specFoot').textContent =
+  `중심 y ${Math.round(dToY(FOOT_D))} · x 800 ± ${px(FOOT_X)} · 발 ${px(FOOT_W)} × ${px(FOOT_L)} px`;
+document.getElementById('specNum').textContent =
+  `링 중심 · 글리프 판 ${px(NUM_M)} px 정사각`;
+
+// ── 반폭 표 ──────────────────────────────────────────────────────────
+const rows = [
+  [340, '알약 하단 — 마크 금지'],
+  [1007, 'CONTENT 상단 = 매트 먼 변'],
+  [dToY(FOOT_D), '스탠스 발자국'],
+  [1335, '대지 중심 = 바운스 링'],
+  [1980, 'FOOT 밴드'],
+  [dToY(MAT_D0), '매트 가까운 변 = 밝기 한계'],
+  [2330, 'CONTENT 하단'],
+];
+const tb = document.querySelector('#tbl tbody');
+for (const [y, note] of rows) {
+  const d = yToD(y), i = ink(d);
+  const inMat = y >= Math.round(matY1) && y <= Math.round(matY0);
+  const tr = hel('tr', inMat ? { class: 'hi' } : {});
+  const cells = [
+    String(Math.round(y)), d.toFixed(2) + ' m', HALF(d).toFixed(3) + ' m',
+    i > 0 ? i.toFixed(3) + ' m' : '—',
+    i > 0 ? Math.round(mToPx(2 * i)) + ' px' : '—', note,
+  ];
+  cells.forEach((c, k) => {
+    const td = hel('td', k > 0 && k < 5 ? { class: 'mono' } : {});
+    td.textContent = c; tr.appendChild(td);
+  });
+  tb.appendChild(tr);
+}
+
+// ── 팔레트 ───────────────────────────────────────────────────────────
+const PAL = [
+  ['RED', '#FA3030', '판정 · 바운스 링'],
+  ['CORAL', '#FE6E3C', '매트 외곽 · 영역선'],
+  ['SAND', '#FEC389', '발자국 · 숫자'],
+  ['PRISM', '#D1FEFF', 'Success 순간만'],
+];
+const pl = document.getElementById('pal');
+for (const [name, hex, use] of PAL) {
+  const li = hel('li');
+  li.innerHTML = `<div class="chip" style="background:${hex}"></div>` +
+    `<div class="meta"><b>${name}</b><code>${hex}</code><br>${use}</div>`;
+  pl.appendChild(li);
+}
+</script>

@@ -1781,6 +1781,219 @@ function volRing(g, lut, r, v, a, lw, GB, wMul = 1) {
   g.strokeStyle = lut(Math.min(0.98, v + 0.12)); g.shadowColor = lut(0.88); g.shadowBlur = GB * 0.6;
   g.beginPath(); g.arc(0, 0, r, 0, Math.PI * 2); g.stroke(); g.shadowBlur = 0;
 }
+/** 드리블 매트 — 실물 스텝 매트를 지면 투사 문법으로 옮긴 영역 토큰(유저 레퍼런스 렌더가 정본).
+ *  구성 요소는 전부 이 시스템의 어휘다 — 새 도형 언어를 만들지 않는다.
+ *    외곽·브래킷 = LINE 획 + 라운드 코너 브래킷     눈금자 = '잰 공간'이라는 부호
+ *    번호 표적   = MARK 채움 + 이중 파선 링 + OffBit 숫자
+ *    액티브 타깃 = MARK 존 원 + 십자 조준 눈금       커넥터 = 흰 파선(이동 경로)
+ *    셰브론      = LINE 방향 큐                      워드마크 = 매트의 신원
+ *
+ *  P.mat     = { nx, fx, ny, fy } 판 정규좌표(-1..1, +y = 먼 쪽). nx = fx 면 직사각.
+ *  P.targets = [{ x, y, n, v, r, on }]  v = LUT 위치(색) · on = 이 단계 점등 여부
+ *  P.center  = { x, y, r, label, ring } 액티브 타깃. ring:0 = 링은 3D 존 마크가 그린다
+ *  P.title   = 상단 라벨 · P.brand = 하단 워드마크 · P.ruler = { w, h } 실치수(m)
+ *  P.chev    = 0|1 방향 셰브론 · P.prog = 0..1 반복 진행(외곽이 밝아지며 차오름)
+ */
+export function drawDribbleMat(g, W, P, look, t, ENV) {
+  const lut = ENV.lut, GB = 13 * look.halo, s = W / 512;
+  const AW = (ENV.arrow && ENV.arrow.w) || 1;
+  const INK = '255,255,255';
+  g.clearRect(0, 0, W, W); g.lineJoin = 'round'; g.lineCap = 'round';
+  const M = P.mat || { nx: 0.86, fx: 0.86, ny: -0.86, fy: 0.86 };
+  const X = u => W / 2 + u * W / 2, Y = v => W / 2 - v * W / 2;
+  const halfAt = v => M.nx + (M.fx - M.nx) * (v - M.ny) / Math.max(1e-4, M.fy - M.ny);
+  const rgbaL = (v, a) => lut(v).replace('rgb(', 'rgba(').replace(')', ',' + a + ')');
+  // 자간 있는 대문자 라벨 — 지면 투사 조판 규약(영문 대문자 + 넓은 자간)
+  const label = (txt, cx, cy, px, col, track, weight) => {
+    track = track == null ? 0.30 : track;
+    g.font = (weight || 700) + ' ' + px + 'px "Supreme", "OffBit", sans-serif';
+    g.textAlign = 'center'; g.textBaseline = 'middle';
+    const ch = Array.from(String(txt));
+    const tr = px * track;
+    let wSum = -tr;
+    for (const c of ch) wSum += g.measureText(c).width + tr;
+    let x = cx - wSum / 2;
+    g.fillStyle = col;
+    for (const c of ch) { const w = g.measureText(c).width; g.fillText(c, x + w / 2, cy); x += w + tr; }
+  };
+  // 외곽 경로(모서리 라운드) — 채움·획·진행이 같은 점열을 쓴다
+  const r = 0.05 * (P.round != null ? P.round / 0.35 : 1);
+  const pts = [];
+  const arcP = (cu, cv, a0, a1) => { for (let i = 0; i <= 6; i++) {
+    const a = a0 + (a1 - a0) * i / 6; pts.push([X(cu + r * Math.cos(a)), Y(cv + r * Math.sin(a))]); } };
+  arcP(-M.fx + r, M.fy - r, Math.PI / 2, Math.PI);
+  arcP(-M.nx + r * 0.6, M.ny + r, Math.PI, Math.PI * 1.5);
+  arcP(M.nx - r * 0.6, M.ny + r, -Math.PI / 2, 0);
+  arcP(M.fx - r, M.fy - r, 0, Math.PI / 2);
+  pts.push(pts[0]);
+  const path = () => { g.beginPath();
+    pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.closePath(); };
+
+  const cU = P.center ? P.center.x : 0, cV = P.center ? P.center.y : 0;
+  const CR = (P.center && P.center.r != null ? P.center.r : 0.26) * W / 2;
+
+  // ── ① 투사 웅덩이 — 매트 안쪽에만 옅게. 바닥이 '켜져 있다'는 최소 신호
+  const pool = g.createRadialGradient(X(cU), Y(cV), 0, X(cU), Y(cV), W * 0.5);
+  pool.addColorStop(0, rgbaL(0.55, 0.16)); pool.addColorStop(1, rgbaL(0.4, 0));
+  path(); g.fillStyle = pool; g.fill();
+
+  // ── ② 외곽선 — 얇고 밝은 실선 + 그 아래 넓은 광. 실선인 게 이 판의 뼈대다
+  g.shadowColor = lut(0.72); g.shadowBlur = GB * 1.1;
+  g.strokeStyle = 'rgba(' + INK + ',0.92)'; g.lineWidth = 2.6 * AW * s;
+  path(); g.stroke();
+  g.strokeStyle = rgbaL(0.42, 0.7); g.lineWidth = 6.5 * AW * s; g.shadowBlur = GB * 1.7;
+  path(); g.stroke();
+  g.shadowBlur = 0;
+
+  // ── ③ 코너 브래킷 — 굵은 라운드 L. 네 귀퉁이가 판의 모서리임을 못 박는다
+  if (P.bracket !== 0) {
+    const L = 0.20;
+    g.lineWidth = 7 * AW * s; g.strokeStyle = rgbaL(0.5, 0.95);
+    g.shadowColor = lut(0.6); g.shadowBlur = GB;
+    for (const sg of [-1, 1]) {
+      const seg = (a, b, c) => { g.beginPath(); g.moveTo(X(a[0]), Y(a[1]));
+        g.quadraticCurveTo(X(b[0]), Y(b[1]), X(c[0]), Y(c[1])); g.stroke(); };
+      seg([sg * halfAt(M.fy - L), M.fy - L], [sg * M.fx, M.fy], [sg * (M.fx - L), M.fy]);
+      seg([sg * halfAt(M.ny + L), M.ny + L], [sg * M.nx, M.ny], [sg * (M.nx - L * 0.8), M.ny]);
+    }
+    g.shadowBlur = 0;
+  }
+
+  // ── ④ 눈금자 — 좌변·하변. 이 판이 **잰 공간**이라는 부호(레퍼런스의 핵심 인상)
+  if (P.ruler) {
+    const RW = P.ruler.w, RH = P.ruler.h;
+    const tick = (x1, y1, x2, y2, a) => { g.strokeStyle = rgbaL(0.55, a); g.lineWidth = 1.6 * s;
+      g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke(); };
+    const N = Math.max(4, Math.round(RH / 0.1));          // 10 cm 눈금 · 50 cm 마다 큰 눈금
+    for (let i = 0; i <= N; i++) {
+      const v = M.ny + (M.fy - M.ny) * i / N, big = i % 5 === 0;
+      const ex = -halfAt(v);
+      tick(X(ex) + 5 * s, Y(v), X(ex) + (big ? 19 : 11) * s, Y(v), big ? 0.85 : 0.4);
+      if (big && i > 0 && i < N)
+        label((RH * i / N).toFixed(1), X(ex) - 20 * s, Y(v), 13 * s, rgbaL(0.62, 0.85), 0.08, 600);
+    }
+    const NB = Math.max(4, Math.round(RW / 0.1));
+    for (let i = 0; i <= NB; i++) {
+      const u = -M.nx + M.nx * 2 * i / NB, big = i % 5 === 0;
+      tick(X(u), Y(M.ny) - 5 * s, X(u), Y(M.ny) - (big ? 17 : 10) * s, big ? 0.85 : 0.4);
+    }
+    label(RH.toFixed(1) + ' m', X(-halfAt(0)) - 62 * s, Y(0), 15 * s, rgbaL(0.62, 0.9), 0.12, 600);
+    label(RW.toFixed(1) + ' m', X(0), Y(M.ny) - 26 * s, 15 * s, rgbaL(0.62, 0.9), 0.12, 600);
+  }
+
+  // ── ⑤ 타이틀 — 상단 중앙, 양옆 방향 마크
+  if (P.title) {
+    const ty = Y(M.fy) + 30 * s;
+    label(P.title, X(0), ty, 18 * s, 'rgba(' + INK + ',0.95)', 0.34);
+    g.font = '700 ' + 16 * s + 'px "Supreme", sans-serif';
+    const half = g.measureText(P.title).width * 0.76;
+    g.fillStyle = rgbaL(0.6, 0.85); g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText('≫', X(0) - half - 16 * s, ty);
+    g.fillText('≪', X(0) + half + 16 * s, ty);
+  }
+
+  // ── ⑥ 커넥터 — 타깃에서 액티브 타깃으로 가는 흰 파선(이동 경로)
+  const TG = P.targets || [];
+  for (const tg of TG) {
+    const on = tg.on !== false;
+    const ax = X(tg.x), ay = Y(tg.y), bx = X(cU), by = Y(cV);
+    const dx = bx - ax, dy = by - ay, len = Math.hypot(dx, dy) || 1;
+    const R = (tg.r != null ? tg.r : 0.20) * W / 2;
+    g.setLineDash([7 * s, 7 * s]); g.lineDashOffset = -t * 14 * s;
+    g.strokeStyle = 'rgba(' + INK + ',' + (on ? 0.6 : 0.2) + ')'; g.lineWidth = 2 * s;
+    g.beginPath();
+    g.moveTo(ax + dx / len * R * 1.15, ay + dy / len * R * 1.15);
+    g.lineTo(bx - dx / len * CR * 1.14, by - dy / len * CR * 1.14);
+    g.stroke(); g.setLineDash([]);
+  }
+
+  // ── ⑦ 번호 표적 — 채움 디스크 + 안쪽 점선 + 바깥 파선 링 + 숫자
+  for (const tg of TG) {
+    // 색 = 상태다(팔레트 규칙 ②). 표적의 정체성은 **번호**가 말하므로 네 개가 같은 색조를 쓰고,
+    //   지금 켜졌는가(on)만 밝기로 갈린다. v 를 넘기면 그 단계에서만 색조를 덮어쓴다.
+    const on = tg.on !== false, A = on ? 1 : 0.34;
+    const v = tg.v != null ? tg.v : (on ? 0.42 : 0.5);
+    const cx = X(tg.x), cy = Y(tg.y), R = (tg.r != null ? tg.r : 0.20) * W / 2;
+    const fill = g.createRadialGradient(cx, cy, R * 0.1, cx, cy, R);
+    fill.addColorStop(0, rgbaL(v, 0.6 * A)); fill.addColorStop(1, rgbaL(v - 0.06, 0.32 * A));
+    g.fillStyle = fill; g.beginPath(); g.arc(cx, cy, R, 0, Math.PI * 2); g.fill();
+    g.setLineDash([3 * s, 5 * s]);                     // 안쪽 점선 = 밟는 자리의 안쪽 한계
+    g.strokeStyle = 'rgba(' + INK + ',' + 0.5 * A + ')'; g.lineWidth = 1.6 * s;
+    g.beginPath(); g.arc(cx, cy, R * 0.84, 0, Math.PI * 2); g.stroke();
+    g.setLineDash([13 * s, 9 * s]); g.lineDashOffset = on ? t * 10 * s : 0;
+    g.strokeStyle = 'rgba(' + INK + ',' + 0.92 * A + ')'; g.lineWidth = 3.4 * AW * s;
+    g.shadowColor = lut(0.82); g.shadowBlur = GB * (on ? 1 : 0.2);
+    g.beginPath(); g.arc(cx, cy, R * 1.15, 0, Math.PI * 2); g.stroke();
+    g.setLineDash([]); g.shadowBlur = 0;
+    g.globalAlpha = A; ENV.num(g, tg.n, cx, cy + s, R, R * 1.05); g.globalAlpha = 1;
+  }
+
+  // ── ⑧ 액티브 타깃 — 지금 겨눌 자리. 채움 + 십자 조준 눈금
+  if (P.center) {
+    const cx = X(cU), cy = Y(cV);
+    const halo = g.createRadialGradient(cx, cy, CR * 0.15, cx, cy, CR * 1.5);
+    halo.addColorStop(0, rgbaL(0.62, 0.5)); halo.addColorStop(0.62, rgbaL(0.5, 0.24));
+    halo.addColorStop(1, rgbaL(0.45, 0));
+    g.fillStyle = halo; g.beginPath(); g.arc(cx, cy, CR * 1.5, 0, Math.PI * 2); g.fill();
+    if (P.center.ring !== 0) {            // 단독 사용 시 링도 토큰이 그린다(3D 존 마크가 없을 때)
+      g.strokeStyle = 'rgba(' + INK + ',0.95)'; g.lineWidth = 6 * AW * s;
+      g.shadowColor = lut(0.9); g.shadowBlur = GB * 1.8;
+      g.beginPath(); g.arc(cx, cy, CR, 0, Math.PI * 2); g.stroke(); g.shadowBlur = 0;
+    }
+    g.strokeStyle = 'rgba(' + INK + ',0.8)'; g.lineWidth = 2 * s;   // 십자 조준 눈금
+    for (const d of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      g.beginPath();
+      g.moveTo(cx + d[0] * CR * 1.14, cy + d[1] * CR * 1.14);
+      g.lineTo(cx + d[0] * CR * 1.36, cy + d[1] * CR * 1.36); g.stroke();
+    }
+    if (P.center.label) {
+      const ls = String(P.center.label).split('\n');
+      ls.forEach((ln, i) => label(ln, cx, cy + (i - (ls.length - 1) / 2) * 17 * s,
+        13 * s, 'rgba(' + INK + ',0.95)', 0.22));
+      g.beginPath();                       // 중심 + 는 라벨이 있을 때만(숫자 슬롯과 안 겹치게)
+      g.moveTo(cx - 7 * s, cy + 24 * s); g.lineTo(cx + 7 * s, cy + 24 * s);
+      g.moveTo(cx, cy + 17 * s); g.lineTo(cx, cy + 31 * s); g.stroke();
+    }
+  }
+
+  // ── ⑨ 방향 셰브론 — 액티브 타깃 위/아래. 다음이 어느 쪽인지 말한다
+  if (P.chev) {
+    const chev = (cy, dir) => {
+      for (let k = 0; k < 2; k++) {
+        const o = k * 11 * s, w = 13 * s, h = 9 * s, yy = cy + dir * o;
+        g.beginPath(); g.moveTo(X(cU) - w, yy - dir * h); g.lineTo(X(cU), yy);
+        g.lineTo(X(cU) + w, yy - dir * h); g.stroke();
+      }
+    };
+    g.strokeStyle = 'rgba(' + INK + ',0.8)'; g.lineWidth = 3 * AW * s;
+    g.globalAlpha = 0.55 + 0.45 * Math.sin(t * 3.2);
+    chev(Y(cV) - CR * 1.95, -1); chev(Y(cV) + CR * 1.95, 1);
+    g.globalAlpha = 1;
+  }
+
+  // ── ⑩ 워드마크 — 실물 매트가 중앙 하단에 브랜드를 박는 그 자리
+  if (P.brand) label(P.brand, X(0), Y(M.ny) + 32 * s, 15 * s, rgbaL(0.55, 0.85), 0.55);
+
+  // ── ⑪ 진행 — 외곽이 상단 중앙부터 밝아지며 한 바퀴(반복 카운트)
+  if (P.prog > 0.001) {
+    let total = 0;
+    for (let i = 1; i < pts.length; i++)
+      total += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
+    const want = total * Math.min(1, P.prog);
+    g.strokeStyle = 'rgba(' + INK + ',0.98)'; g.lineWidth = 4.6 * AW * s;
+    g.shadowColor = lut(0.95); g.shadowBlur = GB * 1.5;
+    g.beginPath(); g.moveTo(pts[0][0], pts[0][1]);
+    let acc = 0;
+    for (let i = 1; i < pts.length && acc < want; i++) {
+      const d = Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
+      if (acc + d <= want) { g.lineTo(pts[i][0], pts[i][1]); acc += d; }
+      else { const f = (want - acc) / d;
+        g.lineTo(pts[i - 1][0] + (pts[i][0] - pts[i - 1][0]) * f,
+                 pts[i - 1][1] + (pts[i][1] - pts[i - 1][1]) * f); acc = want; }
+    }
+    g.stroke(); g.shadowBlur = 0;
+  }
+}
 export function drawApproachRing(g, W, P, look, t, ENV, prog) {
   const lut = ENV.lut, GB = 13 * look.halo, s = W / 220, C = W / 2;
   const AW = (ENV.arrow && ENV.arrow.w) || 1;

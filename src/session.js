@@ -8,7 +8,7 @@ import { easeMove, stepDelay, stampPop, airK, airAlpha, airScale, overshoot, sli
 import { BK_STEPBACK, LOAD, arrowFor, stageTime } from './marklang.js';
 import { READY_OPT } from './floorgl.js';   // 시작화면 시안 토글(발자국 어포던스 등) — 랩과 같은 스위치를 본다
 import { lutColor, GLYPHS, drawGlyph, drawNumber, footSlot, footSDFTexture, FXP } from './fxlut.js';
-import { MARK_NUM, GLYPH_LOOK, drawMarkGlyph, invertGlyphCanvas, drawStanceBox, drawPunchLine, drawApproachRing, drawTrajectory, drawRotate, drawStemArrow, drawCurveArrow , glyphFor } from './fx-core.js';
+import { MARK_NUM, GLYPH_LOOK, drawMarkGlyph, invertGlyphCanvas, drawStanceBox, drawPunchLine, drawApproachRing, drawTrajectory, drawRotate, drawStemArrow, drawCurveArrow, drawDribbleMat, glyphFor } from './fx-core.js';
 import { makeMarkFXMaterial, makeLaneFXMaterial, makeFlowArrow, tickFlowArrows, beamAlphaAt, COLORS, FOOT_LEN_M, FOOT_PLANE_M, QUAD_K, UI_MASK, MARK_LOOK, applyMarkLookTo, setMarkLoad, setMarkStateLook, ZONE } from './tokens.js';
 
 const clamp01 = v => v < 0 ? 0 : v > 1 ? 1 : v;
@@ -407,6 +407,7 @@ const LANE_MATS = [];   // 세션 레인 재질 틱 (tickWaves가 uTime·LINE �
 // ── 파생 프리미티브 = fx-core 정본 캔버스 소비 (랩과 같은 코드 — 100% 동일 이식) ──
 const PRIM_DEFAULTS = {
   stanceBox: { w: 1, glow: 1, tempo: 1, dash: 1, round: 0.2, feet: 1 },
+  dribbleMat: { w: 1, glow: 1, tempo: 1, dash: 1, round: 0.35, bracket: 1, chev: 1, prog: 0 },
   punchLine: { w: 1, glow: 1, tempo: 1, node: 1, numS: 1, dash: 0 },
   approachRing: { w: 1, glow: 1, tempo: 0.6, r: 0.42, rt: 0.36 },
   trajectory: { w: 1, glow: 1, tempo: 0.5, spread: 1, width: 1.4, tail: 1, taper: 1.6, spark: 0.6 },
@@ -453,7 +454,8 @@ const PRIM_PANELS = [];
 function primPanel(kind, sizeM, wall) {
   // 잽잽훅(punchLine)만 512 — 벽에서 0.9m 로 확대되는 판이라 256 은 뭉개져 랩과 퀄이 갈렸다
   //   (유저: 최신 토큰으로 안 보인다). 나머지 판은 작아 256 유지(캔버스 비용).
-  const c = document.createElement('canvas'); c.width = c.height = kind === 'punchLine' ? 512 : 256;
+  // 드리블 매트도 512 — 0.9m 판에 톱니 표적·숫자까지 들어가 256 에선 톱니가 뭉갠다.
+  const c = document.createElement('canvas'); c.width = c.height = (kind === 'punchLine' || kind === 'dribbleMat') ? 512 : 256;
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
   const isTraj = kind === 'trajectory';
@@ -512,7 +514,8 @@ function tickPrims(t) {
     if (off.width !== CW) { off.width = off.height = CW; }
     const og = off.getContext('2d');
     og.setTransform(1, 0, 0, 1, 0, 0); og.clearRect(0, 0, CW, CW);
-    if (p.kind === 'stanceBox') drawStanceBox(og, CW, P, look, t, livePrimEnv());
+    if (p.kind === 'dribbleMat') drawDribbleMat(og, CW, P, look, t, livePrimEnv());
+    else if (p.kind === 'stanceBox') drawStanceBox(og, CW, P, look, t, livePrimEnv());
     else if (p.kind === 'approachRing') drawApproachRing(og, CW, P, look, t, livePrimEnv(), p.prog);
     else if (p.kind === 'trajectory') drawTrajectory(og, CW, P, look, t - (p.t0 || 0), livePrimEnv(), p.prog, p.pts);
     else if (p.kind === 'rotate') drawRotate(og, CW, P, look, t, livePrimEnv(), p.prog);
@@ -1487,17 +1490,43 @@ export class Session {
     const b1aL = floorArrow(-0.04, B1AZ, 90, BRAND.sand, 0.22, 1.55);
     const b1aR = floorArrow(0.04, B1AZ, -90, BRAND.sand, 0.22, 1.55);
     b1aL._gain = 0; b1aR._gain = 0;
-    // 드리블 매트 — '원 하나만 덩그러니'(유저 08-06 재지적)의 답. 새 그래픽이 아니라 **이미 있는**
-    //   스탠스 박스 토큰(fx-core drawStanceBox)을 지면에 눕힌 것. 실물 드리블 매트와 같은 역할:
-    //   테두리 = 내 구역(발자국·링·숫자가 전부 이 안에 들어온다) · 도트가 차오름 = 10회 진행.
-    //   feet:0 — 매트 중앙은 바운스 링 자리다. 스탠스는 진짜 발마크(b1sL/R)가 담당한다.
-    // 폭은 감이 아니라 빔 창에서 온다: 매트 앞모서리 z −2.50 → d 0.91 → 창 반폭 0.498, 페더 0.25.
-    // ponytail: 사각 매트 vs 사다리꼴 빔 — 앞모서리 코너는 페더에 걸려 살짝 흐려진다.
-    //   거슬리면 B1_MAT 을 줄이고, 창 모양대로 자르려면 새 프림(사다리꼴)이 필요하다.
-    const B1_MAT = 0.70;
-    const b1mat = primPanel('stanceBox', B1_MAT / 0.636, false);   // 0.636 = 캔버스 내 박스 폭비(140/220)
-    b1mat._prim.P = { feet: 0, round: 0.35, prog: 0 };
-    b1mat.position.set(0, 0.0125, B1Z);   // 링(0.013)·숫자(0.016) 아래 — 매트가 바닥면이다
+    // ── 드리블 매트 ─────────────────────────────────────────────────────────
+    // '원 하나만 덩그러니'(유저 08-06)의 답이자 실물 스텝 매트의 이식(유저 레퍼런스 3장).
+    //   구성은 전부 기존 토큰: 외곽=LINE 흐름 획 · 표적=MARK 링+톱니 · 커넥터=점 레일.
+    //
+    // ★ 사각형이 아니라 **빔 사다리꼴**이다. 투사 반폭 = 0.32 + 0.27·(앞거리 − 0.30) 이고
+    //   마크 셰이더가 가장자리 0.15m 를 죽이므로(uFPFadeM), 100% 밝기 반폭 = 반폭 − 0.15.
+    //   사각으로 그리면 가까운 쪽 두 귀퉁이가 페더에 잠겨 스러진다(실측).
+    // ★ 깊이 범위: 앞 = fpNear+페더(0.45) · 뒤 = 대지 CONTENT 밴드 상단(1.22, y1007).
+    //   더 멀리 가면 타이틀 알약 자리를 침범한다.
+    const MAT_D0 = 0.45, MAT_D1 = 1.22;
+    const matInk = d => 0.32 + 0.27 * (d - 0.30) - 0.15;
+    const MAT_SIZE = 0.90;                                   // 판 한 변(m) — 사다리꼴을 담는 정사각 판
+    const matMid = (MAT_D0 + MAT_D1) / 2;                    // 판 중심 앞거리
+    const b1matZ = BK_STAND - matMid;                        // 빔 원점(=BK_STAND)에서 앞으로
+    const toV = d => (d - matMid) / (MAT_SIZE / 2);          // 앞거리 → 판 정규 v(+ = 먼 쪽)
+    const toU = x => x / (MAT_SIZE / 2);
+    const b1mat = primPanel('dribbleMat', MAT_SIZE, false);
+    b1mat._prim.P = {
+      round: 0.35, prog: 0, chev: 1,
+      mat: { nx: toU(matInk(MAT_D0)), fx: toU(matInk(MAT_D1)), ny: toV(MAT_D0), fy: toV(MAT_D1) },
+      // 액티브 타깃 = 바운스 링과 같은 자리. ring:0 — 링 자체는 3D 존 마크(b1zone)가 박자로 그리고
+      //   토큰은 채움·조준 눈금만 얹는다. 라벨도 null — 링 중앙은 잔여 횟수 숫자 슬롯이다.
+      center: { x: 0, y: toV(1.00), r: 0.20 / (MAT_SIZE / 2), ring: 0, label: null },
+      // 표적 = 실물의 번호 디스크. ①② 먼 쪽 = 시작 스탠스(이 단계 점등) ·
+      //   ③④ 가까운 쪽 = 스텝 표적(사이드 드리블 단계에서 켜진다 — 지금은 꺼 둔 채 자리만).
+      //   x 는 그 깊이의 100% 반폭 안: ①② ±0.27 < 0.394 · ③④ ±0.17 < 0.256.
+      targets: [
+        { x: toU(-0.27), y: toV(1.13), n: 1, v: 0.30, r: 0.115 / (MAT_SIZE / 2), on: true },
+        { x: toU(0.27), y: toV(1.13), n: 2, v: 0.56, r: 0.115 / (MAT_SIZE / 2), on: true },
+        { x: toU(-0.17), y: toV(0.62), n: 3, v: 0.86, r: 0.105 / (MAT_SIZE / 2), on: false },
+        { x: toU(0.17), y: toV(0.62), n: 4, v: 0.99, r: 0.105 / (MAT_SIZE / 2), on: false },
+      ],
+      // 눈금자·워드마크 = 매트의 신원. 타이틀은 **안 넣는다** — 대지 알약이 이미 스테이지명을 말한다.
+      ruler: { w: 2 * matInk(MAT_D0), h: MAT_D1 - MAT_D0 },
+      brand: 'NEWTON',
+    };
+    b1mat.position.set(0, 0.0125, b1matZ);   // 링(0.013)·숫자(0.016) 아래 — 매트가 바닥면이다
     b1mat.material.opacity = 0;
     this.bkB1 = { zone: b1zone, num: b1num, sL: b1sL, sR: b1sR, aL: b1aL, aR: b1aR, mat: b1mat,
       count: 0, _shown: -1, _wasLow: false, _popT: -9, _setupDone: false };
