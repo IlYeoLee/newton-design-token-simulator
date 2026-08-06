@@ -394,7 +394,9 @@ uniform float uPCoral;
 //     uHotE = 강조 타원(xy 패널 uv 중심 · zw 반경) · uHot = 세기.
 //     **uPHiPale = 0 이면 도입 전과 픽셀 동일**(롤백 지점) — 이 리포의 유니폼 규약 그대로다.
 uniform vec4 uHotE;
-uniform vec3 uGaze;        // 시선 토큰(xy 중심 · z 반경). z<=0 = 끔
+uniform vec4 uGaze;        // 시선 토큰(xy 중심 · zw 반경). z<=0 = 끔. 반경이 둘인 건 판이 정사각이 아니라서 —
+                           //   하나로 두면 uv 원이 월드에선 타원이 된다(w1.04 × h0.87).
+uniform sampler2D uTokTex; // 토큰 원본 이미지(body-ring.png). 재구현 대신 **그 파일 그대로** 쓴다.
 //   uPHiHot = 강조 부위 대역 상단. **낮을수록 쨍하다**(위 uPHi 주석의 실측) — 강조는
 //     '지금 색 그대로'가 아니라 **더 붉게** 가야 한다(유저: 엄청 메인컬러로 변하면서).
 uniform float uHot, uPHiPale, uPHiHot;
@@ -408,16 +410,46 @@ float hotAt(vec2 uv){
 }
 /** 이 프래그먼트가 쓸 대역 상단. uPHiPale 0 = 기능 끔. */
 float pHi(){ return uPHiPale > 0.0 ? mix(uPHiPale, uPHiHot > 0.0 ? uPHiHot : uPHi, gHot) : uPHi; }
-/** 시선 토큰 — dab2n setup-injury 의 '흰 코어 + 주황 헤일로' 그대로. 인물 **위에** 얹는다.
- *  인물 알파에 안 갇힌다(몸 밖으로 나가도 보여야 지시가 된다). */
+/** 시선 토큰 = dab2n setup-injury 의 assets/icons/body-ring.png **그 파일 그대로**.
+ *  ★ 재구현하지 않는다. 원본을 픽셀로 재 보니 내가 짐작했던 부드러운 글로우가 아니라
+ *    **딱딱한 2톤 원반**이었다(104×104 실측):
+ *      r/R 0.00~0.36  #FFFFFF 순백 코어(불투명)   ·  0.36~0.40 좁은 전이
+ *      r/R 0.40~0.94  #FFC494 주황 링            ← 팔레트 sand(#FEC389)와 사실상 같은 색
+ *      r/R 0.94~1.00  밝은 테두리 + 알파 255→96
+ *    글로우로 흉내 내면 이 딱딱한 경계가 사라져서 '토큰'이 아니라 '빛번짐'이 된다.
+ *  붉은 낙하 그림자는 원본 CSS 그대로: drop-shadow(0 2px 8px rgba(250,48,48,.45)) = 뉴턴 RED.
+ *  인물 알파에 안 갇힌다 — 몸 밖으로 나가도 보여야 지시가 된다. */
 vec4 gazeToken(vec2 uv, float t){
   if (uGaze.z <= 0.0) return vec4(0.0);
-  float d = length((uv - uGaze.xy) / vec2(max(uGaze.z, 1e-4)));
-  float core = 1.0 - smoothstep(0.20, 0.40, d);
-  float halo = (1.0 - smoothstep(0.34, 1.0, d)) * (0.62 + 0.16 * sin(t * 3.0));   // 느린 맥동 = 살아있음
-  return vec4(mix(lut(0.62), vec3(1.0), core), clamp(core + halo * 0.52, 0.0, 1.0));
+  vec2 d = (uv - uGaze.xy) / max(uGaze.zw, vec2(1e-4));
+  // 그림자는 원본과 같은 방향(아래로 2px ≈ 반경의 5%)·같은 색·같은 세기.
+  float sh = (1.0 - smoothstep(0.60, 1.70, length(d + vec2(0.0, 0.05)))) * 0.45;
+  vec4 o = vec4(P_INK, sh);
+  if (abs(d.x) <= 1.0 && abs(d.y) <= 1.0) {
+    vec4 tk = texture2D(uTokTex, d * vec2(0.5, -0.5) + 0.5);   // y 뒤집기 — 패널 uv 는 위가 +
+    o.rgb = mix(o.rgb, tk.rgb, tk.a);
+    o.a = max(o.a, tk.a);
+  }
+  return o;
+}
+/** 가이드 룩 — **하드코딩 2단 램프**(유저 08-06: 하드코딩해서라도 확실히 보이게).
+ *  LUT 대역(uPHi)을 밀어서 연하게 만드는 방식은 간접적이라 '얼마나 연해지나'가 안 잡혔다.
+ *  여기선 두 램프를 못박고 gHot 으로 갈아탄다 — 화면에서 무슨 색이 나올지가 코드에 그대로 있다.
+ *    연(전신)   거의 흰빛 → sand(#FEC389)   = 유저가 말하는 '연연한 주황·맑은 코랄'
+ *    진(강조)   coral(#FE6E3C) → red(#FA3030) = 뉴턴 메인컬러로 **찐해진다**
+ *  T 는 높을수록 밝은 쪽이다(LUT 방향과 같음) — 두 램프 다 그 방향을 지킨다.
+ *  ⚠ 네 색 전부 R≈1.0 이다. 투사광 불변식(알파 = min(aOut, lum×1.6))에 안 걸린다 —
+ *    어느 픽셀도 어두워지지 않으므로 뒤 바닥이 배어 오르지 않는다. 색을 바꿀 땐 이걸 먼저 본다. */
+#define G_PALE_D ${vec3(PAL.sand)}
+#define G_PALE_L vec3(1.000, 0.984, 0.973)
+#define G_DEEP_D ${vec3(PAL.red)}
+#define G_DEEP_L ${vec3(PAL.coral)}
+vec3 personGuideColor(float T){
+  T = clamp(T, 0.0, 1.0);
+  return mix(mix(G_PALE_D, G_PALE_L, T), mix(G_DEEP_D, G_DEEP_L, T), clamp(gHot, 0.0, 1.0));
 }
 vec3 personColor(float T){
+  if (uPHiPale > 0.0) return personGuideColor(T);   // 가이드 모드 = LUT 를 안 탄다
   T = clamp(T, 0.0, 1.0);
   float hiN = pHi();
   if (uPCoral > 0.001) {

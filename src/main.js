@@ -2664,8 +2664,8 @@ void main(){
         uPSat: { value: 1.32 }, uPSweep: { value: 0 }, uPHi: { value: 0.86 }, uPDepth: { value: 0.34 }, uPCoral: { value: 0 }, uPExp: { value: 0.5 }, uPForm: { value: 0 }, uPLo: { value: 0.12 }, uPHiL: { value: 0.85 }, uPLumLin: { value: 0 }, uPCalWave: { value: 1 }, uPCalD: { value: 1 }, uPCalW: { value: 1 }, uPCalB: { value: 0 },
         uPInk: { value: 0.85 }, uPInkT: { value: 0.42 }, uPulse: { value: 0.0 }, uEnter: { value: 99 },
         // 주목 강조(스텝백 가이드) — 기본 전부 0/끔 = 도입 전과 픽셀 동일. setHotspot 이 주입한다.
-        uHotE: { value: new THREE.Vector4(0, 0, 0, 0) }, uGaze: { value: new THREE.Vector3(0, 0, 0) },
-        uHot: { value: 0 }, uPHiPale: { value: 0 }, uPHiHot: { value: 0 } },
+        uHotE: { value: new THREE.Vector4(0, 0, 0, 0) }, uGaze: { value: new THREE.Vector4(0, 0, 0, 0) },
+        uHot: { value: 0 }, uPHiPale: { value: 0 }, uPHiHot: { value: 0 }, uTokTex: { value: tokenTex() } },
       vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
       fragmentShader: `
         varying vec2 vUv; uniform sampler2D map, uLUT, uField, uFieldN; uniform float uTime, uCropOff, uCropScale, uPulse, uReady, uDetail, uEnter;
@@ -2912,6 +2912,12 @@ void main(){
   // 스텝백 프리뷰 = '영상 N회 재생'. 벽시계로 재면 배속·시작 위상·버퍼링에 어긋난다 —
   //   실제 재생 위치에서 루프 수와 진행률을 뽑아 타이머(링·분수)와 관찰 종료를 같은 값으로 구동한다.
   let _stepId = null, _stepLoops = 0, _stepFrac = 0;
+  // 시선 토큰 원본 = dab2n setup-injury 의 assets/icons/body-ring.png 그대로(104×104).
+  //   재구현은 이미 한 번 틀렸다 — 원본은 부드러운 글로우가 아니라 딱딱한 2톤 원반이다(fx-core 주석).
+  let _tokTex = null;
+  const tokenTex = () => (_tokTex ||= Object.assign(
+    new THREE.TextureLoader().load(import.meta.env.BASE_URL + 'ready-view/assets/body-ring.png'),
+    { colorSpace: THREE.SRGBColorSpace }));
   // ── 주목 강조 궤적 (스텝백 가이드) ────────────────────────────────────────────
   //   좌표는 **실측이다** — MediaPipe 33관절에서 구운 public/stepback-hotspots.json
   //   (굽는 스크립트 scripts/build_stepback_hotspots.mjs · 원본 assets/mocap/stepback_fwd-landmarks.json).
@@ -2941,7 +2947,7 @@ void main(){
     const U = co?.plane?.material?.uniforms; if (!U?.uHotE) return;
     const cfg = FXP.hot || {};
     const S = (cfg.on ?? 1) ? beatAt(vt) : null;
-    if (!S) { U.uHot.value = 0; U.uPHiPale.value = 0; U.uPHiHot.value = 0; U.uGaze.value.set(0, 0, 0); return; }
+    if (!S) { U.uHot.value = 0; U.uPHiPale.value = 0; U.uPHiHot.value = 0; U.uGaze.value.set(0, 0, 0, 0); return; }
     // ★ 나머지는 **서서히** 연해진다(유저). 첫 비트 시작부터 0.5s(영상시각)에 걸쳐 든다 —
     //   한 프레임에 전신이 뒤집히면 '색이 튀었다'로 읽히지 '주목이 생겼다'로 안 읽힌다.
     const paleK = Math.max(0, Math.min(1, (vt - _HOT.beats[0].tOn) / 0.5));
@@ -2953,7 +2959,16 @@ void main(){
     const r = S.b.r;
     U.uHotE.value.set(S.b.at[0], S.b.at[1], r * 1.30, r * 2.00);
     // 토큰도 같은 자리에 붙는다 — 봐야 할 곳이 둘이면 그건 지시가 아니다.
-    U.uGaze.value.set(S.b.at[0], S.b.at[1], (cfg.gaze ?? 1) * 0.052 * (1 + 0.55 * S.pop));
+    //   ★ 반경 둘: 판이 정사각이 아니라(w1.04 × h0.87) uv 원이 월드에선 타원이 된다.
+    //     세로를 기준으로 잡고 가로를 h/w 로 줄여야 화면에서 **동그랗게** 보인다.
+    //   ★ 등장 = 커졌다 제자리(팝). 도착 ±0.12s 에 55% 더 커진다 = '딱 붙는' 소리.
+    // ★ 크기는 **원본 비율에서 역산한다**(감으로 키우지 않는다). setup-injury 원본:
+    //   토큰 38px / 인물 세로 약 470px = 인물 키의 8%. 이 판에서 인물은 세로의 ph(0.63)이므로
+    //   토큰 지름 = 0.08 × 0.63 ≈ 0.050 (uv.y), 즉 반경 0.025. 처음 쓴 0.075 는 3배였고
+    //   실제로 발을 통째로 덮었다(렌더 확인).
+    const gz = (cfg.gaze ?? 1) * 0.025 * (1 + 0.55 * S.pop) * Math.min(1, S.k * 3 + 0.15);
+    const asp = (co.cfg?.h ?? 1) / (co.cfg?.w ?? 1);
+    U.uGaze.value.set(S.b.at[0], S.b.at[1], gz * asp, gz);
   }
   /** 이번 비트의 코치 한마디 — 비트 **시작**에 한 번, **전체 재생(BK_T1)에서만**.
    *  조각 단계(B2~B4)엔 이미 그 단계 전용 멘트가 있다 — 거기서 또 외치면 두 목소리가 겹친다.

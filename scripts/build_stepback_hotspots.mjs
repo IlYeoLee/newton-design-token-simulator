@@ -13,9 +13,9 @@ const mid = (a, b) => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
 //   시작/도착 시각은 속도 문턱으로 찾는다(손으로 안 찍는다).
 const TH = 0.35;   // /초. 정지 구간 잡음(≤0.10)보다 충분히 위, 버스트 최저(1.16)보다 아래
 const PHASES = [
-  { key: 'R1', joint: 28, win: [1.10, 1.52], part: '오른발', voice: '오른발!' },
-  { key: 'L',  joint: 27, win: [1.45, 1.80], part: '왼발',   voice: '왼발 빼고' },
-  { key: 'R2', joint: 28, win: [1.78, 2.20], part: '모으기', voice: '모아!' },
+  { key: 'R1', joint: 28, win: [1.10, 1.52], part: '오른발', voice: '오른발' },
+  { key: 'L',  joint: 27, win: [1.45, 1.80], part: '왼발',   voice: '왼발' },
+  { key: 'R2', joint: 28, win: [1.78, 2.20], part: '모으기', voice: '모아' },
 ];
 const beats = PHASES.map(p => {
   const idx = F.map((f, i) => i).filter(i => F[i].t >= p.win[0] && F[i].t <= p.win[1]);
