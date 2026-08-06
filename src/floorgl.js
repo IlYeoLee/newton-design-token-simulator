@@ -1417,6 +1417,7 @@ export class FloorGL {
     this._numLast2 = null; this._numT2 = 0;   // 카운트 숫자 펄스
     this._numLast = null; this._numT = 0;
     this._headW = null;     // 알약 폭 스무딩 (되감으면 지난 폭에서 출발해 첫 프레임이 튄다)
+    this._rk = null;        // 링 슬롯 점유 스무딩 — 폭과 같은 시계(리셋도 같이)
     this._textBand.y0 = 1e9; this._textBand.y1 = -1e9;
   }
 
@@ -1585,11 +1586,37 @@ export class FloorGL {
    *  (대문자화 · 'LEFT ' 접두사 · 2줄→1줄). 그러면 폭이 **한 프레임에 점프**해서 캡슐이 툭 끊긴다
    *  — 유저가 말한 '중간에 버벅인다'의 정체다. 목표 폭으로 지수 수렴시켜 형태 변화를 이어 붙인다.
    *  시간상수 0.12s: 전환(0.9s)보다 충분히 짧아 지연으로 안 느껴지고, 점프는 완전히 녹는다. */
+  /** 링 슬롯 점유 스무딩 — **폭과 같은 시계**로 움직인다.
+   *  왜: ringK 가 0/1 로 튀면 링이 한 프레임에 사라지고, 알약 폭과 타이틀 위치는 그 뒤 0.18s 에
+   *  걸쳐 따라온다 → 유저가 말한 순서('타이머가 들어가고 그 이후에 글자가 들어온다')가 된다.
+   *  링 슬롯은 폭(inner)의 구성 요소이므로, 이 값을 이징하면 **링·상자·글자가 한 동작**이 된다.
+   *  줄어들 때만 이징한다(켜질 때는 즉시) — 컨테이너가 내용보다 먼저 자리를 만드는 규칙 그대로. */
+  _smoothRingK(target) {
+    const dt = Math.max(0.001, Math.min(0.25, this.t - (this._rkT ?? this.t)));
+    this._rkT = this.t;
+    if (this._rk == null || target > this._rk) this._rk = target;
+    else this._rk += (target - this._rk) * (1 - Math.exp(-dt / 0.18));
+    return this._rk < 0.004 ? 0 : this._rk;
+  }
+
   _smoothW(target) {
     const dt = Math.max(0.001, Math.min(0.25, this.t - (this._hwT ?? this.t)));
     this._hwT = this.t;
     if (this._headW == null || Math.abs(target - this._headW) > 900) this._headW = target;   // 스테이지 전환은 즉시
-    else this._headW += (target - this._headW) * (1 - Math.exp(-dt / 0.12));
+    else {
+      // ★★ **비대칭**이다 — 유저: 옆으로 튀어나왔다가 타이머가 들어가고 그 다음에 글자가 들어와서
+      //   어색하다 · 컨테이너 밖으로 무언가 빠져나가지 않게.
+      //   대칭 이징(0.12s 양방향)이면 **커질 때** 상자가 내용을 못 따라간다 — 접두사가 붙거나
+      //   링이 도는 순간 내용이 먼저 넓어져 알약 밖으로 삐져나온다. 그게 '튀어나옴'이고,
+      //   그 뒤에 상자가 따라잡으며 링·글자가 차례로 제자리를 찾는 것이 '순차적'으로 읽힌다.
+      //   규칙(이 파일이 이미 적어 둔 원칙): **컨테이너가 내용보다 먼저 자리를 만든다.**
+      //     커질 때  = 거의 즉시(0.03s) — 상자가 앞서 열린다. 내용은 그 안에서 자란다.
+      //     줄어들 때 = 천천히(0.18s)   — 내용이 먼저 비고 상자가 뒤따라 닫힌다.
+      //   글자 크기는 이미 **목표 폭** 기준이라(위 wT), 상자가 즉시 열리면 글자와 링이 같은
+      //   프레임에 최종 자리로 들어간다 = '동시에' 읽힌다.
+      const grow = target > this._headW;
+      this._headW += (target - this._headW) * (1 - Math.exp(-dt / (grow ? 0.03 : 0.18)));
+    }
     return this._headW;
   }
 
@@ -1871,7 +1898,7 @@ export class FloorGL {
     const tA = (TOK.collapse && !inPv && !pillLeads(this.stage))
       ? 1 - clamp01((this.t - (PV + TOK.hold)) / Math.max(.05, TOK.fade)) : 1;
     // 링은 adv 가 정한다 — 관찰 중이면 항상(영상 남은 시간은 고유 값이라 중복이 아니다).
-    const ringK = (inPv || showRing(this.stage)) ? 1 : 0;
+    const ringK = this._smoothRingK((inPv || showRing(this.stage)) ? 1 : 0);
     const T = tA > 0.004 ? String(n.title || '').toUpperCase() : '';
     const box = this._headBox(T, n.step || repsTotal(this.stage), y, { ringR: this._ringRFor(g.rem), ringK });
     return { ...box, T, tA, ringK, dur, PV, inPv, g };
@@ -3002,7 +3029,7 @@ export class FloorGL {
     const ringFade = HAS_PREV
       ? (this._moT == null ? 0 : eOut(clamp01((t - (this._moT + MOVE)) / 0.45)))
       : 1;
-    const ringK = showRing(this.stage) ? 1 : 1 - ringFade;
+    const ringK = this._smoothRingK(showRing(this.stage) ? 1 : 1 - ringFade);
     // ★ 타이틀 접힘 — 레거시 경로(_headBoxFor)와 **같은 규약**. 모프가 끝나고 hold 초가 지나면
     //   동작명이 빠진다(유저: 글자가 자연스럽게 사라지며 타이머만 남으면 된다).
     //   관찰 중엔 안 접는다 — 거기선 동작명이 화면의 전부다.
