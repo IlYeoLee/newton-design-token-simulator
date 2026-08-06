@@ -214,6 +214,8 @@
     </div>
     <div class=card>
       <h2>드리블 매트 — 훈련 판 한 프레임 (판 · 표적 5 · 인터랙션 방향)</h2>
+      <div style="display:flex;gap:8px;margin:0 0 8px">
+        <button id=mIn>등장</button><button id=mHit>공 닿음</button><button id=mLive>타겟 이동</button></div>
       <canvas id=mat width=1080 height=1080></canvas>
       <p class=note>판·눈금·크롬은 <b>유리 알약과 같은 레시피</b>(옅은 채움 · 안쪽 광 · 먼 쪽 0.95 → 가까운 쪽 0.06 림)이고,
       표적은 시뮬에서 <b>판정 토큰(존 마크)</b> 그 자체입니다 — 여기 그림은 배치 확인용 대역입니다.
@@ -1123,6 +1125,14 @@ function drawJJH(g, X, Y, W, t) {
 }
 let _mlogo = null;
 function _matLogo() { if (!_mlogo) { _mlogo = new Image(); _mlogo.src = 'newton-symbol.svg'; } return _mlogo; }
+let _mInT = -9, _mHitT = -9, _mLive = 3;
+const _mIn = t => Math.min(1, Math.max(0, (t - _mInT) / 1.1));
+addEventListener('DOMContentLoaded', () => {
+  const now = () => performance.now() / 1000;
+  document.getElementById('mIn').onclick = () => { _mInT = now(); };
+  document.getElementById('mHit').onclick = () => { _mHitT = now(); };
+  document.getElementById('mLive').onclick = () => { _mLive = _mLive % 4 + 1; };
+});
 function drawMatCard(t) {
   const cv = $('mat'); if (!cv) return;
   const W = 1080;
@@ -1130,15 +1140,15 @@ function drawMatCard(t) {
   const g = off.getContext('2d');
   g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, W, W);
   drawDribbleMat(g, W, {
-    chev: 0, prog: 0.5, in: Math.min(1, (t % 6) / 1.4), hit: (t % 0.6),
+    chev: 0, prog: 0.5, in: _mIn(t), hit: t - _mHitT, 
     mat: { nx: 0.50, fx: 0.86, ny: -0.80, fy: 0.80 },
     center: { x: 0, y: 0.00, r: 0.28, label: null },
     // 시뮬 배치와 같은 다섯 — ①② 먼 쪽(스탠스) · ③④ 가까운 쪽(스텝) · 가운데 액티브
     targets: [
-      { x: -0.42, y: 0.36, n: 1, r: 0.19, on: true },
-      { x: 0.42, y: 0.36, n: 2, r: 0.19, on: true },
-      { x: -0.32, y: -0.48, n: 3, r: 0.19, on: true, live: true },
-      { x: 0.32, y: -0.48, n: 4, r: 0.19, on: false },
+      { x: -0.42, y: 0.36, n: 1, r: 0.19, on: true, live: _mLive === 1 },
+      { x: 0.42, y: 0.36, n: 2, r: 0.19, on: true, live: _mLive === 2 },
+      { x: -0.32, y: -0.48, n: 3, r: 0.19, on: true, live: _mLive === 3 },
+      { x: 0.32, y: -0.48, n: 4, r: 0.19, on: true, live: _mLive === 4 },
     ],
     brand: 1,
   }, { halo: P.halo }, t, Object.assign(_primEnv(), { logo: _matLogo() }));

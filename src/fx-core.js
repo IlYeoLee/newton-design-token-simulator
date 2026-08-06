@@ -1919,27 +1919,23 @@ export function drawDribbleMat(g, W, P, look, t, ENV) {
     * hubK * (1 + 0.055 * hitK + 0.008 * Math.sin(t * 2.4));   // 등장 + 접촉 펄스 + 상시 호흡
 
 
-  // ── 노드 — 허브를 도는 링 위의 슬롯. 대기는 헤어라인, 선택된 것만 채워진다.
-  //    (원형 메뉴·게임 HUD 셀렉터의 기본 위계 — 넷을 같은 무게로 두면 '스티커 네 장'이 된다)
+  // ── 노드 = 잽잽훅 노드와 **같은 레시피**. 채움 + volRing + 헤일로 — 윤곽선을 긋지 않는다.
+  const GB = 13 * look.halo;
   for (const tg of (P.targets || [])) {
     const on = tg.on !== false, live = !!tg.live;
-    const cx = X(tg.x), cy = Y(tg.y);
     const k = nodeK(tg.n ? tg.n - 1 : 0);
     if (k <= 0.001) continue;
-    const R = (tg.r != null ? tg.r : 0.20) * W / 2 * (live ? 1.06 : 1) * (0.9 + 0.1 * k);
-    if (live) {                                   // 선택 = 채움 + 밝은 림. 화면에 하나뿐이다.
-      const f = g.createRadialGradient(cx, cy, R * 0.2, cx, cy, R);
-      f.addColorStop(0, rgbaL(0.34, 0.34)); f.addColorStop(1, rgbaL(0.3, 0.14));
-      g.fillStyle = f; g.beginPath(); g.arc(cx, cy, R, 0, Math.PI * 2); g.fill();
-      g.strokeStyle = rgbaL(0.3, 0.95); g.lineWidth = LNW * 0.75;
-      g.shadowColor = lut(0.4); g.shadowBlur = 14 * s;
-      g.beginPath(); g.arc(cx, cy, R, 0, Math.PI * 2); g.stroke(); g.shadowBlur = 0;
-    } else {                                      // 대기 = 헤어라인. 채우지 않는다.
-      g.strokeStyle = INK(on ? 0.34 : 0.14); g.lineWidth = LNW * 0.4;
-      g.beginPath(); g.arc(cx, cy, R, 0, Math.PI * 2); g.stroke();
-    }
-    g.globalAlpha = (live ? 1 : (on ? 0.55 : 0.22)) * k;
-    ENV.num(g, tg.n, cx, cy + s, R, R * 0.82);
+    const cx = X(tg.x), cy = Y(tg.y);
+    const R = (tg.r != null ? tg.r : 0.20) * W / 2 * (live ? 1.34 : 1) * (0.9 + 0.1 * k);
+    g.globalAlpha = k * (on ? 1 : 0.45);
+    g.shadowBlur = GB * 1.4; g.shadowColor = lut(0.5);
+    g.fillStyle = lut(live ? 0.5 : 0.36);
+    g.beginPath(); g.arc(cx, cy, R * 0.88, 0, Math.PI * 2); g.fill();
+    g.shadowBlur = 0;
+    g.save(); g.translate(cx, cy);
+    volRing(g, lut, R, live ? 0.8 : 0.5, live ? 0.9 : 0.5, LNW * 0.9, GB);
+    g.restore();
+    ENV.num(g, tg.n, cx, cy, R * 0.9, Math.round(R * 0.78));
     g.globalAlpha = 1;
   }
 
@@ -1954,12 +1950,6 @@ export function drawDribbleMat(g, W, P, look, t, ENV) {
       g.strokeStyle = rgbaL(0.3, 0.98); g.lineWidth = LNW * 1.15;
       g.shadowColor = lut(0.42); g.shadowBlur = 18 * s;
       g.beginPath(); g.arc(cx, cy, CR, 0, Math.PI * 2); g.stroke(); g.shadowBlur = 0;
-    }
-    g.strokeStyle = INK(0.6); g.lineWidth = LNW * 0.4;          // 십자 조준 눈금 — 크롬이라 무채
-    for (const d of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-      g.beginPath();
-      g.moveTo(cx + d[0] * CR * 1.16, cy + d[1] * CR * 1.16);
-      g.lineTo(cx + d[0] * CR * 1.34, cy + d[1] * CR * 1.34); g.stroke();
     }
     if (P.brand && ENV.logo && ENV.logo.complete && ENV.logo.naturalWidth) {
       const lw = CR * 1.05, lh = lw * ENV.logo.naturalHeight / ENV.logo.naturalWidth;
