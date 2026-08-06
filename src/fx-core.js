@@ -1898,7 +1898,7 @@ function volRing(g, lut, r, v, a, lw, GB, wMul = 1) {
  *  P.mat     = { nx, fx, ny, fy } 판 정규좌표(-1..1, +y = 먼 쪽). nx = fx 면 직사각
  *  P.targets = [{ x, y, n, r, on, live }]  on = 이 단계에서 쓰는가 · live = 지금 겨눌 표적(색)
  *  P.center  = { x, y, r, label, ring }    액티브 타깃. ring:0 = 링은 3D 존 마크가 그린다
- *  P.title / P.brand / P.ruler{w,h} / P.chev / P.bracket / P.round / P.prog
+ *  P.brand / P.prog   (title·ruler·chev·bracket·round 는 판을 없앨 때 같이 폐기)
  */
 const eOutQuint = u => 1 - Math.pow(1 - Math.max(0, Math.min(1, u)), 5);
 export function drawDribbleMat(g, W, P, look, t, ENV) {
@@ -2198,18 +2198,11 @@ export function drawDribbleMat(g, W, P, look, t, ENV) {
     }
   }
 
-  // ── 방향 셰브론 — 다음이 어느 쪽인지. 크롬이라 무채, 호흡만 준다
-  if (P.chev) {
-    const chev = (cy, dir) => {
-      for (let k = 0; k < 2; k++) {
-        const o = k * 9 * s, w = 11 * s, h = 7 * s, yy = cy + dir * o;
-        g.beginPath(); g.moveTo(X(cU) - w, yy - dir * h); g.lineTo(X(cU), yy);
-        g.lineTo(X(cU) + w, yy - dir * h); g.stroke();
-      }
-    };
-    g.strokeStyle = INK(0.45 + 0.3 * Math.sin(t * 2.4)); g.lineWidth = 2.2 * AW * s;
-    chev(Y(cV) - CR * 2.0, -1); chev(Y(cV) + CR * 2.0, 1);
-  }
+  // ── 방향 셰브론 — **폐기**(유저: 농구에서 원래 쓰이던 컴포넌트가 아니지 않니).
+  //   맞다. 판(마름모꼴)이 있던 첫 판의 잔재다 — 판을 없앨 때 같이 나갔어야 했는데 남았다.
+  //   HANDOFF-0806 '남은 일 3' 이 ruler·title·chev·round 를 죽은 파라미터로 이미 지목해 뒀다.
+  //   방향은 레일과 코멧이 말한다(모든 길은 허브를 거친다) — 화살표를 따로 둘 이유가 없다.
+
 
   // ── 워드마크 — 실물 매트가 브랜드를 박는 그 자리. 4급이라 가장 옅다
 
