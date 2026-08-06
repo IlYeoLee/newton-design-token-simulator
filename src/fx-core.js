@@ -2074,12 +2074,23 @@ export function drawDribbleMat(g, W, P, look, t, ENV) {
     //   안 든다). '윤곽선을 긋지 않는다'가 원래 의도였지만, 채움이 0.88R 이라 R 까지의 띠가
     //   비어 납작한 원반으로 읽혔다. 채움(0.88R) ↔ 림(R) 사이의 **간격이 곧 겹으로 보이는 구조**다.
     //   수치는 콤보 노드 정본 그대로 — lineWidth LNW×(활성 1.3 / 대기 0.9) · shadowBlur GB×(1.6/0.6).
-    g.strokeStyle = lut(live ? 0.8 : 0.45);
-    g.lineWidth = LNW * (live ? 1.3 : 0.9);
-    g.shadowBlur = live ? GB * 1.6 : GB * 0.6; g.shadowColor = lut(0.5);
+    // ★ 판정 색 — 잽잽훅과 **같은 규약**(유저). 채움은 그대로 두고 **링**이 결과를 말한다:
+    //   hit=prism(얼음) · near=sand(연코랄) · miss=무채. 이 어휘가 없어서 매트는 '여기를
+    //   밟아라'까지만 말하고 '잘 밟았다/빗나갔다'를 못 했다.
+    const V = tg.v;
+    g.strokeStyle = V === 'hit' ? PAL.prism : V === 'near' ? PAL.sand : V === 'miss' ? NEU.lo
+      : lut(live ? 0.8 : 0.45);
+    g.lineWidth = LNW * (live ? 1.3 : V ? 1.15 : 0.9);
+    g.shadowBlur = live ? GB * 1.6 : V && V !== 'miss' ? GB * 1.3 : GB * 0.6;
+    g.shadowColor = V === 'hit' ? PAL.prism : V === 'near' ? PAL.sand : lut(0.5);
     g.beginPath(); g.arc(cx, cy, R, 0, Math.PI * 2); g.stroke();
     g.shadowBlur = 0;
+    // ★ 숫자 = **파냄**(destination-out) — 잽잽훅 정본의 그 기법(유저: 밟게 빛나는 그게 있는데).
+    //   채움·글로우·블룸이 아무리 밝아져도 숫자가 배경으로 뚫려 항상 읽힌다. 위에 얹기만 하면
+    //   밝아질수록 같이 묻힌다. 활성 노드에서 특히 그랬다.
+    g.save(); g.globalCompositeOperation = 'destination-out'; g.shadowBlur = 0;
     ENV.num(g, tg.n, cx, cy, R * 0.9, Math.round(R * 0.78));
+    g.restore();
     g.globalAlpha = 1;
   }
 
@@ -2118,6 +2129,21 @@ export function drawDribbleMat(g, W, P, look, t, ENV) {
       volRing(g, lut, R * (1 + 1.5 * (1 - hk)), 0.92, hk * 0.9, LNW * 1.7, GB2, 1.1);
       g.restore();
     }
+    // ★ **임팩트 플래시** — 잽잽훅 정본의 '팡'(유저: 밟게 빛나는 그게 있는데).
+    //   수축 링만으로는 다가오는 예고일 뿐 **도착 순간의 사건**이 없었다. 백열 코어 버스트로
+    //   그 한 순간을 만든다. 0.22s 만에 완전 소멸 — 번쩍하고 사라져야 타격이 된다.
+    //   수명을 박자에서 파생하지 않고 짧게 고정한다: 이건 '지속'이 아니라 '순간'이다.
+    const fk = Math.max(0, 1 - hitS / 0.22), fe = fk * fk;
+    if (fe > 0.01) {
+      const BR = R * (1.5 + 1.8 * (1 - fk));
+      const fg2 = g.createRadialGradient(cx, cy, 0, cx, cy, BR);
+      fg2.addColorStop(0, `rgba(255,255,255,${Math.min(1, 1.15 * fe).toFixed(3)})`);
+      fg2.addColorStop(0.35, rgbaL(0.92, (0.8 * fe).toFixed(3)));
+      fg2.addColorStop(1, rgbaL(0.7, 0));
+      g.save(); g.shadowBlur = 0; g.fillStyle = fg2;
+      g.beginPath(); g.arc(cx, cy, BR, 0, Math.PI * 2); g.fill();
+      g.restore();
+    }
   };
   const nodeHits = (P.targets || []).filter(q => q && q.hit != null && q.hit < 1.2);
   for (const q of nodeHits) {
@@ -2152,9 +2178,13 @@ export function drawDribbleMat(g, W, P, look, t, ENV) {
     g.save(); g.translate(cx, cy);
     volRing(g, lut, CRL, cLive ? 0.8 : 0.5, cLive ? 0.9 : 0.5, LNW * 0.9, GBc);
     g.restore();
-    g.strokeStyle = lut(cLive ? 0.8 : 0.45);
-    g.lineWidth = LNW * (cLive ? 1.3 : 0.9);
-    g.shadowBlur = cLive ? GBc * 1.6 : GBc * 0.6; g.shadowColor = lut(0.5);
+    const cVer = P.center.v;   // 허브도 표적 5번이므로 같은 판정 어휘를 쓴다
+    //   ※ cV 는 이미 허브 좌표로 쓰이고 있다 — 이름을 겹치면 TDZ 로 죽는다(한 번 겪음).
+    g.strokeStyle = cVer === 'hit' ? PAL.prism : cVer === 'near' ? PAL.sand : cVer === 'miss' ? NEU.lo
+      : lut(cLive ? 0.8 : 0.45);
+    g.lineWidth = LNW * (cLive ? 1.3 : cVer ? 1.15 : 0.9);
+    g.shadowBlur = cLive ? GBc * 1.6 : cVer && cVer !== 'miss' ? GBc * 1.3 : GBc * 0.6;
+    g.shadowColor = cVer === 'hit' ? PAL.prism : cVer === 'near' ? PAL.sand : lut(0.5);
     g.beginPath(); g.arc(cx, cy, CRL, 0, Math.PI * 2); g.stroke(); g.shadowBlur = 0;
     if (P.brand && ENV.logo && ENV.logo.complete && ENV.logo.naturalWidth) {
       const lw = CR * 1.05, lh = lw * ENV.logo.naturalHeight / ENV.logo.naturalWidth;
