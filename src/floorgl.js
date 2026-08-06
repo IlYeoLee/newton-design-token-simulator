@@ -662,9 +662,11 @@ export const READY_OPT = {
   //   전체 한 벌 램프)이 이 지오메트리에 맞는 답이었다. 실험은 토글로 남긴다.
   feetTokens: false, // ⑧ 시작화면 발자국 어포던스 (복싱엔 없다 — 기본 끔)
   // ⑨ 최종확정 안 (피그마 423:3637 '최종화정', 2026-08-07) — 캡슐을 걷고 큰 광 위에 인물만.
-  //   기존 안과 **배타적**이다(레이아웃이 통째로 다르다) — 켜면 _paint_ready_final 이 전담한다.
-  //   발자국 3D 토큰도 이 값을 본다(session.js _readyFeetTick) — 2안에 발자국이 있어서다.
-  final:     false,
+  //   ★ **기본값이다**(유저 08-07 '시작에 이식해'). 시작화면의 정본은 이제 이쪽이고,
+  //     _paint_ready_final 이 전담한다. 끄면 08-06 이전 안(캡슐·아크·칩)으로 돌아간다 —
+  //     위 ①~⑧ 토글은 그 옛 안에만 걸린다(이 안엔 해당 요소가 없다).
+  //   발자국 3D 토큰도 이 값을 본다(session.js _readyFeetTick) — 이 안은 캔버스가 그린다.
+  final:     true,
   arcBoxing: false,
   arcLabelMode: 'flat',   // 라벨 배치: 'head'(머리·접선) | 'mid'(중앙·접선) | 'flat'(머리·수평)   // ④ 아크 = 복싱 막대 규약 (세그마다 같은 램프 · 앞머리에 시간 · 아이콘/칩 없음)
 };
@@ -3153,12 +3155,14 @@ export class FloorGL {
     const p2 = eOut(intro(t, TP2, TRAVEL));            // 0 = 인물 화면, 1 = 숫자 화면
     const q = 1 - p2;
     // '두 번'을 글자 말고 빛으로 — CTA 구간에서만 톡·톡. 빼려면 0 으로 두면 끝.
-    const tapB = (() => {
+    //   off 로 위상을 밀 수 있다: 발자국 좌/우를 살짝 어긋나게 밟히게 하는 데 쓴다.
+    const beat = (off = 0) => {
       if (t < TP_CTA) return 0;
-      const ph = (t - TP_CTA) % 2.0;
+      const ph = (((t - TP_CTA - off) % 2.0) + 2.0) % 2.0;
       const bl = t0 => { const u = (ph - t0) / .34; return (u >= 0 && u <= 1) ? Math.sin(u * Math.PI) : 0; };
       return Math.max(bl(.10), bl(.55));
-    })();
+    };
+    const tapB = beat();
 
     ctx.save();
     if (CK !== 1) { ctx.translate(800, PV); ctx.scale(CK, CK); ctx.translate(-800, -PV); }
@@ -3196,14 +3200,18 @@ export class FloorGL {
     this._readyPerson(bk, { x: 337, y: 969, w: 1078, h: 1050, r: 495 },
                       e0(.30, .9) * q, null, bk ? 0.13 : 0.22);
 
-    // ── ③ 뱃지 — 254.36×114.68 r12, 흰 20% 면 + 흰 글자. **타이틀 위**로 올라왔다(기존 안은 아래).
-    //   글자 크기는 인스턴스 스케일을 되돌린 실측: (114.68 − 15.84*2) / 1.4 = 59.3.
+    // ── ③ 뱃지 — 254.36×114.68 **r45**, 흰 20% 면 + 흰 글자. **타이틀 위**로 올라왔다(기존 안은 아래).
+    //   ★ R 은 코드젠 값(12)을 쓰면 안 된다 — 뱃지가 **축소된 인스턴스**라 코드젠이 컴포넌트
+    //     좌표값을 뱉는다(글자 235.22px·패딩 31.68 이 같은 이유). 피그마 원본 렌더(254×115)를
+    //     픽셀로 재서 r45 를 얻었다: 라운드렉트 기하로 y=5·8·12·20·30 의 좌측 진입 x 가
+    //     25·20·15·8·3 인데 r45 계산값이 24.4·19.4·14.4·7.6·2.6 로 맞는다(r41 은 전부 어긋난다).
+    //   글자 크기 59.3 은 같은 렌더에서 캡 높이로 확인.
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     if (q > 0.01) {
       ctx.save(); ctx.globalAlpha *= e0(.96, .55) * q;
       const BY = 572 + rise(.96, .55, 18);
       ctx.fillStyle = 'rgba(255,255,255,.2)';
-      ctx.beginPath(); ctx.roundRect(673, BY, 254.36, 114.68, 12); ctx.fill();
+      ctx.beginPath(); ctx.roundRect(673, BY, 254.36, 114.68, 45); ctx.fill();
       ctx.fillStyle = NEU.ink; ctx.font = RF(700, 59.3); ctx.letterSpacing = '-0.5px';
       ctx.fillText(R2.badge || 'Creator', 800.18, BY + 114.68 / 2 + 2);   // +2 = 기존 안과 같은 시각 보정
       ctx.letterSpacing = '0px'; ctx.restore();
@@ -3230,7 +3238,9 @@ export class FloorGL {
       //   단위 x 는 하드코딩하지 않고 숫자 실폭에서 파생한다 — '30' 이면 820+224+44 = 1088 로
       //   피그마와 정확히 같고, '5.0'·'45' 처럼 폭이 달라져도 간격 44 가 유지된다.
       const NCX = 820, NTOP = 630;
-      ctx.letterSpacing = '-9.05px';   // 피그마 값 그대로
+      // ★ 소수점이 낀 값('5.0')은 자간을 더 조인다 — 도트 폰트의 마침표가 숫자만큼 큰 사각
+      //   점이라 피그마 값(-9.05, '30' 기준)으로는 점 좌우가 벌어져 '5 . 0' 세 덩어리로 읽힌다.
+      ctx.letterSpacing = (/\./.test(String(R2.total)) ? -24 : -9.05) + 'px';
       const nw = rollNum(ctx, R2.total, t, TP2 + LEAD, TRAVEL - LEAD, NCX, NTOP, 384,
                          { fam: dot9, align: 'center', fill: NEU.ink });
       ctx.letterSpacing = '0px';
@@ -3244,58 +3254,120 @@ export class FloorGL {
         ctx.save(); ctx.globalAlpha *= SUB2;
         ctx.textAlign = 'center';
         ctx.fillStyle = 'rgba(255,255,255,.6)'; ctx.font = RF(400, 100.508); ctx.letterSpacing = '-3.1583px';
-        ctx.fillText(R2.sub, NCX, 1157.5 + (1 - SUB2) * 18);
+        // ★ 피그마 좌표(1157.5)에서 **위로 올린다**(유저 08-07). 피그마는 숫자를 라인박스
+        //   (384×1.2 = 461)로 잡아 gap 6 을 줬는데, 도트 글리프는 그 박스보다 훨씬 작아
+        //   실제로는 200px 가까이 떠 있었다. 부제가 숫자에 붙어야 '숫자+단위+모드'가 한
+        //   덩어리로 읽히고, 아래 CTA 와 위계가 갈린다. 글리프 실측 하단(≈893) + 여백.
+        ctx.fillText(R2.sub, NCX, 1000 + (1 - SUB2) * 18);
         ctx.letterSpacing = '0px'; ctx.restore();
       }
       ctx.restore();
     }
 
-    // ── ⑥ CTA — 화살표 + 'Tap your foot Twice' + 십자 가이드 + 발자국 두 짝.
-    //   2안에선 숫자와 **같은 화면**이라 CTA 는 숫자가 도착한 뒤에 붙는다.
-    const p3 = e0(TP_CTA, .5);
+    // ── ⑥ CTA — 화살표 → 문구(단어별) → 십자 가이드(중앙에서 그어짐) → 점 → 발자국.
+    //   ★ **한 덩어리로 뜨지 않는다**(유저 08-07: '왜 여긴 통으로 나와'). 위에서 아래로,
+    //     읽는 순서대로 하나씩 붙는다 — 화살표가 '아래를 봐'라고 먼저 말하고, 문구가 무엇을
+    //     하라는지 말하고, 그 다음 **어디에** 서라는 가이드와 발자국이 놓인다.
+    //   지연은 전부 TP_CTA 기준 상대값이라 CTA 시작을 옮기면 통째로 따라온다.
+    const CD = {                      // 요소별 등장 지연(초)
+      arrow: 0, word: .10, wordStep: .07, hLine: .38, vLine: .46,
+      dot: .54, dotStep: .05, footL: .74, footR: .84,
+    };
+    const p3 = e0(TP_CTA + CD.arrow, .5);
     if (p3 > 0.01) {
-      const dy = rise(TP_CTA, .5, 14);
-      ctx.save(); ctx.globalAlpha *= p3 * (.9 + .1 * tapB);
-      // 화살표 — fig/arrow.svg 가 피그마 arrow-right 인스턴스와 같은 컴포넌트(뷰박스 81.25×64.58).
+      const at = (d, dur = .5) => e0(TP_CTA + d, dur);
+      const up = (d, dur, px) => (1 - at(d, dur)) * px;    // 아래에서 올라와 앉는다
+      ctx.save();
+      // ① 화살표 — fig/arrow.svg 가 피그마 arrow-right 인스턴스와 같은 컴포넌트(뷰박스 81.25×64.58).
       //   박스 85.778 → 아이콘 leaf 인셋 12.5%/20.83% → 블리드 4.17%/5.36% = 69.70×55.40.
       const ar = this._img('fig/arrow.svg');
-      if (ar) ctx.drawImage(ar, 742.65, 1384.19 + dy, 69.70, 55.40);
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillStyle = NEU.ink; ctx.font = RF(700, 80.74); ctx.letterSpacing = '-5.76px';
-      ctx.fillText('Tap your foot Twice', 780.65, 1565.5 + dy);
-      ctx.letterSpacing = '0px';
-
-      // ── 십자 가이드 (피그마 423:3483) — **점선**이다: 흰 그라디언트 스트로크 2.8px,
-      //   대시 4.8/4.8, mix-blend-mode: soft-light. 에셋 대신 그린다 — 선 두 개와 점 다섯
-      //   개뿐이고, SVG 로 넣으면 대시가 리샘플링돼 오히려 흐려진다.
-      //   ※ 세로선(x793.49)과 가로선(중앙 800 기준 폭 612)이 서로 안 겹치는 건 피그마 그대로다.
-      ctx.save();
-      ctx.globalCompositeOperation = 'soft-light';
-      ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = 2.8; ctx.setLineDash([4.8, 4.8]);
-      ctx.beginPath();
-      ctx.moveTo(793.49, 1716.99 + dy); ctx.lineTo(793.49, 1971.50 + dy);   // 세로 254.514
-      ctx.moveTo(494, 1853.96 + dy);    ctx.lineTo(1106, 1853.96 + dy);     // 가로 612
-      ctx.stroke();
-      ctx.setLineDash([]);
-      ctx.restore();
-      ctx.fillStyle = '#FFFFFF';
-      // 끝점 4 개(지름 9.981) + 중앙 점(지름 8) — 블렌드 없음(피그마도 없다)
-      for (const [cx, cy, r] of [[793.49, 1716.99, 4.99], [522.99, 1854.20, 4.99],
-                                 [1066.95, 1854.20, 4.99], [793.49, 1969.01, 4.99],
-                                 [794, 1853.95, 4]]) {
-        ctx.beginPath(); ctx.arc(cx, cy + dy, r, 0, Math.PI * 2); ctx.fill();
+      if (ar) {
+        ctx.save(); ctx.globalAlpha *= at(CD.arrow);
+        ctx.drawImage(ar, 742.65, 1384.19 + up(CD.arrow, .5, 14), 69.70, 55.40);
+        ctx.restore();
       }
+      // ② 문구 — **단어 하나씩**. 폭은 전체 문자열을 한 번 재고 접두사 폭에서 파생하므로
+      //   문구가 바뀌어도 정렬이 안 깨진다(가운데 780.65 기준).
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = NEU.ink; ctx.font = RF(700, 80.74); ctx.letterSpacing = '-5.76px';
+      {
+        const WORDS = 'Tap your foot Twice'.split(' ');
+        const full = ctx.measureText(WORDS.join(' ')).width;
+        let x = 780.65 - full / 2;
+        ctx.textAlign = 'left';
+        WORDS.forEach((wd, i) => {
+          const d = CD.word + i * CD.wordStep, a = at(d, .45);
+          if (a > 0.004) {
+            ctx.save(); ctx.globalAlpha *= a;
+            ctx.fillText(wd, x, 1565.5 + up(d, .45, 16));
+            ctx.restore();
+          }
+          x += ctx.measureText(wd + ' ').width;
+        });
+      }
+      ctx.letterSpacing = '0px'; ctx.textAlign = 'center';
 
-      // ── 회색 발자국 두 짝 (피그마 423:3491 / 423:3499) — 94.751×228.779.
+      // ③ 십자 가이드 (피그마 423:3483) — **점선**이다: 흰 그라디언트 스트로크 2.8px,
+      //   대시 4.8/4.8, mix-blend-mode: soft-light. 에셋 대신 그린다 — 선 두 개와 점 다섯
+      //   개뿐이고, SVG 로 넣으면 대시가 리샘플링돼 흐려지는 데다 **그어지는 모션**을 못 준다.
+      //   교차점에서 양끝으로 자란다 — 자리를 '찍는' 동작이라 가운데에서 나가야 맞다.
+      //   ※ 세로선(x793.49)과 가로선(중앙 800 기준 폭 612)이 서로 안 겹치는 건 피그마 그대로다.
+      const CROSS_X = 793.49, CROSS_Y = 1853.96;
+      const grow = (a, c, lo, hi) => [c + (lo - c) * a, c + (hi - c) * a];
+      if (at(CD.hLine, .55) > 0.004 || at(CD.vLine, .55) > 0.004) {
+        ctx.save();
+        ctx.globalCompositeOperation = 'soft-light';
+        ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = 2.8; ctx.setLineDash([4.8, 4.8]);
+        const gh = at(CD.hLine, .55), gv = at(CD.vLine, .55);
+        ctx.beginPath();
+        if (gh > 0.004) { const [x0, x1] = grow(gh, 800, 494, 1106); ctx.moveTo(x0, CROSS_Y); ctx.lineTo(x1, CROSS_Y); }
+        if (gv > 0.004) { const [y0, y1] = grow(gv, CROSS_Y, 1716.99, 1971.50); ctx.moveTo(CROSS_X, y0); ctx.lineTo(CROSS_X, y1); }
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.restore();
+      }
+      // ④ 끝점 4 개(지름 9.981) + 중앙 점(지름 8) — 블렌드 없음(피그마도 없다).
+      //   선이 다다른 순서대로 톡톡 찍힌다.
+      ctx.fillStyle = '#FFFFFF';
+      [[794, 1853.95, 4], [522.99, 1854.20, 4.99], [1066.95, 1854.20, 4.99],
+       [CROSS_X, 1716.99, 4.99], [CROSS_X, 1969.01, 4.99]].forEach(([cx, cy, r], i) => {
+        const a = at(CD.dot + i * CD.dotStep, .3);
+        if (a <= 0.004) return;
+        ctx.save(); ctx.globalAlpha *= a;
+        ctx.beginPath(); ctx.arc(cx, cy, r * (0.4 + 0.6 * a), 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+      });
+
+      // ⑤ 회색 발자국 두 짝 (피그마 423:3491 / 423:3499) — 94.751×228.779.
       //   왼발 @600.00 · 오른발 @991.26, 둘 다 y1738.58. 오른발은 **왼발을 좌우 반전**한 것
       //   (피그마 CSS: rotate(180) + scaleY(-1) = 좌우 미러). 에셋 한 벌이면 된다.
       //   에셋 자체가 흰 65% 라 따로 칠하지 않는다.
+      //   ★ 모션 — 문구가 'Twice' 라 발도 **두 번 밟는다**. 3D FootMark.tapHint 와 같은
+      //     문법(펄스 두 번 · 사인 디졸브)이고, 여기선 캔버스라 세 가지로 준다:
+      //       ⓐ 뒤꿈치를 축으로 살짝 눌린다(세로 3%) — 밟는 건 위치 이동이 아니라 압축이다
+      //       ⓑ 알파가 오른다(밟은 자리가 진해진다)
+      //       ⓒ lighter 로 한 겹 더 얹어 발광 — 투사광이라 '눌림'을 빛으로 말한다
+      //     좌우를 0.08s 어긋나게 둔다. 정확히 같이 뛰면 두 발이 한 물체로 읽힌다.
       const ft = img('foot-final.svg');
       if (ft) {
-        const FW = 94.751, FH = 228.779, FY = 1738.58 + dy;
-        ctx.drawImage(ft, 600.00, FY, FW, FH);
-        ctx.save(); ctx.translate(991.26 + FW, FY); ctx.scale(-1, 1);
-        ctx.drawImage(ft, 0, 0, FW, FH); ctx.restore();
+        const FW = 94.751, FH = 228.779, FY = 1738.58;
+        for (const [fx, mirror, d, off] of [[600.00, false, CD.footL, 0], [991.26, true, CD.footR, .08]]) {
+          const a = at(d, .5);
+          if (a <= 0.004) continue;
+          const b = beat(off);
+          ctx.save();
+          ctx.translate(fx + (mirror ? FW : 0), FY + up(d, .5, 20));
+          if (mirror) ctx.scale(-1, 1);
+          ctx.translate(0, FH); ctx.scale(1, 1 - 0.03 * b); ctx.translate(0, -FH);   // ⓐ 뒤꿈치 축
+          ctx.globalAlpha *= a * (0.78 + 0.22 * b);                                   // ⓑ
+          ctx.drawImage(ft, 0, 0, FW, FH);
+          if (b > 0.01) {                                                             // ⓒ
+            ctx.globalCompositeOperation = 'lighter';
+            ctx.globalAlpha *= 0.55 * b;
+            ctx.drawImage(ft, 0, 0, FW, FH);
+          }
+          ctx.restore();
+        }
       }
       ctx.restore();
     }
