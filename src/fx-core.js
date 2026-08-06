@@ -1876,6 +1876,13 @@ export function drawDribbleMat(g, W, P, look, t, ENV) {
   const AW = (ENV.arrow && ENV.arrow.w) || 1;
   const rgbaL0 = (v, a) => lut(v).replace('rgb(', 'rgba(').replace(')', ',' + a + ')');
   const INK = (a, v) => rgbaL0(v == null ? 0.86 : v, a);   // 크롬 = LUT 밝은 끝. 하드코딩 크림 폐기
+  // 밝은 면(코트 타일·주간)에서는 헤일로가 일을 못 한다 — 밝은 바닥에 밝은 글로우를 얹으면
+  //   대비가 아니라 뿌연 김이 된다. 그 몫을 **획 자체**가 받는다: 알파·두께를 올리고 글로우를 줄인다.
+  //   신호는 투사면 칩(session.js livePrimEnv 의 day) — 검은 바닥에선 0 이라 원래 룩 그대로다.
+  const DAY = ENV.day ? 1 : 0;
+  const dA = a => Math.min(1, a * (1 + 0.85 * DAY));       // 알파 보정
+  const dW = 1 + 0.35 * DAY;                               // 두께 보정
+  const dG = 1 - 0.55 * DAY;                               // 글로우 감쇠
   const LNW = 4 * AW * s;                                  // LINE 두께 정본 — 모든 선이 여기서 파생
   g.clearRect(0, 0, W, W); g.lineJoin = 'round'; g.lineCap = 'round';
   const M = P.mat || { nx: 0.86, fx: 0.86, ny: -0.86, fy: 0.86 };
@@ -1945,8 +1952,8 @@ export function drawDribbleMat(g, W, P, look, t, ENV) {
   const tgK = P.tgK == null ? 1 : Math.max(0, Math.min(1, P.tgK));
   const NODES = tgK > 0.004 ? (P.targets || []).slice().sort((a, b) => (a.n || 0) - (b.n || 0)) : [];
   if (NODES.length) {
-    g.save(); g.shadowBlur = 0; g.globalAlpha = 0.22 * eOutQuint(IN / 0.9) * tgK;
-    g.strokeStyle = lut(0.6); g.lineWidth = 2.2 * s; g.lineCap = 'round';
+    g.save(); g.shadowBlur = 0; g.globalAlpha = dA(0.22) * eOutQuint(IN / 0.9) * tgK;
+    g.strokeStyle = lut(0.6); g.lineWidth = 2.2 * s * dW; g.lineCap = 'round';
     g.setLineDash([0.01, 8 * s]);
     const TRn = P.travel || {};
     for (const q of NODES) {
@@ -2032,12 +2039,12 @@ export function drawDribbleMat(g, W, P, look, t, ENV) {
     } else {
       // 대기 = 헤어라인 링 하나. 무채(lut 상단)라 색을 쓰지 않는다
       g.save(); g.translate(cx, cy);
-      volRing(g, lut, R, 0.5, 0.42, LNW * 0.75, GB * 0.6);
+      volRing(g, lut, R, 0.5, dA(0.42), LNW * 0.75 * dW, GB * 0.6 * dG);
       g.restore();
-      g.strokeStyle = INK(0.5); g.lineWidth = LNW * 0.75;
-      g.shadowBlur = GB * 0.5; g.shadowColor = lut(0.5);
+      g.strokeStyle = INK(dA(0.5)); g.lineWidth = LNW * 0.75 * dW;
+      g.shadowBlur = GB * 0.5 * dG; g.shadowColor = lut(0.5);
       g.beginPath(); g.arc(cx, cy, R, 0, Math.PI * 2); g.stroke(); g.shadowBlur = 0;
-      g.globalAlpha = k * 0.55;
+      g.globalAlpha = k * dA(0.55);
       ENV.num(g, tg.n, cx, cy, R * 0.9, Math.round(R * 0.66));
     }
     g.globalAlpha = 1;

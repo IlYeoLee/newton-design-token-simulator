@@ -115,6 +115,8 @@ function makeTextPlane(text, opts = {}) { const g = makeTextMesh(text, opts); co
 // 대체한 뒤 호출처 0인 죽은 코드였음 (룩 시스템 외 사제 렌더의 마지막 잔재).
 class FootMark {
   static READY_TAP = { T: 5.6, W: 0.55, P1: 3.6, P2: 4.35 };   // tap2 루프 타이밍 — floorgl 캔버스 발과 공유
+  // 상태 → 하중(marklang LOAD). Active 는 '다가와 곧 딛는다' 라 뒤꿈치, Hold 는 버티는 뒤꿈치.
+  static LOAD_BY_PH = { 0: 'flat', 1: 'heel', 2: 'flat', 3: 'flat', 4: 'flat', 5: 'heel', 6: 'flat' };
   static READY_SPREAD = 0.189;   // 좌우 간격(m) — 피그마 342:3057 실측(중심 x 525.8/1075.2). 유저: 이걸 넘지 말 것
   // 세션 발자국 = MARK 발형 상태 머신 소비 (시안 보드 7상태 그대로).
   // 열화상 사제 텍스처·flatMat 카운트다운 링·홀드 호 전부 은퇴 — 룩 시스템이 유일한 형태:
@@ -160,6 +162,11 @@ class FootMark {
     }
     this._U.uPhase.value = v;
     setMarkStateLook(this.plane.material, v);
+    // ★ 상태마다 하중이 다르다 — 다가올 땐 뒤꿈치, 밟으면 전면, 버틸 땐 다시 뒤꿈치.
+    //   setMarkLoad 가 그 배분의 무게중심에서 접지 창을 만들어 주므로(tokens.js),
+    //   이 한 줄로 세션 발자국도 '닿는 자리가 옮겨 가는' 그림이 된다. 스텝백 마크만
+    //   하중을 받고 러닝 발자국은 못 받아서 접지 룩이 절반만 보였다(유저 신고).
+    setMarkLoad(this.plane.material, LOAD[FootMark.LOAD_BY_PH[v]] || LOAD.flat);
   }
   setHold(p) { this._ph(5); this._U.uProg.value = Math.max(0.001, p); }   // Hold 코닉 진행 림
   locked() { this._ph(3); this._U.uProg.value = 0; }
@@ -450,6 +457,13 @@ function livePrimEnv() {
     glyph: drawGlyph,
     // 브랜드 로고 — 자간 준 글자로 워드마크를 흉내 내던 걸 실제 에셋으로 바꾼다(유저).
     logo: _logoImg(),
+    // ★ 밝은 투사면 보정 — 검은 바닥에서 맞춘 헤어라인 알파가 코트(밝은 타일) 위에서 통째로
+    //   스러졌다(유저: "이게 이식한 거라고?"). 밝은 면에선 헤일로가 일을 못 한다 —
+    //   밝은 바닥에 밝은 글로우를 얹으면 대비가 아니라 뿌연 김이 되고, 그 몫을 획이 받아야 한다.
+    //   ※ FXP.day / markBlend 는 신호가 아니다 — 다크 테마에서도 항상 true 라 실측으로 확인했다.
+    //     실제 신호는 투사면 칩(FXP.bg)이다. 어두운 면 목록은 SURF_DEFS(main.js)에 면을
+    //     추가할 때 같이 봐야 한다.
+    day: (FXP.bg && FXP.bg !== 'none' && FXP.bg !== 'court_black') ? 1 : 0,
   };
 }
 let _logo = null;
