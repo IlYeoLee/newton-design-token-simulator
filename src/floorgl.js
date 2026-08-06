@@ -2926,8 +2926,23 @@ export class FloorGL {
       ctx.fillText('To start', 800.15, 2014 - CUT);
       // 바닥 버전 축약(유저) — 벽은 'Tap your foot Twice'(멀리서 읽는 안내), 지면은 발밑이라
       //   '무엇으로'가 자명하다. 짧아진 만큼 글자를 키워 한 덩어리로 읽힌다.
-      ctx.fillStyle = NEU.ink; ctx.font = RF(700, 74); ctx.letterSpacing = '-4.25px';
-      ctx.fillText('Tap Twice', 800.15, 2102 - CUT);
+      // ★ CTA = **채워진 알약**(유저 08-06). 모바일 홈의 `View Now →` 와 복싱 벽 CTA 가 둘 다
+      //   '채워진 면 위의 흰 글씨'인데 지면만 맨 글씨라 셋을 나란히 놓으면 여기만 다른 물건으로
+      //   읽혔다. 알약은 이 화면의 기존 문법(아크 알약·상태 칩)이라 새로 만드는 게 아니다.
+      //   폭은 글자에서 나온다(HUG) — 고정폭으로 두면 종목마다 여백이 갈린다.
+      const CTA_Y = 2102 - CUT;
+      ctx.font = RF(700, 74); ctx.letterSpacing = '-4.25px';
+      const _tw = ctx.measureText('Tap Twice').width;
+      const _ph = 138, _pw = _tw + 132;                    // 좌우 여백 66 (알약 규약과 같은 급)
+      const _pg = ctx.createLinearGradient(800.15 - _pw / 2, 0, 800.15 + _pw / 2, 0);
+      _pg.addColorStop(0, PAL.red); _pg.addColorStop(1, PAL.coral);   // 모바일 히어로와 같은 램프 방향
+      ctx.save();
+      ctx.globalAlpha *= .92 + .08 * tapB;                 // 탭 박자에 알약도 같이 숨쉰다
+      ctx.fillStyle = _pg;
+      ctx.beginPath(); ctx.roundRect(800.15 - _pw / 2, CTA_Y - _ph / 2, _pw, _ph, _ph / 2); ctx.fill();
+      ctx.restore();
+      ctx.fillStyle = NEU.ink;
+      ctx.fillText('Tap Twice', 800.15, CTA_Y);
       ctx.letterSpacing = '0px'; ctx.restore();
     }
     ctx.restore();   // /콘텐츠 스케일
