@@ -1910,7 +1910,9 @@ export class FloorGL {
     }
     if (perFoot) {   // A2 한 발 홀드 — 봇 사이클(a2Cyc)이 정본. 발이 바뀌면 리셋된다.
       return { AV, prog: stageRest + ((1 - hp) - stageRest) * (pfK ?? 1),
-               rem: String(Math.max(0, Math.ceil(hs * (1 - hp)))) };
+               // ★ 남은 **초**를 올림하면 홀드 2.15s 에서 '3' 이 0.15초만 번쩍하고 사라진다.
+               //   정본 a2Rem 은 진행률을 3등분한다(각 0.717s) — 홀드 길이와 무관하게 3·2·1 이 고르다.
+               rem: a2Rem(clamp01(hp ?? 0)) };
     }
     if (inPv) {
       // 관찰 — adv 와 무관한 고유 값(영상이 얼마나 남았나)이라 항상 이 값을 센다.
