@@ -71,8 +71,8 @@
       <div class=row><label>띠 위</label><input id=em-y1 type=range min=0 max=1 step=0.01 value=0.22><span class=v id=v-em-y1>0.22</span></div>
       <div class=row><label>무름</label><input id=em-soft type=range min=0.01 max=0.30 step=0.01 value=0.06><span class=v id=v-em-soft>0.06</span></div>
       <div class=row><label>몸통 대역 아래</label><input id=bd-lo type=range min=0 max=0.5 step=0.01 value=0.30><span class=v id=v-bd-lo>0.30</span></div>
-      <div class=row><label>몸통 대역 위</label><input id=bd-hi type=range min=0.1 max=1 step=0.01 value=1.00><span class=v id=v-bd-hi>1.00</span></div>
-      <button id=em-preset>맑은 코랄 + 붉은 발 (제안값)</button>
+      <div class=row><label>몸통 대역 위</label><input id=bd-hi type=range min=0.05 max=1 step=0.01 value=1.00><span class=v id=v-bd-hi>1.00</span></div>
+      <button id=em-preset>하양코랄 몸통 + 새빨강~주황 다리 (제안값)</button>
       <div class=hint>몸통 밴드가 <b>t 0.30~1.00</b> 이라 룩2 램프의 붉은 자리(0.25 = #FA3030)를 안 지난다 —
         그래서 강조는 t 를 올리는 게 아니라 <b>내린다</b>. 새 색을 안 만들고 같은 램프 안에서만 논다.<br>
         판 uv.y 기준이라 <b>0 = 아래(발)</b>. 발 강조는 대략 0~0.22.
@@ -309,7 +309,10 @@ for (const [id, key] of [['bd-lo','bandLo'],['bd-hi','bandHi']]) {
 }
 // 제안값 — 몸통 0.06~0.30(흰→코랄) · 발 0.26(#FA3030 붉은) 아래 35%
 $('em-preset').onclick = async () => {
-  const V = { 'bd-lo': 0.04, 'bd-hi': 0.24, 'em-k': 1, 'em-t': 0.26, 'em-y0': 0, 'em-y1': 0.35, 'em-soft': 0.10 };
+  // 유저 08-07 2차: "진짜 하양에 가까운 코랄, 강조는 새빨간~주황으로 은은하게"
+  //   몸통 0.02~0.13 = #fff5f5~#fdbfbf. 강조는 t 0.36(새빨강 0.25 ~ 주황 0.50 사이)에
+  //   k 0.7 로 **섞어서** 건다 — 1.0 으로 못 박으면 단색이 되고 '은은한 그라디언트'가 죽는다.
+  const V = { 'bd-lo': 0.02, 'bd-hi': 0.13, 'em-k': 0.70, 'em-t': 0.36, 'em-y0': 0, 'em-y1': 0.42, 'em-soft': 0.16 };
   for (const id in V) { const e = $(id); e.value = V[id]; e.dispatchEvent(new Event('input')); }
   await $('b-all').onclick();
 };
