@@ -2028,25 +2028,38 @@ export function drawDribbleMat(g, W, P, look, t, ENV) {
   }
 
   // ── 접촉 = 수축 링 + 잠금 핑. 잽잽훅·복싱 판정이 쓰는 어프로치 링과 같은 구조다.
-  if (P.center && P.hit != null) {
-    const cx = X(cU), cy = Y(cV), GB2 = 13 * look.halo;
+  // ── 접촉 반응 = **닿은 그 자리**에서 일어난다(유저 확정).
+  //   "3번 자리에서 드리블하는데 갑자기 중앙에서 잘했다는 시그널이 보이면 좀 그래" —
+  //   맞다. 반응이 내 동작이 일어난 곳에 없으면 그건 내 동작에 대한 반응으로 안 읽힌다.
+  //   그래서 수축 링·트레일·잠금 핑을 **노드 단위**로 내린다(targets[i].hit).
+  //   허브는 진행(prog)만 말한다 — 아무 데서나 반응하면 팔딱임이 정보를 안 싣는다.
+  //   P.hit(허브 전역)은 노드별 hit 이 하나도 없을 때만 폴백으로 남는다.
+  const contactFx = (cx, cy, R, hitS) => {
+    const GB2 = 13 * look.halo;
     const per = P.per || 0.4;
-    const pr = Math.max(0, Math.min(1, hit / per));      // 0 = 방금 닿음 → 1 = 다음 박자
-    const R0 = CR * 1.9;
+    const pr = Math.max(0, Math.min(1, hitS / per));     // 0 = 방금 닿음 → 1 = 다음 박자
+    const hk = Math.max(0, 1 - hitS / 0.42);             // 잠금 핑 수명
+    const R0 = R * 1.9;
     for (let kk = 2; kk >= 0; kk--) {                    // 실키 트레일 — 뒤에 남는 잔상 2겹
       const pe = Math.pow(Math.max(0, pr - kk * 0.05), 1.6);
-      const rr = R0 - (R0 - CR) * pe;
+      const rr = R0 - (R0 - R) * pe;
       const a = kk === 0 ? (0.55 + 0.35 * pe) : (0.16 / kk);
       g.save(); g.translate(cx, cy);
       volRing(g, lut, rr, 0.5 + 0.35 * pe, a, LNW * 0.7, GB2, 1.15 - 0.35 * pe);
       g.restore();
     }
-    if (hitK > 0.01) {                                    // 잠금 핑 — 팽창하며 소멸
+    if (hk > 0.01) {                                     // 잠금 핑 — 팽창하며 소멸
       g.save(); g.translate(cx, cy);
-      volRing(g, lut, CR * (1 + 1.5 * (1 - hitK)), 0.92, hitK * 0.85, LNW * 0.8, GB2, 1.1);
+      volRing(g, lut, R * (1 + 1.5 * (1 - hk)), 0.92, hk * 0.85, LNW * 0.8, GB2, 1.1);
       g.restore();
     }
+  };
+  const nodeHits = (P.targets || []).filter(q => q && q.hit != null && q.hit < 1.2);
+  for (const q of nodeHits) {
+    const R = (q.r != null ? q.r : 0.20) * W / 2 * (q.live ? 1.34 : 1);
+    contactFx(X(q.x), Y(q.y), R, q.hit);
   }
+  if (!nodeHits.length && P.center && P.hit != null) contactFx(X(cU), Y(cV), CR, hit);
 
   // ── 액티브 타깃 — 화면에서 **유일한 색 사건**. 지금 겨눌 자리
   if (P.center) {

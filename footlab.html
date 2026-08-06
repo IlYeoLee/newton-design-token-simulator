@@ -1246,15 +1246,16 @@ function drawMatCard(t) {
   const g = off.getContext('2d');
   g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, W, W);
   drawDribbleMat(g, W, {
-    chev: 0, prog: 0.5, in: _mIn(t), hit: t - _mHitT, travel: { from: _mPrev, to: _mLive, k: Math.min(1, (t - _mLiveT) / 0.45) },
+    chev: 0, prog: 0.5, in: _mIn(t), hit: null, travel: { from: _mPrev, to: _mLive, k: Math.min(1, (t - _mLiveT) / 0.45) },
     mat: { nx: 0.50, fx: 0.86, ny: -0.80, fy: 0.80 },
     center: { x: 0, y: 0.00, r: 0.28, label: null },
     // 시뮬 배치와 같은 다섯 — ①② 먼 쪽(스탠스) · ③④ 가까운 쪽(스텝) · 가운데 액티브
     targets: [
-      { x: -0.44, y: 0.44, n: 1, r: 0.19, on: true, live: _mLive === 1 },
-      { x: 0.44, y: 0.44, n: 2, r: 0.19, on: true, live: _mLive === 2 },
-      { x: -0.44, y: -0.44, n: 3, r: 0.19, on: true, live: _mLive === 3 },
-      { x: 0.44, y: -0.44, n: 4, r: 0.19, on: true, live: _mLive === 4 },
+      // hit = **그 노드가** 닿은 뒤 경과(유저: 3번에서 튀기면 3번이 반응해야지 중앙이 아니라).
+      { x: -0.44, y: 0.44, n: 1, r: 0.19, on: true, live: _mLive === 1, hit: _mLive === 1 ? t - _mHitT : null },
+      { x: 0.44, y: 0.44, n: 2, r: 0.19, on: true, live: _mLive === 2, hit: _mLive === 2 ? t - _mHitT : null },
+      { x: -0.44, y: -0.44, n: 3, r: 0.19, on: true, live: _mLive === 3, hit: _mLive === 3 ? t - _mHitT : null },
+      { x: 0.44, y: -0.44, n: 4, r: 0.19, on: true, live: _mLive === 4, hit: _mLive === 4 ? t - _mHitT : null },
     ],
     brand: 1,
   }, { halo: P.halo }, t, Object.assign(_primEnv(), { logo: _matLogo() }));

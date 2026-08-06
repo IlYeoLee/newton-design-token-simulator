@@ -3251,8 +3251,13 @@ export class Session {
       MP.in = Math.min(1, Math.max(0, tB / 0.6));
       MP.hit = this.t - (H._popT ?? -9);
       if (H._per > 0.05) MP.per = H._per;
+      // ★ 접촉은 **지휘 중인 노드**에서 일어난다(유저: 3번에서 튀기는데 중앙이 반응하면 안 된다).
+      //   허브 전역 hit 은 끈다 — 노드 hit 이 하나라도 있으면 그리기 쪽이 허브를 건너뛴다.
+      MP.hit = null;
       if (Array.isArray(MP.targets)) for (let i = 0; i < MP.targets.length; i++) {
-        if (MP.targets[i]) MP.targets[i].live = !!H.tg[i]?.on;
+        const q = MP.targets[i]; if (!q) continue;
+        q.live = !!H.tg[i]?.on;
+        q.hit = q.live ? this.t - (H._popT ?? -9) : null;
       }
       const tgK = Math.min(1, Math.max(0, (tB - 0.3) / 0.6));
       for (const q of H.tg) { q.ring.setOp?.((q.on ? 0.42 : 0.16) * tgK); q.num.material.opacity = (q.on ? 0.9 : 0.3) * tgK; }
