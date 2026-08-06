@@ -2060,23 +2060,32 @@ export function drawDribbleMat(g, W, P, look, t, ENV) {
   //   그래서 수축 링·트레일·잠금 핑을 **노드 단위**로 내린다(targets[i].hit).
   //   허브는 진행(prog)만 말한다 — 아무 데서나 반응하면 팔딱임이 정보를 안 싣는다.
   //   P.hit(허브 전역)은 노드별 hit 이 하나도 없을 때만 폴백으로 남는다.
+  // ★ **수축과 확장은 성격이 달라야 한다**(유저: 선 두께나 타이밍 차이가 없어서 한 번에
+  //   자잘하게 많이 하는 건지 구분이 안 간다). 두 가지가 겹쳐 있었다:
+  //     ① 잠금 핑 수명이 **박자보다 길었다** — 0.42s 고정인데 실측 박자는 0.25~0.29s 다.
+  //        앞 타의 확장이 안 끝났는데 다음 타가 시작하니(45~68% 초과) 뭉갤 수밖에 없다.
+  //        → 수명을 박자에서 파생한다: per*0.42, 상한 0.16s. 확장은 **짧고 끝나야** 타격이 된다.
+  //     ② 획 두께가 0.7 vs 0.8 — 14% 차이라 눈이 두 사건으로 안 나눈다.
+  //        → 수축은 **가늘게**(0.45) 여러 겹으로 다가오고, 확장은 **굵게**(1.7) 한 겹으로 터진다.
+  //        예고는 가늘고 길게, 사건은 굵고 짧게 — 두께가 곧 위계다.
   const contactFx = (cx, cy, R, hitS) => {
     const GB2 = 13 * look.halo;
     const per = P.per || 0.4;
     const pr = Math.max(0, Math.min(1, hitS / per));     // 0 = 방금 닿음 → 1 = 다음 박자
-    const hk = Math.max(0, 1 - hitS / 0.42);             // 잠금 핑 수명
+    const pingT = Math.min(0.16, per * 0.42);            // 확장 수명 — 박자 안에서 반드시 끝난다
+    const hk = Math.max(0, 1 - hitS / pingT);
     const R0 = R * 1.9;
     for (let kk = 2; kk >= 0; kk--) {                    // 실키 트레일 — 뒤에 남는 잔상 2겹
       const pe = Math.pow(Math.max(0, pr - kk * 0.05), 1.6);
       const rr = R0 - (R0 - R) * pe;
       const a = kk === 0 ? (0.55 + 0.35 * pe) : (0.16 / kk);
       g.save(); g.translate(cx, cy);
-      volRing(g, lut, rr, 0.5 + 0.35 * pe, a, LNW * 0.7, GB2, 1.15 - 0.35 * pe);
+      volRing(g, lut, rr, 0.5 + 0.35 * pe, a, LNW * 0.45, GB2, 1.15 - 0.35 * pe);
       g.restore();
     }
-    if (hk > 0.01) {                                     // 잠금 핑 — 팽창하며 소멸
+    if (hk > 0.01) {                                     // 잠금 핑 — 굵게 한 겹, 팽창하며 소멸
       g.save(); g.translate(cx, cy);
-      volRing(g, lut, R * (1 + 1.5 * (1 - hk)), 0.92, hk * 0.85, LNW * 0.8, GB2, 1.1);
+      volRing(g, lut, R * (1 + 1.5 * (1 - hk)), 0.92, hk * 0.9, LNW * 1.7, GB2, 1.1);
       g.restore();
     }
   };

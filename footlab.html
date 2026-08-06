@@ -330,7 +330,7 @@ const SAVE_KEY = 'footlab.params';
 let hist = [], future = [], histT = null;
 // ★ states(OV)도 같이 남긴다 — 이게 빠져 있어서 '이 상태만 편집'한 값이 새로고침마다 통째로
 //   증발했다(유저 08-05: 8번째 토큰이 저장이 안 된다). P 만 남기면 상태 편집 기능이 무의미하다.
-function persist() { try { localStorage.setItem(SAVE_KEY, JSON.stringify({ ...P, _def: DEF, states: OV })); } catch { /* 사생활 모드 */ } bcast(); }   // _def = 저장 시점 정본 스냅샷(위 복원 규칙용)
+function persist() { try { localStorage.setItem(SAVE_KEY, JSON.stringify({ ...P, _def: DEF, states: OV, _defStates: DEF_STATES })); } catch { /* 사생활 모드 */ } bcast(); }   // _def/_defStates = 저장 시점 정본 스냅샷(위 복원 규칙용)
 // 랩 → 시뮬 실시간 미리보기(유저): 값이 바뀔 때마다 열려 있는 시뮬 전부에 즉시 쏜다.
 const _bc = (() => { try { return new BroadcastChannel('newton-marklook'); } catch { return null; } })();
 function bcast() { _bc?.postMessage({ ...P, shadeCol, dotCol, ripCol, edgeShadeCol }); }
@@ -1518,6 +1518,9 @@ GLYPHS.onLoad(() => {
 //   한다. localStorage(작업 중 값)가 이 위를 덮는다.
 Object.assign(OV, LOOK.states || {});
 if (LOOK.tap && !OV.tap) OV.tap = { ...LOOK.tap };   // Tap2 = 구워둔 전용 룩이 곧 그 슬롯의 오버라이드
+// ★ 상태 슬롯의 **정본 스냅샷** — 아래 복원에서 '파일이 이긴다' 규칙을 상태에도 적용하려면
+//   저장 당시의 파일값을 알아야 한다. 최상위 키의 _def 와 정확히 같은 역할·같은 이유다.
+const DEF_STATES = JSON.parse(JSON.stringify(OV));
 // 지난 세션 값 복원 — 랩을 닫았다 열었다고 작업이 날아가면 안 된다.
 //   저장본에 없는 키(내가 나중에 추가한 슬라이더)는 DEF 가 채운다.
 try {
@@ -1535,10 +1538,27 @@ try {
     }
     // ★ 상태 오버라이드 복원 — 예전엔 이 줄이 KEYS 루프 **안**에 있었고 persist 가 states 를
     //   쓰지도 않아, 조건이 영영 참이 안 됐다. 두 버그가 겹쳐 상태 편집이 통째로 휘발했다.
-    if (saved.states) Object.assign(OV, saved.states);
+    // ★★ 그리고 **최상위 키에만 있던 '파일이 이긴다' 규칙이 여기엔 없었다**(유저 08-07:
+    //   발바닥 랩에도 반영돼?). 정본의 states 를 고쳐 배포해도 옛 localStorage 가 통째로
+    //   덮어써서 Locked·Tap2·Success 만 옛 룩으로 남았다. 위 KEYS 루프와 같은 판정을 쓴다:
+    //   저장 시점 파일값(_defStates)과 지금 파일값(DEF_STATES)이 다르면 **파일을 유지**한다.
+    //   _defStates 없는 구 저장본의 states 는 폐기 — 정본이 이미 파일에 구워져 있다.
+    if (saved.states && saved._defStates) {
+      const bs = saved._defStates;
+      for (const slot in saved.states) {
+        const cur = DEF_STATES[slot] || {}, was = bs[slot] || {};
+        OV[slot] = OV[slot] || {};
+        for (const k in saved.states[slot]) {
+          if (was[k] !== cur[k]) continue;          // 정본이 갱신된 키 → 파일값 유지
+          OV[slot][k] = saved.states[slot][k];
+        }
+      }
+    }
   }
 } catch { /* 저장본 손상 — 기본값으로 간다 */ }
 // 이제 units·rebuild 가 모두 정의됐으니 저장된 세그먼트 선택을 복원한다
+// 계측 훅 — 정본/저장본 어느 쪽이 이겼는지 밖에서 읽을 길이 없어 회귀를 못 잡았다.
+window.__fl = { P, DEF, OV, DEF_STATES, LOOK };
 for (const fn of pendingSegRestore) { try { fn(); } catch (e) { console.warn('세그 복원 실패', e); } }
 updateHistUI();
 syncUI();
