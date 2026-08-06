@@ -23,7 +23,7 @@
   "ripWidth": 0.1,
   "ripSpeed": 0.4,
   "ripGrad": 1,
-  "edgeShade": 0.95,
+  "edgeShade": 1.4,
   "shadeRed": 0,
   "shadeRedW": 8,
   "edgeW": 0.01,
@@ -43,7 +43,7 @@
   "prog": 0.55,
   "bloom": 0.065,
   "blur": 0.26,
-  "edgeShadeW": 5,
+  "edgeShadeW": 4,
   "edgeShadeCol": 4,
   "edgeShadeGrad": 0.56,
   "edgeShadeG0": 0.61,
@@ -103,29 +103,23 @@
   "states": {
     "0": {
       "sharp": 0,
-      "op": 0.42,
-      "tLo": 0.52,
-      "tHi": 0.76,
-      "bloom": 0.03
+      "op": 0.56
     },
     "2": {
       "glow": 0,
       "halo": 0.16,
       "w": 0.72,
-      "bloom": 0.22,
+      "bloom": 0.07,
       "shade": 0,
       "imp": 1,
       "sharp": 0,
-      "edge": 0.004,
-      "tLo": 0.06,
-      "tHi": 0.9,
-      "op": 1.0
+      "edge": 0.004
     },
     "4": {
       "glow": 0,
       "halo": 0.14,
       "w": 0.7,
-      "bloom": 0.36,
+      "bloom": 0.06,
       "shade": 0,
       "imp": 1,
       "edgeShadeGrad": 0,
@@ -137,9 +131,7 @@
       "sharp": 0,
       "plantar": 1,
       "edgeShadeCol": 4,
-      "op": 1.0,
-      "tLo": 0.02,
-      "tHi": 0.3
+      "op": 0.71
     },
     "tap": {
       "op": 0,
@@ -159,8 +151,8 @@
       "edgeShadeGrad": 0,
       "edgeShadeG0": 0,
       "edgeShadeG1": 0,
-      "dither": 0,
-      "edgeW": 0,
+      "dither": 0.011,
+      "edgeW": 0.01,
       "edgeSoft": 0,
       "shadeRed": 0,
       "shadeRedW": 0.5,
@@ -175,12 +167,6 @@
       "ripCol": 0,
       "bloom": 0.165,
       "w": 1.15
-    },
-    "1": {
-      "tLo": 0.12,
-      "tHi": 0.84,
-      "op": 0.88,
-      "bloom": 0.1
     }
   },
   "loadGain": 1.45,
