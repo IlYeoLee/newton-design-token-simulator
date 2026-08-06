@@ -1009,7 +1009,8 @@ vec4 markState(vec2 uv, float state, float prog, float strong, float t){
     //   "랩은 맞는데 앱만 죽어 있다"가 반복됐다. 오늘 아침 화살표·드리블과 **같은 함정**이다.
     //   Hold 가 쓰는 그 문법을 그대로 빌린다(holdA *= 0.88 + 0.12*sin). 색·진하기는 안 건드리고
     //   밝기만 느리게 맥동한다 — "저절로 흐려지지 않는다"(유저 규칙)를 깨지 않는다.
-    fillA *= 0.90 + 0.10 * sin(t * 1.8);
+    //   ±10% 는 화면에서 '안 움직인다'로 읽혔다(유저 반복 지적) — 진폭을 올린다.
+    fillA *= 0.84 + 0.16 * sin(t * 1.9);
     lay(A, fillSuccess(q / (0.55 + 0.55 * e)), inFill * fillA);
     float flash = exp(-prog * 9.0);
     // 성공 섬광 — 예전엔 순 ICE 0.8 이라 흰 띠가 코어와 분리돼 보였다(유저: 아이스가 과하다).
