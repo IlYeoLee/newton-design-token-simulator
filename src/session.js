@@ -820,6 +820,8 @@ const SB_FIT_V = FOOT_LEN_M * 0.55;   // 앞뒤 = 발 **길이** 절반 + 숨(0.
 //   **선 전체가 안 보인다**(0.52 로 뒀다가 그대로 당했다: gain 0.62 인데 opacity 0.000).
 //   그리는 길이는 어차피 draw-on(_prog)이 정하므로 메시는 창 안에 들어가기만 하면 된다.
 const SB_LINK_MAX = 0.24;
+// 경로선(LINK.trail)은 스탠스선보다 멀리 간다 — 준비→착지 거리가 실측 0.9m 대다.
+const SB_TRAIL_MAX = 1.10;
 // ★ -1.95 → -3.13 (유저 08-05). 구값은 패턴 중심이 리그 원점에서 겨우 d=0.17m — 빔 사다리꼴의
 //   **최협부**(반폭 0.32m)이자 fpNear(0.30) 근처라, 실측 스텝백 착지 폭 0.92m 가 좌우로
 //   11~14cm 씩 빛 밖으로 나가고 근거리 페더에도 깎였다(마크가 흐리게 사라짐).
@@ -1070,6 +1072,7 @@ export class Session {
     // 큐가 없는 프레임엔 존 원도 스러진다 — 안 그러면 마지막 자리에 영영 남는다(화살표가 겪던 그 버그).
     if (H.zTgt && !H._zOn) { H._zFade = Math.max(0, (H._zFade ?? 0) - 0.06); H.zTgt.setOp?.(H._zFade); }
     this._sbLink(H, id, P, fmL, fmR);
+    this._sbTrail(H, id);   // 실전 경로선 — 조각 단계에선 스스로 꺼진다
     return P;
   }
 
@@ -1118,6 +1121,44 @@ export class Session {
       m._gain += (0.62 - m._gain) * 0.18;
     };
     put(H.lkA, a); put(H.lkB, b);
+  }
+
+  /** LINK.trail — **실전(C2)에서만** 밟을 순서를 선으로 잇는다.
+   *  marklang 에 `trail: '지나온 경로를 옅게 남긴다'` 가 **선언만 되고 소비자가 0곳**이었다
+   *  (check_mark_lang 이 계속 실패로 잡던 항목이 이것이다). 딱 이 용도로 만들어졌던 어휘다.
+   *
+   *  왜 실전에서만인가: 조각 학습(B2~B4)은 한 번에 하나만 봐야 어디에 집중할지가 명확하다.
+   *  거기에 경로선까지 깔면 '지금 이 발'이라는 지시가 흐려진다. 반대로 실전은 배운 셋을
+   *  **붙이는** 자리라 순서가 먼저 보여야 한다 — 안 그러면 다음 발을 기억으로 때워야 한다.
+   *
+   *  ponytail: 새 그래픽 0개. _sbLink 와 **같은 물건**(makeFlowArrow LINE 자루)을 쓴다.
+   *  tips 1 = 촉 있음(방향이 곧 순서다) · _arrowStyle 로 LINE 스타일을 arrow 계열에서 받는다
+   *  (FXP.arrow.line 을 'dot' 으로 두면 그대로 점 화살표가 된다 — 스타일은 룩 시스템 몫). */
+  _sbTrail(H, id) {
+    const want = id === 'BK_C2';
+    if (!H.trA) {
+      if (!want) return;
+      const mk = () => { const a = makeFlowArrow(SB_TRAIL_MAX, { tips: 1 }); a._gain = 0; a._prog = 0;
+        a._arrowStyle = true; (H.mL?.parent || this.root).add(a); return a; };
+      H.trA = mk(); H.trB = mk(); H.trC = mk();
+    }
+    // 발 반경만큼 양끝을 물린다 — 선이 발자국을 덮으면 '어디를 밟나'가 안 읽힌다.
+    const IN = FOOT_LEN_M * 0.34;
+    const seg = (m, from, to) => {
+      if (!m || !from || !to) return;
+      const a = from.group.position, b = to.group.position;
+      const dx = b.x - a.x, dz = b.z - a.z, d = Math.hypot(dx, dz), len = d - IN * 2;
+      m.visible = want && len > 0.05;
+      if (!m.visible) { m._gain = 0; return; }
+      m.position.set(a.x + dx / d * IN, 0.013, a.z + dz / d * IN);
+      m.rotation.z = Math.atan2(-dx, -dz);   // 부호 규약 = _sbLink 와 같다
+      m._prog = Math.min(1, len / SB_TRAIL_MAX);
+      m._gain += (0.42 - m._gain) * 0.15;    // 2급 — 발자국(1급)보다 옅게
+    };
+    // 순서: 준비 R → 플랜트 → 착지 R · 준비 L → 착지 L (왼발은 한 번에 크게 빠진다)
+    seg(H.trA, H.fRr, H.fC);
+    seg(H.trB, H.fC,  H.fLr);
+    seg(H.trC, H.fRl, H.fLl);
   }
 
   /** 빔 창 안에 **반경까지 포함해서** 앉힌다 — 투사 영역 밖으로 나가는 것을 금지(유저 08-06).
@@ -1617,6 +1658,11 @@ export class Session {
         gh: new FootMark('right').at(-0.55, SBZ),   // 고스트 = 착지 오차 잔상
         beat: 0, _beatT: 0, _popT: -9, _prevHy: 0, count: 0, _side: -1, _ghT: -9 };
       H.gh.op(0);
+      // 완료 '팡' 링 — 실전(big)에만. 평소엔 안 보이고 3회를 다 해낸 순간 한 번 퍼진다.
+      //   반경은 작게 만들고 **스케일로** 키운다(지오메트리 재생성 없음).
+      if (big) { H.pang = waveRingMesh(0.19, 0.225, BRAND.red, 0, false, 2);
+        H.pang.rotation.x = -Math.PI / 2; H.pang.position.set(0, 0.012, SBZ);
+        H.pang.visible = false; H.pang.setOp(0); gg.add(H.pang); }
       // 발자국 좌표 = 레퍼런스 영상 MediaPipe 실측(골반 기준 상대, 미터). 임의값 아님.
       //   측정: 67프레임 / 스텝백 1사이클. 발 수평속도로 접지 구간을 골라 좌표를 읽었다.
       //   시작 스탠스 L(-0.17) R(+0.22) 폭 0.39m → 착지 스탠스 L(-0.40) R(+0.46) 폭 0.86m
@@ -3491,6 +3537,19 @@ export class Session {
         this.repFrac = Math.min(1, ((H.count || 0) + (vt - cA) / (cB - cA)) / NEED);
         if (H.count >= NEED && !this.bkShotNow) { this.bkShotNow = true; this._shotT = this.t;
           this._say('bkc2shot', '커리', '그거예요 — 슛! 오늘 내 무브, 완전히 가져갔네요.'); }
+        // ★ 완료 '팡' — 세 번을 다 해내면 **투사 영역 전체**로 충격파가 한 번 퍼진다(유저 08-07).
+        //   ponytail: 새 그래픽 0개. 카탈로그의 MARK 존 원(waveRingMesh)을 Success(phase 2)로
+        //   두고 **스케일만** 키운다. 셰이더의 Success 분기가 이미 '한 번 크게 팡 → 잔잔히'를
+        //   갖고 있어서(fx-core ripCyc), 여기서는 반경·알파 곡선만 준다.
+        //   0.9초 = 음성('그거예요 — 슛!')이 끝나기 전에 시각이 먼저 닿는 길이.
+        if (this.bkShotNow && H.pang) {
+          const e = Math.max(0, Math.min(1, (this.t - (this._shotT ?? 0)) / 0.9));
+          const eo = 1 - Math.pow(1 - e, 3);                  // 빠르게 나갔다 천천히 — 충격파의 성질
+          H.pang.visible = e < 1;
+          H.pang.scale.setScalar(0.55 + 3.1 * eo);            // 빔 원단(반폭 0.75m)까지 덮는다
+          H.pang.setOp(Math.pow(1 - e, 1.6) * 0.95);          // 퍼지며 사라진다
+          H.pang.setProg(e);
+        } else if (H.pang) H.pang.visible = false;
         if (this.bkShotNow && this.t - (this._shotT ?? 0) > 1.6) { this.bkShotNow = false; this.next(); return; }
       }
       const BEATN = { BK_T1: ['통째로 한 번 볼게요', '오른발 — 크로스', '왼발 — 뒤로', '모아서 올라가기'],
