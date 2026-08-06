@@ -3075,7 +3075,10 @@ void main(){
             }
           }
         }
-      } else if (c) { c.plane.visible = false; if (!c.video.paused) c.video.pause(); }
+      // ★ 그리드도 **여기서 같이 끈다**(유저 08-06: 그리드가 두 개씩 보인다). 판만 숨기고
+      //   그리드를 놔두면 지나온 스테이지의 격자가 바닥에 그대로 남아 계속 쌓인다 —
+      //   ensureCoach 가 스테이지마다 메시를 하나씩 만들기 때문이다.
+      } else if (c) { c.plane.visible = false; if (c.grid) c.grid.visible = false; if (!c.video.paused) c.video.pause(); }
     }
   }
 
