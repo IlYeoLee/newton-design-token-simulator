@@ -3605,7 +3605,16 @@ export class Session {
           const p = this._beamFit(sbU(mx), sbV(mv), SB_FIT_U, SB_FIT_V, H.mL);
           f.at(p.x, p.z, FOLLOW_S);
           f.ghost();
-          f.op(0.30 * Math.max(0, Math.min(1, (this.t - TR_ARR[k]) / 0.25)));
+          // ★ **같은 자리면 안 띄운다.** 스텝백은 옆으로 크게 빠지는 동작인데(실측 스탠스 0.92m)
+          //   빔 반폭이 그 깊이에서 0.3~0.45m 뿐이라 _beamFit 이 u 를 접는다 —
+          //   실측: fLl 은 살아 있는 L 과 0.13m, fLr 은 0.16m. 발 하나 길이(0.30m) 안이라
+          //   **새 정보가 없는 겹침**이다(유저: "발자국이 이렇게 많다고?").
+          //   fC 만 0.50m 떨어져 혼자 다른 자리를 말한다. 경로선은 스스로 꺼진다(len<0.05).
+          const near = ['fRl', 'fRr'].some(j => {
+            const q = H[j]?.group?.position; if (!q) return false;
+            return Math.hypot(p.x - q.x, p.z - q.z) < FOOT_LEN_M;
+          });
+          f.op(near ? 0 : 0.30 * Math.max(0, Math.min(1, (this.t - TR_ARR[k]) / 0.25)));
         }
         if (H.numL) { placeMarkNum(H.numL); placeMarkNum(H.numR); H.numL.visible = H.numR.visible = true; }
         H.mL.setOp?.(0); H.mR.setOp?.(0); H.mC.setOp?.(0);
