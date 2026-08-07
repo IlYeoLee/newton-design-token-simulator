@@ -5,10 +5,12 @@
 //   죽는 프레임 수가 15~120 으로 들쭉날쭉해 고정 청크로는 못 나눈다. 그래서 **살아남은 만큼
 //   받고 커서를 그만큼 민다.** 오래 버티면 왕복이 줄고, 일찍 죽어도 진도는 나간다.
 //
-//   ★ 스크럽 모드(--play 없음)에서만 옳다. 시각의 순수 함수라 t0 을 옮겨도 같은 프레임이 나온다.
-//     --play 는 상태 누적형이라 중간부터 시작하면 재현이 안 된다.
+//   ★ --play 로 쓴다. 스크럽(--play 없음)은 안 된다 — playing=false 는 stepSim 을 통째로
+//     건너뛰어 **세션이 아예 안 틱하고**, 지면 UI 가 낡은 상태로 그려진다(A2 에서 없어야 할
+//     검은 판이 하나 떴다. main.js loop() 참조). export_video 의 워밍이 0 → t0 을 찍지 않고
+//     밀어 주므로 --play 여도 중간부터 이어 붙일 수 있다.
 //
-// 사용: node scripts/render_chunked.mjs --scene A2 --dur 17.2 --w 1600 --out out/A2_FULL [기타 export_video 인자]
+// 사용: node scripts/render_chunked.mjs --scene A2 --flat --play --dur 17.2 --w 1600 --out out/A2_FULL
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';

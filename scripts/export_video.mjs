@@ -104,6 +104,7 @@ const STAGE = arg('stage', '');
 const LISTSTAGES = !!arg('liststages', false);
 // --play : 시뮬을 실제로 돌린다(봇·물리). 스크럽으로 못 살리는 상태 누적형 화면용 — 위 루프 주석 참조.
 const PLAY = !!arg('play', false);
+const GRAB = !!arg('grab', false);      // 캡처를 CDP 스크린샷 대신 앱 안 캔버스 읽기로 (아래 캡처 경로 주석)
 // --pin : 합성용 '설계 그대로' 모드. 판정 마크를 x봇 발 추적에서 떼어 설계 좌표에 못 박는다.
 //   평면 판에서 봇은 이미 숨겨지는데 마크 위치는 계속 조종하고 있어서, 안 보이는 봇의 걸음이
 //   발자국을 흔든다(실측 85px 점프). 에펙 합성은 설계를 정확히 옮기는 게 목적이라 끊는다.
@@ -694,15 +695,9 @@ if (FLAT) {
   //   T0 지점을 보려 하므로, **시뮬이 T0 에 닿을 때까지 기다렸다가** 재야 한다. 안 그러면 관찰
   //   구간(A2·BK_B3 는 앞부분이 시범이라 마크가 숨겨져 있다)을 재고 "아무것도 없다"로 중단한다
   //   (실측 08-06: A2·BK_B3 둘 다 불투명 0.00~0.05% 로 오탐, 해상도를 올려도 그대로).
-  if (PLAY && T0 > 0) {
-    const t0w = Date.now();
-    for (;;) {
-      const st = await page.evaluate(() => window.__dbg?.session?.t ?? window.__dbg?.state?.time ?? 0);
-      if (st >= T0 - 0.05) { console.log(`  시뮬 t=${st.toFixed(2)}s 도달 — 프리플라이트 시작`); break; }
-      if (Date.now() - t0w > (T0 + 20) * 1000) { console.log(`  ⚠ t=${st.toFixed(2)}s 에서 멈춤 — 그대로 진행`); break; }
-      await new Promise(r => setTimeout(r, 250));
-    }
-  }
+  // ★ --play 는 이제 아래 캡처 루프가 0 → T0 까지 **찍지 않고 시뮬만 밀어서**(워밍) 도달한다.
+  //   예전엔 여기서 session.t 가 T0 에 닿기를 폴링했는데, 시계는 우리가 미는 것이라 캡처 루프
+  //   밖에서는 영원히 안 흐른다 — (T0+20)초를 그냥 흘려보내고 '멈춤'을 찍은 뒤 진행했다.
   const probe = path.join(TMP, 'probe.png');
   let kb = 0, ok = false;
   for (const t of [T0, T0 + 0.25, T0 + 0.5, T0 + 1, T0 + 2, T0 + 3]) {   // 초 — 몇 지점만 보면 충분하다
@@ -737,11 +732,18 @@ let done = 0;
 //   (비디오는 정상이었다: readyState 4 · currentTime 정상 증가. 디코더 문제가 아니었다.)
 //   가상 시계는 계속 밀되 세션이 실제로 시작한 프레임부터 저장한다.
 let saved = 0;                    // 저장한 프레임 수 — 파일 번호는 이걸 쓴다
-const PRE_MAX = 240;              // 안전장치: 이만큼 밀어도 안 시작하면 그냥 저장한다
+// ★ 워밍 — --play 로 T0 부터 뽑으려면 0 부터 **찍지 않고** 시뮬을 밀어야 한다.
+//   --play 는 상태 누적형이라 T0 로 건너뛰면 그 지점 상태가 재현되지 않는다. 스크럽으로
+//   대신하려다 실패했다: playing=false 는 stepSim 을 통째로 건너뛰어 **세션이 아예 안 틱하고**,
+//   지면 UI 가 낡은 상태로 그려진다(main.js loop() 참조 — A2 에서 없어야 할 판이 하나 떴다).
+//   워밍 프레임은 screenshot 을 안 찍는다. 청크 렌더(render_chunked.mjs)의 전제다.
+const WARM = PLAY && T0 > 0;
+const PRE_MAX = 240 + (WARM ? Math.round(T0 * FPS) : 0);   // 안전장치: 이만큼 밀어도 안 시작하면 그냥 저장한다
 let lastInfo = null;              // 직전 프레임의 renderer.info — 손실 원인 판별용
-let tSrc = T0;                    // --ramp 전용 소스 시계(구부린 시간). 램프가 없으면 안 쓴다
+let tSrc = WARM ? 0 : T0;         // --ramp 전용 소스 시계(구부린 시간). 램프가 없으면 안 쓴다
+if (WARM) console.log(`  워밍 ${Math.round(T0 * FPS)}프레임 (0 → ${T0.toFixed(2)}s · 저장 안 함)`);
 for (let i = 0; saved < N; i++) {
-  const t = RAMP ? tSrc : T0 + i / FPS;
+  const t = RAMP ? tSrc : (WARM ? 0 : T0) + i / FPS;
   if (RAMP) tSrc += speedAt(t) / FPS;
   if (i - saved > PRE_MAX) { console.log('  ⚠ 프리롤 한계 — session.t 가 끝내 0 을 못 넘었습니다'); }
   // ★ 4K + 큰 uiscale 은 GPU 메모리를 넘겨 컨텍스트를 잃는다(실측: 3840·배율2.5 에서 11프레임째
@@ -864,17 +866,38 @@ for (let i = 0; saved < N; i++) {
     console.log(`  probe f${i}  t=${t.toFixed(3)}  session.t=${p.st?.toFixed?.(3)}  stage=${p.stage}  play=${p.playing}  vid=${p.vid}`);
   }
   if (PLAY && saved === 0 && (i - saved) <= PRE_MAX) {
-    const notYet = await page.evaluate(() => (window.__dbg?.session?.t ?? 0) < 0).catch(() => false);
-    if (notYet) continue;   // 아직 스테이지 전 — 시계만 밀고 버린다
+    //   ★ 기준선이 둘이다: 스테이지 시작(session.t ≥ 0) **그리고** 청크 시작(≥ T0).
+    //     워밍이 아니면 T0=0 이라 종전과 같은 판정이다.
+    const notYet = await page.evaluate(t0s => (window.__dbg?.session?.t ?? 0) < t0s, WARM ? T0 : 0).catch(() => false);
+    if (notYet) {
+      if (WARM && i % 60 === 0) process.stdout.write(`\r  워밍 ${i}/${Math.round(T0 * FPS)}   `);
+      continue;   // 아직 스테이지 전 · 청크 시작 전 — 시계만 밀고 버린다
+    }
     // 저장을 시작하는 이 프레임이 스테이지 0초다. 벽/지면 UI 는 자기 누적기(_uiDt·실시간)로
     //   도는데 세션과 시작점이 다르면 그만큼 어긋난다 — 점수가 링보다 먼저 오른다.
     //   여기서 한 번 맞춰 두면 이후로는 둘 다 실시간이라 계속 같이 간다.
-    await page.evaluate(() => {
+    //   ★ 워밍 중일 땐 0 으로 되돌리지 않는다 — 지면·벽 UI 는 워밍 내내 세션과 함께 흘러왔다.
+    //     여기서 리셋하면 청크 이음매마다 UI 시계만 0 으로 튄다.
+    await page.evaluate(warm => {
       const d = window.__dbg;
-      for (const g of [d?.wallGL, d?.floorGL]) if (g) { g.t = 0; g._lastPaint = -1; g._sig = null; }
-    }).catch(() => {});
+      for (const g of [d?.wallGL, d?.floorGL]) if (g) { if (!warm) g.t = 0; g._lastPaint = -1; g._sig = null; }
+    }, WARM).catch(() => {});
   }
-  await page.screenshot({ path: path.join(TMP, `f${String(saved).padStart(5, '0')}.png`), type: 'png', omitBackground: ALPHA });
+  // ★ 캡처 경로 둘. 기본은 page.screenshot 이지만, 그게 컨텍스트 손실의 유력한 범인이다.
+  //   실측: 스크린샷을 찍는 프레임은 20~90 에서 죽고, **찍지 않는 워밍 프레임은 300 넘게 산다.**
+  //   둘의 차이는 CDP 스크린샷(페이지 전체 합성 + 표면 읽기)뿐이고 renderer.info 는 평평하다.
+  //   --grab : 페이지 합성을 건너뛰고 앱 안에서 직접 렌더한 뒤 캔버스를 읽는다.
+  //   preserveDrawingBuffer:false 라 rAF 순서에 기대면 빈 버퍼를 읽는다 — 같은 태스크에서
+  //   **우리가 렌더하고 곧바로** 읽어야 픽셀이 보장된다(main.js blackProbe 가 같은 이유로 앱 안에 산다).
+  const png = path.join(TMP, `f${String(saved).padStart(5, '0')}.png`);
+  if (GRAB) {
+    const url = await page.evaluate(() => {
+      const d = window.__dbg;
+      if (d.composer) d.composer.render(); else d.renderer.render(d.scene, d.camera);
+      return d.renderer.domElement.toDataURL('image/png');
+    });
+    fs.writeFileSync(png, Buffer.from(url.slice(url.indexOf(',') + 1), 'base64'));
+  } else await page.screenshot({ path: png, type: 'png', omitBackground: ALPHA });
   saved++;
   // ★ 첫 프레임에 아무것도 안 그려졌으면 즉시 멈춘다. 컨텍스트가 살아 있어도 씬이 통째로
   //   비어 있으면(무대 끄기가 과했거나 카메라가 엉뚱한 곳을 보면) 끝까지 빈 프레임만 쌓인다.

@@ -15,7 +15,7 @@
     ?spot=5       고정 모드에서 때릴 자리(1~4 · 5=가운데). 기본 = 가운데
     ?seq=1        표적 순회 모드(영상 근거 없음 — 제자리 드리블엔 안 맞는다)
     ?run=4        순회 모드 한 자리 반복 타수
-    ?size=1440    정사각 한 변(px)
+    ?size=1440    정사각 한 변(px) · ?w &?h 로 띠 프레임(3840x1080)도 가능
     ?bg=000       배경 색. bg=none 이면 투명(알파 채널 녹화·PNG 시퀀스용)
     ?plate=court  배경에 실제 코트 깔기 — 밝은 바닥에서 읽히는지 그 자리에서 판단
     ?tilt=0       바닥 기울기(도). **기본 0 = 평면**(촬영용). 52 = GAZE.MAT 실측 각(미리보기)
@@ -94,8 +94,11 @@ else document.body.style.background = BG.startsWith('#') ? BG : '#' + BG;
 
 const cv = document.getElementById('cv');
 const DPR = Math.min(2, devicePixelRatio || 1);
-cv.width = cv.height = Math.round(SIZE * DPR);
-cv.style.width = cv.style.height = SIZE + 'px';
+// ★ 띠 프레임 지원 — 목표 판이 3840x1080(3.556:1)이다(실측, HANDOFF-0807-STANCE-TOKEN 8절).
+//   정사각으로만 뽑으면 에펙에서 다시 맞춰야 하고, 그 과정에서 축척이 또 어긋난다.
+const FW = +(q.get('w') || SIZE), FH = +(q.get('h') || SIZE);
+cv.width = Math.round(FW * DPR); cv.height = Math.round(FH * DPR);
+cv.style.width = FW + 'px'; cv.style.height = FH + 'px';
 // ★ 바닥 기울기 — 눕혀 놓고 봐야 크기를 판단할 수 있다(유저: 바닥 기울기로 눕힌 다음 사이즈 실측).
 //   값은 **이미 실측돼 있다**: 매트 판 한 변 0.90 m(session.js MAT_SIZE) · 시선 −52°(main.js
 //   GAZE.MAT, 낙하점 1.2 m). 눈대중으로 각을 잡지 않는다.
@@ -113,7 +116,8 @@ if (TILT) {
   cv.style.transformOrigin = '50% 50%';
 }
 const g = cv.getContext('2d');
-const W = cv.width;
+const W = Math.min(cv.width, cv.height);   // 매트는 정사각 판 — 띠에선 짧은 변이 기준이다
+const CX0 = (cv.width - W) / 2, CY0 = (cv.height - W) / 2;
 
 const lutArr = rebuildLUT();
 const lut = v => { const i = Math.max(0, Math.min(255, Math.round(v * 255))) * 4;
@@ -163,8 +167,8 @@ function frame() {
     beat++;
   }
   g.setTransform(1, 0, 0, 1, 0, 0);
-  g.clearRect(0, 0, W, W);
-  if (!PLATE && BG !== 'none') { g.fillStyle = BG.startsWith('#') ? BG : '#' + BG; g.fillRect(0, 0, W, W); }
+  g.clearRect(0, 0, cv.width, cv.height);
+  if (!PLATE && BG !== 'none') { g.fillStyle = BG.startsWith('#') ? BG : '#' + BG; g.fillRect(0, 0, cv.width, cv.height); }
 
   const tgt = n => ({ ...{ 1: { x: -0.44, y: 0.44 }, 2: { x: 0.44, y: 0.44 },
                            3: { x: -0.44, y: -0.44 }, 4: { x: 0.44, y: -0.44 } }[n],
@@ -207,8 +211,8 @@ function frame() {
     targets: [tgt(1), tgt(2), tgt(3), tgt(4)],
     brand: 1,
   }, { halo: 0.9 }, t, ENV);
-  const iw = W * PAD, io = (W - iw) / 2;
-  g.drawImage(off, io, io, iw, iw);
+  const iw = W * PAD;
+  g.drawImage(off, CX0 + (W - iw) / 2, CY0 + (W - iw) / 2, iw, iw);
 
   window.__drawn++;
   if (window.__t == null) requestAnimationFrame(frame);   // 외부 시간이면 캡처 쪽이 호출을 몰아준다
@@ -217,5 +221,9 @@ function frame() {
 //   헤드리스에서 rAF 가 스로틀되면 '그려질 때까지 기다리기'가 영영 안 끝난다(실측: 30프레임에
 //   400초 초과). 한 프레임을 **그 자리에서** 그리고 바로 데이터 URL 을 뽑는 게 빠르고 확실하다.
 window.__render = (t) => { window.__t = t; frame(); return document.getElementById('cv').toDataURL('image/png'); };
+// ★ 내보내기 훅 — 리포 규약과 **같은 이름**(stancelab 의 __shot). export_*.mjs 가 이걸 부른다.
+//   toDataURL('image/png') 은 straight alpha 를 준다 — 에펙에서 **Straight** 로 해석할 것.
+//   Premultiplied 로 잡히면 가산광 가장자리가 검게 먹는다(ae_import.jsx 가 밟은 함정).
+window.__shot = window.__render;
 frame();
 </script>

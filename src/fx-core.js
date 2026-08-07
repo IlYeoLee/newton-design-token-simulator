@@ -750,6 +750,19 @@ vec4 personAura(float mBody, float wide, float lumSharp, float lumBase, float fa
     //     반드시 t 에 직접 얹는다(실측으로 잡은 함정).
     t += max(0.0, band - bandB) * 0.9 * ek;
   }
+  // ★★ 가이드 강조(uPHiPale>0)가 **룩2 경로에서 색에 안 닿고 있었다**(유저: 차이가 너무 없잖아).
+  //   gHot 은 여기까지 와서 inkK(잉크 세기)만 흔들었고 t 는 그대로였다. personGuideColor /
+  //   G_PALE_* 는 personColor 경로 전용이라 uPForm=1(룩2, 기본값)에선 **한 번도 안 불린다** —
+  //   내가 그 죽은 램프를 고치고 있었다. 색을 가르는 자리는 여기다.
+  //     강조 밖 = look2Ramp 의 흰색 끝(t 0.02) · 강조 안 = 브랜드 RED(t 0.26)
+  //   smoothstep 두 번 = 흰색 아니면 붉은색으로 갈린다(중간톤이 넓게 깔리는 걸 막는다).
+  //   몸 결은 10% 만 남긴다 — 완전히 평면으로 만들면 인물이 아니라 판때기로 보인다.
+  if (uPHiPale > 0.0) {
+    float g = clamp(gHot, 0.0, 1.0);
+    g = g * g * (3.0 - 2.0 * g);
+    g = g * g * (3.0 - 2.0 * g);
+    t = mix(mix(t, 0.02, 0.90), 0.26, g);
+  }
   vec3 c = look2Ramp(clamp(t + dth, 0.0, 1.0));
   // 채도 부스트(유저 최종 요청: "제발 채도 올려줘") — 무채 축 기준 1.28배.
   //   회색 바닥·밝은 코트 위에서 살몬이 먼지빛으로 읽히는 것을 원천 보정.
