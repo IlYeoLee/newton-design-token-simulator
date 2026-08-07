@@ -10,7 +10,7 @@ import { a2Rem } from './a2hold.js';   // 마크 안 숫자 = 진행률 3등분 
 import { READY_OPT } from './floorgl.js';   // 시작화면 시안 토글(발자국 어포던스 등) — 랩과 같은 스위치를 본다
 import { lutColor, GLYPHS, drawGlyph, drawNumber, footSlot, footSDFTexture, FXP } from './fxlut.js';
 import { MARK_NUM, GLYPH_LOOK, drawMarkGlyph, invertGlyphCanvas, drawStanceBox, drawPunchLine, drawApproachRing, drawTrajectory, drawRotate, drawStemArrow, drawCurveArrow, drawDribbleMat, glyphFor } from './fx-core.js';
-import { makeMarkFXMaterial, makeLaneFXMaterial, makeFlowArrow, tickFlowArrows, beamAlphaAt, COLORS, FOOT_LEN_M, FOOT_PLANE_M, QUAD_K, UI_MASK, MARK_LOOK, applyMarkLookTo, setMarkLoad, setMarkStateLook, startMarkXfade, tickMarkXfade, ZONE } from './tokens.js';
+import { makeMarkFXMaterial, makeLaneFXMaterial, makeFlowArrow, tickFlowArrows, beamAlphaAt, COLORS, AD, FOOT_LEN_M, FOOT_PLANE_M, QUAD_K, UI_MASK, MARK_LOOK, applyMarkLookTo, setMarkLoad, setMarkStateLook, startMarkXfade, tickMarkXfade, ZONE } from './tokens.js';
 
 const clamp01 = v => v < 0 ? 0 : v > 1 ? 1 : v;
 
@@ -867,9 +867,10 @@ const SB_FIT_V = FOOT_LEN_M * 0.55;   // 앞뒤 = 발 **길이** 절반 + 숨(0.
  *  4국면을 **끊김 없이** 도는 화면은 C2 하나뿐이다 — 거기서 꺼 둔 설명 토큰만 도로 켠다.
  *  (C2 가 그것들을 끈 이유는 '실전은 시험이라'였다. 발표는 시험이 아니다.)
  *  켜는 것: 이동 화살표 · 목표 존 원 · 스탠스 링크 · 경로 마크(SHOW_PATH) · 경로선 게인.
- *  새 그래픽은 0개다 — 전부 이미 다른 화면에서 쓰는 어휘다. */
-export const AD = typeof location !== 'undefined'
-  && new URLSearchParams(location.search).get('ad') === '1';
+ *  새 그래픽은 0개다 — 전부 이미 다른 화면에서 쓰는 어휘다.
+ *  ★ 정본은 **tokens.js** 로 내렸다(08-07) — FOOT_LEN_M 이 거기 있어서 발 크기를 프리셋에
+ *    물리려면 둘이 같은 파일에 있어야 했다. 여기서는 재수출만 한다(값이 두 벌이면 그게 버그다). */
+export { AD } from './tokens.js';
 
 const SB_LINK_MAX = 0.24;
 // 경로선(LINK.trail)은 스탠스선보다 멀리 간다 — 준비→착지 거리가 실측 0.9m 대다.
@@ -1069,6 +1070,20 @@ export class Session {
         fm.countdown(1); fm.op(0.95); fm.at(p.x, p.z, FOLLOW_S);
       }
       fm.toe(q.toe || 0);   // 앞꿈치 접지 구간이면 뒤꿈치가 스러진다
+      // ── 발표 프리셋 이펙트(21c1b3d 가 '아직 안 넣은 것'으로 남긴 둘) ──────────────────
+      //   ★ 둘 다 **정본의 배수**다. 기준선을 박으면 안 된다(CLAUDE.md §3): 파동 정본은
+      //     `MARK_LOOK.rip` 이고 상태별로 0 이 되는 자리가 있는데, 여기서 숫자를 박으면
+      //     그 0 을 덮어써 정지 프레임에서 물결 테두리가 형태로 굳는다(알파 추출이 망가진다).
+      //     배수로 두면 정본이 0 인 상태는 0 그대로 남는다 — 켜지는 건 켜져 있던 것뿐이다.
+      //   ★ 제품(ad 없음)은 ×1 이라 1비트도 안 바뀐다.
+      if (AD) {
+        //   파동 — 착지 직후에 몰아준다(age 는 위에서 잰 그 값). 상시로 깔면 '지저분'해지고,
+        //   순간에 몰면 타격으로 읽힌다. 0.45s 안에서 스러진다.
+        const rk = Math.max(0, 1 - age / 0.45);
+        if (fm._U?.uRip) fm._U.uRip.value = MARK_LOOK.rip * (1 + 1.8 * rk);
+        //   도트 흐름 ×1.4 — 발 안 각인이 흐르는 속도. 커밋이 적어 둔 그 값 그대로.
+        if (fm._U?.uFlow) fm._U.uFlow.value = (MARK_LOOK.flow ?? 0) * 1.4;
+      }
       // ★ 하중 배분 — 이 단계 이 발의 LOAD(marklang). 단 **물리가 목표를 이긴다**:
       //   들린 발엔 하중이 0 이고, 미는 중이면 목표와 무관하게 밀기다.
       {
@@ -1113,13 +1128,21 @@ export class Session {
       ar.rotation.z = Math.atan2(-ux, -uz);   // 자루 방향 실측 매핑: dir = (−sinθ, −cosθ)
       ar._prog = Math.min(1, seg / (H.arMax || 0.62));   // 길이 = draw-on. 이동 거리가 곧 선 길이다
       // 목표 밝기 + 대기 중 미세 호흡(멈춰 있는 큐가 죽어 보이지 않게)
+      // ★ 발표 프리셋은 밝기를 올린다(유저 08-07: 화살표가 안 보인다). 제품은 손대지 않는다.
+      //   근거: drawStemArrow 는 scale 1 에서 촉 42px 이다 — 대지 1600px 이 지평선 쪽으로
+      //   투사되면 화면에서 한 자릿수 px 로 눌린다. 제품(따라하기)은 카메라가 가까워 그 크기로
+      //   읽히지만, 실전 뷰는 봇이 뒤로 빠져(sbShift) 같은 그림이 점선이 된다.
+      //   밝기만으로는 한계가 있어 아래 _scale 도 같이 올린다 — 굵기가 가독의 몸통이다.
       const _tgtA = (q.slide ? 0.75 : (q.moving ? 0.30 + 0.60 * (1 - q.f) : 0.55))
+        * (AD ? 1.45 : 1)
         * (1 + (q.moving ? 0 : ARROW.breath * Math.sin(this.t * 2.1)));
       ar._gain = lerpTo(ar._gain ?? 0, _tgtA, ARROW.ramp, _dtA);   // 슬라이드 큐는 일정한 밝기로 흐른다
       // ★ 두께 = MOVE 토큰(marklang ARROW). 길이는 draw-on 이 정하므로 토큰은 두께·촉만 말한다.
       //   슬라이드가 굵다 — 스텝백에서 힘이 실리는 곳이 거기다(3/4 왼발 밀기).
       const tok = arrowFor(q.slide ? 'slide' : 'step', Math.min(1, Math.hypot(du, dv)));
-      if (tok) ar._scale = tok.scale;
+      //   ★ 발표 프리셋 두께 ×1.6 — MOVE 토큰의 **배수**로만 올린다(토큰을 덮어쓰면 step/slide
+      //     대비가 무너진다: 0.85 vs 1.35 라는 '미는 발이 굵다'가 이 동작의 언어다).
+      if (tok) ar._scale = tok.scale * (AD ? 1.6 : 1);
       // 목표 존 — '여기 안에 놓으면 된다'. marklang ZONE.base(발 길이 배수)를 그대로 쓴다.
       this._sbZone(H, side, tp, q);
     };

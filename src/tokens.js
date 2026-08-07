@@ -606,7 +606,19 @@ export function setFPView(on) { FP_VIEW = !!on; }
 //   실제 크기는 그대로다: 평면을 SIL_FIT_REF/SIL_FIT 배로 키워 상쇄한다.
 export { SIL_FIT, SIL_FIT_REF, QUAD_K, ZONE_GLYPH_K } from './fx-core.js';
 
-export const FOOT_LEN_M = 0.30;   // 260 → 300(유저: 발자국이 화면에서 휑하게 작다 — 과감하게). 존 반경은 발 배수라 같이 따라온다
+/** 광고/발표 프리셋 — **정본은 여기 하나다.** session.js 가 이 값을 재수출한다.
+ *  왜 tokens 로 내렸나: `FOOT_LEN_M` 이 이 파일에 있는데 AD 가 session.js 에 있으면
+ *  둘을 잇는 방법이 순환 import 뿐이라, URL 을 두 번 읽는 사본이 생긴다.
+ *  tokens 는 session 을 import 하지 않으므로(의존 방향 아래) 여기가 정본 자리다.
+ *  ※ 없으면 제품 룩은 1비트도 안 바뀐다 — 이 상수를 읽는 모든 자리가 삼항으로만 갈린다. */
+export const AD = typeof location !== 'undefined'
+  && new URLSearchParams(location.search).get('ad') === '1';
+
+// ★ 발표 프리셋에서 0.42 (21c1b3d 가 '아직 안 넣은 것'으로 남긴 넷 중 하나).
+//   합성 컷에는 실제 투사 창 제약이 없다 — 제품은 빔 반폭에 묶여 0.30 이 상한이지만,
+//   영상은 그 제약을 안 받으므로 발이 화면에서 실제로 읽히는 크기까지 키운다.
+//   존 반경·스탠스 여백(SB_FIT_U)이 전부 이 값의 배수라 같이 따라온다.
+export const FOOT_LEN_M = AD ? 0.42 : 0.30;   // 260 → 300(유저: 발자국이 화면에서 휑하게 작다 — 과감하게). 존 반경은 발 배수라 같이 따라온다
 /** 실루엣이 평면에서 차지하는 세로 비율 — 정본 SVG 4종 실측(신발 0.7266 · 맨발 0.7285) */
 const FOOT_FILL = 0.727;
 /** 발형 토큰 평면 한 변(m). 발 길이가 0.24m 로 나오도록 역산 ≈ 0.330 */
