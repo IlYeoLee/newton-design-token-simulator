@@ -144,10 +144,15 @@ addEventListener('keydown', e => {
 const at = n => n === 1 ? [-0.44, 0.44] : n === 2 ? [0.44, 0.44]
   : n === 3 ? [-0.44, -0.44] : n === 4 ? [0.44, -0.44] : [0, 0];
 
+// ★ 외부 시간 훅 — 녹화는 **실시간이 아니라 고정 시간 스텝**으로 돈다(리포 규약: export_ui.mjs
+//   의 t = T0 + i/FPS 와 같은 식). 헤드리스 소프트 렌더러는 실시간을 못 따라가 12fps 로 떨어졌다
+//   (실측) — 한 박 0.467s 에 5.6프레임, 임팩트 플래시 0.22s 는 2프레임이라 사라진다.
+//   __t 가 있으면 그 값을 시각으로 쓰고, 한 프레임 그린 뒤 __drawn 을 올린다(캡처 쪽이 기다린다).
+window.__drawn = 0;
 function frame() {
-  const t = performance.now() / 1000 - t0;
+  const t = window.__t != null ? window.__t : performance.now() / 1000 - t0;
   // 박자 진행 — 균일한 간격으로 때리고, RUN 타마다 자리만 옮긴다
-  if (playing && t >= next) {
+  if ((playing || window.__t != null) && t >= next) {
     const inRun = beat % RUN;
     hitT = t;
     // 박자는 **균일하다**(편차 0.021s). 자리만 RUN 타마다 옮긴다 — 쉼표를 넣지 않는다.
@@ -191,6 +196,7 @@ function frame() {
     brand: 1,
   }, { halo: 0.9 }, t, ENV);
 
+  window.__drawn++;
   requestAnimationFrame(frame);
 }
 frame();

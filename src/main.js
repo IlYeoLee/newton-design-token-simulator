@@ -3009,7 +3009,11 @@ void main(){
     const HOLDS = cfg.hold ?? 0;
     if (HOLDS > 0 && S.k >= 1 && co._spotBeat !== S.b.tLand) {
       co._spotBeat = S.b.tLand;
-      co._holdUntil = performance.now() + HOLDS * 1000;
+      // ★ **_holdUntil 을 빌려 쓰면 안 된다.** 그건 조각 단계(HOLD>0) 경로에서만 해제된다 —
+      //   BK_T1 전체 재생은 HOLD 0 이라 그 블록을 안 지나고, 영상이 영영 멈춘 채 남는다.
+      //   게다가 vt 가 안 흐르니 다음 비트도 안 와서 래치도 안 풀린다(실측: vt 2.25 고정 데드락).
+      //   전용 필드를 쓰고 해제도 여기서 책임진다.
+      co._spotHoldUntil = performance.now() + HOLDS * 1000;
       try { co.video.pause(); } catch (e) {}
     }
     const gz = (cfg.gaze ?? 1) * 0.025 * (1 + 0.55 * S.pop) * Math.min(1, S.k * 3 + 0.15);
@@ -3132,7 +3136,8 @@ void main(){
         if (co._frozen && ((!co.video.seeking && co.video.readyState >= 3
             && co.video.currentTime > (PHW ? PHW[0] : 0) + 0.03) || performance.now() - (co._fzT || 0) > 350)) unfreezeCoach(co);
         if (!PHW && co.video.playbackRate !== 1) co.video.playbackRate = 1;   // 그 외 단계는 정속
-        if (co.video.paused && !co._holdUntil) co.video.play().catch(() => {});
+        if (co._spotHoldUntil && performance.now() >= co._spotHoldUntil) co._spotHoldUntil = 0;   // 스팟 정지 해제
+        if (co.video.paused && !co._holdUntil && !co._spotHoldUntil) co.video.play().catch(() => {});
         // 영상 실제 프레임이 들어오기 전엔 숨김 — 검은/균일 텍스처가 크로마키 통과 못 해
         // 빨간 방사형 사각형으로 0.x초 깜빡이던 것 방지(유저). readyState≥3(HAVE_FUTURE_DATA)+재생 시작 후.
         // 루프 순간 currentTime이 0으로 되감겨 매 루프 1~2프레임 숨김 → 깜빡임(유저). 첫 표시 후 래치.
