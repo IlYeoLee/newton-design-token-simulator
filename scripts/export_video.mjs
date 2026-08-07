@@ -915,7 +915,8 @@ if (done < N) console.log(`  (${done}/${N} 프레임으로 묶습니다 — ${(d
 // (윈도엔 시스템 ffmpeg 가 없는 기기가 있다 — 그때 여기서 죽으면 뽑아 둔 프레임까지 날린다.
 //  ffmpeg-static 이 깔려 있으면 그 바이너리를 쓴다: 시스템 설치 없이 .mov/.mp4 가 나온다.)
 const FF = await import('ffmpeg-static').then(m => m.default).catch(() => 'ffmpeg');
-const hasFF = (() => {
+// --nomov : PNG 만 낸다. 청크 렌더(render_chunked.mjs)는 조각마다 .mov 를 만들 이유가 없다.
+const hasFF = !arg('nomov', false) && (() => {
   try { execFileSync(FF, ['-version'], { stdio: 'ignore' }); return true; } catch { return false; }
 })();
 // ★ 프레임을 먼저 산출 폴더로 옮기고 나서 인코딩한다 — 순서가 중요하다.
