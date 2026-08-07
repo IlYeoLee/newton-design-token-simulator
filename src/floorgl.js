@@ -1062,7 +1062,12 @@ const advOf = s => ADV[s] || CAPS[s]?.adv || 'time';
  *  스텝백의 step('n/4')과 **같은 슬롯**이라 조판을 새로 만들 게 없다. */
 //  ★ 링과 **같은 조건**으로 뜬다(repsLive). 안 그러면 관찰·셋업 동안 값 없는 '/10' 배지만
 //    덩그러니 남아, 셀 게 없는 화면에서 '10 중 몇'을 묻는 꼴이 된다.
-const repsTotal = s => (advOf(s) === 'reps' && repsLive()
+/** ★ 실전(BK_C2)은 분모를 안 쓴다(유저 08-07: "우측에 /3 이런 숫자도 왜 있는지 모르겠다").
+ *  이 함수는 `'/' + 총회수` 만 만든다 — **분자가 없는 구조다.** 조각 단계(B2~B4)는 CAPS 에
+ *  `step: '1/3'` 같은 완성된 문자열이 있어 그쪽이 이기지만, 실전은 step 이 없어 맨 `/3` 만 남았다.
+ *  '/3' 은 그 자체로 아무 말도 안 한다 — 회차는 코치 음성과 아래 남은 횟수 자막이 이미 전담한다. */
+const LIVE_STAGE = 'BK_C2';   // session.js STEP_LIVE 와 같은 값(순환 import 회피 — 바뀌면 같이 고칠 것)
+const repsTotal = s => (s !== LIVE_STAGE && advOf(s) === 'reps' && repsLive()
   ? '/' + (window.__dbg?.session?.repTotal || CAPS[s]?.reps || 10) : null);
 const showArc  = s => advOf(s) === 'time';                       // 아크 = time 에서만
 /** 세션이 지금 **실제로 세고 있는** 반복이 있나. 없으면 반복형 스테이지라도 링을 안 켠다.
@@ -1071,7 +1076,13 @@ const showArc  = s => advOf(s) === 'time';                       // 아크 = tim
  *  (유저 08-06: 처음엔 프리뷰인데 타이머가 이상하다 · 저게 타이먼지 카운튼지 모르겠다).
  *  세션은 그 구간에 repTotal 을 비워 둔다 — 그 신호를 그대로 쓴다. */
 const repsLive = () => !!window.__dbg?.session?.repTotal;
-const showRing = s => (advOf(s) === 'reps' ? repsLive() : ['segment', 'hold'].includes(advOf(s)));   // 링 = 셀 게 따로 있을 때만
+// ★ 실전(BK_C2)은 링도 안 쓴다(유저 08-07: "타이틀 옆에 카운팅이 시간이 왜 있는건지 모르겠다").
+//   링은 '남은 시간/횟수'를 말하는 물건인데, 실전은 **끝나는 조건이 시간이 아니라 수행**이다
+//   (3회를 해내면 넘어간다). 시간처럼 도는 링을 옆에 두면 '언제 끝나지'를 잘못 읽게 만든다.
+//   덤으로 링 슬롯이 빠지면 알약 폭도 그만큼 닫혀 타이틀 침범이 줄어든다(조판 규약: 안 보이는
+//   노드는 자리도 안 차지한다).
+const showRing = s => (s === LIVE_STAGE ? false
+  : advOf(s) === 'reps' ? repsLive() : ['segment', 'hold'].includes(advOf(s)));   // 링 = 셀 게 따로 있을 때만
 /** 알약이 **그 화면의 유일한 정보**인가 — SPM·거리 같은 다른 1급 수치가 없으면 참.
  *  크기(titleLeadK)와 접힘 여부를 같이 정한다: 주인공이면 크게, 그리고 **안 접는다**
  *  (유저: 스트레칭할 때 타이틀 없어지니 어색하다 — 거긴 알약이 화면의 전부다). */
