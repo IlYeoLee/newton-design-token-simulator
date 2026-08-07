@@ -1207,7 +1207,15 @@ export class Session {
       // ★ 색이 상태다 — 히트색(coral)으로 만들면 Preview(0) 채움이라 **속이 꽉 찬 원**이 되어
       //   목표 발자국을 덮는다(실측: 주황 덩어리). 무채(dim)로 만들면 Locked = **crisp 아웃라인**
       //   이 되고, 이게 marks.html 이 그리던 그 점선 원과 같은 읽힘이다.
-      H.zTgt = floorRing(0, SBZ, ZONE.base - 0.018, ZONE.base, BRAND.dim, 0);
+      // ★ BRAND.dim → **BRAND.coral** (유저 08-07: "마지막엔 그 부분에 원형 파형이 올라온다든지").
+      //   파형은 새로 만들 게 아니었다 — floorRing 주석이 규약을 이미 적어 뒀다:
+      //     "히트색 → Preview 파동 · 무채(dim) → Locked 고스트"
+      //   즉 **preview 위상에 파동이 이미 들어 있고**, 히트색일 때만 켜진다. dim 으로 만드니
+      //   생성 시점에 Locked(3)로 태어났고, 위상만 preview 로 바꿔도 색이 무채라 파동이 안 떴다.
+      //   색을 히트로 옮기면 위상·파동·색이 한 번에 맞는다(아래 setPhase(0)과 같은 말).
+      //   red 가 아니라 coral 인 이유: red 는 판정(Miss·경고) 쪽 어휘다. 목표 존은 경고가
+      //   아니라 **유인**이므로 같은 온도 계열에서 한 칸 낮은 coral 이 맞다.
+      H.zTgt = floorRing(0, SBZ, ZONE.base - 0.018, ZONE.base, BRAND.coral, 0);
       H.zTgt.renderOrder = 3;   // 발마크(7~8) 아래 — 원이 실루엣을 덮지 않게
       (H.mL?.parent || this.root).add(H.zTgt);
     }
