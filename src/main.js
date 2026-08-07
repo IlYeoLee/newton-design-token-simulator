@@ -3112,6 +3112,12 @@ void main(){
             _stepFrac = _share * Math.max(0, Math.min(1, (co.video.currentTime - a) / Math.max(0.05, b - a)));
             session.stepVidT = co.video.currentTime;   // 마크 배치가 이 값을 그대로 따라간다
           }
+          // ★ 관찰 링의 **숫자**(이번 회차 남은 초) — 정본은 여기다.
+          //   floorgl `_gaugeVal` 의 `this.t` 로는 못 만든다: 실측(08-07, BK_B2 7초 캡처)에서
+          //   this.t 가 0.1 → 0.5 로만 흘렀다(실시간의 약 1/5). 그 t 로 초를 계산했더니 링이
+          //   '4' 또는 '2' 에 **얼어붙었다**. 회차 길이(_playWall+HOLD)와 진행(_stepFrac)은
+          //   둘 다 여기 있고 벽시계 기준이라, 세션이 계산해 넘긴다(`_pvLoops` 와 같은 규약).
+          session._pvSecLeft = (_playWall + HOLD) * (1 - _stepFrac);
           if (co._holdUntil) {
             // 마지막 프레임 1초 정지 후 처음으로 되감아 루프(유저)
             if (now >= co._holdUntil) {

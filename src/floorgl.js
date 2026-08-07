@@ -2021,12 +2021,28 @@ export class FloorGL {
         const per = Math.max(.1, PV / pvn);          // 영상 1회분
         const live = window.__dbg?.session?._pvLoops;
         const done = Math.min(pvn, Number.isFinite(live) ? live : Math.floor(t / per));
+        // ★ 규칙⑤(SPEC): 카운트는 한 화면에 하나. 'n/N' 은 4글자라 **고정 지름 링에 못 들어간다**
+        //   (검사기 실측 1.45~1.72배 넘침 → 숫자가 60%로 줄어 읽히지 않았다).
+        //   그래서 **횟수**는 ② 라벨이 말한다: 'PREVIEW 1/2'.
+        //   드리블에서 링(1급)+배지(2급)로 쪼갠 것과 같은 처리다.
+        // ★★ 08-07 유저: 횟수가 위로 빠졌으니 **링은 원래대로 타이머를 맡는다.**
+        //   비워 두면 고정 지름 링이 아무 말도 안 하는 빈 원으로 남는다(유저 확대 검수).
+        //   ★ '관찰 전체가 몇 초 남았나'는 **이 스테이지에 존재하지 않는 값**이다 — 스텝백 관찰은
+        //     끝나는 조건이 시간이 아니라 **재생 횟수**다(`_stepLoops >= LOOPS`). 실제로 아래
+        //     폴백 식(`(pvEnd ?? PV) - t`)을 그대로 써 봤더니 링이 **'4' 에서 멈췄다**(실측:
+        //     28프레임 내내 4). 호출부가 `pvEnd: Math.max(PV, this._moT ?? PV)`(3664행)로
+        //     넘겨 끝점이 t 를 따라 같이 밀리기 때문이다.
+        //   그래서 단위를 **아크와 같게** 맞춘다 — 링 한 바퀴 = 영상 1회이므로, 숫자도
+        //   **이번 회차가 몇 초 남았나**다. 한 위젯이 한 가지만 말하고(규칙⑤), 한 자리라
+        //   링 규격(ringRatio 1.9 = 두 자리 그릇)에 여유롭게 들어간다.
+        //   ⚠ `this.t` 로는 초를 만들 수 없다 — 실측(08-07, BK_B2 7초 캡처)에서 this.t 는
+        //     0.1 → 0.5 로만 흘렀다(실시간의 약 1/5). 그래서 `(pvEnd ?? PV) - t` 도
+        //     `per - (t % per)` 도 전부 **상수**('4', '2')로 얼어붙었다. 벽시계 값은
+        //     세션이 준다(main.js `_pvSecLeft` — `_pvLoops` 와 같은 규약). t 식은 폴백으로만 남긴다.
+        const liveSec = window.__dbg?.session?._pvSecLeft;
+        const pvLeft = Number.isFinite(liveSec) ? liveSec : per - (t % per);
         return { AV, prog: clamp01(1 - (t % per) / per),   // 링은 **1회당 한 바퀴**
-                 // ★ 규칙⑤(SPEC): 카운트는 한 화면에 하나. 'n/N' 은 4글자라 **고정 지름 링에 못 들어간다**
-                 //   (검사기 실측 1.45~1.72배 넘침 → 숫자가 60%로 줄어 읽히지 않았다).
-                 //   그래서 링은 **진행만** 돌리고(rem 빈 문자열) 횟수는 ② 라벨이 말한다:
-                 //   'PREVIEW 1/2'. 드리블에서 링(1급)+배지(2급)로 쪼갠 것과 같은 처리다.
-                 rem: '', pvLabel: done + '/' + pvn };
+                 rem: String(Math.max(1, Math.ceil(pvLeft))), pvLabel: done + '/' + pvn };
       }
       const end = pvEnd ?? PV;
       return { AV, prog: clamp01(1 - t / Math.max(.1, PV)), rem: String(Math.max(1, Math.ceil(end - t))) };
