@@ -1711,7 +1711,21 @@ export class Session {
     // 제자리 드리블에는 표적이 없다. 발은 몸 아래(d≈0)에 있고 거긴 빔이 못 닿는다 —
     //   몸 앞 1m 에 발자리를 그리면 "걸어 나가서 뒤로 쳐라"가 된다(유저 지적).
     //   번호 표적은 발을 실제로 옮기는 단계(사이드 드리블 BK_C3)에서 켠다.
-    const B1_TG = [];
+    // ★ 08-07 — 이 표가 **빈 배열로 비어 있었다**(언제 비었는지는 히스토리에 안 남는다).
+    //   원본은 8e64b1d '드리블 매트 — 표적을 판정 토큰으로, 16회로, 시선을 판 위로'.
+    //   비어 있으면 H.tg 가 0개라 아래 노드 파문 루프(q.live/q.hit)가 한 번도 안 돌고,
+    //   바로 위에서 MP.hit = null 로 허브 파문도 꺼 두므로 **팡이 통째로 죽는다.**
+    //   좌표·반경·번호는 원본 그대로 복원한다 — 실측값이라 손대지 않는다.
+    //   ★ on 만 바꾼다(유저: "4에 팡이 있어야 해"). 팡은 on:true 인 노드에서만 터진다 —
+    //     원본은 1·2 가 true, 3·4 가 false 라 앞쪽에서 터졌다. 4만 켠다.
+    //     박자·간격은 안 건드린다: 주기는 H._per(실측 바운스 간격), 래치는 H._popT 라
+    //     이 표와 무관하게 그대로 돈다.
+    const B1_TG = [
+      { x: -0.265, d: 1.05, n: 1, r: 0.105, on: false },
+      { x:  0.265, d: 1.05, n: 2, r: 0.105, on: false },
+      { x: -0.14,  d: 0.60, n: 3, r: 0.10,  on: false },   // 스텝 표적 — 사이드 드리블 단계에서 점등
+      { x:  0.14,  d: 0.60, n: 4, r: 0.10,  on: true  },   // ← 팡은 여기서
+    ];
     const b1tg = B1_TG.map(tg => {
       const z = BK_STAND - tg.d;
       const ring = floorRing(tg.x, z, tg.r * 0.80, tg.r, BRAND.coral, tg.on ? 0.42 : 0.16);
@@ -1762,6 +1776,12 @@ export class Session {
       center: { x: 0, y: toV(0.60), r: 0.15 / (MAT_SIZE / 2), ring: 0, label: null },
       // 표적은 3D 판정 토큰(b1tg)이 그린다 — 프림은 그 사이를 잇는 레일만 안다.
       rails: B1_TG.map(tg => ({ x: toU(tg.x), y: toV(tg.d), r: tg.r / (MAT_SIZE / 2), on: tg.on })),
+      // ★ 파문이 안 닿던 자리(08-07). drawDribbleMat 은 **P.targets** 를 읽는데
+      //   (fx-core 1946: "P.targets = [{x,y,n,r,on,live}]") 여기선 rails 로만 넣고 있었다.
+      //   그래서 session 의 노드 파문 루프(`if (Array.isArray(MP.targets))`)가 영영 안 돌았다.
+      //   rails 는 레일(잽잽훅 문법)이 쓰는 키라 **덮지 않고 targets 를 같이 낸다.**
+      //   n 을 함께 넘긴다 — fx-core 가 NODES 를 n 으로 정렬한다(2029).
+      targets: B1_TG.map(tg => ({ x: toU(tg.x), y: toV(tg.d), r: tg.r / (MAT_SIZE / 2), n: tg.n, on: tg.on })),
       // 눈금자는 뺐다 — 운동 중에 '0.5 m'를 읽을 사람은 없다. 도면·합성용이라 랩에서만 켠다.
       brand: 1,
     };
