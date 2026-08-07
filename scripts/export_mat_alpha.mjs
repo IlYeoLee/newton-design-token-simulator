@@ -5,6 +5,7 @@
 //     node scripts/export_mat_alpha.mjs                     # 3840×1080 · 29.97fps · 0~10s
 //     node scripts/export_mat_alpha.mjs --mov               # ProRes 4444 로 묶기
 //     node scripts/export_mat_alpha.mjs --spot 1 --t1 20    # 때릴 자리 · 길이
+//     node scripts/export_mat_alpha.mjs --bg 000 --mov      # 검정 배경(Add 합성용, h264)
 //
 // 왜 검은 배경 mp4 가 아니라 이건가 (유저: 기본 3D 레이어 살리면서 가져오라고)
 //   검정으로 구워 버리면 ① 알파가 없어 실사 위에 못 얹고 ② 원근을 픽셀에 박아 넣어 AE 카메라가
@@ -28,10 +29,15 @@ const FPS = +arg('fps', 30000 / 1001);               // 소스 클립과 같은 
 const T0 = +arg('t0', 0), T1 = +arg('t1', 10);
 const SPOT = +arg('spot', 1);                        // 실측: 공이 몸 중심 좌 28cm → 1번
 const PER = arg('per', null);                        // 기본은 공 추적 실측 0.467
-const OUT = arg('out', 'out/mat_alpha');
+// ★ 배경 — 두 경로 다 정당하다(HANDOFF-0807-STANCE-TOKEN 8절).
+//   none : straight alpha. 밝은 바닥에 Normal 로 얹는다. 문턱을 추측할 일이 없다.
+//   000  : 검정. **Add 합성**이면 이게 맞다 — 가산에서 검정 = 빛 없음 = 안 보임이라
+//          알파 없이 그대로 얹힌다. alpha_floor.mjs 로 사후에 깎을 수도 있다.
+const BG = arg('bg', 'none');
+const OUT = arg('out', BG === 'none' ? 'out/mat_alpha' : 'out/mat_' + BG);
 const URL = process.env.URL || 'http://127.0.0.1:5401';
 
-const q = new URLSearchParams({ w: W, h: H, bg: 'none', spot: SPOT, loop: 0 });
+const q = new URLSearchParams({ w: W, h: H, bg: BG, spot: SPOT, loop: 0 });
 if (PER != null) q.set('per', PER);
 
 fs.mkdirSync(OUT, { recursive: true });
@@ -62,8 +68,13 @@ console.log(`\n✅ ${OUT}  (${W}×${H} · ${FPS.toFixed(2)}fps · ${T0}~${T1}s �
 
 if (has('mov')) {
   const mov = OUT + '.mov';
+  // 검정 배경이면 알파가 필요 없다 — h264 로 가볍게. 알파면 ProRes 4444.
+  const args = BG === 'none'
+    ? ['-c:v', 'prores_ks', '-profile:v', '4444', '-pix_fmt', 'yuva444p10le', '-alpha_bits', '16']
+    : ['-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-crf', '14', '-preset', 'slow'];
+  const dst = BG === 'none' ? mov : OUT + '.mp4';
   execFileSync('ffmpeg', ['-v', 'error', '-y', '-framerate', String(FPS),
-    '-i', path.join(OUT, 'f%04d.png'), '-c:v', 'prores_ks', '-profile:v', '4444',
-    '-pix_fmt', 'yuva444p10le', '-alpha_bits', '16', mov], { stdio: 'inherit' });
-  console.log(`✅ ${mov}  — 에펙에서 알파를 **Straight** 로 해석할 것`);
+    '-i', path.join(OUT, 'f%04d.png'), ...args, dst], { stdio: 'inherit' });
+  console.log(`✅ ${dst}` + (BG === 'none' ? '  — 에펙에서 알파를 **Straight** 로 해석할 것'
+                                          : '  — Add 로 얹을 것(검정 = 빛 없음)'));
 }
