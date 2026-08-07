@@ -76,8 +76,12 @@ console.log(`\n✅ ${OUT}  (${W}×${H} · ${FPS}fps · ${T0}~${T1}s · ${BLEND})
 
 if (has('mov')) {
   // ProRes 4444 = 알파를 들고 갈 수 있는 코덱. -alpha_bits 16, 프로파일 4444.
+  // ★ 시스템 ffmpeg 을 부르면 안 된다 — PC 방 기계엔 PATH 에 없어서 133장 다 뽑고
+  //   묶는 마지막 줄에서 ENOENT 로 죽었다(08-07). export_video·export_person_clip 이
+  //   이미 쓰는 방식으로 통일한다: 리포의 ffmpeg-static → 없으면 시스템 것.
+  const FF = await import('ffmpeg-static').then(m => m.default).catch(() => 'ffmpeg');
   const mov = OUT + '.mov';
-  execFileSync('ffmpeg', ['-v', 'error', '-y', '-framerate', String(FPS),
+  execFileSync(FF, ['-v', 'error', '-y', '-framerate', String(FPS),
     '-i', path.join(OUT, 'f%04d.png'), '-c:v', 'prores_ks', '-profile:v', '4444',
     '-pix_fmt', 'yuva444p10le', '-alpha_bits', '16', mov], { stdio: 'inherit' });
   console.log(`✅ ${mov}  — 에펙에서 알파를 **Straight** 로 해석할 것`);
