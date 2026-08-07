@@ -1,6 +1,6 @@
 {
   "_": "MARK(발형·존원) 룩 정본. footlab.html '코드에 저장'이 이 파일을 덮어쓴다.",
-  "imp": 0,
+  "imp": 0.98,
   "scale": 0.83,
   "offx": -0.043,
   "offy": -0.031,
@@ -9,9 +9,9 @@
   "dot": 0.25,
   "glow": 0.26,
   "shade": 0.3,
-  "sharp": 0.4,
+  "sharp": 0.74,
   "edge": 0.038,
-  "plantar": 0.55,
+  "plantar": 0.84,
   "bands": 24,
   "bandSoft": 1,
   "w": 1.6,
@@ -23,7 +23,7 @@
   "ripWidth": 0.125,
   "ripSpeed": 0.4,
   "ripGrad": 1,
-  "edgeShade": 0.13,
+  "edgeShade": 0.34,
   "shadeRed": 0,
   "shadeRedW": 3.4,
   "edgeW": 0.01,
@@ -35,15 +35,15 @@
   "gy": 0.16,
   "grot": 4,
   "gsh": 0.6,
-  "shadeCol": 4,
+  "shadeCol": 1,
   "ripCol": 1,
   "gShadow": "glow",
-  "gBlend": "normal",
+  "gBlend": "add",
   "numSrc": "offbit",
   "prog": 0.55,
   "bloom": 0.125,
   "blur": 0,
-  "edgeShadeW": 1.55,
+  "edgeShadeW": 1,
   "edgeShadeCol": 4,
   "edgeShadeGrad": 0,
   "edgeShadeG0": 1,
@@ -99,23 +99,15 @@
     "w": 1.15
   },
   "op": 0.98,
-  "dotCol": 4,
+  "dotCol": 1,
   "states": {
     "0": {
-      "sharp": 0,
-      "op": 0.56
+      "sharp": 0
     },
-    "1": {
-      "tLo": 0.12,
-      "tHi": 0.84,
-      "op": 0.88,
-      "bloom": 0.1
-    },
+    "1": {},
     "2": {
       "w": 1.8,
       "halo": 0.5,
-      "op": 1,
-      "bloom": 0.16,
       "glow": 0.15,
       "imp": 0,
       "dot": 0.2,
@@ -130,7 +122,6 @@
       "glow": 0,
       "halo": 0.14,
       "w": 0.7,
-      "bloom": 0.06,
       "shade": 0,
       "imp": 0,
       "edgeShadeGrad": 0,
@@ -141,8 +132,7 @@
       "edge": 0.004,
       "sharp": 0,
       "plantar": 1,
-      "edgeShadeCol": 4,
-      "op": 0.71
+      "edgeShadeCol": 4
     },
     "tap": {
       "op": 0.1,
