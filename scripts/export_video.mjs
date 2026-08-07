@@ -282,6 +282,16 @@ const browser = await puppeteer.launch({
     '--force-gpu-mem-available-mb=4096', '--disable-gpu-program-cache'],
 });
 const page = await browser.newPage();
+// ★ --grab 은 캔버스를 직접 읽는다. 앱은 preserveDrawingBuffer:false 로 컨텍스트를 만들기 때문에
+//   (scene.js) 렌더가 끝나면 버퍼가 날아가 toDataURL 이 **백지**를 준다(실측: 150장 전부 흰 화면).
+//   앱이 뜨기 전에 컨텍스트 속성을 갈아 끼워 버퍼를 남긴다 — 앱 코드는 안 건드린다.
+if (GRAB) await page.evaluateOnNewDocument(() => {
+  const orig = HTMLCanvasElement.prototype.getContext;
+  HTMLCanvasElement.prototype.getContext = function (type, attrs) {
+    if (/webgl/i.test(type)) attrs = { ...(attrs || {}), preserveDrawingBuffer: true };
+    return orig.call(this, type, attrs);
+  };
+});
 // ★ 가상 시계 — 페이지의 모든 시간을 우리가 민다.
 //   이게 없으면 셰이더 uTime·three.Clock 이 '실시간'으로 돈다. 프레임 하나 렌더에 1~2초가
 //   걸리므로 애니메이션이 그만큼 앞질러 가고, 결과 영상이 미친 듯이 빨라진다(유저: 너무 빠름).
@@ -891,11 +901,9 @@ for (let i = 0; saved < N; i++) {
   //   **우리가 렌더하고 곧바로** 읽어야 픽셀이 보장된다(main.js blackProbe 가 같은 이유로 앱 안에 산다).
   const png = path.join(TMP, `f${String(saved).padStart(5, '0')}.png`);
   if (GRAB) {
-    const url = await page.evaluate(() => {
-      const d = window.__dbg;
-      if (d.composer) d.composer.render(); else d.renderer.render(d.scene, d.camera);
-      return d.renderer.domElement.toDataURL('image/png');
-    });
+    //   ★ 여기서 다시 렌더하면 안 된다 — 앱의 평면 카메라·격리 설정을 안 거친 렌더라 백지가 나온다.
+    //     위 evaluate 가 이미 앱 rAF 를 두 번 돌렸고, preserveDrawingBuffer 덕에 그 픽셀이 남아 있다.
+    const url = await page.evaluate(() => window.__dbg.renderer.domElement.toDataURL('image/png'));
     fs.writeFileSync(png, Buffer.from(url.slice(url.indexOf(',') + 1), 'base64'));
   } else await page.screenshot({ path: png, type: 'png', omitBackground: ALPHA });
   saved++;
@@ -906,6 +914,17 @@ for (let i = 0; saved < N; i++) {
     if (tri === 0) {
       console.error('✗ 첫 프레임에 그려진 삼각형이 0개 — 빈 영상이 됩니다. 중단합니다.');
       await browser.close(); process.exit(1);
+    }
+    // ★ 삼각형 검사만으로는 --grab 의 빈 프레임을 못 잡는다 — 앱은 멀쩡히 그렸는데 우리가 읽은
+    //   버퍼가 비어 백지가 나올 수 있다(실측: 150장 전부 흰 화면인데 삼각형 검사는 통과했다).
+    //   저장한 **파일 자체**의 색 다양도를 본다. 여기서 막아야 500장을 헛뽑지 않는다.
+    if (GRAB) {
+      const v = await variety(png);
+      if (v < 0.15) {
+        console.error(`✗ --grab 첫 프레임이 사실상 단색입니다(색 다양도 ${v.toFixed(2)}%) — 빈 캡처입니다. 중단합니다.`);
+        await browser.close(); process.exit(1);
+      }
+      console.log(`\n  캔버스 읽기 확인 (색 다양도 ${v.toFixed(2)}%)`);
     }
     if (i > 0) console.log(`\n  프리롤 ${i}프레임 버림 (스테이지 시작 전)`);
     // 프리플라이트에서 이미 내용 있는 프레임을 확인했으므로 여기선 더 볼 게 없다.
