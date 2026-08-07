@@ -41,7 +41,9 @@ const PAD = arg('pad', null);
 const OUT = arg('out', BG === 'none' ? 'out/mat_alpha' : 'out/mat_' + BG);
 const URL = process.env.URL || 'http://127.0.0.1:5401';
 
-const q = new URLSearchParams({ w: W, h: H, bg: BG, spot: SPOT, loop: 0 });
+// ★ 래스터 품질 — 추출 경로는 FXQ 를 올린다(export_stance_alpha 와 같은 이유·같은 규약).
+const FXQ = arg('fxq', 3);
+const q = new URLSearchParams({ w: W, h: H, bg: BG, spot: SPOT, loop: 0, fxq: FXQ });
 if (PER != null) q.set('per', PER);
 if (PAD != null) q.set('pad', PAD);
 

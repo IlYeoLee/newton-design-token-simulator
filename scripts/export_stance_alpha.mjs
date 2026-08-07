@@ -40,7 +40,11 @@ const PITCH = arg('pitch', null);                     // 기본은 정본(-55°)
 const OUT = arg('out', 'out/stance_alpha');
 const URL = process.env.URL || 'http://127.0.0.1:5199';
 
-const q = new URLSearchParams({ w: W, h: H, blend: BLEND });
+// ★ 래스터 품질 — 추출 경로는 FXQ 를 올린다(fx-core FXQ 주석: "추출 경로만 이 값을 올린다").
+//   이 스크립트가 fxq 를 안 넘겨서 08-07 추출분이 전부 실시간 기본값 1 로 뽑혔다.
+//   글리프 래스터 512→512k · 마크 글리프 캔버스 128→128k · 발 실루엣 SDF 768→768k.
+const FXQ = arg('fxq', 3);
+const q = new URLSearchParams({ w: W, h: H, blend: BLEND, fxq: FXQ });
 if (PITCH != null) q.set('pitch', PITCH);
 
 fs.mkdirSync(OUT, { recursive: true });

@@ -6,7 +6,7 @@
 //   OKLab 보간(RGB 직선 보간의 탁한 갈색 구간 제거) + 채도 스케일(회색조 혼합).
 // ─────────────────────────────────────────────────────────────
 import * as THREE from 'three';
-import { sdfFromAlpha, glyphRaster, bakeGlyphSDF, bakeFootPairSDF, buildLUT } from './fx-core.js';
+import { sdfFromAlpha, glyphRaster, bakeGlyphSDF, bakeFootPairSDF, buildLUT, FXQ } from './fx-core.js';
 import { STOPS, SAT, PAL, NEU, rgba } from './palette.js';
 // OKLab 변환·LUT 빌더는 fx-core(정본)에서 — 중복 2벌 폐기.
 
@@ -302,13 +302,16 @@ export function footSDFTexture(right) {
   const flip = !!GLYPHS.flip[slot];
   const inSlot = 'FOOT_IN_' + (right ? 'R' : 'L');
   const inUrl = slot === inSlot ? null : GLYPHS.map[inSlot];
-  const key = (url ? url.length : 'builtin') + '|' + slot + '|' + flip + '|' + (inUrl ? inUrl.length : 0);
+  // ★ 캐시 키에 N 이 들어가야 한다 — 없으면 fxq 를 올려도 처음 구운 저해상도 SDF 가 박제된다.
+  const N = 768 * FXQ.k;
+  const key = (url ? url.length : 'builtin') + '|' + slot + '|' + flip + '|' + (inUrl ? inUrl.length : 0) + '|' + N;
   if (_sdfCache.has(key)) return _sdfCache.get(key);
   const img = url ? GLYPHS.img(slot) : null;
   if (url && !img) return null;   // 로드 전 — onLoad 리베이크가 재시도
   const inImg = inUrl ? GLYPHS.img(inSlot) : null;
   if (inUrl && !inImg) return null;   // 안쪽도 같이 기다린다 — 반쪽만 구우면 캐시가 그걸 박제한다
-  const N = 768;
+  // (N 은 위 캐시 키에서 이미 FXQ 로 정해졌다 — 품질 병목 1번,
+  //  HANDOFF-0807-FLOOR-SPEC-AND-AD §4: "발 실루엣 SDF 해상도 — FXQ 미적용")
   let FS;
   if (img) {
     FS = bakeFootPairSDF(img, inImg, N, flip);
