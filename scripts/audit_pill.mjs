@@ -29,7 +29,10 @@ for (const ST of STAGES){
       const pills=[];
       const out=[]; const t0=performance.now();
       while(performance.now()-t0<9000){ await new Promise(r=>setTimeout(r,700)); out.push(snap());
-        const b=(f._boxes||[]).find(o=>o.k==='pill'); if(b) pills.push([Math.round(b.h),Math.round(b.w),Math.round(b.y)]); }
+        const b=(f._boxes||[]).find(o=>o.k==='pill'); const ib=(f._boxes||[]).find(o=>o.k==='inner');
+        // 가운데정렬 검수 — 알약 중심과 내용 중심의 차(px). 0 이면 정렬, +면 내용이 오른쪽.
+        if(b) pills.push([Math.round(b.h),Math.round(b.w),Math.round(b.y),
+          ib?Math.round((ib.x+ib.w/2)-(b.x+b.w/2)):null]); }
       const pv=out.find(o=>o.fill>0)||out[0];
       const mx=out.reduce((a,o)=>o.span>a.span?o:a,out[0]);
       const mn=out.reduce((a,o)=>(o.span&&o.span<a.span?o:a),mx);
@@ -37,6 +40,7 @@ for (const ST of STAGES){
       return {stage:S.curStage?.id, 알약높이:pills.length?[Math.min(...ph),Math.max(...ph)]:null,
         알약폭:pills.length?[Math.min(...pw),Math.max(...pw)]:null,
         알약상단:pills.length?[Math.min(...py),Math.max(...py)]:null,
+        중심오차:pills.length?[Math.min(...pills.map(p=>p[3]??0)),Math.max(...pills.map(p=>p[3]??0))]:null,
         잉크세로:[Math.min(...out.map(o=>o.h)),Math.max(...out.map(o=>o.h))],
         폭:[mn.span,mx.span], 채움:[Math.min(...out.map(o=>o.fill)),Math.max(...out.map(o=>o.fill))],
         채도:[Math.min(...out.map(o=>o.sat)),Math.max(...out.map(o=>o.sat))], 상단:pv.top};

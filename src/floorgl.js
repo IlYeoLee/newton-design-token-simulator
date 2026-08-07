@@ -1803,7 +1803,7 @@ export class FloorGL {
     // ★ 프레임 단위 메모이즈. 조판(_h)과 그리기(_capHead)가 **같은 호출로 같은 결과**를 봐야 한다.
     //   안 그러면 예약 높이 ≠ 그리는 높이가 되어 다음 노드(진행 아크)가 알약을 파고든다
     //   — 이 파일이 이미 두 번 겪은 사고다(HEAD.h 348 vs 388). 여기선 HUG 로 바꾸며 되살아났다.
-    const _sig = JSON.stringify([title, step, y, o.fs, o.ringK, o.ringR, this.t, this.stage]);
+    const _sig = JSON.stringify([title, step, y, o.fs, o.fsW, o.ringK, o.ringR, this.t, this.stage]);
     if (this._hbSig === _sig) return this._hbVal;
     const ctx = this.ctx, H2 = LAYOUT.HEAD;
     // uiK — 콘텐츠가 시선을 많이 요구하는 스테이지에서 UI 가 물러난다(CAPS 참고).
@@ -1834,6 +1834,16 @@ export class FloorGL {
     //   110 만 예약하던 것이 문제였다: uiK 0.80 인 농구 B단계에서 110×0.8=88 − 배지폭(≈70) = 18px 만 남았다.
     //   규칙⑥(SPEC): 배지는 타이틀과 **같은 베이스라인, 오른쪽 끝** — 붙어 있으면 타이틀의 일부로 읽힌다.
     const inner = ringW + H2.gapU + tw + (step ? (110 + TOK.gapT) * K2 : 0);
+    // ★ **그릇 폭만** 다른 활자로 잰다(o.fsW). 국면마다 활자가 바뀌어도 상자가 안 흔들리게
+    //   가장 큰 활자로 상자를 잡되, 가운데정렬 기준인 inner 는 **실제로 그리는 활자**로 남긴다.
+    //   둘을 한 값으로 묶었더니 상자만 넓어지고 내용이 왼쪽에 붙었다(유저 스샷: LEFT CALF STRETCH).
+    let innerW = inner;
+    if (o.fsW && o.fsW !== (o.fs ?? LAYOUT.TYPE.title)) {
+      ctx.font = F(700, o.fsW * K2); ctx.letterSpacing = '-4px';
+      const twW = ctx.measureText(String(title || '')).width;
+      ctx.letterSpacing = '0px'; ctx.font = F(700, fs);
+      innerW = ringW + H2.gapU + twW + (step ? (110 + TOK.gapT) * K2 : 0);
+    }
     // ★ HUG — 상자는 내용에서 나온다. minW 바닥값은 **쓰지 않는다**: 그것 때문에 짧은 문구에서
     //   알약이 내용보다 넓어졌고, 남는 폭이 한쪽에 쌓여 가운데가 안 맞아 보였다(유저 스샷).
     // ★ 목표 폭과 **표시 폭**을 따로 들고 다닌다. 표시는 _smoothW 로 이징되는데, 글자는
@@ -1851,7 +1861,7 @@ export class FloorGL {
     //   내용 폭 그대로 자라 대지를 넘어갔다 — 'LEFT CALF STRETCH' 처럼 접두사가 붙은 긴 문구에서
     //   양끝이 통째로 잘렸다. 콘 검사만 통과하면 안전하다고 믿은 게 구멍이다.
     //   대지 여백도 safePad 를 쓴다 — 알약·아크가 같은 값을 쓰는 그 규약(TOK.safePad 주석) 그대로.
-    const wT = Math.min(safeW(y) - TOK.safePad, W - TOK.safePad * 2, inner + PAD * 2);
+    const wT = Math.min(safeW(y) - TOK.safePad, W - TOK.safePad * 2, innerW + PAD * 2);
     const w = this._smoothW(wT);
     // ★ **광학 보정**(유저: 로우드리블 좌우 간격 안 맞는다). 계산상으론 대칭인데 —
     //   실측 BK_B1: 알약 135~1465, 내용 200~1400 으로 좌우 여백이 65 로 같고 중심도 800 이다.
@@ -3537,7 +3547,7 @@ export class FloorGL {
       //   상자는 **가장 큰 활자**로 한 번 재고, 글자만 fsNow 로 그린다 —
       //   "컨테이너가 내용보다 먼저 자리를 만든다"(CLAUDE.md)의 원래 뜻이다.
       = this._headBox(tA > 0.004 ? title : '', cfg.step || repsTotal(this.stage), LAYOUT.HEAD.y,
-                      { fs: fsBox, ringK, ringR: this._ringRFor(_g.rem) });
+                      { fs: fsNow, fsW: fsBox, ringK, ringR: this._ringRFor(_g.rem) });
     const w1 = WHp, h1 = HHp, y1 = H2.y;
     // ★ 진입 = **시작화면 캡슐이 줄어드는 것**(유저: 두 번 탭하면 같은 요소가 줄어들며 넘어간다).
     //   스테이지가 바뀔 때 캡슐을 새로 띄우면 '다른 물건이 나타난' 걸로 읽힌다. READY 캡슐
