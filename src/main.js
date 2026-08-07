@@ -4549,8 +4549,12 @@ void main(){
         const T0 = 5.4, TD = 6.5, T1 = 8.1;          // 클립(cmu144_11) 구간: 서기 → 최저 → 복귀
         const HOLD = stageTime('A2').hold;           // 정본: marklang.STAGE_TIME (실측 2.15)
         const PULL = 0.35, TOG = 1.25, STEP = 0.55;
-        const CYC = HOLD + PULL + TOG + STEP;        // 4.30 — 실사 홀드→홀드 간격과 같다
+        const CYC = HOLD + PULL + TOG + STEP;        // 5.15 (홀드 3.0 기준)
         const c = tt % CYC;
+        // 회차 파리티 — 렙마다 늘어나는 종아리가 반대발로 옮겨간다(유저 확정 08-07).
+        //   마크 자체는 제자리다(--pin 이면 x ∓0.16 고정). 옮겨가는 것은 **역할**이다:
+        //   자막 LEFT/RIGHT · 홀드 링 · 카운트다운 · Success 가 전부 workLeft 를 본다.
+        const _rep = Math.floor(Math.max(0, tt) / CYC) % 2 === 1;
         //   클립 위상을 구간에 **압축해서** 태운다. 클립의 복귀 1.6s 를 0.35s 에, 하강 1.1s 를 0.55s 에.
         //   등속 매핑이면 사람 동작이 안 되므로 시작·끝이 느려지는 smoothstep 을 태운다.
         const ez = x => x * x * (3 - 2 * x);
@@ -4571,8 +4575,12 @@ void main(){
           // ★★ 두 발은 **다른 이름**을 갖는다 — 이 구분이 없어서 자막과 타이머가 엉뚱한 발에 붙었다.
           //   isLeft   = 앞으로 **내딛는**(무릎 굽히는) 발. workLeft = **늘어나는 종아리** = 뒷발.
           //   자막·홀드 링·카운트다운·Success 는 전부 workLeft 를 본다.
-          //   ★ 이제 회차마다 안 바뀐다 — 같은 발로 2렙을 하므로 상수다.
-          holdSec: HOLD, isLeft: false, workLeft: true,
+          //   ★ 회차마다 **바뀐다** — 1렙 왼종아리 → 2렙 오른종아리 (유저 확정 08-07:
+          //     "다음 다리로 넘어와서 3초"). 아래 _rep 파리티가 그 교대다.
+          //     되돌린 이유: 클립 화소 추적으로 '교대 없음'이라 결론냈었지만, 유저가 화면에서
+          //     보고 아니라고 했다. 추적은 뒷발이 거의 제자리인 것만 봤고 역할이 옮겨가는 것은
+          //     못 봤다 — 마크는 제자리에 있고 **어느 쪽이 활성인지**가 바뀌는 동작이다.
+          holdSec: HOLD, isLeft: _rep, workLeft: !_rep,
           descending: c >= HOLD + PULL + TOG };
         }
       }
