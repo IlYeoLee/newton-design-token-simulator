@@ -607,6 +607,63 @@ export function insetGlow(ctx, x, y, w, h, r, color, blur, spread) {
   ctx.drawImage(_isCv, x - m, y - m);
 }
 
+// ── 실루엣 룩(이너쉐도우 · 하프톤) — 그릇이 라운드렉트가 아니라 **이미지 알파**인 경우 ──────
+//   발자국(foot-final.svg)처럼 형태가 도형이 아닌 것에 건다. insetGlow 와 같은 원리지만
+//   지우개·클립이 도형이 아니라 같은 이미지다.
+//   ★ 마스크는 반드시 **불투명**으로 만들어 쓴다. foot-final.svg 는 흰 65% 라 그대로 쓰면
+//     destination-out 이 65% 만 지우고(insetGlow 주석의 그 사고), destination-in 은 도트를
+//     65% 로 깎는다. 같은 그림을 6겹 겹쳐 알파를 1 에 붙인 뒤(1−0.35⁶ = 0.998) 색을 갈아끼운다.
+const _skCv   = typeof document !== 'undefined' ? document.createElement('canvas') : null;
+const _skMask = typeof document !== 'undefined' ? document.createElement('canvas') : null;
+function _opaqueMask(im, w, h, m) {
+  _skMask.width = Math.ceil(w) + m * 2; _skMask.height = Math.ceil(h) + m * 2;
+  const g = _skMask.getContext('2d');
+  g.clearRect(0, 0, _skMask.width, _skMask.height);
+  for (let i = 0; i < 6; i++) g.drawImage(im, m, m, w, h);
+  g.globalCompositeOperation = 'source-in';
+  g.fillStyle = '#000'; g.fillRect(0, 0, _skMask.width, _skMask.height);
+  g.globalCompositeOperation = 'source-over';
+  return _skMask;
+}
+/** 실루엣 inset 글로우 — spread 는 px 인셋(안쪽으로 얼마나 파고들어 지우나). */
+export function insetGlowImg(ctx, im, x, y, w, h, color, blur, spread = 0) {
+  if (!_skCv || !_skMask) return;
+  const m = Math.ceil(blur) + 8;
+  const mask = _opaqueMask(im, w, h, m);
+  _skCv.width = mask.width; _skCv.height = mask.height;
+  const g = _skCv.getContext('2d');
+  g.clearRect(0, 0, _skCv.width, _skCv.height);
+  g.drawImage(mask, 0, 0);
+  g.globalCompositeOperation = 'source-in';           // 실루엣을 글로우 색으로 갈아끼운다
+  g.fillStyle = color; g.fillRect(0, 0, _skCv.width, _skCv.height);
+  g.globalCompositeOperation = 'destination-out';     // 안쪽을 블러로 지운다 → 테두리만 남는다
+  g.filter = `blur(${(blur / 2).toFixed(1)}px)`;      // CSS blur 는 지름 규약 → 캔버스엔 절반
+  const s = spread * 2;
+  g.drawImage(mask, spread, spread, mask.width - s, mask.height - s);
+  g.filter = 'none'; g.globalCompositeOperation = 'source-over';
+  ctx.drawImage(_skCv, x - m, y - m);
+}
+/** 실루엣 안에만 깔리는 하프톤 도트.
+ *  규약(CLAUDE.md): **단색 순백**이다 — 필을 따라가게 만들면 각인이 필에 녹아 형태가 사라지고
+ *  상태마다 극성이 뒤집힌다. 행마다 반 칸 어긋나 격자가 아니라 하프톤으로 읽힌다. */
+export function halftoneImg(ctx, im, x, y, w, h, o = {}) {
+  if (!_skCv || !_skMask) return;
+  const { step = 11, r = 2, color = '#FFFFFF', alpha = 1 } = o;
+  const mask = _opaqueMask(im, w, h, 0);              // 도트는 실루엣 밖으로 안 나간다 — 패드 0
+  _skCv.width = mask.width; _skCv.height = mask.height;
+  const g = _skCv.getContext('2d');
+  g.clearRect(0, 0, _skCv.width, _skCv.height);
+  g.fillStyle = color;
+  for (let j = step / 2, row = 0; j < h; j += step, row++)
+    for (let i = step / 2 + (row % 2) * step / 2; i < w; i += step) {
+      g.beginPath(); g.arc(i, j, r, 0, Math.PI * 2); g.fill();
+    }
+  g.globalCompositeOperation = 'destination-in';      // 실루엣으로 잘라낸다
+  g.drawImage(mask, 0, 0);
+  g.globalCompositeOperation = 'source-over';
+  ctx.save(); ctx.globalAlpha *= alpha; ctx.drawImage(_skCv, x, y); ctx.restore();
+}
+
 // 글자별 그리기 — fn(i) → {dy, alpha, scale}. charLoop·charWave·chIn 공통.
 // align: 'center'(cx=중앙) | 'right'(cx=오른쪽 끝) | 'left'
 export function drawChars(ctx, txt, cx, y, h, ls, fn, align = 'center') {
@@ -3190,7 +3247,11 @@ export class FloorGL {
   //     ※ paint1(프리즘 림)은 두 램프가 원래 동일 — 손대지 않았다.
   _paint_ready_final() {
     const ctx = this.ctx;
-    const LOOP = 8, TP2 = 2.0, TP_CTA = 2.9;   // 0~2 인물 · 2~ 숫자 · 2.9~ CTA(2안은 숫자와 한 화면)
+    // ★ 08-07(유저) — 인물 구간을 0.2초 줄였다: 2.0 → **1.8**. CTA 도 같이 당긴다(2.9 → 2.7).
+    //   TP_CTA 를 그대로 두면 숫자가 앉는 시각(TP2+TRAVEL)과 CTA 사이 틈이 0.12 → 0.32 로 벌어져
+    //   '숫자 → 지시' 가 한 호흡으로 안 읽힌다. 둘의 간격(0.9)이 이 화면의 박자다.
+    //   줄어든 0.2초는 루프 끝(CTA 가 다 선 뒤 머무는 시간)으로 간다 — LOOP 는 8 그대로.
+    const LOOP = 8, TP2 = 1.8, TP_CTA = 2.7;   // 0~1.8 인물 · 1.8~ 숫자 · 2.7~ CTA(2안은 숫자와 한 화면)
     const t = this.t % LOOP;
     const bk = /floor-bk/.test(this.params.src);
     const D = READY[bk ? 'floor-bk.html' : 'floor.html'], R2 = D.r2;
@@ -3289,7 +3350,8 @@ export class FloorGL {
       const NCX = 820, NTOP = 630;
       // ★ 소수점이 낀 값('5.0')은 자간을 더 조인다 — 도트 폰트의 마침표가 숫자만큼 큰 사각
       //   점이라 피그마 값(-9.05, '30' 기준)으로는 점 좌우가 벌어져 '5 . 0' 세 덩어리로 읽힌다.
-      ctx.letterSpacing = (/\./.test(String(R2.total)) ? -24 : -9.05) + 'px';
+      //   08-07 재조정(유저) — -24 → -34 → **-42**. '5.0' 이 한 수치로 붙어 읽히는 지점.
+      ctx.letterSpacing = (/\./.test(String(R2.total)) ? -42 : -9.05) + 'px';
       const nw = rollNum(ctx, R2.total, t, TP2 + LEAD, TRAVEL - LEAD, NCX, NTOP, 384,
                          { fam: dot9, align: 'center', fill: NEU.ink });
       ctx.letterSpacing = '0px';
@@ -3307,7 +3369,9 @@ export class FloorGL {
         //   (384×1.2 = 461)로 잡아 gap 6 을 줬는데, 도트 글리프는 그 박스보다 훨씬 작아
         //   실제로는 200px 가까이 떠 있었다. 부제가 숫자에 붙어야 '숫자+단위+모드'가 한
         //   덩어리로 읽히고, 아래 CTA 와 위계가 갈린다. 글리프 실측 하단(≈893) + 여백.
-        ctx.fillText(R2.sub, NCX, 1000 + (1 - SUB2) * 18);
+        //   ★ 08-07 재조정(유저: 조금만 더 띄워 ×2) — 1000 은 도트 숫자에 너무 붙어 'Pace On'
+        //     ·'Press On' 이 단위처럼 읽혔다. 1000 → 1032 → **1066**(여백 107 → 173).
+        ctx.fillText(R2.sub, NCX, 1066 + (1 - SUB2) * 18);
         ctx.letterSpacing = '0px'; ctx.restore();
       }
       ctx.restore();
@@ -3400,7 +3464,13 @@ export class FloorGL {
       const ft = img('foot-final.svg');
       if (ft) {
         const FW = 94.751, FH = 228.779, FY = 1738.58;
-        for (const [fx, mirror, d, off] of [[600.00, false, CD.footL, 0], [991.26, true, CD.footR, .08]]) {
+        // ★ 좌표를 피그마 실값(600.00 / 991.26)으로 박아두면 **대지 가운데가 아니다**(유저 08-07):
+        //   두 발이 차지하는 폭은 600 ~ 1086.01 이라 중심이 843 — 대지 중심 800 에서 43px 오른쪽으로
+        //   쏠려 있었다. 가로 가이드선(494~1106)의 중심이 800 이라 눈에 그대로 걸린다.
+        //   그래서 x 를 박지 않고 **중심 + 발 사이 간격**에서 파생한다 — 발 폭이 바뀌어도 안 깨진다.
+        const FCX = 800, FGAP = 296.509;                    // 간격은 피그마 그대로(694.751 → 991.26)
+        const FXL = FCX - FGAP / 2 - FW, FXR = FCX + FGAP / 2;
+        for (const [fx, mirror, d, off] of [[FXL, false, CD.footL, 0], [FXR, true, CD.footR, .08]]) {
           const a = at(d, .5);
           if (a <= 0.004) continue;
           const b = beat(off);
@@ -3410,6 +3480,11 @@ export class FloorGL {
           ctx.translate(0, FH); ctx.scale(1, 1 - 0.03 * b); ctx.translate(0, -FH);   // ⓐ 뒤꿈치 축
           ctx.globalAlpha *= a * (0.78 + 0.22 * b);                                   // ⓑ
           ctx.drawImage(ft, 0, 0, FW, FH);
+          // 발 스킨(유저 08-07) — ⓐ 흰 이너쉐도우로 안쪽 테두리를 은은하게 세우고
+          //   ⓑ 그 안에 흰 하프톤 도트를 깐다. 둘 다 **실루엣이 그릇**이라 발 밖으로 안 샌다.
+          //   위 globalAlpha(등장·박자)를 그대로 물려받으므로 발과 같이 숨 쉰다.
+          insetGlowImg(ctx, ft, 0, 0, FW, FH, 'rgba(255,255,255,.5)', 16, 1.5);
+          halftoneImg(ctx, ft, 0, 0, FW, FH, { step: 11, r: 2, alpha: .5 });
           if (b > 0.01) {                                                             // ⓒ
             ctx.globalCompositeOperation = 'lighter';
             ctx.globalAlpha *= 0.55 * b;
