@@ -2139,7 +2139,7 @@ export function drawDribbleMat(g, W, P, look, t, ENV) {
     const per = P.per || 0.4;
     const pr = Math.max(0, Math.min(1, hitS / per));     // 0 = 방금 닿음 → 1 = 다음 박자
     const pingT = Math.min(0.16, per * 0.42);            // 확장 수명 — 박자 안에서 반드시 끝난다
-    const hk = Math.max(0, 1 - hitS / pingT);
+    const hk = Math.max(0, Math.min(1, 1 - hitS / pingT));
     const R0 = R * 1.9;
     for (let kk = 2; kk >= 0; kk--) {                    // 실키 트레일 — 뒤에 남는 잔상 2겹
       const pe = Math.pow(Math.max(0, pr - kk * 0.05), 1.6);
@@ -2158,9 +2158,13 @@ export function drawDribbleMat(g, W, P, look, t, ENV) {
     //   수축 링만으로는 다가오는 예고일 뿐 **도착 순간의 사건**이 없었다. 백열 코어 버스트로
     //   그 한 순간을 만든다. 0.22s 만에 완전 소멸 — 번쩍하고 사라져야 타격이 된다.
     //   수명을 박자에서 파생하지 않고 짧게 고정한다: 이건 '지속'이 아니라 '순간'이다.
-    const fk = Math.max(0, 1 - hitS / 0.22), fe = fk * fk;
+    // ★ 0~1 로 **양쪽 다** 조인다 — hitS 가 음수면(외부 시간으로 되감거나 첫 프레임) fk 가 1을
+    //   넘고, 아래 BR = R*(1.5+1.8*(1-fk)) 가 **음수 반지름**이 되어 createRadialGradient 가
+    //   throw 한다(실측: 결정론 캡처 첫 프레임에서 IndexSizeError). 그리기 함수는 어떤 시각이
+    //   들어와도 죽으면 안 된다.
+    const fk = Math.max(0, Math.min(1, 1 - hitS / 0.22)), fe = fk * fk;
     if (fe > 0.01) {
-      const BR = R * (1.5 + 1.8 * (1 - fk));
+      const BR = Math.max(1, R * (1.5 + 1.8 * (1 - fk)));
       const fg2 = g.createRadialGradient(cx, cy, 0, cx, cy, BR);
       fg2.addColorStop(0, `rgba(255,255,255,${Math.min(1, 1.15 * fe).toFixed(3)})`);
       fg2.addColorStop(0.35, rgbaL(0.92, (0.8 * fe).toFixed(3)));

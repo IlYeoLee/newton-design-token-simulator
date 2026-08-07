@@ -197,7 +197,11 @@ function frame() {
   }, { halo: 0.9 }, t, ENV);
 
   window.__drawn++;
-  requestAnimationFrame(frame);
+  if (window.__t == null) requestAnimationFrame(frame);   // 외부 시간이면 캡처 쪽이 호출을 몰아준다
 }
+// ★ 동기 렌더 훅 — 캡처는 이걸 부른다. rAF 에 묶이지 않는다.
+//   헤드리스에서 rAF 가 스로틀되면 '그려질 때까지 기다리기'가 영영 안 끝난다(실측: 30프레임에
+//   400초 초과). 한 프레임을 **그 자리에서** 그리고 바로 데이터 URL 을 뽑는 게 빠르고 확실하다.
+window.__render = (t) => { window.__t = t; frame(); return document.getElementById('cv').toDataURL('image/png'); };
 frame();
 </script>

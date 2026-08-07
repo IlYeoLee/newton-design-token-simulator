@@ -30,17 +30,18 @@ await new Promise(r => setTimeout(r, 6000));                    // 폰트·로�
 await p.evaluate(() => document.body.classList.add('rec'));     // 안내 문구 숨김
 
 const N = Math.round(DUR * FPS);
-const cv = await p.$('#cv');
-console.log(`▶ ${SIZE}x${SIZE} · ${FPS.toFixed(2)}fps · ${DUR}s = ${N}프레임 (결정론)`);
+console.log(`▶ ${SIZE}x${SIZE} · ${FPS.toFixed(2)}fps · ${DUR}s = ${N}프레임 · spot ${SPOT} (결정론)`);
+const t0 = Date.now();
 for (let i = 0; i < N; i++) {
-  // 시각을 밀고 **그 프레임이 실제로 그려질 때까지** 기다린다 — 안 기다리면 이전 그림을 찍는다
-  await p.evaluate(t => { window.__t = t; }, i / FPS);
-  await p.evaluate(() => new Promise(r => {
-    const n0 = window.__drawn; const tick = () => window.__drawn > n0 + 1 ? r() : requestAnimationFrame(tick); tick();
-  }));
-  await cv.screenshot({ path: `${TMP}/${String(i + 1).padStart(5, '0')}.png`, captureBeyondViewport: false });
-  if ((i + 1) % 30 === 0) process.stdout.write(`  ${i + 1}/${N}\r`);
+  // 페이지 안에서 한 프레임을 **동기로** 그리고 데이터 URL 을 받는다 — rAF·스크린샷 왕복 없음
+  const url = await p.evaluate(t => window.__render(t), i / FPS);
+  fs.writeFileSync(`${TMP}/${String(i + 1).padStart(5, '0')}.png`, Buffer.from(url.split(',')[1], 'base64'));
+  if ((i + 1) % 20 === 0) {
+    const el = (Date.now() - t0) / 1000, per = el / (i + 1);
+    process.stdout.write(`  ${i + 1}/${N} · ${per.toFixed(2)}s/프레임 · 남은 ${((N - i - 1) * per / 60).toFixed(1)}분   \r`);
+  }
 }
+const el = (Date.now() - t0) / 1000;
 console.log(`\n캡처 완료 · 예외 ${errs.length ? errs[0] : '없음'}`);
 await b.close();
 
