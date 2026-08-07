@@ -20,6 +20,10 @@ const b = await puppeteer.launch({ protocolTimeout: 600000,
 const p = await b.newPage();
 await p.setViewport({ width: SIZE, height: SIZE });
 const errs = []; p.on('pageerror', e => errs.push(String(e).slice(0, 160)));
+// ★ HMR 차단 — vite 클라이언트가 붙어 있으면 파일이 하나만 바뀌어도 페이지를 새로고침해
+//   캡처 도중 'Execution context was destroyed' 로 죽는다(실측 3회). 녹화엔 HMR 이 필요 없다.
+await p.setRequestInterception(true);
+p.on('request', r => (/@vite\/client/.test(r.url()) ? r.abort() : r.continue()));
 await p.goto(`http://localhost:${PORT}/matcast.html?bg=000&size=${SIZE}&spot=${SPOT}&cb=` + Date.now(),
   { waitUntil: 'domcontentloaded', timeout: 60000 });
 await new Promise(r => setTimeout(r, 6000));                    // 폰트·로고 로드
