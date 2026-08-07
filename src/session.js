@@ -1063,7 +1063,12 @@ export class Session {
         fm.at(px, pz, FOLLOW_S * airScale(q.f));   // 체공은 아주 살짝만
       } else if (pop > 0) {
         fm.glow(1);   // 착지 = Success 블룸 (그 단계 목표라 흐려지지 않는다)
-        fm.op(1); fm.at(p.x, p.z, FOLLOW_S);   // 착지 크기 변화 없음 — 한 번 더 구르는 걸로 읽힌다(유저)
+        // ★ 제품은 '착지 크기 변화 없음' 이 유저 결정이다 — 한 번 더 구르는 걸로 읽힌다.
+        //   그 결정은 그대로 두고, **발표 프리셋에서만** 쫀득함을 얹는다(유저 08-07: 쫀득함이 없다).
+        //   stampPop 은 이미 '타닥' 두 박을 계산해 두고도 밝기에만 쓰이고 크기엔 안 걸려 있었다 —
+        //   새 모션을 만드는 게 아니라 **있던 값을 크기에 연결**하는 것이다(새 어휘 0개).
+        //   3.5% 로 얕게: 이 마크는 지면에 각인된 물건이라 크게 튀면 '떠 있는 판때기'가 된다.
+        fm.op(1); fm.at(p.x, p.z, FOLLOW_S * (AD ? 1 + 0.035 * pop : 1));
       } else if (landed) {
         fm.glow(1); fm.op(1); fm.at(p.x, p.z, FOLLOW_S);   // 딛은 뒤 Success 유지 — 잔상처럼 흐려지지 않게 진행도 0 고정(유저)
       } else {
@@ -1186,7 +1191,11 @@ export class Session {
     const want = BK_STEPBACK[id]?.link === 'pair' || (AD && id === 'BK_C2');
     if (!H.lkA) {
       if (!want) return;
-      const mk = () => { const a = makeFlowArrow(SB_LINK_MAX, { tips: 0 }); a._gain = 0; a._prog = 0;
+      // ★ 유저 08-07: "발자국 사이 선 도트로 하기로 한 거 아니냐". **이미 도트다** —
+      //   makeFlowArrow 는 지면(wall=false)이면 _dots 기본값이 true 다. 안 보였을 뿐이고
+      //   원인은 화살표와 같다: 자루 두께가 실측 기준이라 멀리 투사되면 점이 1px 로 눌린다.
+      //   그래서 형태를 바꾸지 않고 **두께만** 올린다(도트라는 정체성은 그대로 둔다).
+      const mk = () => { const a = makeFlowArrow(SB_LINK_MAX, { tips: 0, dots: true, scale: AD ? 1.7 : 1 }); a._gain = 0; a._prog = 0;
         (H.mL?.parent || this.root).add(a); return a; };
       H.lkA = mk(); H.lkB = mk();
     }
@@ -1200,7 +1209,7 @@ export class Session {
       m.position.set(mx, 0.014, mz);
       m.rotation.z = Math.atan2(-dx, -dz);
       m._prog = Math.min(1, seg / SB_LINK_MAX);
-      m._gain += (0.62 - m._gain) * 0.18;
+      m._gain += ((AD ? 0.86 : 0.62) - m._gain) * 0.18;   // 발표 프리셋은 도트가 읽혀야 한다(유저)
     };
     put(H.lkA, a); put(H.lkB, b);
   }
