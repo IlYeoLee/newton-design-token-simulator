@@ -65,6 +65,7 @@ if (SCENE_ID) {
 const pick = (k, pk, d) => has(k) ? arg(k, d) : (PRESET[pk ?? k] ?? d);
 const pickN = (k, pk, d) => { const v = pick(k, pk, d); const n = +v; return Number.isFinite(n) ? n : d; };
 const DUR = +arg('dur', 3);
+const SEEKWAIT = +arg('seekwait', 3000);   // 비디오 시크 대기 상한(ms). 큰 클립일수록 올린다
 const FPS = +arg('fps', 30);
 const W = +arg('w', 2560);
 // ★ --flat : 원근 없는 정면 뷰. 카메라를 직교로 바꿔 투사면 법선에 정렬한다.
@@ -375,7 +376,7 @@ const FLAGS = {
   __play: PLAY, __afloor: AFLOOR, __wantAlpha: ALPHA,
   __bgUrl: BGVID ? '' : BGURL, __bgVid: BGVID, __bgFit: BGFIT, __bgDim: BGDIM,
   __agamma: AGAMMA, __layer: LAYER, __pin: PIN, __norip: NORIP, __inka: INKA,
-  __unclip: PAD > 1, __flatGround: FLATGROUND, __pad: PAD,
+  __unclip: PAD > 1, __seekWait: SEEKWAIT, __flatGround: FLATGROUND, __pad: PAD,
 };
 await page.evaluateOnNewDocument(f => { Object.assign(window, f); }, FLAGS);
 await page.evaluate(f => {
@@ -897,7 +898,14 @@ for (let i = 0; saved < N; i++) {
           if (v.requestVideoFrameCallback) v.requestVideoFrameCallback(() => fin());
           else v.addEventListener('seeked', fin, { once: true });
           v.currentTime = want;
-          setTimeout(fin, 3000);        // 안전장치. 짧으면 그게 곧 깜빡임이다
+          //   ★ 08-07: 이 3000 을 **--seekwait 로 연다**(기본값은 그대로라 회귀 없음).
+          //     위 §의 결론("근본은 프레임당 시간이 3초를 넘긴 것")은 그때 상황의 진단이고,
+          //     이번 건은 정반대다 — 실측(BK_C2 640p): 프레임당 0.23~0.34초로 여유가 큰데도
+          //     시크 실패 46/60. 앱이 느린 게 아니라 **클립 한 장 디코드가 3초를 넘는다**:
+          //     코치 클립이 stepback_fwd(760×636) → stepback_pack(2310×2218)로 화소 12배가 됐다.
+          //     대기가 짧아서 지는 경우라 늘리면 산다. 프레임당 시간이 문제인 경우와 구분해서
+          //     쓸 것 — 그때는 이 값을 늘려도 경합이 그대로다(문서 §6).
+          setTimeout(fin, window.__seekWait || 3000);        // 안전장치. 짧으면 그게 곧 깜빡임이다
         });
       }
       // 통지가 왔든 안 왔든, 프레임이 실제로 올라왔는지로 판정한다.
