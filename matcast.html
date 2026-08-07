@@ -21,6 +21,7 @@
     ?tilt=0       바닥 기울기(도). **기본 0 = 평면**(촬영용). 52 = GAZE.MAT 실측 각(미리보기)
     ?m=0.90       판 한 변(m) — session.js MAT_SIZE
     ?ppm=520      플레이트의 px/m (농구공 0.24m 로 실측). 주면 크기가 미터에 묶인다
+    ?pad=0.72     내용 축소율 — 수축 링(1.9R)·플래시(3.3R)가 프레임 안에 들어오게
     ?token=punch|arrow|mat   같은 바닥에 **다른 토큰**을 놓고 비교(유저: 잽잽훅·화살표는 되나)
     ?loop=1       자동 재생(기본). loop=0 이면 스페이스로 시작
   키
@@ -74,6 +75,7 @@ const HOME = +(q.get('spot') || 5);     // 고정 모드에서 때릴 자리. 5 
 //   그러면 캔버스와 플레이트가 같은 좌표계(플레이트 픽셀)에 놓인다.
 //   ppm 실측: 농구공 규격 0.24m 를 자로 써서 plate-court.png 에서 480~570 px/m (≈520).
 const MAT_M_PRE = +(q.get('m') || 0.90);   // 판 한 변(m) — session.js MAT_SIZE
+const PAD = +(q.get('pad') || 0.72);       // 내용 축소율 — 이펙트가 프레임 안에 들어오게
 const PPM = +(q.get('ppm') || 0);
 const SIZE = PPM ? Math.round(MAT_M_PRE * PPM) : +(q.get('size') || 1440);
 const BG = (q.get('bg') || '000').toLowerCase();
@@ -186,7 +188,17 @@ function frame() {
     requestAnimationFrame(frame); return;
   }
 
-  drawDribbleMat(g, W, {
+  // ★ 여백 — 수축 링은 노드 반지름의 **1.9배**까지 뻗고 임팩트 플래시는 3.3배까지 간다.
+  //   캔버스를 꽉 채워 그리면 모서리 노드의 링이 프레임 밖으로 잘린다(유저: 통으로 잘못 찍혔어).
+  //   내용을 안쪽으로 줄여 이펙트가 다 들어오게 한다 — 잘라내지 말고 담는다.
+  //   ★ 변환을 걸고 바로 그리면 안 된다 — drawDribbleMat 은 시작할 때 clearRect(0,0,W,W) 를
+  //     하는데, 축소 변환이 걸린 상태에선 **그 영역만 투명**해져 배경이 뚫린다(실측: 흰 사각).
+  //     오프스크린에 원래 크기로 그린 뒤 축소해 얹는다 — 배경은 건드리지 않는다.
+  const off = frame._off || (frame._off = document.createElement('canvas'));
+  if (off.width !== W) { off.width = off.height = W; }
+  const og = off.getContext('2d');
+  og.setTransform(1, 0, 0, 1, 0, 0);
+  drawDribbleMat(og, W, {
     chev: 0, prog: 0, in: Math.min(1, Math.max(0, t / 1.1)), hit: null, per: PER,
     travel: { from: prev, to: live, k: Math.min(1, (t - liveT) / 0.45) },
     mat: { nx: 0.50, fx: 0.86, ny: -0.80, fy: 0.80 },
@@ -195,6 +207,8 @@ function frame() {
     targets: [tgt(1), tgt(2), tgt(3), tgt(4)],
     brand: 1,
   }, { halo: 0.9 }, t, ENV);
+  const iw = W * PAD, io = (W - iw) / 2;
+  g.drawImage(off, io, io, iw, iw);
 
   window.__drawn++;
   if (window.__t == null) requestAnimationFrame(frame);   // 외부 시간이면 캡처 쪽이 호출을 몰아준다
