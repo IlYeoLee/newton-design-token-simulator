@@ -34,11 +34,16 @@ const PER = arg('per', null);                        // 기본은 공 추적 실
 //   000  : 검정. **Add 합성**이면 이게 맞다 — 가산에서 검정 = 빛 없음 = 안 보임이라
 //          알파 없이 그대로 얹힌다. alpha_floor.mjs 로 사후에 깎을 수도 있다.
 const BG = arg('bg', 'none');
+// ★ 여백 — matcast 의 ?pad. 넘기지 않아 기본 0.72 로만 뽑히고 있었다(2026-08-07).
+//   pad 는 '매트를 프레임의 몇 배로 그리나'다. 나머지 띠가 수축 링(1.9R)·플래시(3.3R)가
+//   뻗을 자리다 — 실측(2048² · 55프레임): 0.72 → 여백 11.3%, 0.58 → 18.6%. 둘 다 잘림 0.
+const PAD = arg('pad', null);
 const OUT = arg('out', BG === 'none' ? 'out/mat_alpha' : 'out/mat_' + BG);
 const URL = process.env.URL || 'http://127.0.0.1:5401';
 
 const q = new URLSearchParams({ w: W, h: H, bg: BG, spot: SPOT, loop: 0 });
 if (PER != null) q.set('per', PER);
+if (PAD != null) q.set('pad', PAD);
 
 fs.mkdirSync(OUT, { recursive: true });
 const b = await puppeteer.launch({ args: ['--no-sandbox', '--use-gl=angle', '--enable-unsafe-swiftshader'] });

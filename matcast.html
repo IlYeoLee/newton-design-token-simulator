@@ -195,14 +195,22 @@ function frame() {
   // ★ 여백 — 수축 링은 노드 반지름의 **1.9배**까지 뻗고 임팩트 플래시는 3.3배까지 간다.
   //   캔버스를 꽉 채워 그리면 모서리 노드의 링이 프레임 밖으로 잘린다(유저: 통으로 잘못 찍혔어).
   //   내용을 안쪽으로 줄여 이펙트가 다 들어오게 한다 — 잘라내지 말고 담는다.
-  //   ★ 변환을 걸고 바로 그리면 안 된다 — drawDribbleMat 은 시작할 때 clearRect(0,0,W,W) 를
-  //     하는데, 축소 변환이 걸린 상태에선 **그 영역만 투명**해져 배경이 뚫린다(실측: 흰 사각).
-  //     오프스크린에 원래 크기로 그린 뒤 축소해 얹는다 — 배경은 건드리지 않는다.
+  //   ★ 원래 크기로 그린 뒤 축소하면 **여백이 안 생긴다.** drawDribbleMat 의 좌표계는
+  //     `X = u => W/2 + u*W/2` 라 정규좌표 ±1 이 곧 캔버스 경계다 — 그걸 넘는 글로우·플래시는
+  //     오프스크린에서 **이미 잘린 뒤**라 나중에 축소해 봐야 잘린 그림이 작아질 뿐이다.
+  //     실측(2048² · pad 1.0 · 55프레임): 내용 bbox 가 x·y 모두 **정확히 0** 에서 시작했다.
+  //     → 그래서 **작게 그린다**: 오프스크린은 W 로 두고 매트만 W·PAD 로 그려 가운데 놓는다.
+  //     내용 크기는 종전과 같고(둘 다 W·PAD), 남는 띠가 이펙트가 뻗을 실제 자리가 된다.
+  //   ★ 전체를 **먼저** 비울 것 — drawDribbleMat 의 clearRect(0,0,W,W) 는 translate 아래라
+  //     자기 구역만 비운다. 안 비우면 이전 프레임의 글로우가 여백에 남아 쌓인다.
   const off = frame._off || (frame._off = document.createElement('canvas'));
   if (off.width !== W) { off.width = off.height = W; }
   const og = off.getContext('2d');
   og.setTransform(1, 0, 0, 1, 0, 0);
-  drawDribbleMat(og, W, {
+  og.clearRect(0, 0, W, W);
+  const MS = Math.round(W * PAD);
+  og.translate((W - MS) / 2, (W - MS) / 2);
+  drawDribbleMat(og, MS, {
     chev: 0, prog: 0, in: Math.min(1, Math.max(0, t / 1.1)), hit: null, per: PER,
     travel: { from: prev, to: live, k: Math.min(1, (t - liveT) / 0.45) },
     mat: { nx: 0.50, fx: 0.86, ny: -0.80, fy: 0.80 },
@@ -211,8 +219,8 @@ function frame() {
     targets: [tgt(1), tgt(2), tgt(3), tgt(4)],
     brand: 1,
   }, { halo: 0.9 }, t, ENV);
-  const iw = W * PAD;
-  g.drawImage(off, CX0 + (W - iw) / 2, CY0 + (W - iw) / 2, iw, iw);
+  og.setTransform(1, 0, 0, 1, 0, 0);
+  g.drawImage(off, CX0, CY0, W, W);      // 1:1 — 축소는 위에서 이미 '그리는 크기'로 반영됐다
 
   window.__drawn++;
   if (window.__t == null) requestAnimationFrame(frame);   // 외부 시간이면 캡처 쪽이 호출을 몰아준다
