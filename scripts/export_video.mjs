@@ -535,6 +535,18 @@ await page.evaluate(({ sport, beam, ht, session, stage, listStages }) => {
     window.__isolate3d = () => {
       // 세션은 이 시점 이후에 만들어질 수 있다 — 매 프레임 다시 건다(DOM 청소와 같은 이유).
       if (d.session) d.session.pinMarks = !!window.__pin;
+      // ★ 핀을 **여기서 한 번 더** 못박는다. 이 함수는 renderer.render 에 후킹돼 있어
+      //   이게 그 프레임의 **마지막 쓰기**다 — 누가 뒤에 덮든 이길 수 없다.
+      //   왜 필요한가: session.pinMarks 만으로는 안 잡혔다(실측 08-07: 좌 306px·우 310px 이동,
+      //   핸드오프 0806 ①은 543px 로 기록). A2 마크 z 를 쓰는 곳이 여럿이라(session.js 3057 계열)
+      //   그중 하나가 핀 뒤에 덮는다. 원인 코드를 찾는 것과 별개로, 추출은 여기서 확정한다.
+      //   좌표는 session.js A2 와 **같은 값**이다: x ∓0.16 · z = FOOT_Z(-0.75) − 0.28 = −1.03.
+      //   위치만 고정하고 scale·글로우는 안 건드린다 — 애니메이션은 살려 둬야 한다(유저).
+      if (window.__pin && d.session?.a2press) {
+        const P = d.session.a2press, CZ = -1.03;
+        if (P.fmL?.group) { P.fmL.group.position.x = -0.16; P.fmL.group.position.z = CZ; }
+        if (P.fmR?.group) { P.fmR.group.position.x =  0.16; P.fmR.group.position.z = CZ; }
+      }
       // ★ 배경 지우기도 여기 있어야 한다. 셋업에서 한 번만 칠하면 앱이 매 틱 주간 조명을
       //   다시 적용하며 되돌려 놓는다 — 검은 배경으로 뽑았는데 아이보리 실내가 그대로 남았다(실측).
       // --bg 도 알파와 같다: 캔버스를 비워야 그 뒤에 깔아 둔 배경 사진/영상이 보인다.
