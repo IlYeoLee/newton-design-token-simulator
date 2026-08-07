@@ -24,12 +24,20 @@ for (const ST of STAGES){
           if(span>420&&m/span>bestFill){bestFill=m/span;bestSpan=span;} }
         return {top,bot,h:bot-top,fill:+bestFill.toFixed(2),span:bestSpan,
           sat:n?+(sat/n).toFixed(1):-1, rgb:n?[Math.round(R/n),Math.round(G/n),Math.round(B/n)]:null}; };
+      // ★ 알약 높이는 **페인터가 그린 좌표**로 잰다(_boxes k:'pill'). 잉크 세로 범위로 재면
+      //   크럼·PREVIEW 라벨·아크가 섞여 스테이지마다 다른 값이 나온다(내 첫 감사가 그랬다).
+      const pills=[];
       const out=[]; const t0=performance.now();
-      while(performance.now()-t0<9000){ await new Promise(r=>setTimeout(r,700)); out.push(snap()); }
+      while(performance.now()-t0<9000){ await new Promise(r=>setTimeout(r,700)); out.push(snap());
+        const b=(f._boxes||[]).find(o=>o.k==='pill'); if(b) pills.push([Math.round(b.h),Math.round(b.w),Math.round(b.y)]); }
       const pv=out.find(o=>o.fill>0)||out[0];
       const mx=out.reduce((a,o)=>o.span>a.span?o:a,out[0]);
       const mn=out.reduce((a,o)=>(o.span&&o.span<a.span?o:a),mx);
-      return {stage:S.curStage?.id, 높이:[Math.min(...out.map(o=>o.h)),Math.max(...out.map(o=>o.h))],
+      const ph=pills.map(p=>p[0]), pw=pills.map(p=>p[1]), py=pills.map(p=>p[2]);
+      return {stage:S.curStage?.id, 알약높이:pills.length?[Math.min(...ph),Math.max(...ph)]:null,
+        알약폭:pills.length?[Math.min(...pw),Math.max(...pw)]:null,
+        알약상단:pills.length?[Math.min(...py),Math.max(...py)]:null,
+        잉크세로:[Math.min(...out.map(o=>o.h)),Math.max(...out.map(o=>o.h))],
         폭:[mn.span,mx.span], 채움:[Math.min(...out.map(o=>o.fill)),Math.max(...out.map(o=>o.fill))],
         채도:[Math.min(...out.map(o=>o.sat)),Math.max(...out.map(o=>o.sat))], 상단:pv.top};
     });
