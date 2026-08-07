@@ -328,6 +328,18 @@ page.on('pageerror', e => errs.push(e.message.slice(0, 160)));
 //   것이 원인이었다(vite.config.js 의 watch.ignored 로 막았다). 다시 새면 조용히 넘기지 않는다.
 let reloaded = 0;
 page.on('framenavigated', f => { if (f === page.mainFrame()) reloaded++; });
+// ★ HMR 을 끊는다 — 렌더에 필요 없고, 리로드의 방아쇠가 전부 여기다: 다른 세션의 src 저장,
+//   vite 의 의존성 재최적화, 루트에 새 파일이 생기는 것(watch.ignored 가 out/ 만 막는다).
+//   리로드가 한 번만 나면 아래 setup 이 심은 훅(__layer·__isolate3d·__fitFlat)이 사라지는데
+//   예전 가드(reloaded > 1)를 통과해서 **격리 없는 통짜 프레임이 조용히** 뽑혔다.
+//   실측(08-07 · BK_B4): --layer person 산출물에 타이틀·코트·콘이 그대로 들어와 있었고
+//   같은 렌더의 --layer ui 는 '렌더 카메라가 undefined' 로 죽었다 — 같은 원인의 두 얼굴이다.
+//   ★ 네트워크로 막으면 안 된다 — /@vite/client 를 abort 하니 앱이 통째로 부팅을 못 했다
+//     (실측: __dbg 가 120초 동안 안 뜸). vite 의 full-reload 는 결국 location.reload() 라서
+//     **그 한 함수만** 무력화하면 된다. HMR 소켓·모듈 그래프는 그대로 둔다.
+await page.evaluateOnNewDocument(() => {
+  try { Object.defineProperty(location, 'reload', { configurable: true, value: () => {} }); } catch (e) {}
+});
 // --bg 를 쓰면 캔버스도 투명해야 뒤의 배경이 비친다(?alpha=1 이 렌더러 알파를 켠다).
 await page.goto(`${URLBASE}?dev=1&uiscale=${UISCALE}${(ALPHA || BGURL) ? '&alpha=1' : ''}${SCENE ? `&scene=${encodeURIComponent(SCENE)}` : ''}`, { waitUntil: 'networkidle2', timeout: 180000 });
 await page.waitForFunction('!!window.__dbg?.session', { timeout: 120000 });
@@ -354,22 +366,22 @@ const warm = async (ms, step = 16.7) => {
 await new Promise(r => setTimeout(r, 9000));   // 에셋 로드(실시간 대기)
 await warm(1200);                              // 가상 시계로 초기 애니메이션 워밍업
 
-await page.evaluate(p => { window.__play = p; }, PLAY);
-await page.evaluate(v => { window.__afloor = v; }, AFLOOR);
-await page.evaluate(a => { window.__wantAlpha = a; }, ALPHA);
-// 영상 배경은 body CSS 경로를 타면 안 된다(url() 로 영상은 안 깔린다) — 앱의 <video> 경로로 넘긴다.
-await page.evaluate(v => { window.__bgUrl = v; }, BGVID ? '' : BGURL);
-await page.evaluate(v => { window.__bgVid = v; }, BGVID);
-await page.evaluate(v => { window.__bgFit = v; }, BGFIT);
-await page.evaluate(v => { window.__bgDim = v; }, BGDIM);
-await page.evaluate(v => { window.__agamma = v; }, AGAMMA);
-await page.evaluate(v => { window.__layer = v; }, LAYER);
-// 세션이 매 프레임 읽는 플래그 — 마크를 봇 발 추적에서 떼어 설계 좌표에 고정(session.js A2).
-await page.evaluate(v => { window.__pin = v; const s = window.__dbg?.session; if (s) s.pinMarks = v; }, PIN);
-await page.evaluate(v => { window.__norip = v; }, NORIP);
-await page.evaluate(v => { window.__inka = v; }, INKA);
-await page.evaluate(v => { window.__unclip = v; }, PAD > 1);
-await page.evaluate(v => { window.__flatGround = v; }, FLATGROUND);
+// ★ 플래그는 **한 벌로 모아** 심는다. 낱개 evaluate 였을 때의 문제는 값이 아니라 수명이다 —
+//   리로드가 나면 전부 사라지고, 그중 __layer 가 사라지면 'all' 로 떨어져 격리가 통째로 풀린다.
+//   그래서 evaluateOnNewDocument 로도 같은 값을 심어 **다음 문서에서 자동 복구**되게 한다.
+//   (영상 배경은 body CSS 경로를 타면 안 된다 — url() 로 영상은 안 깔리니 앱의 <video> 경로로.)
+//   (__pin 은 세션이 매 프레임 읽는다 — 마크를 봇 발 추적에서 떼어 설계 좌표에 고정: session.js A2.)
+const FLAGS = {
+  __play: PLAY, __afloor: AFLOOR, __wantAlpha: ALPHA,
+  __bgUrl: BGVID ? '' : BGURL, __bgVid: BGVID, __bgFit: BGFIT, __bgDim: BGDIM,
+  __agamma: AGAMMA, __layer: LAYER, __pin: PIN, __norip: NORIP, __inka: INKA,
+  __unclip: PAD > 1, __flatGround: FLATGROUND, __pad: PAD,
+};
+await page.evaluateOnNewDocument(f => { Object.assign(window, f); }, FLAGS);
+await page.evaluate(f => {
+  Object.assign(window, f);
+  const s = window.__dbg?.session; if (s) s.pinMarks = f.__pin;
+}, FLAGS);
 // ── 씬 스테이지: 화면에서 맞춘 값을 그대로 넘긴다 ─────────────────────────────
 //   __sceneAdj 는 앱이 매 프레임 읽는 **살아 있는 객체**라 한 번만 넣으면 된다.
 //   영상 배경도 여기서 건다 — scenes.html 이 부르는 것과 같은 함수라 결과가 화면과 같다.
@@ -560,6 +572,18 @@ await page.evaluate(({ sport, beam, ht, session, stage, listStages }) => {
       });
     };
     window.__isolate3d();
+    // ★ 격리는 **렌더 직전**에 걸어야 한다. rAF 체인에서 한 번 걸어 두는 방식(위 호출 + 프레임
+    //   루프의 재호출)은 앱이 매 틱 무대·판을 다시 visible 로 세우기 때문에 그대로 지워진다.
+    //   실측(08-07 · BK_B4 · 400p): --layer tokens 와 --layer ui 의 산출물이 **띠별 화소까지
+    //   동일**했다(전체 23.09% · 상단 1.03% · 중단 14.37% · 하단 7.69%) = 둘 다 'all' 이었다.
+    //   --layer person 만 수치가 달랐는데 그건 격리가 아니라 잉크 알파(INKA) 때문이고,
+    //   프레임에는 코트 라인·골대·콘이 그대로 남아 있었다(이 리포가 두 번 밟은 '무대 누수').
+    //   renderer.render 를 감싸면 누가 언제 그리든 **그 직전 상태가 우리 상태**다.
+    if (!d.renderer.__isoWrapped) {
+      const orig = d.renderer.render.bind(d.renderer);
+      d.renderer.render = (sc, cam) => { try { window.__isolate3d?.(); } catch (e) {} return orig(sc, cam); };
+      d.renderer.__isoWrapped = true;
+    }
   }
   window.__sweep();   // ★ session.start 뒤에 한 번 더 — 클립 미리보기 패널이 그때 생긴다
 }, { sport: SPORT, beam: BEAM, ht: HT, session: SESSION, stage: STAGE, listStages: LISTSTAGES });
@@ -752,16 +776,21 @@ const PRE_MAX = 240 + (WARM ? Math.round(T0 * FPS) : 0);   // 안전장치: 이�
 let lastInfo = null;              // 직전 프레임의 renderer.info — 손실 원인 판별용
 let tSrc = WARM ? 0 : T0;         // --ramp 전용 소스 시계(구부린 시간). 램프가 없으면 안 쓴다
 if (WARM) console.log(`  워밍 ${Math.round(T0 * FPS)}프레임 (0 → ${T0.toFixed(2)}s · 저장 안 함)`);
+// ★ 여기서부터 리로드는 **한 번도 허용되지 않는다.** setup 이 심은 훅(__isolate3d·__fitFlat)은
+//   리로드로 사라지고, 그러면 격리도 평면 카메라도 없는 프레임이 계속 쌓인다. 기준선을 0 으로
+//   되돌려 아래 가드가 첫 리로드에서 바로 멈추게 한다(예전엔 > 1 이라 한 번짜리를 통과시켰다).
+reloaded = 0;
 for (let i = 0; saved < N; i++) {
   const t = RAMP ? tSrc : (WARM ? 0 : T0) + i / FPS;
   if (RAMP) tSrc += speedAt(t) / FPS;
   if (i - saved > PRE_MAX) { console.log('  ⚠ 프리롤 한계 — session.t 가 끝내 0 을 못 넘었습니다'); }
   // ★ 4K + 큰 uiscale 은 GPU 메모리를 넘겨 컨텍스트를 잃는다(실측: 3840·배율2.5 에서 11프레임째
   //   __dbg 통째로 소실). 죽으면 조용히 끝내고 여기까지 뽑은 프레임으로 영상을 묶는다.
-  if (reloaded > 1) {
+  if (reloaded > 0) {
     console.error(`
-✗ 프레임 즈음 페이지가 리로드됐습니다 — 이후 프레임은 전부 빈 화면이 됩니다.`);
-    console.error('  vite 가 산출 파일을 소스 변경으로 보고 새로고침했을 수 있습니다(vite.config.js watch.ignored 확인).');
+✗ ${i}프레임 즈음 페이지가 리로드됐습니다 — 격리 훅이 사라져 이후 프레임을 믿을 수 없습니다.`);
+    console.error('  vite 의 full-reload 는 이미 막아 뒀으니(location.reload 무력화) 남은 원인은 수동 새로고침·크래시 후 복구입니다.');
+    console.error('  ⚠ 여기까지 뽑은 프레임도 레이어 격리가 풀린 채일 수 있습니다 — 첫 프레임을 눈으로 확인할 것.');
     break;
   }
   // ★ __dbg?.state 만 보면 안 된다 — WebGL 컨텍스트를 잃어도 JS 객체는 멀쩡히 남는다.
