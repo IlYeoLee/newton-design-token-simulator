@@ -6,7 +6,11 @@ import puppeteer from 'puppeteer';
 const DIR = process.env.SHOT_DIR || '/private/tmp/claude-501/-Users-iil-yeo/470bab8d-790a-4a73-a1f4-7b8eaed4ec18/scratchpad';
 const stage = process.argv[2] || 'BK_B1';
 const at = +(process.argv[3] || 8);
-const b = await puppeteer.launch({ args: ['--no-sandbox', '--use-gl=swiftshader', '--enable-unsafe-swiftshader'] });
+// ★ protocolTimeout — 기본값(30s)으로는 이 앱을 못 기다린다. 부팅에 FBX 10MB + CMU JSON 20MB 를
+//   전부 받느라 '팩 데이터 로드 중'이 25초 떠 있고(실측 08-08), 그 뒤 세션이 at 초에 닿기까지
+//   또 기다린다. 그 대기가 evaluate 하나 안에서 일어나므로 프로토콜 타임아웃이 먼저 터졌다.
+const b = await puppeteer.launch({ protocolTimeout: 300000,
+  args: ['--no-sandbox', '--use-gl=swiftshader', '--enable-unsafe-swiftshader'] });
 const p = await b.newPage();
 await p.setCacheEnabled(false);
 await p.setViewport({ width: 1100, height: 1400, deviceScaleFactor: 1 });
