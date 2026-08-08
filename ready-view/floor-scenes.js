@@ -15,8 +15,7 @@ window.FLOOR_PHASES = {
 window.FLOOR_SCENES = {
   // ── 러닝 ──
   // A · 준비운동 (WARM UP)
-  // ★ 'Neck & Shoulders'(1154px) 는 안전폭(1022)을 13% 넘어 상시 축소됐다 — 한 글자 줄여 딱 맞춘다(검사기 실측).
-  A1: { title: 'Shoulder Roll', phase: 0, sub: '1/3', cue: 'Roll big, slow circles' },      // 목·어깨 크게 돌리기
+  A1: { title: 'Neck & Shoulders', phase: 0, sub: '1/3', cue: 'Roll big, slow circles' },      // 목·어깨 크게 돌리기
   A2: { title: 'Calf Stretch',     phase: 0, sub: '2/3', cue: 'Bend front knee · back leg straight' }, // 런지 자세 종아리 스트레칭
   A3: { title: 'High Knees',       phase: 0, sub: '3/3', cue: 'Drive knees up · keep the pace' }, // 하이니(제자리 무릎 올리기)
   // B · 페이스 훈련 (TRAINING = 페이스를 끌어올리는 훈련법 4종)
