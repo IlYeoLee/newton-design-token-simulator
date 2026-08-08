@@ -1003,11 +1003,30 @@ void main(){
     if (seq !== _speakSeq) return;
     if (stageId) {
       voiceAudio.src = `${BASE}voice/${stageId}.mp3`;
-      voiceAudio.play().catch(() => speakFallback(who, text, seq));
+      voiceAudio.play().catch(err => {
+        // ★ 자동재생 차단(NotAllowedError)은 '실패'가 아니라 '아직 허락 전'이다.
+        //   브라우저는 사용자가 페이지를 한 번 건드리기 전엔 소리를 막는다 — 시크릿 창은
+        //   참여 이력이 없어 더 확실히 막힌다(유저: 시크릿에서도 안 됨).
+        //   여기서 TTS 로 폴백하면 기계음이 나거나 그마저 막혀 **아무 소리도 안 난다**.
+        //   대사를 붙들어 뒀다가 첫 제스처에 그대로 재생한다.
+        if (err?.name === 'NotAllowedError') { _voicePending = { who, text, stageId }; return; }
+        speakFallback(who, text, seq);
+      });
       return;
     }
     speakFallback(who, text, seq);
   }
+  // 첫 제스처 = 소리 허락. 밀려 있던 대사가 있으면 그때 낸다(없으면 잠금만 푼다).
+  let _voicePending = null, _voiceUnlocked = false;
+  function unlockVoice() {
+    if (_voiceUnlocked) return;
+    _voiceUnlocked = true;
+    const p = _voicePending; _voicePending = null;
+    if (p) speak(p.who, p.text, p.stageId);
+    else voiceAudio.play().then(() => { voiceAudio.pause(); voiceAudio.currentTime = 0; }).catch(() => {});
+  }
+  for (const ev of ['pointerdown', 'keydown', 'touchstart'])
+    window.addEventListener(ev, unlockVoice, { once: true, capture: true });
   function speakFallback(who, text, seq) {
     if (!('speechSynthesis' in window)) return;
     const clean = text.replace(/\(.*?\)/g, '').replace(/[—·"']/g, ' ');
