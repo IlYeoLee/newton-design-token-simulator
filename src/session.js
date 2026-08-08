@@ -1746,11 +1746,21 @@ export class Session {
     //     원본은 1·2 가 true, 3·4 가 false 라 앞쪽에서 터졌다. 4만 켠다.
     //     박자·간격은 안 건드린다: 주기는 H._per(실측 바운스 간격), 래치는 H._popT 라
     //     이 표와 무관하게 그대로 돈다.
+    // ★ 디자인 정본 = matcast.html 의 배치를 **그대로** 옮긴 것이다(유저 08-08: 아예 똑같이 이식).
+    //   디자인은 판 정규좌표로 표적 ±0.44 · r 0.19, 허브 (0,0) · r 0.28 인 **대칭 정사각**이다.
+    //   여기서 월드(m)로 환산: 반변 MAT_SIZE/2 = 0.45 · 판 중심 앞거리 matMid = 0.835
+    //     x = 0.44 × 0.45 = 0.198      d = 0.835 ∓ 0.198 = 0.637 / 1.033      r = 0.19 × 0.45 = 0.0855
+    //
+    //   ★ 종전 값이 왜 뭉갰나(유저 스크린샷): 허브가 `toV(0.60)` 이라 **표적 3·4 와 같은 깊이**였고,
+    //     허브 r 0.15 m 인데 표적이 ±0.14 m 에 있었다 — 월드에서 원이 서로 파고든다.
+    //     실측 바운스 거리로 잡은 자리라 디자인의 정사각과는 애초에 다른 판이었다.
+    //   빔 창 검산(들어온다): matInk(0.637)=0.261 · matInk(1.033)=0.368 · matInk(0.835)=0.314
+    //     → 표적 ±0.198 · 허브 0.126 전부 100% 밝기 반폭 안.
     const B1_TG = [
-      { x: -0.265, d: 1.05, n: 1, r: 0.105, on: false },
-      { x:  0.265, d: 1.05, n: 2, r: 0.105, on: false },
-      { x: -0.14,  d: 0.60, n: 3, r: 0.10,  on: false },   // 스텝 표적 — 사이드 드리블 단계에서 점등
-      { x:  0.14,  d: 0.60, n: 4, r: 0.10,  on: true  },   // ← 팡은 여기서
+      { x: -0.198, d: 1.033, n: 1, r: 0.0855, on: false },
+      { x:  0.198, d: 1.033, n: 2, r: 0.0855, on: false },
+      { x: -0.198, d: 0.637, n: 3, r: 0.0855, on: false },   // 스텝 표적 — 사이드 드리블 단계에서 점등
+      { x:  0.198, d: 0.637, n: 4, r: 0.0855, on: true  },   // ← 팡은 여기서
     ];
     const b1tg = B1_TG.map(tg => {
       const z = BK_STAND - tg.d;
@@ -1795,11 +1805,14 @@ export class Session {
     const toU = x => x / (MAT_SIZE / 2);
     const b1mat = primPanel('dribbleMat', MAT_SIZE, false);
     b1mat._prim.P = {
-      round: 0.35, prog: 0, chev: 1,
+      // chev 0 — 셰브론은 폐기됐다(6ec4247). 디자인(matcast)도 0 인데 여기만 1 로 남아 있었다.
+      round: 0.35, prog: 0, chev: 0,
       mat: { nx: toU(matInk(MAT_D0)), fx: toU(matInk(MAT_D1)), ny: toV(MAT_D0), fy: toV(MAT_D1) },
       // 액티브 타깃 = 바운스 링과 같은 자리. ring:0 — 링 자체는 3D 존 마크(b1zone)가 박자로 그리고
       //   토큰은 채움·조준 눈금만 얹는다. 라벨도 null — 링 중앙은 잔여 횟수 숫자 슬롯이다.
-      center: { x: 0, y: toV(0.60), r: 0.15 / (MAT_SIZE / 2), ring: 0, label: null },
+      // ★ 허브 = 판 **정중앙**, r 0.28 (디자인 정본 그대로). 종전 (0, toV(0.60)) · r 0.333 은
+      //   표적 3·4 와 같은 깊이라 세 원이 겹쳐 한 덩어리로 뭉갰다.
+      center: { x: 0, y: 0, r: 0.28, ring: 0, label: null },
       // 표적은 3D 판정 토큰(b1tg)이 그린다 — 프림은 그 사이를 잇는 레일만 안다.
       rails: B1_TG.map(tg => ({ x: toU(tg.x), y: toV(tg.d), r: tg.r / (MAT_SIZE / 2), on: tg.on })),
       // ★ 파문이 안 닿던 자리(08-07). drawDribbleMat 은 **P.targets** 를 읽는데
@@ -3412,8 +3425,12 @@ export class Session {
       // 막0 · 스탠스 셋업(4초): 넓은 발자국 2개만 보여주고 밟게 한다 — 이후 퇴장(페이드)
       // 셋업 타임라인(유저·피그마 130-2984): 0~0.8 모은 자세 → 0.8~3.0 ←→ 화살표와 함께 벌어짐
       //   → 3.0 Success(마크 블룸+파형+피그마 배지) → 3~6 카운트다운 링 3·2·1 → 본 연습.
-      // 매트는 따라하기 시작(셋업 0초)에 깔린다 — 발자국을 그 위에 놓고 밟게 하는 게 순서다.
-      H.mat.material.opacity = Math.min(1, Math.max(0, tB / 0.5)) * 0.85;
+      // ★ 순서가 뒤집혔다(유저 08-08): **발자국이 중앙에서 좌우로 벌어지고, 그 다음에 매트**다.
+      //   종전엔 셋업 0초에 매트가 같이 깔려서, 벌어지는 발자국과 표적이 한 화면에 뒤엉켰다
+      //   (유저 스크린샷: 1·2 뒤에 발자국 잔상이 겹쳐 보인다).
+      //   기준선은 벌어짐 종료 = B1_SETUP.W_END(3.0) — 곡선 정본과 같은 시계를 쓴다.
+      const tM = tB - B1_SETUP.W_END;
+      H.mat.material.opacity = Math.min(1, Math.max(0, tM / 0.5)) * 0.85;
       // ★ 매트 모션을 **실제 세션에 물린다**(유저: 시뮬레이터에 그대로 박아놔).
       //   인수인계 문서(HANDOFF-0806-DRIBBLE-MAT '남은 일 1')가 지적한 그대로 — 지금까지
       //   모션이 랩에서만 돌고 시뮬은 정적이었다. 값의 출처는 전부 이미 여기 있었다:
@@ -3423,7 +3440,7 @@ export class Session {
       //     live   지휘 대상    ← H.tg[i].on (표적 활성 플래그)
       const MP = H.mat._prim.P;
       MP.prog = 0;   // 회차는 헤더 알약이 '/16' 으로 말한다 — 허브 링에 겹쳐 그리지 않는다(유저)
-      MP.in = Math.min(1, Math.max(0, tB / 0.6));
+      MP.in = Math.min(1, Math.max(0, tM / 0.6));   // 등장 램프도 같은 기준선(W_END)
       MP.hit = this.t - (H._popT ?? -9);
       if (H._per > 0.05) MP.per = H._per;
       // ★ 접촉은 **지휘 중인 노드**에서 일어난다(유저: 3번에서 튀기는데 중앙이 반응하면 안 된다).
@@ -3434,7 +3451,7 @@ export class Session {
         q.live = !!H.tg[i]?.on;
         q.hit = q.live ? this.t - (H._popT ?? -9) : null;
       }
-      const tgK = Math.min(1, Math.max(0, (tB - 0.3) / 0.6));
+      const tgK = Math.min(1, Math.max(0, (tM - 0.3) / 0.6));   // 표적 점등도 매트 뒤를 따른다
       for (const q of H.tg) { q.ring.setOp?.((q.on ? 0.42 : 0.16) * tgK); q.num.material.opacity = (q.on ? 0.9 : 0.3) * tgK; }
       const { W_END, SETUP } = B1_SETUP;
       const PS = bkB1SetupPose(tB);                       // ★ 곡선 정본 — stancelab 과 공유
