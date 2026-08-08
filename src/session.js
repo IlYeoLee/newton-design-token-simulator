@@ -120,9 +120,24 @@ export class FootMark {
   // 세션 발자국 = MARK 발형 상태 머신 소비 (시안 보드 7상태 그대로).
   // 열화상 사제 텍스처·flatMat 카운트다운 링·홀드 호 전부 은퇴 — 룩 시스템이 유일한 형태:
   //   대기=Preview 소프트 필 · 카운트다운=Active 헤일로 수축 · 유지=Hold 코닉 림 · 성공=Success 블룸
+  // ★ 살아 있는 발 마크 명부 — "발 SVG 가 깔린 화면인가"를 묻는 유일한 창구(유저 08-08:
+  //   발자국이 나오면 뒤 배경 이펙트를 전부 뺀다). 스테이지 빌드 때 한 번씩만 생기므로
+  //   배열이 무한히 자라지 않는다.
+  static ALL = [];
+  /** 지금 화면에 실제로 그려지는 발 마크가 하나라도 있나 — 조상 체인까지 본다.
+   *  group.visible 만 보면 안 된다: 스테이지 그룹이 꺼져 있어도 자식은 true 로 남는다. */
+  static anyVisible() {
+    return FootMark.ALL.some(m => {
+      if ((m._U?.uFade?.value ?? 1) <= 0.02) return false;   // 페이드아웃 중 = 없는 것으로 친다
+      for (let n = m.group; n; n = n.parent) if (!n.visible) return false;
+      return true;
+    });
+  }
+
   constructor(foot) {
     this.foot = foot;
     this.group = new THREE.Group();
+    FootMark.ALL.push(this);
     let tex = null;
     try { tex = footSDFTexture(foot === 'right'); } catch (e) { tex = null; }
     const mat = makeMarkFXMaterial(tex);
@@ -846,7 +861,18 @@ export function bkB1SetupPose(tB) {
     arrowProg: Math.max(0.15, we),                                   // draw-on = 벌어짐 진행
     inSetup: tB < SETUP, done: tB >= W_END };
 }
-const SBZ = -3.13;      // 스텝백 마크 기준 z. 빌드·업데이트 양쪽에서 쓴다
+// 스텝백 마크 기준 z. 빌드·업데이트 양쪽에서 쓴다.
+//   ★ -3.13 -> -2.91 (0.22m 앞으로). 실측(scripts/_probe_sbfit.mjs, BK_B3):
+//     타이틀 알약 하단 1.658m · 가장 먼 발자국 **중심** 1.60m → 중심끼리는 5.8cm 여유라
+//     check_content_fit 이 통과했는데, 발 실루엣 반길이 0.15m 가 그걸 먹어 실루엣 끝이
+//     1.750m 로 알약을 0.092m 침범했다. 블룸 끝(1.870m)은 알약 상단과 같아 통째로 덮었다
+//     (유저 스샷: SLIDE BACK 2/3 을 발자국이 뚫고 올라옴).
+//   ★ 타이틀은 못 움직인다 — 투사 끝선에서 12cm 아래 앵커가 규약이다(PROJECTION-SPEC §2).
+//     그래서 마크가 물러난다. B2·B3·B4·C2 가 이 상수를 공유하므로 네 단계가 같이 정렬된다.
+//   ★ 실루엣만 빼면 0.15m 로 충분한데 0.22m 를 뺀 건 **블룸**까지 빼기 위해서다 —
+//     0.15m 안에선 실루엣 여유 5.8cm 인데 블룸 끝(반경 0.12)이 알약을 6.2cm 다시 먹었다.
+//     "반드시 해결"(유저)이라 광까지 뺀다. 검사는 scripts/_probe_sbfit.mjs 가 세 값을 다 찍는다.
+const SBZ = -2.91;
 // ★ 스텝백이 창 안에 앉을 때 쓰는 **단일 반경**(m) = 존 원 반경. 발 잉크 반경(0.16)이 아니라
 //   이 값을 쓰는 이유: 목표 자리에는 발자국과 존 원이 **겹쳐** 놓이는데 둘을 다른 반경으로
 //   맞추면 창 가장자리에서 원만 안쪽으로 밀려 동심이 깨진다. 제일 바깥 물건 하나로 통일한다.

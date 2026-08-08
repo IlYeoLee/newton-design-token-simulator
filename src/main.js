@@ -12,7 +12,7 @@ import { WallGhost } from './ghost.js';
 import { FilesetResolver, ImageSegmenter } from '@mediapipe/tasks-vision';
 import { extractPose, retargetToClip } from './posemocap.js';   // 무료 로컬 비디오 모캡
 import { Judge } from './judge.js';
-import { Session, SCFG, STAGES, STEP_SEG , refreshMarkNums, AD } from './session.js';
+import { Session, SCFG, STAGES, STEP_SEG , refreshMarkNums, AD, FootMark } from './session.js';
 import { StudioDoc } from './studio/doc.js';
 import { StudioCanvas } from './studio/canvas.js';
 import { StudioProps } from './studio/props.js';
@@ -3355,7 +3355,13 @@ void main(){
         // ★ **따라하기 가이드에는 배경을 깔지 않는다**(유저 08-06). 사용자가 따라 움직이는 동안엔
         //   화면이 '지금 밟을 자리'만 말해야 한다 — 배경 격자가 있으면 발자국과 같은 밝기의 점들이
         //   바닥에 깔려 목표가 묻힌다. 배경은 '평면으로 전환됐다'를 말하는 구간에서만.
-        df.visible = !!session.active && !anyCoach && !isReady && !session._followLatch;
+        // ★ 판정 기준을 국면 플래그에서 **화면에 발 마크가 있나**로 바꾼다(유저 08-08:
+        //   발 SVG 가 나오면 뒤 배경 이펙트는 전부 뺀다 · 배경은 인물 뒤 영상에서만).
+        //   _followLatch 는 '따라하기에 들어섰다'는 국면일 뿐이라, 래치가 걸리기 전에 이미
+        //   발자국이 떠 있는 프레임에서는 격자가 같이 깔렸다(유저 스크린샷).
+        //   신호는 매 프레임 다시 정한다 — 래치처럼 굳는 값을 쓰지 않는다.
+        df.visible = !!session.active && !anyCoach && !isReady && !session._followLatch
+          && !FootMark.anyVisible();
         if (df.visible) df.material.uniforms.uTime.value = (session.t ?? state.time ?? 0);
       }
     }
