@@ -380,14 +380,14 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
   font:var(--t-bodyr);letter-spacing:var(--ls-body);color:var(--d-title);padding:13px 22px}
 #dev-pill{border:0;border-radius:999px;background:var(--d-surface);color:var(--d-t3);font:var(--t-labr)}
 </style>
-  <script type="module" crossorigin src="./assets/main-BXT8vdrQ.js"></script>
+  <script type="module" crossorigin src="./assets/main-jNzcgbnK.js"></script>
   <link rel="modulepreload" crossorigin href="./assets/modulepreload-polyfill-B5Qt9EMX.js">
   <link rel="modulepreload" crossorigin href="./assets/preload-helper-PPVm8Dsz.js">
-  <link rel="modulepreload" crossorigin href="./assets/fx-core-srziRZkq.js">
-  <link rel="modulepreload" crossorigin href="./assets/fxlut-TlGobaWb.js">
-  <link rel="modulepreload" crossorigin href="./assets/tokens-DTPOlCDh.js">
-  <link rel="modulepreload" crossorigin href="./assets/floorgl-DJ3RH8Ts.js">
-  <link rel="modulepreload" crossorigin href="./assets/session-LLQlUPsg.js">
+  <link rel="modulepreload" crossorigin href="./assets/fx-core-BuQ6Q_HY.js">
+  <link rel="modulepreload" crossorigin href="./assets/fxlut-BNKU0wEc.js">
+  <link rel="modulepreload" crossorigin href="./assets/tokens-BgLjVzE8.js">
+  <link rel="modulepreload" crossorigin href="./assets/floorgl-DGGgdpTB.js">
+  <link rel="modulepreload" crossorigin href="./assets/session-DqsA4Zss.js">
 </head>
 <body>
   <aside id="panel" class="dev-only">
@@ -582,6 +582,11 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
   (function () {
     const q = new URLSearchParams(location.search).get('dev');
     const local = /^(localhost|127\.|192\.168\.)/.test(location.hostname);
+    // ★ 배포에선 개발자 모드가 **아예 없다**(유저: 실제 웹에서 절대 안 보이게).
+    //   종전엔 기본값만 off 라 실제로는 세 갈래로 켤 수 있었다: ?dev=1 · D 키 · 우하단 알약.
+    //   여기서 끊으면 알약이 안 생기고 키 리스너도 안 붙는다 — 아래 전부가 로컬 전용이 된다.
+    //   남아 있는 localStorage 도 지운다(예전에 켜 본 방문자가 계속 dev 로 보게 되는 걸 막는다).
+    if (!local) { document.body.classList.remove('dev'); localStorage.removeItem('newton.dev'); return; }
     let on = q != null ? q !== '0' : (localStorage.getItem('newton.dev') ?? (local ? '1' : '0')) === '1';
     if (q != null) localStorage.setItem('newton.dev', on ? '1' : '0');
     // 렌더 전에(= deferred 모듈이 #stage 폭을 재기 전에) 즉시 적용해야 한다.

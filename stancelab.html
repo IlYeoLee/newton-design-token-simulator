@@ -23,14 +23,14 @@
   .note{color:var(--dim);font-size:11.5px;max-width:1000px;text-align:center}
   #verHint{color:#FEC389;font-size:11.5px;text-align:center}
   code{color:#FEC389}
-</style>  <script type="module" crossorigin src="./assets/stancelab-Bx-OiEx3.js"></script>
+</style>  <script type="module" crossorigin src="./assets/stancelab-UgabT32B.js"></script>
   <link rel="modulepreload" crossorigin href="./assets/modulepreload-polyfill-B5Qt9EMX.js">
-  <link rel="modulepreload" crossorigin href="./assets/fx-core-srziRZkq.js">
-  <link rel="modulepreload" crossorigin href="./assets/fxlut-TlGobaWb.js">
-  <link rel="modulepreload" crossorigin href="./assets/tokens-DTPOlCDh.js">
-  <link rel="modulepreload" crossorigin href="./assets/floorgl-DJ3RH8Ts.js">
-  <link rel="modulepreload" crossorigin href="./assets/session-LLQlUPsg.js">
-  <link rel="modulepreload" crossorigin href="./assets/mark-versions-BfbNgGyf.js">
+  <link rel="modulepreload" crossorigin href="./assets/fx-core-BuQ6Q_HY.js">
+  <link rel="modulepreload" crossorigin href="./assets/fxlut-BNKU0wEc.js">
+  <link rel="modulepreload" crossorigin href="./assets/tokens-BgLjVzE8.js">
+  <link rel="modulepreload" crossorigin href="./assets/floorgl-DGGgdpTB.js">
+  <link rel="modulepreload" crossorigin href="./assets/session-DqsA4Zss.js">
+  <link rel="modulepreload" crossorigin href="./assets/mark-versions-4opYANT4.js">
 </head><body>
 <div class=wrap>
   <div id=frame></div>
@@ -68,6 +68,9 @@
     <button id=grid>각도 그리드</button>
     <button id=mgrid>30cm 격자</button>
     <button id=blend>블렌딩: 잉크</button>
+    <label>각인(전 상태) <input type=range id=s-imp min=0 max=1 step=0.01 value=0.98><span class=v id=v-imp>0.98</span></label>
+    <label>압력장 <input type=range id=s-pl min=0 max=1 step=0.01 value=0.55><span class=v id=v-pl>0.55</span></label>
+    <label>화살표 온도 <input type=range id=s-heat min=0 max=1 step=0.01 value=0.15><span class=v id=v-heat>0.15</span></label>
   </div>
 
   <p class=note>프레임 1816×510(3.561:1) = 16:9·vfov 60°의 중앙 띠. 카메라는 실측 눈(y 1.69 · z −1.809),
