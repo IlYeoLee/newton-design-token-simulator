@@ -7,6 +7,7 @@ import { easeMove, stepDelay, stampPop, airK, airAlpha, airScale, overshoot, sli
 // ★ 4단계 스펙 정본 — 어느 발이 어떤 하중으로 어떻게 움직이는가. 코드에 흩어져 있던 걸 데이터로.
 import { BK_STEPBACK, LOAD, arrowFor, stageTime } from './marklang.js';
 import { a2Rem } from './a2hold.js';   // 마크 안 숫자 = 진행률 3등분 정본(초 올림 금지)
+import { stanceLoad } from './gait.js';   // 걸음 정본 — 입각기 진행 → 하중 배분
 import { READY_OPT } from './floorgl.js';   // 시작화면 시안 토글(발자국 어포던스 등) — 랩과 같은 스위치를 본다
 import { lutColor, GLYPHS, drawGlyph, drawNumber, footSlot, footSDFTexture, FXP } from './fxlut.js';
 import { MARK_NUM, GLYPH_LOOK, drawMarkGlyph, invertGlyphCanvas, drawStanceBox, drawPunchLine, drawApproachRing, drawTrajectory, drawRotate, drawStemArrow, drawCurveArrow, drawDribbleMat, glyphFor } from './fx-core.js';
@@ -2406,6 +2407,14 @@ export class Session {
       else if (g > 0.28) fm.active((g - 0.28) / 0.47);
       else fm.ghost();                     // Locked  — 먼 쪽 무채 예고
       fm.op((0.42 + 0.58 * g * g) * warm);   // 예고 발자국도 잘 보이게(줄지어 다가오는 게 읽히도록)
+      // ★ 하중이 굴러야 발자국이 살아 있다 — 상태별 고정값만 걸면 멈춰 있는 판때기다(유저).
+      //   스텝라인을 지나는 동안이 그 발의 입각기다: 뒤꿈치 → 전면 → 앞볼 → 밀기 → 체공.
+      //   접지 창은 tokens.setMarkLoad 가 이 배분의 무게중심에서 만든다.
+      {
+        const wSpan = stride * 0.62;
+        const u = Math.max(0, Math.min(1, (z - (stepLine - wSpan)) / (2 * wSpan)));
+        setMarkLoad(fm.plane.material, stanceLoad(u));
+      }
     }
   }
   _packBeat(mult = 1, fb = 0.6) {
@@ -2921,6 +2930,16 @@ export class Session {
       //   곱해져 0.48 — 숫자 붙은 발만 갈색으로 죽는다(실측 렌더 f5, 유저 반복 신고).
       //   차오름은 0.94→1.0 으로 그대로 표현되고, 주인공은 숫자·타이머·파문이 말한다.
       work.op(0.94 + 0.06 * P.fill);
+      // ★ 종아리 늘리기도 하중이 움직인다 — 뒷발(work)은 앞볼로 서 있다가 홀드가 차오를수록
+      //   **뒤꿈치를 눌러** 내리고(그게 이 운동의 전부다), 앞발(stance)은 반대로 앞볼로 옮겨
+      //   무릎을 굽힌다. 고정값만 걸면 둘 다 멈춰 있는 판때기다(유저).
+      {
+        const mixL = (a, b, f) => ({ ball: a.ball + (b.ball - a.ball) * f,
+          heel: a.heel + (b.heel - a.heel) * f, toe: a.toe + (b.toe - a.toe) * f });
+        const f = Math.max(0, Math.min(1, P.fill));
+        setMarkLoad(work.plane.material,   mixL(LOAD.toe,  LOAD.heel, f));
+        setMarkLoad(stance.plane.material, mixL(LOAD.flat, LOAD.toe,  f));
+      }
       // 홀드 파문 차오름(유저: 화면이 심심) — 버티는 발에서 파문이 진행에 비례해 넓게.
       //   기존 파동 정본(uRip) 부스트일 뿐 새 이펙트가 아니다. 완주 팡과 리듬이 이어진다.
       // 부스트는 정본 rip 의 배수다 — rip 0 이면 0 (기준선 0.5 하드코딩 폐기)
