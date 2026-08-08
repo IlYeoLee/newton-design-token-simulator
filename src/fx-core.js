@@ -519,22 +519,8 @@ vec3 personGuideColor(float T){
   k = k * k * (3.0 - 2.0 * k);
   return mix(pale, deep, k);
 }
-/** 가이드 룩을 **최종 색에** 건다 — main.js 의 인물 셰이더가 두 갈래(personLook·personAura)가
- *  합류한 지점에서 이걸 부른다(main.js: col = personGuide(col)).
- *  ★ 이 함수가 없으면 프래그먼트 셰이더가 컴파일에 실패하고, 같은 프로그램을 쓰는 **지면 마크가
- *    통째로 안 그려진다**(2026-08-08 실측: BK_B1 에서 매트·표적·발자국 전부 소실).
- *    두 기계의 갈래를 합칠 때 정의만 한쪽에 남고 호출만 건너와서 그렇게 됐다.
- *  uPHiPale 0(기능 끔)이면 입력을 그대로 돌려준다 — 도입 전과 픽셀 동일. */
-vec3 personGuide(vec3 c){
-  if (uPHiPale <= 0.0) return c;
-  // 들어온 색은 이미 룩의 결과다. 그 **밝기**만 램프 좌표로 읽어 같은 램프 위에서 자리를 옮긴다 —
-  //   결(옷 주름·명암)이 밝기에 실려 있으므로 그대로 살아남는다. ×1.25 는 룩 출력이 램프 상단을
-  //   다 안 쓰는 것에 대한 보정(어두운 쪽이 뭉치는 걸 막는다).
-  return personGuideColor(clamp(dot(c, vec3(0.299, 0.587, 0.114)) * 1.25, 0.0, 1.0));
-}
 vec3 personColor(float T){
-  //   ⚠ 여기서 가이드로 갈아타면 **두 번 걸린다**(personGuide 가 합류 지점에서 또 건다).
-  //     두 번 걸면 램프를 두 번 타서 전신이 하얗게 뜬다(08-07 렌더로 확인). 가이드는 한 곳에서만.
+  if (uPHiPale > 0.0) return personGuideColor(T);   // 가이드 모드 = LUT 를 안 탄다
   T = clamp(T, 0.0, 1.0);
   float hiN = pHi();
   if (uPCoral > 0.001) {
@@ -915,7 +901,7 @@ float plantar(vec2 pQ, float sdIn, float sd){
     //     이 곱으로 접지면이 발 모양(발가락 갈라짐·움푹 팬 아치)을 갖는다.
     win *= mix(0.14, 1.0, smoothstep(0.02, -0.05, sdIn));
     //   창 안은 램프의 레드 끝까지 닿아야 한다 — 1.45 로는 접지 중심도 주황에서 멈췄다(실측).
-    blob = mix(blob, (0.30 + 0.70 * clamp(blob, 0.0, 1.4)) * win * 1.9, clamp(uCopA, 0.0, 1.0));   // 2.6 은 창 한가운데가 램프 끝에서 잘려 중간색(코랄)이 사라진다
+    blob = mix(blob, (0.30 + 0.70 * clamp(blob, 0.0, 1.4)) * win * 2.6, clamp(uCopA, 0.0, 1.0));
   }
   // ── 딛는 흐름 ─────────────────────────────────────────────────────────────
   //   하중 중심(발 장축)에서 **뒤로 길게 끌리고 앞은 짧게 끊긴다**. 앞뒤 비대칭이 곧 방향이다 —
@@ -2040,10 +2026,7 @@ export function drawDribbleMat(g, W, P, look, t, ENV) {
 
 
   // ── 레일 — 노드 순서를 잇는 점열. 잽잽훅 가이드 레일과 같은 값(0길이 대시 · 라운드캡 · 0.22)
-  // tgK — 표적만 따로 여닫는 문(허브는 계속 켜 둔다). 셋업 발자국이 물러난 뒤에 열린다:
-  //   발자국 자리에 번호가 겹쳐 뜨면 "발자국 위에 뜨는 게 말이 되니"가 된다(유저).
-  const tgK = P.tgK == null ? 1 : Math.max(0, Math.min(1, P.tgK));
-  const NODES = tgK > 0.004 ? (P.targets || []).slice().sort((a, b) => (a.n || 0) - (b.n || 0)) : [];
+  const NODES = (P.targets || []).slice().sort((a, b) => (a.n || 0) - (b.n || 0));
   if (NODES.length) {
     // ★ 밝은 바닥에서는 이 값으로 안 보인다(유저: 라인들이 사라졌네). alpha .22 · 2.2px 는
     //   어두운 랩 캔버스 기준이다 — 코트 타일 무늬에 그대로 묻힌다. 주간엔 진하고 굵게.
@@ -2056,7 +2039,7 @@ export function drawDribbleMat(g, W, P, look, t, ENV) {
       const qx = X(q.x), qy = Y(q.y), dx = X(cU) - qx, dy = Y(cV) - qy;
       const onPath = TRn.k > 0 && TRn.k < 1 && (q.n === TRn.from || q.n === TRn.to);
       const L = Math.hypot(dx, dy) || 1;
-      const NR = (q.r != null ? q.r : 0.13) * W / 2 * 1.25;   // 노드 림 바깥에서 시작
+      const NR = (q.r != null ? q.r : 0.20) * W / 2 * 1.16;   // 노드 림 바깥에서 시작
       const sx = qx + dx / L * NR, sy = qy + dy / L * NR;
       // ★ 허브가 live 면 1.34배로 커진다(내가 노드 재질로 맞추면서 생긴 것) — 레일 끝을 CR 로
       //   잡으면 **허브 안으로 들어가 가려진다**. 실제 반경으로 끝낸다.
@@ -2119,7 +2102,7 @@ export function drawDribbleMat(g, W, P, look, t, ENV) {
   const GB = 13 * look.halo * (DAY ? 0.45 : 1);
   for (const tg of (P.targets || [])) {
     const on = tg.on !== false, live = !!tg.live;
-    const k = nodeK(tg.n ? tg.n - 1 : 0) * tgK;
+    const k = nodeK(tg.n ? tg.n - 1 : 0);
     if (k <= 0.001) continue;
     const cx = X(tg.x), cy = Y(tg.y);
     const R = (tg.r != null ? tg.r : 0.20) * W / 2 * (live ? 1.34 : 1) * (0.9 + 0.1 * k);
@@ -2254,8 +2237,8 @@ export function drawDribbleMat(g, W, P, look, t, ENV) {
     g.shadowColor = cVer === 'hit' ? PAL.prism : cVer === 'near' ? PAL.sand : lut(0.5);
     g.beginPath(); g.arc(cx, cy, CRL, 0, Math.PI * 2); g.stroke(); g.shadowBlur = 0;
     if (P.brand && ENV.logo && ENV.logo.complete && ENV.logo.naturalWidth) {
-      const lw = CR * 0.62, lh = lw * ENV.logo.naturalHeight / ENV.logo.naturalWidth;
-      g.globalAlpha = 0.88 * hubK;                // 허브 정중앙 — 판정 링 안이 브랜드 자리다
+      const lw = CR * 1.05, lh = lw * ENV.logo.naturalHeight / ENV.logo.naturalWidth;
+      g.globalAlpha = 0.5 * hubK;                 // 허브 정중앙 — 판정 링 안이 브랜드 자리다
       g.drawImage(ENV.logo, cx - lw / 2, cy - lh / 2, lw, lh);
       g.globalAlpha = 1;
     }

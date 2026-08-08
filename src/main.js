@@ -1,8 +1,7 @@
 import * as THREE from 'three';
 import { createScene, WALL_Z, FX } from './scene.js';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { TokenSystem, COLORS, TCFG, setFPView, makeMarkFXMaterial, makeLaneFXMaterial, makeFlowArrow, UI_MASK, applyMarkLook, setLookOverride } from './tokens.js';
-import { PRESETS, currentPreset, savePreset, pushHT } from './lookpresets.js';
+import { TokenSystem, COLORS, TCFG, setFPView, makeMarkFXMaterial, makeLaneFXMaterial, makeFlowArrow, UI_MASK, applyMarkLook } from './tokens.js';
 import { Effects } from './effects.js';
 import { XBot } from './xbot.js';
 import { Panel } from './panel.js';
@@ -2792,10 +2791,6 @@ void main(){
             col = personLook(clamp(H + pulse + dth, 0.0, 1.0), lumS, lumB, mIn, faceW, uv.y) * mEro;
             cov = mEro;
           }
-          // ★ 가이드 룩은 **두 갈래가 합류한 뒤** 건다. personColor 안에만 넣었더니
-          //   uPForm>0.5(personAura) 경로에서 통째로 무시돼, 랩에선 되는데 실화면에선
-          //   아무 일도 안 일어났다(유저 08-07). uPHiPale 0 이면 이 줄은 아무것도 안 한다.
-          col = personGuide(col);
           // ── 등장 워시(유저 08-04): 첫 등장에 다리가 연하게 뜨는 대신, 최심 주황(#FF3300)이
           //   발끝에서 차올라 몸을 한 번 훑고 정상 룩으로 풀린다. uEnter ≥ 1.4s 면 비용 0.
           float et = clamp(uEnter / 1.4, 0.0, 1.0);
@@ -3056,14 +3051,10 @@ void main(){
   };
   const COACH_GRID = window.COACH_GRID;
   const COACH_IDS = ['READY', 'BK_READY', 'A1', 'A2', 'A3', 'BK_A1', 'BK_A2', 'BK_T1', 'BK_B1', 'BK_B2', 'BK_B3', 'BK_B4', 'BK_C2'];
-    // 관찰이 끝나면(followLatch) 코치를 끈다.
-    // ★ 스텝백 조각(BK_T1·BK_B2~B4)의 예외를 **뺐다**(유저 08-07: 발자국 나올 땐 배경 안 나와야지,
-    //   인물이 그 장소에 있을 때만 나와야지). 예외의 근거는 '따라하기 화면에도 같은 실루엣이
-    //   축소되어 남는다(피그마 143:444)'였는데, 실제 화면에서는 **인물이 아니라 판이 남는다** —
-    //   크로마 키 뒤에 남는 옅은 사각 워시가 발자국 뒤에 깔려 지면이 더러워진다(유저 스샷).
-    //   실루엣이 필요하면 판을 켜는 게 아니라 실루엣만 그려야 한다. 그건 별건이다.
+    // 관찰이 끝나면(followLatch) 코치를 끄는 게 기존 규약이었다. 단 스텝백 조각(BK_T1·BK_B2~B4)은
+    //   따라하기 화면에도 같은 실루엣이 축소되어 남아야 한다(피그마 143:444) — 예외로 계속 켠다.
     const activeId = COACH_IDS.find(id => id === st
-      && !(/^(A2|A3|BK_A2|BK_B1|BK_T1|BK_B[234])$/.test(id) && session._followLatch)
+      && !(/^(A2|A3|BK_A2|BK_B1)$/.test(id) && session._followLatch)
       // ★ READY 실루엣은 **첫 화면**이다 — 팩 이름 + 사람 형체로 시작하고 2초 뒤 도트 '30 min'
       //   이 자리를 받는다. 시작화면 전체가 8초 루프라(floorgl _paint_ready) 여기도 같은 주기로
       //   껐다 켠다 — % 를 빼면 첫 8초 뒤 인물이 영영 안 돌아온다.
@@ -4827,29 +4818,6 @@ void main(){
   //   "웹에서 안 뜬다 / 왜 이렇게 느리냐"의 정체. 내부 도구 리포라 노출 비용은 없다.
   // 랩 → 시뮬 실시간 마크 룩 미리보기(유저) + 구(하늘) 램프 토글(scenes.html 버튼)
   window.__applyMarkLook = applyMarkLook;
-  // ── 룩 프리셋 토글 (👣) — '접지 룩' ↔ '정본 룩'. 이전 룩을 버리지 않고 왕복한다.
-  //   정본 값은 src/mark-look.json 하나에서만 읽는다(lookpresets.js) — 복사본을 두면
-  //   footlab 에서 다시 구웠을 때 갈린다.
-  {
-    let cur = currentPreset();
-    const btnL = document.getElementById('btn-look2');
-    const applyPreset = () => {
-      const P = PRESETS[cur]; if (!P) return;
-      setLookOverride(P.look);   // 겉에만 바르면 상태 전환에 지워진다 — 바탕을 갈아 끼운다
-      const push = m => pushHT(m, P.ht);
-      tokens.scene?.traverse?.(o => push(o.material));
-      scene.traverse(o => push(o.material));
-      if (btnL) { btnL.title = `마크 룩 — ${P.label} (눌러서 전환)`;
-        btnL.style.borderColor = cur === 'contact' ? 'var(--accent)' : 'var(--line)';
-        btnL.style.color = cur === 'contact' ? 'var(--accent)' : 'var(--text)'; }
-    };
-    btnL?.addEventListener('click', () => {
-      cur = cur === 'contact' ? 'classic' : 'contact'; savePreset(cur); applyPreset();
-    });
-    applyPreset();
-    // 마크 재질은 나중에 더 만들어진다(세션 진입·팩 교체) — 잠깐씩 다시 발라 준다.
-    setInterval(applyPreset, 1500);
-  }
   try { new BroadcastChannel('newton-marklook').onmessage = e => applyMarkLook(e.data || {}); } catch { /* 미지원 브라우저 */ }
   window.__dbg = {
     extractPose, retargetToClip,   // 비디오 모캡 (dev)

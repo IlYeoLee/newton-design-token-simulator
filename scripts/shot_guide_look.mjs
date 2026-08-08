@@ -34,7 +34,7 @@ const res = await p.evaluate(async () => {
     const mat = new THREE.ShaderMaterial({
       transparent: true, depthWrite: false,
       uniforms: {
-        map: { value: map }, uLUT: { value: (await import('/src/fxlut.js')).getLUT() }, uTime: { value: 1.2 },
+        map: { value: map }, uLUT: { value: window.__dbg.effects?.lutTex || null }, uTime: { value: 1.2 },
         uPSat: { value: 1.32 }, uPSweep: { value: 0 }, uPHi: { value: 0.86 }, uPDepth: { value: 0.34 },
         uPCoral: { value: 0 }, uPExp: { value: 0.5 }, uPForm: { value: 0 }, uPLo: { value: 0.12 },
         uPHiL: { value: 0.85 }, uPLumLin: { value: 0 }, uPCalWave: { value: 1 }, uPCalD: { value: 1 },
@@ -56,7 +56,7 @@ const res = await p.evaluate(async () => {
           vec2 uv=vUv; gHot=hotAt(uv);
           vec3 c=texture2D(map,uv).rgb; float m=m1(uv);
           float lum=dot(c,vec3(0.299,0.587,0.114));
-          vec3 col=personGuide(personColor(clamp(lum*1.25,0.0,1.0)));   // ★ 앱과 같은 합류 지점 — personColor 만 부르면 aura 경로를 못 본다
+          vec3 col=personColor(clamp(lum*1.25,0.0,1.0));
           float a=m;
           vec4 gzc=gazeToken(uv,uTime);
           col=mix(col,gzc.rgb,gzc.a); a=max(a,gzc.a);

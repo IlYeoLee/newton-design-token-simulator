@@ -93,10 +93,7 @@ void main() {
   //   정본 색(OKLab 램프)은 그대로 두고 균일한 점으로 뚫는다. 재현이 아니라 이식이다.
   //   ★ 알파를 r 에서 받지 않는다. r 의 알파는 경계에서 급히 끊겨, 그걸 곱하면 경계에 걸친
   //     점이 '잘려' 아웃라인이 생긴다. 색만 빌리고 알파는 넓은 페이드 × 점 마스크로 새로 만든다.
-  // ★ uHT 는 이제 **양**이다(0..1). 예전엔 0.5 문턱의 on/off 라 '은은하게'가 불가능했다 —
-  //   하프톤이 필을 통째로 갈아치우거나 아예 없거나 둘뿐이었다. 아래에서 mix 로 섞는다.
-  //   1 이면 예전과 픽셀 동일(완전 대체), 0 이면 통과 — 기존 소비처는 둘 중 하나만 쓴다.
-  if (uHT > 0.001) {
+  if (uHT > 0.5) {
     float u1h  = mkUndul(atan(uv.y, uv.x) + uSeed, uTime * 1.6);
     float sdh  = mkSD(uv, u1h);
     float pit  = max(uHTPitch, 0.02);
@@ -117,15 +114,10 @@ void main() {
     //   앞볼·뒤꿈치가 안 읽힌다(유저 08-06 레퍼런스: 밀도가 다르다). plantar 는 **신발 전체**에
     //   깔리므로 자국 바깥까지 같은 규약으로 덮인다. uPlantar 0 이면 예전 그대로(롤백 지점).
     float prH   = plantar(uv, mkSDIn(uv), sdh);
-    //   ★ 진짜 하프톤은 **점 면적**이 밝기에 비례한다 — 반지름은 그 제곱근이다. 선형으로
-    //     곱하면 중간톤이 다 비슷한 크기로 뭉쳐 '무지성 격자'로 읽힌다(유저). sqrt 를 씌우면
-    //     어두운 쪽이 빠르게 가늘어져 톤이 점 크기로 읽힌다.
-    //   바닥값은 이제 낮춰도 된다 — uHT 가 양(mix)이라 점이 성겨져도 아래 필이 비친다.
-    float press = mix(1.0, sqrt(clamp(0.10 + 0.90 * prH, 0.0, 1.0)), clamp(uPlantar, 0.0, 1.0));
-    //   ★ 상한이 피치의 절반이면 점이 셀 안에 갇혀 **절대 안 붙는다** — 어느 톤에서나 같은
-    //     격자가 보인다(유저: 무지성 도트). 0.72(대각선 절반 0.707 너머)까지 열어야
-    //     가장 진한 자리에서 점이 서로 붙어 면이 되고, 옅은 쪽으로 갈수록 풀린다 = 하프톤.
-    float rad  = pit * 0.72 * clamp((0.62 + 0.30 * band) * uHTGain * edge * press, 0.0, 1.0);
+    //   바닥값은 각인(0.16)보다 높인다 — 각인은 필 **위에** 얹히지만 하프톤 스킨은 필을
+    //   **대체**한다. 0.16 까지 떨어뜨리면 저압부가 점이 아니라 구멍이 되어 형태가 끊긴다.
+    float press = mix(1.0, 0.40 + 0.60 * prH, clamp(uPlantar, 0.0, 1.0));
+    float rad  = pit * 0.5 * clamp((0.62 + 0.30 * band) * uHTGain * edge * press, 0.0, 1.0);
     // ── 글리프 구멍(임시) — 숫자 텍스처를 읽어 '그 점을 통째로' 뺀다 ────────────────
     //   ★ 격자는 셰이더가 깔았으니 셀 중심에서 읽어야 위상이 안 어긋난다.
     //     (마스크 쪽에서 뚫었다가 격자가 어긋나 역상이 나던 것의 교훈)
@@ -156,12 +148,7 @@ void main() {
       aNew = clamp(aNew * (uHTInner > 0.0 ? mix(1.0, 1.0 + 0.80 * uHTInner, ee)
                                           : mix(1.0, 1.0 + 0.72 * uHTInner, ee)), 0.0, 1.0);
     }
-    // ★ 도트를 **접지한 자리에만** 남긴다. 실루엣 전체에 깔면 바깥까지 점이 있어 산만하다(유저).
-    //   섞는 양도 압력을 따른다 — 크기(위 press)와 같은 규약을 불투명도에 한 번 더 건다.
-    //   압력장이 꺼져 있으면(uPlantar 0) 예전처럼 전면에 깔린다.
-    float htW = clamp(uHT, 0.0, 1.0)
-              * mix(1.0, smoothstep(0.04, 0.42, prH), clamp(uPlantar, 0.0, 1.0));
-    r = mix(r, vec4(c0 * aNew, aNew), htW);
+    r = vec4(c0 * aNew, aNew);
   }
   // 쿼드 보더 페이드 — 원형 + 사각 경계(체비셰프) 이중: 어떤 경로에서도 평면 모서리가
   // 사각 박스로 드러나지 않게 (주간 잉크의 색 정규화가 원형 페이드를 상쇄하던 구멍 봉인)
@@ -461,31 +448,11 @@ const MARK_MATS = [];
  *  특정 토큰만 다른 스타일을 쓰는 경우. 키 규약은 applyMarkLook 과 동일. */
 /** 하중 배분 주입 — marklang LOAD 한 항목({ball,heel,toe})을 그 마크에만 건다.
  *  ★ 상태(8토큰)와 직교한다: 같은 Active 라도 앞볼로 버틸 수도 전면으로 디딜 수도 있다. */
-// 해부학 핫스팟 좌표 — fx-core plantar 와 **같은 값**이어야 한다(거기가 정본).
-const HS = { ball: [0.02, 0.30], heel: [0.00, -0.44], toe: [0.17, 0.56] };
 export function setMarkLoad(mat, load) {
   const U = mat?.uniforms; if (!U || !load) return;
   if (U.uLoadBall) U.uLoadBall.value = load.ball;
   if (U.uLoadHeel) U.uLoadHeel.value = load.heel;
   if (U.uLoadToe)  U.uLoadToe.value  = load.toe;
-  // ★ 접지 창(CoP) — **하중 배분의 무게중심이 곧 압력중심이다.** 따로 선언하지 않는다:
-  //   두 벌이 되면 반드시 어긋난다(이 파일이 이미 여러 번 배운 것). 그래서 setMarkLoad 를
-  //   지나가는 **모든 호출부**가 공짜로 접지 창을 얻는다 — 세션 발마크·팩 마크 전부.
-  //   창 크기는 하중이 얼마나 몰렸는가에서 나온다: 한 곳에 몰리면 작고, 고르면 넓다.
-  mat._load = load;            // 프리셋이 나중에 켜져도 다시 계산할 수 있게 기억해 둔다
-  applyContact(mat, load);
-}
-/** 하중 배분 → 접지 창. setMarkLoad 와 프리셋 전환 양쪽에서 쓴다. */
-function applyContact(mat, load) {
-  const U = mat?.uniforms;
-  if (!CONTACT_ON || !U?.uCopA || !load) return;
-  const w = Math.max(1e-4, load.ball + load.heel + load.toe);
-  const cx = (load.ball * HS.ball[0] + load.heel * HS.heel[0] + load.toe * HS.toe[0]) / w;
-  const cy = (load.ball * HS.ball[1] + load.heel * HS.heel[1] + load.toe * HS.toe[1]) / w;
-  const spread = 1 - Math.max(load.ball, load.heel, load.toe) / w;   // 0 = 한 곳 · 0.67 = 고름
-  U.uCop.value.set(cx, cy);
-  U.uCopR.value.set(0.19 + 0.34 * spread, 0.16 + 0.66 * spread);
-  U.uCopA.value = w > 0.02 ? 1 : 0;   // 하중 0 = 체공 = 접지 없음
 }
 export function applyMarkLookTo(mat, part = {}) {
   const SF = SIL_FIT / SIL_FIT_REF;
@@ -509,29 +476,7 @@ export function applyMarkLookTo(mat, part = {}) {
 
 /** 상태별 룩 — footlab '이 상태만 편집' 저장본(mark-look.json states[ph]).
  *  공통값은 이미 재질에 들어 있으므로 오버라이드만 얹고, 상태가 바뀌면 공통값으로 되돌린다. */
-let _stateBase = new WeakMap();
-// ★ 활성 룩 오버라이드 — 프리셋(lookpresets.js)이 갈아 끼운다.
-//   **상태 리셋의 바탕이 여기여야 한다.** applyMarkLook 으로 겉에만 바르면
-//   setMarkStateLook 이 상태가 바뀔 때마다 mark-look.json 값으로 되돌려서
-//   프리셋이 조용히 지워진다(실측: edgeShade 가 매번 정본 값으로 복귀).
-let LOOK_OVR = {};
-let CONTACT_ON = false;   // 접지 창을 setMarkLoad 가 만들지 여부 — 프리셋이 정한다
-export function setLookOverride(o = {}) {
-  LOOK_OVR = { ...o };
-  CONTACT_ON = !!o.contactWindow;
-  // ★ 프리셋은 마크가 다 만들어진 뒤에 켜진다 — 그때 이미 있던 마크에도 접지 창을 채워야 한다.
-  //   안 하면 상태가 한 번도 안 바뀌는 마크(Preview 로 태어나 그대로인 발자국)는 영영 0 이다.
-  for (const m of MARK_MATS) {
-    if (!m.uniforms.uCopA) continue;
-    if (CONTACT_ON) applyContact(m, m._load || { ball: 0.80, heel: 0.80, toe: 0.45 });
-    else m.uniforms.uCopA.value = 0;
-  }
-  _stateBase = new WeakMap();                       // 바탕이 바뀌었으니 캐시를 버린다
-  if (o.w != null) MARK_LOOK.core = o.w;            // 매 프레임 전역 푸시가 읽는 자리
-  if (o.halo != null) MARK_LOOK.halo = o.halo;
-  if (o.pool != null) MARK_LOOK.pool = o.pool;
-  applyMarkLook(LOOK_OVR);                          // 이미 만들어진 재질에도 즉시
-}
+const _stateBase = new WeakMap();
 export function setMarkStateLook(mat, ph) {
   if (!mat?.uniforms) return;
   // ★ Locked(3) = **Tap2 디자인**(유저: 락 상태를 tap2 로 교체해 시뮬 전체에 반영).
@@ -551,8 +496,7 @@ export function setMarkStateLook(mat, ph) {
     //   한 번 Success 를 지난 마크가 그 압력값을 영영 들고 다닌다(위 op·Tap2 와 같은 함정).
     'loadGain','loadBase','flow','plantar','tLo','tHi','halo','pool','noise','dotMode'];
   if (!_stateBase.has(mat)) {
-    // 오버라이드가 정본보다 우선한다 — 그래야 상태를 오갈 때도 프리셋이 살아남는다.
-    const base = {}; for (const k of KEYS) { const v = LOOK_OVR[k] ?? LOOK[k]; if (v != null) base[k] = v; }
+    const base = {}; for (const k of KEYS) if (LOOK[k] != null) base[k] = LOOK[k];
     _stateBase.set(mat, base);
   }
   applyMarkLookTo(mat, _stateBase.get(mat));   // 공통으로 리셋

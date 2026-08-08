@@ -7,7 +7,6 @@ import { easeMove, stepDelay, stampPop, airK, airAlpha, airScale, overshoot, sli
 // ★ 4단계 스펙 정본 — 어느 발이 어떤 하중으로 어떻게 움직이는가. 코드에 흩어져 있던 걸 데이터로.
 import { BK_STEPBACK, LOAD, arrowFor, stageTime } from './marklang.js';
 import { a2Rem } from './a2hold.js';   // 마크 안 숫자 = 진행률 3등분 정본(초 올림 금지)
-import { stanceLoad } from './gait.js';   // 걸음 정본 — 입각기 진행 → 하중 배분
 import { READY_OPT } from './floorgl.js';   // 시작화면 시안 토글(발자국 어포던스 등) — 랩과 같은 스위치를 본다
 import { lutColor, GLYPHS, drawGlyph, drawNumber, footSlot, footSDFTexture, FXP } from './fxlut.js';
 import { MARK_NUM, GLYPH_LOOK, drawMarkGlyph, invertGlyphCanvas, drawStanceBox, drawPunchLine, drawApproachRing, drawTrajectory, drawRotate, drawStemArrow, drawCurveArrow, drawDribbleMat, glyphFor } from './fx-core.js';
@@ -117,8 +116,6 @@ function makeTextPlane(text, opts = {}) { const g = makeTextMesh(text, opts); co
 // 대체한 뒤 호출처 0인 죽은 코드였음 (룩 시스템 외 사제 렌더의 마지막 잔재).
 export class FootMark {
   static READY_TAP = { T: 5.6, W: 0.55, P1: 3.6, P2: 4.35 };   // tap2 루프 타이밍 — floorgl 캔버스 발과 공유
-  // 상태 → 하중(marklang LOAD). Active 는 '다가와 곧 딛는다' 라 뒤꿈치, Hold 는 버티는 뒤꿈치.
-  static LOAD_BY_PH = { 0: 'flat', 1: 'heel', 2: 'flat', 3: 'flat', 4: 'flat', 5: 'heel', 6: 'flat' };
   static READY_SPREAD = 0.189;   // 좌우 간격(m) — 피그마 342:3057 실측(중심 x 525.8/1075.2). 유저: 이걸 넘지 말 것
   // 세션 발자국 = MARK 발형 상태 머신 소비 (시안 보드 7상태 그대로).
   // 열화상 사제 텍스처·flatMat 카운트다운 링·홀드 호 전부 은퇴 — 룩 시스템이 유일한 형태:
@@ -161,9 +158,6 @@ export class FootMark {
     this.plane.rotation.z = foot === 'left' ? THREE.MathUtils.degToRad(-3) : THREE.MathUtils.degToRad(3);
     this.plane.renderOrder = 4;   // 궤적 토큰(9)이 항상 발자국 '위'에 겹쳐 그려지도록 순서 못박음(유저)
     this.group.userData.el = { type: 'foot', side: foot };
-    // ★ 생성 시에도 한 번 — _ph 는 상태가 **바뀔 때만** 돌아서(같은 값이면 즉시 return),
-    //   Preview(0) 로 태어난 마크는 하중을 영영 못 받았다. 접지 창이 0 으로 남던 이유다.
-    setMarkLoad(this.plane.material, LOAD[FootMark.LOAD_BY_PH[0]]);
   }
   at(x, z, s = 1) { this.group.position.set(x, 0.013, z); this.group.scale.setScalar(s); return this; }
   op(k) { this._U.uFade.value = k; }
@@ -186,11 +180,6 @@ export class FootMark {
     startMarkXfade(this.plane.material);
     this._U.uPhase.value = v;
     setMarkStateLook(this.plane.material, v);
-    // ★ 상태마다 하중이 다르다 — 다가올 땐 뒤꿈치, 밟으면 전면, 버틸 땐 다시 뒤꿈치.
-    //   setMarkLoad 가 그 배분의 무게중심에서 접지 창을 만들어 주므로(tokens.js),
-    //   이 한 줄로 세션 발자국도 '닿는 자리가 옮겨 가는' 그림이 된다. 스텝백 마크만
-    //   하중을 받고 러닝 발자국은 못 받아서 접지 룩이 절반만 보였다(유저 신고).
-    setMarkLoad(this.plane.material, LOAD[FootMark.LOAD_BY_PH[v]] || LOAD.flat);
   }
   setHold(p) { this._ph(5); this._U.uProg.value = Math.max(0.001, p); }   // Hold 코닉 진행 림
   locked() { this._ph(3); this._U.uProg.value = 0; }
@@ -493,8 +482,6 @@ function livePrimEnv() {
     glyph: drawGlyph,
     // 브랜드 로고 — 자간 준 글자로 워드마크를 흉내 내던 걸 실제 에셋으로 바꾼다(유저).
     logo: _logoImg(),
-    // 밝은 투사면 보정은 프림에 따로 두지 않는다 — 마크 셰이더의 잉크 모드가 정본이다
-    //   (tokens.js 178: 색 보존 + 밝기→커버리지). 여기 배수를 두면 시스템 밖의 두 번째 보정이 된다.
   };
 }
 let _logo = null;
@@ -738,12 +725,6 @@ const BK_BEAT = 0.40, BK_B1_REPS = 8;
 // B 가이드 심도 시프트 — 실측 빔 창(origin 몸앞 0.35m + near 0.3 + far 1.9)은 z −2.5~−4.1.
 // 몸 바로 앞(0.3~0.55m)은 투사 불가 구간이라, 가이드는 '발 위치'가 아니라 '앞의 도식'으로 0.75m 깊이 배치.
 const BDEEP = 0.75;
-// BK_B1 스탠스 정본 — 셋업 발자국·벌어짐 애니메이션·매트 표적이 **전부 여기서** 나온다.
-//   전엔 발자국은 0.14/0.28 을 각자 적고 매트 표적은 내가 지어낸 좌표를 썼다. 그래서
-//   ③④ 가 발자국 위에 겹쳤다(유저 스샷) — 두 배치가 서로를 모르면 언제든 다시 겹친다.
-const B1_FOOT_D = 0.40 + BDEEP;        // 셋업 발자국 앞거리(m)
-const B1_HALF_SHUT = 0.14;             // 모은 자세 반폭 — 셋업 시작
-const B1_HALF_OPEN = 0.28;             // 어깨보다 넓게(0.56m, wikiHow 기본기) — 셋업 도착
 const BK_SQUAT_REPS = BK_REPS.BK_A3;
 // 시범(관찰) 길이 — 프리뷰 타이머 링·장면 시간·main.js A2_WATCH·floor-scene.html이 전부 이 값(3초, 유저)
 const A_WATCH = 3.0;
@@ -817,7 +798,7 @@ export const SB_POSE = [
 //   ⚠ 영역을 **줄이는 선택은 기각**했다. 빔은 멀수록 넓어지므로(반폭 0.32 → 0.75) 앞으로
 //     옮기면 잘림과 폭이 같이 풀린다. 줄이면 마크가 작아져 시각도 하한(docs/FLOOR-LEGIBILITY.md
 //     1급 0.55°)에 걸릴 위험만 생긴다.
-export const SB_BOX = { u: 0.95, v0: 0.24, v1: 0.64 };
+export const SB_BOX = { u: 0.95, v0: 0.30, v1: 0.78 };
 const sbU = u => Math.max(-SB_BOX.u, Math.min(SB_BOX.u, u * SB_BOX.u));
 const sbV = v => {
   const c = (SB_BOX.v0 + SB_BOX.v1) / 2, h = (SB_BOX.v1 - SB_BOX.v0) / 2;
@@ -1356,31 +1337,6 @@ export class Session {
     seg(H.trC, H.fRl, H.fLl, 2);
   }
 
-  /** 실전 경로의 **밟을 자리** — 목표 존 원(ZONE.base · phase 3 Locked 아웃라인).
-   *  ★ 고스트 발자국을 쓰면 안 된다(유저 08-07): 고스트는 '지나간 자리'라 의미가 정반대다.
-   *    앞으로 밟을 곳에 잔상을 놓으면 이미 밟은 걸로 읽힌다.
-   *    zTgt 가 쓰던 그 레시피 그대로다 — 그 함수 주석이 이미 규약을 적어 뒀다:
-   *    "아직 안 밟은 목표는 **테두리로만** 말한다."
-   *  ponytail: 새 그래픽 0개. floorRing(= waveRingMesh = MARK 존 원) 세 개뿐. */
-  _sbPathZones(H, on) {
-    if (!H.zPath) {
-      if (!on) return;
-      const mk = () => { const r = floorRing(0, SBZ, ZONE.base - 0.018, ZONE.base, BRAND.dim, 0);
-        r.renderOrder = 3;   // 발마크(7~8) 아래 — 원이 실루엣을 덮지 않게(zTgt 와 같은 규약)
-        r.setPhase?.(3); (H.mL?.parent || this.root).add(r); return r; };
-      H.zPath = [mk(), mk(), mk()];
-    }
-    const at = [H.fC, H.fLr, H.fLl];
-    H.zPath.forEach((r, i) => {
-      const f = at[i];
-      r.visible = !!(on && f);
-      if (!r.visible) { r.setOp?.(0); return; }
-      const q = f.group.position;
-      r.position.set(q.x, 0.0125, q.z);
-      r.setOp?.(0.42);   // 2급 — 지금 밟을 자리(판정 토큰, 1급)보다 옅게
-    });
-  }
-
   /** 빔 창 안에 **반경까지 포함해서** 앉힌다 — 투사 영역 밖으로 나가는 것을 금지(유저 08-06).
    *
    *  왜 필요한가: 지금까지의 클램프(SB_BOX·sbU·sbV)는 전부 **원점**만 막았다. 마크는 중심이
@@ -1866,17 +1822,14 @@ export class Session {
       //   n 을 함께 넘긴다 — fx-core 가 NODES 를 n 으로 정렬한다(2029).
       targets: B1_TG.map(tg => ({ x: toU(tg.x), y: toV(tg.d), r: tg.r / (MAT_SIZE / 2), n: tg.n, on: tg.on })),
       // 눈금자는 뺐다 — 운동 중에 '0.5 m'를 읽을 사람은 없다. 도면·합성용이라 랩에서만 켠다.
-      // ★ 로고 끔 — 허브 정중앙은 **잔여 횟수 숫자 슬롯**이다(b1num 이 같은 좌표에 있다).
-      //   둘 다 켜면 숫자 위에 로고가 겹친다(유저 스샷). 랩 토큰은 숫자가 없으니 로고가 그 자리를
-      //   쓰지만, 실화면에서 그 자리의 주인은 데이터다. 브랜드가 데이터를 덮지 않는다.
-      brand: 0,
+      brand: 1,
     };
     b1mat.position.set(0, 0.0125, b1matZ);   // 링(0.013)·숫자(0.016) 아래 — 매트가 바닥면이다
     b1mat.material.opacity = 0;
     this.bkB1 = { zone: b1zone, num: b1num, sL: b1sL, sR: b1sR, aL: b1aL, aR: b1aR, mat: b1mat, tg: b1tg,
       count: 0, _shown: -1, _wasLow: false, _popT: -9, _setupDone: false };
-    g.add(b1zone, b1num, b1sL.group, b1sR.group, b1aL, b1aR, b1mat);   // 지시문은 피그마 프레임 헤더가 담당(유저)
-    for (const tg of b1tg) g.add(tg.ring, tg.num);
+    g.add(b1zone, b1num, b1sL.group, b1sR.group, b1aL, b1aR, b1mat);
+    for (const tg of b1tg) g.add(tg.ring, tg.num);   // 지시문은 피그마 프레임 헤더가 담당(유저)
 
     g = this._mk('BK_B2');
     // B2 · 크로스오버 — 좌우 바운스 존 교대 점등. '공이 우리 평면에 닿는 지점'이 곧 커서라
@@ -1936,12 +1889,7 @@ export class Session {
       H.fRl = F(-0.17, 0.05, 'left');  H.fRr = F(0.22, -0.06, 'right');   // ① 준비 페어
       H.fC  = F(0.33, 0.06, 'right');                                      // ② 플랜트 리드 발
       H.fLl = F(-0.43, -0.09, 'left'); H.fLr = F(0.49, -0.32, 'right');   // ③ 착지 페어(폭 0.92)
-      // ★ 대기 상태는 **완전히 끈다**(유저 08-07: 아직도 고스트 토큰 있다).
-      //   구값 op(0.10) 은 '있는 듯 없는 듯'을 노렸지만 화면에선 그냥 **지저분한 잔상**이다.
-      //   그리고 의미가 틀렸다 — 고스트는 '지나간 자리'인데 아직 아무것도 안 지났다.
-      //   앞으로 밟을 자리는 **목표 존 원**(_sbPathZones)이 따로 말한다. 역할이 겹치면 안 된다.
-      //   0.10 은 죽은 값이 아니라 **끄지 않은 값**이었다 — 어느 단계에서도 켠 적이 없다.
-      for (const k of ['fLl', 'fLr', 'fRl', 'fRr', 'fC']) { H[k].ghost(); H[k].op(0); }
+      for (const k of ['fLl', 'fLr', 'fRl', 'fRr', 'fC']) { H[k].ghost(); H[k].op(0.10); }   // 대기 = Locked 고스트(crisp 실루엣)
       // 따라하기 페어 안 L·R 글리프 — 1/4과 같은 슬롯(숫자 규약). 표시는 따라하기에서만.
       H.numL = attachMarkNum(H.fRl, 'L', false); H.numR = attachMarkNum(H.fRr, 'R', true);
       H.numL.visible = false; H.numR.visible = false;
@@ -2458,14 +2406,6 @@ export class Session {
       else if (g > 0.28) fm.active((g - 0.28) / 0.47);
       else fm.ghost();                     // Locked  — 먼 쪽 무채 예고
       fm.op((0.42 + 0.58 * g * g) * warm);   // 예고 발자국도 잘 보이게(줄지어 다가오는 게 읽히도록)
-      // ★ 하중이 굴러야 발자국이 살아 있다 — 상태별 고정값만 걸면 멈춰 있는 판때기다(유저).
-      //   스텝라인을 지나는 동안이 그 발의 입각기다: 뒤꿈치 → 전면 → 앞볼 → 밀기 → 체공.
-      //   접지 창은 tokens.setMarkLoad 가 이 배분의 무게중심에서 만든다.
-      {
-        const wSpan = stride * 0.62;
-        const u = Math.max(0, Math.min(1, (z - (stepLine - wSpan)) / (2 * wSpan)));
-        setMarkLoad(fm.plane.material, stanceLoad(u));
-      }
     }
   }
   _packBeat(mult = 1, fb = 0.6) {
@@ -2981,16 +2921,6 @@ export class Session {
       //   곱해져 0.48 — 숫자 붙은 발만 갈색으로 죽는다(실측 렌더 f5, 유저 반복 신고).
       //   차오름은 0.94→1.0 으로 그대로 표현되고, 주인공은 숫자·타이머·파문이 말한다.
       work.op(0.94 + 0.06 * P.fill);
-      // ★ 종아리 늘리기도 하중이 움직인다 — 뒷발(work)은 앞볼로 서 있다가 홀드가 차오를수록
-      //   **뒤꿈치를 눌러** 내리고(그게 이 운동의 전부다), 앞발(stance)은 반대로 앞볼로 옮겨
-      //   무릎을 굽힌다. 고정값만 걸면 둘 다 멈춰 있는 판때기다(유저).
-      {
-        const mixL = (a, b, f) => ({ ball: a.ball + (b.ball - a.ball) * f,
-          heel: a.heel + (b.heel - a.heel) * f, toe: a.toe + (b.toe - a.toe) * f });
-        const f = Math.max(0, Math.min(1, P.fill));
-        setMarkLoad(work.plane.material,   mixL(LOAD.toe,  LOAD.heel, f));
-        setMarkLoad(stance.plane.material, mixL(LOAD.flat, LOAD.toe,  f));
-      }
       // 홀드 파문 차오름(유저: 화면이 심심) — 버티는 발에서 파문이 진행에 비례해 넓게.
       //   기존 파동 정본(uRip) 부스트일 뿐 새 이펙트가 아니다. 완주 팡과 리듬이 이어진다.
       // 부스트는 정본 rip 의 배수다 — rip 0 이면 0 (기준선 0.5 하드코딩 폐기)
@@ -3484,7 +3414,6 @@ export class Session {
       if (!this._followLatch) {   // 관찰 5초 — 코치 실루엣+Preview 필만, 가이드 전부 숨김(유저: 훈련 전체)
         H.sL.op(0); H.sR.op(0); H.aL._gain = 0; H.aR._gain = 0;
         H.zone.setOp?.(0); H.num.material.opacity = 0; H.mat.material.opacity = 0;
-        H.mat._prim.P.tgK = 0;
         for (const q of H.tg) { q.ring.setOp?.(0); q.num.material.opacity = 0; }
         this.bkB1Setup = false; this.bkB1Succ = null; this.bkB1Widen = null;
         this.demoActive = true;
