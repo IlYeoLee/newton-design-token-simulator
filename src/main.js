@@ -4581,7 +4581,14 @@ void main(){
         const HOLD = stageTime('A2').hold;           // 정본: marklang.STAGE_TIME (실측 2.15)
         const PULL = 0.35, TOG = 1.25, STEP = 0.55;
         const CYC = HOLD + PULL + TOG + STEP;        // 5.15 (홀드 3.0 기준)
-        const c = tt % CYC;
+        // ★ 첫 렙이 **홀드로 시작**했다. 그래서 다리를 뻗는 장면 없이 런지 자세로 튀어나오고,
+        //   홀드 동안 마크는 잠기므로(session.js: '버티는 동안 마크는 멈춘다') 첫 홀드 내내
+        //   발자국이 '모아 선' 자리에 묶여 있었다 — 실측 Δz 0.02(1렙) vs 0.39(2렙).
+        //   유저: 시작하자마자 쓰윽 다리 뻗어야지.
+        //   사이클을 **내딛기(STEP) 구간 앞**에서 시작시킨다: 0.55s 동안 발을 내밀고 그 다음 홀드다.
+        //   렙 파리티·홀드 흔들림도 같은 시계를 봐야 하므로 아래는 전부 tc 를 쓴다.
+        const tc = Math.max(0, tt) + (CYC - STEP);
+        const c = tc % CYC;
         // 회차 파리티 — 렙마다 늘어나는 종아리가 반대발로 옮겨간다(유저 확정 08-07).
         //   자막 LEFT/RIGHT · 홀드 링 · 카운트다운 · Success 가 전부 workLeft 를 본다.
         // ★ 뒤집는 **시점**이 사이클 경계가 아니라 '모아 섬' 한가운데다(08-07 유저:
@@ -4592,11 +4599,11 @@ void main(){
         //   이유가 이것이다 — 사람이 다리를 바꾸는 창이다. 역할 이름도 같은 순간에 바뀌어야
         //   다음 홀드가 시작될 때 자막·링이 이미 새 발에 가 있다.
         const _flipAt = HOLD + PULL + TOG / 2;
-        const _rep = Math.max(0, Math.floor((Math.max(0, tt) - _flipAt) / CYC) + 1) % 2 === 1;
+        const _rep = Math.max(0, Math.floor((tc - _flipAt) / CYC) + 1) % 2 === 1;
         //   클립 위상을 구간에 **압축해서** 태운다. 클립의 복귀 1.6s 를 0.35s 에, 하강 1.1s 를 0.55s 에.
         //   등속 매핑이면 사람 동작이 안 되므로 시작·끝이 느려지는 smoothstep 을 태운다.
         const ez = x => x * x * (3 - 2 * x);
-        _phase = c < HOLD ? TD + Math.sin(tt * 1.6) * 0.07
+        _phase = c < HOLD ? TD + Math.sin(tc * 1.6) * 0.07
                : c < HOLD + PULL ? TD + (T1 - TD) * ez((c - HOLD) / PULL)
                : c < HOLD + PULL + TOG ? T1
                : T0 + (TD - T0) * ez((c - HOLD - PULL - TOG) / STEP);
