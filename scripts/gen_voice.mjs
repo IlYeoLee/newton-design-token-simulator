@@ -1,17 +1,31 @@
-// 세션 음성 전량 재생성 — 자연스러운 무료 뉴럴 TTS만 남기기
+// 세션 음성 전량 재생성 — ElevenLabs TTS
 //   스테이지 진입: public/voice/<stageId>.mp3  (session.js STAGES voice에서 추출)
 //   중간 코칭(_say): public/voice/say_<key>.mp3 (session.js _say 호출에서 추출)
-//   화자 매핑: 션/커리/고수 = ko-KR-HyunsuMultilingualNeural(-8%), 시스템 = ko-KR-SunHiNeural(-4%)
-// 사용: node scripts/gen_voice.mjs [--only A1,say_a1go]
+//   화자 매핑: 션/커리/고수 = 코치(남), 시스템 = 안내(여)
+// 사용: ELEVENLABS_API_KEY=... node scripts/gen_voice.mjs [--only A1,say_a1go] [--voices]
 import fs from 'fs';
-import { execFileSync } from 'child_process';
-import os from 'os';
-import path from 'path';
 
-const TTS = path.join(os.homedir(), 'Library/Python/3.9/bin/edge-tts');
-// 코치는 팩과 무관하게 같은 남성 보이스·같은 톤(유저: 농구도 러닝과 똑같이).
-const COACH = ['ko-KR-HyunsuMultilingualNeural', '+15%', '-6Hz'];
-const VOICE = { '션': COACH, '커리': COACH, '고수': COACH, '시스템': ['ko-KR-SunHiNeural', '-4%'] };
+const KEY = process.env.ELEVENLABS_API_KEY;
+if (!KEY) { console.error('ELEVENLABS_API_KEY 없음'); process.exit(1); }
+const MODEL = 'eleven_multilingual_v2';
+
+// 계정 보이스 목록만 보고 싶을 때
+if (process.argv.includes('--voices')) {
+  const r = await fetch('https://api.elevenlabs.io/v2/voices?page_size=100', { headers: { 'xi-api-key': KEY } });
+  const { voices } = await r.json();
+  for (const v of voices) console.log(v.voice_id, v.name, `[${v.labels?.gender || ''} ${v.labels?.language || v.labels?.accent || ''}]`);
+  process.exit(0);
+}
+
+// 종목별로 코치 보이스가 다르다 (2026-08-08 유저 변경: 팩마다 따로).
+const S = { stability: 0.4, similarity_boost: 0.8, style: 0.35, speed: 1.05 };
+const VOICE = {
+  '션':   { id: 'PLACEHOLDER_RUN',  settings: S },   // 러닝
+  '커리': { id: 'PLACEHOLDER_BK',   settings: S },   // 농구
+  '고수': { id: 'PLACEHOLDER_BX',   settings: S },   // 복싱
+};
+const FALLBACK = VOICE['션'];
+
 const src = fs.readFileSync('src/session.js', 'utf8');
 const only = (() => { const i = process.argv.indexOf('--only'); return i < 0 ? null : new Set(process.argv[i + 1].split(',')); })();
 
@@ -28,11 +42,15 @@ for (const m of src.matchAll(/_say\(\s*'([^']+)'\s*,\s*'([^']+)'\s*,\s*'([^']+)'
 let n = 0;
 for (const j of jobs) {
   if (only && !only.has(j.file.replace('.mp3', ''))) continue;
-  const [voice, rate, pitch] = VOICE[j.who] || VOICE['시스템'];
+  const v = VOICE[j.who] || FALLBACK;
   const text = j.text.replace(/—/g, ',');   // 대시는 쉼(pause)으로
-  const args = ['-v', voice, `--rate=${rate}`];
-  if (pitch) args.push(`--pitch=${pitch}`);
-  execFileSync(TTS, [...args, '--text', text, '--write-media', `public/voice/${j.file}`]);
+  const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${v.id}?output_format=mp3_44100_128`, {
+    method: 'POST',
+    headers: { 'xi-api-key': KEY, 'content-type': 'application/json' },
+    body: JSON.stringify({ text, model_id: MODEL, voice_settings: v.settings }),
+  });
+  if (!res.ok) { console.error('실패', j.file, res.status, await res.text()); process.exit(1); }
+  fs.writeFileSync(`public/voice/${j.file}`, Buffer.from(await res.arrayBuffer()));
   console.log('생성', j.file, `[${j.who}]`, text.slice(0, 30));
   n++;
 }
