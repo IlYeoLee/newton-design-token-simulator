@@ -117,7 +117,14 @@ const page = await browser.newPage();
 await page.setViewport({ width: 1280, height: 800, deviceScaleFactor: 1 });
 const errs = [];
 page.on('pageerror', e => errs.push(e.message.slice(0, 160)));
-await page.goto(`${URLBASE}?dev=1&uiscale=${UISCALE}`, { waitUntil: 'networkidle2', timeout: 180000 });
+// ★ networkidle2 를 쓰지 않는다(2026-08-07 실측). 이 페이지에서 그 신호가 **영영 안 온다** —
+//   3회 연속 180초 타임아웃으로 0프레임. 계측(tmp_probe_nav.mjs): domcontentloaded 1.0s ·
+//   readyState=complete 4s · __dbg.floorGL=true 10s · 미완료 요청 0건 · 페이지/콘솔 에러 0건.
+//   즉 페이지는 멀쩡하고 idle 판정만 안 선다 — 로드 중 ERR_ABORTED 로 끊기는 6건
+//   (FBX 5 + coach_chroma.mp4)이 Blink 의 in-flight 집계에 남는 것으로 보인다.
+//   준비 판정은 아래 두 관문이 이미 한다: __dbg.floorGL 대기 + 폰트·이미지 9초.
+//   networkidle2 는 그 위에 얹힌 잉여 조건이었고, 지금은 **유일한 실패 원인**이다.
+await page.goto(`${URLBASE}?dev=1&uiscale=${UISCALE}`, { waitUntil: 'domcontentloaded', timeout: 180000 });
 await page.waitForFunction('!!window.__dbg?.floorGL', { timeout: 120000 });
 await new Promise(r => setTimeout(r, 9000));   // 폰트·이미지 준비
 

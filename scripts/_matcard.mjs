@@ -1,0 +1,20 @@
+import puppeteer from 'puppeteer';
+const D='/private/tmp/claude-501/-Users-iil-yeo/470bab8d-790a-4a73-a1f4-7b8eaed4ec18/scratchpad';
+const b = await puppeteer.launch({protocolTimeout:150000, args:['--no-sandbox','--use-gl=swiftshader','--enable-unsafe-swiftshader']});
+const p = await b.newPage(); await p.setCacheEnabled(false); await p.setViewport({width:1300,height:1200});
+const errs=[]; p.on('pageerror',e=>errs.push(String(e).slice(0,140)));
+await p.goto('http://localhost:5199/footlab.html?cb='+Date.now(),{waitUntil:'domcontentloaded',timeout:60000});
+await new Promise(r=>setTimeout(r,9000));
+const box = await p.evaluate(() => {
+  const h=[...document.querySelectorAll('h2')].find(x=>/드리블 매트/.test(x.textContent));
+  if(!h) return null;
+  let n=h.nextElementSibling; while(n && n.tagName!=='CANVAS' && !n.querySelector?.('canvas')) n=n.nextElementSibling;
+  const cv = n?.tagName==='CANVAS'? n : n?.querySelector('canvas');
+  if(!cv) return null;
+  const r=cv.getBoundingClientRect(); cv.scrollIntoView({block:'center'});
+  return {ok:1};
+});
+await new Promise(r=>setTimeout(r,900));
+await p.screenshot({path:D+'/matcard.png'});
+console.log('box:',box,'err:',errs.slice(0,1));
+await b.close();

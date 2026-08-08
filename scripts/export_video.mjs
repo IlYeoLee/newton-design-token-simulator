@@ -65,6 +65,7 @@ if (SCENE_ID) {
 const pick = (k, pk, d) => has(k) ? arg(k, d) : (PRESET[pk ?? k] ?? d);
 const pickN = (k, pk, d) => { const v = pick(k, pk, d); const n = +v; return Number.isFinite(n) ? n : d; };
 const DUR = +arg('dur', 3);
+const SEEKWAIT = +arg('seekwait', 3000);   // 비디오 시크 대기 상한(ms). 큰 클립일수록 올린다
 const FPS = +arg('fps', 30);
 const W = +arg('w', 2560);
 // ★ --flat : 원근 없는 정면 뷰. 카메라를 직교로 바꿔 투사면 법선에 정렬한다.
@@ -104,6 +105,7 @@ const STAGE = arg('stage', '');
 const LISTSTAGES = !!arg('liststages', false);
 // --play : 시뮬을 실제로 돌린다(봇·물리). 스크럽으로 못 살리는 상태 누적형 화면용 — 위 루프 주석 참조.
 const PLAY = !!arg('play', false);
+const GRAB = !!arg('grab', false);      // 캡처를 CDP 스크린샷 대신 앱 안 캔버스 읽기로 (아래 캡처 경로 주석)
 // --pin : 합성용 '설계 그대로' 모드. 판정 마크를 x봇 발 추적에서 떼어 설계 좌표에 못 박는다.
 //   평면 판에서 봇은 이미 숨겨지는데 마크 위치는 계속 조종하고 있어서, 안 보이는 봇의 걸음이
 //   발자국을 흔든다(실측 85px 점프). 에펙 합성은 설계를 정확히 옮기는 게 목적이라 끊는다.
@@ -119,6 +121,18 @@ const AFLOOR = +arg('alphafloor', 0) || 0;
 // --t0 : 시작 시각(초). 스테이지 도입부가 통째로 비어 있는 화면이 있다 — 러닝 A3 는 t<1 이
 //   불투명 0.00% 다. 3초짜리에선 그 1초가 치명적이다.
 const T0 = +arg('t0', 0) || 0;
+// --ramp : 시간 구부리기. "<소스초>:<배속>,…" — 그 시각부터 그 배속으로 흐른다(구간 상수).
+//   출력은 등간격 프레임이고 **소스 시각만** 느리게/빠르게 민다 → 에펙 리타이밍의 보간이
+//   아니라 그 시각을 진짜로 렌더한 프레임이다(0.2배속도 뭉개지지 않는다).
+//   예) --ramp "0:1,6.9:0.3,9.9:1"   홀드 구간만 0.3배속.
+//   ⚠ --dur 은 **출력** 길이다. 느린 구간을 넣으면 소스는 그만큼 덜 흐른다.
+const RAMP = (() => {
+  const s = arg('ramp', ''); if (!s || s === true) return null;
+  const ks = String(s).split(',').map(p => p.split(':').map(Number))
+    .filter(a => a.length === 2 && a.every(Number.isFinite)).sort((a, b) => a[0] - b[0]);
+  return ks.length ? ks : null;
+})();
+const speedAt = t => { let v = 1; for (const [k, s] of RAMP) { if (t >= k) v = s; else break; } return v > 0 ? v : 1; };
 // --alphagamma : 어두운 톤의 알파를 들어 올린다(1 = 예전과 동일, 0.5 권장).
 //   투사는 가산광이라 alpha = 빛의 세기인데, 그 선형 관계가 어두운 부분을 통째로 지운다 —
 //   머리카락 회색(휘도 0.10)이 알파 0.18. 0.5 를 주면 0.57 이 된다. 배경(휘도≈0)은 그대로 0.
@@ -269,6 +283,16 @@ const browser = await puppeteer.launch({
     '--force-gpu-mem-available-mb=4096', '--disable-gpu-program-cache'],
 });
 const page = await browser.newPage();
+// ★ --grab 은 캔버스를 직접 읽는다. 앱은 preserveDrawingBuffer:false 로 컨텍스트를 만들기 때문에
+//   (scene.js) 렌더가 끝나면 버퍼가 날아가 toDataURL 이 **백지**를 준다(실측: 150장 전부 흰 화면).
+//   앱이 뜨기 전에 컨텍스트 속성을 갈아 끼워 버퍼를 남긴다 — 앱 코드는 안 건드린다.
+if (GRAB) await page.evaluateOnNewDocument(() => {
+  const orig = HTMLCanvasElement.prototype.getContext;
+  HTMLCanvasElement.prototype.getContext = function (type, attrs) {
+    if (/webgl/i.test(type)) attrs = { ...(attrs || {}), preserveDrawingBuffer: true };
+    return orig.call(this, type, attrs);
+  };
+});
 // ★ 가상 시계 — 페이지의 모든 시간을 우리가 민다.
 //   이게 없으면 셰이더 uTime·three.Clock 이 '실시간'으로 돈다. 프레임 하나 렌더에 1~2초가
 //   걸리므로 애니메이션이 그만큼 앞질러 가고, 결과 영상이 미친 듯이 빨라진다(유저: 너무 빠름).
@@ -305,35 +329,60 @@ page.on('pageerror', e => errs.push(e.message.slice(0, 160)));
 //   것이 원인이었다(vite.config.js 의 watch.ignored 로 막았다). 다시 새면 조용히 넘기지 않는다.
 let reloaded = 0;
 page.on('framenavigated', f => { if (f === page.mainFrame()) reloaded++; });
+// ★ HMR 을 끊는다 — 렌더에 필요 없고, 리로드의 방아쇠가 전부 여기다: 다른 세션의 src 저장,
+//   vite 의 의존성 재최적화, 루트에 새 파일이 생기는 것(watch.ignored 가 out/ 만 막는다).
+//   리로드가 한 번만 나면 아래 setup 이 심은 훅(__layer·__isolate3d·__fitFlat)이 사라지는데
+//   예전 가드(reloaded > 1)를 통과해서 **격리 없는 통짜 프레임이 조용히** 뽑혔다.
+//   실측(08-07 · BK_B4): --layer person 산출물에 타이틀·코트·콘이 그대로 들어와 있었고
+//   같은 렌더의 --layer ui 는 '렌더 카메라가 undefined' 로 죽었다 — 같은 원인의 두 얼굴이다.
+//   ★ 네트워크로 막으면 안 된다 — /@vite/client 를 abort 하니 앱이 통째로 부팅을 못 했다
+//     (실측: __dbg 가 120초 동안 안 뜸). vite 의 full-reload 는 결국 location.reload() 라서
+//     **그 한 함수만** 무력화하면 된다. HMR 소켓·모듈 그래프는 그대로 둔다.
+await page.evaluateOnNewDocument(() => {
+  try { Object.defineProperty(location, 'reload', { configurable: true, value: () => {} }); } catch (e) {}
+});
 // --bg 를 쓰면 캔버스도 투명해야 뒤의 배경이 비친다(?alpha=1 이 렌더러 알파를 켠다).
 await page.goto(`${URLBASE}?dev=1&uiscale=${UISCALE}${(ALPHA || BGURL) ? '&alpha=1' : ''}${SCENE ? `&scene=${encodeURIComponent(SCENE)}` : ''}`, { waitUntil: 'networkidle2', timeout: 180000 });
 await page.waitForFunction('!!window.__dbg?.session', { timeout: 120000 });
 // 부팅 동안에도 가상 시계를 밀어 준다 — 안 그러면 초기화가 시간 0 에 얼어붙는다.
 const warm = async (ms, step = 16.7) => {
   for (let v = 0; v < ms; v += step) {
-    await page.evaluate(vv => { window.__vt = vv; }, v);
-    await page.evaluate(() => new Promise(r => requestAnimationFrame(() => r())));
+    try {
+      await page.evaluate(vv => { window.__vt = vv; }, v);
+      await page.evaluate(() => new Promise(r => requestAnimationFrame(() => r())));
+    } catch (e) {
+      // ★ 부팅 직후 페이지가 한 번 리로드되면 실행 컨텍스트가 통째로 사라진다(간헐).
+      //   vite 의 의존성 재최적화·always-full-reload 가 이 창에 걸린다. 실측: 516프레임
+      //   렌더가 첫 프레임도 못 뽑고 warm() 에서 죽었다 — 20분짜리를 12초에 날린 셈이다.
+      //   리로드 자체는 정상 동작이니 다시 붙어서 워밍업을 **처음부터** 다시 한다.
+      if (!/context was destroyed|Target closed|detached/i.test(String(e))) throw e;
+      console.log('  ⚠ 부팅 중 페이지 리로드 — 다시 붙어 워밍업을 재시작합니다');
+      await page.waitForFunction('!!window.__dbg?.session', { timeout: 120000 });
+      await new Promise(r => setTimeout(r, 6000));   // 에셋 재로드
+      reloaded = 0;                                  // 이 리로드는 정상 — 프레임 루프의 중단 조건에서 뺀다
+      v = -step;
+    }
   }
 };
 await new Promise(r => setTimeout(r, 9000));   // 에셋 로드(실시간 대기)
 await warm(1200);                              // 가상 시계로 초기 애니메이션 워밍업
 
-await page.evaluate(p => { window.__play = p; }, PLAY);
-await page.evaluate(v => { window.__afloor = v; }, AFLOOR);
-await page.evaluate(a => { window.__wantAlpha = a; }, ALPHA);
-// 영상 배경은 body CSS 경로를 타면 안 된다(url() 로 영상은 안 깔린다) — 앱의 <video> 경로로 넘긴다.
-await page.evaluate(v => { window.__bgUrl = v; }, BGVID ? '' : BGURL);
-await page.evaluate(v => { window.__bgVid = v; }, BGVID);
-await page.evaluate(v => { window.__bgFit = v; }, BGFIT);
-await page.evaluate(v => { window.__bgDim = v; }, BGDIM);
-await page.evaluate(v => { window.__agamma = v; }, AGAMMA);
-await page.evaluate(v => { window.__layer = v; }, LAYER);
-// 세션이 매 프레임 읽는 플래그 — 마크를 봇 발 추적에서 떼어 설계 좌표에 고정(session.js A2).
-await page.evaluate(v => { window.__pin = v; const s = window.__dbg?.session; if (s) s.pinMarks = v; }, PIN);
-await page.evaluate(v => { window.__norip = v; }, NORIP);
-await page.evaluate(v => { window.__inka = v; }, INKA);
-await page.evaluate(v => { window.__unclip = v; }, PAD > 1);
-await page.evaluate(v => { window.__flatGround = v; }, FLATGROUND);
+// ★ 플래그는 **한 벌로 모아** 심는다. 낱개 evaluate 였을 때의 문제는 값이 아니라 수명이다 —
+//   리로드가 나면 전부 사라지고, 그중 __layer 가 사라지면 'all' 로 떨어져 격리가 통째로 풀린다.
+//   그래서 evaluateOnNewDocument 로도 같은 값을 심어 **다음 문서에서 자동 복구**되게 한다.
+//   (영상 배경은 body CSS 경로를 타면 안 된다 — url() 로 영상은 안 깔리니 앱의 <video> 경로로.)
+//   (__pin 은 세션이 매 프레임 읽는다 — 마크를 봇 발 추적에서 떼어 설계 좌표에 고정: session.js A2.)
+const FLAGS = {
+  __play: PLAY, __afloor: AFLOOR, __wantAlpha: ALPHA,
+  __bgUrl: BGVID ? '' : BGURL, __bgVid: BGVID, __bgFit: BGFIT, __bgDim: BGDIM,
+  __agamma: AGAMMA, __layer: LAYER, __pin: PIN, __norip: NORIP, __inka: INKA,
+  __unclip: PAD > 1, __seekWait: SEEKWAIT, __flatGround: FLATGROUND, __pad: PAD,
+};
+await page.evaluateOnNewDocument(f => { Object.assign(window, f); }, FLAGS);
+await page.evaluate(f => {
+  Object.assign(window, f);
+  const s = window.__dbg?.session; if (s) s.pinMarks = f.__pin;
+}, FLAGS);
 // ── 씬 스테이지: 화면에서 맞춘 값을 그대로 넘긴다 ─────────────────────────────
 //   __sceneAdj 는 앱이 매 프레임 읽는 **살아 있는 객체**라 한 번만 넣으면 된다.
 //   영상 배경도 여기서 건다 — scenes.html 이 부르는 것과 같은 함수라 결과가 화면과 같다.
@@ -487,6 +536,18 @@ await page.evaluate(({ sport, beam, ht, session, stage, listStages }) => {
     window.__isolate3d = () => {
       // 세션은 이 시점 이후에 만들어질 수 있다 — 매 프레임 다시 건다(DOM 청소와 같은 이유).
       if (d.session) d.session.pinMarks = !!window.__pin;
+      // ★ 핀을 **여기서 한 번 더** 못박는다. 이 함수는 renderer.render 에 후킹돼 있어
+      //   이게 그 프레임의 **마지막 쓰기**다 — 누가 뒤에 덮든 이길 수 없다.
+      //   왜 필요한가: session.pinMarks 만으로는 안 잡혔다(실측 08-07: 좌 306px·우 310px 이동,
+      //   핸드오프 0806 ①은 543px 로 기록). A2 마크 z 를 쓰는 곳이 여럿이라(session.js 3057 계열)
+      //   그중 하나가 핀 뒤에 덮는다. 원인 코드를 찾는 것과 별개로, 추출은 여기서 확정한다.
+      //   좌표는 session.js A2 와 **같은 값**이다: x ∓0.16 · z = FOOT_Z(-0.75) − 0.28 = −1.03.
+      //   위치만 고정하고 scale·글로우는 안 건드린다 — 애니메이션은 살려 둬야 한다(유저).
+      if (window.__pin && d.session?.a2press) {
+        const P = d.session.a2press, CZ = -1.03;
+        if (P.fmL?.group) { P.fmL.group.position.x = -0.16; P.fmL.group.position.z = CZ; }
+        if (P.fmR?.group) { P.fmR.group.position.x =  0.16; P.fmR.group.position.z = CZ; }
+      }
       // ★ 배경 지우기도 여기 있어야 한다. 셋업에서 한 번만 칠하면 앱이 매 틱 주간 조명을
       //   다시 적용하며 되돌려 놓는다 — 검은 배경으로 뽑았는데 아이보리 실내가 그대로 남았다(실측).
       // --bg 도 알파와 같다: 캔버스를 비워야 그 뒤에 깔아 둔 배경 사진/영상이 보인다.
@@ -524,6 +585,18 @@ await page.evaluate(({ sport, beam, ht, session, stage, listStages }) => {
       });
     };
     window.__isolate3d();
+    // ★ 격리는 **렌더 직전**에 걸어야 한다. rAF 체인에서 한 번 걸어 두는 방식(위 호출 + 프레임
+    //   루프의 재호출)은 앱이 매 틱 무대·판을 다시 visible 로 세우기 때문에 그대로 지워진다.
+    //   실측(08-07 · BK_B4 · 400p): --layer tokens 와 --layer ui 의 산출물이 **띠별 화소까지
+    //   동일**했다(전체 23.09% · 상단 1.03% · 중단 14.37% · 하단 7.69%) = 둘 다 'all' 이었다.
+    //   --layer person 만 수치가 달랐는데 그건 격리가 아니라 잉크 알파(INKA) 때문이고,
+    //   프레임에는 코트 라인·골대·콘이 그대로 남아 있었다(이 리포가 두 번 밟은 '무대 누수').
+    //   renderer.render 를 감싸면 누가 언제 그리든 **그 직전 상태가 우리 상태**다.
+    if (!d.renderer.__isoWrapped) {
+      const orig = d.renderer.render.bind(d.renderer);
+      d.renderer.render = (sc, cam) => { try { window.__isolate3d?.(); } catch (e) {} return orig(sc, cam); };
+      d.renderer.__isoWrapped = true;
+    }
   }
   window.__sweep();   // ★ session.start 뒤에 한 번 더 — 클립 미리보기 패널이 그때 생긴다
 }, { sport: SPORT, beam: BEAM, ht: HT, session: SESSION, stage: STAGE, listStages: LISTSTAGES });
@@ -669,15 +742,9 @@ if (FLAT) {
   //   T0 지점을 보려 하므로, **시뮬이 T0 에 닿을 때까지 기다렸다가** 재야 한다. 안 그러면 관찰
   //   구간(A2·BK_B3 는 앞부분이 시범이라 마크가 숨겨져 있다)을 재고 "아무것도 없다"로 중단한다
   //   (실측 08-06: A2·BK_B3 둘 다 불투명 0.00~0.05% 로 오탐, 해상도를 올려도 그대로).
-  if (PLAY && T0 > 0) {
-    const t0w = Date.now();
-    for (;;) {
-      const st = await page.evaluate(() => window.__dbg?.session?.t ?? window.__dbg?.state?.time ?? 0);
-      if (st >= T0 - 0.05) { console.log(`  시뮬 t=${st.toFixed(2)}s 도달 — 프리플라이트 시작`); break; }
-      if (Date.now() - t0w > (T0 + 20) * 1000) { console.log(`  ⚠ t=${st.toFixed(2)}s 에서 멈춤 — 그대로 진행`); break; }
-      await new Promise(r => setTimeout(r, 250));
-    }
-  }
+  // ★ --play 는 이제 아래 캡처 루프가 0 → T0 까지 **찍지 않고 시뮬만 밀어서**(워밍) 도달한다.
+  //   예전엔 여기서 session.t 가 T0 에 닿기를 폴링했는데, 시계는 우리가 미는 것이라 캡처 루프
+  //   밖에서는 영원히 안 흐른다 — (T0+20)초를 그냥 흘려보내고 '멈춤'을 찍은 뒤 진행했다.
   const probe = path.join(TMP, 'probe.png');
   let kb = 0, ok = false;
   for (const t of [T0, T0 + 0.25, T0 + 0.5, T0 + 1, T0 + 2, T0 + 3]) {   // 초 — 몇 지점만 보면 충분하다
@@ -712,28 +779,53 @@ let done = 0;
 //   (비디오는 정상이었다: readyState 4 · currentTime 정상 증가. 디코더 문제가 아니었다.)
 //   가상 시계는 계속 밀되 세션이 실제로 시작한 프레임부터 저장한다.
 let saved = 0;                    // 저장한 프레임 수 — 파일 번호는 이걸 쓴다
-const PRE_MAX = 240;              // 안전장치: 이만큼 밀어도 안 시작하면 그냥 저장한다
+// ★ 워밍 — --play 로 T0 부터 뽑으려면 0 부터 **찍지 않고** 시뮬을 밀어야 한다.
+//   --play 는 상태 누적형이라 T0 로 건너뛰면 그 지점 상태가 재현되지 않는다. 스크럽으로
+//   대신하려다 실패했다: playing=false 는 stepSim 을 통째로 건너뛰어 **세션이 아예 안 틱하고**,
+//   지면 UI 가 낡은 상태로 그려진다(main.js loop() 참조 — A2 에서 없어야 할 판이 하나 떴다).
+//   워밍 프레임은 screenshot 을 안 찍는다. 청크 렌더(render_chunked.mjs)의 전제다.
+const WARM = PLAY && T0 > 0;
+const PRE_MAX = 240 + (WARM ? Math.round(T0 * FPS) : 0);   // 안전장치: 이만큼 밀어도 안 시작하면 그냥 저장한다
+let lastInfo = null;              // 직전 프레임의 renderer.info — 손실 원인 판별용
+let tSrc = WARM ? 0 : T0;         // --ramp 전용 소스 시계(구부린 시간). 램프가 없으면 안 쓴다
+if (WARM) console.log(`  워밍 ${Math.round(T0 * FPS)}프레임 (0 → ${T0.toFixed(2)}s · 저장 안 함)`);
+// ★ 여기서부터 리로드는 **한 번도 허용되지 않는다.** setup 이 심은 훅(__isolate3d·__fitFlat)은
+//   리로드로 사라지고, 그러면 격리도 평면 카메라도 없는 프레임이 계속 쌓인다. 기준선을 0 으로
+//   되돌려 아래 가드가 첫 리로드에서 바로 멈추게 한다(예전엔 > 1 이라 한 번짜리를 통과시켰다).
+reloaded = 0;
 for (let i = 0; saved < N; i++) {
-  const t = T0 + i / FPS;
+  const t = RAMP ? tSrc : (WARM ? 0 : T0) + i / FPS;
+  if (RAMP) tSrc += speedAt(t) / FPS;
   if (i - saved > PRE_MAX) { console.log('  ⚠ 프리롤 한계 — session.t 가 끝내 0 을 못 넘었습니다'); }
   // ★ 4K + 큰 uiscale 은 GPU 메모리를 넘겨 컨텍스트를 잃는다(실측: 3840·배율2.5 에서 11프레임째
   //   __dbg 통째로 소실). 죽으면 조용히 끝내고 여기까지 뽑은 프레임으로 영상을 묶는다.
-  if (reloaded > 1) {
+  if (reloaded > 0) {
     console.error(`
-✗ 프레임 즈음 페이지가 리로드됐습니다 — 이후 프레임은 전부 빈 화면이 됩니다.`);
-    console.error('  vite 가 산출 파일을 소스 변경으로 보고 새로고침했을 수 있습니다(vite.config.js watch.ignored 확인).');
+✗ ${i}프레임 즈음 페이지가 리로드됐습니다 — 격리 훅이 사라져 이후 프레임을 믿을 수 없습니다.`);
+    console.error('  vite 의 full-reload 는 이미 막아 뒀으니(location.reload 무력화) 남은 원인은 수동 새로고침·크래시 후 복구입니다.');
+    console.error('  ⚠ 여기까지 뽑은 프레임도 레이어 격리가 풀린 채일 수 있습니다 — 첫 프레임을 눈으로 확인할 것.');
     break;
   }
   // ★ __dbg?.state 만 보면 안 된다 — WebGL 컨텍스트를 잃어도 JS 객체는 멀쩡히 남는다.
   //   그러면 렌더만 조용히 죽어 '완전 투명한 프레임'이 계속 쌓인다(실측: 4K 세 종목을 연달아
   //   돌렸더니 2·3번째가 480장 전부 불투명 픽셀 0.00% — 20분을 통째로 날렸다).
   //   컨텍스트를 직접 물어본다.
+  // ★ 같은 왕복에서 renderer.info 도 받아 온다 — 손실이 '상한'인지 '누수'인지 이걸로만 갈린다.
+  //   해상도를 낮춰도 같은 자리에서 죽으면 상한이 아니다. 죽기 직전 수치가 증거다.
   const alive = await page.evaluate(() => {
     const d = window.__dbg; if (!d?.state) return false;
     const gl = d.renderer?.getContext?.();
-    return !(gl && gl.isContextLost && gl.isContextLost());
+    if (gl && gl.isContextLost && gl.isContextLost()) return false;
+    const m = d.renderer?.info?.memory, p = d.renderer?.info?.programs;
+    return { geo: m?.geometries ?? -1, tex: m?.textures ?? -1, prog: p?.length ?? -1 };
   }).catch(() => false);
-  if (!alive) { console.log(`\n⚠ ${i}프레임에서 WebGL 컨텍스트 손실 — uiscale 을 낮추거나 종목을 하나씩 돌리세요.`); break; }
+  if (!alive) {
+    console.log(`\n⚠ ${i}프레임에서 WebGL 컨텍스트 손실 — 직전 자원: ${JSON.stringify(lastInfo)}`);
+    console.log(`  자원이 프레임마다 늘고 있었다면 누수, 시작부터 평평했다면 상한(해상도·uiscale)이다.`);
+    break;
+  }
+  if (i === 0 || i % 10 === 0) console.log(`   [자원] f${i} geo ${alive.geo} tex ${alive.tex} prog ${alive.prog}`);
+  lastInfo = alive;
   await page.evaluate(tt => new Promise(res => {
     const d = window.__dbg;
     window.__vt = 1200 + tt * 1000;          // 가상 시계 — 셰이더·클록이 전부 이걸 본다
@@ -806,7 +898,14 @@ for (let i = 0; saved < N; i++) {
           if (v.requestVideoFrameCallback) v.requestVideoFrameCallback(() => fin());
           else v.addEventListener('seeked', fin, { once: true });
           v.currentTime = want;
-          setTimeout(fin, 3000);        // 안전장치. 짧으면 그게 곧 깜빡임이다
+          //   ★ 08-07: 이 3000 을 **--seekwait 로 연다**(기본값은 그대로라 회귀 없음).
+          //     위 §의 결론("근본은 프레임당 시간이 3초를 넘긴 것")은 그때 상황의 진단이고,
+          //     이번 건은 정반대다 — 실측(BK_C2 640p): 프레임당 0.23~0.34초로 여유가 큰데도
+          //     시크 실패 46/60. 앱이 느린 게 아니라 **클립 한 장 디코드가 3초를 넘는다**:
+          //     코치 클립이 stepback_fwd(760×636) → stepback_pack(2310×2218)로 화소 12배가 됐다.
+          //     대기가 짧아서 지는 경우라 늘리면 산다. 프레임당 시간이 문제인 경우와 구분해서
+          //     쓸 것 — 그때는 이 값을 늘려도 경합이 그대로다(문서 §6).
+          setTimeout(fin, window.__seekWait || 3000);        // 안전장치. 짧으면 그게 곧 깜빡임이다
         });
       }
       // 통지가 왔든 안 왔든, 프레임이 실제로 올라왔는지로 판정한다.
@@ -826,17 +925,36 @@ for (let i = 0; saved < N; i++) {
     console.log(`  probe f${i}  t=${t.toFixed(3)}  session.t=${p.st?.toFixed?.(3)}  stage=${p.stage}  play=${p.playing}  vid=${p.vid}`);
   }
   if (PLAY && saved === 0 && (i - saved) <= PRE_MAX) {
-    const notYet = await page.evaluate(() => (window.__dbg?.session?.t ?? 0) < 0).catch(() => false);
-    if (notYet) continue;   // 아직 스테이지 전 — 시계만 밀고 버린다
+    //   ★ 기준선이 둘이다: 스테이지 시작(session.t ≥ 0) **그리고** 청크 시작(≥ T0).
+    //     워밍이 아니면 T0=0 이라 종전과 같은 판정이다.
+    const notYet = await page.evaluate(t0s => (window.__dbg?.session?.t ?? 0) < t0s, WARM ? T0 : 0).catch(() => false);
+    if (notYet) {
+      if (WARM && i % 60 === 0) process.stdout.write(`\r  워밍 ${i}/${Math.round(T0 * FPS)}   `);
+      continue;   // 아직 스테이지 전 · 청크 시작 전 — 시계만 밀고 버린다
+    }
     // 저장을 시작하는 이 프레임이 스테이지 0초다. 벽/지면 UI 는 자기 누적기(_uiDt·실시간)로
     //   도는데 세션과 시작점이 다르면 그만큼 어긋난다 — 점수가 링보다 먼저 오른다.
     //   여기서 한 번 맞춰 두면 이후로는 둘 다 실시간이라 계속 같이 간다.
-    await page.evaluate(() => {
+    //   ★ 워밍 중일 땐 0 으로 되돌리지 않는다 — 지면·벽 UI 는 워밍 내내 세션과 함께 흘러왔다.
+    //     여기서 리셋하면 청크 이음매마다 UI 시계만 0 으로 튄다.
+    await page.evaluate(warm => {
       const d = window.__dbg;
-      for (const g of [d?.wallGL, d?.floorGL]) if (g) { g.t = 0; g._lastPaint = -1; g._sig = null; }
-    }).catch(() => {});
+      for (const g of [d?.wallGL, d?.floorGL]) if (g) { if (!warm) g.t = 0; g._lastPaint = -1; g._sig = null; }
+    }, WARM).catch(() => {});
   }
-  await page.screenshot({ path: path.join(TMP, `f${String(saved).padStart(5, '0')}.png`), type: 'png', omitBackground: ALPHA });
+  // ★ 캡처 경로 둘. 기본은 page.screenshot 이지만, 그게 컨텍스트 손실의 유력한 범인이다.
+  //   실측: 스크린샷을 찍는 프레임은 20~90 에서 죽고, **찍지 않는 워밍 프레임은 300 넘게 산다.**
+  //   둘의 차이는 CDP 스크린샷(페이지 전체 합성 + 표면 읽기)뿐이고 renderer.info 는 평평하다.
+  //   --grab : 페이지 합성을 건너뛰고 앱 안에서 직접 렌더한 뒤 캔버스를 읽는다.
+  //   preserveDrawingBuffer:false 라 rAF 순서에 기대면 빈 버퍼를 읽는다 — 같은 태스크에서
+  //   **우리가 렌더하고 곧바로** 읽어야 픽셀이 보장된다(main.js blackProbe 가 같은 이유로 앱 안에 산다).
+  const png = path.join(TMP, `f${String(saved).padStart(5, '0')}.png`);
+  if (GRAB) {
+    //   ★ 여기서 다시 렌더하면 안 된다 — 앱의 평면 카메라·격리 설정을 안 거친 렌더라 백지가 나온다.
+    //     위 evaluate 가 이미 앱 rAF 를 두 번 돌렸고, preserveDrawingBuffer 덕에 그 픽셀이 남아 있다.
+    const url = await page.evaluate(() => window.__dbg.renderer.domElement.toDataURL('image/png'));
+    fs.writeFileSync(png, Buffer.from(url.slice(url.indexOf(',') + 1), 'base64'));
+  } else await page.screenshot({ path: png, type: 'png', omitBackground: ALPHA });
   saved++;
   // ★ 첫 프레임에 아무것도 안 그려졌으면 즉시 멈춘다. 컨텍스트가 살아 있어도 씬이 통째로
   //   비어 있으면(무대 끄기가 과했거나 카메라가 엉뚱한 곳을 보면) 끝까지 빈 프레임만 쌓인다.
@@ -845,6 +963,17 @@ for (let i = 0; saved < N; i++) {
     if (tri === 0) {
       console.error('✗ 첫 프레임에 그려진 삼각형이 0개 — 빈 영상이 됩니다. 중단합니다.');
       await browser.close(); process.exit(1);
+    }
+    // ★ 삼각형 검사만으로는 --grab 의 빈 프레임을 못 잡는다 — 앱은 멀쩡히 그렸는데 우리가 읽은
+    //   버퍼가 비어 백지가 나올 수 있다(실측: 150장 전부 흰 화면인데 삼각형 검사는 통과했다).
+    //   저장한 **파일 자체**의 색 다양도를 본다. 여기서 막아야 500장을 헛뽑지 않는다.
+    if (GRAB) {
+      const v = await variety(png);
+      if (v < 0.15) {
+        console.error(`✗ --grab 첫 프레임이 사실상 단색입니다(색 다양도 ${v.toFixed(2)}%) — 빈 캡처입니다. 중단합니다.`);
+        await browser.close(); process.exit(1);
+      }
+      console.log(`\n  캔버스 읽기 확인 (색 다양도 ${v.toFixed(2)}%)`);
     }
     if (i > 0) console.log(`\n  프리롤 ${i}프레임 버림 (스테이지 시작 전)`);
     // 프리플라이트에서 이미 내용 있는 프레임을 확인했으므로 여기선 더 볼 게 없다.
@@ -877,7 +1006,8 @@ if (done < N) console.log(`  (${done}/${N} 프레임으로 묶습니다 — ${(d
 // (윈도엔 시스템 ffmpeg 가 없는 기기가 있다 — 그때 여기서 죽으면 뽑아 둔 프레임까지 날린다.
 //  ffmpeg-static 이 깔려 있으면 그 바이너리를 쓴다: 시스템 설치 없이 .mov/.mp4 가 나온다.)
 const FF = await import('ffmpeg-static').then(m => m.default).catch(() => 'ffmpeg');
-const hasFF = (() => {
+// --nomov : PNG 만 낸다. 청크 렌더(render_chunked.mjs)는 조각마다 .mov 를 만들 이유가 없다.
+const hasFF = !arg('nomov', false) && (() => {
   try { execFileSync(FF, ['-version'], { stdio: 'ignore' }); return true; } catch { return false; }
 })();
 // ★ 프레임을 먼저 산출 폴더로 옮기고 나서 인코딩한다 — 순서가 중요하다.

@@ -1,7 +1,7 @@
 {
-  "_": "MARK(발형·존원) 룩 정본 — 접지 룩(2026-08-07). 이전 정본은 mark-look-classic.json. footlab \"코드에 저장\"이 이 파일을 덮어쓴다.",
-  "imp": 0,
-  "scale": 0.83,
+  "_": "MARK(발형·존원) 룩 정본. footlab.html '코드에 저장'이 이 파일을 덮어쓴다.",
+  "imp": 0.98,
+  "scale": 1.16,
   "offx": -0.043,
   "offy": -0.031,
   "irot": 5.5,
@@ -10,10 +10,10 @@
   "glow": 0,
   "shade": 0,
   "sharp": 0.74,
-  "edge": 0.09,
-  "plantar": 1,
-  "bands": 0,
-  "bandSoft": 0,
+  "edge": 0.038,
+  "plantar": 0.55,
+  "bands": 24,
+  "bandSoft": 1,
   "w": 1.6,
   "halo": 0,
   "pool": 0.9,
@@ -23,7 +23,8 @@
   "ripWidth": 0.125,
   "ripSpeed": 0.4,
   "ripGrad": 1,
-  "edgeShade": 0.38,
+  "edgeShade": 1.4,
+  "dotMode": 0,
   "shadeRed": 0,
   "shadeRedW": 3.4,
   "edgeW": 0.035,
@@ -43,11 +44,11 @@
   "prog": 0.55,
   "bloom": 0.125,
   "blur": 0,
-  "edgeShadeW": 1,
-  "edgeShadeCol": 0,
-  "edgeShadeGrad": 1,
-  "edgeShadeG0": 0.61,
-  "edgeShadeG1": 1,
+  "edgeShadeW": 4,
+  "edgeShadeCol": 4,
+  "edgeShadeGrad": 0,
+  "edgeShadeG0": 1,
+  "edgeShadeG1": 0.55,
   "prims": {
     "punchLine": {
       "node": 1,
@@ -99,27 +100,31 @@
     "w": 1.15
   },
   "op": 0.98,
-  "dotCol": 1,
+  "dotCol": 4,
   "states": {
     "0": {
       "sharp": 0
     },
     "1": {},
     "2": {
-      "glow": 0,
-      "halo": 0.16,
-      "w": 0.72,
+      "w": 1.8,
+      "halo": 0.5,
+      "glow": 0.15,
+      "imp": 0,
+      "dot": 0.2,
+      "pitch": 0.03,
       "shade": 0,
-      "imp": 1,
-      "sharp": 0,
-      "edge": 0.004
+      "sharp": 0.65,
+      "edge": 0.038,
+      "dotCol": 4,
+      "rip": 0
     },
     "4": {
       "glow": 0,
       "halo": 0.14,
       "w": 0.7,
       "shade": 0,
-      "imp": 1,
+      "imp": 0,
       "edgeShadeGrad": 0,
       "pitch": 0.048,
       "dot": 0.13,
@@ -131,8 +136,8 @@
       "edgeShadeCol": 4
     },
     "tap": {
-      "op": 0,
-      "imp": 0.98,
+      "op": 0.1,
+      "imp": 0,
       "scale": 0.83,
       "pitch": 0.027,
       "dot": 0.25,
@@ -143,13 +148,13 @@
       "plantar": 0,
       "bands": 0,
       "bandSoft": 0,
-      "edgeShade": 0.26,
+      "edgeShade": 0.7,
       "edgeShadeW": 4,
       "edgeShadeGrad": 0,
       "edgeShadeG0": 0,
       "edgeShadeG1": 0,
       "dither": 0.011,
-      "edgeW": 0.01,
+      "edgeW": 0.028,
       "edgeSoft": 0,
       "shadeRed": 0,
       "shadeRedW": 0.5,
@@ -162,12 +167,12 @@
       "edgeShadeCol": 4,
       "dotCol": 4,
       "ripCol": 0,
-      "bloom": 0.165,
+      "bloom": 0.26,
       "w": 1.15
     }
   },
-  "loadGain": 1.7,
-  "loadBase": 0.1,
+  "loadGain": 0.45,
+  "loadBase": 0.06,
   "flow": 0.55,
   "motion": {
     "_": "움직임 튜닝(markmotion.js 가 읽는다). 상태 8토큰과 직교 — 여기는 '어떻게 움직이나'만.",
@@ -188,5 +193,5 @@
   },
   "tLo": 0,
   "tHi": 0,
-  "dotMode": 0
+  "inkFloor": 0.35
 }

@@ -13,7 +13,7 @@ import { WallGhost } from './ghost.js';
 import { FilesetResolver, ImageSegmenter } from '@mediapipe/tasks-vision';
 import { extractPose, retargetToClip } from './posemocap.js';   // 무료 로컬 비디오 모캡
 import { Judge } from './judge.js';
-import { Session, SCFG, STAGES, STEP_SEG , refreshMarkNums } from './session.js';
+import { Session, SCFG, STAGES, STEP_SEG , refreshMarkNums, AD, FootMark } from './session.js';
 import { StudioDoc } from './studio/doc.js';
 import { StudioCanvas } from './studio/canvas.js';
 import { StudioProps } from './studio/props.js';
@@ -491,7 +491,7 @@ async function boot() {
   //   규칙 ① 그 장면에서 봐야 할 대상이 시야 중앙에 오는 단을 고른다
   //        ② 오래 지속되는 장면일수록 얕게(목 굴곡 20° 권장 — ISO 9241 계열)
   //        ③ 정밀 조작(발 위치 맞추기)일수록 깊게
-  const GAZE = { FRONT: -8, FAR: -20, MID: -30, NEAR: -40, MAT: -52 };   // 낙하점 11.4m / 4.4m / 2.8m / 1.9m / 1.2m
+  const GAZE = { FRONT: -8, FAR: -20, MID: -30, NEAR: -40, MAT: -52, STANCE: -55 };   // 낙하점 11.4m / 4.4m / 2.8m / 1.9m / 1.2m / 1.18m
   const STAGE_GAZE_DEG = { R: GAZE.NEAR, A: GAZE.NEAR, B: GAZE.NEAR, T: GAZE.MID, C: GAZE.FAR };
   function sessionGazeTarget() {
     // 벽 종목(복싱): 시선은 벽 정면 — 코치(y≈1.0~1.7)·타겟(y≈1.14)이 전부 시야에 안정적으로.
@@ -499,6 +499,11 @@ async function boot() {
     if (session.curStage?.wall) return GAZE.FRONT;
     // B1 2막 '시선 바깥' = 1인칭 카메라도 정면(-5도) — 지면 UI를 의도적으로 시야 밖으로(유저).
     if (session.bkB1EyesUp) return GAZE.FRONT;
+    // B1 셋업 막(발 벌리기) = 발자국 + ←→ 화살표만 담는 **띠 프레임**(3.561:1, 유저 레퍼런스)용 각.
+    //   실측(scripts/_grid_b1stance.mjs, 눈 y1.69·z-1.809): 화살표 d 0.88~0.99(하향 62.6~59.7°),
+    //   발자국 판 d 0.87~1.52(62.9~48.1°). 16:9 렌더의 중앙 49.9% 띠에 넷 다 들어오는 구간이
+    //   -63°~-47° 이고 정중앙이 -55.3°다. MAT(-52°)도 들어오지만 10% 아래로 처져 띠 하단에 붙는다.
+    if (session.bkB1Setup) return GAZE.STANCE;
     const id = session.curStage?.id || '';
     // 전환·타이머·리포트(지면 풀스크린 화면) = x봇이 바닥의 화면을 보도록 게이즈 하향(세션 컴플리트·실전 직전).
     if (/^(T1|T2|C1|FIN|BK_T1|BK_T2|BK_C1|BK_FIN)$/.test(id)) return GAZE.NEAR;
@@ -2437,9 +2442,26 @@ void main(){
     if (U.uPCalD) U.uPCalD.value = cal?.d ?? 1;
     if (U.uPCalW) U.uPCalW.value = cal?.w ?? 1;
     if (U.uPCalB) U.uPCalB.value = (cal?.b ?? 0) + tone;
+    // 부위 강조 — FXP.person.emph 로 실시간 구동(랩·세션 공용). 기본 0 이면 종전과 픽셀 동일.
+    const em = FXP.person?.emph;
+    if (U.uPEmph) {
+      U.uPEmph.value = em?.k ?? 0;
+      U.uPEmphT.value = em?.t ?? 0.25;
+      U.uPEmphY0.value = em?.y0 ?? 0;
+      U.uPEmphY1.value = em?.y1 ?? 0.22;
+      U.uPEmphSoft.value = em?.soft ?? 0.06;
+    }
+    if (U.uPBandLo) {   // 몸통 대역 — 좁고 낮게 두면 '하양에 가까운 맑은 코랄'이 나온다
+      U.uPBandLo.value = FXP.person?.bandLo ?? 0.30;
+      U.uPBandHi.value = FXP.person?.bandHi ?? 1.00;
+    }
     if (U.uPForm) U.uPForm.value = FXP.person?.form ?? 0;   // 레퍼런스 규약 토글(랩에서 켠다)
     if (U.uPCoral) U.uPCoral.value = coral;
-    if (U.uPSat) U.uPSat.value = 1.0 + (FXP.sat ?? 1) * 0.32;
+    // 채도 — 전역(FXP.sat) 파생이 기본. person.sat 을 주면 **인물만** 덮는다.
+    //   '진짜 하양에 가까운 코랄'(유저 08-07)은 대역을 낮추는 것만으론 안 된다 —
+    //   부스트 1.28 이 무채축에서 다시 끌어내 채도를 살려 놓기 때문이다. 대역과 짝으로 내린다.
+    //   전역을 내리면 마크·프림까지 같이 빠지므로 인물 전용 슬롯을 따로 뒀다.
+    if (U.uPSat) U.uPSat.value = FXP.person?.sat ?? (1.0 + (FXP.sat ?? 1) * 0.32);
     if (U.uPSweep) U.uPSweep.value = FXP.person?.sweep ?? 0;
     if (U.uPHi) U.uPHi.value = hi;
     if (U.uPDepth) U.uPDepth.value = FXP.person?.depth ?? 0.34;
@@ -2674,6 +2696,8 @@ void main(){
         // uPulse 0 — 복싱 인물엔 루마 펄스가 없다(톤을 흔드는 원인이라 끈다).
         // uPSat·uPSweep = PERSON_GLSL 공용(구 uSat 은 죽은 유니폼이라 폐기).
         uPSat: { value: 1.32 }, uPSweep: { value: 0 }, uPHi: { value: 0.86 }, uPDepth: { value: 0.34 }, uPCoral: { value: 0 }, uPExp: { value: 0.5 }, uPForm: { value: 0 }, uPLo: { value: 0.12 }, uPHiL: { value: 0.85 }, uPLumLin: { value: 0 }, uPCalWave: { value: 1 }, uPCalD: { value: 1 }, uPCalW: { value: 1 }, uPCalB: { value: 0 },
+        uPEmph: { value: 0 }, uPEmphT: { value: 0.25 }, uPEmphY0: { value: 0 }, uPEmphY1: { value: 0.22 }, uPEmphSoft: { value: 0.06 },   // 부위 강조 — 기본 0(도입 전과 픽셀 동일)
+        uPBandLo: { value: 0.30 }, uPBandHi: { value: 1.00 },   // 몸통 대역 — 기본 0.30/1.00 = 종전과 픽셀 동일
         uPInk: { value: 0.85 }, uPInkT: { value: 0.42 }, uPulse: { value: 0.0 }, uEnter: { value: 99 },
         // 주목 강조(스텝백 가이드) — 기본 전부 0/끔 = 도입 전과 픽셀 동일. setHotspot 이 주입한다.
         uHotE: { value: new THREE.Vector4(0, 0, 0, 0) }, uGaze: { value: new THREE.Vector4(0, 0, 0, 0) },
@@ -2984,6 +3008,19 @@ void main(){
     //   토큰 38px / 인물 세로 약 470px = 인물 키의 8%. 이 판에서 인물은 세로의 ph(0.63)이므로
     //   토큰 지름 = 0.08 × 0.63 ≈ 0.050 (uv.y), 즉 반경 0.025. 처음 쓴 0.075 는 3배였고
     //   실제로 발을 통째로 덮었다(렌더 확인).
+    // ★ 도착 순간 **영상을 잠깐 세운다**(유저: 찍어줄 때 약간 멈춰준다든지).
+    //   토큰이 '딱' 붙는 그 프레임에 그림이 멈춰야 눈이 따라간다 — 움직이는 몸 위에 찍으면
+    //   시선이 토큰이 아니라 움직임을 따라간다. 비트마다 한 번만(래치).
+    const HOLDS = cfg.hold ?? 0;
+    if (HOLDS > 0 && S.k >= 1 && co._spotBeat !== S.b.tLand) {
+      co._spotBeat = S.b.tLand;
+      // ★ **_holdUntil 을 빌려 쓰면 안 된다.** 그건 조각 단계(HOLD>0) 경로에서만 해제된다 —
+      //   BK_T1 전체 재생은 HOLD 0 이라 그 블록을 안 지나고, 영상이 영영 멈춘 채 남는다.
+      //   게다가 vt 가 안 흐르니 다음 비트도 안 와서 래치도 안 풀린다(실측: vt 2.25 고정 데드락).
+      //   전용 필드를 쓰고 해제도 여기서 책임진다.
+      co._spotHoldUntil = performance.now() + HOLDS * 1000;
+      try { co.video.pause(); } catch (e) {}
+    }
     const gz = (cfg.gaze ?? 1) * 0.025 * (1 + 0.55 * S.pop) * Math.min(1, S.k * 3 + 0.15);
     const asp = (co.cfg?.h ?? 1) / (co.cfg?.w ?? 1);
     U.uGaze.value.set(S.b.at[0], S.b.at[1], gz * asp, gz);
@@ -3084,6 +3121,12 @@ void main(){
             _stepFrac = _share * Math.max(0, Math.min(1, (co.video.currentTime - a) / Math.max(0.05, b - a)));
             session.stepVidT = co.video.currentTime;   // 마크 배치가 이 값을 그대로 따라간다
           }
+          // ★ 관찰 링의 **숫자**(이번 회차 남은 초) — 정본은 여기다.
+          //   floorgl `_gaugeVal` 의 `this.t` 로는 못 만든다: 실측(08-07, BK_B2 7초 캡처)에서
+          //   this.t 가 0.1 → 0.5 로만 흘렀다(실시간의 약 1/5). 그 t 로 초를 계산했더니 링이
+          //   '4' 또는 '2' 에 **얼어붙었다**. 회차 길이(_playWall+HOLD)와 진행(_stepFrac)은
+          //   둘 다 여기 있고 벽시계 기준이라, 세션이 계산해 넘긴다(`_pvLoops` 와 같은 규약).
+          session._pvSecLeft = (_playWall + HOLD) * (1 - _stepFrac);
           if (co._holdUntil) {
             // 마지막 프레임 1초 정지 후 처음으로 되감아 루프(유저)
             if (now >= co._holdUntil) {
@@ -3108,7 +3151,8 @@ void main(){
         if (co._frozen && ((!co.video.seeking && co.video.readyState >= 3
             && co.video.currentTime > (PHW ? PHW[0] : 0) + 0.03) || performance.now() - (co._fzT || 0) > 350)) unfreezeCoach(co);
         if (!PHW && co.video.playbackRate !== 1) co.video.playbackRate = 1;   // 그 외 단계는 정속
-        if (co.video.paused && !co._holdUntil) co.video.play().catch(() => {});
+        if (co._spotHoldUntil && performance.now() >= co._spotHoldUntil) co._spotHoldUntil = 0;   // 스팟 정지 해제
+        if (co.video.paused && !co._holdUntil && !co._spotHoldUntil) co.video.play().catch(() => {});
         // 영상 실제 프레임이 들어오기 전엔 숨김 — 검은/균일 텍스처가 크로마키 통과 못 해
         // 빨간 방사형 사각형으로 0.x초 깜빡이던 것 방지(유저). readyState≥3(HAVE_FUTURE_DATA)+재생 시작 후.
         // 루프 순간 currentTime이 0으로 되감겨 매 루프 1~2프레임 숨김 → 깜빡임(유저). 첫 표시 후 래치.
@@ -3320,7 +3364,13 @@ void main(){
         // ★ **따라하기 가이드에는 배경을 깔지 않는다**(유저 08-06). 사용자가 따라 움직이는 동안엔
         //   화면이 '지금 밟을 자리'만 말해야 한다 — 배경 격자가 있으면 발자국과 같은 밝기의 점들이
         //   바닥에 깔려 목표가 묻힌다. 배경은 '평면으로 전환됐다'를 말하는 구간에서만.
-        df.visible = !!session.active && !anyCoach && !isReady && !session._followLatch;
+        // ★ 판정 기준을 국면 플래그에서 **화면에 발 마크가 있나**로 바꾼다(유저 08-08:
+        //   발 SVG 가 나오면 뒤 배경 이펙트는 전부 뺀다 · 배경은 인물 뒤 영상에서만).
+        //   _followLatch 는 '따라하기에 들어섰다'는 국면일 뿐이라, 래치가 걸리기 전에 이미
+        //   발자국이 떠 있는 프레임에서는 격자가 같이 깔렸다(유저 스크린샷).
+        //   신호는 매 프레임 다시 정한다 — 래치처럼 굳는 값을 쓰지 않는다.
+        df.visible = !!session.active && !anyCoach && !isReady && !session._followLatch
+          && !FootMark.anyVisible();
         if (df.visible) df.material.uniforms.uTime.value = (session.t ?? state.time ?? 0);
       }
     }
@@ -3530,6 +3580,8 @@ void main(){
         uFaceLift: { value: 0 },   // 0 = 끔. 밝기로는 얼굴·글러브가 안 갈린다(08-04 실측: 107 vs 126 이어도 눈엔 같은 주황 덩어리 — R 이 255 로 포화라 G 차이가 안 읽힌다). 경계선/림 방식으로 재시도해야 한다.
         uFaceE: { value: new THREE.Vector4(0, 0, 0, 0) },
         uPSat: { value: 1.32 }, uPSweep: { value: 0 }, uPHi: { value: 0.86 }, uPDepth: { value: 0.34 }, uPCoral: { value: 0 }, uPExp: { value: 0.5 }, uPForm: { value: 0 }, uPLo: { value: 0.12 }, uPHiL: { value: 0.85 }, uPLumLin: { value: 0 }, uPCalWave: { value: 1 }, uPCalD: { value: 1 }, uPCalW: { value: 1 }, uPCalB: { value: 0 },
+        uPEmph: { value: 0 }, uPEmphT: { value: 0.25 }, uPEmphY0: { value: 0 }, uPEmphY1: { value: 0.22 }, uPEmphSoft: { value: 0.06 },   // 부위 강조 — 기본 0(도입 전과 픽셀 동일)
+        uPBandLo: { value: 0.30 }, uPBandHi: { value: 1.00 },   // 몸통 대역 — 기본 0.30/1.00 = 종전과 픽셀 동일
         uPInk: { value: 0.85 }, uPInkT: { value: 0.42 },   // PERSON_GLSL 공용 — setPersonUniforms 가 주입
         uCropC: { value: new THREE.Vector2(0.5, 0.5) }, uCropS: { value: new THREE.Vector2(1, 1) },
       },
@@ -4160,6 +4212,8 @@ void main(){
         uCols: { value: COACH.cols }, uRows: { value: COACH.rows }, uN: { value: COACH.n }, uDirect: { value: COACH.direct },
         uW: { value: 1 }, uNoise: { value: 0.55 },
         uPSat: { value: 1.32 }, uPSweep: { value: 0 }, uPHi: { value: 0.86 }, uPDepth: { value: 0.34 }, uPCoral: { value: 0 }, uPExp: { value: 0.5 }, uPForm: { value: 0 }, uPLo: { value: 0.12 }, uPHiL: { value: 0.85 }, uPLumLin: { value: 0 }, uPCalWave: { value: 1 }, uPCalD: { value: 1 }, uPCalW: { value: 1 }, uPCalB: { value: 0 },
+        uPEmph: { value: 0 }, uPEmphT: { value: 0.25 }, uPEmphY0: { value: 0 }, uPEmphY1: { value: 0.22 }, uPEmphSoft: { value: 0.06 },   // 부위 강조 — 기본 0(도입 전과 픽셀 동일)
+        uPBandLo: { value: 0.30 }, uPBandHi: { value: 1.00 },   // 몸통 대역 — 기본 0.30/1.00 = 종전과 픽셀 동일
         uPInk: { value: 0 }, uPInkT: { value: 0.42 },   // PERSON_GLSL 공용 — 벽은 personColor 만 쓰지만 선언은 필수(안 하면 무채). 잉크는 바닥 전용이라 0.
       },
       vertexShader: `#include <common>
@@ -4503,30 +4557,61 @@ void main(){
         else {
         // 실측 사이클(cmu144_11) — 시범 종료 후부터(tt): 첫 홀드가 깔끔히 시작.
         const tt = session.t - (session._aWatchEnd ?? A2_WATCH);
-        const T0 = 5.4, TD = 6.5, T1 = 8.1, HOLD = stageTime('A2').hold;   // 정본: marklang.STAGE_TIME   // 5→3초(유저): 카운트 3·2·1 → 팡
-        const DESC = TD - T0, RISE = T1 - TD, CYC = DESC + HOLD + RISE;
+        // ── 실사 실측 사이클 ──────────────────────────────────────────────
+        //   레퍼런스 9초·60fps 540프레임에서 빨간 신발 연결요소를 추적해 구간을 갈랐다.
+        //     홀드 2.15 → 앞발 당겨오기 0.35 → 모아 섬 1.25 → 같은 발 다시 내딛기 0.55  = 4.30s
+        //   ★ **발을 바꾸지 않는다**(유저 질문에서 확인). 1렙/2렙 홀드에서 두 신발의
+        //     가까움·멂 관계가 그대로다(뒤발 1293화소·바닥y755 → 1129·751 / 앞발 528·791 → 431·791).
+        //     다리를 바꿨다면 앞발이 멀어져 바닥선이 올라갔어야 한다. 안 올라갔다.
+        //     궤적도 같은 말을 한다 — 뒷발은 126→230px 로 거의 제자리고, 나간 발은 되돌아왔던 그 발이다.
+        //     즉 발 교대가 아니라 **렙 리셋**이다. 그래서 미러 패리티(scale.x 뒤집기)를 없앤다.
+        //     사람은 미러로 뒤집히지 않는다(유저: "좌우 반전인 게 말이 안 되잖아").
+        //   ★ '내려가기'는 따로 있는 동작이 아니다 — 발을 내미는 그 0.55초에 자세가 같이 낮아진다.
+        const T0 = 5.4, TD = 6.5, T1 = 8.1;          // 클립(cmu144_11) 구간: 서기 → 최저 → 복귀
+        const HOLD = stageTime('A2').hold;           // 정본: marklang.STAGE_TIME (실측 2.15)
+        const PULL = 0.35, TOG = 1.25, STEP = 0.55;
+        const CYC = HOLD + PULL + TOG + STEP;        // 5.15 (홀드 3.0 기준)
         const c = tt % CYC;
-        _phase = c < DESC ? T0 + c : (c < DESC + HOLD ? TD + Math.sin(tt * 1.6) * 0.07 : TD + (c - DESC - HOLD));
-        // ★ 첫 회차를 **미러**로 시작한다(유저 08-06, 영상용) — isLeft 는 이미 '짝수 회차 =
-        //   오른발'로 되어 있는데 봇은 안 뒤집힌 원본 클립으로 시작했다. 그 클립이 왼발
-        //   리드라 플래그(오른발)와 화면(왼발)이 어긋났다. 미러 패리티를 뒤집으면 둘이 맞는다.
-        xbot.group.scale.x = (Math.floor(tt / CYC) % 2) ? 1 : -1;
-        const _hs = Math.max(0, Math.min(1, (c - DESC) / 0.6)), _he = Math.max(0, Math.min(1, (DESC + HOLD - c) / 0.6));
-        xbot.lungeDeepen = 0.35 * Math.min(_hs, _he);
+        // 회차 파리티 — 렙마다 늘어나는 종아리가 반대발로 옮겨간다(유저 확정 08-07).
+        //   자막 LEFT/RIGHT · 홀드 링 · 카운트다운 · Success 가 전부 workLeft 를 본다.
+        // ★ 뒤집는 **시점**이 사이클 경계가 아니라 '모아 섬' 한가운데다(08-07 유저:
+        //   "왼발 뒤로 빼고 오른발 굽히기 → 제자리 → 오른발 뒤로 빼고 왼발 굽히기").
+        //   경계(=홀드 시작)는 런지 자세 한복판이라 거기서 뒤집으면 사람이 순간이동한다 —
+        //   그게 앞서 미러를 고정해 버린 이유였다. 모아 선 구간은 두 발이 겹치고 자세가
+        //   좌우 대칭이라 **뒤집어도 안 보인다**. 실사 레퍼런스에 '모아 섬 1.25s' 가 있는
+        //   이유가 이것이다 — 사람이 다리를 바꾸는 창이다. 역할 이름도 같은 순간에 바뀌어야
+        //   다음 홀드가 시작될 때 자막·링이 이미 새 발에 가 있다.
+        const _flipAt = HOLD + PULL + TOG / 2;
+        const _rep = Math.max(0, Math.floor((Math.max(0, tt) - _flipAt) / CYC) + 1) % 2 === 1;
+        //   클립 위상을 구간에 **압축해서** 태운다. 클립의 복귀 1.6s 를 0.35s 에, 하강 1.1s 를 0.55s 에.
+        //   등속 매핑이면 사람 동작이 안 되므로 시작·끝이 느려지는 smoothstep 을 태운다.
+        const ez = x => x * x * (3 - 2 * x);
+        _phase = c < HOLD ? TD + Math.sin(tt * 1.6) * 0.07
+               : c < HOLD + PULL ? TD + (T1 - TD) * ez((c - HOLD) / PULL)
+               : c < HOLD + PULL + TOG ? T1
+               : T0 + (TD - T0) * ez((c - HOLD - PULL - TOG) / STEP);
+        // 미러 = 실제 다리 교대. 모캡 클립(cmu144_11)은 한쪽 다리짜리라, 반대 다리로
+        //   런지하는 유일한 길이 좌우 반전이다. 뒤집는 순간이 '모아 섬' 한가운데(_flipAt)이므로
+        //   두 발이 겹친 대칭 자세에서 갈린다 — 순간이동으로 안 보인다(위 _rep 주석).
+        //   -1 = 08-06 에 유저가 고른 그 방향(오른발 리드) = 1렙. 2렙이 +1 로 반대 다리.
+        xbot.group.scale.x = _rep ? 1 : -1;
+        const _hs = Math.max(0, Math.min(1, c / 0.4)), _he = Math.max(0, Math.min(1, (HOLD - c) / 0.4));
+        xbot.lungeDeepen = c < HOLD ? 0.35 * Math.min(_hs, _he) : 0;
         // ★ 씬 루프가 이 동작을 다 못 담고 잘라 먹었다(유저: 발자국이 사라진다). A2 는
-        //   관찰 5.8s 뒤에야 마크가 나오는데 기본 루프가 8s 라, 마크가 보이는 시간이 한
-        //   바퀴에 2초뿐이고 나머지는 관찰(=마크 숨김)이었다. 실측: latch(따라하기 진입)가
-        //   t6.0~7.6 에만 true. 필요한 길이를 여기서 알려 주면 아래 루프가 그만큼 늘린다.
-        session._a2LoopNeed = A2_WATCH + 2 * CYC;   // 관찰 + 좌우 1렙씩
-        //   ★ **오른발 먼저**(유저 08-06) — 첫 사이클이 왼발이었다. 짝수 회차 = 오른발.
-        const _isL = (Math.floor(tt / CYC) % 2) === 1;
-        session.a2Cyc = { inHold: c >= DESC && c < DESC + HOLD, prog: Math.max(0, Math.min(1, (c - DESC) / HOLD)),
+        //   관찰 5.8s 뒤에야 마크가 나오므로 필요한 길이를 여기서 알려 준다.
+        session._a2LoopNeed = A2_WATCH + 2 * CYC;   // 관찰 + 2렙 = 5.8 + 8.6 = 14.4s
+        session.a2Cyc = {
+          inHold: c < HOLD, prog: Math.max(0, Math.min(1, c / HOLD)),
           // ★★ 두 발은 **다른 이름**을 갖는다 — 이 구분이 없어서 자막과 타이머가 엉뚱한 발에 붙었다.
-          //   isLeft   = 앞으로 **내딛는**(무릎 굽히는) 발 = 그 차례 발. 봇 미러 패리티와 짝이다.
-          //   workLeft = **늘어나는 종아리** 쪽 = 뒷발(뒤꿈치를 눌러 버티는 발).
-          //   자막(LEFT/RIGHT CALF STRETCH) · 홀드 링 · 카운트다운 · Success 는 전부 workLeft 를 본다.
-          //   소비자가 각자 `!isLeft` 를 하면 언젠가 한 곳이 빠진다(실제로 자막이 그랬다).
-          holdSec: HOLD, isLeft: _isL, workLeft: !_isL, descending: c < DESC };
+          //   isLeft   = 앞으로 **내딛는**(무릎 굽히는) 발. workLeft = **늘어나는 종아리** = 뒷발.
+          //   자막·홀드 링·카운트다운·Success 는 전부 workLeft 를 본다.
+          //   ★ 회차마다 **바뀐다** — 1렙 왼종아리 → 2렙 오른종아리 (유저 확정 08-07:
+          //     "다음 다리로 넘어와서 3초"). 아래 _rep 파리티가 그 교대다.
+          //     되돌린 이유: 클립 화소 추적으로 '교대 없음'이라 결론냈었지만, 유저가 화면에서
+          //     보고 아니라고 했다. 추적은 뒷발이 거의 제자리인 것만 봤고 역할이 옮겨가는 것은
+          //     못 봤다 — 마크는 제자리에 있고 **어느 쪽이 활성인지**가 바뀌는 동작이다.
+          holdSec: HOLD, isLeft: _rep, workLeft: !_rep,
+          descending: c >= HOLD + PULL + TOG };
         }
       }
       // A1 옆구리 = hj_sidebend(26s 루틴) 루프. 자연 속도는 코치 영상(핑퐁 6.9s 주기)보다 느려
@@ -4774,6 +4859,7 @@ void main(){
     get floorGL() { return floorGL; },
     get wallGL() { return wallGL; },
     get demoSeg() { return demoSeg; }, initDemoSeg,
+    get coaches() { return _coaches; },   // 코치 판 실측용(scripts/_grid_bkcoach.mjs) — 씬 순회로는 못 잡힌다
     makeImageSegmenter: async () => {
       const fileset = await FilesetResolver.forVisionTasks(import.meta.env.BASE_URL + 'mediapipe-wasm');
       return ImageSegmenter.createFromOptions(fileset, {
@@ -5148,6 +5234,17 @@ void main(){
     window.__sceneAdj = { zoom: 1, pan: 0, tilt: 0, dolly: 1, exposure: 1, bloom: 0.55,
       uiX: 0, uiY: 0, uiScale: 1, fp: false, opacity: 1, blend: 'normal',
       grade: { b: 1, c: 1, s: 1, h: 0 }, bgGrade: { b: 1, c: 1, s: 1, h: 0 }, hide: [] };
+    // ★ 발표 프리셋 프레이밍(유저 08-07: "자리 여유가 이렇게 많은데 왜 이렇게 좁게 해야 해").
+    //   실측 근거: 대지 1600×2670 중 잉크는 254~301·351~656 뿐이고, 화면에서는 지평선이 위 절반을
+    //   먹어 전체 구도가 아래로 몰린다. 이건 조판(headY)으로 못 푼다 — 실제로 340 을 시도했다가
+    //   화면이 1px 도 안 변해 되돌렸다(대지 far 쪽은 원근이 극단으로 압축된다). **화각이 손잡이다.**
+    //   지면 뷰는 `fov = 26 * zoom` 이라 zoom < 1 이 프레임을 채운다. dolly 는 카메라 높이·거리를
+    //   함께 잡으므로 살짝만 — 크게 내리면 마크가 화면 밖으로 밀린다(9e772c1 이 밟은 그 문제).
+    //   ※ 시작값이다. scenes.html 의 zoom·dolly 슬라이더가 그대로 살아 있으니 눈으로 보고 고칠 것.
+    //   ※ 화각은 거의 안 건드린다 — 실측상 빈 윗공간을 줄이는 건 피치(아래 pitchK)이고,
+    //     zoom 까지 같이 조이면 마크가 화면 아래로 밀려 잘린다(실측: zoom .82 에서 잉크 하단 746/800).
+    //   → 결론: AD 는 **카메라를 안 건드린다.** 녹화 프레이밍은 scenes.html 슬라이더와
+    //     export_video 의 --scene 조정값이 정본이고, 프리셋이 그 위에 몰래 얹으면 안 된다.
     // 개체 목록 — 지금 화면에 실제로 그려지는 것만. 키는 이름 우선(리로드해도 같다),
     //   이름이 없으면 타입으로 묶는다. scenes.html 체크박스가 이 키를 그대로 쓴다.
     window.__sceneList = () => {
@@ -5396,8 +5493,21 @@ void main(){
       // 화면을 채우고 바닥 텍스트 방향도 유지된다. tilt 슬라이더 = 존 중심 앞뒤 이동 유지.
       const cz = -1.3 + (A.tilt || 0);
       const k = A.dolly || 1;
+      // ★ 이 구도는 **기존 슬라이더로 각도를 못 바꾼다**(08-07 실측, 유저: "자리 여유가 이렇게
+      //   많은데 왜 이렇게 좁게 해야 해"). 근거:
+      //     · tilt 은 cz 로 들어가는데 카메라와 lookAt **둘 다** 밀어서 완전히 상쇄된다 → 피치 불변
+      //     · dolly(k)는 높이와 거리를 같은 비율로 키운다 → 피치가 39.6°~44° 안에서만 논다
+      //   그래서 zoom(화각)만 좁히면 물건은 커져도 **빈 윗공간 비율은 그대로**다(실측 49.9% → 49.9%).
+      //   화면 위 절반이 비는 건 화각이 아니라 **피치**의 문제다.
+      //   pitchK: 높이는 올리고 거리는 줄여 시선을 눕힌다 = 지평선이 위로 빠지고 바닥이 프레임을 채운다.
+      //   제품은 1 이라 1비트도 안 바뀐다. 발표 프리셋만 눕힌다 — 시작값이고 눈으로 보고 고칠 것.
+      //   ※ 1.45 를 시도했다가 **1 로 되돌렸다**(유저: "그 장면의 정면이 제대로 녹화되면 되잖아").
+      //     프리뷰의 빈 윗공간은 목표가 아니었다 — 목표는 녹화 결과물이고, 검증 안 된 카메라
+      //     추측값을 AD 에 박아 두면 녹화 프레이밍이 통째로 바뀐다. 손잡이만 남기고 값은 중립.
+      //     실제로 필요해지면 여기 하나만 올리면 된다(위 분석이 왜 tilt·dolly 로는 안 되는지 설명).
+      const pitchK = 1;
       camera.fov = 26 * (A.zoom || 1); camera.up.set(0, 1, 0);
-      camera.position.set(A.pan || 0, 2.9 * k, cz + 3.0 * k);
+      camera.position.set(A.pan || 0, 2.9 * k * pitchK, cz + 3.0 * k / pitchK);
       camera.lookAt(A.pan || 0, 0, cz - 0.5);
     }
     camera.updateProjectionMatrix();
@@ -6077,8 +6187,18 @@ void main(){
   // 스텝백 4페이즈 누적 구간(초)은 session.js가 단일 소스(마크 배치가 같은 표를 쓴다).
   //   한 루프 = 구간/배속 + 끝프레임 정지 1초.  프리뷰 = STEP_LOOPS 루프.
   //   학습(B2~B5) = 0.5배속 + 구간 끝 1초 정지 + 프리뷰 2회 / 실전(C2) = 정속·정지 없음·프리뷰 1회(유저)
-  const stepRate = id => (id === 'BK_C2' ? 1.0 : 0.5);
-  const stepHold = id => (id === 'BK_C2' ? 0.0 : 1.0);
+  // ★ 실전만 정속(1.0) — **발표 프리셋(?ad=1)은 예외**: 유저 08-07 "너무 빠르고 복잡해서
+  //   뭘 봐야 할지 모르겠다. 4/4 배움 단계의 것을 재생하자". 4/4(BK_B4)는 구간이 실전과
+  //   **같고**(STEP_SEG 둘 다 [1.05, 2.20]) 속도만 0.5 다. 그 속도를 실전에 그대로 준다.
+  // ★ BK_T1(스텝백 전체 재생)만 더 느리게 — 강조 비트 셋(vt 1.2 / 1.5 / 1.8)이 0.87초 안에
+  //   다 지나간다. 0.5배속이어도 1.7초라 토큰이 찍히자마자 다음으로 넘어가 눈이 못 따라간다
+  //   (유저 08-07: 좀 천천히 재생시켜). 0.32 = 그 구간이 2.7초 — 비트당 약 0.9초.
+  //   ⚠ stepLoopSec 이 이 값을 나눠 쓰므로 프리뷰 길이·루프 타이밍은 자동으로 따라온다.
+  //     여기 숫자를 바꾸면 그쪽도 같이 움직인다 — 두 곳에 적지 말 것.
+  const stepRate = id => (id === 'BK_C2' && !AD ? 1.0 : id === 'BK_T1' ? 0.32 : 0.5);
+  // ★ 실전만 쉼 없이 이어 붙인다 — **발표 프리셋은 예외**(유저 08-07: 한 동작 하고 최소
+  //   한 번은 쉬게 해야 하지 않나). 4/4 배움 단계가 쓰는 1.0초 hold 를 그대로 준다.
+  const stepHold = id => (id === 'BK_C2' && !AD ? 0.0 : 1.0);
   const stepLoops = id => (id === 'BK_C2' || id === 'BK_T1' ? 1 : 2);   // T1 = 통째로 한 번만 본다(유저)
   const STEP_RATE = 0.5, STEP_HOLD = 1.0, STEP_LOOPS = 2;
   const stepLoopSec = id => (STEP_SEG[id] ? (STEP_SEG[id][1] - STEP_SEG[id][0]) / stepRate(id) + stepHold(id) : 0);

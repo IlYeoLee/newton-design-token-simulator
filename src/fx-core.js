@@ -65,7 +65,25 @@ export function sdfFromAlpha(imgData, N) {
 
 /** SVG → 비트맵 래스터 + 실픽셀 타이트 바운딩 (9인자 drawImage의 SVG 버그 회피).
  *  해상도별 이미지 캐시 — 저해상 캐시가 고해상 요청을 누르던 병목 방지. */
-export function glyphRaster(img, S = 512) {
+/** ── 래스터 품질 스칼라 (FXQ) ──────────────────────────────────────────────────
+ *  유저 2026-08-07: *"레이아웃이 저렇게 크게 들어갈 거라 확대는 할 거라도 품질을 신경 써야 해."*
+ *  실측 병목: 마크 안 글리프가 **128×128 캔버스**이고 SVG 글리프 래스터가 512 다 —
+ *  대지 캔버스를 K=3(4800×8010)으로 올려도 그 안의 글리프는 128 을 늘린 것이라 뭉갠다.
+ *  실시간 예산(0.75)은 건드리지 않는다. **추출 경로만** 이 값을 올린다:
+ *    window.__FXQ = 3  (export_ui.mjs 가 uiscale 과 같이 세운다)
+ *  좌표는 전부 캔버스 크기에서 파생시켜야 한다 — 상수 64/96 을 그대로 두면 스케일이 깨진다. */
+export const FXQ = {
+  // ★ **눈으로 바로 본다**(유저: 굽는 게 아니라 시각적으로 바로 보게).
+  //   `?fxq=3` 이면 5199 에서 즉시 고품질로 그려진다 — 추출을 기다릴 필요가 없다.
+  //   우선순위: window.__FXQ(추출 스크립트가 세움) > ?fxq= > 1(실시간 기본, 예산 유지).
+  get k() {
+    if (typeof window === 'undefined') return 1;
+    const q = +new URLSearchParams(location.search).get('fxq');
+    const v = +window.__FXQ || q || 1;
+    return Math.min(4, Math.max(1, v));
+  },
+};
+export function glyphRaster(img, S = 512 * FXQ.k) {
   const key = '_raster' + S;
   if (img[key]) return img[key];
   const c = document.createElement('canvas'); c.width = c.height = S;
@@ -370,6 +388,21 @@ uniform float uPCalB;        // band(톤) 오프셋
 //     명암이 진한 부분에 잉크로 넣어라 — 아직도 밝다"). 세기 · 문턱(이 밝기 아래를 그늘로 본다).
 //     uPInk 0 = 도입 전과 픽셀 동일(롤백 지점). 바닥(personLook)에만 걸린다 — 벽은 personColor 직행.
 uniform float uPInk, uPInkT;
+// ── 부위 강조(유저 08-07: "몸통이 너무 주황이라 붉게 되어야 할 강조가 안 된다") ──────────
+//   ★ 원인은 램프가 아니라 **몸통 대역의 위치**다. look2Ramp 를 t 0~1 로 뽑아 보면
+//     0.20 #fb5959 · 0.25 부근 #FA3030(브랜드 RED) · 0.30 #fb3326 · 0.50 #ff4000 · 0.80 #ff7c4b
+//     인데 몸통 밴드는 0.3 + 0.7*x 라 **0.30~1.00** 이다. 붉은 자리를 아예 안 지난다.
+//     그래서 강조를 아무리 세게 줘도 더 주황이 될 뿐 붉어질 수가 없었다.
+//   처방: 강조는 t 를 **끌어올리지 않고 끌어내린다**(uPEmphT 쪽으로). 새 색을 만들지 않고
+//     같은 룩2 램프의 아래 구간을 쓴다 — 룩시스템 밖으로 안 나간다.
+//   uPEmphY0/Y1 = 판 uv.y 기준 강조 띠(발 = 아래쪽). uPEmphSoft = 경계 무름.
+uniform float uPEmph, uPEmphT, uPEmphY0, uPEmphY1, uPEmphSoft;
+// ── 몸통 대역 자체(유저 08-07: "몸통은 하양에 가까운 맑은 코랄, 아래는 거의 붉은") ─────────
+//   룩2 램프에서 t 0.08 #ffd7d7 · 0.12 #fec6c6 · 0.20 #fb5959 · 0.25 #FA3030 · 0.50 #ff4000.
+//   종전 몸통 밴드 0.30~1.00 은 통째로 주황 구간이라 '맑은 코랄'이 나올 자리가 없었다.
+//   대역을 내리고 좁히면 몸통이 흰-코랄로 가고, 강조(uPEmphT)만 붉은 자리에 남아 갈린다.
+//   기본 0.30 / 1.00 = 도입 전과 픽셀 동일(롤백 지점).
+uniform float uPBandLo, uPBandHi;
 // 얼굴 아래 밝기 리프트 — 기본 0(끔). 복싱 벽 인물만 켠다. uFaceE = 얼굴 타원(패널 uv, xy=중심 zw=반경)
 uniform float uFaceLift;
 uniform vec4 uFaceE;
@@ -415,7 +448,11 @@ float hotAt(vec2 uv){
   //   ★ **평지 + 치마** 구조. 가우시안을 1 이상으로 밀어 올리고 clamp 하면 안쪽은 통째로 1 이
   //     되고(= 확 빨간 덩어리) 바깥만 부드럽게 풀린다(= 블러 가장자리). 순수 가우시안은
   //     꼭짓점 하나만 최대라 '작고 흐린 점'이 되고, 유저가 반복해서 지적한 게 그거다.
-  return uHot * clamp(exp(-r2 * 1.22) * 1.24, 0.0, 1.0);   // 평지 살짝 줄이고 치마 늘림 = 은은함(유저 08-07)
+  // ★ 치마를 길게(유저 08-07: 토큰 주변은 빨개지고 멀어지는 부분은 완전 연한 주황).
+  //   1.35 는 감쇠가 급해 강조부 밖이 곧장 평소 톤으로 돌아갔다 — 경계가 보이고 '번짐'이 없었다.
+  //   0.55 로 낮추면 열이 멀리까지 흘러 붉은 코어 → 연주황으로 **끊김 없이** 간다.
+  //   평지 배율은 1.32 유지 — 코어가 통째로 1 이어야 '확 빨간 덩어리'가 된다(위 주석의 이유).
+  return uHot * clamp(exp(-r2 * 0.55) * 1.32, 0.0, 1.0);
 }
 /** 이 프래그먼트가 쓸 대역 상단. uPHiPale 0 = 기능 끔. */
 float pHi(){ return uPHiPale > 0.0 ? mix(uPHiPale, uPHiHot > 0.0 ? uPHiHot : uPHi, gHot) : uPHi; }
@@ -436,56 +473,51 @@ vec4 gazeToken(vec2 uv, float t){
   vec4 o = vec4(P_INK, sh);
   if (abs(d.x) <= 1.0 && abs(d.y) <= 1.0) {
     vec4 tk = texture2D(uTokTex, d * vec2(0.5, -0.5) + 0.5);   // y 뒤집기 — 패널 uv 는 위가 +
+    // ★ **원형 마스크**(유저 08-07: 원형 컴포넌트 주위에 이상한 사각 박스가 나온다).
+    //   샘플 영역이 정사각이라 텍스처 모서리 알파가 0 이 아니면 그대로 사각 테두리가 남는다
+    //   (로드 전 기본 텍스처면 흰 사각형이 통째로 뜬다). 그림이 무엇이든 원 밖은 자른다.
+    tk.a *= 1.0 - smoothstep(0.94, 1.0, length(d));
     o.rgb = mix(o.rgb, tk.rgb, tk.a);
     o.a = max(o.a, tk.a);
   }
   return o;
 }
-/** 가이드 룩 — **룩을 갈아치우지 않는다. 그 안에서 위치만 민다.**
- *
- *  ★ 하드코딩 RGB 2단 램프로 덮어썼던 게 잘못이었다(유저 08-07: 강제 마스킹한 것 같아 별로다).
- *    LUT(중황빛 열화상 램프)를 통째로 버리니 결·질감이 다 날아가고, 인물이 아니라
- *    **인물 모양으로 칠한 면**이 됐다. 요구는 그게 아니었다:
- *      "원래 그 중황빛 열화상 그래픽 **안에서** 가장 밝은 톤으로 변하고,
- *       강조 부분은 **그 안에서** 진했으면 해."
- *    즉 색을 새로 만드는 게 아니라 **같은 램프 위에서 각 픽셀이 앉는 자리를 옮기는** 것이다.
- *
- *  LUT 실측 방향: t 낮을수록 진하다(RED #FA3030) · 높을수록 밝다(SAND #FEC389 → PRISM).
- *    전신   t 0.62~0.98  = 램프의 **밝은 쪽**
- *    강조   t 0.02~0.34  = 램프의 **진한 쪽**
- *  두 구간 다 **원본 밝기 l 로 폭을 채운다** — 그래서 옷 주름·명암 같은 결이 그대로 산다.
- *  하드코딩한 건 색이 아니라 **구간 두 개**뿐이다. 팔레트를 안 벗어난다. */
-#define G_PALE_LO 0.62
-#define G_PALE_HI 0.98
-#define G_DEEP_LO 0.02
-#define G_DEEP_HI 0.34
-vec3 personGuideColor(float l){
-  l = clamp(l, 0.0, 1.0);
-  // ★ 전이는 **가파르게**(유저). 선형이면 중간(주황)이 넓게 깔려 '살짝 붉다'로만 읽힌다.
-  //   smoothstep 두 번 = 밝은 쪽과 진한 쪽이 각자 넓고 그 사이가 짧다.
+/** 가이드 룩 — **하드코딩 2단 램프**(유저 08-06: 하드코딩해서라도 확실히 보이게).
+ *  LUT 대역(uPHi)을 밀어서 연하게 만드는 방식은 간접적이라 '얼마나 연해지나'가 안 잡혔다.
+ *  여기선 두 램프를 못박고 gHot 으로 갈아탄다 — 화면에서 무슨 색이 나올지가 코드에 그대로 있다.
+ *    연(전신)   거의 흰빛 → sand(#FEC389)   = 유저가 말하는 '연연한 주황·맑은 코랄'
+ *    진(강조)   coral(#FE6E3C) → red(#FA3030) = 뉴턴 메인컬러로 **찐해진다**
+ *  T 는 높을수록 밝은 쪽이다(LUT 방향과 같음) — 두 램프 다 그 방향을 지킨다.
+ *  ⚠ 네 색 전부 R≈1.0 이다. 투사광 불변식(알파 = min(aOut, lum×1.6))에 안 걸린다 —
+ *    어느 픽셀도 어두워지지 않으므로 뒤 바닥이 배어 오르지 않는다. 색을 바꿀 땐 이걸 먼저 본다. */
+//   연 = **흰끼 도는 연주황**(유저). sand 를 흰색 쪽으로 45% 끌어와 하드코딩한다 —
+//     sand 원색 그대로면 '연한 주황'이 아니라 그냥 주황이라, 강조와의 대비가 안 선다.
+// 연한 쪽 어두운 끝 — #FFDEBE -> #FFEDDD (유저 08-07: 조금만 더 하얘졌으면).
+//   ★ 밝은 끝(G_PALE_L)과 강조(G_DEEP_*)는 안 건드린다. 연한 쪽만 흰 쪽으로 밀면
+//     대비는 **오히려 커진다** — 양쪽을 같이 밝히면 대비가 줄어 강조가 죽는다(채도를
+//     전역으로 내렸다가 강조까지 죽였던 그 실수와 같은 종류다).
+//   sand(#FEC389) -> 흰색은 열화상 램프의 위쪽 방향이라 팔레트 밖으로 안 나간다.
+#define G_PALE_D vec3(1.000, 0.988, 0.980)
+#define G_PALE_L vec3(1.000, 1.000, 1.000)
+//   진 = **제일 빨간 곳**. 위아래 폭을 좁게 잡아 강조 영역이 통째로 RED 로 읽히게 한다.
+#define G_DEEP_D ${vec3(PAL.red)}
+#define G_DEEP_L vec3(1.000, 0.353, 0.227)
+vec3 personGuideColor(float T){
+  T = clamp(T, 0.0, 1.0);
+  vec3 pale = mix(G_PALE_D, G_PALE_L, T);
+  // ★ 강조는 영상 밝기에 **덜 흔들린다**(T×0.35). 열화상의 붉은 덩어리는 옷 주름을 따라
+  //   얼룩지지 않는다 — 그대로 두면 강조 안에서 밝은 픽셀이 연해져 '덩어리'가 안 뭉친다.
+  vec3 deep = mix(G_DEEP_D, G_DEEP_L, T * 0.35);
+  // ★ 대비 곡선. 선형이면 중간값이 넓게 깔려 '살짝 붉다'로만 읽힌다(유저 반복 지적).
+  //   smoothstep 으로 중간을 양끝으로 밀어 **연한 곳은 더 연하게, 붉은 곳은 확실히 붉게**.
+  //   ★ 극단으로(유저 08-07: 뱃지 붙는 부분은 빨갛고 나머지는 하얀 거야).
+  //     smoothstep 한 번은 중간톤이 남아 '살짝 붉은 흰색'이 넓게 깔린다. 두 번 걸면
+  //     S 가 가팔라져 **흰색 아니면 붉은색**으로 갈린다 — 뱃지 자리만 붉고 나머지는 하얗다.
+  //     대비를 색으로 더 밀 수는 없다(이미 순백↔RED 양끝이다). 남은 축은 전이 기울기뿐이다.
   float k = clamp(gHot, 0.0, 1.0);
-  //   ★ 다만 **두 번을 다 태우진 않는다**(유저 08-07: 아주 조금만 은은함 더하면 끝날 듯).
-  //     2회는 경계가 서서 다시 '오려 붙인' 느낌이 난다. 1회와 2회 사이 0.62 에서 섞으면
-  //     가파름은 유지되면서 끝만 부드러워진다 — 은은함은 곡선의 **끝**에서 나온다.
-  float k1 = k * k * (3.0 - 2.0 * k);
-  float k2 = k1 * k1 * (3.0 - 2.0 * k1);
-  k = mix(k1, k2, 0.62);
-  float t = mix(mix(G_PALE_LO, G_PALE_HI, l), mix(G_DEEP_LO, G_DEEP_HI, l), k);
-  return lut(clamp(t, 0.004, 0.996));   // ★ 램프는 그대로 — 자리만 옮겼다
-}
-/** 가이드 룩을 **최종 색에** 건다.
- *  ★ personColor 안에만 넣으면 안 된다(08-07 실제 사고). 코치 판은 uPForm 으로 두 갈래다:
- *      uPForm ≤ 0.5 → personLook → personColor  (가이드 걸림)
- *      uPForm > 0.5 → personAura (레퍼런스 5중 레이어) → **personColor 를 안 거침**
- *    후자가 실사용 경로였고, 그래서 랩 렌더에선 하얀 인물이 빨갛게 달아올랐는데
- *    실제 화면에선 아무 일도 안 일어났다(유저). 두 갈래가 합류하는 **끝**에서 걸어야 한다.
- *  입력 색의 밝기만 읽어 램프를 다시 태운다 — 앞 단계가 무엇이든 결과는 같다. */
-vec3 personGuide(vec3 c){
-  if (uPHiPale <= 0.0) return c;
-  // ★ 들어온 색은 이미 이 룩(personLook / personAura)의 결과다. 그 **밝기**를 램프 좌표로 읽어
-  //   같은 LUT 위에서 자리만 옮긴다 — 결(옷 주름·명암)이 밝기에 실려 있으므로 그대로 살아남는다.
-  //   ×1.25 는 룩 출력이 램프 상단을 다 안 쓰기 때문의 보정(어두운 쪽이 뭉치는 걸 막는다).
-  return personGuideColor(clamp(dot(c, vec3(0.299, 0.587, 0.114)) * 1.25, 0.0, 1.0));
+  k = k * k * (3.0 - 2.0 * k);
+  k = k * k * (3.0 - 2.0 * k);
+  return mix(pale, deep, k);
 }
 vec3 personColor(float T){
   //   ⚠ 여기서 가이드로 갈아타면 **두 번 걸린다**(personGuide 가 합류 지점에서 또 건다).
@@ -657,8 +689,9 @@ vec4 personAura(float mBody, float wide, float lumSharp, float lumBase, float fa
   float lum = lb + d * keep;
   lum = mix(lum, lb, face);   // 얼굴: 결 제거
   // 톤(룩2): 감마 0.59 → 대비 0.8 → 밝기 +0.5 → 인물 대역 0.3~1.0 (앱과 동일)
-  float band = 0.3 + 0.7 * clamp((pow(clamp(lum, 0.0, 1.0), 0.59) - 0.5) * 0.8 + 0.72 + uPCalB, 0.0, 1.0);
-  float bandB = 0.3 + 0.7 * clamp((pow(clamp(lb, 0.0, 1.0), 0.59) - 0.5) * 0.8 + 0.72 + uPCalB, 0.0, 1.0);
+  float bandW = uPBandHi - uPBandLo;
+  float band = uPBandLo + bandW * clamp((pow(clamp(lum, 0.0, 1.0), 0.59) - 0.5) * 0.8 + 0.72 + uPCalB, 0.0, 1.0);
+  float bandB = uPBandLo + bandW * clamp((pow(clamp(lb, 0.0, 1.0), 0.59) - 0.5) * 0.8 + 0.72 + uPCalB, 0.0, 1.0);
   band = mix(band, 0.17, face * 0.92);   // 얼굴 저열 — 0.10 은 광나는 구슬처럼 떴다(유저). 살짝 톤을 남긴다
   // ★ 얼굴 아래 리프트 — 가드를 올리면 얼굴·목·가슴이 한 덩어리로 붙어 글러브와 구분이
   //   안 됐다(유저 08-04). 실측: 얼굴 휘도 108 · 가슴 110 — 둘이 사실상 같은 색이었다.
@@ -675,7 +708,7 @@ vec4 personAura(float mBody, float wide, float lumSharp, float lumBase, float fa
     band = min(1.0, band + uFaceLift * lift);
   }
   // 얇은 부위(팔·다리) 심화 — wide 낮음 = 얇음. 유저: "다리만 조금 더 진하게"
-  band = min(1.0, band + 0.115 * (1.0 - smoothstep(0.40, 0.75, wide)) * (1.0 - face));   // 다리가 최심 주황(#FF3300 대)까지 닿게(유저)
+  band = min(uPBandHi, band + 0.115 * (bandW / 0.7) * (1.0 - smoothstep(0.40, 0.75, wide)) * (1.0 - face));   // 다리가 최심 주황(#FF3300 대)까지 닿게(유저)
   // ⚠ 세로 부위 프로파일(허리·무릎·종아리 대역)은 **폐기** — A1 처럼 크롭된 판에선 uv 가
   //   신체 좌표가 아니라서 허리 밴드가 셔츠 밑단의 붉은 줄무늬로 찍혔다(같은 프레임 대조 실측).
   //   부위 대비는 포즈 없인 안전하게 재현 불가 — stdG 일부 손해를 감수한다.
@@ -697,6 +730,43 @@ vec4 personAura(float mBody, float wide, float lumSharp, float lumBase, float fa
   //   (유저: "자글자글 너무 싫어"). 밴딩 해소엔 고정 패턴이면 충분하다. 진폭도 축소.
   float dth = (fract(sin(dot(uv * 1483.0, vec2(12.9898, 78.233))) * 43758.5453) - 0.5)
             * (0.006 + face * 0.010);
+  // 부위 강조 — 띠 안에서 t 를 uPEmphT(기본 0.25 = #FA3030)로 끌어내린다.
+  //   ⚠ 얼굴은 제외한다(face) — 얼굴 대역은 이미 저열로 눌러 놨는데 여기서 또 만지면
+  //     이목구비 소거가 풀려 반점이 돌아온다(정수리 반점과 같은 경로).
+  if (uPEmph > 0.001) {
+    float e = smoothstep(uPEmphY0 - uPEmphSoft, uPEmphY0 + uPEmphSoft, uv.y)
+            * (1.0 - smoothstep(uPEmphY1 - uPEmphSoft, uPEmphY1 + uPEmphSoft, uv.y));
+    // ★ 열처럼 보이게 — 선형 마스크는 '띠'로 읽히고 얹은 티가 난다(유저: 동떨어지지 않고 자연스럽게).
+    //   ① 감마 0.55 = 코어는 꽉 차고 가장자리는 길게 흘러내린다 → 열 확산의 모양
+    //   ② 맥동은 **기존 웨이브 시계(tSec)를 그대로** 쓴다 — 새 시계를 만들면 몸통 일렁임과
+    //      박자가 어긋나 두 개의 다른 효과로 보인다. 룩시스템 어휘 안에 남는 방법이 이것이다.
+    //   ③ 얼굴 제외는 그대로(이목구비 소거가 풀리면 반점이 돌아온다)
+    e = pow(clamp(e, 0.0, 1.0), 0.55);
+    e *= 0.88 + 0.12 * sin(tSec * 1.9 + uv.y * 2.4);
+    float ek = clamp(e * uPEmph, 0.0, 1.0) * mBody * (1.0 - face);
+    t = mix(t, uPEmphT, ek);
+    // 열 경계 — 강조부는 rim(이 룩의 고유 장치)도 같이 세운다. 색만 바꾸면 평면 스티커가 되고,
+    //   rim 이 서야 '달아오른 덩어리'로 읽힌다. 몸통 rim 과 같은 식·같은 성분이다.
+    //   ⚠ t 는 이미 위에서 rim 을 먹고 나왔다 — rim 변수를 여기서 더해 봐야 죽은 코드다.
+    //     반드시 t 에 직접 얹는다(실측으로 잡은 함정).
+    t += max(0.0, band - bandB) * 0.9 * ek;
+  }
+  // ★★ 가이드 강조(uPHiPale>0)가 **룩2 경로에서 색에 안 닿고 있었다**(유저: 차이가 너무 없잖아).
+  //   gHot 은 여기까지 와서 inkK(잉크 세기)만 흔들었고 t 는 그대로였다. personGuideColor /
+  //   G_PALE_* 는 personColor 경로 전용이라 uPForm=1(룩2, 기본값)에선 **한 번도 안 불린다** —
+  //   내가 그 죽은 램프를 고치고 있었다. 색을 가르는 자리는 여기다.
+  //     강조 밖 = 연한 코랄 #FF8E5E (t 0.75 · look2 스톱 그대로)
+  //     강조 안 = 가장 진한 주황 #FF3300 (t 1.00 · look2 스톱 그대로)
+  //     사이는 t 0.85 #FF6A38 · 0.90 #FF5726 — **주황으로만** 이어진다(붉은 구간을 안 지난다).
+  //     흰색↔RED 로 갈랐던 직전 안은 대비는 셌지만 빨강이 팔레트에서 튀었다(유저).
+  //   smoothstep 두 번 = 흰색 아니면 붉은색으로 갈린다(중간톤이 넓게 깔리는 걸 막는다).
+  //   몸 결은 10% 만 남긴다 — 완전히 평면으로 만들면 인물이 아니라 판때기로 보인다.
+  if (uPHiPale > 0.0) {
+    float g = clamp(gHot, 0.0, 1.0);
+    g = g * g * (3.0 - 2.0 * g);
+    g = g * g * (3.0 - 2.0 * g);
+    t = mix(mix(t, 0.75, 0.90), 1.00, g);
+  }
   vec3 c = look2Ramp(clamp(t + dth, 0.0, 1.0));
   // 채도 부스트(유저 최종 요청: "제발 채도 올려줘") — 무채 축 기준 1.28배.
   //   회색 바닥·밝은 코트 위에서 살몬이 먼지빛으로 읽히는 것을 원천 보정.
@@ -1388,11 +1458,16 @@ export function drawStemArrow(g, W, H, t, ENV, opts = {}) {
   // 뿌리는 알파 0으로 사라지되(유저 확정) 몸통은 금방 진해진다 — 예전 램프(0.10/0.38)는 스템 대부분이
   // 반투명이라 지면에 투사하면 통째로 흐려 보였음(유저: 화살표가 왜 이렇게 흐려졌어).
   // 뿌리 투명 구간 연장(0.10→0.18 에서야 첫 스톱) — 출발점이 딱 끊겨 보였다(유저: 부드럽게)
-  grad.addColorStop(0.00, rgba(0.55, 0));
-  grad.addColorStop(0.18, rgba(0.64, 0.30 * A0));
-  grad.addColorStop(0.40, rgba(0.76, 0.80 * A0));
-  grad.addColorStop(0.65, rgba(0.88, 0.98 * A0));
-  grad.addColorStop(1.00, rgba(0.97, A0));
+  // ★ 온도(A.heat) — 이 스템만 LUT 위치가 상수로 박혀 있었다(0.55~0.97 = 코랄→샌드→프리즘).
+  //   LINE 정본의 다른 획은 전부 A.heat 를 타는데(아래 drawTrajectory·drawPunchLine 등) 여기만
+  //   빠져서, **밝은 바닥(주간 잉크)에서는 화살표가 통째로 씻겨 안 보였다**(유저 08-07 스샷).
+  //   heat 0.5 = 종전과 픽셀 동일(기본값), 0 쪽 = 레드로 내려가 밝은 면에서도 읽힌다.
+  const hv = v => Math.max(0.02, Math.min(0.99, v + ((A.heat ?? 0.5) - 0.5) * 1.1));
+  grad.addColorStop(0.00, rgba(hv(0.55), 0));
+  grad.addColorStop(0.18, rgba(hv(0.64), 0.30 * A0));
+  grad.addColorStop(0.40, rgba(hv(0.76), 0.80 * A0));
+  grad.addColorStop(0.65, rgba(hv(0.88), 0.98 * A0));
+  grad.addColorStop(1.00, rgba(hv(0.97), A0));
   // 볼류메트릭 언더글로우 — 같은 폴리곤을 1.9배 넓혀 블러 밴드로. shadowBlur 없이 스템이
   //   판에 붙은 종이처럼 평평했다(유저: 발자국 토큰과 감도 차이). 링의 volRing 과 같은 취지.
   // ★ 도트 스템의 흐름 — **점 목록을 한 번 계산**해 언더글로우와 본체가 같은 점을 쓴다.
@@ -1461,7 +1536,8 @@ export function drawStemArrow(g, W, H, t, ENV, opts = {}) {
     const tipA = Math.min(1, (draw - 0.28) / 0.22) * A0;
     const ty = yEnd + tipS * 0.30;                     // 머리보다 살짝 뒤 = 촉 끝이 스템 끝과 맞음
     g.globalAlpha = tipA;
-    const go = { color: lut(0.95), glowColor: lut(0.85), glow: 12 * glowK };
+    // 촉도 같은 온도를 탄다 — 스템만 내리면 촉만 창백하게 남아 화살표가 반쪽으로 읽힌다(실측).
+    const go = { color: lut(hv(0.95)), glowColor: lut(hv(0.85)), glow: 12 * glowK };
     const ok = ENV.glyph && (ENV.glyph(g, 'LIFT_TIP', cx, ty, tipS, go)
                           || ENV.glyph(g, 'TIP_TRI', cx, ty, tipS * 0.93, go));
     if (!ok) {                                        // 글리프 미로드 폴백 = 같은 비율 스트로크 촉
@@ -1482,6 +1558,7 @@ export function drawStemArrow(g, W, H, t, ENV, opts = {}) {
 export function drawCurveArrow(g, W, H, pts01, t, ENV, opts = {}) {
   const lut = ENV.lut, A = ENV.arrow || {};
   const AW = A.w ?? 1, glowK = A.glow ?? 1;
+  const hv = v => Math.max(0.02, Math.min(0.99, v + ((A.heat ?? 0.5) - 0.5) * 1.1));   // 온도 — drawStemArrow 와 같은 식
   const s = (H / 256) * (opts.scale ?? 1);
   g.clearRect(0, 0, W, H);
   const P = pts01.map(([x, y]) => [x * W, y * H]);
@@ -1536,7 +1613,8 @@ export function drawCurveArrow(g, W, H, pts01, t, ENV, opts = {}) {
     // 촉을 머리보다 tipS*0.30 뒤로 물린다 = 촉 '끝'이 경로 끝과 맞는다(스템 규약).
     const hx = path[head][0] - Math.sin(ang) * tipS * 0.30, hy = path[head][1] + Math.cos(ang) * tipS * 0.30;
     g.save(); g.translate(hx, hy); g.rotate(ang); g.globalAlpha = Math.min(1, (prog - 0.28) / 0.22) * A0;
-    const go = { color: lut(0.95), glowColor: lut(0.85), glow: 12 * glowK };
+    // 촉도 같은 온도를 탄다 — 스템만 내리면 촉만 창백하게 남아 화살표가 반쪽으로 읽힌다(실측).
+    const go = { color: lut(hv(0.95)), glowColor: lut(hv(0.85)), glow: 12 * glowK };
     if (!(ENV.glyph && (ENV.glyph(g, 'LIFT_TIP', 0, 0, tipS, go) || ENV.glyph(g, 'TIP_TRI', 0, 0, tipS * 0.93, go)))) {
       g.strokeStyle = lut(0.95); g.lineWidth = 9 * s * AW; g.lineJoin = 'round'; g.lineCap = 'round';
       g.beginPath(); g.moveTo(-18 * s, 12 * s); g.lineTo(0, -14 * s); g.lineTo(18 * s, 12 * s); g.stroke();
@@ -1868,18 +1946,23 @@ function volRing(g, lut, r, v, a, lw, GB, wMul = 1) {
  *  P.mat     = { nx, fx, ny, fy } 판 정규좌표(-1..1, +y = 먼 쪽). nx = fx 면 직사각
  *  P.targets = [{ x, y, n, r, on, live }]  on = 이 단계에서 쓰는가 · live = 지금 겨눌 표적(색)
  *  P.center  = { x, y, r, label, ring }    액티브 타깃. ring:0 = 링은 3D 존 마크가 그린다
- *  P.title / P.brand / P.ruler{w,h} / P.chev / P.bracket / P.round / P.prog
+ *  P.brand / P.prog   (title·ruler·chev·bracket·round 는 판을 없앨 때 같이 폐기)
  */
 const eOutQuint = u => 1 - Math.pow(1 - Math.max(0, Math.min(1, u)), 5);
 export function drawDribbleMat(g, W, P, look, t, ENV) {
   const lut = ENV.lut, s = W / 512;
+  // 주간(잉크) 여부 — 아래 CHROME·GB·노드 채움이 전부 이 값에서 갈린다. **맨 위에서** 정한다.
+  const DAY = ENV?.day ? 1 : 0;
   const AW = (ENV.arrow && ENV.arrow.w) || 1;
   const rgbaL0 = (v, a) => lut(v).replace('rgb(', 'rgba(').replace(')', ',' + a + ')');
-  const INK = (a, v) => rgbaL0(v == null ? 0.86 : v, a);   // 크롬 = LUT 밝은 끝. 하드코딩 크림 폐기
-  // 밝은 투사면 보정은 **여기서 하지 않는다.** 노드는 판정 마크(floorRing)가 그리고, 마크
-  //   셰이더가 이미 잉크 모드(tokens.js 178: 색 보존 + 밝기→커버리지)로 처리한다.
-  //   전엔 여기에 알파·두께 배수를 따로 뒀는데, 그건 시스템 밖에 만든 두 번째 보정이었다
-  //   (유저: 화살표는 대응되는데 이것만 안 된다 = 시스템을 안 쓴 것). 레일만 남아 dA/dW 폐기.
+  //   ★ 주간 크롬은 LUT **위쪽 끝**으로 올린다. 실측(바닥 #8B9080 L=141):
+  //       lut .20 L108(Δ-32) · .36 L120(Δ-20) · **.50 L140(Δ 0)** · .62 L161(Δ+20)
+  //       · .86 L206(Δ+65) · .95 L230(Δ+89)
+  //     이 팔레트는 **한가운데(0.50)가 바닥과 휘도가 같다**. 낮에 안 보인다는 건 밝기 문제가
+  //     아니라 램프의 그 지점을 쓰고 있었다는 뜻이다. 대비는 양 끝에만 있다.
+  //     (내가 처음에 0.62 로 내렸던 건 오히려 Δ+65 → Δ+20 으로 **악화**였다 — 실측으로 확인.)
+  const CHROME = DAY ? 0.95 : 0.86;
+  const INK = (a, v) => rgbaL0(v == null ? CHROME : v, a);
   const LNW = 4 * AW * s;                                  // LINE 두께 정본 — 모든 선이 여기서 파생
   g.clearRect(0, 0, W, W); g.lineJoin = 'round'; g.lineCap = 'round';
   const M = P.mat || { nx: 0.86, fx: 0.86, ny: -0.86, fy: 0.86 };
@@ -1949,9 +2032,12 @@ export function drawDribbleMat(g, W, P, look, t, ENV) {
   const tgK = P.tgK == null ? 1 : Math.max(0, Math.min(1, P.tgK));
   const NODES = tgK > 0.004 ? (P.targets || []).slice().sort((a, b) => (a.n || 0) - (b.n || 0)) : [];
   if (NODES.length) {
-    g.save(); g.shadowBlur = 0; g.globalAlpha = 0.22 * eOutQuint(IN / 0.9) * tgK;
-    g.strokeStyle = lut(0.6); g.lineWidth = 2.2 * s; g.lineCap = 'round';
-    g.setLineDash([0.01, 8 * s]);
+    // ★ 밝은 바닥에서는 이 값으로 안 보인다(유저: 라인들이 사라졌네). alpha .22 · 2.2px 는
+    //   어두운 랩 캔버스 기준이다 — 코트 타일 무늬에 그대로 묻힌다. 주간엔 진하고 굵게.
+    g.save(); g.shadowBlur = 0;
+    g.globalAlpha = (DAY ? 0.55 : 0.22) * eOutQuint(IN / 0.9);
+    g.strokeStyle = lut(DAY ? 0.3 : 0.6); g.lineWidth = (DAY ? 3.6 : 2.2) * s; g.lineCap = 'round';
+    g.setLineDash([0.01, (DAY ? 6 : 8) * s]);
     const TRn = P.travel || {};
     for (const q of NODES) {
       const qx = X(q.x), qy = Y(q.y), dx = X(cU) - qx, dy = Y(cV) - qy;
@@ -1959,7 +2045,10 @@ export function drawDribbleMat(g, W, P, look, t, ENV) {
       const L = Math.hypot(dx, dy) || 1;
       const NR = (q.r != null ? q.r : 0.13) * W / 2 * 1.25;   // 노드 림 바깥에서 시작
       const sx = qx + dx / L * NR, sy = qy + dy / L * NR;
-      const ex = X(cU) - dx / L * CR * 1.12, ey = Y(cV) - dy / L * CR * 1.12;
+      // ★ 허브가 live 면 1.34배로 커진다(내가 노드 재질로 맞추면서 생긴 것) — 레일 끝을 CR 로
+      //   잡으면 **허브 안으로 들어가 가려진다**. 실제 반경으로 끝낸다.
+      const CRh = CR * (P.center && P.center.live ? 1.34 : 1);
+      const ex = X(cU) - dx / L * CRh * 1.12, ey = Y(cV) - dy / L * CRh * 1.12;
       g.beginPath(); g.moveTo(sx, sy); g.lineTo(ex, ey); g.stroke();
       // 접촉 파 — 허브에서 레일을 타고 바깥으로 훑고 나간다(모든 레일 동시)
       if (hitK > 0.01) {
@@ -2010,87 +2099,147 @@ export function drawDribbleMat(g, W, P, look, t, ENV) {
     }
   }
 
-  // ── 노드 = 잽잽훅 노드 **상태 규칙 그대로**(drawPunchLine 1745·1773).
-  //   대기 = **빈 링**(채우지 않는다) · 지목 = 채움 + 숫자 파냄.
-  //   넷을 다 채웠더니 오렌지 덩어리 다섯 개가 됐다(유저: 촌스럽다) — 채움은 판정어다.
-  //   색 사건은 화면에 하나뿐이어야 한다: 지금은 허브(공이 닿을 자리)와 지목된 노드 하나.
-  const GB = 13 * look.halo;
-  // railsOnly — 노드를 **3D 판정 마크**가 그리는 배치(시뮬 BK_B1). 프림은 레일만 맡는다.
-  //   마크로 그려야 밝은 투사면 대응(잉크 모드)·상태 룩·룩 슬라이더가 따라온다 — 캔버스로
-  //   옮기는 순간 그게 전부 끊긴다(유저: 화살표는 멀쩡한데 이것만 스러진다).
-  for (const tg of (P.railsOnly ? [] : NODES)) {
+  // ── 노드 = 잽잽훅 노드와 **같은 레시피**. 채움 + volRing + 헤일로 — 윤곽선을 긋지 않는다.
+  // ★ 주간(잉크) 예산 — 밝은 바닥에서는 **글로우를 줄이고 코어를 세운다**.
+  //   빛을 더해 읽히게 만드는 건 어두운 면에서만 통한다. 밝은 면에서는 번짐이 곧 뿌옇게
+  //   보이는 원인이라, 헤일로를 절반으로 깎고 그만큼 획 자체를 진하게 남긴다.
+  const GB = 13 * look.halo * (DAY ? 0.45 : 1);
+  for (const tg of (P.targets || [])) {
     const on = tg.on !== false, live = !!tg.live;
     const k = nodeK(tg.n ? tg.n - 1 : 0) * tgK;
     if (k <= 0.001) continue;
     const cx = X(tg.x), cy = Y(tg.y);
-    const R = (tg.r != null ? tg.r : 0.13) * W / 2 * (live ? 1.34 : 1) * (0.9 + 0.1 * k);
-    g.globalAlpha = k * (on ? 1 : 0.4);
-    if (live) {
-      // 지목 = 판정 완료 노드와 같은 문법: 채움 + 얇은 림, 볼류메트릭 밴드는 생략한다
-      //   (채움+밴드+블룸이 겹치면 백열로 포화해 숫자가 사라진다 — punchLine 1772 와 같은 이유)
-      g.shadowBlur = GB * 1.4; g.shadowColor = lut(0.5);
-      g.fillStyle = lut(0.36);
-      g.beginPath(); g.arc(cx, cy, R * 0.88, 0, Math.PI * 2); g.fill();
-      g.shadowBlur = GB * 1.6; g.strokeStyle = lut(0.8); g.lineWidth = LNW * 1.3;
-      g.beginPath(); g.arc(cx, cy, R, 0, Math.PI * 2); g.stroke(); g.shadowBlur = 0;
-      g.save(); g.globalCompositeOperation = 'destination-out';
-      ENV.num(g, tg.n, cx, cy, R * 0.9, Math.round(R * 0.72));
-      g.restore();
-    } else {
-      // 대기 = 헤어라인 링 하나. 무채(lut 상단)라 색을 쓰지 않는다
-      g.save(); g.translate(cx, cy);
-      volRing(g, lut, R, 0.5, 0.42, LNW * 0.75, GB * 0.6);
-      g.restore();
-      g.strokeStyle = INK(0.5); g.lineWidth = LNW * 0.75;
-      g.shadowBlur = GB * 0.5; g.shadowColor = lut(0.5);
-      g.beginPath(); g.arc(cx, cy, R, 0, Math.PI * 2); g.stroke(); g.shadowBlur = 0;
-      g.globalAlpha = k * 0.55;
-      ENV.num(g, tg.n, cx, cy, R * 0.9, Math.round(R * 0.66));
-    }
+    const R = (tg.r != null ? tg.r : 0.20) * W / 2 * (live ? 1.34 : 1) * (0.9 + 0.1 * k);
+    g.globalAlpha = k * (on ? 1 : 0.45);
+    g.shadowBlur = GB * 1.4; g.shadowColor = lut(0.5);
+    // ★ 주간엔 램프의 **양 끝**으로 벌린다 — 0.5 는 바닥과 휘도가 같아 활성 노드가 통째로
+    //   사라졌다(실측 Δ0). 밝은 면에서 '강함'은 밝음이 아니라 **잉크(어두움)** 다:
+    //   활성 0.26(Δ-32, 진한 적) · 대기 0.62(Δ+20, 옅은 살구). 둘 사이 휘도차 ≈52.
+    g.fillStyle = DAY ? lut(live ? 0.26 : 0.62) : lut(live ? 0.5 : 0.36);
+    g.beginPath(); g.arc(cx, cy, R * 0.88, 0, Math.PI * 2); g.fill();
+    g.shadowBlur = 0;
+    g.save(); g.translate(cx, cy);
+    volRing(g, lut, R, live ? 0.8 : 0.5, live ? 0.9 : 0.5, LNW * 0.9, GB);
+    g.restore();
+    // ★ **바깥 림** — 잽잽훅 노드에는 있는데 여기만 빠져 있었다(유저 #191: 반짝반짝한 느낌이
+    //   안 든다). '윤곽선을 긋지 않는다'가 원래 의도였지만, 채움이 0.88R 이라 R 까지의 띠가
+    //   비어 납작한 원반으로 읽혔다. 채움(0.88R) ↔ 림(R) 사이의 **간격이 곧 겹으로 보이는 구조**다.
+    //   수치는 콤보 노드 정본 그대로 — lineWidth LNW×(활성 1.3 / 대기 0.9) · shadowBlur GB×(1.6/0.6).
+    // ★ 판정 색 — 잽잽훅과 **같은 규약**(유저). 채움은 그대로 두고 **링**이 결과를 말한다:
+    //   hit=prism(얼음) · near=sand(연코랄) · miss=무채. 이 어휘가 없어서 매트는 '여기를
+    //   밟아라'까지만 말하고 '잘 밟았다/빗나갔다'를 못 했다.
+    const V = tg.v;
+    g.strokeStyle = V === 'hit' ? PAL.prism : V === 'near' ? PAL.sand : V === 'miss' ? NEU.lo
+      : lut(live ? 0.8 : 0.45);
+    g.lineWidth = LNW * (live ? 1.3 : V ? 1.15 : 0.9);
+    g.shadowBlur = live ? GB * 1.6 : V && V !== 'miss' ? GB * 1.3 : GB * 0.6;
+    g.shadowColor = V === 'hit' ? PAL.prism : V === 'near' ? PAL.sand : lut(0.5);
+    g.beginPath(); g.arc(cx, cy, R, 0, Math.PI * 2); g.stroke();
+    g.shadowBlur = 0;
+    // ★ 파냄(destination-out) **철회**(유저: 구멍을 뚫으면서 오히려 글자가 눈에 더 안 들어온다).
+    //   잽잽훅은 어두운 캔버스라 뚫린 자리가 검게 남아 글자로 읽혔다. 여기는 **잉크로 합성**해
+    //   바닥이 비치는데, 그러면 구멍 = 코트 무늬가 되어 글자가 배경 텍스처에 먹힌다.
+    //   합성 매체가 다르면 같은 기법이 반대로 작동한다. 솔리드로 얹는다.
+    ENV.num(g, tg.n, cx, cy, R * 0.9, Math.round(R * 0.78));
     g.globalAlpha = 1;
   }
 
   // ── 접촉 = 수축 링 + 잠금 핑. 잽잽훅·복싱 판정이 쓰는 어프로치 링과 같은 구조다.
-  if (P.center && P.hit != null) {
-    const cx = X(cU), cy = Y(cV), GB2 = 13 * look.halo;
+  // ── 접촉 반응 = **닿은 그 자리**에서 일어난다(유저 확정).
+  //   "3번 자리에서 드리블하는데 갑자기 중앙에서 잘했다는 시그널이 보이면 좀 그래" —
+  //   맞다. 반응이 내 동작이 일어난 곳에 없으면 그건 내 동작에 대한 반응으로 안 읽힌다.
+  //   그래서 수축 링·트레일·잠금 핑을 **노드 단위**로 내린다(targets[i].hit).
+  //   허브는 진행(prog)만 말한다 — 아무 데서나 반응하면 팔딱임이 정보를 안 싣는다.
+  //   P.hit(허브 전역)은 노드별 hit 이 하나도 없을 때만 폴백으로 남는다.
+  // ★ **수축과 확장은 성격이 달라야 한다**(유저: 선 두께나 타이밍 차이가 없어서 한 번에
+  //   자잘하게 많이 하는 건지 구분이 안 간다). 두 가지가 겹쳐 있었다:
+  //     ① 잠금 핑 수명이 **박자보다 길었다** — 0.42s 고정인데 실측 박자는 0.25~0.29s 다.
+  //        앞 타의 확장이 안 끝났는데 다음 타가 시작하니(45~68% 초과) 뭉갤 수밖에 없다.
+  //        → 수명을 박자에서 파생한다: per*0.42, 상한 0.16s. 확장은 **짧고 끝나야** 타격이 된다.
+  //     ② 획 두께가 0.7 vs 0.8 — 14% 차이라 눈이 두 사건으로 안 나눈다.
+  //        → 수축은 **가늘게**(0.45) 여러 겹으로 다가오고, 확장은 **굵게**(1.7) 한 겹으로 터진다.
+  //        예고는 가늘고 길게, 사건은 굵고 짧게 — 두께가 곧 위계다.
+  const contactFx = (cx, cy, R, hitS) => {
+    const GB2 = 13 * look.halo;
     const per = P.per || 0.4;
-    const pr = Math.max(0, Math.min(1, hit / per));      // 0 = 방금 닿음 → 1 = 다음 박자
-    const R0 = CR * 1.75, R1 = CR * 1.18;   // 도착을 진행 링 **바깥**에 둔다 — 같은 반경에
-    //   2.05 는 허브가 판 가장자리에 붙는 실배치에서 링이 판 밖으로 잘려 반쪽 아크가 됐다(유저 스샷).
-    //   빔 시작선(0.30m)도 넘었다 — 못 쏘는 자리에 그린 링이었다.
-    //   내려앉으면 링 셋이 겹쳐 인쇄 오정합처럼 보였다(유저 스샷). 밖에서 좁혀 와 링에 닿는다.
-    // 착지하면 **통째로 사라진다** — 수축은 박자 사건이지 테두리가 아니다. 도착 알파를
-    //   유지했더니 굵은 링이 상시 주차돼 진행 링과 두 겹으로 읽혔고, 알파만 낮췄더니
-    //   잔상 두 겹이 흙빛 띠로 남았다(유저 스샷 2회). 들어와서 번쩍, 진행 링에 넘기고 끝.
-    const settle = Math.min(1, Math.max(0, (Math.pow(pr, 1.6) - 0.58) / 0.42));
-    for (let kk = 2; kk >= 0 && settle < 1; kk--) {       // 실키 트레일 — 뒤에 남는 잔상 2겹
+    const pr = Math.max(0, Math.min(1, hitS / per));     // 0 = 방금 닿음 → 1 = 다음 박자
+    const pingT = Math.min(0.16, per * 0.42);            // 확장 수명 — 박자 안에서 반드시 끝난다
+    const hk = Math.max(0, Math.min(1, 1 - hitS / pingT));
+    const R0 = R * 1.9;
+    for (let kk = 2; kk >= 0; kk--) {                    // 실키 트레일 — 뒤에 남는 잔상 2겹
       const pe = Math.pow(Math.max(0, pr - kk * 0.05), 1.6);
-      const rr = R0 - (R0 - R1) * pe;
-      const a = (kk === 0 ? (0.5 + 0.4 * pe) : (0.16 / kk)) * (1 - settle);
+      const rr = R0 - (R0 - R) * pe;
+      const a = kk === 0 ? (0.55 + 0.35 * pe) : (0.16 / kk);
       g.save(); g.translate(cx, cy);
-      volRing(g, lut, rr, 0.5 + 0.35 * pe, a, LNW * 0.7, GB2, 1.15 - 0.35 * pe);
+      volRing(g, lut, rr, 0.5 + 0.35 * pe, a, LNW * 0.45, GB2, 1.15 - 0.35 * pe);
       g.restore();
     }
-    if (hitK > 0.01) {                                    // 잠금 핑 — 팽창하며 소멸
+    if (hk > 0.01) {                                     // 잠금 핑 — 굵게 한 겹, 팽창하며 소멸
       g.save(); g.translate(cx, cy);
-      volRing(g, lut, CR * (1 + 1.5 * (1 - hitK)), 0.92, hitK * 0.85, LNW * 0.8, GB2, 1.1);
+      volRing(g, lut, R * (1 + 1.5 * (1 - hk)), 0.92, hk * 0.9, LNW * 1.7, GB2, 1.1);
       g.restore();
     }
+    // ★ **임팩트 플래시** — 잽잽훅 정본의 '팡'(유저: 밟게 빛나는 그게 있는데).
+    //   수축 링만으로는 다가오는 예고일 뿐 **도착 순간의 사건**이 없었다. 백열 코어 버스트로
+    //   그 한 순간을 만든다. 0.22s 만에 완전 소멸 — 번쩍하고 사라져야 타격이 된다.
+    //   수명을 박자에서 파생하지 않고 짧게 고정한다: 이건 '지속'이 아니라 '순간'이다.
+    // ★ 0~1 로 **양쪽 다** 조인다 — hitS 가 음수면(외부 시간으로 되감거나 첫 프레임) fk 가 1을
+    //   넘고, 아래 BR = R*(1.5+1.8*(1-fk)) 가 **음수 반지름**이 되어 createRadialGradient 가
+    //   throw 한다(실측: 결정론 캡처 첫 프레임에서 IndexSizeError). 그리기 함수는 어떤 시각이
+    //   들어와도 죽으면 안 된다.
+    const fk = Math.max(0, Math.min(1, 1 - hitS / 0.22)), fe = fk * fk;
+    if (fe > 0.01) {
+      const BR = Math.max(1, R * (1.5 + 1.8 * (1 - fk)));
+      const fg2 = g.createRadialGradient(cx, cy, 0, cx, cy, BR);
+      fg2.addColorStop(0, `rgba(255,255,255,${Math.min(1, 1.15 * fe).toFixed(3)})`);
+      fg2.addColorStop(0.35, rgbaL(0.92, (0.8 * fe).toFixed(3)));
+      fg2.addColorStop(1, rgbaL(0.7, 0));
+      g.save(); g.shadowBlur = 0; g.fillStyle = fg2;
+      g.beginPath(); g.arc(cx, cy, BR, 0, Math.PI * 2); g.fill();
+      g.restore();
+    }
+  };
+  const nodeHits = (P.targets || []).filter(q => q && q.hit != null && q.hit < 1.2);
+  for (const q of nodeHits) {
+    const R = (q.r != null ? q.r : 0.20) * W / 2 * (q.live ? 1.34 : 1);
+    contactFx(X(q.x), Y(q.y), R, q.hit);
   }
+  // ★ 가운데도 **표적 5번**이다(유저: 가이드 보니 가운데에서도 공 튀길 수 있더구만).
+  //   내가 앞선 수정에서 허브를 반응에서 통째로 뺐는데, 그러면 가운데에 튀길 때 아무 일도
+  //   안 일어난다 — 노드 넷과 같은 자격으로 되돌린다. center.hit 이 그 신호다.
+  //   P.hit(전역)은 center.hit 이 없을 때만 도는 옛 폴백으로 남긴다.
+  const cHit = P.center ? (P.center.hit != null ? P.center.hit : (P.hit != null ? hit : null)) : null;
+  if (cHit != null && cHit < 1.2) contactFx(X(cU), Y(cV), CR, cHit);
 
   // ── 액티브 타깃 — 화면에서 **유일한 색 사건**. 지금 겨눌 자리
   if (P.center) {
-    const cx = X(cU), cy = Y(cV);
-    // 내부 풀 — 숨결만. 0.30 은 검은 바닥 위에서 흙탕 갈색 원판이 됐고 로고를 삼켰다(유저 스샷).
-    //   허브를 정의하는 건 링이지 채워진 판이 아니다.
-    const pool = g.createRadialGradient(cx, cy, CR * 0.1, cx, cy, CR * 1.35);
-    pool.addColorStop(0, rgbaL(0.45, 0.07)); pool.addColorStop(0.62, rgbaL(0.38, 0.025));
+    const cx = X(cU), cy = Y(cV), GBc = 13 * look.halo * (DAY ? 0.45 : 1);
+    const pool = g.createRadialGradient(cx, cy, CR * 0.1, cx, cy, CR * 1.6);
+    pool.addColorStop(0, rgbaL(0.42, 0.30)); pool.addColorStop(0.6, rgbaL(0.35, 0.12));
     pool.addColorStop(1, rgbaL(0.3, 0));
-    g.fillStyle = pool; g.beginPath(); g.arc(cx, cy, CR * 1.35, 0, Math.PI * 2); g.fill();
-    if (P.center.ring !== 0) {
-      g.strokeStyle = rgbaL(0.3, 0.18); g.lineWidth = LNW * 0.5;   // 미진행 트랙 = 헤어라인.
-      g.beginPath(); g.arc(cx, cy, CR, 0, Math.PI * 2); g.stroke(); //   진행 획과 굵기가 같으면 어느 쪽이 상태인지 갈린다
-    }
+    g.fillStyle = pool; g.beginPath(); g.arc(cx, cy, CR * 1.6, 0, Math.PI * 2); g.fill();
+    // ★ 허브도 **노드와 같은 재질**이다(유저). 밝은 코트 플레이트에 얹고 재보니 허브만 무너졌다 —
+    //   노드 1~4 는 솔리드 채움 + 굵은 림이라 살아남는데 허브는 pool 그라디언트뿐이라 바닥에 녹았다.
+    //   같은 조건에서 잽잽훅 노드·화살표 촉도 멀쩡했다(둘 다 솔리드 면이다). 즉 주간에 살아남는
+    //   것은 **면적과 채도**지 글로우가 아니다 — 허브만 그 문법 밖에 있었다.
+    //   가운데는 표적 5번이므로 채움·림·크기 규약을 노드와 공유한다(live 면 1.34배도 같이).
+    const cLive = !!P.center.live;
+    const CRL = CR * (cLive ? 1.34 : 1);
+    g.shadowBlur = GBc * 1.4; g.shadowColor = lut(0.5);
+    g.fillStyle = DAY ? lut(cLive ? 0.26 : 0.62) : lut(cLive ? 0.5 : 0.36);
+    g.beginPath(); g.arc(cx, cy, CRL * 0.88, 0, Math.PI * 2); g.fill();
+    g.shadowBlur = 0;
+    g.save(); g.translate(cx, cy);
+    volRing(g, lut, CRL, cLive ? 0.8 : 0.5, cLive ? 0.9 : 0.5, LNW * 0.9, GBc);
+    g.restore();
+    const cVer = P.center.v;   // 허브도 표적 5번이므로 같은 판정 어휘를 쓴다
+    //   ※ cV 는 이미 허브 좌표로 쓰이고 있다 — 이름을 겹치면 TDZ 로 죽는다(한 번 겪음).
+    g.strokeStyle = cVer === 'hit' ? PAL.prism : cVer === 'near' ? PAL.sand : cVer === 'miss' ? NEU.lo
+      : lut(cLive ? 0.8 : 0.45);
+    g.lineWidth = LNW * (cLive ? 1.3 : cVer ? 1.15 : 0.9);
+    g.shadowBlur = cLive ? GBc * 1.6 : cVer && cVer !== 'miss' ? GBc * 1.3 : GBc * 0.6;
+    g.shadowColor = cVer === 'hit' ? PAL.prism : cVer === 'near' ? PAL.sand : lut(0.5);
+    g.beginPath(); g.arc(cx, cy, CRL, 0, Math.PI * 2); g.stroke(); g.shadowBlur = 0;
     if (P.brand && ENV.logo && ENV.logo.complete && ENV.logo.naturalWidth) {
       const lw = CR * 0.62, lh = lw * ENV.logo.naturalHeight / ENV.logo.naturalWidth;
       g.globalAlpha = 0.88 * hubK;                // 허브 정중앙 — 판정 링 안이 브랜드 자리다
@@ -2103,23 +2252,20 @@ export function drawDribbleMat(g, W, P, look, t, ENV) {
     }
   }
 
-  // ── 방향 셰브론 — 다음이 어느 쪽인지. 크롬이라 무채, 호흡만 준다
-  if (P.chev) {
-    const chev = (cy, dir) => {
-      for (let k = 0; k < 2; k++) {
-        const o = k * 9 * s, w = 11 * s, h = 7 * s, yy = cy + dir * o;
-        g.beginPath(); g.moveTo(X(cU) - w, yy - dir * h); g.lineTo(X(cU), yy);
-        g.lineTo(X(cU) + w, yy - dir * h); g.stroke();
-      }
-    };
-    g.strokeStyle = INK(0.45 + 0.3 * Math.sin(t * 2.4)); g.lineWidth = 2.2 * AW * s;
-    chev(Y(cV) - CR * 2.0, -1); chev(Y(cV) + CR * 2.0, 1);
-  }
+  // ── 방향 셰브론 — **폐기**(유저: 농구에서 원래 쓰이던 컴포넌트가 아니지 않니).
+  //   맞다. 판(마름모꼴)이 있던 첫 판의 잔재다 — 판을 없앨 때 같이 나갔어야 했는데 남았다.
+  //   HANDOFF-0806 '남은 일 3' 이 ruler·title·chev·round 를 죽은 파라미터로 이미 지목해 뒀다.
+  //   방향은 레일과 코멧이 말한다(모든 길은 허브를 거친다) — 화살표를 따로 둘 이유가 없다.
+
 
   // ── 워드마크 — 실물 매트가 브랜드를 박는 그 자리. 4급이라 가장 옅다
 
   // ── 진행 = 허브 바깥 아크 게이지. 판 테두리를 채우던 걸 여기로 옮긴다 —
   //    테두리는 '판이 어디까지인가'를 말하는 선이지 진행 막대가 아니다. 진행은 판정 옆에 붙는다.
+  // ★ 진행 게이지는 **허브에서 뺀다**(유저: 가운데 링이 왜 반만 차 있냐고, 애매하다).
+  //   가운데가 표적이 된 이상 그 링은 '지금 겨눌 자리'를 말해야 한다 — 거기에 '16회 중 8회'를
+  //   겹쳐 놓으니 한 선이 공간과 시간을 동시에 말해 어느 쪽도 안 읽혔다. 회차는 헤더 알약이
+  //   이미 '/16' 으로 말한다(같은 정보 두 벌 금지). 파라미터는 남기되 매트 호출부가 안 넘긴다.
   if (P.prog > 0.001 && P.center) {
     const cx = X(cU), cy = Y(cV);
     // 링 = 진행이다. 별도 게이지 원을 하나 더 그리지 않는다(줄이 둘이면 어느 쪽이 상태인지 갈린다).

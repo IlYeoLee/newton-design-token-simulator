@@ -1,0 +1,349 @@
+<!doctype html><html lang=ko><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1">
+<title>NEWTON 스탠스 랩 — 발 벌리기 토큰 · 띠 프레임 미리보기</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>↔️</text></svg>">
+<style>
+  :root{--bg:#0A0C10;--panel:#10131A;--line:#1D222C;--text:#E9EAEE;--dim:#98A1AD;--red:#FA3030}
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--text);font:13px/1.5 -apple-system,'Malgun Gothic',sans-serif}
+  .wrap{padding:20px;display:flex;flex-direction:column;gap:12px;align-items:center}
+  /* 프레임 = 유저 레퍼런스 비율. 화면 폭에 맞춰 줄되 비율은 절대 안 깨진다. */
+  #frame{position:relative;width:min(1816px,calc(100vw - 40px));aspect-ratio:1816/510;
+    background:#000 center/cover no-repeat;border:1px solid var(--line);overflow:hidden}
+  #frame canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+  .bar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;justify-content:center;
+    background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:9px 14px;
+    width:min(1816px,calc(100vw - 40px))}
+  .bar > .t{color:var(--dim);font-size:11px;letter-spacing:.04em;flex:0 0 auto}
+  .bar label{color:var(--dim);font-size:11.5px}
+  .bar input[type=range]{accent-color:var(--red);width:130px;vertical-align:middle}
+  .v{font-variant-numeric:tabular-nums;font-size:11.5px;min-width:52px;display:inline-block;text-align:right}
+  button{background:#161A22;color:var(--text);border:1px solid var(--line);border-radius:8px;
+    padding:5px 10px;font-size:11.5px;cursor:pointer}
+  button.on{background:var(--red);border-color:var(--red);color:#fff}
+  .note{color:var(--dim);font-size:11.5px;max-width:1000px;text-align:center}
+  #verHint{color:#FEC389;font-size:11.5px;text-align:center}
+  code{color:#FEC389}
+</style></head><body>
+<div class=wrap>
+  <div id=frame></div>
+
+  <div class=bar>
+    <span class=t>모션</span>
+    <button id=play class=on>⏸</button>
+    <label>t <input type=range id=s-t min=0 max=6 step=0.02 value=0><span class=v id=v-t>0.00s</span></label>
+    <label>pitch <input type=range id=s-p min=-75 max=-30 step=0.5 value=-55><span class=v id=v-p>-55°</span></label>
+    <label>발 길이 <input type=range id=s-len min=18 max=70 step=1 value=30><span class=v id=v-len>30cm</span></label>
+  </div>
+
+  <div class=bar>
+    <span class=t>상태</span>
+    <div id=segState></div>
+  </div>
+
+  <div class=bar>
+    <span class=t>룩 후보</span>
+    <div id=segVer></div>
+  </div>
+  <div id=verHint></div>
+
+  <div class=bar>
+    <span class=t>Success 후보</span>
+    <div id=segSucc></div>
+    <button id=succSave>이 안을 정본에 적용 (전 토큰)</button>
+  </div>
+  <div id=succHint></div>
+
+  <div class=bar>
+    <span class=t>무대</span>
+    <button id=bgmode>배경: 뒷판</button>
+    <label>배경 1장 <input type=range id=s-bg min=0.6 max=8 step=0.1 value=3.2><span class=v id=v-bg>3.2m</span></label>
+    <button id=grid>각도 그리드</button>
+    <button id=mgrid>30cm 격자</button>
+    <button id=blend>블렌딩: 잉크</button>
+    <label>각인(전 상태) <input type=range id=s-imp min=0 max=1 step=0.01 value=0.98><span class=v id=v-imp>0.98</span></label>
+    <label>압력장 <input type=range id=s-pl min=0 max=1 step=0.01 value=0.55><span class=v id=v-pl>0.55</span></label>
+    <label>화살표 온도 <input type=range id=s-heat min=0 max=1 step=0.01 value=0.15><span class=v id=v-heat>0.15</span></label>
+  </div>
+
+  <p class=note>프레임 1816×510(3.561:1) = 16:9·vfov 60°의 중앙 띠. 카메라는 실측 눈(y 1.69 · z −1.809),
+  토큰은 시뮬 정본(<code>FootMark</code>·<code>floorArrow</code>), 모션 곡선은 <code>bkB1SetupPose</code>,
+  룩 후보는 <code>src/mark-versions.js</code> — 전부 footlab·시뮬과 같은 파일이다.<br>
+  <b>발 길이 정본은 30cm</b>(<code>FOOT_LEN_M</code>). 슬라이더는 미리보기 배율일 뿐이라, 정하고 나면 그 값을 정본에 박아야 한다.</p>
+</div>
+<script type="module">
+import * as THREE from 'three';
+import { FootMark, floorArrow, bkB1SetupPose, B1_SETUP, BRAND } from './src/session.js';
+import { tickFlowArrows, applyMarkLook, tickMarkXfade, FOOT_LEN_M } from './src/tokens.js';
+import { FXP, GLYPHS, DEFAULT_GLYPHS, footSDFTexture, rebuildLUT } from './src/fxlut.js';
+import { VERSIONS, SUCCESS_CANDS } from './src/mark-versions.js';
+import LOOK from './src/mark-look.json';
+
+// 기본은 잉크(NormalBlending) — 밝은 바닥에 가산광을 쏘면 씻긴다(시뮬 tickWaves 와 같은 판단).
+FXP.day = 1;
+// ★ 글리프·LUT 를 **먼저** 심는다. main.js 가 부팅 때 하는 일 — 랩엔 main 이 없다.
+//   안 하면 footSDFTexture 가 null 을 줘 FootMark 이 발형 대신 존 원(빨간 타원)으로 떨어진다(실측).
+GLYPHS.set(DEFAULT_GLYPHS);
+rebuildLUT();
+await new Promise(res => {
+  const ok = () => footSDFTexture(false) && footSDFTexture(true);
+  if (ok()) return res();
+  const off = GLYPHS.onLoad(() => { if (ok()) { off(); res(); } });
+  setTimeout(() => { off(); res(); }, 4000);   // 못 받아도 폴백 발형으로 뜬다
+});
+
+// ── URL 파라미터 — 내보내기(export_stance_alpha.mjs)가 이 화면을 그대로 쓴다.
+//   랩과 산출물이 다른 코드를 타면 "랩에선 맞는데 뽑으면 다르다"가 반드시 생긴다(이 리포의 상습범).
+const Q = new URLSearchParams(location.search);
+const OUT_W = +(Q.get('w') || 1816), OUT_H = +(Q.get('h') || 510);
+const HEADLESS = Q.has('w');   // 내보내기 모드 — 조작 바를 숨기고 캔버스만 남긴다
+const BG = 'textures/tmp_stance_bg.png';
+// 실측 눈(_grid_b1stance.mjs) — 봇을 안 띄우고 그 자리만 빌린다.
+const EYE = new THREE.Vector3(0.014, 1.69, -1.809);
+const RATIO = OUT_W / OUT_H;
+// 렌더 프레임(16:9·vfov 60°)의 가로 화각을 유지한 채 세로만 띠로 자른다 → 시뮬 화면의 중앙 띠 그대로.
+const TANH = Math.tan(THREE.MathUtils.degToRad(60) / 2) * (16 / 9);
+const FOV = THREE.MathUtils.radToDeg(2 * Math.atan(TANH / RATIO));
+
+const $ = s => document.getElementById(s);
+const frame = $('frame');
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+renderer.setPixelRatio(Math.min(2, devicePixelRatio));
+renderer.setSize(OUT_W, OUT_H, false);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+frame.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(FOV, RATIO, 0.05, 60);
+
+// ── 무대 ────────────────────────────────────────────────────────────────
+const tex = new THREE.TextureLoader().load(BG);
+tex.colorSpace = THREE.SRGBColorSpace; tex.wrapS = tex.wrapT = THREE.RepeatWrapping; tex.anisotropy = 8;
+const GROUND_M = 16;
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(GROUND_M, GROUND_M),
+  new THREE.MeshBasicMaterial({ map: tex }));
+ground.rotation.x = -Math.PI / 2; ground.position.z = -3; ground.visible = false;
+scene.add(ground);
+
+// 하향각 5° 눈금(눈 기준) — 계산과 화면 대조용
+const gridG = new THREE.Group(); gridG.visible = false; scene.add(gridG);
+for (let dep = 40; dep <= 75; dep += 5) {
+  const d = EYE.y / Math.tan(THREE.MathUtils.degToRad(dep));
+  const g = new THREE.BufferGeometry().setFromPoints(
+    [new THREE.Vector3(-2.2, 0.002, EYE.z - d), new THREE.Vector3(2.2, 0.002, EYE.z - d)]);
+  gridG.add(new THREE.Line(g, new THREE.LineBasicMaterial({
+    color: dep % 10 === 0 ? 0x40E0FF : 0x1E5F70, transparent: true, opacity: 0.75 })));
+}
+// 30cm 실치수 격자 — "발이 저 타일 하나만 하냐"를 눈이 아니라 자로 판단하기 위한 것.
+const mGrid = new THREE.Group(); mGrid.visible = false; scene.add(mGrid);
+{
+  const C = 0.30, N = 8, z0 = B1_SETUP.Z;
+  const line = (a, b, m) => mGrid.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([a, b]), m));
+  const thin = new THREE.LineBasicMaterial({ color: 0x2E8B57, transparent: true, opacity: 0.5 });
+  const thick = new THREE.LineBasicMaterial({ color: 0x5BE59A, transparent: true, opacity: 0.9 });
+  for (let i = -N; i <= N; i++) {
+    const m = i % 3 === 0 ? thick : thin;   // 굵은 선 = 90cm
+    line(new THREE.Vector3(i * C, 0.003, z0 - N * C), new THREE.Vector3(i * C, 0.003, z0 + N * C), m);
+    line(new THREE.Vector3(-N * C, 0.003, z0 + i * C), new THREE.Vector3(N * C, 0.003, z0 + i * C), m);
+  }
+}
+
+// ── 토큰 (시뮬 정본) ────────────────────────────────────────────────────
+// FootMark.onSuccess = 시뮬이 파문·프레스를 다는 자리. 랩엔 rig 가 없어 훅만 비워 둔다.
+let sL, sR, aL, aR, tokG = null;
+function buildTokens() {
+  if (tokG) { scene.remove(tokG); tokG.traverse(o => { o.geometry?.dispose?.(); o.material?.dispose?.(); }); }
+  tokG = new THREE.Group(); scene.add(tokG);
+  sL = new FootMark('left').at(-B1_SETUP.HALF0, B1_SETUP.Z);
+  sR = new FootMark('right').at(B1_SETUP.HALF0, B1_SETUP.Z);
+  aL = floorArrow(-B1_SETUP.AX, B1_SETUP.AZ, 90, BRAND.sand, B1_SETUP.ALEN, B1_SETUP.ASCALE);
+  aR = floorArrow(B1_SETUP.AX, B1_SETUP.AZ, -90, BRAND.sand, B1_SETUP.ALEN, B1_SETUP.ASCALE);
+  tokG.add(sL.group, sR.group, aL, aR);
+  applyMarkLook(LOOK);   // 지금 LOOK(= 고른 후보)을 새 재질에 밀어 넣는다
+  _lastPh = null;        // 상태 래치 리셋 — 새 재질은 상태 룩을 아직 안 받았다
+}
+
+// ── 룩 후보 — footlab 과 같은 표(src/mark-versions.js) ────────────────────
+//   ★ LOOK(json 모듈 객체)을 직접 갈아끼우고 재질을 다시 만든다. setMarkStateLook 이 상태 기준선을
+//     재질마다 **한 번만** 캐시하므로(WeakMap), 값만 바꾸고 재질을 두면 옛 기준선이 눌러앉는다.
+const LOOK_BASE = structuredClone(LOOK);
+const VER_KEYS = [...new Set(Object.values(VERSIONS).flatMap(V => [...Object.keys(V.P || {}), ...Object.keys(V.vars || {})]))];
+let VER = 'now';
+function applyVersion(v) {
+  for (const k of VER_KEYS) LOOK[k] = LOOK_BASE[k];          // 먼저 원위치
+  LOOK.states = structuredClone(LOOK_BASE.states || {});
+  const V = VERSIONS[v];
+  if (V) {
+    Object.assign(LOOK, V.P);
+    const { gBlend, ...vars } = V.vars || {};                // gBlend 은 글리프 합성 — 발형과 무관
+    Object.assign(LOOK, vars);
+    for (const k of ['0', '1', '2', '4']) {                  // 상태 창은 매번 지우고 다시 깐다
+      if (LOOK.states[k]) for (const kk of ['tLo', 'tHi', 'op', 'bloom']) delete LOOK.states[k][kk];
+      if (V.states?.[k]) LOOK.states[k] = { ...(LOOK.states[k] || {}), ...V.states[k] };
+    }
+  }
+  VER = v;
+  $('verHint').textContent = V ? V.label : '정본 — src/mark-look.json 그대로(footlab 저장본)';
+  [...$('segVer').children].forEach(b => b.classList.toggle('on', b.dataset.v === v));
+  buildTokens();
+}
+{
+  const items = [['now', '정본(지금)'], ...Object.entries(VERSIONS).map(([k, V]) => [k, V.label.split('—')[0].trim()])];
+  $('segVer').append(...items.map(([k, lab]) => {
+    const b = document.createElement('button'); b.dataset.v = k; b.textContent = lab;
+    b.onclick = () => applyVersion(k); return b;
+  }));
+}
+
+// ── Success 후보 — states."2" 를 갈아끼운다. 이 슬롯은 **모든 마크 토큰**(발자국·존 원)이 본다.
+//   uTLo/uTHi 는 fillWin 을 통해 셰이더의 온도 창 자체를 바꾸므로, 후보는 룩 튜닝이 아니라
+//   Success 내부 디자인의 교체다(fx-core fillSuccess 기본창 0.02~0.78 을 덮어쓴다).
+const SUCC_BASE_KEYS = [...new Set(Object.values(SUCCESS_CANDS).flatMap(C => Object.keys(C.base || {})))];
+let SUCC = 'cur';
+function applySucc(k) {
+  SUCC = k;
+  const C = SUCCESS_CANDS[k]; if (!C) return;
+  // base = 전 상태 공통(압력장 등) · ov = Success 슬롯만. 압력 포화는 Active 도 앓는 병이라
+  //   smoothing 은 base 로 간다 — Success 에만 얹으면 다른 상태는 그대로 딱딱하다.
+  for (const k of SUCC_BASE_KEYS) LOOK[k] = LOOK_BASE[k];
+  Object.assign(LOOK, C.base || {});
+  LOOK.states = LOOK.states || {};
+  LOOK.states['2'] = { ...C.ov };
+  $('succHint').textContent = C.label;
+  [...$('segSucc').children].forEach(b => b.classList.toggle('on', b.dataset.v === k));
+  sImp.value = LOOK.states['2'].imp ?? LOOK.imp; vImp.textContent = (+sImp.value).toFixed(2);
+  buildTokens();
+  forcePh = 2; _lastPh = null;   // 누르면 바로 그 상태로 — 비교가 목적이다
+  [...$('segState').children].forEach(x => x.classList.toggle('on', x.dataset.v === '2'));
+}
+$('segSucc').append(...Object.entries(SUCCESS_CANDS).map(([k, C]) => {
+  const b = document.createElement('button'); b.dataset.v = k;
+  b.textContent = C.label.split('—')[0].trim(); b.onclick = () => applySucc(k); return b;
+}));
+$('succSave').onclick = async () => {
+  // 데브 미들웨어(/__save-look)는 **최상위 키 단위 병합**이라 states 는 통째로 보낸다.
+  const C = SUCCESS_CANDS[SUCC] || {};
+  const body = { ...Object.fromEntries(SUCC_BASE_KEYS.map(k => [k, LOOK[k]])), imp: LOOK.imp, plantar: LOOK.plantar, states: LOOK.states };
+  const r = await fetch('/__save-look', { method: 'POST', body: JSON.stringify(body) });
+  $('succHint').textContent = r.ok ? `mark-look.json 에 구웠다 — 시뮬 새로고침하면 전 종목 Success 가 이걸로 돈다 (${SUCC})`
+                                   : '저장 실패: ' + await r.text();
+};
+
+// ── 상태 — footlab 과 같은 uPhase 규약 (0 Preview·1 Active·5 Hold·2 Success·4 Miss·6 Warning·3 Locked)
+const STATES = [['auto', '자동(모션)', -1], ['0', 'Preview', 0], ['1', 'Active', 1], ['5', 'Hold', 5],
+  ['2', 'Success', 2], ['4', 'Miss', 4], ['6', 'Warning', 6], ['3', 'Locked/Tap2', 3]];
+let forcePh = -1, _lastPh = null;
+$('segState').append(...STATES.map(([k, lab, ph]) => {
+  const b = document.createElement('button'); b.dataset.v = k; b.textContent = lab;
+  if (ph === -1) b.classList.add('on');
+  b.onclick = () => { forcePh = ph; _lastPh = null;
+    [...$('segState').children].forEach(x => x.classList.toggle('on', x === b)); };
+  return b;
+}));
+
+// ── 조작 ────────────────────────────────────────────────────────────────
+let playing = true, t = 0, last = performance.now() / 1000;
+const sT = $('s-t'), vT = $('v-t'), sP = $('s-p'), vP = $('v-p'), sLen = $('s-len'), vLen = $('v-len');
+const setPlay = on => { playing = on; $('play').classList.toggle('on', on); $('play').textContent = on ? '⏸' : '▶'; };
+$('play').onclick = () => setPlay(!playing);
+sT.oninput = () => { setPlay(false); t = +sT.value; };
+let bgMode = 0;   // 0 = 뒷판, 1 = 지면, 2 = 없음
+$('bgmode').onclick = e => { bgMode = (bgMode + 1) % 3;
+  e.target.textContent = '배경: ' + ['뒷판', '지면', '없음'][bgMode];
+  frame.style.backgroundImage = bgMode === 0 ? `url(${BG})` : 'none';
+  ground.visible = bgMode === 1; };
+frame.style.backgroundImage = `url(${BG})`;
+const sBg = $('s-bg'), vBg = $('v-bg');
+const syncBg = () => { const m = +sBg.value; tex.repeat.set(GROUND_M / m, GROUND_M / m);
+  vBg.textContent = `${m.toFixed(1)}m`; }; sBg.oninput = syncBg; syncBg();
+$('grid').onclick = e => { gridG.visible = !gridG.visible; e.target.classList.toggle('on', gridG.visible); };
+$('mgrid').onclick = e => { mGrid.visible = !mGrid.visible; e.target.classList.toggle('on', mGrid.visible); };
+$('blend').onclick = e => { FXP.day = FXP.day ? 0 : 1;
+  e.target.textContent = '블렌딩: ' + (FXP.day ? '잉크' : '가산'); };
+// ★ 각인(점)은 Success 소유가 아니라 **base 룩**이다 — 실측: M0(각인 0)을 골라도
+//   uImp 가 0 인 건 Success 뿐이고 Active·Preview·Hold 는 base 0.98 을 그대로 쓴다.
+//   그래서 이 노브는 base 와 **각 상태 오버라이드를 같이** 민다. 안 그러면 상태를 옮길 때
+//   점이 되살아나 "껐는데도 보인다"가 된다(유저 08-07).
+const sImp = $('s-imp'), vImp = $('v-imp');
+function setImp(v, rebuild) {
+  LOOK.imp = v;
+  for (const k of Object.keys(LOOK.states || {})) if (LOOK.states[k].imp != null) LOOK.states[k].imp = v;
+  vImp.textContent = v.toFixed(2);
+  if (rebuild) buildTokens(); else applyMarkLook({ imp: v });   // 놓을 때만 재빌드(상태 기준선 재캐시)
+}
+sImp.oninput = () => setImp(+sImp.value, false);
+sImp.onchange = () => setImp(+sImp.value, true);
+// 압력장 혼합 — 0 = 실루엣 깊이 램프(하나로 이어진 그라디언트) · 1 = 볼·뒤꿈치 압력장(섬이 생긴다)
+const sPl = $('s-pl'), vPl = $('v-pl');
+sPl.oninput = () => { const v = +sPl.value; LOOK.plantar = v; vPl.textContent = v.toFixed(2);
+  applyMarkLook({ plantar: v }); };
+sPl.onchange = () => buildTokens();
+// 화살표 온도 — fx-core drawStemArrow 의 LUT 위치. 0 쪽 = 레드(밝은 바닥에서 읽힘)
+const sHeat = $('s-heat'), vHeat = $('v-heat');
+sHeat.oninput = () => { const v = +sHeat.value; FXP.arrow = FXP.arrow || {};
+  FXP.arrow.heat = v; FXP.arrow.heatDay = v;   // 잉크 모드 기본 강하(0.15)를 이 노브가 덮는다
+  vHeat.textContent = v.toFixed(2); for (const g of [aL, aR]) g._paintT = -9; };
+
+// 계측 훅 — 룩 키를 바꿔 가며 실측할 때(scripts/_probe_*) 쓴다. 화면 기능 아님.
+window.__lab = { LOOK, rebuild: buildTokens, applyMarkLook, setPh: p => { forcePh = p; _lastPh = null; },
+  mats: () => [sL.plane.material, sR.plane.material], scene, THREE };
+
+sImp.value = LOOK.imp; vImp.textContent = (+LOOK.imp).toFixed(2);
+sPl.value = LOOK.plantar; vPl.textContent = (+LOOK.plantar).toFixed(2);
+
+if (HEADLESS) {
+  frame.style.aspectRatio = `${OUT_W}/${OUT_H}`;
+  frame.style.backgroundImage = 'none'; bgMode = 2; ground.visible = false;
+  for (const el of document.querySelectorAll('.bar, .note, #verHint, #succHint')) el.style.display = 'none';
+  if (Q.get('blend') === 'add') { FXP.day = 0; }
+  if (Q.get('imp') != null) setImp(+Q.get('imp'), false);
+  playing = false;
+  // 내보내기 훅 — t 를 정확히 찍고 한 프레임 그린 뒤 알파 그대로 뽑는다.
+  window.__shot = t2 => { t = t2; return new Promise(r => requestAnimationFrame(() =>
+    requestAnimationFrame(() => r(renderer.domElement.toDataURL('image/png'))))); };
+}
+
+applyVersion('now');
+
+// ── 프레임 ──────────────────────────────────────────────────────────────
+function tick() {
+  requestAnimationFrame(tick);
+  const now = performance.now() / 1000, dt = Math.min(0.05, now - last); last = now;
+  if (playing) { t = (t + dt) % B1_SETUP.SETUP; sT.value = t.toFixed(2); }
+  vT.textContent = `${t.toFixed(2)}s`;
+
+  const P = bkB1SetupPose(t);
+  sL.group.position.x = -P.half; sR.group.position.x = P.half;
+  const s = (+sLen.value / 100) / FOOT_LEN_M;   // 정본 30cm 대비 배율
+  vLen.textContent = `${sLen.value}cm`;
+  sL.group.scale.setScalar(s); sR.group.scale.setScalar(s);
+
+  if (forcePh < 0) {
+    sL.op(P.footOp); sR.op(P.footOp);
+    aL._gain = P.arrowGain; aR._gain = P.arrowGain;
+    aL._prog = P.arrowProg; aR._prog = P.arrowProg;
+    // ★ 시뮬은 전이에서 **한 번만** glow 한다(_setupDone 래치). 매 프레임 부르면 파문 시계가 흔들린다.
+    if (P.done) { if (_lastPh !== 2) { _lastPh = 2; sL.glow(1); sR.glow(1); } }
+    else { _lastPh = 1; sL.countdown(t / B1_SETUP.W_END); sR.countdown(t / B1_SETUP.W_END); }
+  } else {
+    sL.op(1); sR.op(1); aL._gain = 1; aR._gain = 1; aL._prog = 1; aR._prog = 1;
+    if (_lastPh !== forcePh) { _lastPh = forcePh;
+      for (const m of [sL, sR]) { m._succLatch = false; m._ph(forcePh); m._U.uProg.value = forcePh === 2 || forcePh === 4 ? 0 : 0.5; } }
+  }
+  // 마크 셰이더 시계 — 세션 tickWaves 대신 이 두 장만 돌린다(랩은 rig 가 없다).
+  const day = FXP.day ? 1 : 0;
+  for (const m of [sL, sR]) {
+    m._U.uTime.value = now; m._U.uDay.value = day;
+    tickMarkXfade(m.plane.material, now);   // 상태 크로스페이드(0.28s) — 시뮬 tickWaves 와 같은 시계
+    const want = day ? THREE.NormalBlending : THREE.AdditiveBlending;
+    if (m.plane.material.blending !== want) { m.plane.material.blending = want; m.plane.material.needsUpdate = true; }
+  }
+  tickFlowArrows(now, null);
+
+  const g = THREE.MathUtils.degToRad(+sP.value);
+  camera.position.copy(EYE);
+  camera.lookAt(EYE.x, EYE.y + Math.sin(g), EYE.z - Math.cos(g));
+  vP.textContent = `${(+sP.value).toFixed(1)}°`;
+  renderer.render(scene, camera);
+}
+tick();
+</script></body></html>

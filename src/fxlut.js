@@ -6,7 +6,7 @@
 //   OKLab 보간(RGB 직선 보간의 탁한 갈색 구간 제거) + 채도 스케일(회색조 혼합).
 // ─────────────────────────────────────────────────────────────
 import * as THREE from 'three';
-import { sdfFromAlpha, glyphRaster, bakeGlyphSDF, bakeFootPairSDF, buildLUT } from './fx-core.js';
+import { sdfFromAlpha, glyphRaster, bakeGlyphSDF, bakeFootPairSDF, buildLUT, FXQ } from './fx-core.js';
 import { STOPS, SAT, PAL, NEU, rgba } from './palette.js';
 // OKLab 변환·LUT 빌더는 fx-core(정본)에서 — 중복 2벌 폐기.
 
@@ -34,7 +34,28 @@ export const FXP = {
   // ink 0.85 → 0.30: 문턱(0.42) 아래를 순수 RED 로 덮는 항이라, 실사 클립의 중간톤 대부분이
   //   걸려 몸 전체가 단색 빨강이 됐다(유저: 평면적·1차원적). 그늘 '강조'로만 남긴다.
   // form = 룩2(유저 확정 08-02) 기본 승격. 0 = 구 룩(롤백 지점). 랩 [현행/레퍼런스] 토글이 이 값.
-  person: { form: 1, blur: 0, glow: 0, flow: 0, decay: 0, detail: 0.42, sweep: 0, depth: 0.34, grain: 0, tone: 1, ink: 0.30, inkT: 0.42 },
+  person: { form: 1, blur: 0, glow: 0, flow: 0, decay: 0, detail: 0.42, sweep: 0, depth: 0.34, grain: 0, tone: 1, ink: 0.30, inkT: 0.42,
+    // 부위 강조 — k 0 = 도입 전과 픽셀 동일. t 0.25 = look2Ramp 의 브랜드 RED(#FA3030) 자리.
+    //   몸통 밴드가 0.30~1.00 이라 붉은 구간을 안 지난다 — 그래서 강조는 t 를 **내린다**.
+    // ⚠ **전역 기본값은 건드리지 않는다.** 여기 값을 바꾸면 복싱·러닝·농구가 **전부** 같이 간다
+    //   (유저 08-07: 하드코딩하면서 복싱이랑 다른 것도 건드렸다 — 그러면 안 돼).
+    //   강조는 '그 순간 그 부위'에 거는 것이지 룩의 기본 상태가 아니다. 켤 곳에서만 켠다.
+    emph: { k: 0, t: 0.25, y0: 0, y1: 0.22, soft: 0.06 },
+    // 몸통 대역 — 0.30/1.00 = 종전(전부 주황). 낮고 좁게 두면 흰-코랄로 간다.
+    bandLo: 0.30, bandHi: 1.00,
+    // 인물 전용 채도(무채축 대비 배율). null = 전역 FXP.sat 파생(1.32) 그대로 = 종전과 픽셀 동일.
+    sat: null },
+  // ── 코치 판 강조(setHotspot) — 지금까지 **정의가 없어 폴백 상수로 돌았다**(유저: 아직 멀었어).
+  //   어휘는 이미 있던 것 그대로다: uHotE(강조 타원) · uGaze(동그란 시선 토큰) ·
+  //   uPHiPale(나머지는 연하게) · uPHiHot(강조는 더 쨍하게). 값만 세운다.
+  //   pale 를 1.0 까지 올리면 나머지 몸이 팔레트의 **가장 밝은 연주황** 쪽으로 빠지고,
+  //   hot 을 0.34 로 내리면 강조부가 **가장 빨간** 쪽으로 간다 — 팔레트 두 극단의 조합이다.
+  //   hold = 도착 순간 영상을 잠깐 세우는 시간(s). 0 이면 안 세운다.
+  // ⚠ hold 는 **0 으로 끈다.** 도착 순간 pause 를 걸었더니 영상이 vt 2.22 에서 영구 정지했다
+  //   (실측 8프레임 연속 paused=true). 전용 필드로 바꿔도 안 풀렸다 — 해제 코드가 도는 블록이
+  //   판이 보일 때만 지나는 것으로 보이는데, 헤드리스에서 판을 못 띄워 확인을 못 했다.
+  //   검증 못 한 정지를 켠 채로 두면 코치 영상이 멈춘 채 남는다. 원인 잡고 켤 것.
+  hot: { on: 1, pale: 1.0, hot: 0.34, k: 1.35, gaze: 1.7, hold: 0 },
   gainBoost: 1.0,   // 주간 모드 투사 게인 (주광 가시 = 제품 스토리)
   a3Arrow: 4,       // 하이니 리프트 큐 (1 셰브론 · 2 스템+SVG촉 · 3 바 · 4 궤적 토큰=기본)
   liveUI: 3,   // 실전 UI 기본 = 3안 셰브론 플로우(리서치 확정: 상대속도 흐름·락온)        // 실전 러닝 플로어 UI 5안 (1 페이스라인 · 2 펄스링 · 3 셰브론 · 4 도트 · 5 스트립)
@@ -281,13 +302,16 @@ export function footSDFTexture(right) {
   const flip = !!GLYPHS.flip[slot];
   const inSlot = 'FOOT_IN_' + (right ? 'R' : 'L');
   const inUrl = slot === inSlot ? null : GLYPHS.map[inSlot];
-  const key = (url ? url.length : 'builtin') + '|' + slot + '|' + flip + '|' + (inUrl ? inUrl.length : 0);
+  // ★ 캐시 키에 N 이 들어가야 한다 — 없으면 fxq 를 올려도 처음 구운 저해상도 SDF 가 박제된다.
+  const N = 768 * FXQ.k;
+  const key = (url ? url.length : 'builtin') + '|' + slot + '|' + flip + '|' + (inUrl ? inUrl.length : 0) + '|' + N;
   if (_sdfCache.has(key)) return _sdfCache.get(key);
   const img = url ? GLYPHS.img(slot) : null;
   if (url && !img) return null;   // 로드 전 — onLoad 리베이크가 재시도
   const inImg = inUrl ? GLYPHS.img(inSlot) : null;
   if (inUrl && !inImg) return null;   // 안쪽도 같이 기다린다 — 반쪽만 구우면 캐시가 그걸 박제한다
-  const N = 768;
+  // (N 은 위 캐시 키에서 이미 FXQ 로 정해졌다 — 품질 병목 1번,
+  //  HANDOFF-0807-FLOOR-SPEC-AND-AD §4: "발 실루엣 SDF 해상도 — FXQ 미적용")
   let FS;
   if (img) {
     FS = bakeFootPairSDF(img, inImg, N, flip);

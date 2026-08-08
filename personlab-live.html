@@ -64,6 +64,21 @@
         안쪽 두꺼운 곳이 밝다. 무채축 대신 뉴턴 LUT 를 명도축으로 쓴다
         (깊이 0 → RED 어둡게 · 중간 → CORAL/SAND · 최심부 → PRISM).</div>
     </fieldset>
+    <fieldset><legend>부위 강조 — 붉게 축하하기</legend>
+      <div class=row><label>세기 k</label><input id=em-k type=range min=0 max=1 step=0.02 value=0><span class=v id=v-em-k>0.00</span></div>
+      <div class=row><label>목표 t</label><input id=em-t type=range min=0.10 max=0.60 step=0.01 value=0.25><span class=v id=v-em-t>0.25</span></div>
+      <div class=row><label>띠 아래</label><input id=em-y0 type=range min=0 max=1 step=0.01 value=0><span class=v id=v-em-y0>0.00</span></div>
+      <div class=row><label>띠 위</label><input id=em-y1 type=range min=0 max=1 step=0.01 value=0.22><span class=v id=v-em-y1>0.22</span></div>
+      <div class=row><label>무름</label><input id=em-soft type=range min=0.01 max=0.40 step=0.01 value=0.06><span class=v id=v-em-soft>0.06</span></div>
+      <div class=row><label>몸통 대역 아래</label><input id=bd-lo type=range min=0 max=0.5 step=0.01 value=0.30><span class=v id=v-bd-lo>0.30</span></div>
+      <div class=row><label>몸통 대역 위</label><input id=bd-hi type=range min=0.02 max=1 step=0.01 value=1.00><span class=v id=v-bd-hi>1.00</span></div>
+      <div class=row><label>인물 채도</label><input id=p-sat type=range min=0.6 max=2.2 step=0.01 value=1.32><span class=v id=v-p-sat>1.32</span></div>
+      <button id=em-preset>연주황 몸통 + 새빨간 다리 (팔레트 양 극단)</button>
+      <div class=hint>몸통 밴드가 <b>t 0.30~1.00</b> 이라 룩2 램프의 붉은 자리(0.25 = #FA3030)를 안 지난다 —
+        그래서 강조는 t 를 올리는 게 아니라 <b>내린다</b>. 새 색을 안 만들고 같은 램프 안에서만 논다.<br>
+        판 uv.y 기준이라 <b>0 = 아래(발)</b>. 발 강조는 대략 0~0.22.
+        k 0 이면 도입 전과 픽셀 동일이다.</div>
+    </fieldset>
     <fieldset><legend>보기</legend>
       <div class=row><label>크기</label><input id=size type=range min=200 max=640 step=20 value=240><span class=v id=vsize>240</span></div>
       <button id=b-live>▶ 라이브 (지금 종목)</button>
@@ -236,6 +251,8 @@ async function load(key) {
   await toSport(K.sport);
   await toStage(K.stage);
   await clipReady();                       // 영상 디코드·필드 안정화 (조건 기반)
+  await applyPerson();                     // ★ 팩 전환으로 날아간 인물 설정을 다시 민다
+  await new Promise(r => setTimeout(r, 260));
   // ★ 배경색은 **렌더 시점에 구워진다**(클리어 컬러). 토글이 카드 CSS 만 바꾸면 흰 카드 안에
   //   검은 캔버스가 남는다(유저 스샷). 그래서 캡처할 때 검정·흰색 두 벌을 다 굽고 토글은 교체만 한다.
   const shots = { black: shoot(key, 'black'), white: shoot(key, 'white') };
@@ -281,6 +298,53 @@ async function setForm(v) {
 }
 $('form-cur').onclick = () => setForm(0);
 $('form-ref').onclick = () => setForm(1);
+
+// 부위 강조 — 시뮬의 FXP.person.emph 를 그대로 민다(공용 셰이더라 세 인물이 같이 움직인다).
+//   값은 매 프레임 main 이 유니폼에 주입하므로 여기선 스토어만 갱신하면 된다.
+// ★ 팩 전환(toSport)이 시뮬을 다시 태우면 FXP.person 설정이 날아간다 — 그래서 세 셀 중
+//   먼저 찍힌 것만 반영되고 나머지는 '적용 전' 그림이 남았다(유저: 농구는 아직도 주황).
+//   슬라이더 값을 여기 보관하고 **매 load 직전에 다시 민다**.
+const EMV = {};
+async function applyPerson() {
+  await ready();
+  const P = W().__dbg?.FXP?.person; if (!P) return;
+  P.emph = P.emph || { k: 0, t: 0.25, y0: 0, y1: 0.22, soft: 0.06 };
+  for (const k in EMV) (k === 'bandLo' || k === 'bandHi' || k === 'sat') ? (P[k] = EMV[k]) : (P.emph[k] = EMV[k]);
+}
+const EM = [['em-k','k'],['em-t','t'],['em-y0','y0'],['em-y1','y1'],['em-soft','soft']];
+// 몸통 대역 — emph 와 달리 person 최상위 키다(대역은 강조가 아니라 룩 자체)
+for (const [id, key] of [['bd-lo','bandLo'],['bd-hi','bandHi'],['p-sat','sat']]) {
+  $(id).addEventListener('input', async e => {
+    const v = +e.target.value; $('v-' + id).textContent = v.toFixed(2);
+    EMV[key] = v; await applyPerson();
+  });
+  $(id).addEventListener('change', () => $('b-all').onclick());
+}
+// 제안값 — 몸통 0.06~0.30(흰→코랄) · 발 0.26(#FA3030 붉은) 아래 35%
+$('em-preset').onclick = async () => {
+  // 유저 08-07 2차: "진짜 하양에 가까운 코랄, 강조는 새빨간~주황으로 은은하게"
+  //   몸통 0.02~0.13 = #fff5f5~#fdbfbf. 강조는 t 0.36(새빨강 0.25 ~ 주황 0.50 사이)에
+  //   k 0.7 로 **섞어서** 건다 — 1.0 으로 못 박으면 단색이 되고 '은은한 그라디언트'가 죽는다.
+  // ★ 컬러칩 = **우리 열화상 팔레트의 두 극단**만 쓴다(유저 08-07). look2Ramp 의 정지점 그대로:
+  //     t 0.75 #FF8E5E = 가장 밝은 연주황   ← 몸통
+  //     t 0.25 #FA3030 = 가장 빨간          ← 강조
+  //   둘 사이를 지나면 t 0.50 #FF4000 을 거친다 — 팔레트 안에서만 흐르니 눈이 편하다.
+  //   흰색(t≈0)까지 내렸던 직전 안은 대비는 셌지만 열화상 어휘 밖으로 나가 이질적이었다.
+  //   ⚠ 이건 **랩 제안값**이다. FXP 전역 기본값에 굽지 않는다 —
+  //     굽는 순간 복싱·러닝까지 같이 간다(유저: 복싱이랑 다른 것도 건드렸어, 그러면 안 돼).
+  const V = { 'bd-lo': 0.66, 'bd-hi': 0.82, 'p-sat': 1.32, 'em-k': 0.95, 'em-t': 0.25, 'em-y0': 0, 'em-y1': 0.45, 'em-soft': 0.18 };
+  for (const id in V) { const e = $(id); e.value = V[id]; e.dispatchEvent(new Event('input')); }
+  await $('b-all').onclick();
+};
+for (const [id, key] of EM) {
+  $(id).addEventListener('input', async e => {
+    const v = +e.target.value;
+    $('v-' + id).textContent = v.toFixed(2);
+    await ready();
+    EMV[key] = v; await applyPerson();
+  });
+  $(id).addEventListener('change', () => $('b-all').onclick());
+}
 
 $('size').addEventListener('input', e => {
   VIEW = +e.target.value; $('vsize').textContent = VIEW;

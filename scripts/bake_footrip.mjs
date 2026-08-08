@@ -69,10 +69,16 @@ const lut = v => { const i = Math.max(0, Math.min(255, Math.round(v * 255))) * 3
 // ── 판에서 발자국 하나를 딴다 ──
 fs.mkdirSync(OUT, { recursive: true });
 const TMP = path.join(OUT, '_s.raw');
-const dim = execFileSync('ffprobe', ['-v', 'error', '-select_streams', 'v:0', '-show_entries',
-  'stream=width,height', '-of', 'csv=p=0', SRC]).toString().trim().split(',');
-const SW = +dim[0], SH = +dim[1];
-execFileSync('ffmpeg', ['-v', 'error', '-y', '-i', SRC, '-pix_fmt', 'rgba', '-f', 'rawvideo', TMP]);
+// 크기는 PNG 헤더(IHDR)에서 직접 읽는다 — ffprobe 를 부르지 않는다.
+//   ffmpeg-static 은 ffmpeg 만 준다. ffprobe 를 쓰면 새 기계에서 ENOENT 로 죽는다(실제로 죽었다).
+//   IHDR: [시그니처 8][길이 4][타입 4][폭 4][높이 4] → 폭은 16바이트, 높이는 20바이트 오프셋.
+const _hd = Buffer.alloc(24);
+{ const fd = fs.openSync(SRC, 'r'); fs.readSync(fd, _hd, 0, 24, 0); fs.closeSync(fd); }
+if (_hd.toString('ascii', 12, 16) !== 'IHDR') { console.error('PNG 가 아닙니다:', SRC); process.exit(1); }
+const SW = _hd.readUInt32BE(16), SH = _hd.readUInt32BE(20);
+// ffmpeg 도 PATH 가 아니라 ffmpeg-static 을 쓴다(같은 이유).
+const FFMPEG = await import('ffmpeg-static').then(m => m.default).catch(() => 'ffmpeg');
+execFileSync(FFMPEG, ['-v', 'error', '-y', '-i', SRC, '-pix_fmt', 'rgba', '-f', 'rawvideo', TMP]);
 const P = fs.readFileSync(TMP);
 
 // 아래 65% 에서 알파 덩어리를 라벨링 → 가장 큰 것 하나
@@ -164,7 +170,7 @@ for (let f = 0; f < N; f++) {
     }
   }
   fs.writeFileSync(raw, buf);
-  execFileSync('ffmpeg', ['-v', 'error', '-y', '-f', 'rawvideo', '-pix_fmt', 'rgba', '-s', `${OW}x${OH}`,
+  execFileSync(FFMPEG, ['-v', 'error', '-y', '-f', 'rawvideo', '-pix_fmt', 'rgba', '-s', `${OW}x${OH}`,
     '-i', raw, path.join(OUT, `f${String(f).padStart(4, '0')}.png`)]);
 }
 fs.unlinkSync(raw); fs.unlinkSync(TMP);

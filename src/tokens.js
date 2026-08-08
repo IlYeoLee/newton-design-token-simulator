@@ -3,7 +3,7 @@ import { NUM, PAL, NEU, rgba } from './palette.js';
 import { WALL_Z } from './scene.js';
 import { getLUT, FXP, FX_GLSL, GLYPHS, drawGlyph, lutColor, footSDFTexture, warnSDFTexture } from './fxlut.js';
 import LOOK from './mark-look.json';   // ★ MARK 룩 정본 — footlab '코드에 저장'이 굽는 파일
-import { MARK_NUM, MARK_GLSL, drawStemArrow, SIL_FIT, SIL_FIT_REF, QUAD_K, ZONE_GLYPH_K } from './fx-core.js';
+import { MARK_NUM, MARK_GLSL, drawStemArrow, SIL_FIT, SIL_FIT_REF, QUAD_K, ZONE_GLYPH_K, FXQ } from './fx-core.js';
 
 // ── MARK 파동 셰이더 (FX Lab 이식) — 재료는 열 하나, 상태는 파동의 위상 ──
 const MARKFX_VERT = `
@@ -26,7 +26,7 @@ uniform sampler2D uNumTex; uniform float uNumOn, uNumScale; uniform vec2 uNumOff
 ` + FX_GLSL + `
 uniform float uW, uHalo, uNoise;
 ` + MARK_GLSL + `
-uniform float uPhase, uProg, uFade, uStrong, uTime, uGain, uDay, uOut, uToe;
+uniform float uPhase, uProg, uFade, uStrong, uTime, uGain, uDay, uOut, uToe, uInkFloor;
 uniform float uStatePrev, uPrevProg, uXfade;   // 상태 크로스페이드(0.28s) — 이전 상태·진행·혼합량
 uniform vec3 uFPOrigin, uFPFwd, uFPRight;
 uniform float uFPNear, uFPFar, uFPHalfN, uFPHalfF, uFPFadeM;
@@ -183,7 +183,18 @@ void main() {
     //   감쇠 스택이 없다. 그래서 같은 잉크 모드인데도 벽은 쨍하고 바닥만 물빠진 것처럼 보였다
     //   (유저: "왜 벽면 채도는 쨍하고 바닥은 흐리멍텅해"). 색이 아니라 **덮는 양**의 문제다.
     //   배수를 올려 감쇠를 지나온 뒤에도 잔디를 제대로 덮게 한다. 색(ink)은 그대로다.
-    gl_FragColor = vec4(uOut > 0.5 ? toLin(ink) : ink, clamp(mc * 2.30, 0.0, 1.0) * border);
+    float a = clamp(mc * 2.30, 0.0, 1.0) * border;
+    // ★ 잉크 자락 끊기(uInkFloor) — **잉크에서만** 필요한 손잡이다.
+    //   가산은 바닥에 빛을 더하므로 옅은 자락이 그냥 옅게 보인다. 그런데 잉크는
+    //   결과 = 색×알파 + 바닥×(1−알파) 라, 낮은 알파의 빨강이 초록 바닥과 섞여 **갈색**이 된다.
+    //   실측(바닥 #9FA58F · 잉크 #FF3300):
+    //     알파 1.00 → #ff3300 채도 100%   0.50 → #cf6c48 65%
+    //     알파 0.25 → #b7896b  채도  41%   0.15 → #ad947a 30%  ← 진흙
+    //   유저가 "발자국 옆 갈색 얼룩"으로 본 것이 이 자락이다. 색을 바꿔서 될 문제가 아니라
+    //   자락 길이의 문제라, 문턱 아래를 끊고 남은 구간을 세운다.
+    //   ★ 기본 0 = 도입 전과 **픽셀 동일**. 켜야만 동작한다(이 리포의 신규 노브 규약).
+    if (uInkFloor > 0.0001) a = smoothstep(uInkFloor, min(1.0, uInkFloor + 0.20), a);
+    gl_FragColor = vec4(uOut > 0.5 ? toLin(ink) : ink, a);
   } else {
     gl_FragColor = vec4(uOut > 0.5 ? toLin(col) : col, 1.0);   // 야간: 가산 광
   }
@@ -291,7 +302,7 @@ export function makeLaneFXMaterial(lenM) {
       uHalo: { value: 0.9 },
       uGain: { value: 1 },
       uLStyle: { value: 1 }, uLSpeed: { value: 1 }, uLGap: { value: 1 }, uLHeat: { value: 0.5 }, uLTail: { value: 0.55 },
-      uDay: { value: 0 }, uOut: { value: 1 },
+      uDay: { value: 0 }, uOut: { value: 1 }, uInkFloor: { value: 0 },
       // 풋프린트 소프트 페이드 기본값 — rig 미연결(FX Lab 등) 시 항상 안 죽게 넉넉한 범위
       uFPOrigin: { value: new THREE.Vector3() }, uFPFwd: { value: new THREE.Vector3(0, 0, -1) }, uFPRight: { value: new THREE.Vector3(1, 0, 0) },
       uFPNear: { value: -1e6 }, uFPFar: { value: 1e6 }, uFPHalfN: { value: 1e6 }, uFPHalfF: { value: 1e6 }, uFPFadeM: { value: 0.15 },
@@ -417,7 +428,7 @@ export function makeMarkFXMaterial(footTex = null) {
       //   화면값이 랩과 같아진다. (LANEFX 는 처음부터 uOut=1 — 마크만 예외였다.)
       //   ※ 이전 주석의 '(241,37,25)' 는 OutputPass 이전 버퍼값을 잰 것 — toLin(249,106,88) 그 자체다.
       uTLo: { value: 0 }, uTHi: { value: 0 }, uDotMode: { value: 0 },   // 상태 색 축(온도 창) — 0 = 상태 기본 창
-      uSweepA: { value: 1 }, uNoise: { value: MARK_LOOK.wobble }, uDay: { value: 0 }, uOut: { value: 1 },
+      uSweepA: { value: 1 }, uNoise: { value: MARK_LOOK.wobble }, uDay: { value: 0 }, uOut: { value: 1 }, uInkFloor: { value: 0 },
       // ★ 생성 기본값도 **정본(MARK_LOOK)** 에서 온다. 0.5 를 박아 두면, per-frame 주입을 안 받는
       //   경로(상태 오버라이드·floorLook·랩 프리뷰)가 일렁임 0.5 로 굳는다 — 실측 결과 그런 재질이
       //   4개 남아 있었다(전부 visible:false 라 화면엔 안 나왔지만, 추출 경로가 하나 늘면 바로 샌다).
@@ -487,7 +498,9 @@ export function applyMarkLookTo(mat, part = {}) {
     // ★ halo/w/pool 도 맵에 넣는다 — 이 셋만 빠져 있어서 바닥 룭의 halo 낮춤이 안 먹었다
     //   (실측: floor.halo .18 을 줘도 재질은 생성값 .45 그대로). 팩 마크는 매 프레임 전역값이
     //   덮으므로 그쪽은 userData.floorLook 예외로 따로 막는다.
-    halo: 'uHalo', w: 'uW', pool: 'uPool', noise: 'uNoise', tLo: 'uTLo', tHi: 'uTHi', dotMode: 'uDotMode' };
+    halo: 'uHalo', w: 'uW', pool: 'uPool', noise: 'uNoise', tLo: 'uTLo', tHi: 'uTHi', dotMode: 'uDotMode',
+    // 잉크 자락 끊기 — 잉크 분기(uDay>0.5)에서만 듣는다. 가산 화면은 값이 있어도 그대로다.
+    inkFloor: 'uInkFloor' };
   const mapSF = { pitch: 'uImpPitch', edge: 'uImpEdge', edgeW: 'uEdgeW', ripWidth: 'uRipWidth', ripReach: 'uRipReach' };
   const U = mat.uniforms;
   for (const k in map) if (part[k] != null && U[map[k]]) U[map[k]].value = part[k];
@@ -533,7 +546,10 @@ export function setMarkStateLook(mat, ph) {
     'edgeShadeW','edgeShadeGrad','edgeShadeG0','edgeShadeG1','dither','pitch','edge','edgeW',
     'op','shadeCol','dotCol','edgeShadeCol','ripCol',
     // Tap2 가 실제로 들고 있는 나머지 — 하나라도 빠지면 그 키만 락 상태로 눌러앉는다.
-    'edgeSoft','shadeRed','shadeRedW','rip','ripReach','ripWidth','ripSpeed','ripGrad','bloom','w'];
+    'edgeSoft','shadeRed','shadeRedW','rip','ripReach','ripWidth','ripSpeed','ripGrad','bloom','w',
+    // 압력장 3종 — 상태별로 만질 수 있어야 하고(Success 매끈 처방), 리셋 목록에 없으면
+    //   한 번 Success 를 지난 마크가 그 압력값을 영영 들고 다닌다(위 op·Tap2 와 같은 함정).
+    'loadGain','loadBase','flow','plantar','tLo','tHi','halo','pool','noise','dotMode'];
   if (!_stateBase.has(mat)) {
     // 오버라이드가 정본보다 우선한다 — 그래야 상태를 오갈 때도 프리셋이 살아남는다.
     const base = {}; for (const k of KEYS) { const v = LOOK_OVR[k] ?? LOOK[k]; if (v != null) base[k] = v; }
@@ -545,6 +561,24 @@ export function setMarkStateLook(mat, ph) {
   //   (session.js WAVE_MATS 루프 · tokens.js 팩 마크 루프) 표시가 없으면 상태 오버라이드가
   //   한 프레임도 못 산다. 이 파일 위 map 주석이 이미 경고한 그 함정이다.
   mat._stKeys = ov ? new Set(Object.keys(ov)) : null;
+}
+
+/** 상태 크로스페이드 시작 — Marker(팩 판정 토큰)가 쓰던 규약을 **함수로 꺼낸다**.
+ *  세션 FootMark 은 이 배선이 없어 상태가 '띡' 바뀌었다(유저 08-07: 중간다리 모션이 없다).
+ *  markState 는 순수 함수라 셰이더가 이전 상태를 한 번 더 평가해 섞는다 — 끝나면 비용 0. */
+export function startMarkXfade(mat, now = performance.now() / 1000) {
+  const U = mat?.uniforms; if (!U?.uXfade || !XFADE_ON) return;
+  U.uStatePrev.value = U.uPhase.value;
+  U.uPrevProg.value = U.uProg.value;
+  U.uXfade.value = 0;
+  mat._xfT = now;
+}
+/** 그 시계를 민다(0.28s). uTime 을 넣어 주는 곳이면 어디서든 같이 부른다. */
+export function tickMarkXfade(mat, now) {
+  if (mat?._xfT == null) return;
+  const e = (now - mat._xfT) / 0.28;
+  mat.uniforms.uXfade.value = e >= 1 ? 1 : e;
+  if (e >= 1) mat._xfT = null;
 }
 
 export function applyMarkLook(part = {}) {
@@ -628,6 +662,19 @@ export function setFPView(on) { FP_VIEW = !!on; }
 //   실제 크기는 그대로다: 평면을 SIL_FIT_REF/SIL_FIT 배로 키워 상쇄한다.
 export { SIL_FIT, SIL_FIT_REF, QUAD_K, ZONE_GLYPH_K } from './fx-core.js';
 
+/** 광고/발표 프리셋 — **정본은 여기 하나다.** session.js 가 이 값을 재수출한다.
+ *  왜 tokens 로 내렸나: `FOOT_LEN_M` 이 이 파일에 있는데 AD 가 session.js 에 있으면
+ *  둘을 잇는 방법이 순환 import 뿐이라, URL 을 두 번 읽는 사본이 생긴다.
+ *  tokens 는 session 을 import 하지 않으므로(의존 방향 아래) 여기가 정본 자리다.
+ *  ※ 없으면 제품 룩은 1비트도 안 바뀐다 — 이 상수를 읽는 모든 자리가 삼항으로만 갈린다. */
+export const AD = typeof location !== 'undefined'
+  && new URLSearchParams(location.search).get('ad') === '1';
+
+// ★ 발표 프리셋 0.42 를 넣었다가 **되돌린다**(08-07, 유저: "발자국 구리다" — 실측 확인:
+//   스텝백 4국면 중 좁은 스탠스(WID 0.39·0.42)에서 좌우 발이 서로 파고들어 한 덩어리로 뭉친다).
+//   21c1b3d 가 이 값을 후보로 남긴 건 '합성 컷엔 투사 창 제약이 없다'는 이유였는데,
+//   실제 상한은 창이 아니라 **스탠스 폭**이었다 — 발 길이가 보폭에 근접하면 겹친다.
+//   키우려면 WID 와 같이 봐야 한다(발 길이 < 최소 스탠스 폭). 지금은 정본 하나로 둔다.
 export const FOOT_LEN_M = 0.30;   // 260 → 300(유저: 발자국이 화면에서 휑하게 작다 — 과감하게). 존 반경은 발 배수라 같이 따라온다
 /** 실루엣이 평면에서 차지하는 세로 비율 — 정본 SVG 4종 실측(신발 0.7266 · 맨발 0.7285) */
 const FOOT_FILL = 0.727;
@@ -693,18 +740,19 @@ const _footNumTex = {};
 function makeFootGlyphTexture(right) {
   const k = right ? 'R' : 'L';
   if (_footNumTex[k]) return _footNumTex[k];
-  const c = document.createElement('canvas'); c.width = c.height = 128;
+  const N = Math.round(128 * FXQ.k);   // ★ 품질 스칼라 — 추출에선 3배(384). 좌표도 N 에서 파생시킨다
+  const c = document.createElement('canvas'); c.width = c.height = N;
   const ctx = c.getContext('2d');
   // ★★ 이 자리는 **로고다**(유저 확정 3회: "우리 러닝에서 쓰이는 건 우리 로고 들어간 원형 마크
   //   판정 토큰이잖아" / "또 로고 없어졌어" / "왜 러닝할 때 갑자기 R L 이 된 거야").
   //   L/R 글리프로 바꾸지 말 것 — 08-06 에 두 번 바뀌었다. 어느 발인지는 **로고를 좌우로
   //   미러**해서 말한다(mirror). '숫자와 같은 취급'은 **그리는 경로·크기**를 말한 것이지
   //   글리프를 L/R 로 바꾸라는 뜻이 아니었다: 같은 drawGlyph · 같은 96px.
-  const ok = drawGlyph(ctx, 'LOGO', 64, 64, 96, { mirror: right });
+  const ok = drawGlyph(ctx, 'LOGO', N / 2, N / 2, N * 0.75, { mirror: right });
   if (!ok) {   // 슬롯 미로드 폴백 — 캐시하지 않는다(로드 후 정본으로 재생성)
     ctx.strokeStyle = rgba(NEU.ink, 0.95); ctx.lineWidth = 5;
     ctx.shadowColor = rgba(PAL.coral, 0.75); ctx.shadowBlur = 12;
-    ctx.beginPath(); ctx.ellipse(64, 64, 20, 34, right ? 0.12 : -0.12, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(N/2, N/2, N*0.156, N*0.266, right ? 0.12 : -0.12, 0, Math.PI * 2); ctx.stroke();
   }
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
@@ -712,16 +760,17 @@ function makeFootGlyphTexture(right) {
   return tex;
 }
 function makeNumberTexture(n) {
+  const N = Math.round(128 * FXQ.k);   // ★ 품질 스칼라(FXQ) — 클로즈업에서 128 은 뭉갠다
   const c = document.createElement('canvas');
-  c.width = c.height = 128;
+  c.width = c.height = N;
   const ctx = c.getContext('2d');
   // 커스텀 글리프(FX Lab 슬롯 SVG) 우선 — 없으면 웜 크림 타이포 (동일 온도 언어)
-  if (!drawGlyph(ctx, String(n), 64, 64, 96)) {
+  if (!drawGlyph(ctx, String(n), N / 2, N / 2, N * 0.75)) {
     ctx.fillStyle = rgba(NEU.ink, 0.95);
     // ★ 규약(유저 08-06, 못 박음): **마크 안 영문·한글은 무조건 도트 폰트**.
     //   로고는 러닝에서만(makeFootGlyphTexture). 슬롯 SVG 가 없을 때 시스템 산세리프로
     //   떨어지면 그 글자만 다른 활자가 되어 규약이 깨진다 — OffBit 을 먼저 세운다.
-    ctx.font = "700 86px 'OffBit', -apple-system, sans-serif";
+    ctx.font = `700 ${Math.round(N * 0.67)}px 'OffBit', -apple-system, sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.shadowColor = rgba(PAL.coral, 0.75);
@@ -1036,7 +1085,13 @@ export function tickFlowArrows(t, rig) {
   if (!GLYPHS.map.TIP_TRI) { GLYPHS.map.TIP_TRI = import.meta.env.BASE_URL + 'ready-view/assets/arrow_tip.svg'; GLYPHS.set(GLYPHS.map); }
   if (!GLYPHS.map.LIFT_TIP) { GLYPHS.map.LIFT_TIP = import.meta.env.BASE_URL + 'ready-view/assets/lift_tip.svg'; GLYPHS.set(GLYPHS.map); }
   const day = (FXP.day || FXP.markBlend === 'ink') ? 1 : 0;
-  const ENV = { lut: lutColor, glyph: drawGlyph, arrow: FXP.arrow || {} };
+  // ★ 주간(잉크) 화살표는 **온도를 내린다**. 스템·촉이 LUT 0.55~0.97(코랄→샌드→프리즘)이라
+  //   밝은 바닥 위에서 통째로 씻겨 안 보였다(유저 08-07 스샷 · stancelab 실측).
+  //   같은 무대에서 마크가 가산광을 못 쓰는 것과 **같은 이유·같은 처방**이다(tickWaves 주석).
+  //   야간(가산)은 종전 그대로 — heat 0.5 는 이 파일 이전 픽셀과 동일하다.
+  const A0 = FXP.arrow || {};
+  const ENV = { lut: lutColor, glyph: drawGlyph,
+    arrow: day ? { ...A0, heat: A0.heatDay ?? 0.15 } : A0 };
   for (let i = FLOW_ARROWS.length - 1; i >= 0; i--) {
     const g = FLOW_ARROWS[i];
     if (!g.parent) { FLOW_ARROWS.splice(i, 1); continue; }

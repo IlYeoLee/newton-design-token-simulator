@@ -28,7 +28,7 @@ await new Promise(r => setTimeout(r, 3500));
 // 개발 UI 숨김 — 그림만 본다
 
 await new Promise(r => setTimeout(r, 800));
-const OUT = 'C:/Users/user/AppData/Local/Temp/claude/C--Users-user/e22b4c85-8b4a-4d3b-a8c3-0d5452cb94fa/scratchpad/';
+const OUT = '/private/tmp/claude-501/-Users-iil-yeo/470bab8d-790a-4a73-a1f4-7b8eaed4ec18/scratchpad/';
 await p.screenshot({ path: OUT + 'sim-b1.png', clip: { x: 310, y: 120, width: 960, height: 680 } });
 const info = await p.evaluate(() => {
   const cam = window.__dbg.camera;

@@ -1,0 +1,237 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>드리블 매트 — 녹화용</title>
+<!--
+  녹화 전용 판 (유저 2026-08-07)
+    "별도로 빼고, 아예 프레임 배경 검정 녹화 가능 상태로, 수직에서 본 듯한 뷰로,
+     실측에 맞춰서 동시에 팡팡팡 해야 하고, 실제로도 내가 인물 합성으로 합성할 거야."
+
+  · drawDribbleMat 은 **원래 평면(수직) 뷰**다 — 카메라를 돌릴 필요가 없다. 그대로 꽉 채운다.
+  · 랩·시뮬의 UI 를 하나도 안 얹는다. 캔버스 한 장뿐이라 그대로 화면 녹화하면 소스가 된다.
+  · 박자는 **실측값**이 기본이다(아래 TEMPO 주석). 임의값을 넣지 않는다.
+
+  파라미터
+    ?per=0.467    박자(초). 기본 = 공 추적 실측 (0.467s · 128BPM)
+    ?spot=5       고정 모드에서 때릴 자리(1~4 · 5=가운데). 기본 = 가운데
+    ?seq=1        표적 순회 모드(영상 근거 없음 — 제자리 드리블엔 안 맞는다)
+    ?run=4        순회 모드 한 자리 반복 타수
+    ?size=1440    정사각 한 변(px) · ?w &?h 로 띠 프레임(3840x1080)도 가능
+    ?bg=000       배경 색. bg=none 이면 투명(알파 채널 녹화·PNG 시퀀스용)
+    ?plate=court  배경에 실제 코트 깔기 — 밝은 바닥에서 읽히는지 그 자리에서 판단
+    ?tilt=0       바닥 기울기(도). **기본 0 = 평면**(촬영용). 52 = GAZE.MAT 실측 각(미리보기)
+    ?m=0.90       판 한 변(m) — session.js MAT_SIZE
+    ?ppm=520      플레이트의 px/m (농구공 0.24m 로 실측). 주면 크기가 미터에 묶인다
+    ?pad=0.72     내용 축소율 — 수축 링(1.9R)·플래시(3.3R)가 프레임 안에 들어오게
+    ?token=punch|arrow|mat   같은 바닥에 **다른 토큰**을 놓고 비교(유저: 잽잽훅·화살표는 되나)
+    ?loop=1       자동 재생(기본). loop=0 이면 스페이스로 시작
+  키
+    스페이스  재생/정지 (녹화 시작 타이밍 맞출 때)
+    R        처음부터
+-->
+<style>
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+  body.none { background: transparent; }
+  #wrap { height: 100%; display: grid; place-items: center; }
+  canvas { display: block; }
+  #hint { position: fixed; left: 12px; bottom: 10px; font: 12px/1.5 ui-monospace, monospace;
+          color: #6b7280; user-select: none; }
+  body.rec #hint { display: none; }
+</style>
+<div id="wrap"><canvas id="cv"></canvas></div>
+<div id="hint">스페이스 재생·정지 · R 처음부터 · H 이 안내 숨기기</div>
+
+<script type="module">
+import { drawDribbleMat, drawPunchLine, drawStemArrow } from './src/fx-core.js';
+import { GLYPHS, drawGlyph, rebuildLUT } from './src/fxlut.js';
+
+const q = new URLSearchParams(location.search);
+
+// ── 박자 = **공 추적 실측** (03-[농구]합성전.mp4 · 로우 드리블 9.5~11.9s) ──────────
+//   프레임에서 농구공(주황)의 y 중심을 추적해 **최저점(=바닥 접촉)** 을 셌다.
+//   접촉 9.534 10.001 10.468 10.902 11.369 11.870 — 3초에 6회.
+//   간격 0.467 0.467 0.434 0.467 0.501 · 평균 0.467s · **편차 0.021s** → 128BPM · 초당 2.14회
+//
+//   ★ 오디오 온셋으로 뽑으면 틀린다(0.25s·0.145s 가 나왔다 — 각각 2배·3배 빠름).
+//     나레이션·배경음악·발소리가 다 섞여 있어 바운스만 못 고른다. **공을 세야 한다**(유저 지적).
+//   ★ 편차 0.021s = 거의 메트로놈이다. 내가 오디오를 보고 짐작했던 '짧짧짧-쉼' 묶음 구조는
+//     노이즈였다 — 실제 로우 드리블은 균일하다. 그래서 쉼표(LONG)를 두지 않는다.
+const PER = +(q.get('per') || 0.467);
+
+// ── 자리 = **고정이 기본**이다 (공 x 실측) ─────────────────────────────────────
+//   바닥 접촉 6회의 공 x: 182 178 172 173 179 182 (크롭 240px 기준) — 10px 안,
+//   크롭 폭의 4.1% 다. 원본 3840px 환산 좌우 편차 ≈7cm. **완전한 제자리 드리블**이다.
+//   유저: "실제로는 거의 제자리 드리블 중인데 3-4-1 이렇게 막 움직여도 돼?" — 안 된다.
+//   사람은 가만히 있는데 화면만 돌아다니면 합성에서 바로 어긋난다.
+//   그래서 기본은 **한 자리만 계속 반응**. 순회는 ?seq=1 을 줄 때만 돈다(영상 근거 없음).
+const ROAM = q.get('seq') === '1';
+const SEQ = [5, 3, 5, 4, 5, 1, 5, 2];   // 순회 모드 전용 — 실측 아님(임시 안)
+const RUN = +(q.get('run') || 4);       // 순회 모드에서 한 자리 반복 타수
+const HOME = +(q.get('spot') || 5);     // 고정 모드에서 때릴 자리. 5 = 가운데(몸 앞)
+
+// ★ **미터 결속** — 크기를 눈대중으로 주면 플레이트와 축척이 안 맞는다(유저: 비율 이게 맞음?
+//   개 큰데). 지금까지 size 를 임의 픽셀로 주고 플레이트는 CSS cover 로 따로 늘려서, 둘 사이에
+//   축척 관계가 **아예 없었다**. 실측 2~3배 과대였다.
+//   ?ppm 을 주면 캔버스 표시 크기를 MAT_M x ppm 으로 잡고 플레이트도 원본 배율로 깐다 —
+//   그러면 캔버스와 플레이트가 같은 좌표계(플레이트 픽셀)에 놓인다.
+//   ppm 실측: 농구공 규격 0.24m 를 자로 써서 plate-court.png 에서 480~570 px/m (≈520).
+const MAT_M_PRE = +(q.get('m') || 0.90);   // 판 한 변(m) — session.js MAT_SIZE
+const PAD = +(q.get('pad') || 0.72);       // 내용 축소율 — 이펙트가 프레임 안에 들어오게
+const PPM = +(q.get('ppm') || 0);
+const SIZE = PPM ? Math.round(MAT_M_PRE * PPM) : +(q.get('size') || 1440);
+const BG = (q.get('bg') || '000').toLowerCase();
+// ★ 배경 플레이트 — **밝은 코트 위에서 읽히는지** 그 자리에서 본다(유저).
+//   검은 배경에서는 네온이 스스로 빛나지만 밝은 타일 위에서는 더할 여지가 없다.
+//   랩에서 예쁜 것과 합성에서 보이는 것은 다른 문제라, 판단은 실제 바닥 위에서 해야 한다.
+//   ?plate=court  클립에서 뽑은 야외 코트 · ?plate=<url> 임의 이미지 · 없으면 단색
+const PLATE = q.get('plate');
+if (PLATE) {
+  const src = PLATE === 'court' ? 'plate-court.png' : PLATE;
+  // ppm 을 주면 플레이트를 **원본 배율**로 깐다 — cover 로 늘리면 축척이 다시 깨진다.
+  const sz = PPM ? 'auto' : 'cover';
+  Object.assign(document.body.style, { background: `#111 url("${src}") center/${sz} no-repeat` });
+} else if (BG === 'none') document.body.classList.add('none');
+else document.body.style.background = BG.startsWith('#') ? BG : '#' + BG;
+
+const cv = document.getElementById('cv');
+const DPR = Math.min(2, devicePixelRatio || 1);
+// ★ 띠 프레임 지원 — 목표 판이 3840x1080(3.556:1)이다(실측, HANDOFF-0807-STANCE-TOKEN 8절).
+//   정사각으로만 뽑으면 에펙에서 다시 맞춰야 하고, 그 과정에서 축척이 또 어긋난다.
+const FW = +(q.get('w') || SIZE), FH = +(q.get('h') || SIZE);
+cv.width = Math.round(FW * DPR); cv.height = Math.round(FH * DPR);
+cv.style.width = FW + 'px'; cv.style.height = FH + 'px';
+// ★ 바닥 기울기 — 눕혀 놓고 봐야 크기를 판단할 수 있다(유저: 바닥 기울기로 눕힌 다음 사이즈 실측).
+//   값은 **이미 실측돼 있다**: 매트 판 한 변 0.90 m(session.js MAT_SIZE) · 시선 −52°(main.js
+//   GAZE.MAT, 낙하점 1.2 m). 눈대중으로 각을 잡지 않는다.
+//   원근 거리는 화각에서 나온다 — vfov 60°(main.js fpMode) 기준 P = (H/2)/tan(30°).
+//   ※ 캔버스 2D 는 아핀뿐이라 진짜 원근이 안 나온다. CSS 3D 로 눕히면 브라우저가 원근을
+//     정확히 계산해 주고, 그 값이 그대로 에펙 카메라와 대응된다(scripts/ae_stance_tilt.jsx 규약).
+// ★ 기본 **0(평면)**(유저: 1차 촬영은 일반 프레임뷰로 찍고 각도는 나중에 에펙에서).
+//   미리 눕혀 뽑으면 글로우까지 원근으로 눌려 AE 에서 되돌릴 수 없다. 각은 AE 가 잡는다.
+//   ?tilt=52 로 주면 GAZE.MAT 실측 각으로 눕혀서 미리보기할 수 있다(판단용).
+const TILT = +(q.get('tilt') ?? 0);
+const MAT_M = MAT_M_PRE;
+if (TILT) {
+  const P = (SIZE / 2) / Math.tan(30 * Math.PI / 180);
+  cv.style.transform = `perspective(${P.toFixed(0)}px) rotateX(${TILT}deg)`;
+  cv.style.transformOrigin = '50% 50%';
+}
+const g = cv.getContext('2d');
+const W = Math.min(cv.width, cv.height);   // 매트는 정사각 판 — 띠에선 짧은 변이 기준이다
+const CX0 = (cv.width - W) / 2, CY0 = (cv.height - W) / 2;
+
+const lutArr = rebuildLUT();
+const lut = v => { const i = Math.max(0, Math.min(255, Math.round(v * 255))) * 4;
+  return `rgb(${lutArr[i]},${lutArr[i + 1]},${lutArr[i + 2]})`; };
+if (!GLYPHS.map.LIFT_TIP) { GLYPHS.map.LIFT_TIP = 'ready-view/assets/lift_tip.svg'; GLYPHS.set(GLYPHS.map); }
+const logo = new Image(); logo.src = 'newton-symbol.svg';
+
+const ENV = { lut, glyph: drawGlyph, logo,
+  arrow: { line: 'solid', w: 1, speed: 1, gap: 1, glow: 0.9, heat: 0.5, tail: 0.55 },
+  // 숫자 = OffBit 도트 폰트 (마크 안 활자 규약 — 디자인 SVG 활자 금지)
+  num: (c, ch, x, y, size, fontPx) => { c.font = `700 ${fontPx}px 'OffBit', sans-serif`;
+    c.fillStyle = 'rgba(255,240,220,.95)'; c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.fillText(String(ch), x, y); },
+  foot: () => {} };
+
+// ── 상태 ────────────────────────────────────────────────────────────────────
+let playing = q.get('loop') !== '0';
+let t0 = performance.now() / 1000, hitT = -9, live = ROAM ? SEQ[0] : HOME, prev = live, liveT = -9;
+let beat = 0, next = 0;
+const reset = () => { t0 = performance.now() / 1000; hitT = -9; beat = 0; next = 0.6;
+  live = prev = ROAM ? SEQ[0] : HOME; liveT = -9; };
+reset();
+
+addEventListener('keydown', e => {
+  if (e.code === 'Space') { e.preventDefault(); playing = !playing; if (playing) reset(); }
+  if (e.key === 'r' || e.key === 'R') reset();
+  if (e.key === 'h' || e.key === 'H') document.body.classList.toggle('rec');
+});
+
+const at = n => n === 1 ? [-0.44, 0.44] : n === 2 ? [0.44, 0.44]
+  : n === 3 ? [-0.44, -0.44] : n === 4 ? [0.44, -0.44] : [0, 0];
+
+// ★ 외부 시간 훅 — 녹화는 **실시간이 아니라 고정 시간 스텝**으로 돈다(리포 규약: export_ui.mjs
+//   의 t = T0 + i/FPS 와 같은 식). 헤드리스 소프트 렌더러는 실시간을 못 따라가 12fps 로 떨어졌다
+//   (실측) — 한 박 0.467s 에 5.6프레임, 임팩트 플래시 0.22s 는 2프레임이라 사라진다.
+//   __t 가 있으면 그 값을 시각으로 쓰고, 한 프레임 그린 뒤 __drawn 을 올린다(캡처 쪽이 기다린다).
+window.__drawn = 0;
+function frame() {
+  const t = window.__t != null ? window.__t : performance.now() / 1000 - t0;
+  // 박자 진행 — 균일한 간격으로 때리고, RUN 타마다 자리만 옮긴다
+  if ((playing || window.__t != null) && t >= next) {
+    const inRun = beat % RUN;
+    hitT = t;
+    // 박자는 **균일하다**(편차 0.021s). 자리만 RUN 타마다 옮긴다 — 쉼표를 넣지 않는다.
+    next = t + PER;
+    if (ROAM && inRun === RUN - 1) { prev = live; live = SEQ[(Math.floor(beat / RUN) + 1) % SEQ.length]; liveT = t; }
+    beat++;
+  }
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  g.clearRect(0, 0, cv.width, cv.height);
+  if (!PLATE && BG !== 'none') { g.fillStyle = BG.startsWith('#') ? BG : '#' + BG; g.fillRect(0, 0, cv.width, cv.height); }
+
+  const tgt = n => ({ ...{ 1: { x: -0.44, y: 0.44 }, 2: { x: 0.44, y: 0.44 },
+                           3: { x: -0.44, y: -0.44 }, 4: { x: 0.44, y: -0.44 } }[n],
+                      n, r: 0.19, on: true, live: live === n,
+                      hit: live === n ? t - hitT : null });
+
+  // ★ 비교 모드 — **같은 바닥에 다른 토큰**을 놓는다(유저: 반대로 룩시스템 화살표랑 잽잽훅
+  //   여기 들고 와봐, 거긴 되나 보게). 매트만의 문제인지 시스템 전체의 주간 문제인지는
+  //   같은 조건에 나란히 놓아야 갈린다 — 랩은 검은 캔버스라 이 판단을 못 한다.
+  const TOKEN = q.get('token');
+  if (TOKEN === 'punch') {
+    drawPunchLine(g, W, { w: 1, glow: 1, tempo: 1, node: 1, numS: 1, dash: 0 },
+      { halo: 0.9 }, t, ENV, null, 0.85);
+    requestAnimationFrame(frame); return;
+  }
+  if (TOKEN === 'arrow') {
+    const AW2 = Math.round(W * 0.34), AH2 = Math.round(W * 0.68);
+    g.save(); g.translate((W - AW2) / 2, (W - AH2) / 2);
+    drawStemArrow(g, AW2, AH2, t, ENV, { prog: 1, scale: 1, dots: true });
+    g.restore();
+    requestAnimationFrame(frame); return;
+  }
+
+  // ★ 여백 — 수축 링은 노드 반지름의 **1.9배**까지 뻗고 임팩트 플래시는 3.3배까지 간다.
+  //   캔버스를 꽉 채워 그리면 모서리 노드의 링이 프레임 밖으로 잘린다(유저: 통으로 잘못 찍혔어).
+  //   내용을 안쪽으로 줄여 이펙트가 다 들어오게 한다 — 잘라내지 말고 담는다.
+  //   ★ 원래 크기로 그린 뒤 축소하면 **여백이 안 생긴다.** drawDribbleMat 의 좌표계는
+  //     `X = u => W/2 + u*W/2` 라 정규좌표 ±1 이 곧 캔버스 경계다 — 그걸 넘는 글로우·플래시는
+  //     오프스크린에서 **이미 잘린 뒤**라 나중에 축소해 봐야 잘린 그림이 작아질 뿐이다.
+  //     실측(2048² · pad 1.0 · 55프레임): 내용 bbox 가 x·y 모두 **정확히 0** 에서 시작했다.
+  //     → 그래서 **작게 그린다**: 오프스크린은 W 로 두고 매트만 W·PAD 로 그려 가운데 놓는다.
+  //     내용 크기는 종전과 같고(둘 다 W·PAD), 남는 띠가 이펙트가 뻗을 실제 자리가 된다.
+  //   ★ 전체를 **먼저** 비울 것 — drawDribbleMat 의 clearRect(0,0,W,W) 는 translate 아래라
+  //     자기 구역만 비운다. 안 비우면 이전 프레임의 글로우가 여백에 남아 쌓인다.
+  const off = frame._off || (frame._off = document.createElement('canvas'));
+  if (off.width !== W) { off.width = off.height = W; }
+  const og = off.getContext('2d');
+  og.setTransform(1, 0, 0, 1, 0, 0);
+  og.clearRect(0, 0, W, W);
+  const MS = Math.round(W * PAD);
+  og.translate((W - MS) / 2, (W - MS) / 2);
+  drawDribbleMat(og, MS, {
+    chev: 0, prog: 0, in: Math.min(1, Math.max(0, t / 1.1)), hit: null, per: PER,
+    travel: { from: prev, to: live, k: Math.min(1, (t - liveT) / 0.45) },
+    mat: { nx: 0.50, fx: 0.86, ny: -0.80, fy: 0.80 },
+    center: { x: 0, y: 0, r: 0.28, label: null,
+              live: live === 5, hit: live === 5 ? t - hitT : null },
+    targets: [tgt(1), tgt(2), tgt(3), tgt(4)],
+    brand: 1,
+  }, { halo: 0.9 }, t, ENV);
+  og.setTransform(1, 0, 0, 1, 0, 0);
+  g.drawImage(off, CX0, CY0, W, W);      // 1:1 — 축소는 위에서 이미 '그리는 크기'로 반영됐다
+
+  window.__drawn++;
+  if (window.__t == null) requestAnimationFrame(frame);   // 외부 시간이면 캡처 쪽이 호출을 몰아준다
+}
+// ★ 동기 렌더 훅 — 캡처는 이걸 부른다. rAF 에 묶이지 않는다.
+//   헤드리스에서 rAF 가 스로틀되면 '그려질 때까지 기다리기'가 영영 안 끝난다(실측: 30프레임에
+//   400초 초과). 한 프레임을 **그 자리에서** 그리고 바로 데이터 URL 을 뽑는 게 빠르고 확실하다.
+window.__render = (t) => { window.__t = t; frame(); return document.getElementById('cv').toDataURL('image/png'); };
+// ★ 내보내기 훅 — 리포 규약과 **같은 이름**(stancelab 의 __shot). export_*.mjs 가 이걸 부른다.
+//   toDataURL('image/png') 은 straight alpha 를 준다 — 에펙에서 **Straight** 로 해석할 것.
+//   Premultiplied 로 잡히면 가산광 가장자리가 검게 먹는다(ae_import.jsx 가 밟은 함정).
+window.__shot = window.__render;
+frame();
+</script>
