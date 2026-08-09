@@ -3226,6 +3226,21 @@ void main(){
           if (co._readySrc !== vsrc) { co._readySrc = vsrc; co._everReady = false; }
           if (co.video.readyState >= 2) co._everReady = true;
           co.plane.visible = vis && !!co._everReady;
+          // ★ 그리드는 판을 그대로 따라간다 — 위치·회전·스케일을 복사하고 **판 뒤로** 살짝 물린다.
+          //   따로 계산하면 판이 앵커에 글루되는 순간(매 프레임 재배치) 어긋난다.
+          if (co.grid) {
+            const on = co.plane.visible && COACH_GRID[id] !== false;
+            co.grid.visible = on;
+            if (on) {
+              co.grid.position.copy(co.plane.position);
+              co.grid.quaternion.copy(co.plane.quaternion);
+              co.grid.scale.copy(co.plane.scale);
+              co.grid.translateZ(-0.004);   // 판 뒤
+              const gu = co.grid.material.uniforms;
+              gu.uTime.value = (session.t ?? state.time ?? 0);        // 스캔 펄스 — 벽과 같은 시계
+              gu.uBoost.value = (co.mat.uniforms.uFade?.value ?? 1);  // 판 페이드를 그대로 따라간다
+            }
+          }
           if (co.mat.uniforms.uEnter) co.mat.uniforms.uEnter.value = (now - (co._showT || 0)) / 1000;
         }
         co.plane.material.uniforms.uTime.value = performance.now() / 1000;
@@ -3338,26 +3353,6 @@ void main(){
             } else {
               co.plane.scale.set(1, 1, 1);   // 프리뷰 = 기존 배치 유지
             }
-          }
-        }
-        // ★ 그리드는 판을 그대로 따라간다 — 위치·회전·스케일을 복사하고 **판 뒤로** 살짝 물린다.
-        //   따로 계산하면 판이 앵커에 글루되는 순간(매 프레임 재배치) 어긋난다.
-        // ★★ 이 블록은 **판 배치가 끝난 뒤**에 있어야 한다(유저 08-10: 발자국인데 뒤에 배경 컬러가 남는다).
-        //   전엔 co.plane.visible 을 정하는 자리(위쪽)에 붙어 있었는데, 따라하기 국면의
-        //   `co.plane.visible = false`(BK_T1·BK_B2~4)는 **그 아래**에서 다시 꺼진다 —
-        //   그리드는 이미 true 로 굳은 뒤라 인물이 사라진 화면에 배경만 남았다.
-        //   배경은 인물 뒤에서만. 여기로 내려오면 판의 **최종** 가시성과 최종 좌표를 같이 읽는다.
-        if (co.grid) {
-          const on = co.plane.visible && COACH_GRID[id] !== false;
-          co.grid.visible = on;
-          if (on) {
-            co.grid.position.copy(co.plane.position);
-            co.grid.quaternion.copy(co.plane.quaternion);
-            co.grid.scale.copy(co.plane.scale);
-            co.grid.translateZ(-0.004);   // 판 뒤
-            const gu = co.grid.material.uniforms;
-            gu.uTime.value = (session.t ?? state.time ?? 0);        // 스캔 펄스 — 벽과 같은 시계
-            gu.uBoost.value = (co.mat.uniforms.uFade?.value ?? 1);  // 판 페이드를 그대로 따라간다
           }
         }
       // ★ 그리드도 **여기서 같이 끈다**(유저 08-06: 그리드가 두 개씩 보인다). 판만 숨기고
@@ -4618,7 +4613,11 @@ void main(){
       //   몸 전체를 내리는 방식)만으로 충분하다 — 그건 포즈를 안 건드린다.
       //   되살릴 땐 '힙이 옮겨간 만큼 래치도 따라가게' 만든 뒤에만.
       xbot.footLock = false;
-      xbot.demoInPlace = xbot.footLock;   // 레이업 도움닫기 루트가 무대 밖으로 나가지 않게
+      // ★ footLock 에 묶지 않는다(08-10 유저: 발고정 끈 뒤 봇이 다시 뒤돌았다).
+      //   demoInPlace 는 두 가지를 담당한다 — ① 힙 XZ 제자리(_lockInPlace) ② 요 고정 활성
+      //   (lockYaw 는 루트 클립에서 demoInPlace 일 때만 산다). footLock=false 로 두면서 이것까지
+      //   꺼져 124_06 이 몸을 돌리는 대로 뒤돌아 시작했다. 스텝백 장면이면 **항상** 제자리+정면.
+      xbot.demoInPlace = !!STEP_SEG[session.stage || ''];
       xbot.setFootIK(null);
       // 위상잠금: 씬 링·카운트와 코치 동작을 같은 시간축에 — 절차 드릴 + A1 전신풀기·A2 점핑잭(주기=씬 BT).
       // BK_B2 = 분해 밟기: 씬 3s 사이클당 크로스오버 1회(마크 1-2-3과 사이클 동기).
