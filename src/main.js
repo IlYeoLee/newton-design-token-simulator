@@ -4569,7 +4569,10 @@ void main(){
       xbot.relaxLeftArm = (session.stage || '') === 'BK_B1';   // 로우 드리블 — 오른손만 드리블, 왼팔 자연 축 내림
       xbot.phaseDribble = (session.stage || '') === 'BK_B1';   // 공 = 오른손 높이 직결(최고=손, 최저=바닥)
       // 세션 데모(비실전) 공통: CMU 클립이 몸을 돌려도 봇은 정면 유지(유저 원칙)
-      xbot.lockYaw = session.active && /^BK_([AB]|C)/.test(session.stage || '');   // 실전에서도 정면 유지(유저)
+      // ★ **T 도 포함**(08-10). BK_T1(전체 재생)이 정규식에서 빠져 있어 요 고정이 꺼져 있었고,
+      //   스텝백 클립(124_06 레이업)이 몸을 돌리는 대로 봇이 **뒤를 보고** 서 있었다
+      //   (실측: 골반 정면 −8° · 마크 방향 180° = 188° 어긋남). 농구는 전 장면 정면 유지다.
+      xbot.lockYaw = session.active && /^BK_([ABCT])/.test(session.stage || '');   // 실전에서도 정면 유지(유저)
       let _clip = demoClipFor(session.sport, session.stage);
       // A2/A3 = 2단계 흐름(유저): [0~5s 관찰] 봇은 가만히 서서(idle) 전문가 영상 보기 → [5s~ 따라하기].
       // 뉴턴 전환 문법(유저 확정): 시범(영상만·도트바) → 마크 Preview 워밍 등장+음성 → 따라하기.
