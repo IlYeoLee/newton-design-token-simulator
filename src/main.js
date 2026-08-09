@@ -4577,9 +4577,10 @@ void main(){
       const _stepPv = STEP_SEG[session.stage || ''] && _stepId === session.stage;   // 스텝백 = 재생 횟수로 판정
       const aWatching = _watchWin && (_stepPv ? _stepLoops < stepLoops(session.stage) : session.t < A2_WATCH);
       if (_watchWin && !aWatching) { session._followLatch = true; session._aWatchEnd = session.t; }
-      // ★ 스텝백 관찰은 봇이 **시범을 한다**(08-10, 유저: 봇이 따라해야 하는데 못 한다).
-      //   idle 강제는 코치 영상만 믿던 시절 규칙 — 이제 봇이 마크와 같은 시계로 무브를 보여준다.
-      if (aWatching && !STEP_SEG[session.stage || '']) { _clip = 'idle'; xbot.group.scale.x = 1; xbot.lungeDeepen = 0; xbot.headPitch = THREE.MathUtils.degToRad(-32); }
+      // ★ 관찰(영상 재생) = 봇도 제자리 정지(유저 08-10 확정: "영상 재생할 때는 X봇도 가만히").
+      //   시범은 영상이 하고, 봇의 무브는 따라하기(발자국) 구간에서만 — 둘이 동시에 움직이면
+      //   시선이 갈린다. 스텝백 예외를 한때 뒀다가 이 확정으로 되돌렸다.
+      if (aWatching) { _clip = 'idle'; xbot.group.scale.x = 1; xbot.lungeDeepen = 0; xbot.headPitch = THREE.MathUtils.degToRad(-32); }
       // 위상잠금: 씬 링·카운트와 코치 동작을 같은 시간축에 — 절차 드릴 + A1 전신풀기·A2 점핑잭(주기=씬 BT).
       // BK_B2 = 분해 밟기: 씬 3s 사이클당 크로스오버 1회(마크 1-2-3과 사이클 동기).
       // BK_B3 = 컷·감속: 로우 드리블 클립의 컷 구간(16~21s) 창 반복. 그 외 실측 모캡은 자연 속도(왜곡 방지).
