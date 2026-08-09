@@ -9,6 +9,7 @@ import { ProjectorRig } from './projector.js';
 // 스테이지 타이밍 정본 — 홀드/시범 초. 여기 값을 고치면 마크 숫자·지면 링·시범 길이가 같이 움직인다.
 import { stageTime } from './marklang.js';
 import { WallGhost } from './ghost.js';
+import { createSubCard } from './subcard.js';   // 코치 자막 카드 — 에펙 정본(AE_Sub_*.jsx) 이식
 import { FilesetResolver, ImageSegmenter } from '@mediapipe/tasks-vision';
 import { extractPose, retargetToClip } from './posemocap.js';   // 무료 로컬 비디오 모캡
 import { Judge } from './judge.js';
@@ -985,6 +986,7 @@ void main(){
   // ── 세션 흐름 프로토 (러닝) — 와이어프레임 v2 A→B→C ──
   const sessionStageEl = document.getElementById('session-stage');
   const captionEl = document.getElementById('voice-caption');
+  let subCard = null;   // 첫 대사에서 만든다 — 치수가 스테이지 높이 비율이라 레이아웃 확정 뒤여야 한다
   const veilEl = document.getElementById('stage-veil');
   const wearFxEl = document.getElementById('wear-fx');
   let captionTimer = null;
@@ -1060,14 +1062,11 @@ void main(){
     if (session?.active && /^C\d$/.test(session.stage || '')) return;
     // 화자 이름·스피커 아이콘 없이 문장만(유저). '들리는 것'이라는 신호는 모션이 담당한다 —
     // 아래에서 떠오르며 등장하고, 말하는 동안 문장 밑 음파 바가 움직인다.
-    (captionEl._t || (captionEl._t = document.getElementById('vc-text'))).textContent = text;
-    captionEl.style.opacity = '1';
-    captionEl.style.transform = 'translateX(-50%) translateY(0)';
+    // 카드가 나머지를 다 한다 — 폭 스프링 · 오버슈트 등장 · 파형 · 종목 아바타(에펙 정본).
+    subCard = subCard || createSubCard(captionEl, import.meta.env.BASE_URL);
+    subCard.show(text, session?.sport || state.pack);
     clearTimeout(captionTimer);
-    captionTimer = setTimeout(() => {
-      captionEl.style.opacity = '0';
-      captionEl.style.transform = 'translateX(-50%) translateY(10px)';   // 떠올랐다 다시 가라앉으며 사라짐
-    }, 4500);
+    captionTimer = setTimeout(() => subCard.hide(), 4500);
   }
   const sessionHud = document.getElementById('session-hud');
   const hudStageEl = document.getElementById('hud-stage');
