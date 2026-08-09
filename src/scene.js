@@ -745,6 +745,11 @@ export function createScene(container) {
     const snapped = Math.round(z / 2) * 2;
     floor.position.z = snapped;
     grid.position.z = snapped;
+    // ★ 레인 라인도 같이 따라온다. 안 따라오면 **선이 끊긴다** — 라인은 원점 고정 80m 판이라
+    //   z −40 을 넘는 순간 끝난다. 러닝 한 세션이 z −57 까지 가므로(실측: C4 에서 이미 −47)
+    //   C4 부터는 트랙 위를 달리는데 선이 없었다(유저 신고).
+    //   실선이라 어디서 잘라 붙여도 이음매가 안 보인다 — 바닥과 같은 2m 스냅으로 옮긴다.
+    if (trackLanes) trackLanes.position.z = snapped;
   }
 
   return { renderer, scene, camera, controls, setPackEnvironment, resize, renderFrame, composer, setSurfaces, setDaylight, followFloor, wall, wallGroup, hoop, setRenderCamera: cam => { renderPass.camera = cam; } };
