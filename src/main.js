@@ -13,7 +13,7 @@ import { createSubCard } from './subcard.js';   // 코치 자막 카드 — 에�
 import { FilesetResolver, ImageSegmenter } from '@mediapipe/tasks-vision';
 import { extractPose, retargetToClip } from './posemocap.js';   // 무료 로컬 비디오 모캡
 import { Judge } from './judge.js';
-import { Session, SCFG, STAGES, STEP_SEG , refreshMarkNums, AD, FootMark } from './session.js';
+import { Session, SCFG, STAGES, STEP_SEG, sbPoseAt, refreshMarkNums, AD, FootMark } from './session.js';
 import { StudioDoc } from './studio/doc.js';
 import { StudioCanvas } from './studio/canvas.js';
 import { StudioProps } from './studio/props.js';
@@ -4420,9 +4420,13 @@ void main(){
       //   과거 rk 불신("공중부양·어정쩡", db81be2)은 12.8s 통짜 인상이다 — 서서 말하는 구간이
       //   절반이다. 이 창(실제 무브 1.8s)은 스틸 8장 검수로 확인했다.
       //   위상은 demoClipFor 밖(아래 stepVidT 매핑)에서 건다 — 마크와 같은 시계.
-      BK_B2: 'rk_stepback',
-      BK_T1: 'rk_stepback', BK_B3: 'rk_stepback', BK_B4: 'rk_stepback',
-      BK_C2: 'rk_stepback',           // 실전 — 릴리즈는 판정으로
+      //   ★★ 그리고 rk 창 크롭도 **폐기**(08-10 재실측): 그 창은 '정지 → 슛 → 정지' 였다
+      //   (8.4~9.4 손 1.00 고정 · 9.5~9.9 손 1.0→1.6 상승 · 이후 정지). 상관 0.978 은 가이드도
+      //   '홀드→변화→홀드' 라 **모양만** 맞은 것이다 — 유저: "발자국 나오는데 왜 손을 올려?"
+      //   다리는 이제 발자국 좌표로 직접 푼다(xbot.setFootIK). 클립은 상체·팔 담당으로 되돌린다.
+      BK_B2: 'bkStance',
+      BK_T1: 'bkStance', BK_B3: 'bkStance', BK_B4: 'bkStance',
+      BK_C2: 'bkStance',              // 실전 — 릴리즈는 판정으로
     };
     // 실전 대기(C1)부터 실전 종료·리포트까지 봇은 가만히 서 있는다(유저). 동작 연출 없음.
     // ★ BK_C2 만 예외(08-10) — 실전 스텝백 3회는 봇이 무브를 **한다**. 이 조기 반환이 표의
@@ -4550,9 +4554,8 @@ void main(){
       xbot.crossGuard = 0;   // 절차 드릴이 가드 팔까지 저작 — 덧대기 보정 은퇴
       xbot.legLock = /^BK_(C1|C2)$/.test(session.stage || '');   // 크로스오버 = 하체 완전 고정(굽힌 자세 스냅샷, 유저) — 실측 표류 0.06m 기법
       xbot.uDribble = /^BK_(C1|C2)$/.test(session.stage || '');   // 공 = 박자 결정론 U자(좌우 손바닥 왕복, 유저 확정)
-      // ★ sbWidth·sbJump 절차 구동은 **은퇴**(08-10) — 스텝백을 rk_stepback 실측 클립이 소유한다.
-      //   클립 위에 폭·점프를 또 얹으면 같은 말을 두 번 하는 것(관절이 서로 싸운다).
-      //   sbShift(실전 루트 후퇴)만 남긴다 — 클립 창엔 없는 무대 배치라 역할이 안 겹친다.
+      // ★ sbWidth·sbJump 절차 구동은 **은퇴**(08-10) — 다리는 발자국 IK 가 소유한다.
+      //   sbShift(실전 루트 후퇴)만 남긴다 — 무대 배치라 역할이 안 겹친다.
       xbot.sbWidth = 0;
       xbot.sbShift = (session.stage === 'BK_C2') ? (session.sbShift ?? 0) : 0;   // 실전만 루트 이동 — 학습 4페이즈는 정지 자세(창이 따라 움직이면 발자국이 밖으로 밀린다)
       xbot.sbJump = 0;
@@ -4581,6 +4584,19 @@ void main(){
       //   시범은 영상이 하고, 봇의 무브는 따라하기(발자국) 구간에서만 — 둘이 동시에 움직이면
       //   시선이 갈린다. 스텝백 예외를 한때 뒀다가 이 확정으로 되돌렸다.
       if (aWatching) { _clip = 'idle'; xbot.group.scale.x = 1; xbot.lungeDeepen = 0; xbot.headPitch = THREE.MathUtils.degToRad(-32); }
+      // ── 발자국 IK 구동 — 가이드 안무(sbPoseAt)를 **봇 몸 크기의 미터**로 환산해 발목 목표로.
+      //   좌표계: 가이드 u(정규 좌우) · v(정규 앞뒤). 봇은 마주보므로 좌우가 뒤집힌다(−u).
+      //   배율은 레퍼런스 영상 실측에 맞춘다 — 착지 스탠스 폭 0.92m(가이드 Δu 1.27 → KX 0.72),
+      //   앞뒤는 스텝백 실측 이동 대역(Δv 1.9 → KZ 0.21). 상수 둘이 전부다.
+      //   ★ 관찰 중엔 끈다 — 그때 봇은 제자리 정지(유저 확정).
+      if (session.active && !aWatching && STEP_SEG[session.stage || '']) {
+        const IK_KX = 0.566, IK_KZ = 0.21, IK_Z0 = -0.02;   // KX 는 실측 캘리브레이션: 0.72 → 폭 1.17m(과대) → ×0.92/1.17
+        const P = sbPoseAt(session.stepVidT ?? 0, false);
+        xbot.setFootIK({
+          L: { x: -P.L.u * IK_KX, z: P.L.v * IK_KZ + IK_Z0 },
+          R: { x: -P.R.u * IK_KX, z: P.R.v * IK_KZ + IK_Z0 },
+        });
+      } else xbot.setFootIK(null);
       // 위상잠금: 씬 링·카운트와 코치 동작을 같은 시간축에 — 절차 드릴 + A1 전신풀기·A2 점핑잭(주기=씬 BT).
       // BK_B2 = 분해 밟기: 씬 3s 사이클당 크로스오버 1회(마크 1-2-3과 사이클 동기).
       // BK_B3 = 컷·감속: 로우 드리블 클립의 컷 구간(16~21s) 창 반복. 그 외 실측 모캡은 자연 속도(왜곡 방지).
@@ -4687,13 +4703,9 @@ void main(){
           xbot.stanceWiden = 1;
         }
       }
-      // ★ 스텝백 = **마크와 같은 시계**(stepVidT)에 위상 잠금. session.t 로 돌리면 코치 영상
-      //   배속·정지(hold)와 어긋나 발자국 따로 봇 따로가 된다 — 마크 배치(_sbPlace)가 따르는
-      //   그 값을 그대로 따른다. 가이드 vt 0~3.10(STEP_SEG 전체 창) → rk 창 [8.7, 10.5] 선형 매핑.
+      // ★ 스텝백 = 클립이 아니라 **발자국 좌표로 다리를 푼다**(IK). 위상은 상체용으로만 돈다.
       else if (/^BK_(T1|B2|B3|B4|B5|C2)$/.test(session.stage || '')) {
-        const RK0 = 8.7, RK1 = 10.5, SBE = 3.10;
-        const vt = Math.max(0, Math.min(SBE, session.stepVidT ?? 0));
-        _phase = RK0 + (vt / SBE) * (RK1 - RK0);
+        _phase = (session.t * (session.clipRate ?? 1)) % (xbot.actions.bkStance?.dur || 2.5);
       }   // 신규 소스(공 튀기며 손으로 옮기기) 최적 루프 4.4~7.9s — 경계 0.02m·손 전환 3회 실측
       else if (session.stage === 'BK_B3') {   // 프리스타일은 어느 구간도 안 맞물림(최적 0.183m) → 핑퐁 = 불연속 0
         const SP3 = 6.3, m3 = session.t % (SP3 * 2);

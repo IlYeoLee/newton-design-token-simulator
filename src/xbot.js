@@ -616,7 +616,8 @@ export class XBot {
     //   베이크는 클립 **전 구간**의 최저발을 0에 맞춘 것 — 위상 창(rk_stepback [8.7,10.5])만
     //   틀면 그 창의 최저발은 공중이다. 위 루트 분기(585)가 클램프를 해도 여기가 y=0 으로
     //   되돌리고 있었다. 루트+접지 클립은 per-frame 클램프로 보낸다(_clampFeet 스무딩이 있다).
-    if (this._groundedClips?.has(key) && !this._rootClips?.has(key)) { this.model.position.y = 0; this._yOff = undefined; this.model.updateMatrixWorld(true); }
+    this._applyFootIK();   // 발자국 좌표 구동 — 클립 포즈 위에, 접지 클램프 앞에
+    if (this._groundedClips?.has(key) && !this._rootClips?.has(key) && !this._footIK) { this.model.position.y = 0; this._yOff = undefined; this.model.updateMatrixWorld(true); }
     else this._clampFeet();   // 데모 클립 루트 높이 미보정 → 봇 공중부양(유저: 'x봇이 공중에 떠있는데') 방지
     // 데모 중 공 관리 (playDemo는 여태 공을 안 건드려 이전 live 위치가 멀리 남아있었음 — 유저: '공이 저 멀리').
     // 드리블 클립일 때만 손에 붙여 튕기고, 그 외(idle·스탠스·사이드스텝·READY)엔 숨김.
@@ -779,6 +780,67 @@ export class XBot {
     }
     this.model.updateMatrixWorld(true);
     this._applyHeadPitch(dt);
+  }
+
+  /** ══ 발자국 IK — 지면 발자국 **좌표 그대로** 다리를 구동한다(유저 08-10). ══
+   *
+   *  왜 클립 크롭이 아니라 IK 인가: 보유 클립엔 이 안무가 **없다**. rk_stepback 창을 상관으로
+   *  골랐더니(0.978) 실제로는 '정지 → 슛 → 정지' 였다 — 실측: 8.4~9.4s 완전 정지(손 1.00 고정),
+   *  9.5~9.9 손이 1.0→1.6 으로 상승(슛), 9.9~12.8 다시 정지. 상관이 높았던 건 가이드도
+   *  '홀드 → 변화 → 홀드' 모양이라 **모양만** 맞았기 때문이다(유저: 발자국 나오는데 손을 올린다).
+   *  발자국은 좌표다. 좌표가 있으면 다리는 풀 수 있다 — 그게 IK다.
+   *
+   *  targets = 힙 기준 **로컬 미터** {L:{x,z}, R:{x,z}} · y=0(접지). null 이면 클립 그대로.
+   *  상체·팔은 클립이 계속 소유한다(드리블·시선) — 다리만 좌표를 따른다. */
+  setFootIK(t) { this._footIK = t || null; }
+
+  _applyFootIK() {
+    const T = this._footIK; if (!T || !this._hips) return;
+    this.model.updateMatrixWorld(true);
+    const hp = new THREE.Vector3().setFromMatrixPosition(this._hips.matrixWorld);
+    // 봇은 유저를 마주본다(모델 yaw π) — 로컬 x·z 를 월드로 돌린다. yaw 는 모델 회전에서 읽는다.
+    const yaw = this.model.rotation.y, cy = Math.cos(yaw), sy = Math.sin(yaw);
+    const world = (p) => new THREE.Vector3(
+      hp.x + p.x * cy + p.z * sy, 0, hp.z - p.x * sy + p.z * cy);
+    this._ikLeg('Left', world(T.L));
+    this._ikLeg('Right', world(T.R));
+    this.model.updateMatrixWorld(true);
+  }
+
+  /** 2본 IK — 무릎 각(코사인 법칙) → 엉덩 조준 → 발바닥 수평. 폴 벡터는 클립이 준 무릎 방향 유지. */
+  _ikLeg(side, tgt) {
+    const B = n => this.model.getObjectByName('mixamorig' + side + n);
+    const up = B('UpLeg'), lo = B('Leg'), ft = B('Foot');
+    if (!up || !lo || !ft) return;
+    const V = () => new THREE.Vector3();
+    const P0 = V().setFromMatrixPosition(up.matrixWorld);
+    const P1 = V().setFromMatrixPosition(lo.matrixWorld);
+    const P2 = V().setFromMatrixPosition(ft.matrixWorld);
+    const l1 = P0.distanceTo(P1), l2 = P1.distanceTo(P2);
+    if (!(l1 > 1e-4 && l2 > 1e-4)) return;
+    // 발목 목표 = 발바닥이 지면에 오도록 발목 높이만큼 띄운다(바인드 발목 높이 = 그 값).
+    const aim = tgt.clone(); aim.y = this._ankleY ?? (this._ankleY = Math.max(0.02, P2.y));
+    const cl = (v, a, b) => Math.max(a, Math.min(b, v));
+    const d = cl(P0.distanceTo(aim), Math.abs(l1 - l2) + 0.02, l1 + l2 - 0.02);
+    // ① 무릎: 현재 내각 → 목표 내각 만큼만 더 굽힌다(로컬 X 음수 = 굽힘, 기존 실측 규약)
+    const ang = (a, b, c) => Math.acos(cl((a * a + b * b - c * c) / (2 * a * b), -1, 1));
+    const cur = ang(l1, l2, cl(P0.distanceTo(P2), 1e-3, l1 + l2 - 1e-3));
+    lo.rotateX(-(ang(l1, l2, d) - cur));
+    this.model.updateMatrixWorld(true);
+    // ② 엉덩: 발목이 목표를 향하도록 월드 회전 델타를 로컬로 환산해 얹는다
+    const A = V().setFromMatrixPosition(ft.matrixWorld).sub(P0).normalize();
+    const Bv = aim.clone().sub(P0).normalize();
+    const qd = new THREE.Quaternion().setFromUnitVectors(A, Bv);
+    const pq = up.parent.getWorldQuaternion(new THREE.Quaternion());
+    up.quaternion.premultiply(pq.clone().invert().multiply(qd).multiply(pq));
+    this.model.updateMatrixWorld(true);
+    // ③ 발바닥 수평 — 발이 다리를 따라 기울면 뒤꿈치가 땅을 뚫는다. 바인드 발 자세(월드)를
+    //   몸 yaw 만 얹어 되돌린다(한 번만 캡처 — 클립이 바꿔도 기준은 바인드다).
+    if (!this._footBindQ) this._footBindQ = {};
+    if (!this._footBindQ[side]) this._footBindQ[side] = ft.getWorldQuaternion(new THREE.Quaternion());
+    const want = this._footBindQ[side].clone();
+    const fpq = ft.parent.getWorldQuaternion(new THREE.Quaternion());
+    ft.quaternion.copy(fpq.invert().multiply(want));
   }
 
   /** 지면 화면(세션 컴플리트·전환·카운트다운)에서 3인칭 봇 머리를 아래로 숙여 바닥 UI를 응시.
