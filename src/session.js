@@ -1939,8 +1939,12 @@ export class Session {
       //   ponytail: 4/4 오른발 모으기(실측 이동 0.541m)는 여기서 포화해 실제보다 짧게 그려진다.
       //   무대(SB_BOX·SBZ)를 넓히면 이 상한도 같이 올릴 것.
       H.arMax = 0.30;
-      H.a1 = floorArrow(0, SBZ, 0, BRAND.prism, H.arMax);
-      H.a2 = floorArrow(0, SBZ, 0, BRAND.red, H.arMax);
+      // ★ 색 = **연한 코랄(sand)**. 유저 08-10: "러닝 목돌리기 화살표는 엄청 잘 보이는 연한
+      //   노랑인데 얘는 왜 주황이라 안 보이나." 팔레트 이름이 통념과 반대다(main.js 주석):
+      //   coral=#FE6E3C 진한 주황(휘도 147) · sand=#FEC389 연한 코랄(206). 러닝 A1 이 쓰는 게
+      //   sand 다. prism·red 는 지면 위에서 배경과 붙어 사라진다 — 둘 다 sand 로 통일한다.
+      H.a1 = floorArrow(0, SBZ, 0, BRAND.sand, H.arMax);
+      H.a2 = floorArrow(0, SBZ, 0, BRAND.sand, H.arMax);
       H.a1._gain = 0; H.a2._gain = 0; H.a1._prog = 0; H.a2._prog = 0;
       gg.add(H.mL, H.mC, H.mR, H.rise, H.gh.group, H.a1, H.a2,
         H.fLl.group, H.fLr.group, H.fRl.group, H.fRr.group, H.fC.group);
@@ -3620,9 +3624,14 @@ export class Session {
       // 화살표는 관찰(프리뷰) 때도 뜬다 — 첫 진입에서만 안 보이던 원인이 여기(_gain이 따라하기
       //   분기에서만 세팅돼 초기값 0. 재진입 때는 이전 값이 남아 '보였다'). 배치를 먼저 잡는다.
       // 배치·박자 = 영상 재생 위치에서 자동(_sbPlace). 관찰 중에도 잡아 화살표가 처음부터 뜬다.
-      this._sbPlace(H, 'BK_B2', H.sL2, H.sR2, [null, null]);   // 1/4은 제자리 = 화살표 없음(유저)
+      // ★ 관찰(영상 설명) 중엔 배치도 안 잡는다(유저 08-10: 영상 설명일 때 화살표·판정
+      //   토큰이 같이 보여서 깨진다). 예전엔 '화살표가 처음부터 뜨게' 여기서 잡았는데,
+      //   코치 영상이 설명하는 동안 지면에 큐가 겹치면 어디를 보라는 건지 갈린다.
+      if (this._followLatch) this._sbPlace(H, 'BK_B2', H.sL2, H.sR2, [null, null]);   // 1/4은 제자리 = 화살표 없음(유저)
       H.aD._gain = 0; H.aU._gain = 0;
-      if (!this._followLatch) {   // 관찰 — 실루엣+Preview+화살표만, 마크 숨김
+      if (!this._followLatch) {   // 관찰 — 코치 영상만. 지면 큐는 전부 끈다
+        H.a1 && (H.a1._gain = 0); H.a2 && (H.a2._gain = 0);
+        if (H.zTgt) { H.zTgt.material.opacity = 0; H._zFade = 0; }
         for (const k of ['mL', 'mC', 'mR']) H[k].setOp?.(0);
         for (const k of ['sL1', 'sR1', 'sL2', 'sR2']) H[k].op(0);
         H.numL.visible = false; H.numR.visible = false;   // 글리프는 자체 재질 — op(0)로 안 꺼진다
@@ -3678,7 +3687,10 @@ export class Session {
       // 스텝백 연속 단계 — 같은 판정, 파라미터만 다르다.
       //   T1 전체 재생(관찰만·1회) / B3·B4 0.5배속·3회 / C2 실전(무작위 방향·릴리즈 판정)·3회
       const LIVE = id === 'BK_C2';
-      const CFG = { BK_T1: { per: 2.3, need: 1 }, BK_B3: { per: 2.2, need: 3 }, BK_B4: { per: 2.2, need: 3 }, BK_C2: { per: 0.9, need: 3 } }[id];
+      // ★ 조각 단계(B3·B4)는 **1회**다(유저 08-10: 무한 재생 말고, 설명 보고 한 번 하면
+      //   자동으로 다음 섹션으로 완료 처리). 3회는 같은 조각을 세 번 보게 만들 뿐이고,
+      //   '배우는 단위'는 조각 하나다. 실전(C2)만 3회를 유지한다 — 거긴 반복이 목적이다.
+      const CFG = { BK_T1: { per: 2.3, need: 1 }, BK_B3: { per: 2.2, need: 1 }, BK_B4: { per: 2.2, need: 1 }, BK_C2: { per: 0.9, need: 3 } }[id];
       const H = { BK_T1: this.bkT1x, BK_B3: this.bkB3x, BK_B4: this.bkB4x, BK_C2: this.bkC2x }[id];
       // ★ **되감김도 재진입이다**(유저: 가이드 화살표 왜 날아갔어).
       //   화살표를 '첫 턴에만'(H.count < 1) 으로 바꿨는데, count 를 **스테이지가 바뀔 때만** 리셋해서
@@ -3695,7 +3707,8 @@ export class Session {
         for (const k of ['fLl', 'fLr', 'fRl', 'fRr', 'fC']) H[k]?.op(0);
         if (H.numL) { H.numL.visible = false; H.numR.visible = false; }   // 글리프는 op(0)로 안 꺼진다
         H.rise.setOp?.(0); H.gh.op(0); H.cL?.op(0); H.cR?.op(0);
-        H.zTgt?.setOp?.(0); H._zFade = 0;                       // 목표 존·스탠스 링크도 관찰 땐 없다
+        if (H.zTgt) { H.zTgt.material.opacity = 0; H._zFade = 0; }   // 목표 존 — 관찰 땐 없다
+        H.a1 && (H.a1._gain = 0); H.a2 && (H.a2._gain = 0);          // 화살표도(유저 08-10)
         if (H.lkA) { H.lkA.visible = false; H.lkB.visible = false; }
         this.demoActive = true;
         FMU('먼저 보세요 — 스텝백', CS.prism);

@@ -1703,6 +1703,46 @@ export function strokeFlowPath(g, pts, t, AW, opts, ENV) {
   return true;
 }
 /** 스탠스 박스 — 서는 영역 (LINE 상속 둘레 + FOOT 글리프) */
+/** 목표 존(원형) — **진짜 원 · 도트 단위로 차오르는 라인**.
+ *  왜 따로 그리나(유저 08-10):
+ *   ① 박스 경로를 재활용하면 **원이 찌그러진다** — 상자가 정사각이 아니다(bw = W−80s vs bh = W−96s).
+ *   ② 바탕(흐름 도트)과 차오름(캔버스 대시)이 **서로 다른 리듬**이라 두 줄로 겹쳐 보인다.
+ *  그래서 점을 N 개로 못박고, 차오름은 **점 개수**로 센다 — 애니메이션이 곧 '몇 칸 찼나'다.
+ *  dash = 점 크기 배수 · glow = 발광 배수 · prog 0..1. */
+function drawZoneDots(g, W, P, look, t, ENV) {
+  const lut = ENV.lut, s = W / 220, C = W / 2;
+  const GB = 13 * look.halo * (P.glow ?? 1);
+  const R = C - 26 * s;                                  // 글로우가 판 밖으로 안 새는 반경
+  const N = 32;                                          // 한 바퀴 점 개수 — 차오름의 눈금
+  const prog = Math.max(0, Math.min(1, P.prog ?? 0));
+  const lit = prog * N;
+  const dr = 2.9 * s * (P.dash ?? 1);                    // 점 반경
+  const breathe = 1 + 0.05 * Math.sin(t * 2.2);          // 대기 중에도 죽어 보이지 않게
+  g.save(); g.translate(C, C);
+  for (let i = 0; i < N; i++) {
+    const a = -Math.PI / 2 + (i / N) * Math.PI * 2;      // 12시에서 시계방향
+    const x = R * Math.cos(a), y = R * Math.sin(a);
+    const k = Math.max(0, Math.min(1, lit - i));         // 이 점이 얼마나 찼나(머리 점은 부분값)
+    if (k > 0) {                                         // 찬 점 — 밝고 커진다
+      g.shadowColor = lut(0.8); g.shadowBlur = GB * (0.8 + 0.6 * k);
+      g.fillStyle = lut(0.55 + 0.35 * k); g.globalAlpha = 0.35 + 0.65 * k;
+      g.beginPath(); g.arc(x, y, dr * (0.85 + 0.45 * k), 0, Math.PI * 2); g.fill();
+    } else {                                             // 빈 점 — 자리만 알려 준다
+      g.shadowColor = lut(0.45); g.shadowBlur = GB * 0.35;
+      g.fillStyle = lut(0.42); g.globalAlpha = 0.30 * breathe;
+      g.beginPath(); g.arc(x, y, dr * 0.72, 0, Math.PI * 2); g.fill();
+    }
+  }
+  // 다 차면 한 번 더 말한다 — 얇은 링이 밖으로 퍼지며 사라진다(도착 신호)
+  if (prog > 0.995) {
+    const u = (t * 1.6) % 1;
+    g.globalAlpha = (1 - u) * 0.5; g.shadowBlur = GB * 0.6; g.shadowColor = lut(0.85);
+    g.strokeStyle = lut(0.8); g.lineWidth = 2.2 * s;
+    g.beginPath(); g.arc(0, 0, R * (1 + 0.22 * u), 0, Math.PI * 2); g.stroke();
+  }
+  g.globalAlpha = 1; g.shadowBlur = 0; g.restore();
+}
+
 export function drawStanceBox(g, W, P, look, t, ENV) {
   const GB = 13 * look.halo;
   const lut = ENV.lut;
@@ -1710,20 +1750,13 @@ export function drawStanceBox(g, W, P, look, t, ENV) {
   const s = W / 220, C = W / 2;
   const rr = 18 * P.round * s;
   const bx0 = 40 * s, by0 = 48 * s, bw = W - 80 * s, bh = W - 96 * s;
+  // ★ round 가 반폭에 닿으면 **원형 전용 그리기**로 간다 — 박스 경로 재활용은 원을 찌그러뜨리고
+  //   (상자가 정사각이 아니다) 바탕·차오름의 도트 리듬이 어긋나 두 줄로 보인다(유저 08-10).
+  if (rr >= Math.min(bw, bh) / 2 - 1) { drawZoneDots(g, W, P, look, t, ENV); return; }
   const box = [];
-  // ★ round 를 반폭까지 키우면 이 토큰은 **원**이 된다(농구 목표 존이 그렇게 쓴다).
-  //   그때 흐름 경로(strokeFlowPath)용 점을 네 변으로 만들면 원 안에 **마름모**가 그려진다
-  //   (유저 08-10 스샷). 원이면 점도 원둘레에서 뽑는다 — 형태 하나에 경로 하나.
-  const rMax = Math.min(bw, bh) / 2;
-  if (rr >= rMax - 1) {
-    const cx0 = bx0 + bw / 2, cy0 = by0 + bh / 2;
-    for (let i = 0; i < 32; i++) { const a = (i / 32) * Math.PI * 2 - Math.PI / 2;
-      box.push([cx0 + rMax * Math.cos(a), cy0 + rMax * Math.sin(a)]); }
-  } else {
-    const edge = (x0, y0, x1, y1) => { for (let f = 0; f <= 1; f += 0.12) box.push([x0 + (x1 - x0) * f, y0 + (y1 - y0) * f]); };
-    edge(bx0 + rr, by0, bx0 + bw - rr, by0); edge(bx0 + bw, by0 + rr, bx0 + bw, by0 + bh - rr);
-    edge(bx0 + bw - rr, by0 + bh, bx0 + rr, by0 + bh); edge(bx0, by0 + bh - rr, bx0, by0 + rr);
-  }
+  const edge = (x0, y0, x1, y1) => { for (let f = 0; f <= 1; f += 0.12) box.push([x0 + (x1 - x0) * f, y0 + (y1 - y0) * f]); };
+  edge(bx0 + rr, by0, bx0 + bw - rr, by0); edge(bx0 + bw, by0 + rr, bx0 + bw, by0 + bh - rr);
+  edge(bx0 + bw - rr, by0 + bh, bx0 + rr, by0 + bh); edge(bx0, by0 + bh - rr, bx0, by0 + rr);
   g.shadowColor = lut(0.6); g.shadowBlur = GB * 0.8;
   const LNW = 4 * ENV.arrow.w * s;
   if (ENV.arrow.line === 'solid') {

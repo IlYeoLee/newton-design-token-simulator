@@ -4611,7 +4611,13 @@ void main(){
         else session._ikVt += (rv - session._ikVt) * Math.min(1, h / 0.07);
       }
       // ★ 스텝백 = 클립 구동 + 발 고정. 마크로 다리를 끌던 경로(_applyFootIK)는 끈다.
-      xbot.footLock = !!STEP_SEG[session.stage || ''] && !aWatching;
+      // ★ 발 고정 **끔**(유저 08-10: "원래 CMU 의 찰진 스텝백 느낌이 점점 과하게 깨지고 있다"
+      //   + 다리가 완전히 찢어진 스샷). 원인이 분명하다 — 발을 월드에 못박아 두면 클립이
+      //   힙을 옮길 때 목표가 다리 길이를 넘어가고, IK 가 그쪽으로 다리를 뻗어 **스플릿**이 된다.
+      //   클립은 이미 사람이 실제로 한 동작이다. 접지는 원래 있던 _clampFeet(발바닥 기준으로
+      //   몸 전체를 내리는 방식)만으로 충분하다 — 그건 포즈를 안 건드린다.
+      //   되살릴 땐 '힙이 옮겨간 만큼 래치도 따라가게' 만든 뒤에만.
+      xbot.footLock = false;
       xbot.demoInPlace = xbot.footLock;   // 레이업 도움닫기 루트가 무대 밖으로 나가지 않게
       xbot.setFootIK(null);
       // 위상잠금: 씬 링·카운트와 코치 동작을 같은 시간축에 — 절차 드릴 + A1 전신풀기·A2 점핑잭(주기=씬 BT).
