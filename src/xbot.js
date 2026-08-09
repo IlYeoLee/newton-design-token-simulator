@@ -778,13 +778,22 @@ export class XBot {
   }
 
   /** 지면 화면(세션 컴플리트·전환·카운트다운)에서 3인칭 봇 머리를 아래로 숙여 바닥 UI를 응시.
-      클립이 매 프레임 head.quaternion을 재설정하므로 그 위에 로컬 X 피치를 덧대면 누적 없이 안정. */
+   *  ★ '클립이 매 프레임 head 를 재설정한다'는 가정은 **틀린 프레임이 있다**(08-10 실측):
+   *    위상 잠금(stepVidT)으로 action.time 을 같은 값으로 다시 쓰면 믹서가 그 틱에 본을
+   *    안 건드리는 경우가 있고, 그때 rotateX 가 누적돼 목이 초당 몇 바퀴씩 돌았다
+   *    (유저: "목이 미친듯이 떨려 360도로"). 트레이스: mx 0.27→0.27(재설정 없음) 직후
+   *    hp 0.27→0.65 — 24°가 한 번 더 얹힘.
+   *  그래서 멱등으로: 지난 틱에 우리가 써 둔 값 그대로면(믹서 미개입) 기저 자세로 되돌린 뒤 얹는다. */
   _applyHeadPitch(dt) {
     if (!this._head) return;
     const tgt = this.headPitch || 0;
     this._headPitchCur = (this._headPitchCur || 0) + (tgt - (this._headPitchCur || 0)) * (1 - Math.exp(-(dt || 0.016) / 0.5));
-    if (Math.abs(this._headPitchCur) < 1e-4) return;
+    if (Math.abs(this._headPitchCur) < 1e-4) { this._headPitchQ = null; return; }
+    const q = this._head.quaternion;
+    if (this._headPitchQ && q.equals(this._headPitchQ)) q.copy(this._headBaseQ);
+    this._headBaseQ = (this._headBaseQ || new THREE.Quaternion()).copy(q);
     this._head.rotateX(this._headPitchCur);
+    this._headPitchQ = (this._headPitchQ || new THREE.Quaternion()).copy(q);
     this.model.updateMatrixWorld(true);
   }
 
