@@ -978,7 +978,7 @@ export const STAGES = {
     { id:'BK_FIN', label:'FIN · 리포트 — 오늘의 기록', voice:['커리','오늘 정말 잘했어요. 기록은 앱으로 보내 뒀어요 — 다음엔 더 빠른 step back을 만들어 봐요.'], cue:'Ghost Review — 커리 궤적과 내 스텝 겹쳐 보기' },
   ],
   boxing: [
-    { id:'BX_READY', wall:true, label:'READY · 준비 — 가드 올리고 거리 잡기', voice:['고수','안녕, 고수예요. 오늘 jab 하나만 제대로 가져갈 거예요. guard 올리고 — 발 두 번 탭.'], wear:'SAFE 대기', foot:'두 번 탭 → 시작' },
+    { id:'BX_READY', wall:true, label:'READY · 준비 — 가드 올리고 거리 잡기', voice:['고수','안녕, 케이시예요. 오늘 jab 하나만 제대로 가져갈 거예요. guard 올리고 — 발 두 번 탭.'], wear:'SAFE 대기', foot:'두 번 탭 → 시작' },
     // dur = 코치 클립 1회분. 없으면 스테이지는 5.6s 에 끊기는데 벽 UI 카운터는 기본값
     //   8s 로 페이싱해서 YOU 가 8 에 닿기 전에 넘어갔다(유저: 끝까지 못 감).
     //   클립 한 바퀴 = 목 전반 + 어깨 후반이라, 8회를 여기 걸면 영상·큐·카운트가 같이 끝난다.
