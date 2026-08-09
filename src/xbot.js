@@ -820,8 +820,8 @@ export class XBot {
     const yaw = this.model.rotation.y, cy = Math.cos(yaw), sy = Math.sin(yaw);
     const world = (p) => new THREE.Vector3(
       hp.x + p.x * cy + p.z * sy, p.y || 0, hp.z - p.x * sy + p.z * cy);   // y = 체공 높이
-    this._ikLeg('Left', world(T.L));
-    this._ikLeg('Right', world(T.R));
+    this._ikLeg('Left', world(T.L), T.L.roll || 0);
+    this._ikLeg('Right', world(T.R), T.R.roll || 0);
     this.model.updateMatrixWorld(true);
   }
 
@@ -835,7 +835,7 @@ export class XBot {
   }
 
   /** 2본 IK — 무릎 각(코사인 법칙) → 엉덩 조준 → 발바닥 수평. 폴 벡터는 클립이 준 무릎 방향 유지. */
-  _ikLeg(side, tgt) {
+  _ikLeg(side, tgt, roll = 0) {
     const B = n => this.model.getObjectByName('mixamorig' + side + n);
     const up = B('UpLeg'), lo = B('Leg'), ft = B('Foot');
     if (!up || !lo || !ft) return;
@@ -870,6 +870,8 @@ export class XBot {
     const want = this._footBindQ[side].clone();
     const fpq = ft.parent.getWorldQuaternion(new THREE.Quaternion());
     ft.quaternion.copy(fpq.invert().multiply(want));
+    // 롤 — 로컬 X. 부호 규약은 기존 실측과 같다(+X = 발끝 위/도르시플렉션, crouch 접지 보상이 쓰는 그 축).
+    if (roll) ft.rotateX(roll);
   }
 
   /** 지면 화면(세션 컴플리트·전환·카운트다운)에서 3인칭 봇 머리를 아래로 숙여 바닥 UI를 응시.
