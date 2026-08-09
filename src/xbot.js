@@ -886,6 +886,17 @@ export class XBot {
     const aim = tgt.clone();
     aim.y = (this._ankleY ?? (this._ankleY = Math.max(0.02, P2.y))) + (tgt.y || 0);
     const cl = (v, a, b) => Math.max(a, Math.min(b, v));
+    // ★ **닿을 수 있는 자리로 먼저 당긴다**(유저 08-10: 왼발이 계속 공중에 있다).
+    //   다리 길이는 유한한데 목표가 그보다 멀면, IK 는 다리를 쭉 편 채 목표 **방향**만 보고
+    //   발이 지면 위에 뜬 채 멈춘다(실측: 목표 y=0 인데 실제 발 0.15m). 사람은 그럴 때 골반을
+    //   옮겨 체중을 싣지만 이 봇은 골반이 제자리에 묶여 있다 — 그래서 높이를 지키고
+    //   **수평 거리만** 줄인다. 발이 뜨는 것보다 덜 벌어지는 게 낫다.
+    {
+      const maxR = (l1 + l2) * 0.98, dy = aim.y - P0.y;
+      const hMax = Math.sqrt(Math.max(0.0004, maxR * maxR - dy * dy));
+      const hx = aim.x - P0.x, hz = aim.z - P0.z, hd = Math.hypot(hx, hz);
+      if (hd > hMax) { const k2 = hMax / hd; aim.x = P0.x + hx * k2; aim.z = P0.z + hz * k2; }
+    }
     const d = cl(P0.distanceTo(aim), Math.abs(l1 - l2) + 0.02, l1 + l2 - 0.02);
     // ① 무릎: 현재 내각 → 목표 내각 만큼만 더 굽힌다(로컬 X 음수 = 굽힘, 기존 실측 규약)
     const ang = (a, b, c) => Math.acos(cl((a * a + b * b - c * c) / (2 * a * b), -1, 1));
