@@ -1798,6 +1798,8 @@ export class Session {
     ];
     const b1tg = B1_TG.map(tg => {
       const z = BK_STAND - tg.d;
+      // (어휘 분리는 매트 토큰 안에서 한다 — drawDribbleMat 이 노드를 직접 그리는 정본이라
+      //  여기에 프림을 겹치면 이중 시스템이 된다. 3D 링은 팡·박자용 판정 토큰으로만 유지.)
       const ring = floorRing(tg.x, z, tg.r * 0.80, tg.r, BRAND.coral, tg.on ? 0.42 : 0.16);
       const nc = document.createElement('canvas'); nc.width = nc.height = 128;
       const num = new THREE.Mesh(new THREE.PlaneGeometry(tg.r * 1.1, tg.r * 1.1),

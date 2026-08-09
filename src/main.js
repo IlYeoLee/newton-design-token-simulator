@@ -4739,6 +4739,9 @@ void main(){
       // playDemo는 무조건 — stepbackDemo 분기 삭제 때 else가 체인에 붙어 위상 스테이지 전부에서
       // 재생이 건너뛰어졌던 사고(클립이 idle로 남음).
       xbot.playDemo(_clip, h, session.stage === 'BX_READY', _phase);
+      // ★ 1인칭 스텝백은 공을 숨긴다(08-10 실측: 124_06 공이 가슴 높이라 카메라 0.9m 앞
+      //   거대 구가 되어 발자국을 가린다). 드리블(B1)은 공이 바닥 쪽이라 그대로 둔다.
+      if (fpMode && STEP_SEG[session.stage || ''] && xbot.ball) xbot.ball.visible = false;
       rig.update(0, h);
       tokens.setShake(rig.shake.x, rig.shake.y);
       // 이 분기는 아래 followFloor 호출을 건너뛰어(early return) 무한 지면(그리드·바닥)이

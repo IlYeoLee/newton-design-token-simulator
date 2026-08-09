@@ -2154,12 +2154,23 @@ export function drawDribbleMat(g, W, P, look, t, ENV) {
     // ★ 주간엔 램프의 **양 끝**으로 벌린다 — 0.5 는 바닥과 휘도가 같아 활성 노드가 통째로
     //   사라졌다(실측 Δ0). 밝은 면에서 '강함'은 밝음이 아니라 **잉크(어두움)** 다:
     //   활성 0.26(Δ-32, 진한 적) · 대기 0.62(Δ+20, 옅은 살구). 둘 사이 휘도차 ≈52.
-    g.fillStyle = DAY ? lut(live ? 0.26 : 0.62) : lut(live ? 0.5 : 0.36);
-    g.beginPath(); g.arc(cx, cy, R * 0.88, 0, Math.PI * 2); g.fill();
-    g.shadowBlur = 0;
-    g.save(); g.translate(cx, cy);
-    volRing(g, lut, R, live ? 0.8 : 0.5, live ? 0.9 : 0.5, LNW * 0.9, GB);
-    g.restore();
+    // ★ 어휘 분리(유저 08-10): **안내는 아웃라인, 판정은 채움.** 미점등 노드(on:false)는
+    //   '여기가 자리다'라는 안내인데 채움 원반이라 활성 표적과 같은 물건으로 읽혔다.
+    //   미점등 = 채움 없이 **도트 원**만(목표 존 drawZoneDots 와 같은 어휘). 숫자는 그대로.
+    if (on || live) {
+      g.fillStyle = DAY ? lut(live ? 0.26 : 0.62) : lut(live ? 0.5 : 0.36);
+      g.beginPath(); g.arc(cx, cy, R * 0.88, 0, Math.PI * 2); g.fill();
+      g.shadowBlur = 0;
+      g.save(); g.translate(cx, cy);
+      volRing(g, lut, R, live ? 0.8 : 0.5, live ? 0.9 : 0.5, LNW * 0.9, GB);
+      g.restore();
+    } else {
+      g.shadowBlur = GB * 0.5;
+      g.strokeStyle = lut(0.55); g.lineWidth = LNW * 0.9;
+      g.setLineDash([LNW * 1.1, LNW * 1.35]);
+      g.beginPath(); g.arc(cx, cy, R * 0.94, 0, Math.PI * 2); g.stroke();
+      g.setLineDash([]);
+    }
     // ★ **바깥 림** — 잽잽훅 노드에는 있는데 여기만 빠져 있었다(유저 #191: 반짝반짝한 느낌이
     //   안 든다). '윤곽선을 긋지 않는다'가 원래 의도였지만, 채움이 0.88R 이라 R 까지의 띠가
     //   비어 납작한 원반으로 읽혔다. 채움(0.88R) ↔ 림(R) 사이의 **간격이 곧 겹으로 보이는 구조**다.
