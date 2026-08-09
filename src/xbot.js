@@ -577,6 +577,8 @@ export class XBot {
     // 외부 배치를 덮어쓰던 버그의 뿌리 (유저: '세션 시작해도 인물이 안 물러남')
     this.group.position.set(0, 0, this.demoStandZ || 0);
     this.mixer.update(0);
+    // 클립이 방금 쓴 힙 높이 — 발자국 IK 크라우치의 **절대 기준**(아래 _applyFootIK 주석 참조).
+    if (this._hips) this._hipsClipY = this._hips.position.y;
     // 루트모션 데모 클립은 XZ 고정 해제, 접지 베이크 클립은 per-frame 클램프 해제(덜커덩 방지)
     if (this._rootClips?.has(key)) {
       this._lockFingers(); this.model.position.x = 0; this.model.position.z = 0; this.model.updateMatrixWorld(true);
@@ -797,7 +799,23 @@ export class XBot {
   _applyFootIK() {
     const T = this._footIK; if (!T || !this._hips) return;
     this.model.updateMatrixWorld(true);
-    const hp = new THREE.Vector3().setFromMatrixPosition(this._hips.matrixWorld);
+    let hp = new THREE.Vector3().setFromMatrixPosition(this._hips.matrixWorld);
+    // ★ 크라우치 — 발을 과감히 벌리려면 **힙이 내려와야 한다**(다리 길이는 유한하다).
+    //   실제 스텝백도 벌릴수록 앉는다 — 같은 물리다. 힙 **본**을 내린다(모델 y 는 접지 클램프 몫).
+    //   ★★ 반드시 **개루프**로: 힙 월드 높이를 재서 되먹이면 접지 클램프(_clampFeet)와 서로
+    //   보정하며 발산한다(실측: 크라우치 −11m · 모델 y +10.9m 로 몸이 찢어졌다). 클램프가 높이를
+    //   되돌려 놓으니 컨트롤러가 자기 효과를 못 보고 영영 더 요구한다. 그래서 **목표 스탠스 폭**
+    //   하나에서만 계산한다 — 피드백 없음, 발산 없음. 절대 대입(+=금지, 프레임당 최대 19회 호출).
+    {
+      const W = Math.hypot(T.L.x - T.R.x, T.L.z - T.R.z);
+      const sc = this.model.getWorldScale(new THREE.Vector3()).y || 1;
+      const drop = Math.min(0.30, Math.max(0, (W - 0.60) * 0.42));   // 폭 0.6m 넘는 만큼만 앉는다
+      const tgt = -drop / sc;
+      this._ikCrouch = (this._ikCrouch ?? 0) + (tgt - (this._ikCrouch ?? 0)) * Math.min(1, (this._dt ?? 0.016) * 12);
+      this._hips.position.y = (this._hipsClipY ?? this._hips.position.y) + this._ikCrouch;
+      this.model.updateMatrixWorld(true);
+      hp = new THREE.Vector3().setFromMatrixPosition(this._hips.matrixWorld);
+    }
     // 봇은 유저를 마주본다(모델 yaw π) — 로컬 x·z 를 월드로 돌린다. yaw 는 모델 회전에서 읽는다.
     const yaw = this.model.rotation.y, cy = Math.cos(yaw), sy = Math.sin(yaw);
     const world = (p) => new THREE.Vector3(
@@ -805,6 +823,15 @@ export class XBot {
     this._ikLeg('Left', world(T.L));
     this._ikLeg('Right', world(T.R));
     this.model.updateMatrixWorld(true);
+  }
+
+  /** 다리 길이(엉덩→무릎→발목, 월드 미터) — 크라우치 한계 계산의 기준. 바인드에서 1회 실측. */
+  _measureLegLen() {
+    const B = n => this.model.getObjectByName('mixamorigLeft' + n);
+    const up = B('UpLeg'), lo = B('Leg'), ft = B('Foot');
+    if (!up || !lo || !ft) return 0.85;
+    const V = o => new THREE.Vector3().setFromMatrixPosition(o.matrixWorld);
+    return V(up).distanceTo(V(lo)) + V(lo).distanceTo(V(ft));
   }
 
   /** 2본 IK — 무릎 각(코사인 법칙) → 엉덩 조준 → 발바닥 수평. 폴 벡터는 클립이 준 무릎 방향 유지. */

@@ -4590,7 +4590,11 @@ void main(){
       //   앞뒤는 스텝백 실측 이동 대역(Δv 1.9 → KZ 0.21). 상수 둘이 전부다.
       //   ★ 관찰 중엔 끈다 — 그때 봇은 제자리 정지(유저 확정).
       if (session.active && !aWatching && STEP_SEG[session.stage || '']) {
-        const IK_KX = 0.566, IK_KZ = 0.21, IK_Z0 = -0.02;   // KX 는 실측 캘리브레이션: 0.72 → 폭 1.17m(과대) → ×0.92/1.17
+        // ★ 진폭 = **레퍼런스 실측 × 과감함 게인**(유저 08-10: 더 과감하게).
+        //   KX 0.566 은 착지 폭 0.92m(영상 실측) 정합값이고, GAIN 이 그 위의 연출 노브다.
+        //   힙이 같이 내려가야(크라우치) 다리가 닿는다 — xbot._applyFootIK 가 자동으로 앉힌다.
+        const IK_GAIN = 1.45;
+        const IK_KX = 0.566 * IK_GAIN, IK_KZ = 0.21 * IK_GAIN, IK_Z0 = -0.02;
         const P = sbPoseAt(session.stepVidT ?? 0, false);
         xbot.setFootIK({
           L: { x: -P.L.u * IK_KX, z: P.L.v * IK_KZ + IK_Z0 },
