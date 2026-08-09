@@ -4600,14 +4600,23 @@ void main(){
         const RW = [[1.05, 0.39], [1.47, 0.42], [1.70, 0.92], [2.10, 0.21], [2.20, 0.21]];
         const IK_GAIN = 1.45;            // 과감함 노브(유저) — 실측 폭 위에 곱한다
         const IK_KX = 0.566, IK_KZ = 0.21, IK_Z0 = -0.02;
-        const vt = Math.max(RW[0][0], Math.min(RW[RW.length - 1][0], session.stepVidT ?? 0));
+        // ★ 봇 전용 **부드러운 가이드 시계**(유저 08-10: 무릎이 달달거린다 · 한 번에 옮기게 해라).
+        //   원인은 IK 가 아니라 소스였다 — session.stepVidT 는 코치 **영상의 currentTime** 이고,
+        //   실측하면 프레임마다 0.003s 갔다 0.25s 를 건너뛴다(디코더 페이스 + 30fps 계단).
+        //   그 계단이 그대로 포즈 점프가 되어 무릎각이 −10° ↔ +21° 로 튀었다.
+        //   마크는 원값을 그대로 쓰고(판정·파문 타이밍 정본), **봇만** 저역통과한 시계를 본다.
+        //   되감김·컷(0.35s 이상 점프)은 스냅 — 루프 시작을 늦게 따라가면 그게 더 이상하다.
+        const rawVt = session.stepVidT ?? 0;
+        if (session._ikVt == null || Math.abs(rawVt - session._ikVt) > 0.35) session._ikVt = rawVt;
+        else session._ikVt += (rawVt - session._ikVt) * Math.min(1, h / 0.10);
+        const vt = Math.max(RW[0][0], Math.min(RW[RW.length - 1][0], session._ikVt));
         let wr = RW[0][1];
         for (let i = 1; i < RW.length; i++) {
           if (vt <= RW[i][0]) { const [a, wa] = RW[i - 1], [b2, wb] = RW[i];
             wr = wa + (wb - wa) * (vt - a) / Math.max(1e-3, b2 - a); break; }
           wr = RW[i][1];
         }
-        const P = sbPoseAt(session.stepVidT ?? 0, false);
+        const P = sbPoseAt(session._ikVt, false);
         let L = { x: -P.L.u * IK_KX, z: P.L.v * IK_KZ + IK_Z0 };
         let R = { x: -P.R.u * IK_KX, z: P.R.v * IK_KZ + IK_Z0 };
         const mx = (L.x + R.x) / 2, mz = (L.z + R.z) / 2;
