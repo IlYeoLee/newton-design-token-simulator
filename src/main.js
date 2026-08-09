@@ -4602,7 +4602,7 @@ void main(){
       // 봇 전용 부드러운 가이드 시계 — 위상이 이 값을 쓴다(영상 currentTime 계단·시크 노이즈 제거)
       if (STEP_SEG[session.stage || '']) {
         const rv = session.stepVidT ?? 0;
-        if (session._ikVt == null || Math.abs(rv - session._ikVt) > 0.35) session._ikVt = rv;
+        if (session._ikVt == null || Math.abs(rv - session._ikVt) > 0.35) { session._ikVt = rv; xbot.resetFootLock?.(); }
         else session._ikVt += (rv - session._ikVt) * Math.min(1, h / 0.07);
       }
       // ★ 스텝백 = 클립 구동 + 발 고정. 마크로 다리를 끌던 경로(_applyFootIK)는 끈다.

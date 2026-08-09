@@ -820,6 +820,9 @@ export class XBot {
    *  공중에 떠서 진행되는 게 아쉽다."  이 방향이 맞다 — 체중이동·무게중심·접지 순서 같은
    *  '사람의 물리'는 실측 클립이 이미 갖고 있다. 우리가 할 일은 **미끄러짐만 없애는 것**이다.
    *  마크에서 발 목표를 만들어 다리를 통째로 끌던 방식(인형 관절 느낌)과 정반대다. */
+  /** 컷·되감김에서 래치를 버린다 — 옛 자리를 물고 있으면 다리가 그리로 끌려가 튄다. */
+  resetFootLock() { this._lockLatch = {}; }
+
   _applyFootLock() {
     if (!this.footLock || !this._hips) return;
     const V = o => new THREE.Vector3().setFromMatrixPosition(o.matrixWorld);
@@ -830,8 +833,11 @@ export class XBot {
       if (!ft) continue;
       const F = V(ft), key = side[0];
       // 접지 = 발목이 바인드 높이 +4cm 안. 그 위(스윙)는 **손대지 않는다** — 클립 그대로 둔다.
-      if (F.y <= ank + 0.04) {
-        const L = this._lockLatch[key] || (this._lockLatch[key] = { x: F.x, z: F.z });
+      // 히스테리시스 — 붙는 문턱(4cm)과 떨어지는 문턱(10cm)을 벌린다. 같은 값이면
+      //   발이 문턱 근처에서 떨었다 붙었다 하며 **다리가 튄다**(유저 08-10 스샷).
+      const on = this._lockLatch[key];
+      if (on ? F.y <= ank + 0.10 : F.y <= ank + 0.04) {
+        const L = on || (this._lockLatch[key] = { x: F.x, z: F.z });
         this._ikLeg(side, new THREE.Vector3(L.x, ank, L.z), 0);
       } else this._lockLatch[key] = null;
     }
@@ -933,7 +939,18 @@ export class XBot {
     // ② 엉덩: 발목이 목표를 향하도록 월드 회전 델타를 로컬로 환산해 얹는다
     const A = V().setFromMatrixPosition(ft.matrixWorld).sub(P0).normalize();
     const Bv = aim.clone().sub(P0).normalize();
-    const qd = new THREE.Quaternion().setFromUnitVectors(A, Bv);
+    // ★ 조준 각을 제한한다 — 한 프레임에 다리를 통째로 휙 돌리면 그게 '다리 튕김'이다.
+    //   클립이 발을 크게 옮기는 프레임(스윙 진입)에 목표가 멀어지면서 실제로 그렇게 됐다.
+    const aim2 = Math.acos(Math.max(-1, Math.min(1, A.dot(Bv))));
+    const axis2 = A.clone().cross(Bv);
+    // ★ 축이 죽는 경우(두 방향이 거의 반대·거의 같음)는 **건너뛴다**. setFromUnitVectors 는
+    //   그때 임의 축을 골라 다리를 180° 뒤집는다 — 실측 힙각 179.7°/프레임의 정체.
+    // 90° 를 넘는 요구는 한 프레임의 정상 동작이 아니다(컷·래치 잔재) — 그 프레임은 건너뛴다.
+    if (axis2.lengthSq() < 1e-8 || aim2 > Math.PI / 2) { this.model.updateMatrixWorld(true); return; }
+    const MAXA = 0.6;   // rad/프레임(≈34°) — 넘으면 그만큼만 돌리고 다음 프레임에 마저
+    const qd = (aim2 > MAXA)
+      ? new THREE.Quaternion().setFromAxisAngle(axis2.normalize(), MAXA)
+      : new THREE.Quaternion().setFromUnitVectors(A, Bv);
     const pq = up.parent.getWorldQuaternion(new THREE.Quaternion());
     up.quaternion.premultiply(pq.clone().invert().multiply(qd).multiply(pq));
     this.model.updateMatrixWorld(true);
@@ -949,7 +966,8 @@ export class XBot {
       const yaw2 = this.model.rotation.y;
       const fwd = new THREE.Vector3(Math.sin(yaw2), 0, Math.cos(yaw2));            // 몸 정면
       const want2 = fwd.clone(); want2.addScaledVector(ax, -want2.dot(ax));
-      if (kv.lengthSq() > 1e-6 && want2.lengthSq() > 1e-6) {
+      const folded = A2.distanceTo(H) < (l1 + l2) * 0.45;   // 접힌 다리는 축이 불안정하다
+      if (!folded && kv.lengthSq() > 1e-6 && want2.lengthSq() > 1e-6) {
         kv.normalize(); want2.normalize();
         let ang2 = Math.acos(Math.max(-1, Math.min(1, kv.dot(want2))));
         if (kv.clone().cross(want2).dot(ax) < 0) ang2 = -ang2;
