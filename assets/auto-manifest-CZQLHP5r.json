@@ -300,5 +300,35 @@
   "root": false,
   "dur": 25.8,
   "cat": "lunge"
+ },
+ "cmu102_13": {
+  "root": true,
+  "dur": 1.27,
+  "cat": "basketball"
+ },
+ "cmu102_14": {
+  "root": true,
+  "dur": 1.63,
+  "cat": "basketball"
+ },
+ "cmu102_18": {
+  "root": true,
+  "dur": 1.92,
+  "cat": "basketball"
+ },
+ "cmu102_19": {
+  "root": true,
+  "dur": 1.88,
+  "cat": "basketball"
+ },
+ "cmu102_27": {
+  "root": true,
+  "dur": 1.42,
+  "cat": "basketball"
+ },
+ "cmu102_28": {
+  "root": true,
+  "dur": 5.86,
+  "cat": "basketball"
  }
 }
