@@ -3701,7 +3701,7 @@ export class Session {
       //   '다시는 보여주지 마라'가 아니다. 이 파일의 다른 스텝백 핸들러(BK_A3·BK_B1)는 이미
       //   `(_bkStrT > t)` 되감김 가드를 갖고 있었다 — 여기만 빠져 있었다.
       if ((this._bkStrT2 ?? 0) > this.t || this._bkStrId !== id) {
-        H.beat = 0; H.count = 0; H._beatT = this.t; H._popT = -9; H._side = -1; H._ghT = -9;
+        H.beat = 0; H.count = 0; H._beatT = this.t; H._popT = -9; H._side = -1; H._ghT = -9; H._loop0 = null;
       }
       this._bkStrT2 = this.t; this._bkStrId = id;
       if (!this._followLatch && !LIVE) {   // 훈련만 관찰 국면
@@ -3928,6 +3928,15 @@ export class Session {
         BK_B3: ['① 준비', '② 왼발로 밀어', '③ 뒤로 쓱!', '④ 두 손으로 잡기'],
         BK_B4: ['① 준비', '② 오른발 모으고', '③ 수직으로!', '④ 슛!'],
         BK_C2: ['① 시작 자리', '② 플랜트 — 안으로', '③ 스텝백!', '④ 슛!'] }[id] || ['①', '②', '③', '④'];
+      // ★ 렙 = **가이드 시계 한 바퀴**(08-10). 몸 판정(spread x축·힙 상승)은 절차 봇 시절
+      //   캘리브레이션이라 실측 클립(이동이 z축 · 창에 슛 상승 없음)에선 영영 안 걸렸다 —
+      //   E2E 실측: B3 에서 123초 정지. 봇이 영상 시계(stepVidT)에 위상 잠금이므로
+      //   '영상 한 바퀴 = 봇이 한 번 했다'가 참이다. 물리 판정은 파문·고스트 연출로만 남는다.
+      {
+        const lp = this._pvLoops ?? 0;
+        if (H._loop0 == null) H._loop0 = lp;
+        H.count = Math.max(H.count, lp - H._loop0);
+      }
       const left = Math.max(0, CFG.need - H.count);
       // ★ 전체 재생(T1)은 **관찰만이다** — 따라할 걸 요구하면 안 된다(아직 안 배웠으니까).
       //   그래서 렙 카운트가 아니라 **영상 재생 1회**로 끝난다(main.js _pvLoops = 실제 재생 횟수).
