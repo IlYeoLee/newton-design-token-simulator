@@ -580,7 +580,7 @@ export class XBot {
     // 클립이 방금 쓴 힙 높이 — 발자국 IK 크라우치의 **절대 기준**(아래 _applyFootIK 주석 참조).
     if (this._hips) this._hipsClipY = this._hips.position.y;
     // 루트모션 데모 클립은 XZ 고정 해제, 접지 베이크 클립은 per-frame 클램프 해제(덜커덩 방지)
-    if (this._rootClips?.has(key)) {
+    if (this._rootClips?.has(key) && !this.demoInPlace) {
       this._lockFingers(); this.model.position.x = 0; this.model.position.z = 0; this.model.updateMatrixWorld(true);
       // 루트 클립도 접지는 해야 한다 — rk_stepback(스텝백)에서 봇이 공중에 떠 보였음(유저).
       //   XZ만 고정하고 Y는 발바닥 기준으로 내린다.
@@ -589,7 +589,10 @@ export class XBot {
     else this._lockInPlace?.();
     // 요 잔류 방지: lockYaw/legLock이 얼려둔 rotation.y가 스테이지를 떠나도 남아
     // T-2 등에서 봇이 뒤돌아 보였다(유저). 비활성 + 비루트 클립이면 기본 정면(π) 복원.
-    if (!this.lockYaw && !this.legLock && !this._rootClips?.has(key) && Math.abs(this.model.rotation.y - Math.PI) > 0.01) {
+    // demoInPlace 면 루트 클립이라도 **제자리 취급**이다 — 요 고정도 같이 살아나야 한다.
+    //   (유저 08-10: 인물이 뒤를 돌고 있다. 124_06 은 레이업이라 클립이 몸을 돌린다.)
+    const _rootNow = !!this._rootClips?.has(key) && !this.demoInPlace;
+    if (!this.lockYaw && !this.legLock && !_rootNow && Math.abs(this.model.rotation.y - Math.PI) > 0.01) {
       // 스냅 복원은 한 프레임에 확 돌아 '뚝' 끊겨 보였다(유저) — 부드럽게 최단 경로 보간(≈0.25s)
       let d0 = Math.PI - this.model.rotation.y;
       while (d0 > Math.PI) d0 -= Math.PI * 2; while (d0 < -Math.PI) d0 += Math.PI * 2;
@@ -599,7 +602,7 @@ export class XBot {
     // 요 고정(lockYaw, 세션 데모 공통 원칙 — 유저): CMU 프리스타일 클립이 몸을 돌려도(B2 뒤돌기)
     // 화면의 봇은 항상 정면(-z 응시)을 유지한다. 골반 로컬 +Z(몸 정면, getAnchor 규약)의 요를 재서
     // 모델 루트를 역회전 — _lockInPlace가 힙 XZ를 원점에 고정하므로 원점 회전 = 제자리 회전.
-    if (this.lockYaw && this._hips && !this._rootClips?.has(key)) {
+    if (this.lockYaw && this._hips && !_rootNow) {
       // 닫힌형 보정 — 누적(+=) 피드백은 폭주했다(실측: rotation.y -67rad, 위치 미터 요동
       // = 검은 프레임의 한 원인). 같은 y축 회전이라 분해: yawClip = yawWorld − rotation.y.
       this.model.updateMatrixWorld(true);
@@ -618,7 +621,8 @@ export class XBot {
     //   베이크는 클립 **전 구간**의 최저발을 0에 맞춘 것 — 위상 창(rk_stepback [8.7,10.5])만
     //   틀면 그 창의 최저발은 공중이다. 위 루트 분기(585)가 클램프를 해도 여기가 y=0 으로
     //   되돌리고 있었다. 루트+접지 클립은 per-frame 클램프로 보낸다(_clampFeet 스무딩이 있다).
-    this._applyFootIK();   // 발자국 좌표 구동 — 클립 포즈 위에, 접지 클램프 앞에
+    this._applyFootIK();     // (구) 마크 좌표로 다리를 끌던 경로 — 지금은 스텝백에서 안 쓴다
+    this._applyFootLock();   // (신) 클립이 몸을 움직이고, 닿은 발만 고정
     if (this._groundedClips?.has(key) && !this._rootClips?.has(key) && !this._footIK) { this.model.position.y = 0; this._yOff = undefined; this.model.updateMatrixWorld(true); }
     else this._clampFeet();   // 데모 클립 루트 높이 미보정 → 봇 공중부양(유저: 'x봇이 공중에 떠있는데') 방지
     // 데모 중 공 관리 (playDemo는 여태 공을 안 건드려 이전 live 위치가 멀리 남아있었음 — 유저: '공이 저 멀리').
@@ -809,6 +813,29 @@ export class XBot {
       S[s].mv = t[s].mv;   // 플래그는 안 섞는다(불리언)
     }
     this._footIK = S;
+  }
+
+  /** ══ 발 고정(foot lock) — **클립이 몸을 움직이고, IK 는 닿은 발만 붙든다.** ══
+   *  유저 08-10: "발만 바닥 지면에 둔 채로 움직임 값을 보정해줄 수 있나. 모든 움직임이
+   *  공중에 떠서 진행되는 게 아쉽다."  이 방향이 맞다 — 체중이동·무게중심·접지 순서 같은
+   *  '사람의 물리'는 실측 클립이 이미 갖고 있다. 우리가 할 일은 **미끄러짐만 없애는 것**이다.
+   *  마크에서 발 목표를 만들어 다리를 통째로 끌던 방식(인형 관절 느낌)과 정반대다. */
+  _applyFootLock() {
+    if (!this.footLock || !this._hips) return;
+    const V = o => new THREE.Vector3().setFromMatrixPosition(o.matrixWorld);
+    if (!this._lockLatch) this._lockLatch = {};
+    const ank = this._ankleY ?? (this._ankleY = 0.06);
+    for (const side of ['Left', 'Right']) {
+      const ft = this.model.getObjectByName('mixamorig' + side + 'Foot');
+      if (!ft) continue;
+      const F = V(ft), key = side[0];
+      // 접지 = 발목이 바인드 높이 +4cm 안. 그 위(스윙)는 **손대지 않는다** — 클립 그대로 둔다.
+      if (F.y <= ank + 0.04) {
+        const L = this._lockLatch[key] || (this._lockLatch[key] = { x: F.x, z: F.z });
+        this._ikLeg(side, new THREE.Vector3(L.x, ank, L.z), 0);
+      } else this._lockLatch[key] = null;
+    }
+    this.model.updateMatrixWorld(true);
   }
 
   _applyFootIK() {

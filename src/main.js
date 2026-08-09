@@ -4425,9 +4425,15 @@ void main(){
       //   (8.4~9.4 손 1.00 고정 · 9.5~9.9 손 1.0→1.6 상승 · 이후 정지). 상관 0.978 은 가이드도
       //   '홀드→변화→홀드' 라 **모양만** 맞은 것이다 — 유저: "발자국 나오는데 왜 손을 올려?"
       //   다리는 이제 발자국 좌표로 직접 푼다(xbot.setFootIK). 클립은 상체·팔 담당으로 되돌린다.
-      BK_B2: 'bkStance',
-      BK_T1: 'bkStance', BK_B3: 'bkStance', BK_B4: 'bkStance',
-      BK_C2: 'bkStance',              // 실전 — 릴리즈는 판정으로
+      //   ★★★ 08-10 — 스텝백은 **CMU 124_06 안에 있었다**(유저가 찾음). 전 구간 스캔:
+      //     1.3~1.5  준비(폭 0.24 · 힙 1.04)
+      //     1.6~2.3  **한 발이 1.5m 뒤로 빠지며 앉는다**(폭 0.24 → 1.20 · 힙 1.04 → 0.77)  ← 스텝백
+      //     2.4~3.0  레이업 도움닫기(루트가 3.4m 달려나간다) — 안 쓴다
+      //   창 [1.5, 2.3] 만 쓰고, 루트는 제자리로 묶고(demoInPlace), 미끄러짐은 발 고정이 잡는다.
+      //   사람의 물리(체중이동·무게중심)는 클립이 이미 갖고 있다 — 우리가 만들지 않는다.
+      BK_B2: 'auto_cmu124_06',
+      BK_T1: 'auto_cmu124_06', BK_B3: 'auto_cmu124_06', BK_B4: 'auto_cmu124_06',
+      BK_C2: 'auto_cmu124_06',        // 실전 — 릴리즈는 판정으로
     };
     // 실전 대기(C1)부터 실전 종료·리포트까지 봇은 가만히 서 있는다(유저). 동작 연출 없음.
     // ★ BK_C2 만 예외(08-10) — 실전 스텝백 3회는 봇이 무브를 **한다**. 이 조기 반환이 표의
@@ -4590,101 +4596,16 @@ void main(){
       //   배율은 레퍼런스 영상 실측에 맞춘다 — 착지 스탠스 폭 0.92m(가이드 Δu 1.27 → KX 0.72),
       //   앞뒤는 스텝백 실측 이동 대역(Δv 1.9 → KZ 0.21). 상수 둘이 전부다.
       //   ★ 관찰 중엔 끈다 — 그때 봇은 제자리 정지(유저 확정).
-      if (session.active && !aWatching && STEP_SEG[session.stage || '']) {
-        // ★ 폭은 **가이드 정규좌표가 아니라 레퍼런스 영상 실측(m)** 이 정한다(유저 08-10:
-        //   처음에 다리를 너무 많이 벌렸다). 지면 마크의 u 는 바닥 판에서 읽히라고 과장된
-        //   조판 좌표다 — 시작이 ±0.75 로 **가장 넓다**(환산 1.23m). 실제 사람은 반대다:
-        //     준비 0.39 → 플랜트 0.42 → 착지 0.92 → 모으기 0.21 m   (67프레임 MediaPipe 실측)
-        //   그래서 안무(누가 언제 어디로)는 가이드에서 그대로 받고, **폭만** 실측표로 맞춘다.
-        //   덤으로 '모으기가 덜 모인다'(0.45m)도 같이 풀린다 — 0.21m 로 실제만큼 모인다.
-        const RW = [[1.05, 0.39], [1.47, 0.42], [1.70, 0.92], [2.10, 0.21], [2.20, 0.21]];
-        const IK_GAIN = 1.45;            // 과감함 노브(유저) — 실측 폭 위에 곱한다
-        const IK_KX = 0.566, IK_KZ = 0.21, IK_Z0 = -0.02;
-        // ★ 봇 전용 **부드러운 가이드 시계**(유저 08-10: 무릎이 달달거린다 · 한 번에 옮기게 해라).
-        //   원인은 IK 가 아니라 소스였다 — session.stepVidT 는 코치 **영상의 currentTime** 이고,
-        //   실측하면 프레임마다 0.003s 갔다 0.25s 를 건너뛴다(디코더 페이스 + 30fps 계단).
-        //   그 계단이 그대로 포즈 점프가 되어 무릎각이 −10° ↔ +21° 로 튀었다.
-        //   마크는 원값을 그대로 쓰고(판정·파문 타이밍 정본), **봇만** 저역통과한 시계를 본다.
-        //   되감김·컷(0.35s 이상 점프)은 스냅 — 루프 시작을 늦게 따라가면 그게 더 이상하다.
-        const rawVt = session.stepVidT ?? 0;
-        if (session._ikVt == null || Math.abs(rawVt - session._ikVt) > 0.35) session._ikVt = rawVt;
-        else session._ikVt += (rawVt - session._ikVt) * Math.min(1, h / 0.07);
-        // ★ **절도**(유저 08-10: 딱딱 절도 있게, 차라리 로봇처럼). 구간 안에서 자세를 잡고
-        //   있다가 **한 번에** 옮긴다: 앞 20% 정지 → 가운데 50% 에 이동 → 뒤 30% 정지.
-        //   키 시각(SB_POSE)마다 이 재타이밍을 걸면 이동이 뭉개지지 않고 끊어 읽힌다.
-        const KT = [1.05, 1.47, 1.70, 2.10, 2.20];
-        const snapVt = (v) => {
-          for (let i = 1; i < KT.length; i++) {
-            if (v <= KT[i]) { const a = KT[i - 1], b2 = KT[i], u = (v - a) / Math.max(1e-3, b2 - a);
-              const x2 = Math.max(0, Math.min(1, (u - 0.20) / 0.50));
-              return a + (b2 - a) * (x2 * x2 * (3 - 2 * x2)); }
-          }
-          return v;
-        };
-        const vtS = snapVt(Math.max(KT[0], Math.min(KT[KT.length - 1], session._ikVt)));
-        const vt = Math.max(RW[0][0], Math.min(RW[RW.length - 1][0], vtS));
-        let wr = RW[0][1];
-        for (let i = 1; i < RW.length; i++) {
-          if (vt <= RW[i][0]) { const [a, wa] = RW[i - 1], [b2, wb] = RW[i];
-            wr = wa + (wb - wa) * (vt - a) / Math.max(1e-3, b2 - a); break; }
-          wr = RW[i][1];
-        }
-        const P = sbPoseAt(vtS, false);
-        let L = { x: -P.L.u * IK_KX, z: P.L.v * IK_KZ + IK_Z0 };
-        let R = { x: -P.R.u * IK_KX, z: P.R.v * IK_KZ + IK_Z0 };
-        const mx = (L.x + R.x) / 2, mz = (L.z + R.z) / 2;
-        const wg = Math.hypot(L.x - R.x, L.z - R.z);
-        const sc = wg > 1e-3 ? (wr * IK_GAIN) / wg : 1;
-        L = { x: mx + (L.x - mx) * sc, z: mz + (L.z - mz) * sc };
-        R = { x: mx + (R.x - mx) * sc, z: mz + (R.z - mz) * sc };
-        // ★ '무릎을 들어서 옮긴다' — 외부 레퍼런스 실측이 근거다(tmp 계측, 봇이 가진 클립):
-        //     walk  뜸 0.096m / 보폭 0.48m = **0.23**   jogging 0.75   옆스텝(shuffle) 0.12
-        //   높이만 올리면 여전히 미끄러진다: 2본 IK 는 발목만 아치로 보내면 다리가 진자처럼
-        //   **펴진 채** 흔들린다. 스윙 중 발을 힙 쪽으로 당겨(유효 다리 길이 단축) 무릎을 굽히면
-        //   그제야 '들어 옮긴다'로 읽힌다 — 걷기의 무릎 굴곡이 하는 일이 정확히 그것이다.
-        //   ★ 미끄러지는 발도 **든다**(유저 08-10: 아예 무릎을 굽혀서 띄었다 붙였다 해라).
-        //     실측으로 원인이 나왔다 — 왼발은 체공 비율 **0%** 였다(구간 내내 slide 플래그).
-        //     그래서 slide 는 0 이 아니라 0.6배로 든다 — 드래그 성격은 남기고 접지는 끊는다.
-        const LIFT = 0.40, KNEE = 0.38, SLIDE_K = 0.5, ROLL = 22 * Math.PI / 180;
-        //   ★ 국면 순서 = 인체 원리(유저): **뗀다 → 무릎을 굽힌다 → 내리며 디딘다.**
-        //     전엔 높이와 무릎이 같은 sin 아치라 **동시에** 최대였다 — 그래서 '들었다 놓는'
-        //     순서가 안 읽혔다. 무릎이 **먼저**(0.32) 접히고 발 높이가 **뒤따라**(0.45) 정점을
-        //     지나며, 착지 쪽은 길게 끌어 사뿐히 내린다. bell = 정점 위치를 주는 종 곡선.
-        const bell = (f, pk) => { const x = f < pk ? f / pk : (1 - f) / (1 - pk);
-          return x <= 0 ? 0 : x >= 1 ? 1 : x * x * (3 - 2 * x); };
-        const sk = q => q.moving ? (q.slide ? SLIDE_K : 1) : 0;
-        const ff = q => Math.max(0, Math.min(1, q.f));
-        //   ★ 높이 곡선은 **종이 아니라 사다리꼴**이다(유저 08-10: 올려야 하는 타이밍엔
-        //     지면에서 수직으로 많이 올려라). 종 곡선은 정점에서만 잠깐 높아 '스쳐 지나가는'
-        //     궤적이 된다. 앞 28% 에 수직으로 차올리고 · 중간은 높이 유지 · 뒤 28% 에 내린다.
-        const ss = (a, b2, f) => { const x = (f - a) / (b2 - a);
-          return x <= 0 ? 0 : x >= 1 ? 1 : x * x * (3 - 2 * x); };
-        const liftOf = q => sk(q) * ss(0, 0.28, ff(q)) * ss(1, 0.72, ff(q));
-        const kneeOf = q => sk(q) * bell(ff(q), 0.32);
-        //   발 롤 — 뗄 땐 뒤꿈치부터(발끝 아래), 디딜 땐 뒤꿈치부터 닿게(발끝 위). 걷기 접지 순서.
-        const rollOf = q => q.moving ? -Math.cos(Math.PI * ff(q)) * ROLL * sk(q) : 0;
-        // ★ 장면별 자세 보정(유저 08-10, BK_B2 크로스 딛기): "조금 더 앞으로 무릎을 굽히고
-        //   오른쪽 다리를 더 멀리 뻗어줘". 크로스 스텝은 리드 발을 멀리 내딛고 그 무릎 위에
-        //   체중을 얹는 자세라, **뻗음(reach)** 과 **앉음(crouch)** 을 그 장면에만 더 준다.
-        //   뻗음은 **옮기는 발에만** 건다 — 버티는 발까지 늘리면 스탠스가 통째로 벌어진다.
-        const TWK = { BK_B2: { reach: 1.6, crouch: 0.22 } }[session.stage || ''] || null;
-        if (TWK) {
-          if (P.R.moving) { R.x *= TWK.reach; R.z *= TWK.reach; }
-          if (P.L.moving) { L.x *= TWK.reach; L.z *= TWK.reach; }
-        }
-        xbot.ikCrouchAdd = TWK ? TWK.crouch : 0;   // 추가 크라우치(m) — 무릎이 앞으로 더 접힌다
-        let lL = liftOf(P.L), lR = liftOf(P.R);
-        //   ★ 지지발 보장 — 둘이 동시에 뜨는 프레임이 있다(실측 vt 1.50~1.65: 왼발 slide +
-        //     오른발 swing). 그러면 접지 클램프가 뜬 발 기준으로 몸을 들어 **몸이 덜컹거린다**.
-        //     둘 중 낮은 쪽을 0 으로 내려 한 발은 항상 바닥에 둔다(상대 높이는 그대로).
-        const both = Math.min(lL, lR);
-        lL -= both; lR -= both;
-        const kL = kneeOf(P.L), kR = kneeOf(P.R);
-        xbot.setFootIK({
-          L: { x: L.x * (1 - KNEE * kL), z: L.z * (1 - KNEE * kL), y: lL * LIFT, roll: rollOf(P.L), mv: !!P.L.moving },
-          R: { x: R.x * (1 - KNEE * kR), z: R.z * (1 - KNEE * kR), y: lR * LIFT, roll: rollOf(P.R), mv: !!P.R.moving },
-        });
-      } else xbot.setFootIK(null);
+      // 봇 전용 부드러운 가이드 시계 — 위상이 이 값을 쓴다(영상 currentTime 계단·시크 노이즈 제거)
+      if (STEP_SEG[session.stage || '']) {
+        const rv = session.stepVidT ?? 0;
+        if (session._ikVt == null || Math.abs(rv - session._ikVt) > 0.35) session._ikVt = rv;
+        else session._ikVt += (rv - session._ikVt) * Math.min(1, h / 0.07);
+      }
+      // ★ 스텝백 = 클립 구동 + 발 고정. 마크로 다리를 끌던 경로(_applyFootIK)는 끈다.
+      xbot.footLock = !!STEP_SEG[session.stage || ''] && !aWatching;
+      xbot.demoInPlace = xbot.footLock;   // 레이업 도움닫기 루트가 무대 밖으로 나가지 않게
+      xbot.setFootIK(null);
       // 위상잠금: 씬 링·카운트와 코치 동작을 같은 시간축에 — 절차 드릴 + A1 전신풀기·A2 점핑잭(주기=씬 BT).
       // BK_B2 = 분해 밟기: 씬 3s 사이클당 크로스오버 1회(마크 1-2-3과 사이클 동기).
       // BK_B3 = 컷·감속: 로우 드리블 클립의 컷 구간(16~21s) 창 반복. 그 외 실측 모캡은 자연 속도(왜곡 방지).
@@ -4793,7 +4714,9 @@ void main(){
       }
       // ★ 스텝백 = 클립이 아니라 **발자국 좌표로 다리를 푼다**(IK). 위상은 상체용으로만 돈다.
       else if (/^BK_(T1|B2|B3|B4|B5|C2)$/.test(session.stage || '')) {
-        _phase = (session.t * (session.clipRate ?? 1)) % (xbot.actions.bkStance?.dur || 2.5);
+        const CK0 = 1.5, CK1 = 2.3, A0 = 1.05, A1 = 2.20;   // 클립 창 ← 가이드 구간
+        const v0 = Math.max(A0, Math.min(A1, session._ikVt ?? A0));
+        _phase = CK0 + (v0 - A0) / (A1 - A0) * (CK1 - CK0);
       }   // 신규 소스(공 튀기며 손으로 옮기기) 최적 루프 4.4~7.9s — 경계 0.02m·손 전환 3회 실측
       else if (session.stage === 'BK_B3') {   // 프리스타일은 어느 구간도 안 맞물림(최적 0.183m) → 핑퐁 = 불연속 0
         const SP3 = 6.3, m3 = session.t % (SP3 * 2);
