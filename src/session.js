@@ -1217,8 +1217,11 @@ export class Session {
       // ★ 제품도 올린다(유저 08-10: "화살표가 왜 이렇게 흐릴까"). 예전 결정("제품은 손대지
       //   않는다")은 발표 프리셋만 필요하다고 봤을 때의 것이다 — 실제로는 1인칭 제품 화면에서
       //   더 안 보인다(투사가 지평선 쪽으로 눌려 촉이 한 자릿수 px 가 된다).
+      // ★ ×1.35 로도 부족(유저 08-10 재지적: 화살표가 눈에 잘 안 온다) — 발표 프리셋과
+      //   같은 1.45 로 통일한다. 제품/발표를 가르던 근거(제품은 카메라가 가깝다)는
+      //   1인칭 실화면에서 반증됐다.
       const _tgtA = (q.slide ? 0.75 : (q.moving ? 0.30 + 0.60 * (1 - q.f) : 0.55))
-        * (AD ? 1.45 : 1.35)
+        * 1.45
         * (1 + (q.moving ? 0 : ARROW.breath * Math.sin(this.t * 2.1)));
       ar._gain = lerpTo(ar._gain ?? 0, _tgtA, ARROW.ramp, _dtA);   // 슬라이드 큐는 일정한 밝기로 흐른다
       // ★ 두께 = MOVE 토큰(marklang ARROW). 길이는 draw-on 이 정하므로 토큰은 두께·촉만 말한다.
@@ -1226,7 +1229,7 @@ export class Session {
       const tok = arrowFor(q.slide ? 'slide' : 'step', Math.min(1, Math.hypot(du, dv)));
       //   ★ 발표 프리셋 두께 ×1.6 — MOVE 토큰의 **배수**로만 올린다(토큰을 덮어쓰면 step/slide
       //     대비가 무너진다: 0.85 vs 1.35 라는 '미는 발이 굵다'가 이 동작의 언어다).
-      if (tok) ar._scale = tok.scale * (AD ? 1.6 : 1.25);   // 두께가 가독의 몸통 — 제품도 올린다
+      if (tok) ar._scale = tok.scale * 1.6;   // 두께가 가독의 몸통 — 제품도 발표와 같은 1.6(유저 08-10 재지적)
       // 목표 존 — '여기 안에 놓으면 된다'. marklang ZONE.base(발 길이 배수)를 그대로 쓴다.
       this._sbZone(H, side, tp, q);
     };
