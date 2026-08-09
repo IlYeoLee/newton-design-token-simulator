@@ -14,6 +14,7 @@ import { FilesetResolver, ImageSegmenter } from '@mediapipe/tasks-vision';
 import { extractPose, retargetToClip } from './posemocap.js';   // 무료 로컬 비디오 모캡
 import { Judge } from './judge.js';
 import { Session, SCFG, STAGES, STEP_SEG, sbPoseAt, refreshMarkNums, AD, FootMark } from './session.js';
+import { airK } from './markmotion.js';   // 체공 아치 정본 — 마크와 봇이 같은 곡선을 쓴다
 import { StudioDoc } from './studio/doc.js';
 import { StudioCanvas } from './studio/canvas.js';
 import { StudioProps } from './studio/props.js';
@@ -4596,9 +4597,15 @@ void main(){
         const IK_GAIN = 1.45;
         const IK_KX = 0.566 * IK_GAIN, IK_KZ = 0.21 * IK_GAIN, IK_Z0 = -0.02;
         const P = sbPoseAt(session.stepVidT ?? 0, false);
+        // ★ 발을 **든다**(유저 08-10: 바닥에 100% 붙어 슬라이딩하듯 미끄러진다).
+        //   드는 높이 = 마크 정본 곡선 airK(sin 아치) × 0.16m. 새 어휘 0개 — 가이드가 이미
+        //   '이 발이 지금 공중이다'(q.moving)와 '이건 미끄러지는 발이다'(q.slide)를 말하고 있고,
+        //   마크도 그 값으로 고스트가 된다. 스텝백의 왼발은 slide 라 **안 든다** — 그게 실제 동작이다.
+        const LIFT = 0.16;
+        const lift = q => (q.moving && !q.slide) ? airK(q.f) * LIFT : 0;
         xbot.setFootIK({
-          L: { x: -P.L.u * IK_KX, z: P.L.v * IK_KZ + IK_Z0 },
-          R: { x: -P.R.u * IK_KX, z: P.R.v * IK_KZ + IK_Z0 },
+          L: { x: -P.L.u * IK_KX, z: P.L.v * IK_KZ + IK_Z0, y: lift(P.L) },
+          R: { x: -P.R.u * IK_KX, z: P.R.v * IK_KZ + IK_Z0, y: lift(P.R) },
         });
       } else xbot.setFootIK(null);
       // 위상잠금: 씬 링·카운트와 코치 동작을 같은 시간축에 — 절차 드릴 + A1 전신풀기·A2 점핑잭(주기=씬 BT).

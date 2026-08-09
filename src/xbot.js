@@ -819,7 +819,7 @@ export class XBot {
     // 봇은 유저를 마주본다(모델 yaw π) — 로컬 x·z 를 월드로 돌린다. yaw 는 모델 회전에서 읽는다.
     const yaw = this.model.rotation.y, cy = Math.cos(yaw), sy = Math.sin(yaw);
     const world = (p) => new THREE.Vector3(
-      hp.x + p.x * cy + p.z * sy, 0, hp.z - p.x * sy + p.z * cy);
+      hp.x + p.x * cy + p.z * sy, p.y || 0, hp.z - p.x * sy + p.z * cy);   // y = 체공 높이
     this._ikLeg('Left', world(T.L));
     this._ikLeg('Right', world(T.R));
     this.model.updateMatrixWorld(true);
@@ -846,7 +846,9 @@ export class XBot {
     const l1 = P0.distanceTo(P1), l2 = P1.distanceTo(P2);
     if (!(l1 > 1e-4 && l2 > 1e-4)) return;
     // 발목 목표 = 발바닥이 지면에 오도록 발목 높이만큼 띄운다(바인드 발목 높이 = 그 값).
-    const aim = tgt.clone(); aim.y = this._ankleY ?? (this._ankleY = Math.max(0.02, P2.y));
+    //   tgt.y = 체공 높이(가이드가 '이 발은 지금 공중'이라고 말할 때만 >0) — 슬라이딩 방지.
+    const aim = tgt.clone();
+    aim.y = (this._ankleY ?? (this._ankleY = Math.max(0.02, P2.y))) + (tgt.y || 0);
     const cl = (v, a, b) => Math.max(a, Math.min(b, v));
     const d = cl(P0.distanceTo(aim), Math.abs(l1 - l2) + 0.02, l1 + l2 - 0.02);
     // ① 무릎: 현재 내각 → 목표 내각 만큼만 더 굽힌다(로컬 X 음수 = 굽힘, 기존 실측 규약)
