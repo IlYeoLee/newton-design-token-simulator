@@ -4663,6 +4663,16 @@ void main(){
         const kneeOf = q => sk(q) * bell(ff(q), 0.32);
         //   발 롤 — 뗄 땐 뒤꿈치부터(발끝 아래), 디딜 땐 뒤꿈치부터 닿게(발끝 위). 걷기 접지 순서.
         const rollOf = q => q.moving ? -Math.cos(Math.PI * ff(q)) * ROLL * sk(q) : 0;
+        // ★ 장면별 자세 보정(유저 08-10, BK_B2 크로스 딛기): "조금 더 앞으로 무릎을 굽히고
+        //   오른쪽 다리를 더 멀리 뻗어줘". 크로스 스텝은 리드 발을 멀리 내딛고 그 무릎 위에
+        //   체중을 얹는 자세라, **뻗음(reach)** 과 **앉음(crouch)** 을 그 장면에만 더 준다.
+        //   뻗음은 **옮기는 발에만** 건다 — 버티는 발까지 늘리면 스탠스가 통째로 벌어진다.
+        const TWK = { BK_B2: { reach: 1.6, crouch: 0.22 } }[session.stage || ''] || null;
+        if (TWK) {
+          if (P.R.moving) { R.x *= TWK.reach; R.z *= TWK.reach; }
+          if (P.L.moving) { L.x *= TWK.reach; L.z *= TWK.reach; }
+        }
+        xbot.ikCrouchAdd = TWK ? TWK.crouch : 0;   // 추가 크라우치(m) — 무릎이 앞으로 더 접힌다
         let lL = liftOf(P.L), lR = liftOf(P.R);
         //   ★ 지지발 보장 — 둘이 동시에 뜨는 프레임이 있다(실측 vt 1.50~1.65: 왼발 slide +
         //     오른발 swing). 그러면 접지 클램프가 뜬 발 기준으로 몸을 들어 **몸이 덜컹거린다**.

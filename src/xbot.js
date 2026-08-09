@@ -824,7 +824,7 @@ export class XBot {
     {
       const W = Math.hypot(T.L.x - T.R.x, T.L.z - T.R.z);
       const sc = this.model.getWorldScale(new THREE.Vector3()).y || 1;
-      const drop = Math.min(0.30, Math.max(0, (W - 0.60) * 0.42));   // 폭 0.6m 넘는 만큼만 앉는다
+      const drop = Math.min(0.34, Math.max(0, (W - 0.60) * 0.42) + (this.ikCrouchAdd || 0));   // 폭 0.6m 넘는 만큼 + 장면 보정
       const tgt = -drop / sc;
       // ★ 저역통과는 **프레임당 한 번만** 전진시킨다(유저 08-10: 다리가 달달 떨린다).
       //   playDemo 는 한 프레임에 최대 19회 돈다(실측). 호출마다 전진시키면 그 프레임의
@@ -832,7 +832,7 @@ export class XBot {
       const now = (typeof performance !== 'undefined' ? performance.now() : Date.now());
       if (now - (this._ikCrouchT || 0) > 4) {
         this._ikCrouchT = now;
-        this._ikCrouch = (this._ikCrouch ?? 0) + (tgt - (this._ikCrouch ?? 0)) * Math.min(1, (this._dt ?? 0.016) * 6);   // 6 = 몸통 상하 출렁임 억제(유저: 휘청거린다)
+        this._ikCrouch = (this._ikCrouch ?? 0) + (tgt - (this._ikCrouch ?? 0)) * Math.min(1, (this._dt ?? 0.016) * 10);   // 출렁임 억제(유저: 휘청거린다)와 장면 보정 반응의 절충
       }
       this._hips.position.y = (this._hipsClipY ?? this._hips.position.y) + this._ikCrouch;
       this.model.updateMatrixWorld(true);
