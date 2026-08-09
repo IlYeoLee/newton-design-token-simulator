@@ -1005,6 +1005,15 @@ export const STAGES = {
   ],
 };
 
+// ★ 라벨 앞머리는 **id 에서 나온다**(유저 08-09: "내부 아이디랑 라벨 잘 맞추던가 제발").
+//   앞머리를 손으로 적다 보니 커리큘럼 재편(BK_A3 스쿼트·BK_B5 4/4 은퇴) 때 따라오지 못해
+//   **넷이 어긋나 있었다**: BK_B1→'A2' · BK_B2→'B1' · BK_B3→'B2' · BK_B4→'B3'.
+//   id 를 바꾸는 쪽은 음성 mp3 파일명·COACH_CFG(죽은 BK_A2=무릎들기와 충돌)까지 끌고 가므로,
+//   **표시를 id 에서 파생**시킨다 — 한 곳이라 다시는 벌어질 수 없다.
+//   커리큘럼 숫자(2/2 · 1/3)는 문구에 그대로 남는다. 그건 순서지 식별자가 아니다.
+for (const list of Object.values(STAGES))
+  for (const st of list) st.label = `${st.id} · ${String(st.label || '').replace(/^[A-Z0-9-]+\s*·\s*/, '')}`;
+
 export class Session {
   constructor(scene, tokens, xbot, rig, onStage) {
     deriveSessionPalette();   // 룩 LUT → 세션 히트 팔레트 (빌드 전에)
