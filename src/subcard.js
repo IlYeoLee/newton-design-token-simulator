@@ -42,15 +42,47 @@ export function createSubCard(root, baseUrl = '') {
   const bars = [];
   for (let i = 0; i < CFG.barCount; i++) { const b = document.createElement('i'); el.wave.appendChild(b); bars.push(b); }
 
-  let H = 0, R = 0, minTextW = 0, padX = 0;
+  let H = 0, R = 0, minTextW = 0, padX = 0, maxCardW = Infinity;
   let sport = null;   // null 로 시작해야 첫 setSport 가 실제로 아바타를 건다(같은 값이면 조기 반환한다)
   let shownAt = -1e9, hideAt = -1e9;      // 초 단위 (performance.now/1000)
   let wPrev = 0, wCur = 0, wFirst = true; // 카드 폭 스프링
   let speaking = false;
 
+  /** 사이드 패널에 안 덮이고 실제로 보이는 가로 구간(스테이지 로컬 px). 패널은 스테이지 **위에**
+   *  떠 있으므로 레이아웃만 봐선 알 수 없다 — 겹치는 폭을 직접 재서 깎는다. */
+  function freeArea() {
+    const host = root.parentElement;
+    const st = host.getBoundingClientRect();
+    let L = st.left, R = st.right;
+    // 자막이 놓이는 가로 띠 — 이 띠와 겹치는 패널만 실제로 자막을 가린다.
+    //   '세로로 긴 패널만' 으로 걸렀더니 짧은 세션 HUD 가 빠져나갔다(유저 스샷의 그 패널이다).
+    const capTop = st.top + 20, capBot = capTop + H * 0.16;
+    for (const id of ['panel', 'play-panel', 'inspector', 'lab-panel', 'session-hud']) {
+      const e = document.getElementById(id);
+      if (!e || !e.offsetParent) continue;                       // 안 보이는 패널은 자리를 안 차지한다
+      const r = e.getBoundingClientRect();
+      if (r.width < 40) continue;
+      if (r.bottom <= capTop || r.top >= capBot) continue;        // 자막 띠와 세로로 안 겹치면 안 가린다
+      if (r.right <= st.left || r.left >= st.right) continue;     // 스테이지와 안 겹치면 무시
+      if (r.left <= st.left + st.width / 2) L = Math.max(L, r.right);   // 왼쪽에서 덮는 패널
+      else R = Math.min(R, r.left);                                     // 오른쪽에서 덮는 패널
+    }
+    if (R - L < 200) { L = st.left; R = st.right; }   // 이상값 방어 — 그럴 땐 스테이지 전체를 쓴다
+    return { left: L - st.left, right: R - st.left };
+  }
+
   /** 치수를 다시 잡는다. 에펙은 H(컴프 높이) 비율이므로 여기서도 스테이지 높이만 본다. */
   function layout() {
     H = root.parentElement?.clientHeight || window.innerHeight;
+    // ★ 에펙엔 없는 제약 둘. 컴프는 폭이 고정이고 그 위를 덮는 패널도 없다.
+    //   ① 창이 좁아지면 카드가 넘친다 → 상한을 걸고, 넘치면 줄바꿈해 아래로 자란다
+    //      (에펙 카드도 내용에서 높이를 계산하므로 규약이 어긋나지 않는다).
+    //   ② 사이드 패널이 **스테이지 위를 덮는다**. 스테이지 기준으로 가운데를 잡으면
+    //      카드 한쪽이 패널 밑으로 들어가 '가운데정렬이 안 된 것처럼' 보인다(유저 스샷).
+    //      그래서 기준은 스테이지가 아니라 **덮이지 않고 실제로 보이는 영역**이다.
+    const a = freeArea();
+    maxCardW = Math.max(160, (a.right - a.left) - Math.round(H * 0.06));
+    root.style.left = `${Math.round((a.left + a.right) / 2)}px`;
     R = Math.round(H * CFG.avatarR);
     padX = Math.round(H * CFG.padX);
     minTextW = Math.round(H * CFG.minTextW);
@@ -100,16 +132,22 @@ export function createSubCard(root, baseUrl = '') {
   const ruler = document.createElement('span');
   ruler.style.cssText = 'position:absolute;visibility:hidden;white-space:nowrap;left:-9999px;top:0';
   function measure(text) {
-    ruler.style.font = getComputedStyle(el.en).font;
-    ruler.style.letterSpacing = getComputedStyle(el.en).letterSpacing;
+    const cs = getComputedStyle(el.en);
+    ruler.style.font = cs.font;
+    ruler.style.letterSpacing = cs.letterSpacing;
     ruler.textContent = text;
     if (!ruler.parentNode) document.body.appendChild(ruler);
-    return Math.max(ruler.getBoundingClientRect().width, minTextW) + padX * 2;
+    const want = Math.max(ruler.getBoundingClientRect().width, minTextW) + padX * 2;
+    // 한 줄로 못 담으면 상한까지만 벌리고 줄바꿈한다 — 잘려 나가느니 두 줄이 낫다.
+    const wrap = want > maxCardW;
+    el.en.style.whiteSpace = wrap ? 'normal' : 'nowrap';
+    el.en.style.lineHeight = wrap ? '1.45' : '1';
+    return Math.min(want, maxCardW);
   }
 
   function show(text, sportId) {
     if (sportId) setSport(sportId);
-    if (!H) layout();
+    layout();   // 패널은 세션 중에도 접히고 펴진다 — 대사마다 보이는 영역을 다시 잰다
     el.en.textContent = text;
     // 카드 폭 스프링 — 이전 폭에서 새 폭으로 가되 목표를 지나쳤다 몇 번 튕기고 잦아든다.
     //   첫 등장엔 직전 폭이 없으므로 좁은 폭(openFrom)에서 열린다(에펙과 같은 규약).
