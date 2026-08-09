@@ -832,7 +832,7 @@ export class XBot {
       const now = (typeof performance !== 'undefined' ? performance.now() : Date.now());
       if (now - (this._ikCrouchT || 0) > 4) {
         this._ikCrouchT = now;
-        this._ikCrouch = (this._ikCrouch ?? 0) + (tgt - (this._ikCrouch ?? 0)) * Math.min(1, (this._dt ?? 0.016) * 12);
+        this._ikCrouch = (this._ikCrouch ?? 0) + (tgt - (this._ikCrouch ?? 0)) * Math.min(1, (this._dt ?? 0.016) * 6);   // 6 = 몸통 상하 출렁임 억제(유저: 휘청거린다)
       }
       this._hips.position.y = (this._hipsClipY ?? this._hips.position.y) + this._ikCrouch;
       this.model.updateMatrixWorld(true);
@@ -899,7 +899,29 @@ export class XBot {
     const pq = up.parent.getWorldQuaternion(new THREE.Quaternion());
     up.quaternion.premultiply(pq.clone().invert().multiply(qd).multiply(pq));
     this.model.updateMatrixWorld(true);
-    // ③ 발바닥 수평 — 발이 다리를 따라 기울면 뒤꿈치가 땅을 뚫는다. 바인드 발 자세(월드)를
+    // ③ 무릎 방향 고정(폴 벡터) — 2본 IK 는 무릎이 축 둘레로 자유라 목표가 멀어질 때
+    //   좌우로 돌아간다. 그게 '다리가 휘청거린다'의 정체다(유저 08-10). 무릎을 **몸 앞**으로
+    //   못박는다: 힙→발목 축 둘레로 다리 전체를 돌려 무릎 투영을 전방에 맞춘다.
+    {
+      const H = V().setFromMatrixPosition(up.matrixWorld);
+      const A2 = V().setFromMatrixPosition(ft.matrixWorld);
+      const K = V().setFromMatrixPosition(lo.matrixWorld);
+      const ax = A2.clone().sub(H).normalize();
+      const kv = K.clone().sub(H); kv.addScaledVector(ax, -kv.dot(ax));            // 축에 수직인 성분
+      const yaw2 = this.model.rotation.y;
+      const fwd = new THREE.Vector3(Math.sin(yaw2), 0, Math.cos(yaw2));            // 몸 정면
+      const want2 = fwd.clone(); want2.addScaledVector(ax, -want2.dot(ax));
+      if (kv.lengthSq() > 1e-6 && want2.lengthSq() > 1e-6) {
+        kv.normalize(); want2.normalize();
+        let ang2 = Math.acos(Math.max(-1, Math.min(1, kv.dot(want2))));
+        if (kv.clone().cross(want2).dot(ax) < 0) ang2 = -ang2;
+        const q2 = new THREE.Quaternion().setFromAxisAngle(ax, ang2 * 0.8);        // 0.8 = 과교정 방지
+        const pq2 = up.parent.getWorldQuaternion(new THREE.Quaternion());
+        up.quaternion.premultiply(pq2.clone().invert().multiply(q2).multiply(pq2));
+        this.model.updateMatrixWorld(true);
+      }
+    }
+    // ④ 발바닥 수평 — 발이 다리를 따라 기울면 뒤꿈치가 땅을 뚫는다. 바인드 발 자세(월드)를
     //   몸 yaw 만 얹어 되돌린다(한 번만 캡처 — 클립이 바꿔도 기준은 바인드다).
     if (!this._footBindQ) this._footBindQ = {};
     if (!this._footBindQ[side]) this._footBindQ[side] = ft.getWorldQuaternion(new THREE.Quaternion());

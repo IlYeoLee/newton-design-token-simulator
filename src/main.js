@@ -4608,15 +4608,28 @@ void main(){
         //   되감김·컷(0.35s 이상 점프)은 스냅 — 루프 시작을 늦게 따라가면 그게 더 이상하다.
         const rawVt = session.stepVidT ?? 0;
         if (session._ikVt == null || Math.abs(rawVt - session._ikVt) > 0.35) session._ikVt = rawVt;
-        else session._ikVt += (rawVt - session._ikVt) * Math.min(1, h / 0.10);
-        const vt = Math.max(RW[0][0], Math.min(RW[RW.length - 1][0], session._ikVt));
+        else session._ikVt += (rawVt - session._ikVt) * Math.min(1, h / 0.07);
+        // ★ **절도**(유저 08-10: 딱딱 절도 있게, 차라리 로봇처럼). 구간 안에서 자세를 잡고
+        //   있다가 **한 번에** 옮긴다: 앞 20% 정지 → 가운데 50% 에 이동 → 뒤 30% 정지.
+        //   키 시각(SB_POSE)마다 이 재타이밍을 걸면 이동이 뭉개지지 않고 끊어 읽힌다.
+        const KT = [1.05, 1.47, 1.70, 2.10, 2.20];
+        const snapVt = (v) => {
+          for (let i = 1; i < KT.length; i++) {
+            if (v <= KT[i]) { const a = KT[i - 1], b2 = KT[i], u = (v - a) / Math.max(1e-3, b2 - a);
+              const x2 = Math.max(0, Math.min(1, (u - 0.20) / 0.50));
+              return a + (b2 - a) * (x2 * x2 * (3 - 2 * x2)); }
+          }
+          return v;
+        };
+        const vtS = snapVt(Math.max(KT[0], Math.min(KT[KT.length - 1], session._ikVt)));
+        const vt = Math.max(RW[0][0], Math.min(RW[RW.length - 1][0], vtS));
         let wr = RW[0][1];
         for (let i = 1; i < RW.length; i++) {
           if (vt <= RW[i][0]) { const [a, wa] = RW[i - 1], [b2, wb] = RW[i];
             wr = wa + (wb - wa) * (vt - a) / Math.max(1e-3, b2 - a); break; }
           wr = RW[i][1];
         }
-        const P = sbPoseAt(session._ikVt, false);
+        const P = sbPoseAt(vtS, false);
         let L = { x: -P.L.u * IK_KX, z: P.L.v * IK_KZ + IK_Z0 };
         let R = { x: -P.R.u * IK_KX, z: P.R.v * IK_KZ + IK_Z0 };
         const mx = (L.x + R.x) / 2, mz = (L.z + R.z) / 2;
