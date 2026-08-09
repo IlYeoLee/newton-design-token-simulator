@@ -612,7 +612,11 @@ export class XBot {
     }
     if (this._armNeutralClips?.has(key)) this._relaxArms();   // 팔만 중립 — 다리는 실측 유지 (유저: '손만 자연스럽게')
     else if (this.relaxLeftArm) this._relaxArms('L');   // B1 로우 드리블 — 왼팔만 자연 축 내림 (유저: 오른손 드리블, 반대손 내리기)
-    if (this._groundedClips?.has(key)) { this.model.position.y = 0; this._yOff = undefined; this.model.updateMatrixWorld(true); }
+    // ★ 루트 클립은 접지 베이크를 믿으면 안 된다(08-10, 유저: 발이 공중에 떠 있다).
+    //   베이크는 클립 **전 구간**의 최저발을 0에 맞춘 것 — 위상 창(rk_stepback [8.7,10.5])만
+    //   틀면 그 창의 최저발은 공중이다. 위 루트 분기(585)가 클램프를 해도 여기가 y=0 으로
+    //   되돌리고 있었다. 루트+접지 클립은 per-frame 클램프로 보낸다(_clampFeet 스무딩이 있다).
+    if (this._groundedClips?.has(key) && !this._rootClips?.has(key)) { this.model.position.y = 0; this._yOff = undefined; this.model.updateMatrixWorld(true); }
     else this._clampFeet();   // 데모 클립 루트 높이 미보정 → 봇 공중부양(유저: 'x봇이 공중에 떠있는데') 방지
     // 데모 중 공 관리 (playDemo는 여태 공을 안 건드려 이전 live 위치가 멀리 남아있었음 — 유저: '공이 저 멀리').
     // 드리블 클립일 때만 손에 붙여 튕기고, 그 외(idle·스탠스·사이드스텝·READY)엔 숨김.
