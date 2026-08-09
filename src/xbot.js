@@ -794,7 +794,22 @@ export class XBot {
    *
    *  targets = 힙 기준 **로컬 미터** {L:{x,z}, R:{x,z}} · y=0(접지). null 이면 클립 그대로.
    *  상체·팔은 클립이 계속 소유한다(드리블·시선) — 다리만 좌표를 따른다. */
-  setFootIK(t) { this._footIK = t || null; }
+  setFootIK(t) {
+    if (!t) { this._footIK = null; this._footIKS = null; return; }
+    // ★ 목표를 **시간 저역통과**로 받는다(유저 08-10: 다리가 달달 떨린다).
+    //   가이드 시계(stepVidT)는 코치 **영상의 currentTime** 이라 30fps 계단 + 시크 노이즈가
+    //   섞인다. 렌더는 60fps 라 그 계단이 그대로 발목 목표의 떨림이 된다. τ≈0.05s 면
+    //   안무 지연은 눈에 안 보이고(3프레임) 계단만 사라진다.
+    const S = this._footIKS;
+    if (!S) { this._footIKS = { L: { ...t.L }, R: { ...t.R } }; this._footIK = this._footIKS; return; }
+    const k = Math.min(1, (this._dt ?? 0.016) / 0.05);
+    for (const s of ['L', 'R']) {
+      for (const c of ['x', 'y', 'z', 'roll'])
+        S[s][c] = (S[s][c] ?? 0) + ((t[s][c] ?? 0) - (S[s][c] ?? 0)) * k;
+      S[s].mv = t[s].mv;   // 플래그는 안 섞는다(불리언)
+    }
+    this._footIK = S;
+  }
 
   _applyFootIK() {
     const T = this._footIK; if (!T || !this._hips) return;
@@ -811,7 +826,14 @@ export class XBot {
       const sc = this.model.getWorldScale(new THREE.Vector3()).y || 1;
       const drop = Math.min(0.30, Math.max(0, (W - 0.60) * 0.42));   // 폭 0.6m 넘는 만큼만 앉는다
       const tgt = -drop / sc;
-      this._ikCrouch = (this._ikCrouch ?? 0) + (tgt - (this._ikCrouch ?? 0)) * Math.min(1, (this._dt ?? 0.016) * 12);
+      // ★ 저역통과는 **프레임당 한 번만** 전진시킨다(유저 08-10: 다리가 달달 떨린다).
+      //   playDemo 는 한 프레임에 최대 19회 돈다(실측). 호출마다 전진시키면 그 프레임의
+      //   호출 수에 따라 크라우치가 확 갔다 천천히 갔다 해서 **프레임 단위로 덜컹거린다**.
+      const now = (typeof performance !== 'undefined' ? performance.now() : Date.now());
+      if (now - (this._ikCrouchT || 0) > 4) {
+        this._ikCrouchT = now;
+        this._ikCrouch = (this._ikCrouch ?? 0) + (tgt - (this._ikCrouch ?? 0)) * Math.min(1, (this._dt ?? 0.016) * 12);
+      }
       this._hips.position.y = (this._hipsClipY ?? this._hips.position.y) + this._ikCrouch;
       this.model.updateMatrixWorld(true);
       hp = new THREE.Vector3().setFromMatrixPosition(this._hips.matrixWorld);
@@ -820,8 +842,22 @@ export class XBot {
     const yaw = this.model.rotation.y, cy = Math.cos(yaw), sy = Math.sin(yaw);
     const world = (p) => new THREE.Vector3(
       hp.x + p.x * cy + p.z * sy, p.y || 0, hp.z - p.x * sy + p.z * cy);   // y = 체공 높이
-    this._ikLeg('Left', world(T.L), T.L.roll || 0);
-    this._ikLeg('Right', world(T.R), T.R.roll || 0);
+    // ★ **디딘 발은 월드에 박는다**(유저 08-10: 다리가 달달 떨린다 · 접지면이 미끄러진다).
+    //   목표가 힙 상대라 힙이 흔들리면(크라우치·클립 스웨이·접지 클램프) 디딘 발이 그대로
+    //   따라 흔들렸다 — 실측 디딘발 프레임간 이동 p95 0.04~0.08m. 사람은 반대다: 발은
+    //   땅에 박히고 **몸이 그 위를 지나간다.** 그래서 옮기는 중이 아니면 착지 순간의 월드
+    //   좌표를 물고 있는다. 떨림도 같이 죽는다(힙 노이즈가 발에 안 실린다).
+    if (!this._ikLatch) this._ikLatch = {};
+    const solve = (side, q) => {
+      const w = world(q);
+      if (q.mv) { this._ikLatch[side] = null; return w; }
+      const L = this._ikLatch[side];
+      if (!L) { this._ikLatch[side] = w.clone(); return w; }
+      L.y = w.y;   // 높이는 따라간다(착지 롤·클램프) — 박히는 건 바닥 위 자리(xz)다
+      return L;
+    };
+    this._ikLeg('Left', solve('L', T.L), T.L.roll || 0);
+    this._ikLeg('Right', solve('R', T.R), T.R.roll || 0);
     this.model.updateMatrixWorld(true);
   }
 

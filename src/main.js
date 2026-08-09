@@ -4622,17 +4622,30 @@ void main(){
         //   그제야 '들어 옮긴다'로 읽힌다 — 걷기의 무릎 굴곡이 하는 일이 정확히 그것이다.
         //   ★ 미끄러지는 발도 **든다**(유저 08-10: 아예 무릎을 굽혀서 띄었다 붙였다 해라).
         //     실측으로 원인이 나왔다 — 왼발은 체공 비율 **0%** 였다(구간 내내 slide 플래그).
-        //     스텝백의 드래그는 실제 동작이지만 화면에선 통째로 미끄러지는 걸로 읽힌다.
-        //     그래서 slide 는 0 이 아니라 0.6배로 든다 — 드래그의 성격은 남기고 접지는 끊는다.
+        //     그래서 slide 는 0 이 아니라 0.6배로 든다 — 드래그 성격은 남기고 접지는 끊는다.
         const LIFT = 0.26, KNEE = 0.32, SLIDE_K = 0.6, ROLL = 22 * Math.PI / 180;
-        const sw = q => q.moving ? airK(q.f) * (q.slide ? SLIDE_K : 1) : 0;
-        //   발 롤 — 뜨는 것만으론 '판때기가 떠다닌다'. 뗄 땐 뒤꿈치부터(발끝 아래로),
-        //   디딜 땐 뒤꿈치부터 닿게(발끝 위로) 굴린다. 걷기의 접지 순서 그대로.
-        const roll = q => q.moving ? -Math.cos(Math.PI * Math.max(0, Math.min(1, q.f))) * ROLL : 0;
-        const swL = sw(P.L), swR = sw(P.R);
+        //   ★ 국면 순서 = 인체 원리(유저): **뗀다 → 무릎을 굽힌다 → 내리며 디딘다.**
+        //     전엔 높이와 무릎이 같은 sin 아치라 **동시에** 최대였다 — 그래서 '들었다 놓는'
+        //     순서가 안 읽혔다. 무릎이 **먼저**(0.32) 접히고 발 높이가 **뒤따라**(0.45) 정점을
+        //     지나며, 착지 쪽은 길게 끌어 사뿐히 내린다. bell = 정점 위치를 주는 종 곡선.
+        const bell = (f, pk) => { const x = f < pk ? f / pk : (1 - f) / (1 - pk);
+          return x <= 0 ? 0 : x >= 1 ? 1 : x * x * (3 - 2 * x); };
+        const sk = q => q.moving ? (q.slide ? SLIDE_K : 1) : 0;
+        const ff = q => Math.max(0, Math.min(1, q.f));
+        const liftOf = q => sk(q) * bell(ff(q), 0.45);
+        const kneeOf = q => sk(q) * bell(ff(q), 0.32);
+        //   발 롤 — 뗄 땐 뒤꿈치부터(발끝 아래), 디딜 땐 뒤꿈치부터 닿게(발끝 위). 걷기 접지 순서.
+        const rollOf = q => q.moving ? -Math.cos(Math.PI * ff(q)) * ROLL * sk(q) : 0;
+        let lL = liftOf(P.L), lR = liftOf(P.R);
+        //   ★ 지지발 보장 — 둘이 동시에 뜨는 프레임이 있다(실측 vt 1.50~1.65: 왼발 slide +
+        //     오른발 swing). 그러면 접지 클램프가 뜬 발 기준으로 몸을 들어 **몸이 덜컹거린다**.
+        //     둘 중 낮은 쪽을 0 으로 내려 한 발은 항상 바닥에 둔다(상대 높이는 그대로).
+        const both = Math.min(lL, lR);
+        lL -= both; lR -= both;
+        const kL = kneeOf(P.L), kR = kneeOf(P.R);
         xbot.setFootIK({
-          L: { x: L.x * (1 - KNEE * swL), z: L.z * (1 - KNEE * swL), y: swL * LIFT, roll: roll(P.L) },
-          R: { x: R.x * (1 - KNEE * swR), z: R.z * (1 - KNEE * swR), y: swR * LIFT, roll: roll(P.R) },
+          L: { x: L.x * (1 - KNEE * kL), z: L.z * (1 - KNEE * kL), y: lL * LIFT, roll: rollOf(P.L), mv: !!P.L.moving },
+          R: { x: R.x * (1 - KNEE * kR), z: R.z * (1 - KNEE * kR), y: lR * LIFT, roll: rollOf(P.R), mv: !!P.R.moving },
         });
       } else xbot.setFootIK(null);
       // 위상잠금: 씬 링·카운트와 코치 동작을 같은 시간축에 — 절차 드릴 + A1 전신풀기·A2 점핑잭(주기=씬 BT).
