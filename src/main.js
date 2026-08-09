@@ -1002,18 +1002,32 @@ void main(){
    *  정책에도 똑같이 막혀서 '소리가 사라진 것처럼' 보이는 주범이었다.
    *  mp3 가 아직 못 나가는 경우는 하나뿐이다: 아직 화면을 한 번도 안 만진 상태(NotAllowedError).
    *  그때는 실패로 끝내지 않고 붙들었다가 첫 조작에 그대로 낸다. */
-  function speak(who, text, stageId) {
-    if (!ttsOn || !stageId) return;
+  function _playVoice(v) {
     _speakSeq++;
     // src 를 갈아끼우면 이전 재생은 브라우저가 알아서 끊는다(AbortError). 앞에서 pause 까지
     //   하면 그 취소가 **다음 대사의 play() 까지** 물고 늘어져 새 대사가 안 나갔다(실측:
     //   FAIL BX_A1.mp3 :: AbortError → A1 인사말이 통째로 증발). 갈아끼우기만 한다.
-    voiceAudio.src = `${BASE}voice/${stageId}.mp3`;
+    voiceAudio.src = `${BASE}voice/${v.stageId}.mp3`;
     voiceAudio.play().catch(err => {
       if (err?.name === 'AbortError') return;                    // 다음 대사가 이어받은 것 = 정상
-      _voicePending = { who, text, stageId };                    // 아직 허락 전 — 첫 조작에 낸다
+      _voicePending = v;                                         // 아직 허락 전 — 첫 조작에 낸다
     });
+    showCaption(v.who, v.text);                                  // 자막은 **소리가 나가는 순간** 뜬다
   }
+  /** ★ 대사는 서로를 **안 끊는다**(유저 08-09: "말 대사도 끝나기 전에 넘어가고 있어").
+   *  실측한 사고 경로: 관찰(3.0s)이 끝나는 순간 단계 안 코치 큐(_say)가 나가는데, 그때
+   *  장면 대사(BK_B1 5.02s · BK_B2 5.76s)는 아직 2~3초 남아 있다 — src 를 갈아끼우니
+   *  장면 대사가 통째로 잘렸다. 재생 중이면 **뒤에 세운다**(마지막 하나만 — 큐가 쌓이면
+   *  화면과 말이 더 벌어진다). */
+  let _voiceQ = null;
+  function speak(who, text, stageId) {
+    if (!stageId) return;
+    if (!ttsOn) { showCaption(who, text); return; }   // 음소거여도 자막은 나간다
+    const v = { who, text, stageId };
+    if (!voiceAudio.paused && !voiceAudio.ended) { _voiceQ = v; return; }
+    _playVoice(v);
+  }
+  voiceAudio.addEventListener('ended', () => { const q = _voiceQ; _voiceQ = null; if (q) _playVoice(q); });
   // 첫 제스처 = 소리 허락. 밀려 있던 대사가 있으면 그때 낸다(없으면 잠금만 푼다).
   let _voicePending = null, _voiceUnlocked = false, _unlockAt = 0;
   function unlockVoice() {
@@ -1133,7 +1147,7 @@ void main(){
     veil();  // 단계 전환 암전 (끊김 → 의도된 전환으로)
     // 전환/타이머/리포트(풀스크린 지면 화면)는 하단이 화면 콘텐츠(버튼)라 음성 캡션을 상단으로 이동(겹침 방지).
     // 자막은 항상 상단(우측 체험 패널과 같은 높이선) — 스테이지별 위치 분기 폐기.
-    if (st.voice) { showCaption(st.voice[0], st.voice[1]); speak(st.voice[0], st.voice[1], st.id); }
+    if (st.voice) speak(st.voice[0], st.voice[1], st.id);   // 자막은 speak 이 **소리와 같이** 띄운다
     if (st.wear) {
       const w = st.wear;
       const c = w.includes('BOOST') ? '#d1feff' : w.includes('LOAD') ? '#fec389'
@@ -1150,11 +1164,19 @@ void main(){
   if (import.meta.env.DEV) { window.__sess = session; window.__cam = camera; window.__rig = rig; window.__scene = scene; window.__hoop = hoop; }   // 디버그 훅 — 콘솔에서 스테이지 고정·검수용
 
   // 단계 중간 음성 큐 — 시범→실행 전환("이제 같이") 등 코칭 3층 문법의 동작 큐 채널
-  session.say = (who, line, vkey) => { showCaption(who, line); speak(who, line, vkey || 'cue:' + line.slice(0, 16)); };
+  session.say = (who, line, vkey) => speak(who, line, vkey || 'cue:' + line.slice(0, 16));
   // 자동 장면 전환 게이트: 준비된 음성(mp3 또는 폴백 TTS)이 재생 중이면 true → 세션이 자동 넘어가기 보류.
   //   play() 직후 currentTime은 잠깐 0이지만 paused는 즉시 false → currentTime 조건 제거(시작 직후 잘림 방지).
-  // 말하는 중 판정도 mp3 하나만 본다 — 기계음 TTS 는 폐기했다.
-  session.voiceBusy = () => (ttsOn && !voiceAudio.paused && !voiceAudio.ended);
+  // 말하는 중 판정도 mp3 하나만 본다 — 기계음 TTS 는 폐기했다. 뒤에 세워 둔 대사도 '말하는 중'이다.
+  session.voiceBusy = () => (ttsOn && ((!voiceAudio.paused && !voiceAudio.ended) || !!_voiceQ));
+  /** 남은 말 길이(초) — 세션의 자동 전환 대기 상한이 이 값에서 나온다(고정 2.5s 였다).
+   *  대기 중인 대사는 길이를 아직 모른다: 가장 긴 코치 mp3(≈6s)로 잡는다. */
+  session.voiceLeft = () => {
+    if (!ttsOn) return 0;
+    const cur = (!voiceAudio.paused && !voiceAudio.ended && isFinite(voiceAudio.duration))
+      ? Math.max(0, voiceAudio.duration - voiceAudio.currentTime) : 0;
+    return cur + (_voiceQ ? 6 : 0);
+  };
   // 게이트/다운시프트 안내 자막 + 웨어러블 신호
   sessionSkillSink = session;
   session.setSkill(parseInt(document.getElementById('s-skill')?.value ?? '70', 10) / 100);
@@ -6554,6 +6576,10 @@ void main(){
       //   → 빨간 끝라인에서 타이틀까지 내려오는 거리를 전 스테이지 동일하게(유저 image 21). 대지 중심 앵커(dMid)가 아니라 far끝 기준.
       // ★ far 앵커 고정 — 전진 오프셋은 두 번 다 커버리지 이탈을 냈다(08-05 재발). 절대 더하지 말 것.
       const boardFwd = (rig.fpFar - 0.12) - (1335 - 176) * sUni;
+      // ★ 대지 px → 전방 m 환산을 **세션에 넘긴다**. 마크가 타이틀 알약을 침범하지 못하게
+      //   막는 상한(session._uiCapV)이 이 둘에서 나온다 — 조판(알약 위치·높이)이 바뀌면
+      //   상한도 자동으로 따라간다. CLAUDE.md §5 가 남겨 둔 '런타임 파생' 자리.
+      session.boardMap = { fwd: boardFwd, s: sUni };
       const cx = sfp.ox + sfp.fx * boardFwd, cz = sfp.oz + sfp.fz * boardFwd;
       // 로컬축 → 월드: 대지 폭(+X)→풋프린트 우측, 대지 높이(+Y=위쪽/제목)→전방(far), 법선(+Z)→상방.
       _rV.set(sfp.rx, 0, sfp.rz); _fV.set(sfp.fx, 0, sfp.fz);

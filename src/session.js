@@ -8,7 +8,7 @@ import { easeMove, stepDelay, stampPop, airK, airAlpha, airScale, overshoot, sli
 import { BK_STEPBACK, LOAD, arrowFor, stageTime } from './marklang.js';
 import { a2Rem } from './a2hold.js';   // 마크 안 숫자 = 진행률 3등분 정본(초 올림 금지)
 import { stanceLoad } from './gait.js';   // 걸음 정본 — 입각기 진행 → 하중 배분
-import { READY_OPT } from './floorgl.js';   // 시작화면 시안 토글(발자국 어포던스 등) — 랩과 같은 스위치를 본다
+import { READY_OPT, LAYOUT, TOK as FTOK, yToFwd } from './floorgl.js';   // 시작화면 시안 토글 + 대지 밴드(타이틀 알약 침범 금지선)
 import { lutColor, GLYPHS, drawGlyph, drawNumber, footSlot, footSDFTexture, FXP } from './fxlut.js';
 import { MARK_NUM, GLYPH_LOOK, drawMarkGlyph, invertGlyphCanvas, drawStanceBox, drawPunchLine, drawApproachRing, drawTrajectory, drawRotate, drawStemArrow, drawCurveArrow, drawDribbleMat, glyphFor } from './fx-core.js';
 import { makeMarkFXMaterial, makeLaneFXMaterial, makeFlowArrow, tickFlowArrows, beamAlphaAt, COLORS, AD, FOOT_LEN_M, FOOT_PLANE_M, QUAD_K, UI_MASK, MARK_LOOK, applyMarkLookTo, setMarkLoad, setMarkStateLook, startMarkXfade, tickMarkXfade, ZONE } from './tokens.js';
@@ -800,6 +800,9 @@ export const SB_POSE = [
 //     옮기면 잘림과 폭이 같이 풀린다. 줄이면 마크가 작아져 시각도 하한(docs/FLOOR-LEGIBILITY.md
 //     1급 0.55°)에 걸릴 위험만 생긴다.
 export const SB_BOX = { u: 0.95, v0: 0.30, v1: 0.78 };
+// 알약 하단과 발 잉크 사이 최소 여유(m) — 잉크가 알약 선에 딱 붙으면 백열(할로)이 글자를 씻는다.
+//   0.04m ≈ 대지 58px. 실측 침범량(0.062m)과 같은 자릿수라 상한이 과하지 않다.
+const UI_GAP_M = 0.04;
 const sbU = u => Math.max(-SB_BOX.u, Math.min(SB_BOX.u, u * SB_BOX.u));
 const sbV = v => {
   const c = (SB_BOX.v0 + SB_BOX.v1) / 2, h = (SB_BOX.v1 - SB_BOX.v0) / 2;
@@ -1356,13 +1359,40 @@ export class Session {
    *  스탠스가 통째로 뭉갠다 — 실측: 한 반경(0.195)으로 조였더니 B2 스탠스가 0.19m 로 눌려
    *  스탠스 링크가 아예 안 보이는 길이(seg 0.010m)가 됐다. 발은 길쭉하다: 길이 0.30 · 폭 0.12.
    *  스텝백 스탠스는 발이 평행이라(rotation.z = 0) 축이 안 돈다 — 방향별 반경이 정확하다. */
+  /** 마크가 **타이틀 알약을 침범할 수 있는 최대 v** — 없으면 null(제약 없음).
+   *
+   *  유저 강제규칙(08-09): "절대 타이틀 영역에 발이 침범해선 안 된다."
+   *  실측(BK_B2~B4 · 빔 far 2.0): 발 잉크 앞끝이 대지 y426 까지 올라간다 — 알약은 y200~516
+   *  이므로 **90px(0.062m) 안쪽까지 먹고 있었다**(tmp_bkfeet.mjs). 화면에서 앞 = 위라
+   *  마크를 앞으로 밀면 타이틀을, 뒤로 밀면 화면 아래를 친다(newton-floor-title-collision).
+   *  그래서 자리를 눈으로 정하지 않고 **대지 조판에서 파생**한다 — 알약 하단(headY+CAPHEAD_H)의
+   *  전방거리에서 발 잉크 반경과 여유를 뺀 값이 상한이다. 조판이 바뀌면 상한도 같이 움직인다.
+   *
+   *  대지 px → 전방 m 환산은 main.js 만 안다(boardMap 을 매 프레임 넘겨준다) — CLAUDE.md §5
+   *  가 '런타임 파생이 정답'이라고 남겨 둔 그 자리다. 안 넘어오면 제약 없음(옛 동작). */
+  _uiCapV(rV, span, M) {
+    const bm = this.boardMap, r = this.rig;
+    if (!bm || !(bm.s > 0)) return null;
+    const lim = yToFwd(FTOK.headY + LAYOUT.CAPHEAD_H, bm.fwd, bm.s) - rV - UI_GAP_M;
+    return (lim - r.fpNear - M) / span;
+  }
+
   _beamFit(u, v, rU, rV, ref) {
     const r = this.rig, fp = r?._fp;
     if (!fp) return this._beamLocal(u, v, ref);
     const M = 0.18;                                        // beamUV 와 같은 가장자리 페더 여유
     const span = Math.max(0.05, r.fpFar - r.fpNear - M * 2);
     const vIn = Math.min(0.45, rV / span);                 // 앞뒤 인셋(정규)
-    const vv = Math.max(vIn, Math.min(1 - vIn, v));
+    // ★ 무대를 **비례 압축**한다(자르지 않는다). 상한에서 잘라내면 먼 쪽 두 발이 같은 깊이에
+    //   뭉쳐 스탠스가 죽는다. v0 는 그대로 두고 위쪽만 당기므로 근거리(화면 아래) 잘림도 안 생긴다.
+    //   실측 압축률 13% (v1 0.78 → 0.716) — 스텝백 세로 이동이 그만큼만 줄어든다.
+    const cap = this._uiCapV(rV, span, M);
+    if (cap != null && cap < SB_BOX.v1) {
+      const k = Math.max(0, (cap - SB_BOX.v0) / (SB_BOX.v1 - SB_BOX.v0));
+      v = SB_BOX.v0 + (v - SB_BOX.v0) * k;
+    }
+    //   압축 뒤에도 상한을 한 번 더 건다 — 규칙은 '되도록'이 아니라 **금지**다.
+    const vv = Math.max(vIn, Math.min(1 - vIn, cap != null ? Math.min(v, cap) : v));
     const d = r.fpNear + M + span * vv;
     const half = Math.max(0.05, r._halfAt(d) - M);
     const uIn = Math.min(0.9, rU / half);                  // 좌우 인셋(정규) — 깊이마다 다르다
@@ -1722,15 +1752,13 @@ export class Session {
     // ★ 0.25 → 0.20: 매트에 마크가 **5개**(①②·③④·액티브) 들어가면서 깊이 예산이 빡빡해졌다.
     //   0.05m 앞으로 당기면 ①②(먼 쪽)가 CONTENT 밴드 안에 들어온다. 알약과는 오히려 멀어진다.
     const B1Z = BK_STAND - 0.60;
-    // 액티브 타깃 Ø300 — 예전 Ø400 은 마크가 하나뿐일 때의 크기다. 표적 4개가 같은 판에 들어오면서
-    //   ①② 와 물리적으로 겹쳤다(중심거리 0.283 < 반지름합 0.315). 겹치는 가이드는 가이드가 아니다.
-    const b1zone = floorRing(0, B1Z, 0.12, 0.15, BRAND.coral, 0.5);
-    const b1c = document.createElement('canvas'); b1c.width = b1c.height = 128;              // 잔여 카운트 = 링 중앙
-    const b1num = new THREE.Mesh(new THREE.PlaneGeometry(0.14, 0.14),
-      new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(b1c), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
-    b1num.material.map.colorSpace = THREE.SRGBColorSpace;
-    b1num.userData.canvas = b1c; b1num.userData.tex = b1num.material.map;
-    b1num.rotation.x = -Math.PI / 2; b1num.position.set(0, 0.016, B1Z); b1num.renderOrder = 8;   // 숫자는 링과 한 몸 — 같은 상수에서
+    // ★ 액티브 존 원 + 잔여 카운트 숫자 = **은퇴**(유저 08-09: "4번 타깃에 팡팡팡 해야 하는데
+    //   갑자기 새로운 원이 생겨").
+    //   그 원은 표적과 **다른 자리**(x0 · d0.60)에서 박자마다 켜지고 가운데에 남은 횟수를 그렸다 —
+    //   표적 ③④(d0.637)와 거의 같은 깊이라 화면에선 '번호 붙은 표적이 하나 더 생긴 것'으로 읽힌다
+    //   (유저 스샷: 4가 두 개). 게다가 팡(버스트)도 이 원에서 터져 "4번을 맞춰라"와 어긋났다.
+    //   박자·팡은 아래에서 **활성 표적(4번) 자신**이 맡고, 남은 횟수는 헤더 알약의 링이 이미
+    //   같은 숫자로 세고 있다(floorgl _gaugeVal · adv 'reps' — 바닥과 같은 '남은 N').
     // ── 번호 표적 4개 = **판정 토큰 그대로**(유저). 캔버스에 그린 그림이 아니라 다른 스테이지의
     //   존 마크와 같은 floorRing 이다 — 상태(Preview·Active·Success·Locked)를 그대로 갖고,
     //   룩 시스템 슬라이더·상태 룩(setMarkStateLook)이 이 마크에도 똑같이 걸린다.
@@ -1827,9 +1855,10 @@ export class Session {
     };
     b1mat.position.set(0, 0.0125, b1matZ);   // 링(0.013)·숫자(0.016) 아래 — 매트가 바닥면이다
     b1mat.material.opacity = 0;
-    this.bkB1 = { zone: b1zone, num: b1num, sL: b1sL, sR: b1sR, aL: b1aL, aR: b1aR, mat: b1mat, tg: b1tg,
+    this.bkB1 = { sL: b1sL, sR: b1sR, aL: b1aL, aR: b1aR, mat: b1mat, tg: b1tg,
+      act: b1tg.filter(q => q.on),   // 박자·팡의 주인 = 켜져 있는 표적(지금은 4번 하나)
       count: 0, _shown: -1, _wasLow: false, _popT: -9, _setupDone: false };
-    g.add(b1zone, b1num, b1sL.group, b1sR.group, b1aL, b1aR, b1mat);
+    g.add(b1sL.group, b1sR.group, b1aL, b1aR, b1mat);
     for (const tg of b1tg) g.add(tg.ring, tg.num);   // 지시문은 피그마 프레임 헤더가 담당(유저)
 
     g = this._mk('BK_B2');
@@ -2434,7 +2463,14 @@ export class Session {
     if (!force && this.voiceBusy?.()) {
       const now = performance.now();
       if (!this._waitStart) this._waitStart = now;
-      if (now - this._waitStart < 2500) return;
+      // ★ 상한이 **고정 2.5초**였다 — 코치 대사는 4.3~5.9초라 대사 끝을 기다린 적이 없다
+      //   (유저 08-09: 말 대사도 끝나기 전에 넘어간다. 실측 BK_A1 5.53s 체류 vs 대사 5.57s).
+      //   이제 상한 = **실제 남은 재생 시간**(main.js voiceLeft). 소리가 안 나가는 환경이면
+      //   0 이 돌아오므로 옛 안전망(2.5s)이 그대로 살아 있어 무한 대기는 안 생긴다.
+      //   대사가 끝나면 voiceBusy 가 false 가 되어 그 프레임에 넘어간다 — 여기서 재는 건
+      //   '얼마나 더 기다려 줄 수 있나'(폭주 방지 천장)뿐이다. 12s = 가장 긴 대사 + 대기 하나.
+      const left = this.voiceLeft?.() ?? 0;
+      if (now - this._waitStart < (left > 0.05 ? 12000 : 2500)) return;
     }
     this._waitStart = 0;
     // ★ 씬 미리보기 고정(?scene=) — 여기서 막는다. 예전엔 넘어가게 두고 다음 프레임에
@@ -3432,7 +3468,7 @@ export class Session {
       this._bkStrId = 'BK_B1';
       if (!this._followLatch) {   // 관찰 5초 — 코치 실루엣+Preview 필만, 가이드 전부 숨김(유저: 훈련 전체)
         H.sL.op(0); H.sR.op(0); H.aL._gain = 0; H.aR._gain = 0;
-        H.zone.setOp?.(0); H.num.material.opacity = 0; H.mat.material.opacity = 0;
+        H.mat.material.opacity = 0;
         for (const q of H.tg) { q.ring.setOp?.(0); q.num.material.opacity = 0; }
         this.bkB1Setup = false; this.bkB1Succ = null; this.bkB1Widen = null;
         this.demoActive = true;
@@ -3509,7 +3545,6 @@ export class Session {
           FMU('Success! — 곧 시작해요', CS.prism);
         }
         this.repLeft = null; this.repTotal = null;
-        H.zone.setOp?.(0); H.num.material.opacity = 0;
         return;
       }
       this.bkB1Succ = null;
@@ -3520,7 +3555,9 @@ export class Session {
       // 바운스 검출 — 공 y 최저 통과. 카운트+링 펄스.
       const ball = this.xbot?.ball;
       const isLow = !!ball?.visible && ball.position.y < 0.20;
-      if (isLow && !H._wasLow) {
+      // 0.15s 안에 두 번 = 문턱 근처 떨림이지 두 번 튄 게 아니다(실측 08-09: 간격 0.09s 로
+      //   한 박에 두 번 세던 프레임이 있다). 주기 필터가 이미 쓰는 그 문턱을 카운트에도 건다.
+      if (isLow && !H._wasLow && this.t - (H._zHit ?? -9) > 0.15) {
         // 광학 정직성(유저 지적): 실측 바운스(몸앞 0.44~0.83m)의 절반은 빔 시작선(0.65m) 안쪽 —
         //   접점 파형은 투사 불가능한 거짓말이다. 파형은 '존 위치'(빔 안 1.3m, 시선도 거기)에서.
         // 바운스 간격 = 링 수축 주기. 두 박을 봐야 주기가 생기므로 첫 바운스는 시드만 남긴다.
@@ -3534,8 +3571,10 @@ export class Session {
         // 파문은 '작고 빠른 틱'이다 — 프레스 버스트(0.52m·세기 .72·1.05s)를 그대로 쓰면 0.4s 비트마다
         //   1m짜리 파문이 3겹씩 쌓여 발밑을 덮는다(유저: 파파파팍). 1인칭이라 발밑 1m = 화면 절반.
         //   존 마크(반경 급)에 얹히는 크기로 줄이고 비트보다 짧게 꺼뜨려 겹침 자체를 없앤다.
-        const wp = new THREE.Vector3(); H.zone.getWorldPosition(wp);
-        this.onBurst?.(wp, 0.22, null, { intensity: 0.30, speed: 2.6 });
+        // ★ 팡은 **표적 위에서** 터진다(유저 08-09: 4번을 맞춰서 팡팡팡). 예전엔 표적과 다른
+        //   자리(중앙 존 원)에서 터져 '어디를 맞히라는 건지'가 그림과 어긋났다.
+        const wp = new THREE.Vector3();
+        for (const q of H.act) { q.ring.getWorldPosition(wp); this.onBurst?.(wp.clone(), 0.22, null, { intensity: 0.30, speed: 2.6 }); }
       }
       H._wasLow = isLow;
       // ── 원형 판정 토큰 = **박자를 보여주는 링**(유저 08-06: 원 하나만 덩그러니 있다).
@@ -3546,18 +3585,23 @@ export class Session {
       //   수축이 다 닫히는 순간이 곧 다음 바운스 = 링이 카운트인이 된다.
       //   주기는 **실제 바운스 간격에서 자동**으로 잡는다(봇 공 물리라 고정 상수를 쓰면 어긋난다).
       //   BK_BEAT(0.40s = 커리 실측 150BPM)는 첫 바운스 전 시드값으로만 쓴다.
-      const zU = H.zone.material.uniforms;
+      //   ★ 그 링은 이제 **활성 표적(4번)** 이다 — 별도의 존 원을 두지 않는다(위 은퇴 주석).
       const zk = Math.max(0, 1 - (this.t - (H._zHit ?? -9)) / 0.45);
-      if (zk > 0) { zU.uPhase.value = 2; zU.uProg.value = Math.min(1, 1.2 - zk); }   // 탕 — Success 블룸
-      else {
-        const per = H._per || BK_BEAT;
-        const ph = Math.min(1, (this.t - (H._zHit ?? this.t)) / per);
-        zU.uPhase.value = 1; zU.uProg.value = ph;   // Active 수축 — 다 닫히면 다음 박자
+      for (const q of H.act) {
+        const zU = q.ring.material.uniforms;
+        if (zk > 0) { zU.uPhase.value = 2; zU.uProg.value = Math.min(1, 1.2 - zk); }   // 탕 — Success 블룸
+        else {
+          const per = H._per || BK_BEAT;
+          const ph = Math.min(1, (this.t - (H._zHit ?? this.t)) / per);
+          zU.uPhase.value = 1; zU.uProg.value = ph;   // Active 수축 — 다 닫히면 다음 박자
+        }
+        // 알파는 **점등값(0.42) 위로 조금만** 올린다 — 옛 존 원은 숫자가 없어 0.85 까지 태워도
+        //   됐지만, 여기는 표적이라 그만큼 태우면 가산 합성이 '4' 를 하얗게 씻는다(실측 스샷).
+        //   팡의 세기는 파문(onBurst)과 매트 토큰의 hit 이 담당한다.
+        q.ring.setOp?.(0.42 + 0.25 * zk);   // 점등 루프(위 tgK)보다 뒤에 걸리므로 이 값이 이긴다
       }
-      H.zone.setOp?.(0.45 + 0.4 * zk);
       const left1 = Math.max(1, TOTAL - H.count);   // 하한 1 — 마지막 바운스에서 '0' 이 한 프레임 새는 걸 막는다
-      if (left1 !== H._shown) { redrawFootNum(H.num, left1); H._shown = left1; }
-      H.num.material.opacity = 1;
+      H._shown = left1;
       this.repLeft = left1; this.repTotal = TOTAL;
       this.repFrac = Math.min(1, H.count / TOTAL);
       FMU(`원형 마크에 맞춰 튕겨요 — 남은 ${left1}회`, CS.sand);
