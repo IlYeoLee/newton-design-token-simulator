@@ -619,6 +619,8 @@ export class XBot {
     if (this.ball) {
       // 공 게이트 — 클립 이름 화이트리스트로는 B단계 클립(크로스오버·124_0x)에서 공이 안 보였다.
       // _dribbleBall은 오른손목 Y의 하강→상승 전환을 실측 검출하므로 클립 종류를 안 가린다.
+      // (08-10) rk_stepback 은 여기 **안 넣는다** — 스텝백 화면은 1인칭이라 손에 붙인 공이
+      //   카메라 코앞의 거대 공으로 찍힌다(스틸 실측). 공 연출이 필요해지면 fp 게이트부터.
       if (this.mode === 'basketball' && /dribble|crossover|cmu124_0[3-6]|cmu86_14/.test(key)) this._dribbleBall(this._demoT || 0, dt);
       else this.ball.visible = false;
     }

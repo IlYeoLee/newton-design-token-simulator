@@ -4412,12 +4412,22 @@ void main(){
       // B1 시범 = 06_15 드리블→슛(온전한 무브 원테이크), B2 분해 = 06_14 크로스오버+슛 위상잠금
       // B단계 = 공을 튄다 → 튀기며 움직인다 → 튀기다 멈추고 뒤로(BK-B-CURRICULUM.md)
       BK_B1: 'bp_dribble',            // 드리블 루프 2(Sketchfab 네이티브 1.6s) — 유저: 이걸로 교체
-      BK_B2: 'bkStance',              // 깨끗한 애슬레틱 스탠스 + sbWidth 실측 구동(모캡 지터 회피)
-      BK_T1: 'bkStance', BK_B3: 'bkStance', BK_B4: 'bkStance',   // 전체 재생 + 스텝백 3조각 — 폭·크라우치는 sbWidth
-      BK_C2: 'bkStance',              // 실전 — 릴리즈는 판정으로
+      // ★ 스텝백 = **rk_stepback 창 [8.7, 10.5]** (08-10). bkStance(제자리 서기)+sbWidth 숫자
+      //   구동은 발이 안 움직였다(실측 0.05~0.20m vs 가이드 0.5m+ — "봇이 못 따라한다", 유저).
+      //   창은 감이 아니라 **상관 실측**으로 골랐다: SB_POSE(가이드 정본) 안무와 발L·발R·폭
+      //   상관 0.978 (tmp_102match, 2위 cmu_crossover_shot 0.696 · CMU 102 는 측면 드라이브라
+      //   0.0~0.4 로 탈락). rk 는 지터도 최상급(p95 0.041 — 승인 클립 cmu_dribble_side 0.112).
+      //   과거 rk 불신("공중부양·어정쩡", db81be2)은 12.8s 통짜 인상이다 — 서서 말하는 구간이
+      //   절반이다. 이 창(실제 무브 1.8s)은 스틸 8장 검수로 확인했다.
+      //   위상은 demoClipFor 밖(아래 stepVidT 매핑)에서 건다 — 마크와 같은 시계.
+      BK_B2: 'rk_stepback',
+      BK_T1: 'rk_stepback', BK_B3: 'rk_stepback', BK_B4: 'rk_stepback',
+      BK_C2: 'rk_stepback',           // 실전 — 릴리즈는 판정으로
     };
     // 실전 대기(C1)부터 실전 종료·리포트까지 봇은 가만히 서 있는다(유저). 동작 연출 없음.
-    if (/^(BK_)?C\d$/.test(id) || /^BX_C\d$/.test(id) || /FIN$/.test(id)) return 'idle';
+    // ★ BK_C2 만 예외(08-10) — 실전 스텝백 3회는 봇이 무브를 **한다**. 이 조기 반환이 표의
+    //   BK_C2 지정을 죽여서 실전 봇이 idle 로 서 있었다(재계측으로 발견).
+    if (id !== 'BK_C2' && (/^(BK_)?C\d$/.test(id) || /^BX_C\d$/.test(id) || /FIN$/.test(id))) return 'idle';
     if (DRILL[id] && xbot.actions[DRILL[id]]) return DRILL[id];
     if (sport === 'basketball') return 'dribble';           // 그 외 제자리 드리블
     if (sport === 'boxing') return /B\d/.test(id) ? 'hook' : 'warmup';
@@ -4536,14 +4546,16 @@ void main(){
       // hold=포즈 고정(복싱 READY 가드 유지). 러닝 대기는 idle 재생(호흡)이라 hold 안 함.
       // 러닝 준비운동(A) = 코치 드릴을 세션 스테이지 시간(session.t)에 위상 잠금 → 씬 링·카운트·음성과 동기(유저: '타이밍 하나하나 맞춰')
       if (session.stage !== 'A2' && xbot.group.scale.x !== 1) xbot.group.scale.x = 1;   // A2 미러 잔류 방지
-      xbot.stanceWiden = /^BK_B[13]$/.test(session.stage || '') ? 1 : 0;   // B2는 절차 드릴이 스탠스 소유
+      xbot.stanceWiden = (session.stage || '') === 'BK_B1' ? 1 : 0;   // B3 는 이제 rk 클립이 스탠스 소유(08-10)
       xbot.crossGuard = 0;   // 절차 드릴이 가드 팔까지 저작 — 덧대기 보정 은퇴
       xbot.legLock = /^BK_(C1|C2)$/.test(session.stage || '');   // 크로스오버 = 하체 완전 고정(굽힌 자세 스냅샷, 유저) — 실측 표류 0.06m 기법
       xbot.uDribble = /^BK_(C1|C2)$/.test(session.stage || '');   // 공 = 박자 결정론 U자(좌우 손바닥 왕복, 유저 확정)
-      const _sbOn = /^BK_(B2|B3|B4|B5|C2)$/.test(session.stage || '');
-      xbot.sbWidth = _sbOn ? (session.sbWidth ?? 0) : 0;
+      // ★ sbWidth·sbJump 절차 구동은 **은퇴**(08-10) — 스텝백을 rk_stepback 실측 클립이 소유한다.
+      //   클립 위에 폭·점프를 또 얹으면 같은 말을 두 번 하는 것(관절이 서로 싸운다).
+      //   sbShift(실전 루트 후퇴)만 남긴다 — 클립 창엔 없는 무대 배치라 역할이 안 겹친다.
+      xbot.sbWidth = 0;
       xbot.sbShift = (session.stage === 'BK_C2') ? (session.sbShift ?? 0) : 0;   // 실전만 루트 이동 — 학습 4페이즈는 정지 자세(창이 따라 움직이면 발자국이 밖으로 밀린다)
-      xbot.sbJump = _sbOn ? (session.sbJump ?? 0) : 0;
+      xbot.sbJump = 0;
       xbot.relaxLeftArm = (session.stage || '') === 'BK_B1';   // 로우 드리블 — 오른손만 드리블, 왼팔 자연 축 내림
       xbot.phaseDribble = (session.stage || '') === 'BK_B1';   // 공 = 오른손 높이 직결(최고=손, 최저=바닥)
       // 세션 데모(비실전) 공통: CMU 클립이 몸을 돌려도 봇은 정면 유지(유저 원칙)
@@ -4565,7 +4577,9 @@ void main(){
       const _stepPv = STEP_SEG[session.stage || ''] && _stepId === session.stage;   // 스텝백 = 재생 횟수로 판정
       const aWatching = _watchWin && (_stepPv ? _stepLoops < stepLoops(session.stage) : session.t < A2_WATCH);
       if (_watchWin && !aWatching) { session._followLatch = true; session._aWatchEnd = session.t; }
-      if (aWatching) { _clip = 'idle'; xbot.group.scale.x = 1; xbot.lungeDeepen = 0; xbot.headPitch = THREE.MathUtils.degToRad(-32); }
+      // ★ 스텝백 관찰은 봇이 **시범을 한다**(08-10, 유저: 봇이 따라해야 하는데 못 한다).
+      //   idle 강제는 코치 영상만 믿던 시절 규칙 — 이제 봇이 마크와 같은 시계로 무브를 보여준다.
+      if (aWatching && !STEP_SEG[session.stage || '']) { _clip = 'idle'; xbot.group.scale.x = 1; xbot.lungeDeepen = 0; xbot.headPitch = THREE.MathUtils.degToRad(-32); }
       // 위상잠금: 씬 링·카운트와 코치 동작을 같은 시간축에 — 절차 드릴 + A1 전신풀기·A2 점핑잭(주기=씬 BT).
       // BK_B2 = 분해 밟기: 씬 3s 사이클당 크로스오버 1회(마크 1-2-3과 사이클 동기).
       // BK_B3 = 컷·감속: 로우 드리블 클립의 컷 구간(16~21s) 창 반복. 그 외 실측 모캡은 자연 속도(왜곡 방지).
@@ -4672,10 +4686,13 @@ void main(){
           xbot.stanceWiden = 1;
         }
       }
-      // 06_13 프리스타일 전체 루프는 이동·컷 구간이 섞여 어색(유저) — 안정 핸들 구간만 창 반복.
-      else if (/^BK_(B2|B3|B4|B5|C2)$/.test(session.stage || '')) {
-        const rate = session.clipRate ?? 1;   // B3=0.5배속(유저 학습 progression)
-        _phase = (session.t * rate) % (xbot.actions.bkStance?.dur || 2.5);
+      // ★ 스텝백 = **마크와 같은 시계**(stepVidT)에 위상 잠금. session.t 로 돌리면 코치 영상
+      //   배속·정지(hold)와 어긋나 발자국 따로 봇 따로가 된다 — 마크 배치(_sbPlace)가 따르는
+      //   그 값을 그대로 따른다. 가이드 vt 0~3.10(STEP_SEG 전체 창) → rk 창 [8.7, 10.5] 선형 매핑.
+      else if (/^BK_(T1|B2|B3|B4|B5|C2)$/.test(session.stage || '')) {
+        const RK0 = 8.7, RK1 = 10.5, SBE = 3.10;
+        const vt = Math.max(0, Math.min(SBE, session.stepVidT ?? 0));
+        _phase = RK0 + (vt / SBE) * (RK1 - RK0);
       }   // 신규 소스(공 튀기며 손으로 옮기기) 최적 루프 4.4~7.9s — 경계 0.02m·손 전환 3회 실측
       else if (session.stage === 'BK_B3') {   // 프리스타일은 어느 구간도 안 맞물림(최적 0.183m) → 핑퐁 = 불연속 0
         const SP3 = 6.3, m3 = session.t % (SP3 * 2);

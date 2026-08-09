@@ -4,6 +4,7 @@
 
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import * as THREE from 'three';
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
 import { BVHLoader } from 'three/examples/jsm/loaders/BVHLoader.js';
@@ -228,6 +229,15 @@ const JOBS = {
   cmu02_03: { file: 'public/mocap/cmu/02_03.bvh', names: DAZ_NAMES, hip: 'hip', fps: 30, yScale: true, cat: 'run', keepRootXZ: true, yaw180: true },
   cmu09_01: { file: 'public/mocap/cmu/09_01.bvh', names: DAZ_NAMES, hip: 'hip', fps: 30, yScale: true, cat: 'run', keepRootXZ: true, yaw180: true },
   cmu07_12: { file: 'public/mocap/cmu/07_12.bvh', names: DAZ_NAMES, hip: 'hip', fps: 30, yScale: true, cat: 'walk', keepRootXZ: true, yaw180: true },
+  // ── CMU 102 = **농구 풋워크 전용 세트**(BK-B-CURRICULUM §0-1) — 스텝백 조각 재료(08-10) ──
+  //   페인트·수비 풋워크라 몸이 실제로 이동한다 → keepRootXZ. 본명 Hips = una-dinosauria(CMU_NAMES).
+  //   18/19 FeintLeft/RightMove: '딛는 척 → 반대로 끊기' — 스텝백 하체와 가장 가까운 보유 원본.
+  cmu102_13: { file: 'public/mocap/cmu/102_13.bvh', names: CMU_NAMES, hip: 'Hips', fps: 30, yScale: true, cat: 'basketball', keepRootXZ: true },  // OffensiveMoveGoRight
+  cmu102_14: { file: 'public/mocap/cmu/102_14.bvh', names: CMU_NAMES, hip: 'Hips', fps: 30, yScale: true, cat: 'basketball', keepRootXZ: true },  // OffensiveMoveGoLeft
+  cmu102_18: { file: 'public/mocap/cmu/102_18.bvh', names: CMU_NAMES, hip: 'Hips', fps: 30, yScale: true, cat: 'basketball', keepRootXZ: true },  // FeintLeftMoveRight
+  cmu102_19: { file: 'public/mocap/cmu/102_19.bvh', names: CMU_NAMES, hip: 'Hips', fps: 30, yScale: true, cat: 'basketball', keepRootXZ: true },  // FeintRightMoveLeft
+  cmu102_27: { file: 'public/mocap/cmu/102_27.bvh', names: CMU_NAMES, hip: 'Hips', fps: 30, yScale: true, cat: 'basketball', keepRootXZ: true },  // DefensiveMoveSideToSide
+  cmu102_28: { file: 'public/mocap/cmu/102_28.bvh', names: CMU_NAMES, hip: 'Hips', fps: 30, yScale: true, cat: 'basketball', keepRootXZ: true },  // DefensiveMoveSideToSide
   // ── stretch 키워드 전수 이식(2차): una-dinosauria BVH(Hips 본명 = CMU_NAMES) ──
   cmu49_18: { file: 'public/mocap/cmu/49_18.bvh', names: CMU_NAMES, hip: 'Hips', fps: 30, yScale: true, cat: 'stretch' },   // 한발 밸런스+팔 뻗기
   cmu49_19: { file: 'public/mocap/cmu/49_19.bvh', names: CMU_NAMES, hip: 'Hips', fps: 30, yScale: true, cat: 'stretch' },
@@ -304,7 +314,8 @@ const CHAIN = {
   mixamorigRightFoot: 'mixamorigRightToeBase',
 };
 
-const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
+// ★ URL.pathname 은 윈도우에서 '/C:/...' 를 내놓아 resolve 가 'C:\C:\...' 를 만든다 — fileURLToPath 가 정답.
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 // ── X Bot 스켈레톤 로드 ──────────────────────────────────────
 console.log('X Bot FBX 파싱…');
