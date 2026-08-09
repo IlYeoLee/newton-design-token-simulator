@@ -1234,7 +1234,7 @@ export class Session {
     one('L', fmL, arrows[0]);
     one('R', fmR, arrows[1]);
     // 큐가 없는 프레임엔 존 원도 스러진다 — 안 그러면 마지막 자리에 영영 남는다(화살표가 겪던 그 버그).
-    if (H.zTgt && !H._zOn) { H._zFade = Math.max(0, (H._zFade ?? 0) - 0.06); H.zTgt.setOp?.(H._zFade); }
+    if (H.zTgt && !H._zOn) { H._zFade = Math.max(0, (H._zFade ?? 0) - 0.06); H.zTgt.material.opacity = H._zFade; }
     this._sbLink(H, id, P, fmL, fmR);
     this._sbTrail(H, id);   // 실전 경로선 — 조각 단계에선 스스로 꺼진다
     return P;
@@ -1245,33 +1245,26 @@ export class Session {
    *  ponytail: 링은 마크 핸들당 하나만 만든다(스텝하는 발은 한 번에 하나다). 두 발이 동시에
    *    움직이는 단계가 생기면 그때 side 별로 나눈다. */
   _sbZone(H, side, tp, q) {
+    // ★ 목표 존 = **도트 아웃라인이 차오르는 원**(유저 08-10: "힌트·영역 안내라면 아웃라인
+    //   차오르는 라인으로 표현했어야 하지 않나"). 판정 토큰(꽉 찬 원)은 '닿았다/해냈다'의
+    //   어휘라, 아직 안 밟은 자리에 쓰면 안내와 판정이 같은 말로 읽힌다.
+    //   새로 그릴 게 없다 — 복싱 가드 박스(drawStanceBox)가 **바로 그 물건**이다:
+    //     · P.prog 로 테두리가 차오르고, **도트를 유지한 채** 찬다(그 함수 주석의 규약 그대로)
+    //     · P.round 를 키우면 모서리 반경이 반폭에 닿아 **원**이 된다(사각→원 변주가 공짜)
+    //   그래서 프림 하나를 재사용한다. 새 토큰 0개.
     if (!H.zTgt) {
-      // ★ 색이 상태다 — 히트색(coral)으로 만들면 Preview(0) 채움이라 **속이 꽉 찬 원**이 되어
-      //   목표 발자국을 덮는다(실측: 주황 덩어리). 무채(dim)로 만들면 Locked = **crisp 아웃라인**
-      //   이 되고, 이게 marks.html 이 그리던 그 점선 원과 같은 읽힘이다.
-      // ★ BRAND.dim → **BRAND.coral** (유저 08-07: "마지막엔 그 부분에 원형 파형이 올라온다든지").
-      //   파형은 새로 만들 게 아니었다 — floorRing 주석이 규약을 이미 적어 뒀다:
-      //     "히트색 → Preview 파동 · 무채(dim) → Locked 고스트"
-      //   즉 **preview 위상에 파동이 이미 들어 있고**, 히트색일 때만 켜진다. dim 으로 만드니
-      //   생성 시점에 Locked(3)로 태어났고, 위상만 preview 로 바꿔도 색이 무채라 파동이 안 떴다.
-      //   색을 히트로 옮기면 위상·파동·색이 한 번에 맞는다(아래 setPhase(0)과 같은 말).
-      //   red 가 아니라 coral 인 이유: red 는 판정(Miss·경고) 쪽 어휘다. 목표 존은 경고가
-      //   아니라 **유인**이므로 같은 온도 계열에서 한 칸 낮은 coral 이 맞다.
-      H.zTgt = floorRing(0, SBZ, ZONE.base - 0.018, ZONE.base, BRAND.coral, 0);
-      H.zTgt.renderOrder = 3;   // 발마크(7~8) 아래 — 원이 실루엣을 덮지 않게
+      const SZ = ZONE.base * 2 * 1.55;                    // 판 한 변(m) — 원 지름 + 글로우 여백
+      H.zTgt = primPanel('stanceBox', SZ, false);
+      H.zTgt.renderOrder = 3;                             // 발마크(7~8) 아래 — 실루엣을 안 덮는다
+      H.zTgt.material.opacity = 0;
+      H.zTgt._prim.P = { w: 1, glow: 1, tempo: 1, dash: 1, round: 3.9, feet: 0, prog: 0 };
       (H.mL?.parent || this.root).add(H.zTgt);
     }
     H.zTgt.position.set(tp.x, 0.0125, tp.z);
-    // ★ Locked(3) → **preview(0)** (유저 08-07: "저 동그라미의 존재 이유를 고민해봐 ·
-    //   차라리 마크 판정 토큰을 쓰고"). 의미가 뒤집혀 있었다 — Locked 는 '이건 못 쓴다'는
-    //   말인데, 목표 존이 하는 말은 정반대인 '여기로 와라'다. 힌트에 실패/잠김 판정을
-    //   입혀 놓으니 색도 miss 계열로 읽혔다(유저: "왜 미스인지 락인지 토큰을 써").
-    //   preview 는 마크 상태머신이 이미 가진 '앞으로 올 것' 슬롯이라 새 어휘가 아니다 —
-    //   발마크가 countdown → active → linger 로 가는 그 문법의 첫 칸이고, 목표 존은
-    //   그 칸에 앉아 있어야 발마크와 한 언어로 읽힌다.
-    H.zTgt.setPhase?.(0);   // preview — 아직 안 밟은 목표는 '앞으로 올 자리'다
-    H._zFade = q.moving ? 0.42 : 0.20;   // 이동 중엔 또렷, 도착하면 잦아든다
-    H.zTgt.setOp?.(H._zFade);
+    // 차오름 = **그 발이 목표까지 온 진행**. 도착하면 한 바퀴가 찬다 — 그게 '여기다'라는 신호다.
+    H.zTgt._prim.P.prog = q.moving ? Math.max(0.04, Math.min(1, q.f)) : 1;
+    H._zFade = q.moving ? 0.85 : 0.42;                    // 이동 중엔 또렷, 도착하면 잦아든다
+    H.zTgt.material.opacity = H._zFade;
     H._zOn = true;
   }
 

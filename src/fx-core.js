@@ -1711,9 +1711,19 @@ export function drawStanceBox(g, W, P, look, t, ENV) {
   const rr = 18 * P.round * s;
   const bx0 = 40 * s, by0 = 48 * s, bw = W - 80 * s, bh = W - 96 * s;
   const box = [];
-  const edge = (x0, y0, x1, y1) => { for (let f = 0; f <= 1; f += 0.12) box.push([x0 + (x1 - x0) * f, y0 + (y1 - y0) * f]); };
-  edge(bx0 + rr, by0, bx0 + bw - rr, by0); edge(bx0 + bw, by0 + rr, bx0 + bw, by0 + bh - rr);
-  edge(bx0 + bw - rr, by0 + bh, bx0 + rr, by0 + bh); edge(bx0, by0 + bh - rr, bx0, by0 + rr);
+  // ★ round 를 반폭까지 키우면 이 토큰은 **원**이 된다(농구 목표 존이 그렇게 쓴다).
+  //   그때 흐름 경로(strokeFlowPath)용 점을 네 변으로 만들면 원 안에 **마름모**가 그려진다
+  //   (유저 08-10 스샷). 원이면 점도 원둘레에서 뽑는다 — 형태 하나에 경로 하나.
+  const rMax = Math.min(bw, bh) / 2;
+  if (rr >= rMax - 1) {
+    const cx0 = bx0 + bw / 2, cy0 = by0 + bh / 2;
+    for (let i = 0; i < 32; i++) { const a = (i / 32) * Math.PI * 2 - Math.PI / 2;
+      box.push([cx0 + rMax * Math.cos(a), cy0 + rMax * Math.sin(a)]); }
+  } else {
+    const edge = (x0, y0, x1, y1) => { for (let f = 0; f <= 1; f += 0.12) box.push([x0 + (x1 - x0) * f, y0 + (y1 - y0) * f]); };
+    edge(bx0 + rr, by0, bx0 + bw - rr, by0); edge(bx0 + bw, by0 + rr, bx0 + bw, by0 + bh - rr);
+    edge(bx0 + bw - rr, by0 + bh, bx0 + rr, by0 + bh); edge(bx0, by0 + bh - rr, bx0, by0 + rr);
+  }
   g.shadowColor = lut(0.6); g.shadowBlur = GB * 0.8;
   const LNW = 4 * ENV.arrow.w * s;
   if (ENV.arrow.line === 'solid') {
