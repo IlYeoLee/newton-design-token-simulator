@@ -997,48 +997,41 @@ void main(){
   const _strikeTs = []; let _lcPrev = false, _rcPrev = false, _spmUpd = 0;   // 내 케이던스 실측(접지 간격)
   const voiceAudio = new Audio();
   let _speakSeq = 0;   // 마지막 발화만 살린다 — 취소 뒤 60ms 지연 재생이 이전 대사를 되살려 겹쳤다(유저)
+  /** 코치 음성 = **우리가 만든 ElevenLabs mp3 하나뿐이다**(유저 확정).
+   *  브라우저 기계음(speechSynthesis) 폴백은 폐기했다 — 목소리가 딴사람이고, 자동재생
+   *  정책에도 똑같이 막혀서 '소리가 사라진 것처럼' 보이는 주범이었다.
+   *  mp3 가 아직 못 나가는 경우는 하나뿐이다: 아직 화면을 한 번도 안 만진 상태(NotAllowedError).
+   *  그때는 실패로 끝내지 않고 붙들었다가 첫 조작에 그대로 낸다. */
   function speak(who, text, stageId) {
-    if (!ttsOn) return;
-    const seq = ++_speakSeq;
-    voiceAudio.pause(); voiceAudio.currentTime = 0;
-    if ('speechSynthesis' in window) speechSynthesis.cancel();
-    if (seq !== _speakSeq) return;
-    if (stageId) {
-      voiceAudio.src = `${BASE}voice/${stageId}.mp3`;
-      voiceAudio.play().catch(err => {
-        // ★ 자동재생 차단(NotAllowedError)은 '실패'가 아니라 '아직 허락 전'이다.
-        //   브라우저는 사용자가 페이지를 한 번 건드리기 전엔 소리를 막는다 — 시크릿 창은
-        //   참여 이력이 없어 더 확실히 막힌다(유저: 시크릿에서도 안 됨).
-        //   여기서 TTS 로 폴백하면 기계음이 나거나 그마저 막혀 **아무 소리도 안 난다**.
-        //   대사를 붙들어 뒀다가 첫 제스처에 그대로 재생한다.
-        if (err?.name === 'NotAllowedError') { _voicePending = { who, text, stageId }; return; }
-        speakFallback(who, text, seq);
-      });
-      return;
-    }
-    speakFallback(who, text, seq);
+    if (!ttsOn || !stageId) return;
+    _speakSeq++;
+    // src 를 갈아끼우면 이전 재생은 브라우저가 알아서 끊는다(AbortError). 앞에서 pause 까지
+    //   하면 그 취소가 **다음 대사의 play() 까지** 물고 늘어져 새 대사가 안 나갔다(실측:
+    //   FAIL BX_A1.mp3 :: AbortError → A1 인사말이 통째로 증발). 갈아끼우기만 한다.
+    voiceAudio.src = `${BASE}voice/${stageId}.mp3`;
+    voiceAudio.play().catch(err => {
+      if (err?.name === 'AbortError') return;                    // 다음 대사가 이어받은 것 = 정상
+      _voicePending = { who, text, stageId };                    // 아직 허락 전 — 첫 조작에 낸다
+    });
   }
   // 첫 제스처 = 소리 허락. 밀려 있던 대사가 있으면 그때 낸다(없으면 잠금만 푼다).
-  let _voicePending = null, _voiceUnlocked = false;
+  let _voicePending = null, _voiceUnlocked = false, _unlockAt = 0;
   function unlockVoice() {
     if (_voiceUnlocked) return;
     _voiceUnlocked = true;
     const p = _voicePending; _voicePending = null;
+    // ★ 전시 흐름: 제품 뷰는 진입 900ms 뒤 세션을 **자동 시작**한다. 그래서 아무도 안 만진
+    //   상태에서 1번 장면이 소리 없이 흘러가고, 관람객이 처음 화면을 만졌을 땐 이미 장면이
+    //   반쯤 지나 있거나 끝나 있다 — 인사말을 통째로 놓친다(유저 지적).
+    //   첫 조작이면 **1번 장면을 처음으로 되감아** 대사와 화면을 같이 다시 시작한다.
+    //   되감기는 첫 장면일 때만이다. 운동 중간에 화면을 만졌다고 되돌리면 안 된다.
+    if (p && session?.active && session.stageIdx === 0) { session.t = 0; _unlockAt = performance.now(); }
     if (p) speak(p.who, p.text, p.stageId);
     else voiceAudio.play().then(() => { voiceAudio.pause(); voiceAudio.currentTime = 0; }).catch(() => {});
   }
   for (const ev of ['pointerdown', 'keydown', 'touchstart'])
     window.addEventListener(ev, unlockVoice, { once: true, capture: true });
-  function speakFallback(who, text, seq) {
-    if (!('speechSynthesis' in window)) return;
-    const clean = text.replace(/\(.*?\)/g, '').replace(/[—·"']/g, ' ');
-    const u = new SpeechSynthesisUtterance(clean);
-    u.lang = 'ko-KR';
-    const ko = speechSynthesis.getVoices().find(v => v.lang.startsWith('ko'));
-    if (ko) u.voice = ko;
-    u.rate = 1.0;
-    setTimeout(() => { if (seq != null && seq !== _speakSeq) return; speechSynthesis.speak(u); }, 60);   // cancel 직후 드롭 회피 + 늦은 발화 차단
-  }
+  // speakFallback(브라우저 기계음 TTS) 폐기 — 위 speak() 주석 참조.
   // ── 전환 베일: 단계 전환 시 부드러운 암전 ──
   function veil() {
     if (!veilEl) return;
@@ -1160,8 +1153,8 @@ void main(){
   session.say = (who, line, vkey) => { showCaption(who, line); speak(who, line, vkey || 'cue:' + line.slice(0, 16)); };
   // 자동 장면 전환 게이트: 준비된 음성(mp3 또는 폴백 TTS)이 재생 중이면 true → 세션이 자동 넘어가기 보류.
   //   play() 직후 currentTime은 잠깐 0이지만 paused는 즉시 false → currentTime 조건 제거(시작 직후 잘림 방지).
-  session.voiceBusy = () => (ttsOn && !voiceAudio.paused && !voiceAudio.ended)
-    || (('speechSynthesis' in window) && speechSynthesis.speaking);
+  // 말하는 중 판정도 mp3 하나만 본다 — 기계음 TTS 는 폐기했다.
+  session.voiceBusy = () => (ttsOn && !voiceAudio.paused && !voiceAudio.ended);
   // 게이트/다운시프트 안내 자막 + 웨어러블 신호
   sessionSkillSink = session;
   session.setSkill(parseInt(document.getElementById('s-skill')?.value ?? '70', 10) / 100);
@@ -1253,7 +1246,6 @@ void main(){
     if (!sessionReady || !session.active) return;   // 부트 중 팩 전환 → session 생성 전 호출(배포본 TDZ 실측)
     session.stop();
     voiceAudio.pause();
-    if ('speechSynthesis' in window) speechSynthesis.cancel();
     sessionBtn.textContent = '세션 시작 (1인칭 전환)';
     // 세션 중지 = 데모 루프 재개 — 일시정지 잔존으로 봇이 얼어 보이던 문제
     state.playing = true;
@@ -1289,7 +1281,13 @@ void main(){
     const sport = ['running', 'basketball', 'boxing'].includes(state.pack) ? state.pack : 'running';
     startSessionFor(sport);
   });
-  document.getElementById('btn-tap')?.addEventListener('click', () => session.tapAdvance());
+  document.getElementById('btn-tap')?.addEventListener('click', () => {
+    // ★ 소리를 푼 그 첫 조작은 **넘기지 않는다.** 관람객의 첫 터치는 '다음'이 아니라
+    //   '시작'이다 — 그 터치로 1번 장면을 되감아 대사와 함께 다시 트는 중이므로,
+    //   같은 터치가 다음 단계로도 넘어가면 인사말을 또 건너뛴다(전시 흐름, 유저 지적).
+    if (performance.now() - _unlockAt < 500) return;
+    session.tapAdvance();
+  });
   document.getElementById('btn-stage-prev')?.addEventListener('click', () => session.prev());
   document.getElementById('btn-stage-next')?.addEventListener('click', () => session.next());
   document.getElementById('btn-session-stop')?.addEventListener('click', () => stopSession());
@@ -2259,7 +2257,7 @@ void main(){
   ttsBtn?.addEventListener('click', () => {
     ttsOn = !ttsOn;
     ttsBtn.textContent = ttsOn ? '🔊' : '🔇';
-    if (!ttsOn) { voiceAudio.pause(); if ('speechSynthesis' in window) speechSynthesis.cancel(); }
+    if (!ttsOn) voiceAudio.pause();
   });
 
   // ── 복싱 고스트 = 벽면 UI 2D 레이어 (열화상 depth-map 실루엣) ──
