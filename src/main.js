@@ -4591,21 +4591,41 @@ void main(){
       //   앞뒤는 스텝백 실측 이동 대역(Δv 1.9 → KZ 0.21). 상수 둘이 전부다.
       //   ★ 관찰 중엔 끈다 — 그때 봇은 제자리 정지(유저 확정).
       if (session.active && !aWatching && STEP_SEG[session.stage || '']) {
-        // ★ 진폭 = **레퍼런스 실측 × 과감함 게인**(유저 08-10: 더 과감하게).
-        //   KX 0.566 은 착지 폭 0.92m(영상 실측) 정합값이고, GAIN 이 그 위의 연출 노브다.
-        //   힙이 같이 내려가야(크라우치) 다리가 닿는다 — xbot._applyFootIK 가 자동으로 앉힌다.
-        const IK_GAIN = 1.45;
-        const IK_KX = 0.566 * IK_GAIN, IK_KZ = 0.21 * IK_GAIN, IK_Z0 = -0.02;
+        // ★ 폭은 **가이드 정규좌표가 아니라 레퍼런스 영상 실측(m)** 이 정한다(유저 08-10:
+        //   처음에 다리를 너무 많이 벌렸다). 지면 마크의 u 는 바닥 판에서 읽히라고 과장된
+        //   조판 좌표다 — 시작이 ±0.75 로 **가장 넓다**(환산 1.23m). 실제 사람은 반대다:
+        //     준비 0.39 → 플랜트 0.42 → 착지 0.92 → 모으기 0.21 m   (67프레임 MediaPipe 실측)
+        //   그래서 안무(누가 언제 어디로)는 가이드에서 그대로 받고, **폭만** 실측표로 맞춘다.
+        //   덤으로 '모으기가 덜 모인다'(0.45m)도 같이 풀린다 — 0.21m 로 실제만큼 모인다.
+        const RW = [[1.05, 0.39], [1.47, 0.42], [1.70, 0.92], [2.10, 0.21], [2.20, 0.21]];
+        const IK_GAIN = 1.45;            // 과감함 노브(유저) — 실측 폭 위에 곱한다
+        const IK_KX = 0.566, IK_KZ = 0.21, IK_Z0 = -0.02;
+        const vt = Math.max(RW[0][0], Math.min(RW[RW.length - 1][0], session.stepVidT ?? 0));
+        let wr = RW[0][1];
+        for (let i = 1; i < RW.length; i++) {
+          if (vt <= RW[i][0]) { const [a, wa] = RW[i - 1], [b2, wb] = RW[i];
+            wr = wa + (wb - wa) * (vt - a) / Math.max(1e-3, b2 - a); break; }
+          wr = RW[i][1];
+        }
         const P = sbPoseAt(session.stepVidT ?? 0, false);
-        // ★ 발을 **든다**(유저 08-10: 바닥에 100% 붙어 슬라이딩하듯 미끄러진다).
-        //   드는 높이 = 마크 정본 곡선 airK(sin 아치) × 0.16m. 새 어휘 0개 — 가이드가 이미
-        //   '이 발이 지금 공중이다'(q.moving)와 '이건 미끄러지는 발이다'(q.slide)를 말하고 있고,
-        //   마크도 그 값으로 고스트가 된다. 스텝백의 왼발은 slide 라 **안 든다** — 그게 실제 동작이다.
-        const LIFT = 0.16;
-        const lift = q => (q.moving && !q.slide) ? airK(q.f) * LIFT : 0;
+        let L = { x: -P.L.u * IK_KX, z: P.L.v * IK_KZ + IK_Z0 };
+        let R = { x: -P.R.u * IK_KX, z: P.R.v * IK_KZ + IK_Z0 };
+        const mx = (L.x + R.x) / 2, mz = (L.z + R.z) / 2;
+        const wg = Math.hypot(L.x - R.x, L.z - R.z);
+        const sc = wg > 1e-3 ? (wr * IK_GAIN) / wg : 1;
+        L = { x: mx + (L.x - mx) * sc, z: mz + (L.z - mz) * sc };
+        R = { x: mx + (R.x - mx) * sc, z: mz + (R.z - mz) * sc };
+        // ★ '무릎을 들어서 옮긴다' — 외부 레퍼런스 실측이 근거다(tmp 계측, 봇이 가진 클립):
+        //     walk  뜸 0.096m / 보폭 0.48m = **0.23**   jogging 0.75   옆스텝(shuffle) 0.12
+        //   높이만 올리면 여전히 미끄러진다: 2본 IK 는 발목만 아치로 보내면 다리가 진자처럼
+        //   **펴진 채** 흔들린다. 스윙 중 발을 힙 쪽으로 당겨(유효 다리 길이 단축) 무릎을 굽히면
+        //   그제야 '들어 옮긴다'로 읽힌다 — 걷기의 무릎 굴곡이 하는 일이 정확히 그것이다.
+        const LIFT = 0.20, KNEE = 0.24;
+        const sw = q => (q.moving && !q.slide) ? airK(q.f) : 0;
+        const swL = sw(P.L), swR = sw(P.R);
         xbot.setFootIK({
-          L: { x: -P.L.u * IK_KX, z: P.L.v * IK_KZ + IK_Z0, y: lift(P.L) },
-          R: { x: -P.R.u * IK_KX, z: P.R.v * IK_KZ + IK_Z0, y: lift(P.R) },
+          L: { x: L.x * (1 - KNEE * swL), z: L.z * (1 - KNEE * swL), y: swL * LIFT },
+          R: { x: R.x * (1 - KNEE * swR), z: R.z * (1 - KNEE * swR), y: swR * LIFT },
         });
       } else xbot.setFootIK(null);
       // 위상잠금: 씬 링·카운트와 코치 동작을 같은 시간축에 — 절차 드릴 + A1 전신풀기·A2 점핑잭(주기=씬 BT).
