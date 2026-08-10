@@ -804,13 +804,21 @@ void main(){
     // 복싱은 '등 뒤 약간 위'(유저 지정) — 대각선 옆에서 보면 봇이 벽 UI를 정면으로 가린다.
     //   봇은 -Z(벽)를 보므로 뒤 = +Z. 타깃을 벽 쪽으로 조금 밀어 벽 UI가 봇 머리 위로 들어온다.
     if (state.pack === 'boxing') {
-      // ★ 08-10 유저: 복싱도 더 확대해 벽 GUI 가 잘 보이게. 등 뒤 각(유저 지정)은 유지.
-      //   ⚠ 오프셋을 그냥 깎으면 안 된다 — 앵커(골반 본)와 봇이 서 있는 자리가 다르다.
-      //     실측(scripts/_probe_bxready.mjs): a.z = 0 인데 **눈은 z 1.13** 이다. 즉 옛 2.20 은
-      //     '봇 뒤 1.07m' 였고, 1.25 로 줄였더니 뒤 0.12m = 머리 속이 됐다.
-      //   그래서 **눈 기준 거리**로 잡는다: 뒤 1.07 → 0.82m(−23%) = a.z + 1.95.
-      controls.target.set(a.x, 1.32, a.z - 1.20);
-      camera.position.set(a.x, 1.90, a.z + 1.95);
+      // ★ 08-10 유저: 줌인 과감하게 — **벽 UI 가 화면에 거의 가득** 차게.
+      //   거리를 손으로 정하지 않는다. 화각에서 역산한다(1인칭 벽 스테이지가 쓰는 것과 같은 식):
+      //   벽 2.6×1.63 이 프레임의 FILL 만큼을 차지하는 유일한 거리가 있다. 화각·종횡비가
+      //   바뀌면 이 값이 알아서 따라온다 — 창 크기마다 다시 맞출 필요가 없다.
+      //   ⚠ 그 거리는 봇보다 **벽 쪽**이라 등 뒤 프레이밍은 성립하지 않는다. 벽을 채우는 것과
+      //     봇을 함께 담는 것은 동시에 안 된다(실측: 봇 눈 z 1.13, 채움 거리는 z 0.2~0.9).
+      //     유저 요구가 'GUI 가 가득'이므로 벽을 택한다. 봇은 1인칭 쪽이 담당한다.
+      const _vf = camera.fov * Math.PI / 180;
+      const _hf = 2 * Math.atan(Math.tan(_vf / 2) * camera.aspect);
+      const FILL = 0.96;   // 벽이 프레임의 96% — 남은 4% 는 잘림 방지 여백
+      const wc = rig._wallCenter || { cx: a.x, cy: 1.4 };
+      const d = Math.max((rig.wallW / 2) / Math.tan(_hf / 2),
+                         (rig.wallH / 2) / Math.tan(_vf / 2)) / FILL;
+      controls.target.set(wc.cx, wc.cy, WALL_Z);
+      camera.position.set(wc.cx, wc.cy, WALL_Z + d);   // 정면·같은 높이 = 벽이 사다리꼴로 안 눕는다
     } else {
       controls.target.set(a.x, 0.95, a.z);
       // ★ 08-10 유저: 너무 멀리서 잡고 조금만 더 위에서 내려다봤으면.
