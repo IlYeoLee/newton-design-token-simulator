@@ -77,12 +77,15 @@ export function createSubCard(root, baseUrl = '') {
     // ★ 에펙엔 없는 제약 둘. 컴프는 폭이 고정이고 그 위를 덮는 패널도 없다.
     //   ① 창이 좁아지면 카드가 넘친다 → 상한을 걸고, 넘치면 줄바꿈해 아래로 자란다
     //      (에펙 카드도 내용에서 높이를 계산하므로 규약이 어긋나지 않는다).
-    //   ② 사이드 패널이 **스테이지 위를 덮는다**. 스테이지 기준으로 가운데를 잡으면
-    //      카드 한쪽이 패널 밑으로 들어가 '가운데정렬이 안 된 것처럼' 보인다(유저 스샷).
-    //      그래서 기준은 스테이지가 아니라 **덮이지 않고 실제로 보이는 영역**이다.
+    //   ② 가운데는 **창의 가운데**다 — 좌우 패널을 포함한 화면 중앙(유저 확정 08-11).
+    //      패널을 뺀 영역의 중앙에 놓으면 좌우 패널 폭이 다를 때 자막이 옆으로 밀린다.
+    //      패널은 폭 상한으로만 반영한다: 창 중앙에서 가까운 쪽 패널까지 거리 × 2.
     const a = freeArea();
-    maxCardW = Math.max(160, (a.right - a.left) - Math.round(H * 0.06));
-    root.style.left = `${Math.round((a.left + a.right) / 2)}px`;
+    const stL = root.parentElement.getBoundingClientRect().left;
+    const cx = window.innerWidth / 2 - stL;              // 스테이지 로컬 좌표의 창 중앙
+    const half = Math.min(cx - a.left, a.right - cx);    // 중앙 대칭으로 쓸 수 있는 반폭
+    maxCardW = Math.max(160, half * 2 - Math.round(H * 0.06));
+    root.style.left = `${Math.round(cx)}px`;
     R = Math.round(H * CFG.avatarR);
     padX = Math.round(H * CFG.padX);
     minTextW = Math.round(H * CFG.minTextW);
