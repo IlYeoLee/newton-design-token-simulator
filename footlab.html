@@ -204,22 +204,10 @@
       <h2>8상태 × 세 표현형</h2>
       <canvas id=strip width=1120 height=690></canvas>
     </div>
-    <div class=card>
-      <h2>연결 토큰</h2>
-      <div class=seg id=segLink style="margin:2px 0 8px">
-        <button data-v=chain class=on>체인(점+실)</button><button data-v=dots>점렬</button>
-        <button data-v=taper>테이퍼(끝이 굵게)</button><button data-v=pulse>펄스(중앙→양끝)</button></div>
-      <div class=seg id=segScen style="margin:2px 0 8px">
-        <button data-v=0 class=on>① 종아리 프레스</button><button data-v=1>② 어깨너비</button>
-        <button data-v=2>③ 농구 스텝백</button></div>
-      <div class=row><label>점 개수</label><input type=range id=lkCount min=3 max=14 step=1 value=7><span class=v id=vlkCount>7</span></div>
-      <div class=row><label>점 크기</label><input type=range id=lkR min=1.5 max=9 step=.1 value=4.4><span class=v id=vlkR>4.4</span></div>
-      <div class=row><label>흐름 속도</label><input type=range id=lkFlow min=0 max=1.5 step=.05 value=.35><span class=v id=vlkFlow>0.35</span></div>
-      <div class=row><label>실 진하기</label><input type=range id=lkHair min=0 max=1 step=.02 value=.26><span class=v id=vlkHair>0.26</span></div>
-      <div class=row><label>양끝 여백</label><input type=range id=lkInset min=0 max=.35 step=.01 value=.12><span class=v id=vlkInset>0.12</span></div>
-      <canvas id=linkPrev width=1120 height=620></canvas>
-      <p class=note id=linkNote></p>
-    </div>
+    <!-- '연결 토큰' 카드 은퇴(유저 08-11: 더미 프리뷰 퀄리티가 랩 수준 미달 — 실제 렌더러로
+         바꿀 시간이 없으니 삭제). 연결 토큰 자체는 살아 있다: 형태 정본 fx-core drawLinkDots,
+         실제 렌더는 아래 'A2 종아리 늘리기' 카드(발자국 사이 체인)와 시뮬이 그대로 그린다.
+         값(LK 기본)은 스크립트에 남아 있다 — 되살리려면 git 이 카드를 기억한다. -->
     <div class=card>
       <h2>바닥 합성 — 투사광은 가산이라 실제 바닥 위에서 색감이 결정된다</h2>
       <div class=seg id=segFloor style="margin-bottom:10px">
@@ -1442,7 +1430,6 @@ function drawPrimsCard(t) {
 function frame() {
   const t = (performance.now() - T0) / 1000;
   drawPrimsCard(t); drawMatCard(t);
-  try { drawLinkPrev(t); } catch (e) { /* 패널 없거나 초기화 전 */ }
   try { drawA2(); } catch (e) { /* 글리프 로드 전 */ }
   if (units.foot || units.zone || units.logo) {
     // 확대 — 스트립에서 고른 표현형·상태
@@ -1505,74 +1492,9 @@ $('strip').addEventListener('click', e => {
 // 계측 훅 — 합성이 이상할 때 바닥/토큰 캔버스를 따로 재기 위해(추측 금지 §3)
 window.__flabTHREE = THREE;
 
-// ── 연결 토큰(LINK) 프리뷰 — 실제 3개 시나리오로 시안을 비교한다 ──────────────────
-//   좌표는 실측 미터를 그대로 쓰고 픽셀로만 환산한다(디자인이 실제 크기감과 어긋나지 않게).
-//     ① 종아리 프레스(A2)  — 마크 간 0.40m (SC 0.5 압축 후 실측)
-//     ② 어깨너비 벌리기     — 0.42m 좌우 대칭
-//     ③ 농구 스텝백(BK)     — 5마크 4구간, 실측 0.16~0.92m (구간 편차 5.7배 = 규격의 시험대)
+// ── 연결 토큰(LINK) 값 — '연결 토큰' 카드는 은퇴했다(유저 08-11, 위 HTML 주석 참조).
+//   LK 는 A2 판(발자국 사이 체인 실렌더)이 소비하므로 값만 남긴다. 형태 정본은 fx-core drawLinkDots.
 const LK = { style: 'chain', count: 7, r: 4.4, flow: .35, hair: .26, inset: .12, scen: 0 };
-const LK_SCEN = [
-  { n: '① 종아리 프레스 — 앞뒤로 벌려 꾹 누르기', feet: [[-0.20, 0.10], [0.20, -0.10]], links: [[0, 1]], rights: [1] },
-  { n: '② 두 발 어깨너비로 벌리기', feet: [[-0.21, 0], [0.21, 0]], links: [[0, 1]], rights: [1] },
-  // 실측 스텝백 4국면(session.js 주석과 같은 값): 준비 L·R → 플랜트 → 착지 L·R
-  { n: '③ 농구 스텝백 — 준비 → 플랜트 → 착지', feet: [[-0.17, 0.05], [0.22, -0.06], [0.33, 0.06], [-0.43, -0.09], [0.49, -0.32]],
-    links: [[0, 1], [1, 2], [2, 4], [3, 4]], rights: [1, 2, 4], order: ['①L', '①R', '②', '③L', '③R'] },
-];
-function drawLinkPrev(t) {
-  const cv = $('linkPrev'); if (!cv) return;
-  const g = cv.getContext('2d');
-  // 바닥 = 실제 투사 바닥 톤(올리브) + 중앙이 밝은 빔 감쇠. 검은 배경에서 고르면 실제와 다르다.
-  const bgr = g.createRadialGradient(cv.width / 2, cv.height * 0.52, 40, cv.width / 2, cv.height * 0.52, cv.width * 0.6);
-  bgr.addColorStop(0, '#6d7565'); bgr.addColorStop(1, '#4c5347');
-  g.fillStyle = bgr; g.fillRect(0, 0, cv.width, cv.height);
-  const sc = LK_SCEN[LK.scen] || LK_SCEN[0];
-  // 스케일 = 시나리오 폭이 캔버스의 62% 를 채우도록 자동(시나리오마다 크기감이 유지된다)
-  const xs = sc.feet.map(f => f[0]), zs = sc.feet.map(f => f[1]);
-  const wM = Math.max(0.5, Math.max(...xs) - Math.min(...xs)) + 0.34;
-  const PPM = Math.min(cv.width * 0.82 / wM, 560);
-  const cx = cv.width / 2 - ((Math.max(...xs) + Math.min(...xs)) / 2) * PPM;
-  const cy = cv.height * 0.54 - ((Math.max(...zs) + Math.min(...zs)) / 2) * PPM;
-  const P = sc.feet.map(([x, z]) => [cx + x * PPM, cy + z * PPM]);
-  const FOOT_M = 0.25;                       // 발 길이 250mm(피그마 실측) — 링크와 크기 비교의 기준
-  const fl = FOOT_M * PPM, fw = fl * 0.38;
-  // 진짜 발 실루엣 — 랩이 이미 들고 있는 SVG(GLYPHS)를 그대로 쓴다. 회색 타원으로는 판단이 안 된다.
-  const fimg = (right) => { try { return GLYPHS.img(footSlot(right)); } catch (e) { return null; } };
-  P.forEach(([x, y], i2) => {
-    const right = (sc.rights || []).includes(i2);
-    const im = fimg(right);
-    g.save(); g.globalAlpha = 0.9;
-    if (im && im.width) {
-      g.drawImage(im, x - fw / 2, y - fl / 2, fw, fl);
-    } else {
-      g.fillStyle = 'rgba(255,246,234,.22)'; g.strokeStyle = 'rgba(255,246,234,.45)'; g.lineWidth = 1.4;
-      g.beginPath(); g.ellipse(x, y, fw / 2, fl / 2, 0, 0, Math.PI * 2); g.fill(); g.stroke();
-    }
-    g.restore();
-    if (sc.order) {   // 순차 동작은 번호를 붙인다 — 농구는 '순서'가 정보다
-      g.fillStyle = 'rgba(255,246,234,.55)';
-      g.font = "600 15px -apple-system,sans-serif"; g.textAlign = 'center';
-      g.fillText(String(sc.order[i2]), x, y - fl / 2 - 8);
-    }
-  });
-  sc.links.forEach(([a2, b2]) => {
-    drawLinkDots(g, P[a2][0], P[a2][1], P[b2][0], P[b2][1], t,
-      { style: LK.style, count: LK.count, r: LK.r * (PPM / 190), flow: LK.flow, hair: LK.hair, inset: LK.inset });
-  });
-  g.fillStyle = 'rgba(255,246,234,.8)';
-  g.font = "600 16px -apple-system,'Malgun Gothic',sans-serif"; g.textAlign = 'center';
-  g.fillText(sc.n, cv.width / 2, 28);
-  const ls = sc.links.map(([a2, b2]) =>
-    Math.hypot(sc.feet[b2][0] - sc.feet[a2][0], sc.feet[b2][1] - sc.feet[a2][1]));
-  const nEl = $('linkNote');
-  if (nEl) nEl.textContent = `구간 ${ls.map(v => v.toFixed(2)).join(' / ')}m · 발 250mm · ${(PPM).toFixed(0)}px/m` +
-    '   — 점 개수 고정이라 길이가 달라도 같은 기호로 읽힌다(간격만 파생).';
-}
-seg('segScen', v => { LK.scen = +v; });
-seg('segLink', v => { LK.style = v; });
-for (const [id, key, dg] of [['lkCount','count',0],['lkR','r',1],['lkFlow','flow',2],['lkHair','hair',2],['lkInset','inset',2]]) {
-  const el = $(id); if (!el) continue;
-  el.addEventListener('input', e => { LK[key] = +e.target.value; $('v' + id).textContent = LK[key].toFixed(dg); });
-}
 window.__flab = { get floorCv() { return floorCv; }, get tokenCv() { return tokenCv; },
                   get P() { return P; }, get walkMats() { return walkMats; },
                   get OV() { return OV; }, get slot() { return heroSlot; },      // 상태 오버라이드 계측용

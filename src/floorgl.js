@@ -928,8 +928,11 @@ for (const [k, v] of Object.entries(FLOOR_TOK_JSON || {}))
 // 실시간 브리지 — 지면 랩(tokens.html) 슬라이더가 저장·리로드 없이 곧바로 반영된다
 //   (footlab 'newton-marklook' → applyMarkLook 과 같은 규약). _paint 가 매 프레임 TOK 를
 //   읽으므로 값만 갈아 끼우면 다음 프레임에 나온다. 영속은 여전히 '코드에 저장'이 담당.
+// ★ 전시 가드 — 개발자 뷰(body.dev)가 아니면 무시. 전시 관람객이 랩을 만져도 시뮬 값이
+//   변하면 안 된다(유저 08-11). 랩 자체 프리뷰는 TOK 직접 대입이라 게이트와 무관하게 논다.
 try {
   new BroadcastChannel('newton-floortok').onmessage = e => {
+    if (!document.body.classList.contains('dev')) return;
     const d = e.data || {};
     for (const k in d) if (k !== '_' && k !== 'ring' && typeof d[k] === 'number') TOK[k] = d[k];
   };

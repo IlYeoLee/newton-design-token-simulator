@@ -1641,6 +1641,7 @@ void main(){
         };
         frame.contentWindow?.postMessage({ type: 'fxlab-init', state: labInit }, '*');
       } else if (d?.type === 'fxlab-state') {
+        if (!document.body.classList.contains('dev')) return;   // ★ 전시 가드 — 개발자 뷰가 아니면 실시간 적용·저장 금지(유저 08-11)
         if (overlay.style.display !== 'block') return;   // 닫힌 랩의 주기 전송 무시
         const json = JSON.stringify(d.state);
         if (json === lastJson) return;
@@ -1655,6 +1656,7 @@ void main(){
     // 시뮬에 반영이 안 됐음(유저: '수정한 화살표가 실시간 반영 안 돼'). storage 이벤트는 '다른 탭'의
     // 쓰기에만 발생하므로 그대로 룩 브리지가 된다 (랩 자동저장 주기 0.8s = 반영 지연 상한).
     window.addEventListener('storage', ev => {
+      if (!document.body.classList.contains('dev')) return;   // ★ 전시 가드 — dev 뷰 전용(유저 08-11)
       if (ev.key !== 'newton_fxlab_v1' || !ev.newValue || ev.newValue === lastJson) return;
       let st = null;
       try { st = JSON.parse(ev.newValue); } catch (e) { return; }
@@ -4986,6 +4988,7 @@ void main(){
     };
     btn?.addEventListener('click', () => { htOn = !htOn; apply(); });
     window.addEventListener('storage', ev => {
+      if (!document.body.classList.contains('dev')) return;   // ★ 전시 가드 — dev 뷰 전용(유저 08-11)
       if (ev.key !== HT_KEY || !ev.newValue) return;
       try { Object.assign(htP, JSON.parse(ev.newValue)); apply(); } catch (e) { /* 무시 */ }
     });
@@ -4998,7 +5001,9 @@ void main(){
   //   "웹에서 안 뜬다 / 왜 이렇게 느리냐"의 정체. 내부 도구 리포라 노출 비용은 없다.
   // 랩 → 시뮬 실시간 마크 룩 미리보기(유저) + 구(하늘) 램프 토글(scenes.html 버튼)
   window.__applyMarkLook = applyMarkLook;
-  try { new BroadcastChannel('newton-marklook').onmessage = e => applyMarkLook(e.data || {}); } catch { /* 미지원 브라우저 */ }
+  // ★ 전시 가드 — 개발자 뷰(body.dev)가 아니면 랩 브로드캐스트를 무시한다. 전시 관람객이
+  //   랩을 만져도 시뮬 값이 변하면 안 된다(유저 08-11). 랩 자체 프리뷰는 로컬이라 그대로 논다.
+  try { new BroadcastChannel('newton-marklook').onmessage = e => { if (document.body.classList.contains('dev')) applyMarkLook(e.data || {}); }; } catch { /* 미지원 브라우저 */ }
   window.__dbg = {
     extractPose, retargetToClip,   // 비디오 모캡 (dev)
     rig, xbot, state, session, sceneScope, camera, controls, tokens, effects, scene, editor3d, sceneUI, FXP, designStore, TCFG, editCam, editControls, judge, THREE,
