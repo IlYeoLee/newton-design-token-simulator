@@ -1898,7 +1898,13 @@ export class FloorGL {
     const K2 = (CAPS[this.stage]?.uiK ?? 1) * (pillLeads(this.stage) ? TOK.titleLeadK : TOK.titleSubK);
     // ★ 링도 HUG — 값이 '4/10' 처럼 길어지면 원이 그만큼 커진다. 안 그러면 글자가 링을 넘는다
     //   (유저 스샷). 숫자를 줄여 맞추는 건 안 된다: 1급(0.69°)이 2급 아래로 떨어진다.
-    const PAD = Math.round(H2.pad * K2);
+    // ★ 여백은 **배율을 안 탄다**(유저 08-10: 알약 상하좌우 마진을 통일해라).
+    //   규칙③(docs/FLOOR-LAYOUT-SPEC.md)이 이미 같은 말을 하고 있다 — "배율(K2)은 **활자에만**
+    //   곱한다". 알약 높이는 그 규칙대로 CAPHEAD_H = ring*2 + pad*2 로 **배율 없이** 잡혀 있는데,
+    //   좌우 여백만 여기서 K2 를 곱하고 있었다. 그래서 한 화면 안에서 상하 65 · 좌우 52 로
+    //   갈렸고(실측: uiK 0.80 화면), 화면끼리도 52 ↔ 65 로 달랐다.
+    //   → 곱을 뺀다. 상·하·좌·우가 전 화면에서 같은 TOK.pad 하나가 된다.
+    const PAD = Math.round(H2.pad);
     const RR = Math.round(Math.max(TOK.ring, o.ringR ?? 0) * K2);
     this._uiK = K2; this._headRR = RR; this._headPAD = PAD;
     const fs = (o.fs ?? LAYOUT.TYPE.title) * K2;
@@ -3864,7 +3870,12 @@ export class FloorGL {
       ctx.save(); ctx.globalAlpha *= (mo - .5) / .5;
       ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
       ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.font = F(400, TOK.fsBadge);
-      ctx.fillText(stepTxt, x + w - PAD, ry2);
+      // ★ 배지는 **내용 상자** 오른쪽 끝에 붙는다 — 알약 상자가 아니라(유저 08-10: 좌우 마진 통일).
+      //   상자 폭은 '가장 큰 활자'(fsW = 프리뷰 크기)로 재고 글자는 그보다 작은 헤더 활자로
+      //   그리므로 남는 폭이 생기는데, inner 는 그 남는 폭을 **좌우로 나눠** 가운데 앉는다.
+      //   배지만 x+w−PAD(알약 기준)에 붙어 있어서 남는 폭이 전부 왼쪽에 쌓였다 —
+      //   실측 BK_B4: 왼쪽 152 vs 오른쪽 58. 같은 기준(x0p+INNER)을 쓰면 둘이 같아진다.
+      ctx.fillText(stepTxt, x0p + INNER, ry2);
       ctx.restore();
     }
     ctx.restore();
