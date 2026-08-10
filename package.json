@@ -21,7 +21,8 @@
     "check:lang": "node scripts/check_mark_lang.mjs",
     "check:beam": "node scripts/check_beam_fit.mjs",
     "check:content": "node scripts/check_content_fit.mjs",
-    "check:title": "node scripts/check_title_clear.mjs"
+    "check:title": "node scripts/check_title_clear.mjs",
+    "check:titlebeam": "node scripts/check_title_beam.mjs"
   },
   "dependencies": {
     "@mediapipe/tasks-vision": "^0.10.35",
