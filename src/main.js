@@ -862,6 +862,31 @@ void main(){
       frameThirdPerson();           // 기본 3인칭 = 고정 프레이밍(대각선 위, 가깝게) — 유저 지정
     }
   }
+  // ── 시점 전환 글라이드 ────────────────────────────────────────────────────
+  //   setFp 은 즉시 갈아탄다(가시성·화각·컨트롤은 한 프레임에 정해져야 한다). 카메라 포즈만
+  //   전환 직전 자리에서 0.8초 동안 따라오게 해 3인칭↔1인칭이 '이동'으로 읽히게 한다.
+  //   1인칭 쪽 fpPos 스무딩(τ 0.06)은 그대로 둔다 — 저건 지터 제거용이지 전환용이 아니다.
+  const _vpP = new THREE.Vector3(), _vpQ = new THREE.Quaternion();
+  let _vpFrom = null, _vpTo = null, _vpT = 0;
+  function vpGlide() { _vpFrom = { p: camera.position.clone(), q: camera.quaternion.clone(), fov: camera.fov }; _vpTo = null; _vpT = 0; }
+  /** 매 프레임 카메라가 **최종 결정된 뒤**(controls.update 포함)에 호출 — 남은 글라이드만큼
+   *  이전 포즈 쪽으로 되끌어온다. 여기보다 앞에서 부르면 orbit 컨트롤이 뒤에서 덮어쓴다. */
+  function tickVpGlide(dt) {
+    if (!_vpFrom) return;
+    if (_vpTo == null) _vpTo = camera.fov;   // setFp 가 정한 목표 화각(전환 후 첫 프레임에 확정)
+    // ★ 3인칭 목적지는 **매 프레임 다시 계산한다.** orbit 컨트롤은 직전 카메라 위치에서 각을
+    //   되뽑기 때문에, 블렌드 결과를 그대로 물려주면 목적지가 같이 끌려와 영영 도착하지 않는다.
+    //   0.8초 동안 자유 회전이 잠기는 건 의도된 연출 구간이라 괜찮다.
+    if (!fpMode) { try { frameThirdPerson(); controls.update?.(); } catch { /* 앵커 미준비 */ } }
+    _vpT += dt;
+    const k = Math.min(1, _vpT / 0.8), e = k * k * (3 - 2 * k);   // smoothstep — 시작·끝이 부드럽다
+    _vpP.copy(camera.position); _vpQ.copy(camera.quaternion);
+    camera.position.lerpVectors(_vpFrom.p, _vpP, e);
+    camera.quaternion.slerpQuaternions(_vpFrom.q, _vpQ, e);
+    camera.fov = _vpFrom.fov + (_vpTo - _vpFrom.fov) * e;
+    camera.updateProjectionMatrix();
+    if (k >= 1) { camera.fov = _vpTo; camera.updateProjectionMatrix(); _vpFrom = null; }
+  }
   fpBtn.addEventListener('click', () => { fpUserSet = true; setFp(!fpMode); });
   coneBtn.addEventListener('click', () => {
     coneOn = !coneOn;
@@ -4598,6 +4623,14 @@ void main(){
       const _stepPv = STEP_SEG[session.stage || ''] && _stepId === session.stage;   // 스텝백 = 재생 횟수로 판정
       const aWatching = _watchWin && (_stepPv ? _stepLoops < stepLoops(session.stage) : session.t < A2_WATCH);
       if (_watchWin && !aWatching) { session._followLatch = true; session._aWatchEnd = session.t; }
+      // ★ 스텝백 시점 자동 전환(유저 08-10): **인물 영상이 나오면 3인칭 · 발자국이 나오면 1인칭.**
+      //   시범은 '남의 동작을 본다'라 몸 밖에서 봐야 하고, 따라하기는 '내 발밑'이라 눈에서 봐야 한다.
+      //   경계는 이미 여기 있다 — _followLatch 가 그 한 줄이다. 유저가 수동 토글했으면 손대지 않는다.
+      //   전환 자체는 vpGlide 가 0.8초에 걸쳐 잇는다(하드컷이면 '끊겼다'로 읽힌다).
+      if (!fpUserSet && /^BK_(T1|B[234])$/.test(session.stage || '')) {
+        const wantFp = !!session._followLatch;
+        if (wantFp !== fpMode) { vpGlide(); setFp(wantFp); }
+      }
       // ★ 관찰(영상 재생) = 봇도 제자리 정지(유저 08-10 확정: "영상 재생할 때는 X봇도 가만히").
       //   시범은 영상이 하고, 봇의 무브는 따라하기(발자국) 구간에서만 — 둘이 동시에 움직이면
       //   시선이 갈린다. 스텝백 예외를 한때 뒀다가 이 확정으로 되돌렸다.
@@ -6061,6 +6094,7 @@ void main(){
 
     // 1인칭에서만 OrbitControls 스킵 — 세션 3인칭에선 자유 회전 허용
     if (!fpMode) controls.update();
+    tickVpGlide(rawDt);   // 시점 전환 글라이드 — 카메라가 최종 결정된 뒤에 되끌어온다
     sceneUI.update(rawDt, rig);       // 장면 UI 슬롯 — 풋프린트 추종 재배치 + 페이드
     // 실전=연습 통일(유저): LiveUI 셰브론/변형/부스트 오버레이 은퇴 — 러닝은 P·C 모두
     // '흐르는 원형 판정 마크 + 소리(메트로놈)'로. active:false로 그룹 통째 숨김.
