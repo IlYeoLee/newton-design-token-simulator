@@ -84,8 +84,13 @@ export function createSubCard(root, baseUrl = '') {
     const stL = root.parentElement.getBoundingClientRect().left;
     const cx = window.innerWidth / 2 - stL;              // 스테이지 로컬 좌표의 창 중앙
     const half = Math.min(cx - a.left, a.right - cx);    // 중앙 대칭으로 쓸 수 있는 반폭
-    maxCardW = Math.max(160, half * 2 - Math.round(H * 0.06));
+    //      그리고 컨테이너 폭을 **직접 준다**. absolute + left 만 두면 폭이 shrink-to-fit 이라
+    //      '컨테이너 오른쪽 끝 − left' 로 잘리고, 그보다 넓은 알약이 오른쪽으로 흘러넘친다
+    //      (아바타 줄만 가운데, 알약만 우측으로 치우치던 그 현상이다 · 유저 08-11).
+    const usable = Math.max(200, Math.round(half * 2));
+    maxCardW = Math.max(160, usable - Math.round(H * 0.06));
     root.style.left = `${Math.round(cx)}px`;
+    root.style.width = `${usable}px`;
     R = Math.round(H * CFG.avatarR);
     padX = Math.round(H * CFG.padX);
     minTextW = Math.round(H * CFG.minTextW);
