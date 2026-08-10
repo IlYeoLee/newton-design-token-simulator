@@ -42,8 +42,8 @@
 
     .tabs { display: flex; gap: 6px; padding: 12px 16px; }
     .tabs button {
-      flex: 1; padding: 8px 0; border: 1px solid var(--line); border-radius: 8px;
-      background: var(--panel2); color: var(--dim); font-size: 12px; font-weight: 600;
+      flex: 1; padding: 8px 0; border: 0; border-radius: 8px;
+      background: rgba(255,255,255,.06); color: var(--dim); font-size: 12px; font-weight: 600;
       cursor: pointer; transition: all .22s cubic-bezier(.2,.8,.3,1);
     }
     .tabs button:active { transform: scale(.96); }
@@ -74,7 +74,7 @@
       padding: 6px 14px; border: 1px solid var(--line); border-radius: 6px;
       background: var(--panel2); color: var(--text); font-size: 12px; cursor: pointer;
     }
-    #transport button:hover { border-color: var(--accent); }
+    #transport button:hover { background: rgba(255,255,255,.11); }
     #clock { font-size: 11px; color: var(--dim); font-variant-numeric: tabular-nums; margin-left: auto; }
 
     #token-legend { font-size: 11px; color: var(--dim); line-height: 1.9; }
@@ -170,6 +170,22 @@ body:not(.dev) #session-hud{display:none !important}
 body:not(.dev) #lab-panel{display:block}
 body:not(.dev) #stage{margin-left:326px}
 body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
+/* ── TV·대형 모니터 가독(유저 08-11: 제품 뷰가 큰 화면에 뜬다 — 꼼꼼히) ──
+   제품 뷰 패널은 px 고정이라 QHD·4K 에서 글자가 상대적으로 준다. 패널 내부 px 를
+   전부 다시 재는 대신 zoom 으로 판째 키운다(크롬 전시 환경 전제 — 키오스크와 동일).
+   stage 여백은 zoom 배율만큼 같이 커져야 패널이 씬을 덮지 않는다. */
+@media (min-width:2200px){
+  #play-panel,#lab-panel,#voice-caption,#dev-pill{zoom:1.28}
+  body:not(.dev) #stage{margin-left:calc(326px*1.28);margin-right:calc(320px*1.28)}
+  body:not(.dev):has(#lab-panel.folded) #stage{margin-left:calc(56px*1.28)}
+  body:not(.dev):has(#play-panel.folded) #stage{margin-right:calc(56px*1.28)}
+}
+@media (min-width:3400px){
+  #play-panel,#lab-panel,#voice-caption,#dev-pill{zoom:1.9}
+  body:not(.dev) #stage{margin-left:calc(326px*1.9);margin-right:calc(320px*1.9)}
+  body:not(.dev):has(#lab-panel.folded) #stage{margin-left:calc(56px*1.9)}
+  body:not(.dev):has(#play-panel.folded) #stage{margin-right:calc(56px*1.9)}
+}
 #lab-panel.folded{width:56px;padding:16px 12px}
 #lab-panel.folded .lab-body,#lab-panel.folded .pp-title,#lab-panel.folded .pp-sub{display:none}
 #lab-panel h3{margin:18px 0 8px;font-size:11px;letter-spacing:1.6px;color:var(--d-title);font-weight:800}
@@ -197,9 +213,9 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
 #lab-panel .lab-body>details:first-of-type{border-top:0}
 #lab-panel .lab-sw{display:flex;align-items:center;gap:9px;padding:9px 10px;margin-top:6px;
   border:1px solid rgba(255,255,255,.10);border-radius:10px;background:rgba(255,255,255,.04);cursor:pointer}
-#lab-panel .lab-sw .dotsw{width:26px;height:15px;border-radius:99px;background:#333a45;position:relative;flex:0 0 auto}
+#lab-panel .lab-sw .dotsw{width:26px;height:15px;border-radius:99px;background:var(--d-border);position:relative;flex:0 0 auto}
 #lab-panel .lab-sw .dotsw::after{content:'';position:absolute;top:2px;left:2px;width:11px;height:11px;border-radius:50%;
-  background:#8b93a1;transition:transform .28s cubic-bezier(.34,1.32,.5,1),background .22s cubic-bezier(.2,.8,.3,1)}
+  background:var(--d-t3);transition:transform .28s cubic-bezier(.34,1.32,.5,1),background .22s cubic-bezier(.2,.8,.3,1)}
 #lab-panel .lab-sw.on .dotsw{background:rgba(209,254,255,.3)}
 #lab-panel .lab-sw.on .dotsw::after{transform:translateX(11px);background:#d1feff}
 #lab-panel .lab-sw .t{font-size:12px;font-weight:700}
@@ -298,17 +314,17 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
   font:var(--t-capb);letter-spacing:-.2px;padding:13px 0;display:flex;align-items:center;justify-content:center;gap:6px}
 #play-panel button.pp-btn.ico{flex:.62}
 #play-panel button.pp-btn svg{flex:0 0 auto}
-#play-panel button.pp-btn:hover{background:#2c2c2c;color:#fff}
+#play-panel button.pp-btn:hover{background:var(--d-surface);color:#fff}
 #play-panel button.pp-cta{background:var(--nb-red);color:#fff}
-#play-panel button.pp-cta:hover{background:#ff4646}
+#play-panel button.pp-cta:hover{background:var(--nb-red)}
 /* 보조 조작(이전·다음·음소거·3인칭·처음으로) = 회색 서피스. 빨강은 '두 번 탭' 하나만(유저). */
 #play-panel .pp-row button.pp-btn{background:var(--d-surface);color:var(--d-body)}
-#play-panel .pp-row button.pp-btn:hover{background:#2c2c2c;color:#fff}
+#play-panel .pp-row button.pp-btn:hover{background:var(--d-surface);color:#fff}
 #play-panel .pp-row button.pp-cta{background:var(--nb-red);color:#fff}
-#play-panel .pp-row button.pp-cta:hover{background:#ff4646;color:#fff}
+#play-panel .pp-row button.pp-cta:hover{background:var(--nb-red);color:#fff}
 #play-panel .pp-start{border:0;border-radius:999px;background:var(--nb-red);color:#fff;
   font:var(--t-bodyb);letter-spacing:var(--ls-body);padding:16px 0;box-shadow:none}
-#play-panel .pp-start:hover{background:#ff4646}
+#play-panel .pp-start:hover{background:var(--nb-red)}
 #play-panel .pp-hint{margin-top:12px;font:var(--t-labr);color:var(--d-t3);letter-spacing:-.5px}
 
 /* 토글 = 같은 면 + 선택 시 레드 (샌드/프리즘 사용 안 함) */
@@ -342,19 +358,19 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
 #lab-panel .lab-live b{color:var(--d-title);font:var(--t-d1);letter-spacing:var(--ls-d1)}
 #lab-panel .lab-go{border:0;border-radius:999px;background:var(--d-surface);color:var(--d-strong);
   font:var(--t-capb);letter-spacing:-.2px;padding:14px 0}
-#lab-panel .lab-go:hover{background:#2c2c2c;color:#fff}
+#lab-panel .lab-go:hover{background:var(--d-surface);color:#fff}
 /* 겉면은 이제 그릇이 아니다 — 배경·패딩은 안쪽 .vc-card 가 갖는다(에펙 정본 구조). */
 #voice-caption{border:0;background:none;padding:0;backdrop-filter:none;color:var(--d-title)}
 #dev-pill{border:0;border-radius:999px;background:var(--d-surface);color:var(--d-t3);font:var(--t-labr)}
 </style>
-  <script type="module" crossorigin src="./assets/main-DuEkr3e3.js"></script>
+  <script type="module" crossorigin src="./assets/main-_7WtMtBy.js"></script>
   <link rel="modulepreload" crossorigin href="./assets/modulepreload-polyfill-B5Qt9EMX.js">
   <link rel="modulepreload" crossorigin href="./assets/preload-helper-PPVm8Dsz.js">
   <link rel="modulepreload" crossorigin href="./assets/fx-core-CqL92uTO.js">
   <link rel="modulepreload" crossorigin href="./assets/fxlut-C1Lk9zf8.js">
   <link rel="modulepreload" crossorigin href="./assets/tokens-BqjRLmvH.js">
   <link rel="modulepreload" crossorigin href="./assets/floorgl-e7YxwmSL.js">
-  <link rel="modulepreload" crossorigin href="./assets/session-ByQdf-p2.js">
+  <link rel="modulepreload" crossorigin href="./assets/session-CVoH3jN6.js">
   <link rel="stylesheet" crossorigin href="./assets/lab-skin-B1QEsz5_.css">
 </head>
 <body>
@@ -411,6 +427,31 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
     <div class="section">
       <h2>투사면 <span style="color:var(--dim);font-weight:400;font-size:10px;">바닥과 벽 테마</span></h2>
       <div id="surf-chips" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
+    </div>
+
+    <!-- 디자인 랩 진입 — 룩 시스템 → 지면 레이아웃 → 열화상 순(유저 08-11).
+         '룩 시스템'은 하단 도킹 버튼(insp-tab-look)과 같은 대상이지만 여기는 새 탭 —
+         패널에서는 탐색, 도킹은 편집이라는 역할이 다르다. 열화상은 별도 앱(5173). -->
+    <div class="section" id="lab-section">
+      <h2>디자인 랩</h2>
+      <div style="display:flex;flex-direction:column;gap:6px;">
+        <a href="fxlab.html" target="_blank" rel="noopener"
+           style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--panel2);text-decoration:none;">
+          <span style="width:8px;height:8px;border-radius:50%;background:var(--nb-red);flex:none;"></span>
+          <span style="flex:1;color:var(--text);font-size:12px;font-weight:700;">룩 시스템</span>
+          <span style="color:var(--dim);font-size:10px;">fxlab</span></a>
+        <a href="tokens.html" target="_blank" rel="noopener"
+           style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--panel2);text-decoration:none;">
+          <span style="width:8px;height:8px;border-radius:50%;background:var(--nb-coral);flex:none;"></span>
+          <span style="flex:1;color:var(--text);font-size:12px;font-weight:700;">지면 레이아웃</span>
+          <span style="color:var(--dim);font-size:10px;">tokens</span></a>
+        <a href="http://localhost:5173/" target="_blank" rel="noopener"
+           title="별도 앱(person-aura-filter) — npm run dev 로 5173 이 떠 있어야 열립니다"
+           style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--panel2);text-decoration:none;">
+          <span style="width:8px;height:8px;border-radius:50%;background:var(--nb-sand);flex:none;"></span>
+          <span style="flex:1;color:var(--text);font-size:12px;font-weight:700;">열화상</span>
+          <span style="color:var(--dim);font-size:10px;">aura 5173</span></a>
+      </div>
     </div>
 
     <div class="section" id="session-section">
@@ -521,7 +562,7 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
     </div>
 
     <div class="section" id="stab-section">
-      <h2>무릎 투사 안정화 <span style="color:#4fc3f7">(이식)</span></h2>
+      <h2>무릎 투사 안정화 <span style="color:var(--prism)">(이식)</span></h2>
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
         <button id="btn-stab" style="padding:7px 14px;border:1px solid var(--ok);border-radius:6px;background:rgba(105,240,174,.12);color:var(--ok);font-size:12px;font-weight:700;cursor:pointer;">보정 ON</button>
         <span style="font-size:11px;color:var(--dim);">투사 오차 <b id="stab-err" style="color:var(--accent);font-variant-numeric:tabular-nums;">0.0cm</b></span>
@@ -590,6 +631,32 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
       <span class="pp-sub">체험 랩</span>
     </div>
     <div class="lab-body">
+      <!-- 디자인 랩 진입 — **제품 뷰**에 산다(유저 08-11: 시작하자마자 보여야 한다.
+           dev 패널에 넣었더니 개발자 모드 OFF 에선 아예 없었다). 순서 고정:
+           룩 시스템 → 지면 레이아웃 → 열화상. 열화상은 별도 앱(5173). -->
+      <div style="margin-top:18px;padding-top:4px;">
+        <div style="font-size:11px;font-weight:700;letter-spacing:1.6px;color:rgba(255,255,255,.45);margin-bottom:10px;">DESIGN LABS</div>
+        <div style="display:flex;flex-direction:column;gap:7px;">
+          <!-- 룩 시스템 자리는 발자국랩이 잇는다(유저 08-11: fxlab 은 구 레거시, 이제 발자국랩에서 다 한다) -->
+          <a href="footlab.html" target="_blank" rel="noopener"
+             style="display:flex;align-items:center;gap:10px;padding:11px 13px;border:0;border-radius:10px;background:rgba(255,255,255,.06);text-decoration:none;">
+            <span style="width:8px;height:8px;border-radius:50%;background:var(--nb-red);box-shadow:0 0 8px rgba(250,48,48,.7);flex:none;"></span>
+            <span style="flex:1;color:rgba(255,255,255,.92);font-size:13px;font-weight:700;">발자국 룩</span>
+            <span style="color:rgba(255,255,255,.35);font-size:10px;">마크·상태·색</span></a>
+          <a href="tokens.html" target="_blank" rel="noopener"
+             style="display:flex;align-items:center;gap:10px;padding:11px 13px;border:0;border-radius:10px;background:rgba(255,255,255,.06);text-decoration:none;">
+            <span style="width:8px;height:8px;border-radius:50%;background:var(--nb-coral);box-shadow:0 0 8px rgba(254,110,60,.7);flex:none;"></span>
+            <span style="flex:1;color:rgba(255,255,255,.92);font-size:13px;font-weight:700;">지면 레이아웃</span>
+            <span style="color:rgba(255,255,255,.35);font-size:10px;">조판·토큰</span></a>
+          <a href="http://localhost:5173/" target="_blank" rel="noopener"
+             title="별도 앱(person-aura-filter) — 5173 dev 서버가 떠 있어야 열립니다"
+             style="display:flex;align-items:center;gap:10px;padding:11px 13px;border:0;border-radius:10px;background:rgba(255,255,255,.06);text-decoration:none;">
+            <span style="width:8px;height:8px;border-radius:50%;background:var(--nb-sand);box-shadow:0 0 8px rgba(254,195,137,.7);flex:none;"></span>
+            <span style="flex:1;color:rgba(255,255,255,.92);font-size:13px;font-weight:700;">열화상</span>
+            <span style="color:rgba(255,255,255,.35);font-size:10px;">이미지 편집기</span></a>
+        </div>
+      </div>
+
       <button class="lab-go" id="lab-run">러닝 실전을 3인칭으로 보기</button>
       <div class="lab-note">달리는 동안 무릎 유닛이 어떻게 흔들림을 잡는지 그대로 볼 수 있다.</div>
 
@@ -634,8 +701,8 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
         <div class="lab-kv"><span><b>근경</b> −40°</span><b>1.9m</b></div>
         <details>
           <summary>장면 배정</summary>
-          <div class="lab-note">정면 = 복싱 전 구간·드리블 2막 · 원경 = 실전 달리기 ·
-            중경 = 전환·리치 홀드 · 근경 = READY·스트레칭·익히기·타이머·리포트</div>
+          <div class="lab-note">정면은 복싱 전 구간과 드리블 2막, 원경은 실전 달리기,
+            중경은 전환과 리치 홀드, 근경은 READY·스트레칭·익히기·타이머·리포트</div>
         </details>
         <details>
           <summary>고르는 규칙</summary>
@@ -679,13 +746,6 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
     <button id="btn-real" class="dev-only" style="position:absolute;bottom:18px;right:60px;z-index:29;padding:9px 12px;border:1px solid var(--line);border-radius:8px;background:rgba(16,19,24,.9);color:var(--text);font-size:12px;font-weight:700;cursor:pointer;" title="실물 뷰 — 투사 커버리지(붉은 영역·빔) 숨김: 실제 러너 눈에는 투사된 UI만 보입니다">빔</button>
     <button id="btn-ht" class="dev-only" title="하프톤 스킨 — 판정 마크를 점으로. 색·상태·모션은 정본 그대로(FX Lab 후보랩 확정본)" style="position:absolute;bottom:60px;right:18px;z-index:29;padding:9px 12px;border:1px solid var(--line);border-radius:8px;background:rgba(16,19,24,.9);color:var(--text);font-size:12px;font-weight:700;cursor:pointer;">⣿</button>
     <button id="btn-day" class="dev-only" style="position:absolute;bottom:18px;right:18px;z-index:29;padding:9px 12px;border:1px solid var(--line);border-radius:8px;background:rgba(16,19,24,.9);color:var(--text);font-size:12px;font-weight:700;cursor:pointer;" title="주간 모드 — 낮에도 보이는 투사(주광 가시 레이저)가 제품 스토리">주간</button>
-    <!-- 디자인 시스템 허브 진입점 — dev-only 가 아니다(유저 08-11: 홈에서 잘 보이게,
-         '디자인시스템을 개발로 이만큼 했다'가 보여야 한다). 브랜드 그라디언트 테두리로
-         다른 도구 버튼과 구분한다. 배포 화면에도 남는 유일한 도구 링크. -->
-    <a href="design.html" target="_blank" rel="noopener" id="link-ds"
-       title="NEWTON 디자인 시스템 — 색·타이포 토큰과 랩 16곳을 한 페이지에서"
-       style="position:absolute;bottom:18px;left:calc(320px + 24px);z-index:29;padding:1.5px;border-radius:9px;background:var(--nb-grad-bright);text-decoration:none;">
-      <span style="display:block;padding:8px 14px;border-radius:7.5px;background:rgba(18,18,18,.94);color:var(--d-title);font-size:12px;font-weight:700;">디자인 시스템</span></a>
     <a href="docs/newton-wireframe.html#tokens" target="_blank" rel="noopener" id="link-wireframe" class="dev-only" style="position:absolute;bottom:18px;right:352px;z-index:29;padding:9px 14px;border:1px solid var(--line);border-radius:8px;background:rgba(16,19,24,.9);color:var(--text);font-size:12px;font-weight:700;cursor:pointer;text-decoration:none;">설계 문서</a>
     <a href="https://www.figma.com/design/92a2mffNpTZ5PltLln7cgq" target="_blank" rel="noopener" id="link-figma" class="dev-only" title="장면 정보 카드(제목·CTA·카피)·룩 색 토큰 디자인 원본 — 여기서 편집" style="position:absolute;bottom:18px;right:228px;z-index:29;padding:9px 14px;border:1px solid var(--line);border-radius:8px;background:rgba(16,19,24,.9);color:var(--text);font-size:12px;font-weight:700;cursor:pointer;text-decoration:none;">피그마</a>
     <button id="insp-tab-look" class="dev-only" title="룩 시스템(FX Lab) — 셰이더·모션·타이밍·색 팔레트 전체 페이지" style="position:absolute;bottom:18px;right:104px;z-index:29;padding:9px 14px;border:1px solid #fec389;border-radius:8px;background:rgba(254,195,137,.12);color:#fec389;font-size:12px;font-weight:700;cursor:pointer;">룩 시스템</button>
@@ -744,7 +804,7 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
 
 
     <!-- 전환 베일 (단계 전환 시 부드러운 암전) -->
-    <div id="stage-veil" style="position:absolute;inset:0;background:#0c0e12;opacity:0;transition:opacity .28s;pointer-events:none;"></div>
+    <div id="stage-veil" style="position:absolute;inset:0;background:var(--bg);opacity:0;transition:opacity .28s;pointer-events:none;"></div>
     <!-- 웨어러블 개입 1인칭 표시 (화면 가장자리 글로우) -->
     <div id="wear-fx" style="position:absolute;inset:0;opacity:0;transition:opacity .4s;pointer-events:none;"></div>
 
