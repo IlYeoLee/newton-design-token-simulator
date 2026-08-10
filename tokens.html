@@ -5,51 +5,52 @@
      정본은 src/floorgl.js 의 TOK 객체 하나. 이 페이지는 그걸 만질 뿐 자기 값을 갖지 않는다. -->
 <html lang="ko"><head><meta charset="utf-8">
 <title>Newton — 지면 디자인 토큰</title>
+<link rel="stylesheet" href="lab-skin.css">
 <style>
 @font-face{font-family:'Supreme';src:url('fonts/Supreme-Bold.woff2') format('woff2');font-weight:700;font-display:block}
 @font-face{font-family:'Supreme';src:url('fonts/Supreme-Medium.woff2') format('woff2');font-weight:500;font-display:block}
 @font-face{font-family:'Supreme';src:url('fonts/Supreme-Regular.woff2') format('woff2');font-weight:400;font-display:block}
 @font-face{font-family:'OffBit';src:url('fonts/OffBitTrial-DotBold.woff2') format('woff2');font-weight:700;font-display:block}
 *{margin:0;padding:0;box-sizing:border-box}
-body{background:#0d0d0f;color:#e8e8ea;font:13px/1.5 ui-sans-serif,system-ui,sans-serif;display:flex;height:100vh;overflow:hidden}
+body{background:var(--bg);color:var(--text);font:13px/1.5 ui-sans-serif,system-ui,sans-serif;display:flex;height:100vh;overflow:hidden}
 
 /* ── 좌: 토큰 패널 ───────────────────────────────────────── */
-#panel{width:320px;flex:0 0 auto;overflow-y:auto;padding:16px 14px 60px;border-right:1px solid #26262b;background:#141418}
+#panel{width:320px;flex:0 0 auto;overflow-y:auto;padding:16px 14px 60px;border-right:1px solid var(--line);background:var(--panel)}
 #panel h1{font-size:15px;font-weight:700;margin-bottom:2px}
-#panel .sub{font-size:11px;color:#77777f;margin-bottom:14px}
+#panel .sub{font-size:11px;color:var(--dim);margin-bottom:14px}
 .grp{margin-bottom:16px}
-.grp>h2{font-size:11px;font-weight:700;letter-spacing:1.4px;color:#8a8a94;text-transform:uppercase;
-  padding:6px 0 6px;border-bottom:1px solid #26262b;margin-bottom:8px}
+.grp>h2{font-size:11px;font-weight:700;letter-spacing:1.4px;color:var(--dim);text-transform:uppercase;
+  padding:6px 0 6px;border-bottom:1px solid var(--line);margin-bottom:8px}
 .tk{display:grid;grid-template-columns:1fr 54px;gap:4px 8px;align-items:center;margin-bottom:7px}
-.tk label{font-size:12px;color:#c4c4cc;grid-column:1}
-.tk .val{font-size:11px;color:#fa8a5c;text-align:right;font-variant-numeric:tabular-nums;grid-column:2}
-.tk input[type=range]{grid-column:1/3;width:100%;height:16px;accent-color:#fa6030}
+.tk label{font-size:12px;color:var(--text);grid-column:1}
+.tk .val{font-size:11px;color:var(--sand);text-align:right;font-variant-numeric:tabular-nums;grid-column:2}
+.tk input[type=range]{grid-column:1/3;width:100%;height:16px;accent-color:var(--coral)}
 .tk .hint{grid-column:1/3;font-size:10px;color:#66666e;margin-top:-3px}
 .sw{display:flex;align-items:center;gap:8px;margin-bottom:7px;cursor:pointer;user-select:none}
-.sw input{accent-color:#fa6030;width:15px;height:15px}
-.sw span{font-size:12px;color:#c4c4cc}
+.sw input{accent-color:var(--coral);width:15px;height:15px}
+.sw span{font-size:12px;color:var(--text)}
 .btnrow{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap}
-button{background:#26262d;color:#e8e8ea;border:1px solid #35353d;border-radius:6px;
+button{background:#26262d;color:var(--text);border:1px solid #35353d;border-radius:6px;
   padding:6px 10px;font:600 11px/1 inherit;cursor:pointer}
 button:hover{background:#32323a}
-button.on{background:#fa6030;border-color:#fa6030;color:#fff}
-#dump{width:100%;height:110px;background:#0a0a0c;color:#8de08d;border:1px solid #26262b;border-radius:6px;
+button.on{background:var(--coral);border-color:var(--coral);color:#fff}
+#dump{width:100%;height:110px;background:var(--bg);color:#8de08d;border:1px solid var(--line);border-radius:6px;
   font:10px/1.4 ui-monospace,monospace;padding:6px;resize:vertical}
 
 /* ── 우: 전 지면 그리드 ──────────────────────────────────── */
 #right{flex:1;display:flex;flex-direction:column;min-width:0}
-#bar{flex:0 0 auto;display:flex;align-items:center;gap:12px;padding:8px 14px;border-bottom:1px solid #26262b;background:#141418}
-#bar .t{font-size:11px;color:#8a8a94;font-variant-numeric:tabular-nums;min-width:112px}
-#bar input[type=range]{flex:1;max-width:420px;accent-color:#fa6030}
+#bar{flex:0 0 auto;display:flex;align-items:center;gap:12px;padding:8px 14px;border-bottom:1px solid var(--line);background:var(--panel)}
+#bar .t{font-size:11px;color:var(--dim);font-variant-numeric:tabular-nums;min-width:112px}
+#bar input[type=range]{flex:1;max-width:420px;accent-color:var(--coral)}
 /* 칸 폭은 **실치수에서 나온다** — 대지 1600px × mm/px = 물리 폭, 그걸 96dpi 로 환산해 배율을 곱한다.
    그래서 배율 100% 면 화면에 자를 대고 잰 크기가 실제 바닥 투사 크기와 같다. */
 #grid{flex:1;overflow:auto;padding:14px;display:flex;flex-wrap:wrap;gap:14px;align-content:start}
-.cell{background:#1b1b20;border:1px solid #26262b;border-radius:8px;overflow:hidden;flex:0 0 auto}
+.cell{background:#1b1b20;border:1px solid var(--line);border-radius:8px;overflow:hidden;flex:0 0 auto}
 .cell.pack-bk{border-color:#3a2f26}
 .cell .hd{display:flex;justify-content:space-between;align-items:baseline;padding:6px 8px;
-  font-size:10px;border-bottom:1px solid #26262b}
+  font-size:10px;border-bottom:1px solid var(--line)}
 .cell .hd b{font-weight:700;font-size:11px}
-.cell .hd i{font-style:normal;color:#77777f}
+.cell .hd i{font-style:normal;color:var(--dim)}
 /* 대지는 1600×2670 (세로 1.67:1) 인데 UI 는 위쪽 절반에만 산다 — 그대로 띄우면 칸의 60%가
    빈 바닥이고 정작 알약은 눈곱만 해진다(유저: 보이지도 않는다). 기본은 UI 구간만 잘라 본다. */
 .cell .stage{position:relative;overflow:hidden;aspect-ratio:1600/2670;background:#3a3a3e;background-image:
@@ -152,14 +153,14 @@ button.on{background:#fa6030;border-color:#fa6030;color:#fff}
     <div class="tk" style="margin-top:6px">
       <label>대지 1px = mm</label>
       <input type="number" id="mmpx" value="0.687" step="0.001" min="0.3" max="2"
-        style="grid-column:2;width:54px;background:#0a0a0c;color:#fa8a5c;border:1px solid #26262b;border-radius:4px;font-size:11px;text-align:right">
+        style="grid-column:2;width:54px;background:var(--bg);color:var(--sand);border:1px solid var(--line);border-radius:4px;font-size:11px;text-align:right">
       <div class="hint">러닝 실측(sUni 0.000687). <b>농구는 fpFar 2.4 라 다르다</b> — 농구 모드에서 rig 를 읽어 재측정 필요</div>
     </div>
-    <div id="ratio" style="font-size:11px;color:#ff9a5c;padding:6px 0 0;line-height:1.4"></div>
+    <div id="ratio" style="font-size:11px;color:var(--sand);padding:6px 0 0;line-height:1.4"></div>
   </div>
 
   <div class="grp"><h2>가독 근거 — 시각도</h2>
-    <div class="hint" style="margin:-2px 0 8px;color:#8a8a94;line-height:1.5">
+    <div class="hint" style="margin:-2px 0 8px;color:var(--dim);line-height:1.5">
       바닥은 <b>스치는 각도</b>로 보여 글자가 눌린다.<br>
       θ ≈ h·sinα/d · sinα = E/d → <b>h = θ·d²/E</b>
     </div>
@@ -178,10 +179,10 @@ button.on{background:#fa6030;border-color:#fa6030;color:#fff}
   <div class="grp"><h2>값 내보내기</h2>
     <textarea id="dump" readonly spellcheck="false"></textarea>
     <div class="btnrow" style="margin-top:6px">
-      <button id="save" style="background:#fa6030;border-color:#fa6030;color:#fff">💾 코드에 저장</button>
+      <button id="save" style="background:var(--coral);border-color:var(--coral);color:#fff">💾 코드에 저장</button>
       <button id="copy">복사</button>
     </div>
-    <div id="savemsg" style="font-size:10px;color:#77777f;margin-top:2px">
+    <div id="savemsg" style="font-size:10px;color:var(--dim);margin-top:2px">
       src/floor-tokens.json 에 쓴다 · 시뮬·익스포터가 같은 파일을 읽는다</div>
   </div>
 </div>
@@ -196,11 +197,11 @@ button.on{background:#fa6030;border-color:#fa6030;color:#fff}
     <button id="pk-bk">농구</button>
     <span style="width:1px;height:20px;background:#33333b"></span>
     <button id="real">실측 1:1</button>
-    <label style="display:flex;align-items:center;gap:5px;font-size:11px;color:#8a8a94">
-      배율 <input type="range" id="zoom" min="0.03" max="1" step="0.01" value="0.05" style="width:110px;accent-color:#fa6030">
-      <b id="zoomv" style="color:#fa8a5c;font-variant-numeric:tabular-nums;width:34px">5%</b>
+    <label style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--dim)">
+      배율 <input type="range" id="zoom" min="0.03" max="1" step="0.01" value="0.05" style="width:110px;accent-color:var(--coral)">
+      <b id="zoomv" style="color:var(--sand);font-variant-numeric:tabular-nums;width:34px">5%</b>
     </label>
-    <span id="realnote" style="font-size:11px;color:#77777f"></span>
+    <span id="realnote" style="font-size:11px;color:var(--dim)"></span>
   </div>
   <div id="grid"></div>
 </div>
