@@ -1,0 +1,41 @@
+/* ─────────────────────────────────────────────────────────────
+   NEWTON 랩 공통 스킨 — GUI(패널·버튼·슬라이더) 정본. 여기 하나뿐이다.
+
+   왜: 같은 :root 변수가 8개 페이지에 복붙돼 있었고 이미 어긋나 있었다
+   (footlab 는 7키 · readylab 는 5키 · index.html 은 아예 다른 팔레트).
+   값이 두 벌이면 그게 버그다 — 색은 docs/design-tokens.md 브랜드 칩에서 온다.
+
+   쓰는 법: <link rel="stylesheet" href="lab-skin.css"> 를 <style> 앞에 넣는다.
+   레이아웃(패널 폭·그리드)은 각 페이지 소관이다 — 여기는 색·활자·컨트롤 겉면만.
+   ───────────────────────────────────────────────────────────── */
+:root{
+  /* 바탕 */
+  --bg:#0A0C10;          /* 페이지 바닥 */
+  --panel:#10131A;       /* 패널·카드 */
+  --panel2:#161B24;      /* 패널 위 한 단 밝은 면(입력·호버) */
+  --line:#1D222C;        /* 경계선 */
+  /* 글 */
+  --text:#E9EAEE;
+  --dim:#98A1AD;         /* 보조 글 */
+  --faint:#6E7787;       /* 힌트·비활성 */
+  /* 브랜드 칩 (design-tokens.md) */
+  --red:#FA3030;
+  --coral:#FE6E3C;
+  --sand:#FEC389;
+  --prism:#D1FEFF;
+  /* 상태 */
+  --ok:#6AD4DE;
+  --accent:var(--red);
+}
+
+/* ── 공통 컨트롤 겉면 — 각 페이지의 기존 클래스와 충돌하지 않는 최소만 ── */
+input[type=range]{accent-color:var(--coral)}
+
+/* 랩 공용 클래스(옵트인) — 새 페이지·허브가 쓴다. 기존 페이지 강제 아님 */
+.lab-btn{padding:7px 12px;border:1px solid var(--line);border-radius:7px;
+  background:var(--panel2);color:var(--text);font-size:12px;cursor:pointer;text-decoration:none}
+.lab-btn:hover{border-color:#3A475A}
+.lab-btn.on{background:var(--accent);border-color:var(--accent);color:#101318;font-weight:700}
+.lab-h2{font-size:11px;font-weight:700;letter-spacing:.6px;color:var(--dim);
+  text-transform:uppercase;border-bottom:1px solid var(--line);padding-bottom:6px;margin-bottom:8px}
+.lab-hint{font-size:10.5px;color:var(--faint)}
