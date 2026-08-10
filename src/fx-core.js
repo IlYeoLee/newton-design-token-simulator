@@ -2529,29 +2529,30 @@ export function drawLinkDots(g, ax, ay, bx, by, t, o = {}) {
   const span = len * (1 - inset * 2);
   if (span <= 0) return;
   g.save();
-  if (style === 'chain' && hair > 0) {         // 점을 잇는 실 — 굵기는 점보다 훨씬 얇게
-    g.strokeStyle = `rgba(${col},${(hair * A).toFixed(3)})`;
-    g.lineWidth = Math.max(1, R * 0.34);
+  // ★ 재저작(유저 08-11: 초안이 건달같다) — 어수선의 세 원인을 걷어냈다.
+  //   ① 점이 프레임마다 자리를 옮겼다(위상 이동) → **점은 고정**, 움직임은 밝기 파동만.
+  //   ② taper 가 반지름을 흔들어 크기가 들쭉 → **반지름 균일**, 위계는 알파로만.
+  //   ③ 맨 원(글로우 없음)이라 마크와 딴 세계 → 마크와 같은 소프트 글로우 한 겹.
+  if (style === 'chain' && hair > 0) {         // 실 — 점 뒤에 아주 옅게 깔리는 기준선
+    g.strokeStyle = `rgba(${col},${(hair * A * 0.6).toFixed(3)})`;
+    g.lineWidth = 1;
     g.beginPath(); g.moveTo(x0, y0); g.lineTo(x0 + ux * span, y0 + uy * span); g.stroke();
   }
-  const ph = (t * flow) % 1;                   // 중앙에서 바깥으로 흐른다
+  const ph = (t * flow) % 1;                   // A → B 로 흐르는 빛의 위상
+  g.shadowColor = `rgba(${col},${(0.5 * A).toFixed(3)})`;
+  g.shadowBlur = R * 2.4;
   for (let i = 0; i < N; i++) {
-    let u = (i + 0.5) / N;
-    if (style === 'pulse' || style === 'dots' || style === 'chain') {
-      const c = u - 0.5;                       // 중앙 기준 부호
-      u = 0.5 + c + Math.sign(c) * ((ph / N) % (1 / N));   // 바깥 방향 미세 이동
-      if (u < 0 || u > 1) continue;
-    }
+    const u = (i + 0.5) / N;                   // 고정 간격 — 점은 움직이지 않는다
     const px = x0 + ux * span * u, py = y0 + uy * span * u;
-    const c2 = Math.abs(u - 0.5) * 2;          // 0 중앙 → 1 끝
-    let r = R, a = A;
-    if (style === 'taper') r = R * (0.55 + 0.75 * c2);
-    if (style === 'pulse') {
-      const w = ((c2 - ph) % 1 + 1) % 1;
-      a = A * (0.35 + 0.65 * Math.max(0, 1 - Math.abs(w - 0) * 3));
+    let a = 0.85;
+    if (style === 'taper') a = 0.30 + 0.70 * u;                    // 도착 쪽이 밝다 = 진행 방향
+    else if (style === 'pulse' || style === 'chain') {
+      const w = ((u - ph) % 1 + 1) % 1;                            // 지나가는 부드러운 파동 하나
+      const d = Math.min(w, 1 - w);
+      a = 0.45 + 0.55 * Math.exp(-(d * d) / 0.028);
     }
-    g.fillStyle = `rgba(${col},${(a * 0.96).toFixed(3)})`;
-    g.beginPath(); g.arc(px, py, r, 0, Math.PI * 2); g.fill();
+    g.fillStyle = `rgba(${col},${(a * A).toFixed(3)})`;
+    g.beginPath(); g.arc(px, py, R * 0.82, 0, Math.PI * 2); g.fill();
   }
   g.restore();
 }
