@@ -189,16 +189,16 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
 }
 #lab-panel.folded{width:56px;padding:16px 12px}
 #lab-panel.folded .lab-body,#lab-panel.folded .pp-title,#lab-panel.folded .pp-sub{display:none}
-#lab-panel h3{margin:18px 0 8px;font-size:11px;letter-spacing:1.6px;color:var(--d-title);font-weight:800}
+#lab-panel h3{margin:20px 0 9px;font-size:12.5px;letter-spacing:1.6px;color:var(--d-title);font-weight:800}
 #lab-panel .lab-kv{display:flex;justify-content:space-between;gap:10px;padding:6px 0;
-  border-bottom:1px solid rgba(255,255,255,.06);font-size:12px}
+  border-bottom:1px solid rgba(255,255,255,.06);font-size:13.5px}
 #lab-panel .lab-kv span:first-child{color:rgba(255,255,255,.55)}
 #lab-panel .lab-kv b{font-weight:700;color:#fff}
-#lab-panel .lab-note{font-size:11px;color:rgba(255,255,255,.42);line-height:1.6;margin-top:6px}
+#lab-panel .lab-note{font-size:12.5px;color:rgba(255,255,255,.5);line-height:1.6;margin-top:6px}
 /* 접이식 섹션 — 긴 설명·근거는 기본 접힘. 화면에 남는 건 값과 스위치뿐(유저: 글씨가 과하다) */
 #lab-panel details{margin-top:8px;border-top:1px solid rgba(255,255,255,.07)}
 #lab-panel details>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:6px;
-  padding:11px 0 9px;font-size:11px;letter-spacing:1.5px;color:var(--d-title);font-weight:800}
+  padding:12px 0 10px;font-size:12.5px;letter-spacing:1.4px;color:var(--d-title);font-weight:800}
 #lab-panel details>summary::-webkit-details-marker{display:none}
 #lab-panel details>summary::after{content:'';margin-left:auto;width:5px;height:5px;flex:0 0 auto;
   border-right:1.5px solid rgba(255,255,255,.4);border-bottom:1.5px solid rgba(255,255,255,.4);
@@ -209,7 +209,7 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
 #lab-panel details>summary .cnt+::after{margin-left:8px}
 /* 근거 = 한 단 더 안쪽. 색을 죽여 값과 구분한다 */
 #lab-panel details details{border-top:0;margin-top:4px;background:rgba(255,255,255,.03);border-radius:9px;padding:0 10px}
-#lab-panel details details>summary{color:rgba(255,255,255,.5);font-size:10.5px;letter-spacing:.6px;padding:9px 0}
+#lab-panel details details>summary{color:rgba(255,255,255,.55);font-size:12px;letter-spacing:.6px;padding:9px 0}
 #lab-panel details details .lab-note{margin-bottom:9px}
 #lab-panel .lab-body>details:first-of-type{border-top:0}
 #lab-panel .lab-sw{display:flex;align-items:center;gap:9px;padding:9px 10px;margin-top:6px;
@@ -219,8 +219,8 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
   background:var(--d-t3);transition:transform .28s cubic-bezier(.34,1.32,.5,1),background .22s cubic-bezier(.2,.8,.3,1)}
 #lab-panel .lab-sw.on .dotsw{background:rgba(209,254,255,.3)}
 #lab-panel .lab-sw.on .dotsw::after{transform:translateX(11px);background:#d1feff}
-#lab-panel .lab-sw .t{font-size:12px;font-weight:700}
-#lab-panel .lab-sw .d{font-size:10.5px;color:rgba(255,255,255,.45);line-height:1.45}
+#lab-panel .lab-sw .t{font-size:14px;font-weight:700}
+#lab-panel .lab-sw .d{font-size:12px;color:rgba(255,255,255,.5);line-height:1.5}
 #lab-panel .lab-live{margin-top:10px;padding:11px 12px;border-radius:11px;background:rgba(250,48,48,.10);
   border:1px solid rgba(250,48,48,.28)}
 /* 자막 카드 = 에펙 정본(AE_Sub_{복싱,러닝,농구}.jsx)의 이식.
@@ -633,18 +633,18 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
           <a href="footlab.html" class="lab-embed"
              style="display:flex;align-items:center;gap:10px;padding:11px 13px;border:0;border-radius:10px;background:rgba(255,255,255,.06);text-decoration:none;">
             <span style="width:8px;height:8px;border-radius:50%;background:var(--nb-red);box-shadow:0 0 8px rgba(250,48,48,.7);flex:none;"></span>
-            <span style="flex:1;color:rgba(255,255,255,.92);font-size:13px;font-weight:700;">발자국 룩</span>
+            <span style="flex:1;color:rgba(255,255,255,.92);font-size:15px;font-weight:700;">발자국 룩</span>
             <span style="color:rgba(255,255,255,.35);font-size:10px;">마크·상태·색</span></a>
           <a href="tokens.html" class="lab-embed"
              style="display:flex;align-items:center;gap:10px;padding:11px 13px;border:0;border-radius:10px;background:rgba(255,255,255,.06);text-decoration:none;">
             <span style="width:8px;height:8px;border-radius:50%;background:var(--nb-coral);box-shadow:0 0 8px rgba(254,110,60,.7);flex:none;"></span>
-            <span style="flex:1;color:rgba(255,255,255,.92);font-size:13px;font-weight:700;">지면 레이아웃</span>
+            <span style="flex:1;color:rgba(255,255,255,.92);font-size:15px;font-weight:700;">지면 레이아웃</span>
             <span style="color:rgba(255,255,255,.35);font-size:10px;">조판·토큰</span></a>
           <a href="http://localhost:5173/" class="lab-embed"
              title="별도 앱(person-aura-filter) — 5173 dev 서버가 떠 있어야 열립니다"
              style="display:flex;align-items:center;gap:10px;padding:11px 13px;border:0;border-radius:10px;background:rgba(255,255,255,.06);text-decoration:none;">
             <span style="width:8px;height:8px;border-radius:50%;background:var(--nb-sand);box-shadow:0 0 8px rgba(254,195,137,.7);flex:none;"></span>
-            <span style="flex:1;color:rgba(255,255,255,.92);font-size:13px;font-weight:700;">열화상</span>
+            <span style="flex:1;color:rgba(255,255,255,.92);font-size:15px;font-weight:700;">열화상</span>
             <span style="color:rgba(255,255,255,.35);font-size:10px;">이미지 편집기</span></a>
         </div>
       </div>
