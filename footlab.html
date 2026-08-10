@@ -7,40 +7,41 @@
   /* vite 는 public/ 내용을 루트로 서빙한다 — 'public/fonts/…' 로 쓰면 404 다(도트 폰트가 조용히 죽는다) */
   @font-face{font-family:'OffBit';src:url('fonts/OffBitTrial-DotBold.woff2') format('woff2');font-weight:700;font-display:block}
   *{box-sizing:border-box}
-  html,body{margin:0;background:var(--bg);color:var(--text);
-    font:14px/1.6 'Pretendard',var(--ds-font)}
+  html,body{margin:0;background:var(--d-bg);color:var(--text);
+    font:15px/1.6 'Pretendard',var(--ds-font)}
   .wrap{display:flex;gap:22px;padding:24px;align-items:flex-start;flex-wrap:wrap}
   /* 패널이 세로로 길어 미리보기를 보면서 조절할 수가 없었다(유저) — 패널만 따로 스크롤한다. */
-  .panel{width:352px;flex:0 0 352px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);
-    border-radius:16px;padding:24px 20px 28px;position:sticky;top:24px;backdrop-filter:blur(14px);
-    max-height:calc(100vh - 48px);overflow-y:auto;overscroll-behavior:contain}
+  .panel{width:360px;flex:0 0 360px;background:transparent;border:0;
+    padding:26px 22px 40px;position:sticky;top:0;
+    max-height:100vh;overflow-y:auto;overscroll-behavior:contain}
   .panel::-webkit-scrollbar{width:8px}
   .panel::-webkit-scrollbar-thumb{background:var(--d-border);border-radius:4px}
-  h1{font-size:22px;font-weight:800;letter-spacing:-.5px;color:#fff;margin:0 0 8px}
-  .sub{color:rgba(255,255,255,.55);font-size:13.5px;line-height:1.6;margin:0 0 20px}
-  fieldset{border:1px solid rgba(255,255,255,.10);background:rgba(255,255,255,.04);border-radius:12px;margin:0 0 12px;padding:14px 16px 16px}
-  legend{color:#fff;font-size:15px;font-weight:700;letter-spacing:-.2px;padding:0;margin-bottom:10px;float:left;width:100%}
+  h1{font-size:24px;font-weight:800;letter-spacing:-.6px;color:#fff;margin:0 0 8px}
+  .sub{color:rgba(255,255,255,.5);font-size:14px;line-height:1.6;margin:0 0 26px}
+  fieldset{border:0;background:transparent;border-radius:0;margin:0 0 30px;padding:0}
+  legend{color:#fff;font-size:16px;font-weight:800;letter-spacing:-.3px;padding:0;margin-bottom:14px;float:left;width:100%}
   fieldset>:not(legend){clear:both}
-  .row{display:flex;align-items:center;gap:10px;margin:9px 0}
-  .row label{flex:0 0 108px;color:rgba(255,255,255,.62);font-size:13px;font-weight:500}
+  fieldset p.sub{display:none}
+  .row{display:flex;align-items:center;gap:12px;margin:12px 0}
+  .row label{flex:0 0 112px;color:rgba(255,255,255,.72);font-size:14px;font-weight:600}
   .row input[type=range]{flex:1;min-width:0;accent-color:var(--red)}
-  .row .v{flex:0 0 52px;text-align:right;font-variant-numeric:tabular-nums;font-size:13px;font-weight:700;color:var(--sand)}
+  .row .v{flex:0 0 56px;text-align:right;font-variant-numeric:tabular-nums;font-size:14px;font-weight:700;color:var(--sand)}
   /* 기본 버튼 = 홈 CTA 문법. 세그·액션이 아닌 낱개 버튼(verApply 등)이 브라우저 기본으로 튀지 않게 */
-  button{background:rgba(255,255,255,.07);color:#fff;border:0;border-radius:10px;
-    padding:11px 14px;font:600 13.5px/1 'Pretendard',var(--ds-font);cursor:pointer;transition:background .18s}
+  button{background:rgba(255,255,255,.07);color:#fff;border:0;border-radius:999px;
+    padding:13px 16px;font:700 14px/1 'Pretendard',var(--ds-font);cursor:pointer;transition:background .18s}
   button:hover{background:rgba(255,255,255,.12)}
-  .seg{display:flex;gap:6px;flex-wrap:wrap}
-  .seg button{flex:1;min-width:64px;background:rgba(255,255,255,.06);color:rgba(255,255,255,.72);border:0;
-    border-radius:9px;padding:9px 6px;font-size:13px;font-weight:600;cursor:pointer;transition:background .18s}
+  .seg{display:flex;gap:8px;flex-wrap:wrap}
+  .seg button{flex:1 1 calc(50% - 8px);min-width:72px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:rgba(255,255,255,.07);color:rgba(255,255,255,.85);border:0;
+    border-radius:999px;padding:12px 10px;font-size:14px;font-weight:700;cursor:pointer;transition:background .18s}
   .seg button:hover{background:rgba(255,255,255,.11)}
   .seg button.on{background:var(--red);border-color:var(--red);color:#fff}
   .acts{display:flex;gap:8px;margin-top:8px}
   .acts button{flex:1;background:rgba(255,255,255,.07);color:#fff;border:0;
-    border-radius:10px;padding:12px;font-size:13.5px;font-weight:700;cursor:pointer;transition:background .18s}
+    border-radius:999px;padding:13px;font-size:14px;font-weight:700;cursor:pointer;transition:background .18s}
   .acts button:hover{background:rgba(255,255,255,.12)}
   .stage{flex:1 1 620px;min-width:520px}
-  .card{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:18px;margin-bottom:18px}
-  .card h2{font-size:15px;font-weight:700;color:#fff;letter-spacing:-.2px;margin:0 0 14px}
+  .card{background:rgba(255,255,255,.035);border:0;border-radius:16px;padding:18px;margin-bottom:18px}
+  .card h2{font-size:16px;font-weight:800;color:#fff;letter-spacing:-.3px;margin:0 0 14px}
   canvas{display:block;border-radius:10px;max-width:100%}
   /* 표시 크기는 여기서만 정한다 — 렌더 버퍼(canvas width/height)와 분리.
      예전엔 스크립트가 width:100% 를 걸어서 560px 버퍼가 카드 폭까지 늘어나 화면을 다 먹었다. */
@@ -59,22 +60,22 @@
   #snip{width:100%;height:126px;background:rgba(0,0,0,.35);color:var(--sand);border:0;
     border-radius:10px;padding:10px 12px;font:12px/1.55 ui-monospace,Consolas,monospace;resize:vertical}
   .hint{color:rgba(255,255,255,.45);font-size:12px;line-height:1.55}
-  .note{color:rgba(255,255,255,.45);font-size:12px;line-height:1.55;margin:10px 0 0}
+  .note{display:none}
   .warn{color:var(--red);font-size:12.5px;font-weight:600;margin:10px 0 0;display:none}
 </style></head><body>
 <div class=wrap>
   <div class=panel>
     <h1>발자국 랩 — 깔창 각인</h1>
-    <p class=sub>겉은 신발 실루엣, 안은 맨발 자국(도트).<br>정본 셰이더(MARK_GLSL)를 그대로 돌린다.</p>
+    <p class=sub>정본 셰이더(MARK_GLSL)를 그대로 돌린다.</p>
 
-    <fieldset><legend>버전 비교 — 오늘 발자국 룩이 바뀐 지점</legend>
+    <fieldset><legend>버전 비교</legend>
       <div class=seg id=segVer style="flex-wrap:wrap">
         <button data-v=v03>08-02 (3일 전)</button><button data-v=v0 class=on>09:25 (지금)</button><button data-v=v1>13:31 도트 그라디언트</button>
         <button data-v=v2>13:40 섀도우 완화</button><button data-v=v3>14:28 상태 색·명도</button>
       </div>
       <div class=hint id=verHint style="margin-top:4px"></div>
-      <button id=verApply style="margin-top:6px;width:100%">이 버전을 정본에 적용 (시뮬 반영)</button>
-      <div class=hint style="margin-top:3px">누르면 mark-look.json 을 덮어쓴다 — 시뮬 새로고침하면 그 룩으로 돈다.</div>
+      <button id=verApply style="margin-top:6px;width:100%">정본에 적용</button>
+      
     </fieldset>
 
     <fieldset><legend>발</legend>
@@ -188,11 +189,11 @@
 
   <div class=stage>
     <div class=card>
-      <h2>확대 — 진행 슬라이더로 상태 안을 훑는다</h2>
+      <h2>확대</h2>
       <canvas id=hero width=640 height=640></canvas>
     </div>
     <div class=card>
-      <h2>8상태 × 세 표현형 — 1줄 발형, 2줄 원형(존), 3줄 원형+로고 글리프(러닝 판정 마크 정본). 8번째 Tap2 = READY 탭 어포던스(무채↔석세스 2회 깜빡). 셀을 클릭하면 위 확대로</h2>
+      <h2>8상태 × 세 표현형</h2>
       <canvas id=strip width=1120 height=690></canvas>
     </div>
     <div class=card>
