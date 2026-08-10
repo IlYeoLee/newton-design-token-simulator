@@ -405,6 +405,31 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
       <div id="surf-chips" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
     </div>
 
+    <!-- 디자인 랩 진입 — 룩 시스템 → 지면 레이아웃 → 열화상 순(유저 08-11).
+         '룩 시스템'은 하단 도킹 버튼(insp-tab-look)과 같은 대상이지만 여기는 새 탭 —
+         패널에서는 탐색, 도킹은 편집이라는 역할이 다르다. 열화상은 별도 앱(5173). -->
+    <div class="section" id="lab-section">
+      <h2>디자인 랩</h2>
+      <div style="display:flex;flex-direction:column;gap:6px;">
+        <a href="fxlab.html" target="_blank" rel="noopener"
+           style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--panel2);text-decoration:none;">
+          <span style="width:8px;height:8px;border-radius:50%;background:var(--nb-red);flex:none;"></span>
+          <span style="flex:1;color:var(--text);font-size:12px;font-weight:700;">룩 시스템</span>
+          <span style="color:var(--dim);font-size:10px;">fxlab</span></a>
+        <a href="tokens.html" target="_blank" rel="noopener"
+           style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--panel2);text-decoration:none;">
+          <span style="width:8px;height:8px;border-radius:50%;background:var(--nb-coral);flex:none;"></span>
+          <span style="flex:1;color:var(--text);font-size:12px;font-weight:700;">지면 레이아웃</span>
+          <span style="color:var(--dim);font-size:10px;">tokens</span></a>
+        <a href="http://localhost:5173/" target="_blank" rel="noopener"
+           title="별도 앱(person-aura-filter) — npm run dev 로 5173 이 떠 있어야 열립니다"
+           style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--panel2);text-decoration:none;">
+          <span style="width:8px;height:8px;border-radius:50%;background:var(--nb-sand);flex:none;"></span>
+          <span style="flex:1;color:var(--text);font-size:12px;font-weight:700;">열화상</span>
+          <span style="color:var(--dim);font-size:10px;">aura 5173</span></a>
+      </div>
+    </div>
+
     <div class="section" id="session-section">
       <h2>세션 흐름 <span style="color:var(--accent)">A→B→C</span> <span id="session-avail" style="color:var(--dim);font-weight:400;font-size:10px;">러닝 전용</span></h2>
       <button id="btn-session" style="width:100%;padding:9px 0;border:1px solid var(--accent);border-radius:6px;background:rgba(250,48,48,.12);color:var(--accent);font-size:12px;font-weight:700;cursor:pointer;">세션 시작 (1인칭 전환)</button>
@@ -671,13 +696,6 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
     <button id="btn-real" class="dev-only" style="position:absolute;bottom:18px;right:60px;z-index:29;padding:9px 12px;border:1px solid var(--line);border-radius:8px;background:rgba(16,19,24,.9);color:var(--text);font-size:12px;font-weight:700;cursor:pointer;" title="실물 뷰 — 투사 커버리지(붉은 영역·빔) 숨김: 실제 러너 눈에는 투사된 UI만 보입니다">빔</button>
     <button id="btn-ht" class="dev-only" title="하프톤 스킨 — 판정 마크를 점으로. 색·상태·모션은 정본 그대로(FX Lab 후보랩 확정본)" style="position:absolute;bottom:60px;right:18px;z-index:29;padding:9px 12px;border:1px solid var(--line);border-radius:8px;background:rgba(16,19,24,.9);color:var(--text);font-size:12px;font-weight:700;cursor:pointer;">⣿</button>
     <button id="btn-day" class="dev-only" style="position:absolute;bottom:18px;right:18px;z-index:29;padding:9px 12px;border:1px solid var(--line);border-radius:8px;background:rgba(16,19,24,.9);color:var(--text);font-size:12px;font-weight:700;cursor:pointer;" title="주간 모드 — 낮에도 보이는 투사(주광 가시 레이저)가 제품 스토리">주간</button>
-    <!-- 디자인 시스템 허브 진입점 — dev-only 가 아니다(유저 08-11: 홈에서 잘 보이게,
-         '디자인시스템을 개발로 이만큼 했다'가 보여야 한다). 브랜드 그라디언트 테두리로
-         다른 도구 버튼과 구분한다. 배포 화면에도 남는 유일한 도구 링크. -->
-    <a href="design.html" target="_blank" rel="noopener" id="link-ds"
-       title="NEWTON 디자인 시스템 — 색·타이포 토큰과 랩 16곳을 한 페이지에서"
-       style="position:absolute;bottom:18px;left:calc(320px + 24px);z-index:29;padding:1.5px;border-radius:9px;background:var(--nb-grad-bright);text-decoration:none;">
-      <span style="display:block;padding:8px 14px;border-radius:7.5px;background:rgba(18,18,18,.94);color:var(--d-title);font-size:12px;font-weight:700;">디자인 시스템</span></a>
     <a href="docs/newton-wireframe.html#tokens" target="_blank" rel="noopener" id="link-wireframe" class="dev-only" style="position:absolute;bottom:18px;right:352px;z-index:29;padding:9px 14px;border:1px solid var(--line);border-radius:8px;background:rgba(16,19,24,.9);color:var(--text);font-size:12px;font-weight:700;cursor:pointer;text-decoration:none;">설계 문서</a>
     <a href="https://www.figma.com/design/92a2mffNpTZ5PltLln7cgq" target="_blank" rel="noopener" id="link-figma" class="dev-only" title="장면 정보 카드(제목·CTA·카피)·룩 색 토큰 디자인 원본 — 여기서 편집" style="position:absolute;bottom:18px;right:228px;z-index:29;padding:9px 14px;border:1px solid var(--line);border-radius:8px;background:rgba(16,19,24,.9);color:var(--text);font-size:12px;font-weight:700;cursor:pointer;text-decoration:none;">피그마</a>
     <button id="insp-tab-look" class="dev-only" title="룩 시스템(FX Lab) — 셰이더·모션·타이밍·색 팔레트 전체 페이지" style="position:absolute;bottom:18px;right:104px;z-index:29;padding:9px 14px;border:1px solid #fec389;border-radius:8px;background:rgba(254,195,137,.12);color:#fec389;font-size:12px;font-weight:700;cursor:pointer;">룩 시스템</button>
