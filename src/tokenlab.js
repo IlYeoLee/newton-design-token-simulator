@@ -4,6 +4,8 @@
 //
 // ★ 이 파일은 값을 하나도 갖지 않는다. 정본은 floorgl.js 의 TOK 하나뿐이다.
 //   여기에 기본값을 복사해 두면 시뮬과 갤러리가 갈린다 — 그게 지금까지 반복된 사고다.
+import { initLabDev, isLabDev, markDevOnly } from './labgate.js';
+const LAB_DEV = initLabDev();
 import { FloorGL, TOK, LAYOUT, safeW, minFs } from './floorgl.js';
 
 // 캔버스 20장을 원본 배율(K 0.75 → 1200×2002)로 띄우면 텍스처만 190MB 다. 갤러리는 작게 본다.
@@ -352,10 +354,12 @@ function dump() {
 //   저장+전체 리로드를 기다려야만 보이던 것(유저 08-11: 지면 레이아웃 아무것도 안 먹었잖아).
 //   diff 가 아니라 **전체 스냅샷**을 보낸다 — 기본값으로 되돌린 키가 시뮬에 남지 않게.
 const _bc = (() => { try { return new BroadcastChannel('newton-floortok'); } catch { return null; } })();
+// ★ 개발자/배포 파이프라인 구분 정본 — 배포본에선 랩이 시뮬로 아무것도 안 보낸다(유저 08-11).
+const _bcPost = (msg) => { if (isLabDev()) _bc?.postMessage(msg); };
 function bcast() {
   const snap = {};
   for (const k of Object.keys(TOK)) if (typeof TOK[k] === 'number') snap[k] = TOK[k];
-  _bc?.postMessage(snap);
+  _bcPost(snap);
 }
 document.querySelectorAll('[data-t]').forEach(el => {
   el.addEventListener('input', () => {

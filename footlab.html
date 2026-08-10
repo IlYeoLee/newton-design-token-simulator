@@ -70,13 +70,16 @@
   .hint{color:rgba(255,255,255,.5);font-size:13px;line-height:1.55}
   .note{display:none}
   .warn{color:var(--red);font-size:12.5px;font-weight:600;margin:10px 0 0;display:none}
+/* 개발 전용 UI — 배포본에선 통째로 숨긴다(정본 게이트 src/labgate.js) */
+body:not(.dev) [data-devonly]{display:none !important}
 </style></head><body>
 <div class=wrap>
   <div class=panel>
     <h1>발자국 랩 — 깔창 각인</h1>
     <p class=sub>정본 셰이더(MARK_GLSL)를 그대로 돌린다.</p>
 
-    <fieldset><legend>버전 비교</legend>
+    <!-- 버전 비교 = 개발 전용(유저 08-11: 전시엔 지우고 개발자 모드에만 살려놔). data-devonly 는 src/labgate.js 가 끈다 -->
+    <fieldset data-devonly><legend>버전 비교</legend>
       <div class=seg id=segVer style="flex-wrap:wrap">
         <button data-v=v03>08-02 (3일 전)</button><button data-v=v0 class=on>09:25 (지금)</button><button data-v=v1>13:31 도트 그라디언트</button>
         <button data-v=v2>13:40 섀도우 완화</button><button data-v=v3>14:28 상태 색·명도</button>
@@ -260,6 +263,8 @@
 
 <script type="module">
 'use strict';
+import { initLabDev, isLabDev, markDevOnly } from './src/labgate.js';   // ★ 개발자/배포 파이프라인 구분 정본
+const LAB_DEV = initLabDev();
 import * as THREE from 'three';
 import { makeMarkFXMaterial, QUAD_K, ZONE_GLYPH_K, SIL_FIT, SIL_FIT_REF, FOOT_PLANE_M, FOOT_LEN_M } from './src/tokens.js';
 import { FXP, GLYPHS, DEFAULT_GLYPHS, footSlot, footSDFTexture, drawNumber, drawGlyph, getLUT, ensureOffBit, rebuildLUT } from './src/fxlut.js';
@@ -339,7 +344,7 @@ let hist = [], future = [], histT = null;
 function persist() { try { localStorage.setItem(SAVE_KEY, JSON.stringify({ ...P, _def: DEF, states: OV, _defStates: DEF_STATES })); } catch { /* 사생활 모드 */ } bcast(); }   // _def/_defStates = 저장 시점 정본 스냅샷(위 복원 규칙용)
 // 랩 → 시뮬 실시간 미리보기(유저): 값이 바뀔 때마다 열려 있는 시뮬 전부에 즉시 쏜다.
 const _bc = (() => { try { return new BroadcastChannel('newton-marklook'); } catch { return null; } })();
-function bcast() { _bc?.postMessage({ ...P, shadeCol, dotCol, ripCol, edgeShadeCol }); }
+function bcast() { if (!isLabDev()) return; _bc?.postMessage({ ...P, shadeCol, dotCol, ripCol, edgeShadeCol }); }   // ★ 배포본은 시뮬로 안 보낸다(전시 가드 송신 측)
 function commitHist(prev) {
   clearTimeout(histT);
   histT = setTimeout(() => {
@@ -1281,7 +1286,7 @@ try { Object.assign(PRIM_P, JSON.parse(localStorage.getItem('footlab.prims') || 
       PRIM_P[k] = +e.target.value; d.querySelector('.v').textContent = PRIM_P[k].toFixed(2);
       try { localStorage.setItem('footlab.prims', JSON.stringify(PRIM_P)); } catch { /* 사생활 모드 */ }
       // 시뮬 실시간 브리지 — appr 는 세션 박자 상수라 랩 전용(브리지 제외)
-      _bc?.postMessage({ prims: { punchLine: { node: PRIM_P.node, numS: PRIM_P.numS, comet: PRIM_P.comet, tailLen: PRIM_P.tailLen, rail: PRIM_P.rail } } });
+      if (isLabDev()) _bc?.postMessage({ prims: { punchLine: { node: PRIM_P.node, numS: PRIM_P.numS, comet: PRIM_P.comet, tailLen: PRIM_P.tailLen, rail: PRIM_P.rail } } });
     });
     host.appendChild(d);
   }
