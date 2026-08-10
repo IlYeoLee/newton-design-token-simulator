@@ -1,40 +1,69 @@
 /* ─────────────────────────────────────────────────────────────
-   NEWTON 랩 공통 스킨 — GUI(패널·버튼·슬라이더) 정본. 여기 하나뿐이다.
+   NEWTON GUI 디자인시스템 — 정본은 Figma 222-37297 (다크모드 컬러 시스템).
+   d09455b(07-28)에서 index.html 에 등록된 것을 파일로 승격했다. 여기 하나뿐이다.
 
-   왜: 같은 :root 변수가 8개 페이지에 복붙돼 있었고 이미 어긋나 있었다
-   (footlab 는 7키 · readylab 는 5키 · index.html 은 아예 다른 팔레트).
-   값이 두 벌이면 그게 버그다 — 색은 docs/design-tokens.md 브랜드 칩에서 온다.
+   구조가 두 층이다:
+     ① 정본 토큰  --nb-*(브랜드) · --d-*(뉴트럴) · --t-*(타이포 스케일)
+     ② 별칭       --bg --panel --line --text … — 랩 8곳이 이미 쓰던 이름.
+                  값만 정본으로 물린다. 별칭을 지우면 8페이지 CSS 를 전부 고쳐야
+                  해서 실수 범위만 커진다 — 이름은 남기고 출처를 하나로.
 
-   쓰는 법: <link rel="stylesheet" href="lab-skin.css"> 를 <style> 앞에 넣는다.
-   레이아웃(패널 폭·그리드)은 각 페이지 소관이다 — 여기는 색·활자·컨트롤 겉면만.
+   쓰는 법: <link rel="stylesheet" href="lab-skin.css"> 를 <style> 앞에.
+   레이아웃(패널 폭·그리드)은 각 페이지 소관 — 여기는 색·활자·컨트롤 겉면만.
    ───────────────────────────────────────────────────────────── */
 :root{
-  /* 바탕 */
-  --bg:#0A0C10;          /* 페이지 바닥 */
-  --panel:#10131A;       /* 패널·카드 */
-  --panel2:#161B24;      /* 패널 위 한 단 밝은 면(입력·호버) */
-  --line:#1D222C;        /* 경계선 */
-  /* 글 */
-  --text:#E9EAEE;
-  --dim:#98A1AD;         /* 보조 글 */
-  --faint:#6E7787;       /* 힌트·비활성 */
-  /* 브랜드 칩 (design-tokens.md) */
-  --red:#FA3030;
-  --coral:#FE6E3C;
-  --sand:#FEC389;
-  --prism:#D1FEFF;
-  /* 상태 */
+  /* ① 브랜드 (Figma 222-37297) */
+  --nb-red:#FA3030; --nb-coral:#FE6E3C; --nb-sand:#FEC389; --nb-prism:#D1FEFF;
+  --nb-void:#091212; --nb-oxblood:#511815; --nb-crimson:#920F0F;
+  --nb-grad-bright:linear-gradient(90deg,#FA3030,#FE6E3C,#FEC389,#D1FEFF);
+  --nb-grad-dark:linear-gradient(90deg,#091212,#511815,#920F0F,#FA3030);
+  /* ① 뉴트럴 다크 */
+  --d-bg:#121212; --d-bg-sub:#1A1A1A; --d-surface:#232323; --d-divider:#2E2E2E;
+  --d-border:#3D3D3D; --d-disabled:#6B6B6B; --d-t3:#8F8F8F; --d-t2:#ADADAD;
+  --d-body:#C9C9C9; --d-strong:#E2E2E2; --d-title:#F5F5F5; --d-white:#FFF;
+  --ds-font:'Supreme','Freesentation','Pretendard',-apple-system,system-ui,sans-serif;
+  /* ① 타이포 스케일 — Figma 텍스트 스타일 정본(크기/굵기/자간) */
+  --t-d1:700 32px/1.2 var(--ds-font);   --ls-d1:-1.5px;
+  --t-h1:700 28px/1.2 var(--ds-font);   --ls-h1:-1.5px;
+  --t-h2:700 26px/1.2 var(--ds-font);   --ls-h2:-1.5px;
+  --t-t1:700 22px/1.2 var(--ds-font);   --ls-t1:-1px;
+  --t-t2:700 20px/1.2 var(--ds-font);   --ls-t2:-1px;
+  --t-sub:700 19px/1.25 var(--ds-font); --ls-sub:-.3px;
+  --t-bodyb:700 17px/1.5 var(--ds-font);--ls-body:-.5px;
+  --t-bodyr:400 17px/1.5 var(--ds-font);
+  --t-b15b:700 16px/1.45 var(--ds-font);--t-b15r:400 16px/1.45 var(--ds-font);
+  --t-b14m:400 15px/1.45 var(--ds-font);
+  --t-capb:700 14px/1.25 var(--ds-font); --ls-capb:-.2px;
+  --t-capr:400 14px/1.3 var(--ds-font);  --ls-capr:-.5px;
+  --t-labm:400 13px/1.3 var(--ds-font);  --ls-lab:-.5px;
+  --t-labr:400 13px/1.3 var(--ds-font);
+  --t-labs:400 12px/1.3 var(--ds-font);
+  --t-micro:400 11px/1.5 var(--ds-font);
+  --ds-shadow:0 14px 54px rgba(0,0,0,.15); --ds-r:14px;
+
+  /* ② 별칭 — 랩·셸이 쓰던 이름을 정본에 물린다 */
+  --bg:var(--d-bg);
+  --panel:var(--d-bg-sub);
+  --panel2:var(--d-surface);
+  --line:var(--d-divider);
+  --text:var(--d-strong);
+  --dim:var(--d-t3);
+  --faint:var(--d-disabled);
+  --red:var(--nb-red);
+  --coral:var(--nb-coral);
+  --sand:var(--nb-sand);
+  --prism:var(--nb-prism);
+  --accent:var(--nb-red);
   --ok:#6AD4DE;
-  --accent:var(--red);
 }
 
-/* ── 공통 컨트롤 겉면 — 각 페이지의 기존 클래스와 충돌하지 않는 최소만 ── */
-input[type=range]{accent-color:var(--coral)}
+/* 공통 컨트롤 겉면 — 기존 클래스와 충돌하지 않는 최소만 */
+input[type=range]{accent-color:var(--nb-coral)}
 
-/* 랩 공용 클래스(옵트인) — 새 페이지·허브가 쓴다. 기존 페이지 강제 아님 */
+/* 공용 클래스(옵트인) — 허브·새 페이지가 쓴다. 기존 페이지 강제 아님 */
 .lab-btn{padding:7px 12px;border:1px solid var(--line);border-radius:7px;
   background:var(--panel2);color:var(--text);font-size:12px;cursor:pointer;text-decoration:none}
-.lab-btn:hover{border-color:#3A475A}
+.lab-btn:hover{border-color:var(--d-border)}
 .lab-btn.on{background:var(--accent);border-color:var(--accent);color:#101318;font-weight:700}
 .lab-h2{font-size:11px;font-weight:700;letter-spacing:.6px;color:var(--dim);
   text-transform:uppercase;border-bottom:1px solid var(--line);padding-bottom:6px;margin-bottom:8px}

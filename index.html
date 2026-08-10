@@ -12,6 +12,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Gowun+Dodum&family=Noto+Sans+KR:wght@300;500;700;900&family=Noto+Serif+KR:wght@600;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="lab-skin.css">
   <style>
     /* 피그마 StageCard 임포트 파이프라인 — 로컬 전용 폰트를 번들해 시뮬에서 직접 렌더.
        Pretendard: OFL, Supreme: Fontshare(ITF) 무료 라이선스 — 둘 다 웹 임베드 명시 허용. */
@@ -24,16 +25,6 @@
     @font-face { font-family: 'Supreme'; src: url('fonts/Supreme-Regular.woff2') format('woff2'); font-weight: 400; font-display: swap; }
     @font-face { font-family: 'Supreme'; src: url('fonts/Supreme-Medium.woff2') format('woff2'); font-weight: 500; font-display: swap; }
     @font-face { font-family: 'Supreme'; src: url('fonts/Supreme-Bold.woff2') format('woff2'); font-weight: 700; font-display: swap; }
-    :root {
-      --bg: #0c0e12;
-      --panel: #14171d;
-      --panel2: #1a1e26;
-      --line: #262b35;
-      --text: #e8eaf0;
-      --dim: #8b93a3;
-      --accent: #fa3030;
-      --ok: #6ad4de;
-    }
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body { height: 100%; overflow: hidden; }
     body {
@@ -265,36 +256,7 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
    같은 화면이 안 된다. 막대만 숨긴다 — 스크롤·휠 동작은 그대로다. */
 *{scrollbar-width:none;-ms-overflow-style:none}
 *::-webkit-scrollbar{width:0;height:0}
-:root{
-  /* Brand */
-  --nb-red:#FA3030; --nb-coral:#FE6E3C; --nb-sand:#FEC389; --nb-prism:#D1FEFF;
-  --nb-void:#091212; --nb-oxblood:#511815; --nb-crimson:#920F0F;
-  --nb-grad-bright:linear-gradient(90deg,#FA3030,#FE6E3C,#FEC389,#D1FEFF);
-  --nb-grad-dark:linear-gradient(90deg,#091212,#511815,#920F0F,#FA3030);
-  /* Neutral (Dark) */
-  --d-bg:#121212; --d-bg-sub:#1A1A1A; --d-surface:#232323; --d-divider:#2E2E2E;
-  --d-border:#3D3D3D; --d-disabled:#6B6B6B; --d-t3:#8F8F8F; --d-t2:#ADADAD;
-  --d-body:#C9C9C9; --d-strong:#E2E2E2; --d-title:#F5F5F5; --d-white:#FFF;
-  --ds-font:'Supreme','Freesentation','Pretendard',-apple-system,system-ui,sans-serif;
-  /* 타이포 스케일 — Figma 텍스트 스타일 정본(크기/굵기/자간) */
-  --t-d1:700 32px/1.2 var(--ds-font);   --ls-d1:-1.5px;
-  --t-h1:700 28px/1.2 var(--ds-font);   --ls-h1:-1.5px;
-  --t-h2:700 26px/1.2 var(--ds-font);   --ls-h2:-1.5px;
-  --t-t1:700 22px/1.2 var(--ds-font);   --ls-t1:-1px;
-  --t-t2:700 20px/1.2 var(--ds-font);   --ls-t2:-1px;
-  --t-sub:700 19px/1.25 var(--ds-font); --ls-sub:-.3px;
-  --t-bodyb:700 17px/1.5 var(--ds-font);--ls-body:-.5px;
-  --t-bodyr:400 17px/1.5 var(--ds-font);
-  --t-b15b:700 16px/1.45 var(--ds-font);--t-b15r:400 16px/1.45 var(--ds-font);
-  --t-b14m:400 15px/1.45 var(--ds-font);
-  --t-capb:700 14px/1.25 var(--ds-font); --ls-capb:-.2px;
-  --t-capr:400 14px/1.3 var(--ds-font);  --ls-capr:-.5px;
-  --t-labm:400 13px/1.3 var(--ds-font);  --ls-lab:-.5px;
-  --t-labr:400 13px/1.3 var(--ds-font);
-  --t-labs:400 12px/1.3 var(--ds-font);
-  --t-micro:400 11px/1.5 var(--ds-font);
-  --ds-shadow:0 14px 54px rgba(0,0,0,.15); --ds-r:14px;
-}
+/* DS 정본 토큰은 lab-skin.css 로 승격 — 값이 두 벌이면 그게 버그다 */
 #play-panel, #lab-panel, #dev-pill, #voice-caption{font-family:var(--ds-font);-webkit-font-smoothing:antialiased}
 .ds-d1{font:var(--t-d1);letter-spacing:var(--ls-d1)} .ds-h1{font:var(--t-h1);letter-spacing:var(--ls-h1)}
 .ds-t1{font:var(--t-t1);letter-spacing:var(--ls-t1)} .ds-t2{font:var(--t-t2);letter-spacing:var(--ls-t2)}
@@ -390,13 +352,13 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
 <body>
   <aside id="panel" class="dev-only">
     <header>
-      <h1>NEWTON · Design Token Simulator</h1>
+      <h1>NEWTON Design Token Simulator</h1>
       <p>외부 데이터 → 디자인 토큰 → 빔 UI → 따라하기 검증</p>
     </header>
 
     <nav class="tabs" id="pack-tabs">
       <button data-pack="boxing" class="active">복싱</button>
-      <button id="bx-video" title="실사 섀도복싱 영상(Pexels 7187515, 측면)에서 펀치 33건 자동 추출 — 손 배치 0. 리듬·타겟 높이가 그 복서의 것" style="display:none;border-color:#d1feff;color:#d1feff;">🎥 복서</button>
+      <button id="bx-video" title="실사 섀도복싱 영상(Pexels 7187515, 측면)에서 펀치 33건 자동 추출 — 손 배치 0. 리듬·타겟 높이가 그 복서의 것" style="display:none;border-color:#d1feff;color:#d1feff;">복서</button>
       <button data-pack="running">러닝</button>
       <button id="run-expert" title="Bandai 실측 러너(run_normal.bvh)에서 자동 추출된 전문가 팩 — 손 배치 0. 봇도 그 러너의 원본 모션을 그대로 재생" style="display:none;border-color:#fec389;color:#fec389;">⭐ 러너</button>
       <button id="run-video" title="영상 → MediaPipe 포즈 → 발 접지 자동 추출 팩 (video_pose_extract.py). 현재는 폐루프 검증 샘플(시뮬 봇 측면 캡처, Δt +9~32ms) — 외부 영상으로 교체 가능" style="display:none;border-color:#d1feff;color:#d1feff;">🎥 영상</button>
@@ -439,14 +401,14 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
     </div>
 
     <div class="section">
-      <h2>투사면 <span style="color:var(--dim);font-weight:400;font-size:10px;">· 바닥/벽 테마</span></h2>
+      <h2>투사면 <span style="color:var(--dim);font-weight:400;font-size:10px;">바닥과 벽 테마</span></h2>
       <div id="surf-chips" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
     </div>
 
     <div class="section" id="session-section">
-      <h2>세션 흐름 <span style="color:var(--accent)">A→B→C</span> <span id="session-avail" style="color:var(--dim);font-weight:400;font-size:10px;">· 러닝 전용</span></h2>
+      <h2>세션 흐름 <span style="color:var(--accent)">A→B→C</span> <span id="session-avail" style="color:var(--dim);font-weight:400;font-size:10px;">러닝 전용</span></h2>
       <button id="btn-session" style="width:100%;padding:9px 0;border:1px solid var(--accent);border-radius:6px;background:rgba(250,48,48,.12);color:var(--accent);font-size:12px;font-weight:700;cursor:pointer;">세션 시작 (1인칭 전환)</button>
-      <button id="btn-demo" style="width:100%;padding:8px 0;margin-top:6px;border:1px solid var(--line);border-radius:6px;background:var(--panel2);color:var(--text);font-size:12px;cursor:pointer;">🎬 데모 투어 (3종목 자동 순회)</button>
+      <button id="btn-demo" style="width:100%;padding:8px 0;margin-top:6px;border:1px solid var(--line);border-radius:6px;background:var(--panel2);color:var(--text);font-size:12px;cursor:pointer;">데모 투어 — 3종목 자동 순회</button>
       <p style="font-size:11px;color:var(--dim);line-height:1.5;margin-top:8px;">
         시작하면 <b style="color:var(--text)">1인칭으로 자동 전환</b>되고, 무입력이면 각 단계가 자동 진행됩니다.
         데모 투어는 러닝→복싱→농구를 손 안 대고 순회 — 영상 녹화용.
@@ -458,7 +420,7 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
          발형 SVG=룩 글리프 FOOT 슬롯 · 마크 형태=MARK 토큰 · 토큰별 아트=스튜디오 디자인 -->
 
     <div class="section">
-      <h2>🎬 모션 미리보기 · 이식 클립</h2>
+      <h2>모션 미리보기와 이식 클립</h2>
       <div style="display:flex;gap:6px;">
         <select id="mocap-preview-sel" style="flex:1 1 0;min-width:0;padding:6px;border:1px solid var(--line);border-radius:6px;background:var(--panel2);color:var(--text);font-size:11px;"></select>
         <button id="mocap-preview-btn" style="flex:0.55;padding:7px 0;border:1px solid var(--line);border-radius:6px;background:var(--panel2);color:var(--text);font-size:11px;cursor:pointer;">▶ 재생</button>
@@ -469,7 +431,7 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
     </div>
 
     <div class="section">
-      <h2>모션 검증 · 실측 모캡</h2>
+      <h2>모션 검증 — 실측 모캡</h2>
       <div style="display:flex;gap:6px;">
         <button id="verify-warmup" style="flex:1;padding:7px 0;border:1px solid var(--line);border-radius:6px;background:var(--panel2);color:var(--text);font-size:11px;cursor:pointer;">스트레칭</button>
         <button id="verify-kick" style="flex:1;padding:7px 0;border:1px solid var(--line);border-radius:6px;background:var(--panel2);color:var(--text);font-size:11px;cursor:pointer;">킥 (최악)</button>
@@ -487,7 +449,7 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
     </div>
 
     <div class="section">
-      <h2>판정 · 세션 리포트</h2>
+      <h2>판정과 세션 리포트</h2>
       <div class="slider-row">
         <label>타이밍 허용 <span class="val" id="v-tolt">±120ms</span></label>
         <input type="range" id="s-tolt" min="50" max="250" step="10" value="120">
@@ -516,7 +478,7 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
         <button id="btn-cone" style="flex:1;padding:8px 0;border:1px solid var(--line);border-radius:6px;background:var(--panel2);color:var(--text);font-size:12px;font-weight:600;cursor:pointer;">시야 콘</button>
       </div>
       <div style="display:flex;gap:8px;margin-bottom:8px;">
-        <button id="btn-edit" title="드래그로 빔프로젝터·인물 위치 이동 (3인칭)" style="flex:2;padding:8px 0;border:1px solid var(--line);border-radius:6px;background:var(--panel2);color:var(--text);font-size:12px;font-weight:600;cursor:pointer;">✥ 배치 편집 (드래그)</button>
+        <button id="btn-edit" title="드래그로 빔프로젝터·인물 위치 이동 (3인칭)" style="flex:2;padding:8px 0;border:1px solid var(--line);border-radius:6px;background:var(--panel2);color:var(--text);font-size:12px;font-weight:600;cursor:pointer;">배치 편집 — 드래그</button>
         <button id="btn-edit-reset" title="배치 되돌리기 (더블클릭도 가능)" style="flex:1;padding:8px 0;border:1px solid var(--line);border-radius:6px;background:var(--panel2);color:var(--text);font-size:12px;font-weight:600;cursor:pointer;">↺ 리셋</button>
       </div>
       <div class="slider-row">
@@ -566,7 +528,7 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
         스프링-댐퍼(K<sub>s</sub>=22·K<sub>d</sub>=9)·서보 300°/s 제한.
         OFF 시 무릎 스윙이 UI에 그대로 반영됩니다.
       </p>
-      <button id="btn-budget" style="width:100%;padding:7px 0;margin-top:6px;border:1px solid var(--line);border-radius:6px;background:var(--panel2);color:var(--text);font-size:11px;cursor:pointer;">🛡 오차예산 · 가정과 출처</button>
+      <button id="btn-budget" style="width:100%;padding:7px 0;margin-top:6px;border:1px solid var(--line);border-radius:6px;background:var(--panel2);color:var(--text);font-size:11px;cursor:pointer;">오차 예산과 출처</button>
     </div>
 
     <div class="section">
@@ -620,7 +582,7 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
       <span class="pp-sub">체험 랩</span>
     </div>
     <div class="lab-body">
-      <button class="lab-go" id="lab-run">▶ 러닝 실전 · 3인칭으로 보기</button>
+      <button class="lab-go" id="lab-run">러닝 실전을 3인칭으로 보기</button>
       <div class="lab-note">달리는 동안 무릎 유닛이 어떻게 흔들림을 잡는지 그대로 볼 수 있다.</div>
 
       <!-- 기본 펼침 = 만질 수 있는 것(보정 스위치)뿐. 값·근거는 접어 둔다. -->
@@ -648,7 +610,7 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
       </details>
 
       <details>
-        <summary>부품 · 마운트</summary>
+        <summary>부품과 마운트</summary>
         <div class="lab-kv"><span>유닛 위치</span><b>무릎 아래 11cm 바깥면</b></div>
         <div class="lab-kv"><span>렌즈 높이</span><b>≈51cm</b></div>
         <div class="lab-kv"><span>짐벌 서보</span><b>최대 300°/s</b></div>
@@ -674,7 +636,7 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
             ③ 발 위치를 맞추는 정밀 조작일수록 깊게. 장면마다 값을 새로 고르지 않는다.</div>
         </details>
         <details>
-          <summary>근거 · Matthis 2018</summary>
+          <summary>근거 — Matthis 2018</summary>
           <div class="lab-note">보행자는 약 2보 앞(~1.5초 시간창)을 응시한다. 평지+가이드에선 더 멀리 보므로
             실전이 원경(−20°)에, 발 근처를 보는 초심자 학습은 근경(−40°)에 앉는다.
             눈높이 1.6m · 낙하점 = 1.6/tanθ · 전환 τ=0.9초.</div>
@@ -695,7 +657,7 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
     </div>
   </div>
   <main id="stage">
-    <div id="loading"><div class="spin"></div><span>X Bot · 팩 데이터 로드 중…</span></div>
+    <div id="loading"><div class="spin"></div><span>X Bot 팩 데이터를 불러오는 중…</span></div>
     <div id="hud" class="dev-only"></div>
     <div id="event-flash"></div>
     <!-- 코치 자막 = 에펙 정본 이식(아바타+파형 위 / 알약 카드 아래). 배치는 상단 유지 —
@@ -706,17 +668,17 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
       <div class="vc-card"><span id="vc-text"></span><span id="vc-kr"></span></div>
     </div>
 
-    <button id="btn-real" class="dev-only" style="position:absolute;bottom:18px;right:60px;z-index:29;padding:9px 12px;border:1px solid var(--line);border-radius:8px;background:rgba(16,19,24,.9);color:var(--text);font-size:12px;font-weight:700;cursor:pointer;" title="실물 뷰 — 투사 커버리지(붉은 영역·빔) 숨김: 실제 러너 눈에는 투사된 UI만 보입니다">👁</button>
+    <button id="btn-real" class="dev-only" style="position:absolute;bottom:18px;right:60px;z-index:29;padding:9px 12px;border:1px solid var(--line);border-radius:8px;background:rgba(16,19,24,.9);color:var(--text);font-size:12px;font-weight:700;cursor:pointer;" title="실물 뷰 — 투사 커버리지(붉은 영역·빔) 숨김: 실제 러너 눈에는 투사된 UI만 보입니다">빔</button>
     <button id="btn-ht" class="dev-only" title="하프톤 스킨 — 판정 마크를 점으로. 색·상태·모션은 정본 그대로(FX Lab 후보랩 확정본)" style="position:absolute;bottom:60px;right:18px;z-index:29;padding:9px 12px;border:1px solid var(--line);border-radius:8px;background:rgba(16,19,24,.9);color:var(--text);font-size:12px;font-weight:700;cursor:pointer;">⣿</button>
-    <button id="btn-day" class="dev-only" style="position:absolute;bottom:18px;right:18px;z-index:29;padding:9px 12px;border:1px solid var(--line);border-radius:8px;background:rgba(16,19,24,.9);color:var(--text);font-size:12px;font-weight:700;cursor:pointer;" title="주간 모드 — 낮에도 보이는 투사(주광 가시 레이저)가 제품 스토리">☀️</button>
-    <a href="docs/newton-wireframe.html#tokens" target="_blank" rel="noopener" id="link-wireframe" class="dev-only" style="position:absolute;bottom:18px;right:352px;z-index:29;padding:9px 14px;border:1px solid var(--line);border-radius:8px;background:rgba(16,19,24,.9);color:var(--text);font-size:12px;font-weight:700;cursor:pointer;text-decoration:none;">📐 설계 문서</a>
-    <a href="https://www.figma.com/design/92a2mffNpTZ5PltLln7cgq" target="_blank" rel="noopener" id="link-figma" class="dev-only" title="장면 정보 카드(제목·CTA·카피)·룩 색 토큰 디자인 원본 — 여기서 편집" style="position:absolute;bottom:18px;right:228px;z-index:29;padding:9px 14px;border:1px solid var(--line);border-radius:8px;background:rgba(16,19,24,.9);color:var(--text);font-size:12px;font-weight:700;cursor:pointer;text-decoration:none;">🎨 피그마</a>
-    <button id="insp-tab-look" class="dev-only" title="룩 시스템(FX Lab) — 셰이더·모션·타이밍·색 팔레트 전체 페이지" style="position:absolute;bottom:18px;right:104px;z-index:29;padding:9px 14px;border:1px solid #fec389;border-radius:8px;background:rgba(254,195,137,.12);color:#fec389;font-size:12px;font-weight:700;cursor:pointer;">🔥 룩 시스템</button>
-    <button id="btn-specmap" class="dev-only" title="전 세션 장면의 실제 구성 요소와 편집 위치 — 씬 그래프에서 자동 생성 (도식 아님)" style="position:absolute;bottom:18px;right:476px;z-index:29;padding:9px 14px;border:1px solid var(--line);border-radius:8px;background:rgba(16,19,24,.9);color:var(--text);font-size:12px;font-weight:700;cursor:pointer;">🗺 장면 명세</button>
-    <a href="c3-variants.html" target="_blank" rel="noopener" id="link-c3var" class="dev-only" title="잽잽훅 1·2·3 컴포넌트 리디자인 시안 3종 — 실제 박자(3.00s·채찍·0.70s 수축)로 움직이는 미리보기. 고르면 정본(drawPunchLine)에 이식" style="position:absolute;bottom:18px;right:600px;z-index:29;padding:9px 14px;border:1px solid var(--line);border-radius:8px;background:rgba(16,19,24,.9);color:var(--text);font-size:12px;font-weight:700;cursor:pointer;text-decoration:none;">🥊 잽잽훅 시안</a>
+    <button id="btn-day" class="dev-only" style="position:absolute;bottom:18px;right:18px;z-index:29;padding:9px 12px;border:1px solid var(--line);border-radius:8px;background:rgba(16,19,24,.9);color:var(--text);font-size:12px;font-weight:700;cursor:pointer;" title="주간 모드 — 낮에도 보이는 투사(주광 가시 레이저)가 제품 스토리">주간</button>
+    <a href="docs/newton-wireframe.html#tokens" target="_blank" rel="noopener" id="link-wireframe" class="dev-only" style="position:absolute;bottom:18px;right:352px;z-index:29;padding:9px 14px;border:1px solid var(--line);border-radius:8px;background:rgba(16,19,24,.9);color:var(--text);font-size:12px;font-weight:700;cursor:pointer;text-decoration:none;">설계 문서</a>
+    <a href="https://www.figma.com/design/92a2mffNpTZ5PltLln7cgq" target="_blank" rel="noopener" id="link-figma" class="dev-only" title="장면 정보 카드(제목·CTA·카피)·룩 색 토큰 디자인 원본 — 여기서 편집" style="position:absolute;bottom:18px;right:228px;z-index:29;padding:9px 14px;border:1px solid var(--line);border-radius:8px;background:rgba(16,19,24,.9);color:var(--text);font-size:12px;font-weight:700;cursor:pointer;text-decoration:none;">피그마</a>
+    <button id="insp-tab-look" class="dev-only" title="룩 시스템(FX Lab) — 셰이더·모션·타이밍·색 팔레트 전체 페이지" style="position:absolute;bottom:18px;right:104px;z-index:29;padding:9px 14px;border:1px solid #fec389;border-radius:8px;background:rgba(254,195,137,.12);color:#fec389;font-size:12px;font-weight:700;cursor:pointer;">룩 시스템</button>
+    <button id="btn-specmap" class="dev-only" title="전 세션 장면의 실제 구성 요소와 편집 위치 — 씬 그래프에서 자동 생성 (도식 아님)" style="position:absolute;bottom:18px;right:476px;z-index:29;padding:9px 14px;border:1px solid var(--line);border-radius:8px;background:rgba(16,19,24,.9);color:var(--text);font-size:12px;font-weight:700;cursor:pointer;">장면 명세</button>
+    <a href="c3-variants.html" target="_blank" rel="noopener" id="link-c3var" class="dev-only" title="잽잽훅 1·2·3 컴포넌트 리디자인 시안 3종 — 실제 박자(3.00s·채찍·0.70s 수축)로 움직이는 미리보기. 고르면 정본(drawPunchLine)에 이식" style="position:absolute;bottom:18px;right:600px;z-index:29;padding:9px 14px;border:1px solid var(--line);border-radius:8px;background:rgba(16,19,24,.9);color:var(--text);font-size:12px;font-weight:700;cursor:pointer;text-decoration:none;">잽잽훅 시안</a>
     <div id="studio" style="position:absolute;top:0;left:0;bottom:0;width:min(420px,31vw);background:rgba(12,14,18,.98);border-right:1px solid var(--line);z-index:28;display:none;flex-direction:column;">
       <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px 8px;border-bottom:1px solid var(--line);">
-        <b style="font-size:13px;">✎ 편집 <span style="color:var(--dim);font-weight:400;font-size:11px;">· 러닝 지면</span></b>
+        <b style="font-size:13px;">편집 <span style="color:var(--dim);font-weight:400;font-size:11px;">· 러닝 지면</span></b>
         <button id="studio-close" style="border:none;background:none;color:var(--dim);font-size:16px;cursor:pointer;">✕</button>
       </div>
       <div id="studio-scope" style="display:flex;gap:5px;padding:9px 14px;border-bottom:1px solid var(--line);align-items:center;flex-wrap:wrap;">
@@ -736,17 +698,17 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
       <div id="studio-scene-palette" style="display:none;gap:6px;padding:10px 14px;border-bottom:1px solid var(--line);flex-wrap:wrap;align-items:center;">
         <button class="stadd" data-k="text" style="padding:6px 10px;border:1px solid var(--line);border-radius:6px;background:var(--panel2);color:var(--text);font-size:11px;cursor:pointer;">＋𝐓 글자</button>
         <button class="stadd" data-k="ring" style="padding:6px 10px;border:1px solid var(--line);border-radius:6px;background:var(--panel2);color:var(--text);font-size:11px;cursor:pointer;">＋◎ 링</button>
-        <button class="stadd" data-k="arrow" style="padding:6px 10px;border:1px solid var(--line);border-radius:6px;background:var(--panel2);color:var(--text);font-size:11px;cursor:pointer;">＋➤ 화살표</button>
-        <button class="stadd" data-k="foot" style="padding:6px 10px;border:1px solid var(--line);border-radius:6px;background:var(--panel2);color:var(--text);font-size:11px;cursor:pointer;">＋👣 발</button>
+        <button class="stadd" data-k="arrow" style="padding:6px 10px;border:1px solid var(--line);border-radius:6px;background:var(--panel2);color:var(--text);font-size:11px;cursor:pointer;">＋ 화살표</button>
+        <button class="stadd" data-k="foot" style="padding:6px 10px;border:1px solid var(--line);border-radius:6px;background:var(--panel2);color:var(--text);font-size:11px;cursor:pointer;">＋ 발</button>
         
       </div>
       <div id="scene-layers" style="display:none;flex-direction:column;gap:2px;padding:6px 12px;border-bottom:1px solid var(--line);max-height:148px;overflow-y:auto;"></div>
       <div id="studio-canvas-wrap" style="display:none;flex:0 0 180px;position:relative;min-height:0;">
         <canvas id="studio-canvas" style="position:absolute;inset:0;width:100%;height:100%;"></canvas>
-        <div id="studio-tip" style="position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:2;background:rgba(250,48,48,.94);color:#fff;padding:7px 14px;border-radius:20px;font-size:12px;font-weight:600;pointer-events:none;box-shadow:0 3px 12px rgba(0,0,0,.5);">👇 동그라미(토큰) 하나를 클릭해 보세요</div>
+        <div id="studio-tip" style="position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:2;background:rgba(250,48,48,.94);color:#fff;padding:7px 14px;border-radius:20px;font-size:12px;font-weight:600;pointer-events:none;box-shadow:0 3px 12px rgba(0,0,0,.5);">동그라미 토큰 하나를 클릭해 보세요</div>
       </div>
       <div style="flex:1;min-height:0;"></div>
-      <div style="padding:6px 14px 0;font-size:10px;color:var(--dim);border-top:1px solid var(--line);">✓ 편집 내용은 <b style="color:var(--ok)">자동 저장</b>돼요 · <b style="color:var(--text)">Ctrl+Z</b> 되돌리기 / <b style="color:var(--text)">Ctrl+Shift+Z</b> 다시.</div>
+      <div style="padding:6px 14px 0;font-size:10px;color:var(--dim);border-top:1px solid var(--line);">편집 내용은 <b style="color:var(--ok)">자동 저장</b>됩니다. <b style="color:var(--text)">Ctrl+Z</b> 되돌리기 / <b style="color:var(--text)">Ctrl+Shift+Z</b> 다시.</div>
       <div style="display:flex;gap:6px;padding:8px 14px 0;">
         <button id="studio-undo" style="flex:1;padding:7px 0;border:1px solid var(--line);border-radius:6px;background:var(--panel2);color:var(--text);font-size:11px;cursor:pointer;">↶ 되돌리기</button>
         <button id="studio-redo" style="flex:1;padding:7px 0;border:1px solid var(--line);border-radius:6px;background:var(--panel2);color:var(--text);font-size:11px;cursor:pointer;">↷ 다시</button>
@@ -760,7 +722,7 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
     <!-- 우측 인스펙터 — 좌=구조(컷·레이어) / 우=속성·룩 (피그마 2패널) -->
     <div id="inspector" style="position:absolute;top:0;right:0;bottom:0;width:min(420px,31vw);background:rgba(12,14,18,.98);border-left:1px solid var(--line);z-index:28;display:none;flex-direction:column;">
       <div style="display:flex;gap:8px;padding:9px 14px;border-bottom:1px solid var(--line);align-items:center;">
-        <b style="flex:1;font-size:12px;color:var(--text);">배치 · 판정 <span style="color:var(--dim);font-weight:400;font-size:10px;">비주얼은 룩 시스템이 정합니다</span></b>
+        <b style="flex:1;font-size:12px;color:var(--text);">배치와 판정 <span style="color:var(--dim);font-weight:400;font-size:10px;">비주얼은 룩 시스템이 정합니다</span></b>
       </div>
       <div id="studio-props" style="flex:1;min-height:0;overflow-y:auto;background:rgba(16,19,24,.6);"></div>
     </div>
@@ -786,7 +748,7 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
         <button id="btn-stage-next" style="flex:1;padding:8px 0;border:1px solid var(--line);border-radius:7px;background:var(--panel2);color:var(--text);font-size:12px;cursor:pointer;">다음 ▶</button>
       </div>
       <div style="display:flex;gap:6px;margin-top:6px;">
-        <button id="btn-tts" style="flex:0.5;padding:7px 0;border:1px solid var(--line);border-radius:7px;background:var(--panel2);color:var(--text);font-size:12px;cursor:pointer;">🔊</button>
+        <button id="btn-tts" style="flex:0.5;padding:7px 0;border:1px solid var(--line);border-radius:7px;background:var(--panel2);color:var(--text);font-size:12px;cursor:pointer;">소리</button>
         <button id="btn-view" style="flex:1;padding:7px 0;border:1px solid var(--line);border-radius:7px;background:var(--panel2);color:var(--dim);font-size:11px;cursor:pointer;">3인칭 보기</button>
         <button id="btn-session-stop" style="flex:1;padding:7px 0;border:1px solid var(--line);border-radius:7px;background:var(--panel2);color:var(--dim);font-size:11px;cursor:pointer;">■ 세션 중단</button>
       </div>
@@ -812,7 +774,7 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
       </div>
       <div id="pp-idle">
         <button class="pp-start" id="pp-start">세션 체험하기</button>
-        <div class="pp-hint">1인칭으로 전환 · F키 전체화면 · D키 개발자 모드</div>
+        <div class="pp-hint">탭하면 1인칭 전환, F 전체화면, D 개발자 모드</div>
       </div>
       <div id="pp-live" style="display:none">
         <div class="pp-row">
