@@ -348,16 +348,25 @@ function dump() {
     : '// 기본값과 같음 — 바꾼 토큰이 없습니다';
 }
 
+// ── 실시간 브리지 — 슬라이더가 **시뮬에 곧바로** 반영된다(footlab 'newton-marklook'과 같은 규약).
+//   저장+전체 리로드를 기다려야만 보이던 것(유저 08-11: 지면 레이아웃 아무것도 안 먹었잖아).
+//   diff 가 아니라 **전체 스냅샷**을 보낸다 — 기본값으로 되돌린 키가 시뮬에 남지 않게.
+const _bc = (() => { try { return new BroadcastChannel('newton-floortok'); } catch { return null; } })();
+function bcast() {
+  const snap = {};
+  for (const k of Object.keys(TOK)) if (typeof TOK[k] === 'number') snap[k] = TOK[k];
+  _bc?.postMessage(snap);
+}
 document.querySelectorAll('[data-t]').forEach(el => {
   el.addEventListener('input', () => {
     TOK[el.dataset.t] = +el.value;
     document.querySelector(`[data-v="${el.dataset.t}"]`).textContent = fmt(TOK[el.dataset.t]);
-    repaint();
+    repaint(); bcast();
   });
 });
 // 구조 스위치 — buildScene 을 다시 태워야 반영된다
 document.querySelectorAll('[data-s]').forEach(el => {
-  el.addEventListener('change', () => { TOK[el.dataset.s] = el.checked ? 1 : 0; reload(); });
+  el.addEventListener('change', () => { TOK[el.dataset.s] = el.checked ? 1 : 0; reload(); bcast(); });
 });
 document.querySelectorAll('[data-ov]').forEach(el => {
   el.checked = OV[el.dataset.ov];
@@ -394,7 +403,7 @@ function preset(obj, btn) {
   Object.assign(TOK, BASE, obj);
   document.querySelectorAll('#p-now,#p-new,#p-legacy').forEach(b => b.classList.remove('on'));
   btn?.classList.add('on');
-  syncUI(); reload();
+  syncUI(); reload(); bcast();
 }
 $('#p-now').addEventListener('click', e => preset({}, e.target));
 $('#p-new').addEventListener('click', e => preset(PROPOSED, e.target));

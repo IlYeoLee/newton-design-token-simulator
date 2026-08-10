@@ -925,6 +925,15 @@ export const LAYOUT = {
 // 저장본을 얹는다 — 파생값(ring)과 설명 키(_)는 건너뛴다.
 for (const [k, v] of Object.entries(FLOOR_TOK_JSON || {}))
   if (k !== '_' && k !== 'ring' && typeof v === 'number') TOK[k] = v;
+// 실시간 브리지 — 지면 랩(tokens.html) 슬라이더가 저장·리로드 없이 곧바로 반영된다
+//   (footlab 'newton-marklook' → applyMarkLook 과 같은 규약). _paint 가 매 프레임 TOK 를
+//   읽으므로 값만 갈아 끼우면 다음 프레임에 나온다. 영속은 여전히 '코드에 저장'이 담당.
+try {
+  new BroadcastChannel('newton-floortok').onmessage = e => {
+    const d = e.data || {};
+    for (const k in d) if (k !== '_' && k !== 'ring' && typeof d[k] === 'number') TOK[k] = d[k];
+  };
+} catch { /* 미지원 브라우저 */ }
 
 // 링 반지름은 **파생값**이다 — 직접 적지 말 것. 숫자(fsTimer)와 비례(ringRatio)에서 나온다.
 //   enumerable:false — 갤러리의 `{...TOK}` / `Object.assign` 이 이 파생값을 복사·역주입하지 않게.
