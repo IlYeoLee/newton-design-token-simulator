@@ -2488,10 +2488,7 @@ export class Session {
       //   대사가 끝나면 voiceBusy 가 false 가 되어 그 프레임에 넘어간다 — 여기서 재는 건
       //   '얼마나 더 기다려 줄 수 있나'(폭주 방지 천장)뿐이다. 12s = 가장 긴 대사 + 대기 하나.
       const left = this.voiceLeft?.() ?? 0;
-      // ★ 전시 자동 모드(auto)는 상한 3.5s — 실측(08-11 E2E): 대사 완주 대기가 114초 중 59초를
-      //   먹었다(T1 18s·T2 16s·C1 15s). 관람객에겐 멈춘 화면이다. 수동 모드는 12s 그대로.
-      const cap = this.auto ? 3500 : (left > 0.05 ? 12000 : 2500);
-      if (now - this._waitStart < cap) return;
+      if (now - this._waitStart < (left > 0.05 ? 12000 : 2500)) return;
     }
     this._waitStart = 0;
     // ★ 씬 미리보기 고정(?scene=) — 여기서 막는다. 예전엔 넘어가게 두고 다음 프레임에
