@@ -8,28 +8,28 @@
   @font-face{font-family:'OffBit';src:url('fonts/OffBitTrial-DotBold.woff2') format('woff2');font-weight:700;font-display:block}
   *{box-sizing:border-box}
   html,body{margin:0;background:var(--bg);color:var(--text);
-    font:13px/1.5 -apple-system,'Malgun Gothic',sans-serif}
+    font:13px/1.55 var(--ds-font)}
   .wrap{display:flex;gap:18px;padding:18px;align-items:flex-start;flex-wrap:wrap}
   /* 패널이 세로로 길어 미리보기를 보면서 조절할 수가 없었다(유저) — 패널만 따로 스크롤한다. */
   .panel{width:330px;flex:0 0 330px;background:var(--panel);border:1px solid var(--line);
     border-radius:14px;padding:16px;position:sticky;top:18px;
     max-height:calc(100vh - 36px);overflow-y:auto;overscroll-behavior:contain}
   .panel::-webkit-scrollbar{width:8px}
-  .panel::-webkit-scrollbar-thumb{background:#2A3140;border-radius:4px}
-  h1{font-size:15px;margin:0 0 4px}
+  .panel::-webkit-scrollbar-thumb{background:var(--d-border);border-radius:4px}
+  h1{font-size:15px;font-weight:700;letter-spacing:-.3px;margin:0 0 4px}
   .sub{color:var(--dim);font-size:11.5px;margin:0 0 14px}
   fieldset{border:1px solid var(--line);border-radius:10px;margin:0 0 12px;padding:10px 12px 12px}
-  legend{color:var(--dim);font-size:11px;padding:0 5px}
+  legend{color:var(--dim);font-size:10.5px;font-weight:700;letter-spacing:.5px;padding:0 5px}
   .row{display:flex;align-items:center;gap:8px;margin:7px 0}
   .row label{flex:0 0 96px;color:var(--dim);font-size:11.5px}
   .row input[type=range]{flex:1;min-width:0;accent-color:var(--red)}
   .row .v{flex:0 0 46px;text-align:right;font-variant-numeric:tabular-nums;font-size:11.5px}
   .seg{display:flex;gap:4px;flex-wrap:wrap}
-  .seg button{flex:1;min-width:60px;background:#161A22;color:var(--dim);border:1px solid var(--line);
+  .seg button{flex:1;min-width:60px;background:var(--panel2);color:var(--dim);border:1px solid var(--line);
     border-radius:8px;padding:6px 4px;font-size:11.5px;cursor:pointer}
   .seg button.on{background:var(--red);border-color:var(--red);color:#fff}
   .acts{display:flex;gap:6px;margin-top:4px}
-  .acts button{flex:1;background:#161A22;color:var(--text);border:1px solid var(--line);
+  .acts button{flex:1;background:var(--panel2);color:var(--text);border:1px solid var(--line);
     border-radius:8px;padding:8px;font-size:11.5px;cursor:pointer}
   .stage{flex:1 1 620px;min-width:520px}
   .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:14px}
@@ -49,7 +49,7 @@
   #prims{width:calc(var(--hero,460px) * 3.0);max-width:100%;height:auto;aspect-ratio:1900 / 800}
   #align{width:calc(var(--hero,460px) * 1.5);max-width:100%;height:auto;aspect-ratio:840 / 280}
   .stage{flex:1 1 560px;min-width:420px}
-  #snip{width:100%;height:118px;background:#0B0E13;color:var(--sand);border:1px solid var(--line);
+  #snip{width:100%;height:118px;background:var(--bg);color:var(--sand);border:1px solid var(--line);
     border-radius:8px;padding:8px;font:11px/1.5 ui-monospace,Consolas,monospace;resize:vertical}
   .note{color:var(--dim);font-size:11px;margin:8px 0 0}
   .warn{color:var(--red);font-size:11.5px;margin:8px 0 0;display:none}
@@ -57,7 +57,7 @@
 <div class=wrap>
   <div class=panel>
     <h1>발자국 랩 — 깔창 각인</h1>
-    <p class=sub>겉 = 신발 실루엣 · 안 = 맨발 자국(도트).<br>정본 셰이더(MARK_GLSL)를 그대로 돌린다.</p>
+    <p class=sub>겉은 신발 실루엣, 안은 맨발 자국(도트).<br>정본 셰이더(MARK_GLSL)를 그대로 돌린다.</p>
 
     <fieldset><legend>버전 비교 — 오늘 발자국 룩이 바뀐 지점</legend>
       <div class=seg id=segVer style="flex-wrap:wrap">
@@ -92,12 +92,12 @@
       <div class=row><label>윤곽 글로우</label><input type=range id=glow min=0 max=1.4 step=.02><span class=v id=vglow></span></div>
     </fieldset>
 
-    <fieldset><legend>압력장 · 등고선 (색을 정하는 입력)</legend>
+    <fieldset><legend>압력장과 등고선 — 색을 정하는 입력</legend>
       <div class=row><label>압력장</label><input type=range id=plantar min=0 max=1 step=.02><span class=v id=vplantar></span></div>
       <div class=row><label>등고선 단계</label><input type=range id=bands min=0 max=24 step=1><span class=v id=vbands></span></div>
       <div class=row><label>밴드 무름</label><input type=range id=bandSoft min=0 max=1 step=.01><span class=v id=vbandSoft></span></div>
-      <div class=row><label>상태 색 · 뜨거운 끝 tLo</label><input type=range id=tLo min=0 max=1 step=.01><span class=v id=vtLo></span></div>
-      <div class=row><label>상태 색 · 밝은 끝 tHi</label><input type=range id=tHi min=0 max=1 step=.01><span class=v id=vtHi></span></div>
+      <div class=row><label>상태 색 — 뜨거운 끝 tLo</label><input type=range id=tLo min=0 max=1 step=.01><span class=v id=vtLo></span></div>
+      <div class=row><label>상태 색 — 밝은 끝 tHi</label><input type=range id=tHi min=0 max=1 step=.01><span class=v id=vtHi></span></div>
       <div class=hint>온도 창 = **상태의 색**. 0 쪽이 레드(팔레트 최강), 0.86 쯤이 샌드. tHi 0 = 미설정(상태 기본 창).<br>'이 상태만' 으로 두고 확대 중인 상태에 얹는다 — 피그마 성공 정본(163:8908)이 기준.</div>
       <div class=row><label>이너 섀도우</label><input type=range id=edgeShade min=0 max=1.4 step=.01><span class=v id=vedgeShade></span></div>
       <div class=row><label>섀도우 면적</label><input type=range id=edgeShadeW min=.2 max=4 step=.05><span class=v id=vedgeShadeW></span></div>
@@ -110,7 +110,7 @@
       <div class=row><label>엣지 폭</label><input type=range id=edgeW min=.01 max=.3 step=.005><span class=v id=vedgeW></span></div>
       <div class=row><label>필 소프트</label><input type=range id=edgeSoft min=0 max=1 step=.01><span class=v id=vedgeSoft></span></div>
       <div class=row><label>디더(밴딩)</label><input type=range id=dither min=0 max=.05 step=.001><span class=v id=vdither></span></div>
-      <p class=sub style="margin:6px 0 0">0 = 옛 방사 그라디언트(중심거리) · 1 = 족저 압력장(앞꿈치·뒤꿈치 핫스팟)</p>
+      <p class=sub style="margin:6px 0 0">0은 옛 방사 그라디언트(중심거리), 1은 족저 압력장(앞꿈치·뒤꿈치 핫스팟)</p>
     </fieldset>
 
     <fieldset><legend>토큰 공통 (룩 시스템)</legend>
@@ -133,7 +133,7 @@
       <div class=row><label>파면 폭</label><input type=range id=ripWidth min=.01 max=.4 step=.005><span class=v id=vripWidth></span></div>
       <div class=row><label>속도</label><input type=range id=ripSpeed min=.05 max=2 step=.05><span class=v id=vripSpeed></span></div>
       <div class=row><label>뉴턴 그라디언트</label><input type=range id=ripGrad min=0 max=1 step=.02><span class=v id=vripGrad></span></div>
-      <p class=sub style="margin:2px 0 4px">1 = LUT 를 훑는다(퍼질수록 식음) · 0 = 아래 단색</p>
+      <p class=sub style="margin:2px 0 4px">1은 LUT 를 훑고(퍼질수록 식는다), 0은 아래 단색</p>
       <div class=seg id=segRipCol><button data-v=0>프리즘</button><button data-v=1 class=on>샌드</button><button data-v=2>코랄</button><button data-v=3>레드</button><button data-v=4>흰</button></div>
     </fieldset>
 
@@ -184,7 +184,7 @@
       <canvas id=hero width=640 height=640></canvas>
     </div>
     <div class=card>
-      <h2>8상태 × 세 표현형 — 1줄 발형 · 2줄 원형(존) · 3줄 원형+로고 글리프(러닝 판정 마크 정본). 8번째 Tap2 = READY 탭 어포던스(무채↔석세스 2회 깜빡). 셀을 클릭하면 위 확대로</h2>
+      <h2>8상태 × 세 표현형 — 1줄 발형, 2줄 원형(존), 3줄 원형+로고 글리프(러닝 판정 마크 정본). 8번째 Tap2 = READY 탭 어포던스(무채↔석세스 2회 깜빡). 셀을 클릭하면 위 확대로</h2>
       <canvas id=strip width=1120 height=690></canvas>
     </div>
     <div class=card>
@@ -213,7 +213,7 @@
       <p class=note>실제 사진을 쓰려면 <code>public/floors/track.jpg</code> · <code>tile.jpg</code> 로 넣으면 자동으로 그걸 씁니다. 지금은 근사색으로 그립니다.</p>
     </div>
     <div class=card>
-      <h2>A2 종아리 늘리기 — 실측 스탠스 · 실측 타이밍으로 도는 판</h2>
+      <h2>A2 종아리 늘리기 — 실측 스탠스와 실측 타이밍으로 도는 판</h2>
       <div class=seg id=segA2Stance style="margin-bottom:10px">
         <button data-v=0.77 class=on>압축 ×0.5 · 0.77m</button><button data-v=0.92>압축 ×0.6 · 0.92m</button><button data-v=1.54>실척 1.54m</button><button data-v=0.32>지금 시뮬 0.32m</button>
       </div>

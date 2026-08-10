@@ -171,6 +171,22 @@ body:not(.dev) #session-hud{display:none !important}
 body:not(.dev) #lab-panel{display:block}
 body:not(.dev) #stage{margin-left:326px}
 body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
+/* ── TV·대형 모니터 가독(유저 08-11: 제품 뷰가 큰 화면에 뜬다 — 꼼꼼히) ──
+   제품 뷰 패널은 px 고정이라 QHD·4K 에서 글자가 상대적으로 준다. 패널 내부 px 를
+   전부 다시 재는 대신 zoom 으로 판째 키운다(크롬 전시 환경 전제 — 키오스크와 동일).
+   stage 여백은 zoom 배율만큼 같이 커져야 패널이 씬을 덮지 않는다. */
+@media (min-width:2200px){
+  #play-panel,#lab-panel,#voice-caption,#dev-pill{zoom:1.28}
+  body:not(.dev) #stage{margin-left:calc(326px*1.28);margin-right:calc(320px*1.28)}
+  body:not(.dev):has(#lab-panel.folded) #stage{margin-left:calc(56px*1.28)}
+  body:not(.dev):has(#play-panel.folded) #stage{margin-right:calc(56px*1.28)}
+}
+@media (min-width:3400px){
+  #play-panel,#lab-panel,#voice-caption,#dev-pill{zoom:1.9}
+  body:not(.dev) #stage{margin-left:calc(326px*1.9);margin-right:calc(320px*1.9)}
+  body:not(.dev):has(#lab-panel.folded) #stage{margin-left:calc(56px*1.9)}
+  body:not(.dev):has(#play-panel.folded) #stage{margin-right:calc(56px*1.9)}
+}
 #lab-panel.folded{width:56px;padding:16px 12px}
 #lab-panel.folded .lab-body,#lab-panel.folded .pp-title,#lab-panel.folded .pp-sub{display:none}
 #lab-panel h3{margin:18px 0 8px;font-size:11px;letter-spacing:1.6px;color:var(--d-title);font-weight:800}
@@ -198,9 +214,9 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
 #lab-panel .lab-body>details:first-of-type{border-top:0}
 #lab-panel .lab-sw{display:flex;align-items:center;gap:9px;padding:9px 10px;margin-top:6px;
   border:1px solid rgba(255,255,255,.10);border-radius:10px;background:rgba(255,255,255,.04);cursor:pointer}
-#lab-panel .lab-sw .dotsw{width:26px;height:15px;border-radius:99px;background:#333a45;position:relative;flex:0 0 auto}
+#lab-panel .lab-sw .dotsw{width:26px;height:15px;border-radius:99px;background:var(--d-border);position:relative;flex:0 0 auto}
 #lab-panel .lab-sw .dotsw::after{content:'';position:absolute;top:2px;left:2px;width:11px;height:11px;border-radius:50%;
-  background:#8b93a1;transition:transform .28s cubic-bezier(.34,1.32,.5,1),background .22s cubic-bezier(.2,.8,.3,1)}
+  background:var(--d-t3);transition:transform .28s cubic-bezier(.34,1.32,.5,1),background .22s cubic-bezier(.2,.8,.3,1)}
 #lab-panel .lab-sw.on .dotsw{background:rgba(209,254,255,.3)}
 #lab-panel .lab-sw.on .dotsw::after{transform:translateX(11px);background:#d1feff}
 #lab-panel .lab-sw .t{font-size:12px;font-weight:700}
@@ -299,17 +315,17 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
   font:var(--t-capb);letter-spacing:-.2px;padding:13px 0;display:flex;align-items:center;justify-content:center;gap:6px}
 #play-panel button.pp-btn.ico{flex:.62}
 #play-panel button.pp-btn svg{flex:0 0 auto}
-#play-panel button.pp-btn:hover{background:#2c2c2c;color:#fff}
+#play-panel button.pp-btn:hover{background:var(--d-surface);color:#fff}
 #play-panel button.pp-cta{background:var(--nb-red);color:#fff}
-#play-panel button.pp-cta:hover{background:#ff4646}
+#play-panel button.pp-cta:hover{background:var(--nb-red)}
 /* 보조 조작(이전·다음·음소거·3인칭·처음으로) = 회색 서피스. 빨강은 '두 번 탭' 하나만(유저). */
 #play-panel .pp-row button.pp-btn{background:var(--d-surface);color:var(--d-body)}
-#play-panel .pp-row button.pp-btn:hover{background:#2c2c2c;color:#fff}
+#play-panel .pp-row button.pp-btn:hover{background:var(--d-surface);color:#fff}
 #play-panel .pp-row button.pp-cta{background:var(--nb-red);color:#fff}
-#play-panel .pp-row button.pp-cta:hover{background:#ff4646;color:#fff}
+#play-panel .pp-row button.pp-cta:hover{background:var(--nb-red);color:#fff}
 #play-panel .pp-start{border:0;border-radius:999px;background:var(--nb-red);color:#fff;
   font:var(--t-bodyb);letter-spacing:var(--ls-body);padding:16px 0;box-shadow:none}
-#play-panel .pp-start:hover{background:#ff4646}
+#play-panel .pp-start:hover{background:var(--nb-red)}
 #play-panel .pp-hint{margin-top:12px;font:var(--t-labr);color:var(--d-t3);letter-spacing:-.5px}
 
 /* 토글 = 같은 면 + 선택 시 레드 (샌드/프리즘 사용 안 함) */
@@ -343,7 +359,7 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
 #lab-panel .lab-live b{color:var(--d-title);font:var(--t-d1);letter-spacing:var(--ls-d1)}
 #lab-panel .lab-go{border:0;border-radius:999px;background:var(--d-surface);color:var(--d-strong);
   font:var(--t-capb);letter-spacing:-.2px;padding:14px 0}
-#lab-panel .lab-go:hover{background:#2c2c2c;color:#fff}
+#lab-panel .lab-go:hover{background:var(--d-surface);color:#fff}
 /* 겉면은 이제 그릇이 아니다 — 배경·패딩은 안쪽 .vc-card 가 갖는다(에펙 정본 구조). */
 #voice-caption{border:0;background:none;padding:0;backdrop-filter:none;color:var(--d-title)}
 #dev-pill{border:0;border-radius:999px;background:var(--d-surface);color:var(--d-t3);font:var(--t-labr)}
@@ -538,7 +554,7 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
     </div>
 
     <div class="section" id="stab-section">
-      <h2>무릎 투사 안정화 <span style="color:#4fc3f7">(이식)</span></h2>
+      <h2>무릎 투사 안정화 <span style="color:var(--prism)">(이식)</span></h2>
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
         <button id="btn-stab" style="padding:7px 14px;border:1px solid var(--ok);border-radius:6px;background:rgba(105,240,174,.12);color:var(--ok);font-size:12px;font-weight:700;cursor:pointer;">보정 ON</button>
         <span style="font-size:11px;color:var(--dim);">투사 오차 <b id="stab-err" style="color:var(--accent);font-variant-numeric:tabular-nums;">0.0cm</b></span>
@@ -677,8 +693,8 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
         <div class="lab-kv"><span><b>근경</b> −40°</span><b>1.9m</b></div>
         <details>
           <summary>장면 배정</summary>
-          <div class="lab-note">정면 = 복싱 전 구간·드리블 2막 · 원경 = 실전 달리기 ·
-            중경 = 전환·리치 홀드 · 근경 = READY·스트레칭·익히기·타이머·리포트</div>
+          <div class="lab-note">정면은 복싱 전 구간과 드리블 2막, 원경은 실전 달리기,
+            중경은 전환과 리치 홀드, 근경은 READY·스트레칭·익히기·타이머·리포트</div>
         </details>
         <details>
           <summary>고르는 규칙</summary>
@@ -780,7 +796,7 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
 
 
     <!-- 전환 베일 (단계 전환 시 부드러운 암전) -->
-    <div id="stage-veil" style="position:absolute;inset:0;background:#0c0e12;opacity:0;transition:opacity .28s;pointer-events:none;"></div>
+    <div id="stage-veil" style="position:absolute;inset:0;background:var(--bg);opacity:0;transition:opacity .28s;pointer-events:none;"></div>
     <!-- 웨어러블 개입 1인칭 표시 (화면 가장자리 글로우) -->
     <div id="wear-fx" style="position:absolute;inset:0;opacity:0;transition:opacity .4s;pointer-events:none;"></div>
 
