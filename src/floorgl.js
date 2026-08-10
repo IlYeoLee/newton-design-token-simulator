@@ -2471,8 +2471,11 @@ export class FloorGL {
     ctx.drawImage(im, CX - w / 2 + w * 0.0495, topY - h / 2, w, h);
     ctx.restore();
     ctx.save();
+    // ★ 마스크를 조인다(유저 08-10: 모든 바닥 지면이 조금씩 '달아' 보인다). 에셋의 바깥
+    //   그라디언트(sand→prism 헤일로)가 밝은 지면에선 판 전체를 베이지로 물들였다 —
+    //   어두운 벽에선 녹아들던 것이 매체가 바뀌니 얼룩이 된다. 빨강·코랄 코어만 남긴다.
     const g = ctx.createRadialGradient(CX, H * 0.43, 0, CX, H * 0.43, W * 0.58);
-    g.addColorStop(0.22, 'rgba(0,0,0,0)'); g.addColorStop(0.82, 'rgba(0,0,0,1)');
+    g.addColorStop(0.16, 'rgba(0,0,0,0)'); g.addColorStop(0.52, 'rgba(0,0,0,1)');
     ctx.globalCompositeOperation = 'destination-out';
     ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
     ctx.restore();
