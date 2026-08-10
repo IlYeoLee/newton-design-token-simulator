@@ -2510,6 +2510,8 @@ export class Session {
     this.bkShotNow = false;
     this.bkB1EyesUp = false; this.bkB1Setup = false; this.bkB1Succ = null; this.bkB1Widen = null; this.bkB1P2t = null; // B1 신호 리셋
     this._bkStrId = null;   // 워밍업 스트레칭 재진입 리셋 (스테이지 전환 시 홀드 카운트 0)
+    this._followLatch = false;   // 이전 스테이지의 따라하기 래치가 새 스테이지 첫 틱에 살아남으면
+                                 //   관찰 국면을 건너뛰고 렙 기준선이 0 에 박힌다 — 매 진입 관찰부터.
     this._c2hit = null;     // 잽 대련 착탄 래치 — 재진입 시 첫 타가 안 터지던 것 방지
     if (this.bxC2) for (const T of this.bxC2) { T._pop = null; T.ap.scale.setScalar(1); }
     this.repLeft = null; this.repTotal = null; this.repFrac = null;   // 반복 진행바 — 스테이지마다 초기화
@@ -3680,7 +3682,7 @@ export class Session {
         const hy = pr?.hips?.y ?? 1;
         if (hy - (H._prevHy || hy) > 0.012 || this.t - H._beatT > 6) {
           this._say('bkb2shot', '커리', '바로 그거예요 — 그 rhythm!');
-          this.next(); return;
+          this.next(true); return;   // 1세트 = 1회 성공 — 앞 대사가 남아 있어도 즉시 전환(유저: 바로)
         }
         H._prevHy = hy;
       }
@@ -3704,7 +3706,7 @@ export class Session {
       //   '다시는 보여주지 마라'가 아니다. 이 파일의 다른 스텝백 핸들러(BK_A3·BK_B1)는 이미
       //   `(_bkStrT > t)` 되감김 가드를 갖고 있었다 — 여기만 빠져 있었다.
       if ((this._bkStrT2 ?? 0) > this.t || this._bkStrId !== id) {
-        H.beat = 0; H.count = 0; H._beatT = this.t; H._popT = -9; H._side = -1; H._ghT = -9; H._loop0 = null;
+        H.beat = 0; H.count = 0; H._beatT = this.t; H._popT = -9; H._side = -1; H._ghT = -9; H._lpPrev = null;
       }
       this._bkStrT2 = this.t; this._bkStrId = id;
       if (!this._followLatch && !LIVE) {   // 훈련만 관찰 국면
@@ -3717,6 +3719,11 @@ export class Session {
         if (H.lkA) { H.lkA.visible = false; H.lkB.visible = false; }
         this.demoActive = true;
         FMU('먼저 보세요 — 스텝백', CS.prism);
+        // ★ 관찰 바퀴는 렙이 아니다 — 관찰 중엔 기준선을 계속 비워, 따라하기 **첫 틱**의 바퀴 수가
+        //   기준선이 되게 한다(그 다음 바퀴 = 첫 렙). 관찰 끝 프레임엔 바퀴 증가와 래치 전환이
+        //   같은 프레임에 오므로, 직전 값을 기준선으로 쓰면 관찰 바퀴가 렙으로 세어진다(실측 둘:
+        //   _loop0 를 안 비우면 진입 3.3s 완료 · 직전 값 고정이면 관찰만 하고 2.1s 전환).
+        H._lpPrev = null;
         return;
       }
       this.clipRate = AD ? 0.5 : 1;   // 봇은 정속(유저) — 발표 프리셋만 4/4 속도(0.5)로 같이 내린다
@@ -3935,10 +3942,16 @@ export class Session {
       //   캘리브레이션이라 실측 클립(이동이 z축 · 창에 슛 상승 없음)에선 영영 안 걸렸다 —
       //   E2E 실측: B3 에서 123초 정지. 봇이 영상 시계(stepVidT)에 위상 잠금이므로
       //   '영상 한 바퀴 = 봇이 한 번 했다'가 참이다. 물리 판정은 파문·고스트 연출로만 남는다.
+      //   ★ 세는 방식은 **증가분**이다(기준선 방식 폐기). 관찰이 끝나는 프레임엔 바퀴 증가·래치
+      //   전환·카운터 갱신이 메인 루프의 서로 다른 지점에서 일어나 순서를 믿을 수 없다 — 기준선을
+      //   어느 프레임에 박아도 한쪽으로 틀렸다(실측 _probe_bkadv 둘: 진입 3.3s 완료 / 관찰만 하고
+      //   2.1s 전환). 대신 lp 가 **늘어나는 순간**만 세고, 따라하기 시작(_aWatchEnd) 0.5초 안에
+      //   걸치는 증가는 관찰 경계 바퀴이므로 버린다. 진짜 따라하기 한 바퀴는 2초대라 안 겹친다.
       {
         const lp = this._pvLoops ?? 0;
-        if (H._loop0 == null) H._loop0 = lp;
-        H.count = Math.max(H.count, lp - H._loop0);
+        if (H._lpPrev == null) H._lpPrev = lp;
+        if (lp > H._lpPrev && this.t - (this._aWatchEnd ?? 0) > 0.5) H.count += lp - H._lpPrev;
+        H._lpPrev = lp;
       }
       const left = Math.max(0, CFG.need - H.count);
       // ★ 전체 재생(T1)은 **관찰만이다** — 따라할 걸 요구하면 안 된다(아직 안 배웠으니까).
@@ -3954,7 +3967,9 @@ export class Session {
       }
       this.repLeft = left; this.repTotal = CFG.need; this.repFrac = Math.min(1, H.count / CFG.need);
       FMU(LIVE ? `스텝백 3점 — 남은 ${left}회` : `${BEATN[H.beat]} · 남은 ${left}회`, LIVE ? CS.red : CS.sand);
-      if (left === 0) { this.next(); return; }
+      // 조각(B3·B4) = 따라하기 한 바퀴 성공 즉시 전환, 음성 대기 없음(유저: 바로).
+      // 실전(C2)은 3회 뒤 마무리 멘트를 기다린다 — 거긴 끊을 대사가 종료 신호다.
+      if (left === 0) { this.next(!LIVE); return; }
     } else if (id === 'BK_C1') {
       const n = Math.max(1, 3 - Math.floor(this.t)); if (n !== this._lastCount) { this._setCount(n, CS.ink); this._lastCount = n; }
       if (this.t >= st.dur) { this.next(); return; }
