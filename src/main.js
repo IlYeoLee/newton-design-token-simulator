@@ -4616,7 +4616,11 @@ void main(){
       // ★ 관찰(영상 재생) = 봇도 제자리 정지(유저 08-10 확정: "영상 재생할 때는 X봇도 가만히").
       //   시범은 영상이 하고, 봇의 무브는 따라하기(발자국) 구간에서만 — 둘이 동시에 움직이면
       //   시선이 갈린다. 스텝백 예외를 한때 뒀다가 이 확정으로 되돌렸다.
-      if (aWatching) { _clip = 'idle'; xbot.group.scale.x = 1; xbot.lungeDeepen = 0; xbot.headPitch = THREE.MathUtils.degToRad(-32); }
+      //   ★ 클립은 'idle' 이 아니라 **'warmup'** 이다. idle+hold 로 시계를 멈춰도 손·머리가 9cm 씩
+      //     흔들렸다(실측) — playDemo 가 idle 위에 호흡 레이어(warmup 0.18)를 얹기 때문이다.
+      //     key === 'warmup' 이면 그 레이어가 0 이 되고 hold 는 **프레임 0 = 손 내린 중립 서있기**로
+      //     고정한다. '가만히'를 두 군데(클립·레이어)가 아니라 한 값으로 말한다.
+      if (aWatching) { _clip = 'warmup'; xbot.group.scale.x = 1; xbot.lungeDeepen = 0; xbot.headPitch = THREE.MathUtils.degToRad(-32); }
       // ── 발자국 IK 구동 — 가이드 안무(sbPoseAt)를 **봇 몸 크기의 미터**로 환산해 발목 목표로.
       //   좌표계: 가이드 u(정규 좌우) · v(정규 앞뒤). 봇은 마주보므로 좌우가 뒤집힌다(−u).
       //   배율은 레퍼런스 영상 실측에 맞춘다 — 착지 스탠스 폭 0.92m(가이드 Δu 1.27 → KX 0.72),
@@ -4760,7 +4764,11 @@ void main(){
       }
       // playDemo는 무조건 — stepbackDemo 분기 삭제 때 else가 체인에 붙어 위상 스테이지 전부에서
       // 재생이 건너뛰어졌던 사고(클립이 idle로 남음).
-      xbot.playDemo(_clip, h, session.stage === 'BX_READY', _phase);
+      // ★ 관찰 중엔 **클립 시계도 멈춘다**(유저 08-10: 전체 재생은 한 번에 보는 거라 가만히 있어야).
+      //   `_clip = 'idle'` 만으론 부족했다 — idle 은 그 자체가 움직이는 클립이라 시계가 계속 흘러
+      //   손·머리가 수 cm 씩 흔들렸다(실측: 관찰 구간 hand x 0.179~0.256, head x −0.039~0.062).
+      //   hold=true 가 이미 그 뜻을 갖고 있다: 메인 클립은 대표 프레임에 고정, 호흡 레이어만 진행.
+      xbot.playDemo(_clip, h, session.stage === 'BX_READY' || aWatching, _phase);
       // ★ 1인칭 스텝백은 공을 숨긴다(08-10 실측: 124_06 공이 가슴 높이라 카메라 0.9m 앞
       //   거대 구가 되어 발자국을 가린다). 드리블(B1)은 공이 바닥 쪽이라 그대로 둔다.
       if (fpMode && STEP_SEG[session.stage || ''] && xbot.ball) xbot.ball.visible = false;
