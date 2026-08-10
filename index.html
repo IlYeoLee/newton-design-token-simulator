@@ -630,17 +630,17 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
         <div style="font-size:11px;font-weight:700;letter-spacing:1.6px;color:rgba(255,255,255,.45);margin-bottom:10px;">DESIGN LABS</div>
         <div style="display:flex;flex-direction:column;gap:7px;">
           <!-- 룩 시스템 자리는 발자국랩이 잇는다(유저 08-11: fxlab 은 구 레거시, 이제 발자국랩에서 다 한다) -->
-          <a href="footlab.html" target="_blank" rel="noopener"
+          <a href="footlab.html" class="lab-embed"
              style="display:flex;align-items:center;gap:10px;padding:11px 13px;border:0;border-radius:10px;background:rgba(255,255,255,.06);text-decoration:none;">
             <span style="width:8px;height:8px;border-radius:50%;background:var(--nb-red);box-shadow:0 0 8px rgba(250,48,48,.7);flex:none;"></span>
             <span style="flex:1;color:rgba(255,255,255,.92);font-size:13px;font-weight:700;">발자국 룩</span>
             <span style="color:rgba(255,255,255,.35);font-size:10px;">마크·상태·색</span></a>
-          <a href="tokens.html" target="_blank" rel="noopener"
+          <a href="tokens.html" class="lab-embed"
              style="display:flex;align-items:center;gap:10px;padding:11px 13px;border:0;border-radius:10px;background:rgba(255,255,255,.06);text-decoration:none;">
             <span style="width:8px;height:8px;border-radius:50%;background:var(--nb-coral);box-shadow:0 0 8px rgba(254,110,60,.7);flex:none;"></span>
             <span style="flex:1;color:rgba(255,255,255,.92);font-size:13px;font-weight:700;">지면 레이아웃</span>
             <span style="color:rgba(255,255,255,.35);font-size:10px;">조판·토큰</span></a>
-          <a href="http://localhost:5173/" target="_blank" rel="noopener"
+          <a href="http://localhost:5173/" class="lab-embed"
              title="별도 앱(person-aura-filter) — 5173 dev 서버가 떠 있어야 열립니다"
              style="display:flex;align-items:center;gap:10px;padding:11px 13px;border:0;border-radius:10px;background:rgba(255,255,255,.06);text-decoration:none;">
             <span style="width:8px;height:8px;border-radius:50%;background:var(--nb-sand);box-shadow:0 0 8px rgba(254,195,137,.7);flex:none;"></span>
@@ -869,5 +869,37 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
   <!-- 바닥 UI 장면 데이터(타이틀·큐) — WebGL 경로(floorgl.js)가 메인 문서에서 읽는다. CSS3D 경로도 같은 파일을 쓴다. -->
   <script src="ready-view/floor-scenes.js"></script>
   <script type="module" src="/src/main.js"></script>
+
+  <!-- 디자인 랩 임베드 오버레이(유저 08-11: 새 탭 말고 아이프레임으로 통째로).
+       열기 전엔 iframe src 를 비워 둔다 — 세 랩을 미리 로드하면 홈이 무거워진다. -->
+  <div id="lab-embed-overlay" style="display:none;position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.62);backdrop-filter:blur(6px);">
+    <div style="position:absolute;inset:3%;background:var(--d-bg);border-radius:16px;overflow:hidden;box-shadow:0 30px 90px rgba(0,0,0,.6);display:flex;flex-direction:column;">
+      <div style="display:flex;align-items:center;gap:10px;padding:10px 16px;background:rgba(255,255,255,.04);">
+        <span id="lab-embed-title" style="font-size:13px;font-weight:700;color:#fff;"></span>
+        <span id="lab-embed-src" style="font-size:11px;color:rgba(255,255,255,.4);"></span>
+        <button id="lab-embed-close" style="margin-left:auto;width:30px;height:30px;border:0;border-radius:8px;background:rgba(255,255,255,.08);color:#fff;font-size:15px;cursor:pointer;">×</button>
+      </div>
+      <iframe id="lab-embed-frame" style="flex:1;border:0;width:100%;background:var(--d-bg);"></iframe>
+    </div>
+  </div>
+  <script>
+  (() => {
+    const ov = document.getElementById('lab-embed-overlay');
+    const fr = document.getElementById('lab-embed-frame');
+    const tt = document.getElementById('lab-embed-title');
+    const sc = document.getElementById('lab-embed-src');
+    const close = () => { ov.style.display = 'none'; fr.src = 'about:blank'; };
+    document.getElementById('lab-embed-close').addEventListener('click', close);
+    ov.addEventListener('click', e => { if (e.target === ov) close(); });
+    window.addEventListener('keydown', e => { if (e.key === 'Escape' && ov.style.display !== 'none') close(); });
+    document.querySelectorAll('.lab-embed').forEach(a => a.addEventListener('click', e => {
+      e.preventDefault();
+      tt.textContent = a.querySelector('span:nth-child(2)')?.textContent || '';
+      sc.textContent = a.getAttribute('href');
+      fr.src = a.getAttribute('href');
+      ov.style.display = 'block';
+    }));
+  })();
+  </script>
 </body>
 </html>
