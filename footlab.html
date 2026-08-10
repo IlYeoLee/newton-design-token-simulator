@@ -1,11 +1,10 @@
 <!doctype html><html lang=ko><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1">
 <title>NEWTON 발자국 랩 — 깔창 각인 실시간 조정</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>👣</text></svg>">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>👣</text></svg>">
 <style>
   /* 마크 숫자 도트 폰트 — 시뮬·랩과 같은 파일 (없으면 숫자가 산세리프로 떨어진다) */
   /* vite 는 public/ 내용을 루트로 서빙한다 — 'public/fonts/…' 로 쓰면 404 다(도트 폰트가 조용히 죽는다) */
   @font-face{font-family:'OffBit';src:url('fonts/OffBitTrial-DotBold.woff2') format('woff2');font-weight:700;font-display:block}
-  :root{--bg:#0A0C10;--panel:#10131A;--line:#1D222C;--text:#E9EAEE;--dim:#98A1AD;--red:#FA3030;--sand:#FEC389}
   *{box-sizing:border-box}
   html,body{margin:0;background:var(--bg);color:var(--text);
     font:13px/1.5 -apple-system,'Malgun Gothic',sans-serif}
@@ -53,12 +52,13 @@
     border-radius:8px;padding:8px;font:11px/1.5 ui-monospace,Consolas,monospace;resize:vertical}
   .note{color:var(--dim);font-size:11px;margin:8px 0 0}
   .warn{color:var(--red);font-size:11.5px;margin:8px 0 0;display:none}
-</style>  <script type="module" crossorigin src="./assets/footlab-DsAhxP1C.js"></script>
+</style>  <script type="module" crossorigin src="./assets/footlab-ePnbvKCo.js"></script>
   <link rel="modulepreload" crossorigin href="./assets/modulepreload-polyfill-B5Qt9EMX.js">
   <link rel="modulepreload" crossorigin href="./assets/fx-core-CqL92uTO.js">
   <link rel="modulepreload" crossorigin href="./assets/fxlut-C1Lk9zf8.js">
   <link rel="modulepreload" crossorigin href="./assets/tokens-BqjRLmvH.js">
   <link rel="modulepreload" crossorigin href="./assets/mark-versions-4opYANT4.js">
+  <link rel="stylesheet" crossorigin href="./assets/lab-skin-B1QEsz5_.css">
 </head><body>
 <div class=wrap>
   <div class=panel>
@@ -258,5 +258,5 @@
     </div>
   </div>
 </div>
-
+
 </body></html>
