@@ -3979,8 +3979,12 @@ export class FloorGL {
     //   "곧 시작할 구간"은 바로 앞 전환 화면(T2)과 음성이 이미 말했고, 3초 동안 내 행동을
     //   바꾸는 값은 카운트뿐이다. adv:'count' 규약과 같은 판단.
     //   배경 광은 남긴다 — 정보가 아니라 '시작한다'는 분위기다.
+    // ★ 타이틀·캡션 복구(유저 08-11: '타이머 = 타이틀/캡션 + 숫자인데 지면은 싹 빠졌다').
+    //   복싱 벽 타이머(wallgl TM)와 같은 구성이 정본이다 — 지면 이식 때 숫자만 남긴 걸 되돌린다.
+    //   내용은 위 TM 표(C1·BK_C1)가 이미 갖고 있었다 — M 을 다시 읽기만 하면 된다.
     const GLOW_Y = 1160, RING = 604;
     this._bgGlow(GLOW_Y);
+    this._titleGroup(600, M.sub, M.title);
     const cy = GLOW_Y, rem = dur - t, txt = rem > 0.05 ? String(Math.ceil(rem)) : 'GO';
     // ★ 여기 있던 링·숫자·모션 코드가 countRing 정본 컴포넌트가 됐다(유저: 컴포넌트 자체를 재사용).
     //   출력은 동일 — 규격(604·220)과 모션(ringPop·breath·numPulse)을 그대로 옮겼다.
