@@ -43,8 +43,8 @@
 
     .tabs { display: flex; gap: 6px; padding: 12px 16px; }
     .tabs button {
-      flex: 1; padding: 8px 0; border: 1px solid var(--line); border-radius: 8px;
-      background: var(--panel2); color: var(--dim); font-size: 12px; font-weight: 600;
+      flex: 1; padding: 8px 0; border: 0; border-radius: 8px;
+      background: rgba(255,255,255,.06); color: var(--dim); font-size: 12px; font-weight: 600;
       cursor: pointer; transition: all .22s cubic-bezier(.2,.8,.3,1);
     }
     .tabs button:active { transform: scale(.96); }
@@ -75,7 +75,7 @@
       padding: 6px 14px; border: 1px solid var(--line); border-radius: 6px;
       background: var(--panel2); color: var(--text); font-size: 12px; cursor: pointer;
     }
-    #transport button:hover { border-color: var(--accent); }
+    #transport button:hover { background: rgba(255,255,255,.11); }
     #clock { font-size: 11px; color: var(--dim); font-variant-numeric: tabular-nums; margin-left: auto; }
 
     #token-legend { font-size: 11px; color: var(--dim); line-height: 1.9; }
@@ -626,23 +626,23 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
       <!-- 디자인 랩 진입 — **제품 뷰**에 산다(유저 08-11: 시작하자마자 보여야 한다.
            dev 패널에 넣었더니 개발자 모드 OFF 에선 아예 없었다). 순서 고정:
            룩 시스템 → 지면 레이아웃 → 열화상. 열화상은 별도 앱(5173). -->
-      <div style="margin-top:18px;padding-top:14px;border-top:1px solid rgba(255,255,255,.1);">
+      <div style="margin-top:18px;padding-top:4px;">
         <div style="font-size:11px;font-weight:700;letter-spacing:1.6px;color:rgba(255,255,255,.45);margin-bottom:10px;">DESIGN LABS</div>
         <div style="display:flex;flex-direction:column;gap:7px;">
           <!-- 룩 시스템 자리는 발자국랩이 잇는다(유저 08-11: fxlab 은 구 레거시, 이제 발자국랩에서 다 한다) -->
           <a href="footlab.html" target="_blank" rel="noopener"
-             style="display:flex;align-items:center;gap:10px;padding:11px 13px;border:1px solid rgba(255,255,255,.12);border-radius:9px;background:rgba(255,255,255,.05);text-decoration:none;">
+             style="display:flex;align-items:center;gap:10px;padding:11px 13px;border:0;border-radius:10px;background:rgba(255,255,255,.06);text-decoration:none;">
             <span style="width:8px;height:8px;border-radius:50%;background:var(--nb-red);box-shadow:0 0 8px rgba(250,48,48,.7);flex:none;"></span>
             <span style="flex:1;color:rgba(255,255,255,.92);font-size:13px;font-weight:700;">발자국 룩</span>
             <span style="color:rgba(255,255,255,.35);font-size:10px;">마크·상태·색</span></a>
           <a href="tokens.html" target="_blank" rel="noopener"
-             style="display:flex;align-items:center;gap:10px;padding:11px 13px;border:1px solid rgba(255,255,255,.12);border-radius:9px;background:rgba(255,255,255,.05);text-decoration:none;">
+             style="display:flex;align-items:center;gap:10px;padding:11px 13px;border:0;border-radius:10px;background:rgba(255,255,255,.06);text-decoration:none;">
             <span style="width:8px;height:8px;border-radius:50%;background:var(--nb-coral);box-shadow:0 0 8px rgba(254,110,60,.7);flex:none;"></span>
             <span style="flex:1;color:rgba(255,255,255,.92);font-size:13px;font-weight:700;">지면 레이아웃</span>
             <span style="color:rgba(255,255,255,.35);font-size:10px;">조판·토큰</span></a>
           <a href="http://localhost:5173/" target="_blank" rel="noopener"
              title="별도 앱(person-aura-filter) — 5173 dev 서버가 떠 있어야 열립니다"
-             style="display:flex;align-items:center;gap:10px;padding:11px 13px;border:1px solid rgba(255,255,255,.12);border-radius:9px;background:rgba(255,255,255,.05);text-decoration:none;">
+             style="display:flex;align-items:center;gap:10px;padding:11px 13px;border:0;border-radius:10px;background:rgba(255,255,255,.06);text-decoration:none;">
             <span style="width:8px;height:8px;border-radius:50%;background:var(--nb-sand);box-shadow:0 0 8px rgba(254,195,137,.7);flex:none;"></span>
             <span style="flex:1;color:rgba(255,255,255,.92);font-size:13px;font-weight:700;">열화상</span>
             <span style="color:rgba(255,255,255,.35);font-size:10px;">이미지 편집기</span></a>
