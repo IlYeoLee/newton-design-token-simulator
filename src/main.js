@@ -2812,7 +2812,11 @@ void main(){
           vec2 cf = cutFade(uv.x, uv.y, botC * 0.125, uTime);
           mEro = mix(mEro, smoothstep(0.06, 0.55, fld.r), cf.y) * cf.x;   // 날카로운 실루엣 → 넓은 가우시안
           // 레퍼런스 규약(uPForm)은 실루엣 **밖**에 블룸을 그린다 — 블러장이 남은 곳은 살린다.
-          if (max(mEro, step(0.5, uPForm) * fld.r) < 0.02) discard;
+          // ★ 시선 토큰 픽셀은 살린다(유저 08-10: 강조 동그라미가 수평으로 잘린다).
+          //   토큰은 '인물 알파에 안 갇힌다'가 규약인데(gazeToken 주석), 이 discard 가 마스크
+          //   필드 경계 밖 픽셀을 토큰이 그려지기 **전에** 버려서 그 경계선으로 잘렸다.
+          vec4 gzPre = gazeToken(uv, uTime);
+          if (max(mEro, step(0.5, uPForm) * fld.r) < 0.02 && gzPre.a < 0.01) discard;
           float H = clamp(fld.r * 1.25, 0.0, 1.0);   // 복싱(demoPanel)과 동일 — 1.60 은 코어를 과포화시켜 톤이 갈렸다
           float flow = vn(vec2(uv.x*3.2 + sin(uTime*0.4)*0.3, uv.y*2.4 - uTime*0.5));
           H *= 1.0 + (flow - 0.5) * 0.11;   // 대류 얼룩 최소 — 매끄러운 질감(유저 레퍼런스)
@@ -2881,7 +2885,7 @@ void main(){
           col = mix(col / 12.92, pow((col + 0.055) / 1.055, vec3(2.4)), step(0.04045, col));
           // ★ 시선 토큰은 **맨 마지막**, 색공간 변환 뒤에 얹는다 — 인물 알파에 안 갇혀야
           //   몸 밖(공)에서도 보인다. 토큰은 UI 라 인물 그레이딩을 안 탄다.
-          vec4 gz = gazeToken(uv, uTime);
+          vec4 gz = gzPre;   // discard 가드에서 이미 계산 — 재계산 금지
           col = mix(col, gz.rgb, gz.a);
           alpha = max(alpha, gz.a);
           gl_FragColor = vec4(col, alpha);
@@ -4616,11 +4620,12 @@ void main(){
       // ★ 관찰(영상 재생) = 봇도 제자리 정지(유저 08-10 확정: "영상 재생할 때는 X봇도 가만히").
       //   시범은 영상이 하고, 봇의 무브는 따라하기(발자국) 구간에서만 — 둘이 동시에 움직이면
       //   시선이 갈린다. 스텝백 예외를 한때 뒀다가 이 확정으로 되돌렸다.
-      //   ★ 클립은 'idle' 이 아니라 **'warmup'** 이다. idle+hold 로 시계를 멈춰도 손·머리가 9cm 씩
-      //     흔들렸다(실측) — playDemo 가 idle 위에 호흡 레이어(warmup 0.18)를 얹기 때문이다.
-      //     key === 'warmup' 이면 그 레이어가 0 이 되고 hold 는 **프레임 0 = 손 내린 중립 서있기**로
-      //     고정한다. '가만히'를 두 군데(클립·레이어)가 아니라 한 값으로 말한다.
-      if (aWatching) { _clip = 'warmup'; xbot.group.scale.x = 1; xbot.lungeDeepen = 0; xbot.headPitch = THREE.MathUtils.degToRad(-32); }
+      //   ★ '가만히' = **정지가 아니라 제자리 서있기**(유저 08-10: 완전 정지는 어색하다, 서 있는
+      //     팩은 없나). 있다 — `idle` 이 Mixamo **Breathing Idle**(제자리 자연 호흡)이다.
+      //     한때 warmup 프레임0 으로 얼렸다가 되돌렸다: 그 프레임은 **웅크린 대기**라 봇이
+      //     구부정하게 굳어 보였다(xbot._buildDrills 주석이 같은 지적을 이미 적어 뒀다).
+      //     시선이 갈리는 건 '봇이 무브를 시범하는 것'이지 호흡이 아니다.
+      if (aWatching) { _clip = 'idle'; xbot.group.scale.x = 1; xbot.lungeDeepen = 0; xbot.headPitch = THREE.MathUtils.degToRad(-32); }
       // ── 발자국 IK 구동 — 가이드 안무(sbPoseAt)를 **봇 몸 크기의 미터**로 환산해 발목 목표로.
       //   좌표계: 가이드 u(정규 좌우) · v(정규 앞뒤). 봇은 마주보므로 좌우가 뒤집힌다(−u).
       //   배율은 레퍼런스 영상 실측에 맞춘다 — 착지 스탠스 폭 0.92m(가이드 Δu 1.27 → KX 0.72),
@@ -4764,11 +4769,12 @@ void main(){
       }
       // playDemo는 무조건 — stepbackDemo 분기 삭제 때 else가 체인에 붙어 위상 스테이지 전부에서
       // 재생이 건너뛰어졌던 사고(클립이 idle로 남음).
-      // ★ 관찰 중엔 **클립 시계도 멈춘다**(유저 08-10: 전체 재생은 한 번에 보는 거라 가만히 있어야).
-      //   `_clip = 'idle'` 만으론 부족했다 — idle 은 그 자체가 움직이는 클립이라 시계가 계속 흘러
-      //   손·머리가 수 cm 씩 흔들렸다(실측: 관찰 구간 hand x 0.179~0.256, head x −0.039~0.062).
-      //   hold=true 가 이미 그 뜻을 갖고 있다: 메인 클립은 대표 프레임에 고정, 호흡 레이어만 진행.
-      xbot.playDemo(_clip, h, session.stage === 'BX_READY' || aWatching, _phase);
+      // ★ 관찰 구간도 hold 를 걸지 않는다 — 얼리면 마네킹이 된다(유저 08-10). 관찰의 정지는
+      //   Breathing Idle 클립 자체가 만든다(위 aWatching 분기). hold 는 복싱 READY 전용.
+      // ★ 위상 잠금도 푼다 — 스텝백 스테이지의 _phase 는 영상 창[1.05,2.30]에 묶인 값이라
+      //   idle 이 1.25초 조각만 돌다 끝에서 굳었다(실측: clipT 가 2.3 에서 멈춤). 호흡은
+      //   영상과 동기될 이유가 없다. null 이면 playDemo 가 자기 시계로 자연 루프한다.
+      xbot.playDemo(_clip, h, session.stage === 'BX_READY', aWatching ? null : _phase);
       // ★ 1인칭 스텝백은 공을 숨긴다(08-10 실측: 124_06 공이 가슴 높이라 카메라 0.9m 앞
       //   거대 구가 되어 발자국을 가린다). 드리블(B1)은 공이 바닥 쪽이라 그대로 둔다.
       if (fpMode && STEP_SEG[session.stage || ''] && xbot.ball) xbot.ball.visible = false;

@@ -1528,6 +1528,24 @@ export function drawStemArrow(g, W, H, t, ENV, opts = {}) {
     g.lineTo(cx + w1 / 2, yHead); g.lineTo(cx - w1 / 2, yHead);
     g.closePath(); g.fill();
   }
+  // ★ 순백 코어(유저 08-10: 판정 토큰 라인 같은 발광이 없다 · 축축한 주황).
+  //   마크 문법 그대로 — 겉은 온도색(LUT), **속은 단색 순백**. 가산에서도 잉크 바닥에서도
+  //   '빛나는 선'으로 읽히게 하는 건 흰 심지다(하프톤 순백 규칙과 같은 이유).
+  g.fillStyle = 'rgba(255,255,255,0.94)';
+  if (opts.dots) {
+    for (const d of dotList) {
+      g.globalAlpha = d.a * A0;
+      g.beginPath(); g.arc(cx, d.y, Math.max(0.6 * sw, d.r * 0.46), 0, Math.PI * 2); g.fill();
+    }
+    g.globalAlpha = 1;
+  } else {
+    g.save(); g.globalAlpha = 0.9 * A0;
+    const cw0 = w0 * 0.20, cw1 = w1 * 0.30;
+    g.beginPath();
+    g.moveTo(cx - cw0, y0); g.lineTo(cx + cw0, y0);
+    g.lineTo(cx + cw1, yHead); g.lineTo(cx - cw1, yHead);
+    g.closePath(); g.fill(); g.restore();
+  }
   g.globalAlpha = A0;
   if (draw > 0.28 && !opts.noTip) {   // noTip = 촉 없는 자루(감속 바 등)
     // 촉은 '자라는 머리'에 항상 붙는다(고정 위치 X) → 자라는 동안에도 화살표로 읽힌다.

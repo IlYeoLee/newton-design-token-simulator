@@ -107,6 +107,13 @@ export function createSubCard(root, baseUrl = '') {
     root.style.setProperty('--vc-txt-rise', `${Math.round(H * CFG.txtRise)}px`);
 
     fitAvatar();
+    // ★ 상단 클램프(유저 08-10: 시뮬레이터 창에서 상단 애들이 약간 잘린다) — 아바타 줄은
+    //   카드 위에 얹혀 있어 창이 낮거나 등장 리프트가 걸린 프레임엔 화면 위로 넘칠 수 있다.
+    //   실측해서 모자란 만큼만 통째로 내린다(기준선 top 20px 은 여유가 있으면 그대로).
+    requestAnimationFrame(() => {
+      const rt = el.row.getBoundingClientRect().top;
+      root.style.top = rt < 6 ? `${20 + (6 - rt)}px` : '20px';
+    });
   }
 
   /** 에펙 아바타 규약: focus 지점이 원의 중심, crop 비율만큼의 이미지 폭이 지름이 된다. */
