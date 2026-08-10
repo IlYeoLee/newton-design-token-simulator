@@ -2369,6 +2369,12 @@ export class Session {
   reportVerdict(verdict, terr, best) {
     if (!this.active || !this.isLive) return;
     if (this.sport === 'basketball') return;   // 농구 판정(hips 프로브) 미보정 — 다운시프트 보류
+    // ★ 복싱도 보류 — 판정 프로브는 xbot 손목인데 복싱 수행자는 실사 실루엣 영상이라 miss 가
+    //   무의미하게 쌓인다. 실측(08-11 _probe_c3_leak): 기본 실력 0.7 에서도 C3 진입 1.2초 만에
+    //   miss ×2 → B1 다운시프트 → B→C 재주행 → 잽 대련이 또 나옴(유저: 잽잽훅이 이전
+    //   잽대련처럼 살아난다). C2·C3 판정은 대본(수축 링·C3_VD)이 정본이고 judge 연결은
+    //   '실전 연결 시'의 미래 일이다(아래 4300행대 주석).
+    if (this.sport === 'boxing') return;
 
     // 방향 피드백 자막(_dirCue: '늦었어요/빨랐어요/간격')은 은퇴 — 지면 UI 정본은 floorgl 캔버스이고
     //   투사 UI는 영문 조판이라 그 줄만 시스템 고딕으로 떨어졌다. 판정은 빛 언어(페이스 라이트·버스트)가 말한다.
@@ -2517,6 +2523,8 @@ export class Session {
     this._followLatch = false;   // 이전 스테이지의 따라하기 래치가 새 스테이지 첫 틱에 살아남으면
                                  //   관찰 국면을 건너뛰고 렙 기준선이 0 에 박힌다 — 매 진입 관찰부터.
     this._c2hit = null;     // 잽 대련 착탄 래치 — 재진입 시 첫 타가 안 터지던 것 방지
+    this._missStreak = 0;   // 다운시프트 스트릭 — 이전 스테이지 끝의 miss 가 새 스테이지 첫 miss 와
+                            //   합산되면 진입 1초 만에 되돌아간다(스테이지 걸친 래치 금지 규약과 동일)
     if (this.bxC2) for (const T of this.bxC2) { T._pop = null; T.ap.scale.setScalar(1); }
     this.repLeft = null; this.repTotal = null; this.repFrac = null;   // 반복 진행바 — 스테이지마다 초기화
     if (this._c3Skill != null && this.judge) { this.judge.skill = this._c3Skill; this._c3Skill = null; }   // C3 중 탭 스킵 시 skill 0.35 영구 잠김 방지
