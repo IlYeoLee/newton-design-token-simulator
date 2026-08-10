@@ -1,8 +1,12 @@
 // 주목 비트 — **따라다니지 않는다.** 동작이 일어날 때 '거기 하나'가 생기고, 도착에 딱 붙는다.
 //   비트마다 { 시작, 도착, 도착 지점(고정), 부위, 보이스 }. 좌표·시각 전부 랜드마크 실측.
-//   출력: public/stepback-hotspots.json   원본: assets/mocap/stepback_fwd-landmarks.json
+//   출력: public/stepback-hotspots.json   원본: assets/mocap/<클립>-landmarks.json
+//   실행: node scripts/build_stepback_hotspots.mjs [클립.mp4]  — **지금 재생 중인 클립**을 준다.
+//   ★ 랜드마크는 클립별이다. 08-07 클립 교체(stepback_fwd → stepback_pack) 후에도 구 클립
+//     실측으로 굽고 있어서 원이 발에 안 붙었다(유저 스샷) — 크롭·패딩이 다르면 uv 가 어긋난다.
 import { readFileSync, writeFileSync } from 'fs';
-const D = JSON.parse(readFileSync('assets/mocap/stepback_fwd-landmarks.json', 'utf8'));
+const SRC = process.argv[2] || 'stepback_pack.mp4';
+const D = JSON.parse(readFileSync(`assets/mocap/${SRC.replace(/\.\w+$/, '')}-landmarks.json`, 'utf8'));
 const F = D.frames.filter(f => f.lm);
 const at = t => F.reduce((a, b) => Math.abs(b.t - t) < Math.abs(a.t - t) ? b : a);
 const spd = (i, k) => i <= 0 ? 0 : Math.hypot(F[i].lm[k][0] - F[i-1].lm[k][0], F[i].lm[k][1] - F[i-1].lm[k][1]) * D.fps;
@@ -29,7 +33,7 @@ const beats = PHASES.map(p => {
     tOn: +F[iOn].t.toFixed(3), tLand: +fLand.t.toFixed(3),
     at: uv(pt), r: +(0.055 + Math.min(0.045, peak * 0.012)).toFixed(4), peak: +peak.toFixed(2) };
 });
-const out = { src: 'stepback_fwd.mp4', t0: 1.05, t1: 2.20, th: TH, beats };
+const out = { src: SRC, t0: 1.05, t1: 2.20, th: TH, beats };
 writeFileSync('public/stepback-hotspots.json', JSON.stringify(out, null, 1));
 for (const b of beats)
   console.log(`${b.key.padEnd(3)} ${b.part.padEnd(5)} 시작 ${b.tOn} → 도착 ${b.tLand} (${(b.tLand-b.tOn).toFixed(2)}s)  지점(${b.at[0]}, ${b.at[1]})  r=${b.r}  최고속도 ${b.peak}  "${b.voice}"`);
