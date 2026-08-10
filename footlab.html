@@ -69,8 +69,11 @@
   .hint{color:rgba(255,255,255,.5);font-size:13px;line-height:1.55}
   .note{display:none}
   .warn{color:var(--red);font-size:12.5px;font-weight:600;margin:10px 0 0;display:none}
-</style>  <script type="module" crossorigin src="./assets/footlab-DCaEv-_K.js"></script>
+/* 개발 전용 UI — 배포본에선 통째로 숨긴다(정본 게이트 src/labgate.js) */
+body:not(.dev) [data-devonly]{display:none !important}
+</style>  <script type="module" crossorigin src="./assets/footlab-B6aR7kNX.js"></script>
   <link rel="modulepreload" crossorigin href="./assets/modulepreload-polyfill-B5Qt9EMX.js">
+  <link rel="modulepreload" crossorigin href="./assets/labgate-DBLrM4ri.js">
   <link rel="modulepreload" crossorigin href="./assets/fx-core-CsnioyF7.js">
   <link rel="modulepreload" crossorigin href="./assets/fxlut-C4DA6dZD.js">
   <link rel="modulepreload" crossorigin href="./assets/tokens-flQL94Fl.js">
@@ -82,7 +85,8 @@
     <h1>발자국 랩 — 깔창 각인</h1>
     <p class=sub>정본 셰이더(MARK_GLSL)를 그대로 돌린다.</p>
 
-    <fieldset><legend>버전 비교</legend>
+    <!-- 버전 비교 = 개발 전용(유저 08-11: 전시엔 지우고 개발자 모드에만 살려놔). data-devonly 는 src/labgate.js 가 끈다 -->
+    <fieldset data-devonly><legend>버전 비교</legend>
       <div class=seg id=segVer style="flex-wrap:wrap">
         <button data-v=v03>08-02 (3일 전)</button><button data-v=v0 class=on>09:25 (지금)</button><button data-v=v1>13:31 도트 그라디언트</button>
         <button data-v=v2>13:40 섀도우 완화</button><button data-v=v3>14:28 상태 색·명도</button>

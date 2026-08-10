@@ -71,8 +71,11 @@ button.on{background:var(--coral);border-color:var(--coral);color:#fff}
 /* 밴드 오버레이 — 레이아웃 규약이 실제로 어디 있는지 눈으로 본다 */
 .band{position:absolute;left:0;right:0;pointer-events:none;border-top:1px dashed rgba(90,200,255,.55)}
 .band::after{content:attr(data-l);position:absolute;left:2px;top:1px;font-size:8px;color:rgba(90,200,255,.85)}
-</style>  <script type="module" crossorigin src="./assets/tokens-B691BU5c.js"></script>
+/* 개발 전용 UI — 배포본에선 통째로 숨긴다(정본 게이트 src/labgate.js) */
+body:not(.dev) [data-devonly]{display:none !important}
+</style>  <script type="module" crossorigin src="./assets/tokens-D1zbVQ9y.js"></script>
   <link rel="modulepreload" crossorigin href="./assets/modulepreload-polyfill-B5Qt9EMX.js">
+  <link rel="modulepreload" crossorigin href="./assets/labgate-DBLrM4ri.js">
   <link rel="modulepreload" crossorigin href="./assets/fx-core-CsnioyF7.js">
   <link rel="modulepreload" crossorigin href="./assets/fxlut-C4DA6dZD.js">
   <link rel="modulepreload" crossorigin href="./assets/tokens-flQL94Fl.js">
