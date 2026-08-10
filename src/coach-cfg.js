@@ -79,11 +79,11 @@ export const COACH_CFG = {
   //     fwd −0.18 − 0.064 = −0.244      (패딩이 아래만 붙어 인물이 판 안에서 0.064m 올라간다:
   //                                      284/2 px × 0.998m / 2218px. 겹침은 fwd 로 푼다 — 지침 §2)
   //     rng [0.03,0.86] → [(0.03·1934+284)/2218, (0.86·1934+284)/2218] = [0.154, 0.878]
-  BK_T1: { src: 'stepback_pack.mp4', cropOff: 0.0, cropScale: 1.0, w: 1.04, h: 0.998, fwd: -0.244, ph: 0.549, rng: [0.154, 0.878], tone: 0.09 },
-  BK_B2: { src: 'stepback_pack.mp4', cropOff: 0.0, cropScale: 1.0, w: 1.04, h: 0.998, fwd: -0.244, ph: 0.549, rng: [0.154, 0.878], tone: 0.09 },   // rng = 인물 블롭 실측(골대·콘이 측정 오염)
-  BK_B4: { src: 'stepback_pack.mp4', cropOff: 0.0, cropScale: 1.0, w: 1.04, h: 0.998, fwd: -0.244, ph: 0.549, rng: [0.154, 0.878], tone: 0.09 },
-  BK_B3: { src: 'stepback_pack.mp4', cropOff: 0.0, cropScale: 1.0, w: 1.04, h: 0.998, fwd: -0.244, ph: 0.549, rng: [0.154, 0.878], tone: 0.09 },
-  BK_C2: { src: 'stepback_pack.mp4', cropOff: 0.0, cropScale: 1.0, w: 1.04, h: 0.998, fwd: -0.244, ph: 0.549, rng: [0.154, 0.878], tone: 0.09 },   // 실전 = 같은 클립을 타이밍 소스로만
+  BK_T1: { src: 'stepback_pack.mp4', cropOff: 0.0, cropScale: 1.0, w: 1.04, h: 0.998, fwd: 0.0, ph: 0.549, rng: [0.154, 0.878], tone: 0.09 },
+  BK_B2: { src: 'stepback_pack.mp4', cropOff: 0.0, cropScale: 1.0, w: 1.04, h: 0.998, fwd: 0.0, ph: 0.549, rng: [0.154, 0.878], tone: 0.09 },   // rng = 인물 블롭 실측(골대·콘이 측정 오염)
+  BK_B4: { src: 'stepback_pack.mp4', cropOff: 0.0, cropScale: 1.0, w: 1.04, h: 0.998, fwd: 0.0, ph: 0.549, rng: [0.154, 0.878], tone: 0.09 },
+  BK_B3: { src: 'stepback_pack.mp4', cropOff: 0.0, cropScale: 1.0, w: 1.04, h: 0.998, fwd: 0.0, ph: 0.549, rng: [0.154, 0.878], tone: 0.09 },
+  BK_C2: { src: 'stepback_pack.mp4', cropOff: 0.0, cropScale: 1.0, w: 1.04, h: 0.998, fwd: 0.0, ph: 0.549, rng: [0.154, 0.878], tone: 0.09 },   // 실전 = 같은 클립을 타이밍 소스로만
 };
 
 /** 시작화면 썸네일 — 3D 코치 판을 안 켠다(캔버스 영상 오버레이가 전담). 인물 크기 검사 제외. */
