@@ -68,3 +68,17 @@ input[type=range]{accent-color:var(--nb-coral)}
 .lab-h2{font-size:11px;font-weight:700;letter-spacing:.6px;color:var(--dim);
   text-transform:uppercase;border-bottom:1px solid var(--line);padding-bottom:6px;margin-bottom:8px}
 .lab-hint{font-size:10.5px;color:var(--faint)}
+
+/* ── 랩 GUI 역할 타이포 규칙(유저 08-11 확정) — "무작정 이식"이 아니라 역할로 정한다.
+   페이지 타이틀 22/800 · 카드 타이틀 15/700 · 본문 14/1.6 · 라벨 13/500 ·
+   값 13/700(tabular·sand) · 캡션 12 · 아이브로(구획) 11/800 자간 1.6px.
+   컴포넌트 표면은 홈(제품 뷰 lab-panel) 레시피가 정본:
+   카드 rgba(255,255,255,.04) + 헤어라인 rgba(255,255,255,.10) + r10~12 ·
+   CTA 풀폭 레드 필 r11 · 세그 버튼 rgba(255,255,255,.06) 무테. */
+.t-page{font-size:22px;font-weight:800;letter-spacing:-.5px;color:var(--d-title)}
+.t-card{font-size:15px;font-weight:700;color:var(--d-strong)}
+.t-body{font-size:14px;line-height:1.6;color:var(--d-body)}
+.t-label{font-size:13px;font-weight:500;color:var(--d-t2)}
+.t-val{font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--sand)}
+.t-cap{font-size:12px;color:var(--d-t3)}
+.t-eyebrow{font-size:11px;font-weight:800;letter-spacing:1.6px;color:var(--d-title)}
