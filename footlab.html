@@ -69,11 +69,11 @@
   .hint{color:rgba(255,255,255,.5);font-size:13px;line-height:1.55}
   .note{display:none}
   .warn{color:var(--red);font-size:12.5px;font-weight:600;margin:10px 0 0;display:none}
-</style>  <script type="module" crossorigin src="./assets/footlab-BhBvgtM9.js"></script>
+</style>  <script type="module" crossorigin src="./assets/footlab-DCaEv-_K.js"></script>
   <link rel="modulepreload" crossorigin href="./assets/modulepreload-polyfill-B5Qt9EMX.js">
   <link rel="modulepreload" crossorigin href="./assets/fx-core-CsnioyF7.js">
-  <link rel="modulepreload" crossorigin href="./assets/fxlut-Drv5KbxV.js">
-  <link rel="modulepreload" crossorigin href="./assets/tokens-kfhfQb4v.js">
+  <link rel="modulepreload" crossorigin href="./assets/fxlut-C4DA6dZD.js">
+  <link rel="modulepreload" crossorigin href="./assets/tokens-flQL94Fl.js">
   <link rel="modulepreload" crossorigin href="./assets/mark-versions-4opYANT4.js">
   <link rel="stylesheet" crossorigin href="./assets/lab-skin-CHLkM1GD.css">
 </head><body>
@@ -210,22 +210,10 @@
       <h2>8상태 × 세 표현형</h2>
       <canvas id=strip width=1120 height=690></canvas>
     </div>
-    <div class=card>
-      <h2>연결 토큰</h2>
-      <div class=seg id=segLink style="margin:2px 0 8px">
-        <button data-v=chain class=on>체인(점+실)</button><button data-v=dots>점렬</button>
-        <button data-v=taper>테이퍼(끝이 굵게)</button><button data-v=pulse>펄스(중앙→양끝)</button></div>
-      <div class=seg id=segScen style="margin:2px 0 8px">
-        <button data-v=0 class=on>① 종아리 프레스</button><button data-v=1>② 어깨너비</button>
-        <button data-v=2>③ 농구 스텝백</button></div>
-      <div class=row><label>점 개수</label><input type=range id=lkCount min=3 max=14 step=1 value=7><span class=v id=vlkCount>7</span></div>
-      <div class=row><label>점 크기</label><input type=range id=lkR min=1.5 max=9 step=.1 value=4.4><span class=v id=vlkR>4.4</span></div>
-      <div class=row><label>흐름 속도</label><input type=range id=lkFlow min=0 max=1.5 step=.05 value=.35><span class=v id=vlkFlow>0.35</span></div>
-      <div class=row><label>실 진하기</label><input type=range id=lkHair min=0 max=1 step=.02 value=.26><span class=v id=vlkHair>0.26</span></div>
-      <div class=row><label>양끝 여백</label><input type=range id=lkInset min=0 max=.35 step=.01 value=.12><span class=v id=vlkInset>0.12</span></div>
-      <canvas id=linkPrev width=1120 height=620></canvas>
-      <p class=note id=linkNote></p>
-    </div>
+    <!-- '연결 토큰' 카드 은퇴(유저 08-11: 더미 프리뷰 퀄리티가 랩 수준 미달 — 실제 렌더러로
+         바꿀 시간이 없으니 삭제). 연결 토큰 자체는 살아 있다: 형태 정본 fx-core drawLinkDots,
+         실제 렌더는 아래 'A2 종아리 늘리기' 카드(발자국 사이 체인)와 시뮬이 그대로 그린다.
+         값(LK 기본)은 스크립트에 남아 있다 — 되살리려면 git 이 카드를 기억한다. -->
     <div class=card>
       <h2>바닥 합성 — 투사광은 가산이라 실제 바닥 위에서 색감이 결정된다</h2>
       <div class=seg id=segFloor style="margin-bottom:10px">
