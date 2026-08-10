@@ -875,31 +875,6 @@ void main(){
       frameThirdPerson();           // 기본 3인칭 = 고정 프레이밍(대각선 위, 가깝게) — 유저 지정
     }
   }
-  // ── 시점 전환 글라이드 ────────────────────────────────────────────────────
-  //   setFp 은 즉시 갈아탄다(가시성·화각·컨트롤은 한 프레임에 정해져야 한다). 카메라 포즈만
-  //   전환 직전 자리에서 0.8초 동안 따라오게 해 3인칭↔1인칭이 '이동'으로 읽히게 한다.
-  //   1인칭 쪽 fpPos 스무딩(τ 0.06)은 그대로 둔다 — 저건 지터 제거용이지 전환용이 아니다.
-  const _vpP = new THREE.Vector3(), _vpQ = new THREE.Quaternion();
-  let _vpFrom = null, _vpTo = null, _vpT = 0, _vpDur = 0.8;
-  function vpGlide(sec) { _vpFrom = { p: camera.position.clone(), q: camera.quaternion.clone(), fov: camera.fov }; _vpTo = null; _vpT = 0; _vpDur = Math.max(0.05, sec || 0.8); }
-  /** 매 프레임 카메라가 **최종 결정된 뒤**(controls.update 포함)에 호출 — 남은 글라이드만큼
-   *  이전 포즈 쪽으로 되끌어온다. 여기보다 앞에서 부르면 orbit 컨트롤이 뒤에서 덮어쓴다. */
-  function tickVpGlide(dt) {
-    if (!_vpFrom) return;
-    if (_vpTo == null) _vpTo = camera.fov;   // setFp 가 정한 목표 화각(전환 후 첫 프레임에 확정)
-    // ★ 3인칭 목적지는 **매 프레임 다시 계산한다.** orbit 컨트롤은 직전 카메라 위치에서 각을
-    //   되뽑기 때문에, 블렌드 결과를 그대로 물려주면 목적지가 같이 끌려와 영영 도착하지 않는다.
-    //   0.8초 동안 자유 회전이 잠기는 건 의도된 연출 구간이라 괜찮다.
-    if (!fpMode) { try { frameThirdPerson(); controls.update?.(); } catch { /* 앵커 미준비 */ } }
-    _vpT += dt;
-    const k = Math.min(1, _vpT / _vpDur), e = k * k * (3 - 2 * k);   // smoothstep — 시작·끝이 부드럽다
-    _vpP.copy(camera.position); _vpQ.copy(camera.quaternion);
-    camera.position.lerpVectors(_vpFrom.p, _vpP, e);
-    camera.quaternion.slerpQuaternions(_vpFrom.q, _vpQ, e);
-    camera.fov = _vpFrom.fov + (_vpTo - _vpFrom.fov) * e;
-    camera.updateProjectionMatrix();
-    if (k >= 1) { camera.fov = _vpTo; camera.updateProjectionMatrix(); _vpFrom = null; }
-  }
   fpBtn.addEventListener('click', () => { fpUserSet = true; setFp(!fpMode); });
   coneBtn.addEventListener('click', () => {
     coneOn = !coneOn;
@@ -1182,8 +1157,10 @@ void main(){
     //   근거: 코치 동작을 봐야 따라 할 수 있어 기본은 3인칭이고, 1인칭은 '내 몸이 겪는 것'
     //   (슬립 회피·콤비네이션)과 전신을 쓰는 화면(시작·전환·리포트)에만 남긴다.
     //   다른 종목은 기존 규칙 유지 — 준비운동(A)만 3인칭.
-    const BX_FP = new Set(['BX_READY', 'BX_T1', 'BX_T2', 'BX_B2', 'BX_C3', 'BX_FIN']);
-    if (!fpUserSet) setFp(state.pack === 'boxing' ? BX_FP.has(st.id) : !/A\d$/.test(st.id));   // 유저가 수동 토글했으면 그 선택 유지(스테이지마다 강제전환 금지)
+    // ★ 08-10 유저: **세션은 전 스테이지 1인칭 고정.** 스테이지별 시점 표(BX_FP)와 스텝백·
+    //   시작화면의 자동 전환은 전부 걷어냈다 — 화면이 계속 갈아타니 지금 무엇을 보는 중인지가
+    //   흐려졌다. 되살릴 땐 커밋 cd99d45~ 를 볼 것(글라이드 vpGlide 포함).
+    if (!fpUserSet) setFp(true);   // 유저가 수동 토글했으면 그 선택 유지
     // 스테이지 라벨을 바닥에 문장으로 깔던 상태 슬롯 은퇴 — 세션 HUD 카드 + 세션 FS 슬롯('LEARN 3/4')과
     // 3중 중복이었고 발자국·가이드를 덮는 두 번째 주범. 투사면 = 훈련 큐 전용 원칙.
     veil();  // 단계 전환 암전 (끊김 → 의도된 전환으로)
@@ -4636,14 +4613,6 @@ void main(){
       const _stepPv = STEP_SEG[session.stage || ''] && _stepId === session.stage;   // 스텝백 = 재생 횟수로 판정
       const aWatching = _watchWin && (_stepPv ? _stepLoops < stepLoops(session.stage) : session.t < A2_WATCH);
       if (_watchWin && !aWatching) { session._followLatch = true; session._aWatchEnd = session.t; }
-      // ★ 스텝백 시점 자동 전환(유저 08-10): **인물 영상이 나오면 3인칭 · 발자국이 나오면 1인칭.**
-      //   시범은 '남의 동작을 본다'라 몸 밖에서 봐야 하고, 따라하기는 '내 발밑'이라 눈에서 봐야 한다.
-      //   경계는 이미 여기 있다 — _followLatch 가 그 한 줄이다. 유저가 수동 토글했으면 손대지 않는다.
-      //   전환 자체는 vpGlide 가 0.8초에 걸쳐 잇는다(하드컷이면 '끊겼다'로 읽힌다).
-      if (!fpUserSet && /^BK_(T1|B[234])$/.test(session.stage || '')) {
-        const wantFp = !!session._followLatch;
-        if (wantFp !== fpMode) { vpGlide(); setFp(wantFp); }
-      }
       // ★ 관찰(영상 재생) = 봇도 제자리 정지(유저 08-10 확정: "영상 재생할 때는 X봇도 가만히").
       //   시범은 영상이 하고, 봇의 무브는 따라하기(발자국) 구간에서만 — 둘이 동시에 움직이면
       //   시선이 갈린다. 스텝백 예외를 한때 뒀다가 이 확정으로 되돌렸다.
@@ -6107,14 +6076,6 @@ void main(){
 
     // 1인칭에서만 OrbitControls 스킵 — 세션 3인칭에선 자유 회전 허용
     if (!fpMode) controls.update();
-    // ★ 복싱 시작화면(유저 08-10) — 가만히 서 있기만 하는 화면이라 시점이 붙박이면 정지 화면으로
-    //   읽힌다. 1인칭으로 시작해(스테이지 진입이 이미 그렇게 정한다) 3초마다 3인칭↔1인칭을
-    //   오간다. 전환은 stepback 과 같은 글라이드인데, 여긴 연출이라 두 배 느리게(1.6s).
-    if (!fpUserSet && session.active && session.stage === 'BX_READY') {
-      const want = Math.floor(session.t / 3) % 2 === 0;   // 0~3s 1인칭 · 3~6s 3인칭 · 반복
-      if (want !== fpMode) { vpGlide(1.6); setFp(want); }
-    }
-    tickVpGlide(rawDt);   // 시점 전환 글라이드 — 카메라가 최종 결정된 뒤에 되끌어온다
     sceneUI.update(rawDt, rig);       // 장면 UI 슬롯 — 풋프린트 추종 재배치 + 페이드
     // 실전=연습 통일(유저): LiveUI 셰브론/변형/부스트 오버레이 은퇴 — 러닝은 P·C 모두
     // '흐르는 원형 판정 마크 + 소리(메트로놈)'로. active:false로 그룹 통째 숨김.
