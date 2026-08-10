@@ -2020,7 +2020,10 @@ export class FloorGL {
       if (pvn > 0) {
         const per = Math.max(.1, PV / pvn);          // 영상 1회분
         const live = window.__dbg?.session?._pvLoops;
-        const done = Math.min(pvn, Number.isFinite(live) ? live : Math.floor(t / per));
+        // ★ **1-based**(유저 08-10). live 는 '끝난 회차'라 재생 중엔 0 이고, 2/2 가 찍히는 순간이
+        //   곧 관찰 종료 프레임이었다 — 화면엔 'PREVIEW 2/2' 인데 봇은 이미 따라하기를 시작한다.
+        //   지금 몇 회째를 보고 있나로 센다. 1회짜리(기본)는 셀 게 없으니 라벨을 안 단다.
+        const done = Math.min(pvn, (Number.isFinite(live) ? live : Math.floor(t / per)) + 1);
         // ★ 규칙⑤(SPEC): 카운트는 한 화면에 하나. 'n/N' 은 4글자라 **고정 지름 링에 못 들어간다**
         //   (검사기 실측 1.45~1.72배 넘침 → 숫자가 60%로 줄어 읽히지 않았다).
         //   그래서 **횟수**는 ② 라벨이 말한다: 'PREVIEW 1/2'.
@@ -2042,7 +2045,7 @@ export class FloorGL {
         const liveSec = window.__dbg?.session?._pvSecLeft;
         const pvLeft = Number.isFinite(liveSec) ? liveSec : per - (t % per);
         return { AV, prog: clamp01(1 - (t % per) / per),   // 링은 **1회당 한 바퀴**
-                 rem: String(Math.max(1, Math.ceil(pvLeft))), pvLabel: done + '/' + pvn };
+                 rem: String(Math.max(1, Math.ceil(pvLeft))), pvLabel: pvn > 1 ? done + '/' + pvn : null };
       }
       const end = pvEnd ?? PV;
       return { AV, prog: clamp01(1 - t / Math.max(.1, PV)), rem: String(Math.max(1, Math.ceil(end - t))) };

@@ -93,7 +93,7 @@ for (const st of STAGES) {
 function reload() {
   for (const c of cells) {
     // pvn = 관찰이 '영상 N회'인 스테이지(농구 스텝백). main.js stepLoops() 규약과 같다.
-    c.gl.load(c.st.id, { dur: DUR, pv: c.pv || 3, pvn: /^BK_B[2345]$/.test(c.st.id) ? 2 : 0, src: c.src });
+    c.gl.load(c.st.id, { dur: DUR, pv: c.pv || 3, pvn: /^BK_B[2345]$/.test(c.st.id) ? 1 : 0, src: c.src });
     c.gl.t = T;
   }
   repaint();

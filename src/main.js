@@ -808,7 +808,10 @@ void main(){
       camera.position.set(a.x, 2.00, a.z + 2.20);
     } else {
       controls.target.set(a.x, 0.95, a.z);
-      camera.position.set(a.x + 2.05, 2.70, a.z + 2.35);   // ≈4.1m · 고도 40°(대각선 위)
+      // ★ 08-10 유저: 너무 멀리서 잡고 조금만 더 위에서 내려다봤으면.
+      //   방위각(대각선 옆)은 그대로 두고 **수평 반경만 3.12 → 2.13m**(−32%),
+      //   눈높이는 타깃 위 1.75 → 2.00m. 부각 29° → 43°.
+      camera.position.set(a.x + 1.40, 2.95, a.z + 1.60);   // ≈2.9m · 부각 43°(대각선 위)
     }
     camera.updateProjectionMatrix();
     controls.update?.();
@@ -6274,7 +6277,10 @@ void main(){
   // ★ 실전만 쉼 없이 이어 붙인다 — **발표 프리셋은 예외**(유저 08-07: 한 동작 하고 최소
   //   한 번은 쉬게 해야 하지 않나). 4/4 배움 단계가 쓰는 1.0초 hold 를 그대로 준다.
   const stepHold = id => (id === 'BK_C2' && !AD ? 0.0 : 1.0);
-  const stepLoops = id => (id === 'BK_C2' || id === 'BK_T1' ? 1 : 2);   // T1 = 통째로 한 번만 본다(유저)
+  // ★ 관찰은 **전 스테이지 1회**(유저 08-10: '보기'인데 왜 연속으로 수행하나 — 한 번 보여주고 넘어간다).
+  //   조각 단계만 2회였는데, 같은 조각을 두 번 보는 동안 화면엔 'PREVIEW 2/2' 가 남아
+  //   따라하기가 시작된 프레임과 겹쳤다(유저 스샷). 한 번 = 셀 것도 없다.
+  const stepLoops = () => 1;
   const STEP_RATE = 0.5, STEP_HOLD = 1.0, STEP_LOOPS = 2;
   const stepLoopSec = id => (STEP_SEG[id] ? (STEP_SEG[id][1] - STEP_SEG[id][0]) / stepRate(id) + stepHold(id) : 0);
   const stepPreviewSec = id => stepLoopSec(id) * stepLoops(id);
