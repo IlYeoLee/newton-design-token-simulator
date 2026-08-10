@@ -804,21 +804,11 @@ void main(){
     // 복싱은 '등 뒤 약간 위'(유저 지정) — 대각선 옆에서 보면 봇이 벽 UI를 정면으로 가린다.
     //   봇은 -Z(벽)를 보므로 뒤 = +Z. 타깃을 벽 쪽으로 조금 밀어 벽 UI가 봇 머리 위로 들어온다.
     if (state.pack === 'boxing') {
-      // ★ 08-10 유저: 줌인 과감하게 — **벽 UI 가 화면에 거의 가득** 차게.
-      //   거리를 손으로 정하지 않는다. 화각에서 역산한다(1인칭 벽 스테이지가 쓰는 것과 같은 식):
-      //   벽 2.6×1.63 이 프레임의 FILL 만큼을 차지하는 유일한 거리가 있다. 화각·종횡비가
-      //   바뀌면 이 값이 알아서 따라온다 — 창 크기마다 다시 맞출 필요가 없다.
-      //   ⚠ 그 거리는 봇보다 **벽 쪽**이라 등 뒤 프레이밍은 성립하지 않는다. 벽을 채우는 것과
-      //     봇을 함께 담는 것은 동시에 안 된다(실측: 봇 눈 z 1.13, 채움 거리는 z 0.2~0.9).
-      //     유저 요구가 'GUI 가 가득'이므로 벽을 택한다. 봇은 1인칭 쪽이 담당한다.
-      const _vf = camera.fov * Math.PI / 180;
-      const _hf = 2 * Math.atan(Math.tan(_vf / 2) * camera.aspect);
-      const FILL = 0.96;   // 벽이 프레임의 96% — 남은 4% 는 잘림 방지 여백
-      const wc = rig._wallCenter || { cx: a.x, cy: 1.4 };
-      const d = Math.max((rig.wallW / 2) / Math.tan(_hf / 2),
-                         (rig.wallH / 2) / Math.tan(_vf / 2)) / FILL;
-      controls.target.set(wc.cx, wc.cy, WALL_Z);
-      camera.position.set(wc.cx, wc.cy, WALL_Z + d);   // 정면·같은 높이 = 벽이 사다리꼴로 안 눕는다
+      // ★ 08-10 유저 재확정: 3인칭은 **등 뒤 프레이밍** — X봇 뒷모습이 보여야 한다.
+      //   벽 채움(0a457cb)은 카메라가 봇보다 벽 쪽에 앉아 뒷모습이 프레임에 못 들어왔고,
+      //   1인칭(벽 응시)과 구분도 안 됐다(유저: '전환이 안 되는 것 같다'). '벽 가득'은 1인칭이 담당.
+      controls.target.set(a.x, 1.25, a.z - 1.0);
+      camera.position.set(a.x, 2.00, a.z + 2.20);
     } else {
       controls.target.set(a.x, 0.95, a.z);
       // ★ 08-10 유저: 너무 멀리서 잡고 조금만 더 위에서 내려다봤으면.
