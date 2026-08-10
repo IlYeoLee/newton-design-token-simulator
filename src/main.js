@@ -804,11 +804,13 @@ void main(){
     // 복싱은 '등 뒤 약간 위'(유저 지정) — 대각선 옆에서 보면 봇이 벽 UI를 정면으로 가린다.
     //   봇은 -Z(벽)를 보므로 뒤 = +Z. 타깃을 벽 쪽으로 조금 밀어 벽 UI가 봇 머리 위로 들어온다.
     if (state.pack === 'boxing') {
-      // ★ 08-10 유저: 복싱도 더 확대해 벽 GUI 가 잘 보이게. 등 뒤 각(유저 지정)은 그대로 두고
-      //   거리만 3.29 → 2.53m(−23%). 카메라를 조금 낮춰(2.00 → 1.88) 시선이 벽을 더 정면으로
-      //   보게 하고, 타깃도 벽 쪽으로 0.2m 더 밀어 벽면이 프레임 가운데에 오게 한다.
+      // ★ 08-10 유저: 복싱도 더 확대해 벽 GUI 가 잘 보이게. 등 뒤 각(유저 지정)은 유지.
+      //   ⚠ 오프셋을 그냥 깎으면 안 된다 — 앵커(골반 본)와 봇이 서 있는 자리가 다르다.
+      //     실측(scripts/_probe_bxready.mjs): a.z = 0 인데 **눈은 z 1.13** 이다. 즉 옛 2.20 은
+      //     '봇 뒤 1.07m' 였고, 1.25 로 줄였더니 뒤 0.12m = 머리 속이 됐다.
+      //   그래서 **눈 기준 거리**로 잡는다: 뒤 1.07 → 0.82m(−23%) = a.z + 1.95.
       controls.target.set(a.x, 1.32, a.z - 1.20);
-      camera.position.set(a.x, 1.88, a.z + 1.25);
+      camera.position.set(a.x, 1.90, a.z + 1.95);
     } else {
       controls.target.set(a.x, 0.95, a.z);
       // ★ 08-10 유저: 너무 멀리서 잡고 조금만 더 위에서 내려다봤으면.
@@ -870,8 +872,8 @@ void main(){
   //   전환 직전 자리에서 0.8초 동안 따라오게 해 3인칭↔1인칭이 '이동'으로 읽히게 한다.
   //   1인칭 쪽 fpPos 스무딩(τ 0.06)은 그대로 둔다 — 저건 지터 제거용이지 전환용이 아니다.
   const _vpP = new THREE.Vector3(), _vpQ = new THREE.Quaternion();
-  let _vpFrom = null, _vpTo = null, _vpT = 0;
-  function vpGlide() { _vpFrom = { p: camera.position.clone(), q: camera.quaternion.clone(), fov: camera.fov }; _vpTo = null; _vpT = 0; }
+  let _vpFrom = null, _vpTo = null, _vpT = 0, _vpDur = 0.8;
+  function vpGlide(sec) { _vpFrom = { p: camera.position.clone(), q: camera.quaternion.clone(), fov: camera.fov }; _vpTo = null; _vpT = 0; _vpDur = Math.max(0.05, sec || 0.8); }
   /** 매 프레임 카메라가 **최종 결정된 뒤**(controls.update 포함)에 호출 — 남은 글라이드만큼
    *  이전 포즈 쪽으로 되끌어온다. 여기보다 앞에서 부르면 orbit 컨트롤이 뒤에서 덮어쓴다. */
   function tickVpGlide(dt) {
@@ -882,7 +884,7 @@ void main(){
     //   0.8초 동안 자유 회전이 잠기는 건 의도된 연출 구간이라 괜찮다.
     if (!fpMode) { try { frameThirdPerson(); controls.update?.(); } catch { /* 앵커 미준비 */ } }
     _vpT += dt;
-    const k = Math.min(1, _vpT / 0.8), e = k * k * (3 - 2 * k);   // smoothstep — 시작·끝이 부드럽다
+    const k = Math.min(1, _vpT / _vpDur), e = k * k * (3 - 2 * k);   // smoothstep — 시작·끝이 부드럽다
     _vpP.copy(camera.position); _vpQ.copy(camera.quaternion);
     camera.position.lerpVectors(_vpFrom.p, _vpP, e);
     camera.quaternion.slerpQuaternions(_vpFrom.q, _vpQ, e);
@@ -6097,6 +6099,13 @@ void main(){
 
     // 1인칭에서만 OrbitControls 스킵 — 세션 3인칭에선 자유 회전 허용
     if (!fpMode) controls.update();
+    // ★ 복싱 시작화면(유저 08-10) — 가만히 서 있기만 하는 화면이라 시점이 붙박이면 정지 화면으로
+    //   읽힌다. 1인칭으로 시작해(스테이지 진입이 이미 그렇게 정한다) 3초마다 3인칭↔1인칭을
+    //   오간다. 전환은 stepback 과 같은 글라이드인데, 여긴 연출이라 두 배 느리게(1.6s).
+    if (!fpUserSet && session.active && session.stage === 'BX_READY') {
+      const want = Math.floor(session.t / 3) % 2 === 0;   // 0~3s 1인칭 · 3~6s 3인칭 · 반복
+      if (want !== fpMode) { vpGlide(1.6); setFp(want); }
+    }
     tickVpGlide(rawDt);   // 시점 전환 글라이드 — 카메라가 최종 결정된 뒤에 되끌어온다
     sceneUI.update(rawDt, rig);       // 장면 UI 슬롯 — 풋프린트 추종 재배치 + 페이드
     // 실전=연습 통일(유저): LiveUI 셰브론/변형/부스트 오버레이 은퇴 — 러닝은 P·C 모두
