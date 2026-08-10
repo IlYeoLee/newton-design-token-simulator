@@ -31,7 +31,7 @@ body{background:var(--bg);color:var(--text);font:15px/1.6 'Pretendard',var(--ds-
 .tk input[type=range]::-moz-range-track{height:6px;border-radius:999px;background:rgba(255,255,255,.14)}
 .tk input[type=range]::-moz-range-progress{height:6px;border-radius:999px;background:var(--nb-red)}
 .tk input[type=range]::-moz-range-thumb{width:20px;height:20px;border:0;border-radius:50%;background:var(--nb-red)}
-.tk .hint{grid-column:1/3;font-size:12px;color:#66666e;margin-top:-3px}
+.tk .hint{grid-column:1/3;font-size:12px;color:var(--faint);margin-top:-2px}
 .sw{display:flex;align-items:center;gap:8px;margin-bottom:7px;cursor:pointer;user-select:none}
 .sw input{accent-color:var(--coral);width:15px;height:15px}
 .sw span{font-size:14px;color:var(--text)}
@@ -51,8 +51,8 @@ button.on{background:var(--coral);border-color:var(--coral);color:#fff}
 /* 칸 폭은 **실치수에서 나온다** — 대지 1600px × mm/px = 물리 폭, 그걸 96dpi 로 환산해 배율을 곱한다.
    그래서 배율 100% 면 화면에 자를 대고 잰 크기가 실제 바닥 투사 크기와 같다. */
 #grid{flex:1;overflow:auto;padding:14px;display:flex;flex-wrap:wrap;gap:14px;align-content:start}
-.cell{background:#1b1b20;border:1px solid var(--line);border-radius:8px;overflow:hidden;flex:0 0 auto}
-.cell.pack-bk{border-color:#3a2f26}
+.cell{background:var(--d-bg-sub);border:0;border-radius:12px;overflow:hidden;flex:0 0 auto}
+.cell.pack-bk{box-shadow:inset 0 0 0 1px rgba(254,195,137,.18)}
 .cell .hd{display:flex;justify-content:space-between;align-items:baseline;padding:6px 8px;
   font-size:10px;border-bottom:1px solid var(--line)}
 .cell .hd b{font-weight:700;font-size:11px}
@@ -67,7 +67,7 @@ button.on{background:var(--coral);border-color:var(--coral);color:#fff}
 .cell .cv{position:absolute;inset:0 0 auto 0}
 .cell canvas{display:block;width:100%;height:auto}
 .cell .ov{position:absolute;left:0;top:0;width:100%;height:auto;aspect-ratio:1600/2670;pointer-events:none}
-.cell.bad{border-color:#8a2b2b}
+.cell.bad{box-shadow:inset 0 0 0 1px rgba(250,48,48,.45)}
 .cell.bad .hd i{color:#ff7b6b}
 /* 밴드 오버레이 — 레이아웃 규약이 실제로 어디 있는지 눈으로 본다 */
 .band{position:absolute;left:0;right:0;pointer-events:none;border-top:1px dashed rgba(90,200,255,.55)}

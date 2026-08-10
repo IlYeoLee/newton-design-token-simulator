@@ -377,7 +377,7 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
       <button id="bx-video" title="실사 섀도복싱 영상(Pexels 7187515, 측면)에서 펀치 33건 자동 추출 — 손 배치 0. 리듬·타겟 높이가 그 복서의 것" style="display:none;border-color:#d1feff;color:#d1feff;">복서</button>
       <button data-pack="running">러닝</button>
       <button id="run-expert" title="Bandai 실측 러너(run_normal.bvh)에서 자동 추출된 전문가 팩 — 손 배치 0. 봇도 그 러너의 원본 모션을 그대로 재생" style="display:none;border-color:#fec389;color:#fec389;">⭐ 러너</button>
-      <button id="run-video" title="영상 → MediaPipe 포즈 → 발 접지 자동 추출 팩 (video_pose_extract.py). 현재는 폐루프 검증 샘플(시뮬 봇 측면 캡처, Δt +9~32ms) — 외부 영상으로 교체 가능" style="display:none;border-color:#d1feff;color:#d1feff;">🎥 영상</button>
+      <button id="run-video" title="영상 → MediaPipe 포즈 → 발 접지 자동 추출 팩 (video_pose_extract.py). 현재는 폐루프 검증 샘플(시뮬 봇 측면 캡처, Δt +9~32ms) — 외부 영상으로 교체 가능" style="display:none;border-color:#d1feff;color:#d1feff;">영상</button>
       <button data-pack="basketball">농구</button>
       <button id="bk-curry" title="NBA SportVU 실경기(2015-10-31, 53득점)에서 자동 추출된 커리 스텝백 — 손 배치 0" style="display:none;border-color:#fec389;color:#fec389;">⭐ 커리</button>
     </nav>
@@ -752,7 +752,7 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
         <button class="stsp active" data-sport="running" style="padding:5px 9px;border:1px solid var(--accent);border-radius:5px;background:rgba(250,48,48,.16);color:var(--accent);font-size:10.5px;cursor:pointer;">러닝</button>
         <button class="stsp" data-sport="boxing" style="padding:5px 9px;border:1px solid var(--line);border-radius:5px;background:var(--panel2);color:var(--text);font-size:10.5px;cursor:pointer;">복싱</button>
         <button class="stsp" data-sport="basketball" style="padding:5px 9px;border:1px solid var(--line);border-radius:5px;background:var(--panel2);color:var(--text);font-size:10.5px;cursor:pointer;">농구</button>
-        <button id="studio-bgpreview" style="margin-left:auto;padding:5px 9px;border:1px solid var(--line);border-radius:5px;background:var(--panel2);color:var(--dim);font-size:10.5px;cursor:pointer;" title="편집은 다크 스테이지 위에서 — 실물(주간/바닥 테마) 배경을 잠깐 켜서 확인">☀️ 실물 확인</button>
+        <button id="studio-bgpreview" style="margin-left:auto;padding:5px 9px;border:1px solid var(--line);border-radius:5px;background:var(--panel2);color:var(--dim);font-size:10.5px;cursor:pointer;" title="편집은 다크 스테이지 위에서 — 실물(주간/바닥 테마) 배경을 잠깐 켜서 확인">실물 확인</button>
       </div>
       <div id="cut-board" style="display:flex;gap:6px;padding:8px 12px;border-bottom:1px solid var(--line);overflow-x:auto;"></div>
       <select id="studio-stage" style="display:none;"></select>
@@ -811,7 +811,7 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
       <div id="hud-stage" style="font-size:13px;font-weight:700;color:var(--text);line-height:1.4;min-height:36px;">—</div>
       <div style="display:flex;gap:6px;margin-top:10px;">
         <button id="btn-stage-prev" style="flex:1;padding:8px 0;border:1px solid var(--line);border-radius:7px;background:var(--panel2);color:var(--text);font-size:12px;cursor:pointer;">◀ 이전</button>
-        <button id="btn-tap" style="flex:1.4;padding:8px 0;border:1px solid var(--accent);border-radius:7px;background:rgba(250,48,48,.14);color:var(--accent);font-size:12px;font-weight:700;cursor:pointer;">👣 두 번 탭</button>
+        <button id="btn-tap" style="flex:1.4;padding:8px 0;border:1px solid var(--accent);border-radius:7px;background:rgba(250,48,48,.14);color:var(--accent);font-size:12px;font-weight:700;cursor:pointer;">두 번 탭</button>
         <button id="btn-stage-next" style="flex:1;padding:8px 0;border:1px solid var(--line);border-radius:7px;background:var(--panel2);color:var(--text);font-size:12px;cursor:pointer;">다음 ▶</button>
       </div>
       <div style="display:flex;gap:6px;margin-top:6px;">
