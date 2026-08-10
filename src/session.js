@@ -3629,7 +3629,7 @@ export class Session {
     } else if (id === 'BK_B2') {
       // B2 · 측면 스텝백 Break Down — 비트별 정지 학습. 커서(발 미러)가 마크에 머물면 다음 비트.
       //   ①시작(우) ②플랜트(중) ③착지(좌, 어깨너비) ④슛(상승 링) = 1세트로 종료.
-      const H = this.bkB2x, MAXSEC = 60;
+      const H = this.bkB2x, MAXSEC = 25;   // 전시(08-11 유저): 자동 모드가 같은 동작을 오래 반복하지 않게
       if (this._bkStrId !== 'BK_B2') { H.beat = 0; H._dwell = 0; H._beatT = this.t; H._popT = -9; }
       this._bkStrId = 'BK_B2';
       // 화살표는 관찰(프리뷰) 때도 뜬다 — 첫 진입에서만 안 보이던 원인이 여기(_gain이 따라하기
@@ -3677,14 +3677,14 @@ export class Session {
       if (H.beat <= 2) {
         // 커서가 목표 마크 근방에 머물면(0.8s) 통과. 봇 시연이 늦으면 6s 후 자동 진행(데모 안전장치).
         if (Math.abs(ex - TGT) < 0.22) H._dwell += dtB2; else H._dwell = Math.max(0, H._dwell - dtB2 * 2);
-        if (H._dwell > 0.8 || this.t - H._beatT > 6) {
+        if (H._dwell > 0.8 || this.t - H._beatT > 2.5) {   // 봇 시연 지연 폴백 6→2.5s (전시 08-11)
           H.beat += 1; H._dwell = 0; H._beatT = this.t; H._popT = this.t;
           // 접지 버스트(파형 이펙트) 없음 — 1/4은 발자국+화살표만(유저)
         }
       } else {
         // 비트④ 슛 — 골반 상승 전환 감지(점프 릴리즈)
         const hy = pr?.hips?.y ?? 1;
-        if (hy - (H._prevHy || hy) > 0.012 || this.t - H._beatT > 6) {
+        if (hy - (H._prevHy || hy) > 0.012 || this.t - H._beatT > 2.5) {   // 슛 감지 폴백도 동일(전시 08-11)
           this._say('bkb2shot', '커리', '바로 그거예요 — 그 rhythm!');
           this.next(true); return;   // 1세트 = 1회 성공 — 앞 대사가 남아 있어도 즉시 전환(유저: 바로)
         }

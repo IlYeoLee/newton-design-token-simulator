@@ -4667,7 +4667,11 @@ void main(){
       //   클립은 이미 사람이 실제로 한 동작이다. 접지는 원래 있던 _clampFeet(발바닥 기준으로
       //   몸 전체를 내리는 방식)만으로 충분하다 — 그건 포즈를 안 건드린다.
       //   되살릴 땐 '힙이 옮겨간 만큼 래치도 따라가게' 만든 뒤에만.
-      xbot.footLock = false;
+      // ★ 접지 복원(유저 08-11: '바닥의 스텝을 지면과 접촉시켜 마찰을 주는 역할을 못한다').
+      //   스플릿 사고(5f7ab02)의 조건은 '클립이 힙을 옮기는데 발이 월드에 박혀 있다'였다 —
+      //   지금은 demoInPlace 가 스텝백 내내 힙 XZ 를 고정하므로 그 조건 자체가 없다.
+      //   되감김 래치 해제(resetFootLock)는 위 _ikVt 점프 감지에 이미 걸려 있다.
+      xbot.footLock = !!STEP_SEG[session.stage || ''];
       // ★ footLock 에 묶지 않는다(08-10 유저: 발고정 끈 뒤 봇이 다시 뒤돌았다).
       //   demoInPlace 는 두 가지를 담당한다 — ① 힙 XZ 제자리(_lockInPlace) ② 요 고정 활성
       //   (lockYaw 는 루트 클립에서 demoInPlace 일 때만 산다). footLock=false 로 두면서 이것까지
