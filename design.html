@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>NEWTON GUI — 코드로 등록한 디자인 시스템</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔥</text></svg>">
+<link rel="stylesheet" href="lab-skin.css">
+<!--
+  디자인 시스템 허브 — 링크 모음이 아니라 **살아 있는 스타일가이드**다.
+  색·타이포 견본은 하드코딩이 아니라 lab-skin.css 의 실제 토큰을 getComputedStyle 로
+  읽어 그린다. 값이 바뀌면 이 페이지도 같이 바뀐다 — 코드가 정본이라는 증명.
+  정본: lab-skin.css (Figma 222-37297 · d09455b 등록) · docs/design-tokens.md
+-->
+<style>
+@font-face{font-family:'Supreme';src:url('fonts/Supreme-Regular.woff2') format('woff2');font-weight:400;font-display:swap}
+@font-face{font-family:'Supreme';src:url('fonts/Supreme-Medium.woff2') format('woff2');font-weight:500;font-display:swap}
+@font-face{font-family:'Supreme';src:url('fonts/Supreme-Bold.woff2') format('woff2');font-weight:700;font-display:swap}
+@font-face{font-family:'Pretendard';src:url('fonts/Pretendard-Regular.woff2') format('woff2');font-weight:400;font-display:swap}
+@font-face{font-family:'Pretendard';src:url('fonts/Pretendard-Bold.woff2') format('woff2');font-weight:700;font-display:swap}
+@font-face{font-family:'OffBit';src:url('fonts/OffBitTrial-DotBold.woff2') format('woff2');font-weight:700;font-display:block}
+*{margin:0;box-sizing:border-box}
+html{background:var(--bg);scroll-behavior:smooth}
+body{background:var(--bg);color:var(--d-body);font:15px/1.65 var(--ds-font);-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}
+.wrap{max-width:1060px;margin:0 auto;padding:0 28px 120px}
+
+/* ── 히어로 ── */
+header.hero{padding:88px 0 56px;border-bottom:1px solid var(--line)}
+.hero .eyebrow{font:var(--t-labm);letter-spacing:2.4px;color:var(--dim);text-transform:uppercase;margin-bottom:18px}
+.hero h1{font:700 clamp(40px,6vw,64px)/1.08 var(--ds-font);letter-spacing:-2.5px;color:var(--d-title)}
+.hero h1 em{font-style:normal;background:var(--nb-grad-bright);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero p{margin-top:20px;max-width:640px;font:var(--t-bodyr);letter-spacing:var(--ls-body);color:var(--d-t2)}
+.hero .meta{margin-top:26px;display:flex;gap:26px;flex-wrap:wrap;font:var(--t-labr);color:var(--dim)}
+.hero .meta b{color:var(--d-strong);font-weight:700}
+.gradbar{height:3px;background:var(--nb-grad-bright);border-radius:2px;margin-top:44px}
+
+/* ── 섹션 공통 ── */
+section{padding-top:64px}
+section>h2{font:var(--t-h2);letter-spacing:var(--ls-h2);color:var(--d-title);margin-bottom:6px}
+section>.lead{font:var(--t-capr);letter-spacing:var(--ls-capr);color:var(--dim);margin-bottom:26px}
+section>.lead code{font:11px ui-monospace,Menlo,monospace;color:var(--sand);background:var(--panel);padding:2px 6px;border-radius:4px}
+
+/* ── 컬러 ── */
+.chips{display:grid;grid-template-columns:repeat(auto-fill,minmax(132px,1fr));gap:10px}
+.chip{border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--panel)}
+.chip .sw{height:64px}
+.chip .tx{padding:9px 11px}
+.chip .nm{font:var(--t-labm);color:var(--d-strong)}
+.chip .hx{font:11px ui-monospace,Menlo,monospace;color:var(--dim);margin-top:1px;text-transform:uppercase}
+.ramp{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-top:10px}
+.ramp div{flex:1;height:46px;position:relative}
+.ramp div span{position:absolute;left:50%;bottom:-22px;transform:translateX(-50%);font:10px ui-monospace,Menlo,monospace;color:var(--faint);white-space:nowrap}
+.ramp{margin-bottom:30px}
+
+/* ── 타이포 ── */
+.spec{border:1px solid var(--line);border-radius:12px;background:var(--panel);overflow:hidden}
+.spec .row{display:flex;align-items:baseline;gap:22px;padding:15px 20px;border-bottom:1px solid var(--line)}
+.spec .row:last-child{border-bottom:none}
+.spec .tag{flex:0 0 92px;font:11px ui-monospace,Menlo,monospace;color:var(--sand)}
+.spec .sample{color:var(--d-title);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.spec .sz{margin-left:auto;font:11px ui-monospace,Menlo,monospace;color:var(--faint)}
+.numface{font-family:'OffBit';color:var(--d-title)}
+
+/* ── 랩 디렉터리 ── */
+.grp-title{font:var(--t-sub);letter-spacing:var(--ls-sub);color:var(--d-strong);margin:34px 0 4px}
+.grp-sub{font:var(--t-labr);color:var(--dim);margin-bottom:14px}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
+.card{display:block;border:1px solid var(--line);border-radius:12px;background:var(--panel);
+  padding:18px 18px 15px;transition:border-color .15s,transform .15s}
+.card:hover{border-color:var(--d-border);transform:translateY(-2px)}
+.card .hd{display:flex;align-items:baseline;gap:10px}
+.card h3{font:var(--t-bodyb);letter-spacing:var(--ls-body);color:var(--d-title)}
+.card .path{margin-left:auto;font:10.5px ui-monospace,Menlo,monospace;color:var(--faint)}
+.card p{margin-top:6px;font:var(--t-capr);letter-spacing:var(--ls-capr);color:var(--d-t2)}
+.card .canon{margin-top:10px;font:10.5px ui-monospace,Menlo,monospace;color:var(--dim)}
+.card .canon b{color:var(--sand);font-weight:400}
+.card.ext .path::after{content:" ↗"}
+
+/* ── 원칙 ── */
+.rules{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
+.rule{border:1px solid var(--line);border-radius:12px;background:var(--panel);padding:18px}
+.rule b{display:block;font:var(--t-bodyb);letter-spacing:var(--ls-body);color:var(--d-title);margin-bottom:6px}
+.rule p{font:var(--t-capr);letter-spacing:var(--ls-capr);color:var(--d-t2)}
+
+footer{margin-top:80px;padding-top:22px;border-top:1px solid var(--line);
+  display:flex;gap:20px;flex-wrap:wrap;font:var(--t-labr);color:var(--dim)}
+footer a{color:var(--d-t2)} footer a:hover{color:var(--d-title)}
+</style>
+</head><body>
+<div class="wrap">
+
+<header class="hero">
+  <div class="eyebrow">Newton Design System — Built in Code</div>
+  <h1>디자인 시스템을<br><em>개발로 등록했다</em></h1>
+  <p>피그마 정본(222-37297)의 색·타이포·조판 규약이 코드 안에 토큰으로 산다.
+     아래 견본은 그림이 아니라 <b>지금 이 저장소의 실제 값</b>을 읽어 그린 것이다 —
+     토큰이 바뀌면 이 페이지도 같이 바뀐다.</p>
+  <div class="meta">
+    <span>정본 <b>lab-skin.css</b></span>
+    <span>랩 <b id="m-labs">—</b>개</span>
+    <span>컬러 토큰 <b id="m-colors">—</b></span>
+    <span>타이포 스케일 <b id="m-type">—</b>단</span>
+  </div>
+  <div class="gradbar"></div>
+</header>
+
+<section id="color">
+  <h2>컬러</h2>
+  <div class="lead">브랜드 7칩과 뉴트럴 12단 — 전부 <code>lab-skin.css</code> 에서 실시간으로 읽는다.</div>
+  <div class="chips" id="brandChips"></div>
+  <div style="height:26px"></div>
+  <div class="ramp" id="neutralRamp"></div>
+</section>
+
+<section id="type">
+  <h2>타이포그래피</h2>
+  <div class="lead">Supreme 스케일(피그마 텍스트 스타일 정본). 수치는 OffBit 도트가 전담한다 —
+    <code>--t-d1</code>…<code>--t-micro</code></div>
+  <div class="spec" id="typeSpec"></div>
+</section>
+
+<section id="labs">
+  <h2>랩</h2>
+  <div class="lead">규약 하나마다 실험실 하나 — 여기서 확정한 값만 정본 파일로 들어간다.</div>
+
+  <div class="grp-title">마크 · 발자국</div>
+  <div class="grp-sub">지면에 투사되는 발 마크의 형태·상태·움직임</div>
+  <div class="cards">
+    <a class="card" href="footlab.html"><div class="hd"><h3>발자국 룩</h3><span class="path">footlab.html</span></div>
+      <p>깔창 각인·상태 7종을 실시간으로 조정하고 정본에 저장한다.</p>
+      <div class="canon">정본 <b>src/mark-look.json</b></div></a>
+    <a class="card" href="marks.html"><div class="hd"><h3>마크 공통 언어</h3><span class="path">marks.html</span></div>
+      <p>발자국과 존원이 함께 쓰는 움직임 어휘를 다섯 축으로 시험한다.</p>
+      <div class="canon">정본 <b>src/marklang.js</b></div></a>
+    <a class="card" href="gait.html"><div class="hd"><h3>한 걸음</h3><span class="path">gait.html</span></div>
+      <p>입각기 한 걸음의 접지 애니메이션을 프레임 단위로 본다.</p>
+      <div class="canon">정본 <b>src/gait.js</b></div></a>
+    <a class="card" href="heatmap7.html"><div class="hd"><h3>접지 프린트 7상태</h3><span class="path">heatmap7.html</span></div>
+      <p>접지 압력 그라디언트의 7가지 상태 전이를 나란히 놓는다.</p>
+      <div class="canon">정본 <b>src/fx-core.js</b></div></a>
+    <a class="card" href="stancelab.html"><div class="hd"><h3>스탠스</h3><span class="path">stancelab.html</span></div>
+      <p>발 벌리기 토큰과 띠 프레임을 미리 본다.</p>
+      <div class="canon">정본 <b>src/session.js</b></div></a>
+  </div>
+
+  <div class="grp-title">지면 · 조판</div>
+  <div class="grp-sub">투사 대지 위 알약·링·아크의 레이아웃 토큰</div>
+  <div class="cards">
+    <a class="card" href="tokens.html"><div class="hd"><h3>지면 디자인 토큰</h3><span class="path">tokens.html</span></div>
+      <p>씬 8칸을 한 화면에 띄우고 조판 토큰을 슬라이더로 만진다.</p>
+      <div class="canon">정본 <b>src/floorgl.js TOK · LAYOUT</b></div></a>
+    <a class="card" href="pilllab.html"><div class="hd"><h3>알약 재질</h3><span class="path">pilllab.html</span></div>
+      <p>유리 알약과 첫 화면 문법 두 재질을 비교한다.</p>
+      <div class="canon">정본 <b>src/floorgl.js _glassPill</b></div></a>
+    <a class="card" href="readylab.html"><div class="hd"><h3>시작화면</h3><span class="path">readylab.html</span></div>
+      <p>러닝·농구·복싱 시작화면을 한 화면에서 검수한다.</p>
+      <div class="canon">정본 <b>src/floorgl.js _paint_ready</b></div></a>
+    <a class="card" href="capsule-concepts.html"><div class="hd"><h3>캡슐 언어</h3><span class="path">capsule-concepts.html</span></div>
+      <p>프리뷰가 따라하기 헤더로 변형되는 확장 시안.</p>
+      <div class="canon">정본 <b>docs/SCENE-CAPSULE-SYSTEM.md</b></div></a>
+    <a class="card" href="scenes.html"><div class="hd"><h3>씬 스테이지</h3><span class="path">scenes.html</span></div>
+      <p>실사 배경 위 투사 화면을 촬영 조건으로 맞춘다.</p>
+      <div class="canon">정본 <b>public/_presets.json</b></div></a>
+  </div>
+
+  <div class="grp-title">인물 · 열화상</div>
+  <div class="grp-sub">코치 영상을 뉴턴 LUT 열화상 룩으로 옮기는 셰이더</div>
+  <div class="cards">
+    <a class="card" href="fxlab.html"><div class="hd"><h3>FX 랩</h3><span class="path">fxlab.html</span></div>
+      <p>히트 그라디언트·글리프·마크 셰이더의 본진.</p>
+      <div class="canon">정본 <b>src/fx-core.js · src/fxlut.js</b></div></a>
+    <a class="card" href="personlab-live.html"><div class="hd"><h3>인물 랩 (실물)</h3><span class="path">personlab-live.html</span></div>
+      <p>벽·러닝·농구 인물을 레퍼런스 사진 옆에 나란히 놓는다.</p>
+      <div class="canon">정본 <b>src/fx-core.js PERSON_GLSL</b></div></a>
+    <a class="card" href="personlab.html"><div class="hd"><h3>인물 색 패리티</h3><span class="path">personlab.html</span></div>
+      <p>입력을 고정하고 바닥·벽의 색 매핑만 잰다.</p>
+      <div class="canon">정본 <b>src/fx-core.js personLook</b></div></a>
+    <a class="card ext" href="https://github.com/IlYeoLee/person-aura-filter" target="_blank" rel="noopener">
+      <div class="hd"><h3>열화상 이미지 편집기</h3><span class="path">person-aura-filter</span></div>
+      <p>사진을 넣으면 인물을 분리해 아우라 룩으로 합성하는 독립 앱.</p>
+      <div class="canon">정본 <b>src/auraRenderer.ts</b></div></a>
+  </div>
+
+  <div class="grp-title">검증</div>
+  <div class="grp-sub">눈이 아니라 픽셀로 — 룩이 어긋나면 스크립트가 먼저 안다</div>
+  <div class="cards">
+    <a class="card" href="parity.html"><div class="hd"><h3>FX 패리티</h3><span class="path">parity.html</span></div>
+      <p>룩 카탈로그와 라이브 셰이더를 픽셀 diff 로 대조한다.</p>
+      <div class="canon">정본 <b>scripts/parity.mjs</b></div></a>
+    <a class="card" href="c3-variants.html"><div class="hd"><h3>잽잽훅 시안</h3><span class="path">c3-variants.html</span></div>
+      <p>컴포넌트 리디자인 4안을 실제 박자로 움직여 비교한다.</p>
+      <div class="canon">정본 <b>src/tokens.js drawPunchLine</b></div></a>
+  </div>
+</section>
+
+<section id="rules">
+  <h2>원칙</h2>
+  <div class="lead">이 저장소가 지키는 규약 — <code>CLAUDE.md</code> 와 커밋 이력에 근거가 있다.</div>
+  <div class="rules">
+    <div class="rule"><b>값이 두 벌이면 그게 버그다</b>
+      <p>모든 토큰은 정본 파일 하나에서 나온다. 랩과 시뮬레이터는 같은 파일을 읽는다.</p></div>
+    <div class="rule"><b>추측하지 않는다, 계측한다</b>
+      <p>렌더링은 앱 안에 계측기를 먼저 넣고 실측값으로 판단한다. 검증 스크립트 40여 개가 같이 산다.</p></div>
+    <div class="rule"><b>컨테이너가 내용보다 먼저 자리를 만든다</b>
+      <p>알약 폭·링 슬롯·글자 크기는 목표 폭에서 정한다. 이징 중 값으로 정하면 글자가 흔들린다.</p></div>
+    <div class="rule"><b>상태는 온도 창과 명도로 갈린다</b>
+      <p>유채 4색 안에서 상태를 구분한다. 아웃라인으로 상태를 말하지 않는다.</p></div>
+  </div>
+</section>
+
+<footer>
+  <a href="index.html">시뮬레이터로 돌아가기</a>
+  <a href="docs/design-tokens.md">design-tokens.md</a>
+  <a href="docs/FLOOR-LAYOUT-SPEC.md">FLOOR-LAYOUT-SPEC.md</a>
+  <span style="margin-left:auto">NEWTON — 정본은 코드에 있다</span>
+</footer>
+</div>
+
+<script>
+// 견본은 전부 실값 — lab-skin.css 토큰을 읽어 그린다. 하드코딩 금지.
+const cs = getComputedStyle(document.documentElement);
+const v = k => cs.getPropertyValue(k).trim();
+
+// 브랜드 칩
+const BRAND = [['RED','--nb-red'],['Coral','--nb-coral'],['Sand','--nb-sand'],['Prism','--nb-prism'],
+               ['Void','--nb-void'],['Oxblood','--nb-oxblood'],['Crimson','--nb-crimson']];
+document.getElementById('brandChips').innerHTML = BRAND.map(([nm,k]) =>
+  `<div class="chip"><div class="sw" style="background:${v(k)}"></div>
+   <div class="tx"><div class="nm">${nm}</div><div class="hx">${v(k)}</div></div></div>`).join('');
+
+// 뉴트럴 램프
+const NEUT = ['--d-bg','--d-bg-sub','--d-surface','--d-divider','--d-border','--d-disabled',
+              '--d-t3','--d-t2','--d-body','--d-strong','--d-title','--d-white'];
+document.getElementById('neutralRamp').innerHTML = NEUT.map(k =>
+  `<div style="background:${v(k)}" title="${k} ${v(k)}"><span>${v(k)}</span></div>`).join('');
+
+// 타이포 견본
+const TYPE = [['d1','디자인은 시스템이다'],['h1','디자인은 시스템이다'],['h2','토큰이 화면을 만든다'],
+              ['t1','토큰이 화면을 만든다'],['sub','정본은 코드에 있다'],
+              ['bodyb','값이 두 벌이면 그게 버그다'],['capb','추측하지 않는다, 계측한다'],
+              ['labm','LABEL — 13px MEDIUM'],['micro','MICRO CAPTION 11px']];
+document.getElementById('typeSpec').innerHTML = TYPE.map(([t,txt]) => {
+  const f = v(`--t-${t}`), ls = v(`--ls-${t}`) || '0';
+  const sz = (f.match(/(\d+)px/) || [,'?'])[1];
+  return `<div class="row"><span class="tag">--t-${t}</span>
+    <span class="sample" style="font:${f};letter-spacing:${ls}">${txt}</span>
+    <span class="sz">${sz}px</span></div>`;
+}).join('') + `<div class="row"><span class="tag">OffBit</span>
+    <span class="sample numface" style="font-size:34px">0123456789 · 5.0 KM</span>
+    <span class="sz">수치 전용</span></div>`;
+
+// 메타 수치 — 실측
+document.getElementById('m-labs').textContent = document.querySelectorAll('.card').length;
+document.getElementById('m-colors').textContent = BRAND.length + '+' + NEUT.length;
+document.getElementById('m-type').textContent = TYPE.length;
+</script>
+</body></html>
