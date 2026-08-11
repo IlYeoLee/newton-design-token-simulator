@@ -243,7 +243,10 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
 #lab-panel details>*:last-child:not(summary){padding-bottom:14px}
 #lab-panel details>*:last-child:not(summary){padding-bottom:13px}
 /* 근거 = 한 단 안쪽. 배경 없이 선만 — 카드가 겹쳐 보이면 지저분해진다 */
-#lab-panel details details{background:none;margin-top:2px;border-top:1px solid rgba(255,255,255,.06);border-radius:0;padding-inline:0}
+/* 중첩(근거) 토글 — 가로 패딩을 0 으로 박아 두면 상위 컨테이너의 14px 를 덮어
+   글이 카드 벽에 붙는다(유저 08-11). 상위 규칙(padding-inline:14px)을 그대로 받게 두고,
+   안쪽 자식만 0 으로 둔다 — 그래야 중첩 내용이 바깥 내용과 같은 세로선에 선다. */
+#lab-panel details details{background:none;margin-top:2px;border-top:1px solid rgba(255,255,255,.06);border-radius:0}
 #lab-panel details[open] details{background:none}
 #lab-panel details details>summary{color:rgba(255,255,255,.6);font-size:12.5px;font-weight:700;padding:11px 0}
 #lab-panel details details>summary::before{display:none}
@@ -401,7 +404,7 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
 #voice-caption{border:0;background:none;padding:0;backdrop-filter:none;color:var(--d-title)}
 #dev-pill{border:0;border-radius:999px;background:var(--d-surface);color:var(--d-t3);font:var(--t-labr)}
 </style>
-  <script type="module" crossorigin src="./assets/main-DLtRa5Uv.js"></script>
+  <script type="module" crossorigin src="./assets/main-Vs8W890g.js"></script>
   <link rel="modulepreload" crossorigin href="./assets/modulepreload-polyfill-B5Qt9EMX.js">
   <link rel="modulepreload" crossorigin href="./assets/preload-helper-PPVm8Dsz.js">
   <link rel="modulepreload" crossorigin href="./assets/fx-core-CsnioyF7.js">
