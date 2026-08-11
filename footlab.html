@@ -8,22 +8,25 @@
   @font-face{font-family:'OffBit';src:url('fonts/OffBitTrial-DotBold.woff2') format('woff2');font-weight:700;font-display:block}
   *{box-sizing:border-box}
   html,body{margin:0;background:var(--d-bg);color:var(--text);
-    font:16px/1.6 'Pretendard',var(--ds-font)}
-  .wrap{display:flex;gap:18px;padding:16px 16px 40px;align-items:flex-start;flex-wrap:wrap}   /* 좌우 마진 축소(유저 08-12) — 콘텐츠가 넓게 선다 */
+    font:17px/1.65 'Pretendard',var(--ds-font)}   /* 대형 모니터 기준 상향(유저 08-12) */
+  /* 좌우 마진 100 고정, 나머지는 꽉 채운다(유저 08-12: 우측 여백이 과하다) */
+  .wrap{display:flex;gap:28px;padding:24px 100px 56px;align-items:flex-start}
   /* 패널이 세로로 길어 미리보기를 보면서 조절할 수가 없었다(유저) — 패널만 따로 스크롤한다. */
   .panel{width:360px;flex:0 0 360px;background:transparent;border:0;
     padding:26px 22px 40px;position:sticky;top:0;
     max-height:100vh;overflow-y:auto;overscroll-behavior:contain}
   .panel::-webkit-scrollbar{width:8px}
   .panel::-webkit-scrollbar-thumb{background:var(--d-border);border-radius:4px}
-  h1{font-size:27px;font-weight:800;letter-spacing:-.6px;color:#fff;margin:0 0 8px}
-  .sub{color:rgba(255,255,255,.5);font-size:15px;line-height:1.6;margin:0 0 26px}
-  fieldset{border:0;background:transparent;border-radius:0;margin:0 0 30px;padding:0}
-  legend{color:#fff;font-size:18px;font-weight:800;letter-spacing:-.3px;padding:0;margin-bottom:14px;float:left;width:100%}
+  h1{font-size:29px;font-weight:800;letter-spacing:-.6px;color:#fff;margin:0 0 8px}
+  .sub{color:rgba(255,255,255,.5);font-size:16px;line-height:1.6;margin:0 0 28px}
+  /* 그룹 = 제목 + 한 줄 설명 + 넉넉한 그룹 간격(유저 08-12: 뭘 조절하라는 건지 모르겠다 —
+     비슷한 정보가 따닥따닥). 설명(p.sub)은 원래 있었는데 숨겨져 있었다 — 살린다. */
+  fieldset{border:0;background:transparent;border-radius:0;margin:0 0 42px;padding:0}
+  legend{color:#fff;font-size:20px;font-weight:800;letter-spacing:-.3px;padding:0;margin-bottom:6px;float:left;width:100%}
   fieldset>:not(legend){clear:both}
-  fieldset p.sub{display:none}
-  .row{display:flex;align-items:center;gap:12px;margin:12px 0}
-  .row label{flex:0 0 118px;color:rgba(255,255,255,.75);font-size:15px;font-weight:600}
+  fieldset p.sub{display:block;font-size:14px;color:rgba(255,255,255,.45);line-height:1.6;margin:0 0 14px}
+  .row{display:flex;align-items:center;gap:12px;margin:14px 0}
+  .row label{flex:0 0 132px;color:rgba(255,255,255,.78);font-size:16px;font-weight:600}
   /* 슬라이더 — 크게, 그러나 깎아서(유저: 저 정도 커도 된다 · 단 기본 accent 룩은 아님).
      굵은 중립 트랙 + 큰 레드 썸. 히트 영역 32px = 전시 터치 대응. */
   .row input[type=range]{flex:1;min-width:0;-webkit-appearance:none;appearance:none;height:32px;background:transparent;cursor:ew-resize}
@@ -33,7 +36,7 @@
   .row input[type=range]::-moz-range-track{height:6px;border-radius:999px;background:rgba(255,255,255,.14)}
   .row input[type=range]::-moz-range-progress{height:6px;border-radius:999px;background:var(--nb-red)}
   .row input[type=range]::-moz-range-thumb{width:20px;height:20px;border:0;border-radius:50%;background:var(--nb-red)}
-  .row .v{flex:0 0 60px;text-align:right;font-variant-numeric:tabular-nums;font-size:15px;font-weight:700;color:#fff}   /* GUI 레드+회색조(유저 08-12) — sand 은퇴 */
+  .row .v{flex:0 0 64px;text-align:right;font-variant-numeric:tabular-nums;font-size:16px;font-weight:700;color:#fff}   /* GUI 레드+회색조(유저 08-12) — sand 은퇴 */
   /* 기본 버튼 = 홈 CTA 문법. 세그·액션이 아닌 낱개 버튼(verApply 등)이 브라우저 기본으로 튀지 않게 */
   button{background:rgba(255,255,255,.07);color:#fff;border:0;border-radius:999px;
     padding:14px 18px;font:700 15px/1 'Pretendard',var(--ds-font);cursor:pointer;transition:background .18s}
@@ -48,26 +51,26 @@
     border-radius:999px;padding:14px;font-size:15px;font-weight:700;cursor:pointer;transition:background .18s}
   .acts button:hover{background:rgba(255,255,255,.12)}
   .stage{flex:1 1 620px;min-width:520px}
-  /* 섹션 문법(유저 08-12: 구조화해라) — 카드 패딩 24 균일, 리듬 = 타이틀(0/14) →
-     칩(0/16) → 콘텐츠 타일 → 캡션(12/0). 모든 카드가 같은 상수를 쓴다. */
-  .card{background:rgba(255,255,255,.035);border:0;border-radius:16px;padding:24px;margin-bottom:18px}
-  .card h2{font-size:18px;font-weight:800;color:#fff;letter-spacing:-.3px;margin:0 0 14px}
-  .card .seg{margin:0 0 16px}
-  .card .note{margin:12px 0 0;display:block;font-size:13px;color:rgba(255,255,255,.55);line-height:1.7}
+  /* 섹션 문법(유저 08-12: 구조화해라) — 카드 패딩 28 균일, 리듬 = 타이틀(0/16) →
+     칩(0/18) → 콘텐츠 타일 → 캡션(14/0). 카드 사이 28. 모든 카드가 같은 상수를 쓴다. */
+  .card{background:rgba(255,255,255,.035);border:0;border-radius:16px;padding:28px;margin-bottom:28px}
+  .card h2{font-size:21px;font-weight:800;color:#fff;letter-spacing:-.3px;margin:0 0 16px}
+  .card .seg{margin:0 0 18px}
+  .card .note{margin:14px 0 0;display:block;font-size:14.5px;color:rgba(255,255,255,.58);line-height:1.75}
   canvas{display:block;border-radius:10px;max-width:100%}
   /* 표시 크기는 여기서만 정한다 — 렌더 버퍼(canvas width/height)와 분리.
      예전엔 스크립트가 width:100% 를 걸어서 560px 버퍼가 카드 폭까지 늘어나 화면을 다 먹었다. */
   /* 미리보기 크기는 유저가 슬라이더로 정한다(--hero). 내가 숫자를 맞히는 게 아니다. */
-  /* ── 미리보기 그리드(유저 08-12: 풀사이즈 모니터에서 이쁘고 통일감 있게) ──
-     저울은 --hero 하나. 모든 타일 치수가 여기서 파생된다:
-       확대·매트 = H(460) 정사각 · 스트립·동작토큰 = H×1.6232(비율 유지 시 높이 = H)
-       풀폭(합성·A2) = H + 18 + H×1.6232 — 위 행과 좌우 모서리가 정확히 만난다.
-     카드도 내용 폭에 맞춘다(fit-content) — 오른쪽 빈 띠 금지. */
-  .duo{display:grid;grid-template-columns:var(--hero,460px) calc(var(--hero,460px)*1.6232);gap:18px;align-items:start}
+  /* ── 미리보기 = 유동 그리드(유저 08-12: 좌우 마진 100 만 남기고 꽉 채워라) ──
+     카드가 스테이지 폭을 다 쓰고, 타일은 비율로 나눈다: 정사각(확대·매트) 38.1% ·
+     와이드(스트립) 61.9% — 이 비율에서 두 타일 높이가 정확히 같다(1 : 1.6232).
+     풀폭(합성·A2·토큰) = 100%. 모서리는 카드 패딩 하나로 정렬된다. */
+  .duo{display:grid;grid-template-columns:calc((100% - 28px)*0.38121) 1fr;gap:28px;align-items:start}   /* 1:1.6232 정확비 — 두 타일 높이 일치 */
   .duo canvas{width:100%;height:auto}
-  #hero{width:var(--hero,460px);height:var(--hero,460px)}
-  #mat{width:var(--hero,460px);height:var(--hero,460px)}
-  .stage .card{width:fit-content;max-width:100%}
+  #hero{width:100%;height:auto;aspect-ratio:1/1}
+  #mat{width:100%;height:auto;aspect-ratio:1/1}
+  .stage{flex:1;min-width:560px}
+  .stage .card{width:100%}
   /* 칩은 내용만큼 — 패널의 2열 늘림(flex:1)을 카드 안에서는 끈다(유저: 길쭉한 버튼 안 이쁘다) */
   .stage .seg{gap:8px}
   .stage .seg button{flex:0 0 auto;padding:12px 22px}
@@ -79,12 +82,11 @@
   /* ★ aspect-ratio 는 **렌더 버퍼와 반드시 같아야 한다** — 줄을 2→3 으로 늘려 버퍼를
      460→690 으로 키웠는데 여기가 460 으로 남아 있어서, 690px 비트맵이 460 비율 상자에
      짓눌려 들어갔다(유저: 왜 찌그러져 보이냐). 칸 수를 바꾸면 이 값도 같이 바꿀 것. */
-  /* 비율은 버퍼와 반드시 동일하게 못박는다. 폭은 위 .duo 그리드/풀폭 식에서 나온다. */
+  /* 비율은 버퍼와 반드시 동일하게 못박는다. 폭은 유동(카드 100%). */
   #strip{aspect-ratio:1120 / 690}
-  /* 동작 토큰 = 풀폭 한 줄(유저 08-12: 너무 작다 — 시원하게). 발자국 풀폭과 같은 저울 */
-  #prims{width:calc(var(--hero,460px)*2.6232 + 18px);max-width:100%;height:auto;aspect-ratio:1900 / 800}
-  #comp{width:calc(var(--hero,460px)*2.6232 + 18px);max-width:100%;height:auto;aspect-ratio:1120 / 380}
-  #a2{width:calc(var(--hero,460px)*2.6232 + 18px);max-width:100%;height:auto;aspect-ratio:1120 / 620}
+  #prims{width:100%;height:auto;aspect-ratio:1900 / 800}
+  #comp{width:100%;height:auto;aspect-ratio:1120 / 380}
+  #a2{width:100%;height:auto;aspect-ratio:1120 / 620}
   /* 바닥 칩 바 — 스크롤에도 고정. 전역 바닥은 body[data-floor] 가 토큰 타일에도 입힌다 */
   #floorbar{position:sticky;top:0;z-index:20;display:flex;gap:14px;align-items:center;
     padding:14px 0 16px;margin-bottom:4px;background:linear-gradient(var(--d-bg) 78%,transparent)}
@@ -244,12 +246,14 @@ body:not(.dev) [data-devonly]{display:none !important}
       </div>
     </div>
     <div class=card>
-      <h2>발자국 마크 — 확대 · 8가지 상태</h2>
+      <h2>발자국 마크 — 확대와 8가지 상태</h2>
       <div class=duo>
         <div><canvas id=hero width=640 height=640></canvas></div>
         <div><canvas id=strip width=1120 height=690></canvas></div>
       </div>
-      <h2 style="margin-top:22px">발자국 예시 — 종아리 스트레칭 한 세트</h2>
+    </div>
+    <div class=card>
+      <h2>발자국 예시 — 종아리 스트레칭 한 세트</h2>
       <div class=seg id=segA2Stance style="margin-bottom:10px">
         <button data-v=0.77 class=on>압축 ×0.5 · 0.77m</button><button data-v=0.92>압축 ×0.6 · 0.92m</button><button data-v=1.54>실척 1.54m</button><button data-v=0.32>지금 시뮬 0.32m</button>
       </div>
@@ -260,21 +264,26 @@ body:not(.dev) [data-devonly]{display:none !important}
         스탠스 실척은 <b>앞뒤 1.54m</b>(빨간 신발 연결요소 중심 거리 · 러닝화 270mm 축척 · 홀드 127프레임 중앙값)인데 <b>대지에 안 들어간다</b> — 간격 1.54 + 발 0.30 = 1.84m 인데 헤더 알약 아래 자유대가 1.544m 뿐이다. 그래서 기본은 <b>압축 ×0.5 = 0.77m</b>(전체 1.07m · 여유 0.47m). 점선이 대지, 흐린 띠가 타이틀·알약 자리다.
         좌우 벌림 0.10m 만 눈으로 맞춘 노브다 — 측면뷰라 횡폭은 원리적으로 못 잰다.
         합성은 위 바닥 칩(낮/밤/레이저)을 그대로 따른다(기본 = 잉크).</p>
-      <h2 style="margin-top:22px">실제 바닥 위에서는</h2>
-      <canvas id=comp width=1120 height=380></canvas>
-      <p class=note>빛은 바닥에 <b>더해지는</b> 것이라, 마크의 색감은 바닥이 정합니다 — 위 바닥 칩을 눌러 비교해 보세요.<span data-devonly> 실제 사진은 <code>public/floors/track.jpg</code> · <code>tile.jpg</code> 로 넣으면 자동으로 씁니다.</span></p>
     </div>
     <div class=card>
-      <h2>판정·큐 토큰 — 발자국과 같은 룩으로</h2>
+      <h2>실제 바닥 위에서는</h2>
+      <canvas id=comp width=1120 height=380></canvas>
+      <p class=note>빛은 바닥에 <b>더해집니다</b>. 그래서 마크의 색감은 바닥이 정합니다 — 위 바닥 칩을 눌러 비교해 보세요.<span data-devonly> 실제 사진은 <code>public/floors/track.jpg</code> · <code>tile.jpg</code> 로 넣으면 자동으로 씁니다.</span></p>
+    </div>
+    <div class=card>
+      <h2>판정과 큐 — 발자국과 같은 룩을 쓰는 토큰들</h2>
       <canvas id=prims width=1900 height=800></canvas>
-      <div id=primSld style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:2px 20px;margin:12px 0 2px"></div>
-      <h2 style="margin-top:22px">드리블 매트</h2>
+      <div id=primSld style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:4px 24px;margin:14px 0 2px"></div>
+      <p class=note>수축하는 링이 '언제', 화살표와 궤적이 '어디로'를 말합니다 — 시뮬이 쓰는 그 그림 그대로입니다.</p>
+    </div>
+    <div class=card>
+      <h2>드리블 매트</h2>
       <div class=duo>
         <div>
           <canvas id=mat width=1080 height=1080></canvas>
-          <div style="display:flex;gap:8px;margin:10px 0 2px;align-items:center;flex-wrap:wrap"><button id=mIn>등장</button><button id=mHit>공 닿음</button><button id=mLive>타겟 이동</button><button id=mPlay>▶ 재생</button><span style="color:#98A1AD;font-size:12px">박자</span><input id=mPer type=range min=0.28 max=1.0 step=0.02 value=0.44 style="width:110px;accent-color:var(--nb-red)"><span id=mPerV style="font:12px monospace;color:#98A1AD">0.44s</span></div>
+          <div style="display:flex;gap:8px;margin:12px 0 2px;align-items:center;flex-wrap:wrap"><button id=mIn>등장</button><button id=mHit>공 닿음</button><button id=mLive>타겟 이동</button><button id=mPlay>▶ 재생</button><span style="color:#98A1AD;font-size:13px">박자</span><input id=mPer type=range min=0.28 max=1.0 step=0.02 value=0.44 style="width:120px;accent-color:var(--nb-red)"><span id=mPerV style="font:13px monospace;color:#98A1AD">0.44s</span></div>
         </div>
-        <p class=note style="margin:0">매트의 표적은 시뮬의 <b>판정 토큰(존 마크)</b> 그 자체이고, 토큰은 발자국과 <b>같은 소스</b>(팔레트 · 두께 · 헤일로)를 씁니다 — 여기서 본 그림이 곧 시뮬 그림입니다.<span data-devonly> 형태 정본은 <code>fx-core</code>(drawDribbleMat · drawApproachRing · drawStemArrow · drawTrajectory).</span></p>
+        <p class=note style="margin:0">공을 튀길 자리를 다섯 표적이 안내하는 훈련 판입니다. 표적은 시뮬의 <b>판정 토큰</b> 그 자체라, 여기서 본 그림이 곧 시뮬 그림입니다.<span data-devonly> 형태 정본은 <code>fx-core</code>(drawDribbleMat · drawApproachRing · drawStemArrow · drawTrajectory).</span></p>
       </div>
     </div>
     <!-- '발자국이 신발 밖으로 나갔는지 보기' 카드 삭제(유저 08-11) — 개발용 겹침 검수라
