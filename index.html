@@ -440,12 +440,12 @@ body:not(.dev):has(#play-panel.folded) #stage{margin-right:calc(56px*1.15)}
    각색 딱 하나: 제품 뷰(body:not(.dev))에서만 켠다 — dev 작업 중 텍스트 커서까지
    숨기면 편집이 불편하다. 전시·배포 화면은 원본 그대로다. */
 .uxcursor{position:fixed;top:0;left:0;z-index:9999;pointer-events:none;display:none;
-  width:42px;height:18px;background:#FA3030;
+  width:50px;height:21px;background:#FA3030;   /* 원본 42×18 → 약간 확대(유저 08-12) */
   -webkit-mask:url(uxcursor/cursor.svg) center/contain no-repeat;
   mask:url(uxcursor/cursor.svg) center/contain no-repeat;
   mix-blend-mode:exclusion;
   transform:translate(-9999px,-9999px);will-change:transform}
-.uxcursor.clicking{width:26px;height:26px;
+.uxcursor.clicking{width:31px;height:31px;
   -webkit-mask-image:url(uxcursor/cursor-click.svg);mask-image:url(uxcursor/cursor-click.svg)}
 .uxcursor.touch-on{display:block}
 @media (hover:hover) and (pointer:fine){
@@ -463,6 +463,21 @@ body:not(.dev):has(#play-panel.folded) #stage{margin-right:calc(56px*1.15)}
   100%{opacity:0;transform:rotate(var(--r)) scale(.9)}
 }
 body.dev .footstep{display:none}
+/* 클릭 촤라락(reactbits ClickSpark) — UX북 원본 그대로: 포인터에서 FA3030 광선 9줄기 */
+.spark-burst{position:fixed;z-index:10000;pointer-events:none;left:0;top:0;transform:scale(.9)}
+.spark-burst i{position:absolute;left:0;top:0;width:12px;height:2px;margin-top:-1px;border-radius:2px;
+  background:#FA3030;transform-origin:0 50%;animation:sparkFly .5s cubic-bezier(.25,1,.5,1) forwards}
+@keyframes sparkFly{
+  0%{transform:rotate(var(--a)) translateX(4px) scaleX(1);opacity:1}
+  100%{transform:rotate(var(--a)) translateX(50px) scaleX(.35);opacity:0}
+}
+/* 터치 리플 — UX북 원본. 각색 하나: 원본은 밝은 종이라 검정 리플인데 시뮬은 다크 면이라
+   흰 리플로, 흰 알약(.lab-pill) 위에서만 원본대로 검정. 호스트 안에서만 퍼진다. */
+button, summary, .lab-pill, .lab-sw, .lab-go, .pp-pack, [role=button]{position:relative;overflow:hidden}
+.ripple{position:absolute;border-radius:50%;background:rgba(255,255,255,.20);
+  transform:scale(0);pointer-events:none;animation:ripple .6s ease-out}
+.lab-pill .ripple{background:rgba(0,0,0,.14)}
+@keyframes ripple{to{transform:scale(2.6);opacity:0}}
 </style>
 </head>
 <body>
@@ -1079,6 +1094,37 @@ body.dev .footstep{display:none}
     const stepEnd = () => { lx = ly = null; };
     addEventListener('touchend', stepEnd, { passive: true });
     addEventListener('touchcancel', stepEnd, { passive: true });
+
+    // 클릭 촤라락(ClickSpark) — 모든 프레스에서 광선 9줄기(UX북 원본, 모션 축소 설정 존중)
+    const noMotion = matchMedia('(prefers-reduced-motion:reduce)').matches;
+    if (!noMotion) addEventListener('pointerdown', e => {
+      const b = document.createElement('div');
+      b.className = 'spark-burst';
+      b.style.left = e.clientX + 'px'; b.style.top = e.clientY + 'px';
+      for (let i = 0; i < 9; i++) {
+        const s = document.createElement('i');
+        s.style.setProperty('--a', (i * 40) + 'deg');
+        b.appendChild(s);
+      }
+      document.body.appendChild(b);
+      setTimeout(() => b.remove(), 560);
+    }, { passive: true });
+
+    // 터치 리플 — 클릭 가능한 요소 전부에 위임으로(개별 부착은 빠뜨리기 쉽다 — UX북 원본 방식)
+    const RIPPLE_SEL = 'button, summary, .lab-pill, .lab-sw, .lab-go, .pp-pack, [role=button]';
+    addEventListener('pointerdown', e => {
+      const host = e.target.closest && e.target.closest(RIPPLE_SEL);
+      if (!host || host.disabled) return;
+      const rect = host.getBoundingClientRect();
+      const d = Math.max(rect.width, rect.height);
+      const r = document.createElement('span');
+      r.className = 'ripple';
+      r.style.width = r.style.height = d + 'px';
+      r.style.left = (e.clientX - rect.left - d / 2) + 'px';
+      r.style.top = (e.clientY - rect.top - d / 2) + 'px';
+      host.appendChild(r);
+      r.addEventListener('animationend', () => r.remove());
+    }, true);
   })();
   </script>
 

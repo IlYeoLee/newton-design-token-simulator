@@ -4345,8 +4345,13 @@ export class Session {
       }
       if (this.t >= st.dur) { this.next(); return; }
     } else if (id === 'BX_C4') {
-      this.liveSpeed = Math.max(0.12, 1 - this.t / 2.4);
-      if (this.liveSpeed <= 0.13 && this.t > 2.8) { this.liveSpeed = 1; this.stageIdx = this.stages.findIndex(s2 => s2.id === 'BX_FIN'); this.t = 0; this._enter(); return; }
+      // 숨 고르기 = 판정이 끝난 화면(유저 08-12, 러닝 C5 와 같은 처방) — 슬로모 은퇴.
+      //   감속(0.12 배속)은 쿨다운 클립·봇 동작을 기괴하게 늘어뜨렸다. 제 속도로 재생하고
+      //   봇은 가만히 서서 가볍게 숨 쉰다(Breathing Idle — 클립 선택은 main.js 가 이미 idle,
+      //   판정 토큰은 main.js PACK_OFF 가 끈다). 체류 시간은 종전과 같은 ~3초.
+      this.liveSpeed = 1;
+      if (this.xbot) this.xbot.coolBreath = true;
+      if (this.t > 3.0) { if (this.xbot) this.xbot.coolBreath = false; this.stageIdx = this.stages.findIndex(s2 => s2.id === 'BX_FIN'); this.t = 0; this._enter(); return; }
     }
   }
 }

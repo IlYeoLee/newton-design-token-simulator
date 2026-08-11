@@ -4588,7 +4588,9 @@ void main(){
     // BX_C3(잽·잽·훅)도 같은 이유로 제외 — 마크는 1·2·3 한 컴포넌트(펀치라인 + 수축 링)가 전담한다.
     //   벽 토큰이 같이 뜨면 화면 아래에 숫자 원이 하나 더 서고, 지면 토큰이 뜨면 진입 순간
     //   화면 한복판(대지 원점)에 흰 마크와 파문이 떠 있다(유저 스샷 4회). 두 면 다 끈다.
-    const PACK_OFF = session.stage === 'BX_C2' || session.stage === 'BX_C3';
+    // BX_C4(숨 고르기)도 제외(유저 08-12: 쿨다운에 원형 판정 토큰이 왜 뜨나) — 마무리는
+    //   판정이 끝난 화면이다. 러닝 C5 와 같은 원칙(session.js C5 주석).
+    const PACK_OFF = session.stage === 'BX_C2' || session.stage === 'BX_C3' || session.stage === 'BX_C4';
     if (session.active) tokens.floorRoot.visible = session.isLive && session.stage !== 'BK_C4' && !PACK_OFF;
     if (session.active) tokens.wallRoot.visible = !PACK_OFF;
     // 스톰프 프레스 스테이지: 봇을 뒤로 당겨 착지(전방 0.38m)가 프레스 원 위에 정확히 떨어지게
