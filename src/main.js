@@ -1209,9 +1209,11 @@ void main(){
     } else if (wearFxEl) wearFxEl.style.opacity = '0';
     // ★ 전시 무한 순환(유저 08-11) — 데모 투어 버튼을 눌렀을 때만 돌던 걸 **항상** 돌게 한다.
     //   실측(E2E 200초): 데모 투어 없이 자동 재생하면 BX_FIN 에서 멈춰 100초를 서 있었다.
-    //   FIN 에 닿으면 큐의 다음 종목으로 넘어가고, READY 는 자동으로 탭해 들어간다.
+    //   FIN 에 닿으면 큐의 다음 종목으로 넘어간다.
     if (!demoTour) demoTour = { queue: ['boxing', 'running', 'basketball'], i: 0, auto: true };
-    if (/READY$/.test(st.id)) setTimeout(() => { if (demoTour && session.active) session.tapAdvance(); }, 1400);
+    // ★ READY 자동 탭은 '데모 투어' 버튼(auto 없음)에서만(유저 08-11): 시작화면은 관람객의
+    //   **발 두 번 탭**을 기다린다 — 자동으로 탭하면 전 종목이 밟지 않아도 저 혼자 재생됐다.
+    if (/READY$/.test(st.id) && !demoTour.auto) setTimeout(() => { if (demoTour && session.active) session.tapAdvance(); }, 1400);
     if (/FIN$/.test(st.id)) setTimeout(() => demoAdvance(), 4500);
   });
   session.judge = judge;   // 판정 오차 소비 (페이스 라이트·FIN 겹쳐보기·C3 흔들림)
