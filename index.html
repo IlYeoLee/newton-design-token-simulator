@@ -211,6 +211,7 @@ body:not(.dev):has(#play-panel.folded) #stage{margin-right:calc(56px*1.15)}
 #lab-panel .lab-kv span:first-child{color:rgba(255,255,255,.5);font-size:12.5px;letter-spacing:-.2px}
 #lab-panel .lab-kv b{font-weight:800;color:#fff;font-size:15px;letter-spacing:-.3px;white-space:nowrap}
 /* 리드문 = 섹션이 무엇을 말하는지 한 줄. 값보다 먼저 읽히되 값보다 약하게 */
+#lab-panel .lab-intro{font-size:15px;color:rgba(255,255,255,.62);line-height:1.75;margin:2px 0 24px;letter-spacing:-.2px}
 #lab-panel .lab-lead{font-size:13px;color:rgba(255,255,255,.72);line-height:1.65;margin:2px 0 10px;letter-spacing:-.2px}
 #lab-panel .lab-lead b{color:#fff;font-weight:700}
 #lab-panel .lab-src{margin-top:9px;padding-top:8px;border-top:1px solid rgba(255,255,255,.05);
@@ -483,7 +484,7 @@ button, summary, .lab-pill, .lab-sw, .lab-go, .pp-pack, [role=button]{position:r
 .lab-pill .ripple{background:rgba(0,0,0,.14)}
 @keyframes ripple{to{transform:scale(2.6);opacity:0}}
 </style>
-  <script type="module" crossorigin src="./assets/main-D82mUWnx.js"></script>
+  <script type="module" crossorigin src="./assets/main-Cqky0Jld.js"></script>
   <link rel="modulepreload" crossorigin href="./assets/modulepreload-polyfill-B5Qt9EMX.js">
   <link rel="modulepreload" crossorigin href="./assets/preload-helper-PPVm8Dsz.js">
   <link rel="modulepreload" crossorigin href="./assets/fx-core-CsnioyF7.js">
@@ -748,6 +749,10 @@ button, summary, .lab-pill, .lab-sw, .lab-go, .pp-pack, [role=button]{position:r
       <span class="pp-sub">체험 랩</span>
     </div>
     <div class="lab-body">
+      <!-- 첫 관람객용 프레이밍(유저 08-12: 처음 보는 사람도 '이 실측으로 접근했구나'가 느껴지게) -->
+      <p class="lab-intro">여기 있는 숫자는 전부 실측이거나 논문입니다. 왜 바닥에 빛을 쏘는지,
+        그 빛이 왜 안 흔들리는지, 글자는 얼마나 커야 읽히는지 — 아래에서 순서대로 확인하고
+        직접 켜고 꺼 보세요. 이 시뮬레이터는 그 값들이 실제로 성립하는지 눈으로 검증하는 도구입니다.</p>
       <!-- 디자인 랩 진입 — **제품 뷰**에 산다(유저 08-11: 시작하자마자 보여야 한다.
            dev 패널에 넣었더니 개발자 모드 OFF 에선 아예 없었다). 순서 고정:
            룩 시스템 → 지면 레이아웃 → 열화상. 열화상은 별도 앱(5173). -->
@@ -793,12 +798,32 @@ button, summary, .lab-pill, .lab-sw, .lab-go, .pp-pack, [role=button]{position:r
         </details>
       </details>
 
+      <details>
+        <summary>빛은 어디서 나오나 <span class="cnt">부위 실측</span></summary>
+        <div class="lab-lead">무릎 옆의 작은 유닛에서 나옵니다. 다섯 부위에 달아 보고 다섯 각도로 쏴 본 결과, <b>무릎</b>이 발 앞 20~150cm를 가장 안정적으로 덮었고 몸에 가리지도 않았습니다.</div>
+        <div class="lab-src">실측 — 고관절·허벅지·무릎·정강이·발목 × 90/60/45/30/15° · 165cm 성인 기준 · BEAM-OCCLUSION.md(표적 25점)</div>
+        <div class="lab-kv"><span>선정 부위</span><b>무릎 아래 11cm 바깥면</b></div>
+        <div class="lab-kv"><span>커버 구간</span><b>발 앞 20 ~ 150cm (~180cm)</b></div>
+        <div class="lab-kv"><span>렌즈 높이</span><b>≈51cm</b></div>
+        <div class="lab-kv"><span>투사창</span><b>5cm ~ 2.0m · 폭 64 → 169cm</b></div>
+        <details>
+          <summary>실제 부품 구성</summary>
+          <div class="lab-kv"><span>투사 모듈</span><b>MEMS Laser Beam Scanning</b></div>
+          <div class="lab-note">낮의 야외에서도 보이는 지면 투사 방식입니다. 자동차 업계가 상용 로드맵에 올린 그 모듈 계열(Valeo·Infineon MEMS)입니다.</div>
+          <div class="lab-kv"><span>체결</span><b>EPM 전자 영구 자석 (무전력)</b></div>
+          <div class="lab-kv"><span>안정화</span><b>1축 짐벌(서보 최대 300°/s) + OIS 렌즈</b></div>
+          <div class="lab-kv"><span>발목 웨어러블</span><b>와이어 액추에이션</b></div>
+          <div class="lab-note">발뒤꿈치를 들어 올리고 발목 각도를 잡아 풋워크 스냅을 만듭니다. 하체 힘이 지면으로 빠져나가는 마지막 관문이 발목이기 때문입니다.</div>
+          <div class="lab-src">운동 사슬 근거 — Sportsmith(발 훈련과 방향 전환) · PMC 2024(kinetic chain 리뷰)</div>
+        </details>
+      </details>
+
       <!-- 흔들림 = 러닝 전용 섹션(유저 08-11: 복싱에서도 흔들림 이야기가 나와 헷갈린다).
            무릎 빔은 달릴 때만 쓰는 물건이라 러닝 탭에서만 열리고, 조작도 그 안에서 한다.
            진입 버튼도 섹션 밖에 떠 있던 걸 안으로 넣었다 — 맥락 밖의 CTA 는 미아가 된다. -->
       <details id="sec-shake" open>
         <summary>흔들림을 어떻게 잡나 <span class="cnt">러닝</span></summary>
-        <div class="lab-lead">달릴 때는 정강이가 흔들리면서 무릎에 달린 빔도 같이 흔들립니다. 뉴턴은 <b>하드웨어 두 겹 + 소프트웨어 세 겹</b>으로 잡습니다. 아래에서 직접 끄고 켜 보세요.</div>
+        <div class="lab-lead">달리면 다리와 함께 그 유닛도 흔들립니다. 뉴턴은 <b>하드웨어 두 겹 + 소프트웨어 세 겹</b>으로 화면을 붙잡습니다. 아래 스위치를 직접 꺼 보면 차이가 보입니다.</div>
         <div class="lab-kv"><span><b>①</b> 기기 이탈 방지 체결</span><b>EPM 전자 영구 자석</b></div>
         <div class="lab-note">전력 없이 강한 자력을 유지하는, 드론캠에 쓰이는 그 부품입니다. 격한 하체 움직임에도 Core 모듈이 떨어지지 않습니다.</div>
         <div class="lab-src">IEEE 2010(Electropermanent Magnets) · IEEE/ASME 2018(EPM Gripper)</div>
@@ -829,26 +854,6 @@ button, summary, .lab-pill, .lab-sw, .lab-go, .pp-pack, [role=button]{position:r
       </details>
 
       <details>
-        <summary>빔을 어디에 다나 <span class="cnt">부위 실측</span></summary>
-        <div class="lab-lead">신체 5개 부위 × 사출 각도 5개를 실측해 골랐습니다. <b>무릎</b>이 발 앞 20~150cm 목표 시야를 가장 안정적으로 덮고(60°·45°), 몸에 가리지 않으며 착지 방향을 선제 표시합니다.</div>
-        <div class="lab-src">실측 — 고관절·허벅지·무릎·정강이·발목 × 90/60/45/30/15° · 165cm 성인 기준 · BEAM-OCCLUSION.md(표적 25점)</div>
-        <div class="lab-kv"><span>선정 부위</span><b>무릎 아래 11cm 바깥면</b></div>
-        <div class="lab-kv"><span>커버 구간</span><b>발 앞 20 ~ 150cm (~180cm)</b></div>
-        <div class="lab-kv"><span>렌즈 높이</span><b>≈51cm</b></div>
-        <div class="lab-kv"><span>투사창</span><b>5cm ~ 2.0m · 폭 64 → 169cm</b></div>
-        <details>
-          <summary>실제 부품 구성</summary>
-          <div class="lab-kv"><span>투사 모듈</span><b>MEMS Laser Beam Scanning</b></div>
-          <div class="lab-note">주간 야외에서도 보이는 지면 투사 — 자동차 상용 로드맵의 그 모듈 계열(Valeo·Infineon MEMS).</div>
-          <div class="lab-kv"><span>체결</span><b>EPM 전자 영구 자석 (무전력)</b></div>
-          <div class="lab-kv"><span>안정화</span><b>1축 짐벌(서보 최대 300°/s) + OIS 렌즈</b></div>
-          <div class="lab-kv"><span>발목 웨어러블</span><b>와이어 액추에이션</b></div>
-          <div class="lab-note">발뒤꿈치 리프팅·발목 각도 제어로 풋워크 스냅을 만든다 — 운동 사슬의 최말단(발목)에서 지면에 전달되는 힘의 누수를 막는 자리다.</div>
-          <div class="lab-src">운동 사슬 근거 — Sportsmith(발 훈련과 방향 전환) · PMC 2024(kinetic chain 리뷰)</div>
-        </details>
-      </details>
-
-      <details>
         <summary>고개를 얼마나 숙이나 <span class="cnt">네 단계</span></summary>
         <div class="lab-lead">각도는 <b>고개 기울기</b>, 거리는 <b>그 시선이 바닥과 만나는 지점</b>입니다. 투사 거리가 아닙니다 — 빔은 발 앞 2m 안에만 쏩니다. 화면을 어디에 둘지를 이 시선 낙하점이 정합니다.</div>
         <div class="lab-src">근거 — Matthis et al. 2018 · 눈높이 1.6m · 낙하점 = 1.6/tanθ</div>
@@ -874,7 +879,7 @@ button, summary, .lab-pill, .lab-sw, .lab-go, .pp-pack, [role=button]{position:r
 
       <details>
         <summary>벽에 쏘는 화면 <span class="cnt">복싱</span></summary>
-        <div class="lab-lead">벽은 <b>이해하는 화면</b>입니다. 몸을 움직이기 전에 고수의 리듬과 상대의 공격 범위를 먼저 눈으로 익힙니다.</div>
+        <div class="lab-lead">몸을 움직이기 전에 먼저 봐야 하는 것(상대의 리듬, 공격 범위)은 바닥이 아니라 <b>벽</b>에 띄웁니다. 아래는 실측한 벽 화면의 크기입니다.</div>
         <div class="lab-src">실측 — PROJECTION-SPEC.md §1·§5 (프로젝터 62° · 카메라 50°)</div>
         <div class="lab-kv"><span>투사 크기</span><b>2.60 × 1.63 m</b></div>
         <div class="lab-kv"><span>벽 ↔ 빔 유닛</span><b>1.36 m</b></div>
@@ -883,7 +888,7 @@ button, summary, .lab-pill, .lab-sw, .lab-go, .pp-pack, [role=button]{position:r
 
       <details>
         <summary>바닥 글자는 얼마나 커야 하나</summary>
-        <div class="lab-lead">바닥에 쓴 글자는 <b>납작하게 눌려</b> 보입니다. 같은 10센티미터 글자도 발밑에 있을 때와 2미터 앞에 있을 때가 전혀 다르게 보입니다.</div>
+        <div class="lab-lead">바닥 글자는 비스듬히 보여 <b>납작하게 눌립니다</b>. 그래서 크기를 센티미터가 아니라 <b>눈에 맺히는 각도</b>로 정했습니다. 같은 10cm 글자도 발밑과 2m 앞에서 전혀 다르게 보이기 때문입니다.</div>
         <div class="lab-src">근거 — Legge &amp; Bigelow 2011 · ISO 9241-303 · Cai 2013 · MUTCD</div>
         <div class="lab-kv"><span>1급 (동작명·타이머)</span><b>0.70°</b></div>
         <div class="lab-kv"><span>2급 (단계·단위)</span><b>0.45°</b></div>
@@ -904,7 +909,7 @@ button, summary, .lab-pill, .lab-sw, .lab-go, .pp-pack, [role=button]{position:r
 
       <details>
         <summary>빛이 닿지 않는 자리</summary>
-        <div class="lab-lead">빔이 닿는 범위는 네모가 아니라 <b>부채꼴</b>입니다. 그 밖에는 무엇을 그려도 보이지 않습니다.</div>
+        <div class="lab-lead">빔이 닿는 범위는 네모가 아니라 <b>부채꼴</b>입니다. 안 닿는 자리는 억지로 채우지 않고 비워 둡니다 — 그것까지가 설계입니다.</div>
         <div class="lab-src">실측 — docs/FLOOR-LAYOUT-SPEC.md (러닝 기본 리그)</div>
         <div class="lab-kv"><span>대지 위쪽</span><b>289 px = 12.7%</b></div>
         <div class="lab-kv"><span>조판 밴드</span><b>6 개</b></div>
@@ -918,7 +923,7 @@ button, summary, .lab-pill, .lab-sw, .lab-go, .pp-pack, [role=button]{position:r
 
       <details>
         <summary>가려질 때는 어떻게 하나</summary>
-        <div class="lab-lead">몸이나 공에 가려지면 <b>가려진 그대로</b> 둡니다. 실제 빛이 그렇게 동작하기 때문입니다.</div>
+        <div class="lab-lead">몸이나 공에 가리면 <b>가려진 그대로</b> 둡니다. 실제 빛이 그렇게 동작하니까요. 그 가려짐이 실제로 얼마나 되는지도 재 봤습니다 — 생각보다 훨씬 적습니다.</div>
         <div class="lab-src">실측 — BEAM-OCCLUSION.md (크로스오버 전 사이클 샘플링)</div>
         <div class="lab-kv"><span>창 경계</span><b>페더 18cm</b></div>
         <div class="lab-kv"><span>공에 가릴 때</span><b>그 토큰만 소등</b></div>
