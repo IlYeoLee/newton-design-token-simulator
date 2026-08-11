@@ -409,6 +409,21 @@ async function boot() {
     tokens.loopShiftZ = 0;
     const data = state.packs[p];
     if (!data) return;   // 팩 JSON 로드 전 호출 — 배포본에서 실제로 발생(느린 네트워크). 로드 후 다시 온다.
+    // ★ 종목이 바뀌면 **이전 종목 코치 영상의 디코더를 놓아준다**(유저 08-11: 체험이 쌓일수록
+    //   느려진다). pause 만으로는 디코더·프레임 버퍼가 그대로 살아 있어, 종목을 오갈수록
+    //   재생 중이 아닌 영상이 계속 늘어난다. 접두사로 이번 종목 것만 남기고 나머지는
+    //   src 를 떼서 완전히 반납한다 — 다시 필요해지면 ensureCoach 가 그때 로드한다.
+    {
+      const keep = p === 'boxing' ? 'BX_' : p === 'basketball' ? 'BK_' : '';
+      for (const cid in _coaches) {
+        const c = _coaches[cid]; if (!c?.video) continue;
+        const mine = keep ? cid.startsWith(keep) : !/^(BX|BK)_/.test(cid);
+        if (mine) continue;
+        try { c.video.pause(); c.video.removeAttribute('src'); c.video.load(); } catch (e) {}
+        c.plane.visible = false; if (c.grid) c.grid.visible = false;
+        c._shown = false; c._srcOff = true;   // ensureCoach 가 다시 물릴 수 있게 표시
+      }
+    }
     tokens.setPack(data);
     xbot.setPack(data, tokens.events);
     rig.setPack(data.sport, tokens.events);
@@ -507,7 +522,11 @@ async function boot() {
     if (session.bkB1Setup) return GAZE.STANCE;
     const id = session.curStage?.id || '';
     // 전환·타이머·리포트(지면 풀스크린 화면) = x봇이 바닥의 화면을 보도록 게이즈 하향(세션 컴플리트·실전 직전).
-    if (/^(T1|T2|C1|FIN|BK_T1|BK_T2|BK_C1|BK_FIN)$/.test(id)) return GAZE.NEAR;
+    // ★ 리포트만 더 깊게(유저 08-11: 1인칭에서 화면이 기울어져 보인다). −40° 는 눈높이에서
+    //   바닥 판을 얕게 훑어 사다리꼴로 눕는다. 판을 정면에 가깝게 보려면 시선을 더 내려야
+    //   하고, −52°(MAT)는 이미 바닥 풀스크린 판이 프레임에 다 들어온다고 검증된 값이다.
+    if (/FIN$/.test(id)) return GAZE.MAT;
+    if (/^(T1|T2|C1|BK_T1|BK_T2|BK_C1)$/.test(id)) return GAZE.NEAR;
     // ★ B1 = 드리블 매트를 **다 보는** 각도. 매트는 몸 앞 0.45~1.22m 를 덮는데, 눈높이 1.56m 에서
     //   그건 수평 아래 74°~52° 다. NEAR(-40°)로는 세로 화각(±25°) 상 가까운 절반이 프레임 밖으로
     //   나간다(실측: ③④ 와 가까운 쪽 브래킷이 안 보였다). 판이 다 들어오는 최소각이 -52°다.
@@ -1188,11 +1207,14 @@ void main(){
               : w.includes('SAFE') ? '#d1feff' : '#9b9b9b';
       wearPulse(c);
     } else if (wearFxEl) wearFxEl.style.opacity = '0';
-    // 데모 투어: READY 진입 시 자동 시작(탭), FIN 도달 시 다음 종목으로
-    if (demoTour) {
-      if (/READY$/.test(st.id)) setTimeout(() => { if (demoTour && session.active) session.tapAdvance(); }, 1400);
-      if (/FIN$/.test(st.id)) setTimeout(() => demoAdvance(), 4500);
-    }
+    // ★ 전시 무한 순환(유저 08-11) — 데모 투어 버튼을 눌렀을 때만 돌던 걸 **항상** 돌게 한다.
+    //   실측(E2E 200초): 데모 투어 없이 자동 재생하면 BX_FIN 에서 멈춰 100초를 서 있었다.
+    //   FIN 에 닿으면 큐의 다음 종목으로 넘어간다.
+    if (!demoTour) demoTour = { queue: ['boxing', 'running', 'basketball'], i: 0, auto: true };
+    // ★ READY 자동 탭은 '데모 투어' 버튼(auto 없음)에서만(유저 08-11): 시작화면은 관람객의
+    //   **발 두 번 탭**을 기다린다 — 자동으로 탭하면 전 종목이 밟지 않아도 저 혼자 재생됐다.
+    if (/READY$/.test(st.id) && !demoTour.auto) setTimeout(() => { if (demoTour && session.active) session.tapAdvance(); }, 1400);
+    if (/FIN$/.test(st.id)) setTimeout(() => demoAdvance(), 4500);
   });
   session.judge = judge;   // 판정 오차 소비 (페이스 라이트·FIN 겹쳐보기·C3 흔들림)
   if (import.meta.env.DEV) { window.__sess = session; window.__cam = camera; window.__rig = rig; window.__scene = scene; window.__hoop = hoop; }   // 디버그 훅 — 콘솔에서 스테이지 고정·검수용
@@ -1319,14 +1341,19 @@ void main(){
   // ── 데모 투어: 러닝→복싱→농구 자동 순회 (영상 녹화용) ──
   function demoAdvance() {
     if (!demoTour) return;
+    // 큐 인덱스를 현재 종목에서 다시 잡는다 — 유저가 상단 탭으로 종목을 바꿨을 수 있다.
+    const cur = demoTour.queue.indexOf(session.sport || state.pack);
+    if (cur >= 0) demoTour.i = cur;
     demoTour.i++;
-    if (demoTour.i >= demoTour.queue.length) { demoTour = null; demoBtn.textContent = '🎬 데모 투어 (3종목 자동 순회)'; stopSession(); return; }
+    // ★ 전시는 멈추지 않는다(유저 08-11: 세션이 끝나도 다음으로 넘어가 계속 순환).
+    //   큐 끝에 닿으면 멈추는 대신 처음으로 되감는다 — 복싱→러닝→농구가 하루 종일 돈다.
+    if (demoTour.i >= demoTour.queue.length) demoTour.i = 0;
     session.stop();
     startSessionFor(demoTour.queue[demoTour.i]);
   }
   demoBtn?.addEventListener('click', () => {
     if (demoTour) { demoTour = null; demoBtn.textContent = '🎬 데모 투어 (3종목 자동 순회)'; stopSession(); return; }
-    demoTour = { queue: ['running', 'boxing', 'basketball'], i: 0 };
+    demoTour = { queue: ['boxing', 'running', 'basketball'], i: 0 };   // 유저 08-11: 복→러→농구 순
     demoBtn.textContent = '⏹ 데모 투어 중지';
     if (session.active) session.stop();
     startSessionFor(demoTour.queue[0]);
@@ -2740,7 +2767,15 @@ void main(){
     });
   }
   function ensureCoach(id) {
-    if (_coaches[id]) return _coaches[id];
+    if (_coaches[id]) {
+      const c = _coaches[id];
+      if (c._srcOff && c.video) {   // 종목 전환 때 반납했던 소스를 다시 물린다
+        c._srcOff = false;
+        c.video.src = import.meta.env.BASE_URL + COACH_CFG[id].src;
+        c.video.play().catch(() => {});
+      }
+      return c;
+    }
     const cfg = COACH_CFG[id];
     const video = document.createElement('video');
     video.src = import.meta.env.BASE_URL + cfg.src;   // VP9 — 전 브라우저 디코드
@@ -4487,6 +4522,9 @@ void main(){
     if (sport === 'basketball') return 'dribble';           // 그 외 제자리 드리블
     if (sport === 'boxing') return /B\d/.test(id) ? 'hook' : 'warmup';
     // 러닝: 대기·전환(READY/T1/T2/FIN)=자연 호흡 idle(Mixamo Breathing Idle, 손 내림). 완전정지 어색(유저) → 재생.
+    // ★ 마무리(C5) = 제자리 심호흡(유저 08-11: 달리지 말고 가만히 서서 숨 고르기).
+    //   idle 이 Mixamo Breathing Idle 이라 그대로 쓴다 — 새 클립 0개.
+    if (id === 'C5' && xbot.coolBreath) return 'idle';
     if (['READY', 'T1', 'T2', 'FIN'].includes(id)) return 'idle';
     return 'run';
   }
@@ -4638,9 +4676,11 @@ void main(){
       //   시범은 '남의 동작을 본다'라 몸 밖에서 봐야 하고, 따라하기는 '내 발밑'이라 눈에서 봐야 한다.
       //   경계는 이미 여기 있다 — _followLatch 가 그 한 줄이다. 유저가 수동 토글했으면 손대지 않는다.
       //   전환 자체는 vpGlide 가 0.8초에 걸쳐 잇는다(하드컷이면 '끊겼다'로 읽힌다).
+      //   ★ 오늘(08-11 전시)은 **발자국 구간에서 3인칭으로 나가지 않게 막는다**(유저).
+      //     관찰 → 따라하기로 갈 때 1인칭으로 들어가기만 하고, 되돌아 나오지는 않는다.
+      //     되감김·재진입 때 3인칭이 한 번씩 튀어나오던 걸 전시 동안 원천 차단한다.
       if (!fpUserSet && /^BK_(T1|B[234])$/.test(session.stage || '')) {
-        const wantFp = !!session._followLatch;
-        if (wantFp !== fpMode) { vpGlide(); setFp(wantFp); }
+        if (session._followLatch && !fpMode) { vpGlide(); setFp(true); }
       }
       // ★ 관찰(영상 재생) = 봇도 제자리 정지(유저 08-10 확정: "영상 재생할 때는 X봇도 가만히").
       //   시범은 영상이 하고, 봇의 무브는 따라하기(발자국) 구간에서만 — 둘이 동시에 움직이면
@@ -5125,7 +5165,20 @@ void main(){
         const st = session.curStage; if (!st) return;
         session.t = 0; session._enter(); rig.resetOmega?.();
       });
+      // '보러 가기' 칩 제거(유저 08-11: 버튼이 더 헷갈린다). SEE 배선도 함께 걷었다 —
+      //   쓰는 데가 없는 핸들러는 죽은 코드다. 장면 이동은 세션 흐름과 상단 팩 탭이 한다.
+      // ★ 흔들림 섹션은 러닝 전용 — 무릎 빔은 달릴 때만 쓴다(유저 08-11: 복싱에서도
+      //   흔들림 이야기가 나와 헷갈린다). 러닝 팩이면 펼치고, 아니면 접어서 '지금 종목의
+      //   이야기'만 열려 있게 한다. 숨기지는 않는다 — 원리를 궁금해하는 관람객은 열 수 있다.
+      const shakeSec = document.getElementById('sec-shake');
+      let _shakeSport = null;
       setInterval(() => {
+        const sp = tokens.pack?.sport || state.pack;
+        if (shakeSec && sp !== _shakeSport) {
+          _shakeSport = sp;
+          shakeSec.open = (sp === 'running');
+          shakeSec.classList.toggle('off-sport', sp !== 'running');
+        }
         if (lab.classList.contains('folded')) return;
         $('lab-err').textContent = (rig.errorCm ?? 0).toFixed(1);
         $('lab-omega').textContent = (rig.omegaDps ?? 0).toFixed(0);
@@ -6744,7 +6797,13 @@ void main(){
       //     끌어와 1인칭에서 통째로 커졌다 — 카메라 화각은 그대로다, 판이 가까워진 것.
       //     0.20 은 두 조건을 다 만족하는 실측 중간값: check:titlebeam 전 스테이지 빔 안 ·
       //     지평선 눌림 이탈 유지 · 하단 잘림은 0.30 대비 절반 이하.
-      const boardFwd = (rig.fpFar - 0.20) - (1335 - 176) * sUni;
+      // ★ 러닝 시작화면만 판을 조금 더 **밀어낸다**(유저 08-11: 발 아래 UI 가 잘린다).
+      //   far 앵커라 여백을 줄이면 판이 멀어지고, 멀어지면 near 쪽(발자국·CTA)이 화면 안으로
+      //   들어온다. 0.20 → 0.06 은 러닝 READY 한 화면에만 건다 — 다른 스테이지는 08-10 에
+      //   확정된 0.20 그대로다(그 값을 전역으로 줄이면 커버리지 이탈이 났던 이력이 있다).
+      //   READY 는 알약이 위쪽에 여유를 두고 앉는 화면이라 빔 far 를 안 넘는다(check:title 로 확인).
+      const _farPad = (session.sport === 'running' && session.curStage?.id === 'READY') ? 0.06 : 0.20;
+      const boardFwd = (rig.fpFar - _farPad) - (1335 - 176) * sUni;
       // ★ 대지 px → 전방 m 환산을 **세션에 넘긴다**. 마크가 타이틀 알약을 침범하지 못하게
       //   막는 상한(session._uiCapV)이 이 둘에서 나온다 — 조판(알약 위치·높이)이 바뀌면
       //   상한도 자동으로 따라간다. CLAUDE.md §5 가 남겨 둔 '런타임 파생' 자리.

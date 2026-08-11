@@ -952,7 +952,7 @@ export const STAGES = {
       voice:['션','인터벌이에요! 30초 전력으로 갔다가, 회복하며 숨 고르기 — 이 반복이 스피드를 만들어요.'], wear:'BOOST 추진 보조',
       loop:1, phases:[{ n:'SPRINT', c:1.55, i:1.0, f:30/50, sec:30 }, { n:'RECOVER', c:0.78, i:0.28, f:20/50, sec:20 }] },
     // 쓰레숄드(구 P4) 제거(유저: 전시에 너무 길고 지루). 훈련 = 이지런·스트라이드·인터벌 3종.
-    { id:'T2', label:'T2 · 전환 — 5초 뒤 실전 시작', voice:['션','훈련 완벽했어요! 이제 배운 걸로 진짜 달려볼게요. 5초 뒤 시작 — 준비되면 발 두 번, 가만히 있어도 제가 시작할게요.'], dur:5, count:true, foot:'두 번 구르기 = 바로 시작 · 가만히 있으면 자동' },
+    { id:'T2', label:'T2 · 전환 — 5초 뒤 실전 시작', voice:['션','훈련 완벽했어요! 이제 진짜 달려볼게요.'], dur:5, count:true, foot:'잠시 뒤 자동 시작' },
     { id:'C1', dur:3, label:'C1 · 실전 1/5 — 출발 카운트', voice:['션','갑니다 — 셋, 둘, 하나!'], hap:'시작 타이밍 진동', foot:'두 번 구르기 → 출발 (이후 잠금)' },
     { id:'C2', dur:7, live:true, label:'C2 · 실전 2/5 — 나란히 달리기', voice:['션','좋아요, 그 박자 그대로! 제 옆에 딱 붙어서 같이 가요.'], wear:'SAFE 착지 안정화' },
     { id:'C3', dur:7, live:true, label:'C3 · 실전 3/5 — 리듬 되찾기', voice:['션','박자! 흔들려도 괜찮아요 — 저한테 다시 맞추면 돼요.'], hap:'착지 보조 2박' },
@@ -3320,10 +3320,14 @@ export class Session {
       this._paceTick();
       if (this.t >= st.dur) { this.next(); return; }
     } else if (id === 'C5') {
-      // 자연 감속 — 슬로모(liveSpeed) 대신 봇이 런→조깅→걷기로 크로스페이드하며 실제로 느려진다 (xbot.decelK)
-      if (this.xbot) this.xbot.decelK = Math.min(1, this.t / 2.8);
+      // ★ 마무리는 **판정이 끝난 화면**이다(유저 08-11) — 3·2·1 원형 판정 토큰을 지우고
+      //   봇도 달리기를 멈추고 제자리에서 숨을 고른다. 여기서 세는 것은 남지 않아야 한다.
+      this._setCount(null);
+      this.countGroup.visible = false; this.countRing.setOp?.(0);
+      this.repLeft = 0; this.repTotal = 0; this.repFrac = 0;
+      if (this.xbot) { this.xbot.decelK = 0; this.xbot.coolBreath = true; }
       this.c5stripes.forEach((s, i) => { s.material._gainK = (0.7 - i * 0.13) * (0.5 + 0.5 * Math.sin(this.t * 3 - i)); });
-      if (this.t > 4.0) { if (this.xbot) this.xbot.decelK = 0; this.stageIdx = this.stages.findIndex(s2 => s2.id === 'FIN'); this.t = 0; this._enter(); return; }
+      if (this.t > 4.0) { if (this.xbot) { this.xbot.decelK = 0; this.xbot.coolBreath = false; } this.countGroup.visible = true; this.stageIdx = this.stages.findIndex(s2 => s2.id === 'FIN'); this.t = 0; this._enter(); return; }
     }
   }
 

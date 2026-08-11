@@ -70,13 +70,16 @@
   .hint{color:rgba(255,255,255,.5);font-size:13px;line-height:1.55}
   .note{display:none}
   .warn{color:var(--red);font-size:12.5px;font-weight:600;margin:10px 0 0;display:none}
+/* 개발 전용 UI — 배포본에선 통째로 숨긴다(정본 게이트 src/labgate.js) */
+body:not(.dev) [data-devonly]{display:none !important}
 </style></head><body>
 <div class=wrap>
   <div class=panel>
-    <h1>발자국 랩 — 깔창 각인</h1>
-    <p class=sub>정본 셰이더(MARK_GLSL)를 그대로 돌린다.</p>
+    <h1>발자국 룩</h1>
+    <p class=sub>시뮬레이터에 뜨는 발자국과 똑같은 것을 그립니다</p>
 
-    <fieldset><legend>버전 비교</legend>
+    <!-- 버전 비교 = 개발 전용(유저 08-11: 전시엔 지우고 개발자 모드에만 살려놔). data-devonly 는 src/labgate.js 가 끈다 -->
+    <fieldset data-devonly><legend>버전 비교</legend>
       <div class=seg id=segVer style="flex-wrap:wrap">
         <button data-v=v03>08-02 (3일 전)</button><button data-v=v0 class=on>09:25 (지금)</button><button data-v=v1>13:31 도트 그라디언트</button>
         <button data-v=v2>13:40 섀도우 완화</button><button data-v=v3>14:28 상태 색·명도</button>
@@ -184,13 +187,13 @@
     </fieldset>
 
     <div class=seg id=segEdit style="margin:6px 0 10px">
-      <button data-v=common class=on>공통 편집</button><button data-v=state>이 상태만 편집</button>
-      <button id=ovClear style="margin-left:8px">이 상태 오버라이드 지우기</button>
+      <button data-v=common class=on>모든 상태에 적용</button><button data-v=state>지금 상태에만</button>
+      <button id=ovClear style="margin-left:8px">지금 상태만 되돌리기</button>
     </div>
-    <div class=acts><button id=save>코드에 저장 — 이 값이 시뮬로 간다</button>
-      <button id=saveTap>8번째 토큰(Tap2)으로 저장 — READY 탭 발자국</button></div>
-    <div class=acts><button id=undo>되돌리기 ⌘Z</button><button id=redo>다시 ⇧⌘Z</button></div>
-    <div class=acts><button id=reset>기본값</button><button id=copy>현재값 복사</button></div>
+    <div class=acts data-devonly><button id=save>정본에 저장</button>
+      <button id=saveTap>시작화면 발자국으로 저장</button></div>
+    <div class=acts><button id=undo>되돌리기</button><button id=redo>다시 실행</button></div>
+    <div class=acts><button id=reset>처음 값으로</button><button id=copy data-devonly>현재값 복사</button></div>
     <p class=warn id=warn></p>
     <p class=note>각인 세기 0 = 도입 전과 픽셀 동일(롤백 지점).</p>
   </div>
@@ -246,13 +249,10 @@
       <p class=note>발자국과 <b>같은 소스</b>(팔레트 LUT · 두께 uW · 헤일로 uHalo)를 소비합니다 — 위 '토큰 공통' 슬라이더를 만지면 함께 변합니다.
       형태 정본은 <code>fx-core</code>(drawApproachRing · drawStemArrow · drawTrajectory) — 시뮬이 쓰는 그 함수 그대로라, 여기서 확인한 그림이 곧 시뮬 그림입니다.</p>
     </div>
-    <div class=card>
-      <h2>겹침 실측 — 겉(빨강) · 안(크림) · 겹침(시안 = 신발 밖으로 삐져나온 곳)</h2>
-      <canvas id=align width=840 height=280></canvas>
-      <p class=note id=alignNote></p>
-    </div>
-    <div class=card>
-      <h2>현재값 — src/tokens.js makeMarkFXMaterial 기본치로 옮길 스니펫</h2>
+    <!-- '발자국이 신발 밖으로 나갔는지 보기' 카드 삭제(유저 08-11) — 개발용 겹침 검수라
+         전시 관람객에겐 읽히지 않는다. 그리는 코드는 남아 있으니 복원은 git. -->
+    <div class=card data-devonly>
+      <h2>현재값 스니펫</h2>
       <textarea id=snip readonly></textarea>
     </div>
   </div>
@@ -260,6 +260,8 @@
 
 <script type="module">
 'use strict';
+import { initLabDev, isLabDev, markDevOnly } from './src/labgate.js';   // ★ 개발자/배포 파이프라인 구분 정본
+const LAB_DEV = initLabDev();
 import * as THREE from 'three';
 import { makeMarkFXMaterial, QUAD_K, ZONE_GLYPH_K, SIL_FIT, SIL_FIT_REF, FOOT_PLANE_M, FOOT_LEN_M } from './src/tokens.js';
 import { FXP, GLYPHS, DEFAULT_GLYPHS, footSlot, footSDFTexture, drawNumber, drawGlyph, getLUT, ensureOffBit, rebuildLUT } from './src/fxlut.js';
@@ -339,7 +341,7 @@ let hist = [], future = [], histT = null;
 function persist() { try { localStorage.setItem(SAVE_KEY, JSON.stringify({ ...P, _def: DEF, states: OV, _defStates: DEF_STATES })); } catch { /* 사생활 모드 */ } bcast(); }   // _def/_defStates = 저장 시점 정본 스냅샷(위 복원 규칙용)
 // 랩 → 시뮬 실시간 미리보기(유저): 값이 바뀔 때마다 열려 있는 시뮬 전부에 즉시 쏜다.
 const _bc = (() => { try { return new BroadcastChannel('newton-marklook'); } catch { return null; } })();
-function bcast() { _bc?.postMessage({ ...P, shadeCol, dotCol, ripCol, edgeShadeCol }); }
+function bcast() { if (!isLabDev()) return; _bc?.postMessage({ ...P, shadeCol, dotCol, ripCol, edgeShadeCol }); }   // ★ 배포본은 시뮬로 안 보낸다(전시 가드 송신 측)
 function commitHist(prev) {
   clearTimeout(histT);
   histT = setTimeout(() => {
@@ -799,7 +801,9 @@ function feed(u, ph, prog, t, mode, slot) {
 
 // ── 겹침 실측 — SDF 두 채널을 2D 로 직접 그린다(셰이더를 안 거치므로 겹침 자체가 보인다) ──
 function drawAlign() {
-  const cv = $('align'), g = cv.getContext('2d');
+  const cv = $('align');   // 겹침 검수 카드는 08-11 에 삭제됐다 — 없으면 조용히 넘어간다
+  if (!cv) return;
+  const g = cv.getContext('2d');
   g.clearRect(0, 0, cv.width, cv.height);
   const tex = units.foot?.tex;
   if (!tex) return;
@@ -834,9 +838,9 @@ function drawAlign() {
     g.putImageData(id, m * S, 0);
   }
   const pct = inArea ? (over / inArea * 100) : 0;
-  $('alignNote').textContent = pair
+  $('alignNote') && ($('alignNote').textContent = pair
     ? `자국이 신발 밖으로 나간 면적 ${pct.toFixed(2)}% ${pct < 0.05 ? '— 완전히 안에 들어갔다' : '(시안색 = 삐져나온 곳)'}`
-    : '안(맨발) 채널이 없다 — 실내(맨발) 컨텍스트에선 각인이 비활성이다.';
+    : '안(맨발) 채널이 없다 — 실내(맨발) 컨텍스트에선 각인이 비활성이다.');
 }
 for (const k of ['scale', 'offx', 'offy']) $(k).addEventListener('input', drawAlign);
 
@@ -881,7 +885,7 @@ $('fit').onclick = () => {
     }
     if (best) break;   // 큰 쪽부터 훑으므로 처음 성공한 크기가 최대다
   }
-  if (!best) { $('alignNote').textContent = '완전히 들어가는 조합을 못 찾았다 — 실루엣 자체를 고쳐야 한다.'; return; }
+  if (!best) { $('alignNote') && ($('alignNote').textContent = '완전히 들어가는 조합을 못 찾았다 — 실루엣 자체를 고쳐야 한다.'); return; }
   hist.push({ ...P }); future.length = 0;
   P.scale = +best.s.toFixed(3); P.offx = +best.ox.toFixed(3); P.offy = +best.oy.toFixed(3);
   syncUI(); drawAlign(); persist(); updateHistUI();
@@ -1281,7 +1285,7 @@ try { Object.assign(PRIM_P, JSON.parse(localStorage.getItem('footlab.prims') || 
       PRIM_P[k] = +e.target.value; d.querySelector('.v').textContent = PRIM_P[k].toFixed(2);
       try { localStorage.setItem('footlab.prims', JSON.stringify(PRIM_P)); } catch { /* 사생활 모드 */ }
       // 시뮬 실시간 브리지 — appr 는 세션 박자 상수라 랩 전용(브리지 제외)
-      _bc?.postMessage({ prims: { punchLine: { node: PRIM_P.node, numS: PRIM_P.numS, comet: PRIM_P.comet, tailLen: PRIM_P.tailLen, rail: PRIM_P.rail } } });
+      if (isLabDev()) _bc?.postMessage({ prims: { punchLine: { node: PRIM_P.node, numS: PRIM_P.numS, comet: PRIM_P.comet, tailLen: PRIM_P.tailLen, rail: PRIM_P.rail } } });
     });
     host.appendChild(d);
   }

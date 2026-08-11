@@ -241,6 +241,11 @@ export class WallGL {
   update(dt) {
     if (!this.stage) return;
     this.t += dt;
+    // ★ 시작화면 등장 애니메이션을 주기적으로 다시 튼다(유저 08-11: 촤라락 뜨는 게 예쁜데
+    //   첫 복싱 장면이 무한 반복될 때 일정 타이밍마다 갱신되면 좋겠다). 등장 모션은 전부
+    //   this.t 를 시계로 쓰므로 t 를 0 으로 되감으면 그대로 다시 재생된다 — 새 코드 0줄.
+    //   READY 는 관람객이 오래 보는 화면이라 12초 주기. 다른 화면은 손대지 않는다.
+    if (/READY$/.test(this.stage) && this.t >= 12) { this.t = 0; this._lastPaint = -1; }
     // 24fps — 벽 UI는 상시 모션(글로우 드리프트·웨이브)이라 서명 비교로 걸러질 게 없다.
     // ponytail: 정적/동적 평면 분리는 바닥과 같은 계획(HANDOFF). 지금은 한 장.
     if (this.t - this._lastPaint < 1 / UI_FPS) return;
