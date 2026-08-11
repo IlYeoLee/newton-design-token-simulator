@@ -5125,27 +5125,8 @@ void main(){
         const st = session.curStage; if (!st) return;
         session.t = 0; session._enter(); rig.resetOmega?.();
       });
-      // ★ '보러 가기' — 패널의 수치를 **그 수치가 나온 장면으로 데려간다**(유저 08-11:
-      //   사람들은 '왜 저렇게 나왔지? 어떤 상황이지? 볼 순 없나' 를 궁금해한다).
-      //   새 기능을 만들지 않는다 — 이미 있는 스테이지 점프·시점 토글·버튼을 이어 붙일 뿐이다.
-      const jump = (sport, stageId, fp) => {
-        ttsOn = false; startSessionFor(sport); ttsOn = true;
-        const i = session.stages.findIndex(x => x.id === stageId);
-        if (i >= 0) { session.stageIdx = i; session.t = 0; session._enter(); }
-        if (fp != null) { fpUserSet = true; setFp(fp); }
-      };
-      const SEE = {
-        'run-c2':  () => jump('running', 'C2', false),      // 원경 −20°: 실전 달리기
-        'bk-b4':   () => jump('basketball', 'BK_B4', true),  // 근경 −40°: 발밑 익히기 + 차폐
-        'bx-b1':   () => jump('boxing', 'BX_B1', false),     // 벽면 투사
-        'fp':      () => { fpUserSet = true; setFp(true); },
-        'top':     () => window.__setTopView?.(!window.__topView),
-        'cone':    () => document.getElementById('btn-real')?.click(),
-        'day':     () => document.getElementById('btn-day')?.click(),
-      };
-      lab.querySelectorAll('[data-see]').forEach(b => {
-        b.addEventListener('click', (e) => { e.preventDefault(); SEE[b.dataset.see]?.(); });
-      });
+      // '보러 가기' 칩 제거(유저 08-11: 버튼이 더 헷갈린다). SEE 배선도 함께 걷었다 —
+      //   쓰는 데가 없는 핸들러는 죽은 코드다. 장면 이동은 세션 흐름과 상단 팩 탭이 한다.
       setInterval(() => {
         if (lab.classList.contains('folded')) return;
         $('lab-err').textContent = (rig.errorCm ?? 0).toFixed(1);

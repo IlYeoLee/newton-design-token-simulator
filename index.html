@@ -190,37 +190,46 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
 #lab-panel.folded{width:56px;padding:16px 12px}
 #lab-panel.folded .lab-body,#lab-panel.folded .pp-title,#lab-panel.folded .pp-sub{display:none}
 #lab-panel h3{margin:20px 0 9px;font-size:12.5px;letter-spacing:1.6px;color:var(--d-title);font-weight:800}
-#lab-panel .lab-kv{display:flex;justify-content:space-between;gap:10px;padding:6px 0;
-  border-bottom:1px solid rgba(255,255,255,.06);font-size:13.5px}
-#lab-panel .lab-kv span:first-child{color:rgba(255,255,255,.55)}
-#lab-panel .lab-kv b{font-weight:700;color:#fff}
-/* ── 근거 UI 3종(유저 08-11: 왜 저렇게 나왔는지·어떤 상황인지 볼 수 있어야 한다) ──
-   레이아웃은 건드리지 않는다 — 기존 kv 행/노트 위에 얹는 인라인 요소만 추가한다. */
-#lab-panel .lab-lead{font-size:12px;color:rgba(255,255,255,.62);line-height:1.6;margin:2px 0 8px}
-#lab-panel .lab-see{margin-top:8px;display:flex;gap:6px;flex-wrap:wrap}
-#lab-panel .lab-see button{flex:1 1 auto;min-height:34px;padding:7px 10px;border:1px solid rgba(209,254,255,.28);
-  border-radius:9px;background:rgba(209,254,255,.08);color:#d1feff;font-size:11.5px;font-weight:700;
-  cursor:pointer;letter-spacing:-.2px;touch-action:manipulation}
-#lab-panel .lab-see button:hover{background:rgba(209,254,255,.16)}
-#lab-panel .lab-src{margin-top:6px;font-size:10.5px;color:rgba(255,255,255,.33);line-height:1.55}
-#lab-panel .lab-note{font-size:12.5px;color:rgba(255,255,255,.5);line-height:1.6;margin-top:6px}
-/* 접이식 섹션 — 긴 설명·근거는 기본 접힘. 화면에 남는 건 값과 스위치뿐(유저: 글씨가 과하다) */
-#lab-panel details{margin-top:8px;border-top:1px solid rgba(255,255,255,.07)}
-#lab-panel details>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:6px;
-  padding:12px 0 10px;font-size:12.5px;letter-spacing:1.4px;color:var(--d-title);font-weight:800}
+/* ══ 좌측 체험 랩 조판 — 3단 위계로 다시 짠다(유저 08-11: 글씨가 작아 뭐가 뭔지 모르겠고
+   드롭다운이 있는 건지도 모르겠다). 규칙은 셋뿐이다.
+     ① 섹션 제목 = 가장 큼(15px) + 흰색 + 왼쪽 빨간 바 → '누를 수 있는 것'
+     ② 값(수치)  = 다음(15px 볼드 흰색), 라벨은 회색 12.5px → 눈이 값부터 잡는다
+     ③ 설명·출처 = 가장 작고 흐림 → 배경으로 물러난다
+   크기 차이를 벌리고(10.5~15px), 색은 흰/회/딤 세 단계만 쓴다. */
+#lab-panel .lab-kv{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:9px 0;
+  border-bottom:1px solid rgba(255,255,255,.05)}
+#lab-panel .lab-kv span:first-child{color:rgba(255,255,255,.5);font-size:12.5px;letter-spacing:-.2px}
+#lab-panel .lab-kv b{font-weight:800;color:#fff;font-size:15px;letter-spacing:-.3px;white-space:nowrap}
+/* 리드문 = 섹션이 무엇을 말하는지 한 줄. 값보다 먼저 읽히되 값보다 약하게 */
+#lab-panel .lab-lead{font-size:13px;color:rgba(255,255,255,.72);line-height:1.65;margin:2px 0 10px;letter-spacing:-.2px}
+#lab-panel .lab-lead b{color:#fff;font-weight:700}
+#lab-panel .lab-src{margin-top:9px;padding-top:8px;border-top:1px solid rgba(255,255,255,.05);
+  font-size:11px;color:rgba(255,255,255,.3);line-height:1.6;letter-spacing:-.1px}
+#lab-panel .lab-note{font-size:12.5px;color:rgba(255,255,255,.55);line-height:1.7;margin-top:6px;letter-spacing:-.2px}
+/* ── 섹션(드롭다운) — 눌러야 한다는 걸 형태로 말한다: 카드 배경 + 왼쪽 빨간 바 + 큰 제목 ── */
+#lab-panel details{margin-top:8px;border-radius:12px;background:rgba(255,255,255,.045)}
+#lab-panel details[open]{background:rgba(255,255,255,.06)}
+#lab-panel details>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:9px;
+  padding:14px 14px;font-size:15px;letter-spacing:-.3px;color:#fff;font-weight:800;position:relative}
 #lab-panel details>summary::-webkit-details-marker{display:none}
-#lab-panel details>summary::after{content:'';margin-left:auto;width:5px;height:5px;flex:0 0 auto;
-  border-right:1.5px solid rgba(255,255,255,.4);border-bottom:1.5px solid rgba(255,255,255,.4);
+#lab-panel details>summary::before{content:'';width:3px;height:15px;border-radius:2px;
+  background:var(--nb-red);flex:0 0 auto;box-shadow:0 0 8px rgba(250,48,48,.5)}
+#lab-panel details>summary::after{content:'';margin-left:auto;width:6px;height:6px;flex:0 0 auto;
+  border-right:2px solid rgba(255,255,255,.55);border-bottom:2px solid rgba(255,255,255,.55);
   transform:rotate(45deg) translateY(-2px);transition:transform .24s cubic-bezier(.2,.8,.3,1)}
-#lab-panel details[open]>summary::after{transform:rotate(-135deg) translateY(-1px)}
-#lab-panel details>summary .cnt{margin-left:auto;font-size:10px;font-weight:600;letter-spacing:0;
-  color:rgba(255,255,255,.32)}
-#lab-panel details>summary .cnt+::after{margin-left:8px}
-/* 근거 = 한 단 더 안쪽. 색을 죽여 값과 구분한다 */
-#lab-panel details details{border-top:0;margin-top:4px;background:rgba(255,255,255,.03);border-radius:9px;padding:0 10px}
-#lab-panel details details>summary{color:rgba(255,255,255,.55);font-size:12px;letter-spacing:.6px;padding:9px 0}
-#lab-panel details details .lab-note{margin-bottom:9px}
-#lab-panel .lab-body>details:first-of-type{border-top:0}
+#lab-panel details[open]>summary::after{transform:rotate(-135deg) translateY(1px)}
+#lab-panel details>summary .cnt{margin-left:auto;font-size:11px;font-weight:700;letter-spacing:0;
+  color:rgba(255,255,255,.42);background:rgba(255,255,255,.08);padding:3px 8px;border-radius:99px}
+#lab-panel details>summary .cnt+::after{margin-left:9px}
+#lab-panel details>*:not(summary){padding:0 14px}
+#lab-panel details>*:last-child:not(summary){padding-bottom:13px}
+/* 근거 = 한 단 안쪽. 배경 없이 선만 — 카드가 겹쳐 보이면 지저분해진다 */
+#lab-panel details details{background:none;margin-top:2px;border-top:1px solid rgba(255,255,255,.06);border-radius:0}
+#lab-panel details[open] details{background:none}
+#lab-panel details details>summary{color:rgba(255,255,255,.6);font-size:12.5px;font-weight:700;padding:11px 0}
+#lab-panel details details>summary::before{display:none}
+#lab-panel details details>*:not(summary){padding:0 0 4px}
+#lab-panel details details .lab-note{margin-bottom:8px}
 #lab-panel .lab-sw{display:flex;align-items:center;gap:9px;padding:9px 10px;margin-top:6px;
   border:1px solid rgba(255,255,255,.10);border-radius:10px;background:rgba(255,255,255,.04);cursor:pointer}
 #lab-panel .lab-sw .dotsw{width:26px;height:15px;border-radius:99px;background:var(--d-border);position:relative;flex:0 0 auto}
@@ -685,7 +694,6 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
       <details>
         <summary>부품과 마운트</summary>
         <div class="lab-lead">빔은 무릎이 아니라 <b>종아리 바깥면</b>에 달렸다. 그 6cm가 공 그림자를 필드 밖으로 밀어낸다.</div>
-        <div class="lab-see"><button data-see="bk-b4">농구 스텝백에서 보기</button><button data-see="top">위에서 보기</button></div>
         <div class="lab-src">실측 — BEAM-OCCLUSION.md (라이브 프레임 기하, 표적 25점)</div>
         <div class="lab-kv"><span>유닛 위치</span><b>무릎 아래 11cm 바깥면</b></div>
         <div class="lab-kv"><span>렌즈 높이</span><b>≈51cm</b></div>
@@ -697,7 +705,6 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
       <details>
         <summary>고개 각도 <span class="cnt">4단</span></summary>
         <div class="lab-lead">사람은 <b>2보 앞</b>을 본다. 그래서 장면마다 시선이 닿는 거리에 UI를 놓는다.</div>
-        <div class="lab-see"><button data-see="run-c2">실전 달리기(원경)</button><button data-see="bk-b4">익히기(근경)</button></div>
         <div class="lab-src">근거 — Matthis et al. 2018 · 눈높이 1.6m · 낙하점 = 1.6/tanθ</div>
         <div class="lab-kv"><span><b>정면</b> −8°</span><b>11.4m</b></div>
         <div class="lab-kv"><span><b>원경</b> −20°</span><b>4.4m</b></div>
@@ -724,25 +731,16 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
 
       <details>
         <summary>벽면 투사 <span class="cnt">복싱</span></summary>
-        <div class="lab-lead">벽은 <b>이해의 화면</b>이다. 사람이 3.29m 뒤에 서는 건 전신이 카메라에 담기는 최소 거리다.</div>
-        <div class="lab-see"><button data-see="bx-b1">복싱 벽면에서 보기</button></div>
+        <div class="lab-lead">벽은 <b>이해의 화면</b>이다. 숙련자의 리듬과 상대의 공격 범위를 먼저 보여준다.</div>
         <div class="lab-src">실측 — PROJECTION-SPEC.md §1·§5 (프로젝터 62° · 카메라 50°)</div>
         <div class="lab-kv"><span>투사 크기</span><b>2.60 × 1.63 m</b></div>
         <div class="lab-kv"><span>벽 ↔ 빔 유닛</span><b>1.36 m</b></div>
-        <div class="lab-kv"><span>벽 ↔ 사람</span><b>3.29 m</b></div>
         <div class="lab-kv"><span>대지 환산</span><b>1 px = 1 mm</b></div>
-        <details>
-          <summary>자취방에서도 되나</summary>
-          <div class="lab-note">필요 깊이 <b>3.28 m → 1.56 m</b>. 병목은 벽 크기가 아니라 전신을 담는
-            카메라 화각이었다. 벽 팩은 주먹·가드만 보면 되므로 ① 프레이밍을 상체로(−0.6~0.8m)
-            ② 광각 70°(−0.64m) ③ 초단초점 TR 0.25(−0.9m). 방 깊이 3m에서 1.4m가 남는다.</div>
-        </details>
       </details>
 
       <details>
         <summary>바닥 글자 크기 <span class="cnt">시각도</span></summary>
         <div class="lab-lead">바닥 글자는 <b>눌려 보인다</b>. 같은 10cm도 발밑과 2m 앞이 전혀 다른 크기로 들어온다.</div>
-        <div class="lab-see"><button data-see="fp">1인칭으로 보기</button><button data-see="top">위에서 보기</button></div>
         <div class="lab-src">근거 — Legge &amp; Bigelow 2011 · ISO 9241-303 · Cai 2013 · MUTCD</div>
         <div class="lab-kv"><span>1급 (동작명·타이머)</span><b>0.70°</b></div>
         <div class="lab-kv"><span>2급 (단계·단위)</span><b>0.45°</b></div>
@@ -764,7 +762,6 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
       <details>
         <summary>못 쓰는 땅 <span class="cnt">콘 밖</span></summary>
         <div class="lab-lead">빔이 닿는 범위는 사각형이 아니라 <b>부채꼴</b>이다. 그 밖은 그려도 안 보인다.</div>
-        <div class="lab-see"><button data-see="cone">투사 커버리지 켜기</button></div>
         <div class="lab-src">실측 — docs/FLOOR-LAYOUT-SPEC.md (러닝 기본 리그)</div>
         <div class="lab-kv"><span>대지 위쪽</span><b>289 px = 12.7%</b></div>
         <div class="lab-kv"><span>조판 밴드</span><b>6 개</b></div>
@@ -779,7 +776,6 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
       <details>
         <summary>가시성 규칙</summary>
         <div class="lab-lead">가려지는 걸 <b>가려진 채로</b> 둔다. 그게 실제 빔이 하는 일이다.</div>
-        <div class="lab-see"><button data-see="bk-b4">드리블에서 보기</button><button data-see="day">주간 모드</button></div>
         <div class="lab-src">실측 — BEAM-OCCLUSION.md (크로스오버 전 사이클 샘플링)</div>
         <div class="lab-kv"><span>창 경계</span><b>페더 18cm</b></div>
         <div class="lab-kv"><span>공에 가릴 때</span><b>그 토큰만 소등</b></div>
