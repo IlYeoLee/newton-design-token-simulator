@@ -2157,7 +2157,9 @@ export class Session {
     // 복싱 벽은 한 겹 — 판정 토큰도 벽 UI·인물과 같은 밴드(20)에 둔다. 앞뒤는 z 가 정한다:
     // 벽면 UI < 인물(WALL_Z+0.02) < 토큰(WZ = WALL_Z+0.03). 부위 지시가 인물에 안 가리는 원래 의도는
     // renderOrder 가 아니라 z 로 유지된다(유저: 'UI·인물·마크 토큰 레이어가 다 다르다').
-    for (const id of ['BX_A1','BX_A2','BX_A3','BX_B1','BX_B2','BX_B3','BX_C1','BX_C3']) {
+    // ★ BX_C2 가 이 목록에서 빠져 있었다(유저 08-12: 잽 대련 판정 토큰이 인물 뒤로 간다) —
+    //   C2 존 원·수축 링만 renderOrder 6~7 로 남아 인물(밴드 20)보다 먼저 그려졌다.
+    for (const id of ['BX_A1','BX_A2','BX_A3','BX_B1','BX_B2','BX_B3','BX_C1','BX_C2','BX_C3']) {
       this.G[id]?.traverse(o => { if (o.isMesh) o.renderOrder = 20; });
     }
   }
