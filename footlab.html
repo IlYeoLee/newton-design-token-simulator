@@ -58,7 +58,12 @@
      리듬 = 타이틀(0/18) → 칩(0/18) → 타일 → 캡션(14/0). 위계는 활자 크기가 만든다:
      페이지 34 > 섹션 26 > 그룹 22 > 본문 17 > 캡션 15 (1920 풀스크린 기준). */
   .card{background:none;border:0;border-radius:0;padding:0;margin-bottom:64px}
-  .card h2{font-size:26px;font-weight:800;color:#fff;letter-spacing:-.4px;margin:0 0 18px}
+  .card h2{font-size:26px;font-weight:800;color:#fff;letter-spacing:-.8px;margin:0 0 18px}
+  /* UX북 문법(유저 08-12) — 빨간 키커 + 섹션 넘버링. 카운터는 문서 흐름 순서가 곧 번호 */
+  body{counter-reset:sec}
+  .card h2::before{counter-increment:sec;content:"0" counter(sec);display:block;
+    font-size:13px;font-weight:700;color:var(--nb-red);letter-spacing:.4px;margin-bottom:8px}
+  .panel .kick{font-size:14px;font-weight:700;color:var(--nb-red);letter-spacing:.4px;margin:0 0 10px}
   .card .seg{margin:0 0 18px}
   .card .note{margin:14px 0 0;display:block;font-size:15px;color:rgba(255,255,255,.58);line-height:1.75;max-width:960px}
   canvas{display:block;border-radius:10px;max-width:100%}
@@ -123,6 +128,7 @@ body:not(.dev) [data-devonly]{display:none !important}
 </head><body>
 <div class=wrap>
   <div class=panel>
+    <div class="kick">NEWTON LAB</div>
     <h1>지면 그래픽</h1>
     <p class=sub>시뮬레이터에 뜨는 발자국과 똑같은 것을 그립니다</p>
 

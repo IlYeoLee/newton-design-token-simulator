@@ -25,6 +25,11 @@ body{background:var(--d-bg);color:var(--text);font:17px/1.65 'Pretendard',var(--
 #panel::-webkit-scrollbar{width:8px}
 #panel::-webkit-scrollbar-thumb{background:var(--d-border);border-radius:4px}
 #panel h1{font-size:34px;font-weight:800;letter-spacing:-.8px;color:#fff;margin:0 0 10px}
+/* UX북 문법(유저 08-12) — 빨간 키커 + 그룹 넘버링(footlab 과 같은 문법) */
+body{counter-reset:sec}
+.grp h2::before{counter-increment:sec;content:"0" counter(sec);display:block;
+  font-size:12px;font-weight:700;color:var(--nb-red);letter-spacing:.4px;margin-bottom:6px}
+#panel .kick{font-size:14px;font-weight:700;color:var(--nb-red);letter-spacing:.4px;margin:0 0 10px}
 #panel .sub{color:rgba(255,255,255,.5);font-size:16px;line-height:1.6;margin:0 0 30px}
 .grp{margin:0 0 42px;background:transparent;border-radius:0;padding:0}
 .grp>h2{font-size:22px;font-weight:800;letter-spacing:-.3px;color:#fff;padding:0;margin-bottom:14px}
@@ -59,7 +64,14 @@ button.on{background:var(--d-strong);color:#121212}   /* 세그 선택 = 회색�
 #bar{flex:0 0 auto;display:flex;align-items:center;gap:12px;padding:10px 16px;
   border-bottom:1px solid var(--d-divider);background:var(--d-bg-sub)}
 #bar .t{font:var(--t-labs);color:var(--d-t3);font-variant-numeric:tabular-nums;min-width:112px}
-#bar input[type=range]{flex:1;max-width:420px;accent-color:var(--nb-red)}
+/* 바 슬라이더도 토큰 슬라이더와 같은 정본(트랙 6 · 노브 20 · 레드) — 배율만 coral 로 남아 있었다(유저 08-12) */
+#bar input[type=range]{flex:1;max-width:420px;-webkit-appearance:none;appearance:none;height:32px;background:none}
+#bar input[type=range]::-webkit-slider-runnable-track{height:6px;border-radius:999px;background:rgba(255,255,255,.14)}
+#bar input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;border-radius:50%;
+  background:var(--nb-red);margin-top:-7px}
+#bar input[type=range]::-moz-range-track{height:6px;border-radius:999px;background:rgba(255,255,255,.14)}
+#bar input[type=range]::-moz-range-progress{height:6px;border-radius:999px;background:var(--nb-red)}
+#bar input[type=range]::-moz-range-thumb{width:20px;height:20px;border:0;border-radius:50%;background:var(--nb-red)}
 #grid{flex:1;overflow:auto;padding:24px 100px 48px 24px;display:flex;flex-wrap:wrap;gap:24px;align-content:start}   /* 좌우 마진은 콘텐츠의 것(정본) — 우측 100 */
 .cell{background:rgba(255,255,255,.035);border:0;border-radius:16px;overflow:hidden;flex:0 0 auto}   /* footlab .card 레시피 */
 .cell.pack-bk{box-shadow:inset 0 0 0 1px rgba(255,255,255,.14)}   /* 농구 표식도 회색조(유저 08-12) */
@@ -92,7 +104,8 @@ body:not(.dev) [data-devonly]{display:none !important}
 </head><body>
 
 <div id="panel">
-  <h1>지면 디자인 토큰</h1>
+  <div class="kick">NEWTON LAB</div>
+  <h1>지면 레이아웃</h1><!-- 홈 알약과 같은 이름(유저 08-12 일관성) -->
   <div class="sub">발밑에 뜨는 화면의 글자 크기와 간격을 정하는 값들입니다</div>
 
   <!-- 버전·되돌리기 = 개발 전용(유저 08-12: 전시에선 실시간 반영도 없으니 편집 크롬을 줄인다).
@@ -223,8 +236,8 @@ body:not(.dev) [data-devonly]{display:none !important}
     <span style="width:1px;height:20px;background:var(--d-divider)"></span>
     <button id="real">실측 1:1</button>
     <label style="display:flex;align-items:center;gap:5px;font:var(--t-labs);color:var(--d-t3)">
-      배율 <input type="range" id="zoom" min="0.03" max="1" step="0.01" value="0.05" style="width:110px;accent-color:var(--coral)">
-      <b id="zoomv" style="color:var(--sand);font-variant-numeric:tabular-nums;width:34px">5%</b>
+      배율 <input type="range" id="zoom" min="0.03" max="1" step="0.01" value="0.05" style="width:110px">
+      <b id="zoomv" style="color:#fff;font-variant-numeric:tabular-nums;width:34px">5%</b>
     </label>
     <span id="realnote" style="font:var(--t-labs);color:var(--d-t3)"></span>
   </div>
