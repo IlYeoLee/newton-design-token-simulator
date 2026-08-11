@@ -71,7 +71,7 @@
   .warn{color:var(--red);font-size:12.5px;font-weight:600;margin:10px 0 0;display:none}
 /* 개발 전용 UI — 배포본에선 통째로 숨긴다(정본 게이트 src/labgate.js) */
 body:not(.dev) [data-devonly]{display:none !important}
-</style>  <script type="module" crossorigin src="./assets/footlab-B6aR7kNX.js"></script>
+</style>  <script type="module" crossorigin src="./assets/footlab-CjtwrkRo.js"></script>
   <link rel="modulepreload" crossorigin href="./assets/modulepreload-polyfill-B5Qt9EMX.js">
   <link rel="modulepreload" crossorigin href="./assets/labgate-DBLrM4ri.js">
   <link rel="modulepreload" crossorigin href="./assets/fx-core-CsnioyF7.js">
@@ -256,13 +256,10 @@ body:not(.dev) [data-devonly]{display:none !important}
       <p class=note>발자국과 <b>같은 소스</b>(팔레트 LUT · 두께 uW · 헤일로 uHalo)를 소비합니다 — 위 '토큰 공통' 슬라이더를 만지면 함께 변합니다.
       형태 정본은 <code>fx-core</code>(drawApproachRing · drawStemArrow · drawTrajectory) — 시뮬이 쓰는 그 함수 그대로라, 여기서 확인한 그림이 곧 시뮬 그림입니다.</p>
     </div>
-    <div class=card>
-      <h2>발자국이 신발 밖으로 나갔는지 보기</h2>
-      <canvas id=align width=840 height=280></canvas>
-      <p class=note id=alignNote></p>
-    </div>
-    <div class=card>
-      <h2 data-devonly>현재값 스니펫</h2>
+    <!-- '발자국이 신발 밖으로 나갔는지 보기' 카드 삭제(유저 08-11) — 개발용 겹침 검수라
+         전시 관람객에겐 읽히지 않는다. 그리는 코드는 남아 있으니 복원은 git. -->
+    <div class=card data-devonly>
+      <h2>현재값 스니펫</h2>
       <textarea id=snip readonly></textarea>
     </div>
   </div>
