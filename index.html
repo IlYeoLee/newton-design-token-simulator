@@ -220,11 +220,20 @@ body:not(.dev):has(#play-panel.folded) #stage{margin-right:calc(56px*1.15)}
   transition:transform .55s cubic-bezier(.22,.9,.26,1),opacity .4s ease,visibility 0s linear .55s}
 body.howto #howto-overlay{visibility:visible;opacity:1;transform:none;pointer-events:auto;
   transition:transform .55s cubic-bezier(.22,.9,.26,1),opacity .4s ease}
-/* 무대는 왼쪽으로 살짝 밀리며 가라앉고, 우패널은 화면 밖으로 */
-#stage,#play-panel{transition:transform .55s cubic-bezier(.22,.9,.26,1),opacity .4s ease}
-body.howto #stage{transform:translateX(-56px) scale(.965);opacity:0;pointer-events:none}
-body.howto #play-panel{transform:translateX(115%)}
-@media (prefers-reduced-motion:reduce){#howto-overlay,#stage,#play-panel{transition:none}}
+/* 무대는 왼쪽으로 살짝 밀리며 가라앉고, 우패널은 화면 밖으로.
+   랩 두 개(지면 그래픽·지면 레이아웃)도 같은 전환을 쓴다(body.labview) — 랩은 자기
+   패널을 갖고 오는 전체 페이지라 좌패널까지 왼쪽으로 비켜 준다. */
+#stage,#play-panel,#lab-panel{transition:transform .55s cubic-bezier(.22,.9,.26,1),opacity .4s ease}
+body.howto #stage,body.labview #stage{transform:translateX(-56px) scale(.965);opacity:0;pointer-events:none}
+body.howto #play-panel,body.labview #play-panel{transform:translateX(115%)}
+body.labview #lab-panel{transform:translateX(-115%)}
+#lab-embed-overlay{position:fixed;inset:0;z-index:60;background:var(--d-bg);display:flex;
+  visibility:hidden;opacity:0;transform:translateX(64px);pointer-events:none;
+  transition:transform .55s cubic-bezier(.22,.9,.26,1),opacity .4s ease,visibility 0s linear .55s}
+body.labview #lab-embed-overlay{visibility:visible;opacity:1;transform:none;pointer-events:auto;
+  transition:transform .55s cubic-bezier(.22,.9,.26,1),opacity .4s ease}
+#lab-embed-frame{flex:1;border:0;width:100%;background:var(--d-bg)}
+@media (prefers-reduced-motion:reduce){#howto-overlay,#lab-embed-overlay,#stage,#play-panel,#lab-panel{transition:none}}
 #howto-overlay .howto-wrap{position:relative;max-width:860px;margin:0 auto;padding:72px 32px 120px}
 #howto-overlay h1{font-size:38px;font-weight:800;letter-spacing:-.8px;color:#fff;margin:0 0 10px}
 #howto-overlay .howto-intro{font-size:17px;color:rgba(255,255,255,.55);margin:0 0 44px}
@@ -841,51 +850,48 @@ button, summary, .lab-pill, .lab-sw, .lab-go, .pp-pack, [role=button]{position:r
             <span class="lp-t">열화상</span>
             <span class="lp-s">이미지 편집기</span></a> -->
           <a href="#" class="lab-pill" id="howto-open">
-            <span class="lp-t">어떻게 만들었나</span>
+            <span class="lp-t">왜 이렇게 만들었나</span>
             <span class="lp-s">실측과 근거</span></a>
         </div>
       </div>
 
       <!-- ★ 근거 섹션 재구성(유저 08-12): 피그마 어펜딕스(MsAnO7Itu9sORPSZBt0oRj)의
            근거·논문·실측을 좌패널 정본으로. 왜 프로젝션인가 → 흔들림(부품+보정) → 부품·타겟. -->
+      <!-- 수치·출처는 근거 보드(도판)가 말한다 — 텍스트는 보드가 못 하는 말만(유저 08-12: 중복은 과하다) -->
       <details id="sec-why" data-toc="왜 바닥인가">
         <summary>왜 몸이 아니라 바닥에 쏘나</summary>
         <div class="lab-lead">숙련자의 움직임을 보는 가장 쉬운 답은 AR 글라스처럼 보입니다. 그런데 <b>운동하는 몸은 얼굴에 얹는 무게를 피합니다.</b> 그래서 뉴턴은 몸에 아무것도 씌우지 않고, 바닥에 빛으로 그립니다.</div>
-        <div class="lab-kv"><span>시력교정이 필요한 러너 941명 중 달릴 때 안경을 피하는 비율</span><b>33.1%</b></div>
-        <div class="lab-src">Latham et al., PLOS ONE 2024</div>
-        <div class="lab-kv"><span>안경 착용자가 스포츠·레저에서 제약을 느끼는 비율</span><b>46%</b></div>
-        <div class="lab-src">착용 불편 설문(n=120), 2016 · HMD 목 부담: KCI 2020(보조 근거)</div>
         <details>
           <summary>바닥의 빛이 정말 움직임을 이끄나</summary>
-          <div class="lab-note">레이저 슈즈로 보행 전방 바닥에 가이드를 쏘자 파킨슨 환자의 보행 동결(FOG) 횟수·시간이 유의하게 줄었다(Barthel et al. 2018).
-            바닥에 다음 발 위치를 제시해 보폭·타이밍을 조절하는 연구도 검증돼 있다(Bank et al. 2011, stepping stones).
-            발밑 시각 가이드는 재활을 넘어 스텝·리듬 트레이닝으로 확장되는 중이다.</div>
+          <div class="lab-note">이미 의학이 먼저 증명했습니다. 발밑에 빛으로 다음 걸음을 그려 주면 몸이 따라온다는 것을요.</div>
         </details>
         <details>
           <summary>주간 야외에서 빛이 보이긴 하나</summary>
-          <div class="lab-note">중장비 야외 환경에선 레이저 선형 가이드 투사가 이미 실전 검증됐고(Tschulik et al. 2025, Computers &amp; Graphics),
-            자동차 업계는 낮에도 보이는 MEMS Laser Beam Scanning 지면 투사를 상용 로드맵에 올렸다(Valeo, 2026 — 현재 2색 HD).
-            뉴턴의 풀컬러 지면 UI는 이 로드맵의 N+5년 지점을 설계한 것이다.</div>
+          <div class="lab-note">낮에도 보이는 지면 투사는 자동차 업계의 상용 로드맵에 올라 있습니다. 뉴턴의 풀컬러 지면 UI는 그 로드맵의 N+5년 지점을 설계한 것입니다.</div>
         </details>
       </details>
 
       <details data-toc="유닛과 부품">
         <summary>빛은 어디서 나오나 <span class="cnt">부위 실측</span></summary>
-        <div class="lab-lead">무릎 옆의 작은 유닛에서 나옵니다. 다섯 부위에 달아 보고 다섯 각도로 쏴 본 결과, <b>무릎</b>이 발 앞 20~150cm를 가장 안정적으로 덮었고 몸에 가리지도 않았습니다.</div>
-        <div class="lab-src">실측 — 고관절·허벅지·무릎·정강이·발목 × 90/60/45/30/15° · 165cm 성인 기준 · BEAM-OCCLUSION.md(표적 25점)</div>
-        <div class="lab-kv"><span>선정 부위</span><b>무릎 아래 11cm 바깥면</b></div>
-        <div class="lab-kv"><span>커버 구간</span><b>발 앞 20 ~ 150cm (~180cm)</b></div>
-        <div class="lab-kv"><span>렌즈 높이</span><b>≈51cm</b></div>
-        <div class="lab-kv"><span>투사창</span><b>5cm ~ 2.0m · 폭 64 → 169cm</b></div>
+        <div class="lab-lead">무릎 옆의 작은 유닛에서 나옵니다. 다섯 부위에 달아 보고 다섯 각도로 쏴 본 결과, <b>무릎</b>이 시야를 가장 안정적으로 덮었고 몸에 가리지도 않았습니다.</div>
+        <!-- 보드(부위 타겟)가 부위·각도·커버를 말한다 — 표는 보드에 없는 리그 실측만 -->
+        <table class="hw-tbl"><tbody>
+          <tr><td>장착 위치</td><td>무릎 아래 11cm 바깥면</td></tr>
+          <tr><td>렌즈 높이</td><td>≈51cm</td></tr>
+          <tr><td>투사창</td><td>5cm ~ 2.0m · 폭 64 → 169cm</td></tr>
+        </tbody></table>
         <details>
           <summary>실제 부품 구성</summary>
-          <div class="lab-kv"><span>투사 모듈</span><b>MEMS Laser Beam Scanning</b></div>
-          <div class="lab-note">낮의 야외에서도 보이는 지면 투사 방식입니다. 자동차 업계가 상용 로드맵에 올린 그 모듈 계열(Valeo·Infineon MEMS)입니다.</div>
-          <div class="lab-kv"><span>체결</span><b>EPM 전자 영구 자석 (무전력)</b></div>
-          <div class="lab-kv"><span>안정화</span><b>1축 짐벌(서보 최대 300°/s) + OIS 렌즈</b></div>
-          <div class="lab-kv"><span>발목 웨어러블</span><b>와이어 액추에이션</b></div>
-          <div class="lab-note">발뒤꿈치를 들어 올리고 발목 각도를 잡아 풋워크 스냅을 만듭니다. 하체 힘이 지면으로 빠져나가는 마지막 관문이 발목이기 때문입니다.</div>
-          <div class="lab-src">운동 사슬 근거 — Sportsmith(발 훈련과 방향 전환) · PMC 2024(kinetic chain 리뷰)</div>
+          <table class="hw-tbl">
+            <thead><tr><th>부품</th><th>구성</th><th>역할</th></tr></thead>
+            <tbody>
+              <tr><td>투사</td><td>MEMS Laser Beam Scanning</td><td>낮의 야외에서도 보이는 지면 투사</td></tr>
+              <tr><td>체결</td><td>EPM 전자 영구 자석</td><td>전력 없이 체결 유지, 이탈 방지</td></tr>
+              <tr><td>안정화</td><td>1축 짐벌(300°/s) + OIS 렌즈</td><td>크게는 짐벌, 잔떨림은 렌즈</td></tr>
+              <tr><td>발목</td><td>와이어 액추에이션</td><td>뒤꿈치 리프팅 · 발목 각도 제어</td></tr>
+            </tbody>
+          </table>
+          <div class="lab-note">발목을 잡는 이유: 하체 힘이 지면으로 빠져나가는 마지막 관문이 발목이기 때문입니다.</div>
         </details>
       </details>
 
@@ -926,7 +932,7 @@ button, summary, .lab-pill, .lab-sw, .lab-go, .pp-pack, [role=button]{position:r
 
       <!-- 자동 로테이션 근거 카드(유저 08-12: 다 숨기면 안 누르는 사람은 아무것도 못 본다) —
            큰 숫자 하나씩 8초 간격으로 흘러나오고, 누르면 읽기 페이지가 열린다. -->
-      <a href="#" id="fact-card" aria-label="어떻게 만들었나 열기">
+      <a href="#" id="fact-card" aria-label="왜 이렇게 만들었나 열기">
         <div class="fc-k">실측과 근거</div>
         <div class="fc-in">
           <div class="fc-val"></div>
@@ -939,11 +945,35 @@ button, summary, .lab-pill, .lab-sw, .lab-go, .pp-pack, [role=button]{position:r
         <summary>고개를 얼마나 숙이나 <span class="cnt">네 단계</span></summary>
         <div class="lab-lead">각도는 <b>고개 기울기</b>, 거리는 <b>그 시선이 바닥과 만나는 지점</b>입니다. 투사 거리가 아닙니다 — 빔은 발 앞 2m 안에만 쏩니다. 화면을 어디에 둘지를 이 시선 낙하점이 정합니다.</div>
         <div class="lab-src">근거 — Matthis et al. 2018 · 눈높이 1.6m · 낙하점 = 1.6/tanθ</div>
-        <div class="lab-kv"><span><b>정면</b> −8° · 시선이 바닥에 안 닿는 각</span><b>벽 화면</b></div>
-        <div class="lab-note">낙하점이 11.4m — 사실상 정면을 보는 각이라, 이 장면들(복싱·드리블 2막)은 바닥이 아니라 <b>벽</b>에 화면을 둡니다.</div>
-        <div class="lab-kv"><span><b>원경</b> −20° · 낙하점 4.4m</span><b>실전 달리기</b></div>
-        <div class="lab-kv"><span><b>중경</b> −30° · 낙하점 2.8m</span><b>전환 · 리치 홀드</b></div>
-        <div class="lab-kv"><span><b>근경</b> −40° · 낙하점 1.9m</span><b>시작 · 학습 · 리포트</b></div>
+        <!-- 도식(유저 08-12: 보드에 없는 내용은 표·다이어그램으로) — 네 단계 시선이
+             바닥 어디에 떨어지는지 옆모습 한 장. 핵심 대비: 시선은 멀리, 빔은 발 앞 2m 안. -->
+        <div class="hw-dia" aria-label="시선 낙하점 다이어그램">
+          <svg viewBox="0 0 880 300" role="img">
+            <line x1="60" y1="230" x2="838" y2="230" stroke="rgba(255,255,255,.28)" stroke-width="1.5"/>
+            <line x1="838" y1="230" x2="838" y2="62" stroke="rgba(255,255,255,.28)" stroke-width="1.5"/>
+            <line x1="100" y1="230" x2="100" y2="92" stroke="rgba(255,255,255,.6)" stroke-width="3" stroke-linecap="round"/>
+            <circle cx="100" cy="78" r="11" fill="none" stroke="rgba(255,255,255,.6)" stroke-width="3"/>
+            <text x="100" y="52" text-anchor="middle" font-size="12.5" fill="rgba(255,255,255,.45)">눈높이 1.6m</text>
+            <rect x="107" y="226" width="283" height="8" fill="rgba(250,48,48,.34)"/>
+            <text x="248" y="216" text-anchor="middle" font-size="12.5" fill="#ff7a7a">빔 투사창 · 발 앞 2m 안</text>
+            <line x1="110" y1="86" x2="385" y2="230" stroke="rgba(255,255,255,.35)" stroke-width="1.5"/>
+            <line x1="110" y1="86" x2="520" y2="230" stroke="rgba(255,255,255,.35)" stroke-width="1.5"/>
+            <line x1="110" y1="86" x2="760" y2="230" stroke="rgba(255,255,255,.35)" stroke-width="1.5"/>
+            <line x1="110" y1="86" x2="826" y2="112" stroke="rgba(255,255,255,.3)" stroke-width="1.5" stroke-dasharray="5 5"/>
+            <circle cx="385" cy="230" r="5" fill="#FA3030"/>
+            <circle cx="520" cy="230" r="5" fill="#FA3030"/>
+            <circle cx="760" cy="230" r="5" fill="#FA3030"/>
+            <rect x="828" y="96" width="10" height="60" fill="rgba(250,48,48,.55)"/>
+            <text x="820" y="84" text-anchor="end" font-size="13" font-weight="700" fill="rgba(255,255,255,.85)">정면 −8° → 벽 화면</text>
+            <text x="820" y="102" text-anchor="end" font-size="12" fill="rgba(255,255,255,.45)">복싱 · 드리블 2막</text>
+            <text x="385" y="256" text-anchor="middle" font-size="13.5" font-weight="700" fill="rgba(255,255,255,.85)">근경 −40° · 1.9m</text>
+            <text x="385" y="274" text-anchor="middle" font-size="12" fill="rgba(255,255,255,.45)">시작 · 학습 · 리포트</text>
+            <text x="533" y="256" text-anchor="middle" font-size="13.5" font-weight="700" fill="rgba(255,255,255,.85)">중경 −30° · 2.8m</text>
+            <text x="533" y="274" text-anchor="middle" font-size="12" fill="rgba(255,255,255,.45)">전환 · 리치 홀드</text>
+            <text x="722" y="256" text-anchor="middle" font-size="13.5" font-weight="700" fill="rgba(255,255,255,.85)">원경 −20° · 4.4m</text>
+            <text x="722" y="274" text-anchor="middle" font-size="12" fill="rgba(255,255,255,.45)">실전 달리기</text>
+          </svg>
+        </div>
         <div class="lab-note">달릴 때는 멀리(4.4m) 보므로 지면 마크를 투사창의 먼 끝에 세우고, 발 위치를 배우는 학습은 발밑(1.9m 안)을 보므로 가까이 둡니다.</div>
         <details>
           <summary>고르는 규칙</summary>
@@ -1179,9 +1209,9 @@ button, summary, .lab-pill, .lab-sw, .lab-go, .pp-pack, [role=button]{position:r
        열기 전엔 iframe src 를 비워 둔다 — 세 랩을 미리 로드하면 홈이 무거워진다. -->
   <!-- '어떻게 만들었나' 전면 읽기 페이지(유저 08-12: 패널의 정보 나열 제거 — 리드 디자이너 문법).
        근거 섹션들은 마크업 이동 없이 JS 가 이 오버레이로 이주시킨다(흔들림 체험만 패널에 남는다). -->
-  <div id="howto-overlay" role="dialog" aria-label="어떻게 만들었나">
+  <div id="howto-overlay" role="dialog" aria-label="왜 이렇게 만들었나">
     <div class="howto-wrap">
-      <h1>어떻게 만들었나</h1>
+      <h1>왜 이렇게 만들었나</h1>
       <p class="howto-intro">여기 있는 숫자는 전부 실측이거나 논문입니다.</p>
       <div id="howto-body"></div>
     </div>
@@ -1209,18 +1239,18 @@ button, summary, .lab-pill, .lab-sw, .lab-go, .pp-pack, [role=button]{position:r
     const why = host.querySelector('#sec-why');
     if (why) {
       const srcs = why.querySelectorAll(':scope > .lab-src');
-      srcs[srcs.length - 1]?.after(fig('howto/board-ar.png', '근거 보드 · 왜 AR 글라스가 아니라 프로젝션인가. 러너 33.1% 안경 회피, 착용 제약 46%'));
+      srcs[srcs.length - 1]?.after(fig('howto/board-ar.png', '근거 보드 · 왜 AR 글라스가 아니라 프로젝션인가'));
       const subs = why.querySelectorAll(':scope > details');
-      subs[0]?.append(fig('howto/board-guide.png', '근거 보드 · 바닥 투사형 시각 가이드. 레이저 슈즈(파킨슨 FOG 감소), 스테핑 스톤 보행 연구'));
-      subs[1]?.append(fig('howto/board-fullcolor.png', '근거 보드 · 선형 가이드에서 풀컬러 지면 UI 로. 중장비 야외 실증과 Valeo 상용 로드맵'));
+      subs[0]?.append(fig('howto/board-guide.png', '근거 보드 · 바닥 투사형 시각 가이드'));
+      subs[1]?.append(fig('howto/board-fullcolor.png', '근거 보드 · 선형 가이드에서 풀컬러 지면 UI 로'));
     }
     host.querySelector('[data-toc="유닛과 부품"]')?.append(
-      fig('howto/board-target.png', '근거 보드 · 부위 타겟 과정. 5부위 × 5각도 실측, 가이드는 무릎 · 파워 제어는 발목'));
+      fig('howto/board-target.png', '근거 보드 · 부위 타겟 과정'));
     // 흔들림 체험은 패널에 남지만, 읽기 페이지에는 그 근거 보드가 있어야 한다(자리 = 원래 순서)
     const shake = document.createElement('details'); shake.open = true;
     shake.innerHTML = '<summary>흔들림을 어떻게 잡나</summary>'
       + '<div class="lab-lead">뛰는 몸에 붙은 프로젝터는 흔들립니다. 기구가 먼저 잡습니다. 무전력 체결의 전자 영구 자석(EPM)이 모듈 이탈을 막고, 짐벌과 OIS 렌즈가 화면 위치 오차를 줄입니다. 남는 잔떨림은 소프트웨어 보정 세 항이 지웁니다. 왼쪽 패널의 흔들림 보정에서 직접 꺼 볼 수 있습니다.</div>';
-    shake.append(fig('howto/board-shake.png', '근거 보드 · 투사 흔들림 보정. EPM(IEEE 2010·2018) + 짐벌·OIS(IEEE 2015)'));
+    shake.append(fig('howto/board-shake.png', '근거 보드 · 투사 흔들림 보정'));
     host.querySelector('[data-toc="화면 위치"]')?.before(shake);
     // 화면 전환 — 무대가 밀려나고 이 페이지가 들어온다(창이 아니다)
     const open = e => { e?.preventDefault(); ov.scrollTop = 0; document.body.classList.add('howto'); document.documentElement.style.overflow = 'hidden'; };
@@ -1348,34 +1378,24 @@ button, summary, .lab-pill, .lab-sw, .lab-go, .pp-pack, [role=button]{position:r
   })();
   </script>
 
-  <div id="lab-embed-overlay" style="display:none;position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.62);backdrop-filter:blur(6px);">
-    <div style="position:absolute;inset:3%;background:var(--d-bg);border-radius:16px;overflow:hidden;box-shadow:0 30px 90px rgba(0,0,0,.6);display:flex;flex-direction:column;">
-      <!-- 닫기 = 터치 표준 44px. 대형 화면(TV) 줌 규칙에도 포함 — 패널만 커지고 X 만 30px 로
-           남아 안 눌리던 것(유저 08-11: 너무 작고 터치가 제대로 안 된다). -->
-      <div id="lab-embed-head" style="display:flex;align-items:center;gap:10px;padding:8px 10px 8px 16px;background:rgba(255,255,255,.04);">
-        <span id="lab-embed-title" style="font-size:13px;font-weight:700;color:#fff;"></span>
-        <span id="lab-embed-src" style="font-size:11px;color:rgba(255,255,255,.4);"></span>
-        <button id="lab-embed-close" aria-label="닫기" style="margin-left:auto;flex:0 0 auto;width:44px;height:44px;display:flex;align-items:center;justify-content:center;border:0;border-radius:10px;background:rgba(255,255,255,.08);color:#fff;font-size:22px;line-height:1;cursor:pointer;touch-action:manipulation;">×</button>
-      </div>
-      <iframe id="lab-embed-frame" style="flex:1;border:0;width:100%;background:var(--d-bg);"></iframe>
-    </div>
+  <!-- 랩 = '왜 이렇게 만들었나'와 같은 화면 전환(유저 08-12: 창 말고 페이지처럼).
+       머리띠·딤 카드 은퇴 — 랩이 화면 전체를 페이지로 이어받고, 돌아가기는 공용 알약 하나. -->
+  <div id="lab-embed-overlay">
+    <iframe id="lab-embed-frame"></iframe>
   </div>
   <script>
   (() => {
-    const ov = document.getElementById('lab-embed-overlay');
     const fr = document.getElementById('lab-embed-frame');
-    const tt = document.getElementById('lab-embed-title');
-    const sc = document.getElementById('lab-embed-src');
-    const close = () => { ov.style.display = 'none'; fr.src = 'about:blank'; };
-    document.getElementById('lab-embed-close').addEventListener('click', close);
-    ov.addEventListener('click', e => { if (e.target === ov) close(); });
-    window.addEventListener('keydown', e => { if (e.key === 'Escape' && ov.style.display !== 'none') close(); });
+    const close = () => {
+      document.body.classList.remove('labview');
+      setTimeout(() => { if (!document.body.classList.contains('labview')) fr.src = 'about:blank'; }, 600);
+    };
+    document.getElementById('howto-close')?.addEventListener('click', close);
+    window.addEventListener('keydown', e => { if (e.key === 'Escape' && document.body.classList.contains('labview')) close(); });
     document.querySelectorAll('.lab-embed').forEach(a => a.addEventListener('click', e => {
       e.preventDefault();
-      tt.textContent = a.querySelector('span:nth-child(2)')?.textContent || '';
-      sc.textContent = a.getAttribute('href');
       fr.src = a.getAttribute('href');
-      ov.style.display = 'block';
+      document.body.classList.add('labview');
     }));
   })();
   </script>

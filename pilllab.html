@@ -1,0 +1,169 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>알약 재질 랩 — 유리 vs 첫 화면 문법</title>
+<!--
+  왜 이 랩인가: 첫 화면(READY final)이 유리를 걷었다(floorgl.js:3194 "캡슐(유리판·림)이 없다").
+  뒤 화면의 헤더 알약만 유리로 남았다 — 시스템에 문법이 두 벌이다.
+  값은 전부 src/floorgl.js 의 TOK 에서 import 한다. 여기에 숫자를 다시 적지 않는다.
+-->
+<style>
+  @font-face{font-family:'Supreme';src:url('fonts/Supreme-Bold.woff2') format('woff2');font-weight:700}
+  @font-face{font-family:'Supreme';src:url('fonts/Supreme-Regular.woff2') format('woff2');font-weight:400}
+  /* 도트는 font-display:block + 명시 load 가 있어야 캔버스가 문다 — 없으면 Supreme 으로 조용히 폴백한다(index.html:19 와 같은 함정) */
+  @font-face{font-family:'OffBit';src:url('fonts/OffBitTrial-DotBold.woff2') format('woff2');font-weight:700;font-display:block}
+  *{box-sizing:border-box}
+  body{margin:0;background:#0a0c10;color:#E9EAEE;font:14px/1.5 'Supreme',system-ui,sans-serif;padding:28px 32px 80px}
+  h1{font-size:19px;margin:0 0 4px;font-weight:700}
+  .sub{color:#8b919c;font-size:13px;margin:0 0 22px;max-width:900px}
+  .bar{display:flex;gap:22px;align-items:center;flex-wrap:wrap;padding:14px 18px;margin-bottom:26px;
+       background:#11141a;border:1px solid #232833;border-radius:10px}
+  .bar label{display:flex;gap:8px;align-items:center;color:#aab0bb;font-size:12px}
+  .bar input[type=range]{width:120px}
+  .bar b{color:#E9EAEE;font-variant-numeric:tabular-nums;min-width:34px;display:inline-block}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  .cell{background:#0e1116;border:1px solid #232833;border-radius:10px;overflow:hidden}
+  .cell h3{margin:0;padding:11px 16px;font-size:12px;font-weight:700;letter-spacing:.4px;
+           border-bottom:1px solid #1c212b;color:#c6ccd6}
+  .cell h3 span{color:#7b828e;font-weight:400;letter-spacing:0}
+  canvas{display:block;width:100%;height:auto}
+  .ref{margin:0 0 26px}
+  .ref canvas{border:1px solid #232833;border-radius:10px}
+  .note{color:#7b828e;font-size:12px;margin:8px 0 0}
+  .k{color:#E9EAEE}
+</style>
+
+<h1>알약 재질 — 유리(현재) vs 첫 화면 문법(제안)</h1>
+<p class="sub">위 = 지금 뒤 화면이 쓰는 유리 알약. 아래 = 첫 화면이 쓰는 유일한 면(배지) 문법을 같은 알약에 씌운 것.
+  좌우는 <b>프리뷰 / 따라하기</b>. 지금 좌우 차이는 활자 크기 하나뿐이고, 아래 안은 거기에 <b>면 알파</b>가 더 붙는다.</p>
+
+<div class="bar">
+  <label>바닥
+    <select id="bg"><option value="dark">검은 바닥</option><option value="light">밝은 바닥(주간)</option></select>
+  </label>
+  <label>제안 · 프리뷰 면 <input type="range" id="fpv" min="0" max="0.4" step="0.01"><b id="vpv"></b></label>
+  <label>제안 · 따라하기 면 <input type="range" id="fgo" min="0" max="0.4" step="0.01"><b id="vgo"></b></label>
+  <label>제안 · 모서리 r <input type="range" id="rad" min="0" max="145" step="1"><b id="vrad"></b></label>
+  <label><input type="checkbox" id="lbl" checked> Preview 라벨</label>
+  <label><input type="checkbox" id="dayfix"> 주간 보정 (fx-core dA/dW/dG)</label>
+</div>
+
+<div class="ref">
+  <h3 style="font-size:12px;color:#c6ccd6;margin:0 0 8px">기준 — 첫 화면의 유일한 면 (배지 254×115 · r45 · 흰 20% · 림 없음)</h3>
+  <canvas id="cRef" width="1600" height="300"></canvas>
+  <p class="note">floorgl.js:3288 실값. 이 화면엔 이것 말고 <span class="k">면이 하나도 없다</span> — 광 + 맨 글씨뿐이다.</p>
+</div>
+
+<div class="grid">
+  <div class="cell"><h3>현재 · 프리뷰 <span>— 유리 3단 · r=h/2 · 활자 136</span></h3><canvas id="c00" width="1600" height="480"></canvas></div>
+  <div class="cell"><h3>현재 · 따라하기 <span>— 유리 3단 · r=h/2 · 활자 112</span></h3><canvas id="c01" width="1600" height="480"></canvas></div>
+  <div class="cell"><h3>제안 · 프리뷰 <span>— 흰 면 1단 · 림 없음 · 활자 136</span></h3><canvas id="c10" width="1600" height="480"></canvas></div>
+  <div class="cell"><h3>제안 · 따라하기 <span>— 흰 면 1단 · 림 없음 · 활자 112</span></h3><canvas id="c11" width="1600" height="480"></canvas></div>
+</div>
+
+<script type="module">
+import { TOK, countRing } from './src/floorgl.js';
+
+const TITLE = 'CALF STRETCH';
+const P = { fpv: 0.20, fgo: 0.08, rad: 45, bg: 'dark', lbl: true, dayfix: false };
+
+// 주간 보정 — fx-core.js:1883 drawDribbleMat 과 **같은 계수**다. 여기서 다시 정하지 않는다.
+//   밝은 바닥에선 넓고 옅은 면이 '뿌연 김'이 된다 → 알파·두께를 올리고 글로우를 줄인다.
+//   ※ 지면 UI(floorgl)엔 이 보정이 지금 **없다**(day 라는 단어가 그 파일에 0회).
+const DAY = () => (P.dayfix ? 1 : 0);
+const dA = a => Math.min(1, a * (1 + 0.85 * DAY()));   // 알파
+const dW = () => 1 + 0.35 * DAY();                     // 획 두께
+const dG = () => 1 - 0.55 * DAY();                     // 글로우(안쪽 광)
+
+/** 헤더 알약 한 벌. mode: 'glass'(현재) | 'badge'(제안) · state: 'pv' | 'go'
+ *  치수는 전부 TOK 파생 — _headBox 와 같은 식(pad·ring·gapT 에서 HUG). */
+function pill(g, cx, cy, mode, state) {
+  const pv = state === 'pv';
+  const fs = pv ? TOK.fsTitlePv : TOK.fsTitle;
+  const h = TOK.ring * 2 + TOK.pad * 2;                 // = LAYOUT.CAPHEAD_H
+  g.font = `700 ${fs}px "Supreme", sans-serif`;
+  const tw = g.measureText(TITLE).width;
+  const w = TOK.pad * 2 + TOK.ring * 2 + TOK.gapT + tw;
+  const x = cx - w / 2, y = cy - h / 2;
+  const r = mode === 'glass' ? Math.min(w, h) / 2 : P.rad;
+  const path = () => { g.beginPath(); g.roundRect(x, y, w, h, r); };
+
+  if (mode === 'glass') {
+    // floorgl.js:1698 _glassPill 과 같은 3단(엠버는 TOK.ember=0 이라 실제로 안 그려진다)
+    g.save(); path(); g.clip();
+    g.fillStyle = `rgba(255,255,255,${dA(TOK.fill)})`; g.fillRect(x, y, w, h);
+    g.filter = 'blur(37px)'; g.strokeStyle = `rgba(255,255,255,${TOK.blurA * dG()})`; g.lineWidth = TOK.blurW;
+    path(); g.stroke(); g.filter = 'none';
+    g.restore();
+    const rim = g.createLinearGradient(0, y, 0, y + h);
+    rim.addColorStop(0, `rgba(255,255,255,${dA(TOK.rimTop)})`);
+    rim.addColorStop(.45, `rgba(255,255,255,${dA(TOK.rimMid)})`);
+    rim.addColorStop(1, `rgba(255,255,255,${dA(TOK.rimBot)})`);
+    g.strokeStyle = rim; g.lineWidth = 2.5 * dW(); path(); g.stroke();
+  } else {
+    g.fillStyle = `rgba(255,255,255,${dA(pv ? P.fpv : P.fgo)})`; path(); g.fill();
+  }
+
+  // 링 — 정본 컴포넌트를 그대로 쓴다(사본 금지). 프리뷰 = 관찰 카운트, 따라하기 = 남은 시간.
+  countRing(g, x + TOK.pad + TOK.ring, cy, pv ? 0.34 : 0.62, pv ? '3' : '12',
+            { t: 99, k: TOK.ring / 275, numFs: TOK.fsTimer,
+              ring: { trackW: 11 * dW(), arcW: 11 * dW(), trackA: dA(.26) } });
+
+  g.font = `700 ${fs}px "Supreme", sans-serif`;
+  g.fillStyle = '#fff'; g.textAlign = 'left'; g.textBaseline = 'middle';
+  g.fillText(TITLE, x + TOK.pad + TOK.ring * 2 + TOK.gapT, cy + 4);
+
+  if (pv && P.lbl) {   // 'Preview' 라벨 — gapPv 만큼 알약 위 (TOK.fsBadge 2급)
+    g.font = `400 ${TOK.fsBadge}px "Supreme", sans-serif`;
+    g.textAlign = 'center'; g.fillStyle = 'rgba(255,255,255,.85)';
+    g.fillText('Preview', cx, y - TOK.gapPv);
+  }
+}
+
+function bg(g, W, H) {
+  if (P.bg === 'light') { g.fillStyle = '#b4aea4'; g.fillRect(0, 0, W, H); return; }
+  g.fillStyle = '#07090c'; g.fillRect(0, 0, W, H);
+  const rg = g.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, W * .55);
+  rg.addColorStop(0, 'rgba(250,48,48,.10)'); rg.addColorStop(1, 'rgba(250,48,48,0)');
+  g.fillStyle = rg; g.fillRect(0, 0, W, H);
+}
+
+function cell(id, mode, state) {
+  const cv = document.getElementById(id), g = cv.getContext('2d');
+  bg(g, cv.width, cv.height);
+  pill(g, cv.width / 2, cv.height / 2 + 30, mode, state);
+}
+
+function ref() {
+  const cv = document.getElementById('cRef'), g = cv.getContext('2d');
+  bg(g, cv.width, cv.height);
+  const w = 254.36, h = 114.68, x = cv.width / 2 - w / 2, y = cv.height / 2 - h / 2;
+  g.fillStyle = 'rgba(255,255,255,.2)';
+  g.beginPath(); g.roundRect(x, y, w, h, 45); g.fill();
+  g.fillStyle = '#fff'; g.font = `700 59.3px "Supreme", sans-serif`;
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillText('Creator', cv.width / 2, y + h / 2 + 2);
+}
+
+function draw() {
+  document.getElementById('vpv').textContent = P.fpv.toFixed(2);
+  document.getElementById('vgo').textContent = P.fgo.toFixed(2);
+  document.getElementById('vrad').textContent = P.rad;
+  ref();
+  cell('c00', 'glass', 'pv'); cell('c01', 'glass', 'go');
+  cell('c10', 'badge', 'pv'); cell('c11', 'badge', 'go');
+}
+
+for (const [id, key, num] of [['fpv', 'fpv', 1], ['fgo', 'fgo', 1], ['rad', 'rad', 1], ['bg', 'bg', 0],
+                              ['lbl', 'lbl', 2], ['dayfix', 'dayfix', 2]]) {
+  const el = document.getElementById(id);
+  if (num === 1) el.value = P[key];
+  if (num === 2) el.checked = P[key];
+  el.addEventListener('input', () => {
+    P[key] = num === 1 ? +el.value : num === 2 ? el.checked : el.value;
+    draw();
+  });
+}
+draw();
+Promise.all(['700 100px "Supreme"', '400 100px "Supreme"', '700 100px "OffBit"'].map(f => document.fonts.load(f)))
+  .then(draw);
+</script>
