@@ -1147,7 +1147,27 @@ export class TokenSystem {
   setParams(p) { Object.assign(this.params, p); }
 
   setPack(packData) {
-    // 기존 비주얼 제거
+    // ★ 기존 비주얼은 **dispose 하고** 제거한다 — Group.clear() 는 자식을 떼기만 하고
+    //   GPU 리소스(지오·재질·캔버스 텍스처)를 안 놓는다. 팩 전환(전시 투어 = 무한 순회)마다
+    //   지오 ~180·텍스처 ~90이 쌓여 장시간 재생의 버벅임·VRAM 압박으로 나타났다
+    //   (08-11 _probe_soak 실측: 투어 두 바퀴에 geo 30→254 · tex 36→158, 회수 0).
+    //   공유 싱글턴(LUT·발 SDF·워닝 SDF)은 _shared 표식으로 건너뛴다 — 지우면 다음 팩이 빈 그림.
+    //   ★ 즉시 dispose 금지 — 부팅은 compileAsync 를 await 한 뒤에야 루프를 도는데, 그 폴링
+    //     (checkMaterialsReady)이 참조 중인 재질을 지우면 currentProgram 이 사라져 매 10ms
+    //     'isReady of undefined' 로 터지고 부팅이 영영 안 끝난다(실측 08-11: 렌더 0·A1 고착).
+    //     은퇴 목록에 모아 두고 update()(= 메인 루프가 돈다 = 컴파일이 끝났다)가 쓸어 담는다.
+    this._retired = this._retired || [];
+    for (const root of [this.floorRoot, this.wallRoot]) root.traverse(o => {
+      if (o.geometry) this._retired.push(o.geometry);
+      for (const m of (Array.isArray(o.material) ? o.material : o.material ? [o.material] : [])) {
+        for (const k in (m.uniforms || {})) {
+          const v = m.uniforms[k]?.value;
+          if (v?.isTexture && !v._shared) this._retired.push(v);
+        }
+        if (m.map?.isTexture && !m.map._shared) this._retired.push(m.map);
+        m._disposed = true; this._retired.push(m);
+      }
+    });
     this.floorRoot.clear();
     this.wallRoot.clear();
     this._compareRoot = null;   // 비교 오버레이도 floorRoot.clear()로 제거
@@ -1383,6 +1403,14 @@ export class TokenSystem {
   }
 
   update(now, dt) {
+    // 은퇴 리소스 정리 — setPack 이 모아 둔 옛 팩의 지오·재질·텍스처를 여기서 dispose 한다.
+    //   update 가 돈다 = 메인 루프가 산다 = 부팅 compileAsync 가 끝났다는 보증(setPack 주석 참조).
+    if (this._retired?.length) {
+      for (const r of this._retired) r.dispose?.();
+      this._retired.length = 0;
+      // 죽은 재질을 룩 등록부에서도 뺀다 — 안 빼면 applyMarkLook 이 시간에 비례해 느려진다
+      for (let i = MARK_MATS.length - 1; i >= 0; i--) if (MARK_MATS[i]._disposed) MARK_MATS.splice(i, 1);
+    }
     const { lead, size, maxVisible } = this.params;
     const L = this.layout;
     if (!L) return;

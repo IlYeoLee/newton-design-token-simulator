@@ -3289,11 +3289,14 @@ export class Session {
       H.numL.visible = true; H.numR.visible = true;
       FMU(`하이니 — 왼 ${H.cntL} · 오른 ${H.cntR} / ${PER_FOOT}`, CS.sand);
       if ((H.cntL >= PER_FOOT && H.cntR >= PER_FOOT) || H.sec >= MAXSEC) { this.next(); return; }
-    } else if (id === 'P1' || id === 'P2') {
+    } else if (id === 'P1' || id === 'P2' || id === 'P3') {
       // 페이스 잡기 — 뛰면서 페이스로 익힌다: 페이서 봇 + 흐르는 페이스 라이트에 리듬 맞추기.
       // (정지 학습 A4·B1~B4 폐기. 라이브 워밍업 런 = C 실전과 동일 머신 재사용.)
+      // ★ P3 가 이 분기에서 빠져 있었다 — 어느 분기에도 안 걸려 t>=dur 진행이 영영 안 돌았다.
+      //   실측(08-11 _probe_soak): 데모 투어가 P3(dur 50s)에서 5분 넘게 정지 = 전시 자동 순회가
+      //   러닝에 갇히는 원인. 세션 시계·팩 루프도 무한히 자라 장시간 열화의 씨앗이 된다.
       this._paceTick();
-      FMU(id === 'P1' ? '페이서에 붙어 — 이 리듬으로' : '페이스 잠금 — 곧 실전', CS.prism);
+      FMU(id === 'P1' ? '페이서에 붙어 — 이 리듬으로' : id === 'P2' ? '페이스 잠금 — 곧 실전' : '인터벌 — 전력 30초 · 회복 20초', CS.prism);
       if (this.t >= st.dur) { this.next(); return; }
     } else if (id === 'C1') {
       const n = Math.max(1, 3 - Math.floor(this.t)); if (n !== this._lastCount) { this._setCount(n, CS.ink); this._lastCount = n; }

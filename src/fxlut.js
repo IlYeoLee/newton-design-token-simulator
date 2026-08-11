@@ -102,6 +102,7 @@ export function getLUT() {
     lutTex.minFilter = lutTex.magFilter = THREE.LinearFilter;
     lutTex.wrapS = lutTex.wrapT = THREE.ClampToEdgeWrapping;
     lutTex.needsUpdate = true;
+    lutTex._shared = true;   // 싱글턴 — 팩 전환 dispose(tokens.setPack)가 건너뛴다
   }
   return lutTex;
 }
@@ -334,6 +335,7 @@ export function footSDFTexture(right) {
   }
   const tex = sdfTexture(FS);
   tex._right = !!right;   // 각인 오프셋의 x 미러 판단 — 재질 팩토리는 이 텍스처만 받는다
+  tex._shared = true;     // 캐시 공유 — 팩 전환 dispose(tokens.setPack)가 건너뛴다
   _sdfCache.set(key, tex);
   return tex;
 }
@@ -347,6 +349,7 @@ export function warnSDFTexture() {
   const key = url.length;
   if (_warnTex && _warnKey === key) return _warnTex;
   _warnTex = sdfTexture(bakeGlyphSDF(img, 512));
+  _warnTex._shared = true;   // 싱글턴 — 팩 전환 dispose(tokens.setPack)가 건너뛴다
   _warnKey = key;
   return _warnTex;
 }
