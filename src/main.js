@@ -5127,7 +5127,18 @@ void main(){
       });
       // '보러 가기' 칩 제거(유저 08-11: 버튼이 더 헷갈린다). SEE 배선도 함께 걷었다 —
       //   쓰는 데가 없는 핸들러는 죽은 코드다. 장면 이동은 세션 흐름과 상단 팩 탭이 한다.
+      // ★ 흔들림 섹션은 러닝 전용 — 무릎 빔은 달릴 때만 쓴다(유저 08-11: 복싱에서도
+      //   흔들림 이야기가 나와 헷갈린다). 러닝 팩이면 펼치고, 아니면 접어서 '지금 종목의
+      //   이야기'만 열려 있게 한다. 숨기지는 않는다 — 원리를 궁금해하는 관람객은 열 수 있다.
+      const shakeSec = document.getElementById('sec-shake');
+      let _shakeSport = null;
       setInterval(() => {
+        const sp = tokens.pack?.sport || state.pack;
+        if (shakeSec && sp !== _shakeSport) {
+          _shakeSport = sp;
+          shakeSec.open = (sp === 'running');
+          shakeSec.classList.toggle('off-sport', sp !== 'running');
+        }
         if (lab.classList.contains('folded')) return;
         $('lab-err').textContent = (rig.errorCm ?? 0).toFixed(1);
         $('lab-omega').textContent = (rig.omegaDps ?? 0).toFixed(0);

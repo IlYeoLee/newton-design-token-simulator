@@ -129,8 +129,8 @@ body:not(.dev) #stage{margin-right:320px}
 #play-panel.folded .pp-title,#play-panel.folded .pp-sub{display:none}
 body:not(.dev):has(#play-panel.folded) #stage{margin-right:56px}
 #play-panel .pp-brand{display:flex;align-items:center;gap:8px;margin-bottom:14px}
-#play-panel .pp-dot{width:7px;height:7px;border-radius:50%;background:#fa3030;box-shadow:0 0 10px rgba(250,48,48,.8)}
-#play-panel .pp-title{font-size:12px;font-weight:800;letter-spacing:2.4px;color:rgba(255,255,255,.92)}
+#play-panel .pp-dot{width:7px;height:7px;border-radius:50%;background:var(--nb-red)}
+#play-panel .pp-title{font-size:12px;font-weight:800;letter-spacing:.4px;color:rgba(255,255,255,.92)}
 #play-panel .pp-sub{margin-left:auto;font-size:11px;color:rgba(255,255,255,.42)}
 #play-panel .pp-fold{margin-left:8px;width:24px;height:24px;line-height:1;border:1px solid rgba(255,255,255,.12);
   border-radius:8px;background:rgba(255,255,255,.05);color:rgba(255,255,255,.6);font-size:12px;cursor:pointer;
@@ -189,7 +189,7 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
 }
 #lab-panel.folded{width:56px;padding:16px 12px}
 #lab-panel.folded .lab-body,#lab-panel.folded .pp-title,#lab-panel.folded .pp-sub{display:none}
-#lab-panel h3{margin:20px 0 9px;font-size:12.5px;letter-spacing:1.6px;color:var(--d-title);font-weight:800}
+#lab-panel h3{margin:20px 0 9px;font-size:12.5px;letter-spacing:.2px;color:var(--d-title);font-weight:800}
 /* ══ 좌측 체험 랩 조판 — 3단 위계로 다시 짠다(유저 08-11: 글씨가 작아 뭐가 뭔지 모르겠고
    드롭다운이 있는 건지도 모르겠다). 규칙은 셋뿐이다.
      ① 섹션 제목 = 가장 큼(15px) + 흰색 + 왼쪽 빨간 바 → '누를 수 있는 것'
@@ -206,6 +206,9 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
 #lab-panel .lab-src{margin-top:9px;padding-top:8px;border-top:1px solid rgba(255,255,255,.05);
   font-size:11px;color:rgba(255,255,255,.3);line-height:1.6;letter-spacing:-.1px}
 /* 라이브 계측 — 값 > 이름 > 설명 순으로 크기와 색을 벌린다 */
+/* 지금 종목이 안 쓰는 섹션 — 제목만 흐리게(숨기지는 않는다, 열어볼 수는 있어야 한다) */
+#lab-panel details.off-sport>summary{opacity:.5}
+#lab-panel details.off-sport>summary::before{background:var(--d-border);box-shadow:none}
 #lab-panel .lab-live .ll-cap{font-size:12.5px;color:rgba(255,255,255,.55);letter-spacing:-.2px;margin-bottom:2px}
 #lab-panel .lab-live .ll-unit{font-size:13px;color:rgba(255,255,255,.6);margin-left:2px}
 #lab-panel .lab-live .ll-sub{font-size:11.5px;color:rgba(255,255,255,.45);line-height:1.7;margin-top:6px;letter-spacing:-.2px}
@@ -413,7 +416,7 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
     </div>
 
     <div id="timeline-wrap">
-      <h2 style="font-size:11px;font-weight:700;color:var(--dim);letter-spacing:1px;margin-bottom:10px;">이벤트 타임라인</h2>
+      <h2 style="font-size:11px;font-weight:700;color:var(--dim);letter-spacing:.2px;margin-bottom:10px;">이벤트 타임라인</h2>
       <canvas id="timeline" width="268" height="56"></canvas>
       <div id="transport">
         <button id="btn-play">⏸ 일시정지</button>
@@ -454,18 +457,15 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
       <div style="display:flex;flex-direction:column;gap:6px;">
         <a href="fxlab.html" target="_blank" rel="noopener"
            style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--panel2);text-decoration:none;">
-          <span style="width:8px;height:8px;border-radius:50%;background:var(--nb-red);flex:none;"></span>
           <span style="flex:1;color:var(--text);font-size:12px;font-weight:700;">룩 시스템</span>
           <span style="color:var(--dim);font-size:10px;">fxlab</span></a>
         <a href="tokens.html" target="_blank" rel="noopener"
            style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--panel2);text-decoration:none;">
-          <span style="width:8px;height:8px;border-radius:50%;background:var(--nb-coral);flex:none;"></span>
           <span style="flex:1;color:var(--text);font-size:12px;font-weight:700;">지면 레이아웃</span>
           <span style="color:var(--dim);font-size:10px;">tokens</span></a>
         <a href="http://localhost:5173/" target="_blank" rel="noopener"
            title="별도 앱(person-aura-filter) — npm run dev 로 5173 이 떠 있어야 열립니다"
            style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--panel2);text-decoration:none;">
-          <span style="width:8px;height:8px;border-radius:50%;background:var(--nb-sand);flex:none;"></span>
           <span style="flex:1;color:var(--text);font-size:12px;font-weight:700;">열화상</span>
           <span style="color:var(--dim);font-size:10px;">aura 5173</span></a>
       </div>
@@ -644,7 +644,7 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
   <!-- 좌측 체험 랩 — 부품·보정 알고리즘·시야 원칙을 직접 켜고 끄며 확인 -->
   <div id="lab-panel">
     <img class="lab-logo" src="newton-logo.svg" alt="NEWTON">
-    <div class="pp-brand"><span class="pp-dot"></span><span class="pp-title">HOW IT WORKS</span>
+    <div class="pp-brand"><span class="pp-title">HOW IT WORKS</span>
       <span class="pp-sub">체험 랩</span>
     </div>
     <div class="lab-body">
@@ -652,34 +652,33 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
            dev 패널에 넣었더니 개발자 모드 OFF 에선 아예 없었다). 순서 고정:
            룩 시스템 → 지면 레이아웃 → 열화상. 열화상은 별도 앱(5173). -->
       <div style="margin-top:18px;padding-top:4px;">
-        <div style="font-size:11px;font-weight:700;letter-spacing:1.6px;color:rgba(255,255,255,.45);margin-bottom:10px;">DESIGN LABS</div>
+        <div style="font:var(--t-labm);color:var(--d-t3);margin-bottom:10px;">디자인 랩</div>
         <div style="display:flex;flex-direction:column;gap:7px;">
           <!-- 룩 시스템 자리는 발자국랩이 잇는다(유저 08-11: fxlab 은 구 레거시, 이제 발자국랩에서 다 한다) -->
           <a href="footlab.html" class="lab-embed"
              style="display:flex;align-items:center;gap:10px;padding:11px 13px;border:0;border-radius:10px;background:rgba(255,255,255,.06);text-decoration:none;">
-            <span style="width:8px;height:8px;border-radius:50%;background:var(--nb-red);box-shadow:0 0 8px rgba(250,48,48,.7);flex:none;"></span>
             <span style="flex:1;color:rgba(255,255,255,.92);font-size:15px;font-weight:700;">발자국 룩</span>
-            <span style="color:rgba(255,255,255,.35);font-size:10px;">마크·상태·색</span></a>
+            <span style="color:rgba(255,255,255,.35);font-size:10px;">발자국 모양과 색</span></a>
           <a href="tokens.html" class="lab-embed"
              style="display:flex;align-items:center;gap:10px;padding:11px 13px;border:0;border-radius:10px;background:rgba(255,255,255,.06);text-decoration:none;">
-            <span style="width:8px;height:8px;border-radius:50%;background:var(--nb-coral);box-shadow:0 0 8px rgba(254,110,60,.7);flex:none;"></span>
             <span style="flex:1;color:rgba(255,255,255,.92);font-size:15px;font-weight:700;">지면 레이아웃</span>
-            <span style="color:rgba(255,255,255,.35);font-size:10px;">조판·토큰</span></a>
+            <span style="color:rgba(255,255,255,.35);font-size:10px;">지면 화면 배치</span></a>
+          <!-- 열화상 랩 임시 OFF(유저 08-11: 손볼 게 많은데 급하니 끄기로). 주석 해제하면 되살아난다.
           <a href="http://localhost:5173/" class="lab-embed"
              title="별도 앱(person-aura-filter) — 5173 dev 서버가 떠 있어야 열립니다"
              style="display:flex;align-items:center;gap:10px;padding:11px 13px;border:0;border-radius:10px;background:rgba(255,255,255,.06);text-decoration:none;">
-            <span style="width:8px;height:8px;border-radius:50%;background:var(--nb-sand);box-shadow:0 0 8px rgba(254,195,137,.7);flex:none;"></span>
             <span style="flex:1;color:rgba(255,255,255,.92);font-size:15px;font-weight:700;">열화상</span>
-            <span style="color:rgba(255,255,255,.35);font-size:10px;">이미지 편집기</span></a>
+            <span style="color:rgba(255,255,255,.35);font-size:10px;">이미지 편집기</span></a> -->
         </div>
       </div>
 
-      <button class="lab-go" id="lab-run">러닝 실전을 3인칭으로 보기</button>
-      <div class="lab-note">달리는 동안 무릎에 달린 빔이 어떻게 흔들림을 잡아내는지 직접 볼 수 있습니다.</div>
-
-      <!-- 기본 펼침 = 만질 수 있는 것(보정 스위치)뿐. 값·근거는 접어 둔다. -->
-      <details open>
-        <summary>흔들림을 어떻게 잡나</summary>
+      <!-- 흔들림 = 러닝 전용 섹션(유저 08-11: 복싱에서도 흔들림 이야기가 나와 헷갈린다).
+           무릎 빔은 달릴 때만 쓰는 물건이라 러닝 탭에서만 열리고, 조작도 그 안에서 한다.
+           진입 버튼도 섹션 밖에 떠 있던 걸 안으로 넣었다 — 맥락 밖의 CTA 는 미아가 된다. -->
+      <details id="sec-shake" open>
+        <summary>흔들림을 어떻게 잡나 <span class="cnt">러닝</span></summary>
+        <div class="lab-lead">달릴 때는 정강이가 흔들리면서 무릎에 달린 빔도 같이 흔들립니다. 그걸 잡아내는 세 가지 방법을 직접 켜고 끌 수 있습니다.</div>
+        <button class="lab-go" id="lab-run">러닝 실전을 3인칭으로 보기</button>
         <div class="lab-sw" id="sw-raw"><span class="dotsw"></span><span><span class="t">보정 전부 끄기 (RAW)</span>
           <div class="d">아무 보정 없이, 정강이가 흔들리는 그대로 빛을 쏩니다</div></span></div>
         <div class="lab-sw on" id="sw-lp"><span class="dotsw"></span><span><span class="t">① 각속도 저역통과</span>
