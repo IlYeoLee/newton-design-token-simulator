@@ -11,17 +11,19 @@
   /* 좌우 마진 100 고정, 나머지는 꽉 채운다(유저 08-12: 우측 여백이 과하다) */
   .wrap{display:flex;gap:28px;padding:24px 100px 56px;align-items:flex-start}
   /* 패널이 세로로 길어 미리보기를 보면서 조절할 수가 없었다(유저) — 패널만 따로 스크롤한다. */
-  .panel{width:360px;flex:0 0 360px;background:transparent;border:0;
-    padding:26px 22px 40px;position:sticky;top:0;
-    max-height:100vh;overflow-y:auto;overscroll-behavior:contain}
+  /* 좌우 패딩 대칭(유저 08-12: 마진이 왼쪽만 있는 게 말이 되냐) — 스크롤바 몫까지 계산해
+     오른쪽 26 = 왼쪽 26. 가로 넘침은 원천 차단(overflow-x). */
+  .panel{width:400px;flex:0 0 400px;background:transparent;border:0;
+    padding:26px 26px 48px;position:sticky;top:0;
+    max-height:100vh;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;scrollbar-gutter:stable}
   .panel::-webkit-scrollbar{width:8px}
   .panel::-webkit-scrollbar-thumb{background:var(--d-border);border-radius:4px}
-  h1{font-size:29px;font-weight:800;letter-spacing:-.6px;color:#fff;margin:0 0 8px}
-  .sub{color:rgba(255,255,255,.5);font-size:16px;line-height:1.6;margin:0 0 28px}
+  h1{font-size:34px;font-weight:800;letter-spacing:-.8px;color:#fff;margin:0 0 10px}
+  .sub{color:rgba(255,255,255,.5);font-size:16px;line-height:1.6;margin:0 0 30px}
   /* 그룹 = 제목 + 한 줄 설명 + 넉넉한 그룹 간격(유저 08-12: 뭘 조절하라는 건지 모르겠다 —
      비슷한 정보가 따닥따닥). 설명(p.sub)은 원래 있었는데 숨겨져 있었다 — 살린다. */
   fieldset{border:0;background:transparent;border-radius:0;margin:0 0 42px;padding:0}
-  legend{color:#fff;font-size:20px;font-weight:800;letter-spacing:-.3px;padding:0;margin-bottom:6px;float:left;width:100%}
+  legend{color:#fff;font-size:22px;font-weight:800;letter-spacing:-.3px;padding:0;margin-bottom:6px;float:left;width:100%}
   fieldset>:not(legend){clear:both}
   fieldset p.sub{display:block;font-size:14px;color:rgba(255,255,255,.45);line-height:1.6;margin:0 0 14px}
   .row{display:flex;align-items:center;gap:12px;margin:14px 0}
@@ -50,12 +52,14 @@
     border-radius:999px;padding:14px;font-size:15px;font-weight:700;cursor:pointer;transition:background .18s}
   .acts button:hover{background:rgba(255,255,255,.12)}
   .stage{flex:1 1 620px;min-width:520px}
-  /* 섹션 문법(유저 08-12: 구조화해라) — 카드 패딩 28 균일, 리듬 = 타이틀(0/16) →
-     칩(0/18) → 콘텐츠 타일 → 캡션(14/0). 카드 사이 28. 모든 카드가 같은 상수를 쓴다. */
-  .card{background:rgba(255,255,255,.035);border:0;border-radius:16px;padding:28px;margin-bottom:28px}
-  .card h2{font-size:21px;font-weight:800;color:#fff;letter-spacing:-.3px;margin:0 0 16px}
+  /* 섹션 문법(유저 08-12 최종): **상위 컨테이너 없음** — 박스로 감싸지 말고 큰 타이틀 +
+     넉넉한 섹션 간격(64)이 영역을 가른다. 타일(캔버스)이 곧 면이다.
+     리듬 = 타이틀(0/18) → 칩(0/18) → 타일 → 캡션(14/0). 위계는 활자 크기가 만든다:
+     페이지 34 > 섹션 26 > 그룹 22 > 본문 17 > 캡션 15 (1920 풀스크린 기준). */
+  .card{background:none;border:0;border-radius:0;padding:0;margin-bottom:64px}
+  .card h2{font-size:26px;font-weight:800;color:#fff;letter-spacing:-.4px;margin:0 0 18px}
   .card .seg{margin:0 0 18px}
-  .card .note{margin:14px 0 0;display:block;font-size:14.5px;color:rgba(255,255,255,.58);line-height:1.75}
+  .card .note{margin:14px 0 0;display:block;font-size:15px;color:rgba(255,255,255,.58);line-height:1.75;max-width:960px}
   canvas{display:block;border-radius:10px;max-width:100%}
   /* 표시 크기는 여기서만 정한다 — 렌더 버퍼(canvas width/height)와 분리.
      예전엔 스크립트가 width:100% 를 걸어서 560px 버퍼가 카드 폭까지 늘어나 화면을 다 먹었다. */
@@ -65,6 +69,8 @@
      와이드(스트립) 61.9% — 이 비율에서 두 타일 높이가 정확히 같다(1 : 1.6232).
      풀폭(합성·A2·토큰) = 100%. 모서리는 카드 패딩 하나로 정렬된다. */
   .duo{display:grid;grid-template-columns:calc((100% - 28px)*0.38121) 1fr;gap:28px;align-items:start}   /* 1:1.6232 정확비 — 두 타일 높이 일치 */
+  .duoB{display:grid;grid-template-columns:calc((100% - 28px)*0.29630) 1fr;gap:28px;align-items:start}  /* 정사각:와이드(1900/800) = 1:2.375 — 매트·토큰 높이 일치 */
+  .duoB canvas{width:100%;height:auto}
   .duo canvas{width:100%;height:auto}
   #hero{width:100%;height:auto;aspect-ratio:1/1}
   #mat{width:100%;height:auto;aspect-ratio:1/1}
@@ -105,7 +111,7 @@
   .warn{color:var(--red);font-size:12.5px;font-weight:600;margin:10px 0 0;display:none}
 /* 개발 전용 UI — 배포본에선 통째로 숨긴다(정본 게이트 src/labgate.js) */
 body:not(.dev) [data-devonly]{display:none !important}
-</style>  <script type="module" crossorigin src="./assets/footlab-BEPd5j6r.js"></script>
+</style>  <script type="module" crossorigin src="./assets/footlab-ChG75Pp4.js"></script>
   <link rel="modulepreload" crossorigin href="./assets/modulepreload-polyfill-B5Qt9EMX.js">
   <link rel="modulepreload" crossorigin href="./assets/labgate-DBLrM4ri.js">
   <link rel="modulepreload" crossorigin href="./assets/fx-core-CsnioyF7.js">
@@ -259,38 +265,39 @@ body:not(.dev) [data-devonly]{display:none !important}
         <div><canvas id=strip width=1120 height=690></canvas></div>
       </div>
     </div>
+    <!-- 한 가로줄 = 예시(38.1%) + 실제 바닥(61.9%) — 두 타일 높이가 같은 비율(유저 08-12) -->
     <div class=card>
-      <h2>발자국 예시 — 종아리 스트레칭 한 세트</h2>
-      <div class=seg id=segA2Stance style="margin-bottom:10px">
-        <button data-v=0.77 class=on>압축 ×0.5 · 0.77m</button><button data-v=0.92>압축 ×0.6 · 0.92m</button><button data-v=1.54>실척 1.54m</button><button data-v=0.32>지금 시뮬 0.32m</button>
-      </div>
-      <div class=row style="margin-bottom:8px" data-devonly><label>잉크 자락 끊기</label><input type=range id=a2Floor min=0 max=0.6 step=0.01 value=0.35><span class=v id=va2Floor>0.00</span></div>
-      <canvas id=a2 width=1120 height=620></canvas>
-      <p class=note id=a2note data-devonly>레퍼런스 실측(9초·60fps·540프레임): <b>홀드 2.15 · 앞발 당겨오기 0.35 · 모아 섬 1.25 · 반대발 내딛기 0.55</b> = 1렙 4.30s.
-        <b>발 교대는 좌우 반전이 아니다</b> — 앞발이 돌아와 모이고, 모아 선 채로 1.25초 있다가, 반대 발이 나간다.
-        스탠스 실척은 <b>앞뒤 1.54m</b>(빨간 신발 연결요소 중심 거리 · 러닝화 270mm 축척 · 홀드 127프레임 중앙값)인데 <b>대지에 안 들어간다</b> — 간격 1.54 + 발 0.30 = 1.84m 인데 헤더 알약 아래 자유대가 1.544m 뿐이다. 그래서 기본은 <b>압축 ×0.5 = 0.77m</b>(전체 1.07m · 여유 0.47m). 점선이 대지, 흐린 띠가 타이틀·알약 자리다.
-        좌우 벌림 0.10m 만 눈으로 맞춘 노브다 — 측면뷰라 횡폭은 원리적으로 못 잰다.
-        합성은 위 바닥 칩(낮/밤/레이저)을 그대로 따른다(기본 = 잉크).</p>
-    </div>
-    <div class=card>
-      <h2>실제 바닥 위에서는</h2>
-      <canvas id=comp width=1120 height=380></canvas>
-      <p class=note>빛은 바닥에 <b>더해집니다</b>. 그래서 마크의 색감은 바닥이 정합니다 — 위 바닥 칩을 눌러 비교해 보세요.<span data-devonly> 실제 사진은 <code>public/floors/track.jpg</code> · <code>tile.jpg</code> 로 넣으면 자동으로 씁니다.</span></p>
-    </div>
-    <div class=card>
-      <h2>판정과 큐 — 발자국과 같은 룩을 쓰는 토큰들</h2>
-      <canvas id=prims width=1900 height=800></canvas>
-      <div id=primSld style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:4px 24px;margin:14px 0 2px"></div>
-      <p class=note>수축하는 링이 '언제', 화살표와 궤적이 '어디로'를 말합니다 — 시뮬이 쓰는 그 그림 그대로입니다.</p>
-    </div>
-    <div class=card>
-      <h2>드리블 매트</h2>
       <div class=duo>
         <div>
+          <h2>발자국 예시 — 종아리 스트레칭</h2>
+          <div class=seg id=segA2Stance>
+            <button data-v=0.77 class=on>압축 ×0.5</button><button data-v=1.54>실척 1.54m</button>
+          </div>
+          <div class=row style="margin-bottom:8px" data-devonly><label>잉크 자락 끊기</label><input type=range id=a2Floor min=0 max=0.6 step=0.01 value=0.35><span class=v id=va2Floor>0.00</span></div>
+          <canvas id=a2 width=1120 height=620></canvas>
+          <p class=note id=a2note data-devonly>레퍼런스 실측(9초·60fps·540프레임): <b>홀드 2.15 · 앞발 당겨오기 0.35 · 모아 섬 1.25 · 반대발 내딛기 0.55</b> = 1렙 4.30s. 스탠스 실척 <b>앞뒤 1.54m</b>, 기본은 압축 ×0.5 = 0.77m. 구형 압축 0.6·시뮬 0.32 칩은 은퇴(전시 단순화).</p>
+        </div>
+        <div>
+          <h2>실제 바닥 위에서는</h2>
+          <canvas id=comp width=1120 height=380></canvas>
+          <p class=note>빛은 바닥에 <b>더해집니다</b>. 그래서 마크의 색감은 바닥이 정합니다 — 위 바닥 칩을 눌러 비교해 보세요.<span data-devonly> 실제 사진은 <code>public/floors/track.jpg</code> · <code>tile.jpg</code> 로 넣으면 자동으로 씁니다.</span></p>
+        </div>
+      </div>
+    </div>
+    <!-- 한 가로줄 = 드리블 매트(29.6%) + 판정과 큐(70.4%) — 두 타일 높이가 같은 비율 -->
+    <div class=card>
+      <div class=duoB>
+        <div>
+          <h2>드리블 매트</h2>
           <canvas id=mat width=1080 height=1080></canvas>
           <div style="display:flex;gap:8px;margin:12px 0 2px;align-items:center;flex-wrap:wrap"><button id=mIn>등장</button><button id=mHit>공 닿음</button><button id=mLive>타겟 이동</button><button id=mPlay>▶ 재생</button><span style="color:#98A1AD;font-size:13px">박자</span><input id=mPer type=range min=0.28 max=1.0 step=0.02 value=0.44 style="width:120px;accent-color:var(--nb-red)"><span id=mPerV style="font:13px monospace;color:#98A1AD">0.44s</span></div>
         </div>
-        <p class=note style="margin:0">공을 튀길 자리를 다섯 표적이 안내하는 훈련 판입니다. 표적은 시뮬의 <b>판정 토큰</b> 그 자체라, 여기서 본 그림이 곧 시뮬 그림입니다.<span data-devonly> 형태 정본은 <code>fx-core</code>(drawDribbleMat · drawApproachRing · drawStemArrow · drawTrajectory).</span></p>
+        <div>
+          <h2>판정과 큐 — 같은 룩을 쓰는 토큰들</h2>
+          <canvas id=prims width=1900 height=800></canvas>
+          <div id=primSld style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:4px 24px;margin:14px 0 2px"></div>
+          <p class=note>수축하는 링이 '언제', 화살표와 궤적이 '어디로'를 말합니다 — 시뮬이 쓰는 그 그림 그대로입니다.</p>
+        </div>
       </div>
     </div>
     <!-- '발자국이 신발 밖으로 나갔는지 보기' 카드 삭제(유저 08-11) — 개발용 겹침 검수라
