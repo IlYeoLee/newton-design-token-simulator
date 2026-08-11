@@ -873,9 +873,17 @@ export const TOK = {
   titleLeadK: 1.25,
   gapPC: 96,    // 120 → 96 (라벨 밴드에 24 회수)        // 진행 ↔ 콘텐츠
   safePad: 48,       // 투사 콘 가장자리에서 띄우는 여백 — 알약·아크가 **같은 값**을 쓴다
-  // ★ 규칙①(SPEC): **밴드는 겹치지 않는다.** contentY1 2330 은 발밑 밴드(footY 1980~)를
-  //   350px 침범하던 옛 값이다 — 콘텐츠의 끝은 발밑의 시작이다.
-  footY: 1980, contentY1: 1980,
+  // ★ 콘텐츠(인물·마크) 밴드 = **실측 envelope** (유저 08-12: 가이드가 실제 UI 위치와 어긋난다
+  //   — 실측 기반으로 더 넓게). 러닝 세션에서 실제 마크·레인의 대지 y 를 재환산한 결과
+  //   (_probe_band_fit, boardMap 역환산): A3 마크 771~1585 · P1 레인 661~2262 · C2 1282~2662.
+  //   종전 가이드(1027~1980)는 위로 최대 366px·아래로 282px 를 놓치고 있었다.
+  //   → 상단 760(실측 마크 상단 771 + 여유) · 하단 2330(실측 2262 + 여유 = 구값 복원).
+  //   전방거리로는 0.40~1.48m — 옛 주석의 콘텐츠 밴드(0.40~1.43m)와 사실상 같다.
+  //   규칙①(밴드 불침범)은 활자 밴드(헤더·진행 줄) 사이의 규칙이고, 콘텐츠 필드는 마크
+  //   스윙이 아크 줄 밑을 지나가는 게 실측된 현실이다 — 가이드는 현실을 그린다.
+  //   ※ contentY0/Y1/footY 는 가이드(갤러리 오버레이)와 파생 환산만 소비한다 — 실 UI 무이동.
+  contentY0: 760,
+  footY: 2330, contentY1: 2330,
   // ── 활자 · 가독 하한은 minFs(y) = 68 − 40·(y/2670) · y176 → 65px(5.8cm)
   fsTitle: 112,      // 따라하기 1급 0.88°
   fsTitlePv: 136,    // 프리뷰   1급+ 1.07° — 시작화면(140)과 거의 같은 존재감
@@ -920,7 +928,9 @@ export const LAYOUT = {
   get PREVIEW() { return { morph: TOK.morph, fade: 0.45 }; },
   get PROG_Y() { return TOK.headY + this.CAPHEAD_H + TOK.gapHP; },
   get CAPHEAD_H() { return TOK.ring * 2 + TOK.pad * 2; },
-  get CONTENT_Y0() { return this.PROG_Y + TOK.progH + TOK.gapPC; },
+  // 콘텐츠 상단 = 실측 토큰(contentY0). 종전 파생식(PROG_Y+progH+gapPC ≈ 1027)은 실제 마크
+  //   상단(771)을 놓쳤다 — 헤더 스택보다 위에서 시작할 일은 없으니 파생식과의 max 로 안전판만 둔다.
+  get CONTENT_Y0() { return Math.min(TOK.contentY0, this.PROG_Y + TOK.progH + TOK.gapPC); },
 };
 // 저장본을 얹는다 — 파생값(ring)과 설명 키(_)는 건너뛴다.
 for (const [k, v] of Object.entries(FLOOR_TOK_JSON || {}))

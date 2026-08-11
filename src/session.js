@@ -840,9 +840,9 @@ export function sbPoseAt(vt, holdAirborne) {
   };
   return { L: one('L'), R: one('R') };
 }
-// ★ 발자국 안정 영역(FOOT 밴드) — floorgl LAYOUT.FOOT_Y(1980) 를 전방 거리로 환산한 값.
-//   러닝 기본 투사에서 0.64m. 마크는 이 z 를 중심으로 놓고 스윙 폭도 CONTENT 밴드(0.40~1.43m)
-//   안에서만 움직인다. 이걸 안 지켜서 A2(CZ -1.45)·A3(-1.05 −0.5p)의 마크가 헤더·진행 위로
+// ★ 발자국 안정 영역 — 마크는 이 z 를 중심으로 놓고 스윙 폭도 CONTENT 밴드 안에서만 움직인다.
+//   밴드 정본은 floorgl TOK(contentY0 760 ~ contentY1 2330 = 전방 0.40~1.48m, 08-12 실측 재조정
+//   — _probe_band_fit). 이걸 안 지켜서 A2(CZ -1.45)·A3(-1.05 −0.5p)의 마크가 헤더·진행 위로
 //   올라와 글자를 가렸다(유저 스샷 2장). 새 마크를 놓을 땐 이 상수에서 파생시킬 것.
 const FOOT_Z = -0.75;          // 안정 영역 중심(= 밴드 0.64m 에 여유를 둔 값)
 const FOOT_SWING = 0.30;       // 이 이상 벌리면 CONTENT 밴드를 벗어난다
