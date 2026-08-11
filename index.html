@@ -216,9 +216,25 @@ body:not(.dev):has(#play-panel.folded) #stage{margin-right:calc(56px*1.15)}
 #lab-panel .lab-src{margin-top:9px;padding-top:8px;border-top:1px solid rgba(255,255,255,.05);
   font-size:11px;color:rgba(255,255,255,.3);line-height:1.6;letter-spacing:-.1px}
 /* 라이브 계측 — 값 > 이름 > 설명 순으로 크기와 색을 벌린다 */
-/* 지금 종목이 안 쓰는 섹션 — 제목만 흐리게(숨기지는 않는다, 열어볼 수는 있어야 한다) */
-#lab-panel details.off-sport>summary{opacity:.5}
+/* 지금 종목이 안 쓰는 섹션 — 죽은 게 아니라 '다른 종목 것'임을 말한다(유저 08-11:
+   복싱에서 흐려지니 눌러보기도 어렵다). 반투명 대신 종목 칩만 레드로 살려 두면
+   제목은 읽히고, 열면 안의 '러닝 실전 보기' 버튼이 그 종목으로 데려간다. */
+#lab-panel details.off-sport>summary{opacity:.85}
 #lab-panel details.off-sport>summary::before{background:var(--d-border);box-shadow:none}
+#lab-panel details.off-sport>summary .cnt{background:rgba(250,48,48,.16);color:#ff8a8a}
+/* ── 프레스 어포던스(유저 08-11: 눌러볼 수 있는 걸로 인식을 못 한다) — 토스 문법.
+   그림자·아웃라인 금지 규약 그대로: 누르는 물건은 ①손 대면 면이 밝아지고 ②누르면 눌린다
+   (스케일). 형태 언어는 이 둘로 통일 — 채움 있는 것 = 누를 수 있는 것. */
+#lab-panel .lab-pill,#lab-panel .lab-sw,#lab-panel .lab-go,#lab-panel details>summary,
+#play-panel button{transition:transform .12s ease,background .18s ease}
+#lab-panel .lab-pill:active,#lab-panel .lab-sw:active,#lab-panel .lab-go:active,
+#lab-panel details>summary:active,#play-panel button:active{transform:scale(.97)}
+#lab-panel .lab-sw:hover{background:rgba(255,255,255,.08)}
+#lab-panel details:not([open]):hover{background:rgba(255,255,255,.07)}
+/* 랩 알약 = 끝에 셰브론 — '이동한다'를 형태로. 마크업 무변경(::after) */
+#lab-panel .lab-pill::after{content:'';width:7px;height:7px;flex:0 0 auto;margin-left:2px;
+  border-right:2.5px solid rgba(18,18,18,.5);border-bottom:2.5px solid rgba(18,18,18,.5);
+  transform:rotate(-45deg)}
 /* 디자인 랩 진입 = 흰 알약 버튼(유저 08-11: 버튼처럼 안 생겼다). 링크가 아니라
    누르는 물건임을 면과 대비로 말한다. 우측 제품 패널의 CTA 와 같은 라운드 규약. */
 #lab-panel .lab-pill{display:flex;align-items:center;gap:10px;padding:13px 16px;border:0;
@@ -243,9 +259,9 @@ body:not(.dev):has(#play-panel.folded) #stage{margin-right:calc(56px*1.15)}
   padding-block:14px;font-size:15px;letter-spacing:-.3px;color:#fff;font-weight:800;position:relative}
 #lab-panel details>summary::-webkit-details-marker{display:none}
 #lab-panel details>summary::before{content:'';width:3px;height:15px;border-radius:2px;
-  background:var(--nb-red);flex:0 0 auto;box-shadow:0 0 8px rgba(250,48,48,.5)}
-#lab-panel details>summary::after{content:'';margin-left:auto;width:6px;height:6px;flex:0 0 auto;
-  border-right:2px solid rgba(255,255,255,.55);border-bottom:2px solid rgba(255,255,255,.55);
+  background:var(--nb-red);flex:0 0 auto}   /* 글로 제거 — 그림자 금지 규약(유저 08-11) */
+#lab-panel details>summary::after{content:'';margin-left:auto;width:8px;height:8px;flex:0 0 auto;
+  border-right:2.5px solid rgba(255,255,255,.8);border-bottom:2.5px solid rgba(255,255,255,.8);
   transform:rotate(45deg) translateY(-2px);transition:transform .24s cubic-bezier(.2,.8,.3,1)}
 #lab-panel details[open]>summary::after{transform:rotate(-135deg) translateY(1px)}
 #lab-panel details>summary .cnt{margin-left:auto;font-size:11px;font-weight:700;letter-spacing:0;
@@ -418,7 +434,7 @@ body:not(.dev):has(#play-panel.folded) #stage{margin-right:calc(56px*1.15)}
 #voice-caption{border:0;background:none;padding:0;backdrop-filter:none;color:var(--d-title)}
 #dev-pill{border:0;border-radius:999px;background:var(--d-surface);color:var(--d-t3);font:var(--t-labr)}
 </style>
-  <script type="module" crossorigin src="./assets/main-BOUihQH5.js"></script>
+  <script type="module" crossorigin src="./assets/main-DGziu-Cf.js"></script>
   <link rel="modulepreload" crossorigin href="./assets/modulepreload-polyfill-B5Qt9EMX.js">
   <link rel="modulepreload" crossorigin href="./assets/preload-helper-PPVm8Dsz.js">
   <link rel="modulepreload" crossorigin href="./assets/fx-core-CsnioyF7.js">
@@ -687,7 +703,7 @@ body:not(.dev):has(#play-panel.folded) #stage{margin-right:calc(56px*1.15)}
            dev 패널에 넣었더니 개발자 모드 OFF 에선 아예 없었다). 순서 고정:
            룩 시스템 → 지면 레이아웃 → 열화상. 열화상은 별도 앱(5173). -->
       <div style="margin-top:18px;padding-top:4px;">
-        <div style="font:var(--t-labm);color:var(--d-t3);margin-bottom:10px;">디자인 랩</div>
+        <div style="font:var(--t-labm);color:var(--d-t3);margin-bottom:10px;">디자인 랩 — 눌러서 직접 바꿔 보세요</div>
         <div style="display:flex;flex-direction:column;gap:7px;">
           <!-- 룩 시스템 자리는 발자국랩이 잇는다(유저 08-11: fxlab 은 구 레거시, 이제 발자국랩에서 다 한다) -->
           <a href="footlab.html" class="lab-embed lab-pill">
