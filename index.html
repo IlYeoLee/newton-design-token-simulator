@@ -183,14 +183,17 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
 body:not(.dev) #stage{margin-left:calc(326px*1.15);margin-right:calc(320px*1.15)}
 body:not(.dev):has(#lab-panel.folded) #stage{margin-left:calc(56px*1.15)}
 body:not(.dev):has(#play-panel.folded) #stage{margin-right:calc(56px*1.15)}
+/* ★ #voice-caption 은 줌 금지 — 자막은 subcard.js 가 스테이지 높이 비례로 이미 스스로
+   커지고, 좌표·폭을 실픽셀로 직접 계산해 넣는다. 줌을 얹으면 그 픽셀이 배율만큼 곱해져
+   자막이 오른쪽으로 밀린다(실측 08-11: 2560px +242px · 3840px +1171px 이탈, 이중 확대). */
 @media (min-width:2200px){
-  #play-panel,#lab-panel,#voice-caption,#dev-pill,#lab-embed-head{zoom:1.28}
+  #play-panel,#lab-panel,#dev-pill,#lab-embed-head{zoom:1.28}
   body:not(.dev) #stage{margin-left:calc(326px*1.28);margin-right:calc(320px*1.28)}
   body:not(.dev):has(#lab-panel.folded) #stage{margin-left:calc(56px*1.28)}
   body:not(.dev):has(#play-panel.folded) #stage{margin-right:calc(56px*1.28)}
 }
 @media (min-width:3400px){
-  #play-panel,#lab-panel,#voice-caption,#dev-pill,#lab-embed-head{zoom:1.9}
+  #play-panel,#lab-panel,#dev-pill,#lab-embed-head{zoom:1.9}
   body:not(.dev) #stage{margin-left:calc(326px*1.9);margin-right:calc(320px*1.9)}
   body:not(.dev):has(#lab-panel.folded) #stage{margin-left:calc(56px*1.9)}
   body:not(.dev):has(#play-panel.folded) #stage{margin-right:calc(56px*1.9)}
