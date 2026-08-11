@@ -54,23 +54,32 @@
   /* 표시 크기는 여기서만 정한다 — 렌더 버퍼(canvas width/height)와 분리.
      예전엔 스크립트가 width:100% 를 걸어서 560px 버퍼가 카드 폭까지 늘어나 화면을 다 먹었다. */
   /* 미리보기 크기는 유저가 슬라이더로 정한다(--hero). 내가 숫자를 맞히는 게 아니다. */
-  /* ── 미리보기 그리드(유저 08-12: 시각정보를 그리드로 묶어라) — 관련 캔버스는 한 프레임에
-     나란히(.duo), 폭은 셀이 정한다. 농구 매트도 같은 저울(--hero)로 묶어 혼자 커지지 않는다. */
-  .duo{display:flex;gap:18px;align-items:flex-start;flex-wrap:wrap}
-  .duo .grow{flex:1;min-width:480px}
-  .duo .grow canvas{width:100%;height:auto}
+  /* ── 미리보기 그리드(유저 08-12: 풀사이즈 모니터에서 이쁘고 통일감 있게) ──
+     저울은 --hero 하나. 모든 타일 치수가 여기서 파생된다:
+       확대·매트 = H(460) 정사각 · 스트립·동작토큰 = H×1.6232(비율 유지 시 높이 = H)
+       풀폭(합성·A2) = H + 18 + H×1.6232 — 위 행과 좌우 모서리가 정확히 만난다.
+     카드도 내용 폭에 맞춘다(fit-content) — 오른쪽 빈 띠 금지. */
+  .duo{display:grid;grid-template-columns:var(--hero,460px) calc(var(--hero,460px)*1.6232);gap:18px;align-items:start}
+  .duo canvas{width:100%;height:auto}
   #hero{width:var(--hero,460px);height:var(--hero,460px)}
   #mat{width:var(--hero,460px);height:var(--hero,460px)}
+  .stage .card{width:fit-content;max-width:100%}
+  /* 칩은 내용만큼 — 패널의 2열 늘림(flex:1)을 카드 안에서는 끈다(유저: 길쭉한 버튼 안 이쁘다) */
+  .stage .seg{gap:8px}
+  .stage .seg button{flex:0 0 auto;padding:12px 22px}
+  /* 모든 미리보기 타일 = 같은 라운드 + 같은 서피스 — 사진 배경이 없는 캔버스(매트·동작 토큰)도
+     맨 검정으로 두지 않는다(유저: 아래는 박스가 단색이고 뭐하자는 거야) */
+  .stage canvas{border-radius:12px;background:rgba(255,255,255,.03)}
   /* ★ aspect-ratio 는 캔버스 버퍼(1120×460)와 반드시 같아야 한다 — 230 으로 두면 세로가 2배
      압축돼 발도 원도 납작해진다(유저: 찌부시키지 마). 캔버스 크기를 바꾸면 여기도 같이 바꿀 것. */
   /* ★ aspect-ratio 는 **렌더 버퍼와 반드시 같아야 한다** — 줄을 2→3 으로 늘려 버퍼를
      460→690 으로 키웠는데 여기가 460 으로 남아 있어서, 690px 비트맵이 460 비율 상자에
      짓눌려 들어갔다(유저: 왜 찌그러져 보이냐). 칸 수를 바꾸면 이 값도 같이 바꿀 것. */
-  /* 폭은 그리드 셀(.duo .grow)이 정한다 — 비율만 여기서 못박는다(버퍼와 반드시 동일). */
-  #strip{max-width:100%;height:auto;aspect-ratio:1120 / 690}
-  #comp{width:100%;max-width:1120px;height:auto;aspect-ratio:1120 / 380}
-  #prims{max-width:100%;height:auto;aspect-ratio:1900 / 800}
-  #a2{width:100%;max-width:1120px;height:auto;aspect-ratio:1120 / 620}
+  /* 비율은 버퍼와 반드시 동일하게 못박는다. 폭은 위 .duo 그리드/풀폭 식에서 나온다. */
+  #strip{aspect-ratio:1120 / 690}
+  #prims{aspect-ratio:1900 / 800}
+  #comp{width:calc(var(--hero,460px)*2.6232 + 18px);max-width:100%;height:auto;aspect-ratio:1120 / 380}
+  #a2{width:calc(var(--hero,460px)*2.6232 + 18px);max-width:100%;height:auto;aspect-ratio:1120 / 620}
   #align{width:calc(var(--hero,460px) * 1.5);max-width:100%;height:auto;aspect-ratio:840 / 280}
   .stage{flex:1 1 560px;min-width:420px}
   #snip{width:100%;height:126px;background:rgba(0,0,0,.35);color:rgba(255,255,255,.72);border:0;
@@ -218,7 +227,7 @@ body:not(.dev) [data-devonly]{display:none !important}
       </div>
       <div class=duo>
         <div><canvas id=hero width=640 height=640></canvas></div>
-        <div class=grow><canvas id=strip width=1120 height=690></canvas></div>
+        <div><canvas id=strip width=1120 height=690></canvas></div>
       </div>
       <canvas id=comp width=1120 height=380 style="margin-top:14px"></canvas>
       <p class=note>투사광은 가산이라 색감은 실제 바닥 위에서 결정됩니다 — 위 칩으로 바닥을 바꿔 보세요.
@@ -242,7 +251,7 @@ body:not(.dev) [data-devonly]{display:none !important}
           <canvas id=mat width=1080 height=1080></canvas>
           <div style="display:flex;gap:8px;margin:10px 0 2px;align-items:center;flex-wrap:wrap"><button id=mIn>등장</button><button id=mHit>공 닿음</button><button id=mLive>타겟 이동</button><button id=mPlay>▶ 재생</button><span style="color:#98A1AD;font-size:12px">박자</span><input id=mPer type=range min=0.28 max=1.0 step=0.02 value=0.44 style="width:110px;accent-color:var(--nb-red)"><span id=mPerV style="font:12px monospace;color:#98A1AD">0.44s</span></div>
         </div>
-        <div class=grow>
+        <div>
           <canvas id=prims width=1900 height=800></canvas>
           <div id=primSld style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:2px 20px;margin:8px 0 2px"></div>
         </div>
@@ -1427,7 +1436,7 @@ function drawPrimsCard(t) {
   out.filter = 'blur(5px)'; out.globalAlpha = Math.min(0.8, P.bloom * 2.4); out.drawImage(_primOff, 0, 0);
   out.filter = 'blur(16px)'; out.globalAlpha = Math.min(0.7, P.bloom * 2.0); out.drawImage(_primOff, 0, 0);
   out.restore(); out.filter = 'none'; out.globalAlpha = 1;
-  out.font = "600 14px -apple-system,'Malgun Gothic',sans-serif"; out.textAlign = 'center'; out.fillStyle = '#98A1AD';
+  out.font = "600 26px -apple-system,'Malgun Gothic',sans-serif"; out.textAlign = 'center'; out.fillStyle = '#98A1AD';   /* 표시폭 747px 기준 ≈10px — 14px 원값은 안 읽혔다 */
   ['① 대기', '② 판정', '③ 성공'].forEach((n, i) => out.fillText(n, 60 + i * 170 + 75, 400));
   out.fillText('회전 — 목·어깨', 730, 400);
   out.fillText('궤적 — 코멧 헤드', 1090, 400);
