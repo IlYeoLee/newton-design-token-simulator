@@ -1349,6 +1349,12 @@ void main(){
     // ★ 전시는 멈추지 않는다(유저 08-11: 세션이 끝나도 다음으로 넘어가 계속 순환).
     //   큐 끝에 닿으면 멈추는 대신 처음으로 되감는다 — 복싱→러닝→농구가 하루 종일 돈다.
     if (demoTour.i >= demoTour.queue.length) demoTour.i = 0;
+    // ★ 키오스크 리프레시(유저 08-12: 오래 틀면 랙) — 페이지 내부 리소스는 평탄함을 실측했으나
+    //   (2×9분 소크: geo 204·tex 135 고정, 힙 안정), 수 시간 넘게 산 탭은 드라이버·디코더 수준에서
+    //   느려질 수 있다. 순환 경계(세션 사이)마다 가동 1시간을 넘겼으면 통째로 새로 시작한다 —
+    //   제품 뷰는 진입 900ms 뒤 자동 시작 + 무한 순환이라 리로드가 곧 초기화이자 복귀다.
+    //   dev 뷰에서는 절대 안 한다(작업 중 리로드 금지).
+    if (!document.body.classList.contains('dev') && performance.now() > 3.6e6) { location.reload(); return; }
     session.stop();
     startSessionFor(demoTour.queue[demoTour.i]);
   }
