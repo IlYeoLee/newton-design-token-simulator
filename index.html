@@ -434,6 +434,35 @@ body:not(.dev):has(#play-panel.folded) #stage{margin-right:calc(56px*1.15)}
 /* 겉면은 이제 그릇이 아니다 — 배경·패딩은 안쪽 .vc-card 가 갖는다(에펙 정본 구조). */
 #voice-caption{border:0;background:none;padding:0;backdrop-filter:none;color:var(--d-title)}
 #dev-pill{border:0;border-radius:999px;background:var(--d-surface);color:var(--d-t3);font:var(--t-labr)}
+
+/* ── UX북 커서 이식(유저 08-12: 마우스포인터+마우스 그대로) — 로고 커서 + 신발 발자국 트레일.
+   원본 = newton-uxbook index.html(.cursor/.footstep, FA3030 · exclusion 블렌드).
+   각색 딱 하나: 제품 뷰(body:not(.dev))에서만 켠다 — dev 작업 중 텍스트 커서까지
+   숨기면 편집이 불편하다. 전시·배포 화면은 원본 그대로다. */
+.uxcursor{position:fixed;top:0;left:0;z-index:9999;pointer-events:none;display:none;
+  width:42px;height:18px;background:#FA3030;
+  -webkit-mask:url(uxcursor/cursor.svg) center/contain no-repeat;
+  mask:url(uxcursor/cursor.svg) center/contain no-repeat;
+  mix-blend-mode:exclusion;
+  transform:translate(-9999px,-9999px);will-change:transform}
+.uxcursor.clicking{width:26px;height:26px;
+  -webkit-mask-image:url(uxcursor/cursor-click.svg);mask-image:url(uxcursor/cursor-click.svg)}
+.uxcursor.touch-on{display:block}
+@media (hover:hover) and (pointer:fine){
+  body:not(.dev) .uxcursor{display:block}
+  body:not(.dev), body:not(.dev) *{cursor:none !important}
+}
+.footstep{position:fixed;z-index:9998;pointer-events:none;width:34px;height:34px;margin:-17px 0 0 -17px;
+  background:#FA3030;mix-blend-mode:exclusion;
+  -webkit-mask:url(uxcursor/shoe-left.svg) center/contain no-repeat;
+  mask:url(uxcursor/shoe-left.svg) center/contain no-repeat;
+  transform:rotate(var(--r));animation:stepFade 1s linear forwards}
+.footstep.right{-webkit-mask-image:url(uxcursor/shoe-right.svg);mask-image:url(uxcursor/shoe-right.svg)}
+@keyframes stepFade{
+  0%{opacity:.9;transform:rotate(var(--r)) scale(1)}
+  100%{opacity:0;transform:rotate(var(--r)) scale(.9)}
+}
+body.dev .footstep{display:none}
 </style>
 </head>
 <body>
@@ -995,6 +1024,64 @@ body:not(.dev):has(#play-panel.folded) #stage{margin-right:calc(56px*1.15)}
 
   <!-- 디자인 랩 임베드 오버레이(유저 08-11: 새 탭 말고 아이프레임으로 통째로).
        열기 전엔 iframe src 를 비워 둔다 — 세 랩을 미리 로드하면 홈이 무거워진다. -->
+  <!-- UX북 커서 이식 — 로고 커서(스무딩 추종) + 신발 발자국 트레일. 원본: newton-uxbook -->
+  <div class="uxcursor" id="ux-cursor" aria-hidden="true"></div>
+  <script>
+  (() => {
+    const cursor = document.getElementById('ux-cursor');
+    let mx = innerWidth / 2, my = innerHeight / 2, cx = mx, cy = my;
+    addEventListener('pointermove', e => { if (e.pointerType !== 'touch') { mx = e.clientX; my = e.clientY; } });
+    // 터치: 손가락이 누르고 끄는 동안 같은 심벌이 따라온다(원본과 동일 — touchmove 가 스크롤 중에도 계속 온다)
+    addEventListener('touchstart', e => { const t = e.touches[0]; if (!t) return; mx = cx = t.clientX; my = cy = t.clientY; cursor.classList.add('touch-on'); }, { passive: true });
+    addEventListener('touchmove', e => { const t = e.touches[0]; if (t) { mx = t.clientX; my = t.clientY; cursor.classList.add('touch-on'); } }, { passive: true });
+    const offTouch = () => cursor.classList.remove('touch-on');
+    addEventListener('touchend', offTouch, { passive: true });
+    addEventListener('touchcancel', offTouch, { passive: true });
+    // 인터랙티브 위에서는 클릭 커서로 — 대상 목록만 시뮬 것으로 치환
+    addEventListener('pointerover', e => {
+      if (e.pointerType === 'touch') return;
+      const hit = e.target.closest && e.target.closest('button, summary, a, input, select, .lab-pill, .lab-sw, .pp-pack, [role=button]');
+      cursor.classList.toggle('clicking', !!hit);
+    });
+    (function follow() {
+      cx += (mx - cx) * 0.8; cy += (my - cy) * 0.8;
+      cursor.style.transform = `translate(${cx}px,${cy}px) translate(-50%,-50%)`;
+      requestAnimationFrame(follow);
+    })();
+    // 발자국 트레일 — 진행 방향으로 발끝, 좌우 교대 오프셋, 5개 상한(원본 값 그대로)
+    let lx = null, ly = null, foot = 0;
+    const STEP = 28, SIDE = 7, MAX = 5;
+    const pool = [];
+    function dropStep(x, y) {
+      if (document.body.classList.contains('dev')) return;   // 제품 뷰 전용(위 CSS 게이트와 동일)
+      if (lx === null) { lx = x; ly = y; return; }
+      const dx = x - lx, dy = y - ly;
+      if (Math.hypot(dx, dy) < STEP) return;
+      const ang = Math.atan2(dy, dx);
+      const px = -Math.sin(ang), py = Math.cos(ang);
+      const left = (foot % 2 === 0);
+      const side = left ? -SIDE : SIDE;
+      const w = document.createElement('div');
+      w.className = 'footstep' + (left ? '' : ' right');
+      w.style.left = (x + px * side) + 'px';
+      w.style.top = (y + py * side) + 'px';
+      w.style.setProperty('--r', (ang * 180 / Math.PI + 90) + 'deg');
+      document.body.appendChild(w);
+      pool.push(w);
+      while (pool.length > MAX) pool.shift().remove();
+      setTimeout(() => { const k = pool.indexOf(w); if (k >= 0) pool.splice(k, 1); w.remove(); }, 1150);
+      foot++; lx = x; ly = y;
+    }
+    const fine = matchMedia('(hover:hover) and (pointer:fine)').matches;
+    addEventListener('pointermove', e => { if (e.pointerType !== 'touch' && fine) dropStep(e.clientX, e.clientY); }, { passive: true });
+    addEventListener('touchstart', e => { const t = e.touches[0]; if (t) { lx = t.clientX; ly = t.clientY; } }, { passive: true });
+    addEventListener('touchmove', e => { const t = e.touches[0]; if (t) dropStep(t.clientX, t.clientY); }, { passive: true });
+    const stepEnd = () => { lx = ly = null; };
+    addEventListener('touchend', stepEnd, { passive: true });
+    addEventListener('touchcancel', stepEnd, { passive: true });
+  })();
+  </script>
+
   <div id="lab-embed-overlay" style="display:none;position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.62);backdrop-filter:blur(6px);">
     <div style="position:absolute;inset:3%;background:var(--d-bg);border-radius:16px;overflow:hidden;box-shadow:0 30px 90px rgba(0,0,0,.6);display:flex;flex-direction:column;">
       <!-- 닫기 = 터치 표준 44px. 대형 화면(TV) 줌 규칙에도 포함 — 패널만 커지고 X 만 30px 로
