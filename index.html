@@ -236,18 +236,33 @@ body.labview #lab-embed-overlay{visibility:visible;opacity:1;transform:none;poin
 @media (prefers-reduced-motion:reduce){#howto-overlay,#lab-embed-overlay,#stage,#play-panel,#lab-panel{transition:none}}
 #howto-overlay .howto-wrap{position:relative;max-width:860px;margin:0 auto;padding:72px 32px 120px}
 #howto-overlay h1{font-size:38px;font-weight:800;letter-spacing:-.8px;color:#fff;margin:0 0 10px}
-#howto-overlay .howto-intro{font-size:17px;color:rgba(255,255,255,.55);margin:0 0 44px}
+#howto-overlay .howto-intro{font-size:17px;color:rgba(255,255,255,.55);margin:0 0 64px}
 #howto-close{position:fixed;top:20px;right:24px;min-height:48px;display:flex;align-items:center;gap:8px;
   padding:0 20px;border:0;border-radius:99px;background:rgba(255,255,255,.08);color:#fff;
-  font-size:14px;font-weight:700;cursor:pointer;touch-action:manipulation;z-index:23;
+  font-size:14px;font-weight:700;cursor:pointer;touch-action:manipulation;z-index:61;
   visibility:hidden;opacity:0;transition:opacity .3s ease .25s,visibility 0s linear .55s}
-body.howto #howto-close{visibility:visible;opacity:1;transition:opacity .3s ease .25s}
+body.howto #howto-close,body.labview #howto-close{visibility:visible;opacity:1;transition:opacity .3s ease .25s}
 #howto-close:hover{background:rgba(255,255,255,.14)}
 /* 근거 보드 도판 — 피그마 어펜딕스 원본(스튜디오가 조판한 사진·도해) */
 #howto-overlay .hw-fig{margin:20px 0 6px}
 #howto-overlay .hw-fig img{display:block;width:100%;height:auto;border-radius:14px}
 #howto-overlay .hw-fig figcaption{padding:9px 2px 0;font-size:12.5px;color:rgba(255,255,255,.38)}
-#howto-overlay details{margin:0 0 40px;border-radius:0;background:none;pointer-events:auto}
+/* 표·도식 — 보드(이미지)에 없는 내용의 정리 형식(유저 08-12: 텍스트 나열 대신) */
+#howto-overlay .hw-tbl{width:100%;border-collapse:collapse;margin:16px 0 8px}
+#howto-overlay .hw-tbl th{text-align:left;font-size:12.5px;font-weight:700;color:rgba(255,255,255,.4);
+  padding:0 4px 9px;border-bottom:1px solid rgba(255,255,255,.16)}
+#howto-overlay .hw-tbl th:last-child{text-align:right}
+#howto-overlay .hw-tbl td{padding:12px 4px;border-bottom:1px solid rgba(255,255,255,.07);
+  font-size:15px;color:rgba(255,255,255,.6);line-height:1.5;vertical-align:top}
+#howto-overlay .hw-tbl td:last-child{color:#fff;font-weight:800;text-align:right;white-space:nowrap}
+/* 3열(마지막 열 = 설명문) 판 — 값은 가운데 열, 설명은 왼쪽 정렬 회색 */
+#howto-overlay .hw-tbl3 td:nth-child(2){color:#fff;font-weight:800}
+#howto-overlay .hw-tbl3 td:last-child{color:rgba(255,255,255,.55);font-weight:400;text-align:left;white-space:normal}
+#howto-overlay .hw-tbl3 th:last-child{text-align:left}
+#howto-overlay .hw-dia{margin:22px 0 8px}
+#howto-overlay .hw-dia svg{display:block;width:100%;height:auto}
+/* 큰 덩어리 사이는 확실히 벌린다(유저 08-12: 단락 간격이 너무 좁다) */
+#howto-overlay details{margin:0 0 88px;border-radius:0;background:none;pointer-events:auto}
 #howto-overlay details>summary{list-style:none;cursor:default;font-size:26px;font-weight:800;color:#fff;
   letter-spacing:-.4px;margin-bottom:14px;display:flex;align-items:center;gap:10px}
 #howto-overlay details>summary::-webkit-details-marker{display:none}
@@ -426,9 +441,11 @@ body.howto #howto-close{visibility:visible;opacity:1;transition:opacity .3s ease
 #play-panel .pp-sub, #lab-panel .pp-sub{font:var(--t-labr);color:var(--d-t3)}
 #play-panel .pp-dot{background:var(--nb-red)}
 
-/* 팩 전환 = 세그먼티드 컨트롤(트랙 하나 + 선택 알약) */
+/* 팩 전환 = 세그먼티드 컨트롤(트랙 하나 + 선택 알약).
+   시작 높이 = 좌패널 '지면 그래픽' 알약과 실측 정렬(유저 08-12: 맨 위에 붙어 있으면
+   헤더로 읽혀 눌러볼 생각을 못 한다) — 좌 141.7 CSS px 시작, 패널 패딩 26 제외 116. */
 #play-panel .pp-packs{grid-template-columns:repeat(3,1fr);gap:4px;padding:4px;border-radius:999px;
-  background:var(--d-bg-sub);margin-bottom:20px}
+  background:var(--d-bg-sub);margin-top:116px;margin-bottom:20px}
 #play-panel .pp-pack{border:0;border-radius:999px;background:transparent;color:var(--d-t3);
   font:var(--t-capb);letter-spacing:-.2px;padding:11px 0}
 #play-panel .pp-pack:hover{background:transparent;color:var(--d-body)}
@@ -479,20 +496,20 @@ body.howto #howto-close{visibility:visible;opacity:1;transition:opacity .3s ease
 /* 토글 = 같은 면 + 선택 시 레드 (샌드/프리즘 사용 안 함) */
 /* 보기 옵션 3종 = **서로 독립인 스위치**(유저 08-12: 하나만 고르는 세그처럼 보여 모호하다).
    세그 알약 은퇴 → 노브 달린 스위치 행. 켜짐 = 노브가 오른쪽 + 흰색(레드 아님 — 상태지 CTA 가 아니다). */
-/* 보기 옵션 = CTA 아래의 조용한 스위치 행(유저 08-12: 필 컨테이너 스택이 위계를 잡아먹었다).
-   면 없음 — 노브와 글자만. 행동 버튼과 같은 옷을 입지 않는다. */
-#play-panel .pp-toggles{display:flex;flex-direction:column;gap:2px;padding:0;border-radius:0;background:none;margin:16px 0 4px}
-#play-panel .pp-tg{position:relative;display:flex;align-items:center;border:0;border-radius:9px;
-  background:none;color:var(--d-t3);font:var(--t-labm);letter-spacing:var(--ls-lab);
-  padding:9px 10px 9px 40px;text-align:left;min-height:38px}
-#play-panel .pp-tg::before{content:'';position:absolute;left:2px;top:50%;transform:translateY(-50%);
+/* 보기 옵션 = CTA 아래의 조용한 스위치 3칸 가로 행(유저 08-12: 세로 나열이 자리만 먹는다).
+   면 없음 — 노브 위, 글자 아래. 행동 버튼과 같은 옷을 입지 않는다. */
+#play-panel .pp-toggles{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;padding:0;border-radius:0;background:none;margin:16px 0 4px}
+#play-panel .pp-tg{position:relative;display:block;border:0;border-radius:10px;
+  background:none;color:var(--d-t3);font:var(--t-labr);letter-spacing:var(--ls-lab);
+  padding:34px 2px 9px;text-align:center;min-height:0}
+#play-panel .pp-tg::before{content:'';position:absolute;left:calc(50% - 13px);top:12px;
   width:26px;height:15px;border-radius:99px;background:var(--d-border);transition:background .18s}
-#play-panel .pp-tg::after{content:'';position:absolute;left:4px;top:50%;transform:translate(0,-50%);
+#play-panel .pp-tg::after{content:'';position:absolute;left:calc(50% - 11px);top:14px;
   width:11px;height:11px;border-radius:50%;background:var(--d-disabled);transition:transform .18s,background .18s}
 #play-panel .pp-tg:hover{background:none;color:var(--d-body)}
 #play-panel .pp-tg.on{background:none;color:var(--d-body)}
 #play-panel .pp-tg.on::before{background:rgba(255,255,255,.35)}
-#play-panel .pp-tg.on::after{transform:translate(11px,-50%);background:#fff}
+#play-panel .pp-tg.on::after{transform:translateX(11px);background:#fff}
 #play-panel .pp-fold, #lab-panel .pp-fold{border:0;border-radius:999px;background:var(--d-surface);color:var(--d-t2)}
 
 /* 체험 랩 — 섹션 라벨(작은 회색) + 값(강조) 2열, 카드는 면처리 */
@@ -833,7 +850,8 @@ button, summary, .lab-pill, .lab-sw, .lab-go, .pp-pack, [role=button]{position:r
       <!-- 디자인 랩 진입 — **제품 뷰**에 산다(유저 08-11: 시작하자마자 보여야 한다.
            dev 패널에 넣었더니 개발자 모드 OFF 에선 아예 없었다). 순서 고정:
            룩 시스템 → 지면 레이아웃 → 열화상. 열화상은 별도 앱(5173). -->
-      <div style="margin-top:18px;padding-top:4px;">
+      <!-- 여유 있게 아래에서 시작 + 흔들림 섹션과 확실히 분리(유저 08-12: 그룹핑이 안 된다) -->
+      <div style="margin-top:44px;margin-bottom:40px;">
         <!-- 섹션 라벨 은퇴(유저 08-12: 없어도 된다 — 알약 셋이 스스로 말한다) -->
         <div style="display:flex;flex-direction:column;gap:7px;">
           <!-- 룩 시스템 자리는 발자국랩이 잇는다(유저 08-11: fxlab 은 구 레거시, 이제 발자국랩에서 다 한다) -->
@@ -882,7 +900,7 @@ button, summary, .lab-pill, .lab-sw, .lab-go, .pp-pack, [role=button]{position:r
         </tbody></table>
         <details>
           <summary>실제 부품 구성</summary>
-          <table class="hw-tbl">
+          <table class="hw-tbl hw-tbl3">
             <thead><tr><th>부품</th><th>구성</th><th>역할</th></tr></thead>
             <tbody>
               <tr><td>투사</td><td>MEMS Laser Beam Scanning</td><td>낮의 야외에서도 보이는 지면 투사</td></tr>
@@ -993,18 +1011,24 @@ button, summary, .lab-pill, .lab-sw, .lab-go, .pp-pack, [role=button]{position:r
         <summary>벽에 쏘는 화면 <span class="cnt">복싱</span></summary>
         <div class="lab-lead">몸을 움직이기 전에 먼저 봐야 하는 것(상대의 리듬, 공격 범위)은 바닥이 아니라 <b>벽</b>에 띄웁니다. 아래는 실측한 벽 화면의 크기입니다.</div>
         <div class="lab-src">실측 — PROJECTION-SPEC.md §1·§5 (프로젝터 62° · 카메라 50°)</div>
-        <div class="lab-kv"><span>투사 크기</span><b>2.60 × 1.63 m</b></div>
-        <div class="lab-kv"><span>벽 ↔ 빔 유닛</span><b>1.36 m</b></div>
-        <div class="lab-kv"><span>대지 환산</span><b>1 px = 1 mm</b></div>
+        <table class="hw-tbl"><tbody>
+          <tr><td>투사 크기</td><td>2.60 × 1.63 m</td></tr>
+          <tr><td>벽 ↔ 빔 유닛</td><td>1.36 m</td></tr>
+          <tr><td>대지 환산</td><td>1 px = 1 mm</td></tr>
+        </tbody></table>
       </details>
 
       <details data-toc="글자 크기">
         <summary>바닥 글자는 얼마나 커야 하나</summary>
         <div class="lab-lead">바닥 글자는 비스듬히 보여 <b>납작하게 눌립니다</b>. 그래서 크기를 센티미터가 아니라 <b>눈에 맺히는 각도</b>로 정했습니다. 같은 10cm 글자도 발밑과 2m 앞에서 전혀 다르게 보이기 때문입니다.</div>
         <div class="lab-src">근거 — Legge &amp; Bigelow 2011 · ISO 9241-303 · Cai 2013 · MUTCD</div>
-        <div class="lab-kv"><span>1급 (동작명·타이머)</span><b>0.70°</b></div>
-        <div class="lab-kv"><span>2급 (단계·단위)</span><b>0.45°</b></div>
-        <div class="lab-kv"><span>절대 하한</span><b>0.20°</b></div>
+        <table class="hw-tbl">
+          <thead><tr><th>급</th><th>쓰임</th><th>시각도</th></tr></thead>
+          <tbody>
+          <tr><td>1급</td><td>동작명 · 타이머</td><td>0.70°</td></tr>
+          <tr><td>2급</td><td>단계 · 단위</td><td>0.45°</td></tr>
+          <tr><td>하한</td><td>이 아래는 안 읽힌다</td><td>0.20°</td></tr>
+        </tbody></table>
         <details>
           <summary>왜 cm 가 아니라 각도인가</summary>
           <div class="lab-note">바닥은 스치는 각도로 보여 글자가 눌린다. 눈에 맺히는 각
@@ -1023,8 +1047,10 @@ button, summary, .lab-pill, .lab-sw, .lab-go, .pp-pack, [role=button]{position:r
         <summary>빛이 닿지 않는 자리</summary>
         <div class="lab-lead">빔이 닿는 범위는 네모가 아니라 <b>부채꼴</b>입니다. 안 닿는 자리는 억지로 채우지 않고 비워 둡니다 — 그것까지가 설계입니다.</div>
         <div class="lab-src">실측 — docs/FLOOR-LAYOUT-SPEC.md (러닝 기본 리그)</div>
-        <div class="lab-kv"><span>대지 위쪽</span><b>289 px = 12.7%</b></div>
-        <div class="lab-kv"><span>조판 밴드</span><b>6 개</b></div>
+        <table class="hw-tbl"><tbody>
+          <tr><td>투사면 밖 대지 위쪽</td><td>289 px = 12.7%</td></tr>
+          <tr><td>조판 밴드</td><td>6 개</td></tr>
+        </tbody></table>
         <details>
           <summary>왜 비워 두나</summary>
           <div class="lab-note">투사 콘을 벗어난 픽셀은 GPU가 잘라낸다 — 거기 놓은 요소는 화면에서
@@ -1037,10 +1063,12 @@ button, summary, .lab-pill, .lab-sw, .lab-go, .pp-pack, [role=button]{position:r
         <summary>가려질 때는 어떻게 하나</summary>
         <div class="lab-lead">몸이나 공에 가리면 <b>가려진 그대로</b> 둡니다. 실제 빛이 그렇게 동작하니까요. 그 가려짐이 실제로 얼마나 되는지도 재 봤습니다 — 생각보다 훨씬 적습니다.</div>
         <div class="lab-src">실측 — BEAM-OCCLUSION.md (크로스오버 전 사이클 샘플링)</div>
-        <div class="lab-kv"><span>창 경계</span><b>페더 18cm</b></div>
-        <div class="lab-kv"><span>공에 가릴 때</span><b>그 토큰만 소등</b></div>
-        <div class="lab-kv"><span>차폐 실측</span><b>평균 1.4% · 최악 16%</b></div>
-        <div class="lab-kv"><span>주간 모드</span><b>풀컬러 + 커버리지 α</b></div>
+        <table class="hw-tbl"><tbody>
+          <tr><td>창 경계</td><td>페더 18cm</td></tr>
+          <tr><td>공에 가릴 때</td><td>그 토큰만 소등</td></tr>
+          <tr><td>차폐 실측</td><td>평균 1.4% · 최악 16%</td></tr>
+          <tr><td>주간 모드</td><td>풀컬러 + 커버리지 α</td></tr>
+        </tbody></table>
         <details>
           <summary>왜 끄는가</summary>
           <div class="lab-note">투사광은 몸·공에 가려지는 게 물리적으로 맞다. 가려진 구간을 그리는 대신
@@ -1249,7 +1277,7 @@ button, summary, .lab-pill, .lab-sw, .lab-go, .pp-pack, [role=button]{position:r
     // 흔들림 체험은 패널에 남지만, 읽기 페이지에는 그 근거 보드가 있어야 한다(자리 = 원래 순서)
     const shake = document.createElement('details'); shake.open = true;
     shake.innerHTML = '<summary>흔들림을 어떻게 잡나</summary>'
-      + '<div class="lab-lead">뛰는 몸에 붙은 프로젝터는 흔들립니다. 기구가 먼저 잡습니다. 무전력 체결의 전자 영구 자석(EPM)이 모듈 이탈을 막고, 짐벌과 OIS 렌즈가 화면 위치 오차를 줄입니다. 남는 잔떨림은 소프트웨어 보정 세 항이 지웁니다. 왼쪽 패널의 흔들림 보정에서 직접 꺼 볼 수 있습니다.</div>';
+      + '<div class="lab-lead">뛰는 몸에 붙은 프로젝터는 흔들립니다. 기구가 두 겹으로 먼저 잡고, 남는 잔떨림은 소프트웨어 세 항이 지웁니다. 시뮬레이터 왼쪽 패널에서 직접 꺼 보며 차이를 볼 수 있습니다.</div>';
     shake.append(fig('howto/board-shake.png', '근거 보드 · 투사 흔들림 보정'));
     host.querySelector('[data-toc="화면 위치"]')?.before(shake);
     // 화면 전환 — 무대가 밀려나고 이 페이지가 들어온다(창이 아니다)
