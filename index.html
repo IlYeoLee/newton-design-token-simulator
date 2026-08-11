@@ -208,6 +208,13 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
 /* 지금 종목이 안 쓰는 섹션 — 제목만 흐리게(숨기지는 않는다, 열어볼 수는 있어야 한다) */
 #lab-panel details.off-sport>summary{opacity:.5}
 #lab-panel details.off-sport>summary::before{background:var(--d-border);box-shadow:none}
+/* 디자인 랩 진입 = 흰 알약 버튼(유저 08-11: 버튼처럼 안 생겼다). 링크가 아니라
+   누르는 물건임을 면과 대비로 말한다. 우측 제품 패널의 CTA 와 같은 라운드 규약. */
+#lab-panel .lab-pill{display:flex;align-items:center;gap:10px;padding:13px 16px;border:0;
+  border-radius:999px;background:var(--d-white);text-decoration:none;transition:transform .16s ease}
+#lab-panel .lab-pill:hover{transform:translateY(-1px)}
+#lab-panel .lab-pill .lp-t{flex:1;color:#121212;font-size:15px;font-weight:800;letter-spacing:-.3px}
+#lab-panel .lab-pill .lp-s{color:rgba(18,18,18,.45);font-size:11.5px;font-weight:600;letter-spacing:-.2px}
 #lab-panel .lab-live .ll-cap{font-size:12.5px;color:rgba(255,255,255,.55);letter-spacing:-.2px;margin-bottom:2px}
 #lab-panel .lab-live .ll-unit{font-size:13px;color:rgba(255,255,255,.6);margin-left:2px}
 #lab-panel .lab-live .ll-sub{font-size:11.5px;color:rgba(255,255,255,.45);line-height:1.7;margin-top:6px;letter-spacing:-.2px}
@@ -391,7 +398,7 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
 #voice-caption{border:0;background:none;padding:0;backdrop-filter:none;color:var(--d-title)}
 #dev-pill{border:0;border-radius:999px;background:var(--d-surface);color:var(--d-t3);font:var(--t-labr)}
 </style>
-  <script type="module" crossorigin src="./assets/main-B2noMbu0.js"></script>
+  <script type="module" crossorigin src="./assets/main-zH0K0J-s.js"></script>
   <link rel="modulepreload" crossorigin href="./assets/modulepreload-polyfill-B5Qt9EMX.js">
   <link rel="modulepreload" crossorigin href="./assets/preload-helper-PPVm8Dsz.js">
   <link rel="modulepreload" crossorigin href="./assets/fx-core-CsnioyF7.js">
@@ -663,20 +670,18 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
         <div style="font:var(--t-labm);color:var(--d-t3);margin-bottom:10px;">디자인 랩</div>
         <div style="display:flex;flex-direction:column;gap:7px;">
           <!-- 룩 시스템 자리는 발자국랩이 잇는다(유저 08-11: fxlab 은 구 레거시, 이제 발자국랩에서 다 한다) -->
-          <a href="footlab.html" class="lab-embed"
-             style="display:flex;align-items:center;gap:10px;padding:11px 13px;border:0;border-radius:10px;background:rgba(255,255,255,.06);text-decoration:none;">
-            <span style="flex:1;color:rgba(255,255,255,.92);font-size:15px;font-weight:700;">발자국 룩</span>
-            <span style="color:rgba(255,255,255,.35);font-size:10px;">발자국 모양과 색</span></a>
-          <a href="tokens.html" class="lab-embed"
-             style="display:flex;align-items:center;gap:10px;padding:11px 13px;border:0;border-radius:10px;background:rgba(255,255,255,.06);text-decoration:none;">
-            <span style="flex:1;color:rgba(255,255,255,.92);font-size:15px;font-weight:700;">지면 레이아웃</span>
-            <span style="color:rgba(255,255,255,.35);font-size:10px;">지면 화면 배치</span></a>
+          <a href="footlab.html" class="lab-embed lab-pill">
+            <span class="lp-t">발자국 룩</span>
+            <span class="lp-s">발자국 모양과 색</span></a>
+          <a href="tokens.html" class="lab-embed lab-pill">
+            <span class="lp-t">지면 레이아웃</span>
+            <span class="lp-s">지면 화면 배치</span></a>
           <!-- 열화상 랩 임시 OFF(유저 08-11: 손볼 게 많은데 급하니 끄기로). 주석 해제하면 되살아난다.
           <a href="http://localhost:5173/" class="lab-embed"
              title="별도 앱(person-aura-filter) — 5173 dev 서버가 떠 있어야 열립니다"
-             style="display:flex;align-items:center;gap:10px;padding:11px 13px;border:0;border-radius:10px;background:rgba(255,255,255,.06);text-decoration:none;">
-            <span style="flex:1;color:rgba(255,255,255,.92);font-size:15px;font-weight:700;">열화상</span>
-            <span style="color:rgba(255,255,255,.35);font-size:10px;">이미지 편집기</span></a> -->
+            >
+            <span class="lp-t">열화상</span>
+            <span class="lp-s">이미지 편집기</span></a> -->
         </div>
       </div>
 
