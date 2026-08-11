@@ -264,7 +264,11 @@ body.howto #howto-close,body.labview #howto-close{visibility:visible;opacity:1;t
 /* 큰 덩어리 사이는 확실히 벌린다(유저 08-12: 단락 간격이 너무 좁다) */
 #howto-overlay details{margin:0 0 88px;border-radius:0;background:none;pointer-events:auto}
 #howto-overlay details>summary{list-style:none;cursor:default;font-size:26px;font-weight:800;color:#fff;
-  letter-spacing:-.4px;margin-bottom:14px;display:flex;align-items:center;gap:10px}
+  letter-spacing:-.8px;margin-bottom:14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+/* UX북 문법 — 빨간 키커가 섹션 번호를 단다(유저 08-12: UX북 조판·DS 동일 적용) */
+#howto-overlay .hw-kick{flex-basis:100%;font-size:13px;font-weight:700;color:var(--nb-red);
+  letter-spacing:.4px;margin-bottom:2px}
+.howto-wrap>.hw-kick{display:block;font-size:14px;font-weight:700;color:var(--nb-red);letter-spacing:.4px;margin:0 0 10px}
 #howto-overlay details>summary::-webkit-details-marker{display:none}
 #howto-overlay .lab-lead{font-size:16px;color:rgba(255,255,255,.75);line-height:1.75;margin:0 0 12px}
 #howto-overlay .lab-note{font-size:15px;color:rgba(255,255,255,.6);line-height:1.75}
@@ -423,7 +427,7 @@ body.howto #howto-close,body.labview #howto-close{visibility:visible;opacity:1;t
 *{scrollbar-width:none;-ms-overflow-style:none}
 *::-webkit-scrollbar{width:0;height:0}
 /* DS 정본 토큰은 lab-skin.css 로 승격 — 값이 두 벌이면 그게 버그다 */
-#play-panel, #lab-panel, #dev-pill, #voice-caption{font-family:var(--ds-font);-webkit-font-smoothing:antialiased}
+#play-panel, #lab-panel, #dev-pill, #voice-caption, #howto-overlay, #howto-close{font-family:var(--ds-font);-webkit-font-smoothing:antialiased}
 .ds-d1{font:var(--t-d1);letter-spacing:var(--ls-d1)} .ds-h1{font:var(--t-h1);letter-spacing:var(--ls-h1)}
 .ds-t1{font:var(--t-t1);letter-spacing:var(--ls-t1)} .ds-t2{font:var(--t-t2);letter-spacing:var(--ls-t2)}
 .ds-body{font:var(--t-bodyr);letter-spacing:var(--ls-body)} .ds-cap{font:var(--t-capr);letter-spacing:var(--ls-capr)}
@@ -1239,6 +1243,7 @@ button, summary, .lab-pill, .lab-sw, .lab-go, .pp-pack, [role=button]{position:r
        근거 섹션들은 마크업 이동 없이 JS 가 이 오버레이로 이주시킨다(흔들림 체험만 패널에 남는다). -->
   <div id="howto-overlay" role="dialog" aria-label="왜 이렇게 만들었나">
     <div class="howto-wrap">
+      <div class="hw-kick">HOW IT WORKS</div>
       <h1>왜 이렇게 만들었나</h1>
       <p class="howto-intro">여기 있는 숫자는 전부 실측이거나 논문입니다.</p>
       <div id="howto-body"></div>
@@ -1280,6 +1285,10 @@ button, summary, .lab-pill, .lab-sw, .lab-go, .pp-pack, [role=button]{position:r
       + '<div class="lab-lead">뛰는 몸에 붙은 프로젝터는 흔들립니다. 기구가 두 겹으로 먼저 잡고, 남는 잔떨림은 소프트웨어 세 항이 지웁니다. 시뮬레이터 왼쪽 패널에서 직접 꺼 보며 차이를 볼 수 있습니다.</div>';
     shake.append(fig('howto/board-shake.png', '근거 보드 · 투사 흔들림 보정'));
     host.querySelector('[data-toc="화면 위치"]')?.before(shake);
+    // UX북 문법 — 섹션 번호 키커(최종 순서 확정 후)
+    [...host.querySelectorAll(':scope > details > summary')].forEach((s, i) => {
+      s.insertAdjacentHTML('afterbegin', '<span class="hw-kick">근거 ' + String(i + 1).padStart(2, '0') + '</span>');
+    });
     // 화면 전환 — 무대가 밀려나고 이 페이지가 들어온다(창이 아니다)
     const open = e => { e?.preventDefault(); ov.scrollTop = 0; document.body.classList.add('howto'); document.documentElement.style.overflow = 'hidden'; };
     const close = () => { document.body.classList.remove('howto'); document.documentElement.style.overflow = ''; };
