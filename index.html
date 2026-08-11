@@ -93,7 +93,7 @@
     #hud b { color: var(--text); }
     #event-flash {
       position: absolute; bottom: 18px; left: 50%; transform: translateX(-50%);
-      font-size: 13px; font-weight: 700; color: var(--ok);
+      font-size: 13px; font-weight: 700; color: var(--text);   /* GUI 레드+회색조(유저 08-12) — 민트 은퇴 */
       opacity: 0; transition: opacity .12s; pointer-events: none;
       background: rgba(12,14,18,.8); padding: 6px 16px; border-radius: 20px;
       border: 1px solid rgba(105,240,174,.4);
@@ -160,7 +160,7 @@ body:not(.dev):has(#play-panel.folded) #stage{margin-right:56px}
 #play-panel .pp-tg{padding:9px 0;border:1px solid rgba(255,255,255,.12);border-radius:10px;
   background:rgba(255,255,255,.04);color:rgba(255,255,255,.55);font-size:11px;font-weight:700;cursor:pointer}
 #play-panel .pp-tg:hover{background:rgba(255,255,255,.09);color:#fff}
-#play-panel .pp-tg.on{border-color:#d1feff;background:rgba(209,254,255,.14);color:#d1feff}
+#play-panel .pp-tg.on{border-color:var(--nb-red);background:rgba(250,48,48,.16);color:#ff7a7a}   /* GUI 는 레드+회색조만(유저 08-12) — 프리즘 은퇴 */
 #play-panel .pp-hint{margin-top:9px;font-size:11px;color:rgba(255,255,255,.38);text-align:center}
 body:not(.dev) #session-hud{display:none !important}
 /* ── 좌측 체험 랩 패널(제품 뷰) — 알고리즘·부품·보정 원리 체험 ───────────── */
@@ -288,7 +288,7 @@ body:not(.dev):has(#play-panel.folded) #stage{margin-right:calc(56px*1.15)}
 #lab-panel .lab-sw .dotsw::after{content:'';position:absolute;top:2px;left:2px;width:11px;height:11px;border-radius:50%;
   background:var(--d-t3);transition:transform .28s cubic-bezier(.34,1.32,.5,1),background .22s cubic-bezier(.2,.8,.3,1)}
 #lab-panel .lab-sw.on .dotsw{background:rgba(209,254,255,.3)}
-#lab-panel .lab-sw.on .dotsw::after{transform:translateX(11px);background:#d1feff}
+#lab-panel .lab-sw.on .dotsw::after{transform:translateX(11px);background:#fff}   /* GUI 레드+회색조(유저 08-12) */
 #lab-panel .lab-sw .t{font-size:14px;font-weight:700}
 #lab-panel .lab-sw .d{font-size:12px;color:rgba(255,255,255,.5);line-height:1.5}
 #lab-panel .lab-live{margin-top:10px;padding:11px 12px;border-radius:11px;background:rgba(250,48,48,.10);
@@ -310,9 +310,9 @@ body:not(.dev):has(#play-panel.folded) #stage{margin-right:calc(56px*1.15)}
 #lab-panel .lab-live b{font-size:20px;font-weight:800}
 /* ω·위상은 보조값 — 오차 수치(20px)와 같은 크기로 커지면 안 된다 */
 #lab-panel .lab-live .lab-note b{font-size:11.5px;font-weight:700;color:#fff}
-#lab-panel .lab-go{width:100%;margin-top:12px;padding-block:12px;border:1px solid #d1feff;border-radius:11px;
-  background:rgba(209,254,255,.12);color:#d1feff;font-size:12.5px;font-weight:800;cursor:pointer}
-#lab-panel .lab-go:hover{background:rgba(209,254,255,.2)}
+#lab-panel .lab-go{width:100%;margin-top:12px;padding-block:12px;border:0;border-radius:11px;
+  background:rgba(255,255,255,.07);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer}   /* 프리즘·아웃라인 은퇴(유저 08-12) — 주 행동(#lab-run)만 레드 */
+#lab-panel .lab-go:hover{background:rgba(255,255,255,.12)}
 #dev-pill{position:absolute;bottom:18px;left:18px;z-index:40;min-height:40px;padding:10px 14px;border:1px solid var(--line);
   border-radius:8px;background:rgba(16,19,24,.82);color:var(--dim);font-size:11px;cursor:pointer;font-weight:700}
 
@@ -478,7 +478,7 @@ button, summary, .lab-pill, .lab-sw, .lab-go, .pp-pack, [role=button]{position:r
 .lab-pill .ripple{background:rgba(0,0,0,.14)}
 @keyframes ripple{to{transform:scale(2.6);opacity:0}}
 </style>
-  <script type="module" crossorigin src="./assets/main-BghcdesM.js"></script>
+  <script type="module" crossorigin src="./assets/main-BCX7JOOz.js"></script>
   <link rel="modulepreload" crossorigin href="./assets/modulepreload-polyfill-B5Qt9EMX.js">
   <link rel="modulepreload" crossorigin href="./assets/preload-helper-PPVm8Dsz.js">
   <link rel="modulepreload" crossorigin href="./assets/fx-core-CsnioyF7.js">
@@ -497,12 +497,12 @@ button, summary, .lab-pill, .lab-sw, .lab-go, .pp-pack, [role=button]{position:r
 
     <nav class="tabs" id="pack-tabs">
       <button data-pack="boxing" class="active">복싱</button>
-      <button id="bx-video" title="실사 섀도복싱 영상(Pexels 7187515, 측면)에서 펀치 33건 자동 추출 — 손 배치 0. 리듬·타겟 높이가 그 복서의 것" style="display:none;border-color:#d1feff;color:#d1feff;">복서</button>
+      <button id="bx-video" title="실사 섀도복싱 영상(Pexels 7187515, 측면)에서 펀치 33건 자동 추출 — 손 배치 0. 리듬·타겟 높이가 그 복서의 것" style="display:none;border-color:var(--line);color:var(--text);">복서</button>
       <button data-pack="running">러닝</button>
-      <button id="run-expert" title="Bandai 실측 러너(run_normal.bvh)에서 자동 추출된 전문가 팩 — 손 배치 0. 봇도 그 러너의 원본 모션을 그대로 재생" style="display:none;border-color:#fec389;color:#fec389;">⭐ 러너</button>
-      <button id="run-video" title="영상 → MediaPipe 포즈 → 발 접지 자동 추출 팩 (video_pose_extract.py). 현재는 폐루프 검증 샘플(시뮬 봇 측면 캡처, Δt +9~32ms) — 외부 영상으로 교체 가능" style="display:none;border-color:#d1feff;color:#d1feff;">영상</button>
+      <button id="run-expert" title="Bandai 실측 러너(run_normal.bvh)에서 자동 추출된 전문가 팩 — 손 배치 0. 봇도 그 러너의 원본 모션을 그대로 재생" style="display:none;border-color:var(--line);color:var(--text);">⭐ 러너</button>
+      <button id="run-video" title="영상 → MediaPipe 포즈 → 발 접지 자동 추출 팩 (video_pose_extract.py). 현재는 폐루프 검증 샘플(시뮬 봇 측면 캡처, Δt +9~32ms) — 외부 영상으로 교체 가능" style="display:none;border-color:var(--line);color:var(--text);">영상</button>
       <button data-pack="basketball">농구</button>
-      <button id="bk-curry" title="NBA SportVU 실경기(2015-10-31, 53득점)에서 자동 추출된 커리 스텝백 — 손 배치 0" style="display:none;border-color:#fec389;color:#fec389;">⭐ 커리</button>
+      <button id="bk-curry" title="NBA SportVU 실경기(2015-10-31, 53득점)에서 자동 추출된 커리 스텝백 — 손 배치 0" style="display:none;border-color:var(--line);color:var(--text);">⭐ 커리</button>
     </nav>
 
     <div class="section">
@@ -674,9 +674,9 @@ button, summary, .lab-pill, .lab-sw, .lab-go, .pp-pack, [role=button]{position:r
     </div>
 
     <div class="section" id="stab-section">
-      <h2>무릎 투사 안정화 <span style="color:var(--prism)">(이식)</span></h2>
+      <h2>무릎 투사 안정화 <span style="color:var(--dim)">(이식)</span></h2>
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
-        <button id="btn-stab" style="padding:7px 14px;border:1px solid var(--ok);border-radius:6px;background:rgba(105,240,174,.12);color:var(--ok);font-size:12px;font-weight:700;cursor:pointer;">보정 ON</button>
+        <button id="btn-stab" style="padding:7px 14px;border:1px solid var(--accent);border-radius:6px;background:rgba(250,48,48,.12);color:var(--accent);font-size:12px;font-weight:700;cursor:pointer;">보정 ON</button>
         <span style="font-size:11px;color:var(--dim);">투사 오차 <b id="stab-err" style="color:var(--accent);font-variant-numeric:tabular-nums;">0.0cm</b></span>
       </div>
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:11px;color:var(--dim);">
@@ -915,7 +915,7 @@ button, summary, .lab-pill, .lab-sw, .lab-go, .pp-pack, [role=button]{position:r
     <button id="btn-day" class="dev-only" style="position:absolute;bottom:18px;right:18px;z-index:29;padding:9px 12px;border:1px solid var(--line);border-radius:8px;background:rgba(16,19,24,.9);color:var(--text);font-size:12px;font-weight:700;cursor:pointer;" title="주간 모드 — 낮에도 보이는 투사(주광 가시 레이저)가 제품 스토리">주간</button>
     <a href="docs/newton-wireframe.html#tokens" target="_blank" rel="noopener" id="link-wireframe" class="dev-only" style="position:absolute;bottom:18px;right:352px;z-index:29;padding:9px 14px;border:1px solid var(--line);border-radius:8px;background:rgba(16,19,24,.9);color:var(--text);font-size:12px;font-weight:700;cursor:pointer;text-decoration:none;">설계 문서</a>
     <a href="https://www.figma.com/design/92a2mffNpTZ5PltLln7cgq" target="_blank" rel="noopener" id="link-figma" class="dev-only" title="장면 정보 카드(제목·CTA·카피)·룩 색 토큰 디자인 원본 — 여기서 편집" style="position:absolute;bottom:18px;right:228px;z-index:29;padding:9px 14px;border:1px solid var(--line);border-radius:8px;background:rgba(16,19,24,.9);color:var(--text);font-size:12px;font-weight:700;cursor:pointer;text-decoration:none;">피그마</a>
-    <button id="insp-tab-look" class="dev-only" title="룩 시스템(FX Lab) — 셰이더·모션·타이밍·색 팔레트 전체 페이지" style="position:absolute;bottom:18px;right:104px;z-index:29;padding:9px 14px;border:1px solid #fec389;border-radius:8px;background:rgba(254,195,137,.12);color:#fec389;font-size:12px;font-weight:700;cursor:pointer;">룩 시스템</button>
+    <button id="insp-tab-look" class="dev-only" title="룩 시스템(FX Lab) — 셰이더·모션·타이밍·색 팔레트 전체 페이지" style="position:absolute;bottom:18px;right:104px;z-index:29;padding:9px 14px;border:1px solid var(--line);border-radius:8px;background:rgba(16,19,24,.9);color:var(--text);font-size:12px;font-weight:700;cursor:pointer;">룩 시스템</button>
     <button id="btn-specmap" class="dev-only" title="전 세션 장면의 실제 구성 요소와 편집 위치 — 씬 그래프에서 자동 생성 (도식 아님)" style="position:absolute;bottom:18px;right:476px;z-index:29;padding:9px 14px;border:1px solid var(--line);border-radius:8px;background:rgba(16,19,24,.9);color:var(--text);font-size:12px;font-weight:700;cursor:pointer;">장면 명세</button>
     <a href="c3-variants.html" target="_blank" rel="noopener" id="link-c3var" class="dev-only" title="잽잽훅 1·2·3 컴포넌트 리디자인 시안 3종 — 실제 박자(3.00s·채찍·0.70s 수축)로 움직이는 미리보기. 고르면 정본(drawPunchLine)에 이식" style="position:absolute;bottom:18px;right:600px;z-index:29;padding:9px 14px;border:1px solid var(--line);border-radius:8px;background:rgba(16,19,24,.9);color:var(--text);font-size:12px;font-weight:700;cursor:pointer;text-decoration:none;">잽잽훅 시안</a>
     <div id="studio" style="position:absolute;top:0;left:0;bottom:0;width:min(420px,31vw);background:rgba(12,14,18,.98);border-right:1px solid var(--line);z-index:28;display:none;flex-direction:column;">
@@ -950,7 +950,7 @@ button, summary, .lab-pill, .lab-sw, .lab-go, .pp-pack, [role=button]{position:r
         <div id="studio-tip" style="position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:2;background:rgba(250,48,48,.94);color:#fff;padding:7px 14px;border-radius:20px;font-size:12px;font-weight:600;pointer-events:none;box-shadow:0 3px 12px rgba(0,0,0,.5);">동그라미 토큰 하나를 클릭해 보세요</div>
       </div>
       <div style="flex:1;min-height:0;"></div>
-      <div style="padding:6px 14px 0;font-size:10px;color:var(--dim);border-top:1px solid var(--line);">편집 내용은 <b style="color:var(--ok)">자동 저장</b>됩니다. <b style="color:var(--text)">Ctrl+Z</b> 되돌리기 / <b style="color:var(--text)">Ctrl+Shift+Z</b> 다시.</div>
+      <div style="padding:6px 14px 0;font-size:10px;color:var(--dim);border-top:1px solid var(--line);">편집 내용은 <b style="color:var(--text)">자동 저장</b>됩니다. <b style="color:var(--text)">Ctrl+Z</b> 되돌리기 / <b style="color:var(--text)">Ctrl+Shift+Z</b> 다시.</div>
       <div style="display:flex;gap:6px;padding:8px 14px 0;">
         <button id="studio-undo" style="flex:1;padding:7px 0;border:1px solid var(--line);border-radius:6px;background:var(--panel2);color:var(--text);font-size:11px;cursor:pointer;">↶ 되돌리기</button>
         <button id="studio-redo" style="flex:1;padding:7px 0;border:1px solid var(--line);border-radius:6px;background:var(--panel2);color:var(--text);font-size:11px;cursor:pointer;">↷ 다시</button>
@@ -1038,7 +1038,7 @@ button, summary, .lab-pill, .lab-sw, .lab-go, .pp-pack, [role=button]{position:r
        토큰 조절이 실시간 반영되는 걸 눈으로 확인(유저: '실시간 반영 안돼'=불투명 전체화면이 씬을 가렸던 것). -->
   <div id="fxlab-overlay" style="position:fixed;top:0;right:0;bottom:0;width:64vw;min-width:900px;z-index:100;display:none;background:#0A0C10;box-shadow:-18px 0 46px rgba(0,0,0,.55);border-left:1px solid #2a2f3a;">
     <iframe id="fxlab-frame" style="width:100%;height:100%;border:0;display:block;"></iframe>
-    <button id="fxlab-close" style="position:absolute;top:14px;right:20px;z-index:101;min-height:44px;padding:12px 18px;border:1px solid #fec389;border-radius:10px;background:rgba(11,13,17,.92);color:#fec389;font-size:13px;font-weight:700;cursor:pointer;touch-action:manipulation;">✕ 시뮬로 돌아가기 (자동 저장됨)</button>
+    <button id="fxlab-close" style="position:absolute;top:14px;right:20px;z-index:101;min-height:44px;padding:12px 18px;border:0;border-radius:10px;background:rgba(255,255,255,.1);color:#fff;font-size:13px;font-weight:700;cursor:pointer;touch-action:manipulation;">✕ 시뮬로 돌아가기 (자동 저장됨)</button>
   </div>
 
   <!-- 바닥 UI 장면 데이터(타이틀·큐) — WebGL 경로(floorgl.js)가 메인 문서에서 읽는다. CSS3D 경로도 같은 파일을 쓴다. -->
@@ -1066,7 +1066,9 @@ button, summary, .lab-pill, .lab-sw, .lab-go, .pp-pack, [role=button]{position:r
       cursor.classList.toggle('clicking', !!hit);
     });
     (function follow() {
-      cx += (mx - cx) * 0.8; cy += (my - cy) * 0.8;
+      // 1:1 추종(유저 08-12: 감도가 더 정확해야) — 스무딩(0.8 러프)마저 뺀다. 원본 UX북은
+      //   읽는 페이지라 잔떨림 완화가 이득이었지만, 시뮬은 슬라이더·작은 버튼을 조준한다.
+      cx = mx; cy = my;
       cursor.style.transform = `translate(${cx}px,${cy}px) translate(-50%,-50%)`;
       requestAnimationFrame(follow);
     })();

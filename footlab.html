@@ -32,7 +32,7 @@
   .row input[type=range]::-moz-range-track{height:6px;border-radius:999px;background:rgba(255,255,255,.14)}
   .row input[type=range]::-moz-range-progress{height:6px;border-radius:999px;background:var(--nb-red)}
   .row input[type=range]::-moz-range-thumb{width:20px;height:20px;border:0;border-radius:50%;background:var(--nb-red)}
-  .row .v{flex:0 0 60px;text-align:right;font-variant-numeric:tabular-nums;font-size:15px;font-weight:700;color:var(--sand)}
+  .row .v{flex:0 0 60px;text-align:right;font-variant-numeric:tabular-nums;font-size:15px;font-weight:700;color:#fff}   /* GUI 레드+회색조(유저 08-12) — sand 은퇴 */
   /* 기본 버튼 = 홈 CTA 문법. 세그·액션이 아닌 낱개 버튼(verApply 등)이 브라우저 기본으로 튀지 않게 */
   button{background:rgba(255,255,255,.07);color:#fff;border:0;border-radius:999px;
     padding:14px 18px;font:700 15px/1 'Pretendard',var(--ds-font);cursor:pointer;transition:background .18s}
@@ -64,7 +64,7 @@
   #prims{width:calc(var(--hero,460px) * 3.0);max-width:100%;height:auto;aspect-ratio:1900 / 800}
   #align{width:calc(var(--hero,460px) * 1.5);max-width:100%;height:auto;aspect-ratio:840 / 280}
   .stage{flex:1 1 560px;min-width:420px}
-  #snip{width:100%;height:126px;background:rgba(0,0,0,.35);color:var(--sand);border:0;
+  #snip{width:100%;height:126px;background:rgba(0,0,0,.35);color:rgba(255,255,255,.72);border:0;
     border-radius:10px;padding:10px 12px;font:12px/1.55 ui-monospace,Consolas,monospace;resize:vertical}
   .hint{color:rgba(255,255,255,.5);font-size:13px;line-height:1.55}
   .note{display:none}
@@ -243,7 +243,7 @@ body:not(.dev) [data-devonly]{display:none !important}
     <div class=card>
       <h2>드리블 매트 — 훈련 판 한 프레임 (판 · 표적 5 · 인터랙션 방향)</h2>
       <canvas id=mat width=1080 height=1080></canvas>
-      <div style="display:flex;gap:8px;margin:10px 0 2px;align-items:center"><button id=mIn>등장</button><button id=mHit>공 닿음</button><button id=mLive>타겟 이동</button><button id=mPlay>▶ 재생</button><span style="color:#98A1AD;font-size:12px">박자</span><input id=mPer type=range min=0.28 max=1.0 step=0.02 value=0.44 style="width:110px;accent-color:#FEC389"><span id=mPerV style="font:12px monospace;color:#98A1AD">0.44s</span></div>
+      <div style="display:flex;gap:8px;margin:10px 0 2px;align-items:center"><button id=mIn>등장</button><button id=mHit>공 닿음</button><button id=mLive>타겟 이동</button><button id=mPlay>▶ 재생</button><span style="color:#98A1AD;font-size:12px">박자</span><input id=mPer type=range min=0.28 max=1.0 step=0.02 value=0.44 style="width:110px;accent-color:var(--nb-red)"><span id=mPerV style="font:12px monospace;color:#98A1AD">0.44s</span></div>
       <p class=note>판·눈금·크롬은 <b>유리 알약과 같은 레시피</b>(옅은 채움 · 안쪽 광 · 먼 쪽 0.95 → 가까운 쪽 0.06 림)이고,
       표적은 시뮬에서 <b>판정 토큰(존 마크)</b> 그 자체입니다 — 여기 그림은 배치 확인용 대역입니다.
       <b>인터랙션 방향은 안쪽</b>: 커넥터·셰브론이 전부 액티브 타깃을 향하고, 공이 닿는 순간의 반응도 거기서만 납니다.
