@@ -193,6 +193,15 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
   border-bottom:1px solid rgba(255,255,255,.06);font-size:13.5px}
 #lab-panel .lab-kv span:first-child{color:rgba(255,255,255,.55)}
 #lab-panel .lab-kv b{font-weight:700;color:#fff}
+/* ── 근거 UI 3종(유저 08-11: 왜 저렇게 나왔는지·어떤 상황인지 볼 수 있어야 한다) ──
+   레이아웃은 건드리지 않는다 — 기존 kv 행/노트 위에 얹는 인라인 요소만 추가한다. */
+#lab-panel .lab-lead{font-size:12px;color:rgba(255,255,255,.62);line-height:1.6;margin:2px 0 8px}
+#lab-panel .lab-see{margin-top:8px;display:flex;gap:6px;flex-wrap:wrap}
+#lab-panel .lab-see button{flex:1 1 auto;min-height:34px;padding:7px 10px;border:1px solid rgba(209,254,255,.28);
+  border-radius:9px;background:rgba(209,254,255,.08);color:#d1feff;font-size:11.5px;font-weight:700;
+  cursor:pointer;letter-spacing:-.2px;touch-action:manipulation}
+#lab-panel .lab-see button:hover{background:rgba(209,254,255,.16)}
+#lab-panel .lab-src{margin-top:6px;font-size:10.5px;color:rgba(255,255,255,.33);line-height:1.55}
 #lab-panel .lab-note{font-size:12.5px;color:rgba(255,255,255,.5);line-height:1.6;margin-top:6px}
 /* 접이식 섹션 — 긴 설명·근거는 기본 접힘. 화면에 남는 건 값과 스위치뿐(유저: 글씨가 과하다) */
 #lab-panel details{margin-top:8px;border-top:1px solid rgba(255,255,255,.07)}
@@ -363,7 +372,7 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
 #voice-caption{border:0;background:none;padding:0;backdrop-filter:none;color:var(--d-title)}
 #dev-pill{border:0;border-radius:999px;background:var(--d-surface);color:var(--d-t3);font:var(--t-labr)}
 </style>
-  <script type="module" crossorigin src="./assets/main-BwjyNsws.js"></script>
+  <script type="module" crossorigin src="./assets/main-CwXcqiBV.js"></script>
   <link rel="modulepreload" crossorigin href="./assets/modulepreload-polyfill-B5Qt9EMX.js">
   <link rel="modulepreload" crossorigin href="./assets/preload-helper-PPVm8Dsz.js">
   <link rel="modulepreload" crossorigin href="./assets/fx-core-CsnioyF7.js">
@@ -683,6 +692,9 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
 
       <details>
         <summary>부품과 마운트</summary>
+        <div class="lab-lead">빔은 무릎이 아니라 <b>종아리 바깥면</b>에 달렸다. 그 6cm가 공 그림자를 필드 밖으로 밀어낸다.</div>
+        <div class="lab-see"><button data-see="bk-b4">농구 스텝백에서 보기</button><button data-see="top">위에서 보기</button></div>
+        <div class="lab-src">실측 — BEAM-OCCLUSION.md (라이브 프레임 기하, 표적 25점)</div>
         <div class="lab-kv"><span>유닛 위치</span><b>무릎 아래 11cm 바깥면</b></div>
         <div class="lab-kv"><span>렌즈 높이</span><b>≈51cm</b></div>
         <div class="lab-kv"><span>짐벌 서보</span><b>최대 300°/s</b></div>
@@ -692,6 +704,9 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
 
       <details>
         <summary>고개 각도 <span class="cnt">4단</span></summary>
+        <div class="lab-lead">사람은 <b>2보 앞</b>을 본다. 그래서 장면마다 시선이 닿는 거리에 UI를 놓는다.</div>
+        <div class="lab-see"><button data-see="run-c2">실전 달리기(원경)</button><button data-see="bk-b4">익히기(근경)</button></div>
+        <div class="lab-src">근거 — Matthis et al. 2018 · 눈높이 1.6m · 낙하점 = 1.6/tanθ</div>
         <div class="lab-kv"><span><b>정면</b> −8°</span><b>11.4m</b></div>
         <div class="lab-kv"><span><b>원경</b> −20°</span><b>4.4m</b></div>
         <div class="lab-kv"><span><b>중경</b> −30°</span><b>2.8m</b></div>
@@ -717,6 +732,9 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
 
       <details>
         <summary>벽면 투사 <span class="cnt">복싱</span></summary>
+        <div class="lab-lead">벽은 <b>이해의 화면</b>이다. 사람이 3.29m 뒤에 서는 건 전신이 카메라에 담기는 최소 거리다.</div>
+        <div class="lab-see"><button data-see="bx-b1">복싱 벽면에서 보기</button></div>
+        <div class="lab-src">실측 — PROJECTION-SPEC.md §1·§5 (프로젝터 62° · 카메라 50°)</div>
         <div class="lab-kv"><span>투사 크기</span><b>2.60 × 1.63 m</b></div>
         <div class="lab-kv"><span>벽 ↔ 빔 유닛</span><b>1.36 m</b></div>
         <div class="lab-kv"><span>벽 ↔ 사람</span><b>3.29 m</b></div>
@@ -731,6 +749,9 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
 
       <details>
         <summary>바닥 글자 크기 <span class="cnt">시각도</span></summary>
+        <div class="lab-lead">바닥 글자는 <b>눌려 보인다</b>. 같은 10cm도 발밑과 2m 앞이 전혀 다른 크기로 들어온다.</div>
+        <div class="lab-see"><button data-see="fp">1인칭으로 보기</button><button data-see="top">위에서 보기</button></div>
+        <div class="lab-src">근거 — Legge &amp; Bigelow 2011 · ISO 9241-303 · Cai 2013 · MUTCD</div>
         <div class="lab-kv"><span>1급 (동작명·타이머)</span><b>0.70°</b></div>
         <div class="lab-kv"><span>2급 (단계·단위)</span><b>0.45°</b></div>
         <div class="lab-kv"><span>절대 하한</span><b>0.20°</b></div>
@@ -750,6 +771,9 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
 
       <details>
         <summary>못 쓰는 땅 <span class="cnt">콘 밖</span></summary>
+        <div class="lab-lead">빔이 닿는 범위는 사각형이 아니라 <b>부채꼴</b>이다. 그 밖은 그려도 안 보인다.</div>
+        <div class="lab-see"><button data-see="cone">투사 커버리지 켜기</button></div>
+        <div class="lab-src">실측 — docs/FLOOR-LAYOUT-SPEC.md (러닝 기본 리그)</div>
         <div class="lab-kv"><span>대지 위쪽</span><b>289 px = 12.7%</b></div>
         <div class="lab-kv"><span>조판 밴드</span><b>6 개</b></div>
         <details>
@@ -762,6 +786,9 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
 
       <details>
         <summary>가시성 규칙</summary>
+        <div class="lab-lead">가려지는 걸 <b>가려진 채로</b> 둔다. 그게 실제 빔이 하는 일이다.</div>
+        <div class="lab-see"><button data-see="bk-b4">드리블에서 보기</button><button data-see="day">주간 모드</button></div>
+        <div class="lab-src">실측 — BEAM-OCCLUSION.md (크로스오버 전 사이클 샘플링)</div>
         <div class="lab-kv"><span>창 경계</span><b>페더 18cm</b></div>
         <div class="lab-kv"><span>공에 가릴 때</span><b>그 토큰만 소등</b></div>
         <div class="lab-kv"><span>차폐 실측</span><b>평균 1.4% · 최악 16%</b></div>
