@@ -478,14 +478,14 @@ button, summary, .lab-pill, .lab-sw, .lab-go, .pp-pack, [role=button]{position:r
 .lab-pill .ripple{background:rgba(0,0,0,.14)}
 @keyframes ripple{to{transform:scale(2.6);opacity:0}}
 </style>
-  <script type="module" crossorigin src="./assets/main-BCX7JOOz.js"></script>
+  <script type="module" crossorigin src="./assets/main-Z1yXmCkk.js"></script>
   <link rel="modulepreload" crossorigin href="./assets/modulepreload-polyfill-B5Qt9EMX.js">
   <link rel="modulepreload" crossorigin href="./assets/preload-helper-PPVm8Dsz.js">
   <link rel="modulepreload" crossorigin href="./assets/fx-core-CsnioyF7.js">
   <link rel="modulepreload" crossorigin href="./assets/fxlut-C-P47UVP.js">
   <link rel="modulepreload" crossorigin href="./assets/tokens-DG85IoL1.js">
-  <link rel="modulepreload" crossorigin href="./assets/floorgl-C2bvy4Vf.js">
-  <link rel="modulepreload" crossorigin href="./assets/session-_chXVtwb.js">
+  <link rel="modulepreload" crossorigin href="./assets/floorgl-DGLTIDFj.js">
+  <link rel="modulepreload" crossorigin href="./assets/session-D3moyIZy.js">
   <link rel="stylesheet" crossorigin href="./assets/lab-skin-CHLkM1GD.css">
 </head>
 <body>
@@ -765,12 +765,42 @@ button, summary, .lab-pill, .lab-sw, .lab-go, .pp-pack, [role=button]{position:r
         </div>
       </div>
 
+      <!-- ★ 근거 섹션 재구성(유저 08-12): 피그마 어펜딕스(MsAnO7Itu9sORPSZBt0oRj)의
+           근거·논문·실측을 좌패널 정본으로. 왜 프로젝션인가 → 흔들림(부품+보정) → 부품·타겟. -->
+      <details id="sec-why">
+        <summary>왜 몸이 아니라 바닥에 쏘나</summary>
+        <div class="lab-lead">숙련자의 움직임을 보는 가장 쉬운 답은 AR 글라스처럼 보입니다. 그런데 <b>운동하는 몸은 얼굴에 얹는 무게를 피합니다.</b> 그래서 뉴턴은 몸에 아무것도 씌우지 않고, 바닥에 빛으로 그립니다.</div>
+        <div class="lab-kv"><span>시력교정이 필요한 러너 941명 중 달릴 때 안경을 피하는 비율</span><b>33.1%</b></div>
+        <div class="lab-src">Latham et al., PLOS ONE 2024</div>
+        <div class="lab-kv"><span>안경 착용자가 스포츠·레저에서 제약을 느끼는 비율</span><b>46%</b></div>
+        <div class="lab-src">착용 불편 설문(n=120), 2016 · HMD 목 부담: KCI 2020(보조 근거)</div>
+        <details>
+          <summary>바닥의 빛이 정말 움직임을 이끄나</summary>
+          <div class="lab-note">레이저 슈즈로 보행 전방 바닥에 가이드를 쏘자 파킨슨 환자의 보행 동결(FOG) 횟수·시간이 유의하게 줄었다(Barthel et al. 2018).
+            바닥에 다음 발 위치를 제시해 보폭·타이밍을 조절하는 연구도 검증돼 있다(Bank et al. 2011, stepping stones).
+            발밑 시각 가이드는 재활을 넘어 스텝·리듬 트레이닝으로 확장되는 중이다.</div>
+        </details>
+        <details>
+          <summary>주간 야외에서 빛이 보이긴 하나</summary>
+          <div class="lab-note">중장비 야외 환경에선 레이저 선형 가이드 투사가 이미 실전 검증됐고(Tschulik et al. 2025, Computers &amp; Graphics),
+            자동차 업계는 낮에도 보이는 MEMS Laser Beam Scanning 지면 투사를 상용 로드맵에 올렸다(Valeo, 2026 — 현재 2색 HD).
+            뉴턴의 풀컬러 지면 UI는 이 로드맵의 N+5년 지점을 설계한 것이다.</div>
+        </details>
+      </details>
+
       <!-- 흔들림 = 러닝 전용 섹션(유저 08-11: 복싱에서도 흔들림 이야기가 나와 헷갈린다).
            무릎 빔은 달릴 때만 쓰는 물건이라 러닝 탭에서만 열리고, 조작도 그 안에서 한다.
            진입 버튼도 섹션 밖에 떠 있던 걸 안으로 넣었다 — 맥락 밖의 CTA 는 미아가 된다. -->
       <details id="sec-shake" open>
         <summary>흔들림을 어떻게 잡나 <span class="cnt">러닝</span></summary>
-        <div class="lab-lead">달릴 때는 정강이가 흔들리면서 무릎에 달린 빔도 같이 흔들립니다. 그걸 잡아내는 세 가지 방법을 직접 켜고 끌 수 있습니다.</div>
+        <div class="lab-lead">달릴 때는 정강이가 흔들리면서 무릎에 달린 빔도 같이 흔들립니다. 뉴턴은 <b>하드웨어 두 겹 + 소프트웨어 세 겹</b>으로 잡습니다. 아래에서 직접 끄고 켜 보세요.</div>
+        <div class="lab-kv"><span><b>①</b> 기기 이탈 방지 체결</span><b>EPM 전자 영구 자석</b></div>
+        <div class="lab-note">전력 없이 강한 자력을 유지하는, 드론캠에 쓰이는 그 부품입니다. 격한 하체 움직임에도 Core 모듈이 떨어지지 않습니다.</div>
+        <div class="lab-src">IEEE 2010(Electropermanent Magnets) · IEEE/ASME 2018(EPM Gripper)</div>
+        <div class="lab-kv"><span><b>②</b> 화면 위치 보정</span><b>1축 짐벌 + OIS 렌즈</b></div>
+        <div class="lab-note">짐벌이 물리로 크게 잡고, 스마트폰 카메라의 OIS(광학식 손떨림 보정)가 잔떨림을 지웁니다. UI가 지면에 고정돼 보이는 이유입니다.</div>
+        <div class="lab-src">PID 짐벌 안정화: IEEE IEEM 2015</div>
+        <div class="lab-kv"><span><b>③</b> 남는 오차는 소프트웨어</span><b>아래 세 보정</b></div>
         <button class="lab-go" id="lab-run">러닝 실전을 3인칭으로 보기</button>
         <div class="lab-sw" id="sw-raw"><span class="dotsw"></span><span><span class="t">보정 전부 끄기 (RAW)</span>
           <div class="d">아무 보정 없이, 정강이가 흔들리는 그대로 빛을 쏩니다</div></span></div>
@@ -794,14 +824,23 @@ button, summary, .lab-pill, .lab-sw, .lab-go, .pp-pack, [role=button]{position:r
       </details>
 
       <details>
-        <summary>빔을 어디에 다나</summary>
-        <div class="lab-lead">빔은 무릎이 아니라 <b>종아리 바깥쪽</b>에 답니다. 몸에서 6센티미터 나와 있는 덕분에, 드리블하는 공의 그림자가 발밑 가이드를 덮지 않습니다.</div>
-        <div class="lab-src">실측 — BEAM-OCCLUSION.md (라이브 프레임 기하, 표적 25점)</div>
-        <div class="lab-kv"><span>유닛 위치</span><b>무릎 아래 11cm 바깥면</b></div>
+        <summary>빔을 어디에 다나 <span class="cnt">부위 실측</span></summary>
+        <div class="lab-lead">신체 5개 부위 × 사출 각도 5개를 실측해 골랐습니다. <b>무릎</b>이 발 앞 20~150cm 목표 시야를 가장 안정적으로 덮고(60°·45°), 몸에 가리지 않으며 착지 방향을 선제 표시합니다.</div>
+        <div class="lab-src">실측 — 고관절·허벅지·무릎·정강이·발목 × 90/60/45/30/15° · 165cm 성인 기준 · BEAM-OCCLUSION.md(표적 25점)</div>
+        <div class="lab-kv"><span>선정 부위</span><b>무릎 아래 11cm 바깥면</b></div>
+        <div class="lab-kv"><span>커버 구간</span><b>발 앞 20 ~ 150cm (~180cm)</b></div>
         <div class="lab-kv"><span>렌즈 높이</span><b>≈51cm</b></div>
-        <div class="lab-kv"><span>짐벌 서보</span><b>최대 300°/s</b></div>
-        <div class="lab-kv"><span>투사창</span><b>5cm ~ 2.0m</b></div>
-        <div class="lab-kv"><span>투사 폭</span><b>64 → 169cm</b></div>
+        <div class="lab-kv"><span>투사창</span><b>5cm ~ 2.0m · 폭 64 → 169cm</b></div>
+        <details>
+          <summary>실제 부품 구성</summary>
+          <div class="lab-kv"><span>투사 모듈</span><b>MEMS Laser Beam Scanning</b></div>
+          <div class="lab-note">주간 야외에서도 보이는 지면 투사 — 자동차 상용 로드맵의 그 모듈 계열(Valeo·Infineon MEMS).</div>
+          <div class="lab-kv"><span>체결</span><b>EPM 전자 영구 자석 (무전력)</b></div>
+          <div class="lab-kv"><span>안정화</span><b>1축 짐벌(서보 최대 300°/s) + OIS 렌즈</b></div>
+          <div class="lab-kv"><span>발목 웨어러블</span><b>와이어 액추에이션</b></div>
+          <div class="lab-note">발뒤꿈치 리프팅·발목 각도 제어로 풋워크 스냅을 만든다 — 운동 사슬의 최말단(발목)에서 지면에 전달되는 힘의 누수를 막는 자리다.</div>
+          <div class="lab-src">운동 사슬 근거 — Sportsmith(발 훈련과 방향 전환) · PMC 2024(kinetic chain 리뷰)</div>
+        </details>
       </details>
 
       <details>

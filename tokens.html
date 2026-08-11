@@ -81,13 +81,13 @@ button.on{background:var(--nb-red);color:#fff}
 .band::after{content:attr(data-l);position:absolute;left:3px;top:1px;font:var(--t-micro);color:var(--nb-prism)}
 /* 개발 전용 UI — 배포본에선 통째로 숨긴다(정본 게이트 src/labgate.js) */
 body:not(.dev) [data-devonly]{display:none !important}
-</style>  <script type="module" crossorigin src="./assets/tokens-Drwc3Q-t.js"></script>
+</style>  <script type="module" crossorigin src="./assets/tokens-DxXo6URs.js"></script>
   <link rel="modulepreload" crossorigin href="./assets/modulepreload-polyfill-B5Qt9EMX.js">
   <link rel="modulepreload" crossorigin href="./assets/labgate-DBLrM4ri.js">
   <link rel="modulepreload" crossorigin href="./assets/fx-core-CsnioyF7.js">
   <link rel="modulepreload" crossorigin href="./assets/fxlut-C-P47UVP.js">
   <link rel="modulepreload" crossorigin href="./assets/tokens-DG85IoL1.js">
-  <link rel="modulepreload" crossorigin href="./assets/floorgl-C2bvy4Vf.js">
+  <link rel="modulepreload" crossorigin href="./assets/floorgl-DGLTIDFj.js">
   <link rel="stylesheet" crossorigin href="./assets/lab-skin-CHLkM1GD.css">
 </head><body>
 
@@ -95,7 +95,9 @@ body:not(.dev) [data-devonly]{display:none !important}
   <h1>지면 디자인 토큰</h1>
   <div class="sub">발밑에 뜨는 화면의 글자 크기와 간격을 정하는 값들입니다</div>
 
-  <div class="btnrow">
+  <!-- 버전·되돌리기 = 개발 전용(유저 08-12: 전시에선 실시간 반영도 없으니 편집 크롬을 줄인다).
+       전시 관람객에게 남는 것 = 슬라이더 체험 + 미리보기. -->
+  <div class="btnrow" data-devonly>
     <button id="p-now" class="on">확정안</button>
     <button id="p-new">제안안</button>
     <button id="p-legacy">이전(08-05)</button>
@@ -199,7 +201,7 @@ body:not(.dev) [data-devonly]{display:none !important}
     <button id="openref" style="width:100%;margin-top:8px">근거 문서 전문 열기</button>
   </div>
 
-  <div class="grp"><h2>값 내보내기</h2>
+  <div class="grp" data-devonly><h2>값 내보내기</h2>
     <textarea id="dump" readonly spellcheck="false"></textarea>
     <div class="btnrow" style="margin-top:6px">
       <button id="save" style="background:var(--red);border-color:var(--red);color:#fff">코드에 저장</button>
