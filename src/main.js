@@ -507,7 +507,11 @@ async function boot() {
     if (session.bkB1Setup) return GAZE.STANCE;
     const id = session.curStage?.id || '';
     // 전환·타이머·리포트(지면 풀스크린 화면) = x봇이 바닥의 화면을 보도록 게이즈 하향(세션 컴플리트·실전 직전).
-    if (/^(T1|T2|C1|FIN|BK_T1|BK_T2|BK_C1|BK_FIN)$/.test(id)) return GAZE.NEAR;
+    // ★ 리포트만 더 깊게(유저 08-11: 1인칭에서 화면이 기울어져 보인다). −40° 는 눈높이에서
+    //   바닥 판을 얕게 훑어 사다리꼴로 눕는다. 판을 정면에 가깝게 보려면 시선을 더 내려야
+    //   하고, −52°(MAT)는 이미 바닥 풀스크린 판이 프레임에 다 들어온다고 검증된 값이다.
+    if (/FIN$/.test(id)) return GAZE.MAT;
+    if (/^(T1|T2|C1|BK_T1|BK_T2|BK_C1)$/.test(id)) return GAZE.NEAR;
     // ★ B1 = 드리블 매트를 **다 보는** 각도. 매트는 몸 앞 0.45~1.22m 를 덮는데, 눈높이 1.56m 에서
     //   그건 수평 아래 74°~52° 다. NEAR(-40°)로는 세로 화각(±25°) 상 가까운 절반이 프레임 밖으로
     //   나간다(실측: ③④ 와 가까운 쪽 브래킷이 안 보였다). 판이 다 들어오는 최소각이 -52°다.
@@ -1320,13 +1324,15 @@ void main(){
   function demoAdvance() {
     if (!demoTour) return;
     demoTour.i++;
-    if (demoTour.i >= demoTour.queue.length) { demoTour = null; demoBtn.textContent = '🎬 데모 투어 (3종목 자동 순회)'; stopSession(); return; }
+    // ★ 전시는 멈추지 않는다(유저 08-11: 세션이 끝나도 다음으로 넘어가 계속 순환).
+    //   큐 끝에 닿으면 멈추는 대신 처음으로 되감는다 — 복싱→러닝→농구가 하루 종일 돈다.
+    if (demoTour.i >= demoTour.queue.length) demoTour.i = 0;
     session.stop();
     startSessionFor(demoTour.queue[demoTour.i]);
   }
   demoBtn?.addEventListener('click', () => {
     if (demoTour) { demoTour = null; demoBtn.textContent = '🎬 데모 투어 (3종목 자동 순회)'; stopSession(); return; }
-    demoTour = { queue: ['running', 'boxing', 'basketball'], i: 0 };
+    demoTour = { queue: ['boxing', 'running', 'basketball'], i: 0 };   // 유저 08-11: 복→러→농구 순
     demoBtn.textContent = '⏹ 데모 투어 중지';
     if (session.active) session.stop();
     startSessionFor(demoTour.queue[0]);
@@ -4638,9 +4644,11 @@ void main(){
       //   시범은 '남의 동작을 본다'라 몸 밖에서 봐야 하고, 따라하기는 '내 발밑'이라 눈에서 봐야 한다.
       //   경계는 이미 여기 있다 — _followLatch 가 그 한 줄이다. 유저가 수동 토글했으면 손대지 않는다.
       //   전환 자체는 vpGlide 가 0.8초에 걸쳐 잇는다(하드컷이면 '끊겼다'로 읽힌다).
+      //   ★ 오늘(08-11 전시)은 **발자국 구간에서 3인칭으로 나가지 않게 막는다**(유저).
+      //     관찰 → 따라하기로 갈 때 1인칭으로 들어가기만 하고, 되돌아 나오지는 않는다.
+      //     되감김·재진입 때 3인칭이 한 번씩 튀어나오던 걸 전시 동안 원천 차단한다.
       if (!fpUserSet && /^BK_(T1|B[234])$/.test(session.stage || '')) {
-        const wantFp = !!session._followLatch;
-        if (wantFp !== fpMode) { vpGlide(); setFp(wantFp); }
+        if (session._followLatch && !fpMode) { vpGlide(); setFp(true); }
       }
       // ★ 관찰(영상 재생) = 봇도 제자리 정지(유저 08-10 확정: "영상 재생할 때는 X봇도 가만히").
       //   시범은 영상이 하고, 봇의 무브는 따라하기(발자국) 구간에서만 — 둘이 동시에 움직이면
