@@ -175,6 +175,14 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
    제품 뷰 패널은 px 고정이라 QHD·4K 에서 글자가 상대적으로 준다. 패널 내부 px 를
    전부 다시 재는 대신 zoom 으로 판째 키운다(크롬 전시 환경 전제 — 키오스크와 동일).
    stage 여백은 zoom 배율만큼 같이 커져야 패널이 씬을 덮지 않는다. */
+/* ── 기본 배율 1.15 (유저 08-11: 좌우 패널 폰트 너무 작아) ──
+   패널 활자는 DS 토큰(캡션 14 · 라벨 13)이 정본인데, FHD(1920) 화면은 아래 TV 줌(≥2200)에
+   안 걸려 13px 그대로 나온다. 토큰을 흔들지 않고 판째 키운다(TV 줌과 같은 수법) —
+   위계·간격 비율은 피그마 정본 그대로고, 큰 화면 배율(1.28/1.9)이 이 값을 덮는다. */
+#play-panel,#lab-panel{zoom:1.15}
+body:not(.dev) #stage{margin-left:calc(326px*1.15);margin-right:calc(320px*1.15)}
+body:not(.dev):has(#lab-panel.folded) #stage{margin-left:calc(56px*1.15)}
+body:not(.dev):has(#play-panel.folded) #stage{margin-right:calc(56px*1.15)}
 @media (min-width:2200px){
   #play-panel,#lab-panel,#voice-caption,#dev-pill,#lab-embed-head{zoom:1.28}
   body:not(.dev) #stage{margin-left:calc(326px*1.28);margin-right:calc(320px*1.28)}
