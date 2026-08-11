@@ -9,13 +9,14 @@
   *{box-sizing:border-box}
   html,body{margin:0;background:var(--d-bg);color:var(--text);
     font:17px/1.65 'Pretendard',var(--ds-font)}   /* 대형 모니터 기준 상향(유저 08-12) */
-  /* 좌우 마진 100 고정, 나머지는 꽉 채운다(유저 08-12: 우측 여백이 과하다) */
-  .wrap{display:flex;gap:28px;padding:24px 100px 56px;align-items:flex-start}
+  /* 마진의 주인(유저 08-12): 좌우 여백은 **콘텐츠 스테이지**가 갖고(100/100),
+     컨트롤 패널은 **따로** 좌우 동일 마진(28/28)을 갖는다. wrap 은 아무것도 안 가진다. */
+  .wrap{display:flex;gap:0;padding:24px 0 56px;align-items:flex-start}
   /* 패널이 세로로 길어 미리보기를 보면서 조절할 수가 없었다(유저) — 패널만 따로 스크롤한다. */
   /* 좌우 패딩 대칭(유저 08-12: 마진이 왼쪽만 있는 게 말이 되냐) — 스크롤바 몫까지 계산해
      오른쪽 26 = 왼쪽 26. 가로 넘침은 원천 차단(overflow-x). */
   .panel{width:400px;flex:0 0 400px;background:transparent;border:0;
-    padding:26px 26px 48px;position:sticky;top:0;
+    padding:26px 26px 48px;margin:0 28px;position:sticky;top:0;
     max-height:100vh;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;scrollbar-gutter:stable}
   .panel::-webkit-scrollbar{width:8px}
   .panel::-webkit-scrollbar-thumb{background:var(--d-border);border-radius:4px}
@@ -75,7 +76,7 @@
   .duo canvas{width:100%;height:auto}
   #hero{width:100%;height:auto;aspect-ratio:1/1}
   #mat{width:100%;height:auto;aspect-ratio:1/1}
-  .stage{flex:1;min-width:560px}
+  .stage{flex:1;min-width:560px;padding:0 100px}   /* 좌우 마진은 콘텐츠 프레임의 것 */
   .stage .card{width:100%}
   /* 칩은 내용만큼 — 패널의 2열 늘림(flex:1)을 카드 안에서는 끈다(유저: 길쭉한 버튼 안 이쁘다) */
   .stage .seg{gap:8px}
@@ -247,12 +248,12 @@ body:not(.dev) [data-devonly]{display:none !important}
     <div id=floorbar>
       <span class=fb-t>바닥</span>
       <div class=seg id=segFloor>
-        <button data-v=track class=on>트랙</button><button data-v=tile>인터로킹</button>
-        <button data-v=dark>어두운 실내</button><button data-v=white>흰 바닥</button>
+        <button data-v=dark class=on>어두운 실내</button><button data-v=tile>인터로킹</button>
+        <button data-v=white>흰 바닥</button>
       </div>
     </div>
     <div class=card>
-      <h2>발자국 마크 — 확대와 8가지 상태</h2>
+      <h2>발자국 마크</h2>
       <div class=duo>
         <div><canvas id=hero width=640 height=640></canvas></div>
         <div><canvas id=strip width=1120 height=690></canvas></div>
@@ -262,18 +263,18 @@ body:not(.dev) [data-devonly]{display:none !important}
     <div class=card>
       <div class=duo>
         <div>
-          <h2>발자국 예시 — 종아리 스트레칭</h2>
-          <div class=seg id=segA2Stance>
+          <h2>발자국 예시</h2>
+          <canvas id=a2 width=1120 height=620></canvas>
+          <div class=seg id=segA2Stance style="margin:14px 0 0">
             <button data-v=0.77 class=on>압축 ×0.5</button><button data-v=1.54>실척 1.54m</button>
           </div>
-          <div class=row style="margin-bottom:8px" data-devonly><label>잉크 자락 끊기</label><input type=range id=a2Floor min=0 max=0.6 step=0.01 value=0.35><span class=v id=va2Floor>0.00</span></div>
-          <canvas id=a2 width=1120 height=620></canvas>
+          <div class=row style="margin:8px 0 0" data-devonly><label>잉크 자락 끊기</label><input type=range id=a2Floor min=0 max=0.6 step=0.01 value=0.35><span class=v id=va2Floor>0.00</span></div>
           <p class=note id=a2note data-devonly>레퍼런스 실측(9초·60fps·540프레임): <b>홀드 2.15 · 앞발 당겨오기 0.35 · 모아 섬 1.25 · 반대발 내딛기 0.55</b> = 1렙 4.30s. 스탠스 실척 <b>앞뒤 1.54m</b>, 기본은 압축 ×0.5 = 0.77m. 구형 압축 0.6·시뮬 0.32 칩은 은퇴(전시 단순화).</p>
         </div>
         <div>
           <h2>실제 바닥 위에서는</h2>
           <canvas id=comp width=1120 height=380></canvas>
-          <p class=note>빛은 바닥에 <b>더해집니다</b>. 그래서 마크의 색감은 바닥이 정합니다 — 위 바닥 칩을 눌러 비교해 보세요.<span data-devonly> 실제 사진은 <code>public/floors/track.jpg</code> · <code>tile.jpg</code> 로 넣으면 자동으로 씁니다.</span></p>
+          <p class=note>빛은 바닥에 <b>더해집니다</b>. 마크의 색감은 바닥이 정합니다. 위 바닥 칩을 눌러 비교해 보세요.<span data-devonly> 실제 사진은 <code>public/floors/track.jpg</code> · <code>tile.jpg</code> 로 넣으면 자동으로 씁니다.</span></p>
         </div>
       </div>
     </div>
@@ -286,10 +287,10 @@ body:not(.dev) [data-devonly]{display:none !important}
           <div style="display:flex;gap:8px;margin:12px 0 2px;align-items:center;flex-wrap:wrap"><button id=mIn>등장</button><button id=mHit>공 닿음</button><button id=mLive>타겟 이동</button><button id=mPlay>▶ 재생</button><span style="color:#98A1AD;font-size:13px">박자</span><input id=mPer type=range min=0.28 max=1.0 step=0.02 value=0.44 style="width:120px;accent-color:var(--nb-red)"><span id=mPerV style="font:13px monospace;color:#98A1AD">0.44s</span></div>
         </div>
         <div>
-          <h2>판정과 큐 — 같은 룩을 쓰는 토큰들</h2>
+          <h2>판정과 큐</h2>
           <canvas id=prims width=1900 height=800></canvas>
           <div id=primSld style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:4px 24px;margin:14px 0 2px"></div>
-          <p class=note>수축하는 링이 '언제', 화살표와 궤적이 '어디로'를 말합니다 — 시뮬이 쓰는 그 그림 그대로입니다.</p>
+          <p class=note>수축하는 링이 '언제'를, 화살표와 궤적이 '어디로'를 말합니다. 시뮬이 쓰는 그림 그대로입니다.</p>
         </div>
       </div>
     </div>
@@ -339,7 +340,7 @@ const DEF = { op: 1.0, imp: 1.0, scale: 0.835, offx: -0.04, offy: -0.007, irot: 
 //   예전엔 랩이 localStorage 에만 저장해서 다른 기기에서 열면 수정 전 값이 나왔다(유저 발견).
 for (const k in DEF) if (typeof LOOK[k] === 'number') DEF[k] = LOOK[k];
 const P = { ...DEF };
-let side = 'left', ctx = 'out', bg = 'day', showNum = 1, showOv = 0, floorKind = 'track';
+let side = 'left', ctx = 'out', bg = 'day', showNum = 1, showOv = 0, floorKind = 'dark';   // 기본 = 검정(유저 08-12, 트랙 은퇴)
 
 const SF = SIL_FIT / SIL_FIT_REF;   // uv 단위 거리 스케일(정본과 동일)
 const $ = id => document.getElementById(id);
