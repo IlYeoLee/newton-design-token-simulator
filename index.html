@@ -217,35 +217,51 @@ body:not(.dev):has(#play-panel.folded) #stage{margin-right:calc(56px*1.15)}
    z 21 < 패널 22 — 좌패널은 전환 내내 제자리에 남아 페이지의 일부가 된다. */
 #howto-overlay{position:fixed;inset:0;z-index:21;background:var(--d-bg);overflow-y:auto;
   visibility:hidden;opacity:0;transform:translateX(64px);pointer-events:none;
-  transition:transform .55s cubic-bezier(.22,.9,.26,1),opacity .4s ease,visibility 0s linear .55s}
+  transition:transform .6s cubic-bezier(.3,1.28,.32,1),opacity .4s ease,visibility 0s linear .6s}
 body.howto #howto-overlay{visibility:visible;opacity:1;transform:none;pointer-events:auto;
-  transition:transform .55s cubic-bezier(.22,.9,.26,1),opacity .4s ease}
+  transition:transform .6s cubic-bezier(.3,1.28,.32,1),opacity .4s ease}
 /* 무대는 왼쪽으로 살짝 밀리며 가라앉고, 우패널은 화면 밖으로.
    랩 두 개(지면 그래픽·지면 레이아웃)도 같은 전환을 쓴다(body.labview) — 랩은 자기
    패널을 갖고 오는 전체 페이지라 좌패널까지 왼쪽으로 비켜 준다. */
-#stage,#play-panel,#lab-panel{transition:transform .55s cubic-bezier(.22,.9,.26,1),opacity .4s ease}
+#stage,#play-panel,#lab-panel{transition:transform .6s cubic-bezier(.3,1.28,.32,1),opacity .4s ease}
 body.howto #stage,body.labview #stage{transform:translateX(-56px) scale(.965);opacity:0;pointer-events:none}
 body.howto #play-panel,body.labview #play-panel{transform:translateX(115%)}
 body.labview #lab-panel{transform:translateX(-115%)}
 #lab-embed-overlay{position:fixed;inset:0;z-index:60;background:var(--d-bg);display:flex;
   visibility:hidden;opacity:0;transform:translateX(64px);pointer-events:none;
-  transition:transform .55s cubic-bezier(.22,.9,.26,1),opacity .4s ease,visibility 0s linear .55s}
+  transition:transform .6s cubic-bezier(.3,1.28,.32,1),opacity .4s ease,visibility 0s linear .6s}
 body.labview #lab-embed-overlay{visibility:visible;opacity:1;transform:none;pointer-events:auto;
-  transition:transform .55s cubic-bezier(.22,.9,.26,1),opacity .4s ease}
+  transition:transform .6s cubic-bezier(.3,1.28,.32,1),opacity .4s ease}
 #lab-embed-frame{flex:1;border:0;width:100%;background:var(--d-bg)}
-@media (prefers-reduced-motion:reduce){#howto-overlay,#lab-embed-overlay,#stage,#play-panel,#lab-panel{transition:none}}
+@media (prefers-reduced-motion:reduce){#howto-overlay,#lab-embed-overlay,#stage,#play-panel,#lab-panel,
+  #howto-close,.howto-wrap>.hw-kick,.howto-wrap>h1,.howto-wrap>.howto-intro,#howto-body>details{transition:none;transform:none}}
 #howto-overlay .howto-wrap{position:relative;max-width:860px;margin:0 auto;padding:72px 32px 120px}
 #howto-overlay h1{font-size:38px;font-weight:800;letter-spacing:-.8px;color:#fff;margin:0 0 10px}
 #howto-overlay .howto-intro{font-size:17px;color:rgba(255,255,255,.55);margin:0 0 64px}
-#howto-close{position:fixed;top:20px;right:24px;min-height:48px;display:flex;align-items:center;gap:8px;
-  padding:0 20px;border:0;border-radius:99px;background:rgba(255,255,255,.08);color:#fff;
-  font-size:14px;font-weight:700;cursor:pointer;touch-action:manipulation;z-index:61;
-  visibility:hidden;opacity:0;transition:opacity .3s ease .25s,visibility 0s linear .55s}
-body.howto #howto-close,body.labview #howto-close{visibility:visible;opacity:1;transition:opacity .3s ease .25s}
-#howto-close:hover{background:rgba(255,255,255,.14)}
+/* 돌아가기 = 이 페이지의 유일한 주 행동 → 레드 CTA(유저 08-12: 너무 안 띈다).
+   등장도 오른쪽에서 살짝 밀려 들어온다. */
+#howto-close{position:fixed;top:20px;right:24px;min-height:52px;display:flex;align-items:center;gap:8px;
+  padding:0 24px;border:0;border-radius:99px;background:var(--nb-red);color:#fff;
+  font-size:15px;font-weight:800;cursor:pointer;touch-action:manipulation;z-index:61;
+  visibility:hidden;opacity:0;transform:translateX(18px);
+  transition:opacity .3s ease .25s,transform .45s cubic-bezier(.3,1.28,.32,1) .25s,visibility 0s linear .6s}
+body.howto #howto-close,body.labview #howto-close{visibility:visible;opacity:1;transform:none;
+  transition:opacity .3s ease .25s,transform .45s cubic-bezier(.3,1.28,.32,1) .25s}
+#howto-close:hover{background:var(--nb-red)}
+#howto-close:active{transform:scale(.96)}
+/* 촤라락 — 열릴 때 내부 요소가 계단식으로 떠오른다(유저 08-12). 닫힐 때는 지연 없이 빠르게 */
+.howto-wrap>.hw-kick,.howto-wrap>h1,.howto-wrap>.howto-intro,#howto-body>details{
+  opacity:0;transform:translateY(26px);
+  transition:opacity .45s ease,transform .55s cubic-bezier(.3,1.28,.32,1)}
+body.howto .howto-wrap>.hw-kick{opacity:1;transform:none;transition-delay:.14s}
+body.howto .howto-wrap>h1{opacity:1;transform:none;transition-delay:.2s}
+body.howto .howto-wrap>.howto-intro{opacity:1;transform:none;transition-delay:.27s}
+body.howto #howto-body>details{opacity:1;transform:none;transition-delay:.55s}
+body.howto #howto-body>details:nth-child(1){transition-delay:.35s}
+body.howto #howto-body>details:nth-child(2){transition-delay:.44s}
 /* 근거 보드 도판 — 피그마 어펜딕스 원본(스튜디오가 조판한 사진·도해) */
 #howto-overlay .hw-fig{margin:20px 0 6px}
-#howto-overlay .hw-fig img{display:block;width:100%;height:auto;border-radius:14px}
+#howto-overlay .hw-fig img{display:block;width:100%;height:auto;border-radius:14px;background:#000}   /* 보드 배경 통일(#000 정규화와 한 벌) */
 #howto-overlay .hw-fig figcaption{padding:9px 2px 0;font-size:12.5px;color:rgba(255,255,255,.38)}
 /* 표·도식 — 보드(이미지)에 없는 내용의 정리 형식(유저 08-12: 텍스트 나열 대신) */
 #howto-overlay .hw-tbl{width:100%;border-collapse:collapse;margin:16px 0 8px}
