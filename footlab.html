@@ -249,13 +249,10 @@ body:not(.dev) [data-devonly]{display:none !important}
       <p class=note>발자국과 <b>같은 소스</b>(팔레트 LUT · 두께 uW · 헤일로 uHalo)를 소비합니다 — 위 '토큰 공통' 슬라이더를 만지면 함께 변합니다.
       형태 정본은 <code>fx-core</code>(drawApproachRing · drawStemArrow · drawTrajectory) — 시뮬이 쓰는 그 함수 그대로라, 여기서 확인한 그림이 곧 시뮬 그림입니다.</p>
     </div>
-    <div class=card>
-      <h2>발자국이 신발 밖으로 나갔는지 보기</h2>
-      <canvas id=align width=840 height=280></canvas>
-      <p class=note id=alignNote></p>
-    </div>
-    <div class=card>
-      <h2 data-devonly>현재값 스니펫</h2>
+    <!-- '발자국이 신발 밖으로 나갔는지 보기' 카드 삭제(유저 08-11) — 개발용 겹침 검수라
+         전시 관람객에겐 읽히지 않는다. 그리는 코드는 남아 있으니 복원은 git. -->
+    <div class=card data-devonly>
+      <h2>현재값 스니펫</h2>
       <textarea id=snip readonly></textarea>
     </div>
   </div>
@@ -804,7 +801,9 @@ function feed(u, ph, prog, t, mode, slot) {
 
 // ── 겹침 실측 — SDF 두 채널을 2D 로 직접 그린다(셰이더를 안 거치므로 겹침 자체가 보인다) ──
 function drawAlign() {
-  const cv = $('align'), g = cv.getContext('2d');
+  const cv = $('align');   // 겹침 검수 카드는 08-11 에 삭제됐다 — 없으면 조용히 넘어간다
+  if (!cv) return;
+  const g = cv.getContext('2d');
   g.clearRect(0, 0, cv.width, cv.height);
   const tex = units.foot?.tex;
   if (!tex) return;
@@ -839,7 +838,7 @@ function drawAlign() {
     g.putImageData(id, m * S, 0);
   }
   const pct = inArea ? (over / inArea * 100) : 0;
-  $('alignNote').textContent = pair
+  $('alignNote') && ($('alignNote').textContent = pair
     ? `자국이 신발 밖으로 나간 면적 ${pct.toFixed(2)}% ${pct < 0.05 ? '— 완전히 안에 들어갔다' : '(시안색 = 삐져나온 곳)'}`
     : '안(맨발) 채널이 없다 — 실내(맨발) 컨텍스트에선 각인이 비활성이다.';
 }
@@ -886,7 +885,7 @@ $('fit').onclick = () => {
     }
     if (best) break;   // 큰 쪽부터 훑으므로 처음 성공한 크기가 최대다
   }
-  if (!best) { $('alignNote').textContent = '완전히 들어가는 조합을 못 찾았다 — 실루엣 자체를 고쳐야 한다.'; return; }
+  if (!best) { $('alignNote') && ($('alignNote').textContent = '완전히 들어가는 조합을 못 찾았다 — 실루엣 자체를 고쳐야 한다.'); return; }
   hist.push({ ...P }); future.length = 0;
   P.scale = +best.s.toFixed(3); P.offx = +best.ox.toFixed(3); P.offy = +best.oy.toFixed(3);
   syncUI(); drawAlign(); persist(); updateHistUI();

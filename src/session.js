@@ -3317,10 +3317,14 @@ export class Session {
       this._paceTick();
       if (this.t >= st.dur) { this.next(); return; }
     } else if (id === 'C5') {
-      // 자연 감속 — 슬로모(liveSpeed) 대신 봇이 런→조깅→걷기로 크로스페이드하며 실제로 느려진다 (xbot.decelK)
-      if (this.xbot) this.xbot.decelK = Math.min(1, this.t / 2.8);
+      // ★ 마무리는 **판정이 끝난 화면**이다(유저 08-11) — 3·2·1 원형 판정 토큰을 지우고
+      //   봇도 달리기를 멈추고 제자리에서 숨을 고른다. 여기서 세는 것은 남지 않아야 한다.
+      this._setCount(null);
+      this.countGroup.visible = false; this.countRing.setOp?.(0);
+      this.repLeft = 0; this.repTotal = 0; this.repFrac = 0;
+      if (this.xbot) { this.xbot.decelK = 0; this.xbot.coolBreath = true; }
       this.c5stripes.forEach((s, i) => { s.material._gainK = (0.7 - i * 0.13) * (0.5 + 0.5 * Math.sin(this.t * 3 - i)); });
-      if (this.t > 4.0) { if (this.xbot) this.xbot.decelK = 0; this.stageIdx = this.stages.findIndex(s2 => s2.id === 'FIN'); this.t = 0; this._enter(); return; }
+      if (this.t > 4.0) { if (this.xbot) { this.xbot.decelK = 0; this.xbot.coolBreath = false; } this.countGroup.visible = true; this.stageIdx = this.stages.findIndex(s2 => s2.id === 'FIN'); this.t = 0; this._enter(); return; }
     }
   }
 

@@ -4493,6 +4493,9 @@ void main(){
     if (sport === 'basketball') return 'dribble';           // 그 외 제자리 드리블
     if (sport === 'boxing') return /B\d/.test(id) ? 'hook' : 'warmup';
     // 러닝: 대기·전환(READY/T1/T2/FIN)=자연 호흡 idle(Mixamo Breathing Idle, 손 내림). 완전정지 어색(유저) → 재생.
+    // ★ 마무리(C5) = 제자리 심호흡(유저 08-11: 달리지 말고 가만히 서서 숨 고르기).
+    //   idle 이 Mixamo Breathing Idle 이라 그대로 쓴다 — 새 클립 0개.
+    if (id === 'C5' && xbot.coolBreath) return 'idle';
     if (['READY', 'T1', 'T2', 'FIN'].includes(id)) return 'idle';
     return 'run';
   }
