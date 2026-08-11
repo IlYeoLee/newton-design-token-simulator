@@ -669,11 +669,8 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
           <div class="lab-note" style="margin-top:4px">ω <b id="lab-omega">—</b>°/s · <b id="lab-phase">—</b></div>
           <button class="lab-go" id="lab-burst" style="margin-top:8px;border-color:#fa3030;background:rgba(250,48,48,.14);color:#ff7a7a">과도 구간 재현</button>
         </div>
-        <details>
-          <summary>왜 세 항은 티가 안 나나</summary>
-          <div class="lab-note">RAW가 전부를 끄는 스위치고, 아래 셋은 그 위에 얹히는 세부 보정이다.
-            정상 주행에선 기여가 작다(실측 0.25~0.28cm). 큰 값은 과도 구간에서 나온다.</div>
-        </details>
+        <!-- '왜 세 항은 티가 안 나나' 삭제(유저 08-11) — 보정이 미미하다고 스스로 자백하는 항이라
+             관람객이 '별거 아니네'로 읽는다. 티는 '과도 구간 재현' 버튼이 직접 보여준다. -->
       </details>
 
       <details>
@@ -711,14 +708,67 @@ body:not(.dev):has(#lab-panel.folded) #stage{margin-left:56px}
       </details>
 
       <details>
+        <summary>벽면 투사 <span class="cnt">복싱</span></summary>
+        <div class="lab-kv"><span>투사 크기</span><b>2.60 × 1.63 m</b></div>
+        <div class="lab-kv"><span>벽 ↔ 빔 유닛</span><b>1.36 m</b></div>
+        <div class="lab-kv"><span>벽 ↔ 사람</span><b>3.29 m</b></div>
+        <div class="lab-kv"><span>대지 환산</span><b>1 px = 1 mm</b></div>
+        <details>
+          <summary>자취방에서도 되나</summary>
+          <div class="lab-note">필요 깊이 <b>3.28 m → 1.56 m</b>. 병목은 벽 크기가 아니라 전신을 담는
+            카메라 화각이었다. 벽 팩은 주먹·가드만 보면 되므로 ① 프레이밍을 상체로(−0.6~0.8m)
+            ② 광각 70°(−0.64m) ③ 초단초점 TR 0.25(−0.9m). 방 깊이 3m에서 1.4m가 남는다.</div>
+        </details>
+      </details>
+
+      <details>
+        <summary>바닥 글자 크기 <span class="cnt">시각도</span></summary>
+        <div class="lab-kv"><span>1급 (동작명·타이머)</span><b>0.70°</b></div>
+        <div class="lab-kv"><span>2급 (단계·단위)</span><b>0.45°</b></div>
+        <div class="lab-kv"><span>절대 하한</span><b>0.20°</b></div>
+        <details>
+          <summary>왜 cm 가 아니라 각도인가</summary>
+          <div class="lab-note">바닥은 스치는 각도로 보여 글자가 눌린다. 눈에 맺히는 각
+            <b>θ = h·sinα / d</b> 로 재야 거리와 무관하게 같은 크기가 된다. 거리의 <b>제곱</b>에
+            비례해 커져야 하는 게 바닥 UI 만의 성질이다. 눈높이는 신장 × 0.936.</div>
+        </details>
+        <details>
+          <summary>근거 — 네 문헌</summary>
+          <div class="lab-note">Legge &amp; Bigelow 2011 임계 활자 0.2° · ISO 9241-303 권장 16~22 arcmin ·
+            Cai 2013 스침각 보정식(입사각 65.7°까지 검증, 우리 전 구간 6~50°) · MUTCD 노면 표시 늘림비.
+            운동 중·곁눈 훑기 감점 1.35~1.5배는 <b>우리가 정한 값</b>이다 — 그 조건을 잰 논문은 없다.</div>
+        </details>
+      </details>
+
+      <details>
+        <summary>못 쓰는 땅 <span class="cnt">콘 밖</span></summary>
+        <div class="lab-kv"><span>대지 위쪽</span><b>289 px = 12.7%</b></div>
+        <div class="lab-kv"><span>조판 밴드</span><b>6 개</b></div>
+        <details>
+          <summary>왜 비워 두나</summary>
+          <div class="lab-note">투사 콘을 벗어난 픽셀은 GPU가 잘라낸다 — 거기 놓은 요소는 화면에서
+            그냥 사라진다. 그래서 지면은 여섯 밴드로만 나뉘고, 타이틀 위로 올라갈 수 있는 건
+            라벨 하나뿐이다. <b>안 보이는 노드는 자리도 차지하지 않는다.</b></div>
+        </details>
+      </details>
+
+      <details>
         <summary>가시성 규칙</summary>
         <div class="lab-kv"><span>창 경계</span><b>페더 18cm</b></div>
         <div class="lab-kv"><span>공에 가릴 때</span><b>그 토큰만 소등</b></div>
+        <div class="lab-kv"><span>차폐 실측</span><b>평균 1.4% · 최악 16%</b></div>
         <div class="lab-kv"><span>주간 모드</span><b>풀컬러 + 커버리지 α</b></div>
         <details>
           <summary>왜 끄는가</summary>
           <div class="lab-note">투사광은 몸·공에 가려지는 게 물리적으로 맞다. 가려진 구간을 그리는 대신
             정직하게 끄고(평균 1.4%), 페더로 경계가 사각형으로 드러나지 않게 한다.</div>
+        </details>
+        <details>
+          <summary>추적으로 피하면 안 되나 — 기각</summary>
+          <div class="lab-note">240Hz로 공을 쫓아 콘텐츠를 피신시키는 안을 실측으로 기각했다.
+            그림자 이동 속도가 중앙값 <b>14.7 m/s</b>(상위 10% 151 m/s), 순간 최대 차폐 면적 92%.
+            <b>빛이 막힌 자리는 속도로 못 채운다</b> — 피신시킬 자리도 시간도 없다.
+            포드를 종아리 바깥 6cm로 옮긴 것만으로 평균 7.6% → 1.4% 가 됐다.</div>
         </details>
       </details>
     </div>
