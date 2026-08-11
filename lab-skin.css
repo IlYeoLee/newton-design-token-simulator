@@ -75,6 +75,14 @@ input[type=range]{accent-color:var(--nb-coral)}
    컴포넌트 표면은 홈(제품 뷰 lab-panel) 레시피가 정본:
    카드 rgba(255,255,255,.04) + 헤어라인 rgba(255,255,255,.10) + r10~12 ·
    CTA 풀폭 레드 필 r11 · 세그 버튼 rgba(255,255,255,.06) 무테. */
+/* ── 랩 조판 정본(유저 08-12 확정 — footlab 에서 세워 tokens 로 확장) ──
+   두 랩(발자국·지면 레이아웃)이 같은 숫자를 쓴다. 갈리면 그게 버그다.
+   · 마진의 주인: 좌우 여백은 콘텐츠 스테이지(100/100)가, 컨트롤 패널은 따로 대칭(28/28).
+   · 패널: 폭 400 · 패딩 26/26/48 · overflow-x 차단 · 그룹 간격 42 · 행 간격 14.
+   · 위계(1920 풀스크린): 페이지 34 > 섹션 26 > 그룹 22 > 본문 17 > 라벨/캡션 15~16.
+   · 섹션: 상위 컨테이너(카드 면) 없음 — 큰 타이틀 + 간격 64가 영역을 가른다. 타일 r12.
+   · 칩: 내용 폭만(hug), 선택 = 레드 필. 슬라이더: 트랙 6 · 썸 20 · 히트 32.
+   · 카피: 제목은 단문(대시 금지), 캡션은 마침표 문장. 개발자 문구는 data-devonly. */
 .t-page{font-size:22px;font-weight:800;letter-spacing:-.5px;color:var(--d-title)}
 .t-card{font-size:15px;font-weight:700;color:var(--d-strong)}
 .t-body{font-size:14px;line-height:1.6;color:var(--d-body)}

@@ -17,21 +17,21 @@
    활자 16px 'Pretendard' 우선 · 섹션 = 박스·빨간바 없이 큰 제목(18/800) · 한 줄 행
    [라벨 118 | 대형 슬라이더 | sand 값 60] · 필 알약 버튼(레드 액티브). 값이 footlab 과
    갈리면 그게 버그다 — 여기 숫자는 전부 footlab 스타일 블록과 같은 값이다. */
-body{background:var(--d-bg);color:var(--text);font:16px/1.6 'Pretendard',var(--ds-font);
+body{background:var(--d-bg);color:var(--text);font:17px/1.65 'Pretendard',var(--ds-font);
   display:flex;height:100vh;overflow:hidden}
 
-/* ── 좌: 토큰 패널 (footlab .panel 과 동일 치수) ─────────── */
-#panel{width:360px;flex:0 0 360px;overflow-y:auto;padding:26px 22px 40px;border:0;
-  background:transparent;overscroll-behavior:contain}
+/* ── 좌: 토큰 패널 — 랩 조판 정본(lab-skin.css 상단 주석, footlab 과 같은 숫자) ── */
+#panel{width:400px;flex:0 0 400px;overflow-y:auto;overflow-x:hidden;padding:26px 26px 48px;border:0;
+  margin:0 28px;background:transparent;overscroll-behavior:contain;scrollbar-gutter:stable}
 #panel::-webkit-scrollbar{width:8px}
 #panel::-webkit-scrollbar-thumb{background:var(--d-border);border-radius:4px}
-#panel h1{font-size:27px;font-weight:800;letter-spacing:-.6px;color:#fff;margin:0 0 8px}
-#panel .sub{color:rgba(255,255,255,.5);font-size:15px;line-height:1.6;margin:0 0 26px}
-.grp{margin:0 0 30px;background:transparent;border-radius:0;padding:0}
-.grp>h2{font-size:18px;font-weight:800;letter-spacing:-.3px;color:#fff;padding:0;margin-bottom:14px}
-.tk{display:grid;grid-template-columns:118px 1fr 60px;gap:2px 12px;align-items:center;margin:12px 0}
-.tk label{font-size:15px;font-weight:600;color:rgba(255,255,255,.75);grid-column:1}
-.tk .val{font-size:15px;font-weight:700;color:#fff;text-align:right;   /* GUI 레드+회색조(유저 08-12) — sand 은퇴 */
+#panel h1{font-size:34px;font-weight:800;letter-spacing:-.8px;color:#fff;margin:0 0 10px}
+#panel .sub{color:rgba(255,255,255,.5);font-size:16px;line-height:1.6;margin:0 0 30px}
+.grp{margin:0 0 42px;background:transparent;border-radius:0;padding:0}
+.grp>h2{font-size:22px;font-weight:800;letter-spacing:-.3px;color:#fff;padding:0;margin-bottom:14px}
+.tk{display:grid;grid-template-columns:132px 1fr 64px;gap:2px 12px;align-items:center;margin:14px 0}
+.tk label{font-size:16px;font-weight:600;color:rgba(255,255,255,.78);grid-column:1}
+.tk .val{font-size:16px;font-weight:700;color:#fff;text-align:right;   /* GUI 레드+회색조(유저 08-12) — sand 은퇴 */
   font-variant-numeric:tabular-nums;grid-column:3}
 .tk input[type=range]{grid-column:2;grid-row:1;width:100%;min-width:0;-webkit-appearance:none;appearance:none;height:32px;
   background:transparent;cursor:ew-resize}
@@ -61,7 +61,7 @@ button.on{background:var(--nb-red);color:#fff}
   border-bottom:1px solid var(--d-divider);background:var(--d-bg-sub)}
 #bar .t{font:var(--t-labs);color:var(--d-t3);font-variant-numeric:tabular-nums;min-width:112px}
 #bar input[type=range]{flex:1;max-width:420px;accent-color:var(--nb-red)}
-#grid{flex:1;overflow:auto;padding:16px;display:flex;flex-wrap:wrap;gap:16px;align-content:start}
+#grid{flex:1;overflow:auto;padding:24px 100px 48px 24px;display:flex;flex-wrap:wrap;gap:24px;align-content:start}   /* 좌우 마진은 콘텐츠의 것(정본) — 우측 100 */
 .cell{background:rgba(255,255,255,.035);border:0;border-radius:16px;overflow:hidden;flex:0 0 auto}   /* footlab .card 레시피 */
 .cell.pack-bk{box-shadow:inset 0 0 0 1px rgba(255,255,255,.14)}   /* 농구 표식도 회색조(유저 08-12) */
 .cell .hd{display:flex;justify-content:space-between;align-items:baseline;padding:9px 11px;
@@ -140,7 +140,7 @@ body:not(.dev) [data-devonly]{display:none !important}
       <input type="range" data-t="fsBadge" min="24" max="96" step="2"></div>
   </div>
 
-  <div class="grp"><h2>형태 — 유리</h2>
+  <div class="grp"><h2>유리 알약의 형태</h2>
     <div class="tk"><label>채움</label><span class="val" data-v="fill"></span>
       <input type="range" data-t="fill" min="0" max="0.3" step="0.005"></div>
     <div class="tk"><label>안쪽 블러 세기</label><span class="val" data-v="blurA"></span>
@@ -177,7 +177,7 @@ body:not(.dev) [data-devonly]{display:none !important}
     <div id="ratio" style="font:var(--t-labs);color:var(--d-t2);padding:6px 0 0"></div>
   </div>
 
-  <div class="grp"><h2>가독 근거 — 시각도</h2>
+  <div class="grp"><h2>가독 근거(시각도)</h2>
     <div class="hint" style="margin:-2px 0 8px;color:var(--dim);line-height:1.5">
       바닥은 <b>스치는 각도</b>로 보여 글자가 눌린다.<br>
       θ ≈ h·sinα/d · sinα = E/d → <b>h = θ·d²/E</b>
