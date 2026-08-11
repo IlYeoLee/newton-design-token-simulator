@@ -828,7 +828,9 @@ void main(){
       //   벽 채움(0a457cb)은 카메라가 봇보다 벽 쪽에 앉아 뒷모습이 프레임에 못 들어왔고,
       //   1인칭(벽 응시)과 구분도 안 됐다(유저: '전환이 안 되는 것 같다'). '벽 가득'은 1인칭이 담당.
       controls.target.set(a.x, 1.25, a.z - 1.0);
-      camera.position.set(a.x, 2.00, a.z + 2.20);
+      // (08-12 유저) 기본 확대 조금만 더 — 등 뒤 거리 2.20 → 1.80m (타깃 거리 3.29 → 2.90m, −12%).
+      //   고도도 2.00 → 1.90 으로 같이 내려 부각 유지(거리만 줄이면 내려다보는 각이 세진다).
+      camera.position.set(a.x, 1.90, a.z + 1.80);
     } else {
       controls.target.set(a.x, 0.95, a.z);
       // ★ 08-10 유저: 너무 멀리서 잡고 조금만 더 위에서 내려다봤으면.
@@ -4484,10 +4486,17 @@ void main(){
       A2: 'auto_cmu144_11',            // Left_Lunges — 무릎 15cm 깊은 실측 런지
       A3: 'kneeTwist',                 // 무릎 올리며 몸통 비틀기 (절차·리듬 1.2s/rep — cmu14_20엔 클린 하이니 없음)
       T1: 'neckStretch', T2: 'armStretch',   // FIN=quadStretch 제거 → idle(Breathing Idle=자연 서기, 3876행 폴백). 유저: 리포트에선 자연스럽게 서있게.
-      // 복싱 = Mixamo 실측 모캡 (목풀기만 절차)
-      BX_A1: 'bx_neck', BX_A2: 'boxGuard', BX_A3: 'boxJab',
-      BX_B1: 'boxGuard', BX_B2: 'boxGuard', BX_B3: 'boxCombo',
-      BX_READY: 'boxGuard', BX_T1: 'boxGuard', BX_T2: 'boxGuard', BX_C1: 'boxGuard',
+      // 복싱 — 장면별 실측 배정(08-12, tmp_scan_box 골격 실측). 그전엔 거의 전부 boxGuard 였는데
+      //   그 클립은 잽·크로스가 섞인 섀도복싱이라(펀치 0.43s L·0.67s R 실측) '가드 유지'·'스텝'
+      //   장면에서 봇이 펀치를 던졌다. boxJab 도 잽이 아니라 바디잽(뻗음 최고점 y0.96=배 높이)이었다.
+      //   C단계(실전)는 기존 확정대로 idle — 4521행 조기 반환이 담당, 여기 안 적는다.
+      BX_A1: 'bx_neck',               // 목·어깨 — 절차 저작 유지 (복싱에서 목풀기만 절차)
+      BX_A2: 'auto_mx_step_inout',    // 스텝 인·아웃 — Mixamo Short Step Fwd(+0.60m)+Med Step Back(−0.64m) 합성(tmp_bake_inout), 잔차 3.7cm 선형 제거·이음새 동일 포즈
+      BX_A3: 'imp_mx_jab_head_med',   // 잽 폼 — Mixamo 'Lead Jab: Med Head Jab' (뻗음 0.74m·y1.47 ≈ 벽 타겟 TY 1.58)
+      BX_B1: 'imp_mx_idle_guard',     // 가드 유지 — Mixamo 'Boxing Idle' (가드율 100%·펀치 0·이음새 일치)
+      BX_B2: 'auto_cmu14_02',         // 회피 슬립 — CMU 14_02 창 [3.5,5.1] 좌→우 슬립 (위상은 아래 분기, 요 −16~+9° 안정)
+      BX_B3: 'imp_mx_jab_head_med',   // 잽 스윕 — 잽 반복 시연(스윕 선·횟수는 벽 UI 담당)
+      BX_READY: 'imp_mx_idle_guard', BX_T1: 'imp_mx_idle_guard', BX_T2: 'imp_mx_idle_guard',
       // 농구 — CMU 06 실측: A3 로우 프리스타일 드리블, B1·B2 크로스오버+슛(시그니처 무브 시범/분해),
       // B3 컷·감속(드리블 컷 구간 창). 시작 화면(READY)은 러닝과 동일 calm idle(공 없음)
       // 농구 A단계 v5: A1 옆구리 스트레치(hj_sidebend) + A2·A3 = cmu13_30 구간(무릎들기 5.5–9.8s·스쿼트 9.8–14.2s)
@@ -4738,6 +4747,10 @@ void main(){
       if (session.stage !== 'A2') session.a2Cyc = null;
       let _phase = null;
       if (_clip === 'stomp_press') _phase = session.t;
+      // BX_B2 슬립 = CMU 14_02 의 창 [3.5, 5.1] 만 순환 — 그 1.6s 가 좌슬립(3.9, 머리 −0.15·힙 0.71)
+      //   → 우슬립(4.7, +0.18·0.72) 한 쌍이고 양 끝 포즈가 실측 일치(머리 r 0.01↔−0.04 · 힙 1.04↔1.10)
+      //   라 하드 루프가 안 튄다. 전 구간을 돌리면 스파링 잡동작(펀치·턴)이 섞인다.
+      else if (session.stage === 'BX_B2') _phase = 3.5 + (session.t % 1.6);
       else if (session.stage === 'A1') _phase = session.t;   // A1 neckShoulder 목부터 시작 (잔여 _demoT 위상 오류 방지)
       else if (session.stage === 'A3') _phase = Math.max(0, session.t - (session._aWatchEnd ?? A2_WATCH));   // 시범 후 하이니 (1.6배속 철회 — 동작 딱딱해짐)
       else if (session.sport === 'running' && (/^run_|^hj_/.test(_clip) || _clip === 'cmu_stretch' || _clip === 'jumpingJacks')) _phase = session.t;
@@ -4866,7 +4879,9 @@ void main(){
       // ★ 위상 잠금도 푼다 — 스텝백 스테이지의 _phase 는 영상 창[1.05,2.30]에 묶인 값이라
       //   idle 이 1.25초 조각만 돌다 끝에서 굳었다(실측: clipT 가 2.3 에서 멈춤). 호흡은
       //   영상과 동기될 이유가 없다. null 이면 playDemo 가 자기 시계로 자연 루프한다.
-      xbot.playDemo(_clip, h, session.stage === 'BX_READY', aWatching ? null : _phase);
+      // (08-12) READY hold 폐기 — 가드 대기가 imp_mx_idle_guard(가드율 100% 바운스 아이들)로 바뀌어
+      //   프레임을 얼릴 이유가 없다. 얼리면 다시 마네킹이 된다(관찰 구간과 같은 교훈).
+      xbot.playDemo(_clip, h, false, aWatching ? null : _phase);
       // ★ 1인칭 스텝백은 공을 숨긴다(08-10 실측: 124_06 공이 가슴 높이라 카메라 0.9m 앞
       //   거대 구가 되어 발자국을 가린다). 드리블(B1)은 공이 바닥 쪽이라 그대로 둔다.
       if (fpMode && STEP_SEG[session.stage || ''] && xbot.ball) xbot.ball.visible = false;

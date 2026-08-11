@@ -330,5 +330,10 @@
   "root": true,
   "dur": 5.86,
   "cat": "basketball"
+ },
+ "mx_step_inout": {
+  "root": true,
+  "dur": 1.8,
+  "cat": "boxing"
  }
 }

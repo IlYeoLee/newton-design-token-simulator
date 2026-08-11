@@ -28,5 +28,17 @@
   "rig": "MIXAMO",
   "dur": 6.3,
   "jit": 40.2
+ },
+ "mx_jab_head_med": {
+  "grounded": false,
+  "rig": "MIXAMO",
+  "dur": 1.5,
+  "jit": 32.5
+ },
+ "mx_idle_guard": {
+  "grounded": false,
+  "rig": "MIXAMO",
+  "dur": 2.2,
+  "jit": 9.2
  }
 }
