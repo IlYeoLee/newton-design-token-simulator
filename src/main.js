@@ -409,6 +409,21 @@ async function boot() {
     tokens.loopShiftZ = 0;
     const data = state.packs[p];
     if (!data) return;   // 팩 JSON 로드 전 호출 — 배포본에서 실제로 발생(느린 네트워크). 로드 후 다시 온다.
+    // ★ 종목이 바뀌면 **이전 종목 코치 영상의 디코더를 놓아준다**(유저 08-11: 체험이 쌓일수록
+    //   느려진다). pause 만으로는 디코더·프레임 버퍼가 그대로 살아 있어, 종목을 오갈수록
+    //   재생 중이 아닌 영상이 계속 늘어난다. 접두사로 이번 종목 것만 남기고 나머지는
+    //   src 를 떼서 완전히 반납한다 — 다시 필요해지면 ensureCoach 가 그때 로드한다.
+    {
+      const keep = p === 'boxing' ? 'BX_' : p === 'basketball' ? 'BK_' : '';
+      for (const cid in _coaches) {
+        const c = _coaches[cid]; if (!c?.video) continue;
+        const mine = keep ? cid.startsWith(keep) : !/^(BX|BK)_/.test(cid);
+        if (mine) continue;
+        try { c.video.pause(); c.video.removeAttribute('src'); c.video.load(); } catch (e) {}
+        c.plane.visible = false; if (c.grid) c.grid.visible = false;
+        c._shown = false; c._srcOff = true;   // ensureCoach 가 다시 물릴 수 있게 표시
+      }
+    }
     tokens.setPack(data);
     xbot.setPack(data, tokens.events);
     rig.setPack(data.sport, tokens.events);
@@ -2750,7 +2765,15 @@ void main(){
     });
   }
   function ensureCoach(id) {
-    if (_coaches[id]) return _coaches[id];
+    if (_coaches[id]) {
+      const c = _coaches[id];
+      if (c._srcOff && c.video) {   // 종목 전환 때 반납했던 소스를 다시 물린다
+        c._srcOff = false;
+        c.video.src = import.meta.env.BASE_URL + COACH_CFG[id].src;
+        c.video.play().catch(() => {});
+      }
+      return c;
+    }
     const cfg = COACH_CFG[id];
     const video = document.createElement('video');
     video.src = import.meta.env.BASE_URL + cfg.src;   // VP9 — 전 브라우저 디코드

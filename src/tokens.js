@@ -1146,8 +1146,25 @@ export class TokenSystem {
 
   setParams(p) { Object.assign(this.params, p); }
 
+  /** 서브트리의 GPU 자원을 실제로 놓아준다. Group.clear() 는 부모-자식 링크만 끊고
+   *  지오메트리·텍스처·머티리얼은 드라이버에 그대로 남긴다 — 팩을 갈 때마다 쌓인다.
+   *  실측(유저 08-11 '체험이 쌓일수록 느려진다'): 종목 3개 왕복 8라운드에
+   *  지오메트리 22 → 113, FPS 22.8 → 5.8. 여기서 끊는다. */
+  _disposeTree(root) {
+    root.traverse(o => {
+      o.geometry?.dispose?.();
+      const ms = Array.isArray(o.material) ? o.material : (o.material ? [o.material] : []);
+      for (const m of ms) {
+        for (const k in m) { const v = m[k]; if (v && v.isTexture) v.dispose?.(); }
+        m.dispose?.();
+      }
+    });
+  }
+
   setPack(packData) {
-    // 기존 비주얼 제거
+    // 기존 비주얼 제거 — **해제까지** 한다(clear 만으로는 GPU 에 남는다)
+    this._disposeTree(this.floorRoot);
+    this._disposeTree(this.wallRoot);
     this.floorRoot.clear();
     this.wallRoot.clear();
     this._compareRoot = null;   // 비교 오버레이도 floorRoot.clear()로 제거
