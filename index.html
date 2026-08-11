@@ -417,6 +417,11 @@ body:not(.dev):has(#play-panel.folded) #stage{margin-right:calc(56px*1.15)}
   border-bottom:1px solid var(--d-divider)}
 #lab-panel .lab-kv span:first-child{color:var(--d-t3)}
 #lab-panel .lab-kv b{color:var(--d-strong);font-weight:700}
+/* 근거 스탯(왜 바닥에 쏘나) — 헤어라인 샌드위치 제거(유저 08-12: 가운데 줄 여러 개가 지저분).
+   한 근거 = [라벨 + 큰 수치] + 출처 한 덩어리. 구분은 선이 아니라 간격이 한다. */
+#lab-panel #sec-why .lab-kv{border-bottom:0;padding-block:0;margin-top:18px}
+#lab-panel #sec-why .lab-kv b{font-size:24px;letter-spacing:-.5px}
+#lab-panel #sec-why .lab-src{border-top:0;padding-top:0;margin:3px 0 0}
 #lab-panel .lab-note{font:var(--t-labr);color:var(--d-t3);letter-spacing:-.5px;line-height:1.6}
 #lab-panel .lab-sw{border:0;border-radius:var(--ds-r);background:var(--d-bg-sub);padding:13px 14px;margin-top:8px}
 #lab-panel .lab-sw .t{font:var(--t-capb);letter-spacing:-.2px;color:var(--d-strong)}
@@ -478,7 +483,7 @@ button, summary, .lab-pill, .lab-sw, .lab-go, .pp-pack, [role=button]{position:r
 .lab-pill .ripple{background:rgba(0,0,0,.14)}
 @keyframes ripple{to{transform:scale(2.6);opacity:0}}
 </style>
-  <script type="module" crossorigin src="./assets/main-DvPNhGQ0.js"></script>
+  <script type="module" crossorigin src="./assets/main-Dtr4ZNxU.js"></script>
   <link rel="modulepreload" crossorigin href="./assets/modulepreload-polyfill-B5Qt9EMX.js">
   <link rel="modulepreload" crossorigin href="./assets/preload-helper-PPVm8Dsz.js">
   <link rel="modulepreload" crossorigin href="./assets/fx-core-CsnioyF7.js">
