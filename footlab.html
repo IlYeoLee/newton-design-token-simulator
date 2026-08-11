@@ -9,7 +9,7 @@
   *{box-sizing:border-box}
   html,body{margin:0;background:var(--d-bg);color:var(--text);
     font:16px/1.6 'Pretendard',var(--ds-font)}
-  .wrap{display:flex;gap:22px;padding:24px;align-items:flex-start;flex-wrap:wrap}
+  .wrap{display:flex;gap:18px;padding:16px 16px 40px;align-items:flex-start;flex-wrap:wrap}   /* 좌우 마진 축소(유저 08-12) — 콘텐츠가 넓게 선다 */
   /* 패널이 세로로 길어 미리보기를 보면서 조절할 수가 없었다(유저) — 패널만 따로 스크롤한다. */
   .panel{width:360px;flex:0 0 360px;background:transparent;border:0;
     padding:26px 22px 40px;position:sticky;top:0;
@@ -48,8 +48,12 @@
     border-radius:999px;padding:14px;font-size:15px;font-weight:700;cursor:pointer;transition:background .18s}
   .acts button:hover{background:rgba(255,255,255,.12)}
   .stage{flex:1 1 620px;min-width:520px}
-  .card{background:rgba(255,255,255,.035);border:0;border-radius:16px;padding:18px;margin-bottom:18px}
+  /* 섹션 문법(유저 08-12: 구조화해라) — 카드 패딩 24 균일, 리듬 = 타이틀(0/14) →
+     칩(0/16) → 콘텐츠 타일 → 캡션(12/0). 모든 카드가 같은 상수를 쓴다. */
+  .card{background:rgba(255,255,255,.035);border:0;border-radius:16px;padding:24px;margin-bottom:18px}
   .card h2{font-size:18px;font-weight:800;color:#fff;letter-spacing:-.3px;margin:0 0 14px}
+  .card .seg{margin:0 0 16px}
+  .card .note{margin:12px 0 0;display:block;font-size:13px;color:rgba(255,255,255,.55);line-height:1.7}
   canvas{display:block;border-radius:10px;max-width:100%}
   /* 표시 크기는 여기서만 정한다 — 렌더 버퍼(canvas width/height)와 분리.
      예전엔 스크립트가 width:100% 를 걸어서 560px 버퍼가 카드 폭까지 늘어나 화면을 다 먹었다. */
@@ -77,9 +81,20 @@
      짓눌려 들어갔다(유저: 왜 찌그러져 보이냐). 칸 수를 바꾸면 이 값도 같이 바꿀 것. */
   /* 비율은 버퍼와 반드시 동일하게 못박는다. 폭은 위 .duo 그리드/풀폭 식에서 나온다. */
   #strip{aspect-ratio:1120 / 690}
-  #prims{aspect-ratio:1900 / 800}
+  /* 동작 토큰 = 풀폭 한 줄(유저 08-12: 너무 작다 — 시원하게). 발자국 풀폭과 같은 저울 */
+  #prims{width:calc(var(--hero,460px)*2.6232 + 18px);max-width:100%;height:auto;aspect-ratio:1900 / 800}
   #comp{width:calc(var(--hero,460px)*2.6232 + 18px);max-width:100%;height:auto;aspect-ratio:1120 / 380}
   #a2{width:calc(var(--hero,460px)*2.6232 + 18px);max-width:100%;height:auto;aspect-ratio:1120 / 620}
+  /* 바닥 칩 바 — 스크롤에도 고정. 전역 바닥은 body[data-floor] 가 토큰 타일에도 입힌다 */
+  #floorbar{position:sticky;top:0;z-index:20;display:flex;gap:14px;align-items:center;
+    padding:14px 0 16px;margin-bottom:4px;background:linear-gradient(var(--d-bg) 78%,transparent)}
+  #floorbar .fb-t{font-size:14px;font-weight:700;color:rgba(255,255,255,.55)}
+  #floorbar .seg{margin:0}
+  /* 판정·큐 토큰 타일도 바닥을 같이 입는다(근사색 — FLOORS base 와 같은 값) */
+  body[data-floor=track] #mat, body[data-floor=track] #prims{background:#A6BCA4}
+  body[data-floor=tile]  #mat, body[data-floor=tile]  #prims{background:#CDD1D5}
+  body[data-floor=dark]  #mat, body[data-floor=dark]  #prims{background:#0B0E13}
+  body[data-floor=white] #mat, body[data-floor=white] #prims{background:#F2F3F5}
   #align{width:calc(var(--hero,460px) * 1.5);max-width:100%;height:auto;aspect-ratio:840 / 280}
   .stage{flex:1 1 560px;min-width:420px}
   #snip{width:100%;height:126px;background:rgba(0,0,0,.35);color:rgba(255,255,255,.72);border:0;
@@ -219,20 +234,22 @@ body:not(.dev) [data-devonly]{display:none !important}
     <!-- ★ 미리보기 2프레임 재편(유저 08-12): 관련 정보는 한 프레임에 묶는다.
          프레임 1 = 발자국(확대 + 8상태 나란히 · 배경 칩은 여기서 바로 · 바닥 합성 · A2 예시)
          프레임 2 = 동작(드리블 매트 + 동작 토큰 나란히 — 농구만 커지지 않게 폭 통일) -->
-    <div class=card>
-      <h2>발자국 — 확대 · 8상태 · 바닥 위 합성</h2>
-      <div class=seg id=segFloor style="margin-bottom:12px">
-        <button data-v=track class=on>트랙(민트)</button><button data-v=tile>인터로킹(회백)</button>
+    <!-- 바닥 선택 = 스크롤에도 고정되는 전역 칩 바(유저 08-12). 발자국만이 아니라
+         판정·큐 토큰 타일(매트·동작)의 바닥도 함께 갈아입는다(body[data-floor]). -->
+    <div id=floorbar>
+      <span class=fb-t>바닥</span>
+      <div class=seg id=segFloor>
+        <button data-v=track class=on>트랙</button><button data-v=tile>인터로킹</button>
         <button data-v=dark>어두운 실내</button><button data-v=white>흰 바닥</button>
       </div>
+    </div>
+    <div class=card>
+      <h2>발자국 마크 — 확대 · 8가지 상태</h2>
       <div class=duo>
         <div><canvas id=hero width=640 height=640></canvas></div>
         <div><canvas id=strip width=1120 height=690></canvas></div>
       </div>
-      <canvas id=comp width=1120 height=380 style="margin-top:14px"></canvas>
-      <p class=note>투사광은 가산이라 색감은 실제 바닥 위에서 결정됩니다 — 위 칩으로 바닥을 바꿔 보세요.
-        실제 사진을 쓰려면 <code>public/floors/track.jpg</code> · <code>tile.jpg</code> 로 넣으면 자동으로 그걸 씁니다.</p>
-      <h2 style="margin-top:22px">발자국 예시 — A2 종아리 늘리기 (실측 스탠스·실측 타이밍)</h2>
+      <h2 style="margin-top:22px">발자국 예시 — 종아리 스트레칭 한 세트</h2>
       <div class=seg id=segA2Stance style="margin-bottom:10px">
         <button data-v=0.77 class=on>압축 ×0.5 · 0.77m</button><button data-v=0.92>압축 ×0.6 · 0.92m</button><button data-v=1.54>실척 1.54m</button><button data-v=0.32>지금 시뮬 0.32m</button>
       </div>
@@ -243,21 +260,22 @@ body:not(.dev) [data-devonly]{display:none !important}
         스탠스 실척은 <b>앞뒤 1.54m</b>(빨간 신발 연결요소 중심 거리 · 러닝화 270mm 축척 · 홀드 127프레임 중앙값)인데 <b>대지에 안 들어간다</b> — 간격 1.54 + 발 0.30 = 1.84m 인데 헤더 알약 아래 자유대가 1.544m 뿐이다. 그래서 기본은 <b>압축 ×0.5 = 0.77m</b>(전체 1.07m · 여유 0.47m). 점선이 대지, 흐린 띠가 타이틀·알약 자리다.
         좌우 벌림 0.10m 만 눈으로 맞춘 노브다 — 측면뷰라 횡폭은 원리적으로 못 잰다.
         합성은 위 바닥 칩(낮/밤/레이저)을 그대로 따른다(기본 = 잉크).</p>
+      <h2 style="margin-top:22px">실제 바닥 위에서는</h2>
+      <canvas id=comp width=1120 height=380></canvas>
+      <p class=note>빛은 바닥에 <b>더해지는</b> 것이라, 마크의 색감은 바닥이 정합니다 — 위 바닥 칩을 눌러 비교해 보세요.<span data-devonly> 실제 사진은 <code>public/floors/track.jpg</code> · <code>tile.jpg</code> 로 넣으면 자동으로 씁니다.</span></p>
     </div>
     <div class=card>
-      <h2>동작 — 드리블 매트 · 동작 토큰</h2>
+      <h2>판정·큐 토큰 — 발자국과 같은 룩으로</h2>
+      <canvas id=prims width=1900 height=800></canvas>
+      <div id=primSld style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:2px 20px;margin:12px 0 2px"></div>
+      <h2 style="margin-top:22px">드리블 매트</h2>
       <div class=duo>
         <div>
           <canvas id=mat width=1080 height=1080></canvas>
           <div style="display:flex;gap:8px;margin:10px 0 2px;align-items:center;flex-wrap:wrap"><button id=mIn>등장</button><button id=mHit>공 닿음</button><button id=mLive>타겟 이동</button><button id=mPlay>▶ 재생</button><span style="color:#98A1AD;font-size:12px">박자</span><input id=mPer type=range min=0.28 max=1.0 step=0.02 value=0.44 style="width:110px;accent-color:var(--nb-red)"><span id=mPerV style="font:12px monospace;color:#98A1AD">0.44s</span></div>
         </div>
-        <div>
-          <canvas id=prims width=1900 height=800></canvas>
-          <div id=primSld style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:2px 20px;margin:8px 0 2px"></div>
-        </div>
+        <p class=note style="margin:0">매트의 표적은 시뮬의 <b>판정 토큰(존 마크)</b> 그 자체이고, 토큰은 발자국과 <b>같은 소스</b>(팔레트 · 두께 · 헤일로)를 씁니다 — 여기서 본 그림이 곧 시뮬 그림입니다.<span data-devonly> 형태 정본은 <code>fx-core</code>(drawDribbleMat · drawApproachRing · drawStemArrow · drawTrajectory).</span></p>
       </div>
-      <p class=note>매트의 표적은 시뮬의 <b>판정 토큰(존 마크)</b> 그 자체이고, 동작 토큰은 발자국과 <b>같은 소스</b>(팔레트 LUT · 두께 uW · 헤일로 uHalo)를 소비합니다 — '토큰 공통' 슬라이더를 만지면 함께 변합니다.
-      형태 정본은 <code>fx-core</code>(drawDribbleMat · drawApproachRing · drawStemArrow · drawTrajectory) — 시뮬이 쓰는 그 함수 그대로라, 여기서 확인한 그림이 곧 시뮬 그림입니다.</p>
     </div>
     <!-- '발자국이 신발 밖으로 나갔는지 보기' 카드 삭제(유저 08-11) — 개발용 겹침 검수라
          전시 관람객에겐 읽히지 않는다. 그리는 코드는 남아 있으니 복원은 git. -->
@@ -515,7 +533,8 @@ seg('segCtx',  v => { ctx = v; FXP.footCtx = v; rebuild(); });
 seg('segBg',   v => { bg = v; applyBg(); });
 seg('segNum',  v => { showNum = +v; rebuild(); });
 seg('segOv',   v => { showOv = +v; });
-seg('segFloor', v => { floorKind = v; paintFloor(); });
+seg('segFloor', v => { floorKind = v; paintFloor(); document.body.dataset.floor = v; });   // 전역 바닥 — 토큰 타일까지(유저 08-12)
+document.body.dataset.floor = floorKind;   // 초기값도 같은 규약
 seg('segA2Stance', v => { a2Stance = +v; });
 { const el = $('a2Floor'), out = $('va2Floor');
   el.oninput = () => { P.inkFloor = +el.value; out.textContent = (+el.value).toFixed(2); };
@@ -583,9 +602,11 @@ const rHero = HERO.r, rStrip = STRIP.r;
 const VIEW = 1.28 * (SIL_FIT / SIL_FIT_REF);
 const cam = new THREE.OrthographicCamera(-VIEW, VIEW, VIEW, -VIEW, 0.1, 10); cam.position.z = 2;
 /** 셀 종횡비에 맞춰 프러스텀 — 안 맞추면 발이 늘어난다(세로 셀에서 특히) */
-function aim(aspect) {
-  cam.left = -VIEW * aspect; cam.right = VIEW * aspect;
-  cam.top = VIEW; cam.bottom = -VIEW;
+function aim(aspect, k = 1) {
+  // k = 줌아웃 여유(유저 08-12: 스트립에서 글로우가 셀 경계에 각지게 잘린다).
+  //   셀 시저는 사각 하드컷이라, 마크+글로우가 셀의 1/k 만 차지하게 물러나야 안 잘린다.
+  cam.left = -VIEW * aspect * k; cam.right = VIEW * aspect * k;
+  cam.top = VIEW * k; cam.bottom = -VIEW * k;
   cam.updateProjectionMatrix();
 }
 
@@ -1155,7 +1176,7 @@ function drawA2() {
   if (!a2Scene && !buildA2()) return;
   const W = A2C.w, H = A2C.h, t = (performance.now() - T0) / 1000;
   const S = a2Seg(t);
-  const half = 2.2;                        // 가로 반폭(m) — 세로 2.44m 가 스탠스 1.54 + 평면 0.62 를 담는다
+  const half = 2.45;                       // 가로 반폭(m) — 2.2 는 실척 스탠스에서 위 발이 캔버스 상단에 잘렸다(유저 08-12 스샷) → 여유 11%
   compCam.left = -half; compCam.right = half;
   compCam.top = half * H / W; compCam.bottom = -half * H / W;
   compCam.updateProjectionMatrix();
@@ -1461,7 +1482,7 @@ function frame() {
     blit($('strip'), stripOff, (mode) => {
       passSetup(rStrip, mode);
       const cw = STRIP.w / STATES.length, ch = STRIP.h / KINDS.length;
-      aim(cw / ch);
+      aim(cw / ch, 1.22);   // 셀 여유 — 글로우가 시저 경계에 안 닿는다
       rStrip.setScissorTest(true);
       KINDS.forEach((kind, row) => {
         const u = units[kind];
