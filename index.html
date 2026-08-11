@@ -143,7 +143,7 @@ body:not(.dev):has(#play-panel.folded) #stage{margin-right:56px}
   transition:background .22s cubic-bezier(.2,.8,.3,1),border-color .22s cubic-bezier(.2,.8,.3,1),color .22s cubic-bezier(.2,.8,.3,1),transform .16s cubic-bezier(.2,.8,.3,1)}
 #play-panel .pp-pack:active{transform:scale(.97)}
 #play-panel .pp-pack:hover{background:rgba(255,255,255,.09);color:#fff}
-#play-panel .pp-pack.on{border-color:#fa3030;background:rgba(250,48,48,.16);color:#ff6b6b}
+#play-panel .pp-pack.on{border-color:transparent;background:var(--d-strong);color:#121212}   /* 세그 선택 = 회색조(유저 08-12) */
 #play-panel .pp-stage{font-size:15px;font-weight:800;line-height:1.45;letter-spacing:-.2px;min-height:44px}
 #play-panel .pp-meta{margin-top:4px;font-size:11.5px;color:rgba(255,255,255,.5);line-height:1.5}
 #play-panel .pp-row{display:flex;gap:6px;margin-top:12px}
@@ -160,7 +160,7 @@ body:not(.dev):has(#play-panel.folded) #stage{margin-right:56px}
 #play-panel .pp-tg{padding:9px 0;border:1px solid rgba(255,255,255,.12);border-radius:10px;
   background:rgba(255,255,255,.04);color:rgba(255,255,255,.55);font-size:11px;font-weight:700;cursor:pointer}
 #play-panel .pp-tg:hover{background:rgba(255,255,255,.09);color:#fff}
-#play-panel .pp-tg.on{border-color:var(--nb-red);background:rgba(250,48,48,.16);color:#ff7a7a}   /* GUI 는 레드+회색조만(유저 08-12) — 프리즘 은퇴 */
+#play-panel .pp-tg.on{border-color:transparent;background:rgba(255,255,255,.14);color:#fff}   /* 상태 온 = 밝은 회색 면(세그에 빨강 금지) */
 #play-panel .pp-hint{margin-top:9px;font-size:11px;color:rgba(255,255,255,.38);text-align:center}
 body:not(.dev) #session-hud{display:none !important}
 /* ── 좌측 체험 랩 패널(제품 뷰) — 알고리즘·부품·보정 원리 체험 ───────────── */
@@ -211,7 +211,12 @@ body:not(.dev):has(#play-panel.folded) #stage{margin-right:calc(56px*1.15)}
 #lab-panel .lab-kv span:first-child{color:rgba(255,255,255,.5);font-size:12.5px;letter-spacing:-.2px}
 #lab-panel .lab-kv b{font-weight:800;color:#fff;font-size:15px;letter-spacing:-.3px;white-space:nowrap}
 /* 리드문 = 섹션이 무엇을 말하는지 한 줄. 값보다 먼저 읽히되 값보다 약하게 */
-#lab-panel .lab-intro{font-size:15px;color:rgba(255,255,255,.62);line-height:1.75;margin:2px 0 24px;letter-spacing:-.2px}
+#lab-panel .lab-intro{font-size:15px;color:rgba(255,255,255,.62);line-height:1.75;margin:2px 0 14px;letter-spacing:-.2px}
+/* 섹션 점프 칩(TOC) — 긴 세로 나열을 위에서 한눈에. 누르면 그 섹션만 열리고 스크롤 */
+#lab-panel .lab-toc{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 22px}
+#lab-panel .lab-toc button{padding:9px 13px;border:0;border-radius:999px;background:rgba(255,255,255,.07);
+  color:var(--d-t2);font-size:12.5px;font-weight:700;cursor:pointer}
+#lab-panel .lab-toc button:hover{background:rgba(255,255,255,.12);color:#fff}
 #lab-panel .lab-lead{font-size:13px;color:rgba(255,255,255,.72);line-height:1.65;margin:2px 0 10px;letter-spacing:-.2px}
 #lab-panel .lab-lead b{color:#fff;font-weight:700}
 #lab-panel .lab-src{margin-top:9px;padding-top:8px;border-top:1px solid rgba(255,255,255,.05);
@@ -366,7 +371,9 @@ body:not(.dev):has(#play-panel.folded) #stage{margin-right:calc(56px*1.15)}
 #play-panel .pp-pack{border:0;border-radius:999px;background:transparent;color:var(--d-t3);
   font:var(--t-capb);letter-spacing:-.2px;padding:11px 0}
 #play-panel .pp-pack:hover{background:transparent;color:var(--d-body)}
-#play-panel .pp-pack.on{background:var(--nb-red);color:#fff}
+/* 세그먼트 선택 = 회색조(유저 08-12: 다크모드 세그는 연회색+진회색, 빨강을 얹지 않는다).
+   레드는 진짜 CTA(두 번 탭·시작·실전 진입)만 쓴다. */
+#play-panel .pp-pack.on{background:var(--d-strong);color:#121212}
 
 /* 단계 제목 = 두 줄 큰 타이틀 + 작은 회색 설명 (GUI 헤드라인 문법) */
 #play-panel .pp-stage{font:var(--t-h2);letter-spacing:var(--ls-h2);color:var(--d-title);min-height:62px}
@@ -387,8 +394,14 @@ body:not(.dev):has(#play-panel.folded) #stage{margin-right:calc(56px*1.15)}
 #play-panel button.pp-btn.ico{flex:.62}
 #play-panel button.pp-btn svg{flex:0 0 auto}
 #play-panel button.pp-btn:hover{background:var(--d-surface);color:#fff}
-#play-panel button.pp-cta{background:var(--nb-red);color:#fff}
+/* 주 CTA = 화면에서 유일한 레드 + 대기 중 살짝 숨쉬는 펄스(유저 08-12: 두 번 탭을 안 눌러 본다).
+   그림자·아웃라인 금지 준수 — 주목은 스케일로만. 모션 축소 설정은 존중. */
+@keyframes ctaNudge{0%,100%{transform:scale(1)}50%{transform:scale(1.045)}}
+#play-panel button.pp-cta{background:var(--nb-red);color:#fff;font-size:15px;padding-block:15px;
+  animation:ctaNudge 1.7s ease-in-out infinite}
 #play-panel button.pp-cta:hover{background:var(--nb-red)}
+#play-panel button.pp-cta:active{animation:none}
+@media (prefers-reduced-motion:reduce){#play-panel button.pp-cta{animation:none}}
 /* 보조 조작(이전·다음·음소거·3인칭·처음으로) = 회색 서피스. 빨강은 '두 번 탭' 하나만(유저). */
 #play-panel .pp-row button.pp-btn{background:var(--d-surface);color:var(--d-body)}
 #play-panel .pp-row button.pp-btn:hover{background:var(--d-surface);color:#fff}
@@ -400,11 +413,20 @@ body:not(.dev):has(#play-panel.folded) #stage{margin-right:calc(56px*1.15)}
 #play-panel .pp-hint{margin-top:12px;font:var(--t-labr);color:var(--d-t3);letter-spacing:-.5px}
 
 /* 토글 = 같은 면 + 선택 시 레드 (샌드/프리즘 사용 안 함) */
-#play-panel .pp-toggles{gap:4px;padding:4px;border-radius:999px;background:var(--d-bg-sub);margin:18px 0 4px}
-#play-panel .pp-tg{border:0;border-radius:999px;background:transparent;color:var(--d-t3);
-  font:var(--t-labm);letter-spacing:var(--ls-lab);padding:10px 0}
-#play-panel .pp-tg:hover{background:transparent;color:var(--d-body)}
-#play-panel .pp-tg.on{background:var(--nb-red);color:#fff}
+/* 보기 옵션 3종 = **서로 독립인 스위치**(유저 08-12: 하나만 고르는 세그처럼 보여 모호하다).
+   세그 알약 은퇴 → 노브 달린 스위치 행. 켜짐 = 노브가 오른쪽 + 흰색(레드 아님 — 상태지 CTA 가 아니다). */
+#play-panel .pp-toggles{display:flex;flex-direction:column;gap:6px;padding:0;border-radius:0;background:none;margin:18px 0 4px}
+#play-panel .pp-tg{position:relative;display:flex;align-items:center;border:0;border-radius:11px;
+  background:rgba(255,255,255,.05);color:var(--d-t2);font:var(--t-labm);letter-spacing:var(--ls-lab);
+  padding:12px 14px 12px 50px;text-align:left;min-height:44px}
+#play-panel .pp-tg::before{content:'';position:absolute;left:14px;top:50%;transform:translateY(-50%);
+  width:26px;height:15px;border-radius:99px;background:var(--d-border);transition:background .18s}
+#play-panel .pp-tg::after{content:'';position:absolute;left:16px;top:50%;transform:translate(0,-50%);
+  width:11px;height:11px;border-radius:50%;background:var(--d-disabled);transition:transform .18s,background .18s}
+#play-panel .pp-tg:hover{background:rgba(255,255,255,.09);color:var(--d-body)}
+#play-panel .pp-tg.on{background:rgba(255,255,255,.09);color:#fff}
+#play-panel .pp-tg.on::before{background:rgba(255,255,255,.35)}
+#play-panel .pp-tg.on::after{transform:translate(11px,-50%);background:#fff}
 #play-panel .pp-fold, #lab-panel .pp-fold{border:0;border-radius:999px;background:var(--d-surface);color:var(--d-t2)}
 
 /* 체험 랩 — 섹션 라벨(작은 회색) + 값(강조) 2열, 카드는 면처리 */
@@ -484,7 +506,7 @@ button, summary, .lab-pill, .lab-sw, .lab-go, .pp-pack, [role=button]{position:r
 .lab-pill .ripple{background:rgba(0,0,0,.14)}
 @keyframes ripple{to{transform:scale(2.6);opacity:0}}
 </style>
-  <script type="module" crossorigin src="./assets/main-Cqky0Jld.js"></script>
+  <script type="module" crossorigin src="./assets/main-2CQuGMiX.js"></script>
   <link rel="modulepreload" crossorigin href="./assets/modulepreload-polyfill-B5Qt9EMX.js">
   <link rel="modulepreload" crossorigin href="./assets/preload-helper-PPVm8Dsz.js">
   <link rel="modulepreload" crossorigin href="./assets/fx-core-CsnioyF7.js">
@@ -749,10 +771,9 @@ button, summary, .lab-pill, .lab-sw, .lab-go, .pp-pack, [role=button]{position:r
       <span class="pp-sub">체험 랩</span>
     </div>
     <div class="lab-body">
-      <!-- 첫 관람객용 프레이밍(유저 08-12: 처음 보는 사람도 '이 실측으로 접근했구나'가 느껴지게) -->
-      <p class="lab-intro">여기 있는 숫자는 전부 실측이거나 논문입니다. 왜 바닥에 빛을 쏘는지,
-        그 빛이 왜 안 흔들리는지, 글자는 얼마나 커야 읽히는지 — 아래에서 순서대로 확인하고
-        직접 켜고 꺼 보세요. 이 시뮬레이터는 그 값들이 실제로 성립하는지 눈으로 검증하는 도구입니다.</p>
+      <!-- 첫 관람객용 프레이밍 — 한 문장(유저 08-12: 본문 너무 길다) + 점프 칩(무한 드롭다운 나열 해결) -->
+      <p class="lab-intro">여기 있는 숫자는 전부 실측이거나 논문입니다. 궁금한 것부터 눌러 보세요.</p>
+      <div class="lab-toc" id="lab-toc"></div>
       <!-- 디자인 랩 진입 — **제품 뷰**에 산다(유저 08-11: 시작하자마자 보여야 한다.
            dev 패널에 넣었더니 개발자 모드 OFF 에선 아예 없었다). 순서 고정:
            룩 시스템 → 지면 레이아웃 → 열화상. 열화상은 별도 앱(5173). -->
@@ -777,7 +798,7 @@ button, summary, .lab-pill, .lab-sw, .lab-go, .pp-pack, [role=button]{position:r
 
       <!-- ★ 근거 섹션 재구성(유저 08-12): 피그마 어펜딕스(MsAnO7Itu9sORPSZBt0oRj)의
            근거·논문·실측을 좌패널 정본으로. 왜 프로젝션인가 → 흔들림(부품+보정) → 부품·타겟. -->
-      <details id="sec-why">
+      <details id="sec-why" data-toc="왜 바닥인가">
         <summary>왜 몸이 아니라 바닥에 쏘나</summary>
         <div class="lab-lead">숙련자의 움직임을 보는 가장 쉬운 답은 AR 글라스처럼 보입니다. 그런데 <b>운동하는 몸은 얼굴에 얹는 무게를 피합니다.</b> 그래서 뉴턴은 몸에 아무것도 씌우지 않고, 바닥에 빛으로 그립니다.</div>
         <div class="lab-kv"><span>시력교정이 필요한 러너 941명 중 달릴 때 안경을 피하는 비율</span><b>33.1%</b></div>
@@ -798,7 +819,7 @@ button, summary, .lab-pill, .lab-sw, .lab-go, .pp-pack, [role=button]{position:r
         </details>
       </details>
 
-      <details>
+      <details data-toc="유닛과 부품">
         <summary>빛은 어디서 나오나 <span class="cnt">부위 실측</span></summary>
         <div class="lab-lead">무릎 옆의 작은 유닛에서 나옵니다. 다섯 부위에 달아 보고 다섯 각도로 쏴 본 결과, <b>무릎</b>이 발 앞 20~150cm를 가장 안정적으로 덮었고 몸에 가리지도 않았습니다.</div>
         <div class="lab-src">실측 — 고관절·허벅지·무릎·정강이·발목 × 90/60/45/30/15° · 165cm 성인 기준 · BEAM-OCCLUSION.md(표적 25점)</div>
@@ -821,7 +842,7 @@ button, summary, .lab-pill, .lab-sw, .lab-go, .pp-pack, [role=button]{position:r
       <!-- 흔들림 = 러닝 전용 섹션(유저 08-11: 복싱에서도 흔들림 이야기가 나와 헷갈린다).
            무릎 빔은 달릴 때만 쓰는 물건이라 러닝 탭에서만 열리고, 조작도 그 안에서 한다.
            진입 버튼도 섹션 밖에 떠 있던 걸 안으로 넣었다 — 맥락 밖의 CTA 는 미아가 된다. -->
-      <details id="sec-shake" open>
+      <details id="sec-shake" open data-toc="흔들림 보정">
         <summary>흔들림을 어떻게 잡나 <span class="cnt">러닝</span></summary>
         <div class="lab-lead">달리면 다리와 함께 그 유닛도 흔들립니다. 뉴턴은 <b>하드웨어 두 겹 + 소프트웨어 세 겹</b>으로 화면을 붙잡습니다. 아래 스위치를 직접 꺼 보면 차이가 보입니다.</div>
         <div class="lab-kv"><span><b>①</b> 기기 이탈 방지 체결</span><b>EPM 전자 영구 자석</b></div>
@@ -853,7 +874,7 @@ button, summary, .lab-pill, .lab-sw, .lab-go, .pp-pack, [role=button]{position:r
              관람객이 '별거 아니네'로 읽는다. 티는 '흔들림이 커지는 순간 다시 보기' 버튼이 직접 보여준다. -->
       </details>
 
-      <details>
+      <details data-toc="화면 위치">
         <summary>고개를 얼마나 숙이나 <span class="cnt">네 단계</span></summary>
         <div class="lab-lead">각도는 <b>고개 기울기</b>, 거리는 <b>그 시선이 바닥과 만나는 지점</b>입니다. 투사 거리가 아닙니다 — 빔은 발 앞 2m 안에만 쏩니다. 화면을 어디에 둘지를 이 시선 낙하점이 정합니다.</div>
         <div class="lab-src">근거 — Matthis et al. 2018 · 눈높이 1.6m · 낙하점 = 1.6/tanθ</div>
@@ -877,7 +898,7 @@ button, summary, .lab-pill, .lab-sw, .lab-go, .pp-pack, [role=button]{position:r
         </details>
       </details>
 
-      <details>
+      <details data-toc="벽 화면">
         <summary>벽에 쏘는 화면 <span class="cnt">복싱</span></summary>
         <div class="lab-lead">몸을 움직이기 전에 먼저 봐야 하는 것(상대의 리듬, 공격 범위)은 바닥이 아니라 <b>벽</b>에 띄웁니다. 아래는 실측한 벽 화면의 크기입니다.</div>
         <div class="lab-src">실측 — PROJECTION-SPEC.md §1·§5 (프로젝터 62° · 카메라 50°)</div>
@@ -886,7 +907,7 @@ button, summary, .lab-pill, .lab-sw, .lab-go, .pp-pack, [role=button]{position:r
         <div class="lab-kv"><span>대지 환산</span><b>1 px = 1 mm</b></div>
       </details>
 
-      <details>
+      <details data-toc="글자 크기">
         <summary>바닥 글자는 얼마나 커야 하나</summary>
         <div class="lab-lead">바닥 글자는 비스듬히 보여 <b>납작하게 눌립니다</b>. 그래서 크기를 센티미터가 아니라 <b>눈에 맺히는 각도</b>로 정했습니다. 같은 10cm 글자도 발밑과 2m 앞에서 전혀 다르게 보이기 때문입니다.</div>
         <div class="lab-src">근거 — Legge &amp; Bigelow 2011 · ISO 9241-303 · Cai 2013 · MUTCD</div>
@@ -907,7 +928,7 @@ button, summary, .lab-pill, .lab-sw, .lab-go, .pp-pack, [role=button]{position:r
         </details>
       </details>
 
-      <details>
+      <details data-toc="빛의 한계">
         <summary>빛이 닿지 않는 자리</summary>
         <div class="lab-lead">빔이 닿는 범위는 네모가 아니라 <b>부채꼴</b>입니다. 안 닿는 자리는 억지로 채우지 않고 비워 둡니다 — 그것까지가 설계입니다.</div>
         <div class="lab-src">실측 — docs/FLOOR-LAYOUT-SPEC.md (러닝 기본 리그)</div>
@@ -921,7 +942,7 @@ button, summary, .lab-pill, .lab-sw, .lab-go, .pp-pack, [role=button]{position:r
         </details>
       </details>
 
-      <details>
+      <details data-toc="가려질 때">
         <summary>가려질 때는 어떻게 하나</summary>
         <div class="lab-lead">몸이나 공에 가리면 <b>가려진 그대로</b> 둡니다. 실제 빛이 그렇게 동작하니까요. 그 가려짐이 실제로 얼마나 되는지도 재 봤습니다 — 생각보다 훨씬 적습니다.</div>
         <div class="lab-src">실측 — BEAM-OCCLUSION.md (크로스오버 전 사이클 샘플링)</div>
@@ -1092,6 +1113,26 @@ button, summary, .lab-pill, .lab-sw, .lab-go, .pp-pack, [role=button]{position:r
 
   <!-- 디자인 랩 임베드 오버레이(유저 08-11: 새 탭 말고 아이프레임으로 통째로).
        열기 전엔 iframe src 를 비워 둔다 — 세 랩을 미리 로드하면 홈이 무거워진다. -->
+  <!-- 좌패널 IA(유저 08-12): 하나만 열리는 아코디언 + 점프 칩 — 무한 드롭다운 나열 해결 -->
+  <script>
+  (() => {
+    const body = document.querySelector('#lab-panel .lab-body');
+    if (!body) return;
+    const tops = [...body.querySelectorAll(':scope > details')];
+    tops.forEach(d => d.addEventListener('toggle', () => {
+      if (d.open) tops.forEach(o => { if (o !== d && o.open) o.open = false; });
+    }));
+    const toc = document.getElementById('lab-toc');
+    if (toc) tops.forEach(d => {
+      const label = d.dataset.toc; if (!label) return;
+      const b = document.createElement('button');
+      b.type = 'button'; b.textContent = label;
+      b.addEventListener('click', () => { d.open = true; d.scrollIntoView({ behavior: 'smooth', block: 'start' }); });
+      toc.appendChild(b);
+    });
+  })();
+  </script>
+
   <!-- UX북 커서 이식 — 로고 커서(스무딩 추종) + 신발 발자국 트레일. 원본: newton-uxbook -->
   <div class="uxcursor" id="ux-cursor" aria-hidden="true"></div>
   <script>
