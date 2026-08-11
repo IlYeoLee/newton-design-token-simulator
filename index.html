@@ -236,13 +236,13 @@ body.labview #lab-embed-overlay{visibility:visible;opacity:1;transform:none;poin
 @media (prefers-reduced-motion:reduce){#howto-overlay,#lab-embed-overlay,#stage,#play-panel,#lab-panel,
   #howto-close,.howto-wrap>.hw-kick,.howto-wrap>h1,.howto-wrap>.howto-intro,#howto-body>details{transition:none;transform:none}}
 #howto-overlay .howto-wrap{position:relative;max-width:860px;margin:0 auto;padding:72px 32px 120px}
-#howto-overlay h1{font-size:38px;font-weight:800;letter-spacing:-.8px;color:#fff;margin:0 0 10px}
+#howto-overlay h1{font-size:38px;font-weight:700;letter-spacing:-.8px;color:#fff;margin:0 0 10px}
 #howto-overlay .howto-intro{font-size:17px;color:rgba(255,255,255,.55);margin:0 0 64px}
 /* 돌아가기 = 이 페이지의 유일한 주 행동 → 레드 CTA(유저 08-12: 너무 안 띈다).
    등장도 오른쪽에서 살짝 밀려 들어온다. */
 #howto-close{position:fixed;top:20px;right:24px;min-height:52px;display:flex;align-items:center;gap:8px;
   padding:0 24px;border:0;border-radius:99px;background:var(--nb-red);color:#fff;
-  font-size:15px;font-weight:800;cursor:pointer;touch-action:manipulation;z-index:61;
+  font-size:15px;font-weight:700;cursor:pointer;touch-action:manipulation;z-index:61;
   visibility:hidden;opacity:0;transform:translateX(18px);
   transition:opacity .3s ease .25s,transform .45s cubic-bezier(.3,1.28,.32,1) .25s,visibility 0s linear .6s}
 body.howto #howto-close,body.labview #howto-close{visibility:visible;opacity:1;transform:none;
@@ -270,16 +270,16 @@ body.howto #howto-body>details:nth-child(2){transition-delay:.44s}
 #howto-overlay .hw-tbl th:last-child{text-align:right}
 #howto-overlay .hw-tbl td{padding:12px 4px;border-bottom:1px solid rgba(255,255,255,.07);
   font-size:15px;color:rgba(255,255,255,.6);line-height:1.5;vertical-align:top}
-#howto-overlay .hw-tbl td:last-child{color:#fff;font-weight:800;text-align:right;white-space:nowrap}
+#howto-overlay .hw-tbl td:last-child{color:#fff;font-weight:700;text-align:right;white-space:nowrap}
 /* 3열(마지막 열 = 설명문) 판 — 값은 가운데 열, 설명은 왼쪽 정렬 회색 */
-#howto-overlay .hw-tbl3 td:nth-child(2){color:#fff;font-weight:800}
+#howto-overlay .hw-tbl3 td:nth-child(2){color:#fff;font-weight:700}
 #howto-overlay .hw-tbl3 td:last-child{color:rgba(255,255,255,.55);font-weight:400;text-align:left;white-space:normal}
 #howto-overlay .hw-tbl3 th:last-child{text-align:left}
 #howto-overlay .hw-dia{margin:22px 0 8px}
 #howto-overlay .hw-dia svg{display:block;width:100%;height:auto}
 /* 큰 덩어리 사이는 확실히 벌린다(유저 08-12: 단락 간격이 너무 좁다) */
 #howto-overlay details{margin:0 0 88px;border-radius:0;background:none;pointer-events:auto}
-#howto-overlay details>summary{list-style:none;cursor:default;font-size:26px;font-weight:800;color:#fff;
+#howto-overlay details>summary{list-style:none;cursor:default;font-size:26px;font-weight:700;color:#fff;
   letter-spacing:-.8px;margin-bottom:14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 /* UX북 문법 — 빨간 키커가 섹션 번호를 단다(유저 08-12: UX북 조판·DS 동일 적용) */
 #howto-overlay .hw-kick{flex-basis:100%;font-size:13px;font-weight:700;color:var(--nb-red);
@@ -292,12 +292,15 @@ body.howto #howto-body>details:nth-child(2){transition-delay:.44s}
 #howto-overlay .lab-kv b{font-size:17px}
 #howto-overlay #sec-why .lab-kv b{font-size:28px}
 #howto-overlay .lab-src{font-size:12.5px}
-#howto-overlay details details{border-top:1px solid rgba(255,255,255,.08);margin-top:10px}
-#howto-overlay details details>summary{font-size:16px;font-weight:700;color:rgba(255,255,255,.75);cursor:pointer;margin:12px 0 6px}
+/* 내부 질문(하위 근거) = 면 컨테이너로 감싼다(유저 08-12: 본문에 섞여 위계가 안 보인다) */
+#howto-overlay details details{border-top:0;margin:22px 0 0;background:rgba(255,255,255,.035);
+  border-radius:16px;padding:20px 22px}
+#howto-overlay details details>summary{font-size:17px;font-weight:700;color:#fff;cursor:pointer;margin:0 0 8px}
+#howto-overlay details details .hw-fig{margin:16px 0 0}
 /* 이주하면서 떨어진 #lab-panel 스코프 구조 규칙 — 읽기 페이지 판 */
 #howto-overlay .lab-kv{display:flex;justify-content:space-between;align-items:baseline;gap:16px;padding-block:7px}
 #howto-overlay .lab-kv span:first-child{color:rgba(255,255,255,.55)}
-#howto-overlay .lab-kv b{color:#fff;font-weight:800;white-space:nowrap}
+#howto-overlay .lab-kv b{color:#fff;font-weight:700;white-space:nowrap}
 #howto-overlay .lab-src{display:block;color:rgba(255,255,255,.35);margin:4px 0 16px}
 #howto-overlay .cnt{font-size:12px;font-weight:700;color:rgba(255,255,255,.45);
   background:rgba(255,255,255,.08);padding:3px 10px;border-radius:99px}
@@ -306,7 +309,7 @@ body.howto #howto-body>details:nth-child(2){transition-delay:.44s}
   text-decoration:none;cursor:pointer}
 #fact-card:hover{background:rgba(255,255,255,.07)}
 #fact-card .fc-k{font:var(--t-labr);color:var(--d-t3);letter-spacing:.4px;margin-bottom:10px}
-#fact-card .fc-val{font-size:30px;font-weight:800;letter-spacing:-.8px;color:#fff;line-height:1.1}
+#fact-card .fc-val{font-size:30px;font-weight:700;letter-spacing:-.8px;color:#fff;line-height:1.1}
 #fact-card .fc-lab{margin-top:7px;font:var(--t-labm);color:var(--d-t2);letter-spacing:-.3px;line-height:1.5}
 #fact-card .fc-src{margin-top:6px;font-size:11px;color:var(--d-t3)}
 #fact-card .fc-in{transition:opacity .45s ease}
@@ -916,7 +919,7 @@ button, summary, .lab-pill, .lab-sw, .lab-go, .pp-pack, [role=button]{position:r
         <table class="hw-tbl"><tbody>
           <tr><td>장착 위치</td><td>무릎 아래 11cm 바깥면</td></tr>
           <tr><td>렌즈 높이</td><td>≈51cm</td></tr>
-          <tr><td>투사창</td><td>5cm ~ 2.0m · 폭 64 → 169cm</td></tr>
+          <tr><td>투사창</td><td>5cm~2.0m, 폭 64~169cm</td></tr>
         </tbody></table>
         <details>
           <summary>실제 부품 구성</summary>
@@ -926,7 +929,7 @@ button, summary, .lab-pill, .lab-sw, .lab-go, .pp-pack, [role=button]{position:r
               <tr><td>투사</td><td>MEMS Laser Beam Scanning</td><td>낮의 야외에서도 보이는 지면 투사</td></tr>
               <tr><td>체결</td><td>EPM 전자 영구 자석</td><td>전력 없이 체결 유지, 이탈 방지</td></tr>
               <tr><td>안정화</td><td>1축 짐벌(300°/s) + OIS 렌즈</td><td>크게는 짐벌, 잔떨림은 렌즈</td></tr>
-              <tr><td>발목</td><td>와이어 액추에이션</td><td>뒤꿈치 리프팅 · 발목 각도 제어</td></tr>
+              <tr><td>발목</td><td>와이어 액추에이션</td><td>뒤꿈치를 들고 발목 각도를 잡는다</td></tr>
             </tbody>
           </table>
           <div class="lab-note">발목을 잡는 이유: 하체 힘이 지면으로 빠져나가는 마지막 관문이 발목이기 때문입니다.</div>
@@ -939,21 +942,21 @@ button, summary, .lab-pill, .lab-sw, .lab-go, .pp-pack, [role=button]{position:r
       <details id="sec-shake" open data-toc="흔들림 보정">
         <summary>흔들림을 어떻게 잡나 <span class="cnt">러닝</span></summary>
         <div class="lab-lead">달리면 다리와 함께 그 유닛도 흔들립니다. 뉴턴은 <b>하드웨어 두 겹 + 소프트웨어 세 겹</b>으로 화면을 붙잡습니다. 아래 스위치를 직접 꺼 보면 차이가 보입니다.</div>
-        <div class="lab-kv"><span><b>①</b> 기기 이탈 방지 체결</span><b>EPM 전자 영구 자석</b></div>
+        <div class="lab-kv"><span>기기 이탈 방지 체결</span><b>EPM 전자 영구 자석</b></div>
         <div class="lab-note">전력 없이 강한 자력을 유지하는, 드론캠에 쓰이는 그 부품입니다. 격한 하체 움직임에도 Core 모듈이 떨어지지 않습니다.</div>
-        <div class="lab-src">IEEE 2010(Electropermanent Magnets) · IEEE/ASME 2018(EPM Gripper)</div>
-        <div class="lab-kv"><span><b>②</b> 화면 위치 보정</span><b>1축 짐벌 + OIS 렌즈</b></div>
+        <div class="lab-src">IEEE 2010(Electropermanent Magnets), IEEE/ASME 2018(EPM Gripper)</div>
+        <div class="lab-kv"><span>화면 위치 보정</span><b>1축 짐벌 + OIS 렌즈</b></div>
         <div class="lab-note">짐벌이 물리로 크게 잡고, 스마트폰 카메라의 OIS(광학식 손떨림 보정)가 잔떨림을 지웁니다. UI가 지면에 고정돼 보이는 이유입니다.</div>
         <div class="lab-src">PID 짐벌 안정화: IEEE IEEM 2015</div>
-        <div class="lab-kv"><span><b>③</b> 남는 오차는 소프트웨어</span><b>아래 세 보정</b></div>
+        <div class="lab-kv"><span>남는 오차는 소프트웨어</span><b>아래 세 보정</b></div>
         <button class="lab-go" id="lab-run">러닝 실전을 3인칭으로 보기</button>
         <div class="lab-sw" id="sw-raw"><span class="dotsw"></span><span><span class="t">보정 전부 끄기 (RAW)</span>
           <div class="d">아무 보정 없이, 정강이가 흔들리는 그대로 빛을 쏩니다</div></span></div>
-        <div class="lab-sw on" id="sw-lp"><span class="dotsw"></span><span><span class="t">① 각속도 저역통과</span>
+        <div class="lab-sw on" id="sw-lp"><span class="dotsw"></span><span><span class="t">각속도 저역통과</span>
           <div class="d">발이 땅에 닿는 순간의 충격을 0.02초에 걸쳐 부드럽게 눌러 줍니다</div></span></div>
-        <div class="lab-sw on" id="sw-ff"><span class="dotsw"></span><span><span class="t">② 서보 피드포워드</span>
+        <div class="lab-sw on" id="sw-ff"><span class="dotsw"></span><span><span class="t">서보 피드포워드</span>
           <div class="d">모터가 반응하는 데 걸리는 시간만큼 미리 움직여 둡니다</div></span></div>
-        <div class="lab-sw on" id="sw-gb"><span class="dotsw"></span><span><span class="t">③ 병진 짐벌 보정</span>
+        <div class="lab-sw on" id="sw-gb"><span class="dotsw"></span><span><span class="t">병진 짐벌 보정</span>
           <div class="d">무릎이 위로 올라갈 때 빔도 같이 밀려 올라가는 만큼을 되돌려 놓습니다</div></span></div>
         <div class="lab-live">
           <div class="ll-cap">지금 조준점이 빗나간 거리</div>
@@ -981,56 +984,56 @@ button, summary, .lab-pill, .lab-sw, .lab-go, .pp-pack, [role=button]{position:r
 
       <details data-toc="화면 위치">
         <summary>고개를 얼마나 숙이나 <span class="cnt">네 단계</span></summary>
-        <div class="lab-lead">각도는 <b>고개 기울기</b>, 거리는 <b>그 시선이 바닥과 만나는 지점</b>입니다. 투사 거리가 아닙니다 — 빔은 발 앞 2m 안에만 쏩니다. 화면을 어디에 둘지를 이 시선 낙하점이 정합니다.</div>
-        <div class="lab-src">근거 — Matthis et al. 2018 · 눈높이 1.6m · 낙하점 = 1.6/tanθ</div>
+        <div class="lab-lead">각도는 <b>고개 기울기</b>, 거리는 <b>그 시선이 바닥과 만나는 지점</b>입니다. 투사 거리가 아닙니다. 빔은 발 앞 2m 안에만 쏩니다. 화면을 어디에 둘지를 이 시선 낙하점이 정합니다.</div>
+        <div class="lab-src">Matthis et al. 2018, 눈높이 1.6m 기준, 낙하점 = 1.6/tanθ</div>
         <!-- 도식(유저 08-12: 보드에 없는 내용은 표·다이어그램으로) — 네 단계 시선이
              바닥 어디에 떨어지는지 옆모습 한 장. 핵심 대비: 시선은 멀리, 빔은 발 앞 2m 안. -->
         <div class="hw-dia" aria-label="시선 낙하점 다이어그램">
           <svg viewBox="0 0 880 300" role="img">
-            <line x1="60" y1="230" x2="838" y2="230" stroke="rgba(255,255,255,.28)" stroke-width="1.5"/>
-            <line x1="838" y1="230" x2="838" y2="62" stroke="rgba(255,255,255,.28)" stroke-width="1.5"/>
-            <line x1="100" y1="230" x2="100" y2="92" stroke="rgba(255,255,255,.6)" stroke-width="3" stroke-linecap="round"/>
-            <circle cx="100" cy="78" r="11" fill="none" stroke="rgba(255,255,255,.6)" stroke-width="3"/>
+            <line x1="60" y1="230" x2="838" y2="230" stroke="rgba(255,255,255,.22)" stroke-width="1"/>
+            <line x1="838" y1="230" x2="838" y2="62" stroke="rgba(255,255,255,.22)" stroke-width="1"/>
+            <line x1="100" y1="230" x2="100" y2="92" stroke="rgba(255,255,255,.55)" stroke-width="2" stroke-linecap="round"/>
+            <circle cx="100" cy="78" r="10" fill="none" stroke="rgba(255,255,255,.55)" stroke-width="2"/>
             <text x="100" y="52" text-anchor="middle" font-size="12.5" fill="rgba(255,255,255,.45)">눈높이 1.6m</text>
             <rect x="107" y="226" width="283" height="8" fill="rgba(250,48,48,.34)"/>
-            <text x="248" y="216" text-anchor="middle" font-size="12.5" fill="#ff7a7a">빔 투사창 · 발 앞 2m 안</text>
-            <line x1="110" y1="86" x2="385" y2="230" stroke="rgba(255,255,255,.35)" stroke-width="1.5"/>
-            <line x1="110" y1="86" x2="520" y2="230" stroke="rgba(255,255,255,.35)" stroke-width="1.5"/>
-            <line x1="110" y1="86" x2="760" y2="230" stroke="rgba(255,255,255,.35)" stroke-width="1.5"/>
-            <line x1="110" y1="86" x2="826" y2="112" stroke="rgba(255,255,255,.3)" stroke-width="1.5" stroke-dasharray="5 5"/>
-            <circle cx="385" cy="230" r="5" fill="#FA3030"/>
-            <circle cx="520" cy="230" r="5" fill="#FA3030"/>
-            <circle cx="760" cy="230" r="5" fill="#FA3030"/>
+            <text x="248" y="216" text-anchor="middle" font-size="12.5" fill="#ff7a7a">빔 투사창은 발 앞 2m 안</text>
+            <line x1="110" y1="86" x2="385" y2="230" stroke="rgba(255,255,255,.3)" stroke-width="1"/>
+            <line x1="110" y1="86" x2="520" y2="230" stroke="rgba(255,255,255,.3)" stroke-width="1"/>
+            <line x1="110" y1="86" x2="760" y2="230" stroke="rgba(255,255,255,.3)" stroke-width="1"/>
+            <line x1="110" y1="86" x2="826" y2="112" stroke="rgba(255,255,255,.26)" stroke-width="1" stroke-dasharray="5 5"/>
+            <circle cx="385" cy="230" r="4" fill="#FA3030"/>
+            <circle cx="520" cy="230" r="4" fill="#FA3030"/>
+            <circle cx="760" cy="230" r="4" fill="#FA3030"/>
             <rect x="828" y="96" width="10" height="60" fill="rgba(250,48,48,.55)"/>
             <text x="820" y="84" text-anchor="end" font-size="13" font-weight="700" fill="rgba(255,255,255,.85)">정면 −8° → 벽 화면</text>
-            <text x="820" y="102" text-anchor="end" font-size="12" fill="rgba(255,255,255,.45)">복싱 · 드리블 2막</text>
-            <text x="385" y="256" text-anchor="middle" font-size="13.5" font-weight="700" fill="rgba(255,255,255,.85)">근경 −40° · 1.9m</text>
-            <text x="385" y="274" text-anchor="middle" font-size="12" fill="rgba(255,255,255,.45)">시작 · 학습 · 리포트</text>
-            <text x="533" y="256" text-anchor="middle" font-size="13.5" font-weight="700" fill="rgba(255,255,255,.85)">중경 −30° · 2.8m</text>
-            <text x="533" y="274" text-anchor="middle" font-size="12" fill="rgba(255,255,255,.45)">전환 · 리치 홀드</text>
-            <text x="722" y="256" text-anchor="middle" font-size="13.5" font-weight="700" fill="rgba(255,255,255,.85)">원경 −20° · 4.4m</text>
+            <text x="820" y="102" text-anchor="end" font-size="12" fill="rgba(255,255,255,.45)">복싱과 드리블 2막</text>
+            <text x="385" y="256" text-anchor="middle" font-size="13.5" font-weight="700" fill="rgba(255,255,255,.85)">근경 −40°, 1.9m</text>
+            <text x="385" y="274" text-anchor="middle" font-size="12" fill="rgba(255,255,255,.45)">시작, 학습, 리포트</text>
+            <text x="533" y="256" text-anchor="middle" font-size="13.5" font-weight="700" fill="rgba(255,255,255,.85)">중경 −30°, 2.8m</text>
+            <text x="533" y="274" text-anchor="middle" font-size="12" fill="rgba(255,255,255,.45)">전환, 리치 홀드</text>
+            <text x="722" y="256" text-anchor="middle" font-size="13.5" font-weight="700" fill="rgba(255,255,255,.85)">원경 −20°, 4.4m</text>
             <text x="722" y="274" text-anchor="middle" font-size="12" fill="rgba(255,255,255,.45)">실전 달리기</text>
           </svg>
         </div>
         <div class="lab-note">달릴 때는 멀리(4.4m) 보므로 지면 마크를 투사창의 먼 끝에 세우고, 발 위치를 배우는 학습은 발밑(1.9m 안)을 보므로 가까이 둡니다.</div>
         <details>
           <summary>고르는 규칙</summary>
-          <div class="lab-note">① 봐야 할 대상이 시야 중앙에 오는 단을 고른다
-            ② 오래 지속되는 장면일수록 얕게 — 지속 목 굴곡 20° 이내 권장(ISO 9241 계열)
-            ③ 발 위치를 맞추는 정밀 조작일수록 깊게. 장면마다 값을 새로 고르지 않는다.</div>
+          <div class="lab-note">봐야 할 대상이 시야 중앙에 오는 단을 고릅니다.
+            오래 지속되는 장면일수록 얕게 둡니다. 지속되는 목 굴곡은 20° 이내가 권장이라서요(ISO 9241 계열).
+            발 위치를 맞추는 정밀 조작일수록 깊게 둡니다. 장면마다 값을 새로 고르지는 않습니다.</div>
         </details>
         <details>
-          <summary>근거 — Matthis 2018</summary>
+          <summary>이 각도들의 출처</summary>
           <div class="lab-note">보행자는 약 2보 앞(~1.5초 시간창)을 응시한다. 평지+가이드에선 더 멀리 보므로
             실전이 원경(−20°)에, 발 근처를 보는 초심자 학습은 근경(−40°)에 앉는다.
-            눈높이 1.6m · 낙하점 = 1.6/tanθ · 전환 τ=0.9초.</div>
+            눈높이 1.6m, 낙하점 = 1.6/tanθ, 전환 τ=0.9초.</div>
         </details>
       </details>
 
       <details data-toc="벽 화면">
         <summary>벽에 쏘는 화면 <span class="cnt">복싱</span></summary>
         <div class="lab-lead">몸을 움직이기 전에 먼저 봐야 하는 것(상대의 리듬, 공격 범위)은 바닥이 아니라 <b>벽</b>에 띄웁니다. 아래는 실측한 벽 화면의 크기입니다.</div>
-        <div class="lab-src">실측 — PROJECTION-SPEC.md §1·§5 (프로젝터 62° · 카메라 50°)</div>
+        <div class="lab-src">실측: PROJECTION-SPEC.md §1·§5, 프로젝터 62°와 카메라 50°</div>
         <table class="hw-tbl"><tbody>
           <tr><td>투사 크기</td><td>2.60 × 1.63 m</td></tr>
           <tr><td>벽 ↔ 빔 유닛</td><td>1.36 m</td></tr>
@@ -1041,12 +1044,12 @@ button, summary, .lab-pill, .lab-sw, .lab-go, .pp-pack, [role=button]{position:r
       <details data-toc="글자 크기">
         <summary>바닥 글자는 얼마나 커야 하나</summary>
         <div class="lab-lead">바닥 글자는 비스듬히 보여 <b>납작하게 눌립니다</b>. 그래서 크기를 센티미터가 아니라 <b>눈에 맺히는 각도</b>로 정했습니다. 같은 10cm 글자도 발밑과 2m 앞에서 전혀 다르게 보이기 때문입니다.</div>
-        <div class="lab-src">근거 — Legge &amp; Bigelow 2011 · ISO 9241-303 · Cai 2013 · MUTCD</div>
+        <div class="lab-src">Legge &amp; Bigelow 2011, ISO 9241-303, Cai 2013, MUTCD</div>
         <table class="hw-tbl">
           <thead><tr><th>급</th><th>쓰임</th><th>시각도</th></tr></thead>
           <tbody>
-          <tr><td>1급</td><td>동작명 · 타이머</td><td>0.70°</td></tr>
-          <tr><td>2급</td><td>단계 · 단위</td><td>0.45°</td></tr>
+          <tr><td>1급</td><td>동작명과 타이머</td><td>0.70°</td></tr>
+          <tr><td>2급</td><td>단계와 단위</td><td>0.45°</td></tr>
           <tr><td>하한</td><td>이 아래는 안 읽힌다</td><td>0.20°</td></tr>
         </tbody></table>
         <details>
@@ -1056,24 +1059,24 @@ button, summary, .lab-pill, .lab-sw, .lab-go, .pp-pack, [role=button]{position:r
             비례해 커져야 하는 게 바닥 UI 만의 성질이다. 눈높이는 신장 × 0.936.</div>
         </details>
         <details>
-          <summary>근거 — 네 문헌</summary>
-          <div class="lab-note">Legge &amp; Bigelow 2011 임계 활자 0.2° · ISO 9241-303 권장 16~22 arcmin ·
-            Cai 2013 스침각 보정식(입사각 65.7°까지 검증, 우리 전 구간 6~50°) · MUTCD 노면 표시 늘림비.
-            운동 중·곁눈 훑기 감점 1.35~1.5배는 <b>우리가 정한 값</b>이다 — 그 조건을 잰 논문은 없다.</div>
+          <summary>네 문헌을 어떻게 썼나</summary>
+          <div class="lab-note">Legge &amp; Bigelow 2011 임계 활자 0.2°, ISO 9241-303 권장 16~22 arcmin,
+            Cai 2013 스침각 보정식(입사각 65.7°까지 검증, 우리 전 구간 6~50°), MUTCD 노면 표시 늘림비.
+            운동 중 곁눈 훑기 감점 1.35~1.5배는 <b>우리가 정한 값</b>이다. 그 조건을 잰 논문은 없다.</div>
         </details>
       </details>
 
       <details data-toc="빛의 한계">
         <summary>빛이 닿지 않는 자리</summary>
-        <div class="lab-lead">빔이 닿는 범위는 네모가 아니라 <b>부채꼴</b>입니다. 안 닿는 자리는 억지로 채우지 않고 비워 둡니다 — 그것까지가 설계입니다.</div>
-        <div class="lab-src">실측 — docs/FLOOR-LAYOUT-SPEC.md (러닝 기본 리그)</div>
+        <div class="lab-lead">빔이 닿는 범위는 네모가 아니라 <b>부채꼴</b>입니다. 안 닿는 자리는 억지로 채우지 않고 비워 둡니다. 그것까지가 설계입니다.</div>
+        <div class="lab-src">실측: docs/FLOOR-LAYOUT-SPEC.md, 러닝 기본 리그</div>
         <table class="hw-tbl"><tbody>
           <tr><td>투사면 밖 대지 위쪽</td><td>289 px = 12.7%</td></tr>
           <tr><td>조판 밴드</td><td>6 개</td></tr>
         </tbody></table>
         <details>
           <summary>왜 비워 두나</summary>
-          <div class="lab-note">투사 콘을 벗어난 픽셀은 GPU가 잘라낸다 — 거기 놓은 요소는 화면에서
+          <div class="lab-note">투사 콘을 벗어난 픽셀은 GPU가 잘라낸다. 거기 놓은 요소는 화면에서
             그냥 사라진다. 그래서 지면은 여섯 밴드로만 나뉘고, 타이틀 위로 올라갈 수 있는 건
             라벨 하나뿐이다. <b>안 보이는 노드는 자리도 차지하지 않는다.</b></div>
         </details>
@@ -1081,24 +1084,24 @@ button, summary, .lab-pill, .lab-sw, .lab-go, .pp-pack, [role=button]{position:r
 
       <details data-toc="가려질 때">
         <summary>가려질 때는 어떻게 하나</summary>
-        <div class="lab-lead">몸이나 공에 가리면 <b>가려진 그대로</b> 둡니다. 실제 빛이 그렇게 동작하니까요. 그 가려짐이 실제로 얼마나 되는지도 재 봤습니다 — 생각보다 훨씬 적습니다.</div>
-        <div class="lab-src">실측 — BEAM-OCCLUSION.md (크로스오버 전 사이클 샘플링)</div>
+        <div class="lab-lead">몸이나 공에 가리면 <b>가려진 그대로</b> 둡니다. 실제 빛이 그렇게 동작하니까요. 그 가려짐이 실제로 얼마나 되는지도 재 봤습니다. 생각보다 훨씬 적습니다.</div>
+        <div class="lab-src">실측: BEAM-OCCLUSION.md, 크로스오버 전 사이클 샘플링</div>
         <table class="hw-tbl"><tbody>
           <tr><td>창 경계</td><td>페더 18cm</td></tr>
           <tr><td>공에 가릴 때</td><td>그 토큰만 소등</td></tr>
-          <tr><td>차폐 실측</td><td>평균 1.4% · 최악 16%</td></tr>
+          <tr><td>차폐 실측</td><td>평균 1.4%, 최악 16%</td></tr>
           <tr><td>주간 모드</td><td>풀컬러 + 커버리지 α</td></tr>
         </tbody></table>
         <details>
           <summary>왜 끄는가</summary>
-          <div class="lab-note">투사광은 몸·공에 가려지는 게 물리적으로 맞다. 가려진 구간을 그리는 대신
+          <div class="lab-note">투사광은 몸과 공에 가려지는 게 물리적으로 맞다. 가려진 구간을 그리는 대신
             정직하게 끄고(평균 1.4%), 페더로 경계가 사각형으로 드러나지 않게 한다.</div>
         </details>
         <details>
-          <summary>추적으로 피하면 안 되나 — 기각</summary>
+          <summary>추적으로 피하면 안 되나</summary>
           <div class="lab-note">240Hz로 공을 쫓아 콘텐츠를 피신시키는 안을 실측으로 기각했다.
             그림자 이동 속도가 중앙값 <b>14.7 m/s</b>(상위 10% 151 m/s), 순간 최대 차폐 면적 92%.
-            <b>빛이 막힌 자리는 속도로 못 채운다</b> — 피신시킬 자리도 시간도 없다.
+            <b>빛이 막힌 자리는 속도로 못 채운다</b>. 피신시킬 자리도 시간도 없다.
             포드를 종아리 바깥 6cm로 옮긴 것만으로 평균 7.6% → 1.4% 가 됐다.</div>
         </details>
       </details>
@@ -1288,18 +1291,18 @@ button, summary, .lab-pill, .lab-sw, .lab-go, .pp-pack, [role=button]{position:r
     const why = host.querySelector('#sec-why');
     if (why) {
       const srcs = why.querySelectorAll(':scope > .lab-src');
-      srcs[srcs.length - 1]?.after(fig('howto/board-ar.png', '근거 보드 · 왜 AR 글라스가 아니라 프로젝션인가'));
+      srcs[srcs.length - 1]?.after(fig('howto/board-ar.png', '근거 보드: 왜 AR 글라스가 아니라 프로젝션인가'));
       const subs = why.querySelectorAll(':scope > details');
-      subs[0]?.append(fig('howto/board-guide.png', '근거 보드 · 바닥 투사형 시각 가이드'));
-      subs[1]?.append(fig('howto/board-fullcolor.png', '근거 보드 · 선형 가이드에서 풀컬러 지면 UI 로'));
+      subs[0]?.append(fig('howto/board-guide.png', '근거 보드: 바닥 투사형 시각 가이드'));
+      subs[1]?.append(fig('howto/board-fullcolor.png', '근거 보드: 선형 가이드에서 풀컬러 지면 UI 로'));
     }
     host.querySelector('[data-toc="유닛과 부품"]')?.append(
-      fig('howto/board-target.png', '근거 보드 · 부위 타겟 과정'));
+      fig('howto/board-target.png', '근거 보드: 부위 타겟 과정'));
     // 흔들림 체험은 패널에 남지만, 읽기 페이지에는 그 근거 보드가 있어야 한다(자리 = 원래 순서)
     const shake = document.createElement('details'); shake.open = true;
     shake.innerHTML = '<summary>흔들림을 어떻게 잡나</summary>'
       + '<div class="lab-lead">뛰는 몸에 붙은 프로젝터는 흔들립니다. 기구가 두 겹으로 먼저 잡고, 남는 잔떨림은 소프트웨어 세 항이 지웁니다. 시뮬레이터 왼쪽 패널에서 직접 꺼 보며 차이를 볼 수 있습니다.</div>';
-    shake.append(fig('howto/board-shake.png', '근거 보드 · 투사 흔들림 보정'));
+    shake.append(fig('howto/board-shake.png', '근거 보드: 투사 흔들림 보정'));
     host.querySelector('[data-toc="화면 위치"]')?.before(shake);
     // UX북 문법 — 섹션 번호 키커(최종 순서 확정 후)
     [...host.querySelectorAll(':scope > details > summary')].forEach((s, i) => {
@@ -1316,10 +1319,10 @@ button, summary, .lab-pill, .lab-sw, .lab-go, .pp-pack, [role=button]{position:r
     if (card) {
       const F = [
         ['33.1%', '시력교정이 필요한 러너 941명 중 달릴 때 안경을 피하는 비율', 'Latham et al., PLOS ONE 2024'],
-        ['46%', '안경 착용자가 스포츠·레저에서 제약을 느끼는 비율', '착용 불편 설문(n=120), 2016'],
+        ['46%', '안경 착용자가 스포츠와 레저에서 제약을 느끼는 비율', '착용 불편 설문(n=120), 2016'],
         ['무릎', '5개 부위 × 5개 각도 실측에서 고른 시각 가이드 투사 부위', '부위 타겟 실측'],
-        ['발 앞 20~150cm', '무릎 60°·45° 투사가 덮는 핵심 시야 범위', '165cm 성인 기본 자세 기준'],
-        ['EPM', '전원 없이 체결을 유지하는 전자 영구 자석, 이탈 방지의 첫 층', 'IEEE 2010·2018'],
+        ['발 앞 20~150cm', '무릎 60°와 45° 투사가 덮는 핵심 시야 범위', '165cm 성인 기본 자세 기준'],
+        ['EPM', '전원 없이 체결을 유지하는 전자 영구 자석, 이탈 방지의 첫 층', 'IEEE 2010, 2018'],
         ['1.9~4.4m', '러닝 중 시선이 바닥에 닿는 낙하점, 화면이 놓이는 곳', 'Matthis et al. 2018'],
       ];
       let fi = 0;

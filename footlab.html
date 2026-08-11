@@ -1482,11 +1482,11 @@ function drawPrimsCard(t) {
   out.filter = 'blur(16px)'; out.globalAlpha = Math.min(0.7, P.bloom * 2.0); out.drawImage(_primOff, 0, 0);
   out.restore(); out.filter = 'none'; out.globalAlpha = 1;
   out.font = "600 26px -apple-system,'Malgun Gothic',sans-serif"; out.textAlign = 'center'; out.fillStyle = '#98A1AD';   /* 표시폭 747px 기준 ≈10px — 14px 원값은 안 읽혔다 */
-  ['① 대기', '② 판정', '③ 성공'].forEach((n, i) => out.fillText(n, 60 + i * 170 + 75, 400));
-  out.fillText('회전 — 목·어깨', 730, 400);
-  out.fillText('궤적 — 코멧 헤드', 1090, 400);
-  out.fillText('화살표 ↑ · →', 800, 780);
-  out.fillText('잽잽훅 실물 — 콤보 노드 + 수축 링 (세션 정본 박자)', 1570, 760);
+  ['대기', '판정', '성공'].forEach((n, i) => out.fillText(n, 60 + i * 170 + 75, 400));
+  out.fillText('회전, 목과 어깨', 730, 400);
+  out.fillText('궤적, 코멧 헤드', 1090, 400);
+  out.fillText('화살표', 800, 780);
+  out.fillText('잽잽훅 실물, 세션 정본 박자', 1570, 760);
 }
 function frame() {
   const t = (performance.now() - T0) / 1000;
