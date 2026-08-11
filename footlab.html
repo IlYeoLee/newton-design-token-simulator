@@ -840,7 +840,7 @@ function drawAlign() {
   const pct = inArea ? (over / inArea * 100) : 0;
   $('alignNote') && ($('alignNote').textContent = pair
     ? `자국이 신발 밖으로 나간 면적 ${pct.toFixed(2)}% ${pct < 0.05 ? '— 완전히 안에 들어갔다' : '(시안색 = 삐져나온 곳)'}`
-    : '안(맨발) 채널이 없다 — 실내(맨발) 컨텍스트에선 각인이 비활성이다.';
+    : '안(맨발) 채널이 없다 — 실내(맨발) 컨텍스트에선 각인이 비활성이다.');
 }
 for (const k of ['scale', 'offx', 'offy']) $(k).addEventListener('input', drawAlign);
 

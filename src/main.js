@@ -1192,11 +1192,12 @@ void main(){
               : w.includes('SAFE') ? '#d1feff' : '#9b9b9b';
       wearPulse(c);
     } else if (wearFxEl) wearFxEl.style.opacity = '0';
-    // 데모 투어: READY 진입 시 자동 시작(탭), FIN 도달 시 다음 종목으로
-    if (demoTour) {
-      if (/READY$/.test(st.id)) setTimeout(() => { if (demoTour && session.active) session.tapAdvance(); }, 1400);
-      if (/FIN$/.test(st.id)) setTimeout(() => demoAdvance(), 4500);
-    }
+    // ★ 전시 무한 순환(유저 08-11) — 데모 투어 버튼을 눌렀을 때만 돌던 걸 **항상** 돌게 한다.
+    //   실측(E2E 200초): 데모 투어 없이 자동 재생하면 BX_FIN 에서 멈춰 100초를 서 있었다.
+    //   FIN 에 닿으면 큐의 다음 종목으로 넘어가고, READY 는 자동으로 탭해 들어간다.
+    if (!demoTour) demoTour = { queue: ['boxing', 'running', 'basketball'], i: 0, auto: true };
+    if (/READY$/.test(st.id)) setTimeout(() => { if (demoTour && session.active) session.tapAdvance(); }, 1400);
+    if (/FIN$/.test(st.id)) setTimeout(() => demoAdvance(), 4500);
   });
   session.judge = judge;   // 판정 오차 소비 (페이스 라이트·FIN 겹쳐보기·C3 흔들림)
   if (import.meta.env.DEV) { window.__sess = session; window.__cam = camera; window.__rig = rig; window.__scene = scene; window.__hoop = hoop; }   // 디버그 훅 — 콘솔에서 스테이지 고정·검수용
@@ -1323,6 +1324,9 @@ void main(){
   // ── 데모 투어: 러닝→복싱→농구 자동 순회 (영상 녹화용) ──
   function demoAdvance() {
     if (!demoTour) return;
+    // 큐 인덱스를 현재 종목에서 다시 잡는다 — 유저가 상단 탭으로 종목을 바꿨을 수 있다.
+    const cur = demoTour.queue.indexOf(session.sport || state.pack);
+    if (cur >= 0) demoTour.i = cur;
     demoTour.i++;
     // ★ 전시는 멈추지 않는다(유저 08-11: 세션이 끝나도 다음으로 넘어가 계속 순환).
     //   큐 끝에 닿으면 멈추는 대신 처음으로 되감는다 — 복싱→러닝→농구가 하루 종일 돈다.
