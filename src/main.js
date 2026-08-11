@@ -142,7 +142,7 @@ async function boot() {
     if (!rep) return;
     const w = rep.worst;
     reportEl.innerHTML = `
-      <b style="color:var(--text);font-size:14px;">Pack 일치도 <span style="color:${rep.matchPct >= 70 ? 'var(--ok)' : '#ffc94d'}">${rep.matchPct}%</span></b>
+      <b style="color:var(--text);font-size:14px;">Pack 일치도 <span style="color:${rep.matchPct >= 70 ? 'var(--text)' : 'var(--accent)'}">${rep.matchPct}%</span></b>
       <span style="color:var(--dim)"> (${rep.hits}/${rep.n} hit)</span><br>
       평균 타이밍 오차 ±${rep.avgTms.toFixed(0)}ms · 평균 위치 오차 ${rep.avgPcm.toFixed(1)}cm<br>
       어려웠던 구간: t=${w ? w.t.toFixed(2) : '—'}s (${w ? (w.perr * 100).toFixed(1) : '—'}cm, ${w ? w.verdict : '—'})
@@ -166,9 +166,10 @@ async function boot() {
   stabBtn.addEventListener('click', () => {
     rig.stabilize = !rig.stabilize;
     stabBtn.textContent = rig.stabilize ? '보정 ON' : '보정 OFF';
-    stabBtn.style.borderColor = rig.stabilize ? 'var(--ok)' : '#ff5c8a';
-    stabBtn.style.color = rig.stabilize ? 'var(--ok)' : '#ff5c8a';
-    stabBtn.style.background = rig.stabilize ? 'rgba(105,240,174,.12)' : 'rgba(255,92,138,.12)';
+    // GUI 레드+회색조(유저 08-12): ON = 레드 액센트 · OFF = 중립 회색 — 민트/핑크 은퇴
+    stabBtn.style.borderColor = rig.stabilize ? 'var(--accent)' : 'var(--line)';
+    stabBtn.style.color = rig.stabilize ? 'var(--accent)' : 'var(--dim)';
+    stabBtn.style.background = rig.stabilize ? 'rgba(250,48,48,.12)' : 'transparent';
   });
 
   const panel = new Panel({
@@ -1176,7 +1177,7 @@ void main(){
     livePick.style.display = 'none';   // 실전=연습 통일(유저): LiveUI 변형 은퇴 → 픽커 숨김
     const sig = [];
     if (st.hap) sig.push(`<span style="color:var(--warn)">햅틱</span> ${st.hap}`);
-    if (st.wear) sig.push(`<span style="color:var(--ok)">웨어러블</span> ${st.wear}`);
+    if (st.wear) sig.push(`<span style="color:var(--text)">웨어러블</span> ${st.wear}`);
     if (st.cue) sig.push(`<span style="color:#fa3030">보상</span> ${st.cue}`);
     if (st.foot) sig.push(`<span style="color:var(--accent)">발</span> ${st.foot}`);
     const html = `<b style="color:var(--text)">${st.label}</b>` +
@@ -5751,8 +5752,8 @@ void main(){
     if (stabPhase && rig.budget) {
       const swing = rig.phase === 'swing';
       stabPhase.textContent = swing ? '스윙' : '착지';
-      stabPhase.style.color = swing ? 'var(--accent)' : 'var(--ok)';
-      stabPhase.style.borderColor = swing ? 'var(--accent)' : 'var(--ok)';
+      stabPhase.style.color = swing ? 'var(--accent)' : 'var(--dim)';
+      stabPhase.style.borderColor = swing ? 'var(--accent)' : 'var(--line)';
       stabOmega.textContent = rig.omegaDps.toFixed(0);
       stabBudget.textContent = rig.budget.totalCm.toFixed(2);
     }
