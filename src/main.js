@@ -5160,7 +5160,21 @@ void main(){
         if (!session.active && tokens.events?.length) startSessionFor(state.pack);
       };
       pp.querySelectorAll('.pp-pack').forEach(b => b.addEventListener('click', () => setTimeout(productStart, 400)));
-      setTimeout(productStart, 900);   // 최초 진입
+      // ★ 900ms 자동 시작 은퇴(유저 08-13) — 복싱 첫 화면(대기)이 어트랙트다.
+      //   시작은 관람객의 터치('세션 체험하기' · 종목 탭)가 한다. 문구가 유도한다.
+      // ★ 무인 복귀: 세션 중 마지막 터치에서 20초가 지나면 리로드 → 복싱 대기 화면으로.
+      //   전시자가 버튼을 눌러 되돌릴 필요가 없다(유저 08-13). 대기 화면에선 안 돌린다.
+      {
+        let lastTouch = performance.now();
+        const arm = () => { lastTouch = performance.now(); };
+        for (const ev of ['pointerdown', 'touchstart', 'keydown', 'wheel'])
+          addEventListener(ev, arm, { passive: true });
+        setInterval(() => {
+          if (document.body.classList.contains('dev')) return;
+          if (!session.active) return;
+          if (performance.now() - lastTouch > 20000) location.reload();
+        }, 1000);
+      }
       setInterval(() => {
         const live = !!session?.active;
         $$('pp-idle').style.display = live ? 'none' : '';
@@ -5175,7 +5189,7 @@ void main(){
         const [code, ...seg] = head.split(' · ');
         $$('pp-code').textContent = live ? code.trim() : '';
         $$('pp-seg').textContent = live ? seg.join(' · ').trim() : '';
-        $$('pp-stage').textContent = live ? (rest.join(' — ').trim() || code.trim()) : '세션을 시작하면 코치가 안내합니다';
+        $$('pp-stage').textContent = live ? (rest.join(' — ').trim() || code.trim()) : '코치가 준비됐습니다. 터치로 시작하세요';
         $$('pp-meta').textContent = live ? [st?.cue, st?.foot].filter(Boolean).join(' · ') : '';
         $$('pp-idx').textContent = live ? `${(session.stageIdx || 0) + 1} / ${session.stages.length}` : '체험';
         const vLb = $$('pp-view').querySelector('span');
