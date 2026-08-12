@@ -4611,7 +4611,8 @@ void main(){
     // BX_C4(숨 고르기)도 제외(유저 08-12: 쿨다운에 원형 판정 토큰이 왜 뜨나) — 마무리는
     //   판정이 끝난 화면이다. 러닝 C5 와 같은 원칙(session.js C5 주석).
     const PACK_OFF = session.stage === 'BX_C2' || session.stage === 'BX_C3' || session.stage === 'BX_C4';
-    if (session.active) tokens.floorRoot.visible = session.isLive && session.stage !== 'BK_C4' && !PACK_OFF;
+    if (session.active) tokens.floorRoot.visible = session.isLive && session.stage !== 'BK_C4' && !PACK_OFF
+      && !(session.stage === 'BK_C2' && session.c2Shot);   // 슛 국면 = 지면 마크도 쉼(시선은 공·골대로)
     if (session.active) tokens.wallRoot.visible = !PACK_OFF;
     // 스톰프 프레스 스테이지: 봇을 뒤로 당겨 착지(전방 0.38m)가 프레스 원 위에 정확히 떨어지게
     if (session.active && !session.isLive && data.sport !== 'boxing') {
@@ -4682,6 +4683,8 @@ void main(){
       //   (실측: 골반 정면 −8° · 마크 방향 180° = 188° 어긋남). 농구는 전 장면 정면 유지다.
       xbot.lockYaw = session.active && /^BK_([ABCT])/.test(session.stage || '');   // 실전에서도 정면 유지(유저)
       let _clip = demoClipFor(session.sport, session.stage);
+      // BK_C2 슛 국면(session.c2Shot>0) = 실측 점프샷 원샷으로 전환(유저 08-13: 진짜 슛이 나와야 한다)
+      if (session.stage === 'BK_C2' && session.c2Shot > 0) _clip = 'mf_jump_shot';
       // A2/A3 = 2단계 흐름(유저): [0~5s 관찰] 봇은 가만히 서서(idle) 전문가 영상 보기 → [5s~ 따라하기].
       // 뉴턴 전환 문법(유저 확정): 시범(영상만·도트바) → 마크 Preview 워밍 등장+음성 → 따라하기.
       //   3·2·1은 실전 트리거(C1) 전용 — 학습 내 전환엔 안 씀(복싱 문법과 통일).
@@ -4903,10 +4906,14 @@ void main(){
       //   영상과 동기될 이유가 없다. null 이면 playDemo 가 자기 시계로 자연 루프한다.
       // (08-12) READY hold 폐기 — 가드 대기가 imp_mx_idle_guard(가드율 100% 바운스 아이들)로 바뀌어
       //   프레임을 얼릴 이유가 없다. 얼리면 다시 마네킹이 된다(관찰 구간과 같은 교훈).
-      xbot.playDemo(_clip, h, false, aWatching ? null : _phase);
+      // 슛 국면 위상 = 클립 실측 창(1.35 크라우치 → 2.5 정점 → 착지). c2Shot=99(그물 국면)면 끝 프레임 유지.
+      const _c2ShotPh = (session.stage === 'BK_C2' && session.c2Shot > 0)
+        ? Math.min(1.35 + session.c2Shot, 4.9) : null;
+      xbot.playDemo(_clip, h, false, _c2ShotPh ?? (aWatching ? null : _phase));
       // ★ 1인칭 스텝백은 공을 숨긴다(08-10 실측: 124_06 공이 가슴 높이라 카메라 0.9m 앞
       //   거대 구가 되어 발자국을 가린다). 드리블(B1)은 공이 바닥 쪽이라 그대로 둔다.
-      if (fpMode && STEP_SEG[session.stage || ''] && xbot.ball) xbot.ball.visible = false;
+      //   슛 국면은 예외 — 궤적이 골대로 날아가는 게 장면의 목적이다(유저 08-13).
+      if (fpMode && STEP_SEG[session.stage || ''] && xbot.ball && !session.c2Shot) xbot.ball.visible = false;
       rig.update(0, h);
       tokens.setShake(rig.shake.x, rig.shake.y);
       // 이 분기는 아래 followFloor 호출을 건너뛰어(early return) 무한 지면(그리드·바닥)이

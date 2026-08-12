@@ -3738,6 +3738,7 @@ export class Session {
       if ((this._bkStrT2 ?? 0) > this.t || this._bkStrId !== id) {
         H.beat = 0; H.count = 0; H._beatT = this.t; H._popT = -9; H._side = -1; H._ghT = -9; H._lpPrev = null;
         if (id === 'BK_T1') this._t1n1 = this._t1n2 = this._t1n3 = 0;   // 내레이션 재무장(재진입·되감김)
+        if (id === 'BK_C2') { this._c2 = null; this.c2Shot = 0; if (this.xbot) this.xbot._extBall = false; }   // 렙 머신 재무장
       }
       this._bkStrT2 = this.t; this._bkStrId = id;
       if (!this._followLatch && !LIVE) {   // 훈련만 관찰 국면
@@ -3938,31 +3939,73 @@ export class Session {
         H.mL.setOp?.(0); H.mR.setOp?.(0); H.mC.setOp?.(0);
         H.rise.setOp?.(0); H.gh.op(0); H.cL?.op(0); H.cR?.op(0);
       }
-      // 실전 = 배운 스텝으로 3점슛 3회. 한 사이클이 끝날 때마다 1회 카운트, 3회째에 슛하고 종료(유저).
+      // 실전 = 스텝백 → **진짜 슛**(공이 골대로) ×3 (유저 08-13: 조각만 빠르게 3번 도는 건
+      //   슛이 없어 이상하다). 한 렙 = 스텝백 1사이클(영상 위상) → 점프샷 원샷(mf_jump_shot
+      //   실측 클립, main 이 c2Shot 을 보고 클립·위상 전환) + 공 포물선(림 0,3.05,-7) → 다음 렙.
       if (LIVE && this._followLatch) {
-        const NEED = 3, vt = this.stepVidT ?? 0;
-        if ((H._prevVt ?? 0) > vt + 0.3) H.count = (H.count || 0) + 1;   // 되감김 = 1회 완료
-        H._prevVt = vt;
-        this.repTotal = NEED; this.repLeft = Math.max(0, NEED - (H.count || 0));
-        // 구간이 [a,b] 라 진행률은 **a 를 빼고** 재야 한다 — 안 빼면 첫 프레임부터 46% 로 시작한다.
+        const NEED = 3;
+        const ph = this._c2 || (this._c2 = { rep: 0, mode: 'step', t0: this.t, _pv: 0 });
+        const pt = this.t - ph.t0;
+        this.repTotal = NEED; this.repLeft = Math.max(0, NEED - ph.rep);
         const [cA, cB] = STEP_SEG.BK_C2;
-        this.repFrac = Math.min(1, ((H.count || 0) + (vt - cA) / (cB - cA)) / NEED);
-        if (H.count >= NEED && !this.bkShotNow) { this.bkShotNow = true; this._shotT = this.t;
-          this._say('bkc2shot', '커리', '그거예요 — shoot! 오늘 내 무브, 완전히 가져갔네요.'); }
-        // ★ 완료 '팡' — 세 번을 다 해내면 **투사 영역 전체**로 충격파가 한 번 퍼진다(유저 08-07).
-        //   ponytail: 새 그래픽 0개. 카탈로그의 MARK 존 원(waveRingMesh)을 Success(phase 2)로
-        //   두고 **스케일만** 키운다. 셰이더의 Success 분기가 이미 '한 번 크게 팡 → 잔잔히'를
-        //   갖고 있어서(fx-core ripCyc), 여기서는 반경·알파 곡선만 준다.
-        //   0.9초 = 음성('그거예요 — 슛!')이 끝나기 전에 시각이 먼저 닿는 길이.
-        if (this.bkShotNow && H.pang) {
-          const e = Math.max(0, Math.min(1, (this.t - (this._shotT ?? 0)) / 0.9));
-          const eo = 1 - Math.pow(1 - e, 3);                  // 빠르게 나갔다 천천히 — 충격파의 성질
-          H.pang.visible = e < 1;
-          H.pang.scale.setScalar(0.55 + 3.1 * eo);            // 빔 원단(반폭 0.75m)까지 덮는다
-          H.pang.setOp(Math.pow(1 - e, 1.6) * 0.95);          // 퍼지며 사라진다
-          H.pang.setProg(e);
-        } else if (H.pang) H.pang.visible = false;
-        if (this.bkShotNow && this.t - (this._shotT ?? 0) > 1.6) { this.bkShotNow = false; this.next(); return; }
+        if (ph.mode === 'done') {
+          // 마무리 멘트가 도는 동안 next() 는 보류된다(voiceBusy) — 상태를 지우지 말고
+          //   매 프레임 재시도해야 한다(08-13 실측: 지웠더니 렙 머신이 처음부터 다시 돌았다).
+          this.c2Shot = 99; this.repFrac = 1;
+          this.next(); return;
+        }
+        if (ph.mode === 'step') {
+          this.c2Shot = 0;
+          const vt = this.stepVidT ?? 0;
+          // pt>1.0 가드 — 진입·복귀 직후 영상 시계 점프를 사이클 완주로 오검출하던 것(08-13 실측)
+          if (pt > 1.0 && (ph._pv || 0) > vt + 0.3) { ph.mode = 'shot'; ph.t0 = this.t; ph.p0 = null; }
+          ph._pv = vt;
+          this.repFrac = Math.min(1, (ph.rep + Math.max(0, (vt - cA) / (cB - cA)) * 0.7) / NEED);
+        } else if (ph.mode === 'shot') {
+          this.c2Shot = pt;                        // 클립 위상 = 1.35 + pt (크라우치→점프, 실측 창)
+          const REL = 1.15, FLY = 1.0;             // 릴리즈 = 클립 2.5s(점프 정점 실측)
+          const ball = this.xbot?.ball;
+          if (ball) {
+            this.xbot._extBall = true;
+            if (pt < REL) {                        // 릴리즈 전 — 공을 가슴 앞에서 같이 올린다
+              const hp = this.xbot.getProbes?.()?.hips;
+              if (hp) { ball.visible = true; ball.position.set(hp.x, hp.y + 0.45 + pt * 0.4, hp.z - 0.25); }
+            } else {
+              if (!ph.p0) { const hp = this.xbot.getProbes?.()?.hips;
+                ph.p0 = { x: hp?.x || 0, y: (hp?.y || 1) + 0.92, z: (hp?.z || 0) - 0.25 }; }
+              const u = Math.min(1, (pt - REL) / FLY);
+              ball.visible = true;
+              ball.position.set(ph.p0.x * (1 - u),
+                ph.p0.y + (3.05 - ph.p0.y) * u + Math.sin(u * Math.PI) * 1.25,
+                ph.p0.z + (-7.0 - ph.p0.z) * u);
+              if (u >= 1) { ph.mode = 'net'; ph.t0 = this.t; }
+            }
+          } else if (pt > REL + FLY) { ph.mode = 'net'; ph.t0 = this.t; }
+          this.repFrac = Math.min(1, (ph.rep + 0.7 + Math.min(1, pt / (REL + FLY)) * 0.3) / NEED);
+        } else {                                    // net — 림 통과 낙하 + 스위시 팡(렙마다)
+          this.c2Shot = 99;                         // 클립 끝(착지) 유지
+          const u = Math.min(1, pt / 0.35);
+          const ball = this.xbot?.ball;
+          if (ball) { ball.position.set(0, 3.05 - 0.6 * u, -7.0); if (u >= 1) ball.visible = false; }
+          if (H.pang) {                             // 기존 완료 '팡'(waveRingMesh Success) 재사용
+            const e = Math.min(1, pt / 0.9), eo = 1 - Math.pow(1 - e, 3);
+            H.pang.visible = e < 1;
+            H.pang.scale.setScalar(0.55 + 3.1 * eo);
+            H.pang.setOp(Math.pow(1 - e, 1.6) * 0.95);
+            H.pang.setProg(e);
+          }
+          this.repFrac = Math.min(1, (ph.rep + 1) / NEED);
+          if (pt >= 1.2) {
+            ph.rep++; this.repLeft = Math.max(0, NEED - ph.rep);
+            if (this.xbot) this.xbot._extBall = false;
+            if (ph.rep >= NEED) {
+              this._say('bkc2shot', '커리', '그거예요, shoot! 오늘 내 무브, 완전히 가져갔네요.');
+              ph.mode = 'done'; return;
+            }
+            FMU(`슛! ${ph.rep} / ${NEED}`, CS.red);
+            ph.mode = 'step'; ph.t0 = this.t; ph._pv = 0; this.c2Shot = 0;
+          }
+        }
       }
       const BEATN = { BK_T1: ['통째로 한 번 볼게요', '오른발 — 크로스', '왼발 — 뒤로', '모아서 올라가기'],
         BK_B2: ['① 준비', '② 오른발 크로스', '③ 공은 반대로!', '④ 왼발 버팀'],
@@ -3996,11 +4039,17 @@ export class Session {
         if ((this._pvLoops ?? 0) >= 1) { this.next(); return; }
         return;
       }
-      this.repLeft = left; this.repTotal = CFG.need; this.repFrac = Math.min(1, H.count / CFG.need);
-      FMU(LIVE ? `스텝백 3점 — 남은 ${left}회` : `${BEATN[H.beat]} · 남은 ${left}회`, LIVE ? CS.red : CS.sand);
-      // 조각(B3·B4) = 따라하기 한 바퀴 성공 즉시 전환, 음성 대기 없음(유저: 바로).
-      // 실전(C2)은 3회 뒤 마무리 멘트를 기다린다 — 거긴 끊을 대사가 종료 신호다.
-      if (left === 0) { this.next(!LIVE); return; }
+      if (id === 'BK_C2') {
+        // C2 는 위 렙 머신(스텝백→슛→그물)이 카운트·전환을 전담한다 — 레거시 바퀴 완주 판정 금지
+        //   (08-13 실측: 병행 작동으로 렙 1에서 FIN 으로 튀었다)
+        const m = this._c2?.mode;
+        FMU(m === 'shot' || m === 'net' ? '슛!' : `스텝백 3점, 남은 ${this.repLeft ?? 3}회`, CS.red);
+      } else {
+        this.repLeft = left; this.repTotal = CFG.need; this.repFrac = Math.min(1, H.count / CFG.need);
+        FMU(`${BEATN[H.beat]}, 남은 ${left}회`, CS.sand);
+        // 조각(B3·B4) = 따라하기 한 바퀴 성공 즉시 전환, 음성 대기 없음(유저: 바로).
+        if (left === 0) { this.next(!LIVE); return; }
+      }
     } else if (id === 'BK_C1') {
       const n = Math.max(1, 3 - Math.floor(this.t)); if (n !== this._lastCount) { this._setCount(n, CS.ink); this._lastCount = n; }
       if (this.t >= st.dur) { this.next(); return; }
