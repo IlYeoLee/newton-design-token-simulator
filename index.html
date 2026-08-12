@@ -619,7 +619,7 @@ button, summary, .lab-pill, .lab-sw, .lab-go, .pp-pack, [role=button]{position:r
 .lab-pill .ripple{background:rgba(0,0,0,.14)}
 @keyframes ripple{to{transform:scale(2.6);opacity:0}}
 </style>
-  <script type="module" crossorigin src="./assets/main-rlAt4_P_.js"></script>
+  <script type="module" crossorigin src="./assets/main-CnyQaroh.js"></script>
   <link rel="modulepreload" crossorigin href="./assets/modulepreload-polyfill-B5Qt9EMX.js">
   <link rel="modulepreload" crossorigin href="./assets/preload-helper-PPVm8Dsz.js">
   <link rel="modulepreload" crossorigin href="./assets/fx-core-CsnioyF7.js">
@@ -937,7 +937,7 @@ button, summary, .lab-pill, .lab-sw, .lab-go, .pp-pack, [role=button]{position:r
         <!-- 보드(부위 타겟)가 부위·각도·커버를 말한다 — 표는 보드에 없는 리그 실측만 -->
         <table class="hw-tbl"><tbody>
           <tr><td>장착 위치</td><td>무릎 아래 11cm 바깥면</td></tr>
-          <tr><td>렌즈 높이</td><td>≈51cm</td></tr>
+          <tr><td>렌즈 높이</td><td>약 51cm</td></tr>
           <tr><td>투사창</td><td>5cm~2.0m, 폭 64~169cm</td></tr>
         </tbody></table>
         <details>
@@ -947,7 +947,7 @@ button, summary, .lab-pill, .lab-sw, .lab-go, .pp-pack, [role=button]{position:r
             <tbody>
               <tr><td>투사</td><td>MEMS Laser Beam Scanning</td><td>낮의 야외에서도 보이는 지면 투사</td></tr>
               <tr><td>체결</td><td>EPM 전자 영구 자석</td><td>전력 없이 체결 유지, 이탈 방지</td></tr>
-              <tr><td>안정화</td><td>1축 짐벌(300°/s) + OIS 렌즈</td><td>크게는 짐벌, 잔떨림은 렌즈</td></tr>
+              <tr><td>안정화</td><td>1축 짐벌과 OIS 렌즈</td><td>크게는 짐벌, 잔떨림은 렌즈</td></tr>
               <tr><td>발목</td><td>와이어 액추에이션</td><td>뒤꿈치를 들고 발목 각도를 잡는다</td></tr>
             </tbody>
           </table>
@@ -1045,7 +1045,7 @@ button, summary, .lab-pill, .lab-sw, .lab-go, .pp-pack, [role=button]{position:r
         </details>
         <details>
           <summary>이 각도들의 출처</summary>
-          <div class="lab-note">보행자는 약 2보 앞(~1.5초 시간창)을 응시한다. 평지+가이드에선 더 멀리 보므로
+          <div class="lab-note">보행자는 약 2보 앞(1.5초 시간창)을 응시한다. 평지에 가이드가 있으면 더 멀리 보므로
             실전이 원경(−20°)에, 발 근처를 보는 초심자 학습은 근경(−40°)에 앉는다.
             눈높이 1.6m, 낙하점 = 1.6/tanθ, 전환 τ=0.9초.</div>
         </details>
@@ -1054,46 +1054,51 @@ button, summary, .lab-pill, .lab-sw, .lab-go, .pp-pack, [role=button]{position:r
       <details data-toc="벽 화면">
         <summary>벽에 쏘는 화면 <span class="cnt">복싱</span></summary>
         <div class="lab-lead">몸을 움직이기 전에 먼저 봐야 하는 것(상대의 리듬, 공격 범위)은 바닥이 아니라 <b>벽</b>에 띄웁니다. 아래는 실측한 벽 화면의 크기입니다.</div>
-        <div class="lab-src">실측: PROJECTION-SPEC.md §1·§5, 프로젝터 62°와 카메라 50°</div>
+        <div class="lab-src">실측: 프로젝터 62°와 카메라 50° 리그</div>
         <table class="hw-tbl"><tbody>
           <tr><td>투사 크기</td><td>2.60 × 1.63 m</td></tr>
-          <tr><td>벽 ↔ 빔 유닛</td><td>1.36 m</td></tr>
-          <tr><td>대지 환산</td><td>1 px = 1 mm</td></tr>
-        </tbody></table>
+          <tr><td>벽에서 빔 유닛까지</td><td>1.36 m</td></tr>
+          </tbody></table>
       </details>
 
       <details data-toc="글자 크기">
         <summary>바닥 글자는 얼마나 커야 하나</summary>
-        <div class="lab-lead">바닥 글자는 비스듬히 보여 <b>납작하게 눌립니다</b>. 그래서 크기를 센티미터가 아니라 <b>눈에 맺히는 각도</b>로 정했습니다. 같은 10cm 글자도 발밑과 2m 앞에서 전혀 다르게 보이기 때문입니다.</div>
+        <div class="lab-lead">"10cm면 되겠지"가 통하지 않습니다. 바닥 글자는 비스듬히 보여 납작하게 눌리고, 같은 크기라도 발밑과 2m 앞에서 전혀 다르게 보입니다. 그래서 크기를 길이가 아니라 <b>눈에 맺히는 각도</b>로 먼저 정하고, 각 자리에서 그 각도를 채우는 실제 크기를 거꾸로 계산합니다. 그 결과 타이틀 알약은 81×27cm에서 66×17cm로 줄었는데도 더 잘 읽힙니다.</div>
         <div class="lab-src">Legge &amp; Bigelow 2011, ISO 9241-303, Cai 2013, MUTCD</div>
         <table class="hw-tbl">
           <thead><tr><th>급</th><th>쓰임</th><th>시각도</th></tr></thead>
           <tbody>
-          <tr><td>1급</td><td>동작명과 타이머</td><td>0.70°</td></tr>
-          <tr><td>2급</td><td>단계와 단위</td><td>0.45°</td></tr>
+          <tr><td>1급</td><td>동작명과 타이머</td><td>0.69°</td></tr>
+          <tr><td>2급</td><td>단계와 단위</td><td>0.50°</td></tr>
           <tr><td>하한</td><td>이 아래는 안 읽힌다</td><td>0.20°</td></tr>
         </tbody></table>
         <details>
-          <summary>왜 cm 가 아니라 각도인가</summary>
-          <div class="lab-note">바닥은 스치는 각도로 보여 글자가 눌린다. 눈에 맺히는 각
-            <b>θ = h·sinα / d</b> 로 재야 거리와 무관하게 같은 크기가 된다. 거리의 <b>제곱</b>에
-            비례해 커져야 하는 게 바닥 UI 만의 성질이다. 눈높이는 신장 × 0.936.</div>
+          <summary>키가 크면 글자가 커져야 하지 않나</summary>
+          <div class="lab-note">맞는 질문이라 재 봤습니다. 눈높이는 신장의 93.6%라서, 키를 넣으면 시선이 떨어지는 자리와
+            필요한 글자 크기가 함께 다시 계산됩니다. 지면 레이아웃 랩에 신장을 넣어 보면 그대로 움직입니다.
+            그런데 실측해 보니 160~180cm 구간에서는 필요한 크기가 거의 같았습니다. 키가 크면 눈이 높아지는 만큼
+            보는 거리도 멀어져 서로 상쇄되기 때문입니다. 그래서 기본값 한 벌로 이 구간을 덮습니다.</div>
+        </details>
+        <details>
+          <summary>왜 길이가 아니라 각도인가</summary>
+          <div class="lab-note">바닥은 스치는 각도로 보여 글자가 눌린다. 눈에 맺히는 각으로 재야 거리와 무관하게
+            같은 크기가 된다. 멀어질수록 거리의 <b>제곱</b>에 비례해 커져야 하는 것이 바닥 UI만의 성질이다.</div>
         </details>
         <details>
           <summary>네 문헌을 어떻게 썼나</summary>
           <div class="lab-note">Legge &amp; Bigelow 2011 임계 활자 0.2°, ISO 9241-303 권장 16~22 arcmin,
             Cai 2013 스침각 보정식(입사각 65.7°까지 검증, 우리 전 구간 6~50°), MUTCD 노면 표시 늘림비.
-            운동 중 곁눈 훑기 감점 1.35~1.5배는 <b>우리가 정한 값</b>이다. 그 조건을 잰 논문은 없다.</div>
+            운동 중 곁눈으로 훑는 감점 1.35~1.5배는 <b>우리가 정한 값</b>이다. 그 조건을 잰 논문은 없다.</div>
         </details>
       </details>
 
       <details data-toc="빛의 한계">
         <summary>빛이 닿지 않는 자리</summary>
         <div class="lab-lead">빔이 닿는 범위는 네모가 아니라 <b>부채꼴</b>입니다. 안 닿는 자리는 억지로 채우지 않고 비워 둡니다. 그것까지가 설계입니다.</div>
-        <div class="lab-src">실측: docs/FLOOR-LAYOUT-SPEC.md, 러닝 기본 리그</div>
+        <div class="lab-src">실측: 러닝 기본 리그</div>
         <table class="hw-tbl"><tbody>
-          <tr><td>투사면 밖 대지 위쪽</td><td>289 px = 12.7%</td></tr>
-          <tr><td>조판 밴드</td><td>6 개</td></tr>
+          <tr><td>빛이 못 닿는 화면 위쪽</td><td>12.7%</td></tr>
+          <tr><td>지면 조판</td><td>여섯 줄 밴드</td></tr>
         </tbody></table>
         <details>
           <summary>왜 비워 두나</summary>
@@ -1108,7 +1113,9 @@ button, summary, .lab-pill, .lab-sw, .lab-go, .pp-pack, [role=button]{position:r
            '추적으로는 못 피한다' 였다. 우리 입으로 약점을 요약해 준 셈이고, 근거 페이지의
            마지막 인상이 그것일 이유가 없다. 실측 자체는 BEAM-OCCLUSION.md 에 그대로 있다 —
            질문이 실제로 나오면 그때 그 문서로 답한다.
-           (앞선 08-11 '자기부정 항 삭제'·'근거 부족한 3.29m 삭제' 와 같은 판단이다.) -->
+           (앞선 08-11 '자기부정 항 삭제'·'근거 부족한 3.29m 삭제' 와 같은 판단이다.)
+           08-13 리베이스 노트: 이 세션의 '다리나 공이 빛을 가리면' 개편판도 같은 이유로 드랍. -->
+
     </div>
   </div>
   <main id="stage">
@@ -1220,7 +1227,7 @@ button, summary, .lab-pill, .lab-sw, .lab-go, .pp-pack, [role=button]{position:r
       <!-- 위계: [상태 배지 · 구간]  [n / N] → 타이틀 (유저) -->
       <div class="pp-head"><span class="pp-badge" id="pp-code"></span>
         <span class="pp-seg" id="pp-seg"></span><span class="pp-idx" id="pp-idx">체험</span></div>
-      <div class="pp-stage" id="pp-stage">세션을 시작하면 코치가 안내합니다</div>
+      <div class="pp-stage" id="pp-stage">코치가 준비됐습니다. 터치로 시작하세요</div>
       <div class="pp-meta" id="pp-meta"></div>
       <div id="pp-idle">
         <button class="pp-start" id="pp-start">세션 체험하기</button>
