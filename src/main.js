@@ -5160,8 +5160,19 @@ void main(){
         if (!session.active && tokens.events?.length) startSessionFor(state.pack);
       };
       pp.querySelectorAll('.pp-pack').forEach(b => b.addEventListener('click', () => setTimeout(productStart, 400)));
-      // ★ 900ms 자동 시작 은퇴(유저 08-13) — 복싱 첫 화면(대기)이 어트랙트다.
-      //   시작은 관람객의 터치('세션 체험하기' · 종목 탭)가 한다. 문구가 유도한다.
+      // ★ 900ms 자동 시작 은퇴(유저 08-13) — 시작 페이지(#attract)가 전시의 홈이다.
+      //   터치 한 번이 어트랙트를 걷고 복싱 세션을 연다. 리로드는 항상 여기로 돌아온다.
+      {
+        const at = document.getElementById('attract');
+        const go = (n = 0) => {
+          productStart();
+          // 토큰·프리컴파일이 늦으면 세션이 안 열린다 — 열릴 때까지 짧게 재시도(최대 16초)
+          if (!session.active && n < 40) setTimeout(() => go(n + 1), 400);
+        };
+        at?.addEventListener('pointerdown', e => {
+          e.preventDefault(); at.classList.add('off'); go();
+        }, { once: true });
+      }
       // ★ 무인 복귀: 세션 중 마지막 터치에서 20초가 지나면 리로드 → 복싱 대기 화면으로.
       //   전시자가 버튼을 눌러 되돌릴 필요가 없다(유저 08-13). 대기 화면에선 안 돌린다.
       {
