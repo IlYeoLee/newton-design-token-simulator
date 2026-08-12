@@ -229,12 +229,17 @@ body.howto #howto-overlay{visibility:visible;opacity:1;transform:none;pointer-ev
 /* 무대는 왼쪽으로 살짝 밀리며 가라앉고, 우패널은 화면 밖으로.
    랩 두 개(지면 그래픽·지면 레이아웃)도 같은 전환을 쓴다(body.labview) — 랩은 자기
    패널을 갖고 오는 전체 페이지라 좌패널까지 왼쪽으로 비켜 준다. */
-#stage,#play-panel,#lab-panel{transition:transform var(--scr-t) var(--scr-eOut),opacity .22s ease}
-body.howto #stage,body.labview #stage,body.howto #play-panel,body.labview #play-panel,
-body.labview #lab-panel{transition:transform var(--scr-t) var(--scr-e),opacity .22s ease}
-body.howto #stage,body.labview #stage{transform:translateX(-56px) scale(.965);opacity:0;pointer-events:none}
-body.howto #play-panel,body.labview #play-panel{transform:translateX(115%)}
-body.labview #lab-panel{transform:translateX(-115%)}
+/* ★ 튕김의 뿌리는 커브가 아니라 DOM 이었다(08-13 실측): #play-panel 이 #stage 안에 있어
+   무대 transform 이 걸리는 순간 fixed 기준이 무대로 바뀌며 함께 끌려갔다. 패널을 stage
+   밖으로 옮긴 지금은 원래 설계(슬라이드 아웃/인)가 안전하다 — 여는 방향만 스프링. */
+#stage{transition:transform var(--scr-t) var(--scr-eOut),opacity .22s ease}
+#play-panel,#lab-panel{transition:transform var(--scr-t) var(--scr-eOut),opacity .22s ease}
+body.howto #stage,body.labview #stage{transition:transform var(--scr-t) var(--scr-e),opacity .22s ease;
+  transform:translateX(-56px) scale(.965);opacity:0;pointer-events:none}
+body.howto #play-panel,body.labview #play-panel{transition:transform var(--scr-t) var(--scr-e),opacity .22s ease;
+  transform:translateX(115%);pointer-events:none}
+body.labview #lab-panel{transition:transform var(--scr-t) var(--scr-e),opacity .22s ease;
+  transform:translateX(-115%);pointer-events:none}
 #lab-embed-overlay{position:fixed;inset:0;z-index:60;background:var(--d-bg);display:flex;
   visibility:hidden;opacity:0;transform:translateX(64px);pointer-events:none;
   transition:transform var(--scr-t) var(--scr-eOut),opacity .22s ease,visibility 0s linear var(--scr-t)}
@@ -243,7 +248,7 @@ body.labview #lab-embed-overlay{visibility:visible;opacity:1;transform:none;poin
 #lab-embed-frame{flex:1;border:0;width:100%;background:var(--d-bg)}
 @media (prefers-reduced-motion:reduce){#howto-overlay,#lab-embed-overlay,#stage,#play-panel,#lab-panel,
   #howto-close,.howto-wrap>.hw-kick,.howto-wrap>h1,.howto-wrap>.howto-intro,#howto-body>details{transition:none;transform:none}}
-#howto-overlay .howto-wrap{position:relative;max-width:860px;margin:0 auto;padding:72px 32px 120px}
+#howto-overlay .howto-wrap{position:relative;max-width:1080px;margin:0 auto;padding:88px 110px 150px}
 #howto-overlay h1{font-size:38px;font-weight:700;letter-spacing:-.8px;color:#fff;margin:0 0 10px}
 #howto-overlay .howto-intro{font-size:17px;color:rgba(255,255,255,.55);margin:0 0 64px}
 /* 돌아가기 = 이 페이지의 유일한 주 행동 → 레드 CTA(유저 08-12: 너무 안 띈다).
@@ -277,9 +282,8 @@ body.howto #howto-nav{opacity:1;visibility:visible;transition:opacity .25s ease 
 body.howto .howto-wrap>.hw-kick{opacity:1;transform:none;transition-delay:.06s}
 body.howto .howto-wrap>h1{opacity:1;transform:none;transition-delay:.1s}
 body.howto .howto-wrap>.howto-intro{opacity:1;transform:none;transition-delay:.14s}
-body.howto #howto-body>details{opacity:1;transform:none;transition-delay:.28s}
-body.howto #howto-body>details:nth-child(1){transition-delay:.18s}
-body.howto #howto-body>details:nth-child(2){transition-delay:.23s}
+/* 섹션 = 스크롤 리빌(유저 08-13: 스크롤 기점마다 아래에서 촤라락) — IO 가 .rv 를 단다 */
+body.howto #howto-body>details.rv{opacity:1;transform:none}
 /* 근거 보드 도판 — 피그마 어펜딕스 원본(스튜디오가 조판한 사진·도해) */
 #howto-overlay .hw-fig{margin:20px 0 6px}
 #howto-overlay .hw-fig img{display:block;width:100%;height:auto;border-radius:14px;background:#000}   /* 보드 배경 통일(#000 정규화와 한 벌) */
@@ -300,6 +304,8 @@ body.howto #howto-body>details:nth-child(2){transition-delay:.23s}
 #howto-overlay .hw-dia svg{display:block;width:100%;height:auto}
 /* 큰 덩어리 사이는 확실히 벌린다(유저 08-12: 단락 간격이 너무 좁다) */
 #howto-overlay details{margin:0 0 88px;border-radius:0;background:none;pointer-events:auto}
+/* 읽기 페이지는 문서다 — 접힘 인터랙션 금지(유저 08-13: 토글처럼 안 생겼는데 누르면 접혀 어색) */
+#howto-overlay summary{pointer-events:none;cursor:default}
 #howto-overlay details>summary{list-style:none;cursor:default;font-size:26px;font-weight:700;color:#fff;
   letter-spacing:-.8px;margin-bottom:14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 /* UX북 문법 — 빨간 키커가 섹션 번호를 단다(유저 08-12: UX북 조판·DS 동일 적용) */
@@ -326,8 +332,8 @@ body.howto #howto-body>details:nth-child(2){transition-delay:.23s}
 #howto-overlay .cnt{font-size:12px;font-weight:700;color:rgba(255,255,255,.45);
   background:rgba(255,255,255,.08);padding:3px 10px;border-radius:99px}
 /* 자동 로테이션 근거 카드 — 조용한 면 하나. 값은 크고 희게, 레드 없음(정보지 CTA 가 아니다) */
-/* 시작선 = 우패널 하단 블록(보기 옵션 552px)과 실측 정렬(유저 08-13: 하단 레이아웃 맞춰라) */
-#fact-card{display:block;margin-top:95px;padding:16px 16px 15px;border-radius:14px;background:rgba(255,255,255,.04);
+/* 우패널 하단 정렬(95px)은 기각(유저 08-13: 왜 하단으로 갔냐, 이전처럼 위로) — 26px 원복 */
+#fact-card{display:block;margin-top:26px;padding:16px 16px 15px;border-radius:14px;background:rgba(255,255,255,.04);
   text-decoration:none;cursor:pointer}
 #fact-card:hover{background:rgba(255,255,255,.07)}
 #fact-card .fc-k{font:var(--t-labr);color:var(--d-t3);letter-spacing:.4px;margin-bottom:10px}
@@ -636,14 +642,14 @@ button, summary, .lab-pill, .lab-sw, .lab-go, .pp-pack, [role=button]{position:r
 .lab-pill .ripple{background:rgba(0,0,0,.14)}
 @keyframes ripple{to{transform:scale(2.6);opacity:0}}
 </style>
-  <script type="module" crossorigin src="./assets/main-VXsOllPq.js"></script>
+  <script type="module" crossorigin src="./assets/main-CQbFH3Sy.js"></script>
   <link rel="modulepreload" crossorigin href="./assets/modulepreload-polyfill-B5Qt9EMX.js">
   <link rel="modulepreload" crossorigin href="./assets/preload-helper-PPVm8Dsz.js">
   <link rel="modulepreload" crossorigin href="./assets/fx-core-CsnioyF7.js">
   <link rel="modulepreload" crossorigin href="./assets/fxlut-C-P47UVP.js">
   <link rel="modulepreload" crossorigin href="./assets/tokens-DG85IoL1.js">
-  <link rel="modulepreload" crossorigin href="./assets/floorgl-DGLTIDFj.js">
-  <link rel="modulepreload" crossorigin href="./assets/session-U4D0WUJK.js">
+  <link rel="modulepreload" crossorigin href="./assets/floorgl-ByyR7IKp.js">
+  <link rel="modulepreload" crossorigin href="./assets/session-kNzjBGIX.js">
   <link rel="stylesheet" crossorigin href="./assets/lab-skin-CHLkM1GD.css">
 </head>
 <body>
@@ -896,7 +902,9 @@ button, summary, .lab-pill, .lab-sw, .lab-go, .pp-pack, [role=button]{position:r
   </script>
   <!-- 좌측 체험 랩 — 부품·보정 알고리즘·시야 원칙을 직접 켜고 끄며 확인 -->
   <div id="lab-panel">
-    <img class="lab-logo" src="newton-logo.svg" alt="NEWTON">
+    <!-- 로고 = 홈 버튼(유저 08-13: 어디서든 누르면 첫 세션 유도 화면으로) — 리로드가 곧 초기화다 -->
+    <img class="lab-logo" src="newton-logo.svg" alt="NEWTON" style="cursor:pointer"
+      onclick="if(!document.body.classList.contains('dev'))location.reload()">
     <div class="pp-brand"><span class="pp-title">HOW IT WORKS</span>
       <span class="pp-sub">체험 랩</span>
     </div>
@@ -924,7 +932,7 @@ button, summary, .lab-pill, .lab-sw, .lab-go, .pp-pack, [role=button]{position:r
             <span class="lp-t">열화상</span>
             <span class="lp-s">이미지 편집기</span></a> -->
           <a href="#" class="lab-pill" id="howto-open">
-            <span class="lp-t">왜 이렇게 만들었나</span>
+            <span class="lp-t">이렇게 생긴 이유</span>
             <span class="lp-s">실측과 근거</span></a>
           <!-- 복구는 버튼이 아니라 **단축키**다(유저 08-12: 너무 큰 자리를 차지한다 —
                나만 알게). 알약으로 두면 관람객 눈에 제일 먼저 띄는 자리에 '되돌리기'가
@@ -1060,11 +1068,11 @@ button, summary, .lab-pill, .lab-sw, .lab-go, .pp-pack, [role=button]{position:r
         <details>
           <summary>고르는 규칙</summary>
           <div class="lab-note">봐야 할 대상이 시야 중앙에 오는 단을 고릅니다.
-            오래 지속되는 장면일수록 얕게 둡니다. 지속되는 목 굴곡은 20° 이내가 권장이라서요(ISO 9241 계열).
+            오래 지속되는 장면일수록 얕게 둡니다. 고개를 오래 숙이고 있게 하지 않기 위해서입니다.
             발 위치를 맞추는 정밀 조작일수록 깊게 둡니다. 장면마다 값을 새로 고르지는 않습니다.</div>
         </details>
         <details>
-          <summary>이 각도들의 출처</summary>
+          <summary>왜 하필 이 네 단계인가</summary>
           <div class="lab-note">보행자는 약 2보 앞(1.5초 시간창)을 응시한다. 평지에 가이드가 있으면 더 멀리 보므로
             실전이 원경(−20°)에, 발 근처를 보는 초심자 학습은 근경(−40°)에 앉는다.
             눈높이 1.6m, 낙하점 = 1.6/tanθ, 전환 τ=0.9초.</div>
@@ -1150,12 +1158,6 @@ button, summary, .lab-pill, .lab-sw, .lab-go, .pp-pack, [role=button]{position:r
           <div class="lab-note">바닥은 스치는 각도로 보여 글자가 눌린다. 눈에 맺히는 각으로 재야 거리와 무관하게
             같은 크기가 된다. 멀어질수록 거리의 <b>제곱</b>에 비례해 커져야 하는 것이 바닥 UI만의 성질이다.</div>
         </details>
-        <details>
-          <summary>네 문헌을 어떻게 썼나</summary>
-          <div class="lab-note">Legge &amp; Bigelow 2011 임계 활자 0.2°, ISO 9241-303 권장 16~22 arcmin,
-            Cai 2013 스침각 보정식(입사각 65.7°까지 검증, 우리 전 구간 6~50°), MUTCD 노면 표시 늘림비.
-            운동 중 곁눈으로 훑는 감점 1.35~1.5배는 <b>우리가 정한 값</b>이다. 그 조건을 잰 논문은 없다.</div>
-        </details>
       </details>
 
       <details data-toc="빛의 한계">
@@ -1188,9 +1190,8 @@ button, summary, .lab-pill, .lab-sw, .lab-go, .pp-pack, [role=button]{position:r
         </tbody></table>
         <details>
           <summary>왜 비워 두나</summary>
-          <div class="lab-note">투사 콘을 벗어난 픽셀은 GPU가 잘라낸다. 거기 놓은 요소는 화면에서
-            그냥 사라진다. 그래서 지면은 여섯 밴드로만 나뉘고, 타이틀 위로 올라갈 수 있는 건
-            라벨 하나뿐이다. <b>안 보이는 노드는 자리도 차지하지 않는다.</b></div>
+          <div class="lab-note">빔 밖으로 나간 빛은 그냥 사라집니다. 억지로 채워 넣으면 화면 모서리가
+            잘려 보일 뿐입니다. 그래서 처음부터 빔이 닿는 자리 안에서만 화면을 짭니다.</div>
         </details>
       </details>
 
@@ -1302,6 +1303,12 @@ button, summary, .lab-pill, .lab-sw, .lab-go, .pp-pack, [role=button]{position:r
       </div>
     </div>
 
+  </main>
+
+  <!-- ★ 패널을 #stage 밖으로 이사(08-13 실측): stage 에 전환 transform 이 걸리는 순간
+       안에 있던 fixed 패널의 기준이 stage 로 바뀌어 무대와 함께 끌려갔다(±368px 점프·0.965
+       스케일 — 유저가 본 '검정으로 늘었다 줄며 튕김'의 뿌리). fixed 는 transform 조상이
+       생기면 뷰포트 기준을 잃는다 — 전환 연출이 있는 한 패널은 stage 의 자식일 수 없다. -->
     <!-- 제품 뷰 전용 체험 패널 — 팩 전환 + 세션 시작/조작을 이 하나로 (개발자 패널 없이) -->
     <div id="play-panel">
       <div class="pp-body">
@@ -1340,7 +1347,7 @@ button, summary, .lab-pill, .lab-sw, .lab-go, .pp-pack, [role=button]{position:r
       </div>
       </div>
     </div>
-  </main>
+
 
   <!-- 🔥 룩 시스템 — FX Lab. 우측 도킹 사이드패널(전체화면 아님) → 편집하는 동안 좌측에 씬이 보여
        토큰 조절이 실시간 반영되는 걸 눈으로 확인(유저: '실시간 반영 안돼'=불투명 전체화면이 씬을 가렸던 것). -->
@@ -1380,8 +1387,8 @@ button, summary, .lab-pill, .lab-sw, .lab-go, .pp-pack, [role=button]{position:r
   <div id="howto-overlay" role="dialog" aria-label="왜 이렇게 만들었나">
     <div class="howto-wrap">
       <div class="hw-kick">HOW IT WORKS</div>
-      <h1>왜 이렇게 만들었나</h1>
-      <p class="howto-intro">여기 있는 숫자는 전부 실측이거나 논문입니다.</p>
+      <h1>뉴턴이 이렇게 생긴 이유</h1>
+      <p class="howto-intro">화면을 어디에 둘지부터 글자 크기 하나까지, 감으로 정한 값은 없습니다. 결정마다 그 근거를 여기 모았습니다.</p>
       <div id="howto-body"></div>
     </div>
   </div>
@@ -1432,6 +1439,11 @@ button, summary, .lab-pill, .lab-sw, .lab-go, .pp-pack, [role=button]{position:r
       nav.appendChild(a);
     });
     ov.appendChild(nav);
+    // 스크롤 리빌 — 섹션이 뷰포트에 들어오는 순간 아래에서 떠오른다(유저 08-13)
+    const io = new IntersectionObserver(es => {
+      es.forEach(e => { if (e.isIntersecting) { e.target.classList.add('rv'); io.unobserve(e.target); } });
+    }, { root: ov, threshold: 0.1, rootMargin: '0px 0px -8% 0px' });
+    secs.forEach(d => io.observe(d));
     // 스크롤 스파이 — 화면 상단 1/3 을 지난 마지막 섹션이 현재
     const spy = () => {
       const y = ov.scrollTop + ov.clientHeight / 3;
