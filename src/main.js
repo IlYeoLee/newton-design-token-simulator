@@ -4685,8 +4685,10 @@ void main(){
       //   (실측: 골반 정면 −8° · 마크 방향 180° = 188° 어긋남). 농구는 전 장면 정면 유지다.
       xbot.lockYaw = session.active && /^BK_([ABCT])/.test(session.stage || '');   // 실전에서도 정면 유지(유저)
       let _clip = demoClipFor(session.sport, session.stage);
-      // BK_C2 슛 국면(session.c2Shot>0) = 실측 점프샷 원샷으로 전환(유저 08-13: 진짜 슛이 나와야 한다)
-      if (session.stage === 'BK_C2' && session.c2Shot > 0) _clip = 'mf_jump_shot';
+      // BK_C2 슛 국면(session.c2Shot>0) = CMU 06_15 실측 슛으로 전환(유저 08-13 2차: mf_jump_shot 은
+      //   1.4s 데드 + 과장 점프(힙 141)·이중 딥(75)이라 어색했다. 06_15 는 실측 슛 곡선
+      //   88→116→착지에 시작 자세(드리블 크라우치)가 스텝백 끝과 가까워 크로스페이드가 덜 튄다).
+      if (session.stage === 'BK_C2' && session.c2Shot > 0) _clip = 'cmu_dribble_shot';
       // A2/A3 = 2단계 흐름(유저): [0~5s 관찰] 봇은 가만히 서서(idle) 전문가 영상 보기 → [5s~ 따라하기].
       // 뉴턴 전환 문법(유저 확정): 시범(영상만·도트바) → 마크 Preview 워밍 등장+음성 → 따라하기.
       //   3·2·1은 실전 트리거(C1) 전용 — 학습 내 전환엔 안 씀(복싱 문법과 통일).
@@ -4911,9 +4913,9 @@ void main(){
       //   영상과 동기될 이유가 없다. null 이면 playDemo 가 자기 시계로 자연 루프한다.
       // (08-12) READY hold 폐기 — 가드 대기가 imp_mx_idle_guard(가드율 100% 바운스 아이들)로 바뀌어
       //   프레임을 얼릴 이유가 없다. 얼리면 다시 마네킹이 된다(관찰 구간과 같은 교훈).
-      // 슛 국면 위상 = 클립 실측 창(1.35 크라우치 → 2.5 정점 → 착지). c2Shot=99(그물 국면)면 끝 프레임 유지.
+      // 슛 국면 위상 = 06_15 실측 창(1.9 크라우치 → 2.75 릴리즈 → 3.5 착지). c2Shot=99(그물)면 착지 유지.
       const _c2ShotPh = (session.stage === 'BK_C2' && session.c2Shot > 0)
-        ? Math.min(1.35 + session.c2Shot, 4.9) : null;
+        ? Math.min(1.9 + session.c2Shot, 4.5) : null;
       xbot.playDemo(_clip, h, false, _c2ShotPh ?? (aWatching ? null : _phase));
       // ★ 1인칭 스텝백은 공을 숨긴다(08-10 실측: 124_06 공이 가슴 높이라 카메라 0.9m 앞
       //   거대 구가 되어 발자국을 가린다). 드리블(B1)은 공이 바닥 쪽이라 그대로 둔다.

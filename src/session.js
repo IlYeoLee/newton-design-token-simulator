@@ -3975,8 +3975,8 @@ export class Session {
             this.repFrac = Math.min(1, (ph.rep + Math.max(0, (vt - cA) / (cB - cA)) * 0.7) / NEED);
           }
         } else if (ph.mode === 'shot') {
-          this.c2Shot = pt;                        // 클립 위상 = 1.35 + pt (크라우치→점프, 실측 창)
-          const REL = 1.15, FLY = 1.0;             // 릴리즈 = 클립 2.5s(점프 정점 실측)
+          this.c2Shot = pt;                        // 클립 위상 = 1.9 + pt (06_15 크라우치→점프 실측 창)
+          const REL = 0.85, FLY = 1.0;             // 릴리즈 = 클립 2.75s(점프 상승 실측)
           const ball = this.xbot?.ball;
           if (ball) {
             this.xbot._extBall = true;
