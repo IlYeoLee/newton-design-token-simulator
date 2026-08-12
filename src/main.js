@@ -5207,10 +5207,9 @@ void main(){
         if (i >= 0) { s.stageIdx = i; s.t = 0; s._enter(); }
         fpUserSet = true; setFp(false);   // 3인칭 고정 프레이밍
       });
-      $('lab-burst')?.addEventListener('click', () => {   // 스테이지 재진입 = 실제 과도 구간
-        const st = session.curStage; if (!st) return;
-        session.t = 0; session._enter(); rig.resetOmega?.();
-      });
+      // '흔들림이 커지는 순간 다시 보기' 버튼 제거(유저 08-12: 눌러도 별 효과 없다) —
+      //   하던 일은 스테이지 재진입뿐이라 세션이 없으면 조기 return 으로 무반응이었고,
+      //   돌고 있어도 스윙 과도가 눈에 띄게 재현되지 않았다. 쓰는 데 없는 핸들러는 죽은 코드다.
       // '보러 가기' 칩 제거(유저 08-11: 버튼이 더 헷갈린다). SEE 배선도 함께 걷었다 —
       //   쓰는 데가 없는 핸들러는 죽은 코드다. 장면 이동은 세션 흐름과 상단 팩 탭이 한다.
       // ★ 흔들림 섹션은 러닝 전용 — 무릎 빔은 달릴 때만 쓴다(유저 08-11: 복싱에서도
