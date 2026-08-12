@@ -353,6 +353,11 @@ body.howto #howto-body>details:nth-child(2){transition-delay:.23s}
 #lab-panel .lab-pill:hover{transform:translateY(-1px)}
 #lab-panel .lab-pill .lp-t{flex:1;color:#121212;font-size:15px;font-weight:800;letter-spacing:-.3px}
 #lab-panel .lab-pill .lp-s{color:rgba(18,18,18,.45);font-size:11.5px;font-weight:600;letter-spacing:-.2px}
+/* 복구 = 랩으로 '들어가는' 알약 셋과 성격이 다르다(되돌린다). 흰 알약 대열에서 빼서
+   회색 필로 — 아웃라인은 안 쓴다(08-12 GUI 규약). 위 여백으로 셋과 한 번 끊는다. */
+#lab-panel .lab-pill.lp-reset{margin-top:9px;background:rgba(255,255,255,.09)}
+#lab-panel .lab-pill.lp-reset .lp-t{color:rgba(255,255,255,.82);font-weight:700}
+#lab-panel .lab-pill.lp-reset .lp-s{color:rgba(255,255,255,.4)}
 #lab-panel .lab-live .ll-cap{font-size:12.5px;color:rgba(255,255,255,.55);letter-spacing:-.2px;margin-bottom:2px}
 #lab-panel .lab-live .ll-unit{font-size:13px;color:rgba(255,255,255,.6);margin-left:2px}
 #lab-panel .lab-live .ll-sub{font-size:11.5px;color:rgba(255,255,255,.45);line-height:1.7;margin-top:6px;letter-spacing:-.2px}
@@ -901,6 +906,14 @@ button, summary, .lab-pill, .lab-sw, .lab-go, .pp-pack, [role=button]{position:r
           <a href="#" class="lab-pill" id="howto-open">
             <span class="lp-t">왜 이렇게 만들었나</span>
             <span class="lp-s">실측과 근거</span></a>
+          <!-- 전시 복구 버튼(유저 08-12: 사람들이 막 만져 본 뒤 원래 초기값으로).
+               랩 둘(지면 그래픽·지면 레이아웃)은 같은 오리진이라 만진 값이 전부 이 문서의
+               localStorage 에 쌓인다 → 통째로 비우고 리로드하면 부팅 경로가 정본
+               (design-default.json · mark-look.json)을 다시 내려받는다. 되돌릴 값 목록을
+               따로 들고 있지 않는 게 핵심 — 목록은 랩이 늘 때마다 어긋난다. -->
+          <a href="#" class="lab-pill lp-reset" id="lab-reset">
+            <span class="lp-t">처음 상태로 되돌리기</span>
+            <span class="lp-s">랩에서 만진 값 전부 초기화</span></a>
         </div>
       </div>
 
@@ -1441,6 +1454,15 @@ button, summary, .lab-pill, .lab-sw, .lab-go, .pp-pack, [role=button]{position:r
     };
     document.getElementById('howto-close')?.addEventListener('click', close);
     window.addEventListener('keydown', e => { if (e.key === 'Escape' && document.body.classList.contains('labview')) close(); });
+    // 처음 상태로 되돌리기 — 랩(같은 오리진, iframe)이 만진 값은 전부 이 문서의
+    //   localStorage 에 있다. 키를 하나씩 지우지 않는 이유: 목록을 들고 있으면 랩이
+    //   늘 때마다 어긋나고, 그게 '되돌렸는데 안 돌아왔다'로 돌아온다. 통째로 비운다.
+    //   비운 뒤 리로드하면 부팅이 design-default.json / mark-look.json 을 다시 씨앗으로 깐다.
+    document.getElementById('lab-reset')?.addEventListener('click', e => {
+      e.preventDefault();
+      try { localStorage.clear(); sessionStorage.clear(); } catch { /* 사생활 모드 */ }
+      location.reload();
+    });
     document.querySelectorAll('.lab-embed').forEach(a => a.addEventListener('click', e => {
       e.preventDefault();
       fr.src = a.getAttribute('href');
