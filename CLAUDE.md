@@ -10,6 +10,12 @@
 - 유저는 **5199(vite dev)** 에서 본다. 수정 후 "5199 새로고침" 이라고 알린다.
 - 배포: `npx vite build` → `dist/` 를 gh-pages 워크트리(`/tmp/ghp`)에 rsync → 푸시.
   `gh-pages` 로컬 ref 가 뒤처져 있으면 `git reset --hard origin/gh-pages` 먼저.
+  **rsync 에 `--delete` 를 붙이지 말 것.** gh-pages 에는 이 리포가 추적하지 않는 미디어가
+  올라가 있다(`public/_bg/*.mp4` · `public/_bg/_orig/` 는 .gitignore — 수백 MB라 기계마다
+  있고 없다). `--delete` 로 밀면 그 파일들이 배포에서 사라지는데, 로컬에 원본이 없는 기계는
+  되돌리지도 못한다. 대가는 옛 해시 번들이 쌓이는 것뿐이고(index 가 새 해시만 참조) 무해하다.
+  (2026-08-12: `--delete` 로 `bk_chroma_4k_intra.mp4`·`_orig/wall*.png` 가 삭제 대기에
+  올라온 걸 푸시 직전에 발견.)
 - **커밋은 자주, 세션 끝에 반드시 push.** `dev-sync.sh` 는 30초마다 `pull` 만 한다 — 올리는 건 사람이 한다.
   (2026-08-07: 다른 기계에서 2시간 작업분이 푸시 안 돼 사라질 뻔했다.)
 
