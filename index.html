@@ -215,26 +215,29 @@ body:not(.dev):has(#play-panel.folded) #stage{margin-right:calc(56px*1.15)}
    무대가 밀려나고 우패널이 빠지면서 좌패널 + 읽기 페이지로 전환, 닫으면 되감긴다).
    z 21 < 패널 22 — 좌패널은 전환 내내 제자리에 남아 페이지의 일부가 된다. */
 /* 전환 시계 = 여기 한 벌뿐(유저 08-12: 너무 부드럽고 쫀득하지 않다).
-   .6s / 오버슛 1.28 은 '느리게 스르륵'이라 손이 화면을 민 느낌이 안 났다 —
-   .34s 로 당기고 오버슛을 1.52 로 올려 튕겨 붙게 한다. 값 바꿀 일 있으면 여기만. */
+   .34s + 오버슛 1.52 로 튕겨 붙는다. 단 오버슛은 **여는 방향만**(유저 08-13:
+   닫을 때 우패널이 제자리를 지나쳤다 돌아와 튕겨 보인다) — 닫힘은 지나침 없이
+   순하게 정착하는 커브(--scr-eOut). 전환 상태 셀렉터가 여는 커브를 덮어쓴다. */
 #howto-overlay,#lab-embed-overlay,#stage,#play-panel,#lab-panel,#howto-close,
 .howto-wrap>.hw-kick,.howto-wrap>h1,.howto-wrap>.howto-intro,#howto-body>details{
-  --scr-t:.34s;--scr-e:cubic-bezier(.2,1.52,.32,1)}
+  --scr-t:.34s;--scr-e:cubic-bezier(.2,1.52,.32,1);--scr-eOut:cubic-bezier(.3,.9,.3,1)}
 #howto-overlay{position:fixed;inset:0;z-index:21;background:var(--d-bg);overflow-y:auto;
   visibility:hidden;opacity:0;transform:translateX(64px);pointer-events:none;
-  transition:transform var(--scr-t) var(--scr-e),opacity .22s ease,visibility 0s linear var(--scr-t)}
+  transition:transform var(--scr-t) var(--scr-eOut),opacity .22s ease,visibility 0s linear var(--scr-t)}
 body.howto #howto-overlay{visibility:visible;opacity:1;transform:none;pointer-events:auto;
   transition:transform var(--scr-t) var(--scr-e),opacity .22s ease}
 /* 무대는 왼쪽으로 살짝 밀리며 가라앉고, 우패널은 화면 밖으로.
    랩 두 개(지면 그래픽·지면 레이아웃)도 같은 전환을 쓴다(body.labview) — 랩은 자기
    패널을 갖고 오는 전체 페이지라 좌패널까지 왼쪽으로 비켜 준다. */
-#stage,#play-panel,#lab-panel{transition:transform var(--scr-t) var(--scr-e),opacity .22s ease}
+#stage,#play-panel,#lab-panel{transition:transform var(--scr-t) var(--scr-eOut),opacity .22s ease}
+body.howto #stage,body.labview #stage,body.howto #play-panel,body.labview #play-panel,
+body.labview #lab-panel{transition:transform var(--scr-t) var(--scr-e),opacity .22s ease}
 body.howto #stage,body.labview #stage{transform:translateX(-56px) scale(.965);opacity:0;pointer-events:none}
 body.howto #play-panel,body.labview #play-panel{transform:translateX(115%)}
 body.labview #lab-panel{transform:translateX(-115%)}
 #lab-embed-overlay{position:fixed;inset:0;z-index:60;background:var(--d-bg);display:flex;
   visibility:hidden;opacity:0;transform:translateX(64px);pointer-events:none;
-  transition:transform var(--scr-t) var(--scr-e),opacity .22s ease,visibility 0s linear var(--scr-t)}
+  transition:transform var(--scr-t) var(--scr-eOut),opacity .22s ease,visibility 0s linear var(--scr-t)}
 body.labview #lab-embed-overlay{visibility:visible;opacity:1;transform:none;pointer-events:auto;
   transition:transform var(--scr-t) var(--scr-e),opacity .22s ease}
 #lab-embed-frame{flex:1;border:0;width:100%;background:var(--d-bg)}
@@ -249,11 +252,22 @@ body.labview #lab-embed-overlay{visibility:visible;opacity:1;transform:none;poin
   padding:0 24px;border:0;border-radius:99px;background:var(--nb-red);color:#fff;
   font-size:15px;font-weight:700;cursor:pointer;touch-action:manipulation;z-index:61;
   visibility:hidden;opacity:0;transform:translateX(18px);
-  transition:opacity .18s ease .1s,transform var(--scr-t) var(--scr-e) .1s,visibility 0s linear .44s}
+  transition:opacity .18s ease .1s,transform var(--scr-t) var(--scr-eOut) .1s,visibility 0s linear .44s}
 body.howto #howto-close,body.labview #howto-close{visibility:visible;opacity:1;transform:none;
   transition:opacity .18s ease .1s,transform var(--scr-t) var(--scr-e) .1s}
 #howto-close:hover{background:var(--nb-red)}
 #howto-close:active{transform:scale(.96)}
+/* 스크롤 고정 목차(유저 08-13) — 근거 01~NN. 현재 섹션만 흰색으로 밝힌다 */
+#howto-nav{position:fixed;right:26px;top:50%;transform:translateY(-50%);z-index:22;
+  display:flex;flex-direction:column;gap:4px;opacity:0;visibility:hidden;
+  transition:opacity .25s ease .22s,visibility 0s linear .4s}
+body.howto #howto-nav{opacity:1;visibility:visible;transition:opacity .25s ease .22s}
+#howto-nav a{display:flex;align-items:center;gap:9px;padding:7px 12px;border-radius:99px;
+  text-decoration:none;color:rgba(255,255,255,.38);font-size:12.5px;letter-spacing:-.3px}
+#howto-nav a b{font-size:11px;font-weight:700;color:var(--nb-red);opacity:.55;font-variant-numeric:tabular-nums}
+#howto-nav a:hover{color:rgba(255,255,255,.7)}
+#howto-nav a.on{color:#fff;background:rgba(255,255,255,.07)}
+#howto-nav a.on b{opacity:1}
 /* 촤라락 — 열릴 때 내부 요소가 계단식으로 떠오른다(유저 08-12). 닫힐 때는 지연 없이 빠르게.
    계단 간격도 전환 시계에 맞춰 반으로 당겼다 — 페이지는 .34s 에 붙는데 본문이 .55s 까지
    떠오르고 있으면 화면이 다 왔는데도 아직 덜 온 느낌이 남는다. */
@@ -312,7 +326,8 @@ body.howto #howto-body>details:nth-child(2){transition-delay:.23s}
 #howto-overlay .cnt{font-size:12px;font-weight:700;color:rgba(255,255,255,.45);
   background:rgba(255,255,255,.08);padding:3px 10px;border-radius:99px}
 /* 자동 로테이션 근거 카드 — 조용한 면 하나. 값은 크고 희게, 레드 없음(정보지 CTA 가 아니다) */
-#fact-card{display:block;margin-top:26px;padding:16px 16px 15px;border-radius:14px;background:rgba(255,255,255,.04);
+/* 시작선 = 우패널 하단 블록(보기 옵션 552px)과 실측 정렬(유저 08-13: 하단 레이아웃 맞춰라) */
+#fact-card{display:block;margin-top:95px;padding:16px 16px 15px;border-radius:14px;background:rgba(255,255,255,.04);
   text-decoration:none;cursor:pointer}
 #fact-card:hover{background:rgba(255,255,255,.07)}
 #fact-card .fc-k{font:var(--t-labr);color:var(--d-t3);letter-spacing:.4px;margin-bottom:10px}
@@ -496,6 +511,8 @@ body.howto #howto-body>details:nth-child(2){transition-delay:.23s}
 #play-panel .pp-meta{margin-top:8px;font:var(--t-capr);letter-spacing:var(--ls-capr);color:var(--d-t3)}
 
 /* 버튼 — 보조는 면(Surface), 주는 레드 알약 */
+/* 타이틀 덩어리와 조작 덩어리 사이는 확실히 벌린다(유저 08-13: 너무 붙어 그룹이 안 갈린다) */
+#play-panel #pp-idle,#play-panel #pp-live{margin-top:30px}
 #play-panel .pp-row{gap:8px;margin-top:14px}
 #play-panel button.pp-btn{border:0;border-radius:999px;background:var(--d-surface);color:var(--d-body);
   font:var(--t-capb);letter-spacing:-.2px;padding:13px 0;display:flex;align-items:center;justify-content:center;gap:6px}
@@ -619,14 +636,14 @@ button, summary, .lab-pill, .lab-sw, .lab-go, .pp-pack, [role=button]{position:r
 .lab-pill .ripple{background:rgba(0,0,0,.14)}
 @keyframes ripple{to{transform:scale(2.6);opacity:0}}
 </style>
-  <script type="module" crossorigin src="./assets/main-Cm9DY3PH.js"></script>
+  <script type="module" crossorigin src="./assets/main-B_mMqyGS.js"></script>
   <link rel="modulepreload" crossorigin href="./assets/modulepreload-polyfill-B5Qt9EMX.js">
   <link rel="modulepreload" crossorigin href="./assets/preload-helper-PPVm8Dsz.js">
   <link rel="modulepreload" crossorigin href="./assets/fx-core-CsnioyF7.js">
   <link rel="modulepreload" crossorigin href="./assets/fxlut-C-P47UVP.js">
   <link rel="modulepreload" crossorigin href="./assets/tokens-DG85IoL1.js">
   <link rel="modulepreload" crossorigin href="./assets/floorgl-DGLTIDFj.js">
-  <link rel="modulepreload" crossorigin href="./assets/session-CcFNpIpZ.js">
+  <link rel="modulepreload" crossorigin href="./assets/session-Dyp6m97J.js">
   <link rel="stylesheet" crossorigin href="./assets/lab-skin-CHLkM1GD.css">
 </head>
 <body>
@@ -918,29 +935,20 @@ button, summary, .lab-pill, .lab-sw, .lab-go, .pp-pack, [role=button]{position:r
       <!-- ★ 근거 섹션 재구성(유저 08-12): 피그마 어펜딕스(MsAnO7Itu9sORPSZBt0oRj)의
            근거·논문·실측을 좌패널 정본으로. 왜 프로젝션인가 → 흔들림(부품+보정) → 부품·타겟. -->
       <!-- 수치·출처는 근거 보드(도판)가 말한다 — 텍스트는 보드가 못 하는 말만(유저 08-12: 중복은 과하다) -->
-      <!-- 논증 구조(유저 08-13: 사진만 던지지 말고 왜 VR/AR 이 아닌지 읽히게 써라):
-           질문 → 걸림돌 둘(회피당한다 · 움직임을 방해한다) → 결론(그래서 바닥) → 보드가 받친다 -->
-      <details id="sec-why" data-toc="왜 바닥인가">
-        <summary>왜 몸이 아니라 바닥에 쏘나</summary>
-        <div class="lab-lead">코치의 안내 화면을 어디에 둘 것인가. 가장 쉬운 답은 AR 글라스처럼 얼굴에 씌우는 것입니다. 그런데 조사할수록 두 가지가 걸렸습니다.</div>
-        <div class="lab-note"><b>첫째, 운동하는 몸은 얼굴에 얹는 것부터 치웁니다.</b> 시력교정이
-          필요한 러너 941명을 조사했더니 열에 셋은 달릴 때 안경을 벗어 두고 뛰었습니다.
-          안경 착용자의 절반 가까이는 스포츠와 레저에서 제약을 느낀다고 답합니다.
-          교정 렌즈조차 이런데, 그 자리에 컴퓨터를 얹자는 게 AR 글라스입니다.</div>
-        <div class="lab-note"><b>둘째, 얼굴 위 화면은 움직임 자체를 방해합니다.</b> 스마트 글라스는
-          보행의 측면 안정성을 떨어뜨리고 이중과제 상황에서 낙상 위험을 높인다고 보고됐습니다.
-          머리에 쓰는 디스플레이는 목의 가동범위와 근육 부담에 영향을 줍니다.
-          움직임을 가르치겠다고 움직임을 방해하는 물건을 씌울 수는 없었습니다.</div>
-        <div class="lab-lead">그래서 뉴턴은 방향을 뒤집었습니다. <b>몸에는 아무것도 씌우지 않고,
-          화면을 바닥에 빛으로 그립니다.</b> 운동하는 사람의 시선이 어차피 머무는 자리가 발 앞이기 때문입니다.</div>
-        <details>
-          <summary>바닥의 빛이 정말 움직임을 이끄나</summary>
-          <div class="lab-note">이미 의학이 먼저 증명했습니다. 발밑에 빛으로 다음 걸음을 그려 주면 몸이 따라온다는 것을요.</div>
-        </details>
-        <details>
-          <summary>주간 야외에서 빛이 보이긴 하나</summary>
-          <div class="lab-note">낮에도 보이는 지면 투사는 자동차 업계의 상용 로드맵에 올라 있습니다. 뉴턴의 풀컬러 지면 UI는 그 로드맵의 N+5년 지점을 설계한 것입니다.</div>
-        </details>
+      <!-- 뾰족한 질문 셋으로 분할(유저 08-13: 장문 금지 — 한 섹션 = 한 질문 + 두세 문장 + 보드) -->
+      <details id="sec-why" data-toc="왜 프로젝션인가">
+        <summary>왜 AR 글라스가 아니라 프로젝션인가</summary>
+        <div class="lab-lead">운동하는 몸은 얼굴에 얹는 것부터 치웁니다. 러너 열에 셋은 달릴 때 안경부터 벗고, 얼굴 위 화면은 보행 안정성까지 떨어뜨립니다. 그래서 몸에는 아무것도 씌우지 않고, 화면을 바닥에 빛으로 그립니다.</div>
+      </details>
+
+      <details id="sec-floorguide" data-toc="왜 바닥 가이드인가">
+        <summary>바닥의 빛이 정말 움직임을 이끄나</summary>
+        <div class="lab-lead">의학이 먼저 증명했습니다. 발밑에 빛으로 다음 걸음을 그려 주면 몸이 따라옵니다. 운동하는 사람의 시선이 어차피 머무는 자리도 발 앞입니다.</div>
+      </details>
+
+      <details id="sec-daylight" data-toc="주간에도 보이는가">
+        <summary>주간 야외에서도 보이는가</summary>
+        <div class="lab-lead">낮에도 보이는 지면 투사는 이미 자동차 업계의 상용 로드맵에 올라 있습니다. 뉴턴의 풀컬러 지면 UI는 그 로드맵의 N+5년 지점을 설계한 것입니다.</div>
       </details>
 
       <details data-toc="유닛과 부품">
@@ -1379,28 +1387,42 @@ button, summary, .lab-pill, .lab-sw, .lab-go, .pp-pack, [role=button]{position:r
       const c = document.createElement('figcaption'); c.textContent = cap;
       f.append(i, c); return f;
     };
-    const why = host.querySelector('#sec-why');
-    if (why) {
-      // ★ 결론 리드(마지막 .lab-lead) 뒤에 꽂는다 — 논증이 끝난 자리를 보드가 받친다.
-      //   (전엔 .lab-src 뒤였는데 중복 제거로 그 줄이 사라지자 조용히 스킵돼 증발했다 — 유저 08-13 발견)
-      const leads = why.querySelectorAll(':scope > .lab-lead');
-      leads[leads.length - 1]?.after(fig('howto/board-ar.png', '근거 보드: 왜 AR 글라스가 아니라 프로젝션인가'));
-      const subs = why.querySelectorAll(':scope > details');
-      subs[0]?.append(fig('howto/board-guide.png', '근거 보드: 바닥 투사형 시각 가이드'));
-      subs[1]?.append(fig('howto/board-fullcolor.png', '근거 보드: 선형 가이드에서 풀컬러 지면 UI 로'));
-    }
+    // 섹션 분할판(유저 08-13) — 보드는 각 섹션 리드 바로 뒤. id 로 꽂아 위치가 카피에 안 흔들린다.
+    for (const [sel, src, cap] of [
+      ['#sec-why', 'howto/board-ar.png', '근거 보드: 왜 AR 글라스가 아니라 프로젝션인가'],
+      ['#sec-floorguide', 'howto/board-guide.png', '근거 보드: 바닥 투사형 시각 가이드'],
+      ['#sec-daylight', 'howto/board-fullcolor.png', '근거 보드: 선형 가이드에서 풀컬러 지면 UI 로'],
+    ]) host.querySelector(sel + ' > .lab-lead')?.after(fig(src, cap));
     host.querySelector('[data-toc="유닛과 부품"]')?.append(
       fig('howto/board-target.png', '근거 보드: 부위 타겟 과정'));
     // 흔들림 체험은 패널에 남지만, 읽기 페이지에는 그 근거 보드가 있어야 한다(자리 = 원래 순서)
-    const shake = document.createElement('details'); shake.open = true;
+    const shake = document.createElement('details'); shake.open = true; shake.dataset.toc = '흔들림 보정';
     shake.innerHTML = '<summary>흔들림을 어떻게 잡나</summary>'
       + '<div class="lab-lead">뛰는 몸에 붙은 프로젝터는 흔들립니다. 기구가 두 겹으로 먼저 잡고, 남는 잔떨림은 소프트웨어 세 항이 지웁니다. 시뮬레이터 왼쪽 패널에서 직접 꺼 보며 차이를 볼 수 있습니다.</div>';
     shake.append(fig('howto/board-shake.png', '근거 보드: 투사 흔들림 보정'));
     host.querySelector('[data-toc="화면 위치"]')?.before(shake);
-    // UX북 문법 — 섹션 번호 키커(최종 순서 확정 후)
-    [...host.querySelectorAll(':scope > details > summary')].forEach((s, i) => {
-      s.insertAdjacentHTML('afterbegin', '<span class="hw-kick">근거 ' + String(i + 1).padStart(2, '0') + '</span>');
+    // UX북 문법 — 섹션 번호 키커(최종 순서 확정 후) + 스크롤 고정 내비(유저 08-13)
+    const secs = [...host.querySelectorAll(':scope > details')];
+    const nav = document.createElement('nav');
+    nav.id = 'howto-nav'; nav.setAttribute('aria-label', '근거 목차');
+    secs.forEach((d, i) => {
+      const no = String(i + 1).padStart(2, '0');
+      d.querySelector(':scope > summary')?.insertAdjacentHTML('afterbegin', '<span class="hw-kick">근거 ' + no + '</span>');
+      const a = document.createElement('a');
+      a.href = '#'; a.innerHTML = '<b>' + no + '</b><span>' + (d.dataset.toc || '') + '</span>';
+      a.addEventListener('click', e => { e.preventDefault(); d.scrollIntoView({ behavior: 'smooth', block: 'start' }); });
+      nav.appendChild(a);
     });
+    ov.appendChild(nav);
+    // 스크롤 스파이 — 화면 상단 1/3 을 지난 마지막 섹션이 현재
+    const spy = () => {
+      const y = ov.scrollTop + ov.clientHeight / 3;
+      let cur = 0;
+      secs.forEach((d, i) => { if (d.offsetTop <= y) cur = i; });
+      [...nav.children].forEach((a, i) => a.classList.toggle('on', i === cur));
+    };
+    ov.addEventListener('scroll', spy, { passive: true });
+    spy();
     // 화면 전환 — 무대가 밀려나고 이 페이지가 들어온다(창이 아니다)
     const open = e => { e?.preventDefault(); ov.scrollTop = 0; document.body.classList.add('howto'); document.documentElement.style.overflow = 'hidden'; };
     const close = () => { document.body.classList.remove('howto'); document.documentElement.style.overflow = ''; };
