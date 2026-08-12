@@ -214,23 +214,29 @@ body:not(.dev):has(#play-panel.folded) #stage{margin-right:calc(56px*1.15)}
 /* '어떻게 만들었나' = 창이 아니라 **화면 전환**(유저 08-12: 창형이 어색하다 —
    무대가 밀려나고 우패널이 빠지면서 좌패널 + 읽기 페이지로 전환, 닫으면 되감긴다).
    z 21 < 패널 22 — 좌패널은 전환 내내 제자리에 남아 페이지의 일부가 된다. */
+/* 전환 시계 = 여기 한 벌뿐(유저 08-12: 너무 부드럽고 쫀득하지 않다).
+   .6s / 오버슛 1.28 은 '느리게 스르륵'이라 손이 화면을 민 느낌이 안 났다 —
+   .34s 로 당기고 오버슛을 1.52 로 올려 튕겨 붙게 한다. 값 바꿀 일 있으면 여기만. */
+#howto-overlay,#lab-embed-overlay,#stage,#play-panel,#lab-panel,#howto-close,
+.howto-wrap>.hw-kick,.howto-wrap>h1,.howto-wrap>.howto-intro,#howto-body>details{
+  --scr-t:.34s;--scr-e:cubic-bezier(.2,1.52,.32,1)}
 #howto-overlay{position:fixed;inset:0;z-index:21;background:var(--d-bg);overflow-y:auto;
   visibility:hidden;opacity:0;transform:translateX(64px);pointer-events:none;
-  transition:transform .6s cubic-bezier(.3,1.28,.32,1),opacity .4s ease,visibility 0s linear .6s}
+  transition:transform var(--scr-t) var(--scr-e),opacity .22s ease,visibility 0s linear var(--scr-t)}
 body.howto #howto-overlay{visibility:visible;opacity:1;transform:none;pointer-events:auto;
-  transition:transform .6s cubic-bezier(.3,1.28,.32,1),opacity .4s ease}
+  transition:transform var(--scr-t) var(--scr-e),opacity .22s ease}
 /* 무대는 왼쪽으로 살짝 밀리며 가라앉고, 우패널은 화면 밖으로.
    랩 두 개(지면 그래픽·지면 레이아웃)도 같은 전환을 쓴다(body.labview) — 랩은 자기
    패널을 갖고 오는 전체 페이지라 좌패널까지 왼쪽으로 비켜 준다. */
-#stage,#play-panel,#lab-panel{transition:transform .6s cubic-bezier(.3,1.28,.32,1),opacity .4s ease}
+#stage,#play-panel,#lab-panel{transition:transform var(--scr-t) var(--scr-e),opacity .22s ease}
 body.howto #stage,body.labview #stage{transform:translateX(-56px) scale(.965);opacity:0;pointer-events:none}
 body.howto #play-panel,body.labview #play-panel{transform:translateX(115%)}
 body.labview #lab-panel{transform:translateX(-115%)}
 #lab-embed-overlay{position:fixed;inset:0;z-index:60;background:var(--d-bg);display:flex;
   visibility:hidden;opacity:0;transform:translateX(64px);pointer-events:none;
-  transition:transform .6s cubic-bezier(.3,1.28,.32,1),opacity .4s ease,visibility 0s linear .6s}
+  transition:transform var(--scr-t) var(--scr-e),opacity .22s ease,visibility 0s linear var(--scr-t)}
 body.labview #lab-embed-overlay{visibility:visible;opacity:1;transform:none;pointer-events:auto;
-  transition:transform .6s cubic-bezier(.3,1.28,.32,1),opacity .4s ease}
+  transition:transform var(--scr-t) var(--scr-e),opacity .22s ease}
 #lab-embed-frame{flex:1;border:0;width:100%;background:var(--d-bg)}
 @media (prefers-reduced-motion:reduce){#howto-overlay,#lab-embed-overlay,#stage,#play-panel,#lab-panel,
   #howto-close,.howto-wrap>.hw-kick,.howto-wrap>h1,.howto-wrap>.howto-intro,#howto-body>details{transition:none;transform:none}}
@@ -243,21 +249,23 @@ body.labview #lab-embed-overlay{visibility:visible;opacity:1;transform:none;poin
   padding:0 24px;border:0;border-radius:99px;background:var(--nb-red);color:#fff;
   font-size:15px;font-weight:700;cursor:pointer;touch-action:manipulation;z-index:61;
   visibility:hidden;opacity:0;transform:translateX(18px);
-  transition:opacity .3s ease .25s,transform .45s cubic-bezier(.3,1.28,.32,1) .25s,visibility 0s linear .6s}
+  transition:opacity .18s ease .1s,transform var(--scr-t) var(--scr-e) .1s,visibility 0s linear .44s}
 body.howto #howto-close,body.labview #howto-close{visibility:visible;opacity:1;transform:none;
-  transition:opacity .3s ease .25s,transform .45s cubic-bezier(.3,1.28,.32,1) .25s}
+  transition:opacity .18s ease .1s,transform var(--scr-t) var(--scr-e) .1s}
 #howto-close:hover{background:var(--nb-red)}
 #howto-close:active{transform:scale(.96)}
-/* 촤라락 — 열릴 때 내부 요소가 계단식으로 떠오른다(유저 08-12). 닫힐 때는 지연 없이 빠르게 */
+/* 촤라락 — 열릴 때 내부 요소가 계단식으로 떠오른다(유저 08-12). 닫힐 때는 지연 없이 빠르게.
+   계단 간격도 전환 시계에 맞춰 반으로 당겼다 — 페이지는 .34s 에 붙는데 본문이 .55s 까지
+   떠오르고 있으면 화면이 다 왔는데도 아직 덜 온 느낌이 남는다. */
 .howto-wrap>.hw-kick,.howto-wrap>h1,.howto-wrap>.howto-intro,#howto-body>details{
-  opacity:0;transform:translateY(26px);
-  transition:opacity .45s ease,transform .55s cubic-bezier(.3,1.28,.32,1)}
-body.howto .howto-wrap>.hw-kick{opacity:1;transform:none;transition-delay:.14s}
-body.howto .howto-wrap>h1{opacity:1;transform:none;transition-delay:.2s}
-body.howto .howto-wrap>.howto-intro{opacity:1;transform:none;transition-delay:.27s}
-body.howto #howto-body>details{opacity:1;transform:none;transition-delay:.55s}
-body.howto #howto-body>details:nth-child(1){transition-delay:.35s}
-body.howto #howto-body>details:nth-child(2){transition-delay:.44s}
+  opacity:0;transform:translateY(22px);
+  transition:opacity .26s ease,transform var(--scr-t) var(--scr-e)}
+body.howto .howto-wrap>.hw-kick{opacity:1;transform:none;transition-delay:.06s}
+body.howto .howto-wrap>h1{opacity:1;transform:none;transition-delay:.1s}
+body.howto .howto-wrap>.howto-intro{opacity:1;transform:none;transition-delay:.14s}
+body.howto #howto-body>details{opacity:1;transform:none;transition-delay:.28s}
+body.howto #howto-body>details:nth-child(1){transition-delay:.18s}
+body.howto #howto-body>details:nth-child(2){transition-delay:.23s}
 /* 근거 보드 도판 — 피그마 어펜딕스 원본(스튜디오가 조판한 사진·도해) */
 #howto-overlay .hw-fig{margin:20px 0 6px}
 #howto-overlay .hw-fig img{display:block;width:100%;height:auto;border-radius:14px;background:#000}   /* 보드 배경 통일(#000 정규화와 한 벌) */
@@ -344,6 +352,11 @@ body.howto #howto-body>details:nth-child(2){transition-delay:.44s}
 #lab-panel .lab-pill:hover{transform:translateY(-1px)}
 #lab-panel .lab-pill .lp-t{flex:1;color:#121212;font-size:15px;font-weight:800;letter-spacing:-.3px}
 #lab-panel .lab-pill .lp-s{color:rgba(18,18,18,.45);font-size:11.5px;font-weight:600;letter-spacing:-.2px}
+/* 복구 = 랩으로 '들어가는' 알약 셋과 성격이 다르다(되돌린다). 흰 알약 대열에서 빼서
+   회색 필로 — 아웃라인은 안 쓴다(08-12 GUI 규약). 위 여백으로 셋과 한 번 끊는다. */
+#lab-panel .lab-pill.lp-reset{margin-top:9px;background:rgba(255,255,255,.09)}
+#lab-panel .lab-pill.lp-reset .lp-t{color:rgba(255,255,255,.82);font-weight:700}
+#lab-panel .lab-pill.lp-reset .lp-s{color:rgba(255,255,255,.4)}
 #lab-panel .lab-live .ll-cap{font-size:12.5px;color:rgba(255,255,255,.55);letter-spacing:-.2px;margin-bottom:2px}
 #lab-panel .lab-live .ll-unit{font-size:13px;color:rgba(255,255,255,.6);margin-left:2px}
 #lab-panel .lab-live .ll-sub{font-size:11.5px;color:rgba(255,255,255,.45);line-height:1.7;margin-top:6px;letter-spacing:-.2px}
@@ -611,7 +624,7 @@ button, summary, .lab-pill, .lab-sw, .lab-go, .pp-pack, [role=button]{position:r
 .lab-pill .ripple{background:rgba(0,0,0,.14)}
 @keyframes ripple{to{transform:scale(2.6);opacity:0}}
 </style>
-  <script type="module" crossorigin src="./assets/main-RBYx-nuG.js"></script>
+  <script type="module" crossorigin src="./assets/main-CJI9fvFM.js"></script>
   <link rel="modulepreload" crossorigin href="./assets/modulepreload-polyfill-B5Qt9EMX.js">
   <link rel="modulepreload" crossorigin href="./assets/preload-helper-PPVm8Dsz.js">
   <link rel="modulepreload" crossorigin href="./assets/fx-core-CsnioyF7.js">
@@ -901,6 +914,14 @@ button, summary, .lab-pill, .lab-sw, .lab-go, .pp-pack, [role=button]{position:r
           <a href="#" class="lab-pill" id="howto-open">
             <span class="lp-t">왜 이렇게 만들었나</span>
             <span class="lp-s">실측과 근거</span></a>
+          <!-- 전시 복구 버튼(유저 08-12: 사람들이 막 만져 본 뒤 원래 초기값으로).
+               랩 둘(지면 그래픽·지면 레이아웃)은 같은 오리진이라 만진 값이 전부 이 문서의
+               localStorage 에 쌓인다 → 통째로 비우고 리로드하면 부팅 경로가 정본
+               (design-default.json · mark-look.json)을 다시 내려받는다. 되돌릴 값 목록을
+               따로 들고 있지 않는 게 핵심 — 목록은 랩이 늘 때마다 어긋난다. -->
+          <a href="#" class="lab-pill lp-reset" id="lab-reset">
+            <span class="lp-t">처음 상태로 되돌리기</span>
+            <span class="lp-s">랩에서 만진 값 전부 초기화</span></a>
         </div>
       </div>
 
@@ -973,10 +994,12 @@ button, summary, .lab-pill, .lab-sw, .lab-go, .pp-pack, [role=button]{position:r
           <div class="ll-kv"><span>정강이가 도는 속도</span><b id="lab-omega">—</b><span class="ll-u">°/s</span></div>
           <div class="ll-kv"><span>지금 걸음 상태</span><b id="lab-phase">—</b></div>
           <div class="ll-sub">발이 땅에 닿아 있으면 스탠스, 공중에 떠 앞으로 나가면 스윙입니다. 흔들림은 스윙에서 커집니다.</div>
-          <button class="lab-go" id="lab-burst" style="margin-top:8px;border-color:#fa3030;background:rgba(250,48,48,.14);color:#ff7a7a">흔들림이 커지는 순간 다시 보기</button>
         </div>
         <!-- '왜 세 항은 티가 안 나나' 삭제(유저 08-11) — 보정이 미미하다고 스스로 자백하는 항이라
-             관람객이 '별거 아니네'로 읽는다. 티는 '흔들림이 커지는 순간 다시 보기' 버튼이 직접 보여준다. -->
+             관람객이 '별거 아니네'로 읽는다.
+             '흔들림이 커지는 순간 다시 보기' 버튼도 삭제(유저 08-12) — 하는 일이 스테이지 재진입
+             뿐이라 세션이 안 돌 땐 아무 반응이 없고, 돌아도 스윙 과도가 따로 보이지 않았다.
+             흔들림은 위 라이브 수치(빗나간 거리·각속도·걸음 상태)가 이미 실시간으로 말한다. -->
       </details>
 
       <!-- 자동 로테이션 근거 카드(유저 08-12: 다 숨기면 안 누르는 사람은 아무것도 못 본다) —
@@ -1090,29 +1113,12 @@ button, summary, .lab-pill, .lab-sw, .lab-go, .pp-pack, [role=button]{position:r
         </details>
       </details>
 
-      <details data-toc="가려질 때">
-        <summary>가려질 때는 어떻게 하나</summary>
-        <div class="lab-lead">몸이나 공에 가리면 <b>가려진 그대로</b> 둡니다. 실제 빛이 그렇게 동작하니까요. 그 가려짐이 실제로 얼마나 되는지도 재 봤습니다. 생각보다 훨씬 적습니다.</div>
-        <div class="lab-src">실측: BEAM-OCCLUSION.md, 크로스오버 전 사이클 샘플링</div>
-        <table class="hw-tbl"><tbody>
-          <tr><td>창 경계</td><td>페더 18cm</td></tr>
-          <tr><td>공에 가릴 때</td><td>그 토큰만 소등</td></tr>
-          <tr><td>차폐 실측</td><td>평균 1.4%, 최악 16%</td></tr>
-          <tr><td>주간 모드</td><td>풀컬러 + 커버리지 α</td></tr>
-        </tbody></table>
-        <details>
-          <summary>왜 끄는가</summary>
-          <div class="lab-note">투사광은 몸과 공에 가려지는 게 물리적으로 맞다. 가려진 구간을 그리는 대신
-            정직하게 끄고(평균 1.4%), 페더로 경계가 사각형으로 드러나지 않게 한다.</div>
-        </details>
-        <details>
-          <summary>추적으로 피하면 안 되나</summary>
-          <div class="lab-note">240Hz로 공을 쫓아 콘텐츠를 피신시키는 안을 실측으로 기각했다.
-            그림자 이동 속도가 중앙값 <b>14.7 m/s</b>(상위 10% 151 m/s), 순간 최대 차폐 면적 92%.
-            <b>빛이 막힌 자리는 속도로 못 채운다</b>. 피신시킬 자리도 시간도 없다.
-            포드를 종아리 바깥 6cm로 옮긴 것만으로 평균 7.6% → 1.4% 가 됐다.</div>
-        </details>
-      </details>
+      <!-- '가려질 때는 어떻게 하나' 섹션 삭제(유저 08-12: 공격받을 여지를 줄이자).
+           마지막 자리에서 관람객이 들고 나가는 문장이 '최악 16%'·'순간 최대 차폐 92%'·
+           '추적으로는 못 피한다' 였다. 우리 입으로 약점을 요약해 준 셈이고, 근거 페이지의
+           마지막 인상이 그것일 이유가 없다. 실측 자체는 BEAM-OCCLUSION.md 에 그대로 있다 —
+           질문이 실제로 나오면 그때 그 문서로 답한다.
+           (앞선 08-11 '자기부정 항 삭제'·'근거 부족한 3.29m 삭제' 와 같은 판단이다.) -->
     </div>
   </div>
   <main id="stage">
@@ -1451,10 +1457,19 @@ button, summary, .lab-pill, .lab-sw, .lab-go, .pp-pack, [role=button]{position:r
     const fr = document.getElementById('lab-embed-frame');
     const close = () => {
       document.body.classList.remove('labview');
-      setTimeout(() => { if (!document.body.classList.contains('labview')) fr.src = 'about:blank'; }, 600);
+      setTimeout(() => { if (!document.body.classList.contains('labview')) fr.src = 'about:blank'; }, 420);   // 전환(--scr-t .34s)이 끝난 뒤 비운다
     };
     document.getElementById('howto-close')?.addEventListener('click', close);
     window.addEventListener('keydown', e => { if (e.key === 'Escape' && document.body.classList.contains('labview')) close(); });
+    // 처음 상태로 되돌리기 — 랩(같은 오리진, iframe)이 만진 값은 전부 이 문서의
+    //   localStorage 에 있다. 키를 하나씩 지우지 않는 이유: 목록을 들고 있으면 랩이
+    //   늘 때마다 어긋나고, 그게 '되돌렸는데 안 돌아왔다'로 돌아온다. 통째로 비운다.
+    //   비운 뒤 리로드하면 부팅이 design-default.json / mark-look.json 을 다시 씨앗으로 깐다.
+    document.getElementById('lab-reset')?.addEventListener('click', e => {
+      e.preventDefault();
+      try { localStorage.clear(); sessionStorage.clear(); } catch { /* 사생활 모드 */ }
+      location.reload();
+    });
     document.querySelectorAll('.lab-embed').forEach(a => a.addEventListener('click', e => {
       e.preventDefault();
       fr.src = a.getAttribute('href');
