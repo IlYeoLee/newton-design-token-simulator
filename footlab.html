@@ -137,7 +137,10 @@ if (location.search.includes('fresh=1'))
   <div class=panel>
     <div class="kick">NEWTON LAB</div>
     <h1>지면 그래픽</h1>
-    <p class=sub>시뮬레이터에 뜨는 발자국과 똑같은 것을 그립니다</p>
+    <p class=sub>시뮬레이터에 뜨는 발자국과 똑같은 것을 그립니다.
+      여기 있는 그래픽은 그림 파일이 아니라 전부 코드로 빚은 토큰입니다. 상태와 파동, 각인까지
+      코드가 직접 그리기 때문에 실시간으로 반응하고, 같은 토큰 한 벌이 러닝, 복싱, 농구
+      어떤 운동이든 덮습니다.</p>
     <!-- 되돌리기 = 눈에 보이는 자리(유저 08-13: 관람객이 막 고친 뒤 못 찾는다).
          편집값은 localStorage 에 살아남으므로 키를 지우고 새로 연다. -->
     <button class="resetbtn" onclick="['footlab.params','footlab.heroSize','footlab.segs','footlab.prims'].forEach(k=>localStorage.removeItem(k));location.reload()">처음 값으로 되돌리기</button>
