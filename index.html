@@ -243,6 +243,20 @@ body.labview #lab-embed-overlay{visibility:visible;opacity:1;transform:none;poin
 #howto-overlay .howto-wrap{position:relative;max-width:860px;margin:0 auto;padding:72px 32px 120px}
 #howto-overlay h1{font-size:38px;font-weight:700;letter-spacing:-.8px;color:#fff;margin:0 0 10px}
 #howto-overlay .howto-intro{font-size:17px;color:rgba(255,255,255,.55);margin:0 0 64px}
+/* 시작 페이지(어트랙트) — 전시의 홈. 로고 + 한 줄 + 레드 CTA 하나(그림자·아웃라인 없음) */
+#attract{position:fixed;inset:0;z-index:40;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;background:var(--d-bg);font-family:var(--ds-font);
+  transition:opacity .6s ease,visibility 0s linear .6s}
+body.dev #attract{display:none}
+#attract.off{opacity:0;visibility:hidden;pointer-events:none}
+#attract .at-logo{width:220px;height:auto;margin-bottom:36px;opacity:.95}
+#attract .at-title{font-size:44px;font-weight:700;letter-spacing:-1.2px;color:#fff}
+#attract .at-sub{margin-top:14px;font-size:17px;color:rgba(255,255,255,.5);letter-spacing:-.3px}
+#attract .at-cta{margin-top:54px;border:0;border-radius:999px;background:var(--nb-red);color:#fff;
+  font:700 19px/1 var(--ds-font);letter-spacing:-.3px;padding:23px 56px;cursor:pointer;
+  animation:ctaNudge 1.7s ease-in-out infinite}
+#attract .at-cta:active{animation:none;transform:scale(.97)}
+@media (prefers-reduced-motion:reduce){#attract .at-cta{animation:none}}
 /* 돌아가기 = 이 페이지의 유일한 주 행동 → 레드 CTA(유저 08-12: 너무 안 띈다).
    등장도 오른쪽에서 살짝 밀려 들어온다. */
 #howto-close{position:fixed;top:20px;right:24px;min-height:52px;display:flex;align-items:center;gap:8px;
@@ -619,7 +633,7 @@ button, summary, .lab-pill, .lab-sw, .lab-go, .pp-pack, [role=button]{position:r
 .lab-pill .ripple{background:rgba(0,0,0,.14)}
 @keyframes ripple{to{transform:scale(2.6);opacity:0}}
 </style>
-  <script type="module" crossorigin src="./assets/main-CnyQaroh.js"></script>
+  <script type="module" crossorigin src="./assets/main-DWOPa6-A.js"></script>
   <link rel="modulepreload" crossorigin href="./assets/modulepreload-polyfill-B5Qt9EMX.js">
   <link rel="modulepreload" crossorigin href="./assets/preload-helper-PPVm8Dsz.js">
   <link rel="modulepreload" crossorigin href="./assets/fx-core-CsnioyF7.js">
@@ -933,7 +947,7 @@ button, summary, .lab-pill, .lab-sw, .lab-go, .pp-pack, [role=button]{position:r
 
       <details data-toc="유닛과 부품">
         <summary>빛은 어디서 나오나 <span class="cnt">부위 실측</span></summary>
-        <div class="lab-lead">무릎 옆의 작은 유닛에서 나옵니다. 다섯 부위에 달아 보고 다섯 각도로 쏴 본 결과, <b>무릎</b>이 시야를 가장 안정적으로 덮었고 몸에 가리지도 않았습니다.</div>
+        <div class="lab-lead">무릎 하단부의 작은 유닛에서 나옵니다. 다섯 부위에 달아 보고 다섯 각도로 쏴 본 결과, <b>무릎 하단부</b>가 시야를 가장 안정적으로 덮었고 몸에 가리지도 않았습니다.</div>
         <!-- 보드(부위 타겟)가 부위·각도·커버를 말한다 — 표는 보드에 없는 리그 실측만 -->
         <table class="hw-tbl"><tbody>
           <tr><td>장착 위치</td><td>무릎 아래 11cm 바깥면</td></tr>
@@ -1055,6 +1069,26 @@ button, summary, .lab-pill, .lab-sw, .lab-go, .pp-pack, [role=button]{position:r
         <summary>벽에 쏘는 화면 <span class="cnt">복싱</span></summary>
         <div class="lab-lead">몸을 움직이기 전에 먼저 봐야 하는 것(상대의 리듬, 공격 범위)은 바닥이 아니라 <b>벽</b>에 띄웁니다. 아래는 실측한 벽 화면의 크기입니다.</div>
         <div class="lab-src">실측: 프로젝터 62°와 카메라 50° 리그</div>
+        <!-- 옆모습 도식(유저 08-13: 텍스트만으로는 어렵다) — 사람 키와 견줘 보이는 실측 비례 -->
+        <div class="hw-dia" aria-label="벽 화면 도식">
+          <svg viewBox="0 0 880 400" role="img">
+            <line x1="60" y1="340" x2="820" y2="340" stroke="rgba(255,255,255,.22)" stroke-width="1"/>
+            <line x1="494" y1="340" x2="494" y2="120" stroke="rgba(255,255,255,.22)" stroke-width="1"/>
+            <line x1="330" y1="340" x2="330" y2="180" stroke="rgba(255,255,255,.55)" stroke-width="2" stroke-linecap="round"/>
+            <circle cx="330" cy="167" r="10" fill="none" stroke="rgba(255,255,255,.55)" stroke-width="2"/>
+            <rect x="344" y="236" width="10" height="10" rx="2" fill="#FA3030"/>
+            <text x="362" y="230" font-size="12.5" fill="rgba(255,255,255,.55)">빔 유닛</text>
+            <line x1="354" y1="241" x2="490" y2="157" stroke="rgba(255,255,255,.3)" stroke-width="1" stroke-dasharray="5 5"/>
+            <line x1="354" y1="241" x2="490" y2="330" stroke="rgba(255,255,255,.3)" stroke-width="1" stroke-dasharray="5 5"/>
+            <rect x="490" y="157" width="8" height="173" fill="rgba(250,48,48,.55)"/>
+            <text x="510" y="150" font-size="13.5" font-weight="700" fill="rgba(255,255,255,.85)">벽 화면 2.60 × 1.63 m</text>
+            <text x="510" y="168" font-size="12" fill="rgba(255,255,255,.45)">사람 키만 한 높이</text>
+            <line x1="354" y1="362" x2="490" y2="362" stroke="rgba(255,255,255,.3)" stroke-width="1"/>
+            <line x1="354" y1="357" x2="354" y2="367" stroke="rgba(255,255,255,.3)" stroke-width="1"/>
+            <line x1="490" y1="357" x2="490" y2="367" stroke="rgba(255,255,255,.3)" stroke-width="1"/>
+            <text x="422" y="384" text-anchor="middle" font-size="12.5" fill="rgba(255,255,255,.45)">1.36 m</text>
+          </svg>
+        </div>
         <table class="hw-tbl"><tbody>
           <tr><td>투사 크기</td><td>2.60 × 1.63 m</td></tr>
           <tr><td>벽에서 빔 유닛까지</td><td>1.36 m</td></tr>
@@ -1072,6 +1106,32 @@ button, summary, .lab-pill, .lab-sw, .lab-go, .pp-pack, [role=button]{position:r
           <tr><td>2급</td><td>단계와 단위</td><td>0.50°</td></tr>
           <tr><td>하한</td><td>이 아래는 안 읽힌다</td><td>0.20°</td></tr>
         </tbody></table>
+        <!-- 같은 0.69° 를 채우는 실제 크기 — 정본식 needCm(신장 170) 그대로 그린 도식 -->
+        <div class="hw-dia" aria-label="거리별 필요 글자 크기 도식">
+          <svg viewBox="0 0 880 270" role="img">
+            <text x="80" y="42" font-size="14" font-weight="700" fill="rgba(255,255,255,.85)">같은 시각도 0.69°를 채우려면, 멀수록 커야 합니다</text>
+            <text x="80" y="62" font-size="12" fill="rgba(255,255,255,.45)">신장 170cm 기준 실측 역산</text>
+            <line x1="80" y1="210" x2="820" y2="210" stroke="rgba(255,255,255,.22)" stroke-width="1"/>
+            <circle cx="110" cy="120" r="6" fill="none" stroke="rgba(255,255,255,.55)" stroke-width="1.5"/>
+            <text x="110" y="100" text-anchor="middle" font-size="12" fill="rgba(255,255,255,.45)">눈</text>
+            <line x1="116" y1="122" x2="270" y2="172" stroke="rgba(255,255,255,.14)" stroke-width="1"/>
+            <line x1="116" y1="122" x2="440" y2="162" stroke="rgba(255,255,255,.14)" stroke-width="1"/>
+            <line x1="116" y1="122" x2="610" y2="145" stroke="rgba(255,255,255,.14)" stroke-width="1"/>
+            <line x1="116" y1="122" x2="780" y2="122" stroke="rgba(255,255,255,.14)" stroke-width="1"/>
+            <text x="270" y="210" text-anchor="middle" font-size="38" font-weight="700" fill="rgba(255,255,255,.88)">가</text>
+            <text x="440" y="210" text-anchor="middle" font-size="48" font-weight="700" fill="rgba(255,255,255,.88)">가</text>
+            <text x="610" y="210" text-anchor="middle" font-size="65" font-weight="700" fill="rgba(255,255,255,.88)">가</text>
+            <text x="780" y="210" text-anchor="middle" font-size="88" font-weight="700" fill="rgba(255,255,255,.88)">가</text>
+            <text x="270" y="234" text-anchor="middle" font-size="13" font-weight="700" fill="rgba(255,255,255,.85)">발 앞 0.5 m</text>
+            <text x="270" y="252" text-anchor="middle" font-size="12" fill="rgba(255,255,255,.45)">2.1 cm</text>
+            <text x="440" y="234" text-anchor="middle" font-size="13" font-weight="700" fill="rgba(255,255,255,.85)">1 m</text>
+            <text x="440" y="252" text-anchor="middle" font-size="12" fill="rgba(255,255,255,.45)">2.7 cm</text>
+            <text x="610" y="234" text-anchor="middle" font-size="13" font-weight="700" fill="rgba(255,255,255,.85)">1.5 m</text>
+            <text x="610" y="252" text-anchor="middle" font-size="12" fill="rgba(255,255,255,.45)">3.6 cm</text>
+            <text x="780" y="234" text-anchor="middle" font-size="13" font-weight="700" fill="rgba(255,255,255,.85)">2 m</text>
+            <text x="780" y="252" text-anchor="middle" font-size="12" fill="rgba(255,255,255,.45)">4.9 cm</text>
+          </svg>
+        </div>
         <details>
           <summary>키가 크면 글자가 커져야 하지 않나</summary>
           <div class="lab-note">맞는 질문이라 재 봤습니다. 눈높이는 신장의 93.6%라서, 키를 넣으면 시선이 떨어지는 자리와
@@ -1096,6 +1156,26 @@ button, summary, .lab-pill, .lab-sw, .lab-go, .pp-pack, [role=button]{position:r
         <summary>빛이 닿지 않는 자리</summary>
         <div class="lab-lead">빔이 닿는 범위는 네모가 아니라 <b>부채꼴</b>입니다. 안 닿는 자리는 억지로 채우지 않고 비워 둡니다. 그것까지가 설계입니다.</div>
         <div class="lab-src">실측: 러닝 기본 리그</div>
+        <!-- 위에서 본 부채꼴 — 유닛에서 퍼지는 빛(64→169cm)과 네모 화면의 어긋남 -->
+        <div class="hw-dia" aria-label="투사 부채꼴 도식">
+          <svg viewBox="0 0 880 300" role="img">
+            <rect x="156" y="65" width="624" height="170" fill="none" stroke="rgba(255,255,255,.18)" stroke-width="1" stroke-dasharray="5 5"/>
+            <polygon points="156,118 780,65 780,235 156,182" fill="rgba(250,48,48,.07)" stroke="rgba(250,48,48,.4)" stroke-width="1"/>
+            <line x1="260" y1="109" x2="260" y2="191" stroke="rgba(255,255,255,.12)" stroke-width="1"/>
+            <line x1="364" y1="100" x2="364" y2="200" stroke="rgba(255,255,255,.12)" stroke-width="1"/>
+            <line x1="468" y1="92" x2="468" y2="209" stroke="rgba(255,255,255,.12)" stroke-width="1"/>
+            <line x1="572" y1="83" x2="572" y2="217" stroke="rgba(255,255,255,.12)" stroke-width="1"/>
+            <line x1="676" y1="74" x2="676" y2="226" stroke="rgba(255,255,255,.12)" stroke-width="1"/>
+            <circle cx="110" cy="150" r="5" fill="#FA3030"/>
+            <text x="110" y="178" text-anchor="middle" font-size="12" fill="rgba(255,255,255,.55)">무릎 하단부 유닛</text>
+            <text x="156" y="106" text-anchor="middle" font-size="12" fill="rgba(255,255,255,.55)">64 cm</text>
+            <text x="780" y="55" text-anchor="middle" font-size="12" fill="rgba(255,255,255,.55)">169 cm</text>
+            <text x="196" y="88" font-size="12.5" fill="rgba(255,255,255,.55)">빛 밖의 모서리는 비워 둔다</text>
+            <text x="156" y="262" text-anchor="middle" font-size="12" fill="rgba(255,255,255,.45)">발 앞 5 cm</text>
+            <text x="780" y="262" text-anchor="middle" font-size="12" fill="rgba(255,255,255,.45)">2 m</text>
+            <text x="468" y="288" text-anchor="middle" font-size="12.5" fill="rgba(255,255,255,.45)">지면 화면은 여섯 줄 밴드로만 조판</text>
+          </svg>
+        </div>
         <table class="hw-tbl"><tbody>
           <tr><td>빛이 못 닿는 화면 위쪽</td><td>12.7%</td></tr>
           <tr><td>지면 조판</td><td>여섯 줄 밴드</td></tr>
@@ -1270,6 +1350,14 @@ button, summary, .lab-pill, .lab-sw, .lab-go, .pp-pack, [role=button]{position:r
        열기 전엔 iframe src 를 비워 둔다 — 세 랩을 미리 로드하면 홈이 무거워진다. -->
   <!-- '어떻게 만들었나' 전면 읽기 페이지(유저 08-12: 패널의 정보 나열 제거 — 리드 디자이너 문법).
        근거 섹션들은 마크업 이동 없이 JS 가 이 오버레이로 이주시킨다(흔들림 체험만 패널에 남는다). -->
+  <!-- 시작 페이지(유저 08-13: 새로고침하면 세션이 아니라 '시작 화면'이어야 한다) —
+       첫 진입·20초 무인 리로드가 전부 여기로 온다. 터치 한 번이 복싱 세션을 연다. -->
+  <div id="attract">
+    <img class="at-logo" src="newton-logo.svg" alt="NEWTON">
+    <div class="at-title">발밑에 빛으로 그리는 코치</div>
+    <div class="at-sub">달리고, 치고, 튀기는 동안 바닥의 빛이 다음 동작을 안내합니다</div>
+    <button class="at-cta" id="attract-go">터치해서 시작</button>
+  </div>
   <div id="howto-overlay" role="dialog" aria-label="왜 이렇게 만들었나">
     <div class="howto-wrap">
       <div class="hw-kick">HOW IT WORKS</div>
@@ -1330,8 +1418,8 @@ button, summary, .lab-pill, .lab-sw, .lab-go, .pp-pack, [role=button]{position:r
       const F = [
         ['33.1%', '시력교정이 필요한 러너 941명 중 달릴 때 안경을 피하는 비율', 'Latham et al., PLOS ONE 2024'],
         ['46%', '안경 착용자가 스포츠와 레저에서 제약을 느끼는 비율', '착용 불편 설문(n=120), 2016'],
-        ['무릎', '5개 부위 × 5개 각도 실측에서 고른 시각 가이드 투사 부위', '부위 타겟 실측'],
-        ['발 앞 20~150cm', '무릎 60°와 45° 투사가 덮는 핵심 시야 범위', '165cm 성인 기본 자세 기준'],
+        ['무릎 하단부', '5개 부위 × 5개 각도 실측에서 고른 시각 가이드 투사 부위', '부위 타겟 실측'],
+        ['발 앞 20~150cm', '무릎 하단부 60°와 45° 투사가 덮는 핵심 시야 범위', '165cm 성인 기본 자세 기준'],
         ['EPM', '전원 없이 체결을 유지하는 전자 영구 자석, 이탈 방지의 첫 층', 'IEEE 2010, 2018'],
         ['1.9~4.4m', '러닝 중 시선이 바닥에 닿는 낙하점, 화면이 놓이는 곳', 'Matthis et al. 2018'],
       ];
