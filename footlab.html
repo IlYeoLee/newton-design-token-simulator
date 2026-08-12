@@ -64,6 +64,9 @@
   .card h2::before{counter-increment:sec;content:"0" counter(sec);display:block;
     font-size:13px;font-weight:700;color:var(--nb-red);letter-spacing:.4px;margin-bottom:8px}
   .panel .kick{font-size:14px;font-weight:700;color:var(--nb-red);letter-spacing:.4px;margin:0 0 10px}
+  .resetbtn{display:block;width:100%;margin:14px 0 6px;padding:12px 0;border:0;border-radius:11px;
+    background:rgba(255,255,255,.08);color:rgba(255,255,255,.75);font:600 13.5px var(--ds-font);cursor:pointer}
+  .resetbtn:hover{background:rgba(255,255,255,.12);color:#fff}
   .card .seg{margin:0 0 18px}
   .card .note{margin:14px 0 0;display:block;font-size:15px;color:rgba(255,255,255,.58);line-height:1.75;max-width:960px}
   canvas{display:block;border-radius:10px;max-width:100%}
@@ -126,11 +129,18 @@ body:not(.dev) [data-devonly]{display:none !important}
   <link rel="modulepreload" crossorigin href="./assets/mark-versions-4opYANT4.js">
   <link rel="stylesheet" crossorigin href="./assets/lab-skin-CHLkM1GD.css">
 </head><body>
+<script>/* 관람객 진입은 항상 정본에서(유저 08-13) — 홈 임베드가 ?fresh=1 을 붙여 연다.
+   본문 스크립트가 localStorage 를 읽기 전에 편집 잔재를 지운다. */
+if (location.search.includes('fresh=1'))
+  ['footlab.params', 'footlab.heroSize', 'footlab.segs', 'footlab.prims'].forEach(k => { try { localStorage.removeItem(k); } catch (e) {} });</script>
 <div class=wrap>
   <div class=panel>
     <div class="kick">NEWTON LAB</div>
     <h1>지면 그래픽</h1>
     <p class=sub>시뮬레이터에 뜨는 발자국과 똑같은 것을 그립니다</p>
+    <!-- 되돌리기 = 눈에 보이는 자리(유저 08-13: 관람객이 막 고친 뒤 못 찾는다).
+         편집값은 localStorage 에 살아남으므로 키를 지우고 새로 연다. -->
+    <button class="resetbtn" onclick="['footlab.params','footlab.heroSize','footlab.segs','footlab.prims'].forEach(k=>localStorage.removeItem(k));location.reload()">처음 값으로 되돌리기</button>
 
     <!-- 버전 비교 = 개발 전용(유저 08-11: 전시엔 지우고 개발자 모드에만 살려놔). data-devonly 는 src/labgate.js 가 끈다 -->
     <fieldset data-devonly><legend>버전 비교</legend>
