@@ -5160,18 +5160,16 @@ void main(){
         if (!session.active && tokens.events?.length) startSessionFor(state.pack);
       };
       pp.querySelectorAll('.pp-pack').forEach(b => b.addEventListener('click', () => setTimeout(productStart, 400)));
-      // ★ 900ms 자동 시작 은퇴(유저 08-13) — 시작 페이지(#attract)가 전시의 홈이다.
-      //   터치 한 번이 어트랙트를 걷고 복싱 세션을 연다. 리로드는 항상 여기로 돌아온다.
+      // ★ 어트랙트 = 복싱 세션 1화면 그 자체(유저 08-13: 별도 시작 페이지 말고 무대에 라이브).
+      //   자동 시작으로 BX_READY 에 세워 둔다 — 두 번 탭을 기다리는 스테이지라 스스로 안 넘어간다.
+      //   시작 유도는 우측 패널 타이틀이 한다(아래 인터벌의 READY 문구 오버라이드).
       {
-        const at = document.getElementById('attract');
         const go = (n = 0) => {
           productStart();
-          // 토큰·프리컴파일이 늦으면 세션이 안 열린다 — 열릴 때까지 짧게 재시도(최대 16초)
-          if (!session.active && n < 40) setTimeout(() => go(n + 1), 400);
+          // 토큰·프리컴파일이 늦으면 세션이 안 열린다 — 열릴 때까지 짧게 재시도
+          if (!session.active && n < 60) setTimeout(() => go(n + 1), 400);
         };
-        at?.addEventListener('pointerdown', e => {
-          e.preventDefault(); at.classList.add('off'); go();
-        }, { once: true });
+        setTimeout(go, 900);
       }
       // ★ 무인 복귀: 세션 중 마지막 터치에서 20초가 지나면 리로드 → 복싱 대기 화면으로.
       //   전시자가 버튼을 눌러 되돌릴 필요가 없다(유저 08-13). 대기 화면에선 안 돌린다.
@@ -5183,6 +5181,9 @@ void main(){
         setInterval(() => {
           if (document.body.classList.contains('dev')) return;
           if (!session.active) return;
+          // READY 첫 화면에 서 있는 동안은 그게 곧 어트랙트 — 무인이어도 리로드하지 않는다
+          const st = session.curStage;
+          if (st && /READY$/.test(st.id) && (session.stageIdx || 0) === 0) return;
           if (performance.now() - lastTouch > 20000) location.reload();
         }, 1000);
       }
@@ -5200,7 +5201,10 @@ void main(){
         const [code, ...seg] = head.split(' · ');
         $$('pp-code').textContent = live ? code.trim() : '';
         $$('pp-seg').textContent = live ? seg.join(' · ').trim() : '';
-        $$('pp-stage').textContent = live ? (rest.join(' — ').trim() || code.trim()) : '코치가 준비됐습니다. 터치로 시작하세요';
+        // READY 대기 = 어트랙트 — 타이틀이 시작을 유도한다(유저 08-13)
+        const readyHold = live && st && /READY$/.test(st.id);
+        $$('pp-stage').textContent = readyHold ? '발을 두 번 탭하면 코치가 시작합니다'
+          : live ? (rest.join(' — ').trim() || code.trim()) : '코치가 준비됐습니다. 터치로 시작하세요';
         $$('pp-meta').textContent = live ? [st?.cue, st?.foot].filter(Boolean).join(' · ') : '';
         $$('pp-idx').textContent = live ? `${(session.stageIdx || 0) + 1} / ${session.stages.length}` : '체험';
         const vLb = $$('pp-view').querySelector('span');

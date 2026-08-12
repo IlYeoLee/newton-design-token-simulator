@@ -244,20 +244,6 @@ body.labview #lab-embed-overlay{visibility:visible;opacity:1;transform:none;poin
 #howto-overlay .howto-wrap{position:relative;max-width:860px;margin:0 auto;padding:72px 32px 120px}
 #howto-overlay h1{font-size:38px;font-weight:700;letter-spacing:-.8px;color:#fff;margin:0 0 10px}
 #howto-overlay .howto-intro{font-size:17px;color:rgba(255,255,255,.55);margin:0 0 64px}
-/* 시작 페이지(어트랙트) — 전시의 홈. 로고 + 한 줄 + 레드 CTA 하나(그림자·아웃라인 없음) */
-#attract{position:fixed;inset:0;z-index:40;display:flex;flex-direction:column;align-items:center;
-  justify-content:center;background:var(--d-bg);font-family:var(--ds-font);
-  transition:opacity .6s ease,visibility 0s linear .6s}
-body.dev #attract{display:none}
-#attract.off{opacity:0;visibility:hidden;pointer-events:none}
-#attract .at-logo{width:220px;height:auto;margin-bottom:36px;opacity:.95}
-#attract .at-title{font-size:44px;font-weight:700;letter-spacing:-1.2px;color:#fff}
-#attract .at-sub{margin-top:14px;font-size:17px;color:rgba(255,255,255,.5);letter-spacing:-.3px}
-#attract .at-cta{margin-top:54px;border:0;border-radius:999px;background:var(--nb-red);color:#fff;
-  font:700 19px/1 var(--ds-font);letter-spacing:-.3px;padding:23px 56px;cursor:pointer;
-  animation:ctaNudge 1.7s ease-in-out infinite}
-#attract .at-cta:active{animation:none;transform:scale(.97)}
-@media (prefers-reduced-motion:reduce){#attract .at-cta{animation:none}}
 /* 돌아가기 = 이 페이지의 유일한 주 행동 → 레드 CTA(유저 08-12: 너무 안 띈다).
    등장도 오른쪽에서 살짝 밀려 들어온다. */
 #howto-close{position:fixed;top:20px;right:24px;min-height:52px;display:flex;align-items:center;gap:8px;
@@ -924,9 +910,21 @@ button, summary, .lab-pill, .lab-sw, .lab-go, .pp-pack, [role=button]{position:r
       <!-- ★ 근거 섹션 재구성(유저 08-12): 피그마 어펜딕스(MsAnO7Itu9sORPSZBt0oRj)의
            근거·논문·실측을 좌패널 정본으로. 왜 프로젝션인가 → 흔들림(부품+보정) → 부품·타겟. -->
       <!-- 수치·출처는 근거 보드(도판)가 말한다 — 텍스트는 보드가 못 하는 말만(유저 08-12: 중복은 과하다) -->
+      <!-- 논증 구조(유저 08-13: 사진만 던지지 말고 왜 VR/AR 이 아닌지 읽히게 써라):
+           질문 → 걸림돌 둘(회피당한다 · 움직임을 방해한다) → 결론(그래서 바닥) → 보드가 받친다 -->
       <details id="sec-why" data-toc="왜 바닥인가">
         <summary>왜 몸이 아니라 바닥에 쏘나</summary>
-        <div class="lab-lead">숙련자의 움직임을 보는 가장 쉬운 답은 AR 글라스처럼 보입니다. 그런데 <b>운동하는 몸은 얼굴에 얹는 무게를 피합니다.</b> 그래서 뉴턴은 몸에 아무것도 씌우지 않고, 바닥에 빛으로 그립니다.</div>
+        <div class="lab-lead">코치의 안내 화면을 어디에 둘 것인가. 가장 쉬운 답은 AR 글라스처럼 얼굴에 씌우는 것입니다. 그런데 조사할수록 두 가지가 걸렸습니다.</div>
+        <div class="lab-note"><b>첫째, 운동하는 몸은 얼굴에 얹는 것부터 치웁니다.</b> 시력교정이
+          필요한 러너 941명을 조사했더니 열에 셋은 달릴 때 안경을 벗어 두고 뛰었습니다.
+          안경 착용자의 절반 가까이는 스포츠와 레저에서 제약을 느낀다고 답합니다.
+          교정 렌즈조차 이런데, 그 자리에 컴퓨터를 얹자는 게 AR 글라스입니다.</div>
+        <div class="lab-note"><b>둘째, 얼굴 위 화면은 움직임 자체를 방해합니다.</b> 스마트 글라스는
+          보행의 측면 안정성을 떨어뜨리고 이중과제 상황에서 낙상 위험을 높인다고 보고됐습니다.
+          머리에 쓰는 디스플레이는 목의 가동범위와 근육 부담에 영향을 줍니다.
+          움직임을 가르치겠다고 움직임을 방해하는 물건을 씌울 수는 없었습니다.</div>
+        <div class="lab-lead">그래서 뉴턴은 방향을 뒤집었습니다. <b>몸에는 아무것도 씌우지 않고,
+          화면을 바닥에 빛으로 그립니다.</b> 운동하는 사람의 시선이 어차피 머무는 자리가 발 앞이기 때문입니다.</div>
         <details>
           <summary>바닥의 빛이 정말 움직임을 이끄나</summary>
           <div class="lab-note">이미 의학이 먼저 증명했습니다. 발밑에 빛으로 다음 걸음을 그려 주면 몸이 따라온다는 것을요.</div>
@@ -1146,7 +1144,7 @@ button, summary, .lab-pill, .lab-sw, .lab-go, .pp-pack, [role=button]{position:r
 
       <details data-toc="빛의 한계">
         <summary>빛이 닿지 않는 자리</summary>
-        <div class="lab-lead">빔이 닿는 범위는 네모가 아니라 <b>부채꼴</b>입니다. 안 닿는 자리는 억지로 채우지 않고 비워 둡니다. 그것까지가 설계입니다.</div>
+        <div class="lab-lead">빔이 닿는 범위는 네모가 아니라 <b>부채꼴</b>입니다. 그래서 빛이 안 닿는 모서리에는 처음부터 아무것도 두지 않습니다.</div>
         <div class="lab-src">실측: 러닝 기본 리그</div>
         <!-- 위에서 본 부채꼴 — 유닛에서 퍼지는 빛(64→169cm)과 네모 화면의 어긋남 -->
         <div class="hw-dia" aria-label="투사 부채꼴 도식">
@@ -1343,14 +1341,9 @@ button, summary, .lab-pill, .lab-sw, .lab-go, .pp-pack, [role=button]{position:r
        열기 전엔 iframe src 를 비워 둔다 — 세 랩을 미리 로드하면 홈이 무거워진다. -->
   <!-- '어떻게 만들었나' 전면 읽기 페이지(유저 08-12: 패널의 정보 나열 제거 — 리드 디자이너 문법).
        근거 섹션들은 마크업 이동 없이 JS 가 이 오버레이로 이주시킨다(흔들림 체험만 패널에 남는다). -->
-  <!-- 시작 페이지(유저 08-13: 새로고침하면 세션이 아니라 '시작 화면'이어야 한다) —
-       첫 진입·20초 무인 리로드가 전부 여기로 온다. 터치 한 번이 복싱 세션을 연다. -->
-  <div id="attract">
-    <img class="at-logo" src="newton-logo.svg" alt="NEWTON">
-    <div class="at-title">발밑에 빛으로 그리는 코치</div>
-    <div class="at-sub">달리고, 치고, 튀기는 동안 바닥의 빛이 다음 동작을 안내합니다</div>
-    <button class="at-cta" id="attract-go">터치해서 시작</button>
-  </div>
+  <!-- 별도 시작 페이지 은퇴(유저 08-13: 복싱 세션 1화면이 무대에 라이브로 돌고,
+       우측 패널 타이틀이 시작을 유도하는 게 맞다). BX_READY 가 두 번 탭을 기다리며
+       무한 대기하는 스테이지라, 세션을 세워 두는 것 자체가 어트랙트다. -->
   <div id="howto-overlay" role="dialog" aria-label="왜 이렇게 만들었나">
     <div class="howto-wrap">
       <div class="hw-kick">HOW IT WORKS</div>
@@ -1381,8 +1374,10 @@ button, summary, .lab-pill, .lab-sw, .lab-go, .pp-pack, [role=button]{position:r
     };
     const why = host.querySelector('#sec-why');
     if (why) {
-      const srcs = why.querySelectorAll(':scope > .lab-src');
-      srcs[srcs.length - 1]?.after(fig('howto/board-ar.png', '근거 보드: 왜 AR 글라스가 아니라 프로젝션인가'));
+      // ★ 결론 리드(마지막 .lab-lead) 뒤에 꽂는다 — 논증이 끝난 자리를 보드가 받친다.
+      //   (전엔 .lab-src 뒤였는데 중복 제거로 그 줄이 사라지자 조용히 스킵돼 증발했다 — 유저 08-13 발견)
+      const leads = why.querySelectorAll(':scope > .lab-lead');
+      leads[leads.length - 1]?.after(fig('howto/board-ar.png', '근거 보드: 왜 AR 글라스가 아니라 프로젝션인가'));
       const subs = why.querySelectorAll(':scope > details');
       subs[0]?.append(fig('howto/board-guide.png', '근거 보드: 바닥 투사형 시각 가이드'));
       subs[1]?.append(fig('howto/board-fullcolor.png', '근거 보드: 선형 가이드에서 풀컬러 지면 UI 로'));
@@ -1560,7 +1555,10 @@ button, summary, .lab-pill, .lab-sw, .lab-go, .pp-pack, [role=button]{position:r
     });
     document.querySelectorAll('.lab-embed').forEach(a => a.addEventListener('click', e => {
       e.preventDefault();
-      fr.src = a.getAttribute('href');
+      // 관람객 진입은 매번 정본에서 시작(유저 08-13) — 랩이 ?fresh=1 을 보고 편집 잔재를 지운다.
+      // 개발자 모드는 작업 중 값을 지키려고 안 붙인다.
+      const fresh = document.body.classList.contains('dev') ? '' : '?fresh=1';
+      fr.src = a.getAttribute('href') + fresh;
       document.body.classList.add('labview');
     }));
   })();

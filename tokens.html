@@ -31,6 +31,9 @@ body{counter-reset:sec}
 .grp h2::before{counter-increment:sec;content:"0" counter(sec);display:block;
   font-size:12px;font-weight:700;color:var(--nb-red);letter-spacing:.4px;margin-bottom:6px}
 #panel .kick{font-size:14px;font-weight:700;color:var(--nb-red);letter-spacing:.4px;margin:0 0 10px}
+.resetbtn{display:block;width:100%;margin:14px 0 6px;padding:12px 0;border:0;border-radius:11px;
+  background:rgba(255,255,255,.08);color:rgba(255,255,255,.75);font:600 13.5px var(--ds-font);cursor:pointer}
+.resetbtn:hover{background:rgba(255,255,255,.12);color:#fff}
 #panel .sub{color:rgba(255,255,255,.5);font-size:16px;line-height:1.6;margin:0 0 30px}
 .grp{margin:0 0 42px;background:transparent;border-radius:0;padding:0}
 .grp>h2{font-size:22px;font-weight:800;letter-spacing:-.3px;color:#fff;padding:0;margin-bottom:14px}
@@ -100,6 +103,8 @@ body:not(.dev) [data-devonly]{display:none !important}
   <div class="kick">NEWTON LAB</div>
   <h1>지면 레이아웃</h1><!-- 홈 알약과 같은 이름(유저 08-12 일관성) -->
   <div class="sub">발밑에 뜨는 화면의 글자 크기와 간격을 정하는 값들입니다</div>
+  <!-- 되돌리기(유저 08-13: 못 찾겠다) — 이 랩의 편집값은 메모리뿐이라 새로 열면 정본이다 -->
+  <button class="resetbtn" onclick="location.reload()">처음 값으로 되돌리기</button>
 
   <!-- 버전·되돌리기 = 개발 전용(유저 08-12: 전시에선 실시간 반영도 없으니 편집 크롬을 줄인다).
        전시 관람객에게 남는 것 = 슬라이더 체험 + 미리보기. -->
