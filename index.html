@@ -1349,8 +1349,26 @@ button, summary, .lab-pill, .lab-sw, .lab-go, .pp-pack, [role=button]{position:r
        열기 전엔 iframe src 를 비워 둔다 — 세 랩을 미리 로드하면 홈이 무거워진다. -->
   <!-- '어떻게 만들었나' 전면 읽기 페이지(유저 08-12: 패널의 정보 나열 제거 — 리드 디자이너 문법).
        근거 섹션들은 마크업 이동 없이 JS 가 이 오버레이로 이주시킨다(흔들림 체험만 패널에 남는다). -->
+  <!-- 모바일 게이트(유저 08-13) — 시뮬레이터는 데스크탑 화면 전제. 폰에서 열면
+       안내만 보여준다. CSS 미디어쿼리 하나(좁은 화면 + 코스 포인터)로 끝 — JS 없음. -->
+  <div id="mobile-gate" aria-hidden="true">
+    <img src="newton-logo.svg" alt="NEWTON" style="width:132px;height:auto;opacity:.95">
+    <div class="mg-t">데스크탑에서 만나요</div>
+    <div class="mg-s">이 시뮬레이터는 큰 화면과 빔 투사를 전제로 만들어졌습니다.<br>
+      PC 브라우저로 열어 주세요.</div>
+  </div>
+  <style>
+  #mobile-gate{display:none}
+  @media (max-width:820px) and (pointer:coarse){
+    #mobile-gate{position:fixed;inset:0;z-index:999;display:flex;flex-direction:column;gap:18px;
+      align-items:center;justify-content:center;text-align:center;background:var(--d-bg);
+      font-family:var(--ds-font);padding:0 28px}
+    #mobile-gate .mg-t{font-size:26px;font-weight:700;letter-spacing:-.8px;color:#fff}
+    #mobile-gate .mg-s{font-size:14.5px;line-height:1.7;color:rgba(255,255,255,.55)}
+  }
+  </style>
   <!-- 별도 시작 페이지 은퇴(유저 08-13: 복싱 세션 1화면이 무대에 라이브로 돌고,
-       우측 패널 타이틀이 시작을 유도하는 게 맞다). BX_READY 가 두 번 탭을 기다리며
+       우패널 타이틀이 시작을 유도하는 게 맞다). BX_READY 가 두 번 탭을 기다리며
        무한 대기하는 스테이지라, 세션을 세워 두는 것 자체가 어트랙트다. -->
   <div id="howto-overlay" role="dialog" aria-label="왜 이렇게 만들었나">
     <div class="howto-wrap">
