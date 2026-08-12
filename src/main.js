@@ -1075,11 +1075,15 @@ void main(){
    *  장면 대사가 통째로 잘렸다. 재생 중이면 **뒤에 세운다**(마지막 하나만 — 큐가 쌓이면
    *  화면과 말이 더 벌어진다). */
   let _voiceQ = null;
-  function speak(who, text, stageId) {
+  /** force = 장면 전환 발화(유저 08-13: 일찍 넘기면 이전 대사가 남아 보이스가 점점 밀린다).
+   *  장면이 바뀌면 이전 장면의 소리도, 큐에 밀려 있던 대사도 그 장면의 것 — 끊고 비운다.
+   *  장면 **안** 큐(session.say)는 기존 예절 유지: 재생 중이면 뒤에 선다(위 08-09 규칙). */
+  function speak(who, text, stageId, force = false) {
     if (!stageId) return;
     if (!ttsOn) { showCaption(who, text); return; }   // 음소거여도 자막은 나간다
     const v = { who, text, stageId };
-    if (!voiceAudio.paused && !voiceAudio.ended) { _voiceQ = v; return; }
+    if (!force && !voiceAudio.paused && !voiceAudio.ended) { _voiceQ = v; return; }
+    _voiceQ = null;
     _playVoice(v);
   }
   voiceAudio.addEventListener('ended', () => { const q = _voiceQ; _voiceQ = null; if (q) _playVoice(q); });
@@ -1203,7 +1207,7 @@ void main(){
     veil();  // 단계 전환 암전 (끊김 → 의도된 전환으로)
     // 전환/타이머/리포트(풀스크린 지면 화면)는 하단이 화면 콘텐츠(버튼)라 음성 캡션을 상단으로 이동(겹침 방지).
     // 자막은 항상 상단(우측 체험 패널과 같은 높이선) — 스테이지별 위치 분기 폐기.
-    if (st.voice) speak(st.voice[0], st.voice[1], st.id);   // 자막은 speak 이 **소리와 같이** 띄운다
+    if (st.voice) speak(st.voice[0], st.voice[1], st.id, true);   // 장면 전환 = 이전 대사 끊고 즉시(유저 08-13)
     if (st.wear) {
       const w = st.wear;
       const c = w.includes('BOOST') ? '#d1feff' : w.includes('LOAD') ? '#fec389'
@@ -5199,10 +5203,18 @@ void main(){
         const lbl = live ? (st?.label || '—') : '';
         const [head, ...rest] = lbl.split(' — ');
         const [code, ...seg] = head.split(' · ');
-        $$('pp-code').textContent = live ? code.trim() : '';
-        $$('pp-seg').textContent = live ? seg.join(' · ').trim() : '';
+        // 배지 = 구간('실전 2/4') — 내부 코드(T2·B-F)는 관람객 어휘가 아니다(유저 08-13)
+        $$('pp-code').textContent = live ? (seg.join(' · ').trim() || code.trim()) : '';
+        $$('pp-seg').textContent = '';
         // READY 대기 = 어트랙트 — 타이틀이 시작을 유도한다(유저 08-13)
         const readyHold = live && st && /READY$/.test(st.id);
+        // CTA 는 실제 플로우의 이름을 입는다(유저 08-13): 두 번 탭 = 시작의 제스처,
+        // 세션이 흐르는 동안 이 버튼이 하는 일은 '다음'이다. 탭 아이콘도 시작 때만.
+        {
+          const tb = $$('pp-tap'), lb = tb?.querySelector('span'), ic = tb?.querySelector('svg');
+          if (lb) lb.textContent = readyHold ? '두 번 탭' : '다음';
+          if (ic) ic.style.display = readyHold ? '' : 'none';
+        }
         $$('pp-stage').textContent = readyHold ? '발을 두 번 탭하면 코치가 시작합니다'
           : live ? (rest.join(' — ').trim() || code.trim()) : '코치가 준비됐습니다. 터치로 시작하세요';
         $$('pp-meta').textContent = live ? [st?.cue, st?.foot].filter(Boolean).join(' · ') : '';

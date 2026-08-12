@@ -940,7 +940,7 @@ export const STAGES = {
     // phases = 훈련 구간 패턴(눈·귀로 진행이 보이게): n 라벨·c 케이던스배속·i 강도(0~1)·f 사이클 비중. loop=반복 횟수.
     { id:'P1', dur:11, live:true, label:'B1 · 페이스 훈련 1/3 — 이지 런',
       desc:'대화할 수 있을 만큼 편안한 속도로 달려요. 본격 훈련 전 워밍업이자, 다음 강도를 위한 회복 러닝이에요.',
-      voice:['션','먼저 이지 런이에요. 숨이 편안한 속도로 가볍게 — 제 박자에 발만 살살 맞춰요.'], wear:'낮은 강도 보조 시작',
+      voice:['션','먼저 이지 런이에요. 숨이 편안한 속도로 가볍게, 제 박자에 발만 살살 맞춰요.'], wear:'낮은 강도 보조 시작',
       loop:1, phases:[{ n:'EASY', c:0.9, i:0.32, f:1, sec:180 }] },
     // 타이머 = 처방 초로 세팅 후 1초씩 감소(유저): phase의 sim 길이 = sec가 되도록 dur=Σsec, loop 1, f=sec/dur.
     { id:'P2', dur:14, live:true, label:'B2 · 페이스 훈련 2/3 — 스트라이드',
@@ -949,16 +949,16 @@ export const STAGES = {
       loop:1, phases:[{ n:'ACCELERATE', c:1.4, i:0.92, f:10/14, sec:10 }, { n:'DECELERATE', c:0.9, i:0.32, f:4/14, sec:4 }] },
     { id:'P3', dur:50, live:true, label:'B3 · 페이스 훈련 3/3 — 인터벌',
       desc:'짧고 강하게 달린 뒤 회복해요. 심폐 지구력과 스피드를 동시에 끌어올리는 핵심 훈련이에요.',
-      voice:['션','인터벌이에요! 30초 전력으로 갔다가, 회복하며 숨 고르기 — 이 반복이 스피드를 만들어요.'], wear:'BOOST 추진 보조',
+      voice:['션','인터벌이에요! 30초 전력으로 갔다가, 회복하며 숨 고르기. 이 반복이 스피드를 만들어요.'], wear:'BOOST 추진 보조',
       loop:1, phases:[{ n:'SPRINT', c:1.55, i:1.0, f:30/50, sec:30 }, { n:'RECOVER', c:0.78, i:0.28, f:20/50, sec:20 }] },
     // 쓰레숄드(구 P4) 제거(유저: 전시에 너무 길고 지루). 훈련 = 이지런·스트라이드·인터벌 3종.
     { id:'T2', label:'T2 · 전환 — 5초 뒤 실전 시작', voice:['션','훈련 완벽했어요! 이제 진짜 달려볼게요.'], dur:5, count:true, foot:'잠시 뒤 자동 시작' },
-    { id:'C1', dur:3, label:'C1 · 실전 1/5 — 출발 카운트', voice:['션','갑니다 — 셋, 둘, 하나!'], hap:'시작 타이밍 진동', foot:'두 번 구르기 → 출발 (이후 잠금)' },
+    { id:'C1', dur:3, label:'C1 · 실전 1/5 — 출발 카운트', voice:['션','갑니다. 셋, 둘, 하나!'], hap:'시작 타이밍 진동', foot:'두 번 구르기 → 출발 (이후 잠금)' },
     { id:'C2', dur:7, live:true, label:'C2 · 실전 2/5 — 나란히 달리기', voice:['션','좋아요, 그 박자 그대로! 제 옆에 딱 붙어서 같이 가요.'], wear:'SAFE 착지 안정화' },
-    { id:'C3', dur:7, live:true, label:'C3 · 실전 3/5 — 리듬 되찾기', voice:['션','박자! 흔들려도 괜찮아요 — 저한테 다시 맞추면 돼요.'], hap:'착지 보조 2박' },
+    { id:'C3', dur:7, live:true, label:'C3 · 실전 3/5 — 리듬 되찾기', voice:['션','박자! 흔들려도 괜찮아요, 저한테 다시 맞추면 돼요.'], hap:'착지 보조 2박' },
     { id:'C4', dur:7, live:true, boost:true, label:'C4 · 실전 4/5 — 마지막 스퍼트', voice:['션','여기서부터 마지막 구간이에요! 힘내요, 저만 보고 따라와요!'], wear:'BOOST 추진 보조 · 리듬 저하 시 강도↑', cue:'구간 종료 일치율 표시' },
     { id:'C5', live:true, cooldown:true, label:'C5 · 실전 5/5 — 천천히 멈추기', voice:['션','여기까지! 와, 오늘 정말 잘 달렸어요. 천천히 숨 고르면서 멈춰요.'], hap:'완료 진동' },
-    { id:'FIN', label:'FIN · 리포트 — 오늘의 기록', voice:['션','오늘 기록은 앱으로 보내 뒀어요. 리포트 보는 동안 허벅지 앞을 잡고 천천히 풀어 주세요. 오늘 함께해서 즐거웠어요 — 다음에 또 같이 달려요!'], cue:'션 발자국 위에 내 착지 겹쳐 보기 · 쿼드 쿨다운' },
+    { id:'FIN', label:'FIN · 리포트 — 오늘의 기록', voice:['션','오늘 기록은 앱으로 보내 뒀어요. 리포트 보는 동안 허벅지 앞을 잡고 천천히 풀어 주세요. 오늘 함께해서 즐거웠어요. 다음에 또 같이 달려요!'], cue:'션 발자국 위에 내 착지 겹쳐 보기 · 쿼드 쿨다운' },
   ],
   basketball: [
     { id:'BK_READY', label:'READY · 준비 — 발 두 번 탭하면 시작', voice:['커리','안녕, 스테판 커리예요. 오늘은 내 step back을 같이 만들어 볼게요. 준비되면 발을 두 번 탭해요.'], wear:'SAFE 대기', foot:'두 번 탭 → 시작' },
@@ -969,7 +969,7 @@ export const STAGES = {
     //     BK_B5 4/4  — 클립 실측상 1.81~3.10 구간의 **뒤쪽 1.2초가 정지 프레임**이다(슛 상승이
     //       소스에 안 담겨 있다). 배우는 사람이 멈춘 화면을 보는 단계였다. 모으기는 3/3 이 담는다.
     { id:'BK_A1', label:'A1 · 준비운동 1/2 — 옆구리 풀기', voice:['커리','나도 경기 전엔 옆구리부터 풀어요. 팔 위로 뻗고 좌우로 쭉쭉, 허리를 열어 줘요.'], wear:'개입 없음 (자세 측정)' },
-    { id:'BK_B1', label:'A2 · 준비운동 2/2 — 제자리 드리블', voice:['커리','이제 공을 손에 붙여 볼게요. 무릎 굽히고 낮게 열여섯 번 — 내 rhythm을 따라와요.'], cue:'낮은 자세 · 16회' },
+    { id:'BK_B1', label:'A2 · 준비운동 2/2 — 제자리 드리블', voice:['커리','이제 공을 손에 붙여 볼게요. 무릎 굽히고 낮게 열여섯 번, 내 rhythm을 따라와요.'], cue:'낮은 자세 · 16회' },
     // ★ T1 = **전체 재생**. 전엔 4.5초 동안 아무것도 안 하는 전환이었다 — 조각을 배우기 전에
     //   완성형을 한 번 보는 게 학습 순서상 맞고(유저), 새 스테이지를 늘리지 않아도 된다.
     // ★ 진입 멘트는 **짧아야 한다.** 재생이 2.3초인데 그 안에 비트 음성이 3개(간격 0.60s) 들어간다 —
@@ -977,35 +977,35 @@ export const STAGES = {
     //   설명은 비트가 한다: '오른발' · '왼발' · '모아'.
     { id:'BK_T1', label:'T1 · 전체 재생 — 스텝백 한 번에 보기', voice:['커리','통째로 한 번 볼게요.'], cue:'전체 재생 · 0.5배속', foot:'두 번 탭 → 조각 익히기' },
     { id:'BK_B2', label:'B1 · 스텝백 1/3 — 오른발 크로스 딛기', voice:['커리','첫 조각. 오른발을 왼쪽으로 크게 딛으면서 공을 반대로 밀어요. 왼발은 그대로 버텨요.'], cue:'R 크로스 · L 버팀' },
-    { id:'BK_B3', label:'B2 · 스텝백 2/3 — 왼발로 밀어 뒤로 빠지기', voice:['커리','둘째. 왼발로 바닥을 밀면서 몸을 뒤로 쓱 빼요 — 그 순간 두 손으로 공을 잡아요.'], cue:'L 로 밀고 몸은 뒤로 · 두 손 개더' },   // 클립 실측: 뒤로 가는 건 오른발+몸, 왼발은 밀며 자리 지킴(SB_POSE 재저작과 함께 label 만 정정 — 대사는 원래 맞았다)
-    { id:'BK_B4', label:'B3 · 스텝백 3/3 — 오른발 모으고 올라가기', voice:['커리','마지막. 오른발을 재빨리 끌어와 모으고 그대로 올라가요 — 이게 내 step back이에요.'], cue:'R 모음 · 수직 상승', foot:'두 번 탭 → 실전 준비' },
-    { id:'BK_T2', label:'T2 · 전환 — 5초 뒤 실전 시작', voice:['커리','세 조각을 다 배웠어요. 이제 이어서 해 볼게요 — 준비됐으면 두 번 탭.'], dur:5, count:true, foot:'두 번 탭 = 즉시 · 무입력 = 자동' },
-    { id:'BK_C1', dur:3, label:'C1 · 실전 1/2 — 출발 신호', voice:['커리','셋, 둘, 하나 — 가요!'], hap:'컷 시작 진동', foot:'두 번 탭 → 출발' },
-    { id:'BK_C2', dur:40, live:true, label:'C2 · 실전 2/2 — 스텝백 3점 3회', voice:['커리','이번엔 진짜예요. 배운 그대로 세 번 — 딛고, 빠지고, 모아서 shoot!'], wear:'BOOST 측면 추진', cue:'정속 · 3회' },
-    { id:'BK_FIN', label:'FIN · 리포트 — 오늘의 기록', voice:['커리','오늘 정말 잘했어요. 기록은 앱으로 보내 뒀어요 — 다음엔 더 빠른 step back을 만들어 봐요.'], cue:'Ghost Review — 커리 궤적과 내 스텝 겹쳐 보기' },
+    { id:'BK_B3', label:'B2 · 스텝백 2/3 — 왼발로 밀어 뒤로 빠지기', voice:['커리','둘째. 왼발로 바닥을 밀면서 몸을 뒤로 쓱 빼요. 그 순간 두 손으로 공을 잡아요.'], cue:'L 로 밀고 몸은 뒤로 · 두 손 개더' },   // 클립 실측: 뒤로 가는 건 오른발+몸, 왼발은 밀며 자리 지킴(SB_POSE 재저작과 함께 label 만 정정 — 대사는 원래 맞았다)
+    { id:'BK_B4', label:'B3 · 스텝백 3/3 — 오른발 모으고 올라가기', voice:['커리','마지막. 오른발을 재빨리 끌어와 모으고 그대로 올라가요. 이게 내 step back이에요.'], cue:'R 모음 · 수직 상승', foot:'두 번 탭 → 실전 준비' },
+    { id:'BK_T2', label:'T2 · 전환 — 5초 뒤 실전 시작', voice:['커리','세 조각을 다 배웠어요. 이제 이어서 해 볼게요. 준비됐으면 두 번 탭.'], dur:5, count:true, foot:'두 번 탭 = 즉시 · 무입력 = 자동' },
+    { id:'BK_C1', dur:3, label:'C1 · 실전 1/2 — 출발 신호', voice:['커리','셋, 둘, 하나, 가요!'], hap:'컷 시작 진동', foot:'두 번 탭 → 출발' },
+    { id:'BK_C2', dur:40, live:true, label:'C2 · 실전 2/2 — 스텝백 3점 3회', voice:['커리','이번엔 진짜예요. 배운 그대로 세 번. 딛고, 빠지고, 모아서 shoot!'], wear:'BOOST 측면 추진', cue:'정속 · 3회' },
+    { id:'BK_FIN', label:'FIN · 리포트 — 오늘의 기록', voice:['커리','오늘 정말 잘했어요. 기록은 앱으로 보내 뒀어요. 다음엔 더 빠른 step back을 만들어 봐요.'], cue:'Ghost Review: 커리 궤적과 내 스텝 겹쳐 보기' },
   ],
   boxing: [
-    { id:'BX_READY', wall:true, label:'READY · 준비 — 가드 올리고 거리 잡기', voice:['고수','안녕, 케이시예요. 오늘 jab 하나만 제대로 가져갈 거예요. guard 올리고 — 발 두 번 탭.'], wear:'SAFE 대기', foot:'두 번 탭 → 시작' },
+    { id:'BX_READY', wall:true, label:'READY · 준비 — 가드 올리고 거리 잡기', voice:['고수','안녕, 케이시예요. 오늘 jab 하나만 제대로 가져갈 거예요. guard 올리고 발 두 번 탭.'], wear:'SAFE 대기', foot:'두 번 탭 → 시작' },
     // dur = 코치 클립 1회분. 없으면 스테이지는 5.6s 에 끊기는데 벽 UI 카운터는 기본값
     //   8s 로 페이싱해서 YOU 가 8 에 닿기 전에 넘어갔다(유저: 끝까지 못 감).
     //   클립 한 바퀴 = 목 전반 + 어깨 후반이라, 8회를 여기 걸면 영상·큐·카운트가 같이 끝난다.
     { id:'BX_A1', wall:true, dur:BX_A1_CLIP * BX_A1_LOOPS, label:'A1 · 준비운동 1/3 — 목·어깨 풀기', voice:['고수','목이랑 어깨부터. 크게, 천천히 네 번.'], wear:'개입 없음' },
     { id:'BX_A2', wall:true, label:'A2 · 준비운동 2/3 — 스텝 인·아웃', voice:['고수','step in-out이에요. 앞뒤로 가볍게 여섯 번, 무게는 항상 앞발에.'], hap:'스텝 박자 (약)' },
-    { id:'BX_A3', wall:true, label:'A3 · 준비운동 3/3 — 잽 폼', voice:['고수','이제 jab 폼만. 어깨에서 뻗고 바로 회수 — 여섯 번.'], wear:'낮은 강도 보조 시작' },
+    { id:'BX_A3', wall:true, label:'A3 · 준비운동 3/3 — 잽 폼', voice:['고수','이제 jab 폼만. 어깨에서 뻗고 바로 회수, 여섯 번.'], wear:'낮은 강도 보조 시작' },
     { id:'BX_T1', wall:true, label:'T1 · 전환 — 잽 익히기 시작', voice:['고수','몸 풀렸어요. jab을 세 조각으로 나눠서 만들어 볼게요. 두 번 탭.'], foot:'두 번 탭 → 사전 익히기' },
-    { id:'BX_B1', wall:true, gate:true, label:'B1 · 익히기 1/3 — 가드 유지', voice:['고수','첫째, guard. 주먹을 box 안에 두고 삼 초만 버텨요.'], cue:'Hold Ring — 가드 존' },
+    { id:'BX_B1', wall:true, gate:true, label:'B1 · 익히기 1/3 — 가드 유지', voice:['고수','첫째, guard. 주먹을 box 안에 두고 삼 초만 버텨요.'], cue:'Hold Ring: 가드 존' },
     // dur 을 코치 클립에 건다(A1 과 같은 이유) — 예전엔 per 1.1×6=6.9s 로 끝나 12s 클립 한복판에서 잘렸다.
-    { id:'BX_B2', wall:true, gate:true, dur:BX_B2_CLIP, label:'B2 · 익히기 2/3 — 회피 슬립', voice:['고수','둘째, slip. 원이 좁아지면 그 반대로 머리를 흘려요 — 여섯 번.'], cue:'수축 위협 존 — 반대로 슬립' },
+    { id:'BX_B2', wall:true, gate:true, dur:BX_B2_CLIP, label:'B2 · 익히기 2/3 — 회피 슬립', voice:['고수','둘째, slip. 원이 좁아지면 그 반대로 머리를 흘려요, 여섯 번.'], cue:'수축 위협 존: 반대로 슬립' },
     { id:'BX_B3', wall:true, gate:true, label:'B3 · 익히기 3/3 — 잽 스윕', voice:['고수','셋째, jab. 흐르는 선을 따라 그대로 뻗어요. 여섯 번 정확히.'], foot:'두 번 탭 → 실전 준비' },
-    { id:'BX_T2', wall:true, label:'T2 · 전환 — 5초 뒤 실전 시작', voice:['고수','세 조각 다 됐어요. 5초 뒤에 붙어봅니다 — 준비됐으면 두 번 탭.'], dur:5, count:true, foot:'두 번 탭 = 즉시 · 무입력 = 자동' },
-    { id:'BX_C1', wall:true, dur:3, label:'C1 · 실전 1/4 — 시작 신호', voice:['고수','갑니다 — 셋, 둘, 하나!'], hap:'시작 진동', foot:'두 번 탭 → 시작' },
+    { id:'BX_T2', wall:true, label:'T2 · 전환 — 5초 뒤 실전 시작', voice:['고수','세 조각 다 됐어요. 5초 뒤에 붙어봅니다. 준비됐으면 두 번 탭.'], dur:5, count:true, foot:'두 번 탭 = 즉시 · 무입력 = 자동' },
+    { id:'BX_C1', wall:true, dur:3, label:'C1 · 실전 1/4 — 시작 신호', voice:['고수','갑니다. 셋, 둘, 하나!'], hap:'시작 진동', foot:'두 번 탭 → 시작' },
     { id:'BX_C2', wall:true, dur:11, live:true, label:'C2 · 실전 2/4 — 잽 대련', voice:['고수','target 뜨면 바로 jab. guard는 내리지 말고.'], wear:'SAFE 가드 안정화' },
     // dur = 코치 클립 길이(bx_c3_combo.mp4 3.00초 — 1.4배속 리타임). 둘이 다르면 스테이지가 클립 위에서 밀려
     //   마커가 엉뚱한 자세에 뜬다 — 씬 루프 주기도 이 값의 정수배로 잡힌다(main.js).
     // ⚠ dur 은 this.t 단위 = 부스트(1.18) 먹은 시각이다. 실시간 9.6초(실사 컷 길이) = 11.328
-    { id:'BX_C3', wall:true, dur:11.328, live:true, boost:true, label:'C3 · 실전 3/4 — 콤비네이션', voice:['고수','jab, jab — 마지막은 몸을 실어서 hook! rhythm 놓치지 말고.'], wear:'BOOST 스텝 추진', cue:'구간 종료 Match Rate' },   // dur = 마커 사이클 5.1667 × 2바퀴. 클립 길이(6.04)와는 일부러 다르다 — 대련이라 실루엣과 마커가 붙을 이유가 없다(08-05b)
+    { id:'BX_C3', wall:true, dur:11.328, live:true, boost:true, label:'C3 · 실전 3/4 — 콤비네이션', voice:['고수','jab, jab, 마지막은 몸을 실어서 hook! rhythm 놓치지 말고.'], wear:'BOOST 스텝 추진', cue:'구간 종료 Match Rate' },   // dur = 마커 사이클 5.1667 × 2바퀴. 클립 길이(6.04)와는 일부러 다르다 — 대련이라 실루엣과 마커가 붙을 이유가 없다(08-05b)
     { id:'BX_C4', wall:true, live:true, cooldown:true, label:'C4 · 실전 4/4 — 마무리', voice:['고수','guard 내리고 숨 고르기. 오늘 jab, 확실히 좋아졌어요.'], hap:'완료 진동' },
-    { id:'BX_FIN', wall:true, label:'B-F · 리포트', voice:['고수','내 jab이랑 겹쳐서 볼게요 — 어디가 달랐는지 보여요? 기록은 앱으로 보냈어요. 다음엔 스텝까지 붙여 봐요.'], cue:'Ghost Review — 고수 잽과 내 폼 겹쳐 보기' },
+    { id:'BX_FIN', wall:true, label:'B-F · 리포트', voice:['고수','내 jab이랑 겹쳐서 볼게요. 어디가 달랐는지 보여요? 기록은 앱으로 보냈어요. 다음엔 스텝까지 붙여 봐요.'], cue:'Ghost Review: 고수 잽과 내 폼 겹쳐 보기' },
   ],
 };
 
@@ -2549,7 +2549,7 @@ export class Session {
     //   session.start() 가 main.js 의 대입보다 먼저 돌아 첫 진입에서 undefined 였다 — 순서에 의존했다.
     //   기본값을 '끔'으로 두면 빠뜨렸을 때 '안 보인다'로 실패하므로 누출이 구조적으로 불가능하다.
     if (this.G[st.id]) this.G[st.id].visible = false;
-    // FIN Ghost Review — 션 발자국 격자 + 내 착지점(판정 오차 벡터, ±30cm 클램프)
+    // FIN Ghost Review: 션 발자국 격자 + 내 착지점(판정 오차 벡터, ±30cm 클램프)
     if (st.id === 'FIN' && this.finGhost) {
       const R = (this.judge?.results || []).filter(r => r.surface === 'floor').slice(-4);
       this.finGhost.forEach((fm, i) => {
@@ -3720,6 +3720,15 @@ export class Session {
       //   '배우는 단위'는 조각 하나다. 실전(C2)만 3회를 유지한다 — 거긴 반복이 목적이다.
       const CFG = { BK_T1: { per: 2.3, need: 1 }, BK_B3: { per: 2.2, need: 1 }, BK_B4: { per: 2.2, need: 1 }, BK_C2: { per: 0.9, need: 3 } }[id];
       const H = { BK_T1: this.bkT1x, BK_B3: this.bkB3x, BK_B4: this.bkB4x, BK_C2: this.bkC2x }[id];
+      // ★ 전체 재생 = 내레이션이 이끄는 한 사이클(유저 08-13: 몇 번을 보는 거냐 + 재생 중에
+      //   뭘 하는지 말해 달라). 조각 대사 mp3(BK_B2·B3·B4, 일레븐랩스 정본)를 동작 위에 얹고,
+      //   대사가 끝나면 자동으로 다음 스테이지로. 탭 대기 무한 반복은 은퇴.
+      if (id === 'BK_T1') {
+        if (this.t >= 1.4 && !this._t1n1) { this._t1n1 = 1; this.say?.('커리', '첫 조각. 오른발을 왼쪽으로 크게 딛으면서 공을 반대로 밀어요. 왼발은 그대로 버텨요.', 'BK_B2'); }
+        if (this.t >= 7.5 && !this._t1n2) { this._t1n2 = 1; this.say?.('커리', '둘째. 왼발로 바닥을 밀면서 몸을 뒤로 쓱 빼요. 그 순간 두 손으로 공을 잡아요.', 'BK_B3'); }
+        if (this.t >= 12.9 && !this._t1n3) { this._t1n3 = 1; this.say?.('커리', '마지막. 오른발을 재빨리 끌어와 모으고 그대로 올라가요. 이게 내 step back이에요.', 'BK_B4'); }
+        if (this.t >= 18.5) { this.next(); return; }
+      }
       // ★ **되감김도 재진입이다**(유저: 가이드 화살표 왜 날아갔어).
       //   화살표를 '첫 턴에만'(H.count < 1) 으로 바꿨는데, count 를 **스테이지가 바뀔 때만** 리셋해서
       //   씬 프리뷰 루프(t 가 0 으로 되감김)에서는 한 번 턴이 끝나면 영영 0 으로 못 돌아왔다 —
@@ -3728,6 +3737,7 @@ export class Session {
       //   `(_bkStrT > t)` 되감김 가드를 갖고 있었다 — 여기만 빠져 있었다.
       if ((this._bkStrT2 ?? 0) > this.t || this._bkStrId !== id) {
         H.beat = 0; H.count = 0; H._beatT = this.t; H._popT = -9; H._side = -1; H._ghT = -9; H._lpPrev = null;
+        if (id === 'BK_T1') this._t1n1 = this._t1n2 = this._t1n3 = 0;   // 내레이션 재무장(재진입·되감김)
       }
       this._bkStrT2 = this.t; this._bkStrId = id;
       if (!this._followLatch && !LIVE) {   // 훈련만 관찰 국면
