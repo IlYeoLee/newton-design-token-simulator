@@ -3666,7 +3666,7 @@ export class Session {
         H.rise.setOp?.(0); H.cL.op(0); H.cR.op(0);
         if (H.lkA) { H.lkA.visible = false; H.lkB.visible = false; }   // 스탠스 링크도 관찰 땐 없다
         this.demoActive = true;
-        FMU('먼저 보세요 — 스텝백', CS.prism);
+        FMU('먼저 보세요, 스텝백', CS.prism);
         return;
       }
       this._say('bkb2go', '커리', '이제 같이 해봐요 — 발부터, 한 박자씩.');
@@ -3721,12 +3721,13 @@ export class Session {
       const CFG = { BK_T1: { per: 2.3, need: 1 }, BK_B3: { per: 2.2, need: 1 }, BK_B4: { per: 2.2, need: 1 }, BK_C2: { per: 0.9, need: 3 } }[id];
       const H = { BK_T1: this.bkT1x, BK_B3: this.bkB3x, BK_B4: this.bkB4x, BK_C2: this.bkC2x }[id];
       // ★ 전체 재생 = 내레이션이 이끄는 한 사이클(유저 08-13: 몇 번을 보는 거냐 + 재생 중에
-      //   뭘 하는지 말해 달라). 조각 대사 mp3(BK_B2·B3·B4, 일레븐랩스 정본)를 동작 위에 얹고,
-      //   대사가 끝나면 자동으로 다음 스테이지로. 탭 대기 무한 반복은 은퇴.
+      //   뭘 하는지 말해 달라). 대사가 끝나면 자동으로 다음 스테이지로. 탭 대기 무한 반복은 은퇴.
+      //   ★ 대사는 전용이다(유저 08-13: 조각 학습 대사('첫 조각…') 재활용은 처음 통째로 보는
+      //   장면에 안 맞는다) — 흐름 전체를 눈으로 따라가게 하는 문장 둘.
+      //   mp3 는 scripts/gen_voice.mjs 가 이 _say 리터럴에서 뽑는다(say_t1w1·say_t1w2).
       if (id === 'BK_T1') {
-        if (this.t >= 1.4 && !this._t1n1) { this._t1n1 = 1; this.say?.('커리', '첫 조각. 오른발을 왼쪽으로 크게 딛으면서 공을 반대로 밀어요. 왼발은 그대로 버텨요.', 'BK_B2'); }
-        if (this.t >= 7.5 && !this._t1n2) { this._t1n2 = 1; this.say?.('커리', '둘째. 왼발로 바닥을 밀면서 몸을 뒤로 쓱 빼요. 그 순간 두 손으로 공을 잡아요.', 'BK_B3'); }
-        if (this.t >= 12.9 && !this._t1n3) { this._t1n3 = 1; this.say?.('커리', '마지막. 오른발을 재빨리 끌어와 모으고 그대로 올라가요. 이게 내 step back이에요.', 'BK_B4'); }
+        if (this.t >= 1.6 && !this._t1n1) { this._t1n1 = 1; this._say('t1w1', '커리', '흐름만 눈으로 따라와요. 오른발을 안으로 딛고, 왼발로 뒤로 빠졌다가, 모아서 올라갑니다.'); }
+        if (this.t >= 11.5 && !this._t1n2) { this._t1n2 = 1; this._say('t1w2', '커리', '이 리듬을 통째로 기억해요. 곧 조각조각 나눠서 같이 해볼 거예요.'); }
         if (this.t >= 18.5) { this.next(); return; }
       }
       // ★ **되감김도 재진입이다**(유저: 가이드 화살표 왜 날아갔어).
@@ -3738,10 +3739,12 @@ export class Session {
       if ((this._bkStrT2 ?? 0) > this.t || this._bkStrId !== id) {
         H.beat = 0; H.count = 0; H._beatT = this.t; H._popT = -9; H._side = -1; H._ghT = -9; H._lpPrev = null;
         if (id === 'BK_T1') this._t1n1 = this._t1n2 = this._t1n3 = 0;   // 내레이션 재무장(재진입·되감김)
-        if (id === 'BK_C2') { this._c2 = null; this.c2Shot = 0; if (this.xbot) this.xbot._extBall = false; }   // 렙 머신 재무장
+        if (id === 'BK_C2') { this._c2 = null; this.c2Shot = 0; this.c2Hold = false; if (this.xbot) this.xbot._extBall = false; }   // 렙 머신 재무장
       }
       this._bkStrT2 = this.t; this._bkStrId = id;
-      if (!this._followLatch && !LIVE) {   // 훈련만 관찰 국면
+      if (!this._followLatch && !LIVE && id !== 'BK_T1') {   // 훈련만 관찰 국면
+        // ★ BK_T1 은 여기서 뺀다(유저 08-13: 발자국 미리보기 어디 갔어) — 봇은 main 이
+        //   관찰 고정으로 세워 두고, 발자국 마크 레일은 아래 POSE 경로가 영상 시계로 돈다.
         for (const k of ['mL', 'mC', 'mR']) H[k].setOp?.(0);
         for (const k of ['fLl', 'fLr', 'fRl', 'fRr', 'fC']) H[k]?.op(0);
         if (H.numL) { H.numL.visible = false; H.numR.visible = false; }   // 글리프는 op(0)로 안 꺼진다
@@ -3750,7 +3753,7 @@ export class Session {
         H.a1 && (H.a1._gain = 0); H.a2 && (H.a2._gain = 0);          // 화살표도(유저 08-10)
         if (H.lkA) { H.lkA.visible = false; H.lkB.visible = false; }
         this.demoActive = true;
-        FMU('먼저 보세요 — 스텝백', CS.prism);
+        FMU('먼저 보세요, 스텝백', CS.prism);
         // ★ 관찰 바퀴는 렙이 아니다 — 관찰 중엔 기준선을 계속 비워, 따라하기 **첫 틱**의 바퀴 수가
         //   기준선이 되게 한다(그 다음 바퀴 = 첫 렙). 관찰 끝 프레임엔 바퀴 증가와 래치 전환이
         //   같은 프레임에 오므로, 직전 값을 기준선으로 쓰면 관찰 바퀴가 렙으로 세어진다(실측 둘:
@@ -3957,10 +3960,20 @@ export class Session {
         if (ph.mode === 'step') {
           this.c2Shot = 0;
           const vt = this.stepVidT ?? 0;
-          // pt>1.0 가드 — 진입·복귀 직후 영상 시계 점프를 사이클 완주로 오검출하던 것(08-13 실측)
-          if (pt > 1.0 && (ph._pv || 0) > vt + 0.3) { ph.mode = 'shot'; ph.t0 = this.t; ph.p0 = null; }
-          ph._pv = vt;
-          this.repFrac = Math.min(1, (ph.rep + Math.max(0, (vt - cA) / (cB - cA)) * 0.7) / NEED);
+          if (!ph.run) {
+            // ★ 동기 대기(유저 08-13: 슛 뒤 다음 스텝을 밟기 전까진 바닥이 비어야 한다) —
+            //   영상이 사이클 경계로 되감길 때까지 마크를 숨기고(c2Hold), 경계에서 함께 출발한다.
+            this.c2Hold = true;
+            if (pt > 0.25 && (ph._pv || 0) > vt + 0.3) { ph.run = true; ph.t0 = this.t; }
+            ph._pv = vt;
+            this.repFrac = Math.min(1, ph.rep / NEED);
+          } else {
+            this.c2Hold = false;
+            // pt>1.0 가드 — 진입·복귀 직후 영상 시계 점프를 사이클 완주로 오검출하던 것(08-13 실측)
+            if (pt > 1.0 && (ph._pv || 0) > vt + 0.3) { ph.mode = 'shot'; ph.run = false; ph.t0 = this.t; ph.p0 = null; }
+            ph._pv = vt;
+            this.repFrac = Math.min(1, (ph.rep + Math.max(0, (vt - cA) / (cB - cA)) * 0.7) / NEED);
+          }
         } else if (ph.mode === 'shot') {
           this.c2Shot = pt;                        // 클립 위상 = 1.35 + pt (크라우치→점프, 실측 창)
           const REL = 1.15, FLY = 1.0;             // 릴리즈 = 클립 2.5s(점프 정점 실측)
@@ -4007,7 +4020,7 @@ export class Session {
           }
         }
       }
-      const BEATN = { BK_T1: ['통째로 한 번 볼게요', '오른발 — 크로스', '왼발 — 뒤로', '모아서 올라가기'],
+      const BEATN = { BK_T1: ['통째로 한 번 볼게요', '오른발 안으로', '왼발 뒤로', '모아서 올라가기'],
         BK_B2: ['① 준비', '② 오른발 크로스', '③ 공은 반대로!', '④ 왼발 버팀'],
         BK_B3: ['① 준비', '② 왼발로 밀어', '③ 뒤로 쓱!', '④ 두 손으로 잡기'],
         BK_B4: ['① 준비', '② 오른발 모으고', '③ 수직으로!', '④ 슛!'],

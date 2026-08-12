@@ -3158,7 +3158,9 @@ void main(){
     for (let i = 0; i < B.length; i++) {
       if (vt < B[i].tOn - 1e-6 || i <= (session._hotSaid ?? -1)) continue;
       session._hotSaid = i;
-      session._say?.('sb_beat_' + B[i].key, '커리', B[i].voice);
+      // ★ 비트 한마디(_say sb_beat_*) 은퇴(유저 08-13: '오른발'이 혼자 뜨고 음성도 없다) —
+      //   mp3(say_sb_beat_*)가 없어 자막만 고아로 떴다. 흐름 내레이션(say_t1w1·t1w2)이 말을
+      //   전담하고, 비트는 지면 문구(FMU·BEATN)가 소리 없이 따라간다.
     }
   }
   function tickA1Coach() {
@@ -4612,7 +4614,7 @@ void main(){
     //   판정이 끝난 화면이다. 러닝 C5 와 같은 원칙(session.js C5 주석).
     const PACK_OFF = session.stage === 'BX_C2' || session.stage === 'BX_C3' || session.stage === 'BX_C4';
     if (session.active) tokens.floorRoot.visible = session.isLive && session.stage !== 'BK_C4' && !PACK_OFF
-      && !(session.stage === 'BK_C2' && session.c2Shot);   // 슛 국면 = 지면 마크도 쉼(시선은 공·골대로)
+      && !(session.stage === 'BK_C2' && (session.c2Shot || session.c2Hold));   // 슛·동기 대기 = 바닥 비움(유저 08-13)
     if (session.active) tokens.wallRoot.visible = !PACK_OFF;
     // 스톰프 프레스 스테이지: 봇을 뒤로 당겨 착지(전방 0.38m)가 프레스 원 위에 정확히 떨어지게
     if (session.active && !session.isLive && data.sport !== 'boxing') {
@@ -4699,7 +4701,10 @@ void main(){
       const _watchWin = /^(A2|A3|BK_A2|BK_T1|BK_B[1234]|BK_C2)$/.test(session.stage || '') && !session._followLatch;   // 실전도 정속 프리뷰 1회 먼저(유저)
       if (/^BK_C[135]$/.test(session.stage || '')) session._followLatch = true;   // C2만 프리뷰 있음
       const _stepPv = STEP_SEG[session.stage || ''] && _stepId === session.stage;   // 스텝백 = 재생 횟수로 판정
-      const aWatching = _watchWin && (_stepPv ? _stepLoops < stepLoops(session.stage) : session.t < A2_WATCH);
+      // ★ BK_T1(통째로 보기) = 처음부터 끝까지 관찰만(유저 08-13: 봇 움직이지 마라) —
+      //   시범은 영상과 내레이션이 하고, 봇이 같이 움직이면 시선이 갈린다.
+      const aWatching = session.stage === 'BK_T1'
+        || (_watchWin && (_stepPv ? _stepLoops < stepLoops(session.stage) : session.t < A2_WATCH));
       if (_watchWin && !aWatching) { session._followLatch = true; session._aWatchEnd = session.t; }
       // ★ 스텝백 시점 자동 전환(유저 08-10): **인물 영상이 나오면 3인칭 · 발자국이 나오면 1인칭.**
       //   시범은 '남의 동작을 본다'라 몸 밖에서 봐야 하고, 따라하기는 '내 발밑'이라 눈에서 봐야 한다.
@@ -5170,7 +5175,22 @@ void main(){
         //   아래 250ms 인터벌이 재시도하므로 로드 완료 시 자동으로 시작된다.
         if (!session.active && tokens.events?.length) startSessionFor(state.pack);
       };
-      pp.querySelectorAll('.pp-pack').forEach(b => b.addEventListener('click', () => setTimeout(productStart, 400)));
+      pp.querySelectorAll('.pp-pack').forEach(b => b.addEventListener('click', () => {
+        // ★ 전환 암막(유저 08-13: 탭 전환 사이 구버전 화면이 0.2초 떠 있다) — 이전 세션이
+        //   내려가고 새 팩 세션이 서는 사이의 자유 프리뷰 프레임을 관람객이 못 보게 덮는다.
+        //   새 팩 세션이 활성화되면 걷는다. 5초 안전망 — 로드가 늦어도 영영 검게 두진 않는다.
+        if (veilEl && !document.body.classList.contains('dev')) {
+          const target = b.dataset.pp;
+          veilEl.style.opacity = '1';
+          const un = setInterval(() => {
+            if (session.active && session.sport === target) {
+              clearInterval(un); setTimeout(() => { veilEl.style.opacity = '0'; }, 180);
+            }
+          }, 60);
+          setTimeout(() => { clearInterval(un); veilEl.style.opacity = '0'; }, 5000);
+        }
+        setTimeout(productStart, 400);
+      }));
       // ★ 어트랙트 = 복싱 세션 1화면 그 자체(유저 08-13: 별도 시작 페이지 말고 무대에 라이브).
       //   자동 시작으로 BX_READY 에 세워 둔다 — 두 번 탭을 기다리는 스테이지라 스스로 안 넘어간다.
       //   시작 유도는 우측 패널 타이틀이 한다(아래 인터벌의 READY 문구 오버라이드).

@@ -3940,6 +3940,10 @@ export class FloorGL {
 
   _card(x, y, S, R, P, D, done) {
     const ctx = this.ctx;
+    // ★ 인물 PNG 가 로드되기 전엔 카드를 아예 안 그린다(유저 08-13: 완료 카드의 빨간
+    //   그라디언트가 단독으로 먼저 떠 '중앙에 깜빡이는 빨간 원'으로 읽혔다 — 블룸이 원형으로 뭉갠다).
+    //   로드 즉시 _sig 무효화(onload)로 다시 그려지므로 잠깐 비는 것뿐, 늦게라도 꼭 뜬다.
+    if (!this._img(D.img)) return;
     const k = S / 654.902;   // 대지 실값(Figma 654.902) 대비 배율 — 조판·배지·글자도 카드와 같이 줄어든다
     ctx.save();
     this._roundRectPath(x, y, S, S, R); ctx.clip();
