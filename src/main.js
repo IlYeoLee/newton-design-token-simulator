@@ -4703,10 +4703,15 @@ void main(){
       const _watchWin = /^(A2|A3|BK_A2|BK_T1|BK_B[1234]|BK_C2)$/.test(session.stage || '') && !session._followLatch;   // 실전도 정속 프리뷰 1회 먼저(유저)
       if (/^BK_C[135]$/.test(session.stage || '')) session._followLatch = true;   // C2만 프리뷰 있음
       const _stepPv = STEP_SEG[session.stage || ''] && _stepId === session.stage;   // 스텝백 = 재생 횟수로 판정
-      // ★ BK_T1(통째로 보기) = 처음부터 끝까지 관찰만(유저 08-13: 봇 움직이지 마라) —
+      // ★ BK_T1 은 **봇만** 처음부터 끝까지 가만히 있는다(유저 08-13: 봇 움직이지 마라) —
       //   시범은 영상과 내레이션이 하고, 봇이 같이 움직이면 시선이 갈린다.
-      const aWatching = session.stage === 'BK_T1'
-        || (_watchWin && (_stepPv ? _stepLoops < stepLoops(session.stage) : session.t < A2_WATCH));
+      //   ⚠ 08-13 엔 그 요구를 `aWatching` 에 걸었는데, 이 플래그는 봇 클립뿐 아니라
+      //   **관찰→따라하기 경계**(_followLatch)까지 정한다. T1 에서 영영 true 가 되니
+      //   래치가 한 번도 안 서고, 코치 판이 계속 뜬 채로 발자국 레일이 같이 돌았다
+      //   (유저 08-13: 인물 영상 위에 발자국이 나온다). 두 관심사를 갈라 놓는다:
+      //   경계는 다른 스테이지와 같은 규칙(영상 1회)으로 돌려주고, 봇만 따로 재운다.
+      const aWatching = _watchWin && (_stepPv ? _stepLoops < stepLoops(session.stage) : session.t < A2_WATCH);
+      const botIdle = aWatching || session.stage === 'BK_T1';
       if (_watchWin && !aWatching) { session._followLatch = true; session._aWatchEnd = session.t; }
       // ★ 스텝백 시점 자동 전환(유저 08-10): **인물 영상이 나오면 3인칭 · 발자국이 나오면 1인칭.**
       //   시범은 '남의 동작을 본다'라 몸 밖에서 봐야 하고, 따라하기는 '내 발밑'이라 눈에서 봐야 한다.
@@ -4726,7 +4731,7 @@ void main(){
       //     한때 warmup 프레임0 으로 얼렸다가 되돌렸다: 그 프레임은 **웅크린 대기**라 봇이
       //     구부정하게 굳어 보였다(xbot._buildDrills 주석이 같은 지적을 이미 적어 뒀다).
       //     시선이 갈리는 건 '봇이 무브를 시범하는 것'이지 호흡이 아니다.
-      if (aWatching) { _clip = 'idle'; xbot.group.scale.x = 1; xbot.lungeDeepen = 0; xbot.headPitch = THREE.MathUtils.degToRad(-32); }
+      if (botIdle) { _clip = 'idle'; xbot.group.scale.x = 1; xbot.lungeDeepen = 0; xbot.headPitch = THREE.MathUtils.degToRad(-32); }
       // ── 발자국 IK 구동 — 가이드 안무(sbPoseAt)를 **봇 몸 크기의 미터**로 환산해 발목 목표로.
       //   좌표계: 가이드 u(정규 좌우) · v(정규 앞뒤). 봇은 마주보므로 좌우가 뒤집힌다(−u).
       //   배율은 레퍼런스 영상 실측에 맞춘다 — 착지 스탠스 폭 0.92m(가이드 Δu 1.27 → KX 0.72),
@@ -4916,7 +4921,7 @@ void main(){
       // 슛 국면 위상 = 06_15 실측 창(1.9 크라우치 → 2.75 릴리즈 → 3.5 착지). c2Shot=99(그물)면 착지 유지.
       const _c2ShotPh = (session.stage === 'BK_C2' && session.c2Shot > 0)
         ? Math.min(1.9 + session.c2Shot, 4.5) : null;
-      xbot.playDemo(_clip, h, false, _c2ShotPh ?? (aWatching ? null : _phase));
+      xbot.playDemo(_clip, h, false, _c2ShotPh ?? (botIdle ? null : _phase));   // 봇을 재운 동안은 위상도 안 준다
       // ★ 1인칭 스텝백은 공을 숨긴다(08-10 실측: 124_06 공이 가슴 높이라 카메라 0.9m 앞
       //   거대 구가 되어 발자국을 가린다). 드리블(B1)은 공이 바닥 쪽이라 그대로 둔다.
       //   슛 국면은 예외 — 궤적이 골대로 날아가는 게 장면의 목적이다(유저 08-13).

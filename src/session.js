@@ -3742,9 +3742,12 @@ export class Session {
         if (id === 'BK_C2') { this._c2 = null; this.c2Shot = 0; this.c2Hold = false; if (this.xbot) this.xbot._extBall = false; }   // 렙 머신 재무장
       }
       this._bkStrT2 = this.t; this._bkStrId = id;
-      if (!this._followLatch && !LIVE && id !== 'BK_T1') {   // 훈련만 관찰 국면
-        // ★ BK_T1 은 여기서 뺀다(유저 08-13: 발자국 미리보기 어디 갔어) — 봇은 main 이
-        //   관찰 고정으로 세워 두고, 발자국 마크 레일은 아래 POSE 경로가 영상 시계로 돈다.
+      if (!this._followLatch && !LIVE) {   // 훈련만 관찰 국면
+        // ★ BK_T1 도 여기 있어야 한다. 08-13 에 '발자국 미리보기 어디 갔어' 를 이 조건에서
+        //   T1 을 빼는 걸로 고쳤는데, 그러면 발자국 레일이 **t=0 부터** 돌아 코치 영상 위에
+        //   겹쳐 나온다(유저 08-13: 인물 영상 위에 발자국). 순서는 겹치기가 아니라 이어붙이기다 —
+        //   영상 1회(여기, 마크 전부 0) → 래치 → 발자국 1회(아래 POSE 경로).
+        //   실측으로 확인한 증상: T1 내내 demoActive=false · followLatch=false · 마크 α=1.
         for (const k of ['mL', 'mC', 'mR']) H[k].setOp?.(0);
         for (const k of ['fLl', 'fLr', 'fRl', 'fRr', 'fC']) H[k]?.op(0);
         if (H.numL) { H.numL.visible = false; H.numR.visible = false; }   // 글리프는 op(0)로 안 꺼진다
@@ -4049,7 +4052,10 @@ export class Session {
         // 지면 문구도 **같은 비트**를 따른다 — 화면 글자와 코치 목소리가 다른 걸 말하면 안 된다.
         //   _hotSaid 는 main.js tickHotVoice 가 세우는 지금 비트 번호다(-1 = 아직 시작 전).
         FMU(BEATN[Math.min(3, (this._hotSaid ?? -1) + 1)], CS.sand);
-        if ((this._pvLoops ?? 0) >= 1) { this.next(); return; }
+        // ★ 재생 1회 = **관찰(영상)만** 끝난 시점이다 — 여기서 끊으면 발자국이 뜨자마자 다음
+        //   스테이지로 넘어간다. T1 이 보여줄 건 둘이고 순서가 있다: 영상 한 바퀴, 발자국 한
+        //   바퀴. 그래서 2회다(관찰 1 + 따라하기 1). 벽시계로 안 재는 이유는 위와 같다.
+        if ((this._pvLoops ?? 0) >= 2) { this.next(); return; }
         return;
       }
       if (id === 'BK_C2') {
