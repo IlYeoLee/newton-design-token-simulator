@@ -1,0 +1,3 @@
+인텐시브코스_UX_33.mp4 복원 (원래 이름: [임직원]인텐시브코스_UX_33_이일여.mp4):
+Windows: copy /b 인텐시브코스_UX_33.mp4.part_aa+인텐시브코스_UX_33.mp4.part_ab 복원본.mp4
+mac/linux: cat 인텐시브코스_UX_33.mp4.part_* > 복원본.mp4
