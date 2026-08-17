@@ -1,0 +1,32 @@
+- [한국어로 응답](respond-in-korean.md) — 사용자에게 보이는 모든 답변은 한국어로 작성
+- [뉴턴 추출: 올-인트라 필수](newton-export-all-intra.md) — 프레임 시크하는 영상이 올-인트라가 아니면 인물이 조용히 사라진다
+- [뉴턴 익스포트 전용 서버](newton-export-server.md) — 포트 번호는 보장이 아니다 · 붙기 전에 리로드 실측 · --url 필수
+- [힉스필드 결과물 저장 폴더](higgsfield-output-folder.md) — 생성 이미지는 Pictures\조롱이에 저장
+- [애프터이펙트 스크립트 규칙](ae-script-rules.md) — alert 는 창 뒤로 깔려 멈춘 것처럼 보인다 · 한국어판이라 matchName 필수 · 마스크 꼭짓점 순서 고정
+- [ffmpeg blend 는 RGB 로](ffmpeg-blend-rgb.md) — YUV 에서 곱하기·가산하면 초록·마젠타로 망가진다
+- [알파 포함으로 뽑아라](ae-unmult-alpha.md) — 유저는 Unmult 를 쓴다 · 단 --alpha 는 --beam 을 함축해 룩이 바뀐다
+- [AE 합성용 파일 색공간](ae-color-tag.md) — 태그 없는 ProRes 는 AE 가 다르게 해석한다 · PNG 시퀀스가 제일 확실
+- [뉴턴 거실 실사 합성](newton-living-composite.md) — 추추가전달00263376 건 · 산출물과 추적 방식
+- [지면 UI 크기는 시각도로](newton-floor-legibility.md) — 감으로 정하지 말 것 · docs/FLOOR-LEGIBILITY.md
+- [지면 콘텐츠 배치 규칙](newton-floor-content-fit.md) — 발자국·인물은 CONTENT 밴드에 · 인물은 크롭 먼저
+- [타이틀 vs 판정 마크 충돌](newton-floor-title-collision.md) — 1인칭에선 둘 다 제 크기로 안 들어간다 · 미결 선택지 A/B
+- [시뮬레이터를 그대로 뽑을 것](newton-sim-direct-export.md) — 재구성 말고 --norip 로 추출 · 반나절 날린 교훈
+- [과하게 만들지 말 것](dont-over-build.md) — 카메라·색보정·연출을 임의로 얹지 않는다
+- [마스크는 알파에 있다](newton-mask-is-alpha.md) — 루마 매트로 걸면 띠 아래가 통째로 지워진다
+- [발자국 좌우 교대는 짝수](newton-token-rail-parity.md) — 홀수면 같은 발이 두 번 연속 나온다
+- [농구 실사 지면 소실선](newton-court-vanishing-lines.md) — #3-2 −1.174H · #3-5 0.477H · 1인칭이 덜 눕는다
+- [탐색기 멈춤 = Adobe CoreSync](explorer-hang-adobe-coresync.md) — 모든 폴더 모래시계 · CC 업데이트하면 재발
+- [UX북 한영 원고는 피그마](newton-uxbook-figma-source.md) — 파일 키·노드 43:31 · U+2028 줄바꿈 함정
+- [컨셉영상 소재 패키지](newton-concept-video-package.md) — 뉴턴_AE_최종 폴더 구성 · 본편은 09번
+- [뉴턴 UX북 배포](newton-uxbook-deploy.md) — 푸시만으론 안 올라간다 · Pages 빌드를 직접 걸고 라이브를 읽어 확인
+- [고쳤다고 말하기 전에](verify-before-claiming-fixed.md) — 재현 수단부터 만들 것 · 짐작으로 다섯 번 헛짚은 일
+- [봇 동작은 클립이 정본](newton-bot-clip-canon.md) — 보정을 얹지 말 것 · 스텝백 = cmu124_06 [1.5,2.3] · 완료판정은 시계 한 바퀴
+- [지면 힌트 어휘](newton-floor-hint-vocab.md) — 안내=도트 아웃라인 차오름 · 판정=채움 · 화살표는 sand
+- [뉴턴 자작 LUT 2종](newton-lut-files.md) — Documents\뉴턴_LUT · 매칭용을 다른 클립에 쓰면 망가진다
+- [제로투원 터널 파이프라인](zerotoone-tunnel-pipeline.md) — originkit 원본 이식 · 산출물은 Desktop\제로투원_터널구현
+- [맥발 한글 파일명은 NFD](mac-nfd-filenames.md) — ffmpeg가 못 읽는다 · NFC 정규화 비교 후 하드링크
+- [잽잽훅 다운시프트 회귀](newton-air-target-ui-feedback.md) — "이전 잽대련처럼 살아난다"의 정체 · 08-11 수정(7a2b05c) · 프로브는 리포 밖에 써라
+- [GUI는 레드+회색조만](newton-gui-red-grayscale.md) — 코랄·샌드·프리즘은 투사 빛 언어 전용 · 그림자·아웃라인 금지 · 채움+프레스로만
+- [복싱 봇 클립 정본](newton-boxing-clip-map.md) — 장면별 실측 배정(08-12) · 라벨 말고 뻗음·머리·힙을 재라
+- [Mixamo 파이프라인](newton-mixamo-pipeline.md) — 토큰은 크롬 leveldb서 추출 · X Bot id 고정 · xbot.fbx 스켈레톤 두 벌 함정
+- [뉴턴 리포 줄바꿈 혼재](newton-file-line-endings.md) — footlab=CRLF · 일괄 치환이 플립시켜 3250줄 가짜 diff

@@ -1,0 +1,4 @@
+90MB 조각 복원 (git bash):
+  cat Pace_ON_Boost_On___2-2_2560.mp4.part_* > Pace_ON_Boost_On___2-2_2560.mp4
+  cat PRESS_ON___3-2_2560.mp4.part_* > PRESS_ON___3-2_2560.mp4
+복원 후 리포의 public/_bg/ 에 넣는다 (.gitignore 대상이라 git 에는 없다).
