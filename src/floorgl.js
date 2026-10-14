@@ -4014,7 +4014,7 @@ export class FloorGL {
     //   내용은 위 TM 표(C1·BK_C1)가 이미 갖고 있었다 — M 을 다시 읽기만 하면 된다.
     const GLOW_Y = 1160, RING = 604;
     this._bgGlow(GLOW_Y);
-    this._titleGroup(600, M.sub, M.title);
+    this._titleGroup(500, M.sub, M.title);   // 600→500: 타이틀 블록(233)이 콘텐츠 상단 760 을 넘던 것 — T1 과 같은 높이
     const cy = GLOW_Y, rem = dur - t, txt = rem > 0.05 ? String(Math.ceil(rem)) : 'GO';
     // ★ 여기 있던 링·숫자·모션 코드가 countRing 정본 컴포넌트가 됐다(유저: 컴포넌트 자체를 재사용).
     //   출력은 동일 — 규격(604·220)과 모션(ringPop·breath·numPulse)을 그대로 옮겼다.
@@ -4026,7 +4026,7 @@ export class FloorGL {
   _paint_report() {
     const ctx = this.ctx, RP_ = RP[this.stage] || RP.FIN, t = this.t;
     this._bgGlow(1080);
-    let y = this._titleGroup(640, RP_.sub, RP_.title) + 80;
+    let y = this._titleGroup(500, RP_.sub, RP_.title) + 80;   // 640→500: 콘텐츠 상단 760 위로
     // 100% 링 (0.5s 뒤 1.4s 동안 채움)
     const p = clamp01((t - 0.5) / 1.4), e = eOut(p);
     const cy = y + 250, r = 230;
