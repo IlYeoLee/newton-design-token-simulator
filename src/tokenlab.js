@@ -90,6 +90,28 @@ for (const st of STAGES) {
   cells.push({ st, gl, src, pv, cell, stageEl, label, err: null });
 }
 
+// ── 실장면 — 갤러리는 UI 레이어(FloorGL)만 그려서 실제 세션의 바닥 토큰(발자국·링·매트)이
+//   안 보였다(유저 10-14). 헤더를 누르면 그 칸만 시뮬 본체를 탑다운(?view=top)으로 띄워
+//   캔버스 자리에 깐다. 오버레이(콘텐츠 영역·가시폭)는 그 위에 그대로 남는다.
+//   ponytail: 칸마다 시뮬 하나라 무겁다 — 전부 켜지 말고 보고 싶은 칸만. ?live=P2,BK_B2 로 미리 켤 수 있다.
+function toggleLive(c, on = !c.live) {
+  c.live?.remove(); c.live = null;
+  c.gl.canvas.style.visibility = on ? 'hidden' : '';
+  if (!on) return;
+  const f = document.createElement('iframe');
+  f.src = `./?scene=${c.st.id}&view=top`;
+  f.style.cssText = 'position:absolute;left:0;top:0;width:100%;aspect-ratio:1600/2670;border:0;pointer-events:none';
+  c.stageEl.insertBefore(f, c.stageEl.querySelector('svg.ov'));
+  c.live = f;
+}
+const LIVE0 = new Set((new URLSearchParams(location.search).get('live') || '').split(',').filter(Boolean));
+for (const c of cells) {
+  const hd = c.cell.querySelector('.hd');
+  hd.style.cursor = 'pointer'; hd.title = '눌러서 실장면(바닥 토큰 포함) 켜기/끄기';
+  hd.addEventListener('click', () => toggleLive(c));
+  if (LIVE0.has(c.st.id)) toggleLive(c, true);
+}
+
 /** 스테이지 재적재 — 토큰 중 **조판 구조**를 바꾸는 것(브레드크럼 유무 등)은 buildScene 이
  *  load() 때 한 번만 도므로 다시 태워야 반영된다. 값만 바꾸는 토큰은 repaint 로 충분하다. */
 function reload() {

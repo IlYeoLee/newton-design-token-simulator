@@ -5813,6 +5813,18 @@ void main(){
       const cx = (wc.cx ?? 0) + (A.pan || 0), cy = (wc.cy ?? 1.5) + (A.tilt || 0);
       camera.fov = 9 * (A.zoom || 1); camera.position.set(cx, cy, wz + dist);
       camera.lookAt(cx, cy, wz);
+    } else if (S.view === 'top') {
+      // 수직 탑다운 — 지면 대지(UI)와 그 위에 실제로 얹히는 토큰(발자국·링·매트)을 한 판으로 본다.
+      //   지면 레이아웃 랩(tokens.html)은 UI 레이어만 그려서 토큰이 안 보였다(유저 10-14).
+      //   대지 판을 매 프레임 따라가고, 판 세로가 화면에 꽉 차게 높이를 역산한다.
+      const m = window.__dbg?.floorGL?.mesh;
+      const box = m ? new THREE.Box3().setFromObject(m) : null;
+      const c = box ? box.getCenter(new THREE.Vector3()) : new THREE.Vector3(0, 0, -1.3);
+      const hz = box ? (box.max.z - box.min.z) / 2 : 1.5;
+      const fov = 30 * (A.zoom || 1);
+      camera.fov = fov; camera.up.set(0, 0, -1);
+      camera.position.set(c.x + (A.pan || 0), hz / Math.tan(fov * Math.PI / 360) * (A.dolly || 1), c.z + (A.tilt || 0));
+      camera.lookAt(c.x + (A.pan || 0), 0, c.z + (A.tilt || 0));
     } else {
       // 수직 탑다운은 세로로 긴 빔 레인이 와이드 화면에서 가는 스트립으로만 남는다(유저:
       // "노트북에서 너무 안 보여"). 기본 평면 뷰 = 뒤·위 3/4 앵글 — 레인이 원근으로
